@@ -43,14 +43,14 @@ export function BottomNav() {
               >
                 <span
                   className={`flex h-8 w-14 items-center justify-center rounded-lg transition-colors ${
-                    active ? "bg-navy text-white" : "text-foreground/45"
+                    active ? "bg-navy text-white" : "text-foreground/70"
                   }`}
                 >
                   <Icon className="h-6 w-6" />
                 </span>
                 <span
                   className={`text-[13px] font-bold ${
-                    active ? "text-navy" : "text-foreground/45"
+                    active ? "text-navy" : "text-foreground/70"
                   }`}
                 >
                   {label}

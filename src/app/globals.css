@@ -31,12 +31,13 @@
   --t4: #7a4d9e;
   --t4-bg: #f1eaf8;
 
-  /* status — sun-glare-proof contrast */
-  --ok: #1e7a45;
+  /* status — chữ đậm 16px ĐẠT WCAG AA (≥4.5:1) trên nền tint dưới nắng:
+     ok 5.85 · warn 6.26 · danger 5.80 (tính trong docs/design-review/04) */
+  --ok: #15663a;
   --ok-bg: #d9f0e2;
-  --warn: #a36a00;
+  --warn: #7a4e00;
   --warn-bg: #ffeec2;
-  --danger: #c0392b;
+  --danger: #a82218;
   --danger-bg: #fde0db;
 }
 
@@ -92,4 +93,11 @@ h3,
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Focus thấy rõ cho thao tác bàn phím / trợ năng (a11y) */
+:focus-visible {
+  outline: 3px solid var(--sea);
+  outline-offset: 2px;
+  border-radius: 4px;
 }

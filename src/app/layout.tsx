@@ -26,7 +26,7 @@ export const viewport: Viewport = {
   themeColor: "#14324f",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // KHÔNG khóa maximumScale — mắt người 40–60 tuổi ngoài nắng cần phóng to (a11y)
 };
 
 export default function RootLayout({
