@@ -6,14 +6,40 @@ import type { Wholesaler } from "./types";
 import { WHOLESALERS_BAC } from "./bac";
 import { WHOLESALERS_TRUNG } from "./trung";
 import { WHOLESALERS_NAM } from "./nam";
+import { WHOLESALERS_BS_BAC } from "./bs-bac";
+import { WHOLESALERS_BS_TRUNG } from "./bs-trung";
+import { WHOLESALERS_BS_NAM } from "./bs-nam";
 
 export type { Wholesaler, WholesalerKind } from "./types";
 
-export const WHOLESALERS: Wholesaler[] = [
+// Gộp 6 nguồn (3 vùng + 3 đợt bổ sung), khử trùng theo tên+tỉnh chuẩn hóa.
+const ALL = [
   ...WHOLESALERS_BAC,
   ...WHOLESALERS_TRUNG,
   ...WHOLESALERS_NAM,
+  ...WHOLESALERS_BS_BAC,
+  ...WHOLESALERS_BS_TRUNG,
+  ...WHOLESALERS_BS_NAM,
 ];
+
+const norm = (s?: string) =>
+  (s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+
+export const WHOLESALERS: Wholesaler[] = (() => {
+  const seen = new Set<string>();
+  const out: Wholesaler[] = [];
+  for (const w of ALL) {
+    const key = `${norm(w.name)}|${norm(w.province)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(w);
+  }
+  return out;
+})();
 
 export const WHOLESALER_KIND_LABEL: Record<string, string> = {
   vua: "Vựa hải sản",
