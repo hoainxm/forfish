@@ -77,24 +77,43 @@ function RequestForm({
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">(
     "idle",
   );
+  // App yêu cầu đăng nhập → đã biết SĐT/tên rồi, form KHÔNG hỏi lại
+  // (signedPhone != null = ẩn ô tên + SĐT). Chỉ khách lạ mới phải nhập SĐT.
+  const [signedPhone, setSignedPhone] = useState<string | null>(null);
+  const [checked, setChecked] = useState(false);
 
-  // Đã đăng nhập → tự điền tên + SĐT (gửi chỉ còn MỘT chạm).
   useEffect(() => {
     const supabase = createClient();
-    if (!supabase) return;
+    if (!supabase) {
+      setChecked(true);
+      return;
+    }
     let alive = true;
     supabase.auth.getUser().then(({ data }) => {
-      if (!alive || !data.user) return;
-      const u = data.user;
-      const p = u.phone || (u.email ? u.email.split("@")[0] : "");
-      setPhone((prev) => prev || p || "");
-      const n = (u.user_metadata?.full_name as string | undefined) ?? "";
-      setName((prev) => prev || n);
+      if (!alive) return;
+      const u = data?.user;
+      if (u) {
+        const p = u.phone || (u.email ? u.email.split("@")[0] : "");
+        if (p) {
+          setSignedPhone(p);
+          setPhone(p);
+        }
+        setName((u.user_metadata?.full_name as string | undefined) ?? "");
+      }
+      setChecked(true);
     });
     return () => {
       alive = false;
     };
   }, []);
+
+  /** 84901234567 → 0901 234 567 cho dễ đọc. */
+  function prettyPhone(p: string): string {
+    let local = p.replace(/\D/g, "");
+    if (local.startsWith("84")) local = "0" + local.slice(2);
+    else if (!local.startsWith("0")) local = "0" + local;
+    return local.replace(/(\d{4})(\d{3})(\d{0,3})/, "$1 $2 $3").trim();
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -160,24 +179,22 @@ function RequestForm({
             ))}
           </select>
         </Field>
-        <Field label="Tên bà con">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={inputClass}
-            placeholder="VD: Nguyễn Văn Hai"
-          />
-        </Field>
-        <Field label="Số điện thoại (bắt buộc — để SDVICO gọi lại)">
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className={inputClass}
-            inputMode="tel"
-            placeholder="VD: 0901234567"
-            required
-          />
-        </Field>
+
+        {/* Đã đăng nhập = biết tên + SĐT rồi, KHÔNG hỏi lại — chỉ khách lạ
+            mới phải để lại số */}
+        {checked && !signedPhone && (
+          <Field label="Số điện thoại (bắt buộc — để SDVICO gọi lại)">
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className={inputClass}
+              inputMode="tel"
+              placeholder="VD: 0901234567"
+              required
+            />
+          </Field>
+        )}
+
         <Field label="Dặn thêm (nếu có)">
           <textarea
             value={detail}
@@ -187,6 +204,13 @@ function RequestForm({
             placeholder="VD: máy lọc nước yếu, tàu đang đậu Vũng Tàu"
           />
         </Field>
+
+        {signedPhone && (
+          <p className="mb-3 text-[15px] font-semibold text-foreground/60">
+            SDVICO sẽ gọi lại số <strong>{prettyPhone(signedPhone)}</strong>
+            {name ? ` (${name})` : ""}.
+          </p>
+        )}
 
         {state === "error" && (
           <p
