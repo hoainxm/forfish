@@ -455,8 +455,9 @@ export default function FishingMapView() {
           setDayIdx(0);
           setGeoError(false);
           setPoint({ lat, lon });
-          setSize("half");
-          // dồn điểm chạm lên nửa trên — sheet half không che mất pin
+          // kiểu Windy: chạm là sheet nằm GỌN ở đáy (peek) — bản đồ vẫn
+          // thấy nguyên, số liệu tóm tắt hiện ngay, chi tiết bấm "Xem thêm"
+          setSize("peek");
           flyToPoint(lon, lat);
         }}
       >
@@ -972,37 +973,6 @@ export default function FishingMapView() {
                 {confidence.label}. Chỉ để tham khảo — trước khi đi, nghe thêm
                 đài duyên hải, Biên phòng.
               </p>
-
-              {/* cảng nhà — đổi 1 lần rồi quên, nên nằm cuối */}
-              <label className="block border-t border-line pt-3">
-                <span className="mb-1.5 flex items-center gap-2 text-[15px] font-bold text-navy">
-                  <AnchorIcon className="h-5 w-5" />
-                  Cảng nhà của tôi
-                </span>
-                <select
-                  value={port.id}
-                  onChange={(e) => choosePort(e.target.value)}
-                  className="min-h-[52px] w-full rounded-2xl border-0 bg-field px-4 text-[16px] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
-                >
-                  {PORTS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.province})
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {/* danh bạ cảng — cùng nhóm "cảng" với select trên */}
-              <Link
-                href="/cang"
-                className="flex min-h-[52px] items-center gap-2.5 surface px-4 transition active:scale-[0.99]"
-              >
-                <AnchorIcon className="h-5 w-5 shrink-0 text-t1" />
-                <span className="flex-1 text-[16px] font-bold text-navy">
-                  Danh bạ cảng cá
-                </span>
-                <ChevronRightIcon className="h-5 w-5 text-foreground/30" />
-              </Link>
 
               {/* toạ độ — cho ai cần đọc vào máy định vị */}
               <p className="px-1 text-[13px] text-foreground/45">

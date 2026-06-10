@@ -1,33 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  COASTAL_PROVINCES,
-  HomePref,
-  REGION_LABEL,
-  loadHome,
-  relevanceRank,
-  saveHome,
-} from "@/lib/region";
+import Link from "next/link";
+import { useState } from "react";
+import { useBoats } from "@/components/boat-switcher";
+import { HomePref, relevanceRank } from "@/lib/region";
 
 /*
   Lọc theo "tàu của tôi ở đâu" — để chỉ hiện thông tin GẦN bà con.
-  useHome(): nhớ tỉnh nhà trong localStorage; HomeBar: thanh chọn tỉnh +
-  nút "Chỉ gần tôi / Cả nước"; applyHome(): lọc + sắp theo độ liên quan.
+
+  NGUỒN SỰ THẬT DUY NHẤT = `current boat.homeProvince` (khai báo ở BoatSwitcher).
+  Trước đây có 1 nguồn localStorage riêng (`forfish.home.v1`) trùng với phần
+  khai báo trong tàu → user thấy 3 chỗ hỏi cùng câu, không sync. Đã xóa.
+
+  useHome(): đọc tỉnh nhà từ tàu đang chọn.
+  HomeBar:   chỉ còn toggle "Chỉ gần tôi / Cả nước" — KHÔNG còn select tỉnh
+             (tỉnh nằm ở khai báo tàu); nếu tàu chưa có cảng nhà → nhắc khai báo.
 */
 
-export function useHome() {
-  const [home, setHomeState] = useState<HomePref>({});
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    setHomeState(loadHome());
-    setReady(true);
-  }, []);
-  function setHome(h: HomePref) {
-    setHomeState(h);
-    saveHome(h);
-  }
-  return { home, setHome, ready };
+export function useHome(): { home: HomePref; ready: boolean } {
+  const { current, ready } = useBoats();
+  return {
+    home: { province: current?.homeProvince, portId: current?.homePortId },
+    ready,
+  };
 }
 
 /** Lọc danh sách theo tỉnh nhà: near=true chỉ giữ cùng miền; luôn sắp gần→xa. */
@@ -47,69 +42,58 @@ export function applyHome<T>(
 }
 
 /**
- * Thanh chọn vùng: chọn tỉnh nhà + bật/tắt "chỉ gần tôi".
- * Caller giữ state `near` để lọc list của mình.
+ * Thanh lọc — chỉ hiện khi tàu đã khai báo tỉnh cảng nhà.
+ * Không khai báo → hiện link gọn nhắc bà con chỉnh thông tin tàu.
  */
 export function HomeBar({
   home,
-  setHome,
   near,
   setNear,
 }: {
   home: HomePref;
-  setHome: (h: HomePref) => void;
+  /** Giữ chữ ký cũ để caller không phải đổi — không dùng tới. */
+  setHome?: (h: HomePref) => void;
   near: boolean;
   setNear: (v: boolean) => void;
 }) {
-  return (
-    <div className="mb-3 surface p-3">
-      <label className="block">
-        <span className="mb-1 block text-[14px] font-bold text-navy">
-          Tàu của tôi hay cập cảng ở tỉnh:
-        </span>
-        <select
-          value={home.province ?? ""}
-          onChange={(e) =>
-            setHome({ ...home, province: e.target.value || undefined })
-          }
-          className="min-h-[48px] w-full rounded-2xl border-0 bg-field px-3 text-[16px] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+  if (!home.province) {
+    return (
+      <div className="mb-3 surface p-3">
+        <p className="text-[14px] text-foreground/65 leading-snug">
+          Khai báo <strong>tỉnh cảng nhà</strong> trong thẻ "Tàu của tôi" ở
+          trên để app chỉ hiện nơi gần.
+        </p>
+        <Link
+          href="/tau"
+          className="mt-1.5 inline-block text-[14px] font-bold text-sea"
         >
-          <option value="">— Chọn tỉnh để xem nơi gần —</option>
-          {(["bac", "trung", "nam"] as const).map((rg) => (
-            <optgroup key={rg} label={REGION_LABEL[rg]}>
-              {COASTAL_PROVINCES.filter((p) => p.region === rg).map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </label>
-      {home.province && (
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setNear(true)}
-            aria-pressed={near}
-            className={`min-h-[44px] rounded-xl text-[15px] font-bold ${
-              near ? "bg-navy text-white" : "bg-field text-foreground/60"
-            }`}
-          >
-            Chỉ gần tôi
-          </button>
-          <button
-            type="button"
-            onClick={() => setNear(false)}
-            aria-pressed={!near}
-            className={`min-h-[44px] rounded-xl text-[15px] font-bold ${
-              !near ? "bg-navy text-white" : "bg-field text-foreground/60"
-            }`}
-          >
-            Cả nước
-          </button>
-        </div>
-      )}
+          Đi tới tàu của tôi →
+        </Link>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-3 grid grid-cols-2 gap-2">
+      <button
+        type="button"
+        onClick={() => setNear(true)}
+        aria-pressed={near}
+        className={`min-h-[44px] rounded-xl text-[15px] font-bold ${
+          near ? "bg-navy text-white" : "bg-field text-foreground/60"
+        }`}
+      >
+        Gần {home.province}
+      </button>
+      <button
+        type="button"
+        onClick={() => setNear(false)}
+        aria-pressed={!near}
+        className={`min-h-[44px] rounded-xl text-[15px] font-bold ${
+          !near ? "bg-navy text-white" : "bg-field text-foreground/60"
+        }`}
+      >
+        Cả nước
+      </button>
     </div>
   );
 }
