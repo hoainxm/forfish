@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/page-header";
 import { SeaForecast } from "@/components/sea-forecast";
 import { FishingMap } from "@/components/fishing-map";
+import { StormBanner } from "@/components/storm-banner";
 
 export const metadata = { title: "Đánh bắt — ForFish" };
 
@@ -13,6 +14,8 @@ export default function NguTruongPage() {
         sub="Điểm đi biển tính từ dự báo sóng, gió vùng biển gần cảng của bà con."
         toColor="var(--t1)"
       />
+      {/* Tin bão lên TRƯỚC mọi thứ — an toàn trước, điểm số sau */}
+      <StormBanner />
       <SeaForecast />
 
       {/* Bản đồ ngư trường — ảnh vệ tinh + chạm xem gió sóng từng vùng */}

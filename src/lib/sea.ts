@@ -12,6 +12,8 @@ export interface SeaDay {
   windMaxKmh: number;
   gustMaxKmh: number;
   precipMm: number;
+  /** Mã thời tiết WMO (dông/mưa) — dịch sang lời qua lib/weather-codes.ts */
+  wmoCode?: number | null;
 }
 
 export type SeaLevel = "good" | "caution" | "bad";
@@ -31,6 +33,8 @@ export function scoreDay(d: SeaDay): number {
   if (d.windMaxKmh > 20) score -= (d.windMaxKmh - 20) * 1.2;
   if (d.gustMaxKmh > 50) score -= (d.gustMaxKmh - 50) * 0.5;
   if (d.precipMm > 10) score -= (d.precipMm - 10) * 0.8;
+  // Dông sét (WMO 95–99) nguy hiểm với tàu nhỏ kể cả khi gió sóng êm.
+  if (d.wmoCode != null && d.wmoCode >= 95) score -= 30;
   return Math.max(5, Math.min(100, Math.round(score)));
 }
 
@@ -58,7 +62,7 @@ export async function fetchSeaForecast(
       `https://marine-api.open-meteo.com/v1/marine?${common}&daily=wave_height_max`,
     ),
     fetch(
-      `https://api.open-meteo.com/v1/forecast?${common}&daily=wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum`,
+      `https://api.open-meteo.com/v1/forecast?${common}&daily=wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,weather_code`,
     ),
   ]);
   if (!marineRes.ok || !weatherRes.ok) {
@@ -75,6 +79,7 @@ export async function fetchSeaForecast(
       windMaxKmh: weather.daily?.wind_speed_10m_max?.[i] ?? 0,
       gustMaxKmh: weather.daily?.wind_gusts_10m_max?.[i] ?? 0,
       precipMm: weather.daily?.precipitation_sum?.[i] ?? 0,
+      wmoCode: weather.daily?.weather_code?.[i] ?? null,
     };
     const score = scoreDay(d);
     return { ...d, score, level: levelOf(score) };
@@ -87,7 +92,8 @@ export async function fetchSeaForecast(
 
 // ── cache trên máy, đỡ gọi mạng mỗi lần mở app ──────────────────────────
 function cacheKey(portId: string) {
-  return `forfish.sea.${portId}.v1`;
+  // v2: thêm wmoCode (mưa/dông) vào shape — đổi version để bỏ cache cũ
+  return `forfish.sea.${portId}.v2`;
 }
 
 function readCache(portId: string): ScoredSeaDay[] | null {

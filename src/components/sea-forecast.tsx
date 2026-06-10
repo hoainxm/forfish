@@ -8,6 +8,7 @@ import {
   type ScoredSeaDay,
   type SeaLevel,
 } from "@/lib/sea";
+import { weatherFromCode } from "@/lib/weather-codes";
 import { AnchorIcon, WavesIcon, WindIcon } from "@/components/icons";
 
 /*
@@ -125,6 +126,20 @@ export function SeaForecast() {
               >
                 {LEVEL_LABEL[today.level]}
               </p>
+              {(() => {
+                const w = weatherFromCode(today.wmoCode);
+                return (
+                  w && (
+                    <p
+                      className={`mt-0.5 text-[16px] font-bold ${
+                        w.danger ? "text-danger" : "text-foreground/60"
+                      }`}
+                    >
+                      {w.label}
+                    </p>
+                  )
+                );
+              })()}
             </div>
             <div className="grid grid-cols-2 border-t border-black/5 bg-card">
               <p className="flex min-h-[56px] items-center justify-center gap-2 text-[16px]">
@@ -144,29 +159,42 @@ export function SeaForecast() {
               Những ngày tới
             </h2>
             <ul className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line">
-              {days.slice(1).map((d) => (
-                <li
-                  key={d.date}
-                  className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-b-0"
-                >
-                  <span className="w-[86px] shrink-0 text-[16px] font-semibold capitalize">
-                    {formatDay(d.date)}
-                  </span>
-                  <span
-                    className="display w-[52px] shrink-0 rounded-lg py-1 text-center text-[18px] font-bold"
-                    style={{
-                      color: levelColor[d.level].fg,
-                      backgroundColor: levelColor[d.level].bg,
-                    }}
+              {days.slice(1).map((d) => {
+                const w = weatherFromCode(d.wmoCode);
+                return (
+                  <li
+                    key={d.date}
+                    className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-b-0"
                   >
-                    {d.score}
-                  </span>
-                  <span className="flex-1 text-right text-[15px] text-foreground/60">
-                    sóng {d.waveMaxM.toFixed(1)} m · gió{" "}
-                    {Math.round(d.windMaxKmh)} km/h
-                  </span>
-                </li>
-              ))}
+                    <span className="w-[86px] shrink-0 text-[16px] font-semibold capitalize">
+                      {formatDay(d.date)}
+                    </span>
+                    <span
+                      className="display w-[52px] shrink-0 rounded-lg py-1 text-center text-[18px] font-bold"
+                      style={{
+                        color: levelColor[d.level].fg,
+                        backgroundColor: levelColor[d.level].bg,
+                      }}
+                    >
+                      {d.score}
+                    </span>
+                    <span className="flex-1 text-right text-[15px] leading-snug text-foreground/60">
+                      sóng {d.waveMaxM.toFixed(1)} m · gió{" "}
+                      {Math.round(d.windMaxKmh)} km/h
+                      {w && (
+                        <span
+                          className={
+                            w.danger ? "font-bold text-danger" : undefined
+                          }
+                        >
+                          {" "}
+                          · {w.label}
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         </>

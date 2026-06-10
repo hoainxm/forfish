@@ -17,9 +17,41 @@ export type SeaPointConditions = {
   windDirDeg: number | null;
   waveM: number | null;
   wavePeriodS: number | null;
-  /** 3 ngày đã chấm điểm, phần tử đầu là hôm nay */
+  /** FORECAST_MAX_DAYS ngày đã chấm điểm, phần tử đầu là hôm nay */
   days: ScoredSeaDay[];
 };
+
+/**
+ * Tầm dự báo tối đa theo nguồn hiện tại: mô hình gió cho tới 16 ngày nhưng
+ * mô hình sóng chỉ chắc tới 10 — lấy 10 để mọi ngày đều đủ cả gió lẫn sóng.
+ * Đổi nguồn thì sửa số này tại đây, UI tự theo.
+ */
+export const FORECAST_MAX_DAYS = 10;
+
+export type ForecastConfidence = {
+  label: string;
+  tone: "ok" | "warn";
+};
+
+/**
+ * Độ tin của dự báo theo số ngày nhìn trước — nói thật với bà con thay vì
+ * để mọi ngày trông chắc chắn như nhau.
+ */
+export function forecastConfidence(daysAhead: number): ForecastConfidence {
+  if (daysAhead <= 2) {
+    return { label: "Dự báo gần — khá sát", tone: "ok" };
+  }
+  if (daysAhead <= 6) {
+    return {
+      label: "Dự báo 4–7 ngày — để tham khảo, gần ngày xem lại",
+      tone: "warn",
+    };
+  }
+  return {
+    label: "Dự báo xa — chỉ để liệu đường, sát ngày phải xem lại",
+    tone: "warn",
+  };
+}
 
 /** km/h → cấp gió Beaufort (0–12), thang bà con quen nghe trên đài */
 export function beaufort(kmh: number): number {
@@ -58,11 +90,11 @@ const num = (v: unknown): number | null =>
  * mạng chập chờn) không kéo sập cả dự báo — trả null, UI chạy bằng gió.
  */
 export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
-  const common = `latitude=${p.lat}&longitude=${p.lon}&timezone=Asia%2FHo_Chi_Minh&forecast_days=3`;
+  const common = `latitude=${p.lat}&longitude=${p.lon}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${FORECAST_MAX_DAYS}`;
   const windUrl =
     `https://api.open-meteo.com/v1/forecast?${common}` +
     `&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m` +
-    `&daily=wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum`;
+    `&daily=wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,weather_code`;
   const waveUrl =
     `https://marine-api.open-meteo.com/v1/marine?${common}` +
     `&current=wave_height,wave_period&daily=wave_height_max`;
@@ -85,6 +117,7 @@ export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
         windMaxKmh: num(wind.daily?.wind_speed_10m_max?.[i]) ?? 0,
         gustMaxKmh: num(wind.daily?.wind_gusts_10m_max?.[i]) ?? 0,
         precipMm: num(wind.daily?.precipitation_sum?.[i]) ?? 0,
+        wmoCode: num(wind.daily?.weather_code?.[i]),
       };
       const score = scoreDay(d);
       return { ...d, score, level: levelOf(score) };
