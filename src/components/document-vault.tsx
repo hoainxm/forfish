@@ -23,6 +23,12 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
+import { useBoats } from "@/components/boat-switcher";
+
+// BoatDocument lives in @/lib/documents (shared, not edited). We attach a boat
+// dimension here without touching that file: the localStorage shape is freeform
+// JSON, so an extra `boatId` field rides along fine.
+type StoredDocument = BoatDocument & { boatId?: string };
 
 /*
   Tủ giấy tờ — designed for users who have never used an app like this:
@@ -34,18 +40,18 @@ import { formatVnDate } from "@/lib/format";
 
 const STORAGE_KEY = "forfish.documents.v1";
 
-function loadDocs(today: Date): BoatDocument[] {
+function loadDocs(today: Date): StoredDocument[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as BoatDocument[];
+    if (raw) return JSON.parse(raw) as StoredDocument[];
   } catch {
     // corrupt storage — fall through to demo seed
   }
   return demoDocuments(today);
 }
 
-function saveDocs(docs: BoatDocument[]) {
+function saveDocs(docs: StoredDocument[]) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
   } catch {
@@ -55,11 +61,14 @@ function saveDocs(docs: BoatDocument[]) {
 
 export function DocumentVault() {
   const today = useMemo(() => new Date(), []);
-  const [docs, setDocs] = useState<BoatDocument[]>([]);
+  const { current, ready: boatReady } = useBoats();
+  const [docs, setDocs] = useState<StoredDocument[]>([]);
   const [ready, setReady] = useState(false);
-  const [editing, setEditing] = useState<BoatDocument | null>(null);
+  const [editing, setEditing] = useState<StoredDocument | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<BoatDocument | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<StoredDocument | null>(
+    null,
+  );
 
   // Hydrate from localStorage on mount (avoids SSR/CSR mismatch).
   useEffect(() => {
@@ -71,14 +80,25 @@ export function DocumentVault() {
     if (ready) saveDocs(docs);
   }, [docs, ready]);
 
-  const sorted = useMemo(() => [...docs].sort(byUrgency(today)), [docs, today]);
+  // Only this boat's documents. Legacy items with no boatId belong to the
+  // current boat for back-compat.
+  const boatDocs = useMemo(
+    () => docs.filter((d) => d.boatId === current?.id || d.boatId == null),
+    [docs, current],
+  );
 
-  function upsert(doc: BoatDocument) {
+  const sorted = useMemo(
+    () => [...boatDocs].sort(byUrgency(today)),
+    [boatDocs, today],
+  );
+
+  function upsert(doc: StoredDocument) {
+    const withBoat: StoredDocument = { ...doc, boatId: current?.id };
     setDocs((prev) => {
-      const idx = prev.findIndex((d) => d.id === doc.id);
-      if (idx === -1) return [...prev, doc];
+      const idx = prev.findIndex((d) => d.id === withBoat.id);
+      if (idx === -1) return [...prev, withBoat];
       const next = [...prev];
-      next[idx] = doc;
+      next[idx] = withBoat;
       return next;
     });
     setShowForm(false);
@@ -103,7 +123,7 @@ export function DocumentVault() {
         Thêm giấy tờ mới
       </button>
 
-      {ready && docs.length === 0 && (
+      {ready && boatReady && sorted.length === 0 && (
         <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
           <DocIcon className="mx-auto h-10 w-10 text-foreground/30" />
           <p className="mt-3 text-[17px] text-foreground/60">
@@ -226,9 +246,9 @@ function DocumentForm({
   onCancel,
   onSave,
 }: {
-  initial: BoatDocument | null;
+  initial: StoredDocument | null;
   onCancel: () => void;
-  onSave: (doc: BoatDocument) => void;
+  onSave: (doc: StoredDocument) => void;
 }) {
   const [kind, setKind] = useState<DocumentKind>(initial?.kind ?? "dang_kiem");
   const [label, setLabel] = useState(initial?.label ?? kindLabel("dang_kiem"));

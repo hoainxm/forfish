@@ -23,6 +23,12 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
+import { useBoats } from "@/components/boat-switcher";
+
+// CrewMember lives in @/lib/crew (shared). We attach a boat dimension here
+// without editing that file: localStorage is freeform JSON so an extra
+// `boatId` field rides along fine.
+type StoredCrew = CrewMember & { boatId?: string };
 
 /*
   Sổ thuyền viên — theo nghiên cứu 02-lao-dong-tren-tau.md:
@@ -33,18 +39,18 @@ import { formatVnDate } from "@/lib/format";
 
 const STORAGE_KEY = "forfish.crew.v1";
 
-function loadCrew(today: Date): CrewMember[] {
+function loadCrew(today: Date): StoredCrew[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as CrewMember[];
+    if (raw) return JSON.parse(raw) as StoredCrew[];
   } catch {
     // hỏng storage — rơi xuống seed demo
   }
   return demoCrew(today);
 }
 
-function saveCrew(crew: CrewMember[]) {
+function saveCrew(crew: StoredCrew[]) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(crew));
   } catch {
@@ -54,7 +60,7 @@ function saveCrew(crew: CrewMember[]) {
 
 export function useCrew() {
   const today = useMemo(() => new Date(), []);
-  const [crew, setCrew] = useState<CrewMember[]>([]);
+  const [crew, setCrew] = useState<StoredCrew[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -77,20 +83,30 @@ const issueStyle = {
 
 export function CrewList() {
   const { today, crew, setCrew, ready } = useCrew();
-  const [editing, setEditing] = useState<CrewMember | null>(null);
+  const { current, ready: boatReady } = useBoats();
+  const [editing, setEditing] = useState<StoredCrew | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [advanceFor, setAdvanceFor] = useState<CrewMember | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<CrewMember | null>(null);
+  const [advanceFor, setAdvanceFor] = useState<StoredCrew | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<StoredCrew | null>(null);
 
-  const noInsurance = crew.filter((m) => !m.hasInsurance).length;
-  const totalAdvance = crew.reduce((s, m) => s + outstandingAdvance(m), 0);
+  // Only this boat's crew. Legacy members with no boatId belong to the
+  // current boat for back-compat.
+  const boatCrew = useMemo(
+    () => crew.filter((m) => m.boatId === current?.id || m.boatId == null),
+    [crew, current],
+  );
 
-  function upsert(m: CrewMember) {
+  // Stats reflect ONLY the current boat's filtered crew.
+  const noInsurance = boatCrew.filter((m) => !m.hasInsurance).length;
+  const totalAdvance = boatCrew.reduce((s, m) => s + outstandingAdvance(m), 0);
+
+  function upsert(m: StoredCrew) {
+    const withBoat: StoredCrew = { ...m, boatId: current?.id };
     setCrew((prev) => {
-      const idx = prev.findIndex((x) => x.id === m.id);
-      if (idx === -1) return [...prev, m];
+      const idx = prev.findIndex((x) => x.id === withBoat.id);
+      if (idx === -1) return [...prev, withBoat];
       const next = [...prev];
-      next[idx] = m;
+      next[idx] = withBoat;
       return next;
     });
     setShowForm(false);
@@ -139,7 +155,7 @@ export function CrewList() {
       <div className="mb-4 grid grid-cols-3 gap-2">
         <div className="rounded-xl bg-card py-3 text-center shadow-sm ring-1 ring-line">
           <p className="display text-[24px] font-bold text-navy">
-            {crew.length}
+            {boatCrew.length}
           </p>
           <p className="text-[13px] text-foreground/55">Bạn thuyền</p>
         </div>
@@ -170,7 +186,7 @@ export function CrewList() {
         Thêm bạn thuyền
       </button>
 
-      {ready && crew.length === 0 && (
+      {ready && boatReady && boatCrew.length === 0 && (
         <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
           <UsersIcon className="mx-auto h-10 w-10 text-foreground/30" />
           <p className="mt-3 text-[17px] text-foreground/60">
@@ -182,7 +198,7 @@ export function CrewList() {
       )}
 
       <ul className="space-y-3">
-        {crew.map((m) => {
+        {boatCrew.map((m) => {
           const issue = crewIssue(m, today);
           const st = issueStyle[issue.level];
           const owing = outstandingAdvance(m);
@@ -316,9 +332,9 @@ function CrewForm({
   onCancel,
   onSave,
 }: {
-  initial: CrewMember | null;
+  initial: StoredCrew | null;
   onCancel: () => void;
-  onSave: (m: CrewMember) => void;
+  onSave: (m: StoredCrew) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [role, setRole] = useState<CrewRole>(initial?.role ?? "thuyen_vien");

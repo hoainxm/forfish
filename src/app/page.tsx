@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { UrgentStrip } from "@/components/urgent-strip";
+import { AccountBar } from "@/components/account-bar";
+import { BoatSwitcher } from "@/components/boat-switcher";
 import {
   AnchorIcon,
   FishIcon,
@@ -55,7 +57,10 @@ export default function Home() {
         title="Chào bà con"
       />
 
+      <BoatSwitcher />
+
       <div className="space-y-4 px-4 pt-3">
+        <AccountBar />
         <UrgentStrip />
 
         <section aria-label="Bốn nhóm việc">

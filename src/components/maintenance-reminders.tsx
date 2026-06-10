@@ -14,6 +14,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
+import { useBoats } from "@/components/boat-switcher";
 
 /*
   Nhắc bảo dưỡng — same shape as the document vault so users learn it once:
@@ -31,6 +32,7 @@ interface MaintenanceEntry {
   lastDone: string; // ISO date
   intervalDays: number;
   note?: string;
+  boatId?: string; // tàu sở hữu việc này (legacy entries: undefined)
 }
 
 // ── due-date logic (mirrors src/lib/documents.ts style, kept local) ──
@@ -132,6 +134,7 @@ function saveEntries(entries: MaintenanceEntry[]) {
 
 export function MaintenanceReminders() {
   const today = useMemo(() => new Date(), []);
+  const { current, ready: boatReady } = useBoats();
   const [entries, setEntries] = useState<MaintenanceEntry[]>([]);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<MaintenanceEntry | null>(null);
@@ -150,20 +153,28 @@ export function MaintenanceReminders() {
     if (ready) saveEntries(entries);
   }, [entries, ready]);
 
+  // Only this boat's entries. Legacy entries with no boatId belong to the
+  // current boat for back-compat.
+  const boatEntries = useMemo(
+    () => entries.filter((e) => e.boatId === current?.id || e.boatId == null),
+    [entries, current],
+  );
+
   const sorted = useMemo(
     () =>
-      [...entries].sort(
+      [...boatEntries].sort(
         (a, b) => getDueStatus(a, today).days - getDueStatus(b, today).days,
       ),
-    [entries, today],
+    [boatEntries, today],
   );
 
   function upsert(entry: MaintenanceEntry) {
+    const withBoat: MaintenanceEntry = { ...entry, boatId: current?.id };
     setEntries((prev) => {
-      const idx = prev.findIndex((e) => e.id === entry.id);
-      if (idx === -1) return [...prev, entry];
+      const idx = prev.findIndex((e) => e.id === withBoat.id);
+      if (idx === -1) return [...prev, withBoat];
       const next = [...prev];
-      next[idx] = entry;
+      next[idx] = withBoat;
       return next;
     });
     setShowForm(false);
@@ -195,7 +206,7 @@ export function MaintenanceReminders() {
         Thêm việc bảo dưỡng
       </button>
 
-      {ready && entries.length === 0 && (
+      {ready && boatReady && sorted.length === 0 && (
         <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
           <WrenchIcon className="mx-auto h-10 w-10 text-foreground/30" />
           <p className="mt-3 text-[17px] text-foreground/60">
