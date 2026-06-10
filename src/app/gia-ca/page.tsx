@@ -1,18 +1,34 @@
-import { ComingSoon } from "@/components/coming-soon";
+import { PageHeader } from "@/components/page-header";
+import { PriceBoard } from "@/components/price-board";
+import { TripLog } from "@/components/trip-log";
 
 export const metadata = { title: "Bán cá — ForFish" };
 
 export default function GiaCaPage() {
   return (
-    <ComingSoon
-      tone="t2"
-      title="Bán cá"
-      promise="Cá về bờ bán được giá, không bị ép."
-      features={[
-        "Xem giá từng loại cá ở các cảng gần mình, cập nhật thường xuyên.",
-        "Biết ai đang cần mua loại cá mình có, gọi thẳng cho họ.",
-        "Sổ ghi lời lỗ từng chuyến — biết chuyến nào lời, bán ở đâu được hơn.",
-      ]}
-    />
+    <div>
+      <PageHeader
+        kicker="Bán cá · Trục 2"
+        title="Giá cá & sổ lãi lỗ"
+        sub="Biết giá trước khi bán, biết lời lỗ sau mỗi chuyến."
+        toColor="var(--t2)"
+      />
+
+      <div className="px-4 pt-1">
+        <section>
+          <h2 className="display mb-3 text-[22px] font-bold text-navy">
+            Giá cá hôm nay
+          </h2>
+          <PriceBoard />
+        </section>
+
+        <section className="mt-8">
+          <h2 className="display mb-3 text-[22px] font-bold text-navy">
+            Sổ lãi lỗ chuyến biển
+          </h2>
+          <TripLog />
+        </section>
+      </div>
+    </div>
   );
 }

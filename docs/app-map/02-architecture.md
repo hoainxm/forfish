@@ -11,6 +11,8 @@
 - **Next.js 16** App Router + TypeScript (lưu ý: Next 16 có breaking changes — đọc `node_modules/next/dist/docs/` khi không chắc API)
 - **Tailwind CSS v4** — design tokens khai báo trong `src/app/globals.css` qua `@theme` (xem [03-design-system.md](03-design-system.md))
 - **Supabase** qua `@supabase/ssr` (browser + server client)
+- **MapLibre GL** (`maplibre-gl` + `react-map-gl`) — bản đồ ngư trường Trục 1; NẶNG nên bắt buộc lazy-load qua `next/dynamic` `ssr:false` (`fishing-map.tsx`), không để lọt vào bundle các trục khác
+- **Vitest** — test runner cho logic thuần trong `src/lib/` (`npm test`, config `vitest.config.ts`, test đặt tại `src/lib/__tests__/`)
 - Deploy: **Vercel** · Repo: github.com/Long-Forfun/ForFish
 
 ## 2. Routes — mỗi trục một route
@@ -18,10 +20,10 @@
 | Route | Trục | File | Trạng thái |
 |---|---|---|---|
 | `/` | — | `src/app/page.tsx` | Trang chủ: bốn trục + nhắc việc gấp |
-| `/giay-to` | 4 — Tuân thủ dễ hơn | `src/app/giay-to/page.tsx` | **MVP**: Tủ giấy tờ |
-| `/ngu-truong` | 1 — Đánh bắt tốt hơn | `src/app/ngu-truong/page.tsx` | Placeholder (coming-soon) |
-| `/gia-ca` | 2 — Bán được đắt hơn | `src/app/gia-ca/page.tsx` | Placeholder (coming-soon) |
-| `/van-hanh` | 3 — Vận hành rẻ hơn | `src/app/van-hanh/page.tsx` | Placeholder (coming-soon) |
+| `/giay-to` | 4 — Tuân thủ dễ hơn | `src/app/giay-to/page.tsx` | **MVP**: Tủ giấy tờ (`document-vault.tsx`) + tra mức phạt (`fines-lookup.tsx` ← `src/data/fines.ts`) |
+| `/ngu-truong` | 1 — Đánh bắt tốt hơn | `src/app/ngu-truong/page.tsx` | **MVP**: điểm đi biển 1–100 (`sea-forecast.tsx` + `src/lib/sea.ts` — Open-Meteo marine+weather, client-side, cache localStorage 1h; 10 cảng đã kiểm chứng: `src/data/ports.ts`) + bản đồ ngư trường (`fishing-map.tsx` → `fishing-map-view.tsx` — lớp vệ tinh SST/phù du/ảnh mây qua `src/lib/ocean-map.ts`, nhãn chủ quyền Biển Đông/Hoàng Sa/Trường Sa, chạm xem gió sóng từng điểm qua `src/lib/marine-weather.ts`) |
+| `/gia-ca` | 2 — Bán được đắt hơn | `src/app/gia-ca/page.tsx` | **MVP**: bảng giá tham khảo (`price-board.tsx` ← `src/data/port-prices.ts`) + sổ lãi lỗ (`trip-log.tsx`, localStorage `forfish.trips.v1`) |
+| `/van-hanh` | 3 — Vận hành rẻ hơn | `src/app/van-hanh/page.tsx` | **MVP**: nhắc bảo dưỡng (`maintenance-reminders.tsx`, localStorage `forfish.maintenance.v1`) + danh mục vật tư (`supply-catalog.tsx` ← `src/data/supplies.ts`) |
 
 Quy ước: route slug là tiếng Việt không dấu, khớp ngôn ngữ người dùng. Thêm route mới → update bảng này cùng commit.
 
@@ -36,16 +38,36 @@ src/
     giay-to/  ngu-truong/  gia-ca/  van-hanh/   # 1 folder / trục
   components/
     bottom-nav.tsx      # Điều hướng dưới cùng (mobile-first, 4 trục + home)
-    document-vault.tsx  # Trục 4: vault UI — thêm/sửa/xóa giấy tờ + trạng thái hạn
-    coming-soon.tsx     # Khung placeholder dùng chung cho trục chưa build
+    page-header.tsx     # Header sóng dùng chung
+    icons.tsx           # Bộ icon stroke SVG — NGUỒN ICON DUY NHẤT, cấm emoji
+    document-vault.tsx  # Trục 4: vault UI — pattern chuẩn cho mọi CRUD localStorage
+    fines-lookup.tsx    # Trục 4: tra mức phạt (NĐ 38/2024)
+    sea-forecast.tsx    # Trục 1: điểm đi biển + dự báo 10 ngày
+    fishing-map.tsx     # Trục 1: vỏ lazy-load bản đồ (next/dynamic ssr:false)
+    fishing-map-view.tsx # Trục 1: bản đồ MapLibre — lớp vệ tinh + nhãn chủ quyền + gió sóng theo điểm chạm
+    price-board.tsx     # Trục 2: bảng giá tham khảo
+    trip-log.tsx        # Trục 2: sổ lãi lỗ chuyến biển
+    supply-catalog.tsx  # Trục 3: danh mục vật tư
+    maintenance-reminders.tsx  # Trục 3: nhắc bảo dưỡng
+  data/
+    ports.ts            # 10 cảng + tọa độ đã kiểm chứng Open-Meteo
+    port-prices.ts      # Giá cá THAM KHẢO (nguồn báo công khai, có ngày tổng hợp)
+    supplies.ts         # Danh mục vật tư THAM KHẢO
+    fines.ts            # Mức phạt NĐ 38/2024 (cá nhân) THAM KHẢO
   lib/
     documents.ts        # Domain logic Trục 4 (kinds, expiry status) — xem 04-data-model.md
+    sea.ts              # Trục 1: fetch Open-Meteo + công thức điểm đi biển (scoreDay/levelOf — THANG ĐIỂM DUY NHẤT của trục)
+    ocean-map.ts        # Trục 1: adapter lớp vệ tinh (NASA GIBS, trễ 2 ngày) + style bản đồ + nhãn chủ quyền VN
+    marine-weather.ts   # Trục 1: gió/sóng tại 1 điểm chạm (Open-Meteo) — tái dùng scoreDay/levelOf từ sea.ts
+    __tests__/          # Vitest cho logic thuần (ocean-map, marine-weather, sea)
     supabase/
       client.ts         # Browser client — trả về null khi env trống
       server.ts         # Server client (cookies) — trả về null khi env trống
 supabase/
   migrations/0001_init.sql   # boats + documents + RLS
 ```
+
+Quy ước `src/data/`: dữ liệu tĩnh tổng hợp từ nguồn công khai PHẢI ghi rõ ngày + nguồn trong comment, UI hiển thị phải gắn nhãn "tham khảo". Không bịa số liệu.
 
 ## 4. Demo mode — invariant quan trọng
 
@@ -59,8 +81,8 @@ Khi `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` chưa set:
 
 ## 5. Quy ước component
 
-- Client component chỉ khi cần (`"use client"` ở vault vì có state + localStorage)
-- Placeholder trục mới dùng chung `coming-soon.tsx` — không tự chế khung riêng
+- Client component chỉ khi cần (`"use client"` khi có state/localStorage/fetch)
+- CRUD cục bộ theo pattern `document-vault.tsx`: hydrate sau mount, bottom-sheet form, confirm xóa
 - UI tuân thủ [03-design-system.md](03-design-system.md) (font ≥18px, tap ≥56px)
 
 ## 6. Cross-references

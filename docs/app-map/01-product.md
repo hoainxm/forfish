@@ -18,10 +18,14 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 
 ### Trục 1 — Đánh bắt tốt hơn (`/ngu-truong`)
 - **Hứa gì**: ra khơi trúng hơn, đỡ phí dầu phí công.
-- **Gồm**: điểm biển hằng ngày (sea-score 1–100), bản đồ ngư trường.
-- **Dữ liệu**: feed bên ngoài (vd OceanByte) — **bắt buộc đi qua adapter có thể thay thế**.
+- **Gồm**: điểm biển hằng ngày (sea-score 1–100), bản đồ ngư trường (lớp vệ tinh nhiệt độ mặt biển / phù du / ảnh mây + gió sóng theo điểm chạm + nhãn chủ quyền Biển Đông – Hoàng Sa – Trường Sa tiếng Việt).
+- **Dữ liệu hiện chạy** (đều miễn phí, không cần key, qua adapter trong `src/lib/`):
+  - Ảnh vệ tinh: chương trình mở của NASA (cập nhật hằng ngày, **trễ ~2 ngày** — UI ghi rõ "ảnh ngày X, chậm vài ngày"). Lớp dòng chảy mặt biển: chưa có nguồn tile miễn phí không-key → làm sau.
+  - Gió/sóng: Open-Meteo (mô hình quốc tế, cập nhật theo giờ) — UI luôn kèm lời dặn nghe đài duyên hải / biên phòng.
+- **Dữ liệu tương lai**: feed thương mại (vd OceanByte) — **bắt buộc đi qua adapter có thể thay thế**.
   - ⚠️ OceanByte là bên thứ ba nước ngoài, có sản phẩm vessel-tracking cạnh tranh → **không bao giờ là core**, không hardcode vào domain logic.
   - ⚠️ Khuyến nghị ngư trường của họ chỉ cập nhật **2 lần/tuần** → KHÔNG hứa với người dùng độ chính xác hằng ngày cho phần khuyến nghị.
+- ⚠️ Độ phân giải ảnh vệ tinh là **mức vùng (vài km)**, không phải tọa độ điểm — không hứa "chỉ đúng chỗ thả lưới". Lớp phù du bị mây che mất chỗ — UI giải thích "chỗ trống là mây che".
 
 ### Trục 2 — Bán được đắt hơn (`/gia-ca`)
 - **Hứa gì**: cá về bờ bán được giá, không bị ép.
@@ -47,7 +51,7 @@ Trục 4 + 3  →  Trục 1  →  Trục 2
  thuộc ngoài)    ngoài)      tự thu thập)
 ```
 
-Hiện trạng: Trục 4 MVP chạy được; Trục 1/2/3 là placeholder page (coming-soon).
+Hiện trạng (2026-06-10): cả 4 trục đều có MVP chạy được — Trục 1: điểm đi biển dữ liệu thật Open-Meteo + bản đồ ngư trường ảnh vệ tinh (nhiệt độ/phù du/ảnh mây, nhãn chủ quyền VN, chạm xem gió sóng); Trục 2: bảng giá tham khảo + sổ lãi lỗ; Trục 3: nhắc bảo dưỡng + danh mục vật tư; Trục 4: tủ giấy tờ + tra mức phạt NĐ 38/2024. Dữ liệu giá/vật tư/mức phạt là bản tổng hợp THAM KHẢO từ nguồn công khai — bước tiếp: thay bằng nguồn tự thu qua mạng đại lý.
 
 ## 4. Vòng lặp cross-trục / Cross-pillar loop
 
