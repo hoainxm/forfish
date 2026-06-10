@@ -1,24 +1,16 @@
-// SSO ForFish ↔ SDWork — endpoint server.
+// SSO ForFish ↔ SDWork CRM (Supabase ↔ Supabase, không cần endpoint custom).
 //
 // Bà con nhập SĐT + mật khẩu (của SDWork). Route này:
-// 1. Gọi SDWork verify (sso-sdwork.verifyWithSdwork).
-// 2. Nếu OK + chưa có user Supabase tương ứng → tạo (email ảo) + lưu
-//    profiles.sdwork_customer_ref.
-// 3. Sinh magic-link → trả URL cho client để client signInWithOtp/exchange.
-//    (Cách này không cần lưu mật khẩu SDWork phía ForFish.)
+// 1. Verify trực tiếp qua Supabase Auth của CRM SDViCo (signInWithPassword).
+// 2. OK → tìm/tạo user phía ForFish với cùng email ảo {SĐT}@sdvico.local.
+// 3. Upsert profiles.sdwork_customer_ref = uuid user phía CRM.
+// 4. Sinh magic-link → trả client để chuyển hướng cấp session ForFish.
 //
-// Cấu hình (env): SDWORK_VERIFY_URL, SDWORK_VERIFY_KEY, SUPABASE_SERVICE_ROLE_KEY.
-// Khi CHƯA cấu hình → trả 503 "SSO chưa sẵn sàng" để client fallback.
+// ForFish KHÔNG lưu mật khẩu SDWork. CRM xác thực, ForFish chỉ cấp session.
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSsoConfigured, verifyWithSdwork } from "@/lib/sso-sdwork";
-
-const PHONE_EMAIL_DOMAIN = "phone.forfish.app";
-
-function emailOf(phone: string): string {
-  return `${phone}@${PHONE_EMAIL_DOMAIN}`;
-}
 
 export async function POST(req: Request) {
   if (!isSsoConfigured()) {
@@ -46,7 +38,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });
   }
 
-  // 1. Hỏi SDWork
+  // 1. CRM xác thực
   const verify = await verifyWithSdwork(phone, password);
   if (!verify.ok) {
     const status =
@@ -58,55 +50,49 @@ export async function POST(req: Request) {
     );
   }
 
-  const normalizedPhone = verify.phone!;
-  const email = emailOf(normalizedPhone);
+  const email = verify.email!;
+  const phone0 = verify.phone0!;
 
-  // 2. Tìm user Supabase theo email ảo
+  // 2. Tìm user ForFish theo email; tạo nếu chưa có
   const list = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
   let user = list.data?.users?.find((u) => u.email === email) ?? null;
 
   if (!user) {
-    // Tạo user mới — không lưu mật khẩu SDWork ở đây (random); confirm sẵn.
     const created = await admin.auth.admin.createUser({
       email,
       email_confirm: true,
-      password: crypto.randomUUID(),
+      password: crypto.randomUUID(), // không dùng tới — bà con đăng nhập qua SSO
       user_metadata: {
-        sdwork_customer_id: verify.sdworkCustomerId,
+        sdwork_user_id: verify.sdworkUserId,
         full_name: verify.fullName ?? "",
       },
     });
     if (created.error || !created.data.user) {
       return NextResponse.json(
-        { ok: false, code: "create_user_failed" },
+        { ok: false, code: "create_user_failed", detail: created.error?.message },
         { status: 500 },
       );
     }
     user = created.data.user;
   }
 
-  // 3. Cập nhật profiles.sdwork_customer_ref + full_name (idempotent)
-  await admin
-    .from("profiles")
-    .upsert(
-      {
-        id: user.id,
-        phone: normalizedPhone,
-        full_name: verify.fullName ?? null,
-        sdwork_customer_ref: verify.sdworkCustomerId ?? null,
-        must_change_password: false, // SSO không dùng mật khẩu local
-      },
-      { onConflict: "id" },
-    );
+  // 3. Upsert profiles (link 2 bên qua sdwork_customer_ref = user.id phía CRM)
+  await admin.from("profiles").upsert(
+    {
+      id: user.id,
+      phone: phone0,
+      full_name: verify.fullName ?? null,
+      sdwork_customer_ref: verify.sdworkUserId ?? null,
+      must_change_password: false,
+    },
+    { onConflict: "id" },
+  );
 
-  // 4. Sinh magic-link để client đổi sang session (không lộ mật khẩu nào)
-  const link = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-  });
+  // 4. Magic-link → client redirect để Supabase set cookie
+  const link = await admin.auth.admin.generateLink({ type: "magiclink", email });
   if (link.error || !link.data?.properties?.action_link) {
     return NextResponse.json(
-      { ok: false, code: "link_failed" },
+      { ok: false, code: "link_failed", detail: link.error?.message },
       { status: 500 },
     );
   }
@@ -114,6 +100,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     actionLink: link.data.properties.action_link,
-    user: { id: user.id, phone: normalizedPhone, fullName: verify.fullName ?? "" },
+    user: { id: user.id, phone: phone0, fullName: verify.fullName ?? "" },
   });
 }

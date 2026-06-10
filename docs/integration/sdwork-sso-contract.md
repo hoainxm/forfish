@@ -1,128 +1,121 @@
-# SSO ForFish ↔ SDWork — Hợp đồng API
+# SSO ForFish ↔ SDWork — Supabase ↔ Supabase trực tiếp
 
-> **Mục đích**: ForFish KHÔNG copy/seed user. Khách dùng đúng SĐT + mật khẩu
-> bên SDWork để đăng nhập ForFish. Hai bên giao tiếp qua **một endpoint xác thực
-> ở SDWork**. ForFish phía Supabase chỉ giữ "user ảo" để có session + RLS, KHÔNG
-> lưu mật khẩu SDWork.
->
-> **Last updated**: 2026-06-10
+> **Cập nhật 2026-06-10**: SDWork CRM (project `exueouggmbjtjvsvpfya`) lưu khách
+> dưới dạng email ảo `{SĐT}@sdvico.local` ngay trên Supabase Auth (688/689
+> user). ForFish dùng đúng pattern đó → **không cần SDWork build endpoint
+> custom**; ForFish verify mật khẩu khách bằng `signInWithPassword` thẳng vào
+> CRM Supabase, OK thì cấp session phía ForFish.
 
-## 1. Tổng quan luồng
+## 1. Luồng
 
 ```
 [bà con]
    │ SĐT + mật khẩu (SDWork)
    ▼
 [ForFish /login] ──POST /api/auth/sso──► [ForFish server]
-                                              │ POST {phone,password}
+                                              │ supabase.auth.signInWithPassword(
+                                              │   { email: "{sdt}@sdvico.local", password }
+                                              │ )  ── client trỏ vào CRM SDViCo
                                               ▼
-                                       [SDWork verify endpoint]
-                                              │ {ok, sdworkCustomerId, fullName}
+                                       [CRM Supabase Auth] → user.id + metadata
                                               ▼
-                                       [ForFish server]
-                                              │ tạo user Supabase (lần đầu),
+                                       [ForFish admin]
+                                              │ tạo/tìm user ForFish cùng email,
                                               │ upsert profiles.sdwork_customer_ref,
-                                              │ sinh magic-link
+                                              │ generateLink(magiclink)
                                               ▼
                                        [ForFish client]
                                               │ window.location = actionLink
                                               ▼
-                                       [Supabase set session → / ]
+                                       [Supabase ForFish set session → / ]
 ```
 
-ForFish KHÔNG biết mật khẩu SDWork. Mọi xác thực do SDWork quyết.
+ForFish **không bao giờ lưu mật khẩu SDWork**. Toàn bộ xác thực do CRM quyết.
 
-## 2. Endpoint SDWork CẦN làm
+## 2. Chuẩn hóa SĐT
 
-### POST `/auth/verify-fisherman` (tên ví dụ; URL chính xác do SDWork chốt)
+CRM lưu mostly đầu `0` (514 user), một số ít đầu `84` (5 user). ForFish thử
+`0xxxxxxxxx` trước, fail thì thử `84xxxxxxxxx` — gói trong `verifyWithSdwork`
+(`src/lib/sso-sdwork.ts`).
 
-**Headers**
-- `Content-Type: application/json`
-- `X-Api-Key: <shared-secret>` — bí mật chia sẻ với ForFish, set ở env `SDWORK_VERIFY_KEY`. Đề nghị rotate được; chỉ dùng cho server-to-server.
+User chỉ gõ SĐT bất kỳ định dạng: `0901234567` / `+84 901 234 567` / `84901234567`
+— ForFish chuẩn hóa.
 
-**Body**
-```json
-{ "phone": "84901234567", "password": "<plain>" }
-```
-- `phone` đã chuẩn hóa về **`84` + 9-10 chữ số** (ForFish lo bước này).
-- `password` plain text qua HTTPS (như mọi flow form login chuẩn). Yêu cầu HTTPS + cert hợp lệ ở SDWork.
+## 3. Map user 2 bên
 
-**Response 200 OK — đúng**
-```json
-{
-  "ok": true,
-  "sdworkCustomerId": "CUS-000123",
-  "fullName": "Nguyễn Văn A",
-  "phone": "84901234567"
-}
-```
+| Phía CRM SDViCo | Phía ForFish |
+|---|---|
+| `auth.users.id` (UUID) | `profiles.sdwork_customer_ref` |
+| `auth.users.email = "{sdt}@sdvico.local"` | `auth.users.email = "{sdt}@sdvico.local"` (cùng email — 2 project độc lập, không conflict) |
+| `auth.users.user_metadata.full_name` | `profiles.full_name` |
 
-**Response 401 — sai SĐT/mật khẩu**
-```json
-{ "ok": false }
-```
+Lần đầu khách đăng nhập ForFish:
+1. Tạo user ForFish qua admin API (`email_confirm:true`, password = random UUID
+   không dùng tới).
+2. Upsert `profiles` với `sdwork_customer_ref = CRM user.id`.
 
-**Response 404 — SĐT không phải khách SDWork** (ForFish sẽ fallback sang đăng ký nội bộ)
-```json
-{ "ok": false, "code": "not_a_customer" }
-```
+## 4. Cấu hình (.env)
 
-**Response 5xx / timeout** — ForFish coi là service_unavailable.
+```env
+# ForFish project (đã có)
+NEXT_PUBLIC_SUPABASE_URL=https://znzgugvfhgmiszqgjulk.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
 
-**Latency**: ForFish timeout **7 giây**. Khuyến nghị < 1s p95.
-
-## 3. Phía ForFish làm gì sau khi SDWork OK
-
-1. Tìm user Supabase theo email ảo `{phone}@phone.forfish.app`.
-2. Lần đầu → admin tạo user (`email_confirm: true`), `user_metadata.sdwork_customer_id`.
-3. Upsert bảng `profiles`:
-   - `phone = phone`
-   - `sdwork_customer_ref = sdworkCustomerId`
-   - `full_name = fullName`
-   - `must_change_password = false`
-4. `admin.generateLink({ type: 'magiclink', email })` → trả `actionLink` cho client.
-5. Client redirect tới `actionLink` → Supabase set cookie session → về `/`.
-
-ForFish KHÔNG bao giờ lưu mật khẩu SDWork.
-
-## 4. Bảo mật
-
-- Endpoint xác thực dùng **API key chia sẻ** + HTTPS. Tuyệt đối không gọi từ trình duyệt.
-- Server ForFish dùng **`SUPABASE_SERVICE_ROLE_KEY`** chỉ trong route handler `src/app/api/auth/sso/route.ts`, không bao giờ rò ra client.
-- Rate limit ở SDWork (đề nghị 5 lần/phút mỗi SĐT/IP). ForFish chưa rate-limit phía mình — sẽ bổ sung khi gọi rộng.
-- Đăng xuất phía ForFish chỉ huỷ session Supabase (không huỷ phiên SDWork).
-
-## 5. Mã liên kết & xóa khách
-
-- Khóa link 2 bên = **`profiles.sdwork_customer_ref`** trong DB ForFish.
-- Khi SDWork khóa/xóa khách: ForFish KHÔNG tự biết. Cần kèm hook ngược (xem mục mở rộng).
-
-## 6. (Tương lai) Webhook SDWork → ForFish
-
-Khi cần đồng bộ sản phẩm bảo hành / khóa khách:
-- `POST /api/sdwork/webhook` với `X-Sdwork-Signature` (HMAC SHA-256, chung secret).
-- Event types: `customer.disabled`, `product.warranty_updated`.
-
-Đây là mở rộng đợt 2 — chưa làm trong commit này.
-
-## 7. Phía ForFish — cấu hình
-
-`.env`:
-```
+# SERVER ONLY — để /api/auth/sso tạo user + magic-link
 SUPABASE_SERVICE_ROLE_KEY=...
-SDWORK_VERIFY_URL=https://api.sdwork.example.com/v1/auth/verify-fisherman
-SDWORK_VERIFY_KEY=<shared-secret>
+
+# CRM SDViCo — để verify mật khẩu khách (anon key đủ, signInWithPassword)
+SDWORK_SUPABASE_URL=https://exueouggmbjtjvsvpfya.supabase.co
+SDWORK_SUPABASE_ANON_KEY=sb_publishable_...
 ```
 
-Khi 2 biến SDWORK_* trống → `/api/auth/sso` trả 503, /login tự fallback sang
-xác thực nội bộ ForFish (`signInWithPassword` qua email ảo) — đăng ký ở `/dang-ky`.
+Khi 2 biến `SDWORK_*` trống → `/api/auth/sso` trả 503, `/login` fallback sang
+`signInWithPassword` nội bộ ForFish (đăng ký `/dang-ky` cho khách không phải
+SDWork).
 
-## 8. Test bằng tay
+## 5. Bảo mật
+
+- ForFish dùng **anon key** của CRM (không phải service-role) để verify — chỉ
+  được phép gọi `signInWithPassword`, không đụng bảng nào khác. Đây cùng cấp
+  quyền với app SDWork chính.
+- Sau khi verify xong, ForFish gọi `auth.signOut()` để không giữ token CRM
+  trên server.
+- `SUPABASE_SERVICE_ROLE_KEY` (của ForFish, không phải CRM) chỉ dùng trong
+  route handler `/api/auth/sso` để tạo user + magic-link, không bao giờ rò ra
+  client.
+- Đăng xuất phía ForFish chỉ huỷ session ForFish, không huỷ phiên SDWork.
+
+## 6. Rủi ro & xử lý
+
+- **Khách đổi mật khẩu SDWork** → ForFish vẫn dùng được (mật khẩu Forfish
+  local đã set random, không liên quan; lần đăng nhập sau verify lại với
+  CRM, OK là tiếp tục dùng session ForFish cũ hoặc mới).
+- **SDWork khóa khách** → CRM trả invalid_credentials → ForFish login fail
+  (đúng). Nhưng session ForFish hiện tại của khách KHÔNG bị khóa ngay —
+  chỉ hết khi cookie expire. Sửa sau: webhook CRM → ForFish.
+- **SĐT trùng + suffix `_timestamp`** (kiểu `0707252627_1757904849852@sdvico.local`):
+  ForFish hiện chỉ thử dạng chuẩn `0xxxxxxxxx@sdvico.local`. Khách có suffix
+  sẽ verify fail → cần CRM gửi reset/merge nếu là duplicate. Hiếm.
+
+## 7. Test bằng tay (sau khi set env)
 
 ```sh
 curl -X POST https://forfish.vercel.app/api/auth/sso \
   -H 'Content-Type: application/json' \
   -d '{"phone":"0901234567","password":"<sdwork-pw>"}'
 ```
-- 200 + `actionLink` → mở bằng trình duyệt: nên về `/` đã đăng nhập.
-- 401/404/503 → đúng các trường hợp lỗi ở mục 2.
+
+- 200 + `actionLink` → mở bằng trình duyệt, sẽ về `/` đã đăng nhập ForFish.
+- 401 → sai mật khẩu (CRM từ chối).
+- 503 → chưa cấu hình env hoặc CRM down.
+
+## 8. Mở rộng (sau)
+
+- **Webhook CRM → ForFish**: khi khách bị khóa / sản phẩm bảo hành cập nhật,
+  CRM POST `/api/sdwork/webhook` (HMAC SHA-256 shared secret) — ForFish kích
+  hoạt khóa session / sync `boat_products`.
+- **Đồng bộ sản phẩm**: hôm nay `boat_products` là localStorage. Khi có
+  webhook + scoped read trên CRM, kéo `orders/order_items` của khách → tự
+  điền tab "Sản phẩm" cho từng tàu.
+
+(Cả 2 mở rộng chưa làm trong commit này.)

@@ -1,38 +1,81 @@
-// SSO với SDWork — KHÔNG seed/copy user. Khách bên SDWork đăng nhập ForFish
-// bằng đúng SĐT + mật khẩu SDWork; ForFish gọi endpoint xác thực của SDWork,
-// nếu OK thì cấp session bằng tài khoản Supabase ảo (link qua sdwork_customer_ref).
+// SSO với SDWork — verify TRỰC TIẾP qua Supabase Auth của CRM SDViCo.
+// CRM lưu khách dưới dạng email ảo {SĐT}@sdvico.local (688/689 user). Cùng
+// pattern ForFish sẽ dùng để không lệch.
 //
-// Hợp đồng API: xem docs/integration/sdwork-sso-contract.md.
-//
-// Adapter này SERVER-ONLY (chứa secret) — chỉ gọi từ route handler.
+// ForFish không lưu mật khẩu SDWork: chỉ gọi signInWithPassword lên CRM,
+// nếu OK lấy customerId → cấp session phía ForFish bằng magic-link.
+
+import { createClient } from "@supabase/supabase-js";
+
+const SDWORK_DOMAIN = "sdvico.local";
+
+const SDWORK_URL = process.env.SDWORK_SUPABASE_URL ?? "";
+const SDWORK_ANON = process.env.SDWORK_SUPABASE_ANON_KEY ?? "";
 
 export interface SsoVerifyResult {
   ok: boolean;
-  sdworkCustomerId?: string;
+  /** Email dùng trên CRM (sẽ cũng dùng làm email ảo phía ForFish — 1-1). */
+  email?: string;
+  /** Số điện thoại đã chuẩn hóa (đầu 0). */
+  phone0?: string;
+  /** UUID user phía CRM, lưu làm khóa link `profiles.sdwork_customer_ref`. */
+  sdworkUserId?: string;
+  /** Tên đầy đủ nếu CRM gửi qua user_metadata. */
   fullName?: string;
-  phone?: string;        // SĐT chuẩn hóa (84xxxxxxxxx)
   errorCode?: "invalid_credentials" | "not_a_customer" | "service_unavailable";
-  errorMessage?: string;
 }
-
-const VERIFY_URL = process.env.SDWORK_VERIFY_URL ?? "";
-const VERIFY_KEY = process.env.SDWORK_VERIFY_KEY ?? "";
 
 export function isSsoConfigured(): boolean {
-  return Boolean(VERIFY_URL && VERIFY_KEY);
+  return Boolean(SDWORK_URL && SDWORK_ANON);
 }
 
-/** Chuẩn hóa SĐT VN về 84xxxxxxxxx — trùng quy ước phía client. */
-function normalizePhone(raw: string): string {
+/** Chuẩn hóa SĐT VN → kiểu phía CRM hay dùng (đầu 0, 10–11 chữ số). */
+function toPhone0(raw: string): string {
   let d = raw.replace(/\D/g, "");
-  if (d.startsWith("84")) d = d.slice(2);
-  else if (d.startsWith("0")) d = d.slice(1);
+  if (d.startsWith("84")) d = "0" + d.slice(2);
+  else if (!d.startsWith("0")) d = "0" + d;
+  return d;
+}
+
+function toPhone84(raw: string): string {
+  let d = raw.replace(/\D/g, "");
+  if (d.startsWith("84")) return d;
+  if (d.startsWith("0")) return "84" + d.slice(1);
   return "84" + d;
 }
 
+/** Mỗi lần gọi tạo client mới để không chia sẻ session (server-only). */
+function newCrmClient() {
+  return createClient(SDWORK_URL, SDWORK_ANON, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+async function tryEmail(
+  email: string,
+  password: string,
+): Promise<{ userId: string; fullName?: string } | null> {
+  try {
+    const c = newCrmClient();
+    const { data, error } = await c.auth.signInWithPassword({ email, password });
+    if (error || !data.user) return null;
+    const meta = data.user.user_metadata ?? {};
+    // Đăng xuất phiên CRM ngay để không giữ token trên server.
+    await c.auth.signOut().catch(() => {});
+    return {
+      userId: data.user.id,
+      fullName:
+        (meta.full_name as string | undefined) ??
+        (meta.name as string | undefined),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Xác thực credential bằng SDWork.
- * Khi chưa cấu hình endpoint → trả service_unavailable (login fallback về auth riêng).
+ * Verify credential khách SDWork. CRM lưu mostly đầu `0` (514 user) và một
+ * số ít đầu `84` (5 user) → thử cả 2 dạng để chắc.
  */
 export async function verifyWithSdwork(
   rawPhone: string,
@@ -41,47 +84,27 @@ export async function verifyWithSdwork(
   if (!isSsoConfigured()) {
     return { ok: false, errorCode: "service_unavailable" };
   }
-  const phone = normalizePhone(rawPhone);
-  try {
-    const res = await fetch(VERIFY_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Api-Key": VERIFY_KEY,
-      },
-      body: JSON.stringify({ phone, password }),
-      // không tin tunnel chậm; nghẽn API SDWork không được phép kéo login lâu
-      signal: AbortSignal.timeout(7_000),
-    });
-    if (res.status === 401 || res.status === 403) {
-      return { ok: false, errorCode: "invalid_credentials" };
+  const phone0 = toPhone0(rawPhone);
+  const phone84 = toPhone84(rawPhone);
+
+  // Thử đầu 0 trước (đa số khách); fallback 84 nếu CRM lưu kiểu kia.
+  const candidates = phone0 === phone84
+    ? [`${phone0}@${SDWORK_DOMAIN}`]
+    : [`${phone0}@${SDWORK_DOMAIN}`, `${phone84}@${SDWORK_DOMAIN}`];
+
+  for (const email of candidates) {
+    const r = await tryEmail(email, password);
+    if (r) {
+      return {
+        ok: true,
+        email,
+        phone0,
+        sdworkUserId: r.userId,
+        fullName: r.fullName,
+      };
     }
-    if (res.status === 404) {
-      return { ok: false, errorCode: "not_a_customer" };
-    }
-    if (!res.ok) {
-      return { ok: false, errorCode: "service_unavailable" };
-    }
-    const json = (await res.json()) as {
-      ok?: boolean;
-      sdworkCustomerId?: string;
-      fullName?: string;
-      phone?: string;
-    };
-    if (!json.ok || !json.sdworkCustomerId) {
-      return { ok: false, errorCode: "invalid_credentials" };
-    }
-    return {
-      ok: true,
-      sdworkCustomerId: json.sdworkCustomerId,
-      fullName: json.fullName,
-      phone: json.phone ?? phone,
-    };
-  } catch (e) {
-    return {
-      ok: false,
-      errorCode: "service_unavailable",
-      errorMessage: e instanceof Error ? e.message : "unknown",
-    };
   }
+  return { ok: false, errorCode: "invalid_credentials" };
 }
+
+export { SDWORK_DOMAIN };

@@ -5,21 +5,22 @@ import type { ReactNode } from "react";
   Giữ tông bình tĩnh, chữ to (≥18px), dễ đọc ngoài nắng.
 */
 
-/** Đuôi email ảo gắn sau SĐT — Supabase Auth dùng email (không cần SMS
- *  provider). User chỉ gõ SĐT; app tự ghép, không yêu cầu confirm. */
-export const PHONE_EMAIL_DOMAIN = "phone.forfish.app";
+/** Đuôi email ảo dùng cho Supabase Auth — CÙNG đuôi mà SDWork CRM đang
+ *  dùng (`@sdvico.local`), để 1 SĐT = 1 email duy nhất ở cả 2 project.
+ *  User chỉ thấy SĐT của mình. */
+export const PHONE_EMAIL_DOMAIN = "sdvico.local";
 
-/** Chuẩn hóa SĐT VN: lấy 9-10 chữ số gốc, bỏ mọi ký tự thừa.
- *  0901234567 / 84901234567 / +84 901 234 567 → "84901234567". */
+/** Chuẩn hóa SĐT VN về dạng đầu 0 (kiểu CRM SDViCo hay dùng — 514/688 user).
+ *  0901234567 / 84901234567 / +84 901 234 567 → "0901234567". */
 export function normalizeVnPhone(raw: string): string {
   let d = raw.replace(/\D/g, "");
-  if (d.startsWith("84")) d = d.slice(2);
-  else if (d.startsWith("0")) d = d.slice(1);
-  return "84" + d;
+  if (d.startsWith("84")) d = "0" + d.slice(2);
+  else if (!d.startsWith("0")) d = "0" + d;
+  return d;
 }
 
-/** SĐT đã chuẩn hóa → email ảo cho Supabase Auth.
- *  84901234567 → 84901234567@phone.forfish.app */
+/** SĐT đã chuẩn hóa → email ảo (CÙNG với CRM SDViCo).
+ *  0901234567 → 0901234567@sdvico.local */
 export function phoneToEmail(rawPhone: string): string {
   return `${normalizeVnPhone(rawPhone)}@${PHONE_EMAIL_DOMAIN}`;
 }
