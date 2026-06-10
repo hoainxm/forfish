@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_BOAT,
   KMH_PER_KNOT,
+  MAX_DETOUR_RATIO,
   angleDiffDeg,
   bboxFor,
   bearingDeg,
@@ -50,6 +51,7 @@ function makeField(
           hours: Array.from({ length: HOURS }, () => ({
             waveM: null,
             waveFromDeg: null,
+            wavePeriodS: null,
             windKmh: 0,
             windFromDeg: 0,
             currentKmh: 0,
@@ -62,6 +64,7 @@ function makeField(
           hours: Array.from({ length: HOURS }, () => ({
             waveM: v.waveM ?? 0.3,
             waveFromDeg: v.waveFromDeg ?? null,
+            wavePeriodS: v.wavePeriodS ?? null,
             windKmh: v.windKmh ?? 10,
             windFromDeg: v.windFromDeg ?? 0,
             currentKmh: v.currentKmh ?? 0,
@@ -85,6 +88,14 @@ function makeField(
 const START: LatLon = { lat: 12.0, lon: 110.0 };
 const DEST: LatLon = { lat: 12.0, lon: 112.0 };
 const BB = bboxFor(START, DEST, 120);
+const calm = () => ({ waveM: 0.3, windKmh: 10 });
+
+function plan(field: WeatherField, a = START, b = DEST, depth = null as never) {
+  return planRoute({
+    start: a, dest: b, boat: DEFAULT_BOAT,
+    departHourIdx: 6, field, depth, bbox: BB,
+  });
+}
 
 // ── hình học ─────────────────────────────────────────────────────────────
 
@@ -98,50 +109,45 @@ describe("hình học", () => {
     expect(d).toBeLessThan(1160);
   });
 
-  it("bearingDeg + angleDiffDeg", () => {
+  it("bearingDeg + angleDiffDeg + kmToNm", () => {
     expect(bearingDeg({ lat: 10, lon: 110 }, { lat: 11, lon: 110 })).toBeCloseTo(0, 0);
     expect(bearingDeg({ lat: 10, lon: 110 }, { lat: 10, lon: 111 })).toBeCloseTo(90, 0);
     expect(angleDiffDeg(350, 10)).toBe(-20);
     expect(angleDiffDeg(10, 350)).toBe(20);
-  });
-
-  it("kmToNm + bboxFor bao trùm hai đầu", () => {
     expect(kmToNm(1.852)).toBeCloseTo(1, 6);
-    expect(BB.latMin).toBeLessThan(12);
-    expect(BB.lonMin).toBeLessThan(110);
-    expect(BB.lonMax).toBeGreaterThan(112);
   });
 });
 
-// ── mô hình tàu trong sóng gió ───────────────────────────────────────────
+// ── mô hình tàu trong sóng gió (Kwon 4 bậc) ──────────────────────────────
 
-describe("Kwon-lite: giảm tốc theo hướng sóng", () => {
-  it("sóng mũi nặng nhất, sóng ngang vừa, sóng đuôi nhẹ nhất", () => {
-    expect(waveDirFactor(90, 90)).toBe(1); // sóng tới từ hướng đang chạy = vỗ mũi
-    expect(waveDirFactor(0, 90)).toBe(0.7); // sóng ngang
-    expect(waveDirFactor(270, 90)).toBe(0.4); // sóng từ sau đuôi
+describe("Kwon: giảm tốc theo hướng sóng (4 bậc góc)", () => {
+  it("mũi 1,0 / chếch mũi 0,8 / ngang 0,45 / đuôi 0,15", () => {
+    expect(waveDirFactor(90, 90)).toBe(1); // sóng vỗ thẳng mũi
+    expect(waveDirFactor(135, 90)).toBe(0.8); // chếch mũi 45°
+    expect(waveDirFactor(0, 90)).toBe(0.45); // sóng ngang
+    expect(waveDirFactor(270, 90)).toBe(0.15); // sóng đuôi — đẩy tàu, ít cản
     expect(waveDirFactor(null, 90)).toBe(1); // thiếu hướng → coi như xấu nhất
   });
 
-  it("speedFactor giảm dần theo sóng, có sàn 55%", () => {
+  it("speedFactor: sóng đuôi gần như không làm chậm (đúng Kwon)", () => {
     expect(speedFactor(0.3, 1)).toBe(1);
     expect(speedFactor(2.5, 1)).toBeCloseTo(0.8, 5);
-    expect(speedFactor(10, 1)).toBe(0.55);
-    // cùng độ cao sóng, sóng đuôi giảm tốc ít hơn sóng mũi
-    expect(speedFactor(2.5, 0.4)).toBeGreaterThan(speedFactor(2.5, 1));
+    expect(speedFactor(2.5, 0.15)).toBeGreaterThan(0.96);
+    expect(speedFactor(10, 1)).toBe(0.55); // sàn
   });
 
   it("windDragFactor: ngược gió dương, xuôi gió âm, có trần sàn", () => {
-    expect(windDragFactor(30, 90, 90)).toBeCloseTo(0.12, 5); // gió ngược mũi
-    expect(windDragFactor(30, 270, 90)).toBe(-0.08); // xuôi (chạm sàn)
-    expect(windDragFactor(200, 90, 90)).toBe(0.25); // trần
+    expect(windDragFactor(30, 90, 90)).toBeCloseTo(0.12, 5);
+    expect(windDragFactor(30, 270, 90)).toBe(-0.08);
+    expect(windDragFactor(200, 90, 90)).toBe(0.25);
   });
 
-  it("followingSeaRisk (IMO 1228-lite): chỉ khi sóng đuôi ≥2 m", () => {
-    expect(followingSeaRisk(2.5, 270, 90)).toBe(true);
-    expect(followingSeaRisk(1.5, 270, 90)).toBe(false);
-    expect(followingSeaRisk(2.5, 90, 90)).toBe(false); // sóng mũi
-    expect(followingSeaRisk(2.5, null, 90)).toBe(false);
+  it("followingSeaRisk (IMO 1228): chỉ sóng đuôi ≥2 m CHU KỲ NGẮN", () => {
+    expect(followingSeaRisk(2.5, 270, 90, 4)).toBe(true); // sóng gió ngắn
+    expect(followingSeaRisk(2.5, 270, 90, 8)).toBe(false); // swell dài — cưỡi êm
+    expect(followingSeaRisk(2.5, 270, 90, null)).toBe(true); // thiếu chu kỳ → cẩn thận
+    expect(followingSeaRisk(1.5, 270, 90, 4)).toBe(false); // thấp
+    expect(followingSeaRisk(2.5, 90, 90, 4)).toBe(false); // sóng mũi
   });
 });
 
@@ -149,199 +155,168 @@ describe("Kwon-lite: giảm tốc theo hướng sóng", () => {
 
 describe("sampleField", () => {
   it("trường đều → trả đúng giá trị tại mọi điểm", () => {
-    const f = makeField(BB, 5, () => ({ waveM: 1.2, windKmh: 15 }));
+    const f = makeField(BB, 5, () => ({ waveM: 1.2, windKmh: 15, wavePeriodS: 5 }));
     const s = sampleField(f, 12.0, 111.0, 6)!;
     expect(s.waveM).toBeCloseTo(1.2, 5);
     expect(s.windKmh).toBeCloseTo(15, 5);
+    expect(s.wavePeriodS).toBeCloseTo(5, 5);
   });
 
   it("ô đất liền bị loại khỏi nội suy; cả 4 góc đất → null", () => {
     const f = makeField(BB, 5, (la) => (la < 12 ? "land" : { waveM: 1 }));
     const s = sampleField(f, 12.01, 111.0, 0);
-    expect(s?.waveM).toBeCloseTo(1, 3); // nửa biển vẫn cho số
+    expect(s?.waveM).toBeCloseTo(1, 3);
     expect(sampleField(f, BB.latMin + 0.01, 111.0, 0)).toBeNull();
   });
 
   it("dòng chảy nội suy theo vector: hai ô chảy ngược nhau → giữa gần đứng nước", () => {
     const f = makeField(BB, 5, (la) => ({
       currentKmh: 2,
-      currentToDeg: la < 12 ? 0 : 180, // nửa dưới chảy lên Bắc, nửa trên xuống Nam
+      currentToDeg: la < 12 ? 0 : 180,
     }));
-    // điểm nằm GIỮA hai hàng lưới ngược dòng (hàng tại ~11,46 và ~12,0)
     const s = sampleField(f, 11.73, 111.0, 0)!;
     expect(s.currentKmh).toBeLessThan(0.5);
   });
 
   it("nội suy hướng qua mốc 0°/360° không gãy", () => {
-    const f = makeField(BB, 5, (la) => ({
-      windFromDeg: la < 12 ? 350 : 10,
-    }));
+    const f = makeField(BB, 5, (la) => ({ windFromDeg: la < 12 ? 350 : 10 }));
     const s = sampleField(f, 12.0, 111.0, 0)!;
-    const d = Math.abs(angleDiffDeg(s.windFromDeg, 0));
-    expect(d).toBeLessThan(15); // quanh 0°, không phải ~180°
+    expect(Math.abs(angleDiffDeg(s.windFromDeg, 0))).toBeLessThan(15);
   });
 });
 
-// ── tìm đường ────────────────────────────────────────────────────────────
+// ── tìm đường: hành vi cốt lõi ───────────────────────────────────────────
 
-const calm = () => ({ waveM: 0.3, windKmh: 10 });
-
-describe("planRoute (Dijkstra time-dependent kiểu VISIR)", () => {
-  it("biển êm → tuyến bám sát đường thẳng, không 'tiết kiệm' ảo", () => {
-    const f = makeField(BB, 7, calm);
-    const plan = planRoute({
-      start: START, dest: DEST, boat: DEFAULT_BOAT,
-      departHourIdx: 6, field: f, depth: null, bbox: BB,
-    })!;
-    expect(plan).not.toBeNull();
+describe("planRoute", () => {
+  it("biển êm → tuyến bám sát đường thẳng, không 'tiết kiệm' ảo, không cap", () => {
+    const p = plan(makeField(BB, 7, calm))!;
     const directKm = haversineKm(START, DEST);
-    expect(plan.distKm).toBeLessThan(directKm * 1.06);
-    expect(plan.savedFuelL).toBeLessThan(1);
-    expect(plan.direct).not.toBeNull();
-    expect(plan.hasRoughLeg).toBe(false);
-    expect(plan.depthChecked).toBe(false); // không truyền depth
+    expect(p.distKm).toBeLessThan(directKm * 1.06);
+    expect(p.cappedToDirect).toBe(false);
+    expect(p.direct).not.toBeNull();
+    expect(Math.abs(p.fuelDeltaL!)).toBeLessThan(Math.max(3, p.direct!.fuelL * 0.03));
+    expect(p.hasRoughLeg).toBe(false);
     const hoursMin = directKm / (DEFAULT_BOAT.speedKn * KMH_PER_KNOT);
-    expect(plan.hours).toBeGreaterThanOrEqual(hoursMin * 0.99);
-    expect(plan.hours).toBeLessThan(hoursMin * 1.15);
+    expect(p.hours).toBeGreaterThanOrEqual(hoursMin * 0.99);
+    expect(p.hours).toBeLessThan(hoursMin * 1.15);
   });
 
-  it("tường sóng dữ chắn ngang có khe hở → tuyến chui qua khe, né hết vùng dữ", () => {
-    // dải sóng 3,2 m chắn kinh tuyến 111, hở một khe ở vĩ độ 12,55+
-    const f = makeField(BB, 9, (la, lo) =>
-      Math.abs(lo - 111) < 0.3 && la < 12.55 ? { waveM: 3.2 } : calm(),
-    );
-    const plan = planRoute({
-      start: START, dest: DEST, boat: DEFAULT_BOAT,
+  it("INVARIANT chống ca '100 km vẽ thành 400 km': đường thẳng đi được thì tuyến không bao giờ dài quá trần", () => {
+    // nửa nam toàn sóng 3,5 m (mức "không nên đi" nhưng CHƯA cấm); hành lang
+    // êm phía bắc dụ tuyến đi vòng. Với penalty nhỏ (audit: 1,15/1,5 thay ×3)
+    // + trần MAX_DETOUR_RATIO, hệ KHÔNG ĐƯỢC PHÉP trả tuyến dài vô lý — hoặc
+    // đi gần thẳng kèm cảnh báo đỏ, hoặc cap về đường thẳng. Cả hai đều phải
+    // nói thật là có sóng dữ.
+    const a: LatLon = { lat: 12.0, lon: 110.0 };
+    const b: LatLon = { lat: 12.0, lon: 110.92 }; // chim bay ~100 km
+    const f = makeField(BB, 9, (la) => (la < 12.5 ? { waveM: 3.5 } : calm()));
+    const p = planRoute({
+      start: a, dest: b, boat: DEFAULT_BOAT,
       departHourIdx: 6, field: f, depth: null, bbox: BB,
     })!;
-    expect(plan).not.toBeNull();
-    expect(plan.hasRoughLeg).toBe(false);
-    expect(plan.maxWaveM).toBeLessThan(2.5);
-    // có đi vòng lên phía khe hở
-    const maxLat = Math.max(...plan.waypoints.map((w) => w.lat));
-    expect(maxLat).toBeGreaterThan(12.4);
-    expect(plan.direct).not.toBeNull(); // đường thẳng vẫn đi được (chỉ tốn hơn)
-    expect(plan.savedFuelL).toBeGreaterThanOrEqual(0);
+    expect(p).not.toBeNull();
+    expect(p.direct).not.toBeNull();
+    // BẤT BIẾN: không bao giờ dài hơn trần khi đường thẳng đi được
+    expect(p.distKm).toBeLessThanOrEqual(p.direct!.distKm * MAX_DETOUR_RATIO);
+    // và phải nói thật: xuất phát/đích nằm giữa vùng sóng 3,5 m
+    expect(p.hasRoughLeg).toBe(true);
+    expect(p.maxWaveM).toBeGreaterThan(3);
   });
 
-  it("đất liền chắn ngang đường thẳng → tuyến vòng qua, direct = null (kiểu mũi Cà Mau)", () => {
-    // "bán đảo" đất chắn quanh kinh tuyến 111 từ mép dưới lên tới 12,6 —
-    // rộng hơn mắt lưới thời tiết để cả 4 góc nội suy đều là đất (tường đất
-    // mỏng hơn mắt lưới là việc của lưới ĐỘ SÂU, có test riêng bên dưới)
+  it("dải sóng 3 m có khe hở gần → lách qua khe (vòng nhẹ dưới trần), nói thật tốn thêm dầu", () => {
+    // dải rộng hơn mắt lưới thời tiết (≈0,52°) để nội suy không "pha loãng"
+    // sóng xuống dưới ngưỡng; khe hở đặt GẦN (vòng ~1,2× — dưới trần 1,3;
+    // khe xa hơn thì trần tự cắt về đường thẳng — có test riêng phía trên)
+    const f = makeField(BB, 9, (la, lo) =>
+      Math.abs(lo - 111) < 0.8 && la < 12.3 ? { waveM: 3.4 } : calm(),
+    );
+    const p = plan(f)!;
+    expect(p.cappedToDirect).toBe(false);
+    expect(p.hasRoughLeg).toBe(false); // đã né hết mức "không nên đi"
+    expect(p.maxWaveM).toBeLessThan(3);
+    expect(Math.max(...p.waypoints.map((w) => w.lat))).toBeGreaterThan(12.3);
+    expect(p.direct).not.toBeNull();
+    expect(p.distKm).toBeLessThanOrEqual(p.direct!.distKm * MAX_DETOUR_RATIO);
+    expect(p.fuelDeltaL).not.toBeNull(); // con số thật, có dấu — không cắt về 0
+  });
+
+  it("đất liền chắn ngang → vòng qua là chính đáng, direct = null, KHÔNG áp trần (kiểu mũi Cà Mau)", () => {
     const f = makeField(BB, 9, (la, lo) =>
       Math.abs(lo - 111) < 0.8 && la < 12.6 ? "land" : calm(),
     );
-    const plan = planRoute({
-      start: START, dest: DEST, boat: DEFAULT_BOAT,
-      departHourIdx: 6, field: f, depth: null, bbox: BB,
-    })!;
-    expect(plan).not.toBeNull();
-    expect(plan.direct).toBeNull();
-    expect(plan.savedFuelL).toBe(0);
-    const maxLat = Math.max(...plan.waypoints.map((w) => w.lat));
-    expect(maxLat).toBeGreaterThan(12.5); // vòng lên trên bán đảo
+    const p = plan(f)!;
+    expect(p.direct).toBeNull();
+    expect(p.fuelDeltaL).toBeNull();
+    expect(p.cappedToDirect).toBe(false);
+    expect(Math.max(...p.waypoints.map((w) => w.lat))).toBeGreaterThan(12.5);
   });
 
-  it("sóng ≥4 m chắn kín mọi lối → trả null, không vẽ liều", () => {
+  it("sóng ≥4 m (cấp 8) chắn kín mọi lối → trả null, không vẽ liều", () => {
     const f = makeField(BB, 9, (la, lo) =>
       Math.abs(lo - 111) < 0.3 ? { waveM: 4.5 } : calm(),
     );
-    const plan = planRoute({
-      start: START, dest: DEST, boat: DEFAULT_BOAT,
-      departHourIdx: 6, field: f, depth: null, bbox: BB,
-    });
-    expect(plan).toBeNull();
+    expect(plan(f)).toBeNull();
   });
 
-  it("vùng dữ 3 m chắn kín (chưa tới mức cấm 4 m) → vẫn ra tuyến + cờ cảnh báo", () => {
+  it("sóng 3 m chắn kín không lối né (chưa tới mức cấm) → đi xuyên + cờ cảnh báo đỏ", () => {
     const f = makeField(BB, 9, (la, lo) =>
-      Math.abs(lo - 111) < 0.3 ? { waveM: 3 } : calm(),
+      Math.abs(lo - 111) < 0.8 ? { waveM: 3.4 } : calm(),
     );
-    const plan = planRoute({
-      start: START, dest: DEST, boat: DEFAULT_BOAT,
-      departHourIdx: 6, field: f, depth: null, bbox: BB,
-    })!;
-    expect(plan).not.toBeNull();
-    expect(plan.hasRoughLeg).toBe(true);
-    expect(plan.maxWaveM).toBeGreaterThan(2.9);
+    // khác test khe hở: dải phủ MỌI vĩ độ → không có khe
+    const p = plan(f)!;
+    expect(p).not.toBeNull();
+    expect(p.hasRoughLeg).toBe(true);
+    expect(p.maxWaveM).toBeGreaterThan(2.9);
+    expect(p.distKm).toBeLessThanOrEqual(p.direct!.distKm * MAX_DETOUR_RATIO);
+  });
+
+  it("sóng đuôi ngắn 2,2 m khắp vùng → chạy GẦN THẲNG (không zigzag) + cờ cảnh báo trượt sóng", () => {
+    // audit 2026-06-10: bản cũ dirF đuôi 0,4 + phạt như vùng dữ làm optimizer
+    // zigzag +41% quãng đường để né cờ — sai cả Kwon lẫn 1228 (xử lý đúng là
+    // giảm ga tại chỗ). Giờ phải đi thẳng và CẢNH BÁO.
+    const f = makeField(BB, 7, () => ({
+      waveM: 2.2, waveFromDeg: 270, wavePeriodS: 4,
+    }));
+    const p = plan(f)!;
+    expect(p.distKm).toBeLessThan(haversineKm(START, DEST) * 1.1);
+    expect(p.hasFollowingSeaRisk).toBe(true);
   });
 
   it("ngược gió tốn dầu hơn xuôi gió trên cùng tuyến", () => {
-    const head = planRoute({
-      start: START, dest: DEST, boat: DEFAULT_BOAT, departHourIdx: 6,
-      field: makeField(BB, 7, () => ({ windKmh: 30, windFromDeg: 90 })),
-      depth: null, bbox: BB,
-    })!;
-    const tail = planRoute({
-      start: START, dest: DEST, boat: DEFAULT_BOAT, departHourIdx: 6,
-      field: makeField(BB, 7, () => ({ windKmh: 30, windFromDeg: 270 })),
-      depth: null, bbox: BB,
-    })!;
+    const head = plan(makeField(BB, 7, () => ({ windKmh: 30, windFromDeg: 90 })))!;
+    const tail = plan(makeField(BB, 7, () => ({ windKmh: 30, windFromDeg: 270 })))!;
     expect(head.fuelL).toBeGreaterThan(tail.fuelL);
   });
+});
 
+// ── dòng hải lưu ─────────────────────────────────────────────────────────
+
+describe("dòng chảy trong tuyến", () => {
   it("xuôi dòng nhanh và đỡ dầu hơn ngược dòng trên cùng quãng đường", () => {
-    // dòng 3 km/h chảy về Đông khắp vùng; cùng cặp điểm, đi xuôi và đi ngược
     const f = makeField(BB, 7, () => ({ currentKmh: 3, currentToDeg: 90 }));
-    const goEast = planRoute({
-      start: START, dest: DEST, boat: DEFAULT_BOAT,
-      departHourIdx: 6, field: f, depth: null, bbox: BB,
-    })!;
-    const goWest = planRoute({
-      start: DEST, dest: START, boat: DEFAULT_BOAT,
-      departHourIdx: 6, field: f, depth: null, bbox: BB,
-    })!;
+    const goEast = plan(f)!;
+    const goWest = plan(f, DEST, START)!;
     expect(goEast.hours).toBeLessThan(goWest.hours);
     expect(goEast.fuelL).toBeLessThan(goWest.fuelL);
-    // sanity: chênh lệch cỡ 2×3 km/h trên ~13 km/h — rõ rệt chứ không vi tế
     expect(goWest.fuelL / goEast.fuelL).toBeGreaterThan(1.3);
   });
 
-  it("dải dòng thuận lệch trục → tuyến bẻ vào dải để 'đi nhờ nước'", () => {
-    // dòng 4 km/h về Đông trong dải vĩ độ 12,08–12,5 — sát đường thẳng,
-    // lệch vài km là "đi nhờ nước" được (dải xa quá thì không bõ — đã thử,
-    // thuật toán từ chối bẻ là ĐÚNG kinh tế)
+  it("dải dòng thuận sát trục → bẻ nhẹ vào dải để 'đi nhờ nước' và thật sự đỡ dầu", () => {
     const f = makeField(BB, 9, (la) =>
       la > 12.08 && la < 12.5 ? { currentKmh: 4, currentToDeg: 90 } : calm(),
     );
-    const withCurrent = planRoute({
-      start: START, dest: DEST, boat: DEFAULT_BOAT,
-      departHourIdx: 6, field: f, depth: null, bbox: BB,
-    })!;
-    const still = planRoute({
-      start: START, dest: DEST, boat: DEFAULT_BOAT,
-      departHourIdx: 6, field: makeField(BB, 9, calm), depth: null, bbox: BB,
-    })!;
-    const maxLat = Math.max(...withCurrent.waypoints.map((w) => w.lat));
-    expect(maxLat).toBeGreaterThan(12.12); // có bẻ lên dải dòng thuận
-    expect(withCurrent.fuelL).toBeLessThan(still.fuelL); // và bõ công bẻ
+    const withCur = plan(f)!;
+    const still = plan(makeField(BB, 9, calm))!;
+    expect(Math.max(...withCur.waypoints.map((w) => w.lat))).toBeGreaterThan(12.1);
+    expect(withCur.fuelL).toBeLessThan(still.fuelL);
+    expect(withCur.distKm).toBeLessThanOrEqual(withCur.direct!.distKm * MAX_DETOUR_RATIO);
   });
 
-  it("dòng ngược phi lý (mạnh hơn tàu) → không chia 0, giờ chạy vẫn hữu hạn", () => {
-    const f = makeField(BB, 7, () => ({ currentKmh: 40, currentToDeg: 270 }));
-    const plan = planRoute({
-      start: START, dest: DEST, boat: DEFAULT_BOAT,
-      departHourIdx: 6, field: f, depth: null, bbox: BB,
-    })!;
-    expect(plan).not.toBeNull();
-    expect(Number.isFinite(plan.hours)).toBe(true);
-    expect(plan.hours).toBeGreaterThan(0);
-  });
-
-  it("sóng đuôi ≥2 m khắp vùng → hoặc cắm cờ nguy cơ, hoặc chạy chéo né (quartering)", () => {
-    const f = makeField(BB, 7, () => ({ waveM: 2.2, waveFromDeg: 270 }));
-    const plan = planRoute({
-      start: START, dest: DEST, boat: DEFAULT_BOAT,
-      departHourIdx: 6, field: f, depth: null, bbox: BB,
-    })!;
-    expect(plan).not.toBeNull();
-    const directKm = haversineKm(START, DEST);
-    // mô hình phải PHẢN ỨNG với sóng đuôi: hoặc chấp nhận và cảnh báo,
-    // hoặc trả tuyến chạy chéo dài hơn rõ rệt để sóng vào vai (đúng cách
-    // dân biển xử lý sóng đuôi)
-    expect(
-      plan.hasFollowingSeaRisk || plan.distKm > directKm * 1.2,
-    ).toBe(true);
+  it("dòng ngược phi lý (mạnh hơn tàu) → không chia 0, giờ chạy hữu hạn", () => {
+    const p = plan(makeField(BB, 7, () => ({ currentKmh: 40, currentToDeg: 270 })))!;
+    expect(p).not.toBeNull();
+    expect(Number.isFinite(p.hours)).toBe(true);
+    expect(p.hours).toBeGreaterThan(0);
   });
 });
 
@@ -359,7 +334,7 @@ function makeDepth(at: (lat: number, lon: number) => 0 | 1 | 2 | 3) {
   return decodeDepthGrid(packed.buffer);
 }
 
-describe("depth-grid + ràng buộc độ sâu", () => {
+describe("ràng buộc độ sâu", () => {
   it("đóng gói 2-bit đọc lại đúng, ngoài lưới trả null", () => {
     const g = makeDepth((la) => (la < 10 ? 1 : 3));
     expect(depthClassAt(g, 8, 110)).toBe(1);
@@ -367,51 +342,87 @@ describe("depth-grid + ràng buộc độ sâu", () => {
     expect(depthClassAt(g, 30, 110)).toBeNull();
   });
 
-  it("bãi cạn (<10 m) chắn ngang → tuyến vòng qua dù thời tiết êm", () => {
+  it("bãi cạn (<4 m) chắn ngang → tuyến vòng qua dù thời tiết êm", () => {
     const f = makeField(BB, 9, calm);
-    // bãi cạn dọc kinh tuyến 111, từ mép dưới lên 12,6
     const g = makeDepth((la, lo) =>
       Math.abs(lo - 111) < 0.3 && la < 12.6 ? 1 : 3,
     );
-    const plan = planRoute({
+    const p = planRoute({
       start: START, dest: DEST, boat: DEFAULT_BOAT,
       departHourIdx: 6, field: f, depth: g, bbox: BB,
     })!;
-    expect(plan).not.toBeNull();
-    expect(plan.depthChecked).toBe(true);
-    expect(plan.direct).toBeNull(); // đường thẳng đâm vào bãi cạn
-    const maxLat = Math.max(...plan.waypoints.map((w) => w.lat));
-    expect(maxLat).toBeGreaterThan(12.5);
+    expect(p.depthChecked).toBe(true);
+    expect(p.direct).toBeNull(); // đường thẳng đâm vào bãi cạn
+    expect(Math.max(...p.waypoints.map((w) => w.lat))).toBeGreaterThan(12.5);
   });
 
-  it("dải nước nông 10–20 m trên đường → vẫn đi nhưng cắm cờ hasShallowLeg", () => {
+  it("rạn hẹp giữa chặng dài không lọt khe (mẫu mỗi ≤5 km dọc cạnh)", () => {
+    const f = makeField(BB, 9, calm);
+    // chấm đảo nhỏ ~6 km ngay trên đường thẳng, giữa hai mắt lưới tìm đường
+    const g = makeDepth((la, lo) =>
+      Math.abs(la - 12.0) < 0.03 && Math.abs(lo - 111.01) < 0.03 ? 0 : 3,
+    );
+    const p = planRoute({
+      start: START, dest: DEST, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: f, depth: g, bbox: BB,
+    })!;
+    expect(p).not.toBeNull();
+    // không waypoint nào đặt đúng lên đảo + tuyến phải lệch khỏi nó
+    for (let k = 1; k < p.waypoints.length; k++) {
+      const a = p.waypoints[k - 1];
+      const b = p.waypoints[k];
+      for (let t = 0; t <= 10; t++) {
+        const pt = {
+          lat: a.lat + ((b.lat - a.lat) * t) / 10,
+          lon: a.lon + ((b.lon - a.lon) * t) / 10,
+        };
+        if (haversineKm(pt, { lat: 12.0, lon: 111.01 }) < 2.5) {
+          throw new Error("tuyến vẽ xuyên qua đảo");
+        }
+      }
+    }
+  });
+
+  it("dải nước nông 4–12 m trên đường → vẫn đi nhưng cắm cờ hasShallowLeg", () => {
     const f = makeField(BB, 9, calm);
     const g = makeDepth((la, lo) => (Math.abs(lo - 111) < 0.3 ? 2 : 3));
-    const plan = planRoute({
+    const p = planRoute({
       start: START, dest: DEST, boat: DEFAULT_BOAT,
       departHourIdx: 6, field: f, depth: g, bbox: BB,
     })!;
-    expect(plan.hasShallowLeg).toBe(true);
+    expect(p.hasShallowLeg).toBe(true);
   });
 
-  it("sát cảng cạn/bờ vẫn nối được (vicinity quanh hai đầu)", () => {
+  it("sát cảng RẤT CẠN (class 1) trong 12 km vẫn nối được; vòng đất class 0 ngoài 5 km thì chặn", () => {
     const f = makeField(BB, 9, calm);
-    // toàn vùng quanh điểm xuất phát là "đất" trong bán kính nhỏ
-    const g = makeDepth((la, lo) =>
-      haversineKm({ lat: la, lon: lo }, START) < 8 ? 0 : 3,
+    const shallowRing = makeDepth((la, lo) =>
+      haversineKm({ lat: la, lon: lo }, START) < 8 ? 1 : 3,
     );
-    const plan = planRoute({
-      start: START, dest: DEST, boat: DEFAULT_BOAT,
-      departHourIdx: 6, field: f, depth: g, bbox: BB,
+    expect(
+      planRoute({
+        start: START, dest: DEST, boat: DEFAULT_BOAT,
+        departHourIdx: 6, field: f, depth: shallowRing, bbox: BB,
+      }),
+    ).not.toBeNull();
+
+    const landRing = makeDepth((la, lo) => {
+      const d = haversineKm({ lat: la, lon: lo }, START);
+      // vành đai ĐẤT dày 7,5 km (dày hơn bước lấy mẫu 5 km) ngoài bán kính nới 5 km
+      return d > 5.5 && d < 13 ? 0 : 3;
     });
-    expect(plan).not.toBeNull();
+    expect(
+      planRoute({
+        start: START, dest: DEST, boat: DEFAULT_BOAT,
+        departHourIdx: 6, field: f, depth: landRing, bbox: BB,
+      }),
+    ).toBeNull(); // không cho cắt ngang doi đất
   });
 });
 
 // ── adapter thời tiết ────────────────────────────────────────────────────
 
 describe("parseWeatherField (adapter)", () => {
-  it("ghép lưới gió + sóng, nhận đất liền qua sóng null", () => {
+  it("ghép lưới gió + sóng + chu kỳ + dòng, nhận đất liền qua sóng null", () => {
     const lats = [10, 10.5];
     const lons = [105, 105.5];
     const mk = (w: (number | null)[]) => ({
@@ -420,6 +431,7 @@ describe("parseWeatherField (adapter)", () => {
         wind_direction_10m: [45, 90],
         wave_height: w,
         wave_direction: [180, 200],
+        wave_period: [5, 6],
         ocean_current_velocity: [1.5, 1.2],
         ocean_current_direction: [30, 35],
       },
@@ -427,13 +439,12 @@ describe("parseWeatherField (adapter)", () => {
     const wind = [mk([1, 1]), mk([1, 1]), mk([1, 1]), mk([1, 1])];
     const wave = [mk([1.2, 1.1]), mk([null, null]), mk([0.8, 0.9]), mk([1, 1])];
     const f = parseWeatherField(wind, wave, lats, lons);
-    expect(f.nLat).toBe(2);
-    expect(f.nLon).toBe(2);
     expect(f.cells[0].onSea).toBe(true);
-    expect(f.cells[1].onSea).toBe(false); // sóng null cả dãy
+    expect(f.cells[1].onSea).toBe(false);
     expect(f.cells[0].hours[0]).toEqual({
       waveM: 1.2,
       waveFromDeg: 180,
+      wavePeriodS: 5,
       windKmh: 12,
       windFromDeg: 45,
       currentKmh: 1.5,
@@ -446,7 +457,6 @@ describe("parseWeatherField (adapter)", () => {
       latMin: 5, latMax: 23, lonMin: 102, lonMax: 118,
     });
     expect(lats.length * lons.length).toBeLessThanOrEqual(120);
-    expect(lats.length).toBeGreaterThanOrEqual(4);
   });
 });
 

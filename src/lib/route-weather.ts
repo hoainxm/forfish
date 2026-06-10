@@ -25,6 +25,7 @@ type RawLocation = {
     wind_direction_10m?: unknown[];
     wave_height?: unknown[];
     wave_direction?: unknown[];
+    wave_period?: unknown[];
     ocean_current_velocity?: unknown[];
     ocean_current_direction?: unknown[];
   };
@@ -73,11 +74,13 @@ export function parseWeatherField(
       const dirs = wind[k]?.hourly?.wind_direction_10m ?? [];
       const waves = wave[k]?.hourly?.wave_height ?? [];
       const waveDirs = wave[k]?.hourly?.wave_direction ?? [];
+      const wavePeriods = wave[k]?.hourly?.wave_period ?? [];
       const curVels = wave[k]?.hourly?.ocean_current_velocity ?? [];
       const curDirs = wave[k]?.hourly?.ocean_current_direction ?? [];
       const hours: HourSample[] = speeds.map((s, t) => ({
         waveM: num(waves[t]),
         waveFromDeg: num(waveDirs[t]),
+        wavePeriodS: num(wavePeriods[t]),
         windKmh: num(s) ?? 0,
         windFromDeg: num(dirs[t]) ?? 0,
         // dòng chảy: km/h, hướng CHẢY TỚI (chuẩn hải dương — nguồn SMOC có
@@ -120,7 +123,7 @@ export async function fetchWeatherField(bbox: BBox): Promise<WeatherField> {
       `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m`,
     ),
     fetch(
-      `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction,ocean_current_velocity,ocean_current_direction`,
+      `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction,wave_period,ocean_current_velocity,ocean_current_direction`,
     ),
   ]);
   if (!windRes.ok || !waveRes.ok) {

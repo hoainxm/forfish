@@ -64,6 +64,43 @@ lượng bán thực nghiệm — UI bắt buộc gắn nhãn "tham khảo".
 xuyên đất liền) ra tuyến 461 km vòng qua phía nam mũi Cà Mau, né dải cạn
 ven bờ, kèm cảnh báo đoạn nước nông — corridor hẹp bản cũ không làm được.
 
+## 3b. Audit 2026-06-10 (2 reviewer độc lập) — sửa lỗi "100 km vẽ thành 400 km"
+
+Người dùng bắt được ca chim bay ~100 km nhưng app vẽ tuyến ~400 km. Hai
+chuyên gia (thuật toán + hàng hải) audit độc lập, hội tụ về cùng chẩn đoán:
+
+1. **Lỗi kiến trúc**: penalty ×3 nhân vào chi phí (sóng ≥2,5 m) chồng lên
+   giảm tốc → cho phép Dijkstra "mua" đường vòng tới ~6,8× để né mức sóng
+   mà ngư dân mùa gió Tây Nam đi hằng ngày. VISIR và hệ thương mại
+   (StormGeo/DTN) coi an toàn là RÀNG BUỘC CỨNG, tối ưu nhiên liệu thuần
+   trong tập khả thi — tuyến của VISIR chỉ dài hơn chim bay ~3%, hiếm khi
+   quá 10%. → Sửa: bậc thang theo thang KTTV VN (QĐ 18/2021): cấp 6 /
+   2–3 m phạt 1,15 · cấp 7 / 3–4 m phạt 1,5 + cảnh báo đỏ "không nên đi"
+   · cấp 8 / ≥4 m chặn cứng. Penalty P chỉ cho phép vòng (P−1)×100%.
+2. **Trần đường vòng** (chốt chặn cuối): đường thẳng đi được vật lý mà
+   tuyến tối ưu dài hơn `MAX_DETOUR_RATIO = 1.3` → trả ĐƯỜNG THẲNG + cảnh
+   báo thật, thuyền trưởng tự quyết — app không bán đường vòng vô lý.
+3. **UI từng nói dối**: `savedFuelL = max(0, …)` cắt mất con số "tốn thêm"
+   → tuyến vòng rơi vào nhánh in "chạy thẳng là đỡ tốn dầu nhất — tuyến vẽ
+   theo đường đó". → Sửa: `fuelDeltaL` CÓ DẤU; câu "chạy thẳng" chỉ được in
+   khi tuyến ≤1,05× direct; tuyến vòng phải nói "né sóng X m, tốn thêm Y lít".
+4. **Hệ số sóng đuôi sai ~2,5×** so với Kwon (0,4 → 0,15; thêm bin chếch
+   mũi 0,8; ngang 0,45) — bản cũ phạt kép tuyến xuôi sóng làm optimizer
+   zigzag +41% "né cờ". Broaching (IMO 1228) là việc xử lý TẠI CHỖ (giảm
+   ga/đổi hướng) → chỉ phạt 1,2 + cảnh báo riêng, gate thêm chu kỳ sóng
+   <6 s (swell dài tàu cưỡi êm — cần `wave_period`, đã thêm vào adapter).
+5. Lỗi kỹ thuật kèm: kiểm độ sâu mẫu mỗi ≤5 km dọc cạnh (rạn hết lọt khe
+   giữa hai đầu cạnh dài); vành nới quanh cảng tách 2 mức (đất 5 km, cạn
+   12 km — không cho tuyến cắt doi đất); thời tiết lấy tại TRUNG ĐIỂM chặng
+   vào GIỮA giờ chạy; kéo căng dây (string-pulling) khử zigzag lưới trước
+   khi đo/vẽ; sóng ≥2,5 m trên nền nước nông 4–12 m nâng lên mức nguy hiểm
+   (sóng vỡ); tổng hiển thị luôn tính TRỌN tuyến (walk relaxed không cụt
+   giữa chừng); ghi chú trung thực Dijkstra là xấp xỉ time-dependent.
+
+Đo lại với dữ liệu thật sau sửa: Quy Nhơn→khơi NTB 1,01× chim bay;
+Phan Thiết→khơi 1,00×; Rạch Giá→nam Côn Đảo vẫn 2,5× nhưng CHÍNH ĐÁNG
+(đường thẳng xuyên đất liền — không áp trần khi direct bị chặn cứng).
+
 ## 4. Hạn chế ghi rõ (để copy UI trung thực)
 
 - ETOPO ~ mực nước trung bình; thuỷ triều VN có nơi ±2 m → ngưỡng 4 m vẫn có

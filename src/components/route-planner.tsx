@@ -381,32 +381,53 @@ export function RoutePlanner({
             </div>
           </div>
 
-          {plan.savedFuelL >= 3 ? (
-            <p className="rounded-xl bg-[var(--ok-bg)] p-3 text-[15px] font-semibold leading-snug text-[var(--ok)]">
-              Đi hơi vòng nhưng êm hơn — đỡ chừng{" "}
-              {Math.round(plan.savedFuelL)} lít dầu so với chạy thẳng.
+          {/* Nói thật tuyến này so với chạy thẳng ra sao — không có nhánh
+              nào được phép nói "chạy thẳng" khi tuyến vẽ là đường vòng */}
+          {plan.cappedToDirect ? (
+            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[15px] font-semibold leading-snug text-[var(--warn)]">
+              Không có đường vòng nào đáng tiền để né sóng — tuyến vẽ là ĐƯỜNG
+              THẲNG, trên đường có đoạn sóng tới{" "}
+              {formatNumberVN(plan.maxWaveM)} m. Cân nhắc hoãn hoặc đợi biển
+              êm hơn.
             </p>
           ) : plan.direct === null ? (
             <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[15px] font-semibold leading-snug text-[var(--warn)]">
               Đường chim bay đang vướng đất liền, bãi cạn hoặc sóng quá dữ —
               tuyến này đi vòng qua chỗ đó.
             </p>
-          ) : (
+          ) : plan.fuelDeltaL != null &&
+            -plan.fuelDeltaL > Math.max(3, plan.direct.fuelL * 0.03) &&
+            plan.distKm > plan.direct.distKm * 1.02 ? (
             <p className="rounded-xl bg-[var(--ok-bg)] p-3 text-[15px] font-semibold leading-snug text-[var(--ok)]">
-              Hôm nay chạy thẳng là êm và đỡ tốn dầu nhất — tuyến vẽ theo đường
-              đó.
+              Đi hơi vòng nhưng êm hơn — đỡ chừng{" "}
+              {Math.round(-plan.fuelDeltaL)} lít dầu so với chạy thẳng.
+            </p>
+          ) : plan.distKm <= plan.direct.distKm * 1.05 ? (
+            <p className="rounded-xl bg-[var(--ok-bg)] p-3 text-[15px] font-semibold leading-snug text-[var(--ok)]">
+              Hôm nay chạy thẳng là hợp lý nhất — tuyến vẽ theo đường đó.
+            </p>
+          ) : (
+            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[15px] font-semibold leading-snug text-[var(--warn)]">
+              Tuyến vòng nhẹ để né đoạn sóng ~
+              {formatNumberVN(plan.direct.maxWaveM)} m trên đường thẳng — tốn
+              thêm chừng {Math.max(1, Math.round(plan.fuelDeltaL ?? 0))} lít.
+              Êm hơn nhưng không rẻ hơn, bà con tự cân nhắc.
             </p>
           )}
 
           {plan.hasRoughLeg && (
             <p className="flex items-start gap-2 rounded-xl bg-[var(--danger-bg)] p-3 text-[15px] font-bold leading-snug text-danger">
               <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
-              Không có lối nào tránh hết vùng dữ: trên đường vẫn có đoạn sóng
-              tới {formatNumberVN(plan.maxWaveM)} m, gió cấp{" "}
-              {beaufort(plan.maxWindKmh)}
-              {plan.hasFollowingSeaRisk &&
-                ", có đoạn sóng dồn từ phía đuôi dễ trượt sóng"}{" "}
-              — cân nhắc hoãn chuyến.
+              Trên đường có đoạn sóng tới {formatNumberVN(plan.maxWaveM)} m,
+              gió cấp {beaufort(plan.maxWindKmh)} — mức KHÔNG NÊN ĐI với tàu
+              nhỏ. Cân nhắc hoãn chuyến, nghe đài trước khi quyết.
+            </p>
+          )}
+
+          {plan.hasFollowingSeaRisk && !plan.hasRoughLeg && (
+            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[15px] font-semibold leading-snug text-[var(--warn)]">
+              Có đoạn sóng dồn từ phía đuôi (≥2 m, sóng ngắn) — dễ trượt sóng:
+              tới đoạn đó giảm ga, đừng để sóng vỗ thẳng đuôi tàu.
             </p>
           )}
 
