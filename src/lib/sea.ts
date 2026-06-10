@@ -60,9 +60,11 @@ export async function fetchSeaForecast(
   const [marineRes, weatherRes] = await Promise.all([
     fetch(
       `https://marine-api.open-meteo.com/v1/marine?${common}&daily=wave_height_max`,
+      { signal: AbortSignal.timeout(15000) },
     ),
     fetch(
       `https://api.open-meteo.com/v1/forecast?${common}&daily=wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,weather_code`,
+      { signal: AbortSignal.timeout(15000) },
     ),
   ]);
   if (!marineRes.ok || !weatherRes.ok) {

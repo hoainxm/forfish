@@ -10,9 +10,6 @@ import {
   outstandingAdvance,
 } from "@/lib/crew";
 import {
-  AlertIcon,
-  CheckIcon,
-  ClockIcon,
   EditIcon,
   MoneyHandIcon,
   PlusIcon,
@@ -20,6 +17,7 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
@@ -74,12 +72,6 @@ export function useCrew() {
 
   return { today, crew, setCrew, ready };
 }
-
-const issueStyle = {
-  danger: { bg: "var(--danger-bg)", fg: "var(--danger)", Icon: AlertIcon },
-  warn: { bg: "var(--warn-bg)", fg: "var(--warn)", Icon: ClockIcon },
-  ok: { bg: "var(--ok-bg)", fg: "var(--ok)", Icon: CheckIcon },
-} as const;
 
 export function CrewList() {
   const { today, crew, setCrew, ready } = useCrew();
@@ -168,7 +160,7 @@ export function CrewList() {
           <p className="text-[13px] text-foreground/55">Chưa bảo hiểm</p>
         </div>
         <div className="rounded-xl bg-card py-3 text-center shadow-sm ring-1 ring-line">
-          <p className="display text-[17px] font-bold leading-[2] text-navy">
+          <p className="display text-[18px] font-bold leading-[2] text-navy">
             {formatShortVnd(totalAdvance)}
           </p>
           <p className="text-[13px] text-foreground/55">Đang ứng</p>
@@ -189,7 +181,7 @@ export function CrewList() {
       {ready && boatReady && boatCrew.length === 0 && (
         <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
           <UsersIcon className="mx-auto h-10 w-10 text-foreground/30" />
-          <p className="mt-3 text-[17px] text-foreground/60">
+          <p className="mt-3 text-[18px] text-foreground/60">
             Chưa có ai trong sổ.
             <br />
             Bấm nút cam ở trên để thêm bạn thuyền.
@@ -200,20 +192,13 @@ export function CrewList() {
       <ul className="space-y-3">
         {boatCrew.map((m) => {
           const issue = crewIssue(m, today);
-          const st = issueStyle[issue.level];
           const owing = outstandingAdvance(m);
           return (
             <li
               key={m.id}
               className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line"
             >
-              <p
-                className="flex items-center gap-2 px-4 py-2.5 text-[16px] font-bold"
-                style={{ backgroundColor: st.bg, color: st.fg }}
-              >
-                <st.Icon className="h-5 w-5 shrink-0" />
-                {issue.label}
-              </p>
+              <StatusBanner level={issue.level}>{issue.label}</StatusBanner>
 
               <div className="px-4 py-3">
                 <p className="text-[13px] font-bold uppercase tracking-wide text-foreground/40">
@@ -425,7 +410,7 @@ function CrewForm({
             <button
               type="button"
               onClick={() => setHasInsurance(true)}
-              className={`min-h-[52px] rounded-lg text-[17px] font-bold ${
+              className={`min-h-[52px] rounded-lg text-[18px] font-bold ${
                 hasInsurance
                   ? "bg-ok text-white"
                   : "border-2 border-line text-foreground/60"
@@ -436,7 +421,7 @@ function CrewForm({
             <button
               type="button"
               onClick={() => setHasInsurance(false)}
-              className={`min-h-[52px] rounded-lg text-[17px] font-bold ${
+              className={`min-h-[52px] rounded-lg text-[18px] font-bold ${
                 !hasInsurance
                   ? "bg-danger text-white"
                   : "border-2 border-line text-foreground/60"

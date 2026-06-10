@@ -13,12 +13,6 @@ import {
 } from "@/data/wholesalers";
 import { useHome, HomeBar, applyHome } from "@/components/ui/region-filter";
 import { type HomePref } from "@/lib/region";
-
-/** Lấy 1 số gọi được từ chuỗi có thể chứa nhiều số (cách nhau "/", ",", "-"). */
-function telHref(phone: string): string {
-  const first = phone.split(/[/,;]| - | hoặc /i)[0] ?? phone;
-  return `tel:${first.replace(/[^\d+]/g, "")}`;
-}
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Card, EmptyState, Field, PrimaryButton, RefNote, inputClass } from "@/components/ui/primitives";
@@ -41,6 +35,12 @@ import {
    · Nhà máy    — DN thu mua/xuất khẩu, lọc theo loài cá (seafood-buyers)
    · Mối quen   — nậu/vựa/nhà máy bà con TỰ thêm (localStorage, riêng tư)
 */
+
+/** Lấy 1 số gọi được từ chuỗi có thể chứa nhiều số (cách nhau "/", ",", "-"). */
+function telHref(phone: string): string {
+  const first = phone.split(/[/,;]| - | hoặc /i)[0] ?? phone;
+  return `tel:${first.replace(/[^\d+]/g, "")}`;
+}
 
 type Section = "kenh" | "vua" | "cho" | "nhamay" | "moiquen";
 
@@ -69,7 +69,7 @@ export function SellGuide() {
               key={s.id}
               onClick={() => setSection(s.id)}
               aria-pressed={on}
-              className={`min-h-[44px] shrink-0 rounded-lg px-4 text-[15px] font-bold transition ${
+              className={`min-h-[48px] shrink-0 rounded-lg px-4 text-[16px] font-bold transition ${
                 on
                   ? "bg-t2 text-white"
                   : "bg-card text-navy/70 ring-1 ring-line active:bg-background"
@@ -165,7 +165,7 @@ function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
                   <p className="text-[12px] font-bold uppercase tracking-wide text-foreground/45">
                     {WHOLESALER_KIND_LABEL[w.kind] ?? "Vựa"}
                   </p>
-                  <p className="display text-[17px] font-bold leading-snug text-navy">
+                  <p className="display text-[18px] font-bold leading-snug text-navy">
                     {w.name}
                   </p>
                 </div>
@@ -270,7 +270,7 @@ function Factories({ home, near }: { home: HomePref; near: boolean }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm theo loài: cá ngừ, tôm, mực…"
-          className="min-h-[52px] w-full rounded-lg border-2 border-line bg-card pl-11 pr-4 text-[17px] focus:border-sea focus:outline-none"
+          className="min-h-[52px] w-full rounded-lg border-2 border-line bg-card pl-11 pr-4 text-[18px] focus:border-sea focus:outline-none"
         />
       </div>
       <RefNote>
@@ -285,7 +285,7 @@ function Factories({ home, near }: { home: HomePref; near: boolean }) {
           <li key={b.id}>
             <Card className="p-3.5">
               <div className="flex items-start justify-between gap-2">
-                <p className="display text-[17px] font-bold leading-snug text-navy">
+                <p className="display text-[18px] font-bold leading-snug text-navy">
                   {b.name}
                 </p>
                 {b.direct && (

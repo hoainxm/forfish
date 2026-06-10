@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertIcon,
-  CheckIcon,
   ClockIcon,
   DocIcon,
   EditIcon,
@@ -155,14 +153,6 @@ export function BoatProducts() {
                 : status.level === "ok"
                   ? "ok"
                   : "neutral";
-          const Icon =
-            status.level === "expired"
-              ? AlertIcon
-              : status.level === "soon"
-                ? ClockIcon
-                : status.level === "ok"
-                  ? CheckIcon
-                  : ClockIcon;
           return (
             <li
               key={product.id}
@@ -171,7 +161,9 @@ export function BoatProducts() {
               {/* status banner — the first thing the eye lands on */}
               <StatusBanner
                 level={level}
-                icon={<Icon className="h-5 w-5" />}
+                icon={
+                  level === "neutral" ? <ClockIcon className="h-5 w-5" /> : undefined
+                }
               >
                 {status.label}
               </StatusBanner>
@@ -209,14 +201,14 @@ export function BoatProducts() {
                     setEditing(product);
                     setShowForm(true);
                   }}
-                  className="flex min-h-[56px] items-center justify-center gap-2 text-[17px] font-bold text-sea active:bg-background"
+                  className="flex min-h-[56px] items-center justify-center gap-2 text-[18px] font-bold text-sea active:bg-background"
                 >
                   <EditIcon className="h-5 w-5" />
                   Sửa
                 </button>
                 <button
                   onClick={() => setConfirmDelete(product)}
-                  className="flex min-h-[56px] items-center justify-center gap-2 border-l border-line text-[17px] font-bold text-danger active:bg-background"
+                  className="flex min-h-[56px] items-center justify-center gap-2 border-l border-line text-[18px] font-bold text-danger active:bg-background"
                 >
                   <TrashIcon className="h-5 w-5" />
                   Xóa

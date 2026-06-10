@@ -56,13 +56,13 @@ export function PriceBoard() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Tìm loại cá..."
-          className="min-h-[52px] w-full rounded-xl border-2 border-line bg-card pl-12 pr-4 text-[17px] focus:border-sea focus:outline-none"
+          className="min-h-[52px] w-full rounded-xl border-2 border-line bg-card pl-12 pr-4 text-[18px] focus:border-sea focus:outline-none"
         />
       </label>
 
       {shown.length === 0 && (
         <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-10 text-center">
-          <p className="text-[17px] text-foreground/60">
+          <p className="text-[18px] text-foreground/60">
             Không thấy loại cá này trong bảng.
             <br />
             Bà con thử gõ tên ngắn hơn, ví dụ “nục”.

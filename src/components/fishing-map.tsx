@@ -10,7 +10,7 @@ const FishingMapView = dynamic(() => import("@/components/fishing-map-view"), {
   ssr: false,
   loading: () => (
     <div className="flex h-full w-full items-center justify-center bg-t1-bg">
-      <p className="text-[17px] font-semibold text-t1">Đang mở bản đồ biển…</p>
+      <p className="text-[18px] font-semibold text-t1">Đang mở bản đồ biển…</p>
     </div>
   ),
 });

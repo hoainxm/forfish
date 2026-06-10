@@ -158,7 +158,7 @@ export function TripLog() {
       {ready && trips.length === 0 && (
         <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
           <CalendarIcon className="mx-auto h-10 w-10 text-foreground/30" />
-          <p className="mt-3 text-[17px] text-foreground/60">
+          <p className="mt-3 text-[18px] text-foreground/60">
             Chưa có chuyến nào trong sổ.
             <br />
             Cá về bờ, bấm nút cam ở trên để ghi lại.
@@ -212,14 +212,14 @@ export function TripLog() {
                     setEditing(trip);
                     setShowForm(true);
                   }}
-                  className="flex min-h-[52px] items-center justify-center gap-2 text-[17px] font-bold text-sea active:bg-background"
+                  className="flex min-h-[52px] items-center justify-center gap-2 text-[18px] font-bold text-sea active:bg-background"
                 >
                   <EditIcon className="h-5 w-5" />
                   Sửa
                 </button>
                 <button
                   onClick={() => setConfirmDelete(trip)}
-                  className="flex min-h-[52px] items-center justify-center gap-2 border-l border-line text-[17px] font-bold text-danger active:bg-background"
+                  className="flex min-h-[52px] items-center justify-center gap-2 border-l border-line text-[18px] font-bold text-danger active:bg-background"
                 >
                   <TrashIcon className="h-5 w-5" />
                   Xóa
@@ -373,7 +373,7 @@ function TripForm({
 
         {hasMoney && (
           <p
-            className="mb-1 flex items-baseline justify-between rounded-lg px-4 py-3 text-[17px] font-bold"
+            className="mb-1 flex items-baseline justify-between rounded-lg px-4 py-3 text-[18px] font-bold"
             style={{
               backgroundColor:
                 preview >= 0 ? "var(--ok-bg)" : "var(--danger-bg)",

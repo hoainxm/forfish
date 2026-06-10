@@ -73,7 +73,7 @@ export function SupplyCatalog() {
             className="flex items-start justify-between gap-3 rounded-xl bg-card px-4 py-3.5 shadow-sm ring-1 ring-line"
           >
             <div className="min-w-0">
-              <p className="text-[17px] font-bold leading-snug text-navy">
+              <p className="text-[18px] font-bold leading-snug text-navy">
                 {s.name}
               </p>
               {s.spec && (
@@ -83,7 +83,7 @@ export function SupplyCatalog() {
               )}
             </div>
             <div className="shrink-0 text-right">
-              <p className="text-[17px] font-bold text-foreground">
+              <p className="text-[18px] font-bold text-foreground">
                 {s.priceVnd.toLocaleString("vi-VN")} đ
               </p>
               <p className="text-[14px] text-foreground/60">{s.unit}</p>

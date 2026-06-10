@@ -256,7 +256,7 @@ export function RoutePlanner({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex min-h-[56px] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[17px] font-bold text-white transition active:scale-[0.99]"
+        className="flex min-h-[56px] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[18px] font-bold text-white transition active:scale-[0.99]"
       >
         <RouteIcon className="h-6 w-6" />
         Dẫn đường tới chỗ này
@@ -270,7 +270,7 @@ export function RoutePlanner({
     <div className="space-y-3 rounded-xl bg-card p-4 ring-1 ring-line">
       <div className="flex items-center gap-2 text-t1">
         <RouteIcon className="h-6 w-6" />
-        <h3 className="text-[17px] font-bold text-navy">
+        <h3 className="text-[18px] font-bold text-navy">
           Dẫn đường tới chỗ này
         </h3>
       </div>
@@ -284,7 +284,7 @@ export function RoutePlanner({
             <select
               value={effectiveStartId}
               onChange={(e) => setStartId(e.target.value)}
-              className="mt-1 block min-h-[56px] w-full rounded-xl bg-background px-3 text-[17px] font-semibold ring-1 ring-line"
+              className="mt-1 block min-h-[56px] w-full rounded-xl bg-background px-3 text-[18px] font-semibold ring-1 ring-line"
             >
               <option value="gps">Chỗ tàu tôi đang đứng (định vị)</option>
               {PORTS.map((p) => (
@@ -331,7 +331,7 @@ export function RoutePlanner({
             type="button"
             onClick={compute}
             disabled={busy}
-            className="flex min-h-[56px] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[17px] font-bold text-white transition active:scale-[0.99] disabled:opacity-60"
+            className="flex min-h-[56px] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[18px] font-bold text-white transition active:scale-[0.99] disabled:opacity-60"
           >
             {busy ? "Đang tính đường…" : "Tính đường đỡ tốn dầu"}
           </button>

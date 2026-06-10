@@ -109,7 +109,9 @@ export function parseStorms(json: unknown, now: Date): StormAlert[] {
 /** Client gọi route nội bộ — fail thì trả ok:false, UI tự im lặng */
 export async function fetchStormCheck(): Promise<StormCheck> {
   try {
-    const r = await fetch("/api/storms");
+    const r = await fetch("/api/storms", {
+      signal: AbortSignal.timeout(20000),
+    });
     if (!r.ok) return { ok: false };
     return (await r.json()) as StormCheck;
   } catch {

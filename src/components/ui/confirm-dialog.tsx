@@ -63,13 +63,13 @@ export function ConfirmDialog({
           <button
             ref={cancelRef}
             onClick={onCancel}
-            className="min-h-[56px] rounded-lg border-2 border-line text-[17px] font-bold text-foreground/70"
+            className="min-h-[56px] rounded-lg border-2 border-line text-[18px] font-bold text-foreground/70"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className={`min-h-[56px] rounded-lg text-[17px] font-bold text-white ${
+            className={`min-h-[56px] rounded-lg text-[18px] font-bold text-white ${
               danger ? "bg-danger" : "bg-sea"
             }`}
           >

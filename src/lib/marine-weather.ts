@@ -100,11 +100,11 @@ export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
     `&current=wave_height,wave_period&daily=wave_height_max`;
 
   const [wind, wave] = await Promise.all([
-    fetch(windUrl).then((r) => {
+    fetch(windUrl, { signal: AbortSignal.timeout(15000) }).then((r) => {
       if (!r.ok) throw new Error(`wind ${r.status}`);
       return r.json();
     }),
-    fetch(waveUrl)
+    fetch(waveUrl, { signal: AbortSignal.timeout(15000) })
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null),
   ]);

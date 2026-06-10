@@ -62,15 +62,18 @@ export async function fetchForecastGrid(): Promise<ForecastGrid> {
   const lons = pts.map((p) => p.lon).join(",");
   const common = `latitude=${lats}&longitude=${lons}&timezone=Asia%2FHo_Chi_Minh&forecast_days=4`;
 
+  // Timeout 15s: mạng ngoài khơi chập chờn — thà báo lỗi rõ còn hơn treo UI
   const [windRes, waveRes] = await Promise.all([
     fetch(
       `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=kmh`,
+      { signal: AbortSignal.timeout(15000) },
     ).then((r) => {
       if (!r.ok) throw new Error(`wind grid ${r.status}`);
       return r.json();
     }),
     fetch(
       `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction`,
+      { signal: AbortSignal.timeout(15000) },
     )
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null),

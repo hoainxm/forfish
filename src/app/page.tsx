@@ -64,7 +64,7 @@ export default function Home() {
         <UrgentStrip />
 
         <section aria-label="Bốn nhóm việc">
-          <h2 className="display mb-1.5 px-1 text-[16px] font-bold text-navy">
+          <h2 className="display mb-1.5 px-1 text-[18px] font-bold text-navy">
             Quản lý tàu
           </h2>
           <div className="grid grid-cols-2 gap-2.5">
@@ -74,20 +74,20 @@ export default function Home() {
                 <Link
                   key={p.href}
                   href={p.href}
-                  className="flex items-center gap-3 rounded-xl bg-card p-3 shadow-sm ring-1 ring-line transition active:scale-[0.99]"
+                  className="flex min-h-[112px] flex-col justify-between rounded-xl bg-card p-3.5 shadow-sm ring-1 ring-line transition active:scale-[0.99]"
                 >
                   <span
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white"
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-white"
                     style={{ backgroundColor: `var(--${p.tone})` }}
                     aria-hidden
                   >
-                    <Icon className="h-6 w-6" />
+                    <Icon className="h-7 w-7" />
                   </span>
-                  <span className="min-w-0">
-                    <span className="display block text-[16px] font-bold leading-tight text-navy">
+                  <span className="mt-2.5 block min-w-0">
+                    <span className="display block text-[19px] font-bold leading-tight text-navy">
                       {p.title}
                     </span>
-                    <span className="mt-0.5 block text-[12.5px] leading-snug text-foreground/55">
+                    <span className="mt-0.5 block text-[14px] leading-snug text-foreground/55">
                       {p.sub}
                     </span>
                   </span>

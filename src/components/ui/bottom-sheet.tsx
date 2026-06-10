@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 
 /*
   BottomSheet dùng chung — thay 5 bản copy-paste, kèm a11y đầy đủ (audit 04):
@@ -19,9 +19,7 @@ export function BottomSheet({
   children: React.ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const titleId = useRef(
-    `sheet-${Math.random().toString(36).slice(2, 9)}`,
-  ).current;
+  const titleId = useId();
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;

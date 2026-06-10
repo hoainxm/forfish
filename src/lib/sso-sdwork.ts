@@ -38,7 +38,7 @@ function toPhone0(raw: string): string {
 }
 
 function toPhone84(raw: string): string {
-  let d = raw.replace(/\D/g, "");
+  const d = raw.replace(/\D/g, "");
   if (d.startsWith("84")) return d;
   if (d.startsWith("0")) return "84" + d.slice(1);
   return "84" + d;

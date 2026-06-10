@@ -72,7 +72,7 @@ export function SeaForecast() {
         <select
           value={port?.id ?? ""}
           onChange={(e) => choosePort(e.target.value)}
-          className="min-h-[52px] w-full rounded-lg border-2 border-line bg-card px-4 text-[17px] font-semibold focus:border-sea focus:outline-none"
+          className="min-h-[52px] w-full rounded-lg border-2 border-line bg-card px-4 text-[18px] font-semibold focus:border-sea focus:outline-none"
         >
           {PORTS.map((p) => (
             <option key={p.id} value={p.id}>
@@ -83,19 +83,19 @@ export function SeaForecast() {
       </label>
 
       {loading && (
-        <div className="rounded-xl bg-card px-4 py-12 text-center text-[17px] text-foreground/50 ring-1 ring-line">
+        <div className="rounded-xl bg-card px-4 py-12 text-center text-[18px] text-foreground/50 ring-1 ring-line">
           Đang lấy dự báo sóng gió…
         </div>
       )}
 
       {error && !loading && (
         <div className="rounded-xl bg-card px-4 py-10 text-center ring-1 ring-line">
-          <p className="text-[17px] text-foreground/60">
+          <p className="text-[18px] text-foreground/60">
             Chưa lấy được dự báo. Kiểm tra mạng rồi thử lại.
           </p>
           <button
             onClick={() => port && load(port)}
-            className="mt-4 min-h-[52px] rounded-lg bg-sea px-8 text-[17px] font-bold text-white"
+            className="mt-4 min-h-[52px] rounded-lg bg-sea px-8 text-[18px] font-bold text-white"
           >
             Thử lại
           </button>
@@ -155,7 +155,7 @@ export function SeaForecast() {
 
           {/* các ngày tới */}
           <section aria-label="Những ngày tới" className="mt-5">
-            <h2 className="display mb-2 px-1 text-[17px] font-bold text-navy">
+            <h2 className="display mb-2 px-1 text-[18px] font-bold text-navy">
               Những ngày tới
             </h2>
             <ul className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line">

@@ -696,9 +696,18 @@ export default function FishingMapView() {
                 </div>
               </>
             ) : gridFailed ? (
-              <p className="text-[13px] font-semibold text-danger">
-                Chưa tải được dự báo cho bản đồ — kiểm tra mạng rồi bật lại.
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[14px] font-semibold text-danger">
+                  Chưa tải được dự báo — kiểm tra mạng.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setGridFailed(false)}
+                  className="shrink-0 rounded-lg bg-navy px-4 py-2.5 text-[15px] font-bold text-white"
+                >
+                  Thử lại
+                </button>
+              </div>
             ) : (
               <p className="text-[13px] font-semibold text-foreground/60">
                 Đang tải dự báo cho cả vùng biển…
@@ -789,7 +798,7 @@ export default function FishingMapView() {
             <button
               type="button"
               onClick={() => setRetry((n) => n + 1)}
-              className="min-h-[56px] w-full rounded-xl bg-t1 text-[17px] font-bold text-white transition active:scale-[0.99]"
+              className="min-h-[56px] w-full rounded-xl bg-t1 text-[18px] font-bold text-white transition active:scale-[0.99]"
             >
               Thử lại
             </button>
@@ -1014,6 +1023,7 @@ export default function FishingMapView() {
           onForecast={(k) => {
             setForecastKind(k);
             if (k == null) setPlaying(false);
+            else setGridFailed(false); // bật lại lớp = thử tải lại nếu lần trước lỗi
           }}
           fishOn={fishOn}
           onFish={setFishOn}

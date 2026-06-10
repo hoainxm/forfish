@@ -121,9 +121,11 @@ export async function fetchWeatherField(bbox: BBox): Promise<WeatherField> {
   const [windRes, waveRes] = await Promise.all([
     fetch(
       `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m`,
+      { signal: AbortSignal.timeout(15000) },
     ),
     fetch(
       `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction,wave_period,ocean_current_velocity,ocean_current_direction`,
+      { signal: AbortSignal.timeout(15000) },
     ),
   ]);
   if (!windRes.ok || !waveRes.ok) {

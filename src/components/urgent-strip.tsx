@@ -202,7 +202,7 @@ export function UrgentStrip() {
                   />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
-                      <span className="block min-w-0 truncate text-[17px] font-semibold">
+                      <span className="block min-w-0 truncate text-[18px] font-semibold">
                         {item.label}
                       </span>
                       <span className="shrink-0 rounded-md bg-background px-1.5 py-0.5 text-[12px] font-bold text-foreground/55">

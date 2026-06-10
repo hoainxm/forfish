@@ -11,15 +11,13 @@ import {
   kindLabel,
 } from "@/lib/documents";
 import {
-  AlertIcon,
-  CheckIcon,
-  ClockIcon,
   DocIcon,
   EditIcon,
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
@@ -126,7 +124,7 @@ export function DocumentVault() {
       {ready && boatReady && sorted.length === 0 && (
         <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
           <DocIcon className="mx-auto h-10 w-10 text-foreground/30" />
-          <p className="mt-3 text-[17px] text-foreground/60">
+          <p className="mt-3 text-[18px] text-foreground/60">
             Chưa có giấy tờ nào.
             <br />
             Bấm nút cam ở trên để thêm.
@@ -137,31 +135,28 @@ export function DocumentVault() {
       <ul className="space-y-3">
         {sorted.map((doc) => {
           const status = getExpiryStatus(doc, today);
-          const pill =
+          const level =
             status.level === "expired"
-              ? { bg: "var(--danger-bg)", fg: "var(--danger)", Icon: AlertIcon }
+              ? ("danger" as const)
               : status.level === "soon"
-                ? { bg: "var(--warn-bg)", fg: "var(--warn)", Icon: ClockIcon }
+                ? ("warn" as const)
                 : status.level === "ok"
-                  ? { bg: "var(--ok-bg)", fg: "var(--ok)", Icon: CheckIcon }
-                  : {
-                      bg: "var(--background)",
-                      fg: "var(--foreground)",
-                      Icon: DocIcon,
-                    };
+                  ? ("ok" as const)
+                  : ("neutral" as const);
           return (
             <li
               key={doc.id}
               className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line"
             >
               {/* status banner — the first thing the eye lands on */}
-              <p
-                className="flex items-center gap-2 px-4 py-2.5 text-[16px] font-bold"
-                style={{ backgroundColor: pill.bg, color: pill.fg }}
+              <StatusBanner
+                level={level}
+                icon={
+                  level === "neutral" ? <DocIcon className="h-5 w-5" /> : undefined
+                }
               >
-                <pill.Icon className="h-5 w-5 shrink-0" />
                 {status.label}
-              </p>
+              </StatusBanner>
 
               <div className="px-4 py-3">
                 <p className="text-[13px] font-bold uppercase tracking-wide text-foreground/40">
@@ -193,14 +188,14 @@ export function DocumentVault() {
                     setEditing(doc);
                     setShowForm(true);
                   }}
-                  className="flex min-h-[52px] items-center justify-center gap-2 text-[17px] font-bold text-sea active:bg-background"
+                  className="flex min-h-[52px] items-center justify-center gap-2 text-[18px] font-bold text-sea active:bg-background"
                 >
                   <EditIcon className="h-5 w-5" />
                   Sửa
                 </button>
                 <button
                   onClick={() => setConfirmDelete(doc)}
-                  className="flex min-h-[52px] items-center justify-center gap-2 border-l border-line text-[17px] font-bold text-danger active:bg-background"
+                  className="flex min-h-[52px] items-center justify-center gap-2 border-l border-line text-[18px] font-bold text-danger active:bg-background"
                 >
                   <TrashIcon className="h-5 w-5" />
                   Xóa

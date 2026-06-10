@@ -36,7 +36,7 @@ export function PortDirectory() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm cảng theo tên…"
-          className="min-h-[52px] w-full rounded-lg border-2 border-line bg-card pl-11 pr-4 text-[17px] focus:border-sea focus:outline-none"
+          className="min-h-[52px] w-full rounded-lg border-2 border-line bg-card pl-11 pr-4 text-[18px] focus:border-sea focus:outline-none"
         />
       </div>
 
@@ -54,7 +54,7 @@ export function PortDirectory() {
           <li key={p.id}>
             <Card className="p-3.5">
               <div className="flex items-start justify-between gap-2">
-                <p className="display flex min-w-0 items-center gap-2 text-[17px] font-bold leading-snug text-navy">
+                <p className="display flex min-w-0 items-center gap-2 text-[18px] font-bold leading-snug text-navy">
                   <AnchorIcon className="h-5 w-5 shrink-0 text-t3" />
                   {p.name}
                 </p>

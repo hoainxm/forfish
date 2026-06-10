@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { FINES, FINES_SOURCE, Fine } from "@/data/fines";
 import { AlertIcon, SearchIcon } from "@/components/icons";
+import { StatusBanner } from "@/components/ui/status-banner";
 
 /*
   Tra mức phạt — Trục 4 (tuân thủ, accent tím var(--t4)).
@@ -25,26 +26,14 @@ function normalize(s: string): string {
   return stripDiacritics(s.toLowerCase().trim());
 }
 
-const SEVERITY_STYLE: Record<
+// Một mức phạt không bao giờ là "tốt" — mức nhẹ dùng xám bình tĩnh, không xanh.
+const SEVERITY: Record<
   Fine["severity"],
-  { border: string; amount: string; label: string }
+  { level: "danger" | "warn" | "neutral"; amount: string; label: string }
 > = {
-  high: {
-    border: "var(--danger)",
-    amount: "text-danger",
-    label: "Phạt rất nặng",
-  },
-  medium: {
-    border: "var(--warn)",
-    amount: "text-warn",
-    label: "Phạt nặng",
-  },
-  low: {
-    // a fine is never "good" — low severity uses calm gray, not green
-    border: "var(--line)",
-    amount: "text-foreground",
-    label: "Phạt nhẹ hơn",
-  },
+  high: { level: "danger", amount: "text-danger", label: "Phạt rất nặng" },
+  medium: { level: "warn", amount: "text-warn", label: "Phạt nặng" },
+  low: { level: "neutral", amount: "text-foreground", label: "Phạt nhẹ hơn" },
 };
 
 export function FinesLookup() {
@@ -74,7 +63,7 @@ export function FinesLookup() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Tìm lỗi vi phạm..."
           aria-label="Tìm mức phạt"
-          className="min-h-[52px] w-full rounded-lg border-2 border-line bg-card pl-12 pr-4 text-[17px] focus:border-sea focus:outline-none"
+          className="min-h-[52px] w-full rounded-lg border-2 border-line bg-card pl-12 pr-4 text-[18px] focus:border-sea focus:outline-none"
         />
       </div>
 
@@ -102,15 +91,21 @@ export function FinesLookup() {
       {/* fine cards */}
       <ul className="mt-3 space-y-3">
         {results.map((fine) => {
-          const style = SEVERITY_STYLE[fine.severity];
+          const style = SEVERITY[fine.severity];
           return (
             <li
               key={fine.id}
               className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line"
-              style={{ borderLeft: `4px solid ${style.border}` }}
             >
+              {/* cùng "ngôn ngữ thẻ" với giấy tờ/bảo dưỡng: băng màu + icon + chữ */}
+              <StatusBanner
+                level={style.level}
+                icon={<AlertIcon className="h-5 w-5" />}
+              >
+                {style.label}
+              </StatusBanner>
               <div className="px-4 py-3.5">
-                <p className="text-[17px] font-semibold leading-snug text-foreground">
+                <p className="text-[18px] font-semibold leading-snug text-foreground">
                   {fine.behavior}
                 </p>
                 <p className={`mt-1.5 text-[18px] font-bold ${style.amount}`}>

@@ -68,7 +68,7 @@ export function TripSplit() {
               key={p}
               type="button"
               onClick={() => setOwnerPercent(p)}
-              className={`min-h-[48px] flex-1 rounded-lg text-[17px] font-bold ${
+              className={`min-h-[48px] flex-1 rounded-lg text-[18px] font-bold ${
                 ownerPercent === p
                   ? "bg-navy text-white"
                   : "border-2 border-line text-foreground/60"
@@ -106,7 +106,7 @@ export function TripSplit() {
                 className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0"
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-[17px] font-semibold">
+                  <span className="block truncate text-[18px] font-semibold">
                     {member.name}
                   </span>
                   <span className="text-[14px] text-foreground/55">

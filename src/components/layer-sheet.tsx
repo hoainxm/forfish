@@ -223,7 +223,7 @@ export function LayerSheet({
       <button
         type="button"
         onClick={onClose}
-        className="mt-4 min-h-[56px] w-full rounded-xl bg-navy text-[17px] font-bold text-white transition active:scale-[0.99]"
+        className="mt-4 min-h-[56px] w-full rounded-xl bg-navy text-[18px] font-bold text-white transition active:scale-[0.99]"
       >
         Xong
       </button>

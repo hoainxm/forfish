@@ -59,7 +59,7 @@ export function Field({
 
 /** Class chuẩn cho ô nhập 1 dòng / select / textarea (rounded-lg, 17px). */
 export const inputClass =
-  "w-full rounded-lg border-2 border-line bg-card px-4 py-3.5 text-[17px] focus:border-sea focus:outline-none";
+  "w-full rounded-lg border-2 border-line bg-card px-4 py-3.5 text-[18px] focus:border-sea focus:outline-none";
 
 /** Nút chính (cam trim) — tap ≥60px, bo 12px. */
 export function PrimaryButton({
@@ -98,7 +98,7 @@ export function EmptyState({
   return (
     <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
       {icon && <div className="mx-auto mb-3 w-fit text-foreground/40">{icon}</div>}
-      <p className="text-[17px] text-foreground/70">{children}</p>
+      <p className="text-[18px] text-foreground/70">{children}</p>
     </div>
   );
 }

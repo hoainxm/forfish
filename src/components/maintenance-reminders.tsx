@@ -2,15 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertIcon,
   CheckIcon,
-  ClockIcon,
   EditIcon,
   PlusIcon,
   TrashIcon,
   WrenchIcon,
 } from "@/components/icons";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
@@ -209,7 +208,7 @@ export function MaintenanceReminders() {
       {ready && boatReady && sorted.length === 0 && (
         <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
           <WrenchIcon className="mx-auto h-10 w-10 text-foreground/30" />
-          <p className="mt-3 text-[17px] text-foreground/60">
+          <p className="mt-3 text-[18px] text-foreground/60">
             Chưa có việc bảo dưỡng nào.
             <br />
             Bấm nút cam ở trên để thêm.
@@ -220,25 +219,19 @@ export function MaintenanceReminders() {
       <ul className="space-y-3">
         {sorted.map((entry) => {
           const status = getDueStatus(entry, today);
-          const pill =
+          const level =
             status.level === "overdue"
-              ? { bg: "var(--danger-bg)", fg: "var(--danger)", Icon: AlertIcon }
+              ? ("danger" as const)
               : status.level === "soon"
-                ? { bg: "var(--warn-bg)", fg: "var(--warn)", Icon: ClockIcon }
-                : { bg: "var(--ok-bg)", fg: "var(--ok)", Icon: CheckIcon };
+                ? ("warn" as const)
+                : ("ok" as const);
           return (
             <li
               key={entry.id}
               className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line"
             >
               {/* status banner — the first thing the eye lands on */}
-              <p
-                className="flex items-center gap-2 px-4 py-2.5 text-[16px] font-bold"
-                style={{ backgroundColor: pill.bg, color: pill.fg }}
-              >
-                <pill.Icon className="h-5 w-5 shrink-0" />
-                {status.label}
-              </p>
+              <StatusBanner level={level}>{status.label}</StatusBanner>
 
               <div className="px-4 py-3">
                 <p className="display text-[19px] font-bold leading-snug text-navy">
@@ -276,14 +269,14 @@ export function MaintenanceReminders() {
                     setEditing(entry);
                     setShowForm(true);
                   }}
-                  className="flex min-h-[52px] items-center justify-center gap-2 text-[17px] font-bold text-sea active:bg-background"
+                  className="flex min-h-[52px] items-center justify-center gap-2 text-[18px] font-bold text-sea active:bg-background"
                 >
                   <EditIcon className="h-5 w-5" />
                   Sửa
                 </button>
                 <button
                   onClick={() => setConfirmDelete(entry)}
-                  className="flex min-h-[52px] items-center justify-center gap-2 border-l border-line text-[17px] font-bold text-danger active:bg-background"
+                  className="flex min-h-[52px] items-center justify-center gap-2 border-l border-line text-[18px] font-bold text-danger active:bg-background"
                 >
                   <TrashIcon className="h-5 w-5" />
                   Xóa
