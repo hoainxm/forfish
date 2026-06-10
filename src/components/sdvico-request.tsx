@@ -1,0 +1,198 @@
+"use client";
+
+import { useState } from "react";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+import { CheckIcon, PhoneIcon } from "@/components/icons";
+import {
+  REQUEST_TOPICS,
+  type RequestTopicId,
+} from "@/lib/sdvico-catalog";
+
+/*
+  "Gọi SDVICO" — kênh CSKH ngay trong app: bà con để lại tên + SĐT + việc
+  cần (hỏi mua / sửa chữa / bảo dưỡng / cước), yêu cầu chảy thẳng vào hộp
+  tư vấn của SDWork, nhân viên gọi lại. Dùng được cả khi CHƯA đăng nhập.
+*/
+
+export function SdvicoRequestButton({
+  topic = "khac",
+  productName,
+  label = "Gọi SDVICO",
+  variant = "primary",
+}: {
+  topic?: RequestTopicId;
+  productName?: string;
+  label?: string;
+  /** primary = nút cam to; chip = nút nhỏ trong thẻ */
+  variant?: "primary" | "chip";
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      {variant === "primary" ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="display flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[19px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+        >
+          <PhoneIcon className="h-6 w-6" />
+          {label}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex min-h-[48px] shrink-0 items-center gap-1.5 rounded-full bg-t3 px-4 text-[15px] font-bold text-white transition active:scale-[0.97]"
+        >
+          <PhoneIcon className="h-4 w-4" />
+          {label}
+        </button>
+      )}
+      {open && (
+        <RequestForm
+          topic={topic}
+          productName={productName}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function RequestForm({
+  topic: initialTopic,
+  productName,
+  onClose,
+}: {
+  topic: RequestTopicId;
+  productName?: string;
+  onClose: () => void;
+}) {
+  const [topic, setTopic] = useState<string>(initialTopic);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [detail, setDetail] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "done" | "error">(
+    "idle",
+  );
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setState("sending");
+    try {
+      const r = await fetch("/api/sdvico/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic,
+          name: name.trim(),
+          phone: phone.trim(),
+          detail: detail.trim(),
+          productName,
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+      const j = await r.json().catch(() => null);
+      setState(j?.ok ? "done" : "error");
+    } catch {
+      setState("error");
+    }
+  }
+
+  if (state === "done") {
+    return (
+      <BottomSheet title="Đã gửi cho SDVICO" onClose={onClose}>
+        <div
+          className="rounded-[20px] px-4 py-8 text-center"
+          style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
+        >
+          <CheckIcon className="mx-auto h-10 w-10" />
+          <p className="mt-3 text-[18px] font-bold">SDVICO đã nhận yêu cầu</p>
+          <p className="mt-1 text-[16px] text-foreground/70">
+            Nhân viên sẽ gọi lại cho bà con trong giờ làm việc.
+          </p>
+        </div>
+        <div className="mt-4">
+          <PrimaryButton onClick={onClose}>Xong</PrimaryButton>
+        </div>
+      </BottomSheet>
+    );
+  }
+
+  return (
+    <BottomSheet title="Gọi SDVICO" onClose={onClose}>
+      <form onSubmit={submit}>
+        {productName && (
+          <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[16px] font-semibold text-navy">
+            Về: {productName}
+          </p>
+        )}
+        <Field label="Bà con cần việc gì?">
+          <select
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            className={inputClass}
+          >
+            {REQUEST_TOPICS.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Tên bà con">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={inputClass}
+            placeholder="VD: Nguyễn Văn Hai"
+          />
+        </Field>
+        <Field label="Số điện thoại (bắt buộc — để SDVICO gọi lại)">
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className={inputClass}
+            inputMode="tel"
+            placeholder="VD: 0901234567"
+            required
+          />
+        </Field>
+        <Field label="Dặn thêm (nếu có)">
+          <textarea
+            value={detail}
+            onChange={(e) => setDetail(e.target.value)}
+            rows={2}
+            className={inputClass}
+            placeholder="VD: máy lọc nước yếu, tàu đang đậu Vũng Tàu"
+          />
+        </Field>
+
+        {state === "error" && (
+          <p
+            role="alert"
+            className="mb-3 rounded-2xl px-3.5 py-3 text-[16px] font-semibold"
+            style={{ color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
+          >
+            Chưa gửi được — kiểm tra số điện thoại rồi thử lại, hoặc gọi thẳng
+            đại lý SDVICO gần nhất.
+          </p>
+        )}
+
+        <div className="mt-2 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-[60px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
+          >
+            Hủy
+          </button>
+          <PrimaryButton type="submit" disabled={state === "sending"}>
+            {state === "sending" ? "Đang gửi…" : "Gửi yêu cầu"}
+          </PrimaryButton>
+        </div>
+      </form>
+    </BottomSheet>
+  );
+}

@@ -102,7 +102,12 @@ SĐT đăng nhập ForFish (SSO) → profiles.sdwork_customer_ref (= auth.users.
 - **Adapter**: `src/lib/sdwork-assets.ts` (server-only) — đọc CRM bằng `SDWORK_SUPABASE_SERVICE_KEY` (env server, CRM project `exueouggmbjtjvsvpfya`); mapping thuần `mapCrmAssets` test ở `__tests__/owned-assets.test.ts`. Đổi vendor = viết adapter mới, types không đổi.
 - **Route**: `GET /api/me/sdvico` — account CRM SUY TỪ SESSION ForFish, không bao giờ nhận id từ client; chưa đăng nhập/chưa cấu hình/CRM lỗi → `ok:false`, UI quay về dữ liệu local. Cache `private, max-age=600`.
 - **Lý do service key**: khách không có session CRM (đúng chủ trương không cho khách vào SDWork) → không mở RLS CRM cho role khách; server ForFish lọc nghiêm theo account đã link.
-- 🔴 KHÔNG migration nào trên CRM — adapter chỉ ĐỌC các bảng sẵn có.
+- 🔴 KHÔNG migration nào trên CRM — adapter chỉ ĐỌC các bảng sẵn có, TRỪ một bảng GHI duy nhất bên dưới.
+
+### Kênh CSKH 2 chiều (user chốt 2026-06-10: "ForFish = kênh CSKH của SDVICO")
+- **Catalog gợi ý**: `GET /api/sdvico/catalog` đọc CRM `products` (is_active) → nhóm theo TIỀN TỐ SKU (`src/lib/sdvico-catalog.ts`: LN_=lọc nước, GS_=giám sát, WF_=wifi, LD_=lọc dầu, NHOT_/NG_=nhớt, SONPV_=sơn, AQ_/TL_=điện-lái; DV_=dịch vụ → loại khỏi gợi ý). Cache 1h trong process. CRM không có cột phân loại — SKU prefix là phân loại nội bộ (xác minh trên dữ liệu thật).
+- **Yêu cầu từ khách → SDWork**: `POST /api/sdvico/request` → INSERT `consultation_requests` (full_name, phone, message dạng `[ForFish] Chủ đề · sản phẩm — chi tiết`, `source_page='forfish'`, status mặc định `'pending'`). Bảng có policy "Service role manages consultation requests" — đúng cổng nhận yêu cầu kênh ngoài. Dùng được CẢ KHI CHƯA đăng nhập (khách mới = mối bán hàng) — bắt buộc SĐT VN hợp lệ; đăng nhập rồi thì route tự điền tên/SĐT từ profiles.
+- ⚠️ Phía SDWork phải có người THEO DÕI `consultation_requests` (hiện 0 hàng — xác nhận với team SDWork quy trình xử lý + đổi status), kẻo yêu cầu của bà con rơi vào im lặng.
 
 ## 7. Cross-references
 

@@ -295,6 +295,14 @@ export function DepthIcon(p: IconProps) {
   );
 }
 
+export function StarIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M12 3.5l2.6 5.3 5.9.85-4.25 4.15 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.65l5.9-.85L12 3.5Z" />
+    </svg>
+  );
+}
+
 export function PlayIcon(p: IconProps) {
   return (
     <svg {...base(p)}>
@@ -341,6 +349,14 @@ export function CloseIcon(p: IconProps) {
   return (
     <svg {...base(p)}>
       <path d="M5.5 5.5l13 13M18.5 5.5l-13 13" />
+    </svg>
+  );
+}
+
+export function PhoneIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M5 4h4l1.8 4.5-2.3 1.8a13 13 0 0 0 5.2 5.2l1.8-2.3L20 15v4a1.5 1.5 0 0 1-1.6 1.5C10.6 19.9 4.1 13.4 3.5 5.6A1.5 1.5 0 0 1 5 4Z" />
     </svg>
   );
 }

@@ -44,6 +44,7 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 - **Gồm**: chợ vật tư in-app (dầu nhớt, lọc...), nhắc bảo dưỡng, yêu cầu bảo hành.
 - **Dữ liệu/flow**: đơn hàng chảy vào **SDWork** (ERP công ty), thanh toán QR.
 - **Đồng bộ ngược từ SDWork (2026-06-10, user chốt)**: khách mua hàng thì SDWork tạo account + đơn + dịch vụ nhưng **không cấp quyền vào SDWork** (app nội bộ/CTV/đại lý) — tài khoản đó tách thành tài khoản ForFish. ForFish tự kéo về (qua adapter, đọc-chỉ): **sản phẩm đã mua + hạn bảo hành, dịch vụ đang dùng + kỳ tới (bảo trì/cước), khoản chờ thanh toán** để nhắc bà con. Chi tiết chuỗi nối: [04-data-model.md](04-data-model.md) §6.
+- **ForFish = kênh CSKH của SDVICO (2026-06-10, user chốt)**: tab Sản phẩm hiện danh mục hàng đang bán theo NHÓM (lọc nước biển / giám sát hành trình / wifi biển / lọc dầu / nhớt / sơn tàu / điện-lái) — nhóm ĐÃ MUA gắn nhãn "đang dùng", nhóm CHƯA MUA là gợi ý kèm nút **"Hỏi mua / tư vấn"**; tab Bảo dưỡng đổi thành **Dịch vụ** (sửa chữa + bảo dưỡng + cước + sổ nhắc tự ghi). Mọi nút "Gọi SDVICO" gửi yêu cầu thẳng vào hộp tư vấn của SDWork (kể cả khách chưa đăng nhập = mối bán hàng mới) — nhân viên gọi lại. Đây là vòng lặp cross-trục mục 4 chạy bằng dữ liệu thật.
 - **Vai trò**: đây là **động cơ doanh thu** của công ty.
 
 ### Trục 4 — Tuân thủ dễ hơn (`/giay-to`) — **MVP hiện tại**

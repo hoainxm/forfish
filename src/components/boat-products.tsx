@@ -19,18 +19,15 @@ import {
 } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { useBoats } from "@/components/boat-switcher";
-import { formatVnd, formatVnDate } from "@/lib/format";
+import { SdvicoCatalog } from "@/components/sdvico-catalog";
+import { formatVnDate } from "@/lib/format";
 import {
   BoatProduct,
   byWarrantyUrgency,
   demoProducts,
   getWarrantyStatus,
 } from "@/lib/products";
-import {
-  getServiceDueStatus,
-  serviceKindLabel,
-  type OwnedAssets,
-} from "@/lib/owned-assets";
+import { type OwnedAssets } from "@/lib/owned-assets";
 
 /*
   Sản phẩm SDVICO của tôi — vật tư/thiết bị bà con đã MUA của SDVICO, kèm nhắc
@@ -159,36 +156,6 @@ export function BoatProducts() {
       {/* ── ĐỒ MUA CỦA SDVICO — tự đồng bộ, chỉ xem ───────────────────── */}
       {synced && (
         <div className="mb-5 space-y-3">
-          {/* khoản chờ thanh toán (cước / công nợ) — việc tiền nong lên đầu */}
-          {synced.payments.map((p) => {
-            const overdue =
-              p.dueOn != null && p.dueOn < today.toISOString().slice(0, 10);
-            return (
-              <div key={p.orderCode} className="overflow-hidden surface">
-                <StatusBanner level={overdue ? "danger" : "warn"}>
-                  {overdue ? "Khoản nợ quá hạn" : "Khoản chờ thanh toán"}
-                </StatusBanner>
-                <div className="px-4 py-3">
-                  <p className="display text-[19px] font-bold leading-snug text-navy">
-                    {formatVnd(p.amountVnd)}
-                  </p>
-                  <p className="text-[16px] text-foreground/60">
-                    Đơn hàng: <strong>{p.orderCode}</strong>
-                    {p.dueOn && (
-                      <>
-                        {" "}
-                        — hạn <strong>{formatVnDate(p.dueOn)}</strong>
-                      </>
-                    )}
-                  </p>
-                  <p className="mt-1 text-[15px] text-foreground/60">
-                    Đóng tại đại lý SDVICO hoặc gọi nhân viên phụ trách.
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-
           {/* sản phẩm đã mua — bảo hành tự theo dõi */}
           {synced.products.map((p) => {
             const status = getWarrantyStatus(p, today);
@@ -240,52 +207,6 @@ export function BoatProducts() {
             );
           })}
 
-          {/* dịch vụ đang dùng — nhắc kỳ bảo trì / đóng cước */}
-          {synced.services
-            .filter((s) => s.active)
-            .map((s) => {
-              const due = getServiceDueStatus(s, today);
-              const level =
-                due.level === "overdue"
-                  ? "danger"
-                  : due.level === "soon"
-                    ? "warn"
-                    : due.level === "ok"
-                      ? "ok"
-                      : "neutral";
-              return (
-                <div key={s.id} className="overflow-hidden surface">
-                  <StatusBanner
-                    level={level}
-                    icon={
-                      level === "neutral" ? (
-                        <ClockIcon className="h-5 w-5" />
-                      ) : undefined
-                    }
-                  >
-                    {due.label}
-                  </StatusBanner>
-                  <div className="px-4 py-3">
-                    <p className="text-[13px] font-bold uppercase tracking-wide text-foreground/40">
-                      {serviceKindLabel(s.kind)}
-                    </p>
-                    <p className="display text-[19px] font-bold leading-snug text-navy">
-                      {s.name}
-                    </p>
-                    {s.nextDueOn && (
-                      <p className="text-[16px] text-foreground/60">
-                        Kỳ tới: <strong>{formatVnDate(s.nextDueOn)}</strong>
-                      </p>
-                    )}
-                    {s.startedOn && (
-                      <p className="text-[15px] text-foreground/55">
-                        Dùng từ {formatVnDate(s.startedOn)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
         </div>
       )}
 
@@ -390,6 +311,11 @@ export function BoatProducts() {
           ? "Đồ tự đồng bộ lấy từ SDVICO. Sản phẩm tự thêm lưu trên máy."
           : "Sản phẩm SDVICO lưu ngay trên máy của bà con."}
       </p>
+
+      {/* gợi ý theo nhóm — khách biết SDVICO có gì, bấm hỏi mua */}
+      <SdvicoCatalog
+        ownedProductNames={synced?.products.map((p) => p.name) ?? []}
+      />
 
       {showForm && (
         <ProductForm

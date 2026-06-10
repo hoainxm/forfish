@@ -20,6 +20,7 @@ import type {
   OwnedService,
   OwedPayment,
 } from "@/lib/owned-assets";
+import type { CatalogProduct } from "@/lib/sdvico-catalog";
 
 const CRM_URL = process.env.SDWORK_SUPABASE_URL ?? "";
 // Service key CHỈ tồn tại trên server (API route) — tuyệt đối không lộ client.
@@ -177,5 +178,51 @@ export async function fetchOwnedAssets(
   } catch {
     // CRM không với tới được — coi như chưa đồng bộ, UI dùng dữ liệu local
     return null;
+  }
+}
+
+/** Danh mục sản phẩm đang bán (cho thẻ gợi ý) — KHÔNG dữ liệu cá nhân. */
+export async function fetchCatalogProducts(): Promise<CatalogProduct[] | null> {
+  if (!isAssetSyncConfigured()) return null;
+  try {
+    const r = await crmAdmin()
+      .from("products")
+      .select("id, sku, name, unit, warranty_months")
+      .eq("is_active", true)
+      .order("name");
+    if (!r.data) return null;
+    return r.data.map((p) => ({
+      id: p.id as string,
+      sku: (p.sku as string | null) ?? null,
+      name: p.name as string,
+      unit: (p.unit as string | null) ?? null,
+      warrantyMonths: (p.warranty_months as number | null) ?? 0,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Khách bấm "Gọi SDVICO" trong ForFish → ghi vào hộp yêu cầu tư vấn của CRM
+ * (bảng nhận yêu cầu từ kênh ngoài; nhân viên SDWork xử lý theo status).
+ * `message` đã được route dựng sẵn dạng "[ForFish] Chủ đề — chi tiết".
+ */
+export async function createConsultationRequest(req: {
+  fullName: string;
+  phone: string;
+  message: string;
+}): Promise<boolean> {
+  if (!isAssetSyncConfigured()) return false;
+  try {
+    const r = await crmAdmin().from("consultation_requests").insert({
+      full_name: req.fullName,
+      phone: req.phone,
+      message: req.message,
+      source_page: "forfish",
+    });
+    return !r.error;
+  } catch {
+    return false;
   }
 }
