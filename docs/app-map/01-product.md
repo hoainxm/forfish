@@ -73,10 +73,12 @@ Trục 2 tăng thu nhập → mua nhiều hơn từ Trục 3
 
 ## 7. Lộ trình: từ 4 lời hứa → app quản lý toàn bộ tàu cá
 
-Định vị mở rộng (2026-06): bốn lời hứa vẫn là **ngôn ngữ giá trị**, nhưng object model của app chuyển sang **CON TÀU** (tàu → chuyến biển → thuyền viên → tiền → giấy tờ). Căn cứ JTBD + chân dung người dùng + mốc pháp lý: xem [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md). Thứ tự ưu tiên dưới đây xếp theo **JTBD impact × deadline pháp lý** (eCDT đã bắt buộc từ 01/3/2026 mà tuân thủ mới 24,65%; nhật ký điện tử bắt buộc dần 01/7/2026 → 01/1/2027):
+Định vị mở rộng (2026-06): bốn lời hứa vẫn là **ngôn ngữ giá trị**, nhưng object model của app chuyển sang **CON TÀU** (tàu → chuyến biển → thuyền viên → tiền → giấy tờ). Căn cứ JTBD + chân dung người dùng + mốc pháp lý: xem [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md).
+
+> **Quyết định phạm vi (2026-06-10, từ user)**: khai báo **eCDT / nhật ký khai thác điện tử (NKKT)** là nghiệp vụ với hệ thống NHÀ NƯỚC — **ngoài phạm vi ForFish** (hệ sinh thái đã có sản phẩm NKKT riêng phụ trách mảng này). ForFish chỉ dừng ở: NHẮC mốc nghĩa vụ, checklist trước chuyến, giải thích quy định bằng lời thường. KHÔNG xây wizard khai hộ, KHÔNG tích hợp/đồng bộ hệ thống khai báo nhà nước.
 
 1. **Đợt 1 — Thuyền viên + sổ tiền (wedge)** *(đang xây)*: crew module `/thuyen-vien` (hồ sơ + chứng chỉ/bảo hiểm + sổ ứng tiền + máy tính chia tiền) và sổ tiền của tàu trên nền trip-log. Đây là khoảng trống vàng số 1 — chưa app nào ở VN đụng tới phần "tiền"; không phụ thuộc nguồn ngoài, đúng triết lý build order ở mục 3.
-2. **Đợt 2 — Checklist xuất bến + lớp eCDT**: checklist xuất bến tự sinh theo Lmax (đèn xanh-đỏ "đủ điều kiện xuất bến") + trợ lý eCDT (wizard điền sẵn, người nhà khai hộ từ bờ) + cảnh báo VMS. Phải ra trước làn sóng nhật ký điện tử bắt buộc 01/7/2026 (tàu ≥24m) và 01/9/2026 (15–24m).
+2. **Đợt 2 — Checklist xuất bến + nhắc tuân thủ**: checklist xuất bến tự sinh theo Lmax (đèn xanh-đỏ "đủ điều kiện xuất bến": giấy tàu, chứng chỉ, bảo hiểm thuyền viên, sổ danh bạ) + cảnh báo hạn giấy tờ cho cả người nhà trên bờ + NHẮC mốc nghĩa vụ khai báo (không khai hộ — xem quyết định phạm vi ở trên).
 3. **Đợt 3 — Công nợ nậu + hồ sơ chuyến QR**: sổ công nợ đa đối tượng (đại lý dầu, nậu, ngân hàng — minh bạch hóa trước, thay thế nậu sau) + gói hồ sơ chuyến biển PDF/QR chứng minh truy xuất cho người mua.
 4. **Đợt 4 — Kết nối SDWork/marketplace**: hồ sơ kinh nghiệm thuyền viên thành "chợ lao động đi biển", kênh bán/chào giá nối mạng đại lý SDVICO, đơn vật tư chảy sâu hơn vào SDWork — chỉ sau khi dữ liệu từ đợt 1–3 đủ dày.
 
