@@ -18,10 +18,13 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 
 ### Trục 1 — Đánh bắt tốt hơn (`/ngu-truong`)
 - **Hứa gì**: ra khơi trúng hơn, đỡ phí dầu phí công.
-- **Gồm**: điểm biển hằng ngày (sea-score 1–100), bản đồ ngư trường (lớp vệ tinh nhiệt độ mặt biển / phù du / ảnh mây + gió sóng theo điểm chạm + nhãn chủ quyền Biển Đông – Hoàng Sa – Trường Sa tiếng Việt).
+- **Gồm**: điểm biển hằng ngày (sea-score 1–100), bản đồ ngư trường (lớp vệ tinh nhiệt độ mặt biển / phù du / ảnh mây + gió sóng theo điểm chạm + nhãn chủ quyền Biển Đông – Hoàng Sa – Trường Sa tiếng Việt), dẫn đường tiết kiệm dầu (tuyến gợi ý từ cảng/vị trí tàu tới điểm đã chạm, né vùng sóng to gió ngược theo dự báo từng giờ, ước tính giờ chạy + lít dầu so với chạy thẳng).
 - **Dữ liệu hiện chạy** (đều miễn phí, không cần key, qua adapter trong `src/lib/`):
   - Ảnh vệ tinh: chương trình mở của NASA (cập nhật hằng ngày, **trễ ~2 ngày** — UI ghi rõ "ảnh ngày X, chậm vài ngày"). Lớp dòng chảy mặt biển: chưa có nguồn tile miễn phí không-key → làm sau.
-  - Gió/sóng: Open-Meteo (mô hình quốc tế, cập nhật theo giờ) — UI luôn kèm lời dặn nghe đài duyên hải / biên phòng.
+  - Hải đồ: độ sâu đáy biển EMODnet/GEBCO (tĩnh, không đổi theo ngày — UI ghi rõ) + báo hiệu hàng hải (phao, đèn biển) OpenSeaMap, tự hiện khi zoom gần bờ. Lưu ý OpenSeaMap là dữ liệu cộng đồng, vùng VN còn thưa — chỉ là tham khảo thêm, không thay hải đồ giấy/máy định vị của tàu.
+  - Gió/sóng + mưa/dông: Open-Meteo (mô hình quốc tế, cập nhật theo giờ) — UI luôn kèm lời dặn nghe đài duyên hải / biên phòng. Dông sét trừ 30 điểm đi biển và tô đỏ — nguy hiểm nhất với tàu nhỏ.
+  - Dẫn đường tiết kiệm dầu: cùng nguồn Open-Meteo (dự báo theo giờ, 48h, nhiều điểm trên hành lang tuyến). **Mô hình dầu là ƯỚC LƯỢNG THAM KHẢO** (sóng làm tàu chậm → tốn giờ máy; ngược gió ăn dầu hơn) — KHÔNG hứa con số lít chính xác; tuyến KHÔNG biết đảo/đá ngầm/luồng lạch (chỉ né ô lưới mà nguồn sóng báo là đất) — UI bắt buộc dặn dò hải đồ + nghe đài trước khi chạy.
+  - Tin bão/áp thấp: hệ cảnh báo thiên tai quốc tế GDACS (EU/UN, JSON công khai) qua proxy `/api/storms`, lọc vùng Biển Đông. **Quy tắc an toàn**: nguồn fail → KHÔNG hiển thị "không có bão" (im lặng, để lời dặn nghe đài làm việc); chỉ hiện dòng trấn an khi đã kiểm tra được thật. Nguồn quốc tế có thể lệch tên/cấp so với bản tin KTTV VN bà con nghe đài — nâng cấp lên nguồn chính thống VN khi có thỏa thuận.
 - **Dữ liệu tương lai**: feed thương mại (vd OceanByte) — **bắt buộc đi qua adapter có thể thay thế**.
   - ⚠️ OceanByte là bên thứ ba nước ngoài, có sản phẩm vessel-tracking cạnh tranh → **không bao giờ là core**, không hardcode vào domain logic.
   - ⚠️ Khuyến nghị ngư trường của họ chỉ cập nhật **2 lần/tuần** → KHÔNG hứa với người dùng độ chính xác hằng ngày cho phần khuyến nghị.

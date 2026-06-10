@@ -6,7 +6,7 @@
 
 | Trục | Lời hứa | Route | Trạng thái |
 |---|---|---|---|
-| 1 | Đánh bắt tốt hơn | `/ngu-truong` | **MVP**: điểm đi biển 1–100, dữ liệu thật Open-Meteo (sóng/gió 10 ngày, 10 cảng) + bản đồ ngư trường vệ tinh (nhiệt độ/phù du/ảnh mây, nhãn chủ quyền VN, chạm xem gió sóng) |
+| 1 | Đánh bắt tốt hơn | `/ngu-truong` | **MVP**: điểm đi biển 1–100, dữ liệu thật Open-Meteo (sóng/gió/mưa/dông, 10 cảng) + bản đồ ngư trường vệ tinh (nhiệt độ/phù du/ảnh mây/độ sâu + phao đèn biển, nhãn chủ quyền VN, chạm xem gió sóng) + tin bão Biển Đông (`/api/storms`) + dẫn đường tiết kiệm dầu (tuyến né sóng gió theo giờ, ước tính lít dầu — tham khảo) |
 | 2 | Bán được đắt hơn | `/gia-ca` | **MVP**: bảng giá tham khảo + sổ lãi lỗ chuyến biển (localStorage) |
 | 3 | Vận hành rẻ hơn | `/van-hanh` | **MVP**: nhắc bảo dưỡng (localStorage) + danh mục vật tư tham khảo |
 | 4 | Tuân thủ dễ hơn | `/giay-to` | **MVP**: tủ giấy tờ + tra mức phạt (NĐ 38/2024) |

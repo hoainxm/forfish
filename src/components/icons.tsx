@@ -255,11 +255,42 @@ export function MoneyHandIcon(p: IconProps) {
   );
 }
 
+export function FuelIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M4 21V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v15M3 21h12" />
+      <path d="M6.5 7.5h5v4h-5z" />
+      <path d="M14 12h2a2 2 0 0 1 2 2v3.5a1.5 1.5 0 0 0 3 0V10l-2.5-2.5" />
+    </svg>
+  );
+}
+
+export function RouteIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <circle cx="5" cy="18.5" r="2.3" />
+      <circle cx="19" cy="5.5" r="2.3" />
+      <path d="M5 16.2c0-4.6 4-4.2 7-4.2s7 .4 7-4.2" />
+    </svg>
+  );
+}
+
 export function PinIcon(p: IconProps) {
   return (
     <svg {...base(p)}>
       <path d="M12 21.5c4-4.4 6.5-8 6.5-11A6.5 6.5 0 0 0 5.5 10.5c0 3 2.5 6.6 6.5 11Z" />
       <circle cx="12" cy="10.5" r="2.3" />
+    </svg>
+  );
+}
+
+export function DepthIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M2.5 4.5c2.4-2 4.8-2 7.2 0s4.8 2 7.2 0 3.6-1.3 4.6-.5" />
+      <path d="M12 8.5v8" />
+      <path d="m8.5 13.5 3.5 3.5 3.5-3.5" />
+      <path d="M3.5 20.5h17" />
     </svg>
   );
 }

@@ -37,32 +37,42 @@ describe("formatDateVN", () => {
 });
 
 describe("OCEAN_LAYERS", () => {
-  it("mỗi lớp sinh URL tile chứa đúng ngày và đủ placeholder z/y/x", () => {
+  it("lớp theo ngày chứa đúng ngày trong URL; mọi lớp đủ placeholder z/x/y", () => {
     for (const def of Object.values(OCEAN_LAYERS)) {
       const url = def.tiles("2026-06-08");
-      expect(url).toContain("/2026-06-08/");
+      if (def.dated) expect(url).toContain("/2026-06-08/");
       expect(url).toContain("{z}");
       expect(url).toContain("{y}");
       expect(url).toContain("{x}");
     }
+  });
+
+  it("lớp độ sâu là lớp tĩnh, vẽ đặc (tự đứng được)", () => {
+    expect(OCEAN_LAYERS.bathymetry.dated).toBe(false);
+    expect(OCEAN_LAYERS.bathymetry.opacity).toBe(1);
   });
 });
 
 describe("buildMapStyle", () => {
   const now = new Date("2026-06-10T12:00:00Z");
 
-  it("không có lớp dữ liệu → chỉ basemap + mask chủ quyền", () => {
+  it("không có lớp dữ liệu → basemap + mask chủ quyền + phao đèn", () => {
     const style = buildMapStyle(null, now);
-    expect(Object.keys(style.sources)).toEqual(["basemap", "sea-mask"]);
-    expect(style.layers).toHaveLength(2);
+    expect(Object.keys(style.sources)).toEqual([
+      "basemap",
+      "sea-mask",
+      "seamarks",
+    ]);
+    expect(style.layers).toHaveLength(3);
   });
 
   it("có lớp dữ liệu → thêm source ocean-data với ngày đã trừ độ trễ", () => {
     const style = buildMapStyle("sst", now);
     const src = style.sources["ocean-data"] as { tiles: string[] };
     expect(src.tiles[0]).toContain("/2026-06-08/");
-    // lớp dữ liệu phải nằm TRÊN mask để không bị che
+    // thứ tự: mask < lớp dữ liệu < phao đèn
     const ids = (style.layers as { id: string }[]).map((l) => l.id);
     expect(ids.indexOf("ocean-data")).toBeGreaterThan(ids.indexOf("sea-mask"));
+    expect(ids.indexOf("seamarks")).toBeGreaterThan(ids.indexOf("ocean-data"));
   });
 });

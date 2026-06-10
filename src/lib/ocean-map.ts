@@ -10,7 +10,7 @@
  * cập nhật hằng ngày, trễ ~2 ngày — đã ghi rõ với người dùng trong UI).
  */
 
-export type OceanLayerId = "sst" | "chlorophyll" | "truecolor";
+export type OceanLayerId = "sst" | "chlorophyll" | "bathymetry" | "truecolor";
 
 export type OceanLayerDef = {
   id: OceanLayerId;
@@ -22,7 +22,11 @@ export type OceanLayerDef = {
   legend: { from: string; to: string; gradient: string } | null;
   /** Ảnh chậm mấy ngày so với hôm nay (đã dò thực tế nguồn) */
   lagDays: number;
-  /** Trả về URL template tile cho một ngày YYYY-MM-DD */
+  /** false = bản đồ tĩnh (độ sâu đáy biển) — không có khái niệm "ảnh ngày X" */
+  dated: boolean;
+  /** Độ mờ khi vẽ đè (mặc định 0.85); lớp tự đứng được (độ sâu) dùng 1 */
+  opacity?: number;
+  /** Trả về URL template tile cho một ngày YYYY-MM-DD (lớp tĩnh bỏ qua) */
   tiles: (isoDate: string) => string;
   /** Mức zoom sâu nhất nguồn có tile thật (zoom sâu hơn thì phóng to tile cũ) */
   maxNativeZoom: number;
@@ -49,6 +53,7 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
         "linear-gradient(90deg,#4575b4,#91cf60,#dcdcdc,#fdae61,#d73027)",
     },
     lagDays: 2,
+    dated: true,
     tiles: (d) =>
       `${GIBS}/GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies/default/${d}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
     maxNativeZoom: 7,
@@ -64,9 +69,27 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
         "linear-gradient(90deg,#30123b,#28bceb,#a2fc3c,#fabd23,#7a0403)",
     },
     lagDays: 2,
+    dated: true,
     tiles: (d) =>
       `${GIBS}/VIIRS_NOAA20_Chlorophyll_a/default/${d}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
     maxNativeZoom: 7,
+  },
+  bathymetry: {
+    id: "bathymetry",
+    // Hải đồ độ sâu: EMODnet (nền GEBCO) — tĩnh, tải một lần dùng quanh năm
+    label: "Độ sâu đáy biển",
+    help: "Màu càng đậm nước càng sâu. Cá đáy hay quanh gò nổi, mép dốc — chỗ màu đổi nhanh là dốc đứng.",
+    legend: {
+      from: "Cạn",
+      to: "Sâu",
+      gradient: "linear-gradient(90deg,#d9eef5,#9fcde4,#5b9bc9,#2a6299,#0b2d59)",
+    },
+    lagDays: 0,
+    dated: false,
+    opacity: 1,
+    tiles: () =>
+      "https://tiles.emodnet-bathymetry.eu/2020/baselayer/web_mercator/{z}/{x}/{y}.png",
+    maxNativeZoom: 10,
   },
   truecolor: {
     id: "truecolor",
@@ -74,6 +97,7 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
     help: "Ảnh chụp thật từ vệ tinh — thấy mây, vệt nước đục, ranh nước trong.",
     legend: null,
     lagDays: 2,
+    dated: true,
     tiles: (d) =>
       `${GIBS}/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/${d}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
     maxNativeZoom: 9,
@@ -83,6 +107,7 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
 export const OCEAN_LAYER_ORDER: OceanLayerId[] = [
   "sst",
   "chlorophyll",
+  "bathymetry",
   "truecolor",
 ];
 
@@ -110,6 +135,14 @@ export function formatDateVN(isoDate: string): string {
 
 /** Màu nước khớp basemap Carto Voyager — nội dung bản đồ, không phải token UI */
 export const SEA_MASK_COLOR = "#aadaff";
+
+/**
+ * Màu vẽ tuyến dẫn đường (MapLibre paint cần hex literal, không nhận CSS
+ * variable) — nội dung bản đồ: chọn nổi trên cả nền nước lẫn ảnh vệ tinh,
+ * kèm viền trắng bên dưới để tách khỏi màu lớp ảnh.
+ */
+export const ROUTE_LINE_COLOR = "#d84b1e";
+export const ROUTE_CASING_COLOR = "#ffffff";
 
 export type SovereigntyLabel = {
   name: string;
@@ -159,7 +192,7 @@ export function buildMapStyle(layerId: OceanLayerId | null, now: Date) {
       ),
       tileSize: 256,
       attribution:
-        "Ảnh: NASA · Nền: © OpenStreetMap © CARTO · Dự báo: Open-Meteo",
+        "Ảnh: NASA · Độ sâu: EMODnet/GEBCO · Phao đèn: OpenSeaMap · Nền: © OpenStreetMap © CARTO · Dự báo: Open-Meteo",
     },
     "sea-mask": {
       type: "geojson",
@@ -206,9 +239,27 @@ export function buildMapStyle(layerId: OceanLayerId | null, now: Date) {
       id: "ocean-data",
       type: "raster",
       source: "ocean-data",
-      paint: { "raster-opacity": 0.85, "raster-fade-duration": 150 },
+      paint: {
+        "raster-opacity": def.opacity ?? 0.85,
+        "raster-fade-duration": 150,
+      },
     });
   }
+
+  // Báo hiệu hàng hải (phao, đèn biển, vùng neo) — overlay trong suốt,
+  // chỉ hiện khi zoom gần bờ; luôn nằm trên mọi lớp ảnh
+  sources["seamarks"] = {
+    type: "raster",
+    tiles: ["https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"],
+    tileSize: 256,
+    minzoom: 9,
+  };
+  layers.push({
+    id: "seamarks",
+    type: "raster",
+    source: "seamarks",
+    minzoom: 9,
+  });
 
   return { version: 8 as const, sources, layers };
 }
