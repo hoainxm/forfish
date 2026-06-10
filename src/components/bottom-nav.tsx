@@ -3,23 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  DocIcon,
+  AnchorIcon,
   FishIcon,
   HomeIcon,
   PriceIcon,
-  WrenchIcon,
+  UsersIcon,
 } from "@/components/icons";
 
 /*
   Bottom nav sized for wet thumbs: 64px-tall items, bold 13px labels,
   active tab gets a filled pill so "where am I" is obvious at a glance.
+  Taxonomy MECE theo đối tượng: Ra khơi (chuyến) · Tàu · Bạn thuyền · Tiền.
 */
 const items = [
   { href: "/", label: "Trang chủ", icon: HomeIcon },
-  { href: "/ngu-truong", label: "Đánh bắt", icon: FishIcon },
-  { href: "/gia-ca", label: "Bán cá", icon: PriceIcon },
-  { href: "/van-hanh", label: "Vật tư", icon: WrenchIcon },
-  { href: "/giay-to", label: "Giấy tờ", icon: DocIcon },
+  { href: "/ngu-truong", label: "Ra khơi", icon: FishIcon },
+  { href: "/tau", label: "Tàu", icon: AnchorIcon },
+  { href: "/nguoi", label: "Bạn thuyền", icon: UsersIcon },
+  { href: "/tien", label: "Tiền", icon: PriceIcon },
 ];
 
 export function BottomNav() {

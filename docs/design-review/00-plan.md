@@ -16,19 +16,36 @@
 6. **Nav theo "4 lời hứa" cũ**, chưa khớp object model "con tàu".
 7. **Điểm mạnh PHẢI giữ**: "ngôn ngữ thẻ" (banner trạng thái màu+icon+chữ), 29 icon stroke không emoji, active pill navy, trang chủ thẻ lớn.
 
-## A. Thông tin kiến trúc (IA) mới — Phương án B (khuyến nghị)
+## A. Taxonomy MECE — chia theo ĐỐI TƯỢNG QUẢN LÝ (chốt 2026-06-10)
 
-Bottom nav 5 tab khớp "con tàu", giữ nút Trang chủ:
+**Vấn đề cũ (không MECE)**: nav cũ trộn 2 trục phân loại — "Đánh bắt/Bán cá/Vật tư/Giấy tờ" là **động từ lợi ích**, còn "Thuyền viên/Tiền" là **danh từ đối tượng**. Hệ quả: tiền nằm cả ở Bán cá lẫn Thuyền viên; giấy tờ TÀU và chứng chỉ NGƯỜI gộp chung một rọ "Giấy tờ" dù thuộc 2 đối tượng khác nhau → chồng lấn.
 
+**Nguyên tắc mới (một trục duy nhất)**: chia theo **đối tượng bạn quản lý khi có một con tàu cá** — đúng mô hình doanh nghiệp kinh điển *Tài sản · Con người · Hoạt động · Tài chính*. 4 nhóm là 4 danh từ song song, loại trừ nhau, phủ hết.
+
+| Trục (nhóm lớn) | Là gì | Gồm chức năng |
+|---|---|---|
+| **TÀU** (tài sản) | con tàu | giấy tờ tàu + nhắc hạn (đăng ký/đăng kiểm/giấy phép), bảo dưỡng máy, vật tư & phụ tùng, tra mức phạt |
+| **NGƯỜI** (lao động) | thuyền viên | hồ sơ bạn thuyền, chứng chỉ + bảo hiểm + nhắc hạn, danh bạ/định biên |
+| **CHUYẾN** (hoạt động) | chuyến ra khơi | điểm đi biển/dự báo, bản đồ ngư trường, ranh giới + an toàn + bão, dẫn đường |
+| **TIỀN** (tài chính) | dòng tiền | giá cá, doanh thu, chi phí, lãi/lỗ chuyến, chia phần, ứng & công nợ |
+
+**Vì sao MECE**:
+- *Loại trừ nhau*: mọi chức năng "tiền" về một chỗ (TIỀN) thay vì rải 2 nơi. Tuân thủ/giấy tờ là **thuộc tính của đối tượng** (giấy của TÀU, chứng chỉ của NGƯỜI) → KHÔNG còn là nhóm peer chồng lấn.
+- *Phủ hết*: tài sản + người + hoạt động + tiền = trọn vẹn việc vận hành một con tàu.
+
+**Bottom nav (5 tab)** — giữ Trang chủ vì người ít rành CN bám chặt:
 ```
-[Trang chủ] [Đi biển] [Thuyền viên] [Tiền] [Giấy tờ]
+[Trang chủ]  [Tàu]  [Người]  [Chuyến]  [Tiền]
 ```
+Nhãn thân thiện thay thế (cùng logic): **Tàu của tôi · Bạn thuyền · Ra khơi · Sổ tiền**.
 
-- **Đi biển** (`/ngu-truong`): điểm đi biển = màn CHÍNH (thấy ngay); **bản đồ ngư trường** + **dẫn đường tiết kiệm dầu** = 2 màn phụ 1 chạm (`/ngu-truong/ban-do`, `/ngu-truong/dan-duong`); geofence đi kèm màn bản đồ.
-- **Thuyền viên** (`/thuyen-vien`): lên nav — hồ sơ + chứng chỉ/bảo hiểm.
-- **Tiền** (`/tien`, route mới): gom **sổ lãi/lỗ chuyến** + **chia tiền chuyến** + (sau) công nợ nậu. Một gốc dữ liệu "chuyến biển".
-- **Giấy tờ** (`/giay-to`): tủ giấy tờ + tra phạt + (sau) checklist xuất bến.
-- **Bán cá (giá cá)** + **Vật tư & máy** → hạ xuống **thẻ trên Trang chủ** (vẫn route riêng, chỉ rời khỏi bottom nav).
+- `/chuyen` (đổi từ `/ngu-truong`): điểm đi biển = màn CHÍNH; bản đồ + dẫn đường = màn phụ 1 chạm; geofence kèm bản đồ.
+- `/tau` (gộp `/van-hanh` + `/giay-to`): bảo dưỡng + vật tư + tủ giấy tờ + tra phạt.
+- `/nguoi` (`/thuyen-vien`): hồ sơ + chứng chỉ/bảo hiểm.
+- `/tien` (route mới, gom từ `gia-ca` + phần chia/ứng của `thuyen-vien`): giá + lãi/lỗ + chia + công nợ.
+- **Bán cá (giá)** nằm trong TIỀN; KHÔNG còn là tab riêng.
+
+**Trục axis thay thế đã cân nhắc — vòng đời chuyến biển** (Chuẩn bị đi → Ra khơi → Về bờ → Hồ sơ nền): trực giác theo thời gian, nhưng *tiền* và *tuân thủ* trải đều nhiều pha → kém MECE hơn trục đối tượng. Không chọn.
 
 ## B. Hệ thiết kế — chốt & gom (nguồn sự thật = `globals.css`)
 
