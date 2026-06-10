@@ -11,7 +11,7 @@ import { AnchorIcon, PinIcon, SearchIcon } from "@/components/icons";
   để chỉ hiện cảng GẦN tàu của bà con; tìm theo tên; bấm xem địa chỉ.
 */
 export function PortDirectory() {
-  const { home, setHome } = useHome();
+  const { home } = useHome();
   const [near, setNear] = useState(true);
   const [q, setQ] = useState("");
 
@@ -28,7 +28,7 @@ export function PortDirectory() {
 
   return (
     <div className="px-4">
-      <HomeBar home={home} setHome={setHome} near={near} setNear={setNear} />
+      <HomeBar home={home} near={near} setNear={setNear} />
 
       <div className="relative mb-3">
         <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground/40" />

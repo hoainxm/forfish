@@ -66,8 +66,6 @@ import { LayerSheet } from "@/components/layer-sheet";
 import { StormBanner } from "@/components/storm-banner";
 import {
   AlertIcon,
-  AnchorIcon,
-  ChevronRightIcon,
   CrosshairIcon,
   FishIcon,
   LayersIcon,
@@ -77,7 +75,6 @@ import {
   WavesIcon,
   WindIcon,
 } from "@/components/icons";
-import Link from "next/link";
 
 const WEEKDAYS = [
   "Chủ nhật",

@@ -54,7 +54,7 @@ const SECTIONS: { id: Section; label: string }[] = [
 
 export function SellGuide() {
   const [section, setSection] = useState<Section>("kenh");
-  const { home, setHome } = useHome();
+  const { home } = useHome();
   const [near, setNear] = useState(true);
   // các mục danh bạ có lọc theo vùng (nậu vựa / chợ / nhà máy)
   const geo = section === "vua" || section === "cho" || section === "nhamay";
@@ -82,7 +82,7 @@ export function SellGuide() {
       </div>
 
       {geo && (
-        <HomeBar home={home} setHome={setHome} near={near} setNear={setNear} />
+        <HomeBar home={home} near={near} setNear={setNear} />
       )}
 
       {section === "kenh" && <Channels />}
