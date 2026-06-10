@@ -92,18 +92,19 @@ export function BoatSwitcher() {
           <ul className="space-y-2">
             {boats.map((b) => (
               <li key={b.id}>
-                <button
-                  onClick={() => {
-                    setCurrent(b.id);
-                    setPick(false);
-                  }}
-                  className={`flex w-full items-center justify-between gap-2 rounded-xl px-3.5 py-3 text-left ${
-                    b.id === current.id
-                      ? "bg-navy text-white"
-                      : "bg-field"
+                {/* 2 nút THẬT cạnh nhau (chọn tàu / sửa) — không lồng nút trong nút */}
+                <div
+                  className={`flex w-full items-stretch gap-1 rounded-xl ${
+                    b.id === current.id ? "bg-navy text-white" : "bg-field"
                   }`}
                 >
-                  <span className="min-w-0">
+                  <button
+                    onClick={() => {
+                      setCurrent(b.id);
+                      setPick(false);
+                    }}
+                    className="min-w-0 flex-1 rounded-l-xl px-3.5 py-3 text-left"
+                  >
                     <span className="block truncate text-[16px] font-bold">
                       {b.name}
                     </span>
@@ -112,20 +113,18 @@ export function BoatSwitcher() {
                     >
                       {b.maTau || "chưa có mã tàu"}
                     </span>
-                  </span>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation();
+                  </button>
+                  <button
+                    onClick={() => {
                       setForm(b);
                       setPick(false);
                     }}
-                    className={`shrink-0 rounded px-2 py-1 text-[14px] font-bold ${b.id === current.id ? "text-white underline" : "text-sea"}`}
+                    aria-label={`Sửa tàu ${b.name}`}
+                    className={`shrink-0 rounded-r-xl px-3 text-[14px] font-bold ${b.id === current.id ? "text-white underline" : "text-sea"}`}
                   >
                     Sửa
-                  </span>
-                </button>
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

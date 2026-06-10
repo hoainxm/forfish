@@ -14,6 +14,8 @@ function base(props: IconProps) {
     strokeWidth: 2.2,
     strokeLinecap: "round",
     strokeLinejoin: "round",
+    // icon LUÔN đi kèm nhãn chữ (design system §4) → trang trí với máy đọc
+    "aria-hidden": true,
   } as const;
 }
 
@@ -295,10 +297,47 @@ export function DepthIcon(p: IconProps) {
   );
 }
 
+export function EddyIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M12 12m-2.2 0a2.2 2.2 0 1 0 4.4 0 2.2 2.2 0 1 0-4.4 0" />
+      <path d="M12 6a6 6 0 0 1 6 6c0 2.5-1.6 4.5-4 5.4" />
+      <path d="M12 18a6 6 0 0 1-6-6c0-2.5 1.6-4.5 4-5.4" />
+    </svg>
+  );
+}
+
+export function DropIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M12 3.5c3.4 4.2 6 7.5 6 10.5a6 6 0 0 1-12 0c0-3 2.6-6.3 6-10.5Z" />
+      <path d="M9.5 14.5a2.6 2.6 0 0 0 2 2.4" />
+    </svg>
+  );
+}
+
 export function StarIcon(p: IconProps) {
   return (
     <svg {...base(p)}>
       <path d="M12 3.5l2.6 5.3 5.9.85-4.25 4.15 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.65l5.9-.85L12 3.5Z" />
+    </svg>
+  );
+}
+
+export function MoonIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z" />
+    </svg>
+  );
+}
+
+export function TargetIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="4.75" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" />
     </svg>
   );
 }

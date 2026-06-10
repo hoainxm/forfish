@@ -61,7 +61,7 @@ export function FinesLookup() {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Tìm lỗi vi phạm..."
+          placeholder="Tìm lỗi vi phạm…"
           aria-label="Tìm mức phạt"
           className="min-h-[52px] w-full rounded-2xl border-0 bg-field pl-12 pr-4 text-[18px] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />

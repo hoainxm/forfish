@@ -98,6 +98,28 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Bỏ delay double-tap-zoom trên mobile — tay ướt chạm là ăn ngay */
+button,
+a,
+input,
+select,
+textarea,
+[role="tab"],
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* Tôn trọng người tắt hiệu ứng chuyển động (a11y) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Focus thấy rõ cho thao tác bàn phím / trợ năng (a11y) */
 :focus-visible {
   outline: 3px solid var(--sea);

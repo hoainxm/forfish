@@ -55,7 +55,7 @@ export function PriceBoard() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Tìm loại cá..."
+          placeholder="Tìm loại cá…"
           className="min-h-[52px] w-full rounded-2xl border-0 bg-field pl-12 pr-4 text-[18px] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
       </label>

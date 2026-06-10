@@ -57,7 +57,7 @@ export function MoneyInsights() {
               Nhìn nhanh {stats.count} chuyến đã ghi
             </p>
             <p
-              className="display mt-1 text-[28px] font-bold leading-tight"
+              className="display mt-1 text-[28px] font-bold leading-tight tabular-nums"
               style={{
                 color: stats.totalProfit >= 0 ? "var(--ok)" : "var(--danger)",
               }}
@@ -67,7 +67,7 @@ export function MoneyInsights() {
             </p>
             <p className="text-[14px] text-foreground/55">tổng lãi/lỗ</p>
 
-            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3">
+            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3 tabular-nums">
               <div>
                 <p className="display text-[18px] font-bold text-navy">
                   {stats.totalProfit >= 0 ? "+" : ""}
