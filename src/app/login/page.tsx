@@ -55,8 +55,21 @@ export default function LoginPage() {
       return;
     }
 
-    // Supabase Auth dùng email (đỡ phụ thuộc SMS); app tự ghép đuôi ảo sau
-    // SĐT (84xxx...@phone.forfish.app) — bà con chỉ thấy SĐT của mình.
+    // 1) THỬ SSO SDWork trước: khách dùng đúng SĐT+mk SDWork, không cần đổi mk.
+    const ssoRes = await fetch("/api/auth/sso", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, password }),
+    }).catch(() => null);
+
+    if (ssoRes && ssoRes.ok) {
+      const { actionLink } = (await ssoRes.json()) as { actionLink: string };
+      // action_link là magic-link → chuyển hướng để Supabase set session, về "/"
+      window.location.href = actionLink;
+      return;
+    }
+
+    // 2) Fallback: tài khoản nội bộ ForFish (đăng ký /dang-ky, mk lưu Supabase)
     const { data, error: signInError } = await supabase!.auth.signInWithPassword(
       { email: phoneToEmail(phone), password },
     );
