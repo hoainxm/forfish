@@ -10,7 +10,7 @@ export default function GiayToPage() {
     <div>
       <PageHeader
         kicker="Giấy tờ của tàu"
-        title={<>Tủ giấy tờ 📋</>}
+        title="Tủ giấy tờ"
         sub="App nhắc trước khi hết hạn — khỏi lo bị phạt."
         toColor="var(--t4)"
       />

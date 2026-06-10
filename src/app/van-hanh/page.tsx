@@ -6,7 +6,6 @@ export default function VanHanhPage() {
   return (
     <ComingSoon
       tone="t3"
-      emoji="🔧"
       title="Vật tư & máy"
       promise="Giữ tàu chạy bền, tốn ít tiền hơn mỗi chuyến."
       features={[

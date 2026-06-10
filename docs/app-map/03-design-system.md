@@ -52,14 +52,16 @@ Mapping với expiry logic (`expired`/`soon`/`ok`): xem [04-data-model.md](04-da
 
 ## 3. Typography
 
-- **Baloo 2** — display/heading: tròn trịa, thân thiện, không lạnh lùng
+- **Archivo** — display/heading: đậm chắc, đáng tin, kiểu "thiết bị hàng hải" (đã thay Baloo 2 ngày 2026-06-10 — feedback: tròn trịa quá thành trẻ con)
 - **Be Vietnam Pro** — body: dấu tiếng Việt đẹp, dễ đọc cỡ lớn
 - Base ≥ 18px; heading to rõ; không dùng font-weight mảnh (light/thin)
 
 ## 4. Motif & tone
 
 - **Wave motifs** (họa tiết sóng) làm điểm nhấn trang trí — nhẹ, không lấn nội dung
-- Tone copy: như người quen trong nghề nói chuyện — ngắn, ấm, cụ thể ("Đăng kiểm sắp hết hạn, còn 12 ngày — đi gia hạn sớm kẻo phạt")
+- **Icon: chỉ dùng stroke SVG trong `src/components/icons.tsx`** (nét 2.2px, luôn kèm nhãn chữ). **KHÔNG dùng emoji làm icon hay trang trí** — emoji làm app thành đồ chơi, mất tin cậy. Không hoạt ảnh "dễ thương" (nhún nhảy, lắc lư).
+- Bo góc vừa phải: thẻ/nút `rounded-xl` (12px), phần tử nhỏ `rounded-lg`/`rounded-md` — KHÔNG bo tròn xoe (`rounded-3xl`, pill) cho khối nội dung
+- Tone copy: như người quen trong nghề nói chuyện — ngắn, điềm đạm, cụ thể ("Đăng kiểm sắp hết hạn, còn 12 ngày — đi gia hạn sớm kẻo phạt"); hạn chế dấu chấm than
 - Không dùng từ kỹ thuật trong UI: "đồng bộ", "xác thực", "session"...
 
 ## 5. Cách dùng tokens (Tailwind v4)

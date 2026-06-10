@@ -6,7 +6,6 @@ export default function NguTruongPage() {
   return (
     <ComingSoon
       tone="t1"
-      emoji="🐟"
       title="Đánh bắt"
       promise="Ra khơi trúng hơn, đỡ tốn dầu tốn công."
       features={[

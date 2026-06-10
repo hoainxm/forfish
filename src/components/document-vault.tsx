@@ -10,12 +10,22 @@ import {
   getExpiryStatus,
   kindLabel,
 } from "@/lib/documents";
+import {
+  AlertIcon,
+  CheckIcon,
+  ClockIcon,
+  DocIcon,
+  EditIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@/components/icons";
 
 /*
   Tủ giấy tờ — designed for users who have never used an app like this:
-  · each document is ONE big card with ONE big colour-coded status pill
-  · the status pill repeats the colour as a dot + bold words (colour-blind safe)
+  · each document is ONE card with ONE colour-coded status banner
+  · the banner pairs colour with an icon + bold words (colour-blind safe)
   · add/edit happens in a bottom sheet with big inputs and two big buttons
+  Tone: a filing cabinet you trust, not a sticker book — no emoji.
 */
 
 const STORAGE_KEY = "forfish.documents.v1";
@@ -83,20 +93,16 @@ export function DocumentVault() {
           setEditing(null);
           setShowForm(true);
         }}
-        className="display mb-4 flex min-h-[60px] w-full items-center justify-center gap-2 rounded-3xl bg-trim text-[20px] font-bold text-white shadow-md transition active:scale-[0.98]"
+        className="display mb-4 flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-xl bg-trim text-[19px] font-bold text-white shadow-sm transition active:scale-[0.98]"
       >
-        <span className="text-2xl leading-none" aria-hidden>
-          ＋
-        </span>
+        <PlusIcon className="h-6 w-6" />
         Thêm giấy tờ mới
       </button>
 
       {ready && docs.length === 0 && (
-        <div className="rounded-3xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
-          <p className="text-4xl" aria-hidden>
-            🗂️
-          </p>
-          <p className="mt-2 text-[17px] text-foreground/60">
+        <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
+          <DocIcon className="mx-auto h-10 w-10 text-foreground/30" />
+          <p className="mt-3 text-[17px] text-foreground/60">
             Chưa có giấy tờ nào.
             <br />
             Bấm nút cam ở trên để thêm.
@@ -109,27 +115,27 @@ export function DocumentVault() {
           const status = getExpiryStatus(doc, today);
           const pill =
             status.level === "expired"
-              ? { bg: "var(--danger-bg)", fg: "var(--danger)", icon: "⛔" }
+              ? { bg: "var(--danger-bg)", fg: "var(--danger)", Icon: AlertIcon }
               : status.level === "soon"
-                ? { bg: "var(--warn-bg)", fg: "var(--warn)", icon: "⏰" }
+                ? { bg: "var(--warn-bg)", fg: "var(--warn)", Icon: ClockIcon }
                 : status.level === "ok"
-                  ? { bg: "var(--ok-bg)", fg: "var(--ok)", icon: "✅" }
+                  ? { bg: "var(--ok-bg)", fg: "var(--ok)", Icon: CheckIcon }
                   : {
                       bg: "var(--background)",
                       fg: "var(--foreground)",
-                      icon: "📄",
+                      Icon: DocIcon,
                     };
           return (
             <li
               key={doc.id}
-              className="overflow-hidden rounded-3xl border border-line bg-card shadow-sm"
+              className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line"
             >
               {/* status banner — the first thing the eye lands on */}
               <p
                 className="flex items-center gap-2 px-4 py-2.5 text-[16px] font-bold"
                 style={{ backgroundColor: pill.bg, color: pill.fg }}
               >
-                <span aria-hidden>{pill.icon}</span>
+                <pill.Icon className="h-5 w-5 shrink-0" />
                 {status.label}
               </p>
 
@@ -137,7 +143,7 @@ export function DocumentVault() {
                 <p className="text-[13px] font-bold uppercase tracking-wide text-foreground/40">
                   {kindLabel(doc.kind)}
                 </p>
-                <p className="display text-[20px] font-bold leading-snug text-navy">
+                <p className="display text-[19px] font-bold leading-snug text-navy">
                   {doc.label}
                 </p>
                 {doc.number && (
@@ -151,8 +157,8 @@ export function DocumentVault() {
                   </p>
                 )}
                 {doc.note && (
-                  <p className="mt-1 rounded-xl bg-background px-3 py-1.5 text-[15px] text-foreground/70">
-                    💬 {doc.note}
+                  <p className="mt-1.5 rounded-lg bg-background px-3 py-1.5 text-[15px] text-foreground/70">
+                    {doc.note}
                   </p>
                 )}
               </div>
@@ -163,15 +169,17 @@ export function DocumentVault() {
                     setEditing(doc);
                     setShowForm(true);
                   }}
-                  className="min-h-[52px] text-[17px] font-bold text-sea active:bg-background"
+                  className="flex min-h-[52px] items-center justify-center gap-2 text-[17px] font-bold text-sea active:bg-background"
                 >
-                  ✏️ Sửa
+                  <EditIcon className="h-5 w-5" />
+                  Sửa
                 </button>
                 <button
                   onClick={() => setConfirmDelete(doc)}
-                  className="min-h-[52px] border-l border-line text-[17px] font-bold text-danger active:bg-background"
+                  className="flex min-h-[52px] items-center justify-center gap-2 border-l border-line text-[17px] font-bold text-danger active:bg-background"
                 >
-                  🗑️ Xóa
+                  <TrashIcon className="h-5 w-5" />
+                  Xóa
                 </button>
               </div>
             </li>
@@ -200,13 +208,11 @@ export function DocumentVault() {
           onClick={() => setConfirmDelete(null)}
         >
           <div
-            className="w-full max-w-[400px] rounded-3xl bg-card p-5 text-center"
+            className="w-full max-w-[400px] rounded-xl bg-card p-5 text-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-4xl" aria-hidden>
-              🗑️
-            </p>
-            <p className="display mt-2 text-[20px] font-bold text-navy">
+            <TrashIcon className="mx-auto h-9 w-9 text-danger" />
+            <p className="display mt-3 text-[20px] font-bold text-navy">
               Xóa giấy tờ này?
             </p>
             <p className="mt-1 text-[16px] text-foreground/60">
@@ -215,13 +221,13 @@ export function DocumentVault() {
             <div className="mt-4 grid grid-cols-2 gap-3">
               <button
                 onClick={() => setConfirmDelete(null)}
-                className="min-h-[56px] rounded-2xl border-2 border-line text-[17px] font-bold text-foreground/70"
+                className="min-h-[56px] rounded-lg border-2 border-line text-[17px] font-bold text-foreground/70"
               >
                 Không xóa
               </button>
               <button
                 onClick={() => remove(confirmDelete.id)}
-                className="min-h-[56px] rounded-2xl bg-danger text-[17px] font-bold text-white"
+                className="min-h-[56px] rounded-lg bg-danger text-[17px] font-bold text-white"
               >
                 Xóa luôn
               </button>
@@ -268,7 +274,7 @@ function DocumentForm({
   }
 
   const inputCls =
-    "w-full rounded-2xl border-2 border-line bg-card px-4 py-3.5 text-[17px] focus:border-sea focus:outline-none";
+    "w-full rounded-lg border-2 border-line bg-card px-4 py-3.5 text-[17px] focus:border-sea focus:outline-none";
 
   return (
     <div
@@ -278,11 +284,11 @@ function DocumentForm({
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
-        className="max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[28px] bg-background p-5 pb-8"
+        className="max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-2xl bg-background p-5 pb-8"
       >
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-line" />
-        <h3 className="display mb-4 text-[22px] font-bold text-navy">
-          {initial ? "✏️ Sửa giấy tờ" : "📋 Thêm giấy tờ"}
+        <h3 className="display mb-4 text-[21px] font-bold text-navy">
+          {initial ? "Sửa giấy tờ" : "Thêm giấy tờ"}
         </h3>
 
         <Field label="Đây là giấy gì?">
@@ -343,15 +349,15 @@ function DocumentForm({
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[60px] rounded-2xl border-2 border-line text-[18px] font-bold text-foreground/70"
+            className="min-h-[60px] rounded-lg border-2 border-line text-[18px] font-bold text-foreground/70"
           >
             Hủy
           </button>
           <button
             type="submit"
-            className="display min-h-[60px] rounded-2xl bg-trim text-[19px] font-bold text-white shadow-md active:scale-[0.98]"
+            className="display min-h-[60px] rounded-lg bg-trim text-[18px] font-bold text-white shadow-sm active:scale-[0.98]"
           >
-            ✓ Lưu lại
+            Lưu lại
           </button>
         </div>
       </form>

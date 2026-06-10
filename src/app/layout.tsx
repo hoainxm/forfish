@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Baloo_2, Be_Vietnam_Pro } from "next/font/google";
+import { Archivo, Be_Vietnam_Pro } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 
-const display = Baloo_2({
+const display = Archivo({
   variable: "--font-display",
   subsets: ["latin", "vietnamese"],
   weight: ["600", "700", "800"],

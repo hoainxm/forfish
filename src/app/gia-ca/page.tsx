@@ -6,7 +6,6 @@ export default function GiaCaPage() {
   return (
     <ComingSoon
       tone="t2"
-      emoji="💰"
       title="Bán cá"
       promise="Cá về bờ bán được giá, không bị ép."
       features={[
