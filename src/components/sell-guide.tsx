@@ -7,6 +7,11 @@ import {
   type SavedBuyer,
 } from "@/data/market-channels";
 import { SEAFOOD_BUYERS, buyersForSpecies } from "@/data/seafood-buyers";
+import {
+  WHOLESALER_KIND_LABEL,
+  provincesWithWholesalers,
+  wholesalersByProvince,
+} from "@/data/wholesalers";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Card, EmptyState, Field, PrimaryButton, RefNote, inputClass } from "@/components/ui/primitives";
@@ -30,10 +35,11 @@ import {
    · Mối quen   — nậu/vựa/nhà máy bà con TỰ thêm (localStorage, riêng tư)
 */
 
-type Section = "kenh" | "cho" | "nhamay" | "moiquen";
+type Section = "kenh" | "vua" | "cho" | "nhamay" | "moiquen";
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "kenh", label: "Kênh bán" },
+  { id: "vua", label: "Nậu vựa" },
   { id: "cho", label: "Chợ đầu mối" },
   { id: "nhamay", label: "Nhà máy" },
   { id: "moiquen", label: "Mối quen" },
@@ -64,6 +70,7 @@ export function SellGuide() {
       </div>
 
       {section === "kenh" && <Channels />}
+      {section === "vua" && <Wholesalers />}
       {section === "cho" && <Markets />}
       {section === "nhamay" && <Factories />}
       {section === "moiquen" && <MyBuyers />}
@@ -111,6 +118,99 @@ function Channels() {
           </ul>
         </Card>
       ))}
+    </div>
+  );
+}
+
+function Wholesalers() {
+  const provinces = useMemo(() => provincesWithWholesalers(), []);
+  const [prov, setProv] = useState(provinces[0]?.province ?? "");
+  const list = useMemo(() => wholesalersByProvince(prov), [prov]);
+
+  return (
+    <div>
+      <RefNote>
+        Vựa/cơ sở thu mua có đăng tin công khai — gọi xác minh trước khi bán.
+        Nậu quen tại bến của bà con thì lưu ở mục “Mối quen”.
+      </RefNote>
+
+      {/* chọn tỉnh */}
+      <div className="my-3 flex gap-1.5 overflow-x-auto">
+        {provinces.map((p) => {
+          const on = p.province === prov;
+          return (
+            <button
+              key={p.province}
+              onClick={() => setProv(p.province)}
+              aria-pressed={on}
+              className={`min-h-[44px] shrink-0 rounded-lg px-3 text-[15px] font-bold transition ${
+                on
+                  ? "bg-navy text-white"
+                  : "bg-card text-navy/70 ring-1 ring-line active:bg-background"
+              }`}
+            >
+              {p.province} ({p.count})
+            </button>
+          );
+        })}
+      </div>
+
+      <ul className="space-y-2.5">
+        {list.map((w) => (
+          <li key={w.id}>
+            <Card className="p-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-bold uppercase tracking-wide text-foreground/45">
+                    {WHOLESALER_KIND_LABEL[w.kind] ?? "Vựa"}
+                  </p>
+                  <p className="display text-[17px] font-bold leading-snug text-navy">
+                    {w.name}
+                  </p>
+                </div>
+                {w.phone && (
+                  <a
+                    href={`tel:${w.phone.replace(/\s/g, "")}`}
+                    className="shrink-0 rounded-lg bg-sea px-3 py-2 text-[15px] font-bold text-white"
+                  >
+                    Gọi
+                  </a>
+                )}
+              </div>
+              {w.address && (
+                <p className="mt-1 flex gap-1.5 text-[15px] text-foreground/70">
+                  <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-t2" />
+                  <span>{w.address}</span>
+                </p>
+              )}
+              {w.phone && (
+                <p className="text-[15px] text-foreground/70">SĐT: {w.phone}</p>
+              )}
+              {w.species && w.species.length > 0 && (
+                <p className="text-[14px] text-foreground/60">
+                  Thu mua: {w.species.join(", ")}
+                </p>
+              )}
+              {w.source && (
+                <a
+                  href={w.source.startsWith("http") ? w.source : `https://${w.source}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-block text-[13px] font-semibold text-foreground/45 underline"
+                >
+                  Nguồn
+                </a>
+              )}
+            </Card>
+          </li>
+        ))}
+        {list.length === 0 && (
+          <EmptyState icon={<UsersIcon className="h-9 w-9" />}>
+            Chưa có vựa công khai ở tỉnh này. Bà con thêm mối quen ở mục
+            “Mối quen”.
+          </EmptyState>
+        )}
+      </ul>
     </div>
   );
 }
