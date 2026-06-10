@@ -1,75 +1,69 @@
+import { PageHeader } from "@/components/page-header";
+
 type Tone = "t1" | "t2" | "t3";
 
 export function ComingSoon({
   tone,
-  truc,
   emoji,
   title,
   promise,
   features,
-  dataNote,
 }: {
   tone: Tone;
-  truc: number;
   emoji: string;
   title: string;
   promise: string;
   features: string[];
-  dataNote: string;
 }) {
   return (
     <div>
-      <header
-        className="px-5 pb-6 pt-8 text-white"
-        style={{
-          background: `linear-gradient(135deg, var(--navy), var(--${tone}))`,
-        }}
-      >
-        <p className="text-xs uppercase tracking-widest text-white/70">
-          Trục {truc}
-        </p>
-        <h1 className="mt-1 flex items-center gap-2 text-2xl font-bold">
-          <span aria-hidden>{emoji}</span>
-          {title}
-        </h1>
-        <p className="mt-1 text-sm text-white/85">{promise}</p>
-      </header>
+      <PageHeader
+        kicker="Sắp có trên ForFish"
+        title={
+          <>
+            {title} {emoji}
+          </>
+        }
+        sub={promise}
+        toColor={`var(--${tone})`}
+      />
 
-      <div className="px-4 py-5">
+      <div className="px-4 pt-2">
         <div
-          className="mb-4 rounded-2xl border border-line p-4"
+          className="mb-4 flex items-center gap-3 rounded-3xl px-4 py-3.5"
           style={{ backgroundColor: `var(--${tone}-bg)` }}
         >
-          <p className="text-sm font-semibold" style={{ color: `var(--${tone})` }}>
-            Sắp ra mắt
-          </p>
-          <p className="mt-1 text-sm text-gray-600">
-            Tính năng đang được xây dựng. Những việc app sẽ lo cho bà con:
+          <span className="text-3xl" aria-hidden>
+            🛠️
+          </span>
+          <p
+            className="text-[16px] font-bold leading-snug"
+            style={{ color: `var(--${tone})` }}
+          >
+            Đội ForFish đang làm phần này. Sắp xong, bà con chờ chút nhé!
           </p>
         </div>
 
-        <ul className="space-y-2.5">
+        <h2 className="mb-2 px-1 text-[17px] font-bold text-navy">
+          App sẽ giúp bà con:
+        </h2>
+        <ul className="space-y-3">
           {features.map((f) => (
             <li
               key={f}
-              className="flex items-start gap-2.5 rounded-2xl border border-line bg-white p-3.5 shadow-sm"
+              className="flex items-start gap-3 rounded-3xl border border-line bg-card p-4 shadow-sm"
             >
               <span
-                className="mt-0.5 inline-block h-5 w-5 shrink-0 rounded-full text-center text-xs font-bold leading-5 text-white"
+                className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[15px] font-bold text-white"
                 style={{ backgroundColor: `var(--${tone})` }}
                 aria-hidden
               >
                 ✓
               </span>
-              <span className="text-sm text-foreground">{f}</span>
+              <span className="text-[17px] leading-snug">{f}</span>
             </li>
           ))}
         </ul>
-
-        <p className="mt-4 rounded-xl bg-white px-3 py-2.5 text-xs text-gray-500 ring-1 ring-line">
-          <strong className="text-gray-600">Nguồn dữ liệu: </strong>
-          {dataNote}
-        </p>
       </div>
     </div>
   );

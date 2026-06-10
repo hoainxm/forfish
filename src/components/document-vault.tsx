@@ -11,6 +11,13 @@ import {
   kindLabel,
 } from "@/lib/documents";
 
+/*
+  Tủ giấy tờ — designed for users who have never used an app like this:
+  · each document is ONE big card with ONE big colour-coded status pill
+  · the status pill repeats the colour as a dot + bold words (colour-blind safe)
+  · add/edit happens in a bottom sheet with big inputs and two big buttons
+*/
+
 const STORAGE_KEY = "forfish.documents.v1";
 
 function loadDocs(today: Date): BoatDocument[] {
@@ -32,12 +39,13 @@ function saveDocs(docs: BoatDocument[]) {
   }
 }
 
-export function DocumentVault({ supabaseReady }: { supabaseReady: boolean }) {
+export function DocumentVault() {
   const today = useMemo(() => new Date(), []);
   const [docs, setDocs] = useState<BoatDocument[]>([]);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<BoatDocument | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<BoatDocument | null>(null);
 
   // Hydrate from localStorage on mount (avoids SSR/CSR mismatch).
   useEffect(() => {
@@ -49,23 +57,7 @@ export function DocumentVault({ supabaseReady }: { supabaseReady: boolean }) {
     if (ready) saveDocs(docs);
   }, [docs, ready]);
 
-  const sorted = useMemo(
-    () => [...docs].sort(byUrgency(today)),
-    [docs, today],
-  );
-
-  const counts = useMemo(() => {
-    let expired = 0,
-      soon = 0,
-      ok = 0;
-    for (const d of docs) {
-      const lvl = getExpiryStatus(d, today).level;
-      if (lvl === "expired") expired++;
-      else if (lvl === "soon") soon++;
-      else if (lvl === "ok") ok++;
-    }
-    return { expired, soon, ok };
-  }, [docs, today]);
+  const sorted = useMemo(() => [...docs].sort(byUrgency(today)), [docs, today]);
 
   function upsert(doc: BoatDocument) {
     setDocs((prev) => {
@@ -81,107 +73,115 @@ export function DocumentVault({ supabaseReady }: { supabaseReady: boolean }) {
 
   function remove(id: string) {
     setDocs((prev) => prev.filter((d) => d.id !== id));
+    setConfirmDelete(null);
   }
 
   return (
-    <div className="px-4 py-4">
-      {!supabaseReady && (
-        <p className="mb-3 rounded-xl bg-t3-bg px-3 py-2 text-xs text-t3">
-          Chế độ thử nghiệm — dữ liệu lưu ngay trên máy bà con. Khi kết nối
-          Supabase, giấy tờ sẽ được đồng bộ và nhắc qua điện thoại.
-        </p>
-      )}
-
-      <div className="mb-4 grid grid-cols-3 gap-2">
-        <Stat label="Quá hạn" value={counts.expired} tone="danger" />
-        <Stat label="Sắp hết hạn" value={counts.soon} tone="warn" />
-        <Stat label="Còn hạn" value={counts.ok} tone="ok" />
-      </div>
-
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-500">
-          Tất cả giấy tờ ({docs.length})
-        </h2>
-        <button
-          onClick={() => {
-            setEditing(null);
-            setShowForm(true);
-          }}
-          className="rounded-full bg-t4 px-4 py-2 text-sm font-semibold text-white active:scale-95"
-        >
-          + Thêm
-        </button>
-      </div>
+    <div className="px-4 pt-1">
+      <button
+        onClick={() => {
+          setEditing(null);
+          setShowForm(true);
+        }}
+        className="display mb-4 flex min-h-[60px] w-full items-center justify-center gap-2 rounded-3xl bg-trim text-[20px] font-bold text-white shadow-md transition active:scale-[0.98]"
+      >
+        <span className="text-2xl leading-none" aria-hidden>
+          ＋
+        </span>
+        Thêm giấy tờ mới
+      </button>
 
       {ready && docs.length === 0 && (
-        <p className="rounded-2xl border border-dashed border-line py-10 text-center text-sm text-gray-400">
-          Chưa có giấy tờ nào. Bấm “+ Thêm” để bắt đầu.
-        </p>
+        <div className="rounded-3xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
+          <p className="text-4xl" aria-hidden>
+            🗂️
+          </p>
+          <p className="mt-2 text-[17px] text-foreground/60">
+            Chưa có giấy tờ nào.
+            <br />
+            Bấm nút cam ở trên để thêm.
+          </p>
+        </div>
       )}
 
-      <ul className="space-y-2.5">
+      <ul className="space-y-3">
         {sorted.map((doc) => {
           const status = getExpiryStatus(doc, today);
-          const badge =
+          const pill =
             status.level === "expired"
-              ? "bg-danger/10 text-danger"
+              ? { bg: "var(--danger-bg)", fg: "var(--danger)", icon: "⛔" }
               : status.level === "soon"
-                ? "bg-warn/10 text-warn"
+                ? { bg: "var(--warn-bg)", fg: "var(--warn)", icon: "⏰" }
                 : status.level === "ok"
-                  ? "bg-ok/10 text-ok"
-                  : "bg-gray-100 text-gray-500";
+                  ? { bg: "var(--ok-bg)", fg: "var(--ok)", icon: "✅" }
+                  : {
+                      bg: "var(--background)",
+                      fg: "var(--foreground)",
+                      icon: "📄",
+                    };
           return (
             <li
               key={doc.id}
-              className="rounded-2xl border border-line bg-white p-3.5 shadow-sm"
+              className="overflow-hidden rounded-3xl border border-line bg-card shadow-sm"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                    {kindLabel(doc.kind)}
+              {/* status banner — the first thing the eye lands on */}
+              <p
+                className="flex items-center gap-2 px-4 py-2.5 text-[16px] font-bold"
+                style={{ backgroundColor: pill.bg, color: pill.fg }}
+              >
+                <span aria-hidden>{pill.icon}</span>
+                {status.label}
+              </p>
+
+              <div className="px-4 py-3">
+                <p className="text-[13px] font-bold uppercase tracking-wide text-foreground/40">
+                  {kindLabel(doc.kind)}
+                </p>
+                <p className="display text-[20px] font-bold leading-snug text-navy">
+                  {doc.label}
+                </p>
+                {doc.number && (
+                  <p className="text-[16px] text-foreground/60">
+                    Số: {doc.number}
                   </p>
-                  <p className="truncate font-semibold text-navy">
-                    {doc.label}
+                )}
+                {doc.expiresOn && (
+                  <p className="text-[16px] text-foreground/60">
+                    Hết hạn: <strong>{formatVnDate(doc.expiresOn)}</strong>
                   </p>
-                  {doc.number && (
-                    <p className="text-sm text-gray-500">Số: {doc.number}</p>
-                  )}
-                  {doc.expiresOn && (
-                    <p className="text-sm text-gray-500">
-                      Hết hạn: {formatVnDate(doc.expiresOn)}
-                    </p>
-                  )}
-                  {doc.note && (
-                    <p className="mt-1 text-sm text-gray-500">{doc.note}</p>
-                  )}
-                </div>
-                <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${badge}`}
-                >
-                  {status.label}
-                </span>
+                )}
+                {doc.note && (
+                  <p className="mt-1 rounded-xl bg-background px-3 py-1.5 text-[15px] text-foreground/70">
+                    💬 {doc.note}
+                  </p>
+                )}
               </div>
-              <div className="mt-2 flex gap-4 border-t border-line pt-2 text-sm">
+
+              <div className="grid grid-cols-2 border-t border-line">
                 <button
                   onClick={() => {
                     setEditing(doc);
                     setShowForm(true);
                   }}
-                  className="font-medium text-steel"
+                  className="min-h-[52px] text-[17px] font-bold text-sea active:bg-background"
                 >
-                  Sửa
+                  ✏️ Sửa
                 </button>
                 <button
-                  onClick={() => remove(doc.id)}
-                  className="font-medium text-danger"
+                  onClick={() => setConfirmDelete(doc)}
+                  className="min-h-[52px] border-l border-line text-[17px] font-bold text-danger active:bg-background"
                 >
-                  Xóa
+                  🗑️ Xóa
                 </button>
               </div>
             </li>
           );
         })}
       </ul>
+
+      <p className="py-4 text-center text-[14px] text-foreground/40">
+        Giấy tờ lưu ngay trên máy của bà con.
+      </p>
 
       {showForm && (
         <DocumentForm
@@ -193,29 +193,42 @@ export function DocumentVault({ supabaseReady }: { supabaseReady: boolean }) {
           onSave={upsert}
         />
       )}
-    </div>
-  );
-}
 
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "danger" | "warn" | "ok";
-}) {
-  const color =
-    tone === "danger"
-      ? "text-danger"
-      : tone === "warn"
-        ? "text-warn"
-        : "text-ok";
-  return (
-    <div className="rounded-2xl border border-line bg-white py-3 text-center shadow-sm">
-      <div className={`text-2xl font-bold ${color}`}>{value}</div>
-      <div className="text-[11px] text-gray-500">{label}</div>
+      {confirmDelete && (
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 px-6"
+          onClick={() => setConfirmDelete(null)}
+        >
+          <div
+            className="w-full max-w-[400px] rounded-3xl bg-card p-5 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-4xl" aria-hidden>
+              🗑️
+            </p>
+            <p className="display mt-2 text-[20px] font-bold text-navy">
+              Xóa giấy tờ này?
+            </p>
+            <p className="mt-1 text-[16px] text-foreground/60">
+              “{confirmDelete.label}” sẽ bị xóa, không lấy lại được.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="min-h-[56px] rounded-2xl border-2 border-line text-[17px] font-bold text-foreground/70"
+              >
+                Không xóa
+              </button>
+              <button
+                onClick={() => remove(confirmDelete.id)}
+                className="min-h-[56px] rounded-2xl bg-danger text-[17px] font-bold text-white"
+              >
+                Xóa luôn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -254,26 +267,29 @@ function DocumentForm({
     });
   }
 
+  const inputCls =
+    "w-full rounded-2xl border-2 border-line bg-card px-4 py-3.5 text-[17px] focus:border-sea focus:outline-none";
+
   return (
     <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-black/40"
+      className="fixed inset-0 z-30 flex items-end justify-center bg-black/50"
       onClick={onCancel}
     >
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
-        className="max-h-[90dvh] w-full max-w-[480px] overflow-y-auto rounded-t-3xl bg-white p-5 pb-8"
+        className="max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[28px] bg-background p-5 pb-8"
       >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-line" />
-        <h3 className="mb-4 text-lg font-bold text-navy">
-          {initial ? "Sửa giấy tờ" : "Thêm giấy tờ"}
+        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-line" />
+        <h3 className="display mb-4 text-[22px] font-bold text-navy">
+          {initial ? "✏️ Sửa giấy tờ" : "📋 Thêm giấy tờ"}
         </h3>
 
-        <Field label="Loại giấy tờ">
+        <Field label="Đây là giấy gì?">
           <select
             value={kind}
             onChange={(e) => handleKind(e.target.value as DocumentKind)}
-            className="w-full rounded-xl border border-line bg-white px-3 py-2.5 text-base"
+            className={inputCls}
           >
             {DOCUMENT_KINDS.map((k) => (
               <option key={k.value} value={k.value}>
@@ -283,59 +299,59 @@ function DocumentForm({
           </select>
         </Field>
 
-        <Field label="Tên hiển thị">
+        <Field label="Tên gọi (để bà con dễ nhớ)">
           <input
             value={label}
             onChange={(e) => {
               setLabel(e.target.value);
               setLabelTouched(true);
             }}
-            className="w-full rounded-xl border border-line px-3 py-2.5 text-base"
+            className={inputCls}
             placeholder="VD: Đăng kiểm tàu cá"
           />
         </Field>
 
-        <Field label="Số hiệu (nếu có)">
+        <Field label="Số giấy tờ (không nhớ thì bỏ qua)">
           <input
             value={number}
             onChange={(e) => setNumber(e.target.value)}
-            className="w-full rounded-xl border border-line px-3 py-2.5 text-base"
+            className={inputCls}
             placeholder="VD: ĐK-2024-0571"
           />
         </Field>
 
-        <Field label="Ngày hết hạn">
+        <Field label="Ngày hết hạn (ghi trên giấy)">
           <input
             type="date"
             value={expiresOn}
             onChange={(e) => setExpiresOn(e.target.value)}
-            className="w-full rounded-xl border border-line px-3 py-2.5 text-base"
+            className={inputCls}
           />
         </Field>
 
-        <Field label="Ghi chú">
+        <Field label="Ghi chú thêm">
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            className="w-full rounded-xl border border-line px-3 py-2.5 text-base"
+            className={inputCls}
             placeholder="VD: Liên hệ chi cục để gia hạn"
           />
         </Field>
 
-        <div className="mt-2 flex gap-3">
+        <div className="mt-3 grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-xl border border-line py-3 font-semibold text-gray-600"
+            className="min-h-[60px] rounded-2xl border-2 border-line text-[18px] font-bold text-foreground/70"
           >
             Hủy
           </button>
           <button
             type="submit"
-            className="flex-1 rounded-xl bg-t4 py-3 font-semibold text-white active:scale-95"
+            className="display min-h-[60px] rounded-2xl bg-trim text-[19px] font-bold text-white shadow-md active:scale-[0.98]"
           >
-            Lưu
+            ✓ Lưu lại
           </button>
         </div>
       </form>
@@ -351,8 +367,8 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="mb-3 block">
-      <span className="mb-1 block text-sm font-medium text-gray-600">
+    <label className="mb-3.5 block">
+      <span className="mb-1.5 block text-[16px] font-bold text-navy">
         {label}
       </span>
       {children}

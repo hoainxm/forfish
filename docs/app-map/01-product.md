@@ -1,0 +1,79 @@
+# 01 — Sản phẩm / Product: bốn lời hứa với bà con
+
+> **Mục đích / Purpose**: Định nghĩa canonical về sản phẩm ForFish — bốn lời hứa, thứ tự build, nguồn dữ liệu và quy tắc adapter, vòng lặp giá trị giữa các trục.
+
+**Load khi / Load when**: cần hiểu scope một trục, quyết định feature thuộc trục nào, đụng tới data vendor (OceanByte, SDWork), hoặc viết copy/positioning.
+
+---
+
+## 1. ForFish là gì
+
+App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mobile-first, tiếng Việt đời thường.
+
+**Người dùng**: ngư dân, phần lớn 40–60 tuổi, **ít rành công nghệ** (low tech literacy). Mọi quyết định sản phẩm phải qua filter: *"bác ngư dân 55 tuổi, tay ướt, đứng ngoài nắng có dùng được không?"* — chi tiết UI ở [03-design-system.md](03-design-system.md).
+
+**Nguyên tắc số 1**: sản phẩm cấu trúc quanh **BỐN LỜI HỨA (bốn trục)** — KHÔNG phải quanh feature, KHÔNG phải quanh nguồn dữ liệu. Vendor có thể thay, lời hứa thì không.
+
+## 2. Bốn trục / The four promises
+
+### Trục 1 — Đánh bắt tốt hơn (`/ngu-truong`)
+- **Hứa gì**: ra khơi trúng hơn, đỡ phí dầu phí công.
+- **Gồm**: điểm biển hằng ngày (sea-score 1–100), bản đồ ngư trường.
+- **Dữ liệu**: feed bên ngoài (vd OceanByte) — **bắt buộc đi qua adapter có thể thay thế**.
+  - ⚠️ OceanByte là bên thứ ba nước ngoài, có sản phẩm vessel-tracking cạnh tranh → **không bao giờ là core**, không hardcode vào domain logic.
+  - ⚠️ Khuyến nghị ngư trường của họ chỉ cập nhật **2 lần/tuần** → KHÔNG hứa với người dùng độ chính xác hằng ngày cho phần khuyến nghị.
+
+### Trục 2 — Bán được đắt hơn (`/gia-ca`)
+- **Hứa gì**: cá về bờ bán được giá, không bị ép.
+- **Gồm**: giá theo loài tại cảng, kết nối đầu mối thu mua, sổ lãi/lỗ chuyến biển.
+- **Dữ liệu**: **tự thu thập** qua mạng lưới đại lý/cảng của SDVICO (moat riêng, không ai có), feed từ SDWork.
+
+### Trục 3 — Vận hành rẻ hơn (`/van-hanh`)
+- **Hứa gì**: giữ tàu chạy bền, tốn ít tiền hơn.
+- **Gồm**: chợ vật tư in-app (dầu nhớt, lọc...), nhắc bảo dưỡng, yêu cầu bảo hành.
+- **Dữ liệu/flow**: đơn hàng chảy vào **SDWork** (ERP công ty), thanh toán QR.
+- **Vai trò**: đây là **động cơ doanh thu** của công ty.
+
+### Trục 4 — Tuân thủ dễ hơn (`/giay-to`) — **MVP hiện tại**
+- **Hứa gì**: lo giấy tờ nhẹ đầu, tránh bị phạt oan.
+- **Gồm**: tủ giấy tờ (document vault) + nhắc hạn, trợ lý hỏi đáp pháp luật thủy sản VN.
+- **Dữ liệu**: KHÔNG phụ thuộc nguồn ngoài → được build **ĐẦU TIÊN**. Logic ở [04-data-model.md](04-data-model.md).
+
+## 3. Thứ tự build / Build order
+
+```
+Trục 4 + 3  →  Trục 1  →  Trục 2
+(không phụ      (feed       (mạng lưới
+ thuộc ngoài)    ngoài)      tự thu thập)
+```
+
+Hiện trạng: Trục 4 MVP chạy được; Trục 1/2/3 là placeholder page (coming-soon).
+
+## 4. Vòng lặp cross-trục / Cross-pillar loop
+
+```
+Trục 1 + 4 (điểm biển, nhắc hạn) → mở app hằng ngày
+        ↓
+  thấy Trục 3 (chợ vật tư) → doanh thu SDVICO
+        ↓
+Trục 2 tăng thu nhập → mua nhiều hơn từ Trục 3
+        ↓
+  mọi lượt dùng → làm giàu hồ sơ tàu (boat profile) trong SDWork
+```
+
+## 5. Quy tắc adapter / Adapter rule (invariant)
+
+1. Nguồn dữ liệu ngoài (OceanByte, SDWork, kho văn bản luật) chỉ là **phương tiện** — code phải tách qua adapter layer để thay vendor mà không đổi domain logic.
+2. Không để tên vendor lọt vào UI copy hay domain types.
+3. Không hứa với người dùng điều mà nguồn dữ liệu không đảm bảo (tần suất, độ chính xác).
+
+## 6. Cross-references
+
+- Kiến trúc routes/components: [02-architecture.md](02-architecture.md)
+- Thiết kế cho ngư dân: [03-design-system.md](03-design-system.md)
+- Schema + logic Trục 4: [04-data-model.md](04-data-model.md)
+- Cách team agent chia việc: [05-agents-team.md](05-agents-team.md)
+
+---
+
+**Last updated**: 2026-06-10

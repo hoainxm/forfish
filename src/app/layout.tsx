@@ -1,10 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Be_Vietnam_Pro } from "next/font/google";
+import { Baloo_2, Be_Vietnam_Pro } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 
-const beVietnam = Be_Vietnam_Pro({
-  variable: "--font-sans",
+const display = Baloo_2({
+  variable: "--font-display",
+  subsets: ["latin", "vietnamese"],
+  weight: ["600", "700", "800"],
+});
+
+const body = Be_Vietnam_Pro({
+  variable: "--font-body",
   subsets: ["latin", "vietnamese"],
   weight: ["400", "500", "600", "700"],
 });
@@ -17,7 +23,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1f3a5f",
+  themeColor: "#14324f",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -29,11 +35,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={`${beVietnam.variable} h-full antialiased`}>
+    <html
+      lang="vi"
+      className={`${display.variable} ${body.variable} h-full antialiased`}
+    >
       <body className="min-h-full">
         {/* Mobile-first: a phone-width column centred on larger screens. */}
-        <div className="mx-auto flex min-h-dvh max-w-[480px] flex-col bg-background shadow-sm sm:my-0">
-          <main className="flex-1 pb-24">{children}</main>
+        <div className="mx-auto flex min-h-dvh max-w-[480px] flex-col bg-background shadow-sm">
+          <main className="flex-1 pb-28">{children}</main>
           <BottomNav />
         </div>
       </body>

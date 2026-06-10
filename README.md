@@ -41,7 +41,8 @@ src/
     gia-ca/             # Trục 2 — placeholder
     van-hanh/           # Trục 3 — placeholder
   components/
-    bottom-nav.tsx      # Điều hướng dưới cùng
+    bottom-nav.tsx      # Điều hướng dưới cùng (nút lớn cho tay ướt)
+    page-header.tsx     # Header sóng biển dùng chung
     document-vault.tsx  # Tủ giấy tờ: thêm/sửa/xóa + trạng thái hạn
     coming-soon.tsx     # Khung trang "sắp ra mắt"
   lib/
@@ -49,13 +50,18 @@ src/
     supabase/           # client (browser) + server helpers
 supabase/
   migrations/
-    0001_init.sql       # boats + documents + RLS
+    0001_init.sql       # boats + documents + RLS (đã áp lên project)
+docs/
+  app-map/              # Hồ sơ canonical cho người + AI (đọc README.md trong đó trước)
 ```
+
+> **Thiết kế "Sơn thuyền"** cho ngư dân ít rành công nghệ: chữ cơ bản ≥18px, nút bấm ≥56px, nhãn = biểu tượng + 2-3 từ, màu trạng thái rõ (đỏ/vàng/xanh), font Baloo 2 + Be Vietnam Pro. Chi tiết: `docs/app-map/03-design-system.md`.
 
 ## Bước tiếp theo
 
+- [x] Áp schema lên Supabase project (boats, documents, RLS)
 - [ ] Đăng nhập bằng OTP số điện thoại (Supabase Auth)
-- [ ] Chuyển Tủ giấy tờ từ localStorage sang Supabase (schema đã sẵn ở `0001_init.sql`)
+- [ ] Chuyển Tủ giấy tờ từ localStorage sang Supabase
 - [ ] Nhắc hạn qua thông báo đẩy / Zalo
 - [ ] Trục 4: trợ lý hỏi đáp quy định (kho văn bản pháp luật)
 - [ ] Trục 3: chợ vật tư nối SDWork

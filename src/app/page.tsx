@@ -1,48 +1,46 @@
 import Link from "next/link";
 import { demoDocuments, getExpiryStatus, byUrgency } from "@/lib/documents";
+import { PageHeader } from "@/components/page-header";
+
+/*
+  Home — built for first-time, low-tech users:
+  · one glance = "what needs my attention" (urgent strip)
+  · one tap   = one of four BIG buttons, icon + 2–3 words, no jargon
+*/
 
 const pillars = [
   {
     href: "/ngu-truong",
-    n: 1,
     tone: "t1",
-    emoji: "🎯",
-    title: "Đánh bắt tốt hơn",
-    sub: "Ra khơi trúng hơn, đỡ phí dầu phí công",
-    points: ["Điểm số đi biển hằng ngày", "Bản đồ ngư trường tiềm năng"],
+    emoji: "🐟",
+    title: "Đánh bắt",
+    sub: "Hôm nay đi biển không?",
   },
   {
     href: "/gia-ca",
-    n: 2,
     tone: "t2",
     emoji: "💰",
-    title: "Bán được đắt hơn",
-    sub: "Cá về bờ bán được giá, không bị ép",
-    points: ["Giá cảng theo loài", "Kết nối đầu mối thu mua"],
+    title: "Bán cá",
+    sub: "Giá hôm nay bao nhiêu?",
   },
   {
     href: "/van-hanh",
-    n: 3,
     tone: "t3",
-    emoji: "⚙️",
-    title: "Vận hành rẻ hơn",
-    sub: "Giữ tàu chạy bền, tốn ít tiền hơn",
-    points: ["Chợ vật tư trong app", "Nhắc bảo dưỡng định kỳ"],
+    emoji: "🔧",
+    title: "Vật tư & máy",
+    sub: "Mua đồ, sửa tàu",
   },
   {
     href: "/giay-to",
-    n: 4,
     tone: "t4",
     emoji: "📋",
-    title: "Tuân thủ dễ hơn",
-    sub: "Lo giấy tờ nhẹ đầu, tránh bị phạt oan",
-    points: ["Nhắc hạn đăng kiểm, giấy phép", "Trợ lý pháp lý tiếng Việt"],
+    title: "Giấy tờ",
+    sub: "Hạn đăng kiểm, giấy phép",
   },
 ] as const;
 
 export default function Home() {
   const today = new Date();
-  // Surface the most urgent compliance item from Trục 4 right on the home screen.
   const urgent = demoDocuments(today)
     .sort(byUrgency(today))
     .map((d) => ({ doc: d, status: getExpiryStatus(d, today) }))
@@ -50,103 +48,99 @@ export default function Home() {
 
   return (
     <div>
-      <header className="bg-gradient-to-br from-navy to-steel px-5 pb-7 pt-8 text-white">
-        <p className="text-xs uppercase tracking-widest text-white/70">
-          ForFish · Bạn đồng hành của ngư dân
-        </p>
-        <h1 className="mt-1 text-2xl font-bold leading-tight">
-          Chào bà con đi biển 🌊
-        </h1>
-        <p className="mt-1 text-sm text-white/85">
-          Đánh bắt tốt hơn · Bán được đắt hơn · Vận hành rẻ hơn · Tuân thủ dễ hơn
-        </p>
-      </header>
+      <PageHeader
+        kicker="ForFish · Bạn của ngư dân"
+        title={
+          <>
+            Chào bà con! <span className="bob">⛵</span>
+          </>
+        }
+        sub="Một app lo bốn việc: đi biển, bán cá, sửa tàu, giấy tờ."
+      />
 
-      <div className="space-y-5 px-4 pt-5">
+      <div className="space-y-6 px-4 pt-4">
         {urgent.length > 0 && (
-          <section
-            aria-label="Nhắc việc gấp"
-            className="rounded-2xl border border-line bg-white p-4 shadow-sm"
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-navy">
-                ⏰ Cần để ý ngay
-              </h2>
-              <Link href="/giay-to" className="text-xs font-medium text-steel">
-                Xem tất cả
-              </Link>
-            </div>
-            <ul className="space-y-2">
-              {urgent.slice(0, 3).map(({ doc, status }) => (
-                <li
-                  key={doc.id}
-                  className="flex items-center justify-between gap-3"
-                >
-                  <span className="truncate text-sm text-foreground">
-                    {doc.label}
-                  </span>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      status.level === "expired"
-                        ? "bg-danger/10 text-danger"
-                        : "bg-warn/10 text-warn"
+          <section aria-label="Việc cần làm ngay">
+            <h2 className="mb-2 px-1 text-[17px] font-bold text-navy">
+              ⚠️ Việc cần làm ngay
+            </h2>
+            <Link
+              href="/giay-to"
+              className="block overflow-hidden rounded-3xl border-2 border-danger/25 bg-card shadow-sm transition active:scale-[0.99]"
+            >
+              <ul>
+                {urgent.slice(0, 2).map(({ doc, status }, i) => (
+                  <li
+                    key={doc.id}
+                    className={`flex items-center gap-3 px-4 py-3.5 ${
+                      i > 0 ? "border-t border-line" : ""
                     }`}
                   >
-                    {status.label}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                    <span
+                      className={`h-3.5 w-3.5 shrink-0 rounded-full ${
+                        status.level === "expired" ? "bg-danger" : "bg-warn"
+                      }`}
+                      aria-hidden
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[17px] font-semibold">
+                        {doc.label}
+                      </span>
+                      <span
+                        className={`text-[15px] font-bold ${
+                          status.level === "expired"
+                            ? "text-danger"
+                            : "text-warn"
+                        }`}
+                      >
+                        {status.label}
+                      </span>
+                    </span>
+                    <span className="text-2xl text-line" aria-hidden>
+                      ›
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="bg-danger/8 px-4 py-2.5 text-center text-[15px] font-bold text-danger">
+                Bấm vào để xem giấy tờ →
+              </p>
+            </Link>
           </section>
         )}
 
-        <section>
-          <h2 className="mb-3 px-1 text-sm font-semibold text-gray-500">
-            Bốn việc app lo cho bà con
+        <section aria-label="Bốn việc chính">
+          <h2 className="mb-2 px-1 text-[17px] font-bold text-navy">
+            Bà con cần gì hôm nay?
           </h2>
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {pillars.map((p) => (
               <Link
                 key={p.href}
                 href={p.href}
-                className="block rounded-2xl border border-line p-4 transition active:scale-[0.99]"
-                style={{
-                  backgroundColor: `var(--${p.tone}-bg)`,
-                  borderLeft: `5px solid var(--${p.tone})`,
-                }}
+                className="flex min-h-[150px] flex-col items-center justify-center gap-1.5 rounded-3xl border-b-4 bg-card p-4 text-center shadow-sm transition active:translate-y-0.5 active:border-b-2"
+                style={{ borderBottomColor: `var(--${p.tone})` }}
               >
-                <div className="flex items-start gap-3">
-                  <div className="text-2xl" aria-hidden>
-                    {p.emoji}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <span
-                      className="text-[11px] font-bold uppercase tracking-wide"
-                      style={{ color: `var(--${p.tone})` }}
-                    >
-                      Trục {p.n}
-                    </span>
-                    <h3 className="text-base font-bold text-navy">{p.title}</h3>
-                    <p className="text-sm text-gray-600">{p.sub}</p>
-                    <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
-                      {p.points.map((pt) => (
-                        <li
-                          key={pt}
-                          className="text-xs text-gray-500 before:mr-1 before:content-['•']"
-                        >
-                          {pt}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
+                <span
+                  className="flex h-16 w-16 items-center justify-center rounded-full text-4xl"
+                  style={{ backgroundColor: `var(--${p.tone}-bg)` }}
+                  aria-hidden
+                >
+                  {p.emoji}
+                </span>
+                <span className="display text-[20px] font-bold leading-tight text-navy">
+                  {p.title}
+                </span>
+                <span className="text-[14px] leading-snug text-foreground/60">
+                  {p.sub}
+                </span>
               </Link>
             ))}
           </div>
         </section>
 
-        <p className="px-1 pb-2 text-center text-xs text-gray-400">
-          Mọi nguồn dữ liệu chỉ là phương tiện. Lời hứa với bà con thì không đổi.
+        <p className="pb-2 text-center text-[14px] text-foreground/40">
+          Thuận buồm xuôi gió, cá đầy khoang 🌊
         </p>
       </div>
     </div>
