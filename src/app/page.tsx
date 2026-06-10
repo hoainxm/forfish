@@ -58,15 +58,14 @@ export default function Home() {
   return (
     <div>
       <PageHeader
-        kicker="ForFish · Bạn đồng hành của ngư dân"
+        kicker="ForFish · Bạn của ngư dân"
         title="Chào bà con"
-        sub="Một app lo trọn con tàu: ra khơi, tàu, bạn thuyền, tiền nong."
       />
 
-      <div className="space-y-6 px-4 pt-4">
+      <div className="space-y-4 px-4 pt-3">
         {urgent.length > 0 && (
           <section aria-label="Việc cần làm ngay">
-            <h2 className="display mb-2 px-1 text-[17px] font-bold text-navy">
+            <h2 className="display mb-1.5 px-1 text-[16px] font-bold text-navy">
               Việc cần làm ngay
             </h2>
             <Link
@@ -113,30 +112,30 @@ export default function Home() {
         )}
 
         <section aria-label="Bốn nhóm việc">
-          <h2 className="display mb-2 px-1 text-[17px] font-bold text-navy">
-            Chọn việc cần làm
+          <h2 className="display mb-1.5 px-1 text-[16px] font-bold text-navy">
+            Quản lý tàu
           </h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5">
             {pillars.map((p) => {
               const Icon = p.icon;
               return (
                 <Link
                   key={p.href}
                   href={p.href}
-                  className="flex min-h-[150px] flex-col items-start justify-between rounded-xl bg-card p-4 shadow-sm ring-1 ring-line transition active:scale-[0.99]"
+                  className="flex items-center gap-3 rounded-xl bg-card p-3 shadow-sm ring-1 ring-line transition active:scale-[0.99]"
                 >
                   <span
-                    className="flex h-12 w-12 items-center justify-center rounded-lg text-white"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white"
                     style={{ backgroundColor: `var(--${p.tone})` }}
                     aria-hidden
                   >
                     <Icon className="h-6 w-6" />
                   </span>
-                  <span>
-                    <span className="display block text-[19px] font-bold leading-tight text-navy">
+                  <span className="min-w-0">
+                    <span className="display block text-[16px] font-bold leading-tight text-navy">
                       {p.title}
                     </span>
-                    <span className="mt-0.5 block text-[14px] leading-snug text-foreground/55">
+                    <span className="mt-0.5 block text-[12.5px] leading-snug text-foreground/55">
                       {p.sub}
                     </span>
                   </span>

@@ -1,6 +1,7 @@
 /**
- * Shared page header: hull-blue gradient with a sand-coloured wave at the
- * bottom edge — the app's signature motif. Keep copy SHORT and plain.
+ * Shared page header — COMPACT. Một dải mỏng hull-blue: kicker nhỏ + tiêu đề.
+ * Bỏ sóng trang trí + sub dài để nhường diện tích cho nội dung (tỷ lệ
+ * thông tin/màn hình cao hơn). `sub` chỉ hiện khi thật cần (mặc định ẩn gọn).
  */
 export function PageHeader({
   kicker,
@@ -18,31 +19,17 @@ export function PageHeader({
 }) {
   return (
     <header
-      className="relative text-white"
+      className="px-4 pb-3 pt-3.5 text-white"
       style={{
         background: `linear-gradient(135deg, var(--navy), ${toColor})`,
       }}
     >
-      <div className="px-5 pb-12 pt-7">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-white/70">
-          {kicker}
-        </p>
-        <h1 className="mt-1 text-[30px] font-bold leading-[1.15]">{title}</h1>
-        {sub && <p className="mt-1.5 text-[16px] text-white/90">{sub}</p>}
-        {children}
-      </div>
-      {/* sand wave — matches --background so it melts into the page */}
-      <svg
-        className="absolute bottom-0 left-0 block w-full"
-        viewBox="0 0 480 28"
-        preserveAspectRatio="none"
-        aria-hidden
-      >
-        <path
-          d="M0 28 L0 16 Q60 2 120 14 T240 14 T360 14 T480 12 L480 28 Z"
-          fill="var(--background)"
-        />
-      </svg>
+      <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/65">
+        {kicker}
+      </p>
+      <h1 className="text-[22px] font-bold leading-tight">{title}</h1>
+      {sub && <p className="mt-0.5 text-[14px] leading-snug text-white/85">{sub}</p>}
+      {children}
     </header>
   );
 }
