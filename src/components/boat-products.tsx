@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ClockIcon,
   DocIcon,
@@ -20,6 +21,7 @@ import {
 import { StatusBanner } from "@/components/ui/status-banner";
 import { useBoats } from "@/components/boat-switcher";
 import { SdvicoCatalog } from "@/components/sdvico-catalog";
+import { SdvicoRequestButton } from "@/components/sdvico-request";
 import { formatVnDate } from "@/lib/format";
 import {
   BoatProduct,
@@ -146,10 +148,18 @@ export function BoatProducts() {
             Sản phẩm, dịch vụ, kỳ cước tự cập nhật ở đây.
           </RefNote>
         ) : (
-          <RefNote>
-            Sản phẩm mua của SDVICO — app nhắc trước khi hết bảo hành. Đăng
-            nhập bằng SĐT lúc mua hàng là đồ đã mua tự hiện ở đây.
-          </RefNote>
+          <>
+            <RefNote>
+              Sản phẩm mua của SDVICO — app nhắc trước khi hết bảo hành. Đăng
+              nhập bằng SĐT lúc mua hàng là đồ đã mua tự hiện ở đây.
+            </RefNote>
+            <Link
+              href="/login"
+              className="mt-2.5 flex min-h-[56px] w-full items-center justify-center rounded-full bg-field text-[17px] font-bold text-navy transition active:scale-[0.98]"
+            >
+              Đăng nhập để thấy đồ của mình
+            </Link>
+          </>
         )}
       </div>
 
@@ -202,11 +212,18 @@ export function BoatProducts() {
                       <strong>{formatVnDate(p.warrantyUntil)}</strong>
                     </p>
                   )}
+                  <div className="mt-2 flex justify-end">
+                    <SdvicoRequestButton
+                      variant="chip"
+                      topic="sua-chua"
+                      productName={`${p.name}${p.serial ? ` (serial ${p.serial})` : ""}`}
+                      label="Gọi bảo hành món này"
+                    />
+                  </div>
                 </div>
               </div>
             );
           })}
-
         </div>
       )}
 

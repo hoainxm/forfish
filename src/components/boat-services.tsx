@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ClockIcon } from "@/components/icons";
+import Link from "next/link";
+import { CheckIcon, ClockIcon } from "@/components/icons";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { RefNote } from "@/components/ui/primitives";
 import { MaintenanceReminders } from "@/components/maintenance-reminders";
@@ -9,6 +10,7 @@ import { SdvicoRequestButton } from "@/components/sdvico-request";
 import { formatVnd, formatVnDate } from "@/lib/format";
 import {
   getServiceDueStatus,
+  requestStatusVN,
   serviceKindLabel,
   type OwnedAssets,
 } from "@/lib/owned-assets";
@@ -50,14 +52,65 @@ export function BoatServices() {
       <div className="mb-4">
         <RefNote tone="var(--t3)" bg="var(--t3-bg)">
           Sửa chữa, bảo dưỡng, cước phí — cần gì bấm nút gọi, SDVICO gọi lại
-          tận nơi. Đăng nhập bằng SĐT lúc mua hàng là dịch vụ của bà con tự
-          hiện ở đây.
+          tận nơi.
         </RefNote>
       </div>
 
       <div className="mb-5">
         <SdvicoRequestButton topic="sua-chua" label="Gọi SDVICO sửa chữa / bảo dưỡng" />
+        {!synced && (
+          <Link
+            href="/login"
+            className="mt-2.5 flex min-h-[56px] w-full items-center justify-center rounded-full bg-field text-[17px] font-bold text-navy transition active:scale-[0.98]"
+          >
+            Đăng nhập để thấy dịch vụ của mình
+          </Link>
+        )}
       </div>
+
+      {/* yêu cầu đã gửi — để bà con biết mình ĐƯỢC tiếp nhận */}
+      {synced && synced.requests.length > 0 && (
+        <div className="mb-5">
+          <h3 className="display mb-1.5 px-1 text-[18px] font-bold text-navy">
+            Yêu cầu đã gửi
+          </h3>
+          <div className="overflow-hidden surface">
+            <ul>
+              {synced.requests.map((r, i) => {
+                const st = requestStatusVN(r.status);
+                return (
+                  <li
+                    key={r.id}
+                    className={`px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}
+                  >
+                    <p className="text-[16px] font-semibold leading-snug text-foreground/85">
+                      {r.summary}
+                    </p>
+                    <p
+                      className="mt-0.5 flex items-center gap-1.5 text-[14px] font-bold"
+                      style={{
+                        color: st.level === "ok" ? "var(--ok)" : "var(--warn)",
+                      }}
+                    >
+                      {st.level === "ok" ? (
+                        <CheckIcon className="h-4 w-4" />
+                      ) : (
+                        <ClockIcon className="h-4 w-4" />
+                      )}
+                      {st.label}
+                      {r.sentAt && (
+                        <span className="font-semibold text-foreground/45">
+                          · gửi {formatVnDate(r.sentAt.slice(0, 10))}
+                        </span>
+                      )}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {synced && (
         <div className="mb-5 space-y-3">

@@ -21,6 +21,7 @@ import type {
   OwnedProduct,
   OwnedService,
   OwedPayment,
+  SupportRequest,
 } from "@/lib/owned-assets";
 import type { CatalogProduct } from "@/lib/sdvico-catalog";
 
@@ -81,12 +82,20 @@ export interface CrmOrderDebtRow {
   debt_due_date: string | null;
 }
 
+export interface CrmRequestRow {
+  id: string;
+  message: string | null;
+  status: string | null;
+  created_at: string | null;
+}
+
 /** Mapping thuần CRM rows → OwnedAssets — test được, không network. */
 export function mapCrmAssets(
   warranties: CrmWarrantyRow[],
   services: CrmServiceRow[],
   debts: CrmOrderDebtRow[],
   customerName?: string,
+  requestRows: CrmRequestRow[] = [],
 ): OwnedAssets {
   const products: OwnedProduct[] = warranties.map((w, i) => ({
     id: `sdv-${w.serial ?? i}`,
@@ -128,7 +137,15 @@ export function mapCrmAssets(
       dueOn: d.debt_due_date ?? undefined,
     }));
 
-  return { products, services: servicesOut, payments, customerName };
+  const requests: SupportRequest[] = requestRows.map((r) => ({
+    id: r.id,
+    // bỏ tiền tố kênh "[ForFish] " cho gọn mắt người đọc
+    summary: (r.message ?? "").replace(/^\[ForFish\]\s*/, ""),
+    status: r.status ?? "pending",
+    sentAt: r.created_at ?? undefined,
+  }));
+
+  return { products, services: servicesOut, payments, requests, customerName };
 }
 
 /**
@@ -144,6 +161,7 @@ export async function fetchOwnedAssets(
     warranties: CrmWarrantyRow[];
     services: CrmServiceRow[];
     debts: CrmOrderDebtRow[];
+    requests: CrmRequestRow[];
   }>({ action: "assets", crmUserId, phone0 });
   if (!j) return null;
   return mapCrmAssets(
@@ -151,6 +169,7 @@ export async function fetchOwnedAssets(
     j.services ?? [],
     j.debts ?? [],
     j.customerName ?? undefined,
+    j.requests ?? [],
   );
 }
 

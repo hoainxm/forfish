@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   getServiceDueStatus,
+  requestStatusVN,
   serviceKindLabel,
   type OwnedService,
 } from "@/lib/owned-assets";
 import {
   mapCrmAssets,
   type CrmOrderDebtRow,
+  type CrmRequestRow,
   type CrmServiceRow,
   type CrmWarrantyRow,
 } from "@/lib/sdwork-assets";
@@ -155,5 +157,44 @@ describe("mapCrmAssets", () => {
 
   it("kèm tên khách để đối chiếu", () => {
     expect(out.customerName).toBe("Lê Hữu Thắng");
+  });
+
+  it("yêu cầu đã gửi: bỏ tiền tố [ForFish], giữ trạng thái + thời điểm", () => {
+    const reqs: CrmRequestRow[] = [
+      {
+        id: "r1",
+        message: "[ForFish] Gọi sửa chữa · Máy lọc nước — máy yếu",
+        status: "pending",
+        created_at: "2026-06-09T08:00:00+00:00",
+      },
+      { id: "r2", message: null, status: null, created_at: null },
+    ];
+    const withReqs = mapCrmAssets([], [], [], undefined, reqs);
+    expect(withReqs.requests[0]).toMatchObject({
+      id: "r1",
+      summary: "Gọi sửa chữa · Máy lọc nước — máy yếu",
+      status: "pending",
+      sentAt: "2026-06-09T08:00:00+00:00",
+    });
+    expect(withReqs.requests[1].status).toBe("pending");
+  });
+
+  it("không truyền requests → mảng rỗng, không vỡ", () => {
+    expect(out.requests).toEqual([]);
+  });
+});
+
+describe("requestStatusVN", () => {
+  it("pending/new → chờ gọi lại (vàng); done/resolved → xong (xanh); lạ → đang xử lý", () => {
+    expect(requestStatusVN("pending")).toEqual({
+      label: "Đã nhận — chờ gọi lại",
+      level: "warn",
+    });
+    expect(requestStatusVN("DONE").level).toBe("ok");
+    expect(requestStatusVN("resolved").level).toBe("ok");
+    expect(requestStatusVN("dang-goi")).toEqual({
+      label: "Đang xử lý",
+      level: "warn",
+    });
   });
 });

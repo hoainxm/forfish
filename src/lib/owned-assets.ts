@@ -41,11 +41,24 @@ export interface OwedPayment {
   dueOn?: string;
 }
 
+/** Yêu cầu hỗ trợ khách đã gửi (để khách thấy mình ĐƯỢC tiếp nhận). */
+export interface SupportRequest {
+  id: string;
+  /** Nội dung đã gửi (bỏ tiền tố kênh) */
+  summary: string;
+  /** Trạng thái thô từ hệ thống bán hàng */
+  status: string;
+  /** ISO datetime lúc gửi */
+  sentAt?: string;
+}
+
 /** Gói dữ liệu đồng bộ về cho một khách. */
 export interface OwnedAssets {
   products: OwnedProduct[];
   services: OwnedService[];
   payments: OwedPayment[];
+  /** Yêu cầu hỗ trợ gần nhất khách đã gửi (mới nhất trước) */
+  requests: SupportRequest[];
   /** Tên khách bên hệ thống bán hàng — đối chiếu đúng người */
   customerName?: string;
 }
@@ -96,6 +109,21 @@ export function getServiceDueStatus(
     return { level: "soon", days, label: `Còn ${days} ngày tới kỳ` };
   }
   return { level: "ok", days, label: `Còn ${days} ngày tới kỳ` };
+}
+
+/** Trạng thái yêu cầu hỗ trợ → lời đời thường + mức màu. */
+export function requestStatusVN(status: string): {
+  label: string;
+  level: "ok" | "warn";
+} {
+  const s = status.toLowerCase();
+  if (["done", "completed", "resolved", "processed", "closed"].includes(s)) {
+    return { label: "Đã xử lý xong", level: "ok" };
+  }
+  if (s === "pending" || s === "new") {
+    return { label: "Đã nhận — chờ gọi lại", level: "warn" };
+  }
+  return { label: "Đang xử lý", level: "warn" };
 }
 
 /** Nhãn tiếng đời thường cho loại dịch vụ. */

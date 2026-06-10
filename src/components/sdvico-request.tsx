@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { CheckIcon, PhoneIcon } from "@/components/icons";
+import { createClient } from "@/lib/supabase/client";
 import {
   REQUEST_TOPICS,
   type RequestTopicId,
@@ -76,6 +77,24 @@ function RequestForm({
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">(
     "idle",
   );
+
+  // Đã đăng nhập → tự điền tên + SĐT (gửi chỉ còn MỘT chạm).
+  useEffect(() => {
+    const supabase = createClient();
+    if (!supabase) return;
+    let alive = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (!alive || !data.user) return;
+      const u = data.user;
+      const p = u.phone || (u.email ? u.email.split("@")[0] : "");
+      setPhone((prev) => prev || p || "");
+      const n = (u.user_metadata?.full_name as string | undefined) ?? "";
+      setName((prev) => prev || n);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

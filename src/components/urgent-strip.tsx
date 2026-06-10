@@ -8,6 +8,12 @@ import {
   getExpiryStatus,
 } from "@/lib/documents";
 import { CrewMember, crewIssue, demoCrew } from "@/lib/crew";
+import {
+  getServiceDueStatus,
+  type OwnedAssets,
+} from "@/lib/owned-assets";
+import { getWarrantyStatus } from "@/lib/products";
+import { formatVnd } from "@/lib/format";
 import { AlertIcon, ClockIcon, ChevronRightIcon } from "@/components/icons";
 
 /*
@@ -77,7 +83,7 @@ function loadStored<T>(key: string, seed: T[]): T[] {
 
 // ── unified urgent item ──────────────────────────────────────────
 type Tone = "danger" | "warn";
-type Pillar = "giay_to" | "bao_duong" | "ban_thuyen";
+type Pillar = "giay_to" | "bao_duong" | "ban_thuyen" | "sdvico";
 
 interface UrgentItem {
   id: string;
@@ -94,7 +100,59 @@ const PILLAR_TAG: Record<Pillar, { tag: string; href: string }> = {
   giay_to: { tag: "Giấy tờ", href: "/tau" },
   bao_duong: { tag: "Bảo dưỡng", href: "/tau" },
   ban_thuyen: { tag: "Bạn thuyền", href: "/nguoi" },
+  sdvico: { tag: "SDVICO", href: "/tau" },
 };
+
+/** Nhắc từ đồ SDVICO đồng bộ: nợ/cước chờ đóng, bảo hành sắp hết, kỳ dịch vụ. */
+function sdvicoUrgent(assets: OwnedAssets, today: Date): UrgentItem[] {
+  const items: UrgentItem[] = [];
+  const todayIso = today.toISOString().slice(0, 10);
+
+  for (const p of assets.payments) {
+    const overdue = p.dueOn != null && p.dueOn < todayIso;
+    items.push({
+      id: `sdv-pay-${p.orderCode}`,
+      label: `Khoản ${formatVnd(p.amountVnd)} — đơn ${p.orderCode}`,
+      status: overdue ? "Nợ quá hạn, đóng sớm" : "Chờ thanh toán",
+      tone: overdue ? "danger" : "warn",
+      pillar: "sdvico",
+      href: "/tau",
+      days: p.dueOn ? daysUntil(p.dueOn, today) : 0,
+    });
+  }
+
+  for (const pr of assets.products) {
+    const s = getWarrantyStatus(pr, today);
+    if (s.level === "expired" || s.level === "soon") {
+      items.push({
+        id: `sdv-wr-${pr.id}`,
+        label: pr.name,
+        status: s.label,
+        tone: s.level === "expired" ? "danger" : "warn",
+        pillar: "sdvico",
+        href: "/tau",
+        days: s.days ?? 0,
+      });
+    }
+  }
+
+  for (const sv of assets.services) {
+    const s = getServiceDueStatus(sv, today);
+    if (s.level === "overdue" || s.level === "soon") {
+      items.push({
+        id: `sdv-svc-${sv.id}`,
+        label: sv.name,
+        status: s.label,
+        tone: s.level === "overdue" ? "danger" : "warn",
+        pillar: "sdvico",
+        href: "/tau",
+        days: s.days ?? 0,
+      });
+    }
+  }
+
+  return items;
+}
 
 function computeUrgent(today: Date): UrgentItem[] {
   const items: UrgentItem[] = [];
@@ -150,13 +208,14 @@ function computeUrgent(today: Date): UrgentItem[] {
     }
   }
 
-  // sort: đỏ (danger) first, then vàng (warn); within tone soonest first.
-  const toneRank = (t: Tone) => (t === "danger" ? 0 : 1);
-  items.sort((a, b) => {
-    if (a.tone !== b.tone) return toneRank(a.tone) - toneRank(b.tone);
-    return a.days - b.days;
-  });
   return items;
+}
+
+// sort: đỏ (danger) first, then vàng (warn); within tone soonest first.
+function byUrgencyOrder(a: UrgentItem, b: UrgentItem): number {
+  const toneRank = (t: Tone) => (t === "danger" ? 0 : 1);
+  if (a.tone !== b.tone) return toneRank(a.tone) - toneRank(b.tone);
+  return a.days - b.days;
 }
 
 const MAX_ROWS = 4;
@@ -165,6 +224,7 @@ export function UrgentStrip() {
   const today = useMemo(() => new Date(), []);
   const [mounted, setMounted] = useState(false);
   const [items, setItems] = useState<UrgentItem[]>([]);
+  const [sdvicoItems, setSdvicoItems] = useState<UrgentItem[]>([]);
 
   // Hydrate from localStorage after mount only (avoids SSR/CSR mismatch).
   useEffect(() => {
@@ -172,10 +232,33 @@ export function UrgentStrip() {
     setMounted(true);
   }, [today]);
 
-  if (!mounted || items.length === 0) return null;
+  // Nhắc từ đồ SDVICO (đăng nhập rồi mới có) — đến sau cũng không sao.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/me/sdvico", { signal: AbortSignal.timeout(20000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (alive && j?.ok && j.assets) {
+          setSdvicoItems(sdvicoUrgent(j.assets as OwnedAssets, today));
+        }
+      })
+      .catch(() => {
+        // chưa đăng nhập / chưa cấu hình → chỉ nhắc đồ trên máy
+      });
+    return () => {
+      alive = false;
+    };
+  }, [today]);
 
-  const shown = items.slice(0, MAX_ROWS);
-  const rest = items.length - shown.length;
+  const all = useMemo(
+    () => [...items, ...sdvicoItems].sort(byUrgencyOrder),
+    [items, sdvicoItems],
+  );
+
+  if (!mounted || all.length === 0) return null;
+
+  const shown = all.slice(0, MAX_ROWS);
+  const rest = all.length - shown.length;
 
   return (
     <section aria-label="Việc cần làm ngay">
