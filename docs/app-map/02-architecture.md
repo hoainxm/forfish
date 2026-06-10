@@ -24,6 +24,7 @@
 | `/ngu-truong` | 1 — Đánh bắt tốt hơn | `src/app/ngu-truong/page.tsx` | **MVP**: điểm đi biển 1–100 (`sea-forecast.tsx` + `src/lib/sea.ts` — Open-Meteo marine+weather, client-side, cache localStorage 1h; 10 cảng đã kiểm chứng: `src/data/ports.ts`) + bản đồ ngư trường (`fishing-map.tsx` → `fishing-map-view.tsx` — lớp vệ tinh SST/phù du/ảnh mây qua `src/lib/ocean-map.ts`, nhãn chủ quyền Biển Đông/Hoàng Sa/Trường Sa, chạm xem gió sóng từng điểm qua `src/lib/marine-weather.ts`) |
 | `/gia-ca` | 2 — Bán được đắt hơn | `src/app/gia-ca/page.tsx` | **MVP**: bảng giá tham khảo (`price-board.tsx` ← `src/data/port-prices.ts`) + sổ lãi lỗ (`trip-log.tsx`, localStorage `forfish.trips.v1`) |
 | `/van-hanh` | 3 — Vận hành rẻ hơn | `src/app/van-hanh/page.tsx` | **MVP**: nhắc bảo dưỡng (`maintenance-reminders.tsx`, localStorage `forfish.maintenance.v1`) + danh mục vật tư (`supply-catalog.tsx` ← `src/data/supplies.ts`) |
+| `/thuyen-vien` | Quản lý tàu (xem [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md)) | `src/app/thuyen-vien/page.tsx` | **MVP**: sổ thuyền viên (`crew-list.tsx`, localStorage `forfish.crew.v1` — hồ sơ + bảo hiểm/chứng chỉ hạn + sổ ứng tiền) + máy tính chia tiền chuyến (`trip-split.tsx` ← logic `src/lib/crew.ts`, có test). Vào từ thẻ trang chủ, chưa có tab nav |
 
 Quy ước: route slug là tiếng Việt không dấu, khớp ngôn ngữ người dùng. Thêm route mới → update bảng này cùng commit.
 

@@ -234,6 +234,27 @@ export function CrosshairIcon(p: IconProps) {
   );
 }
 
+export function UsersIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" />
+      <path d="M16 5.2a3.5 3.5 0 0 1 0 5.6M18.5 14.8c1.5.9 2.5 2.4 2.5 4.2" />
+    </svg>
+  );
+}
+
+export function MoneyHandIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect x="6" y="3.5" width="12" height="7.5" rx="1.5" />
+      <circle cx="12" cy="7.2" r="1.6" />
+      <path d="M3 15.5h3.5l3 2h5a1.5 1.5 0 0 1 0 3H9" />
+      <path d="M3 21.5h3l2.5 -1" />
+    </svg>
+  );
+}
+
 export function PinIcon(p: IconProps) {
   return (
     <svg {...base(p)}>

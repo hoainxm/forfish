@@ -71,12 +71,22 @@ Trục 2 tăng thu nhập → mua nhiều hơn từ Trục 3
 2. Không để tên vendor lọt vào UI copy hay domain types.
 3. Không hứa với người dùng điều mà nguồn dữ liệu không đảm bảo (tần suất, độ chính xác).
 
-## 6. Cross-references
+## 7. Lộ trình: từ 4 lời hứa → app quản lý toàn bộ tàu cá
+
+Định vị mở rộng (2026-06): bốn lời hứa vẫn là **ngôn ngữ giá trị**, nhưng object model của app chuyển sang **CON TÀU** (tàu → chuyến biển → thuyền viên → tiền → giấy tờ). Căn cứ JTBD + chân dung người dùng + mốc pháp lý: xem [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md). Thứ tự ưu tiên dưới đây xếp theo **JTBD impact × deadline pháp lý** (eCDT đã bắt buộc từ 01/3/2026 mà tuân thủ mới 24,65%; nhật ký điện tử bắt buộc dần 01/7/2026 → 01/1/2027):
+
+1. **Đợt 1 — Thuyền viên + sổ tiền (wedge)** *(đang xây)*: crew module `/thuyen-vien` (hồ sơ + chứng chỉ/bảo hiểm + sổ ứng tiền + máy tính chia tiền) và sổ tiền của tàu trên nền trip-log. Đây là khoảng trống vàng số 1 — chưa app nào ở VN đụng tới phần "tiền"; không phụ thuộc nguồn ngoài, đúng triết lý build order ở mục 3.
+2. **Đợt 2 — Checklist xuất bến + lớp eCDT**: checklist xuất bến tự sinh theo Lmax (đèn xanh-đỏ "đủ điều kiện xuất bến") + trợ lý eCDT (wizard điền sẵn, người nhà khai hộ từ bờ) + cảnh báo VMS. Phải ra trước làn sóng nhật ký điện tử bắt buộc 01/7/2026 (tàu ≥24m) và 01/9/2026 (15–24m).
+3. **Đợt 3 — Công nợ nậu + hồ sơ chuyến QR**: sổ công nợ đa đối tượng (đại lý dầu, nậu, ngân hàng — minh bạch hóa trước, thay thế nậu sau) + gói hồ sơ chuyến biển PDF/QR chứng minh truy xuất cho người mua.
+4. **Đợt 4 — Kết nối SDWork/marketplace**: hồ sơ kinh nghiệm thuyền viên thành "chợ lao động đi biển", kênh bán/chào giá nối mạng đại lý SDVICO, đơn vật tư chảy sâu hơn vào SDWork — chỉ sau khi dữ liệu từ đợt 1–3 đủ dày.
+
+## 8. Cross-references
 
 - Kiến trúc routes/components: [02-architecture.md](02-architecture.md)
 - Thiết kế cho ngư dân: [03-design-system.md](03-design-system.md)
 - Schema + logic Trục 4: [04-data-model.md](04-data-model.md)
 - Cách team agent chia việc: [05-agents-team.md](05-agents-team.md)
+- JTBD + map nhóm việc → module (quản lý toàn bộ tàu cá): [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md)
 
 ---
 

@@ -37,17 +37,20 @@ const GIBS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best";
 export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
   sst: {
     id: "sst",
+    // Dùng CHÊNH nhiệt (anomaly) thay vì nhiệt tuyệt đối: mùa hè cả Biển Đông
+    // đều ~29–31°C nên bản đồ tuyệt đối đỏ đặc một màu — anomaly mới lộ
+    // vùng nước trồi lạnh và xoáy ấm cho bà con thấy (đã so 2 tile thực tế).
     label: "Nước nóng lạnh",
-    help: "Cá hay tụ ở ranh giới giữa vùng nước ấm và nước lạnh — tìm chỗ màu đổi đột ngột.",
+    help: "Chỗ xanh là nước lạnh trồi lên, thường nhiều mồi — cá hay gom ở ranh giữa vùng xanh và vùng đỏ.",
     legend: {
-      from: "Nước lạnh",
-      to: "Nước ấm",
+      from: "Lạnh hơn mọi khi",
+      to: "Nóng hơn mọi khi",
       gradient:
-        "linear-gradient(90deg,#30123b,#3987f9,#1ae4b6,#a2fc3c,#fabd23,#e54813,#7a0403)",
+        "linear-gradient(90deg,#4575b4,#91cf60,#dcdcdc,#fdae61,#d73027)",
     },
     lagDays: 2,
     tiles: (d) =>
-      `${GIBS}/GHRSST_L4_MUR_Sea_Surface_Temperature/default/${d}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
+      `${GIBS}/GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies/default/${d}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
     maxNativeZoom: 7,
   },
   chlorophyll: {

@@ -9,6 +9,8 @@ export type SeaPoint = { lat: number; lon: number };
 
 export type SeaPointConditions = {
   point: SeaPoint;
+  /** false = nguồn sóng không có số nào cho điểm này → gần như chắc là đất liền */
+  onSea: boolean;
   /** Lúc này tại điểm đó — gió luôn có, sóng có thể thiếu nếu điểm sát bờ */
   windKmh: number;
   gustKmh: number | null;
@@ -90,8 +92,14 @@ export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
   );
   if (days.length === 0) throw new Error("Dự báo trống");
 
+  const waveDaily: unknown[] = wave?.daily?.wave_height_max ?? [];
+  const onSea =
+    num(wave?.current?.wave_height) != null ||
+    waveDaily.some((v) => num(v) != null);
+
   return {
     point: p,
+    onSea,
     windKmh: num(wind.current?.wind_speed_10m) ?? 0,
     gustKmh: num(wind.current?.wind_gusts_10m),
     windDirDeg: num(wind.current?.wind_direction_10m),

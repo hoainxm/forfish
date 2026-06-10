@@ -32,6 +32,7 @@
 | 03 | [03-design-system.md](03-design-system.md) | Audience-first design: tokens, màu trục, typography, accessibility cho ngư dân |
 | 04 | [04-data-model.md](04-data-model.md) | Tables, RLS, migration, domain logic giấy tờ (expiry status) |
 | 05 | [05-agents-team.md](05-agents-team.md) | Team-agent architecture: lead + teammates, partition rule, context routing |
+| 06 | [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md) | JTBD hợp nhất từ nghiên cứu, chân dung người dùng, mốc pháp lý eCDT, map nhóm việc → module |
 
 ---
 

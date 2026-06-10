@@ -6,6 +6,7 @@ import {
   DocIcon,
   FishIcon,
   PriceIcon,
+  UsersIcon,
   WrenchIcon,
 } from "@/components/icons";
 
@@ -143,6 +144,29 @@ export default function Home() {
               );
             })}
           </div>
+
+          {/* Thuyền viên — thẻ ngang, theo nghiên cứu lao động là việc chưa app nào lo */}
+          <Link
+            href="/thuyen-vien"
+            className="mt-3 flex items-center gap-3 rounded-xl bg-card p-4 shadow-sm ring-1 ring-line transition active:scale-[0.99]"
+          >
+            <span
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-white"
+              style={{ backgroundColor: "var(--sea)" }}
+              aria-hidden
+            >
+              <UsersIcon className="h-6 w-6" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="display block text-[19px] font-bold leading-tight text-navy">
+                Thuyền viên
+              </span>
+              <span className="text-[14px] text-foreground/55">
+                Hồ sơ bạn thuyền, tiền ứng, chia tiền chuyến
+              </span>
+            </span>
+            <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/30" />
+          </Link>
         </section>
 
         <p className="pb-2 text-center text-[14px] text-foreground/40">

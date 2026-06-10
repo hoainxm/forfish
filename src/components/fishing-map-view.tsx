@@ -189,6 +189,13 @@ export default function FishingMapView() {
             ref={mapRef}
             initialViewState={DEFAULT_VIEW}
             mapStyle={mapStyle}
+            // giữ khung nhìn quanh vùng biển VN — zoom xa quá nhãn chồng nhau,
+            // ảnh vệ tinh vỡ và bà con lạc khỏi vùng cần xem
+            minZoom={4}
+            maxBounds={[
+              [96, 1],
+              [124, 26],
+            ]}
             style={{ width: "100%", height: "100%" }}
             onClick={(e) =>
               setPoint({
@@ -277,7 +284,15 @@ export default function FishingMapView() {
           </div>
         )}
 
-        {cond && today && (
+        {cond && !cond.onSea && (
+          <div className="rounded-xl bg-card p-4 ring-1 ring-line">
+            <p className="text-[16px] font-semibold leading-snug text-foreground/80">
+              Chỗ này là đất liền — chạm ra ngoài biển để xem gió sóng.
+            </p>
+          </div>
+        )}
+
+        {cond && cond.onSea && today && (
           <>
             {/* điểm đi biển hôm nay tại chỗ này — cùng thang với dự báo theo cảng */}
             <div
