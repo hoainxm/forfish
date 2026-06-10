@@ -18,20 +18,22 @@ import {
   Tone: a dependable work tool — plain words, no emoji, no decoration.
 */
 
+// Mô tả thẻ bám CẤU TRÚC MỚI (2026-06-10): Ra khơi có dự báo cá; Tàu là
+// kênh CSKH SDVICO (dịch vụ + đồ đã mua); Tiền tách giao dịch / hiệu quả.
 const pillars = [
   {
     href: "/ngu-truong",
     tone: "t1",
     icon: FishIcon,
     title: "Ra khơi",
-    sub: "Hôm nay đi biển được không?",
+    sub: "Dự báo cá, gió sóng, dẫn đường",
   },
   {
     href: "/tau",
     tone: "t3",
     icon: AnchorIcon,
     title: "Tàu của tôi",
-    sub: "Giấy tờ, bảo dưỡng, vật tư",
+    sub: "Giấy tờ, dịch vụ, đồ SDVICO",
   },
   {
     href: "/nguoi",
@@ -45,7 +47,7 @@ const pillars = [
     tone: "t2",
     icon: PriceIcon,
     title: "Sổ tiền",
-    sub: "Giá cá, lãi lỗ, chia tiền",
+    sub: "Giá cá, ai cần mua, lãi lỗ",
   },
 ] as const;
 

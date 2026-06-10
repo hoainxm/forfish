@@ -13,6 +13,7 @@ import {
 } from "@/data/wholesalers";
 import { useHome, HomeBar, applyHome } from "@/components/ui/region-filter";
 import { type HomePref } from "@/lib/region";
+import { ChipRow } from "@/components/ui/chip-row";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Card, EmptyState, Field, PrimaryButton, RefNote, inputClass } from "@/components/ui/primitives";
@@ -61,24 +62,16 @@ export function SellGuide() {
 
   return (
     <div className="px-4">
-      <div className="mb-3 flex gap-1.5 overflow-x-auto">
-        {SECTIONS.map((s) => {
-          const on = s.id === section;
-          return (
-            <button
-              key={s.id}
-              onClick={() => setSection(s.id)}
-              aria-pressed={on}
-              className={`min-h-[48px] shrink-0 rounded-xl px-4 text-[16px] font-bold transition ${
-                on
-                  ? "bg-t2 text-white"
-                  : "bg-field text-navy/70 active:bg-card"
-              }`}
-            >
-              {s.label}
-            </button>
-          );
-        })}
+      {/* tầng 2 — mục con của "Bán ở đâu" (nằm dưới chip Giao dịch tầng 1) */}
+      <div className="-mx-4">
+        <ChipRow
+          options={SECTIONS}
+          value={section}
+          onChange={setSection}
+          accent="t2"
+          level={2}
+          ariaLabel="Chỗ bán"
+        />
       </div>
 
       {geo && (

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PriceBoard } from "@/components/price-board";
 import { SellGuide } from "@/components/sell-guide";
 import { BuyBoard } from "@/components/buy-board";
+import { ChipRow } from "@/components/ui/chip-row";
 
 /*
   GIAO DỊCH (nhánh 1 của khu Tiền, user chốt 2026-06-10) — thông tin được
@@ -25,25 +26,14 @@ export function TradeHub() {
 
   return (
     <div>
-      <div className="mb-3 flex gap-1.5 overflow-x-auto px-4">
-        {SECTIONS.map((s) => {
-          const on = s.id === section;
-          return (
-            <button
-              key={s.id}
-              onClick={() => setSection(s.id)}
-              aria-pressed={on}
-              className={`min-h-[48px] shrink-0 rounded-full px-4 text-[16px] font-bold transition ${
-                on
-                  ? "bg-t2 text-white"
-                  : "bg-field text-navy/70 active:bg-card"
-              }`}
-            >
-              {s.label}
-            </button>
-          );
-        })}
-      </div>
+      <ChipRow
+        options={SECTIONS}
+        value={section}
+        onChange={setSection}
+        accent="t2"
+        level={1}
+        ariaLabel="Mục giao dịch"
+      />
 
       {section === "gia" && <PriceBoard />}
       {section === "can-mua" && (

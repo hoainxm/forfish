@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { TripLog } from "@/components/trip-log";
 import { TripSplit } from "@/components/trip-split";
 import { Card } from "@/components/ui/primitives";
+import { ChipRow } from "@/components/ui/chip-row";
 import { tripStats, type TripStats } from "@/lib/trip-insights";
 import { formatVndShort } from "@/lib/format";
 
@@ -99,25 +100,14 @@ export function MoneyInsights() {
         </div>
       )}
 
-      <div className="mb-3 flex gap-1.5 overflow-x-auto px-4">
-        {SECTIONS.map((s) => {
-          const on = s.id === section;
-          return (
-            <button
-              key={s.id}
-              onClick={() => setSection(s.id)}
-              aria-pressed={on}
-              className={`min-h-[48px] shrink-0 rounded-full px-4 text-[16px] font-bold transition ${
-                on
-                  ? "bg-t2 text-white"
-                  : "bg-field text-navy/70 active:bg-card"
-              }`}
-            >
-              {s.label}
-            </button>
-          );
-        })}
-      </div>
+      <ChipRow
+        options={SECTIONS}
+        value={section}
+        onChange={setSection}
+        accent="t2"
+        level={1}
+        ariaLabel="Mục hiệu quả"
+      />
 
       {section === "lai-lo" && <TripLog />}
       {section === "chia" && (
