@@ -3,7 +3,8 @@
 
 import { openseamapContourGetMapUrl } from "@/lib/nautical-layers";
 
-export const revalidate = 60 * 60 * 24 * 7;
+// Cache bằng header Cache-Control (Vercel CDN sẽ tôn trọng).
+// `revalidate` không dùng cho route có dynamic segments.
 
 type Ctx = { params: Promise<{ z: string; x: string; y: string }> };
 

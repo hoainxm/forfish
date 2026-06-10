@@ -8,7 +8,7 @@ import {
   type NauticalKind,
 } from "@/lib/nautical-layers";
 
-export const revalidate = 60 * 60 * 24;
+// Cache qua header Cache-Control + CDN edge (Vercel).
 
 const ALLOWED: NauticalKind[] = ["wreck", "lighthouse", "buoy", "harbour"];
 
