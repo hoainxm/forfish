@@ -23,7 +23,9 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 - **Dữ liệu hiện chạy** (đều miễn phí, không cần key, qua adapter trong `src/lib/`):
   - Ảnh vệ tinh: chương trình mở của NASA (cập nhật hằng ngày, **trễ ~2 ngày** — UI ghi rõ "ảnh ngày X, chậm vài ngày"). Lớp dòng chảy mặt biển: chưa có nguồn tile miễn phí không-key → làm sau.
   - Dự báo vẽ trên bản đồ (kiểu Windy): lưới ~80 điểm Open-Meteo theo GIỜ, 3 ngày, mũi tên hướng + màu theo độ dữ (`src/lib/forecast-grid.ts`).
-  - **Cá mùa này**: `src/data/fish-seasons.ts` — 7 vùng biển × 11 loài × tháng, tổng hợp từ bản tin dự báo ngư trường RIMF + báo ngành (THAM KHẢO, mùa vụ trung bình nhiều năm, vùng rộng không phải toạ độ điểm — UI ghi rõ). Nâng cấp tương lai: nối bản tin dự báo ngư trường RIMF theo kỳ.
+  - **DỰ BÁO CÁ (PFZ — tính năng đầu bảng)**: `src/lib/fish-predict.ts` + route `/api/fish-forecast` (cache 6h) — chấm điểm từng ô biển 0.25°: hợp-nhiệt từng loài (trapezoid SST) × habitat, với **habitat = trung bình có trọng số của 4 yếu tố tụ cá: mồi (chlorophyll) · front nhiệt · front mồi · rìa xoáy (SSHA)** — trọng số riêng từng loài (`SPECIES_PROFILES.w`), loài ưa nước trồi lạnh thì cộng cả độ lõm mực nước. Thiếu trường nào (vd SSHA fail) thì loại + chia lại trọng số, không phạt oan. Lọc mùa vụ + vùng (`fish-seasons.ts`). Nguồn lưới NOAA ERDDAP công khai: SST blended không lỗ mây + phù du DINEOF vá mây + SSHA blended (sla mét). Bản đồ tô ô cam→đỏ, **chọn loài** bằng hàng chip; chạm điểm → "Chỗ này có khả năng TỐT/khá/vừa cho: [loài]" + ngày ảnh. LUÔN "tham khảo, không phải cam kết". Khẩu vị loài từ tài liệu sinh học công khai — KHÔNG đụng API/dữ liệu đối thủ. **Đang mở rộng**: thermocline/dòng chảy/độ mặn model (HYCOM…) — agent đang dò nguồn miễn phí.
+  - **Cá mùa này** (fallback + ngữ cảnh): `src/data/fish-seasons.ts` — 7 vùng biển × 11 loài × tháng, tổng hợp từ bản tin RIMF + báo ngành (THAM KHẢO). Nâng cấp tương lai: nối bản tin dự báo ngư trường RIMF theo kỳ.
+  - **Nước dâng/xoáy (SSHA)**: `src/lib/sea-scalars.ts` + route `/api/sea-scalar` — dị thường mực nước (ERDDAP, tươi hằng ngày) vẽ ô màu 0.5°: nhô = xoáy ấm, lõm = xoáy lạnh gom mồi. **Độ mặn: TẠM RÚT khỏi UI** — SMOS bị nhiễu RFI che trắng Biển Đông, SMAP ngừng 2021–22 (code giữ, có nguồn sống bật lại 1 dòng trong `SEA_SCALAR_ORDER`). **Tầng nhiệt**: nguồn miễn phí (OHC/iso26C) ngừng 2024 — chưa làm, không dùng dữ liệu cũ giả làm mới.
   - Hải đồ: độ sâu đáy biển EMODnet/GEBCO (tĩnh, không đổi theo ngày — UI ghi rõ) + báo hiệu hàng hải (phao, đèn biển) OpenSeaMap, tự hiện khi zoom gần bờ. Lưu ý OpenSeaMap là dữ liệu cộng đồng, vùng VN còn thưa — chỉ là tham khảo thêm, không thay hải đồ giấy/máy định vị của tàu.
   - Gió/sóng + mưa/dông: Open-Meteo (mô hình quốc tế, cập nhật theo giờ) — UI luôn kèm lời dặn nghe đài duyên hải / biên phòng. Dông sét trừ 30 điểm đi biển và tô đỏ — nguy hiểm nhất với tàu nhỏ.
   - **Tầm dự báo chọn được**: tại điểm chạm trên bản đồ, bà con chọn xem trước 1–10 ngày (`FORECAST_MAX_DAYS = 10` — giới hạn theo nguồn sóng; gió mô hình cho xa hơn nhưng lấy mức cả hai cùng có). **Độ tin ghi rõ theo tầm xa** (`forecastConfidence`): 1–3 ngày khá sát · 4–7 ngày tham khảo · 8–10 ngày chỉ để liệu đường. Ảnh vệ tinh là ảnh ĐÃ CHỤP — không dự báo trước được, UI nói thẳng điều này cạnh bộ chọn ngày.
@@ -36,7 +38,10 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 
 ### Trục 2 — Bán được đắt hơn (`/gia-ca`)
 - **Hứa gì**: cá về bờ bán được giá, không bị ép.
-- **Gồm**: giá theo loài tại cảng, kết nối đầu mối thu mua, sổ lãi/lỗ chuyến biển.
+- **Cấu trúc TÁCH ĐÔI (user chốt 2026-06-10)**:
+  1. **GIAO DỊCH** — thông tin được cấp để bán có LỢI THẾ: giá cá hôm nay · **"Ai cần mua"** (bảng yêu cầu loài + khối lượng + giá từ đầu nậu/vựa/nhà máy) · danh bạ chỗ bán.
+  2. **HIỆU QUẢ** — phân tích chuyện làm ăn: thẻ nhìn nhanh (tổng lãi, bình quân/chuyến, % chuyến lãi, % tiền bán vào dầu — `lib/trip-insights.ts`) + sổ lãi/lỗ + máy chia tiền.
+- **Lộ trình "Ai cần mua"**: sẽ có **app riêng cho bên thu mua** đăng yêu cầu (loài, khối lượng, giá) → tin chảy thẳng về mục Giao dịch, ngư dân gọi chào bán. Trong lúc chờ: `src/data/buy-requests.ts` chỉ chứa TIN MẪU (`demo: true`, UI ghi rõ từng thẻ, không SĐT) — KHÔNG bịa tin thật. Shape `BuyRequest` là hợp đồng cho app thu mua sau này.
 - **Dữ liệu**: **tự thu thập** qua mạng lưới đại lý/cảng của SDVICO (moat riêng, không ai có), feed từ SDWork.
 
 ### Trục 3 — Vận hành rẻ hơn (`/van-hanh`)
