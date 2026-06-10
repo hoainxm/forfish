@@ -21,7 +21,7 @@
 |---|---|---|---|
 | `/` | — | `src/app/page.tsx` | Trang chủ: bốn trục + nhắc việc gấp |
 | `/giay-to` | 4 — Tuân thủ dễ hơn | `src/app/giay-to/page.tsx` | **MVP**: Tủ giấy tờ (`document-vault.tsx`) + tra mức phạt (`fines-lookup.tsx` ← `src/data/fines.ts`) |
-| `/ngu-truong` | 1 — Đánh bắt tốt hơn | `src/app/ngu-truong/page.tsx` | **MVP**: điểm đi biển 1–100 (`sea-forecast.tsx` + `src/lib/sea.ts` — Open-Meteo marine+weather, client-side, cache localStorage 1h — **key `forfish.sea.{port}.v2`**; 10 cảng đã kiểm chứng: `src/data/ports.ts`) + bản đồ ngư trường (`fishing-map.tsx` → `fishing-map-view.tsx` — lớp vệ tinh SST/phù du/ảnh mây + hải đồ độ sâu EMODnet/GEBCO (tĩnh) + phao/đèn biển OpenSeaMap (overlay tự hiện khi zoom ≥9) qua `src/lib/ocean-map.ts`, nhãn chủ quyền Biển Đông/Hoàng Sa/Trường Sa, chạm xem gió sóng từng điểm qua `src/lib/marine-weather.ts`) + mưa/dông trong mọi dự báo (`src/lib/weather-codes.ts`, dông trừ 30 điểm trong `scoreDay`) + banner & marker tin bão Biển Đông (`storm-banner.tsx` + `src/lib/storms.ts` ← route `/api/storms`) + **dẫn đường tiết kiệm dầu** (`route-planner.tsx` — chọn cảng/GPS xuất phát, tuyến vẽ lên bản đồ; thuật toán thuần `src/lib/route-plan.ts`, dự báo theo giờ nhiều điểm qua adapter `src/lib/route-weather.ts`; thông số tàu localStorage **`forfish.boat.v1`**) |
+| `/ngu-truong` | 1 — Đánh bắt tốt hơn | `src/app/ngu-truong/page.tsx` | **MVP**: điểm đi biển 1–100 (`sea-forecast.tsx` + `src/lib/sea.ts` — Open-Meteo marine+weather, client-side, cache localStorage 1h — **key `forfish.sea.{port}.v2`**; 10 cảng đã kiểm chứng: `src/data/ports.ts`) + bản đồ ngư trường (`fishing-map.tsx` → `fishing-map-view.tsx` — lớp vệ tinh SST/phù du/ảnh mây + hải đồ độ sâu EMODnet/GEBCO (tĩnh) + phao/đèn biển OpenSeaMap (overlay tự hiện khi zoom ≥9) qua `src/lib/ocean-map.ts`, nhãn chủ quyền Biển Đông/Hoàng Sa/Trường Sa, chạm xem gió sóng từng điểm qua `src/lib/marine-weather.ts` — chip chọn ngày dự báo 1–10 ngày, số liệu hôm nay = đo lúc này / ngày sau = mức cao nhất trong ngày, kèm nhãn độ tin `forecastConfidence` theo tầm xa) + mưa/dông trong mọi dự báo (`src/lib/weather-codes.ts`, dông trừ 30 điểm trong `scoreDay`) + banner & marker tin bão Biển Đông (`storm-banner.tsx` + `src/lib/storms.ts` ← route `/api/storms`) + **dẫn đường tiết kiệm dầu** (`route-planner.tsx` — chọn cảng/GPS xuất phát, tuyến vẽ lên bản đồ; thuật toán thuần `src/lib/route-plan.ts`, dự báo theo giờ nhiều điểm qua adapter `src/lib/route-weather.ts`; thông số tàu localStorage **`forfish.boat.v1`**) |
 | `/api/storms` | 1 (API) | `src/app/api/storms/route.ts` | Proxy nguồn tin bão quốc tế (GDACS), cache 30 phút, lọc vùng Biển Đông qua `parseStorms`. Fail → `{ok:false}`, client im lặng — KHÔNG bao giờ nói "không có bão" khi không kiểm tra được |
 | `/gia-ca` | 2 — Bán được đắt hơn | `src/app/gia-ca/page.tsx` | **MVP**: bảng giá tham khảo (`price-board.tsx` ← `src/data/port-prices.ts`) + sổ lãi lỗ (`trip-log.tsx`, localStorage `forfish.trips.v1`) |
 | `/van-hanh` | 3 — Vận hành rẻ hơn | `src/app/van-hanh/page.tsx` | **MVP**: nhắc bảo dưỡng (`maintenance-reminders.tsx`, localStorage `forfish.maintenance.v1`) + danh mục vật tư (`supply-catalog.tsx` ← `src/data/supplies.ts`) |
@@ -55,6 +55,7 @@ src/
     maintenance-reminders.tsx  # Trục 3: nhắc bảo dưỡng
   data/
     ports.ts            # 10 cảng + tọa độ đã kiểm chứng Open-Meteo
+    vn-maritime-border.ts # Ranh giới biển VN — 75 điểm CHUẨN (user cấp 2026-06-10, "borderpoints.json"), Campuchia → Trường Sa → Hoàng Sa → Vịnh Bắc Bộ → Móng Cái; nguồn cho geofence cảnh báo IUU
     port-prices.ts      # Giá cá THAM KHẢO (nguồn báo công khai, có ngày tổng hợp)
     supplies.ts         # Danh mục vật tư THAM KHẢO
     fines.ts            # Mức phạt NĐ 38/2024 (cá nhân) THAM KHẢO
@@ -65,8 +66,9 @@ src/
     marine-weather.ts   # Trục 1: gió/sóng tại 1 điểm chạm (Open-Meteo) — tái dùng scoreDay/levelOf từ sea.ts
     weather-codes.ts    # Trục 1: mã WMO → nhãn tiếng Việt (dông/mưa) + cờ danger
     storms.ts           # Trục 1: adapter tin bão (parse/lọc vùng Biển Đông, types) — client gọi /api/storms
-    route-plan.ts       # Trục 1: THUẦN LOGIC dẫn đường — hành lang lưới + DP né sóng/gió, mô hình dầu THAM KHẢO (sóng làm chậm, ngược gió ăn dầu), so với đường thẳng
-    route-weather.ts    # Trục 1: adapter Open-Meteo theo GIỜ cho NHIỀU điểm/1 lượt gọi (gió+sóng 48h) — sóng null = đất liền, thuật toán né
+    route-plan.ts       # Trục 1: THUẦN LOGIC dẫn đường kiểu VISIR (docs/research/06) — lưới phủ vùng + Dijkstra time-dependent, giảm tốc theo hướng sóng (Kwon-lite), chặn sóng ≥4 m, sóng đuôi ≥2 m (IMO 1228-lite), ràng buộc độ sâu; mô hình dầu THAM KHẢO
+    route-weather.ts    # Trục 1: adapter Open-Meteo — LƯỚI thời tiết thô ≤120 điểm/lượt theo GIỜ (72h, kèm hướng sóng), nội suy song tuyến xuống lưới tìm đường
+    depth-grid.ts       # Trục 1: lưới độ sâu tĩnh ETOPO 2022 (public/data/depth-grid.v1.bin ~30 KB, sinh bởi scripts/generate-depth-grid.mjs) — chặn đất + <4 m, cảnh báo 4–12 m, vùng rạn HS/TS quét min-pool 15″
     __tests__/          # Vitest cho logic thuần (ocean-map, marine-weather, sea, weather-codes, storms, route-plan)
     supabase/
       client.ts         # Browser client — trả về null khi env trống

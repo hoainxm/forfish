@@ -17,17 +17,19 @@ import { PORTS } from "@/data/ports";
 import { ROUTE_CASING_COLOR, ROUTE_LINE_COLOR } from "@/lib/ocean-map";
 import {
   DEFAULT_BOAT,
-  buildCorridor,
+  bboxFor,
   formatHoursVN,
   haversineKm,
   kmToNm,
   planRoute,
   vnHourIndex,
+  type BBox,
   type BoatProfile,
   type LatLon,
   type RoutePlan,
 } from "@/lib/route-plan";
-import { fetchRouteWeather } from "@/lib/route-weather";
+import { fetchWeatherField } from "@/lib/route-weather";
+import { fetchDepthGrid } from "@/lib/depth-grid";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
 import {
   AlertIcon,
@@ -75,6 +77,18 @@ function clampNum(raw: string, min: number, max: number, fallback: number) {
   const n = Number(raw.replace(",", "."));
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
+}
+
+// giới hạn vùng tính toán quanh biển VN (khớp khung bản đồ + lưới độ sâu)
+const VN_SEA: BBox = { latMin: 4, latMax: 24.5, lonMin: 99, lonMax: 119 };
+
+function clampBBox(b: BBox): BBox {
+  return {
+    latMin: Math.max(b.latMin, VN_SEA.latMin),
+    latMax: Math.min(b.latMax, VN_SEA.latMax),
+    lonMin: Math.max(b.lonMin, VN_SEA.lonMin),
+    lonMax: Math.min(b.lonMax, VN_SEA.lonMax),
+  };
 }
 
 function myPosition(): Promise<LatLon> {
@@ -196,12 +210,26 @@ export function RoutePlanner({
       setSpeedKn(String(boat.speedKn));
       setLph(String(boat.litersPerHour));
 
-      const corridor = buildCorridor(start, dest);
-      const cells = await fetchRouteWeather(corridor.points);
-      const plan = planRoute(corridor, cells, boat, vnHourIndex(new Date()));
+      // độ sâu fail vẫn tính tiếp — kết quả sẽ tự cảnh báo "chưa né vùng cạn"
+      const depth = await fetchDepthGrid().catch(() => null);
+      const departHourIdx = vnHourIndex(new Date());
+      const dist = haversineKm(start, dest);
+      // khung nhỏ trước cho nhanh; chưa có lối (vd phải vòng qua mũi đất)
+      // thì nở khung rộng gấp mấy lần quãng đường rồi tìm lại
+      const margins = [
+        Math.min(150, Math.max(45, dist * 0.3)),
+        Math.min(420, Math.max(200, dist * 1.1)),
+      ];
+      let plan: RoutePlan | null = null;
+      for (const m of margins) {
+        const bbox = clampBBox(bboxFor(start, dest, m));
+        const field = await fetchWeatherField(bbox);
+        plan = planRoute({ start, dest, boat, departHourIdx, field, depth, bbox });
+        if (plan) break;
+      }
       if (!plan) {
         setError(
-          "Chưa tìm được đường qua vùng này — giữa đường vướng đất liền hoặc thiếu số liệu sóng.",
+          "Chưa tìm được đường an toàn — giữa đường vướng đất liền, bãi cạn hoặc sóng quá dữ (trên 4 m).",
         );
         setResult(null);
         onRoute(null);
@@ -360,8 +388,8 @@ export function RoutePlanner({
             </p>
           ) : plan.direct === null ? (
             <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[15px] font-semibold leading-snug text-[var(--warn)]">
-              Đường chim bay đang vướng đất liền hoặc thiếu số liệu — tuyến này
-              đi vòng qua chỗ đó.
+              Đường chim bay đang vướng đất liền, bãi cạn hoặc sóng quá dữ —
+              tuyến này đi vòng qua chỗ đó.
             </p>
           ) : (
             <p className="rounded-xl bg-[var(--ok-bg)] p-3 text-[15px] font-semibold leading-snug text-[var(--ok)]">
@@ -375,15 +403,34 @@ export function RoutePlanner({
               <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
               Không có lối nào tránh hết vùng dữ: trên đường vẫn có đoạn sóng
               tới {formatNumberVN(plan.maxWaveM)} m, gió cấp{" "}
-              {beaufort(plan.maxWindKmh)} — cân nhắc hoãn chuyến.
+              {beaufort(plan.maxWindKmh)}
+              {plan.hasFollowingSeaRisk &&
+                ", có đoạn sóng dồn từ phía đuôi dễ trượt sóng"}{" "}
+              — cân nhắc hoãn chuyến.
+            </p>
+          )}
+
+          {plan.hasShallowLeg && (
+            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[15px] font-semibold leading-snug text-[var(--warn)]">
+              Tuyến có đoạn nước nông (cỡ 4–12 m) — để ý con nước, hải đồ
+              đoạn đó.
+            </p>
+          )}
+
+          {!plan.depthChecked && (
+            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[15px] font-semibold leading-snug text-[var(--warn)]">
+              Chuyến này chưa kiểm tra được độ sâu — tuyến chưa né bãi cạn, bà
+              con tự dò hải đồ.
             </p>
           )}
 
           <p className="text-[14px] leading-snug text-foreground/65">
             Đoạn xấu nhất trên tuyến: sóng ~{formatNumberVN(plan.maxWaveM)} m,
-            gió cấp {beaufort(plan.maxWindKmh)}. Tuyến tính từ dự báo gió sóng,
-            chỉ để tham khảo — máy chưa biết đảo, đá ngầm, luồng lạch. Bà con dò
-            hải đồ và nghe đài duyên hải trước khi chạy.
+            gió cấp {beaufort(plan.maxWindKmh)}. Tuyến tính từ dự báo gió sóng
+            từng giờ và bản đồ độ sâu (đã né bờ, rạn, bãi cạn sát mặt) — vẫn
+            chỉ để tham khảo: máy chưa biết đá ngầm nhỏ, luồng lạch, đăng đáy,
+            con nước thuỷ triều. Bà con dò hải đồ và nghe đài duyên hải trước
+            khi chạy.
           </p>
 
           <div className="grid grid-cols-2 gap-3">
