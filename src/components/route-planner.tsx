@@ -426,11 +426,11 @@ export function RoutePlanner({
 
           <p className="text-[14px] leading-snug text-foreground/65">
             Đoạn xấu nhất trên tuyến: sóng ~{formatNumberVN(plan.maxWaveM)} m,
-            gió cấp {beaufort(plan.maxWindKmh)}. Tuyến tính từ dự báo gió sóng
-            từng giờ và bản đồ độ sâu (đã né bờ, rạn, bãi cạn sát mặt) — vẫn
-            chỉ để tham khảo: máy chưa biết đá ngầm nhỏ, luồng lạch, đăng đáy,
-            con nước thuỷ triều. Bà con dò hải đồ và nghe đài duyên hải trước
-            khi chạy.
+            gió cấp {beaufort(plan.maxWindKmh)}. Tuyến tính từ dự báo gió,
+            sóng, dòng nước chảy từng giờ và bản đồ độ sâu (đã né bờ, rạn, bãi
+            cạn sát mặt) — vẫn chỉ để tham khảo: máy chưa biết đá ngầm nhỏ,
+            luồng lạch, đăng đáy; con nước sát bờ có thể lệch. Bà con dò hải
+            đồ và nghe đài duyên hải trước khi chạy.
           </p>
 
           <div className="grid grid-cols-2 gap-3">

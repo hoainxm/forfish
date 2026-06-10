@@ -99,6 +99,10 @@ export type HourSample = {
   windKmh: number;
   /** hướng gió THỔI TỪ, độ */
   windFromDeg: number;
+  /** dòng chảy mặt biển, km/h (0 khi nguồn không có) */
+  currentKmh: number;
+  /** hướng dòng CHẢY TỚI, độ — QUY ƯỚC NGƯỢC với gió/sóng (chuẩn hải dương) */
+  currentToDeg: number | null;
 };
 
 export type WeatherCellSeries = {
@@ -122,7 +126,14 @@ export type WeatherField = {
 function hourAt(c: WeatherCellSeries, hourIdx: number): HourSample {
   const idx = Math.max(0, Math.min(Math.round(hourIdx), c.hours.length - 1));
   return (
-    c.hours[idx] ?? { waveM: null, waveFromDeg: null, windKmh: 0, windFromDeg: 0 }
+    c.hours[idx] ?? {
+      waveM: null,
+      waveFromDeg: null,
+      windKmh: 0,
+      windFromDeg: 0,
+      currentKmh: 0,
+      currentToDeg: null,
+    }
   );
 }
 
@@ -149,6 +160,10 @@ export function sampleField(
     wvCos = 0,
     wdSin = 0,
     wdCos = 0;
+  // dòng chảy nội suy theo VECTOR (u đông, v bắc) — hai ô chảy ngược nhau
+  // thì giữa chúng phải gần đứng nước, không phải "trung bình hướng"
+  let curU = 0,
+    curV = 0;
   for (const [di, dj] of [
     [0, 0],
     [0, 1],
@@ -168,6 +183,10 @@ export function sampleField(
     wind += w * h.windKmh;
     wdSin += w * Math.sin(rad(h.windFromDeg));
     wdCos += w * Math.cos(rad(h.windFromDeg));
+    if (h.currentToDeg != null) {
+      curU += w * h.currentKmh * Math.sin(rad(h.currentToDeg));
+      curV += w * h.currentKmh * Math.cos(rad(h.currentToDeg));
+    }
     if (h.waveM != null) {
       wave += w * h.waveM;
       waveW += w;
@@ -178,6 +197,7 @@ export function sampleField(
     }
   }
   if (wSum <= 0) return null;
+  const curKmh = Math.hypot(curU, curV) / wSum;
   return {
     waveM: waveW > 0 ? wave / waveW : null,
     waveFromDeg:
@@ -186,6 +206,9 @@ export function sampleField(
         : null,
     windKmh: wind / wSum,
     windFromDeg: (deg(Math.atan2(wdSin, wdCos)) + 360) % 360,
+    currentKmh: curKmh,
+    currentToDeg:
+      curKmh > 0.01 ? (deg(Math.atan2(curU, curV)) + 360) % 360 : null,
   };
 }
 
@@ -220,6 +243,24 @@ export function windDragFactor(
 ): number {
   const headwindKmh = windKmh * Math.cos(rad(windFromDeg - headingDeg));
   return Math.min(0.25, Math.max(-0.08, headwindKmh * 0.004));
+}
+
+/** Thành phần dòng chảy DỌC hướng chạy (>0 = nước đẩy đi) */
+export function currentAlongKmh(
+  h: Pick<HourSample, "currentKmh" | "currentToDeg">,
+  headingDeg: number,
+): number {
+  if (h.currentToDeg == null) return 0;
+  return h.currentKmh * Math.cos(rad(h.currentToDeg - headingDeg));
+}
+
+/** Thành phần dòng chảy NGANG hướng chạy (phải vát mũi bù) */
+export function currentCrossKmh(
+  h: Pick<HourSample, "currentKmh" | "currentToDeg">,
+  headingDeg: number,
+): number {
+  if (h.currentToDeg == null) return 0;
+  return h.currentKmh * Math.sin(rad(h.currentToDeg - headingDeg));
 }
 
 /** Sóng đuôi ±45° và cao ≥2 m — nguy cơ trượt sóng/broaching với tàu nhỏ */
@@ -425,7 +466,19 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
 
     const heading = bearingDeg(from, to);
     const dirF = waveDirFactor(h.waveFromDeg, heading);
-    const speedKmh = boat.speedKn * KMH_PER_KNOT * speedFactor(waveM, dirF);
+    // tốc độ QUA NƯỚC sau khi sóng làm chậm
+    const stwKmh = boat.speedKn * KMH_PER_KNOT * speedFactor(waveM, dirF);
+    // cộng vector dòng chảy (VISIR-2 velocity composition): thành phần dọc
+    // hướng chạy cộng thẳng; thành phần ngang phải "vát mũi" bù — phần tốc
+    // độ còn lại để tiến = sqrt(stw² − ngang²). Dòng nguồn này ≤ ~4 km/h,
+    // kẹp sàn 25% để không bao giờ chia 0.
+    const speedKmh = Math.max(
+      stwKmh * 0.25,
+      currentAlongKmh(h, heading) +
+        Math.sqrt(
+          Math.max(stwKmh ** 2 - currentCrossKmh(h, heading) ** 2, 0),
+        ),
+    );
     const hours = distKm / speedKmh;
     const fuelL =
       hours *

@@ -52,6 +52,8 @@ function makeField(
             waveFromDeg: null,
             windKmh: 0,
             windFromDeg: 0,
+            currentKmh: 0,
+            currentToDeg: null,
           })),
         });
       } else {
@@ -62,6 +64,8 @@ function makeField(
             waveFromDeg: v.waveFromDeg ?? null,
             windKmh: v.windKmh ?? 10,
             windFromDeg: v.windFromDeg ?? 0,
+            currentKmh: v.currentKmh ?? 0,
+            currentToDeg: v.currentToDeg ?? null,
           })),
         });
       }
@@ -156,6 +160,16 @@ describe("sampleField", () => {
     const s = sampleField(f, 12.01, 111.0, 0);
     expect(s?.waveM).toBeCloseTo(1, 3); // nửa biển vẫn cho số
     expect(sampleField(f, BB.latMin + 0.01, 111.0, 0)).toBeNull();
+  });
+
+  it("dòng chảy nội suy theo vector: hai ô chảy ngược nhau → giữa gần đứng nước", () => {
+    const f = makeField(BB, 5, (la) => ({
+      currentKmh: 2,
+      currentToDeg: la < 12 ? 0 : 180, // nửa dưới chảy lên Bắc, nửa trên xuống Nam
+    }));
+    // điểm nằm GIỮA hai hàng lưới ngược dòng (hàng tại ~11,46 và ~12,0)
+    const s = sampleField(f, 11.73, 111.0, 0)!;
+    expect(s.currentKmh).toBeLessThan(0.5);
   });
 
   it("nội suy hướng qua mốc 0°/360° không gãy", () => {
@@ -266,6 +280,54 @@ describe("planRoute (Dijkstra time-dependent kiểu VISIR)", () => {
     expect(head.fuelL).toBeGreaterThan(tail.fuelL);
   });
 
+  it("xuôi dòng nhanh và đỡ dầu hơn ngược dòng trên cùng quãng đường", () => {
+    // dòng 3 km/h chảy về Đông khắp vùng; cùng cặp điểm, đi xuôi và đi ngược
+    const f = makeField(BB, 7, () => ({ currentKmh: 3, currentToDeg: 90 }));
+    const goEast = planRoute({
+      start: START, dest: DEST, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: f, depth: null, bbox: BB,
+    })!;
+    const goWest = planRoute({
+      start: DEST, dest: START, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: f, depth: null, bbox: BB,
+    })!;
+    expect(goEast.hours).toBeLessThan(goWest.hours);
+    expect(goEast.fuelL).toBeLessThan(goWest.fuelL);
+    // sanity: chênh lệch cỡ 2×3 km/h trên ~13 km/h — rõ rệt chứ không vi tế
+    expect(goWest.fuelL / goEast.fuelL).toBeGreaterThan(1.3);
+  });
+
+  it("dải dòng thuận lệch trục → tuyến bẻ vào dải để 'đi nhờ nước'", () => {
+    // dòng 4 km/h về Đông trong dải vĩ độ 12,08–12,5 — sát đường thẳng,
+    // lệch vài km là "đi nhờ nước" được (dải xa quá thì không bõ — đã thử,
+    // thuật toán từ chối bẻ là ĐÚNG kinh tế)
+    const f = makeField(BB, 9, (la) =>
+      la > 12.08 && la < 12.5 ? { currentKmh: 4, currentToDeg: 90 } : calm(),
+    );
+    const withCurrent = planRoute({
+      start: START, dest: DEST, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: f, depth: null, bbox: BB,
+    })!;
+    const still = planRoute({
+      start: START, dest: DEST, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: makeField(BB, 9, calm), depth: null, bbox: BB,
+    })!;
+    const maxLat = Math.max(...withCurrent.waypoints.map((w) => w.lat));
+    expect(maxLat).toBeGreaterThan(12.12); // có bẻ lên dải dòng thuận
+    expect(withCurrent.fuelL).toBeLessThan(still.fuelL); // và bõ công bẻ
+  });
+
+  it("dòng ngược phi lý (mạnh hơn tàu) → không chia 0, giờ chạy vẫn hữu hạn", () => {
+    const f = makeField(BB, 7, () => ({ currentKmh: 40, currentToDeg: 270 }));
+    const plan = planRoute({
+      start: START, dest: DEST, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: f, depth: null, bbox: BB,
+    })!;
+    expect(plan).not.toBeNull();
+    expect(Number.isFinite(plan.hours)).toBe(true);
+    expect(plan.hours).toBeGreaterThan(0);
+  });
+
   it("sóng đuôi ≥2 m khắp vùng → hoặc cắm cờ nguy cơ, hoặc chạy chéo né (quartering)", () => {
     const f = makeField(BB, 7, () => ({ waveM: 2.2, waveFromDeg: 270 }));
     const plan = planRoute({
@@ -358,6 +420,8 @@ describe("parseWeatherField (adapter)", () => {
         wind_direction_10m: [45, 90],
         wave_height: w,
         wave_direction: [180, 200],
+        ocean_current_velocity: [1.5, 1.2],
+        ocean_current_direction: [30, 35],
       },
     });
     const wind = [mk([1, 1]), mk([1, 1]), mk([1, 1]), mk([1, 1])];
@@ -372,6 +436,8 @@ describe("parseWeatherField (adapter)", () => {
       waveFromDeg: 180,
       windKmh: 12,
       windFromDeg: 45,
+      currentKmh: 1.5,
+      currentToDeg: 30,
     });
   });
 

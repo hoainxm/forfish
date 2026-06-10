@@ -49,6 +49,7 @@ sóng đuôi là các PHÂN SỐ của mức sóng mũi (suy từ dữ liệu Ae
 | Lưới đồ thị | Lưới đều phủ bbox start–dest + lề; bước 4 km trở lên, trần ~7.500 nút; **16 hướng** (8 ô kề + 8 nước mã) |
 | Tìm đường | **Dijkstra time-dependent** (nghiệm đúng, FIFO); chi phí = lít dầu ước tính ở ETA từng cạnh; chạy tức thì trên điện thoại |
 | Trường thời tiết | Open-Meteo theo GIỜ, 72h, lưới thô ≤120 điểm/lượt (`route-weather.ts`) + **nội suy song tuyến** xuống lưới tìm đường; hướng nội suy bằng vector sin/cos |
+| Dòng hải lưu (VISIR-2: velocity composition) | Open-Meteo `ocean_current_velocity/direction` — nền **MeteoFrance SMOC** 0,08° (~8 km), theo giờ, dự báo 10 ngày, **gồm cả dòng triều + Stokes** (đã test thực tế có số cho Biển Đông, không cần key). Cộng vector vào tốc độ qua nước: thành phần dọc hướng chạy cộng thẳng, thành phần ngang trừ vào (vát mũi bù); dòng nội suy theo vector u/v. Quan sát được: tuyến tự bẻ vào dải dòng thuận khi bõ công, từ chối khi dải xa quá |
 | Ràng buộc tĩnh | **ETOPO 2022** (NOAA, public domain) đóng gói sẵn 0,05° (~30 KB, `scripts/generate-depth-grid.mjs` → `public/data/depth-grid.v1.bin`): chặn đất + chỗ cạn < 4 m, cảnh báo 4–12 m. Vùng rạn Hoàng Sa/Trường Sa/Macclesfield quét lại ở phân giải gốc 15″ và lấy **lớp nguy hiểm nhất từng ô** (min-pool) vì rạn hẹp ~1 km lọt khe lấy mẫu. Quanh cảng 12 km nới lỏng (tàu thuộc con nước nhà) |
 | Ràng buộc động | Chặn cứng sóng ≥ 4 m; phạt ×3 vùng sóng ≥ 2,5 m / gió ≥ cấp 7; **sóng đuôi ±45° cao ≥ 2 m** (đơn giản hoá điều kiện surf-riding/broaching của IMO 1228) tính là vùng dữ — quan sát được: thuật toán tự "chạy chéo" cho sóng vào vai như dân biển |
 | Giảm tốc trong sóng | Kwon-lite: ~10%/m trên 0,5 m × hệ số hướng (mũi 1,0 / ngang 0,7 / đuôi 0,4), sàn 55% tốc độ |
@@ -67,9 +68,12 @@ ven bờ, kèm cảnh báo đoạn nước nông — corridor hẹp bản cũ kh
 
 - ETOPO ~ mực nước trung bình; thuỷ triều VN có nơi ±2 m → ngưỡng 4 m vẫn có
   thể hụt khi triều kiệt; lưới 0,05° không thấy đá ngầm lẻ, luồng lạch, đăng đáy.
-- Open-Meteo là mô hình toàn cầu (~25 km cho sóng) — không thấy sóng cồn cửa
-  sông, dòng chảy ven bờ. Chưa có dòng hải lưu (Open-Meteo không phát hành
-  current cho vùng này; nguồn CMEMS cần key — xem 05).
+- Open-Meteo là mô hình toàn cầu (~25 km cho sóng, ~8 km cho dòng chảy) —
+  không thấy sóng cồn cửa sông. Dòng chảy SMOC kèm cảnh báo của chính nguồn:
+  "accuracy at coastal areas is limited / not suitable for coastal navigation"
+  → copy UI ghi "con nước sát bờ có thể lệch". (Ghi chú: từng tưởng phải dùng
+  CMEMS có key — hoá ra Open-Meteo đã phát hành current toàn cầu, đã test có
+  số liệu cho Biển Đông.)
 - Dự báo 72 giờ; chuyến dài hơn dùng số liệu giờ cuối (ghi chú tự tin giảm dần
   theo tầm — xem `forecastConfidence`).
 - FIFO: giả định xuất phát muộn không bao giờ tới sớm hơn — đúng với dự báo
@@ -92,6 +96,10 @@ ven bờ, kèm cảnh báo đoạn nước nông — corridor hẹp bản cũ kh
   situations in adverse weather and sea conditions* (2007).
 - ETOPO 2022 (NOAA NCEI): https://www.ncei.noaa.gov/products/etopo-global-relief-model
   — lấy qua ERDDAP OceanWatch PIFSC, dataset `ETOPO_2022_v1_15s`.
+- Dòng chảy: Open-Meteo Marine API (https://open-meteo.com/en/docs/marine-weather-api)
+  — `ocean_current_velocity/direction`, nền MeteoFrance SMOC (CMEMS GLOBAL
+  ANALYSISFORECAST PHY), 0,08°, hourly, 10 ngày, gồm Eulerian + Waves + Tides;
+  hướng theo quy ước CHẢY TỚI (ngược quy ước gió/sóng).
 
 ---
 
