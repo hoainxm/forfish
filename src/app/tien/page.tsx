@@ -1,6 +1,7 @@
 import { PriceBoard } from "@/components/price-board";
 import { TripLog } from "@/components/trip-log";
 import { TripSplit } from "@/components/trip-split";
+import { SellGuide } from "@/components/sell-guide";
 import { PageHeader } from "@/components/page-header";
 import { Tabs } from "@/components/ui/tabs";
 
@@ -21,6 +22,7 @@ export default function TienPage() {
         ariaLabel="Mục tiền nong"
         tabs={[
           { id: "gia", label: "Giá cá", content: <PriceBoard /> },
+          { id: "ban-o-dau", label: "Bán ở đâu", content: <SellGuide /> },
           { id: "lai-lo", label: "Lãi/lỗ", content: <TripLog /> },
           {
             id: "chia",
