@@ -294,3 +294,37 @@ export function DepthIcon(p: IconProps) {
     </svg>
   );
 }
+
+export function LayersIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+      <path d="m4.2 11.8 7.8 4.3 7.8-4.3" />
+      <path d="m4.2 15.8 7.8 4.3 7.8-4.3" />
+    </svg>
+  );
+}
+
+export function ChevronUpIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="m5 15 7-7 7 7" />
+    </svg>
+  );
+}
+
+export function ChevronDownIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="m5 9 7 7 7-7" />
+    </svg>
+  );
+}
+
+export function CloseIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M5.5 5.5l13 13M18.5 5.5l-13 13" />
+    </svg>
+  );
+}

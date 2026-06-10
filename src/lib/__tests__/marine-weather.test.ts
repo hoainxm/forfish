@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { beaufort, formatNumberVN, windDirectionVN } from "../marine-weather";
+import {
+  beaufort,
+  forecastConfidence,
+  formatNumberVN,
+  windDirectionVN,
+  FORECAST_MAX_DAYS,
+} from "../marine-weather";
 import { levelOf, scoreDay } from "../sea";
 
 describe("beaufort", () => {
@@ -27,6 +33,22 @@ describe("windDirectionVN", () => {
     expect(windDirectionVN(350)).toBe("Bắc");
     expect(windDirectionVN(211)).toBe("Tây Nam");
     expect(windDirectionVN(360)).toBe("Bắc");
+  });
+});
+
+describe("forecastConfidence", () => {
+  it("1–3 ngày đầu (index 0–2) tin được, từ ngày 4 chuyển sang cảnh báo", () => {
+    expect(forecastConfidence(0).tone).toBe("ok");
+    expect(forecastConfidence(2).tone).toBe("ok");
+    expect(forecastConfidence(3).tone).toBe("warn");
+    expect(forecastConfidence(6).tone).toBe("warn");
+  });
+
+  it("dự báo xa (index ≥7) có lời dặn riêng, và mọi index trong tầm nguồn đều có nhãn", () => {
+    expect(forecastConfidence(7).label).toContain("Dự báo xa");
+    for (let i = 0; i < FORECAST_MAX_DAYS; i++) {
+      expect(forecastConfidence(i).label.length).toBeGreaterThan(0);
+    }
   });
 });
 

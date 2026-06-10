@@ -66,6 +66,11 @@ describe("buildMapStyle", () => {
     expect(style.layers).toHaveLength(3);
   });
 
+  it("tắt phao đèn → không có source seamarks; ranh giới/nhãn không có công tắc", () => {
+    const style = buildMapStyle("sst", now, { seamarks: false });
+    expect(Object.keys(style.sources)).not.toContain("seamarks");
+  });
+
   it("có lớp dữ liệu → thêm source ocean-data với ngày đã trừ độ trễ", () => {
     const style = buildMapStyle("sst", now);
     const src = style.sources["ocean-data"] as { tiles: string[] };

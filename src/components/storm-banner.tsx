@@ -12,7 +12,12 @@ import { fetchStormCheck, type StormCheck } from "@/lib/storms";
 import { beaufort } from "@/lib/marine-weather";
 import { AlertIcon, CheckIcon } from "@/components/icons";
 
-export function StormBanner() {
+export function StormBanner({
+  variant = "page",
+}: {
+  /** "overlay" = nổi trên bản đồ full-screen: chip gọn khi yên, thẻ đầy đủ khi có bão */
+  variant?: "page" | "overlay";
+}) {
   const [check, setCheck] = useState<StormCheck | null>(null);
 
   useEffect(() => {
@@ -26,6 +31,14 @@ export function StormBanner() {
   if (!check || !check.ok) return null;
 
   if (check.storms.length === 0) {
+    if (variant === "overlay") {
+      return (
+        <p className="pointer-events-auto mx-auto flex w-fit items-center gap-1.5 rounded-full bg-ok-bg px-3 py-1.5 text-[13px] font-bold text-ok shadow-sm ring-1 ring-line">
+          <CheckIcon className="h-4 w-4 shrink-0" />
+          Không có tin bão trên Biển Đông
+        </p>
+      );
+    }
     return (
       <p className="mx-4 mb-3 flex items-center gap-2 rounded-lg bg-ok-bg px-3 py-2 text-[15px] font-semibold text-ok">
         <CheckIcon className="h-4.5 w-4.5 shrink-0" />
@@ -35,7 +48,13 @@ export function StormBanner() {
   }
 
   return (
-    <div className="mx-4 mb-3 space-y-2">
+    <div
+      className={
+        variant === "overlay"
+          ? "pointer-events-auto space-y-2 shadow-md"
+          : "mx-4 mb-3 space-y-2"
+      }
+    >
       {check.storms.map((s) => {
         const danger = s.alert === "danger";
         return (

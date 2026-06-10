@@ -76,9 +76,11 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
   },
   bathymetry: {
     id: "bathymetry",
-    // Hải đồ độ sâu: EMODnet (nền GEBCO) — tĩnh, tải một lần dùng quanh năm
-    label: "Độ sâu đáy biển",
-    help: "Màu càng đậm nước càng sâu. Cá đáy hay quanh gò nổi, mép dốc — chỗ màu đổi nhanh là dốc đứng.",
+    // Hải đồ độ sâu: EMODnet (nền GEBCO) — tĩnh, tải một lần dùng quanh năm.
+    // Đây là LỚP MẶC ĐỊNH khi mở bản đồ — chuẩn app hàng hải (Navionics/
+    // C-MAP/OpenCPN đều mở nautical chart trước, vệ tinh là tuỳ chọn).
+    label: "Hải đồ độ sâu",
+    help: "Bản đồ độ sâu đáy biển như hải đồ: chỗ nhạt là gò nổi, bãi cạn — cá đáy hay quanh gò, mép dốc. Phóng to gần bờ sẽ thấy phao đèn, báo hiệu.",
     legend: {
       from: "Cạn",
       to: "Sâu",
@@ -104,10 +106,11 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
   },
 };
 
+// Hải đồ đứng ĐẦU + là mặc định; các lớp tìm cá (nhiệt/mồi/mây) xếp sau
 export const OCEAN_LAYER_ORDER: OceanLayerId[] = [
+  "bathymetry",
   "sst",
   "chlorophyll",
-  "bathymetry",
   "truecolor",
 ];
 
@@ -181,8 +184,15 @@ export const DEFAULT_POINT = { lat: 13.0, lon: 110.5 };
 /**
  * Style MapLibre: basemap quốc tế + mask che nhãn Biển Đông + lớp vệ tinh.
  * `layerId = null` → chỉ bản đồ nền + mask.
+ * `opts.seamarks` — bật/tắt lớp phao đèn (mặc định bật); ranh giới + nhãn
+ * chủ quyền KHÔNG có công tắc — là hằng số của app.
  */
-export function buildMapStyle(layerId: OceanLayerId | null, now: Date) {
+export function buildMapStyle(
+  layerId: OceanLayerId | null,
+  now: Date,
+  opts: { seamarks?: boolean } = {},
+) {
+  const { seamarks = true } = opts;
   const sources: Record<string, object> = {
     basemap: {
       type: "raster",
@@ -248,18 +258,20 @@ export function buildMapStyle(layerId: OceanLayerId | null, now: Date) {
 
   // Báo hiệu hàng hải (phao, đèn biển, vùng neo) — overlay trong suốt,
   // chỉ hiện khi zoom gần bờ; luôn nằm trên mọi lớp ảnh
-  sources["seamarks"] = {
-    type: "raster",
-    tiles: ["https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"],
-    tileSize: 256,
-    minzoom: 9,
-  };
-  layers.push({
-    id: "seamarks",
-    type: "raster",
-    source: "seamarks",
-    minzoom: 9,
-  });
+  if (seamarks) {
+    sources["seamarks"] = {
+      type: "raster",
+      tiles: ["https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      minzoom: 9,
+    };
+    layers.push({
+      id: "seamarks",
+      type: "raster",
+      source: "seamarks",
+      minzoom: 9,
+    });
+  }
 
   return { version: 8 as const, sources, layers };
 }
