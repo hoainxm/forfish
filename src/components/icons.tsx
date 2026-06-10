@@ -295,6 +295,22 @@ export function DepthIcon(p: IconProps) {
   );
 }
 
+export function PlayIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M7 4.5v15l12-7.5L7 4.5Z" />
+    </svg>
+  );
+}
+
+export function PauseIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M7.5 4.5v15M16.5 4.5v15" />
+    </svg>
+  );
+}
+
 export function LayersIcon(p: IconProps) {
   return (
     <svg {...base(p)}>

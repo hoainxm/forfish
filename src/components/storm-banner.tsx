@@ -28,7 +28,25 @@ export function StormBanner({
     };
   }, []);
 
-  if (!check || !check.ok) return null;
+  if (!check) return null; // đang kiểm tra — chưa nói gì
+
+  // Nguồn fail: nói rõ "chưa kiểm tra được" — khác hẳn với "không có bão".
+  // (Audit flow: im lặng hoàn toàn khiến người dùng không phân biệt được
+  // hai trạng thái; vẫn giữ nguyên tắc KHÔNG BAO GIỜ nói "không có bão" bừa.)
+  if (!check.ok) {
+    if (variant === "overlay") {
+      return (
+        <p className="pointer-events-auto mx-auto flex w-fit items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-[13px] font-bold text-foreground/65 shadow-sm ring-1 ring-line">
+          Chưa kiểm tra được tin bão — nghe đài duyên hải
+        </p>
+      );
+    }
+    return (
+      <p className="mx-4 mb-3 rounded-lg bg-card px-3 py-2 text-[15px] font-semibold text-foreground/65 ring-1 ring-line">
+        Chưa kiểm tra được tin bão — bà con nghe đài duyên hải.
+      </p>
+    );
+  }
 
   if (check.storms.length === 0) {
     if (variant === "overlay") {

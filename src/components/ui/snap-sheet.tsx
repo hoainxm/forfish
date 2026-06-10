@@ -16,14 +16,17 @@ export function SnapSheet({
   size,
   onSizeChange,
   onClose,
+  closeLabel = "Đóng",
   label,
   peek,
   children,
 }: {
   size: SheetSize;
   onSizeChange: (s: SheetSize) => void;
-  /** Hiện nút đóng (✕) — vd thoát chế độ điểm chạm về chế độ cảng */
+  /** Hiện nút thoát ở MỌI nấc — vd quay về vùng biển cảng nhà */
   onClose?: () => void;
+  /** Chữ trên nút thoát — phải tự giải thích ("Về cảng"), không chỉ "Đóng" */
+  closeLabel?: string;
   label: string;
   /** Phần luôn thấy ở mọi nấc */
   peek: React.ReactNode;
@@ -73,15 +76,14 @@ export function SnapSheet({
               Thu gọn
             </button>
           )}
-          {onClose && size === "peek" && (
+          {onClose && (
             <button
               type="button"
               onClick={onClose}
-              aria-label="Đóng, quay về dự báo theo cảng"
               className="flex min-h-[52px] items-center justify-center gap-1 rounded-xl bg-card px-3 text-[15px] font-bold text-navy ring-1 ring-line transition active:scale-[0.97]"
             >
               <CloseIcon className="h-5 w-5" />
-              Đóng
+              {closeLabel}
             </button>
           )}
         </div>

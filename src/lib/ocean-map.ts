@@ -100,6 +100,8 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
     legend: null,
     lagDays: 2,
     dated: true,
+    // JPG đặc — vẽ mờ 0.85 làm nhãn/đường basemap "ma" lộ xuyên ảnh (đục bẩn)
+    opacity: 1,
     tiles: (d) =>
       `${GIBS}/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/${d}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
     maxNativeZoom: 9,
@@ -136,15 +138,23 @@ export function formatDateVN(isoDate: string): string {
    tiếng Việt (HTML marker) lên trên. Tham khảo guide ForLife.
 --------------------------------------------------------------------------- */
 
-/** Màu nước khớp basemap Carto Voyager — nội dung bản đồ, không phải token UI */
-export const SEA_MASK_COLOR = "#aadaff";
+/**
+ * Màu nước khớp basemap Carto Voyager — nội dung bản đồ, không phải token UI.
+ * Audit 2026-06-10: sample pixel tile biển thật của Voyager = #d5e8eb
+ * (giá trị cũ #aadaff lệch tông → mask thành mảng xanh loang lổ lộ qua
+ * lỗ mây của lớp phù du).
+ */
+export const SEA_MASK_COLOR = "#d5e8eb";
 
 /**
  * Màu vẽ tuyến dẫn đường (MapLibre paint cần hex literal, không nhận CSS
  * variable) — nội dung bản đồ: chọn nổi trên cả nền nước lẫn ảnh vệ tinh,
  * kèm viền trắng bên dưới để tách khỏi màu lớp ảnh.
  */
-export const ROUTE_LINE_COLOR = "#d84b1e";
+// Audit 2026-06-10: tuyến KHÔNG được trùng tông cam đỏ của ranh giới biển
+// (ranh giới = "không được vượt", phạt nặng) — tuyến dùng xanh dương kiểu
+// chỉ đường quen mắt, cam đỏ độc quyền cho ranh giới.
+export const ROUTE_LINE_COLOR = "#1a73e8";
 export const ROUTE_CASING_COLOR = "#ffffff";
 
 export type SovereigntyLabel = {
@@ -211,13 +221,18 @@ export function buildMapStyle(
         properties: {},
         geometry: {
           type: "Polygon",
-          // khung biển khơi, tránh đè lên bờ biển các nước lân cận
+          // Khung biển khơi che nhãn quốc tế. Audit 2026-06-10: khía góc để
+          // KHÔNG đè lên đất nước bạn — cạnh đông hạ về 115E dưới vĩ 8 (né
+          // Sabah/Borneo), 116.8E phía trên (né Palawan/Balabac ≥117E),
+          // cạnh bắc hạ về 18.05 (né bờ nam Hải Nam ~18.2N).
           coordinates: [
             [
               [109.6, 6.0],
-              [117.6, 6.0],
-              [117.6, 18.5],
-              [109.6, 18.5],
+              [115.0, 6.0],
+              [115.0, 8.0],
+              [116.8, 8.0],
+              [116.8, 18.05],
+              [109.6, 18.05],
               [109.6, 6.0],
             ],
           ],
