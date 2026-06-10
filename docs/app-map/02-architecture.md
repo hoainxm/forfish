@@ -19,15 +19,15 @@
 
 | Route | Trục | File | Trạng thái |
 |---|---|---|---|
-| `/` | — | `src/app/page.tsx` | Trang chủ: bốn trục + nhắc việc gấp |
-| `/giay-to` | 4 — Tuân thủ dễ hơn | `src/app/giay-to/page.tsx` | **MVP**: Tủ giấy tờ (`document-vault.tsx`) + tra mức phạt (`fines-lookup.tsx` ← `src/data/fines.ts`) |
+| `/` | — | `src/app/page.tsx` | Trang chủ / Home: các trục + nhắc việc gấp (`urgent-strip.tsx`) |
 | `/ngu-truong` | 1 — Đánh bắt tốt hơn | `src/app/ngu-truong/page.tsx` | **MVP — MÀN HÌNH MAP-FIRST kiểu Google Maps** (2026-06-10: page = map full-screen `fixed`, KHÔNG cuộn dọc; mọi thứ là lớp nổi/sheet trên map — `fishing-map.tsx` → `fishing-map-view.tsx`): **(a)** lớp nổi: chip/banner tin bão trên cùng (`storm-banner.tsx` variant `overlay` + `src/lib/storms.ts` ← `/api/storms`), badge lớp+ngày ảnh (bấm = mở chọn lớp), FAB "Lớp"/"Tàu tôi" cột phải; **(b)** chọn lớp qua `layer-sheet.tsx` (radio: **HẢI ĐỒ độ sâu EMODnet — MẶC ĐỊNH khi mở, chuẩn app hàng hải, nhớ lựa chọn `forfish.maplayer.v1`** / SST anomaly / phù du / ảnh mây qua `src/lib/ocean-map.ts` + legend + toggle phao đèn OpenSeaMap; ranh giới + bão + nhãn chủ quyền LUÔN bật — xem docs/research/09); **(c)** sheet đáy 3 nấc `ui/snap-sheet.tsx`: mode CẢNG mặc định (điểm đi biển 1–100 `src/lib/sea.ts`, cache `forfish.sea.{port}.v2`, cảng nhớ `forfish.port.v1`, 10 cảng `src/data/ports.ts`) ⟷ mode ĐIỂM CHẠM (gió sóng `src/lib/marine-weather.ts`, chip chọn ngày 1–10 + độ tin `forecastConfidence`, mưa/dông `weather-codes.ts`, cảnh báo ranh giới `geofence.ts`, **dẫn đường tiết kiệm dầu** `route-planner.tsx` ← `route-plan.ts`/`route-weather.ts`/`depth-grid.ts`, thông số tàu `forfish.boat.v1`; có tuyến → sheet tự thu về peek) |
 | `/api/storms` | 1 (API) | `src/app/api/storms/route.ts` | Proxy nguồn tin bão quốc tế (GDACS), cache 30 phút, lọc vùng Biển Đông qua `parseStorms`. Fail → `{ok:false}`, client im lặng — KHÔNG bao giờ nói "không có bão" khi không kiểm tra được |
-| `/gia-ca` | 2 — Bán được đắt hơn | `src/app/gia-ca/page.tsx` | **MVP**: bảng giá tham khảo (`price-board.tsx` ← `src/data/port-prices.ts`) + sổ lãi lỗ (`trip-log.tsx`, localStorage `forfish.trips.v1`) |
-| `/van-hanh` | 3 — Vận hành rẻ hơn | `src/app/van-hanh/page.tsx` | **MVP**: nhắc bảo dưỡng (`maintenance-reminders.tsx`, localStorage `forfish.maintenance.v1`) + danh mục vật tư (`supply-catalog.tsx` ← `src/data/supplies.ts`) |
-| `/thuyen-vien` | Quản lý tàu (xem [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md)) | `src/app/thuyen-vien/page.tsx` | **MVP**: sổ thuyền viên (`crew-list.tsx`, localStorage `forfish.crew.v1` — hồ sơ + bảo hiểm/chứng chỉ hạn + sổ ứng tiền) + máy tính chia tiền chuyến (`trip-split.tsx` ← logic `src/lib/crew.ts`, có test). Vào từ thẻ trang chủ, chưa có tab nav |
+| `/tau` | TÀU — tài sản / boat asset | `src/app/tau/page.tsx` | **MVP**: gộp giấy tờ + vận hành vào một trang, tách tab (`ui/tabs.tsx`): Giấy tờ (`document-vault.tsx`) · Bảo dưỡng (`maintenance-reminders.tsx` ← `src/data/supplies.ts`) · Vật tư (`supply-catalog.tsx`) · Mức phạt (`fines-lookup.tsx` ← `src/data/fines.ts`) |
+| `/nguoi` | NGƯỜI — lao động / crew (xem [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md)) | `src/app/nguoi/page.tsx` | **MVP**: Bạn thuyền — sổ thuyền viên (`crew-list.tsx`, localStorage `forfish.crew.v1` — hồ sơ + bảo hiểm/chứng chỉ hạn + sổ ứng tiền). Chia tiền đã dời sang `/tien` |
+| `/tien` | TIỀN — tài chính / money | `src/app/tien/page.tsx` | **MVP**: gộp giá bán + tài chính, tách tab (`ui/tabs.tsx`): Giá cá (`price-board.tsx` ← `src/data/port-prices.ts`) · Bán ở đâu (`sell-guide.tsx` ← `src/data/market-channels.ts` + `seafood-buyers.ts` + `wholesalers/*`) · Lãi/lỗ (`trip-log.tsx`, localStorage `forfish.trips.v1`) · Chia tiền (`trip-split.tsx` ← `src/lib/crew.ts`, có test) |
+| `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` | — (REDIRECT stub) | `src/app/{gia-ca,van-hanh,giay-to,thuyen-vien}/page.tsx` | **Redirect stub** giữ link cũ: `/gia-ca`→`/tien`, `/van-hanh`→`/tau`, `/giay-to`→`/tau`, `/thuyen-vien`→`/nguoi` (taxonomy mới: Ra khơi / Tàu / Người / Tiền) |
 
-Quy ước: route slug là tiếng Việt không dấu, khớp ngôn ngữ người dùng. Thêm route mới → update bảng này cùng commit.
+Quy ước: route slug là tiếng Việt không dấu, khớp ngôn ngữ người dùng. Thêm route mới → update bảng này cùng commit. Đổi/gộp route → để lại redirect stub cho slug cũ.
 
 ## 3. Folder layout
 
@@ -37,18 +37,29 @@ src/
     layout.tsx          # Root layout (fonts, bottom nav)
     globals.css         # Tailwind v4 @theme tokens — single source màu/typography
     page.tsx            # Trang chủ
-    giay-to/  ngu-truong/  gia-ca/  van-hanh/   # 1 folder / trục
+    ngu-truong/  tau/  nguoi/  tien/            # 4 trục hiện hành (Ra khơi / Tàu / Người / Tiền)
+    gia-ca/  van-hanh/  giay-to/  thuyen-vien/  # REDIRECT stub slug cũ → trục mới (xem bảng §2)
   components/
-    bottom-nav.tsx      # Điều hướng dưới cùng (mobile-first, 4 trục + home)
+    bottom-nav.tsx      # Điều hướng dưới cùng (mobile-first, các trục + home)
     page-header.tsx     # Header sóng dùng chung
     icons.tsx           # Bộ icon stroke SVG — NGUỒN ICON DUY NHẤT, cấm emoji
-    document-vault.tsx  # Trục 4: vault UI — pattern chuẩn cho mọi CRUD localStorage
-    fines-lookup.tsx    # Trục 4: tra mức phạt (NĐ 38/2024)
+    urgent-strip.tsx    # Trang chủ: dải nhắc việc gấp (giấy tờ/bảo hiểm sắp hết hạn…)
+    ui/                 # Primitives dùng chung (xem khối ui/ bên dưới)
+    document-vault.tsx  # Trục TÀU: vault UI — pattern chuẩn cho mọi CRUD localStorage
+    fines-lookup.tsx    # Trục TÀU: tra mức phạt (NĐ 38/2024)
+    sell-guide.tsx      # Trục TIỀN: "Bán ở đâu" — kênh bán + vựa + người mua theo loài/vùng (← market-channels + seafood-buyers + wholesalers/*, lọc bằng lib/region.ts)
     sea-forecast.tsx    # Trục 1: LEGACY — không còn page nào dùng (logic đã gộp vào mode cảng của fishing-map-view); cân nhắc xoá khi ổn định
     storm-banner.tsx    # Trục 1: banner tin bão (3 trạng thái: bão / yên / im lặng khi nguồn fail) — variant "page" + "overlay" (nổi trên map)
     fishing-map.tsx     # Trục 1: vỏ lazy-load bản đồ (next/dynamic ssr:false), loading full-height
     fishing-map-view.tsx # Trục 1: MÀN HÌNH map-first — map full-screen + lớp nổi + SnapSheet đáy 2 mode (cảng/điểm chạm); nhãn chủ quyền + ranh giới + bão luôn render
     layer-sheet.tsx     # Trục 1: sheet chọn lớp kiểu Google Maps (radio 4 lớp + legend + toggle phao đèn; lớp an toàn không có công tắc)
+    ui/                 # Primitives dùng chung (UI nền):
+      primitives.tsx    #   nút/thẻ/field cơ bản theo design-system (font ≥18px, tap ≥56px)
+      tabs.tsx          #   Tabs trong trang — dùng cho /tau và /tien thay vì cuộn dọc dài
+      bottom-sheet.tsx  #   BottomSheet MODAL (có scrim) — form thêm/sửa CRUD
+      confirm-dialog.tsx#   Hộp xác nhận xóa dùng chung
+      status-banner.tsx #   Banner trạng thái chung (thông tin/cảnh báo)
+      region-filter.tsx #   Bộ lọc Bắc/Trung/Nam (← lib/region.ts) cho danh sách theo vùng
     ui/snap-sheet.tsx   # SnapSheet dùng chung: sheet đáy THƯỜNG TRỰC 3 nấc peek/half/full, không scrim, điều khiển bằng nút to (khác BottomSheet là modal)
     route-planner.tsx   # Trục 1: dẫn đường tiết kiệm dầu — form xuất phát/thông số tàu + thẻ kết quả + lớp vẽ tuyến (RouteMapLayers, đặt trong MapGL)
     price-board.tsx     # Trục 2: bảng giá tham khảo
@@ -61,8 +72,16 @@ src/
     port-prices.ts      # Giá cá THAM KHẢO (nguồn báo công khai, có ngày tổng hợp)
     supplies.ts         # Danh mục vật tư THAM KHẢO
     fines.ts            # Mức phạt NĐ 38/2024 (cá nhân) THAM KHẢO
+    market-channels.ts  # Trục TIỀN: kênh bán cá (chợ đầu mối/vựa/online…) THAM KHẢO — nguồn cho sell-guide
+    seafood-buyers.ts   # Trục TIỀN: doanh nghiệp thu mua thủy sản theo tỉnh/loài THAM KHẢO (province đã chuẩn hóa tên hiển thị sau 2025)
+    wholesalers/        # Trục TIỀN: vựa/đầu mối theo vùng — bac/trung/nam + bs-* (province đã chuẩn hóa); gộp qua index.ts, types.ts
+    fishing-ports.ts    # 173 cảng cá toàn quốc (province + tọa độ, tên tỉnh chuẩn sau 2025) — DỮ LIỆU CÓ SẴN, CHƯA WIRE vào UI nào
   lib/
-    documents.ts        # Domain logic Trục 4 (kinds, expiry status) — xem 04-data-model.md
+    documents.ts        # Domain logic Trục TÀU (kinds, expiry status) — xem 04-data-model.md
+    format.ts           # Helper định dạng dùng chung (số tiền/ngày…)
+    region.ts           # Phân vùng Bắc/Trung/Nam: Region, COASTAL_PROVINCES, provinceKey/regionOf — nền cho lọc theo tỉnh ⇒ ĐÒI HỎI tên tỉnh thống nhất giữa các dataset
+    geofence.ts         # Trục 1: cảnh báo vượt ranh giới biển (← vn-maritime-border.ts)
+    crew.ts             # Trục NGƯỜI/TIỀN: logic chia tiền chuyến (có test)
     sea.ts              # Trục 1: fetch Open-Meteo + công thức điểm đi biển (scoreDay/levelOf — THANG ĐIỂM DUY NHẤT của trục)
     ocean-map.ts        # Trục 1: adapter lớp bản đồ (vệ tinh NASA GIBS trễ 2 ngày; độ sâu EMODnet/GEBCO tĩnh; phao đèn OpenSeaMap zoom ≥9) + style + nhãn chủ quyền VN
     marine-weather.ts   # Trục 1: gió/sóng tại 1 điểm chạm (Open-Meteo) — tái dùng scoreDay/levelOf từ sea.ts

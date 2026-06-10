@@ -9,9 +9,10 @@ import {
 import { SEAFOOD_BUYERS, buyersForSpecies } from "@/data/seafood-buyers";
 import {
   WHOLESALER_KIND_LABEL,
-  provincesWithWholesalers,
-  wholesalersByProvince,
+  WHOLESALERS,
 } from "@/data/wholesalers";
+import { useHome, HomeBar, applyHome } from "@/components/ui/region-filter";
+import { type HomePref } from "@/lib/region";
 
 /** Lấy 1 số gọi được từ chuỗi có thể chứa nhiều số (cách nhau "/", ",", "-"). */
 function telHref(phone: string): string {
@@ -53,6 +54,11 @@ const SECTIONS: { id: Section; label: string }[] = [
 
 export function SellGuide() {
   const [section, setSection] = useState<Section>("kenh");
+  const { home, setHome } = useHome();
+  const [near, setNear] = useState(true);
+  // các mục danh bạ có lọc theo vùng (nậu vựa / chợ / nhà máy)
+  const geo = section === "vua" || section === "cho" || section === "nhamay";
+
   return (
     <div className="px-4">
       <div className="mb-3 flex gap-1.5 overflow-x-auto">
@@ -75,10 +81,14 @@ export function SellGuide() {
         })}
       </div>
 
+      {geo && (
+        <HomeBar home={home} setHome={setHome} near={near} setNear={setNear} />
+      )}
+
       {section === "kenh" && <Channels />}
-      {section === "vua" && <Wholesalers />}
-      {section === "cho" && <Markets />}
-      {section === "nhamay" && <Factories />}
+      {section === "vua" && <Wholesalers home={home} near={near} />}
+      {section === "cho" && <Markets home={home} near={near} />}
+      {section === "nhamay" && <Factories home={home} near={near} />}
       {section === "moiquen" && <MyBuyers />}
     </div>
   );
@@ -128,10 +138,11 @@ function Channels() {
   );
 }
 
-function Wholesalers() {
-  const provinces = useMemo(() => provincesWithWholesalers(), []);
-  const [prov, setProv] = useState(provinces[0]?.province ?? "");
-  const list = useMemo(() => wholesalersByProvince(prov), [prov]);
+function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
+  const list = useMemo(
+    () => applyHome(WHOLESALERS, (w) => w.province, home.province, near),
+    [home.province, near],
+  );
 
   return (
     <div>
@@ -140,26 +151,10 @@ function Wholesalers() {
         Nậu quen tại bến của bà con thì lưu ở mục “Mối quen”.
       </RefNote>
 
-      {/* chọn tỉnh */}
-      <div className="my-3 flex gap-1.5 overflow-x-auto">
-        {provinces.map((p) => {
-          const on = p.province === prov;
-          return (
-            <button
-              key={p.province}
-              onClick={() => setProv(p.province)}
-              aria-pressed={on}
-              className={`min-h-[44px] shrink-0 rounded-lg px-3 text-[15px] font-bold transition ${
-                on
-                  ? "bg-navy text-white"
-                  : "bg-card text-navy/70 ring-1 ring-line active:bg-background"
-              }`}
-            >
-              {p.province} ({p.count})
-            </button>
-          );
-        })}
-      </div>
+      <p className="mb-2 mt-2 px-1 text-[14px] font-semibold text-foreground/55">
+        {list.length} vựa
+        {home.province && near ? ` gần ${home.province}` : ""}
+      </p>
 
       <ul className="space-y-2.5">
         {list.map((w) => (
@@ -221,14 +216,15 @@ function Wholesalers() {
   );
 }
 
-function Markets() {
+function Markets({ home, near }: { home: HomePref; near: boolean }) {
+  const list = applyHome(WHOLESALE_MARKETS, (m) => m.province, home.province, near);
   return (
     <div className="space-y-3">
       <RefNote>
         Địa chỉ và giờ họp chợ là tham khảo, có thể đã đổi — gọi hỏi trước khi
         chở hàng tới.
       </RefNote>
-      {WHOLESALE_MARKETS.map((m) => (
+      {list.map((m) => (
         <Card key={m.id} className="p-4">
           <p className="display text-[18px] font-bold leading-snug text-navy">
             {m.name}
@@ -258,12 +254,13 @@ function Markets() {
   );
 }
 
-function Factories() {
+function Factories({ home, near }: { home: HomePref; near: boolean }) {
   const [q, setQ] = useState("");
   const list = useMemo(() => {
     const query = q.trim();
-    return query ? buyersForSpecies(query) : SEAFOOD_BUYERS;
-  }, [q]);
+    const base = query ? buyersForSpecies(query) : SEAFOOD_BUYERS;
+    return applyHome(base, (b) => b.province, home.province, near);
+  }, [q, home.province, near]);
 
   return (
     <div>

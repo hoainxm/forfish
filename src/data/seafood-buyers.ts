@@ -1,4 +1,4 @@
-// Doanh nghiệp thu mua / chế biến / xuất khẩu thủy sản — tổng hợp THAM KHẢO từ
+﻿// Doanh nghiệp thu mua / chế biến / xuất khẩu thủy sản — tổng hợp THAM KHẢO từ
 // nguồn công khai (VASEP, web doanh nghiệp; liệt kê URL). KHÔNG phải danh bạ liên
 // hệ trực tiếp — bà con/đại lý SDVICO cần xác minh trước khi giao dịch. (ngày: 2026-06-10)
 //
@@ -298,7 +298,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     id: "cb-ts-xk-ha-long",
     name: "Công ty CP Chế biến Thủy sản XK Hạ Long",
     kind: "che_bien_xk",
-    province: "Thành phố Hải Phòng",
+    province: "Hải Phòng",
     species: ["Chả cá / surimi", "Cá biển", "Mực", "Bạch tuộc", "Tôm"],
     markets: ["TQ", "Hàn", "Đài Loan", "Nhật", "Mỹ", "EU"],
     note: "Tham khảo. Miền Bắc. Nhà cung cấp hải sản đông lạnh & chế biến (chả cá, há cảo, cá tẩm) lớn ở phía Bắc.",
@@ -326,7 +326,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     id: "bac-trung-nam-seafood",
     name: "Công ty CP Thủy sản Bắc Trung Nam",
     kind: "che_bien_xk",
-    province: "Thành phố Hải Phòng",
+    province: "Hải Phòng",
     species: ["Cá biển", "Mực", "Chả cá / surimi"],
     markets: ["TQ", "Hàn", "Nhật"],
     note: "Tham khảo. Hội viên VASEP, khu vực phía Bắc. Cần xác minh địa chỉ qua danh bạ VASEP.",
@@ -335,7 +335,7 @@ export const SEAFOOD_BUYERS: SeafoodBuyer[] = [
     id: "ts-xnk-hai-phong",
     name: "Công ty CP Kinh doanh XNK Thủy sản Hải Phòng",
     kind: "che_bien_xk",
-    province: "Thành phố Hải Phòng",
+    province: "Hải Phòng",
     species: ["Cá biển", "Mực", "Tôm", "Surimi"],
     markets: ["TQ", "Hàn", "Nhật", "EU"],
     website: "https://thuysanhp.com.vn",
