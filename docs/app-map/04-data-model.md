@@ -82,7 +82,29 @@ TS dùng camelCase (`expiresOn`), DB dùng snake_case (`expires_on`) — khi wir
 | 4 | Chuyển vault localStorage → Supabase | ❌ Chưa (schema đã sẵn) |
 | 5 | Nhắc hạn push / Zalo | ❌ Chưa |
 
-## 6. Cross-references
+## 6. Đồng bộ đồ mua từ SDWork CRM (Trục 3, 2026-06-10)
+
+Bối cảnh (user chốt): khách mua hàng → SDWork tạo account + đơn + dịch vụ,
+nhưng KHÔNG cấp quyền vào SDWork (app nội bộ/CTV/đại lý); tài khoản đó tách
+thành tài khoản ForFish. ForFish hiển thị + nhắc: bảo hành, kỳ dịch vụ, cước.
+
+### Chuỗi nối (đọc-chỉ, qua adapter)
+```
+SĐT đăng nhập ForFish (SSO) → profiles.sdwork_customer_ref (= auth.users.id phía CRM)
+  → CRM accounts.owner_user_id (fallback: login_phone/phone = SĐT)  [type customer|sub]
+  → warranty_cards (serial, activated_at, expires_at, products.name, orders.code)
+  → service_instances (service_name, service_type, status, next_due_date)
+  → orders có debt_amount > 0 (code, debt_amount, debt_due_date) — thu cước/công nợ
+```
+
+### Cách thực thi
+- **Types trung lập vendor**: `src/lib/owned-assets.ts` (`OwnedProduct/OwnedService/OwedPayment` + `getServiceDueStatus`, SOON = 14 ngày) — UI chỉ biết types này.
+- **Adapter**: `src/lib/sdwork-assets.ts` (server-only) — đọc CRM bằng `SDWORK_SUPABASE_SERVICE_KEY` (env server, CRM project `exueouggmbjtjvsvpfya`); mapping thuần `mapCrmAssets` test ở `__tests__/owned-assets.test.ts`. Đổi vendor = viết adapter mới, types không đổi.
+- **Route**: `GET /api/me/sdvico` — account CRM SUY TỪ SESSION ForFish, không bao giờ nhận id từ client; chưa đăng nhập/chưa cấu hình/CRM lỗi → `ok:false`, UI quay về dữ liệu local. Cache `private, max-age=600`.
+- **Lý do service key**: khách không có session CRM (đúng chủ trương không cho khách vào SDWork) → không mở RLS CRM cho role khách; server ForFish lọc nghiêm theo account đã link.
+- 🔴 KHÔNG migration nào trên CRM — adapter chỉ ĐỌC các bảng sẵn có.
+
+## 7. Cross-references
 
 - Demo mode pattern: [02-architecture.md](02-architecture.md)
 - Màu trạng thái: [03-design-system.md](03-design-system.md)
