@@ -8,6 +8,7 @@ import {
   TrendDownIcon,
   TrendUpIcon,
 } from "@/components/icons";
+import { formatVnDate } from "@/lib/format";
 
 /*
   Bảng giá tham khảo — one card per species, price range BIG,
@@ -32,11 +33,6 @@ const TREND = {
   down: { Icon: TrendDownIcon, word: "đang xuống", color: "var(--danger)" },
   flat: { Icon: MinusIcon, word: "đứng giá", color: "var(--foreground)" },
 } as const;
-
-function formatVnDate(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
 
 export function PriceBoard() {
   const [query, setQuery] = useState("");

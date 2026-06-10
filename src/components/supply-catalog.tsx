@@ -7,6 +7,7 @@ import {
   SUPPLY_PRICE_DATE,
   SupplyCategory,
 } from "@/data/supplies";
+import { formatVnDate } from "@/lib/format";
 
 /*
   Bảng giá vật tư — a price list the user can scan with one thumb:
@@ -18,11 +19,6 @@ import {
 const CATEGORIES: SupplyCategory[] = ["dau_nhot", "loc", "phu_tung", "khac"];
 
 type Filter = "all" | SupplyCategory;
-
-function formatVnDate(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
 
 export function SupplyCatalog() {
   const [filter, setFilter] = useState<Filter>("all");

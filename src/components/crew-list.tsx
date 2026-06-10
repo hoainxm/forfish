@@ -19,6 +19,10 @@ import {
   TrashIcon,
   UsersIcon,
 } from "@/components/icons";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+import { formatVnDate } from "@/lib/format";
 
 /*
   Sổ thuyền viên — theo nghiên cứu 02-lao-dong-tren-tau.md:
@@ -290,42 +294,18 @@ export function CrewList() {
       )}
 
       {confirmDelete && (
-        <div
-          className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 px-6"
-          onClick={() => setConfirmDelete(null)}
-        >
-          <div
-            className="w-full max-w-[400px] rounded-xl bg-card p-5 text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <TrashIcon className="mx-auto h-9 w-9 text-danger" />
-            <p className="display mt-3 text-[20px] font-bold text-navy">
-              Xóa khỏi sổ thuyền viên?
-            </p>
-            <p className="mt-1 text-[16px] text-foreground/60">
-              “{confirmDelete.name}” và lịch sử ứng tiền sẽ bị xóa.
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setConfirmDelete(null)}
-                className="min-h-[56px] rounded-lg border-2 border-line text-[17px] font-bold text-foreground/70"
-              >
-                Không xóa
-              </button>
-              <button
-                onClick={() => {
-                  setCrew((prev) =>
-                    prev.filter((x) => x.id !== confirmDelete.id),
-                  );
-                  setConfirmDelete(null);
-                }}
-                className="min-h-[56px] rounded-lg bg-danger text-[17px] font-bold text-white"
-              >
-                Xóa luôn
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          icon={<TrashIcon className="h-9 w-9 text-danger" />}
+          title="Xóa khỏi sổ thuyền viên?"
+          message={`“${confirmDelete.name}” và lịch sử ứng tiền sẽ bị xóa.`}
+          cancelLabel="Không xóa"
+          confirmLabel="Xóa luôn"
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={() => {
+            setCrew((prev) => prev.filter((x) => x.id !== confirmDelete.id));
+            setConfirmDelete(null);
+          }}
+        />
       )}
     </div>
   );
@@ -373,29 +353,17 @@ function CrewForm({
     });
   }
 
-  const inputCls =
-    "w-full rounded-lg border-2 border-line bg-card px-4 py-3.5 text-[17px] focus:border-sea focus:outline-none";
-
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-black/50"
-      onClick={onCancel}
+    <BottomSheet
+      title={initial ? "Sửa thông tin bạn thuyền" : "Thêm bạn thuyền"}
+      onClose={onCancel}
     >
-      <form
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
-        className="max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-2xl bg-background p-5 pb-8"
-      >
-        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-line" />
-        <h3 className="display mb-4 text-[21px] font-bold text-navy">
-          {initial ? "Sửa thông tin bạn thuyền" : "Thêm bạn thuyền"}
-        </h3>
-
+      <form onSubmit={submit}>
         <Field label="Tên (bắt buộc)">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={inputCls}
+            className={inputClass}
             placeholder="VD: Nguyễn Văn Hai"
             required
           />
@@ -405,7 +373,7 @@ function CrewForm({
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as CrewRole)}
-            className={inputCls}
+            className={inputClass}
           >
             {(
               Object.entries(ROLE_LABELS) as [CrewRole, string][]
@@ -421,7 +389,7 @@ function CrewForm({
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className={inputCls}
+            className={inputClass}
             inputMode="tel"
             placeholder="VD: 0901234567"
           />
@@ -431,7 +399,7 @@ function CrewForm({
           <input
             value={shares}
             onChange={(e) => setShares(e.target.value)}
-            className={inputCls}
+            className={inputClass}
             inputMode="decimal"
           />
         </Field>
@@ -469,7 +437,7 @@ function CrewForm({
               type="date"
               value={insuranceExpiry}
               onChange={(e) => setInsuranceExpiry(e.target.value)}
-              className={inputCls}
+              className={inputClass}
             />
           </Field>
         )}
@@ -480,7 +448,7 @@ function CrewForm({
               <input
                 value={certLabel}
                 onChange={(e) => setCertLabel(e.target.value)}
-                className={inputCls}
+                className={inputClass}
                 placeholder={
                   role === "thuyen_truong"
                     ? "VD: Thuyền trưởng hạng II"
@@ -493,7 +461,7 @@ function CrewForm({
                 type="date"
                 value={certExpiry}
                 onChange={(e) => setCertExpiry(e.target.value)}
-                className={inputCls}
+                className={inputClass}
               />
             </Field>
           </>
@@ -507,15 +475,10 @@ function CrewForm({
           >
             Hủy
           </button>
-          <button
-            type="submit"
-            className="display min-h-[60px] rounded-lg bg-trim text-[18px] font-bold text-white shadow-sm active:scale-[0.98]"
-          >
-            Lưu lại
-          </button>
+          <PrimaryButton type="submit">Lưu lại</PrimaryButton>
         </div>
       </form>
-    </div>
+    </BottomSheet>
   );
 }
 
@@ -533,23 +496,14 @@ function AdvanceForm({
   const parsed = parseInt(amount.replace(/\D/g, ""), 10) || 0;
 
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-black/50"
-      onClick={onCancel}
-    >
+    <BottomSheet title={`Ứng tiền cho ${member.name}`} onClose={onCancel}>
       <form
-        onClick={(e) => e.stopPropagation()}
         onSubmit={(e) => {
           e.preventDefault();
           if (parsed > 0) onSave(parsed, note.trim());
         }}
-        className="w-full max-w-[480px] rounded-t-2xl bg-background p-5 pb-8"
       >
-        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-line" />
-        <h3 className="display mb-1 text-[21px] font-bold text-navy">
-          Ứng tiền cho {member.name}
-        </h3>
-        <p className="mb-4 text-[15px] text-foreground/60">
+        <p className="mb-4 -mt-2 text-[15px] text-foreground/60">
           Khoản ứng sẽ tự trừ khi chia tiền chuyến.
         </p>
 
@@ -580,7 +534,7 @@ function AdvanceForm({
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            className="w-full rounded-lg border-2 border-line bg-card px-4 py-3.5 text-[17px] focus:border-sea focus:outline-none"
+            className={inputClass}
             placeholder="VD: Ứng trước chuyến tháng 6"
           />
         </Field>
@@ -593,39 +547,13 @@ function AdvanceForm({
           >
             Hủy
           </button>
-          <button
-            type="submit"
-            disabled={parsed <= 0}
-            className="display min-h-[60px] rounded-lg bg-trim text-[18px] font-bold text-white shadow-sm active:scale-[0.98] disabled:opacity-40"
-          >
+          <PrimaryButton type="submit" disabled={parsed <= 0}>
             Ghi khoản ứng
-          </button>
+          </PrimaryButton>
         </div>
       </form>
-    </div>
+    </BottomSheet>
   );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="mb-3.5 block">
-      <span className="mb-1.5 block text-[16px] font-bold text-navy">
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function formatVnDate(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
 }
 
 function formatShortVnd(v: number): string {

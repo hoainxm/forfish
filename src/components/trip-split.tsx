@@ -4,6 +4,7 @@ import { useState } from "react";
 import { splitTrip } from "@/lib/crew";
 import { useCrew } from "@/components/crew-list";
 import { PriceIcon } from "@/components/icons";
+import { parseVnd } from "@/lib/format";
 
 /*
   Máy tính chia tiền chuyến — số hóa phép tính "trừ tổn chia đôi" mà
@@ -159,8 +160,4 @@ function Row({
       </span>
     </p>
   );
-}
-
-function parseVnd(s: string): number {
-  return parseInt(s.replace(/\D/g, ""), 10) || 0;
 }

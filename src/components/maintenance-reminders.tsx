@@ -10,6 +10,10 @@ import {
   TrashIcon,
   WrenchIcon,
 } from "@/components/icons";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+import { formatVnDate } from "@/lib/format";
 
 /*
   Nhắc bảo dưỡng — same shape as the document vault so users learn it once:
@@ -295,37 +299,15 @@ export function MaintenanceReminders() {
       )}
 
       {confirmDelete && (
-        <div
-          className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 px-6"
-          onClick={() => setConfirmDelete(null)}
-        >
-          <div
-            className="w-full max-w-[400px] rounded-xl bg-card p-5 text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <TrashIcon className="mx-auto h-9 w-9 text-danger" />
-            <p className="display mt-3 text-[20px] font-bold text-navy">
-              Xóa việc này?
-            </p>
-            <p className="mt-1 text-[16px] text-foreground/60">
-              “{confirmDelete.item}” sẽ bị xóa, không lấy lại được.
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setConfirmDelete(null)}
-                className="min-h-[56px] rounded-lg border-2 border-line text-[17px] font-bold text-foreground/70"
-              >
-                Không xóa
-              </button>
-              <button
-                onClick={() => remove(confirmDelete.id)}
-                className="min-h-[56px] rounded-lg bg-danger text-[17px] font-bold text-white"
-              >
-                Xóa luôn
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          icon={<TrashIcon className="h-9 w-9 text-danger" />}
+          title="Xóa việc này?"
+          message={`“${confirmDelete.item}” sẽ bị xóa, không lấy lại được.`}
+          cancelLabel="Không xóa"
+          confirmLabel="Xóa luôn"
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={() => remove(confirmDelete.id)}
+        />
       )}
     </div>
   );
@@ -387,29 +369,17 @@ function MaintenanceForm({
     });
   }
 
-  const inputCls =
-    "w-full rounded-lg border-2 border-line bg-card px-4 py-3.5 text-[17px] focus:border-sea focus:outline-none";
-
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-black/50"
-      onClick={onCancel}
+    <BottomSheet
+      title={initial ? "Sửa việc bảo dưỡng" : "Thêm việc bảo dưỡng"}
+      onClose={onCancel}
     >
-      <form
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
-        className="max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-2xl bg-background p-5 pb-8"
-      >
-        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-line" />
-        <h3 className="display mb-4 text-[21px] font-bold text-navy">
-          {initial ? "Sửa việc bảo dưỡng" : "Thêm việc bảo dưỡng"}
-        </h3>
-
+      <form onSubmit={submit}>
         <Field label="Việc gì?">
           <select
             value={picked}
             onChange={(e) => setPicked(e.target.value)}
-            className={inputCls}
+            className={inputClass}
           >
             {TASK_SUGGESTIONS.map((t) => (
               <option key={t} value={t}>
@@ -425,7 +395,7 @@ function MaintenanceForm({
             <input
               value={customItem}
               onChange={(e) => setCustomItem(e.target.value)}
-              className={inputCls}
+              className={inputClass}
               placeholder="VD: Xiết lại bu lông chân máy"
             />
           </Field>
@@ -437,7 +407,7 @@ function MaintenanceForm({
             value={lastDone}
             max={todayIso}
             onChange={(e) => setLastDone(e.target.value)}
-            className={inputCls}
+            className={inputClass}
           />
         </Field>
 
@@ -448,7 +418,7 @@ function MaintenanceForm({
             min={1}
             value={intervalDays}
             onChange={(e) => setIntervalDays(e.target.value)}
-            className={inputCls}
+            className={inputClass}
           />
           <div className="mt-2 grid grid-cols-4 gap-2">
             {INTERVAL_CHIPS.map((d) => (
@@ -473,7 +443,7 @@ function MaintenanceForm({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            className={inputCls}
+            className={inputClass}
             placeholder="VD: Dùng dầu 15W-40, can 18 lít"
           />
         </Field>
@@ -486,36 +456,9 @@ function MaintenanceForm({
           >
             Hủy
           </button>
-          <button
-            type="submit"
-            className="display min-h-[60px] rounded-lg bg-trim text-[18px] font-bold text-white shadow-sm active:scale-[0.98]"
-          >
-            Lưu lại
-          </button>
+          <PrimaryButton type="submit">Lưu lại</PrimaryButton>
         </div>
       </form>
-    </div>
+    </BottomSheet>
   );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="mb-3.5 block">
-      <span className="mb-1.5 block text-[16px] font-bold text-navy">
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function formatVnDate(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
 }

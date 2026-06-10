@@ -12,6 +12,12 @@ import {
   provincesWithWholesalers,
   wholesalersByProvince,
 } from "@/data/wholesalers";
+
+/** Lấy 1 số gọi được từ chuỗi có thể chứa nhiều số (cách nhau "/", ",", "-"). */
+function telHref(phone: string): string {
+  const first = phone.split(/[/,;]| - | hoặc /i)[0] ?? phone;
+  return `tel:${first.replace(/[^\d+]/g, "")}`;
+}
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Card, EmptyState, Field, PrimaryButton, RefNote, inputClass } from "@/components/ui/primitives";
@@ -170,7 +176,7 @@ function Wholesalers() {
                 </div>
                 {w.phone && (
                   <a
-                    href={`tel:${w.phone.replace(/\s/g, "")}`}
+                    href={telHref(w.phone)}
                     className="shrink-0 rounded-lg bg-sea px-3 py-2 text-[15px] font-bold text-white"
                   >
                     Gọi
@@ -425,7 +431,7 @@ function MyBuyers() {
                 </div>
                 {b.phone && (
                   <a
-                    href={`tel:${b.phone}`}
+                    href={telHref(b.phone)}
                     className="shrink-0 text-[15px] font-bold text-sea"
                   >
                     Gọi

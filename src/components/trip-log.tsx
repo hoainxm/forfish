@@ -7,6 +7,10 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+import { formatVnd, formatVnDate } from "@/lib/format";
 
 /*
   Sổ lãi lỗ chuyến biển — one card per trip, the profit/loss number is the
@@ -50,18 +54,9 @@ function saveTrips(trips: TripEntry[]) {
   }
 }
 
-function formatVnd(n: number): string {
-  return `${n.toLocaleString("vi-VN")} đ`;
-}
-
 function formatSignedVnd(n: number): string {
   const sign = n < 0 ? "-" : "+";
   return `${sign}${Math.abs(n).toLocaleString("vi-VN")} đ`;
-}
-
-function formatVnDate(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
 }
 
 function todayIso(): string {
@@ -251,38 +246,15 @@ export function TripLog() {
       )}
 
       {confirmDelete && (
-        <div
-          className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 px-6"
-          onClick={() => setConfirmDelete(null)}
-        >
-          <div
-            className="w-full max-w-[400px] rounded-xl bg-card p-5 text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <TrashIcon className="mx-auto h-9 w-9 text-danger" />
-            <p className="display mt-3 text-[20px] font-bold text-navy">
-              Xóa chuyến này khỏi sổ?
-            </p>
-            <p className="mt-1 text-[16px] text-foreground/60">
-              Chuyến về bờ {formatVnDate(confirmDelete.date)} sẽ bị xóa, không
-              lấy lại được.
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setConfirmDelete(null)}
-                className="min-h-[56px] rounded-lg border-2 border-line text-[17px] font-bold text-foreground/70"
-              >
-                Không xóa
-              </button>
-              <button
-                onClick={() => remove(confirmDelete.id)}
-                className="min-h-[56px] rounded-lg bg-danger text-[17px] font-bold text-white"
-              >
-                Xóa luôn
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          icon={<TrashIcon className="h-9 w-9 text-danger" />}
+          title="Xóa chuyến này khỏi sổ?"
+          message={`Chuyến về bờ ${formatVnDate(confirmDelete.date)} sẽ bị xóa, không lấy lại được.`}
+          cancelLabel="Không xóa"
+          confirmLabel="Xóa luôn"
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={() => remove(confirmDelete.id)}
+        />
       )}
     </div>
   );
@@ -331,34 +303,22 @@ function TripForm({
     });
   }
 
-  const inputCls =
-    "w-full rounded-lg border-2 border-line bg-card px-4 py-3.5 text-[17px] focus:border-sea focus:outline-none";
-
   const preview =
     Number(revenue || 0) - Number(fuel || 0) - Number(other || 0);
   const hasMoney = revenue !== "" || fuel !== "" || other !== "";
 
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-black/50"
-      onClick={onCancel}
+    <BottomSheet
+      title={initial ? "Sửa chuyến biển" : "Ghi chuyến biển"}
+      onClose={onCancel}
     >
-      <form
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
-        className="max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-2xl bg-background p-5 pb-8"
-      >
-        <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-line" />
-        <h3 className="display mb-4 text-[21px] font-bold text-navy">
-          {initial ? "Sửa chuyến biển" : "Ghi chuyến biển"}
-        </h3>
-
+      <form onSubmit={submit}>
         <Field label="Ngày về bờ">
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className={inputCls}
+            className={inputClass}
           />
         </Field>
 
@@ -366,7 +326,7 @@ function TripForm({
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            className={inputCls}
+            className={inputClass}
             placeholder="VD: Chuyến trăng tháng 5"
           />
         </Field>
@@ -376,7 +336,7 @@ function TripForm({
             inputMode="numeric"
             value={formatDigits(revenue)}
             onChange={(e) => setRevenue(parseDigits(e.target.value))}
-            className={inputCls}
+            className={inputClass}
             placeholder="VD: 45.000.000"
           />
         </Field>
@@ -386,7 +346,7 @@ function TripForm({
             inputMode="numeric"
             value={formatDigits(fuel)}
             onChange={(e) => setFuel(parseDigits(e.target.value))}
-            className={inputCls}
+            className={inputClass}
             placeholder="VD: 20.000.000"
           />
         </Field>
@@ -396,7 +356,7 @@ function TripForm({
             inputMode="numeric"
             value={formatDigits(other)}
             onChange={(e) => setOther(parseDigits(e.target.value))}
-            className={inputCls}
+            className={inputClass}
             placeholder="VD: 8.000.000"
           />
         </Field>
@@ -406,7 +366,7 @@ function TripForm({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            className={inputCls}
+            className={inputClass}
             placeholder="VD: Bán cho vựa cô Sáu, giá nhỉnh hơn"
           />
         </Field>
@@ -435,31 +395,9 @@ function TripForm({
           >
             Hủy
           </button>
-          <button
-            type="submit"
-            className="display min-h-[60px] rounded-lg bg-trim text-[18px] font-bold text-white shadow-sm active:scale-[0.98]"
-          >
-            Lưu lại
-          </button>
+          <PrimaryButton type="submit">Lưu lại</PrimaryButton>
         </div>
       </form>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="mb-3.5 block">
-      <span className="mb-1.5 block text-[16px] font-bold text-navy">
-        {label}
-      </span>
-      {children}
-    </label>
+    </BottomSheet>
   );
 }
