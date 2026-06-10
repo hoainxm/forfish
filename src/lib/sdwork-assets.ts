@@ -2,18 +2,20 @@
 //
 // Bối cảnh (user chốt 2026-06-10): khi khách mua hàng, SDWork tạo account +
 // đơn hàng + dịch vụ, nhưng KHÔNG cấp quyền vào SDWork (app nội bộ/CTV/đại
-// lý). Tài khoản đó "tách ra" thành tài khoản ForFish. Vì vậy ForFish đọc
-// dữ liệu CRM bằng SERVICE KEY phía server (khách không có session CRM,
-// không cần mở RLS CRM cho khách) — và route gọi adapter này BẮT BUỘC tự
-// suy account từ session ForFish, KHÔNG BAO GIỜ nhận account id từ client.
+// lý). Tài khoản đó "tách ra" thành tài khoản ForFish.
+//
+// Cách nối (2026-06-10, không cần phát thêm key nào): CRM có Edge Function
+// `forfish-gateway` chạy BÊN TRONG project CRM (service key tự cấp, không
+// rời Supabase). ForFish server gọi gateway qua HTTPS bằng ANON KEY sẵn có
+// (SDWORK_SUPABASE_ANON_KEY — cùng env mà SSO đang dùng). Gateway chỉ phục
+// vụ 3 việc: assets (lọc nghiêm theo account của đúng khách) / catalog /
+// request — route gọi adapter này BẮT BUỘC tự suy khách từ session ForFish.
 //
 // Chuỗi nối: profiles.sdwork_customer_ref (= auth.users.id phía CRM)
-//   → accounts.owner_user_id → accounts.id (+ accounts con qua parent)
-//   → warranty_cards / service_instances / orders.
-//
-// Đổi vendor: viết adapter khác trả OwnedAssets, UI/domain không đổi.
+//   → accounts.owner_user_id (fallback SĐT) → warranty_cards /
+//   service_instances / orders. Đổi vendor: viết adapter khác trả
+//   OwnedAssets, UI/domain không đổi.
 
-import { createClient } from "@supabase/supabase-js";
 import type {
   OwnedAssets,
   OwnedProduct,
@@ -23,20 +25,35 @@ import type {
 import type { CatalogProduct } from "@/lib/sdvico-catalog";
 
 const CRM_URL = process.env.SDWORK_SUPABASE_URL ?? "";
-// Service key CHỈ tồn tại trên server (API route) — tuyệt đối không lộ client.
-const CRM_SERVICE_KEY = process.env.SDWORK_SUPABASE_SERVICE_KEY ?? "";
+const CRM_ANON = process.env.SDWORK_SUPABASE_ANON_KEY ?? "";
 
 export function isAssetSyncConfigured(): boolean {
-  return Boolean(CRM_URL && CRM_SERVICE_KEY);
+  return Boolean(CRM_URL && CRM_ANON);
 }
 
-function crmAdmin() {
-  return createClient(CRM_URL, CRM_SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+/** Gọi gateway phía CRM — server-only, timeout 15s, lỗi nào cũng trả null. */
+async function callGateway<T>(payload: Record<string, unknown>): Promise<T | null> {
+  if (!isAssetSyncConfigured()) return null;
+  try {
+    const r = await fetch(`${CRM_URL}/functions/v1/forfish-gateway`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${CRM_ANON}`,
+        apikey: CRM_ANON,
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { ok?: boolean } & T;
+    return j?.ok ? j : null;
+  } catch {
+    return null;
+  }
 }
 
-// ── kiểu hàng thô từ CRM (chỉ các cột adapter đọc) ────────────────────────
+// ── kiểu hàng thô từ CRM (chỉ các cột gateway trả về) ─────────────────────
 
 export interface CrmWarrantyRow {
   serial: string | null;
@@ -115,114 +132,64 @@ export function mapCrmAssets(
 }
 
 /**
- * Đọc đồ của khách từ CRM theo user id phía CRM (sdwork_customer_ref) +
- * SĐT dự phòng (vài account cũ chưa gắn owner_user_id).
- * Trả null khi chưa cấu hình / không tìm thấy account / CRM lỗi.
+ * Đọc đồ của khách theo user id phía CRM (sdwork_customer_ref) + SĐT dự
+ * phòng. Trả null khi chưa cấu hình / không tìm thấy account / CRM lỗi.
  */
 export async function fetchOwnedAssets(
   crmUserId: string | null,
   phone0: string | null,
 ): Promise<OwnedAssets | null> {
-  if (!isAssetSyncConfigured()) return null;
-  const crm = crmAdmin();
-
-  try {
-    // 1. account của khách: ưu tiên owner_user_id; fallback theo SĐT
-    let accounts: { id: string; name: string | null }[] = [];
-    if (crmUserId) {
-      const r = await crm
-        .from("accounts")
-        .select("id, name")
-        .eq("owner_user_id", crmUserId)
-        .in("type", ["customer", "sub"]);
-      accounts = r.data ?? [];
-    }
-    if (accounts.length === 0 && phone0) {
-      const r = await crm
-        .from("accounts")
-        .select("id, name")
-        .in("type", ["customer", "sub"])
-        .or(`login_phone.eq.${phone0},phone.eq.${phone0}`);
-      accounts = r.data ?? [];
-    }
-    if (accounts.length === 0) return null;
-    const ids = accounts.map((a) => a.id);
-
-    // 2. bảo hành + dịch vụ + công nợ — chỉ trong account của đúng khách này
-    const [warr, svc, debt] = await Promise.all([
-      crm
-        .from("warranty_cards")
-        .select(
-          "serial, activated_at, expires_at, status, order_id, products(name), orders(code)",
-        )
-        .in("customer_id", ids),
-      crm
-        .from("service_instances")
-        .select(
-          "id, service_name, service_type, status, start_date, next_due_date, end_date",
-        )
-        .in("customer_id", ids),
-      crm
-        .from("orders")
-        .select("code, debt_amount, debt_due_date")
-        .in("customer_id", ids)
-        .gt("debt_amount", 0),
-    ]);
-
-    return mapCrmAssets(
-      (warr.data ?? []) as unknown as CrmWarrantyRow[],
-      (svc.data ?? []) as unknown as CrmServiceRow[],
-      (debt.data ?? []) as unknown as CrmOrderDebtRow[],
-      accounts[0]?.name ?? undefined,
-    );
-  } catch {
-    // CRM không với tới được — coi như chưa đồng bộ, UI dùng dữ liệu local
-    return null;
-  }
+  const j = await callGateway<{
+    customerName: string | null;
+    warranties: CrmWarrantyRow[];
+    services: CrmServiceRow[];
+    debts: CrmOrderDebtRow[];
+  }>({ action: "assets", crmUserId, phone0 });
+  if (!j) return null;
+  return mapCrmAssets(
+    j.warranties ?? [],
+    j.services ?? [],
+    j.debts ?? [],
+    j.customerName ?? undefined,
+  );
 }
 
 /** Danh mục sản phẩm đang bán (cho thẻ gợi ý) — KHÔNG dữ liệu cá nhân. */
 export async function fetchCatalogProducts(): Promise<CatalogProduct[] | null> {
-  if (!isAssetSyncConfigured()) return null;
-  try {
-    const r = await crmAdmin()
-      .from("products")
-      .select("id, sku, name, unit, warranty_months")
-      .eq("is_active", true)
-      .order("name");
-    if (!r.data) return null;
-    return r.data.map((p) => ({
-      id: p.id as string,
-      sku: (p.sku as string | null) ?? null,
-      name: p.name as string,
-      unit: (p.unit as string | null) ?? null,
-      warrantyMonths: (p.warranty_months as number | null) ?? 0,
-    }));
-  } catch {
-    return null;
-  }
+  const j = await callGateway<{
+    products: {
+      id: string;
+      sku: string | null;
+      name: string;
+      unit: string | null;
+      warranty_months: number | null;
+    }[];
+  }>({ action: "catalog" });
+  if (!j?.products) return null;
+  return j.products.map((p) => ({
+    id: p.id,
+    sku: p.sku ?? null,
+    name: p.name,
+    unit: p.unit ?? null,
+    warrantyMonths: p.warranty_months ?? 0,
+  }));
 }
 
 /**
- * Khách bấm "Gọi SDVICO" trong ForFish → ghi vào hộp yêu cầu tư vấn của CRM
- * (bảng nhận yêu cầu từ kênh ngoài; nhân viên SDWork xử lý theo status).
- * `message` đã được route dựng sẵn dạng "[ForFish] Chủ đề — chi tiết".
+ * Khách bấm "Gọi SDVICO" trong ForFish → gateway ghi vào hộp yêu cầu tư vấn
+ * của CRM (nhân viên SDWork xử lý theo status). `message` do route dựng sẵn
+ * dạng "[ForFish] Chủ đề — chi tiết".
  */
 export async function createConsultationRequest(req: {
   fullName: string;
   phone: string;
   message: string;
 }): Promise<boolean> {
-  if (!isAssetSyncConfigured()) return false;
-  try {
-    const r = await crmAdmin().from("consultation_requests").insert({
-      full_name: req.fullName,
-      phone: req.phone,
-      message: req.message,
-      source_page: "forfish",
-    });
-    return !r.error;
-  } catch {
-    return false;
-  }
+  const j = await callGateway<{ ok: boolean }>({
+    action: "request",
+    fullName: req.fullName,
+    phone: req.phone,
+    message: req.message,
+  });
+  return Boolean(j);
 }

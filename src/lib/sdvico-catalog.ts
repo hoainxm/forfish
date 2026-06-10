@@ -1,12 +1,10 @@
-// Danh mục sản phẩm SDVICO theo NHÓM — logic thuần (test được).
+// Danh mục sản phẩm SDVICO theo DÒNG SẢN PHẨM — logic thuần (test được).
 //
 // CRM không có cột phân loại; tiền tố SKU chính là phân loại nội bộ
-// (xác minh trên dữ liệu thật 2026-06-10): LN_=lọc nước biển, GS_*=giám
-// sát hành trình, WF_=wifi biển, LD_=lọc dầu, NHOT_/NG_=dầu nhớt,
-// SONPV_=sơn tàu, AQ_/TL_=điện & lái, DV_=dịch vụ (không gợi ý bán).
-//
-// Nhóm để GỢI Ý cho ngư dân: khách mua rồi → app theo dõi bảo hành;
-// nhóm chưa mua → hiện cho bà con biết SDVICO có gì (kèm nút hỏi mua).
+// (xác minh trên dữ liệu thật 2026-06-10). User chốt: gợi ý theo TÊN DÒNG
+// (lọc nước, xử lý dầu, nhớt, phụ gia diesel, giám sát hành trình, điện
+// thoại vệ tinh, internet vệ tinh, sơn tàu…) — KHÔNG phô model/SKU ra
+// thẻ gợi ý; model cụ thể là chuyện lúc mua, nhân viên tư vấn.
 
 export interface CatalogProduct {
   id: string;
@@ -18,13 +16,11 @@ export interface CatalogProduct {
 
 export interface CatalogGroup {
   id: string;
-  /** Tên nhóm tiếng đời thường */
+  /** Tên dòng sản phẩm tiếng đời thường */
   label: string;
   /** Một câu vì sao bà con cần */
   blurb: string;
   products: CatalogProduct[];
-  /** Vài món tiêu biểu (máy/thiết bị chính) để hiện trên thẻ nhóm */
-  highlights: string[];
 }
 
 interface GroupDef {
@@ -34,7 +30,7 @@ interface GroupDef {
   prefixes: string[];
 }
 
-/** Thứ tự = thứ tự hiển thị: máy chính trước, vật tư tiêu hao sau. */
+/** Thứ tự = thứ tự hiển thị (theo cách user liệt kê các dòng). */
 export const CATALOG_GROUPS: GroupDef[] = [
   {
     id: "loc-nuoc",
@@ -43,28 +39,40 @@ export const CATALOG_GROUPS: GroupDef[] = [
     prefixes: ["LN_"],
   },
   {
-    id: "giam-sat",
-    label: "Giám sát hành trình (VMS)",
-    blurb: "Thiết bị bắt buộc để ra khơi — SDVICO lắp tận tàu, lo luôn cước.",
-    prefixes: ["GS_"],
-  },
-  {
-    id: "wifi",
-    label: "Wifi trên biển",
-    blurb: "Gọi video về nhà, xem tin ngay ngoài khơi.",
-    prefixes: ["WF_"],
-  },
-  {
-    id: "loc-dau",
-    label: "Lọc dầu",
-    blurb: "Dầu sạch thì máy bền, đỡ tiền sửa lớn.",
+    id: "xu-ly-dau",
+    label: "Xử lý dầu",
+    blurb: "Lọc sạch dầu nhiễm bẩn — máy bền, đỡ tiền sửa lớn.",
     prefixes: ["LD_"],
   },
   {
     id: "nhot",
     label: "Dầu nhớt",
     blurb: "Nhớt chuyên cho máy tàu — thay đúng kỳ máy chạy êm.",
-    prefixes: ["NHOT_", "NG_"],
+    prefixes: ["NHOT_"],
+  },
+  {
+    id: "phu-gia",
+    label: "Phụ gia diesel",
+    blurb: "Pha vào dầu chạy — máy sạch, đỡ hao dầu.",
+    prefixes: ["NG_"],
+  },
+  {
+    id: "giam-sat",
+    label: "Thiết bị giám sát hành trình",
+    blurb: "Thiết bị bắt buộc để ra khơi — SDVICO lắp tận tàu, lo luôn cước.",
+    prefixes: ["GS_"],
+  },
+  {
+    id: "dien-thoai-ve-tinh",
+    label: "Điện thoại vệ tinh",
+    blurb: "Gọi về nhà từ giữa biển — không cần sóng di động.",
+    prefixes: ["GS_VSS_"],
+  },
+  {
+    id: "internet-ve-tinh",
+    label: "Internet vệ tinh (wifi biển)",
+    blurb: "Cả tàu có mạng — gọi video, xem tin ngay ngoài khơi.",
+    prefixes: ["WF_"],
   },
   {
     id: "son",
@@ -83,36 +91,22 @@ export const CATALOG_GROUPS: GroupDef[] = [
 /** SKU dịch vụ (lắp đặt, vận chuyển) — không phải hàng để gợi ý mua. */
 const SERVICE_PREFIX = "DV_";
 
+// Tiền tố DÀI ưu tiên trước (GS_VSS_ thắng GS_) — dựng một lần ở module.
+const PREFIX_RULES: { prefix: string; groupId: string }[] = CATALOG_GROUPS
+  .flatMap((g) => g.prefixes.map((prefix) => ({ prefix, groupId: g.id })))
+  .sort((a, b) => b.prefix.length - a.prefix.length);
+
 export function groupIdOfSku(sku: string | null): string | null {
   if (!sku) return null;
   const s = sku.trim().toUpperCase();
   if (s.startsWith(SERVICE_PREFIX)) return null;
-  for (const g of CATALOG_GROUPS) {
-    if (g.prefixes.some((p) => s.startsWith(p))) return g.id;
+  for (const r of PREFIX_RULES) {
+    if (s.startsWith(r.prefix)) return r.groupId;
   }
   return null;
 }
 
-/** Món "tiêu biểu" của nhóm = máy/thiết bị chính, không phải ốc vít. */
-function pickHighlights(products: CatalogProduct[]): string[] {
-  const main = products.filter((p) =>
-    /^(máy|thiết bị|bộ |anten)/i.test(p.name),
-  );
-  const pool = main.length > 0 ? main : products;
-  // khử model gần trùng: lấy phần tên trước chữ "Model"/số hiệu
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const p of pool) {
-    const base = p.name.split(/ model /i)[0].trim();
-    if (seen.has(base)) continue;
-    seen.add(base);
-    out.push(base);
-    if (out.length >= 2) break;
-  }
-  return out;
-}
-
-/** Gom danh sách sản phẩm CRM thành nhóm hiển thị (bỏ nhóm rỗng). */
+/** Gom danh sách sản phẩm CRM thành dòng hiển thị (bỏ dòng rỗng). */
 export function groupCatalog(products: CatalogProduct[]): CatalogGroup[] {
   const byId = new Map<string, CatalogProduct[]>();
   for (const p of products) {
@@ -123,16 +117,12 @@ export function groupCatalog(products: CatalogProduct[]): CatalogGroup[] {
     byId.set(gid, list);
   }
   return CATALOG_GROUPS.filter((g) => (byId.get(g.id)?.length ?? 0) > 0).map(
-    (g) => {
-      const list = byId.get(g.id)!;
-      return {
-        id: g.id,
-        label: g.label,
-        blurb: g.blurb,
-        products: list,
-        highlights: pickHighlights(list),
-      };
-    },
+    (g) => ({
+      id: g.id,
+      label: g.label,
+      blurb: g.blurb,
+      products: byId.get(g.id)!,
+    }),
   );
 }
 

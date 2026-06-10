@@ -11,18 +11,25 @@ function p(sku: string | null, name: string): CatalogProduct {
 }
 
 describe("groupIdOfSku", () => {
-  it("nhận diện nhóm theo tiền tố SKU thật của CRM", () => {
+  it("nhận diện dòng theo tiền tố SKU thật của CRM", () => {
     expect(groupIdOfSku("LN_TP_SEA700")).toBe("loc-nuoc");
-    expect(groupIdOfSku("GS_VTL_2019")).toBe("giam-sat");
-    expect(groupIdOfSku("GS_VSS_THURAYA")).toBe("giam-sat");
-    expect(groupIdOfSku("WF_WF V4")).toBe("wifi");
-    expect(groupIdOfSku("LD_SF50")).toBe("loc-dau");
+    expect(groupIdOfSku("LD_SF50")).toBe("xu-ly-dau");
     expect(groupIdOfSku("NHOT_NANO_RMI15W40/18L")).toBe("nhot");
+    expect(groupIdOfSku("NG_PG ADNANO_1L")).toBe("phu-gia");
+    expect(groupIdOfSku("WF_WF V4")).toBe("internet-ve-tinh");
     expect(groupIdOfSku("SONPV_SEASHIN SMA")).toBe("son");
     expect(groupIdOfSku("AQ_220")).toBe("dien-lai");
+    expect(groupIdOfSku("TL_TL")).toBe("dien-lai");
   });
 
-  it("dịch vụ (DV_) và SKU lạ/trống → không vào nhóm gợi ý", () => {
+  it("GS_VSS_ (Thuraya) = điện thoại vệ tinh, GS_ khác = giám sát hành trình", () => {
+    expect(groupIdOfSku("GS_VSS_THURAYA")).toBe("dien-thoai-ve-tinh");
+    expect(groupIdOfSku("GS_VSS_ANTEN 2025")).toBe("dien-thoai-ve-tinh");
+    expect(groupIdOfSku("GS_VTL_2019")).toBe("giam-sat");
+    expect(groupIdOfSku("GS_VISHIPEL")).toBe("giam-sat");
+  });
+
+  it("dịch vụ (DV_) và SKU lạ/trống → không vào dòng gợi ý", () => {
     expect(groupIdOfSku("DV_LD")).toBeNull();
     expect(groupIdOfSku("XYZ_123")).toBeNull();
     expect(groupIdOfSku(null)).toBeNull();
@@ -37,30 +44,30 @@ describe("groupIdOfSku", () => {
 describe("groupCatalog", () => {
   const products = [
     p("LN_TP_SEA700", "Máy lọc nước biển thành nước ngọt Model MLN_SEA700"),
-    p("LN_TP_SEA250", "Máy lọc nước biển thành nước ngọt Model SEA250"),
     p("LN_ML_3040", "Màng lọc RO nước biển 3040"),
-    p("LN_CD_35", "Cổ dê 35"),
     p("GS_VTL_2019", "Thiết bị giám sát tàu cá Viettel S-Tracking 2019"),
+    p("GS_VSS_THURAYA", "Máy Thuraya MarineStar"),
+    p("NG_PG ADNANO_1L", "Phụ gia AdNano"),
     p("DV_LD", "Dịch vụ lắp đặt"), // bỏ
     p(null, "Hàng không SKU"), // bỏ
   ];
   const groups = groupCatalog(products);
 
-  it("chỉ giữ nhóm có hàng, đúng thứ tự định nghĩa", () => {
-    expect(groups.map((g) => g.id)).toEqual(["loc-nuoc", "giam-sat"]);
-    expect(groups[0].products).toHaveLength(4);
+  it("chỉ giữ dòng có hàng, đúng thứ tự user liệt kê", () => {
+    expect(groups.map((g) => g.id)).toEqual([
+      "loc-nuoc",
+      "phu-gia",
+      "giam-sat",
+      "dien-thoai-ve-tinh",
+    ]);
+    expect(groups[0].products).toHaveLength(2);
   });
 
-  it("món tiêu biểu = máy/thiết bị chính, khử model gần trùng, tối đa 2", () => {
-    const h = groups[0].highlights;
-    expect(h).toHaveLength(1); // 2 máy cùng tên gốc → khử còn 1
-    expect(h[0]).toBe("Máy lọc nước biển thành nước ngọt");
-    expect(groups[1].highlights[0]).toContain("Thiết bị giám sát");
-  });
-
-  it("nhóm nào cũng có blurb tiếng đời thường", () => {
+  it("dòng nào cũng có nhãn + blurb tiếng đời thường, KHÔNG lộ model", () => {
     for (const g of groups) {
+      expect(g.label.length).toBeGreaterThan(3);
       expect(g.blurb.length).toBeGreaterThan(10);
+      expect(g.label).not.toMatch(/model|sku/i);
     }
   });
 });

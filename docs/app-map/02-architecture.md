@@ -102,7 +102,7 @@ src/
     depth-grid.ts       # Trục 1: lưới độ sâu tĩnh ETOPO 2022 (public/data/depth-grid.v1.bin ~30 KB, sinh bởi scripts/generate-depth-grid.mjs) — chặn đất + <4 m, cảnh báo 4–12 m, vùng rạn HS/TS quét min-pool 15″
     owned-assets.ts     # Trục TÀU: types TRUNG LẬP VENDOR cho đồ khách mua (sản phẩm/bảo hành, dịch vụ/kỳ cước, khoản chờ đóng) + getServiceDueStatus (thuần, có test)
     sdvico-catalog.ts   # Trục TÀU: nhóm catalog theo tiền tố SKU + chủ đề yêu cầu CSKH (thuần, có test)
-    sdwork-assets.ts    # Trục TÀU: ADAPTER SDWork CRM → OwnedAssets (server-only, SDWORK_SUPABASE_SERVICE_KEY) — mapCrmAssets thuần có test; chuỗi nối xem 04-data-model §6
+    sdwork-assets.ts    # Trục TÀU: ADAPTER SDWork CRM → OwnedAssets (server-only) — gọi Edge Function `forfish-gateway` BÊN TRONG project CRM bằng anon key sẵn có (không cần service key trong env); mapCrmAssets thuần có test; xem 04-data-model §6
     __tests__/          # Vitest cho logic thuần (ocean-map, marine-weather, sea, weather-codes, storms, route-plan, owned-assets…)
     supabase/
       client.ts         # Browser client — trả về null khi env trống

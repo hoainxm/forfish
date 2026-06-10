@@ -91,12 +91,10 @@ export function SdvicoCatalog({
                   </span>
                 )}
               </div>
-              {g.highlights.length > 0 && (
-                <p className="mt-1.5 text-[14px] text-foreground/55">
-                  Tiêu biểu: {g.highlights.join(" · ")}
-                  {g.products.length > 2 ? ` — và ${g.products.length - 2} món khác` : ""}
-                </p>
-              )}
+              <p className="mt-1.5 text-[14px] text-foreground/55">
+                {g.products.length} món trong dòng này — loại nào hợp tàu thì
+                nhân viên tư vấn khi bà con hỏi.
+              </p>
               <div className="mt-3 flex justify-end">
                 <SdvicoRequestButton
                   variant="chip"
