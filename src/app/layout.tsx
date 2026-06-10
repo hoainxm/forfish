@@ -42,7 +42,7 @@ export default function RootLayout({
       <body className="min-h-full">
         {/* Mobile-first: a phone-width column centred on larger screens. */}
         <div className="mx-auto flex min-h-dvh max-w-[480px] flex-col bg-background shadow-sm">
-          <main className="flex-1 pb-28">{children}</main>
+          <main className="flex-1 pb-32">{children}</main>
           <BottomNav />
         </div>
       </body>

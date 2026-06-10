@@ -63,7 +63,7 @@ export function FinesLookup() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Tìm lỗi vi phạm..."
           aria-label="Tìm mức phạt"
-          className="min-h-[52px] w-full rounded-lg border-2 border-line bg-card pl-12 pr-4 text-[18px] focus:border-sea focus:outline-none"
+          className="min-h-[52px] w-full rounded-2xl border-0 bg-field pl-12 pr-4 text-[18px] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
       </div>
 
@@ -78,7 +78,7 @@ export function FinesLookup() {
 
       {/* no result hint */}
       {isFiltering && results.length === 0 && (
-        <div className="mt-3 rounded-xl border-2 border-dashed border-line bg-card px-4 py-10 text-center">
+        <div className="mt-3 rounded-[20px] bg-field/70 px-4 py-10 text-center">
           <SearchIcon className="mx-auto h-9 w-9 text-foreground/30" />
           <p className="mt-3 text-[16px] text-foreground/60">
             Thử gõ chữ khác, ngắn hơn.
@@ -95,7 +95,7 @@ export function FinesLookup() {
           return (
             <li
               key={fine.id}
-              className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line"
+              className="overflow-hidden surface"
             >
               {/* cùng "ngôn ngữ thẻ" với giấy tờ/bảo dưỡng: băng màu + icon + chữ */}
               <StatusBanner
@@ -116,7 +116,7 @@ export function FinesLookup() {
                   {FINES_SOURCE}
                 </p>
                 {fine.note && (
-                  <p className="mt-2 rounded-lg bg-background px-3 py-2 text-[15px] leading-snug text-foreground/70">
+                  <p className="mt-2 rounded-xl bg-background px-3 py-2 text-[15px] leading-snug text-foreground/70">
                     {fine.note}
                   </p>
                 )}

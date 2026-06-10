@@ -1,19 +1,21 @@
 @import "tailwindcss";
 
 /*
-  ForFish — "Sơn thuyền" design system.
-  Inspired by Vietnamese wooden fishing boats: deep-sea hull blue,
-  sunrise-orange trim, sand-cream decks. A working instrument, not a toy:
+  ForFish — "Mặt nước" design system (redesign 2026-06-10).
+  Modern, edge-to-edge mobile: cool mist background, deep-sea immersive
+  heroes, borderless tonal surfaces, filled fields, floating navy dock.
+  Still a working instrument for fishermen 40–60, not a toy:
     · base font 18px, headings solid & bold (Archivo)
     · tap targets ≥ 56px
     · semantic status colours; stroke SVG icons, never emoji
 */
 :root {
-  /* deck & ink */
-  --background: #faf5ec; /* sand */
-  --foreground: #1c2b36; /* sea ink */
+  /* water & ink */
+  --background: #f3f6f8; /* cool mist */
+  --foreground: #16283a; /* sea ink */
   --card: #ffffff;
-  --line: #e7ddcc;
+  --line: #e2e9ef; /* hairline dividers — KHÔNG dùng làm viền thẻ */
+  --field: #eaeff3; /* nền ô nhập kiểu filled */
 
   /* hull & trim */
   --navy: #14324f; /* hull blue */
@@ -46,6 +48,7 @@
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-line: var(--line);
+  --color-field: var(--field);
   --color-navy: var(--navy);
   --color-sea: var(--sea);
   --color-sun: var(--sun);
@@ -100,4 +103,35 @@ a {
   outline: 3px solid var(--sea);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/*
+  Bề mặt hiện đại — thẻ KHÔNG viền: trắng nổi trên nền mist bằng bóng mềm,
+  bo 20px. Thay cho "rounded-xl bg-card shadow-sm ring-1 ring-line" cũ.
+*/
+.surface {
+  background: var(--card);
+  border-radius: 20px;
+  box-shadow:
+    0 1px 2px rgb(13 35 54 / 0.05),
+    0 8px 24px -12px rgb(13 35 54 / 0.12);
+}
+
+/* Hero tràn viền — gradient biển sâu + quầng sáng, bo đáy lớn */
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0 0 28px 28px;
+  color: #fff;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 90% at 85% -20%,
+    rgb(255 255 255 / 0.16),
+    transparent 55%
+  );
 }

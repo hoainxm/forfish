@@ -52,7 +52,7 @@ export function ConfirmDialog({
         role="alertdialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[400px] rounded-xl bg-card p-5 text-center"
+        className="w-full max-w-[400px] surface p-5 text-center"
       >
         {icon && <div className="mx-auto mb-3 w-fit">{icon}</div>}
         <p className="display text-[20px] font-bold text-navy">{title}</p>
@@ -63,13 +63,13 @@ export function ConfirmDialog({
           <button
             ref={cancelRef}
             onClick={onCancel}
-            className="min-h-[56px] rounded-lg border-2 border-line text-[18px] font-bold text-foreground/70"
+            className="min-h-[56px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className={`min-h-[56px] rounded-lg text-[18px] font-bold text-white ${
+            className={`min-h-[56px] rounded-xl text-[18px] font-bold text-white ${
               danger ? "bg-danger" : "bg-sea"
             }`}
           >

@@ -199,14 +199,14 @@ export function MaintenanceReminders() {
           setEditing(null);
           setShowForm(true);
         }}
-        className="display mb-4 flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-xl bg-trim text-[19px] font-bold text-white shadow-sm transition active:scale-[0.98]"
+        className="display mb-4 flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[19px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
       >
         <PlusIcon className="h-6 w-6" />
         Thêm việc bảo dưỡng
       </button>
 
       {ready && boatReady && sorted.length === 0 && (
-        <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
+        <div className="rounded-[20px] bg-field/70 px-4 py-12 text-center">
           <WrenchIcon className="mx-auto h-10 w-10 text-foreground/30" />
           <p className="mt-3 text-[18px] text-foreground/60">
             Chưa có việc bảo dưỡng nào.
@@ -228,7 +228,7 @@ export function MaintenanceReminders() {
           return (
             <li
               key={entry.id}
-              className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line"
+              className="overflow-hidden surface"
             >
               {/* status banner — the first thing the eye lands on */}
               <StatusBanner level={level}>{status.label}</StatusBanner>
@@ -245,14 +245,14 @@ export function MaintenanceReminders() {
                   Chu kỳ: mỗi {entry.intervalDays} ngày
                 </p>
                 {entry.note && (
-                  <p className="mt-1.5 rounded-lg bg-background px-3 py-1.5 text-[15px] text-foreground/70">
+                  <p className="mt-1.5 rounded-xl bg-background px-3 py-1.5 text-[15px] text-foreground/70">
                     {entry.note}
                   </p>
                 )}
 
                 <button
                   onClick={() => markDoneToday(entry.id)}
-                  className="mt-3 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg text-[16px] font-bold transition active:scale-[0.98]"
+                  className="mt-3 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl text-[16px] font-bold transition active:scale-[0.98]"
                   style={{
                     backgroundColor: "var(--ok-bg)",
                     color: "var(--ok)",
@@ -430,10 +430,10 @@ function MaintenanceForm({
                 key={d}
                 type="button"
                 onClick={() => setIntervalDays(String(d))}
-                className={`min-h-[44px] rounded-lg text-[16px] font-bold transition active:scale-[0.97] ${
+                className={`min-h-[44px] rounded-xl text-[16px] font-bold transition active:scale-[0.97] ${
                   Number(intervalDays) === d
                     ? "bg-navy text-white"
-                    : "bg-card text-foreground/70 ring-1 ring-line"
+                    : "bg-field text-foreground/70"
                 }`}
               >
                 {d}
@@ -456,7 +456,7 @@ function MaintenanceForm({
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[60px] rounded-lg border-2 border-line text-[18px] font-bold text-foreground/70"
+            className="min-h-[60px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
           >
             Hủy
           </button>

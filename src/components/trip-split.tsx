@@ -28,11 +28,11 @@ export function TripSplit() {
     : null;
 
   const inputCls =
-    "w-full rounded-lg border-2 border-line bg-card px-4 py-3.5 text-[19px] font-bold focus:border-sea focus:outline-none";
+    "w-full rounded-2xl border-0 bg-field px-4 py-3.5 text-[19px] font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea";
 
   return (
     <div className="px-4">
-      <div className="rounded-xl bg-card p-4 shadow-sm ring-1 ring-line">
+      <div className="surface p-4">
         <label className="mb-3.5 block">
           <span className="mb-1.5 block text-[16px] font-bold text-navy">
             Tiền bán cá cả chuyến
@@ -68,10 +68,10 @@ export function TripSplit() {
               key={p}
               type="button"
               onClick={() => setOwnerPercent(p)}
-              className={`min-h-[48px] flex-1 rounded-lg text-[18px] font-bold ${
+              className={`min-h-[48px] flex-1 rounded-xl text-[18px] font-bold ${
                 ownerPercent === p
                   ? "bg-navy text-white"
-                  : "border-2 border-line text-foreground/60"
+                  : "bg-field text-foreground/60"
               }`}
             >
               {p}%
@@ -81,13 +81,13 @@ export function TripSplit() {
       </div>
 
       {crew.length === 0 && (
-        <p className="mt-3 rounded-lg bg-warn-bg px-3 py-2.5 text-[15px] font-semibold text-warn">
+        <p className="mt-3 rounded-xl bg-warn-bg px-3 py-2.5 text-[15px] font-semibold text-warn">
           Thêm bạn thuyền ở trên trước, rồi quay lại đây chia tiền.
         </p>
       )}
 
       {result && (
-        <div className="mt-4 overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line">
+        <div className="mt-4 overflow-hidden surface">
           <div className="border-b border-line bg-background px-4 py-3">
             <Row label="Còn lại sau tổn" value={result.netVnd} bold />
             <Row

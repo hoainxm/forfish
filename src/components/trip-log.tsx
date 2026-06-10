@@ -120,7 +120,7 @@ export function TripLog() {
   return (
     <div>
       {ready && trips.length > 0 && (
-        <div className="mb-4 rounded-xl bg-card p-4 shadow-sm ring-1 ring-line">
+        <div className="mb-4 surface p-4">
           <p className="text-[15px] font-bold text-foreground/55">
             Lãi {Math.min(3, sorted.length)} chuyến gần nhất
           </p>
@@ -149,14 +149,14 @@ export function TripLog() {
           setEditing(null);
           setShowForm(true);
         }}
-        className="display mb-4 flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-xl bg-trim text-[19px] font-bold text-white shadow-sm transition active:scale-[0.98]"
+        className="display mb-4 flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[19px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
       >
         <PlusIcon className="h-6 w-6" />
         Ghi chuyến biển mới
       </button>
 
       {ready && trips.length === 0 && (
-        <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
+        <div className="rounded-[20px] bg-field/70 px-4 py-12 text-center">
           <CalendarIcon className="mx-auto h-10 w-10 text-foreground/30" />
           <p className="mt-3 text-[18px] text-foreground/60">
             Chưa có chuyến nào trong sổ.
@@ -173,7 +173,7 @@ export function TripLog() {
           return (
             <li
               key={trip.id}
-              className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line"
+              className="overflow-hidden surface"
             >
               <div className="px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
@@ -200,7 +200,7 @@ export function TripLog() {
                   {formatVnd(trip.fuelVnd)} · Chi khác {formatVnd(trip.otherVnd)}
                 </p>
                 {trip.note && (
-                  <p className="mt-1.5 rounded-lg bg-background px-3 py-1.5 text-[15px] text-foreground/70">
+                  <p className="mt-1.5 rounded-xl bg-background px-3 py-1.5 text-[15px] text-foreground/70">
                     {trip.note}
                   </p>
                 )}
@@ -373,7 +373,7 @@ function TripForm({
 
         {hasMoney && (
           <p
-            className="mb-1 flex items-baseline justify-between rounded-lg px-4 py-3 text-[18px] font-bold"
+            className="mb-1 flex items-baseline justify-between rounded-xl px-4 py-3 text-[18px] font-bold"
             style={{
               backgroundColor:
                 preview >= 0 ? "var(--ok-bg)" : "var(--danger-bg)",
@@ -391,7 +391,7 @@ function TripForm({
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[60px] rounded-lg border-2 border-line text-[18px] font-bold text-foreground/70"
+            className="min-h-[60px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
           >
             Hủy
           </button>

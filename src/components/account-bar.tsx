@@ -64,7 +64,7 @@ export function AccountBar() {
     return (
       <Link
         href="/login"
-        className="inline-flex min-h-[44px] items-center rounded-lg px-3 text-[16px] font-bold text-sea"
+        className="inline-flex min-h-[44px] items-center rounded-xl px-3 text-[16px] font-bold text-sea"
       >
         Đăng nhập
       </Link>
@@ -79,7 +79,7 @@ export function AccountBar() {
       <button
         type="button"
         onClick={handleSignOut}
-        className="inline-flex min-h-[44px] items-center rounded-lg px-3 text-[16px] font-bold text-trim"
+        className="inline-flex min-h-[44px] items-center rounded-xl px-3 text-[16px] font-bold text-trim"
       >
         Đăng xuất
       </button>

@@ -267,7 +267,7 @@ export function RoutePlanner({
   const plan = result?.plan ?? null;
 
   return (
-    <div className="space-y-3 rounded-xl bg-card p-4 ring-1 ring-line">
+    <div className="space-y-3 surface p-4">
       <div className="flex items-center gap-2 text-t1">
         <RouteIcon className="h-6 w-6" />
         <h3 className="text-[18px] font-bold text-navy">
@@ -284,7 +284,7 @@ export function RoutePlanner({
             <select
               value={effectiveStartId}
               onChange={(e) => setStartId(e.target.value)}
-              className="mt-1 block min-h-[56px] w-full rounded-xl bg-background px-3 text-[18px] font-semibold ring-1 ring-line"
+              className="mt-1 block min-h-[56px] w-full rounded-xl bg-background px-3 text-[18px] font-semibold"
             >
               <option value="gps">Chỗ tàu tôi đang đứng (định vị)</option>
               {PORTS.map((p) => (
@@ -308,7 +308,7 @@ export function RoutePlanner({
                 max={30}
                 value={speedKn}
                 onChange={(e) => setSpeedKn(e.target.value)}
-                className="mt-1 block min-h-[56px] w-full rounded-xl bg-background px-3 text-[18px] font-semibold ring-1 ring-line"
+                className="mt-1 block min-h-[56px] w-full rounded-xl bg-background px-3 text-[18px] font-semibold"
               />
             </label>
             <label className="block">
@@ -322,7 +322,7 @@ export function RoutePlanner({
                 max={300}
                 value={lph}
                 onChange={(e) => setLph(e.target.value)}
-                className="mt-1 block min-h-[56px] w-full rounded-xl bg-background px-3 text-[18px] font-semibold ring-1 ring-line"
+                className="mt-1 block min-h-[56px] w-full rounded-xl bg-background px-3 text-[18px] font-semibold"
               />
             </label>
           </div>
@@ -352,7 +352,7 @@ export function RoutePlanner({
           </p>
 
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
+            <div className="rounded-xl bg-background p-3">
               <RouteIcon className="mx-auto h-5 w-5 text-t1" />
               <p className="display mt-1 text-[20px] font-bold leading-none text-navy">
                 {Math.round(plan.distKm)} km
@@ -361,7 +361,7 @@ export function RoutePlanner({
                 ≈ {Math.round(kmToNm(plan.distKm))} hải lý
               </p>
             </div>
-            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
+            <div className="rounded-xl bg-background p-3">
               <ClockIcon className="mx-auto h-5 w-5 text-t1" />
               <p className="display mt-1 text-[20px] font-bold leading-none text-navy">
                 {formatHoursVN(plan.hours)}
@@ -370,7 +370,7 @@ export function RoutePlanner({
                 giờ chạy máy
               </p>
             </div>
-            <div className="rounded-xl bg-background p-3 ring-1 ring-line">
+            <div className="rounded-xl bg-background p-3">
               <FuelIcon className="mx-auto h-5 w-5 text-t1" />
               <p className="display mt-1 text-[20px] font-bold leading-none text-navy">
                 ~{Math.round(plan.fuelL)} lít
@@ -458,7 +458,7 @@ export function RoutePlanner({
             <button
               type="button"
               onClick={clearRoute}
-              className="min-h-[56px] rounded-xl bg-background text-[16px] font-bold text-navy ring-1 ring-line transition active:scale-[0.99]"
+              className="min-h-[56px] rounded-xl bg-background text-[16px] font-bold text-navy transition active:scale-[0.99]"
             >
               Xoá đường
             </button>

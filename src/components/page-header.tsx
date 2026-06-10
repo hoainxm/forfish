@@ -1,7 +1,7 @@
 /**
- * Shared page header — COMPACT. Một dải mỏng hull-blue: kicker nhỏ + tiêu đề.
- * Bỏ sóng trang trí + sub dài để nhường diện tích cho nội dung (tỷ lệ
- * thông tin/màn hình cao hơn). `sub` chỉ hiện khi thật cần (mặc định ẩn gọn).
+ * Shared page header — HERO tràn viền (redesign "Mặt nước" 2026-06-10).
+ * Gradient biển sâu + quầng sáng, bo đáy 28px, tiêu đề display lớn.
+ * `toColor` = màu trục để người dùng nhận diện "khu" bằng màu.
  */
 export function PageHeader({
   kicker,
@@ -19,16 +19,22 @@ export function PageHeader({
 }) {
   return (
     <header
-      className="px-4 pb-3 pt-3.5 text-white"
+      className="hero px-5 pb-10 pt-6"
       style={{
-        background: `linear-gradient(135deg, var(--navy), ${toColor})`,
+        background: `linear-gradient(150deg, var(--navy) 35%, ${toColor})`,
       }}
     >
-      <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-white/65">
+      <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-white/60">
         {kicker}
       </p>
-      <h1 className="text-[22px] font-bold leading-tight">{title}</h1>
-      {sub && <p className="mt-0.5 text-[14px] leading-snug text-white/85">{sub}</p>}
+      <h1 className="display mt-0.5 text-[28px] font-bold leading-[1.15]">
+        {title}
+      </h1>
+      {sub && (
+        <p className="mt-1 max-w-[34ch] text-[15px] leading-snug text-white/80">
+          {sub}
+        </p>
+      )}
       {children}
     </header>
   );

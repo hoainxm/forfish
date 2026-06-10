@@ -83,7 +83,7 @@ export function LayerSheet({
               className={`relative flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[15px] font-bold leading-tight transition active:scale-[0.98] ${
                 isActive
                   ? "bg-t1 text-white shadow-sm"
-                  : "bg-card text-navy ring-1 ring-line"
+                  : "bg-field text-navy"
               }`}
             >
               {isActive && (
@@ -99,7 +99,7 @@ export function LayerSheet({
       </div>
 
       {/* chú giải + giải thích của lớp đang bật — sống ở đây, không chiếm map */}
-      <div className="mt-3 rounded-xl bg-card p-3 ring-1 ring-line">
+      <div className="mt-3 surface p-3">
         <p className="text-[15px] leading-snug text-foreground/75">
           {active.help}
         </p>
@@ -148,7 +148,7 @@ export function LayerSheet({
               className={`flex min-h-[60px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 text-[15px] font-bold transition active:scale-[0.98] ${
                 isActive
                   ? "bg-navy text-white shadow-sm"
-                  : "bg-card text-navy ring-1 ring-line"
+                  : "bg-field text-navy"
               }`}
             >
               {Icon && <Icon className="h-5 w-5" />}
@@ -170,7 +170,7 @@ export function LayerSheet({
         role="switch"
         aria-checked={fishOn}
         onClick={() => onFish(!fishOn)}
-        className="mb-2 flex min-h-[56px] w-full items-center gap-3 rounded-xl bg-card px-4 ring-1 ring-line transition active:scale-[0.99]"
+        className="mb-2 flex min-h-[56px] w-full items-center gap-3 surface px-4 transition active:scale-[0.99]"
       >
         <FishIcon className="h-6 w-6 shrink-0 text-t1" />
         <span className="min-w-0 flex-1 text-left">
@@ -193,7 +193,7 @@ export function LayerSheet({
         role="switch"
         aria-checked={seamarksOn}
         onClick={() => onSeamarks(!seamarksOn)}
-        className="flex min-h-[56px] w-full items-center gap-3 rounded-xl bg-card px-4 ring-1 ring-line transition active:scale-[0.99]"
+        className="flex min-h-[56px] w-full items-center gap-3 surface px-4 transition active:scale-[0.99]"
       >
         <AnchorIcon className="h-6 w-6 shrink-0 text-t1" />
         <span className="min-w-0 flex-1 text-left">

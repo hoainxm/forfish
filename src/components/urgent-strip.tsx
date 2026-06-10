@@ -182,7 +182,7 @@ export function UrgentStrip() {
       <h2 className="display mb-1.5 px-1 text-[16px] font-bold text-navy">
         Việc cần làm ngay
       </h2>
-      <div className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line">
+      <div className="overflow-hidden surface">
         <ul>
           {shown.map((item, i) => {
             const Icon = item.tone === "danger" ? AlertIcon : ClockIcon;

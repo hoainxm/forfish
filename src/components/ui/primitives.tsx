@@ -2,10 +2,11 @@ import type { ReactNode } from "react";
 
 /*
   Primitives dùng chung — chốt chuẩn các atom hay bị copy-paste lệch nhau
-  (audit 02). Gom nhỏ vào một file cho dễ import.
+  (audit 02). Redesign "Mặt nước" 2026-06-10: thẻ không viền bóng mềm,
+  input filled, nút pill — hiện đại nhưng vẫn cho tay ướt mắt kém.
 */
 
-/** Thẻ nền trắng bo 12px viền mảnh — khối nội dung mặc định. */
+/** Thẻ hiện đại không viền — trắng nổi trên nền mist bằng bóng mềm, bo 20px. */
 export function Card({
   className = "",
   children,
@@ -13,13 +14,7 @@ export function Card({
   className?: string;
   children: ReactNode;
 }) {
-  return (
-    <div
-      className={`rounded-xl bg-card shadow-sm ring-1 ring-line ${className}`}
-    >
-      {children}
-    </div>
-  );
+  return <div className={`surface ${className}`}>{children}</div>;
 }
 
 /** Tiêu đề mục — một cỡ (20px) + padding ngang nhất quán. */
@@ -57,11 +52,11 @@ export function Field({
   );
 }
 
-/** Class chuẩn cho ô nhập 1 dòng / select / textarea (rounded-lg, 17px). */
+/** Class chuẩn cho ô nhập 1 dòng / select / textarea — kiểu FILLED hiện đại. */
 export const inputClass =
-  "w-full rounded-lg border-2 border-line bg-card px-4 py-3.5 text-[18px] focus:border-sea focus:outline-none";
+  "w-full rounded-2xl border-0 bg-field px-4 py-4 text-[18px] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea";
 
-/** Nút chính (cam trim) — tap ≥60px, bo 12px. */
+/** Nút chính (cam trim) — pill, tap ≥60px, bóng màu. */
 export function PrimaryButton({
   type = "button",
   onClick,
@@ -80,14 +75,14 @@ export function PrimaryButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`display flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-xl bg-trim text-[19px] font-bold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-40 ${className}`}
+      className={`display flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[19px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none ${className}`}
     >
       {children}
     </button>
   );
 }
 
-/** Trạng thái rỗng — icon + lời nhắc thân thiện. */
+/** Trạng thái rỗng — icon + lời nhắc thân thiện, nền tonal nhẹ. */
 export function EmptyState({
   icon,
   children,
@@ -96,7 +91,7 @@ export function EmptyState({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-12 text-center">
+    <div className="rounded-[20px] bg-field/70 px-4 py-12 text-center">
       {icon && <div className="mx-auto mb-3 w-fit text-foreground/40">{icon}</div>}
       <p className="text-[18px] text-foreground/70">{children}</p>
     </div>
@@ -115,7 +110,7 @@ export function RefNote({
 }) {
   return (
     <p
-      className="rounded-lg px-3 py-2.5 text-[14px] font-semibold leading-snug"
+      className="rounded-2xl px-3.5 py-2.5 text-[14px] font-semibold leading-snug"
       style={{ color: tone, backgroundColor: bg }}
     >
       {children}

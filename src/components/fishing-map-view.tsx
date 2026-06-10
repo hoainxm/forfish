@@ -607,7 +607,7 @@ export default function FishingMapView() {
           <button
             type="button"
             onClick={() => setLayerSheetOpen(true)}
-            className="pointer-events-auto max-w-[55%] rounded-xl bg-white/95 px-3 py-2 text-left shadow-sm ring-1 ring-line transition active:scale-[0.98]"
+            className="pointer-events-auto max-w-[55%] rounded-xl bg-white/95 px-3 py-2 text-left transition active:scale-[0.98]"
           >
             <span className="block text-[14px] font-bold leading-tight text-navy">
               {layer.label}
@@ -624,7 +624,7 @@ export default function FishingMapView() {
             <button
               type="button"
               onClick={() => setLayerSheetOpen(true)}
-              className="pointer-events-auto flex w-16 flex-col items-center justify-center gap-0.5 rounded-xl bg-card py-2 text-navy shadow-md ring-1 ring-line transition active:scale-95"
+              className="pointer-events-auto flex w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95"
             >
               <LayersIcon className="h-6 w-6" />
               <span className="text-[12px] font-bold">Lớp</span>
@@ -633,7 +633,7 @@ export default function FishingMapView() {
               type="button"
               onClick={goToMyBoat}
               disabled={locating}
-              className="pointer-events-auto flex w-16 flex-col items-center justify-center gap-0.5 rounded-xl bg-card py-2 text-navy shadow-md ring-1 ring-line transition active:scale-95 disabled:opacity-60"
+              className="pointer-events-auto flex w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95 disabled:opacity-60"
             >
               <CrosshairIcon className="h-6 w-6" />
               <span className="text-[12px] font-bold leading-tight">
@@ -641,7 +641,7 @@ export default function FishingMapView() {
               </span>
             </button>
             {geoError && (
-              <p className="pointer-events-auto max-w-[220px] rounded-lg bg-card px-2.5 py-1.5 text-right text-[13px] font-semibold leading-snug text-danger shadow-sm ring-1 ring-line">
+              <p className="pointer-events-auto max-w-[220px] rounded-xl bg-card px-2.5 py-1.5 text-right text-[13px] font-semibold leading-snug text-danger">
                 Chưa lấy được vị trí — kiểm tra đã bật Định vị cho điện thoại
                 chưa.
               </p>
@@ -651,7 +651,7 @@ export default function FishingMapView() {
 
         {/* thanh thời gian dự báo (kiểu Windy) — chỉ hiện khi bật lớp gió/sóng */}
         {forecastKind && (
-          <div className="pointer-events-auto rounded-xl bg-card/95 px-3 py-2 shadow-md ring-1 ring-line">
+          <div className="pointer-events-auto surface px-3 py-2 shadow-md">
             {fGrid ? (
               <>
                 <div className="flex items-center justify-between gap-2">
@@ -703,7 +703,7 @@ export default function FishingMapView() {
                 <button
                   type="button"
                   onClick={() => setGridFailed(false)}
-                  className="shrink-0 rounded-lg bg-navy px-4 py-2.5 text-[15px] font-bold text-white"
+                  className="shrink-0 rounded-xl bg-navy px-4 py-2.5 text-[15px] font-bold text-white"
                 >
                   Thử lại
                 </button>
@@ -780,7 +780,7 @@ export default function FishingMapView() {
           {/* cảnh báo ranh giới đầy đủ — chỉ khi đáng nói */}
           {prox.level !== "ok" && (
             <div
-              className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[15px] font-semibold ring-1 ring-line"
+              className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[15px] font-semibold"
               style={{
                 backgroundColor: BORDER_LEVEL_STYLE[prox.level].bg,
                 color: BORDER_LEVEL_STYLE[prox.level].fg,
@@ -823,7 +823,7 @@ export default function FishingMapView() {
                       className={`flex min-h-[60px] min-w-[78px] shrink-0 flex-col items-center justify-center rounded-xl px-2 transition active:scale-[0.97] ${
                         active
                           ? "bg-navy text-white shadow-sm"
-                          : "bg-card ring-1 ring-line"
+                          : "bg-field"
                       }`}
                     >
                       <span
@@ -850,7 +850,7 @@ export default function FishingMapView() {
 
               {/* tình trạng biển ngày đã chọn — mô tả điều kiện, không phán */}
               <div
-                className="rounded-xl p-4 ring-1 ring-line"
+                className="rounded-xl p-4"
                 style={{ backgroundColor: LEVEL_STYLE[sel.level].bg }}
               >
                 <p className="mb-1 text-[14px] font-bold uppercase tracking-wide text-foreground/50">
@@ -875,7 +875,7 @@ export default function FishingMapView() {
 
               {/* cá mùa này tại vùng biển đang xem — tham khảo */}
               {fishHere.length > 0 && (
-                <div className="flex items-start gap-2.5 rounded-xl bg-card p-3.5 ring-1 ring-line">
+                <div className="flex items-start gap-2.5 surface p-3.5">
                   <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-t3" />
                   <p className="text-[15px] leading-snug text-foreground/80">
                     Mùa này vùng <b>{fishRegion?.name}</b> thường có:{" "}
@@ -911,7 +911,7 @@ export default function FishingMapView() {
               {/* hôm nay có thêm số đo LÚC NÀY (ngày sau đã gọn trong thẻ trên) */}
               {dayIdx === 0 && (
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-card p-4 ring-1 ring-line">
+                  <div className="surface p-4">
                     <div className="flex items-center gap-2 text-t1">
                       <WindIcon className="h-5 w-5" />
                       <span className="text-[15px] font-bold">Gió lúc này</span>
@@ -925,7 +925,7 @@ export default function FishingMapView() {
                         ` · hướng ${windDirectionVN(cond.windDirDeg)}`}
                     </p>
                   </div>
-                  <div className="rounded-xl bg-card p-4 ring-1 ring-line">
+                  <div className="surface p-4">
                     <div className="flex items-center gap-2 text-t1">
                       <WavesIcon className="h-5 w-5" />
                       <span className="text-[15px] font-bold">
@@ -954,7 +954,7 @@ export default function FishingMapView() {
                       className={`rounded-xl px-4 py-3 text-[16px] font-bold ${
                         w.danger
                           ? "bg-danger-bg text-danger"
-                          : "bg-card text-foreground/75 ring-1 ring-line"
+                          : "bg-field text-foreground/75"
                       }`}
                     >
                       {w.label}
@@ -982,7 +982,7 @@ export default function FishingMapView() {
                 <select
                   value={port.id}
                   onChange={(e) => choosePort(e.target.value)}
-                  className="min-h-[52px] w-full rounded-lg border-2 border-line bg-card px-4 text-[16px] font-semibold focus:border-sea focus:outline-none"
+                  className="min-h-[52px] w-full rounded-2xl border-0 bg-field px-4 text-[16px] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
                 >
                   {PORTS.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -995,7 +995,7 @@ export default function FishingMapView() {
               {/* danh bạ cảng — cùng nhóm "cảng" với select trên */}
               <Link
                 href="/cang"
-                className="flex min-h-[52px] items-center gap-2.5 rounded-xl bg-card px-4 ring-1 ring-line transition active:scale-[0.99]"
+                className="flex min-h-[52px] items-center gap-2.5 surface px-4 transition active:scale-[0.99]"
               >
                 <AnchorIcon className="h-5 w-5 shrink-0 text-t1" />
                 <span className="flex-1 text-[16px] font-bold text-navy">

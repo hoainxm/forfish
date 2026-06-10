@@ -62,7 +62,7 @@ export function HomeBar({
   setNear: (v: boolean) => void;
 }) {
   return (
-    <div className="mb-3 rounded-xl bg-card p-3 shadow-sm ring-1 ring-line">
+    <div className="mb-3 surface p-3">
       <label className="block">
         <span className="mb-1 block text-[14px] font-bold text-navy">
           Tàu của tôi hay cập cảng ở tỉnh:
@@ -72,7 +72,7 @@ export function HomeBar({
           onChange={(e) =>
             setHome({ ...home, province: e.target.value || undefined })
           }
-          className="min-h-[48px] w-full rounded-lg border-2 border-line bg-card px-3 text-[16px] font-semibold focus:border-sea focus:outline-none"
+          className="min-h-[48px] w-full rounded-2xl border-0 bg-field px-3 text-[16px] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         >
           <option value="">— Chọn tỉnh để xem nơi gần —</option>
           {(["bac", "trung", "nam"] as const).map((rg) => (
@@ -92,8 +92,8 @@ export function HomeBar({
             type="button"
             onClick={() => setNear(true)}
             aria-pressed={near}
-            className={`min-h-[44px] rounded-lg text-[15px] font-bold ${
-              near ? "bg-navy text-white" : "border-2 border-line text-foreground/60"
+            className={`min-h-[44px] rounded-xl text-[15px] font-bold ${
+              near ? "bg-navy text-white" : "bg-field text-foreground/60"
             }`}
           >
             Chỉ gần tôi
@@ -102,8 +102,8 @@ export function HomeBar({
             type="button"
             onClick={() => setNear(false)}
             aria-pressed={!near}
-            className={`min-h-[44px] rounded-lg text-[15px] font-bold ${
-              !near ? "bg-navy text-white" : "border-2 border-line text-foreground/60"
+            className={`min-h-[44px] rounded-xl text-[15px] font-bold ${
+              !near ? "bg-navy text-white" : "bg-field text-foreground/60"
             }`}
           >
             Cả nước

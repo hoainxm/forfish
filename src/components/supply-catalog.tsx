@@ -27,12 +27,12 @@ export function SupplyCatalog() {
     filter === "all" ? SUPPLIES : SUPPLIES.filter((s) => s.category === filter);
 
   const chipBase =
-    "min-h-[44px] shrink-0 rounded-lg px-4 text-[16px] font-bold transition active:scale-[0.97]";
+    "min-h-[44px] shrink-0 rounded-xl px-4 text-[16px] font-bold transition active:scale-[0.97]";
 
   return (
     <div className="px-4">
       <div
-        className="mb-3 rounded-lg px-4 py-3 text-[14px] font-semibold leading-relaxed"
+        className="mb-3 rounded-xl px-4 py-3 text-[14px] font-semibold leading-relaxed"
         style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
       >
         Giá tham khảo ngày {formatVnDate(SUPPLY_PRICE_DATE)}. Đặt hàng qua đại
@@ -46,7 +46,7 @@ export function SupplyCatalog() {
           className={`${chipBase} ${
             filter === "all"
               ? "bg-navy text-white"
-              : "bg-card text-foreground/70 ring-1 ring-line"
+              : "bg-field text-foreground/70"
           }`}
         >
           Tất cả
@@ -58,7 +58,7 @@ export function SupplyCatalog() {
             className={`${chipBase} ${
               filter === c
                 ? "bg-navy text-white"
-                : "bg-card text-foreground/70 ring-1 ring-line"
+                : "bg-field text-foreground/70"
             }`}
           >
             {CATEGORY_LABELS[c]}
@@ -70,7 +70,7 @@ export function SupplyCatalog() {
         {items.map((s) => (
           <li
             key={s.id}
-            className="flex items-start justify-between gap-3 rounded-xl bg-card px-4 py-3.5 shadow-sm ring-1 ring-line"
+            className="flex items-start justify-between gap-3 surface px-4 py-3.5"
           >
             <div className="min-w-0">
               <p className="text-[18px] font-bold leading-snug text-navy">

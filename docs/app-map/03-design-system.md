@@ -20,14 +20,22 @@ Ngư dân 40–60 tuổi, dùng điện thoại ngoài trời **nắng chói**, 
 | Tiếng Việt đời thường | "Tủ giấy tờ" chứ không "Document management"; "Còn 18 ngày" chứ không "Expires in 18d" |
 | Một việc một màn hình | Không nested menu, không bước thừa; flow ≤ 2 chạm tới việc chính |
 
-## 2. Màu / Palette — "sơn tàu" ấm áp, thân thiện
+## 2. Màu / Palette — "Mặt nước" (redesign 2026-06-10, user yêu cầu hiện đại + tràn viền)
 
-Cảm hứng: màu sơn tàu cá miền biển — navy biển sâu, cam đỏ bình minh, nền cát.
+Hướng mới: **modern edge-to-edge mobile** — nền sáng lạnh, hero biển sâu tràn viền, bề mặt không viền. Bỏ nền cát ấm cũ.
 
 ### Màu nền tảng
-- **Deep sea navy** — màu chủ đạo, header/brand
-- **Sunrise orange-red** — accent, call-to-action
-- **Sand** — background ấm
+- **Deep sea navy** — màu chủ đạo, hero/brand/dock
+- **Sunrise orange-red** — accent, call-to-action (nút pill + bóng màu)
+- **Cool mist** (`--background` #f3f6f8) — nền sáng lạnh
+- **Field** (`--field` #eaeff3) — nền ô nhập kiểu filled + chip tonal chưa chọn
+
+### Hình khối hiện đại (thay quy tắc bo 12px cũ)
+- **Thẻ = `.surface`** (globals.css): trắng KHÔNG viền, bo 20px, bóng mềm 2 lớp. KHÔNG dùng `ring-1 ring-line` làm viền thẻ nữa — `--line` chỉ còn cho divider trong thẻ (`border-t/b/l border-line`).
+- **Hero = `.hero`**: gradient `navy → màu trục`, quầng sáng radial, bo đáy 28px, tiêu đề display 28px. Chip tàu (`BoatSwitcher`) nổi đè mép hero (`-mt-6`).
+- **Nút chính + chip + tab**: pill (`rounded-full`); nút cam có bóng màu. Ô nhập: filled (`bg-field`, không viền, focus ring sea). Sheet đáy: bo trên 28px.
+- **Dock điều hướng nổi**: thanh navy kính mờ bo 26px tách khỏi mép màn hình, tab chọn = pill trắng. Item ≥60px, icon luôn kèm chữ.
+- Thẻ 4 trục ở Home: **tonal** — nền `--tN-bg`, icon tròn đặc `--tN`.
 
 ### Màu theo trục (per-trục accents) — đã có trong `globals.css`
 
@@ -69,7 +77,7 @@ Mọi trạng thái trên thẻ (giấy tờ, bảo dưỡng, sản phẩm/bảo
 
 - **Wave motifs** (họa tiết sóng) làm điểm nhấn trang trí — nhẹ, không lấn nội dung
 - **Icon: chỉ dùng stroke SVG trong `src/components/icons.tsx`** (nét 2.2px, luôn kèm nhãn chữ). **KHÔNG dùng emoji làm icon hay trang trí** — emoji làm app thành đồ chơi, mất tin cậy. Không hoạt ảnh "dễ thương" (nhún nhảy, lắc lư).
-- Bo góc vừa phải: thẻ/nút `rounded-xl` (12px), phần tử nhỏ `rounded-lg`/`rounded-md` — KHÔNG bo tròn xoe (`rounded-3xl`, pill) cho khối nội dung
+- Bo góc (đã đổi theo redesign "Mặt nước" 2026-06-10): thẻ nội dung `.surface` 20px, hero/sheet 28px, nút/chip/tab pill — xem mục 2. Vẫn KHÔNG "đồ chơi": không emoji, không hoạt ảnh nhún nhảy, icon stroke + chữ như cũ
 - Tone copy: như người quen trong nghề nói chuyện — ngắn, điềm đạm, cụ thể ("Đăng kiểm sắp hết hạn, còn 12 ngày — đi gia hạn sớm kẻo phạt"); hạn chế dấu chấm than
 - Không dùng từ kỹ thuật trong UI: "đồng bộ", "xác thực", "session"...
 

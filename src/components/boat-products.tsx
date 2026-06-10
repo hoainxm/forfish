@@ -128,7 +128,7 @@ export function BoatProducts() {
           setEditing(null);
           setShowForm(true);
         }}
-        className="display mb-4 flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-xl bg-trim text-[19px] font-bold text-white shadow-sm transition active:scale-[0.98]"
+        className="display mb-4 flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[19px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
       >
         <PlusIcon className="h-6 w-6" />
         Thêm sản phẩm
@@ -156,7 +156,7 @@ export function BoatProducts() {
           return (
             <li
               key={product.id}
-              className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line"
+              className="overflow-hidden surface"
             >
               {/* status banner — the first thing the eye lands on */}
               <StatusBanner
@@ -189,7 +189,7 @@ export function BoatProducts() {
                   </p>
                 )}
                 {product.note && (
-                  <p className="mt-1.5 rounded-lg bg-background px-3 py-1.5 text-[15px] text-foreground/70">
+                  <p className="mt-1.5 rounded-xl bg-background px-3 py-1.5 text-[15px] text-foreground/70">
                     {product.note}
                   </p>
                 )}
@@ -381,7 +381,7 @@ function ProductForm({
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[60px] rounded-lg border-2 border-line text-[18px] font-bold text-foreground/70"
+            className="min-h-[60px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
           >
             Hủy
           </button>

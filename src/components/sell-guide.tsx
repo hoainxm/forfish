@@ -69,10 +69,10 @@ export function SellGuide() {
               key={s.id}
               onClick={() => setSection(s.id)}
               aria-pressed={on}
-              className={`min-h-[48px] shrink-0 rounded-lg px-4 text-[16px] font-bold transition ${
+              className={`min-h-[48px] shrink-0 rounded-xl px-4 text-[16px] font-bold transition ${
                 on
                   ? "bg-t2 text-white"
-                  : "bg-card text-navy/70 ring-1 ring-line active:bg-background"
+                  : "bg-field text-navy/70 active:bg-card"
               }`}
             >
               {s.label}
@@ -172,7 +172,7 @@ function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
                 {w.phone && (
                   <a
                     href={telHref(w.phone)}
-                    className="shrink-0 rounded-lg bg-sea px-3 py-2 text-[15px] font-bold text-white"
+                    className="shrink-0 rounded-xl bg-sea px-3 py-2 text-[15px] font-bold text-white"
                   >
                     Gọi
                   </a>
@@ -270,7 +270,7 @@ function Factories({ home, near }: { home: HomePref; near: boolean }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm theo loài: cá ngừ, tôm, mực…"
-          className="min-h-[52px] w-full rounded-lg border-2 border-line bg-card pl-11 pr-4 text-[18px] focus:border-sea focus:outline-none"
+          className="min-h-[52px] w-full rounded-2xl border-0 bg-field pl-11 pr-4 text-[18px] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
       </div>
       <RefNote>
@@ -444,7 +444,7 @@ function MyBuyers() {
                 </p>
               )}
               {b.note && (
-                <p className="mt-1 rounded-lg bg-background px-3 py-1.5 text-[14px] text-foreground/70">
+                <p className="mt-1 rounded-xl bg-background px-3 py-1.5 text-[14px] text-foreground/70">
                   {b.note}
                 </p>
               )}
@@ -595,7 +595,7 @@ function BuyerForm({
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[60px] rounded-lg border-2 border-line text-[18px] font-bold text-foreground/70"
+            className="min-h-[60px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
           >
             Hủy
           </button>

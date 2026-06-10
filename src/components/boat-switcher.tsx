@@ -66,12 +66,13 @@ export function BoatSwitcher() {
   if (!current) return null;
 
   return (
-    <div className="px-4 pt-3">
+    // chip tàu NỔI đè lên mép hero (tràn viền hiện đại) — mọi trang dùng chung
+    <div className="relative z-10 -mt-6 px-4">
       <button
         onClick={() => setPick(true)}
-        className="flex w-full items-center gap-2.5 rounded-xl bg-card px-3.5 py-2.5 shadow-sm ring-1 ring-line active:scale-[0.99]"
+        className="flex w-full items-center gap-2.5 surface px-3.5 py-2.5 active:scale-[0.99]"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy text-white">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-navy text-white">
           <AnchorIcon className="h-5 w-5" />
         </span>
         <span className="min-w-0 flex-1 text-left">
@@ -96,10 +97,10 @@ export function BoatSwitcher() {
                     setCurrent(b.id);
                     setPick(false);
                   }}
-                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-3.5 py-3 text-left ${
+                  className={`flex w-full items-center justify-between gap-2 rounded-xl px-3.5 py-3 text-left ${
                     b.id === current.id
                       ? "bg-navy text-white"
-                      : "bg-card ring-1 ring-line"
+                      : "bg-field"
                   }`}
                 >
                   <span className="min-w-0">
@@ -133,7 +134,7 @@ export function BoatSwitcher() {
               setForm({ id: `boat-${Date.now()}`, name: "" });
               setPick(false);
             }}
-            className="mt-3 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-line text-[16px] font-bold text-navy"
+            className="mt-3 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-field text-[16px] font-bold text-navy"
           >
             <PlusIcon className="h-5 w-5" />
             Thêm tàu mới
@@ -238,7 +239,7 @@ function BoatForm({
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[60px] rounded-lg border-2 border-line text-[18px] font-bold text-foreground/70"
+            className="min-h-[60px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
           >
             Hủy
           </button>

@@ -36,7 +36,7 @@ export function PortDirectory() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm cảng theo tên…"
-          className="min-h-[52px] w-full rounded-lg border-2 border-line bg-card pl-11 pr-4 text-[18px] focus:border-sea focus:outline-none"
+          className="min-h-[52px] w-full rounded-2xl border-0 bg-field pl-11 pr-4 text-[18px] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
       </div>
 
@@ -79,7 +79,7 @@ export function PortDirectory() {
           </li>
         ))}
         {list.length === 0 && (
-          <p className="rounded-xl border-2 border-dashed border-line py-10 text-center text-[16px] text-foreground/55">
+          <p className="rounded-[20px] bg-field/70 py-10 text-center text-[16px] text-foreground/55">
             Không có cảng phù hợp. Thử bỏ “Chỉ gần tôi” hoặc đổi tỉnh.
           </p>
         )}

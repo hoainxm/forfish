@@ -72,7 +72,7 @@ export function SeaForecast() {
         <select
           value={port?.id ?? ""}
           onChange={(e) => choosePort(e.target.value)}
-          className="min-h-[52px] w-full rounded-lg border-2 border-line bg-card px-4 text-[18px] font-semibold focus:border-sea focus:outline-none"
+          className="min-h-[52px] w-full rounded-2xl border-0 bg-field px-4 text-[18px] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         >
           {PORTS.map((p) => (
             <option key={p.id} value={p.id}>
@@ -83,19 +83,19 @@ export function SeaForecast() {
       </label>
 
       {loading && (
-        <div className="rounded-xl bg-card px-4 py-12 text-center text-[18px] text-foreground/50 ring-1 ring-line">
+        <div className="surface px-4 py-12 text-center text-[18px] text-foreground/50">
           Đang lấy dự báo sóng gió…
         </div>
       )}
 
       {error && !loading && (
-        <div className="rounded-xl bg-card px-4 py-10 text-center ring-1 ring-line">
+        <div className="surface px-4 py-10 text-center">
           <p className="text-[18px] text-foreground/60">
             Chưa lấy được dự báo. Kiểm tra mạng rồi thử lại.
           </p>
           <button
             onClick={() => port && load(port)}
-            className="mt-4 min-h-[52px] rounded-lg bg-sea px-8 text-[18px] font-bold text-white"
+            className="mt-4 min-h-[52px] rounded-xl bg-sea px-8 text-[18px] font-bold text-white"
           >
             Thử lại
           </button>
@@ -107,7 +107,7 @@ export function SeaForecast() {
           {/* điểm hôm nay — to, một màu, một câu */}
           <section
             aria-label="Điểm đi biển hôm nay"
-            className="overflow-hidden rounded-xl shadow-sm ring-1 ring-line"
+            className="overflow-hidden rounded-xl"
             style={{ backgroundColor: levelColor[today.level].bg }}
           >
             <div className="px-5 pb-4 pt-4 text-center">
@@ -158,7 +158,7 @@ export function SeaForecast() {
             <h2 className="display mb-2 px-1 text-[18px] font-bold text-navy">
               Những ngày tới
             </h2>
-            <ul className="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-line">
+            <ul className="overflow-hidden surface">
               {days.slice(1).map((d) => {
                 const w = weatherFromCode(d.wmoCode);
                 return (
@@ -170,7 +170,7 @@ export function SeaForecast() {
                       {formatDay(d.date)}
                     </span>
                     <span
-                      className="display w-[52px] shrink-0 rounded-lg py-1 text-center text-[18px] font-bold"
+                      className="display w-[52px] shrink-0 rounded-xl py-1 text-center text-[18px] font-bold"
                       style={{
                         color: levelColor[d.level].fg,
                         backgroundColor: levelColor[d.level].bg,
@@ -200,7 +200,7 @@ export function SeaForecast() {
         </>
       )}
 
-      <p className="mt-4 rounded-lg bg-t1-bg px-3 py-2.5 text-[14px] font-semibold leading-snug text-t1">
+      <p className="mt-4 rounded-xl bg-t1-bg px-3 py-2.5 text-[14px] font-semibold leading-snug text-t1">
         Dự báo từ mô hình thời tiết quốc tế, chỉ để tham khảo. Trước khi ra
         khơi, bà con nghe thêm thông báo của đài duyên hải và Bộ đội Biên
         phòng.

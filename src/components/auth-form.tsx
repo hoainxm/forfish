@@ -36,7 +36,7 @@ export function isValidVnPhone(raw: string): boolean {
 export function AuthCard({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto mt-6 w-full max-w-[420px] px-4">
-      <div className="rounded-xl bg-card p-5 shadow-sm ring-1 ring-line">
+      <div className="surface p-5">
         {children}
       </div>
     </div>
@@ -48,7 +48,7 @@ export function AuthError({ children }: { children: ReactNode }) {
   return (
     <p
       role="alert"
-      className="mb-4 rounded-lg px-3.5 py-3 text-[16px] font-semibold leading-snug"
+      className="mb-4 rounded-xl px-3.5 py-3 text-[16px] font-semibold leading-snug"
       style={{ color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
     >
       {children}
@@ -60,7 +60,7 @@ export function AuthError({ children }: { children: ReactNode }) {
 export function AuthNote({ children }: { children: ReactNode }) {
   return (
     <p
-      className="mb-4 rounded-lg px-3.5 py-3 text-[16px] font-semibold leading-snug"
+      className="mb-4 rounded-xl px-3.5 py-3 text-[16px] font-semibold leading-snug"
       style={{ color: "var(--t1)", backgroundColor: "var(--t1-bg)" }}
     >
       {children}

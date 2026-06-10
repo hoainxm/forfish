@@ -36,13 +36,13 @@ export function StormBanner({
   if (!check.ok) {
     if (variant === "overlay") {
       return (
-        <p className="pointer-events-auto mx-auto flex w-fit items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-[13px] font-bold text-foreground/65 shadow-sm ring-1 ring-line">
+        <p className="pointer-events-auto mx-auto flex w-fit items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-[13px] font-bold text-foreground/65">
           Chưa kiểm tra được tin bão — nghe đài duyên hải
         </p>
       );
     }
     return (
-      <p className="mx-4 mb-3 rounded-lg bg-card px-3 py-2 text-[15px] font-semibold text-foreground/65 ring-1 ring-line">
+      <p className="mx-4 mb-3 rounded-xl bg-card px-3 py-2 text-[15px] font-semibold text-foreground/65">
         Chưa kiểm tra được tin bão — bà con nghe đài duyên hải.
       </p>
     );
@@ -51,14 +51,14 @@ export function StormBanner({
   if (check.storms.length === 0) {
     if (variant === "overlay") {
       return (
-        <p className="pointer-events-auto mx-auto flex w-fit items-center gap-1.5 rounded-full bg-ok-bg px-3 py-1.5 text-[13px] font-bold text-ok shadow-sm ring-1 ring-line">
+        <p className="pointer-events-auto mx-auto flex w-fit items-center gap-1.5 rounded-full bg-ok-bg px-3 py-1.5 text-[13px] font-bold text-ok">
           <CheckIcon className="h-4 w-4 shrink-0" />
           Không có tin bão trên Biển Đông
         </p>
       );
     }
     return (
-      <p className="mx-4 mb-3 flex items-center gap-2 rounded-lg bg-ok-bg px-3 py-2 text-[15px] font-semibold text-ok">
+      <p className="mx-4 mb-3 flex items-center gap-2 rounded-xl bg-ok-bg px-3 py-2 text-[15px] font-semibold text-ok">
         <CheckIcon className="h-4.5 w-4.5 shrink-0" />
         Hiện không có tin bão, áp thấp trên Biển Đông.
       </p>
@@ -79,7 +79,7 @@ export function StormBanner({
           <div
             key={s.id}
             role="alert"
-            className={`flex items-start gap-3 rounded-xl border-l-4 p-4 ring-1 ring-line ${
+            className={`flex items-start gap-3 rounded-xl border-l-4 p-4 ${
               danger
                 ? "border-danger bg-danger-bg"
                 : "border-warn bg-warn-bg"

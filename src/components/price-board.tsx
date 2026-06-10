@@ -45,7 +45,7 @@ export function PriceBoard() {
 
   return (
     <div>
-      <p className="mb-3 rounded-lg bg-warn-bg px-3 py-2 text-[14px] font-semibold text-warn">
+      <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[14px] font-semibold text-warn">
         Giá tham khảo, tổng hợp ngày {formatVnDate(PRICE_DATE)}. Giá thật tại
         cảng có thể khác.
       </p>
@@ -56,12 +56,12 @@ export function PriceBoard() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Tìm loại cá..."
-          className="min-h-[52px] w-full rounded-xl border-2 border-line bg-card pl-12 pr-4 text-[18px] focus:border-sea focus:outline-none"
+          className="min-h-[52px] w-full rounded-2xl border-0 bg-field pl-12 pr-4 text-[18px] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
       </label>
 
       {shown.length === 0 && (
-        <div className="rounded-xl border-2 border-dashed border-line bg-card px-4 py-10 text-center">
+        <div className="rounded-[20px] bg-field/70 px-4 py-10 text-center">
           <p className="text-[18px] text-foreground/60">
             Không thấy loại cá này trong bảng.
             <br />
@@ -76,7 +76,7 @@ export function PriceBoard() {
           return (
             <li
               key={p.id}
-              className="rounded-xl bg-card px-4 py-3.5 shadow-sm ring-1 ring-line"
+              className="surface px-4 py-3.5"
             >
               <div className="flex items-start justify-between gap-3">
                 <p className="display text-[18px] font-bold leading-snug text-navy">
