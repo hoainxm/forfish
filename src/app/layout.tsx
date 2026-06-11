@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Be_Vietnam_Pro } from "next/font/google";
+import { Archivo, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 
@@ -9,7 +9,10 @@ const display = Archivo({
   weight: ["600", "700", "800"],
 });
 
-const body = Be_Vietnam_Pro({
+// Body: Plus Jakarta Sans (user 2026-06-11: "international hơn" — thay
+// Be Vietnam Pro). Geometric-humanist kiểu các app toàn cầu, đậm chắc,
+// subset vietnamese đầy đủ dấu.
+const body = Plus_Jakarta_Sans({
   variable: "--font-body",
   subsets: ["latin", "vietnamese"],
   weight: ["400", "500", "600", "700"],

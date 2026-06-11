@@ -95,7 +95,7 @@ Mọi trạng thái trên thẻ (giấy tờ, bảo dưỡng, sản phẩm/bảo
 ## 3. Typography
 
 - **Archivo** — display/heading: đậm chắc, đáng tin, kiểu "thiết bị hàng hải" (đã thay Baloo 2 ngày 2026-06-10 — feedback: tròn trịa quá thành trẻ con)
-- **Be Vietnam Pro** — body: dấu tiếng Việt đẹp, dễ đọc cỡ lớn
+- **Plus Jakarta Sans** — body (thay Be Vietnam Pro 2026-06-11, user: "dùng loại international hơn"): geometric-humanist kiểu app toàn cầu, subset `vietnamese` đầy đủ dấu, nét đậm chắc hợp UI chữ to
 - Base ≥ 18px; heading to rõ; không dùng font-weight mảnh (light/thin)
 - **Sàn 18px cho body/input (2026-06-10)**: đã quét sạch `text-[17px]` → `text-[18px]` toàn app (kể cả `inputClass` trong `ui/primitives.tsx`). Chữ phụ (nhãn mục, ghi chú nguồn) được phép 13–16px nhưng KHÔNG dùng cho nội dung chính cần đọc ngoài nắng. Thẻ 4 trục ở Home: tiêu đề 19px display, mô tả 14px, thẻ dọc icon-trên-chữ-dưới.
 
