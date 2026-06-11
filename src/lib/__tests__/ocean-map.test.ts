@@ -80,4 +80,42 @@ describe("buildMapStyle", () => {
     expect(ids.indexOf("ocean-data")).toBeGreaterThan(ids.indexOf("sea-mask"));
     expect(ids.indexOf("seamarks")).toBeGreaterThan(ids.indexOf("ocean-data"));
   });
+
+  it("mask mờ dần rồi tắt khi zoom gần bờ (không che luồng lạch)", () => {
+    const style = buildMapStyle("bathymetry", now);
+    const mask = (style.layers as { id: string; paint?: Record<string, unknown> }[]).find(
+      (l) => l.id === "sea-mask",
+    )!;
+    const op = mask.paint?.["fill-opacity"] as unknown[];
+    // biểu thức interpolate: đặc ở z6, tắt ở z8
+    expect(Array.isArray(op)).toBe(true);
+    expect(op).toContain(6);
+    expect(op).toContain(8);
+  });
+
+  it("nền hải đồ có đường đẳng sâu + nhãn số mét (style có glyphs)", () => {
+    const style = buildMapStyle("bathymetry", now) as unknown as {
+      glyphs?: string;
+      sources: Record<string, unknown>;
+      layers: { id: string; type: string }[];
+    };
+    expect(style.glyphs).toContain("fonts");
+    expect(Object.keys(style.sources)).toContain("isobaths");
+    expect(style.layers.some((l) => l.id === "isobath-lines")).toBe(true);
+    expect(
+      style.layers.find((l) => l.id === "isobath-labels")?.type,
+    ).toBe("symbol");
+    // nền vệ tinh thì KHÔNG vẽ đẳng sâu (rối)
+    const sst = buildMapStyle("sst", now);
+    expect(Object.keys(sst.sources)).not.toContain("isobaths");
+  });
+
+  it("lớp ảnh/độ sâu nhả ra khi zoom sâu (z>12); phao đèn hiện từ z8", () => {
+    const style = buildMapStyle("bathymetry", now);
+    const layers = style.layers as { id: string; maxzoom?: number; minzoom?: number }[];
+    expect(layers.find((l) => l.id === "ocean-data")?.maxzoom).toBe(12);
+    expect(layers.find((l) => l.id === "seamarks")?.minzoom).toBe(8);
+    const src = style.sources["seamarks"] as { minzoom: number };
+    expect(src.minzoom).toBe(8);
+  });
 });

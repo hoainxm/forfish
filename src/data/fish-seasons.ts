@@ -252,6 +252,192 @@ export const FISH_SEASONS: FishSeason[] = [
     regions: ["vinh-bac-bo", "trung-bo"],
     note: "Rộ theo con nước từ cuối năm tới đầu xuân; vài nơi có thêm vụ phụ mùa hè.",
   },
+  {
+    species: "Ruốc",
+    months: [5, 6, 7, 8, 9, 10],
+    regions: ["nam-trung-bo", "dong-nam-bo", "tay-nam-bo"],
+    note: "Vụ ruốc mùa mưa bão (rộ tháng 7–8 âm lịch), đàn nổi gần bờ — nghề te, dạ.",
+  },
+
+  // ── CÁ NỔI LỚN xa bờ (bổ sung 2026-06-10) ───────────────────────────────
+  {
+    species: "Cá ngừ chù",
+    months: [3, 4, 5, 6, 7, 8, 9],
+    regions: ["hoang-sa", "truong-sa-dk1", "nam-trung-bo", "dong-nam-bo"],
+    note: "Cá ngừ nhỏ, xuất hiện xuân–hè ở Hoàng Sa, Trường Sa; bắt kèm câu tay ngừ vằn.",
+  },
+  {
+    species: "Cá ngừ ồ",
+    months: [11, 12, 1, 2, 3, 4, 5],
+    regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo"],
+    note: "Đỉnh sản lượng tháng 11–2, bầy nổi ven bờ và quanh rạn, bắt kèm cá thu.",
+  },
+  {
+    species: "Cá ngừ chấm",
+    months: [1, 2, 3, 4, 5, 10, 11, 12],
+    regions: ["vinh-bac-bo", "nam-trung-bo", "dong-nam-bo", "tay-nam-bo"],
+    note: "Cá ngừ ven bờ (neritic), lưới vây/rê ở vịnh Thái Lan, Đông Nam Bộ, Vịnh Bắc Bộ.",
+  },
+  {
+    species: "Cá cờ (cá cờ buồm)",
+    months: [10, 11, 12, 1, 2, 3],
+    regions: ["hoang-sa", "truong-sa-dk1", "nam-trung-bo", "dong-nam-bo"],
+    note: "Chính vụ đông–xuân ở Hoàng Sa–Trường Sa, câu vàng/câu tay.",
+  },
+  {
+    species: "Cá nục heo",
+    months: [3, 4, 5, 6, 7, 8, 9],
+    regions: ["hoang-sa", "truong-sa-dk1", "nam-trung-bo", "dong-nam-bo"],
+    note: "Nhiều hơn vào xuân–hè, hay tụ quanh phao, rác nổi, vật trôi trên biển.",
+  },
+  {
+    species: "Cá ngân",
+    months: [10, 11, 12, 1, 2, 3, 4],
+    regions: ["hoang-sa", "truong-sa-dk1", "nam-trung-bo"],
+    note: "Khơi xa Hoàng Sa, Trường Sa mùa đông–xuân; câu kéo, câu vàng (không thành đàn lớn).",
+  },
+
+  // ── CÁ NỔI NHỎ ven bờ (bổ sung 2026-06-10) ──────────────────────────────
+  {
+    species: "Cá bạc má",
+    months: [1, 2, 3, 9, 10, 11, 12],
+    regions: ["vinh-bac-bo", "trung-bo", "dong-nam-bo", "tay-nam-bo"],
+    note: "Vào mùa gió Đông Bắc cá tập trung dày ở Vịnh Bắc Bộ và Đông Nam Bộ.",
+  },
+  {
+    species: "Cá tráo (mắt to)",
+    months: [4, 5, 6, 9, 10, 11, 12],
+    regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo", "tay-nam-bo"],
+    note: "Đàn nổi sát mặt ăn đèn ban đêm; rộ vụ gió Đông Bắc ở miền Nam, vụ hè ở miền Trung.",
+  },
+  {
+    species: "Cá sòng",
+    months: [1, 2, 3, 4, 10, 11, 12],
+    regions: ["trung-bo", "nam-trung-bo", "dong-nam-bo", "hoang-sa"],
+    note: "Khai thác chính vụ gió Đông Bắc; nhiều ở Quảng Bình, Khánh Hòa, khơi Đông Nam Bộ.",
+  },
+  {
+    species: "Cá lầm",
+    months: [4, 5, 6, 7, 8, 9, 10],
+    regions: ["trung-bo", "nam-trung-bo", "dong-nam-bo"],
+    note: "Đàn rất đông tháng 4–10 ven bờ Trung Bộ (Cù Lao Chàm) và Nam Trung Bộ.",
+  },
+  {
+    species: "Cá đối",
+    months: [4, 5, 6, 7, 8, 9, 10],
+    regions: ["vinh-bac-bo", "trung-bo", "dong-nam-bo", "tay-nam-bo"],
+    note: "Ven bờ, cửa sông, đầm phá; bắt nhiều mùa hè khi cá ở tầng mặt ven bờ.",
+  },
+
+  // ── MỰC & BẠCH TUỘC (bổ sung 2026-06-10) ────────────────────────────────
+  {
+    species: "Mực lá",
+    months: [3, 4, 5, 6, 7, 8, 9, 10],
+    regions: ["dong-nam-bo", "tay-nam-bo", "nam-trung-bo"],
+    note: "Quanh năm ở Côn Đảo, Phú Quốc, rộ tháng 3–10; câu mực đêm và lưới rê ven bờ.",
+  },
+  {
+    species: "Mực nang",
+    months: [1, 2, 11, 12],
+    regions: ["vinh-bac-bo", "trung-bo", "dong-nam-bo", "tay-nam-bo"],
+    note: "Loài sống đáy; mùa chính tháng 1–2 ở Vịnh Bắc Bộ, lưới kéo và câu.",
+  },
+  {
+    species: "Bạch tuộc",
+    months: [1, 2, 3, 4, 6, 7, 8, 9],
+    regions: ["tay-nam-bo", "dong-nam-bo", "nam-trung-bo"],
+    note: "Loài đáy, vụ Bắc tháng 1–4, vụ Nam tháng 6–9; nghề lồng bẫy, câu đáy ven bờ.",
+  },
+
+  // ── CÁ ĐÁY (lưới kéo) — theo mùa + độ sâu (bổ sung 2026-06-10) ───────────
+  {
+    species: "Cá mối",
+    months: [1, 2, 3, 4, 10, 11, 12],
+    regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo", "tay-nam-bo"],
+    note: "Cá đáy lưới kéo quanh năm, năng suất cao hơn mùa gió Đông Bắc.",
+  },
+  {
+    species: "Cá đổng (cá lượng)",
+    months: [1, 2, 3, 10, 11, 12],
+    regions: ["vinh-bac-bo", "trung-bo", "hoang-sa", "nam-trung-bo", "dong-nam-bo", "tay-nam-bo"],
+    note: "Chủ lực lưới kéo đáy toàn quốc; đàn đông ở dải sâu 50–100 m.",
+  },
+  {
+    species: "Cá phèn",
+    months: [3, 4, 5, 6, 9, 10, 11],
+    regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo", "tay-nam-bo"],
+    note: "Cá đáy đào cát ven bờ <60 m; bắt bằng lưới kéo đôi quanh năm.",
+  },
+  {
+    species: "Cá đù (cá sủ)",
+    months: [3, 4, 5, 9, 10, 11],
+    regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo", "tay-nam-bo"],
+    note: "Đi đàn theo mùa đẻ ở vùng đục cửa sông xuân–thu.",
+  },
+  {
+    species: "Cá khoai",
+    months: [5, 6, 7, 8, 9, 10],
+    regions: ["vinh-bac-bo", "dong-nam-bo", "tay-nam-bo"],
+    note: "Mùa gió Tây Nam tập trung đàn lớn ở cửa sông đồng bằng; lưới kéo, lưới rê.",
+  },
+  {
+    species: "Cá chim",
+    months: [3, 4, 5, 6, 7, 8, 9],
+    regions: ["vinh-bac-bo", "trung-bo", "dong-nam-bo", "tay-nam-bo"],
+    note: "Mùa chính xuân–hè, đi đàn gần đáy bùn; lưới kéo, lưới rê.",
+  },
+  {
+    species: "Cá bơn",
+    months: [1, 2, 3, 10, 11, 12],
+    regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo", "tay-nam-bo"],
+    note: "Cá đáy dẹt vùi cát; lưới kéo đáy quanh năm, nhỉnh hơn mùa Đông Bắc.",
+  },
+
+  // ── CÁ RẠN (câu rạn) — gắn rạn, theo mùa (bổ sung 2026-06-10) ────────────
+  {
+    species: "Cá hồng",
+    months: [4, 5, 6, 7, 8, 9, 10],
+    regions: ["trung-bo", "hoang-sa", "nam-trung-bo", "truong-sa-dk1", "dong-nam-bo"],
+    note: "Cá rạn giá cao, chính vụ T4–T10; câu rạn và lưới rê đáy.",
+  },
+  {
+    species: "Cá mú (cá song)",
+    months: [4, 5, 6, 7, 8, 9],
+    regions: ["trung-bo", "hoang-sa", "nam-trung-bo", "truong-sa-dk1", "dong-nam-bo"],
+    note: "Cá rạn giá cao, vụ chính T4–T9 quanh rạn ven bờ và đảo; câu rạn.",
+  },
+  {
+    species: "Cá kẽm",
+    months: [3, 4, 5, 6, 7, 8, 9, 10],
+    regions: ["trung-bo", "hoang-sa", "nam-trung-bo", "truong-sa-dk1"],
+    note: "Cá rạn nước trong; câu rạn và lưới rê đáy quanh rạn miền Trung, Phú Quốc.",
+  },
+
+  // ── GIÁP XÁC (tôm, ghẹ, cua) — theo mùa + vùng (bổ sung 2026-06-10) ──────
+  {
+    species: "Tôm bạc (tôm he)",
+    months: [11, 12, 1, 2, 3, 4],
+    regions: ["tay-nam-bo", "dong-nam-bo", "nam-trung-bo"],
+    note: "Chính vụ mùa gió Đông Bắc; lưới kéo đáy Cà Mau, Kiên Giang, Bà Rịa–Vũng Tàu.",
+  },
+  {
+    species: "Tôm sú biển",
+    months: [3, 4, 5, 6, 7, 8, 9],
+    regions: ["tay-nam-bo", "dong-nam-bo", "nam-trung-bo"],
+    note: "Khai thác tự nhiên tập trung T3–9 vùng Cà Mau, Khánh Hòa, Ninh Thuận.",
+  },
+  {
+    species: "Ghẹ xanh",
+    months: [7, 8, 9, 10, 11, 12, 1, 2, 3],
+    regions: ["tay-nam-bo", "dong-nam-bo", "nam-trung-bo", "trung-bo"],
+    note: "Nghề lồng bẫy; nghỉ khai thác mùa sinh sản T4–6, mật độ cao ở Kiên Giang.",
+  },
+  {
+    species: "Cua biển",
+    months: [10, 11, 12, 1, 2, 3, 4, 5],
+    regions: ["tay-nam-bo", "dong-nam-bo"],
+    note: "Cua cửa sông, rừng ngập mặn; bẫy/lưới rê ở Cà Mau, Kiên Giang, Bến Tre.",
+  },
 ];
 
 /** Loài thường gặp tại một vùng trong một tháng (month 1-12). */

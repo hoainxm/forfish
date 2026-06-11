@@ -13,16 +13,28 @@ import {
 } from "@/lib/ocean-map";
 import type { ForecastKind } from "@/lib/forecast-grid";
 import {
+  SEA_SCALARS,
+  SEA_SCALAR_ORDER,
+  type SeaScalarKind,
+} from "@/lib/sea-scalars";
+import {
   AnchorIcon,
   CheckIcon,
   CloudSunIcon,
   DepthIcon,
+  DropIcon,
+  EddyIcon,
   FishIcon,
   PlanktonIcon,
   ThermoIcon,
   WavesIcon,
   WindIcon,
 } from "@/components/icons";
+
+const SCALAR_ICONS: Record<
+  SeaScalarKind,
+  (p: { className?: string }) => React.ReactNode
+> = { ssha: EddyIcon, sss: DropIcon };
 
 const LAYER_ICONS: Record<
   OceanLayerId,
@@ -37,6 +49,8 @@ const LAYER_ICONS: Record<
 export function LayerSheet({
   layerId,
   onLayer,
+  scalarKind,
+  onScalar,
   forecastKind,
   onForecast,
   fishOn,
@@ -47,6 +61,9 @@ export function LayerSheet({
 }: {
   layerId: OceanLayerId;
   onLayer: (id: OceanLayerId) => void;
+  /** lớp số liệu biển (nước dâng/xoáy, độ mặn) — chọn-một cùng nhóm nền */
+  scalarKind: SeaScalarKind | null;
+  onScalar: (k: SeaScalarKind | null) => void;
   /** lớp dự báo vẽ động trên bản đồ (kiểu Windy) — null = tắt */
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
@@ -56,7 +73,8 @@ export function LayerSheet({
   onSeamarks: (on: boolean) => void;
   onClose: () => void;
 }) {
-  const active = OCEAN_LAYERS[layerId];
+  // thẻ giải thích + chú giải theo lựa chọn đang bật (nền raster hoặc lớp số)
+  const active = scalarKind ? SEA_SCALARS[scalarKind] : OCEAN_LAYERS[layerId];
 
   return (
     <BottomSheet title="Xem bản đồ kiểu gì?" onClose={onClose}>
@@ -67,7 +85,7 @@ export function LayerSheet({
         {OCEAN_LAYER_ORDER.map((id) => {
           const def = OCEAN_LAYERS[id];
           const Icon = LAYER_ICONS[id];
-          const isActive = id === layerId;
+          const isActive = !scalarKind && id === layerId;
           return (
             <button
               key={id}
@@ -77,6 +95,7 @@ export function LayerSheet({
               // chọn lớp xong ĐÓNG LUÔN — để thấy ngay bản đồ đổi, không bắt
               // bấm thêm "Xong" (audit flow: map đổi sau lưng scrim đen)
               onClick={() => {
+                onScalar(null);
                 onLayer(id);
                 onClose();
               }}
@@ -84,6 +103,34 @@ export function LayerSheet({
                 isActive
                   ? "bg-t1 text-white shadow-sm"
                   : "bg-field text-navy"
+              }`}
+            >
+              {isActive && (
+                <span className="absolute right-1.5 top-1.5" aria-hidden>
+                  <CheckIcon className="h-4 w-4" />
+                </span>
+              )}
+              <Icon className="h-6 w-6" />
+              {def.label}
+            </button>
+          );
+        })}
+        {SEA_SCALAR_ORDER.map((k) => {
+          const def = SEA_SCALARS[k];
+          const Icon = SCALAR_ICONS[k];
+          const isActive = scalarKind === k;
+          return (
+            <button
+              key={k}
+              type="button"
+              role="radio"
+              aria-checked={isActive}
+              onClick={() => {
+                onScalar(k);
+                onClose();
+              }}
+              className={`relative flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[15px] font-bold leading-tight transition active:scale-[0.98] ${
+                isActive ? "bg-t1 text-white shadow-sm" : "bg-field text-navy"
               }`}
             >
               {isActive && (
@@ -174,9 +221,10 @@ export function LayerSheet({
       >
         <FishIcon className="h-6 w-6 shrink-0 text-t1" />
         <span className="min-w-0 flex-1 text-left">
-          <span className="block text-[16px] font-bold">Cá mùa này</span>
+          <span className="block text-[16px] font-bold">Dự báo cá</span>
           <span className="block text-[13px] text-foreground/60">
-            Vùng nào đang vụ cá gì — theo mùa vụ nhiều năm, tham khảo
+            Vùng tô cam = có khả năng có cá hôm nay (tính từ ảnh vệ tinh, càng
+            đậm càng cao) + vùng mùa vụ — tham khảo
           </span>
         </span>
         <span

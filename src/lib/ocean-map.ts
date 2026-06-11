@@ -247,8 +247,14 @@ export function buildMapStyle(
       id: "sea-mask",
       type: "fill",
       source: "sea-mask",
-      maxzoom: 9, // zoom sâu thì nhả mask để xem chi tiết
-      paint: { "fill-color": SEA_MASK_COLOR, "fill-opacity": 1 },
+      maxzoom: 9,
+      paint: {
+        "fill-color": SEA_MASK_COLOR,
+        // Mask chỉ cần che nhãn quốc tế ở mức TOÀN CẢNH (z≤6, nơi "South China
+        // Sea"/Paracel/Spratly hiện). Zoom gần bờ thì mờ dần rồi tắt (z8) để
+        // KHÔNG che luồng lạch / cảng / chi tiết ven bờ của basemap.
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6, 1, 8, 0],
+      },
     },
   ];
 
@@ -264,9 +270,53 @@ export function buildMapStyle(
       id: "ocean-data",
       type: "raster",
       source: "ocean-data",
+      // Zoom sâu (z>12, nhìn luồng lạch vào cảng) thì nhả lớp ảnh/độ sâu ra,
+      // để basemap (bờ biển, cảng, sông lạch) + phao đèn hiện rõ — kiểu hải đồ
+      // gần bờ. Mức vùng (z≤12) vẫn xem được nhiệt/mồi/độ sâu.
+      maxzoom: 12,
       paint: {
         "raster-opacity": def.opacity ?? 0.85,
         "raster-fade-duration": 150,
+      },
+    });
+  }
+
+  // ĐƯỜNG ĐẲNG SÂU + SỐ MÉT — chất "hải đồ" thật (tự sinh từ ETOPO vì
+  // EMODnet WMS chỉ phủ châu Âu — xem scripts/generate-isobaths.mjs).
+  // Chỉ vẽ trên nền hải đồ; các nền vệ tinh không cần.
+  if (layerId === "bathymetry") {
+    sources["isobaths"] = {
+      type: "geojson",
+      data: "/data/isobaths.v1.json",
+    };
+    layers.push({
+      id: "isobath-lines",
+      type: "line",
+      source: "isobaths",
+      minzoom: 5,
+      paint: {
+        // màu nội dung bản đồ — xanh thép chìm dưới nhãn
+        "line-color": "#3d6e96",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 9, 1.1],
+        "line-opacity": 0.55,
+      },
+    });
+    layers.push({
+      id: "isobath-labels",
+      type: "symbol",
+      source: "isobaths",
+      minzoom: 6,
+      layout: {
+        "symbol-placement": "line",
+        "text-field": ["concat", ["to-string", ["get", "d"]], " m"],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 11,
+        "symbol-spacing": 350,
+      },
+      paint: {
+        "text-color": "#14324f",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.4,
       },
     });
   }
@@ -278,15 +328,23 @@ export function buildMapStyle(
       type: "raster",
       tiles: ["https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"],
       tileSize: 256,
-      minzoom: 9,
+      minzoom: 8,
     };
     layers.push({
       id: "seamarks",
       type: "raster",
       source: "seamarks",
-      minzoom: 9,
+      // phao, đèn, luồng lạch hiện sớm hơn một nấc (từ z8) để bà con thấy
+      // báo hiệu khi mới áp bờ, không phải zoom sát mới ra
+      minzoom: 8,
     });
   }
 
-  return { version: 8 as const, sources, layers };
+  return {
+    version: 8 as const,
+    // font cho nhãn đẳng sâu (CDN miễn phí của OpenMapTiles)
+    glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
+    sources,
+    layers,
+  };
 }
