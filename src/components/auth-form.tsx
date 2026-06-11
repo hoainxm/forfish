@@ -25,6 +25,12 @@ export function phoneToEmail(rawPhone: string): string {
   return `${normalizeVnPhone(rawPhone)}@${PHONE_EMAIL_DOMAIN}`;
 }
 
+/** Ô nhập SĐT chỉ nhận SỐ — gõ chữ/ký hiệu tự rơi, tối đa 11 số.
+ *  (Đuôi email ảo app TỰ ghép — bà con không bao giờ phải gõ "@...") */
+export function sanitizePhoneInput(raw: string): string {
+  return raw.replace(/\D/g, "").slice(0, 11);
+}
+
 /** Hợp lệ tối thiểu: 10–11 chữ số (sau khi chuẩn hóa có "84" + 9 hoặc 10). */
 export function isValidVnPhone(raw: string): boolean {
   const d = raw.replace(/\D/g, "");

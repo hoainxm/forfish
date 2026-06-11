@@ -11,6 +11,7 @@ import {
   AuthNote,
   isValidVnPhone,
   phoneToEmail,
+  sanitizePhoneInput,
 } from "@/components/auth-form";
 
 export default function LoginPage() {
@@ -109,7 +110,7 @@ export default function LoginPage() {
               className={inputClass}
               placeholder="0901 234 567"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
               required
             />
           </Field>

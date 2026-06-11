@@ -5,6 +5,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { CheckIcon, PhoneIcon } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
+import { sanitizePhoneInput } from "@/components/auth-form";
 import {
   REQUEST_TOPICS,
   type RequestTopicId,
@@ -186,7 +187,7 @@ function RequestForm({
           <Field label="Số điện thoại (bắt buộc — để SDVICO gọi lại)">
             <input
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
               className={inputClass}
               inputMode="tel"
               placeholder="VD: 0901234567"
