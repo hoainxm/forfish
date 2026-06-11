@@ -12,6 +12,7 @@
  * Bất biến: nhãn chủ quyền + ranh giới biển VN + tin bão LUÔN hiện.
  */
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import Link from "next/link";
 import MapGL, {
   Marker,
   Source,
@@ -274,6 +275,20 @@ export default function FishingMapView() {
     scalarKind && scalarData[scalarKind]?.ok
       ? (scalarData[scalarKind] as Extract<SeaScalarResult, { ok: true }>)
       : null;
+  // lỗi tải KHÔNG được hỏng vĩnh viễn (roadmap "thất bại lên tiếng"):
+  // kết quả fail vẫn cache để khỏi loop, nhưng chạm badge là xóa cache thử lại
+  const scalarFailed =
+    scalarKind != null &&
+    scalarData[scalarKind] != null &&
+    !scalarData[scalarKind]?.ok;
+  const retryScalar = useCallback(() => {
+    if (!scalarKind) return;
+    setScalarData((m) => {
+      const next = { ...m };
+      delete next[scalarKind];
+      return next;
+    });
+  }, [scalarKind]);
 
   const scalarGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
     if (!activeScalar) return null;
@@ -310,16 +325,22 @@ export default function FishingMapView() {
   const [fishCast, setFishCast] = useState<FishForecast | null>(null);
   // loài đang lọc trên bản đồ (null = loài tốt nhất mỗi ô)
   const [fishSpecies, setFishSpecies] = useState<string | null>(null);
+  // lỗi tải dự báo cá phải LÊN TIẾNG — không để nút Cá lặng lẽ biến mất
+  // còn người dùng tưởng "hôm nay không có cá"
+  const [fishFailed, setFishFailed] = useState(false);
+  const loadFish = useCallback(() => {
+    setFishFailed(false);
+    fetchFishForecast()
+      .then((r) => {
+        if (r.ok) setFishCast(r);
+        else setFishFailed(true);
+      })
+      .catch(() => setFishFailed(true));
+  }, []);
   // lớp cá tải cho MỌI người (teaser); chi tiết mới gate
   useEffect(() => {
-    let alive = true;
-    fetchFishForecast().then((r) => {
-      if (alive && r.ok) setFishCast(r);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
+    loadFish();
+  }, [loadFish]);
   const [layerSheetOpen, setLayerSheetOpen] = useState(false);
   const [size, setSize] = useState<SheetSize>("peek");
 
@@ -950,18 +971,24 @@ export default function FishingMapView() {
           {/* badge lớp + ngày ảnh — bấm là mở chọn lớp (trung thực dữ liệu) */}
           <button
             type="button"
-            onClick={() => setLayerSheetOpen(true)}
+            onClick={() => {
+              // lớp số liệu đang lỗi → chạm là THỬ LẠI (không hỏng tới reload)
+              if (scalarFailed) retryScalar();
+              else setLayerSheetOpen(true);
+            }}
             className="pointer-events-auto max-w-[55%] rounded-xl bg-white/95 px-3 py-2 text-left transition active:scale-[0.98]"
           >
             <span className="block text-[0.875rem] font-bold leading-tight text-navy">
               {scalarKind ? SEA_SCALARS[scalarKind].label : layer.label}
             </span>
-            <span className="block text-[0.75rem] leading-tight text-foreground/65">
+            <span
+              className={`block text-[0.75rem] leading-tight ${scalarFailed ? "font-bold text-danger" : "text-foreground/65"}`}
+            >
               {scalarKind
                 ? activeScalar
                   ? `Số liệu ngày ${formatDateVN(activeScalar.date)} — chậm vài ngày`
                   : scalarData[scalarKind]
-                    ? "Chưa tải được — kiểm tra mạng"
+                    ? "Chưa tải được — chạm để thử lại"
                     : "Đang tải số liệu…"
                 : layer.dated
                   ? `Ảnh ngày ${formatDateVN(dataDate)} — chậm vài ngày`
@@ -1030,76 +1057,24 @@ export default function FishingMapView() {
           </div>
         </div>
 
-        {/* thanh thời gian dự báo (kiểu Windy) — chỉ hiện khi bật lớp gió/sóng */}
-        {forecastKind && (
-          <div className="pointer-events-auto surface px-3 py-2 shadow-md">
-            {fGrid ? (
-              <>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[0.875rem] font-bold text-navy">
-                    {forecastKind === "wind" ? "Gió" : "Sóng"} ·{" "}
-                    {timeLabelVN(
-                      fGrid.times[timeIdx] ?? "",
-                      fGrid.times[0]?.split("T")[0],
-                    )}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setPlaying((p) => !p)}
-                    aria-label={playing ? "Dừng chạy" : "Chạy thử 3 ngày"}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-navy text-white active:scale-95"
-                  >
-                    {playing ? (
-                      <PauseIcon className="h-4.5 w-4.5" />
-                    ) : (
-                      <PlayIcon className="h-4.5 w-4.5" />
-                    )}
-                  </button>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={fGrid.times.length - 1}
-                  step={1}
-                  value={Math.min(timeIdx, fGrid.times.length - 1)}
-                  onChange={(e) => {
-                    setPlaying(false);
-                    setTimeIdx(Number(e.target.value));
-                  }}
-                  aria-label="Chọn giờ xem dự báo"
-                  className="mt-1 h-2 w-full accent-[#14324f]"
-                />
-                <div className="flex justify-between text-[0.6875rem] font-semibold text-foreground/50">
-                  <span>Bây giờ</span>
-                  <span>Ngày mai</span>
-                  <span>2 ngày</span>
-                  <span>3 ngày</span>
-                </div>
-              </>
-            ) : gridFailed ? (
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[0.875rem] font-semibold text-danger">
-                  Chưa tải được dự báo — kiểm tra mạng.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setGridFailed(false)}
-                  className="shrink-0 rounded-xl bg-navy px-4 py-2.5 text-[0.9375rem] font-bold text-white"
-                >
-                  Thử lại
-                </button>
-              </div>
-            ) : (
-              <p className="text-[0.8125rem] font-semibold text-foreground/60">
-                Đang tải dự báo cho cả vùng biển…
-              </p>
-            )}
-          </div>
+        {/* nút "Cá" GỌN — thay hàng chip ngang (chắn bản đồ). Chỉ rộng bằng nội
+            dung, chạm là mở bảng chọn loài. Hiện loài đang chọn + chấm màu.
+            ẨN khi đang xem gió/sóng — bớt tầng đè map (roadmap hội đồng UX). */}
+        {/* dự báo cá lỗi → nói thẳng + Thử lại (không phải "hôm nay không có cá") */}
+        {!forecastKind && fishOn && !fishCast && fishFailed && (
+          <button
+            type="button"
+            onClick={loadFish}
+            className="pointer-events-auto inline-flex min-h-[3rem] items-center gap-2 self-start rounded-full bg-card/95 px-4 shadow-md transition active:scale-95"
+          >
+            <FishIcon className="h-5 w-5 shrink-0 text-danger" aria-hidden />
+            <span className="text-[0.875rem] font-bold text-danger">
+              Dự báo cá chưa tải được — chạm để thử lại
+            </span>
+          </button>
         )}
 
-        {/* nút "Cá" GỌN — thay hàng chip ngang (chắn bản đồ). Chỉ rộng bằng nội
-            dung, chạm là mở bảng chọn loài. Hiện loài đang chọn + chấm màu. */}
-        {fishOn && fishCast && fishCast.species.length > 0 && (
+        {!forecastKind && fishOn && fishCast && fishCast.species.length > 0 && (
           <div className="flex max-w-[80%] flex-col gap-1 self-start">
             <button
               type="button"
@@ -1148,6 +1123,76 @@ export default function FishingMapView() {
         onSizeChange={setSize}
         onClose={home && !atHome ? goHome : undefined}
         closeLabel="Về cảng nhà"
+        closeIcon={<HomeIcon className="h-5 w-5" />}
+        above={
+          // thanh giờ gió/sóng XUỐNG ĐÁY kiểu Windy — tay với tới, không
+          // chồng 4 tầng trên đầu bản đồ (roadmap hội đồng UX 2026-06-11)
+          forecastKind ? (
+            <div className="pointer-events-auto surface px-3 py-2 shadow-md">
+              {fGrid ? (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[0.875rem] font-bold text-navy">
+                      {forecastKind === "wind" ? "Gió" : "Sóng"} ·{" "}
+                      {timeLabelVN(
+                        fGrid.times[timeIdx] ?? "",
+                        fGrid.times[0]?.split("T")[0],
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPlaying((p) => !p)}
+                      aria-label={playing ? "Dừng chạy" : "Chạy thử 3 ngày"}
+                      className="flex h-11 w-11 items-center justify-center rounded-full bg-navy text-white active:scale-95"
+                    >
+                      {playing ? (
+                        <PauseIcon className="h-5 w-5" />
+                      ) : (
+                        <PlayIcon className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={fGrid.times.length - 1}
+                    step={1}
+                    value={Math.min(timeIdx, fGrid.times.length - 1)}
+                    onChange={(e) => {
+                      setPlaying(false);
+                      setTimeIdx(Number(e.target.value));
+                    }}
+                    aria-label="Chọn giờ xem dự báo"
+                    className="range-big mt-1 w-full"
+                  />
+                  <div className="flex justify-between text-[0.6875rem] font-semibold text-foreground/50">
+                    <span>Bây giờ</span>
+                    <span>Ngày mai</span>
+                    <span>2 ngày</span>
+                    <span>3 ngày</span>
+                  </div>
+                </>
+              ) : gridFailed ? (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[0.875rem] font-semibold text-danger">
+                    Chưa tải được dự báo — kiểm tra mạng.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setGridFailed(false)}
+                    className="shrink-0 rounded-xl bg-navy px-4 py-2.5 text-[0.9375rem] font-bold text-white"
+                  >
+                    Thử lại
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[0.8125rem] font-semibold text-foreground/60">
+                  Đang tải dự báo cho cả vùng biển…
+                </p>
+              )}
+            </div>
+          ) : undefined
+        }
         label="Gió sóng chỗ đang xem"
         peek={
           loading ? (
@@ -1195,6 +1240,17 @@ export default function FishingMapView() {
                 <p className="mt-1 text-[0.875rem] font-bold text-danger">
                   {prox.label} — coi chừng vượt ranh giới.
                 </p>
+              )}
+              {/* MỒI ngay ở peek (roadmap hội đồng UX): khách chạm trúng chỗ
+                  có dấu hiệu cá thì nói thẳng vào sẽ được gì — không bắt mở
+                  "Xem thêm" mới thấy lời mời */}
+              {fishLocked && fishOn && fishAtPoint && fishAtPoint.s >= 60 && (
+                <Link
+                  href="/login"
+                  className="mt-1 inline-flex min-h-[2.5rem] items-center gap-1 text-[0.9375rem] font-bold text-trim"
+                >
+                  Chỗ này có dấu hiệu cá — Đăng nhập để xem loài gì →
+                </Link>
               )}
             </div>
           ) : null
@@ -1458,6 +1514,7 @@ export default function FishingMapView() {
               <RoutePlanner
                 dest={cond.point}
                 activeRoute={route}
+                places={places}
                 onRoute={handleRoute}
               />
 

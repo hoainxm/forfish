@@ -80,9 +80,12 @@ function todayIso(): string {
 export function TripLog({
   trips,
   onChange,
+  onSplit,
 }: {
   trips: TripEntry[];
   onChange: (next: TripEntry[]) => void;
+  /** "Chia tiền chuyến này" — nhảy sang máy chia với số của chuyến đó */
+  onSplit?: (trip: TripEntry) => void;
 }) {
   const ready = true; // parent chỉ render sau khi hydrate xong
   const [editing, setEditing] = useState<TripEntry | null>(null);
@@ -95,15 +98,6 @@ export function TripLog({
         a.date === b.date ? b.id.localeCompare(a.id) : b.date < a.date ? -1 : 1,
       ),
     [trips],
-  );
-
-  const totalAll = useMemo(
-    () => sorted.reduce((sum, t) => sum + tripProfit(t), 0),
-    [sorted],
-  );
-  const recent3 = useMemo(
-    () => sorted.slice(0, 3).reduce((sum, t) => sum + tripProfit(t), 0),
-    [sorted],
   );
 
   function upsert(trip: TripEntry) {
@@ -124,31 +118,9 @@ export function TripLog({
 
   return (
     <div>
-      {ready && trips.length > 0 && (
-        <div className="mb-4 surface p-4">
-          <p className="text-[0.9375rem] font-bold text-foreground/55">
-            Lãi {Math.min(3, sorted.length)} chuyến gần nhất
-          </p>
-          <p
-            className="display text-[1.625rem] font-bold leading-tight"
-            style={{ color: recent3 >= 0 ? "var(--ok)" : "var(--danger)" }}
-          >
-            {formatSignedVnd(recent3)}
-          </p>
-          <div className="mt-2 flex items-baseline justify-between border-t border-line pt-2">
-            <p className="text-[0.9375rem] font-bold text-foreground/55">
-              Tổng tất cả {sorted.length} chuyến
-            </p>
-            <p
-              className="text-[1.125rem] font-bold"
-              style={{ color: totalAll >= 0 ? "var(--ok)" : "var(--danger)" }}
-            >
-              {formatSignedVnd(totalAll)}
-            </p>
-          </div>
-        </div>
-      )}
-
+      {/* thẻ tổng kết đã GỘP về "Nhìn nhanh" của money-insights (roadmap hội
+          đồng UX 2026-06-11: 2 thẻ nói cùng một tổng bằng 2 định dạng) —
+          nút cam ghi chuyến lên đầu */}
       <button
         onClick={() => {
           setEditing(null);
@@ -211,20 +183,30 @@ export function TripLog({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 border-t border-line">
+              <div
+                className={`grid border-t border-line ${onSplit ? "grid-cols-3" : "grid-cols-2"}`}
+              >
+                {onSplit && (
+                  <button
+                    onClick={() => onSplit(trip)}
+                    className="flex min-h-[3.25rem] items-center justify-center gap-1.5 text-[1.0625rem] font-bold text-t2 active:bg-background"
+                  >
+                    Chia tiền
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setEditing(trip);
                     setShowForm(true);
                   }}
-                  className="flex min-h-[3.25rem] items-center justify-center gap-2 text-[1.125rem] font-bold text-sea active:bg-background"
+                  className={`flex min-h-[3.25rem] items-center justify-center gap-2 text-[1.0625rem] font-bold text-sea active:bg-background ${onSplit ? "border-l border-line" : ""}`}
                 >
                   <EditIcon className="h-5 w-5" />
                   Sửa
                 </button>
                 <button
                   onClick={() => setConfirmDelete(trip)}
-                  className="flex min-h-[3.25rem] items-center justify-center gap-2 border-l border-line text-[1.125rem] font-bold text-danger active:bg-background"
+                  className="flex min-h-[3.25rem] items-center justify-center gap-2 border-l border-line text-[1.0625rem] font-bold text-danger active:bg-background"
                 >
                   <TrashIcon className="h-5 w-5" />
                   Xóa

@@ -179,3 +179,43 @@ textarea,
     transparent 55%
   );
 }
+
+/*
+  Thanh giờ dự báo trên bản đồ — núm kéo TO (1.75rem) cho tay ướt trên tàu
+  lắc (roadmap hội đồng UX 2026-06-11). accent-color không chỉnh được cỡ núm
+  nên tự vẽ track + thumb.
+*/
+.range-big {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1.75rem;
+  background: transparent;
+}
+.range-big::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--field);
+}
+.range-big::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -0.625rem;
+  height: 1.75rem;
+  width: 1.75rem;
+  border-radius: 9999px;
+  background: var(--navy);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgb(13 35 54 / 0.35);
+}
+.range-big::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--field);
+}
+.range-big::-moz-range-thumb {
+  height: 1.75rem;
+  width: 1.75rem;
+  border-radius: 9999px;
+  background: var(--navy);
+  border: 3px solid #fff;
+}

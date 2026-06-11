@@ -30,7 +30,7 @@ import {
   demoProducts,
   getWarrantyStatus,
 } from "@/lib/products";
-import { type OwnedAssets } from "@/lib/owned-assets";
+import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
 
 /*
   Tab SẢN PHẨM — tách ĐÔI bằng chip tầng 1 (user chốt 2026-06-11, hết cảnh
@@ -43,9 +43,10 @@ import { type OwnedAssets } from "@/lib/owned-assets";
 
 type Section = "dang-dung" | "sdvico";
 
+// "Khuyến nghị" mơ hồ — "Cửa hàng" nói thẳng đây là chỗ xem đồ SDVICO bán
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "dang-dung", label: "Đang dùng" },
-  { id: "sdvico", label: "Khuyến nghị" },
+  { id: "sdvico", label: "Cửa hàng" },
 ];
 
 const STORAGE_KEY = "forfish.products.v1";
@@ -82,23 +83,10 @@ export function BoatProducts() {
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<BoatProduct | null>(null);
   const [section, setSection] = useState<Section>("dang-dung");
-  // đồ mua của SDVICO tự đồng bộ về (đăng nhập bằng SĐT lúc mua hàng)
-  const [synced, setSynced] = useState<OwnedAssets | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/me/sdvico", { signal: AbortSignal.timeout(20000) })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (alive && j?.ok && j.assets) setSynced(j.assets as OwnedAssets);
-      })
-      .catch(() => {
-        // chưa đăng nhập / chưa cấu hình / mạng lỗi → dùng dữ liệu trên máy
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
+  // đồ mua của SDVICO — hook dùng chung 4 nấc (loading/guest/error/ok),
+  // KHÔNG còn nuốt lỗi mạng thành "chưa đăng nhập"
+  const { status: syncStatus, assets, retry } = useSdvicoAssets();
+  const synced = assets;
 
   // Hydrate from localStorage on mount (avoids SSR/CSR mismatch).
   useEffect(() => {
@@ -178,7 +166,26 @@ export function BoatProducts() {
             {synced.customerName ? ` — khách: ${synced.customerName}` : ""}.
             Sản phẩm, dịch vụ, kỳ cước tự cập nhật ở đây.
           </RefNote>
-        ) : (
+        ) : syncStatus === "error" ? (
+          // thất bại phải LÊN TIẾNG — không mời đăng nhập người đã đăng nhập
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-danger-bg px-3.5 py-2.5">
+            <p className="min-w-0 text-[0.9375rem] font-semibold leading-snug text-danger">
+              Chưa tải được đồ SDVICO — mạng có thể đang yếu.
+            </p>
+            <button
+              type="button"
+              onClick={retry}
+              className="min-h-[3rem] shrink-0 rounded-full bg-danger px-4 text-[0.9375rem] font-bold text-white"
+            >
+              Thử lại
+            </button>
+          </div>
+        ) : syncStatus === "unlinked" ? (
+          <RefNote>
+            Đã đăng nhập — chưa thấy đơn hàng SDVICO gắn với số này. Mua hàng
+            là đồ tự hiện ở đây; có thắc mắc bấm nút gọi bên tab Dịch vụ.
+          </RefNote>
+        ) : syncStatus === "guest" ? (
           <>
             <RefNote>
               Sản phẩm mua của SDVICO — app nhắc trước khi hết bảo hành. Đăng
@@ -191,6 +198,8 @@ export function BoatProducts() {
               Đăng nhập để thấy đồ của mình
             </Link>
           </>
+        ) : (
+          <RefNote>Đang kiểm tra đồ SDVICO của bà con…</RefNote>
         )}
       </div>
 
@@ -269,13 +278,17 @@ export function BoatProducts() {
         Thêm sản phẩm
       </button>
 
-      {ready && sorted.length === 0 && (
-        <EmptyState icon={<DocIcon className="h-10 w-10" />}>
-          Chưa có sản phẩm SDVICO nào cho tàu này.
-          <br />
-          Bấm nút cam ở trên để thêm.
-        </EmptyState>
-      )}
+      {/* chỉ nói "chưa có gì" khi THẬT SỰ chưa có gì — kể cả đồ đồng bộ
+          (roadmap hội đồng UX: empty state mâu thuẫn danh sách ngay trên) */}
+      {ready &&
+        sorted.length === 0 &&
+        !(synced && synced.products.length > 0) && (
+          <EmptyState icon={<DocIcon className="h-10 w-10" />}>
+            Chưa có sản phẩm SDVICO nào cho tàu này.
+            <br />
+            Bấm nút cam ở trên để thêm.
+          </EmptyState>
+        )}
 
       <ul className="space-y-3">
         {sorted.map((product) => {

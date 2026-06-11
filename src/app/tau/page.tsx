@@ -1,10 +1,6 @@
-import { DocumentVault } from "@/components/document-vault";
-import { FinesLookup } from "@/components/fines-lookup";
-import { BoatServices } from "@/components/boat-services";
-import { BoatProducts } from "@/components/boat-products";
 import { PageHeader } from "@/components/page-header";
 import { BoatSwitcher } from "@/components/boat-switcher";
-import { Tabs } from "@/components/ui/tabs";
+import { TauTabs } from "@/components/tau-tabs";
 
 export const metadata = { title: "Tàu của tôi — ForFish" };
 
@@ -12,6 +8,7 @@ export const metadata = { title: "Tàu của tôi — ForFish" };
 // DỊCH VỤ (sửa chữa/bảo dưỡng/cước + sổ nhắc tự ghi), sản phẩm SDVICO
 // (đã mua → bảo hành; chưa mua → gợi ý + nút hỏi mua). Cảng đã chuyển sang
 // nhóm Ra khơi (/cang). Mọi mục gắn theo tàu đang chọn (BoatSwitcher).
+// Tabs trong TauTabs (client) — banner nợ quá hạn + badge + deep-link ?tab=.
 export default function TauPage() {
   return (
     <div>
@@ -22,15 +19,7 @@ export default function TauPage() {
         toColor="var(--t3)"
       />
       <BoatSwitcher />
-      <Tabs
-        ariaLabel="Mục quản lý tàu"
-        tabs={[
-          { id: "giay-to", label: "Giấy tờ", content: <DocumentVault /> },
-          { id: "dich-vu", label: "Dịch vụ", content: <BoatServices /> },
-          { id: "san-pham", label: "Sản phẩm", content: <BoatProducts /> },
-          { id: "muc-phat", label: "Mức phạt", content: <FinesLookup /> },
-        ]}
-      />
+      <TauTabs />
     </div>
   );
 }

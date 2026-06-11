@@ -67,6 +67,38 @@ export function FinesLookup() {
         />
       </div>
 
+      {/* từ khóa hay tra — BẤM được, tay ướt khỏi gõ (roadmap hội đồng UX) */}
+      <div
+        className="-mx-4 mt-2.5 flex gap-2 overflow-x-auto px-4 pb-1"
+        role="group"
+        aria-label="Từ khóa hay tra"
+      >
+        {[
+          "giấy phép",
+          "vùng biển",
+          "nhật ký",
+          "giám sát hành trình",
+          "kích điện",
+        ].map(
+          (k) => {
+            const on = normalize(query) === normalize(k);
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setQuery(on ? "" : k)}
+                aria-pressed={on}
+                className={`min-h-[3rem] shrink-0 rounded-full px-4 text-[1rem] font-bold transition active:scale-[0.97] ${
+                  on ? "bg-t4 text-white" : "bg-field text-navy"
+                }`}
+              >
+                {k}
+              </button>
+            );
+          },
+        )}
+      </div>
+
       {/* result count when filtering */}
       {isFiltering && (
         <p className="mt-3 text-[1rem] font-bold text-foreground/60">

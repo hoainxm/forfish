@@ -19,8 +19,13 @@ import {
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
-import { formatVnDate } from "@/lib/format";
+import {
+  Field,
+  inputClass,
+  MoneyField,
+  PrimaryButton,
+} from "@/components/ui/primitives";
+import { formatVnd, formatVnDate } from "@/lib/format";
 import { useBoats } from "@/components/boat-switcher";
 
 // CrewMember lives in @/lib/crew (shared). We attach a boat dimension here
@@ -96,6 +101,14 @@ export function CrewList() {
   const [showForm, setShowForm] = useState(false);
   const [advanceFor, setAdvanceFor] = useState<StoredCrew | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<StoredCrew | null>(null);
+  // sổ ứng từng người (lịch sử khoản) + xác nhận gạch nợ — roadmap hội đồng
+  // UX 2026-06-11: "Đã trừ xong" một chạm settle TẤT CẢ không hoàn tác là
+  // tai nạn sổ giấy không bao giờ gặp. Giữ ID, derive từ crew để sheet luôn
+  // thấy dữ liệu mới sau khi ghi thêm khoản.
+  const [bookForId, setBookForId] = useState<string | null>(null);
+  const [confirmSettleId, setConfirmSettleId] = useState<string | null>(null);
+  const bookFor = crew.find((m) => m.id === bookForId) ?? null;
+  const confirmSettle = crew.find((m) => m.id === confirmSettleId) ?? null;
 
   // Only this boat's crew. Legacy members with no boatId belong to the
   // current boat for back-compat.
@@ -104,9 +117,20 @@ export function CrewList() {
     [crew, current],
   );
 
-  // Stats reflect ONLY the current boat's filtered crew.
-  const noInsurance = boatCrew.filter((m) => !m.hasInsurance).length;
+  // Stats reflect ONLY the current boat's filtered crew. Đếm bằng crewIssue()
+  // — bắt cả giấy tờ/bảo hiểm QUÁ HẠN chứ không riêng "chưa có bảo hiểm".
+  const issueCount = boatCrew.filter(
+    (m) => crewIssue(m, today).level === "danger",
+  ).length;
   const totalAdvance = boatCrew.reduce((s, m) => s + outstandingAdvance(m), 0);
+
+  // người có chuyện xếp lên đầu: đỏ → vàng → ổn
+  const sortedCrew = useMemo(() => {
+    const rank = { danger: 0, warn: 1, ok: 2 } as const;
+    return [...boatCrew].sort(
+      (a, b) => rank[crewIssue(a, today).level] - rank[crewIssue(b, today).level],
+    );
+  }, [boatCrew, today]);
 
   function upsert(m: StoredCrew) {
     const withBoat: StoredCrew = { ...m, boatId: current?.id };
@@ -176,11 +200,11 @@ export function CrewList() {
         </div>
         <div className="surface py-3 text-center">
           <p
-            className={`display text-[1.5rem] font-bold ${noInsurance > 0 ? "text-danger" : "text-ok"}`}
+            className={`display text-[1.5rem] font-bold ${issueCount > 0 ? "text-danger" : "text-ok"}`}
           >
-            {noInsurance}
+            {issueCount}
           </p>
-          <p className="text-[0.8125rem] text-foreground/55">Chưa bảo hiểm</p>
+          <p className="text-[0.8125rem] text-foreground/55">Kẹt giấy tờ</p>
         </div>
         <div className="surface py-3 text-center">
           <p className="display text-[1.125rem] font-bold leading-[2] text-navy">
@@ -227,7 +251,7 @@ export function CrewList() {
       )}
 
       <ul className="space-y-3">
-        {boatCrew.map((m) => {
+        {sortedCrew.map((m) => {
           const issue = crewIssue(m, today);
           const owing = outstandingAdvance(m);
           return (
@@ -248,7 +272,7 @@ export function CrewList() {
                 {m.phone && (
                   <a
                     href={`tel:${m.phone}`}
-                    className="text-[1rem] font-semibold text-sea"
+                    className="inline-flex min-h-[3rem] items-center text-[1rem] font-bold text-sea"
                   >
                     Gọi: {m.phone}
                   </a>
@@ -260,20 +284,29 @@ export function CrewList() {
                   </p>
                 )}
                 {owing > 0 && (
-                  <p className="mt-1.5 flex items-center justify-between rounded-xl bg-background px-3 py-2 text-[0.9375rem]">
-                    <span>
-                      Đang ứng:{" "}
-                      <strong className="text-danger">
-                        {owing.toLocaleString("vi-VN")} đ
-                      </strong>
-                    </span>
+                  <div className="mt-1.5 flex items-stretch overflow-hidden rounded-xl bg-background text-[0.9375rem]">
+                    {/* chạm là mở SỔ — xem từng khoản, không chỉ con số tổng */}
                     <button
-                      onClick={() => settleAdvances(m.id)}
-                      className="font-bold text-sea"
+                      onClick={() => setBookForId(m.id)}
+                      className="flex min-h-[3.25rem] min-w-0 flex-1 items-center gap-1.5 px-3 text-left active:bg-field"
+                    >
+                      <span className="min-w-0 truncate">
+                        Đang ứng:{" "}
+                        <strong className="text-danger">
+                          {owing.toLocaleString("vi-VN")} đ
+                        </strong>
+                      </span>
+                      <span className="shrink-0 text-[0.8125rem] font-bold text-sea">
+                        Xem sổ
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setConfirmSettleId(m.id)}
+                      className="min-h-[3.25rem] shrink-0 border-l border-line px-3 font-bold text-sea active:bg-field"
                     >
                       Đã trừ xong
                     </button>
-                  </p>
+                  </div>
                 )}
               </div>
 
@@ -331,11 +364,43 @@ export function CrewList() {
         />
       )}
 
+      {/* sổ ứng từng người — lịch sử khoản, không chỉ một con số */}
+      {bookFor && (
+        <AdvanceBookSheet
+          member={bookFor}
+          onAddAdvance={() => {
+            setAdvanceFor(bookFor);
+          }}
+          onSettle={() => setConfirmSettleId(bookFor.id)}
+          onClose={() => setBookForId(null)}
+        />
+      )}
+
+      {/* gạch nợ phải XÁC NHẬN, nói rõ số tiền — không một chạm mất sổ */}
+      {confirmSettle && (
+        <ConfirmDialog
+          icon={<MoneyHandIcon className="h-9 w-9 text-sea" />}
+          title="Gạch hết nợ ứng?"
+          message={`${confirmSettle.name} đang ứng ${formatVnd(outstandingAdvance(confirmSettle))}. Bấm xác nhận nghĩa là khoản này ĐÃ TRỪ vào tiền chia chuyến — không hoàn tác được.`}
+          cancelLabel="Thôi, để đó"
+          confirmLabel="Đã trừ xong"
+          onCancel={() => setConfirmSettleId(null)}
+          onConfirm={() => {
+            settleAdvances(confirmSettle.id);
+            setConfirmSettleId(null);
+          }}
+        />
+      )}
+
       {confirmDelete && (
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
           title="Xóa khỏi sổ thuyền viên?"
-          message={`“${confirmDelete.name}” và lịch sử ứng tiền sẽ bị xóa.`}
+          message={
+            outstandingAdvance(confirmDelete) > 0
+              ? `“${confirmDelete.name}” ĐANG ỨNG ${formatVnd(outstandingAdvance(confirmDelete))} chưa trừ — xóa là mất luôn ghi nhận khoản này.`
+              : `“${confirmDelete.name}” và lịch sử ứng tiền sẽ bị xóa.`
+          }
           cancelLabel="Không xóa"
           confirmLabel="Xóa luôn"
           onCancel={() => setConfirmDelete(null)}
@@ -520,6 +585,88 @@ function CrewForm({
   );
 }
 
+/** Sổ ứng của một người — LỊCH SỬ từng khoản, không chỉ con số tổng. */
+function AdvanceBookSheet({
+  member,
+  onAddAdvance,
+  onSettle,
+  onClose,
+}: {
+  member: CrewMember;
+  onAddAdvance: () => void;
+  onSettle: () => void;
+  onClose: () => void;
+}) {
+  const owing = outstandingAdvance(member);
+  // mới nhất lên đầu — khoản đã trừ mờ đi nhưng vẫn còn đó (sổ là sổ)
+  const sorted = [...member.advances].sort((a, b) =>
+    a.date === b.date ? b.id.localeCompare(a.id) : b.date < a.date ? -1 : 1,
+  );
+  return (
+    <BottomSheet title={`Sổ ứng của ${member.name}`} onClose={onClose}>
+      <div className="mb-3 flex items-baseline justify-between rounded-2xl bg-field px-4 py-3">
+        <span className="text-[1rem] font-bold text-navy">Đang ứng</span>
+        <span
+          className="display text-[1.375rem] font-bold"
+          style={{ color: owing > 0 ? "var(--danger)" : "var(--ok)" }}
+        >
+          {formatVnd(owing)}
+        </span>
+      </div>
+
+      {sorted.length === 0 ? (
+        <p className="rounded-[1.25rem] bg-field/70 px-4 py-8 text-center text-[1rem] text-foreground/60">
+          Chưa có khoản ứng nào trong sổ.
+        </p>
+      ) : (
+        <ul className="overflow-hidden surface">
+          {sorted.map((a, i) => (
+            <li
+              key={a.id}
+              className={`flex items-center justify-between gap-3 px-4 py-3 ${
+                i > 0 ? "border-t border-line" : ""
+              } ${a.settled ? "opacity-50" : ""}`}
+            >
+              <span className="min-w-0">
+                <span className="block text-[0.9375rem] font-bold text-foreground/55">
+                  Ứng ngày {formatVnDate(a.date)}
+                  {a.settled && " — đã trừ"}
+                </span>
+                {a.note && (
+                  <span className="block truncate text-[0.9375rem] text-foreground/70">
+                    {a.note}
+                  </span>
+                )}
+              </span>
+              <span
+                className={`display shrink-0 text-[1.125rem] font-bold ${
+                  a.settled ? "text-foreground/50 line-through" : "text-danger"
+                }`}
+              >
+                {a.amountVnd.toLocaleString("vi-VN")} đ
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={onAddAdvance}
+          className="flex min-h-[3.75rem] items-center justify-center gap-2 rounded-full bg-field text-[1.0625rem] font-bold text-navy"
+        >
+          <MoneyHandIcon className="h-5 w-5" />
+          Ứng thêm
+        </button>
+        <PrimaryButton onClick={onSettle} disabled={owing <= 0}>
+          Đã trừ xong
+        </PrimaryButton>
+      </div>
+    </BottomSheet>
+  );
+}
+
 function AdvanceForm({
   member,
   onCancel,
@@ -531,7 +678,7 @@ function AdvanceForm({
 }) {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const parsed = parseInt(amount.replace(/\D/g, ""), 10) || 0;
+  const parsed = Number(amount || 0);
 
   return (
     <BottomSheet title={`Ứng tiền cho ${member.name}`} onClose={onCancel}>
@@ -545,23 +692,19 @@ function AdvanceForm({
           Khoản ứng sẽ tự trừ khi chia tiền chuyến.
         </p>
 
-        <Field label="Số tiền ứng (đồng)">
-          <input
-            value={parsed ? parsed.toLocaleString("vi-VN") : amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-full rounded-2xl border-0 bg-field px-4 py-3.5 text-[1.25rem] font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
-            inputMode="numeric"
-            placeholder="VD: 10.000.000"
-            required
-          />
-        </Field>
+        <MoneyField
+          label="Số tiền ứng (đồng)"
+          digits={amount}
+          onDigits={setAmount}
+          placeholder="VD: 10.000.000"
+        />
         <div className="mb-3 flex gap-2">
           {[5_000_000, 10_000_000, 15_000_000].map((v) => (
             <button
               key={v}
               type="button"
               onClick={() => setAmount(String(v))}
-              className="min-h-[2.75rem] flex-1 rounded-full bg-field text-[0.9375rem] font-bold text-foreground/70"
+              className="min-h-[3.25rem] flex-1 rounded-full bg-field text-[1rem] font-bold text-foreground/70 active:bg-line"
             >
               {v / 1_000_000} triệu
             </button>

@@ -65,8 +65,9 @@ export default function Home() {
         <UrgentStrip />
 
         <section aria-label="Bốn nhóm việc">
+          {/* "Quản lý tàu" bán sai app (trùng tiêu đề /tau) — app là 4 việc */}
           <h2 className="display mb-1.5 px-1 text-[1.125rem] font-bold text-navy">
-            Quản lý tàu
+            Bốn việc chính
           </h2>
           <div className="grid grid-cols-2 gap-3">
             {pillars.map((p) => {

@@ -16,7 +16,15 @@ import { type HomePref } from "@/lib/region";
 import { ChipRow } from "@/components/ui/chip-row";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Card, EmptyState, Field, PrimaryButton, RefNote, inputClass } from "@/components/ui/primitives";
+import {
+  CallButton,
+  Card,
+  EmptyState,
+  Field,
+  PrimaryButton,
+  RefNote,
+  inputClass,
+} from "@/components/ui/primitives";
 import {
   AlertIcon,
   CheckIcon,
@@ -37,11 +45,6 @@ import {
    · Mối quen   — nậu/vựa/nhà máy bà con TỰ thêm (localStorage, riêng tư)
 */
 
-/** Lấy 1 số gọi được từ chuỗi có thể chứa nhiều số (cách nhau "/", ",", "-"). */
-function telHref(phone: string): string {
-  const first = phone.split(/[/,;]| - | hoặc /i)[0] ?? phone;
-  return `tel:${first.replace(/[^\d+]/g, "")}`;
-}
 
 type Section = "kenh" | "vua" | "cho" | "nhamay" | "moiquen";
 
@@ -162,14 +165,7 @@ function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
                     {w.name}
                   </p>
                 </div>
-                {w.phone && (
-                  <a
-                    href={telHref(w.phone)}
-                    className="shrink-0 rounded-xl bg-sea px-3 py-2 text-[0.9375rem] font-bold text-white"
-                  >
-                    Gọi
-                  </a>
-                )}
+                {w.phone && <CallButton phone={w.phone} />}
               </div>
               {w.address && (
                 <p className="mt-1 flex gap-1.5 text-[0.9375rem] text-foreground/70">
@@ -419,14 +415,7 @@ function MyBuyers() {
                     {b.name}
                   </p>
                 </div>
-                {b.phone && (
-                  <a
-                    href={telHref(b.phone)}
-                    className="shrink-0 text-[0.9375rem] font-bold text-sea"
-                  >
-                    Gọi
-                  </a>
-                )}
+                {b.phone && <CallButton phone={b.phone} />}
               </div>
               {b.port && (
                 <p className="text-[0.9375rem] text-foreground/70">Cảng: {b.port}</p>

@@ -14,6 +14,7 @@ import {
   REQUEST_TOPICS,
   type RequestTopicId,
 } from "@/lib/sdvico-catalog";
+import { addOptimisticRequest } from "@/lib/use-sdvico-assets";
 
 /*
   "Gọi SDVICO" — kênh CSKH ngay trong app: bà con để lại tên + SĐT + việc
@@ -148,7 +149,17 @@ function RequestForm({
         signal: AbortSignal.timeout(20000),
       });
       const j = await r.json().catch(() => null);
-      setState(j?.ok ? "done" : "error");
+      if (j?.ok) {
+        // hiện ngay trong "Yêu cầu đã gửi" — chống gửi trùng vì tưởng chưa ăn
+        const topicLabel =
+          REQUEST_TOPICS.find((t) => t.id === topic)?.label ?? "Yêu cầu";
+        addOptimisticRequest(
+          [topicLabel, productName, detail.trim()].filter(Boolean).join(" — "),
+        );
+        setState("done");
+      } else {
+        setState("error");
+      }
     } catch {
       setState("error");
     }

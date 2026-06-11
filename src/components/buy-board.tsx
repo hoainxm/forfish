@@ -25,10 +25,17 @@ export function BuyBoard() {
   const requests: BuyRequest[] = BUY_REQUESTS;
 
   // Nhu cầu mua cá = tính năng CẦN ĐĂNG NHẬP (user chốt 2026-06-10) —
-  // ai cần gì, giá bao nhiêu là thông tin làm ăn, dành cho khách có tài khoản.
+  // NHƯNG chừng nào nguồn còn toàn TIN MẪU thì mở public (roadmap hội đồng
+  // UX 2026-06-11: bắt đăng nhập để xem tin minh họa là mất khách vô nghĩa).
+  // App thu mua đổ tin thật về là gate tự bật lại.
+  const hasRealRequests = requests.some((r) => !r.demo);
+  if (!hasRealRequests) {
+    return <BuyBoardInner requests={requests} />;
+  }
   return (
     <LoginGate
       feature="ai đang cần mua cá"
+      accent="t2"
       blurb="Đầu nậu, vựa, nhà máy cần loài gì, khối lượng và giá ra sao — đăng nhập bằng số điện thoại là xem được, gọi chào bán thẳng."
     >
       <BuyBoardInner requests={requests} />

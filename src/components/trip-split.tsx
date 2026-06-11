@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { splitTrip } from "@/lib/crew";
 import { useCrew } from "@/components/crew-list";
+import type { TripEntry } from "@/components/trip-log";
 import { PriceIcon, UsersIcon } from "@/components/icons";
 import { EmptyState, MoneyField } from "@/components/ui/primitives";
+import { formatVnDate } from "@/lib/format";
 
 /*
   Máy tính chia tiền chuyến — số hóa phép tính "trừ tổn chia đôi" mà
@@ -14,13 +16,39 @@ import { EmptyState, MoneyField } from "@/components/ui/primitives";
   động trừ vào phần thực nhận.
 */
 
-export function TripSplit() {
+export function TripSplit({
+  prefill,
+}: {
+  /** chuyến lấy số sẵn (sổ lãi/lỗ) — quy trình thật: ghi chuyến → chia luôn,
+      không bắt gõ lại cùng 9 chữ số hai lần (roadmap hội đồng UX) */
+  prefill?: TripEntry | null;
+} = {}) {
   // Sổ mẫu (isDemo) coi như chưa có ai — không chia tiền cho người mẫu.
   const { crew: storedCrew, isDemo } = useCrew();
   const crew = isDemo ? [] : storedCrew;
   const [revenue, setRevenue] = useState("");
   const [cost, setCost] = useState("");
   const [ownerPercent, setOwnerPercent] = useState(50);
+  // nguồn số đang dùng: chuyến nào trong sổ, hay tự gõ
+  const [fromTrip, setFromTrip] = useState<TripEntry | null>(null);
+
+  // đổ số từ chuyến được chọn (đổi chuyến là đổ lại — vẫn sửa tay được)
+  useEffect(() => {
+    if (!prefill) return;
+    setFromTrip(prefill);
+    setRevenue(prefill.revenueVnd > 0 ? String(prefill.revenueVnd) : "");
+    setCost(
+      prefill.fuelVnd + prefill.otherVnd > 0
+        ? String(prefill.fuelVnd + prefill.otherVnd)
+        : "",
+    );
+  }, [prefill]);
+
+  function clearPrefill() {
+    setFromTrip(null);
+    setRevenue("");
+    setCost("");
+  }
 
   const revenueVnd = Number(revenue || 0);
   const costVnd = Number(cost || 0);
@@ -53,6 +81,21 @@ export function TripSplit() {
 
   return (
     <div className="px-4">
+      {fromTrip && (
+        <div className="mb-2 flex items-center justify-between gap-2 rounded-2xl bg-t2-bg px-3.5 py-2">
+          <p className="min-w-0 text-[0.9375rem] font-semibold leading-snug text-t2">
+            Lấy số từ chuyến về bờ {formatVnDate(fromTrip.date)}
+            {fromTrip.label ? ` (${fromTrip.label})` : ""} — sửa được.
+          </p>
+          <button
+            type="button"
+            onClick={clearPrefill}
+            className="min-h-[3rem] shrink-0 rounded-full bg-white px-3.5 text-[0.875rem] font-bold text-t2"
+          >
+            Xóa, nhập tay
+          </button>
+        </div>
+      )}
       <div className="surface p-4">
         <MoneyField
           label="Tiền bán cá cả chuyến"

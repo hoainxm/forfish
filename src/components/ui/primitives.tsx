@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { PhoneIcon } from "@/components/icons";
 import { formatDigits, parseDigits, readbackVnd } from "@/lib/format";
 
 /*
@@ -115,6 +116,30 @@ export function MoneyField({
         </span>
       )}
     </Field>
+  );
+}
+
+/** Nút GỌI chuẩn (roadmap hội đồng UX 2026-06-11) — một kiểu cho mọi chỗ:
+ *  pill xanh biển, icon + chữ, tap ≥48px. Nhận chuỗi nhiều số ("09xx / 09yy")
+ *  thì gọi số đầu. KHÔNG tự chế nút gọi chữ trần nữa. */
+export function CallButton({
+  phone,
+  label = "Gọi",
+  className = "",
+}: {
+  phone: string;
+  label?: string;
+  className?: string;
+}) {
+  const first = phone.split(/[/,;]| - | hoặc /i)[0] ?? phone;
+  return (
+    <a
+      href={`tel:${first.replace(/[^\d+]/g, "")}`}
+      className={`inline-flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-full bg-sea px-4 text-[0.9375rem] font-bold text-white transition active:scale-[0.97] ${className}`}
+    >
+      <PhoneIcon className="h-4 w-4" />
+      {label}
+    </a>
   );
 }
 

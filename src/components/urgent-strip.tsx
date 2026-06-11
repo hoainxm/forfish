@@ -92,11 +92,13 @@ interface UrgentItem {
   days: number;
 }
 
+// deep-link ?tab= — nhắc việc rơi ĐÚNG tab, không rớt vào tab đầu (roadmap
+// hội đồng UX 2026-06-11; Tabs đọc param trong ui/tabs.tsx)
 const PILLAR_TAG: Record<Pillar, { tag: string; href: string }> = {
-  giay_to: { tag: "Giấy tờ", href: "/tau" },
-  bao_duong: { tag: "Bảo dưỡng", href: "/tau" },
+  giay_to: { tag: "Giấy tờ", href: "/tau?tab=giay-to" },
+  bao_duong: { tag: "Bảo dưỡng", href: "/tau?tab=dich-vu" },
   ban_thuyen: { tag: "Bạn thuyền", href: "/nguoi" },
-  sdvico: { tag: "SDVICO", href: "/tau" },
+  sdvico: { tag: "SDVICO", href: "/tau?tab=dich-vu" },
 };
 
 /** Nhắc từ đồ SDVICO đồng bộ: nợ/cước chờ đóng, bảo hành sắp hết, kỳ dịch vụ. */
@@ -112,7 +114,7 @@ function sdvicoUrgent(assets: OwnedAssets, today: Date): UrgentItem[] {
       status: overdue ? "Nợ quá hạn, đóng sớm" : "Chờ thanh toán",
       tone: overdue ? "danger" : "warn",
       pillar: "sdvico",
-      href: "/tau",
+      href: PILLAR_TAG.sdvico.href,
       days: p.dueOn ? daysUntil(p.dueOn, today) : 0,
     });
   }
@@ -126,7 +128,7 @@ function sdvicoUrgent(assets: OwnedAssets, today: Date): UrgentItem[] {
         status: s.label,
         tone: s.level === "expired" ? "danger" : "warn",
         pillar: "sdvico",
-        href: "/tau",
+        href: PILLAR_TAG.sdvico.href,
         days: s.days ?? 0,
       });
     }
@@ -141,7 +143,7 @@ function sdvicoUrgent(assets: OwnedAssets, today: Date): UrgentItem[] {
         status: s.label,
         tone: s.level === "overdue" ? "danger" : "warn",
         pillar: "sdvico",
-        href: "/tau",
+        href: PILLAR_TAG.sdvico.href,
         days: s.days ?? 0,
       });
     }
@@ -222,6 +224,8 @@ export function UrgentStrip() {
   const [mounted, setMounted] = useState(false);
   const [items, setItems] = useState<UrgentItem[]>([]);
   const [sdvicoItems, setSdvicoItems] = useState<UrgentItem[]>([]);
+  // "Còn N việc nữa" bấm là xòe đủ — không phải dòng chữ chết
+  const [expanded, setExpanded] = useState(false);
 
   // Hydrate from localStorage after mount only (avoids SSR/CSR mismatch).
   useEffect(() => {
@@ -254,7 +258,7 @@ export function UrgentStrip() {
 
   if (!mounted || all.length === 0) return null;
 
-  const shown = all.slice(0, MAX_ROWS);
+  const shown = expanded ? all : all.slice(0, MAX_ROWS);
   const rest = all.length - shown.length;
 
   return (
@@ -305,9 +309,14 @@ export function UrgentStrip() {
           })}
         </ul>
         {rest > 0 && (
-          <p className="border-t border-line bg-background px-4 py-2.5 text-[0.9375rem] font-bold text-foreground/60">
-            Còn {rest} việc nữa
-          </p>
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="flex min-h-[3rem] w-full items-center justify-between border-t border-line bg-background px-4 text-[0.9375rem] font-bold text-sea active:bg-field"
+          >
+            Còn {rest} việc nữa — xem hết
+            <ChevronRightIcon className="h-5 w-5 rotate-90" />
+          </button>
         )}
       </div>
     </section>

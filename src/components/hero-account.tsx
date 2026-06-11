@@ -81,7 +81,9 @@ export function HeroAccount() {
           <UsersIcon className="h-4.5 w-4.5" />
         </span>
         <span className="min-w-0 truncate text-[0.9375rem] font-bold">
-          {user && phone ? name || prettyPhone(phone) : "Tài khoản"}
+          {/* khách lạ thấy thẳng "Đăng nhập" — "Tài khoản" trung tính không
+              mời ai làm gì (roadmap hội đồng UX 2026-06-11) */}
+          {user && phone ? name || prettyPhone(phone) : "Đăng nhập"}
         </span>
         <ChevronRightIcon className="h-4 w-4 shrink-0 rotate-90 text-white/60" />
       </button>

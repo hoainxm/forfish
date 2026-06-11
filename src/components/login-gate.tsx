@@ -16,12 +16,15 @@ import { useAuthUser } from "@/lib/use-auth";
 export function LoginGate({
   feature,
   blurb,
+  accent = "t1",
   children,
 }: {
   /** Tên tính năng bị khóa, lời thường — vd "ai đang cần mua cá" */
   feature: string;
   /** Một câu nói rõ vào sẽ được gì */
   blurb?: string;
+  /** Màu trục của khu đặt gate (t1…t4) — không hardcode màu trục 1 giữa khu khác */
+  accent?: "t1" | "t2" | "t3" | "t4";
   children: React.ReactNode;
 }) {
   const { user, ready } = useAuthUser();
@@ -33,7 +36,10 @@ export function LoginGate({
     <div className="surface px-5 py-8 text-center">
       <span
         className="mx-auto flex h-14 w-14 items-center justify-center rounded-full"
-        style={{ backgroundColor: "var(--t1-bg)", color: "var(--t1)" }}
+        style={{
+          backgroundColor: `var(--${accent}-bg)`,
+          color: `var(--${accent})`,
+        }}
         aria-hidden
       >
         <LockIcon className="h-7 w-7" />

@@ -124,23 +124,20 @@ export function SdvicoCatalog({
                   ))}
                 </ul>
 
-                <div className="mt-3 flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <SdvicoRequestButton
-                      variant="chip"
-                      topic="mua"
-                      productName={p.title}
-                      label={owned ? "Mua thêm / vật tư thay" : "Hỏi mua / tư vấn"}
-                    />
-                  </div>
-                  <a
-                    href={`tel:${SDVICO_HOTLINE}`}
-                    className="flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-full bg-field px-4 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
-                    aria-label={`Gọi hotline SDVICO ${SDVICO_HOTLINE_DISPLAY}`}
-                  >
-                    <PhoneIcon className="h-4 w-4" />
-                    Gọi ngay
-                  </a>
+                {/* neo kỳ vọng giá — hỏi không mất gì, không bị ép mua */}
+                <p className="mt-2 text-[0.8125rem] font-semibold text-foreground/55">
+                  Giá báo theo tàu — hỏi là nhân viên gọi lại, không mất phí.
+                </p>
+
+                {/* MỘT hành động chính mỗi thẻ — nút Gọi lặp từng thẻ đã dồn
+                    về khối hotline cuối trang (roadmap hội đồng UX) */}
+                <div className="mt-2.5">
+                  <SdvicoRequestButton
+                    variant="chip"
+                    topic="mua"
+                    productName={p.title}
+                    label={owned ? "Mua thêm / vật tư thay" : "Hỏi mua / tư vấn"}
+                  />
                 </div>
               </div>
             </li>
@@ -148,9 +145,16 @@ export function SdvicoCatalog({
         })}
       </ul>
 
-      <p className="py-4 text-center text-[0.875rem] text-foreground/45">
-        Hotline SDVICO: <strong>{SDVICO_HOTLINE_DISPLAY}</strong> — giá và
-        model hợp tàu, nhân viên tư vấn trực tiếp.
+      {/* hotline = khối bấm được tử tế, không phải dòng chữ mờ cuối trang */}
+      <a
+        href={`tel:${SDVICO_HOTLINE}`}
+        className="mt-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.98]"
+      >
+        <PhoneIcon className="h-5 w-5" />
+        Gọi SDVICO {SDVICO_HOTLINE_DISPLAY}
+      </a>
+      <p className="py-3 text-center text-[0.875rem] text-foreground/45">
+        Giá và model hợp tàu — nhân viên tư vấn trực tiếp.
       </p>
     </div>
   );

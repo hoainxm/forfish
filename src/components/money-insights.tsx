@@ -10,7 +10,7 @@ import {
 import { TripSplit } from "@/components/trip-split";
 import { Card } from "@/components/ui/primitives";
 import { ChipRow } from "@/components/ui/chip-row";
-import { tripStats } from "@/lib/trip-insights";
+import { profitOf, tripStats } from "@/lib/trip-insights";
 import { formatVndShort } from "@/lib/format";
 
 /*
@@ -46,6 +46,25 @@ export function MoneyInsights() {
 
   const stats = useMemo(() => tripStats(trips), [trips]);
 
+  // "Chia tiền chuyến này" từ sổ lãi/lỗ → nhảy sang máy chia với số sẵn;
+  // mặc định tab Chia tiền lấy số chuyến MỚI NHẤT (quy trình thật: về bờ →
+  // ghi chuyến → chia luôn)
+  const [splitSource, setSplitSource] = useState<TripEntry | null>(null);
+  const latestTrip = useMemo(
+    () =>
+      trips.length === 0
+        ? null
+        : [...trips].sort((a, b) => (b.date < a.date ? -1 : 1))[0],
+    [trips],
+  );
+  // lãi 3 chuyến gần nhất — gộp từ thẻ cũ của TripLog về đây (một thẻ tổng)
+  const recent3 = useMemo(() => {
+    const sorted = [...trips].sort((a, b) =>
+      a.date === b.date ? b.id.localeCompare(a.id) : b.date < a.date ? -1 : 1,
+    );
+    return sorted.slice(0, 3).reduce((s, t) => s + profitOf(t), 0);
+  }, [trips]);
+
   return (
     <div>
       {stats && stats.count > 0 && (
@@ -64,6 +83,20 @@ export function MoneyInsights() {
               {formatVndShort(Math.abs(stats.totalProfit))}
             </p>
             <p className="text-[0.875rem] text-foreground/55">tổng lãi/lỗ</p>
+
+            {stats.count > 3 && (
+              <p className="mt-1 text-[0.9375rem] font-semibold text-foreground/60">
+                3 chuyến gần nhất:{" "}
+                <strong
+                  style={{
+                    color: recent3 >= 0 ? "var(--ok)" : "var(--danger)",
+                  }}
+                >
+                  {recent3 >= 0 ? "+" : "−"}
+                  {formatVndShort(Math.abs(recent3))}
+                </strong>
+              </p>
+            )}
 
             <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3 tabular-nums">
               <div>
@@ -108,7 +141,14 @@ export function MoneyInsights() {
       />
 
       {section === "lai-lo" && ready && (
-        <TripLog trips={trips} onChange={setTrips} />
+        <TripLog
+          trips={trips}
+          onChange={setTrips}
+          onSplit={(trip) => {
+            setSplitSource(trip);
+            setSection("chia");
+          }}
+        />
       )}
       {section === "chia" && (
         <div>
@@ -116,7 +156,7 @@ export function MoneyInsights() {
             Nhập tiền bán cá và tổn chung — app tự chia theo phần từng người,
             trừ luôn tiền đã ứng.
           </p>
-          <TripSplit />
+          <TripSplit prefill={splitSource ?? latestTrip} />
         </div>
       )}
     </div>

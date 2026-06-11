@@ -8,7 +8,12 @@
   · không phải dialog (khác ui/bottom-sheet.tsx vốn là modal có focus-trap)
   Đặt trong container relative của màn hình map; chiều cao tính theo container.
 */
-import { ChevronDownIcon, ChevronUpIcon, CloseIcon } from "@/components/icons";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  CloseIcon,
+} from "@/components/icons";
+import type { ReactNode } from "react";
 
 export type SheetSize = "peek" | "half" | "full";
 
@@ -17,6 +22,8 @@ export function SnapSheet({
   onSizeChange,
   onClose,
   closeLabel = "Đóng",
+  closeIcon,
+  above,
   label,
   peek,
   children,
@@ -27,6 +34,11 @@ export function SnapSheet({
   onClose?: () => void;
   /** Chữ trên nút thoát — phải tự giải thích ("Về cảng"), không chỉ "Đóng" */
   closeLabel?: string;
+  /** Icon nút thoát — mặc định X; "Về cảng nhà" thì truyền icon nhà */
+  closeIcon?: ReactNode;
+  /** Nội dung nổi NGAY TRÊN mép sheet (vd thanh giờ gió/sóng) — vị trí tay
+      với tới, đi theo sheet khi nở/thu (roadmap hội đồng UX 2026-06-11) */
+  above?: ReactNode;
   label: string;
   /** Phần luôn thấy ở mọi nấc */
   peek: React.ReactNode;
@@ -51,10 +63,33 @@ export function SnapSheet({
         transition: "height 200ms ease",
       }}
     >
-      <div className="mx-auto mt-2 h-1.5 w-12 shrink-0 rounded-full bg-line" aria-hidden />
+      {/* nội dung nổi sát mép trên sheet — bottom-full nên tự theo sheet */}
+      {above && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-full px-2 pb-2">
+          {above}
+        </div>
+      )}
 
-      <div className="flex shrink-0 items-center gap-2 px-3 pb-1 pt-1">
-        <div className="min-w-0 flex-1">{peek}</div>
+      {/* thanh kéo từng là đồ giả — giờ chạm là nở (roadmap hội đồng UX) */}
+      <button
+        type="button"
+        onClick={() => size !== "full" && grow()}
+        aria-label="Mở rộng bảng thông tin"
+        className="flex w-full shrink-0 justify-center pb-1 pt-2"
+      >
+        <span className="h-1.5 w-12 rounded-full bg-line" aria-hidden />
+      </button>
+
+      <div className="flex shrink-0 items-center gap-2 px-3 pb-1">
+        {/* vùng peek chạm là nở luôn — không bắt nhắm trúng nút nhỏ */}
+        <div
+          className="min-w-0 flex-1"
+          onClick={() => {
+            if (size === "peek") grow();
+          }}
+        >
+          {peek}
+        </div>
         <div className="flex shrink-0 flex-col gap-1.5">
           {size !== "full" && (
             <button
@@ -82,7 +117,7 @@ export function SnapSheet({
               onClick={onClose}
               className="flex min-h-[3.25rem] items-center justify-center gap-1 surface px-3 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
             >
-              <CloseIcon className="h-5 w-5" />
+              {closeIcon ?? <CloseIcon className="h-5 w-5" />}
               {closeLabel}
             </button>
           )}

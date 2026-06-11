@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { CheckIcon, ClockIcon } from "@/components/icons";
 import { StatusBanner } from "@/components/ui/status-banner";
@@ -12,8 +12,8 @@ import {
   getServiceDueStatus,
   requestStatusVN,
   serviceKindLabel,
-  type OwnedAssets,
 } from "@/lib/owned-assets";
+import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
 
 /*
   Tab DỊCH VỤ (thay tab Bảo dưỡng cũ) — ForFish là kênh CSKH của SDVICO:
@@ -27,22 +27,8 @@ import {
 
 export function BoatServices() {
   const today = useMemo(() => new Date(), []);
-  const [synced, setSynced] = useState<OwnedAssets | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/me/sdvico", { signal: AbortSignal.timeout(20000) })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (alive && j?.ok && j.assets) setSynced(j.assets as OwnedAssets);
-      })
-      .catch(() => {
-        // chưa đăng nhập / chưa cấu hình → chỉ hiện sổ tự ghi + nút gọi
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
+  // hook dùng chung với tab Sản phẩm — một lần fetch, 4 nấc trạng thái
+  const { status: syncStatus, assets: synced, retry } = useSdvicoAssets();
 
   const todayIso = today.toISOString().slice(0, 10);
   const activeServices = synced?.services.filter((s) => s.active) ?? [];
@@ -58,13 +44,28 @@ export function BoatServices() {
 
       <div className="mb-5">
         <SdvicoRequestButton topic="sua-chua" label="Gọi SDVICO sửa chữa / bảo dưỡng" />
-        {!synced && (
+        {/* 4 nấc — chỉ mời đăng nhập khi THẬT SỰ chưa đăng nhập */}
+        {syncStatus === "guest" && (
           <Link
             href="/login"
             className="mt-2.5 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.98]"
           >
             Đăng nhập để thấy dịch vụ của mình
           </Link>
+        )}
+        {syncStatus === "error" && (
+          <div className="mt-2.5 flex items-center justify-between gap-3 rounded-2xl bg-danger-bg px-3.5 py-2.5">
+            <p className="min-w-0 text-[0.9375rem] font-semibold leading-snug text-danger">
+              Chưa tải được dịch vụ bên SDVICO — mạng có thể đang yếu.
+            </p>
+            <button
+              type="button"
+              onClick={retry}
+              className="min-h-[3rem] shrink-0 rounded-full bg-danger px-4 text-[0.9375rem] font-bold text-white"
+            >
+              Thử lại
+            </button>
+          </div>
         )}
       </div>
 

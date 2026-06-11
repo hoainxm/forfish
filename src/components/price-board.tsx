@@ -82,11 +82,13 @@ export function PriceBoard() {
             Dầu DO hôm nay (Petrolimex)
             {fuel.date ? ` · ${formatVnDate(fuel.date)}` : ""}
           </p>
+          {/* bỏ jargon "vùng 1/vùng 2" của Petrolimex — nói tiếng người */}
           <p className="mt-0.5 text-[1.125rem] font-bold text-foreground">
             {fuel.do005Zone1.toLocaleString("vi-VN")} đ/lít
             <span className="text-[0.9375rem] font-semibold text-foreground/55">
               {" "}
-              (vùng 1) · {fuel.do005Zone2.toLocaleString("vi-VN")} đ/lít (vùng 2)
+              (gần kho) · {fuel.do005Zone2.toLocaleString("vi-VN")} đ/lít (xa
+              kho, đảo)
             </span>
           </p>
         </div>

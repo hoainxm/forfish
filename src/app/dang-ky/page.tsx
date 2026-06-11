@@ -11,6 +11,7 @@ import {
   AuthError,
   AuthNote,
   isValidVnPhone,
+  PasswordField,
   phoneToEmail,
   sanitizePhoneInput,
 } from "@/components/auth-form";
@@ -26,7 +27,6 @@ export default function DangKyPage() {
 
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -53,10 +53,6 @@ export default function DangKyPage() {
     }
     if (password.length < 6) {
       setError("Mật khẩu cần ít nhất 6 ký tự.");
-      return;
-    }
-    if (password !== confirm) {
-      setError("Hai lần nhập mật khẩu chưa khớp.");
       return;
     }
 
@@ -117,26 +113,13 @@ export default function DangKyPage() {
               required
             />
           </Field>
-          <Field label="Mật khẩu (ít nhất 6 ký tự)">
-            <input
-              type="password"
-              autoComplete="new-password"
-              className={inputClass}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </Field>
-          <Field label="Nhập lại mật khẩu">
-            <input
-              type="password"
-              autoComplete="new-password"
-              className={inputClass}
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              required
-            />
-          </Field>
+          {/* có nút Hiện/Ẩn nên bỏ được ô "Nhập lại" — bớt một việc gõ */}
+          <PasswordField
+            label="Mật khẩu (ít nhất 6 ký tự)"
+            value={password}
+            onChange={setPassword}
+            autoComplete="new-password"
+          />
           <PrimaryButton type="submit" disabled={loading}>
             {loading ? "Đang tạo…" : "Tạo tài khoản"}
           </PrimaryButton>

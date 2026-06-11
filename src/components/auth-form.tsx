@@ -1,4 +1,7 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useState, type ReactNode } from "react";
+import { Field, inputClass } from "@/components/ui/primitives";
 
 /*
   Mảnh dùng chung cho các form đăng nhập / đổi mật khẩu.
@@ -36,6 +39,47 @@ export function isValidVnPhone(raw: string): boolean {
   const d = raw.replace(/\D/g, "");
   const local = d.startsWith("84") ? d.slice(2) : d.startsWith("0") ? d.slice(1) : d;
   return /^[1-9]\d{8,9}$/.test(local);
+}
+
+/** Ô mật khẩu có nút HIỆN/ẨN — thấy mình gõ gì thì khỏi cần ô "nhập lại"
+ *  (roadmap hội đồng UX 2026-06-11). */
+export function PasswordField({
+  label,
+  value,
+  onChange,
+  autoComplete = "current-password",
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete?: "current-password" | "new-password";
+  placeholder?: string;
+}) {
+  const [shown, setShown] = useState(false);
+  return (
+    <Field label={label}>
+      <span className="relative block">
+        <input
+          type={shown ? "text" : "password"}
+          autoComplete={autoComplete}
+          className={`${inputClass} pr-16`}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required
+        />
+        <button
+          type="button"
+          onClick={() => setShown((s) => !s)}
+          aria-pressed={shown}
+          className="absolute inset-y-0 right-0 flex min-w-[3.5rem] items-center justify-center rounded-r-2xl text-[0.9375rem] font-bold text-sea"
+        >
+          {shown ? "Ẩn" : "Hiện"}
+        </button>
+      </span>
+    </Field>
+  );
 }
 
 /** Khung trắng giữa màn — nơi đặt form đăng nhập. */

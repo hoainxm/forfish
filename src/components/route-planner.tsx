@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { Layer, Marker, Source } from "react-map-gl/maplibre";
 
 import { PORTS } from "@/data/ports";
+import { sortedPlaces, type SavedPlace } from "@/lib/places";
 import { ROUTE_CASING_COLOR, ROUTE_LINE_COLOR } from "@/lib/ocean-map";
 import {
   DEFAULT_BOAT,
@@ -152,15 +153,19 @@ export function RouteMapLayers({ route }: { route: PlannedRoute | null }) {
 export function RoutePlanner({
   dest,
   activeRoute,
+  places = [],
   onRoute,
 }: {
   dest: LatLon;
   /** tuyến đang vẽ trên bản đồ (có thể tới điểm CŨ — xem ghi chú dưới) */
   activeRoute?: PlannedRoute | null;
+  /** Điểm của tôi (cảng nhà + chỗ ghim) — nơi xuất phát THẬT của bà con,
+      lít dầu tính từ đây mới đúng (roadmap hội đồng UX 2026-06-11) */
+  places?: SavedPlace[];
   onRoute: (r: PlannedRoute | null) => void;
 }) {
   const [open, setOpen] = useState(false);
-  // "gps" hoặc id cảng; mặc định cảng gần điểm đến nhất
+  // "gps" | "place:<id>" | "port:<id>"; mặc định Cảng nhà nếu có
   const [startId, setStartId] = useState<string>("");
   // đọc thẳng localStorage lúc render đầu được vì cả cây bản đồ đã
   // next/dynamic ssr:false (không có HTML server để lệch); readBoat tự
@@ -193,7 +198,31 @@ export function RoutePlanner({
   const nearestPort = PORTS.reduce((a, b) =>
     haversineKm(b, dest) < haversineKm(a, dest) ? b : a,
   );
-  const effectiveStartId = startId || nearestPort.id;
+
+  /*
+    Lựa chọn nơi xuất phát — app đã dạy tư duy "Điểm của tôi" thì dẫn đường
+    phải nói cùng ngôn ngữ: Cảng nhà / chỗ ghim lên đầu, rồi GPS, rồi cảng
+    gần đích nhất. Mặc định = Cảng nhà (nếu đặt rồi) — KHÔNG đoán theo đích.
+  */
+  const myPlaces = sortedPlaces(places).slice(0, 4); // cảng nhà đứng đầu
+  const startOptions: { id: string; label: string; coord: LatLon | null }[] = [
+    ...myPlaces.map((p) => ({
+      id: `place:${p.id}`,
+      label: p.kind === "home" ? `Cảng nhà — ${p.name}` : `Chỗ ghim — ${p.name}`,
+      coord: { lat: p.lat, lon: p.lon },
+    })),
+    { id: "gps", label: "Chỗ tàu tôi đang đứng (định vị)", coord: null },
+    {
+      id: `port:${nearestPort.id}`,
+      label: `Cảng ${nearestPort.name} — gần điểm đến nhất`,
+      coord: { lat: nearestPort.lat, lon: nearestPort.lon },
+    },
+  ];
+  const defaultStartId =
+    myPlaces.find((p) => p.kind === "home") != null
+      ? `place:${myPlaces.find((p) => p.kind === "home")!.id}`
+      : `port:${nearestPort.id}`;
+  const effectiveStartId = startId || defaultStartId;
 
   async function compute() {
     if (busy) return;
@@ -212,9 +241,20 @@ export function RoutePlanner({
           return;
         }
         startLabel = "Chỗ tàu tôi";
+      } else if (effectiveStartId.startsWith("place:")) {
+        const pl = places.find(
+          (p) => `place:${p.id}` === effectiveStartId,
+        );
+        if (pl) {
+          start = { lat: pl.lat, lon: pl.lon };
+          startLabel = pl.kind === "home" ? `Cảng nhà ${pl.name}` : pl.name;
+        } else {
+          start = { lat: nearestPort.lat, lon: nearestPort.lon };
+          startLabel = `Cảng ${nearestPort.name}`;
+        }
       } else {
-        const port =
-          PORTS.find((p) => p.id === effectiveStartId) ?? nearestPort;
+        const portId = effectiveStartId.replace(/^port:/, "");
+        const port = PORTS.find((p) => p.id === portId) ?? nearestPort;
         start = { lat: port.lat, lon: port.lon };
         startLabel = `Cảng ${port.name}`;
       }
@@ -321,24 +361,56 @@ export function RoutePlanner({
 
       {!plan && (
         <>
-          <label className="block">
+          <div>
             <span className="text-[0.9375rem] font-bold text-foreground/75">
               Đi từ đâu?
             </span>
+            <div className="mt-1 space-y-1.5" role="radiogroup" aria-label="Nơi xuất phát">
+              {startOptions.map((o) => {
+                const on = o.id === effectiveStartId;
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setStartId(o.id)}
+                    className={`flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1.0625rem] font-bold transition ${
+                      on
+                        ? "bg-navy text-white"
+                        : "bg-background text-foreground/75 active:bg-field"
+                    }`}
+                  >
+                    <span
+                      className={`h-4 w-4 shrink-0 rounded-full border-2 ${
+                        on ? "border-white bg-white" : "border-foreground/35"
+                      }`}
+                      aria-hidden
+                    />
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+            {/* vẫn đi được từ cảng bất kỳ trong danh mục */}
             <select
-              value={effectiveStartId}
-              onChange={(e) => setStartId(e.target.value)}
-              className="mt-1 block min-h-[3.5rem] w-full rounded-xl bg-background px-3 text-[1.125rem] font-semibold"
+              value={
+                effectiveStartId.startsWith("port:")
+                  ? effectiveStartId.replace(/^port:/, "")
+                  : ""
+              }
+              onChange={(e) => e.target.value && setStartId(`port:${e.target.value}`)}
+              aria-label="Hoặc chọn cảng khác"
+              className="mt-1.5 block min-h-[3.25rem] w-full rounded-xl bg-background px-3 text-[1rem] font-semibold text-foreground/70"
             >
-              <option value="gps">Chỗ tàu tôi đang đứng (định vị)</option>
+              <option value="">Hoặc đi từ cảng khác…</option>
               {PORTS.map((p) => (
                 <option key={p.id} value={p.id}>
                   Cảng {p.name}
-                  {p.id === nearestPort.id ? " — gần điểm đến nhất" : ""}
                 </option>
               ))}
             </select>
-          </label>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">

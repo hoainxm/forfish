@@ -11,6 +11,7 @@ import {
   AuthError,
   AuthNote,
   isValidVnPhone,
+  PasswordField,
   phoneToEmail,
   sanitizePhoneInput,
 } from "@/components/auth-form";
@@ -57,20 +58,28 @@ export default function LoginPage() {
       return;
     }
 
-    // 1) THỬ SSO SDWork trước: khách dùng đúng SĐT+mk SDWork. Gateway verify
-    //    với CRM rồi ĐỒNG BỘ mật khẩu vào tài khoản ForFish — nên dù SSO ăn
-    //    hay không, bước 2 dưới đây đều là một đường duy nhất.
-    await fetch("/api/auth/sso", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, password }),
-      signal: AbortSignal.timeout(25000),
-    }).catch(() => null);
+    // ĐẢO THỨ TỰ (roadmap "thất bại lên tiếng"): thử mật khẩu ForFish TRƯỚC
+    // — người đã có tài khoản vào ngay, không chờ gateway 25s khi 3G yếu.
+    // Sai mới gọi SSO SDWork (verify với CRM + đồng bộ mật khẩu về ForFish,
+    // timeout 8s) rồi thử lại một lần.
+    const email = phoneToEmail(phone);
+    let { data, error: signInError } = await supabase!.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    // 2) Đăng nhập bằng đường password chuẩn (khách SDWork lẫn tài khoản tự đăng ký)
-    const { data, error: signInError } = await supabase!.auth.signInWithPassword(
-      { email: phoneToEmail(phone), password },
-    );
+    if (signInError || !data.user) {
+      await fetch("/api/auth/sso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, password }),
+        signal: AbortSignal.timeout(8000),
+      }).catch(() => null);
+      ({ data, error: signInError } = await supabase!.auth.signInWithPassword({
+        email,
+        password,
+      }));
+    }
 
     if (signInError || !data.user) {
       setError("Sai số điện thoại hoặc mật khẩu.");
@@ -115,17 +124,12 @@ export default function LoginPage() {
               required
             />
           </Field>
-          <Field label="Mật khẩu">
-            <input
-              type="password"
-              autoComplete="current-password"
-              className={inputClass}
-              placeholder="Mật khẩu"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </Field>
+          <PasswordField
+            label="Mật khẩu"
+            value={password}
+            onChange={setPassword}
+            placeholder="Mật khẩu"
+          />
           <PrimaryButton type="submit" disabled={loading}>
             {loading ? "Đang vào…" : "Đăng nhập"}
           </PrimaryButton>
