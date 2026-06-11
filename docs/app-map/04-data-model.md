@@ -113,7 +113,20 @@ SĐT đăng nhập ForFish (SSO) → profiles.sdwork_customer_ref (= auth.users.
 - **Tối ưu "tức thì" (2026-06-10)**: (1) đăng nhập rồi thì form Gọi SDVICO TỰ ĐIỀN tên + SĐT (gửi = 1 chạm); (2) gateway `assets` trả thêm 5 `consultation_requests` gần nhất theo SĐT (`source_page='forfish'`) → tab Dịch vụ có mục "Yêu cầu đã gửi" kèm trạng thái lời thường (`requestStatusVN`: pending→"Đã nhận — chờ gọi lại", done/resolved→"Đã xử lý xong"); (3) nhắc SDVICO (nợ/cước, bảo hành sắp hết, kỳ dịch vụ) GỘP vào "Việc cần làm ngay" ở trang chủ (`urgent-strip.tsx`, tag SDVICO); (4) mỗi món đã mua có chip "Gọi bảo hành món này" (kèm serial); (5) chưa đăng nhập → nút "Đăng nhập để thấy đồ/dịch vụ của mình" trong cả 2 tab.
 - ⚠️ Phía SDWork phải có người THEO DÕI `consultation_requests` (hiện 0 hàng — xác nhận với team SDWork quy trình xử lý + đổi status), kẻo yêu cầu của bà con rơi vào im lặng.
 
-## 7. Cross-references
+## 7. Phân quyền tính năng — public vs CẦN ĐĂNG NHẬP (user chốt 2026-06-10)
+
+App yêu cầu đăng nhập (tài khoản đồng bộ SDWork) cho tính năng GIÁ TRỊ CAO; phần còn lại public để bà con dùng ngay không rào cản:
+
+| Tính năng | Quyền | Chặn ở đâu |
+|---|---|---|
+| **Dự báo cá (PFZ)** | 🔒 đăng nhập | `GET /api/fish-forecast` kiểm session → 401 `auth_required` (client lùi về lớp mùa vụ public). Khóa API = không lách được; UI mời đăng nhập trên bản đồ bổ sung khi map WIP land |
+| **Nhu cầu mua cá ("Ai cần mua")** | 🔒 đăng nhập | `LoginGate` quanh `buy-board.tsx`; nguồn API thật sau này PHẢI kiểm session như fish-forecast |
+| **Đồ SDVICO của tôi / dịch vụ / cước / yêu cầu đã gửi** | 🔒 (bản chất) | `/api/me/sdvico` suy khách từ session — chưa đăng nhập tự ok:false |
+| Bản đồ + gió sóng + bão + hải đồ + cá MÙA VỤ · giá cá · bán ở đâu · catalog SDVICO + nút Gọi SDVICO · sổ tự ghi (giấy tờ/bảo dưỡng/thuyền viên/lãi lỗ/chia tiền) · mức phạt | 🌐 public | không chặn — gửi yêu cầu khi chưa đăng nhập = mối bán hàng mới |
+
+Quy ước: tính năng khóa MỚI → bọc `components/login-gate.tsx` (UI) **và** kiểm session ở API (thật). Hook trạng thái: `lib/use-auth.ts`. Khi Supabase chưa cấu hình (demo mode dev) thì KHÔNG khóa — giữ invariant demo mode §"Demo mode".
+
+## 8. Cross-references
 
 - Demo mode pattern: [02-architecture.md](02-architecture.md)
 - Màu trạng thái: [03-design-system.md](03-design-system.md)

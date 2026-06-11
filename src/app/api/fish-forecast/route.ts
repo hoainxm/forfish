@@ -1,3 +1,4 @@
+import { createClient } from "@/lib/supabase/server";
 import {
   anomGridUrl,
   buildFishForecast,
@@ -15,8 +16,23 @@ import {
  * công khai (chậm, vài MB) rồi chấm điểm bằng lib thuần, trả về gọn cho app.
  * Cache 6 giờ — ảnh nguồn mỗi ngày một bản, không cần tươi hơn.
  * Nguồn fail → { ok:false }, client im lặng/fallback mùa vụ (không bịa).
+ *
+ * CẦN ĐĂNG NHẬP (user chốt 2026-06-10): dự báo cá là tính năng giá trị cao
+ * dành cho khách có tài khoản (đồng bộ SDWork) — chưa đăng nhập trả 401
+ * auth_required, client lùi về lớp mùa vụ public. Chặn ở API để không lách
+ * được từ ngoài; khi Supabase chưa cấu hình (demo mode) thì KHÔNG khóa.
  */
 export async function GET() {
+  const supabase = await createClient();
+  if (supabase) {
+    const { data } = await supabase.auth.getUser();
+    if (!data?.user) {
+      return Response.json(
+        { ok: false, code: "auth_required" },
+        { status: 401 },
+      );
+    }
+  }
   try {
     // SST + phù du là BẮT BUỘC; SSHA (xoáy), dị thường nhiệt (nước trồi),
     // dòng chảy u/v (hội tụ) là TUỲ CHỌN — fail thì vẫn dự báo, chia lại trọng số

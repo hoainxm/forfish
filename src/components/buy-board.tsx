@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, RefNote } from "@/components/ui/primitives";
+import { LoginGate } from "@/components/login-gate";
 import { PhoneIcon } from "@/components/icons";
 import {
   BUY_REQUESTS,
@@ -23,6 +24,19 @@ function telHref(phone: string): string {
 export function BuyBoard() {
   const requests: BuyRequest[] = BUY_REQUESTS;
 
+  // Nhu cầu mua cá = tính năng CẦN ĐĂNG NHẬP (user chốt 2026-06-10) —
+  // ai cần gì, giá bao nhiêu là thông tin làm ăn, dành cho khách có tài khoản.
+  return (
+    <LoginGate
+      feature="ai đang cần mua cá"
+      blurb="Đầu nậu, vựa, nhà máy cần loài gì, khối lượng và giá ra sao — đăng nhập bằng số điện thoại là xem được, gọi chào bán thẳng."
+    >
+      <BuyBoardInner requests={requests} />
+    </LoginGate>
+  );
+}
+
+function BuyBoardInner({ requests }: { requests: BuyRequest[] }) {
   return (
     <div>
       <RefNote tone="var(--t2)" bg="var(--t2-bg)">

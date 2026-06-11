@@ -392,6 +392,15 @@ export function CloseIcon(p: IconProps) {
   );
 }
 
+export function LockIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect x="5" y="10.5" width="14" height="9.5" rx="2.5" />
+      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5M12 14.5v2" />
+    </svg>
+  );
+}
+
 export function PhoneIcon(p: IconProps) {
   return (
     <svg {...base(p)}>
