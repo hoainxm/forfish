@@ -55,21 +55,17 @@ export default function LoginPage() {
       return;
     }
 
-    // 1) THỬ SSO SDWork trước: khách dùng đúng SĐT+mk SDWork, không cần đổi mk.
-    const ssoRes = await fetch("/api/auth/sso", {
+    // 1) THỬ SSO SDWork trước: khách dùng đúng SĐT+mk SDWork. Gateway verify
+    //    với CRM rồi ĐỒNG BỘ mật khẩu vào tài khoản ForFish — nên dù SSO ăn
+    //    hay không, bước 2 dưới đây đều là một đường duy nhất.
+    await fetch("/api/auth/sso", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone, password }),
+      signal: AbortSignal.timeout(25000),
     }).catch(() => null);
 
-    if (ssoRes && ssoRes.ok) {
-      const { actionLink } = (await ssoRes.json()) as { actionLink: string };
-      // action_link là magic-link → chuyển hướng để Supabase set session, về "/"
-      window.location.href = actionLink;
-      return;
-    }
-
-    // 2) Fallback: tài khoản nội bộ ForFish (đăng ký /dang-ky, mk lưu Supabase)
+    // 2) Đăng nhập bằng đường password chuẩn (khách SDWork lẫn tài khoản tự đăng ký)
     const { data, error: signInError } = await supabase!.auth.signInWithPassword(
       { email: phoneToEmail(phone), password },
     );

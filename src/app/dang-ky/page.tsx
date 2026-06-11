@@ -60,26 +60,36 @@ export default function DangKyPage() {
     }
 
     setLoading(true);
-    const { data, error: signUpError } = await supabase!.auth.signUp({
-      email: phoneToEmail(phone),
-      password,
-    });
+    // Tạo tài khoản qua auth-gateway (email ảo ĐÃ confirm sẵn — email ảo
+    // không có hòm thư thật để bấm link xác nhận).
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, password }),
+      signal: AbortSignal.timeout(25000),
+    }).catch(() => null);
 
-    if (signUpError || !data.user) {
-      // Trùng SĐT cũng trả lỗi qua đây — không lộ thông tin tài khoản đã tồn tại.
+    if (!res || !res.ok) {
+      const j = res ? await res.json().catch(() => null) : null;
       setError(
-        "Không đăng ký được. Có thể số điện thoại này đã có tài khoản — bà con thử đăng nhập.",
+        j?.code === "exists"
+          ? "Số điện thoại này đã có tài khoản — bà con bấm Đăng nhập bên dưới."
+          : "Không đăng ký được lúc này. Bà con thử lại sau ít phút.",
       );
       setLoading(false);
       return;
     }
 
-    // Một số dự án Supabase bật "Email confirmations" — khi đó session null
-    // sau signUp. Thử đăng nhập ngay để đi tiếp.
-    await supabase!.auth.signInWithPassword({
+    // Tài khoản đã sẵn sàng → vào luôn.
+    const { error: signInError } = await supabase!.auth.signInWithPassword({
       email: phoneToEmail(phone),
       password,
     });
+    if (signInError) {
+      // hiếm — tạo xong mà chưa vào được thì để bà con đăng nhập tay
+      router.replace("/login");
+      return;
+    }
     router.replace("/");
   }
 
