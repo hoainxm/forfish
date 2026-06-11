@@ -10,7 +10,7 @@
  * Trung thực dữ liệu: chỉ là GỢI Ý từ dự báo — máy không biết đảo, đá ngầm,
  * luồng lạch; copy luôn dặn dò hải đồ + nghe đài duyên hải.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Layer, Marker, Source } from "react-map-gl/maplibre";
 
 import { PORTS } from "@/data/ports";
@@ -151,9 +151,12 @@ export function RouteMapLayers({ route }: { route: PlannedRoute | null }) {
 
 export function RoutePlanner({
   dest,
+  activeRoute,
   onRoute,
 }: {
   dest: LatLon;
+  /** tuyến đang vẽ trên bản đồ (có thể tới điểm CŨ — xem ghi chú dưới) */
+  activeRoute?: PlannedRoute | null;
   onRoute: (r: PlannedRoute | null) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -167,6 +170,25 @@ export function RoutePlanner({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PlannedRoute | null>(null);
+
+  /*
+    Đổi ĐÍCH (chạm chỗ khác trên bản đồ) — hội đồng UX 2026-06-11: KHÔNG
+    remount cả panel (mất luôn tuyến vừa tính 10s không lời giải thích).
+    Chỉ dọn kết quả/lỗi của đích cũ; thông số tàu + nơi xuất phát giữ nguyên;
+    tuyến cũ vẫn vẽ trên bản đồ cho tới khi bà con tự quyết (dải nhắc dưới).
+  */
+  useEffect(() => {
+    setResult(null);
+    setError(null);
+  }, [dest.lat, dest.lon]);
+
+  // tuyến trên bản đồ đang trỏ tới điểm KHÁC chỗ đang xem?
+  const staleRoute =
+    activeRoute != null &&
+    (Math.abs(activeRoute.dest.lat - dest.lat) > 1e-6 ||
+      Math.abs(activeRoute.dest.lon - dest.lon) > 1e-6)
+      ? activeRoute
+      : null;
 
   const nearestPort = PORTS.reduce((a, b) =>
     haversineKm(b, dest) < haversineKm(a, dest) ? b : a,
@@ -251,16 +273,36 @@ export function RoutePlanner({
     onRoute(null);
   }
 
-  if (!open) {
-    return (
+  // tuyến cũ còn trên bản đồ — nói rõ + cho xóa một chạm, không tự ý vứt
+  const staleBar = staleRoute ? (
+    <div className="flex items-center justify-between gap-2 rounded-xl bg-[var(--warn-bg)] px-3 py-2">
+      <p className="min-w-0 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
+        Tuyến trên bản đồ đang dẫn tới chỗ chạm trước — tính lại bên dưới để
+        dẫn tới chỗ mới.
+      </p>
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        className="flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
+        onClick={() => onRoute(null)}
+        className="min-h-[3.25rem] shrink-0 rounded-full bg-white px-4 text-[0.9375rem] font-bold text-[var(--warn)]"
       >
-        <RouteIcon className="h-6 w-6" />
-        Dẫn đường tới chỗ này
+        Xóa tuyến
       </button>
+    </div>
+  ) : null;
+
+  if (!open) {
+    return (
+      <div className="space-y-2">
+        {staleBar}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
+        >
+          <RouteIcon className="h-6 w-6" />
+          {staleRoute ? "Dẫn đường tới chỗ mới này" : "Dẫn đường tới chỗ này"}
+        </button>
+      </div>
     );
   }
 
@@ -274,6 +316,8 @@ export function RoutePlanner({
           Dẫn đường tới chỗ này
         </h3>
       </div>
+
+      {staleBar}
 
       {!plan && (
         <>

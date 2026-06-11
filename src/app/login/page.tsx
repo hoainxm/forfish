@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
@@ -130,8 +131,21 @@ export default function LoginPage() {
           </PrimaryButton>
         </form>
         <p className="mt-4 text-[0.9375rem] leading-snug text-foreground/60">
-          Lần đầu đăng nhập, mật khẩu mặc định là <strong>123456</strong>. Vào
-          xong app sẽ nhắc bạn đổi mật khẩu mới.
+          Khách đã mua hàng SDVICO: dùng mật khẩu nhân viên báo khi mua — vào
+          xong app sẽ nhắc đổi.
+        </p>
+        {/* hết ngõ cụt: luôn có đường đăng ký + đường cứu khi quên mật khẩu */}
+        <p className="mt-3 text-[1rem] leading-snug">
+          Chưa có tài khoản?{" "}
+          <Link href="/dang-ky" className="font-bold text-sea">
+            Tạo tài khoản mới
+          </Link>
+        </p>
+        <p className="mt-1.5 text-[1rem] leading-snug">
+          Quên mật khẩu?{" "}
+          <a href="tel:1900232349" className="font-bold text-sea">
+            Gọi SDVICO 1900 23 23 49
+          </a>
         </p>
       </AuthCard>
     </div>

@@ -2,12 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  BoatDocument,
-  demoDocuments,
-  getExpiryStatus,
-} from "@/lib/documents";
-import { CrewMember, crewIssue, demoCrew } from "@/lib/crew";
+import { BoatDocument, getExpiryStatus } from "@/lib/documents";
+import { CrewMember, crewIssue } from "@/lib/crew";
 import {
   getServiceDueStatus,
   type OwnedAssets,
@@ -157,8 +153,9 @@ function sdvicoUrgent(assets: OwnedAssets, today: Date): UrgentItem[] {
 function computeUrgent(today: Date): UrgentItem[] {
   const items: UrgentItem[] = [];
 
-  // 1. Giấy tờ
-  const docs = loadStored<BoatDocument>(DOC_KEY, demoDocuments(today));
+  // 1. Giấy tờ — KHÔNG seed demo (hội đồng UX 2026-06-11): dải nhắc chỉ nói
+  // việc THẬT người dùng tự ghi; cảnh báo đỏ giả ở màn hình đầu = mất tin.
+  const docs = loadStored<BoatDocument>(DOC_KEY, []);
   for (const doc of docs) {
     const s = getExpiryStatus(doc, today);
     if (s.level === "expired" || s.level === "soon") {
@@ -191,8 +188,8 @@ function computeUrgent(today: Date): UrgentItem[] {
     }
   }
 
-  // 3. Bạn thuyền
-  const crew = loadStored<CrewMember>(CREW_KEY, demoCrew(today));
+  // 3. Bạn thuyền — không seed demo (như trên)
+  const crew = loadStored<CrewMember>(CREW_KEY, []);
   for (const m of crew) {
     const s = crewIssue(m, today);
     if (s.level === "danger" || s.level === "warn") {

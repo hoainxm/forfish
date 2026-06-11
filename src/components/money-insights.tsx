@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { TripLog } from "@/components/trip-log";
+import { useEffect, useMemo, useState } from "react";
+import {
+  loadTrips,
+  saveTrips,
+  TripLog,
+  type TripEntry,
+} from "@/components/trip-log";
 import { TripSplit } from "@/components/trip-split";
 import { Card } from "@/components/ui/primitives";
 import { ChipRow } from "@/components/ui/chip-row";
-import { tripStats, type TripStats } from "@/lib/trip-insights";
+import { tripStats } from "@/lib/trip-insights";
 import { formatVndShort } from "@/lib/format";
 
 /*
@@ -14,8 +19,6 @@ import { formatVndShort } from "@/lib/format";
   tiền dầu ăn bao nhiêu phần tiền bán. MÔ TẢ con số, không phán.
   Bên dưới là sổ lãi/lỗ + máy chia tiền (chips).
 */
-
-const TRIPS_KEY = "forfish.trips.v1";
 
 type Section = "lai-lo" | "chia";
 
@@ -26,27 +29,22 @@ const SECTIONS: { id: Section; label: string }[] = [
 
 export function MoneyInsights() {
   const [section, setSection] = useState<Section>("lai-lo");
-  const [stats, setStats] = useState<TripStats | null>(null);
+  // CHỦ SỔ duy nhất (hội đồng UX 2026-06-11): trips sống ở đây, TripLog là
+  // controlled — ghi/sửa/xóa chuyến là thẻ "Nhìn nhanh" cập nhật TỨC THÌ.
+  const [trips, setTrips] = useState<TripEntry[]>([]);
+  const [ready, setReady] = useState(false);
 
-  // đọc cùng sổ với trip-log (hydrate sau mount, tránh lệch SSR)
+  // hydrate sau mount (tránh lệch SSR)
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(TRIPS_KEY);
-      if (raw) {
-        setStats(
-          tripStats(
-            JSON.parse(raw) as {
-              revenueVnd: number;
-              fuelVnd: number;
-              otherVnd: number;
-            }[],
-          ),
-        );
-      }
-    } catch {
-      // sổ hỏng — không hiện thẻ phân tích
-    }
+    setTrips(loadTrips());
+    setReady(true);
   }, []);
+
+  useEffect(() => {
+    if (ready) saveTrips(trips);
+  }, [trips, ready]);
+
+  const stats = useMemo(() => tripStats(trips), [trips]);
 
   return (
     <div>
@@ -109,7 +107,9 @@ export function MoneyInsights() {
         ariaLabel="Mục hiệu quả"
       />
 
-      {section === "lai-lo" && <TripLog />}
+      {section === "lai-lo" && ready && (
+        <TripLog trips={trips} onChange={setTrips} />
+      )}
       {section === "chia" && (
         <div>
           <p className="mb-2 px-4 text-[0.9375rem] leading-snug text-foreground/70">

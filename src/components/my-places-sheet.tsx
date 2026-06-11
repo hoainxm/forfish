@@ -44,6 +44,8 @@ export function MyPlacesSheet({
 }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  // xác nhận xóa NGAY TRONG HÀNG (hội đồng UX 2026-06-11) — không xóa 1 chạm
+  const [confirmId, setConfirmId] = useState<string | null>(null);
   const [portQuery, setPortQuery] = useState("");
   const [portOpen, setPortOpen] = useState(false);
 
@@ -107,6 +109,29 @@ export function MyPlacesSheet({
                       Lưu
                     </button>
                   </div>
+                ) : confirmId === p.id ? (
+                  <div className="flex items-center gap-2 p-3">
+                    <p className="min-w-0 flex-1 text-[1rem] font-bold text-navy">
+                      Xóa “{p.name}”?
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onPlaces(removePlace(places, p.id));
+                        setConfirmId(null);
+                      }}
+                      className="min-h-[3.25rem] shrink-0 rounded-full bg-danger px-4 text-[0.9375rem] font-bold text-white"
+                    >
+                      Xóa hẳn
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmId(null)}
+                      className="min-h-[3.25rem] shrink-0 rounded-full bg-field px-4 text-[0.9375rem] font-bold text-foreground/70"
+                    >
+                      Thôi
+                    </button>
+                  </div>
                 ) : (
                   <div className="flex items-center">
                     <button
@@ -137,15 +162,18 @@ export function MyPlacesSheet({
                         </span>
                       </span>
                     </button>
-                    <div className="flex shrink-0 items-center gap-1 pr-2">
+                    {/* nút icon kèm CHỮ, cao ≥3.5rem — tay ướt mắt kém bấm trúng */}
+                    <div className="flex shrink-0 items-center pr-1">
                       {!isHome && (
                         <button
                           type="button"
                           onClick={() => onPlaces(makeHome(places, p.id))}
-                          aria-label="Đặt làm cảng nhà"
-                          className="flex h-11 w-11 items-center justify-center rounded-lg text-foreground/45 active:bg-field"
+                          className="flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-foreground/55 active:bg-field"
                         >
                           <AnchorIcon className="h-5 w-5" />
+                          <span className="text-[0.75rem] font-bold">
+                            Cảng nhà
+                          </span>
                         </button>
                       )}
                       <button
@@ -154,18 +182,18 @@ export function MyPlacesSheet({
                           setEditId(p.id);
                           setEditName(p.name);
                         }}
-                        aria-label="Đổi tên"
-                        className="flex h-11 w-11 items-center justify-center rounded-lg text-foreground/45 active:bg-field"
+                        className="flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-foreground/55 active:bg-field"
                       >
                         <EditIcon className="h-5 w-5" />
+                        <span className="text-[0.75rem] font-bold">Đổi tên</span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => onPlaces(removePlace(places, p.id))}
-                        aria-label="Xoá điểm"
-                        className="flex h-11 w-11 items-center justify-center rounded-lg text-danger active:bg-field"
+                        onClick={() => setConfirmId(p.id)}
+                        className="flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-danger active:bg-field"
                       >
                         <TrashIcon className="h-5 w-5" />
+                        <span className="text-[0.75rem] font-bold">Xóa</span>
                       </button>
                     </div>
                   </div>

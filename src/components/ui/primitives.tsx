@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { formatDigits, parseDigits, readbackVnd } from "@/lib/format";
 
 /*
   Primitives dùng chung — chốt chuẩn các atom hay bị copy-paste lệch nhau
@@ -79,6 +80,41 @@ export function PrimaryButton({
     >
       {children}
     </button>
+  );
+}
+
+/** Ô nhập TIỀN dùng chung (hội đồng UX 2026-06-11): chấm nghìn khi gõ,
+ *  cap 12 số, và dòng đọc-lại "= 45 triệu đồng" khi ≥1 triệu — chống lỗi
+ *  thừa/thiếu một số 0. State giữ CHUỖI SỐ THÔ qua digits/onDigits. */
+export function MoneyField({
+  label,
+  digits,
+  onDigits,
+  placeholder,
+}: {
+  label: string;
+  /** chuỗi số thô, vd "45000000" */
+  digits: string;
+  onDigits: (digits: string) => void;
+  placeholder?: string;
+}) {
+  const value = Number(digits || 0);
+  const readback = readbackVnd(value);
+  return (
+    <Field label={label}>
+      <input
+        inputMode="numeric"
+        value={formatDigits(digits)}
+        onChange={(e) => onDigits(parseDigits(e.target.value))}
+        className={inputClass}
+        placeholder={placeholder}
+      />
+      {readback && (
+        <span className="mt-1 block text-[1rem] font-bold text-navy">
+          = {readback}
+        </span>
+      )}
+    </Field>
   );
 }
 

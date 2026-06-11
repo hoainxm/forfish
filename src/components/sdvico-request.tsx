@@ -120,8 +120,19 @@ function RequestForm({
     return local.replace(/(\d{4})(\d{3})(\d{0,3})/, "$1 $2 $3").trim();
   }
 
+  const [errText, setErrText] = useState<string | null>(null);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    // Chặn cứng ở logic (hội đồng UX 2026-06-11): ô SĐT chỉ render sau khi
+    // check đăng nhập xong — `required` của DOM không bảo vệ được lúc chưa
+    // render → không bao giờ để yêu cầu bay đi mà CSKH không có số gọi lại.
+    if (!signedPhone && phone.replace(/\D/g, "").length < 9) {
+      setErrText("Bà con nhập số điện thoại để SDVICO gọi lại nhé.");
+      setState("error");
+      return;
+    }
+    setErrText(null);
     setState("sending");
     try {
       const r = await fetch("/api/sdvico/request", {
@@ -188,16 +199,26 @@ function RequestForm({
         {/* Đã đăng nhập = biết tên + SĐT rồi, KHÔNG hỏi lại — chỉ khách lạ
             mới phải để lại số */}
         {checked && !signedPhone && (
-          <Field label="Số điện thoại (bắt buộc — để SDVICO gọi lại)">
-            <input
-              value={phone}
-              onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
-              className={inputClass}
-              inputMode="tel"
-              placeholder="VD: 0901234567"
-              required
-            />
-          </Field>
+          <>
+            <Field label="Số điện thoại (bắt buộc — để SDVICO gọi lại)">
+              <input
+                value={phone}
+                onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
+                className={inputClass}
+                inputMode="tel"
+                placeholder="VD: 0901234567"
+                required
+              />
+            </Field>
+            <Field label="Tên bà con (để nhân viên xưng hô)">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={inputClass}
+                placeholder="VD: anh Hai"
+              />
+            </Field>
+          </>
         )}
 
         <Field label="Dặn thêm (nếu có)">
@@ -223,8 +244,8 @@ function RequestForm({
             className="mb-3 rounded-2xl px-3.5 py-3 text-[1rem] font-semibold"
             style={{ color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
           >
-            Chưa gửi được — kiểm tra số điện thoại rồi thử lại, hoặc gọi thẳng
-            đại lý SDVICO gần nhất.
+            {errText ??
+              "Chưa gửi được — kiểm tra số điện thoại rồi thử lại, hoặc gọi thẳng đại lý SDVICO gần nhất."}
           </p>
         )}
 
@@ -236,7 +257,8 @@ function RequestForm({
           >
             Hủy
           </button>
-          <PrimaryButton type="submit" disabled={state === "sending"}>
+          {/* chưa check xong đăng nhập thì chưa cho gửi — tránh gửi thiếu số */}
+          <PrimaryButton type="submit" disabled={state === "sending" || !checked}>
             {state === "sending" ? "Đang gửi…" : "Gửi yêu cầu"}
           </PrimaryButton>
         </div>

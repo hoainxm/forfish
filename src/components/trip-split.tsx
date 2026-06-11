@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { splitTrip } from "@/lib/crew";
 import { useCrew } from "@/components/crew-list";
-import { PriceIcon } from "@/components/icons";
-import { parseVnd } from "@/lib/format";
+import { PriceIcon, UsersIcon } from "@/components/icons";
+import { EmptyState, MoneyField } from "@/components/ui/primitives";
 
 /*
   Máy tính chia tiền chuyến — số hóa phép tính "trừ tổn chia đôi" mà
@@ -14,50 +15,58 @@ import { parseVnd } from "@/lib/format";
 */
 
 export function TripSplit() {
-  const { crew } = useCrew();
+  // Sổ mẫu (isDemo) coi như chưa có ai — không chia tiền cho người mẫu.
+  const { crew: storedCrew, isDemo } = useCrew();
+  const crew = isDemo ? [] : storedCrew;
   const [revenue, setRevenue] = useState("");
   const [cost, setCost] = useState("");
   const [ownerPercent, setOwnerPercent] = useState(50);
 
-  const revenueVnd = parseVnd(revenue);
-  const costVnd = parseVnd(cost);
+  const revenueVnd = Number(revenue || 0);
+  const costVnd = Number(cost || 0);
   const canCalc = revenueVnd > 0 && crew.length > 0;
 
   const result = canCalc
     ? splitTrip({ revenueVnd, commonCostVnd: costVnd, ownerPercent }, crew)
     : null;
 
-  const inputCls =
-    "w-full rounded-2xl border-0 bg-field px-4 py-3.5 text-[1.1875rem] font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea";
+  // Chưa có bạn thuyền thì chia cho AI? — ẩn cả form, chỉ đường sang sổ
+  // bạn thuyền (hội đồng UX 2026-06-11: dead-end "thêm ở trên" trỏ sai chỗ).
+  if (crew.length === 0) {
+    return (
+      <div className="px-4">
+        <EmptyState icon={<UsersIcon className="h-10 w-10" />}>
+          Chưa có bạn thuyền trong danh sách.
+          <br />
+          Thêm ở mục Bạn thuyền rồi quay lại đây chia.
+        </EmptyState>
+        <Link
+          href="/nguoi"
+          className="display mt-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+        >
+          <UsersIcon className="h-6 w-6" />
+          Mở sổ bạn thuyền
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4">
       <div className="surface p-4">
-        <label className="mb-3.5 block">
-          <span className="mb-1.5 block text-[1rem] font-bold text-navy">
-            Tiền bán cá cả chuyến
-          </span>
-          <input
-            value={revenueVnd ? revenueVnd.toLocaleString("vi-VN") : revenue}
-            onChange={(e) => setRevenue(e.target.value)}
-            className={inputCls}
-            inputMode="numeric"
-            placeholder="VD: 200.000.000"
-          />
-        </label>
+        <MoneyField
+          label="Tiền bán cá cả chuyến"
+          digits={revenue}
+          onDigits={setRevenue}
+          placeholder="VD: 200.000.000"
+        />
 
-        <label className="mb-3.5 block">
-          <span className="mb-1.5 block text-[1rem] font-bold text-navy">
-            Tổn chung (dầu, đá, lương thực…)
-          </span>
-          <input
-            value={costVnd ? costVnd.toLocaleString("vi-VN") : cost}
-            onChange={(e) => setCost(e.target.value)}
-            className={inputCls}
-            inputMode="numeric"
-            placeholder="VD: 100.000.000"
-          />
-        </label>
+        <MoneyField
+          label="Tổn chung (dầu, đá, lương thực…)"
+          digits={cost}
+          onDigits={setCost}
+          placeholder="VD: 100.000.000"
+        />
 
         <span className="mb-1.5 block text-[1rem] font-bold text-navy">
           Chủ tàu hưởng bao nhiêu phần còn lại?
@@ -80,12 +89,6 @@ export function TripSplit() {
         </div>
       </div>
 
-      {crew.length === 0 && (
-        <p className="mt-3 rounded-xl bg-warn-bg px-3 py-2.5 text-[0.9375rem] font-semibold text-warn">
-          Thêm bạn thuyền ở trên trước, rồi quay lại đây chia tiền.
-        </p>
-      )}
-
       {result && (
         <div className="mt-4 overflow-hidden surface">
           <div className="border-b border-line bg-background px-4 py-3">
@@ -100,7 +103,7 @@ export function TripSplit() {
             />
           </div>
           <ul>
-            {result.perMember.map(({ member, grossVnd, advanceVnd, finalVnd }) => (
+            {result.perMember.map(({ member, advanceVnd, finalVnd }) => (
               <li
                 key={member.id}
                 className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0"
@@ -120,17 +123,21 @@ export function TripSplit() {
                     finalVnd >= 0 ? "text-ok" : "text-danger"
                   }`}
                 >
-                  {finalVnd >= grossVnd ? "" : ""}
                   {finalVnd.toLocaleString("vi-VN")} đ
                 </span>
               </li>
             ))}
           </ul>
-          <p className="flex items-center gap-2 bg-t2-bg px-4 py-2.5 text-[0.875rem] font-semibold text-t2">
+          <Link
+            href="/nguoi"
+            className="flex min-h-[3.25rem] items-center gap-2 bg-t2-bg px-4 py-2.5 text-[0.875rem] font-semibold text-t2 transition active:bg-t2-bg/70"
+          >
             <PriceIcon className="h-4 w-4 shrink-0" />
-            Phần thực nhận đã trừ tiền ứng chưa trả. Bấm “Đã trừ xong” ở thẻ
-            từng người sau khi chia.
-          </p>
+            <span>
+              Phần thực nhận đã trừ tiền ứng chưa trả. Chia xong, sang sổ bạn
+              thuyền bấm <strong>“Đã trừ xong”</strong> ở thẻ từng người →
+            </span>
+          </Link>
         </div>
       )}
     </div>

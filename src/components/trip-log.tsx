@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   CalendarIcon,
   EditIcon,
@@ -9,7 +9,12 @@ import {
 } from "@/components/icons";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+import {
+  Field,
+  inputClass,
+  MoneyField,
+  PrimaryButton,
+} from "@/components/ui/primitives";
 import { formatVnd, formatVnDate } from "@/lib/format";
 
 /*
@@ -35,7 +40,8 @@ function tripProfit(t: TripEntry): number {
   return t.revenueVnd - t.fuelVnd - t.otherVnd;
 }
 
-function loadTrips(): TripEntry[] {
+// export cho money-insights (chủ sổ duy nhất — hội đồng UX 2026-06-11)
+export function loadTrips(): TripEntry[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -46,7 +52,7 @@ function loadTrips(): TripEntry[] {
   return [];
 }
 
-function saveTrips(trips: TripEntry[]) {
+export function saveTrips(trips: TripEntry[]) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(trips));
   } catch {
@@ -66,22 +72,22 @@ function todayIso(): string {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
-export function TripLog() {
-  const [trips, setTrips] = useState<TripEntry[]>([]);
-  const [ready, setReady] = useState(false);
+/*
+  CONTROLLED (hội đồng UX 2026-06-11): trips + onChange do money-insights
+  cầm — một nguồn sự thật, thẻ "Nhìn nhanh" phía trên cập nhật TỨC THÌ khi
+  ghi/sửa/xóa chuyến ở đây.
+*/
+export function TripLog({
+  trips,
+  onChange,
+}: {
+  trips: TripEntry[];
+  onChange: (next: TripEntry[]) => void;
+}) {
+  const ready = true; // parent chỉ render sau khi hydrate xong
   const [editing, setEditing] = useState<TripEntry | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<TripEntry | null>(null);
-
-  // Hydrate from localStorage on mount (avoids SSR/CSR mismatch).
-  useEffect(() => {
-    setTrips(loadTrips());
-    setReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (ready) saveTrips(trips);
-  }, [trips, ready]);
 
   const sorted = useMemo(
     () =>
@@ -101,19 +107,18 @@ export function TripLog() {
   );
 
   function upsert(trip: TripEntry) {
-    setTrips((prev) => {
-      const idx = prev.findIndex((t) => t.id === trip.id);
-      if (idx === -1) return [...prev, trip];
-      const next = [...prev];
-      next[idx] = trip;
-      return next;
-    });
+    const idx = trips.findIndex((t) => t.id === trip.id);
+    onChange(
+      idx === -1
+        ? [...trips, trip]
+        : trips.map((t) => (t.id === trip.id ? trip : t)),
+    );
     setShowForm(false);
     setEditing(null);
   }
 
   function remove(id: string) {
-    setTrips((prev) => prev.filter((t) => t.id !== id));
+    onChange(trips.filter((t) => t.id !== id));
     setConfirmDelete(null);
   }
 
@@ -262,16 +267,6 @@ export function TripLog() {
 
 /* ---------- form ---------- */
 
-// "12500000" -> "12.500.000" while typing; empty stays empty.
-function formatDigits(digits: string): string {
-  if (!digits) return "";
-  return Number(digits).toLocaleString("vi-VN");
-}
-
-function parseDigits(raw: string): string {
-  return raw.replace(/[^\d]/g, "").slice(0, 12);
-}
-
 function TripForm({
   initial,
   onCancel,
@@ -331,35 +326,26 @@ function TripForm({
           />
         </Field>
 
-        <Field label="Tiền bán cá (đồng)">
-          <input
-            inputMode="numeric"
-            value={formatDigits(revenue)}
-            onChange={(e) => setRevenue(parseDigits(e.target.value))}
-            className={inputClass}
-            placeholder="VD: 45.000.000"
-          />
-        </Field>
+        <MoneyField
+          label="Tiền bán cá (đồng)"
+          digits={revenue}
+          onDigits={setRevenue}
+          placeholder="VD: 45.000.000"
+        />
 
-        <Field label="Tiền dầu (đồng)">
-          <input
-            inputMode="numeric"
-            value={formatDigits(fuel)}
-            onChange={(e) => setFuel(parseDigits(e.target.value))}
-            className={inputClass}
-            placeholder="VD: 20.000.000"
-          />
-        </Field>
+        <MoneyField
+          label="Tiền dầu (đồng)"
+          digits={fuel}
+          onDigits={setFuel}
+          placeholder="VD: 20.000.000"
+        />
 
-        <Field label="Chi phí khác — đá, mồi, công (đồng)">
-          <input
-            inputMode="numeric"
-            value={formatDigits(other)}
-            onChange={(e) => setOther(parseDigits(e.target.value))}
-            className={inputClass}
-            placeholder="VD: 8.000.000"
-          />
-        </Field>
+        <MoneyField
+          label="Chi phí khác — đá, mồi, công (đồng)"
+          digits={other}
+          onDigits={setOther}
+          placeholder="VD: 8.000.000"
+        />
 
         <Field label="Ghi chú thêm">
           <textarea

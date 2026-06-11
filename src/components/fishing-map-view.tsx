@@ -502,15 +502,15 @@ export default function FishingMapView() {
     });
   }, []);
 
-  /** Mở một điểm đã lưu / GPS / cảng tìm được — bay tới + xem dự báo */
+  /** Mở một điểm đã lưu / GPS / cảng tìm được — bay tới + xem dự báo.
+      Tuyến đang vẽ giữ nguyên (như chạm bản đồ) — RoutePlanner tự nhắc. */
   const goToCoord = useCallback(
     (lat: number, lon: number, zoom = 7) => {
       setPoint({ lat, lon });
       setDayIdx(0);
-      setRoute(null);
       flyToPoint(lon, lat, zoom);
     },
-    [flyToPoint, setPoint, setDayIdx, setRoute],
+    [flyToPoint, setPoint, setDayIdx],
   );
 
   /** "Về cảng nhà" — chỉ có nghĩa khi đã đặt cảng nhà */
@@ -717,10 +717,11 @@ export default function FishingMapView() {
         ]}
         style={{ width: "100%", height: "100%" }}
         onClick={(e) => {
-          // đổi điểm xem → tuyến cũ không còn đúng đích, ngày xem về hôm nay
+          // đổi điểm xem — tuyến cũ GIỮ NGUYÊN trên bản đồ (hội đồng UX
+          // 2026-06-11: tuyến tính mất 10s, không tự ý vứt vì một cú chạm
+          // nhầm; RoutePlanner sẽ nhắc "tuyến đang tới chỗ cũ" + cho xóa)
           const lat = Math.round(e.lngLat.lat * 1000) / 1000;
           const lon = Math.round(e.lngLat.lng * 1000) / 1000;
-          setRoute(null);
           setDayIdx(0);
           setGeoError(false);
           setPinning(false);
@@ -1099,27 +1100,44 @@ export default function FishingMapView() {
         {/* nút "Cá" GỌN — thay hàng chip ngang (chắn bản đồ). Chỉ rộng bằng nội
             dung, chạm là mở bảng chọn loài. Hiện loài đang chọn + chấm màu. */}
         {fishOn && fishCast && fishCast.species.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setSpeciesSheetOpen(true)}
-            aria-label="Chọn loài cá xem trên bản đồ"
-            className="pointer-events-auto inline-flex max-w-[80%] items-center gap-2 self-start rounded-full bg-card/95 px-3 py-2 shadow-md transition active:scale-95"
-          >
-            <FishIcon className="h-5 w-5 shrink-0 text-t3" aria-hidden />
-            <span
-              className="h-3 w-3 shrink-0 rounded-full"
-              style={{
-                background: activeFishColor ?? "#2d8659",
-              }}
-              aria-hidden
-            />
-            <span className="truncate text-[0.875rem] font-bold text-navy">
-              {fishSpecies
-                ? (SPECIES_META[fishSpecies]?.full ?? fishSpecies)
-                : "Mọi loài cá"}
+          <div className="flex max-w-[80%] flex-col gap-1 self-start">
+            <button
+              type="button"
+              onClick={() => setSpeciesSheetOpen(true)}
+              aria-label="Chọn loài cá xem trên bản đồ"
+              className="pointer-events-auto inline-flex items-center gap-2 self-start rounded-full bg-card/95 px-3 py-2 shadow-md transition active:scale-95"
+            >
+              <FishIcon className="h-5 w-5 shrink-0 text-t3" aria-hidden />
+              <span
+                className="h-3 w-3 shrink-0 rounded-full"
+                style={{
+                  background: activeFishColor ?? "#2d8659",
+                }}
+                aria-hidden
+              />
+              <span className="truncate text-[0.875rem] font-bold text-navy">
+                {fishSpecies
+                  ? (SPECIES_META[fishSpecies]?.full ?? fishSpecies)
+                  : "Mọi loài cá"}
+              </span>
+              <ChevronDownIcon className="h-4 w-4 shrink-0 text-navy/55" />
+            </button>
+            {/* chú giải mini màu vùng cá — cùng pattern legend nền (hội đồng
+                UX 2026-06-11: màu đứng một mình trên bản đồ thì phải có lời) */}
+            <span className="pointer-events-none block w-44 rounded-xl bg-card/95 px-2.5 py-1.5 shadow-md">
+              <span
+                className="block h-1.5 w-full rounded-full"
+                style={{
+                  background: `linear-gradient(to right, ${activeFishColor ?? "#2d8659"}26, ${activeFishColor ?? "#2d8659"})`,
+                }}
+                aria-hidden
+              />
+              <span className="flex justify-between gap-2 text-[0.625rem] font-semibold leading-tight text-foreground/55">
+                <span>ít khả năng có cá</span>
+                <span>nhiều</span>
+              </span>
             </span>
-            <ChevronDownIcon className="h-4 w-4 shrink-0 text-navy/55" />
-          </button>
+          </div>
         )}
 
       </div>
@@ -1435,10 +1453,11 @@ export default function FishingMapView() {
               )}
 
               {/* dẫn đường tiết kiệm dầu — hành động chính, để cao cho khỏi
-                  cuộn mới thấy (audit flow #10); key remount khi đổi đích */}
+                  cuộn mới thấy (audit flow #10); đổi đích KHÔNG remount —
+                  panel tự dọn kết quả cũ, giữ thông số tàu */}
               <RoutePlanner
-                key={`${cond.point.lat},${cond.point.lon}`}
                 dest={cond.point}
+                activeRoute={route}
                 onRoute={handleRoute}
               />
 

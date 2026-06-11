@@ -133,12 +133,15 @@ Khi `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` chưa set:
 
 → Mọi feature mới đụng dữ liệu phải giữ pattern này: chạy được không cần Supabase, degrade gracefully.
 
+**Seed mẫu phải tự xưng là mẫu (hội đồng UX 2026-06-11)**: dữ liệu demo chỉ sống trong bộ nhớ — KHÔNG ghi xuống localStorage, KHÔNG được lọt vào dải nhắc "việc cần làm ngay" (`urgent-strip.tsx` load với seed rỗng). `crew-list.tsx` là mẫu chuẩn: `loadCrew()` trả `{crew, isDemo}`, banner neutral "Đây là sổ mẫu…" + nút "Xóa sổ mẫu, ghi sổ của tôi", thêm người thật đầu tiên là seed tự thay; `trip-split.tsx` coi sổ mẫu là rỗng.
+
 ## 5. Quy ước component
 
 - Client component chỉ khi cần (`"use client"` khi có state/localStorage/fetch)
 - CRUD cục bộ theo pattern `document-vault.tsx`: hydrate sau mount, bottom-sheet form, confirm xóa
 - UI tuân thủ [03-design-system.md](03-design-system.md) (font ≥18px, tap ≥56px)
 - **Mọi fetch nguồn ngoài phải có `AbortSignal.timeout(15000)`** (2026-06-10): mạng ngoài khơi chập chờn — thà báo lỗi rõ còn hơn treo UI chờ browser timeout. Áp dụng: Open-Meteo (sea/marine-weather/route-weather/forecast-grid), GDACS (`/api/storms`, server 15s + client 20s), Overpass (25s vì nguồn chậm). Lỗi tải phải có đường THỬ LẠI (vd lưới dự báo: nút "Thử lại" + bật lại lớp tự thử lại) — không có thất bại câm, không có "Đang tải" treo vô hạn.
+- **Công sức người dùng là dữ liệu quý — không tự vứt** (hội đồng UX 2026-06-11): kết quả tốn công tạo (tuyến dẫn đường ~10s tính) KHÔNG bị xóa ngầm vì một cú chạm; đổi đích thì `route-planner.tsx` giữ tuyến cũ trên bản đồ + dải nhắc "tuyến đang tới chỗ chạm trước" với nút Xóa tuyến (KHÔNG key-remount panel — chỉ dọn kết quả của đích cũ qua `useEffect`). Cùng tinh thần: sổ lãi/lỗ — state `trips` sống ở `money-insights.tsx` (một nguồn sự thật), `trip-log.tsx` là controlled component, thẻ "Nhìn nhanh" cập nhật tức thì.
 
 ## 6. Cross-references
 

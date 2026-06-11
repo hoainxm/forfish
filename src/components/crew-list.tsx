@@ -37,15 +37,21 @@ type StoredCrew = CrewMember & { boatId?: string };
 
 const STORAGE_KEY = "forfish.crew.v1";
 
-function loadCrew(today: Date): StoredCrew[] {
-  if (typeof window === "undefined") return [];
+/*
+  Sổ MẪU tự xưng là mẫu (hội đồng UX 2026-06-11): lần đầu mở vẫn thấy ví dụ
+  cho dễ hình dung, nhưng (1) app biết rõ đây là demo, (2) KHÔNG ghi demo
+  xuống localStorage — dải "việc cần làm ngay" ngoài trang chủ không bao giờ
+  báo đỏ vì người mẫu, (3) thêm người thật đầu tiên là sổ mẫu tự biến mất.
+*/
+function loadCrew(today: Date): { crew: StoredCrew[]; isDemo: boolean } {
+  if (typeof window === "undefined") return { crew: [], isDemo: false };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as StoredCrew[];
+    if (raw) return { crew: JSON.parse(raw) as StoredCrew[], isDemo: false };
   } catch {
     // hỏng storage — rơi xuống seed demo
   }
-  return demoCrew(today);
+  return { crew: demoCrew(today), isDemo: true };
 }
 
 function saveCrew(crew: StoredCrew[]) {
@@ -59,22 +65,32 @@ function saveCrew(crew: StoredCrew[]) {
 export function useCrew() {
   const today = useMemo(() => new Date(), []);
   const [crew, setCrew] = useState<StoredCrew[]>([]);
+  const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setCrew(loadCrew(today));
+    const loaded = loadCrew(today);
+    setCrew(loaded.crew);
+    setIsDemo(loaded.isDemo);
     setReady(true);
   }, [today]);
 
+  // Sổ mẫu sống trong bộ nhớ thôi — chỉ sổ THẬT mới được ghi xuống máy.
   useEffect(() => {
-    if (ready) saveCrew(crew);
-  }, [crew, ready]);
+    if (ready && !isDemo) saveCrew(crew);
+  }, [crew, ready, isDemo]);
 
-  return { today, crew, setCrew, ready };
+  /** Bỏ sổ mẫu, bắt đầu sổ thật (rỗng hoặc với người đầu tiên). */
+  function startRealCrew(next: StoredCrew[]) {
+    setIsDemo(false);
+    setCrew(next);
+  }
+
+  return { today, crew, setCrew, ready, isDemo, startRealCrew };
 }
 
 export function CrewList() {
-  const { today, crew, setCrew, ready } = useCrew();
+  const { today, crew, setCrew, ready, isDemo, startRealCrew } = useCrew();
   const { current, ready: boatReady } = useBoats();
   const [editing, setEditing] = useState<StoredCrew | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -94,6 +110,13 @@ export function CrewList() {
 
   function upsert(m: StoredCrew) {
     const withBoat: StoredCrew = { ...m, boatId: current?.id };
+    // Thêm người THẬT đầu tiên = sổ mẫu nhường chỗ luôn, không lẫn lộn.
+    if (isDemo) {
+      startRealCrew([withBoat]);
+      setShowForm(false);
+      setEditing(null);
+      return;
+    }
     setCrew((prev) => {
       const idx = prev.findIndex((x) => x.id === withBoat.id);
       if (idx === -1) return [...prev, withBoat];
@@ -177,6 +200,20 @@ export function CrewList() {
         <PlusIcon className="h-6 w-6" />
         Thêm bạn thuyền
       </button>
+
+      {ready && isDemo && (
+        <div className="mb-4 overflow-hidden surface">
+          <StatusBanner level="neutral" icon={<UsersIcon className="h-5 w-5" />}>
+            Đây là sổ mẫu cho bà con xem thử — chưa lưu vào máy.
+          </StatusBanner>
+          <button
+            onClick={() => startRealCrew([])}
+            className="flex min-h-[3.25rem] w-full items-center justify-center border-t border-line text-[1.0625rem] font-bold text-sea active:bg-background"
+          >
+            Xóa sổ mẫu, ghi sổ của tôi
+          </button>
+        </div>
+      )}
 
       {ready && boatReady && boatCrew.length === 0 && (
         <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
