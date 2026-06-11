@@ -57,7 +57,11 @@ export function HeroAccount() {
     } catch {
       // không lưu được thì vẫn đổi cho phiên này
     }
+    // Cố ý mutate DOM toàn cục: data-mode trên <html> điều khiển cỡ giao diện
+    // qua CSS (globals.css), nằm ngoài cây React nên không thể làm bất biến.
+    // eslint-disable-next-line react-hooks/immutability
     if (next === "auto") delete document.documentElement.dataset.mode;
+    // eslint-disable-next-line react-hooks/immutability
     else document.documentElement.dataset.mode = next;
   }
 

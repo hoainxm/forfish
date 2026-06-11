@@ -129,7 +129,7 @@ Khi `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` chưa set:
 
 1. `src/lib/supabase/client.ts` và `server.ts` đều **trả về `null`** (không throw)
 2. App fallback về **demo mode**: `document-vault.tsx` lưu dữ liệu vào localStorage key **`forfish.documents.v1`**, seed bằng `demoDocuments()` để app không bao giờ trống
-3. Vault **hydrate từ localStorage trong `useEffect` sau mount** — tránh SSR/CSR mismatch. KHÔNG đọc localStorage lúc render đầu.
+3. Vault **hydrate từ localStorage trong `useEffect` sau mount** — tránh SSR/CSR mismatch. KHÔNG đọc localStorage lúc render đầu. Rule `react-hooks/set-state-in-effect` flag pattern này nên đã tắt trong `eslint.config.mjs` kèm comment (2026-06-11) — pattern là cố ý, giữ nguyên.
 
 → Mọi feature mới đụng dữ liệu phải giữ pattern này: chạy được không cần Supabase, degrade gracefully.
 

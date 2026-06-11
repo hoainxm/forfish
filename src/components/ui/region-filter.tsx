@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { useBoats } from "@/components/boat-switcher";
 import { HomePref, relevanceRank } from "@/lib/region";
 
@@ -60,8 +59,8 @@ export function HomeBar({
     return (
       <div className="mb-3 surface p-3">
         <p className="text-[0.875rem] text-foreground/65 leading-snug">
-          Khai báo <strong>tỉnh cảng nhà</strong> trong thẻ "Tàu của tôi" ở
-          trên để app chỉ hiện nơi gần.
+          Khai báo <strong>tỉnh cảng nhà</strong> trong thẻ &quot;Tàu của
+          tôi&quot; ở trên để app chỉ hiện nơi gần.
         </p>
         <Link
           href="/tau"
