@@ -59,6 +59,8 @@ import {
   type FishCell,
 } from "@/lib/fish-predict";
 import { moonPhase } from "@/lib/moon";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { useAuthUser } from "@/lib/use-auth";
 import {
   fetchSeaScalar,
   SEA_SCALARS,
@@ -298,10 +300,23 @@ export default function FishingMapView() {
   }, [activeScalar]);
 
   // ── DỰ BÁO CÁ (PFZ) — tính từ ảnh vệ tinh mới nhất, tải 1 lần ───────────
+  // Phân quyền (user chốt): dự báo cá CẦN ĐĂNG NHẬP. Gate ở CLIENT theo trạng
+  // thái đăng nhập thật (hook chung `useAuthUser`) → nhất quán local +
+  // production (API lúc chặn lúc không do env server). Demo mode (chưa cấu hình
+  // Supabase) = công khai. authed: null = đang kiểm tra; true = xem được;
+  // false = cần đăng nhập.
+  const { user, ready: authReady } = useAuthUser();
+  const authed: boolean | null = !isSupabaseConfigured()
+    ? true
+    : authReady
+      ? !!user
+      : null;
+
   const [fishCast, setFishCast] = useState<FishForecast | null>(null);
   // loài đang lọc trên bản đồ (null = loài tốt nhất mỗi ô)
   const [fishSpecies, setFishSpecies] = useState<string | null>(null);
   useEffect(() => {
+    if (authed !== true) return; // chỉ tải khi được phép xem
     let alive = true;
     fetchFishForecast().then((r) => {
       if (alive && r.ok) setFishCast(r);
@@ -309,7 +324,7 @@ export default function FishingMapView() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [authed]);
   const [layerSheetOpen, setLayerSheetOpen] = useState(false);
   const [size, setSize] = useState<SheetSize>("peek");
 
@@ -1110,6 +1125,23 @@ export default function FishingMapView() {
             </span>
             <ChevronDownIcon className="h-4 w-4 shrink-0 text-navy/55" />
           </button>
+        )}
+
+        {/* CHƯA ĐĂNG NHẬP → mời đăng nhập để xem dự báo cá (không im lặng) */}
+        {fishOn && authed === false && (
+          <div className="pointer-events-auto flex max-w-[92%] items-center gap-3 self-start rounded-xl bg-card/95 px-3 py-2.5 shadow-md">
+            <FishIcon className="h-6 w-6 shrink-0 text-t3" aria-hidden />
+            <span className="text-[14px] font-semibold leading-snug text-navy">
+              Đăng nhập để xem <b>dự báo cá</b> (chỗ nào nhiều cá theo ảnh vệ
+              tinh).
+            </span>
+            <a
+              href="/login"
+              className="ml-auto shrink-0 rounded-full bg-t1 px-4 py-2 text-[14px] font-bold text-white active:scale-95"
+            >
+              Đăng nhập
+            </a>
+          </div>
         )}
       </div>
 

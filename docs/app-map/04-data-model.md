@@ -119,7 +119,7 @@ App yêu cầu đăng nhập (tài khoản đồng bộ SDWork) cho tính năng 
 
 | Tính năng | Quyền | Chặn ở đâu |
 |---|---|---|
-| **Dự báo cá (PFZ)** | 🔒 đăng nhập | `GET /api/fish-forecast` kiểm session → 401 `auth_required` (client lùi về lớp mùa vụ public). Khóa API = không lách được; UI mời đăng nhập trên bản đồ bổ sung khi map WIP land |
+| **Dự báo cá (PFZ)** | 🔒 đăng nhập | `GET /api/fish-forecast` kiểm session → 401 `auth_required`. **Client gate (2026-06-11)**: `fishing-map-view` dùng `useAuthUser` + `isSupabaseConfigured` → chỉ tải/hiện lớp cá khi đăng nhập; chưa đăng nhập hiện thẻ "Đăng nhập để xem dự báo cá" (nút → /login) thay vì im lặng. Gate ở CLIENT theo login state THẬT → nhất quán local + production (API public trên prod do thiếu env server, local 401 — client xử lý đồng nhất). Demo mode (chưa cấu hình Supabase) = công khai |
 | **Nhu cầu mua cá ("Ai cần mua")** | 🔒 đăng nhập | `LoginGate` quanh `buy-board.tsx`; nguồn API thật sau này PHẢI kiểm session như fish-forecast |
 | **Đồ SDVICO của tôi / dịch vụ / cước / yêu cầu đã gửi** | 🔒 (bản chất) | `/api/me/sdvico` suy khách từ session — chưa đăng nhập tự ok:false |
 | Bản đồ + gió sóng + bão + hải đồ + cá MÙA VỤ · giá cá · bán ở đâu · catalog SDVICO + nút Gọi SDVICO · sổ tự ghi (giấy tờ/bảo dưỡng/thuyền viên/lãi lỗ/chia tiền) · mức phạt | 🌐 public | không chặn — gửi yêu cầu khi chưa đăng nhập = mối bán hàng mới |
