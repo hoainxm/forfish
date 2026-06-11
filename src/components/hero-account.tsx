@@ -77,9 +77,7 @@ export function HeroAccount() {
           <UsersIcon className="h-4.5 w-4.5" />
         </span>
         <span className="min-w-0 truncate text-[0.9375rem] font-bold">
-          {user && phone
-            ? name || prettyPhone(phone)
-            : "Tài khoản · cỡ chữ"}
+          {user && phone ? name || prettyPhone(phone) : "Tài khoản"}
         </span>
         <ChevronRightIcon className="h-4 w-4 shrink-0 rotate-90 text-white/60" />
       </button>
