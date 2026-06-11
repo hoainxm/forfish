@@ -45,7 +45,7 @@ type Section = "dang-dung" | "sdvico";
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "dang-dung", label: "Đang dùng" },
-  { id: "sdvico", label: "Của SDVICO" },
+  { id: "sdvico", label: "Khuyến nghị" },
 ];
 
 const STORAGE_KEY = "forfish.products.v1";

@@ -80,7 +80,9 @@ export function BoatSwitcher() {
             {current.name}
           </span>
           <span className="block truncate text-[13px] text-foreground/55">
-            {current.maTau ? `Mã tàu: ${current.maTau}` : "Chưa có mã tàu"}
+            {current.maTau
+              ? `Mã tàu: ${current.maTau}`
+              : "Chạm để ghi tên, mã tàu"}
             {boats.length > 1 ? ` · ${boats.length} tàu` : ""}
           </span>
         </span>

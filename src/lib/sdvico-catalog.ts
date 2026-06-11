@@ -126,22 +126,9 @@ export function groupCatalog(products: CatalogProduct[]): CatalogGroup[] {
   );
 }
 
-/** Danh sách món để GIỚI THIỆU trong sheet chi tiết: máy/thiết bị CHÍNH
- *  lên đầu (bán hàng dẫn bằng món đinh), vật tư nhỏ xếp sau. Thuần, có test. */
-export function representativeProducts(
-  products: CatalogProduct[],
-): CatalogProduct[] {
-  const isMain = (p: CatalogProduct) =>
-    /^(máy|thiết bị|bộ |anten|điện thoại)/i.test(p.name);
-  return [...products].sort((a, b) => {
-    const ma = isMain(a) ? 0 : 1;
-    const mb = isMain(b) ? 0 : 1;
-    if (ma !== mb) return ma - mb;
-    return a.name.localeCompare(b.name, "vi");
-  });
-}
-
 // ── chủ đề yêu cầu gửi SDVICO (dùng chung UI + API) ───────────────────────
+// (representativeProducts đã BỎ 2026-06-11 — Khuyến nghị chuyển sang
+//  showcase tĩnh data/sdvico-showcase.ts, chỉ sản phẩm chính từ sdvico.vn)
 
 export const REQUEST_TOPICS = [
   { id: "mua", label: "Hỏi mua sản phẩm" },

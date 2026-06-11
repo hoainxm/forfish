@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { UrgentStrip } from "@/components/urgent-strip";
-import { AccountBar } from "@/components/account-bar";
+import { HeroAccount } from "@/components/hero-account";
 import { BoatSwitcher } from "@/components/boat-switcher";
 import {
   AnchorIcon,
@@ -54,15 +54,14 @@ const pillars = [
 export default function Home() {
   return (
     <div>
-      <PageHeader
-        kicker="ForFish · Bạn của ngư dân"
-        title="Chào bà con"
-      />
+      <PageHeader kicker="ForFish · Bạn của ngư dân" title="Chào bà con">
+        {/* tài khoản nằm TRONG hero — không trôi mồ côi dưới thẻ tàu */}
+        <HeroAccount />
+      </PageHeader>
 
       <BoatSwitcher />
 
       <div className="space-y-4 px-4 pt-3">
-        <AccountBar />
         <UrgentStrip />
 
         <section aria-label="Bốn nhóm việc">

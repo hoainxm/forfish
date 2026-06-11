@@ -7,6 +7,10 @@ import { CheckIcon, PhoneIcon } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { sanitizePhoneInput } from "@/components/auth-form";
 import {
+  SDVICO_HOTLINE,
+  SDVICO_HOTLINE_DISPLAY,
+} from "@/data/sdvico-showcase";
+import {
   REQUEST_TOPICS,
   type RequestTopicId,
 } from "@/lib/sdvico-catalog";
@@ -236,6 +240,15 @@ function RequestForm({
             {state === "sending" ? "Đang gửi…" : "Gửi yêu cầu"}
           </PrimaryButton>
         </div>
+
+        {/* gấp thì gọi thẳng — hỗ trợ tức thì */}
+        <a
+          href={`tel:${SDVICO_HOTLINE}`}
+          className="mt-3 flex min-h-[52px] items-center justify-center gap-2 rounded-full text-[17px] font-bold text-sea"
+        >
+          <PhoneIcon className="h-5 w-5" />
+          Gấp? Gọi ngay {SDVICO_HOTLINE_DISPLAY}
+        </a>
       </form>
     </BottomSheet>
   );
