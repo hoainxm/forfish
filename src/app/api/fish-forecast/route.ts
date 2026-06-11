@@ -1,4 +1,3 @@
-import { createClient } from "@/lib/supabase/server";
 import {
   anomGridUrl,
   buildFishForecast,
@@ -18,22 +17,13 @@ import { fetchThermoclineGrid } from "@/lib/hycom";
  * Cache 6 giờ — ảnh nguồn mỗi ngày một bản, không cần tươi hơn.
  * Nguồn fail → { ok:false }, client im lặng/fallback mùa vụ (không bịa).
  *
- * CẦN ĐĂNG NHẬP (user chốt 2026-06-10): dự báo cá là tính năng giá trị cao
- * dành cho khách có tài khoản (đồng bộ SDWork) — chưa đăng nhập trả 401
- * auth_required, client lùi về lớp mùa vụ public. Chặn ở API để không lách
- * được từ ngoài; khi Supabase chưa cấu hình (demo mode) thì KHÔNG khóa.
+ * PHÂN QUYỀN kiểu TEASER (user chốt 2026-06-11): API CÔNG KHAI để lớp cá
+ * (heatmap + điểm nóng) HIỆN cho mọi người — thu hút. Việc xem CHI TIẾT một
+ * điểm (loài gì, khả năng bao nhiêu, đi hướng nào) mới cần đăng nhập, chặn ở
+ * CLIENT (fishing-map-view). Trước đây chặn 401 ở API khiến lớp cá biến mất,
+ * không hấp dẫn được khách đăng ký.
  */
 export async function GET() {
-  const supabase = await createClient();
-  if (supabase) {
-    const { data } = await supabase.auth.getUser();
-    if (!data?.user) {
-      return Response.json(
-        { ok: false, code: "auth_required" },
-        { status: 401 },
-      );
-    }
-  }
   try {
     // SST + phù du là BẮT BUỘC; SSHA (xoáy), dị thường nhiệt (nước trồi),
     // dòng chảy u/v (hội tụ) là TUỲ CHỌN — fail thì vẫn dự báo, chia lại trọng số

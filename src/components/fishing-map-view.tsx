@@ -300,23 +300,18 @@ export default function FishingMapView() {
   }, [activeScalar]);
 
   // ── DỰ BÁO CÁ (PFZ) — tính từ ảnh vệ tinh mới nhất, tải 1 lần ───────────
-  // Phân quyền (user chốt): dự báo cá CẦN ĐĂNG NHẬP. Gate ở CLIENT theo trạng
-  // thái đăng nhập thật (hook chung `useAuthUser`) → nhất quán local +
-  // production (API lúc chặn lúc không do env server). Demo mode (chưa cấu hình
-  // Supabase) = công khai. authed: null = đang kiểm tra; true = xem được;
-  // false = cần đăng nhập.
+  // Phân quyền kiểu TEASER (user chốt 2026-06-11): lớp cá (heatmap + điểm nóng)
+  // HIỆN cho mọi người để thu hút; xem CHI TIẾT một điểm mới cần đăng nhập.
+  // fishLocked = đã cấu hình Supabase + CHƯA đăng nhập (đang kiểm tra coi như
+  // chưa khóa để khỏi nháy). Demo mode (chưa cấu hình) = mở hết.
   const { user, ready: authReady } = useAuthUser();
-  const authed: boolean | null = !isSupabaseConfigured()
-    ? true
-    : authReady
-      ? !!user
-      : null;
+  const fishLocked = isSupabaseConfigured() && authReady && !user;
 
   const [fishCast, setFishCast] = useState<FishForecast | null>(null);
   // loài đang lọc trên bản đồ (null = loài tốt nhất mỗi ô)
   const [fishSpecies, setFishSpecies] = useState<string | null>(null);
+  // lớp cá tải cho MỌI người (teaser); chi tiết mới gate
   useEffect(() => {
-    if (authed !== true) return; // chỉ tải khi được phép xem
     let alive = true;
     fetchFishForecast().then((r) => {
       if (alive && r.ok) setFishCast(r);
@@ -324,7 +319,7 @@ export default function FishingMapView() {
     return () => {
       alive = false;
     };
-  }, [authed]);
+  }, []);
   const [layerSheetOpen, setLayerSheetOpen] = useState(false);
   const [size, setSize] = useState<SheetSize>("peek");
 
@@ -1127,22 +1122,6 @@ export default function FishingMapView() {
           </button>
         )}
 
-        {/* CHƯA ĐĂNG NHẬP → mời đăng nhập để xem dự báo cá (không im lặng) */}
-        {fishOn && authed === false && (
-          <div className="pointer-events-auto flex max-w-[92%] items-center gap-3 self-start rounded-xl bg-card/95 px-3 py-2.5 shadow-md">
-            <FishIcon className="h-6 w-6 shrink-0 text-t3" aria-hidden />
-            <span className="text-[14px] font-semibold leading-snug text-navy">
-              Đăng nhập để xem <b>dự báo cá</b> (chỗ nào nhiều cá theo ảnh vệ
-              tinh).
-            </span>
-            <a
-              href="/login"
-              className="ml-auto shrink-0 rounded-full bg-t1 px-4 py-2 text-[14px] font-bold text-white active:scale-95"
-            >
-              Đăng nhập
-            </a>
-          </div>
-        )}
       </div>
 
       {/* ── SHEET ĐÁY 3 NẤC — một chế độ duy nhất ────────────────────────── */}
@@ -1301,8 +1280,29 @@ export default function FishingMapView() {
               </div>
 
               {/* DỰ BÁO CÁ tại chỗ này — tính từ ảnh mới nhất; không có dữ liệu
-                  thì lùi về mùa vụ. Luôn ghi rõ tham khảo. */}
-              {fishCast && fishAtPoint ? (
+                  thì lùi về mùa vụ. Luôn ghi rõ tham khảo.
+                  TEASER: lớp cá hiện cho mọi người; CHI TIẾT điểm thì khoá,
+                  chưa đăng nhập → mời đăng nhập (thu hút đăng ký). */}
+              {fishLocked ? (
+                <div className="surface overflow-hidden p-0">
+                  <div className="flex items-start gap-2.5 p-3.5">
+                    <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-trim" />
+                    <p className="text-[15px] leading-snug text-foreground/80">
+                      Vùng xanh trên bản đồ là <b>chỗ có khả năng nhiều cá</b>.{" "}
+                      <b>Đăng nhập</b> để xem chỗ này{" "}
+                      <b>loài gì, khả năng bao nhiêu, đi hướng nào</b> — và chọn
+                      đúng loài bà con hay đánh.
+                    </p>
+                  </div>
+                  <a
+                    href="/login"
+                    className="flex min-h-[52px] w-full items-center justify-center gap-2 bg-t1 text-[16px] font-bold text-white transition active:scale-[0.99]"
+                  >
+                    <FishIcon className="h-5 w-5" />
+                    Đăng nhập để xem chi tiết dự báo cá
+                  </a>
+                </div>
+              ) : fishCast && fishAtPoint ? (
                 (() => {
                   // theo loài đã chọn trên bản đồ, hoặc loài tốt nhất tại ô
                   const v = fishSpecies
