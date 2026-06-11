@@ -19,6 +19,7 @@ import {
   RefNote,
 } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
+import { ChipRow } from "@/components/ui/chip-row";
 import { useBoats } from "@/components/boat-switcher";
 import { SdvicoCatalog } from "@/components/sdvico-catalog";
 import { SdvicoRequestButton } from "@/components/sdvico-request";
@@ -32,12 +33,20 @@ import {
 import { type OwnedAssets } from "@/lib/owned-assets";
 
 /*
-  Sản phẩm SDVICO của tôi — vật tư/thiết bị bà con đã MUA của SDVICO, kèm nhắc
-  hạn bảo hành (cùng "ngôn ngữ thẻ" với màn nhắc bảo dưỡng để học một lần):
-  · mỗi sản phẩm là MỘT thẻ với MỘT băng trạng thái bảo hành màu trên cùng
-  · thêm/sửa trong bottom sheet, ô to + hai nút to
-  · dữ liệu gắn theo tàu đang chọn (boatId); sau này SDWork tự đồng bộ về đây
+  Tab SẢN PHẨM — tách ĐÔI bằng chip tầng 1 (user chốt 2026-06-11, hết cảnh
+  kéo một cột dài):
+  · ĐANG DÙNG — đồ đã mua (đồng bộ SDVICO, nhắc bảo hành) + đồ tự ghi
+  · CỦA SDVICO — cửa hàng gọn focus giới thiệu + upsale (sdvico-catalog)
+  Mỗi sản phẩm là MỘT thẻ với MỘT băng trạng thái bảo hành màu trên cùng;
+  thêm/sửa trong bottom sheet; dữ liệu gắn theo tàu đang chọn (boatId).
 */
+
+type Section = "dang-dung" | "sdvico";
+
+const SECTIONS: { id: Section; label: string }[] = [
+  { id: "dang-dung", label: "Đang dùng" },
+  { id: "sdvico", label: "Của SDVICO" },
+];
 
 const STORAGE_KEY = "forfish.products.v1";
 
@@ -72,6 +81,7 @@ export function BoatProducts() {
   const [editing, setEditing] = useState<BoatProduct | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<BoatProduct | null>(null);
+  const [section, setSection] = useState<Section>("dang-dung");
   // đồ mua của SDVICO tự đồng bộ về (đăng nhập bằng SĐT lúc mua hàng)
   const [synced, setSynced] = useState<OwnedAssets | null>(null);
 
@@ -139,7 +149,28 @@ export function BoatProducts() {
   }
 
   return (
-    <div className="px-4 pt-1">
+    <div className="pt-1">
+      <ChipRow
+        options={SECTIONS}
+        value={section}
+        onChange={setSection}
+        accent="t3"
+        level={1}
+        ariaLabel="Mục sản phẩm"
+      />
+
+      {/* ════ MỤC 2: CỦA SDVICO — cửa hàng gọn, giới thiệu + upsale ═══ */}
+      {section === "sdvico" && (
+        <div className="px-4">
+          <SdvicoCatalog
+            ownedProductNames={synced?.products.map((p) => p.name) ?? []}
+          />
+        </div>
+      )}
+
+      {/* ════ MỤC 1: ĐANG DÙNG — đồ đã mua + đồ tự ghi ════════════════ */}
+      {section === "dang-dung" && (
+    <div className="px-4">
       <div className="mb-4">
         {synced ? (
           <RefNote tone="var(--ok)" bg="var(--ok-bg)">
@@ -328,11 +359,8 @@ export function BoatProducts() {
           ? "Đồ tự đồng bộ lấy từ SDVICO. Sản phẩm tự thêm lưu trên máy."
           : "Sản phẩm SDVICO lưu ngay trên máy của bà con."}
       </p>
-
-      {/* gợi ý theo nhóm — khách biết SDVICO có gì, bấm hỏi mua */}
-      <SdvicoCatalog
-        ownedProductNames={synced?.products.map((p) => p.name) ?? []}
-      />
+    </div>
+      )}
 
       {showForm && (
         <ProductForm

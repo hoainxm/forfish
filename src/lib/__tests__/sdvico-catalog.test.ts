@@ -72,6 +72,26 @@ describe("groupCatalog", () => {
   });
 });
 
+describe("representativeProducts — món đinh lên đầu sheet giới thiệu", () => {
+  it("máy/thiết bị trước, vật tư nhỏ sau, cùng hạng thì ABC tiếng Việt", async () => {
+    const { representativeProducts } = await import("@/lib/sdvico-catalog");
+    const list = representativeProducts([
+      p("LN_ACID", "Axít Clohydric HCl 32±1%"),
+      p("LN_TP_SEA700", "Máy lọc nước biển thành nước ngọt Model MLN_SEA700"),
+      p("LN_CL _2", "Ca lọc 20 inch"),
+      p("GS_VSS_THURAYA", "Máy Thuraya MarineStar"),
+      p("LN_BTP_ML 4040", "Bộ màng thành phẩm 4040"),
+    ]);
+    expect(list.map((x) => x.name.split(" ")[0])).toEqual([
+      "Bộ",
+      "Máy",
+      "Máy",
+      "Axít",
+      "Ca",
+    ]);
+  });
+});
+
 describe("topicLabel", () => {
   it("đổi id chủ đề sang nhãn; id lạ → Việc khác", () => {
     expect(topicLabel("mua")).toBe("Hỏi mua sản phẩm");
