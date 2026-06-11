@@ -24,6 +24,8 @@
 | `/api/storms` | 1 (API) | `src/app/api/storms/route.ts` | Proxy nguồn tin bão quốc tế (GDACS), cache 30 phút, lọc vùng Biển Đông qua `parseStorms`. Fail → `{ok:false}`, client im lặng — KHÔNG bao giờ nói "không có bão" khi không kiểm tra được |
 | `/api/fish-forecast` | 1 (API) | `src/app/api/fish-forecast/route.ts` | **DỰ BÁO CÁ (PFZ)**: kéo lưới SST + phù du (bắt buộc) + SSHA / dị thường nhiệt / dòng chảy u,v (tuỳ chọn) từ NOAA ERDDAP, chấm điểm loài qua `lib/fish-predict.ts`, cache 6h. Fail → `{ok:false}`, client lùi về mùa vụ |
 | `/api/sea-scalar` | 1 (API) | `src/app/api/sea-scalar/route.ts` | Lớp số liệu biển (`?kind=ssha` nước dâng/xoáy; `sss` độ mặn đang rút khỏi UI) — ERDDAP, cache 6h, lùi ngày khi nguồn quét theo vệt trống vùng |
+| `/api/port-prices` | 2 (API) | `src/app/api/port-prices/route.ts` | **Giá cá LIVE**: scrape bản tin giá nguyên liệu TUẦN của VASEP (Khánh Hòa) qua `lib/port-price-source.ts`, map keyword → 13 loài, cache 24h. Parse vỡ/fail → `{ok:false}`, client lùi bảng tĩnh `data/port-prices.ts`. Loại hàng khô/giống |
+| `/api/fuel-price` | 2 (API) | `src/app/api/fuel-price/route.ts` | **Giá dầu DO LIVE**: giaxanghomnay.com (Petrolimex) → DO 0,05S vùng 1/2 qua `lib/fuel-price.ts`, cache 6h. Fail → `{ok:false}`, UI ẩn |
 | `/api/me/sdvico` | TÀU (API) | `src/app/api/me/sdvico/route.ts` | Đồ SDVICO của khách đang đăng nhập (sản phẩm/bảo hành, dịch vụ/kỳ cước, khoản chờ đóng) — account CRM suy từ SESSION, không nhận id từ client; chưa đăng nhập/chưa cấu hình → `{ok:false}`, UI dùng dữ liệu local. Chuỗi nối: [04-data-model.md](04-data-model.md) §6 |
 | `/api/sdvico/catalog` | TÀU (API) | `src/app/api/sdvico/catalog/route.ts` | Danh mục SDVICO theo nhóm (dữ liệu chung, cache 1h) — nhóm theo tiền tố SKU qua `lib/sdvico-catalog.ts` |
 | `/api/sdvico/request` | TÀU (API) | `src/app/api/sdvico/request/route.ts` | Khách gửi yêu cầu (hỏi mua/sửa chữa/bảo dưỡng/cước) → INSERT `consultation_requests` bên CRM (`source_page='forfish'`); dùng được cả khi CHƯA đăng nhập, bắt buộc SĐT VN hợp lệ. Xem [04-data-model.md](04-data-model.md) §6 |
@@ -69,7 +71,7 @@ src/
       region-filter.tsx #   Bộ lọc Bắc/Trung/Nam (← lib/region.ts) cho danh sách theo vùng
     ui/snap-sheet.tsx   # SnapSheet dùng chung: sheet đáy THƯỜNG TRỰC 3 nấc peek/half/full, không scrim, điều khiển bằng nút to (khác BottomSheet là modal)
     route-planner.tsx   # Trục 1: dẫn đường tiết kiệm dầu — form xuất phát/thông số tàu + thẻ kết quả + lớp vẽ tuyến (RouteMapLayers, đặt trong MapGL)
-    price-board.tsx     # Trục 2: bảng giá tham khảo
+    price-board.tsx     # Trục 2: bảng giá — LIVE giá tuần VASEP (lib/port-price-source) + giá dầu DO (lib/fuel-price), fallback bảng tĩnh
     trip-log.tsx        # Trục 2: sổ lãi lỗ chuyến biển
     supply-catalog.tsx  # Trục 3: danh mục vật tư
     maintenance-reminders.tsx  # Trục TÀU: sổ nhắc bảo dưỡng TỰ GHI — nhúng trong boat-services (tab Dịch vụ)
@@ -80,7 +82,7 @@ src/
     ports.ts            # 10 cảng + tọa độ đã kiểm chứng Open-Meteo
     vn-maritime-border.ts # Ranh giới biển VN — 75 điểm CHUẨN (user cấp 2026-06-10, "borderpoints.json"), Campuchia → Trường Sa → Hoàng Sa → Vịnh Bắc Bộ → Móng Cái; nguồn cho geofence cảnh báo IUU
     fish-seasons.ts     # Cá mùa này — 7 vùng biển (polygon + labelAt) × 11 loài × tháng, nguồn RIMF/báo ngành THAM KHẢO; regionAt/fishInRegion (có test)
-    port-prices.ts      # Giá cá THAM KHẢO (nguồn báo công khai, có ngày tổng hợp)
+    port-prices.ts      # Giá cá tĩnh = FALLBACK cho /api/port-prices (khi VASEP fail/parse vỡ); nguồn báo công khai, có ngày tổng hợp
     supplies.ts         # Danh mục vật tư THAM KHẢO
     fines.ts            # Mức phạt NĐ 38/2024 (cá nhân) THAM KHẢO
     market-channels.ts  # Trục TIỀN: kênh bán cá (chợ đầu mối/vựa/online…) THAM KHẢO — nguồn cho sell-guide

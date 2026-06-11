@@ -42,7 +42,9 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
   1. **GIAO DỊCH** — thông tin được cấp để bán có LỢI THẾ: giá cá hôm nay · **"Ai cần mua"** (bảng yêu cầu loài + khối lượng + giá từ đầu nậu/vựa/nhà máy) · danh bạ chỗ bán.
   2. **HIỆU QUẢ** — phân tích chuyện làm ăn: thẻ nhìn nhanh (tổng lãi, bình quân/chuyến, % chuyến lãi, % tiền bán vào dầu — `lib/trip-insights.ts`) + sổ lãi/lỗ + máy chia tiền.
 - **Lộ trình "Ai cần mua"**: sẽ có **app riêng cho bên thu mua** đăng yêu cầu (loài, khối lượng, giá) → tin chảy thẳng về mục Giao dịch, ngư dân gọi chào bán. Trong lúc chờ: `src/data/buy-requests.ts` chỉ chứa TIN MẪU (`demo: true`, UI ghi rõ từng thẻ, không SĐT) — KHÔNG bịa tin thật. Shape `BuyRequest` là hợp đồng cho app thu mua sau này.
-- **Dữ liệu**: **tự thu thập** qua mạng lưới đại lý/cảng của SDVICO (moat riêng, không ai có), feed từ SDWork.
+- **Giá cá LIVE (2026-06-10)**: `/api/port-prices` (cache 24h) kéo bản tin giá nguyên liệu **hằng TUẦN của VASEP** (Khánh Hòa — "giá tại bến/vựa", scrape bảng HTML qua `lib/port-price-source.ts`, khớp keyword → 13 loài app). TRUNG THỰC: giá TUẦN không phải ngày (VN chưa có nguồn giá-tại-bến hằng ngày máy-đọc-được); parser phòng thủ, nguồn fail/parse vỡ → lùi về bảng tĩnh `data/port-prices.ts`; loài tuần này VASEP không có thì giữ giá tĩnh + nhãn "tham khảo"; UI ghi "Nguồn VASEP, tuần X". Loại hàng khô/giống khỏi giá tươi.
+- **Giá dầu DO LIVE**: `/api/fuel-price` (cache 6h) → giaxanghomnay.com (Petrolimex, JSON không key) lấy DO 0,05S vùng 1/vùng 2 — chi phí lớn nhất chuyến biển, hiện trên đầu bảng giá. Fail → ẩn (không bịa). `lib/fuel-price.ts` có test.
+- **Dữ liệu nậu vựa/người mua**: **tự thu thập** qua mạng lưới đại lý/cảng của SDVICO (moat riêng), feed từ SDWork. "Ai cần mua" còn là tin mẫu chờ app thu mua.
 
 ### Trục 3 — Vận hành rẻ hơn (`/van-hanh`)
 - **Hứa gì**: giữ tàu chạy bền, tốn ít tiền hơn.

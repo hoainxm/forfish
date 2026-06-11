@@ -57,7 +57,6 @@ import {
   SPECIES_META,
   type FishForecast,
   type FishCell,
-  type SpeciesCategory,
 } from "@/lib/fish-predict";
 import { moonPhase } from "@/lib/moon";
 import {
@@ -88,9 +87,11 @@ import {
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
 import { LayerSheet } from "@/components/layer-sheet";
 import { MyPlacesSheet } from "@/components/my-places-sheet";
+import { FishSpeciesSheet } from "@/components/fish-species-sheet";
 import { StormBanner } from "@/components/storm-banner";
 import {
   AlertIcon,
+  ChevronDownIcon,
   CrosshairIcon,
   FishIcon,
   HomeIcon,
@@ -195,16 +196,6 @@ const DEPTH_NOTE: Partial<Record<DepthClass, { text: string; danger: boolean }>>
 };
 
 const MAP_LAYER_KEY = "forfish.maplayer.v1";
-
-// Thứ tự nhóm loài trong bộ chọn (cá nổi trước — dự báo tin được hơn)
-const CATEGORY_ORDER: Record<SpeciesCategory, number> = {
-  "pelagic-large": 0,
-  "pelagic-small": 1,
-  cephalopod: 2,
-  demersal: 3,
-  reef: 4,
-  crustacean: 5,
-};
 
 // Màu lớp cá → ramp heatmap. NỘI DUNG dữ liệu bản đồ (khớp màu loài), không
 // phải token UI — ngoại lệ cho phép theo design-system §5.
@@ -400,6 +391,8 @@ export default function FishingMapView() {
   }, []);
   const home = homeOf(places);
   const [placesSheetOpen, setPlacesSheetOpen] = useState(false);
+  // bảng chọn loài cá (modal) — thay hàng chip ngang chắn bản đồ
+  const [speciesSheetOpen, setSpeciesSheetOpen] = useState(false);
 
   // mở app: vào cảng nhà nếu đã đặt, không thì ngoài khơi Nam Trung Bộ
   const [point, setPoint] = useState<SeaPoint>(() => {
@@ -664,17 +657,6 @@ export default function FishingMapView() {
     }
   }
 
-  // thứ tự chip loài: loài vùng mình trước → rồi theo nhóm → giữ thứ tự điểm
-  const orderedSpecies = fishCast
-    ? [...fishCast.species].sort((a, b) => {
-        const ra = regionShorts.has(a) ? 0 : 1;
-        const rb = regionShorts.has(b) ? 0 : 1;
-        if (ra !== rb) return ra - rb;
-        const ca = CATEGORY_ORDER[SPECIES_META[a]?.category ?? "demersal"];
-        const cb = CATEGORY_ORDER[SPECIES_META[b]?.category ?? "demersal"];
-        return ca - cb;
-      })
-    : [];
 
   // dự báo cá TÍNH TỪ ẢNH tại điểm đang xem — ô gần nhất trong ~0.3°
   const fishAtPoint = useMemo<FishCell | null>(() => {
@@ -1131,63 +1113,30 @@ export default function FishingMapView() {
           </div>
         )}
 
-        {/* hàng chọn LOÀI CÁ — chỉ hiện khi lớp Dự báo cá bật + có dữ liệu */}
+        {/* nút "Cá" GỌN — thay hàng chip ngang (chắn bản đồ). Chỉ rộng bằng nội
+            dung, chạm là mở bảng chọn loài. Hiện loài đang chọn + chấm màu. */}
         {fishOn && fishCast && fishCast.species.length > 0 && (
-          <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto rounded-xl bg-card/95 px-2 py-1.5 shadow-md">
-            <FishIcon className="h-4.5 w-4.5 shrink-0 text-t3" aria-hidden />
-            <button
-              type="button"
-              onClick={() => setFishSpecies(null)}
-              aria-pressed={fishSpecies == null}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-bold transition active:scale-95 ${
-                fishSpecies == null ? "bg-navy text-white" : "bg-field text-navy"
-              }`}
-            >
-              Mọi loài
-            </button>
-            {orderedSpecies.map((sp) => {
-              const meta = SPECIES_META[sp];
-              const inRegion = regionShorts.has(sp);
-              return (
-                <button
-                  key={sp}
-                  type="button"
-                  onClick={() => setFishSpecies(sp)}
-                  aria-pressed={fishSpecies === sp}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold transition active:scale-95 ${
-                    fishSpecies === sp
-                      ? "bg-navy text-white"
-                      : inRegion
-                        ? "bg-field text-navy ring-1 ring-trim/50"
-                        : "bg-field text-navy"
-                  }`}
-                >
-                  {/* chấm màu riêng của loài (kiểu OceanFishMap) */}
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: meta?.color ?? "#888" }}
-                    aria-hidden
-                  />
-                  {sp}
-                </button>
-              );
-            })}
-            {/* legend khả năng — màu theo loài đang chọn, hoặc xanh lá Mọi loài */}
-            <span className="ml-1 flex shrink-0 items-center gap-1 pr-1">
-              <span
-                className="h-2 w-12 rounded-full"
-                style={{
-                  background: activeFishColor
-                    ? `linear-gradient(90deg,${activeFishColor}33,${activeFishColor})`
-                    : "linear-gradient(90deg,#95d5b2,#52b788,#1b4b2c)",
-                }}
-                aria-hidden
-              />
-              <span className="text-[11px] font-semibold text-foreground/55">
-                khả năng có cá
-              </span>
+          <button
+            type="button"
+            onClick={() => setSpeciesSheetOpen(true)}
+            aria-label="Chọn loài cá xem trên bản đồ"
+            className="pointer-events-auto inline-flex max-w-[80%] items-center gap-2 self-start rounded-full bg-card/95 px-3 py-2 shadow-md transition active:scale-95"
+          >
+            <FishIcon className="h-5 w-5 shrink-0 text-t3" aria-hidden />
+            <span
+              className="h-3 w-3 shrink-0 rounded-full"
+              style={{
+                background: activeFishColor ?? "#2d8659",
+              }}
+              aria-hidden
+            />
+            <span className="truncate text-[14px] font-bold text-navy">
+              {fishSpecies
+                ? (SPECIES_META[fishSpecies]?.full ?? fishSpecies)
+                : "Mọi loài cá"}
             </span>
-          </div>
+            <ChevronDownIcon className="h-4 w-4 shrink-0 text-navy/55" />
+          </button>
         )}
       </div>
 
@@ -1656,6 +1605,17 @@ export default function FishingMapView() {
           seamarksOn={seamarksOn}
           onSeamarks={setSeamarksOn}
           onClose={() => setLayerSheetOpen(false)}
+        />
+      )}
+
+      {/* ── BẢNG CHỌN LOÀI CÁ (modal) — thay hàng chip ngang ─────────────── */}
+      {speciesSheetOpen && fishCast && (
+        <FishSpeciesSheet
+          species={fishCast.species}
+          current={fishSpecies}
+          regionShorts={regionShorts}
+          onPick={setFishSpecies}
+          onClose={() => setSpeciesSheetOpen(false)}
         />
       )}
 
