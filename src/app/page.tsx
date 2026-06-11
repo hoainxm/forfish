@@ -2,7 +2,6 @@ import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { UrgentStrip } from "@/components/urgent-strip";
 import { HeroAccount } from "@/components/hero-account";
-import { DisplayModeToggle } from "@/components/display-mode-toggle";
 import { BoatSwitcher } from "@/components/boat-switcher";
 import {
   AnchorIcon,
@@ -56,10 +55,8 @@ export default function Home() {
   return (
     <div>
       <PageHeader kicker="ForFish · Bạn của ngư dân" title="Chào bà con">
-        {/* tài khoản nằm TRONG hero — không trôi mồ côi dưới thẻ tàu */}
+        {/* hero chỉ bày MỘT chip tài khoản — cỡ chữ/đăng xuất nằm trong sheet */}
         <HeroAccount />
-        {/* 2 chế độ hiển thị: Chữ to (40–60 tuổi) / Gọn đẹp (chuẩn app) */}
-        <DisplayModeToggle />
       </PageHeader>
 
       <BoatSwitcher />

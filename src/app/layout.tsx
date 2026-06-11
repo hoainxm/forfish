@@ -44,7 +44,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{if(localStorage.getItem('forfish.displaymode.v1')==='gon')document.documentElement.dataset.mode='gon'}catch(e){}",
+              "try{var m=localStorage.getItem('forfish.displaymode.v1');if(m==='gon'||m==='to')document.documentElement.dataset.mode=m}catch(e){}",
           }}
         />
         {/* Mobile-first: a phone-width column centred on larger screens. */}

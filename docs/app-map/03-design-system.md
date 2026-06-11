@@ -8,18 +8,19 @@
 
 ---
 
-## 0. HAI CHẾ ĐỘ HIỂN THỊ — một kiến trúc rem (user chốt 2026-06-11)
+## 0. CỠ GIAO DIỆN — một kiến trúc rem, mặc định THEO MÁY (user chốt 2026-06-11)
 
-Toàn bộ cỡ chữ / tap-size / bo góc viết bằng **REM** (đã quét sạch `text-[Npx]`/`min-h-[Npx]`/`rounded-[Npx]` → rem; utility chuẩn Tailwind vốn là rem). Mỗi chế độ chỉ là MỘT dòng đổi font-size gốc trong `globals.css`:
+Toàn bộ cỡ chữ / tap-size / bo góc viết bằng **REM** (đã quét sạch `text-[Npx]`/`min-h-[Npx]`/`rounded-[Npx]` → rem; utility chuẩn Tailwind vốn là rem). Chế độ chỉ là font-size gốc của `<html>`:
 
-| Chế độ | Gốc | Body | Nút chính | Cho ai |
-|---|---|---|---|---|
-| **Chữ to** (mặc định) | 1rem = 16px | 18px | 60px | Ngư dân 40–60, nắng chói, tay ướt |
-| **Gọn đẹp** (`html[data-mode="gon"]`) | 1rem = 14px | ~15.8px | ~52px | Người quen app, ưu tiên cân đối |
+| Chế độ | Gốc | Cho ai |
+|---|---|---|
+| **Theo máy** (MẶC ĐỊNH) | không đặt → ăn theo cỡ chữ cài trong điện thoại/trình duyệt | bác nào chỉnh chữ to trong máy, app TỰ to theo — thông minh, không cần dạy |
+| **Chữ to** (`data-mode="to"`) | khóa 16px → body 18px, nút 60px | khóa to bất kể máy |
+| **Gọn** (`data-mode="gon"`) | khóa 14px → body ~15.8px, nút ~52px | mật độ chuẩn app, cân đối |
 
-- Chuyển ở hero trang chủ (`display-mode-toggle.tsx`), lưu `forfish.displaymode.v1`; script đầu `<body>` (layout.tsx) đặt `data-mode` TRƯỚC khi vẽ — không nháy.
-- **QUY TẮC MỚI**: cấm viết `text-[Npx]`/`min-h-[Npx]` trong component — dùng rem (`text-[1.125rem]`…) để cả hai chế độ cùng ăn. Mọi tỷ lệ giữ nguyên giữa 2 chế độ → không phải maintain 2 bộ giao diện.
-- Sàn accessibility (≥18px, tap ≥56px ở mục 1) áp cho CHẾ ĐỘ MẶC ĐỊNH; chế độ Gọn là lựa chọn chủ động của người dùng.
+- **Chỉnh trong SHEET TÀI KHOẢN** (`hero-account.tsx` — chip duy nhất trên hero mở sheet: danh tính · cỡ giao diện · đăng xuất). KHÔNG bày toggle thô ra hero — nguyên tắc: cái gì trực tiếp thì show, còn lại vào menu phụ. Lưu `forfish.displaymode.v1`; script đầu `<body>` đặt `data-mode` TRƯỚC khi vẽ — không nháy.
+- **QUY TẮC**: cấm viết `text-[Npx]`/`min-h-[Npx]` trong component — dùng rem (`text-[1.125rem]`…) để mọi chế độ cùng ăn. Tỷ lệ giữa các phần tử giữ nguyên → một hệ giao diện, không phải nhiều bộ.
+- Sàn accessibility (≥18px, tap ≥56px ở mục 1) tính cho gốc 16px; chế độ Gọn là lựa chọn chủ động của người dùng.
 
 ## 1. Người dùng quyết định tất cả / Audience-first
 

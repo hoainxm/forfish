@@ -76,17 +76,23 @@ html {
 }
 
 /*
-  HAI CHẾ ĐỘ HIỂN THỊ (user chốt 2026-06-11) — một kiến trúc, không phải
-  hai bộ giao diện: TOÀN BỘ cỡ chữ / tap-size / bo góc trong app viết bằng
-  REM (đã quét px → rem), nên mỗi chế độ chỉ là MỘT dòng đổi font-size gốc:
+  CỠ GIAO DIỆN (sửa 2026-06-11 theo góp ý user: "bắt theo size hệ thống
+  điện thoại, chỉnh tay đưa vào cài đặt account") — kiến trúc MỘT hệ rem:
+  toàn bộ cỡ chữ / tap-size / bo góc viết bằng REM, nên chế độ chỉ là
+  font-size gốc của <html>:
 
-  · "Chữ to"  (mặc định, ngư dân 40–60): 1rem = 16px → body 18px, nút 60px
-  · "Gọn đẹp" (chuẩn app hiện đại):      1rem = 14px → body ~15.8px, nút ~52px
-    — mọi tỷ lệ giữ nguyên, chỉ mật độ thay đổi → luôn cân đối.
+  · MẶC ĐỊNH "Theo máy": KHÔNG đặt font-size → 1rem ăn theo cài đặt cỡ chữ
+    của điện thoại/trình duyệt (bác nào chỉnh chữ to trong máy, app tự to).
+  · "Chữ to" (khóa to bất kể máy):  1rem = 16px → body 18px, nút 60px.
+  · "Gọn"    (mật độ chuẩn app):    1rem = 14px → body ~15.8px, nút ~52px.
+  Mọi tỷ lệ giữ nguyên giữa các chế độ → luôn cân đối.
 
-  Chọn ở trang chủ (display-mode-toggle), lưu forfish.displaymode.v1,
-  script trong layout đặt data-mode trước khi vẽ để không nháy.
+  Chỉnh trong SHEET TÀI KHOẢN (menu phụ — không bày toggle thô ra hero),
+  lưu forfish.displaymode.v1; script đầu <body> đặt data-mode trước khi vẽ.
 */
+html[data-mode="to"] {
+  font-size: 16px;
+}
 html[data-mode="gon"] {
   font-size: 14px;
 }
