@@ -115,16 +115,16 @@ export function DocumentVault() {
           setEditing(null);
           setShowForm(true);
         }}
-        className="display mb-4 flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[19px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+        className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
       >
         <PlusIcon className="h-6 w-6" />
         Thêm giấy tờ mới
       </button>
 
       {ready && boatReady && sorted.length === 0 && (
-        <div className="rounded-[20px] bg-field/70 px-4 py-12 text-center">
+        <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
           <DocIcon className="mx-auto h-10 w-10 text-foreground/30" />
-          <p className="mt-3 text-[18px] text-foreground/60">
+          <p className="mt-3 text-[1.125rem] text-foreground/60">
             Chưa có giấy tờ nào.
             <br />
             Bấm nút cam ở trên để thêm.
@@ -159,24 +159,24 @@ export function DocumentVault() {
               </StatusBanner>
 
               <div className="px-4 py-3">
-                <p className="text-[13px] font-bold uppercase tracking-wide text-foreground/40">
+                <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/40">
                   {kindLabel(doc.kind)}
                 </p>
-                <p className="display text-[19px] font-bold leading-snug text-navy">
+                <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                   {doc.label}
                 </p>
                 {doc.number && (
-                  <p className="text-[16px] text-foreground/60">
+                  <p className="text-[1rem] text-foreground/60">
                     Số: {doc.number}
                   </p>
                 )}
                 {doc.expiresOn && (
-                  <p className="text-[16px] text-foreground/60">
+                  <p className="text-[1rem] text-foreground/60">
                     Hết hạn: <strong>{formatVnDate(doc.expiresOn)}</strong>
                   </p>
                 )}
                 {doc.note && (
-                  <p className="mt-1.5 rounded-xl bg-background px-3 py-1.5 text-[15px] text-foreground/70">
+                  <p className="mt-1.5 rounded-xl bg-background px-3 py-1.5 text-[0.9375rem] text-foreground/70">
                     {doc.note}
                   </p>
                 )}
@@ -188,14 +188,14 @@ export function DocumentVault() {
                     setEditing(doc);
                     setShowForm(true);
                   }}
-                  className="flex min-h-[52px] items-center justify-center gap-2 text-[18px] font-bold text-sea active:bg-background"
+                  className="flex min-h-[3.25rem] items-center justify-center gap-2 text-[1.125rem] font-bold text-sea active:bg-background"
                 >
                   <EditIcon className="h-5 w-5" />
                   Sửa
                 </button>
                 <button
                   onClick={() => setConfirmDelete(doc)}
-                  className="flex min-h-[52px] items-center justify-center gap-2 border-l border-line text-[18px] font-bold text-danger active:bg-background"
+                  className="flex min-h-[3.25rem] items-center justify-center gap-2 border-l border-line text-[1.125rem] font-bold text-danger active:bg-background"
                 >
                   <TrashIcon className="h-5 w-5" />
                   Xóa
@@ -206,7 +206,7 @@ export function DocumentVault() {
         })}
       </ul>
 
-      <p className="py-4 text-center text-[14px] text-foreground/40">
+      <p className="py-4 text-center text-[0.875rem] text-foreground/40">
         Giấy tờ lưu ngay trên máy của bà con.
       </p>
 
@@ -334,7 +334,7 @@ function DocumentForm({
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[60px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
+            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
           >
             Hủy
           </button>

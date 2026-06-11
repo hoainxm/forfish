@@ -97,15 +97,15 @@ function Channels() {
       {SELL_CHANNELS.map((c, i) => (
         <Card key={c.id} className="p-4">
           <div className="flex items-start gap-2">
-            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-t2 text-[14px] font-bold text-white">
+            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-t2 text-[0.875rem] font-bold text-white">
               {i + 1}
             </span>
             <div className="min-w-0">
-              <p className="display text-[18px] font-bold leading-snug text-navy">
+              <p className="display text-[1.125rem] font-bold leading-snug text-navy">
                 {c.name}
               </p>
               {c.bestFor && (
-                <p className="text-[14px] font-semibold text-t2">
+                <p className="text-[0.875rem] font-semibold text-t2">
                   Hợp khi: {c.bestFor}
                 </p>
               )}
@@ -113,13 +113,13 @@ function Channels() {
           </div>
           <ul className="mt-2 space-y-1">
             {c.pros.map((p) => (
-              <li key={p} className="flex gap-2 text-[15px] text-foreground/80">
+              <li key={p} className="flex gap-2 text-[0.9375rem] text-foreground/80">
                 <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-ok" />
                 <span>{p}</span>
               </li>
             ))}
             {c.cons.map((p) => (
-              <li key={p} className="flex gap-2 text-[15px] text-foreground/80">
+              <li key={p} className="flex gap-2 text-[0.9375rem] text-foreground/80">
                 <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
                 <span>{p}</span>
               </li>
@@ -144,7 +144,7 @@ function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
         Nậu quen tại bến của bà con thì lưu ở mục “Mối quen”.
       </RefNote>
 
-      <p className="mb-2 mt-2 px-1 text-[14px] font-semibold text-foreground/55">
+      <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/55">
         {list.length} vựa
         {home.province && near ? ` gần ${home.province}` : ""}
       </p>
@@ -155,33 +155,33 @@ function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
             <Card className="p-3.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[12px] font-bold uppercase tracking-wide text-foreground/45">
+                  <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/45">
                     {WHOLESALER_KIND_LABEL[w.kind] ?? "Vựa"}
                   </p>
-                  <p className="display text-[18px] font-bold leading-snug text-navy">
+                  <p className="display text-[1.125rem] font-bold leading-snug text-navy">
                     {w.name}
                   </p>
                 </div>
                 {w.phone && (
                   <a
                     href={telHref(w.phone)}
-                    className="shrink-0 rounded-xl bg-sea px-3 py-2 text-[15px] font-bold text-white"
+                    className="shrink-0 rounded-xl bg-sea px-3 py-2 text-[0.9375rem] font-bold text-white"
                   >
                     Gọi
                   </a>
                 )}
               </div>
               {w.address && (
-                <p className="mt-1 flex gap-1.5 text-[15px] text-foreground/70">
+                <p className="mt-1 flex gap-1.5 text-[0.9375rem] text-foreground/70">
                   <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-t2" />
                   <span>{w.address}</span>
                 </p>
               )}
               {w.phone && (
-                <p className="text-[15px] text-foreground/70">SĐT: {w.phone}</p>
+                <p className="text-[0.9375rem] text-foreground/70">SĐT: {w.phone}</p>
               )}
               {w.species && w.species.length > 0 && (
-                <p className="text-[14px] text-foreground/60">
+                <p className="text-[0.875rem] text-foreground/60">
                   Thu mua: {w.species.join(", ")}
                 </p>
               )}
@@ -190,7 +190,7 @@ function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
                   href={w.source.startsWith("http") ? w.source : `https://${w.source}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 inline-block text-[13px] font-semibold text-foreground/45 underline"
+                  className="mt-1 inline-block text-[0.8125rem] font-semibold text-foreground/45 underline"
                 >
                   Nguồn
                 </a>
@@ -219,25 +219,25 @@ function Markets({ home, near }: { home: HomePref; near: boolean }) {
       </RefNote>
       {list.map((m) => (
         <Card key={m.id} className="p-4">
-          <p className="display text-[18px] font-bold leading-snug text-navy">
+          <p className="display text-[1.125rem] font-bold leading-snug text-navy">
             {m.name}
           </p>
           {m.province && (
-            <p className="text-[15px] font-semibold text-foreground/70">
+            <p className="text-[0.9375rem] font-semibold text-foreground/70">
               {m.province}
             </p>
           )}
           {m.address && (
-            <p className="mt-1 flex gap-1.5 text-[15px] text-foreground/70">
+            <p className="mt-1 flex gap-1.5 text-[0.9375rem] text-foreground/70">
               <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-t2" />
               <span>{m.address}</span>
             </p>
           )}
           {m.hours && (
-            <p className="text-[15px] text-foreground/70">Giờ họp: {m.hours}</p>
+            <p className="text-[0.9375rem] text-foreground/70">Giờ họp: {m.hours}</p>
           )}
           {m.species && m.species.length > 0 && (
-            <p className="mt-1 text-[14px] text-foreground/60">
+            <p className="mt-1 text-[0.875rem] text-foreground/60">
               Loài chính: {m.species.join(", ")}
             </p>
           )}
@@ -263,14 +263,14 @@ function Factories({ home, near }: { home: HomePref; near: boolean }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm theo loài: cá ngừ, tôm, mực…"
-          className="min-h-[52px] w-full rounded-2xl border-0 bg-field pl-11 pr-4 text-[18px] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+          className="min-h-[3.25rem] w-full rounded-2xl border-0 bg-field pl-11 pr-4 text-[1.125rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
       </div>
       <RefNote>
         Danh sách tham khảo từ nguồn công khai (VASEP…). Phần lớn nhà máy mua qua
         đại lý — hỏi đại lý/cảng để bán được cho họ.
       </RefNote>
-      <p className="mb-2 mt-2 px-1 text-[14px] font-semibold text-foreground/55">
+      <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/55">
         {list.length} doanh nghiệp
       </p>
       <ul className="space-y-2.5">
@@ -278,25 +278,25 @@ function Factories({ home, near }: { home: HomePref; near: boolean }) {
           <li key={b.id}>
             <Card className="p-3.5">
               <div className="flex items-start justify-between gap-2">
-                <p className="display text-[18px] font-bold leading-snug text-navy">
+                <p className="display text-[1.125rem] font-bold leading-snug text-navy">
                   {b.name}
                 </p>
                 {b.direct && (
-                  <span className="shrink-0 rounded-full bg-ok-bg px-2 py-0.5 text-[12px] font-bold text-ok">
+                  <span className="shrink-0 rounded-full bg-ok-bg px-2 py-0.5 text-[0.75rem] font-bold text-ok">
                     Mua trực tiếp
                   </span>
                 )}
               </div>
               {b.province && (
-                <p className="text-[15px] font-semibold text-foreground/70">
+                <p className="text-[0.9375rem] font-semibold text-foreground/70">
                   {b.province}
                 </p>
               )}
-              <p className="mt-0.5 text-[14px] text-foreground/60">
+              <p className="mt-0.5 text-[0.875rem] text-foreground/60">
                 Loài: {b.species.join(", ")}
               </p>
               {b.markets && b.markets.length > 0 && (
-                <p className="text-[14px] text-foreground/60">
+                <p className="text-[0.875rem] text-foreground/60">
                   Bán đi: {b.markets.join(", ")}
                 </p>
               )}
@@ -305,7 +305,7 @@ function Factories({ home, near }: { home: HomePref; near: boolean }) {
                   href={b.website.startsWith("http") ? b.website : `https://${b.website}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 inline-block text-[15px] font-bold text-sea"
+                  className="mt-1 inline-block text-[0.9375rem] font-bold text-sea"
                 >
                   Xem trang web
                 </a>
@@ -412,32 +412,32 @@ function MyBuyers() {
             <Card className="p-3.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[12px] font-bold uppercase tracking-wide text-foreground/45">
+                  <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/45">
                     {typeLabel(b.type)}
                   </p>
-                  <p className="display text-[18px] font-bold leading-snug text-navy">
+                  <p className="display text-[1.125rem] font-bold leading-snug text-navy">
                     {b.name}
                   </p>
                 </div>
                 {b.phone && (
                   <a
                     href={telHref(b.phone)}
-                    className="shrink-0 text-[15px] font-bold text-sea"
+                    className="shrink-0 text-[0.9375rem] font-bold text-sea"
                   >
                     Gọi
                   </a>
                 )}
               </div>
               {b.port && (
-                <p className="text-[15px] text-foreground/70">Cảng: {b.port}</p>
+                <p className="text-[0.9375rem] text-foreground/70">Cảng: {b.port}</p>
               )}
               {b.species && b.species.length > 0 && (
-                <p className="text-[14px] text-foreground/60">
+                <p className="text-[0.875rem] text-foreground/60">
                   Hay mua: {b.species.join(", ")}
                 </p>
               )}
               {b.note && (
-                <p className="mt-1 rounded-xl bg-background px-3 py-1.5 text-[14px] text-foreground/70">
+                <p className="mt-1 rounded-xl bg-background px-3 py-1.5 text-[0.875rem] text-foreground/70">
                   {b.note}
                 </p>
               )}
@@ -447,13 +447,13 @@ function MyBuyers() {
                     setEditing(b);
                     setShowForm(true);
                   }}
-                  className="flex items-center gap-1.5 text-[15px] font-bold text-sea"
+                  className="flex items-center gap-1.5 text-[0.9375rem] font-bold text-sea"
                 >
                   <EditIcon className="h-4 w-4" /> Sửa
                 </button>
                 <button
                   onClick={() => setConfirmDel(b)}
-                  className="flex items-center gap-1.5 text-[15px] font-bold text-danger"
+                  className="flex items-center gap-1.5 text-[0.9375rem] font-bold text-danger"
                 >
                   <TrashIcon className="h-4 w-4" /> Xóa
                 </button>
@@ -588,7 +588,7 @@ function BuyerForm({
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[60px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
+            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
           >
             Hủy
           </button>

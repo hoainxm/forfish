@@ -54,7 +54,7 @@ export function AuthError({ children }: { children: ReactNode }) {
   return (
     <p
       role="alert"
-      className="mb-4 rounded-xl px-3.5 py-3 text-[16px] font-semibold leading-snug"
+      className="mb-4 rounded-xl px-3.5 py-3 text-[1rem] font-semibold leading-snug"
       style={{ color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
     >
       {children}
@@ -66,7 +66,7 @@ export function AuthError({ children }: { children: ReactNode }) {
 export function AuthNote({ children }: { children: ReactNode }) {
   return (
     <p
-      className="mb-4 rounded-xl px-3.5 py-3 text-[16px] font-semibold leading-snug"
+      className="mb-4 rounded-xl px-3.5 py-3 text-[1rem] font-semibold leading-snug"
       style={{ color: "var(--t1)", backgroundColor: "var(--t1-bg)" }}
     >
       {children}

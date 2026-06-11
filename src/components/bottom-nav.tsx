@@ -33,7 +33,7 @@ export function BottomNav() {
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
     >
       <ul
-        className="grid grid-cols-5 rounded-[26px] px-1.5 py-1.5 shadow-[0_12px_32px_-8px_rgba(10,30,50,0.45)] backdrop-blur-md"
+        className="grid grid-cols-5 rounded-[1.625rem] px-1.5 py-1.5 shadow-[0_12px_32px_-8px_rgba(10,30,50,0.45)] backdrop-blur-md"
         style={{ backgroundColor: "rgb(17 42 66 / 0.92)" }}
       >
         {items.map(({ href, label, icon: Icon }) => {
@@ -44,12 +44,12 @@ export function BottomNav() {
               <Link
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-[60px] flex-col items-center justify-center gap-0.5 rounded-[20px] transition-colors ${
+                className={`flex min-h-[3.75rem] flex-col items-center justify-center gap-0.5 rounded-[1.25rem] transition-colors ${
                   active ? "bg-white text-navy" : "text-white/75"
                 }`}
               >
                 <Icon className="h-6 w-6" />
-                <span className="text-[12px] font-bold leading-none">
+                <span className="text-[0.75rem] font-bold leading-none">
                   {label}
                 </span>
               </Link>

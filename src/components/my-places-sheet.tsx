@@ -71,12 +71,12 @@ export function MyPlacesSheet({
           onUseGps();
           onClose();
         }}
-        className="flex min-h-[56px] w-full items-center gap-3 surface px-4 transition active:scale-[0.99]"
+        className="flex min-h-[3.5rem] w-full items-center gap-3 surface px-4 transition active:scale-[0.99]"
       >
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy text-white">
           <CrosshairIcon className="h-5 w-5" />
         </span>
-        <span className="flex-1 text-left text-[16px] font-bold text-navy">
+        <span className="flex-1 text-left text-[1rem] font-bold text-navy">
           Chỗ tàu tôi đang đứng
         </span>
       </button>
@@ -94,7 +94,7 @@ export function MyPlacesSheet({
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
                       autoFocus
-                      className="min-h-[48px] flex-1 rounded-lg bg-field px-3 text-[16px] font-semibold focus:outline-none"
+                      className="min-h-[3rem] flex-1 rounded-lg bg-field px-3 text-[1rem] font-semibold focus:outline-none"
                     />
                     <button
                       type="button"
@@ -102,7 +102,7 @@ export function MyPlacesSheet({
                         onPlaces(renamePlace(places, p.id, editName));
                         setEditId(null);
                       }}
-                      className="min-h-[48px] rounded-lg bg-t1 px-4 text-[15px] font-bold text-white"
+                      className="min-h-[3rem] rounded-lg bg-t1 px-4 text-[0.9375rem] font-bold text-white"
                     >
                       Lưu
                     </button>
@@ -115,7 +115,7 @@ export function MyPlacesSheet({
                         onGo(p.lat, p.lon);
                         onClose();
                       }}
-                      className="flex min-h-[56px] flex-1 items-center gap-3 px-4 text-left transition active:bg-field"
+                      className="flex min-h-[3.5rem] flex-1 items-center gap-3 px-4 text-left transition active:bg-field"
                     >
                       <span
                         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white ${
@@ -129,10 +129,10 @@ export function MyPlacesSheet({
                         )}
                       </span>
                       <span className="min-w-0">
-                        <span className="block truncate text-[16px] font-bold text-navy">
+                        <span className="block truncate text-[1rem] font-bold text-navy">
                           {p.name}
                         </span>
-                        <span className="block text-[13px] text-foreground/55">
+                        <span className="block text-[0.8125rem] text-foreground/55">
                           {isHome ? "Cảng nhà" : "Chỗ hay đánh"}
                         </span>
                       </span>
@@ -177,7 +177,7 @@ export function MyPlacesSheet({
       )}
 
       {sorted.length === 0 && (
-        <p className="mt-3 px-1 text-[15px] leading-snug text-foreground/60">
+        <p className="mt-3 px-1 text-[0.9375rem] leading-snug text-foreground/60">
           Chưa ghim chỗ nào. Chạm vào chỗ hay đánh trên bản đồ rồi bấm{" "}
           <b>Ghim chỗ này</b> — lần sau mở một chạm là tới.
         </p>
@@ -189,7 +189,7 @@ export function MyPlacesSheet({
           <button
             type="button"
             onClick={() => setPortOpen(true)}
-            className="flex min-h-[52px] w-full items-center gap-2 rounded-full bg-field px-4 text-[15px] font-bold text-navy active:scale-[0.99]"
+            className="flex min-h-[3.25rem] w-full items-center gap-2 rounded-full bg-field px-4 text-[0.9375rem] font-bold text-navy active:scale-[0.99]"
           >
             <SearchIcon className="h-5 w-5" />
             Đặt cảng nhà từ danh mục cảng
@@ -203,7 +203,7 @@ export function MyPlacesSheet({
                 onChange={(e) => setPortQuery(e.target.value)}
                 autoFocus
                 placeholder="Gõ tên cảng hoặc tỉnh…"
-                className="min-h-[52px] flex-1 bg-transparent text-[16px] font-semibold focus:outline-none"
+                className="min-h-[3.25rem] flex-1 bg-transparent text-[1rem] font-semibold focus:outline-none"
               />
             </div>
             {portResults.length > 0 && (
@@ -223,14 +223,14 @@ export function MyPlacesSheet({
                         onGo(p.lat as number, p.lng as number);
                         onClose();
                       }}
-                      className="flex min-h-[52px] w-full items-center gap-2 rounded-lg bg-field px-4 text-left active:scale-[0.99]"
+                      className="flex min-h-[3.25rem] w-full items-center gap-2 rounded-lg bg-field px-4 text-left active:scale-[0.99]"
                     >
                       <AnchorIcon className="h-5 w-5 shrink-0 text-t1" />
                       <span className="min-w-0">
-                        <span className="block truncate text-[16px] font-semibold text-navy">
+                        <span className="block truncate text-[1rem] font-semibold text-navy">
                           {p.name}
                         </span>
-                        <span className="block truncate text-[13px] text-foreground/55">
+                        <span className="block truncate text-[0.8125rem] text-foreground/55">
                           {p.province}
                         </span>
                       </span>
@@ -240,7 +240,7 @@ export function MyPlacesSheet({
               </ul>
             )}
             {portQuery.trim().length >= 1 && portResults.length === 0 && (
-              <p className="mt-2 px-1 text-[14px] text-foreground/55">
+              <p className="mt-2 px-1 text-[0.875rem] text-foreground/55">
                 Không thấy cảng nào khớp. Thử gõ ngắn hơn, hoặc ghim thẳng chỗ
                 trên bản đồ.
               </p>

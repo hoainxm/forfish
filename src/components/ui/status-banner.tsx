@@ -39,7 +39,7 @@ export function StatusBanner({
   const shown = icon === undefined ? DEFAULT_ICON[level] : icon;
   return (
     <p
-      className="flex items-center gap-2 px-4 py-2.5 text-[16px] font-bold"
+      className="flex items-center gap-2 px-4 py-2.5 text-[1rem] font-bold"
       style={{ backgroundColor: s.bg, color: s.fg }}
     >
       {shown && <span className="shrink-0">{shown}</span>}

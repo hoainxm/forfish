@@ -40,7 +40,7 @@ export function SdvicoRequestButton({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="display flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[19px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+          className="display flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
         >
           <PhoneIcon className="h-6 w-6" />
           {label}
@@ -49,7 +49,7 @@ export function SdvicoRequestButton({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="flex min-h-[48px] shrink-0 items-center gap-1.5 rounded-full bg-t3 px-4 text-[15px] font-bold text-white transition active:scale-[0.97]"
+          className="flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-full bg-t3 px-4 text-[0.9375rem] font-bold text-white transition active:scale-[0.97]"
         >
           <PhoneIcon className="h-4 w-4" />
           {label}
@@ -147,12 +147,12 @@ function RequestForm({
     return (
       <BottomSheet title="Đã gửi cho SDVICO" onClose={onClose}>
         <div
-          className="rounded-[20px] px-4 py-8 text-center"
+          className="rounded-[1.25rem] px-4 py-8 text-center"
           style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
         >
           <CheckIcon className="mx-auto h-10 w-10" />
-          <p className="mt-3 text-[18px] font-bold">SDVICO đã nhận yêu cầu</p>
-          <p className="mt-1 text-[16px] text-foreground/70">
+          <p className="mt-3 text-[1.125rem] font-bold">SDVICO đã nhận yêu cầu</p>
+          <p className="mt-1 text-[1rem] text-foreground/70">
             Nhân viên sẽ gọi lại cho bà con trong giờ làm việc.
           </p>
         </div>
@@ -167,7 +167,7 @@ function RequestForm({
     <BottomSheet title="Gọi SDVICO" onClose={onClose}>
       <form onSubmit={submit}>
         {productName && (
-          <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[16px] font-semibold text-navy">
+          <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy">
             Về: {productName}
           </p>
         )}
@@ -211,7 +211,7 @@ function RequestForm({
         </Field>
 
         {signedPhone && (
-          <p className="mb-3 text-[15px] font-semibold text-foreground/60">
+          <p className="mb-3 text-[0.9375rem] font-semibold text-foreground/60">
             SDVICO sẽ gọi lại số <strong>{prettyPhone(signedPhone)}</strong>
             {name ? ` (${name})` : ""}.
           </p>
@@ -220,7 +220,7 @@ function RequestForm({
         {state === "error" && (
           <p
             role="alert"
-            className="mb-3 rounded-2xl px-3.5 py-3 text-[16px] font-semibold"
+            className="mb-3 rounded-2xl px-3.5 py-3 text-[1rem] font-semibold"
             style={{ color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
           >
             Chưa gửi được — kiểm tra số điện thoại rồi thử lại, hoặc gọi thẳng
@@ -232,7 +232,7 @@ function RequestForm({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[60px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
+            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
           >
             Hủy
           </button>
@@ -244,7 +244,7 @@ function RequestForm({
         {/* gấp thì gọi thẳng — hỗ trợ tức thì */}
         <a
           href={`tel:${SDVICO_HOTLINE}`}
-          className="mt-3 flex min-h-[52px] items-center justify-center gap-2 rounded-full text-[17px] font-bold text-sea"
+          className="mt-3 flex min-h-[3.25rem] items-center justify-center gap-2 rounded-full text-[1.0625rem] font-bold text-sea"
         >
           <PhoneIcon className="h-5 w-5" />
           Gấp? Gọi ngay {SDVICO_HOTLINE_DISPLAY}

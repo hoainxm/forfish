@@ -29,7 +29,7 @@ export function HeroAccount() {
     return (
       <Link
         href="/login"
-        className="mt-3 inline-flex min-h-[44px] items-center rounded-full bg-white/15 px-5 text-[16px] font-bold text-white backdrop-blur-sm transition active:scale-[0.97]"
+        className="mt-3 inline-flex min-h-[2.75rem] items-center rounded-full bg-white/15 px-5 text-[1rem] font-bold text-white backdrop-blur-sm transition active:scale-[0.97]"
       >
         Đăng nhập / Đăng ký
       </Link>
@@ -39,8 +39,8 @@ export function HeroAccount() {
   const name = (user.user_metadata?.full_name as string | undefined)?.trim();
 
   return (
-    <div className="mt-3 flex min-h-[44px] flex-wrap items-center gap-x-3 gap-y-1">
-      <span className="text-[16px] font-semibold text-white/85">
+    <div className="mt-3 flex min-h-[2.75rem] flex-wrap items-center gap-x-3 gap-y-1">
+      <span className="text-[1rem] font-semibold text-white/85">
         {name ? `Bác ${name} · ` : ""}
         {prettyPhone(phone)}
       </span>
@@ -51,7 +51,7 @@ export function HeroAccount() {
           await supabase?.auth.signOut();
           router.refresh();
         }}
-        className="min-h-[44px] rounded-full px-2 text-[15px] font-bold text-white/70 underline underline-offset-4"
+        className="min-h-[2.75rem] rounded-full px-2 text-[0.9375rem] font-bold text-white/70 underline underline-offset-4"
       >
         Đăng xuất
       </button>

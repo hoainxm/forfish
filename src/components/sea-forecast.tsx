@@ -65,14 +65,14 @@ export function SeaForecast() {
     <div className="px-4 pt-1">
       {/* chọn cảng */}
       <label className="mb-4 block">
-        <span className="mb-1.5 flex items-center gap-2 text-[16px] font-bold text-navy">
+        <span className="mb-1.5 flex items-center gap-2 text-[1rem] font-bold text-navy">
           <AnchorIcon className="h-5 w-5" />
           Vùng biển gần cảng
         </span>
         <select
           value={port?.id ?? ""}
           onChange={(e) => choosePort(e.target.value)}
-          className="min-h-[52px] w-full rounded-2xl border-0 bg-field px-4 text-[18px] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+          className="min-h-[3.25rem] w-full rounded-2xl border-0 bg-field px-4 text-[1.125rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         >
           {PORTS.map((p) => (
             <option key={p.id} value={p.id}>
@@ -83,19 +83,19 @@ export function SeaForecast() {
       </label>
 
       {loading && (
-        <div className="surface px-4 py-12 text-center text-[18px] text-foreground/50">
+        <div className="surface px-4 py-12 text-center text-[1.125rem] text-foreground/50">
           Đang lấy dự báo sóng gió…
         </div>
       )}
 
       {error && !loading && (
         <div className="surface px-4 py-10 text-center">
-          <p className="text-[18px] text-foreground/60">
+          <p className="text-[1.125rem] text-foreground/60">
             Chưa lấy được dự báo. Kiểm tra mạng rồi thử lại.
           </p>
           <button
             onClick={() => port && load(port)}
-            className="mt-4 min-h-[52px] rounded-xl bg-sea px-8 text-[18px] font-bold text-white"
+            className="mt-4 min-h-[3.25rem] rounded-xl bg-sea px-8 text-[1.125rem] font-bold text-white"
           >
             Thử lại
           </button>
@@ -111,17 +111,17 @@ export function SeaForecast() {
             style={{ backgroundColor: levelColor[today.level].bg }}
           >
             <div className="px-5 pb-4 pt-4 text-center">
-              <p className="text-[15px] font-bold uppercase tracking-wide text-foreground/50">
+              <p className="text-[0.9375rem] font-bold uppercase tracking-wide text-foreground/50">
                 Điểm đi biển hôm nay
               </p>
               <p
-                className="display text-[72px] font-bold leading-none"
+                className="display text-[4.5rem] font-bold leading-none"
                 style={{ color: levelColor[today.level].fg }}
               >
                 {today.score}
               </p>
               <p
-                className="display mt-1 text-[22px] font-bold"
+                className="display mt-1 text-[1.375rem] font-bold"
                 style={{ color: levelColor[today.level].fg }}
               >
                 {LEVEL_LABEL[today.level]}
@@ -131,7 +131,7 @@ export function SeaForecast() {
                 return (
                   w && (
                     <p
-                      className={`mt-0.5 text-[16px] font-bold ${
+                      className={`mt-0.5 text-[1rem] font-bold ${
                         w.danger ? "text-danger" : "text-foreground/60"
                       }`}
                     >
@@ -142,11 +142,11 @@ export function SeaForecast() {
               })()}
             </div>
             <div className="grid grid-cols-2 border-t border-black/5 bg-card">
-              <p className="flex min-h-[56px] items-center justify-center gap-2 text-[16px]">
+              <p className="flex min-h-[3.5rem] items-center justify-center gap-2 text-[1rem]">
                 <WavesIcon className="h-5 w-5 text-sea" />
                 Sóng <strong>{today.waveMaxM.toFixed(1)} m</strong>
               </p>
-              <p className="flex min-h-[56px] items-center justify-center gap-2 border-l border-line text-[16px]">
+              <p className="flex min-h-[3.5rem] items-center justify-center gap-2 border-l border-line text-[1rem]">
                 <WindIcon className="h-5 w-5 text-sea" />
                 Gió <strong>{Math.round(today.windMaxKmh)} km/h</strong>
               </p>
@@ -155,7 +155,7 @@ export function SeaForecast() {
 
           {/* các ngày tới */}
           <section aria-label="Những ngày tới" className="mt-5">
-            <h2 className="display mb-2 px-1 text-[18px] font-bold text-navy">
+            <h2 className="display mb-2 px-1 text-[1.125rem] font-bold text-navy">
               Những ngày tới
             </h2>
             <ul className="overflow-hidden surface">
@@ -166,11 +166,11 @@ export function SeaForecast() {
                     key={d.date}
                     className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-b-0"
                   >
-                    <span className="w-[86px] shrink-0 text-[16px] font-semibold capitalize">
+                    <span className="w-[86px] shrink-0 text-[1rem] font-semibold capitalize">
                       {formatDay(d.date)}
                     </span>
                     <span
-                      className="display w-[52px] shrink-0 rounded-xl py-1 text-center text-[18px] font-bold"
+                      className="display w-[52px] shrink-0 rounded-xl py-1 text-center text-[1.125rem] font-bold"
                       style={{
                         color: levelColor[d.level].fg,
                         backgroundColor: levelColor[d.level].bg,
@@ -178,7 +178,7 @@ export function SeaForecast() {
                     >
                       {d.score}
                     </span>
-                    <span className="flex-1 text-right text-[15px] leading-snug text-foreground/60">
+                    <span className="flex-1 text-right text-[0.9375rem] leading-snug text-foreground/60">
                       sóng {d.waveMaxM.toFixed(1)} m · gió{" "}
                       {Math.round(d.windMaxKmh)} km/h
                       {w && (
@@ -200,7 +200,7 @@ export function SeaForecast() {
         </>
       )}
 
-      <p className="mt-4 rounded-xl bg-t1-bg px-3 py-2.5 text-[14px] font-semibold leading-snug text-t1">
+      <p className="mt-4 rounded-xl bg-t1-bg px-3 py-2.5 text-[0.875rem] font-semibold leading-snug text-t1">
         Dự báo từ mô hình thời tiết quốc tế, chỉ để tham khảo. Trước khi ra
         khơi, bà con nghe thêm thông báo của đài duyên hải và Bộ đội Biên
         phòng.

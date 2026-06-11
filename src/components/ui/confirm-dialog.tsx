@@ -55,21 +55,21 @@ export function ConfirmDialog({
         className="w-full max-w-[400px] surface p-5 text-center"
       >
         {icon && <div className="mx-auto mb-3 w-fit">{icon}</div>}
-        <p className="display text-[20px] font-bold text-navy">{title}</p>
+        <p className="display text-[1.25rem] font-bold text-navy">{title}</p>
         {message && (
-          <p className="mt-1 text-[16px] text-foreground/70">{message}</p>
+          <p className="mt-1 text-[1rem] text-foreground/70">{message}</p>
         )}
         <div className="mt-4 grid grid-cols-2 gap-3">
           <button
             ref={cancelRef}
             onClick={onCancel}
-            className="min-h-[56px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
+            className="min-h-[3.5rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className={`min-h-[56px] rounded-xl text-[18px] font-bold text-white ${
+            className={`min-h-[3.5rem] rounded-xl text-[1.125rem] font-bold text-white ${
               danger ? "bg-danger" : "bg-sea"
             }`}
           >

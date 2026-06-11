@@ -75,12 +75,28 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/*
+  HAI CHẾ ĐỘ HIỂN THỊ (user chốt 2026-06-11) — một kiến trúc, không phải
+  hai bộ giao diện: TOÀN BỘ cỡ chữ / tap-size / bo góc trong app viết bằng
+  REM (đã quét px → rem), nên mỗi chế độ chỉ là MỘT dòng đổi font-size gốc:
+
+  · "Chữ to"  (mặc định, ngư dân 40–60): 1rem = 16px → body 18px, nút 60px
+  · "Gọn đẹp" (chuẩn app hiện đại):      1rem = 14px → body ~15.8px, nút ~52px
+    — mọi tỷ lệ giữ nguyên, chỉ mật độ thay đổi → luôn cân đối.
+
+  Chọn ở trang chủ (display-mode-toggle), lưu forfish.displaymode.v1,
+  script trong layout đặt data-mode trước khi vẽ để không nháy.
+*/
+html[data-mode="gon"] {
+  font-size: 14px;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
-  /* large base for older eyes + sunlight */
-  font-size: 18px;
+  /* large base for older eyes + sunlight (rem để ăn theo chế độ hiển thị) */
+  font-size: 1.125rem;
   line-height: 1.6;
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -133,7 +149,7 @@ textarea,
 */
 .surface {
   background: var(--card);
-  border-radius: 20px;
+  border-radius: 1.25rem;
   box-shadow:
     0 1px 2px rgb(13 35 54 / 0.05),
     0 8px 24px -12px rgb(13 35 54 / 0.12);
@@ -143,7 +159,7 @@ textarea,
 .hero {
   position: relative;
   overflow: hidden;
-  border-radius: 0 0 28px 28px;
+  border-radius: 0 0 1.75rem 1.75rem;
   color: #fff;
 }
 .hero::after {

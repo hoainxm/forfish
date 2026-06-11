@@ -61,7 +61,7 @@ export function BoatServices() {
         {!synced && (
           <Link
             href="/login"
-            className="mt-2.5 flex min-h-[56px] w-full items-center justify-center rounded-full bg-field text-[17px] font-bold text-navy transition active:scale-[0.98]"
+            className="mt-2.5 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.98]"
           >
             Đăng nhập để thấy dịch vụ của mình
           </Link>
@@ -71,7 +71,7 @@ export function BoatServices() {
       {/* yêu cầu đã gửi — để bà con biết mình ĐƯỢC tiếp nhận */}
       {synced && synced.requests.length > 0 && (
         <div className="mb-5">
-          <h3 className="display mb-1.5 px-1 text-[18px] font-bold text-navy">
+          <h3 className="display mb-1.5 px-1 text-[1.125rem] font-bold text-navy">
             Yêu cầu đã gửi
           </h3>
           <div className="overflow-hidden surface">
@@ -83,11 +83,11 @@ export function BoatServices() {
                     key={r.id}
                     className={`px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}
                   >
-                    <p className="text-[16px] font-semibold leading-snug text-foreground/85">
+                    <p className="text-[1rem] font-semibold leading-snug text-foreground/85">
                       {r.summary}
                     </p>
                     <p
-                      className="mt-0.5 flex items-center gap-1.5 text-[14px] font-bold"
+                      className="mt-0.5 flex items-center gap-1.5 text-[0.875rem] font-bold"
                       style={{
                         color: st.level === "ok" ? "var(--ok)" : "var(--warn)",
                       }}
@@ -123,10 +123,10 @@ export function BoatServices() {
                   {overdue ? "Khoản nợ quá hạn" : "Khoản chờ thanh toán"}
                 </StatusBanner>
                 <div className="px-4 py-3">
-                  <p className="display text-[19px] font-bold leading-snug text-navy">
+                  <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                     {formatVnd(p.amountVnd)}
                   </p>
-                  <p className="text-[16px] text-foreground/60">
+                  <p className="text-[1rem] text-foreground/60">
                     Đơn hàng: <strong>{p.orderCode}</strong>
                     {p.dueOn && (
                       <>
@@ -172,19 +172,19 @@ export function BoatServices() {
                   {due.label}
                 </StatusBanner>
                 <div className="px-4 py-3">
-                  <p className="text-[13px] font-bold uppercase tracking-wide text-foreground/40">
+                  <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/40">
                     {serviceKindLabel(s.kind)}
                   </p>
-                  <p className="display text-[19px] font-bold leading-snug text-navy">
+                  <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                     {s.name}
                   </p>
                   {s.nextDueOn && (
-                    <p className="text-[16px] text-foreground/60">
+                    <p className="text-[1rem] text-foreground/60">
                       Kỳ tới: <strong>{formatVnDate(s.nextDueOn)}</strong>
                     </p>
                   )}
                   {s.startedOn && (
-                    <p className="text-[15px] text-foreground/55">
+                    <p className="text-[0.9375rem] text-foreground/55">
                       Dùng từ {formatVnDate(s.startedOn)}
                     </p>
                   )}
@@ -204,7 +204,7 @@ export function BoatServices() {
           })}
 
           {synced.payments.length === 0 && activeServices.length === 0 && (
-            <p className="rounded-[20px] bg-field/70 px-4 py-6 text-center text-[16px] text-foreground/60">
+            <p className="rounded-[1.25rem] bg-field/70 px-4 py-6 text-center text-[1rem] text-foreground/60">
               Chưa thấy dịch vụ nào đang dùng bên SDVICO.
             </p>
           )}
@@ -212,10 +212,10 @@ export function BoatServices() {
       )}
 
       {/* sổ nhắc bảo dưỡng tự ghi — của bà con, lưu trên máy */}
-      <h3 className="display mb-1 px-1 text-[18px] font-bold text-navy">
+      <h3 className="display mb-1 px-1 text-[1.125rem] font-bold text-navy">
         Sổ nhắc bảo dưỡng của tôi
       </h3>
-      <p className="mb-2 px-1 text-[14px] text-foreground/55">
+      <p className="mb-2 px-1 text-[0.875rem] text-foreground/55">
         Tự ghi việc thay nhớt, thay lọc… app nhắc tới kỳ.
       </p>
       <div className="-mx-4">

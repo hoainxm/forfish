@@ -36,8 +36,8 @@ export function ChipRow<T extends string>({
 }) {
   const base =
     level === 1
-      ? "min-h-[48px] px-4 text-[16px]"
-      : "min-h-[42px] px-3.5 text-[15px]";
+      ? "min-h-[3rem] px-4 text-[1rem]"
+      : "min-h-[2.625rem] px-3.5 text-[0.9375rem]";
   return (
     <div
       role="group"

@@ -146,24 +146,24 @@ export function CrewList() {
       {/* tổng quan */}
       <div className="mb-4 grid grid-cols-3 gap-2">
         <div className="surface py-3 text-center">
-          <p className="display text-[24px] font-bold text-navy">
+          <p className="display text-[1.5rem] font-bold text-navy">
             {boatCrew.length}
           </p>
-          <p className="text-[13px] text-foreground/55">Bạn thuyền</p>
+          <p className="text-[0.8125rem] text-foreground/55">Bạn thuyền</p>
         </div>
         <div className="surface py-3 text-center">
           <p
-            className={`display text-[24px] font-bold ${noInsurance > 0 ? "text-danger" : "text-ok"}`}
+            className={`display text-[1.5rem] font-bold ${noInsurance > 0 ? "text-danger" : "text-ok"}`}
           >
             {noInsurance}
           </p>
-          <p className="text-[13px] text-foreground/55">Chưa bảo hiểm</p>
+          <p className="text-[0.8125rem] text-foreground/55">Chưa bảo hiểm</p>
         </div>
         <div className="surface py-3 text-center">
-          <p className="display text-[18px] font-bold leading-[2] text-navy">
+          <p className="display text-[1.125rem] font-bold leading-[2] text-navy">
             {formatShortVnd(totalAdvance)}
           </p>
-          <p className="text-[13px] text-foreground/55">Đang ứng</p>
+          <p className="text-[0.8125rem] text-foreground/55">Đang ứng</p>
         </div>
       </div>
 
@@ -172,16 +172,16 @@ export function CrewList() {
           setEditing(null);
           setShowForm(true);
         }}
-        className="display mb-4 flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[19px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+        className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
       >
         <PlusIcon className="h-6 w-6" />
         Thêm bạn thuyền
       </button>
 
       {ready && boatReady && boatCrew.length === 0 && (
-        <div className="rounded-[20px] bg-field/70 px-4 py-12 text-center">
+        <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
           <UsersIcon className="mx-auto h-10 w-10 text-foreground/30" />
-          <p className="mt-3 text-[18px] text-foreground/60">
+          <p className="mt-3 text-[1.125rem] text-foreground/60">
             Chưa có ai trong sổ.
             <br />
             Bấm nút cam ở trên để thêm bạn thuyền.
@@ -201,29 +201,29 @@ export function CrewList() {
               <StatusBanner level={issue.level}>{issue.label}</StatusBanner>
 
               <div className="px-4 py-3">
-                <p className="text-[13px] font-bold uppercase tracking-wide text-foreground/40">
+                <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/40">
                   {ROLE_LABELS[m.role]}
                   {m.shares !== 1 && ` · ${m.shares} phần`}
                 </p>
-                <p className="display text-[19px] font-bold leading-snug text-navy">
+                <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                   {m.name}
                 </p>
                 {m.phone && (
                   <a
                     href={`tel:${m.phone}`}
-                    className="text-[16px] font-semibold text-sea"
+                    className="text-[1rem] font-semibold text-sea"
                   >
                     Gọi: {m.phone}
                   </a>
                 )}
                 {m.certLabel && (
-                  <p className="text-[15px] text-foreground/60">
+                  <p className="text-[0.9375rem] text-foreground/60">
                     {m.certLabel}
                     {m.certExpiry && ` — hạn ${formatVnDate(m.certExpiry)}`}
                   </p>
                 )}
                 {owing > 0 && (
-                  <p className="mt-1.5 flex items-center justify-between rounded-xl bg-background px-3 py-2 text-[15px]">
+                  <p className="mt-1.5 flex items-center justify-between rounded-xl bg-background px-3 py-2 text-[0.9375rem]">
                     <span>
                       Đang ứng:{" "}
                       <strong className="text-danger">
@@ -243,7 +243,7 @@ export function CrewList() {
               <div className="grid grid-cols-3 border-t border-line">
                 <button
                   onClick={() => setAdvanceFor(m)}
-                  className="flex min-h-[52px] items-center justify-center gap-1.5 text-[16px] font-bold text-t3 active:bg-background"
+                  className="flex min-h-[3.25rem] items-center justify-center gap-1.5 text-[1rem] font-bold text-t3 active:bg-background"
                 >
                   <MoneyHandIcon className="h-5 w-5" />
                   Ứng tiền
@@ -253,14 +253,14 @@ export function CrewList() {
                     setEditing(m);
                     setShowForm(true);
                   }}
-                  className="flex min-h-[52px] items-center justify-center gap-1.5 border-l border-line text-[16px] font-bold text-sea active:bg-background"
+                  className="flex min-h-[3.25rem] items-center justify-center gap-1.5 border-l border-line text-[1rem] font-bold text-sea active:bg-background"
                 >
                   <EditIcon className="h-5 w-5" />
                   Sửa
                 </button>
                 <button
                   onClick={() => setConfirmDelete(m)}
-                  className="flex min-h-[52px] items-center justify-center gap-1.5 border-l border-line text-[16px] font-bold text-danger active:bg-background"
+                  className="flex min-h-[3.25rem] items-center justify-center gap-1.5 border-l border-line text-[1rem] font-bold text-danger active:bg-background"
                 >
                   <TrashIcon className="h-5 w-5" />
                   Xóa
@@ -271,7 +271,7 @@ export function CrewList() {
         })}
       </ul>
 
-      <p className="py-4 text-center text-[14px] text-foreground/40">
+      <p className="py-4 text-center text-[0.875rem] text-foreground/40">
         Sổ thuyền viên lưu ngay trên máy của bà con.
       </p>
 
@@ -410,7 +410,7 @@ function CrewForm({
             <button
               type="button"
               onClick={() => setHasInsurance(true)}
-              className={`min-h-[52px] rounded-xl text-[18px] font-bold ${
+              className={`min-h-[3.25rem] rounded-xl text-[1.125rem] font-bold ${
                 hasInsurance
                   ? "bg-ok text-white"
                   : "bg-field text-foreground/60"
@@ -421,7 +421,7 @@ function CrewForm({
             <button
               type="button"
               onClick={() => setHasInsurance(false)}
-              className={`min-h-[52px] rounded-xl text-[18px] font-bold ${
+              className={`min-h-[3.25rem] rounded-xl text-[1.125rem] font-bold ${
                 !hasInsurance
                   ? "bg-danger text-white"
                   : "bg-field text-foreground/60"
@@ -472,7 +472,7 @@ function CrewForm({
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[60px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
+            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
           >
             Hủy
           </button>
@@ -504,7 +504,7 @@ function AdvanceForm({
           if (parsed > 0) onSave(parsed, note.trim());
         }}
       >
-        <p className="mb-4 -mt-2 text-[15px] text-foreground/60">
+        <p className="mb-4 -mt-2 text-[0.9375rem] text-foreground/60">
           Khoản ứng sẽ tự trừ khi chia tiền chuyến.
         </p>
 
@@ -512,7 +512,7 @@ function AdvanceForm({
           <input
             value={parsed ? parsed.toLocaleString("vi-VN") : amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="w-full rounded-2xl border-0 bg-field px-4 py-3.5 text-[20px] font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+            className="w-full rounded-2xl border-0 bg-field px-4 py-3.5 text-[1.25rem] font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
             inputMode="numeric"
             placeholder="VD: 10.000.000"
             required
@@ -524,7 +524,7 @@ function AdvanceForm({
               key={v}
               type="button"
               onClick={() => setAmount(String(v))}
-              className="min-h-[44px] flex-1 rounded-full bg-field text-[15px] font-bold text-foreground/70"
+              className="min-h-[2.75rem] flex-1 rounded-full bg-field text-[0.9375rem] font-bold text-foreground/70"
             >
               {v / 1_000_000} triệu
             </button>
@@ -544,7 +544,7 @@ function AdvanceForm({
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[60px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
+            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
           >
             Hủy
           </button>

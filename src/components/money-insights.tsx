@@ -53,11 +53,11 @@ export function MoneyInsights() {
       {stats && stats.count > 0 && (
         <div className="mb-4 px-4">
           <Card className="p-4">
-            <p className="text-[13px] font-bold uppercase tracking-wide text-foreground/45">
+            <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/45">
               Nhìn nhanh {stats.count} chuyến đã ghi
             </p>
             <p
-              className="display mt-1 text-[28px] font-bold leading-tight tabular-nums"
+              className="display mt-1 text-[1.75rem] font-bold leading-tight tabular-nums"
               style={{
                 color: stats.totalProfit >= 0 ? "var(--ok)" : "var(--danger)",
               }}
@@ -65,33 +65,33 @@ export function MoneyInsights() {
               {stats.totalProfit >= 0 ? "+" : "−"}
               {formatVndShort(Math.abs(stats.totalProfit))}
             </p>
-            <p className="text-[14px] text-foreground/55">tổng lãi/lỗ</p>
+            <p className="text-[0.875rem] text-foreground/55">tổng lãi/lỗ</p>
 
             <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3 tabular-nums">
               <div>
-                <p className="display text-[18px] font-bold text-navy">
+                <p className="display text-[1.125rem] font-bold text-navy">
                   {stats.totalProfit >= 0 ? "+" : ""}
                   {formatVndShort(stats.avgProfit)}
                 </p>
-                <p className="text-[13px] leading-snug text-foreground/55">
+                <p className="text-[0.8125rem] leading-snug text-foreground/55">
                   bình quân mỗi chuyến
                 </p>
               </div>
               <div>
-                <p className="display text-[18px] font-bold text-navy">
+                <p className="display text-[1.125rem] font-bold text-navy">
                   {stats.profitableCount}/{stats.count}
                 </p>
-                <p className="text-[13px] leading-snug text-foreground/55">
+                <p className="text-[0.8125rem] leading-snug text-foreground/55">
                   chuyến có lãi
                 </p>
               </div>
               <div>
-                <p className="display text-[18px] font-bold text-navy">
+                <p className="display text-[1.125rem] font-bold text-navy">
                   {stats.fuelShare != null
                     ? `${Math.round(stats.fuelShare * 100)}%`
                     : "—"}
                 </p>
-                <p className="text-[13px] leading-snug text-foreground/55">
+                <p className="text-[0.8125rem] leading-snug text-foreground/55">
                   tiền bán đi vào dầu
                 </p>
               </div>
@@ -112,7 +112,7 @@ export function MoneyInsights() {
       {section === "lai-lo" && <TripLog />}
       {section === "chia" && (
         <div>
-          <p className="mb-2 px-4 text-[15px] leading-snug text-foreground/70">
+          <p className="mb-2 px-4 text-[0.9375rem] leading-snug text-foreground/70">
             Nhập tiền bán cá và tổn chung — app tự chia theo phần từng người,
             trừ luôn tiền đã ứng.
           </p>

@@ -27,7 +27,7 @@ export function SectionHeader({
 }) {
   return (
     <h2
-      className={`display px-4 pb-2 text-[20px] font-bold text-navy ${className}`}
+      className={`display px-4 pb-2 text-[1.25rem] font-bold text-navy ${className}`}
     >
       {children}
     </h2>
@@ -44,7 +44,7 @@ export function Field({
 }) {
   return (
     <label className="mb-3.5 block">
-      <span className="mb-1.5 block text-[16px] font-bold text-navy">
+      <span className="mb-1.5 block text-[1rem] font-bold text-navy">
         {label}
       </span>
       {children}
@@ -54,7 +54,7 @@ export function Field({
 
 /** Class chuẩn cho ô nhập 1 dòng / select / textarea — kiểu FILLED hiện đại. */
 export const inputClass =
-  "w-full rounded-2xl border-0 bg-field px-4 py-4 text-[18px] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea";
+  "w-full rounded-2xl border-0 bg-field px-4 py-4 text-[1.125rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea";
 
 /** Nút chính (cam trim) — pill, tap ≥60px, bóng màu. */
 export function PrimaryButton({
@@ -75,7 +75,7 @@ export function PrimaryButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`display flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[19px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none ${className}`}
+      className={`display flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none ${className}`}
     >
       {children}
     </button>
@@ -91,9 +91,9 @@ export function EmptyState({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-[20px] bg-field/70 px-4 py-12 text-center">
+    <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
       {icon && <div className="mx-auto mb-3 w-fit text-foreground/40">{icon}</div>}
-      <p className="text-[18px] text-foreground/70">{children}</p>
+      <p className="text-[1.125rem] text-foreground/70">{children}</p>
     </div>
   );
 }
@@ -110,7 +110,7 @@ export function RefNote({
 }) {
   return (
     <p
-      className="rounded-2xl px-3.5 py-2.5 text-[14px] font-semibold leading-snug"
+      className="rounded-2xl px-3.5 py-2.5 text-[0.875rem] font-semibold leading-snug"
       style={{ color: tone, backgroundColor: bg }}
     >
       {children}

@@ -36,7 +36,7 @@ export default function LoginPage() {
           <AuthNote>
             Chưa cấu hình đăng nhập — app vẫn dùng được không cần tài khoản.
           </AuthNote>
-          <p className="text-[18px] leading-relaxed text-foreground/70">
+          <p className="text-[1.125rem] leading-relaxed text-foreground/70">
             Bạn cứ dùng các tính năng như thường. Khi nào sẵn sàng, người quản
             trị sẽ bật đăng nhập giúp bạn.
           </p>
@@ -129,7 +129,7 @@ export default function LoginPage() {
             {loading ? "Đang vào…" : "Đăng nhập"}
           </PrimaryButton>
         </form>
-        <p className="mt-4 text-[15px] leading-snug text-foreground/60">
+        <p className="mt-4 text-[0.9375rem] leading-snug text-foreground/60">
           Lần đầu đăng nhập, mật khẩu mặc định là <strong>123456</strong>. Vào
           xong app sẽ nhắc bạn đổi mật khẩu mới.
         </p>

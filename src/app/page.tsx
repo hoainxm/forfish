@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { UrgentStrip } from "@/components/urgent-strip";
 import { HeroAccount } from "@/components/hero-account";
+import { DisplayModeToggle } from "@/components/display-mode-toggle";
 import { BoatSwitcher } from "@/components/boat-switcher";
 import {
   AnchorIcon,
@@ -57,6 +58,8 @@ export default function Home() {
       <PageHeader kicker="ForFish · Bạn của ngư dân" title="Chào bà con">
         {/* tài khoản nằm TRONG hero — không trôi mồ côi dưới thẻ tàu */}
         <HeroAccount />
+        {/* 2 chế độ hiển thị: Chữ to (40–60 tuổi) / Gọn đẹp (chuẩn app) */}
+        <DisplayModeToggle />
       </PageHeader>
 
       <BoatSwitcher />
@@ -65,7 +68,7 @@ export default function Home() {
         <UrgentStrip />
 
         <section aria-label="Bốn nhóm việc">
-          <h2 className="display mb-1.5 px-1 text-[18px] font-bold text-navy">
+          <h2 className="display mb-1.5 px-1 text-[1.125rem] font-bold text-navy">
             Quản lý tàu
           </h2>
           <div className="grid grid-cols-2 gap-3">
@@ -75,7 +78,7 @@ export default function Home() {
                 <Link
                   key={p.href}
                   href={p.href}
-                  className="flex min-h-[124px] flex-col justify-between rounded-[22px] p-4 transition active:scale-[0.98]"
+                  className="flex min-h-[7.75rem] flex-col justify-between rounded-[1.375rem] p-4 transition active:scale-[0.98]"
                   style={{ backgroundColor: `var(--${p.tone}-bg)` }}
                 >
                   <span
@@ -86,10 +89,10 @@ export default function Home() {
                     <Icon className="h-7 w-7" />
                   </span>
                   <span className="mt-3 block min-w-0">
-                    <span className="display block text-[19px] font-bold leading-tight text-navy">
+                    <span className="display block text-[1.1875rem] font-bold leading-tight text-navy">
                       {p.title}
                     </span>
-                    <span className="mt-0.5 block text-[14px] leading-snug text-foreground/60">
+                    <span className="mt-0.5 block text-[0.875rem] leading-snug text-foreground/60">
                       {p.sub}
                     </span>
                   </span>
@@ -99,7 +102,7 @@ export default function Home() {
           </div>
         </section>
 
-        <p className="pb-2 text-center text-[14px] text-foreground/40">
+        <p className="pb-2 text-center text-[0.875rem] text-foreground/40">
           Thuận buồm xuôi gió, cá đầy khoang.
         </p>
       </div>

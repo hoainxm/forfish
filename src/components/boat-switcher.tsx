@@ -76,10 +76,10 @@ export function BoatSwitcher() {
           <AnchorIcon className="h-5 w-5" />
         </span>
         <span className="min-w-0 flex-1 text-left">
-          <span className="block truncate text-[16px] font-bold text-navy">
+          <span className="block truncate text-[1rem] font-bold text-navy">
             {current.name}
           </span>
-          <span className="block truncate text-[13px] text-foreground/55">
+          <span className="block truncate text-[0.8125rem] text-foreground/55">
             {current.maTau
               ? `Mã tàu: ${current.maTau}`
               : "Chạm để ghi tên, mã tàu"}
@@ -107,11 +107,11 @@ export function BoatSwitcher() {
                     }}
                     className="min-w-0 flex-1 rounded-l-xl px-3.5 py-3 text-left"
                   >
-                    <span className="block truncate text-[16px] font-bold">
+                    <span className="block truncate text-[1rem] font-bold">
                       {b.name}
                     </span>
                     <span
-                      className={`block truncate text-[13px] ${b.id === current.id ? "text-white/75" : "text-foreground/55"}`}
+                      className={`block truncate text-[0.8125rem] ${b.id === current.id ? "text-white/75" : "text-foreground/55"}`}
                     >
                       {b.maTau || "chưa có mã tàu"}
                     </span>
@@ -122,7 +122,7 @@ export function BoatSwitcher() {
                       setPick(false);
                     }}
                     aria-label={`Sửa tàu ${b.name}`}
-                    className={`shrink-0 rounded-r-xl px-3 text-[14px] font-bold ${b.id === current.id ? "text-white underline" : "text-sea"}`}
+                    className={`shrink-0 rounded-r-xl px-3 text-[0.875rem] font-bold ${b.id === current.id ? "text-white underline" : "text-sea"}`}
                   >
                     Sửa
                   </button>
@@ -135,7 +135,7 @@ export function BoatSwitcher() {
               setForm({ id: `boat-${Date.now()}`, name: "" });
               setPick(false);
             }}
-            className="mt-3 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-field text-[16px] font-bold text-navy"
+            className="mt-3 flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-full bg-field text-[1rem] font-bold text-navy"
           >
             <PlusIcon className="h-5 w-5" />
             Thêm tàu mới
@@ -240,7 +240,7 @@ function BoatForm({
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[60px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
+            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
           >
             Hủy
           </button>

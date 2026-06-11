@@ -262,7 +262,7 @@ export function UrgentStrip() {
 
   return (
     <section aria-label="Việc cần làm ngay">
-      <h2 className="display mb-1.5 px-1 text-[16px] font-bold text-navy">
+      <h2 className="display mb-1.5 px-1 text-[1rem] font-bold text-navy">
         Việc cần làm ngay
       </h2>
       <div className="overflow-hidden surface">
@@ -285,15 +285,15 @@ export function UrgentStrip() {
                   />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
-                      <span className="block min-w-0 truncate text-[18px] font-semibold">
+                      <span className="block min-w-0 truncate text-[1.125rem] font-semibold">
                         {item.label}
                       </span>
-                      <span className="shrink-0 rounded-md bg-background px-1.5 py-0.5 text-[12px] font-bold text-foreground/55">
+                      <span className="shrink-0 rounded-md bg-background px-1.5 py-0.5 text-[0.75rem] font-bold text-foreground/55">
                         {PILLAR_TAG[item.pillar].tag}
                       </span>
                     </span>
                     <span
-                      className={`flex items-center gap-1 text-[15px] font-bold ${
+                      className={`flex items-center gap-1 text-[0.9375rem] font-bold ${
                         item.tone === "danger" ? "text-danger" : "text-warn"
                       }`}
                     >
@@ -308,7 +308,7 @@ export function UrgentStrip() {
           })}
         </ul>
         {rest > 0 && (
-          <p className="border-t border-line bg-background px-4 py-2.5 text-[15px] font-bold text-foreground/60">
+          <p className="border-t border-line bg-background px-4 py-2.5 text-[0.9375rem] font-bold text-foreground/60">
             Còn {rest} việc nữa
           </p>
         )}

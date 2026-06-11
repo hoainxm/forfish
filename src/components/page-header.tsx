@@ -24,14 +24,14 @@ export function PageHeader({
         background: `linear-gradient(150deg, var(--navy) 35%, ${toColor})`,
       }}
     >
-      <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-white/60">
+      <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-white/60">
         {kicker}
       </p>
-      <h1 className="display mt-0.5 text-[28px] font-bold leading-[1.15]">
+      <h1 className="display mt-0.5 text-[1.75rem] font-bold leading-[1.15]">
         {title}
       </h1>
       {sub && (
-        <p className="mt-1 max-w-[34ch] text-[15px] leading-snug text-white/80">
+        <p className="mt-1 max-w-[34ch] text-[0.9375rem] leading-snug text-white/80">
           {sub}
         </p>
       )}

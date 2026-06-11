@@ -49,8 +49,8 @@ export function FinesLookup() {
 
   return (
     <div className="px-4 pt-1">
-      <h2 className="display text-[22px] font-bold text-navy">Tra mức phạt</h2>
-      <p className="mt-1 text-[16px] text-foreground/60">
+      <h2 className="display text-[1.375rem] font-bold text-navy">Tra mức phạt</h2>
+      <p className="mt-1 text-[1rem] text-foreground/60">
         Gõ vài chữ để tìm, ví dụ: giấy phép, vùng biển, nhật ký
       </p>
 
@@ -63,13 +63,13 @@ export function FinesLookup() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Tìm lỗi vi phạm…"
           aria-label="Tìm mức phạt"
-          className="min-h-[52px] w-full rounded-2xl border-0 bg-field pl-12 pr-4 text-[18px] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+          className="min-h-[3.25rem] w-full rounded-2xl border-0 bg-field pl-12 pr-4 text-[1.125rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
       </div>
 
       {/* result count when filtering */}
       {isFiltering && (
-        <p className="mt-3 text-[16px] font-bold text-foreground/60">
+        <p className="mt-3 text-[1rem] font-bold text-foreground/60">
           {results.length > 0
             ? `${results.length} mức phạt`
             : "Không thấy mức phạt nào"}
@@ -78,9 +78,9 @@ export function FinesLookup() {
 
       {/* no result hint */}
       {isFiltering && results.length === 0 && (
-        <div className="mt-3 rounded-[20px] bg-field/70 px-4 py-10 text-center">
+        <div className="mt-3 rounded-[1.25rem] bg-field/70 px-4 py-10 text-center">
           <SearchIcon className="mx-auto h-9 w-9 text-foreground/30" />
-          <p className="mt-3 text-[16px] text-foreground/60">
+          <p className="mt-3 text-[1rem] text-foreground/60">
             Thử gõ chữ khác, ngắn hơn.
             <br />
             Ví dụ: giấy phép, vùng biển, nhật ký, kích điện
@@ -105,18 +105,18 @@ export function FinesLookup() {
                 {style.label}
               </StatusBanner>
               <div className="px-4 py-3.5">
-                <p className="text-[18px] font-semibold leading-snug text-foreground">
+                <p className="text-[1.125rem] font-semibold leading-snug text-foreground">
                   {fine.behavior}
                 </p>
-                <p className={`mt-1.5 text-[18px] font-bold ${style.amount}`}>
+                <p className={`mt-1.5 text-[1.125rem] font-bold ${style.amount}`}>
                   {fine.rangeVnd}
                 </p>
-                <p className="mt-0.5 text-[14px] text-foreground/50">
+                <p className="mt-0.5 text-[0.875rem] text-foreground/50">
                   {fine.article ? `${fine.article} — ` : ""}
                   {FINES_SOURCE}
                 </p>
                 {fine.note && (
-                  <p className="mt-2 rounded-xl bg-background px-3 py-2 text-[15px] leading-snug text-foreground/70">
+                  <p className="mt-2 rounded-xl bg-background px-3 py-2 text-[0.9375rem] leading-snug text-foreground/70">
                     {fine.note}
                   </p>
                 )}
@@ -132,7 +132,7 @@ export function FinesLookup() {
         style={{ backgroundColor: "var(--t4-bg)", color: "var(--t4)" }}
       >
         <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
-        <p className="text-[14px] leading-snug">
+        <p className="text-[0.875rem] leading-snug">
           Thông tin tham khảo theo {FINES_SOURCE}, không thay cho văn bản gốc
           hay tư vấn pháp lý. Mức phạt với tổ chức thường gấp đôi cá nhân.
         </p>

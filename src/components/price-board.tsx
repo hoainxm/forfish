@@ -78,13 +78,13 @@ export function PriceBoard() {
       {/* giá dầu DO hôm nay — chi phí lớn nhất chuyến biển */}
       {fuel && (
         <div className="mb-3 surface px-4 py-3">
-          <p className="text-[14px] font-semibold text-foreground/55">
+          <p className="text-[0.875rem] font-semibold text-foreground/55">
             Dầu DO hôm nay (Petrolimex)
             {fuel.date ? ` · ${formatVnDate(fuel.date)}` : ""}
           </p>
-          <p className="mt-0.5 text-[18px] font-bold text-foreground">
+          <p className="mt-0.5 text-[1.125rem] font-bold text-foreground">
             {fuel.do005Zone1.toLocaleString("vi-VN")} đ/lít
-            <span className="text-[15px] font-semibold text-foreground/55">
+            <span className="text-[0.9375rem] font-semibold text-foreground/55">
               {" "}
               (vùng 1) · {fuel.do005Zone2.toLocaleString("vi-VN")} đ/lít (vùng 2)
             </span>
@@ -94,13 +94,13 @@ export function PriceBoard() {
 
       {/* nguồn + tuần — trung thực: live thì ghi VASEP, không thì bảng tĩnh */}
       {isLive ? (
-        <p className="mb-3 rounded-xl bg-field px-3 py-2 text-[14px] font-semibold text-foreground/70">
+        <p className="mb-3 rounded-xl bg-field px-3 py-2 text-[0.875rem] font-semibold text-foreground/70">
           Giá nguyên liệu tại bến <b>{result.province}</b>, tuần{" "}
           <b>{result.week}</b> · Nguồn: VASEP. Loài chưa có giá tuần này là giá
           tham khảo. Giá thật tại cảng có thể khác.
         </p>
       ) : (
-        <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[14px] font-semibold text-warn">
+        <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] font-semibold text-warn">
           Giá tham khảo, tổng hợp ngày {formatVnDate(PRICE_DATE)}. Giá thật tại
           cảng có thể khác.
         </p>
@@ -112,13 +112,13 @@ export function PriceBoard() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Tìm loại cá…"
-          className="min-h-[52px] w-full rounded-2xl border-0 bg-field pl-12 pr-4 text-[18px] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+          className="min-h-[3.25rem] w-full rounded-2xl border-0 bg-field pl-12 pr-4 text-[1.125rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
       </label>
 
       {shown.length === 0 && (
-        <div className="rounded-[20px] bg-field/70 px-4 py-10 text-center">
-          <p className="text-[18px] text-foreground/60">
+        <div className="rounded-[1.25rem] bg-field/70 px-4 py-10 text-center">
+          <p className="text-[1.125rem] text-foreground/60">
             Không thấy loại cá này trong bảng.
             <br />
             Bà con thử gõ tên ngắn hơn, ví dụ “nục”.
@@ -132,21 +132,21 @@ export function PriceBoard() {
           return (
             <li key={p.id} className="surface px-4 py-3.5">
               <div className="flex items-start justify-between gap-3">
-                <p className="display flex items-center gap-2 text-[18px] font-bold leading-snug text-navy">
+                <p className="display flex items-center gap-2 text-[1.125rem] font-bold leading-snug text-navy">
                   {p.species}
                   {isLive &&
                     ((p as LivePortPrice).live ? (
-                      <span className="rounded-full bg-ok-bg px-2 py-0.5 text-[11px] font-bold text-ok">
+                      <span className="rounded-full bg-ok-bg px-2 py-0.5 text-[0.6875rem] font-bold text-ok">
                         giá tuần
                       </span>
                     ) : (
-                      <span className="rounded-full bg-field px-2 py-0.5 text-[11px] font-semibold text-foreground/50">
+                      <span className="rounded-full bg-field px-2 py-0.5 text-[0.6875rem] font-semibold text-foreground/50">
                         tham khảo
                       </span>
                     ))}
                 </p>
                 <p
-                  className="flex shrink-0 items-center gap-1.5 pt-0.5 text-[15px] font-bold"
+                  className="flex shrink-0 items-center gap-1.5 pt-0.5 text-[0.9375rem] font-bold"
                   style={{
                     color: p.trend === "flat" ? "rgba(28,43,54,0.55)" : t.color,
                   }}
@@ -155,11 +155,11 @@ export function PriceBoard() {
                   {t.word}
                 </p>
               </div>
-              <p className="mt-0.5 text-[18px] font-bold text-foreground">
+              <p className="mt-0.5 text-[1.125rem] font-bold text-foreground">
                 {formatRange(p)}
               </p>
               {(p.region || p.note) && (
-                <p className="mt-1 text-[14px] leading-snug text-foreground/55">
+                <p className="mt-1 text-[0.875rem] leading-snug text-foreground/55">
                   {[p.region, p.note].filter(Boolean).join(" · ")}
                 </p>
               )}

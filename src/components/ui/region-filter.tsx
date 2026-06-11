@@ -59,13 +59,13 @@ export function HomeBar({
   if (!home.province) {
     return (
       <div className="mb-3 surface p-3">
-        <p className="text-[14px] text-foreground/65 leading-snug">
+        <p className="text-[0.875rem] text-foreground/65 leading-snug">
           Khai báo <strong>tỉnh cảng nhà</strong> trong thẻ "Tàu của tôi" ở
           trên để app chỉ hiện nơi gần.
         </p>
         <Link
           href="/tau"
-          className="mt-1.5 inline-block text-[14px] font-bold text-sea"
+          className="mt-1.5 inline-block text-[0.875rem] font-bold text-sea"
         >
           Đi tới tàu của tôi →
         </Link>
@@ -78,7 +78,7 @@ export function HomeBar({
         type="button"
         onClick={() => setNear(true)}
         aria-pressed={near}
-        className={`min-h-[44px] rounded-xl text-[15px] font-bold ${
+        className={`min-h-[2.75rem] rounded-xl text-[0.9375rem] font-bold ${
           near ? "bg-navy text-white" : "bg-field text-foreground/60"
         }`}
       >
@@ -88,7 +88,7 @@ export function HomeBar({
         type="button"
         onClick={() => setNear(false)}
         aria-pressed={!near}
-        className={`min-h-[44px] rounded-xl text-[15px] font-bold ${
+        className={`min-h-[2.75rem] rounded-xl text-[0.9375rem] font-bold ${
           !near ? "bg-navy text-white" : "bg-field text-foreground/60"
         }`}
       >

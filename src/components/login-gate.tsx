@@ -38,16 +38,16 @@ export function LoginGate({
       >
         <LockIcon className="h-7 w-7" />
       </span>
-      <p className="display mt-3 text-[20px] font-bold text-navy">
+      <p className="display mt-3 text-[1.25rem] font-bold text-navy">
         Đăng nhập để xem {feature}
       </p>
-      <p className="mx-auto mt-1 max-w-[34ch] text-[16px] leading-snug text-foreground/65">
+      <p className="mx-auto mt-1 max-w-[34ch] text-[1rem] leading-snug text-foreground/65">
         {blurb ??
           "Tài khoản dùng chung với lúc mua hàng SDVICO — số điện thoại là vào được."}
       </p>
       <Link
         href="/login"
-        className="display mx-auto mt-4 flex min-h-[56px] w-full max-w-[280px] items-center justify-center rounded-full bg-trim text-[18px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+        className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[280px] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
       >
         Đăng nhập / Đăng ký
       </Link>

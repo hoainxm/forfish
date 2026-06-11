@@ -27,12 +27,12 @@ export function SupplyCatalog() {
     filter === "all" ? SUPPLIES : SUPPLIES.filter((s) => s.category === filter);
 
   const chipBase =
-    "min-h-[44px] shrink-0 rounded-xl px-4 text-[16px] font-bold transition active:scale-[0.97]";
+    "min-h-[2.75rem] shrink-0 rounded-xl px-4 text-[1rem] font-bold transition active:scale-[0.97]";
 
   return (
     <div className="px-4">
       <div
-        className="mb-3 rounded-xl px-4 py-3 text-[14px] font-semibold leading-relaxed"
+        className="mb-3 rounded-xl px-4 py-3 text-[0.875rem] font-semibold leading-relaxed"
         style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
       >
         Giá tham khảo ngày {formatVnDate(SUPPLY_PRICE_DATE)}. Đặt hàng qua đại
@@ -73,26 +73,26 @@ export function SupplyCatalog() {
             className="flex items-start justify-between gap-3 surface px-4 py-3.5"
           >
             <div className="min-w-0">
-              <p className="text-[18px] font-bold leading-snug text-navy">
+              <p className="text-[1.125rem] font-bold leading-snug text-navy">
                 {s.name}
               </p>
               {s.spec && (
-                <p className="mt-0.5 text-[14px] text-foreground/60">
+                <p className="mt-0.5 text-[0.875rem] text-foreground/60">
                   {s.spec}
                 </p>
               )}
             </div>
             <div className="shrink-0 text-right">
-              <p className="text-[18px] font-bold text-foreground">
+              <p className="text-[1.125rem] font-bold text-foreground">
                 {s.priceVnd.toLocaleString("vi-VN")} đ
               </p>
-              <p className="text-[14px] text-foreground/60">{s.unit}</p>
+              <p className="text-[0.875rem] text-foreground/60">{s.unit}</p>
             </div>
           </li>
         ))}
       </ul>
 
-      <p className="py-4 text-center text-[14px] text-foreground/40">
+      <p className="py-4 text-center text-[0.875rem] text-foreground/40">
         Giá thật có thể chênh theo vùng — bà con hỏi lại đại lý gần cảng.
       </p>
     </div>

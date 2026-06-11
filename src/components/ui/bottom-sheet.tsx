@@ -76,10 +76,10 @@ export function BottomSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[28px] bg-background p-5 pb-8 [overscroll-behavior:contain]"
+        className="max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[1.75rem] bg-background p-5 pb-8 [overscroll-behavior:contain]"
       >
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-line" aria-hidden />
-        <h3 id={titleId} className="display mb-4 text-[21px] font-bold text-navy">
+        <h3 id={titleId} className="display mb-4 text-[1.3125rem] font-bold text-navy">
           {title}
         </h3>
         {children}

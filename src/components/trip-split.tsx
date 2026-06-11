@@ -28,13 +28,13 @@ export function TripSplit() {
     : null;
 
   const inputCls =
-    "w-full rounded-2xl border-0 bg-field px-4 py-3.5 text-[19px] font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea";
+    "w-full rounded-2xl border-0 bg-field px-4 py-3.5 text-[1.1875rem] font-bold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea";
 
   return (
     <div className="px-4">
       <div className="surface p-4">
         <label className="mb-3.5 block">
-          <span className="mb-1.5 block text-[16px] font-bold text-navy">
+          <span className="mb-1.5 block text-[1rem] font-bold text-navy">
             Tiền bán cá cả chuyến
           </span>
           <input
@@ -47,7 +47,7 @@ export function TripSplit() {
         </label>
 
         <label className="mb-3.5 block">
-          <span className="mb-1.5 block text-[16px] font-bold text-navy">
+          <span className="mb-1.5 block text-[1rem] font-bold text-navy">
             Tổn chung (dầu, đá, lương thực…)
           </span>
           <input
@@ -59,7 +59,7 @@ export function TripSplit() {
           />
         </label>
 
-        <span className="mb-1.5 block text-[16px] font-bold text-navy">
+        <span className="mb-1.5 block text-[1rem] font-bold text-navy">
           Chủ tàu hưởng bao nhiêu phần còn lại?
         </span>
         <div className="flex gap-2">
@@ -68,7 +68,7 @@ export function TripSplit() {
               key={p}
               type="button"
               onClick={() => setOwnerPercent(p)}
-              className={`min-h-[48px] flex-1 rounded-xl text-[18px] font-bold ${
+              className={`min-h-[3rem] flex-1 rounded-xl text-[1.125rem] font-bold ${
                 ownerPercent === p
                   ? "bg-navy text-white"
                   : "bg-field text-foreground/60"
@@ -81,7 +81,7 @@ export function TripSplit() {
       </div>
 
       {crew.length === 0 && (
-        <p className="mt-3 rounded-xl bg-warn-bg px-3 py-2.5 text-[15px] font-semibold text-warn">
+        <p className="mt-3 rounded-xl bg-warn-bg px-3 py-2.5 text-[0.9375rem] font-semibold text-warn">
           Thêm bạn thuyền ở trên trước, rồi quay lại đây chia tiền.
         </p>
       )}
@@ -106,17 +106,17 @@ export function TripSplit() {
                 className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0"
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-[18px] font-semibold">
+                  <span className="block truncate text-[1.125rem] font-semibold">
                     {member.name}
                   </span>
-                  <span className="text-[14px] text-foreground/55">
+                  <span className="text-[0.875rem] text-foreground/55">
                     {member.shares} phần
                     {advanceVnd > 0 &&
                       ` · trừ ứng ${advanceVnd.toLocaleString("vi-VN")} đ`}
                   </span>
                 </span>
                 <span
-                  className={`display shrink-0 text-[18px] font-bold ${
+                  className={`display shrink-0 text-[1.125rem] font-bold ${
                     finalVnd >= 0 ? "text-ok" : "text-danger"
                   }`}
                 >
@@ -126,7 +126,7 @@ export function TripSplit() {
               </li>
             ))}
           </ul>
-          <p className="flex items-center gap-2 bg-t2-bg px-4 py-2.5 text-[14px] font-semibold text-t2">
+          <p className="flex items-center gap-2 bg-t2-bg px-4 py-2.5 text-[0.875rem] font-semibold text-t2">
             <PriceIcon className="h-4 w-4 shrink-0" />
             Phần thực nhận đã trừ tiền ứng chưa trả. Bấm “Đã trừ xong” ở thẻ
             từng người sau khi chia.
@@ -149,12 +149,12 @@ function Row({
   return (
     <p className="flex items-center justify-between py-0.5">
       <span
-        className={`text-[15px] ${bold ? "font-bold text-navy" : "text-foreground/60"}`}
+        className={`text-[0.9375rem] ${bold ? "font-bold text-navy" : "text-foreground/60"}`}
       >
         {label}
       </span>
       <span
-        className={`text-[16px] ${bold ? "display font-bold text-navy" : "font-semibold"}`}
+        className={`text-[1rem] ${bold ? "display font-bold text-navy" : "font-semibold"}`}
       >
         {value.toLocaleString("vi-VN")} đ
       </span>

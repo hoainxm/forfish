@@ -186,7 +186,7 @@ export function BoatProducts() {
             </RefNote>
             <Link
               href="/login"
-              className="mt-2.5 flex min-h-[56px] w-full items-center justify-center rounded-full bg-field text-[17px] font-bold text-navy transition active:scale-[0.98]"
+              className="mt-2.5 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.98]"
             >
               Đăng nhập để thấy đồ của mình
             </Link>
@@ -221,24 +221,24 @@ export function BoatProducts() {
                   {status.label}
                 </StatusBanner>
                 <div className="px-4 py-3">
-                  <p className="text-[13px] font-bold uppercase tracking-wide text-foreground/40">
+                  <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/40">
                     Mua của SDVICO{p.orderCode ? ` · đơn ${p.orderCode}` : ""}
                   </p>
-                  <p className="display text-[19px] font-bold leading-snug text-navy">
+                  <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                     {p.name}
                   </p>
                   {p.serial && (
-                    <p className="text-[16px] text-foreground/60">
+                    <p className="text-[1rem] text-foreground/60">
                       Số serial: <strong>{p.serial}</strong>
                     </p>
                   )}
                   {p.purchasedOn && (
-                    <p className="text-[16px] text-foreground/60">
+                    <p className="text-[1rem] text-foreground/60">
                       Mua: <strong>{formatVnDate(p.purchasedOn)}</strong>
                     </p>
                   )}
                   {p.warrantyUntil && (
-                    <p className="text-[16px] text-foreground/60">
+                    <p className="text-[1rem] text-foreground/60">
                       Bảo hành tới:{" "}
                       <strong>{formatVnDate(p.warrantyUntil)}</strong>
                     </p>
@@ -263,7 +263,7 @@ export function BoatProducts() {
           setEditing(null);
           setShowForm(true);
         }}
-        className="display mb-4 flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[19px] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+        className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
       >
         <PlusIcon className="h-6 w-6" />
         Thêm sản phẩm
@@ -304,27 +304,27 @@ export function BoatProducts() {
               </StatusBanner>
 
               <div className="px-4 py-3">
-                <p className="display text-[19px] font-bold leading-snug text-navy">
+                <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                   {product.name}
                 </p>
                 {product.serial && (
-                  <p className="text-[16px] text-foreground/60">
+                  <p className="text-[1rem] text-foreground/60">
                     Số serial: <strong>{product.serial}</strong>
                   </p>
                 )}
                 {product.purchasedOn && (
-                  <p className="text-[16px] text-foreground/60">
+                  <p className="text-[1rem] text-foreground/60">
                     Mua: <strong>{formatVnDate(product.purchasedOn)}</strong>
                   </p>
                 )}
                 {product.warrantyUntil && (
-                  <p className="text-[16px] text-foreground/60">
+                  <p className="text-[1rem] text-foreground/60">
                     Bảo hành tới:{" "}
                     <strong>{formatVnDate(product.warrantyUntil)}</strong>
                   </p>
                 )}
                 {product.note && (
-                  <p className="mt-1.5 rounded-xl bg-background px-3 py-1.5 text-[15px] text-foreground/70">
+                  <p className="mt-1.5 rounded-xl bg-background px-3 py-1.5 text-[0.9375rem] text-foreground/70">
                     {product.note}
                   </p>
                 )}
@@ -336,14 +336,14 @@ export function BoatProducts() {
                     setEditing(product);
                     setShowForm(true);
                   }}
-                  className="flex min-h-[56px] items-center justify-center gap-2 text-[18px] font-bold text-sea active:bg-background"
+                  className="flex min-h-[3.5rem] items-center justify-center gap-2 text-[1.125rem] font-bold text-sea active:bg-background"
                 >
                   <EditIcon className="h-5 w-5" />
                   Sửa
                 </button>
                 <button
                   onClick={() => setConfirmDelete(product)}
-                  className="flex min-h-[56px] items-center justify-center gap-2 border-l border-line text-[18px] font-bold text-danger active:bg-background"
+                  className="flex min-h-[3.5rem] items-center justify-center gap-2 border-l border-line text-[1.125rem] font-bold text-danger active:bg-background"
                 >
                   <TrashIcon className="h-5 w-5" />
                   Xóa
@@ -354,7 +354,7 @@ export function BoatProducts() {
         })}
       </ul>
 
-      <p className="py-4 text-center text-[14px] text-foreground/40">
+      <p className="py-4 text-center text-[0.875rem] text-foreground/40">
         {synced
           ? "Đồ tự đồng bộ lấy từ SDVICO. Sản phẩm tự thêm lưu trên máy."
           : "Sản phẩm SDVICO lưu ngay trên máy của bà con."}
@@ -520,7 +520,7 @@ function ProductForm({
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[60px] rounded-full bg-field text-[18px] font-bold text-foreground/70"
+            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
           >
             Hủy
           </button>

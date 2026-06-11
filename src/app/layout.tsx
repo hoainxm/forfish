@@ -40,6 +40,13 @@ export default function RootLayout({
       className={`${display.variable} ${body.variable} h-full antialiased`}
     >
       <body className="min-h-full">
+        {/* Đặt chế độ hiển thị TRƯỚC khi vẽ — không nháy cỡ chữ (xem globals.css) */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(localStorage.getItem('forfish.displaymode.v1')==='gon')document.documentElement.dataset.mode='gon'}catch(e){}",
+          }}
+        />
         {/* Mobile-first: a phone-width column centred on larger screens. */}
         <div className="mx-auto flex min-h-dvh max-w-[480px] flex-col bg-background shadow-sm">
           <main className="flex-1 pb-32">{children}</main>

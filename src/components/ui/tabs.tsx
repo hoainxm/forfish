@@ -46,7 +46,7 @@ export function Tabs({
                 role="tab"
                 aria-selected={on}
                 onClick={() => setActive(t.id)}
-                className={`min-h-[48px] rounded-full px-3 text-[16px] font-bold leading-tight transition ${
+                className={`min-h-[3rem] rounded-full px-3 text-[1rem] font-bold leading-tight transition ${
                   segmented ? "flex-1" : "shrink-0"
                 } ${
                   on

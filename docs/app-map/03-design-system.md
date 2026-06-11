@@ -8,6 +8,19 @@
 
 ---
 
+## 0. HAI CHẾ ĐỘ HIỂN THỊ — một kiến trúc rem (user chốt 2026-06-11)
+
+Toàn bộ cỡ chữ / tap-size / bo góc viết bằng **REM** (đã quét sạch `text-[Npx]`/`min-h-[Npx]`/`rounded-[Npx]` → rem; utility chuẩn Tailwind vốn là rem). Mỗi chế độ chỉ là MỘT dòng đổi font-size gốc trong `globals.css`:
+
+| Chế độ | Gốc | Body | Nút chính | Cho ai |
+|---|---|---|---|---|
+| **Chữ to** (mặc định) | 1rem = 16px | 18px | 60px | Ngư dân 40–60, nắng chói, tay ướt |
+| **Gọn đẹp** (`html[data-mode="gon"]`) | 1rem = 14px | ~15.8px | ~52px | Người quen app, ưu tiên cân đối |
+
+- Chuyển ở hero trang chủ (`display-mode-toggle.tsx`), lưu `forfish.displaymode.v1`; script đầu `<body>` (layout.tsx) đặt `data-mode` TRƯỚC khi vẽ — không nháy.
+- **QUY TẮC MỚI**: cấm viết `text-[Npx]`/`min-h-[Npx]` trong component — dùng rem (`text-[1.125rem]`…) để cả hai chế độ cùng ăn. Mọi tỷ lệ giữ nguyên giữa 2 chế độ → không phải maintain 2 bộ giao diện.
+- Sàn accessibility (≥18px, tap ≥56px ở mục 1) áp cho CHẾ ĐỘ MẶC ĐỊNH; chế độ Gọn là lựa chọn chủ động của người dùng.
+
 ## 1. Người dùng quyết định tất cả / Audience-first
 
 Ngư dân 40–60 tuổi, dùng điện thoại ngoài trời **nắng chói**, **tay ướt**, ít rành công nghệ:

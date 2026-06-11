@@ -51,48 +51,48 @@ function BuyBoardInner({ requests }: { requests: BuyRequest[] }) {
             <Card className="p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[12px] font-bold uppercase tracking-wide text-foreground/45">
+                  <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/45">
                     {BUYER_KIND_LABEL[r.kind]} · {r.province}
                   </p>
-                  <p className="display text-[19px] font-bold leading-snug text-navy">
+                  <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                     Cần mua: {r.species}
                   </p>
                 </div>
                 {r.demo && (
-                  <span className="shrink-0 rounded-full bg-field px-2.5 py-1 text-[12px] font-bold text-foreground/55">
+                  <span className="shrink-0 rounded-full bg-field px-2.5 py-1 text-[0.75rem] font-bold text-foreground/55">
                     TIN MẪU
                   </span>
                 )}
               </div>
 
               <div className="mt-2 space-y-1">
-                <p className="text-[16px] text-foreground/80">
+                <p className="text-[1rem] text-foreground/80">
                   Khối lượng: <strong>{r.quantity}</strong>
                 </p>
-                <p className="text-[16px] text-foreground/80">
+                <p className="text-[1rem] text-foreground/80">
                   Giá: <strong>{r.priceText}</strong>
                 </p>
                 {r.note && (
-                  <p className="rounded-xl bg-background px-3 py-1.5 text-[15px] text-foreground/70">
+                  <p className="rounded-xl bg-background px-3 py-1.5 text-[0.9375rem] text-foreground/70">
                     {r.note}
                   </p>
                 )}
               </div>
 
               <div className="mt-2.5 flex items-center justify-between gap-2">
-                <p className="text-[13px] text-foreground/45">
+                <p className="text-[0.8125rem] text-foreground/45">
                   {r.buyer} · đăng {formatVnDate(r.postedOn)}
                 </p>
                 {r.phone ? (
                   <a
                     href={telHref(r.phone)}
-                    className="flex min-h-[48px] shrink-0 items-center gap-1.5 rounded-full bg-t2 px-4 text-[15px] font-bold text-white transition active:scale-[0.97]"
+                    className="flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-full bg-t2 px-4 text-[0.9375rem] font-bold text-white transition active:scale-[0.97]"
                   >
                     <PhoneIcon className="h-4 w-4" />
                     Gọi chào bán
                   </a>
                 ) : (
-                  <span className="text-[13px] font-semibold text-foreground/45">
+                  <span className="text-[0.8125rem] font-semibold text-foreground/45">
                     Tin thật sẽ có nút gọi thẳng
                   </span>
                 )}

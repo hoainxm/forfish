@@ -68,10 +68,10 @@ export function SdvicoCatalog({
 
   return (
     <div>
-      <h3 className="display mb-1 px-1 text-[18px] font-bold text-navy">
+      <h3 className="display mb-1 px-1 text-[1.125rem] font-bold text-navy">
         SDVICO khuyến nghị cho tàu
       </h3>
-      <p className="mb-3 px-1 text-[14px] text-foreground/55">
+      <p className="mb-3 px-1 text-[0.875rem] text-foreground/55">
         Hàng chính hãng đang bán — hỏi mua là nhân viên gọi lại tư vấn.
       </p>
 
@@ -91,12 +91,12 @@ export function SdvicoCatalog({
                   loading="lazy"
                   className="h-full w-full object-cover"
                 />
-                <span className="absolute left-3 top-3 rounded-full bg-navy/85 px-3 py-1 text-[12px] font-bold text-white backdrop-blur-sm">
+                <span className="absolute left-3 top-3 rounded-full bg-navy/85 px-3 py-1 text-[0.75rem] font-bold text-white backdrop-blur-sm">
                   {p.category}
                 </span>
                 {owned && (
                   <span
-                    className="absolute right-3 top-3 flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-bold"
+                    className="absolute right-3 top-3 flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.75rem] font-bold"
                     style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
                   >
                     <CheckIcon className="h-3.5 w-3.5" />
@@ -106,17 +106,17 @@ export function SdvicoCatalog({
               </div>
 
               <div className="p-4">
-                <p className="display text-[19px] font-bold leading-snug text-navy">
+                <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                   {p.title}
                 </p>
-                <p className="mt-1 text-[15px] leading-snug text-foreground/70">
+                <p className="mt-1 text-[0.9375rem] leading-snug text-foreground/70">
                   {p.desc}
                 </p>
                 <ul className="mt-2 space-y-1">
                   {p.features.map((f) => (
                     <li
                       key={f}
-                      className="flex items-start gap-2 text-[14px] text-foreground/75"
+                      className="flex items-start gap-2 text-[0.875rem] text-foreground/75"
                     >
                       <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-ok" />
                       <span>{f}</span>
@@ -135,7 +135,7 @@ export function SdvicoCatalog({
                   </div>
                   <a
                     href={`tel:${SDVICO_HOTLINE}`}
-                    className="flex min-h-[48px] shrink-0 items-center gap-1.5 rounded-full bg-field px-4 text-[15px] font-bold text-navy transition active:scale-[0.97]"
+                    className="flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-full bg-field px-4 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
                     aria-label={`Gọi hotline SDVICO ${SDVICO_HOTLINE_DISPLAY}`}
                   >
                     <PhoneIcon className="h-4 w-4" />
@@ -148,7 +148,7 @@ export function SdvicoCatalog({
         })}
       </ul>
 
-      <p className="py-4 text-center text-[14px] text-foreground/45">
+      <p className="py-4 text-center text-[0.875rem] text-foreground/45">
         Hotline SDVICO: <strong>{SDVICO_HOTLINE_DISPLAY}</strong> — giá và
         model hợp tàu, nhân viên tư vấn trực tiếp.
       </p>

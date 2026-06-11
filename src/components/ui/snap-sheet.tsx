@@ -40,7 +40,7 @@ export function SnapSheet({
     <section
       role="region"
       aria-label={label}
-      className="absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-[28px] bg-background shadow-[0_-6px_20px_rgba(20,50,79,0.25)]"
+      className="absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-[1.75rem] bg-background shadow-[0_-6px_20px_rgba(20,50,79,0.25)]"
       style={{
         height:
           size === "peek"
@@ -60,7 +60,7 @@ export function SnapSheet({
             <button
               type="button"
               onClick={grow}
-              className="flex min-h-[52px] items-center gap-1 rounded-xl bg-t1 px-3 text-[15px] font-bold text-white transition active:scale-[0.97]"
+              className="flex min-h-[3.25rem] items-center gap-1 rounded-xl bg-t1 px-3 text-[0.9375rem] font-bold text-white transition active:scale-[0.97]"
             >
               <ChevronUpIcon className="h-5 w-5" />
               Xem thêm
@@ -70,7 +70,7 @@ export function SnapSheet({
             <button
               type="button"
               onClick={shrink}
-              className="flex min-h-[52px] items-center gap-1 surface px-3 text-[15px] font-bold text-navy transition active:scale-[0.97]"
+              className="flex min-h-[3.25rem] items-center gap-1 surface px-3 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
             >
               <ChevronDownIcon className="h-5 w-5" />
               Thu gọn
@@ -80,7 +80,7 @@ export function SnapSheet({
             <button
               type="button"
               onClick={onClose}
-              className="flex min-h-[52px] items-center justify-center gap-1 surface px-3 text-[15px] font-bold text-navy transition active:scale-[0.97]"
+              className="flex min-h-[3.25rem] items-center justify-center gap-1 surface px-3 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
             >
               <CloseIcon className="h-5 w-5" />
               {closeLabel}

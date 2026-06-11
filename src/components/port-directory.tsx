@@ -36,7 +36,7 @@ export function PortDirectory() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm cảng theo tên…"
-          className="min-h-[52px] w-full rounded-2xl border-0 bg-field pl-11 pr-4 text-[18px] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+          className="min-h-[3.25rem] w-full rounded-2xl border-0 bg-field pl-11 pr-4 text-[1.125rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
       </div>
 
@@ -45,7 +45,7 @@ export function PortDirectory() {
         cập nhật theo công bố của tỉnh.
       </RefNote>
 
-      <p className="mb-2 mt-2 px-1 text-[14px] font-semibold text-foreground/55">
+      <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/55">
         {list.length} cảng{home.province && near ? ` gần ${home.province}` : ""}
       </p>
 
@@ -54,23 +54,23 @@ export function PortDirectory() {
           <li key={p.id}>
             <Card className="p-3.5">
               <div className="flex items-start justify-between gap-2">
-                <p className="display flex min-w-0 items-center gap-2 text-[18px] font-bold leading-snug text-navy">
+                <p className="display flex min-w-0 items-center gap-2 text-[1.125rem] font-bold leading-snug text-navy">
                   <AnchorIcon className="h-5 w-5 shrink-0 text-t3" />
                   {p.name}
                 </p>
                 {p.klass && (
-                  <span className="shrink-0 rounded-full bg-t3-bg px-2 py-0.5 text-[12px] font-bold text-t3">
+                  <span className="shrink-0 rounded-full bg-t3-bg px-2 py-0.5 text-[0.75rem] font-bold text-t3">
                     {PORT_CLASS_LABEL[p.klass]}
                   </span>
                 )}
               </div>
               {p.province && (
-                <p className="text-[15px] font-semibold text-foreground/70">
+                <p className="text-[0.9375rem] font-semibold text-foreground/70">
                   {p.province}
                 </p>
               )}
               {p.address && (
-                <p className="mt-0.5 flex gap-1.5 text-[15px] text-foreground/65">
+                <p className="mt-0.5 flex gap-1.5 text-[0.9375rem] text-foreground/65">
                   <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-foreground/40" />
                   <span>{p.address}</span>
                 </p>
@@ -79,7 +79,7 @@ export function PortDirectory() {
           </li>
         ))}
         {list.length === 0 && (
-          <p className="rounded-[20px] bg-field/70 py-10 text-center text-[16px] text-foreground/55">
+          <p className="rounded-[1.25rem] bg-field/70 py-10 text-center text-[1rem] text-foreground/55">
             Không có cảng phù hợp. Thử bỏ “Chỉ gần tôi” hoặc đổi tỉnh.
           </p>
         )}
