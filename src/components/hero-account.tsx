@@ -21,8 +21,9 @@ const MODE_KEY = "forfish.displaymode.v1";
 
 type Mode = "auto" | "to" | "gon";
 
-const MODES: { id: Mode; label: string; sub: string }[] = [
-  { id: "auto", label: "Theo máy", sub: "Ăn theo cỡ chữ cài trong điện thoại" },
+// "Theo máy" là TRẠNG THÁI NỀN (auto) — không bày thành lựa chọn (góp ý
+// user 2026-06-11). Chỉ 2 tùy chọn ghi đè; bấm lại cái đang chọn = về auto.
+const MODES: { id: Exclude<Mode, "auto">; label: string; sub: string }[] = [
   { id: "to", label: "Chữ to", sub: "Luôn to rõ, dễ đọc ngoài nắng" },
   { id: "gon", label: "Gọn", sub: "Mật độ như các app thường dùng" },
 ];
@@ -106,9 +107,14 @@ export function HeroAccount() {
             </Link>
           )}
 
-          {/* cỡ giao diện — menu phụ, không bày ra hero */}
+          {/* cỡ giao diện — auto theo máy là NỀN; chỉ bày 2 tùy chọn ghi đè */}
           <p className="mb-1.5 px-1 text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/45">
             Cỡ giao diện
+          </p>
+          <p className="mb-2 px-1 text-[0.875rem] leading-snug text-foreground/55">
+            {mode === "auto"
+              ? "Đang tự theo cỡ chữ cài trong điện thoại. Muốn khác thì chọn:"
+              : "Bấm lại lựa chọn để quay về tự theo máy."}
           </p>
           <div className="mb-4 overflow-hidden surface">
             {MODES.map((m, i) => {
@@ -117,7 +123,7 @@ export function HeroAccount() {
                 <button
                   key={m.id}
                   type="button"
-                  onClick={() => applyMode(m.id)}
+                  onClick={() => applyMode(on ? "auto" : m.id)}
                   aria-pressed={on}
                   className={`flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left ${
                     i > 0 ? "border-t border-line" : ""
