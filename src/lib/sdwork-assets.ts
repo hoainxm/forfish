@@ -15,6 +15,12 @@
 //   → accounts.owner_user_id (fallback SĐT) → warranty_cards /
 //   service_instances / orders. Đổi vendor: viết adapter khác trả
 //   OwnedAssets, UI/domain không đổi.
+//
+// v4 (2026-06-11): gateway gộp THÊM thiết bị import (vw_imported_serials —
+// chủ yếu giám sát hành trình Viettel) khớp theo SĐT chuẩn hoá 9 số cuối, kể
+// cả khách CHƯA có account. Các thiết bị này về trong `warranties` với
+// expires_at=null (không có hạn BH/đơn) — mapCrmAssets hiển thị tên + serial,
+// KHÔNG bịa hạn bảo hành.
 
 import type {
   OwnedAssets,
