@@ -10,9 +10,14 @@ import {
   trapezoid,
   SPECIES_META,
   SPECIES_PROFILES,
+  thermoFit,
   type ScalarGrid,
 } from "../fish-predict";
-import { FISH_SEASONS } from "../../data/fish-seasons";
+import {
+  FISH_SEASONS,
+  nearestRegionWithin,
+  regionAt,
+} from "../../data/fish-seasons";
 
 describe("trapezoid", () => {
   it("0 ngoài dải, 1 trong lõi, dốc ở mép", () => {
@@ -143,9 +148,44 @@ describe("buildFishForecast", () => {
     expect(out.cells.some((c) => c.sp[out.species[0]] === best)).toBe(true);
   });
 
-  it("ô đất liền (SST NaN) và ô ngoài vùng đánh bắt → bỏ", () => {
+  it("ô đất liền (SST NaN) → bỏ", () => {
     const land = grid([[NaN]], [21.0], [105.8]); // Hà Nội
     const out = buildFishForecast(land, grid([[0.5]], [21.0], [105.8]), null, 6);
+    expect(out.cells).toHaveLength(0);
+  });
+
+  it("TÍNH TOÀN VÙNG: ô biển NGOÀI 7 đa giác khoanh sẵn vẫn ra dự báo", () => {
+    // (8.5°N, 110°E) — biển Đông Nam Bộ ngoài khơi, KHÔNG nằm trong đa giác
+    // nào (lon 110 > rìa đông dong-nam-bo 109.6, < rìa tây truong-sa 111.2).
+    // Trước đây regionAt → null → bỏ trắng. Nay gán vùng gần nhất → có dự báo.
+    const gapLats = [8.25, 8.5, 8.75];
+    const gapLons = [109.75, 110.0, 110.25];
+    const warmGap = grid(
+      [
+        [28, 28, 29.5],
+        [28, 28, 29.5],
+        [28, 28, 29.5],
+      ],
+      gapLats,
+      gapLons,
+    );
+    const foodGap = grid(
+      [
+        [0.4, 0.4, 0.4],
+        [0.4, 0.4, 0.4],
+        [0.4, 0.4, 0.4],
+      ],
+      gapLats,
+      gapLons,
+    );
+    const out = buildFishForecast(warmGap, foodGap, null, 6);
+    expect(out.cells.length).toBeGreaterThan(0);
+  });
+
+  it("ô biển XA HẲN mọi vùng (nước ngoài) → bỏ", () => {
+    // (20°N, 112°E) — đông bắc, xa >2° mọi đa giác VN
+    const far = grid([[28]], [20.0], [112.0]);
+    const out = buildFishForecast(far, grid([[0.4]], [20.0], [112.0]), null, 6);
     expect(out.cells).toHaveLength(0);
   });
 
@@ -283,6 +323,58 @@ describe("convergenceStrength", () => {
   });
 });
 
+describe("thermoFit (tầng nhiệt D20)", () => {
+  it("D20 vừa 70–170 m → 1; quá nông/sâu → 0; dốc ở mép", () => {
+    expect(thermoFit(120)).toBe(1);
+    expect(thermoFit(20)).toBe(0);
+    expect(thermoFit(300)).toBe(0);
+    expect(thermoFit(55)).toBeCloseTo((55 - 40) / (70 - 40), 5);
+  });
+});
+
+describe("tầng nhiệt HYCOM tăng điểm cá ngừ", () => {
+  // ngoài khơi Nam Trung Bộ, tháng 6 — cá ngừ đại dương đang vụ
+  const tlats = [11.5, 11.75, 12.0];
+  const tlons = [110.0, 110.25, 110.5];
+  const warmOff = grid(
+    [
+      [28, 28, 28],
+      [28, 28, 28],
+      [28, 28, 28],
+    ],
+    tlats,
+    tlons,
+  );
+  const clearChl = grid(
+    [
+      [0.1, 0.1, 0.1],
+      [0.1, 0.1, 0.1],
+      [0.1, 0.1, 0.1],
+    ],
+    tlats,
+    tlons,
+  );
+  it("D20 vùng tốt (120 m) → điểm 'ngừ đại dương' cao hơn khi KHÔNG có tầng nhiệt", () => {
+    const base = buildFishForecast(warmOff, clearChl, null, 6);
+    const d20 = grid(
+      [
+        [120, 120, 120],
+        [120, 120, 120],
+        [120, 120, 120],
+      ],
+      tlats,
+      tlons,
+    );
+    const withT = buildFishForecast(warmOff, clearChl, null, 6, { thermo: d20 });
+    const no =
+      base.cells.find((c) => c.sp["ngừ đại dương"])?.sp["ngừ đại dương"] ?? 0;
+    const yes =
+      withT.cells.find((c) => c.sp["ngừ đại dương"])?.sp["ngừ đại dương"] ?? 0;
+    expect(yes).toBeGreaterThan(no);
+    expect(yes).toBeGreaterThanOrEqual(35);
+  });
+});
+
 describe("gradientStrength", () => {
   it("đều màu → 0; chênh mạnh ≥ full → kẹp 1; full khác nhau cho lớp khác nhau", () => {
     const flat = [
@@ -298,6 +390,25 @@ describe("gradientStrength", () => {
     ];
     // gradient dọc giữa = (1.2-0)/2 = 0.6 ≥ full 0.25 → 1
     expect(gradientStrength(ramp, 0.25)[1][1]).toBe(1);
+  });
+});
+
+describe("nearestRegionWithin — phủ kín vùng biển, không lỗ hổng", () => {
+  it("trong đa giác → đúng vùng đó", () => {
+    // (20°N, 107.25°E) nằm trong Vịnh Bắc Bộ
+    expect(nearestRegionWithin(20, 107.25, 2)?.id).toBe(
+      regionAt(20, 107.25)?.id,
+    );
+    expect(nearestRegionWithin(20, 107.25, 2)?.id).toBe("vinh-bac-bo");
+  });
+  it("ô biển NGOÀI mọi đa giác nhưng trong tầm → vẫn có vùng (lấp lỗ hổng)", () => {
+    // (8.5°N,110°E) không thuộc đa giác nào nhưng gần Đông Nam Bộ / Trường Sa
+    expect(regionAt(8.5, 110)).toBeNull();
+    expect(nearestRegionWithin(8.5, 110, 2)).not.toBeNull();
+  });
+  it("xa hẳn mọi vùng → null (ngoài vùng biển VN)", () => {
+    expect(nearestRegionWithin(20, 112, 2)).toBeNull(); // đông bắc, nước ngoài
+    expect(nearestRegionWithin(3, 110, 2)).toBeNull(); // quá xa về nam
   });
 });
 

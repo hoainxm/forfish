@@ -51,7 +51,7 @@ import {
   type ForecastGrid,
   type ForecastKind,
 } from "@/lib/forecast-grid";
-import { FISH_REGIONS, fishInRegion, regionAt } from "@/data/fish-seasons";
+import { fishInRegion, regionAt } from "@/data/fish-seasons";
 import {
   fetchFishForecast,
   SPECIES_META,
@@ -164,16 +164,6 @@ const SEA_STATE: Record<SeaLevel, string> = {
   good: "Biển êm",
   caution: "Biển động nhẹ",
   bad: "Biển động mạnh",
-};
-
-// GeoJSON các vùng cá theo mùa — tĩnh, dựng một lần
-const FISH_GEOJSON: GeoJSON.FeatureCollection = {
-  type: "FeatureCollection",
-  features: FISH_REGIONS.map((r) => ({
-    type: "Feature",
-    properties: { id: r.id },
-    geometry: { type: "Polygon", coordinates: [[...r.polygon, r.polygon[0]]] },
-  })),
 };
 
 const THIS_MONTH = new Date().getMonth() + 1;
@@ -754,26 +744,9 @@ export default function FishingMapView() {
           />
         </Source>
 
-        {/* vùng cá theo mùa — viền mảnh, không lấn nội dung */}
-        {fishOn && (
-          <Source id="fish-regions" type="geojson" data={FISH_GEOJSON}>
-            <Layer
-              id="fish-regions-fill"
-              type="fill"
-              paint={{ "fill-color": "#f2a01f", "fill-opacity": 0.05 }}
-            />
-            <Layer
-              id="fish-regions-line"
-              type="line"
-              paint={{
-                "line-color": "#b07816",
-                "line-width": 1,
-                "line-opacity": 0.45,
-                "line-dasharray": [3, 2.5],
-              }}
-            />
-          </Source>
-        )}
+        {/* (đã bỏ viền 7 vùng khoanh sẵn — dự báo cá nay tính TOÀN BỘ vùng
+            biển VN, không còn giới hạn trong các đa giác; viền cũ gây hiểu lầm
+            "chỉ có cá ở mấy vùng này") */}
 
         {/* lớp số liệu biển (nước dâng/xoáy, độ mặn) — ô màu 0.5° */}
         {scalarGeo && scalarKind && (

@@ -81,7 +81,7 @@ src/
   data/
     ports.ts            # 10 cảng + tọa độ đã kiểm chứng Open-Meteo
     vn-maritime-border.ts # Ranh giới biển VN — 75 điểm CHUẨN (user cấp 2026-06-10, "borderpoints.json"), Campuchia → Trường Sa → Hoàng Sa → Vịnh Bắc Bộ → Móng Cái; nguồn cho geofence cảnh báo IUU
-    fish-seasons.ts     # Cá mùa này — 7 vùng biển (polygon + labelAt) × 11 loài × tháng, nguồn RIMF/báo ngành THAM KHẢO; regionAt/fishInRegion (có test)
+    fish-seasons.ts     # Cá mùa này — 7 vùng biển (polygon + labelAt) × 39 loài × tháng, nguồn RIMF/báo ngành THAM KHẢO; regionAt (chứa)/nearestRegionWithin (vùng gần nhất ≤2° — PHỦ KÍN toàn EEZ, không lỗ hổng)/fishInRegion (có test)
     port-prices.ts      # Giá cá tĩnh = FALLBACK cho /api/port-prices (khi VASEP fail/parse vỡ); nguồn báo công khai, có ngày tổng hợp
     supplies.ts         # Danh mục vật tư THAM KHẢO
     fines.ts            # Mức phạt NĐ 38/2024 (cá nhân) THAM KHẢO
@@ -103,6 +103,7 @@ src/
     weather-codes.ts    # Trục 1: mã WMO → nhãn tiếng Việt (dông/mưa) + cờ danger
     fish-predict.ts     # Trục 1: DỰ BÁO CÁ (PFZ) — khẩu vị 39 loài 6 nhóm (SpeciesCategory pelagic-large/small, cephalopod, demersal, reef, crustacean) × (trapezoid SST + dải chl + trọng số 6 yếu tố) × habitat{mồi, front nhiệt, front mồi, rìa xoáy SSHA, nước trồi anomaly, hội tụ dòng u,v} × mùa vụ/vùng. SurfaceSignal high/medium/low + SURFACE_CONF: loài đáy (low) kéo habitat về trung tính → KHÔNG vẽ điểm nóng giả, "Mọi loài" chỉ tính loài định-vị-được. Mỗi loài có color + SPECIES_META (UI) + CATEGORY_LABEL. gradientStrength/convergenceStrength/buildFishForecast(sst,chl,sla,month,{anom,cur}) thuần có test; mọi trường ngoài SST+chl TUỲ CHỌN; cell mang t (°C)+c (chl) cho UI; client /api/fish-forecast
     moon.ts             # tuần trăng tính offline (chu kỳ giao hội 29,53 ngày) + lời nghề đèn (mực/cá cơm) — hiện trong sheet bản đồ Trục 1; có test
+    hycom.ts            # Trục 1: TẦNG NHIỆT — kéo nhiệt-theo-tầng HYCOM ESPC-D-V02 (OPeNDAP ascii, decode Int16*0.001+20) → độ sâu đẳng nhiệt 20°C (D20) cho yếu tố cá ngừ trong buildFishForecast; parse/iso20Depth/thermoGridUrl thuần có test. URL BẮT BUỘC dạng .ascii?water_temp[...] (thiếu ?water_temp → 400)
     sea-scalars.ts      # Trục 1: lớp số liệu biển — SSHA "Nước dâng, xoáy" (sống); sss độ mặn TẠM RÚT khỏi UI (SMOS nhiễu RFI Biển Đông, SMAP chết) — client gọi /api/sea-scalar?kind=
     storms.ts           # Trục 1: adapter tin bão (parse/lọc vùng Biển Đông, types) — client gọi /api/storms
     route-plan.ts       # Trục 1: THUẦN LOGIC dẫn đường kiểu VISIR (docs/research/06 + audit §3b) — lưới phủ vùng + Dijkstra, Kwon 4 bậc hướng sóng, thang an toàn KTTV (cấp 6 phạt 1,15 / cấp 7 phạt 1,5 + đỏ / cấp 8 chặn), TRẦN VÒNG 1,3× direct, fuelDeltaL có dấu, độ sâu mẫu ≤5 km/cạnh

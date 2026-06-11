@@ -10,6 +10,7 @@ import {
   type CurrentGrids,
   type ScalarGrid,
 } from "@/lib/fish-predict";
+import { fetchThermoclineGrid } from "@/lib/hycom";
 
 /**
  * Dự báo cá (PFZ) — tính server: kéo lưới SST + phù du mới nhất từ nguồn
@@ -37,6 +38,8 @@ export async function GET() {
     // SST + phù du là BẮT BUỘC; SSHA (xoáy), dị thường nhiệt (nước trồi),
     // dòng chảy u/v (hội tụ) là TUỲ CHỌN — fail thì vẫn dự báo, chia lại trọng số
     const opt = { next: { revalidate: 21600 } };
+    // tầng nhiệt HYCOM (host khác, OPeNDAP) chạy SONG SONG với các lưới ERDDAP
+    const thermoP = fetchThermoclineGrid().catch(() => null);
     const [sstRes, chlRes, slaRes, anomRes, uRes, vRes] = await Promise.all([
       fetch(sstGridUrl(), opt),
       fetch(chlGridUrl(), opt),
@@ -79,8 +82,12 @@ export async function GET() {
         ? { u, v }
         : null;
 
+    const thermo = await thermoP; // tầng nhiệt D20 (HYCOM) — tuỳ chọn
+
     const month = new Date().getMonth() + 1;
-    return Response.json(buildFishForecast(sst, chl, sla, month, { anom, cur }));
+    return Response.json(
+      buildFishForecast(sst, chl, sla, month, { anom, cur, thermo }),
+    );
   } catch {
     return Response.json({ ok: false });
   }

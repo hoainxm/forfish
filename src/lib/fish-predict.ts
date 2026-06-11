@@ -12,7 +12,12 @@
 // TRUNG THỰC: đây là vùng CÓ KHẢ NĂNG, tính từ ảnh trễ ~2 ngày, độ phân giải
 // ~25 km — không phải lời hứa "có cá", UI phải luôn ghi rõ.
 
-import { FISH_SEASONS, regionAt } from "@/data/fish-seasons";
+import { FISH_SEASONS, nearestRegionWithin } from "@/data/fish-seasons";
+
+// Bán kính (độ) gán ô biển về vùng gần nhất — đủ phủ kín toàn EEZ + Hoàng Sa/
+// Trường Sa, vẫn loại nước ngoài xa hẳn (Hải Nam, Philippines). PFZ tính cho
+// MỌI ô biển VN, không chỉ trong các đa giác khoanh sẵn.
+const REGION_REACH_DEG = 2.0;
 
 /* ----------------------------------------------------------------------------
    Khẩu vị loài — dải nhiệt (trapezoid °C) + mồi (log10 chlorophyll mg/m³)
@@ -75,6 +80,9 @@ export interface SpeciesProfile {
     eddy: number;
     upw: number;
     conv: number;
+    /** tầng nhiệt (độ sâu đẳng nhiệt 20°C, HYCOM) — CHỦ YẾU cho cá ngừ/cá nổi
+     *  lớn & mực xà đại dương; bỏ qua/để 0 cho loài ven bờ/đáy. Mặc định 0. */
+    thermo?: number;
   };
   /** true = ưa nước trồi/xoáy LẠNH (cá nổi nhỏ ăn mồi); false = ưa rìa xoáy ấm (cá nổi lớn) */
   coldCore: boolean;
@@ -87,15 +95,15 @@ export interface SpeciesProfile {
 // nhỏ = xanh lá, mực = tím, cá đáy = cam nâu, cá rạn = đỏ, giáp xác = hồng sen.
 export const SPECIES_PROFILES: SpeciesProfile[] = [
   // ── CÁ NỔI LỚN xa bờ — săn ở rìa xoáy ấm + front + hội tụ dòng ───────────
-  { species: "Cá ngừ đại dương (vây vàng, mắt to)", short: "ngừ đại dương", category: "pelagic-large", surfaceSignal: "high", color: "#1d4ed8", depthBand: "tầng mặt 0–250 m, xa bờ", sst: [24, 26, 30, 31.5], chlLog: [-1.1, -0.2], w: { food: 0.2, thermFront: 0.3, chlFront: 0.15, eddy: 0.35, upw: 0.05, conv: 0.2 }, coldCore: false },
-  { species: "Cá ngừ vằn", short: "ngừ vằn", category: "pelagic-large", surfaceSignal: "high", color: "#2563eb", depthBand: "tầng mặt 0–260 m", sst: [23, 25, 29.5, 31], chlLog: [-1.0, 0.0], w: { food: 0.25, thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.05, conv: 0.2 }, coldCore: false },
-  { species: "Cá ngừ chù", short: "ngừ chù", category: "pelagic-large", surfaceSignal: "medium", color: "#0891b2", depthBand: "tầng mặt 0–50 m", sst: [24, 28, 31, 32], chlLog: [-1.1, -0.5], w: { food: 0.25, thermFront: 0.2, chlFront: 0.25, eddy: 0.15, upw: 0.05, conv: 0.1 }, coldCore: false },
-  { species: "Cá ngừ ồ", short: "ngừ ồ", category: "pelagic-large", surfaceSignal: "medium", color: "#0e7490", depthBand: "tầng mặt 0–200 m, ven rạn", sst: [18, 24, 28, 30], chlLog: [-0.8, 0.3], w: { food: 0.3, thermFront: 0.25, chlFront: 0.2, eddy: 0.1, upw: 0.1, conv: 0.05 }, coldCore: false },
-  { species: "Cá ngừ chấm", short: "ngừ chấm", category: "pelagic-large", surfaceSignal: "medium", color: "#0d9488", depthBand: "ven bờ 0–80 m", sst: [16, 24, 27, 31], chlLog: [-0.7, 0.4], w: { food: 0.3, thermFront: 0.2, chlFront: 0.2, eddy: 0.05, upw: 0.15, conv: 0.1 }, coldCore: false },
-  { species: "Cá thu", short: "cá thu", category: "pelagic-large", surfaceSignal: "high", color: "#155e75", depthBand: "tầng mặt – đáy 5–170 m, ven bờ", sst: [16, 23, 29, 31], chlLog: [-0.7, 0.4], w: { food: 0.25, thermFront: 0.35, chlFront: 0.2, eddy: 0.1, upw: 0.1, conv: 0.15 }, coldCore: false },
-  { species: "Cá cờ (cá cờ buồm)", short: "cá cờ", category: "pelagic-large", surfaceSignal: "high", color: "#3b82f6", depthBand: "tầng mặt 0–200 m", sst: [20, 25, 28, 30], chlLog: [-1.4, -0.2], w: { food: 0.1, thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.05, conv: 0.1 }, coldCore: false },
-  { species: "Cá nục heo", short: "nục heo", category: "pelagic-large", surfaceSignal: "high", color: "#06b6d4", depthBand: "tầng mặt 0–85 m, quanh vật nổi", sst: [21, 26, 30, 31], chlLog: [-1.2, -0.3], w: { food: 0.1, thermFront: 0.25, chlFront: 0.15, eddy: 0.25, upw: 0.05, conv: 0.2 }, coldCore: false },
-  { species: "Cá ngân", short: "cá ngân", category: "pelagic-large", surfaceSignal: "medium", color: "#1e3a8a", depthBand: "tầng mặt – trung tầng 0–200 m", sst: [18, 23, 27, 30], chlLog: [-1.2, -0.3], w: { food: 0.15, thermFront: 0.35, chlFront: 0.15, eddy: 0.2, upw: 0.05, conv: 0.1 }, coldCore: false },
+  { species: "Cá ngừ đại dương (vây vàng, mắt to)", short: "ngừ đại dương", category: "pelagic-large", surfaceSignal: "high", color: "#1d4ed8", depthBand: "tầng mặt 0–250 m, xa bờ", sst: [24, 26, 30, 31.5], chlLog: [-1.1, -0.2], w: { food: 0.2, thermFront: 0.3, chlFront: 0.15, eddy: 0.35, upw: 0.05, conv: 0.2, thermo: 0.3 }, coldCore: false },
+  { species: "Cá ngừ vằn", short: "ngừ vằn", category: "pelagic-large", surfaceSignal: "high", color: "#2563eb", depthBand: "tầng mặt 0–260 m", sst: [23, 25, 29.5, 31], chlLog: [-1.0, 0.0], w: { food: 0.25, thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.05, conv: 0.2, thermo: 0.2 }, coldCore: false },
+  { species: "Cá ngừ chù", short: "ngừ chù", category: "pelagic-large", surfaceSignal: "medium", color: "#0891b2", depthBand: "tầng mặt 0–50 m", sst: [24, 28, 31, 32], chlLog: [-1.1, -0.5], w: { food: 0.25, thermFront: 0.2, chlFront: 0.25, eddy: 0.15, upw: 0.05, conv: 0.1, thermo: 0.2 }, coldCore: false },
+  { species: "Cá ngừ ồ", short: "ngừ ồ", category: "pelagic-large", surfaceSignal: "medium", color: "#0e7490", depthBand: "tầng mặt 0–200 m, ven rạn", sst: [18, 24, 28, 30], chlLog: [-0.8, 0.3], w: { food: 0.3, thermFront: 0.25, chlFront: 0.2, eddy: 0.1, upw: 0.1, conv: 0.05, thermo: 0.15 }, coldCore: false },
+  { species: "Cá ngừ chấm", short: "ngừ chấm", category: "pelagic-large", surfaceSignal: "medium", color: "#0d9488", depthBand: "ven bờ 0–80 m", sst: [16, 24, 27, 31], chlLog: [-0.7, 0.4], w: { food: 0.3, thermFront: 0.2, chlFront: 0.2, eddy: 0.05, upw: 0.15, conv: 0.1, thermo: 0.1 }, coldCore: false },
+  { species: "Cá thu", short: "cá thu", category: "pelagic-large", surfaceSignal: "high", color: "#155e75", depthBand: "tầng mặt – đáy 5–170 m, ven bờ", sst: [16, 23, 29, 31], chlLog: [-0.7, 0.4], w: { food: 0.25, thermFront: 0.35, chlFront: 0.2, eddy: 0.1, upw: 0.1, conv: 0.15, thermo: 0.05 }, coldCore: false },
+  { species: "Cá cờ (cá cờ buồm)", short: "cá cờ", category: "pelagic-large", surfaceSignal: "high", color: "#3b82f6", depthBand: "tầng mặt 0–200 m", sst: [20, 25, 28, 30], chlLog: [-1.4, -0.2], w: { food: 0.1, thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.05, conv: 0.1, thermo: 0.3 }, coldCore: false },
+  { species: "Cá nục heo", short: "nục heo", category: "pelagic-large", surfaceSignal: "high", color: "#06b6d4", depthBand: "tầng mặt 0–85 m, quanh vật nổi", sst: [21, 26, 30, 31], chlLog: [-1.2, -0.3], w: { food: 0.1, thermFront: 0.25, chlFront: 0.15, eddy: 0.25, upw: 0.05, conv: 0.2, thermo: 0.2 }, coldCore: false },
+  { species: "Cá ngân", short: "cá ngân", category: "pelagic-large", surfaceSignal: "medium", color: "#1e3a8a", depthBand: "tầng mặt – trung tầng 0–200 m", sst: [18, 23, 27, 30], chlLog: [-1.2, -0.3], w: { food: 0.15, thermFront: 0.35, chlFront: 0.15, eddy: 0.2, upw: 0.05, conv: 0.1, thermo: 0.15 }, coldCore: false },
   // ── CÁ NỔI NHỎ ven bờ — mê mồi dày + nước trồi lạnh ──────────────────────
   { species: "Cá nục", short: "cá nục", category: "pelagic-small", surfaceSignal: "high", color: "#22c55e", depthBand: "tầng mặt 10–80 m", sst: [22, 24, 29, 31.5], chlLog: [-0.4, 0.8], w: { food: 0.8, thermFront: 0.6, chlFront: 0.65, eddy: 0.25, upw: 0.65, conv: 0.3 }, coldCore: true },
   { species: "Cá cơm", short: "cá cơm", category: "pelagic-small", surfaceSignal: "high", color: "#16a34a", depthBand: "tầng mặt ven bờ 0–50 m", sst: [24, 26, 30.5, 32], chlLog: [-0.4, 0.8], w: { food: 0.5, thermFront: 0.12, chlFront: 0.2, eddy: 0.18, upw: 0.25, conv: 0.15 }, coldCore: true },
@@ -108,7 +116,7 @@ export const SPECIES_PROFILES: SpeciesProfile[] = [
   { species: "Cá đối", short: "cá đối", category: "pelagic-small", surfaceSignal: "medium", color: "#10b981", depthBand: "cực nông 0–20 m, cửa sông", sst: [18, 22, 28, 30], chlLog: [-0.2, 0.8], w: { food: 0.7, thermFront: 0.3, chlFront: 0.55, eddy: 0.1, upw: 0.3, conv: 0.5 }, coldCore: false },
   { species: "Cá hố", short: "cá hố", category: "demersal", surfaceSignal: "medium", color: "#64748b", depthBand: "tầng đáy – giữa 20–100 m", sst: [22, 24, 29, 31], chlLog: [-0.6, 0.6], w: { food: 0.4, thermFront: 0.25, chlFront: 0.15, eddy: 0.2, upw: 0.15, conv: 0.15 }, coldCore: true },
   // ── MỰC & BẠCH TUỘC ─────────────────────────────────────────────────────
-  { species: "Mực xà", short: "mực xà", category: "cephalopod", surfaceSignal: "high", color: "#6d28d9", depthBand: "tầng nước 10–50 m đêm, xa bờ", sst: [25, 26.5, 30, 31], chlLog: [-1.0, -0.1], w: { food: 0.25, thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.05, conv: 0.15 }, coldCore: false },
+  { species: "Mực xà", short: "mực xà", category: "cephalopod", surfaceSignal: "high", color: "#6d28d9", depthBand: "tầng nước 10–50 m đêm, xa bờ", sst: [25, 26.5, 30, 31], chlLog: [-1.0, -0.1], w: { food: 0.25, thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.05, conv: 0.15, thermo: 0.25 }, coldCore: false },
   { species: "Mực ống", short: "mực ống", category: "cephalopod", surfaceSignal: "medium", color: "#7c3aed", depthBand: "tầng mặt 10–50 m đêm (ăn đèn)", sst: [22, 24.5, 29.5, 31], chlLog: [-0.7, 0.5], w: { food: 0.35, thermFront: 0.25, chlFront: 0.15, eddy: 0.25, upw: 0.1, conv: 0.15 }, coldCore: false },
   { species: "Mực lá", short: "mực lá", category: "cephalopod", surfaceSignal: "medium", color: "#8b5cf6", depthBand: "ven bờ 0–100 m, rạn & cỏ biển", sst: [22, 24, 29, 32], chlLog: [-0.5, 0.3], w: { food: 0.4, thermFront: 0.4, chlFront: 0.3, eddy: 0.2, upw: 0.2, conv: 0.5 }, coldCore: false },
   { species: "Mực nang", short: "mực nang", category: "cephalopod", surfaceSignal: "low", color: "#a855f7", depthBand: "đáy 0–130 m, cát & cỏ biển", sst: [22, 25, 29, 31], chlLog: [-0.3, 0.5], w: { food: 0.3, thermFront: 0.2, chlFront: 0.2, eddy: 0.1, upw: 0.2, conv: 0.3 }, coldCore: false },
@@ -183,6 +191,16 @@ export function chlFit(chl: number, lo: number, hi: number): number {
   if (!Number.isFinite(chl) || chl <= 0) return 0;
   const l = Math.log10(chl);
   return trapezoid(l, lo - 0.45, lo, hi, hi + 0.45);
+}
+
+/**
+ * Hợp TẦNG NHIỆT cho cá nổi lớn: theo độ sâu đẳng nhiệt 20°C (D20, m).
+ * Tốt nhất khi lớp nước ấm vừa phải (70–170 m) — đủ dày cho cá ngừ, vẫn có cấu
+ * trúc tầng để dồn cá. Quá nông (<40 m, nước trồi lạnh sát mặt) hoặc quá sâu
+ * (>230 m, không cấu trúc) thì kém. Hình thang [40, 70, 170, 230].
+ */
+export function thermoFit(d20: number): number {
+  return trapezoid(d20, 40, 70, 170, 230);
 }
 
 export const KELVIN_OFFSET = 273.15;
@@ -359,10 +377,16 @@ export function buildFishForecast(
   chl: ScalarGrid,
   sla: ScalarGrid | null,
   month: number,
-  extra?: { anom?: ScalarGrid | null; cur?: CurrentGrids | null },
+  extra?: {
+    anom?: ScalarGrid | null;
+    cur?: CurrentGrids | null;
+    /** lưới độ sâu đẳng nhiệt 20°C (D20, m) — HYCOM; tầng cá ngừ */
+    thermo?: ScalarGrid | null;
+  },
 ): FishForecast {
   const anom = extra?.anom ?? null;
   const cur = extra?.cur ?? null;
+  const thermo = extra?.thermo ?? null;
   const thermFront = frontStrength(sst);
   const logChl = logChlGrid(chl);
   const chlFront = gradientStrength(logChl, 0.25);
@@ -382,8 +406,10 @@ export function buildFishForecast(
       if (!Number.isFinite(t)) continue; // đất liền
       const lat = sst.lats[i];
       const lon = sst.lons[j];
-      const region = regionAt(lat, lon);
-      if (!region) continue; // ngoài các vùng đánh bắt VN
+      // gán vùng GẦN NHẤT (phủ kín toàn vùng biển VN, không còn lỗ hổng giữa
+      // các đa giác thô); null = xa hẳn mọi vùng → ngoài vùng biển VN
+      const region = nearestRegionWithin(lat, lon, REGION_REACH_DEG);
+      if (!region) continue;
 
       const inSeason = FISH_SEASONS.filter(
         (f) => f.months.includes(month) && f.regions.includes(region.id),
@@ -424,6 +450,14 @@ export function buildFishForecast(
         const cv = convGrid[ui]?.[uj];
         if (cv != null && Number.isFinite(cur.u.values[ui]?.[uj])) convTerm = cv;
       }
+      // tầng nhiệt: hợp theo độ sâu đẳng nhiệt 20°C (HYCOM); null = thiếu
+      let thermoTerm: number | null = null;
+      if (thermo) {
+        const ti = nearestIndex(thermo.lats, lat);
+        const tj = nearestIndex(thermo.lons, lon);
+        const d20 = thermo.values[ti]?.[tj];
+        if (Number.isFinite(d20)) thermoTerm = thermoFit(d20);
+      }
 
       const scored: { short: string; fit: number; low: boolean }[] = [];
       for (const f of inSeason) {
@@ -448,6 +482,9 @@ export function buildFishForecast(
         if (eddyTerm != null) terms.push([p.w.eddy, eddyTerm]);
         if (upwTerm != null) terms.push([p.w.upw, upwTerm]);
         if (convTerm != null) terms.push([p.w.conv, convTerm]);
+        // tầng nhiệt: chỉ tính cho loài CÓ trọng số (cá ngừ/cá nổi lớn, mực xà)
+        if (thermoTerm != null && (p.w.thermo ?? 0) > 0)
+          terms.push([p.w.thermo as number, thermoTerm]);
         let wSum = 0;
         let acc = 0;
         for (const [w, v] of terms) {
@@ -494,7 +531,7 @@ export function buildFishForecast(
   }
 
   const date =
-    [sst.date, chl.date, sla?.date, anom?.date, cur?.u.date]
+    [sst.date, chl.date, sla?.date, anom?.date, cur?.u.date, thermo?.date]
       .filter(Boolean)
       .sort()[0] ?? "";
   const species = [...speciesBest.entries()]

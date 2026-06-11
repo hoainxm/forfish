@@ -461,6 +461,37 @@ export function regionAt(lat: number, lon: number): FishRegion | null {
   return null;
 }
 
+/**
+ * Vùng GẦN NHẤT một toạ độ — luôn trả về một vùng nếu điểm còn TRONG TẦM
+ * vùng biển VN (≤ `maxDeg` độ tới đa giác vùng gần nhất), KHÔNG còn lỗ hổng
+ * giữa 7 đa giác thô. null nếu xa hẳn mọi vùng (ngoài vùng biển VN / nước
+ * ngoài). Dùng để gán LOÀI cho mọi ô biển khi tính dự báo cá toàn vùng —
+ * thay cho việc chỉ tính trong các đa giác khoanh sẵn (vốn bỏ trắng phần lớn
+ * biển). Vùng chỉ còn là BỘ LỌC loài theo mùa, không phải giới hạn tính toán.
+ */
+export function nearestRegionWithin(
+  lat: number,
+  lon: number,
+  maxDeg: number
+): FishRegion | null {
+  // nằm hẳn trong một vùng → dùng vùng đó
+  const inside = regionAt(lat, lon);
+  if (inside) return inside;
+  // không thì gán vùng có đỉnh gần nhất, nếu còn trong tầm
+  let best: FishRegion | null = null;
+  let bd = Infinity;
+  for (const region of FISH_REGIONS) {
+    for (const [x, y] of region.polygon) {
+      const d = Math.hypot(x - lon, y - lat);
+      if (d < bd) {
+        bd = d;
+        best = region;
+      }
+    }
+  }
+  return bd <= maxDeg ? best : null;
+}
+
 function pointInPolygon(
   x: number,
   y: number,
