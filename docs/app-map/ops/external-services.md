@@ -2,7 +2,7 @@
 
 > Load khi: lỗi liên quan nguồn dữ liệu ngoài (timeout, rate limit, đổi format, token hết hạn), thêm nguồn mới, hoặc audit phụ thuộc.
 
-covers: src/lib/sea, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts
+covers: src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts
 last_verified: 2026-06-11
 ttl_days: 180
 gate: warn
