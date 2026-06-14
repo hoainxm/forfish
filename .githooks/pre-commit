@@ -1,0 +1,153 @@
+#!/bin/sh
+# ai-simple-version: 1.1.0 (ForFish)
+# pre-commit — Automated enforcement (nguyên tắc 08 / principle 08)
+#
+# Cài: git config core.hooksPath .githooks   (máy clone mới chạy lại 1 dòng này)
+# Verify: sh .githooks/pre-commit --self-test
+
+# ── CẤU HÌNH / CONFIG ──────────────────────────────────────────────────
+MIGRATIONS_PATTERN='supabase/migrations/.*\.sql$'
+DB_DOC_PATTERN='docs/app-map/.*(data-model|database|schema).*\.md$'
+CLAUDE_MD_CHAR_BUDGET=20000                               # VN-heavy ~6K tokens
+SELF_TEST_MIGRATION_SAMPLE='supabase/migrations/0001_init.sql'
+SELF_TEST_DOC_SAMPLE='docs/app-map/04-data-model.md'
+
+if [ "$1" = "--self-test" ]; then
+  echo "ok: hook parse duoc."
+  RC=0
+  if echo "$SELF_TEST_MIGRATION_SAMPLE" | grep -qE "$MIGRATIONS_PATTERN" 2>/dev/null; then
+    echo "PASS: MIGRATIONS_PATTERN khop '$SELF_TEST_MIGRATION_SAMPLE'"
+  else
+    echo "FAIL: MIGRATIONS_PATTERN KHONG khop sample -> check 1 se silent no-op!"; RC=1
+  fi
+  if echo "$SELF_TEST_DOC_SAMPLE" | grep -qiE "$DB_DOC_PATTERN" 2>/dev/null; then
+    echo "PASS: DB_DOC_PATTERN khop '$SELF_TEST_DOC_SAMPLE'"
+  else
+    echo "FAIL: DB_DOC_PATTERN KHONG khop sample -> migration commit bi block oan!"; RC=1
+  fi
+  echo "  BUDGET = $CLAUDE_MD_CHAR_BUDGET chars"
+  M=$(echo "src/lib-utils/a.ts" | while read -r c; do case "$c" in "src/lib"|"src/lib"/*) echo 1;; esac; done)
+  [ -z "$M" ] && echo "PASS: matcher contract — sibling KHONG khop src/lib" || { echo "FAIL: matcher overmatch sibling"; RC=1; }
+  M=$(echo "src/lib/x.ts" | while read -r c; do case "$c" in "src/lib"|"src/lib"/*) echo 1;; esac; done)
+  [ -n "$M" ] && echo "PASS: matcher contract — child khop" || { echo "FAIL: matcher miss child"; RC=1; }
+  # spacing-px detector (ui-design-logic §5): chỉ bắt prefix spacing, KHÔNG bắt width/inset
+  echo 'x className="mt-3 p-[7px] gap-2"' | grep -qE '[" ](p|m|px|py|pt|pb|pl|pr|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y|space-x|space-y)-\[[0-9.]+px\]' \
+    && echo "PASS: spacing-px detector bat p-[7px]" || { echo "FAIL: spacing-px detector miss"; RC=1; }
+  echo 'x className="max-w-[480px] w-[52px]"' | grep -qE '[" ](p|m|px|py|pt|pb|pl|pr|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y|space-x|space-y)-\[[0-9.]+px\]' \
+    && { echo "FAIL: spacing-px detector overmatch width"; RC=1; } || echo "PASS: spacing-px KHONG bat max-w/w (width hop le)"
+  # Fixture gate: warn — chạy flow thật trong temp repo
+  HOOK_SELF="$0"; case "$HOOK_SELF" in /*) ;; *) HOOK_SELF="$(pwd)/$HOOK_SELF";; esac
+  TW=$(mktemp -d); OPW=$(pwd)
+  cd "$TW" && git init -q . && git config user.email t@t.t && git config user.name t
+  mkdir -p .githooks src/w docs/app-map
+  cp "$HOOK_SELF" .githooks/pre-commit && git config core.hooksPath .githooks
+  echo "a" > src/w/a.ts
+  printf '# w\n> Load khi: t\ncovers: src/w\ngate: warn\nlast_verified: 2026-01-01\nttl_days: 90\n' > docs/app-map/01-w.md
+  git add -A && git commit -qm setup >/dev/null 2>&1
+  echo "b" >> src/w/a.ts && git add src/w/a.ts
+  OUTW=$(git commit -m warntest 2>&1); RCW=$?
+  if [ "$RCW" -eq 0 ] && echo "$OUTW" | grep -q "WARN: code trong vung covers"; then
+    echo "PASS: gate: warn -> chi WARN, khong chan commit"
+  else
+    echo "FAIL: gate warn khong dung (exit=$RCW)"; RC=1
+  fi
+  cd "$OPW" && rm -rf "$TW"
+  exit $RC
+fi
+
+CHANGED=$(git diff --cached --name-only)
+FAIL=0
+
+# ── 1. Migration đổi → doc data-model phải đổi cùng commit ─────────────
+if echo "$CHANGED" | grep -qE "$MIGRATIONS_PATTERN"; then
+  if ! echo "$CHANGED" | grep -qiE "$DB_DOC_PATTERN"; then
+    echo "BLOCK: migration thay doi nhung doc data-model khong update."
+    echo "  -> Update docs/app-map/04-data-model.md roi commit lai."
+    FAIL=1
+  fi
+fi
+
+# ── 1b. Covers-sync — CỔNG GHI nguyên tắc 12 ──────────────────────────
+for doc in $(git ls-files 'docs/app-map/*.md' 'docs/app-map/**/*.md' 2>/dev/null | grep -v '_generated/' | sort -u); do
+  [ -f "$doc" ] || continue
+  CLINE=$(head -12 "$doc" | grep -i '^covers:' | head -1)
+  [ -n "$CLINE" ] || continue
+  GATE=$(head -12 "$doc" | grep -i '^gate:' | head -1 | sed 's/^[^:]*:[[:space:]]*//' | tr -d ' ')
+  HIT=0
+  for p in $(echo "$CLINE" | sed 's/^[Cc]overs:[[:space:]]*//' | tr ',' '\n' | sed 's/^ *//; s/ *$//'); do
+    [ -n "$p" ] || continue
+    H=$(echo "$CHANGED" | while read -r c; do case "$c" in "$p"|"$p"/*) echo 1; break;; esac; done)
+    [ -n "$H" ] && { HIT=1; break; }
+  done
+  if [ "$HIT" -eq 1 ] && ! echo "$CHANGED" | grep -qx "$doc"; then
+    if [ "$GATE" = "warn" ]; then
+      echo "WARN: code trong vung covers cua '$doc' thay doi, doc chua duoc sua/re-verify (gate: warn)."
+    else
+      echo "BLOCK: code trong vung covers cua '$doc' thay doi nhung doc khong duoc sua/re-verify."
+      echo "  -> Sua noi dung; hoac bump 'last_verified:' + dong <!-- re-verified: <date> - <claims> -->"
+      echo "     va commit msg: re-verify($doc): <claims>. Roi commit lai."
+      FAIL=1
+    fi
+  fi
+done
+
+# ── 2. Root CLAUDE.md token budget (ratchet: chỉ khi CLAUDE.md trong commit) ──
+if echo "$CHANGED" | grep -qx 'CLAUDE.md'; then
+  if git cat-file -e :CLAUDE.md 2>/dev/null; then
+    SIZE=$(git show :CLAUDE.md | wc -c | tr -d ' ')
+    if [ "$SIZE" -gt "$CLAUDE_MD_CHAR_BUDGET" ]; then
+      echo "BLOCK: CLAUDE.md (staged) ${SIZE} chars > budget ${CLAUDE_MD_CHAR_BUDGET}."
+      echo "  -> Tach chi tiet ra docs/app-map/, root chi giu rule + pointer (nguyen tac 01)."
+      FAIL=1
+    fi
+  fi
+fi
+
+# ── 3. Schema dùng chung đổi → contract đổi cùng commit (nguyên tắc 10) ──
+check_contract() {
+  if echo "$CHANGED" | grep -qE "$1"; then
+    if ! echo "$CHANGED" | grep -qE "$2"; then
+      echo "BLOCK: schema dung chung ($1) doi nhung contract ($2) khong update."
+      echo "  -> Update contract (bump version neu breaking) roi commit lai."
+      FAIL=1
+    fi
+  fi
+}
+check_contract 'src/lib/(owned-assets|sdwork-assets)\.ts' 'docs/contracts/sdwork-assets\.contract\.md'
+
+# ── 3b. Spacing arbitrary-px (ui-design-logic §5): chặn p/m/gap/space-[Npx] ──
+# CHỈ prefix spacing — width/max-w/inset px hop le (kien truc rem co dat px width).
+for f in $(echo "$CHANGED" | grep -E '\.(tsx|jsx)$' || true); do
+  git cat-file -e ":$f" 2>/dev/null || continue
+  if git show ":$f" | grep -qE '[" ](p|m|px|py|pt|pb|pl|pr|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y|space-x|space-y)-\[[0-9.]+px\]'; then
+    echo "BLOCK: $f dung spacing arbitrary px (vi pham thang 4/8/12... — ui-design-logic)."
+    echo "  -> Dung utility thang Tailwind (p-4, gap-2) hoac rem. Width/inset px van OK."
+    FAIL=1
+  fi
+done
+
+# ── 3c. Encoding guard: BOM / mojibake trong .md|.template đã stage ───────
+M1=$(printf '\303\241\302\272'); M2=$(printf '\303\241\302\273')
+M3=$(printf '\303\242\342\202\254'); M4=$(printf '\303\204\342\200\230')
+BOM=$(printf '\357\273\277')
+for f in $(echo "$CHANGED" | grep -E '\.(md|template)$' || true); do
+  git cat-file -e ":$f" 2>/dev/null || continue
+  if git show ":$f" | head -c 3 | grep -q "$BOM"; then
+    echo "BLOCK: $f bat dau bang UTF-8 BOM -> ghi lai khong BOM (UTF8Encoding(false))."; FAIL=1
+  fi
+  if git show ":$f" | grep -qE "$M1|$M2|$M3|$M4"; then
+    echo "BLOCK: $f chua mojibake -> restore tu git roi sua bang tool UTF-8 (sed/Edit)."; FAIL=1
+  fi
+done
+
+# ── 4. WARN: app-map file thiếu 'Load khi' ────────────────────────────
+for f in $(echo "$CHANGED" | grep -E 'docs/app-map/.*\.md$' | grep -v '_generated/' || true); do
+  [ -f "$f" ] || continue
+  head -5 "$f" | grep -qiE 'load (khi|when)' || echo "WARN: $f thieu dong 'Load khi' o dau file (nguyen tac 02)."
+done
+
+# ── 5. (bỏ auto-status per-commit — board sinh theo lệnh/CI, tránh dirty-tree
+#       do chèn marker vào doc tay. Gate covers ở trên là teeth per-commit.) ──
+
+[ "$FAIL" -eq 1 ] && exit 1
+exit 0

@@ -37,6 +37,10 @@ Mọi thay đổi `src/` phải update doc app-map tương ứng **TRONG CÙNG C
 | Token màu / font / component pattern | [docs/app-map/03-design-system.md](docs/app-map/03-design-system.md) |
 | Scope trục / lời hứa / data source | [docs/app-map/01-product.md](docs/app-map/01-product.md) |
 | Quy trình team-agent | [docs/app-map/05-agents-team.md](docs/app-map/05-agents-team.md) |
+| Shape đồ SDWork (CRM↔ForFish) | [docs/contracts/sdwork-assets.contract.md](docs/contracts/sdwork-assets.contract.md) — bump version nếu breaking |
+| Nguồn dữ liệu ngoài (timeout/fallback) | [docs/app-map/ops/external-services.md](docs/app-map/ops/external-services.md) |
+
+**Enforcement (nguyên tắc 8/12)**: pre-commit hook ở `.githooks/` (bật bằng `git config core.hooksPath .githooks`) chặn migration↔04 lệch, covers-gate, budget root, contract SDWork, spacing-px, BOM/mojibake. Verify: `sh .githooks/pre-commit --self-test`. Sức khoẻ doc: `sh scripts/doc-health-report.sh`. Audit định kỳ: `/audit`.
 
 Test: **Vitest** (`npm test`, test tại `src/lib/__tests__/`) — thêm logic mới vào `src/lib/` thì viết test kèm cùng commit. Skip chỉ cho phép với pure UI tweak / config-only / doc-only, note rõ trong commit message.
 

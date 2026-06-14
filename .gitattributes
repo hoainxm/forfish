@@ -1,0 +1,4 @@
+# Hook + shell scripts PHẢI là LF — clone trên Windows mà thành CRLF thì
+# "#!/bin/sh" hỏng, hook không chạy (ai-simple-product-dev nguyên tắc 08).
+.githooks/** text eol=lf
+*.sh text eol=lf

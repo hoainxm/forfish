@@ -4,6 +4,11 @@
 
 **Load khi / Load when**: thêm/sửa page, route, navigation, component; cần hiểu app chạy thế nào khi env trống.
 
+covers: src/app
+last_verified: 2026-06-14
+ttl_days: 90
+gate: warn
+
 ---
 
 ## 1. Stack
