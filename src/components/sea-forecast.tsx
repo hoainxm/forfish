@@ -170,7 +170,7 @@ export function SeaForecast() {
                       {formatDay(d.date)}
                     </span>
                     <span
-                      className="display w-[52px] shrink-0 rounded-xl py-1 text-center text-[1.125rem] font-bold"
+                      className="display w-[52px] shrink-0 rounded-xl py-1 text-center text-[1.125rem] font-bold tabular-nums"
                       style={{
                         color: levelColor[d.level].fg,
                         backgroundColor: levelColor[d.level].bg,
@@ -178,7 +178,7 @@ export function SeaForecast() {
                     >
                       {d.score}
                     </span>
-                    <span className="flex-1 text-right text-[0.9375rem] leading-snug text-foreground/70">
+                    <span className="flex-1 text-right text-[0.9375rem] leading-snug text-foreground/70 tabular-nums">
                       sóng {d.waveMaxM.toFixed(1)} m · gió{" "}
                       {Math.round(d.windMaxKmh)} km/h
                       {w && (

@@ -193,21 +193,21 @@ export function CrewList() {
       {/* tổng quan */}
       <div className="mb-4 grid grid-cols-3 gap-2">
         <div className="surface py-3 text-center">
-          <p className="display text-[1.5rem] font-bold text-navy">
+          <p className="display text-[1.5rem] font-bold text-navy tabular-nums">
             {boatCrew.length}
           </p>
           <p className="text-[0.8125rem] text-foreground/70">Bạn thuyền</p>
         </div>
         <div className="surface py-3 text-center">
           <p
-            className={`display text-[1.5rem] font-bold ${issueCount > 0 ? "text-danger" : "text-ok"}`}
+            className={`display text-[1.5rem] font-bold tabular-nums ${issueCount > 0 ? "text-danger" : "text-ok"}`}
           >
             {issueCount}
           </p>
           <p className="text-[0.8125rem] text-foreground/70">Kẹt giấy tờ</p>
         </div>
         <div className="surface py-3 text-center">
-          <p className="display text-[1.125rem] font-bold leading-[2] text-navy">
+          <p className="display text-[1.125rem] font-bold leading-[2] text-navy tabular-nums">
             {formatShortVnd(totalAdvance)}
           </p>
           <p className="text-[0.8125rem] text-foreground/70">Đang ứng</p>
@@ -607,7 +607,7 @@ function AdvanceBookSheet({
       <div className="mb-3 flex items-baseline justify-between rounded-2xl bg-field px-4 py-3">
         <span className="text-[1rem] font-bold text-navy">Đang ứng</span>
         <span
-          className="display text-[1.375rem] font-bold"
+          className="display text-[1.375rem] font-bold tabular-nums"
           style={{ color: owing > 0 ? "var(--danger)" : "var(--ok)" }}
         >
           {formatVnd(owing)}

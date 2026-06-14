@@ -96,10 +96,12 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 - Demo/sổ mẫu KHÔNG ghi xuống máy, KHÔNG lọt vào dải nhắc khẩn.
 - Visual "international" (font Plus Jakarta Sans + Archivo) nhưng COPY tiếng Việt đời thường.
 
-## 9. Nợ MINOR còn lại (audit ui-design-logic 2026-06-11)
+## 9. Trạng thái audit ui-design-logic (2026-06-11)
 
-- `tabular-nums`: đã thêm cho cột tiền chính (giá cá, chia tiền, sổ lãi/lỗ, sổ ứng, nhìn nhanh). Còn thiếu ở: thẻ tổng quan bạn thuyền (3 ô), cột số ngày dự báo `sea-forecast`.
-- Tên trục ở Home ("Tàu của tôi", "Sổ tiền") khác nhãn dock ("Tàu", "Tiền") — cố ý (dock cần ngắn), không sửa.
+- **Contrast AA**: đã quét computed-style 6 màn (home, /ngu-truong, /tau, /nguoi, /tien, /login, /cang) → **0 lỗi <4.5:1**. Sàn neutral text = `/65`; accent text/fill kiểm cả 2 chiều (t3 đậm về `#8f6010`).
+- **`tabular-nums`**: đã phủ MỌI cột/figure số: giá cá, chia tiền (per-member), sổ lãi/lỗ, sổ ứng (lịch sử + tổng), nhìn nhanh, thẻ tổng quan bạn thuyền (3 ô), cột điểm + sóng/gió `sea-forecast`.
+- Tên trục ở Home ("Tàu của tôi", "Sổ tiền") khác nhãn dock ("Tàu", "Tiền") — cố ý (dock cần ngắn), giữ nguyên.
+- Lint `set-state-in-effect`: pattern hydrate-on-mount cố ý → rule đã tắt có chủ đích (commit 76acf4f).
 
 ---
 
