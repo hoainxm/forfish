@@ -71,7 +71,7 @@ export function SdvicoCatalog({
       <h3 className="display mb-1 px-1 text-[1.125rem] font-bold text-navy">
         SDVICO khuyến nghị cho tàu
       </h3>
-      <p className="mb-3 px-1 text-[0.875rem] text-foreground/55">
+      <p className="mb-3 px-1 text-[0.875rem] text-foreground/70">
         Hàng chính hãng đang bán — hỏi mua là nhân viên gọi lại tư vấn.
       </p>
 
@@ -125,7 +125,7 @@ export function SdvicoCatalog({
                 </ul>
 
                 {/* neo kỳ vọng giá — hỏi không mất gì, không bị ép mua */}
-                <p className="mt-2 text-[0.8125rem] font-semibold text-foreground/55">
+                <p className="mt-2 text-[0.8125rem] font-semibold text-foreground/70">
                   Giá báo theo tàu — hỏi là nhân viên gọi lại, không mất phí.
                 </p>
 
@@ -153,7 +153,7 @@ export function SdvicoCatalog({
         <PhoneIcon className="h-5 w-5" />
         Gọi SDVICO {SDVICO_HOTLINE_DISPLAY}
       </a>
-      <p className="py-3 text-center text-[0.875rem] text-foreground/45">
+      <p className="py-3 text-center text-[0.875rem] text-foreground/65">
         Giá và model hợp tàu — nhân viên tư vấn trực tiếp.
       </p>
     </div>

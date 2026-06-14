@@ -78,14 +78,14 @@ export function PriceBoard() {
       {/* giá dầu DO hôm nay — chi phí lớn nhất chuyến biển */}
       {fuel && (
         <div className="mb-3 surface px-4 py-3">
-          <p className="text-[0.875rem] font-semibold text-foreground/55">
+          <p className="text-[0.875rem] font-semibold text-foreground/70">
             Dầu DO hôm nay (Petrolimex)
             {fuel.date ? ` · ${formatVnDate(fuel.date)}` : ""}
           </p>
           {/* bỏ jargon "vùng 1/vùng 2" của Petrolimex — nói tiếng người */}
           <p className="mt-0.5 text-[1.125rem] font-bold text-foreground">
             {fuel.do005Zone1.toLocaleString("vi-VN")} đ/lít
-            <span className="text-[0.9375rem] font-semibold text-foreground/55">
+            <span className="text-[0.9375rem] font-semibold text-foreground/70">
               {" "}
               (gần kho) · {fuel.do005Zone2.toLocaleString("vi-VN")} đ/lít (xa
               kho, đảo)
@@ -109,7 +109,7 @@ export function PriceBoard() {
       )}
 
       <label className="relative mb-3 block">
-        <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground/40" />
+        <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground/65" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -120,7 +120,7 @@ export function PriceBoard() {
 
       {shown.length === 0 && (
         <div className="rounded-[1.25rem] bg-field/70 px-4 py-10 text-center">
-          <p className="text-[1.125rem] text-foreground/60">
+          <p className="text-[1.125rem] text-foreground/70">
             Không thấy loại cá này trong bảng.
             <br />
             Bà con thử gõ tên ngắn hơn, ví dụ “nục”.
@@ -142,7 +142,7 @@ export function PriceBoard() {
                         giá tuần
                       </span>
                     ) : (
-                      <span className="rounded-full bg-field px-2 py-0.5 text-[0.6875rem] font-semibold text-foreground/50">
+                      <span className="rounded-full bg-field px-2 py-0.5 text-[0.6875rem] font-semibold text-foreground/65">
                         tham khảo
                       </span>
                     ))}
@@ -157,11 +157,11 @@ export function PriceBoard() {
                   {t.word}
                 </p>
               </div>
-              <p className="mt-0.5 text-[1.125rem] font-bold text-foreground">
+              <p className="mt-0.5 text-[1.125rem] font-bold text-foreground tabular-nums">
                 {formatRange(p)}
               </p>
               {(p.region || p.note) && (
-                <p className="mt-1 text-[0.875rem] leading-snug text-foreground/55">
+                <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
                   {[p.region, p.note].filter(Boolean).join(" · ")}
                 </p>
               )}

@@ -124,7 +124,7 @@ export function DocumentVault() {
       {ready && boatReady && sorted.length === 0 && (
         <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
           <DocIcon className="mx-auto h-10 w-10 text-foreground/30" />
-          <p className="mt-3 text-[1.125rem] text-foreground/60">
+          <p className="mt-3 text-[1.125rem] text-foreground/70">
             Chưa có giấy tờ nào.
             <br />
             Bấm nút cam ở trên để thêm.
@@ -159,19 +159,19 @@ export function DocumentVault() {
               </StatusBanner>
 
               <div className="px-4 py-3">
-                <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/40">
+                <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
                   {kindLabel(doc.kind)}
                 </p>
                 <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                   {doc.label}
                 </p>
                 {doc.number && (
-                  <p className="text-[1rem] text-foreground/60">
+                  <p className="text-[1rem] text-foreground/70">
                     Số: {doc.number}
                   </p>
                 )}
                 {doc.expiresOn && (
-                  <p className="text-[1rem] text-foreground/60">
+                  <p className="text-[1rem] text-foreground/70">
                     Hết hạn: <strong>{formatVnDate(doc.expiresOn)}</strong>
                   </p>
                 )}
@@ -206,7 +206,7 @@ export function DocumentVault() {
         })}
       </ul>
 
-      <p className="py-4 text-center text-[0.875rem] text-foreground/40">
+      <p className="py-4 text-center text-[0.875rem] text-foreground/65">
         Giấy tờ lưu ngay trên máy của bà con.
       </p>
 

@@ -28,7 +28,7 @@
   --t1-bg: #e3f0f7;
   --t2: #2e7d4f;
   --t2-bg: #e4f3e9;
-  --t3: #b07816;
+  --t3: #8f6010; /* amber Vận hành — đậm để text-t3 + white-on-t3 đạt AA 4.5 (audit ui-design-logic 2026-06-11: #b07816 chỉ 3.79) */
   --t3-bg: #fcf1d8;
   --t4: #7a4d9e;
   --t4-bg: #f1eaf8;

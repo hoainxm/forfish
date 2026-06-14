@@ -473,7 +473,7 @@ export function RoutePlanner({
               <p className="display mt-1 text-[1.25rem] font-bold leading-none text-navy">
                 {Math.round(plan.distKm)} km
               </p>
-              <p className="mt-1 text-[0.8125rem] font-semibold text-foreground/60">
+              <p className="mt-1 text-[0.8125rem] font-semibold text-foreground/70">
                 ≈ {Math.round(kmToNm(plan.distKm))} hải lý
               </p>
             </div>
@@ -482,7 +482,7 @@ export function RoutePlanner({
               <p className="display mt-1 text-[1.25rem] font-bold leading-none text-navy">
                 {formatHoursVN(plan.hours)}
               </p>
-              <p className="mt-1 text-[0.8125rem] font-semibold text-foreground/60">
+              <p className="mt-1 text-[0.8125rem] font-semibold text-foreground/70">
                 giờ chạy máy
               </p>
             </div>
@@ -491,7 +491,7 @@ export function RoutePlanner({
               <p className="display mt-1 text-[1.25rem] font-bold leading-none text-navy">
                 ~{Math.round(plan.fuelL)} lít
               </p>
-              <p className="mt-1 text-[0.8125rem] font-semibold text-foreground/60">
+              <p className="mt-1 text-[0.8125rem] font-semibold text-foreground/70">
                 dầu ước tính
               </p>
             </div>

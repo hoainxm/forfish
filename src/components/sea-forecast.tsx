@@ -83,14 +83,14 @@ export function SeaForecast() {
       </label>
 
       {loading && (
-        <div className="surface px-4 py-12 text-center text-[1.125rem] text-foreground/50">
+        <div className="surface px-4 py-12 text-center text-[1.125rem] text-foreground/65">
           Đang lấy dự báo sóng gió…
         </div>
       )}
 
       {error && !loading && (
         <div className="surface px-4 py-10 text-center">
-          <p className="text-[1.125rem] text-foreground/60">
+          <p className="text-[1.125rem] text-foreground/70">
             Chưa lấy được dự báo. Kiểm tra mạng rồi thử lại.
           </p>
           <button
@@ -111,7 +111,7 @@ export function SeaForecast() {
             style={{ backgroundColor: levelColor[today.level].bg }}
           >
             <div className="px-5 pb-4 pt-4 text-center">
-              <p className="text-[0.9375rem] font-bold uppercase tracking-wide text-foreground/50">
+              <p className="text-[0.9375rem] font-bold uppercase tracking-wide text-foreground/65">
                 Điểm đi biển hôm nay
               </p>
               <p
@@ -132,7 +132,7 @@ export function SeaForecast() {
                   w && (
                     <p
                       className={`mt-0.5 text-[1rem] font-bold ${
-                        w.danger ? "text-danger" : "text-foreground/60"
+                        w.danger ? "text-danger" : "text-foreground/70"
                       }`}
                     >
                       {w.label}
@@ -178,7 +178,7 @@ export function SeaForecast() {
                     >
                       {d.score}
                     </span>
-                    <span className="flex-1 text-right text-[0.9375rem] leading-snug text-foreground/60">
+                    <span className="flex-1 text-right text-[0.9375rem] leading-snug text-foreground/70">
                       sóng {d.waveMaxM.toFixed(1)} m · gió{" "}
                       {Math.round(d.windMaxKmh)} km/h
                       {w && (

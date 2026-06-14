@@ -153,7 +153,7 @@ export function EmptyState({
 }) {
   return (
     <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
-      {icon && <div className="mx-auto mb-3 w-fit text-foreground/40">{icon}</div>}
+      {icon && <div className="mx-auto mb-3 w-fit text-foreground/65">{icon}</div>}
       <p className="text-[1.125rem] text-foreground/70">{children}</p>
     </div>
   );

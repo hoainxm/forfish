@@ -147,7 +147,7 @@ function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
         Nậu quen tại bến của bà con thì lưu ở mục “Mối quen”.
       </RefNote>
 
-      <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/55">
+      <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/70">
         {list.length} vựa
         {home.province && near ? ` gần ${home.province}` : ""}
       </p>
@@ -158,7 +158,7 @@ function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
             <Card className="p-3.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/45">
+                  <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/65">
                     {WHOLESALER_KIND_LABEL[w.kind] ?? "Vựa"}
                   </p>
                   <p className="display text-[1.125rem] font-bold leading-snug text-navy">
@@ -177,7 +177,7 @@ function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
                 <p className="text-[0.9375rem] text-foreground/70">SĐT: {w.phone}</p>
               )}
               {w.species && w.species.length > 0 && (
-                <p className="text-[0.875rem] text-foreground/60">
+                <p className="text-[0.875rem] text-foreground/70">
                   Thu mua: {w.species.join(", ")}
                 </p>
               )}
@@ -186,7 +186,7 @@ function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
                   href={w.source.startsWith("http") ? w.source : `https://${w.source}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 inline-block text-[0.8125rem] font-semibold text-foreground/45 underline"
+                  className="mt-1 inline-block text-[0.8125rem] font-semibold text-foreground/65 underline"
                 >
                   Nguồn
                 </a>
@@ -233,7 +233,7 @@ function Markets({ home, near }: { home: HomePref; near: boolean }) {
             <p className="text-[0.9375rem] text-foreground/70">Giờ họp: {m.hours}</p>
           )}
           {m.species && m.species.length > 0 && (
-            <p className="mt-1 text-[0.875rem] text-foreground/60">
+            <p className="mt-1 text-[0.875rem] text-foreground/70">
               Loài chính: {m.species.join(", ")}
             </p>
           )}
@@ -254,7 +254,7 @@ function Factories({ home, near }: { home: HomePref; near: boolean }) {
   return (
     <div>
       <div className="relative mb-3">
-        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground/40" />
+        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground/65" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -266,7 +266,7 @@ function Factories({ home, near }: { home: HomePref; near: boolean }) {
         Danh sách tham khảo từ nguồn công khai (VASEP…). Phần lớn nhà máy mua qua
         đại lý — hỏi đại lý/cảng để bán được cho họ.
       </RefNote>
-      <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/55">
+      <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/70">
         {list.length} doanh nghiệp
       </p>
       <ul className="space-y-2.5">
@@ -288,11 +288,11 @@ function Factories({ home, near }: { home: HomePref; near: boolean }) {
                   {b.province}
                 </p>
               )}
-              <p className="mt-0.5 text-[0.875rem] text-foreground/60">
+              <p className="mt-0.5 text-[0.875rem] text-foreground/70">
                 Loài: {b.species.join(", ")}
               </p>
               {b.markets && b.markets.length > 0 && (
-                <p className="text-[0.875rem] text-foreground/60">
+                <p className="text-[0.875rem] text-foreground/70">
                   Bán đi: {b.markets.join(", ")}
                 </p>
               )}
@@ -408,7 +408,7 @@ function MyBuyers() {
             <Card className="p-3.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/45">
+                  <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/65">
                     {typeLabel(b.type)}
                   </p>
                   <p className="display text-[1.125rem] font-bold leading-snug text-navy">
@@ -421,7 +421,7 @@ function MyBuyers() {
                 <p className="text-[0.9375rem] text-foreground/70">Cảng: {b.port}</p>
               )}
               {b.species && b.species.length > 0 && (
-                <p className="text-[0.875rem] text-foreground/60">
+                <p className="text-[0.875rem] text-foreground/70">
                   Hay mua: {b.species.join(", ")}
                 </p>
               )}

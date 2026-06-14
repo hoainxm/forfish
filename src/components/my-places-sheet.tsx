@@ -157,7 +157,7 @@ export function MyPlacesSheet({
                         <span className="block truncate text-[1rem] font-bold text-navy">
                           {p.name}
                         </span>
-                        <span className="block text-[0.8125rem] text-foreground/55">
+                        <span className="block text-[0.8125rem] text-foreground/70">
                           {isHome ? "Cảng nhà" : "Chỗ hay đánh"}
                         </span>
                       </span>
@@ -168,7 +168,7 @@ export function MyPlacesSheet({
                         <button
                           type="button"
                           onClick={() => onPlaces(makeHome(places, p.id))}
-                          className="flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-foreground/55 active:bg-field"
+                          className="flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-foreground/70 active:bg-field"
                         >
                           <AnchorIcon className="h-5 w-5" />
                           <span className="text-[0.75rem] font-bold">
@@ -182,7 +182,7 @@ export function MyPlacesSheet({
                           setEditId(p.id);
                           setEditName(p.name);
                         }}
-                        className="flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-foreground/55 active:bg-field"
+                        className="flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-foreground/70 active:bg-field"
                       >
                         <EditIcon className="h-5 w-5" />
                         <span className="text-[0.75rem] font-bold">Đổi tên</span>
@@ -205,7 +205,7 @@ export function MyPlacesSheet({
       )}
 
       {sorted.length === 0 && (
-        <p className="mt-3 px-1 text-[0.9375rem] leading-snug text-foreground/60">
+        <p className="mt-3 px-1 text-[0.9375rem] leading-snug text-foreground/70">
           Chưa ghim chỗ nào. Chạm vào chỗ hay đánh trên bản đồ rồi bấm{" "}
           <b>Ghim chỗ này</b> — lần sau mở một chạm là tới.
         </p>
@@ -225,7 +225,7 @@ export function MyPlacesSheet({
         ) : (
           <div>
             <div className="flex items-center gap-2 rounded-full bg-field px-3">
-              <SearchIcon className="h-5 w-5 shrink-0 text-foreground/45" />
+              <SearchIcon className="h-5 w-5 shrink-0 text-foreground/65" />
               <input
                 value={portQuery}
                 onChange={(e) => setPortQuery(e.target.value)}
@@ -258,7 +258,7 @@ export function MyPlacesSheet({
                         <span className="block truncate text-[1rem] font-semibold text-navy">
                           {p.name}
                         </span>
-                        <span className="block truncate text-[0.8125rem] text-foreground/55">
+                        <span className="block truncate text-[0.8125rem] text-foreground/70">
                           {p.province}
                         </span>
                       </span>
@@ -268,7 +268,7 @@ export function MyPlacesSheet({
               </ul>
             )}
             {portQuery.trim().length >= 1 && portResults.length === 0 && (
-              <p className="mt-2 px-1 text-[0.875rem] text-foreground/55">
+              <p className="mt-2 px-1 text-[0.875rem] text-foreground/70">
                 Không thấy cảng nào khớp. Thử gõ ngắn hơn, hoặc ghim thẳng chỗ
                 trên bản đồ.
               </p>

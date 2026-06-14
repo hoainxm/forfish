@@ -135,7 +135,7 @@ export function TripLog({
       {ready && trips.length === 0 && (
         <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
           <CalendarIcon className="mx-auto h-10 w-10 text-foreground/30" />
-          <p className="mt-3 text-[1.125rem] text-foreground/60">
+          <p className="mt-3 text-[1.125rem] text-foreground/70">
             Chưa có chuyến nào trong sổ.
             <br />
             Cá về bờ, bấm nút cam ở trên để ghi lại.
@@ -155,7 +155,7 @@ export function TripLog({
               <div className="px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[0.9375rem] font-bold text-foreground/55">
+                    <p className="text-[0.9375rem] font-bold text-foreground/70">
                       Về bờ {formatVnDate(trip.date)}
                     </p>
                     {trip.label && (
@@ -165,14 +165,14 @@ export function TripLog({
                     )}
                   </div>
                   <p
-                    className="display shrink-0 text-[1.375rem] font-bold leading-tight"
+                    className="display shrink-0 text-[1.375rem] font-bold leading-tight tabular-nums"
                     style={{ color: gain ? "var(--ok)" : "var(--danger)" }}
                   >
                     {formatSignedVnd(profit)}
                   </p>
                 </div>
 
-                <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-foreground/55">
+                <p className="mt-1.5 text-[0.9375rem] leading-relaxed text-foreground/70">
                   Bán cá {formatVnd(trip.revenueVnd)} · Tiền dầu{" "}
                   {formatVnd(trip.fuelVnd)} · Chi khác {formatVnd(trip.otherVnd)}
                 </p>
@@ -217,7 +217,7 @@ export function TripLog({
         })}
       </ul>
 
-      <p className="py-4 text-center text-[0.875rem] text-foreground/40">
+      <p className="py-4 text-center text-[0.875rem] text-foreground/65">
         Sổ lãi lỗ lưu ngay trên máy của bà con.
       </p>
 

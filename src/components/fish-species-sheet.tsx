@@ -69,7 +69,7 @@ export function FishSpeciesSheet({
         <span className="flex-1 text-left text-[1rem] font-bold">Mọi loài</span>
         {current == null && <CheckIcon className="h-5 w-5 shrink-0" />}
       </button>
-      <p className="mb-3 px-1 text-[0.8125rem] leading-snug text-foreground/55">
+      <p className="mb-3 px-1 text-[0.8125rem] leading-snug text-foreground/70">
         Loài đang vụ ở vùng bạn xem có{" "}
         <span className="font-semibold text-trim">viền cam</span>. Chọn loài để
         bản đồ tô đúng màu loài đó.
@@ -77,7 +77,7 @@ export function FishSpeciesSheet({
 
       {groups.map((g) => (
         <div key={g.cat} className="mb-3">
-          <h4 className="display mb-2 text-[0.9375rem] font-bold uppercase tracking-wide text-foreground/50">
+          <h4 className="display mb-2 text-[0.9375rem] font-bold uppercase tracking-wide text-foreground/65">
             {CATEGORY_LABEL[g.cat]}
           </h4>
           <div className="grid grid-cols-2 gap-2">

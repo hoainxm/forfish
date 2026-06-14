@@ -50,13 +50,13 @@ export function FinesLookup() {
   return (
     <div className="px-4 pt-1">
       <h2 className="display text-[1.375rem] font-bold text-navy">Tra mức phạt</h2>
-      <p className="mt-1 text-[1rem] text-foreground/60">
+      <p className="mt-1 text-[1rem] text-foreground/70">
         Gõ vài chữ để tìm, ví dụ: giấy phép, vùng biển, nhật ký
       </p>
 
       {/* search box */}
       <div className="relative mt-3">
-        <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-foreground/40" />
+        <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-foreground/65" />
         <input
           type="search"
           value={query}
@@ -101,7 +101,7 @@ export function FinesLookup() {
 
       {/* result count when filtering */}
       {isFiltering && (
-        <p className="mt-3 text-[1rem] font-bold text-foreground/60">
+        <p className="mt-3 text-[1rem] font-bold text-foreground/70">
           {results.length > 0
             ? `${results.length} mức phạt`
             : "Không thấy mức phạt nào"}
@@ -112,7 +112,7 @@ export function FinesLookup() {
       {isFiltering && results.length === 0 && (
         <div className="mt-3 rounded-[1.25rem] bg-field/70 px-4 py-10 text-center">
           <SearchIcon className="mx-auto h-9 w-9 text-foreground/30" />
-          <p className="mt-3 text-[1rem] text-foreground/60">
+          <p className="mt-3 text-[1rem] text-foreground/70">
             Thử gõ chữ khác, ngắn hơn.
             <br />
             Ví dụ: giấy phép, vùng biển, nhật ký, kích điện
@@ -143,7 +143,7 @@ export function FinesLookup() {
                 <p className={`mt-1.5 text-[1.125rem] font-bold ${style.amount}`}>
                   {fine.rangeVnd}
                 </p>
-                <p className="mt-0.5 text-[0.875rem] text-foreground/50">
+                <p className="mt-0.5 text-[0.875rem] text-foreground/65">
                   {fine.article ? `${fine.article} — ` : ""}
                   {FINES_SOURCE}
                 </p>

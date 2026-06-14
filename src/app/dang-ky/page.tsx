@@ -124,7 +124,7 @@ export default function DangKyPage() {
             {loading ? "Đang tạo…" : "Tạo tài khoản"}
           </PrimaryButton>
         </form>
-        <p className="mt-4 text-[0.9375rem] leading-snug text-foreground/60">
+        <p className="mt-4 text-[0.9375rem] leading-snug text-foreground/70">
           Đã có tài khoản?{" "}
           <Link href="/login" className="font-bold text-sea">
             Đăng nhập

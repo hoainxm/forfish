@@ -208,7 +208,7 @@ export function MaintenanceReminders() {
       {ready && boatReady && sorted.length === 0 && (
         <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
           <WrenchIcon className="mx-auto h-10 w-10 text-foreground/30" />
-          <p className="mt-3 text-[1.125rem] text-foreground/60">
+          <p className="mt-3 text-[1.125rem] text-foreground/70">
             Chưa có việc bảo dưỡng nào.
             <br />
             Bấm nút cam ở trên để thêm.
@@ -237,11 +237,11 @@ export function MaintenanceReminders() {
                 <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                   {entry.item}
                 </p>
-                <p className="text-[1rem] text-foreground/60">
+                <p className="text-[1rem] text-foreground/70">
                   Làm gần nhất:{" "}
                   <strong>{formatVnDate(entry.lastDone)}</strong>
                 </p>
-                <p className="text-[1rem] text-foreground/60">
+                <p className="text-[1rem] text-foreground/70">
                   Chu kỳ: mỗi {entry.intervalDays} ngày
                 </p>
                 {entry.note && (
@@ -287,7 +287,7 @@ export function MaintenanceReminders() {
         })}
       </ul>
 
-      <p className="py-4 text-center text-[0.875rem] text-foreground/40">
+      <p className="py-4 text-center text-[0.875rem] text-foreground/65">
         Lịch bảo dưỡng lưu ngay trên máy của bà con.
       </p>
 

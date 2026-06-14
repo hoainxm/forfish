@@ -196,7 +196,7 @@ export function CrewList() {
           <p className="display text-[1.5rem] font-bold text-navy">
             {boatCrew.length}
           </p>
-          <p className="text-[0.8125rem] text-foreground/55">Bạn thuyền</p>
+          <p className="text-[0.8125rem] text-foreground/70">Bạn thuyền</p>
         </div>
         <div className="surface py-3 text-center">
           <p
@@ -204,13 +204,13 @@ export function CrewList() {
           >
             {issueCount}
           </p>
-          <p className="text-[0.8125rem] text-foreground/55">Kẹt giấy tờ</p>
+          <p className="text-[0.8125rem] text-foreground/70">Kẹt giấy tờ</p>
         </div>
         <div className="surface py-3 text-center">
           <p className="display text-[1.125rem] font-bold leading-[2] text-navy">
             {formatShortVnd(totalAdvance)}
           </p>
-          <p className="text-[0.8125rem] text-foreground/55">Đang ứng</p>
+          <p className="text-[0.8125rem] text-foreground/70">Đang ứng</p>
         </div>
       </div>
 
@@ -242,7 +242,7 @@ export function CrewList() {
       {ready && boatReady && boatCrew.length === 0 && (
         <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
           <UsersIcon className="mx-auto h-10 w-10 text-foreground/30" />
-          <p className="mt-3 text-[1.125rem] text-foreground/60">
+          <p className="mt-3 text-[1.125rem] text-foreground/70">
             Chưa có ai trong sổ.
             <br />
             Bấm nút cam ở trên để thêm bạn thuyền.
@@ -262,7 +262,7 @@ export function CrewList() {
               <StatusBanner level={issue.level}>{issue.label}</StatusBanner>
 
               <div className="px-4 py-3">
-                <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/40">
+                <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
                   {ROLE_LABELS[m.role]}
                   {m.shares !== 1 && ` · ${m.shares} phần`}
                 </p>
@@ -278,7 +278,7 @@ export function CrewList() {
                   </a>
                 )}
                 {m.certLabel && (
-                  <p className="text-[0.9375rem] text-foreground/60">
+                  <p className="text-[0.9375rem] text-foreground/70">
                     {m.certLabel}
                     {m.certExpiry && ` — hạn ${formatVnDate(m.certExpiry)}`}
                   </p>
@@ -341,7 +341,7 @@ export function CrewList() {
         })}
       </ul>
 
-      <p className="py-4 text-center text-[0.875rem] text-foreground/40">
+      <p className="py-4 text-center text-[0.875rem] text-foreground/65">
         Sổ thuyền viên lưu ngay trên máy của bà con.
       </p>
 
@@ -515,7 +515,7 @@ function CrewForm({
               className={`min-h-[3.25rem] rounded-xl text-[1.125rem] font-bold ${
                 hasInsurance
                   ? "bg-ok text-white"
-                  : "bg-field text-foreground/60"
+                  : "bg-field text-foreground/70"
               }`}
             >
               Có rồi
@@ -526,7 +526,7 @@ function CrewForm({
               className={`min-h-[3.25rem] rounded-xl text-[1.125rem] font-bold ${
                 !hasInsurance
                   ? "bg-danger text-white"
-                  : "bg-field text-foreground/60"
+                  : "bg-field text-foreground/70"
               }`}
             >
               Chưa có
@@ -615,7 +615,7 @@ function AdvanceBookSheet({
       </div>
 
       {sorted.length === 0 ? (
-        <p className="rounded-[1.25rem] bg-field/70 px-4 py-8 text-center text-[1rem] text-foreground/60">
+        <p className="rounded-[1.25rem] bg-field/70 px-4 py-8 text-center text-[1rem] text-foreground/70">
           Chưa có khoản ứng nào trong sổ.
         </p>
       ) : (
@@ -628,7 +628,7 @@ function AdvanceBookSheet({
               } ${a.settled ? "opacity-50" : ""}`}
             >
               <span className="min-w-0">
-                <span className="block text-[0.9375rem] font-bold text-foreground/55">
+                <span className="block text-[0.9375rem] font-bold text-foreground/70">
                   Ứng ngày {formatVnDate(a.date)}
                   {a.settled && " — đã trừ"}
                 </span>
@@ -639,8 +639,8 @@ function AdvanceBookSheet({
                 )}
               </span>
               <span
-                className={`display shrink-0 text-[1.125rem] font-bold ${
-                  a.settled ? "text-foreground/50 line-through" : "text-danger"
+                className={`display shrink-0 text-[1.125rem] font-bold tabular-nums ${
+                  a.settled ? "text-foreground/65 line-through" : "text-danger"
                 }`}
               >
                 {a.amountVnd.toLocaleString("vi-VN")} đ
@@ -688,7 +688,7 @@ function AdvanceForm({
           if (parsed > 0) onSave(parsed, note.trim());
         }}
       >
-        <p className="mb-4 -mt-2 text-[0.9375rem] text-foreground/60">
+        <p className="mb-4 -mt-2 text-[0.9375rem] text-foreground/70">
           Khoản ứng sẽ tự trừ khi chia tiền chuyến.
         </p>
 

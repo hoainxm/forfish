@@ -1007,7 +1007,7 @@ export default function FishingMapView() {
                       style={{ background: lg.gradient }}
                       aria-hidden
                     />
-                    <span className="flex justify-between gap-2 text-[0.625rem] font-semibold leading-tight text-foreground/55">
+                    <span className="flex justify-between gap-2 text-[0.625rem] font-semibold leading-tight text-foreground/70">
                       <span>{lg.from}</span>
                       <span>{lg.to}</span>
                     </span>
@@ -1107,7 +1107,7 @@ export default function FishingMapView() {
                 }}
                 aria-hidden
               />
-              <span className="flex justify-between gap-2 text-[0.625rem] font-semibold leading-tight text-foreground/55">
+              <span className="flex justify-between gap-2 text-[0.625rem] font-semibold leading-tight text-foreground/70">
                 <span>ít khả năng có cá</span>
                 <span>nhiều</span>
               </span>
@@ -1165,7 +1165,7 @@ export default function FishingMapView() {
                     aria-label="Chọn giờ xem dự báo"
                     className="range-big mt-1 w-full"
                   />
-                  <div className="flex justify-between text-[0.6875rem] font-semibold text-foreground/50">
+                  <div className="flex justify-between text-[0.6875rem] font-semibold text-foreground/65">
                     <span>Bây giờ</span>
                     <span>Ngày mai</span>
                     <span>2 ngày</span>
@@ -1186,7 +1186,7 @@ export default function FishingMapView() {
                   </button>
                 </div>
               ) : (
-                <p className="text-[0.8125rem] font-semibold text-foreground/60">
+                <p className="text-[0.8125rem] font-semibold text-foreground/70">
                   Đang tải dự báo cho cả vùng biển…
                 </p>
               )}
@@ -1196,7 +1196,7 @@ export default function FishingMapView() {
         label="Gió sóng chỗ đang xem"
         peek={
           loading ? (
-            <p className="py-3 text-[1rem] font-semibold text-foreground/60">
+            <p className="py-3 text-[1rem] font-semibold text-foreground/70">
               Đang lấy dự báo sóng gió…
             </p>
           ) : errored ? (
@@ -1221,14 +1221,14 @@ export default function FishingMapView() {
                 >
                   {SEA_STATE[sel.level]}
                 </span>
-                <span className="text-[0.9375rem] font-semibold text-foreground/60">
+                <span className="text-[0.9375rem] font-semibold text-foreground/70">
                   — {dayLabel(sel.date, dayIdx).toLowerCase()}
                 </span>
               </div>
               <p className="text-[0.9375rem] font-semibold leading-snug text-foreground/80">
                 {condSummary}
               </p>
-              <p className="text-[0.8125rem] leading-snug text-foreground/55">
+              <p className="text-[0.8125rem] leading-snug text-foreground/70">
                 {whereLine}
               </p>
               {atHome && (
@@ -1308,7 +1308,7 @@ export default function FishingMapView() {
                     >
                       <span
                         className={`text-[0.8125rem] font-bold leading-tight ${
-                          active ? "text-white/85" : "text-foreground/60"
+                          active ? "text-white/85" : "text-foreground/70"
                         }`}
                       >
                         {chipLabel(d.date, i)}
@@ -1333,7 +1333,7 @@ export default function FishingMapView() {
                 className="rounded-xl p-4"
                 style={{ backgroundColor: LEVEL_STYLE[sel.level].bg }}
               >
-                <p className="mb-1 text-[0.875rem] font-bold uppercase tracking-wide text-foreground/50">
+                <p className="mb-1 text-[0.875rem] font-bold uppercase tracking-wide text-foreground/65">
                   {dayLabel(sel.date, dayIdx)}
                 </p>
                 <p
@@ -1440,7 +1440,7 @@ export default function FishingMapView() {
                             ảnh vệ tinh mặt biển ít chính xác cho loài này.
                           </p>
                         ) : (
-                          <p className="mt-0.5 text-[0.8125rem] leading-snug text-foreground/55">
+                          <p className="mt-0.5 text-[0.8125rem] leading-snug text-foreground/70">
                             Vùng tô màu trên bản đồ là chỗ tương tự, hồng tâm là
                             chỗ nổi nhất. Tham khảo, không phải cam kết.
                           </p>
@@ -1471,7 +1471,7 @@ export default function FishingMapView() {
                     các vùng xanh lá trên bản đồ. Mùa này vùng{" "}
                     <b>{fishRegion?.name}</b> thường có:{" "}
                     {fishHere.join(", ")}{" "}
-                    <span className="text-foreground/55">(tham khảo)</span>
+                    <span className="text-foreground/70">(tham khảo)</span>
                   </p>
                 </div>
               ) : fishHere.length > 0 ? (
@@ -1480,7 +1480,7 @@ export default function FishingMapView() {
                   <p className="text-[0.9375rem] leading-snug text-foreground/80">
                     Mùa này vùng <b>{fishRegion?.name}</b> thường có:{" "}
                     <b>{fishHere.join(", ")}</b>{" "}
-                    <span className="text-foreground/55">
+                    <span className="text-foreground/70">
                       (mùa vụ nhiều năm — tham khảo)
                     </span>
                   </p>
@@ -1576,7 +1576,7 @@ export default function FishingMapView() {
               {/* độ tin theo tầm xa + lời dặn nghe đài — gọn 1 khối */}
               <p
                 className={`px-1 text-[0.875rem] font-semibold leading-snug ${
-                  confidence.tone === "ok" ? "text-foreground/55" : "text-warn"
+                  confidence.tone === "ok" ? "text-foreground/70" : "text-warn"
                 }`}
               >
                 {confidence.label}. Chỉ để tham khảo — trước khi đi, nghe thêm
@@ -1655,7 +1655,7 @@ export default function FishingMapView() {
               )}
 
               {/* toạ độ — cho ai cần đọc vào máy định vị */}
-              <p className="px-1 text-[0.8125rem] text-foreground/45">
+              <p className="px-1 text-[0.8125rem] text-foreground/65">
                 Toạ độ điểm đang xem: {formatNumberVN(point.lat, 2)}°B ·{" "}
                 {formatNumberVN(point.lon, 2)}°Đ
               </p>

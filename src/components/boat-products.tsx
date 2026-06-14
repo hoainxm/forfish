@@ -230,24 +230,24 @@ export function BoatProducts() {
                   {status.label}
                 </StatusBanner>
                 <div className="px-4 py-3">
-                  <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/40">
+                  <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
                     Mua của SDVICO{p.orderCode ? ` · đơn ${p.orderCode}` : ""}
                   </p>
                   <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                     {p.name}
                   </p>
                   {p.serial && (
-                    <p className="text-[1rem] text-foreground/60">
+                    <p className="text-[1rem] text-foreground/70">
                       Số serial: <strong>{p.serial}</strong>
                     </p>
                   )}
                   {p.purchasedOn && (
-                    <p className="text-[1rem] text-foreground/60">
+                    <p className="text-[1rem] text-foreground/70">
                       Mua: <strong>{formatVnDate(p.purchasedOn)}</strong>
                     </p>
                   )}
                   {p.warrantyUntil && (
-                    <p className="text-[1rem] text-foreground/60">
+                    <p className="text-[1rem] text-foreground/70">
                       Bảo hành tới:{" "}
                       <strong>{formatVnDate(p.warrantyUntil)}</strong>
                     </p>
@@ -321,17 +321,17 @@ export function BoatProducts() {
                   {product.name}
                 </p>
                 {product.serial && (
-                  <p className="text-[1rem] text-foreground/60">
+                  <p className="text-[1rem] text-foreground/70">
                     Số serial: <strong>{product.serial}</strong>
                   </p>
                 )}
                 {product.purchasedOn && (
-                  <p className="text-[1rem] text-foreground/60">
+                  <p className="text-[1rem] text-foreground/70">
                     Mua: <strong>{formatVnDate(product.purchasedOn)}</strong>
                   </p>
                 )}
                 {product.warrantyUntil && (
-                  <p className="text-[1rem] text-foreground/60">
+                  <p className="text-[1rem] text-foreground/70">
                     Bảo hành tới:{" "}
                     <strong>{formatVnDate(product.warrantyUntil)}</strong>
                   </p>
@@ -367,7 +367,7 @@ export function BoatProducts() {
         })}
       </ul>
 
-      <p className="py-4 text-center text-[0.875rem] text-foreground/40">
+      <p className="py-4 text-center text-[0.875rem] text-foreground/65">
         {synced
           ? "Đồ tự đồng bộ lấy từ SDVICO. Sản phẩm tự thêm lưu trên máy."
           : "Sản phẩm SDVICO lưu ngay trên máy của bà con."}

@@ -58,7 +58,7 @@ function BuyBoardInner({ requests }: { requests: BuyRequest[] }) {
             <Card className="p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/45">
+                  <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/65">
                     {BUYER_KIND_LABEL[r.kind]} · {r.province}
                   </p>
                   <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
@@ -66,7 +66,7 @@ function BuyBoardInner({ requests }: { requests: BuyRequest[] }) {
                   </p>
                 </div>
                 {r.demo && (
-                  <span className="shrink-0 rounded-full bg-field px-2.5 py-1 text-[0.75rem] font-bold text-foreground/55">
+                  <span className="shrink-0 rounded-full bg-field px-2.5 py-1 text-[0.75rem] font-bold text-foreground/70">
                     TIN MẪU
                   </span>
                 )}
@@ -87,7 +87,7 @@ function BuyBoardInner({ requests }: { requests: BuyRequest[] }) {
               </div>
 
               <div className="mt-2.5 flex items-center justify-between gap-2">
-                <p className="text-[0.8125rem] text-foreground/45">
+                <p className="text-[0.8125rem] text-foreground/65">
                   {r.buyer} · đăng {formatVnDate(r.postedOn)}
                 </p>
                 {r.phone ? (
@@ -99,7 +99,7 @@ function BuyBoardInner({ requests }: { requests: BuyRequest[] }) {
                     Gọi chào bán
                   </a>
                 ) : (
-                  <span className="text-[0.8125rem] font-semibold text-foreground/45">
+                  <span className="text-[0.8125rem] font-semibold text-foreground/65">
                     Tin thật sẽ có nút gọi thẳng
                   </span>
                 )}

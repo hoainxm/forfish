@@ -112,10 +112,10 @@ export function HeroAccount() {
           )}
 
           {/* cỡ giao diện — auto theo máy là NỀN; chỉ bày 2 tùy chọn ghi đè */}
-          <p className="mb-1.5 px-1 text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/45">
+          <p className="mb-1.5 px-1 text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
             Cỡ giao diện
           </p>
-          <p className="mb-2 px-1 text-[0.875rem] leading-snug text-foreground/55">
+          <p className="mb-2 px-1 text-[0.875rem] leading-snug text-foreground/70">
             {mode === "auto"
               ? "Đang tự theo cỡ chữ cài trong điện thoại. Muốn khác thì chọn:"
               : "Bấm lại lựa chọn để quay về tự theo máy."}
@@ -147,7 +147,7 @@ export function HeroAccount() {
                     <span className="block text-[1rem] font-bold text-navy">
                       {m.label}
                     </span>
-                    <span className="block text-[0.8125rem] leading-snug text-foreground/55">
+                    <span className="block text-[0.8125rem] leading-snug text-foreground/70">
                       {m.sub}
                     </span>
                   </span>

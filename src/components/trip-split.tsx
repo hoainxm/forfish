@@ -123,7 +123,7 @@ export function TripSplit({
               className={`min-h-[3rem] flex-1 rounded-xl text-[1.125rem] font-bold ${
                 ownerPercent === p
                   ? "bg-navy text-white"
-                  : "bg-field text-foreground/60"
+                  : "bg-field text-foreground/70"
               }`}
             >
               {p}%
@@ -155,14 +155,14 @@ export function TripSplit({
                   <span className="block truncate text-[1.125rem] font-semibold">
                     {member.name}
                   </span>
-                  <span className="text-[0.875rem] text-foreground/55">
+                  <span className="text-[0.875rem] text-foreground/70">
                     {member.shares} phần
                     {advanceVnd > 0 &&
                       ` · trừ ứng ${advanceVnd.toLocaleString("vi-VN")} đ`}
                   </span>
                 </span>
                 <span
-                  className={`display shrink-0 text-[1.125rem] font-bold ${
+                  className={`display shrink-0 text-[1.125rem] font-bold tabular-nums ${
                     finalVnd >= 0 ? "text-ok" : "text-danger"
                   }`}
                 >
@@ -199,7 +199,7 @@ function Row({
   return (
     <p className="flex items-center justify-between py-0.5">
       <span
-        className={`text-[0.9375rem] ${bold ? "font-bold text-navy" : "text-foreground/60"}`}
+        className={`text-[0.9375rem] ${bold ? "font-bold text-navy" : "text-foreground/70"}`}
       >
         {label}
       </span>

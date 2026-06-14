@@ -77,7 +77,7 @@ export function SupplyCatalog() {
                 {s.name}
               </p>
               {s.spec && (
-                <p className="mt-0.5 text-[0.875rem] text-foreground/60">
+                <p className="mt-0.5 text-[0.875rem] text-foreground/70">
                   {s.spec}
                 </p>
               )}
@@ -86,13 +86,13 @@ export function SupplyCatalog() {
               <p className="text-[1.125rem] font-bold text-foreground">
                 {s.priceVnd.toLocaleString("vi-VN")} đ
               </p>
-              <p className="text-[0.875rem] text-foreground/60">{s.unit}</p>
+              <p className="text-[0.875rem] text-foreground/70">{s.unit}</p>
             </div>
           </li>
         ))}
       </ul>
 
-      <p className="py-4 text-center text-[0.875rem] text-foreground/40">
+      <p className="py-4 text-center text-[0.875rem] text-foreground/65">
         Giá thật có thể chênh theo vùng — bà con hỏi lại đại lý gần cảng.
       </p>
     </div>

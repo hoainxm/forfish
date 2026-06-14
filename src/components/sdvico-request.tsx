@@ -243,7 +243,7 @@ function RequestForm({
         </Field>
 
         {signedPhone && (
-          <p className="mb-3 text-[0.9375rem] font-semibold text-foreground/60">
+          <p className="mb-3 text-[0.9375rem] font-semibold text-foreground/70">
             SDVICO sẽ gọi lại số <strong>{prettyPhone(signedPhone)}</strong>
             {name ? ` (${name})` : ""}.
           </p>

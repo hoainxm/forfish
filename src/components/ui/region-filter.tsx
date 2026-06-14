@@ -78,7 +78,7 @@ export function HomeBar({
         onClick={() => setNear(true)}
         aria-pressed={near}
         className={`min-h-[2.75rem] rounded-xl text-[0.9375rem] font-bold ${
-          near ? "bg-navy text-white" : "bg-field text-foreground/60"
+          near ? "bg-navy text-white" : "bg-field text-foreground/70"
         }`}
       >
         Gần {home.province}
@@ -88,7 +88,7 @@ export function HomeBar({
         onClick={() => setNear(false)}
         aria-pressed={!near}
         className={`min-h-[2.75rem] rounded-xl text-[0.9375rem] font-bold ${
-          !near ? "bg-navy text-white" : "bg-field text-foreground/60"
+          !near ? "bg-navy text-white" : "bg-field text-foreground/70"
         }`}
       >
         Cả nước

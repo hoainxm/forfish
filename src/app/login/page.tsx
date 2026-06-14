@@ -134,7 +134,7 @@ export default function LoginPage() {
             {loading ? "Đang vào…" : "Đăng nhập"}
           </PrimaryButton>
         </form>
-        <p className="mt-4 text-[0.9375rem] leading-snug text-foreground/60">
+        <p className="mt-4 text-[0.9375rem] leading-snug text-foreground/70">
           Khách đã mua hàng SDVICO: dùng mật khẩu nhân viên báo khi mua — vào
           xong app sẽ nhắc đổi.
         </p>

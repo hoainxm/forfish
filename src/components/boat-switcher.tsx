@@ -79,14 +79,14 @@ export function BoatSwitcher() {
           <span className="block truncate text-[1rem] font-bold text-navy">
             {current.name}
           </span>
-          <span className="block truncate text-[0.8125rem] text-foreground/55">
+          <span className="block truncate text-[0.8125rem] text-foreground/70">
             {current.maTau
               ? `Mã tàu: ${current.maTau}`
               : "Chạm để ghi tên, mã tàu"}
             {boats.length > 1 ? ` · ${boats.length} tàu` : ""}
           </span>
         </span>
-        <ChevronRightIcon className="h-5 w-5 shrink-0 rotate-90 text-foreground/40" />
+        <ChevronRightIcon className="h-5 w-5 shrink-0 rotate-90 text-foreground/65" />
       </button>
 
       {pick && (
@@ -111,7 +111,7 @@ export function BoatSwitcher() {
                       {b.name}
                     </span>
                     <span
-                      className={`block truncate text-[0.8125rem] ${b.id === current.id ? "text-white/75" : "text-foreground/55"}`}
+                      className={`block truncate text-[0.8125rem] ${b.id === current.id ? "text-white/75" : "text-foreground/70"}`}
                     >
                       {b.maTau || "chưa có mã tàu"}
                     </span>

@@ -31,7 +31,7 @@ export function PortDirectory() {
       <HomeBar home={home} near={near} setNear={setNear} />
 
       <div className="relative mb-3">
-        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground/40" />
+        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground/65" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -45,7 +45,7 @@ export function PortDirectory() {
         cập nhật theo công bố của tỉnh.
       </RefNote>
 
-      <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/55">
+      <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/70">
         {list.length} cảng{home.province && near ? ` gần ${home.province}` : ""}
       </p>
 
@@ -71,7 +71,7 @@ export function PortDirectory() {
               )}
               {p.address && (
                 <p className="mt-0.5 flex gap-1.5 text-[0.9375rem] text-foreground/65">
-                  <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-foreground/40" />
+                  <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-foreground/65" />
                   <span>{p.address}</span>
                 </p>
               )}
@@ -79,7 +79,7 @@ export function PortDirectory() {
           </li>
         ))}
         {list.length === 0 && (
-          <p className="rounded-[1.25rem] bg-field/70 py-10 text-center text-[1rem] text-foreground/55">
+          <p className="rounded-[1.25rem] bg-field/70 py-10 text-center text-[1rem] text-foreground/70">
             Không có cảng phù hợp. Thử bỏ “Chỉ gần tôi” hoặc đổi tỉnh.
           </p>
         )}

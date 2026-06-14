@@ -289,7 +289,7 @@ export function UrgentStrip() {
                       <span className="block min-w-0 truncate text-[1.125rem] font-semibold">
                         {item.label}
                       </span>
-                      <span className="shrink-0 rounded-md bg-background px-1.5 py-0.5 text-[0.75rem] font-bold text-foreground/55">
+                      <span className="shrink-0 rounded-md bg-background px-1.5 py-0.5 text-[0.75rem] font-bold text-foreground/70">
                         {PILLAR_TAG[item.pillar].tag}
                       </span>
                     </span>

@@ -157,7 +157,7 @@ export function LayerSheet({
               style={{ background: active.legend.gradient }}
               aria-hidden
             />
-            <div className="mt-1 flex justify-between text-[0.875rem] font-semibold text-foreground/60">
+            <div className="mt-1 flex justify-between text-[0.875rem] font-semibold text-foreground/70">
               <span>{active.legend.from}</span>
               <span>{active.legend.to}</span>
             </div>
@@ -204,7 +204,7 @@ export function LayerSheet({
           );
         })}
       </div>
-      <p className="mt-1.5 px-1 text-[0.8125rem] leading-snug text-foreground/60">
+      <p className="mt-1.5 px-1 text-[0.8125rem] leading-snug text-foreground/70">
         Bật Gió hoặc Sóng rồi kéo thanh giờ trên bản đồ — mũi tên chỉ hướng,
         màu càng đỏ càng dữ.
       </p>
@@ -222,7 +222,7 @@ export function LayerSheet({
         <FishIcon className="h-6 w-6 shrink-0 text-t1" />
         <span className="min-w-0 flex-1 text-left">
           <span className="block text-[1rem] font-bold">Dự báo cá</span>
-          <span className="block text-[0.8125rem] text-foreground/60">
+          <span className="block text-[0.8125rem] text-foreground/70">
             Vùng tô màu xanh lá (hoặc màu loài đang chọn) = có khả năng có cá
             hôm nay, càng đậm càng cao — tính từ ảnh vệ tinh, tham khảo
           </span>
@@ -248,7 +248,7 @@ export function LayerSheet({
           <span className="block text-[1rem] font-bold">
             Phao đèn, báo hiệu gần bờ
           </span>
-          <span className="block text-[0.8125rem] text-foreground/60">
+          <span className="block text-[0.8125rem] text-foreground/70">
             Chỉ hiện khi phóng to gần bờ
           </span>
         </span>
@@ -263,7 +263,7 @@ export function LayerSheet({
       </button>
 
       {/* các lớp an toàn — luôn bật, nói 1 dòng là đủ (đọc 1 lần trong đời) */}
-      <p className="mt-2 px-1 text-[0.875rem] leading-snug text-foreground/60">
+      <p className="mt-2 px-1 text-[0.875rem] leading-snug text-foreground/70">
         Ranh giới biển Việt Nam, vị trí bão và tên vùng biển luôn được vẽ sẵn.
         Ảnh vệ tinh là ảnh đã chụp — không dự báo trước được.
       </p>

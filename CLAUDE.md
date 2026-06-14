@@ -32,6 +32,7 @@ Mọi thay đổi `src/` phải update doc app-map tương ứng **TRONG CÙNG C
 | Code change | Doc bắt buộc update |
 |---|---|
 | Route / page / nav / component | [docs/app-map/02-architecture.md](docs/app-map/02-architecture.md) |
+| Màn hình / flow / density / trạng thái / audit UI | [docs/app-map/07-design-spec.md](docs/app-map/07-design-spec.md) |
 | `src/lib/documents.ts`, migration, RLS | [docs/app-map/04-data-model.md](docs/app-map/04-data-model.md) |
 | Token màu / font / component pattern | [docs/app-map/03-design-system.md](docs/app-map/03-design-system.md) |
 | Scope trục / lời hứa / data source | [docs/app-map/01-product.md](docs/app-map/01-product.md) |

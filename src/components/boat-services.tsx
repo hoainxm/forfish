@@ -100,7 +100,7 @@ export function BoatServices() {
                       )}
                       {st.label}
                       {r.sentAt && (
-                        <span className="font-semibold text-foreground/45">
+                        <span className="font-semibold text-foreground/65">
                           · gửi {formatVnDate(r.sentAt.slice(0, 10))}
                         </span>
                       )}
@@ -127,7 +127,7 @@ export function BoatServices() {
                   <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                     {formatVnd(p.amountVnd)}
                   </p>
-                  <p className="text-[1rem] text-foreground/60">
+                  <p className="text-[1rem] text-foreground/70">
                     Đơn hàng: <strong>{p.orderCode}</strong>
                     {p.dueOn && (
                       <>
@@ -173,19 +173,19 @@ export function BoatServices() {
                   {due.label}
                 </StatusBanner>
                 <div className="px-4 py-3">
-                  <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/40">
+                  <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
                     {serviceKindLabel(s.kind)}
                   </p>
                   <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                     {s.name}
                   </p>
                   {s.nextDueOn && (
-                    <p className="text-[1rem] text-foreground/60">
+                    <p className="text-[1rem] text-foreground/70">
                       Kỳ tới: <strong>{formatVnDate(s.nextDueOn)}</strong>
                     </p>
                   )}
                   {s.startedOn && (
-                    <p className="text-[0.9375rem] text-foreground/55">
+                    <p className="text-[0.9375rem] text-foreground/70">
                       Dùng từ {formatVnDate(s.startedOn)}
                     </p>
                   )}
@@ -205,7 +205,7 @@ export function BoatServices() {
           })}
 
           {synced.payments.length === 0 && activeServices.length === 0 && (
-            <p className="rounded-[1.25rem] bg-field/70 px-4 py-6 text-center text-[1rem] text-foreground/60">
+            <p className="rounded-[1.25rem] bg-field/70 px-4 py-6 text-center text-[1rem] text-foreground/70">
               Chưa thấy dịch vụ nào đang dùng bên SDVICO.
             </p>
           )}
@@ -216,7 +216,7 @@ export function BoatServices() {
       <h3 className="display mb-1 px-1 text-[1.125rem] font-bold text-navy">
         Sổ nhắc bảo dưỡng của tôi
       </h3>
-      <p className="mb-2 px-1 text-[0.875rem] text-foreground/55">
+      <p className="mb-2 px-1 text-[0.875rem] text-foreground/70">
         Tự ghi việc thay nhớt, thay lọc… app nhắc tới kỳ.
       </p>
       <div className="-mx-4">

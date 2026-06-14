@@ -70,7 +70,7 @@ export function MoneyInsights() {
       {stats && stats.count > 0 && (
         <div className="mb-4 px-4">
           <Card className="p-4">
-            <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/45">
+            <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
               Nhìn nhanh {stats.count} chuyến đã ghi
             </p>
             <p
@@ -82,10 +82,10 @@ export function MoneyInsights() {
               {stats.totalProfit >= 0 ? "+" : "−"}
               {formatVndShort(Math.abs(stats.totalProfit))}
             </p>
-            <p className="text-[0.875rem] text-foreground/55">tổng lãi/lỗ</p>
+            <p className="text-[0.875rem] text-foreground/70">tổng lãi/lỗ</p>
 
             {stats.count > 3 && (
-              <p className="mt-1 text-[0.9375rem] font-semibold text-foreground/60">
+              <p className="mt-1 text-[0.9375rem] font-semibold text-foreground/70">
                 3 chuyến gần nhất:{" "}
                 <strong
                   style={{
@@ -104,7 +104,7 @@ export function MoneyInsights() {
                   {stats.totalProfit >= 0 ? "+" : ""}
                   {formatVndShort(stats.avgProfit)}
                 </p>
-                <p className="text-[0.8125rem] leading-snug text-foreground/55">
+                <p className="text-[0.8125rem] leading-snug text-foreground/70">
                   bình quân mỗi chuyến
                 </p>
               </div>
@@ -112,7 +112,7 @@ export function MoneyInsights() {
                 <p className="display text-[1.125rem] font-bold text-navy">
                   {stats.profitableCount}/{stats.count}
                 </p>
-                <p className="text-[0.8125rem] leading-snug text-foreground/55">
+                <p className="text-[0.8125rem] leading-snug text-foreground/70">
                   chuyến có lãi
                 </p>
               </div>
@@ -122,7 +122,7 @@ export function MoneyInsights() {
                     ? `${Math.round(stats.fuelShare * 100)}%`
                     : "—"}
                 </p>
-                <p className="text-[0.8125rem] leading-snug text-foreground/55">
+                <p className="text-[0.8125rem] leading-snug text-foreground/70">
                   tiền bán đi vào dầu
                 </p>
               </div>
