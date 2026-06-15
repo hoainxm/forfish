@@ -37,7 +37,8 @@ gate: warn
 | `/api/auth/sso` + `/api/auth/signup` | AUTH (API) | `src/app/api/auth/{sso,signup}/route.ts` | Route MỎNG → Edge Function `auth-gateway` trong project ForFish (qua `lib/auth-gateway.ts`). **sso**: verify SĐT+mk với CRM SDViCo → đồng bộ mk vào tài khoản ForFish → client `signInWithPassword` chuẩn (đã bỏ magic-link, không cần `SUPABASE_SERVICE_ROLE_KEY`). **signup**: tạo user email-ảo `{SĐT}@sdvico.local` ĐÃ confirm (email ảo không có hòm thư để bấm link). Env cần: chỉ `NEXT_PUBLIC_SUPABASE_URL/ANON_KEY` (đã set local + Vercel production 2026-06-10) |
 | `/tau` | TÀU — tài sản / boat asset | `src/app/tau/page.tsx` | **MVP + kênh CSKH SDVICO**: tách tab (`ui/tabs.tsx`): Giấy tờ (`document-vault.tsx`) · **Dịch vụ** (`boat-services.tsx` — dịch vụ/cước đồng bộ + nút Gọi SDVICO + sổ nhắc tự ghi `maintenance-reminders.tsx`) · Sản phẩm (`boat-products.tsx` — đồ đã mua + bảo hành, gợi ý nhóm `sdvico-catalog.tsx`) · Mức phạt (`fines-lookup.tsx` ← `src/data/fines.ts`) |
 | `/nguoi` | NGƯỜI — lao động / crew (xem [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md)) | `src/app/nguoi/page.tsx` | **MVP**: Bạn thuyền — sổ thuyền viên (`crew-list.tsx`, localStorage `forfish.crew.v1` — hồ sơ + bảo hiểm/chứng chỉ hạn + sổ ứng tiền). Chia tiền đã dời sang `/tien` |
-| `/tien` | TIỀN — tài chính / money | `src/app/tien/page.tsx` | **TÁCH ĐÔI (2026-06-10)**: 2 tab — **Giao dịch** (`trade-hub.tsx`: Giá cá `price-board.tsx` · **Ai cần mua** `buy-board.tsx` ← `data/buy-requests.ts` TIN MẪU chờ app thu mua · Bán ở đâu `sell-guide.tsx`) · **Hiệu quả** (`money-insights.tsx`: thẻ nhìn nhanh ← `lib/trip-insights.ts` có test · Sổ lãi/lỗ `trip-log.tsx` · Chia tiền `trip-split.tsx`) |
+| `/tien` | TIỀN — tài chính / money | `src/app/tien/page.tsx` | **TÁCH ĐÔI (2026-06-10)**: 2 tab — **Giao dịch** (`trade-hub.tsx`: Giá cá `price-board.tsx` · **Ai cần mua** `buy-board.tsx` ← `data/buy-requests.ts` TIN MẪU chờ app thu mua · Bán ở đâu `sell-guide.tsx`) · **Hiệu quả** (`money-insights.tsx`: thẻ nhìn nhanh ← `lib/trip-insights.ts` có test · 3 section chip: Sổ lãi/lỗ `trip-log.tsx` · **Báo cáo năm** `trip-report.tsx` (tổng lãi/lỗ cả năm + tách theo tháng, `yearlyReport`/`listYears` có test) · Chia tiền `trip-split.tsx`) |
+| `/cang` | 1 — Ra khơi (sub) | `src/app/cang/page.tsx` | **MVP**: danh bạ 173 cảng cá chỉ định (`port-directory.tsx` ← `data/fishing-ports.ts`), lọc theo vùng/tỉnh tàu (`lib/region.ts`); vào từ nút nổi trên bản đồ `/ngu-truong`, KHÔNG nằm trên dock |
 | `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` | — (REDIRECT stub) | `src/app/{gia-ca,van-hanh,giay-to,thuyen-vien}/page.tsx` | **Redirect stub** giữ link cũ: `/gia-ca`→`/tien`, `/van-hanh`→`/tau`, `/giay-to`→`/tau`, `/thuyen-vien`→`/nguoi` (taxonomy mới: Ra khơi / Tàu / Người / Tiền) |
 
 Quy ước: route slug là tiếng Việt không dấu, khớp ngôn ngữ người dùng. Thêm route mới → update bảng này cùng commit. Đổi/gộp route → để lại redirect stub cho slug cũ.
@@ -51,6 +52,7 @@ src/
     globals.css         # Tailwind v4 @theme tokens — single source màu/typography
     page.tsx            # Trang chủ
     ngu-truong/  tau/  nguoi/  tien/            # 4 trục hiện hành (Ra khơi / Tàu / Người / Tiền)
+    cang/                                       # Ra khơi (sub): danh bạ cảng cá, vào từ nút nổi trên map
     gia-ca/  van-hanh/  giay-to/  thuyen-vien/  # REDIRECT stub slug cũ → trục mới (xem bảng §2)
   components/
     bottom-nav.tsx      # Điều hướng dưới cùng (mobile-first, các trục + home)
@@ -67,6 +69,7 @@ src/
     fishing-map-view.tsx # Trục 1: MÀN HÌNH map-first — map full-screen + lớp nổi + SnapSheet đáy 2 mode (cảng/điểm chạm); nhãn chủ quyền + ranh giới + bão luôn render
     layer-sheet.tsx     # Trục 1: sheet chọn lớp kiểu Google Maps (radio 4 nền + dự báo Gió/Sóng + toggle Cá mùa này/Phao đèn; lớp an toàn không có công tắc)
     my-places-sheet.tsx # Trục 1: sheet "Điểm của tôi" — GPS + ghim chủ tàu (đổi tên/xoá/đặt cảng nhà) + tìm cảng nhà trong 173 cảng (gõ lọc, không đổ list)
+    port-directory.tsx  # Trục 1 (sub /cang): danh bạ 173 cảng cá chỉ định (← data/fishing-ports.ts), lọc theo vùng/tỉnh tàu (lib/region.ts)
     ui/                 # Primitives dùng chung (UI nền):
       primitives.tsx    #   nút/thẻ/field cơ bản theo design-system (font ≥18px, tap ≥56px)
       tabs.tsx          #   Tabs trong trang — dùng cho /tau và /tien thay vì cuộn dọc dài
@@ -77,7 +80,8 @@ src/
     ui/snap-sheet.tsx   # SnapSheet dùng chung: sheet đáy THƯỜNG TRỰC 3 nấc peek/half/full, không scrim, điều khiển bằng nút to (khác BottomSheet là modal)
     route-planner.tsx   # Trục 1: dẫn đường tiết kiệm dầu — form xuất phát/thông số tàu + thẻ kết quả + lớp vẽ tuyến (RouteMapLayers, đặt trong MapGL)
     price-board.tsx     # Trục 2: bảng giá — LIVE giá tuần VASEP (lib/port-price-source) + giá dầu DO (lib/fuel-price), fallback bảng tĩnh
-    trip-log.tsx        # Trục 2: sổ lãi lỗ chuyến biển
+    trip-log.tsx        # Trục 2/TIỀN: sổ lãi lỗ chuyến biển (controlled, chủ sổ = money-insights)
+    trip-report.tsx     # Trục TIỀN: BÁO CÁO LỜI/LỖ NĂM — tổng cả năm + tách theo tháng từ sổ trips (← lib/trip-insights yearlyReport/listYears), section "Báo cáo năm" trong tab Hiệu quả
     supply-catalog.tsx  # Trục 3: danh mục vật tư
     maintenance-reminders.tsx  # Trục TÀU: sổ nhắc bảo dưỡng TỰ GHI — nhúng trong boat-services (tab Dịch vụ)
     boat-services.tsx   # Trục TÀU: tab DỊCH VỤ — dịch vụ đồng bộ + cước chờ đóng + nút Gọi SDVICO + sổ nhắc tự ghi
@@ -93,7 +97,7 @@ src/
     market-channels.ts  # Trục TIỀN: kênh bán cá (chợ đầu mối/vựa/online…) THAM KHẢO — nguồn cho sell-guide
     seafood-buyers.ts   # Trục TIỀN: doanh nghiệp thu mua thủy sản theo tỉnh/loài THAM KHẢO (province đã chuẩn hóa tên hiển thị sau 2025)
     wholesalers/        # Trục TIỀN: vựa/đầu mối theo vùng — bac/trung/nam + bs-* (province đã chuẩn hóa); gộp qua index.ts, types.ts
-    fishing-ports.ts    # 173 cảng cá toàn quốc (province + tọa độ, tên tỉnh chuẩn sau 2025) — DỮ LIỆU CÓ SẴN, CHƯA WIRE vào UI nào
+    fishing-ports.ts    # 173 cảng cá toàn quốc (province + tọa độ, tên tỉnh chuẩn sau 2025) — wire vào port-directory.tsx (/cang) + my-places-sheet.tsx (tìm cảng nhà) + lib/boats.ts (homePortId)
   lib/
     documents.ts        # Domain logic Trục TÀU (kinds, expiry status) — xem 04-data-model.md
     format.ts           # Helper định dạng dùng chung (số tiền/ngày…)
