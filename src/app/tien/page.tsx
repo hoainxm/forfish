@@ -1,6 +1,7 @@
 import { TradeHub } from "@/components/trade-hub";
 import { MoneyInsights } from "@/components/money-insights";
 import { DebtLedger } from "@/components/debt-ledger";
+import { BoatSwitcher } from "@/components/boat-switcher";
 import { PageHeader } from "@/components/page-header";
 import { Tabs } from "@/components/ui/tabs";
 
@@ -21,6 +22,7 @@ export default function TienPage() {
         sub="Bán có lợi thế nhờ nắm giá và mối mua — lãi lỗ rõ ràng từng chuyến."
         toColor="var(--t2)"
       />
+      <BoatSwitcher />
       <Tabs
         ariaLabel="Mục tiền nong"
         paramKey="tab"

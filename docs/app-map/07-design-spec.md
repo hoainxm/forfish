@@ -121,6 +121,7 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 
 ---
 
+<<<<<<< HEAD
 **Last updated**: 2026-06-16
 <!-- re-verified: 2026-06-11 — screen map khớp routes; contrast AA pass home/nguoi/tau (eval) -->
 <!-- re-verified: 2026-06-15 — thêm /tien Báo cáo năm/Tính chuyến/Công nợ + /tau checklist xuất bến + hồ sơ/lặp lại chuyến; fix layout suppressHydrationWarning không đổi screen spec -->
@@ -132,3 +133,7 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): thêm lớp BÃO trên map (vùng ảnh hưởng polygon đỏ mờ + đường đi track gạch đứt, dưới Marker tâm bão) từ GDACS; + fix dự báo cá maxDuration/ISR. Screen map/nav/object model KHÔNG đổi cấu trúc -->
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): legend cá thành BỘ LỌC kéo-thả 2 đầu (chỉ hiện ô [lo,hi]% khả năng có cá). Độ sâu raster KHÔNG lọc được (giữ legend tĩnh). Screen map/object model KHÔNG đổi cấu trúc -->
 
+=======
+**Last updated**: 2026-06-15
+<!-- re-verified: 2026-06-15 — triage full-sweep; fixed demo-persist §8 (doc-vault/maint/products) + title grammar /tau; contrast/tabular re-confirmed 06-11; boat-store refactor (08) nội bộ; build đa tàu 2/5: thêm chip BoatSwitcher trên /tien (lãi-lỗ theo tàu), crew owner-scope — screen map #5 +chip, còn lại không đổi -->
+>>>>>>> 4072436 (build(đa tàu 2/5): chuyến biển theo tàu (AC-1) + thuyền viên theo chủ (AC-5))
