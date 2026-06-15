@@ -39,17 +39,25 @@ type StoredDocument = BoatDocument & { boatId?: string };
 export const DOCS_STORAGE_KEY = "forfish.documents.v1";
 const STORAGE_KEY = DOCS_STORAGE_KEY;
 
-// Đọc tủ giấy tờ (gồm seed demo khi chưa có dữ liệu thật) — export để
-// checklist xuất bến dùng chung MỘT nguồn, không tự đọc localStorage rời rạc.
-export function loadDocs(today: Date): StoredDocument[] {
-  if (typeof window === "undefined") return [];
+/*
+  Tủ mẫu tự xưng là mẫu (mirror crew-list 2026-06-11): lần đầu mở vẫn thấy ví dụ
+  cho dễ hình dung, nhưng (1) app biết rõ đây là demo, (2) KHÔNG ghi demo xuống
+  localStorage — dải "việc cần làm ngay" ngoài trang chủ không bao giờ báo đỏ vì
+  giấy tờ mẫu, (3) thêm/sửa giấy thật đầu tiên là tủ mẫu tự biến mất.
+  Export để checklist xuất bến dùng chung MỘT nguồn (lấy .docs).
+*/
+export function loadDocs(today: Date): {
+  docs: StoredDocument[];
+  isDemo: boolean;
+} {
+  if (typeof window === "undefined") return { docs: [], isDemo: false };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as StoredDocument[];
+    if (raw) return { docs: JSON.parse(raw) as StoredDocument[], isDemo: false };
   } catch {
     // corrupt storage — fall through to demo seed
   }
-  return demoDocuments(today);
+  return { docs: demoDocuments(today), isDemo: true };
 }
 
 function saveDocs(docs: StoredDocument[]) {
@@ -64,6 +72,7 @@ export function DocumentVault() {
   const today = useMemo(() => new Date(), []);
   const { current, ready: boatReady } = useBoats();
   const [docs, setDocs] = useState<StoredDocument[]>([]);
+  const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<StoredDocument | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -73,13 +82,16 @@ export function DocumentVault() {
 
   // Hydrate from localStorage on mount (avoids SSR/CSR mismatch).
   useEffect(() => {
-    setDocs(loadDocs(today));
+    const loaded = loadDocs(today);
+    setDocs(loaded.docs);
+    setIsDemo(loaded.isDemo);
     setReady(true);
   }, [today]);
 
+  // Tủ mẫu sống trong bộ nhớ thôi — chỉ giấy THẬT mới được ghi xuống máy.
   useEffect(() => {
-    if (ready) saveDocs(docs);
-  }, [docs, ready]);
+    if (ready && !isDemo) saveDocs(docs);
+  }, [docs, ready, isDemo]);
 
   // Only this boat's documents. Legacy items with no boatId belong to the
   // current boat for back-compat.
@@ -95,6 +107,14 @@ export function DocumentVault() {
 
   function upsert(doc: StoredDocument) {
     const withBoat: StoredDocument = { ...doc, boatId: current?.id };
+    // Thêm/sửa giấy THẬT đầu tiên = tủ mẫu nhường chỗ luôn, không lẫn lộn.
+    if (isDemo) {
+      setIsDemo(false);
+      setDocs([withBoat]);
+      setShowForm(false);
+      setEditing(null);
+      return;
+    }
     setDocs((prev) => {
       const idx = prev.findIndex((d) => d.id === withBoat.id);
       if (idx === -1) return [...prev, withBoat];

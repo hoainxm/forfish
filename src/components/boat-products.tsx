@@ -78,6 +78,7 @@ export function BoatProducts() {
   const today = useMemo(() => new Date(), []);
   const { current } = useBoats();
   const [products, setProducts] = useState<BoatProduct[]>([]);
+  const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<BoatProduct | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -92,15 +93,18 @@ export function BoatProducts() {
   useEffect(() => {
     const stored = loadProducts();
     setProducts(stored ?? demoProducts(today, current?.id));
+    setIsDemo(stored === null); // chưa có đồ thật → đang xem hàng mẫu
     setReady(true);
     // current?.id intentionally read once on mount for the demo seed;
     // stored data already carries its own boatId per item.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today]);
 
+  // Hàng mẫu sống trong bộ nhớ thôi — chỉ đồ THẬT mới được ghi xuống máy
+  // (mirror crew-list 2026-06-11: demo không lọt vào dải nhắc/lưu trữ).
   useEffect(() => {
-    if (ready) saveProducts(products);
-  }, [products, ready]);
+    if (ready && !isDemo) saveProducts(products);
+  }, [products, ready, isDemo]);
 
   // Chỉ hiện sản phẩm của tàu đang chọn (item chưa gắn tàu cũng hiện).
   // Khi đã đồng bộ được đồ thật từ SDVICO thì ẩn hàng demo cho khỏi lẫn.
@@ -120,6 +124,14 @@ export function BoatProducts() {
   );
 
   function upsert(product: BoatProduct) {
+    // Ghi/sửa đồ THẬT đầu tiên = hàng mẫu nhường chỗ luôn, không lẫn lộn.
+    if (isDemo) {
+      setIsDemo(false);
+      setProducts([product]);
+      setShowForm(false);
+      setEditing(null);
+      return;
+    }
     setProducts((prev) => {
       const idx = prev.findIndex((p) => p.id === product.id);
       if (idx === -1) return [...prev, product];

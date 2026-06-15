@@ -110,15 +110,25 @@ function demoEntries(today: Date): MaintenanceEntry[] {
   ];
 }
 
-function loadEntries(today: Date): MaintenanceEntry[] {
-  if (typeof window === "undefined") return [];
+/*
+  Lịch mẫu tự xưng là mẫu (mirror crew-list 2026-06-11): lần đầu mở vẫn thấy ví
+  dụ cho dễ hình dung, nhưng (1) app biết rõ đây là demo, (2) KHÔNG ghi demo
+  xuống localStorage — dải "việc cần làm ngay" ngoài trang chủ không bao giờ báo
+  đỏ vì việc mẫu, (3) ghi việc thật đầu tiên là lịch mẫu tự biến mất.
+*/
+function loadEntries(today: Date): {
+  entries: MaintenanceEntry[];
+  isDemo: boolean;
+} {
+  if (typeof window === "undefined") return { entries: [], isDemo: false };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as MaintenanceEntry[];
+    if (raw)
+      return { entries: JSON.parse(raw) as MaintenanceEntry[], isDemo: false };
   } catch {
     // corrupt storage — fall through to demo seed
   }
-  return demoEntries(today);
+  return { entries: demoEntries(today), isDemo: true };
 }
 
 function saveEntries(entries: MaintenanceEntry[]) {
@@ -135,6 +145,7 @@ export function MaintenanceReminders() {
   const today = useMemo(() => new Date(), []);
   const { current, ready: boatReady } = useBoats();
   const [entries, setEntries] = useState<MaintenanceEntry[]>([]);
+  const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<MaintenanceEntry | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -144,13 +155,16 @@ export function MaintenanceReminders() {
 
   // Hydrate from localStorage on mount (avoids SSR/CSR mismatch).
   useEffect(() => {
-    setEntries(loadEntries(today));
+    const loaded = loadEntries(today);
+    setEntries(loaded.entries);
+    setIsDemo(loaded.isDemo);
     setReady(true);
   }, [today]);
 
+  // Lịch mẫu sống trong bộ nhớ thôi — chỉ việc THẬT mới được ghi xuống máy.
   useEffect(() => {
-    if (ready) saveEntries(entries);
-  }, [entries, ready]);
+    if (ready && !isDemo) saveEntries(entries);
+  }, [entries, ready, isDemo]);
 
   // Only this boat's entries. Legacy entries with no boatId belong to the
   // current boat for back-compat.
@@ -169,6 +183,14 @@ export function MaintenanceReminders() {
 
   function upsert(entry: MaintenanceEntry) {
     const withBoat: MaintenanceEntry = { ...entry, boatId: current?.id };
+    // Ghi/sửa việc THẬT đầu tiên = lịch mẫu nhường chỗ luôn, không lẫn lộn.
+    if (isDemo) {
+      setIsDemo(false);
+      setEntries([withBoat]);
+      setShowForm(false);
+      setEditing(null);
+      return;
+    }
     setEntries((prev) => {
       const idx = prev.findIndex((e) => e.id === withBoat.id);
       if (idx === -1) return [...prev, withBoat];

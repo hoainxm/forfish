@@ -109,13 +109,25 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 - Lint `set-state-in-effect`: pattern hydrate-on-mount cố ý → rule đã tắt có chủ đích (commit 76acf4f).
 - **Safe-area đa thiết bị (2026-06-18)**: mọi phần neo mép màn né tai thỏ + home-indicator iOS + thanh gesture/nút-dưới Android. TOP: PageHeader + map-overlay + sticky Tabs/dossier dùng `env(safe-area-inset-top)`. BOTTOM: `<main pb=calc(8rem+env(sab))>`, bottom-nav/bottom-sheet/snap-sheet dùng `env(safe-area-inset-bottom)` (body KHÔNG pad đáy — tránh cộng đôi). Overlay (sheet/dialog) **portal ra body** nên không bị stacking context của cha che. Render 320/360/landscape: 0 tràn ngang, form cuộn được, nút không bị ẩn. Mục tiêu: không đè nút, không mất form, không tràn.
 
+## 10. Triage ui-ux-triage (2026-06-15) — full sweep 4 trục
+
+Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết quả: Home / Ra khơi / Bạn thuyền / Tiền sạch (1 primary/màn, tabular-nums đủ, tap target ≥44, không overflow); 4 route cũ redirect OK.
+
+**Đã sửa (P1 — vi phạm §8 "demo KHÔNG ghi xuống máy"):** `document-vault`, `maintenance-reminders`, `boat-products` trước đây seed demo rồi `useEffect` save **vô điều kiện** → demo bị ghi xuống localStorage → `urgent-strip` (vốn cố ý seed `[]`) đọc lại tưởng việc thật → **báo đỏ giả trên Home** (đúng thứ comment urgent-strip dòng 158 muốn tránh). Fix: mirror `crew-list` (cờ `isDemo` + save gated `!isDemo` + thêm/sửa thật đầu tiên thì demo nhường chỗ). Verify preview: demo vẫn hiện trên màn, localStorage rỗng, Home calm; add thật → persist + demo wiped.
+
+**Đã sửa (TEXT — §3 "title cùng cấp cùng ngữ pháp"):** H1 dock-sibling lệch ngữ pháp ("Quản lý con tàu" động từ vs "Sổ thuyền viên"/"Tiền nong của tàu" danh từ) → đổi `/tau` title → **"Hồ sơ con tàu"** (danh từ). *Chốt wording chờ user.*
+
+**Note (chưa sửa — scope decision):** app không có dark mode (0 `prefers-color-scheme` rule). §8 không liệt dark mode là quyết định, app dùng "ngoài nắng" → không phải defect vs oracle; nếu muốn hỗ trợ → việc của BA/ui-design-logic, không phải triage. Handle `Mở rộng bảng thông tin` trên /ngu-truong cao 18px (<44) nhưng có affordance thay thế "Xem thêm" → P2 chấp nhận.
+
 ---
 
-**Last updated**: 2026-06-11
+**Last updated**: 2026-06-16
 <!-- re-verified: 2026-06-11 — screen map khớp routes; contrast AA pass home/nguoi/tau (eval) -->
 <!-- re-verified: 2026-06-15 — thêm /tien Báo cáo năm/Tính chuyến/Công nợ + /tau checklist xuất bến + hồ sơ/lặp lại chuyến; fix layout suppressHydrationWarning không đổi screen spec -->
+<!-- re-verified: 2026-06-15 — triage full-sweep; fixed demo-persist §8 (doc-vault/maint/products) + title grammar /tau; contrast/tabular re-confirmed 06-11 -->
 <!-- re-verified: 2026-06-16 — rebrand ForFish→SDFish (chỉ string brand) + PWA (manifest/SW/icons) + api-base indirection; screen map/nav/object model KHÔNG đổi -->
 <!-- re-verified: 2026-06-16 — native UI polish: edge-to-edge safe-area, motion điềm đạm (sheet/dialog vào-ra, tab cross-fade), tap-target Tabs/SnapSheet→56; screen map/nav/density/object model KHÔNG đổi cấu trúc -->
 <!-- re-verified: 2026-06-16 — /login = SĐT + mật khẩu (webhook provision, KHÔNG email/OTP); nav/screen map/object model không đổi -->
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): thêm lớp BÃO trên map (vùng ảnh hưởng polygon đỏ mờ + đường đi track gạch đứt, dưới Marker tâm bão) từ GDACS; + fix dự báo cá maxDuration/ISR. Screen map/nav/object model KHÔNG đổi cấu trúc -->
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): legend cá thành BỘ LỌC kéo-thả 2 đầu (chỉ hiện ô [lo,hi]% khả năng có cá). Độ sâu raster KHÔNG lọc được (giữ legend tĩnh). Screen map/object model KHÔNG đổi cấu trúc -->
+
