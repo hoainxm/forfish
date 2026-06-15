@@ -41,6 +41,10 @@ export default function RootLayout({
     <html
       lang="vi"
       className={`${display.variable} ${body.variable} h-full antialiased`}
+      // Script đầu <body> đặt data-mode từ localStorage TRƯỚC hydrate (chống
+      // nháy cỡ chữ) → server không có attr, client có. Cố ý → tắt cảnh báo
+      // hydrate trên <html> (chỉ ảnh hưởng chính thẻ này, không lan xuống cây).
+      suppressHydrationWarning
     >
       <body className="min-h-full">
         {/* Đặt chế độ hiển thị TRƯỚC khi vẽ — không nháy cỡ chữ (xem globals.css) */}

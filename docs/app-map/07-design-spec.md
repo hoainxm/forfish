@@ -4,7 +4,7 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-06-11
+last_verified: 2026-06-15
 ttl_days: 90
 gate: warn   # UI churn cao — cảnh báo thay vì chặn
 ```
@@ -110,3 +110,4 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 
 **Last updated**: 2026-06-11
 <!-- re-verified: 2026-06-11 — screen map khớp routes; contrast AA pass home/nguoi/tau (eval) -->
+<!-- re-verified: 2026-06-15 — thêm /tien Báo cáo năm/Tính chuyến/Công nợ + /tau checklist xuất bến + hồ sơ/lặp lại chuyến; fix layout suppressHydrationWarning không đổi screen spec -->
