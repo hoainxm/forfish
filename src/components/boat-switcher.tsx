@@ -1,13 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import {
-  Boat,
-  loadBoats,
-  loadCurrentBoatId,
-  saveBoats,
-  saveCurrentBoatId,
-} from "@/lib/boats";
+import { useState } from "react";
+import { type Boat } from "@/lib/boats";
+import { useBoats } from "@/lib/boat-store";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Field, PrimaryButton, inputClass } from "@/components/ui/primitives";
 import { COASTAL_PROVINCES, REGION_LABEL } from "@/lib/region";
@@ -15,48 +10,12 @@ import { AnchorIcon, ChevronRightIcon, PlusIcon } from "@/components/icons";
 
 /*
   Quản lý nhiều tàu + chọn tàu đang xem. Mọi màn dữ liệu gắn theo tàu này.
-  useBoats(): nguồn sự thật chung (hydrate sau mount). BoatSwitcher: thanh
-  gọn hiển thị tàu hiện tại + đổi tàu + thêm tàu (khai báo mã tàu, cảng nhà).
+  useBoats() = store dùng chung ở @/lib/boat-store (đổi tàu cập nhật MỌI màn
+  ngay — ba-spec 08 NV3/R5). Re-export ở đây để các component cũ import quen.
+  BoatSwitcher: thanh gọn hiển thị tàu hiện tại + đổi tàu + thêm tàu.
 */
 
-export function useBoats() {
-  const [boats, setBoats] = useState<Boat[]>([]);
-  const [currentId, setCurrentId] = useState<string>("");
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const list = loadBoats();
-    setBoats(list);
-    const saved = loadCurrentBoatId();
-    const cur = list.find((b) => b.id === saved) ?? list[0];
-    setCurrentId(cur?.id ?? "");
-    setReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (ready) saveBoats(boats);
-  }, [boats, ready]);
-
-  const setCurrent = useCallback((id: string) => {
-    setCurrentId(id);
-    saveCurrentBoatId(id);
-  }, []);
-
-  const addBoat = useCallback(
-    (b: Boat) => {
-      setBoats((prev) => [...prev, b]);
-      setCurrent(b.id);
-    },
-    [setCurrent],
-  );
-
-  const updateBoat = useCallback((b: Boat) => {
-    setBoats((prev) => prev.map((x) => (x.id === b.id ? b : x)));
-  }, []);
-
-  const current = boats.find((b) => b.id === currentId) ?? boats[0] ?? null;
-  return { boats, current, currentId, ready, setCurrent, addBoat, updateBoat };
-}
+export { useBoats };
 
 export function BoatSwitcher() {
   const { boats, current, setCurrent, addBoat, updateBoat } = useBoats();
