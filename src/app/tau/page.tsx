@@ -13,8 +13,8 @@ export default function TauPage() {
   return (
     <div>
       <PageHeader
-        kicker="Tàu của tôi"
-        title="Hồ sơ con tàu"
+        kicker="Quản lý tàu"
+        title="Tàu của tôi"
         sub="Giấy tờ, dịch vụ, sản phẩm — giữ tàu đủ điều kiện ra khơi."
         toColor="var(--t3)"
       />
