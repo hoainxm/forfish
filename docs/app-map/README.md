@@ -19,6 +19,7 @@
 | Thêm page / route / component, sửa nav | Root + [02-architecture.md](02-architecture.md) |
 | Sửa UI, màu, font, copy cho ngư dân | Root + [03-design-system.md](03-design-system.md) |
 | Thêm/sửa màn hình, flow, density, trạng thái, audit UI | Root + [07-design-spec.md](07-design-spec.md) (+ 03 cho token) |
+| Hành vi đa-tàu, hồ sơ cố định/động, vòng đời thêm/xóa/đổi tàu, nhắc theo tàu | Root + [08-ba-spec-da-tau.md](08-ba-spec-da-tau.md) |
 | Đụng DB, migration, RLS, logic giấy tờ / hạn | Root + [04-data-model.md](04-data-model.md) |
 | Phối hợp nhiều agent / chia việc | Root + [05-agents-team.md](05-agents-team.md) |
 
@@ -35,6 +36,7 @@
 | 05 | [05-agents-team.md](05-agents-team.md) | Team-agent architecture: lead + teammates, partition rule, context routing |
 | 06 | [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md) | JTBD hợp nhất từ nghiên cứu, chân dung người dùng, mốc pháp lý eCDT, map nhóm việc → module |
 | 07 | [07-design-spec.md](07-design-spec.md) | DESIGN-SPEC: thang user, object model, screen map + density budget, ma trận trạng thái, action→expectation (chốt chặn pipeline ui-design-logic) |
+| 08 | [08-ba-spec-da-tau.md](08-ba-spec-da-tau.md) | ba-spec ĐA TÀU: hồ sơ cố-định-theo-tàu vs động-theo-chủ, vòng đời thêm/xóa/đổi tàu, gán hàng SDVICO theo tàu, nhắc đa-tàu (oracle hành vi, chốt chặn pipeline BA) |
 | ops | [ops/external-services.md](ops/external-services.md) | Registry nguồn dữ liệu ngoài (Open-Meteo, GDACS, VASEP, Supabase ×2, CRM gateway…) + "khi nó chết thì sao" |
 | ops | [ops/native-deploy.md](ops/native-deploy.md) | Deploy iOS/Android: PWA (manifest/SW/icons) + Capacitor (api-base, 2 chế độ wrap) + việc còn thiếu (Mac/store account/hosting) |
 | ops | [ops/dot1-setup.md](ops/dot1-setup.md) | **Hướng dẫn THỦ CÔNG bật Đợt 1**: apply migration, email provider, env Vercel, dựng webhook với SDWork (+ test curl HMAC), cắm OTP provider (Zalo/SMS), kiểm RLS |
@@ -68,4 +70,4 @@ Deprecate → đánh dấu "DEPRECATED YYYY-MM-DD — replaced by NN-other.md", 
 
 ---
 
-**Last updated**: 2026-06-10
+**Last updated**: 2026-06-15
