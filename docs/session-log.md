@@ -96,6 +96,29 @@
 - **File**: `src/components/trip-dossier.tsx`, `src/components/trip-log.tsx`, `src/components/money-insights.tsx`, `src/app/globals.css`, `docs/app-map/{02,06,07}*.md`, `docs/session-log.md`.
 - **Tiếp**: C3 chào bán Zalo 1 chạm (low, no dep) hoặc nhóm F "sao chép chuyến cũ". B3/B4 + cross-cutting (offline X1, voice X2, người-nhà X3) chờ user quyết hướng.
 
+### #10 — F1 lặp lại chuyến
+- **Loại**: REQUEST (tiếp tục tự động).
+- **F1 ✅ — "Lặp lại chuyến"** (nhóm F, chuẩn bị chuyến nhanh): nút trên thẻ chuyến `trip-log.tsx` → mở form chuyến MỚI (id mới + ngày hôm nay) prefill số tổn chuyến cũ, không đè chuyến cũ. UI thuần, no dep, no new test. Date.now() đặt trong onClick handler (tránh react-hooks/purity).
+  - Doc sync: 02 (§2 /tien), 06 (nhóm F), 07 (§7 action→expectation).
+  - Verify: tsc + eslint clean, npm test 257/257.
+- **File**: `src/components/trip-log.tsx`, `docs/app-map/{02,06,07}*.md`, `docs/session-log.md`.
+
+---
+
+## Tồn đọng cần USER quyết hướng (không tự làm — chặn bởi nguồn ngoài / hạ tầng lớn)
+
+| Việc | Vì sao chờ |
+|---|---|
+| B3 cảnh báo VMS | Cần feed dữ liệu VMS (🟡 data vendor) — chưa có nguồn truy cập |
+| B4 điểm rủi ro IUU | Cần dữ liệu tỉnh công bố — chưa có nguồn |
+| C1-QR truy xuất | Cần backend public cấp URL xác minh (PDF đã xong) |
+| C3 chào bán Zalo | Cần CRUD "người mua đã lưu" để có giá trị thật (share trần thì thấp) |
+| X1 offline-first | Hạ tầng lớn (service worker + sync) — quyết kiến trúc |
+| X2 voice + ảnh | Quyết phạm vi từng màn + nguồn STT |
+| X3 vai trò người-nhà | Cần multi-role + auth model (hiện B2C 1 vai) |
+
+→ Backlog buildable-không-cần-quyết đã cạn (A1–A3, B1, B2, C1, F1 xong). Các mục trên cần user chọn nguồn dữ liệu / hướng kiến trúc trước.
+
 ---
 
 **Quy ước**: việc xong = ✅ · hủy = ✋ · treo = ⏸. Mỗi message mới thêm `### #n` dưới ngày tương ứng.

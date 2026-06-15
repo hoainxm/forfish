@@ -85,6 +85,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 | Ghi chuyến biển | sổ có dòng mới + thẻ "Nhìn nhanh" cập nhật tức thì (một nguồn `trips`) |
 | Bấm "Chia tiền" trên thẻ chuyến | sang tab Chia tiền, số đã đổ sẵn (sửa được) |
 | Bấm "Hồ sơ chuyến (PDF)" trên thẻ chuyến | mở bản hồ sơ in được (tàu + thu/tổn/lãi + thuyền viên + giấy tờ), nút In/Lưu PDF |
+| Bấm "Lặp lại chuyến" trên thẻ chuyến | mở form chuyến MỚI (id mới, ngày hôm nay) prefill số tổn chuyến cũ — chuẩn bị chuyến nhanh, không đè chuyến cũ |
 | Xóa điểm ghim / chuyến / sản phẩm | xác nhận inline / ConfirmDialog (KHÔNG xóa 1 chạm) |
 | Gạch nợ ứng | ConfirmDialog nêu rõ số tiền |
 | Gửi yêu cầu SDVICO | "Đã gửi" + mục "Yêu cầu đã gửi" hiện ngay (optimistic) |

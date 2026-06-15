@@ -94,7 +94,9 @@ export function TripLog({
   const ready = true; // parent chỉ render sau khi hydrate xong
   const [editing, setEditing] = useState<TripEntry | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [isCopy, setIsCopy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<TripEntry | null>(null);
+
 
   const sorted = useMemo(
     () =>
@@ -113,6 +115,7 @@ export function TripLog({
     );
     setShowForm(false);
     setEditing(null);
+    setIsCopy(false);
   }
 
   function remove(id: string) {
@@ -128,6 +131,7 @@ export function TripLog({
       <button
         onClick={() => {
           setEditing(null);
+          setIsCopy(false);
           setShowForm(true);
         }}
         className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
@@ -185,15 +189,35 @@ export function TripLog({
                     {trip.note}
                   </p>
                 )}
-                {onDossier && (
+                <div className="mt-2 flex gap-2">
                   <button
-                    onClick={() => onDossier(trip)}
-                    className="mt-2 flex min-h-[2.75rem] w-full items-center justify-center gap-2 rounded-full bg-field text-[1rem] font-bold text-navy active:scale-[0.98]"
+                    onClick={() => {
+                      // chép SỐ TỔN chuyến cũ làm nền chuyến mới: id mới +
+                      // ngày hôm nay → lưu riêng, không đè chuyến cũ.
+                      setEditing({
+                        ...trip,
+                        id: `trip-${Date.now()}`,
+                        date: todayIso(),
+                        note: undefined,
+                      });
+                      setIsCopy(true);
+                      setShowForm(true);
+                    }}
+                    className="flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 rounded-full bg-field text-[1rem] font-bold text-navy active:scale-[0.98]"
                   >
-                    <DocIcon className="h-5 w-5" />
-                    Hồ sơ chuyến (PDF)
+                    <PlusIcon className="h-5 w-5" />
+                    Lặp lại chuyến
                   </button>
-                )}
+                  {onDossier && (
+                    <button
+                      onClick={() => onDossier(trip)}
+                      className="flex min-h-[2.75rem] flex-1 items-center justify-center gap-2 rounded-full bg-field text-[1rem] font-bold text-navy active:scale-[0.98]"
+                    >
+                      <DocIcon className="h-5 w-5" />
+                      Hồ sơ (PDF)
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div
@@ -210,6 +234,7 @@ export function TripLog({
                 <button
                   onClick={() => {
                     setEditing(trip);
+                    setIsCopy(false);
                     setShowForm(true);
                   }}
                   className={`flex min-h-[3.25rem] items-center justify-center gap-2 text-[1.0625rem] font-bold text-sea active:bg-background ${onSplit ? "border-l border-line" : ""}`}
@@ -237,9 +262,11 @@ export function TripLog({
       {showForm && (
         <TripForm
           initial={editing}
+          heading={isCopy ? "Chuyến mới (chép số chuyến cũ)" : undefined}
           onCancel={() => {
             setShowForm(false);
             setEditing(null);
+            setIsCopy(false);
           }}
           onSave={upsert}
         />
@@ -264,10 +291,13 @@ export function TripLog({
 
 function TripForm({
   initial,
+  heading,
   onCancel,
   onSave,
 }: {
   initial: TripEntry | null;
+  /** tiêu đề sheet ghi đè (vd chế độ "lặp lại chuyến") */
+  heading?: string;
   onCancel: () => void;
   onSave: (trip: TripEntry) => void;
 }) {
@@ -299,7 +329,7 @@ function TripForm({
 
   return (
     <BottomSheet
-      title={initial ? "Sửa chuyến biển" : "Ghi chuyến biển"}
+      title={heading ?? (initial ? "Sửa chuyến biển" : "Ghi chuyến biển")}
       onClose={onCancel}
     >
       <form onSubmit={submit}>
