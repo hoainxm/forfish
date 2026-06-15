@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   CalendarIcon,
+  DocIcon,
   EditIcon,
   PlusIcon,
   TrashIcon,
@@ -81,11 +82,14 @@ export function TripLog({
   trips,
   onChange,
   onSplit,
+  onDossier,
 }: {
   trips: TripEntry[];
   onChange: (next: TripEntry[]) => void;
   /** "Chia tiền chuyến này" — nhảy sang máy chia với số của chuyến đó */
   onSplit?: (trip: TripEntry) => void;
+  /** "Hồ sơ chuyến" — mở bản in được (PDF) cho người mua/lưu hồ sơ */
+  onDossier?: (trip: TripEntry) => void;
 }) {
   const ready = true; // parent chỉ render sau khi hydrate xong
   const [editing, setEditing] = useState<TripEntry | null>(null);
@@ -180,6 +184,15 @@ export function TripLog({
                   <p className="mt-1.5 rounded-xl bg-background px-3 py-1.5 text-[0.9375rem] text-foreground/70">
                     {trip.note}
                   </p>
+                )}
+                {onDossier && (
+                  <button
+                    onClick={() => onDossier(trip)}
+                    className="mt-2 flex min-h-[2.75rem] w-full items-center justify-center gap-2 rounded-full bg-field text-[1rem] font-bold text-navy active:scale-[0.98]"
+                  >
+                    <DocIcon className="h-5 w-5" />
+                    Hồ sơ chuyến (PDF)
+                  </button>
                 )}
               </div>
 

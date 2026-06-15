@@ -83,6 +83,19 @@
 - **File**: `src/lib/compliance.ts`, `src/lib/__tests__/compliance.test.ts`, `src/components/departure-checklist.tsx`, `docs/app-map/{02,06,07}*.md`, `docs/session-log.md`.
 - **Tiếp**: đợt B còn **B3 cảnh báo VMS** (cần nguồn dữ liệu VMS — 🟡 hỏi user trước) + **B4 điểm rủi ro IUU**. Cân nhắc làm C1 (hồ sơ chuyến PDF/QR) trước vì B3 chặn bởi nguồn ngoài.
 
+### #9 — B3/B4 chặn nguồn ngoài; làm C1 hồ sơ chuyến
+- **Loại**: REQUEST (tiếp tục tự động).
+- **B3 cảnh báo VMS ⏸ / B4 điểm rủi ro IUU ⏸**: chặn bởi nguồn dữ liệu ngoài (feed VMS · dữ liệu IUU tỉnh) — cờ 🟡 data vendor, cần user quyết nguồn, KHÔNG bịa. Flag chờ.
+- **C1 ✅ — Hồ sơ chuyến biển (PDF in được)** (đợt C, nhóm B):
+  - Component `trip-dossier.tsx`: gói 1 chuyến (tàu + thu/tổn/lãi + thuyền viên + giấy tờ còn hạn) thành bản in được; nút In/Lưu PDF (`window.print`). Đọc chung useBoats/useCrew/loadDocs. Tái dùng logic đã test (`profitOf`, `getExpiryStatus`) → không thêm test (UI composition).
+  - `globals.css`: `@media print` `.print-area`/`.no-print` cô lập vùng in.
+  - Wire `trip-log.tsx` (nút "Hồ sơ chuyến (PDF)" mỗi chuyến) + `money-insights.tsx` (overlay TripDossier).
+  - QR truy xuất xác minh: ⏸ để sau (cần backend cấp URL).
+  - Doc sync: 02 (§2 /tien + §3 component), 06 (nhóm B), 07 (§7 action→expectation).
+  - Verify: tsc + eslint clean, npm test 257/257.
+- **File**: `src/components/trip-dossier.tsx`, `src/components/trip-log.tsx`, `src/components/money-insights.tsx`, `src/app/globals.css`, `docs/app-map/{02,06,07}*.md`, `docs/session-log.md`.
+- **Tiếp**: C3 chào bán Zalo 1 chạm (low, no dep) hoặc nhóm F "sao chép chuyến cũ". B3/B4 + cross-cutting (offline X1, voice X2, người-nhà X3) chờ user quyết hướng.
+
 ---
 
 **Quy ước**: việc xong = ✅ · hủy = ✋ · treo = ⏸. Mỗi message mới thêm `### #n` dưới ngày tương ứng.

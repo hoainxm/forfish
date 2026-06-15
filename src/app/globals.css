@@ -219,3 +219,27 @@ textarea,
   background: var(--navy);
   border: 3px solid #fff;
 }
+
+/*
+  In hồ sơ chuyến biển (C1) — khi In/Lưu PDF chỉ in vùng .print-area, giấu
+  mọi thứ khác (nav, nút). Người mua / cơ quan cần bản giấy sạch.
+*/
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 1.5rem;
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

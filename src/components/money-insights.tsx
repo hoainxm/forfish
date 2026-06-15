@@ -10,6 +10,7 @@ import {
 import { TripSplit } from "@/components/trip-split";
 import { TripReport } from "@/components/trip-report";
 import { TripEstimator } from "@/components/trip-estimator";
+import { TripDossier } from "@/components/trip-dossier";
 import { Card } from "@/components/ui/primitives";
 import { ChipRow } from "@/components/ui/chip-row";
 import { profitOf, tripStats } from "@/lib/trip-insights";
@@ -54,6 +55,7 @@ export function MoneyInsights() {
   // mặc định tab Chia tiền lấy số chuyến MỚI NHẤT (quy trình thật: về bờ →
   // ghi chuyến → chia luôn)
   const [splitSource, setSplitSource] = useState<TripEntry | null>(null);
+  const [dossierTrip, setDossierTrip] = useState<TripEntry | null>(null);
   const latestTrip = useMemo(
     () =>
       trips.length === 0
@@ -152,6 +154,7 @@ export function MoneyInsights() {
             setSplitSource(trip);
             setSection("chia");
           }}
+          onDossier={setDossierTrip}
         />
       )}
       {section === "bao-cao" && ready && <TripReport trips={trips} />}
@@ -164,6 +167,13 @@ export function MoneyInsights() {
           </p>
           <TripSplit prefill={splitSource ?? latestTrip} />
         </div>
+      )}
+
+      {dossierTrip && (
+        <TripDossier
+          trip={dossierTrip}
+          onClose={() => setDossierTrip(null)}
+        />
       )}
     </div>
   );
