@@ -129,6 +129,7 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 <!-- re-verified: 2026-06-15 — triage full-sweep; fixed demo-persist §8 (doc-vault/maint/products) + title grammar /tau; contrast/tabular re-confirmed 06-11 -->
 <!-- re-verified: 2026-06-15 — boat-store refactor (08) nội bộ (useBoats → store dùng chung, đổi tàu cập nhật live) — KHÔNG đổi screen map/state matrix -->
 <!-- re-verified: 2026-06-15 — build đa tàu: chip BoatSwitcher trên /tien (lãi-lỗ theo tàu) + crew owner-scope (§5 +chip); action→expectation Đổi tàu / Xóa tàu (§7); còn lại screen map không đổi -->
+<!-- re-verified: 2026-06-15 — build đa tàu 4-5/5: dải nhắc Home gắn nhãn tàu mỗi việc khi >1 tàu (urgent-strip), /tau Sản phẩm có sheet "Đồ này của tàu nào?" (gán hàng SDVICO) — còn lại không đổi -->
 <!-- re-verified: 2026-06-16 — rebrand ForFish→SDFish (chỉ string brand) + PWA (manifest/SW/icons) + api-base indirection; screen map/nav/object model KHÔNG đổi -->
 <!-- re-verified: 2026-06-16 — native UI polish: edge-to-edge safe-area, motion điềm đạm (sheet/dialog vào-ra, tab cross-fade), tap-target Tabs/SnapSheet→56; screen map/nav/density/object model KHÔNG đổi cấu trúc -->
 <!-- re-verified: 2026-06-16 — /login = SĐT + mật khẩu (webhook provision, KHÔNG email/OTP); nav/screen map/object model không đổi -->

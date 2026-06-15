@@ -30,6 +30,7 @@ import {
   demoProducts,
   getWarrantyStatus,
 } from "@/lib/products";
+import { SdvicoAssignPrompt } from "@/components/sdvico-assign-prompt";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
 
 /*
@@ -168,6 +169,9 @@ export function BoatProducts() {
         level={1}
         ariaLabel="Mục sản phẩm"
       />
+
+      {/* Hỏi gán hàng SDVICO cho tàu khi có >1 tàu (ba-spec 08 AC-6) */}
+      <SdvicoAssignPrompt assets={synced} />
 
       {/* ════ MỤC 2: CỦA SDVICO — cửa hàng gọn, giới thiệu + upsale ═══ */}
       {section === "sdvico" && (
