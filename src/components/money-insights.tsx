@@ -9,6 +9,7 @@ import {
 } from "@/components/trip-log";
 import { TripSplit } from "@/components/trip-split";
 import { TripReport } from "@/components/trip-report";
+import { TripEstimator } from "@/components/trip-estimator";
 import { Card } from "@/components/ui/primitives";
 import { ChipRow } from "@/components/ui/chip-row";
 import { profitOf, tripStats } from "@/lib/trip-insights";
@@ -21,11 +22,12 @@ import { formatVndShort } from "@/lib/format";
   Bên dưới là sổ lãi/lỗ + máy chia tiền (chips).
 */
 
-type Section = "lai-lo" | "bao-cao" | "chia";
+type Section = "lai-lo" | "bao-cao" | "tinh-chuyen" | "chia";
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "lai-lo", label: "Sổ lãi/lỗ" },
   { id: "bao-cao", label: "Báo cáo năm" },
+  { id: "tinh-chuyen", label: "Tính chuyến" },
   { id: "chia", label: "Chia tiền" },
 ];
 
@@ -153,6 +155,7 @@ export function MoneyInsights() {
         />
       )}
       {section === "bao-cao" && ready && <TripReport trips={trips} />}
+      {section === "tinh-chuyen" && <TripEstimator />}
       {section === "chia" && (
         <div>
           <p className="mb-2 px-4 text-[0.9375rem] leading-snug text-foreground/70">

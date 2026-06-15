@@ -40,9 +40,15 @@
 ### #5 — Dọn P1, commit, tiếp A2
 - **Loại**: REQUEST
 - **P1 ✅**: `02-architecture.md` — §2 thêm row `/cang`; §3 app tree thêm `cang/`, thêm component `port-directory.tsx`, sửa dòng `fishing-ports.ts` từ "CHƯA WIRE" → "wire 3 nơi".
-- **Commit**: gộp A1 (#4) + P1 vào commit trên `main` (pre-commit hook đã active từ P0).
-- **A2**: (đang làm — máy tính chuyến biển).
-- **File**: `docs/app-map/02-architecture.md`, `docs/session-log.md` + (A2 bổ sung sau).
+- **Commit P1+A1 ✅**: `e39cb2b` trên `main` (pre-commit hook active từ P0, PASS).
+- **A2 ✅ — Máy tính chuyến biển** (backlog đợt A):
+  - Logic thuần + test: `estimateTrip` trong `lib/trip-estimate.ts` (3 test: làm sạch âm/NaN, hoà vốn ceil) → 240/240 pass.
+  - Component `trip-estimator.tsx`: nhập ngày + dầu/ngày + giá dầu + chi khác + giá cá → tổn dự kiến + %dầu + sản lượng hoà vốn (kg). Tính live, prefill giá DO LIVE (`fetchFuelPrice`), sửa tay được.
+  - Wire `money-insights.tsx`: tab Hiệu quả thành 4 chip (… · **Tính chuyến** · …).
+  - Doc sync: 02 (§2 /tien + §3 component), 07 (§3 object model), 06 (module-map nhóm A+C).
+  - Verify: tsc + eslint clean, npm test 240/240.
+- **File**: `docs/app-map/02-architecture.md` (P1+A2), `src/lib/trip-estimate.ts`, `src/lib/__tests__/trip-estimate.test.ts`, `src/components/trip-estimator.tsx`, `src/components/money-insights.tsx`, `docs/app-map/06-jtbd-quan-ly-tau.md`, `docs/app-map/07-design-spec.md`, `docs/session-log.md`.
+- **Còn nợ**: backlog đợt A còn **A3** (sổ công nợ đa đối tượng).
 
 ---
 
