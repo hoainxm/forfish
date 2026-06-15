@@ -62,7 +62,7 @@ src/
     ui/                 # Primitives dùng chung (xem khối ui/ bên dưới)
     document-vault.tsx  # Trục TÀU: vault UI — pattern chuẩn cho mọi CRUD localStorage
     fines-lookup.tsx    # Trục TÀU: tra mức phạt (NĐ 38/2024)
-    departure-checklist.tsx # Trục TÀU: CHECKLIST XUẤT BẾN — đèn xanh-đỏ "đủ điều kiện ra khơi" tự sinh theo Lmax (← lib/departure-check), đọc CHUNG tủ giấy tờ (document-vault loadDocs) + sổ thuyền viên (useCrew) + cỡ tàu (useBoats); nằm trên đầu tab Giấy tờ /tau
+    departure-checklist.tsx # Trục TÀU: CHECKLIST XUẤT BẾN — đèn xanh-đỏ "đủ điều kiện ra khơi" tự sinh theo Lmax (← lib/departure-check) + NHẮC mốc khai báo eCDT/NKKT theo cỡ tàu (← lib/compliance, app chỉ nhắc không khai hộ); đọc CHUNG tủ giấy tờ (document-vault loadDocs) + sổ thuyền viên (useCrew) + cỡ tàu (useBoats); nằm trên đầu tab Giấy tờ /tau
     sell-guide.tsx      # Trục TIỀN: "Bán ở đâu" — kênh bán + vựa + người mua theo loài/vùng (← market-channels + seafood-buyers + wholesalers/*, lọc bằng lib/region.ts)
     sea-forecast.tsx    # Trục 1: LEGACY — không còn page nào dùng (logic đã gộp vào mode cảng của fishing-map-view); cân nhắc xoá khi ổn định
     storm-banner.tsx    # Trục 1: banner tin bão (3 trạng thái: bão / yên / im lặng khi nguồn fail) — variant "page" + "overlay" (nổi trên map)

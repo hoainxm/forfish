@@ -73,6 +73,16 @@
 - **File**: `src/lib/departure-check.ts`, `src/lib/__tests__/departure-check.test.ts`, `src/components/departure-checklist.tsx`, `src/components/tau-tabs.tsx`, `src/components/document-vault.tsx`, `docs/app-map/{02,06}*.md`, `docs/session-log.md`.
 - **Tiếp**: **B2 — NHẮC mốc eCDT/NKKT theo cỡ tàu** (effort thấp, gắn urgent-strip).
 
+### #8 — B2 nhắc mốc eCDT/NKKT
+- **Loại**: REQUEST (tiếp tục tự động).
+- **B2 ✅ — Nhắc mốc khai báo theo cỡ tàu**:
+  - Logic thuần + test: `complianceMilestones` trong `lib/compliance.ts` (4 test) → 257/257. eCDT 01/3/2026 (mọi tàu) + NKKT theo Lmax (≥24m: 1/7/2026 · 15–24m: 1/9/2026 · 12–15m: 1/1/2027 · <12m: chưa bắt buộc) — nguồn TT 81/2025.
+  - UI: thêm card "Mốc khai báo phải nhớ" trong `departure-checklist.tsx` — badge Đã bắt buộc / Còn N ngày + disclaimer "app chỉ NHẮC, khai trên hệ thống nhà nước".
+  - Doc sync: 02 (§3 component), 06 (nhóm E), 07 (§5 screen map /tau — covers gate).
+  - Verify: tsc + eslint clean, npm test 257/257.
+- **File**: `src/lib/compliance.ts`, `src/lib/__tests__/compliance.test.ts`, `src/components/departure-checklist.tsx`, `docs/app-map/{02,06,07}*.md`, `docs/session-log.md`.
+- **Tiếp**: đợt B còn **B3 cảnh báo VMS** (cần nguồn dữ liệu VMS — 🟡 hỏi user trước) + **B4 điểm rủi ro IUU**. Cân nhắc làm C1 (hồ sơ chuyến PDF/QR) trước vì B3 chặn bởi nguồn ngoài.
+
 ---
 
 **Quy ước**: việc xong = ✅ · hủy = ✋ · treo = ⏸. Mỗi message mới thêm `### #n` dưới ngày tương ứng.

@@ -12,6 +12,8 @@ import {
   type Readiness,
 } from "@/lib/departure-check";
 import type { BoatDocument } from "@/lib/documents";
+import { complianceMilestones } from "@/lib/compliance";
+import { formatVnDate } from "@/lib/format";
 import { StatusBanner, type StatusLevel } from "@/components/ui/status-banner";
 import {
   Card,
@@ -181,6 +183,7 @@ export function DepartureChecklist() {
   const r = READINESS_UI[check.readiness];
   const autoItems = check.items.filter((i) => i.auto);
   const manualItems = check.items.filter((i) => !i.auto);
+  const milestones = complianceMilestones(current.lengthM, today);
   const isSample = !docsReal || crewIsDemo;
 
   return (
@@ -222,6 +225,47 @@ export function DepartureChecklist() {
             </ul>
           </div>
         )}
+      </Card>
+
+      {/* Mốc nghĩa vụ khai báo — app CHỈ NHẮC, không khai hộ */}
+      <Card className="mt-3 p-4">
+        <p className="display text-[1.0625rem] font-bold text-navy">
+          Mốc khai báo phải nhớ
+        </p>
+        <ul className="mt-2 space-y-2.5">
+          {milestones.map((m) => {
+            const active = m.status === "active";
+            return (
+              <li key={m.id}>
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-[1rem] font-bold leading-snug text-navy">
+                    {m.label}
+                  </span>
+                  <span
+                    className="shrink-0 rounded-full px-2.5 py-1 text-[0.8125rem] font-bold"
+                    style={{
+                      color: active ? "var(--danger)" : "var(--warn)",
+                      backgroundColor: active
+                        ? "var(--danger-bg)"
+                        : "var(--warn-bg)",
+                    }}
+                  >
+                    {active
+                      ? "Đã bắt buộc"
+                      : `Còn ${m.daysUntil} ngày`}
+                  </span>
+                </div>
+                <p className="text-[0.875rem] leading-snug text-foreground/65">
+                  Từ {formatVnDate(m.effectiveDate)} · {m.note}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-3 rounded-2xl bg-field px-3.5 py-2.5 text-[0.875rem] font-semibold leading-snug text-foreground/70">
+          ForFish chỉ NHẮC mốc — việc khai báo làm trên hệ thống nhà nước
+          hoặc phần mềm nhật ký điện tử, không khai trong app này.
+        </p>
       </Card>
 
       {isSample && (
