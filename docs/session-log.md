@@ -61,6 +61,18 @@
 - **File**: `src/lib/debts.ts`, `src/lib/__tests__/debts.test.ts`, `src/components/debt-ledger.tsx`, `src/app/tien/page.tsx`, `docs/app-map/{02,06,07}*.md`, `docs/session-log.md`.
 - **Tiếp**: backlog đợt A xong (A1/A2/A3). Sang đợt B — **B1 checklist xuất bến theo Lmax**.
 
+### #7 — B1 checklist xuất bến (tiếp tục đợt B)
+- **Loại**: REQUEST (tiếp tục tự động).
+- **B1 ✅ — Checklist xuất bến theo Lmax + đèn xanh-đỏ** (đợt B, nhóm E):
+  - Logic thuần + test: `boatZone`/`departureCheck` trong `lib/departure-check.ts` (7 test) → 253/253 pass. Bộ giấy bắt buộc theo chiều dài (NĐ 26/2019 tham khảo): giấy phép ≥6m · đăng kiểm/chứng chỉ/sổ danh bạ ≥12m · ATTP/VMS ≥15m + bảo hiểm thuyền viên.
+  - Component `departure-checklist.tsx`: đèn xanh/vàng/đỏ — app tự gật phần ĐỌC ĐƯỢC (hạn giấy tờ + bảo hiểm thuyền viên), VMS/sổ danh bạ chỉ NHẮC tự kiểm. Đọc chung tủ giấy tờ (`loadDocs` export) + `useCrew` + `useBoats`; chưa biết Lmax → mời nhập. Banner "dữ liệu mẫu" khi seed.
+  - Wire `tau-tabs.tsx`: checklist nằm trên đầu tab Giấy tờ (giữ 4 tab).
+  - Export thêm `loadDocs`/`DOCS_STORAGE_KEY` từ `document-vault.tsx` (đọc chung 1 nguồn).
+  - Doc sync: 02 (§2 /tau + §3 component), 06 (module-map nhóm E).
+  - Verify: tsc + eslint clean, npm test 253/253.
+- **File**: `src/lib/departure-check.ts`, `src/lib/__tests__/departure-check.test.ts`, `src/components/departure-checklist.tsx`, `src/components/tau-tabs.tsx`, `src/components/document-vault.tsx`, `docs/app-map/{02,06}*.md`, `docs/session-log.md`.
+- **Tiếp**: **B2 — NHẮC mốc eCDT/NKKT theo cỡ tàu** (effort thấp, gắn urgent-strip).
+
 ---
 
 **Quy ước**: việc xong = ✅ · hủy = ✋ · treo = ⏸. Mỗi message mới thêm `### #n` dưới ngày tương ứng.

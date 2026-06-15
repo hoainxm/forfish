@@ -36,9 +36,12 @@ type StoredDocument = BoatDocument & { boatId?: string };
   Tone: a filing cabinet you trust, not a sticker book — no emoji.
 */
 
-const STORAGE_KEY = "forfish.documents.v1";
+export const DOCS_STORAGE_KEY = "forfish.documents.v1";
+const STORAGE_KEY = DOCS_STORAGE_KEY;
 
-function loadDocs(today: Date): StoredDocument[] {
+// Đọc tủ giấy tờ (gồm seed demo khi chưa có dữ liệu thật) — export để
+// checklist xuất bến dùng chung MỘT nguồn, không tự đọc localStorage rời rạc.
+export function loadDocs(today: Date): StoredDocument[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Tabs } from "@/components/ui/tabs";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DocumentVault } from "@/components/document-vault";
+import { DepartureChecklist } from "@/components/departure-checklist";
 import { FinesLookup } from "@/components/fines-lookup";
 import { BoatServices } from "@/components/boat-services";
 import { BoatProducts } from "@/components/boat-products";
@@ -47,7 +48,16 @@ export function TauTabs() {
         value={tab}
         onChange={setTab}
         tabs={[
-          { id: "giay-to", label: "Giấy tờ", content: <DocumentVault /> },
+          {
+            id: "giay-to",
+            label: "Giấy tờ",
+            content: (
+              <>
+                <DepartureChecklist />
+                <DocumentVault />
+              </>
+            ),
+          },
           {
             id: "dich-vu",
             label: "Dịch vụ",
