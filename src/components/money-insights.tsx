@@ -52,8 +52,15 @@ export function MoneyInsights() {
 
   // Chuyến biển CỐ ĐỊNH theo tàu (ba-spec 08 R1): chỉ tính/hiện chuyến của
   // tàu đang chọn (chuyến cũ boatId==null coi như của tàu hiện tại — back-compat).
-  const { current } = useBoats();
+  const { current, boats } = useBoats();
   const boatId = current?.id;
+
+  // Xóa tàu → chuyến của tàu đó đã bị purge (ba-spec 08 R3); đọc lại sổ.
+  useEffect(() => {
+    if (!ready) return;
+    setTrips(loadTrips());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boats.length]);
   const boatTrips = useMemo(
     () => trips.filter((t) => t.boatId === boatId || t.boatId == null),
     [trips, boatId],

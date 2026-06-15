@@ -70,7 +70,7 @@ function saveDocs(docs: StoredDocument[]) {
 
 export function DocumentVault() {
   const today = useMemo(() => new Date(), []);
-  const { current, ready: boatReady } = useBoats();
+  const { current, boats, ready: boatReady } = useBoats();
   const [docs, setDocs] = useState<StoredDocument[]>([]);
   const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
@@ -92,6 +92,16 @@ export function DocumentVault() {
   useEffect(() => {
     if (ready && !isDemo) saveDocs(docs);
   }, [docs, ready, isDemo]);
+
+  // Xóa tàu → giấy tờ tàu đó đã bị purge khỏi máy (ba-spec 08 R3); đọc lại để
+  // list đang mở bỏ theo, không tự ghi lại bản cũ.
+  useEffect(() => {
+    if (!ready) return;
+    const loaded = loadDocs(today);
+    setDocs(loaded.docs);
+    setIsDemo(loaded.isDemo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boats.length]);
 
   // Only this boat's documents. Legacy items with no boatId belong to the
   // current boat for back-compat.

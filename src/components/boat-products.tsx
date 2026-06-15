@@ -76,7 +76,7 @@ function saveProducts(products: BoatProduct[]) {
 
 export function BoatProducts() {
   const today = useMemo(() => new Date(), []);
-  const { current } = useBoats();
+  const { current, boats } = useBoats();
   const [products, setProducts] = useState<BoatProduct[]>([]);
   const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
@@ -105,6 +105,16 @@ export function BoatProducts() {
   useEffect(() => {
     if (ready && !isDemo) saveProducts(products);
   }, [products, ready, isDemo]);
+
+  // Xóa tàu → hàng gán tàu đó đã được nhả về "của chung" (ba-spec 08 R3);
+  // đọc lại để boatId trong state khớp máy, không tự ghi đè bản cũ.
+  useEffect(() => {
+    if (!ready) return;
+    const stored = loadProducts();
+    setProducts(stored ?? demoProducts(today, current?.id));
+    setIsDemo(stored === null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boats.length]);
 
   // Chỉ hiện sản phẩm của tàu đang chọn (item chưa gắn tàu cũng hiện).
   // Khi đã đồng bộ được đồ thật từ SDVICO thì ẩn hàng demo cho khỏi lẫn.

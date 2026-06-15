@@ -143,7 +143,7 @@ function saveEntries(entries: MaintenanceEntry[]) {
 
 export function MaintenanceReminders() {
   const today = useMemo(() => new Date(), []);
-  const { current, ready: boatReady } = useBoats();
+  const { current, boats, ready: boatReady } = useBoats();
   const [entries, setEntries] = useState<MaintenanceEntry[]>([]);
   const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
@@ -165,6 +165,15 @@ export function MaintenanceReminders() {
   useEffect(() => {
     if (ready && !isDemo) saveEntries(entries);
   }, [entries, ready, isDemo]);
+
+  // Xóa tàu → lịch bảo dưỡng tàu đó đã bị purge (ba-spec 08 R3); đọc lại.
+  useEffect(() => {
+    if (!ready) return;
+    const loaded = loadEntries(today);
+    setEntries(loaded.entries);
+    setIsDemo(loaded.isDemo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boats.length]);
 
   // Only this boat's entries. Legacy entries with no boatId belong to the
   // current boat for back-compat.

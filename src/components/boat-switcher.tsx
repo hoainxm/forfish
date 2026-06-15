@@ -3,10 +3,17 @@
 import { useState } from "react";
 import { type Boat } from "@/lib/boats";
 import { useBoats } from "@/lib/boat-store";
+import { purgeBoatData } from "@/lib/boat-cascade";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, PrimaryButton, inputClass } from "@/components/ui/primitives";
 import { COASTAL_PROVINCES, REGION_LABEL } from "@/lib/region";
-import { AnchorIcon, ChevronRightIcon, PlusIcon } from "@/components/icons";
+import {
+  AnchorIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@/components/icons";
 
 /*
   Quản lý nhiều tàu + chọn tàu đang xem. Mọi màn dữ liệu gắn theo tàu này.
@@ -18,9 +25,11 @@ import { AnchorIcon, ChevronRightIcon, PlusIcon } from "@/components/icons";
 export { useBoats };
 
 export function BoatSwitcher() {
-  const { boats, current, setCurrent, addBoat, updateBoat } = useBoats();
+  const { boats, current, setCurrent, addBoat, updateBoat, removeBoat } =
+    useBoats();
   const [pick, setPick] = useState(false);
   const [form, setForm] = useState<Boat | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Boat | null>(null);
 
   if (!current) return null;
 
@@ -106,11 +115,36 @@ export function BoatSwitcher() {
         <BoatForm
           initial={form}
           isNew={!boats.some((b) => b.id === form.id)}
+          // Chỉ cho xóa tàu đã lưu và khi còn >1 tàu (R7: luôn ≥1 tàu).
+          onDelete={
+            boats.some((b) => b.id === form.id) && boats.length > 1
+              ? () => {
+                  const target = form;
+                  setForm(null);
+                  setConfirmDelete(target);
+                }
+              : undefined
+          }
           onCancel={() => setForm(null)}
           onSave={(b) => {
             if (boats.some((x) => x.id === b.id)) updateBoat(b);
             else addBoat(b);
             setForm(null);
+          }}
+        />
+      )}
+
+      {confirmDelete && (
+        <ConfirmDialog
+          icon={<TrashIcon className="h-9 w-9 text-danger" />}
+          title={`Xóa tàu "${confirmDelete.name}"?`}
+          message="Giấy tờ, lịch bảo dưỡng và sổ lãi/lỗ của riêng tàu này sẽ bị xóa. Thuyền viên và đồ đã mua SDVICO vẫn giữ (về của chung)."
+          cancelLabel="Không xóa"
+          confirmLabel="Xóa tàu"
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={() => {
+            removeBoat(confirmDelete.id, purgeBoatData);
+            setConfirmDelete(null);
           }}
         />
       )}
@@ -123,11 +157,14 @@ function BoatForm({
   isNew,
   onCancel,
   onSave,
+  onDelete,
 }: {
   initial: Boat;
   isNew: boolean;
   onCancel: () => void;
   onSave: (b: Boat) => void;
+  /** Có giá trị → hiện nút xóa tàu (chỉ khi tàu đã lưu + còn >1 tàu). */
+  onDelete?: () => void;
 }) {
   const [name, setName] = useState(initial.name);
   const [maTau, setMaTau] = useState(initial.maTau ?? "");
@@ -205,6 +242,17 @@ function BoatForm({
           </button>
           <PrimaryButton type="submit">Lưu tàu</PrimaryButton>
         </div>
+
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="mt-3 flex min-h-[3.25rem] w-full items-center justify-center gap-2 text-[1.0625rem] font-bold text-danger active:opacity-70"
+          >
+            <TrashIcon className="h-5 w-5" />
+            Xóa tàu này
+          </button>
+        )}
       </form>
     </BottomSheet>
   );

@@ -163,6 +163,7 @@ ttl_days: 90
 ## History
 - v1 (2026-06-15): khởi tạo từ nhu cầu "đa tàu — hồ sơ cố định/động" của chủ tàu; 4 quyết định chốt qua elicitation; transfer-chủ OUT scope.
 
-<!-- re-verified: 2026-06-15 — build 2/5: AC-1 (trips boatId, lọc theo tàu + chip /tien) + AC-5 (crew owner-scope) hiện thực, verify preview. Còn AC-2 (cascade), AC-6 (SDVICO assign), AC-7 (nhắc theo tàu). -->
+<!-- re-verified: 2026-06-15 — build 3/5: AC-2 (cascade xóa tàu: purgeBoatData xóa hồ sơ cố định + nhả gán SDVICO; UI Xóa-tàu trong form; reload-on-count cho list đang mở) + AC-3 (UI guard ≥1 tàu) hiện thực, verify preview. Còn AC-6 (SDVICO assign), AC-7 (nhắc theo tàu). -->
 - build 1/5 (2026-06-15): AC-4 + AC-3-guard hiện thực (boat-store).
-- build 2/5 (2026-06-15): AC-1 (trips boatId — money-insights/trip-log lọc theo tàu, thêm chip /tien) + AC-5 (crew owner-scope). Còn AC-2 (cascade), AC-6 (SDVICO assign), AC-7 (nhắc theo tàu).
+- build 2/5 (2026-06-15): AC-1 (trips boatId — money-insights/trip-log lọc theo tàu, thêm chip /tien) + AC-5 (crew owner-scope).
+- build 3/5 (2026-06-15): AC-2 (cascade `lib/boat-cascade.ts` purgeBoatData + UI Xóa tàu + reload-on-count 4 component) + AC-3 (guard ≥1 tàu UI + store). Còn AC-6 (SDVICO assign), AC-7 (nhắc theo tàu).
