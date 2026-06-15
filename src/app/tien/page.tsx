@@ -1,5 +1,6 @@
 import { TradeHub } from "@/components/trade-hub";
 import { MoneyInsights } from "@/components/money-insights";
+import { DebtLedger } from "@/components/debt-ledger";
 import { PageHeader } from "@/components/page-header";
 import { Tabs } from "@/components/ui/tabs";
 
@@ -22,9 +23,11 @@ export default function TienPage() {
       />
       <Tabs
         ariaLabel="Mục tiền nong"
+        paramKey="tab"
         tabs={[
           { id: "giao-dich", label: "Giao dịch", content: <TradeHub /> },
           { id: "hieu-qua", label: "Hiệu quả", content: <MoneyInsights /> },
+          { id: "cong-no", label: "Công nợ", content: <DebtLedger /> },
         ]}
       />
     </div>

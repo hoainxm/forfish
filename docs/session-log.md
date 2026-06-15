@@ -50,6 +50,17 @@
 - **File**: `docs/app-map/02-architecture.md` (P1+A2), `src/lib/trip-estimate.ts`, `src/lib/__tests__/trip-estimate.test.ts`, `src/components/trip-estimator.tsx`, `src/components/money-insights.tsx`, `docs/app-map/06-jtbd-quan-ly-tau.md`, `docs/app-map/07-design-spec.md`, `docs/session-log.md`.
 - **Còn nợ**: backlog đợt A còn **A3** (sổ công nợ đa đối tượng).
 
+### #6 — A3 sổ công nợ, tiếp tục tự động (không tự dừng hỏi)
+- **Loại**: REQUEST. User: "chỉ dừng khi được yêu cầu, không tự dừng rồi hỏi" → ghi memory [[autonomous-build-flow]].
+- **A3 ✅ — Sổ công nợ đa đối tượng** (backlog đợt A, khoảng trống vàng nhóm C):
+  - Logic thuần + test: `balanceOf`/`totalOutstanding`/`totalPaid`/`demoDebts` trong `lib/debts.ts` (6 test) → 246/246 pass.
+  - Component `debt-ledger.tsx`: chủ nợ (đại lý dầu/nậu/ngân hàng/khác) + dư nợ + sổ vay/trả (sheet), CRUD localStorage `forfish.debts.v1`, sổ mẫu tự xưng (theo crew-list pattern).
+  - Wire `tien/page.tsx`: thêm tab thứ 3 **Công nợ** (deep-link `?tab=`).
+  - Doc sync: 02 (§2 /tien 3 tab + §3 component), 07 (§3 object model 8 object + §4 nav 3 tab), 06 (module-map nhóm C phủ xong).
+  - Verify: tsc + eslint clean, npm test 246/246.
+- **File**: `src/lib/debts.ts`, `src/lib/__tests__/debts.test.ts`, `src/components/debt-ledger.tsx`, `src/app/tien/page.tsx`, `docs/app-map/{02,06,07}*.md`, `docs/session-log.md`.
+- **Tiếp**: backlog đợt A xong (A1/A2/A3). Sang đợt B — **B1 checklist xuất bến theo Lmax**.
+
 ---
 
 **Quy ước**: việc xong = ✅ · hủy = ✋ · treo = ⏸. Mỗi message mới thêm `### #n` dưới ngày tương ứng.
