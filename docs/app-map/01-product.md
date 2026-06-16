@@ -10,7 +10,7 @@
 
 App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mobile-first, tiếng Việt đời thường.
 
-> **Định vị bổ sung (2026-06-16)**: SDFish còn là **app khách hàng của công ty** — mọi KH mua hàng (chiến dịch anten vệ tinh: mỗi đơn ra trực tiếp KH yêu cầu cài app) đăng nhập bằng **SĐT + OTP** để theo dõi **thiết bị · bảo hành · hỗ trợ kỹ thuật**. Dữ liệu KH **TÁCH RIÊNG SDWork**: SDFish có DB của riêng nó, SDWork **đẩy webhook** sang khi có đơn (không đọc-live). Chi tiết: [04-data-model §5b](04-data-model.md) + [contract webhook](../integration/sdwork-sso-contract.md). Public + khu khách hàng giữ nguyên (đăng nhập mới thấy đồ của mình).
+> **Định vị bổ sung (2026-06-16)**: SDFish còn là **app khách hàng của công ty** — mọi KH mua hàng (chiến dịch anten vệ tinh: mỗi đơn ra trực tiếp KH yêu cầu cài app) đăng nhập bằng **SĐT + mật khẩu** (sale báo khi mua; KHÔNG email/OTP) để theo dõi **thiết bị · bảo hành · hỗ trợ kỹ thuật**. Dữ liệu KH **TÁCH RIÊNG SDWork**: SDFish có DB của riêng nó, SDWork **đẩy webhook** sang khi có đơn (không đọc-live). Chi tiết: [04-data-model §5b](04-data-model.md) + [contract webhook](../integration/sdwork-sso-contract.md). Public + khu khách hàng giữ nguyên (đăng nhập mới thấy đồ của mình).
 
 **Người dùng**: ngư dân, phần lớn 40–60 tuổi, **ít rành công nghệ** (low tech literacy). Mọi quyết định sản phẩm phải qua filter: *"bác ngư dân 55 tuổi, tay ướt, đứng ngoài nắng có dùng được không?"* — chi tiết UI ở [03-design-system.md](03-design-system.md).
 

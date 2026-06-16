@@ -27,8 +27,7 @@ gate: warn
 | **NASA GIBS / tiles vệ tinh** | Ảnh mây, nhiệt độ, phù du nền bản đồ | Không key | `lib/ocean-map.ts` (buildMapStyle) | tile CDN | Badge "Chưa tải được"; đổi lớp khác được |
 | **Supabase — ForFish** (`znzgugvfhgmiszqgjulk`) | Auth (SĐT) + DB owner-only (boats/documents/profiles) | publishable + anon (public env) | Vercel env `NEXT_PUBLIC_SUPABASE_*` | — | Env trống → **demo mode** localStorage, app vẫn dùng được (02 §4) |
 | **CRM SDViCo gateway** (`exueouggmbjtjvsvpfya`) | Đồ đã mua + đăng nhập SSO | sb_publishable key (in-code ALLOWED_KEYS, verify_jwt:false) | Edge Functions `forfish-gateway`/`auth-gateway` (service key tự cấp trong CRM) | client 20s | `useSdvicoAssets` nấc `error` + Thử lại; chưa nối → `unlinked`. ⚠️ CHUYỂN TIẾP — thay bởi webhook + DB riêng ([04 §5b](../04-data-model.md)) |
-| **OTP provider** (Zalo ZNS/SMS — CHƯA cắm) | Gửi mã đăng nhập SĐT | env `OTP_PROVIDER` (trống=stub) | `lib/otp/provider.ts` adapter | rate-limit 60s/SĐT, mã sống 5′ | Provider lỗi → `/api/auth/otp/request` 502 "chưa gửi được"; stub (chưa cắm) → 503 → UI lùi đăng nhập mật khẩu |
-| **SDWork webhook** (ingest) | Nạp KH/thiết bị/vật tư vào DB SDFish | HMAC `SDWORK_WEBHOOK_SECRET` (header `x-sdwork-signature`) | `app/api/sdwork/webhook` + `lib/sdwork-webhook.ts` | SDWork đẩy khi đổi | Sai/thiếu chữ ký → 401/503; rớt event → cron đối soát (Đợt 2); app đọc bản đã nạp, không phụ thuộc SDWork lúc KH mở |
+| **SDWork webhook** (ingest + provision auth) | Nạp KH/thiết bị/vật tư + tạo tài khoản (SĐT+mật khẩu) vào SDFish | HMAC `SDWORK_WEBHOOK_SECRET` (header `x-sdwork-signature`) | `app/api/sdwork/webhook` + `lib/sdwork-webhook.ts` | SDWork đẩy khi đổi | Sai/thiếu chữ ký → 401/503; rớt event → cron đối soát (Đợt 2); app đọc bản đã nạp, không phụ thuộc SDWork lúc KH mở. Đăng nhập = SĐT+mật khẩu, KHÔNG email/OTP |
 
 ## Quy tắc
 

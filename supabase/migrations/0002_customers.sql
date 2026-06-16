@@ -1,7 +1,8 @@
 -- SDFish — DB khách hàng RIÊNG (tách SDWork). App khách hàng: theo dõi thiết
 -- bị / bảo hành / hỗ trợ. Dữ liệu KH/thiết bị/vật tư do WEBHOOK SDWork nạp
 -- (service-role, bypass RLS); KH chỉ ĐỌC hàng của mình (RLS theo SĐT).
--- Auth: SĐT + OTP (otp_codes) + mật khẩu phụ. Xem docs/app-map/04-data-model.md.
+-- Auth: SĐT + MẬT KHẨU (webhook đẩy kèm → provision auth user; KHÔNG email/OTP).
+-- Xem docs/app-map/04-data-model.md.
 -- ⚠️ KHÔNG tự apply lên prod — bước duyệt riêng (CLAUDE.md, ref znzgugvfhgmiszqgjulk).
 
 -- ── SĐT của user hiện tại (email ảo {SĐT}@sdvico.local) ────────────────────
@@ -59,22 +60,11 @@ create table if not exists public.support_requests (
 );
 create index if not exists support_requests_owner_idx on public.support_requests (owner_id);
 
--- ── otp_codes (chỉ service-role chạm — RLS bật, không policy) ───────────────
-create table if not exists public.otp_codes (
-  phone        text primary key,               -- 1 mã sống / SĐT
-  code_hash    text not null,
-  expires_at   timestamptz not null,
-  attempts     int not null default 0,
-  last_sent_at timestamptz not null default now(),
-  created_at   timestamptz not null default now()
-);
-
 -- ── RLS ────────────────────────────────────────────────────────────────────
 alter table public.customers        enable row level security;
 alter table public.devices          enable row level security;
 alter table public.supplies         enable row level security;
 alter table public.support_requests enable row level security;
-alter table public.otp_codes        enable row level security;
 
 -- KH chỉ ĐỌC hàng của mình; ghi do webhook (service-role, bypass RLS).
 drop policy if exists "customers readable by owner phone" on public.customers;
@@ -93,5 +83,3 @@ create policy "supplies readable by owner phone" on public.supplies
 drop policy if exists "support requests private to owner" on public.support_requests;
 create policy "support requests private to owner" on public.support_requests
   for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
-
--- otp_codes: RLS bật + KHÔNG policy = chỉ service-role (admin client) truy cập.

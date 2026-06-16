@@ -30,7 +30,8 @@ POST /api/sdwork/webhook
 {
   "events": [
     { "entity": "customer", "action": "upsert", "ref": "<id SDWork>",
-      "data": { "phone": "0901234567", "name": "Nguyễn Văn A" } },
+      "data": { "phone": "0901234567", "name": "Nguyễn Văn A",
+                "password": "<mk khởi tạo, tuỳ chọn>" } },   // có password → provision tài khoản đăng nhập
     { "entity": "device", "action": "upsert", "ref": "<id SDWork>",
       "data": { "customerPhone": "0901234567", "name": "Anten vệ tinh SF-50",
                 "serial": "SF50-001", "model": "SF-50",
@@ -57,33 +58,32 @@ POST /api/sdwork/webhook
 | SĐT khách | `customers.phone` (chuẩn hoá) = `devices.customer_phone` |
 | order/serial id | `devices.sdwork_ref` / `supplies.sdwork_ref` (unique) |
 
-## 5. Auth (SDFish riêng — KHÔNG SSO CRM)
+## 5. Auth (SDFish riêng — hướng TÀI KHOẢN, KHÔNG email/OTP)
 
-- SĐT + **OTP** (`/api/auth/otp/{request,verify}`) trên project SDFish (`znzgugvfhgmiszqgjulk`). User email ảo `{SĐT}@sdvico.local` (handle nội bộ).
-- Mật khẩu là đường PHỤ (chuyển tiếp); `/api/auth/sso` (verify CRM) **giữ tạm**, retire sau khi webhook ổn.
+- **SĐT + MẬT KHẨU**: `signInWithPassword({ email: {SĐT}@sdvico.local, password })` trên project SDFish (`znzgugvfhgmiszqgjulk`). Email ảo chỉ là handle nội bộ; KHÔNG gửi email, KHÔNG OTP.
+- **Provision**: customer event kèm `password` → webhook tạo auth user (SĐT+mk, `email_confirm:true`, `user_metadata.must_change_password:true`). ĐÃ tồn tại → bỏ qua (KHÔNG ghi đè mk KH đã đổi). Sale báo KH "SĐT + mật khẩu"; lần đầu app ép đổi mk.
 - KH đăng nhập thấy thiết bị của mình vì RLS lọc `current_phone()` = SĐT từ email — khớp `devices.customer_phone` webhook đã nạp.
+- `/api/auth/sso` (verify CRM) **LEGACY** — login không còn gọi, retire Đợt 2. Reset mật khẩu qua webhook (update-by-id) = Đợt 2.
 
 ## 6. Cấu hình (.env SDFish)
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://znzgugvfhgmiszqgjulk.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
-SUPABASE_SERVICE_ROLE_KEY=...            # admin client: webhook upsert + OTP verify
+SUPABASE_SERVICE_ROLE_KEY=...            # admin client: webhook upsert + provision auth user
 SDWORK_WEBHOOK_SECRET=...                # HMAC chung với SDWork
-OTP_PROVIDER=                            # trống = stub; cắm zalo/sms sau
-OTP_PEPPER=                              # muối hash OTP (tuỳ chọn)
 ```
 
-## 7. Việc phía SDWork (Đợt 0, ngoài repo)
+## 7. Việc phía SDWork (user quản CẢ 2 project — tự cấu hình)
 
-- Cấu hình **trigger/webhook**: khi đơn/KH/thiết bị/vật tư tạo-đổi-xoá → POST `events[]` (HMAC ký) tới `/api/sdwork/webhook`.
-- Chốt **secret** + retry (webhook lẻ dễ rớt → SDFish có cron đối soát dự phòng ở Đợt 2).
+- Cấu hình **trigger/webhook** trên SDWork: khi đơn/KH/thiết bị/vật tư tạo-đổi-xoá → POST `events[]` (HMAC ký) tới `/api/sdwork/webhook`. Customer event đính `password` khởi tạo để provision tài khoản.
+- Tự sinh + giữ **secret** `SDWORK_WEBHOOK_SECRET` (cùng giá trị 2 nơi) + retry (webhook lẻ dễ rớt → cron đối soát dự phòng Đợt 2).
 - KHÔNG sửa schema CRM từ SDFish.
 
 ## 8. Còn lại (Đợt 2+)
 
-- Apply migration `0002` lên prod 🔴 · OTP provider thật (Zalo ZNS/SMS) · cron đối soát backfill · retire đọc-live SDWork (gateway `forfish-gateway` + `/api/auth/sso`).
+- Apply migration `0002` lên prod 🔴 · cron đối soát backfill · reset mật khẩu qua webhook (update-by-id) · retire đọc-live SDWork (gateway `forfish-gateway` + `/api/auth/sso`).
 
 ---
 
-**Last updated**: 2026-06-16 (đổi từ SSO magic-link → webhook ingest + OTP riêng)
+**Last updated**: 2026-06-16 (webhook ingest + provision tài khoản SĐT+mật khẩu; KHÔNG email/OTP)

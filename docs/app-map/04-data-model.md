@@ -4,7 +4,7 @@
 
 **Load khi / Load when**: đụng DB/migration/RLS, sửa `src/lib/documents.ts`, nối vault với Supabase, hoặc thêm bảng mới.
 
-covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/otp, src/lib/sdwork-webhook.ts, src/lib/phone.ts
+covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/phone.ts
 last_verified: 2026-06-16
 ttl_days: 180
 
@@ -58,10 +58,9 @@ App khách hàng độc lập (tách SDWork): DB RIÊNG giữ KH · thiết bị
 | `devices` | `customer_phone`, `name`, `serial`, `model`, `purchased_on`, `warranty_until`, `order_code`, `sdwork_ref` (unique) | SELECT `using (customer_phone = current_phone())` |
 | `supplies` | `customer_phone`, `name`, `qty`, `order_code`, `sdwork_ref` (unique) | SELECT `using (customer_phone = current_phone())` |
 | `support_requests` | `owner_id`→auth.users, `phone`, `summary`, `status` | owner-only `for all (auth.uid()=owner_id)` (KH tự tạo) |
-| `otp_codes` | `phone` PK, `code_hash`, `expires_at`, `attempts`, `last_sent_at` | RLS bật + **KHÔNG policy** = chỉ service-role |
 
 - **`current_phone()`** (SQL stable, security definer): `split_part(auth.jwt()->>'email','@','1')` — SĐT từ email ảo `{SĐT}@sdvico.local`.
-- Ghi customers/devices/supplies CHỈ qua **admin client** (`src/lib/supabase/admin.ts`, service-role) trong route webhook — KHÔNG cho client ghi.
+- Ghi customers/devices/supplies + **provision auth user** (SĐT+mật khẩu) CHỈ qua **admin client** (`src/lib/supabase/admin.ts`, service-role) trong route webhook — KHÔNG cho client ghi.
 - Idempotent: upsert theo `sdwork_ref` (`onConflict`).
 - 🔴 Migration AUTHOR sẵn, **CHƯA apply prod** — bước duyệt riêng. App degrade gracefully nếu bảng chưa có (`/api/me/sdvico` → `no_link` → UI local).
 
@@ -99,20 +98,21 @@ TS dùng camelCase (`expiresOn`), DB dùng snake_case (`expires_on`) — khi wir
 |---|---|---|
 | 1 | Schema boats + documents + RLS | ✅ Done (`0001_init.sql`) |
 | 2 | Vault chạy demo mode (localStorage) | ✅ Done |
-| 3 | Đăng nhập OTP số điện thoại | 🟡 Đợt 1: khung OTP + routes + UI xong (provider `stub`); cắm provider thật + apply migration sau (§5b) |
-| 3b | DB khách hàng riêng + webhook ingest | 🟡 Đợt 1: schema `0002` + webhook route + đọc bảng riêng xong; apply prod + bật webhook (đội SDWork) sau |
+| 3 | Đăng nhập SĐT + mật khẩu (không email/OTP) | 🟡 Đợt 1: `/login` + provision qua webhook xong; apply migration + bật webhook sau (§5b) |
+| 3b | DB khách hàng riêng + webhook ingest | 🟡 Đợt 1: schema `0002` + webhook route + đọc bảng riêng xong; apply prod + bật webhook sau |
 | 4 | Chuyển vault localStorage → Supabase | ❌ Chưa (schema đã sẵn) |
 | 5 | Nhắc hạn push / Zalo | ❌ Chưa |
 
 ## 5b. Auth OTP riêng + webhook ingest (Đợt 1, 2026-06-16) — THAY mô hình §6
 
-**Quyết định user (2026-06-16)**: SDFish thành **app khách hàng độc lập**, **tách SDWork** — KHÔNG đọc-live CRM lúc KH mở app. Mô hình §6 (gateway đọc-live) đang **chuyển tiếp**: giữ tạm tới khi webhook chạy ổn rồi retire.
+**Quyết định user (2026-06-16)**: SDFish thành **app khách hàng độc lập**, **tách SDWork** — KHÔNG đọc-live CRM lúc KH mở app. **Auth chỉ hướng TÀI KHOẢN: SĐT + MẬT KHẨU, KHÔNG email/OTP** (user quản cả 2 project). Mô hình §6 (gateway đọc-live) **chuyển tiếp**, retire sau.
 
-- **Đăng nhập**: SĐT + **OTP chính** (`src/lib/otp/*` — `codes.ts` sinh/hash/verify/hạn/rate-limit thuần có test; `provider.ts` adapter, provider `stub`, cắm Zalo/SMS sau) + **mật khẩu phụ** (giữ `signInWithPassword` + SSO tạm). Routes `POST /api/auth/otp/{request,verify}`. Verify → admin `generateLink` magiclink → client `verifyOtp({token_hash, type:'magiclink'})`. SĐT helper thuần `src/lib/phone.ts` (tách khỏi `auth-form.tsx` client).
-- **Nạp dữ liệu**: `POST /api/sdwork/webhook` — verify **HMAC SHA-256** (header `x-sdwork-signature`, env `SDWORK_WEBHOOK_SECRET`) trên raw body → upsert customers/devices/supplies bằng admin client. Map thuần `src/lib/sdwork-webhook.ts` (`toCustomerRow/toDeviceRow/toSupplyRow`, chuẩn hoá SĐT, idempotent theo `sdwork_ref`) — có test.
-- **Đọc**: `/api/me/sdvico` đổi sang đọc **bảng SDFish** (RLS theo `current_phone()`) thay `fetchOwnedAssets` gọi CRM. `use-sdvico-assets` giữ interface (4 nấc + `OwnedAssets`).
-- **Hợp đồng webhook**: [sdwork-sso-contract.md](../integration/sdwork-sso-contract.md) (event types/payload/HMAC).
-- **Ngoài Đợt 1**: apply migration prod 🔴 · OTP provider thật · bật webhook (đội SDWork) · cron đối soát · retire §6 (gateway live-read + `/api/auth/sso`).
+- **Đăng nhập**: SĐT + mật khẩu — `supabase.auth.signInWithPassword({ email: {SĐT}@sdvico.local, password })` trên project SDFish (`/login`). Lần đầu (`user_metadata.must_change_password=true` do webhook đặt) → ép `/doi-mat-khau`. KHÔNG OTP, KHÔNG email confirm, KHÔNG SSO-CRM. SĐT helper thuần `src/lib/phone.ts` (tách `auth-form.tsx`).
+- **Provision tài khoản**: webhook customer event kèm `password` → `admin.auth.admin.createUser({email, password, email_confirm:true, user_metadata:{must_change_password:true}})`. ĐÃ tồn tại → bỏ qua (KHÔNG ghi đè mk KH đã đổi). Mật khẩu KHÔNG lưu bảng `customers` (chỉ set trên auth user, Supabase hash). Reset mk = Đợt 2.
+- **Nạp dữ liệu**: `POST /api/sdwork/webhook` — verify **HMAC SHA-256** (header `x-sdwork-signature`, env `SDWORK_WEBHOOK_SECRET`) trên raw body → upsert customers/devices/supplies bằng admin client. Map thuần `src/lib/sdwork-webhook.ts` (`toCustomerRow/toDeviceRow/toSupplyRow`, chuẩn hoá SĐT, idempotent `sdwork_ref`) — có test.
+- **Đọc**: `/api/me/sdvico` đọc **bảng SDFish** (RLS theo `current_phone()`) thay `fetchOwnedAssets` gọi CRM. `use-sdvico-assets` giữ interface (4 nấc + `OwnedAssets`).
+- **Hợp đồng webhook**: [sdwork-sso-contract.md](../integration/sdwork-sso-contract.md) (event types/payload/HMAC + password).
+- **Ngoài Đợt 1**: apply migration prod 🔴 · bật webhook + cron đối soát · reset mật khẩu qua webhook (update-by-id) · retire §6 (gateway live-read + `/api/auth/sso`).
 
 ## 6. Đồng bộ đồ mua từ SDWork CRM (Trục 3, 2026-06-10) — ⚠️ ĐANG CHUYỂN TIẾP, thay bởi §5b
 
@@ -168,7 +168,7 @@ Quy ước: tính năng khóa MỚI → bọc `components/login-gate.tsx` (UI) *
 ---
 
 **Last updated**: 2026-06-16
-<!-- re-verified: 2026-06-16 — thêm bảng customers/devices/supplies/support_requests/otp_codes (0002) + auth OTP riêng + webhook ingest (§5b); §6 gateway live-read chuyển tiếp -->
+<!-- re-verified: 2026-06-16 — bảng customers/devices/supplies/support_requests (0002) + auth SĐT+mật khẩu (webhook provision, KHÔNG email/OTP) + webhook ingest (§5b); §6 gateway live-read chuyển tiếp -->
 <!-- re-verified: 2026-06-14 — schema 0001 boats/documents + §6 gateway khớp code -->
 <!-- re-verified earlier baseline -->
 

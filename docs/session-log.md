@@ -147,6 +147,17 @@
 
 ---
 
+### #14 — Bỏ OTP, chuyển đăng nhập SĐT+mật khẩu (webhook provision)
+- **Loại**: REQUEST. User: quản cả 2 project; KHÔNG email/OTP, chỉ tài khoản đăng nhập. Mật khẩu do **webhook đẩy kèm** (chốt).
+- **Gỡ OTP ✅**: xóa `lib/otp/{codes,provider}`, test `otp-codes`, routes `api/auth/otp/{request,verify}`, `OtpField`, bảng `otp_codes` khỏi `0002`, env `OTP_*`.
+- **Đăng nhập SĐT+mật khẩu ✅**: `/login` rewrite `signInWithPassword` ({SĐT}@sdvico.local), lần đầu `user_metadata.must_change_password` → `/doi-mat-khau`. Bỏ SSO fallback (legacy giữ file, login không gọi).
+- **Webhook provision ✅**: customer event kèm `password` → `admin.auth.admin.createUser` (email_confirm + must_change_password); đã tồn tại → bỏ qua (không ghi đè mk). Mk KHÔNG lưu bảng customers.
+- **Docs ✅**: 04 (§2 bỏ otp_codes, §5b auth password), 02 (bỏ otp route/lib, login row), 07 (login SĐT+mk), 01, ops/external-services, **rewrite ops/dot1-setup** (bỏ email/OTP step, webhook provision, bác quản 2 project), contract (password trong webhook), `.env.local.example`.
+- **Verify**: tsc clean (sau clean build) · eslint clean · npm test **269/269** (−6 otp) · `npm run build` OK.
+- **File**: xóa `src/lib/otp/*` + `src/app/api/auth/otp/*` + test; sửa `supabase/migrations/0002_customers.sql`, `src/app/login/page.tsx`, `src/components/auth-form.tsx`, `src/app/api/sdwork/webhook/route.ts`, `.env.local.example`, `docs/app-map/{01,02,04,07,ops/external-services,ops/dot1-setup}*.md`, `docs/integration/sdwork-sso-contract.md`, `docs/session-log.md`.
+
+---
+
 **Quy ước**: việc xong = ✅ · hủy = ✋ · treo = ⏸. Mỗi message mới thêm `### #n` dưới ngày tương ứng.
 
 ---

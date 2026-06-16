@@ -4,6 +4,7 @@
 // Hợp đồng event: docs/integration/sdwork-sso-contract.md.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { phoneToEmail } from "@/lib/phone";
 import {
   toCustomerRow,
   toDeviceRow,
@@ -11,6 +12,24 @@ import {
   verifyWebhookSignature,
   type WebhookEvent,
 } from "@/lib/sdwork-webhook";
+
+type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
+
+// Provision tài khoản đăng nhập (SĐT + mật khẩu) khi customer event kèm
+// password. Tạo lần đầu (must_change_password=true); ĐÃ tồn tại → bỏ qua, KHÔNG
+// ghi đè mật khẩu KH có thể đã đổi (reset mật khẩu = Đợt 2). KHÔNG log password.
+async function provisionAuthUser(admin: Admin, phone: string, password: string) {
+  const { error } = await admin.auth.admin.createUser({
+    email: phoneToEmail(phone),
+    password,
+    email_confirm: true,
+    user_metadata: { must_change_password: true },
+  });
+  // "đã đăng ký" = đã provision trước → bình thường, bỏ qua
+  if (error && !/registered|exist|already/i.test(error.message)) {
+    throw error;
+  }
+}
 
 const TABLE: Record<WebhookEvent["entity"], string> = {
   customer: "customers",
@@ -62,7 +81,17 @@ export async function POST(req: Request) {
     const { error } = await admin
       .from(table)
       .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: "sdwork_ref" });
-    if (!error) applied++;
+    if (error) continue;
+    applied++;
+
+    // customer kèm mật khẩu → provision tài khoản đăng nhập (SĐT + mk)
+    if (e.entity === "customer" && typeof e.data.password === "string" && e.data.password) {
+      try {
+        await provisionAuthUser(admin, (row as { phone: string }).phone, e.data.password);
+      } catch {
+        // provision lỗi không chặn ingest dữ liệu — log phía Supabase
+      }
+    }
   }
 
   return NextResponse.json({ ok: true, applied });

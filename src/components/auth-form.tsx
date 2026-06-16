@@ -59,32 +59,6 @@ export function PasswordField({
   );
 }
 
-/** Ô nhập mã OTP 6 số — to, giãn ký tự, bàn phím số, tự nhận mã SMS. */
-export function OtpField({
-  value,
-  onChange,
-  label = "Mã xác nhận (6 số)",
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  label?: string;
-}) {
-  return (
-    <Field label={label}>
-      <input
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        maxLength={6}
-        className={`${inputClass} text-center text-[1.5rem] font-bold tracking-[0.5em]`}
-        placeholder="••••••"
-        value={value}
-        onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 6))}
-        required
-      />
-    </Field>
-  );
-}
-
 /** Khung trắng giữa màn — nơi đặt form đăng nhập. */
 export function AuthCard({ children }: { children: ReactNode }) {
   return (

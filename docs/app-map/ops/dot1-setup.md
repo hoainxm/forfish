@@ -1,165 +1,127 @@
-# Ops — Hướng dẫn THỦ CÔNG bật Đợt 1 (đăng nhập OTP + DB khách hàng)
+# Ops — Hướng dẫn THỦ CÔNG bật Đợt 1 (đăng nhập SĐT+mật khẩu + DB khách hàng)
 
-> Các bước phải làm NGOÀI code (Supabase dashboard, Vercel, đội SDWork, nhà cung cấp OTP) để Đợt 1 chạy thật. Làm theo THỨ TỰ. Mỗi bước có cách kiểm chứng.
-> Project SDFish: **`znzgugvfhgmiszqgjulk`** · Repo đã có sẵn code (commit `6ef2e33`).
+**Load khi**: triển khai/vận hành đăng nhập tài khoản + webhook khách hàng.
 
-**Load khi**: triển khai/đi vận hành đăng nhập OTP + webhook khách hàng.
+> Các bước NGOÀI code (Supabase dashboard, Vercel, cấu hình webhook ở SDWork) để Đợt 1 chạy thật. Làm theo THỨ TỰ; mỗi bước có cách kiểm chứng. Bác **quản cả 2 project** nên tự làm cả 2 đầu.
+> Project SDFish: **`znzgugvfhgmiszqgjulk`**. Đăng nhập = **SĐT + MẬT KHẨU**, KHÔNG email/OTP. Tài khoản do **webhook SDWork provision** (đẩy kèm mật khẩu).
 
 ---
 
 ## Bước 1 — Apply migration `0002` lên Supabase 🔴
 
-Tạo bảng `customers/devices/supplies/support_requests/otp_codes` + RLS. **Chỉ làm khi đã review** (CLAUDE.md: không tự apply).
+Tạo bảng `customers/devices/supplies/support_requests` + RLS. Chỉ làm khi đã review.
 
-### Cách A — Dashboard (đơn giản, khuyến nghị)
-1. Mở https://supabase.com/dashboard → chọn project **`znzgugvfhgmiszqgjulk`**.
-2. Menu trái → **SQL Editor** → **New query**.
-3. Mở file `supabase/migrations/0002_customers.sql` trong repo, **copy toàn bộ** → dán vào editor.
-4. Bấm **Run** (Ctrl/Cmd+Enter). Báo "Success" là xong.
+### Cách A — Dashboard (khuyến nghị)
+1. https://supabase.com/dashboard → project **`znzgugvfhgmiszqgjulk`** → **SQL Editor** → **New query**.
+2. Mở `supabase/migrations/0002_customers.sql`, copy toàn bộ → dán → **Run** → "Success".
 
-### Cách B — Supabase CLI (nếu quen dòng lệnh)
+### Cách B — CLI
 ```bash
 npm i -g supabase
-supabase link --project-ref znzgugvfhgmiszqgjulk   # nhập DB password (Dashboard → Settings → Database)
+supabase link --project-ref znzgugvfhgmiszqgjulk
 supabase db push
 ```
 
-### Kiểm chứng
-- SQL Editor chạy: `select tablename from pg_tables where schemaname='public' and tablename in ('customers','devices','supplies','support_requests','otp_codes');` → đủ 5 dòng.
-- `select proname from pg_proc where proname='current_phone';` → 1 dòng.
-
-> ⚠️ Migration đã apply là BẤT BIẾN — sửa = viết migration `0003` mới, KHÔNG sửa `0002`.
+### Kiểm chứng (SQL Editor)
+```sql
+select tablename from pg_tables where schemaname='public'
+  and tablename in ('customers','devices','supplies','support_requests');   -- đủ 4
+select proname from pg_proc where proname='current_phone';                  -- 1 dòng
+```
+> Migration đã apply là BẤT BIẾN — sửa = viết `0003` mới.
 
 ---
 
-## Bước 2 — Bật Email provider trong Supabase Auth (cho luồng OTP)
+## Bước 2 — Bật Email provider (cho đăng nhập email+mật khẩu)
 
-OTP verify dùng `generateLink` kiểu **magiclink** → cần Email provider BẬT (app KHÔNG gửi email thật, chỉ tạo token).
-
-1. Dashboard → **Authentication** → **Providers** → **Email**: để **Enabled**.
-2. **Authentication → Providers → Email**: tắt "Confirm email" KHÔNG bắt buộc (admin tạo user đã `email_confirm:true`). Để mặc định cũng được.
-3. Không cần cấu hình SMTP (app không gửi mail — token đăng nhập sinh server-side).
-
-### Kiểm chứng: làm sau ở Bước 5 (test đăng nhập OTP).
+`signInWithPassword` dùng email ảo `{SĐT}@sdvico.local` → cần provider **Email** bật (app KHÔNG gửi mail, KHÔNG OTP).
+1. Dashboard → **Authentication → Providers → Email** = **Enabled**.
+2. **Confirm email**: KHÔNG cần (webhook tạo user `email_confirm:true`). Không cần SMTP.
 
 ---
 
 ## Bước 3 — Set biến môi trường (local + Vercel)
 
-Lấy **service_role key**: Dashboard → **Project Settings → API** → mục **service_role** (secret) → copy.
+Lấy **service_role key**: Dashboard → **Project Settings → API → service_role** (secret).
 
 ### Local (`.env.local`)
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://znzgugvfhgmiszqgjulk.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...        # Settings → API → anon/publishable
-SUPABASE_SERVICE_ROLE_KEY=eyJ...                        # service_role — TUYỆT MẬT, chỉ server
-SDWORK_WEBHOOK_SECRET=<chuỗi-ngẫu-nhiên-dài>            # tự sinh, chia sẻ cho đội SDWork
-OTP_PEPPER=<chuỗi-ngẫu-nhiên>                           # muối hash OTP (tuỳ chọn)
-OTP_PROVIDER=                                           # để TRỐNG lúc dev (stub log mã)
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...                # TUYỆT MẬT, chỉ server
+SDWORK_WEBHOOK_SECRET=<chuỗi-ngẫu-nhiên-dài>    # chia sẻ cho cấu hình webhook SDWork
 ```
-Sinh secret ngẫu nhiên: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+Sinh secret: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
 
 ### Vercel (production)
-Dashboard Vercel → Project → **Settings → Environment Variables** → thêm CÙNG tập biến trên.
-- `SUPABASE_SERVICE_ROLE_KEY`, `SDWORK_WEBHOOK_SECRET`, `OTP_PEPPER`: **KHÔNG** tích "Expose to browser" (server-only).
-- Sau khi thêm → **Redeploy** để env có hiệu lực.
+Settings → Environment Variables → thêm CÙNG tập biến. `SUPABASE_SERVICE_ROLE_KEY` + `SDWORK_WEBHOOK_SECRET` KHÔNG "Expose to browser". → **Redeploy**.
 
-> ⚠️ TUYỆT ĐỐI không commit `.env.local` / không dán service_role vào client/chat công khai.
+> ⚠️ Không commit `.env.local`; không dán service_role/secret công khai.
 
 ---
 
-## Bước 4 — Phối hợp đội SDWork dựng webhook
+## Bước 4 — Cấu hình webhook trên SDWork (bác tự làm phía SDWork)
 
-Đội SDWork cấu hình hệ của họ: khi **đơn / KH / thiết bị / vật tư** tạo-đổi-xoá → POST sang SDFish.
+Khi **đơn / KH / thiết bị / vật tư** tạo-đổi-xoá ở SDWork → POST sang SDFish.
 
-### Thông tin gửi đội SDWork
-- **URL**: `https://<domain-sdfish>/api/sdwork/webhook` (vd `https://sdfish.vercel.app/api/sdwork/webhook`).
-- **Method**: POST · **Content-Type**: `application/json`.
-- **Header chữ ký**: `x-sdwork-signature: <hex>` với `<hex> = HMAC_SHA256(raw_body, SDWORK_WEBHOOK_SECRET)`.
-- **Secret**: `SDWORK_WEBHOOK_SECRET` (gửi đội SDWork qua kênh an toàn, KHÔNG email thường).
-- **Body** (xem `docs/integration/sdwork-sso-contract.md` §3):
+- **URL**: `https://<domain-sdfish>/api/sdwork/webhook`
+- **Method** POST · **Content-Type** `application/json`
+- **Header**: `x-sdwork-signature: <hex>` = `HMAC_SHA256(raw_body, SDWORK_WEBHOOK_SECRET)`
+- **Body** (xem [contract](../../integration/sdwork-sso-contract.md) §3). **Customer kèm `password`** → SDFish tạo tài khoản đăng nhập:
 ```jsonc
 { "events": [
-  { "entity":"customer","action":"upsert","ref":"<id SDWork>","data":{"phone":"0901234567","name":"Nguyễn Văn A"} },
-  { "entity":"device","action":"upsert","ref":"<id>","data":{"customerPhone":"0901234567","name":"Anten SF-50","serial":"SF50-001","warrantyUntil":"2028-06-01","orderCode":"DH-1"} }
+  { "entity":"customer","action":"upsert","ref":"<id>",
+    "data":{ "phone":"0901234567","name":"Nguyễn Văn A","password":"matkhau-sale-bao" } },
+  { "entity":"device","action":"upsert","ref":"<id>",
+    "data":{ "customerPhone":"0901234567","name":"Anten SF-50","serial":"SF50-001","warrantyUntil":"2028-06-01","orderCode":"DH-1" } }
 ]}
 ```
+- `password`: mật khẩu khởi tạo sale báo KH (lần đầu app ép đổi). Đã có user → KHÔNG ghi đè.
 - `ref` bắt buộc (idempotent). `action`: `upsert` | `delete`.
 
-### Kiểm chứng (tự test trước, KHÔNG cần đội SDWork)
-Chạy ở máy có `SDWORK_WEBHOOK_SECRET` (đổi URL cho đúng):
+### Tự test trước (không cần SDWork)
 ```bash
 node -e "
 const c=require('crypto');
-const body=JSON.stringify({events:[{entity:'customer',action:'upsert',ref:'test-1',data:{phone:'0901234567',name:'KH Test'}},{entity:'device',action:'upsert',ref:'dev-1',data:{customerPhone:'0901234567',name:'Anten SF-50',serial:'SF50-001',warrantyUntil:'2028-06-01'}}]});
+const body=JSON.stringify({events:[{entity:'customer',action:'upsert',ref:'test-1',data:{phone:'0901234567',name:'KH Test',password:'test1234'}},{entity:'device',action:'upsert',ref:'dev-1',data:{customerPhone:'0901234567',name:'Anten SF-50',serial:'SF50-001',warrantyUntil:'2028-06-01'}}]});
 const sig=c.createHmac('sha256',process.env.SDWORK_WEBHOOK_SECRET).update(body).digest('hex');
 console.log('BODY='+body); console.log('SIG='+sig);
 "
 ```
-Lấy BODY + SIG ở trên rồi:
 ```bash
 curl -X POST https://<domain>/api/sdwork/webhook \
   -H "Content-Type: application/json" \
   -H "x-sdwork-signature: <SIG>" \
   --data '<BODY>'
 ```
-- `{"ok":true,"applied":2}` → thành công. Vào Dashboard → Table Editor → `customers`/`devices` thấy hàng test.
-- `401 bad_signature` → sai secret/sig. `503 not_configured` → chưa set `SDWORK_WEBHOOK_SECRET`.
-- Dọn test: xoá hàng `ref` bắt đầu `test-`/`dev-` trong Table Editor.
+- `{"ok":true,"applied":2}` → Table Editor thấy `customers`/`devices`; Authentication → Users thấy `0901234567@sdvico.local`.
+- `401 bad_signature` → sai secret/sig. `503 not_configured` → thiếu `SDWORK_WEBHOOK_SECRET`.
+- Dọn test: xoá hàng `ref` `test-*`/`dev-*` + user test trong Authentication.
 
 ---
 
-## Bước 5 — Cắm nhà cung cấp OTP (Zalo ZNS hoặc SMS)
+## Bước 5 — Test đăng nhập SĐT + mật khẩu
 
-Hiện `OTP_PROVIDER` trống = **stub** (dev log mã ra console, prod KHÔNG gửi). Để gửi mã thật:
-
-### 5a. Đăng ký (ngoài code)
-- **Zalo ZNS** (khuyến nghị VN): tạo Zalo Official Account → đăng ký ZNS → tạo **template OTP** (duyệt 1–2 ngày) → lấy `access_token`/`app_id`/`template_id`.
-- **HOẶC SMS brandname** (eSMS/SpeedSMS/FPT): đăng ký brandname → lấy API key.
-
-### 5b. Cắm vào code (`src/lib/otp/provider.ts`)
-Thêm 1 provider theo interface có sẵn rồi bật bằng env. Ví dụ ZNS:
-```ts
-const zaloZns: OtpProvider = {
-  async send(phone, code) {
-    const r = await fetch("https://business.openapi.zalo.me/message/template", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", access_token: process.env.ZALO_ACCESS_TOKEN! },
-      body: JSON.stringify({
-        phone: phone.replace(/^0/, "84"),          // ZNS cần 84xxxxxxxxx
-        template_id: process.env.ZALO_TEMPLATE_ID!,
-        template_data: { otp: code },
-      }),
-    });
-    if (!r.ok) throw new Error("zns_failed");
-  },
-};
-// trong getOtpProvider(): case "zalo": return zaloZns;
-```
-Rồi set env: `OTP_PROVIDER=zalo`, `ZALO_ACCESS_TOKEN=...`, `ZALO_TEMPLATE_ID=...` (Vercel + local). Redeploy.
-
-### Kiểm chứng đăng nhập OTP (sau Bước 1–3)
-- **Local (stub)**: `npm run dev` → mở `/login` → nhập SĐT → "Gửi mã" → mã hiện ở **console terminal** (`[otp:stub] 0901... → 123456`) → nhập mã → vào `/`.
-- **Prod (provider thật)**: nhập SĐT thật → nhận mã qua Zalo/SMS → vào.
-- Đăng nhập xong, nếu SĐT đó đã có trong `customers`/`devices` (Bước 4) → vào tab Tàu thấy thiết bị/bảo hành của mình (RLS chỉ thấy của mình).
+Sau khi webhook test (Bước 4) tạo KH `0901234567` mật khẩu `test1234`:
+1. `npm run dev` (hoặc prod) → mở `/login`.
+2. Nhập SĐT `0901234567` + mật khẩu `test1234` → **Đăng nhập**.
+3. Lần đầu (`must_change_password`) → app chuyển `/doi-mat-khau`. Đổi xong vào `/`.
+4. Vào tab **Tàu** → thấy thiết bị "Anten SF-50" + bảo hành (RLS chỉ thấy của SĐT mình).
+- Sai mk → "Sai số điện thoại hoặc mật khẩu".
 
 ---
 
-## Bước 6 — Kiểm RLS (đúng người thấy đúng đồ)
+## Bước 6 — Kiểm RLS
 
-Dashboard → SQL Editor (chạy với vai authenticated giả lập khó; kiểm nhanh bằng app):
-- Đăng nhập 2 SĐT khác nhau (2 trình duyệt) → mỗi người chỉ thấy `devices` của SĐT mình.
-- Hoặc Table Editor xem `devices.customer_phone` khớp `customers.phone`.
+2 SĐT khác nhau (2 trình duyệt) → mỗi người chỉ thấy `devices` của SĐT mình. Hoặc Table Editor: `devices.customer_phone` khớp `customers.phone`.
 
 ---
 
-## Thứ tự tối thiểu để CHẠY ĐƯỢC
-1. Bước 1 (migration) → 2 (email provider) → 3 (env) → test đăng nhập OTP stub (Bước 5 local).
-2. Bước 4 (webhook, tự test curl) → bật với đội SDWork khi sẵn sàng.
-3. Bước 5 (provider thật) khi có hợp đồng Zalo/SMS.
+## Thứ tự tối thiểu chạy được
+Bước 1 → 2 → 3 → 4 (tự test curl, tạo KH+mk) → 5 (đăng nhập). Bật webhook SDWork thật khi sẵn sàng.
 
-## Khi nào AN TOÀN bỏ luồng cũ (Đợt 2)
-Sau khi webhook chạy ổn + dữ liệu KH về đủ → mới retire `/api/auth/sso` + gateway đọc-live SDWork (báo lại để xoá code).
+## Đợt 2 (sau)
+Cron đối soát (bắt event rớt) · reset mật khẩu qua webhook (update-by-id) · retire đọc-live SDWork (`/api/auth/sso` + gateway `forfish-gateway`).
 
 ---
 
