@@ -134,6 +134,19 @@
 
 ---
 
+### #13 — Hệ đăng nhập + DB khách hàng riêng (Đợt 1, plan-approved)
+- **Loại**: REQUEST (🔴 Auth+DB). Quyết định: app KH độc lập, **tách SDWork** (DB riêng), nạp qua **webhook**, auth **OTP chính + mật khẩu phụ**, không role admin, public+khu KH giữ.
+- **A — DB riêng ✅ (author, CHƯA apply prod)**: `supabase/migrations/0002_customers.sql` — `customers/devices/supplies/support_requests/otp_codes` + RLS `current_phone()` (KH chỉ đọc của mình; webhook service-role ghi).
+- **B — Auth OTP ✅ (khung)**: `lib/otp/codes.ts` (thuần +test) + `lib/otp/provider.ts` (stub, cắm sau) + `lib/phone.ts` (tách khỏi auth-form client) + `/api/auth/otp/{request,verify}` + `lib/supabase/admin.ts` (service-role). `/login` đổi OTP-first + mật khẩu phụ; `OtpField` trong auth-form. SSO/mật khẩu giữ tạm.
+- **C — Webhook ingest ✅**: `/api/sdwork/webhook` (HMAC verify) + `lib/sdwork-webhook.ts` (map thuần +test); `/api/me/sdvico` đổi đọc **bảng SDFish** (RLS), shape giữ; `use-sdvico-assets` interface không đổi.
+- **D — Docs ✅**: 04 (§2 bảng + §5b auth/webhook), 02 (routes + lib), 01 (định vị), 07 (login OTP), ops (OTP+webhook), **viết lại** `sdwork-sso-contract.md` (webhook thay SSO magic-link), `.env.local.example`.
+- **Verify**: tsc + eslint clean · npm test **275/275** (+13: otp-codes, sdwork-webhook). `npm run build` chạy sau (Bash classifier tạm nghẽn lúc làm).
+- **Doc lệch đã sửa**: `sdwork-sso-contract` mô tả magic-link cũ → viết lại webhook.
+- **Ngoài Đợt 1 (🔴/phối hợp)**: apply migration prod · OTP provider thật (Zalo/SMS) · bật webhook (đội SDWork) + cron đối soát · retire đọc-live SDWork. Giả định `supplies`=theo-KH (xác nhận lại nếu catalog chung).
+- **File**: `supabase/migrations/0002_customers.sql`, `src/lib/{phone,sdwork-webhook}.ts`, `src/lib/otp/{codes,provider}.ts`, `src/lib/supabase/admin.ts`, `src/lib/__tests__/{otp-codes,sdwork-webhook}.test.ts`, `src/app/api/auth/otp/{request,verify}/route.ts`, `src/app/api/sdwork/webhook/route.ts`, `src/app/api/me/sdvico/route.ts`, `src/app/login/page.tsx`, `src/components/auth-form.tsx`, `docs/app-map/{01,02,04,07,ops/external-services}*.md`, `docs/integration/sdwork-sso-contract.md`, `.env.local.example`, `docs/session-log.md`.
+
+---
+
 **Quy ước**: việc xong = ✅ · hủy = ✋ · treo = ⏸. Mỗi message mới thêm `### #n` dưới ngày tương ứng.
 
 ---
