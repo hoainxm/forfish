@@ -70,7 +70,7 @@ export function TripDossier({
           Hồ sơ chuyến biển
         </h1>
         <p className="mt-0.5 text-[0.9375rem] text-foreground/65">
-          Lập ngày {formatVnDate(todayIso())} · ForFish
+          Lập ngày {formatVnDate(todayIso())} · SDFish
         </p>
 
         {/* Tàu */}
@@ -202,7 +202,7 @@ export function TripDossier({
         </section>
 
         <p className="mt-5 border-t border-line pt-3 text-[0.875rem] leading-snug text-foreground/60">
-          Hồ sơ tự lập trên ForFish — số liệu do chủ tàu tự khai, mang tính
+          Hồ sơ tự lập trên SDFish — số liệu do chủ tàu tự khai, mang tính
           tham khảo, chưa phải chứng từ xác minh của cơ quan. Bản truy xuất có
           mã QR xác minh sẽ bổ sung sau.
         </p>

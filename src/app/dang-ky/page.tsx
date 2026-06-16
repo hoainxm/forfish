@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { apiUrl } from "@/lib/api-base";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
@@ -59,7 +60,7 @@ export default function DangKyPage() {
     setLoading(true);
     // Tạo tài khoản qua auth-gateway (email ảo ĐÃ confirm sẵn — email ảo
     // không có hòm thư thật để bấm link xác nhận).
-    const res = await fetch("/api/auth/signup", {
+    const res = await fetch(apiUrl("/api/auth/signup"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone, password }),

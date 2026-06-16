@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { OwnedAssets } from "@/lib/owned-assets";
+import { apiUrl } from "@/lib/api-base";
 
 export type SdvicoStatus = "loading" | "guest" | "unlinked" | "error" | "ok";
 
@@ -62,7 +63,7 @@ function startFetch() {
   inflight = (async () => {
     let next: CacheEntry;
     try {
-      const r = await fetch("/api/me/sdvico", {
+      const r = await fetch(apiUrl("/api/me/sdvico"), {
         signal: AbortSignal.timeout(20000),
       });
       const j = await r.json().catch(() => null);

@@ -17,7 +17,7 @@ export async function GET() {
   try {
     const opt = {
       next: { revalidate: REVALIDATE },
-      headers: { "user-agent": "Mozilla/5.0 (ForFish price bot)" },
+      headers: { "user-agent": "Mozilla/5.0 (SDFish price bot)" },
       signal: AbortSignal.timeout(15000),
     };
     const listing = await fetch(VASEP_LISTING_URL, opt).then((r) =>

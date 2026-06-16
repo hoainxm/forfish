@@ -4,7 +4,7 @@ import { DebtLedger } from "@/components/debt-ledger";
 import { PageHeader } from "@/components/page-header";
 import { Tabs } from "@/components/ui/tabs";
 
-export const metadata = { title: "Sổ tiền — ForFish" };
+export const metadata = { title: "Sổ tiền — SDFish" };
 
 // Trục TIỀN — tách ĐÔI (user chốt 2026-06-10):
 // · GIAO DỊCH: thông tin được cấp để bán có lợi thế — giá cá hôm nay,

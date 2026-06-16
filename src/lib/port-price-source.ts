@@ -9,6 +9,7 @@
 // giữ giá tĩnh, đánh dấu là tham khảo. UI bắt buộc ghi "Nguồn: VASEP, tuần X".
 
 import { PORT_PRICES, type PortPrice } from "@/data/port-prices";
+import { apiUrl } from "@/lib/api-base";
 
 export const VASEP_LISTING_URL =
   "https://vasep.com.vn/gia-thuy-san/gia-trong-nuoc";
@@ -164,7 +165,7 @@ export function mergeLivePrices(
 /** Client gọi route nội bộ; lỗi/nguồn fail → lùi về bảng tĩnh (không bịa). */
 export async function fetchLivePrices(): Promise<LivePriceResult> {
   try {
-    const r = await fetch("/api/port-prices");
+    const r = await fetch(apiUrl("/api/port-prices"));
     if (r.ok) {
       const j = (await r.json()) as LivePriceResult;
       if (j.ok) return j;

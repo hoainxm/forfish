@@ -1,4 +1,4 @@
-# Session log — ForFish
+# Session log — SDFish
 
 > Nhật ký thay đổi theo từng message để **kiểm soát + tóm gọn**. Mỗi mục = 1 yêu cầu của user: ý định, loại (LOGIC/REQUEST), việc đã làm, file đụng, trạng thái. KHÔNG phải app-map (xem `docs/app-map/`), KHÔNG phải audit log (xem `docs/audit-history.md`). Append-only theo thời gian.
 
@@ -122,3 +122,17 @@
 ---
 
 **Quy ước**: việc xong = ✅ · hủy = ✋ · treo = ⏸. Mỗi message mới thêm `### #n` dưới ngày tương ứng.
+
+---
+
+## 2026-06-16
+
+### #11 — Đổi tên SDFish + nền deploy iOS/Android (PWA + Capacitor-ready)
+- **Loại**: REQUEST (plan-approved). Quyết định user: PWA+plumbing · giữ `forfish.*` keys · rename chỉ brand/package/docs (giữ infra IDs).
+- **A — Rebrand ✅**: ForFish→SDFish ở string hiển thị (metadata `layout.tsx`, 5 page title, PageHeader kicker `page.tsx`, `trip-dossier` 2 chỗ, user-agent 2 API route, "Khách SDFish") + `package.json` name + titles README/CLAUDE/audit-history/session-log. GIỮ: 16 `forfish.*` key, `forfish-gateway`, `source_page='forfish'`, `[ForFish]` prefix CRM, repo, Supabase ref, `@sdvico.local`.
+- **B — PWA ✅**: `app/manifest.ts` (→ /manifest.webmanifest), `public/sw.js` (offline shell, network-first nav+/api, cache-first asset), `sw-register.tsx` (prod-only), `public/icon.svg` + `scripts/generate-icons.mjs` (sharp) → `public/icons/*`. `layout.tsx` thêm manifest/icons/appleWebApp.
+- **C — Capacitor-ready ✅**: `lib/api-base.ts` (`apiUrl()`, +5 test) thay 14 chỗ tham chiếu `/api/*` (12 fetch + sea-scalar + contour tile URL). `.env.local.example` thêm `NEXT_PUBLIC_API_BASE`. `capacitor.config.ts` (appId `vn.sdvico.sdfish`) + scripts. Cài devDep: sharp, @capacitor/core, @capacitor/cli. CHƯA `cap add` (cần Mac/SDK).
+- **D — Docs ✅**: `ops/native-deploy.md` (mới) + index README; 02 (§1 stack + §3 folder); 07 re-verify; CLAUDE/README rename.
+- **Verify**: tsc + eslint clean · npm test **262/262** (+5 api-base) · `npm run build` OK (`/manifest.webmanifest` prerendered) · `npm run icons` sinh đủ PNG.
+- **Ngoài phạm vi** (cần môi trường sau): build binary iOS (Mac/Xcode) + Android (Studio/SDK), tài khoản Apple/Google, chốt hosting URL cho `NEXT_PUBLIC_API_BASE`, rename infra IDs (phối hợp ngoài).
+- **File**: `src/lib/api-base.ts`(+test), 14 fetch-site files, `src/app/{layout,manifest,page,*/page}.tsx`, `src/components/{sw-register,trip-dossier,urgent-strip,sdvico-*}.tsx`, `src/app/api/{port-prices,fuel-price,sdvico/request}/route.ts`, `public/{icon.svg,sw.js,icons/*}`, `scripts/generate-icons.mjs`, `capacitor.config.ts`, `.env.local.example`, `package.json`, `docs/app-map/{02,07,README,ops/native-deploy}*.md`, `CLAUDE.md`, `README.md`, `docs/{audit-history,session-log}.md`.

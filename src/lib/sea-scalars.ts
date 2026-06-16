@@ -8,6 +8,7 @@
 // Đổi nguồn chỉ sửa url()/parse ở đây; toán parse dùng chung fish-predict.
 
 import { parseErddapGrid, type ScalarGrid } from "@/lib/fish-predict";
+import { apiUrl } from "@/lib/api-base";
 
 export type SeaScalarKind = "ssha" | "sss";
 
@@ -131,7 +132,7 @@ export async function fetchSeaScalar(
   kind: SeaScalarKind,
 ): Promise<SeaScalarResult> {
   try {
-    const r = await fetch(`/api/sea-scalar?kind=${kind}`);
+    const r = await fetch(apiUrl(`/api/sea-scalar?kind=${kind}`));
     if (!r.ok) return { ok: false };
     return (await r.json()) as SeaScalarResult;
   } catch {

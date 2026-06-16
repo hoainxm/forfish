@@ -54,7 +54,7 @@ const pillars = [
 export default function Home() {
   return (
     <div>
-      <PageHeader kicker="ForFish · Bạn của ngư dân" title="Chào bà con">
+      <PageHeader kicker="SDFish · Bạn của ngư dân" title="Chào bà con">
         {/* hero chỉ bày MỘT chip tài khoản — cỡ chữ/đăng xuất nằm trong sheet */}
         <HeroAccount />
       </PageHeader>

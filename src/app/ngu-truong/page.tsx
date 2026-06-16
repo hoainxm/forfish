@@ -1,6 +1,6 @@
 import { FishingMap } from "@/components/fishing-map";
 
-export const metadata = { title: "Đánh bắt — ForFish" };
+export const metadata = { title: "Đánh bắt — SDFish" };
 
 /*
   Tab "Ra khơi" — bản đồ LÀ cả màn hình (kiểu Google Maps/Windy), không cuộn.

@@ -1,4 +1,4 @@
-# Audit history — ForFish
+# Audit history — SDFish
 
 > Log append-only của `/audit` (nguyên tắc 12). Mỗi dòng: `ngày | điểm/120 | top issue`. KHÔNG regenerate — không sống trong `_generated/`.
 

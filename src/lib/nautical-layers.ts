@@ -11,6 +11,7 @@
 // Lý do tách file: tránh đụng ocean-map.ts đang được session khác sửa.
 
 import type { StyleSpecification } from "maplibre-gl";
+import { apiUrl } from "@/lib/api-base";
 
 export const OPENSEAMAP_DEPTH_ATTRIB =
   "Contour: OpenSeaMap depth WMS (ODbL, dựa GEBCO)";
@@ -18,7 +19,7 @@ export const OSM_OVERPASS_ATTRIB = "© OpenStreetMap (ODbL) qua Overpass";
 
 /** XYZ tile của ForFish API → ảnh contour OpenSeaMap, phù hợp MapLibre raster source. */
 export function openseamapContourTileUrl(): string {
-  return "/api/tiles/contour/{z}/{x}/{y}";
+  return apiUrl("/api/tiles/contour/{z}/{x}/{y}");
 }
 
 /** Source raster cho contour độ sâu, dùng dán vào style.sources. */

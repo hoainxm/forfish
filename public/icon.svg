@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SDFish">
+  <rect width="512" height="512" rx="112" fill="#14324f"/>
+  <!-- đuôi cá -->
+  <path d="M84 256 L158 200 L158 312 Z" fill="#eef6fa"/>
+  <!-- thân cá -->
+  <ellipse cx="292" cy="256" rx="150" ry="88" fill="#eef6fa"/>
+  <!-- mắt -->
+  <circle cx="374" cy="234" r="15" fill="#14324f"/>
+  <!-- sóng nước -->
+  <path d="M150 380c28-24 56-24 84 0s56 24 84 0 56-24 84 0" fill="none" stroke="#3aa0d8" stroke-width="22" stroke-linecap="round"/>
+</svg>

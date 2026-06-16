@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Archivo, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
+import { SwRegister } from "@/components/sw-register";
 
 const display = Archivo({
   variable: "--font-display",
@@ -19,10 +20,24 @@ const body = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "ForFish — Bạn đồng hành của ngư dân",
+  title: "SDFish — Bạn đồng hành của ngư dân",
   description:
     "Đánh bắt tốt hơn · Bán được đắt hơn · Vận hành rẻ hơn · Tuân thủ dễ hơn",
-  applicationName: "ForFish",
+  applicationName: "SDFish",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
+  // PWA cài về home screen iOS — chạy chuẩn standalone, không thanh trình duyệt
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "SDFish",
+  },
 };
 
 export const viewport: Viewport = {
@@ -59,6 +74,7 @@ export default function RootLayout({
           <main className="flex-1 pb-32">{children}</main>
           <BottomNav />
         </div>
+        <SwRegister />
       </body>
     </html>
   );

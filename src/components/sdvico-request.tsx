@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+import { apiUrl } from "@/lib/api-base";
 import { CheckIcon, PhoneIcon } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { sanitizePhoneInput } from "@/components/auth-form";
@@ -136,7 +137,7 @@ function RequestForm({
     setErrText(null);
     setState("sending");
     try {
-      const r = await fetch("/api/sdvico/request", {
+      const r = await fetch(apiUrl("/api/sdvico/request"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

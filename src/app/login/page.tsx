@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { apiUrl } from "@/lib/api-base";
 import { createClient } from "@/lib/supabase/client";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
@@ -69,7 +70,7 @@ export default function LoginPage() {
     });
 
     if (signInError || !data.user) {
-      await fetch("/api/auth/sso", {
+      await fetch(apiUrl("/api/auth/sso"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, password }),
