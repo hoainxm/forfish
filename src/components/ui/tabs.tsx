@@ -80,7 +80,7 @@ export function Tabs({
                 role="tab"
                 aria-selected={on}
                 onClick={() => setActive(t.id)}
-                className={`relative min-h-[3rem] rounded-full px-3 text-[1rem] font-bold leading-tight transition ${
+                className={`relative min-h-[3.5rem] rounded-full px-3 text-[1rem] font-bold leading-tight transition ${
                   segmented ? "flex-1" : "shrink-0"
                 } ${
                   on
@@ -101,7 +101,8 @@ export function Tabs({
         </div>
       </div>
 
-      <div role="tabpanel" className="pt-3">
+      {/* key=active → đổi tab là remount → cross-fade nhẹ (điềm đạm) */}
+      <div role="tabpanel" key={current?.id} className="anim-fade-in pt-3">
         {current?.content}
       </div>
     </div>

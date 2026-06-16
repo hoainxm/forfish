@@ -19,7 +19,7 @@ gate: warn
 - **MapLibre GL** (`maplibre-gl` + `react-map-gl`) — bản đồ ngư trường Trục 1; NẶNG nên bắt buộc lazy-load qua `next/dynamic` `ssr:false` (`fishing-map.tsx`), không để lọt vào bundle các trục khác
 - **Vitest** — test runner cho logic thuần trong `src/lib/` (`npm test`, config `vitest.config.ts`, test đặt tại `src/lib/__tests__/`)
 - Deploy: **Vercel** (web) · Repo: github.com/Long-Forfun/ForFish (giữ tên repo cũ — infra)
-- **PWA cài được** (2026-06-16): `app/manifest.ts` (→ `/manifest.webmanifest`), `public/sw.js` (service worker offline shell, network-first cho navigation + `/api/*`, cache-first asset), `sw-register.tsx` (đăng ký prod-only), icon `public/icon.svg` → `public/icons/*` (`npm run icons`, devDep `sharp`). **Native-ready**: mọi fetch `/api/*` qua `lib/api-base.ts` (`apiUrl()` — web tương đối, native tuyệt đối qua `NEXT_PUBLIC_API_BASE`); `capacitor.config.ts` (appId `vn.sdvico.sdfish`). Chi tiết: [ops/native-deploy.md](ops/native-deploy.md)
+- **PWA cài được** (2026-06-16): `app/manifest.ts` (→ `/manifest.webmanifest`), `public/sw.js` (service worker offline shell, network-first cho navigation + `/api/*`, cache-first asset), `sw-register.tsx` (đăng ký prod-only), icon `public/icon.svg` → `public/icons/*` (`npm run icons`, devDep `sharp`). **Edge-to-edge native** (2026-06-16): `viewport.viewportFit:"cover"` + `.safe-pt/.safe-pb` + motion điềm đạm CSS (xem [03-design-system.md](03-design-system.md)). **Native-ready**: mọi fetch `/api/*` qua `lib/api-base.ts` (`apiUrl()` — web tương đối, native tuyệt đối qua `NEXT_PUBLIC_API_BASE`); `capacitor.config.ts` (appId `vn.sdvico.sdfish`). Chi tiết: [ops/native-deploy.md](ops/native-deploy.md)
 
 ## 2. Routes — mỗi trục một route
 
@@ -109,6 +109,8 @@ src/
     documents.ts        # Domain logic Trục TÀU (kinds, expiry status) — xem 04-data-model.md
     format.ts           # Helper định dạng dùng chung (số tiền/ngày…)
     api-base.ts         # apiUrl() — base URL API cho web (tương đối) vs native Capacitor (tuyệt đối qua NEXT_PUBLIC_API_BASE); có test. MỌI fetch /api/* đi qua đây
+    use-exit-transition.ts # Hook đóng-có-animation cho sheet/dialog (chạy animation thoát rồi mới gọi onClose) — BottomSheet/ConfirmDialog dùng chung, API ngoài không đổi
+    haptics.ts          # tapFeedback() rung nhẹ (navigator.vibrate có guard) — Android PWA; iOS no-op; Capacitor-ready. Dùng tiết chế ở ConfirmDialog confirm
     region.ts           # Phân vùng Bắc/Trung/Nam: Region, COASTAL_PROVINCES, provinceKey/regionOf — nền cho lọc theo tỉnh ⇒ ĐÒI HỎI tên tỉnh thống nhất giữa các dataset
     geofence.ts         # Trục 1: cảnh báo vượt ranh giới biển (← vn-maritime-border.ts)
     crew.ts             # Trục NGƯỜI/TIỀN: logic chia tiền chuyến (có test)

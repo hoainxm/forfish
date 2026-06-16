@@ -105,6 +105,16 @@ body {
   font-size: 1.125rem;
   line-height: 1.6;
   padding-bottom: env(safe-area-inset-bottom);
+  /* cảm giác app native: chặn rubber-band kéo trôi vỏ ở chế độ standalone */
+  overscroll-behavior-y: none;
+}
+
+/* Safe-area (notch/Dynamic Island + home-indicator) cho bản native edge-to-edge */
+.safe-pt {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-pb {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 h1,
@@ -130,6 +140,43 @@ textarea,
 [role="button"] {
   touch-action: manipulation;
 }
+
+/*
+  Motion điềm đạm chuẩn native (CSS thuần, không lib) — sheet trượt lên, scrim
+  mờ dần, dialog pop nhẹ. KHÔNG bounce. Block prefers-reduced-motion bên dưới
+  tự vô hiệu (đặt SAU khối này) khi user tắt motion.
+*/
+@keyframes sdf-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sdf-scrim-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes sdf-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes sdf-sheet-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+@keyframes sdf-pop-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes sdf-pop-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.97); }
+}
+.anim-scrim-in { animation: sdf-scrim-in 180ms ease-out both; }
+.anim-scrim-out { animation: sdf-scrim-out 200ms ease-in both; }
+.anim-sheet-in { animation: sdf-sheet-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-sheet-out { animation: sdf-sheet-out 200ms ease-in both; }
+.anim-pop-in { animation: sdf-pop-in 180ms ease-out both; }
+.anim-pop-out { animation: sdf-pop-out 160ms ease-in both; }
+.anim-fade-in { animation: sdf-scrim-in 180ms ease-out both; }
 
 /* Tôn trọng người tắt hiệu ứng chuyển động (a11y) */
 @media (prefers-reduced-motion: reduce) {

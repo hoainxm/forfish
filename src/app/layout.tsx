@@ -44,6 +44,9 @@ export const viewport: Viewport = {
   themeColor: "#14324f",
   width: "device-width",
   initialScale: 1,
+  // Edge-to-edge: vẽ tràn dưới notch/Dynamic Island; status bar translucent
+  // phủ lên hero. Phần tử chrome dùng .safe-pt/.safe-pb để né vùng an toàn.
+  viewportFit: "cover",
   // KHÔNG khóa maximumScale — mắt người 40–60 tuổi ngoài nắng cần phóng to (a11y)
 };
 

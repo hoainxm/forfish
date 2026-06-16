@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
+import { useExitTransition } from "@/lib/use-exit-transition";
 
 /*
   BottomSheet dùng chung — thay 5 bản copy-paste, kèm a11y đầy đủ (audit 04):
@@ -20,6 +21,8 @@ export function BottomSheet({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  // đóng có animation trượt xuống (API ngoài giữ nguyên: vẫn nhận onClose)
+  const { closing, requestClose } = useExitTransition(onClose);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -40,7 +43,7 @@ export function BottomSheet({
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        requestClose();
         return;
       }
       if (e.key !== "Tab") return;
@@ -63,12 +66,14 @@ export function BottomSheet({
       document.body.style.overflow = prevOverflow;
       opener?.focus?.();
     };
-  }, [onClose]);
+  }, [requestClose]);
 
   return (
     <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-black/50"
-      onClick={onClose}
+      className={`fixed inset-0 z-30 flex items-end justify-center bg-black/50 ${
+        closing ? "anim-scrim-out" : "anim-scrim-in"
+      }`}
+      onClick={requestClose}
     >
       <div
         ref={panelRef}
@@ -76,7 +81,9 @@ export function BottomSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[1.75rem] bg-background p-5 pb-8 [overscroll-behavior:contain]"
+        className={`max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[1.75rem] bg-background p-5 pb-[max(2rem,env(safe-area-inset-bottom))] [overscroll-behavior:contain] ${
+          closing ? "anim-sheet-out" : "anim-sheet-in"
+        }`}
       >
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-line" aria-hidden />
         <h3 id={titleId} className="display mb-4 text-[1.3125rem] font-bold text-navy">

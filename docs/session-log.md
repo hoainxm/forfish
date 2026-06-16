@@ -121,6 +121,19 @@
 
 ---
 
+### #12 — Nâng cấp UI mobile native (PWA iOS/Android)
+- **Loại**: REQUEST (plan-approved). Quyết định: Claude design (no lib) · motion điềm đạm CSS · look chung.
+- **P1 Edge-to-edge ✅**: `layout.tsx` `viewportFit:"cover"`; `globals.css` `.safe-pt/.safe-pb` + `body overscroll-behavior-y:none`; hero `page-header` cộng inset-top; `bottom-sheet`/`snap-sheet` đáy safe-area; map overlay top `fishing-map-view` `.safe-pt`.
+- **P2 Motion ✅**: `globals.css` keyframes `sdf-{scrim,sheet,pop}-{in,out}` + `.anim-*`; hook `lib/use-exit-transition.ts` (đóng-có-animation, API component không đổi); BottomSheet (scrim+trượt), ConfirmDialog (scrim+pop), Tabs (`.anim-fade-in` đổi tab). `prefers-reduced-motion` tự tắt.
+- **P3 Tap/scroll ✅**: Tabs + nút SnapSheet `min-h-[3.5rem]` (56px); body chống rubber-band.
+- **P4 Haptics ✅**: `lib/haptics.ts` `tapFeedback` (vibrate guard) gắn ConfirmDialog confirm.
+- **P5 Docs ✅**: 03 (Motion + Safe-area + tap), 02 (§1 + lib files), 07 re-verify.
+- **Verify**: tsc + eslint clean · npm test **262/262** · `npm run build` OK. (UI/CSS — không thêm unit test; hook timing UI.)
+- **Ngoài phạm vi**: migrate 9 modal cũ sang ui/*, copy-paste/hardcode-hex drift, route transition/stagger (điềm đạm), haptics native @capacitor/haptics + splash (sau `cap add`).
+- **File**: `src/app/{layout,globals.css}`, `src/components/page-header.tsx`, `src/components/ui/{bottom-sheet,confirm-dialog,tabs,snap-sheet}.tsx`, `src/components/fishing-map-view.tsx`, `src/lib/{use-exit-transition,haptics}.ts`, `docs/app-map/{02,03,07}*.md`, `docs/session-log.md`.
+
+---
+
 **Quy ước**: việc xong = ✅ · hủy = ✋ · treo = ⏸. Mỗi message mới thêm `### #n` dưới ngày tương ứng.
 
 ---

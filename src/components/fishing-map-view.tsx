@@ -965,7 +965,7 @@ export default function FishingMapView() {
       </MapGL>
 
       {/* ── VÙNG NỔI TRÊN CÙNG: tin bão (không gì che) + badge + FAB ──────── */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2">
+      <div className="safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2">
         <StormBanner variant="overlay" />
         <div className="flex items-start justify-between gap-2">
           {/* badge lớp + ngày ảnh — bấm là mở chọn lớp (trung thực dữ liệu) */}
