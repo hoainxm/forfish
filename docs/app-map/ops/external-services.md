@@ -3,13 +3,14 @@
 > Load khi: lỗi liên quan nguồn dữ liệu ngoài (timeout, rate limit, đổi format, token hết hạn), thêm nguồn mới, hoặc audit phụ thuộc.
 
 covers: src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts
-last_verified: 2026-06-11
+last_verified: 2026-06-17
 ttl_days: 180
 gate: warn
+<!-- re-verified: 2026-06-17 - auth-gateway.ts = SĐT+mật khẩu (signup/sso), bỏ OTP/magic-link/service-key; timeout 20s -->
 
 > Registry CANONICAL cho mọi service ngoài hệ (nguyên tắc 11). Toàn bộ fetch nguồn ngoài BẮT BUỘC `AbortSignal.timeout(...)` + degrade rõ ràng (xem 02-architecture §5).
 
-**Last updated**: 2026-06-11
+**Last updated**: 2026-06-17
 
 ---
 
@@ -26,7 +27,7 @@ gate: warn
 | **Overpass / OpenSeaMap** | Phao đèn, báo hiệu gần bờ | Không key | `app/api/nautical` | timeout 25s (nguồn chậm) | Lớp phao ẩn; hải đồ + dự báo vẫn chạy |
 | **NASA GIBS / tiles vệ tinh** | Ảnh mây, nhiệt độ, phù du nền bản đồ | Không key | `lib/ocean-map.ts` (buildMapStyle) | tile CDN | Badge "Chưa tải được"; đổi lớp khác được |
 | **Supabase — ForFish** (`znzgugvfhgmiszqgjulk`) | Auth (SĐT) + DB owner-only (boats/documents/profiles) | publishable + anon (public env) | Vercel env `NEXT_PUBLIC_SUPABASE_*` | — | Env trống → **demo mode** localStorage, app vẫn dùng được (02 §4) |
-| **CRM SDViCo gateway** (`exueouggmbjtjvsvpfya`) | Đồ đã mua + đăng nhập SSO | sb_publishable key (in-code ALLOWED_KEYS, verify_jwt:false) | Edge Functions `forfish-gateway`/`auth-gateway` (service key tự cấp trong CRM) | client 20s | `useSdvicoAssets` nấc `error` + Thử lại; chưa nối → `unlinked`. ⚠️ CHUYỂN TIẾP — thay bởi webhook + DB riêng ([04 §5b](../04-data-model.md)) |
+| **CRM SDViCo gateway** (`exueouggmbjtjvsvpfya`) | Đồ đã mua (`forfish-gateway`) + đăng nhập SĐT+mật khẩu (`auth-gateway`: action `signup`/`sso`, KHÔNG OTP/magic-link/service-key) | sb_publishable key (in-code ALLOWED_KEYS, verify_jwt:false) | Edge Functions `forfish-gateway`/`auth-gateway` (service key tự cấp trong CRM) | client 20s | `useSdvicoAssets` nấc `error` + Thử lại; chưa nối → `unlinked`. ⚠️ CHUYỂN TIẾP — thay bởi webhook + DB riêng ([04 §5b](../04-data-model.md)) |
 | **SDWork webhook** (ingest + provision auth) | Nạp KH/thiết bị/vật tư + tạo tài khoản (SĐT+mật khẩu) vào SDFish | HMAC `SDWORK_WEBHOOK_SECRET` (header `x-sdwork-signature`) | `app/api/sdwork/webhook` + `lib/sdwork-webhook.ts` | SDWork đẩy khi đổi | Sai/thiếu chữ ký → 401/503; rớt event → cron đối soát (Đợt 2); app đọc bản đã nạp, không phụ thuộc SDWork lúc KH mở. Đăng nhập = SĐT+mật khẩu, KHÔNG email/OTP |
 
 ## Quy tắc
