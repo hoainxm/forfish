@@ -95,7 +95,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 
 ## 8. Quyết định đã chốt (không hỏi lại)
 
-- Tạo/sửa mọi object → **drawer/bottom-sheet**, không page riêng.
+- Tạo/sửa mọi object → **drawer/bottom-sheet**, không page riêng. Sheet: `max-h-92dvh` cuộn trong, `pb` safe-area; viewport `interactiveWidget: resizes-content` → bàn phím CO layout (không đè) nên nút Lưu/Hủy ở đáy luôn với tới. Khóa cuộn nền **đếm tham chiếu** (mở sheet-trong-sheet không nhả khóa sớm → nền không trôi sau lưng).
 - Cỡ giao diện mặc định **theo máy** (rem); chỉnh tay ("Chữ to"/"Gọn") trong **sheet tài khoản**, không bày toggle ra hero.
 - Ngôn ngữ status DUY NHẤT = `StatusBanner`; màu cam-đỏ ĐỘC QUYỀN cho ranh giới biển trên map.
 - Demo/sổ mẫu KHÔNG ghi xuống máy, KHÔNG lọt vào dải nhắc khẩn.

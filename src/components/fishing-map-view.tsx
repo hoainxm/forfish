@@ -1022,7 +1022,7 @@ export default function FishingMapView() {
             <button
               type="button"
               onClick={() => setLayerSheetOpen(true)}
-              className="pointer-events-auto flex w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95"
+              className="pointer-events-auto flex min-h-[3.5rem] w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95"
             >
               <LayersIcon className="h-6 w-6" />
               <span className="text-[0.75rem] font-bold">Lớp</span>
@@ -1031,7 +1031,7 @@ export default function FishingMapView() {
               type="button"
               onClick={goToMyBoat}
               disabled={locating}
-              className="pointer-events-auto flex w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95 disabled:opacity-60"
+              className="pointer-events-auto flex min-h-[3.5rem] w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95 disabled:opacity-60"
             >
               <CrosshairIcon className="h-6 w-6" />
               <span className="text-[0.75rem] font-bold leading-tight">
@@ -1041,7 +1041,7 @@ export default function FishingMapView() {
             <button
               type="button"
               onClick={() => setPlacesSheetOpen(true)}
-              className="pointer-events-auto flex w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95"
+              className="pointer-events-auto flex min-h-[3.5rem] w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95"
             >
               <StarIcon className="h-6 w-6" />
               <span className="text-[0.75rem] font-bold leading-tight">

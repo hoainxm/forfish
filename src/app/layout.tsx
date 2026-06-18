@@ -47,6 +47,10 @@ export const viewport: Viewport = {
   // Edge-to-edge: vẽ tràn dưới notch/Dynamic Island; status bar translucent
   // phủ lên hero. Phần tử chrome dùng .safe-pt/.safe-pb để né vùng an toàn.
   viewportFit: "cover",
+  // Bàn phím ảo CO layout viewport (không phủ đè) → bottom-sheet/form tự nằm
+  // TRÊN bàn phím, nút Lưu/Hủy ở đáy sheet không bị che (trước: resizes-visual
+  // mặc định → keyboard đè mất nút). Áp cho mọi form/sheet toàn app.
+  interactiveWidget: "resizes-content",
   // KHÔNG khóa maximumScale — mắt người 40–60 tuổi ngoài nắng cần phóng to (a11y)
 };
 

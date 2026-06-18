@@ -50,8 +50,9 @@ export function TripDossier({
 
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-white">
-      {/* thanh nút — không in */}
-      <div className="no-print sticky top-0 flex gap-3 border-b border-line bg-white px-4 py-3">
+      {/* thanh nút — không in; +safe-area-top để nút In/Đóng không chui dưới
+          notch/status bar (overlay z-50 edge-to-edge) */}
+      <div className="no-print sticky top-0 flex gap-3 border-b border-line bg-white px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <button
           onClick={onClose}
           className="min-h-[3.25rem] flex-1 rounded-full bg-field text-[1.0625rem] font-bold text-foreground/70"

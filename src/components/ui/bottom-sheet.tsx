@@ -4,6 +4,27 @@ import { useEffect, useId, useRef } from "react";
 import { useExitTransition } from "@/lib/use-exit-transition";
 
 /*
+  Khóa cuộn nền ĐẾM THAM CHIẾU (module-level) — khi mở sheet B từ trong sheet A
+  (vd "Sửa" trong "Chọn tàu"): A đóng (exit anim) chồng lúc B mở. Trước đây mỗi
+  sheet tự lưu/khôi phục body.overflow → cleanup của A đặt lại "" trong khi B còn
+  mở = NỀN cuộn lại sau lưng sheet ("đè nền"). Đếm: chỉ khóa ở sheet đầu, chỉ mở
+  khóa khi sheet cuối đóng.
+*/
+let sheetLockCount = 0;
+let savedBodyOverflow = "";
+function lockBodyScroll() {
+  if (sheetLockCount === 0) {
+    savedBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  sheetLockCount += 1;
+}
+function unlockBodyScroll() {
+  sheetLockCount = Math.max(0, sheetLockCount - 1);
+  if (sheetLockCount === 0) document.body.style.overflow = savedBodyOverflow;
+}
+
+/*
   BottomSheet dùng chung — thay 5 bản copy-paste, kèm a11y đầy đủ (audit 04):
   · role="dialog" aria-modal, có tiêu đề liên kết
   · bẫy focus trong sheet, Escape để đóng, trả focus về nút mở
@@ -26,8 +47,7 @@ export function BottomSheet({
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
 
     // focus phần tử đầu tiên trong sheet
     const focusables = () =>
@@ -63,7 +83,7 @@ export function BottomSheet({
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
+      unlockBodyScroll();
       opener?.focus?.();
     };
   }, [requestClose]);

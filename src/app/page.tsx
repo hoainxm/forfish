@@ -90,7 +90,7 @@ export default function Home() {
                     <span className="display block text-[1.1875rem] font-bold leading-tight text-navy">
                       {p.title}
                     </span>
-                    <span className="mt-0.5 block text-[0.875rem] leading-snug text-foreground/70">
+                    <span className="mt-0.5 block text-[1rem] leading-snug text-foreground/70">
                       {p.sub}
                     </span>
                   </span>

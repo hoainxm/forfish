@@ -64,7 +64,10 @@ export function Tabs({
 
   return (
     <div>
-      <div className="sticky top-0 z-10 bg-background/90 px-4 py-2.5 backdrop-blur-md">
+      {/* dính top-0; +safe-area-top để khi dính KHÔNG chui dưới notch/status bar
+          (edge-to-edge viewportFit cover) — hero cuộn mất thì thanh tab vẫn
+          nằm trọn dưới vùng an toàn, không đè chữ với status bar. */}
+      <div className="sticky top-0 z-10 bg-background/90 px-4 pb-2.5 pt-[calc(0.625rem+env(safe-area-inset-top))] backdrop-blur-md">
         <div
           role="tablist"
           aria-label={ariaLabel}
