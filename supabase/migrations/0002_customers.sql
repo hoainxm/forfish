@@ -42,7 +42,8 @@ create table if not exists public.supplies (
   id             uuid primary key default gen_random_uuid(),
   customer_phone text not null,
   name           text not null,
-  qty            numeric,
+  qty            numeric,                       -- chấp nhận thập phân (1.5 kg, 2.3 m)
+  unit           text,                          -- đơn vị: cái/cuộn/kg/m (null = không rõ)
   order_code     text,
   sdwork_ref     text unique,
   updated_at     timestamptz not null default now()

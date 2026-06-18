@@ -88,4 +88,21 @@ describe("map payload → row (chuẩn hoá SĐT, idempotent theo ref)", () => {
     })!;
     expect(bad.qty).toBeNull();
   });
+  it("supply: qty thập phân + unit giữ nguyên; unit thiếu → null", () => {
+    const ok = toSupplyRow({
+      entity: "supply",
+      action: "upsert",
+      ref: "s3",
+      data: { customerPhone: "0901234567", name: "Cáp RG-58", qty: 1.5, unit: "m" },
+    })!;
+    expect(ok.qty).toBe(1.5);
+    expect(ok.unit).toBe("m");
+    const noUnit = toSupplyRow({
+      entity: "supply",
+      action: "upsert",
+      ref: "s4",
+      data: { phone: "0901234567", name: "Lọc nước", qty: 2 },
+    })!;
+    expect(noUnit.unit).toBeNull();
+  });
 });

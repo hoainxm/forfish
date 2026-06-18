@@ -1,6 +1,6 @@
 # SDWork → SDFish — Webhook ingest (tách riêng)
 
-> **Cập nhật 2026-06-16**: SDFish thành **app khách hàng độc lập** — DB riêng (KH·thiết bị·vật tư), KHÔNG đọc-live SDWork. Đơn vẫn nhập ở SDWork; SDWork **đẩy webhook** sang SDFish khi tạo/đổi → SDFish upsert vào bảng riêng. Auth là **OTP riêng** trên project SDFish (không SSO vào CRM nữa).
+> **Cập nhật 2026-06-18**: SDFish thành **app khách hàng độc lập** — DB riêng (KH·thiết bị·vật tư), KHÔNG đọc-live SDWork. Đơn vẫn nhập ở SDWork; SDWork **đẩy webhook** sang SDFish khi tạo/đổi → SDFish upsert vào bảng riêng. Auth là **SĐT + MẬT KHẨU** trên project SDFish (KHÔNG email/OTP, không SSO vào CRM nữa) — provision qua webhook (customer event kèm `password`).
 >
 > Tài liệu cũ (SSO magic-link / signInWithPassword thẳng CRM) **đã bỏ** — auth-gateway/SSO chỉ còn đường mật khẩu PHỤ, chuyển tiếp, sẽ retire.
 
@@ -12,7 +12,7 @@
         ▼  POST https://<sdfish>/api/sdwork/webhook   (HMAC ký)
 [SDFish webhook] → verify HMAC → upsert bảng SDFish (service-role)
         ▼
-[customers · devices · supplies]  ← KH đăng nhập (SĐT+OTP) đọc của mình (RLS)
+[customers · devices · supplies]  ← KH đăng nhập (SĐT+mật khẩu) đọc của mình (RLS)
 ```
 
 SDFish KHÔNG gọi ngược SDWork lúc KH mở app → SDWork chết app vẫn xem được (dữ liệu đã ở SDFish).
@@ -38,17 +38,35 @@ POST /api/sdwork/webhook
                 "purchasedOn": "2026-06-01", "warrantyUntil": "2028-06-01",
                 "orderCode": "DH-123" } },
     { "entity": "supply", "action": "upsert", "ref": "<id>",
-      "data": { "customerPhone": "0901234567", "name": "Lõi lọc nước", "qty": 2,
-                "orderCode": "DH-123" } },
+      "data": { "customerPhone": "0901234567", "name": "Cáp đồng trục RG-58",
+                "qty": 1.5, "unit": "m", "orderCode": "DH-123" } },
     { "entity": "device", "action": "delete", "ref": "<id>" }
   ]
 }
 ```
 
 - `entity`: `customer` | `device` | `supply`. `action`: `upsert` | `delete`.
-- `ref`: id bên SDWork — **bắt buộc**, dùng idempotent (`onConflict: sdwork_ref`) + để delete.
-- SĐT định dạng nào cũng được — SDFish chuẩn hoá về `0xxxxxxxxx` (`normalizeVnPhone`).
+- `ref`: id bên SDWork (UUID PK bảng nguồn) — **bắt buộc**, bất biến, dùng idempotent (`onConflict: sdwork_ref`) + để delete.
+- SĐT định dạng nào cũng được — SDFish chuẩn hoá về `0xxxxxxxxx` (`normalizeVnPhone`). SDWork nên gửi sẵn `login_phone` đã normalize.
+- `supply.qty`: number, **chấp nhận thập phân** (`1.5`). `supply.unit`: đơn vị (cái/cuộn/kg/m), optional.
+- `device`: `model` = `products.sku`; `warrantyUntil` = `warranty_cards.expires_at` hoặc compute `purchasedOn + warranty_months` (xem [field-map](sdwork-field-map.md)).
 - Map → hàng bảng: `toCustomerRow` / `toDeviceRow` / `toSupplyRow` (`src/lib/sdwork-webhook.ts`, có test). Thiếu field bắt buộc (phone/name) → bỏ qua hàng đó.
+
+### Response (đối soát outbox)
+
+```jsonc
+200 { "ok": true, "applied": 3,
+  "results": [
+    { "ref": "<id>", "entity": "customer", "action": "upsert", "ok": true, "provisioned": true },
+    { "ref": "<id>", "entity": "device",   "action": "upsert", "ok": true },
+    { "ref": "<id>", "entity": "supply",   "action": "upsert", "ok": false, "code": "upsert_failed" }
+  ] }
+```
+
+- `results[]` 1 phần tử / event (cùng thứ tự gửi). SDWork **đánh dấu outbox theo `results[].ok`** — KHÔNG dựa `applied` count (event lỗi không câm).
+- `code`: `bad_event` | `missing_required` | `upsert_failed` | `delete_failed`. `ok:false` → SDWork retry event đó.
+- `provisioned` (chỉ customer có `password`): `true` tạo được tài khoản; `false` = upsert dữ liệu OK nhưng **tạo auth user lỗi → KH chưa đăng nhập được**, cần alert.
+- Lỗi toàn cục (không per-event): `401 bad_signature` · `503 not_configured` · `400 bad_json`.
 
 ## 4. Map khoá
 
@@ -79,6 +97,7 @@ SDWORK_WEBHOOK_SECRET=...                # HMAC chung với SDWork
 - Cấu hình **trigger/webhook** trên SDWork: khi đơn/KH/thiết bị/vật tư tạo-đổi-xoá → POST `events[]` (HMAC ký) tới `/api/sdwork/webhook`. Customer event đính `password` khởi tạo để provision tài khoản.
 - Tự sinh + giữ **secret** `SDWORK_WEBHOOK_SECRET` (cùng giá trị 2 nơi) + retry (webhook lẻ dễ rớt → cron đối soát dự phòng Đợt 2).
 - KHÔNG sửa schema CRM từ SDFish.
+- **Field map chi tiết** (cột SDWork → payload key, outbox, backfill, dữ liệu bẩn): [sdwork-field-map.md](sdwork-field-map.md).
 
 ## 8. Còn lại (Đợt 2+)
 

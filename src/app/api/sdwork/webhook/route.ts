@@ -61,14 +61,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, code: "not_configured" }, { status: 503 });
   }
 
-  let applied = 0;
+  // Kết quả per-event (Gap A: partial-fail không còn câm — SDWork đánh dấu
+  // outbox chính xác theo ref thay vì đoán qua applied count).
+  type EventResult = {
+    ref: string;
+    entity: string;
+    action: string;
+    ok: boolean;
+    code?: string;
+    provisioned?: boolean; // chỉ customer có password: tạo được auth user?
+  };
+  const results: EventResult[] = [];
+
   for (const e of events) {
+    const base = { ref: e.ref, entity: e.entity, action: e.action };
     const table = TABLE[e.entity];
-    if (!table || !e.ref) continue;
+    if (!table || !e.ref) {
+      results.push({ ...base, ok: false, code: "bad_event" });
+      continue;
+    }
 
     if (e.action === "delete") {
-      await admin.from(table).delete().eq("sdwork_ref", e.ref);
-      applied++;
+      const { error } = await admin.from(table).delete().eq("sdwork_ref", e.ref);
+      results.push({ ...base, ok: !error, code: error ? "delete_failed" : undefined });
       continue;
     }
     const row =
@@ -77,22 +92,33 @@ export async function POST(req: Request) {
         : e.entity === "device"
           ? toDeviceRow(e)
           : toSupplyRow(e);
-    if (!row) continue;
+    if (!row) {
+      results.push({ ...base, ok: false, code: "missing_required" });
+      continue;
+    }
     const { error } = await admin
       .from(table)
       .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: "sdwork_ref" });
-    if (error) continue;
-    applied++;
+    if (error) {
+      results.push({ ...base, ok: false, code: "upsert_failed" });
+      continue;
+    }
 
-    // customer kèm mật khẩu → provision tài khoản đăng nhập (SĐT + mk)
+    // customer kèm mật khẩu → provision tài khoản đăng nhập (SĐT + mk).
+    // Gap B: lỗi provision KHÔNG chặn ingest nhưng PHẢI hiện trong response để
+    // đối soát (provisioned:false = KH chưa đăng nhập được).
+    let provisioned: boolean | undefined;
     if (e.entity === "customer" && typeof e.data.password === "string" && e.data.password) {
       try {
         await provisionAuthUser(admin, (row as { phone: string }).phone, e.data.password);
+        provisioned = true;
       } catch {
-        // provision lỗi không chặn ingest dữ liệu — log phía Supabase
+        provisioned = false;
       }
     }
+    results.push({ ...base, ok: true, provisioned });
   }
 
-  return NextResponse.json({ ok: true, applied });
+  const applied = results.filter((r) => r.ok).length;
+  return NextResponse.json({ ok: true, applied, results });
 }

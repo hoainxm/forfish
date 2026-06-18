@@ -51,6 +51,7 @@ export interface SupplyRow {
   customer_phone: string;
   name: string;
   qty: number | null;
+  unit: string | null;
   order_code: string | null;
   sdwork_ref: string;
 }
@@ -89,6 +90,7 @@ export function toSupplyRow(e: WebhookEvent): SupplyRow | null {
     customer_phone: normalizeVnPhone(phone),
     name,
     qty: typeof qtyRaw === "number" && Number.isFinite(qtyRaw) ? qtyRaw : null,
+    unit: str(e.data.unit),
     order_code: str(e.data.orderCode),
     sdwork_ref: e.ref,
   };
