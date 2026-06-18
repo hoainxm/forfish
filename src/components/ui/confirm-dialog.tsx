@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useExitTransition } from "@/lib/use-exit-transition";
 import { tapFeedback } from "@/lib/haptics";
 
@@ -30,6 +31,8 @@ export function ConfirmDialog({
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const { closing, requestClose } = useExitTransition(onCancel);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -47,7 +50,11 @@ export function ConfirmDialog({
     };
   }, [requestClose]);
 
-  return (
+  if (!mounted) return null;
+
+  // PORTAL ra body — thoát stacking context của tổ tiên (vd nút Xóa nằm trong
+  // card `relative z-10`) để dialog z-40 luôn nổi trên bottom-nav/sheet.
+  return createPortal(
     <div
       className={`fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-6 ${
         closing ? "anim-scrim-out" : "anim-scrim-in"
@@ -88,6 +95,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

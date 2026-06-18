@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useExitTransition } from "@/lib/use-exit-transition";
 
 /*
@@ -44,6 +45,9 @@ export function BottomSheet({
   const titleId = useId();
   // đóng có animation trượt xuống (API ngoài giữ nguyên: vẫn nhận onClose)
   const { closing, requestClose } = useExitTransition(onClose);
+  // mounted gate: portal chỉ chạy sau hydrate (SSR không có document.body)
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -88,7 +92,13 @@ export function BottomSheet({
     };
   }, [requestClose]);
 
-  return (
+  if (!mounted) return null;
+
+  // PORTAL ra document.body — thoát MỌI stacking/containing-block của tổ tiên
+  // (vd wrapper `relative z-10` của BoatSwitcher tạo stacking context, nhốt
+  // sheet z-30 xuống lớp z-10 → bottom-nav z-20 đè lên che nút Lưu/Hủy). Portal
+  // làm sheet luôn là overlay toàn màn ở gốc body, trên mọi thứ.
+  return createPortal(
     <div
       className={`fixed inset-0 z-30 flex items-end justify-center bg-black/50 ${
         closing ? "anim-scrim-out" : "anim-scrim-in"
@@ -111,6 +121,7 @@ export function BottomSheet({
         </h3>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
