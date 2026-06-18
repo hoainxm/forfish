@@ -1,7 +1,7 @@
 import { PortDirectory } from "@/components/port-directory";
 import { PageHeader } from "@/components/page-header";
 
-export const metadata = { title: "Danh bạ cảng — ForFish" };
+export const metadata = { title: "Danh bạ cảng — SDFish" };
 
 // Danh bạ cảng cá chỉ định, lọc theo vùng tàu — thuộc nhóm Ra khơi
 // (vào từ nút nổi trên bản đồ /ngu-truong), KHÔNG để trong Quản lý con tàu.

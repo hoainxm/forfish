@@ -13,6 +13,7 @@
 // ~25 km — không phải lời hứa "có cá", UI phải luôn ghi rõ.
 
 import { FISH_SEASONS, nearestRegionWithin } from "@/data/fish-seasons";
+import { apiUrl } from "@/lib/api-base";
 
 // Bán kính (độ) gán ô biển về vùng gần nhất — đủ phủ kín toàn EEZ + Hoàng Sa/
 // Trường Sa, vẫn loại nước ngoài xa hẳn (Hải Nam, Philippines). PFZ tính cho
@@ -578,7 +579,7 @@ export type FishForecastResult = FishForecast | { ok: false };
 
 export async function fetchFishForecast(): Promise<FishForecastResult> {
   try {
-    const r = await fetch("/api/fish-forecast");
+    const r = await fetch(apiUrl("/api/fish-forecast"));
     if (!r.ok) return { ok: false };
     return (await r.json()) as FishForecastResult;
   } catch {

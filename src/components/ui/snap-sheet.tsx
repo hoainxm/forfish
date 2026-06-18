@@ -95,7 +95,7 @@ export function SnapSheet({
             <button
               type="button"
               onClick={grow}
-              className="flex min-h-[3.25rem] items-center gap-1 rounded-xl bg-t1 px-3 text-[0.9375rem] font-bold text-white transition active:scale-[0.97]"
+              className="flex min-h-[3.5rem] items-center gap-1 rounded-xl bg-t1 px-3 text-[0.9375rem] font-bold text-white transition active:scale-[0.97]"
             >
               <ChevronUpIcon className="h-5 w-5" />
               Xem thêm
@@ -105,7 +105,7 @@ export function SnapSheet({
             <button
               type="button"
               onClick={shrink}
-              className="flex min-h-[3.25rem] items-center gap-1 surface px-3 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
+              className="flex min-h-[3.5rem] items-center gap-1 surface px-3 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
             >
               <ChevronDownIcon className="h-5 w-5" />
               Thu gọn
@@ -115,7 +115,7 @@ export function SnapSheet({
             <button
               type="button"
               onClick={onClose}
-              className="flex min-h-[3.25rem] items-center justify-center gap-1 surface px-3 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
+              className="flex min-h-[3.5rem] items-center justify-center gap-1 surface px-3 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
             >
               {closeIcon ?? <CloseIcon className="h-5 w-5" />}
               {closeLabel}
@@ -125,7 +125,7 @@ export function SnapSheet({
       </div>
 
       {size !== "peek" && (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-2 [overscroll-behavior:contain]">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-2 [overscroll-behavior:contain]">
           {children}
         </div>
       )}

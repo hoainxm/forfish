@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { BoatSwitcher } from "@/components/boat-switcher";
 import { TauTabs } from "@/components/tau-tabs";
 
-export const metadata = { title: "Tàu của tôi — ForFish" };
+export const metadata = { title: "Tàu của tôi — SDFish" };
 
 // Trục TÀU (tài sản) — ForFish là kênh CSKH của SDVICO: giấy tờ + tuân thủ,
 // DỊCH VỤ (sửa chữa/bảo dưỡng/cước + sổ nhắc tự ghi), sản phẩm SDVICO

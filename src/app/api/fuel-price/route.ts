@@ -10,7 +10,7 @@ export async function GET() {
     const today = new Date().toISOString().slice(0, 10);
     const r = await fetch(`https://giaxanghomnay.com/api/pvdate/${today}`, {
       next: { revalidate: 21600 },
-      headers: { "user-agent": "Mozilla/5.0 (ForFish fuel bot)" },
+      headers: { "user-agent": "Mozilla/5.0 (SDFish fuel bot)" },
       signal: AbortSignal.timeout(12000),
     });
     if (!r.ok) return Response.json({ ok: false });

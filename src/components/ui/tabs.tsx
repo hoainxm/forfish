@@ -64,7 +64,10 @@ export function Tabs({
 
   return (
     <div>
-      <div className="sticky top-0 z-10 bg-background/90 px-4 py-2.5 backdrop-blur-md">
+      {/* dính top-0; +safe-area-top để khi dính KHÔNG chui dưới notch/status bar
+          (edge-to-edge viewportFit cover) — hero cuộn mất thì thanh tab vẫn
+          nằm trọn dưới vùng an toàn, không đè chữ với status bar. */}
+      <div className="sticky top-0 z-10 bg-background/90 px-4 pb-2.5 pt-[calc(0.625rem+env(safe-area-inset-top))] backdrop-blur-md">
         <div
           role="tablist"
           aria-label={ariaLabel}
@@ -80,7 +83,7 @@ export function Tabs({
                 role="tab"
                 aria-selected={on}
                 onClick={() => setActive(t.id)}
-                className={`relative min-h-[3rem] rounded-full px-3 text-[1rem] font-bold leading-tight transition ${
+                className={`relative min-h-[3.5rem] rounded-full px-3 text-[1rem] font-bold leading-tight transition ${
                   segmented ? "flex-1" : "shrink-0"
                 } ${
                   on
@@ -101,7 +104,8 @@ export function Tabs({
         </div>
       </div>
 
-      <div role="tabpanel" className="pt-3">
+      {/* key=active → đổi tab là remount → cross-fade nhẹ (điềm đạm) */}
+      <div role="tabpanel" key={current?.id} className="anim-fade-in pt-3">
         {current?.content}
       </div>
     </div>

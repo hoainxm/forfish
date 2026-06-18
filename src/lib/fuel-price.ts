@@ -3,6 +3,8 @@
 // kỳ điều hành giá (thường thứ Năm). DO 0,05S là dầu tàu cá dùng phổ biến.
 // Nguồn fail → null, UI ẩn (không bịa giá).
 
+import { apiUrl } from "@/lib/api-base";
+
 export interface FuelPrice {
   /** đồng/lít, vùng 1 (gần kho) */
   do005Zone1: number;
@@ -44,7 +46,7 @@ export function parseDieselDo(json: unknown): FuelPrice | null {
 
 export async function fetchFuelPrice(): Promise<FuelPrice | null> {
   try {
-    const r = await fetch("/api/fuel-price");
+    const r = await fetch(apiUrl("/api/fuel-price"));
     if (!r.ok) return null;
     const j = (await r.json()) as { ok: boolean; fuel?: FuelPrice };
     return j.ok && j.fuel ? j.fuel : null;

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BoatDocument, getExpiryStatus } from "@/lib/documents";
+import { apiUrl } from "@/lib/api-base";
 import { CrewMember, crewIssue } from "@/lib/crew";
 import {
   getServiceDueStatus,
@@ -236,7 +237,7 @@ export function UrgentStrip() {
   // Nhắc từ đồ SDVICO (đăng nhập rồi mới có) — đến sau cũng không sao.
   useEffect(() => {
     let alive = true;
-    fetch("/api/me/sdvico", { signal: AbortSignal.timeout(20000) })
+    fetch(apiUrl("/api/me/sdvico"), { signal: AbortSignal.timeout(20000) })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (alive && j?.ok && j.assets) {

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Archivo, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
+import { SwRegister } from "@/components/sw-register";
 
 const display = Archivo({
   variable: "--font-display",
@@ -19,16 +20,37 @@ const body = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "ForFish — Bạn đồng hành của ngư dân",
+  title: "SDFish — Bạn đồng hành của ngư dân",
   description:
     "Đánh bắt tốt hơn · Bán được đắt hơn · Vận hành rẻ hơn · Tuân thủ dễ hơn",
-  applicationName: "ForFish",
+  applicationName: "SDFish",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
+  // PWA cài về home screen iOS — chạy chuẩn standalone, không thanh trình duyệt
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "SDFish",
+  },
 };
 
 export const viewport: Viewport = {
   themeColor: "#14324f",
   width: "device-width",
   initialScale: 1,
+  // Edge-to-edge: vẽ tràn dưới notch/Dynamic Island; status bar translucent
+  // phủ lên hero. Phần tử chrome dùng .safe-pt/.safe-pb để né vùng an toàn.
+  viewportFit: "cover",
+  // Bàn phím ảo CO layout viewport (không phủ đè) → bottom-sheet/form tự nằm
+  // TRÊN bàn phím, nút Lưu/Hủy ở đáy sheet không bị che (trước: resizes-visual
+  // mặc định → keyboard đè mất nút). Áp cho mọi form/sheet toàn app.
+  interactiveWidget: "resizes-content",
   // KHÔNG khóa maximumScale — mắt người 40–60 tuổi ngoài nắng cần phóng to (a11y)
 };
 
@@ -41,6 +63,10 @@ export default function RootLayout({
     <html
       lang="vi"
       className={`${display.variable} ${body.variable} h-full antialiased`}
+      // Script đầu <body> đặt data-mode từ localStorage TRƯỚC hydrate (chống
+      // nháy cỡ chữ) → server không có attr, client có. Cố ý → tắt cảnh báo
+      // hydrate trên <html> (chỉ ảnh hưởng chính thẻ này, không lan xuống cây).
+      suppressHydrationWarning
     >
       <body className="min-h-full">
         {/* Đặt chế độ hiển thị TRƯỚC khi vẽ — không nháy cỡ chữ (xem globals.css) */}
@@ -52,9 +78,16 @@ export default function RootLayout({
         />
         {/* Mobile-first: a phone-width column centred on larger screens. */}
         <div className="mx-auto flex min-h-dvh max-w-[480px] flex-col bg-background shadow-sm">
-          <main className="flex-1 pb-32">{children}</main>
+          {/* pb = chừa CHIỀU CAO dock nổi (≈82px) + vùng an toàn đáy (home
+              indicator iOS / thanh gesture Android, env có thể tới ~48px). Cộng
+              env(safe-area-inset-bottom) để máy nút-dưới KHÔNG che nội dung/nút
+              cuối (trước: pb-32 cứng 128px, thiếu trên máy gesture bar lớn). */}
+          <main className="flex-1 pb-[calc(8rem+env(safe-area-inset-bottom))]">
+            {children}
+          </main>
           <BottomNav />
         </div>
+        <SwRegister />
       </body>
     </html>
   );

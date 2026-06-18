@@ -58,7 +58,7 @@ export async function POST(req: Request) {
   }
 
   const phoneRaw = body.phone?.trim() || profilePhone || "";
-  const name = body.name?.trim() || profileName || "Khách ForFish";
+  const name = body.name?.trim() || profileName || "Khách SDFish";
   if (!isValidVnPhone(phoneRaw)) {
     return NextResponse.json({ ok: false, code: "invalid_phone" }, { status: 400 });
   }

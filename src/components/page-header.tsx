@@ -19,9 +19,11 @@ export function PageHeader({
 }) {
   return (
     <header
-      className="hero px-5 pb-10 pt-6"
+      className="hero px-5 pb-10"
       style={{
         background: `linear-gradient(150deg, var(--navy) 35%, ${toColor})`,
+        // edge-to-edge: tiêu đề luôn dưới status bar/Dynamic Island
+        paddingTop: "calc(1.5rem + env(safe-area-inset-top))",
       }}
     >
       <p className="text-[0.75rem] font-bold uppercase tracking-[0.2em] text-white/60">

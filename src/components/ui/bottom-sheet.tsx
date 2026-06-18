@@ -1,6 +1,29 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useExitTransition } from "@/lib/use-exit-transition";
+
+/*
+  Khóa cuộn nền ĐẾM THAM CHIẾU (module-level) — khi mở sheet B từ trong sheet A
+  (vd "Sửa" trong "Chọn tàu"): A đóng (exit anim) chồng lúc B mở. Trước đây mỗi
+  sheet tự lưu/khôi phục body.overflow → cleanup của A đặt lại "" trong khi B còn
+  mở = NỀN cuộn lại sau lưng sheet ("đè nền"). Đếm: chỉ khóa ở sheet đầu, chỉ mở
+  khóa khi sheet cuối đóng.
+*/
+let sheetLockCount = 0;
+let savedBodyOverflow = "";
+function lockBodyScroll() {
+  if (sheetLockCount === 0) {
+    savedBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  sheetLockCount += 1;
+}
+function unlockBodyScroll() {
+  sheetLockCount = Math.max(0, sheetLockCount - 1);
+  if (sheetLockCount === 0) document.body.style.overflow = savedBodyOverflow;
+}
 
 /*
   BottomSheet dùng chung — thay 5 bản copy-paste, kèm a11y đầy đủ (audit 04):
@@ -20,11 +43,15 @@ export function BottomSheet({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  // đóng có animation trượt xuống (API ngoài giữ nguyên: vẫn nhận onClose)
+  const { closing, requestClose } = useExitTransition(onClose);
+  // mounted gate: portal chỉ chạy sau hydrate (SSR không có document.body)
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
 
     // focus phần tử đầu tiên trong sheet
     const focusables = () =>
@@ -40,7 +67,7 @@ export function BottomSheet({
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        requestClose();
         return;
       }
       if (e.key !== "Tab") return;
@@ -60,15 +87,23 @@ export function BottomSheet({
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
+      unlockBodyScroll();
       opener?.focus?.();
     };
-  }, [onClose]);
+  }, [requestClose]);
 
-  return (
+  if (!mounted) return null;
+
+  // PORTAL ra document.body — thoát MỌI stacking/containing-block của tổ tiên
+  // (vd wrapper `relative z-10` của BoatSwitcher tạo stacking context, nhốt
+  // sheet z-30 xuống lớp z-10 → bottom-nav z-20 đè lên che nút Lưu/Hủy). Portal
+  // làm sheet luôn là overlay toàn màn ở gốc body, trên mọi thứ.
+  return createPortal(
     <div
-      className="fixed inset-0 z-30 flex items-end justify-center bg-black/50"
-      onClick={onClose}
+      className={`fixed inset-0 z-30 flex items-end justify-center bg-black/50 ${
+        closing ? "anim-scrim-out" : "anim-scrim-in"
+      }`}
+      onClick={requestClose}
     >
       <div
         ref={panelRef}
@@ -76,7 +111,9 @@ export function BottomSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[1.75rem] bg-background p-5 pb-8 [overscroll-behavior:contain]"
+        className={`max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[1.75rem] bg-background p-5 pb-[max(2rem,env(safe-area-inset-bottom))] [overscroll-behavior:contain] ${
+          closing ? "anim-sheet-out" : "anim-sheet-in"
+        }`}
       >
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-line" aria-hidden />
         <h3 id={titleId} className="display mb-4 text-[1.3125rem] font-bold text-navy">
@@ -84,6 +121,7 @@ export function BottomSheet({
         </h3>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

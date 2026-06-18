@@ -2,7 +2,7 @@ import { CrewList } from "@/components/crew-list";
 import { PageHeader } from "@/components/page-header";
 import { BoatSwitcher } from "@/components/boat-switcher";
 
-export const metadata = { title: "Bạn thuyền — ForFish" };
+export const metadata = { title: "Bạn thuyền — SDFish" };
 
 // Trục NGƯỜI (lao động): hồ sơ thuyền viên + chứng chỉ/bảo hiểm + hạn.
 // Chia tiền chuyến đã chuyển sang trục TIỀN (/tien) cho gọn taxonomy.

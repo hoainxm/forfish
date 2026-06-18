@@ -54,7 +54,7 @@ const pillars = [
 export default function Home() {
   return (
     <div>
-      <PageHeader kicker="ForFish · Bạn của ngư dân" title="Chào bà con">
+      <PageHeader kicker="SDFish · Bạn của ngư dân" title="Chào bà con">
         {/* hero chỉ bày MỘT chip tài khoản — cỡ chữ/đăng xuất nằm trong sheet */}
         <HeroAccount />
       </PageHeader>
@@ -90,7 +90,7 @@ export default function Home() {
                     <span className="display block text-[1.1875rem] font-bold leading-tight text-navy">
                       {p.title}
                     </span>
-                    <span className="mt-0.5 block text-[0.875rem] leading-snug text-foreground/70">
+                    <span className="mt-0.5 block text-[1rem] leading-snug text-foreground/70">
                       {p.sub}
                     </span>
                   </span>

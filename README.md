@@ -1,4 +1,4 @@
-# ForFish 🐟
+# SDFish 🐟
 
 App đồng hành của ngư dân, cấu trúc quanh **bốn lời hứa với bà con**:
 

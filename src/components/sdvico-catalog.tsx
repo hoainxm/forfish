@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckIcon, PhoneIcon } from "@/components/icons";
 import { SdvicoRequestButton } from "@/components/sdvico-request";
+import { apiUrl } from "@/lib/api-base";
 import { type CatalogGroup } from "@/lib/sdvico-catalog";
 import {
   SDVICO_HOTLINE,
@@ -31,7 +32,7 @@ export function SdvicoCatalog({
   useEffect(() => {
     if (ownedProductNames.length === 0) return; // khách chưa có đồ → khỏi tải
     let alive = true;
-    fetch("/api/sdvico/catalog", { signal: AbortSignal.timeout(20000) })
+    fetch(apiUrl("/api/sdvico/catalog"), { signal: AbortSignal.timeout(20000) })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (alive && j?.ok && Array.isArray(j.groups)) setGroups(j.groups);

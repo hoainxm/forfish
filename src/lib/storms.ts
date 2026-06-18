@@ -6,6 +6,8 @@
 // An toàn là trên hết: nguồn fail → KHÔNG hiển thị "không có bão" — im lặng
 // và để lời dặn nghe đài duyên hải làm việc của nó.
 
+import { apiUrl } from "@/lib/api-base";
+
 export type StormAlert = {
   id: string;
   /** Tên quốc tế của bão, vd "WUTIP" */
@@ -109,7 +111,7 @@ export function parseStorms(json: unknown, now: Date): StormAlert[] {
 /** Client gọi route nội bộ — fail thì trả ok:false, UI tự im lặng */
 export async function fetchStormCheck(): Promise<StormCheck> {
   try {
-    const r = await fetch("/api/storms", {
+    const r = await fetch(apiUrl("/api/storms"), {
       signal: AbortSignal.timeout(20000),
     });
     if (!r.ok) return { ok: false };
