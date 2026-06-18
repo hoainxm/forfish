@@ -107,6 +107,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 - **`tabular-nums`**: đã phủ MỌI cột/figure số: giá cá, chia tiền (per-member), sổ lãi/lỗ, sổ ứng (lịch sử + tổng), nhìn nhanh, thẻ tổng quan bạn thuyền (3 ô), cột điểm + sóng/gió `sea-forecast`.
 - Tên trục ở Home ("Tàu của tôi", "Sổ tiền") khác nhãn dock ("Tàu", "Tiền") — cố ý (dock cần ngắn), giữ nguyên.
 - Lint `set-state-in-effect`: pattern hydrate-on-mount cố ý → rule đã tắt có chủ đích (commit 76acf4f).
+- **Safe-area đa thiết bị (2026-06-18)**: mọi phần neo mép màn né tai thỏ + home-indicator iOS + thanh gesture/nút-dưới Android. TOP: PageHeader + map-overlay + sticky Tabs/dossier dùng `env(safe-area-inset-top)`. BOTTOM: `<main pb=calc(8rem+env(sab))>`, bottom-nav/bottom-sheet/snap-sheet dùng `env(safe-area-inset-bottom)` (body KHÔNG pad đáy — tránh cộng đôi). Overlay (sheet/dialog) **portal ra body** nên không bị stacking context của cha che. Render 320/360/landscape: 0 tràn ngang, form cuộn được, nút không bị ẩn. Mục tiêu: không đè nút, không mất form, không tràn.
 
 ---
 

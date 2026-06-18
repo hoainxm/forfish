@@ -104,7 +104,9 @@ body {
   /* large base for older eyes + sunlight (rem để ăn theo chế độ hiển thị) */
   font-size: 1.125rem;
   line-height: 1.6;
-  padding-bottom: env(safe-area-inset-bottom);
+  /* KHÔNG pad đáy ở body: <main> đã chừa calc(8rem+env(sab)) và bottom-nav tự
+     chừa env(sab) — pad thêm ở body = cộng đôi safe-area = hở đáy thừa trên máy
+     tai thỏ/gesture. */
   /* cảm giác app native: chặn rubber-band kéo trôi vỏ ở chế độ standalone */
   overscroll-behavior-y: none;
 }
