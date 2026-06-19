@@ -31,7 +31,8 @@ POST /api/sdwork/webhook
   "events": [
     { "entity": "customer", "action": "upsert", "ref": "<id SDWork>",
       "data": { "phone": "0901234567", "name": "Nguyễn Văn A",
-                "password": "<mk khởi tạo, tuỳ chọn>" } },   // có password → provision tài khoản đăng nhập
+                "password": "<mk khởi tạo, tuỳ chọn>",
+                "resetPassword": false } },   // password → tạo tài khoản; resetPassword:true → ĐẶT LẠI mk hiện hữu
     { "entity": "device", "action": "upsert", "ref": "<id SDWork>",
       "data": { "customerPhone": "0901234567", "name": "Anten vệ tinh SF-50",
                 "serial": "SF50-001", "model": "SF-50",
@@ -79,30 +80,40 @@ POST /api/sdwork/webhook
 ## 5. Auth (SDFish riêng — hướng TÀI KHOẢN, KHÔNG email/OTP)
 
 - **SĐT + MẬT KHẨU**: `signInWithPassword({ email: {SĐT}@sdvico.local, password })` trên project SDFish (`znzgugvfhgmiszqgjulk`). Email ảo chỉ là handle nội bộ; KHÔNG gửi email, KHÔNG OTP.
-- **Provision**: customer event kèm `password` → webhook tạo auth user (SĐT+mk, `email_confirm:true`, `user_metadata.must_change_password:true`). ĐÃ tồn tại → bỏ qua (KHÔNG ghi đè mk KH đã đổi). Sale báo KH "SĐT + mật khẩu"; lần đầu app ép đổi mk.
+- **Provision**: customer event kèm `password` → webhook tạo auth user (SĐT+mk, `email_confirm:true`, `user_metadata.must_change_password:true`). ĐÃ tồn tại + KHÔNG `resetPassword` → bỏ qua (KHÔNG ghi đè mk KH đã đổi). Sale báo KH "SĐT + mật khẩu"; lần đầu app ép đổi mk.
 - KH đăng nhập thấy thiết bị của mình vì RLS lọc `current_phone()` = SĐT từ email — khớp `devices.customer_phone` webhook đã nạp.
-- `/api/auth/sso` (verify CRM) **LEGACY** — login không còn gọi, retire Đợt 2. Reset mật khẩu qua webhook (update-by-id) = Đợt 2.
+
+## 5b. Đồng bộ mật khẩu 2 chiều (1 credential — đăng nhập được CẢ 2 app)
+
+- **Inbound (SDWork → SDFish) RESET**: customer event `data.resetPassword:true` + `password` → SDFish `updateUserById` đặt lại mk auth user + bật `must_change_password` (lần sau ép đổi). Tra id qua RPC `auth_user_id_by_phone` (migration `0003`). `provisioned:true` = đặt lại OK.
+- **Outbound (SDFish → SDWork)**: KH đổi mk ở `/doi-mat-khau` → SDFish `POST {SDWORK_SYNC_URL}` body `{ phone, password }` (SĐT lấy từ **session**, không tin client), header **`x-sdfish-signature`** = HMAC-SHA256(raw, `SDWORK_WEBHOOK_SECRET`). **Best-effort**: đổi tại SDFish đã xong, lỗi đẩy ngược KHÔNG chặn KH; cron đối soát/đẩy lại = sau.
+- **SDWork phải dựng endpoint nhận** (xem §7): verify `x-sdfish-signature` → đặt mk khách bên CRM = `password`. Nếu không dựng → mk chỉ đổi ở SDFish, đăng nhập SDWork vẫn mk cũ.
+- 🔐 Mật khẩu đi **plaintext** trên kênh HMAC+TLS (đối xứng inbound vốn cũng gửi plaintext). KHÔNG log password 2 đầu.
+- `/api/auth/sso` (verify CRM) **LEGACY** — login không còn gọi, retire sau.
 
 ## 6. Cấu hình (.env SDFish)
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://znzgugvfhgmiszqgjulk.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
-SUPABASE_SERVICE_ROLE_KEY=...            # admin client: webhook upsert + provision auth user
-SDWORK_WEBHOOK_SECRET=...                # HMAC chung với SDWork
+SUPABASE_SERVICE_ROLE_KEY=...            # admin client: webhook upsert + provision/reset auth user
+SDWORK_WEBHOOK_SECRET=...                # HMAC chung 2 chiều (inbound verify + outbound ký)
+SDWORK_SYNC_URL=https://<sdwork>/...     # endpoint SDWork nhận mk đổi từ SDFish (outbound); trống = tắt đẩy ngược
 ```
 
 ## 7. Việc phía SDWork (user quản CẢ 2 project — tự cấu hình)
 
-- Cấu hình **trigger/webhook** trên SDWork: khi đơn/KH/thiết bị/vật tư tạo-đổi-xoá → POST `events[]` (HMAC ký) tới `/api/sdwork/webhook`. Customer event đính `password` khởi tạo để provision tài khoản.
+- Cấu hình **trigger/webhook** trên SDWork: khi đơn/KH/thiết bị/vật tư tạo-đổi-xoá → POST `events[]` (HMAC ký) tới `/api/sdwork/webhook`. Customer event đính `password` khởi tạo để provision tài khoản; đặt lại mk thì gửi thêm `resetPassword:true`.
+- **Dựng endpoint nhận mk đổi từ SDFish** (đồng bộ 2 chiều, §5b): verify header `x-sdfish-signature` = HMAC-SHA256(raw, `SDWORK_WEBHOOK_SECRET`) → set mk khách bên CRM theo `{phone, password}`. KHÔNG dựng = đăng nhập SDWork giữ mk cũ sau khi KH đổi ở SDFish.
 - Tự sinh + giữ **secret** `SDWORK_WEBHOOK_SECRET` (cùng giá trị 2 nơi) + retry (webhook lẻ dễ rớt → cron đối soát dự phòng Đợt 2).
 - KHÔNG sửa schema CRM từ SDFish.
 - **Field map chi tiết** (cột SDWork → payload key, outbox, backfill, dữ liệu bẩn): [sdwork-field-map.md](sdwork-field-map.md).
 
 ## 8. Còn lại (Đợt 2+)
 
-- Apply migration `0002` lên prod 🔴 · cron đối soát backfill · reset mật khẩu qua webhook (update-by-id) · retire đọc-live SDWork (gateway `forfish-gateway` + `/api/auth/sso`).
+- Apply migration `0002`+`0003` lên prod 🔴 · cấu hình `SDWORK_SYNC_URL` + dựng endpoint nhận phía SDWork (§5b/§7) · cron đối soát backfill + đẩy lại mk lỗi · retire đọc-live SDWork (gateway `forfish-gateway` + `/api/auth/sso`).
+- ✅ Đã xong (code+test, 2026-06-19): reset mk inbound (`resetPassword`) · đẩy mk outbound (`/api/sdwork/password-sync`) · RPC `auth_user_id_by_phone` (`0003`) · fix `must_change_password` ở `user_metadata`.
 
 ---
 
-**Last updated**: 2026-06-16 (webhook ingest + provision tài khoản SĐT+mật khẩu; KHÔNG email/OTP)
+**Last updated**: 2026-06-19 (đồng bộ mật khẩu 2 chiều: reset inbound + đẩy outbound + RPC 0003)

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { apiUrl } from "@/lib/api-base";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
 import { AuthCard, AuthError, AuthNote } from "@/components/auth-form";
@@ -49,9 +50,14 @@ export default function DoiMatKhauPage() {
 
     setLoading(true);
 
-    // 1) Đổi mật khẩu của tài khoản đang đăng nhập.
+    // 1) Đổi mật khẩu + tắt cờ buộc đổi NGAY trong user_metadata (login đọc cờ
+    //    ở đây, KHÔNG ở bảng profiles — trước đây ghi nhầm profiles nên KH bị ép
+    //    đổi mỗi lần đăng nhập).
     const { data: userData, error: updateError } =
-      await supabase!.auth.updateUser({ password });
+      await supabase!.auth.updateUser({
+        password,
+        data: { must_change_password: false },
+      });
 
     if (updateError || !userData.user) {
       setError("Chưa đổi được mật khẩu. Bạn thử lại giúp nhé.");
@@ -59,11 +65,19 @@ export default function DoiMatKhauPage() {
       return;
     }
 
-    // 2) Tắt cờ buộc đổi mật khẩu cho hồ sơ của người này.
-    await supabase!
-      .from("profiles")
-      .update({ must_change_password: false })
-      .eq("id", userData.user.id);
+    // 2) Đẩy mật khẩu mới sang SDWork để 1 credential đăng nhập được CẢ 2 app
+    //    (đồng bộ 2 chiều). Best-effort: đổi tại SDFish đã xong, lỗi đẩy ngược
+    //    KHÔNG chặn KH vào app (cron đối soát/đẩy lại = Đợt 2).
+    try {
+      await fetch(apiUrl("/api/sdwork/password-sync"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ password }),
+      });
+    } catch {
+      // im lặng — không làm phiền KH; đối soát sau
+    }
 
     // 3) Vào trang chính.
     router.replace("/");

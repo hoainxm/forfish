@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { phoneToEmail } from "@/lib/phone";
 import {
+  passwordSyncIntent,
   toCustomerRow,
   toDeviceRow,
   toSupplyRow,
@@ -15,20 +16,39 @@ import {
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
-// Provision tài khoản đăng nhập (SĐT + mật khẩu) khi customer event kèm
-// password. Tạo lần đầu (must_change_password=true); ĐÃ tồn tại → bỏ qua, KHÔNG
-// ghi đè mật khẩu KH có thể đã đổi (reset mật khẩu = Đợt 2). KHÔNG log password.
-async function provisionAuthUser(admin: Admin, phone: string, password: string) {
+// Đồng bộ mật khẩu đăng nhập (SĐT + mật khẩu) — 1 credential cho cả 2 app.
+//  · chưa có user → TẠO (must_change_password=true).
+//  · đã có + KHÔNG reset → bỏ qua (không ghi đè mật khẩu KH có thể đã tự đổi).
+//  · đã có + reset=true (SDWork chủ động đặt lại) → updateUserById đặt mật khẩu
+//    mới + bật must_change_password (lần tới ép đổi). Tra id qua RPC 0003.
+// KHÔNG log password.
+async function syncAuthPassword(
+  admin: Admin,
+  phone: string,
+  password: string,
+  reset: boolean,
+) {
   const { error } = await admin.auth.admin.createUser({
     email: phoneToEmail(phone),
     password,
     email_confirm: true,
     user_metadata: { must_change_password: true },
   });
-  // "đã đăng ký" = đã provision trước → bình thường, bỏ qua
-  if (error && !/registered|exist|already/i.test(error.message)) {
-    throw error;
-  }
+  if (!error) return; // tạo mới xong
+  const exists = /registered|exist|already/i.test(error.message);
+  if (!exists) throw error;
+  if (!reset) return; // đã tồn tại, không yêu cầu reset → giữ nguyên
+
+  const { data: uid, error: rpcErr } = await admin.rpc(
+    "auth_user_id_by_phone",
+    { p_phone: phone },
+  );
+  if (rpcErr || !uid) throw rpcErr ?? new Error("user_not_found");
+  const { error: updErr } = await admin.auth.admin.updateUserById(uid as string, {
+    password,
+    user_metadata: { must_change_password: true },
+  });
+  if (updErr) throw updErr;
 }
 
 const TABLE: Record<WebhookEvent["entity"], string> = {
@@ -104,16 +124,24 @@ export async function POST(req: Request) {
       continue;
     }
 
-    // customer kèm mật khẩu → provision tài khoản đăng nhập (SĐT + mk).
-    // Gap B: lỗi provision KHÔNG chặn ingest nhưng PHẢI hiện trong response để
+    // customer kèm mật khẩu → đồng bộ tài khoản đăng nhập (tạo/đặt-lại).
+    // Gap B: lỗi đồng bộ KHÔNG chặn ingest nhưng PHẢI hiện trong response để
     // đối soát (provisioned:false = KH chưa đăng nhập được).
     let provisioned: boolean | undefined;
-    if (e.entity === "customer" && typeof e.data.password === "string" && e.data.password) {
-      try {
-        await provisionAuthUser(admin, (row as { phone: string }).phone, e.data.password);
-        provisioned = true;
-      } catch {
-        provisioned = false;
+    if (e.entity === "customer") {
+      const intent = passwordSyncIntent(e);
+      if (intent.password) {
+        try {
+          await syncAuthPassword(
+            admin,
+            (row as { phone: string }).phone,
+            intent.password,
+            intent.reset,
+          );
+          provisioned = true;
+        } catch {
+          provisioned = false;
+        }
       }
     }
     results.push({ ...base, ok: true, provisioned });

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createHmac } from "node:crypto";
 import {
   verifyWebhookSignature,
+  passwordSyncIntent,
   toCustomerRow,
   toDeviceRow,
   toSupplyRow,
@@ -104,5 +105,40 @@ describe("map payload → row (chuẩn hoá SĐT, idempotent theo ref)", () => {
       data: { phone: "0901234567", name: "Lọc nước", qty: 2 },
     })!;
     expect(noUnit.unit).toBeNull();
+  });
+});
+
+describe("passwordSyncIntent (đồng bộ mật khẩu 2 app)", () => {
+  const ev = (data: Record<string, unknown>): WebhookEvent => ({
+    entity: "customer",
+    action: "upsert",
+    ref: "c1",
+    data,
+  });
+  it("có password, không reset → tạo lần đầu", () => {
+    expect(passwordSyncIntent(ev({ phone: "0901234567", password: "abc123" }))).toEqual({
+      password: "abc123",
+      reset: false,
+    });
+  });
+  it("resetPassword=true → reset mật khẩu hiện hữu", () => {
+    expect(
+      passwordSyncIntent(ev({ phone: "0901234567", password: "new456", resetPassword: true })),
+    ).toEqual({ password: "new456", reset: true });
+  });
+  it("không có password → bỏ qua (null, không reset)", () => {
+    expect(passwordSyncIntent(ev({ phone: "0901234567" }))).toEqual({
+      password: null,
+      reset: false,
+    });
+  });
+  it("entity khác customer → luôn null", () => {
+    const e: WebhookEvent = {
+      entity: "device",
+      action: "upsert",
+      ref: "d1",
+      data: { password: "x", resetPassword: true },
+    };
+    expect(passwordSyncIntent(e)).toEqual({ password: null, reset: false });
   });
 });

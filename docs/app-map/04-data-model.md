@@ -4,7 +4,7 @@
 
 **Load khi / Load when**: đụng DB/migration/RLS, sửa `src/lib/documents.ts`, nối vault với Supabase, hoặc thêm bảng mới.
 
-covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/phone.ts
+covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-06-16
 ttl_days: 180
 
@@ -108,11 +108,14 @@ TS dùng camelCase (`expiresOn`), DB dùng snake_case (`expires_on`) — khi wir
 **Quyết định user (2026-06-16)**: SDFish thành **app khách hàng độc lập**, **tách SDWork** — KHÔNG đọc-live CRM lúc KH mở app. **Auth chỉ hướng TÀI KHOẢN: SĐT + MẬT KHẨU, KHÔNG email/OTP** (user quản cả 2 project). Mô hình §6 (gateway đọc-live) **chuyển tiếp**, retire sau.
 
 - **Đăng nhập**: SĐT + mật khẩu — `supabase.auth.signInWithPassword({ email: {SĐT}@sdvico.local, password })` trên project SDFish (`/login`). Lần đầu (`user_metadata.must_change_password=true` do webhook đặt) → ép `/doi-mat-khau`. KHÔNG OTP, KHÔNG email confirm, KHÔNG SSO-CRM. SĐT helper thuần `src/lib/phone.ts` (tách `auth-form.tsx`).
-- **Provision tài khoản**: webhook customer event kèm `password` → `admin.auth.admin.createUser({email, password, email_confirm:true, user_metadata:{must_change_password:true}})`. ĐÃ tồn tại → bỏ qua (KHÔNG ghi đè mk KH đã đổi). Mật khẩu KHÔNG lưu bảng `customers` (chỉ set trên auth user, Supabase hash). Reset mk = Đợt 2.
+- **Đồng bộ mật khẩu 2 chiều** (1 credential đăng nhập CẢ 2 app — `syncAuthPassword` trong webhook route):
+  - **Inbound SDWork→SDFish**: customer event kèm `password`. Chưa có user → `createUser({email_confirm:true, user_metadata:{must_change_password:true}})`. ĐÃ tồn tại + **KHÔNG** `resetPassword` → bỏ qua (không ghi đè mk KH tự đổi). ĐÃ tồn tại + `resetPassword:true` (SDWork chủ động đặt lại) → tra id qua RPC **`auth_user_id_by_phone`** (migration [`0003_auth_password_sync.sql`](../../supabase/migrations/0003_auth_password_sync.sql), security-definer, revoke public) → `updateUserById({password, user_metadata:{must_change_password:true}})`. Mật khẩu KHÔNG lưu `customers` (chỉ trên auth user, Supabase hash). Intent thuần `passwordSyncIntent` (test).
+  - **Outbound SDFish→SDWork**: KH đổi mk ở `/doi-mat-khau` → `POST /api/sdwork/password-sync` (SĐT lấy từ **session**, không tin client; HMAC `SDWORK_WEBHOOK_SECRET` → `SDWORK_SYNC_URL`). Best-effort (đổi tại SDFish đã xong; lỗi đẩy ngược không chặn KH). Signer thuần `src/lib/sdwork-outbound.ts` (test). SDWork phải dựng endpoint nhận (hợp đồng §7).
+  - **Fix**: `/doi-mat-khau` tắt `must_change_password` trong **`user_metadata`** (qua `updateUser({data})`), KHÔNG phải bảng `profiles` (không tồn tại) — trước đây ghi nhầm nên KH bị ép đổi mỗi lần đăng nhập.
 - **Nạp dữ liệu**: `POST /api/sdwork/webhook` — verify **HMAC SHA-256** (header `x-sdwork-signature`, env `SDWORK_WEBHOOK_SECRET`) trên raw body → upsert customers/devices/supplies bằng admin client. Map thuần `src/lib/sdwork-webhook.ts` (`toCustomerRow/toDeviceRow/toSupplyRow`, chuẩn hoá SĐT, idempotent `sdwork_ref`) — có test. Response trả `results[]` per-event (`ref`, `ok`, `code?`, `provisioned?`) + `applied` count → SDWork đối soát chính xác từng event, không câm khi 1 hàng lỗi.
 - **Đọc**: `/api/me/sdvico` đọc **bảng SDFish** (RLS theo `current_phone()`) thay `fetchOwnedAssets` gọi CRM. `use-sdvico-assets` giữ interface (4 nấc + `OwnedAssets`).
 - **Hợp đồng webhook**: [sdwork-sso-contract.md](../integration/sdwork-sso-contract.md) (event types/payload/HMAC + password).
-- **Ngoài Đợt 1**: apply migration prod 🔴 · bật webhook + cron đối soát · reset mật khẩu qua webhook (update-by-id) · retire §6 (gateway live-read + `/api/auth/sso`).
+- **Đồng bộ mật khẩu 2 chiều (Đợt 2, 2026-06-19)**: reset inbound (`resetPassword`) + đẩy outbound (`/api/sdwork/password-sync`) + RPC `0003` — **code+test xong**. Còn lại: apply migration `0002`+`0003` prod 🔴 · cấu hình `SDWORK_SYNC_URL` + endpoint nhận phía SDWork · cron đối soát · retire §6 (gateway live-read + `/api/auth/sso`).
 
 ## 6. Đồng bộ đồ mua từ SDWork CRM (Trục 3, 2026-06-10) — ⚠️ ĐANG CHUYỂN TIẾP, thay bởi §5b
 

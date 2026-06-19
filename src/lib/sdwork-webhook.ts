@@ -81,6 +81,24 @@ export function toDeviceRow(e: WebhookEvent): DeviceRow | null {
   };
 }
 
+/**
+ * Ý định đồng bộ mật khẩu từ một customer event (đăng nhập 2 app dùng chung 1
+ * credential). `password` = mật khẩu kèm theo (nếu có). `reset` = SDWork YÊU CẦU
+ * đặt lại (đổi mật khẩu hiện hữu); khác provision lần đầu vốn KHÔNG ghi đè để
+ * tránh xoá mật khẩu KH tự đổi. Reset chỉ khi `resetPassword === true`.
+ */
+export function passwordSyncIntent(e: WebhookEvent): {
+  password: string | null;
+  reset: boolean;
+} {
+  if (e.entity !== "customer") return { password: null, reset: false };
+  const password =
+    typeof e.data.password === "string" && e.data.password
+      ? e.data.password
+      : null;
+  return { password, reset: e.data.resetPassword === true };
+}
+
 export function toSupplyRow(e: WebhookEvent): SupplyRow | null {
   const phone = str(e.data.customerPhone ?? e.data.phone);
   const name = str(e.data.name);
