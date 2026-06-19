@@ -108,6 +108,7 @@ SDWORK_SYNC_URL=https://<sdwork>/...     # endpoint SDWork nhận mk đổi từ
 - Tự sinh + giữ **secret** `SDWORK_WEBHOOK_SECRET` (cùng giá trị 2 nơi) + retry (webhook lẻ dễ rớt → cron đối soát dự phòng Đợt 2).
 - KHÔNG sửa schema CRM từ SDFish.
 - **Field map chi tiết** (cột SDWork → payload key, outbox, backfill, dữ liệu bẩn): [sdwork-field-map.md](sdwork-field-map.md).
+- **Spec outbox/trigger phía SDWork** (khi nào bắn, retry, chống echo-loop, checklist dựng): [sdwork-outbox-spec.md](sdwork-outbox-spec.md).
 
 ## 8. Còn lại (Đợt 2+)
 
