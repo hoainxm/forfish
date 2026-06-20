@@ -111,7 +111,11 @@ export async function loadSeaScalar(
   const def = SEA_SCALARS[kind];
   for (const t of def.timeAttempts) {
     try {
-      const r = await fetcher(def.url(t), { next: { revalidate: 21600 } });
+      // ERDDAP có thể treo → timeout/lần thử (invariant 02 §5); fail → mốc kế / {ok:false}
+      const r = await fetcher(def.url(t), {
+        next: { revalidate: 21600 },
+        signal: AbortSignal.timeout(20000),
+      });
       if (!r.ok) continue;
       const grid = parseErddapGrid(await r.json(), {
         hasAltitude: def.hasAltitude,
@@ -132,7 +136,9 @@ export async function fetchSeaScalar(
   kind: SeaScalarKind,
 ): Promise<SeaScalarResult> {
   try {
-    const r = await fetch(apiUrl(`/api/sea-scalar?kind=${kind}`));
+    const r = await fetch(apiUrl(`/api/sea-scalar?kind=${kind}`), {
+      signal: AbortSignal.timeout(25000),
+    });
     if (!r.ok) return { ok: false };
     return (await r.json()) as SeaScalarResult;
   } catch {

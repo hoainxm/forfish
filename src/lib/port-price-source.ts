@@ -165,7 +165,9 @@ export function mergeLivePrices(
 /** Client gọi route nội bộ; lỗi/nguồn fail → lùi về bảng tĩnh (không bịa). */
 export async function fetchLivePrices(): Promise<LivePriceResult> {
   try {
-    const r = await fetch(apiUrl("/api/port-prices"));
+    const r = await fetch(apiUrl("/api/port-prices"), {
+      signal: AbortSignal.timeout(15000),
+    });
     if (r.ok) {
       const j = (await r.json()) as LivePriceResult;
       if (j.ok) return j;
