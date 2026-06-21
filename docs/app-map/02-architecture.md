@@ -5,7 +5,8 @@
 **Load khi / Load when**: thêm/sửa page, route, navigation, component; cần hiểu app chạy thế nào khi env trống.
 
 covers: src/app
-last_verified: 2026-06-14
+last_verified: 2026-06-16
+<!-- re-verified: 2026-06-16 — §5 bổ sung ERDDAP/HYCOM vào timeout invariant (fix dự báo cá treo); fish-forecast route + hycom + client đã có AbortSignal.timeout -->
 ttl_days: 90
 gate: warn
 
@@ -165,7 +166,7 @@ Khi `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` chưa set:
 - CRUD cục bộ theo pattern `document-vault.tsx`: hydrate sau mount, bottom-sheet form, confirm xóa
 - **`<html>` có `suppressHydrationWarning`** (`layout.tsx`): script đầu `<body>` đặt `data-mode` (cỡ chữ) từ localStorage TRƯỚC hydrate để chống nháy → server không có attr, client có. Cố ý → tắt cảnh báo hydrate trên ĐÚNG thẻ `<html>` (không lan xuống cây con).
 - UI tuân thủ [03-design-system.md](03-design-system.md) (font ≥18px, tap ≥56px)
-- **Mọi fetch nguồn ngoài phải có `AbortSignal.timeout(15000)`** (2026-06-10): mạng ngoài khơi chập chờn — thà báo lỗi rõ còn hơn treo UI chờ browser timeout. Áp dụng: Open-Meteo (sea/marine-weather/route-weather/forecast-grid), GDACS (`/api/storms`, server 15s + client 20s), Overpass (25s vì nguồn chậm). Lỗi tải phải có đường THỬ LẠI (vd lưới dự báo: nút "Thử lại" + bật lại lớp tự thử lại) — không có thất bại câm, không có "Đang tải" treo vô hạn.
+- **Mọi fetch nguồn ngoài phải có `AbortSignal.timeout(15000)`** (2026-06-10): mạng ngoài khơi chập chờn — thà báo lỗi rõ còn hơn treo UI chờ browser timeout. Áp dụng: Open-Meteo (sea/marine-weather/route-weather/forecast-grid), GDACS (`/api/storms`, server 15s + client 20s), Overpass (25s vì nguồn chậm), **NOAA ERDDAP + HYCOM** (dự báo cá — server 20s/lưới vì lưới vài MB, client `fetchFishForecast` 25s; sửa 2026-06-16 — trước thiếu, nguồn treo làm route treo). Lỗi tải phải có đường THỬ LẠI (vd lưới dự báo: nút "Thử lại" + bật lại lớp tự thử lại) — không có thất bại câm, không có "Đang tải" treo vô hạn.
 - **Công sức người dùng là dữ liệu quý — không tự vứt** (hội đồng UX 2026-06-11): kết quả tốn công tạo (tuyến dẫn đường ~10s tính) KHÔNG bị xóa ngầm vì một cú chạm; đổi đích thì `route-planner.tsx` giữ tuyến cũ trên bản đồ + dải nhắc "tuyến đang tới chỗ chạm trước" với nút Xóa tuyến (KHÔNG key-remount panel — chỉ dọn kết quả của đích cũ qua `useEffect`). Cùng tinh thần: sổ lãi/lỗ — state `trips` sống ở `money-insights.tsx` (một nguồn sự thật), `trip-log.tsx` là controlled component, thẻ "Nhìn nhanh" cập nhật tức thì; nút "Chia tiền" trên thẻ chuyến + tab Chia tiền tự đổ số từ chuyến mới nhất (`trip-split.tsx` prop `prefill`).
 - **Đồng bộ SDVICO = MỘT hook 4 nấc** (roadmap 2026-06-11): `lib/use-sdvico-assets.ts` (`useSdvicoAssets`) — cache module-level dùng chung cho cả /tau (`tau-tabs.tsx` banner nợ + badge tab, `boat-products.tsx`, `boat-services.tsx`), phân biệt `loading / guest / unlinked / error / ok` (classify thuần có test). Lỗi mạng KHÔNG được hiện thành "Đăng nhập để thấy đồ" — nấc error có nút Thử lại. Gửi yêu cầu CSKH xong gọi `addOptimisticRequest()` để "Yêu cầu đã gửi" hiện ngay. KHÔNG fetch `/api/me/sdvico` tay trong component nữa.
 - **Tabs nhận deep-link**: `ui/tabs.tsx` prop `paramKey` (vd `/tau?tab=dich-vu`), đọc `window.location.search` sau mount (không cần Suspense, trang vẫn prerender tĩnh); hỗ trợ controlled (`value`/`onChange`) + `badge` chấm đỏ. Nhắc việc ở `urgent-strip.tsx` trỏ href kèm `?tab=`.
