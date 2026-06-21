@@ -27,16 +27,22 @@ export async function GET() {
   try {
     // SST + phù du là BẮT BUỘC; SSHA (xoáy), dị thường nhiệt (nước trồi),
     // dòng chảy u/v (hội tụ) là TUỲ CHỌN — fail thì vẫn dự báo, chia lại trọng số
-    const opt = { next: { revalidate: 21600 } };
+    // Lưới ERDDAP vài MB nên timeout rộng hơn 15s mặc định nhưng PHẢI có (invariant
+    // 02 §5): nguồn treo → fail-fast {ok:false} thay vì treo cả serverless function.
+    const GRID_TIMEOUT_MS = 20000;
+    const opt = () => ({
+      next: { revalidate: 21600 },
+      signal: AbortSignal.timeout(GRID_TIMEOUT_MS),
+    });
     // tầng nhiệt HYCOM (host khác, OPeNDAP) chạy SONG SONG với các lưới ERDDAP
     const thermoP = fetchThermoclineGrid().catch(() => null);
     const [sstRes, chlRes, slaRes, anomRes, uRes, vRes] = await Promise.all([
-      fetch(sstGridUrl(), opt),
-      fetch(chlGridUrl(), opt),
-      fetch(slaGridUrl(), opt).catch(() => null),
-      fetch(anomGridUrl(), opt).catch(() => null),
-      fetch(currentGridUrl("u"), opt).catch(() => null),
-      fetch(currentGridUrl("v"), opt).catch(() => null),
+      fetch(sstGridUrl(), opt()),
+      fetch(chlGridUrl(), opt()),
+      fetch(slaGridUrl(), opt()).catch(() => null),
+      fetch(anomGridUrl(), opt()).catch(() => null),
+      fetch(currentGridUrl("u"), opt()).catch(() => null),
+      fetch(currentGridUrl("v"), opt()).catch(() => null),
     ]);
     if (!sstRes.ok || !chlRes.ok) return Response.json({ ok: false });
 

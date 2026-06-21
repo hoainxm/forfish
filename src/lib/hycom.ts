@@ -156,13 +156,18 @@ export function thermoGridUrl(timeIdx: number): string {
  */
 export async function fetchThermoclineGrid(): Promise<ScalarGrid | null> {
   try {
-    const opt = { next: { revalidate: 21600 } };
-    const dds = await fetch(`${DODS}.dds`, opt).then((r) =>
+    // OPeNDAP HYCOM có thể treo → BẮT BUỘC timeout (invariant 02 §5); fail-fast
+    // null để không treo `await thermoP` trong route fish-forecast.
+    const opt = () => ({
+      next: { revalidate: 21600 },
+      signal: AbortSignal.timeout(20000),
+    });
+    const dds = await fetch(`${DODS}.dds`, opt()).then((r) =>
       r.ok ? r.text() : "",
     );
     const n = parseTimeCount(dds);
     if (!n) return null;
-    const res = await fetch(thermoGridUrl(n - 1), opt);
+    const res = await fetch(thermoGridUrl(n - 1), opt());
     if (!res.ok) return null;
     const cube = parseHycomTempAscii(await res.text());
     if (cube.lats.length === 0 || cube.depths.length === 0) return null;

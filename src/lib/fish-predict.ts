@@ -579,7 +579,11 @@ export type FishForecastResult = FishForecast | { ok: false };
 
 export async function fetchFishForecast(): Promise<FishForecastResult> {
   try {
-    const r = await fetch(apiUrl("/api/fish-forecast"));
+    // Timeout client (invariant 02 §5): route fail-fast ≤20s nên cho 25s để
+    // nhận {ok:false} dứt khoát; quá thì hủy → pill "chạm để thử lại".
+    const r = await fetch(apiUrl("/api/fish-forecast"), {
+      signal: AbortSignal.timeout(25000),
+    });
     if (!r.ok) return { ok: false };
     return (await r.json()) as FishForecastResult;
   } catch {
