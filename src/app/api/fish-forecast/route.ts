@@ -23,6 +23,15 @@ import { fetchThermoclineGrid } from "@/lib/hycom";
  * CLIENT (fishing-map-view). Trước đây chặn 401 ở API khiến lớp cá biến mất,
  * không hấp dẫn được khách đăng ký.
  */
+
+// Lưới ERDDAP + tính PFZ nặng (14-30s lần lạnh) → KHÔNG để Vercel giết ở 10s
+// mặc định (sẽ 504, cá không bao giờ load). Cho hàm tới 60s.
+export const maxDuration = 60;
+// Cache CẢ response ở tầng route (ISR stale-while-revalidate 6h): lần đầu/6h
+// tính 1 lần, các lần sau trả tức thì (kể cả lúc revalidate nền) — user không
+// phải chờ lưới chậm nữa. Ảnh nguồn ~ngày/bản nên 6h là đủ tươi.
+export const revalidate = 21600;
+
 export async function GET() {
   try {
     // SST + phù du là BẮT BUỘC; SSHA (xoáy), dị thường nhiệt (nước trồi),
