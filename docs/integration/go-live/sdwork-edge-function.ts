@@ -1,3 +1,4 @@
+// @ts-nocheck — Deno Edge Function reference (chạy ở Supabase, không bundle vào Next.js).
 // SDWork CRM — Edge Function nhận mật khẩu KH đổi từ SDFish (đồng bộ 2 chiều).
 // Copy sang repo CRM: supabase/functions/sdfish-password-in/index.ts
 //
