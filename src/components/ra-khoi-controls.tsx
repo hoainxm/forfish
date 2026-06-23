@@ -26,13 +26,14 @@ import {
   CheckIcon,
   ChevronRightIcon,
   DepthIcon,
+  LayersIcon,
   EddyIcon,
   FishIcon,
   StarIcon,
   WindIcon,
 } from "@/components/icons";
 
-const FISH_COLOR = "#cf3d96"; // hồng tím — cá/ngư trường (design Phương án A)
+const FISH_COLOR = "#2d8659"; // xanh lá — cá/ngư trường (design Phương án A)
 
 type PanelId = "hai-do" | "ngu-truong" | "thoi-tiet" | "diem";
 
@@ -84,6 +85,7 @@ export function RaKhoiControls({
   onManagePlaces: () => void;
 }) {
   const [open, setOpen] = useState<PanelId | null>(null);
+  const [collapsed, setCollapsed] = useState(false); // ẩn/hiện rail như menu bản đồ
 
   const RAIL: {
     id: PanelId;
@@ -111,10 +113,10 @@ export function RaKhoiControls({
   ];
 
   return (
-    <div className="pointer-events-none absolute inset-y-0 right-0 z-20 flex items-start gap-2 safe-pt p-2">
-      {/* PANEL trượt ra trái rail */}
-      {open && (
-        <div className="pointer-events-auto mt-1 max-h-[68vh] w-[15.5rem] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl [overscroll-behavior:contain]">
+    <div className="pointer-events-none relative flex justify-end gap-2">
+      {/* PANEL neo TRÁI rail, bounded trong màn (không tràn/đè banner) */}
+      {open && !collapsed && (
+        <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[62vh] w-[13.5rem] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl [overscroll-behavior:contain]">
           <PanelHeader
             title={PANEL_TITLE[open]}
             onClose={() => setOpen(null)}
@@ -160,9 +162,29 @@ export function RaKhoiControls({
         </div>
       )}
 
-      {/* RAIL dọc mép phải */}
-      <div className="pointer-events-auto flex flex-col gap-2">
-        {RAIL.map((r) => {
+      {/* RAIL dọc mép phải — ẩn/hiện được như menu lớp các app bản đồ */}
+      <div className="pointer-events-auto flex flex-col items-end gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            if (!collapsed) setOpen(null);
+            setCollapsed((c) => !c);
+          }}
+          aria-label={collapsed ? "Hiện lớp bản đồ" : "Ẩn bảng lớp"}
+          aria-expanded={!collapsed}
+          className="flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl bg-navy py-2 text-white shadow-md transition active:scale-95"
+        >
+          {collapsed ? (
+            <LayersIcon className="h-6 w-6" />
+          ) : (
+            <ChevronRightIcon className="h-5 w-5" />
+          )}
+          <span className="text-[0.6875rem] font-bold leading-tight">
+            {collapsed ? "Lớp" : "Ẩn"}
+          </span>
+        </button>
+        {!collapsed &&
+          RAIL.map((r) => {
           const active = open === r.id;
           const Icon = r.icon;
           return (

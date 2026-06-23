@@ -197,15 +197,15 @@ function hexToRgb(hex: string): [number, number, number] {
     parseInt(h.slice(4, 6), 16),
   ];
 }
-// Mọi loài = HỒNG TÍM nhiều tông (design Phương án A: cá = oklch(0.64 0.19 350));
+// Mọi loài = XANH LÁ nhiều tông (user chốt: xanh lá xấu, về xanh lá như cũ);
 // chọn loài = 1 màu của loài
 const FISH_HEAT_DEFAULT = [
   "interpolate", ["linear"], ["heatmap-density"],
-  0, "rgba(207,61,150,0)",
-  0.18, "rgba(244,170,214,0.4)",
-  0.45, "rgba(224,90,172,0.62)",
-  0.75, "rgba(199,60,140,0.78)",
-  1, "rgba(140,28,95,0.9)",
+  0, "rgba(64,145,108,0)",
+  0.18, "rgba(149,213,178,0.4)",
+  0.45, "rgba(82,183,136,0.62)",
+  0.75, "rgba(45,134,89,0.78)",
+  1, "rgba(27,75,44,0.88)",
 ];
 function fishHeatColor(hex: string | null): unknown[] {
   if (!hex) return FISH_HEAT_DEFAULT;
@@ -368,7 +368,7 @@ export default function FishingMapView() {
   // "chỉ muốn hiện đoạn nhiều cá 60-80%".
   const [fishRange, setFishRange] = useState<[number, number]>([35, 100]);
 
-  // ô dự báo cá → ĐIỂM cho lớp heatmap (vùng mềm hồng tím kiểu PFZ chuẩn,
+  // ô dự báo cá → ĐIỂM cho lớp heatmap (vùng mềm xanh lá kiểu PFZ chuẩn,
   // như OceanFishMap — không còn ô vuông); lọc theo loài + khoảng đã chọn
   const fishCellsGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
     if (!fishOn || !fishCast) return null;
@@ -387,7 +387,7 @@ export default function FishingMapView() {
     return { type: "FeatureCollection", features };
   }, [fishOn, fishCast, fishSpecies, fishRange]);
 
-  // màu lớp cá đang xem: theo loài đã chọn, hoặc hồng tím khi "Mọi loài"
+  // màu lớp cá đang xem: theo loài đã chọn, hoặc xanh lá khi "Mọi loài"
   const activeFishColor = fishSpecies
     ? (SPECIES_META[fishSpecies]?.color ?? null)
     : null;
@@ -742,13 +742,9 @@ export default function FishingMapView() {
         ref={mapRef}
         initialViewState={DEFAULT_VIEW}
         mapStyle={mapStyle}
-        // giữ khung nhìn quanh vùng biển VN — zoom xa quá nhãn chồng nhau,
-        // ảnh vệ tinh vỡ và bà con lạc khỏi vùng cần xem
-        minZoom={4}
-        maxBounds={[
-          [96, 1],
-          [124, 26],
-        ]}
+        // user chốt: KHÔNG khoá vùng — cho kéo xem toàn cầu (mặc định mở quanh
+        // biển VN nhưng tự do di chuyển/zoom đi nơi khác)
+        minZoom={2}
         style={{ width: "100%", height: "100%" }}
         onClick={(e) => {
           // đổi điểm xem — tuyến cũ GIỮ NGUYÊN trên bản đồ (hội đồng UX
@@ -837,7 +833,7 @@ export default function FishingMapView() {
                   8, 110,
                 ] as unknown as number,
                 "heatmap-intensity": 0.9,
-                // màu theo loài đã chọn (mỗi loài 1 màu), Mọi loài = hồng tím
+                // màu theo loài đã chọn (mỗi loài 1 màu), Mọi loài = xanh lá
                 "heatmap-color": fishHeatColor(
                   activeFishColor,
                 ) as unknown as ExpressionSpecification,
@@ -960,7 +956,7 @@ export default function FishingMapView() {
               className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/85 shadow-md ring-2 ${
                 h.near ? "ring-trim" : "ring-white/90"
               }`}
-              style={{ color: activeFishColor ?? "#8c1e5f" }}
+              style={{ color: activeFishColor ?? "#1b4b2c" }}
               role="button"
               aria-label={`Điểm nóng có cá${h.near ? " gần bạn" : ""}: ${h.top.join(", ")}`}
             >
@@ -1015,8 +1011,35 @@ export default function FishingMapView() {
       {/* ── VÙNG NỔI TRÊN CÙNG: tin bão (không gì che) + badge + FAB ──────── */}
       <div className="safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2">
         <StormBanner variant="overlay" />
-        {/* Điều khiển lớp → rail phải <RaKhoiControls> (Phương án A). Đây chỉ
-            còn banner bão + trạng thái lỗi cá nổi. */}
+        {/* ĐIỀU KHIỂN LỚP — rail phải + 4 panel (Phương án A); trong luồng dưới
+            banner bão nên không đè/lệch */}
+        <RaKhoiControls
+          layerId={layerId}
+          onLayer={setLayerId}
+          scalarKind={scalarKind}
+          onScalar={(k) => {
+            setScalarKind(k);
+            if (k != null) setLayerId("bathymetry");
+          }}
+          forecastKind={forecastKind}
+          onForecast={(k) => {
+            setForecastKind(k);
+            if (k == null) setPlaying(false);
+            else setGridFailed(false);
+          }}
+          fishOn={fishOn}
+          onFish={setFishOn}
+          fishSpecies={fishSpecies}
+          onOpenSpecies={() => setSpeciesSheetOpen(true)}
+          fishRange={fishRange}
+          onRange={setFishRange}
+          storms={storms}
+          dataDate={dataDate}
+          placesCount={places.length}
+          showPlaces={showPlaces}
+          onShowPlaces={setShowPlaces}
+          onManagePlaces={() => setPlacesSheetOpen(true)}
+        />
 
         {/* (cũ) nút "Cá" GỌN — thay hàng chip ngang (chắn bản đồ). Chỉ rộng bằng nội
             dung, chạm là mở bảng chọn loài. Hiện loài đang chọn + chấm màu.
@@ -1035,37 +1058,7 @@ export default function FishingMapView() {
           </button>
         )}
 
-        {/* (chọn loài + dải lọc % đã chuyển vào panel Ngư trường — RaKhoiControls) */}
       </div>
-
-      {/* ĐIỀU KHIỂN LỚP — rail phải + 4 panel (Phương án A) */}
-      <RaKhoiControls
-        layerId={layerId}
-        onLayer={setLayerId}
-        scalarKind={scalarKind}
-        onScalar={(k) => {
-          setScalarKind(k);
-          if (k != null) setLayerId("bathymetry"); // số liệu rõ nhất trên hải đồ sạch
-        }}
-        forecastKind={forecastKind}
-        onForecast={(k) => {
-          setForecastKind(k);
-          if (k == null) setPlaying(false);
-          else setGridFailed(false);
-        }}
-        fishOn={fishOn}
-        onFish={setFishOn}
-        fishSpecies={fishSpecies}
-        onOpenSpecies={() => setSpeciesSheetOpen(true)}
-        fishRange={fishRange}
-        onRange={setFishRange}
-        storms={storms}
-        dataDate={dataDate}
-        placesCount={places.length}
-        showPlaces={showPlaces}
-        onShowPlaces={setShowPlaces}
-        onManagePlaces={() => setPlacesSheetOpen(true)}
-      />
 
       {/* ── SHEET ĐÁY 3 NẤC — một chế độ duy nhất ────────────────────────── */}
       <SnapSheet
@@ -1418,7 +1411,7 @@ export default function FishingMapView() {
                   <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-t3" />
                   <p className="text-[0.9375rem] leading-snug text-foreground/80">
                     Hôm nay chỗ này <b>không nổi bật</b> trên ảnh vệ tinh — dò
-                    các vùng hồng tím trên bản đồ. Mùa này vùng{" "}
+                    các vùng xanh lá trên bản đồ. Mùa này vùng{" "}
                     <b>{fishRegion?.name}</b> thường có:{" "}
                     {fishHere.join(", ")}{" "}
                     <span className="text-foreground/70">(tham khảo)</span>
