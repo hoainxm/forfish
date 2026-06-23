@@ -5,9 +5,10 @@
 **Load khi / Load when**: sửa UI, màu sắc, typography, copy, trạng thái (status), hoặc thêm component mới.
 
 covers: src/app/globals.css
-last_verified: 2026-06-14
+last_verified: 2026-06-16
 ttl_days: 90
 gate: warn
+<!-- re-verified: 2026-06-16 — +.range-dual (globals.css): dual-range kéo-thả 2 đầu, tái dùng thumb kiểu .range-big (input pointer-events:none, thumb auto). Dùng ở legend lọc khả năng có cá. Token màu/font KHÔNG đổi -->
 
 > ⚠️ Một đợt redesign theo hướng này đang chạy song song — file này mô tả **direction + tokens conceptually**, không trích line number cụ thể của file src. Token thực tế nằm trong `src/app/globals.css` (`@theme`), luôn coi file đó là nguồn giá trị hiện hành.
 
