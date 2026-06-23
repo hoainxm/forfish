@@ -546,11 +546,6 @@ export default function FishingMapView() {
     [flyToPoint, setPoint, setDayIdx],
   );
 
-  /** "Về cảng nhà" — chỉ có nghĩa khi đã đặt cảng nhà */
-  const goHome = () => {
-    if (home) goToCoord(home.lat, home.lon, 6.5);
-  };
-
   /** Ghim chỗ đang xem thành điểm của tôi (đặt tên) */
   const [pinName, setPinName] = useState("");
   const [pinning, setPinning] = useState(false);
@@ -1008,7 +1003,15 @@ export default function FishingMapView() {
       </MapGL>
 
       {/* ── VÙNG NỔI TRÊN CÙNG: tin bão (không gì che) + badge + FAB ──────── */}
-      <div className="safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2">
+      {/* Kéo sheet info lên (half/full) → TỰ ẨN tin bão + rail bên phải cho
+          khỏi chồng chéo (user 2026-06-23: logic tự ẩn, không bắt click).
+          Về peek thì hiện lại. */}
+      <div
+        className={`safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2 transition-opacity duration-200 ${
+          size === "peek" ? "opacity-100" : "opacity-0 [&_*]:pointer-events-none"
+        }`}
+        aria-hidden={size !== "peek"}
+      >
         <StormBanner variant="overlay" />
         {/* ĐIỀU KHIỂN LỚP — rail phải + 4 panel (Phương án A); trong luồng dưới
             banner bão nên không đè/lệch */}
@@ -1070,9 +1073,6 @@ export default function FishingMapView() {
       <SnapSheet
         size={size}
         onSizeChange={setSize}
-        onClose={home && !atHome ? goHome : undefined}
-        closeLabel="Về cảng nhà"
-        closeIcon={<HomeIcon className="h-5 w-5" />}
         above={
           // thanh giờ gió/sóng XUỐNG ĐÁY kiểu Windy — tay với tới, không
           // chồng 4 tầng trên đầu bản đồ (roadmap hội đồng UX 2026-06-11)
