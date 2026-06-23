@@ -66,6 +66,15 @@ Test: **Vitest** (`npm test`, test tại `src/lib/__tests__/`) — thêm logic m
 - Hứa độ chính xác dữ liệu mà nguồn không đảm bảo (vd: khuyến nghị ngư trường chỉ cập nhật 2 lần/tuần)
 - Code mà không update doc cùng commit
 
+## Git workflow — ĐỒNG BỘ TRƯỚC KHI LÀM (bắt buộc)
+
+**Trước khi bắt đầu task/fix mới: `git fetch` + sync remote về TRƯỚC, rồi mới code.** Nhiều người/agent cùng đẩy lên repo → main đi rất nhanh; làm trên nền cũ sẽ phân kỳ (diverge), sau đó push bị chặn và phải rebase/gỡ xung đột ~chục file (đã dính 2026-06-23).
+
+- Đầu phiên / trước mỗi mạch việc: `git fetch origin` rồi xem `git status -sb`; nếu nhánh sau remote thì `git pull --ff-only` (hoặc rebase nhánh lên `origin/main`) **trước khi** sửa.
+- Nhánh tính năng: rebase/merge `origin/main` mới nhất vào **sớm và thường xuyên**, đừng để dồn.
+- Push: chỉ **fast-forward**. KHÔNG `--force` lên nhánh chung (`main`) — sẽ xoá commit người khác. Diverge thì rebase lên `origin/main` rồi push.
+- Push/commit chỉ khi user yêu cầu (xem cũng nhắc ở phần đầu). Đang ở nhánh mặc định → tách nhánh trước khi commit.
+
 ## Quick commands
 
 ```bash
@@ -76,4 +85,4 @@ npm run lint
 
 ---
 
-**Last updated**: 2026-06-10
+**Last updated**: 2026-06-23
