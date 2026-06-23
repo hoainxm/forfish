@@ -546,6 +546,14 @@ export function buildFishForecast(
 ---------------------------------------------------------------------------- */
 const ERDDAP = "https://coastwatch.noaa.gov/erddap/griddap";
 
+/**
+ * User-Agent BẮT BUỘC cho NOAA coastwatch ERDDAP: server chặn 403 nếu UA là
+ * undici/node mặc định (trả HTML lỗi → parse JSON vỡ → {ok:false} = cá không
+ * chạy). Gửi UA "thật" thì 200. Dùng chung cho route fish-forecast + sea-scalar.
+ */
+export const ERDDAP_UA =
+  "Mozilla/5.0 (compatible; SDFish/1.0; +https://github.com/Long-Forfun/ForFish)";
+
 export function sstGridUrl(): string {
   // 0.05° × stride 5 = 0.25°; lat tăng dần
   return `${ERDDAP}/noaacwBLENDEDsstDaily.json?analysed_sst%5B(last)%5D%5B(5.0):5:(22.0)%5D%5B(102.0):5:(118.0)%5D`;

@@ -3,6 +3,7 @@ import {
   buildFishForecast,
   chlGridUrl,
   currentGridUrl,
+  ERDDAP_UA,
   parseErddapGrid,
   slaGridUrl,
   sstGridUrl,
@@ -39,9 +40,13 @@ export async function GET() {
     // Lưới ERDDAP vài MB nên timeout rộng hơn 15s mặc định nhưng PHẢI có (invariant
     // 02 §5): nguồn treo → fail-fast {ok:false} thay vì treo cả serverless function.
     const GRID_TIMEOUT_MS = 20000;
+    // NOAA coastwatch ERDDAP CHẶN 403 nếu thiếu User-Agent "thật" (undici/node
+    // mặc định bị chặn) — phải gửi UA, không thì lưới không tải được = cá không
+    // chạy (chẩn 2026-06-23, trước tưởng do timeout/cache).
     const opt = () => ({
       next: { revalidate: 21600 },
       signal: AbortSignal.timeout(GRID_TIMEOUT_MS),
+      headers: { "User-Agent": ERDDAP_UA },
     });
     // tầng nhiệt HYCOM (host khác, OPeNDAP) chạy SONG SONG với các lưới ERDDAP
     const thermoP = fetchThermoclineGrid().catch(() => null);

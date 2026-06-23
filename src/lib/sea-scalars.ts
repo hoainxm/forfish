@@ -7,7 +7,7 @@
 //
 // Đổi nguồn chỉ sửa url()/parse ở đây; toán parse dùng chung fish-predict.
 
-import { parseErddapGrid, type ScalarGrid } from "@/lib/fish-predict";
+import { parseErddapGrid, ERDDAP_UA, type ScalarGrid } from "@/lib/fish-predict";
 import { apiUrl } from "@/lib/api-base";
 
 export type SeaScalarKind = "ssha" | "sss";
@@ -112,9 +112,11 @@ export async function loadSeaScalar(
   for (const t of def.timeAttempts) {
     try {
       // ERDDAP có thể treo → timeout/lần thử (invariant 02 §5); fail → mốc kế / {ok:false}
+      // UA bắt buộc: coastwatch chặn 403 nếu thiếu (xem ERDDAP_UA fish-predict)
       const r = await fetcher(def.url(t), {
         next: { revalidate: 21600 },
         signal: AbortSignal.timeout(20000),
+        headers: { "User-Agent": ERDDAP_UA },
       });
       if (!r.ok) continue;
       const grid = parseErddapGrid(await r.json(), {
