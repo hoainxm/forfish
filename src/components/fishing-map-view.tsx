@@ -98,7 +98,6 @@ import {
   CrosshairIcon,
   FishIcon,
   HomeIcon,
-  LayersIcon,
   MoonIcon,
   PauseIcon,
   PinIcon,
@@ -1031,7 +1030,9 @@ export default function FishingMapView() {
       {/* ── VÙNG NỔI TRÊN CÙNG: tin bão (không gì che) + badge + FAB ──────── */}
       <div className="safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2">
         <StormBanner variant="overlay" />
-        <div className="flex items-start justify-between gap-2">
+        {/* Phương án A: gom điều khiển về TRÁI, map phải sạch; legend-chip là
+            entry mở Lớp (bỏ nút Lớp trùng) */}
+        <div className="flex items-start gap-2">
           {/* badge lớp + ngày ảnh — bấm là mở chọn lớp (trung thực dữ liệu) */}
           <button
             type="button"
@@ -1081,16 +1082,8 @@ export default function FishingMapView() {
             })()}
           </button>
 
-          {/* cột FAB bên phải — kiểu Google Maps nhưng luôn kèm chữ */}
-          <div className="flex flex-col items-end gap-2">
-            <button
-              type="button"
-              onClick={() => setLayerSheetOpen(true)}
-              className="pointer-events-auto flex min-h-[3.5rem] w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95"
-            >
-              <LayersIcon className="h-6 w-6" />
-              <span className="text-[0.75rem] font-bold">Lớp</span>
-            </button>
+          {/* rail dọc: hành động bản đồ (Lớp mở qua legend-chip bên trái — không lặp) */}
+          <div className="flex flex-col items-start gap-2">
             <button
               type="button"
               onClick={goToMyBoat}
