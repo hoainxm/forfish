@@ -61,7 +61,7 @@
 
 | Data dự kiến | Nhịp dự kiến | Trạng thái | Lưu ý design |
 |---|---|---|---|
-| **OceanByte** — khuyến nghị ngư trường (feed thương mại) | **2 lần/tuần** | qua adapter, chưa bật | KHÔNG hứa chính xác hằng ngày; là lớp "khuyến nghị" tách khỏi PFZ tự tính |
+| ~~OceanByte~~ — khuyến nghị ngư trường | — | **ĐÃ BỎ** (user chốt 2026-06-16, design Phương án A §6) | không dùng tới |
 | **Dòng chảy mặt biển** (lớp tile riêng) | 🟨 Ngày | chưa có nguồn free no-key | sẽ là 1 lớp nền/overlay nữa |
 | **Độ mặn** (SMOS/SMAP) | 🟨 Ngày | tạm rút (nhiễu/ngừng) | chỗ trong nhóm "lớp số liệu biển" (cùng SSHA) |
 | **Tầng nhiệt nâng cao** (OHC/iso26C) | 🟨 Ngày | nguồn ngừng 2024, chờ | bổ sung cho dự báo cá ngừ |

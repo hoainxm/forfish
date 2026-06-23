@@ -111,7 +111,14 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 
 ## 10. Ra khơi REDESIGN — Phương án A (target build, 2026-06-16)
 
-> Nguồn: design `Ra khoi A.dc` (user duyệt). Diệt "phản khoa học" ở [design-review/05](../design-review/05-ra-khoi-current-state.md) (rải 4 góc · trùng nút mở Lớp · số liệu nổi lung tung). Data: [design-review/06](../design-review/06-ra-khoi-data-inventory.md).
+> **Nguồn thiết kế chính: [design-review/07-ra-khoi-A-design.md](../design-review/07-ra-khoi-A-design.md)** (design doc đầy đủ user duyệt). Diệt "phản khoa học" ở [05](../design-review/05-ra-khoi-current-state.md). Data: [06](../design-review/06-ra-khoi-data-inventory.md).
+
+**Delta so với bản trích đầu (theo design doc đầy đủ) — build phải theo:**
+- **Màu cá = hồng tím `oklch(0.64 0.19 350)`** (hiện app xanh lá → ĐỔI). Font **Be Vietnam Pro**. Primary xanh `oklch(0.52 0.13 235)`.
+- **Thanh dự báo NGANG ở đáy** (không nằm trong sheet): Gió&sóng = tab mặc định luôn có; bật lớp → thêm tab; **click ngày → cả bản đồ đổi theo ngày** + badge "Bản đồ: [ngày]".
+- **Bỏ toggle "Tàu tôi" (GPS)** — increment 1 đang còn, sẽ gỡ. **Bỏ OceanByte**.
+- Điểm đã lưu: thêm **"Thêm điểm theo toạ độ"** (tên + vĩ độ + kinh độ).
+- ⚠️ **Khả thi**: thang kéo trên lớp NỀN (depth/SST/mồi = raster tile) KHÔNG lọc-giá-trị-thật client được (chỉ dải % cá GeoJSON lọc thật). "Bản đồ đổi theo ngày" chỉ áp lớp có data-theo-ngày (gió/sóng/cá/bão); ảnh vệ tinh nền trễ ~2 ngày, không có ngày tương lai. Xem [design-review/07 §7](../design-review/07-ra-khoi-A-design.md).
 
 **NGUYÊN TẮC GỐC (bất biến khi build):**
 1. **Bản đồ luôn SẠCH** — chỉ data lớp + marker, không nhồi control.
