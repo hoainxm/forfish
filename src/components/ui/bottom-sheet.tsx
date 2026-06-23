@@ -111,7 +111,7 @@ export function BottomSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
-        className={`max-h-[92dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[1.75rem] bg-background p-5 pb-[max(2rem,env(safe-area-inset-bottom))] [overscroll-behavior:contain] ${
+        className={`max-h-[85dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[1.75rem] bg-background p-5 pb-[max(2rem,env(safe-area-inset-bottom))] [overscroll-behavior:contain] ${
           closing ? "anim-sheet-out" : "anim-sheet-in"
         }`}
       >

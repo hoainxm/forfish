@@ -77,6 +77,7 @@ import { borderGeoJSON } from "@/data/vn-maritime-border";
 import { borderProximity, haversineKm, type BorderLevel } from "@/lib/geofence";
 import { fetchDepthGrid, depthClassAt, type DepthClass } from "@/lib/depth-grid";
 import { weatherFromCode } from "@/lib/weather-codes";
+import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
 import { fetchStormCheck, type StormAlert } from "@/lib/storms";
 import {
   beaufort,
@@ -88,17 +89,14 @@ import {
   type SeaPointConditions,
 } from "@/lib/marine-weather";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
-import { LayerSheet } from "@/components/layer-sheet";
-import { MyPlacesSheet } from "@/components/my-places-sheet";
-import { FishSpeciesSheet } from "@/components/fish-species-sheet";
+import { RaKhoiControls } from "@/components/ra-khoi-controls";
 import { StormBanner } from "@/components/storm-banner";
 import {
   AlertIcon,
   ChevronDownIcon,
-  CrosshairIcon,
+  ChevronUpIcon,
   FishIcon,
   HomeIcon,
-  LayersIcon,
   MoonIcon,
   PauseIcon,
   PinIcon,
@@ -200,8 +198,9 @@ function hexToRgb(hex: string): [number, number, number] {
     parseInt(h.slice(4, 6), 16),
   ];
 }
-// Mọi loài = xanh lá nhiều tông (trung tính, đẹp); chọn loài = 1 màu của loài
-const FISH_HEAT_GREEN = [
+// Mọi loài = XANH LÁ nhiều tông (user chốt: xanh lá xấu, về xanh lá như cũ);
+// chọn loài = 1 màu của loài
+const FISH_HEAT_DEFAULT = [
   "interpolate", ["linear"], ["heatmap-density"],
   0, "rgba(64,145,108,0)",
   0.18, "rgba(149,213,178,0.4)",
@@ -210,7 +209,7 @@ const FISH_HEAT_GREEN = [
   1, "rgba(27,75,44,0.88)",
 ];
 function fishHeatColor(hex: string | null): unknown[] {
-  if (!hex) return FISH_HEAT_GREEN;
+  if (!hex) return FISH_HEAT_DEFAULT;
   const [r, g, b] = hexToRgb(hex);
   const a = (alpha: number) => `rgba(${r},${g},${b},${alpha})`;
   return [
@@ -275,21 +274,6 @@ export default function FishingMapView() {
     scalarKind && scalarData[scalarKind]?.ok
       ? (scalarData[scalarKind] as Extract<SeaScalarResult, { ok: true }>)
       : null;
-  // lỗi tải KHÔNG được hỏng vĩnh viễn (roadmap "thất bại lên tiếng"):
-  // kết quả fail vẫn cache để khỏi loop, nhưng chạm badge là xóa cache thử lại
-  const scalarFailed =
-    scalarKind != null &&
-    scalarData[scalarKind] != null &&
-    !scalarData[scalarKind]?.ok;
-  const retryScalar = useCallback(() => {
-    if (!scalarKind) return;
-    setScalarData((m) => {
-      const next = { ...m };
-      delete next[scalarKind];
-      return next;
-    });
-  }, [scalarKind]);
-
   const scalarGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
     if (!activeScalar) return null;
     const h = 0.25; // ô 0.5°
@@ -341,7 +325,6 @@ export default function FishingMapView() {
   useEffect(() => {
     loadFish();
   }, [loadFish]);
-  const [layerSheetOpen, setLayerSheetOpen] = useState(false);
   const [size, setSize] = useState<SheetSize>("peek");
 
   // ── dự báo vẽ động kiểu Windy: lớp gió/sóng + thanh thời gian ───────────
@@ -418,9 +401,19 @@ export default function FishingMapView() {
     persistPlaces(next);
   }, []);
   const home = homeOf(places);
-  const [placesSheetOpen, setPlacesSheetOpen] = useState(false);
-  // bảng chọn loài cá (modal) — thay hàng chip ngang chắn bản đồ
-  const [speciesSheetOpen, setSpeciesSheetOpen] = useState(false);
+  // đơn vị khoảng cách + hệ toạ độ (panel Cài đặt) — đổi thì mọi chỗ đổi theo
+  const prefs = useMapPrefs();
+  // Hiện điểm đã lưu trên bản đồ (panel Điểm đã lưu — Phương án A)
+  const [showPlaces, setShowPlaces] = useState(true);
+  // thanh giờ Windy (gió/sóng) cho thu/mở — đỡ chiếm mép sheet (user 2026-06-23)
+  const [gridStripOpen, setGridStripOpen] = useState(true);
+  // công cụ đo khoảng cách 2 điểm (panel Công cụ)
+  const [measureMode, setMeasureMode] = useState(false);
+  const [measurePts, setMeasurePts] = useState<SeaPoint[]>([]);
+  const toggleMeasure = (on: boolean) => {
+    setMeasureMode(on);
+    if (!on) setMeasurePts([]);
+  };
 
   // mở app: vào cảng nhà nếu đã đặt, không thì ngoài khơi Nam Trung Bộ
   const [point, setPoint] = useState<SeaPoint>(() => {
@@ -496,7 +489,7 @@ export default function FishingMapView() {
     }
     if (!best) return null;
     return {
-      nm: Math.round(bd / 1.852),
+      km: bd,
       dir: windDirectionVN(bearingDeg(point.lat, point.lon, best.lat, best.lon)),
       v: best.v,
     };
@@ -562,11 +555,6 @@ export default function FishingMapView() {
     },
     [flyToPoint, setPoint, setDayIdx],
   );
-
-  /** "Về cảng nhà" — chỉ có nghĩa khi đã đặt cảng nhà */
-  const goHome = () => {
-    if (home) goToCoord(home.lat, home.lon, 6.5);
-  };
 
   /** Ghim chỗ đang xem thành điểm của tôi (đặt tên) */
   const [pinName, setPinName] = useState("");
@@ -742,14 +730,37 @@ export default function FishingMapView() {
       : `Chỗ ghim — ${currentPlace.name}`
     : home
       ? (() => {
-          const nm =
-            haversineKm(home.lat, home.lon, point.lat, point.lon) / 1.852;
+          const km = haversineKm(home.lat, home.lon, point.lat, point.lon);
           const dir = windDirectionVN(
             bearingDeg(home.lat, home.lon, point.lat, point.lon),
           );
-          return `Cách ${home.name} ~${Math.round(nm)} hải lý hướng ${dir}`;
+          return `Cách ${home.name} ~${fmtDist(km, prefs.distUnit)} hướng ${dir}`;
         })()
       : "Chỗ đang xem trên biển";
+
+  // kết quả đo 2 điểm (đường chim bay) — định dạng theo đơn vị đang chọn
+  const measureResult =
+    measurePts.length === 2
+      ? {
+          dist: fmtDist(
+            haversineKm(
+              measurePts[0].lat,
+              measurePts[0].lon,
+              measurePts[1].lat,
+              measurePts[1].lon,
+            ),
+            prefs.distUnit,
+          ),
+          dir: windDirectionVN(
+            bearingDeg(
+              measurePts[0].lat,
+              measurePts[0].lon,
+              measurePts[1].lat,
+              measurePts[1].lon,
+            ),
+          ),
+        }
+      : null;
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-t1-bg">
@@ -758,13 +769,9 @@ export default function FishingMapView() {
         ref={mapRef}
         initialViewState={DEFAULT_VIEW}
         mapStyle={mapStyle}
-        // giữ khung nhìn quanh vùng biển VN — zoom xa quá nhãn chồng nhau,
-        // ảnh vệ tinh vỡ và bà con lạc khỏi vùng cần xem
-        minZoom={4}
-        maxBounds={[
-          [96, 1],
-          [124, 26],
-        ]}
+        // user chốt: KHÔNG khoá vùng — cho kéo xem toàn cầu (mặc định mở quanh
+        // biển VN nhưng tự do di chuyển/zoom đi nơi khác)
+        minZoom={2}
         style={{ width: "100%", height: "100%" }}
         onClick={(e) => {
           // đổi điểm xem — tuyến cũ GIỮ NGUYÊN trên bản đồ (hội đồng UX
@@ -772,6 +779,13 @@ export default function FishingMapView() {
           // nhầm; RoutePlanner sẽ nhắc "tuyến đang tới chỗ cũ" + cho xóa)
           const lat = Math.round(e.lngLat.lat * 1000) / 1000;
           const lon = Math.round(e.lngLat.lng * 1000) / 1000;
+          // chế độ ĐO: chạm là đặt điểm 1, điểm 2; chạm tiếp thì đo lại từ đầu
+          if (measureMode) {
+            setMeasurePts((pts) =>
+              pts.length >= 2 ? [{ lat, lon }] : [...pts, { lat, lon }],
+            );
+            return; // không đổi điểm xem khi đang đo
+          }
           setDayIdx(0);
           setGeoError(false);
           setPinning(false);
@@ -986,7 +1000,7 @@ export default function FishingMapView() {
         ))}
 
         {/* điểm của tôi đã ghim — sao vàng có tên; chạm là xem dự báo chỗ đó */}
-        {places.map((pl) => (
+        {showPlaces && places.map((pl) => (
           <Marker
             key={pl.id}
             longitude={pl.lon}
@@ -1020,6 +1034,56 @@ export default function FishingMapView() {
         {/* tuyến dẫn đường tiết kiệm dầu + điểm xuất phát */}
         <RouteMapLayers route={route} />
 
+        {/* công cụ ĐO: đường nối 2 điểm + mốc số thứ tự */}
+        {measurePts.length === 2 && (
+          <Source
+            id="measure-line"
+            type="geojson"
+            data={{
+              type: "Feature",
+              properties: {},
+              geometry: {
+                type: "LineString",
+                coordinates: measurePts.map((p) => [p.lon, p.lat]),
+              },
+            }}
+          >
+            <Layer
+              id="measure-line-l"
+              type="line"
+              paint={{
+                "line-color": "#14324f",
+                "line-width": 3,
+                "line-dasharray": [2, 1.5],
+              }}
+            />
+          </Source>
+        )}
+        {measurePts.map((p, i) => (
+          <Marker
+            key={`measure-${i}`}
+            longitude={p.lon}
+            latitude={p.lat}
+            anchor="center"
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-t1 text-[0.75rem] font-bold text-white shadow-md">
+              {i + 1}
+            </span>
+          </Marker>
+        ))}
+        {/* nhãn khoảng cách NGAY GIỮA đường nối 1→2 */}
+        {measurePts.length === 2 && measureResult && (
+          <Marker
+            longitude={(measurePts[0].lon + measurePts[1].lon) / 2}
+            latitude={(measurePts[0].lat + measurePts[1].lat) / 2}
+            anchor="center"
+          >
+            <span className="whitespace-nowrap rounded-full border border-white/80 bg-navy px-2.5 py-1 text-[0.8125rem] font-bold text-white shadow-md">
+              {measureResult.dist}
+            </span>
+          </Marker>
+        )}
+
         {/* điểm đang xem dự báo (ẩn nếu trùng một điểm đã ghim — đã có sao) */}
         {!currentPlace && (
           <Marker longitude={point.lon} latitude={point.lat} anchor="bottom">
@@ -1029,99 +1093,60 @@ export default function FishingMapView() {
       </MapGL>
 
       {/* ── VÙNG NỔI TRÊN CÙNG: tin bão (không gì che) + badge + FAB ──────── */}
-      <div className="safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2">
+      {/* Kéo sheet info lên (half/full) → TỰ ẨN tin bão + rail bên phải cho
+          khỏi chồng chéo (user 2026-06-23: logic tự ẩn, không bắt click).
+          Về peek thì hiện lại. */}
+      <div
+        className={`safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2 transition-opacity duration-200 ${
+          size === "peek" ? "opacity-100" : "opacity-0 [&_*]:pointer-events-none"
+        }`}
+        aria-hidden={size !== "peek"}
+      >
         <StormBanner variant="overlay" />
-        <div className="flex items-start justify-between gap-2">
-          {/* badge lớp + ngày ảnh — bấm là mở chọn lớp (trung thực dữ liệu) */}
-          <button
-            type="button"
-            onClick={() => {
-              // lớp số liệu đang lỗi → chạm là THỬ LẠI (không hỏng tới reload)
-              if (scalarFailed) retryScalar();
-              else setLayerSheetOpen(true);
-            }}
-            className="pointer-events-auto max-w-[55%] rounded-xl bg-white/95 px-3 py-2 text-left transition active:scale-[0.98]"
-          >
-            <span className="block text-[0.875rem] font-bold leading-tight text-navy">
-              {scalarKind ? SEA_SCALARS[scalarKind].label : layer.label}
-            </span>
-            <span
-              className={`block text-[0.75rem] leading-tight ${scalarFailed ? "font-bold text-danger" : "text-foreground/65"}`}
-            >
-              {scalarKind
-                ? activeScalar
-                  ? `Số liệu ngày ${formatDateVN(activeScalar.date)} — chậm vài ngày`
-                  : scalarData[scalarKind]
-                    ? "Chưa tải được — chạm để thử lại"
-                    : "Đang tải số liệu…"
-                : layer.dated
-                  ? `Ảnh ngày ${formatDateVN(dataDate)} — chậm vài ngày`
-                  : "Hải đồ — không đổi theo ngày"}
-            </span>
-            {/* legend mini của nền đang xem — đọc màu tại chỗ */}
-            {(() => {
-              const lg = scalarKind
-                ? SEA_SCALARS[scalarKind].legend
-                : layer.legend;
-              return (
-                lg && (
-                  <span className="mt-1 block">
-                    <span
-                      className="block h-1.5 w-full rounded-full"
-                      style={{ background: lg.gradient }}
-                      aria-hidden
-                    />
-                    <span className="flex justify-between gap-2 text-[0.625rem] font-semibold leading-tight text-foreground/70">
-                      <span>{lg.from}</span>
-                      <span>{lg.to}</span>
-                    </span>
-                  </span>
-                )
-              );
-            })()}
-          </button>
+        {/* ĐIỀU KHIỂN LỚP — rail phải + 4 panel (Phương án A); trong luồng dưới
+            banner bão nên không đè/lệch */}
+        <RaKhoiControls
+          layerId={layerId}
+          onLayer={setLayerId}
+          scalarKind={scalarKind}
+          onScalar={(k) => {
+            setScalarKind(k);
+            if (k != null) setLayerId("bathymetry");
+          }}
+          forecastKind={forecastKind}
+          onForecast={(k) => {
+            setForecastKind(k);
+            if (k == null) setPlaying(false);
+            else setGridFailed(false);
+          }}
+          fishOn={fishOn}
+          onFish={setFishOn}
+          fishSpecies={fishSpecies}
+          fishLocked={fishLocked}
+          species={fishCast?.species ?? []}
+          regionShorts={regionShorts}
+          onPickSpecies={setFishSpecies}
+          fishRange={fishRange}
+          onRange={setFishRange}
+          storms={storms}
+          dataDate={dataDate}
+          showPlaces={showPlaces}
+          onShowPlaces={setShowPlaces}
+          places={places}
+          onPlaces={setPlaces}
+          onGoPlace={(lat, lon) => {
+            setPinning(false);
+            setSize("peek");
+            goToCoord(lat, lon);
+          }}
+          measureMode={measureMode}
+          onMeasureMode={toggleMeasure}
+          measureCount={measurePts.length}
+          measureResult={measureResult}
+          onClearMeasure={() => setMeasurePts([])}
+        />
 
-          {/* cột FAB bên phải — kiểu Google Maps nhưng luôn kèm chữ */}
-          <div className="flex flex-col items-end gap-2">
-            <button
-              type="button"
-              onClick={() => setLayerSheetOpen(true)}
-              className="pointer-events-auto flex min-h-[3.5rem] w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95"
-            >
-              <LayersIcon className="h-6 w-6" />
-              <span className="text-[0.75rem] font-bold">Lớp</span>
-            </button>
-            <button
-              type="button"
-              onClick={goToMyBoat}
-              disabled={locating}
-              className="pointer-events-auto flex min-h-[3.5rem] w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95 disabled:opacity-60"
-            >
-              <CrosshairIcon className="h-6 w-6" />
-              <span className="text-[0.75rem] font-bold leading-tight">
-                {locating ? "Đang tìm…" : "Tàu tôi"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPlacesSheetOpen(true)}
-              className="pointer-events-auto flex min-h-[3.5rem] w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95"
-            >
-              <StarIcon className="h-6 w-6" />
-              <span className="text-[0.75rem] font-bold leading-tight">
-                Điểm tôi
-              </span>
-            </button>
-            {geoError && (
-              <p className="pointer-events-auto max-w-[220px] rounded-xl bg-card px-2.5 py-1.5 text-right text-[0.8125rem] font-semibold leading-snug text-danger">
-                Chưa lấy được vị trí — kiểm tra đã bật Định vị cho điện thoại
-                chưa.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* nút "Cá" GỌN — thay hàng chip ngang (chắn bản đồ). Chỉ rộng bằng nội
+        {/* (cũ) nút "Cá" GỌN — thay hàng chip ngang (chắn bản đồ). Chỉ rộng bằng nội
             dung, chạm là mở bảng chọn loài. Hiện loài đang chọn + chấm màu.
             ẨN khi đang xem gió/sóng — bớt tầng đè map (roadmap hội đồng UX). */}
         {/* dự báo cá lỗi → nói thẳng + Thử lại (không phải "hôm nay không có cá") */}
@@ -1138,147 +1163,92 @@ export default function FishingMapView() {
           </button>
         )}
 
-        {!forecastKind && fishOn && fishCast && fishCast.species.length > 0 && (
-          <div className="flex max-w-[80%] flex-col gap-1 self-start">
-            <button
-              type="button"
-              onClick={() => setSpeciesSheetOpen(true)}
-              aria-label="Chọn loài cá xem trên bản đồ"
-              className="pointer-events-auto inline-flex items-center gap-2 self-start rounded-full bg-card/95 px-3 py-2 shadow-md transition active:scale-95"
-            >
-              <FishIcon className="h-5 w-5 shrink-0 text-t3" aria-hidden />
-              <span
-                className="h-3 w-3 shrink-0 rounded-full"
-                style={{
-                  background: activeFishColor ?? "#2d8659",
-                }}
-                aria-hidden
-              />
-              <span className="truncate text-[0.875rem] font-bold text-navy">
-                {fishSpecies
-                  ? (SPECIES_META[fishSpecies]?.full ?? fishSpecies)
-                  : "Mọi loài cá"}
-              </span>
-              <ChevronDownIcon className="h-4 w-4 shrink-0 text-navy/55" />
-            </button>
-            {/* chú giải = BỘ LỌC KÉO-THẢ 2 đầu: chỉ hiện ô trong khoảng khả
-                năng có cá đã chọn (vd 60-80%). user chốt 2026-06-16. */}
-            <span className="block w-56 rounded-xl bg-card/95 px-2.5 py-1.5 shadow-md">
-              <span className="mb-0.5 flex items-center justify-between gap-2 text-[0.625rem] font-semibold leading-tight text-foreground/70">
-                <span>Lọc khả năng có cá</span>
-                <span className="font-bold tabular-nums text-navy">
-                  {fishRange[0]}–{fishRange[1]}%
-                </span>
-              </span>
-              <span className="relative block h-6">
-                {/* gradient nền */}
-                <span
-                  className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full"
-                  style={{
-                    background: `linear-gradient(to right, ${activeFishColor ?? "#2d8659"}26, ${activeFishColor ?? "#2d8659"})`,
-                  }}
-                  aria-hidden
-                />
-                {/* đoạn đang chọn (đậm) */}
-                <span
-                  className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
-                  style={{
-                    left: `${((fishRange[0] - 35) / 65) * 100}%`,
-                    right: `${((100 - fishRange[1]) / 65) * 100}%`,
-                    background: activeFishColor ?? "#2d8659",
-                  }}
-                  aria-hidden
-                />
-                <input
-                  type="range"
-                  min={35}
-                  max={100}
-                  value={fishRange[0]}
-                  aria-label="Khả năng có cá tối thiểu"
-                  className="range-dual"
-                  onChange={(e) =>
-                    setFishRange(([, hi]) => [
-                      Math.min(Number(e.target.value), hi),
-                      hi,
-                    ])
-                  }
-                />
-                <input
-                  type="range"
-                  min={35}
-                  max={100}
-                  value={fishRange[1]}
-                  aria-label="Khả năng có cá tối đa"
-                  className="range-dual"
-                  onChange={(e) =>
-                    setFishRange(([lo]) => [
-                      lo,
-                      Math.max(Number(e.target.value), lo),
-                    ])
-                  }
-                />
-              </span>
-            </span>
-          </div>
-        )}
-
       </div>
 
       {/* ── SHEET ĐÁY 3 NẤC — một chế độ duy nhất ────────────────────────── */}
       <SnapSheet
         size={size}
         onSizeChange={setSize}
-        onClose={home && !atHome ? goHome : undefined}
-        closeLabel="Về cảng nhà"
-        closeIcon={<HomeIcon className="h-5 w-5" />}
         above={
           // thanh giờ gió/sóng XUỐNG ĐÁY kiểu Windy — tay với tới, không
           // chồng 4 tầng trên đầu bản đồ (roadmap hội đồng UX 2026-06-11)
           forecastKind ? (
             <div className="pointer-events-auto surface px-3 py-2 shadow-md">
               {fGrid ? (
-                <>
-                  <div className="flex items-center justify-between gap-2">
+                gridStripOpen ? (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[0.875rem] font-bold text-navy">
+                        {forecastKind === "wind" ? "Gió" : "Sóng"} ·{" "}
+                        {timeLabelVN(
+                          fGrid.times[timeIdx] ?? "",
+                          fGrid.times[0]?.split("T")[0],
+                        )}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setPlaying((p) => !p)}
+                          aria-label={playing ? "Dừng chạy" : "Chạy thử 3 ngày"}
+                          className="flex h-11 w-11 items-center justify-center rounded-full bg-navy text-white active:scale-95"
+                        >
+                          {playing ? (
+                            <PauseIcon className="h-5 w-5" />
+                          ) : (
+                            <PlayIcon className="h-5 w-5" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPlaying(false);
+                            setGridStripOpen(false);
+                          }}
+                          aria-label="Ẩn thanh giờ"
+                          className="flex h-11 w-9 items-center justify-center rounded-full text-navy active:scale-95"
+                        >
+                          <ChevronDownIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={fGrid.times.length - 1}
+                      step={1}
+                      value={Math.min(timeIdx, fGrid.times.length - 1)}
+                      onChange={(e) => {
+                        setPlaying(false);
+                        setTimeIdx(Number(e.target.value));
+                      }}
+                      aria-label="Chọn giờ xem dự báo"
+                      className="range-big mt-1 w-full"
+                    />
+                    <div className="flex justify-between text-[0.6875rem] font-semibold text-foreground/65">
+                      <span>Bây giờ</span>
+                      <span>Ngày mai</span>
+                      <span>2 ngày</span>
+                      <span>3 ngày</span>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setGridStripOpen(true)}
+                    className="flex w-full items-center justify-between gap-2"
+                    aria-label="Hiện thanh giờ dự báo"
+                  >
                     <span className="text-[0.875rem] font-bold text-navy">
                       {forecastKind === "wind" ? "Gió" : "Sóng"} ·{" "}
                       {timeLabelVN(
                         fGrid.times[timeIdx] ?? "",
                         fGrid.times[0]?.split("T")[0],
-                      )}
+                      )}{" "}
+                      · chạm để chọn giờ
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setPlaying((p) => !p)}
-                      aria-label={playing ? "Dừng chạy" : "Chạy thử 3 ngày"}
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-navy text-white active:scale-95"
-                    >
-                      {playing ? (
-                        <PauseIcon className="h-5 w-5" />
-                      ) : (
-                        <PlayIcon className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={fGrid.times.length - 1}
-                    step={1}
-                    value={Math.min(timeIdx, fGrid.times.length - 1)}
-                    onChange={(e) => {
-                      setPlaying(false);
-                      setTimeIdx(Number(e.target.value));
-                    }}
-                    aria-label="Chọn giờ xem dự báo"
-                    className="range-big mt-1 w-full"
-                  />
-                  <div className="flex justify-between text-[0.6875rem] font-semibold text-foreground/65">
-                    <span>Bây giờ</span>
-                    <span>Ngày mai</span>
-                    <span>2 ngày</span>
-                    <span>3 ngày</span>
-                  </div>
-                </>
+                    <ChevronUpIcon className="h-5 w-5 shrink-0 text-navy" />
+                  </button>
+                )
               ) : gridFailed ? (
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[0.875rem] font-semibold text-danger">
@@ -1308,7 +1278,7 @@ export default function FishingMapView() {
             </p>
           ) : errored ? (
             <p className="py-3 text-[0.9375rem] font-semibold text-danger">
-              Chưa lấy được dự báo — bấm Xem thêm để thử lại.
+              Chưa lấy được dự báo — vuốt lên để thử lại.
             </p>
           ) : cond && !cond.onSea ? (
             <p className="py-3 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
@@ -1337,6 +1307,10 @@ export default function FishingMapView() {
               </p>
               <p className="text-[0.8125rem] leading-snug text-foreground/70">
                 {whereLine}
+              </p>
+              {/* toạ độ điểm đang xem — luôn thấy ở peek, đọc vào máy định vị */}
+              <p className="mt-0.5 text-[0.75rem] font-semibold tabular-nums leading-snug text-foreground/55">
+                Toạ độ: {fmtCoordPair(point.lat, point.lon, prefs.coordFormat)}
               </p>
               {atHome && (
                 <p className="mt-1 text-[0.875rem] font-semibold text-t1">
@@ -1435,30 +1409,87 @@ export default function FishingMapView() {
                 })}
               </div>
 
-              {/* tình trạng biển ngày đã chọn — mô tả điều kiện, không phán */}
-              <div
-                className="rounded-xl p-4"
-                style={{ backgroundColor: LEVEL_STYLE[sel.level].bg }}
+              {/* MAX cả ngày đã chọn (giật) — peek phía trên đã có tình trạng
+                  + tóm tắt, đây chỉ thêm số đỉnh để khỏi trùng (user: trùng dữ liệu) */}
+              <p
+                className="rounded-xl px-3 py-2.5 text-[0.9375rem] font-semibold leading-snug"
+                style={{
+                  backgroundColor: LEVEL_STYLE[sel.level].bg,
+                  color: LEVEL_STYLE[sel.level].fg,
+                }}
               >
-                <p className="mb-1 text-[0.875rem] font-bold uppercase tracking-wide text-foreground/65">
-                  {dayLabel(sel.date, dayIdx)}
-                </p>
-                <p
-                  className="display text-[1.5rem] font-bold leading-tight"
-                  style={{ color: LEVEL_STYLE[sel.level].fg }}
-                >
-                  {SEA_STATE[sel.level]}
-                </p>
-                <p className="mt-1 text-[1rem] font-semibold leading-snug text-foreground/80">
-                  Sóng tới{" "}
-                  {sel.waveMaxM > 0
-                    ? `${formatNumberVN(sel.waveMaxM)} m`
-                    : "— (chưa có số)"}{" "}
-                  · Gió tới cấp {beaufort(sel.windMaxKmh)}
-                  {sel.gustMaxKmh > 0 &&
-                    `, giật cấp ${beaufort(sel.gustMaxKmh)}`}
-                </p>
-              </div>
+                Cả ngày: sóng tới{" "}
+                {sel.waveMaxM > 0
+                  ? `${formatNumberVN(sel.waveMaxM)} m`
+                  : "— (chưa có số)"}{" "}
+                · gió tới cấp {beaufort(sel.windMaxKmh)}
+                {sel.gustMaxKmh > 0 && `, giật cấp ${beaufort(sel.gustMaxKmh)}`}
+              </p>
+
+              {/* số đo LÚC NÀY — để LIỀN với dải ngày + "cả ngày" cho khỏi
+                  nói sóng/gió trên một khúc, dưới một khúc (user 2026-06-23).
+                  Ngày sau đã gọn trong thẻ ngày + "cả ngày" nên chỉ hiện hôm nay. */}
+              {dayIdx === 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="surface p-4">
+                    <div className="flex items-center gap-2 text-t1">
+                      <WindIcon className="h-5 w-5" />
+                      <span className="text-[0.9375rem] font-bold">Gió lúc này</span>
+                    </div>
+                    <p className="display mt-1.5 text-[1.5rem] font-bold leading-none text-navy">
+                      Cấp {beaufort(cond.windKmh)}
+                    </p>
+                    <p className="mt-1 text-[0.875rem] leading-snug text-foreground/65">
+                      {Math.round(cond.windKmh)} km/giờ
+                      {cond.windDirDeg != null &&
+                        ` · hướng ${windDirectionVN(cond.windDirDeg)}`}
+                    </p>
+                  </div>
+                  <div className="surface p-4">
+                    <div className="flex items-center gap-2 text-t1">
+                      <WavesIcon className="h-5 w-5" />
+                      <span className="text-[0.9375rem] font-bold">
+                        Sóng lúc này
+                      </span>
+                    </div>
+                    {cond.waveM != null ? (
+                      <p className="display mt-1.5 text-[1.5rem] font-bold leading-none text-navy">
+                        {formatNumberVN(cond.waveM)} m
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 text-[0.9375rem] leading-snug text-foreground/65">
+                        Chỗ này sát bờ, chưa có số sóng — xem gió là chính.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* mưa/dông + độ tin — để LIỀN với sóng/gió (user 2026-06-23) */}
+              {(() => {
+                const w = weatherFromCode(sel.wmoCode);
+                return (
+                  w && (
+                    <p
+                      className={`rounded-xl px-4 py-3 text-[1rem] font-bold ${
+                        w.danger
+                          ? "bg-danger-bg text-danger"
+                          : "bg-field text-foreground/75"
+                      }`}
+                    >
+                      {w.label}
+                    </p>
+                  )
+                );
+              })()}
+              <p
+                className={`px-1 text-[0.875rem] font-semibold leading-snug ${
+                  confidence.tone === "ok" ? "text-foreground/70" : "text-warn"
+                }`}
+              >
+                {confidence.label}. Chỉ để tham khảo — trước khi đi, nghe thêm
+                đài duyên hải, Biên phòng.
+              </p>
 
               {/* DỰ BÁO CÁ tại chỗ này — tính từ ảnh mới nhất; không có dữ liệu
                   thì lùi về mùa vụ. Luôn ghi rõ tham khảo.
@@ -1555,9 +1586,9 @@ export default function FishingMapView() {
                         {/* ưu tiên gần mình: điểm cá gần chỗ đang xem nhất */}
                         {nearestHotspot && (
                           <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-t1">
-                            {nearestHotspot.nm <= 3
+                            {nearestHotspot.km <= 5.5
                               ? "Điểm cá nổi bật ngay chỗ bạn đang xem."
-                              : `Điểm cá gần bạn nhất: ~${nearestHotspot.nm} hải lý hướng ${nearestHotspot.dir} (khả năng ${
+                              : `Điểm cá gần bạn nhất: ~${fmtDist(nearestHotspot.km, prefs.distUnit)} hướng ${nearestHotspot.dir} (khả năng ${
                                   nearestHotspot.v >= 70
                                     ? "TỐT"
                                     : nearestHotspot.v >= 50
@@ -1625,70 +1656,6 @@ export default function FishingMapView() {
                 onRoute={handleRoute}
               />
 
-              {/* hôm nay có thêm số đo LÚC NÀY (ngày sau đã gọn trong thẻ trên) */}
-              {dayIdx === 0 && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="surface p-4">
-                    <div className="flex items-center gap-2 text-t1">
-                      <WindIcon className="h-5 w-5" />
-                      <span className="text-[0.9375rem] font-bold">Gió lúc này</span>
-                    </div>
-                    <p className="display mt-1.5 text-[1.5rem] font-bold leading-none text-navy">
-                      Cấp {beaufort(cond.windKmh)}
-                    </p>
-                    <p className="mt-1 text-[0.875rem] leading-snug text-foreground/65">
-                      {Math.round(cond.windKmh)} km/giờ
-                      {cond.windDirDeg != null &&
-                        ` · hướng ${windDirectionVN(cond.windDirDeg)}`}
-                    </p>
-                  </div>
-                  <div className="surface p-4">
-                    <div className="flex items-center gap-2 text-t1">
-                      <WavesIcon className="h-5 w-5" />
-                      <span className="text-[0.9375rem] font-bold">
-                        Sóng lúc này
-                      </span>
-                    </div>
-                    {cond.waveM != null ? (
-                      <p className="display mt-1.5 text-[1.5rem] font-bold leading-none text-navy">
-                        {formatNumberVN(cond.waveM)} m
-                      </p>
-                    ) : (
-                      <p className="mt-1.5 text-[0.9375rem] leading-snug text-foreground/65">
-                        Chỗ này sát bờ, chưa có số sóng — xem gió là chính.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* mưa/dông của ngày đã chọn */}
-              {(() => {
-                const w = weatherFromCode(sel.wmoCode);
-                return (
-                  w && (
-                    <p
-                      className={`rounded-xl px-4 py-3 text-[1rem] font-bold ${
-                        w.danger
-                          ? "bg-danger-bg text-danger"
-                          : "bg-field text-foreground/75"
-                      }`}
-                    >
-                      {w.label}
-                    </p>
-                  )
-                );
-              })()}
-
-              {/* độ tin theo tầm xa + lời dặn nghe đài — gọn 1 khối */}
-              <p
-                className={`px-1 text-[0.875rem] font-semibold leading-snug ${
-                  confidence.tone === "ok" ? "text-foreground/70" : "text-warn"
-                }`}
-              >
-                {confidence.label}. Chỉ để tham khảo — trước khi đi, nghe thêm
-                đài duyên hải, Biên phòng.
-              </p>
 
               {/* ghim chỗ này thành "Điểm của tôi" */}
               {currentPlace ? (
@@ -1707,13 +1674,9 @@ export default function FishingMapView() {
                   <span className="flex-1 text-[0.9375rem] font-bold text-navy">
                     Đã ghim: {currentPlace.name}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setPlacesSheetOpen(true)}
-                    className="rounded-full bg-field px-3 py-2 text-[0.875rem] font-bold text-navy"
-                  >
-                    Sửa
-                  </button>
+                  <span className="text-[0.8125rem] font-semibold text-foreground/60">
+                    Sửa ở “Điểm đã lưu”
+                  </span>
                 </div>
               ) : pinning ? (
                 <div className="surface p-3.5">
@@ -1760,67 +1723,14 @@ export default function FishingMapView() {
                   Ghim chỗ này để mở nhanh lần sau
                 </button>
               )}
-
-              {/* toạ độ — cho ai cần đọc vào máy định vị */}
-              <p className="px-1 text-[0.8125rem] text-foreground/65">
-                Toạ độ điểm đang xem: {formatNumberVN(point.lat, 2)}°B ·{" "}
-                {formatNumberVN(point.lon, 2)}°Đ
-              </p>
+              {/* toạ độ đã chuyển lên peek (luôn thấy) — bỏ bản trùng ở đây */}
             </>
           )}
         </div>
       </SnapSheet>
 
-      {/* ── SHEET CHỌN LỚP (modal, kiểu Google Maps) ─────────────────────── */}
-      {layerSheetOpen && (
-        <LayerSheet
-          layerId={layerId}
-          onLayer={setLayerId}
-          scalarKind={scalarKind}
-          onScalar={(k) => {
-            setScalarKind(k);
-            // lớp số liệu xem rõ nhất trên nền hải đồ sạch
-            if (k != null) setLayerId("bathymetry");
-          }}
-          forecastKind={forecastKind}
-          onForecast={(k) => {
-            setForecastKind(k);
-            if (k == null) setPlaying(false);
-            else setGridFailed(false); // bật lại lớp = thử tải lại nếu lần trước lỗi
-          }}
-          fishOn={fishOn}
-          onFish={setFishOn}
-          seamarksOn={seamarksOn}
-          onSeamarks={setSeamarksOn}
-          onClose={() => setLayerSheetOpen(false)}
-        />
-      )}
-
-      {/* ── BẢNG CHỌN LOÀI CÁ (modal) — thay hàng chip ngang ─────────────── */}
-      {speciesSheetOpen && fishCast && (
-        <FishSpeciesSheet
-          species={fishCast.species}
-          current={fishSpecies}
-          regionShorts={regionShorts}
-          onPick={setFishSpecies}
-          onClose={() => setSpeciesSheetOpen(false)}
-        />
-      )}
-
-      {/* ── SHEET "ĐIỂM CỦA TÔI" — ghim, cảng nhà, GPS ───────────────────── */}
-      {placesSheetOpen && (
-        <MyPlacesSheet
-          places={places}
-          onPlaces={setPlaces}
-          onGo={(lat, lon) => {
-            setPinning(false);
-            setSize("peek");
-            goToCoord(lat, lon);
-          }}
-          onUseGps={goToMyBoat}
-          onClose={() => setPlacesSheetOpen(false)}
-        />
-      )}
+      {/* Chọn loài + Điểm đã lưu nay là PANEL RAIL (RaKhoiControls), không còn
+          bottom-sheet modal — đồng bộ kiểu popup với các lớp khác. */}
     </div>
   );
 }

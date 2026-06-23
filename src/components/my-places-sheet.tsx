@@ -1,10 +1,12 @@
 "use client";
 
 /*
-  Sheet "Điểm của tôi" — thay cho việc chọn cảng trong danh sách dài.
-  Gồm: chỗ tàu đang đứng (GPS), các điểm ghim của chủ tàu (cảng nhà + bãi
-  hay đánh), và lối đặt cảng nhà bằng cách TÌM trong 173 cảng (gõ để lọc,
-  không đổ cả danh sách ra cho rối).
+  "Điểm của tôi". Dùng ở 2 chỗ:
+  · MyPlacesContent — phần thân, nhúng vào PANEL RAIL "Điểm đã lưu" (Phương án
+    A: quản lý điểm là điều khiển lớp → ở rail, không mở bottom-sheet riêng).
+  · MyPlacesSheet — wrapper bottom-sheet (legacy, nay map không dùng).
+  Gồm: thêm điểm theo toạ độ, các điểm ghim (cảng nhà + bãi hay đánh), và lối
+  đặt cảng nhà bằng cách TÌM trong 173 cảng (gõ để lọc).
 */
 import { useMemo, useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -19,28 +21,28 @@ import {
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import {
   AnchorIcon,
-  CrosshairIcon,
   EditIcon,
   HomeIcon,
+  PlusIcon,
   SearchIcon,
   StarIcon,
   TrashIcon,
 } from "@/components/icons";
 
-export function MyPlacesSheet({
+export function MyPlacesContent({
   places,
   onPlaces,
   onGo,
-  onUseGps,
   onClose,
+  compact = false,
 }: {
   places: SavedPlace[];
   onPlaces: (next: SavedPlace[]) => void;
   /** mở một điểm đã lưu (bay tới + xem dự báo) */
   onGo: (lat: number, lon: number) => void;
-  /** xem chỗ tàu đang đứng (GPS) */
-  onUseGps: () => void;
   onClose: () => void;
+  /** compact = panel rail hẹp: nút thao tác icon nhỏ, không trải rộng */
+  compact?: boolean;
 }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -48,6 +50,28 @@ export function MyPlacesSheet({
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [portQuery, setPortQuery] = useState("");
   const [portOpen, setPortOpen] = useState(false);
+  // thêm điểm theo toạ độ — gõ tên + vĩ độ + kinh độ
+  const [addOpen, setAddOpen] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addLat, setAddLat] = useState("");
+  const [addLon, setAddLon] = useState("");
+  const addLatN = parseFloat(addLat.replace(",", "."));
+  const addLonN = parseFloat(addLon.replace(",", "."));
+  const addValid =
+    Number.isFinite(addLatN) &&
+    addLatN >= -90 &&
+    addLatN <= 90 &&
+    Number.isFinite(addLonN) &&
+    addLonN >= -180 &&
+    addLonN <= 180;
+  function submitAdd() {
+    if (!addValid) return;
+    onPlaces(upsertPlace(places, { name: addName, lat: addLatN, lon: addLonN }));
+    setAddName("");
+    setAddLat("");
+    setAddLon("");
+    setAddOpen(false);
+  }
 
   const sorted = sortedPlaces(places);
 
@@ -64,24 +88,80 @@ export function MyPlacesSheet({
     }).slice(0, 12);
   }, [portQuery]);
 
+  // nút thao tác trong hàng — icon nhỏ khi compact (panel hẹp)
+  const actBtn = compact
+    ? "flex min-h-[3rem] w-11 flex-col items-center justify-center gap-0.5 rounded-lg active:bg-field"
+    : "flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg active:bg-field";
+
   return (
-    <BottomSheet title="Điểm của tôi" onClose={onClose}>
-      {/* chỗ tàu đang đứng */}
-      <button
-        type="button"
-        onClick={() => {
-          onUseGps();
-          onClose();
-        }}
-        className="flex min-h-[3.5rem] w-full items-center gap-3 surface px-4 transition active:scale-[0.99]"
-      >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy text-white">
-          <CrosshairIcon className="h-5 w-5" />
-        </span>
-        <span className="flex-1 text-left text-[1rem] font-bold text-navy">
-          Chỗ tàu tôi đang đứng
-        </span>
-      </button>
+    <>
+      {/* Thêm điểm theo toạ độ */}
+      {!addOpen ? (
+        <button
+          type="button"
+          onClick={() => setAddOpen(true)}
+          className="flex min-h-[3.5rem] w-full items-center gap-3 rounded-xl border-2 border-dashed border-line px-4 text-left transition active:scale-[0.99]"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-t1 text-white">
+            <PlusIcon className="h-5 w-5" />
+          </span>
+          <span className="flex-1">
+            <span className="block text-[1rem] font-bold text-navy">
+              Thêm điểm theo toạ độ
+            </span>
+            <span className="block text-[0.8125rem] text-foreground/65">
+              Gõ vĩ độ / kinh độ &amp; đặt tên
+            </span>
+          </span>
+        </button>
+      ) : (
+        <div className="surface p-3">
+          <input
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            placeholder="Tên điểm (vd: Bãi cá ngừ)"
+            className="mb-2 min-h-[3rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
+          />
+          <div className="mb-2 grid grid-cols-2 gap-2">
+            <input
+              value={addLat}
+              onChange={(e) => setAddLat(e.target.value)}
+              inputMode="decimal"
+              placeholder="Vĩ độ (12.5)"
+              className="min-h-[3rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
+            />
+            <input
+              value={addLon}
+              onChange={(e) => setAddLon(e.target.value)}
+              inputMode="decimal"
+              placeholder="Kinh độ (109.3)"
+              className="min-h-[3rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
+            />
+          </div>
+          {!addValid && (addLat || addLon) && (
+            <p className="mb-2 text-[0.8125rem] font-semibold text-danger">
+              Vĩ độ −90…90, kinh độ −180…180.
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setAddOpen(false)}
+              className="min-h-[3rem] rounded-xl bg-field text-[1rem] font-bold text-foreground/70"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={submitAdd}
+              disabled={!addValid}
+              className="min-h-[3rem] rounded-xl bg-t1 text-[1rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-50"
+            >
+              Lưu điểm
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* các điểm đã ghim */}
       {sorted.length > 0 && (
@@ -162,16 +242,17 @@ export function MyPlacesSheet({
                         </span>
                       </span>
                     </button>
-                    {/* nút icon kèm CHỮ, cao ≥3.5rem — tay ướt mắt kém bấm trúng */}
+                    {/* nút icon kèm CHỮ — tay ướt mắt kém bấm trúng */}
                     <div className="flex shrink-0 items-center pr-1">
                       {!isHome && (
                         <button
                           type="button"
                           onClick={() => onPlaces(makeHome(places, p.id))}
-                          className="flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-foreground/70 active:bg-field"
+                          aria-label="Đặt làm cảng nhà"
+                          className={`${actBtn} text-foreground/70`}
                         >
                           <AnchorIcon className="h-5 w-5" />
-                          <span className="text-[0.75rem] font-bold">
+                          <span className="text-[0.6875rem] font-bold">
                             Cảng nhà
                           </span>
                         </button>
@@ -182,18 +263,20 @@ export function MyPlacesSheet({
                           setEditId(p.id);
                           setEditName(p.name);
                         }}
-                        className="flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-foreground/70 active:bg-field"
+                        aria-label="Đổi tên"
+                        className={`${actBtn} text-foreground/70`}
                       >
                         <EditIcon className="h-5 w-5" />
-                        <span className="text-[0.75rem] font-bold">Đổi tên</span>
+                        <span className="text-[0.6875rem] font-bold">Đổi tên</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmId(p.id)}
-                        className="flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-danger active:bg-field"
+                        aria-label="Xóa điểm"
+                        className={`${actBtn} text-danger`}
                       >
                         <TrashIcon className="h-5 w-5" />
-                        <span className="text-[0.75rem] font-bold">Xóa</span>
+                        <span className="text-[0.6875rem] font-bold">Xóa</span>
                       </button>
                     </div>
                   </div>
@@ -276,6 +359,30 @@ export function MyPlacesSheet({
           </div>
         )}
       </div>
+    </>
+  );
+}
+
+/** Wrapper bottom-sheet (legacy — map nay dùng panel rail). */
+export function MyPlacesSheet({
+  places,
+  onPlaces,
+  onGo,
+  onClose,
+}: {
+  places: SavedPlace[];
+  onPlaces: (next: SavedPlace[]) => void;
+  onGo: (lat: number, lon: number) => void;
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet title="Điểm của tôi" onClose={onClose}>
+      <MyPlacesContent
+        places={places}
+        onPlaces={onPlaces}
+        onGo={onGo}
+        onClose={onClose}
+      />
     </BottomSheet>
   );
 }
