@@ -135,9 +135,17 @@ export function RaKhoiControls({
 
   return (
     <div className="pointer-events-none relative flex justify-end gap-2">
-      {/* PANEL neo TRÁI rail, bounded trong màn (không tràn/đè banner) */}
+      {/* PANEL neo TRÁI rail, bounded trong màn (không tràn/đè banner).
+          Panel nhiều nội dung (Điểm đã lưu, Chọn loài) rộng hơn cho dễ nhìn,
+          khỏi chồng chéo (user 2026-06-23); panel đơn giản giữ cân đối. */}
       {open && !collapsed && (
-        <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[62vh] w-[16.5rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl [overscroll-behavior:contain]">
+        <div
+          className={`pointer-events-auto absolute right-[4.5rem] top-0 max-h-[62vh] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl [overscroll-behavior:contain] ${
+            open === "diem" || (open === "ngu-truong" && speciesView)
+              ? "w-[22rem] max-w-[calc(100vw-4.25rem)]"
+              : "w-[16.5rem] max-w-[calc(100vw-5rem)]"
+          }`}
+        >
           {open === "ngu-truong" && speciesView ? (
             <>
               <PanelHeader
