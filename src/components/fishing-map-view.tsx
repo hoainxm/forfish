@@ -381,14 +381,21 @@ export default function FishingMapView() {
     [forecastKind, fGrid, timeIdx],
   );
 
+  // Lọc theo KHOẢNG khả năng có cá (kéo-thả 2 đầu ở legend): chỉ hiện ô trong
+  // [lo,hi]%. Sàn 35 vẫn giữ (dưới mức này heatmap không vẽ). user chốt:
+  // "chỉ muốn hiện đoạn nhiều cá 60-80%".
+  const [fishRange, setFishRange] = useState<[number, number]>([35, 100]);
+
   // ô dự báo cá → ĐIỂM cho lớp heatmap (vùng mềm xanh lá kiểu PFZ chuẩn,
-  // như OceanFishMap — không còn ô vuông); lọc theo loài đã chọn
+  // như OceanFishMap — không còn ô vuông); lọc theo loài + khoảng đã chọn
   const fishCellsGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
     if (!fishOn || !fishCast) return null;
+    const lo = Math.max(35, fishRange[0]);
+    const hi = fishRange[1];
     const features: GeoJSON.Feature[] = [];
     for (const c of fishCast.cells) {
       const v = fishSpecies ? (c.sp?.[fishSpecies] ?? 0) : c.s;
-      if (v < 35) continue;
+      if (v < lo || v > hi) continue;
       features.push({
         type: "Feature",
         properties: { s: v },
@@ -396,7 +403,7 @@ export default function FishingMapView() {
       });
     }
     return { type: "FeatureCollection", features };
-  }, [fishOn, fishCast, fishSpecies]);
+  }, [fishOn, fishCast, fishSpecies, fishRange]);
 
   // màu lớp cá đang xem: theo loài đã chọn, hoặc xanh lá khi "Mọi loài"
   const activeFishColor = fishSpecies
@@ -455,7 +462,7 @@ export default function FishingMapView() {
           priority: v + bonus,
         };
       })
-      .filter((c) => c.v >= 75)
+      .filter((c) => c.v >= Math.max(75, fishRange[0]) && c.v <= fishRange[1])
       .sort((a, b) => b.priority - a.priority);
     const picked: typeof scored = [];
     for (const c of scored) {
@@ -473,7 +480,7 @@ export default function FishingMapView() {
       top,
       near,
     }));
-  }, [fishOn, fishCast, fishSpecies, point, places]);
+  }, [fishOn, fishCast, fishSpecies, point, places, fishRange]);
 
   // điểm cá gần chỗ đang xem nhất — câu gợi ý "đi hướng nào" trong thẻ cá
   const nearestHotspot = useMemo(() => {
@@ -1154,19 +1161,62 @@ export default function FishingMapView() {
               </span>
               <ChevronDownIcon className="h-4 w-4 shrink-0 text-navy/55" />
             </button>
-            {/* chú giải mini màu vùng cá — cùng pattern legend nền (hội đồng
-                UX 2026-06-11: màu đứng một mình trên bản đồ thì phải có lời) */}
-            <span className="pointer-events-none block w-44 rounded-xl bg-card/95 px-2.5 py-1.5 shadow-md">
-              <span
-                className="block h-1.5 w-full rounded-full"
-                style={{
-                  background: `linear-gradient(to right, ${activeFishColor ?? "#2d8659"}26, ${activeFishColor ?? "#2d8659"})`,
-                }}
-                aria-hidden
-              />
-              <span className="flex justify-between gap-2 text-[0.625rem] font-semibold leading-tight text-foreground/70">
-                <span>ít khả năng có cá</span>
-                <span>nhiều</span>
+            {/* chú giải = BỘ LỌC KÉO-THẢ 2 đầu: chỉ hiện ô trong khoảng khả
+                năng có cá đã chọn (vd 60-80%). user chốt 2026-06-16. */}
+            <span className="block w-56 rounded-xl bg-card/95 px-2.5 py-1.5 shadow-md">
+              <span className="mb-0.5 flex items-center justify-between gap-2 text-[0.625rem] font-semibold leading-tight text-foreground/70">
+                <span>Lọc khả năng có cá</span>
+                <span className="font-bold tabular-nums text-navy">
+                  {fishRange[0]}–{fishRange[1]}%
+                </span>
+              </span>
+              <span className="relative block h-6">
+                {/* gradient nền */}
+                <span
+                  className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full"
+                  style={{
+                    background: `linear-gradient(to right, ${activeFishColor ?? "#2d8659"}26, ${activeFishColor ?? "#2d8659"})`,
+                  }}
+                  aria-hidden
+                />
+                {/* đoạn đang chọn (đậm) */}
+                <span
+                  className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
+                  style={{
+                    left: `${((fishRange[0] - 35) / 65) * 100}%`,
+                    right: `${((100 - fishRange[1]) / 65) * 100}%`,
+                    background: activeFishColor ?? "#2d8659",
+                  }}
+                  aria-hidden
+                />
+                <input
+                  type="range"
+                  min={35}
+                  max={100}
+                  value={fishRange[0]}
+                  aria-label="Khả năng có cá tối thiểu"
+                  className="range-dual"
+                  onChange={(e) =>
+                    setFishRange(([, hi]) => [
+                      Math.min(Number(e.target.value), hi),
+                      hi,
+                    ])
+                  }
+                />
+                <input
+                  type="range"
+                  min={35}
+                  max={100}
+                  value={fishRange[1]}
+                  aria-label="Khả năng có cá tối đa"
+                  className="range-dual"
+                  onChange={(e) =>
+                    setFishRange(([lo]) => [
+                      lo,
+                      Math.max(Number(e.target.value), lo),
+                    ])
+                  }
+                />
               </span>
             </span>
           </div>
