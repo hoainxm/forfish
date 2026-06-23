@@ -1,9 +1,12 @@
 "use client";
 
 /*
-  Sheet "Điểm của tôi": các điểm ghim của chủ tàu (cảng nhà + bãi hay đánh),
-  thêm điểm theo toạ độ, và lối đặt cảng nhà bằng cách TÌM trong 173 cảng (gõ
-  để lọc, không đổ cả danh sách ra cho rối).
+  "Điểm của tôi". Dùng ở 2 chỗ:
+  · MyPlacesContent — phần thân, nhúng vào PANEL RAIL "Điểm đã lưu" (Phương án
+    A: quản lý điểm là điều khiển lớp → ở rail, không mở bottom-sheet riêng).
+  · MyPlacesSheet — wrapper bottom-sheet (legacy, nay map không dùng).
+  Gồm: thêm điểm theo toạ độ, các điểm ghim (cảng nhà + bãi hay đánh), và lối
+  đặt cảng nhà bằng cách TÌM trong 173 cảng (gõ để lọc).
 */
 import { useMemo, useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -26,17 +29,20 @@ import {
   TrashIcon,
 } from "@/components/icons";
 
-export function MyPlacesSheet({
+export function MyPlacesContent({
   places,
   onPlaces,
   onGo,
   onClose,
+  compact = false,
 }: {
   places: SavedPlace[];
   onPlaces: (next: SavedPlace[]) => void;
   /** mở một điểm đã lưu (bay tới + xem dự báo) */
   onGo: (lat: number, lon: number) => void;
   onClose: () => void;
+  /** compact = panel rail hẹp: nút thao tác icon nhỏ, không trải rộng */
+  compact?: boolean;
 }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -44,7 +50,7 @@ export function MyPlacesSheet({
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [portQuery, setPortQuery] = useState("");
   const [portOpen, setPortOpen] = useState(false);
-  // thêm điểm theo toạ độ (user yêu cầu) — gõ tên + vĩ độ + kinh độ
+  // thêm điểm theo toạ độ — gõ tên + vĩ độ + kinh độ
   const [addOpen, setAddOpen] = useState(false);
   const [addName, setAddName] = useState("");
   const [addLat, setAddLat] = useState("");
@@ -60,9 +66,7 @@ export function MyPlacesSheet({
     addLonN <= 180;
   function submitAdd() {
     if (!addValid) return;
-    onPlaces(
-      upsertPlace(places, { name: addName, lat: addLatN, lon: addLonN }),
-    );
+    onPlaces(upsertPlace(places, { name: addName, lat: addLatN, lon: addLonN }));
     setAddName("");
     setAddLat("");
     setAddLon("");
@@ -84,9 +88,14 @@ export function MyPlacesSheet({
     }).slice(0, 12);
   }, [portQuery]);
 
+  // nút thao tác trong hàng — icon nhỏ khi compact (panel hẹp)
+  const actBtn = compact
+    ? "flex min-h-[3rem] w-11 flex-col items-center justify-center gap-0.5 rounded-lg active:bg-field"
+    : "flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg active:bg-field";
+
   return (
-    <BottomSheet title="Điểm của tôi" onClose={onClose}>
-      {/* Thêm điểm theo toạ độ — gõ tên + vĩ độ + kinh độ (user yêu cầu) */}
+    <>
+      {/* Thêm điểm theo toạ độ */}
       {!addOpen ? (
         <button
           type="button"
@@ -106,7 +115,7 @@ export function MyPlacesSheet({
           </span>
         </button>
       ) : (
-        <div className="mt-2 surface p-3">
+        <div className="surface p-3">
           <input
             value={addName}
             onChange={(e) => setAddName(e.target.value)}
@@ -233,16 +242,17 @@ export function MyPlacesSheet({
                         </span>
                       </span>
                     </button>
-                    {/* nút icon kèm CHỮ, cao ≥3.5rem — tay ướt mắt kém bấm trúng */}
+                    {/* nút icon kèm CHỮ — tay ướt mắt kém bấm trúng */}
                     <div className="flex shrink-0 items-center pr-1">
                       {!isHome && (
                         <button
                           type="button"
                           onClick={() => onPlaces(makeHome(places, p.id))}
-                          className="flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-foreground/70 active:bg-field"
+                          aria-label="Đặt làm cảng nhà"
+                          className={`${actBtn} text-foreground/70`}
                         >
                           <AnchorIcon className="h-5 w-5" />
-                          <span className="text-[0.75rem] font-bold">
+                          <span className="text-[0.6875rem] font-bold">
                             Cảng nhà
                           </span>
                         </button>
@@ -253,18 +263,20 @@ export function MyPlacesSheet({
                           setEditId(p.id);
                           setEditName(p.name);
                         }}
-                        className="flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-foreground/70 active:bg-field"
+                        aria-label="Đổi tên"
+                        className={`${actBtn} text-foreground/70`}
                       >
                         <EditIcon className="h-5 w-5" />
-                        <span className="text-[0.75rem] font-bold">Đổi tên</span>
+                        <span className="text-[0.6875rem] font-bold">Đổi tên</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmId(p.id)}
-                        className="flex min-h-[3.5rem] w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-danger active:bg-field"
+                        aria-label="Xóa điểm"
+                        className={`${actBtn} text-danger`}
                       >
                         <TrashIcon className="h-5 w-5" />
-                        <span className="text-[0.75rem] font-bold">Xóa</span>
+                        <span className="text-[0.6875rem] font-bold">Xóa</span>
                       </button>
                     </div>
                   </div>
@@ -347,6 +359,30 @@ export function MyPlacesSheet({
           </div>
         )}
       </div>
+    </>
+  );
+}
+
+/** Wrapper bottom-sheet (legacy — map nay dùng panel rail). */
+export function MyPlacesSheet({
+  places,
+  onPlaces,
+  onGo,
+  onClose,
+}: {
+  places: SavedPlace[];
+  onPlaces: (next: SavedPlace[]) => void;
+  onGo: (lat: number, lon: number) => void;
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet title="Điểm của tôi" onClose={onClose}>
+      <MyPlacesContent
+        places={places}
+        onPlaces={onPlaces}
+        onGo={onGo}
+        onClose={onClose}
+      />
     </BottomSheet>
   );
 }

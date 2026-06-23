@@ -89,8 +89,6 @@ import {
 } from "@/lib/marine-weather";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
 import { RaKhoiControls } from "@/components/ra-khoi-controls";
-import { MyPlacesSheet } from "@/components/my-places-sheet";
-import { FishSpeciesSheet } from "@/components/fish-species-sheet";
 import { StormBanner } from "@/components/storm-banner";
 import {
   AlertIcon,
@@ -400,11 +398,8 @@ export default function FishingMapView() {
     persistPlaces(next);
   }, []);
   const home = homeOf(places);
-  const [placesSheetOpen, setPlacesSheetOpen] = useState(false);
   // Hiện điểm đã lưu trên bản đồ (panel Điểm đã lưu — Phương án A)
   const [showPlaces, setShowPlaces] = useState(true);
-  // bảng chọn loài cá (modal) — thay hàng chip ngang chắn bản đồ
-  const [speciesSheetOpen, setSpeciesSheetOpen] = useState(false);
 
   // mở app: vào cảng nhà nếu đã đặt, không thì ngoài khơi Nam Trung Bộ
   const [point, setPoint] = useState<SeaPoint>(() => {
@@ -1030,15 +1025,22 @@ export default function FishingMapView() {
           fishOn={fishOn}
           onFish={setFishOn}
           fishSpecies={fishSpecies}
-          onOpenSpecies={() => setSpeciesSheetOpen(true)}
+          species={fishCast?.species ?? []}
+          regionShorts={regionShorts}
+          onPickSpecies={setFishSpecies}
           fishRange={fishRange}
           onRange={setFishRange}
           storms={storms}
           dataDate={dataDate}
-          placesCount={places.length}
           showPlaces={showPlaces}
           onShowPlaces={setShowPlaces}
-          onManagePlaces={() => setPlacesSheetOpen(true)}
+          places={places}
+          onPlaces={setPlaces}
+          onGoPlace={(lat, lon) => {
+            setPinning(false);
+            setSize("peek");
+            goToCoord(lat, lon);
+          }}
         />
 
         {/* (cũ) nút "Cá" GỌN — thay hàng chip ngang (chắn bản đồ). Chỉ rộng bằng nội
@@ -1537,13 +1539,9 @@ export default function FishingMapView() {
                   <span className="flex-1 text-[0.9375rem] font-bold text-navy">
                     Đã ghim: {currentPlace.name}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setPlacesSheetOpen(true)}
-                    className="rounded-full bg-field px-3 py-2 text-[0.875rem] font-bold text-navy"
-                  >
-                    Sửa
-                  </button>
+                  <span className="text-[0.8125rem] font-semibold text-foreground/60">
+                    Sửa ở “Điểm đã lưu”
+                  </span>
                 </div>
               ) : pinning ? (
                 <div className="surface p-3.5">
@@ -1601,33 +1599,8 @@ export default function FishingMapView() {
         </div>
       </SnapSheet>
 
-      {/* ── SHEET CHỌN LỚP (modal, kiểu Google Maps) ─────────────────────── */}
-      {/* LayerSheet cũ đã thay bằng RaKhoiControls (rail phải 4 panel) */}
-
-      {/* ── BẢNG CHỌN LOÀI CÁ (modal) — thay hàng chip ngang ─────────────── */}
-      {speciesSheetOpen && fishCast && (
-        <FishSpeciesSheet
-          species={fishCast.species}
-          current={fishSpecies}
-          regionShorts={regionShorts}
-          onPick={setFishSpecies}
-          onClose={() => setSpeciesSheetOpen(false)}
-        />
-      )}
-
-      {/* ── SHEET "ĐIỂM CỦA TÔI" — ghim, cảng nhà, thêm theo toạ độ ───────── */}
-      {placesSheetOpen && (
-        <MyPlacesSheet
-          places={places}
-          onPlaces={setPlaces}
-          onGo={(lat, lon) => {
-            setPinning(false);
-            setSize("peek");
-            goToCoord(lat, lon);
-          }}
-          onClose={() => setPlacesSheetOpen(false)}
-        />
-      )}
+      {/* Chọn loài + Điểm đã lưu nay là PANEL RAIL (RaKhoiControls), không còn
+          bottom-sheet modal — đồng bộ kiểu popup với các lớp khác. */}
     </div>
   );
 }

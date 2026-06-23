@@ -9,7 +9,7 @@
   thang kéo lớp nền raster (để sau) · dải % cá lọc thật.
 */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   OCEAN_LAYERS,
   OCEAN_LAYER_ORDER,
@@ -20,9 +20,12 @@ import type { ForecastKind } from "@/lib/forecast-grid";
 import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
 import type { StormAlert } from "@/lib/storms";
+import type { SavedPlace } from "@/lib/places";
+import { FishSpeciesContent } from "@/components/fish-species-sheet";
+import { MyPlacesContent } from "@/components/my-places-sheet";
 import {
   AlertIcon,
-  AnchorIcon,
+  ChevronLeftIcon,
   CheckIcon,
   ChevronRightIcon,
   DepthIcon,
@@ -55,15 +58,18 @@ export function RaKhoiControls({
   fishOn,
   onFish,
   fishSpecies,
-  onOpenSpecies,
+  species,
+  regionShorts,
+  onPickSpecies,
   fishRange,
   onRange,
   storms,
   dataDate,
-  placesCount,
   showPlaces,
   onShowPlaces,
-  onManagePlaces,
+  places,
+  onPlaces,
+  onGoPlace,
 }: {
   layerId: OceanLayerId;
   onLayer: (id: OceanLayerId) => void;
@@ -74,18 +80,29 @@ export function RaKhoiControls({
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
-  onOpenSpecies: () => void;
+  /** danh sách loài đang vụ (tên ngắn) — để chọn loài ngay trong panel */
+  species: string[];
+  regionShorts: Set<string>;
+  onPickSpecies: (sp: string | null) => void;
   fishRange: [number, number];
   onRange: (r: [number, number]) => void;
   storms: StormAlert[];
   dataDate: string;
-  placesCount: number;
   showPlaces: boolean;
   onShowPlaces: (on: boolean) => void;
-  onManagePlaces: () => void;
+  /** điểm đã lưu — quản lý ngay trong panel rail (không bottom-sheet) */
+  places: SavedPlace[];
+  onPlaces: (next: SavedPlace[]) => void;
+  onGoPlace: (lat: number, lon: number) => void;
 }) {
   const [open, setOpen] = useState<PanelId | null>(null);
   const [collapsed, setCollapsed] = useState(false); // ẩn/hiện rail như menu bản đồ
+  // drill-down trong panel Ngư trường: danh sách chọn loài (không mở modal)
+  const [speciesView, setSpeciesView] = useState(false);
+  // đổi panel hay đóng → thoát view chọn loài
+  useEffect(() => {
+    if (open !== "ngu-truong") setSpeciesView(false);
+  }, [open]);
 
   const RAIL: {
     id: PanelId;
@@ -117,47 +134,71 @@ export function RaKhoiControls({
       {/* PANEL neo TRÁI rail, bounded trong màn (không tràn/đè banner) */}
       {open && !collapsed && (
         <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[62vh] w-[16.5rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl [overscroll-behavior:contain]">
-          <PanelHeader
-            title={PANEL_TITLE[open]}
-            onClose={() => setOpen(null)}
-          />
-          {open === "hai-do" && (
-            <HaiDoPanel
-              layerId={layerId}
-              scalarKind={scalarKind}
-              onLayer={(id) => {
-                onScalar(null);
-                onLayer(id);
-              }}
-              dataDate={dataDate}
-            />
-          )}
-          {open === "ngu-truong" && (
-            <NguTruongPanel
-              fishOn={fishOn}
-              onFish={onFish}
-              fishSpecies={fishSpecies}
-              onOpenSpecies={onOpenSpecies}
-              fishRange={fishRange}
-              onRange={onRange}
-            />
-          )}
-          {open === "thoi-tiet" && (
-            <ThoiTietPanel
-              storms={storms}
-              forecastKind={forecastKind}
-              onForecast={onForecast}
-              scalarKind={scalarKind}
-              onScalar={onScalar}
-            />
-          )}
-          {open === "diem" && (
-            <DiemPanel
-              placesCount={placesCount}
-              showPlaces={showPlaces}
-              onShowPlaces={onShowPlaces}
-              onManage={onManagePlaces}
-            />
+          {open === "ngu-truong" && speciesView ? (
+            <>
+              <PanelHeader
+                title="Chọn loài cá"
+                onClose={() => setOpen(null)}
+                onBack={() => setSpeciesView(false)}
+              />
+              <FishSpeciesContent
+                species={species}
+                current={fishSpecies}
+                regionShorts={regionShorts}
+                cols={1}
+                onPick={(sp) => {
+                  onPickSpecies(sp);
+                  setSpeciesView(false);
+                }}
+              />
+            </>
+          ) : (
+            <>
+              <PanelHeader
+                title={PANEL_TITLE[open]}
+                onClose={() => setOpen(null)}
+              />
+              {open === "hai-do" && (
+                <HaiDoPanel
+                  layerId={layerId}
+                  scalarKind={scalarKind}
+                  onLayer={(id) => {
+                    onScalar(null);
+                    onLayer(id);
+                  }}
+                  dataDate={dataDate}
+                />
+              )}
+              {open === "ngu-truong" && (
+                <NguTruongPanel
+                  fishOn={fishOn}
+                  onFish={onFish}
+                  fishSpecies={fishSpecies}
+                  onOpenSpecies={() => setSpeciesView(true)}
+                  fishRange={fishRange}
+                  onRange={onRange}
+                />
+              )}
+              {open === "thoi-tiet" && (
+                <ThoiTietPanel
+                  storms={storms}
+                  forecastKind={forecastKind}
+                  onForecast={onForecast}
+                  scalarKind={scalarKind}
+                  onScalar={onScalar}
+                />
+              )}
+              {open === "diem" && (
+                <DiemPanel
+                  showPlaces={showPlaces}
+                  onShowPlaces={onShowPlaces}
+                  places={places}
+                  onPlaces={onPlaces}
+                  onGoPlace={onGoPlace}
+                  onClose={() => setOpen(null)}
+                />
+              )}
+            </>
           )}
         </div>
       )}
@@ -226,17 +267,38 @@ const PANEL_TITLE: Record<PanelId, string> = {
   diem: "Điểm đã lưu của tôi",
 };
 
-function PanelHeader({ title, onClose }: { title: string; onClose: () => void }) {
+function PanelHeader({
+  title,
+  onClose,
+  onBack,
+}: {
+  title: string;
+  onClose: () => void;
+  /** nếu có → hiện nút quay lại (drill-down, vd chọn loài trong Ngư trường) */
+  onBack?: () => void;
+}) {
   return (
     <div className="mb-3">
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <span className="inline-block rounded-md bg-navy px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-white">
-            Điều khiển
-          </span>
-          <h3 className="display mt-1 text-[1rem] font-bold leading-tight text-navy">
-            {title}
-          </h3>
+        <div className="flex min-w-0 items-start gap-1.5">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Quay lại"
+              className="-ml-1 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-field text-navy"
+            >
+              <ChevronLeftIcon className="h-5 w-5" />
+            </button>
+          )}
+          <div className="min-w-0">
+            <span className="inline-block rounded-md bg-navy px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-white">
+              Điều khiển
+            </span>
+            <h3 className="display mt-1 text-[1rem] font-bold leading-tight text-navy">
+              {title}
+            </h3>
+          </div>
         </div>
         <button
           type="button"
@@ -473,15 +535,19 @@ function ThoiTietPanel({
 }
 
 function DiemPanel({
-  placesCount,
   showPlaces,
   onShowPlaces,
-  onManage,
+  places,
+  onPlaces,
+  onGoPlace,
+  onClose,
 }: {
-  placesCount: number;
   showPlaces: boolean;
   onShowPlaces: (on: boolean) => void;
-  onManage: () => void;
+  places: SavedPlace[];
+  onPlaces: (next: SavedPlace[]) => void;
+  onGoPlace: (lat: number, lon: number) => void;
+  onClose: () => void;
 }) {
   return (
     <div>
@@ -492,22 +558,16 @@ function DiemPanel({
         onToggle={() => onShowPlaces(!showPlaces)}
         icon={<StarIcon className="h-5 w-5 text-navy" />}
       />
-      <button
-        type="button"
-        onClick={onManage}
-        className="mt-2 flex w-full items-center gap-2.5 rounded-xl bg-field px-3 py-2.5 text-left active:scale-[0.99]"
-      >
-        <AnchorIcon className="h-5 w-5 shrink-0 text-navy" />
-        <span className="min-w-0 flex-1">
-          <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
-            Quản lý điểm đã lưu
-          </span>
-          <span className="block text-[0.6875rem] text-foreground/65">
-            {placesCount} điểm · sửa & xoá
-          </span>
-        </span>
-        <ChevronRightIcon className="h-4 w-4 shrink-0 text-navy/55" />
-      </button>
+      <div className="mt-3">
+        {/* quản lý điểm NGAY trong panel — compact cho rail hẹp */}
+        <MyPlacesContent
+          places={places}
+          onPlaces={onPlaces}
+          onGo={onGoPlace}
+          onClose={onClose}
+          compact
+        />
+      </div>
     </div>
   );
 }

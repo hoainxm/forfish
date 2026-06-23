@@ -123,6 +123,14 @@ export function ChevronRightIcon(p: IconProps) {
   );
 }
 
+export function ChevronLeftIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="m15 5-7 7 7 7" />
+    </svg>
+  );
+}
+
 export function WavesIcon(p: IconProps) {
   return (
     <svg {...base(p)}>
