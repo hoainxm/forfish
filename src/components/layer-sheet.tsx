@@ -223,7 +223,7 @@ export function LayerSheet({
         <span className="min-w-0 flex-1 text-left">
           <span className="block text-[1rem] font-bold">Dự báo cá</span>
           <span className="block text-[0.8125rem] text-foreground/70">
-            Vùng tô màu xanh lá (hoặc màu loài đang chọn) = có khả năng có cá
+            Vùng tô màu hồng tím (hoặc màu loài đang chọn) = có khả năng có cá
             hôm nay, càng đậm càng cao — tính từ ảnh vệ tinh, tham khảo
           </span>
         </span>

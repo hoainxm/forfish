@@ -199,17 +199,18 @@ function hexToRgb(hex: string): [number, number, number] {
     parseInt(h.slice(4, 6), 16),
   ];
 }
-// Mọi loài = xanh lá nhiều tông (trung tính, đẹp); chọn loài = 1 màu của loài
-const FISH_HEAT_GREEN = [
+// Mọi loài = HỒNG TÍM nhiều tông (design Phương án A: cá = oklch(0.64 0.19 350));
+// chọn loài = 1 màu của loài
+const FISH_HEAT_DEFAULT = [
   "interpolate", ["linear"], ["heatmap-density"],
-  0, "rgba(64,145,108,0)",
-  0.18, "rgba(149,213,178,0.4)",
-  0.45, "rgba(82,183,136,0.62)",
-  0.75, "rgba(45,134,89,0.78)",
-  1, "rgba(27,75,44,0.88)",
+  0, "rgba(207,61,150,0)",
+  0.18, "rgba(244,170,214,0.4)",
+  0.45, "rgba(224,90,172,0.62)",
+  0.75, "rgba(199,60,140,0.78)",
+  1, "rgba(140,28,95,0.9)",
 ];
 function fishHeatColor(hex: string | null): unknown[] {
-  if (!hex) return FISH_HEAT_GREEN;
+  if (!hex) return FISH_HEAT_DEFAULT;
   const [r, g, b] = hexToRgb(hex);
   const a = (alpha: number) => `rgba(${r},${g},${b},${alpha})`;
   return [
@@ -385,7 +386,7 @@ export default function FishingMapView() {
   // "chỉ muốn hiện đoạn nhiều cá 60-80%".
   const [fishRange, setFishRange] = useState<[number, number]>([35, 100]);
 
-  // ô dự báo cá → ĐIỂM cho lớp heatmap (vùng mềm xanh lá kiểu PFZ chuẩn,
+  // ô dự báo cá → ĐIỂM cho lớp heatmap (vùng mềm hồng tím kiểu PFZ chuẩn,
   // như OceanFishMap — không còn ô vuông); lọc theo loài + khoảng đã chọn
   const fishCellsGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
     if (!fishOn || !fishCast) return null;
@@ -404,7 +405,7 @@ export default function FishingMapView() {
     return { type: "FeatureCollection", features };
   }, [fishOn, fishCast, fishSpecies, fishRange]);
 
-  // màu lớp cá đang xem: theo loài đã chọn, hoặc xanh lá khi "Mọi loài"
+  // màu lớp cá đang xem: theo loài đã chọn, hoặc hồng tím khi "Mọi loài"
   const activeFishColor = fishSpecies
     ? (SPECIES_META[fishSpecies]?.color ?? null)
     : null;
@@ -852,7 +853,7 @@ export default function FishingMapView() {
                   8, 110,
                 ] as unknown as number,
                 "heatmap-intensity": 0.9,
-                // màu theo loài đã chọn (mỗi loài 1 màu), Mọi loài = xanh lá
+                // màu theo loài đã chọn (mỗi loài 1 màu), Mọi loài = hồng tím
                 "heatmap-color": fishHeatColor(
                   activeFishColor,
                 ) as unknown as ExpressionSpecification,
@@ -975,7 +976,7 @@ export default function FishingMapView() {
               className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/85 shadow-md ring-2 ${
                 h.near ? "ring-trim" : "ring-white/90"
               }`}
-              style={{ color: activeFishColor ?? "#1b4b2c" }}
+              style={{ color: activeFishColor ?? "#8c1e5f" }}
               role="button"
               aria-label={`Điểm nóng có cá${h.near ? " gần bạn" : ""}: ${h.top.join(", ")}`}
             >
@@ -1143,7 +1144,7 @@ export default function FishingMapView() {
               <span
                 className="h-3 w-3 shrink-0 rounded-full"
                 style={{
-                  background: activeFishColor ?? "#2d8659",
+                  background: activeFishColor ?? "#cf3d96",
                 }}
                 aria-hidden
               />
@@ -1168,7 +1169,7 @@ export default function FishingMapView() {
                 <span
                   className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full"
                   style={{
-                    background: `linear-gradient(to right, ${activeFishColor ?? "#2d8659"}26, ${activeFishColor ?? "#2d8659"})`,
+                    background: `linear-gradient(to right, ${activeFishColor ?? "#cf3d96"}26, ${activeFishColor ?? "#cf3d96"})`,
                   }}
                   aria-hidden
                 />
@@ -1178,7 +1179,7 @@ export default function FishingMapView() {
                   style={{
                     left: `${((fishRange[0] - 35) / 65) * 100}%`,
                     right: `${((100 - fishRange[1]) / 65) * 100}%`,
-                    background: activeFishColor ?? "#2d8659",
+                    background: activeFishColor ?? "#cf3d96",
                   }}
                   aria-hidden
                 />
@@ -1568,7 +1569,7 @@ export default function FishingMapView() {
                   <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-t3" />
                   <p className="text-[0.9375rem] leading-snug text-foreground/80">
                     Hôm nay chỗ này <b>không nổi bật</b> trên ảnh vệ tinh — dò
-                    các vùng xanh lá trên bản đồ. Mùa này vùng{" "}
+                    các vùng hồng tím trên bản đồ. Mùa này vùng{" "}
                     <b>{fishRegion?.name}</b> thường có:{" "}
                     {fishHere.join(", ")}{" "}
                     <span className="text-foreground/70">(tham khảo)</span>
