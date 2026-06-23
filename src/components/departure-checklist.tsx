@@ -114,7 +114,7 @@ export function DepartureChecklist() {
   const [lengthInput, setLengthInput] = useState("");
 
   useEffect(() => {
-    setDocs(loadDocs(today));
+    setDocs(loadDocs(today).docs);
     try {
       setDocsReal(window.localStorage.getItem(DOCS_STORAGE_KEY) != null);
     } catch {

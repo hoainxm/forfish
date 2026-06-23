@@ -37,7 +37,7 @@ export function TripDossier({
   const [docs, setDocs] = useState<(BoatDocument & { boatId?: string })[]>([]);
 
   useEffect(() => {
-    setDocs(loadDocs(today));
+    setDocs(loadDocs(today).docs);
   }, [today]);
 
   const boatCrew = crew.filter(
