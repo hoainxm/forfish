@@ -109,6 +109,34 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 - Lint `set-state-in-effect`: pattern hydrate-on-mount cố ý → rule đã tắt có chủ đích (commit 76acf4f).
 - **Safe-area đa thiết bị (2026-06-18)**: mọi phần neo mép màn né tai thỏ + home-indicator iOS + thanh gesture/nút-dưới Android. TOP: PageHeader + map-overlay + sticky Tabs/dossier dùng `env(safe-area-inset-top)`. BOTTOM: `<main pb=calc(8rem+env(sab))>`, bottom-nav/bottom-sheet/snap-sheet dùng `env(safe-area-inset-bottom)` (body KHÔNG pad đáy — tránh cộng đôi). Overlay (sheet/dialog) **portal ra body** nên không bị stacking context của cha che. Render 320/360/landscape: 0 tràn ngang, form cuộn được, nút không bị ẩn. Mục tiêu: không đè nút, không mất form, không tràn.
 
+## 10. Ra khơi REDESIGN — Phương án A (target build, 2026-06-16)
+
+> Nguồn: design `Ra khoi A.dc` (user duyệt). Diệt "phản khoa học" ở [design-review/05](../design-review/05-ra-khoi-current-state.md) (rải 4 góc · trùng nút mở Lớp · số liệu nổi lung tung). Data: [design-review/06](../design-review/06-ra-khoi-data-inventory.md).
+
+**NGUYÊN TẮC GỐC (bất biến khi build):**
+1. **Bản đồ luôn SẠCH** — chỉ data lớp + marker, không nhồi control.
+2. **TRÁI = điều khiển LỚP** (data nào HIỆN trên bản đồ): bật/tắt, kéo dải, chọn loài. KHÔNG chứa số liệu từng điểm.
+3. **SHEET ĐÁY = số liệu theo ĐIỂM CHẠM** (gió/sóng/%cá/dẫn đường tại nơi chạm). 3 nấc: xem nhanh → nửa → đầy đủ.
+4. **Hai việc TÁCH BẠCH, KHÔNG TRÙNG** — bỏ legend-bấm-mở-Lớp trùng + cụm 3 nút rải phải + chip cá nổi giữa map.
+5. **Bão TỰ NỔI, ưu tiên cao nhất** — banner đỏ trên cùng bất kể đang xem lớp gì.
+
+**TRÁI — thanh điều khiển lớp = 4 nhóm (mỗi nhóm mở 1 panel):**
+| Nhóm | Panel chứa |
+|---|---|
+| **Hải đồ** | Lớp nền bản đồ (chọn-1: Hải đồ độ sâu / Nước nóng-lạnh / Nhiều mồi / Ảnh mây) + nhịp + nhãn dải + note "ảnh vệ tinh trễ ~2 ngày · phao chỉ hiện khi zoom gần bờ" |
+| **Ngư trường** | Dự báo cá PFZ (bật/tắt) + nhịp · **chọn loài** · **dải lọc khả năng có cá (kéo 2 đầu)** · note "heatmap public, chi tiết cần đăng nhập" · **Cảnh báo bão (ưu tiên cao nhất)** |
+| **Thời tiết** | Lớp gió/sóng + scalar (nước dâng/xoáy) + nhịp · note "tham khảo, lỗi thì thử lại" |
+| **Điểm đã lưu** | Bật/tắt hiện điểm trên map + **Quản lý điểm đã lưu** (sửa/xoá) |
+
+**TRÊN:** banner bão (đỏ, ưu tiên) + **dải dự báo gió/sóng 6 ngày** (tab ngày).
+**ĐÁY — sheet số liệu điểm (3 nấc):**
+- "Đang hiển thị trên bản đồ" — danh sách lớp đang bật (name · val · tag) — đổi theo nút trái.
+- "SỐ LIỆU tại điểm bạn chạm" — Điểm đã chọn (toạ độ + cách cảng) · Sóng · Gió · tình trạng biển + "tham khảo" · cảnh báo ranh giới · **chi tiết bão** (cách điểm, cấp, sức gió, giật) · dẫn đường.
+
+**GIỮ NGUYÊN (từ 05 §8, 06 §7):** mọi tính năng + data + ma trận trạng thái + quy tắc an toàn + ràng buộc (font ≥18, tap ≥44-56, map ≥60%, cam-đỏ độc quyền ranh giới, lazy-load MapLibre, nguồn dữ liệu). Chừa chỗ data dự kiến (06 §6).
+
+> **Build status**: chốt spec 2026-06-16. Hiện thực dần (rail trái → gom panel → sheet số liệu điểm), verify từng bước trên dev (map screenshot QA cần mắt user).
+
 ---
 
 **Last updated**: 2026-06-11
