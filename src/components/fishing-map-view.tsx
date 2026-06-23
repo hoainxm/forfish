@@ -88,14 +88,12 @@ import {
   type SeaPointConditions,
 } from "@/lib/marine-weather";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
-import { LayerSheet } from "@/components/layer-sheet";
+import { RaKhoiControls } from "@/components/ra-khoi-controls";
 import { MyPlacesSheet } from "@/components/my-places-sheet";
 import { FishSpeciesSheet } from "@/components/fish-species-sheet";
 import { StormBanner } from "@/components/storm-banner";
 import {
   AlertIcon,
-  ChevronDownIcon,
-  CrosshairIcon,
   FishIcon,
   HomeIcon,
   MoonIcon,
@@ -275,21 +273,6 @@ export default function FishingMapView() {
     scalarKind && scalarData[scalarKind]?.ok
       ? (scalarData[scalarKind] as Extract<SeaScalarResult, { ok: true }>)
       : null;
-  // lỗi tải KHÔNG được hỏng vĩnh viễn (roadmap "thất bại lên tiếng"):
-  // kết quả fail vẫn cache để khỏi loop, nhưng chạm badge là xóa cache thử lại
-  const scalarFailed =
-    scalarKind != null &&
-    scalarData[scalarKind] != null &&
-    !scalarData[scalarKind]?.ok;
-  const retryScalar = useCallback(() => {
-    if (!scalarKind) return;
-    setScalarData((m) => {
-      const next = { ...m };
-      delete next[scalarKind];
-      return next;
-    });
-  }, [scalarKind]);
-
   const scalarGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
     if (!activeScalar) return null;
     const h = 0.25; // ô 0.5°
@@ -341,7 +324,6 @@ export default function FishingMapView() {
   useEffect(() => {
     loadFish();
   }, [loadFish]);
-  const [layerSheetOpen, setLayerSheetOpen] = useState(false);
   const [size, setSize] = useState<SheetSize>("peek");
 
   // ── dự báo vẽ động kiểu Windy: lớp gió/sóng + thanh thời gian ───────────
@@ -419,6 +401,8 @@ export default function FishingMapView() {
   }, []);
   const home = homeOf(places);
   const [placesSheetOpen, setPlacesSheetOpen] = useState(false);
+  // Hiện điểm đã lưu trên bản đồ (panel Điểm đã lưu — Phương án A)
+  const [showPlaces, setShowPlaces] = useState(true);
   // bảng chọn loài cá (modal) — thay hàng chip ngang chắn bản đồ
   const [speciesSheetOpen, setSpeciesSheetOpen] = useState(false);
 
@@ -986,7 +970,7 @@ export default function FishingMapView() {
         ))}
 
         {/* điểm của tôi đã ghim — sao vàng có tên; chạm là xem dự báo chỗ đó */}
-        {places.map((pl) => (
+        {showPlaces && places.map((pl) => (
           <Marker
             key={pl.id}
             longitude={pl.lon}
@@ -1031,91 +1015,10 @@ export default function FishingMapView() {
       {/* ── VÙNG NỔI TRÊN CÙNG: tin bão (không gì che) + badge + FAB ──────── */}
       <div className="safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2">
         <StormBanner variant="overlay" />
-        {/* Phương án A: gom điều khiển về TRÁI, map phải sạch; legend-chip là
-            entry mở Lớp (bỏ nút Lớp trùng) */}
-        <div className="flex items-start gap-2">
-          {/* badge lớp + ngày ảnh — bấm là mở chọn lớp (trung thực dữ liệu) */}
-          <button
-            type="button"
-            onClick={() => {
-              // lớp số liệu đang lỗi → chạm là THỬ LẠI (không hỏng tới reload)
-              if (scalarFailed) retryScalar();
-              else setLayerSheetOpen(true);
-            }}
-            className="pointer-events-auto max-w-[55%] rounded-xl bg-white/95 px-3 py-2 text-left transition active:scale-[0.98]"
-          >
-            <span className="block text-[0.875rem] font-bold leading-tight text-navy">
-              {scalarKind ? SEA_SCALARS[scalarKind].label : layer.label}
-            </span>
-            <span
-              className={`block text-[0.75rem] leading-tight ${scalarFailed ? "font-bold text-danger" : "text-foreground/65"}`}
-            >
-              {scalarKind
-                ? activeScalar
-                  ? `Số liệu ngày ${formatDateVN(activeScalar.date)} — chậm vài ngày`
-                  : scalarData[scalarKind]
-                    ? "Chưa tải được — chạm để thử lại"
-                    : "Đang tải số liệu…"
-                : layer.dated
-                  ? `Ảnh ngày ${formatDateVN(dataDate)} — chậm vài ngày`
-                  : "Hải đồ — không đổi theo ngày"}
-            </span>
-            {/* legend mini của nền đang xem — đọc màu tại chỗ */}
-            {(() => {
-              const lg = scalarKind
-                ? SEA_SCALARS[scalarKind].legend
-                : layer.legend;
-              return (
-                lg && (
-                  <span className="mt-1 block">
-                    <span
-                      className="block h-1.5 w-full rounded-full"
-                      style={{ background: lg.gradient }}
-                      aria-hidden
-                    />
-                    <span className="flex justify-between gap-2 text-[0.625rem] font-semibold leading-tight text-foreground/70">
-                      <span>{lg.from}</span>
-                      <span>{lg.to}</span>
-                    </span>
-                  </span>
-                )
-              );
-            })()}
-          </button>
+        {/* Điều khiển lớp → rail phải <RaKhoiControls> (Phương án A). Đây chỉ
+            còn banner bão + trạng thái lỗi cá nổi. */}
 
-          {/* rail dọc: hành động bản đồ (Lớp mở qua legend-chip bên trái — không lặp) */}
-          <div className="flex flex-col items-start gap-2">
-            <button
-              type="button"
-              onClick={goToMyBoat}
-              disabled={locating}
-              className="pointer-events-auto flex min-h-[3.5rem] w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95 disabled:opacity-60"
-            >
-              <CrosshairIcon className="h-6 w-6" />
-              <span className="text-[0.75rem] font-bold leading-tight">
-                {locating ? "Đang tìm…" : "Tàu tôi"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPlacesSheetOpen(true)}
-              className="pointer-events-auto flex min-h-[3.5rem] w-16 flex-col items-center justify-center gap-0.5 surface py-2 text-navy shadow-md transition active:scale-95"
-            >
-              <StarIcon className="h-6 w-6" />
-              <span className="text-[0.75rem] font-bold leading-tight">
-                Điểm tôi
-              </span>
-            </button>
-            {geoError && (
-              <p className="pointer-events-auto max-w-[220px] rounded-xl bg-card px-2.5 py-1.5 text-right text-[0.8125rem] font-semibold leading-snug text-danger">
-                Chưa lấy được vị trí — kiểm tra đã bật Định vị cho điện thoại
-                chưa.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* nút "Cá" GỌN — thay hàng chip ngang (chắn bản đồ). Chỉ rộng bằng nội
+        {/* (cũ) nút "Cá" GỌN — thay hàng chip ngang (chắn bản đồ). Chỉ rộng bằng nội
             dung, chạm là mở bảng chọn loài. Hiện loài đang chọn + chấm màu.
             ẨN khi đang xem gió/sóng — bớt tầng đè map (roadmap hội đồng UX). */}
         {/* dự báo cá lỗi → nói thẳng + Thử lại (không phải "hôm nay không có cá") */}
@@ -1132,91 +1035,37 @@ export default function FishingMapView() {
           </button>
         )}
 
-        {!forecastKind && fishOn && fishCast && fishCast.species.length > 0 && (
-          <div className="flex max-w-[80%] flex-col gap-1 self-start">
-            <button
-              type="button"
-              onClick={() => setSpeciesSheetOpen(true)}
-              aria-label="Chọn loài cá xem trên bản đồ"
-              className="pointer-events-auto inline-flex items-center gap-2 self-start rounded-full bg-card/95 px-3 py-2 shadow-md transition active:scale-95"
-            >
-              <FishIcon className="h-5 w-5 shrink-0 text-t3" aria-hidden />
-              <span
-                className="h-3 w-3 shrink-0 rounded-full"
-                style={{
-                  background: activeFishColor ?? "#cf3d96",
-                }}
-                aria-hidden
-              />
-              <span className="truncate text-[0.875rem] font-bold text-navy">
-                {fishSpecies
-                  ? (SPECIES_META[fishSpecies]?.full ?? fishSpecies)
-                  : "Mọi loài cá"}
-              </span>
-              <ChevronDownIcon className="h-4 w-4 shrink-0 text-navy/55" />
-            </button>
-            {/* chú giải = BỘ LỌC KÉO-THẢ 2 đầu: chỉ hiện ô trong khoảng khả
-                năng có cá đã chọn (vd 60-80%). user chốt 2026-06-16. */}
-            <span className="block w-56 rounded-xl bg-card/95 px-2.5 py-1.5 shadow-md">
-              <span className="mb-0.5 flex items-center justify-between gap-2 text-[0.625rem] font-semibold leading-tight text-foreground/70">
-                <span>Lọc khả năng có cá</span>
-                <span className="font-bold tabular-nums text-navy">
-                  {fishRange[0]}–{fishRange[1]}%
-                </span>
-              </span>
-              <span className="relative block h-6">
-                {/* gradient nền */}
-                <span
-                  className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full"
-                  style={{
-                    background: `linear-gradient(to right, ${activeFishColor ?? "#cf3d96"}26, ${activeFishColor ?? "#cf3d96"})`,
-                  }}
-                  aria-hidden
-                />
-                {/* đoạn đang chọn (đậm) */}
-                <span
-                  className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
-                  style={{
-                    left: `${((fishRange[0] - 35) / 65) * 100}%`,
-                    right: `${((100 - fishRange[1]) / 65) * 100}%`,
-                    background: activeFishColor ?? "#cf3d96",
-                  }}
-                  aria-hidden
-                />
-                <input
-                  type="range"
-                  min={35}
-                  max={100}
-                  value={fishRange[0]}
-                  aria-label="Khả năng có cá tối thiểu"
-                  className="range-dual"
-                  onChange={(e) =>
-                    setFishRange(([, hi]) => [
-                      Math.min(Number(e.target.value), hi),
-                      hi,
-                    ])
-                  }
-                />
-                <input
-                  type="range"
-                  min={35}
-                  max={100}
-                  value={fishRange[1]}
-                  aria-label="Khả năng có cá tối đa"
-                  className="range-dual"
-                  onChange={(e) =>
-                    setFishRange(([lo]) => [
-                      lo,
-                      Math.max(Number(e.target.value), lo),
-                    ])
-                  }
-                />
-              </span>
-            </span>
-          </div>
-        )}
-
+        {/* (chọn loài + dải lọc % đã chuyển vào panel Ngư trường — RaKhoiControls) */}
       </div>
+
+      {/* ĐIỀU KHIỂN LỚP — rail phải + 4 panel (Phương án A) */}
+      <RaKhoiControls
+        layerId={layerId}
+        onLayer={setLayerId}
+        scalarKind={scalarKind}
+        onScalar={(k) => {
+          setScalarKind(k);
+          if (k != null) setLayerId("bathymetry"); // số liệu rõ nhất trên hải đồ sạch
+        }}
+        forecastKind={forecastKind}
+        onForecast={(k) => {
+          setForecastKind(k);
+          if (k == null) setPlaying(false);
+          else setGridFailed(false);
+        }}
+        fishOn={fishOn}
+        onFish={setFishOn}
+        fishSpecies={fishSpecies}
+        onOpenSpecies={() => setSpeciesSheetOpen(true)}
+        fishRange={fishRange}
+        onRange={setFishRange}
+        storms={storms}
+        dataDate={dataDate}
+        placesCount={places.length}
+        showPlaces={showPlaces}
+        onShowPlaces={setShowPlaces}
+        onManagePlaces={() => setPlacesSheetOpen(true)}
+      />
 
       {/* ── SHEET ĐÁY 3 NẤC — một chế độ duy nhất ────────────────────────── */}
       <SnapSheet
@@ -1766,29 +1615,7 @@ export default function FishingMapView() {
       </SnapSheet>
 
       {/* ── SHEET CHỌN LỚP (modal, kiểu Google Maps) ─────────────────────── */}
-      {layerSheetOpen && (
-        <LayerSheet
-          layerId={layerId}
-          onLayer={setLayerId}
-          scalarKind={scalarKind}
-          onScalar={(k) => {
-            setScalarKind(k);
-            // lớp số liệu xem rõ nhất trên nền hải đồ sạch
-            if (k != null) setLayerId("bathymetry");
-          }}
-          forecastKind={forecastKind}
-          onForecast={(k) => {
-            setForecastKind(k);
-            if (k == null) setPlaying(false);
-            else setGridFailed(false); // bật lại lớp = thử tải lại nếu lần trước lỗi
-          }}
-          fishOn={fishOn}
-          onFish={setFishOn}
-          seamarksOn={seamarksOn}
-          onSeamarks={setSeamarksOn}
-          onClose={() => setLayerSheetOpen(false)}
-        />
-      )}
+      {/* LayerSheet cũ đã thay bằng RaKhoiControls (rail phải 4 panel) */}
 
       {/* ── BẢNG CHỌN LOÀI CÁ (modal) — thay hàng chip ngang ─────────────── */}
       {speciesSheetOpen && fishCast && (
