@@ -19,7 +19,7 @@ gate: warn
 | Service | Dùng để | Auth | Cấu hình ở đâu | Rate / cache | Khi nó chết thì sao |
 |---|---|---|---|---|---|
 | **Open-Meteo** (marine + forecast) | Gió/sóng/mưa/dông theo giờ; lưới Windy; tuyến dầu | Không key | hardcode endpoint trong `lib/marine-weather.ts`, `route-weather.ts`, `forecast-grid.ts`, `sea-forecast` | free, cache 6h (sea), client timeout 15s | Thẻ peek "Chưa lấy được dự báo — Thử lại"; lưới gió/sóng nút Thử lại; KHÔNG treo |
-| **GDACS** (bão) | Tin bão Biển Đông (`/api/storms`) | Không key | `app/api/storms` | server 15s + client 20s | StormBanner ẩn nếu lỗi; bản đồ vẫn chạy |
+| **GDACS** (bão) | Tin bão Biển Đông + **đường đi (track) + vùng ảnh hưởng (polygon)** (`/api/storms`) | Không key | `app/api/storms`, `lib/storms.ts` | server 15s + client 20s | StormBanner ẩn nếu lỗi; lớp bão (track/vùng) ẩn; bản đồ vẫn chạy |
 | **VASEP** (giá bến) | Giá nguyên liệu tuần (`/api/port-prices`) | Không key (scrape) | `lib/port-price-source.ts` | cache 24h | Lùi bảng giá tĩnh + nhãn "tham khảo" |
 | **Petrolimex / giaxanghomnay** | Giá dầu DO (`/api/fuel-price`) | Không key (scrape) | `app/api/fuel-price` | cache 6h | Ẩn dòng giá dầu, phần còn lại giữ nguyên |
 | **NOAA ERDDAP** | SST / phù du / front (dự báo cá) | Không key | `lib/fish-predict.ts`, `app/api/fish-forecast` | cache 6h | Lớp cá hiện pill đỏ "chạm để thử lại"; lùi mùa vụ |
