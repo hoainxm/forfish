@@ -9,6 +9,7 @@
   thang kéo lớp nền raster (để sau) · dải % cá lọc thật.
 */
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   OCEAN_LAYERS,
@@ -58,6 +59,7 @@ export function RaKhoiControls({
   fishOn,
   onFish,
   fishSpecies,
+  fishLocked,
   species,
   regionShorts,
   onPickSpecies,
@@ -80,6 +82,8 @@ export function RaKhoiControls({
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
+  /** chưa đăng nhập → khoá chọn loài + dải khả năng (đồng bộ với sheet) */
+  fishLocked: boolean;
   /** danh sách loài đang vụ (tên ngắn) — để chọn loài ngay trong panel */
   species: string[];
   regionShorts: Set<string>;
@@ -174,6 +178,7 @@ export function RaKhoiControls({
                   fishOn={fishOn}
                   onFish={onFish}
                   fishSpecies={fishSpecies}
+                  fishLocked={fishLocked}
                   onOpenSpecies={() => setSpeciesView(true)}
                   fishRange={fishRange}
                   onRange={onRange}
@@ -396,6 +401,7 @@ function NguTruongPanel({
   onOpenSpecies,
   fishRange,
   onRange,
+  fishLocked,
 }: {
   fishOn: boolean;
   onFish: (on: boolean) => void;
@@ -403,6 +409,8 @@ function NguTruongPanel({
   onOpenSpecies: () => void;
   fishRange: [number, number];
   onRange: (r: [number, number]) => void;
+  /** chưa đăng nhập → loài + dải khả năng bị khoá (đồng bộ với sheet) */
+  fishLocked: boolean;
 }) {
   const name = fishSpecies
     ? SPECIES_META[fishSpecies]?.full ?? fishSpecies
@@ -420,7 +428,24 @@ function NguTruongPanel({
           </span>
         }
       />
-      {fishOn && (
+      {fishOn && fishLocked && (
+        // KHOÁ giống sheet: heatmap public, nhưng chọn loài + xem khả năng cần
+        // đăng nhập → 1 CTA duy nhất, KHÔNG hiện picker/dải để khỏi "chỗ có chỗ thả"
+        <>
+          <Link
+            href="/login"
+            className="mt-2 flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-xl bg-t1 px-3 text-[0.9375rem] font-bold text-white transition active:scale-[0.99]"
+          >
+            <FishIcon className="h-5 w-5" />
+            Đăng nhập để chọn loài &amp; xem khả năng
+          </Link>
+          <p className="mt-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] leading-snug text-foreground/70">
+            Vùng xanh (heatmap) xem được không cần đăng nhập. Chọn loài, dải
+            khả năng &amp; hướng đi thì cần đăng nhập.
+          </p>
+        </>
+      )}
+      {fishOn && !fishLocked && (
         <>
           <button
             type="button"
@@ -449,11 +474,6 @@ function NguTruongPanel({
             </span>
           </p>
           <RangeBand value={fishRange} onChange={onRange} color={FISH_COLOR} />
-
-          <p className="mt-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] leading-snug text-foreground/70">
-            Heatmap xem được không cần đăng nhập. Chi tiết loài/khả năng/hướng
-            cần đăng nhập.
-          </p>
         </>
       )}
     </div>

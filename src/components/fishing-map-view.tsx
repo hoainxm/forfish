@@ -1032,6 +1032,7 @@ export default function FishingMapView() {
           fishOn={fishOn}
           onFish={setFishOn}
           fishSpecies={fishSpecies}
+          fishLocked={fishLocked}
           species={fishCast?.species ?? []}
           regionShorts={regionShorts}
           onPickSpecies={setFishSpecies}
@@ -1211,6 +1212,11 @@ export default function FishingMapView() {
               </p>
               <p className="text-[0.8125rem] leading-snug text-foreground/70">
                 {whereLine}
+              </p>
+              {/* toạ độ điểm đang xem — luôn thấy ở peek, đọc vào máy định vị */}
+              <p className="mt-0.5 text-[0.75rem] font-semibold tabular-nums leading-snug text-foreground/55">
+                Toạ độ: {formatNumberVN(point.lat, 2)}°B ·{" "}
+                {formatNumberVN(point.lon, 2)}°Đ
               </p>
               {atHome && (
                 <p className="mt-1 text-[0.875rem] font-semibold text-t1">
@@ -1623,12 +1629,7 @@ export default function FishingMapView() {
                   Ghim chỗ này để mở nhanh lần sau
                 </button>
               )}
-
-              {/* toạ độ — cho ai cần đọc vào máy định vị */}
-              <p className="px-1 text-[0.8125rem] text-foreground/65">
-                Toạ độ điểm đang xem: {formatNumberVN(point.lat, 2)}°B ·{" "}
-                {formatNumberVN(point.lon, 2)}°Đ
-              </p>
+              {/* toạ độ đã chuyển lên peek (luôn thấy) — bỏ bản trùng ở đây */}
             </>
           )}
         </div>

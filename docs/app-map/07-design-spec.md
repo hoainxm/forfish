@@ -167,6 +167,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 <!-- re-verified: 2026-06-23b — Chọn loài + Điểm đã lưu chuyển từ bottom-sheet modal sang PANEL RAIL (drill-down Ngư trường / nội dung Điểm); FishSpeciesContent + MyPlacesContent tách dùng chung -->
 <!-- re-verified: 2026-06-23c — sheet: mưa/dông + độ tin dời lên LIỀN sóng/gió; thanh giờ Windy (gió/sóng) cho thu/mở (chip "chạm để chọn giờ") -->
 <!-- re-verified: 2026-06-23d — bỏ nút "Về cảng nhà" ở sheet (vô tác dụng); kéo sheet info lên (half/full) TỰ ẨN tin bão + rail phải (opacity+pointer-events) cho khỏi chồng chéo, về peek hiện lại — logic tự ẩn, không bắt click -->
+<!-- re-verified: 2026-06-23e — login-gate ĐỒNG BỘ: panel Ngư trường khi chưa đăng nhập → ẩn picker loài + dải khả năng, chỉ 1 CTA "Đăng nhập để chọn loài & xem khả năng" (khớp gate ở sheet); toạ độ điểm đang xem dời lên PEEK (luôn thấy), bỏ bản trùng cuối sheet -->
 <!-- re-verified: 2026-06-16 — /login = SĐT + mật khẩu (webhook provision, KHÔNG email/OTP); nav/screen map/object model không đổi -->
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): thêm lớp BÃO trên map (vùng ảnh hưởng polygon đỏ mờ + đường đi track gạch đứt, dưới Marker tâm bão) từ GDACS; + fix dự báo cá maxDuration/ISR. Screen map/nav/object model KHÔNG đổi cấu trúc -->
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): legend cá thành BỘ LỌC kéo-thả 2 đầu (chỉ hiện ô [lo,hi]% khả năng có cá). Độ sâu raster KHÔNG lọc được (giữ legend tĩnh). Screen map/object model KHÔNG đổi cấu trúc -->
