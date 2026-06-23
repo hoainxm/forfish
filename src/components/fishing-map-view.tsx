@@ -92,6 +92,8 @@ import { RaKhoiControls } from "@/components/ra-khoi-controls";
 import { StormBanner } from "@/components/storm-banner";
 import {
   AlertIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
   FishIcon,
   HomeIcon,
   MoonIcon,
@@ -400,6 +402,8 @@ export default function FishingMapView() {
   const home = homeOf(places);
   // Hiện điểm đã lưu trên bản đồ (panel Điểm đã lưu — Phương án A)
   const [showPlaces, setShowPlaces] = useState(true);
+  // thanh giờ Windy (gió/sóng) cho thu/mở — đỡ chiếm mép sheet (user 2026-06-23)
+  const [gridStripOpen, setGridStripOpen] = useState(true);
 
   // mở app: vào cảng nhà nếu đã đặt, không thì ngoài khơi Nam Trung Bộ
   const [point, setPoint] = useState<SeaPoint>(() => {
@@ -1075,48 +1079,80 @@ export default function FishingMapView() {
           forecastKind ? (
             <div className="pointer-events-auto surface px-3 py-2 shadow-md">
               {fGrid ? (
-                <>
-                  <div className="flex items-center justify-between gap-2">
+                gridStripOpen ? (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[0.875rem] font-bold text-navy">
+                        {forecastKind === "wind" ? "Gió" : "Sóng"} ·{" "}
+                        {timeLabelVN(
+                          fGrid.times[timeIdx] ?? "",
+                          fGrid.times[0]?.split("T")[0],
+                        )}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setPlaying((p) => !p)}
+                          aria-label={playing ? "Dừng chạy" : "Chạy thử 3 ngày"}
+                          className="flex h-11 w-11 items-center justify-center rounded-full bg-navy text-white active:scale-95"
+                        >
+                          {playing ? (
+                            <PauseIcon className="h-5 w-5" />
+                          ) : (
+                            <PlayIcon className="h-5 w-5" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPlaying(false);
+                            setGridStripOpen(false);
+                          }}
+                          aria-label="Ẩn thanh giờ"
+                          className="flex h-11 w-9 items-center justify-center rounded-full text-navy active:scale-95"
+                        >
+                          <ChevronDownIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={fGrid.times.length - 1}
+                      step={1}
+                      value={Math.min(timeIdx, fGrid.times.length - 1)}
+                      onChange={(e) => {
+                        setPlaying(false);
+                        setTimeIdx(Number(e.target.value));
+                      }}
+                      aria-label="Chọn giờ xem dự báo"
+                      className="range-big mt-1 w-full"
+                    />
+                    <div className="flex justify-between text-[0.6875rem] font-semibold text-foreground/65">
+                      <span>Bây giờ</span>
+                      <span>Ngày mai</span>
+                      <span>2 ngày</span>
+                      <span>3 ngày</span>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setGridStripOpen(true)}
+                    className="flex w-full items-center justify-between gap-2"
+                    aria-label="Hiện thanh giờ dự báo"
+                  >
                     <span className="text-[0.875rem] font-bold text-navy">
                       {forecastKind === "wind" ? "Gió" : "Sóng"} ·{" "}
                       {timeLabelVN(
                         fGrid.times[timeIdx] ?? "",
                         fGrid.times[0]?.split("T")[0],
-                      )}
+                      )}{" "}
+                      · chạm để chọn giờ
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setPlaying((p) => !p)}
-                      aria-label={playing ? "Dừng chạy" : "Chạy thử 3 ngày"}
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-navy text-white active:scale-95"
-                    >
-                      {playing ? (
-                        <PauseIcon className="h-5 w-5" />
-                      ) : (
-                        <PlayIcon className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={fGrid.times.length - 1}
-                    step={1}
-                    value={Math.min(timeIdx, fGrid.times.length - 1)}
-                    onChange={(e) => {
-                      setPlaying(false);
-                      setTimeIdx(Number(e.target.value));
-                    }}
-                    aria-label="Chọn giờ xem dự báo"
-                    className="range-big mt-1 w-full"
-                  />
-                  <div className="flex justify-between text-[0.6875rem] font-semibold text-foreground/65">
-                    <span>Bây giờ</span>
-                    <span>Ngày mai</span>
-                    <span>2 ngày</span>
-                    <span>3 ngày</span>
-                  </div>
-                </>
+                    <ChevronUpIcon className="h-5 w-5 shrink-0 text-navy" />
+                  </button>
+                )
               ) : gridFailed ? (
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[0.875rem] font-semibold text-danger">
@@ -1329,6 +1365,32 @@ export default function FishingMapView() {
                 </div>
               )}
 
+              {/* mưa/dông + độ tin — để LIỀN với sóng/gió (user 2026-06-23) */}
+              {(() => {
+                const w = weatherFromCode(sel.wmoCode);
+                return (
+                  w && (
+                    <p
+                      className={`rounded-xl px-4 py-3 text-[1rem] font-bold ${
+                        w.danger
+                          ? "bg-danger-bg text-danger"
+                          : "bg-field text-foreground/75"
+                      }`}
+                    >
+                      {w.label}
+                    </p>
+                  )
+                );
+              })()}
+              <p
+                className={`px-1 text-[0.875rem] font-semibold leading-snug ${
+                  confidence.tone === "ok" ? "text-foreground/70" : "text-warn"
+                }`}
+              >
+                {confidence.label}. Chỉ để tham khảo — trước khi đi, nghe thêm
+                đài duyên hải, Biên phòng.
+              </p>
+
               {/* DỰ BÁO CÁ tại chỗ này — tính từ ảnh mới nhất; không có dữ liệu
                   thì lùi về mùa vụ. Luôn ghi rõ tham khảo.
                   TEASER: lớp cá hiện cho mọi người; CHI TIẾT điểm thì khoá,
@@ -1494,33 +1556,6 @@ export default function FishingMapView() {
                 onRoute={handleRoute}
               />
 
-              {/* mưa/dông của ngày đã chọn */}
-              {(() => {
-                const w = weatherFromCode(sel.wmoCode);
-                return (
-                  w && (
-                    <p
-                      className={`rounded-xl px-4 py-3 text-[1rem] font-bold ${
-                        w.danger
-                          ? "bg-danger-bg text-danger"
-                          : "bg-field text-foreground/75"
-                      }`}
-                    >
-                      {w.label}
-                    </p>
-                  )
-                );
-              })()}
-
-              {/* độ tin theo tầm xa + lời dặn nghe đài — gọn 1 khối */}
-              <p
-                className={`px-1 text-[0.875rem] font-semibold leading-snug ${
-                  confidence.tone === "ok" ? "text-foreground/70" : "text-warn"
-                }`}
-              >
-                {confidence.label}. Chỉ để tham khảo — trước khi đi, nghe thêm
-                đài duyên hải, Biên phòng.
-              </p>
 
               {/* ghim chỗ này thành "Điểm của tôi" */}
               {currentPlace ? (
