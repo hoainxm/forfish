@@ -22,6 +22,7 @@ import {
   CrosshairIcon,
   EditIcon,
   HomeIcon,
+  PlusIcon,
   SearchIcon,
   StarIcon,
   TrashIcon,
@@ -48,6 +49,30 @@ export function MyPlacesSheet({
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [portQuery, setPortQuery] = useState("");
   const [portOpen, setPortOpen] = useState(false);
+  // thêm điểm theo toạ độ (user yêu cầu) — gõ tên + vĩ độ + kinh độ
+  const [addOpen, setAddOpen] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addLat, setAddLat] = useState("");
+  const [addLon, setAddLon] = useState("");
+  const addLatN = parseFloat(addLat.replace(",", "."));
+  const addLonN = parseFloat(addLon.replace(",", "."));
+  const addValid =
+    Number.isFinite(addLatN) &&
+    addLatN >= -90 &&
+    addLatN <= 90 &&
+    Number.isFinite(addLonN) &&
+    addLonN >= -180 &&
+    addLonN <= 180;
+  function submitAdd() {
+    if (!addValid) return;
+    onPlaces(
+      upsertPlace(places, { name: addName, lat: addLatN, lon: addLonN }),
+    );
+    setAddName("");
+    setAddLat("");
+    setAddLon("");
+    setAddOpen(false);
+  }
 
   const sorted = sortedPlaces(places);
 
@@ -82,6 +107,74 @@ export function MyPlacesSheet({
           Chỗ tàu tôi đang đứng
         </span>
       </button>
+
+      {/* Thêm điểm theo toạ độ — gõ tên + vĩ độ + kinh độ (user yêu cầu) */}
+      {!addOpen ? (
+        <button
+          type="button"
+          onClick={() => setAddOpen(true)}
+          className="mt-2 flex min-h-[3.5rem] w-full items-center gap-3 rounded-xl border-2 border-dashed border-line px-4 text-left transition active:scale-[0.99]"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-t1 text-white">
+            <PlusIcon className="h-5 w-5" />
+          </span>
+          <span className="flex-1">
+            <span className="block text-[1rem] font-bold text-navy">
+              Thêm điểm theo toạ độ
+            </span>
+            <span className="block text-[0.8125rem] text-foreground/65">
+              Gõ vĩ độ / kinh độ &amp; đặt tên
+            </span>
+          </span>
+        </button>
+      ) : (
+        <div className="mt-2 surface p-3">
+          <input
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            placeholder="Tên điểm (vd: Bãi cá ngừ)"
+            className="mb-2 min-h-[3rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
+          />
+          <div className="mb-2 grid grid-cols-2 gap-2">
+            <input
+              value={addLat}
+              onChange={(e) => setAddLat(e.target.value)}
+              inputMode="decimal"
+              placeholder="Vĩ độ (12.5)"
+              className="min-h-[3rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
+            />
+            <input
+              value={addLon}
+              onChange={(e) => setAddLon(e.target.value)}
+              inputMode="decimal"
+              placeholder="Kinh độ (109.3)"
+              className="min-h-[3rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
+            />
+          </div>
+          {!addValid && (addLat || addLon) && (
+            <p className="mb-2 text-[0.8125rem] font-semibold text-danger">
+              Vĩ độ −90…90, kinh độ −180…180.
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setAddOpen(false)}
+              className="min-h-[3rem] rounded-xl bg-field text-[1rem] font-bold text-foreground/70"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={submitAdd}
+              disabled={!addValid}
+              className="min-h-[3rem] rounded-xl bg-t1 text-[1rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-50"
+            >
+              Lưu điểm
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* các điểm đã ghim */}
       {sorted.length > 0 && (

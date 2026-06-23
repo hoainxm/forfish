@@ -1271,30 +1271,22 @@ export default function FishingMapView() {
                 })}
               </div>
 
-              {/* tình trạng biển ngày đã chọn — mô tả điều kiện, không phán */}
-              <div
-                className="rounded-xl p-4"
-                style={{ backgroundColor: LEVEL_STYLE[sel.level].bg }}
+              {/* MAX cả ngày đã chọn (giật) — peek phía trên đã có tình trạng
+                  + tóm tắt, đây chỉ thêm số đỉnh để khỏi trùng (user: trùng dữ liệu) */}
+              <p
+                className="rounded-xl px-3 py-2.5 text-[0.9375rem] font-semibold leading-snug"
+                style={{
+                  backgroundColor: LEVEL_STYLE[sel.level].bg,
+                  color: LEVEL_STYLE[sel.level].fg,
+                }}
               >
-                <p className="mb-1 text-[0.875rem] font-bold uppercase tracking-wide text-foreground/65">
-                  {dayLabel(sel.date, dayIdx)}
-                </p>
-                <p
-                  className="display text-[1.5rem] font-bold leading-tight"
-                  style={{ color: LEVEL_STYLE[sel.level].fg }}
-                >
-                  {SEA_STATE[sel.level]}
-                </p>
-                <p className="mt-1 text-[1rem] font-semibold leading-snug text-foreground/80">
-                  Sóng tới{" "}
-                  {sel.waveMaxM > 0
-                    ? `${formatNumberVN(sel.waveMaxM)} m`
-                    : "— (chưa có số)"}{" "}
-                  · Gió tới cấp {beaufort(sel.windMaxKmh)}
-                  {sel.gustMaxKmh > 0 &&
-                    `, giật cấp ${beaufort(sel.gustMaxKmh)}`}
-                </p>
-              </div>
+                Cả ngày: sóng tới{" "}
+                {sel.waveMaxM > 0
+                  ? `${formatNumberVN(sel.waveMaxM)} m`
+                  : "— (chưa có số)"}{" "}
+                · gió tới cấp {beaufort(sel.windMaxKmh)}
+                {sel.gustMaxKmh > 0 && `, giật cấp ${beaufort(sel.gustMaxKmh)}`}
+              </p>
 
               {/* DỰ BÁO CÁ tại chỗ này — tính từ ảnh mới nhất; không có dữ liệu
                   thì lùi về mùa vụ. Luôn ghi rõ tham khảo.
