@@ -505,6 +505,28 @@ export default function FishingMapView() {
   const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState(false);
   const [storms, setStorms] = useState<StormAlert[]>([]);
+  // Geometry bão → GeoJSON: vùng ảnh hưởng (polygon) + đường đi (track) để vẽ
+  // đè bản đồ kiểu app thời tiết chuyên nghiệp (nguồn GDACS đã có sẵn).
+  const stormGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    const features: GeoJSON.Feature[] = [];
+    for (const s of storms) {
+      for (const poly of s.areas) {
+        features.push({
+          type: "Feature",
+          properties: { kind: "area" },
+          geometry: { type: "Polygon", coordinates: poly },
+        });
+      }
+      if (s.track.length > 1) {
+        features.push({
+          type: "Feature",
+          properties: { kind: "track" },
+          geometry: { type: "LineString", coordinates: s.track },
+        });
+      }
+    }
+    return features.length ? { type: "FeatureCollection", features } : null;
+  }, [storms]);
   // ngày đang xem dự báo: 0 = hôm nay … tới FORECAST_MAX_DAYS-1
   const [dayIdx, setDayIdx] = useState(0);
   // tuyến dẫn đường tiết kiệm dầu (route-planner.tsx) — vẽ đè lên bản đồ
@@ -852,6 +874,41 @@ export default function FishingMapView() {
 
         {/* (nhãn loài theo vùng đã bỏ — chọn loài bằng hàng chip phía trên,
             đỡ rối bản đồ; chi tiết loài nằm trong sheet) */}
+
+        {/* BÃO — vùng ảnh hưởng (polygon đỏ mờ) + đường đi (track gạch đứt) từ
+            GDACS; tâm bão là Marker bên dưới. Cảnh báo trực quan kiểu app
+            thời tiết chuyên nghiệp — "đừng ra khơi vùng đỏ". */}
+        {stormGeo && (
+          <Source id="storm-geo" type="geojson" data={stormGeo}>
+            <Layer
+              id="storm-area-fill"
+              type="fill"
+              filter={["==", ["get", "kind"], "area"]}
+              paint={{ "fill-color": "#e4572e", "fill-opacity": 0.16 }}
+            />
+            <Layer
+              id="storm-area-line"
+              type="line"
+              filter={["==", ["get", "kind"], "area"]}
+              paint={{
+                "line-color": "#e4572e",
+                "line-width": 1.5,
+                "line-opacity": 0.55,
+              }}
+            />
+            <Layer
+              id="storm-track-line"
+              type="line"
+              filter={["==", ["get", "kind"], "track"]}
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{
+                "line-color": "#b42318",
+                "line-width": 2.5,
+                "line-dasharray": [2, 1.5],
+              }}
+            />
+          </Source>
+        )}
 
         {/* nhãn chủ quyền — luôn nằm trên mọi lớp ảnh; chữ to cho mắt 40-60,
             halo trắng đọc được trên mọi nền (audit lớp #9) */}
