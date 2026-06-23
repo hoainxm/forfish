@@ -4,16 +4,13 @@
   SnapSheet — sheet đáy THƯỜNG TRỰC 3 nấc (peek / half / full) cho màn hình
   bản đồ, kiểu Google Maps nhưng đơn giản hoá cho người 40–60 tuổi:
   · KHÔNG scrim, KHÔNG khoá map — bản đồ phía trên vẫn chạm/kéo được
-  · điều khiển bằng NÚT TO ("Xem thêm" / "Thu gọn" / đóng), không bắt drag
+  · VUỐT lên/xuống ở mép sheet để nở/thu (chạm vào mép cũng nở 1 nấc) —
+    không còn nút "Xem thêm"/"Thu gọn" riêng (user 2026-06-23)
   · không phải dialog (khác ui/bottom-sheet.tsx vốn là modal có focus-trap)
   Đặt trong container relative của màn hình map; chiều cao tính theo container.
 */
-import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-  CloseIcon,
-} from "@/components/icons";
-import type { ReactNode } from "react";
+import { CloseIcon } from "@/components/icons";
+import { useRef, type ReactNode } from "react";
 
 export type SheetSize = "peek" | "half" | "full";
 
@@ -48,6 +45,22 @@ export function SnapSheet({
   const grow = () => onSizeChange(size === "peek" ? "half" : "full");
   const shrink = () => onSizeChange(size === "full" ? "half" : "peek");
 
+  // Vuốt lên = nở, vuốt xuống = thu. Chạm nhẹ (ít di chuyển) thì coi như tap → nở.
+  const dragY = useRef<number | null>(null);
+  const onPointerDown = (e: React.PointerEvent) => {
+    dragY.current = e.clientY;
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    const start = dragY.current;
+    dragY.current = null;
+    if (start == null) return;
+    const dy = e.clientY - start;
+    const TH = 36; // ngưỡng vuốt (px)
+    if (dy < -TH) grow();
+    else if (dy > TH) shrink();
+    else if (Math.abs(dy) < 8 && size !== "full") grow(); // tap nhẹ = nở
+  };
+
   return (
     <section
       role="region"
@@ -70,52 +83,26 @@ export function SnapSheet({
         </div>
       )}
 
-      {/* thanh kéo từng là đồ giả — giờ chạm là nở (roadmap hội đồng UX) */}
-      <button
-        type="button"
-        onClick={() => size !== "full" && grow()}
-        aria-label="Mở rộng bảng thông tin"
-        className="flex w-full shrink-0 justify-center pb-1 pt-2"
+      {/* Vùng VUỐT: thanh kéo + peek. Vuốt lên nở, vuốt xuống thu, chạm = nở.
+          touch-none để vuốt dọc không cuộn trang phía sau. */}
+      <div
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        style={{ touchAction: "none" }}
+        className="shrink-0 cursor-grab active:cursor-grabbing"
+        aria-label="Vuốt lên xem thêm, vuốt xuống thu gọn"
       >
-        <span className="h-1.5 w-12 rounded-full bg-line" aria-hidden />
-      </button>
-
-      <div className="flex shrink-0 items-center gap-2 px-3 pb-1">
-        {/* vùng peek chạm là nở luôn — không bắt nhắm trúng nút nhỏ */}
-        <div
-          className="min-w-0 flex-1"
-          onClick={() => {
-            if (size === "peek") grow();
-          }}
-        >
-          {peek}
+        <div className="flex w-full justify-center pb-2 pt-2.5">
+          <span className="h-1.5 w-12 rounded-full bg-line" aria-hidden />
         </div>
-        <div className="flex shrink-0 flex-col gap-1.5">
-          {size !== "full" && (
-            <button
-              type="button"
-              onClick={grow}
-              className="flex min-h-[3.5rem] items-center gap-1 rounded-xl bg-t1 px-3 text-[0.9375rem] font-bold text-white transition active:scale-[0.97]"
-            >
-              <ChevronUpIcon className="h-5 w-5" />
-              Xem thêm
-            </button>
-          )}
-          {size !== "peek" && (
-            <button
-              type="button"
-              onClick={shrink}
-              className="flex min-h-[3.5rem] items-center gap-1 surface px-3 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
-            >
-              <ChevronDownIcon className="h-5 w-5" />
-              Thu gọn
-            </button>
-          )}
+        <div className="flex items-center gap-2 px-3 pb-1">
+          <div className="min-w-0 flex-1">{peek}</div>
           {onClose && (
             <button
               type="button"
               onClick={onClose}
-              className="flex min-h-[3.5rem] items-center justify-center gap-1 surface px-3 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
+              onPointerDown={(e) => e.stopPropagation()}
+              className="flex min-h-[3.5rem] shrink-0 items-center justify-center gap-1 surface px-3 text-[0.9375rem] font-bold text-navy transition active:scale-[0.97]"
             >
               {closeIcon ?? <CloseIcon className="h-5 w-5" />}
               {closeLabel}

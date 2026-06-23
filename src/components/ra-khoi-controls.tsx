@@ -116,7 +116,7 @@ export function RaKhoiControls({
     <div className="pointer-events-none relative flex justify-end gap-2">
       {/* PANEL neo TRÁI rail, bounded trong màn (không tràn/đè banner) */}
       {open && !collapsed && (
-        <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[62vh] w-[13.5rem] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl [overscroll-behavior:contain]">
+        <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[62vh] w-[16.5rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl [overscroll-behavior:contain]">
           <PanelHeader
             title={PANEL_TITLE[open]}
             onClose={() => setOpen(null)}
@@ -444,22 +444,22 @@ function ThoiTietPanel({
         Lớp thời tiết khác
       </p>
       <Toggle
-        label="Lưới gió (Windy)"
+        label="Gió (Windy)"
         sub="Theo giờ · cập nhật vài giờ"
         on={forecastKind === "wind"}
         onToggle={() => onForecast(forecastKind === "wind" ? null : "wind")}
         icon={<WindIcon className="h-5 w-5 text-t1" />}
       />
       <Toggle
-        label="Lưới sóng (Windy)"
+        label="Sóng (Windy)"
         sub="Theo giờ · cập nhật vài giờ"
         on={forecastKind === "wave"}
         onToggle={() => onForecast(forecastKind === "wave" ? null : "wave")}
         icon={<WindIcon className="h-5 w-5 text-t2" />}
       />
       <Toggle
-        label="Nước dâng & xoáy (SSHA)"
-        sub="Theo ngày · chậm ~2 ngày"
+        label="Nước dâng/xoáy"
+        sub="SSHA · theo ngày, chậm ~2 ngày"
         on={scalarKind === "ssha"}
         onToggle={() => onScalar(scalarKind === "ssha" ? null : "ssha")}
         icon={<EddyIcon className="h-5 w-5 text-t4" />}

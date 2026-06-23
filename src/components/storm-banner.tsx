@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { fetchStormCheck, type StormCheck } from "@/lib/storms";
 import { beaufort } from "@/lib/marine-weather";
-import { AlertIcon, CheckIcon } from "@/components/icons";
+import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/icons";
 
 export function StormBanner({
   variant = "page",
@@ -19,6 +19,10 @@ export function StormBanner({
   variant?: "page" | "overlay";
 }) {
   const [check, setCheck] = useState<StormCheck | null>(null);
+  // Overlay: cho thu/mở để tin bão không chiếm hết view (user 2026-06-23).
+  // Mặc định MỞ (an toàn — bà con phải thấy ít nhất 1 lần), thu lại thành 1
+  // chip đỏ/vàng vẫn nổi bật, chạm để mở lại.
+  const [open, setOpen] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -65,6 +69,24 @@ export function StormBanner({
     );
   }
 
+  // Overlay đã thu: 1 chip cảnh báo gọn, vẫn nổi bật, chạm để mở lại.
+  if (variant === "overlay" && !open) {
+    const anyDanger = check.storms.some((s) => s.alert === "danger");
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={`pointer-events-auto mx-auto flex w-fit items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.8125rem] font-bold shadow-md ${
+          anyDanger ? "bg-danger-bg text-danger" : "bg-warn-bg text-warn"
+        }`}
+      >
+        <AlertIcon className="h-4 w-4 shrink-0" />
+        {check.storms.length} tin bão — chạm xem
+        <ChevronDownIcon className="h-4 w-4" />
+      </button>
+    );
+  }
+
   return (
     <div
       role="alert"
@@ -107,6 +129,18 @@ export function StormBanner({
                 đồn biên phòng.
               </p>
             </div>
+            {variant === "overlay" && (
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Thu gọn tin bão"
+                className={`-mr-1 -mt-1 ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                  danger ? "text-danger" : "text-warn"
+                }`}
+              >
+                <ChevronUpIcon className="h-5 w-5" />
+              </button>
+            )}
           </div>
         );
       })}

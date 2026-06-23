@@ -142,7 +142,15 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 
 **GIỮ NGUYÊN (từ 05 §8, 06 §7):** mọi tính năng + data + ma trận trạng thái + quy tắc an toàn + ràng buộc (font ≥18, tap ≥44-56, map ≥60%, cam-đỏ độc quyền ranh giới, lazy-load MapLibre, nguồn dữ liệu). Chừa chỗ data dự kiến (06 §6).
 
-> **Build status**: chốt spec 2026-06-16. Hiện thực dần (rail trái → gom panel → sheet số liệu điểm), verify từng bước trên dev (map screenshot QA cần mắt user).
+> **Build status**: chốt spec 2026-06-16. Hiện thực dần (rail → gom panel → sheet số liệu điểm), verify từng bước trên dev (map screenshot QA cần mắt user).
+
+**Delta hiện thực 2026-06-23 (theo feedback user trên dev):**
+- **Rail panel = khung CÂN ĐỐI** `w-[16.5rem]` (max `calc(100vw-5rem)`) — không full-width (user: full = "chiếm hết màn hình"), không hẹp (1 chữ/dòng). Nhãn lớp rút gọn: "Gió (Windy)" / "Sóng (Windy)" / "Nước dâng/xoáy" để 1 hàng không rớt dòng.
+- **Sheet đáy VUỐT** lên/xuống đổi nấc (peek↔half↔full) thay 2 nút "Xem thêm"/"Thu gọn" (đã bỏ); chạm mép = nở 1 nấc; chỉ giữ nút "Về cảng nhà". (`ui/snap-sheet.tsx`)
+- **Banner bão (overlay) THU/MỞ** được: mặc định mở (an toàn), thu thành 1 chip đỏ/vàng "N tin bão — chạm xem" để không chiếm view. (`storm-banner.tsx`)
+- **Số liệu sóng/gió LIỀN MẠCH**: thẻ "Gió/Sóng lúc này" dời lên ngay dưới dải ngày + "cả ngày" (trước nằm sau khối cá/trăng/dẫn đường → user: "trên dưới cách cả 1 khúc").
+- **Điểm đã lưu: bỏ hàng "Chỗ tàu tôi đang đứng" (GPS)** — user: vô nghĩa (không còn entry-point GPS). Giữ "Thêm điểm theo toạ độ".
+- **BottomSheet (modal) cap `max-h-[85dvh]`** (trước 92) — đọc như sheet cân đối, còn thấy map sau lưng (vd bảng "Chọn loài cá").
 
 ---
 
@@ -151,6 +159,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 <!-- re-verified: 2026-06-15 — thêm /tien Báo cáo năm/Tính chuyến/Công nợ + /tau checklist xuất bến + hồ sơ/lặp lại chuyến; fix layout suppressHydrationWarning không đổi screen spec -->
 <!-- re-verified: 2026-06-16 — rebrand ForFish→SDFish (chỉ string brand) + PWA (manifest/SW/icons) + api-base indirection; screen map/nav/object model KHÔNG đổi -->
 <!-- re-verified: 2026-06-16 — native UI polish: edge-to-edge safe-area, motion điềm đạm (sheet/dialog vào-ra, tab cross-fade), tap-target Tabs/SnapSheet→56; screen map/nav/density/object model KHÔNG đổi cấu trúc -->
+<!-- re-verified: 2026-06-23 — Ra khơi feedback: rail panel cân đối + nhãn rút gọn; sheet đáy vuốt (bỏ nút Xem thêm/Thu gọn); banner bão thu/mở; sóng-gió liền mạch; bỏ hàng GPS ở Điểm; BottomSheet cap 85dvh (xem §10 delta 2026-06-23) -->
 <!-- re-verified: 2026-06-16 — /login = SĐT + mật khẩu (webhook provision, KHÔNG email/OTP); nav/screen map/object model không đổi -->
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): thêm lớp BÃO trên map (vùng ảnh hưởng polygon đỏ mờ + đường đi track gạch đứt, dưới Marker tâm bão) từ GDACS; + fix dự báo cá maxDuration/ISR. Screen map/nav/object model KHÔNG đổi cấu trúc -->
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): legend cá thành BỘ LỌC kéo-thả 2 đầu (chỉ hiện ô [lo,hi]% khả năng có cá). Độ sâu raster KHÔNG lọc được (giữ legend tĩnh). Screen map/object model KHÔNG đổi cấu trúc -->

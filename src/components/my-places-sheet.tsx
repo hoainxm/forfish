@@ -1,10 +1,9 @@
 "use client";
 
 /*
-  Sheet "Điểm của tôi" — thay cho việc chọn cảng trong danh sách dài.
-  Gồm: chỗ tàu đang đứng (GPS), các điểm ghim của chủ tàu (cảng nhà + bãi
-  hay đánh), và lối đặt cảng nhà bằng cách TÌM trong 173 cảng (gõ để lọc,
-  không đổ cả danh sách ra cho rối).
+  Sheet "Điểm của tôi": các điểm ghim của chủ tàu (cảng nhà + bãi hay đánh),
+  thêm điểm theo toạ độ, và lối đặt cảng nhà bằng cách TÌM trong 173 cảng (gõ
+  để lọc, không đổ cả danh sách ra cho rối).
 */
 import { useMemo, useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -19,7 +18,6 @@ import {
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import {
   AnchorIcon,
-  CrosshairIcon,
   EditIcon,
   HomeIcon,
   PlusIcon,
@@ -32,15 +30,12 @@ export function MyPlacesSheet({
   places,
   onPlaces,
   onGo,
-  onUseGps,
   onClose,
 }: {
   places: SavedPlace[];
   onPlaces: (next: SavedPlace[]) => void;
   /** mở một điểm đã lưu (bay tới + xem dự báo) */
   onGo: (lat: number, lon: number) => void;
-  /** xem chỗ tàu đang đứng (GPS) */
-  onUseGps: () => void;
   onClose: () => void;
 }) {
   const [editId, setEditId] = useState<string | null>(null);
@@ -91,29 +86,12 @@ export function MyPlacesSheet({
 
   return (
     <BottomSheet title="Điểm của tôi" onClose={onClose}>
-      {/* chỗ tàu đang đứng */}
-      <button
-        type="button"
-        onClick={() => {
-          onUseGps();
-          onClose();
-        }}
-        className="flex min-h-[3.5rem] w-full items-center gap-3 surface px-4 transition active:scale-[0.99]"
-      >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy text-white">
-          <CrosshairIcon className="h-5 w-5" />
-        </span>
-        <span className="flex-1 text-left text-[1rem] font-bold text-navy">
-          Chỗ tàu tôi đang đứng
-        </span>
-      </button>
-
       {/* Thêm điểm theo toạ độ — gõ tên + vĩ độ + kinh độ (user yêu cầu) */}
       {!addOpen ? (
         <button
           type="button"
           onClick={() => setAddOpen(true)}
-          className="mt-2 flex min-h-[3.5rem] w-full items-center gap-3 rounded-xl border-2 border-dashed border-line px-4 text-left transition active:scale-[0.99]"
+          className="flex min-h-[3.5rem] w-full items-center gap-3 rounded-xl border-2 border-dashed border-line px-4 text-left transition active:scale-[0.99]"
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-t1 text-white">
             <PlusIcon className="h-5 w-5" />

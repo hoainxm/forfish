@@ -1144,7 +1144,7 @@ export default function FishingMapView() {
             </p>
           ) : errored ? (
             <p className="py-3 text-[0.9375rem] font-semibold text-danger">
-              Chưa lấy được dự báo — bấm Xem thêm để thử lại.
+              Chưa lấy được dự báo — vuốt lên để thử lại.
             </p>
           ) : cond && !cond.onSea ? (
             <p className="py-3 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
@@ -1287,6 +1287,45 @@ export default function FishingMapView() {
                 · gió tới cấp {beaufort(sel.windMaxKmh)}
                 {sel.gustMaxKmh > 0 && `, giật cấp ${beaufort(sel.gustMaxKmh)}`}
               </p>
+
+              {/* số đo LÚC NÀY — để LIỀN với dải ngày + "cả ngày" cho khỏi
+                  nói sóng/gió trên một khúc, dưới một khúc (user 2026-06-23).
+                  Ngày sau đã gọn trong thẻ ngày + "cả ngày" nên chỉ hiện hôm nay. */}
+              {dayIdx === 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="surface p-4">
+                    <div className="flex items-center gap-2 text-t1">
+                      <WindIcon className="h-5 w-5" />
+                      <span className="text-[0.9375rem] font-bold">Gió lúc này</span>
+                    </div>
+                    <p className="display mt-1.5 text-[1.5rem] font-bold leading-none text-navy">
+                      Cấp {beaufort(cond.windKmh)}
+                    </p>
+                    <p className="mt-1 text-[0.875rem] leading-snug text-foreground/65">
+                      {Math.round(cond.windKmh)} km/giờ
+                      {cond.windDirDeg != null &&
+                        ` · hướng ${windDirectionVN(cond.windDirDeg)}`}
+                    </p>
+                  </div>
+                  <div className="surface p-4">
+                    <div className="flex items-center gap-2 text-t1">
+                      <WavesIcon className="h-5 w-5" />
+                      <span className="text-[0.9375rem] font-bold">
+                        Sóng lúc này
+                      </span>
+                    </div>
+                    {cond.waveM != null ? (
+                      <p className="display mt-1.5 text-[1.5rem] font-bold leading-none text-navy">
+                        {formatNumberVN(cond.waveM)} m
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 text-[0.9375rem] leading-snug text-foreground/65">
+                        Chỗ này sát bờ, chưa có số sóng — xem gió là chính.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* DỰ BÁO CÁ tại chỗ này — tính từ ảnh mới nhất; không có dữ liệu
                   thì lùi về mùa vụ. Luôn ghi rõ tham khảo.
@@ -1453,43 +1492,6 @@ export default function FishingMapView() {
                 onRoute={handleRoute}
               />
 
-              {/* hôm nay có thêm số đo LÚC NÀY (ngày sau đã gọn trong thẻ trên) */}
-              {dayIdx === 0 && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="surface p-4">
-                    <div className="flex items-center gap-2 text-t1">
-                      <WindIcon className="h-5 w-5" />
-                      <span className="text-[0.9375rem] font-bold">Gió lúc này</span>
-                    </div>
-                    <p className="display mt-1.5 text-[1.5rem] font-bold leading-none text-navy">
-                      Cấp {beaufort(cond.windKmh)}
-                    </p>
-                    <p className="mt-1 text-[0.875rem] leading-snug text-foreground/65">
-                      {Math.round(cond.windKmh)} km/giờ
-                      {cond.windDirDeg != null &&
-                        ` · hướng ${windDirectionVN(cond.windDirDeg)}`}
-                    </p>
-                  </div>
-                  <div className="surface p-4">
-                    <div className="flex items-center gap-2 text-t1">
-                      <WavesIcon className="h-5 w-5" />
-                      <span className="text-[0.9375rem] font-bold">
-                        Sóng lúc này
-                      </span>
-                    </div>
-                    {cond.waveM != null ? (
-                      <p className="display mt-1.5 text-[1.5rem] font-bold leading-none text-navy">
-                        {formatNumberVN(cond.waveM)} m
-                      </p>
-                    ) : (
-                      <p className="mt-1.5 text-[0.9375rem] leading-snug text-foreground/65">
-                        Chỗ này sát bờ, chưa có số sóng — xem gió là chính.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
               {/* mưa/dông của ngày đã chọn */}
               {(() => {
                 const w = weatherFromCode(sel.wmoCode);
@@ -1613,7 +1615,7 @@ export default function FishingMapView() {
         />
       )}
 
-      {/* ── SHEET "ĐIỂM CỦA TÔI" — ghim, cảng nhà, GPS ───────────────────── */}
+      {/* ── SHEET "ĐIỂM CỦA TÔI" — ghim, cảng nhà, thêm theo toạ độ ───────── */}
       {placesSheetOpen && (
         <MyPlacesSheet
           places={places}
@@ -1623,7 +1625,6 @@ export default function FishingMapView() {
             setSize("peek");
             goToCoord(lat, lon);
           }}
-          onUseGps={goToMyBoat}
           onClose={() => setPlacesSheetOpen(false)}
         />
       )}
