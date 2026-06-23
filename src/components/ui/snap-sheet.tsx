@@ -58,7 +58,11 @@ export function SnapSheet({
     const TH = 36; // ngưỡng vuốt (px)
     if (dy < -TH) grow();
     else if (dy > TH) shrink();
-    else if (Math.abs(dy) < 8 && size !== "full") grow(); // tap nhẹ = nở
+    else if (Math.abs(dy) < 8) {
+      // tap nhẹ: nở dần peek→half→full; tới full rồi thì thu hẳn về peek
+      if (size === "full") onSizeChange("peek");
+      else grow();
+    }
   };
 
   return (

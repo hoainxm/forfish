@@ -32,6 +32,15 @@ export function StormBanner({
     };
   }, []);
 
+  // Overlay có bão: hiện đầy đủ ~3s lúc mở/refresh bản đồ rồi TỰ THU thành chip
+  // (user 2026-06-23) — bà con thấy 1 lần, sau đó không chiếm view; chạm mở lại.
+  useEffect(() => {
+    if (variant !== "overlay") return;
+    if (!check?.ok || check.storms.length === 0) return;
+    const t = setTimeout(() => setOpen(false), 3000);
+    return () => clearTimeout(t);
+  }, [check, variant]);
+
   if (!check) return null; // đang kiểm tra — chưa nói gì
 
   // Nguồn fail: nói rõ "chưa kiểm tra được" — khác hẳn với "không có bão".
