@@ -22,6 +22,7 @@ import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
 import type { StormAlert } from "@/lib/storms";
 import type { SavedPlace } from "@/lib/places";
+import { useMapPrefs, setMapPrefs } from "@/lib/map-prefs";
 import { FishSpeciesContent } from "@/components/fish-species-sheet";
 import { MyPlacesContent } from "@/components/my-places-sheet";
 import {
@@ -33,13 +34,21 @@ import {
   LayersIcon,
   EddyIcon,
   FishIcon,
+  RulerIcon,
+  SettingsIcon,
   StarIcon,
   WindIcon,
 } from "@/components/icons";
 
 const FISH_COLOR = "#2d8659"; // xanh lá — cá/ngư trường (design Phương án A)
 
-type PanelId = "hai-do" | "ngu-truong" | "thoi-tiet" | "diem";
+type PanelId =
+  | "hai-do"
+  | "ngu-truong"
+  | "thoi-tiet"
+  | "diem"
+  | "cai-dat"
+  | "cong-cu";
 
 // nhịp cập nhật → chấm màu (design §3): 🟥 liên tục 🟧 giờ 🟨 ngày ⬛ cố định
 const DOT: Record<string, string> = {
@@ -72,6 +81,11 @@ export function RaKhoiControls({
   places,
   onPlaces,
   onGoPlace,
+  measureMode,
+  onMeasureMode,
+  measureCount,
+  measureResult,
+  onClearMeasure,
 }: {
   layerId: OceanLayerId;
   onLayer: (id: OceanLayerId) => void;
@@ -98,6 +112,14 @@ export function RaKhoiControls({
   places: SavedPlace[];
   onPlaces: (next: SavedPlace[]) => void;
   onGoPlace: (lat: number, lon: number) => void;
+  /** công cụ đo khoảng cách 2 điểm trên bản đồ */
+  measureMode: boolean;
+  onMeasureMode: (on: boolean) => void;
+  /** số điểm đã chạm (0/1/2) — để hướng dẫn */
+  measureCount: number;
+  /** kết quả đã định dạng theo đơn vị đang chọn (null khi chưa đủ 2 điểm) */
+  measureResult: { dist: string; dir: string } | null;
+  onClearMeasure: () => void;
 }) {
   const [open, setOpen] = useState<PanelId | null>(null);
   const [collapsed, setCollapsed] = useState(false); // ẩn/hiện rail như menu bản đồ
@@ -131,6 +153,14 @@ export function RaKhoiControls({
       dot: storms.length > 0 || !!forecastKind || !!scalarKind,
     },
     { id: "diem", label: "Điểm đã lưu", icon: StarIcon, color: "var(--navy)" },
+    {
+      id: "cong-cu",
+      label: "Công cụ",
+      icon: RulerIcon,
+      color: "var(--t1)",
+      dot: measureMode,
+    },
+    { id: "cai-dat", label: "Cài đặt", icon: SettingsIcon, color: "var(--navy)" },
   ];
 
   return (
@@ -211,6 +241,16 @@ export function RaKhoiControls({
                   onClose={() => setOpen(null)}
                 />
               )}
+              {open === "cong-cu" && (
+                <ToolsPanel
+                  measureMode={measureMode}
+                  onMeasureMode={onMeasureMode}
+                  measureCount={measureCount}
+                  measureResult={measureResult}
+                  onClearMeasure={onClearMeasure}
+                />
+              )}
+              {open === "cai-dat" && <SettingsPanel />}
             </>
           )}
         </div>
@@ -278,6 +318,8 @@ const PANEL_TITLE: Record<PanelId, string> = {
   "ngu-truong": "Ngư trường — Lớp cá",
   "thoi-tiet": "Thời tiết — gió, sóng, bão",
   diem: "Điểm đã lưu của tôi",
+  "cong-cu": "Công cụ — đo khoảng cách",
+  "cai-dat": "Cài đặt — đơn vị & toạ độ",
 };
 
 function PanelHeader({
@@ -596,6 +638,151 @@ function DiemPanel({
           compact
         />
       </div>
+    </div>
+  );
+}
+
+// thẻ chọn 1 (radio) cho Cài đặt — icon ✓ + tiêu đề + ví dụ
+function RadioCard({
+  active,
+  onClick,
+  title,
+  sub,
+}: {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className={`flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl bg-field px-3 py-2 text-left transition active:scale-[0.99] ${active ? "ring-2 ring-t1" : ""}`}
+    >
+      <span
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${active ? "border-t1 bg-t1 text-white" : "border-line"}`}
+        aria-hidden
+      >
+        {active && <CheckIcon className="h-3 w-3" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
+          {title}
+        </span>
+        <span className="block text-[0.6875rem] text-foreground/65">{sub}</span>
+      </span>
+    </button>
+  );
+}
+
+function SettingsPanel() {
+  const prefs = useMapPrefs();
+  return (
+    <div>
+      <p className="mb-2 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+        Đơn vị khoảng cách
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <RadioCard
+          active={prefs.distUnit === "nm"}
+          onClick={() => setMapPrefs({ distUnit: "nm" })}
+          title="Hải lý"
+          sub="nm · chuẩn đi biển"
+        />
+        <RadioCard
+          active={prefs.distUnit === "km"}
+          onClick={() => setMapPrefs({ distUnit: "km" })}
+          title="Ki-lô-mét"
+          sub="km"
+        />
+      </div>
+
+      <p className="mb-2 mt-3 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+        Hệ toạ độ
+      </p>
+      <div className="space-y-2">
+        <RadioCard
+          active={prefs.coordFormat === "dd"}
+          onClick={() => setMapPrefs({ coordFormat: "dd" })}
+          title="Độ thập phân"
+          sub="vd 8,50°B · 109,30°Đ"
+        />
+        <RadioCard
+          active={prefs.coordFormat === "dms"}
+          onClick={() => setMapPrefs({ coordFormat: "dms" })}
+          title="Độ – phút"
+          sub="vd 8°30′B · 109°18′Đ"
+        />
+      </div>
+
+      <p className="mt-3 rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] leading-snug text-foreground/70">
+        Đổi ở đây thì toạ độ, khoảng cách, dẫn đường và công cụ đo đều đổi theo.
+      </p>
+    </div>
+  );
+}
+
+function ToolsPanel({
+  measureMode,
+  onMeasureMode,
+  measureCount,
+  measureResult,
+  onClearMeasure,
+}: {
+  measureMode: boolean;
+  onMeasureMode: (on: boolean) => void;
+  measureCount: number;
+  measureResult: { dist: string; dir: string } | null;
+  onClearMeasure: () => void;
+}) {
+  return (
+    <div>
+      <Toggle
+        label="Đo khoảng cách"
+        sub="Chạm 2 điểm trên bản đồ"
+        on={measureMode}
+        onToggle={() => onMeasureMode(!measureMode)}
+        icon={<RulerIcon className="h-5 w-5 text-t1" />}
+      />
+      {measureMode && (
+        <>
+          {measureResult ? (
+            <div className="mt-2 rounded-xl bg-field px-3 py-2.5">
+              <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+                Khoảng cách 2 điểm
+              </p>
+              <p className="display mt-0.5 text-[1.25rem] font-bold leading-none text-navy">
+                {measureResult.dist}
+              </p>
+              <p className="mt-1 text-[0.8125rem] text-foreground/70">
+                Hướng điểm 1 → điểm 2: {measureResult.dir}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.8125rem] font-semibold leading-snug text-t1">
+              {measureCount === 0
+                ? "Chạm điểm thứ nhất trên bản đồ."
+                : "Chạm điểm thứ hai để ra khoảng cách."}
+            </p>
+          )}
+          {measureCount > 0 && (
+            <button
+              type="button"
+              onClick={onClearMeasure}
+              className="mt-2 min-h-[3rem] w-full rounded-xl bg-field text-[0.9375rem] font-bold text-navy transition active:scale-[0.99]"
+            >
+              Xoá, đo lại
+            </button>
+          )}
+          <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/55">
+            Khoảng cách đường chim bay (không theo tuyến né cạn). Đổi đơn vị
+            hải lý/km ở Cài đặt.
+          </p>
+        </>
+      )}
     </div>
   );
 }

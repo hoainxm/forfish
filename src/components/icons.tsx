@@ -54,6 +54,24 @@ export function WrenchIcon(p: IconProps) {
   );
 }
 
+export function SettingsIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6" />
+    </svg>
+  );
+}
+
+export function RulerIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M3.5 16 16 3.5 20.5 8 8 20.5z" />
+      <path d="M7 7.5 8.5 9M9.5 5 11.5 7M12 2.5 14 4.5M5 10 6.5 11.5" />
+    </svg>
+  );
+}
+
 export function DocIcon(p: IconProps) {
   return (
     <svg {...base(p)}>

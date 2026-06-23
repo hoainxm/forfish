@@ -77,6 +77,7 @@ import { borderGeoJSON } from "@/data/vn-maritime-border";
 import { borderProximity, haversineKm, type BorderLevel } from "@/lib/geofence";
 import { fetchDepthGrid, depthClassAt, type DepthClass } from "@/lib/depth-grid";
 import { weatherFromCode } from "@/lib/weather-codes";
+import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
 import { fetchStormCheck, type StormAlert } from "@/lib/storms";
 import {
   beaufort,
@@ -400,10 +401,19 @@ export default function FishingMapView() {
     persistPlaces(next);
   }, []);
   const home = homeOf(places);
+  // đơn vị khoảng cách + hệ toạ độ (panel Cài đặt) — đổi thì mọi chỗ đổi theo
+  const prefs = useMapPrefs();
   // Hiện điểm đã lưu trên bản đồ (panel Điểm đã lưu — Phương án A)
   const [showPlaces, setShowPlaces] = useState(true);
   // thanh giờ Windy (gió/sóng) cho thu/mở — đỡ chiếm mép sheet (user 2026-06-23)
   const [gridStripOpen, setGridStripOpen] = useState(true);
+  // công cụ đo khoảng cách 2 điểm (panel Công cụ)
+  const [measureMode, setMeasureMode] = useState(false);
+  const [measurePts, setMeasurePts] = useState<SeaPoint[]>([]);
+  const toggleMeasure = (on: boolean) => {
+    setMeasureMode(on);
+    if (!on) setMeasurePts([]);
+  };
 
   // mở app: vào cảng nhà nếu đã đặt, không thì ngoài khơi Nam Trung Bộ
   const [point, setPoint] = useState<SeaPoint>(() => {
@@ -479,7 +489,7 @@ export default function FishingMapView() {
     }
     if (!best) return null;
     return {
-      nm: Math.round(bd / 1.852),
+      km: bd,
       dir: windDirectionVN(bearingDeg(point.lat, point.lon, best.lat, best.lon)),
       v: best.v,
     };
@@ -720,14 +730,37 @@ export default function FishingMapView() {
       : `Chỗ ghim — ${currentPlace.name}`
     : home
       ? (() => {
-          const nm =
-            haversineKm(home.lat, home.lon, point.lat, point.lon) / 1.852;
+          const km = haversineKm(home.lat, home.lon, point.lat, point.lon);
           const dir = windDirectionVN(
             bearingDeg(home.lat, home.lon, point.lat, point.lon),
           );
-          return `Cách ${home.name} ~${Math.round(nm)} hải lý hướng ${dir}`;
+          return `Cách ${home.name} ~${fmtDist(km, prefs.distUnit)} hướng ${dir}`;
         })()
       : "Chỗ đang xem trên biển";
+
+  // kết quả đo 2 điểm (đường chim bay) — định dạng theo đơn vị đang chọn
+  const measureResult =
+    measurePts.length === 2
+      ? {
+          dist: fmtDist(
+            haversineKm(
+              measurePts[0].lat,
+              measurePts[0].lon,
+              measurePts[1].lat,
+              measurePts[1].lon,
+            ),
+            prefs.distUnit,
+          ),
+          dir: windDirectionVN(
+            bearingDeg(
+              measurePts[0].lat,
+              measurePts[0].lon,
+              measurePts[1].lat,
+              measurePts[1].lon,
+            ),
+          ),
+        }
+      : null;
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-t1-bg">
@@ -746,6 +779,13 @@ export default function FishingMapView() {
           // nhầm; RoutePlanner sẽ nhắc "tuyến đang tới chỗ cũ" + cho xóa)
           const lat = Math.round(e.lngLat.lat * 1000) / 1000;
           const lon = Math.round(e.lngLat.lng * 1000) / 1000;
+          // chế độ ĐO: chạm là đặt điểm 1, điểm 2; chạm tiếp thì đo lại từ đầu
+          if (measureMode) {
+            setMeasurePts((pts) =>
+              pts.length >= 2 ? [{ lat, lon }] : [...pts, { lat, lon }],
+            );
+            return; // không đổi điểm xem khi đang đo
+          }
           setDayIdx(0);
           setGeoError(false);
           setPinning(false);
@@ -994,6 +1034,44 @@ export default function FishingMapView() {
         {/* tuyến dẫn đường tiết kiệm dầu + điểm xuất phát */}
         <RouteMapLayers route={route} />
 
+        {/* công cụ ĐO: đường nối 2 điểm + mốc số thứ tự */}
+        {measurePts.length === 2 && (
+          <Source
+            id="measure-line"
+            type="geojson"
+            data={{
+              type: "Feature",
+              properties: {},
+              geometry: {
+                type: "LineString",
+                coordinates: measurePts.map((p) => [p.lon, p.lat]),
+              },
+            }}
+          >
+            <Layer
+              id="measure-line-l"
+              type="line"
+              paint={{
+                "line-color": "#14324f",
+                "line-width": 3,
+                "line-dasharray": [2, 1.5],
+              }}
+            />
+          </Source>
+        )}
+        {measurePts.map((p, i) => (
+          <Marker
+            key={`measure-${i}`}
+            longitude={p.lon}
+            latitude={p.lat}
+            anchor="center"
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-t1 text-[0.75rem] font-bold text-white shadow-md">
+              {i + 1}
+            </span>
+          </Marker>
+        ))}
+
         {/* điểm đang xem dự báo (ẩn nếu trùng một điểm đã ghim — đã có sao) */}
         {!currentPlace && (
           <Marker longitude={point.lon} latitude={point.lat} anchor="bottom">
@@ -1049,6 +1127,11 @@ export default function FishingMapView() {
             setSize("peek");
             goToCoord(lat, lon);
           }}
+          measureMode={measureMode}
+          onMeasureMode={toggleMeasure}
+          measureCount={measurePts.length}
+          measureResult={measureResult}
+          onClearMeasure={() => setMeasurePts([])}
         />
 
         {/* (cũ) nút "Cá" GỌN — thay hàng chip ngang (chắn bản đồ). Chỉ rộng bằng nội
@@ -1215,8 +1298,7 @@ export default function FishingMapView() {
               </p>
               {/* toạ độ điểm đang xem — luôn thấy ở peek, đọc vào máy định vị */}
               <p className="mt-0.5 text-[0.75rem] font-semibold tabular-nums leading-snug text-foreground/55">
-                Toạ độ: {formatNumberVN(point.lat, 2)}°B ·{" "}
-                {formatNumberVN(point.lon, 2)}°Đ
+                Toạ độ: {fmtCoordPair(point.lat, point.lon, prefs.coordFormat)}
               </p>
               {atHome && (
                 <p className="mt-1 text-[0.875rem] font-semibold text-t1">
@@ -1492,9 +1574,9 @@ export default function FishingMapView() {
                         {/* ưu tiên gần mình: điểm cá gần chỗ đang xem nhất */}
                         {nearestHotspot && (
                           <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-t1">
-                            {nearestHotspot.nm <= 3
+                            {nearestHotspot.km <= 5.5
                               ? "Điểm cá nổi bật ngay chỗ bạn đang xem."
-                              : `Điểm cá gần bạn nhất: ~${nearestHotspot.nm} hải lý hướng ${nearestHotspot.dir} (khả năng ${
+                              : `Điểm cá gần bạn nhất: ~${fmtDist(nearestHotspot.km, prefs.distUnit)} hướng ${nearestHotspot.dir} (khả năng ${
                                   nearestHotspot.v >= 70
                                     ? "TỐT"
                                     : nearestHotspot.v >= 50

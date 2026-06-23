@@ -73,9 +73,10 @@ src/
     sea-forecast.tsx    # Trục 1: LEGACY — không còn page nào dùng (logic đã gộp vào mode cảng của fishing-map-view); cân nhắc xoá khi ổn định
     storm-banner.tsx    # Trục 1: banner tin bão (3 trạng thái: bão / yên / im lặng khi nguồn fail) — variant "page" + "overlay" (nổi trên map)
     fishing-map.tsx     # Trục 1: vỏ lazy-load bản đồ (next/dynamic ssr:false), loading full-height
-    fishing-map-view.tsx # Trục 1: MÀN HÌNH map-first — map full-screen + lớp nổi + SnapSheet đáy 2 mode (cảng/điểm chạm); nhãn chủ quyền + ranh giới + bão luôn render
-    layer-sheet.tsx     # Trục 1: sheet chọn lớp kiểu Google Maps (radio 4 nền + dự báo Gió/Sóng + toggle Cá mùa này/Phao đèn; lớp an toàn không có công tắc)
-    my-places-sheet.tsx # Trục 1: sheet "Điểm của tôi" — GPS + ghim chủ tàu (đổi tên/xoá/đặt cảng nhà) + tìm cảng nhà trong 173 cảng (gõ lọc, không đổ list)
+    fishing-map-view.tsx # Trục 1: MÀN HÌNH map-first — map full-screen + RaKhoiControls (rail phải) + SnapSheet đáy (vuốt 3 nấc); nhãn chủ quyền + ranh giới + bão; công cụ đo khoảng cách 2 điểm; toạ độ/khoảng cách theo lib/map-prefs
+    ra-khoi-controls.tsx # Trục 1: RAIL PHẢI 6 nút (Hải đồ/Ngư trường/Thời tiết/Điểm đã lưu/Công cụ/Cài đặt) — mỗi nút mở 1 panel; nơi DUY NHẤT bật/tắt-chọn lớp hiện trên map (Phương án A). Chọn loài + quản lý điểm = drill-down/nhúng trong panel (không bottom-sheet)
+    fish-species-sheet.tsx # Trục 1: FishSpeciesContent (thân, nhúng panel Ngư trường) + FishSpeciesSheet (wrapper bottom-sheet legacy)
+    my-places-sheet.tsx # Trục 1: MyPlacesContent (thân, nhúng panel Điểm đã lưu — thêm theo toạ độ, đổi tên/xoá/đặt cảng nhà, tìm trong 173 cảng) + MyPlacesSheet (wrapper legacy). KHÔNG còn GPS
     port-directory.tsx  # Trục 1 (sub /cang): danh bạ 173 cảng cá chỉ định (← data/fishing-ports.ts), lọc theo vùng/tỉnh tàu (lib/region.ts)
     ui/                 # Primitives dùng chung (UI nền):
       primitives.tsx    #   nút/thẻ/field cơ bản theo design-system (font ≥18px, tap ≥56px)
@@ -122,6 +123,7 @@ src/
     marine-weather.ts   # Trục 1: gió/sóng tại 1 điểm chạm (Open-Meteo) — tái dùng scoreDay/levelOf từ sea.ts
     forecast-grid.ts    # Trục 1: lưới dự báo vẽ động kiểu Windy — 80 điểm × 72h (bước 3h), arrowFeatures GeoJSON mũi tên + thang màu + timeLabelVN (thuần, có test)
     places.ts           # Trục 1: "Điểm của tôi" — ghim chủ tàu + cảng nhà (localStorage forfish.places.v1); upsert/remove/rename/makeHome/placeAt (thuần, có test). THAY việc chọn cảng trong danh sách
+    map-prefs.ts        # Trục 1: tuỳ chọn bản đồ — đơn vị khoảng cách (nm/km) + hệ toạ độ (dd/dms); store dùng chung (localStorage forfish.mapPrefs.v1, useSyncExternalStore) + formatters fmtDist/fmtCoordPair/kmToUnit (thuần, có test). Panel Cài đặt đổi → mọi chỗ đổi theo
     weather-codes.ts    # Trục 1: mã WMO → nhãn tiếng Việt (dông/mưa) + cờ danger
     fish-predict.ts     # Trục 1: DỰ BÁO CÁ (PFZ) — khẩu vị 39 loài 6 nhóm (SpeciesCategory pelagic-large/small, cephalopod, demersal, reef, crustacean) × (trapezoid SST + dải chl + trọng số 6 yếu tố) × habitat{mồi, front nhiệt, front mồi, rìa xoáy SSHA, nước trồi anomaly, hội tụ dòng u,v} × mùa vụ/vùng. SurfaceSignal high/medium/low + SURFACE_CONF: loài đáy (low) kéo habitat về trung tính → KHÔNG vẽ điểm nóng giả, "Mọi loài" chỉ tính loài định-vị-được. Mỗi loài có color + SPECIES_META (UI) + CATEGORY_LABEL. gradientStrength/convergenceStrength/buildFishForecast(sst,chl,sla,month,{anom,cur}) thuần có test; mọi trường ngoài SST+chl TUỲ CHỌN; cell mang t (°C)+c (chl) cho UI; client /api/fish-forecast
     moon.ts             # tuần trăng tính offline (chu kỳ giao hội 29,53 ngày) + lời nghề đèn (mực/cá cơm) — hiện trong sheet bản đồ Trục 1; có test
