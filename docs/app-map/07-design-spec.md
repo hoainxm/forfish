@@ -173,6 +173,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 <!-- re-verified: 2026-06-23f — sheet: tap nở dần peek→half→full, ở full tap lần nữa thu về peek (không còn tap vô tác dụng); banner bão overlay tự thu thành chip sau 3s kể từ lúc check bão về (refresh/back lại map), chạm mở lại -->
 <!-- re-verified: 2026-06-23g — panel rail width theo nội dung: Điểm đã lưu + Chọn loài rộng w-22rem (max calc(100vw-4.25rem)) cho khỏi chồng chéo/dễ nhìn; panel đơn giản (Hải đồ/Thời tiết/Ngư trường-menu) giữ w-16.5rem cân đối -->
 <!-- re-verified: 2026-06-23h — rail 4→6 nút: thêm Công cụ (đo khoảng cách 2 điểm, vẽ đường+mốc trên map, kết quả theo đơn vị) + Cài đặt (đơn vị hải lý/km + hệ toạ độ dd/dms qua lib/map-prefs store dùng chung; đổi thì peek/whereLine/điểm-cá-gần/dẫn-đường/đo đổi theo). Icons SettingsIcon/RulerIcon. Test map-prefs.test.ts -->
+<!-- re-verified: 2026-06-23i — công cụ đo: thêm nhãn khoảng cách NGAY GIỮA đường nối 1→2 trên bản đồ (marker midpoint) -->
 <!-- re-verified: 2026-06-16 — /login = SĐT + mật khẩu (webhook provision, KHÔNG email/OTP); nav/screen map/object model không đổi -->
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): thêm lớp BÃO trên map (vùng ảnh hưởng polygon đỏ mờ + đường đi track gạch đứt, dưới Marker tâm bão) từ GDACS; + fix dự báo cá maxDuration/ISR. Screen map/nav/object model KHÔNG đổi cấu trúc -->
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): legend cá thành BỘ LỌC kéo-thả 2 đầu (chỉ hiện ô [lo,hi]% khả năng có cá). Độ sâu raster KHÔNG lọc được (giữ legend tĩnh). Screen map/object model KHÔNG đổi cấu trúc -->

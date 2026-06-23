@@ -1071,6 +1071,18 @@ export default function FishingMapView() {
             </span>
           </Marker>
         ))}
+        {/* nhãn khoảng cách NGAY GIỮA đường nối 1→2 */}
+        {measurePts.length === 2 && measureResult && (
+          <Marker
+            longitude={(measurePts[0].lon + measurePts[1].lon) / 2}
+            latitude={(measurePts[0].lat + measurePts[1].lat) / 2}
+            anchor="center"
+          >
+            <span className="whitespace-nowrap rounded-full border border-white/80 bg-navy px-2.5 py-1 text-[0.8125rem] font-bold text-white shadow-md">
+              {measureResult.dist}
+            </span>
+          </Marker>
+        )}
 
         {/* điểm đang xem dự báo (ẩn nếu trùng một điểm đã ghim — đã có sao) */}
         {!currentPlace && (
