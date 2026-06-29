@@ -8,14 +8,14 @@
 
 ## 1. Hiện trạng (đã có trong repo)
 
-- **PWA cài được**: `src/app/manifest.ts` (→ `/manifest.webmanifest`), `public/sw.js` (service worker offline shell), `src/components/sw-register.tsx` (đăng ký SW, chỉ production), icon `public/icon.svg` → `public/icons/*` (sinh bằng `npm run icons`, devDep `sharp`). `layout.tsx` khai `manifest` + `icons` + `appleWebApp` + `viewport.themeColor`.
+- **PWA cài được**: `src/app/manifest.ts` (→ `/manifest.webmanifest`), `public/sw.js` (service worker offline shell), `src/components/sw-register.tsx` (đăng ký SW, chỉ production), icon `public/logo-src.png` → `public/icons/*` (sinh bằng `npm run icons`, devDep `sharp`). `layout.tsx` khai `manifest` + `icons` + `appleWebApp` + `viewport.themeColor`.
 - **Sẵn-sàng-Capacitor**: `src/lib/api-base.ts` (`apiUrl()`) — mọi fetch `/api/*` đi qua đây. Web để `NEXT_PUBLIC_API_BASE` trống = path tương đối (như cũ); native set = URL backend hosted. `capacitor.config.ts` (appId `vn.sdvico.sdfish`) + script `cap:sync`/`cap:open:*` trong package.json.
 
 **Ràng buộc cốt lõi**: app có **12 API route động** (proxy nguồn ngoài + Supabase, CORS) → **KHÔNG static-export thuần**. Backend phải chạy ở đâu đó (Vercel hiện tại) cho cả PWA lẫn Capacitor chế độ chuẩn.
 
 ## 2. PWA (không cần Mac / tài khoản store)
 
-1. `npm run icons` (sinh PNG nếu đổi `icon.svg`) → commit `public/icons/*`.
+1. `npm run icons` (sinh PNG nếu đổi `logo-src.png`) → commit `public/icons/*`.
 2. `npm run build && npm start` (hoặc deploy Vercel) — SW chỉ chạy ở production.
 3. Kiểm: DevTools → Application → Manifest (name SDFish, icons) + Service Worker (activated). Lighthouse → Installable.
 4. iOS: Safari → Share → Add to Home Screen. Android: Chrome → Install app.

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 // Web App Manifest (Next Metadata API → tự route /manifest.webmanifest).
 // Cho phép cài SDFish về home screen Android (PWA) + iOS (Add to Home Screen).
-// theme/background = navy nền app; icons sinh từ public/icon.svg (npm run icons).
+// theme/background = navy nền app; icons sinh từ public/logo-src.png (npm run icons).
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "SDFish — Bạn đồng hành của ngư dân",

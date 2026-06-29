@@ -7,11 +7,11 @@
    · POST + khác origin (map tile, nguồn ngoài) → KHÔNG đụng, để mạng lo.
   Đổi shell thì bump SDFISH_CACHE_V (KHÔNG dùng Date.now — phải ổn định).
 */
-const SDFISH_CACHE_V = "sdfish-v1";
+const SDFISH_CACHE_V = "sdfish-v2";
 const SHELL = [
   "/",
   "/manifest.webmanifest",
-  "/icon.svg",
+  "/logo-src.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/apple-touch-icon.png",

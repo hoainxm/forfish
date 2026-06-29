@@ -1,24 +1,26 @@
-// Sinh icon PNG cho PWA/iOS/Android từ public/icon.svg (nguồn duy nhất).
+// Sinh icon PNG cho PWA/iOS/Android từ public/logo-src.png (nguồn duy nhất).
 // Chạy: npm run icons  (cần devDep sharp). Output commit vào public/icons/.
 //
-// · icon-192 / icon-512: icon nền đầy (svg đã có nền navy).
-// · icon-maskable-512: thu nhỏ ~72% đặt giữa nền navy (safe-zone Android mask).
-// · apple-touch-icon (180): iOS home screen, KHÔNG trong suốt.
+// Logo mới (2026-06-29): cá ngừ + la bàn, xanh↔cam, nền off-white #f4f4f4.
+// · icon-192 / icon-512: logo full-bleed (nền off-white của logo lấp đầy tile).
+// · icon-maskable-512: logo thu vào safe-zone Android (~80%), nền off-white
+//   khớp màu nền logo → liền mạch, không thấy viền vuông khi máy bo tròn.
+// · apple-touch (180): iOS home screen, KHÔNG trong suốt.
 
 import sharp from "sharp";
-import { readFile, mkdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-const SRC = "public/icon.svg";
+const SRC = "public/logo-src.png";
 const OUT = "public/icons";
-const NAVY = { r: 0x14, g: 0x32, b: 0x4f, alpha: 1 };
+// Màu nền logo (sample góc ảnh) — dùng cho maskable để liền mạch.
+const BG = { r: 0xf4, g: 0xf4, b: 0xf4, alpha: 1 };
 
-const svg = await readFile(SRC);
 await mkdir(OUT, { recursive: true });
 
 async function render(size, file) {
-  await sharp(svg, { density: 384 })
-    .resize(size, size)
+  await sharp(SRC)
+    .resize(size, size, { fit: "cover", kernel: "lanczos3" })
     .png()
     .toFile(path.join(OUT, file));
 }
@@ -27,16 +29,16 @@ await render(192, "icon-192.png");
 await render(512, "icon-512.png");
 await render(180, "apple-touch-icon.png");
 
-// maskable — chừa safe zone
-const inner = Math.round(512 * 0.72);
-const fish = await sharp(svg, { density: 384 })
-  .resize(inner, inner)
+// maskable — logo nằm trong safe-zone (Android mask cắt tới ~80% biên).
+const inner = Math.round(512 * 0.8);
+const logo = await sharp(SRC)
+  .resize(inner, inner, { fit: "cover", kernel: "lanczos3" })
   .png()
   .toBuffer();
 await sharp({
-  create: { width: 512, height: 512, channels: 4, background: NAVY },
+  create: { width: 512, height: 512, channels: 4, background: BG },
 })
-  .composite([{ input: fish, gravity: "center" }])
+  .composite([{ input: logo, gravity: "center" }])
   .png()
   .toFile(path.join(OUT, "icon-maskable-512.png"));
 
