@@ -5,9 +5,10 @@
 **Load khi / Load when**: thêm/sửa page, route, navigation, component; cần hiểu app chạy thế nào khi env trống.
 
 covers: src/app
-last_verified: 2026-06-14
+last_verified: 2026-06-29
 ttl_days: 90
 gate: warn
+<!-- re-verified: 2026-06-29 - logo brand đổi sang public/logo-src.png (cá ngừ+la bàn), PWA metadata manifest/icons/sw-register + api-base + capacitor khớp src/app hiện tại -->
 
 ---
 
@@ -19,7 +20,7 @@ gate: warn
 - **MapLibre GL** (`maplibre-gl` + `react-map-gl`) — bản đồ ngư trường Trục 1; NẶNG nên bắt buộc lazy-load qua `next/dynamic` `ssr:false` (`fishing-map.tsx`), không để lọt vào bundle các trục khác
 - **Vitest** — test runner cho logic thuần trong `src/lib/` (`npm test`, config `vitest.config.ts`, test đặt tại `src/lib/__tests__/`)
 - Deploy: **Vercel** (web) · Repo: github.com/Long-Forfun/ForFish (giữ tên repo cũ — infra)
-- **PWA cài được** (2026-06-16): `app/manifest.ts` (→ `/manifest.webmanifest`), `public/sw.js` (service worker offline shell, network-first cho navigation + `/api/*`, cache-first asset), `sw-register.tsx` (đăng ký prod-only), icon `public/icon.svg` → `public/icons/*` (`npm run icons`, devDep `sharp`). **Edge-to-edge native** (2026-06-16): `viewport.viewportFit:"cover"` + `.safe-pt/.safe-pb` + motion điềm đạm CSS (xem [03-design-system.md](03-design-system.md)). **Native-ready**: mọi fetch `/api/*` qua `lib/api-base.ts` (`apiUrl()` — web tương đối, native tuyệt đối qua `NEXT_PUBLIC_API_BASE`); `capacitor.config.ts` (appId `vn.sdvico.sdfish`). Chi tiết: [ops/native-deploy.md](ops/native-deploy.md)
+- **PWA cài được** (2026-06-16): `app/manifest.ts` (→ `/manifest.webmanifest`), `public/sw.js` (service worker offline shell, network-first cho navigation + `/api/*`, cache-first asset), `sw-register.tsx` (đăng ký prod-only), icon `public/logo-src.png` → `public/icons/*` (`npm run icons`, devDep `sharp`). **Edge-to-edge native** (2026-06-16): `viewport.viewportFit:"cover"` + `.safe-pt/.safe-pb` + motion điềm đạm CSS (xem [03-design-system.md](03-design-system.md)). **Native-ready**: mọi fetch `/api/*` qua `lib/api-base.ts` (`apiUrl()` — web tương đối, native tuyệt đối qua `NEXT_PUBLIC_API_BASE`); `capacitor.config.ts` (appId `vn.sdvico.sdfish`). Chi tiết: [ops/native-deploy.md](ops/native-deploy.md)
 
 ## 2. Routes — mỗi trục một route
 
