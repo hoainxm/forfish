@@ -7,6 +7,11 @@
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { syncAuthScope } from "@/lib/auth-scope";
+
+function deriveBoatPhone(u: User | null): string | null {
+  return u?.phone || (u?.email ? u.email.split("@")[0] : null) || null;
+}
 
 export function useAuthUser(): {
   user: User | null;
@@ -27,12 +32,17 @@ export function useAuthUser(): {
 
     supabase.auth.getUser().then(({ data }) => {
       if (!alive) return;
-      setUser(data?.user ?? null);
+      const u = data?.user ?? null;
+      syncAuthScope(deriveBoatPhone(u));
+      setUser(u);
       setReady(true);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (alive) setUser(session?.user ?? null);
+      if (!alive) return;
+      const u = session?.user ?? null;
+      syncAuthScope(deriveBoatPhone(u));
+      setUser(u);
     });
     return () => {
       alive = false;
@@ -40,8 +50,7 @@ export function useAuthUser(): {
     };
   }, []);
 
-  const phone =
-    user?.phone || (user?.email ? user.email.split("@")[0] : null) || null;
+  const phone = deriveBoatPhone(user);
 
   return { user, phone, ready };
 }

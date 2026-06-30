@@ -162,6 +162,8 @@ Khi `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` chưa set:
 
 **Seed mẫu phải tự xưng là mẫu (hội đồng UX 2026-06-11)**: dữ liệu demo chỉ sống trong bộ nhớ — KHÔNG ghi xuống localStorage, KHÔNG được lọt vào dải nhắc "việc cần làm ngay" (`urgent-strip.tsx` load với seed rỗng). `crew-list.tsx` là mẫu chuẩn: `loadCrew()` trả `{crew, isDemo}`, banner neutral "Đây là sổ mẫu…" + nút "Xóa sổ mẫu, ghi sổ của tôi", thêm người thật đầu tiên là seed tự thay; `trip-split.tsx` coi sổ mẫu là rỗng.
 
+**Auth-scope cho localStorage — INVARIANT (2026-06-30)**: dữ liệu KH lưu local KHÔNG scope theo user → cùng browser, user B login thấy data user A. `src/lib/auth-scope.ts` (`syncAuthScope(phone)`) clear data KH khi user CHANGE hoặc logout — gọi từ `use-auth.ts` mỗi lần auth state đổi (cả `getUser` init lẫn `onAuthStateChange`). Tracking phone qua `forfish.auth.lastPhone.v1`. Key xoá khi user đổi (`USER_SCOPED_KEYS` trong `auth-scope.ts`): `boats.v1`, `currentBoat.v1`, `boat.v1`, `products.v1`, `documents.v1`, `maintenance.v1`, `buyers.v1`, `debts.v1`, `trips.v1`, `crew.v1`. KEY GIỮ (UI prefs, share 1 máy): `displaymode.v1`, `maplayer.v1`, `home.v1`, `port.v1`, `places.v1`. Khi THÊM key localStorage mới cho dữ liệu KH (gắn boat/owner): nhớ thêm vào `USER_SCOPED_KEYS` + viết test `auth-scope.test.ts`. ĐÂY LÀ ĐỢT 1 — wire `boats/documents/products/...` lên Supabase owner_id (Đợt 2) sẽ retire hết các key này.
+
 ## 5. Quy ước component
 
 - Client component chỉ khi cần (`"use client"` khi có state/localStorage/fetch)
