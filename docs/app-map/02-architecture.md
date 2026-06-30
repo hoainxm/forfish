@@ -5,10 +5,11 @@
 **Load khi / Load when**: thêm/sửa page, route, navigation, component; cần hiểu app chạy thế nào khi env trống.
 
 covers: src/app
-last_verified: 2026-06-29
+last_verified: 2026-06-30
 ttl_days: 90
 gate: warn
 <!-- re-verified: 2026-06-29 - logo brand đổi sang public/logo-src.png (cá ngừ+la bàn), PWA metadata manifest/icons/sw-register + api-base + capacitor khớp src/app hiện tại -->
+<!-- re-verified: 2026-06-30 - vá QA: normalizePassword áp ở login/dang-ky/doi-mat-khau + 2 API route auth; CHỈ là logic trim, KHÔNG đổi route/page/nav/component → bản đồ kiến trúc giữ nguyên -->
 
 ---
 
