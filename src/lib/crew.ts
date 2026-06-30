@@ -26,6 +26,8 @@ export interface CrewMember {
   name: string;
   role: CrewRole;
   phone?: string;
+  /** số căn cước công dân (12 số) — để khai báo biên phòng / hợp đồng đi bạn */
+  cccd?: string;
   /** số phần khi ăn chia (tài công thường 1.5–2 phần, bạn 1 phần) */
   shares: number;
   hasInsurance: boolean;

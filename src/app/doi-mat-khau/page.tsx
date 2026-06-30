@@ -7,6 +7,7 @@ import { apiUrl } from "@/lib/api-base";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
 import { AuthCard, AuthError, AuthNote } from "@/components/auth-form";
+import { normalizePassword } from "@/lib/password";
 
 export default function DoiMatKhauPage() {
   const router = useRouter();
@@ -39,11 +40,12 @@ export default function DoiMatKhauPage() {
     e.preventDefault();
     setError(null);
 
-    if (password.length < 6) {
+    const pw = normalizePassword(password);
+    if (pw.length < 6) {
       setError("Mật khẩu mới cần ít nhất 6 ký tự.");
       return;
     }
-    if (password !== confirm) {
+    if (pw !== normalizePassword(confirm)) {
       setError("Hai ô mật khẩu chưa giống nhau. Bạn nhập lại giúp nhé.");
       return;
     }
@@ -55,7 +57,7 @@ export default function DoiMatKhauPage() {
     //    đổi mỗi lần đăng nhập).
     const { data: userData, error: updateError } =
       await supabase!.auth.updateUser({
-        password,
+        password: pw,
         data: { must_change_password: false },
       });
 
@@ -73,7 +75,7 @@ export default function DoiMatKhauPage() {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password: pw }),
       });
     } catch {
       // im lặng — không làm phiền KH; đối soát sau

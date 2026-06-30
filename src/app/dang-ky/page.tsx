@@ -16,6 +16,7 @@ import {
   phoneToEmail,
   sanitizePhoneInput,
 } from "@/components/auth-form";
+import { normalizePassword } from "@/lib/password";
 
 /*
   Đăng ký tài khoản bằng SĐT (thật chất là email ảo — bà con không thấy).
@@ -52,7 +53,8 @@ export default function DangKyPage() {
       setError("Số điện thoại không hợp lệ.");
       return;
     }
-    if (password.length < 6) {
+    const pw = normalizePassword(password);
+    if (pw.length < 6) {
       setError("Mật khẩu cần ít nhất 6 ký tự.");
       return;
     }
@@ -63,7 +65,7 @@ export default function DangKyPage() {
     const res = await fetch(apiUrl("/api/auth/signup"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, password }),
+      body: JSON.stringify({ phone, password: pw }),
       signal: AbortSignal.timeout(25000),
     }).catch(() => null);
 
@@ -81,7 +83,7 @@ export default function DangKyPage() {
     // Tài khoản đã sẵn sàng → vào luôn.
     const { error: signInError } = await supabase!.auth.signInWithPassword({
       email: phoneToEmail(phone),
-      password,
+      password: pw,
     });
     if (signInError) {
       // hiếm — tạo xong mà chưa vào được thì để bà con đăng nhập tay

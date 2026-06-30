@@ -40,12 +40,12 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 | Object | List | Detail | Form | Màn sinh ra |
 |---|---|---|---|---|
 | Chuyến biển | sổ lãi/lỗ + báo cáo năm + máy tính tổn | — | drawer (≤5 field) | trong /tien tab Hiệu quả (4 chip: Sổ lãi/lỗ · Báo cáo năm · Tính chuyến · Chia tiền) |
-| Bạn thuyền | sổ thuyền viên | sổ ứng (sheet) | drawer | /nguoi |
+| Bạn thuyền | sổ thuyền viên | sổ ứng + **hồ sơ chi tiết** (sheet, chạm tên) | drawer (gồm SĐT + **CCCD 12 số**) | /nguoi |
 | Giấy tờ tàu | list | — | drawer | /tau tab Giấy tờ |
 | Sản phẩm/Dịch vụ SDVICO | list (sync read-only + tự ghi) | — | drawer (đồ tự ghi) | /tau tab Sản phẩm/Dịch vụ |
 | Điểm ngư trường / của tôi | map + sheet | peek sheet | sheet | /ngu-truong |
 | Giá cá / Nhu cầu mua | list | — | — | /tien tab Giao dịch |
-| Mức phạt | searchable list | — | — | /tau tab Mức phạt |
+| Mức phạt | searchable list (xếp **nặng → nhẹ** theo cận trên `rangeVnd`, `lib/fines.ts`) | — | — | /tau tab Mức phạt |
 | Công nợ (chủ nợ) | list theo chủ nợ | sổ vay/trả (sheet) | drawer | /tien tab Công nợ |
 
 → 8 object. Tạo/sửa đều ≤5 field nên dùng **drawer/bottom-sheet**, KHÔNG đẻ page riêng (quyết định đã chốt).

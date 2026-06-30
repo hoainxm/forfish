@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeVnPhone } from "@/lib/phone";
+import { normalizePassword } from "@/lib/password";
 import { signOutbound, type PasswordSyncPayload } from "@/lib/sdwork-outbound";
 
 const TIMEOUT_MS = 6000;
@@ -34,7 +35,9 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });
   }
-  const password = typeof body.password === "string" ? body.password : "";
+  const password = normalizePassword(
+    typeof body.password === "string" ? body.password : "",
+  );
   if (password.length < 6) {
     return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });
   }

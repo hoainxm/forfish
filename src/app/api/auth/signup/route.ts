@@ -5,6 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { callAuthGateway, isAuthGatewayConfigured } from "@/lib/auth-gateway";
+import { normalizePassword } from "@/lib/password";
 
 export async function POST(req: Request) {
   if (!isAuthGatewayConfigured()) {
@@ -20,7 +21,10 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });
   }
-  const { phone, password, fullName } = body;
+  const { phone, fullName } = body;
+  const password = normalizePassword(
+    typeof body.password === "string" ? body.password : "",
+  );
   if (!phone || !password || password.length < 6) {
     return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });
   }

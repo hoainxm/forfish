@@ -14,6 +14,7 @@ import {
   phoneToEmail,
   sanitizePhoneInput,
 } from "@/components/auth-form";
+import { normalizePassword } from "@/lib/password";
 
 /*
   Đăng nhập SDFish — app khách hàng. Hướng TÀI KHOẢN: SĐT + MẬT KHẨU (KHÔNG
@@ -55,7 +56,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     const { data, error: signInError } = await supabase!.auth.signInWithPassword(
-      { email: phoneToEmail(phone), password },
+      { email: phoneToEmail(phone), password: normalizePassword(password) },
     );
     if (signInError || !data.user) {
       setError("Sai số điện thoại hoặc mật khẩu.");

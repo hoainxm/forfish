@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { FINES, FINES_SOURCE, Fine } from "@/data/fines";
+import { parseFineMaxVnd } from "@/lib/fines";
 import { AlertIcon, SearchIcon } from "@/components/icons";
 import { StatusBanner } from "@/components/ui/status-banner";
 
@@ -39,11 +40,21 @@ const SEVERITY: Record<
 export function FinesLookup() {
   const [query, setQuery] = useState("");
 
+  // Xếp theo mức phạt NẶNG → NHẸ (cận trên), để bà con thấy lỗi nguy hiểm nhất
+  // trước (TA-010 báo cáo test). Sắp một lần, không phụ thuộc ô tìm kiếm.
+  const sortedFines = useMemo(
+    () =>
+      [...FINES].sort(
+        (a, b) => parseFineMaxVnd(b.rangeVnd) - parseFineMaxVnd(a.rangeVnd),
+      ),
+    [],
+  );
+
   const results = useMemo(() => {
     const q = normalize(query);
-    if (!q) return FINES;
-    return FINES.filter((f) => normalize(f.behavior).includes(q));
-  }, [query]);
+    if (!q) return sortedFines;
+    return sortedFines.filter((f) => normalize(f.behavior).includes(q));
+  }, [query, sortedFines]);
 
   const isFiltering = query.trim().length > 0;
 

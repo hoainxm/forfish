@@ -32,6 +32,7 @@ import {
   RefNote,
 } from "@/components/ui/primitives";
 import { formatVnd, formatVnDate } from "@/lib/format";
+import { isValidVnPhone, sanitizePhoneInput } from "@/lib/phone";
 
 /*
   SỔ CÔNG NỢ ĐA ĐỐI TƯỢNG (A3) — mỗi chủ nợ (đại lý dầu / nậu / ngân hàng)
@@ -331,9 +332,13 @@ function CreditorForm({
   const [kind, setKind] = useState<CreditorKind>(initial?.kind ?? "dai-ly-dau");
   const [phone, setPhone] = useState(initial?.phone ?? "");
 
+  // SĐT không bắt buộc, có thì phải đủ số (ST-009 báo cáo test).
+  const phoneInvalid = phone.length > 0 && !isValidVnPhone(phone);
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    if (phoneInvalid) return;
     onSave({
       id: initial?.id ?? `cred-${Date.now()}`,
       name: name.trim(),
@@ -376,10 +381,15 @@ function CreditorForm({
           <input
             inputMode="tel"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
             className={inputClass}
             placeholder="VD: 0905 111 222"
           />
+          {phoneInvalid && (
+            <span className="mt-1.5 block text-[1rem] font-bold text-danger">
+              Số điện thoại cần đủ 10 số (VD: 0905111222).
+            </span>
+          )}
         </Field>
 
         <div className="mt-3 grid grid-cols-2 gap-3">

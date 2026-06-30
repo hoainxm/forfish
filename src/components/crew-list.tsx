@@ -20,12 +20,14 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
+  CallButton,
   Field,
   inputClass,
   MoneyField,
   PrimaryButton,
 } from "@/components/ui/primitives";
 import { formatVnd, formatVnDate } from "@/lib/format";
+import { isValidVnPhone, sanitizePhoneInput } from "@/lib/phone";
 import { useBoats } from "@/components/boat-switcher";
 
 // CrewMember lives in @/lib/crew (shared). We attach a boat dimension here
@@ -107,8 +109,11 @@ export function CrewList() {
   // thấy dữ liệu mới sau khi ghi thêm khoản.
   const [bookForId, setBookForId] = useState<string | null>(null);
   const [confirmSettleId, setConfirmSettleId] = useState<string | null>(null);
+  // xem chi tiết hồ sơ một người (BT-003) — giữ ID, derive để luôn thấy bản mới
+  const [detailForId, setDetailForId] = useState<string | null>(null);
   const bookFor = crew.find((m) => m.id === bookForId) ?? null;
   const confirmSettle = crew.find((m) => m.id === confirmSettleId) ?? null;
+  const detailFor = crew.find((m) => m.id === detailForId) ?? null;
 
   // Only this boat's crew. Legacy members with no boatId belong to the
   // current boat for back-compat.
@@ -266,9 +271,18 @@ export function CrewList() {
                   {ROLE_LABELS[m.role]}
                   {m.shares !== 1 && ` · ${m.shares} phần`}
                 </p>
-                <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
-                  {m.name}
-                </p>
+                <button
+                  type="button"
+                  onClick={() => setDetailForId(m.id)}
+                  className="flex w-full items-center justify-between gap-2 text-left active:opacity-70"
+                >
+                  <span className="display text-[1.1875rem] font-bold leading-snug text-navy">
+                    {m.name}
+                  </span>
+                  <span className="shrink-0 text-[0.875rem] font-bold text-sea">
+                    Xem chi tiết ›
+                  </span>
+                </button>
                 {m.phone && (
                   <a
                     href={`tel:${m.phone}`}
@@ -376,6 +390,24 @@ export function CrewList() {
         />
       )}
 
+      {/* chi tiết hồ sơ một người (BT-003) — xem đầy đủ, sửa/ứng ngay tại đây */}
+      {detailFor && (
+        <CrewDetailSheet
+          member={detailFor}
+          today={today}
+          onClose={() => setDetailForId(null)}
+          onEdit={() => {
+            setEditing(detailFor);
+            setShowForm(true);
+            setDetailForId(null);
+          }}
+          onAdvance={() => {
+            setAdvanceFor(detailFor);
+            setDetailForId(null);
+          }}
+        />
+      )}
+
       {/* gạch nợ phải XÁC NHẬN, nói rõ số tiền — không một chạm mất sổ */}
       {confirmSettle && (
         <ConfirmDialog
@@ -426,6 +458,7 @@ function CrewForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [role, setRole] = useState<CrewRole>(initial?.role ?? "thuyen_vien");
   const [phone, setPhone] = useState(initial?.phone ?? "");
+  const [cccd, setCccd] = useState(initial?.cccd ?? "");
   const [shares, setShares] = useState(String(initial?.shares ?? 1));
   const [hasInsurance, setHasInsurance] = useState(
     initial?.hasInsurance ?? false,
@@ -438,14 +471,21 @@ function CrewForm({
 
   const needsCert = role !== "thuyen_vien";
 
+  // SĐT không bắt buộc, nhưng nếu có thì phải đủ số (BT-002 báo cáo test).
+  const phoneInvalid = phone.length > 0 && !isValidVnPhone(phone);
+  // CCCD không bắt buộc, có thì phải đủ 12 số (BT-003 báo cáo test).
+  const cccdInvalid = cccd.length > 0 && cccd.length !== 12;
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    if (phoneInvalid || cccdInvalid) return;
     onSave({
       id: initial?.id ?? `crew-${Date.now()}`,
       name: name.trim(),
       role,
       phone: phone.trim() || undefined,
+      cccd: cccd.trim() || undefined,
       shares: Math.max(0.5, parseFloat(shares) || 1),
       hasInsurance,
       insuranceExpiry: hasInsurance && insuranceExpiry ? insuranceExpiry : undefined,
@@ -491,11 +531,33 @@ function CrewForm({
         <Field label="Số điện thoại">
           <input
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
             className={inputClass}
             inputMode="tel"
             placeholder="VD: 0901234567"
           />
+          {phoneInvalid && (
+            <span className="mt-1.5 block text-[1rem] font-bold text-danger">
+              Số điện thoại cần đủ 10 số (VD: 0901234567).
+            </span>
+          )}
+        </Field>
+
+        <Field label="Số căn cước (không cần cũng được)">
+          <input
+            value={cccd}
+            onChange={(e) =>
+              setCccd(e.target.value.replace(/\D/g, "").slice(0, 12))
+            }
+            className={inputClass}
+            inputMode="numeric"
+            placeholder="12 số sau căn cước công dân"
+          />
+          {cccdInvalid && (
+            <span className="mt-1.5 block text-[1rem] font-bold text-danger">
+              Căn cước cần đủ 12 số.
+            </span>
+          )}
         </Field>
 
         <Field label="Mấy phần khi ăn chia? (bạn thường 1, tài công 1.5–2)">
@@ -581,6 +643,92 @@ function CrewForm({
           <PrimaryButton type="submit">Lưu lại</PrimaryButton>
         </div>
       </form>
+    </BottomSheet>
+  );
+}
+
+/** Một dòng nhãn — giá trị trong hồ sơ chi tiết. Giá trị rỗng thì ẩn hẳn. */
+function DetailRow({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-t border-line py-2.5">
+      <span className="text-[1rem] font-bold text-foreground/65">{label}</span>
+      <span className="text-right text-[1.0625rem] font-bold text-navy">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/** Hồ sơ CHI TIẾT của một thuyền viên (BT-003) — xem đầy đủ một chỗ, không
+ *  phải mở form Sửa mới thấy. Sửa / ứng tiền ngay tại đây. */
+function CrewDetailSheet({
+  member,
+  today,
+  onClose,
+  onEdit,
+  onAdvance,
+}: {
+  member: CrewMember;
+  today: Date;
+  onClose: () => void;
+  onEdit: () => void;
+  onAdvance: () => void;
+}) {
+  const issue = crewIssue(member, today);
+  const owing = outstandingAdvance(member);
+  return (
+    <BottomSheet title={member.name} onClose={onClose}>
+      <div className="overflow-hidden rounded-2xl">
+        <StatusBanner level={issue.level}>{issue.label}</StatusBanner>
+      </div>
+
+      <div className="mt-2">
+        <DetailRow label="Vai trò" value={ROLE_LABELS[member.role]} />
+        <DetailRow label="Phần ăn chia" value={`${member.shares} phần`} />
+        <DetailRow label="Số điện thoại" value={member.phone} />
+        <DetailRow label="Số căn cước" value={member.cccd} />
+        <DetailRow
+          label="Bảo hiểm"
+          value={
+            member.hasInsurance
+              ? member.insuranceExpiry
+                ? `Có — hạn ${formatVnDate(member.insuranceExpiry)}`
+                : "Có"
+              : "Chưa có"
+          }
+        />
+        <DetailRow label="Văn bằng / chứng chỉ" value={member.certLabel} />
+        <DetailRow
+          label="Chứng chỉ hết hạn"
+          value={member.certExpiry ? formatVnDate(member.certExpiry) : null}
+        />
+        <DetailRow
+          label="Đang ứng"
+          value={owing > 0 ? formatVnd(owing) : "Không có"}
+        />
+        <DetailRow label="Ghi chú" value={member.note} />
+      </div>
+
+      {member.phone && (
+        <div className="mt-4">
+          <CallButton phone={member.phone} label={`Gọi ${member.name}`} />
+        </div>
+      )}
+
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={onAdvance}
+          className="flex min-h-[3.75rem] items-center justify-center gap-2 rounded-full bg-field text-[1.125rem] font-bold text-t3"
+        >
+          <MoneyHandIcon className="h-5 w-5" />
+          Ứng tiền
+        </button>
+        <PrimaryButton type="button" onClick={onEdit}>
+          Sửa hồ sơ
+        </PrimaryButton>
+      </div>
     </BottomSheet>
   );
 }
