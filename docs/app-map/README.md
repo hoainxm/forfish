@@ -2,6 +2,8 @@
 
 > **Single source of truth** cho mọi domain của ForFish. Mỗi file 1 chủ đề canonical, đánh số tăng dần. Hồ sơ này dành cho AI agents và team đọc trước khi đụng code.
 
+**Load khi / Load when**: bắt đầu task mới + chưa biết file nào cần (route qua `/fl <task>`); hoặc onboarding team mới cần biết bố cục hồ sơ.
+
 ---
 
 ## Load strategy
