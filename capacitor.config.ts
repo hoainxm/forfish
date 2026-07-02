@@ -16,7 +16,7 @@ const config: CapacitorConfig = {
   appId: "vn.sdvico.sdfish",
   appName: "SDFish",
   webDir: "out",
-  // server: { url: "https://<sdfish-web>.vercel.app", cleartext: false },
+  server: { url: "https://forfish.vercel.app/", cleartext: false },
 };
 
 export default config;
