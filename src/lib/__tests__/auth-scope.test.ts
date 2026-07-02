@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  clearUserScopedData,
   syncAuthScope,
   __USER_SCOPED_KEYS_FOR_TEST,
   __LAST_PHONE_KEY_FOR_TEST,
@@ -81,5 +82,30 @@ describe("syncAuthScope", () => {
     syncAuthScope("0902222222");
 
     for (const k of __USER_SCOPED_KEYS_FOR_TEST) expect(store.getItem(k)).toBe(null);
+  });
+});
+
+describe("clearUserScopedData", () => {
+  it("xoá data KH nhưng GIỮ tracking phone (dùng cho pagehide re-clear)", () => {
+    for (const k of __USER_SCOPED_KEYS_FOR_TEST) store.setItem(k, "data");
+    store.setItem(__LAST_PHONE_KEY_FOR_TEST, "0901111111");
+    store.setItem("forfish.displaymode.v1", "to");
+
+    clearUserScopedData();
+
+    for (const k of __USER_SCOPED_KEYS_FOR_TEST) expect(store.getItem(k)).toBe(null);
+    expect(store.getItem(__LAST_PHONE_KEY_FOR_TEST)).toBe("0901111111");
+    expect(store.getItem("forfish.displaymode.v1")).toBe("to");
+  });
+
+  it("data hồi sinh giữa clear và reload → gọi lại vẫn xoá sạch (đóng race)", () => {
+    store.setItem(__LAST_PHONE_KEY_FOR_TEST, "0901111111");
+    store.setItem("forfish.boats.v1", "boat-A");
+    syncAuthScope(null); // clear lần 1
+    store.setItem("forfish.boats.v1", "boat-A"); // save-effect ghi ngược
+
+    clearUserScopedData(); // pagehide xoá lần cuối
+
+    expect(store.getItem("forfish.boats.v1")).toBe(null);
   });
 });

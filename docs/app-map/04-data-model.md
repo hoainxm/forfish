@@ -100,7 +100,7 @@ TS dùng camelCase (`expiresOn`), DB dùng snake_case (`expires_on`) — khi wir
 | 2 | Vault chạy demo mode (localStorage) | ✅ Done |
 | 3 | Đăng nhập SĐT + mật khẩu (không email/OTP) | ✅ Done (2026-06-30): apply migration `0002+0003+0004` prod + Edge Function CRM `sdfish-password-in` + bulk provision 630 account (528 customer + 95 sub + 5 collab + 2 distributor) với mk khởi tạo `sd123456` + `must_change_password=true` |
 | 3b | DB khách hàng riêng + webhook ingest | ✅ Done (2026-06-30): inbound + outbound 2 chiều verify end-to-end; còn lại = SDWork team dựng outbox + cron đối soát (Đợt 2) |
-| 3c | Auth-scope localStorage (clear data KH khi user change/logout) | ✅ Done (2026-06-30, Đợt 1 vá leak): `src/lib/auth-scope.ts` + hook `use-auth.ts`. Xem 02 §4 |
+| 3c | Auth-scope localStorage (clear data KH khi user change/logout) | ✅ Done (2026-06-30, Đợt 1 vá leak; **vá thêm 2026-07-02**): `src/lib/auth-scope.ts` + hook `use-auth.ts`. Bug: clear xong nhưng state React đang mount vẫn cầm data cũ → save-effect ghi ngược (đăng xuất vẫn sửa được tàu của TK cũ). Vá: clear → đăng ký `pagehide` xoá LẦN CUỐI (chặn save-effect hồi sinh trong khe clear→reload) → `location.reload()` reset RAM. Idempotent, không loop. Xem 02 §4 |
 | 4 | Chuyển vault localStorage → Supabase (boats/documents/products/maintenance/debts/trips/crew/buyers) | 🔴 Đợt 2 (kế hoạch): wire vào `boats/documents` (schema đã có 0001) + tạo thêm bảng owner_id cho 7 vault còn lại. Multi-device sync BẮT BUỘC theo quyết user 2026-06-30. Sau hoàn tất, retire `USER_SCOPED_KEYS` ở `auth-scope.ts` |
 | 5 | Nhắc hạn push / Zalo | ❌ Chưa |
 

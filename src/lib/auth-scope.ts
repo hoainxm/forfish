@@ -24,6 +24,17 @@ const USER_SCOPED_KEYS = [
   "forfish.crew.v1",
 ] as const;
 
+/** Xoá TRẦN các key data KH — không đụng tracking phone. Dùng cả trong
+ *  pagehide (xoá lần cuối trước unload, chặn save-effect hồi sinh data). */
+export function clearUserScopedData(): void {
+  if (typeof window === "undefined") return;
+  try {
+    USER_SCOPED_KEYS.forEach((k) => window.localStorage.removeItem(k));
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Đồng bộ scope localStorage với phone hiện tại của session.
  *  - phone mới ≠ phone cũ → user đổi → xoá data KH cũ
@@ -43,8 +54,8 @@ export function syncAuthScope(phone: string | null): boolean {
   }
   if (phone === last) return false;
   // User đổi (hoặc logout): xoá data KH cũ.
+  clearUserScopedData();
   try {
-    USER_SCOPED_KEYS.forEach((k) => window.localStorage.removeItem(k));
     if (phone) {
       window.localStorage.setItem(LAST_PHONE_KEY, phone);
     } else {
