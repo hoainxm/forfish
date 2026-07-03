@@ -26,13 +26,14 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 
 | Bậc | Muốn thấy gì | Sản phẩm truyền tải | Thúc đẩy action tiếp |
 |---|---|---|---|
-| **Public / chưa đăng nhập** | Dùng được NGAY: giá cá, bản đồ gió sóng, tra phạt, sổ tay (localStorage) | "App này lo được việc của bà con, không cần đăng ký mới xài" | 1 lời mời đăng nhập bằng SĐT — KHÔNG chặn cửa |
+| **Public / chưa đăng nhập** | Dùng được NGAY các mục THAM KHẢO: giá cá, bản đồ gió sóng, dự báo cá teaser, **tra mức phạt** | "App này lo được việc của bà con, xem thông tin không cần đăng ký" | 1 lời mời đăng nhập bằng SĐT — data cá nhân mới khóa |
 | **Đã đăng nhập, chưa khớp đơn SDVICO** (`unlinked`) | Đồ tự ghi + lời mời "mua hàng là đồ tự hiện" | "Tài khoản đã sẵn, mua hàng SDVICO là nối luôn" | Gọi SDVICO tư vấn / mua |
 | **Khách SDVICO đã đồng bộ** (`ok`) | Đồ đã mua, bảo hành sắp hết, dịch vụ, **nợ/cước** | "Mọi thứ bà con mua đều theo dõi giúp" | Gọi bảo hành/đóng cước, mua thêm vật tư |
 
 **Quy tắc đã áp dụng:**
 - Tối đa **1 nudge đăng nhập/màn**: chip hero "Đăng nhập", thẻ khóa dự báo cá (teaser), gate "Ai cần mua". KHÔNG spam.
-- Tính năng KHÓA chỉ gồm: **dự báo cá chi tiết** (heatmap hiện cho mọi người làm mồi, chi tiết điểm mới gate) và **nhu cầu mua cá** (mở public chừng nào còn TIN MẪU). Còn lại public.
+- **Khóa đăng nhập (sửa 2026-07-02)**: MỌI chức năng lưu DATA CÁ NHÂN yêu cầu đăng nhập (LoginGate) — /tau tab Giấy tờ + Dịch vụ (gồm nhắc bảo dưỡng) + Sản phẩm, thông tin tàu (BoatSwitcher), /tien tab Hiệu quả (sổ lãi lỗ) + Công nợ, /nguoi (thuyền viên). Lý do: data giả/localStorage chung máy gây hiểu nhầm "dùng chung" (bug bà con báo). Vẫn PUBLIC (tham khảo, không data cá nhân): giá cá + giá dầu (/tien Giao dịch), **tra mức phạt** (/tau Mức phạt), bản đồ gió sóng + dự báo cá teaser (/ngu-truong), nhu cầu mua cá (buy-board tự gate riêng).
+- **KHÔNG seed demo (sửa 2026-07-02)**: bỏ hết `demoDocuments/demoBoats/demoCrew/demoDebts/demoProducts` khỏi luồng load — user mới thấy màn TRỐNG "chưa có, bấm thêm", không thấy giấy tờ/tàu giả. (Hàm demo* còn trong lib cho test, không gọi trong UI.)
 - Lỗi đồng bộ KHÔNG được hiện thành "đăng nhập đi" với người đã đăng nhập — `useSdvicoAssets` phân biệt `guest/unlinked/error/ok` (nấc `error` có nút Thử lại).
 
 ## 3. Object model
@@ -75,9 +76,9 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 | Màn | Chưa login | Trống | Lỗi/mạng yếu | Đang tải |
 |---|---|---|---|---|
 | Ra khơi | dự báo cá teaser + mời; gió sóng public | điểm: "chạm biển để xem" | scalar/lưới/cá: nút **Thử lại** (không hỏng câm) | "Đang lấy dự báo…" |
-| Tàu | tab Sản phẩm/Dịch vụ: `guest` mời đăng nhập | "Chưa có … bấm nút cam" | `error` → Thử lại; `unlinked` → giải thích | "Đang kiểm tra đồ SDVICO…" |
-| Bạn thuyền | public; sổ MẪU tự xưng "sổ mẫu" | empty + nút cam | — | hydrate sau mount |
-| Tiền (Chia) | public | chưa có bạn thuyền → EmptyState + link /nguoi | — | — |
+| Tàu | tab Giấy tờ/Dịch vụ/Sản phẩm: **LoginGate** thẻ khóa + mời đăng nhập (Mức phạt vẫn public) | đã login, chưa có: "Chưa có … bấm nút cam"; chưa có tàu → nút "Thêm tàu của bạn" | `error` → Thử lại; `unlinked` → giải thích | "Đang kiểm tra đồ SDVICO…" |
+| Bạn thuyền | **LoginGate** thẻ khóa (data cá nhân) | đã login, chưa có: empty + nút cam | — | hydrate sau mount |
+| Tiền | Giao dịch (giá cá) public; **Hiệu quả + Công nợ: LoginGate** | đã login, chưa có → EmptyState | — | — |
 | Đăng nhập | — | — | "Sai số điện thoại hoặc mật khẩu" | nút "Đang vào…" |
 
 ## 7. Action → Expectation (đã hiện thực)
@@ -98,7 +99,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 - Tạo/sửa mọi object → **drawer/bottom-sheet**, không page riêng. Sheet + ConfirmDialog **PORTAL ra `document.body`** (`createPortal`) → thoát stacking context của tổ tiên (vd wrapper `relative z-10` của BoatSwitcher nhốt sheet z-30 xuống lớp z-10 khiến bottom-nav z-20 đè che nút Lưu/Hủy). Sheet: `max-h-92dvh` cuộn trong, `pb` safe-area; viewport `interactiveWidget: resizes-content` → bàn phím CO layout (không đè) nên nút đáy luôn với tới. Khóa cuộn nền **đếm tham chiếu** (mở sheet-trong-sheet không nhả khóa sớm → nền không trôi sau lưng).
 - Cỡ giao diện mặc định **theo máy** (rem); chỉnh tay ("Chữ to"/"Gọn") trong **sheet tài khoản**, không bày toggle ra hero.
 - Ngôn ngữ status DUY NHẤT = `StatusBanner`; màu cam-đỏ ĐỘC QUYỀN cho ranh giới biển trên map.
-- Demo/sổ mẫu KHÔNG ghi xuống máy, KHÔNG lọt vào dải nhắc khẩn.
+- **KHÔNG còn demo/sổ mẫu trong UI (2026-07-02)**: các hàm load trả rỗng khi chưa có data thật; data cá nhân khóa sau đăng nhập (xem §2). Trước đây seed demo tự-xưng-mẫu — bỏ vì gây hiểu nhầm "data dùng chung".
 - Visual "international" (font Plus Jakarta Sans + Archivo) nhưng COPY tiếng Việt đời thường.
 
 ## 9. Trạng thái audit ui-design-logic (2026-06-11)

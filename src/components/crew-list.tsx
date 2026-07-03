@@ -6,7 +6,6 @@ import {
   CrewRole,
   ROLE_LABELS,
   crewIssue,
-  demoCrew,
   outstandingAdvance,
 } from "@/lib/crew";
 import {
@@ -45,20 +44,19 @@ type StoredCrew = CrewMember & { boatId?: string };
 const STORAGE_KEY = "forfish.crew.v1";
 
 /*
-  Sổ MẪU tự xưng là mẫu (hội đồng UX 2026-06-11): lần đầu mở vẫn thấy ví dụ
-  cho dễ hình dung, nhưng (1) app biết rõ đây là demo, (2) KHÔNG ghi demo
-  xuống localStorage — dải "việc cần làm ngay" ngoài trang chủ không bao giờ
-  báo đỏ vì người mẫu, (3) thêm người thật đầu tiên là sổ mẫu tự biến mất.
+  Sổ thuyền viên THẬT của user — KHÔNG seed demo nữa (data mẫu dùng chung gây
+  hiểu nhầm là dữ liệu thật; chức năng này nay khóa sau đăng nhập). Rỗng →
+  màn hình "chưa có, bấm thêm".
 */
-function loadCrew(today: Date): { crew: StoredCrew[]; isDemo: boolean } {
+function loadCrew(): { crew: StoredCrew[]; isDemo: boolean } {
   if (typeof window === "undefined") return { crew: [], isDemo: false };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) return { crew: JSON.parse(raw) as StoredCrew[], isDemo: false };
   } catch {
-    // hỏng storage — rơi xuống seed demo
+    // hỏng storage — coi như rỗng
   }
-  return { crew: demoCrew(today), isDemo: true };
+  return { crew: [], isDemo: false };
 }
 
 function saveCrew(crew: StoredCrew[]) {
@@ -76,11 +74,11 @@ export function useCrew() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const loaded = loadCrew(today);
+    const loaded = loadCrew();
     setCrew(loaded.crew);
     setIsDemo(loaded.isDemo);
     setReady(true);
-  }, [today]);
+  }, []);
 
   // Sổ mẫu sống trong bộ nhớ thôi — chỉ sổ THẬT mới được ghi xuống máy.
   useEffect(() => {

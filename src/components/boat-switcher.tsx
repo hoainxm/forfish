@@ -12,6 +12,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Field, PrimaryButton, inputClass } from "@/components/ui/primitives";
 import { COASTAL_PROVINCES, REGION_LABEL } from "@/lib/region";
 import { AnchorIcon, ChevronRightIcon, PlusIcon } from "@/components/icons";
+import { useAuthUser } from "@/lib/use-auth";
 
 /*
   Quản lý nhiều tàu + chọn tàu đang xem. Mọi màn dữ liệu gắn theo tàu này.
@@ -59,11 +60,42 @@ export function useBoats() {
 }
 
 export function BoatSwitcher() {
-  const { boats, current, setCurrent, addBoat, updateBoat } = useBoats();
+  const { boats, current, ready, setCurrent, addBoat, updateBoat } = useBoats();
+  const { user, ready: authReady } = useAuthUser();
   const [pick, setPick] = useState(false);
   const [form, setForm] = useState<Boat | null>(null);
 
-  if (!current) return null;
+  // Đang kiểm tra → đừng nháy UI.
+  if (!ready || !authReady) return null;
+  // Chưa đăng nhập → KHÔNG hiện quản lý tàu (data cá nhân). Ở /tau, các tab tự
+  // hiện thẻ mời đăng nhập; ở đây ẩn hẳn để logged-out không thêm/sửa được tàu.
+  if (!user) return null;
+
+  // Đã đăng nhập nhưng chưa có tàu → mời thêm tàu đầu tiên (không seed tàu mẫu).
+  if (!current) {
+    return (
+      <div className="relative z-10 -mt-6 px-4">
+        <button
+          onClick={() => setForm({ id: `boat-${Date.now()}`, name: "" })}
+          className="flex min-h-[3.25rem] w-full items-center justify-center gap-2 surface px-3.5 py-3 text-[1rem] font-bold text-navy active:scale-[0.99]"
+        >
+          <PlusIcon className="h-5 w-5" />
+          Thêm tàu của bạn
+        </button>
+        {form && (
+          <BoatForm
+            initial={form}
+            isNew
+            onCancel={() => setForm(null)}
+            onSave={(b) => {
+              addBoat(b);
+              setForm(null);
+            }}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     // chip tàu NỔI đè lên mép hero (tràn viền hiện đại) — mọi trang dùng chung

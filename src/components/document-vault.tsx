@@ -6,7 +6,6 @@ import {
   DOCUMENT_KINDS,
   DocumentKind,
   byUrgency,
-  demoDocuments,
   getExpiryStatus,
   kindLabel,
 } from "@/lib/documents";
@@ -39,17 +38,18 @@ type StoredDocument = BoatDocument & { boatId?: string };
 export const DOCS_STORAGE_KEY = "forfish.documents.v1";
 const STORAGE_KEY = DOCS_STORAGE_KEY;
 
-// Đọc tủ giấy tờ (gồm seed demo khi chưa có dữ liệu thật) — export để
-// checklist xuất bến dùng chung MỘT nguồn, không tự đọc localStorage rời rạc.
-export function loadDocs(today: Date): StoredDocument[] {
+// Đọc tủ giấy tờ THẬT của user — export để checklist xuất bến dùng chung MỘT
+// nguồn, không tự đọc localStorage rời rạc. KHÔNG seed demo (data giả dùng
+// chung gây hiểu nhầm); rỗng → màn hình "chưa có, bấm thêm".
+export function loadDocs(): StoredDocument[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw) as StoredDocument[];
   } catch {
-    // corrupt storage — fall through to demo seed
+    // corrupt storage — coi như rỗng
   }
-  return demoDocuments(today);
+  return [];
 }
 
 function saveDocs(docs: StoredDocument[]) {
@@ -73,9 +73,9 @@ export function DocumentVault() {
 
   // Hydrate from localStorage on mount (avoids SSR/CSR mismatch).
   useEffect(() => {
-    setDocs(loadDocs(today));
+    setDocs(loadDocs());
     setReady(true);
-  }, [today]);
+  }, []);
 
   useEffect(() => {
     if (ready) saveDocs(docs);

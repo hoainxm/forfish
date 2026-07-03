@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { apiUrl } from "@/lib/api-base";
@@ -8,10 +9,12 @@ import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
 import { AuthCard, AuthError, AuthNote } from "@/components/auth-form";
 import { normalizePassword } from "@/lib/password";
+import { useAuthUser } from "@/lib/use-auth";
 
 export default function DoiMatKhauPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { user, ready } = useAuthUser();
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -31,6 +34,29 @@ export default function DoiMatKhauPage() {
           <AuthNote>
             Chưa cấu hình đăng nhập — app vẫn dùng được không cần tài khoản.
           </AuthNote>
+        </AuthCard>
+      </div>
+    );
+  }
+
+  // Vào thẳng URL khi chưa đăng nhập (giờ có nút trong sheet Tài khoản nên
+  // đường này hiếm) → mời đăng nhập, không bày form đổi mà lưu chắc chắn fail.
+  if (ready && !user) {
+    return (
+      <div>
+        <PageHeader
+          kicker="Tài khoản"
+          title="Đổi mật khẩu"
+          toColor="var(--sea)"
+        />
+        <AuthCard>
+          <AuthNote>Bạn cần đăng nhập trước rồi mới đổi được mật khẩu.</AuthNote>
+          <Link
+            href="/login"
+            className="display flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+          >
+            Đăng nhập
+          </Link>
         </AuthCard>
       </div>
     );

@@ -37,8 +37,8 @@ export function TripDossier({
   const [docs, setDocs] = useState<(BoatDocument & { boatId?: string })[]>([]);
 
   useEffect(() => {
-    setDocs(loadDocs(today));
-  }, [today]);
+    setDocs(loadDocs());
+  }, []);
 
   const boatCrew = crew.filter(
     (m) => m.boatId === current?.id || m.boatId == null,

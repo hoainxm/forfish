@@ -27,7 +27,6 @@ import { formatVnDate } from "@/lib/format";
 import {
   BoatProduct,
   byWarrantyUrgency,
-  demoProducts,
   getWarrantyStatus,
 } from "@/lib/products";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
@@ -89,13 +88,11 @@ export function BoatProducts() {
   const synced = assets;
 
   // Hydrate from localStorage on mount (avoids SSR/CSR mismatch).
+  // KHÔNG seed demo — chỉ đồ THẬT user thêm hoặc đồng bộ từ SDVICO.
   useEffect(() => {
     const stored = loadProducts();
-    setProducts(stored ?? demoProducts(today, current?.id));
+    setProducts(stored ?? []);
     setReady(true);
-    // current?.id intentionally read once on mount for the demo seed;
-    // stored data already carries its own boatId per item.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today]);
 
   useEffect(() => {

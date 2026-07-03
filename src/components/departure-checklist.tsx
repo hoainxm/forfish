@@ -114,14 +114,14 @@ export function DepartureChecklist() {
   const [lengthInput, setLengthInput] = useState("");
 
   useEffect(() => {
-    setDocs(loadDocs(today));
+    setDocs(loadDocs());
     try {
       setDocsReal(window.localStorage.getItem(DOCS_STORAGE_KEY) != null);
     } catch {
       setDocsReal(false);
     }
     setReady(true);
-  }, [today]);
+  }, []);
 
   const boatCrew = useMemo(
     () => crew.filter((m) => m.boatId === current?.id || m.boatId == null),

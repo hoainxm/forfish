@@ -14,10 +14,6 @@ export interface Boat {
 const BOATS_KEY = "forfish.boats.v1";
 const CURRENT_KEY = "forfish.currentBoat.v1";
 
-export function demoBoats(): Boat[] {
-  return [{ id: "boat-1", name: "Tàu của tôi", maTau: "" }];
-}
-
 export function loadBoats(): Boat[] {
   if (typeof window === "undefined") return [];
   try {
@@ -29,7 +25,9 @@ export function loadBoats(): Boat[] {
   } catch {
     /* ignore */
   }
-  return demoBoats();
+  // KHÔNG seed tàu mẫu — user tự thêm tàu thật (data giả dùng chung gây hiểu
+  // nhầm; mọi chức năng tàu nay khóa sau đăng nhập, xem BoatSwitcher).
+  return [];
 }
 
 export function saveBoats(boats: Boat[]) {

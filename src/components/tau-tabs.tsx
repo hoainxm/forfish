@@ -8,6 +8,7 @@ import { DepartureChecklist } from "@/components/departure-checklist";
 import { FinesLookup } from "@/components/fines-lookup";
 import { BoatServices } from "@/components/boat-services";
 import { BoatProducts } from "@/components/boat-products";
+import { LoginGate } from "@/components/login-gate";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
 import { formatVnd } from "@/lib/format";
 
@@ -52,19 +53,43 @@ export function TauTabs() {
             id: "giay-to",
             label: "Giấy tờ",
             content: (
-              <>
+              <LoginGate
+                feature="giấy tờ tàu"
+                blurb="Đăng nhập để lưu và xem giấy tờ tàu — dữ liệu riêng của bạn, đồng bộ nhiều máy."
+                accent="t3"
+              >
                 <DepartureChecklist />
                 <DocumentVault />
-              </>
+              </LoginGate>
             ),
           },
           {
             id: "dich-vu",
             label: "Dịch vụ",
             badge: overdue.length > 0,
-            content: <BoatServices />,
+            content: (
+              <LoginGate
+                feature="dịch vụ và nhắc bảo dưỡng"
+                blurb="Đăng nhập để theo dõi dịch vụ, công nợ SDVICO và lịch bảo dưỡng — dữ liệu riêng của bạn."
+                accent="t3"
+              >
+                <BoatServices />
+              </LoginGate>
+            ),
           },
-          { id: "san-pham", label: "Sản phẩm", content: <BoatProducts /> },
+          {
+            id: "san-pham",
+            label: "Sản phẩm",
+            content: (
+              <LoginGate
+                feature="sản phẩm của tàu"
+                blurb="Đăng nhập để quản lý đồ đã mua, bảo hành — dữ liệu riêng của bạn."
+                accent="t3"
+              >
+                <BoatProducts />
+              </LoginGate>
+            ),
+          },
           { id: "muc-phat", label: "Mức phạt", content: <FinesLookup /> },
         ]}
       />

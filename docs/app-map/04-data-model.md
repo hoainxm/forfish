@@ -82,7 +82,7 @@ App khách hàng độc lập (tách SDWork): DB RIÊNG giữ KH · thiết bị
 | `none` | không có `expiresOn` | — | "Không có hạn" |
 
 - `byUrgency(today)` — sort gấp nhất lên đầu (expired trước, rồi gần hạn nhất; không hạn xuống cuối)
-- `demoDocuments(today)` — seed demo mode, offset ngày tương đối so với today để luôn có đủ 3 trạng thái
+- `demoDocuments(today)` — CÒN trong lib cho unit test, **KHÔNG còn gọi trong UI (2026-07-02)**: `loadDocs()` trả rỗng khi chưa có data thật (bỏ seed vì data giả chung máy gây hiểu nhầm "dùng chung")
 
 ### Camel ↔ snake mapping (khi nối Supabase)
 TS dùng camelCase (`expiresOn`), DB dùng snake_case (`expires_on`) — khi wire vault lên Supabase phải map rõ ràng, không đổi shape của `BoatDocument`.
@@ -90,7 +90,7 @@ TS dùng camelCase (`expiresOn`), DB dùng snake_case (`expires_on`) — khi wir
 ## 4. Demo mode storage
 
 - localStorage key: **`forfish.documents.v1`** (versioned — đổi shape thì bump v2 + migrate/seed lại)
-- Corrupt JSON / storage bị chặn → fall back demo seed, không crash
+- Corrupt JSON / storage bị chặn → coi như RỖNG (không seed demo), không crash
 
 ## 5. Việc sắp tới / Implementation status
 
@@ -160,9 +160,10 @@ App yêu cầu đăng nhập (tài khoản đồng bộ SDWork) cho tính năng 
 | **Dự báo cá (PFZ)** | 🟢 teaser → 🔒 chi tiết | **TEASER (user chốt 2026-06-11)**: `GET /api/fish-forecast` CÔNG KHAI (bỏ gate 401) → lớp cá heatmap + điểm nóng HIỆN cho mọi người (thu hút). Xem CHI TIẾT một điểm (loài gì, khả năng bao nhiêu, đi hướng nào) mới khoá: `fishing-map-view` dùng `useAuthUser`+`isSupabaseConfigured` → `fishLocked` (đã cấu hình Supabase + chưa login) → thẻ cá trong sheet thành nút "Đăng nhập để xem chi tiết dự báo cá" (→/login) thay readout. Heatmap/chọn loài vẫn xem được (làm mồi). Demo mode = mở hết. (Lý do đổi từ "khoá API" cũ: lớp cá biến mất hẳn → không hấp dẫn được khách đăng ký) |
 | **Nhu cầu mua cá ("Ai cần mua")** | 🔒 đăng nhập | `LoginGate` quanh `buy-board.tsx`; nguồn API thật sau này PHẢI kiểm session như fish-forecast |
 | **Đồ SDVICO của tôi / dịch vụ / cước / yêu cầu đã gửi** | 🔒 (bản chất) | `/api/me/sdvico` suy khách từ session — chưa đăng nhập tự ok:false. **Nguồn thiết bị (2026-06-11)**: gateway `forfish-gateway` v4 (CRM) gộp `warranty_cards` (theo account) + `vw_imported_serials` (import Excel, chủ yếu giám sát hành trình Viettel) khớp theo **SĐT chuẩn hoá 9 số cuối** (0xxx/84xxx/+84 — trước lệch định dạng nên thiết bị import không hiện) qua RPC CRM-side `forfish_imported_serials` (xem [contract](../contracts/sdwork-assets.contract.md)). Khách chỉ có serial import (chưa account) VẪN thấy đồ. Thiết bị import không có hạn BH → hiện tên+serial, không bịa bảo hành |
-| Bản đồ + gió sóng + bão + hải đồ + cá MÙA VỤ · giá cá · bán ở đâu · catalog SDVICO + nút Gọi SDVICO · sổ tự ghi (giấy tờ/bảo dưỡng/thuyền viên/lãi lỗ/chia tiền) · mức phạt | 🌐 public | không chặn — gửi yêu cầu khi chưa đăng nhập = mối bán hàng mới |
+| **Sổ tự ghi data cá nhân** (giấy tờ tàu · thông tin tàu/BoatSwitcher · dịch vụ + nhắc bảo dưỡng · sản phẩm · sổ lãi lỗ · công nợ · thuyền viên) | 🔒 đăng nhập (sửa 2026-07-02) | `LoginGate` quanh: /tau tab Giấy tờ/Dịch vụ/Sản phẩm + BoatSwitcher, /tien tab Hiệu quả + Công nợ, /nguoi. Lý do: bỏ demo seed + data localStorage chung máy gây hiểu nhầm "dùng chung". Đợt 2 wire Supabase owner_id là khóa thật đa thiết bị |
+| Bản đồ + gió sóng + bão + hải đồ + cá MÙA VỤ · giá cá + giá dầu · bán ở đâu · catalog SDVICO + nút Gọi SDVICO · **mức phạt** | 🌐 public | tham khảo, không data cá nhân — không chặn; gửi yêu cầu khi chưa đăng nhập = mối bán hàng mới |
 
-Quy ước: tính năng khóa MỚI → bọc `components/login-gate.tsx` (UI) **và** kiểm session ở API (thật). Hook trạng thái: `lib/use-auth.ts`. Khi Supabase chưa cấu hình (demo mode dev) thì KHÔNG khóa — giữ invariant demo mode §"Demo mode".
+Quy ước: tính năng khóa MỚI → bọc `components/login-gate.tsx` (UI) **và** kiểm session ở API (thật). Hook trạng thái: `lib/use-auth.ts`. Khi Supabase chưa cấu hình (demo mode dev) thì KHÔNG khóa — giữ invariant demo mode §"Demo mode". Ngưỡng phân loại: data CÁ NHÂN (gắn tàu/user) → khóa; tham khảo dùng chung (giá, thời tiết, mức phạt) → public.
 
 ## 8. Cross-references
 

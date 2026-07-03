@@ -5,7 +5,6 @@ import {
   balanceOf,
   totalOutstanding,
   totalPaid,
-  demoDebts,
   CREDITOR_KIND_LABELS,
   type Creditor,
   type CreditorKind,
@@ -48,7 +47,7 @@ const KIND_OPTIONS = Object.entries(CREDITOR_KIND_LABELS) as [
   string,
 ][];
 
-function loadDebts(today: Date): { creditors: Creditor[]; isDemo: boolean } {
+function loadDebts(): { creditors: Creditor[]; isDemo: boolean } {
   if (typeof window === "undefined")
     return { creditors: [], isDemo: false };
   try {
@@ -56,9 +55,10 @@ function loadDebts(today: Date): { creditors: Creditor[]; isDemo: boolean } {
     if (raw)
       return { creditors: JSON.parse(raw) as Creditor[], isDemo: false };
   } catch {
-    // hỏng storage — rơi xuống seed demo
+    // hỏng storage — coi như rỗng
   }
-  return { creditors: demoDebts(today), isDemo: true };
+  // KHÔNG seed demo (data giả dùng chung); rỗng → màn "chưa có, bấm thêm".
+  return { creditors: [], isDemo: false };
 }
 
 function saveDebts(creditors: Creditor[]) {
@@ -74,7 +74,6 @@ function todayIso(): string {
 }
 
 export function DebtLedger() {
-  const today = useMemo(() => new Date(), []);
   const [creditors, setCreditors] = useState<Creditor[]>([]);
   const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
@@ -86,11 +85,11 @@ export function DebtLedger() {
   const [confirmDelete, setConfirmDelete] = useState<Creditor | null>(null);
 
   useEffect(() => {
-    const loaded = loadDebts(today);
+    const loaded = loadDebts();
     setCreditors(loaded.creditors);
     setIsDemo(loaded.isDemo);
     setReady(true);
-  }, [today]);
+  }, []);
 
   // Sổ mẫu sống trong bộ nhớ thôi — chỉ sổ THẬT mới ghi xuống máy.
   useEffect(() => {

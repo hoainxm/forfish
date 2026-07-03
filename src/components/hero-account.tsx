@@ -157,18 +157,30 @@ export function HeroAccount() {
           </div>
 
           {user && (
-            <button
-              type="button"
-              onClick={async () => {
-                const supabase = createClient();
-                await supabase?.auth.signOut();
-                setOpen(false);
-                router.refresh();
-              }}
-              className="flex min-h-[3.25rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-trim transition active:scale-[0.98]"
-            >
-              Đăng xuất
-            </button>
+            <>
+              {/* tự đổi mật khẩu — trước đây /doi-mat-khau chỉ vào được khi bị
+                  ép lần đầu, TK thường không có đường vào (báo cáo tester
+                  2026-07-02: DN-001-04/07 kẹt "chưa có chức năng đổi mk") */}
+              <Link
+                href="/doi-mat-khau"
+                onClick={() => setOpen(false)}
+                className="mb-3 flex min-h-[3.25rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-sea transition active:scale-[0.98]"
+              >
+                Đổi mật khẩu
+              </Link>
+              <button
+                type="button"
+                onClick={async () => {
+                  const supabase = createClient();
+                  await supabase?.auth.signOut();
+                  setOpen(false);
+                  router.refresh();
+                }}
+                className="flex min-h-[3.25rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-trim transition active:scale-[0.98]"
+              >
+                Đăng xuất
+              </button>
+            </>
           )}
         </BottomSheet>
       )}

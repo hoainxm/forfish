@@ -1,6 +1,7 @@
 import { CrewList } from "@/components/crew-list";
 import { PageHeader } from "@/components/page-header";
 import { BoatSwitcher } from "@/components/boat-switcher";
+import { LoginGate } from "@/components/login-gate";
 
 export const metadata = { title: "Bạn thuyền — SDFish" };
 
@@ -15,8 +16,14 @@ export default function NguoiPage() {
         sub="Hồ sơ, chứng chỉ, bảo hiểm — đủ giấy trước khi ra khơi, khỏi bị phạt."
         toColor="var(--t4)"
       />
-      <BoatSwitcher />
-      <CrewList />
+      <LoginGate
+        feature="sổ thuyền viên"
+        blurb="Đăng nhập để lưu hồ sơ, chứng chỉ, bảo hiểm thuyền viên — dữ liệu riêng của bạn, đồng bộ nhiều máy."
+        accent="t4"
+      >
+        <BoatSwitcher />
+        <CrewList />
+      </LoginGate>
     </div>
   );
 }
