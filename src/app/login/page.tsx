@@ -51,7 +51,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     if (!isValidVnPhone(phone)) {
-      setError("Số điện thoại không hợp lệ. Bà con kiểm tra lại nhé.");
+      setError("Số điện thoại phải đủ 10 số (ví dụ 0901234567). Bà con kiểm tra lại nhé.");
       return;
     }
     setLoading(true);

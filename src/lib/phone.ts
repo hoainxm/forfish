@@ -17,14 +17,17 @@ export function phoneToEmail(rawPhone: string): string {
   return `${normalizeVnPhone(rawPhone)}@${PHONE_EMAIL_DOMAIN}`;
 }
 
-/** Ô nhập SĐT chỉ nhận SỐ, tối đa 11 số. */
+/** Ô nhập SĐT chỉ nhận SỐ. Dạng nội địa 0xxxxxxxxx = 10 số → cap 10.
+ *  Dạng quốc tế 84xxxxxxxxx = 11 số (84 + 9) → cap 11 để +84 vẫn gõ được. */
 export function sanitizePhoneInput(raw: string): string {
-  return raw.replace(/\D/g, "").slice(0, 11);
+  const d = raw.replace(/\D/g, "");
+  return d.startsWith("84") ? d.slice(0, 11) : d.slice(0, 10);
 }
 
-/** Hợp lệ tối thiểu: 10–11 chữ số sau chuẩn hoá. */
+/** SĐT VN hợp lệ = ĐÚNG 10 số (0 + 9). Chấp nhận nhập kiểu 84/+84 (quốc tế,
+ *  quy về 9 số local). Chối 11 số kiểu 0xxxxxxxxxx (thừa số). */
 export function isValidVnPhone(raw: string): boolean {
   const d = raw.replace(/\D/g, "");
   const local = d.startsWith("84") ? d.slice(2) : d.startsWith("0") ? d.slice(1) : d;
-  return /^[1-9]\d{8,9}$/.test(local);
+  return /^[1-9]\d{8}$/.test(local);
 }

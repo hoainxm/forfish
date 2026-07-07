@@ -67,6 +67,39 @@ export function syncAuthScope(phone: string | null): boolean {
   return true;
 }
 
+/** Mốc thời điểm reload gần nhất (sessionStorage — sống qua reload, mất khi
+ *  đóng tab). Dùng cho circuit-breaker chống vòng lặp reload. */
+const RELOAD_AT_KEY = "forfish.scopeReloadAt.v1";
+
+/**
+ * Circuit-breaker: CÓ được phép reload trang cho lần đổi scope này không?
+ *
+ * Bug đã gặp: khi `getUser()` (xác thực server) và `onAuthStateChange` (phiên
+ * lưu trong máy) BẤT ĐỒNG — một bên thấy user, bên kia thấy null — scope đảo
+ * qua lại liên tục, mỗi lần lại `window.location.reload()` → TRANG NHẤP NHÁY
+ * TẢI LẠI VÔ HẠN (báo cáo: đăng nhập tài khoản phiên lỗi → reload liên tục).
+ *
+ * Chốt chặn: chỉ cho reload TỐI ĐA 1 lần mỗi `windowMs` (mặc định 5s) trong 1
+ * tab. Lần đổi scope thật (đổi user/logout) vẫn reload được; còn vòng lặp đảo
+ * trong tích tắc thì bị chặn — data KH đã bị xoá rồi nên không rò rỉ, chỉ là
+ * không reset RAM (đánh đổi chấp nhận được so với treo trang).
+ *
+ * THUẦN + tự-quản mốc (tham số `now` để test tất định). SSR-safe.
+ */
+export function shouldReloadForScope(now: number, windowMs = 5000): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const last = Number(window.sessionStorage.getItem(RELOAD_AT_KEY) || "0");
+    if (Number.isFinite(last) && now - last < windowMs) return false;
+    window.sessionStorage.setItem(RELOAD_AT_KEY, String(now));
+    return true;
+  } catch {
+    // sessionStorage lỗi (private mode…) → giữ hành vi cũ (cho reload).
+    return true;
+  }
+}
+
 /** Test helper — export list keys để unit test xác minh xoá đúng key. */
 export const __USER_SCOPED_KEYS_FOR_TEST = USER_SCOPED_KEYS;
 export const __LAST_PHONE_KEY_FOR_TEST = LAST_PHONE_KEY;
+export const __RELOAD_AT_KEY_FOR_TEST = RELOAD_AT_KEY;

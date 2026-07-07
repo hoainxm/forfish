@@ -50,7 +50,7 @@ export default function DangKyPage() {
     setError(null);
 
     if (!isValidVnPhone(phone)) {
-      setError("Số điện thoại không hợp lệ.");
+      setError("Số điện thoại phải đủ 10 số (ví dụ 0901234567).");
       return;
     }
     const pw = normalizePassword(password);

@@ -17,8 +17,11 @@ describe("sanitizePhoneInput — ô SĐT chỉ nhận số", () => {
     expect(sanitizePhoneInput("0901234567@sdvico.local")).toBe("0901234567");
     expect(sanitizePhoneInput("+84 901 234 567")).toBe("84901234567");
   });
-  it("chặn dài quá 11 số", () => {
-    expect(sanitizePhoneInput("0901234567890123")).toBe("09012345678");
+  it("dạng nội địa 0xxxxxxxxx chặn đúng 10 số", () => {
+    expect(sanitizePhoneInput("0901234567890123")).toBe("0901234567");
+  });
+  it("dạng quốc tế 84xxxxxxxxx cho tới 11 số (+84 vẫn gõ được)", () => {
+    expect(sanitizePhoneInput("+84 901 234 567 89")).toBe("84901234567");
   });
 });
 
@@ -38,10 +41,18 @@ describe("normalizeVnPhone + isValidVnPhone", () => {
     expect(normalizeVnPhone("84901234567")).toBe("0901234567");
     expect(normalizeVnPhone("901234567")).toBe("0901234567");
   });
-  it("nhận 10–11 số, chối số rác", () => {
-    expect(isValidVnPhone("0901234567")).toBe(true);
-    expect(isValidVnPhone("+84901234567")).toBe(true);
+  it("nhận ĐÚNG 10 số (0+9) và dạng 84/+84, chối số rác", () => {
+    expect(isValidVnPhone("0901234567")).toBe(true); // 10 số nội địa
+    expect(isValidVnPhone("+84901234567")).toBe(true); // quốc tế = 10 số
+    expect(isValidVnPhone("84901234567")).toBe(true);
     expect(isValidVnPhone("12345")).toBe(false);
     expect(isValidVnPhone("abc")).toBe(false);
+  });
+  it("chối SĐT thừa số — 0 + 10 = 11 số", () => {
+    expect(isValidVnPhone("09012345678")).toBe(false);
+    expect(isValidVnPhone("0901234567890")).toBe(false);
+  });
+  it("chối SĐT thiếu số — 0 + 8 = 9 số", () => {
+    expect(isValidVnPhone("090123456")).toBe(false);
   });
 });

@@ -19,7 +19,8 @@ function normalizePhone(raw: string): string {
 function isValidVnPhone(raw: string): boolean {
   const d = raw.replace(/\D/g, "");
   const local = d.startsWith("84") ? d.slice(2) : d.startsWith("0") ? d.slice(1) : d;
-  return /^[1-9]\d{8,9}$/.test(local);
+  // ĐÚNG 10 số (0 + 9); dạng 84/+84 quy về 9 local. Chối 0xxxxxxxxxx (11 số).
+  return /^[1-9]\d{8}$/.test(local);
 }
 
 export async function POST(req: Request) {

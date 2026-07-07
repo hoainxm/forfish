@@ -7,7 +7,11 @@
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { clearUserScopedData, syncAuthScope } from "@/lib/auth-scope";
+import {
+  clearUserScopedData,
+  shouldReloadForScope,
+  syncAuthScope,
+} from "@/lib/auth-scope";
 
 function deriveBoatPhone(u: User | null): string | null {
   return u?.phone || (u?.email ? u.email.split("@")[0] : null) || null;
@@ -27,12 +31,15 @@ function deriveBoatPhone(u: User | null): string | null {
  * luôn mở với storage sạch.
  */
 function syncScopeAndResetRam(phone: string | null) {
-  if (syncAuthScope(phone)) {
-    window.addEventListener("pagehide", () => clearUserScopedData(), {
-      once: true,
-    });
-    window.location.reload();
-  }
+  if (!syncAuthScope(phone)) return;
+  // syncAuthScope đã xoá data KH (chống rò rỉ). Reset RAM = reload, nhưng qua
+  // circuit-breaker: nếu auth state đang đảo qua lại (user ↔ null) thì KHÔNG
+  // reload lại trong tích tắc → chặn vòng lặp nhấp nháy tải trang vô hạn.
+  if (!shouldReloadForScope(Date.now())) return;
+  window.addEventListener("pagehide", () => clearUserScopedData(), {
+    once: true,
+  });
+  window.location.reload();
 }
 
 export function useAuthUser(): {

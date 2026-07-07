@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearUserScopedData,
+  shouldReloadForScope,
   syncAuthScope,
   __USER_SCOPED_KEYS_FOR_TEST,
   __LAST_PHONE_KEY_FOR_TEST,
+  __RELOAD_AT_KEY_FOR_TEST,
 } from "@/lib/auth-scope";
 
 function makeStore() {
@@ -20,10 +22,12 @@ function makeStore() {
 }
 
 const store = makeStore();
-vi.stubGlobal("window", { localStorage: store });
+const session = makeStore();
+vi.stubGlobal("window", { localStorage: store, sessionStorage: session });
 
 beforeEach(() => {
   store.clear();
+  session.clear();
 });
 
 describe("syncAuthScope", () => {
@@ -82,6 +86,32 @@ describe("syncAuthScope", () => {
     syncAuthScope("0902222222");
 
     for (const k of __USER_SCOPED_KEYS_FOR_TEST) expect(store.getItem(k)).toBe(null);
+  });
+});
+
+describe("shouldReloadForScope — circuit-breaker chống vòng lặp reload", () => {
+  it("lần đầu (chưa có mốc) → cho reload + ghi mốc", () => {
+    expect(shouldReloadForScope(1_000_000)).toBe(true);
+    expect(session.getItem(__RELOAD_AT_KEY_FOR_TEST)).toBe("1000000");
+  });
+
+  it("gọi lại NGAY trong cửa sổ 5s → CHẶN reload (bug nhấp nháy vô hạn)", () => {
+    expect(shouldReloadForScope(1_000_000)).toBe(true);
+    expect(shouldReloadForScope(1_000_050)).toBe(false); // +50ms
+    expect(shouldReloadForScope(1_004_999)).toBe(false); // +4.999s
+  });
+
+  it("qua khỏi cửa sổ 5s (đổi user thật) → cho reload lại", () => {
+    expect(shouldReloadForScope(1_000_000)).toBe(true);
+    expect(shouldReloadForScope(1_005_001)).toBe(true); // +5.001s
+    expect(session.getItem(__RELOAD_AT_KEY_FOR_TEST)).toBe("1005001");
+  });
+
+  it("mô phỏng flap user↔null liên tục → chỉ reload 1 lần rồi thôi", () => {
+    // Trước fix: mỗi lần đảo lại reload → vô hạn. Giờ chỉ lần đầu true.
+    const t = 2_000_000;
+    const results = [0, 1, 2, 3, 5, 8].map((ms) => shouldReloadForScope(t + ms));
+    expect(results).toEqual([true, false, false, false, false, false]);
   });
 });
 
