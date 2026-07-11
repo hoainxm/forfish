@@ -15,12 +15,17 @@ import {
   type ScalarGrid,
 } from "@/lib/fish-predict";
 import { fetchThermoclineGrid } from "@/lib/hycom";
+import { SOURCE_FETCH_HEADERS } from "@/lib/source-fetch";
 
 export async function loadFishForecast(
   month: number,
 ): Promise<FishForecast | null> {
   try {
-    const opt = { next: { revalidate: 21600 } };
+    // headers: NOAA 403 với UA mặc định của node (gốc RK-002) — xem source-fetch.ts
+    const opt = {
+      next: { revalidate: 21600 },
+      headers: SOURCE_FETCH_HEADERS,
+    };
     const thermoP = fetchThermoclineGrid().catch(() => null);
     const [sstRes, chlRes, slaRes, anomRes, uRes, vRes] = await Promise.all([
       fetch(sstGridUrl(), opt),

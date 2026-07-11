@@ -118,7 +118,7 @@ TS dùng camelCase (`expiresOn`), DB dùng snake_case (`expires_on`) — khi wir
 - **Nạp dữ liệu**: `POST /api/sdwork/webhook` — verify **HMAC SHA-256** (header `x-sdwork-signature`, env `SDWORK_WEBHOOK_SECRET`) trên raw body → upsert customers/devices/supplies bằng admin client. Map thuần `src/lib/sdwork-webhook.ts` (`toCustomerRow/toDeviceRow/toSupplyRow`, chuẩn hoá SĐT, idempotent `sdwork_ref`) — có test. Response trả `results[]` per-event (`ref`, `ok`, `code?`, `provisioned?`) + `applied` count → SDWork đối soát chính xác từng event, không câm khi 1 hàng lỗi.
 - **Đọc**: `/api/me/sdvico` đọc **bảng SDFish** (RLS theo `current_phone()`) thay `fetchOwnedAssets` gọi CRM. `use-sdvico-assets` giữ interface (4 nấc + `OwnedAssets`).
 - **Hợp đồng webhook**: [sdwork-sso-contract.md](../integration/sdwork-sso-contract.md) (event types/payload/HMAC + password).
-- **Đồng bộ mật khẩu 2 chiều (Đợt 2, 2026-06-19)**: reset inbound (`resetPassword`) + đẩy outbound (`/api/sdwork/password-sync`) + RPC `0003` — **code+test xong**. Còn lại: apply migration `0002`+`0003` prod 🔴 · cấu hình `SDWORK_SYNC_URL` + endpoint nhận phía SDWork · cron đối soát · retire §6 (gateway live-read + `/api/auth/sso`).
+- **Đồng bộ mật khẩu 2 chiều (Đợt 2, 2026-06-19)**: reset inbound (`resetPassword`) + đẩy outbound (`/api/sdwork/password-sync`) + RPC `0003` — **code+test xong**; migration + Edge Function + env đã lên prod 2026-06-30 (xem §5 dòng 3/3b). Còn lại: **outbox phía SDWork** 🔴 (đơn/KH mới → tự bắn webhook; artifact sẵn ở [go-live](../integration/go-live/README.md) Bước 4 — thiếu nó đơn mới KHÔNG tạo user SDFish) · cron đối soát · retire §6 (gateway live-read + `/api/auth/sso`).
 
 ## 6. Đồng bộ đồ mua từ SDWork CRM (Trục 3, 2026-06-10) — ⚠️ ĐANG CHUYỂN TIẾP, thay bởi §5b
 

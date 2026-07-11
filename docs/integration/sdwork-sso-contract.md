@@ -112,7 +112,9 @@ SDWORK_SYNC_URL=https://<sdwork>/...     # endpoint SDWork nhận mk đổi từ
 
 ## 8. Còn lại (Đợt 2+)
 
-- Apply migration `0002`+`0003` lên prod 🔴 · cấu hình `SDWORK_SYNC_URL` + dựng endpoint nhận phía SDWork (§5b/§7) · cron đối soát backfill + đẩy lại mk lỗi · retire đọc-live SDWork (gateway `forfish-gateway` + `/api/auth/sso`).
+- 🔴 **Outbox + trigger phía SDWork** (đơn/KH mới → tự bắn webhook) — mảnh còn thiếu duy nhất để "đơn mới tạo user SDFish" chạy. Artifact dán-là-chạy: [go-live/sdwork-outbox.sql](go-live/sdwork-outbox.sql) + [go-live/sdwork-outbox-worker.ts](go-live/sdwork-outbox-worker.ts) (go-live README Bước 4).
+- Cron đối soát backfill + đẩy lại mk lỗi · retire đọc-live SDWork (gateway `forfish-gateway` + `/api/auth/sso`).
+- ✅ Đã xong (2026-06-30): apply migration `0002`+`0003`+`0004` prod · Edge Function CRM `sdfish-password-in` + RPC CRM · bulk provision 630 account · verify 2 chiều end-to-end.
 - ✅ Đã xong (code+test, 2026-06-19): reset mk inbound (`resetPassword`) · đẩy mk outbound (`/api/sdwork/password-sync`) · RPC `auth_user_id_by_phone` (`0003`) · fix `must_change_password` ở `user_metadata`.
 
 ---

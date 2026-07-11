@@ -22,7 +22,7 @@ gate: warn
 | **GDACS** (bão) | Tin bão Biển Đông (`/api/storms`) | Không key | `app/api/storms` | server 15s + client 20s | StormBanner ẩn nếu lỗi; bản đồ vẫn chạy |
 | **VASEP** (giá bến) | Giá nguyên liệu tuần (`/api/port-prices`) | Không key (scrape) | `lib/port-price-source.ts` | cache 24h | Lùi bảng giá tĩnh + nhãn "tham khảo" |
 | **Petrolimex / giaxanghomnay** | Giá dầu DO (`/api/fuel-price`) | Không key (scrape) | `app/api/fuel-price` | cache 6h | Ẩn dòng giá dầu, phần còn lại giữ nguyên |
-| **NOAA ERDDAP** | SST / phù du / front (dự báo cá) | Không key | `lib/fish-predict.ts`, `app/api/fish-forecast` | cache 6h | Lớp cá hiện pill đỏ "chạm để thử lại"; lùi mùa vụ |
+| **NOAA ERDDAP** | SST / phù du / front (dự báo cá) | Không key, **BẮT BUỘC User-Agent định danh** (`lib/source-fetch.ts` — UA mặc định của node bị 403, gốc RK-002, fix 2026-07-02) | `lib/fish-predict.ts`, `lib/fish-forecast-server.ts`, `app/api/fish-forecast` | cache 6h | Lớp cá hiện pill đỏ "chạm để thử lại"; lùi mùa vụ |
 | **HYCOM** (OPeNDAP) | Tầng nhiệt D20 (cá ngừ) | Không key | `lib/hycom.ts` | fetch song song ERDDAP, `.catch→null` | Chia lại trọng số habitat, không có D20 vẫn ra điểm cá |
 | **Overpass / OpenSeaMap** | Phao đèn, báo hiệu gần bờ | Không key | `app/api/nautical` | timeout 25s (nguồn chậm) | Lớp phao ẩn; hải đồ + dự báo vẫn chạy |
 | **Cron collector Ra khơi** (`/api/collect/sea-daily`) | Thu LỊCH SỬ biển/cá/bão vào 3 bảng 0005 để predict (Long 2026-07-02) | `CRON_SECRET` (Vercel env, Bearer) | `vercel.json` crons 23:30 UTC; route `app/api/collect/sea-daily` | 1 lần/ngày; per-nguồn timeout 15s, maxDuration 300s | Best-effort từng phần: nguồn nào fail bỏ nguồn đó, response note lỗi; hôm sau cron tự bù (upsert idempotent) |

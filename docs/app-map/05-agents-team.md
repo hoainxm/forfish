@@ -54,6 +54,13 @@ Vì sao: agents chạy **song song** — file set giao nhau = merge conflict + g
 
 Mục đích: session mới (hoặc teammate mới) nắm đúng context tối thiểu, không load cả hồ sơ, không miss invariant.
 
+## 3b. Skill `/testcase` (global, user-level)
+
+- Skill nằm NGOÀI repo: `C:\Users\ACER\.claude\skills\testcase\` (user-level, generic cho mọi project, tự chứa exceljs — repo không có dependency nào). Repo này KHÔNG giữ bản riêng — đặc thù SDFish (4 trục, demo mode, design rules) skill tự đọc từ CLAUDE.md + app-map khi chạy.
+- Chức năng: sinh bộ test case `.xlsx` format 12 cột chuẩn (header EN / nội dung VN) giao cho tester.
+- Quy trình: chốt scope → thu thập tài liệu (doc user đưa → CLAUDE.md/app-map → test case đã có trong `docs/test-cases/` → source code) + đối chiếu mâu thuẫn doc↔code (rule nghiệp vụ theo doc, nguyên văn UI theo code) → truy vết coverage (mỗi yêu cầu ≥1 TC) → sinh file → verify + báo cáo (căn cứ, yêu cầu chưa phủ, nghi bug).
+- Output tại repo này: `docs/test-cases/SDFish_TC_<feature>_<YYYY-MM-DD>.xlsx` (đặt `project: "SDFish"` trong input JSON) — 1 file / chức năng, 1 sheet `TestCases`.
+
 ## 4. Quy trình giao việc chuẩn / Standard hand-off
 
 1. Lead viết brief: mục tiêu + **danh sách file được phép đụng** + facts canonical
@@ -69,4 +76,4 @@ Mục đích: session mới (hoặc teammate mới) nắm đúng context tối t
 
 ---
 
-**Last updated**: 2026-06-10
+**Last updated**: 2026-07-08
