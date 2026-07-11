@@ -35,6 +35,7 @@ export interface TripEntry {
   fuelVnd: number;
   otherVnd: number;
   note?: string;
+  boatId?: string; // chuyến thuộc tàu nào (ba-spec 08 R1 — cố định theo tàu)
 }
 
 function tripProfit(t: TripEntry): number {
@@ -83,6 +84,7 @@ export function TripLog({
   onChange,
   onSplit,
   onDossier,
+  boatId,
 }: {
   trips: TripEntry[];
   onChange: (next: TripEntry[]) => void;
@@ -90,6 +92,8 @@ export function TripLog({
   onSplit?: (trip: TripEntry) => void;
   /** "Hồ sơ chuyến" — mở bản in được (PDF) cho người mua/lưu hồ sơ */
   onDossier?: (trip: TripEntry) => void;
+  /** Tàu đang chọn — chuyến mới gắn vào tàu này (ba-spec 08 R1) */
+  boatId?: string;
 }) {
   const ready = true; // parent chỉ render sau khi hydrate xong
   const [editing, setEditing] = useState<TripEntry | null>(null);
@@ -107,11 +111,13 @@ export function TripLog({
   );
 
   function upsert(trip: TripEntry) {
-    const idx = trips.findIndex((t) => t.id === trip.id);
+    // chuyến mới gắn tàu đang chọn; chuyến cũ giữ tàu của nó (R1)
+    const withBoat: TripEntry = { ...trip, boatId: trip.boatId ?? boatId };
+    const idx = trips.findIndex((t) => t.id === withBoat.id);
     onChange(
       idx === -1
-        ? [...trips, trip]
-        : trips.map((t) => (t.id === trip.id ? trip : t)),
+        ? [...trips, withBoat]
+        : trips.map((t) => (t.id === withBoat.id ? withBoat : t)),
     );
     setShowForm(false);
     setEditing(null);

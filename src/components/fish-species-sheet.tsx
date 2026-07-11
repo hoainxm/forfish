@@ -1,9 +1,13 @@
 "use client";
 
 /*
-  Bảng chọn loài cá — modal, mở từ nút "Cá" gọn trên bản đồ (thay hàng chip
-  ngang chắn map cũ). Loài gom theo NHÓM, mỗi loài 1 chấm màu; loài đang vụ ở
-  vùng đang xem có viền cam + xếp đầu nhóm. Chọn xong đóng luôn để thấy bản đồ.
+  Chọn loài cá. Dùng ở 2 chỗ:
+  · FishSpeciesContent — phần thân, nhúng vào PANEL RAIL "Ngư trường" (Phương
+    án A: chọn loài là điều khiển lớp → ở rail, KHÔNG mở bottom-sheet riêng).
+  · FishSpeciesSheet — wrapper bottom-sheet (giữ cho tương thích, nay không
+    dùng trên map nữa).
+  Loài gom theo NHÓM, mỗi loài 1 chấm màu; loài đang vụ ở vùng đang xem có
+  viền cam + xếp đầu nhóm.
 */
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import {
@@ -22,41 +26,38 @@ const CATEGORY_ORDER: SpeciesCategory[] = [
   "crustacean",
 ];
 
-export function FishSpeciesSheet({
+export function FishSpeciesContent({
   species,
   current,
   regionShorts,
   onPick,
-  onClose,
+  cols = 2,
 }: {
-  /** danh sách loài đang vụ (tên ngắn) */
   species: string[];
-  /** loài đang chọn (null = Mọi loài) */
   current: string | null;
-  /** tên ngắn các loài đang vụ ở vùng đang xem */
   regionShorts: Set<string>;
+  /** chọn loài (null = Mọi loài) — caller tự đóng/quay lại sau khi chọn */
   onPick: (sp: string | null) => void;
-  onClose: () => void;
+  /** số cột lưới loài: 2 cho sheet rộng, 1 cho panel rail hẹp */
+  cols?: 1 | 2;
 }) {
   const groups = CATEGORY_ORDER.map((cat) => ({
     cat,
     items: species
       .filter((s) => SPECIES_META[s]?.category === cat)
-      .sort((a, b) => (regionShorts.has(a) ? 0 : 1) - (regionShorts.has(b) ? 0 : 1)),
+      .sort(
+        (a, b) =>
+          (regionShorts.has(a) ? 0 : 1) - (regionShorts.has(b) ? 0 : 1),
+      ),
   })).filter((g) => g.items.length > 0);
 
-  const pick = (sp: string | null) => {
-    onPick(sp);
-    onClose();
-  };
-
   return (
-    <BottomSheet title="Chọn loài cá" onClose={onClose}>
+    <>
       {/* Mọi loài — gộp tất cả, màu xanh lá */}
       <button
         type="button"
         aria-pressed={current == null}
-        onClick={() => pick(null)}
+        onClick={() => onPick(null)}
         className={`mb-1 flex min-h-[3.5rem] w-full items-center gap-3 rounded-xl px-4 transition active:scale-[0.99] ${
           current == null ? "bg-navy text-white" : "bg-field text-navy"
         }`}
@@ -80,7 +81,9 @@ export function FishSpeciesSheet({
           <h4 className="display mb-2 text-[0.9375rem] font-bold uppercase tracking-wide text-foreground/65">
             {CATEGORY_LABEL[g.cat]}
           </h4>
-          <div className="grid grid-cols-2 gap-2">
+          <div
+            className={`grid gap-2 ${cols === 1 ? "grid-cols-1" : "grid-cols-2"}`}
+          >
             {g.items.map((sp) => {
               const meta = SPECIES_META[sp];
               const inRegion = regionShorts.has(sp);
@@ -90,7 +93,7 @@ export function FishSpeciesSheet({
                   key={sp}
                   type="button"
                   aria-pressed={active}
-                  onClick={() => pick(sp)}
+                  onClick={() => onPick(sp)}
                   className={`flex min-h-[3.25rem] items-center gap-2 rounded-xl px-3 py-2 text-left text-[0.9375rem] font-bold leading-tight transition active:scale-[0.98] ${
                     active
                       ? "bg-navy text-white"
@@ -112,7 +115,35 @@ export function FishSpeciesSheet({
           </div>
         </div>
       ))}
+    </>
+  );
+}
 
+/** Wrapper bottom-sheet (legacy — map nay dùng panel rail). */
+export function FishSpeciesSheet({
+  species,
+  current,
+  regionShorts,
+  onPick,
+  onClose,
+}: {
+  species: string[];
+  current: string | null;
+  regionShorts: Set<string>;
+  onPick: (sp: string | null) => void;
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet title="Chọn loài cá" onClose={onClose}>
+      <FishSpeciesContent
+        species={species}
+        current={current}
+        regionShorts={regionShorts}
+        onPick={(sp) => {
+          onPick(sp);
+          onClose();
+        }}
+      />
       <button
         type="button"
         onClick={onClose}

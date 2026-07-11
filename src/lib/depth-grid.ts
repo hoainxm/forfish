@@ -50,7 +50,9 @@ let cached: Promise<DepthGrid> | null = null;
 /** Tải lưới độ sâu (≈30 KB, cùng origin) — cache cho cả phiên */
 export function fetchDepthGrid(): Promise<DepthGrid> {
   if (!cached) {
-    cached = fetch("/data/depth-grid.v1.bin")
+    cached = fetch("/data/depth-grid.v1.bin", {
+      signal: AbortSignal.timeout(15000),
+    })
       .then((r) => {
         if (!r.ok) throw new Error(`depth grid ${r.status}`);
         return r.arrayBuffer();

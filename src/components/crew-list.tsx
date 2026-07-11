@@ -27,11 +27,10 @@ import {
 } from "@/components/ui/primitives";
 import { formatVnd, formatVnDate } from "@/lib/format";
 import { isValidVnPhone, sanitizePhoneInput } from "@/lib/phone";
-import { useBoats } from "@/components/boat-switcher";
 
-// CrewMember lives in @/lib/crew (shared). We attach a boat dimension here
-// without editing that file: localStorage is freeform JSON so an extra
-// `boatId` field rides along fine.
+// Thuyền viên là hồ sơ ĐỘNG theo CHỦ TÀU (ba-spec 08 R2): dùng chung cho mọi
+// tàu của chủ, KHÔNG gắn boatId, KHÔNG mất khi xóa 1 tàu. (boatId cũ giữ trong
+// type cho back-compat dữ liệu cũ nhưng không còn đọc/ghi.)
 type StoredCrew = CrewMember & { boatId?: string };
 
 /*
@@ -96,7 +95,6 @@ export function useCrew() {
 
 export function CrewList() {
   const { today, crew, setCrew, ready, isDemo, startRealCrew } = useCrew();
-  const { current, ready: boatReady } = useBoats();
   const [editing, setEditing] = useState<StoredCrew | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [advanceFor, setAdvanceFor] = useState<StoredCrew | null>(null);
@@ -113,12 +111,8 @@ export function CrewList() {
   const confirmSettle = crew.find((m) => m.id === confirmSettleId) ?? null;
   const detailFor = crew.find((m) => m.id === detailForId) ?? null;
 
-  // Only this boat's crew. Legacy members with no boatId belong to the
-  // current boat for back-compat.
-  const boatCrew = useMemo(
-    () => crew.filter((m) => m.boatId === current?.id || m.boatId == null),
-    [crew, current],
-  );
+  // Thuyền viên theo CHỦ (ba-spec 08 R2): hiện toàn bộ, không lọc theo tàu.
+  const boatCrew = crew;
 
   // Stats reflect ONLY the current boat's filtered crew. Đếm bằng crewIssue()
   // — bắt cả giấy tờ/bảo hiểm QUÁ HẠN chứ không riêng "chưa có bảo hiểm".
@@ -136,7 +130,7 @@ export function CrewList() {
   }, [boatCrew, today]);
 
   function upsert(m: StoredCrew) {
-    const withBoat: StoredCrew = { ...m, boatId: current?.id };
+    const withBoat: StoredCrew = { ...m }; // không gắn boatId — theo chủ (R2)
     // Thêm người THẬT đầu tiên = sổ mẫu nhường chỗ luôn, không lẫn lộn.
     if (isDemo) {
       startRealCrew([withBoat]);
@@ -242,7 +236,7 @@ export function CrewList() {
         </div>
       )}
 
-      {ready && boatReady && boatCrew.length === 0 && (
+      {ready && boatCrew.length === 0 && (
         <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
           <UsersIcon className="mx-auto h-10 w-10 text-foreground/30" />
           <p className="mt-3 text-[1.125rem] text-foreground/70">

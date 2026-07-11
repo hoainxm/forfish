@@ -29,6 +29,7 @@ import {
   byWarrantyUrgency,
   getWarrantyStatus,
 } from "@/lib/products";
+import { SdvicoAssignPrompt } from "@/components/sdvico-assign-prompt";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
 
 /*
@@ -75,7 +76,7 @@ function saveProducts(products: BoatProduct[]) {
 
 export function BoatProducts() {
   const today = useMemo(() => new Date(), []);
-  const { current } = useBoats();
+  const { current, boats } = useBoats();
   const [products, setProducts] = useState<BoatProduct[]>([]);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<BoatProduct | null>(null);
@@ -98,6 +99,15 @@ export function BoatProducts() {
   useEffect(() => {
     if (ready) saveProducts(products);
   }, [products, ready]);
+
+  // Xóa tàu → hàng gán tàu đó đã được nhả về "của chung" (ba-spec 08 R3);
+  // đọc lại để boatId trong state khớp máy, không tự ghi đè bản cũ.
+  useEffect(() => {
+    if (!ready) return;
+    const stored = loadProducts();
+    setProducts(stored ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boats.length]);
 
   // Chỉ hiện sản phẩm của tàu đang chọn (item chưa gắn tàu cũng hiện).
   // Khi đã đồng bộ được đồ thật từ SDVICO thì ẩn hàng demo cho khỏi lẫn.
@@ -143,6 +153,9 @@ export function BoatProducts() {
         level={1}
         ariaLabel="Mục sản phẩm"
       />
+
+      {/* Hỏi gán hàng SDVICO cho tàu khi có >1 tàu (ba-spec 08 AC-6) */}
+      <SdvicoAssignPrompt assets={synced} />
 
       {/* ════ MỤC 2: CỦA SDVICO — cửa hàng gọn, giới thiệu + upsale ═══ */}
       {section === "sdvico" && (

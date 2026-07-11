@@ -46,7 +46,9 @@ export function parseDieselDo(json: unknown): FuelPrice | null {
 
 export async function fetchFuelPrice(): Promise<FuelPrice | null> {
   try {
-    const r = await fetch(apiUrl("/api/fuel-price"));
+    const r = await fetch(apiUrl("/api/fuel-price"), {
+      signal: AbortSignal.timeout(15000),
+    });
     if (!r.ok) return null;
     const j = (await r.json()) as { ok: boolean; fuel?: FuelPrice };
     return j.ok && j.fuel ? j.fuel : null;

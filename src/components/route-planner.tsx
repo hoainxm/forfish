@@ -21,7 +21,6 @@ import {
   bboxFor,
   formatHoursVN,
   haversineKm,
-  kmToNm,
   planRoute,
   vnHourIndex,
   type BBox,
@@ -32,6 +31,7 @@ import {
 import { fetchWeatherField } from "@/lib/route-weather";
 import { fetchDepthGrid } from "@/lib/depth-grid";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
+import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
 import {
   AlertIcon,
   AnchorIcon,
@@ -164,6 +164,7 @@ export function RoutePlanner({
   places?: SavedPlace[];
   onRoute: (r: PlannedRoute | null) => void;
 }) {
+  const prefs = useMapPrefs();
   const [open, setOpen] = useState(false);
   // "gps" | "place:<id>" | "port:<id>"; mặc định Cảng nhà nếu có
   const [startId, setStartId] = useState<string>("");
@@ -463,18 +464,19 @@ export function RoutePlanner({
       {plan && result && (
         <>
           <p className="text-[0.9375rem] font-semibold text-foreground/70">
-            {result.startLabel} → {formatNumberVN(dest.lat, 2)}°B ·{" "}
-            {formatNumberVN(dest.lon, 2)}°Đ — tuyến đã vẽ trên bản đồ.
+            {result.startLabel} →{" "}
+            {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)} — tuyến đã vẽ
+            trên bản đồ.
           </p>
 
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="rounded-xl bg-background p-3">
               <RouteIcon className="mx-auto h-5 w-5 text-t1" />
               <p className="display mt-1 text-[1.25rem] font-bold leading-none text-navy">
-                {Math.round(plan.distKm)} km
+                {fmtDist(plan.distKm, prefs.distUnit)}
               </p>
               <p className="mt-1 text-[0.8125rem] font-semibold text-foreground/70">
-                ≈ {Math.round(kmToNm(plan.distKm))} hải lý
+                ≈ {fmtDist(plan.distKm, prefs.distUnit === "km" ? "nm" : "km")}
               </p>
             </div>
             <div className="rounded-xl bg-background p-3">

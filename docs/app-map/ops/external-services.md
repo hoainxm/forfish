@@ -2,7 +2,7 @@
 
 > Load khi: lỗi liên quan nguồn dữ liệu ngoài (timeout, rate limit, đổi format, token hết hạn), thêm nguồn mới, hoặc audit phụ thuộc.
 
-covers: src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts
+covers: src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/hycom.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts
 last_verified: 2026-06-17
 ttl_days: 180
 gate: warn
@@ -10,6 +10,7 @@ gate: warn
 
 > Registry CANONICAL cho mọi service ngoài hệ (nguyên tắc 11). Toàn bộ fetch nguồn ngoài BẮT BUỘC `AbortSignal.timeout(...)` + degrade rõ ràng (xem 02-architecture §5).
 
+<!-- re-verified: 2026-06-16 — covers MỞ RỘNG thêm fish-predict/hycom/sea-scalars/fuel-price/port-price-source (trước bỏ sót → drift im). Toàn bộ fetch ngoài đã có AbortSignal.timeout (sweep 2026-06-16: server 15-20s, client 15-25s). -->
 **Last updated**: 2026-06-17
 
 ---
@@ -19,11 +20,11 @@ gate: warn
 | Service | Dùng để | Auth | Cấu hình ở đâu | Rate / cache | Khi nó chết thì sao |
 |---|---|---|---|---|---|
 | **Open-Meteo** (marine + forecast) | Gió/sóng/mưa/dông theo giờ; lưới Windy; tuyến dầu | Không key | hardcode endpoint trong `lib/marine-weather.ts`, `route-weather.ts`, `forecast-grid.ts`, `sea-forecast` | free, cache 6h (sea), client timeout 15s | Thẻ peek "Chưa lấy được dự báo — Thử lại"; lưới gió/sóng nút Thử lại; KHÔNG treo |
-| **GDACS** (bão) | Tin bão Biển Đông (`/api/storms`) | Không key | `app/api/storms` | server 15s + client 20s | StormBanner ẩn nếu lỗi; bản đồ vẫn chạy |
+| **GDACS** (bão) | Tin bão Biển Đông + **đường đi (track) + vùng ảnh hưởng (polygon)** (`/api/storms`) | Không key | `app/api/storms`, `lib/storms.ts` | server 15s + client 20s | StormBanner ẩn nếu lỗi; lớp bão (track/vùng) ẩn; bản đồ vẫn chạy |
 | **VASEP** (giá bến) | Giá nguyên liệu tuần (`/api/port-prices`) | Không key (scrape) | `lib/port-price-source.ts` | cache 24h | Lùi bảng giá tĩnh + nhãn "tham khảo" |
 | **Petrolimex / giaxanghomnay** | Giá dầu DO (`/api/fuel-price`) | Không key (scrape) | `app/api/fuel-price` | cache 6h | Ẩn dòng giá dầu, phần còn lại giữ nguyên |
-| **NOAA ERDDAP** | SST / phù du / front (dự báo cá) | Không key, **BẮT BUỘC User-Agent định danh** (`lib/source-fetch.ts` — UA mặc định của node bị 403, gốc RK-002, fix 2026-07-02) | `lib/fish-predict.ts`, `lib/fish-forecast-server.ts`, `app/api/fish-forecast` | cache 6h | Lớp cá hiện pill đỏ "chạm để thử lại"; lùi mùa vụ |
-| **HYCOM** (OPeNDAP) | Tầng nhiệt D20 (cá ngừ) | Không key | `lib/hycom.ts` | fetch song song ERDDAP, `.catch→null` | Chia lại trọng số habitat, không có D20 vẫn ra điểm cá |
+| **NOAA ERDDAP** | SST / phù du / front (dự báo cá) + nước dâng/xoáy (`/api/sea-scalar`) | Không key, **BẮT BUỘC `User-Agent` định danh** — thiếu → coastwatch trả **403 + HTML** → `{ok:false}` = cá KHÔNG chạy (chẩn 2026-06-23, gốc RK-002). 2 điểm áp UA: `ERDDAP_UA` (fish-predict/sea-scalars/hycom) + `SOURCE_FETCH_HEADERS` (`lib/source-fetch.ts` — fish-forecast-server + cron collector, fix 2026-07-02) | `lib/fish-predict.ts`, `lib/sea-scalars.ts`, `lib/fish-forecast-server.ts`, `app/api/fish-forecast`, `app/api/sea-scalar` | cache 6h, **server timeout 20s/lưới** (vài MB), **client fetch 25-35s** | Lớp cá pill đỏ "chạm để thử lại"; lùi mùa vụ; nguồn treo → route fail-fast `{ok:false}`, KHÔNG treo serverless |
+| **HYCOM** (OPeNDAP) | Tầng nhiệt D20 (cá ngừ) | Không key, gửi `User-Agent` (`ERDDAP_UA`) phòng host chặn undici | `lib/hycom.ts` | fetch song song ERDDAP, **timeout 20s** + `.catch→null` | Chia lại trọng số habitat, không D20 vẫn ra cá; treo → null (không treo `await thermoP`) |
 | **Overpass / OpenSeaMap** | Phao đèn, báo hiệu gần bờ | Không key | `app/api/nautical` | timeout 25s (nguồn chậm) | Lớp phao ẩn; hải đồ + dự báo vẫn chạy |
 | **Cron collector Ra khơi** (`/api/collect/sea-daily`) | Thu LỊCH SỬ biển/cá/bão vào 3 bảng 0005 để predict (Long 2026-07-02) | `CRON_SECRET` (Vercel env, Bearer) | `vercel.json` crons 23:30 UTC; route `app/api/collect/sea-daily` | 1 lần/ngày; per-nguồn timeout 15s, maxDuration 300s | Best-effort từng phần: nguồn nào fail bỏ nguồn đó, response note lỗi; hôm sau cron tự bù (upsert idempotent) |
 | **NASA GIBS / tiles vệ tinh** | Ảnh mây, nhiệt độ, phù du nền bản đồ | Không key | `lib/ocean-map.ts` (buildMapStyle) | tile CDN | Badge "Chưa tải được"; đổi lớp khác được |

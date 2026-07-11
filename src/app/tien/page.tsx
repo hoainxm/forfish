@@ -1,6 +1,7 @@
 import { TradeHub } from "@/components/trade-hub";
 import { MoneyInsights } from "@/components/money-insights";
 import { DebtLedger } from "@/components/debt-ledger";
+import { BoatSwitcher } from "@/components/boat-switcher";
 import { PageHeader } from "@/components/page-header";
 import { Tabs } from "@/components/ui/tabs";
 import { LoginGate } from "@/components/login-gate";
@@ -24,6 +25,7 @@ export default function TienPage() {
       />
       {/* Giao dịch (giá cá tham khảo) để PUBLIC — nắm giá là quyền lợi chung,
           không bắt đăng nhập. Sổ lãi lỗ + công nợ là data cá nhân → khóa. */}
+      <BoatSwitcher />
       <Tabs
         ariaLabel="Mục tiền nong"
         paramKey="tab"

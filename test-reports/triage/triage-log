@@ -1,0 +1,1 @@
+2026-06-15T13:05:16Z | ForFish | iter=1 | buckets=LOGIC:0,TEXT:1,DESIGN:1,FLOW:0 | decided=fix demo-persist §8 (doc-vault/maint/products) mirror crew-list isDemo + harmonize /tau title->noun | verify=tsc:pass,lint:pass,vitest:233pass,preview:home-calm | telegram=degraded

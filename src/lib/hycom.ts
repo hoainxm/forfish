@@ -13,7 +13,7 @@
 // _FillValue = -30000 (đáy biển / đất → NaN). Trục: lat[k]=0.04*k-80 (tăng),
 // lon[m]=0.08*m (tăng). Bản ascii OPeNDAP tự kèm mảng depth/lat/lon thật.
 
-import { type ScalarGrid } from "./fish-predict";
+import { ERDDAP_UA, type ScalarGrid } from "./fish-predict";
 
 const DODS = "https://tds.hycom.org/thredds/dodsC/ESPC-D-V02/t3z";
 
@@ -156,13 +156,20 @@ export function thermoGridUrl(timeIdx: number): string {
  */
 export async function fetchThermoclineGrid(): Promise<ScalarGrid | null> {
   try {
-    const opt = { next: { revalidate: 21600 } };
-    const dds = await fetch(`${DODS}.dds`, opt).then((r) =>
+    // OPeNDAP HYCOM có thể treo → BẮT BUỘC timeout (invariant 02 §5); fail-fast
+    // null để không treo `await thermoP` trong route fish-forecast.
+    const opt = () => ({
+      next: { revalidate: 21600 },
+      signal: AbortSignal.timeout(20000),
+      // UA "thật" — nhiều host khoa học (NOAA/HYCOM) chặn undici mặc định 403
+      headers: { "User-Agent": ERDDAP_UA },
+    });
+    const dds = await fetch(`${DODS}.dds`, opt()).then((r) =>
       r.ok ? r.text() : "",
     );
     const n = parseTimeCount(dds);
     if (!n) return null;
-    const res = await fetch(thermoGridUrl(n - 1), opt);
+    const res = await fetch(thermoGridUrl(n - 1), opt());
     if (!res.ok) return null;
     const cube = parseHycomTempAscii(await res.text());
     if (cube.lats.length === 0 || cube.depths.length === 0) return null;

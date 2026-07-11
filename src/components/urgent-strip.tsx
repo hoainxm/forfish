@@ -11,6 +11,8 @@ import {
 } from "@/lib/owned-assets";
 import { getWarrantyStatus } from "@/lib/products";
 import { formatVnd } from "@/lib/format";
+import { loadBoats } from "@/lib/boats";
+import { loadAssignments } from "@/lib/sdvico-assign";
 import { AlertIcon, ClockIcon, ChevronRightIcon } from "@/components/icons";
 
 /*
@@ -91,6 +93,18 @@ interface UrgentItem {
   href: string;
   /** signed days until due/expiry; lower = sooner. */
   days: number;
+  /** tên tàu của việc này — chỉ set khi có >1 tàu (ba-spec 08 R6) */
+  boatLabel?: string;
+}
+
+/** Bối cảnh tàu để gắn nhãn "việc của tàu nào" (R6). */
+interface BoatCtx {
+  /** có >1 tàu mới gắn nhãn (1 tàu thì nhãn thừa) */
+  multi: boolean;
+  /** boatId → tên tàu */
+  nameOf: (boatId?: string) => string | undefined;
+  /** id-món SDVICO → boatId đã gán */
+  assign: Record<string, string>;
 }
 
 // deep-link ?tab= — nhắc việc rơi ĐÚNG tab, không rớt vào tab đầu (roadmap
@@ -103,9 +117,16 @@ const PILLAR_TAG: Record<Pillar, { tag: string; href: string }> = {
 };
 
 /** Nhắc từ đồ SDVICO đồng bộ: nợ/cước chờ đóng, bảo hành sắp hết, kỳ dịch vụ. */
-function sdvicoUrgent(assets: OwnedAssets, today: Date): UrgentItem[] {
+function sdvicoUrgent(
+  assets: OwnedAssets,
+  today: Date,
+  boat: BoatCtx,
+): UrgentItem[] {
   const items: UrgentItem[] = [];
   const todayIso = today.toISOString().slice(0, 10);
+  // nhãn tàu cho 1 món SDVICO theo gán; chưa gán = của chung (không nhãn)
+  const labelFor = (assetId: string) =>
+    boat.multi ? boat.nameOf(boat.assign[assetId]) : undefined;
 
   for (const p of assets.payments) {
     const overdue = p.dueOn != null && p.dueOn < todayIso;
@@ -131,6 +152,7 @@ function sdvicoUrgent(assets: OwnedAssets, today: Date): UrgentItem[] {
         pillar: "sdvico",
         href: PILLAR_TAG.sdvico.href,
         days: s.days ?? 0,
+        boatLabel: labelFor(pr.id),
       });
     }
   }
@@ -146,6 +168,7 @@ function sdvicoUrgent(assets: OwnedAssets, today: Date): UrgentItem[] {
         pillar: "sdvico",
         href: PILLAR_TAG.sdvico.href,
         days: s.days ?? 0,
+        boatLabel: labelFor(sv.id),
       });
     }
   }
@@ -153,12 +176,15 @@ function sdvicoUrgent(assets: OwnedAssets, today: Date): UrgentItem[] {
   return items;
 }
 
-function computeUrgent(today: Date): UrgentItem[] {
+function computeUrgent(today: Date, boat: BoatCtx): UrgentItem[] {
   const items: UrgentItem[] = [];
+  const boatLabelOf = (boatId?: string) =>
+    boat.multi ? boat.nameOf(boatId) : undefined;
 
   // 1. Giấy tờ — KHÔNG seed demo (hội đồng UX 2026-06-11): dải nhắc chỉ nói
   // việc THẬT người dùng tự ghi; cảnh báo đỏ giả ở màn hình đầu = mất tin.
-  const docs = loadStored<BoatDocument>(DOC_KEY, []);
+  // Gom MỌI tàu, gắn nhãn tàu (ba-spec 08 R6 — nhắc đúng tàu nào).
+  const docs = loadStored<BoatDocument & { boatId?: string }>(DOC_KEY, []);
   for (const doc of docs) {
     const s = getExpiryStatus(doc, today);
     if (s.level === "expired" || s.level === "soon") {
@@ -170,12 +196,13 @@ function computeUrgent(today: Date): UrgentItem[] {
         pillar: "giay_to",
         href: PILLAR_TAG.giay_to.href,
         days: s.days ?? 0,
+        boatLabel: boatLabelOf(doc.boatId),
       });
     }
   }
 
   // 2. Bảo dưỡng
-  const maint = loadStored<MaintenanceEntry>(MAINT_KEY, []);
+  const maint = loadStored<MaintenanceEntry & { boatId?: string }>(MAINT_KEY, []);
   for (const entry of maint) {
     const s = maintStatus(entry, today);
     if (s.level === "overdue" || s.level === "soon") {
@@ -187,6 +214,7 @@ function computeUrgent(today: Date): UrgentItem[] {
         pillar: "bao_duong",
         href: PILLAR_TAG.bao_duong.href,
         days: s.days,
+        boatLabel: boatLabelOf(entry.boatId),
       });
     }
   }
@@ -228,9 +256,20 @@ export function UrgentStrip() {
   // "Còn N việc nữa" bấm là xòe đủ — không phải dòng chữ chết
   const [expanded, setExpanded] = useState(false);
 
+  // Bối cảnh tàu để gắn nhãn "việc của tàu nào" (R6) — đọc sau mount.
+  function buildBoatCtx(): BoatCtx {
+    const boats = loadBoats();
+    const names = new Map(boats.map((b) => [b.id, b.name] as const));
+    return {
+      multi: boats.length > 1,
+      nameOf: (id) => (id ? names.get(id) : undefined),
+      assign: loadAssignments(),
+    };
+  }
+
   // Hydrate from localStorage after mount only (avoids SSR/CSR mismatch).
   useEffect(() => {
-    setItems(computeUrgent(today));
+    setItems(computeUrgent(today, buildBoatCtx()));
     setMounted(true);
   }, [today]);
 
@@ -241,7 +280,9 @@ export function UrgentStrip() {
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (alive && j?.ok && j.assets) {
-          setSdvicoItems(sdvicoUrgent(j.assets as OwnedAssets, today));
+          setSdvicoItems(
+            sdvicoUrgent(j.assets as OwnedAssets, today, buildBoatCtx()),
+          );
         }
       })
       .catch(() => {
@@ -293,6 +334,11 @@ export function UrgentStrip() {
                       <span className="shrink-0 rounded-md bg-background px-1.5 py-0.5 text-[0.75rem] font-bold text-foreground/70">
                         {PILLAR_TAG[item.pillar].tag}
                       </span>
+                      {item.boatLabel && (
+                        <span className="shrink-0 truncate rounded-md bg-navy/10 px-1.5 py-0.5 text-[0.75rem] font-bold text-navy">
+                          {item.boatLabel}
+                        </span>
+                      )}
                     </span>
                     <span
                       className={`flex items-center gap-1 text-[0.9375rem] font-bold ${

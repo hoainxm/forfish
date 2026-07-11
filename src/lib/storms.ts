@@ -20,6 +20,10 @@ export type StormAlert = {
   /** danger = nguồn đánh giá mức cam/đỏ; watch = mức xanh (vẫn phải nói) */
   alert: "watch" | "danger";
   updated: string;
+  /** Đường đi bão [lon,lat][] (quá khứ→dự báo) — rỗng nếu nguồn không có */
+  track: number[][];
+  /** Vùng ảnh hưởng — danh sách polygon, mỗi polygon = mảng ring [lon,lat][] */
+  areas: number[][][][];
 };
 
 export type StormCheck =
@@ -65,9 +69,32 @@ export function parseStorms(json: unknown, now: Date): StormAlert[] {
   const seen = new Set<string>();
   const out: StormAlert[] = [];
 
+  // Pass 1 — gom geometry đường đi (LineString) + vùng ảnh hưởng (Polygon/
+  // MultiPolygon) theo eventid, để gắn vào tâm bão tương ứng (GDACS trả nhiều
+  // feature cùng eventid: 1 tâm + track + các polygon bán kính gió).
+  const trackByEv = new Map<string, number[][]>();
+  const areasByEv = new Map<string, number[][][][]>();
+  for (const f of features) {
+    const ev = String(f.properties?.eventid ?? "");
+    if (!ev) continue;
+    const g = f.geometry;
+    const c = g?.coordinates;
+    if (g?.type === "LineString" && Array.isArray(c)) {
+      trackByEv.set(ev, c as number[][]);
+    } else if (g?.type === "Polygon" && Array.isArray(c)) {
+      const arr = areasByEv.get(ev) ?? [];
+      arr.push(c as number[][][]);
+      areasByEv.set(ev, arr);
+    } else if (g?.type === "MultiPolygon" && Array.isArray(c)) {
+      const arr = areasByEv.get(ev) ?? [];
+      for (const poly of c as number[][][][]) arr.push(poly);
+      areasByEv.set(ev, arr);
+    }
+  }
+
   for (const f of features) {
     const p = f.properties ?? {};
-    if (f.geometry?.type !== "Point") continue; // chỉ lấy tâm bão, bỏ polygon
+    if (f.geometry?.type !== "Point") continue; // tâm bão; track/polygon ở pass 1
     if (String(p.iscurrent) !== "true") continue;
 
     const coords = f.geometry.coordinates;
@@ -103,6 +130,8 @@ export function parseStorms(json: unknown, now: Date): StormAlert[] {
       lon,
       alert: level === "orange" || level === "red" ? "danger" : "watch",
       updated: p.datemodified ?? "",
+      track: trackByEv.get(id) ?? [],
+      areas: areasByEv.get(id) ?? [],
     });
   }
   return out;

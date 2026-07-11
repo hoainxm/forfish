@@ -18,6 +18,8 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 
 ## 2. Bốn trục / The four promises
 
+> **Lời hứa ≠ route** (cập nhật 2026-06-15): nav đã đổi sang **hướng đối tượng** (dock: Trang chủ · Ra khơi · Tàu · Bạn thuyền · Tiền), KHÔNG còn 1 route/trục. Bản đồ lời-hứa → nơi ở thật: **Trục 1** `/ngu-truong` · **Trục 2** `/tien` (tab Giao dịch) · **Trục 3** `/tau` (tab Dịch vụ/Sản phẩm) · **Trục 4** `/tau` (tab Giấy tờ/Mức phạt) + `/nguoi` (thuyền viên). Route cũ `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` = **redirect**. Nguồn đúng về nav: [07-design-spec §4](07-design-spec.md). Lời hứa thì không đổi — đó mới là trục.
+
 ### Trục 1 — Đánh bắt tốt hơn (`/ngu-truong`)
 - **Hứa gì**: ra khơi trúng hơn, đỡ phí dầu phí công.
 - **Gồm**: bản đồ ngư trường map-first (lớp hải đồ/vệ tinh + nhãn chủ quyền tiếng Việt), **dự báo vẽ động kiểu Windy** (lớp gió/sóng theo giờ 3 ngày, thanh thời gian + nút chạy), gió sóng theo điểm chạm 1–10 ngày, **lớp "Cá mùa này"** (vùng nào đang vụ cá gì — mùa vụ nhiều năm), dẫn đường tiết kiệm dầu.
@@ -32,13 +34,13 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
   - Gió/sóng + mưa/dông: Open-Meteo (mô hình quốc tế, cập nhật theo giờ) — UI luôn kèm lời dặn nghe đài duyên hải / biên phòng. Dông sét trừ 30 điểm đi biển và tô đỏ — nguy hiểm nhất với tàu nhỏ.
   - **Tầm dự báo chọn được**: tại điểm chạm trên bản đồ, bà con chọn xem trước 1–10 ngày (`FORECAST_MAX_DAYS = 10` — giới hạn theo nguồn sóng; gió mô hình cho xa hơn nhưng lấy mức cả hai cùng có). **Độ tin ghi rõ theo tầm xa** (`forecastConfidence`): 1–3 ngày khá sát · 4–7 ngày tham khảo · 8–10 ngày chỉ để liệu đường. Ảnh vệ tinh là ảnh ĐÃ CHỤP — không dự báo trước được, UI nói thẳng điều này cạnh bộ chọn ngày.
   - Dẫn đường tiết kiệm dầu: thuật toán theo mô hình nghiên cứu VISIR cho tàu nhỏ (xem [../research/06-weather-routing.md](../research/06-weather-routing.md)) — lưới phủ vùng + Dijkstra theo giờ dự báo Open-Meteo (72h: sóng + hướng, gió + hướng, **dòng chảy mặt biển** nguồn SMOC ~8 km gồm cả dòng triều — cộng vector vào tốc độ tàu, biết "đi nhờ nước"/né nước ngược), né bờ/rạn/bãi cạn bằng lưới độ sâu ETOPO 2022 đóng gói sẵn (chặn <4 m, cảnh báo 4–12 m; rạn Hoàng Sa/Trường Sa quét ở phân giải gốc). **Mô hình dầu là ƯỚC LƯỢNG THAM KHẢO** (sóng làm tàu chậm theo hướng sóng — hệ số Kwon 4 bậc; ngược gió ăn dầu hơn). **An toàn theo thang KTTV VN** (audit 2026-06-10, research/06 §3b): cấp 6/sóng 2–3 m phạt nhẹ "cẩn thận" · cấp 7/3–4 m cảnh báo đỏ "không nên đi" · cấp 8/≥4 m chặn cứng; sóng đuôi ngắn ≥2 m chỉ CẢNH BÁO giảm ga; **trần đường vòng 30%** — đường thẳng đi được mà tuyến vòng quá 30% thì trả đường thẳng + cảnh báo, không vẽ tuyến 4× rồi gọi là tiết kiệm. KHÔNG hứa con số lít chính xác; chưa biết đá ngầm nhỏ, luồng lạch; dòng nước sát bờ kém chính xác (nguồn ghi rõ "not suitable for coastal navigation") — UI bắt buộc dặn dò hải đồ + nghe đài trước khi chạy.
-  - Tin bão/áp thấp: hệ cảnh báo thiên tai quốc tế GDACS (EU/UN, JSON công khai) qua proxy `/api/storms`, lọc vùng Biển Đông. **Quy tắc an toàn** (sửa sau audit 2026-06-10): nguồn fail → hiện rõ "Chưa kiểm tra được tin bão — nghe đài duyên hải" (KHÔNG BAO GIỜ nói "không có bão" khi chưa chắc; cũng không im lặng — người dùng không phân biệt được im lặng với "đã kiểm tra, không có"); dòng trấn an xanh chỉ hiện khi đã kiểm tra được thật. Nguồn quốc tế có thể lệch tên/cấp so với bản tin KTTV VN bà con nghe đài — nâng cấp lên nguồn chính thống VN khi có thỏa thuận.
+  - Tin bão/áp thấp: hệ cảnh báo thiên tai quốc tế GDACS (EU/UN, JSON công khai) qua proxy `/api/storms`, lọc vùng Biển Đông. **Vẽ trên bản đồ (2026-06-16)**: ngoài tâm bão còn có **đường đi (track)** + **vùng ảnh hưởng (polygon đỏ mờ)** — GDACS trả sẵn LineString/Polygon, parse trong `storms.ts`. **Quy tắc an toàn** (sửa sau audit 2026-06-10): nguồn fail → hiện rõ "Chưa kiểm tra được tin bão — nghe đài duyên hải" (KHÔNG BAO GIỜ nói "không có bão" khi chưa chắc; cũng không im lặng — người dùng không phân biệt được im lặng với "đã kiểm tra, không có"); dòng trấn an xanh chỉ hiện khi đã kiểm tra được thật. Nguồn quốc tế có thể lệch tên/cấp so với bản tin KTTV VN bà con nghe đài — nâng cấp lên nguồn chính thống VN khi có thỏa thuận.
 - **Dữ liệu tương lai**: feed thương mại (vd OceanByte) — **bắt buộc đi qua adapter có thể thay thế**.
   - ⚠️ OceanByte là bên thứ ba nước ngoài, có sản phẩm vessel-tracking cạnh tranh → **không bao giờ là core**, không hardcode vào domain logic.
   - ⚠️ Khuyến nghị ngư trường của họ chỉ cập nhật **2 lần/tuần** → KHÔNG hứa với người dùng độ chính xác hằng ngày cho phần khuyến nghị.
 - ⚠️ Độ phân giải ảnh vệ tinh là **mức vùng (vài km)**, không phải tọa độ điểm — không hứa "chỉ đúng chỗ thả lưới". Lớp phù du bị mây che mất chỗ — UI giải thích "chỗ trống là mây che".
 
-### Trục 2 — Bán được đắt hơn (`/gia-ca`)
+### Trục 2 — Bán được đắt hơn (ở `/tien` tab Giao dịch · route cũ `/gia-ca` → redirect)
 - **Hứa gì**: cá về bờ bán được giá, không bị ép.
 - **Cấu trúc TÁCH ĐÔI (user chốt 2026-06-10)**:
   1. **GIAO DỊCH** — thông tin được cấp để bán có LỢI THẾ: giá cá hôm nay · **"Ai cần mua"** (bảng yêu cầu loài + khối lượng + giá từ đầu nậu/vựa/nhà máy) · danh bạ chỗ bán.
@@ -48,7 +50,7 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 - **Giá dầu DO LIVE**: `/api/fuel-price` (cache 6h) → giaxanghomnay.com (Petrolimex, JSON không key) lấy DO 0,05S vùng 1/vùng 2 — chi phí lớn nhất chuyến biển, hiện trên đầu bảng giá. Fail → ẩn (không bịa). `lib/fuel-price.ts` có test.
 - **Dữ liệu nậu vựa/người mua**: **tự thu thập** qua mạng lưới đại lý/cảng của SDVICO (moat riêng), feed từ SDWork. "Ai cần mua" còn là tin mẫu chờ app thu mua.
 
-### Trục 3 — Vận hành rẻ hơn (`/van-hanh`)
+### Trục 3 — Vận hành rẻ hơn (ở `/tau` tab Dịch vụ/Sản phẩm · route cũ `/van-hanh` → redirect)
 - **Hứa gì**: giữ tàu chạy bền, tốn ít tiền hơn.
 - **Gồm**: chợ vật tư in-app (dầu nhớt, lọc...), nhắc bảo dưỡng, yêu cầu bảo hành.
 - **Dữ liệu/flow**: đơn hàng chảy vào **SDWork** (ERP công ty), thanh toán QR.
@@ -56,7 +58,7 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 - **ForFish = kênh CSKH của SDVICO (2026-06-10, user chốt)**: tab Sản phẩm hiện danh mục hàng đang bán theo NHÓM (lọc nước biển / giám sát hành trình / wifi biển / lọc dầu / nhớt / sơn tàu / điện-lái) — nhóm ĐÃ MUA gắn nhãn "đang dùng", nhóm CHƯA MUA là gợi ý kèm nút **"Hỏi mua / tư vấn"**; tab Bảo dưỡng đổi thành **Dịch vụ** (sửa chữa + bảo dưỡng + cước + sổ nhắc tự ghi). Mọi nút "Gọi SDVICO" gửi yêu cầu thẳng vào hộp tư vấn của SDWork (kể cả khách chưa đăng nhập = mối bán hàng mới) — nhân viên gọi lại. Đây là vòng lặp cross-trục mục 4 chạy bằng dữ liệu thật.
 - **Vai trò**: đây là **động cơ doanh thu** của công ty.
 
-### Trục 4 — Tuân thủ dễ hơn (`/giay-to`) — **MVP hiện tại**
+### Trục 4 — Tuân thủ dễ hơn (ở `/tau` tab Giấy tờ/Mức phạt + `/nguoi` · route cũ `/giay-to` → redirect)
 - **Hứa gì**: lo giấy tờ nhẹ đầu, tránh bị phạt oan.
 - **Gồm**: tủ giấy tờ (document vault) + nhắc hạn, trợ lý hỏi đáp pháp luật thủy sản VN.
 - **Dữ liệu**: KHÔNG phụ thuộc nguồn ngoài → được build **ĐẦU TIÊN**. Logic ở [04-data-model.md](04-data-model.md).

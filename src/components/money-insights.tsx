@@ -11,6 +11,7 @@ import { TripSplit } from "@/components/trip-split";
 import { TripReport } from "@/components/trip-report";
 import { TripEstimator } from "@/components/trip-estimator";
 import { TripDossier } from "@/components/trip-dossier";
+import { useBoats } from "@/components/boat-switcher";
 import { Card } from "@/components/ui/primitives";
 import { ChipRow } from "@/components/ui/chip-row";
 import { profitOf, tripStats } from "@/lib/trip-insights";
@@ -49,7 +50,30 @@ export function MoneyInsights() {
     if (ready) saveTrips(trips);
   }, [trips, ready]);
 
-  const stats = useMemo(() => tripStats(trips), [trips]);
+  // Chuyến biển CỐ ĐỊNH theo tàu (ba-spec 08 R1): chỉ tính/hiện chuyến của
+  // tàu đang chọn (chuyến cũ boatId==null coi như của tàu hiện tại — back-compat).
+  const { current, boats } = useBoats();
+  const boatId = current?.id;
+
+  // Xóa tàu → chuyến của tàu đó đã bị purge (ba-spec 08 R3); đọc lại sổ.
+  useEffect(() => {
+    if (!ready) return;
+    setTrips(loadTrips());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boats.length]);
+  const boatTrips = useMemo(
+    () => trips.filter((t) => t.boatId === boatId || t.boatId == null),
+    [trips, boatId],
+  );
+  // TripLog chỉ thấy chuyến của tàu này; merge lại danh sách đầy đủ khi đổi.
+  function handleTripsChange(next: TripEntry[]) {
+    setTrips((prev) => {
+      const others = prev.filter((t) => t.boatId != null && t.boatId !== boatId);
+      return [...others, ...next];
+    });
+  }
+
+  const stats = useMemo(() => tripStats(boatTrips), [boatTrips]);
 
   // "Chia tiền chuyến này" từ sổ lãi/lỗ → nhảy sang máy chia với số sẵn;
   // mặc định tab Chia tiền lấy số chuyến MỚI NHẤT (quy trình thật: về bờ →
@@ -58,18 +82,18 @@ export function MoneyInsights() {
   const [dossierTrip, setDossierTrip] = useState<TripEntry | null>(null);
   const latestTrip = useMemo(
     () =>
-      trips.length === 0
+      boatTrips.length === 0
         ? null
-        : [...trips].sort((a, b) => (b.date < a.date ? -1 : 1))[0],
-    [trips],
+        : [...boatTrips].sort((a, b) => (b.date < a.date ? -1 : 1))[0],
+    [boatTrips],
   );
   // lãi 3 chuyến gần nhất — gộp từ thẻ cũ của TripLog về đây (một thẻ tổng)
   const recent3 = useMemo(() => {
-    const sorted = [...trips].sort((a, b) =>
+    const sorted = [...boatTrips].sort((a, b) =>
       a.date === b.date ? b.id.localeCompare(a.id) : b.date < a.date ? -1 : 1,
     );
     return sorted.slice(0, 3).reduce((s, t) => s + profitOf(t), 0);
-  }, [trips]);
+  }, [boatTrips]);
 
   return (
     <div>
@@ -148,8 +172,9 @@ export function MoneyInsights() {
 
       {section === "lai-lo" && ready && (
         <TripLog
-          trips={trips}
-          onChange={setTrips}
+          trips={boatTrips}
+          onChange={handleTripsChange}
+          boatId={boatId}
           onSplit={(trip) => {
             setSplitSource(trip);
             setSection("chia");

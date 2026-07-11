@@ -270,6 +270,51 @@ textarea,
 }
 
 /*
+  Dual-range LỌC KHOẢNG (legend cá): 2 input <range> chồng lên cùng track.
+  Cả input để pointer-events:none, CHỈ thumb bắt chạm → kéo được cả 2 đầu,
+  track trong suốt (gradient + đoạn chọn vẽ bằng div phía sau). Thumb 1.5rem
+  cho ngón tay. (kỹ thuật chuẩn dual-range bằng 2 native input.)
+*/
+.range-dual {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.range-dual::-webkit-slider-runnable-track {
+  background: transparent;
+}
+.range-dual::-moz-range-track {
+  background: transparent;
+}
+.range-dual::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  height: 1.5rem;
+  width: 1.5rem;
+  border-radius: 9999px;
+  background: var(--navy);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgb(13 35 54 / 0.4);
+  cursor: pointer;
+}
+.range-dual::-moz-range-thumb {
+  pointer-events: auto;
+  height: 1.5rem;
+  width: 1.5rem;
+  border-radius: 9999px;
+  background: var(--navy);
+  border: 3px solid #fff;
+  cursor: pointer;
+}
+
+/*
   In hồ sơ chuyến biển (C1) — khi In/Lưu PDF chỉ in vùng .print-area, giấu
   mọi thứ khác (nav, nút). Người mua / cơ quan cần bản giấy sạch.
 */
