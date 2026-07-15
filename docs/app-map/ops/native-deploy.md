@@ -8,7 +8,8 @@
 
 ## 1. Hiện trạng (đã có trong repo)
 
-- **PWA cài được**: `src/app/manifest.ts` (→ `/manifest.webmanifest`), `public/sw.js` (service worker offline shell), `src/components/sw-register.tsx` (đăng ký SW, chỉ production), icon `image/logo sdfish.png` (bộ logo gốc — không commit SVG tay) → `public/icons/*` (sinh bằng `npm run icons`, devDep `sharp`; auto crop bỏ chữ "SDFish", pad mark vào nền trắng bo 22%). `layout.tsx` khai `manifest` + `icons` + `appleWebApp` + `viewport.themeColor`.
+- **PWA cài được**: `src/app/manifest.ts` (→ `/manifest.webmanifest`), `public/sw.js` (service worker offline shell), `src/components/sw-register.tsx` (đăng ký SW, chỉ production), icon `image/logo sdfish.png` (bộ logo gốc — không commit SVG tay) → `public/icons/*` **và Android launcher `android/.../mipmap-*/ic_launcher{,_round,_foreground}.png`** (sinh bằng `npm run icons`, devDep `sharp`; auto crop bỏ chữ "SDFish", pad mark vào nền trắng bo 22%). ⚠️ Bắt buộc chạy lại `npm run icons` sau `cap add android` để đè icon Capacitor mặc định (chữ X) — nếu không app cài về khác store listing → Google flag "Misleading Claims / listing mismatch". `layout.tsx` khai `manifest` + `icons` + `appleWebApp` + `viewport.themeColor`.
+- **Store assets**: `play-assets/*` (icon 512, feature-graphic, screenshot Play 1080×1920). **Screenshot iOS** (App Store yêu cầu đúng pixel: 6.5"=1242×2688, 6.7"=1284×2778) sinh bằng `node scripts/generate-ios-screenshots.mjs` → `play-assets/ios/{6.5,6.7}/*.png` — đặt ảnh app thật vào khung marketing (nền brand + tiêu đề), render puppeteer + Chrome hệ thống. Ảnh Play 9:16 KHÔNG resize thẳng sang iPhone 9:19.5 được.
 - **Sẵn-sàng-Capacitor**: `src/lib/api-base.ts` (`apiUrl()`) — mọi fetch `/api/*` đi qua đây. Web để `NEXT_PUBLIC_API_BASE` trống = path tương đối (như cũ); native set = URL backend hosted. `capacitor.config.ts` (appId `vn.sdvico.sdfish`) + script `cap:sync`/`cap:open:*` trong package.json.
 
 **Ràng buộc cốt lõi**: app có **12 API route động** (proxy nguồn ngoài + Supabase, CORS) → **KHÔNG static-export thuần**. Backend phải chạy ở đâu đó (Vercel hiện tại) cho cả PWA lẫn Capacitor chế độ chuẩn.
@@ -43,7 +44,7 @@ npm run cap:open:ios   # / cap:open:android
 - **Tài khoản Apple Developer** ($99/năm) + **Google Play Console** ($25 một lần).
 - Chốt **hosting URL** backend cho `NEXT_PUBLIC_API_BASE` (giữ Vercel hiện tại hợp lý).
 - Map tile/source trong `lib/nautical-layers.ts` đã qua `apiUrl`; các tile NGOÀI (NASA GIBS, OpenSeaMap) là origin ngoài — SW bỏ qua, native gọi trực tiếp (cần mạng).
-- Splash screen + adaptive icon Android (sinh sau khi `cap add`).
+- Splash screen Android (adaptive icon đã sinh qua `npm run icons` — 2026-07-14).
 
 ## 5. KHÔNG đổi
 

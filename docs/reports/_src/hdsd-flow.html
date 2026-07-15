@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--navy:#12324f;--navy2:#0e3556;--orange:#e4572e;--gray:#4a6478;--page:#f4f8fb;--card:#fff;--blue:#1a73b8;--green:#1f9d78}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--page)}
+  body{font-family:'Be Vietnam Pro',system-ui,sans-serif;color:var(--navy);width:794px;padding:30px 34px 24px}
+  .hero{background:linear-gradient(160deg,#1a5c8a,#0e3556);border-radius:22px;
+    padding:24px 30px;color:#fff;box-shadow:0 10px 24px -10px rgba(14,53,86,.5);
+    display:flex;gap:20px;align-items:center}
+  .hero img{width:104px;height:auto;border-radius:14px;background:#fff;padding:7px;flex:0 0 auto;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+  .hero h1{font-size:32px;font-weight:800;line-height:1.1}
+  .hero p{font-size:17px;color:#dbe8f2;font-weight:500;margin-top:6px}
+  /* track header */
+  .track{margin-top:22px;border-radius:16px;padding:14px 22px;color:#fff;
+    display:flex;align-items:center;gap:14px;font-weight:800;font-size:23px}
+  .track .ti{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.18);
+    display:flex;align-items:center;justify-content:center;font-size:26px}
+  .track small{display:block;font-size:14px;font-weight:600;opacity:.9;margin-top:2px}
+  .track.a{background:linear-gradient(120deg,#2288cc,#1a73b8)}
+  .track.b{background:linear-gradient(120deg,#25ab86,#1f9d78)}
+  /* timeline */
+  .tl{margin-top:14px}
+  .row{display:flex;gap:18px;align-items:stretch;position:relative;padding-bottom:14px}
+  .rail{flex:0 0 48px;display:flex;flex-direction:column;align-items:center}
+  .dot{width:48px;height:48px;border-radius:50%;color:#fff;font-weight:800;font-size:22px;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px -4px rgba(14,53,86,.5);z-index:1}
+  .a .dot{background:#1a73b8}.b .dot{background:#1f9d78}
+  .line{flex:1;width:4px;background:#d3dfe9;margin-top:4px}
+  .row:last-child .line{display:none}
+  .card{flex:1;background:var(--card);border-radius:16px;padding:15px 20px 16px;
+    box-shadow:0 4px 14px -8px rgba(14,53,86,.28);margin-bottom:2px}
+  .card h3{font-size:20px;font-weight:800;margin-bottom:4px}
+  .open{display:inline-block;background:#eaf1f7;color:var(--navy);font-weight:700;
+    font-size:13px;padding:4px 11px;border-radius:999px;margin:6px 0 8px}
+  ul{list-style:none}
+  li{position:relative;padding-left:20px;font-size:16px;color:var(--gray);line-height:1.4;font-weight:500;margin-bottom:6px}
+  li:last-child{margin-bottom:0}
+  li::before{content:"";position:absolute;left:2px;top:8px;width:8px;height:8px;border-radius:50%;background:var(--orange)}
+  b{color:var(--navy);font-weight:800}
+  .foot{text-align:center;font-size:14px;color:var(--gray);font-weight:600;margin-top:18px}
+  .foot b{color:var(--orange)}
+</style>
+</head>
+<body>
+  <div class="hero">
+    <img src="logo-sdfish.png" alt="SDFish">
+    <div>
+      <h1>Dùng SDFish cho 2 việc chính</h1>
+      <p>Xem biển trước khi ra khơi · Bảo hành &amp; hỗ trợ đồ mua từ SDVICO</p>
+    </div>
+  </div>
+
+  <div class="track a">
+    <div class="ti">🌊</div>
+    <div>Việc 1 — Xem biển trước khi ra khơi
+      <small>Dự báo cá · thời tiết · hải đồ — không cần tài khoản</small></div>
+  </div>
+  <div class="tl a">
+    <div class="row">
+      <div class="rail"><div class="dot">1</div><div class="line"></div></div>
+      <div class="card">
+        <h3>Coi điểm đi biển &amp; thời tiết</h3>
+        <span class="open">Mở: Ra khơi</span>
+        <ul>
+          <li><b>Điểm đi biển 1–100</b> tại cảng của mình — càng cao biển càng êm; xem 10 ngày tới</li>
+          <li>Sóng, gió, mưa, dông <b>theo giờ</b> — chọn lúc biển êm mà đi</li>
+        </ul>
+      </div>
+    </div>
+    <div class="row">
+      <div class="rail"><div class="dot">2</div><div class="line"></div></div>
+      <div class="card">
+        <h3>Mở hải đồ tìm luồng cá</h3>
+        <span class="open">Mở: Ra khơi › bản đồ</span>
+        <ul>
+          <li>Hải đồ vệ tinh: nhiệt độ nước, phù du, <b>vùng cá tiềm năng</b>, phao đèn biển</li>
+          <li>Chạm điểm nào biết gió sóng điểm đó; đo khoảng cách 2 điểm</li>
+        </ul>
+      </div>
+    </div>
+    <div class="row">
+      <div class="rail"><div class="dot">3</div></div>
+      <div class="card">
+        <h3>Né bão, đi tiết kiệm dầu</h3>
+        <span class="open">Mở: Ra khơi › bản đồ</span>
+        <ul>
+          <li><b>Cảnh báo bão Biển Đông</b> hiện to trên bản đồ — tránh vùng nguy hiểm</li>
+          <li>Dẫn đường tuyến né sóng gió — ước lít dầu (tham khảo)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="track b">
+    <div class="ti">🛠️</div>
+    <div>Việc 2 — Bảo hành &amp; hỗ trợ đồ SDVICO
+      <small>Cần đăng nhập tài khoản khách đã mua hàng</small></div>
+  </div>
+  <div class="tl b">
+    <div class="row">
+      <div class="rail"><div class="dot">1</div><div class="line"></div></div>
+      <div class="card">
+        <h3>Đăng nhập — app hiện đồ đã mua</h3>
+        <span class="open">Mở: Tàu › Sản phẩm</span>
+        <ul>
+          <li>SĐT + mật khẩu nhân viên báo khi mua; đồ đã mua SDVICO <b>tự hiện</b> (giám sát hành trình, máy lọc dầu, bộ đàm vệ tinh…)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="row">
+      <div class="rail"><div class="dot">2</div><div class="line"></div></div>
+      <div class="card">
+        <h3>Coi hạn bảo hành từng món</h3>
+        <span class="open">Mở: Tàu › Sản phẩm</span>
+        <ul>
+          <li>Mỗi món có <b>băng bảo hành màu</b> + dòng "Bảo hành tới [ngày]"</li>
+          <li>App <b>nhắc trước khi hết hạn</b> — khỏi lo quên</li>
+        </ul>
+      </div>
+    </div>
+    <div class="row">
+      <div class="rail"><div class="dot">3</div></div>
+      <div class="card">
+        <h3>Hỏng / tới hạn → bấm gọi</h3>
+        <span class="open">Mở: Tàu › Sản phẩm / Dịch vụ</span>
+        <ul>
+          <li>Bấm <b>"Gọi bảo hành món này"</b> — gọi thẳng bộ phận bảo hành</li>
+          <li>Cần sửa chữa / bảo dưỡng → bấm <b>"Gọi SDVICO"</b>: yêu cầu vào hệ thống, <b>nhân viên gọi lại</b></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">Dự báo trong app là <b>tham khảo</b> — trước khi ra khơi luôn nghe Đài duyên hải · Hỗ trợ kỹ thuật: gọi SDVICO <b>1900 23 23 49</b></div>
+</body>
+</html>

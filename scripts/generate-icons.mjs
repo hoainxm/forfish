@@ -73,4 +73,62 @@ await makeIcon(512, path.join(OUT, "icon-maskable-512.png"), MASKABLE_SCALE);
 await makeIcon(32, path.join(APP_DIR, "icon.png"), 0.92, false);
 await makeIcon(180, path.join(APP_DIR, "apple-icon.png"));
 
-console.log("Đã sinh icon vào", OUT, "+", APP_DIR);
+// ── Android launcher icons (Capacitor native) ─────────────────────────────
+// Trước đây mipmap-*/ic_launcher* là icon Capacitor mặc định (chữ X) → app cài
+// về khác store listing → Google flag "Misleading Claims". Sinh lại từ logo SDFish.
+//   · ic_launcher.png       : legacy vuông (API<26), nền trắng bo góc
+//   · ic_launcher_round.png : legacy tròn (launcher tròn cũ)
+//   · ic_launcher_foreground: foreground adaptive (API≥26) — mark trên nền trong
+//     suốt, thu trong safe-zone; background = @color/ic_launcher_background (#FFF)
+const ANDROID_RES = "android/app/src/main/res";
+// [dir, launcher px, foreground canvas px] theo mật độ mdpi→xxxhdpi
+const ANDROID_DENSITIES = [
+  ["mipmap-mdpi", 48, 108],
+  ["mipmap-hdpi", 72, 162],
+  ["mipmap-xhdpi", 96, 216],
+  ["mipmap-xxhdpi", 144, 324],
+  ["mipmap-xxxhdpi", 192, 432],
+];
+
+// Foreground adaptive: mark ~62% giữa canvas trong suốt (safe-zone 66/108dp)
+async function makeAdaptiveForeground(canvas, outPath) {
+  const inner = Math.round(canvas * 0.62);
+  const innerMark = await sharp(mark)
+    .resize(inner, inner, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
+    .png()
+    .toBuffer();
+  const transparent = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas}" height="${canvas}"></svg>`
+  );
+  await sharp(transparent)
+    .composite([{ input: innerMark, gravity: "center" }])
+    .png()
+    .toFile(outPath);
+}
+
+// Legacy tròn: mark trên đĩa trắng
+async function makeRoundIcon(size, outPath) {
+  const inner = Math.round(size * 0.72);
+  const innerMark = await sharp(mark)
+    .resize(inner, inner, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
+    .png()
+    .toBuffer();
+  const r = size / 2;
+  const circle = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><circle cx="${r}" cy="${r}" r="${r}" fill="${BG}"/></svg>`
+  );
+  await sharp(circle)
+    .composite([{ input: innerMark, gravity: "center" }])
+    .png()
+    .toFile(outPath);
+}
+
+for (const [dir, px, fg] of ANDROID_DENSITIES) {
+  const base = path.join(ANDROID_RES, dir);
+  await mkdir(base, { recursive: true });
+  await makeIcon(px, path.join(base, "ic_launcher.png"), 0.86); // legacy vuông
+  await makeRoundIcon(px, path.join(base, "ic_launcher_round.png")); // legacy tròn
+  await makeAdaptiveForeground(fg, path.join(base, "ic_launcher_foreground.png"));
+}
+
+console.log("Đã sinh icon vào", OUT, "+", APP_DIR, "+", ANDROID_RES);

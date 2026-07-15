@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#12324f; --navy2:#0e3556; --orange:#e4572e; --gray:#4a6478;
+    --page:#f4f8fb; --card:#ffffff; --blue:#1a73b8; --green:#1f9d78;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--page)}
+  body{font-family:'Be Vietnam Pro',system-ui,sans-serif;color:var(--navy);
+    width:794px;padding:28px 30px 22px}
+  /* header */
+  .hero{display:flex;gap:20px;align-items:center;
+    background:linear-gradient(160deg,#1a5c8a,#0e3556);
+    border-radius:22px;padding:24px 30px;color:#fff;box-shadow:0 10px 24px -10px rgba(14,53,86,.5)}
+  .hero img{width:132px;height:auto;border-radius:16px;flex:0 0 auto;background:#fff;padding:8px;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+  .hero h1{font-size:36px;font-weight:800;line-height:1.08}
+  .hero p{font-size:18px;font-weight:600;color:#ffd7a0;margin-top:8px;line-height:1.35}
+  /* steps */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px}
+  .step{background:var(--card);border-radius:16px;border-top:5px solid var(--orange);
+    padding:16px 18px 18px;box-shadow:0 4px 14px -8px rgba(14,53,86,.25)}
+  .num{width:36px;height:36px;border-radius:50%;background:var(--orange);color:#fff;
+    font-weight:800;font-size:19px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+  .step h3{font-size:19px;font-weight:800;line-height:1.15;margin-bottom:5px}
+  .step p{font-size:15px;color:var(--gray);line-height:1.4;font-weight:500}
+  .step p b{color:var(--navy);font-weight:800}
+  /* section title */
+  .sec{font-size:26px;font-weight:800;color:var(--navy);margin:24px 2px 14px;letter-spacing:.4px}
+  /* big focus cards */
+  .feat{background:var(--card);border-radius:22px;padding:22px 26px;
+    box-shadow:0 5px 16px -8px rgba(14,53,86,.28);margin-bottom:16px}
+  .fh{display:flex;gap:14px;align-items:center;margin-bottom:6px}
+  .ico{width:56px;height:56px;border-radius:15px;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;font-size:30px}
+  .fh h3{font-size:25px;font-weight:800;line-height:1.1}
+  .badge{display:inline-block;font-size:13px;font-weight:700;padding:4px 12px;border-radius:999px;margin-left:auto}
+  .badge.free{background:#e2f4ee;color:#1f9d78}
+  .badge.login{background:#fde7e0;color:#c0421d}
+  ul{list-style:none;margin-top:8px}
+  li{position:relative;padding-left:22px;font-size:17px;color:var(--gray);
+    line-height:1.45;font-weight:500;margin-bottom:10px}
+  li:last-child{margin-bottom:0}
+  li::before{content:"";position:absolute;left:3px;top:9px;width:9px;height:9px;
+    border-radius:50%;background:var(--orange)}
+  b{color:var(--navy);font-weight:800}
+  /* footer */
+  .foot{display:flex;gap:20px;align-items:center;justify-content:space-between;
+    background:var(--navy2);border-radius:20px;padding:18px 24px;margin-top:20px;color:#dbe8f2}
+  .foot .warn{font-size:15px;line-height:1.4;font-weight:500;max-width:58%}
+  .foot .warn b{color:#ffd7a0}
+  .foot .hot{text-align:right}
+  .foot .hot .tag{background:rgba(255,255,255,.14);border-radius:999px;
+    padding:4px 12px;font-size:13px;font-weight:600;display:inline-block;margin-bottom:6px}
+  .foot .hot .tel{font-size:27px;font-weight:800;color:#fff}
+  .foot .hot .sub{font-size:12px;color:#a9c1d4;margin-top:2px}
+</style>
+</head>
+<body>
+  <div class="hero">
+    <img src="logo-sdfish.png" alt="SDFish">
+    <div>
+      <h1>Bạn đồng hành của ngư dân</h1>
+      <p>Xem biển trước khi ra khơi · Bảo hành &amp; hỗ trợ đồ mua từ SDVICO</p>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="num">1</div>
+      <h3>Mở app trên điện thoại</h3>
+      <p>Vào <b>forfish-alpha.vercel.app</b> → <b>Thêm vào màn hình chính</b></p>
+    </div>
+    <div class="step">
+      <div class="num">2</div>
+      <h3>Xem dự báo biển ngay</h3>
+      <p>Dự báo cá, thời tiết, hải đồ — <b>không cần tài khoản</b></p>
+    </div>
+    <div class="step">
+      <div class="num">3</div>
+      <h3>Đăng nhập nếu đã mua đồ SDVICO</h3>
+      <p>SĐT + mật khẩu nhân viên báo — để xem <b>bảo hành</b> đồ đã mua</p>
+    </div>
+  </div>
+
+  <div class="sec">2 VIỆC CHÍNH LÀM VỚI APP</div>
+
+  <div class="feat">
+    <div class="fh">
+      <div class="ico" style="background:#e3f0fb;color:#1a73b8">🌊</div>
+      <h3>Dự báo cá · thời tiết · hải đồ</h3>
+      <span class="badge free">Xem ngay, không cần tài khoản</span>
+    </div>
+    <ul>
+      <li><b>Điểm đi biển 1–100</b>: càng cao biển càng êm — dự báo 10 ngày tới ngay tại cảng của mình</li>
+      <li><b>Thời tiết theo giờ</b>: sóng, gió, mưa, dông — biết lúc nào biển êm mà đi</li>
+      <li><b>Hải đồ vệ tinh</b>: nhiệt độ nước, phù du, vùng cá tiềm năng, phao đèn biển — chạm điểm nào xem điểm đó</li>
+      <li><b>Cảnh báo bão Biển Đông</b> hiện to ngay trên bản đồ</li>
+      <li><b>Dẫn đường né sóng gió</b> — ước lít dầu, đi tiết kiệm (tham khảo)</li>
+    </ul>
+  </div>
+
+  <div class="feat">
+    <div class="fh">
+      <div class="ico" style="background:#e2f4ee;color:#1f9d78">🛠️</div>
+      <h3>Bảo hành &amp; hỗ trợ kỹ thuật đồ SDVICO</h3>
+      <span class="badge login">Cần đăng nhập tài khoản khách</span>
+    </div>
+    <ul>
+      <li><b>Danh sách thiết bị đã mua SDVICO</b>: giám sát hành trình, máy lọc dầu, bộ đàm vệ tinh… tự hiện trong app</li>
+      <li><b>Băng bảo hành từng món</b> — app nhắc trước khi hết hạn, khỏi lo quên</li>
+      <li>Xem rõ <b>"Bảo hành tới [ngày]"</b> + bấm <b>"Gọi bảo hành món này"</b> là gọi được ngay</li>
+      <li>Cần sửa chữa / bảo dưỡng → bấm <b>"Gọi SDVICO"</b>: yêu cầu vào hệ thống, nhân viên gọi lại</li>
+      <li>Hỗ trợ kỹ thuật: gọi tổng đài <b>1900 23 23 49</b></li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    <div class="warn">⚠️ Dự báo trong app là <b>tham khảo</b> — trước khi ra khơi luôn nghe Đài duyên hải. Còn lại app còn nhiều mục khác, cần thì mở xem thêm.</div>
+    <div class="hot">
+      <div class="tag">Cần giúp? Gọi SDVICO</div>
+      <div class="tel">1900 23 23 49</div>
+      <div class="sub">Quên mật khẩu — gọi số này cấp lại</div>
+    </div>
+  </div>
+</body>
+</html>
