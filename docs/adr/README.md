@@ -19,6 +19,7 @@ KHÔNG viết ADR cho: feature thường, UI tweak, fix bug — những thứ đ
 | # | Quyết định | Status | Ngày |
 |---|---|---|---|
 | [0001](0001-rename-sdfish-keep-infra.md) | Đổi tên hiển thị SDFish, GIỮ infra `forfish.*` | Accepted | 2026-06-16 |
+| [0002](0002-siet-bao-mat-sau-sd123456.md) | Lộ trình siết bảo mật sau mật khẩu chung sd123456 (3 bước) | Proposed | 2026-07-21 |
 
 ## Cách thêm
 

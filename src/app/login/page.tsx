@@ -16,12 +16,31 @@ import {
   sanitizePhoneInput,
 } from "@/components/auth-form";
 import { normalizePassword } from "@/lib/password";
+import { loginErrorMessage, type AccountExists } from "@/lib/login-error";
+import { apiUrl } from "@/lib/api-base";
 
 /*
   Đăng nhập SDFish — app khách hàng. Hướng TÀI KHOẢN: SĐT + MẬT KHẨU (KHÔNG
   email, KHÔNG OTP). Tài khoản do webhook SDWork provision khi mua hàng — sale
-  báo KH "SĐT + mật khẩu". Lần đầu app nhắc đổi mật khẩu (must_change_password).
+  báo KH "SĐT + mật khẩu". KHÔNG ép đổi mật khẩu lần đầu (chính sách 2026-07-21).
 */
+
+/** SĐT này có tài khoản chưa? null = không kiểm được (mất mạng / demo mode) →
+ *  loginErrorMessage quay về câu gộp cũ. */
+async function checkAccountExists(phone: string): Promise<AccountExists> {
+  try {
+    const res = await fetch(apiUrl("/api/auth/exists"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone }),
+      signal: AbortSignal.timeout(8000),
+    });
+    const json = await res.json();
+    return json?.ok === true ? Boolean(json.exists) : null;
+  } catch {
+    return null;
+  }
+}
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -60,11 +79,13 @@ export default function LoginPage() {
       { email: phoneToEmail(phone), password: normalizePassword(password) },
     );
     if (signInError || !data.user) {
-      setError("Sai số điện thoại hoặc mật khẩu.");
+      // Tách câu lỗi: SĐT chưa có tài khoản ≠ có rồi nhưng sai mật khẩu.
+      const exists = await checkAccountExists(phone);
+      setError(loginErrorMessage(signInError, exists));
       setLoading(false);
       return;
     }
-    // lần đầu (webhook đặt must_change_password) → bắt đổi mật khẩu
+    // Cờ must_change_password chỉ còn khi bật thủ công (webhook không bật nữa)
     const mustChange = data.user.user_metadata?.must_change_password === true;
     router.replace(mustChange ? "/doi-mat-khau" : "/");
   }
@@ -104,7 +125,7 @@ export default function LoginPage() {
         </form>
         <p className="mt-4 text-[1rem] leading-snug text-foreground/70">
           Khách đã mua hàng SDVICO: dùng số điện thoại + mật khẩu nhân viên báo
-          khi mua. Vào xong app nhắc đổi mật khẩu.
+          khi mua.
         </p>
         {/* Quên mật khẩu: gửi yêu cầu sang CRM để nhân viên duyệt (thêm
             2026-07-21) — trước đây chỉ có số hotline, KH ngoài giờ làm việc
