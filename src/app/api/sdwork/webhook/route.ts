@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dbErrorDetail } from "@/lib/db-error";
-import { phoneToEmail } from "@/lib/phone";
+import { isValidVnPhone, phoneToEmail } from "@/lib/phone";
 import {
   passwordSyncIntent,
   toCustomerRow,
@@ -24,11 +24,19 @@ export const maxDuration = 60;
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
+// Mật khẩu khởi tạo mặc định — chính sách 2026-07-21: MỌI khách SDWork đều có
+// tài khoản SDFish (username = SĐT), mật khẩu mặc định sd123456, KHÔNG ép đổi
+// lần đầu. Event đồng bộ định kỳ (không kèm password) vẫn tạo được tài khoản
+// cho khách còn thiếu nhờ mật khẩu này.
+const DEFAULT_PASSWORD = "sd123456";
+
 // Đồng bộ mật khẩu đăng nhập (SĐT + mật khẩu) — 1 credential cho cả 2 app.
-//  · chưa có user → TẠO (must_change_password=true).
+//  · chưa có user → TẠO. KHÔNG bật must_change_password (chính sách 2026-07-21:
+//    bỏ ép đổi lần đầu — trước đây 627/632 KH kẹt ở màn đổi mật khẩu, chỉ 6
+//    người từng vào được app).
 //  · đã có + KHÔNG reset → bỏ qua (không ghi đè mật khẩu KH có thể đã tự đổi).
 //  · đã có + reset=true (SDWork chủ động đặt lại) → updateUserById đặt mật khẩu
-//    mới + bật must_change_password (lần tới ép đổi). Tra id qua RPC 0003.
+//    mới + XÓA cờ ép đổi còn sót. Tra id qua RPC 0003.
 // KHÔNG log password.
 async function syncAuthPassword(
   admin: Admin,
@@ -40,7 +48,7 @@ async function syncAuthPassword(
     email: phoneToEmail(phone),
     password,
     email_confirm: true,
-    user_metadata: { must_change_password: true },
+    user_metadata: { must_change_password: false },
   });
   if (!error) return; // tạo mới xong
   const exists = /registered|exist|already/i.test(error.message);
@@ -54,7 +62,7 @@ async function syncAuthPassword(
   if (rpcErr || !uid) throw rpcErr ?? new Error("user_not_found");
   const { error: updErr } = await admin.auth.admin.updateUserById(uid as string, {
     password,
-    user_metadata: { must_change_password: true },
+    user_metadata: { must_change_password: false },
   });
   if (updErr) throw updErr;
 }
@@ -144,19 +152,27 @@ export async function POST(req: Request) {
     }
 
     // customer kèm mật khẩu → đồng bộ tài khoản đăng nhập (tạo/đặt-lại).
+    // customer KHÔNG kèm mật khẩu (đồng bộ định kỳ sdfish_dong_bo_lai) → vẫn
+    // đảm bảo CÓ tài khoản: chưa có thì tạo với mật khẩu mặc định, đã có thì
+    // giữ nguyên (không reset). Chỉ áp dụng cho SĐT di động VN hợp lệ — số
+    // bàn 02x / số test không tạo login (2026-07-21: 15/16 khách "thiếu tài
+    // khoản" hóa ra là số không hợp lệ).
     // Gap B: lỗi đồng bộ KHÔNG chặn ingest nhưng PHẢI hiện trong response để
     // đối soát (provisioned:false = KH chưa đăng nhập được).
     let provisioned: boolean | undefined;
     if (e.entity === "customer") {
       const intent = passwordSyncIntent(e);
+      const phone = (row as { phone: string }).phone;
       if (intent.password) {
         try {
-          await syncAuthPassword(
-            admin,
-            (row as { phone: string }).phone,
-            intent.password,
-            intent.reset,
-          );
+          await syncAuthPassword(admin, phone, intent.password, intent.reset);
+          provisioned = true;
+        } catch {
+          provisioned = false;
+        }
+      } else if (isValidVnPhone(phone)) {
+        try {
+          await syncAuthPassword(admin, phone, DEFAULT_PASSWORD, false);
           provisioned = true;
         } catch {
           provisioned = false;

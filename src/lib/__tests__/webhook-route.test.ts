@@ -101,7 +101,8 @@ describe("POST /api/sdwork/webhook", () => {
     expect(h.calls.upserts[0].table).toBe("customers");
     expect(h.calls.upserts[0].opts).toEqual({ onConflict: "sdwork_ref" });
     expect(h.calls.createUser).toHaveLength(1);
-    expect(h.calls.createUser[0].user_metadata).toEqual({ must_change_password: true });
+    // Chính sách 2026-07-21: KHÔNG ép đổi mật khẩu lần đầu
+    expect(h.calls.createUser[0].user_metadata).toEqual({ must_change_password: false });
     expect(h.calls.updateUserById).toHaveLength(0); // KHÔNG đặt lại khi tạo mới
   });
 
@@ -131,7 +132,8 @@ describe("POST /api/sdwork/webhook", () => {
     expect(h.calls.updateUserById).toHaveLength(1);
     expect(h.calls.updateUserById[0].id).toBe("uid-123");
     expect(h.calls.updateUserById[0].args.password).toBe("newpass1");
-    expect(h.calls.updateUserById[0].args.user_metadata).toEqual({ must_change_password: true });
+    // Reset cũng XÓA cờ ép đổi còn sót (chính sách 2026-07-21)
+    expect(h.calls.updateUserById[0].args.user_metadata).toEqual({ must_change_password: false });
   });
 
   it("reset nhưng RPC không tìm thấy user → provisioned:false (không nuốt lỗi)", async () => {
@@ -165,11 +167,38 @@ describe("POST /api/sdwork/webhook", () => {
     expect(h.calls.deletes[0]).toEqual({ table: "supplies", col: "sdwork_ref", val: "s9" });
   });
 
-  it("customer KHÔNG password → không provision", async () => {
+  it("customer KHÔNG password + SĐT hợp lệ → TẠO tài khoản với mật khẩu mặc định sd123456", async () => {
+    // Chính sách 2026-07-21: đồng bộ định kỳ (không kèm password) vẫn phải
+    // đảm bảo mọi khách có tài khoản — trước đây nhánh này bỏ qua provision
+    // → khách mất event password là vĩnh viễn không đăng nhập được.
     const res = await post({
       events: [{ entity: "customer", action: "upsert", ref: "c1", data: { phone: "0901234567", name: "A" } }],
     });
     const json = await res.json();
+    expect(json.results[0].provisioned).toBe(true);
+    expect(h.calls.createUser).toHaveLength(1);
+    expect(h.calls.createUser[0].password).toBe("sd123456");
+    expect(h.calls.createUser[0].user_metadata).toEqual({ must_change_password: false });
+    expect(h.calls.updateUserById).toHaveLength(0); // đã có user thì createUser lỗi "exists" → giữ nguyên, không reset
+  });
+
+  it("customer KHÔNG password + ĐÃ có user → giữ nguyên, không ghi đè mật khẩu", async () => {
+    h.state.createUserError = { message: "User already registered" };
+    const res = await post({
+      events: [{ entity: "customer", action: "upsert", ref: "c1", data: { phone: "0901234567", name: "A" } }],
+    });
+    const json = await res.json();
+    expect(json.results[0].provisioned).toBe(true);
+    expect(h.calls.updateUserById).toHaveLength(0);
+    expect(h.calls.rpc).toHaveLength(0);
+  });
+
+  it("customer KHÔNG password + SĐT KHÔNG hợp lệ (số bàn 02x) → chỉ upsert hồ sơ, không tạo login", async () => {
+    const res = await post({
+      events: [{ entity: "customer", action: "upsert", ref: "c1", data: { phone: "02253746464", name: "Cty X" } }],
+    });
+    const json = await res.json();
+    expect(json.results[0].ok).toBe(true);
     expect(json.results[0].provisioned).toBeUndefined();
     expect(h.calls.createUser).toHaveLength(0);
   });

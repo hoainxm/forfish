@@ -82,12 +82,14 @@ POST /api/sdwork/webhook
 ## 5. Auth (SDFish riêng — hướng TÀI KHOẢN, KHÔNG email/OTP)
 
 - **SĐT + MẬT KHẨU**: `signInWithPassword({ email: {SĐT}@sdvico.local, password })` trên project SDFish (`znzgugvfhgmiszqgjulk`). Email ảo chỉ là handle nội bộ; KHÔNG gửi email, KHÔNG OTP.
-- **Provision**: customer event kèm `password` → webhook tạo auth user (SĐT+mk, `email_confirm:true`, `user_metadata.must_change_password:true`). ĐÃ tồn tại + KHÔNG `resetPassword` → bỏ qua (KHÔNG ghi đè mk KH đã đổi). Sale báo KH "SĐT + mật khẩu"; lần đầu app ép đổi mk.
+- **Provision**: customer event kèm `password` → webhook tạo auth user (SĐT+mk, `email_confirm:true`, `user_metadata.must_change_password:false`). ĐÃ tồn tại + KHÔNG `resetPassword` → bỏ qua (KHÔNG ghi đè mk KH đã đổi). Sale báo KH "SĐT + mật khẩu".
+- **Provision KHÔNG kèm password** (chính sách 2026-07-21): customer event không có `password` + SĐT di động VN hợp lệ (`isValidVnPhone`) + CHƯA có auth user → webhook tạo với mật khẩu mặc định **`sd123456`**. Đã có user → giữ nguyên. Số bàn 02x / số sai định dạng → chỉ upsert hồ sơ, không tạo login. Nhờ vậy đồng bộ định kỳ (`sdfish_dong_bo_lai` phía SDWork) tự lành khách thiếu tài khoản.
+- **KHÔNG ép đổi mật khẩu lần đầu** (chính sách 2026-07-21): webhook không còn bật `must_change_password` ở mọi nhánh (trước đây 627/632 KH kẹt ở màn ép đổi, chỉ 6 người từng vào app).
 - KH đăng nhập thấy thiết bị của mình vì RLS lọc `current_phone()` = SĐT từ email — khớp `devices.customer_phone` webhook đã nạp.
 
 ## 5b. Đồng bộ mật khẩu 2 chiều (1 credential — đăng nhập được CẢ 2 app)
 
-- **Inbound (SDWork → SDFish) RESET**: customer event `data.resetPassword:true` + `password` → SDFish `updateUserById` đặt lại mk auth user + bật `must_change_password` (lần sau ép đổi). Tra id qua RPC `auth_user_id_by_phone` (migration `0003`). `provisioned:true` = đặt lại OK.
+- **Inbound (SDWork → SDFish) RESET**: customer event `data.resetPassword:true` + `password` → SDFish `updateUserById` đặt lại mk auth user + XÓA cờ `must_change_password` còn sót (chính sách 2026-07-21: không ép đổi). Tra id qua RPC `auth_user_id_by_phone` (migration `0003`). `provisioned:true` = đặt lại OK.
 - **Outbound (SDFish → SDWork)**: KH đổi mk ở `/doi-mat-khau` → SDFish `POST {SDWORK_SYNC_URL}` body `{ phone, password }` (SĐT lấy từ **session**, không tin client), header **`x-sdfish-signature`** = HMAC-SHA256(raw, `SDWORK_WEBHOOK_SECRET`). **Best-effort**: đổi tại SDFish đã xong, lỗi đẩy ngược KHÔNG chặn KH; cron đối soát/đẩy lại = sau.
 - **SDWork phải dựng endpoint nhận** (xem §7): verify `x-sdfish-signature` → đặt mk khách bên CRM = `password`. Nếu không dựng → mk chỉ đổi ở SDFish, đăng nhập SDWork vẫn mk cũ.
 - 🔐 Mật khẩu đi **plaintext** trên kênh HMAC+TLS (đối xứng inbound vốn cũng gửi plaintext). KHÔNG log password 2 đầu.
@@ -121,4 +123,4 @@ SDWORK_SYNC_URL=https://<sdwork>/...     # endpoint SDWork nhận mk đổi từ
 
 ---
 
-**Last updated**: 2026-06-19 (đồng bộ mật khẩu 2 chiều: reset inbound + đẩy outbound + RPC 0003)
+**Last updated**: 2026-07-21 (bỏ ép đổi mk lần đầu; provision mặc định sd123456 cho event không kèm password — đồng bộ định kỳ tự lành khách thiếu tài khoản)
