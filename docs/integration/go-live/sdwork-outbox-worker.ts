@@ -12,7 +12,12 @@
 // KHÔNG log password (spec §9); xoá password khỏi outbox sau khi gửi OK.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const BATCH = 100;
+// BATCH 100 → 25 (sửa 2026-07-21): SDFish xử lý TUẦN TỰ từng event (upsert + có
+// thể tạo auth user). Lô 100 vượt giới hạn thời gian của Vercel → bị cắt giữa
+// chừng → worker ghi `network_error`, lùi giờ, lặp mãi. Sự cố thật: 646 event
+// kẹt, thử 3 lần đều `network_error`. Lô 25 chạy gọn trong hạn; cron 1 phút/lần
+// vẫn rút hết 646 event trong ~26 phút.
+const BATCH = 25;
 const MAX_ATTEMPTS = 8;
 // Backoff: 1m, 5m, 30m, 2h, 6h, 12h, 24h (spec §5)
 const BACKOFF_MIN = [1, 5, 30, 120, 360, 720, 1440];
@@ -77,7 +82,10 @@ Deno.serve(async () => {
       method: "POST",
       headers: { "content-type": "application/json", "x-sdwork-signature": sig },
       body,
-      signal: AbortSignal.timeout(10_000),
+      // 10s → 30s: phải LỚN HƠN maxDuration phía SDFish (60s) là không cần, nhưng
+      // phải đủ cho lô 25 event; 10s là nguyên nhân `network_error` hàng loạt
+      // 2026-07-21. Giữ dưới hạn chờ cron (timeout_milliseconds := 30000).
+      signal: AbortSignal.timeout(30_000),
     });
   } catch {
     // timeout/mạng → cả batch retry backoff
@@ -86,8 +94,19 @@ Deno.serve(async () => {
   }
 
   if (res.status === 401) {
-    // Secret lệch — DỪNG, không retry mù (spec §4). Không bump attempts.
+    // Secret lệch — DỪNG, không retry mù (spec §4). CỐ Ý không bump attempts:
+    // 401 không tự lành, đốt retry là vô ích và sẽ đẩy hàng loạt vào dead-letter.
+    //
+    // NHƯNG phải để lại DẤU VẾT TRONG BẢNG (sửa 2026-07-21): trước đây nhánh này
+    // thoát hoàn toàn lặng lẽ → outbox đứng im ở attempts=0, last_error=null,
+    // cron vẫn quay mỗi phút, nhìn bảng KHÔNG thấy gì bất thường. Mất nhiều giờ
+    // mới lần ra vì phải mở log Edge Function mới biết. Giờ ghi last_error để
+    // truy vấn đối soát thấy ngay, mà VẪN không tăng attempts (next_try_at giữ
+    // nguyên → khớp lại secret là chảy ngay, không phải chờ backoff).
     console.error("sdfish-outbox-push: 401 bad_signature — SECRET LỆCH 2 BÊN, dừng.");
+    await db.from("sdfish_outbox")
+      .update({ last_error: "bad_signature_stop (secret lệch 2 bên — KHÔNG tự lành)" })
+      .in("id", batch.map((r) => r.id));
     return Response.json({ ok: false, code: "bad_signature_stop" }, { status: 500 });
   }
   if (!res.ok) {

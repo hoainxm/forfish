@@ -4,6 +4,7 @@
 // Hợp đồng event: docs/integration/sdwork-sso-contract.md.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { dbErrorDetail } from "@/lib/db-error";
 import { phoneToEmail } from "@/lib/phone";
 import {
   passwordSyncIntent,
@@ -13,6 +14,13 @@ import {
   verifyWebhookSignature,
   type WebhookEvent,
 } from "@/lib/sdwork-webhook";
+
+// Lô lớn (worker gửi tối đa BATCH sự kiện/lần) xử lý TUẦN TỰ: mỗi event 1 upsert
+// + có thể tạo auth user → dễ vượt giới hạn mặc định của Vercel (10–15s) và bị
+// cắt giữa chừng. Worker phía CRM khi đó ghi `network_error` rồi lùi giờ thử lại
+// — lặp vô hạn cho tới dead-letter. Sự cố thật 2026-07-21: 646 event kẹt, thử 3
+// lần đều `network_error`. Nới lên 60s (Vercel Pro cho tối đa 300s).
+export const maxDuration = 60;
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -89,6 +97,7 @@ export async function POST(req: Request) {
     action: string;
     ok: boolean;
     code?: string;
+    detail?: string; // lỗi DB rút gọn — trước đây nuốt mất, phải đoán (2026-07-21)
     provisioned?: boolean; // chỉ customer có password: tạo được auth user?
   };
   const results: EventResult[] = [];
@@ -103,7 +112,12 @@ export async function POST(req: Request) {
 
     if (e.action === "delete") {
       const { error } = await admin.from(table).delete().eq("sdwork_ref", e.ref);
-      results.push({ ...base, ok: !error, code: error ? "delete_failed" : undefined });
+      results.push({
+        ...base,
+        ok: !error,
+        code: error ? "delete_failed" : undefined,
+        detail: error ? dbErrorDetail(error) : undefined,
+      });
       continue;
     }
     const row =
@@ -120,7 +134,12 @@ export async function POST(req: Request) {
       .from(table)
       .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: "sdwork_ref" });
     if (error) {
-      results.push({ ...base, ok: false, code: "upsert_failed" });
+      results.push({
+        ...base,
+        ok: false,
+        code: "upsert_failed",
+        detail: dbErrorDetail(error),
+      });
       continue;
     }
 

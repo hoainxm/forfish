@@ -12,6 +12,7 @@ File kèm trong thư mục này:
 - `sdwork-edge-function.ts` — endpoint CRM nhận mật khẩu đổi từ SDFish. ✅ đã deploy 2026-06-30.
 - `sdwork-outbox.sql` — bảng outbox + triggers CRM (đơn/KH mới → bắn webhook SDFish). 🔴 CHƯA apply — đây là mảnh còn thiếu khiến "đơn mới không tạo user SDFish".
 - `sdwork-outbox-worker.ts` — Edge Function CRM `sdfish-outbox-push` (worker đẩy outbox). 🔴 CHƯA deploy.
+- `sdwork-outbox-phu-tai-khoan.sql` — **vá PHỦ TÀI KHOẢN (2026-07-21)**: đè helper/trigger để phủ cả `sub`/`collaborator`/`distributor` (outbox gốc hardcode `type='customer'` → 112 account nhóm này sẽ KHÔNG được tạo tài khoản khi tạo mới, dù đợt provision 30/06 đã tạo cho họ) + hàm đồng bộ lại định kỳ (tự lành) + truy vấn liệt kê 40 khách thiếu SĐT. 🔴 CHƯA apply — chạy SAU `sdwork-outbox.sql`.
 
 ---
 
@@ -94,6 +95,81 @@ Sự cố thường gặp: worker log `401 bad_signature` = secret 2 bên lệch
 cùng giá trị); `503`/`http_503` = SDFish thiếu env trên Vercel (Bước 2);
 `provisioned:false` trong log = dữ liệu vào nhưng tạo tài khoản lỗi → check
 SUPABASE_SERVICE_ROLE_KEY phía SDFish.
+
+**Outbox đứng im mà cron VẪN chạy (gặp 2026-07-21)** — triệu chứng: `sent_at`
+null, **`attempts` = 0**, `last_error` null, `dead` = false, `cron.job` có
+`sdfish-outbox-push` active.
+
+`attempts = 0` nghĩa là worker **chưa từng gọi tới SDFish** (mọi nhánh sau lời gọi
+đều bump attempts). Có 2 nguyên nhân, ĐỪNG đoán — đọc phản hồi thật:
+
+```sql
+select id, status_code, left(content, 300) as noi_dung, created
+from net._http_response order by created desc limit 10;
+```
+
+| Phản hồi | Nguyên nhân | Sửa |
+|---|---|---|
+| `500` + `column sdfish_outbox.payload does not exist` | **Edge Function đã deploy là BẢN CŨ** (shape outbox đời đầu dùng cột `payload`; bản hiện tại dùng `data`) → chết ngay ở bước đọc bảng | Deploy lại `sdwork-outbox-worker.ts` trong thư mục này |
+| `500` + `bad_signature_stop` | Secret lệch 2 bên | Đặt lại `SDWORK_WEBHOOK_SECRET` cùng giá trị ở Vercel (**nhớ Redeploy**) + `supabase secrets set` |
+
+**Ca thật 2026-07-21**: nguyên nhân là **bản cũ** (`payload`), KHÔNG phải secret —
+luồng chết âm thầm từ ~09/07, 12 ngày không ai biết vì bảng outbox trông vẫn
+"sạch". Bài học: `attempts = 0` ⇒ soi `net._http_response` TRƯỚC, đừng suy diễn.
+Bản worker từ 2026-07-21 ghi thêm `last_error = 'bad_signature_stop …'` cho riêng
+ca secret lệch — nhưng ca chết-sớm như trên thì bảng vẫn câm, chỉ `net._http_response` nói thật.
+
+⚠️ **`cron.job_run_details.status` LUÔN `succeeded` — đừng tin.** `pg_cron` chỉ
+chạy `net.http_post`, mà lệnh đó **bất đồng bộ**: xếp yêu cầu vào hàng rồi trả về
+ngay. Cron báo thành công kể cả khi HTTP sau đó trả 500/401. Đây chính là lý do
+sự cố nằm im 12 ngày. **Chỉ `net._http_response` phản ánh sự thật.**
+
+⚠️ **`timeout_milliseconds` BẮT BUỘC trong lệnh cron (gặp 2026-07-21)** — `pg_net`
+mặc định chờ **5 giây**. Worker xử lý lô `BATCH = 100`: 1 lần POST sang SDFish
+(hạn chờ riêng 10s) + tối đa 100 lệnh cập nhật dòng ⇒ **luôn vượt 5s**. Triệu
+chứng: `net._http_response` có dòng mỗi phút với `status_code` **null** và
+`error_msg` = `Timeout of 5000 ms reached…` (DNS/handshake bình thường → không
+phải sai URL). Đặt `timeout_milliseconds := 30000` khi `cron.schedule`. Mẫu ở
+mục IV `sdwork-outbox.sql` đã bổ sung.
+
+⚠️ **`network_error` hàng loạt = lô quá lớn, KHÔNG phải mạng (gặp 2026-07-21)** —
+triệu chứng: `attempts` tăng đều (1→2→3), `last_error` = `network_error`, không
+bản ghi nào `dead`, worker chạy bình thường. Nguyên nhân: worker POST lô 100
+event, SDFish xử lý TUẦN TỰ (mỗi event 1 upsert + có thể tạo auth user) → vượt
+`maxDuration` mặc định của Vercel (10–15s) **và** vượt `AbortSignal.timeout(10s)`
+của worker. Cả 2 bên cùng bỏ cuộc, lặp vô hạn tới dead-letter. Ba chốt chặn phải
+khớp nhau:
+
+| Chốt | Ở đâu | Giá trị |
+|---|---|---|
+| `maxDuration` | `src/app/api/sdwork/webhook/route.ts` (SDFish) | **60** |
+| `BATCH` + `AbortSignal.timeout` | `sdwork-outbox-worker.ts` (CRM) | **25** + **30s** |
+| `timeout_milliseconds` | lệnh `cron.schedule` (CRM) | **30000** |
+
+Sau khi sửa: cron 1 phút/lần rút hết 646 event trong ~26 phút.
+
+⚠️ **HAI bộ đẩy cùng rút một bảng (phát hiện 2026-07-21)** — CRM đang có:
+
+| Cron | Function | Nguồn gốc |
+|---|---|---|
+| `sdfish-outbox-push` | `sdfish-outbox-push` | artifact repo này (đọc cột `data`) |
+| `sdfish-flush` | `flush-sdfish-outbox` | **đợt dựng cũ** (đọc cột `payload`) |
+
+Hai worker cùng rút một hàng đợi mỗi phút = gửi trùng (upsert idempotent nên vô
+hại về dữ liệu, nhưng tốn và làm nhiễu chẩn đoán). **Giữ 1, bỏ 1**:
+`select cron.unschedule('sdfish-flush');` + xoá function `flush-sdfish-outbox`.
+Kiểm tra job nào gọi URL nào: `select jobname, command from cron.job where jobname like 'sdfish%';`
+
+Truy vấn chẩn đoán đúng (lọc theo trạng thái — **đừng** gộp `last_error` của
+hàng ĐÃ gửi, nó là dấu vết cũ và sẽ dẫn sai hướng):
+
+```sql
+select entity,
+       count(*) filter (where sent_at is not null)              as da_gui,
+       count(*) filter (where sent_at is null and attempts > 0) as dang_loi,
+       count(*) filter (where sent_at is null and attempts = 0) as chua_thu
+from public.sdfish_outbox group by entity;
+```
 
 ---
 

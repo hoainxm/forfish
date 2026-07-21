@@ -1,4 +1,4 @@
-// Sinh icon PNG cho PWA/iOS/Android từ logo gốc `image/logo sdfish.png`.
+// Sinh icon PNG cho PWA/iOS/Android từ logo gốc `brand/logo-sdfish.png`.
 // Chạy: npm run icons  (cần devDep sharp). Output commit vào public/icons/.
 //
 // Pipeline:
@@ -19,7 +19,7 @@ import sharp from "sharp";
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
-const SRC = "image/logo sdfish.png";
+const SRC = "brand/logo-sdfish.png";
 const OUT = "public/icons";
 const APP_DIR = "src/app";
 const BG = "#ffffff"; // giấy trắng theo bộ logo gốc; đổi "#0e3556" nếu muốn navy

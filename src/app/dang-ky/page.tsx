@@ -21,7 +21,8 @@ import { normalizePassword } from "@/lib/password";
 /*
   Đăng ký tài khoản bằng SĐT (thật chất là email ảo — bà con không thấy).
   KHÔNG yêu cầu confirm email. Bà con chưa phải khách SDWork vẫn tự tạo
-  được tài khoản. Mặc định đặt cờ buộc đổi mật khẩu lần đầu nếu dùng 123456.
+  được tài khoản. Tài khoản do CRM provision thì mang cờ buộc đổi mật khẩu lần
+  đầu (mật khẩu khởi tạo do nhân viên báo).
 */
 export default function DangKyPage() {
   const router = useRouter();

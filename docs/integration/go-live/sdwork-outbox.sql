@@ -245,13 +245,18 @@ create trigger sdfish_outbox_orders
 
 -- ── IV. Cron gọi worker mỗi phút (pg_cron + pg_net) ─────────────────────────
 -- Điền <ANON_KEY_CRM> rồi chạy. Worker tự thoát nhanh nếu outbox rỗng.
+-- ⚠️ timeout_milliseconds BẮT BUỘC: pg_net mặc định chờ 5s, mà worker chạy lô
+--    BATCH=100 (1 POST sang SDFish hạn chờ 10s + tối đa 100 update) nên LUÔN
+--    vượt 5s → net._http_response ghi status_code null + "Timeout of 5000 ms".
+--    Sự cố thật 2026-07-21. Đặt 30s.
 -- create extension if not exists pg_cron;
 -- create extension if not exists pg_net;
 -- select cron.schedule('sdfish-outbox-push', '* * * * *', $$
 --   select net.http_post(
---     url     := 'https://exueouggmbjtjvsvpfya.functions.supabase.co/sdfish-outbox-push',
+--     url     := 'https://exueouggmbjtjvsvpfya.supabase.co/functions/v1/sdfish-outbox-push',
 --     headers := '{"Authorization": "Bearer <ANON_KEY_CRM>", "Content-Type": "application/json"}'::jsonb,
---     body    := '{}'::jsonb
+--     body    := '{}'::jsonb,
+--     timeout_milliseconds := 30000
 --   );
 -- $$);
 

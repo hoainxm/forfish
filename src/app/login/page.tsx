@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
@@ -105,12 +106,15 @@ export default function LoginPage() {
           Khách đã mua hàng SDVICO: dùng số điện thoại + mật khẩu nhân viên báo
           khi mua. Vào xong app nhắc đổi mật khẩu.
         </p>
-        <p className="mt-2 text-[1rem] leading-snug">
-          Quên mật khẩu?{" "}
-          <a href="tel:1900232349" className="font-bold text-sea">
-            Gọi SDVICO 1900 23 23 49
-          </a>
-        </p>
+        {/* Quên mật khẩu: gửi yêu cầu sang CRM để nhân viên duyệt (thêm
+            2026-07-21) — trước đây chỉ có số hotline, KH ngoài giờ làm việc
+            không biết bấu víu vào đâu. Vẫn giữ nút gọi cho ai cần gấp. */}
+        <Link
+          href="/quen-mat-khau"
+          className="mt-4 flex min-h-[3.75rem] w-full items-center justify-center rounded-full border-2 border-line text-[1.0625rem] font-bold text-foreground/80 transition active:scale-[0.98]"
+        >
+          Quên mật khẩu?
+        </Link>
       </AuthCard>
     </div>
   );

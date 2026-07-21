@@ -60,12 +60,14 @@ POST /api/sdwork/webhook
   "results": [
     { "ref": "<id>", "entity": "customer", "action": "upsert", "ok": true, "provisioned": true },
     { "ref": "<id>", "entity": "device",   "action": "upsert", "ok": true },
-    { "ref": "<id>", "entity": "supply",   "action": "upsert", "ok": false, "code": "upsert_failed" }
+    { "ref": "<id>", "entity": "supply",   "action": "upsert", "ok": false, "code": "upsert_failed",
+      "detail": "23505 (trùng khoá duy nhất (vd 2 account CRM dùng chung SĐT)) — duplicate key value violates unique constraint \"customers_phone_key\"" }
   ] }
 ```
 
 - `results[]` 1 phần tử / event (cùng thứ tự gửi). SDWork **đánh dấu outbox theo `results[].ok`** — KHÔNG dựa `applied` count (event lỗi không câm).
 - `code`: `bad_event` | `missing_required` | `upsert_failed` | `delete_failed`. `ok:false` → SDWork retry event đó.
+- `detail` (**thêm 2026-07-21, optional — KHÔNG breaking**, worker cũ bỏ qua field lạ): lỗi DB rút gọn ≤200 ký tự (`code` Postgres + nghĩa nghiệp vụ + message), chỉ có khi `ok:false`. Trước đây route nuốt lỗi thật → worker log hàng loạt `upsert_failed` mà không ai biết vì sao (sự cố 21/07: mở phạm vi sang `sub` làm 2 account CRM dùng chung SĐT đụng ràng buộc `customers.phone` UNIQUE). Rút gọn thuần `src/lib/db-error.ts` (có test). **KHÔNG bao giờ kèm `password`** — chỉ lấy message/code của DB.
 - `provisioned` (chỉ customer có `password`): `true` tạo được tài khoản; `false` = upsert dữ liệu OK nhưng **tạo auth user lỗi → KH chưa đăng nhập được**, cần alert.
 - Lỗi toàn cục (không per-event): `401 bad_signature` · `503 not_configured` · `400 bad_json`.
 

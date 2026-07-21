@@ -61,6 +61,18 @@ Mục đích: session mới (hoặc teammate mới) nắm đúng context tối t
 - Quy trình: chốt scope → thu thập tài liệu (doc user đưa → CLAUDE.md/app-map → test case đã có trong `docs/test-cases/` → source code) + đối chiếu mâu thuẫn doc↔code (rule nghiệp vụ theo doc, nguyên văn UI theo code) → truy vết coverage (mỗi yêu cầu ≥1 TC) → sinh file → verify + báo cáo (căn cứ, yêu cầu chưa phủ, nghi bug).
 - Output tại repo này: `docs/test-cases/SDFish_TC_<feature>_<YYYY-MM-DD>.xlsx` (đặt `project: "SDFish"` trong input JSON) — 1 file / chức năng, 1 sheet `TestCases`.
 
+## 3c. Hệ 4-skill BA→design→build→triage (2026-07-17)
+
+```
+ba-flow-logic (nhu cầu→ba-spec) → ui-design-logic (→design-spec) → build → ui-ux-triage (vận hành/sửa)
+        └────────── tất cả trên nền ai-simple-product-dev (rail + tier + memory + verify) ──────────┘
+```
+
+- Cài **2 nơi**: `.claude/skills/{ba-flow-logic,ui-design-logic,ui-ux-triage}/` (project-level, commit — team + agent dùng chung, cạnh `ai-simple-product-dev`) **và** `C:\Users\ACER\.claude\skills\` (user-level — dùng cho project khác). Sửa 1 bên → **copy sang bên kia**, không thì lệch.
+- Oracle của triage đến từ pha trên: `08-ba-spec-da-tau.md` = đúng hành vi chưa · `07-design-spec.md` = đúng giao diện chưa. Chính 2 skill này đã tạo audit ghi ở [07 §9](07-design-spec.md) (ui-design-logic, 2026-06-11) + [§10](07-design-spec.md) (ui-ux-triage, 2026-06-15).
+- Config: `.claude/triage.config` (`APP_MAP_DIR=docs/app-map`). Gate: `sh .claude/skills/ui-ux-triage/triage-verify.sh` → PASS mới spawn team. WARN `scripts/notify-telegram.sh` thiếu = DEGRADE có chủ đích (report ghi ra `test-reports/triage/`), không phải lỗi.
+- Ranh giới: nhu cầu mới → ba-flow-logic · thiết kế/màn mới → ui-design-logic · defect UI → ui-ux-triage. Triage **không đụng DB, không auto-commit**; "code khớp spec mà vẫn sai" → handoff NGƯỢC về BA sửa AC, không sửa code.
+
 ## 4. Quy trình giao việc chuẩn / Standard hand-off
 
 1. Lead viết brief: mục tiêu + **danh sách file được phép đụng** + facts canonical

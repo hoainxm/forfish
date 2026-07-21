@@ -15,6 +15,7 @@ describe("mustForcePasswordChange", () => {
     expect(mustForcePasswordChange("/doi-mat-khau", FLAG)).toBe(false);
     expect(mustForcePasswordChange("/login", FLAG)).toBe(false);
     expect(mustForcePasswordChange("/dang-ky", FLAG)).toBe(false);
+    expect(mustForcePasswordChange("/quen-mat-khau", FLAG)).toBe(false);
     expect(mustForcePasswordChange("/api/sdwork/password-sync", FLAG)).toBe(
       false,
     );

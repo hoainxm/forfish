@@ -9,7 +9,12 @@ import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
 import { AuthCard, AuthError, AuthNote } from "@/components/auth-form";
 import { normalizePassword } from "@/lib/password";
+import { passwordChangeErrorMessage } from "@/lib/auth-error";
 import { useAuthUser } from "@/lib/use-auth";
+
+/** Hotline SDVICO — lối thoát cuối khi KH kẹt ở màn ép đổi mật khẩu. */
+const HOTLINE = "1900232349";
+const HOTLINE_HIEN = "1900 23 23 49";
 
 export default function DoiMatKhauPage() {
   const router = useRouter();
@@ -87,8 +92,10 @@ export default function DoiMatKhauPage() {
         data: { must_change_password: false },
       });
 
+    // Báo lỗi NÓI RÕ phải làm gì (lib/auth-error, có test). Trước đây gộp mọi
+    // lỗi thành "thử lại giúp nhé" → KH gõ lại y hệt, hỏng y hệt, rồi bỏ app.
     if (updateError || !userData.user) {
-      setError("Chưa đổi được mật khẩu. Bạn thử lại giúp nhé.");
+      setError(passwordChangeErrorMessage(updateError));
       setLoading(false);
       return;
     }
@@ -111,6 +118,15 @@ export default function DoiMatKhauPage() {
     router.replace("/");
   }
 
+  // LỐI THOÁT khi đổi mật khẩu mãi không được: đăng xuất để dùng app công khai
+  // như thường. Nút đăng xuất bình thường nằm trong sheet Tài khoản ở TRANG CHỦ
+  // — mà trang chủ bị middleware chặn khi còn cờ must_change_password → không
+  // có nút này thì KH kẹt cứng, chỉ còn cách gỡ app.
+  async function handleSignOut() {
+    await supabase!.auth.signOut();
+    router.replace("/");
+  }
+
   return (
     <div>
       <PageHeader
@@ -120,9 +136,11 @@ export default function DoiMatKhauPage() {
         toColor="var(--sea)"
       />
       <AuthCard>
+        {/* KHÔNG in mật khẩu mặc định ra màn hình: tên đăng nhập là SĐT, nói
+            luôn mật khẩu mặc định = mở cửa mọi tài khoản chưa đổi. */}
         <AuthNote>
-          Lần đầu đăng nhập, hãy đổi mật khẩu mặc định{" "}
-          <strong>123456</strong> thành mật khẩu của riêng bạn.
+          Lần đầu đăng nhập, bà con đổi mật khẩu nhân viên đã báo thành mật khẩu
+          của riêng mình cho an toàn.
         </AuthNote>
         {error && <AuthError>{error}</AuthError>}
         <form onSubmit={handleSubmit}>
@@ -152,6 +170,21 @@ export default function DoiMatKhauPage() {
             {loading ? "Đang lưu…" : "Lưu mật khẩu mới"}
           </PrimaryButton>
         </form>
+
+        {/* Lối thoát — KH kẹt ở đây thì bỏ app luôn (mất khách thật 02/07). */}
+        <p className="mt-5 text-[1rem] leading-snug text-foreground/70">
+          Đổi mãi không được? Gọi{" "}
+          <a href={`tel:${HOTLINE}`} className="font-bold text-sea">
+            SDVICO {HOTLINE_HIEN}
+          </a>
+        </p>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="mt-3 flex min-h-[3.75rem] w-full items-center justify-center rounded-full border-2 border-line text-[1.0625rem] font-bold text-foreground/80 transition active:scale-[0.98]"
+        >
+          Thoát ra, để đổi sau
+        </button>
       </AuthCard>
     </div>
   );
