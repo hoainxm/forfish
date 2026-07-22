@@ -7,6 +7,8 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ChevronRightIcon, UsersIcon } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthUser } from "@/lib/use-auth";
+import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
+import { accountDisplayName, deviceCountLine } from "@/lib/account-display";
 
 /*
   Tài khoản trên hero — GỌN (sửa 2026-06-11 theo góp ý "design thô"):
@@ -38,6 +40,7 @@ function prettyPhone(p: string): string {
 export function HeroAccount() {
   const router = useRouter();
   const { user, phone, ready } = useAuthUser();
+  const { assets } = useSdvicoAssets();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("auto");
 
@@ -67,7 +70,14 @@ export function HeroAccount() {
 
   if (!ready) return <div className="mt-3 h-[2.75rem]" aria-hidden />;
 
-  const name = (user?.user_metadata?.full_name as string | undefined)?.trim();
+  // Tên: bảng customers (CRM, qua /api/me/sdvico) trước — webhook provision
+  // KHÔNG set user_metadata.full_name nên đa số tài khoản chỉ có SĐT nếu
+  // dựa metadata (báo user 2026-07-21 "mục tài khoản chỉ hiện SĐT").
+  const name = accountDisplayName(
+    assets?.customerName,
+    user?.user_metadata?.full_name as string | undefined,
+  );
+  const deviceLine = deviceCountLine(assets?.products.length);
 
   return (
     <>
@@ -101,6 +111,16 @@ export function HeroAccount() {
               <p className="text-[1rem] font-semibold text-foreground/70">
                 {prettyPhone(phone)}
               </p>
+              {deviceLine && (
+                <Link
+                  href="/tau"
+                  onClick={() => setOpen(false)}
+                  className="mt-1.5 flex min-h-[2.75rem] items-center gap-1 text-[0.9375rem] font-bold text-sea"
+                >
+                  {deviceLine}
+                  <ChevronRightIcon className="h-4 w-4" />
+                </Link>
+              )}
             </div>
           ) : (
             <Link

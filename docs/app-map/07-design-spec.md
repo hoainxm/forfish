@@ -100,6 +100,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 
 - Tạo/sửa mọi object → **drawer/bottom-sheet**, không page riêng. Sheet + ConfirmDialog **PORTAL ra `document.body`** (`createPortal`) → thoát stacking context của tổ tiên (vd wrapper `relative z-10` của BoatSwitcher nhốt sheet z-30 xuống lớp z-10 khiến bottom-nav z-20 đè che nút Lưu/Hủy). Sheet: `max-h-92dvh` cuộn trong, `pb` safe-area; viewport `interactiveWidget: resizes-content` → bàn phím CO layout (không đè) nên nút đáy luôn với tới. Khóa cuộn nền **đếm tham chiếu** (mở sheet-trong-sheet không nhả khóa sớm → nền không trôi sau lưng).
 - Cỡ giao diện mặc định **theo máy** (rem); chỉnh tay ("Chữ to"/"Gọn") trong **sheet tài khoản**, không bày toggle ra hero.
+- **Sheet Tài khoản hiện DANH TÍNH đầy đủ (2026-07-21)**: tên KH lấy `OwnedAssets.customerName` (bảng `customers` từ CRM) ưu tiên trước `user_metadata.full_name` — webhook provision không set metadata nên trước đây đa số chỉ thấy SĐT. Kèm dòng "Đã mua N thiết bị SDVICO" (link `/tau`, ẩn khi 0). Logic thuần `lib/account-display.ts` (test): làm sạch tên rác CRM (`\r\n`), fallback metadata, đếm thiết bị.
 - Ngôn ngữ status DUY NHẤT = `StatusBanner`; màu cam-đỏ ĐỘC QUYỀN cho ranh giới biển trên map.
 - **KHÔNG còn demo/sổ mẫu trong UI (2026-07-02)**: các hàm load trả rỗng khi chưa có data thật; data cá nhân khóa sau đăng nhập (xem §2). Trước đây seed demo tự-xưng-mẫu — bỏ vì gây hiểu nhầm "data dùng chung".
 - Visual "international" (font Plus Jakarta Sans + Archivo) nhưng COPY tiếng Việt đời thường.
