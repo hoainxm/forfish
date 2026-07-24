@@ -19,7 +19,13 @@ export {
 } from "@/lib/phone";
 
 /** Ô mật khẩu có nút HIỆN/ẨN — thấy mình gõ gì thì khỏi cần ô "nhập lại"
- *  (roadmap hội đồng UX 2026-06-11). */
+ *  (roadmap hội đồng UX 2026-06-11).
+ *
+ *  ⚠️ Bấm "Hiện" đổi input sang type="text" → iOS/iPadOS TỰ viết hoa chữ đầu +
+ *  tự sửa chính tả (password field không bị, text field thì bị). Mật khẩu gõ
+ *  đúng "nam nguyen" thành "Nam nguyen" → đăng nhập sai mà không hiểu vì sao
+ *  (Apple App Review từ chối 2026-07-17, Guideline 2.1, máy iPad Air M3).
+ *  Khoá autoCapitalize/autoCorrect/spellCheck cho CẢ hai trạng thái. */
 export function PasswordField({
   label,
   value,
@@ -40,6 +46,9 @@ export function PasswordField({
         <input
           type={shown ? "text" : "password"}
           autoComplete={autoComplete}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           className={`${inputClass} pr-16`}
           placeholder={placeholder}
           value={value}

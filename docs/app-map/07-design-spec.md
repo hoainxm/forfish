@@ -81,6 +81,8 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 | Tiền | Giao dịch (giá cá) public; **Hiệu quả + Công nợ: LoginGate** | đã login, chưa có → EmptyState | — | — |
 | Đăng nhập | — | — | "Sai số điện thoại hoặc mật khẩu" | nút "Đang vào…" |
 
+**Ô mật khẩu (`PasswordField`)**: nút Hiện/Ẩn đổi `type` password↔text. Ở trạng thái `text`, iOS/iPadOS tự viết hoa chữ đầu + tự sửa chính tả → mật khẩu gõ đúng vẫn báo sai. Bắt buộc `autoCapitalize="none" autoCorrect="off" spellCheck={false}` cho cả hai trạng thái (Apple App Review từ chối 2026-07-17 Guideline 2.1 — reviewer không đăng nhập được, máy iPad Air 11" M3).
+
 ## 7. Action → Expectation (đã hiện thực)
 
 | Hành động | Thấy ngay sau đó |
@@ -100,7 +102,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 
 - Tạo/sửa mọi object → **drawer/bottom-sheet**, không page riêng. Sheet + ConfirmDialog **PORTAL ra `document.body`** (`createPortal`) → thoát stacking context của tổ tiên (vd wrapper `relative z-10` của BoatSwitcher nhốt sheet z-30 xuống lớp z-10 khiến bottom-nav z-20 đè che nút Lưu/Hủy). Sheet: `max-h-92dvh` cuộn trong, `pb` safe-area; viewport `interactiveWidget: resizes-content` → bàn phím CO layout (không đè) nên nút đáy luôn với tới. Khóa cuộn nền **đếm tham chiếu** (mở sheet-trong-sheet không nhả khóa sớm → nền không trôi sau lưng).
 - Cỡ giao diện mặc định **theo máy** (rem); chỉnh tay ("Chữ to"/"Gọn") trong **sheet tài khoản**, không bày toggle ra hero.
-- **Sheet Tài khoản hiện DANH TÍNH đầy đủ (2026-07-21)**: tên KH lấy `OwnedAssets.customerName` (bảng `customers` từ CRM) ưu tiên trước `user_metadata.full_name` — webhook provision không set metadata nên trước đây đa số chỉ thấy SĐT. Kèm dòng "Đã mua N thiết bị SDVICO" (link `/tau`, ẩn khi 0). Logic thuần `lib/account-display.ts` (test): làm sạch tên rác CRM (`\r\n`), fallback metadata, đếm thiết bị.
+- **Sheet Tài khoản hiện DANH TÍNH đầy đủ (2026-07-21)**: tên KH lấy `OwnedAssets.customerName` (bảng `customers` từ CRM) ưu tiên trước `user_metadata.full_name` — webhook provision không set metadata nên trước đây đa số chỉ thấy SĐT. Thẻ danh tính (`hero-account.tsx`) gồm: tên KH trơn (1.25rem, ẩn khi chưa có tên) — **KHÔNG thêm kính ngữ "Bác"** (data không có giới tính/tuổi + nhiều "tên" là tổ chức: đại lý/xí nghiệp/ghe → "Bác {tên công ty}" sai; danh tính ấm áp để pill lo) · **SĐT LUÔN hiện** kèm `PhoneIcon` (khi thiếu tên thì SĐT là danh tính chính, cỡ to hơn) · pill **"Khách hàng SDVICO"** (mọi tài khoản đều từ SDWork — cho danh tính đầy khi hồ sơ mỏng) · dòng **"Đang quản lý N tàu"** (`AnchorIcon`, ← `useBoats` localStorage) + **"Đã mua N thiết bị SDVICO"** (link `/tau?tab=san-pham`) trong khối phân cách, mỗi dòng ẩn khi đếm = 0. Logic thuần `lib/account-display.ts` (test): làm sạch tên rác CRM (`\r\n`), fallback metadata, `deviceCountLine`/`boatCountLine` ẩn khi 0. Nguyên tắc: KHÔNG bao giờ chỉ trơ SĐT — luôn có ≥ SĐT + nhãn khách hàng.
 - Ngôn ngữ status DUY NHẤT = `StatusBanner`; màu cam-đỏ ĐỘC QUYỀN cho ranh giới biển trên map.
 - **KHÔNG còn demo/sổ mẫu trong UI (2026-07-02)**: các hàm load trả rỗng khi chưa có data thật; data cá nhân khóa sau đăng nhập (xem §2). Trước đây seed demo tự-xưng-mẫu — bỏ vì gây hiểu nhầm "data dùng chung".
 - Visual "international" (font Plus Jakarta Sans + Archivo) nhưng COPY tiếng Việt đời thường.

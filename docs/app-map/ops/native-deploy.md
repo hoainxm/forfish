@@ -46,11 +46,43 @@ npm run cap:open:ios   # / cap:open:android
 - Map tile/source trong `lib/nautical-layers.ts` đã qua `apiUrl`; các tile NGOÀI (NASA GIBS, OpenSeaMap) là origin ngoài — SW bỏ qua, native gọi trực tiếp (cần mạng).
 - Splash screen Android (adaptive icon đã sinh qua `npm run icons` — 2026-07-14).
 
-## 5. KHÔNG đổi
+## 5. App Store review — hồ sơ nộp (lần 1 bị từ chối 2026-07-17)
+
+Submission `4300b669-820b-404a-b2f5-fe3c72a84ca6`, bản 1.0 (1), máy review **iPad Air 11" (M3)**. Hai lỗi:
+
+### 5a. Guideline 5.1.2(i) — ATT (nhãn quyền riêng tư khai SAI, KHÔNG phải lỗi code)
+
+Nhãn App Privacy trong App Store Connect đang khai 5 loại dữ liệu **"Used to Track You"**. SDFish **KHÔNG tracking** theo định nghĩa Apple (không nối dữ liệu app với dữ liệu bên thứ ba để quảng cáo, không bán cho data broker): repo **không có** SDK quảng cáo/analytics/attribution nào (không AdMob, Firebase, Facebook, AppsFlyer, Adjust, Sentry, GA) — xem [external-services.md](external-services.md), toàn bộ nguồn ngoài là API thời tiết/hải văn công cộng nhận **toạ độ trần**, không định danh. Không đọc IDFA.
+
+→ Sửa **nhãn** (App Store Connect → App Privacy), KHÔNG thêm framework ATT:
+
+| Loại dữ liệu | Thu ở đâu | Mục đích khai | Linked to user | Used for Tracking |
+|---|---|---|---|---|
+| Phone Number | SĐT = tên đăng nhập (`/login`, `/dang-ky`), webhook SDWork | App Functionality | Yes | **No** |
+| Name | tên KH đồng bộ từ CRM SDWork (hiện ở thẻ tài khoản) | App Functionality | Yes | **No** |
+| User ID | uid Supabase Auth | App Functionality | Yes | **No** |
+| Other User Content | sổ chuyến/giấy tờ/thuyền viên — phần lớn nằm localStorage **trên máy** | App Functionality | Yes | **No** |
+| Precise Location | `getCurrentPosition` ở `route-planner.tsx` + `fishing-map-view.tsx` — chỉ để canh bản đồ và hỏi gió sóng theo toạ độ | App Functionality | **Not Linked** (không lưu DB, không gắn tài khoản) | **No** |
+
+Cần vai **Account Holder / Admin** mới sửa được nhãn. Sửa xong trả lời App Review nói rõ: app không tracking trên mọi nền tảng, nhãn đã cập nhật.
+
+### 5b. Guideline 2.1 — tài khoản demo không đăng nhập được
+
+Nguyên nhân code (đã sửa 2026-07-24): `PasswordField` bấm **Hiện** đổi `type="text"` mà **thiếu** `autoCapitalize="none" autoCorrect="off" spellCheck={false}` → iOS/iPadOS tự viết hoa chữ đầu, mật khẩu demo `nam nguyen` gõ ra `Nam nguyen` = sai. Xem [07-design-spec §6](../07-design-spec.md).
+
+Nguyên nhân hồ sơ: tài khoản demo khai trong ASC phải **tồn tại thật** trên Supabase prod (`znzgugvfhgmiszqgjulk`) và tự đăng nhập thử được ở `https://forfish.vercel.app/login` TRƯỚC khi nộp. Quy ước hồ sơ demo:
+
+- SĐT 10 số hợp lệ (`isValidVnPhone`), mật khẩu ≥6 ký tự, **không dấu cách, không viết hoa** (né bàn phím máy reviewer).
+- Tạo bằng chính `/dang-ky` (route `/api/auth/signup` → Edge Function `auth-gateway`, email ảo confirm sẵn).
+- Dữ liệu tàu/giấy tờ/sổ nằm **localStorage theo máy** và bị `clearUserScopedData()` xoá khi đổi user → máy reviewer đăng nhập vào sẽ thấy **màn trống**. Review Notes phải hướng dẫn bấm "Thêm tàu của bạn" trước, hoặc nộp kèm chế độ dữ liệu mẫu.
+
+⚠️ `capacitor.config.ts` đang chạy chế độ (a) `server.url` → **sửa web + deploy Vercel là app native ăn ngay**, không cần build lại binary; vẫn phải nộp lại bản build để đóng lỗi rejection.
+
+## 6. KHÔNG đổi
 
 - localStorage keys `forfish.*` (dữ liệu người dùng — giữ nguyên, xem 02 §4).
 - Infra IDs: `forfish-gateway`, `source_page='forfish'`, Supabase project ref, GitHub repo.
 
 ---
 
-**Last updated**: 2026-06-16
+**Last updated**: 2026-07-24

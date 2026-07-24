@@ -4,11 +4,21 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { ChevronRightIcon, UsersIcon } from "@/components/icons";
+import {
+  AnchorIcon,
+  ChevronRightIcon,
+  PhoneIcon,
+  UsersIcon,
+} from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthUser } from "@/lib/use-auth";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
-import { accountDisplayName, deviceCountLine } from "@/lib/account-display";
+import { useBoats } from "@/lib/boat-store";
+import {
+  accountDisplayName,
+  boatCountLine,
+  deviceCountLine,
+} from "@/lib/account-display";
 
 /*
   Tài khoản trên hero — GỌN (sửa 2026-06-11 theo góp ý "design thô"):
@@ -41,6 +51,7 @@ export function HeroAccount() {
   const router = useRouter();
   const { user, phone, ready } = useAuthUser();
   const { assets } = useSdvicoAssets();
+  const { boats } = useBoats();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("auto");
 
@@ -78,6 +89,7 @@ export function HeroAccount() {
     user?.user_metadata?.full_name as string | undefined,
   );
   const deviceLine = deviceCountLine(assets?.products.length);
+  const boatLine = boatCountLine(boats.length);
 
   return (
     <>
@@ -102,24 +114,50 @@ export function HeroAccount() {
         <BottomSheet title="Tài khoản" onClose={() => setOpen(false)}>
           {/* danh tính / đăng nhập */}
           {user && phone ? (
-            <div className="mb-4 surface px-4 py-3">
+            <div className="mb-4 surface px-4 py-3.5">
               {name && (
-                <p className="display text-[1.125rem] font-bold text-navy">
-                  Bác {name}
+                <p className="display text-[1.25rem] font-bold text-navy">
+                  {/* tên trơn — KHÔNG thêm kính ngữ "Bác": data không có
+                      giới tính/tuổi + nhiều "tên" là tổ chức (đại lý/xí
+                      nghiệp/ghe) nên "Bác {tên công ty}" sai. Danh tính ấm
+                      áp đã có pill "Khách hàng SDVICO" lo. */}
+                  {name}
                 </p>
               )}
-              <p className="text-[1rem] font-semibold text-foreground/70">
+              {/* SĐT LUÔN hiện — kể cả khi chưa có tên (account chưa đồng bộ
+                  hồ sơ) thì đây là danh tính duy nhất, cho to rõ */}
+              <p
+                className={`flex items-center gap-1.5 font-semibold text-foreground/70 ${
+                  name ? "mt-0.5 text-[1rem]" : "text-[1.125rem] text-navy"
+                }`}
+              >
+                <PhoneIcon className="h-4 w-4 shrink-0 text-foreground/45" />
                 {prettyPhone(phone)}
               </p>
-              {deviceLine && (
-                <Link
-                  href="/tau"
-                  onClick={() => setOpen(false)}
-                  className="mt-1.5 flex min-h-[2.75rem] items-center gap-1 text-[0.9375rem] font-bold text-sea"
-                >
-                  {deviceLine}
-                  <ChevronRightIcon className="h-4 w-4" />
-                </Link>
+              {/* nhãn nhận diện — mọi tài khoản đều là khách SDVICO (đồng bộ
+                  từ SDWork); cho danh tính đầy hơn khi hồ sơ còn mỏng */}
+              <span className="mt-2 inline-flex items-center rounded-full bg-t1-bg px-2.5 py-1 text-[0.8125rem] font-bold text-t1">
+                Khách hàng SDVICO
+              </span>
+              {(boatLine || deviceLine) && (
+                <div className="mt-3 space-y-2 border-t border-line pt-3">
+                  {boatLine && (
+                    <p className="flex items-center gap-1.5 text-[0.9375rem] font-semibold text-foreground/75">
+                      <AnchorIcon className="h-4 w-4 shrink-0 text-foreground/45" />
+                      {boatLine}
+                    </p>
+                  )}
+                  {deviceLine && (
+                    <Link
+                      href="/tau?tab=san-pham"
+                      onClick={() => setOpen(false)}
+                      className="flex min-h-[2.75rem] items-center gap-1 text-[0.9375rem] font-bold text-sea"
+                    >
+                      {deviceLine}
+                      <ChevronRightIcon className="h-4 w-4" />
+                    </Link>
+                  )}
+                </div>
               )}
             </div>
           ) : (

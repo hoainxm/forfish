@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   accountDisplayName,
+  boatCountLine,
   cleanPersonName,
   deviceCountLine,
 } from "@/lib/account-display";
@@ -35,5 +36,17 @@ describe("deviceCountLine", () => {
   it("0 / null → rỗng, không bày số 0", () => {
     expect(deviceCountLine(0)).toBe("");
     expect(deviceCountLine(null)).toBe("");
+  });
+});
+
+describe("boatCountLine", () => {
+  it("có tàu → câu đếm", () => {
+    expect(boatCountLine(2)).toBe("Đang quản lý 2 tàu");
+    expect(boatCountLine(1)).toBe("Đang quản lý 1 tàu");
+  });
+  it("0 / null / undefined → rỗng", () => {
+    expect(boatCountLine(0)).toBe("");
+    expect(boatCountLine(null)).toBe("");
+    expect(boatCountLine(undefined)).toBe("");
   });
 });

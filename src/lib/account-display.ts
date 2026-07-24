@@ -23,3 +23,9 @@ export function deviceCountLine(count: number | null | undefined): string {
   if (!count || count <= 0) return "";
   return `Đã mua ${count} thiết bị SDVICO`;
 }
+
+/** "Đang quản lý 2 tàu" / "" khi chưa thêm tàu nào (sổ tàu tự ghi của bà con). */
+export function boatCountLine(count: number | null | undefined): string {
+  if (!count || count <= 0) return "";
+  return `Đang quản lý ${count} tàu`;
+}
