@@ -256,11 +256,3 @@ export async function fetchHycomGrids(): Promise<HycomGrids | null> {
     return null;
   }
 }
-
-/**
- * Tương thích ngược: chỉ lưới D20 (độ sâu đẳng nhiệt 20°C). Dùng lại
- * `fetchHycomGrids` để không fetch trùng.
- */
-export async function fetchThermoclineGrid(): Promise<ScalarGrid | null> {
-  return (await fetchHycomGrids())?.d20 ?? null;
-}

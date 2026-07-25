@@ -222,11 +222,21 @@ export const SPECIES_PROFILES: SpeciesProfile[] = [
   { species: "Cá hồng", short: "cá hồng", category: "reef", surfaceSignal: "low", color: "#dc2626", depthBand: "rạn & đáy cứng 12–100 m", sst: [23, 25, 29, 31], chlLog: [-1.0, 0.2], w: { food: 0.15, thermFront: 0.05, chlFront: 0.05, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false },
   { species: "Cá mú (cá song)", short: "cá mú", category: "reef", surfaceSignal: "low", color: "#b91c1c", depthBand: "rạn & đáy cứng 5–50 m", sst: [24, 25, 29, 31], chlLog: [-1.2, 0.1], w: { food: 0.15, thermFront: 0.05, chlFront: 0.05, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false },
   { species: "Cá kẽm", short: "cá kẽm", category: "reef", surfaceSignal: "low", color: "#e11d48", depthBand: "rạn nước trong 2–25 m", sst: [26, 27, 29, 31], chlLog: [-1.2, 0.0], w: { food: 0.15, thermFront: 0.05, chlFront: 0.05, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false },
-  // ── GIÁP XÁC — sống đáy/cửa sông, theo MÙA VỤ + VÙNG, không vẽ điểm giả ──
-  { species: "Tôm bạc (tôm he)", short: "tôm bạc", category: "crustacean", surfaceSignal: "low", color: "#db2777", tempSource: "bottom", depthBand: "đáy bùn cát cửa sông 5–55 m", sst: [24, 26, 30, 33], chlLog: [0.0, 1.4], w: { food: 0.25, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.1, conv: 0.35 }, coldCore: false },
-  { species: "Tôm sú biển", short: "tôm sú", category: "crustacean", surfaceSignal: "low", color: "#be185d", tempSource: "bottom", depthBand: "đáy bùn cát 10–80 m", sst: [22, 25, 30, 34], chlLog: [0.0, 1.5], w: { food: 0.2, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.1, conv: 0.4 }, coldCore: false },
-  { species: "Ghẹ xanh", short: "ghẹ xanh", category: "crustacean", surfaceSignal: "low", color: "#9d174d", tempSource: "bottom", depthBand: "đáy cát bùn cận bờ 4–40 m", sst: [23, 26, 30, 32], chlLog: [0.0, 1.4], w: { food: 0.25, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.05, conv: 0.4 }, coldCore: false },
-  { species: "Cua biển", short: "cua biển", category: "crustacean", surfaceSignal: "low", color: "#831843", tempSource: "bottom", depthBand: "đáy bùn cửa sông 0–20 m", sst: [23, 25, 30, 33], chlLog: [0.2, 1.5], w: { food: 0.2, thermFront: 0.05, chlFront: 0.1, eddy: 0.05, upw: 0.05, conv: 0.55 }, coldCore: false },
+  // ── GIÁP XÁC — sống ĐÁY/CỬA SÔNG, theo MÙA VỤ + VÙNG, không vẽ điểm giả ──
+  //  SỬA SINH HỌC: 4 loài đáy dưới trước để `conv` (hội tụ DÒNG CHẢY MẶT, lưới
+  //  25 km) làm trọng số LỚN NHẤT — sai: chúng sống ĐÁY bùn/cửa sông, dòng mặt
+  //  không gom chúng. Giảm conv về ~0.12 và dồn sang MỒI (phù du/mùn bã — thứ
+  //  thật sự dẫn giáp xác cửa sông) + nước trồi. LƯU Ý: mồi vào bản đồ qua HAI
+  //  đường ĐÃ tính KHÔNG cần trọng số `food`: (1) chlFit→foodLimiter (nhân,
+  //  chlLog cao = nước giàu mồi) và (2) cơ chế `chlFront`. Trọng số `w.food`
+  //  hiện KHÔNG được đọc trong chấm điểm (soft-OR + limiter) → nâng nó chỉ ghi
+  //  Ý ĐỊNH, không đổi số; đòn bẩy THẬT thay conv là `upw` (nước trồi = năng
+  //  suất) + chlFront/chlFit sẵn có. Vì surfaceSignal="low" đã kéo về trung
+  //  tính, thay đổi này chỉ chỉnh HÌNH DÁNG tương đối — validate: không loài nào biến mất.
+  { species: "Tôm bạc (tôm he)", short: "tôm bạc", category: "crustacean", surfaceSignal: "low", color: "#db2777", tempSource: "bottom", depthBand: "đáy bùn cát cửa sông 5–55 m", sst: [24, 26, 30, 33], chlLog: [0.0, 1.4], w: { food: 0.25, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.15, conv: 0.12 }, coldCore: false }, // tôm he đáy cát cửa sông: theo nước giàu mồi + trồi ven bờ, KHÔNG theo hội tụ dòng mặt
+  { species: "Tôm sú biển", short: "tôm sú", category: "crustacean", surfaceSignal: "low", color: "#be185d", tempSource: "bottom", depthBand: "đáy bùn cát 10–80 m", sst: [22, 25, 30, 34], chlLog: [0.0, 1.5], w: { food: 0.2, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.15, conv: 0.13 }, coldCore: false }, // tôm sú đáy bùn cát: mồi đáy + trồi; dòng mặt không dồn con sống đáy
+  { species: "Ghẹ xanh", short: "ghẹ xanh", category: "crustacean", surfaceSignal: "low", color: "#9d174d", tempSource: "bottom", depthBand: "đáy cát bùn cận bờ 4–40 m", sst: [23, 26, 30, 32], chlLog: [0.0, 1.4], w: { food: 0.25, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.15, conv: 0.12 }, coldCore: false }, // ghẹ đáy cát bùn cận bờ: mồi đáy + trồi ven bờ; hội tụ mặt không liên quan
+  { species: "Cua biển", short: "cua biển", category: "crustacean", surfaceSignal: "low", color: "#831843", tempSource: "bottom", depthBand: "đáy bùn cửa sông 0–20 m", sst: [23, 25, 30, 33], chlLog: [0.2, 1.5], w: { food: 0.2, thermFront: 0.05, chlFront: 0.1, eddy: 0.05, upw: 0.15, conv: 0.12 }, coldCore: false }, // cua bùn cửa sông 0–20 m: SỐNG ĐÁY hẳn, mùn bã giàu mồi dẫn; conv 0.55 cũ là sai rõ nhất
   { species: "Ruốc", short: "ruốc", category: "crustacean", surfaceSignal: "medium", color: "#f472b6", depthBand: "tầng mặt ven bờ 0–30 m", sst: [22, 24, 29, 31], chlLog: [-0.3, 0.9], w: { food: 0.55, thermFront: 0.1, chlFront: 0.2, eddy: 0.15, upw: 0.25, conv: 0.15 }, coldCore: true },
 ];
 
