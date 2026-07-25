@@ -102,7 +102,7 @@ src/
   data/
     ports.ts            # 10 cảng + tọa độ đã kiểm chứng Open-Meteo
     vn-maritime-border.ts # Ranh giới biển VN — 75 điểm CHUẨN (user cấp 2026-06-10, "borderpoints.json"), Campuchia → Trường Sa → Hoàng Sa → Vịnh Bắc Bộ → Móng Cái; nguồn cho geofence cảnh báo IUU
-    vn-fishing-zones.ts # Ranh giới VÙNG LỘNG (NĐ 26/2019, tàu 12–<15m) — polygon 36 đỉnh do SDVico cấp (data.json cat map/VungLong, 2026-07-25); vungLongGeoJSON → lớp map nét đứt teal (toggle panel Thời tiết). THAM KHẢO, không phải căn cứ pháp lý
+    vn-fishing-zones.ts # Ranh giới VÙNG LỘNG (NĐ 26/2019, tàu 12–<15m) — polygon 36 đỉnh do SDVico cấp (data.json cat map/VungLong, 2026-07-25); vungLongGeoJSON → lớp map nét đứt teal (toggle panel Cài đặt → Lớp bản đồ). THAM KHẢO, không phải căn cứ pháp lý
     fish-seasons.ts     # Cá mùa này — 7 vùng biển (polygon + labelAt) × 40 loài × tháng, nguồn RIMF/báo ngành THAM KHẢO; regionAt (chứa)/nearestRegionWithin (vùng gần nhất ≤2° — PHỦ KÍN toàn EEZ, không lỗ hổng)/fishInRegion (có test)
     port-prices.ts      # Giá cá tĩnh = FALLBACK cho /api/port-prices (khi VASEP fail/parse vỡ); nguồn báo công khai, có ngày tổng hợp
     supplies.ts         # Danh mục vật tư THAM KHẢO
