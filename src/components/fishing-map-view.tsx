@@ -33,6 +33,14 @@ import {
   SOVEREIGNTY_LABELS,
   type OceanLayerId,
 } from "@/lib/ocean-map";
+import {
+  COAST_DATA_URL,
+  OFFLINE_COAST_COLOR,
+  OFFLINE_LAND_COLOR,
+  nextFailCount,
+  offlineBasemapNote,
+  shouldUseOfflineBasemap,
+} from "@/lib/offline-basemap";
 import { type SeaLevel } from "@/lib/sea";
 import {
   loadPlaces,
@@ -569,6 +577,46 @@ export default function FishingMapView() {
   // hạng độ sâu tại điểm đang xem (null = chưa biết/không cảnh báo)
   const [depth, setDepth] = useState<DepthClass | null>(null);
 
+  /* ── MẤT SÓNG: nền tối giản trong máy ───────────────────────────────────
+     Ô bản đồ nền lấy từ host ngoài nên mất sóng là nền trắng — bà con có số
+     gió sóng mà không thấy bờ, không thấy đảo. Đếm ô nền tải trượt + nghe
+     máy báo mất mạng để bật hình bờ biển lưu trong máy (lib/offline-basemap). */
+  const [netOnline, setNetOnline] = useState(true);
+  const [basemapFails, setBasemapFails] = useState(0);
+  useEffect(() => {
+    const sync = () => setNetOnline(navigator.onLine);
+    sync();
+    // có sóng lại thì cho nền thật một cơ hội mới (xoá số ô trượt cũ)
+    const back = () => {
+      setNetOnline(true);
+      setBasemapFails(0);
+    };
+    window.addEventListener("online", back);
+    window.addEventListener("offline", sync);
+    return () => {
+      window.removeEventListener("online", back);
+      window.removeEventListener("offline", sync);
+    };
+  }, []);
+  const basemapHealth = { online: netOnline, fails: basemapFails };
+  const offlineBase = shouldUseOfflineBasemap(basemapHealth);
+  const offlineNote = offlineBasemapNote(basemapHealth);
+  /** Hình bờ + đảo: chỉ nạp khi CẦN (mất sóng), không tốn dữ liệu lúc bình thường */
+  const [coastData, setCoastData] = useState<GeoJSON.FeatureCollection | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!offlineBase || coastData) return;
+    let alive = true;
+    fetch(COAST_DATA_URL)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => alive && j && setCoastData(j as GeoJSON.FeatureCollection))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [offlineBase, coastData]);
+
   /** Bay tới điểm, dồn tâm lên nửa trên màn hình để sheet không che */
   const flyToPoint = useCallback((lon: number, lat: number, zoom?: number) => {
     const h = mapRef.current?.getContainer().clientHeight ?? 600;
@@ -847,6 +895,22 @@ export default function FishingMapView() {
         // biển VN nhưng tự do di chuyển/zoom đi nơi khác)
         minZoom={2}
         style={{ width: "100%", height: "100%" }}
+        // Ô nền không về (mất sóng / wifi cảng "có mà không ra") → đếm để bật
+        // hình bờ biển lưu trong máy. Chỉ tính ô của lớp NỀN, không tính lớp
+        // ảnh vệ tinh (ảnh thiếu ô là chuyện thường, mây che cũng trống).
+        onError={(e) => {
+          const src = (e as unknown as { sourceId?: string }).sourceId;
+          if (src === "basemap") setBasemapFails((n) => nextFailCount(n, false));
+        }}
+        // Có Ô NỀN VỀ THẬT (`tile` có mặt = một ô vừa tải xong) → đường đã
+        // thông, xoá số ô trượt. KHÔNG dùng cờ "source đã tải xong": ô lỗi
+        // cũng làm cờ đó bật, sẽ xoá nhầm ngay sau khi vừa đếm lỗi.
+        onSourceData={(e) => {
+          const d = e as unknown as { sourceId?: string; tile?: unknown };
+          if (d.sourceId === "basemap" && d.tile) {
+            setBasemapFails((n) => nextFailCount(n, true));
+          }
+        }}
         onClick={(e) => {
           // đổi điểm xem — tuyến cũ GIỮ NGUYÊN trên bản đồ (hội đồng UX
           // 2026-06-11: tuyến tính mất 10s, không tự ý vứt vì một cú chạm
@@ -870,6 +934,27 @@ export default function FishingMapView() {
           flyToPoint(lon, lat);
         }}
       >
+        {/* NỀN TỐI GIẢN KHI MẤT SÓNG — hình bờ + đảo lưu trong máy. Đặt Ở ĐẦU
+            danh sách để nằm DƯỚI mọi lớp khác (ranh giới, cá, mũi tên gió).
+            Có mạng thì KHÔNG vẽ (nền thật đủ tốt, vẽ chồng chỉ gây rối). */}
+        {offlineBase && coastData && (
+          <Source id="offline-coast" type="geojson" data={coastData}>
+            <Layer
+              id="offline-coast-fill"
+              type="fill"
+              paint={{ "fill-color": OFFLINE_LAND_COLOR }}
+            />
+            <Layer
+              id="offline-coast-line"
+              type="line"
+              paint={{
+                "line-color": OFFLINE_COAST_COLOR,
+                "line-width": 1,
+              }}
+            />
+          </Source>
+        )}
+
         {/* ranh giới VÙNG LỘNG (NĐ 26/2019, cho tàu 12–<15m) — THAM KHẢO, dữ
             liệu SDVico. Vẽ TRƯỚC ranh giới ngoài để cam-đỏ IUU luôn nổi trên.
             Màu teal + nét đứt, tách hẳn cam-đỏ độc quyền của ranh giới ngoài. */}
@@ -1295,6 +1380,20 @@ export default function FishingMapView() {
               Dự báo cá chưa tải được — chạm để thử lại
             </span>
           </button>
+        )}
+
+        {/* MẤT SÓNG → nói rõ bản đồ đang là hình lưu trong máy, đừng để bà con
+            tưởng nền trắng là "biển trống" hay app hỏng. */}
+        {offlineNote && (
+          <div className="pointer-events-none max-w-[calc(100vw-6rem)] self-start rounded-xl bg-warn-bg px-3 py-1.5 shadow-md">
+            <p className="text-[0.9375rem] font-bold leading-snug text-warn">
+              {offlineNote}
+            </p>
+            <p className="text-[0.8125rem] font-semibold leading-snug text-warn">
+              Bờ, đảo, ranh giới và độ sâu vẫn đúng chỗ. Có sóng lại bản đồ tự
+              hiện rõ như cũ.
+            </p>
+          </div>
         )}
 
       </div>

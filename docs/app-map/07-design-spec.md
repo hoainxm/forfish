@@ -236,6 +236,39 @@ Trước: máy chỉ giữ được thứ bà con TÌNH CỜ mở xem (chạm đ
 
 Bỏ fallback "bản lưu gần nhất": xin 16 ngày mà máy chỉ có 3 ngày thì trước đây đưa lưới 3 ngày trong khi chip vẫn sáng "16 ngày". Nay không có đúng khung → thanh giờ báo: **"Chưa tải được khung {N} ngày — máy chưa lưu khung này."** + nút "Thử lại"; nếu máy có khung khác thì liệt kê thật **"Trong máy đang có: [3 ngày] [7 ngày]"**, chạm là đổi sang đúng khung đó (chip khung ngày đổi theo, không nói dối).
 
+### 10.3 BẢN ĐỒ khi mất sóng — không được để màn hình trắng (2026-07-25m)
+
+Lỗ hổng cuối của mạch §10.1–10.2: số liệu đã nói thật, nhưng **cái nền dưới nó thì biến mất**. Mọi ô bản đồ đến từ host ngoài mà Service Worker không giữ được (chỉ giữ same-origin) → mất sóng là nền trắng: bà con có số gió sóng và điểm nóng cá, nhưng **mũi tên gió lơ lửng giữa khoảng trắng**, không thấy bờ, không thấy đảo. Đây là lỗi AN TOÀN (mất định hướng), không phải lỗi thẩm mỹ.
+
+**A. Bà con THẤY GÌ khi mất sóng** (`lib/offline-basemap.ts` + `public/data/vn-coast.v1.json`)
+
+| Lớp | Có khi mất sóng? | Vì sao |
+|---|---|---|
+| Nền nước (màu biển kín màn hình) | **Luôn có** | layer `sea-bg` nằm trong style, không cần tải gì |
+| Hình **bờ biển + đảo** (gồm Hoàng Sa, Trường Sa) | **Luôn có** | GeoJSON 215 KB nằm sẵn trong máy từ lúc cài app (SW pre-cache) |
+| Nhãn chủ quyền (BIỂN ĐÔNG, QUẦN ĐẢO HOÀNG SA…) | **Luôn có** | nhãn HTML, không phải ô bản đồ |
+| Ranh giới biển VN (cam-đỏ) + vùng lộng | **Luôn có** | toạ độ nằm trong mã nguồn |
+| Đường đẳng sâu + **số mét** | **Luôn có** (lớp Hải đồ) | `isobaths.v1.json` + font chữ đều pre-cache |
+| Vị trí tàu mình, thước đo, điểm đã ghim | **Luôn có** | GPS + localStorage |
+| Gió/sóng, điểm nóng cá, tin bão | Bản đã lưu (§10.1–10.2) | — |
+| Hải đồ EMODnet, phao đèn, ảnh vệ tinh | Chỉ vùng **đã xem lúc còn sóng** (hải đồ/phao) · ảnh vệ tinh thì không | tile đi qua `/api/tiles/*` mới cache được; NASA/CARTO vẫn cross-origin |
+
+**B. Khi nào bật nền trong máy** — `shouldUseOfflineBasemap({online, fails})`: máy báo mất mạng → bật **ngay**; máy báo có mạng nhưng ô nền trượt ≥ **3 ô** (wifi cảng "có mà không ra") → cũng bật. Tải được một ô là đếm về 0 và tắt lại. **Có sóng thì KHÔNG vẽ** — nền thật đủ tốt, vẽ chồng chỉ rối. Lớp bờ đặt DƯỚI mọi lớp khác (ranh giới, cá, mũi tên gió vẫn nổi trên).
+
+**C. Chữ báo cho bà con** (badge góc trái map, nền warn, cùng chỗ với badge tuổi lớp cá)
+
+| Trạng thái | Chữ |
+|---|---|
+| Mất mạng hẳn | **"Mất sóng. Đang dùng hình bờ biển lưu trong máy."** |
+| Có mạng mà ô nền không về | **"Mạng yếu, bản đồ chưa tải về được. Đang dùng hình bờ biển lưu trong máy."** |
+| Cả hai | + dòng nhỏ: "Bờ, đảo, ranh giới và độ sâu vẫn đúng chỗ. Có sóng lại bản đồ tự hiện rõ như cũ." |
+
+Không dùng từ kỹ thuật (tile / offline / cache / bản đồ nền) — có test chặn jargon lọt vào câu này.
+
+**D. Chữ/số trên bản đồ** — `glyphs` trước trỏ CDN `fonts.openmaptiles.org`; dò 2026-07-25 thấy CDN đó **trả trang HTML chuyển hướng thay vì file font** → nhãn "50 m" trên đường đẳng sâu **chưa từng hiện, kể cả lúc có sóng**. Nay tự host `public/fonts/` (Noto Sans Regular + Bold, giấy phép OFL) → chữ hiện, và mất sóng vẫn còn.
+
+**E. Trần bộ nhớ** — ô bản đồ đi qua `/api/tiles/*` được giữ trong kho riêng `sdfish-tiles-v1`, **trần 600 ô (~12 MB)**, quá thì bỏ ô cũ nhất. Xem bản đồ lâu KHÔNG được làm đầy máy bà con (cùng nguyên tắc với "máy hết chỗ nhớ" ở §10.2).
+
 ---
 
 **Last updated**: 2026-06-16
@@ -271,3 +304,4 @@ Bỏ fallback "bản lưu gần nhất": xin 16 ngày mà máy chỉ có 3 ngày
 <!-- re-verified: 2026-06-16 — /login = SĐT + mật khẩu (webhook provision, KHÔNG email/OTP); nav/screen map/object model không đổi -->
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): thêm lớp BÃO trên map (vùng ảnh hưởng polygon đỏ mờ + đường đi track gạch đứt, dưới Marker tâm bão) từ GDACS; + fix dự báo cá maxDuration/ISR. Screen map/nav/object model KHÔNG đổi cấu trúc -->
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): legend cá thành BỘ LỌC kéo-thả 2 đầu (chỉ hiện ô [lo,hi]% khả năng có cá). Độ sâu raster KHÔNG lọc được (giữ legend tĩnh). Screen map/object model KHÔNG đổi cấu trúc -->
+<!-- re-verified: 2026-07-25m — BẢN ĐỒ LÚC MẤT SÓNG (xem §10.3): (1) style thêm layer nền nước sea-bg (không còn màn hình trắng); (2) nền tối giản bờ+đảo public/data/vn-coast.v1.json bật qua lib/offline-basemap.ts khi mất mạng hoặc ≥3 ô nền trượt, đặt DƯỚI mọi lớp khác, có mạng thì không vẽ; (3) badge warn "Mất sóng. Đang dùng hình bờ biển lưu trong máy." cùng chỗ badge tuổi lớp cá; (4) glyph font tự host public/fonts (CDN openmaptiles đã chết → nhãn số mét trước nay KHÔNG hiện); (5) hải đồ + phao đèn qua /api/tiles/* để SW giữ được, kho ô riêng trần 600 ô; sw.js → sdfish-v4. -->

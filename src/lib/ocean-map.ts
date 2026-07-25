@@ -10,6 +10,8 @@
  * cập nhật hằng ngày, trễ ~2 ngày — đã ghi rõ với người dùng trong UI).
  */
 
+import { proxyTileTemplate } from "@/lib/tile-proxy";
+
 export type OceanLayerId = "sst" | "chlorophyll" | "bathymetry" | "truecolor";
 
 export type OceanLayerDef = {
@@ -89,8 +91,9 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
     lagDays: 0,
     dated: false,
     opacity: 1,
-    tiles: () =>
-      "https://tiles.emodnet-bathymetry.eu/2020/baselayer/web_mercator/{z}/{x}/{y}.png",
+    // Đi qua cầu same-origin /api/tiles/chart/... để service worker giữ lại
+    // được ô đã xem (mất sóng vẫn còn hải đồ vùng vừa xem) — xem lib/tile-proxy.
+    tiles: () => proxyTileTemplate("chart"),
     maxNativeZoom: 10,
   },
   truecolor: {
@@ -242,6 +245,11 @@ export function buildMapStyle(
   };
 
   const layers: object[] = [
+    // NỀN NƯỚC vẽ trước mọi thứ: ô bản đồ nền là host ngoài, mất sóng thì không
+    // về — không có lớp này thì màn hình TRẮNG BỐC. Có nó thì tệ nhất bà con
+    // cũng thấy "biển" đúng màu, rồi lớp bờ trong máy vẽ hình đất lên (xem
+    // lib/offline-basemap.ts).
+    { id: "sea-bg", type: "background", paint: { "background-color": SEA_MASK_COLOR } },
     { id: "basemap", type: "raster", source: "basemap" },
     {
       id: "sea-mask",
@@ -326,7 +334,8 @@ export function buildMapStyle(
   if (seamarks) {
     sources["seamarks"] = {
       type: "raster",
-      tiles: ["https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"],
+      // same-origin qua cầu tile → SW giữ được (xem lib/tile-proxy.ts)
+      tiles: [proxyTileTemplate("seamark")],
       tileSize: 256,
       minzoom: 8,
     };
@@ -342,8 +351,14 @@ export function buildMapStyle(
 
   return {
     version: 8 as const,
-    // font cho nhãn đẳng sâu (CDN miễn phí của OpenMapTiles)
-    glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
+    // Font chữ trên bản đồ (số mét đường đẳng sâu…) TỰ HOST trong public/fonts.
+    // Trước đây trỏ CDN fonts.openmaptiles.org — CDN đó nay trả trang HTML
+    // chuyển hướng thay vì file .pbf (dò 2026-07-25) nên nhãn KHÔNG hiện, và dù
+    // còn sống thì mất sóng cũng mất chữ vì SW không giữ được host ngoài.
+    // Fontstack có sẵn: "Noto Sans Regular", "Noto Sans Bold" (dải 0-255,
+    // 256-511, 7680-7935 — đủ số, chữ Latin và dấu tiếng Việt). Thêm dải/kiểu
+    // khác thì tải thêm .pbf vào public/fonts/<fontstack>/<dải>.pbf.
+    glyphs: "/fonts/{fontstack}/{range}.pbf",
     sources,
     layers,
   };

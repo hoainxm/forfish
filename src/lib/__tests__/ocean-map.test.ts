@@ -4,6 +4,7 @@ import {
   formatDateVN,
   latestAvailableDate,
   OCEAN_LAYERS,
+  SEA_MASK_COLOR,
 } from "../ocean-map";
 
 describe("latestAvailableDate", () => {
@@ -56,14 +57,41 @@ describe("OCEAN_LAYERS", () => {
 describe("buildMapStyle", () => {
   const now = new Date("2026-06-10T12:00:00Z");
 
-  it("không có lớp dữ liệu → basemap + mask chủ quyền + phao đèn", () => {
+  it("không có lớp dữ liệu → nền nước + basemap + mask chủ quyền + phao đèn", () => {
     const style = buildMapStyle(null, now);
     expect(Object.keys(style.sources)).toEqual([
       "basemap",
       "sea-mask",
       "seamarks",
     ]);
-    expect(style.layers).toHaveLength(3);
+    expect(style.layers).toHaveLength(4);
+  });
+
+  it("lớp NỀN NƯỚC vẽ đầu tiên — mất sóng không được ra màn hình trắng", () => {
+    const layers = buildMapStyle(null, now).layers as {
+      id: string;
+      type: string;
+      paint?: Record<string, unknown>;
+    }[];
+    expect(layers[0].id).toBe("sea-bg");
+    expect(layers[0].type).toBe("background");
+    expect(layers[0].paint?.["background-color"]).toBe(SEA_MASK_COLOR);
+  });
+
+  it("font chữ bản đồ TỰ HOST (same-origin) — mất sóng vẫn còn số mét", () => {
+    const style = buildMapStyle("bathymetry", now) as unknown as {
+      glyphs: string;
+    };
+    expect(style.glyphs.startsWith("/fonts/")).toBe(true);
+    expect(style.glyphs).not.toContain("://");
+  });
+
+  it("hải đồ + phao đèn đi qua cầu same-origin (service worker giữ được)", () => {
+    const style = buildMapStyle("bathymetry", now);
+    const chart = style.sources["ocean-data"] as { tiles: string[] };
+    const marks = style.sources["seamarks"] as { tiles: string[] };
+    expect(chart.tiles[0]).toBe("/api/tiles/chart/{z}/{x}/{y}");
+    expect(marks.tiles[0]).toBe("/api/tiles/seamark/{z}/{x}/{y}");
   });
 
   it("tắt phao đèn → không có source seamarks; ranh giới/nhãn không có công tắc", () => {
