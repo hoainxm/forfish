@@ -4,7 +4,7 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-06-16
+last_verified: 2026-07-25
 ttl_days: 90
 gate: warn
 ```
@@ -189,6 +189,7 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 <!-- re-verified: 2026-06-23f — sheet: tap nở dần peek→half→full, ở full tap lần nữa thu về peek (không còn tap vô tác dụng); banner bão overlay tự thu thành chip sau 3s kể từ lúc check bão về (refresh/back lại map), chạm mở lại -->
 <!-- re-verified: 2026-06-23g — panel rail width theo nội dung: Điểm đã lưu + Chọn loài rộng w-22rem (max calc(100vw-4.25rem)) cho khỏi chồng chéo/dễ nhìn; panel đơn giản (Hải đồ/Thời tiết/Ngư trường-menu) giữ w-16.5rem cân đối -->
 <!-- re-verified: 2026-07-25 — thanh giờ Windy (gió/sóng) thêm HÀNG CHỌN KHUNG NGÀY 3/5/7/10/16 (chip đầy đủ chiều ngang) ngay trên slider; nhãn mốc slider động theo khung (Bây giờ → N ngày); đổi khung = tải lại lưới tầm mới. forecast-grid: bước tăng dần 3/6/12h + sóng ncep_gfswave025 -->
+<!-- re-verified: 2026-07-25b — api/fish-forecast route thêm fetch ETOPO (cổng độ sâu chặn loài xa bờ). BACKEND-only: không đổi màn hình/mật độ/trạng thái nào; lớp cá trên map chỉ bớt điểm nóng sát bờ cho loài xa bờ. -->
 <!-- re-verified: 2026-06-23h — rail 4→6 nút: thêm Công cụ (đo khoảng cách 2 điểm, vẽ đường+mốc trên map, kết quả theo đơn vị) + Cài đặt (đơn vị hải lý/km + hệ toạ độ dd/dms qua lib/map-prefs store dùng chung; đổi thì peek/whereLine/điểm-cá-gần/dẫn-đường/đo đổi theo). Icons SettingsIcon/RulerIcon. Test map-prefs.test.ts -->
 <!-- re-verified: 2026-06-23i — công cụ đo: thêm nhãn khoảng cách NGAY GIỮA đường nối 1→2 trên bản đồ (marker midpoint) -->
 <!-- re-verified: 2026-06-16 — /login = SĐT + mật khẩu (webhook provision, KHÔNG email/OTP); nav/screen map/object model không đổi -->
