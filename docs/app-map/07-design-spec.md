@@ -205,6 +205,37 @@ Bỏ fallback "bản lưu mới nhất của bất kỳ toạ độ nào". Chỉ
 
 **F. Đồng hồ màn hình** — `fishing-map-view` + `storm-banner` giữ `nowMs` nhích 5 phút/lần: app mở suốt chuyến thì "Hôm nay" và tuổi tin bão vẫn tự trôi.
 
+### 10.2 Chuẩn bị đi biển + tuổi lớp cá (2026-07-25j)
+
+Cùng mạch §10.1, ba việc: (A) lớp cá phải biết mình cũ, (B) biến "16 ngày offline" từ may rủi thành lời hứa, (C) lưới gió/sóng không được đưa khung ngày khác.
+
+**A. Badge TUỔI LỚP CÁ** (`lib/fish-age.ts` → `fishForecastAge`, dùng ở `fishing-map-view` + panel Ngư trường + thẻ cá trong sheet)
+
+`/api/fish-forecast` được Service Worker giữ lại (network-first) nên mất sóng vẫn vẽ điểm nóng — trước đây payload không có mốc nào nên bản 10 ngày trước trông y hệt bản mới. Hai mốc TÁCH BẠCH: `date` = ngày ẢNH vệ tinh (nguồn trễ sẵn ~2 ngày) · `generatedAt` = lúc máy chủ TÍNH = lúc máy lấy về.
+
+| Trạng thái | Điều kiện | Hiển thị (badge góc trái map, dưới rail) |
+|---|---|---|
+| Bình thường | ảnh ≤ 5 ngày (`FISH_STALE_DAYS`) | nền card: **"Bản đồ cá — Ảnh ngày D/M (N ngày trước) · lấy về HH:MM ngày D/M"** |
+| **Cũ** | ảnh > 5 ngày **hoặc** ngày ảnh hỏng | **nền warn**: "Bản đồ cá CŨ — Ảnh ngày D/M (12 ngày trước) · lấy về HH:MM ngày D/M" + dòng "Có sóng lại máy sẽ tự lấy bản mới." Panel Ngư trường hiện thêm khối warn cùng ý. |
+| Không rõ lúc lấy | payload cũ, thiếu `generatedAt` | "… · **chưa rõ lấy về lúc nào**" — KHÔNG đoán là vừa lấy |
+
+Thẻ cá trong sheet: dòng "Nước 28°C · mồi dày — Ảnh ngày … · lấy về …", chuyển màu warn + "(số cũ trong máy)" khi cũ. Toggle "Dự báo cá (PFZ)" bỏ chữ kỹ thuật "cache 6h", thay bằng chính dòng tuổi này.
+
+**B. Nút CHUẨN BỊ ĐI BIỂN** (`lib/pretrip.ts` + thẻ trong `ra-khoi-controls.tsx`)
+
+Trước: máy chỉ giữ được thứ bà con TÌNH CỜ mở xem (chạm điểm / bật lớp gió) → không ai biết trong máy có gì lúc rời bờ. Nay ở Ra khơi có **một nút to duy nhất**, neo mép TRÁI ngang rail (ẩn khi mở panel hoặc thu rail — giữ map sạch).
+
+- Nút (min-h 56px, nền `--t1`): **"Chuẩn bị đi biển"** → khi chạy: **"Đang tải về máy…"** + thanh tiến trình + dòng "{việc đang làm} (3/7)", vd "Gió sóng — Cảng nhà (1/7)", "Bản đồ cá (5/7)", "Gió sóng cả vùng biển — 16 ngày (7/7)".
+- Tải sẵn: gió sóng 16 ngày cho **chỗ đang xem + mọi điểm đã ghim** (gộp các chỗ cùng ô 0,25°) · **bản đồ cá** · **lưới gió/sóng khung 3 / 7 / 16 ngày** (`PRETRIP_GRID_DAYS`; không lấy đủ 5 khung cho khỏi tốn sóng + chỗ nhớ).
+- Câu kết (nền ok, 16px đậm): **"Xong. Máy giữ dự báo tới ngày D/M cho N chỗ."** · có phần hỏng: thêm "Còn N phần chưa tải được — có sóng thì làm lại." · máy đầy: **"Máy hết chỗ nhớ — xoá bớt điểm đã lưu rồi làm lại."** · không tải được gì: "Chưa tải được gì — kiểm tra sóng rồi làm lại."
+- **Dòng thường trực** (18px đậm, luôn thấy dưới nút): **"Trong máy: dự báo tới D/M · N chỗ"** · chưa có gì: "Trong máy: chưa có dự báo nào" · bản lưu quá hạn: "Trong máy: dự báo đã qua ngày hết".
+- Ghi chú nhỏ: "Bấm lúc còn sóng ở bờ — ra khơi mất sóng vẫn xem lại được số đã tải."
+- Vỏ offline: `public/sw.js` pre-cache thêm `/ngu-truong` (bump `SDFISH_CACHE_V` → `sdfish-v3`) — trước đây mở app giữa biển chỉ về được trang chủ.
+
+**C. Lưới gió/sóng — đúng KHUNG NGÀY đã xin** (`lib/forecast-grid.ts`)
+
+Bỏ fallback "bản lưu gần nhất": xin 16 ngày mà máy chỉ có 3 ngày thì trước đây đưa lưới 3 ngày trong khi chip vẫn sáng "16 ngày". Nay không có đúng khung → thanh giờ báo: **"Chưa tải được khung {N} ngày — máy chưa lưu khung này."** + nút "Thử lại"; nếu máy có khung khác thì liệt kê thật **"Trong máy đang có: [3 ngày] [7 ngày]"**, chạm là đổi sang đúng khung đó (chip khung ngày đổi theo, không nói dối).
+
 ---
 
 **Last updated**: 2026-06-16
@@ -234,6 +265,7 @@ Bỏ fallback "bản lưu mới nhất của bất kỳ toạ độ nào". Chỉ
 <!-- covers: lib/forecast-cache.ts (offline localStorage forfish.fc.*) — chưa có ops doc riêng, đủ mô tả ở đây + 02-architecture khi mạch fish-predict-viec4 sync xong. -->
 <!-- re-verified: 2026-07-25h — OFFLINE mở rộng: lớp gió/sóng WINDY (forecast-grid) cũng cache localStorage theo khung ngày; mất mạng kéo thanh giờ vẫn xem được bản đã tải, thanh giờ hiện "· bản lưu (offline)". Lưới đã downsample (~58 khung/16 ngày) nên nhẹ. -->
 <!-- re-verified: 2026-07-25i — TRẠNG THÁI MẤT SÓNG nói thật (xem §10.1): (1) tin bão tách 3 trạng thái qua lib/storms.ts stormStatus + ngưỡng 12h, banner/panel/marker đều đọc checkedAt — bỏ câu "đã kiểm tra" và "cập nhật vừa xong"; (2) nhãn ngày so ngày thật qua lib/day-labels.ts (dayLabel/chipLabel/isPastDay), chip ngày đã qua mờ + disabled, thanh giờ Windy so ngày thật; (3) khối "Gió/Sóng lúc này" đổi tiêu đề "đo lúc HH:MM ngày D/M" khi xem bản lưu, chỉ báo bản lưu 13px→17px kèm giờ lưu; (4) fetchSeaPoint bỏ fallback loadLatest (không mượn số chỗ khác), chỗ chưa lưu → "Chỗ này chưa có số nào lưu trong máy"; (5) assessForecast/applyBiasCorrection/forecastConfidence tính lead từ ngày thật (leadOf). -->
+<!-- re-verified: 2026-07-25j — CHUẨN BỊ ĐI BIỂN + tuổi lớp cá (xem §10.2): (1) /api/fish-forecast trả thêm generatedAt, lib/fish-age.ts tính tuổi → badge "Bản đồ cá — Ảnh ngày … · lấy về …" (nền warn khi ảnh > 5 ngày — mức đo được còn tin cậy: tương quan ~0.976 ở lead 5 ngày), panel Ngư trường bỏ chữ "cache 6h", thẻ cá trong sheet nói cả hai mốc; (2) thẻ "Chuẩn bị đi biển" ở Ra khơi (lib/pretrip.ts): 1 nút to + tiến trình + câu kết "Xong. Máy giữ dự báo tới ngày D/M cho N chỗ." + dòng thường trực "Trong máy: dự báo tới D/M · N chỗ"; sw.js pre-cache thêm /ngu-truong (SDFISH_CACHE_V v3); (3) forecast-grid chỉ lùi về ĐÚNG khung ngày đã lưu, thiếu thì nói thật + liệt kê khung đang có; (4) forecast-cache: trim TRƯỚC setItem + xử lý QuotaExceeded, saveForecast trả boolean (UI báo "máy hết chỗ"), bỏ hẳn loadLatest. -->
 <!-- re-verified: 2026-06-23h — rail 4→6 nút: thêm Công cụ (đo khoảng cách 2 điểm, vẽ đường+mốc trên map, kết quả theo đơn vị) + Cài đặt (đơn vị hải lý/km + hệ toạ độ dd/dms qua lib/map-prefs store dùng chung; đổi thì peek/whereLine/điểm-cá-gần/dẫn-đường/đo đổi theo). Icons SettingsIcon/RulerIcon. Test map-prefs.test.ts -->
 <!-- re-verified: 2026-06-23i — công cụ đo: thêm nhãn khoảng cách NGAY GIỮA đường nối 1→2 trên bản đồ (marker midpoint) -->
 <!-- re-verified: 2026-06-16 — /login = SĐT + mật khẩu (webhook provision, KHÔNG email/OTP); nav/screen map/object model không đổi -->

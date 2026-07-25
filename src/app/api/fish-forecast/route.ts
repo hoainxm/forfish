@@ -115,8 +115,12 @@ export async function GET() {
     }
 
     const month = new Date().getMonth() + 1;
-    return Response.json(
-      buildFishForecast(sst, chl, sla, month, {
+    // `generatedAt` = LÚC TÍNH bản đồ này (khác `date` = ngày ẢNH vệ tinh).
+    // Bắt buộc phải có: service worker giữ lại response, ra biển mất sóng vẫn vẽ
+    // được điểm nóng — không có mốc này thì bản 10 ngày trước trông y hệt bản mới.
+    // Route có ISR 6h nên mốc đi kèm bản đã tính, đúng tuổi thật của dữ liệu.
+    return Response.json({
+      ...buildFishForecast(sst, chl, sla, month, {
         anom,
         cur,
         thermo,
@@ -124,7 +128,8 @@ export async function GET() {
         bottomTemp,
         deepTemp,
       }),
-    );
+      generatedAt: new Date().toISOString(),
+    });
   } catch {
     return Response.json({ ok: false });
   }

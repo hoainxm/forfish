@@ -32,7 +32,7 @@ export type SeaPointConditions = {
 };
 
 /** Namespace localStorage cho dự báo điểm-chạm (offline) */
-const POINT_NS = "point";
+export const POINT_NS = "point";
 
 /**
  * Tầm dự báo tối đa = TRẦN của nguồn: gió/mưa best-match (GFS 16 ngày) và SÓNG

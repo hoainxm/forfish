@@ -10,7 +10,7 @@
 */
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   OCEAN_LAYERS,
   OCEAN_LAYER_ORDER,
@@ -22,11 +22,20 @@ import { SPECIES_META } from "@/lib/fish-predict";
 import type { StormStatus } from "@/lib/storms";
 import { clockVN } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
+import {
+  doneLine,
+  runPretrip,
+  savedLine,
+  savedSummary,
+  type PretripPoint,
+  type PretripProgress,
+} from "@/lib/pretrip";
 import { useMapPrefs, setMapPrefs } from "@/lib/map-prefs";
 import { FishSpeciesContent } from "@/components/fish-species-sheet";
 import { MyPlacesContent } from "@/components/my-places-sheet";
 import {
   AlertIcon,
+  AnchorIcon,
   ChevronLeftIcon,
   CheckIcon,
   ChevronRightIcon,
@@ -71,6 +80,7 @@ export function RaKhoiControls({
   onFish,
   fishSpecies,
   fishLocked,
+  fishAge,
   species,
   regionShorts,
   onPickSpecies,
@@ -87,6 +97,7 @@ export function RaKhoiControls({
   measureCount,
   measureResult,
   onClearMeasure,
+  pretripPoints,
 }: {
   layerId: OceanLayerId;
   onLayer: (id: OceanLayerId) => void;
@@ -101,6 +112,8 @@ export function RaKhoiControls({
   fishSpecies: string | null;
   /** chưa đăng nhập → khoá chọn loài + dải khả năng (đồng bộ với sheet) */
   fishLocked: boolean;
+  /** tuổi bản đồ cá đang xem (lib/fish-age) — null khi chưa tải được bản nào */
+  fishAge: { label: string; warn: boolean } | null;
   /** danh sách loài đang vụ (tên ngắn) — để chọn loài ngay trong panel */
   species: string[];
   regionShorts: Set<string>;
@@ -124,6 +137,8 @@ export function RaKhoiControls({
   /** kết quả đã định dạng theo đơn vị đang chọn (null khi chưa đủ 2 điểm) */
   measureResult: { dist: string; dir: string } | null;
   onClearMeasure: () => void;
+  /** các chỗ nút "Chuẩn bị đi biển" tải sẵn: cảng nhà, điểm ghim, chỗ đang xem */
+  pretripPoints: PretripPoint[];
 }) {
   const [open, setOpen] = useState<PanelId | null>(null);
   const [collapsed, setCollapsed] = useState(false); // ẩn/hiện rail như menu bản đồ
@@ -173,6 +188,14 @@ export function RaKhoiControls({
 
   return (
     <div className="pointer-events-none relative flex justify-end gap-2">
+      {/* CHUẨN BỊ ĐI BIỂN — neo mép TRÁI, cùng hàng với rail. Ẩn khi đang mở
+          panel hoặc đã thu rail (giữ bản đồ sạch, không đè panel). */}
+      {!open && !collapsed && (
+        <div className="pointer-events-auto absolute left-0 top-0 w-[15.5rem] max-w-[calc(100vw-5.5rem)]">
+          <PretripCard points={pretripPoints} />
+        </div>
+      )}
+
       {/* PANEL neo TRÁI rail, bounded trong màn (không tràn/đè banner).
           Panel nhiều nội dung (Điểm đã lưu, Chọn loài) rộng hơn cho dễ nhìn,
           khỏi chồng chéo (user 2026-06-23); panel đơn giản giữ cân đối. */}
@@ -224,6 +247,7 @@ export function RaKhoiControls({
                   onFish={onFish}
                   fishSpecies={fishSpecies}
                   fishLocked={fishLocked}
+                  fishAge={fishAge}
                   onOpenSpecies={() => setSpeciesView(true)}
                   fishRange={fishRange}
                   onRange={onRange}
@@ -321,6 +345,85 @@ export function RaKhoiControls({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/*
+  CHUẨN BỊ ĐI BIỂN — một nút to duy nhất + một dòng thường trực.
+  Trước đây máy chỉ giữ được thứ bà con TÌNH CỜ mở ra xem, ra khơi 5–16 ngày là
+  may rủi. Nay: bấm một lần lúc còn sóng → tải sẵn gió sóng các chỗ hay đi, bản
+  đồ cá, lưới gió/sóng cả vùng biển; và LÚC NÀO CŨNG thấy trong máy đang có gì.
+  Không dùng từ kỹ thuật (tải nền/đồng bộ/offline) — nói việc, nói ngày.
+*/
+function PretripCard({ points }: { points: PretripPoint[] }) {
+  const [line, setLine] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [prog, setProg] = useState<PretripProgress | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  // đọc localStorage sau khi lên hình (khỏi lệch giữa máy chủ và máy bà con)
+  useEffect(() => {
+    setLine(savedLine(savedSummary()));
+  }, []);
+
+  const start = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    setDone(null);
+    setProg({ done: 0, total: 1, label: "Bắt đầu tải…" });
+    const r = await runPretrip(points, setProg);
+    setDone(doneLine(r));
+    setLine(savedLine(r.saved));
+    setBusy(false);
+    setProg(null);
+  }, [busy, points]);
+
+  const pct = prog && prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : 0;
+
+  return (
+    <div className="rounded-2xl bg-card/97 p-2.5 shadow-xl">
+      <button
+        type="button"
+        onClick={start}
+        disabled={busy}
+        className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-xl bg-t1 px-3 text-[1rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-70"
+      >
+        <AnchorIcon className="h-5 w-5 shrink-0" />
+        {busy ? "Đang tải về máy…" : "Chuẩn bị đi biển"}
+      </button>
+
+      {busy && prog && (
+        <div className="mt-2">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-field">
+            <div
+              className="h-full rounded-full bg-t1 transition-[width] duration-300"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/75">
+            {prog.label} ({Math.min(prog.done + 1, prog.total)}/{prog.total})
+          </p>
+        </div>
+      )}
+
+      {!busy && done && (
+        <p className="mt-2 rounded-xl bg-ok-bg px-2.5 py-2 text-[1rem] font-bold leading-snug text-ok">
+          {done}
+        </p>
+      )}
+
+      {/* dòng THƯỜNG TRỰC: lúc nào cũng biết trong máy đang cầm gì (số to, dễ đọc) */}
+      {!busy && line && (
+        <p className="mt-2 text-[1.125rem] font-bold leading-snug text-navy">
+          {line}
+        </p>
+      )}
+      {!busy && !done && (
+        <p className="mt-1 text-[0.6875rem] leading-snug text-foreground/60">
+          Bấm lúc còn sóng ở bờ — ra khơi mất sóng vẫn xem lại được số đã tải.
+        </p>
+      )}
     </div>
   );
 }
@@ -462,6 +565,7 @@ function NguTruongPanel({
   fishRange,
   onRange,
   fishLocked,
+  fishAge,
 }: {
   fishOn: boolean;
   onFish: (on: boolean) => void;
@@ -471,6 +575,8 @@ function NguTruongPanel({
   onRange: (r: [number, number]) => void;
   /** chưa đăng nhập → loài + dải khả năng bị khoá (đồng bộ với sheet) */
   fishLocked: boolean;
+  /** tuổi bản đồ cá đang xem — nói NGÀY ẢNH + LÚC LẤY VỀ, không nói "cache" */
+  fishAge: { label: string; warn: boolean } | null;
 }) {
   const name = fishSpecies
     ? SPECIES_META[fishSpecies]?.full ?? fishSpecies
@@ -479,7 +585,7 @@ function NguTruongPanel({
     <div>
       <Toggle
         label="Dự báo cá (PFZ)"
-        sub="Theo ngày · cache 6h"
+        sub={fishAge ? fishAge.label : "Theo ngày · ảnh vệ tinh"}
         on={fishOn}
         onToggle={() => onFish(!fishOn)}
         icon={
@@ -488,6 +594,14 @@ function NguTruongPanel({
           </span>
         }
       />
+      {fishOn && fishAge?.warn && (
+        <p className="mt-2 flex items-start gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.875rem] font-bold leading-snug text-warn">
+          <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+          <span>
+            Bản đồ cá này là số cũ trong máy — có sóng lại máy sẽ tự lấy bản mới.
+          </span>
+        </p>
+      )}
       {fishOn && fishLocked && (
         // KHOÁ giống sheet: heatmap public, nhưng chọn loài + xem khả năng cần
         // đăng nhập → 1 CTA duy nhất, KHÔNG hiện picker/dải để khỏi "chỗ có chỗ thả"

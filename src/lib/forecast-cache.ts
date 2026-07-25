@@ -11,6 +11,10 @@
 const PREFIX = "forfish.fc.";
 /** Trần số bản điểm-chạm giữ lại (đủ vài chuyến, không phình localStorage) */
 const MAX_ENTRIES = 40;
+/** Mỗi lần máy báo hết chỗ thì bỏ bấy nhiêu bản CŨ NHẤT (mọi namespace) rồi ghi lại */
+const DROP_PER_RETRY = 4;
+/** Số lần dọn-rồi-ghi-lại trước khi chịu thua (thà báo thật còn hơn treo) */
+const MAX_RETRY = 3;
 
 export interface Cached<T> {
   /** epoch ms lúc lưu — để hiện "dữ liệu lưu lúc …" */
@@ -18,26 +22,65 @@ export interface Cached<T> {
   data: T;
 }
 
+/** Lần gần nhất máy báo HẾT CHỖ khi lưu (epoch ms; 0 = chưa lần nào) */
+let lastFullAt = 0;
+
+/**
+ * Lúc nào máy hết chỗ nhớ gần nhất — để nút "Chuẩn bị đi biển" nói thật
+ * ("máy hết chỗ") thay vì báo xong trong khi chẳng giữ được gì.
+ */
+export function lastStorageFullAt(): number {
+  return lastFullAt;
+}
+
 function key(ns: string, id: string): string {
   return `${PREFIX}${ns}.${id}`;
 }
 
-/** Lưu bản mới nhất (ghi đè). `now` truyền vào để test được (không dùng Date.now ẩn). */
+/**
+ * Lưu bản mới nhất (ghi đè). `now` truyền vào để test được (không dùng Date.now ẩn).
+ * Trả về `false` khi KHÔNG ghi được (máy hết chỗ) — UI phải nói thật với bà con
+ * chứ không im lặng rồi ra biển mới biết máy chẳng giữ gì.
+ *
+ * LỖI CŨ (đã sửa): trim() nằm SAU setItem trong CÙNG khối try → localStorage đầy
+ * thì setItem ném QuotaExceeded, trim KHÔNG BAO GIỜ chạy → kẹt vĩnh viễn, từ đó
+ * về sau không lưu thêm được bản nào. Nay dọn TRƯỚC, và còn đầy thì dọn mạnh tay
+ * (bỏ bản cũ nhất của MỌI namespace) rồi ghi lại.
+ */
 export function saveForecast<T>(
   ns: string,
   id: string,
   data: T,
   now: number = Date.now(),
-): void {
+): boolean {
+  let payload: string;
   try {
-    window.localStorage.setItem(
-      key(ns, id),
-      JSON.stringify({ savedAt: now, data } satisfies Cached<T>),
-    );
-    trim(ns);
+    payload = JSON.stringify({ savedAt: now, data } satisfies Cached<T>);
   } catch {
-    // storage đầy / SSR không có window — bỏ qua, mất mạng thì chịu
+    return false; // data không stringify được — không phải lỗi bộ nhớ
   }
+  const k = key(ns, id);
+  try {
+    // Ghi ĐÈ id cũ thì số bản không tăng; id mới thì phải chừa 1 chỗ.
+    const exists = window.localStorage.getItem(k) != null;
+    trim(ns, exists ? MAX_ENTRIES : MAX_ENTRIES - 1);
+  } catch {
+    return false; // SSR / không có window
+  }
+  for (let attempt = 0; attempt <= MAX_RETRY; attempt++) {
+    try {
+      window.localStorage.setItem(k, payload);
+      return true;
+    } catch {
+      // hết chỗ: bỏ bản cũ nhất (mọi namespace dự báo) rồi thử lại
+      if (attempt === MAX_RETRY || dropOldest(DROP_PER_RETRY) === 0) {
+        lastFullAt = now;
+        return false;
+      }
+    }
+  }
+  lastFullAt = now;
+  return false;
 }
 
 /** Đọc bản đã lưu (bất kể cũ) — null nếu chưa từng lưu / hỏng. */
@@ -53,47 +96,71 @@ export function loadForecast<T>(ns: string, id: string): Cached<T> | null {
   }
 }
 
-/** Bản lưu GẦN ĐÂY NHẤT trong namespace (mất mạng tap điểm lạ → lùi về bản cuối). */
-export function loadLatest<T>(ns: string): Cached<T> | null {
-  try {
-    const pre = key(ns, "");
-    let best: Cached<T> | null = null;
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const k = window.localStorage.key(i);
-      if (!k || !k.startsWith(pre)) continue;
-      const c = loadForecast<T>(ns, k.slice(pre.length));
-      if (c && (!best || c.savedAt > best.savedAt)) best = c;
+/*
+  KHÔNG có loadLatest("bản mới nhất bất kỳ") nữa — đã bỏ 2026-07-25. Nó là gốc
+  của lỗi "dữ liệu chỗ khác / khung khác đội lốt chỗ đang xem": mất sóng thì trả
+  bản gần nhất của MỘT id nào đó, UI lại dán nhãn theo thứ bà con vừa xin. Muốn
+  lùi về bản lưu thì phải xin ĐÚNG id (loadForecast), không có thì nói thật.
+*/
+
+/** Mọi key cache dự báo bắt đầu bằng `pre`, kèm mốc lưu (cũ nhất trước) */
+function entriesUnder(pre: string): { k: string; savedAt: number }[] {
+  const items: { k: string; savedAt: number }[] = [];
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const k = window.localStorage.key(i);
+    if (!k || !k.startsWith(pre)) continue;
+    const raw = window.localStorage.getItem(k);
+    let savedAt = 0;
+    try {
+      savedAt = (JSON.parse(raw ?? "{}") as Cached<unknown>).savedAt ?? 0;
+    } catch {
+      savedAt = 0;
     }
-    return best;
-  } catch {
-    return null;
+    items.push({ k, savedAt });
   }
+  items.sort((a, b) => a.savedAt - b.savedAt); // cũ nhất trước
+  return items;
 }
 
-/** Giữ tối đa MAX_ENTRIES bản mới nhất mỗi namespace — xoá bản cũ nhất. */
-function trim(ns: string): void {
+/** Giữ tối đa `max` bản mới nhất trong namespace — xoá bản cũ nhất. */
+function trim(ns: string, max: number = MAX_ENTRIES): void {
   try {
-    const pre = key(ns, "");
-    const items: { k: string; savedAt: number }[] = [];
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const k = window.localStorage.key(i);
-      if (!k || !k.startsWith(pre)) continue;
-      const raw = window.localStorage.getItem(k);
-      let savedAt = 0;
-      try {
-        savedAt = (JSON.parse(raw ?? "{}") as Cached<unknown>).savedAt ?? 0;
-      } catch {
-        savedAt = 0;
-      }
-      items.push({ k, savedAt });
-    }
-    if (items.length <= MAX_ENTRIES) return;
-    items.sort((a, b) => a.savedAt - b.savedAt); // cũ nhất trước
-    for (const it of items.slice(0, items.length - MAX_ENTRIES)) {
+    const items = entriesUnder(key(ns, ""));
+    if (items.length <= max) return;
+    for (const it of items.slice(0, items.length - max)) {
       window.localStorage.removeItem(it.k);
     }
   } catch {
     // bỏ qua
+  }
+}
+
+/** Máy hết chỗ: bỏ `n` bản CŨ NHẤT của mọi namespace dự báo. Trả số bản đã bỏ. */
+function dropOldest(n: number): number {
+  try {
+    const items = entriesUnder(PREFIX).slice(0, n);
+    for (const it of items) window.localStorage.removeItem(it.k);
+    return items.length;
+  } catch {
+    return 0;
+  }
+}
+
+/** Mọi bản đã lưu trong namespace (mới nhất trước) — để đếm "trong máy có gì". */
+export function loadAll<T>(
+  ns: string,
+): { id: string; savedAt: number; data: T }[] {
+  try {
+    const pre = key(ns, "");
+    const out: { id: string; savedAt: number; data: T }[] = [];
+    for (const { k } of entriesUnder(pre)) {
+      const id = k.slice(pre.length);
+      const c = loadForecast<T>(ns, id);
+      if (c) out.push({ id, savedAt: c.savedAt, data: c.data });
+    }
+    return out.sort((a, b) => b.savedAt - a.savedAt);
+  } catch {
+    return [];
   }
 }
 

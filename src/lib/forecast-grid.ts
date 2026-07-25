@@ -12,11 +12,7 @@
 // OFFLINE: lấy được thì LƯU localStorage; ra biển mất mạng lùi về bản đã lưu
 // (lib/forecast-cache) — kéo thanh giờ vẫn xem được lưới đã tải trước lúc đi.
 
-import {
-  saveForecast,
-  loadForecast,
-  loadLatest,
-} from "@/lib/forecast-cache";
+import { saveForecast, loadForecast, loadAll } from "@/lib/forecast-cache";
 
 export type ForecastKind = "wind" | "wave";
 
@@ -97,25 +93,41 @@ const num = (v: unknown): number | null =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
 
 /** Namespace localStorage cho lưới Windy (offline) */
-const GRID_NS = "grid";
+export const GRID_NS = "grid";
+
+/** id bản lưu theo khung ngày — "d3", "d16"… (một khung một bản) */
+export function gridCacheId(days: number): string {
+  return `d${Math.round(days)}`;
+}
 
 /**
  * Lưới Windy có cache offline: lấy được thì LƯU (theo khung ngày); mất mạng →
- * lùi về bản đã lưu (đúng khung nếu có, không thì bản gần nhất) + cờ `stale`.
+ * lùi về bản đã lưu ĐÚNG KHUNG NGÀY ĐÓ + cờ `stale`.
+ *
+ * LỖI CŨ (đã sửa 2026-07-25): mất mạng mà chưa lưu khung đang xin thì lấy đại
+ * "bản gần nhất" — xin 16 ngày, nhận lưới 3 ngày đã lưu, mà chip vẫn sáng "16
+ * ngày". Bà con kéo thanh giờ tưởng đang xem nửa tháng tới. Nay không có đúng
+ * khung thì BÁO LỖI, UI nói thật + chỉ ra khung nào thật sự đang có trong máy.
  */
 export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
-  const id = `d${Math.round(days)}`;
+  const id = gridCacheId(days);
   try {
     const g = await fetchForecastGridLive(days);
     saveForecast(GRID_NS, id, g);
     return g;
   } catch (err) {
-    const hit =
-      loadForecast<ForecastGrid>(GRID_NS, id) ??
-      loadLatest<ForecastGrid>(GRID_NS);
+    const hit = loadForecast<ForecastGrid>(GRID_NS, id);
     if (hit) return { ...hit.data, stale: true, savedAt: hit.savedAt };
     throw err;
   }
+}
+
+/** Các khung ngày ĐANG CÓ bản lưu trong máy (tăng dần) — để UI nói đúng sự thật */
+export function savedGridDays(): number[] {
+  return loadAll<ForecastGrid>(GRID_NS)
+    .map((e) => Number(/^d(\d+)$/.exec(e.id)?.[1]))
+    .filter((d) => Number.isFinite(d) && d > 0)
+    .sort((a, b) => a - b);
 }
 
 async function fetchForecastGridLive(days = 3): Promise<ForecastGrid> {

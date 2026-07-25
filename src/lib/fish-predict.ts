@@ -562,6 +562,12 @@ export interface FishForecast {
   cells: FishCell[];
   /** loài có mặt trong dự báo hôm nay, loài mạnh nhất trước — cho bộ chọn */
   species: string[];
+  /**
+   * ISO lúc MÁY CHỦ TÍNH bản này (route gắn vào) — KHÁC `date` (ngày ẢNH vệ tinh).
+   * Service worker giữ lại response nên bản trong máy có thể rất cũ; không có mốc
+   * này thì bản đồ cá 10 ngày trước trông y hệt bản mới. Tuổi tính ở lib/fish-age.
+   */
+  generatedAt?: string;
 }
 
 /** Cặp lưới dòng chảy mặt u (đông+) / v (bắc+) — CÙNG trục lat/lon */

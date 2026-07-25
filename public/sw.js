@@ -7,9 +7,12 @@
    · POST + khác origin (map tile, nguồn ngoài) → KHÔNG đụng, để mạng lo.
   Đổi shell thì bump SDFISH_CACHE_V (KHÔNG dùng Date.now — phải ổn định).
 */
-const SDFISH_CACHE_V = "sdfish-v2";
+const SDFISH_CACHE_V = "sdfish-v3";
 const SHELL = [
   "/",
+  // Ra khơi (bản đồ ngư trường) — màn bà con mở giữa biển lúc mất sóng. Không
+  // nằm sẵn trong vỏ thì mở app ngoài khơi chỉ về được trang chủ.
+  "/ngu-truong",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",

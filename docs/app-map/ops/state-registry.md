@@ -2,10 +2,11 @@
 
 > Load khi: đọc/ghi/sửa state phía client, hoặc debug "dữ liệu mất / sai / không lưu". Mọi key `forfish.*` trong localStorage liệt kê ở đây.
 
-covers: src/lib/boats.ts, src/lib/debts.ts, src/lib/region.ts, src/lib/places.ts, src/lib/sea.ts
+covers: src/lib/boats.ts, src/lib/debts.ts, src/lib/region.ts, src/lib/places.ts, src/lib/sea.ts, src/lib/forecast-cache.ts
 last_verified: 2026-07-25
 ttl_days: 180
 gate: warn
+<!-- re-verified: 2026-07-25j — thêm 2 hàng `forfish.fc.point.*` / `forfish.fc.grid.d<N>` (bản lưu dự báo xem lúc mất sóng, lib/forecast-cache.ts). Trần 40 bản/namespace, dọn TRƯỚC khi ghi + bỏ bản cũ nhất khi máy hết chỗ; saveForecast trả boolean để UI báo "máy hết chỗ". -->
 <!-- re-verified: 2026-07-25 — forfish.sea bump v2→v3 (dự báo 16 ngày + waveEstimated); TTL sửa 6h→1h khớp CACHE_TTL_MS -->
 
 > Registry CANONICAL cho state client (nguyên tắc 11 §state). **State không có trong bảng này = coi như không tồn tại — KHÔNG đoán schema.** ForFish chạy Vercel serverless + demo mode → "state nền" duy nhất là localStorage của trình duyệt (prefix `forfish.*`, GIỮ tên cũ — đổi sẽ mất dữ liệu user). Khi đã đăng nhập Supabase, nguồn sự thật là DB (xem [04-data-model](../04-data-model.md)); localStorage là fallback demo mode (xem [02-architecture §4](../02-architecture.md)).
@@ -27,6 +28,8 @@ gate: warn
 | `forfish.port.v1` | Cảng đang chọn (dự báo) | `components/sea-forecast.tsx` | sea-forecast | 1 | xoá → cảng mặc định |
 | `forfish.maplayer.v1` | Lớp bản đồ đang bật | `components/fishing-map-view.tsx` | fishing-map-view | 1 | xoá → lớp mặc định |
 | `forfish.sea.<port>.v3` | **Cache** dự báo biển 16 ngày theo cảng (prefix; v3 = +waveEstimated, model sóng ncep_gfswave025) | `lib/sea.ts` | sea-forecast | 1 | xoá an toàn (chỉ cache, TTL 1h) |
+| `forfish.fc.point.<lat_lon>` | **Bản lưu** dự báo 16 ngày theo ô lưới 0,25° (ra khơi mất sóng vẫn xem) | `lib/forecast-cache.ts` ← `lib/marine-weather.ts`, `lib/pretrip.ts` | ngu-truong | 1 | xoá → mất số đã tải, có sóng lấy lại |
+| `forfish.fc.grid.d<N>` | **Bản lưu** lưới gió/sóng Windy THEO KHUNG NGÀY (d3/d7/d16…) — chỉ dùng lại đúng khung đã xin | `lib/forecast-cache.ts` ← `lib/forecast-grid.ts`, `lib/pretrip.ts` | ngu-truong | 1 | xoá → khung đó báo "máy chưa lưu khung này" |
 | `forfish.products.v1` | Đồ/vật tư của tàu | `components/boat-products.tsx` | van-hanh | 3 | xoá → trống |
 | `forfish.maintenance.v1` | Nhắc bảo dưỡng | `components/maintenance-reminders.tsx` | + `urgent-strip.tsx` | 3 | xoá → mất lịch nhắc |
 | `forfish.crew.v1` | Danh sách thuyền viên | `components/crew-list.tsx` | + `urgent-strip.tsx` | 3 | xoá → trống |
