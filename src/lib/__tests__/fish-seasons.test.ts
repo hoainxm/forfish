@@ -4,6 +4,7 @@ import {
   FISH_SEASONS,
   fishInRegion,
   regionAt,
+  type FishRegionId,
 } from "../../data/fish-seasons";
 
 describe("regionAt", () => {
@@ -45,6 +46,25 @@ describe("fishInRegion", () => {
     for (const season of fishInRegion("nam-trung-bo", 1)) {
       expect(season.regions).toContain("nam-trung-bo");
       expect(season.months).toContain(1);
+    }
+  });
+
+  it("cá ngừ đại dương có QUANH NĂM ở khơi (kể cả tháng 7, mùa gió Tây Nam)", () => {
+    const TUNA = "Cá ngừ đại dương (vây vàng, mắt to)";
+    // trước đây tháng 7 loài này biến mất (chỉ để tháng 12–6) → user báo thiếu
+    const offshore: FishRegionId[] = [
+      "truong-sa-dk1",
+      "nam-trung-bo",
+      "hoang-sa",
+      "trung-bo",
+    ];
+    for (const month of [7, 8, 9]) {
+      for (const region of offshore) {
+        expect(
+          fishInRegion(region, month).some((s) => s.species === TUNA),
+          `cá ngừ đại dương thiếu ở ${region} tháng ${month}`,
+        ).toBe(true);
+      }
     }
   });
 });

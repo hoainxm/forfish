@@ -169,10 +169,17 @@ export interface FishSeason {
 // (vd mực ống: vịnh Bắc Bộ rộ hè, Phú Quốc rộ mùa khô).
 export const FISH_SEASONS: FishSeason[] = [
   {
+    // Loài nổi lớn di cư, có mặt QUANH NĂM ở biển khơi VN (SST ưa 24–31°C, Biển
+    // Đông đủ ấm cả 12 tháng) — cái đổi theo mùa là NGƯ TRƯỜNG + SẢN LƯỢNG, không
+    // phải sự hiện diện. Để cả năm cho trung thực + khớp cách app chấm theo SST
+    // thực tế; note phân biệt chính vụ/vụ phụ. Nguồn: RIMF/Thủy sản VN (ngư
+    // trường dịch theo gió mùa), Báo Khánh Hòa 1/2024 (chính vụ gấp 3–4 lần
+    // giữa năm — tức giữa năm ≠ 0), SEAFDEC (đỉnh phụ tháng 7–9 ở Trường Sa),
+    // FishBase/IUCN (nhiệt đới, đẻ quanh năm ở vĩ độ thấp). (agent khảo cứu 2026-07-25)
     species: "Cá ngừ đại dương (vây vàng, mắt to)",
-    months: [12, 1, 2, 3, 4, 5, 6],
-    regions: ["nam-trung-bo", "hoang-sa", "truong-sa-dk1"],
-    note: "Chính vụ câu từ tháng 12 tới tháng 6; đầu vụ cá ở phía Bắc, cuối vụ dồn về Trường Sa.",
+    months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    regions: ["trung-bo", "nam-trung-bo", "hoang-sa", "truong-sa-dk1"],
+    note: "Có quanh năm ở biển khơi; rộ nhất mùa gió Đông Bắc (khoảng tháng 11–4), giữa năm gió Tây Nam ít hơn nhưng vẫn có, cá dồn về Trường Sa và khơi Trung Bộ.",
   },
   {
     species: "Cá ngừ vằn",
