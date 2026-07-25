@@ -9,6 +9,12 @@ import {
   estimateWaveFromWind,
   type ScoredSeaDay,
 } from "@/lib/sea";
+import {
+  saveForecast,
+  loadForecast,
+  loadLatest,
+  coordId,
+} from "@/lib/forecast-cache";
 
 export type SeaPoint = { lat: number; lon: number };
 
@@ -24,7 +30,14 @@ export type SeaPointConditions = {
   wavePeriodS: number | null;
   /** FORECAST_MAX_DAYS ngày đã chấm điểm, phần tử đầu là hôm nay */
   days: ScoredSeaDay[];
+  /** true = đang xem bản ĐÃ LƯU (offline/mất mạng), không phải bản mới */
+  stale: boolean;
+  /** epoch ms lúc bản này được lưu (chỉ có ý nghĩa khi stale) */
+  savedAt: number | null;
 };
+
+/** Namespace localStorage cho dự báo điểm-chạm (offline) */
+const POINT_NS = "point";
 
 /**
  * Tầm dự báo tối đa = TRẦN của nguồn: gió/mưa best-match (GFS 16 ngày) và SÓNG
@@ -127,6 +140,25 @@ const num = (v: unknown): number | null =>
  * mạng chập chờn) không kéo sập cả dự báo — trả null, UI chạy bằng gió.
  */
 export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
+  const id = coordId(p.lat, p.lon);
+  try {
+    const cond = await fetchSeaPointLive(p);
+    // LƯU bản mới nhất để ra biển mất mạng vẫn coi được 16 ngày
+    saveForecast(POINT_NS, id, cond);
+    return cond;
+  } catch (err) {
+    // Mất mạng / nguồn treo → lùi về bản ĐÃ LƯU: đúng điểm nếu có, không thì
+    // bản gần đây nhất (bà con thường coi quanh vùng cảng nhà trước khi đi).
+    const hit =
+      loadForecast<SeaPointConditions>(POINT_NS, id) ??
+      loadLatest<SeaPointConditions>(POINT_NS);
+    if (hit) return { ...hit.data, stale: true, savedAt: hit.savedAt };
+    throw err; // chưa từng lưu → để UI báo "chưa lấy được"
+  }
+}
+
+/** Gọi Open-Meteo THẬT (không cache) — tách ra để fetchSeaPoint bọc offline. */
+async function fetchSeaPointLive(p: SeaPoint): Promise<SeaPointConditions> {
   const common = `latitude=${p.lat}&longitude=${p.lon}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${FORECAST_MAX_DAYS}`;
   const windUrl =
     `https://api.open-meteo.com/v1/forecast?${common}` +
@@ -180,5 +212,7 @@ export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
     waveM: num(wave?.current?.wave_height),
     wavePeriodS: num(wave?.current?.wave_period),
     days,
+    stale: false,
+    savedAt: null,
   };
 }

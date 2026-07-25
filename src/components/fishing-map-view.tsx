@@ -92,6 +92,7 @@ import {
 } from "@/lib/marine-weather";
 import { skillForLead } from "@/lib/forecast-quality";
 import { FORECAST_SKILL } from "@/lib/forecast-skill";
+import { savedAgoLabel } from "@/lib/forecast-cache";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
 import { RaKhoiControls } from "@/components/ra-khoi-controls";
 import { StormBanner } from "@/components/storm-banner";
@@ -1358,6 +1359,13 @@ export default function FishingMapView() {
             </p>
           ) : sel ? (
             <div className="py-1">
+              {cond?.stale && (
+                <p className="mb-1.5 rounded-lg bg-warn-bg px-2.5 py-1.5 text-[0.8125rem] font-bold leading-snug text-warn">
+                  Đang xem bản đã lưu (offline)
+                  {cond.savedAt != null && ` · ${savedAgoLabel(cond.savedAt)}`} —
+                  có mạng sẽ tự cập nhật.
+                </p>
+              )}
               <div className="flex items-center gap-2">
                 <span
                   className="h-3.5 w-3.5 shrink-0 rounded-full"
