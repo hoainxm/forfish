@@ -8,6 +8,15 @@
 // Càng xa càng thưa khung để KHÔNG phình tải/khung hình: ≤3 ngày lấy mỗi 3h,
 // 4–7 ngày mỗi 6h, >7 ngày mỗi 12h. Sóng dùng model ncep_gfswave025 (best-match
 // sóng theo giờ chỉ ~9 ngày; model này phủ đủ 16). Gió best-match phủ 16 ngày.
+//
+// OFFLINE: lấy được thì LƯU localStorage; ra biển mất mạng lùi về bản đã lưu
+// (lib/forecast-cache) — kéo thanh giờ vẫn xem được lưới đã tải trước lúc đi.
+
+import {
+  saveForecast,
+  loadForecast,
+  loadLatest,
+} from "@/lib/forecast-cache";
 
 export type ForecastKind = "wind" | "wave";
 
@@ -28,6 +37,10 @@ export interface ForecastGrid {
   cells: GridCell[];
   /** mốc giờ ISO (giờ VN), dùng chung cho mọi cell */
   times: string[];
+  /** true = bản ĐÃ LƯU (offline/mất mạng), không phải bản mới */
+  stale?: boolean;
+  /** epoch ms lúc lưu (chỉ có ý nghĩa khi stale) */
+  savedAt?: number | null;
 }
 
 /** Bước nhảy GẦN của thanh thời gian: 3 giờ một nấc (giữ cho tầm ≤3 ngày) */
@@ -83,7 +96,29 @@ export function gridPoints(): { lat: number; lon: number }[] {
 const num = (v: unknown): number | null =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
 
+/** Namespace localStorage cho lưới Windy (offline) */
+const GRID_NS = "grid";
+
+/**
+ * Lưới Windy có cache offline: lấy được thì LƯU (theo khung ngày); mất mạng →
+ * lùi về bản đã lưu (đúng khung nếu có, không thì bản gần nhất) + cờ `stale`.
+ */
 export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
+  const id = `d${Math.round(days)}`;
+  try {
+    const g = await fetchForecastGridLive(days);
+    saveForecast(GRID_NS, id, g);
+    return g;
+  } catch (err) {
+    const hit =
+      loadForecast<ForecastGrid>(GRID_NS, id) ??
+      loadLatest<ForecastGrid>(GRID_NS);
+    if (hit) return { ...hit.data, stale: true, savedAt: hit.savedAt };
+    throw err;
+  }
+}
+
+async function fetchForecastGridLive(days = 3): Promise<ForecastGrid> {
   const pts = gridPoints();
   const lats = pts.map((p) => p.lat).join(",");
   const lons = pts.map((p) => p.lon).join(",");

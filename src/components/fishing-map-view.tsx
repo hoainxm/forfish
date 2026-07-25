@@ -1228,6 +1228,11 @@ export default function FishingMapView() {
                           fGrid.times[timeIdx] ?? "",
                           fGrid.times[0]?.split("T")[0],
                         )}
+                        {fGrid.stale && (
+                          <span className="ml-1 font-bold text-warn">
+                            · bản lưu (offline)
+                          </span>
+                        )}
                       </span>
                       <div className="flex items-center gap-1.5">
                         <button
