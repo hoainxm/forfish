@@ -14,6 +14,17 @@ export interface SeaDay {
   precipMm: number;
   /** Mã thời tiết WMO (dông/mưa) — dịch sang lời qua lib/weather-codes.ts */
   wmoCode?: number | null;
+  /** true = số sóng do THIẾU dữ liệu phải ước từ gió (không để 0 giả thành êm) */
+  waveEstimated?: boolean;
+}
+
+/**
+ * Ước sóng từ gió khi nguồn sóng thủng 1 ngày (hiếm, thường ngày xa) — thà
+ * đoán thô còn hơn để wave=0 hoá điểm 100 giả êm. Xấp xỉ vùng biển hở: mỗi
+ * 10 km/h gió gây ~0,25 m sóng, nền 0,3 m. THAM KHẢO, UI ghi rõ "ước".
+ */
+export function estimateWaveFromWind(windKmh: number): number {
+  return Math.round((0.3 + Math.max(0, windKmh) * 0.025) * 10) / 10;
 }
 
 export type SeaLevel = "good" | "caution" | "bad";
@@ -23,7 +34,14 @@ export interface ScoredSeaDay extends SeaDay {
   level: SeaLevel;
 }
 
-const FORECAST_DAYS = 10;
+// 16 ngày (trần của nguồn): gió/mưa/dông từ mô hình best-match (GFS 16 ngày) và
+// SÓNG từ NCEP GFS-Wave 0.25° toàn cầu (`ncep_gfswave025`, cũng 16 ngày) —
+// best-match sóng chỉ phủ ~8 ngày nên phải chỉ định model này mới đủ 16. Ngày
+// càng xa skill càng thấp — engine KHÔNG giấu điều đó: lớp độ-tin (marine-weather
+// forecastConfidence + ensemble spread + bảng skill) nói thật theo từng ngày.
+const FORECAST_DAYS = 16;
+/** Model sóng phủ đủ 16 ngày (best-match chỉ ~8). Đổi nguồn sửa 1 chỗ này. */
+const WAVE_MODEL = "ncep_gfswave025";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 giờ — dự báo ngày không đổi nhanh hơn
 
 export function scoreDay(d: SeaDay): number {
@@ -59,7 +77,7 @@ export async function fetchSeaForecast(
   const common = `latitude=${port.lat}&longitude=${port.lon}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${FORECAST_DAYS}`;
   const [marineRes, weatherRes] = await Promise.all([
     fetch(
-      `https://marine-api.open-meteo.com/v1/marine?${common}&daily=wave_height_max`,
+      `https://marine-api.open-meteo.com/v1/marine?${common}&daily=wave_height_max&models=${WAVE_MODEL}`,
       { signal: AbortSignal.timeout(15000) },
     ),
     fetch(
@@ -75,13 +93,17 @@ export async function fetchSeaForecast(
 
   const dates: string[] = weather.daily?.time ?? [];
   const days: ScoredSeaDay[] = dates.map((date, i) => {
+    const windMaxKmh = weather.daily?.wind_speed_10m_max?.[i] ?? 0;
+    const rawWave = marine.daily?.wave_height_max?.[i];
+    const waveMissing = rawWave == null || !Number.isFinite(rawWave);
     const d: SeaDay = {
       date,
-      waveMaxM: marine.daily?.wave_height_max?.[i] ?? 0,
-      windMaxKmh: weather.daily?.wind_speed_10m_max?.[i] ?? 0,
+      waveMaxM: waveMissing ? estimateWaveFromWind(windMaxKmh) : rawWave,
+      windMaxKmh,
       gustMaxKmh: weather.daily?.wind_gusts_10m_max?.[i] ?? 0,
       precipMm: weather.daily?.precipitation_sum?.[i] ?? 0,
       wmoCode: weather.daily?.weather_code?.[i] ?? null,
+      waveEstimated: waveMissing,
     };
     const score = scoreDay(d);
     return { ...d, score, level: levelOf(score) };
@@ -94,8 +116,9 @@ export async function fetchSeaForecast(
 
 // ── cache trên máy, đỡ gọi mạng mỗi lần mở app ──────────────────────────
 function cacheKey(portId: string) {
-  // v2: thêm wmoCode (mưa/dông) vào shape — đổi version để bỏ cache cũ
-  return `forfish.sea.${portId}.v2`;
+  // v3: horizon 10→16 ngày + waveEstimated + model sóng ncep_gfswave025 —
+  // đổi version để bỏ cache 10-ngày cũ (thiếu 5 ngày, shape khác)
+  return `forfish.sea.${portId}.v3`;
 }
 
 function readCache(portId: string): ScoredSeaDay[] | null {

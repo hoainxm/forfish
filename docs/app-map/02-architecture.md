@@ -119,9 +119,11 @@ src/
     region.ts           # Phân vùng Bắc/Trung/Nam: Region, COASTAL_PROVINCES, provinceKey/regionOf — nền cho lọc theo tỉnh ⇒ ĐÒI HỎI tên tỉnh thống nhất giữa các dataset
     geofence.ts         # Trục 1: cảnh báo vượt ranh giới biển (← vn-maritime-border.ts)
     crew.ts             # Trục NGƯỜI/TIỀN: logic chia tiền chuyến (có test)
-    sea.ts              # Trục 1: fetch Open-Meteo + công thức điểm đi biển (scoreDay/levelOf — THANG ĐIỂM DUY NHẤT của trục)
+    sea.ts              # Trục 1: fetch Open-Meteo 1–16 ngày (gió best-match + SÓNG ncep_gfswave025 phủ đủ 16) + công thức điểm đi biển (scoreDay/levelOf — THANG ĐIỂM DUY NHẤT của trục) + estimateWaveFromWind (ngày sóng thủng). FORECAST_DAYS=16, cache v3
     ocean-map.ts        # Trục 1: adapter lớp bản đồ (vệ tinh NASA GIBS trễ 2 ngày; độ sâu EMODnet/GEBCO tĩnh + ĐƯỜNG ĐẲNG SÂU số mét từ public/data/isobaths.v1.json — sinh bởi scripts/generate-isobaths.mjs vì EMODnet WMS chỉ phủ châu Âu; phao đèn OpenSeaMap zoom ≥8) + style (có glyphs cho nhãn) + nhãn chủ quyền VN
-    marine-weather.ts   # Trục 1: gió/sóng tại 1 điểm chạm (Open-Meteo) — tái dùng scoreDay/levelOf từ sea.ts
+    marine-weather.ts   # Trục 1: gió/sóng tại 1 điểm chạm (Open-Meteo, 1–16 ngày, WAVE_MODEL ncep_gfswave025) — tái dùng scoreDay/levelOf từ sea.ts; FORECAST_MAX_DAYS=16 + forecastConfidence(daysAhead, dataConf?) mở tới 16 ngày, nhận độ tin đo được
+    forecast-ensemble.ts # Trục 1: ĐỘ BẤT ĐỊNH — Open-Meteo Ensemble (GFS-EPS 31 thành viên), spread gió theo ngày → confidence 0–1 (stdDev/spreadToConfidence/aggregateDailySpread thuần có test); fetchEnsembleUncertainty degrade null
+    forecast-quality.ts # Trục 1: LỚP ĐỘ TIN — gộp horizon + ensemble spread + bảng skill backtest → assessForecast (nhãn/độ tin từng ngày) + applyBiasCorrection (nắn bias điểm số theo forecast-skill.json). Thuần, có test; degrade khi thiếu ensemble/skill
     forecast-grid.ts    # Trục 1: lưới dự báo vẽ động kiểu Windy — 80 điểm × 72h (bước 3h), arrowFeatures GeoJSON mũi tên + thang màu + timeLabelVN (thuần, có test)
     places.ts           # Trục 1: "Điểm của tôi" — ghim chủ tàu + cảng nhà (localStorage forfish.places.v1); upsert/remove/rename/makeHome/placeAt (thuần, có test). THAY việc chọn cảng trong danh sách
     map-prefs.ts        # Trục 1: tuỳ chọn bản đồ — đơn vị khoảng cách (nm/km) + hệ toạ độ (dd/dms); store dùng chung (localStorage forfish.mapPrefs.v1, useSyncExternalStore) + formatters fmtDist/fmtCoordPair/kmToUnit (thuần, có test). Panel Cài đặt đổi → mọi chỗ đổi theo

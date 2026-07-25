@@ -6,7 +6,7 @@ import {
   windDirectionVN,
   FORECAST_MAX_DAYS,
 } from "../marine-weather";
-import { levelOf, scoreDay } from "../sea";
+import { levelOf, scoreDay, estimateWaveFromWind } from "../sea";
 
 describe("beaufort", () => {
   it("biên các cấp quen dùng", () => {
@@ -44,11 +44,36 @@ describe("forecastConfidence", () => {
     expect(forecastConfidence(6).tone).toBe("warn");
   });
 
-  it("dự báo xa (index ≥7) có lời dặn riêng, và mọi index trong tầm nguồn đều có nhãn", () => {
-    expect(forecastConfidence(7).label).toContain("Dự báo xa");
+  it("dự báo xa (index ≥7) có lời dặn riêng, và mọi index trong tầm 16 ngày đều có nhãn", () => {
+    expect(forecastConfidence(7).label).toContain("xa");
+    expect(FORECAST_MAX_DAYS).toBe(16);
     for (let i = 0; i < FORECAST_MAX_DAYS; i++) {
       expect(forecastConfidence(i).label.length).toBeGreaterThan(0);
     }
+  });
+
+  it("ngày rất xa 11–16 có nhãn riêng", () => {
+    expect(forecastConfidence(12).label).toContain("rất xa");
+    expect(forecastConfidence(15).label).toContain("rất xa");
+  });
+
+  it("dataConf thấp hạ độ tin kể cả ngày gần; dataConf cao nới nhãn tầm vừa", () => {
+    // mô hình lệch nhau nhiều (conf 0.2) ở ngay ngày mai → cảnh báo
+    const shaky = forecastConfidence(1, 0.2);
+    expect(shaky.tone).toBe("warn");
+    expect(shaky.label).toContain("lệch nhau");
+    // đồng thuận cao ở tầm 4–7 ngày → nhẹ nhàng hơn nhãn nền warn
+    expect(forecastConfidence(5, 0.9).tone).toBe("ok");
+  });
+});
+
+describe("estimateWaveFromWind", () => {
+  it("đơn điệu tăng theo gió, có nền dương khi lặng gió", () => {
+    expect(estimateWaveFromWind(0)).toBeGreaterThan(0);
+    expect(estimateWaveFromWind(40)).toBeGreaterThan(estimateWaveFromWind(10));
+  });
+  it("gió âm (dữ liệu rác) không cho sóng âm", () => {
+    expect(estimateWaveFromWind(-5)).toBeGreaterThanOrEqual(0);
   });
 });
 

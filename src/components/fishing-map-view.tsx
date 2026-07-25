@@ -88,6 +88,8 @@ import {
   type SeaPoint,
   type SeaPointConditions,
 } from "@/lib/marine-weather";
+import { skillForLead } from "@/lib/forecast-quality";
+import { FORECAST_SKILL } from "@/lib/forecast-skill";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
 import { RaKhoiControls } from "@/components/ra-khoi-controls";
 import { StormBanner } from "@/components/storm-banner";
@@ -673,7 +675,11 @@ export default function FishingMapView() {
   // ngày đang chọn để xem dự báo (kẹp lại nếu nguồn trả ít ngày hơn)
   const sel =
     cond?.days[Math.min(dayIdx, (cond?.days.length ?? 1) - 1)] ?? null;
-  const confidence = forecastConfidence(dayIdx);
+  // độ tin nói thật: nhãn theo tầm ngày, hạ thêm nếu backtest đo được sai số
+  // lớn ở tầm ngày này (skill từ src/data/forecast-skill.json, không gọi mạng)
+  const skillConf =
+    skillForLead(FORECAST_SKILL, dayIdx + 1)?.confidence ?? null;
+  const confidence = forecastConfidence(dayIdx, skillConf);
   const prox = borderProximity(point.lat, point.lon);
   const depthNote = depth != null ? DEPTH_NOTE[depth] : undefined;
   // tuần trăng đêm nay — quyết với nghề đèn (mực, cá cơm); tính offline
@@ -1367,7 +1373,8 @@ export default function FishingMapView() {
 
           {cond && cond.onSea && today && sel && (
             <>
-              {/* chọn xem trước ngày nào — gió/sóng dự báo được tới 10 ngày */}
+              {/* chọn xem trước ngày nào — gió/sóng dự báo được tới 16 ngày
+                  (dải cuộn ngang; độ tin theo tầm ngày + skill đo hiện ở dưới) */}
               <div
                 className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
                 role="group"

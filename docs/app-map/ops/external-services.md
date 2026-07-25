@@ -2,7 +2,7 @@
 
 > Load khi: lỗi liên quan nguồn dữ liệu ngoài (timeout, rate limit, đổi format, token hết hạn), thêm nguồn mới, hoặc audit phụ thuộc.
 
-covers: src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/hycom.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts
+covers: src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/forecast-ensemble.ts, src/lib/forecast-quality.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/hycom.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts
 last_verified: 2026-06-17
 ttl_days: 180
 gate: warn
@@ -19,7 +19,9 @@ gate: warn
 
 | Service | Dùng để | Auth | Cấu hình ở đâu | Rate / cache | Khi nó chết thì sao |
 |---|---|---|---|---|---|
-| **Open-Meteo** (marine + forecast) | Gió/sóng/mưa/dông theo giờ; lưới Windy; tuyến dầu | Không key | hardcode endpoint trong `lib/marine-weather.ts`, `route-weather.ts`, `forecast-grid.ts`, `sea-forecast` | free, cache 6h (sea), client timeout 15s | Thẻ peek "Chưa lấy được dự báo — Thử lại"; lưới gió/sóng nút Thử lại; KHÔNG treo |
+| **Open-Meteo** (forecast + marine) | Gió/mưa/dông + **sóng theo ngày 1–16** (điểm đi biển); lưới Windy; tuyến dầu | Không key | hardcode endpoint trong `lib/sea.ts`, `marine-weather.ts`, `route-weather.ts`, `forecast-grid.ts`, `sea-forecast`. **Sóng 16 ngày phải chỉ định `models=ncep_gfswave025`** (best-match sóng chỉ ~8 ngày) — hằng `WAVE_MODEL` | free, cache 6h/1h (sea), client timeout 15s | Thẻ peek "Chưa lấy được dự báo — Thử lại"; ngày sóng thủng ước từ gió (`waveEstimated`); lưới gió/sóng nút Thử lại; KHÔNG treo |
+| **Open-Meteo Ensemble** (GFS-EPS) | Độ bất định dự báo: spread gió 31 thành viên → độ tin từng ngày | Không key, gửi `User-Agent` | `lib/forecast-ensemble.ts` (`ensemble-api.open-meteo.com`, `models=gfs05`) | free, client timeout 15s | `fetchEnsembleUncertainty` trả `null` → độ tin lùi về prior theo tầm ngày (`forecast-quality.ts`), dự báo vẫn chạy |
+| **Open-Meteo Archive + Historical-Forecast** (backtest offline) | Học thử độ chính xác: dự-báo-cũ vs thực-tế ERA5 → `forecast-skill.json` | Không key | `scripts/forecast-backtest.mjs` (chạy tay, KHÔNG runtime) — xem [forecast-accuracy.md](forecast-accuracy.md) | — (offline, kết quả commit sẵn) | Không ảnh hưởng runtime; bảng skill thiếu → độ tin/bias lùi về prior |
 | **GDACS** (bão) | Tin bão Biển Đông + **đường đi (track) + vùng ảnh hưởng (polygon)** (`/api/storms`) | Không key | `app/api/storms`, `lib/storms.ts` | server 15s + client 20s | StormBanner ẩn nếu lỗi; lớp bão (track/vùng) ẩn; bản đồ vẫn chạy |
 | **VASEP** (giá bến) | Giá nguyên liệu tuần (`/api/port-prices`) | Không key (scrape) | `lib/port-price-source.ts` | cache 24h | Lùi bảng giá tĩnh + nhãn "tham khảo" |
 | **Petrolimex / giaxanghomnay** | Giá dầu DO (`/api/fuel-price`) | Không key (scrape) | `app/api/fuel-price` | cache 6h | Ẩn dòng giá dầu, phần còn lại giữ nguyên |
