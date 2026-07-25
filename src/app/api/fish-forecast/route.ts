@@ -1,9 +1,11 @@
 import {
   anomGridUrl,
+  bathyGridUrl,
   buildFishForecast,
   chlGridUrl,
   currentGridUrl,
   ERDDAP_UA,
+  parseBathyGrid,
   parseErddapGrid,
   slaGridUrl,
   sstGridUrl,
@@ -50,14 +52,17 @@ export async function GET() {
     });
     // tầng nhiệt HYCOM (host khác, OPeNDAP) chạy SONG SONG với các lưới ERDDAP
     const thermoP = fetchThermoclineGrid().catch(() => null);
-    const [sstRes, chlRes, slaRes, anomRes, uRes, vRes] = await Promise.all([
-      fetch(sstGridUrl(), opt()),
-      fetch(chlGridUrl(), opt()),
-      fetch(slaGridUrl(), opt()).catch(() => null),
-      fetch(anomGridUrl(), opt()).catch(() => null),
-      fetch(currentGridUrl("u"), opt()).catch(() => null),
-      fetch(currentGridUrl("v"), opt()).catch(() => null),
-    ]);
+    const [sstRes, chlRes, slaRes, anomRes, uRes, vRes, bathyRes] =
+      await Promise.all([
+        fetch(sstGridUrl(), opt()),
+        fetch(chlGridUrl(), opt()),
+        fetch(slaGridUrl(), opt()).catch(() => null),
+        fetch(anomGridUrl(), opt()).catch(() => null),
+        fetch(currentGridUrl("u"), opt()).catch(() => null),
+        fetch(currentGridUrl("v"), opt()).catch(() => null),
+        // độ sâu đáy ETOPO (TĨNH) — chặn loài xa bờ khỏi ô cạn; fail thì bỏ gate
+        fetch(bathyGridUrl(), opt()).catch(() => null),
+      ]);
     if (!sstRes.ok || !chlRes.ok) return Response.json({ ok: false });
 
     const sst = parseErddapGrid(await sstRes.json(), {
@@ -94,9 +99,20 @@ export async function GET() {
 
     const thermo = await thermoP; // tầng nhiệt D20 (HYCOM) — tuỳ chọn
 
+    // độ sâu đáy ETOPO (parser riêng: cột lat/lon/z, không time) — tuỳ chọn
+    let depth: ScalarGrid | null = null;
+    if (bathyRes?.ok) {
+      try {
+        const g = parseBathyGrid(await bathyRes.json());
+        depth = g.lats.length > 0 ? g : null;
+      } catch {
+        depth = null;
+      }
+    }
+
     const month = new Date().getMonth() + 1;
     return Response.json(
-      buildFishForecast(sst, chl, sla, month, { anom, cur, thermo }),
+      buildFishForecast(sst, chl, sla, month, { anom, cur, thermo, depth }),
     );
   } catch {
     return Response.json({ ok: false });

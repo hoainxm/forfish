@@ -3,9 +3,11 @@ import {
   buildFishForecast,
   chlFit,
   convergenceStrength,
+  deepWaterFit,
   frontStrength,
   gradientStrength,
   nearestIndex,
+  parseBathyGrid,
   parseErddapGrid,
   trapezoid,
   SPECIES_META,
@@ -372,6 +374,90 @@ describe("tầng nhiệt HYCOM tăng điểm cá ngừ", () => {
       withT.cells.find((c) => c.sp["ngừ vây vàng"])?.sp["ngừ vây vàng"] ?? 0;
     expect(yes).toBeGreaterThan(no);
     expect(yes).toBeGreaterThanOrEqual(35);
+  });
+});
+
+describe("deepWaterFit (cổng độ sâu loài xa bờ)", () => {
+  it("nông <a → 0, sâu ≥b → 1, dốc tuyến tính ở giữa, NaN → 1 (không phạt oan)", () => {
+    expect(deepWaterFit(30, 50, 200)).toBe(0);
+    expect(deepWaterFit(50, 50, 200)).toBe(0);
+    expect(deepWaterFit(125, 50, 200)).toBeCloseTo(0.5, 5);
+    expect(deepWaterFit(200, 50, 200)).toBe(1);
+    expect(deepWaterFit(2000, 50, 200)).toBe(1);
+    expect(deepWaterFit(NaN, 50, 200)).toBe(1);
+  });
+});
+
+describe("parseBathyGrid (ETOPO lat/lon/z → độ sâu dương)", () => {
+  it("z âm → độ sâu dương; đất (z≥0) → NaN; dựng đúng trục", () => {
+    const json = {
+      table: {
+        columnNames: ["latitude", "longitude", "z"],
+        rows: [
+          [10, 110, -2000], // biển sâu
+          [10, 110.25, -50], // biển nông
+          [10.25, 110, 30], // đất liền
+          [10.25, 110.25, -500],
+        ],
+      },
+    };
+    const g = parseBathyGrid(json);
+    expect(g.lats).toEqual([10, 10.25]);
+    expect(g.lons).toEqual([110, 110.25]);
+    expect(g.values[0][0]).toBe(2000); // -(-2000)
+    expect(g.values[0][1]).toBe(50);
+    expect(Number.isNaN(g.values[1][0])).toBe(true); // đất
+    expect(g.values[1][1]).toBe(500);
+  });
+});
+
+describe("cổng độ sâu: cá xa bờ KHÔNG hiện ở nước cạn sát bờ", () => {
+  const tlats = [11.5, 11.75, 12.0];
+  const tlons = [110.0, 110.25, 110.5];
+  const warm = grid(
+    [
+      [28, 28, 28],
+      [28, 28, 28],
+      [28, 28, 28],
+    ],
+    tlats,
+    tlons,
+  );
+  const clear = grid(
+    [
+      [0.1, 0.1, 0.1],
+      [0.1, 0.1, 0.1],
+      [0.1, 0.1, 0.1],
+    ],
+    tlats,
+    tlons,
+  );
+  const depthGrid = (m: number) =>
+    grid(
+      [
+        [m, m, m],
+        [m, m, m],
+        [m, m, m],
+      ],
+      tlats,
+      tlons,
+    );
+  const scoreOf = (depthM: number) => {
+    const f = buildFishForecast(warm, clear, null, 6, {
+      depth: depthGrid(depthM),
+    });
+    return f.cells.find((c) => c.sp["ngừ vây vàng"])?.sp["ngừ vây vàng"] ?? 0;
+  };
+  it("'ngừ vây vàng': nước sâu 2000m điểm cao; cạn 30m bị chặn về 0", () => {
+    const deep = scoreOf(2000);
+    const shallow = scoreOf(30);
+    expect(deep).toBeGreaterThan(shallow);
+    expect(shallow).toBe(0); // 30m < 50 → deepWaterFit 0 → loại
+  });
+  it("KHÔNG có lưới độ sâu → không chặn (giữ nguyên hành vi cũ)", () => {
+    const f = buildFishForecast(warm, clear, null, 6);
+    const s = f.cells.find((c) => c.sp["ngừ vây vàng"])?.sp["ngừ vây vàng"] ?? 0;
+    expect(s).toBeGreaterThan(0);
   });
 });
 

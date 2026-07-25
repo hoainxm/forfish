@@ -13,6 +13,7 @@ gate: warn
 <!-- re-verified: 2026-06-16 — covers MỞ RỘNG thêm fish-predict/hycom/sea-scalars/fuel-price/port-price-source (trước bỏ sót → drift im). Toàn bộ fetch ngoài đã có AbortSignal.timeout (sweep 2026-06-16: server 15-20s, client 15-25s). -->
 <!-- re-verified: 2026-07-25 — forecast-grid.ts (lớp Windy) nay CHỌN KHUNG 3/5/7/10/16 ngày, dùng model sóng ncep_gfswave025 (như sea/marine-weather) + bước giờ tăng dần, client timeout 20s. sea/marine-weather mở 16 ngày (WAVE_MODEL). -->
 <!-- re-verified: 2026-07-25b — fish-predict.ts tách cá ngừ đại dương → vây vàng + mắt to (39→40 loài); KHÔNG đổi tích hợp nguồn ERDDAP/HYCOM (URL/UA/timeout giữ nguyên), chỉ là tham số khẩu vị loài. -->
+<!-- re-verified: 2026-07-25c — THÊM nguồn runtime ETOPO 2022 (PIFSC ERDDAP) cho fish-forecast: cổng độ sâu chặn loài xa bờ (cá ngừ/cờ/nục heo/mực xà) khỏi ô cạn sát bờ. Row ETOPO thêm vào bảng; degrade .catch→null. -->
 **Last updated**: 2026-07-25
 
 ---
@@ -29,6 +30,7 @@ gate: warn
 | **Petrolimex / giaxanghomnay** | Giá dầu DO (`/api/fuel-price`) | Không key (scrape) | `app/api/fuel-price` | cache 6h | Ẩn dòng giá dầu, phần còn lại giữ nguyên |
 | **NOAA ERDDAP** | SST / phù du / front (dự báo cá) + nước dâng/xoáy (`/api/sea-scalar`) | Không key, **BẮT BUỘC `User-Agent`** (`ERDDAP_UA` trong fish-predict.ts; thiếu → coastwatch trả **403 + HTML** → parse JSON vỡ → `{ok:false}` = cá KHÔNG chạy, chẩn 2026-06-23) | `lib/fish-predict.ts`, `lib/sea-scalars.ts`, `app/api/fish-forecast`, `app/api/sea-scalar` | cache 6h, **server timeout 20s/lưới** (vài MB), **client fetch 25-35s** | Lớp cá pill đỏ "chạm để thử lại"; lùi mùa vụ; nguồn treo → route fail-fast `{ok:false}`, KHÔNG treo serverless |
 | **HYCOM** (OPeNDAP) | Tầng nhiệt D20 (cá ngừ) | Không key, gửi `User-Agent` (`ERDDAP_UA`) phòng host chặn undici | `lib/hycom.ts` | fetch song song ERDDAP, **timeout 20s** + `.catch→null` | Chia lại trọng số habitat, không D20 vẫn ra cá; treo → null (không treo `await thermoP`) |
+| **ETOPO 2022** (NOAA PIFSC ERDDAP) | Độ sâu đáy (m) — cổng chặn loài XA BỜ khỏi ô cạn (`bathyGridUrl`/`parseBathyGrid`, `SpeciesProfile.offshore`) | Không key, gửi `ERDDAP_UA` | `lib/fish-predict.ts`, `app/api/fish-forecast` (host `oceanwatch.pifsc.noaa.gov`, stride 60 = 0.25°) | TĨNH (đáy không đổi), cache 6h theo route, timeout 20s + `.catch→null` | Không có lưới độ sâu → bỏ cổng (cá xa bờ có thể hiện sát bờ như trước), forecast vẫn chạy |
 | **Overpass / OpenSeaMap** | Phao đèn, báo hiệu gần bờ | Không key | `app/api/nautical` | timeout 25s (nguồn chậm) | Lớp phao ẩn; hải đồ + dự báo vẫn chạy |
 | **NASA GIBS / tiles vệ tinh** | Ảnh mây, nhiệt độ, phù du nền bản đồ | Không key | `lib/ocean-map.ts` (buildMapStyle) | tile CDN | Badge "Chưa tải được"; đổi lớp khác được |
 | **Supabase — ForFish** (`znzgugvfhgmiszqgjulk`) | Auth (SĐT) + DB owner-only (boats/documents/profiles) | publishable + anon (public env) | Vercel env `NEXT_PUBLIC_SUPABASE_*` | — | Env trống → **demo mode** localStorage, app vẫn dùng được (02 §4) |
