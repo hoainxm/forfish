@@ -116,9 +116,9 @@ export async function GET() {
 
     const month = new Date().getMonth() + 1;
     // `generatedAt` = LÚC TÍNH bản đồ này (khác `date` = ngày ẢNH vệ tinh).
-    // Bắt buộc phải có: service worker giữ lại response, ra biển mất sóng vẫn vẽ
-    // được điểm nóng — không có mốc này thì bản 10 ngày trước trông y hệt bản mới.
     // Route có ISR 6h nên mốc đi kèm bản đã tính, đúng tuổi thật của dữ liệu.
+    // KHÔNG hiển thị ra màn hình (quyết định sản phẩm 2026-07-25 — bỏ hẳn tuổi
+    // lớp cá khỏi UI cho gọn); giữ lại trong payload để đối chiếu/kiểm tra.
     return Response.json({
       ...buildFishForecast(sst, chl, sla, month, {
         anom,

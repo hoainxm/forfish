@@ -1,0 +1,99 @@
+"use client";
+
+/**
+ * Trục 1 — TỰ TẢI SẴN DỰ BÁO + một dòng báo tự tắt.
+ *
+ * Trước 2026-07-25 chỗ này là thẻ "Chuẩn bị đi biển": một nút to + thẻ xanh báo
+ * xong + một dòng thường trực "Trong máy: …". Chủ dự án xem app thật thấy màn
+ * hình RỐI vì quá nhiều chữ nằm lì trên bản đồ → bỏ cả ba, máy tự lo.
+ *
+ * Cách hiện học theo banner tin bão (components/storm-banner.tsx): một dòng gọn
+ * bo tròn, nổi trên bản đồ, nói xong thì TỰ TẮT — không có nút, không chắn view.
+ *
+ * TIẾT CHẾ DATA: mỗi lượt tải sẵn ≈ 2,5–3 MB. Cửa chặn (còn mới / mất sóng /
+ * đã chạy rồi) nằm ở lib/pretrip-auto.ts — xem lý do ở đó.
+ */
+
+import { useEffect, useRef, useState } from "react";
+import { runPretrip, type PretripPoint } from "@/lib/pretrip";
+import {
+  autoPretripLine,
+  lastAutoPretripAt,
+  markAutoPretripRun,
+  shouldAutoPretrip,
+} from "@/lib/pretrip-auto";
+import { AlertIcon, CheckIcon } from "@/components/icons";
+
+/** Nói xong thì tắt sau ngần này — đủ đọc một dòng, rồi trả lại bản đồ. */
+const NOTIFY_HIDE_MS = 5000;
+
+/**
+ * CHỈ MỘT LẦN mỗi lần mở app. Để ở mức module (không phải state) nên vẽ lại,
+ * đóng/mở sheet hay đổi qua lại trong màn đều KHÔNG gọi tải lại.
+ */
+let startedThisLoad = false;
+
+type Note = { text: string; kind: "busy" | "ok" | "warn" };
+
+export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
+  const [note, setNote] = useState<Note | null>(null);
+  // chỗ tải sẵn có thể đổi khi bà con ghim thêm điểm — lấy bản mới nhất lúc
+  // chạy, nhưng KHÔNG để nó kích hoạt chạy lại
+  const pointsRef = useRef(points);
+  useEffect(() => {
+    pointsRef.current = points;
+  }, [points]);
+
+  useEffect(() => {
+    if (startedThisLoad) return;
+    startedThisLoad = true;
+
+    const online =
+      typeof navigator === "undefined" ? true : navigator.onLine !== false;
+    const go = shouldAutoPretrip({
+      lastRunAt: lastAutoPretripAt(),
+      nowMs: Date.now(),
+      online,
+    });
+    // Bản còn mới hoặc đang mất sóng → IM LẶNG hoàn toàn, không báo gì cả.
+    if (!go) return;
+
+    setNote({ text: "Đang tải dự báo…", kind: "busy" });
+    runPretrip(pointsRef.current)
+      .then((r) => {
+        markAutoPretripRun();
+        const ok = !r.full && r.ok > 0 && r.saved.places > 0 && !!r.saved.untilIso;
+        setNote({ text: autoPretripLine(r), kind: ok ? "ok" : "warn" });
+      })
+      .catch(() => {
+        setNote({ text: "Chưa tải được dự báo — chưa có sóng.", kind: "warn" });
+      });
+  }, []);
+
+  // tự tắt sau khi đã nói xong (lúc đang tải thì cứ để đó)
+  useEffect(() => {
+    if (!note || note.kind === "busy") return;
+    const t = setTimeout(() => setNote(null), NOTIFY_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [note]);
+
+  if (!note) return null;
+
+  const skin =
+    note.kind === "ok"
+      ? "bg-ok-bg text-ok"
+      : note.kind === "warn"
+        ? "bg-warn-bg text-warn"
+        : "bg-card/95 text-navy";
+
+  return (
+    <p
+      role="status"
+      className={`pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.875rem] font-bold leading-snug shadow-md ${skin}`}
+    >
+      {note.kind === "ok" && <CheckIcon className="h-4 w-4 shrink-0" />}
+      {note.kind === "warn" && <AlertIcon className="h-4 w-4 shrink-0" />}
+      {note.text}
+    </p>
+  );
+}

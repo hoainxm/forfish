@@ -2,9 +2,9 @@
 //
 // Vì sao có file này: máy VẪN giữ dự báo để xem lúc mất sóng, nhưng trước đây
 // chỉ giữ được thứ bà con TÌNH CỜ mở ra xem (chạm điểm, bật lớp gió). Ra khơi 5–16
-// ngày mà không biết trong máy có gì = may rủi. Nút "Chuẩn bị đi biển" biến việc
-// đó thành LỜI HỨA: bấm một lần lúc còn sóng, máy tải đủ và nói rõ giữ được tới
-// ngày nào, cho mấy chỗ.
+// ngày mà không biết trong máy có gì = may rủi. Nay máy TỰ tải đủ lúc còn sóng
+// (bà con không phải bấm gì) — cửa chặn 6 giờ cho khỏi tốn tiền sóng nằm ở
+// lib/pretrip-auto.ts, file này chỉ lo phần tải.
 //
 // Nguyên tắc: KHÔNG thêm nguồn dữ liệu mới — chỉ gọi đúng những hàm màn Ra khơi
 // vẫn gọi (fetchSeaPoint / fetchFishForecast / fetchForecastGrid), vì bản thân
@@ -14,8 +14,6 @@ import { fetchSeaPoint, POINT_NS, type SeaPointConditions } from "@/lib/marine-w
 import { fetchFishForecast } from "@/lib/fish-predict";
 import { fetchForecastGrid, savedGridDays } from "@/lib/forecast-grid";
 import { coordId, lastStorageFullAt, loadAll } from "@/lib/forecast-cache";
-import { formatDateVN } from "@/lib/ocean-map";
-import { isoDateVN } from "@/lib/day-labels";
 
 /**
  * Khung ngày lưới gió/sóng tải sẵn: gần (3) · giữa (7) · cả chuyến dài (16).
@@ -83,32 +81,9 @@ export function savedSummary(): SavedSummary {
   return { places: pts.length, untilIso, gridDays: savedGridDays() };
 }
 
-/**
- * Câu thường trực cho bà con biết đang cầm gì trong máy.
- * Chưa có gì thì nói thẳng, KHÔNG hiện ngày rỗng cho có.
- */
-export function savedLine(s: SavedSummary, nowMs: number = Date.now()): string {
-  if (!s.places || !s.untilIso) return "Trong máy: chưa có dự báo nào";
-  const todayIso = isoDateVN(nowMs);
-  if (s.untilIso < todayIso) return "Trong máy: dự báo đã qua ngày hết";
-  return `Trong máy: dự báo tới ${formatDateVN(s.untilIso)} · ${s.places} chỗ`;
-}
-
-/** Câu kết sau khi bấm "Chuẩn bị đi biển" — nói đúng thứ máy giữ được. */
-export function doneLine(r: PretripResult): string {
-  if (r.full) {
-    return "Máy hết chỗ nhớ — xoá bớt điểm đã lưu rồi làm lại.";
-  }
-  if (!r.saved.places || !r.saved.untilIso) {
-    return "Chưa tải được gì — kiểm tra sóng rồi làm lại.";
-  }
-  const head = `Xong. Máy giữ dự báo tới ngày ${formatDateVN(
-    r.saved.untilIso,
-  )} cho ${r.saved.places} chỗ.`;
-  return r.failed > 0
-    ? `${head} Còn ${r.failed} phần chưa tải được — có sóng thì làm lại.`
-    : head;
-}
+/* Câu chữ cho màn hình KHÔNG còn ở đây: từ 2026-07-25 bà con không bấm nút nữa
+   (máy tự tải) và chỉ thấy MỘT dòng báo tự tắt — dòng đó dựng ở
+   lib/pretrip-auto.ts (autoPretripLine). File này chỉ còn lo phần TẢI. */
 
 /* --------------------------------------------------------------------------
    DANH SÁCH VIỆC + CHẠY

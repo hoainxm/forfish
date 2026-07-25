@@ -27,7 +27,6 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import {
   buildMapStyle,
-  formatDateVN,
   DEFAULT_VIEW,
   OCEAN_LAYERS,
   SOVEREIGNTY_LABELS,
@@ -107,7 +106,6 @@ import {
   type SeaPoint,
   type SeaPointConditions,
 } from "@/lib/marine-weather";
-import { fishForecastAge } from "@/lib/fish-age";
 import type { PretripPoint } from "@/lib/pretrip";
 import { skillForLead } from "@/lib/forecast-quality";
 import { FORECAST_SKILL } from "@/lib/forecast-skill";
@@ -115,6 +113,7 @@ import { savedAgoLabel } from "@/lib/forecast-cache";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
 import { RaKhoiControls } from "@/components/ra-khoi-controls";
 import { StormBanner } from "@/components/storm-banner";
+import { PretripAutoNotify } from "@/components/pretrip-auto-notify";
 import {
   AlertIcon,
   ChevronDownIcon,
@@ -840,8 +839,8 @@ export default function FishingMapView() {
         })()
       : "Chỗ đang xem trên biển";
 
-  // CHUẨN BỊ ĐI BIỂN: các chỗ tải sẵn = chỗ đang xem + mọi điểm đã ghim (cảng
-  // nhà nằm trong đó). Không tự bịa thêm chỗ — chỉ những nơi bà con đã đánh dấu.
+  // TẢI SẴN TRƯỚC KHI RỜI BỜ: các chỗ tải sẵn = chỗ đang xem + mọi điểm đã ghim
+  // (cảng nhà nằm trong đó). Không tự bịa thêm chỗ — chỉ nơi bà con đã đánh dấu.
   const pretripPoints = useMemo<PretripPoint[]>(
     () => [
       { lat: point.lat, lon: point.lon, name: currentPlace?.name ?? "Chỗ đang xem" },
@@ -852,12 +851,6 @@ export default function FishingMapView() {
       })),
     ],
     [point, places, currentPlace],
-  );
-
-  // Tuổi bản đồ cá — ẢNH ngày nào vs LẤY VỀ lúc nào (hai thứ khác nhau).
-  const fishAge = useMemo(
-    () => (fishCast ? fishForecastAge(fishCast, nowMs) : null),
-    [fishCast, nowMs],
   );
 
   // kết quả đo 2 điểm (đường chim bay) — định dạng theo đơn vị đang chọn
@@ -1295,6 +1288,9 @@ export default function FishingMapView() {
         aria-hidden={size !== "peek"}
       >
         <StormBanner variant="overlay" />
+        {/* TẢI SẴN DỰ BÁO: tự chạy khi vào trang (không còn nút bấm), báo một
+            dòng nhỏ rồi tự tắt — xem components/pretrip-auto-notify.tsx */}
+        <PretripAutoNotify points={pretripPoints} />
         {/* ĐIỀU KHIỂN LỚP — rail phải + 4 panel (Phương án A); trong luồng dưới
             banner bão nên không đè/lệch */}
         <RaKhoiControls
@@ -1317,7 +1313,6 @@ export default function FishingMapView() {
           onFish={setFishOn}
           fishSpecies={fishSpecies}
           fishLocked={fishLocked}
-          fishAge={fishAge}
           species={fishCast?.species ?? []}
           regionShorts={regionShorts}
           onPickSpecies={setFishSpecies}
@@ -1338,35 +1333,11 @@ export default function FishingMapView() {
           measureCount={measurePts.length}
           measureResult={measureResult}
           onClearMeasure={() => setMeasurePts([])}
-          pretripPoints={pretripPoints}
         />
 
-        {/* (cũ) nút "Cá" GỌN — thay hàng chip ngang (chắn bản đồ). Chỉ rộng bằng nội
-            dung, chạm là mở bảng chọn loài. Hiện loài đang chọn + chấm màu.
-            ẨN khi đang xem gió/sóng — bớt tầng đè map (roadmap hội đồng UX). */}
-        {/* LỚP CÁ ĐANG XEM CŨ HAY MỚI — bản đồ cá được máy giữ lại (service
-            worker) nên mất sóng vẫn vẽ điểm nóng y hệt bản mới. Badge nói rõ
-            NGÀY ẢNH và LÚC LẤY VỀ; quá 3 ngày thì nền vàng cho khỏi tin nhầm. */}
-        {!forecastKind && fishOn && fishCast && fishAge && (
-          <div
-            className={`pointer-events-none max-w-[calc(100vw-6rem)] self-start rounded-xl px-3 py-1.5 shadow-md ${
-              fishAge.warn ? "bg-warn-bg" : "bg-card/95"
-            }`}
-          >
-            <p
-              className={`text-[0.9375rem] font-bold leading-snug ${
-                fishAge.warn ? "text-warn" : "text-navy"
-              }`}
-            >
-              {fishAge.warn ? "Bản đồ cá CŨ" : "Bản đồ cá"} — {fishAge.label}
-            </p>
-            {fishAge.warn && (
-              <p className="text-[0.8125rem] font-semibold leading-snug text-warn">
-                Có sóng lại máy sẽ tự lấy bản mới.
-              </p>
-            )}
-          </div>
-        )}
+        {/* KHÔNG có badge tuổi lớp cá (bỏ 2026-07-25 theo quyết định sản phẩm:
+            màn hình bị rối vì quá nhiều chữ thường trực). Bản đồ cá vẫn tự lấy
+            bản mới khi có sóng. */}
 
         {/* dự báo cá lỗi → nói thẳng + Thử lại (không phải "hôm nay không có cá") */}
         {!forecastKind && fishOn && !fishCast && fishFailed && (
@@ -1893,15 +1864,11 @@ export default function FishingMapView() {
                           </b>{" "}
                           cho: <b>{names.join(", ")}</b>
                         </p>
-                        <p
-                          className={`mt-1 text-[0.875rem] font-semibold leading-snug ${
-                            fishAge?.warn ? "text-warn" : "text-foreground/65"
-                          }`}
-                        >
+                        {/* CHỈ số môi trường tại ô — bỏ phần ngày ảnh/lấy về
+                            (quyết định sản phẩm 2026-07-25: gọn màn hình) */}
+                        <p className="mt-1 text-[0.875rem] font-semibold leading-snug text-foreground/65">
                           Nước {formatNumberVN(fishAtPoint.t)}°C
-                          {bait ? ` · ${bait}` : ""} —{" "}
-                          {fishAge?.label ?? `ảnh ngày ${formatDateVN(fishCast.date)}`}
-                          {fishAge?.warn && " (số cũ trong máy)"}
+                          {bait ? ` · ${bait}` : ""}
                         </p>
                         {/* TRUNG THỰC: loài đáy/rạn dự báo theo mùa + độ sâu */}
                         {lowSig ? (

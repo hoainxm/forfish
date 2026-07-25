@@ -20,14 +20,10 @@ const _ls = (() => {
 import { saveForecast } from "../forecast-cache";
 import {
   dedupePoints,
-  doneLine,
   pretripSteps,
-  savedLine,
   savedSummary,
   PRETRIP_GRID_DAYS,
 } from "../pretrip";
-
-const NOW = Date.parse("2026-07-25T03:00:00Z"); // 10:00 ngày 25/7 giờ VN
 
 /** Bản dự báo điểm rút gọn — chỉ cần mảng `days` để tính "giữ tới ngày nào" */
 const cond = (dates: string[]) => ({ days: dates.map((date) => ({ date })) });
@@ -62,9 +58,13 @@ describe("pretripSteps", () => {
   });
 });
 
-describe("savedSummary + savedLine — 'trong máy đang có gì'", () => {
-  it("chưa có gì → nói thẳng", () => {
-    expect(savedLine(savedSummary(), NOW)).toBe("Trong máy: chưa có dự báo nào");
+describe("savedSummary — 'trong máy đang có gì'", () => {
+  it("chưa có gì → không chỗ nào, không ngày nào", () => {
+    expect(savedSummary()).toEqual({
+      places: 0,
+      untilIso: null,
+      gridDays: [],
+    });
   });
 
   it("đếm số chỗ và lấy ngày XA NHẤT còn dự báo", () => {
@@ -76,46 +76,5 @@ describe("savedSummary + savedLine — 'trong máy đang có gì'", () => {
     expect(s.places).toBe(2);
     expect(s.untilIso).toBe("2026-08-09");
     expect(s.gridDays).toEqual([3, 16]);
-    expect(savedLine(s, NOW)).toBe("Trong máy: dự báo tới 9/8 · 2 chỗ");
-  });
-
-  it("bản lưu đã qua ngày hết → KHÔNG khoe ngày cũ như thể còn dùng được", () => {
-    saveForecast("point", "a", cond(["2026-07-10", "2026-07-20"]), 1000);
-    expect(savedLine(savedSummary(), NOW)).toBe(
-      "Trong máy: dự báo đã qua ngày hết",
-    );
-  });
-});
-
-describe("doneLine — câu kết sau khi bấm Chuẩn bị đi biển", () => {
-  const saved = { places: 6, untilIso: "2026-08-09", gridDays: [3, 7, 16] };
-
-  it("xong xuôi: nói giữ tới ngày nào, cho mấy chỗ", () => {
-    expect(doneLine({ ok: 10, failed: 0, full: false, saved })).toBe(
-      "Xong. Máy giữ dự báo tới ngày 9/8 cho 6 chỗ.",
-    );
-  });
-
-  it("có phần hỏng → nói thật còn thiếu bao nhiêu", () => {
-    expect(doneLine({ ok: 8, failed: 2, full: false, saved })).toContain(
-      "Còn 2 phần chưa tải được",
-    );
-  });
-
-  it("máy hết chỗ → báo hết chỗ, KHÔNG báo xong", () => {
-    expect(doneLine({ ok: 5, failed: 0, full: true, saved })).toBe(
-      "Máy hết chỗ nhớ — xoá bớt điểm đã lưu rồi làm lại.",
-    );
-  });
-
-  it("chẳng tải được gì → không hứa suông", () => {
-    expect(
-      doneLine({
-        ok: 0,
-        failed: 9,
-        full: false,
-        saved: { places: 0, untilIso: null, gridDays: [] },
-      }),
-    ).toBe("Chưa tải được gì — kiểm tra sóng rồi làm lại.");
   });
 });

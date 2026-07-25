@@ -205,31 +205,44 @@ Bỏ fallback "bản lưu mới nhất của bất kỳ toạ độ nào". Chỉ
 
 **F. Đồng hồ màn hình** — `fishing-map-view` + `storm-banner` giữ `nowMs` nhích 5 phút/lần: app mở suốt chuyến thì "Hôm nay" và tuổi tin bão vẫn tự trôi.
 
-### 10.2 Chuẩn bị đi biển + tuổi lớp cá (2026-07-25j)
+### 10.2 Tải sẵn dự báo — TỰ ĐỘNG, không nút, không chữ thường trực (2026-07-25n)
 
-Cùng mạch §10.1, ba việc: (A) lớp cá phải biết mình cũ, (B) biến "16 ngày offline" từ may rủi thành lời hứa, (C) lưới gió/sóng không được đưa khung ngày khác.
+Cùng mạch §10.1, ba việc: (A) màn hình phải GỌN — bỏ hẳn chữ nói tuổi lớp cá, (B) tải sẵn 16 ngày offline không bắt bà con bấm nút, (C) lưới gió/sóng không được đưa khung ngày khác.
 
-**A. Badge TUỔI LỚP CÁ** (`lib/fish-age.ts` → `fishForecastAge`, dùng ở `fishing-map-view` + panel Ngư trường + thẻ cá trong sheet)
+> **Sửa lớn 2026-07-25n** (chủ dự án xem app thật): hai đợt trước thêm quá nhiều chữ NẰM LÌ trên bản đồ → rối. Quyết định sản phẩm: **bỏ badge tuổi lớp cá ở mọi chỗ** và **bỏ nút "Chuẩn bị đi biển" + 2 khối chữ đi kèm**, thay bằng tự tải + một dòng báo tự tắt.
 
-`/api/fish-forecast` được Service Worker giữ lại (network-first) nên mất sóng vẫn vẽ điểm nóng — trước đây payload không có mốc nào nên bản 10 ngày trước trông y hệt bản mới. Hai mốc TÁCH BẠCH: `date` = ngày ẢNH vệ tinh (nguồn trễ sẵn ~2 ngày) · `generatedAt` = lúc máy chủ TÍNH = lúc máy lấy về.
+**A. TUỔI LỚP CÁ — KHÔNG hiển thị ở đâu cả** (bỏ `lib/fish-age.ts`)
 
-| Trạng thái | Điều kiện | Hiển thị (badge góc trái map, dưới rail) |
+Đã gỡ sạch ba chỗ từng hiện tuổi: badge "Bản đồ cá — Ảnh ngày D/M (2 ngày trước) · lấy về HH:MM" trên map (cả biến thể nền vàng "Bản đồ cá CŨ"), khối warn trong panel **Ngư trường**, và đuôi "— Ảnh ngày … · lấy về …" trong thẻ cá ở sheet (nay chỉ còn **"Nước 28°C · mồi dày"**). Toggle "Dự báo cá (PFZ)" quay lại phụ đề cố định "Theo ngày · ảnh vệ tinh". `lib/fish-age.ts` + test đã **xoá** (không còn ai dùng).
+
+`/api/fish-forecast` **vẫn trả `generatedAt`** (và `FishForecast.generatedAt` vẫn còn trong interface) — rẻ, không hiện ra UI, giữ để đối chiếu/kiểm tra sau này. Ai muốn hiện lại tuổi cá phải mở lại quyết định sản phẩm này.
+
+**B. TẢI SẴN TỰ ĐỘNG + notify tự ẩn** (`lib/pretrip.ts` giữ nguyên phần tải · cửa chặn `lib/pretrip-auto.ts` · hiển thị `components/pretrip-auto-notify.tsx`)
+
+Bỏ cả ba thứ cũ: nút "Chuẩn bị đi biển", thẻ xanh "Xong. Máy giữ dự báo tới ngày D/M cho N chỗ.", dòng thường trực "Trong máy: dự báo tới D/M · N chỗ". Nay **vào màn Ra khơi là máy tự lo**, chỉ báo **một dòng gọn bo tròn** nổi dưới banner bão (kiểu hiển thị mượn `storm-banner.tsx`: `rounded-full px-3 py-1.5`, 14px đậm, `shadow-md`, `role="status"`, không nút, không chắn bản đồ).
+
+| Lúc | Dòng báo | Nền |
 |---|---|---|
-| Bình thường | ảnh ≤ 5 ngày (`FISH_STALE_DAYS`) | nền card: **"Bản đồ cá — Ảnh ngày D/M (N ngày trước) · lấy về HH:MM ngày D/M"** |
-| **Cũ** | ảnh > 5 ngày **hoặc** ngày ảnh hỏng | **nền warn**: "Bản đồ cá CŨ — Ảnh ngày D/M (12 ngày trước) · lấy về HH:MM ngày D/M" + dòng "Có sóng lại máy sẽ tự lấy bản mới." Panel Ngư trường hiện thêm khối warn cùng ý. |
-| Không rõ lúc lấy | payload cũ, thiếu `generatedAt` | "… · **chưa rõ lấy về lúc nào**" — KHÔNG đoán là vừa lấy |
+| Đang chạy | **"Đang tải dự báo…"** | `bg-card/95` chữ navy |
+| Xong | **"Đã lưu dự báo tới ngày D/M."** → tự ẩn sau **5 giây** | `bg-ok-bg` + ✓ |
+| Hỏng / mất sóng giữa chừng | **"Chưa tải được dự báo — chưa có sóng."** → tự ẩn | `bg-warn-bg` + ⚠ |
+| Máy hết chỗ nhớ | **"Máy hết chỗ nhớ — xoá bớt điểm đã lưu."** → tự ẩn | `bg-warn-bg` + ⚠ |
 
-Thẻ cá trong sheet: dòng "Nước 28°C · mồi dày — Ảnh ngày … · lấy về …", chuyển màu warn + "(số cũ trong máy)" khi cũ. Toggle "Dự báo cá (PFZ)" bỏ chữ kỹ thuật "cache 6h", thay bằng chính dòng tuổi này.
+Tải sẵn (không đổi): gió sóng 16 ngày cho **chỗ đang xem + mọi điểm đã ghim** (gộp các chỗ cùng ô 0,25°) · **bản đồ cá** · **lưới gió/sóng khung 3 / 7 / 16 ngày** (`PRETRIP_GRID_DAYS`).
 
-**B. Nút CHUẨN BỊ ĐI BIỂN** (`lib/pretrip.ts` + thẻ trong `ra-khoi-controls.tsx`)
+**TIẾT CHẾ DATA (bắt buộc)** — mỗi lượt tải sẵn ≈ **2,5–3 MB**, bà con trả tiền theo dung lượng nên KHÔNG được tải lại mỗi lần vào trang. Luật ở `shouldAutoPretrip` (`lib/pretrip-auto.ts`, thuần, có test):
 
-Trước: máy chỉ giữ được thứ bà con TÌNH CỜ mở xem (chạm điểm / bật lớp gió) → không ai biết trong máy có gì lúc rời bờ. Nay ở Ra khơi có **một nút to duy nhất**, neo mép TRÁI ngang rail (ẩn khi mở panel hoặc thu rail — giữ map sạch).
+| Trường hợp | Hành vi |
+|---|---|
+| Chưa tải lần nào | **chạy** |
+| Bản trong máy cũ hơn **6 giờ** (`PRETRIP_MIN_INTERVAL_MS`, khớp ISR 6h của nguồn) | **chạy** |
+| Bản còn mới (< 6 giờ) | **KHÔNG chạy, im lặng hoàn toàn** — không hiện notify gì |
+| `navigator.onLine === false` | **KHÔNG thử tải, im lặng** |
+| Vẽ lại / đóng-mở sheet / đổi lớp trong màn | **KHÔNG chạy lại** — cờ ở mức module, một lần mỗi lần mở app |
+| Mốc lưu nằm ở tương lai (đồng hồ máy chỉnh lùi) hoặc rác | coi như chưa có → **chạy** (không để cửa chặn kẹt vĩnh viễn) |
 
-- Nút (min-h 56px, nền `--t1`): **"Chuẩn bị đi biển"** → khi chạy: **"Đang tải về máy…"** + thanh tiến trình + dòng "{việc đang làm} (3/7)", vd "Gió sóng — Cảng nhà (1/7)", "Bản đồ cá (5/7)", "Gió sóng cả vùng biển — 16 ngày (7/7)".
-- Tải sẵn: gió sóng 16 ngày cho **chỗ đang xem + mọi điểm đã ghim** (gộp các chỗ cùng ô 0,25°) · **bản đồ cá** · **lưới gió/sóng khung 3 / 7 / 16 ngày** (`PRETRIP_GRID_DAYS`; không lấy đủ 5 khung cho khỏi tốn sóng + chỗ nhớ).
-- Câu kết (nền ok, 16px đậm): **"Xong. Máy giữ dự báo tới ngày D/M cho N chỗ."** · có phần hỏng: thêm "Còn N phần chưa tải được — có sóng thì làm lại." · máy đầy: **"Máy hết chỗ nhớ — xoá bớt điểm đã lưu rồi làm lại."** · không tải được gì: "Chưa tải được gì — kiểm tra sóng rồi làm lại."
-- **Dòng thường trực** (18px đậm, luôn thấy dưới nút): **"Trong máy: dự báo tới D/M · N chỗ"** · chưa có gì: "Trong máy: chưa có dự báo nào" · bản lưu quá hạn: "Trong máy: dự báo đã qua ngày hết".
-- Ghi chú nhỏ: "Bấm lúc còn sóng ở bờ — ra khơi mất sóng vẫn xem lại được số đã tải."
+Mốc lần chạy gần nhất lưu ở `forfish.pretrip.lastRunAt.v1` (xem `ops/state-registry.md`).
+
 - Vỏ offline: `public/sw.js` pre-cache thêm `/ngu-truong` (bump `SDFISH_CACHE_V` → `sdfish-v3`) — trước đây mở app giữa biển chỉ về được trang chủ.
 
 **C. Lưới gió/sóng — đúng KHUNG NGÀY đã xin** (`lib/forecast-grid.ts`)
@@ -305,3 +318,4 @@ Không dùng từ kỹ thuật (tile / offline / cache / bản đồ nền) — 
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): thêm lớp BÃO trên map (vùng ảnh hưởng polygon đỏ mờ + đường đi track gạch đứt, dưới Marker tâm bão) từ GDACS; + fix dự báo cá maxDuration/ISR. Screen map/nav/object model KHÔNG đổi cấu trúc -->
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): legend cá thành BỘ LỌC kéo-thả 2 đầu (chỉ hiện ô [lo,hi]% khả năng có cá). Độ sâu raster KHÔNG lọc được (giữ legend tĩnh). Screen map/object model KHÔNG đổi cấu trúc -->
 <!-- re-verified: 2026-07-25m — BẢN ĐỒ LÚC MẤT SÓNG (xem §10.3): (1) style thêm layer nền nước sea-bg (không còn màn hình trắng); (2) nền tối giản bờ+đảo public/data/vn-coast.v1.json bật qua lib/offline-basemap.ts khi mất mạng hoặc ≥3 ô nền trượt, đặt DƯỚI mọi lớp khác, có mạng thì không vẽ; (3) badge warn "Mất sóng. Đang dùng hình bờ biển lưu trong máy." cùng chỗ badge tuổi lớp cá; (4) glyph font tự host public/fonts (CDN openmaptiles đã chết → nhãn số mét trước nay KHÔNG hiện); (5) hải đồ + phao đèn qua /api/tiles/* để SW giữ được, kho ô riêng trần 600 ô; sw.js → sdfish-v4. -->
+<!-- re-verified: 2026-07-25n — GỌN MÀN HÌNH (xem §10.2, chủ dự án xem app thật thấy rối): (1) BỎ HẲN mọi chỗ hiện tuổi lớp cá — badge trên map (cả biến thể "Bản đồ cá CŨ" nền vàng), khối warn panel Ngư trường, đuôi "Ảnh ngày…/lấy về…" trong thẻ cá ở sheet; xoá lib/fish-age.ts + test (không còn ai dùng). /api/fish-forecast VẪN trả generatedAt nhưng KHÔNG hiển thị (giữ để đối chiếu). (2) BỎ nút "Chuẩn bị đi biển" + thẻ xanh "Xong. Máy giữ dự báo…" + dòng thường trực "Trong máy: …" → TỰ tải khi vào trang, báo 1 dòng tự ẩn sau 5s ("Đang tải dự báo…" / "Đã lưu dự báo tới ngày D/M." / "Chưa tải được dự báo — chưa có sóng."), kiểu hiển thị mượn storm-banner. (3) TIẾT CHẾ DATA: lib/pretrip-auto.ts shouldAutoPretrip — chỉ tự chạy khi bản cũ hơn PRETRIP_MIN_INTERVAL_MS=6h hoặc chưa có; còn mới/offline → im lặng; 1 lần mỗi lần mở app; mốc ở forfish.pretrip.lastRunAt.v1. lib/pretrip.ts giữ nguyên phần tải (bỏ 2 hàm chữ savedLine/doneLine vì không còn ai hiện). -->

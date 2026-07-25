@@ -30,6 +30,7 @@ gate: warn
 | `forfish.sea.<port>.v3` | **Cache** dự báo biển 16 ngày theo cảng (prefix; v3 = +waveEstimated, model sóng ncep_gfswave025) | `lib/sea.ts` | sea-forecast | 1 | xoá an toàn (chỉ cache, TTL 1h) |
 | `forfish.fc.point.<lat_lon>` | **Bản lưu** dự báo 16 ngày theo ô lưới 0,25° (ra khơi mất sóng vẫn xem) | `lib/forecast-cache.ts` ← `lib/marine-weather.ts`, `lib/pretrip.ts` | ngu-truong | 1 | xoá → mất số đã tải, có sóng lấy lại |
 | `forfish.fc.grid.d<N>` | **Bản lưu** lưới gió/sóng Windy THEO KHUNG NGÀY (d3/d7/d16…) — chỉ dùng lại đúng khung đã xin | `lib/forecast-cache.ts` ← `lib/forecast-grid.ts`, `lib/pretrip.ts` | ngu-truong | 1 | xoá → khung đó báo "máy chưa lưu khung này" |
+| `forfish.pretrip.lastRunAt.v1` | Mốc (epoch ms) lần **tự tải sẵn dự báo** gần nhất — cửa chặn 6 giờ cho khỏi tốn tiền sóng (mỗi lượt ~2,5–3 MB) | `lib/pretrip-auto.ts` | `components/pretrip-auto-notify.tsx` | 1 | xoá → lần vào Ra khơi kế tiếp tải lại một lượt |
 | `forfish.products.v1` | Đồ/vật tư của tàu | `components/boat-products.tsx` | van-hanh | 3 | xoá → trống |
 | `forfish.maintenance.v1` | Nhắc bảo dưỡng | `components/maintenance-reminders.tsx` | + `urgent-strip.tsx` | 3 | xoá → mất lịch nhắc |
 | `forfish.crew.v1` | Danh sách thuyền viên | `components/crew-list.tsx` | + `urgent-strip.tsx` | 3 | xoá → trống |

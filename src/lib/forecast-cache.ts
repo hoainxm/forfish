@@ -26,7 +26,7 @@ export interface Cached<T> {
 let lastFullAt = 0;
 
 /**
- * Lúc nào máy hết chỗ nhớ gần nhất — để nút "Chuẩn bị đi biển" nói thật
+ * Lúc nào máy hết chỗ nhớ gần nhất — để dòng báo lúc tự tải sẵn nói thật
  * ("máy hết chỗ") thay vì báo xong trong khi chẳng giữ được gì.
  */
 export function lastStorageFullAt(): number {

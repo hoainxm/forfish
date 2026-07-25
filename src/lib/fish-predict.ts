@@ -564,8 +564,10 @@ export interface FishForecast {
   species: string[];
   /**
    * ISO lúc MÁY CHỦ TÍNH bản này (route gắn vào) — KHÁC `date` (ngày ẢNH vệ tinh).
-   * Service worker giữ lại response nên bản trong máy có thể rất cũ; không có mốc
-   * này thì bản đồ cá 10 ngày trước trông y hệt bản mới. Tuổi tính ở lib/fish-age.
+   * Service worker giữ lại response nên bản trong máy có thể rất cũ.
+   * HIỆN KHÔNG HIỂN THỊ RA MÀN HÌNH (quyết định sản phẩm 2026-07-25: bỏ hẳn mọi
+   * chỗ nói tuổi lớp cá cho màn hình gọn) — vẫn giữ trong payload vì gần như
+   * không tốn gì và cần cho việc đối chiếu/kiểm tra sau này.
    */
   generatedAt?: string;
 }
