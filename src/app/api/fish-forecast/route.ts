@@ -12,7 +12,7 @@ import {
   type CurrentGrids,
   type ScalarGrid,
 } from "@/lib/fish-predict";
-import { fetchThermoclineGrid } from "@/lib/hycom";
+import { fetchHycomGrids } from "@/lib/hycom";
 
 /**
  * Dự báo cá (PFZ) — tính server: kéo lưới SST + phù du mới nhất từ nguồn
@@ -50,8 +50,9 @@ export async function GET() {
       signal: AbortSignal.timeout(GRID_TIMEOUT_MS),
       headers: { "User-Agent": ERDDAP_UA },
     });
-    // tầng nhiệt HYCOM (host khác, OPeNDAP) chạy SONG SONG với các lưới ERDDAP
-    const thermoP = fetchThermoclineGrid().catch(() => null);
+    // HYCOM (host khác, OPeNDAP) chạy SONG SONG với các lưới ERDDAP — 1 lần fetch
+    // cube, rút D20 (tầng cá ngừ) + nhiệt ĐÁY (loài đáy) + nhiệt 250 m (ngừ mắt to)
+    const hycomP = fetchHycomGrids().catch(() => null);
     const [sstRes, chlRes, slaRes, anomRes, uRes, vRes, bathyRes] =
       await Promise.all([
         fetch(sstGridUrl(), opt()),
@@ -97,7 +98,10 @@ export async function GET() {
         ? { u, v }
         : null;
 
-    const thermo = await thermoP; // tầng nhiệt D20 (HYCOM) — tuỳ chọn
+    const hycom = await hycomP; // { d20, bottom, deep250 } (HYCOM) — tuỳ chọn
+    const thermo = hycom?.d20 ?? null; // tầng nhiệt D20 (cá ngừ nổi)
+    const bottomTemp = hycom?.bottom ?? null; // nhiệt đáy (loài đáy)
+    const deepTemp = hycom?.deep250 ?? null; // nhiệt 250 m — hạ tầng giữ sẵn, chưa gán loài (250m đồng nhất, xem 01-product)
 
     // độ sâu đáy ETOPO (parser riêng: cột lat/lon/z, không time) — tuỳ chọn
     let depth: ScalarGrid | null = null;
@@ -112,7 +116,14 @@ export async function GET() {
 
     const month = new Date().getMonth() + 1;
     return Response.json(
-      buildFishForecast(sst, chl, sla, month, { anom, cur, thermo, depth }),
+      buildFishForecast(sst, chl, sla, month, {
+        anom,
+        cur,
+        thermo,
+        depth,
+        bottomTemp,
+        deepTemp,
+      }),
     );
   } catch {
     return Response.json({ ok: false });

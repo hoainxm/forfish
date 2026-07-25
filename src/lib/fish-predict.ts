@@ -111,6 +111,30 @@ export interface SpeciesProfile {
   depthBand: string;
   /** trapezoid nhiệt: [min, optMin, optMax, max] °C */
   sst: [number, number, number, number];
+  /**
+   * TẦNG NHIỆT dùng để chấm cổng nhiệt `tFit`:
+   *   "surface" (mặc định) — nhiệt độ MẶT (SST) — cá nổi/loài bám mặt
+   *   "bottom"  — nhiệt độ ĐÁY (HYCOM) — CHỈ loài ĐÁY MỀM thềm/cửa sông (7 cá
+   *               đáy mềm + 4 giáp xác; nước đáy lạnh hơn mặt → phân bố có cấu
+   *               trúc, hết mảng tô đều, loại đúng khỏi nước sâu). KHÔNG dùng cho
+   *               cá RẠN (hồng/mú/kẽm) — rạn nông 2–50m, cube HYCOM ~53km rìa
+   *               thềm lấy nhầm nhiệt nước sâu → co footprint artifact + độ-chính-
+   *               xác-giả (rạn `low`, ta không có dữ liệu định vị rạn). Dải `sst[]`
+   *               khi tempSource="bottom" hiểu là dải nhiệt ĐÁY của loài.
+   *   "deep"    — nhiệt tầng ~250 m (HYCOM) — cá ngừ mắt to lặn ngày.
+   * FALLBACK: thiếu lưới tương ứng / ô NaN → dùng SST mặt (không regress khi
+   * HYCOM fail) — hành vi hệt loài "surface".
+   */
+  tempSource?: "surface" | "bottom" | "deep";
+  /**
+   * Dải nhiệt MẶT dự phòng [min,optMin,optMax,max] °C — CHỈ dùng khi tempSource
+   * là "bottom"/"deep" NHƯNG thiếu lưới tầng sâu (HYCOM fail) hoặc ô NaN. Cần khi
+   * dải `sst[]` đã đặt theo nhiệt tầng sâu (vd cá ngừ mắt to 250 m ~8–15°C): nếu
+   * fallback dùng luôn `sst[]` với nhiệt mặt sẽ ra tFit=0 → loài BIẾN MẤT lúc
+   * HYCOM fail. Bỏ trống = fallback dùng chính `sst[]` (hợp lệ khi `sst[]` vẫn là
+   * dải nhiệt mặt/ambient — như 14 loài đáy giữ nguyên dải cũ).
+   */
+  sstFallback?: [number, number, number, number];
   /** dải mồi ưa thích theo log10(chl): [lo, hi] (mg/m³ đã log10) */
   chlLog: [number, number];
   /**
@@ -154,6 +178,12 @@ export const SPECIES_PROFILES: SpeciesProfile[] = [
   // surfaceSignal "medium", thermo NẶNG). Nguồn: Weng PSAT, Schaefer archival
   // tags, nghiên cứu tầng nhiệt cá ngừ Biển Đông (Fishes 2023), WCPFC VN.
   { species: "Cá ngừ vây vàng", short: "ngừ vây vàng", category: "pelagic-large", surfaceSignal: "high", color: "#1d4ed8", depthBand: "tầng mặt 0–100 m (lớp trộn & đỉnh nêm nhiệt), xa bờ", sst: [23.5, 26, 30, 31.5], chlLog: [-1.1, -0.1], w: { food: 0.25, thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.1, conv: 0.25, thermo: 0.2 }, coldCore: false, offshore: [50, 200] },
+  // Cá ngừ mắt to: GIỮ cổng nhiệt MẶT (không dùng tempSource "deep"). VALIDATE
+  // trên số HYCOM thật (scripts/fish-predict-viec4-bottom.mjs) cho thấy nhiệt tầng
+  // ~250 m gần như ĐỒNG NHẤT khắp vùng (p10–p90 chỉ 12.5–13.5°C) → cổng nhiệt-sâu
+  // ≈1 mọi nơi, KHÔNG tạo biến thiên không gian, lại BỎ phần ghìm của cổng mặt mùa
+  // hè → %điểm nóng phình +14đ. Tín hiệu không gian thật của mắt to là ĐỘ SÂU nêm
+  // nhiệt (D20) — đã có qua w.thermo. (Hạ tầng "deep"/deepTemp giữ sẵn, chưa gán.)
   { species: "Cá ngừ mắt to", short: "ngừ mắt to", category: "pelagic-large", surfaceSignal: "medium", color: "#4338ca", depthBand: "đêm tầng mặt <50 m, ngày lặn sâu 200–500 m (quanh/dưới nêm nhiệt), xa bờ", sst: [22, 25, 29, 31], chlLog: [-1.3, -0.3], w: { food: 0.15, thermFront: 0.3, chlFront: 0.1, eddy: 0.35, upw: 0.05, conv: 0.15, thermo: 0.5 }, coldCore: false, offshore: [100, 300] },
   { species: "Cá ngừ vằn", short: "ngừ vằn", category: "pelagic-large", surfaceSignal: "high", color: "#2563eb", depthBand: "tầng mặt 0–260 m", sst: [23, 25, 29.5, 31], chlLog: [-1.0, 0.0], w: { food: 0.25, thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.05, conv: 0.2, thermo: 0.2 }, coldCore: false, offshore: [50, 200] },
   { species: "Cá ngừ chù", short: "ngừ chù", category: "pelagic-large", surfaceSignal: "medium", color: "#0891b2", depthBand: "tầng mặt 0–50 m", sst: [24, 28, 31, 32], chlLog: [-1.1, -0.5], w: { food: 0.25, thermFront: 0.2, chlFront: 0.25, eddy: 0.15, upw: 0.05, conv: 0.1, thermo: 0.2 }, coldCore: false },
@@ -181,22 +211,22 @@ export const SPECIES_PROFILES: SpeciesProfile[] = [
   { species: "Mực nang", short: "mực nang", category: "cephalopod", surfaceSignal: "low", color: "#a855f7", depthBand: "đáy 0–130 m, cát & cỏ biển", sst: [22, 25, 29, 31], chlLog: [-0.3, 0.5], w: { food: 0.3, thermFront: 0.2, chlFront: 0.2, eddy: 0.1, upw: 0.2, conv: 0.3 }, coldCore: false },
   { species: "Bạch tuộc", short: "bạch tuộc", category: "cephalopod", surfaceSignal: "low", color: "#9333ea", depthBand: "đáy 0–100 m, hang & rạn", sst: [23, 26, 30, 32], chlLog: [-0.2, 0.5], w: { food: 0.4, thermFront: 0.1, chlFront: 0.1, eddy: 0.1, upw: 0.2, conv: 0.3 }, coldCore: false },
   // ── CÁ ĐÁY mềm (lưới kéo) — ảnh vệ tinh ít giúp, theo MÙA + ĐỘ SÂU ────────
-  { species: "Cá mối", short: "cá mối", category: "demersal", surfaceSignal: "low", color: "#c2410c", depthBand: "đáy bùn cát 20–100 m", sst: [18, 23, 29, 31], chlLog: [-0.5, 1.2], w: { food: 0.25, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.1, conv: 0.05 }, coldCore: false },
-  { species: "Cá đổng (cá lượng)", short: "cá đổng", category: "demersal", surfaceSignal: "low", color: "#ea580c", depthBand: "đáy bùn cát 50–100 m", sst: [24, 25, 29, 30], chlLog: [-0.3, 1.0], w: { food: 0.2, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.1, conv: 0.05 }, coldCore: false },
-  { species: "Cá phèn", short: "cá phèn", category: "demersal", surfaceSignal: "low", color: "#d97706", depthBand: "đáy bùn cát 10–60 m", sst: [22, 25, 30, 32], chlLog: [-0.2, 1.2], w: { food: 0.2, thermFront: 0.1, chlFront: 0.2, eddy: 0.05, upw: 0.1, conv: 0.05 }, coldCore: false },
-  { species: "Cá đù (cá sủ)", short: "cá đù", category: "demersal", surfaceSignal: "medium", color: "#b45309", depthBand: "đáy cửa sông ven bờ 0–80 m", sst: [20, 22, 28, 30], chlLog: [0.0, 1.4], w: { food: 0.3, thermFront: 0.2, chlFront: 0.2, eddy: 0.1, upw: 0.15, conv: 0.1 }, coldCore: false },
-  { species: "Cá khoai", short: "cá khoai", category: "demersal", surfaceSignal: "low", color: "#92400e", depthBand: "đáy bùn cửa sông 5–50 m", sst: [24, 26, 30, 32], chlLog: [0.2, 1.4], w: { food: 0.2, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.1, conv: 0.05 }, coldCore: false },
-  { species: "Cá chim", short: "cá chim", category: "demersal", surfaceSignal: "medium", color: "#a16207", depthBand: "đáy bùn 5–110 m", sst: [22, 24, 29, 31], chlLog: [-0.3, 0.8], w: { food: 0.3, thermFront: 0.2, chlFront: 0.2, eddy: 0.1, upw: 0.1, conv: 0.1 }, coldCore: false },
-  { species: "Cá bơn", short: "cá bơn", category: "demersal", surfaceSignal: "low", color: "#78350f", depthBand: "đáy cát bùn 20–50 m", sst: [26, 27, 29, 31], chlLog: [-0.3, 1.0], w: { food: 0.15, thermFront: 0.05, chlFront: 0.1, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false },
+  { species: "Cá mối", short: "cá mối", category: "demersal", surfaceSignal: "low", color: "#c2410c", tempSource: "bottom", depthBand: "đáy bùn cát 20–100 m", sst: [18, 23, 29, 31], chlLog: [-0.5, 1.2], w: { food: 0.25, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.1, conv: 0.05 }, coldCore: false },
+  { species: "Cá đổng (cá lượng)", short: "cá đổng", category: "demersal", surfaceSignal: "low", color: "#ea580c", tempSource: "bottom", depthBand: "đáy bùn cát 50–100 m", sst: [24, 25, 29, 30], chlLog: [-0.3, 1.0], w: { food: 0.2, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.1, conv: 0.05 }, coldCore: false },
+  { species: "Cá phèn", short: "cá phèn", category: "demersal", surfaceSignal: "low", color: "#d97706", tempSource: "bottom", depthBand: "đáy bùn cát 10–60 m", sst: [22, 25, 30, 32], chlLog: [-0.2, 1.2], w: { food: 0.2, thermFront: 0.1, chlFront: 0.2, eddy: 0.05, upw: 0.1, conv: 0.05 }, coldCore: false },
+  { species: "Cá đù (cá sủ)", short: "cá đù", category: "demersal", surfaceSignal: "medium", color: "#b45309", tempSource: "bottom", depthBand: "đáy cửa sông ven bờ 0–80 m", sst: [20, 22, 28, 30], chlLog: [0.0, 1.4], w: { food: 0.3, thermFront: 0.2, chlFront: 0.2, eddy: 0.1, upw: 0.15, conv: 0.1 }, coldCore: false },
+  { species: "Cá khoai", short: "cá khoai", category: "demersal", surfaceSignal: "low", color: "#92400e", tempSource: "bottom", depthBand: "đáy bùn cửa sông 5–50 m", sst: [24, 26, 30, 32], chlLog: [0.2, 1.4], w: { food: 0.2, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.1, conv: 0.05 }, coldCore: false },
+  { species: "Cá chim", short: "cá chim", category: "demersal", surfaceSignal: "medium", color: "#a16207", tempSource: "bottom", depthBand: "đáy bùn 5–110 m", sst: [22, 24, 29, 31], chlLog: [-0.3, 0.8], w: { food: 0.3, thermFront: 0.2, chlFront: 0.2, eddy: 0.1, upw: 0.1, conv: 0.1 }, coldCore: false },
+  { species: "Cá bơn", short: "cá bơn", category: "demersal", surfaceSignal: "low", color: "#78350f", tempSource: "bottom", depthBand: "đáy cát bùn 20–50 m", sst: [26, 27, 29, 31], chlLog: [-0.3, 1.0], w: { food: 0.15, thermFront: 0.05, chlFront: 0.1, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false },
   // ── CÁ RẠN (câu rạn) — gắn rạn, ảnh mặt biển gần như không giúp ──────────
   { species: "Cá hồng", short: "cá hồng", category: "reef", surfaceSignal: "low", color: "#dc2626", depthBand: "rạn & đáy cứng 12–100 m", sst: [23, 25, 29, 31], chlLog: [-1.0, 0.2], w: { food: 0.15, thermFront: 0.05, chlFront: 0.05, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false },
   { species: "Cá mú (cá song)", short: "cá mú", category: "reef", surfaceSignal: "low", color: "#b91c1c", depthBand: "rạn & đáy cứng 5–50 m", sst: [24, 25, 29, 31], chlLog: [-1.2, 0.1], w: { food: 0.15, thermFront: 0.05, chlFront: 0.05, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false },
   { species: "Cá kẽm", short: "cá kẽm", category: "reef", surfaceSignal: "low", color: "#e11d48", depthBand: "rạn nước trong 2–25 m", sst: [26, 27, 29, 31], chlLog: [-1.2, 0.0], w: { food: 0.15, thermFront: 0.05, chlFront: 0.05, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false },
   // ── GIÁP XÁC — sống đáy/cửa sông, theo MÙA VỤ + VÙNG, không vẽ điểm giả ──
-  { species: "Tôm bạc (tôm he)", short: "tôm bạc", category: "crustacean", surfaceSignal: "low", color: "#db2777", depthBand: "đáy bùn cát cửa sông 5–55 m", sst: [24, 26, 30, 33], chlLog: [0.0, 1.4], w: { food: 0.25, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.1, conv: 0.35 }, coldCore: false },
-  { species: "Tôm sú biển", short: "tôm sú", category: "crustacean", surfaceSignal: "low", color: "#be185d", depthBand: "đáy bùn cát 10–80 m", sst: [22, 25, 30, 34], chlLog: [0.0, 1.5], w: { food: 0.2, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.1, conv: 0.4 }, coldCore: false },
-  { species: "Ghẹ xanh", short: "ghẹ xanh", category: "crustacean", surfaceSignal: "low", color: "#9d174d", depthBand: "đáy cát bùn cận bờ 4–40 m", sst: [23, 26, 30, 32], chlLog: [0.0, 1.4], w: { food: 0.25, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.05, conv: 0.4 }, coldCore: false },
-  { species: "Cua biển", short: "cua biển", category: "crustacean", surfaceSignal: "low", color: "#831843", depthBand: "đáy bùn cửa sông 0–20 m", sst: [23, 25, 30, 33], chlLog: [0.2, 1.5], w: { food: 0.2, thermFront: 0.05, chlFront: 0.1, eddy: 0.05, upw: 0.05, conv: 0.55 }, coldCore: false },
+  { species: "Tôm bạc (tôm he)", short: "tôm bạc", category: "crustacean", surfaceSignal: "low", color: "#db2777", tempSource: "bottom", depthBand: "đáy bùn cát cửa sông 5–55 m", sst: [24, 26, 30, 33], chlLog: [0.0, 1.4], w: { food: 0.25, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.1, conv: 0.35 }, coldCore: false },
+  { species: "Tôm sú biển", short: "tôm sú", category: "crustacean", surfaceSignal: "low", color: "#be185d", tempSource: "bottom", depthBand: "đáy bùn cát 10–80 m", sst: [22, 25, 30, 34], chlLog: [0.0, 1.5], w: { food: 0.2, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.1, conv: 0.4 }, coldCore: false },
+  { species: "Ghẹ xanh", short: "ghẹ xanh", category: "crustacean", surfaceSignal: "low", color: "#9d174d", tempSource: "bottom", depthBand: "đáy cát bùn cận bờ 4–40 m", sst: [23, 26, 30, 32], chlLog: [0.0, 1.4], w: { food: 0.25, thermFront: 0.1, chlFront: 0.15, eddy: 0.05, upw: 0.05, conv: 0.4 }, coldCore: false },
+  { species: "Cua biển", short: "cua biển", category: "crustacean", surfaceSignal: "low", color: "#831843", tempSource: "bottom", depthBand: "đáy bùn cửa sông 0–20 m", sst: [23, 25, 30, 33], chlLog: [0.2, 1.5], w: { food: 0.2, thermFront: 0.05, chlFront: 0.1, eddy: 0.05, upw: 0.05, conv: 0.55 }, coldCore: false },
   { species: "Ruốc", short: "ruốc", category: "crustacean", surfaceSignal: "medium", color: "#f472b6", depthBand: "tầng mặt ven bờ 0–30 m", sst: [22, 24, 29, 31], chlLog: [-0.3, 0.9], w: { food: 0.55, thermFront: 0.1, chlFront: 0.2, eddy: 0.15, upw: 0.25, conv: 0.15 }, coldCore: true },
 ];
 
@@ -558,12 +588,18 @@ export function buildFishForecast(
     thermo?: ScalarGrid | null;
     /** lưới ĐỘ SÂU ĐÁY dương (m) — ETOPO; chặn loài xa bờ (offshore) khỏi ô cạn */
     depth?: ScalarGrid | null;
+    /** lưới NHIỆT ĐỘ ĐÁY (°C) — HYCOM; cổng nhiệt loài đáy (tempSource "bottom") */
+    bottomTemp?: ScalarGrid | null;
+    /** lưới NHIỆT tầng ~250 m (°C) — HYCOM; cổng nhiệt cá ngừ mắt to (tempSource "deep") */
+    deepTemp?: ScalarGrid | null;
   },
 ): FishForecast {
   const anom = extra?.anom ?? null;
   const cur = extra?.cur ?? null;
   const thermo = extra?.thermo ?? null;
   const depth = extra?.depth ?? null;
+  const bottomTemp = extra?.bottomTemp ?? null;
+  const deepTemp = extra?.deepTemp ?? null;
   const thermFront = frontStrength(sst);
   const logChl = logChlGrid(chl);
   const chlFront = gradientStrength(logChl, 0.25);
@@ -655,13 +691,36 @@ export function buildFishForecast(
         const dv = depth.values[dpi]?.[dpj];
         if (Number.isFinite(dv)) cellDepthM = dv;
       }
+      // nhiệt độ ĐÁY / tầng 250 m tại ô (°C) — cổng nhiệt loài đáy / ngừ mắt to.
+      // Thiếu lưới hoặc ô NaN → null → chấm bằng SST mặt (fallback, không regress).
+      const sampleT = (g: ScalarGrid | null): number | null => {
+        if (!g) return null;
+        const gi = nearestIndex(g.lats, lat);
+        const gj = nearestIndex(g.lons, lon);
+        const v = g.values[gi]?.[gj];
+        return Number.isFinite(v) ? (v as number) : null;
+      };
+      const tBottom = sampleT(bottomTemp);
+      const tDeep = sampleT(deepTemp);
 
       const scored: { short: string; fit: number; low: boolean }[] = [];
       for (const f of inSeason) {
         const p = SPECIES_PROFILES.find((x) => x.species === f.species);
         if (!p) continue;
-        // CỔNG NHIỆT (nhân): ngoài dải nhiệt của loài → loại hẳn ô
-        const tFit = trapezoid(t, p.sst[0], p.sst[1], p.sst[2], p.sst[3]);
+        // CỔNG NHIỆT (nhân): chấm ở TẦNG của loài — mặt (mặc định), đáy (loài
+        // đáy), hay 250 m (ngừ mắt to). Có lưới tầng → chấm nhiệt tầng với dải
+        // `sst[]` (đã tuned cho tầng đó). THIẾU lưới/ô NaN → FALLBACK nhiệt MẶT
+        // `t` với dải `sstFallback` (nếu có) hoặc `sst[]` — loài KHÔNG biến mất
+        // khi HYCOM fail. 14 loài đáy giữ dải mặt cũ nên fallback = hành vi cũ.
+        const tierT =
+          p.tempSource === "bottom"
+            ? tBottom
+            : p.tempSource === "deep"
+              ? tDeep
+              : t;
+        const band = tierT != null ? p.sst : (p.sstFallback ?? p.sst);
+        const tGate = tierT != null ? tierT : t;
+        const tFit = trapezoid(tGate, band[0], band[1], band[2], band[3]);
         if (tFit === 0) continue;
         // MỒI = GIỚI HẠN MỀM (tách khỏi soft-OR): mồi=0 chỉ hạ điểm còn
         // FOOD_FLOOR, không zero hẳn để loài KHÔNG biến mất vì nhiễu ảnh mồi.

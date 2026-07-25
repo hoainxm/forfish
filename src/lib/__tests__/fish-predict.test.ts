@@ -711,3 +711,178 @@ describe("trung thực: loài đáy không vẽ điểm nóng giả", () => {
     }
   });
 });
+
+describe("VIỆC 4 — cổng nhiệt loài đáy dùng NHIỆT ĐÁY (bottomTemp)", () => {
+  // ô VỊNH BẮC BỘ (20N, 107.5E) tháng 6 — cá phèn (tempSource "bottom") đang vụ.
+  const lats = [19.75, 20.0, 20.25];
+  const lons = [107.0, 107.25, 107.5];
+  const warm = grid(
+    [
+      [27, 27, 27],
+      [27, 27, 27],
+      [27, 27, 27],
+    ],
+    lats,
+    lons,
+  ); // 27°C mặt → cá phèn tFit mặt = 1 (dải [22,25,30,32])
+  const food = grid(
+    [
+      [0.8, 0.8, 0.8],
+      [0.8, 0.8, 0.8],
+      [0.8, 0.8, 0.8],
+    ],
+    lats,
+    lons,
+  );
+  const phen = (o: ReturnType<typeof buildFishForecast>): number =>
+    Math.max(0, ...o.cells.map((c) => c.sp["cá phèn"] ?? 0));
+
+  it("KHÔNG bottomTemp → hệt hành vi cũ (chấm bằng SST mặt) — BẤT BIẾN", () => {
+    const base = buildFishForecast(warm, food, null, 6);
+    // bottomTemp = ĐÚNG BẰNG nhiệt mặt → cổng nhiệt cho kết quả y hệt base
+    const same = buildFishForecast(warm, food, null, 6, {
+      bottomTemp: grid(
+        [
+          [27, 27, 27],
+          [27, 27, 27],
+          [27, 27, 27],
+        ],
+        lats,
+        lons,
+      ),
+    });
+    expect(phen(base)).toBeGreaterThan(0);
+    expect(phen(same)).toBe(phen(base));
+  });
+
+  it("nhiệt ĐÁY lạnh hơn (rìa dải) → điểm cá phèn GIẢM so với chấm mặt", () => {
+    const base = buildFishForecast(warm, food, null, 6);
+    // đáy 24°C: tFit = (24−22)/(25−22) ≈ 0.67 < 1 (mặt 27 → tFit 1) → điểm tụt
+    const cold = buildFishForecast(warm, food, null, 6, {
+      bottomTemp: grid(
+        [
+          [24, 24, 24],
+          [24, 24, 24],
+          [24, 24, 24],
+        ],
+        lats,
+        lons,
+      ),
+    });
+    expect(phen(cold)).toBeGreaterThan(0); // KHÔNG biến mất (vẫn ≥ ngưỡng payload)
+    expect(phen(cold)).toBeLessThan(phen(base)); // nhưng thấp hơn
+  });
+
+  it("ô nhiệt đáy NaN → FALLBACK về SST mặt (không phạt oan)", () => {
+    const base = buildFishForecast(warm, food, null, 6);
+    const nanBottom = buildFishForecast(warm, food, null, 6, {
+      bottomTemp: grid(
+        [
+          [NaN, NaN, NaN],
+          [NaN, NaN, NaN],
+          [NaN, NaN, NaN],
+        ],
+        lats,
+        lons,
+      ),
+    });
+    expect(phen(nanBottom)).toBe(phen(base));
+  });
+
+  it("nhiệt đáy TẠO cấu trúc không gian: gradient đáy → điểm cá phèn KHÁC nhau giữa ô", () => {
+    // gradient đáy 24 → 27 → 30.5°C: tFit 0.67 / 1 / 0.75 → 3 mức điểm ≥ payload
+    // (mặt phẳng 27 sẽ ra 1 mức duy nhất) → chứng minh hết "mảng tô đều"
+    const gradBottom = grid(
+      [
+        [24, 24, 24],
+        [27, 27, 27],
+        [30.5, 30.5, 30.5],
+      ],
+      lats,
+      lons,
+    );
+    const out = buildFishForecast(warm, food, null, 6, { bottomTemp: gradBottom });
+    const vals = out.cells
+      .map((c) => c.sp["cá phèn"])
+      .filter((v): v is number => v != null);
+    expect(vals.length).toBeGreaterThan(1);
+    // có ít nhất 2 mức điểm khác nhau (không còn đồng đều)
+    expect(new Set(vals).size).toBeGreaterThan(1);
+  });
+});
+
+describe("VIỆC 4 — cá ngừ mắt to GIỮ cổng nhiệt MẶT (deepTemp không tác động)", () => {
+  // Quyết định sau validate: 250 m gần đồng nhất (~13°C) → cổng nhiệt-sâu vô ích
+  // + phình điểm nóng. Mắt to giữ tempSource mặc định (mặt). Test khoá quyết định:
+  // truyền deepTemp KHÔNG được đổi điểm mắt to (không loài nào tempSource="deep").
+  const dlats = [11.5, 11.75, 12.0];
+  const dlons = [110.25, 110.5, 110.75];
+  const warmOff = grid(
+    [
+      [28, 28, 28],
+      [28, 28, 28],
+      [28, 28, 28],
+    ],
+    dlats,
+    dlons,
+  );
+  const clearChl = grid(
+    [
+      [0.15, 0.15, 0.15],
+      [0.15, 0.15, 0.15],
+      [0.15, 0.15, 0.15],
+    ],
+    dlats,
+    dlons,
+  );
+  const deepBathy = grid(
+    [
+      [2000, 2000, 2000],
+      [2000, 2000, 2000],
+      [2000, 2000, 2000],
+    ],
+    dlats,
+    dlons,
+  );
+  const goodThermo = grid(
+    [
+      [120, 120, 120],
+      [120, 120, 120],
+      [120, 120, 120],
+    ],
+    dlats,
+    dlons,
+  );
+  const bigeye = (o: ReturnType<typeof buildFishForecast>): number =>
+    Math.max(0, ...o.cells.map((c) => c.sp["ngừ mắt to"] ?? 0));
+
+  it("mắt to chấm bằng SST mặt (28°C ∈ [22,25,29,31]) → có điểm", () => {
+    const out = buildFishForecast(warmOff, clearChl, null, 6, {
+      depth: deepBathy,
+      thermo: goodThermo,
+    });
+    expect(bigeye(out)).toBeGreaterThan(0);
+  });
+
+  it("BẤT BIẾN: truyền deepTemp (kể cả 3°C bất thường) KHÔNG đổi điểm mắt to", () => {
+    const base = buildFishForecast(warmOff, clearChl, null, 6, {
+      depth: deepBathy,
+      thermo: goodThermo,
+    });
+    const withDeep = buildFishForecast(warmOff, clearChl, null, 6, {
+      depth: deepBathy,
+      thermo: goodThermo,
+      deepTemp: grid(
+        [
+          [3, 3, 3],
+          [3, 3, 3],
+          [3, 3, 3],
+        ],
+        dlats,
+        dlons,
+      ),
+    });
+    expect(bigeye(withDeep)).toBe(bigeye(base)); // mắt to KHÔNG là "deep" → bỏ qua deepTemp
+    expect(bigeye(base)).toBeGreaterThan(0);
+  });
+});

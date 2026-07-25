@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  bottomTempGrid,
   decodeTemp,
   hycomHoursToISO,
   iso20Depth,
   iso20Grid,
   parseHycomTempAscii,
   parseTimeCount,
+  tempAtDepthGrid,
   thermoGridUrl,
 } from "../hycom";
 
@@ -104,5 +106,71 @@ describe("parseTimeCount + thermoGridUrl", () => {
     expect(u).toContain("t3z.ascii?water_temp"); // OPeNDAP cần ?<biến>
     expect(u).toContain("%5B5328%5D");
     expect(u).not.toContain("[");
+  });
+});
+
+describe("bottomTempGrid (nhiệt đáy = tầng sâu nhất còn hữu hạn)", () => {
+  // cube: depth [20,70,250], lat [12,14], lon [110,112]
+  const cube = {
+    depths: [20, 70, 250],
+    lats: [12, 14],
+    lons: [110, 112],
+    date: "2026-01-15",
+    // temp[d][la][lo]
+    temp: [
+      // 20 m
+      [
+        [29, 28],
+        [27, NaN],
+      ],
+      // 70 m
+      [
+        [24, 26],
+        [NaN, NaN],
+      ],
+      // 250 m
+      [
+        [12, NaN],
+        [NaN, NaN],
+      ],
+    ],
+  };
+
+  it("lấy nhiệt của tầng SÂU NHẤT còn hữu hạn mỗi cột", () => {
+    const g = bottomTempGrid(cube);
+    expect(g.values[0][0]).toBe(12); // cột đủ tới 250 m
+    expect(g.values[0][1]).toBe(26); // 250 m NaN → lùi về 70 m
+    expect(g.values[1][0]).toBe(27); // chỉ 20 m hữu hạn
+    expect(Number.isNaN(g.values[1][1])).toBe(true); // cả cột NaN → NaN
+  });
+  it("giữ trục + ngày của cube", () => {
+    const g = bottomTempGrid(cube);
+    expect(g.lats).toEqual([12, 14]);
+    expect(g.lons).toEqual([110, 112]);
+    expect(g.date).toBe("2026-01-15");
+  });
+});
+
+describe("tempAtDepthGrid (nhiệt tại tầng gần depthM nhất)", () => {
+  const cube = {
+    depths: [20, 70, 250],
+    lats: [12],
+    lons: [110, 112],
+    date: "2026-01-15",
+    temp: [
+      [[29, 28]], // 20 m
+      [[24, 26]], // 70 m
+      [[12, NaN]], // 250 m
+    ],
+  };
+  it("depthM 250 → chọn tầng 250 m (NaN giữ NaN)", () => {
+    const g = tempAtDepthGrid(cube, 250);
+    expect(g.values[0][0]).toBe(12);
+    expect(Number.isNaN(g.values[0][1])).toBe(true);
+  });
+  it("depthM 60 → chọn tầng gần nhất (70 m)", () => {
+    const g = tempAtDepthGrid(cube, 60);
+    expect(g.values[0][0]).toBe(24);
+    expect(g.values[0][1]).toBe(26);
   });
 });
