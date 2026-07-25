@@ -383,15 +383,14 @@ export default function FishingMapView() {
   );
 
   // Lọc theo KHOẢNG khả năng có cá (kéo-thả 2 đầu ở legend): chỉ hiện ô trong
-  // [lo,hi]%. Sàn 35 vẫn giữ (dưới mức này heatmap không vẽ). user chốt:
-  // "chỉ muốn hiện đoạn nhiều cá 60-80%".
-  const [fishRange, setFishRange] = useState<[number, number]>([35, 100]);
+  // [lo,hi]%. Sàn 50 (user 2026-07-25: dưới 50 làm nhiễu — trước là 35).
+  const [fishRange, setFishRange] = useState<[number, number]>([50, 100]);
 
   // ô dự báo cá → ĐIỂM cho lớp heatmap (vùng mềm xanh lá kiểu PFZ chuẩn,
   // như OceanFishMap — không còn ô vuông); lọc theo loài + khoảng đã chọn
   const fishCellsGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
     if (!fishOn || !fishCast) return null;
-    const lo = Math.max(35, fishRange[0]);
+    const lo = Math.max(50, fishRange[0]);
     const hi = fishRange[1];
     const features: GeoJSON.Feature[] = [];
     for (const c of fishCast.cells) {

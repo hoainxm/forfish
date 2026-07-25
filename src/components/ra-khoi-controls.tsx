@@ -868,15 +868,15 @@ function RangeBand({
       <span
         className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
         style={{
-          left: `${((value[0] - 35) / 65) * 100}%`,
-          right: `${((100 - value[1]) / 65) * 100}%`,
+          left: `${((value[0] - 50) / 50) * 100}%`,
+          right: `${((100 - value[1]) / 50) * 100}%`,
           background: color,
         }}
         aria-hidden
       />
       <input
         type="range"
-        min={35}
+        min={50}
         max={100}
         value={value[0]}
         aria-label="Khả năng có cá tối thiểu"
@@ -885,7 +885,7 @@ function RangeBand({
       />
       <input
         type="range"
-        min={35}
+        min={50}
         max={100}
         value={value[1]}
         aria-label="Khả năng có cá tối đa"
