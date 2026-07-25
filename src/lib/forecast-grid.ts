@@ -1,9 +1,13 @@
 // Trục 1 — LƯỚI DỰ BÁO VẼ LÊN BẢN ĐỒ (kiểu Windy): gió / sóng theo GIỜ,
-// 3 ngày tới, kéo thanh thời gian là cả vùng biển đổi theo.
+// CHỌN KHUNG NGÀY 3/5/7/10/16, kéo thanh thời gian là cả vùng biển đổi theo.
 //
 // Nguồn: Open-Meteo (miễn phí, không key) — một lượt gọi lấy ~80 điểm lưới
-// phủ vùng biển VN, mỗi điểm 96 giờ. Quy tắc adapter: đổi nguồn chỉ sửa
-// fetchForecastGrid, phần dựng hình (arrowFeatures) là logic thuần test được.
+// phủ vùng biển VN. Quy tắc adapter: đổi nguồn chỉ sửa fetchForecastGrid,
+// phần dựng hình (arrowFeatures) là logic thuần test được.
+//
+// Càng xa càng thưa khung để KHÔNG phình tải/khung hình: ≤3 ngày lấy mỗi 3h,
+// 4–7 ngày mỗi 6h, >7 ngày mỗi 12h. Sóng dùng model ncep_gfswave025 (best-match
+// sóng theo giờ chỉ ~9 ngày; model này phủ đủ 16). Gió best-match phủ 16 ngày.
 
 export type ForecastKind = "wind" | "wave";
 
@@ -26,9 +30,32 @@ export interface ForecastGrid {
   times: string[];
 }
 
-/** Bước nhảy của thanh thời gian: 3 giờ một nấc, 3 ngày = 24 nấc */
+/** Bước nhảy GẦN của thanh thời gian: 3 giờ một nấc (giữ cho tầm ≤3 ngày) */
 export const TIME_STEP_HOURS = 3;
 export const FORECAST_GRID_HOURS = 72;
+
+/** Các khung ngày bà con chọn được cho lớp vẽ động */
+export const GRID_DAY_OPTIONS = [3, 5, 7, 10, 16] as const;
+export type GridDays = (typeof GRID_DAY_OPTIONS)[number];
+
+/** Model sóng phủ đủ 16 ngày theo giờ (best-match sóng chỉ ~9 ngày) */
+const WAVE_MODEL = "ncep_gfswave025";
+
+/**
+ * Chỉ số GIỜ cho từng khung của thanh thời gian: dày (3h) ở gần, thưa dần khi
+ * ra xa để chặn số khung (16 ngày ~ 50 khung thay vì 128). `availableHours` là
+ * số giờ nguồn thật trả về — không lấy quá.
+ */
+export function stepHourIndices(days: number, availableHours: number): number[] {
+  const maxH = Math.min(days * 24, Math.max(0, availableHours - 1));
+  const idx: number[] = [];
+  let h = 0;
+  while (h <= maxH) {
+    idx.push(h);
+    h += h < 72 ? 3 : h < 168 ? 6 : 12;
+  }
+  return idx;
+}
 
 // Lưới phủ vùng đánh bắt VN — thưa (≈2°) vì mỗi mũi tên đại diện cả ô lớn;
 // Open-Meteo nhận tối đa ~120 điểm/lượt nên giữ 8×10 = 80.
@@ -56,24 +83,26 @@ export function gridPoints(): { lat: number; lon: number }[] {
 const num = (v: unknown): number | null =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
 
-export async function fetchForecastGrid(): Promise<ForecastGrid> {
+export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
   const pts = gridPoints();
   const lats = pts.map((p) => p.lat).join(",");
   const lons = pts.map((p) => p.lon).join(",");
-  const common = `latitude=${lats}&longitude=${lons}&timezone=Asia%2FHo_Chi_Minh&forecast_days=4`;
+  // +1 ngày đệm để mốc cuối đủ giờ; trần nguồn 16 ngày
+  const fd = Math.min(16, Math.max(1, Math.round(days)) + 1);
+  const common = `latitude=${lats}&longitude=${lons}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${fd}`;
 
-  // Timeout 15s: mạng ngoài khơi chập chờn — thà báo lỗi rõ còn hơn treo UI
+  // Timeout 20s (tầm 16 ngày × 80 điểm là payload lớn) — thà báo lỗi rõ còn hơn treo UI
   const [windRes, waveRes] = await Promise.all([
     fetch(
       `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=kmh`,
-      { signal: AbortSignal.timeout(15000) },
+      { signal: AbortSignal.timeout(20000) },
     ).then((r) => {
       if (!r.ok) throw new Error(`wind grid ${r.status}`);
       return r.json();
     }),
     fetch(
-      `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction`,
-      { signal: AbortSignal.timeout(15000) },
+      `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction&models=${WAVE_MODEL}`,
+      { signal: AbortSignal.timeout(20000) },
     )
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null),
@@ -86,13 +115,11 @@ export async function fetchForecastGrid(): Promise<ForecastGrid> {
       ? [waveRes]
       : [];
 
-  const nSteps = Math.floor(FORECAST_GRID_HOURS / TIME_STEP_HOURS);
   const first = windArr[0] as { hourly?: { time?: string[] } };
   const allTimes: string[] = first?.hourly?.time ?? [];
-  const times: string[] = [];
-  for (let s = 0; s < nSteps && s * TIME_STEP_HOURS < allTimes.length; s++) {
-    times.push(allTimes[s * TIME_STEP_HOURS]);
-  }
+  // chỉ số GIỜ từng khung: dày ở gần, thưa dần khi xa (chặn số khung)
+  const hourIdx = stepHourIndices(days, allTimes.length);
+  const times: string[] = hourIdx.map((h) => allTimes[h]);
 
   const cells: GridCell[] = pts.map((p, idx) => {
     const w = windArr[idx] as {
@@ -104,15 +131,12 @@ export async function fetchForecastGrid(): Promise<ForecastGrid> {
     const v = waveArr[idx] as
       | { hourly?: { wave_height?: unknown[]; wave_direction?: unknown[] } }
       | undefined;
-    const hours: GridHour[] = times.map((_, s) => {
-      const h = s * TIME_STEP_HOURS;
-      return {
-        windKmh: num(w?.hourly?.wind_speed_10m?.[h]),
-        windDirDeg: num(w?.hourly?.wind_direction_10m?.[h]),
-        waveM: num(v?.hourly?.wave_height?.[h]),
-        waveDirDeg: num(v?.hourly?.wave_direction?.[h]),
-      };
-    });
+    const hours: GridHour[] = hourIdx.map((h) => ({
+      windKmh: num(w?.hourly?.wind_speed_10m?.[h]),
+      windDirDeg: num(w?.hourly?.wind_direction_10m?.[h]),
+      waveM: num(v?.hourly?.wave_height?.[h]),
+      waveDirDeg: num(v?.hourly?.wave_direction?.[h]),
+    }));
     return { lat: p.lat, lon: p.lon, hours };
   });
 

@@ -49,6 +49,8 @@ import {
   timeLabelVN,
   WIND_COLOR_EXPR,
   WAVE_COLOR_EXPR,
+  GRID_DAY_OPTIONS,
+  type GridDays,
   type ForecastGrid,
   type ForecastKind,
 } from "@/lib/forecast-grid";
@@ -242,6 +244,13 @@ function initialLayerId(): OceanLayerId {
   return "bathymetry";
 }
 
+/** 4 nhãn mốc cho thanh thời gian theo khung ngày đang chọn (Bây giờ → N ngày) */
+function gridTickLabels(days: number): string[] {
+  const q1 = Math.max(1, Math.round(days / 3));
+  const q2 = Math.max(q1 + 1, Math.round((2 * days) / 3));
+  return ["Bây giờ", `${q1} ngày`, `${q2} ngày`, `${days} ngày`];
+}
+
 export default function FishingMapView() {
   const mapRef = useRef<MapRef>(null);
   const [layerId, setLayerIdState] = useState<OceanLayerId>(initialLayerId);
@@ -335,18 +344,21 @@ export default function FishingMapView() {
   const [gridFailed, setGridFailed] = useState(false);
   const [timeIdx, setTimeIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
+  // khung ngày lớp vẽ động (3/5/7/10/16) — bà con tự chọn tầm xa/gần
+  const [gridDays, setGridDays] = useState<GridDays>(3);
 
-  // tải lưới dự báo MỘT lần, khi người dùng bật lớp dự báo lần đầu
+  // tải lưới dự báo khi bật lớp lần đầu, hoặc khi ĐỔI khung ngày (tải lại cho tầm mới)
   useEffect(() => {
-    if (!forecastKind || fGrid || gridFailed) return;
+    if (!forecastKind || gridFailed) return;
     let alive = true;
-    fetchForecastGrid()
+    setFGrid(null); // hiện "đang tải" khi đổi khung; timeIdx kẹp lại ở render
+    fetchForecastGrid(gridDays)
       .then((g) => alive && setFGrid(g))
       .catch(() => alive && setGridFailed(true));
     return () => {
       alive = false;
     };
-  }, [forecastKind, fGrid, gridFailed]);
+  }, [forecastKind, gridFailed, gridDays]);
 
   // nút chạy ▶ — tự trượt thời gian như Windy
   useEffect(() => {
@@ -1195,7 +1207,7 @@ export default function FishingMapView() {
                         <button
                           type="button"
                           onClick={() => setPlaying((p) => !p)}
-                          aria-label={playing ? "Dừng chạy" : "Chạy thử 3 ngày"}
+                          aria-label={playing ? "Dừng chạy" : `Chạy thử ${gridDays} ngày`}
                           className="flex h-11 w-11 items-center justify-center rounded-full bg-navy text-white active:scale-95"
                         >
                           {playing ? (
@@ -1217,6 +1229,36 @@ export default function FishingMapView() {
                         </button>
                       </div>
                     </div>
+                    {/* chọn khung ngày cho lớp vẽ động (3/5/7/10/16) */}
+                    <div
+                      className="mt-1.5 flex gap-1.5"
+                      role="group"
+                      aria-label="Chọn khung ngày dự báo trên bản đồ"
+                    >
+                      {GRID_DAY_OPTIONS.map((d) => {
+                        const on = d === gridDays;
+                        return (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => {
+                              if (d === gridDays) return;
+                              setPlaying(false);
+                              setTimeIdx(0);
+                              setGridDays(d);
+                            }}
+                            aria-pressed={on}
+                            className={`min-h-[2.25rem] flex-1 rounded-lg text-[0.8125rem] font-bold transition active:scale-[0.97] ${
+                              on
+                                ? "bg-navy text-white shadow-sm"
+                                : "bg-field text-foreground/70"
+                            }`}
+                          >
+                            {d} ngày
+                          </button>
+                        );
+                      })}
+                    </div>
                     <input
                       type="range"
                       min={0}
@@ -1231,10 +1273,9 @@ export default function FishingMapView() {
                       className="range-big mt-1 w-full"
                     />
                     <div className="flex justify-between text-[0.6875rem] font-semibold text-foreground/65">
-                      <span>Bây giờ</span>
-                      <span>Ngày mai</span>
-                      <span>2 ngày</span>
-                      <span>3 ngày</span>
+                      {gridTickLabels(gridDays).map((t, i) => (
+                        <span key={i}>{t}</span>
+                      ))}
                     </div>
                   </>
                 ) : (

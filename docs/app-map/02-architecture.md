@@ -124,7 +124,7 @@ src/
     marine-weather.ts   # Trục 1: gió/sóng tại 1 điểm chạm (Open-Meteo, 1–16 ngày, WAVE_MODEL ncep_gfswave025) — tái dùng scoreDay/levelOf từ sea.ts; FORECAST_MAX_DAYS=16 + forecastConfidence(daysAhead, dataConf?) mở tới 16 ngày, nhận độ tin đo được
     forecast-ensemble.ts # Trục 1: ĐỘ BẤT ĐỊNH — Open-Meteo Ensemble (GFS-EPS 31 thành viên), spread gió theo ngày → confidence 0–1 (stdDev/spreadToConfidence/aggregateDailySpread thuần có test); fetchEnsembleUncertainty degrade null
     forecast-quality.ts # Trục 1: LỚP ĐỘ TIN — gộp horizon + ensemble spread + bảng skill backtest → assessForecast (nhãn/độ tin từng ngày) + applyBiasCorrection (nắn bias điểm số theo forecast-skill.json). Thuần, có test; degrade khi thiếu ensemble/skill
-    forecast-grid.ts    # Trục 1: lưới dự báo vẽ động kiểu Windy — 80 điểm × 72h (bước 3h), arrowFeatures GeoJSON mũi tên + thang màu + timeLabelVN (thuần, có test)
+    forecast-grid.ts    # Trục 1: lưới dự báo vẽ động kiểu Windy — 80 điểm, KHUNG NGÀY chọn 3/5/7/10/16 (GRID_DAY_OPTIONS), bước tăng dần 3/6/12h (stepHourIndices) chặn số khung, sóng model ncep_gfswave025 (phủ 16 ngày). arrowFeatures GeoJSON mũi tên + thang màu + timeLabelVN (thuần, có test)
     places.ts           # Trục 1: "Điểm của tôi" — ghim chủ tàu + cảng nhà (localStorage forfish.places.v1); upsert/remove/rename/makeHome/placeAt (thuần, có test). THAY việc chọn cảng trong danh sách
     map-prefs.ts        # Trục 1: tuỳ chọn bản đồ — đơn vị khoảng cách (nm/km) + hệ toạ độ (dd/dms); store dùng chung (localStorage forfish.mapPrefs.v1, useSyncExternalStore) + formatters fmtDist/fmtCoordPair/kmToUnit (thuần, có test). Panel Cài đặt đổi → mọi chỗ đổi theo
     weather-codes.ts    # Trục 1: mã WMO → nhãn tiếng Việt (dông/mưa) + cờ danger

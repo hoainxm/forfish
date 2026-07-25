@@ -3,6 +3,8 @@ import {
   arrowFeatures,
   gridPoints,
   timeLabelVN,
+  stepHourIndices,
+  GRID_DAY_OPTIONS,
   TIME_STEP_HOURS,
   FORECAST_GRID_HOURS,
   type ForecastGrid,
@@ -83,5 +85,44 @@ describe("hằng số thanh thời gian", () => {
   it("72 giờ chia hết cho bước 3 giờ → 24 nấc", () => {
     expect(FORECAST_GRID_HOURS % TIME_STEP_HOURS).toBe(0);
     expect(FORECAST_GRID_HOURS / TIME_STEP_HOURS).toBe(24);
+  });
+});
+
+describe("stepHourIndices (bước tăng dần theo tầm ngày)", () => {
+  it("3 ngày = bước 3h đều → 25 mốc (0..72), khớp hành vi cũ", () => {
+    const idx = stepHourIndices(3, 96);
+    expect(idx[0]).toBe(0);
+    expect(idx[1]).toBe(3);
+    expect(idx[idx.length - 1]).toBe(72);
+    expect(idx).toHaveLength(25);
+    // mọi bước trong 3 ngày đều = 3h
+    for (let i = 1; i < idx.length; i++) expect(idx[i] - idx[i - 1]).toBe(3);
+  });
+
+  it("16 ngày: dày ở gần (3h ≤72), thưa dần (6h ≤168, 12h >168) → chặn số khung", () => {
+    const idx = stepHourIndices(16, 384);
+    // đơn điệu tăng
+    for (let i = 1; i < idx.length; i++)
+      expect(idx[i]).toBeGreaterThan(idx[i - 1]);
+    // bước theo tầm
+    const stepAt = (h: number) => {
+      const a = idx.indexOf(h);
+      return idx[a + 1] - idx[a];
+    };
+    expect(stepAt(0)).toBe(3); // gần: 3h
+    expect(stepAt(72)).toBe(6); // 3–7 ngày: 6h
+    expect(stepAt(168)).toBe(12); // >7 ngày: 12h
+    // số khung gọn (không phải 128) và không vượt giờ nguồn
+    expect(idx.length).toBeLessThan(70);
+    expect(idx[idx.length - 1]).toBeLessThanOrEqual(383);
+  });
+
+  it("không lấy quá số giờ nguồn thật trả về", () => {
+    const idx = stepHourIndices(16, 100); // nguồn chỉ 100 giờ
+    expect(idx[idx.length - 1]).toBeLessThanOrEqual(99);
+  });
+
+  it("GRID_DAY_OPTIONS = 3/5/7/10/16", () => {
+    expect([...GRID_DAY_OPTIONS]).toEqual([3, 5, 7, 10, 16]);
   });
 });
