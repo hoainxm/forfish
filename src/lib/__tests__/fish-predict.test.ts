@@ -9,6 +9,8 @@ import {
   nearestIndex,
   parseBathyGrid,
   parseErddapGrid,
+  percentileRank,
+  softOrHabitat,
   trapezoid,
   SPECIES_META,
   SPECIES_PROFILES,
@@ -132,12 +134,13 @@ describe("buildFishForecast", () => {
   it("vùng hợp loài đang vụ → ra ô có điểm + tên loài + điểm theo loài", () => {
     const out = buildFishForecast(warm, food, null, 6);
     expect(out.cells.length).toBeGreaterThan(0);
-    const cell = out.cells[0];
-    expect(cell.s).toBeGreaterThanOrEqual(35);
-    expect(cell.top.length).toBeGreaterThan(0);
+    // ô có loài ĐỊNH VỊ được (cột front nhiệt mạnh) — soft-OR: cần cơ chế thật
+    const cell = out.cells.find((c) => c.top.length > 0);
+    expect(cell).toBeTruthy();
+    expect(cell!.s).toBeGreaterThanOrEqual(35);
     expect(out.date).toBe("2026-06-08");
     // điểm theo loài để lọc trên bản đồ: loài tốt nhất của ô = điểm tổng ô
-    expect(cell.sp[cell.top[0]]).toBe(cell.s);
+    expect(cell!.sp[cell!.top[0]]).toBe(cell!.s);
     // danh sách loài cho bộ chọn — có loài, mỗi loài đều xuất hiện trong sp ô nào đó
     expect(out.species.length).toBeGreaterThan(0);
     for (const sp of out.species) {
@@ -373,7 +376,9 @@ describe("tầng nhiệt HYCOM tăng điểm cá ngừ", () => {
     const yes =
       withT.cells.find((c) => c.sp["ngừ vây vàng"])?.sp["ngừ vây vàng"] ?? 0;
     expect(yes).toBeGreaterThan(no);
-    expect(yes).toBeGreaterThanOrEqual(35);
+    // tầng nhiệt là MỘT cơ chế trong soft-OR (scale 0.4) → đủ đưa ngừ vào payload
+    // (≥ KEEP_MIN 25); muốn cao hơn cần nhiều cơ chế cộng hưởng (front+xoáy+thermo)
+    expect(yes).toBeGreaterThanOrEqual(25);
   });
 });
 
@@ -385,6 +390,63 @@ describe("deepWaterFit (cổng độ sâu loài xa bờ)", () => {
     expect(deepWaterFit(200, 50, 200)).toBe(1);
     expect(deepWaterFit(2000, 50, 200)).toBe(1);
     expect(deepWaterFit(NaN, 50, 200)).toBe(1);
+  });
+});
+
+describe("softOrHabitat (soft-OR tổ hợp cơ chế)", () => {
+  it("terms rỗng → 0", () => {
+    expect(softOrHabitat([], 0.5)).toBe(0);
+  });
+  it("mọi trọng số ≤ 0 → 0 (không có cơ chế nào)", () => {
+    expect(softOrHabitat([[0, 1], [0, 1]], 0.5)).toBe(0);
+  });
+  it("một cơ chế MẠNH (x=1) ở trọng số lớn nhất → đạt đúng `scale`", () => {
+    // wMax term x=1: 1 - (1 - scale·1·1) = scale
+    expect(softOrHabitat([[0.3, 1]], 0.4)).toBeCloseTo(0.4, 10);
+    expect(softOrHabitat([[0.3, 1], [0.1, 0]], 0.4)).toBeCloseTo(0.4, 10);
+  });
+  it("KHÔNG bị nén: 1 cơ chế mạnh + nhiều cơ chế yếu vẫn SÁNG (khác TB cộng)", () => {
+    // TB cộng của {1,0,0,0} với trọng số đều ≈ 0.25; soft-OR giữ cao hơn hẳn
+    const terms: [number, number][] = [[0.3, 1], [0.3, 0], [0.3, 0], [0.3, 0]];
+    const so = softOrHabitat(terms, 0.4);
+    expect(so).toBeCloseTo(0.4, 10); // chỉ term mạnh quyết
+    expect(so).toBeGreaterThan(0.25);
+  });
+  it("đối xứng theo trọng số: đổi chỗ (w,x) không đổi kết quả", () => {
+    const a = softOrHabitat([[0.3, 0.5], [0.1, 0.8]], 0.5);
+    const b = softOrHabitat([[0.1, 0.8], [0.3, 0.5]], 0.5);
+    expect(a).toBeCloseTo(b, 12);
+  });
+  it("nhiều cơ chế cùng mạnh → cộng hưởng cao hơn một cơ chế", () => {
+    const one = softOrHabitat([[0.3, 1]], 0.4);
+    const many = softOrHabitat([[0.3, 1], [0.3, 1], [0.3, 1]], 0.4);
+    expect(many).toBeGreaterThan(one);
+    expect(many).toBeLessThanOrEqual(1);
+  });
+  it("x ngoài [0,1] / NaN → kẹp (không phá kết quả)", () => {
+    expect(softOrHabitat([[0.3, 2]], 0.4)).toBeCloseTo(0.4, 10); // kẹp về 1
+    expect(softOrHabitat([[0.3, NaN]], 0.4)).toBe(0); // NaN → 0
+  });
+});
+
+describe("percentileRank (hạng phân vị)", () => {
+  it("mảng rỗng → trả chính v", () => {
+    expect(percentileRank([], 0.7)).toBe(0.7);
+    expect(percentileRank([], 42)).toBe(42);
+  });
+  it("dưới tất cả → ~0; trên tất cả → 1; biên", () => {
+    const s = [0.1, 0.2, 0.3, 0.4];
+    expect(percentileRank(s, 0)).toBe(0);
+    expect(percentileRank(s, 1)).toBe(1);
+    expect(percentileRank(s, 0.4)).toBeGreaterThan(0.5); // phần tử lớn nhất
+  });
+  it("giá trị giữa → midrank ~0.5", () => {
+    // 5 phần tử, v = phần tử giữa (index 2): lo=2, hi=3 → (2+3)/10 = 0.5
+    expect(percentileRank([1, 2, 3, 4, 5], 3)).toBeCloseTo(0.5, 10);
+  });
+  it("giá trị trùng lặp → midrank giữa khối trùng", () => {
+    // [1,3,3,3,5], v=3: lo=1, hi=4 → (1+4)/10 = 0.5
+    expect(percentileRank([1, 3, 3, 3, 5], 3)).toBeCloseTo(0.5, 10);
   });
 });
 
@@ -442,9 +504,13 @@ describe("cổng độ sâu: cá xa bờ KHÔNG hiện ở nước cạn sát b�
       tlats,
       tlons,
     );
+  // tầng nhiệt D20=120 m cho ngừ vây vàng MỘT cơ chế gom cá thật → điểm nền >0
+  // (soft-OR: ô phẳng không cơ chế thì điểm 0); nhờ đó CỔNG ĐỘ SÂU quan sát được
+  const d20 = depthGrid(120);
   const scoreOf = (depthM: number) => {
     const f = buildFishForecast(warm, clear, null, 6, {
       depth: depthGrid(depthM),
+      thermo: d20,
     });
     return f.cells.find((c) => c.sp["ngừ vây vàng"])?.sp["ngừ vây vàng"] ?? 0;
   };
@@ -455,7 +521,7 @@ describe("cổng độ sâu: cá xa bờ KHÔNG hiện ở nước cạn sát b�
     expect(shallow).toBe(0); // 30m < 50 → deepWaterFit 0 → loại
   });
   it("KHÔNG có lưới độ sâu → không chặn (giữ nguyên hành vi cũ)", () => {
-    const f = buildFishForecast(warm, clear, null, 6);
+    const f = buildFishForecast(warm, clear, null, 6, { thermo: d20 });
     const s = f.cells.find((c) => c.sp["ngừ vây vàng"])?.sp["ngừ vây vàng"] ?? 0;
     expect(s).toBeGreaterThan(0);
   });

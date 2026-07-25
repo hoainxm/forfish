@@ -49,8 +49,34 @@ export const SURFACE_CONF: Record<SurfaceSignal, number> = {
   medium: 0.6,
   low: 0.25,
 };
-/** habitat trung tính khi vệ tinh không nói được gì (loài đáy) — tránh điểm nóng giả */
-const NEUTRAL_HABITAT = 0.45;
+
+/* ── Hằng chấm điểm (VIỆC 3 — chốt bằng calibrate trên lưới THẬT, xem
+   scripts/fish-predict-viec3-calib.mjs). Thay TRUNG BÌNH CỘNG có trọng số (nén
+   phương sai, gần hết ô rơi 0.3–0.5, 40 loài ra 1 bản đồ) bằng:
+     cổng nhiệt (nhân) × mồi (giới hạn mềm) × soft-OR cơ chế gom cá × cổng độ sâu
+   có nền sàn. ─────────────────────────────────────────────────────────────── */
+// Bộ hằng CHỐT bằng calibrate trên lưới THẬT (ERDDAP 3 ngày tháng 7 + 1 ngày
+// tháng 1, +ETOPO), TRƯỚC→SAU trên "Mọi loài" (s):
+//   median 42→36 (t7), 47→44 (t1) · %diện tích điểm nóng s≥50 27.5%→18.5% (t7),
+//   36.4%→26.6% (t1) · chồng lấn hotspot chéo loài (Jaccard) 0.12→0.11.
+//   Cá đáy mùa đông KHÔNG biến mất: cá mối/tôm bạc/ghẹ đều có ô s≥50 (716/36/32).
+// Xem scripts/fish-predict-viec3-calib.mjs (chạy lại: npx tsx …).
+/** Hệ số soft-OR: <1 để nhiều cơ chế VỪA-PHẢI không cộng dồn thành "sáng rực" */
+const SOFTOR_SCALE = 0.4;
+/** Nền sàn tổ hợp cơ chế: 0 = điểm nóng CHỈ do cơ chế gom cá thật (front/xoáy/
+ *  nước trồi) quyết → co vùng nóng về ~18% (trước ~50%), trung thực hơn. Đã đo:
+ *  nền >0 (thử 0.12) nâng điểm MỌI ô → vùng đỏ phình to hơn cả bản cũ (t7 30%,
+ *  t1 55%), phá mục tiêu co điểm nóng → GIỮ 0. "Mọi loài" median vẫn 36 (không
+ *  trống); loài đáy có nền NEUTRAL_AGG riêng nên không dính. */
+const AGG_FLOOR = 0.0;
+/** Tổ hợp trung tính cho loài ĐÁY/RẠN (vệ tinh không thấy) — lùi về MÙA VỤ+nhiệt+
+ *  mồi. Đủ cao (0.6) để vùng hợp mùa/nhiệt của cá đáy vượt sàn hiển thị 50 (nếu
+ *  không, chọn cá mối/tôm/ghẹ ra bản đồ TRỐNG); loài nổi (conf 1) KHÔNG dùng số này */
+const NEUTRAL_AGG = 0.6;
+/** Sàn giới hạn mồi: mồi=0 chỉ hạ điểm còn FOOD_FLOOR, KHÔNG zero hẳn (nhiễu mồi) */
+const FOOD_FLOOR = 0.45;
+/** Ngưỡng GIỮ ô/loài trong payload (điểm 0–100). Client lọc theo sàn hiển thị 50. */
+const KEEP_MIN = 25;
 
 export interface SpeciesProfile {
   /** khớp đúng chuỗi `species` trong FISH_SEASONS */
@@ -230,6 +256,47 @@ export function deepWaterFit(depthM: number, a: number, b: number): number {
   return Math.max(0, Math.min(1, (depthM - a) / (b - a)));
 }
 
+/**
+ * SOFT-OR tổ hợp các cơ chế gom cá — "chỉ cần MỘT cơ chế mạnh là đủ sáng ô":
+ *   = 1 − Π_k ( 1 − scale · (w_k / wMax) · clamp01(x_k) )
+ * Thay TRUNG BÌNH CỘNG có trọng số (nén phương sai: 6 yếu tố yếu pha loãng 1
+ * yếu tố mạnh → mọi ô về 0.3–0.5) bằng phép HỢP xác suất: một front/xoáy/nước
+ * trồi mạnh kéo điểm lên, không bị các yếu tố yếu dìm. Trọng số chuẩn hoá theo
+ * wMax nên cơ chế QUAN TRỌNG NHẤT của loài có ảnh hưởng đầy đủ (=scale khi x=1);
+ * `scale`<1 ghìm để nhiều cơ chế vừa-phải không cộng dồn thành sáng rực.
+ * terms rỗng (hoặc mọi trọng số ≤0) → 0. x ngoài [0,1] hoặc NaN → kẹp/bỏ.
+ */
+export function softOrHabitat(terms: [number, number][], scale: number): number {
+  if (terms.length === 0) return 0;
+  let wMax = 0;
+  for (const [w] of terms) if (w > wMax) wMax = w;
+  if (wMax <= 0) return 0;
+  let prod = 1;
+  for (const [w, x] of terms) {
+    if (w <= 0) continue;
+    const xc = Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : 0;
+    prod *= 1 - scale * (w / wMax) * xc;
+  }
+  return 1 - prod;
+}
+
+/**
+ * Hạng phân vị (0..1) của `v` trong mảng ĐÃ SẮP TĂNG DẦN — vị trí tương đối
+ * trong phân bố (midrank cho giá trị trùng). Dùng khi cần TƯƠNG PHẢN theo-vùng
+ * (điểm tuyệt đối quá đều). Mảng RỖNG → trả `v` (không có phân bố để so).
+ */
+export function percentileRank(sortedAsc: number[], v: number): number {
+  const n = sortedAsc.length;
+  if (n === 0) return v;
+  let lo = 0;
+  let hi = 0;
+  for (const x of sortedAsc) {
+    if (x < v) lo++;
+    if (x <= v) hi++;
+  }
+  return (lo + hi) / (2 * n);
+}
+
 export const KELVIN_OFFSET = 273.15;
 
 export interface ScalarGrid {
@@ -395,9 +462,14 @@ export interface CurrentGrids {
  *   `anom` — dị thường nhiệt so với nhiều năm (°C): ÂM = nước trồi/xáo trộn
  *   `cur`  — dòng chảy mặt u,v (m/s): độ HỘI TỤ = nơi gom mồi nổi
  *
- * Điểm mỗi loài tại ô = hợp-nhiệt(trapezoid) × habitat, trong đó habitat là
- * trung bình CÓ TRỌNG SỐ của: mồi · front nhiệt · front mồi · rìa xoáy ·
- * nước trồi · hội tụ dòng. Chỉ giữ ô có loài ĐANG VỤ tại VÙNG đó và ≥ 35/100.
+ * Điểm mỗi loài tại ô (VIỆC 3):
+ *   fit = cổng-nhiệt(trapezoid) × mồi(giới hạn mềm) × habitat × cổng-độ-sâu
+ * trong đó `habitat = AGG_FLOOR + (1−AGG_FLOOR)·aggEff`, `aggEff` kéo về trung
+ * tính theo độ tin mặt biển, và tổ hợp cơ chế gom cá (front nhiệt · front mồi ·
+ * rìa xoáy · nước trồi · hội tụ dòng · tầng nhiệt) dùng SOFT-OR chứ KHÔNG trung
+ * bình cộng (tránh nén phương sai → 40 loài ra 40 bản đồ khác nhau). Mồi tách
+ * ra làm GIỚI HẠN MỀM. Chỉ giữ ô có loài ĐANG VỤ tại VÙNG đó và ≥ 25/100 (client
+ * tự lọc theo sàn hiển thị 50).
  */
 export function buildFishForecast(
   sst: ScalarGrid,
@@ -501,9 +573,13 @@ export function buildFishForecast(
       for (const f of inSeason) {
         const p = SPECIES_PROFILES.find((x) => x.species === f.species);
         if (!p) continue;
+        // CỔNG NHIỆT (nhân): ngoài dải nhiệt của loài → loại hẳn ô
         const tFit = trapezoid(t, p.sst[0], p.sst[1], p.sst[2], p.sst[3]);
         if (tFit === 0) continue;
+        // MỒI = GIỚI HẠN MỀM (tách khỏi soft-OR): mồi=0 chỉ hạ điểm còn
+        // FOOD_FLOOR, không zero hẳn để loài KHÔNG biến mất vì nhiễu ảnh mồi.
         const food = chlFit(c, p.chlLog[0], p.chlLog[1]);
+        const foodLimiter = FOOD_FLOOR + (1 - FOOD_FLOOR) * food;
         // loài ưa nước trồi lạnh: rìa xoáy HOẶC nước lõm lạnh, lấy mạnh hơn
         const eddyTerm = sla
           ? p.coldCore
@@ -511,35 +587,32 @@ export function buildFishForecast(
             : fEddy
           : null;
 
-        // trung bình có trọng số, loại yếu tố thiếu dữ liệu rồi chia lại
-        const terms: [number, number][] = [
-          [p.w.food, food],
+        // SOFT-OR trên các CƠ CHẾ GOM CÁ (một cơ chế mạnh là đủ), loại yếu tố
+        // thiếu dữ liệu. Trọng số dùng p.w.* hiện có (chuẩn hoá theo wMax trong
+        // softOrHabitat). Mồi ĐÃ tách ra làm limiter, không nằm ở đây.
+        const mech: [number, number][] = [
           [p.w.thermFront, fThermFront],
           [p.w.chlFront, fChlFront],
         ];
-        if (eddyTerm != null) terms.push([p.w.eddy, eddyTerm]);
-        if (upwTerm != null) terms.push([p.w.upw, upwTerm]);
-        if (convTerm != null) terms.push([p.w.conv, convTerm]);
+        if (eddyTerm != null) mech.push([p.w.eddy, eddyTerm]);
+        if (upwTerm != null) mech.push([p.w.upw, upwTerm]);
+        if (convTerm != null) mech.push([p.w.conv, convTerm]);
         // tầng nhiệt: chỉ tính cho loài CÓ trọng số (cá ngừ/cá nổi lớn, mực xà)
         if (thermoTerm != null && (p.w.thermo ?? 0) > 0)
-          terms.push([p.w.thermo as number, thermoTerm]);
-        let wSum = 0;
-        let acc = 0;
-        for (const [w, v] of terms) {
-          wSum += w;
-          acc += w * v;
-        }
-        const habitat = wSum > 0 ? acc / wSum : 0;
-        // TRUNG THỰC: loài đáy/rạn ảnh vệ tinh ít nói được → kéo habitat về
-        // trung tính, không vẽ điểm nóng giả. Loài nổi (high) giữ nguyên.
+          mech.push([p.w.thermo as number, thermoTerm]);
+        const agg = softOrHabitat(mech, SOFTOR_SCALE);
+        // TRUNG THỰC: loài đáy/rạn ảnh vệ tinh ít nói được → kéo tổ hợp về trung
+        // tính, không vẽ điểm nóng giả. Loài nổi (high) giữ nguyên.
         const conf = SURFACE_CONF[p.surfaceSignal];
-        const habitatEff = conf * habitat + (1 - conf) * NEUTRAL_HABITAT;
+        const aggEff = conf * agg + (1 - conf) * NEUTRAL_AGG;
+        // nền sàn: mùa+nhiệt+mồi vẫn quyết điểm ngay cả khi cơ chế trơ
+        const habitat = AGG_FLOOR + (1 - AGG_FLOOR) * aggEff;
         // CỔNG ĐỘ SÂU: loài xa bờ (offshore) ở nước cạn → điểm kéo về 0
         const depthFit =
           p.offshore && cellDepthM != null
             ? deepWaterFit(cellDepthM, p.offshore[0], p.offshore[1])
             : 1;
-        const fit = tFit * habitatEff * depthFit;
+        const fit = tFit * foodLimiter * habitat * depthFit;
         if (fit > 0)
           scored.push({ short: p.short, fit, low: p.surfaceSignal === "low" });
       }
@@ -552,20 +625,22 @@ export function buildFishForecast(
       const sp: Record<string, number> = {};
       for (const x of scored) {
         const v = Math.round(x.fit * 100);
-        if (v >= 25) {
+        if (v >= KEEP_MIN) {
           sp[x.short] = v;
           const prev = speciesBest.get(x.short) ?? 0;
           if (v > prev) speciesBest.set(x.short, v);
         }
       }
-      // giữ ô nếu "Mọi loài" đạt ngưỡng HOẶC có loài nào (kể cả đáy) đạt ngưỡng
-      const anySp = Object.values(sp).some((v) => v >= 35);
-      if (s < 35 && !anySp) continue;
+      // giữ ô nếu "Mọi loài" đạt ngưỡng HOẶC có loài nào (kể cả đáy) đạt ngưỡng.
+      // Ngưỡng hạ về KEEP_MIN=25 (trước 35): client (sàn hiển thị 50) tự lọc,
+      // đây chỉ quyết payload — giữ đủ ô cho legend kéo-thả xuống dưới 50.
+      const anySp = Object.values(sp).some((v) => v >= KEEP_MIN);
+      if (s < KEEP_MIN && !anySp) continue;
       cells.push({
         lat: Math.round(lat * 100) / 100,
         lon: Math.round(lon * 100) / 100,
         s,
-        top: locatable.filter((x) => x.fit >= 0.35).slice(0, 3).map((x) => x.short),
+        top: locatable.filter((x) => x.fit >= KEEP_MIN / 100).slice(0, 3).map((x) => x.short),
         sp,
         t: Math.round(t * 10) / 10,
         c: Number.isFinite(c) ? Math.round((c as number) * 100) / 100 : null,
