@@ -2,8 +2,10 @@
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/money-insights.tsx, src/components/trip-log.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
-last_verified: 2026-06-15
+last_verified: 2026-07-25
 ttl_days: 90
+<!-- re-verified: 2026-07-25 - boat-switcher/crew-list/urgent-strip chỉ thêm anchor data-tour (chon-tau, them-thuyen-vien, nhac-viec) cho coach-tour hướng dẫn; KHÔNG đổi hành vi đa-tàu — NV1–NV5, handoff H1, vòng đời thêm/xóa/đổi tàu, AC §8 giữ nguyên. -->
+
 
 > **Mục đích**: oracle HÀNH VI cho đa-tàu — định nghĩa hồ sơ nào gắn TÀU, hồ sơ nào gắn CHỦ, vòng đời thêm/xóa/đổi tàu chạy ra sao, đúng-sai đo bằng AC nào. KHÔNG mô tả giao diện (việc của [07-design-spec](07-design-spec.md)).
 

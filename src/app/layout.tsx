@@ -3,6 +3,7 @@ import { Archivo, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { SwRegister } from "@/components/sw-register";
+import { TourLauncher } from "@/components/tour-launcher";
 
 const display = Archivo({
   variable: "--font-display",
@@ -86,6 +87,8 @@ export default function RootLayout({
             {children}
           </main>
           <BottomNav />
+          {/* Hướng dẫn thao tác trên màn — mount 1 lần, tự chọn bộ bước theo route */}
+          <TourLauncher />
         </div>
         <SwRegister />
       </body>

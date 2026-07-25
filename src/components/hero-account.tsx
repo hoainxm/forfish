@@ -7,9 +7,12 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import {
   AnchorIcon,
   ChevronRightIcon,
+  HelpIcon,
   PhoneIcon,
+  PlayIcon,
   UsersIcon,
 } from "@/components/icons";
+import { loadTourEnabled, resetTours, setTourEnabled } from "@/lib/tour";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthUser } from "@/lib/use-auth";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
@@ -54,6 +57,8 @@ export function HeroAccount() {
   const { boats } = useBoats();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("auto");
+  // Công tắc chỉ dẫn trên màn (nút nổi + tự chạy tour). Mặc định bật.
+  const [guideOn, setGuideOn] = useState(true);
 
   useEffect(() => {
     try {
@@ -62,7 +67,14 @@ export function HeroAccount() {
     } catch {
       // storage bị chặn — dùng mặc định
     }
+    setGuideOn(loadTourEnabled());
   }, []);
+
+  function toggleGuide() {
+    const next = !guideOn;
+    setGuideOn(next);
+    setTourEnabled(next); // ghi localStorage + báo TourLauncher đổi ngay
+  }
 
   function applyMode(next: Mode) {
     setMode(next);
@@ -96,6 +108,7 @@ export function HeroAccount() {
       {/* MỘT chip duy nhất trên hero — bấm mở menu phụ */}
       <button
         type="button"
+        data-tour="tai-khoan"
         onClick={() => setOpen(true)}
         className="mt-3 flex min-h-[2.75rem] max-w-full items-center gap-2 rounded-full bg-white/15 pl-2 pr-3.5 text-white backdrop-blur-sm transition active:scale-[0.97]"
       >
@@ -212,6 +225,67 @@ export function HeroAccount() {
                 </button>
               );
             })}
+          </div>
+
+          {/* HƯỚNG DẪN DÙNG APP — công khai, khách chưa đăng nhập cũng cần */}
+          <p className="mb-1.5 px-1 text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
+            Hướng dẫn dùng app
+          </p>
+          <div className="mb-4 overflow-hidden surface">
+            {/* Công tắc tổng: tắt = ẩn nút nổi "Hướng dẫn" + không tự chạy tour */}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={guideOn}
+              onClick={toggleGuide}
+              className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left"
+            >
+              <HelpIcon className="h-5 w-5 shrink-0 text-sea" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[1rem] font-bold text-navy">
+                  Chỉ dẫn trên màn hình
+                </span>
+                <span className="block text-[0.8125rem] leading-snug text-foreground/70">
+                  {guideOn
+                    ? "Hiện nút Hướng dẫn và tự chỉ từng nút lần đầu"
+                    : "Đang tắt — bật để hiện lại nút Hướng dẫn"}
+                </span>
+              </span>
+              {/* switch: nền + núm trượt, ≥ khổ chạm; màu sea khi bật */}
+              <span
+                aria-hidden
+                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+                  guideOn ? "bg-sea" : "bg-line"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${
+                    guideOn ? "left-[1.375rem]" : "left-0.5"
+                  }`}
+                />
+              </span>
+            </button>
+            {/* "Chỉ lại từ đầu" chỉ có nghĩa khi chỉ dẫn đang bật */}
+            {guideOn && (
+              <button
+                type="button"
+                onClick={() => {
+                  resetTours();
+                  setOpen(false);
+                }}
+                className="flex min-h-[3.5rem] w-full items-center gap-3 border-t border-line px-4 text-left"
+              >
+                <PlayIcon className="h-5 w-5 shrink-0 text-sea" />
+                <span className="min-w-0">
+                  <span className="block text-[1rem] font-bold text-navy">
+                    Chỉ lại từ đầu trên màn hình
+                  </span>
+                  <span className="block text-[0.8125rem] leading-snug text-foreground/70">
+                    Bật lại phần chỉ dẫn từng nút ở mọi màn
+                  </span>
+                </span>
+              </button>
+            )}
           </div>
 
           {user && (

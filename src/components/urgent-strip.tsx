@@ -304,7 +304,7 @@ export function UrgentStrip() {
   const rest = all.length - shown.length;
 
   return (
-    <section aria-label="Việc cần làm ngay">
+    <section data-tour="nhac-viec" aria-label="Việc cần làm ngay">
       <h2 className="display mb-1.5 px-1 text-[1rem] font-bold text-navy">
         Việc cần làm ngay
       </h2>

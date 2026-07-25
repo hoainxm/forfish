@@ -212,6 +212,7 @@ export function CrewList() {
       </div>
 
       <button
+        data-tour="them-thuyen-vien"
         onClick={() => {
           setEditing(null);
           setShowForm(true);

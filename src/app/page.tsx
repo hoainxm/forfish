@@ -69,7 +69,7 @@ export default function Home() {
           <h2 className="display mb-1.5 px-1 text-[1.125rem] font-bold text-navy">
             Bốn việc chính
           </h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div data-tour="bon-viec" className="grid grid-cols-2 gap-3">
             {pillars.map((p) => {
               const Icon = p.icon;
               return (

@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Hướng dẫn dùng SDFish</title>
+<meta name="description" content="Hướng dẫn dùng app SDFish — ảnh chụp từng màn, đánh số từng nút." />
+<!-- FILE NÀY DO MÁY SINH RA — ĐỪNG SỬA TAY.
+     Sửa lời ở scripts/guide-content.mjs rồi chạy: npm run guide -->
+<style>
+  :root{--navy:#14324f;--sea:#2e6b8a;--trim:#e4572e;--bg:#f3f6f8;--field:#eaeff3;
+        --line:#dbe3ea;--ink:#1d2c38;--muted:#5b6b78}
+  *{box-sizing:border-box}
+  body{margin:0;padding:0 1rem 4rem;font-family:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+       font-size:18px;line-height:1.55;color:var(--ink);background:var(--bg)}
+  .wrap{max-width:46rem;margin:0 auto}
+  header.top{margin:0 -1rem 1.5rem;padding:2rem 1.25rem 1.75rem;
+    background:linear-gradient(150deg,var(--navy) 35%,var(--sea));color:#fff;border-radius:0 0 1.75rem 1.75rem}
+  header.top p.kicker{margin:0;font-size:.8rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.65)}
+  header.top h1{margin:.25rem 0 .5rem;font-size:2rem;line-height:1.15}
+  header.top p.sub{margin:0;color:rgba(255,255,255,.85);font-size:1.0625rem}
+  nav.toc{background:#fff;border-radius:1.25rem;padding:1rem 1.25rem;margin-bottom:1.5rem;box-shadow:0 6px 18px -10px rgba(10,30,50,.4)}
+  nav.toc h2{margin:0 0 .5rem;font-size:1.125rem;color:var(--navy)}
+  nav.toc ol{margin:0;padding-left:1.25rem}
+  nav.toc li{margin:.35rem 0}
+  a{color:var(--sea)}
+  section{background:#fff;border-radius:1.25rem;padding:1.25rem;margin-bottom:1.25rem;box-shadow:0 6px 18px -10px rgba(10,30,50,.35)}
+  section>h2{margin:0 0 .25rem;font-size:1.5rem;color:var(--navy);line-height:1.2}
+  section>p.lead{margin:0 0 1rem;color:var(--muted)}
+  h3{margin:1.5rem 0 .5rem;font-size:1.1875rem;color:var(--navy)}
+  figure.shot{margin:0 0 1rem}
+  .frame{position:relative;display:block;max-width:320px;margin:0 auto;border-radius:1rem;overflow:hidden;
+         border:1px solid var(--line);box-shadow:0 10px 26px -14px rgba(10,30,50,.6);background:#fff}
+  .frame img{display:block;width:100%;height:auto}
+  .mk{position:absolute;border:3px solid var(--trim);border-radius:.6rem;box-shadow:0 0 0 2px rgba(255,255,255,.85)}
+  .mk b{position:absolute;left:-.55rem;top:-.55rem;min-width:1.5rem;height:1.5rem;padding:0 .25rem;
+        display:flex;align-items:center;justify-content:center;background:var(--trim);color:#fff;
+        border-radius:999px;font-size:.8125rem;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+  figcaption{margin-top:.5rem;text-align:center;font-size:.875rem;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;margin:.5rem 0 1rem;font-size:1.0625rem}
+  th,td{text-align:left;vertical-align:top;padding:.65rem .5rem;border-bottom:1px solid var(--line)}
+  th{background:var(--field);color:var(--navy);font-size:.9375rem;text-transform:uppercase;letter-spacing:.05em}
+  td.num{width:2.25rem;text-align:center;font-weight:700;color:var(--trim)}
+  td.btn{font-weight:700;color:var(--navy)}
+  .note{background:#fff8e6;border-left:5px solid #b8860b;padding:.85rem 1rem;border-radius:.5rem;margin:1rem 0;font-size:1rem}
+  .warn{background:#fdeceb;border-left:5px solid var(--trim);padding:.85rem 1rem;border-radius:.5rem;margin:1rem 0;font-size:1rem}
+  ol.steps{padding-left:1.4rem}
+  ol.steps li{margin:.5rem 0}
+  .scroll{overflow-x:auto}
+  footer{max-width:46rem;margin:2rem auto 0;color:var(--muted);font-size:.9375rem;text-align:center}
+  @media print{
+    body{background:#fff;font-size:12pt;padding:0}
+    header.top{background:none;color:#000;border-radius:0;padding:0 0 1rem;margin:0 0 1rem;border-bottom:2px solid #000}
+    header.top p.kicker,header.top p.sub{color:#333}
+    section,nav.toc{box-shadow:none;border:1px solid #999;break-inside:avoid;page-break-inside:avoid}
+    .frame{max-width:250px;box-shadow:none}
+    a{color:#000;text-decoration:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <p class="kicker">SDFish · Bạn của ngư dân</p>
+  <h1>Hướng dẫn dùng app</h1>
+  <p class="sub">Ảnh chụp từng màn của app, đánh số từng nút kèm mô tả nút đó làm gì. Bà con đọc phần nào cần phần đó.</p>
+</header>
+
+<nav class="toc">
+  <h2>Nội dung</h2>
+  <ol><li><a href="#bat-dau">Bắt đầu: cài app và đăng nhập</a></li><li><a href="#trang-chu">Màn Trang chủ</a></li><li><a href="#tai-khoan">Bảng Tài khoản</a></li><li><a href="#ra-khoi">Màn Ra khơi</a></li><li><a href="#tau-giay-to">Màn Tàu của tôi — tab Giấy tờ</a></li><li><a href="#tau-dich-vu">Màn Tàu của tôi — tab Dịch vụ</a></li><li><a href="#tau-muc-phat">Màn Tàu của tôi — tab Mức phạt</a></li><li><a href="#ban-thuyen">Màn Bạn thuyền</a></li><li><a href="#tien-giao-dich">Màn Sổ tiền — tab Giao dịch</a></li><li><a href="#tien-hieu-qua">Màn Sổ tiền — tab Hiệu quả</a></li><li><a href="#tien-cong-no">Màn Sổ tiền — tab Công nợ</a></li><li><a href="#cang">Màn Danh bạ cảng</a></li><li><a href="#login">Màn Đăng nhập</a></li><li><a href="#hoi-dap">Hỏi đáp nhanh</a></li></ol>
+</nav>
+
+
+<section id="bat-dau">
+  <h2>Bắt đầu: cài app và đăng nhập</h2>
+  <p class="lead">App chạy thẳng trên trình duyệt điện thoại, cài về màn hình chính cho tiện.</p>
+  <h3>Cài app về màn hình chính</h3><ol class="steps"><li>Mở app bằng trình duyệt (Chrome trên Android, Safari trên iPhone).</li><li>Android: bấm dấu ba chấm ở góc → chọn <b>Cài ứng dụng</b> (hoặc <b>Thêm vào màn hình chính</b>).</li><li>iPhone: bấm nút chia sẻ (ô vuông có mũi tên đi lên) → <b>Thêm vào MH chính</b>.</li><li>Xong, biểu tượng SDFish nằm ngoài màn hình chính như mọi app khác.</li></ol><div class="note"><b>Không đăng nhập vẫn xem được</b> giá cá, mức phạt, gió sóng, danh bạ cảng. Những thứ riêng của bà con — giấy tờ, thuyền viên, lãi lỗ, công nợ — thì phải đăng nhập, để người khác cầm máy cũng không xem được.</div><h3>Xem chỉ dẫn ngay trên màn hình</h3><p>Trong app có nút <b>Hướng dẫn</b> ở góc trái dưới. Bấm vào là app tối màn lại, sáng đúng cái nút đang nói tới kèm một câu giải thích — giống hệt các ảnh trong sách này nhưng ngay trên máy của bà con. Lần đầu mở mỗi màn app tự chỉ một lượt; muốn xem lại thì bấm nút đó, hoặc vào nút tài khoản chọn <b>Chỉ lại từ đầu trên màn hình</b>.</p>
+</section>
+
+<section id="trang-chu">
+  <h2>Màn Trang chủ</h2>
+  <p class="lead">Nhìn một cái là biết có việc gì gấp, và đi đâu tiếp.</p>
+  <figure class="shot">
+    <div class="frame">
+      <img src="huong-dan/trang-chu.webp" alt="Ảnh màn Màn Trang chủ" width="390" height="1194">
+      <span class="mk" style="left:5.13%;top:7.49%;width:51.16%;height:3.69%"><b>1</b></span><span class="mk" style="left:4.10%;top:12.51%;width:91.79%;height:5.56%"><b>2</b></span><span class="mk" style="left:4.10%;top:19.08%;width:91.79%;height:33.99%"><b>3</b></span><span class="mk" style="left:4.10%;top:57.32%;width:44.36%;height:13.55%"><b>4</b></span><span class="mk" style="left:51.54%;top:57.32%;width:44.36%;height:13.55%"><b>5</b></span><span class="mk" style="left:4.10%;top:71.87%;width:44.36%;height:13.55%"><b>6</b></span><span class="mk" style="left:51.54%;top:71.87%;width:44.36%;height:13.55%"><b>7</b></span><span class="mk" style="left:3.08%;top:93.13%;width:93.85%;height:6.03%"><b>8</b></span>
+    </div>
+    <figcaption>Ảnh chụp từ chính app — số trên ảnh ứng với bảng bên dưới.</figcaption>
+  </figure>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>Nút</th><th>Làm gì</th></tr>
+    <tr><td class="num">1</td><td class="btn">Nút tài khoản</td><td>Hiện tên bà con. Bấm vào mở bảng: chỉnh cỡ chữ, xem hướng dẫn, đổi mật khẩu, đăng xuất.</td></tr><tr><td class="num">2</td><td class="btn">Chọn tàu</td><td>Hiện tàu đang xem. Bấm để đổi tàu khác hoặc thêm tàu mới. Giấy tờ, bảo dưỡng, lãi lỗ đều tính theo tàu đang chọn ở đây — chọn nhầm tàu là xem nhầm sổ.</td></tr><tr><td class="num">3</td><td class="btn">Việc cần làm ngay</td><td>App tự nhắc giấy tờ, bảo hiểm, bảo dưỡng sắp hết hạn. Bấm vào dòng nhắc là tới thẳng chỗ xử lý, khỏi phải đi tìm.</td></tr><tr><td class="num">4</td><td class="btn">Ô Ra khơi</td><td>Bản đồ biển: gió sóng, chỗ có khả năng có cá, dẫn đường tiết kiệm dầu.</td></tr><tr><td class="num">5</td><td class="btn">Ô Tàu của tôi</td><td>Giấy tờ tàu, dịch vụ và đồ đã mua của SDVICO, tra mức phạt.</td></tr><tr><td class="num">6</td><td class="btn">Ô Bạn thuyền</td><td>Hồ sơ thuyền viên, chứng chỉ, bảo hiểm, sổ ứng tiền.</td></tr><tr><td class="num">7</td><td class="btn">Ô Sổ tiền</td><td>Giá cá, ai đang cần mua, lãi lỗ từng chuyến, công nợ.</td></tr><tr><td class="num">8</td><td class="btn">Thanh dưới cùng</td><td>Luôn có ở mọi màn: Trang chủ · Ra khơi · Tàu · Bạn thuyền · Tiền. Lạc chỗ nào thì bấm Trang chủ về lại.</td></tr>
+  </table>
+  </div>
+  
+  
+</section>
+<section id="tai-khoan">
+  <h2>Bảng Tài khoản</h2>
+  <p class="lead">Bấm nút tài khoản ở đầu Trang chủ để mở bảng này.</p>
+  <figure class="shot">
+    <div class="frame">
+      <img src="huong-dan/tai-khoan.webp" alt="Ảnh màn Bảng Tài khoản" width="390" height="1194">
+      <span class="mk" style="left:5.13%;top:63.92%;width:89.74%;height:4.69%"><b>1</b></span><span class="mk" style="left:5.13%;top:76.88%;width:89.74%;height:4.69%"><b>2</b></span><span class="mk" style="left:5.13%;top:81.57%;width:89.74%;height:4.69%"><b>3</b></span><span class="mk" style="left:5.13%;top:87.60%;width:89.74%;height:4.36%"><b>4</b></span><span class="mk" style="left:5.13%;top:92.96%;width:89.74%;height:4.36%"><b>5</b></span>
+    </div>
+    <figcaption>Ảnh chụp từ chính app — số trên ảnh ứng với bảng bên dưới.</figcaption>
+  </figure>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>Nút</th><th>Làm gì</th></tr>
+    <tr><td class="num">1</td><td class="btn">Cỡ giao diện</td><td>Ba kiểu: Theo máy (mặc định — chữ trong điện thoại to thì app to theo), Chữ to, Gọn. Bấm lại lựa chọn đang bật để về Theo máy.</td></tr><tr><td class="num">2</td><td class="btn">Xem hướng dẫn đầy đủ</td><td>Mở đúng quyển sách hướng dẫn này, in ra giấy được.</td></tr><tr><td class="num">3</td><td class="btn">Chỉ lại từ đầu trên màn hình</td><td>Bật lại phần chỉ dẫn từng nút ở mọi màn, như lúc mới dùng app.</td></tr><tr><td class="num">4</td><td class="btn">Đổi mật khẩu</td><td>Đặt mật khẩu mới. Mật khẩu mới dùng được cả bên SDVICO.</td></tr><tr><td class="num">5</td><td class="btn">Đăng xuất</td><td>Thoát tài khoản. Dữ liệu riêng trên máy được dọn đi, người khác cầm máy không xem được.</td></tr>
+  </table>
+  </div>
+  
+  
+</section>
+<section id="ra-khoi">
+  <h2>Màn Ra khơi</h2>
+  <p class="lead">Bản đồ biển chiếm cả màn hình. Mọi thứ khác nổi lên trên bản đồ.</p>
+  <figure class="shot">
+    <div class="frame">
+      <img src="huong-dan/ra-khoi.webp" alt="Ảnh màn Màn Ra khơi" width="390" height="844">
+      <span class="mk" style="left:81.54%;top:4.83%;width:16.41%;height:6.16%"><b>1</b></span><span class="mk" style="left:81.54%;top:11.94%;width:16.41%;height:7.11%"><b>2</b></span><span class="mk" style="left:81.54%;top:20.00%;width:16.41%;height:7.11%"><b>3</b></span><span class="mk" style="left:81.54%;top:28.06%;width:16.41%;height:7.11%"><b>4</b></span><span class="mk" style="left:81.54%;top:36.11%;width:16.41%;height:7.11%"><b>5</b></span><span class="mk" style="left:81.54%;top:44.17%;width:16.41%;height:7.11%"><b>6</b></span><span class="mk" style="left:81.54%;top:52.23%;width:16.41%;height:7.11%"><b>7</b></span><span class="mk" style="left:0.00%;top:75.93%;width:100.00%;height:14.11%"><b>8</b></span>
+    </div>
+    <figcaption>Ảnh chụp từ chính app — số trên ảnh ứng với bảng bên dưới.</figcaption>
+  </figure>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>Nút</th><th>Làm gì</th></tr>
+    <tr><td class="num">1</td><td class="btn">Nút Lớp / Ẩn</td><td>Thu gọn cả dãy nút cho thoáng bản đồ, bấm lại là hiện ra.</td></tr><tr><td class="num">2</td><td class="btn">Hải đồ</td><td>Chọn nền bản đồ: hải đồ độ sâu (mặc định, có số mét), nước nóng lạnh, vùng nhiều mồi, ảnh mây trời.</td></tr><tr><td class="num">3</td><td class="btn">Ngư trường</td><td>Vùng có khả năng có cá, chọn theo loài. Chấm càng đậm càng nhiều khả năng; hồng tâm là điểm nóng nhất.</td></tr><tr><td class="num">4</td><td class="btn">Thời tiết</td><td>Bật lớp gió hoặc sóng vẽ động theo giờ, có thanh thời gian kéo tới lui và nút chạy.</td></tr><tr><td class="num">5</td><td class="btn">Điểm đã lưu</td><td>Ghim chỗ hay đánh và đặt tên. Đặt cảng nhà ở đây (gõ tìm trong 173 cảng cả nước).</td></tr><tr><td class="num">6</td><td class="btn">Công cụ</td><td>Đo khoảng cách giữa hai điểm trên biển.</td></tr><tr><td class="num">7</td><td class="btn">Cài đặt</td><td>Đổi đơn vị khoảng cách (hải lý / km) và kiểu toạ độ.</td></tr><tr><td class="num">8</td><td class="btn">Bảng dưới đáy</td><td>Biển êm hay động, sóng mấy mét, gió cấp mấy ở chỗ đang xem. Chạm vào biển là bảng đổi sang chỗ vừa chạm; kéo bảng lên để xem đủ mưa dông, nước cạn, tuần trăng, toạ độ.</td></tr>
+  </table>
+  </div>
+  
+  <div class="warn">Số liệu là tham khảo. App nói biển êm hay động, sóng mấy mét, gió cấp mấy — app KHÔNG phán đi hay không đi. Quyết định vẫn là của thuyền trưởng. Ảnh vệ tinh luôn chậm vài ngày; chỗ trống trên ảnh là mây che, không phải biển trống.</div>
+</section>
+<section id="tau-giay-to">
+  <h2>Màn Tàu của tôi — tab Giấy tờ</h2>
+  <p class="lead">Bốn tab trên đầu màn. Tab Giấy tờ lo chuyện đủ điều kiện ra khơi.</p>
+  <figure class="shot">
+    <div class="frame">
+      <img src="huong-dan/tau-giay-to.webp" alt="Ảnh màn Màn Tàu của tôi — tab Giấy tờ" width="390" height="2454">
+      <span class="mk" style="left:5.13%;top:8.92%;width:21.67%;height:2.28%"><b>1</b></span><span class="mk" style="left:27.82%;top:8.92%;width:21.67%;height:2.28%"><b>2</b></span><span class="mk" style="left:50.51%;top:8.92%;width:21.67%;height:2.28%"><b>3</b></span><span class="mk" style="left:73.21%;top:8.92%;width:21.67%;height:2.28%"><b>4</b></span><span class="mk" style="left:4.10%;top:59.82%;width:91.79%;height:2.44%"><b>5</b></span>
+    </div>
+    <figcaption>Ảnh chụp từ chính app — số trên ảnh ứng với bảng bên dưới.</figcaption>
+  </figure>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>Nút</th><th>Làm gì</th></tr>
+    <tr><td class="num">1</td><td class="btn">Tab Giấy tờ</td><td>Checklist xuất bến + tủ giấy tờ của tàu đang chọn.</td></tr><tr><td class="num">2</td><td class="btn">Tab Dịch vụ</td><td>Dịch vụ SDVICO, cước chờ đóng, nút gọi SDVICO, sổ nhắc bảo dưỡng.</td></tr><tr><td class="num">3</td><td class="btn">Tab Sản phẩm</td><td>Đồ đã mua và hạn bảo hành.</td></tr><tr><td class="num">4</td><td class="btn">Tab Mức phạt</td><td>Tra mức phạt theo Nghị định 38/2024.</td></tr><tr><td class="num">5</td><td class="btn">Thêm giấy tờ</td><td>Ghi loại giấy, số giấy và ngày hết hạn. App tự nhắc trước khi hết hạn.</td></tr>
+  </table>
+  </div>
+  
+  
+</section>
+<section id="tau-dich-vu">
+  <h2>Màn Tàu của tôi — tab Dịch vụ</h2>
+  <p class="lead">Dịch vụ đang dùng của SDVICO và sổ nhắc bảo dưỡng tự ghi.</p>
+  <figure class="shot">
+    <div class="frame">
+      <img src="huong-dan/tau-dich-vu.webp" alt="Ảnh màn Màn Tàu của tôi — tab Dịch vụ" width="390" height="1737">
+      <span class="mk" style="left:4.10%;top:21.85%;width:91.79%;height:3.45%"><b>1</b></span><span class="mk" style="left:4.10%;top:54.51%;width:91.79%;height:3.45%"><b>2</b></span>
+    </div>
+    <figcaption>Ảnh chụp từ chính app — số trên ảnh ứng với bảng bên dưới.</figcaption>
+  </figure>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>Nút</th><th>Làm gì</th></tr>
+    <tr><td class="num">1</td><td class="btn">Gọi SDVICO sửa chữa / bảo dưỡng</td><td>Gửi yêu cầu: sửa chữa, đặt bảo dưỡng, hỏi cước. Để lại tên và số điện thoại, SDVICO gọi lại. Gấp thì có số hotline ngay trong bảng.</td></tr><tr><td class="num">2</td><td class="btn">Thêm việc bảo dưỡng</td><td>Tự ghi việc định kỳ (thay nhớt, kiểm tra chân vịt), ngày làm gần nhất và số ngày lặp lại. App nhắc khi tới hạn.</td></tr>
+  </table>
+  </div>
+  
+  
+</section>
+<section id="tau-muc-phat">
+  <h2>Màn Tàu của tôi — tab Mức phạt</h2>
+  <p class="lead">Tra mức phạt trước khi ra khơi. Không cần đăng nhập cũng xem được.</p>
+  <figure class="shot">
+    <div class="frame">
+      <img src="huong-dan/tau-muc-phat.webp" alt="Ảnh màn Màn Tàu của tôi — tab Mức phạt" width="390" height="4000">
+      <span class="mk" style="left:4.10%;top:10.18%;width:91.79%;height:1.30%"><b>1</b></span>
+    </div>
+    <figcaption>Ảnh chụp từ chính app — số trên ảnh ứng với bảng bên dưới.</figcaption>
+  </figure>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>Nút</th><th>Làm gì</th></tr>
+    <tr><td class="num">1</td><td class="btn">Ô tìm lỗi</td><td>Gõ vài chữ của lỗi muốn tra, danh sách lọc ngay.</td></tr>
+  </table>
+  </div>
+  <div class="note">Mức phạt xếp từ nặng tới nhẹ. Đây là bản THAM KHẢO theo Nghị định 38/2024, không thay văn bản gốc.</div>
+  
+</section>
+<section id="ban-thuyen">
+  <h2>Màn Bạn thuyền</h2>
+  <p class="lead">Ai đi tàu mình, giấy tờ tới đâu, ứng tiền bao nhiêu.</p>
+  <figure class="shot">
+    <div class="frame">
+      <img src="huong-dan/ban-thuyen.webp" alt="Ảnh màn Màn Bạn thuyền" width="390" height="1349">
+      <span class="mk" style="left:4.10%;top:22.85%;width:91.79%;height:4.45%"><b>1</b></span>
+    </div>
+    <figcaption>Ảnh chụp từ chính app — số trên ảnh ứng với bảng bên dưới.</figcaption>
+  </figure>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>Nút</th><th>Làm gì</th></tr>
+    <tr><td class="num">1</td><td class="btn">Thêm bạn thuyền</td><td>Ghi tên, số điện thoại, chứng chỉ, bảo hiểm và ngày hết hạn.</td></tr>
+  </table>
+  </div>
+  <div class="note">Sổ bạn thuyền theo CHỦ TÀU, không theo từng tàu — đổi tàu vẫn thấy đủ người. Bảo hiểm hoặc chứng chỉ sắp hết hạn thì băng trên thẻ chuyển vàng, quá hạn thì đỏ.</div>
+  
+</section>
+<section id="tien-giao-dich">
+  <h2>Màn Sổ tiền — tab Giao dịch</h2>
+  <p class="lead">Nắm giá trước khi vào bờ, khỏi bị ép giá. Không cần đăng nhập.</p>
+  <figure class="shot">
+    <div class="frame">
+      <img src="huong-dan/tien-giao-dich.webp" alt="Ảnh màn Màn Sổ tiền — tab Giao dịch" width="390" height="2334">
+      <span class="mk" style="left:5.13%;top:9.38%;width:29.23%;height:2.40%"><b>1</b></span><span class="mk" style="left:35.38%;top:9.38%;width:29.23%;height:2.40%"><b>2</b></span><span class="mk" style="left:65.64%;top:9.38%;width:29.23%;height:2.40%"><b>3</b></span><span class="mk" style="left:4.10%;top:12.90%;width:20.53%;height:2.06%"><b>4</b></span><span class="mk" style="left:26.17%;top:12.90%;width:29.53%;height:2.06%"><b>5</b></span><span class="mk" style="left:57.24%;top:12.90%;width:27.56%;height:2.06%"><b>6</b></span>
+    </div>
+    <figcaption>Ảnh chụp từ chính app — số trên ảnh ứng với bảng bên dưới.</figcaption>
+  </figure>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>Nút</th><th>Làm gì</th></tr>
+    <tr><td class="num">1</td><td class="btn">Tab Giao dịch</td><td>Giá cá, ai cần mua, bán ở đâu.</td></tr><tr><td class="num">2</td><td class="btn">Tab Hiệu quả</td><td>Sổ lãi lỗ từng chuyến, báo cáo năm, máy tính chuyến, chia tiền.</td></tr><tr><td class="num">3</td><td class="btn">Tab Công nợ</td><td>Ai nợ ai, ứng trước bao nhiêu.</td></tr><tr><td class="num">4</td><td class="btn">Giá cá</td><td>Giá tham khảo theo tuần, kèm giá dầu DO.</td></tr><tr><td class="num">5</td><td class="btn">Ai cần mua</td><td>Đầu nậu, nhà máy đang cần loài gì, bao nhiêu — bấm để gọi.</td></tr><tr><td class="num">6</td><td class="btn">Bán ở đâu</td><td>Vựa, đầu mối, doanh nghiệp thu mua theo vùng và theo loài, có số điện thoại.</td></tr>
+  </table>
+  </div>
+  
+  
+</section>
+<section id="tien-hieu-qua">
+  <h2>Màn Sổ tiền — tab Hiệu quả</h2>
+  <p class="lead">Lãi lỗ từng chuyến, tính theo tàu đang chọn.</p>
+  <figure class="shot">
+    <div class="frame">
+      <img src="huong-dan/tien-hieu-qua.webp" alt="Ảnh màn Màn Sổ tiền — tab Hiệu quả" width="390" height="1581">
+      <span class="mk" style="left:4.10%;top:32.94%;width:24.50%;height:3.04%"><b>1</b></span><span class="mk" style="left:30.14%;top:32.94%;width:33.70%;height:3.04%"><b>2</b></span><span class="mk" style="left:65.38%;top:32.94%;width:31.67%;height:3.04%"><b>3</b></span><span class="mk" style="left:98.59%;top:32.94%;width:25.63%;height:3.04%"><b>4</b></span>
+    </div>
+    <figcaption>Ảnh chụp từ chính app — số trên ảnh ứng với bảng bên dưới.</figcaption>
+  </figure>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>Nút</th><th>Làm gì</th></tr>
+    <tr><td class="num">1</td><td class="btn">Sổ lãi/lỗ</td><td>Mỗi chuyến ghi: dầu, đá, tổn khác, tiền bán cá — app tính lãi lỗ giúp.</td></tr><tr><td class="num">2</td><td class="btn">Báo cáo năm</td><td>Tổng lãi lỗ cả năm, tách theo từng tháng.</td></tr><tr><td class="num">3</td><td class="btn">Tính chuyến</td><td>Máy tính tổn dự kiến trước khi đổ dầu và cần bán bao nhiêu cá mới hoà vốn.</td></tr><tr><td class="num">4</td><td class="btn">Chia tiền</td><td>Chia phần cho bạn thuyền theo cách của tàu mình.</td></tr>
+  </table>
+  </div>
+  <div class="note">Mọi ô nhập tiền đều tự chấm nghìn khi gõ và đọc lại thành chữ (“= 45 triệu đồng”) — nhìn dòng đó để chắc không thừa thiếu số không.</div>
+  
+</section>
+<section id="tien-cong-no">
+  <h2>Màn Sổ tiền — tab Công nợ</h2>
+  <p class="lead">Mỗi chủ nợ một dư nợ riêng, có lịch sử vay và trả từng lần.</p>
+  <figure class="shot">
+    <div class="frame">
+      <img src="huong-dan/tien-cong-no.webp" alt="Ảnh màn Màn Sổ tiền — tab Công nợ" width="390" height="1136">
+      <span class="mk" style="left:4.10%;top:38.18%;width:91.79%;height:5.28%"><b>1</b></span>
+    </div>
+    <figcaption>Ảnh chụp từ chính app — số trên ảnh ứng với bảng bên dưới.</figcaption>
+  </figure>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>Nút</th><th>Làm gì</th></tr>
+    <tr><td class="num">1</td><td class="btn">Thêm chủ nợ</td><td>Ghi tên đại lý dầu, nậu, ngân hàng… rồi ghi từng lần vay và trả.</td></tr>
+  </table>
+  </div>
+  
+  
+</section>
+<section id="cang">
+  <h2>Màn Danh bạ cảng</h2>
+  <p class="lead">173 cảng cá chỉ định trên cả nước. Vào từ nút trên bản đồ Ra khơi.</p>
+  <figure class="shot">
+    <div class="frame">
+      <img src="huong-dan/cang.webp" alt="Ảnh màn Màn Danh bạ cảng" width="390" height="844">
+      <span class="mk" style="left:4.10%;top:25.90%;width:91.79%;height:6.16%"><b>1</b></span>
+    </div>
+    <figcaption>Ảnh chụp từ chính app — số trên ảnh ứng với bảng bên dưới.</figcaption>
+  </figure>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>Nút</th><th>Làm gì</th></tr>
+    <tr><td class="num">1</td><td class="btn">Ô tìm cảng</td><td>Gõ tên cảng, tên tỉnh hoặc huyện để lọc nhanh.</td></tr>
+  </table>
+  </div>
+  
+  
+</section>
+<section id="login">
+  <h2>Màn Đăng nhập</h2>
+  <p class="lead">Vào bằng số điện thoại đã đăng ký với SDVICO. Không cần email.</p>
+  <figure class="shot">
+    <div class="frame">
+      <img src="huong-dan/login.webp" alt="Ảnh màn Màn Đăng nhập" width="390" height="844">
+      <span class="mk" style="left:9.23%;top:28.22%;width:81.54%;height:7.20%"><b>1</b></span><span class="mk" style="left:9.23%;top:40.83%;width:81.54%;height:7.20%"><b>2</b></span><span class="mk" style="left:9.23%;top:65.81%;width:81.54%;height:7.11%"><b>3</b></span>
+    </div>
+    <figcaption>Ảnh chụp từ chính app — số trên ảnh ứng với bảng bên dưới.</figcaption>
+  </figure>
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>Nút</th><th>Làm gì</th></tr>
+    <tr><td class="num">1</td><td class="btn">Ô số điện thoại</td><td>Nhập đúng số bà con đã đăng ký với SDVICO.</td></tr><tr><td class="num">2</td><td class="btn">Ô mật khẩu</td><td>Khách mới do SDVICO cấp thì mật khẩu ban đầu là sd123456. Bấm nút Hiện để nhìn thấy mình gõ gì.</td></tr><tr><td class="num">3</td><td class="btn">Quên mật khẩu?</td><td>Nhập số điện thoại và họ tên, nhân viên SDVICO xét rồi đặt lại giúp.</td></tr>
+  </table>
+  </div>
+  
+  
+</section>
+
+<section id="hoi-dap">
+  <h2>Hỏi đáp nhanh</h2>
+  
+  <h3>Chữ nhỏ quá, đọc không ra</h3><p>Bấm nút tài khoản trên Trang chủ → <b>Cỡ giao diện</b> → <b>Chữ to</b>. Hoặc chỉnh cỡ chữ trong cài đặt điện thoại, app tự to theo.</p><h3>Ngoài khơi mất sóng thì sao?</h3><p>Những gì đã ghi trong máy — giấy tờ, thuyền viên, sổ lãi lỗ, công nợ — vẫn xem được. Gió sóng, giá cá, tin bão cần mạng mới cập nhật được.</p><h3>Sao mở màn Ra khơi lâu hơn màn khác?</h3><p>Bản đồ nặng nên nạp chậm hơn một chút. Nguồn dữ liệu nào hỏng thì app <b>nói rõ và cho nút Thử lại</b> — không bao giờ im lặng giả vờ như không có bão.</p><h3>Tôi có mấy tàu, ghi chung hay riêng?</h3><p>Riêng theo tàu: giấy tờ, bảo dưỡng, sổ lãi lỗ. Chung cả chủ tàu: sổ bạn thuyền. Đổi tàu bằng nút chọn tàu ngay dưới phần đầu màn.</p><h3>Xoá nhầm thì sao?</h3><p>App luôn hỏi lại trước khi xoá và nêu rõ xoá cái gì. Đã xoá thì không lấy lại được — đọc kỹ câu hỏi rồi hãy bấm.</p><h3>Cần người hỗ trợ</h3><p>Vào <b>Tàu của tôi → Dịch vụ → Gọi SDVICO</b>, gửi yêu cầu kèm số điện thoại. Nhân viên gọi lại.</p>
+</section>
+
+</div>
+<footer>
+  <p>SDFish — app đồng hành của ngư dân Việt Nam. Mọi số liệu giá cá, mức phạt, dự báo biển đều là <b>tham khảo</b>.<br>
+  Ảnh minh hoạ chụp bằng dữ liệu mẫu, không phải số liệu thật của bà con.</p>
+</footer>
+</body>
+</html>

@@ -49,6 +49,7 @@ gate: warn
 | `/nguoi` | NGƯỜI — lao động / crew (xem [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md)) | `src/app/nguoi/page.tsx` | **MVP**: Bạn thuyền — sổ thuyền viên (`crew-list.tsx`, localStorage `forfish.crew.v1` — hồ sơ + bảo hiểm/chứng chỉ hạn + sổ ứng tiền). Chia tiền đã dời sang `/tien` |
 | `/tien` | TIỀN — tài chính / money | `src/app/tien/page.tsx` | **3 tab (deep-link `?tab=`)**: **Giao dịch** (`trade-hub.tsx`: Giá cá `price-board.tsx` · **Ai cần mua** `buy-board.tsx` ← `data/buy-requests.ts` TIN MẪU chờ app thu mua · Bán ở đâu `sell-guide.tsx`) · **Hiệu quả** (`money-insights.tsx`: thẻ nhìn nhanh ← `lib/trip-insights.ts` có test · 4 section chip: Sổ lãi/lỗ `trip-log.tsx` (mỗi chuyến có nút **Lặp lại chuyến** = chép số tổn cũ làm nền chuyến mới + **Hồ sơ chuyến PDF** → `trip-dossier.tsx` bản in được) · **Báo cáo năm** `trip-report.tsx` (tổng lãi/lỗ cả năm + tách theo tháng, `yearlyReport`/`listYears` có test) · **Tính chuyến** `trip-estimator.tsx` (máy tính tổn dự kiến + sản lượng hoà vốn, prefill giá dầu DO LIVE, `lib/trip-estimate` có test) · Chia tiền `trip-split.tsx`) · **Công nợ** (`debt-ledger.tsx`: sổ công nợ đa đối tượng — đại lý dầu/nậu/ngân hàng, mỗi chủ nợ một dư nợ + lịch sử vay/trả, `lib/debts.ts` có test, demo mode + sổ mẫu tự xưng) |
 | `/cang` | 1 — Ra khơi (sub) | `src/app/cang/page.tsx` | **MVP**: danh bạ 173 cảng cá chỉ định (`port-directory.tsx` ← `data/fishing-ports.ts`), lọc theo vùng/tỉnh tàu (`lib/region.ts`); vào từ nút nổi trên bản đồ `/ngu-truong`, KHÔNG nằm trên dock |
+| `/huong-dan.html` | — (TRANG TĨNH, **SINH BẰNG MÁY**) | `public/huong-dan.html` + `public/huong-dan/*.webp` | **Sách hướng dẫn CÓ ẢNH** (2026-07-24) — ảnh chụp thật 12 màn, đánh số 45 nút kèm mô tả; không phông/mã ngoài, có `@media print`. Sinh bằng `npm run guide` (`scripts/build-guide.mjs`, cần dev server); lời ở `scripts/guide-content.mjs`. **KHÔNG sửa tay file html**. Vào từ nút "Hướng dẫn" (bước cuối coach-mark) + sheet Tài khoản. Không phải route Next, không nằm trên dock |
 | `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` | — (REDIRECT stub) | `src/app/{gia-ca,van-hanh,giay-to,thuyen-vien}/page.tsx` | **Redirect stub** giữ link cũ: `/gia-ca`→`/tien`, `/van-hanh`→`/tau`, `/giay-to`→`/tau`, `/thuyen-vien`→`/nguoi` (taxonomy mới: Ra khơi / Tàu / Người / Tiền) |
 
 Quy ước: route slug là tiếng Việt không dấu, khớp ngôn ngữ người dùng. Thêm route mới → update bảng này cùng commit. Đổi/gộp route → để lại redirect stub cho slug cũ.
@@ -71,6 +72,7 @@ src/
     icons.tsx           # Bộ icon stroke SVG — NGUỒN ICON DUY NHẤT, cấm emoji
     urgent-strip.tsx    # Trang chủ: dải nhắc việc gấp (giấy tờ/bảo hiểm sắp hết hạn…)
     sw-register.tsx     # Đăng ký service worker public/sw.js (prod-only) cho PWA — mount trong layout, không render gì
+    tour-launcher.tsx   # HƯỚNG DẪN TRÊN MÀN: nút nổi "Hướng dẫn" (góc trái dưới) + tự chạy lần đầu mỗi màn — mount 1 LẦN trong layout, tự chọn bộ bước theo route (lib/tour). Màn bị LoginGate che hết → ẩn cả nút. Đo DOM nhiều lần (300→4500ms) chứ không 1 lần: máy chậm/bản đồ nạp trễ đo hụt thì nút KẸT ẩn mãi. Nút bám cột app 480px, không dính mép viewport (màn rộng không trôi ra lề). Tôn trọng công tắc tổng (loadTourEnabled + lắng nghe TOUR_ENABLED_EVENT): tắt → ẩn nút + không tự chạy tour. Truyền onDisable cho CoachTour (nút "Tắt hướng dẫn" ở bước cuối)
     ui/                 # Primitives dùng chung (xem khối ui/ bên dưới)
     document-vault.tsx  # Trục TÀU: vault UI — pattern chuẩn cho mọi CRUD localStorage
     fines-lookup.tsx    # Trục TÀU: tra mức phạt (NĐ 38/2024)
@@ -92,6 +94,7 @@ src/
       status-banner.tsx #   Banner trạng thái chung (thông tin/cảnh báo)
       region-filter.tsx #   Bộ lọc Bắc/Trung/Nam (← lib/region.ts) cho danh sách theo vùng
     ui/snap-sheet.tsx   # SnapSheet dùng chung: sheet đáy THƯỜNG TRỰC 3 nấc peek/half/full, không scrim, điều khiển bằng nút to (khác BottomSheet là modal)
+    ui/coach-tour.tsx   # Coach-mark: khoét "lỗ sáng" quanh nút mang data-tour + thẻ giải thích cạnh nút. Đo chiều cao thẻ THẬT (ResizeObserver) rồi đặt dưới → trên → ép sát đáy, thẻ luôn nằm trọn trong màn. Bước cuối có nút "Tắt hướng dẫn, không hiện nữa" (prop onDisable) — KHÔNG có "Xem hướng dẫn đầy đủ" (bỏ 2026-07-25)
     route-planner.tsx   # Trục 1: dẫn đường tiết kiệm dầu — form xuất phát/thông số tàu + thẻ kết quả + lớp vẽ tuyến (RouteMapLayers, đặt trong MapGL)
     price-board.tsx     # Trục 2: bảng giá — LIVE giá tuần VASEP (lib/port-price-source) + giá dầu DO (lib/fuel-price), fallback bảng tĩnh
     trip-log.tsx        # Trục 2/TIỀN: sổ lãi lỗ chuyến biển (controlled, chủ sổ = money-insights)
@@ -117,6 +120,7 @@ src/
     fishing-ports.ts    # 173 cảng cá toàn quốc (province + tọa độ, tên tỉnh chuẩn sau 2025) — wire vào port-directory.tsx (/cang) + my-places-sheet.tsx (tìm cảng nhà) + lib/boats.ts (homePortId)
   lib/
     documents.ts        # Domain logic Trục TÀU (kinds, expiry status) — xem 04-data-model.md
+    tour.ts             # HƯỚNG DẪN: định nghĩa bộ bước theo route (TOURS) + tourForPath/visibleSteps/runnableSteps + trạng thái đã xem localStorage forfish.tour.v1 (thuần, có test). Trần 6 bước/màn; màn bị LoginGate che hết → runnableSteps trả rỗng (không chỉ vào chỗ trống). Công tắc TỔNG bật/tắt chỉ dẫn trên màn: isTourEnabled/loadTourEnabled/setTourEnabled (key forfish.tour.enabled.v1, vắng=bật, "off"=tắt) + sự kiện TOUR_ENABLED_EVENT để launcher đổi ngay trong tab
     format.ts           # Helper định dạng dùng chung (số tiền/ngày…)
     api-base.ts         # apiUrl() — base URL API cho web (tương đối) vs native Capacitor (tuyệt đối qua NEXT_PUBLIC_API_BASE); có test. MỌI fetch /api/* đi qua đây
     use-exit-transition.ts # Hook đóng-có-animation cho sheet/dialog (chạy animation thoát rồi mới gọi onClose) — BottomSheet/ConfirmDialog dùng chung, API ngoài không đổi
@@ -152,9 +156,15 @@ src/
       server.ts         # Server client (cookies) — trả về null khi env trống
 supabase/
   migrations/0001_init.sql   # boats + documents + RLS
+scripts/
+  build-guide.mjs     # `npm run guide` — chụp 12 màn bằng Chrome ẩn (puppeteer) rồi SINH public/huong-dan.html + huong-dan/*.webp. Màn khoá chụp bằng phiên GIẢ đặt trong trình duyệt chụp (không tài khoản thật, không đụng code auth). Xem 07 §12
+  guide-content.mjs   # LỜI + danh sách nút của sách hướng dẫn + dữ liệu mẫu bơm vào localStorage lúc chụp — sửa nội dung sách ở ĐÂY, không sửa file html sinh ra
+  generate-icons.mjs · generate-isobaths.mjs · generate-depth-grid.mjs  # sinh asset tĩnh (icon PWA, đường đẳng sâu, lưới độ sâu)
 ```
 
 Quy ước `src/data/`: dữ liệu tĩnh tổng hợp từ nguồn công khai PHẢI ghi rõ ngày + nguồn trong comment, UI hiển thị phải gắn nhãn "tham khảo". Không bịa số liệu.
+
+**File SINH ra vs file viết tay** (nguyên tắc 7 ai-simple): `public/huong-dan.html`, `public/huong-dan/*.webp`, `public/icons/*`, `public/data/isobaths.v1.json`, `public/data/depth-grid.v1.bin` đều do script sinh — sửa nguồn rồi chạy lại script, KHÔNG sửa tay file sinh (sửa tay sẽ bị lần chạy sau ghi đè).
 
 ## 4. Demo mode — invariant quan trọng
 
@@ -168,7 +178,7 @@ Khi `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` chưa set:
 
 **KHÔNG seed demo trong UI (sửa 2026-07-02)**: các hàm load trả RỖNG khi chưa có data thật — `loadDocs()`, `loadBoats()`, `loadCrew()`, `loadDebts()`, product load đều bỏ gọi `demo*`. Hàm `demoDocuments/demoBoats/demoCrew/demoDebts/demoProducts` còn trong `src/lib/` cho unit test, KHÔNG gọi trong component. Kèm đó: **data cá nhân khóa sau đăng nhập** (LoginGate) — /tau (Giấy tờ/Dịch vụ/Sản phẩm + BoatSwitcher), /tien (Hiệu quả + Công nợ), /nguoi. Tham khảo (giá cá, mức phạt, gió sóng) vẫn public. `BoatSwitcher` ẩn khi logged-out (chặn tạo tàu), hiện nút "Thêm tàu của bạn" khi đã login mà chưa có tàu.
 
-**Auth-scope cho localStorage — INVARIANT (2026-06-30)**: dữ liệu KH lưu local KHÔNG scope theo user → cùng browser, user B login thấy data user A. `src/lib/auth-scope.ts` (`syncAuthScope(phone)`) clear data KH khi user CHANGE hoặc logout — gọi từ `use-auth.ts` mỗi lần auth state đổi (cả `getUser` init lẫn `onAuthStateChange`). Tracking phone qua `forfish.auth.lastPhone.v1`. Key xoá khi user đổi (`USER_SCOPED_KEYS` trong `auth-scope.ts`): `boats.v1`, `currentBoat.v1`, `boat.v1`, `products.v1`, `documents.v1`, `maintenance.v1`, `buyers.v1`, `debts.v1`, `trips.v1`, `crew.v1`. KEY GIỮ (UI prefs, share 1 máy): `displaymode.v1`, `maplayer.v1`, `home.v1`, `port.v1`, `places.v1`. Khi THÊM key localStorage mới cho dữ liệu KH (gắn boat/owner): nhớ thêm vào `USER_SCOPED_KEYS` + viết test `auth-scope.test.ts`. ĐÂY LÀ ĐỢT 1 — wire `boats/documents/products/...` lên Supabase owner_id (Đợt 2) sẽ retire hết các key này.
+**Auth-scope cho localStorage — INVARIANT (2026-06-30)**: dữ liệu KH lưu local KHÔNG scope theo user → cùng browser, user B login thấy data user A. `src/lib/auth-scope.ts` (`syncAuthScope(phone)`) clear data KH khi user CHANGE hoặc logout — gọi từ `use-auth.ts` mỗi lần auth state đổi (cả `getUser` init lẫn `onAuthStateChange`). Tracking phone qua `forfish.auth.lastPhone.v1`. Key xoá khi user đổi (`USER_SCOPED_KEYS` trong `auth-scope.ts`): `boats.v1`, `currentBoat.v1`, `boat.v1`, `products.v1`, `documents.v1`, `maintenance.v1`, `buyers.v1`, `debts.v1`, `trips.v1`, `crew.v1`. KEY GIỮ (UI prefs, share 1 máy): `displaymode.v1`, `maplayer.v1`, `home.v1`, `port.v1`, `places.v1`, `tour.v1` (màn nào đã xem hướng dẫn — chung máy thì xem một lượt là đủ), `tour.enabled.v1` (công tắc tổng chỉ dẫn trên màn — vắng=bật, "off"=tắt). Khi THÊM key localStorage mới cho dữ liệu KH (gắn boat/owner): nhớ thêm vào `USER_SCOPED_KEYS` + viết test `auth-scope.test.ts`. ĐÂY LÀ ĐỢT 1 — wire `boats/documents/products/...` lên Supabase owner_id (Đợt 2) sẽ retire hết các key này.
 
 ## 5. Quy ước component
 

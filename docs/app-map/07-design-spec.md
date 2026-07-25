@@ -68,6 +68,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 | 5 | Tiền `/tien` | dock | Bán có lợi + lãi/lỗ rõ | ghi chuyến / chia tiền | "Ghi chuyến biển mới" | M |
 | 6 | Cảng `/cang` | nút trên map | Tìm cảng chỉ định gần | gọi/chỉ đường | (đọc) | M |
 | 7 | Đăng nhập `/login` | chip hero, gate | Vào bằng **SĐT + mật khẩu** (sale báo khi mua; KHÔNG email/OTP) | (vào app) | "Đăng nhập" | L |
+| 8 | Sách hướng dẫn `/huong-dan.html` | nút "Hướng dẫn" (bước cuối), sheet Tài khoản | Đọc/in hướng dẫn đầy đủ từng màn từng nút | quay lại app | (đọc) | — (trang tĩnh, không dock) |
 
 Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline = đạt. /tien, /tau, /nguoi: 1 hàng chip/tab + list — đạt.
 
@@ -174,9 +175,44 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
   · Quản lý điểm = nội dung panel **Điểm đã lưu** luôn (toggle hiện-trên-map + thêm theo toạ độ + sửa/xoá compact + tìm cảng) — bỏ nút "Quản lý" mở modal. 
   · Tách thân `FishSpeciesContent` / `MyPlacesContent` dùng chung (panel + wrapper bottom-sheet legacy). Nút "Sửa" ở thẻ "Đã ghim" trong sheet → đổi thành chỉ dẫn "Sửa ở Điểm đã lưu".
 
+## 12. HƯỚNG DẪN SỬ DỤNG — coach-mark trên màn + sách HTML (2026-07-24)
+
+Trước đó app KHÔNG có hướng dẫn nào (không route help, không tour, không tooltip). Bổ sung **hai lớp**, cùng một nội dung nói theo hai kiểu:
+
+| Lớp | Ở đâu | Dùng khi |
+|---|---|---|
+| **Chỉ trên màn hình** (coach-mark) | `ui/coach-tour.tsx` + `tour-launcher.tsx` (mount 1 lần trong `layout.tsx`), nội dung `lib/tour.ts` | đang đứng trong app, hỏi "nút này làm gì" |
+| **Sách hướng dẫn CÓ ẢNH** | `public/huong-dan.html` + `public/huong-dan/*.webp` — **SINH BẰNG MÁY**, `npm run guide` | đọc trước/ngoài app, **in ra giấy phát cho bà con**, gửi Zalo |
+
+**Sách có ảnh = ảnh chụp THẬT của app, đánh số lên từng nút** (2026-07-24, user chốt: "hướng dẫn đi kèm hình ảnh của hệ thống, từng màn hình có nút chức năng gì thì mô tả"). 12 màn · 45 nút được đánh số.
+
+- `npm run guide` (cần `npm run dev` đang chạy) → `scripts/build-guide.mjs` mở Chrome ẩn, chụp từng màn ở 390×844 (dsf 2), **đo vị trí thật của từng nút** rồi sinh HTML với số vẽ đè lên đúng chỗ + bảng "số → nút → làm gì". Lời nằm ở `scripts/guide-content.mjs`, KHÔNG sửa tay `huong-dan.html` (file sinh).
+- Đo và chụp phải CÙNG một khung: script phóng viewport cao bằng cả trang rồi mới chụp, KHÔNG dùng `fullPage` — dock/`position:fixed` bị trình duyệt dựng ở đáy ảnh dài, số sẽ lệch khỏi nút (đã dính, đã sửa).
+- **Màn khoá sau đăng nhập** (Giấy tờ · Dịch vụ · Bạn thuyền · Hiệu quả · Công nợ) chụp bằng **phiên giả đặt ngay trong trình duyệt chụp** (cookie phiên giả + chặn lời gọi `auth/v1/user` và `/api/me/sdvico` trả người dùng mẫu). KHÔNG tài khoản thật, KHÔNG sửa code auth, không có gì lọt vào bản chạy thật. Dữ liệu mẫu (tàu/giấy tờ/thuyền viên/chuyến/công nợ) bơm vào localStorage — shape PHẢI khớp type thật, sai một field là màn trắng lúc chụp.
+- Nút nào đổi chữ → script báo "KHÔNG THẤY" kèm danh sách nhãn đang có trên màn, sửa `guide-content.mjs` cho khớp rồi chạy lại. Không bao giờ vẽ số vào chỗ trống.
+- Ảnh xuất **WebP q80** (~1,6 MB cả bộ; PNG là 5,7 MB — nặng cho repo + cache offline PWA).
+- Chạy lại sau MỌI thay đổi UI đáng kể, nếu không sách sẽ mô tả nút đã đổi.
+
+**Quy tắc coach-mark (đã hiện thực):**
+- **Chỉ NÚT CHÍNH mỗi màn, trần 6 bước/màn** (test `tour.test.ts` chặn). Tour dài thì bà con 40–60 tuổi bỏ giữa chừng → hướng dẫn thành vô dụng. Không phải mọi nút đều được chỉ.
+- Nút được chỉ đánh dấu bằng `data-tour="<id>"` trong JSX. Neo hiện có: `tai-khoan` (hero-account) · `chon-tau` (boat-switcher) · `nhac-viec` (urgent-strip) · `bon-viec` (lưới 4 trục Home) · `dock` (bottom-nav) · `tab-<id>` (**tự sinh trong `ui/tabs.tsx`** — thêm tab mới là có neo, không phải sửa gì) · `rail` (ra-khoi-controls) · `sheet-day` (snap-sheet) · `them-thuyen-vien` (crew-list).
+- **Không bao giờ chỉ vào chỗ trống**: bước nào không tìm thấy nút thì bỏ (`visibleSteps`). Màn có nút để chỉ mà bị **LoginGate che sạch** (vd /nguoi chưa đăng nhập) thì KHÔNG chạy tour và **ẩn luôn nút "Hướng dẫn"** (`runnableSteps`) — không chỉ dẫn về thứ bà con đang không nhìn thấy.
+- **Tự chạy lần đầu mỗi màn**, sau đó im. Ghi `forfish.tour.v1` (mảng id tour đã xem) — đây là **UI pref, KHÔNG scope theo user**, cùng nhóm `displaymode/maplayer` trong `USER_SCOPED_KEYS` bên [02 §4](02-architecture.md).
+- **Thẻ luôn nằm trọn trong màn**: đo chiều cao THẬT của thẻ (ResizeObserver) rồi đặt dưới nút → trên nút → ép sát đáy. Ước lượng cứng làm nút "Tiếp" bị cắt khi nút được chỉ cao (lưới 4 ô Home cao 336px) — đã dính, đã sửa.
+- Bố cục thẻ: "màn · bước i/n" + tiêu đề + 1 câu việc-làm-được + [Quay lại] [Tiếp/Xong] ≥3.5rem + nút Bỏ qua (×). **Bước CUỐI** thêm 1 dòng dưới nút Xong: **"Tắt hướng dẫn, không hiện nữa"** (xem xong tắt hẳn ngay tại chỗ — `onDisable` = `setTourEnabled(false)`, ẩn nút nổi + ngừng tự chạy). `onDisable` là prop tùy chọn của `CoachTour`; TourLauncher truyền vào. **Giữ gọn — chỉ 2 đường tắt** (nút bước cuối + công tắc Cài đặt); KHÔNG bày thêm "Xem hướng dẫn đầy đủ" trong app hay nhấn-giữ (user 2026-07-25: 3 nút là thừa).
+- Đường vào lại: nút nổi **"Hướng dẫn"** + sheet Tài khoản mục "Hướng dẫn dùng app" có: **công tắc "Chỉ dẫn trên màn hình"** (bật/tắt) và "Chỉ lại từ đầu trên màn hình" (`resetTours`).
+- **Công tắc TỔNG bật/tắt chỉ dẫn trên màn** (sheet Tài khoản, key `forfish.tour.enabled.v1`, vắng=bật): bà con đã quen app thì **tắt cho gọn** → ẩn nút nổi "Hướng dẫn" VÀ không tự chạy coach-tour ở mọi màn; bật lại thì trở về như cũ. Launcher đổi NGAY trong tab qua sự kiện `TOUR_ENABLED_EVENT` (không đợi reload). Khi tắt: ẩn luôn hàng "Chỉ lại từ đầu" (vô nghĩa lúc đang tắt). Là UI pref chung máy như `displaymode` — [02 §4](02-architecture.md).
+- **Vị trí nút "Hướng dẫn" theo màn**: mặc định góc TRÁI DƯỚI, trên dock. **Riêng `/ngu-truong` lên góc TRÁI TRÊN** (dưới dải tin bão, ngang hàng rail) — ở đáy nó che mất dòng "Sóng … · Gió cấp …" của sheet peek, mép phải thì đụng rail 6 nút. Bắt được nhờ đọc chính ảnh chụp sinh ra cho sách.
+- **Đo lại nhiều lần, không hụt trên máy chậm**: nút chỉ hiện khi màn có neo `data-tour` thật (`runnableSteps`). Đo DOM một lần ở 900ms thì máy yếu / bản đồ MapLibre nạp trễ đo trượt → `available` kẹt false MÃI, nút "Hướng dẫn" biến mất hẳn (đúng lỗi báo "mobile nhiều nơi không thấy nút", 2026-07-25). Sửa: dò lại theo mốc tăng dần 300→4500ms, thấy neo thì bật nút và dừng dò; tự chạy tour chỉ ở lần dò thành công đầu.
+- **Nút bám cột app 480px, không dính mép viewport**: `left: max(0.75rem, calc(50% - 240px + 0.75rem))` — mobile ≤480 vẫn 12px như cũ; màn rộng/tablet nút theo cột thay vì trôi ra lề xám tách khỏi app.
+
+**Sách HTML**: không phông/mã ngoài, ảnh là file cùng thư mục → mở được khi mất mạng, có `@media print` (nền trắng, khung không bị cắt ngang trang). Sửa lời sách ở `guide-content.mjs` thì soát lại `lib/tour.ts` cho khớp, và ngược lại.
+
+**KHÔNG có nút "Xem hướng dẫn đầy đủ" trong app** (bỏ 2026-07-25, user: không cần thiết). Sách `public/huong-dan.html` vẫn sinh + giữ như tài liệu ĐỘC LẬP — in giấy phát bà con / gửi Zalo / mở trực tiếp URL, KHÔNG link từ app. Nếu sau này thêm lại nút mở trong app: nhớ bẫy native (`target=_blank` đẩy ra trình duyệt ngoài không với tới `capacitor://localhost` → trang trắng; mở iframe cùng webview thay vì tab).
+
 ---
 
-**Last updated**: 2026-06-16
+**Last updated**: 2026-07-24
 <!-- re-verified: 2026-06-11 — screen map khớp routes; contrast AA pass home/nguoi/tau (eval) -->
 <!-- re-verified: 2026-06-15 — thêm /tien Báo cáo năm/Tính chuyến/Công nợ + /tau checklist xuất bến + hồ sơ/lặp lại chuyến; fix layout suppressHydrationWarning không đổi screen spec -->
 <!-- re-verified: 2026-06-15 — triage full-sweep; fixed demo-persist §8 (doc-vault/maint/products) + title grammar /tau; contrast/tabular re-confirmed 06-11 -->

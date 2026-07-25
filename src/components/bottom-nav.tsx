@@ -33,6 +33,7 @@ export function BottomNav() {
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
     >
       <ul
+        data-tour="dock"
         className="grid grid-cols-5 rounded-[1.625rem] px-1.5 py-1.5 shadow-[0_12px_32px_-8px_rgba(10,30,50,0.45)] backdrop-blur-md"
         style={{ backgroundColor: "rgb(17 42 66 / 0.92)" }}
       >
