@@ -65,6 +65,8 @@ export function RaKhoiControls({
   onScalar,
   forecastKind,
   onForecast,
+  vungLongOn,
+  onVungLong,
   fishOn,
   onFish,
   fishSpecies,
@@ -93,6 +95,8 @@ export function RaKhoiControls({
   onScalar: (k: SeaScalarKind | null) => void;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
+  vungLongOn: boolean;
+  onVungLong: (on: boolean) => void;
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
@@ -229,6 +233,8 @@ export function RaKhoiControls({
                   onForecast={onForecast}
                   scalarKind={scalarKind}
                   onScalar={onScalar}
+                  vungLongOn={vungLongOn}
+                  onVungLong={onVungLong}
                 />
               )}
               {open === "diem" && (
@@ -536,12 +542,16 @@ function ThoiTietPanel({
   onForecast,
   scalarKind,
   onScalar,
+  vungLongOn,
+  onVungLong,
 }: {
   storms: StormAlert[];
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
   scalarKind: SeaScalarKind | null;
   onScalar: (k: SeaScalarKind | null) => void;
+  vungLongOn: boolean;
+  onVungLong: (on: boolean) => void;
 }) {
   return (
     <div>
@@ -596,9 +606,21 @@ function ThoiTietPanel({
         onToggle={() => onScalar(scalarKind === "ssha" ? null : "ssha")}
         icon={<EddyIcon className="h-5 w-5 text-t4" />}
       />
+
+      <p className="mb-1 mt-3 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+        Vùng khai thác
+      </p>
+      <Toggle
+        label="Ranh giới vùng lộng"
+        sub="NĐ 26/2019 · tàu 12–<15m · tham khảo"
+        on={vungLongOn}
+        onToggle={() => onVungLong(!vungLongOn)}
+        icon={<DepthIcon className="h-5 w-5 text-[#0d9488]" />}
+      />
       <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/60">
         Mọi lớp đều là số liệu tham khảo; nguồn có thể tạm gián đoạn và sẽ báo
-        “thử lại”. Gió/sóng tại ĐIỂM xem ở sheet khi chạm.
+        “thử lại”. Gió/sóng tại ĐIỂM xem ở sheet khi chạm. Ranh giới vùng lộng
+        (nét đứt xanh) chỉ để hình dung — ranh chính thức tra Chi cục Thủy sản.
       </p>
     </div>
   );

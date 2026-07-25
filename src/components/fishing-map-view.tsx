@@ -76,6 +76,7 @@ import {
   type PlannedRoute,
 } from "@/components/route-planner";
 import { borderGeoJSON } from "@/data/vn-maritime-border";
+import { vungLongGeoJSON } from "@/data/vn-fishing-zones";
 import { borderProximity, haversineKm, type BorderLevel } from "@/lib/geofence";
 import { fetchDepthGrid, depthClassAt, type DepthClass } from "@/lib/depth-grid";
 import { weatherFromCode } from "@/lib/weather-codes";
@@ -175,6 +176,8 @@ const THIS_MONTH = new Date().getMonth() + 1;
 
 // Ranh giới biển VN không đổi → tạo GeoJSON một lần ở cấp module.
 const BORDER_DATA = borderGeoJSON();
+// Ranh giới vùng lộng (NĐ 26/2019) — tĩnh, tạo một lần.
+const VUNG_LONG_DATA = vungLongGeoJSON();
 
 // màu cảnh báo theo mức gần ranh giới
 const BORDER_LEVEL_STYLE: Record<BorderLevel, { bg: string; fg: string }> = {
@@ -264,6 +267,8 @@ export default function FishingMapView() {
   }, []);
   const [seamarksOn, setSeamarksOn] = useState(true);
   const [fishOn, setFishOn] = useState(true);
+  // ranh giới vùng lộng (NĐ 26/2019) — bật mặc định, tắt được ở panel lớp
+  const [vungLongOn, setVungLongOn] = useState(true);
 
   // ── lớp số liệu biển (nước dâng/xoáy, độ mặn) — tải khi chọn, nhớ cache ──
   const [scalarKind, setScalarKind] = useState<SeaScalarKind | null>(null);
@@ -814,6 +819,29 @@ export default function FishingMapView() {
           flyToPoint(lon, lat);
         }}
       >
+        {/* ranh giới VÙNG LỘNG (NĐ 26/2019, cho tàu 12–<15m) — THAM KHẢO, dữ
+            liệu SDVico. Vẽ TRƯỚC ranh giới ngoài để cam-đỏ IUU luôn nổi trên.
+            Màu teal + nét đứt, tách hẳn cam-đỏ độc quyền của ranh giới ngoài. */}
+        {vungLongOn && (
+          <Source id="vung-long" type="geojson" data={VUNG_LONG_DATA}>
+            <Layer
+              id="vung-long-fill"
+              type="fill"
+              paint={{ "fill-color": "#0d9488", "fill-opacity": 0.06 }}
+            />
+            <Layer
+              id="vung-long-line"
+              type="line"
+              paint={{
+                "line-color": "#0d9488",
+                "line-width": 1.75,
+                "line-dasharray": [3, 2],
+                "line-opacity": 0.9,
+              }}
+            />
+          </Source>
+        )}
+
         {/* đường ranh giới biển VN — cảnh báo vượt vùng (chống IUU).
             Cam đỏ là MÀU ĐỘC QUYỀN của ranh giới trên bản đồ này. */}
         <Source id="vn-border" type="geojson" data={BORDER_DATA}>
@@ -1137,6 +1165,8 @@ export default function FishingMapView() {
             if (k == null) setPlaying(false);
             else setGridFailed(false);
           }}
+          vungLongOn={vungLongOn}
+          onVungLong={setVungLongOn}
           fishOn={fishOn}
           onFish={setFishOn}
           fishSpecies={fishSpecies}
