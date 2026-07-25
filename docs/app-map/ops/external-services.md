@@ -3,7 +3,7 @@
 > Load khi: lỗi liên quan nguồn dữ liệu ngoài (timeout, rate limit, đổi format, token hết hạn), thêm nguồn mới, hoặc audit phụ thuộc.
 
 covers: src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/forecast-ensemble.ts, src/lib/forecast-quality.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/hycom.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts
-last_verified: 2026-06-17
+last_verified: 2026-07-25
 ttl_days: 180
 gate: warn
 <!-- re-verified: 2026-06-17 - auth-gateway.ts = SĐT+mật khẩu (signup/sso), bỏ OTP/magic-link/service-key; timeout 20s -->
@@ -11,7 +11,8 @@ gate: warn
 > Registry CANONICAL cho mọi service ngoài hệ (nguyên tắc 11). Toàn bộ fetch nguồn ngoài BẮT BUỘC `AbortSignal.timeout(...)` + degrade rõ ràng (xem 02-architecture §5).
 
 <!-- re-verified: 2026-06-16 — covers MỞ RỘNG thêm fish-predict/hycom/sea-scalars/fuel-price/port-price-source (trước bỏ sót → drift im). Toàn bộ fetch ngoài đã có AbortSignal.timeout (sweep 2026-06-16: server 15-20s, client 15-25s). -->
-**Last updated**: 2026-06-17
+<!-- re-verified: 2026-07-25 — forecast-grid.ts (lớp Windy) nay CHỌN KHUNG 3/5/7/10/16 ngày, dùng model sóng ncep_gfswave025 (như sea/marine-weather) + bước giờ tăng dần, client timeout 20s. sea/marine-weather mở 16 ngày (WAVE_MODEL). -->
+**Last updated**: 2026-07-25
 
 ---
 
