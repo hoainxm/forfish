@@ -19,7 +19,8 @@ import {
 import type { ForecastKind } from "@/lib/forecast-grid";
 import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
-import type { StormAlert } from "@/lib/storms";
+import type { StormStatus } from "@/lib/storms";
+import { clockVN } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
 import { useMapPrefs, setMapPrefs } from "@/lib/map-prefs";
 import { FishSpeciesContent } from "@/components/fish-species-sheet";
@@ -75,7 +76,7 @@ export function RaKhoiControls({
   onPickSpecies,
   fishRange,
   onRange,
-  storms,
+  stormInfo,
   showPlaces,
   onShowPlaces,
   places,
@@ -106,7 +107,9 @@ export function RaKhoiControls({
   onPickSpecies: (sp: string | null) => void;
   fishRange: [number, number];
   onRange: (r: [number, number]) => void;
-  storms: StormAlert[];
+  /** Trạng thái tin bão đã quy về 4 nhánh (lib/storms.ts) — KHÔNG dùng mảng
+      rỗng để vừa nghĩa "không có bão" vừa nghĩa "chưa hỏi được" */
+  stormInfo: StormStatus;
   showPlaces: boolean;
   onShowPlaces: (on: boolean) => void;
   /** điểm đã lưu — quản lý ngay trong panel rail (không bottom-sheet) */
@@ -151,7 +154,11 @@ export function RaKhoiControls({
       label: "Thời tiết",
       icon: WindIcon,
       color: "var(--t3)",
-      dot: storms.length > 0 || !!forecastKind || !!scalarKind,
+      dot:
+        stormInfo.kind === "co-bao" ||
+        stormInfo.kind === "khong-hoi-duoc" ||
+        !!forecastKind ||
+        !!scalarKind,
     },
     { id: "diem", label: "Điểm đã lưu", icon: StarIcon, color: "var(--navy)" },
     {
@@ -224,7 +231,7 @@ export function RaKhoiControls({
               )}
               {open === "thoi-tiet" && (
                 <ThoiTietPanel
-                  storms={storms}
+                  stormInfo={stormInfo}
                   forecastKind={forecastKind}
                   onForecast={onForecast}
                   scalarKind={scalarKind}
@@ -534,13 +541,13 @@ function NguTruongPanel({
 }
 
 function ThoiTietPanel({
-  storms,
+  stormInfo,
   forecastKind,
   onForecast,
   scalarKind,
   onScalar,
 }: {
-  storms: StormAlert[];
+  stormInfo: StormStatus;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
   scalarKind: SeaScalarKind | null;
@@ -552,8 +559,10 @@ function ThoiTietPanel({
         <span>Cảnh báo bão</span>
         <span className="text-danger">Ưu tiên cao nhất</span>
       </p>
-      {storms.length > 0 ? (
-        storms.map((s) => (
+      {/* BỐN trạng thái tách bạch — "chưa hỏi được" KHÔNG bao giờ được hiện
+          thành "không có bão" (lib/storms.ts stormStatus) */}
+      {stormInfo.kind === "co-bao" &&
+        stormInfo.storms.map((s) => (
           <div
             key={s.id}
             className="mb-2 flex items-center gap-2 rounded-xl bg-danger-bg px-2.5 py-2"
@@ -563,15 +572,37 @@ function ThoiTietPanel({
               <span className="block text-[0.9375rem] font-bold leading-tight text-danger">
                 {s.kindLabel} {s.name}
               </span>
-              <span className="block text-[0.6875rem] text-foreground/65">
-                Liên tục · cập nhật vừa xong
+              <span
+                className={`block text-[0.8125rem] leading-snug ${
+                  stormInfo.cu ? "font-bold text-warn" : "text-foreground/65"
+                }`}
+              >
+                {stormInfo.checkedAt != null
+                  ? `Tin lúc ${clockVN(stormInfo.checkedAt)}`
+                  : "Chưa rõ tin lúc nào"}
+                {stormInfo.cu && " · tin cũ trong máy"}
               </span>
             </span>
           </div>
-        ))
-      ) : (
-        <p className="mb-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] text-foreground/70">
-          Không có tin bão trên Biển Đông (đã kiểm tra).
+        ))}
+      {stormInfo.kind === "khong-co" && (
+        <p className="mb-2 rounded-xl bg-ok-bg px-2.5 py-2 text-[0.8125rem] font-semibold leading-snug text-ok">
+          Không có tin bão trên Biển Đông (hỏi lúc{" "}
+          {clockVN(stormInfo.checkedAt)}).
+        </p>
+      )}
+      {stormInfo.kind === "khong-hoi-duoc" && (
+        <p className="mb-2 flex items-start gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.875rem] font-bold leading-snug text-warn">
+          <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+          <span>
+            Chưa hỏi được tin bão — máy không có sóng. Nghe thêm đài duyên hải /
+            Icom.
+          </span>
+        </p>
+      )}
+      {stormInfo.kind === "dang-hoi" && (
+        <p className="mb-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.8125rem] font-semibold text-foreground/70">
+          Đang hỏi tin bão…
         </p>
       )}
 

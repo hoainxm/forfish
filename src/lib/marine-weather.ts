@@ -9,12 +9,7 @@ import {
   estimateWaveFromWind,
   type ScoredSeaDay,
 } from "@/lib/sea";
-import {
-  saveForecast,
-  loadForecast,
-  loadLatest,
-  coordId,
-} from "@/lib/forecast-cache";
+import { saveForecast, loadForecast, coordId } from "@/lib/forecast-cache";
 
 export type SeaPoint = { lat: number; lon: number };
 
@@ -147,13 +142,12 @@ export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
     saveForecast(POINT_NS, id, cond);
     return cond;
   } catch (err) {
-    // Mất mạng / nguồn treo → lùi về bản ĐÃ LƯU: đúng điểm nếu có, không thì
-    // bản gần đây nhất (bà con thường coi quanh vùng cảng nhà trước khi đi).
-    const hit =
-      loadForecast<SeaPointConditions>(POINT_NS, id) ??
-      loadLatest<SeaPointConditions>(POINT_NS);
-    if (hit) return { ...hit.data, stale: true, savedAt: hit.savedAt };
-    throw err; // chưa từng lưu → để UI báo "chưa lấy được"
+    // Mất mạng / nguồn treo → CHỈ lùi về bản đã lưu ĐÚNG CHỖ NÀY (cùng ô lưới
+    // ~0,25°). TUYỆT ĐỐI không mượn bản của chỗ khác: dán số của chỗ cách hàng
+    // trăm km vào chỗ bà con vừa chạm còn nguy hiểm hơn là không có số.
+    const hit = loadForecast<SeaPointConditions>(POINT_NS, id);
+    if (hit) return { ...hit.data, point: p, stale: true, savedAt: hit.savedAt };
+    throw err; // chỗ này chưa từng lưu → để UI báo "chưa có số nào trong máy"
   }
 }
 

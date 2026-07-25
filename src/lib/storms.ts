@@ -30,6 +30,53 @@ export type StormCheck =
   | { ok: true; storms: StormAlert[]; checkedAt: string }
   | { ok: false };
 
+/**
+ * Tin bão cũ hơn ngần này thì coi như CHƯA HỎI ĐƯỢC. Service worker giữ lại bản
+ * /api/storms cũ để dùng offline → `ok:true` vẫn có thể là tin của mấy hôm
+ * trước. Nói "không có bão" dựa trên tin cũ là nói dối chuyện tính mạng.
+ */
+export const STORM_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+/** Máy chạy lệch giờ chút thì tha; lệch nhiều coi như không tin được */
+const CLOCK_SKEW_MS = 60 * 60 * 1000;
+
+/**
+ * BA trạng thái tin bão — không được nhập nhằng:
+ *  · "dang-hoi"  → chưa có trả lời, chưa nói gì
+ *  · "khong-hoi-duoc" → mất sóng / nguồn lỗi / tin quá cũ → CẤM nói "không có bão"
+ *  · "khong-co"  → hỏi được thật và không có bão (kèm giờ đã hỏi)
+ *  · "co-bao"    → có bão (kèm giờ của bản tin; `cu` = tin đã cũ)
+ */
+export type StormStatus =
+  | { kind: "dang-hoi" }
+  | { kind: "khong-hoi-duoc" }
+  | { kind: "khong-co"; checkedAt: number }
+  | { kind: "co-bao"; storms: StormAlert[]; checkedAt: number | null; cu: boolean };
+
+/**
+ * Quy trạng thái tin bão về đúng một trong bốn nhánh trên.
+ * `check === null` = chưa có trả lời. `now` truyền vào để test được.
+ */
+export function stormStatus(
+  check: StormCheck | null | undefined,
+  now: number = Date.now(),
+): StormStatus {
+  if (!check) return { kind: "dang-hoi" };
+  if (!check.ok) return { kind: "khong-hoi-duoc" };
+
+  const parsed = Date.parse(check.checkedAt ?? "");
+  const checkedAt = Number.isFinite(parsed) ? parsed : null;
+  const age = checkedAt == null ? null : now - checkedAt;
+  const cu =
+    age == null || age > STORM_MAX_AGE_MS || age < -CLOCK_SKEW_MS;
+
+  // CÓ bão thì vẫn phải hiện (thà báo thừa còn hơn giấu) — nhưng kèm giờ thật.
+  if (check.storms.length > 0) {
+    return { kind: "co-bao", storms: check.storms, checkedAt, cu };
+  }
+  // KHÔNG có bão trong bản tin: chỉ được nói khi bản tin còn mới.
+  return cu ? { kind: "khong-hoi-duoc" } : { kind: "khong-co", checkedAt: checkedAt as number };
+}
+
 /** Vùng quan tâm: Biển Đông + dải tiếp cận ngoài Philippines (cảnh báo sớm) */
 export function inWatchRegion(lat: number, lon: number): boolean {
   return lon >= 99 && lon <= 132 && lat >= 3 && lat <= 27;

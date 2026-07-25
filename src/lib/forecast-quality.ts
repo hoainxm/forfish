@@ -15,7 +15,25 @@
 
 import { forecastConfidence, type ForecastConfidence } from "@/lib/marine-weather";
 import { scoreDay, levelOf, type ScoredSeaDay } from "@/lib/sea";
+import { daysBetweenISO } from "@/lib/day-labels";
 import type { DayUncertainty } from "@/lib/forecast-ensemble";
+
+/**
+ * Số ngày nhìn trước THẬT của một ngày dự báo (0 = hôm nay).
+ *
+ * KHÔNG được lấy theo vị trí mảng: bản dự báo lưu trong máy (mất sóng ngoài
+ * khơi) vẫn giữ nguyên thứ tự cũ, lấy theo vị trí thì bản 5 ngày trước vẫn được
+ * gắn nhãn "dự báo gần — khá sát" và nắn bias theo hàng lead 1 → sai theo hướng
+ * LẠC QUAN, đúng chỗ nguy hiểm nhất. `todayIso` thiếu thì đành lùi về vị trí.
+ */
+export function leadOf(
+  date: string,
+  index: number,
+  todayIso?: string | null,
+): number {
+  if (!todayIso) return index;
+  return Math.max(0, daysBetweenISO(todayIso, date));
+}
 
 /** Một dòng bảng skill theo tầm ngày (khớp shape src/data/forecast-skill.json) */
 export interface SkillLead {
@@ -100,14 +118,18 @@ export function skillForLead(
  * Hiệu chỉnh BIAS điểm số theo backtest + CHẤM LẠI. Trừ bias khỏi giá trị mô
  * hình để về gần thực tế hơn rồi scoreDay lại. Bias thiếu → giữ nguyên ngày đó.
  * Trả MẢNG MỚI (không đụng input).
+ *
+ * `todayIso` (ngày HÔM NAY, "YYYY-MM-DD") để tính lead THẬT — bắt buộc truyền
+ * khi `days` có thể là bản đã lưu trong máy.
  */
 export function applyBiasCorrection(
   days: ScoredSeaDay[],
   skill: SkillTable | null | undefined,
+  todayIso?: string | null,
 ): ScoredSeaDay[] {
   if (!skill?.perLeadDay?.length) return days;
   return days.map((d, i) => {
-    const lead = i + 1; // hôm nay = lead 1
+    const lead = leadOf(d.date, i, todayIso) + 1; // hôm nay = lead 1
     const row = skillForLead(skill, lead);
     if (!row) return d;
     const windBias = Number.isFinite(row.windBias as number) ? (row.windBias as number) : 0;
@@ -126,17 +148,20 @@ export function applyBiasCorrection(
  * Đánh giá độ tin từng ngày. `ensemble` merge theo `date`; `skill` theo lead.
  * KHÔNG sửa điểm số ở đây — chỉ mô tả độ chắc (dùng applyBiasCorrection nếu
  * muốn nắn điểm). Trả cùng độ dài & thứ tự với `days`.
+ *
+ * `todayIso` để tính tầm ngày THẬT (xem leadOf) — bản lưu cũ phải bị hạ độ tin.
  */
 export function assessForecast(
   days: ScoredSeaDay[],
   ensemble: DayUncertainty[] | null,
   skill?: SkillTable | null,
+  todayIso?: string | null,
 ): DayQuality[] {
   const ensByDate = new Map<string, DayUncertainty>();
   for (const e of ensemble ?? []) ensByDate.set(e.date, e);
   return days.map((d, i) => {
-    const daysAhead = i;
-    const lead = i + 1;
+    const daysAhead = leadOf(d.date, i, todayIso);
+    const lead = daysAhead + 1;
     const ens = ensByDate.get(d.date) ?? null;
     const row = skillForLead(skill, lead);
     const confidence = combineConfidence(

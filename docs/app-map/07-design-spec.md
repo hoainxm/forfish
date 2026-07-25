@@ -149,7 +149,7 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 | **Công cụ** | **Đo khoảng cách 2 điểm** — bật chế độ đo, chạm 2 điểm trên map → đường nối + mốc 1/2 + kết quả (khoảng cách đường chim bay + hướng) theo đơn vị đang chọn; "Xoá, đo lại" |
 | **Cài đặt** | **Đơn vị khoảng cách** (Hải lý/km) + **Hệ toạ độ** (độ thập phân / độ-phút) — đổi thì MỌI chỗ (peek toạ độ, whereLine, điểm cá gần, dẫn đường, công cụ đo) đổi theo. Store dùng chung `lib/map-prefs.ts` (localStorage `forfish.mapPrefs.v1`) |
 
-**TRÊN:** banner bão (đỏ, ưu tiên) + **dải dự báo gió/sóng 1–16 ngày** (chip ngày cuộn ngang, `FORECAST_MAX_DAYS=16`; sóng từ `ncep_gfswave025`). Dưới dải: **dòng độ tin theo tầm ngày** (`forecastConfidence(dayIdx, skillConf)`) — hạ nhãn khi backtest (`forecast-skill.json`) đo được sai số lớn ở tầm ngày đó; KHÔNG để mọi ngày trông chắc như nhau.
+**TRÊN:** banner bão (đỏ, ưu tiên) + **dải dự báo gió/sóng 1–16 ngày** (chip ngày cuộn ngang, `FORECAST_MAX_DAYS=16`; sóng từ `ncep_gfswave025`). Dưới dải: **dòng độ tin theo tầm ngày** (`forecastConfidence(daysAhead, skillConf)` — `daysAhead` đếm từ NGÀY THẬT tới ngày đang xem, KHÔNG theo vị trí trong mảng) — hạ nhãn khi backtest (`forecast-skill.json`) đo được sai số lớn ở tầm ngày đó; KHÔNG để mọi ngày trông chắc như nhau.
 **ĐÁY — sheet số liệu điểm (3 nấc):**
 - "Đang hiển thị trên bản đồ" — danh sách lớp đang bật (name · val · tag) — đổi theo nút trái.
 - "SỐ LIỆU tại điểm bạn chạm" — Điểm đã chọn (toạ độ + cách cảng) · Sóng · Gió · tình trạng biển + "tham khảo" · cảnh báo ranh giới · **chi tiết bão** (cách điểm, cấp, sức gió, giật) · dẫn đường.
@@ -169,6 +169,41 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
   · Chọn loài = drill-down trong panel **Ngư trường** (nút "Chọn loài" → list loài 1 cột + nút quay lại). 
   · Quản lý điểm = nội dung panel **Điểm đã lưu** luôn (toggle hiện-trên-map + thêm theo toạ độ + sửa/xoá compact + tìm cảng) — bỏ nút "Quản lý" mở modal. 
   · Tách thân `FishSpeciesContent` / `MyPlacesContent` dùng chung (panel + wrapper bottom-sheet legacy). Nút "Sửa" ở thẻ "Đã ghim" trong sheet → đổi thành chỉ dẫn "Sửa ở Điểm đã lưu".
+
+### 10.1 Mất sóng ngoài khơi — SỐ CŨ KHÔNG ĐƯỢC TRÔNG NHƯ SỐ MỚI (2026-07-25i)
+
+Chuyến biển 5–16 ngày, máy mất sóng gần hết chuyến. Nguyên tắc: **thà không có số còn hơn số sai chỗ / sai ngày**. Chữ UI dùng lời đời thường ("số cũ lưu trong máy", "máy không có sóng"), KHÔNG dùng cache / đồng bộ / offline / stale.
+
+**A. Tin bão — BA trạng thái tách bạch** (`lib/storms.ts` → `stormStatus`, dùng ở `storm-banner.tsx` + panel Thời tiết + Marker tâm bão)
+
+| Trạng thái | Điều kiện | Hiển thị |
+|---|---|---|
+| Đang hỏi | chưa có trả lời | banner không render; panel "Đang hỏi tin bão…" |
+| **Chưa hỏi được** | nguồn lỗi / mất sóng / `checkedAt` hỏng / **tin cũ hơn 12 h** (`STORM_MAX_AGE_MS`) | **nền VÀNG + icon cảnh báo**: "Chưa hỏi được tin bão — máy không có sóng. Nghe thêm đài duyên hải / Icom." — **CẤM** nói "không có bão" |
+| Không có bão | hỏi được thật, danh sách rỗng, tin ≤ 12 h | nền xanh: "Không có tin bão trên Biển Đông (hỏi lúc HH:MM ngày D/M)." |
+| Có bão | danh sách khác rỗng (kể cả tin cũ — thà báo thừa) | thẻ đỏ/vàng như cũ + dòng **"Tin lúc HH:MM ngày D/M"**; tin > 12 h thì dòng này màu warn + "tin cũ trong máy, nghe lại đài duyên hải". Marker tâm bão trên map cũng mang nhãn giờ này. |
+
+Vì sao có ngưỡng 12 h: Service Worker cache `/api/*` network-first → mất sóng vẫn trả bản `/api/storms` cũ với `ok:true`. Mảng bão rỗng KHÔNG được dùng chung cho "không có bão" và "chưa hỏi được".
+
+**B. Nhãn ngày — so NGÀY THẬT, không so vị trí mảng** (`lib/day-labels.ts`)
+
+- "Hôm nay" / "Ngày mai" chỉ hiện khi `isoDate` khớp ngày thật (giờ VN +07). Ngày đã qua → hiện thứ + ngày + "(đã qua)"; chip ngày đó **mờ 40% + disabled**, ngày chọn tự nhảy sang ngày đầu còn dùng được.
+- Bản lưu mà **qua ngày hết** → sheet peek: "Số lưu trong máy ở chỗ này đã qua ngày hết (lưu HH:MM ngày D/M). Có sóng lại máy sẽ tự lấy số mới." — không hiện dải ngày/số nào.
+- Thanh giờ Windy: mốc "Hôm nay" so ngày thật (trước so ngày đầu của chính bản lưu).
+
+**C. Số "lúc này" và chỉ báo bản lưu**
+
+- Khối "Gió/Sóng lúc này" chỉ hiện khi ngày đang xem = hôm nay. Nếu đang xem **bản lưu**, tiêu đề đổi thành **"Gió đo lúc HH:MM ngày D/M"** / "Sóng đo lúc …" (số `current` đông cứng từ lúc lưu).
+- Chỉ báo bản lưu nâng 13px → **17px đậm, nền warn**: "Số cũ lưu trong máy — lưu lúc HH:MM ngày D/M (lưu N giờ trước). Chưa phải số mới."
+- Thanh giờ Windy khi mất sóng: "Số cũ lưu trong máy — lưu lúc HH:MM ngày D/M" (thay "· bản lưu (offline)").
+
+**D. Chạm điểm lạ khi mất sóng — KHÔNG mượn số chỗ khác** (`lib/marine-weather.ts`)
+
+Bỏ fallback "bản lưu mới nhất của bất kỳ toạ độ nào". Chỉ dùng bản lưu **đúng ô lưới ~0,25°** của chỗ vừa chạm. Không có → peek: "Chỗ này chưa có số nào lưu trong máy — vuốt lên để thử lại."; mở sheet có thêm "Lúc mất sóng, máy chỉ có số ở những chỗ bà con đã mở xem lúc còn sóng. Chạm lại đúng chỗ đó để coi." + nút Thử lại.
+
+**E. Độ tin theo tầm ngày THẬT** — `assessForecast` / `applyBiasCorrection` / `forecastConfidence` nhận `todayIso`; lead = số ngày từ hôm nay tới ngày dự báo (`leadOf`), không phải chỉ số mảng. Bản lưu cũ vì thế bị hạ độ tin đúng mức thay vì được nắn bias theo hàng lead 1 (sai theo hướng lạc quan).
+
+**F. Đồng hồ màn hình** — `fishing-map-view` + `storm-banner` giữ `nowMs` nhích 5 phút/lần: app mở suốt chuyến thì "Hôm nay" và tuổi tin bão vẫn tự trôi.
 
 ---
 
@@ -198,6 +233,7 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 <!-- re-verified: 2026-07-25g — OFFLINE (user: ra khơi mất mạng vẫn xem 16 ngày): fetchSeaPoint LƯU mỗi lần lấy thành công vào localStorage (lib/forecast-cache), mất mạng lùi về bản đã lưu (đúng điểm/không thì gần nhất) + cờ stale. Sheet peek thêm TRẠNG THÁI "mất mạng": banner warn "Đang xem bản đã lưu (offline) · lưu X trước — có mạng sẽ tự cập nhật". Cá PFZ + bão đã offline sẵn qua Service Worker (network-first /api/*). -->
 <!-- covers: lib/forecast-cache.ts (offline localStorage forfish.fc.*) — chưa có ops doc riêng, đủ mô tả ở đây + 02-architecture khi mạch fish-predict-viec4 sync xong. -->
 <!-- re-verified: 2026-07-25h — OFFLINE mở rộng: lớp gió/sóng WINDY (forecast-grid) cũng cache localStorage theo khung ngày; mất mạng kéo thanh giờ vẫn xem được bản đã tải, thanh giờ hiện "· bản lưu (offline)". Lưới đã downsample (~58 khung/16 ngày) nên nhẹ. -->
+<!-- re-verified: 2026-07-25i — TRẠNG THÁI MẤT SÓNG nói thật (xem §10.1): (1) tin bão tách 3 trạng thái qua lib/storms.ts stormStatus + ngưỡng 12h, banner/panel/marker đều đọc checkedAt — bỏ câu "đã kiểm tra" và "cập nhật vừa xong"; (2) nhãn ngày so ngày thật qua lib/day-labels.ts (dayLabel/chipLabel/isPastDay), chip ngày đã qua mờ + disabled, thanh giờ Windy so ngày thật; (3) khối "Gió/Sóng lúc này" đổi tiêu đề "đo lúc HH:MM ngày D/M" khi xem bản lưu, chỉ báo bản lưu 13px→17px kèm giờ lưu; (4) fetchSeaPoint bỏ fallback loadLatest (không mượn số chỗ khác), chỗ chưa lưu → "Chỗ này chưa có số nào lưu trong máy"; (5) assessForecast/applyBiasCorrection/forecastConfidence tính lead từ ngày thật (leadOf). -->
 <!-- re-verified: 2026-06-23h — rail 4→6 nút: thêm Công cụ (đo khoảng cách 2 điểm, vẽ đường+mốc trên map, kết quả theo đơn vị) + Cài đặt (đơn vị hải lý/km + hệ toạ độ dd/dms qua lib/map-prefs store dùng chung; đổi thì peek/whereLine/điểm-cá-gần/dẫn-đường/đo đổi theo). Icons SettingsIcon/RulerIcon. Test map-prefs.test.ts -->
 <!-- re-verified: 2026-06-23i — công cụ đo: thêm nhãn khoảng cách NGAY GIỮA đường nối 1→2 trên bản đồ (marker midpoint) -->
 <!-- re-verified: 2026-06-16 — /login = SĐT + mật khẩu (webhook provision, KHÔNG email/OTP); nav/screen map/object model không đổi -->

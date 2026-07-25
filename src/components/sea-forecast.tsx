@@ -15,6 +15,7 @@ import {
   type DayQuality,
 } from "@/lib/forecast-quality";
 import { loadForecastSkill } from "@/lib/forecast-skill";
+import { isoDateVN } from "@/lib/day-labels";
 import { weatherFromCode } from "@/lib/weather-codes";
 import { AnchorIcon, WavesIcon, WindIcon } from "@/components/icons";
 
@@ -55,16 +56,19 @@ export function SeaForecast() {
     setLoading(true);
     setError(false);
     setQuality(null);
+    // Tầm ngày tính từ HÔM NAY tới ngày dự báo (không theo vị trí mảng) — nếu
+    // sau này dãy ngày đến từ bản lưu trong máy thì độ tin vẫn đúng.
+    const todayIso = isoDateVN();
     fetchSeaForecast(p)
       .then((raw) => {
         // Nắn bias thô theo backtest rồi mới hiển thị điểm số.
-        const corrected = applyBiasCorrection(raw, SKILL);
+        const corrected = applyBiasCorrection(raw, SKILL, todayIso);
         setDays(corrected);
         // Độ tin: ngay lập tức từ horizon+skill; tinh chỉnh khi ensemble về.
-        setQuality(assessForecast(corrected, null, SKILL));
+        setQuality(assessForecast(corrected, null, SKILL, todayIso));
         fetchEnsembleUncertainty(p.lat, p.lon, corrected.length)
           .then((ens) => {
-            if (ens) setQuality(assessForecast(corrected, ens, SKILL));
+            if (ens) setQuality(assessForecast(corrected, ens, SKILL, todayIso));
           })
           .catch(() => {
             /* ensemble lỗi thì giữ độ tin horizon+skill — không sao */

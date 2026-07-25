@@ -5,6 +5,7 @@ import {
   skillForLead,
   applyBiasCorrection,
   assessForecast,
+  leadOf,
   type SkillTable,
 } from "../forecast-quality";
 import { scoreDay, levelOf, type ScoredSeaDay } from "../sea";
@@ -109,5 +110,47 @@ describe("assessForecast", () => {
     const q = assessForecast(days, null, null);
     expect(q).toHaveLength(3);
     expect(q[0].confidence).toBeGreaterThan(q[2].confidence);
+  });
+});
+
+/* LỖI đã sửa: tầm ngày tính theo VỊ TRÍ MẢNG → bản dự báo lưu trong máy từ
+   mấy hôm trước vẫn được coi là "dự báo gần — khá sát" và nắn bias theo hàng
+   lead 1. Sai theo hướng LẠC QUAN, đúng chỗ nguy hiểm nhất. */
+describe("leadOf — tầm ngày tính từ HÔM NAY, không theo vị trí mảng", () => {
+  it("không biết hôm nay → đành lùi về vị trí mảng", () => {
+    expect(leadOf("2026-07-25", 0)).toBe(0);
+    expect(leadOf("2026-07-27", 2, null)).toBe(2);
+  });
+  it("biết hôm nay → đếm ngày thật", () => {
+    expect(leadOf("2026-07-25", 0, "2026-07-25")).toBe(0);
+    expect(leadOf("2026-07-25", 0, "2026-07-20")).toBe(5); // bản lưu 5 hôm trước
+    expect(leadOf("2026-07-20", 0, "2026-07-25")).toBe(0); // ngày đã qua → kẹp 0
+  });
+});
+
+describe("bản lưu cũ bị hạ độ tin đúng mức", () => {
+  const saved = [
+    day("2026-07-25", 0.5, 12),
+    day("2026-07-26", 0.6, 15),
+    day("2026-07-27", 1.0, 25),
+  ];
+
+  it("assessForecast: phần tử đầu của bản lưu 5 hôm trước KHÔNG còn là ngày 0", () => {
+    const q = assessForecast(saved, null, SKILL, "2026-07-20");
+    expect(q[0].daysAhead).toBe(5);
+    expect(q[0].conf.tone).toBe("warn");
+    // so với đúng ngày hôm nay thì độ tin phải cao hơn hẳn
+    const tuoi0 = assessForecast(saved, null, SKILL, "2026-07-25");
+    expect(tuoi0[0].daysAhead).toBe(0);
+    expect(tuoi0[0].confidence).toBeGreaterThan(q[0].confidence);
+  });
+
+  it("applyBiasCorrection: bản lưu cũ không được nắn theo hàng lead 1", () => {
+    // lead thật của phần tử đầu = 5+1 = 6, bảng không có → giữ nguyên số gốc
+    const out = applyBiasCorrection(saved, SKILL, "2026-07-20");
+    expect(out[0].windMaxKmh).toBe(saved[0].windMaxKmh);
+    // cùng dữ liệu nhưng đúng hôm nay thì mới được nắn theo lead 1
+    const homNay = applyBiasCorrection(saved, SKILL, "2026-07-25");
+    expect(homNay[0].windMaxKmh).toBeCloseTo(saved[0].windMaxKmh - 4, 6);
   });
 });

@@ -80,7 +80,15 @@ import { borderProximity, haversineKm, type BorderLevel } from "@/lib/geofence";
 import { fetchDepthGrid, depthClassAt, type DepthClass } from "@/lib/depth-grid";
 import { weatherFromCode } from "@/lib/weather-codes";
 import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
-import { fetchStormCheck, type StormAlert } from "@/lib/storms";
+import { fetchStormCheck, stormStatus, type StormCheck } from "@/lib/storms";
+import {
+  chipLabel,
+  clockVN,
+  dayLabel,
+  daysBetweenISO,
+  isoDateVN,
+  isPastDay,
+} from "@/lib/day-labels";
 import {
   beaufort,
   fetchSeaPoint,
@@ -112,33 +120,8 @@ import {
   WindIcon,
 } from "@/components/icons";
 
-const WEEKDAYS = [
-  "Chủ nhật",
-  "Thứ hai",
-  "Thứ ba",
-  "Thứ tư",
-  "Thứ năm",
-  "Thứ sáu",
-  "Thứ bảy",
-];
-
-function dayLabel(isoDate: string, index: number): string {
-  if (index === 0) return "Hôm nay";
-  if (index === 1) return "Ngày mai";
-  // T12:00Z giữ nguyên ngày lịch khi đọc bằng getUTCDay
-  const d = new Date(`${isoDate}T12:00:00Z`);
-  return `${WEEKDAYS[d.getUTCDay()]} ${formatDateVN(isoDate)}`;
-}
-
-const WEEKDAYS_SHORT = ["CN", "Th 2", "Th 3", "Th 4", "Th 5", "Th 6", "Th 7"];
-
-/** Nhãn ngắn cho chip chọn ngày */
-function chipLabel(isoDate: string, index: number): string {
-  if (index === 0) return "Hôm nay";
-  if (index === 1) return "Ngày mai";
-  const d = new Date(`${isoDate}T12:00:00Z`);
-  return `${WEEKDAYS_SHORT[d.getUTCDay()]} ${formatDateVN(isoDate)}`;
-}
+/* Nhãn ngày ("Hôm nay" / "Ngày mai" / ngày thật) nằm ở lib/day-labels.ts —
+   so NGÀY THẬT chứ không so vị trí mảng, để bản lưu trong máy không nói dối. */
 
 /** Hướng đi từ điểm 1 tới điểm 2 (độ) — để nói "hướng Đông Nam" */
 function bearingDeg(
@@ -522,7 +505,31 @@ export default function FishingMapView() {
   const [retry, setRetry] = useState(0);
   const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState(false);
-  const [storms, setStorms] = useState<StormAlert[]>([]);
+  // ĐỒNG HỒ của màn hình — nhích 5 phút một lần. Chuyến biển dài, app mở suốt:
+  // không có nhịp này thì "Hôm nay" và tuổi tin bão đứng yên ở lúc mở app.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  /** Ngày HÔM NAY thật (giờ VN) — mọi nhãn ngày so với cái này, không so vị trí */
+  const todayIso = useMemo(() => isoDateVN(nowMs), [nowMs]);
+
+  // Giữ NGUYÊN VẸN câu trả lời của nguồn (kể cả ok:false) — mảng rỗng không
+  // được dùng chung cho "không có bão" và "chưa hỏi được" (an toàn tính mạng).
+  const [stormCheck, setStormCheck] = useState<StormCheck | null>(null);
+  const stormInfo = useMemo(
+    () => stormStatus(stormCheck, nowMs),
+    [stormCheck, nowMs],
+  );
+  const storms = useMemo(
+    () => (stormInfo.kind === "co-bao" ? stormInfo.storms : []),
+    [stormInfo],
+  );
+  const stormTimeLabel =
+    stormInfo.kind === "co-bao" && stormInfo.checkedAt != null
+      ? `Tin lúc ${clockVN(stormInfo.checkedAt)}`
+      : "Chưa rõ tin lúc nào";
   // Geometry bão → GeoJSON: vùng ảnh hưởng (polygon) + đường đi (track) để vẽ
   // đè bản đồ kiểu app thời tiết chuyên nghiệp (nguồn GDACS đã có sẵn).
   const stormGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
@@ -613,7 +620,10 @@ export default function FishingMapView() {
   // tâm bão (nếu có) vẽ thẳng lên bản đồ
   useEffect(() => {
     let alive = true;
-    fetchStormCheck().then((c) => alive && c.ok && setStorms(c.storms));
+    // Giữ CẢ câu trả lời hỏng (ok:false): UI phải phân biệt được "hỏi rồi,
+    // không có bão" với "chưa hỏi được" — không được im lặng rồi để mảng rỗng
+    // nói hộ thành "không có bão".
+    fetchStormCheck().then((c) => alive && setStormCheck(c));
     return () => {
       alive = false;
     };
@@ -686,14 +696,26 @@ export default function FishingMapView() {
   ]);
 
   const today = cond?.days[0] ?? null;
-  // ngày đang chọn để xem dự báo (kẹp lại nếu nguồn trả ít ngày hơn)
-  const sel =
-    cond?.days[Math.min(dayIdx, (cond?.days.length ?? 1) - 1)] ?? null;
+  // Bản lưu trong máy giữ nguyên dãy ngày CŨ → có ngày đã trôi qua. Bỏ qua các
+  // ngày đã qua khi chọn, và nếu qua hết thì coi như không còn số nào dùng được.
+  const days = cond?.days ?? [];
+  const firstUsableIdx = days.findIndex((d) => !isPastDay(d.date, todayIso));
+  const allPast = days.length > 0 && firstUsableIdx === -1;
+  const selIdx = allPast
+    ? -1
+    : Math.min(Math.max(dayIdx, Math.max(firstUsableIdx, 0)), days.length - 1);
+  const sel = selIdx >= 0 ? (days[selIdx] ?? null) : null;
+  // TẦM NGÀY THẬT: đếm từ hôm nay tới ngày đang xem, KHÔNG lấy vị trí trong
+  // mảng — bản lưu 5 ngày trước mà tính theo vị trí thì ngày xa vẫn được gắn
+  // nhãn "khá sát" (sai theo hướng lạc quan, đúng chỗ nguy hiểm nhất).
+  const daysAhead = sel ? Math.max(0, daysBetweenISO(todayIso, sel.date)) : 0;
   // độ tin nói thật: nhãn theo tầm ngày, hạ thêm nếu backtest đo được sai số
   // lớn ở tầm ngày này (skill từ src/data/forecast-skill.json, không gọi mạng)
   const skillConf =
-    skillForLead(FORECAST_SKILL, dayIdx + 1)?.confidence ?? null;
-  const confidence = forecastConfidence(dayIdx, skillConf);
+    skillForLead(FORECAST_SKILL, daysAhead + 1)?.confidence ?? null;
+  const confidence = forecastConfidence(daysAhead, skillConf);
+  /** Số đo "lúc này" trong bản lưu là số ĐÔNG CỨNG lúc lưu — chỉ nói thật giờ đo */
+  const isToday = sel?.date === todayIso;
   const prox = borderProximity(point.lat, point.lon);
   const depthNote = depth != null ? DEPTH_NOTE[depth] : undefined;
   // tuần trăng đêm nay — quyết với nghề đèn (mực, cá cơm); tính offline
@@ -735,8 +757,10 @@ export default function FishingMapView() {
   }, [fishCast, point]);
 
   // tóm tắt điều kiện — con số nói chuyện, không phán đi/ở
+  // Số "lúc này" chỉ được nói khi đúng là hôm nay VÀ là số vừa lấy về; bản lưu
+  // trong máy thì phải nói theo cả ngày (số "lúc này" đã đông cứng từ lúc lưu).
   const condSummary = sel
-    ? dayIdx === 0 && cond
+    ? isToday && cond && !cond.stale
       ? `Sóng ${cond.waveM != null ? `${formatNumberVN(cond.waveM)} m` : "—"} · Gió cấp ${beaufort(cond.windKmh)}${
           cond.windDirDeg != null ? ` ${windDirectionVN(cond.windDirDeg)}` : ""
         }`
@@ -1009,8 +1033,18 @@ export default function FishingMapView() {
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md ring-2 ring-danger">
                 <AlertIcon className="h-6 w-6" />
               </span>
-              <span className="mt-0.5 rounded bg-white/90 px-1.5 text-[0.6875rem] font-bold leading-tight">
+              <span className="mt-0.5 rounded bg-white/90 px-1.5 text-center text-[0.6875rem] font-bold leading-tight">
                 {s.kindLabel} {s.name}
+                {/* giờ của bản tin — vẽ từ bản lưu thì tâm bão có thể đã đi xa */}
+                <span
+                  className={`block font-bold ${
+                    stormInfo.kind === "co-bao" && stormInfo.cu
+                      ? "text-warn"
+                      : "text-navy/70"
+                  }`}
+                >
+                  {stormTimeLabel}
+                </span>
               </span>
             </div>
           </Marker>
@@ -1173,7 +1207,7 @@ export default function FishingMapView() {
           onPickSpecies={setFishSpecies}
           fishRange={fishRange}
           onRange={setFishRange}
-          storms={storms}
+          stormInfo={stormInfo}
           showPlaces={showPlaces}
           onShowPlaces={setShowPlaces}
           places={places}
@@ -1224,13 +1258,14 @@ export default function FishingMapView() {
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[0.875rem] font-bold text-navy">
                         {forecastKind === "wind" ? "Gió" : "Sóng"} ·{" "}
-                        {timeLabelVN(
-                          fGrid.times[timeIdx] ?? "",
-                          fGrid.times[0]?.split("T")[0],
-                        )}
+                        {/* mốc "Hôm nay" so NGÀY THẬT, không so ngày đầu của
+                            bản lưu — bản lưu mấy hôm trước từng nói dối ở đây */}
+                        {timeLabelVN(fGrid.times[timeIdx] ?? "", todayIso)}
                         {fGrid.stale && (
-                          <span className="ml-1 font-bold text-warn">
-                            · bản lưu (offline)
+                          <span className="ml-1 block font-bold text-warn">
+                            Số cũ lưu trong máy
+                            {fGrid.savedAt != null &&
+                              ` — lưu lúc ${clockVN(fGrid.savedAt)}`}
                           </span>
                         )}
                       </span>
@@ -1355,20 +1390,29 @@ export default function FishingMapView() {
               Đang lấy dự báo sóng gió…
             </p>
           ) : errored ? (
-            <p className="py-3 text-[0.9375rem] font-semibold text-danger">
-              Chưa lấy được dự báo — vuốt lên để thử lại.
+            /* Máy CHỈ giữ số ở đúng chỗ đã xem — không mượn số chỗ khác nữa,
+               nên chỗ lạ mà mất sóng thì nói thẳng là chưa có gì. */
+            <p className="py-3 text-[1rem] font-bold leading-snug text-danger">
+              Chỗ này chưa có số nào lưu trong máy — vuốt lên để thử lại.
             </p>
           ) : cond && !cond.onSea ? (
             <p className="py-3 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
               Chỗ này trên đất liền — chạm ra biển để xem gió sóng.
             </p>
+          ) : allPast ? (
+            <p className="py-3 text-[1rem] font-bold leading-snug text-warn">
+              Số lưu trong máy ở chỗ này đã qua ngày hết
+              {cond?.savedAt != null && ` (lưu ${clockVN(cond.savedAt)})`}. Có
+              sóng lại máy sẽ tự lấy số mới.
+            </p>
           ) : sel ? (
             <div className="py-1">
               {cond?.stale && (
-                <p className="mb-1.5 rounded-lg bg-warn-bg px-2.5 py-1.5 text-[0.8125rem] font-bold leading-snug text-warn">
-                  Đang xem bản đã lưu (offline)
-                  {cond.savedAt != null && ` · ${savedAgoLabel(cond.savedAt)}`} —
-                  có mạng sẽ tự cập nhật.
+                <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[1.0625rem] font-bold leading-snug text-warn">
+                  Số cũ lưu trong máy
+                  {cond.savedAt != null &&
+                    ` — lưu lúc ${clockVN(cond.savedAt)} (${savedAgoLabel(cond.savedAt, nowMs)})`}
+                  . Chưa phải số mới.
                 </p>
               )}
               <div className="flex items-center gap-2">
@@ -1384,7 +1428,7 @@ export default function FishingMapView() {
                   {SEA_STATE[sel.level]}
                 </span>
                 <span className="text-[0.9375rem] font-semibold text-foreground/70">
-                  — {dayLabel(sel.date, dayIdx).toLowerCase()}
+                  — {dayLabel(sel.date, todayIso).toLowerCase()}
                 </span>
               </div>
               <p className="text-[0.9375rem] font-semibold leading-snug text-foreground/80">
@@ -1441,13 +1485,19 @@ export default function FishingMapView() {
           )}
 
           {errored && (
-            <button
-              type="button"
-              onClick={() => setRetry((n) => n + 1)}
-              className="min-h-[3.5rem] w-full rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
-            >
-              Thử lại
-            </button>
+            <>
+              <p className="rounded-xl bg-warn-bg px-3 py-2.5 text-[1rem] font-bold leading-snug text-warn">
+                Lúc mất sóng, máy chỉ có số ở những chỗ bà con đã mở xem lúc còn
+                sóng. Chạm lại đúng chỗ đó để coi.
+              </p>
+              <button
+                type="button"
+                onClick={() => setRetry((n) => n + 1)}
+                className="min-h-[3.5rem] w-full rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
+              >
+                Thử lại
+              </button>
+            </>
           )}
 
           {cond && cond.onSea && today && sel && (
@@ -1460,25 +1510,28 @@ export default function FishingMapView() {
                 aria-label="Chọn ngày xem dự báo"
               >
                 {cond.days.map((d, i) => {
-                  const active = i === Math.min(dayIdx, cond.days.length - 1);
+                  const active = i === selIdx;
+                  // ngày đã qua (bản lưu trong máy) — mờ đi, không cho chọn
+                  const past = isPastDay(d.date, todayIso);
                   return (
                     <button
                       key={d.date}
                       type="button"
                       onClick={() => setDayIdx(i)}
+                      disabled={past}
                       aria-pressed={active}
                       className={`flex min-h-[3.75rem] min-w-[4.875rem] shrink-0 flex-col items-center justify-center rounded-xl px-2 transition active:scale-[0.97] ${
                         active
                           ? "bg-navy text-white shadow-sm"
                           : "bg-field"
-                      }`}
+                      } ${past ? "opacity-40" : ""}`}
                     >
                       <span
                         className={`text-[0.8125rem] font-bold leading-tight ${
                           active ? "text-white/85" : "text-foreground/70"
                         }`}
                       >
-                        {chipLabel(d.date, i)}
+                        {chipLabel(d.date, todayIso)}
                       </span>
                       <span
                         className="display text-[1rem] font-bold leading-tight"
@@ -1514,13 +1567,19 @@ export default function FishingMapView() {
 
               {/* số đo LÚC NÀY — để LIỀN với dải ngày + "cả ngày" cho khỏi
                   nói sóng/gió trên một khúc, dưới một khúc (user 2026-06-23).
-                  Ngày sau đã gọn trong thẻ ngày + "cả ngày" nên chỉ hiện hôm nay. */}
-              {dayIdx === 0 && (
+                  Ngày sau đã gọn trong thẻ ngày + "cả ngày" nên chỉ hiện hôm nay.
+                  BẢN LƯU: hai số này đông cứng từ lúc lưu → đổi tiêu đề thành
+                  "đo lúc …", tuyệt đối không để chữ "lúc này". */}
+              {isToday && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="surface p-4">
                     <div className="flex items-center gap-2 text-t1">
-                      <WindIcon className="h-5 w-5" />
-                      <span className="text-[0.9375rem] font-bold">Gió lúc này</span>
+                      <WindIcon className="h-5 w-5 shrink-0" />
+                      <span className="text-[0.9375rem] font-bold leading-snug">
+                        {cond.stale && cond.savedAt != null
+                          ? `Gió đo lúc ${clockVN(cond.savedAt)}`
+                          : "Gió lúc này"}
+                      </span>
                     </div>
                     <p className="display mt-1.5 text-[1.5rem] font-bold leading-none text-navy">
                       Cấp {beaufort(cond.windKmh)}
@@ -1533,9 +1592,11 @@ export default function FishingMapView() {
                   </div>
                   <div className="surface p-4">
                     <div className="flex items-center gap-2 text-t1">
-                      <WavesIcon className="h-5 w-5" />
-                      <span className="text-[0.9375rem] font-bold">
-                        Sóng lúc này
+                      <WavesIcon className="h-5 w-5 shrink-0" />
+                      <span className="text-[0.9375rem] font-bold leading-snug">
+                        {cond.stale && cond.savedAt != null
+                          ? `Sóng đo lúc ${clockVN(cond.savedAt)}`
+                          : "Sóng lúc này"}
                       </span>
                     </div>
                     {cond.waveM != null ? (
