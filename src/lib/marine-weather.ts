@@ -8,27 +8,57 @@ import {
   levelOf,
   estimateWaveFromWind,
   type ScoredSeaDay,
+  type SeaDay,
+  type SeaLevel,
 } from "@/lib/sea";
 import { saveForecast, loadForecast, coordId } from "@/lib/forecast-cache";
+import {
+  loadLongestSavedGrid,
+  nearestGridCell,
+  type ForecastGrid,
+} from "@/lib/forecast-grid";
 
 export type SeaPoint = { lat: number; lon: number };
+
+/**
+ * Số này ở đâu ra — UI phải nói đúng, không gộp chung "đã lưu" một cục:
+ *  · `live`        — vừa lấy về từ nguồn
+ *  · `saved-point` — bản ĐẦY ĐỦ đã lưu của ĐÚNG chỗ này (có mưa/dông/điểm)
+ *  · `saved-grid`  — dựng từ LƯỚI gió/sóng đã lưu (CHỈ có gió + sóng)
+ */
+export type SeaPointSource = "live" | "saved-point" | "saved-grid";
+
+/**
+ * Một ngày tại điểm chạm. Khác `ScoredSeaDay` ở chỗ score/level/mưa được phép
+ * NULL: bản dựng từ lưới chỉ có gió + sóng, KHÔNG đủ để chấm "điểm đi biển".
+ * Thà để trống còn hơn chấm điểm bằng dữ liệu thiếu rồi hiện như số thật.
+ */
+export type SeaPointDay = Omit<SeaDay, "precipMm"> & {
+  /** null = nguồn không có số mưa cho chỗ này */
+  precipMm: number | null;
+  /** null = KHÔNG đủ dữ liệu để chấm điểm — UI phải ẩn phần điểm/tình trạng */
+  score: number | null;
+  level: SeaLevel | null;
+};
 
 export type SeaPointConditions = {
   point: SeaPoint;
   /** false = nguồn sóng không có số nào cho điểm này → gần như chắc là đất liền */
   onSea: boolean;
-  /** Lúc này tại điểm đó — gió luôn có, sóng có thể thiếu nếu điểm sát bờ */
-  windKmh: number;
+  /** Lúc này tại điểm đó — null khi bản dựng từ lưới (lưới chỉ có số theo giờ dự báo) */
+  windKmh: number | null;
   gustKmh: number | null;
   windDirDeg: number | null;
   waveM: number | null;
   wavePeriodS: number | null;
-  /** FORECAST_MAX_DAYS ngày đã chấm điểm, phần tử đầu là hôm nay */
-  days: ScoredSeaDay[];
+  /** FORECAST_MAX_DAYS ngày, phần tử đầu là hôm nay (score/level có thể null) */
+  days: SeaPointDay[];
   /** true = đang xem bản ĐÃ LƯU (offline/mất mạng), không phải bản mới */
   stale: boolean;
   /** epoch ms lúc bản này được lưu (chỉ có ý nghĩa khi stale) */
   savedAt: number | null;
+  /** số này ở đâu ra — quyết định UI được nói gì, giấu gì */
+  source: SeaPointSource;
 };
 
 /** Namespace localStorage cho dự báo điểm-chạm (offline) */
@@ -142,13 +172,114 @@ export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
     saveForecast(POINT_NS, id, cond);
     return cond;
   } catch (err) {
-    // Mất mạng / nguồn treo → CHỈ lùi về bản đã lưu ĐÚNG CHỖ NÀY (cùng ô lưới
+    // Mất mạng / nguồn treo → lùi về bản đã lưu ĐÚNG CHỖ NÀY (cùng ô lưới
     // ~0,25°). TUYỆT ĐỐI không mượn bản của chỗ khác: dán số của chỗ cách hàng
     // trăm km vào chỗ bà con vừa chạm còn nguy hiểm hơn là không có số.
     const hit = loadForecast<SeaPointConditions>(POINT_NS, id);
-    if (hit) return { ...hit.data, point: p, stale: true, savedAt: hit.savedAt };
-    throw err; // chỗ này chưa từng lưu → để UI báo "chưa có số nào trong máy"
+    if (hit)
+      return {
+        ...hit.data,
+        point: p,
+        stale: true,
+        savedAt: hit.savedAt,
+        source: "saved-point",
+      };
+    // Chưa từng mở xem chỗ này, NHƯNG lưới gió/sóng đã lưu phủ cả vùng biển và
+    // ĐÚNG vị trí đó (mũi tên đang vẽ ngay chỗ bà con vừa chạm). Lấy ô lưới PHỦ
+    // chỗ chạm — vẫn là số của chính chỗ đó, không phải mượn của toạ độ khác.
+    const fromGrid = seaPointFromSavedGrid(p);
+    if (fromGrid) return fromGrid;
+    throw err; // ngoài vùng lưới / máy chưa lưu gì → UI nói thật là chưa có số
   }
+}
+
+/* ---------------------------------------------------------------------------
+   DỰNG ĐIỀU KIỆN ĐIỂM TỪ LƯỚI ĐÃ LƯU — chỉ gió + sóng, không bịa thêm gì
+--------------------------------------------------------------------------- */
+
+/** Đọc lưới dài ngày nhất trong máy rồi dựng — null nếu không dùng được. */
+export function seaPointFromSavedGrid(p: SeaPoint): SeaPointConditions | null {
+  const saved = loadLongestSavedGrid();
+  if (!saved) return null;
+  return seaPointFromGrid(saved.grid, p, saved.savedAt);
+}
+
+/**
+ * Lưới đã lưu → điều kiện tại MỘT ĐIỂM. Thuần (không đụng mạng/localStorage).
+ *
+ * Luật:
+ *  · lấy ô lưới PHỦ chỗ chạm (`nearestGridCell`); xa hơn nửa bước lưới → null,
+ *    giữ nguyên câu "chưa có số nào lưu trong máy" chứ KHÔNG nhận bừa ô xa;
+ *  · gộp các mốc giờ theo NGÀY (mốc giờ của lưới đã là giờ VN) → mỗi ngày lấy
+ *    GIÓ LỚN NHẤT và SÓNG CAO NHẤT, đúng như thẻ ngày đang mô tả ("gió tới…",
+ *    "sóng tới…");
+ *  · KHÔNG có mưa, dông, điểm đi biển → để null, UI phải ẩn.
+ */
+export function seaPointFromGrid(
+  grid: ForecastGrid,
+  p: SeaPoint,
+  savedAt: number | null,
+): SeaPointConditions | null {
+  const near = nearestGridCell(grid, p.lat, p.lon);
+  if (!near) return null;
+
+  const times = grid.times ?? [];
+  // gộp theo ngày — "2026-07-27T06:00" đã là giờ VN (nguồn xin theo Asia/Ho_Chi_Minh)
+  const byDate = new Map<string, { wind: number | null; wave: number | null }>();
+  const order: string[] = [];
+  for (let i = 0; i < times.length; i++) {
+    const date = String(times[i] ?? "").slice(0, 10);
+    if (date.length !== 10) continue;
+    const h = near.cell.hours?.[i];
+    if (!h) continue;
+    let acc = byDate.get(date);
+    if (!acc) {
+      acc = { wind: null, wave: null };
+      byDate.set(date, acc);
+      order.push(date);
+    }
+    const w = num(h.windKmh);
+    const s = num(h.waveM);
+    if (w != null) acc.wind = acc.wind == null ? w : Math.max(acc.wind, w);
+    if (s != null) acc.wave = acc.wave == null ? s : Math.max(acc.wave, s);
+  }
+
+  const days: SeaPointDay[] = [];
+  for (const date of order) {
+    const acc = byDate.get(date)!;
+    if (acc.wind == null && acc.wave == null) continue; // ngày trống thì bỏ hẳn
+    days.push({
+      date,
+      // 0 = "chưa có số" theo đúng cách UI vẫn hiểu (không phải "biển lặng")
+      waveMaxM: acc.wave ?? 0,
+      windMaxKmh: acc.wind ?? 0,
+      gustMaxKmh: 0, // lưới không có gió giật → UI ẩn (chỉ hiện khi > 0)
+      precipMm: null, // KHÔNG có mưa trong lưới — để trống, không điền 0 giả
+      wmoCode: null, // KHÔNG có dông
+      waveEstimated: false,
+      score: null, // thiếu mưa/dông thì KHÔNG chấm điểm đi biển
+      level: null,
+    });
+  }
+  if (days.length === 0) return null;
+
+  // Ô không có số sóng nào suốt cả kỳ = gần như chắc điểm lưới nằm trên đất liền
+  const onSea = days.some((d) => d.waveMaxM > 0);
+
+  return {
+    point: p,
+    onSea,
+    // Lưới chỉ có số THEO GIỜ DỰ BÁO, không có số đo "lúc này" → để trống hết
+    windKmh: null,
+    gustKmh: null,
+    windDirDeg: null,
+    waveM: null,
+    wavePeriodS: null,
+    days,
+    stale: true,
+    savedAt,
+    source: "saved-grid",
+  };
 }
 
 /** Gọi Open-Meteo THẬT (không cache) — tách ra để fetchSeaPoint bọc offline. */
@@ -208,5 +339,6 @@ async function fetchSeaPointLive(p: SeaPoint): Promise<SeaPointConditions> {
     days,
     stale: false,
     savedAt: null,
+    source: "live",
   };
 }

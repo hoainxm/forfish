@@ -113,7 +113,10 @@ import { savedAgoLabel } from "@/lib/forecast-cache";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
 import { RaKhoiControls } from "@/components/ra-khoi-controls";
 import { StormBanner } from "@/components/storm-banner";
-import { PretripAutoNotify } from "@/components/pretrip-auto-notify";
+import {
+  NOTIFY_HIDE_MS,
+  PretripAutoNotify,
+} from "@/components/pretrip-auto-notify";
 import {
   AlertIcon,
   ChevronDownIcon,
@@ -600,6 +603,20 @@ export default function FishingMapView() {
   const basemapHealth = { online: netOnline, fails: basemapFails };
   const offlineBase = shouldUseOfflineBasemap(basemapHealth);
   const offlineNote = offlineBasemapNote(basemapHealth);
+  /* Nhắc "mất sóng" HIỆN RỒI TỰ TẮT như dòng "Đã lưu dự báo tới ngày…" — thẻ
+     vàng 2 dòng nằm lì trước đây làm rối bản đồ. Effect chỉ chạy lại khi CÂU
+     ĐỔI, nên vẫn đang mất sóng thì không báo đi báo lại; có sóng lại rồi mất
+     tiếp thì câu quay về từ null → báo một lần nữa. */
+  const [offlineNoteOn, setOfflineNoteOn] = useState(false);
+  useEffect(() => {
+    if (!offlineNote) {
+      setOfflineNoteOn(false);
+      return;
+    }
+    setOfflineNoteOn(true);
+    const t = setTimeout(() => setOfflineNoteOn(false), NOTIFY_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [offlineNote]);
   /** Hình bờ + đảo: chỉ nạp khi CẦN (mất sóng), không tốn dữ liệu lúc bình thường */
   const [coastData, setCoastData] = useState<GeoJSON.FeatureCollection | null>(
     null,
@@ -817,7 +834,7 @@ export default function FishingMapView() {
   // Số "lúc này" chỉ được nói khi đúng là hôm nay VÀ là số vừa lấy về; bản lưu
   // trong máy thì phải nói theo cả ngày (số "lúc này" đã đông cứng từ lúc lưu).
   const condSummary = sel
-    ? isToday && cond && !cond.stale
+    ? isToday && cond && !cond.stale && cond.windKmh != null
       ? `Sóng ${cond.waveM != null ? `${formatNumberVN(cond.waveM)} m` : "—"} · Gió cấp ${beaufort(cond.windKmh)}${
           cond.windDirDeg != null ? ` ${windDirectionVN(cond.windDirDeg)}` : ""
         }`
@@ -1353,18 +1370,17 @@ export default function FishingMapView() {
           </button>
         )}
 
-        {/* MẤT SÓNG → nói rõ bản đồ đang là hình lưu trong máy, đừng để bà con
-            tưởng nền trắng là "biển trống" hay app hỏng. */}
-        {offlineNote && (
-          <div className="pointer-events-none max-w-[calc(100vw-6rem)] self-start rounded-xl bg-warn-bg px-3 py-1.5 shadow-md">
-            <p className="text-[0.9375rem] font-bold leading-snug text-warn">
-              {offlineNote}
-            </p>
-            <p className="text-[0.8125rem] font-semibold leading-snug text-warn">
-              Bờ, đảo, ranh giới và độ sâu vẫn đúng chỗ. Có sóng lại bản đồ tự
-              hiện rõ như cũ.
-            </p>
-          </div>
+        {/* MẤT SÓNG → nói MỘT DÒNG rồi tự tắt (cùng kiểu chip với dòng "Đã lưu
+            dự báo…" và banner bão): đủ để bà con biết nền là hình lưu trong
+            máy, không phải app hỏng — rồi trả lại bản đồ, không nằm lì. */}
+        {offlineNote && offlineNoteOn && (
+          <p
+            role="status"
+            className="pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-bold leading-snug text-warn shadow-md"
+          >
+            <AlertIcon className="h-4 w-4 shrink-0" />
+            {offlineNote}
+          </p>
         )}
 
       </div>
@@ -1563,28 +1579,51 @@ export default function FishingMapView() {
             </p>
           ) : sel ? (
             <div className="py-1">
-              {cond?.stale && (
-                <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[1.0625rem] font-bold leading-snug text-warn">
-                  Số cũ lưu trong máy
-                  {cond.savedAt != null &&
-                    ` — lưu lúc ${clockVN(cond.savedAt)} (${savedAgoLabel(cond.savedAt, nowMs)})`}
-                  . Chưa phải số mới.
-                </p>
-              )}
+              {cond?.stale &&
+                (cond.source === "saved-grid" ? (
+                  /* Số dựng từ LƯỚI gió/sóng đã lưu — đúng chỗ này, nhưng lưới
+                     chỉ có gió với sóng. Nói thẳng phần còn thiếu. */
+                  <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[1.0625rem] font-bold leading-snug text-warn">
+                    Số gió, sóng lấy từ bản đã lưu trong máy
+                    {cond.savedAt != null && ` (lưu lúc ${clockVN(cond.savedAt)})`}
+                    . Chưa có mưa, dông cho chỗ này.
+                  </p>
+                ) : (
+                  <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[1.0625rem] font-bold leading-snug text-warn">
+                    Số cũ lưu trong máy
+                    {cond.savedAt != null &&
+                      ` — lưu lúc ${clockVN(cond.savedAt)} (${savedAgoLabel(cond.savedAt, nowMs)})`}
+                    . Chưa phải số mới.
+                  </p>
+                ))}
               <div className="flex items-center gap-2">
+                {/* Không đủ dữ liệu (bản từ lưới) thì KHÔNG chấm tình trạng
+                    biển — chỉ nói ngày, số gió/sóng để ngay dưới. */}
+                {sel.level && (
+                  <>
+                    <span
+                      className="h-3.5 w-3.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: LEVEL_STYLE[sel.level].fg }}
+                      aria-hidden
+                    />
+                    <span
+                      className="display text-[1.1875rem] font-bold leading-snug"
+                      style={{ color: LEVEL_STYLE[sel.level].fg }}
+                    >
+                      {SEA_STATE[sel.level]}
+                    </span>
+                  </>
+                )}
                 <span
-                  className="h-3.5 w-3.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: LEVEL_STYLE[sel.level].fg }}
-                  aria-hidden
-                />
-                <span
-                  className="display text-[1.1875rem] font-bold leading-snug"
-                  style={{ color: LEVEL_STYLE[sel.level].fg }}
+                  className={
+                    sel.level
+                      ? "text-[0.9375rem] font-semibold text-foreground/70"
+                      : "display text-[1.1875rem] font-bold leading-snug text-navy"
+                  }
                 >
-                  {SEA_STATE[sel.level]}
-                </span>
-                <span className="text-[0.9375rem] font-semibold text-foreground/70">
-                  — {dayLabel(sel.date, todayIso).toLowerCase()}
+                  {sel.level
+                    ? `— ${dayLabel(sel.date, todayIso).toLowerCase()}`
+                    : dayLabel(sel.date, todayIso)}
                 </span>
               </div>
               <p className="text-[0.9375rem] font-semibold leading-snug text-foreground/80">
@@ -1692,7 +1731,11 @@ export default function FishingMapView() {
                       <span
                         className="display text-[1rem] font-bold leading-tight"
                         style={{
-                          color: active ? "#fff" : LEVEL_STYLE[d.level].fg,
+                          color: active
+                            ? "#fff"
+                            : d.level
+                              ? LEVEL_STYLE[d.level].fg
+                              : "var(--navy)",
                         }}
                       >
                         {d.waveMaxM > 0
@@ -1709,8 +1752,12 @@ export default function FishingMapView() {
               <p
                 className="rounded-xl px-3 py-2.5 text-[0.9375rem] font-semibold leading-snug"
                 style={{
-                  backgroundColor: LEVEL_STYLE[sel.level].bg,
-                  color: LEVEL_STYLE[sel.level].fg,
+                  // level null (bản dựng từ lưới) → nền trung tính, không tô
+                  // xanh/đỏ như thể đã chấm được điểm đi biển
+                  backgroundColor: sel.level
+                    ? LEVEL_STYLE[sel.level].bg
+                    : "var(--field)",
+                  color: sel.level ? LEVEL_STYLE[sel.level].fg : "var(--navy)",
                 }}
               >
                 Cả ngày: sóng tới{" "}
@@ -1726,7 +1773,9 @@ export default function FishingMapView() {
                   Ngày sau đã gọn trong thẻ ngày + "cả ngày" nên chỉ hiện hôm nay.
                   BẢN LƯU: hai số này đông cứng từ lúc lưu → đổi tiêu đề thành
                   "đo lúc …", tuyệt đối không để chữ "lúc này". */}
-              {isToday && (
+              {/* Bản dựng từ lưới KHÔNG có số đo "lúc này" (windKmh null) →
+                  ẩn hẳn hai thẻ này, thà trống còn hơn hiện số bịa. */}
+              {isToday && cond.windKmh != null && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="surface p-4">
                     <div className="flex items-center gap-2 text-t1">

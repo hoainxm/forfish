@@ -17,8 +17,16 @@ const _ls = (() => {
 (globalThis as unknown as { window: unknown }).window = { localStorage: _ls };
 (globalThis as unknown as { localStorage: Storage }).localStorage = _ls;
 
-import { fetchSeaPoint } from "../marine-weather";
+import { fetchSeaPoint, seaPointFromGrid } from "../marine-weather";
 import { haversineKm } from "../geofence";
+import { saveForecast } from "../forecast-cache";
+import {
+  GRID_NS,
+  GRID_SNAP_MAX_DEG,
+  gridCacheId,
+  type ForecastGrid,
+  type GridHour,
+} from "../forecast-grid";
 
 /** Trả dữ liệu Open-Meteo tối thiểu để fetchSeaPointLive chạy được */
 function fakeOk(url: string) {
@@ -111,5 +119,143 @@ describe("fetchSeaPoint offline — không mượn số của chỗ khác", () =
   it("chưa từng lưu gì mà mất sóng → báo lỗi, không bịa số", async () => {
     globalThis.fetch = offline();
     await expect(fetchSeaPoint(CON_DAO)).rejects.toThrow();
+  });
+});
+
+/* ---------------------------------------------------------------------------
+   LẤY SỐ ĐIỂM TỪ LƯỚI ĐÃ LƯU (2026-07-25)
+
+   Mâu thuẫn bà con thấy trên bản thật: bật chế độ máy bay, MŨI TÊN GIÓ vẫn vẽ
+   đầy biển (lưới đã lưu) mà chạm vào thì sheet báo đỏ "chưa có số nào lưu trong
+   máy". Nay chạm ô nào thì lấy số của ĐÚNG Ô ĐÓ — vẫn giữ bất biến "không mượn
+   số của toạ độ khác": xa hơn nửa bước lưới là từ chối.
+--------------------------------------------------------------------------- */
+
+const h = (windKmh: number | null, waveM: number | null): GridHour => ({
+  windKmh,
+  windDirDeg: 90,
+  waveM,
+  waveDirDeg: 90,
+});
+
+/** Lưới một ô ở Hoàng Sa: 2 mốc giờ ngày 27, 1 mốc ngày 28 */
+function gridAt(lat: number, lon: number): ForecastGrid {
+  return {
+    cells: [
+      {
+        lat,
+        lon,
+        hours: [h(10, 1.0), h(30, 2.2), h(20, 1.5)],
+      },
+    ],
+    times: ["2026-07-27T00:00", "2026-07-27T12:00", "2026-07-28T00:00"],
+  };
+}
+
+describe("seaPointFromGrid — dựng số điểm từ lưới đã lưu", () => {
+  it("gộp theo NGÀY, mỗi ngày lấy gió lớn nhất + sóng cao nhất", () => {
+    const c = seaPointFromGrid(gridAt(16.5, 112.0), HOANG_SA, 111)!;
+    expect(c).not.toBeNull();
+    expect(c.days.map((d) => d.date)).toEqual(["2026-07-27", "2026-07-28"]);
+    expect(c.days[0].windMaxKmh).toBe(30);
+    expect(c.days[0].waveMaxM).toBe(2.2);
+    expect(c.days[1].windMaxKmh).toBe(20);
+    expect(c.days[1].waveMaxM).toBe(1.5);
+  });
+
+  it("KHÔNG bịa mưa/dông/điểm đi biển — để trống hết", () => {
+    const c = seaPointFromGrid(gridAt(16.5, 112.0), HOANG_SA, 111)!;
+    for (const d of c.days) {
+      expect(d.precipMm).toBeNull();
+      expect(d.wmoCode).toBeNull();
+      expect(d.score).toBeNull();
+      expect(d.level).toBeNull();
+    }
+    // không có số đo "lúc này" trong lưới → để null, UI phải ẩn
+    expect(c.windKmh).toBeNull();
+    expect(c.waveM).toBeNull();
+    expect(c.gustKmh).toBeNull();
+  });
+
+  it("nói rõ gốc gác: cờ đã lưu + mốc lưu + nguồn là lưới", () => {
+    const c = seaPointFromGrid(gridAt(16.5, 112.0), HOANG_SA, 111)!;
+    expect(c.stale).toBe(true);
+    expect(c.savedAt).toBe(111);
+    expect(c.source).toBe("saved-grid");
+  });
+
+  it("toạ độ trả về là CHỖ VỪA CHẠM, không phải tâm ô lưới", () => {
+    const tap = { lat: 16.5 + 0.5, lon: 112.0 + 0.5 };
+    const c = seaPointFromGrid(gridAt(16.5, 112.0), tap, 111)!;
+    expect(c).not.toBeNull();
+    expect(c.point).toEqual(tap);
+  });
+
+  it("xa hơn nửa bước lưới → KHÔNG dùng (giữ bất biến không mượn chỗ khác)", () => {
+    const grid = gridAt(16.5, 112.0);
+    // ngay trong ô → dùng được
+    expect(
+      seaPointFromGrid(grid, { lat: 16.5, lon: 112.0 + GRID_SNAP_MAX_DEG - 0.05 }, 1),
+    ).not.toBeNull();
+    // quá nửa bước lưới một chút → từ chối
+    expect(
+      seaPointFromGrid(grid, { lat: 16.5, lon: 112.0 + GRID_SNAP_MAX_DEG + 0.05 }, 1),
+    ).toBeNull();
+    // cách hàng trăm km → chắc chắn từ chối
+    expect(seaPointFromGrid(grid, CON_DAO, 1)).toBeNull();
+  });
+
+  it("ô lưới không có số sóng nào (điểm trên đất liền) → onSea = false", () => {
+    const g: ForecastGrid = {
+      cells: [{ lat: 16.5, lon: 112.0, hours: [h(12, null), h(15, null)] }],
+      times: ["2026-07-27T00:00", "2026-07-27T12:00"],
+    };
+    const c = seaPointFromGrid(g, HOANG_SA, 1)!;
+    expect(c.onSea).toBe(false);
+    expect(c.days[0].windMaxKmh).toBe(15);
+    expect(c.days[0].waveMaxM).toBe(0); // 0 = "chưa có số", UI hiện "—"
+  });
+
+  it("lưới rỗng → null", () => {
+    expect(seaPointFromGrid({ cells: [], times: [] }, HOANG_SA, 1)).toBeNull();
+  });
+});
+
+describe("fetchSeaPoint offline — lùi về LƯỚI đã lưu khi chưa từng xem chỗ đó", () => {
+  it("chỗ lạ nhưng nằm trong lưới đã lưu → có gió/sóng, đúng toạ độ vừa chạm", async () => {
+    saveForecast(GRID_NS, gridCacheId(16), gridAt(16.5, 112.0));
+    globalThis.fetch = offline();
+    const c = await fetchSeaPoint(HOANG_SA);
+    expect(c.source).toBe("saved-grid");
+    expect(c.point).toEqual(HOANG_SA);
+    expect(c.days[0].windMaxKmh).toBe(30);
+  });
+
+  it("chọn khung DÀI NGÀY NHẤT đang có (d16 hơn d3)", async () => {
+    saveForecast(GRID_NS, gridCacheId(3), {
+      cells: [{ lat: 16.5, lon: 112.0, hours: [h(5, 0.4)] }],
+      times: ["2026-07-27T00:00"],
+    } satisfies ForecastGrid);
+    saveForecast(GRID_NS, gridCacheId(16), gridAt(16.5, 112.0));
+    globalThis.fetch = offline();
+    const c = await fetchSeaPoint(HOANG_SA);
+    // d16 có 2 ngày, d3 chỉ 1 ngày → phải là d16
+    expect(c.days).toHaveLength(2);
+    expect(c.days[0].windMaxKmh).toBe(30);
+  });
+
+  it("có lưới nhưng chạm NGOÀI vùng lưới → vẫn nói thật là chưa có số", async () => {
+    saveForecast(GRID_NS, gridCacheId(16), gridAt(16.5, 112.0));
+    globalThis.fetch = offline();
+    await expect(fetchSeaPoint(CON_DAO)).rejects.toThrow();
+  });
+
+  it("bản ĐẦY ĐỦ của đúng chỗ đó vẫn được ưu tiên hơn lưới", async () => {
+    globalThis.fetch = online();
+    await fetchSeaPoint(CON_DAO);
+    saveForecast(GRID_NS, gridCacheId(16), gridAt(8.68, 106.6));
+    globalThis.fetch = offline();
+    const c = await fetchSeaPoint(CON_DAO);
+    expect(c.source).toBe("saved-point");
   });
 });

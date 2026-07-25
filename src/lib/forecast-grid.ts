@@ -75,6 +75,60 @@ const LAT_MAX = 21.3;
 const N_LON = 8;
 const N_LAT = 10;
 
+/** Bước lưới THẬT theo từng chiều (độ) — suy từ khung trên, không gõ số rời */
+export const GRID_STEP_LAT_DEG = (LAT_MAX - LAT_MIN) / (N_LAT - 1); // ≈ 1,70°
+export const GRID_STEP_LON_DEG = (LON_MAX - LON_MIN) / (N_LON - 1); // ≈ 2,11°
+
+/**
+ * TRẦN SNAP = NỬA BƯỚC LƯỚI, tính RIÊNG từng chiều. Xa hơn thì ô lưới KHÔNG CÒN
+ * PHỦ chỗ bà con vừa chạm → cấm lấy số của nó (chỗ chạm thuộc ô KHÁC, dán số ô
+ * khác vào là quay lại đúng lỗi "mượn số của toạ độ khác").
+ *
+ * Vì sao TỪNG CHIỀU chứ không một bán kính tròn: lưới này dẹt (ngang ~2,11° mà
+ * dọc ~1,70°). Một bán kính tròn nửa-bước-lớn vẫn để THỦNG mấy góc ô — chạm vào
+ * đó bị từ chối trong khi mũi tên đang vẽ ngay chỗ đó, đúng cái mâu thuẫn bà con
+ * kêu. Hai nửa-bước theo hai chiều phủ KÍN đúng ô, không thừa không thiếu.
+ *
+ * KHÔNG đặt nhỏ hơn (vd 0,5°): lưới thưa ~2°, đặt 0,5° thì quá nửa số lần chạm
+ * giữa hai mũi tên sẽ báo "chưa có số" trong khi số đang có ngay đó.
+ */
+/** Toạ độ ô làm tròn 0,01° (xem gridPoints) → khe thật giữa hai ô có thể nhỉnh
+    hơn bước lý thuyết đúng ngần này; cộng bù cho khỏi thủng đúng CHÍNH GIỮA. */
+const GRID_ROUND_DEG = 0.01;
+export const GRID_SNAP_MAX_LAT_DEG = (GRID_STEP_LAT_DEG + GRID_ROUND_DEG) / 2; // ≈ 0,86°
+export const GRID_SNAP_MAX_LON_DEG = (GRID_STEP_LON_DEG + GRID_ROUND_DEG) / 2; // ≈ 1,06°
+/** Trần xa nhất theo bất kỳ chiều nào — con số để nói/ghi doc (≈ 1,05°) */
+export const GRID_SNAP_MAX_DEG = Math.max(
+  GRID_SNAP_MAX_LAT_DEG,
+  GRID_SNAP_MAX_LON_DEG,
+);
+
+/**
+ * Ô lưới PHỦ chỗ vừa chạm — null nếu lưới rỗng hoặc chỗ đó nằm NGOÀI vùng lưới.
+ * Chọn ô có khoảng cách CHUẨN HOÁ theo nửa-bước nhỏ nhất; ≤ 1 nghĩa là chỗ chạm
+ * nằm trong ô đó. Thuần, test được.
+ */
+export function nearestGridCell(
+  grid: ForecastGrid,
+  lat: number,
+  lon: number,
+): { cell: GridCell; distDeg: number } | null {
+  let best: GridCell | null = null;
+  let bestScore = Infinity;
+  for (const c of grid.cells ?? []) {
+    const score = Math.max(
+      Math.abs(c.lat - lat) / GRID_SNAP_MAX_LAT_DEG,
+      Math.abs(c.lon - lon) / GRID_SNAP_MAX_LON_DEG,
+    );
+    if (score < bestScore) {
+      bestScore = score;
+      best = c;
+    }
+  }
+  if (!best || bestScore > 1) return null;
+  return { cell: best, distDeg: Math.hypot(best.lat - lat, best.lon - lon) };
+}
+
 /** Toạ độ các điểm lưới — xuất riêng để test */
 export function gridPoints(): { lat: number; lon: number }[] {
   const pts: { lat: number; lon: number }[] = [];
@@ -128,6 +182,27 @@ export function savedGridDays(): number[] {
     .map((e) => Number(/^d(\d+)$/.exec(e.id)?.[1]))
     .filter((d) => Number.isFinite(d) && d > 0)
     .sort((a, b) => a - b);
+}
+
+/**
+ * Bản lưới ĐÃ LƯU DÀI NGÀY NHẤT còn trong máy (d16 → d7 → d3…) — phủ được nhiều
+ * ngày nhất cho chuyến dài. Dùng khi mất sóng mà chỗ vừa chạm chưa từng mở xem:
+ * lưới phủ CẢ VÙNG BIỂN nên vẫn có gió/sóng ĐÚNG chỗ đó (xem marine-weather).
+ * null = trong máy chưa có lưới nào dùng được.
+ */
+export function loadLongestSavedGrid(): {
+  grid: ForecastGrid;
+  savedAt: number;
+  days: number;
+} | null {
+  const days = savedGridDays();
+  for (let i = days.length - 1; i >= 0; i--) {
+    const hit = loadForecast<ForecastGrid>(GRID_NS, gridCacheId(days[i]));
+    const g = hit?.data;
+    if (!g?.cells?.length || !g.times?.length) continue;
+    return { grid: g, savedAt: hit!.savedAt, days: days[i] };
+  }
+  return null;
 }
 
 async function fetchForecastGridLive(days = 3): Promise<ForecastGrid> {

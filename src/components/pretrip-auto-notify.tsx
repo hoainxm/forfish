@@ -24,8 +24,12 @@ import {
 } from "@/lib/pretrip-auto";
 import { AlertIcon, CheckIcon } from "@/components/icons";
 
-/** Nói xong thì tắt sau ngần này — đủ đọc một dòng, rồi trả lại bản đồ. */
-const NOTIFY_HIDE_MS = 5000;
+/**
+ * Nói xong thì tắt sau ngần này — đủ đọc một dòng, rồi trả lại bản đồ.
+ * Xuất ra để MỌI dòng báo nổi trên bản đồ tắt cùng một nhịp (vd nhắc "mất
+ * sóng — đang dùng bản đồ lưu trong máy" ở fishing-map-view).
+ */
+export const NOTIFY_HIDE_MS = 5000;
 
 /**
  * CHỈ MỘT LẦN mỗi lần mở app. Để ở mức module (không phải state) nên vẽ lại,

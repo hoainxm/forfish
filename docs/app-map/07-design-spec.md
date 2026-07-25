@@ -199,7 +199,7 @@ Vì sao có ngưỡng 12 h: Service Worker cache `/api/*` network-first → mấ
 
 **D. Chạm điểm lạ khi mất sóng — KHÔNG mượn số chỗ khác** (`lib/marine-weather.ts`)
 
-Bỏ fallback "bản lưu mới nhất của bất kỳ toạ độ nào". Chỉ dùng bản lưu **đúng ô lưới ~0,25°** của chỗ vừa chạm. Không có → peek: "Chỗ này chưa có số nào lưu trong máy — vuốt lên để thử lại."; mở sheet có thêm "Lúc mất sóng, máy chỉ có số ở những chỗ bà con đã mở xem lúc còn sóng. Chạm lại đúng chỗ đó để coi." + nút Thử lại.
+Bỏ fallback "bản lưu mới nhất của bất kỳ toạ độ nào". Chỉ dùng bản lưu **đúng ô lưới ~0,25°** của chỗ vừa chạm. Không có → **thử tiếp LƯỚI đã lưu** (§10.4); lưới cũng không phủ → peek: "Chỗ này chưa có số nào lưu trong máy — vuốt lên để thử lại."; mở sheet có thêm "Lúc mất sóng, máy chỉ có số ở những chỗ bà con đã mở xem lúc còn sóng. Chạm lại đúng chỗ đó để coi." + nút Thử lại.
 
 **E. Độ tin theo tầm ngày THẬT** — `assessForecast` / `applyBiasCorrection` / `forecastConfidence` nhận `todayIso`; lead = số ngày từ hôm nay tới ngày dự báo (`leadOf`), không phải chỉ số mảng. Bản lưu cũ vì thế bị hạ độ tin đúng mức thay vì được nắn bias theo hàng lead 1 (sai theo hướng lạc quan).
 
@@ -268,15 +268,60 @@ Lỗ hổng cuối của mạch §10.1–10.2: số liệu đã nói thật, nh�
 
 **B. Khi nào bật nền trong máy** — `shouldUseOfflineBasemap({online, fails})`: máy báo mất mạng → bật **ngay**; máy báo có mạng nhưng ô nền trượt ≥ **3 ô** (wifi cảng "có mà không ra") → cũng bật. Tải được một ô là đếm về 0 và tắt lại. **Có sóng thì KHÔNG vẽ** — nền thật đủ tốt, vẽ chồng chỉ rối. Lớp bờ đặt DƯỚI mọi lớp khác (ranh giới, cá, mũi tên gió vẫn nổi trên).
 
-**C. Chữ báo cho bà con** (badge góc trái map, nền warn, cùng chỗ với badge tuổi lớp cá)
+**C. Chữ báo cho bà con — MỘT DÒNG, TỰ ẨN** (sửa 2026-07-25p)
+
+Trước đây là **thẻ vàng 2 dòng nằm lì** trên bản đồ. Chủ dự án xem bản thật: cùng bệnh với §10.2 — chữ nằm lì làm rối màn. Nay dùng **đúng kiểu chip** của `pretrip-auto-notify.tsx` / `storm-banner.tsx`: `rounded-full px-3 py-1.5`, 14px đậm, `bg-warn-bg` + ⚠, `role="status"`, `pointer-events-none`.
 
 | Trạng thái | Chữ |
 |---|---|
-| Mất mạng hẳn | **"Mất sóng. Đang dùng hình bờ biển lưu trong máy."** |
-| Có mạng mà ô nền không về | **"Mạng yếu, bản đồ chưa tải về được. Đang dùng hình bờ biển lưu trong máy."** |
-| Cả hai | + dòng nhỏ: "Bờ, đảo, ranh giới và độ sâu vẫn đúng chỗ. Có sóng lại bản đồ tự hiện rõ như cũ." |
+| Mất mạng hẳn | **"Mất sóng — đang dùng bản đồ lưu trong máy."** |
+| Có mạng mà ô nền không về | **"Mạng yếu — đang dùng bản đồ lưu trong máy."** |
+
+- **Tự ẩn sau 5 giây** (`NOTIFY_HIDE_MS`, xuất từ `components/pretrip-auto-notify.tsx` để mọi dòng báo nổi tắt cùng một nhịp).
+- **Hiện lại khi trạng thái ĐỔI**: đang mất sóng → có sóng → mất lại thì báo thêm một lần. Vẫn đang mất sóng thì **không** báo đi báo lại (effect chỉ chạy lại khi CÂU đổi).
+- Bỏ hẳn dòng phụ "Bờ, đảo, ranh giới và độ sâu vẫn đúng chỗ…" — bà con nhìn là thấy, không cần chữ.
 
 Không dùng từ kỹ thuật (tile / offline / cache / bản đồ nền) — có test chặn jargon lọt vào câu này.
+
+### 10.4 Chạm điểm khi mất sóng — LẤY SỐ TỪ LƯỚI ĐÃ LƯU (2026-07-25p)
+
+Chủ dự án bật **chế độ máy bay** trên bản production: bản đồ nền, bờ, đảo, độ sâu và **mũi tên gió đều vẽ đủ**, thanh "Gió · Th 2 27/7 · 6h" chạy được — tức lưới đã lưu đang dùng tốt. Nhưng **chạm một điểm trên biển** thì sheet báo đỏ "Chỗ này chưa có số nào lưu trong máy". Mâu thuẫn thấy bằng mắt: mũi tên đang vẽ ngay chỗ đó mà app nói không có số.
+
+Nguyên nhân: §10.1 D bỏ fallback quá tay — chỉ còn nhận **đúng ô 0,25° đã từng chạm**, trong khi **lưới phủ CẢ VÙNG BIỂN và đúng vị trí**.
+
+**A. Luật lấy số** (`lib/forecast-grid.ts` + `lib/marine-weather.ts`, thuần, có test)
+
+Thứ tự khi `fetchSeaPoint` mất mạng: (1) bản ĐẦY ĐỦ đã lưu của đúng ô 0,25° → (2) **dựng từ lưới đã lưu** → (3) nói thật là chưa có gì.
+
+| Việc | Luật |
+|---|---|
+| Chọn khung lưới | **Khung DÀI NGÀY NHẤT đang có** (`loadLongestSavedGrid`: d16 → d7 → d3) — phủ nhiều ngày nhất cho chuyến dài |
+| Chọn ô lưới | Ô **PHỦ** chỗ vừa chạm (`nearestGridCell`). Trần = **nửa bước lưới theo TỪNG CHIỀU** (`GRID_SNAP_MAX_LAT_DEG` ≈ 0,86° · `GRID_SNAP_MAX_LON_DEG` ≈ 1,06°; `GRID_SNAP_MAX_DEG` = trần lớn nhất). Xa hơn → **KHÔNG dùng**, giữ nguyên câu "chưa có số nào lưu trong máy" |
+| Gộp ngày | Mốc giờ của lưới đã là **giờ VN** → gộp theo ngày, mỗi ngày lấy **gió LỚN NHẤT + sóng CAO NHẤT** (đúng như thẻ ngày mô tả "gió tới…", "sóng tới…") |
+| Nguồn gốc | `stale: true` + `savedAt` của lưới + `source: "saved-grid"` |
+
+> **Vì sao trần là nửa bước lưới chứ không phải 0,5°**: lưới thưa ~2° (ngang 2,11° × dọc 1,70°). Đặt 0,5° thì quá nửa số lần chạm giữa hai mũi tên vẫn bị từ chối — đúng cái mâu thuẫn bà con kêu. Dùng **hai nửa-bước theo hai chiều** (không phải một bán kính tròn) vì lưới dẹt: bán kính tròn để thủng mấy góc ô. Bù thêm 0,01° vì toạ độ ô làm tròn 2 chữ số. **Bất biến giữ nguyên**: ô lưới = đúng chỗ đang chạm, KHÔNG bao giờ dán số của một toạ độ khác.
+
+**B. TRUNG THỰC — lưới CHỈ có gió + sóng**
+
+`SeaPointDay` cho phép `score` / `level` / `precipMm` / `wmoCode` = **null**. Bản dựng từ lưới để null hết → UI **ẩn**:
+
+| Phần | Bản đầy đủ | Bản dựng từ lưới |
+|---|---|---|
+| Chấm tình trạng biển ("Biển êm"/"Biển động…") + màu | có | **ẩn** — peek chỉ hiện tên ngày + số gió/sóng |
+| Màu thẻ ngày / khối "Cả ngày" | theo `level` | **trung tính** (`--field` / `--navy`) |
+| Thẻ "Gió lúc này" / "Sóng lúc này" | có | **ẩn hẳn** (`windKmh` = null — lưới không có số đo hiện tại) |
+| Mưa / dông | có | **ẩn** (`wmoCode` null) |
+| Dải chọn ngày + "Cả ngày: sóng tới … · gió tới cấp …" | có | **có** |
+| Độ tin theo tầm ngày | có | **có** |
+
+**C. Chữ trong sheet**
+
+| Trường hợp | Chữ (nền warn, 17px đậm) |
+|---|---|
+| Bản đầy đủ đã lưu | "Số cũ lưu trong máy — lưu lúc HH:MM ngày D/M (lưu N giờ trước). Chưa phải số mới." |
+| **Dựng từ lưới** | **"Số gió, sóng lấy từ bản đã lưu trong máy (lưu lúc HH:MM ngày D/M). Chưa có mưa, dông cho chỗ này."** |
+| Ngoài vùng lưới / máy chưa lưu gì | "Chỗ này chưa có số nào lưu trong máy — vuốt lên để thử lại." (giữ nguyên) |
 
 **D. Chữ/số trên bản đồ** — `glyphs` trước trỏ CDN `fonts.openmaptiles.org`; dò 2026-07-25 thấy CDN đó **trả trang HTML chuyển hướng thay vì file font** → nhãn "50 m" trên đường đẳng sâu **chưa từng hiện, kể cả lúc có sóng**. Nay tự host `public/fonts/` (Noto Sans Regular + Bold, giấy phép OFL) → chữ hiện, và mất sóng vẫn còn.
 
@@ -319,3 +364,4 @@ Không dùng từ kỹ thuật (tile / offline / cache / bản đồ nền) — 
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): legend cá thành BỘ LỌC kéo-thả 2 đầu (chỉ hiện ô [lo,hi]% khả năng có cá). Độ sâu raster KHÔNG lọc được (giữ legend tĩnh). Screen map/object model KHÔNG đổi cấu trúc -->
 <!-- re-verified: 2026-07-25m — BẢN ĐỒ LÚC MẤT SÓNG (xem §10.3): (1) style thêm layer nền nước sea-bg (không còn màn hình trắng); (2) nền tối giản bờ+đảo public/data/vn-coast.v1.json bật qua lib/offline-basemap.ts khi mất mạng hoặc ≥3 ô nền trượt, đặt DƯỚI mọi lớp khác, có mạng thì không vẽ; (3) badge warn "Mất sóng. Đang dùng hình bờ biển lưu trong máy." cùng chỗ badge tuổi lớp cá; (4) glyph font tự host public/fonts (CDN openmaptiles đã chết → nhãn số mét trước nay KHÔNG hiện); (5) hải đồ + phao đèn qua /api/tiles/* để SW giữ được, kho ô riêng trần 600 ô; sw.js → sdfish-v4. -->
 <!-- re-verified: 2026-07-25n — GỌN MÀN HÌNH (xem §10.2, chủ dự án xem app thật thấy rối): (1) BỎ HẲN mọi chỗ hiện tuổi lớp cá — badge trên map (cả biến thể "Bản đồ cá CŨ" nền vàng), khối warn panel Ngư trường, đuôi "Ảnh ngày…/lấy về…" trong thẻ cá ở sheet; xoá lib/fish-age.ts + test (không còn ai dùng). /api/fish-forecast VẪN trả generatedAt nhưng KHÔNG hiển thị (giữ để đối chiếu). (2) BỎ nút "Chuẩn bị đi biển" + thẻ xanh "Xong. Máy giữ dự báo…" + dòng thường trực "Trong máy: …" → TỰ tải khi vào trang, báo 1 dòng tự ẩn sau 5s ("Đang tải dự báo…" / "Đã lưu dự báo tới ngày D/M." / "Chưa tải được dự báo — chưa có sóng."), kiểu hiển thị mượn storm-banner. (3) TIẾT CHẾ DATA: lib/pretrip-auto.ts shouldAutoPretrip — chỉ tự chạy khi bản cũ hơn PRETRIP_MIN_INTERVAL_MS=6h hoặc chưa có; còn mới/offline → im lặng; 1 lần mỗi lần mở app; mốc ở forfish.pretrip.lastRunAt.v1. lib/pretrip.ts giữ nguyên phần tải (bỏ 2 hàm chữ savedLine/doneLine vì không còn ai hiện). -->
+<!-- re-verified: 2026-07-25p — CHẠM ĐIỂM LÚC MẤT SÓNG + notify mất sóng tự ẩn (xem §10.3 C + §10.4; chủ dự án bật chế độ máy bay trên bản production): (1) fetchSeaPoint mất mạng, chỗ chưa từng xem → DỰNG số từ LƯỚI ĐÃ LƯU (loadLongestSavedGrid d16→d7→d3 + nearestGridCell, trần nửa-bước-lưới TỪNG CHIỀU GRID_SNAP_MAX_LAT_DEG≈0,86°/GRID_SNAP_MAX_LON_DEG≈1,06°, xa hơn → giữ nguyên câu "chưa có số nào lưu trong máy"); gộp mốc giờ theo NGÀY lấy gió max + sóng max. Bất biến "KHÔNG mượn số toạ độ khác" giữ nguyên — ô lưới phủ đúng chỗ chạm. (2) TRUNG THỰC: SeaPointDay cho phép score/level/precipMm/wmoCode = null; bản từ lưới KHÔNG chấm điểm đi biển, ẩn chấm tình trạng biển + màu level (về trung tính --field/--navy), ẩn thẻ "Gió/Sóng lúc này" (windKmh null), ẩn mưa/dông; chữ warn "Số gió, sóng lấy từ bản đã lưu trong máy (lưu lúc HH:MM ngày D/M). Chưa có mưa, dông cho chỗ này." (3) Nhắc mất sóng: thẻ vàng 2 dòng thường trực → CHIP 1 dòng "Mất sóng — đang dùng bản đồ lưu trong máy." / "Mạng yếu — …", tự ẩn sau NOTIFY_HIDE_MS=5s (xuất từ pretrip-auto-notify), hiện lại khi trạng thái đổi, không lặp khi vẫn đang mất sóng. -->

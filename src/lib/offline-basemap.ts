@@ -45,12 +45,16 @@ export function shouldUseOfflineBasemap(h: BasemapHealth): boolean {
 /**
  * Câu nhắc cho bà con — nói việc, không nói từ kỹ thuật ("tile", "offline",
  * "cache"). null = không cần nhắc gì.
+ *
+ * MỘT DÒNG NGẮN, và chỗ gọi cho nó TỰ TẮT sau vài giây (giống dòng "Đã lưu dự
+ * báo tới ngày…"): trước đây đây là thẻ vàng 2 dòng nằm lì trên bản đồ, chủ dự
+ * án xem bản thật thấy rối — nói xong thì trả lại bản đồ cho bà con.
  */
 export function offlineBasemapNote(h: BasemapHealth): string | null {
   if (!shouldUseOfflineBasemap(h)) return null;
   return h.online
-    ? "Mạng yếu, bản đồ chưa tải về được. Đang dùng hình bờ biển lưu trong máy."
-    : "Mất sóng. Đang dùng hình bờ biển lưu trong máy.";
+    ? "Mạng yếu — đang dùng bản đồ lưu trong máy."
+    : "Mất sóng — đang dùng bản đồ lưu trong máy.";
 }
 
 /**
