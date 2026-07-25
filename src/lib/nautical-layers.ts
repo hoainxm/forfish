@@ -10,39 +10,17 @@
 // Style fragments để Lead ghép vào buildMapStyle() trong ocean-map.ts.
 // Lý do tách file: tránh đụng ocean-map.ts đang được session khác sửa.
 
-import type { StyleSpecification } from "maplibre-gl";
-import { apiUrl } from "@/lib/api-base";
 
 export const OPENSEAMAP_DEPTH_ATTRIB =
   "Contour: OpenSeaMap depth WMS (ODbL, dựa GEBCO)";
 export const OSM_OVERPASS_ATTRIB = "© OpenStreetMap (ODbL) qua Overpass";
 
-/** XYZ tile của ForFish API → ảnh contour OpenSeaMap, phù hợp MapLibre raster source. */
-export function openseamapContourTileUrl(): string {
-  return apiUrl("/api/tiles/contour/{z}/{x}/{y}");
-}
-
-/** Source raster cho contour độ sâu, dùng dán vào style.sources. */
-export const openseamapContourSource = {
-  type: "raster" as const,
-  tiles: [openseamapContourTileUrl()],
-  tileSize: 256,
-  minzoom: 4,
-  maxzoom: 8,
-  attribution: OPENSEAMAP_DEPTH_ATTRIB,
-};
-
-/** Layer raster, opacity nhẹ để chồng lên basemap mà không che. */
-export const openseamapContourLayer = {
-  id: "openseamap-contour",
-  type: "raster" as const,
-  source: "openseamap-contour",
-  paint: {
-    "raster-opacity": 0.65,
-  },
-  minzoom: 4,
-  maxzoom: 9,
-};
+// GỠ 2026-07-25: openseamapContourTileUrl / openseamapContourSource /
+// openseamapContourLayer / withContourLayer đã XOÁ cùng route
+// /api/tiles/contour. Lý do: thư mục tĩnh `contour` đứng cạnh route ĐỘNG
+// `/api/tiles/[src]` làm Next 16 (Turbopack) DROP TOÀN BỘ /api/* → mọi API
+// trả 404 lúc chạy (build vẫn pass). Chúng vốn là code chết (0 nơi gọi).
+// Hải đồ + phao đèn nay đi qua proxy /api/tiles/[src] (src/lib/tile-proxy.ts).
 
 // ── Overpass vector ──────────────────────────────────────────────────────
 export type NauticalKind = "wreck" | "lighthouse" | "buoy" | "harbour";
@@ -172,20 +150,3 @@ export function openseamapContourGetMapUrl(
   return `https://depth.openseamap.org/geoserver/openseamap/wms?${params.toString()}`;
 }
 
-/** Gắn 2 thứ vào StyleSpecification mà không sửa file ocean-map.ts.
- *  Lead có thể gọi từ buildMapStyle() bằng `withContourLayer(style)`. */
-export function withContourLayer(
-  style: StyleSpecification,
-): StyleSpecification {
-  const next: StyleSpecification = JSON.parse(JSON.stringify(style));
-  next.sources = {
-    ...next.sources,
-    "openseamap-contour": openseamapContourSource,
-  };
-  // chèn trước layer seamark nếu có (để contour nằm dưới phao đèn)
-  const seamarkIdx = next.layers.findIndex((l) => l.id.includes("seamark"));
-  const layer = { ...openseamapContourLayer };
-  if (seamarkIdx >= 0) next.layers.splice(seamarkIdx, 0, layer);
-  else next.layers.push(layer);
-  return next;
-}
