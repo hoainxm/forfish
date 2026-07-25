@@ -49,21 +49,23 @@ describe("fishInRegion", () => {
     }
   });
 
-  it("cá ngừ đại dương có QUANH NĂM ở khơi (kể cả tháng 7, mùa gió Tây Nam)", () => {
-    const TUNA = "Cá ngừ đại dương (vây vàng, mắt to)";
-    // trước đây tháng 7 loài này biến mất (chỉ để tháng 12–6) → user báo thiếu
+  it("cá ngừ vây vàng + mắt to (2 loài riêng) có QUANH NĂM ở khơi, kể cả tháng 7", () => {
+    // tách 2 loài 2026-07-25; trước đây gộp + chỉ để T12–6 nên T7 biến mất
+    const TUNAS = ["Cá ngừ vây vàng", "Cá ngừ mắt to"];
     const offshore: FishRegionId[] = [
       "truong-sa-dk1",
       "nam-trung-bo",
       "hoang-sa",
       "trung-bo",
     ];
-    for (const month of [7, 8, 9]) {
-      for (const region of offshore) {
-        expect(
-          fishInRegion(region, month).some((s) => s.species === TUNA),
-          `cá ngừ đại dương thiếu ở ${region} tháng ${month}`,
-        ).toBe(true);
+    for (const sp of TUNAS) {
+      for (const month of [7, 8, 9]) {
+        for (const region of offshore) {
+          expect(
+            fishInRegion(region, month).some((s) => s.species === sp),
+            `${sp} thiếu ở ${region} tháng ${month}`,
+          ).toBe(true);
+        }
       }
     }
   });

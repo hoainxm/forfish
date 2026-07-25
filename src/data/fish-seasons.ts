@@ -169,17 +169,23 @@ export interface FishSeason {
 // (vd mực ống: vịnh Bắc Bộ rộ hè, Phú Quốc rộ mùa khô).
 export const FISH_SEASONS: FishSeason[] = [
   {
-    // Loài nổi lớn di cư, có mặt QUANH NĂM ở biển khơi VN (SST ưa 24–31°C, Biển
-    // Đông đủ ấm cả 12 tháng) — cái đổi theo mùa là NGƯ TRƯỜNG + SẢN LƯỢNG, không
-    // phải sự hiện diện. Để cả năm cho trung thực + khớp cách app chấm theo SST
-    // thực tế; note phân biệt chính vụ/vụ phụ. Nguồn: RIMF/Thủy sản VN (ngư
-    // trường dịch theo gió mùa), Báo Khánh Hòa 1/2024 (chính vụ gấp 3–4 lần
-    // giữa năm — tức giữa năm ≠ 0), SEAFDEC (đỉnh phụ tháng 7–9 ở Trường Sa),
-    // FishBase/IUCN (nhiệt đới, đẻ quanh năm ở vĩ độ thấp). (agent khảo cứu 2026-07-25)
-    species: "Cá ngừ đại dương (vây vàng, mắt to)",
+    // "Cá ngừ đại dương" TÁCH 2 LOÀI (2026-07-25): vây vàng + mắt to. Cả hai loài
+    // nổi lớn di cư, có mặt QUANH NĂM ở khơi VN (Biển Đông ấm cả 12 tháng) — đổi
+    // theo mùa là NGƯ TRƯỜNG + SẢN LƯỢNG, không phải sự hiện diện. Cùng ngư trường
+    // (câu vàng/câu tay bắt lẫn nhau), khác biệt chính là TẦNG NƯỚC nên vùng/mùa
+    // để giống nhau. Nguồn: RIMF/Thủy sản VN, Báo Khánh Hòa 1/2024 (chính vụ gấp
+    // 3–4 lần giữa năm ⇒ giữa năm ≠ 0), SEAFDEC (đỉnh phụ T7–9 Trường Sa),
+    // FishBase/WCPFC. (agent khảo cứu 2026-07-25)
+    species: "Cá ngừ vây vàng",
     months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     regions: ["trung-bo", "nam-trung-bo", "hoang-sa", "truong-sa-dk1"],
-    note: "Có quanh năm ở biển khơi; rộ nhất mùa gió Đông Bắc (khoảng tháng 11–4), giữa năm gió Tây Nam ít hơn nhưng vẫn có, cá dồn về Trường Sa và khơi Trung Bộ.",
+    note: "Có quanh năm ở biển khơi; rộ mùa gió Đông Bắc (khoảng tháng 12–6), câu tay/câu vàng khơi Trung Bộ – Trường Sa. Cá bám tầng mặt, dễ trúng khi biển êm.",
+  },
+  {
+    species: "Cá ngừ mắt to",
+    months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    regions: ["trung-bo", "nam-trung-bo", "hoang-sa", "truong-sa-dk1"],
+    note: "Có quanh năm, đi cùng ngư trường vây vàng (câu vàng khơi xa Trung Bộ – Trường Sa). Cá ở tầng sâu ban ngày, thường dính câu vàng thả sâu; sản lượng lẫn với vây vàng.",
   },
   {
     species: "Cá ngừ vằn",

@@ -333,7 +333,7 @@ describe("thermoFit (tầng nhiệt D20)", () => {
 });
 
 describe("tầng nhiệt HYCOM tăng điểm cá ngừ", () => {
-  // ngoài khơi Nam Trung Bộ, tháng 6 — cá ngừ đại dương đang vụ
+  // ngoài khơi Nam Trung Bộ, tháng 6 — cá ngừ vây vàng đang vụ
   const tlats = [11.5, 11.75, 12.0];
   const tlons = [110.0, 110.25, 110.5];
   const warmOff = grid(
@@ -354,7 +354,7 @@ describe("tầng nhiệt HYCOM tăng điểm cá ngừ", () => {
     tlats,
     tlons,
   );
-  it("D20 vùng tốt (120 m) → điểm 'ngừ đại dương' cao hơn khi KHÔNG có tầng nhiệt", () => {
+  it("D20 vùng tốt (120 m) → điểm 'ngừ vây vàng' cao hơn khi KHÔNG có tầng nhiệt", () => {
     const base = buildFishForecast(warmOff, clearChl, null, 6);
     const d20 = grid(
       [
@@ -367,9 +367,9 @@ describe("tầng nhiệt HYCOM tăng điểm cá ngừ", () => {
     );
     const withT = buildFishForecast(warmOff, clearChl, null, 6, { thermo: d20 });
     const no =
-      base.cells.find((c) => c.sp["ngừ đại dương"])?.sp["ngừ đại dương"] ?? 0;
+      base.cells.find((c) => c.sp["ngừ vây vàng"])?.sp["ngừ vây vàng"] ?? 0;
     const yes =
-      withT.cells.find((c) => c.sp["ngừ đại dương"])?.sp["ngừ đại dương"] ?? 0;
+      withT.cells.find((c) => c.sp["ngừ vây vàng"])?.sp["ngừ vây vàng"] ?? 0;
     expect(yes).toBeGreaterThan(no);
     expect(yes).toBeGreaterThanOrEqual(35);
   });

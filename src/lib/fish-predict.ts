@@ -96,7 +96,13 @@ export interface SpeciesProfile {
 // nhỏ = xanh lá, mực = tím, cá đáy = cam nâu, cá rạn = đỏ, giáp xác = hồng sen.
 export const SPECIES_PROFILES: SpeciesProfile[] = [
   // ── CÁ NỔI LỚN xa bờ — săn ở rìa xoáy ấm + front + hội tụ dòng ───────────
-  { species: "Cá ngừ đại dương (vây vàng, mắt to)", short: "ngừ đại dương", category: "pelagic-large", surfaceSignal: "high", color: "#1d4ed8", depthBand: "tầng mặt 0–250 m, xa bờ", sst: [24, 26, 30, 31.5], chlLog: [-1.1, -0.2], w: { food: 0.2, thermFront: 0.3, chlFront: 0.15, eddy: 0.35, upw: 0.05, conv: 0.2, thermo: 0.3 }, coldCore: false },
+  // Cá ngừ đại dương TÁCH 2 LOÀI (2026-07-25) — khác nhau chính ở TẦNG NƯỚC:
+  // vây vàng bám mặt/đỉnh nêm nhiệt (ảnh mặt biển tin được, thermo nhẹ);
+  // mắt to ngày lặn sâu 200–500 m gắn nêm nhiệt (ảnh mặt biển kém chỉ điểm →
+  // surfaceSignal "medium", thermo NẶNG). Nguồn: Weng PSAT, Schaefer archival
+  // tags, nghiên cứu tầng nhiệt cá ngừ Biển Đông (Fishes 2023), WCPFC VN.
+  { species: "Cá ngừ vây vàng", short: "ngừ vây vàng", category: "pelagic-large", surfaceSignal: "high", color: "#1d4ed8", depthBand: "tầng mặt 0–100 m (lớp trộn & đỉnh nêm nhiệt), xa bờ", sst: [23.5, 26, 30, 31.5], chlLog: [-1.1, -0.1], w: { food: 0.25, thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.1, conv: 0.25, thermo: 0.2 }, coldCore: false },
+  { species: "Cá ngừ mắt to", short: "ngừ mắt to", category: "pelagic-large", surfaceSignal: "medium", color: "#4338ca", depthBand: "đêm tầng mặt <50 m, ngày lặn sâu 200–500 m (quanh/dưới nêm nhiệt), xa bờ", sst: [22, 25, 29, 31], chlLog: [-1.3, -0.3], w: { food: 0.15, thermFront: 0.3, chlFront: 0.1, eddy: 0.35, upw: 0.05, conv: 0.15, thermo: 0.5 }, coldCore: false },
   { species: "Cá ngừ vằn", short: "ngừ vằn", category: "pelagic-large", surfaceSignal: "high", color: "#2563eb", depthBand: "tầng mặt 0–260 m", sst: [23, 25, 29.5, 31], chlLog: [-1.0, 0.0], w: { food: 0.25, thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.05, conv: 0.2, thermo: 0.2 }, coldCore: false },
   { species: "Cá ngừ chù", short: "ngừ chù", category: "pelagic-large", surfaceSignal: "medium", color: "#0891b2", depthBand: "tầng mặt 0–50 m", sst: [24, 28, 31, 32], chlLog: [-1.1, -0.5], w: { food: 0.25, thermFront: 0.2, chlFront: 0.25, eddy: 0.15, upw: 0.05, conv: 0.1, thermo: 0.2 }, coldCore: false },
   { species: "Cá ngừ ồ", short: "ngừ ồ", category: "pelagic-large", surfaceSignal: "medium", color: "#0e7490", depthBand: "tầng mặt 0–200 m, ven rạn", sst: [18, 24, 28, 30], chlLog: [-0.8, 0.3], w: { food: 0.3, thermFront: 0.25, chlFront: 0.2, eddy: 0.1, upw: 0.1, conv: 0.05, thermo: 0.15 }, coldCore: false },
