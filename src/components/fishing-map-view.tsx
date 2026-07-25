@@ -28,7 +28,6 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import {
   buildMapStyle,
   formatDateVN,
-  latestAvailableDate,
   DEFAULT_VIEW,
   OCEAN_LAYERS,
   SOVEREIGNTY_LABELS,
@@ -631,8 +630,6 @@ export default function FishingMapView() {
     };
   }, [point]);
 
-  const layer = OCEAN_LAYERS[layerId];
-  const dataDate = latestAvailableDate(new Date(), layer.lagDays);
   const mapStyle = useMemo(
     () =>
       buildMapStyle(layerId, new Date(), {
@@ -1177,7 +1174,6 @@ export default function FishingMapView() {
           fishRange={fishRange}
           onRange={setFishRange}
           storms={storms}
-          dataDate={dataDate}
           showPlaces={showPlaces}
           onShowPlaces={setShowPlaces}
           places={places}

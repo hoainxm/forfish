@@ -14,7 +14,6 @@ import { useEffect, useState } from "react";
 import {
   OCEAN_LAYERS,
   OCEAN_LAYER_ORDER,
-  formatDateVN,
   type OceanLayerId,
 } from "@/lib/ocean-map";
 import type { ForecastKind } from "@/lib/forecast-grid";
@@ -77,7 +76,6 @@ export function RaKhoiControls({
   fishRange,
   onRange,
   storms,
-  dataDate,
   showPlaces,
   onShowPlaces,
   places,
@@ -109,7 +107,6 @@ export function RaKhoiControls({
   fishRange: [number, number];
   onRange: (r: [number, number]) => void;
   storms: StormAlert[];
-  dataDate: string;
   showPlaces: boolean;
   onShowPlaces: (on: boolean) => void;
   /** điểm đã lưu — quản lý ngay trong panel rail (không bottom-sheet) */
@@ -212,7 +209,6 @@ export function RaKhoiControls({
                     onScalar(null);
                     onLayer(id);
                   }}
-                  dataDate={dataDate}
                 />
               )}
               {open === "ngu-truong" && (
@@ -380,22 +376,20 @@ function PanelHeader({
   );
 }
 
-function cadLine(id: OceanLayerId, dataDate: string): { text: string; dot: string } {
+function cadLine(id: OceanLayerId): { text: string; dot: string } {
   const def = OCEAN_LAYERS[id];
   if (!def.dated) return { text: "Cố định · Không đổi theo ngày", dot: DOT.coDinh };
-  return { text: `Theo ngày · Ảnh ${formatDateVN(dataDate)} · chậm ~2 ngày`, dot: DOT.ngay };
+  return { text: "Theo ngày", dot: DOT.ngay };
 }
 
 function HaiDoPanel({
   layerId,
   scalarKind,
   onLayer,
-  dataDate,
 }: {
   layerId: OceanLayerId;
   scalarKind: SeaScalarKind | null;
   onLayer: (id: OceanLayerId) => void;
-  dataDate: string;
 }) {
   return (
     <div>
@@ -406,7 +400,7 @@ function HaiDoPanel({
         {OCEAN_LAYER_ORDER.map((id) => {
           const def = OCEAN_LAYERS[id];
           const active = !scalarKind && id === layerId;
-          const cad = cadLine(id, dataDate);
+          const cad = cadLine(id);
           return (
             <li key={id}>
               <button
