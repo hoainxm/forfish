@@ -14,6 +14,7 @@ gate: warn
 <!-- re-verified: 2026-07-25 — forecast-grid.ts (lớp Windy) nay CHỌN KHUNG 3/5/7/10/16 ngày, dùng model sóng ncep_gfswave025 (như sea/marine-weather) + bước giờ tăng dần, client timeout 20s. sea/marine-weather mở 16 ngày (WAVE_MODEL). -->
 <!-- re-verified: 2026-07-25b — fish-predict.ts tách cá ngừ đại dương → vây vàng + mắt to (39→40 loài); KHÔNG đổi tích hợp nguồn ERDDAP/HYCOM (URL/UA/timeout giữ nguyên), chỉ là tham số khẩu vị loài. -->
 <!-- re-verified: 2026-07-25c — THÊM nguồn runtime ETOPO 2022 (PIFSC ERDDAP) cho fish-forecast: cổng độ sâu chặn loài xa bờ (cá ngừ/cờ/nục heo/mực xà) khỏi ô cạn sát bờ. Row ETOPO thêm vào bảng; degrade .catch→null. -->
+<!-- re-verified: 2026-07-25d — VIỆC 2: fish-predict.ts đổi CÁCH XỬ LÝ anomaly (noaacrwsstanomalyDaily) + SSHA (noaacwBLENDEDsshDaily) — nay lấy dị thường KHÔNG GIAN (so vùng bên cạnh) thay vì so cả-bồn. KHÔNG thêm nguồn/URL/UA/timeout mới, không thêm fetch; chỉ hậu xử lý grid tại chỗ (spatialAnomaly, ~0.2s cả anom+sla, trong ngân sách route 60s). -->
 **Last updated**: 2026-07-25
 
 ---

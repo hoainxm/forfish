@@ -11,6 +11,7 @@ import {
   parseErddapGrid,
   percentileRank,
   softOrHabitat,
+  spatialAnomaly,
   trapezoid,
   SPECIES_META,
   SPECIES_PROFILES,
@@ -208,8 +209,9 @@ describe("buildFishForecast", () => {
     expect(out.cells).toHaveLength(0);
   });
 
-  it("thêm SSHA (xoáy lạnh, mực nước lõm) → điểm cá nổi nhỏ TĂNG", () => {
-    // nền: cá nục (coldCore) hợp nhiệt + mồi vừa, không front
+  it("SSHA lõm CỤC BỘ (thấp hơn vùng bên cạnh) → điểm cá nổi nhỏ TĂNG", () => {
+    // VIỆC 2: chỉ mực nước THẤP HƠN LÂN CẬN mới là xoáy/nước trồi cục bộ. Ô
+    // giữa (lon 107.25) lõm so 8 ô quanh → coldStrength cao ở đúng ô đó.
     const flatChl = grid(
       [
         [0.3, 0.3, 0.3],
@@ -220,8 +222,34 @@ describe("buildFishForecast", () => {
       lons,
     );
     const noEddy = buildFishForecast(warm, flatChl, null, 6);
-    // SSHA lõm mạnh (nước trồi lạnh) cùng lưới
-    const coldSsha = grid(
+    const dipSsha = grid(
+      [
+        [0.0, 0.0, 0.0],
+        [0.0, -0.2, 0.0],
+        [0.0, 0.0, 0.0],
+      ],
+      lats,
+      lons,
+    );
+    const withEddy = buildFishForecast(warm, flatChl, dipSsha, 6);
+    const bestNuc = (o: ReturnType<typeof buildFishForecast>) =>
+      Math.max(0, ...o.cells.map((c) => c.sp["cá nục"] ?? 0));
+    expect(bestNuc(withEddy)).toBeGreaterThan(bestNuc(noEddy));
+  });
+
+  it("SSHA lõm ĐỒNG LOẠT cả vùng (mùa cả bồn) → KHÔNG đổi điểm (Việc 2)", () => {
+    // nền cả-vùng thấp đều = tín hiệu mùa steric, KHÔNG phải xoáy cục bộ → bỏ.
+    const flatChl = grid(
+      [
+        [0.3, 0.3, 0.3],
+        [0.3, 0.3, 0.3],
+        [0.3, 0.3, 0.3],
+      ],
+      lats,
+      lons,
+    );
+    const noEddy = buildFishForecast(warm, flatChl, null, 6);
+    const uniformLow = grid(
       [
         [-0.15, -0.15, -0.15],
         [-0.15, -0.15, -0.15],
@@ -230,13 +258,13 @@ describe("buildFishForecast", () => {
       lats,
       lons,
     );
-    const withEddy = buildFishForecast(warm, flatChl, coldSsha, 6);
-    const nucNo = noEddy.cells.find((c) => c.sp["cá nục"])?.sp["cá nục"] ?? 0;
-    const nucYes = withEddy.cells.find((c) => c.sp["cá nục"])?.sp["cá nục"] ?? 0;
-    expect(nucYes).toBeGreaterThan(nucNo);
+    const withUniform = buildFishForecast(warm, flatChl, uniformLow, 6);
+    const bestNuc = (o: ReturnType<typeof buildFishForecast>) =>
+      Math.max(0, ...o.cells.map((c) => c.sp["cá nục"] ?? 0));
+    expect(bestNuc(withUniform)).toBe(bestNuc(noEddy));
   });
 
-  it("dị thường nhiệt ÂM (nước trồi) → điểm cá nổi nhỏ TĂNG", () => {
+  it("dị thường nhiệt ÂM CỤC BỘ (nước trồi lạnh hơn lân cận) → điểm TĂNG", () => {
     const flatChl = grid(
       [
         [0.3, 0.3, 0.3],
@@ -247,21 +275,21 @@ describe("buildFishForecast", () => {
       lons,
     );
     const base = buildFishForecast(warm, flatChl, null, 6);
-    const coldAnom = grid(
+    const dipAnom = grid(
       [
-        [-1.5, -1.5, -1.5],
-        [-1.5, -1.5, -1.5],
-        [-1.5, -1.5, -1.5],
+        [0.0, 0.0, 0.0],
+        [0.0, -1.5, 0.0],
+        [0.0, 0.0, 0.0],
       ],
       lats,
       lons,
     );
     const withUpw = buildFishForecast(warm, flatChl, null, 6, {
-      anom: coldAnom,
+      anom: dipAnom,
     });
-    const no = base.cells.find((c) => c.sp["cá cơm"])?.sp["cá cơm"] ?? 0;
-    const yes = withUpw.cells.find((c) => c.sp["cá cơm"])?.sp["cá cơm"] ?? 0;
-    expect(yes).toBeGreaterThan(no);
+    const bestCom = (o: ReturnType<typeof buildFishForecast>) =>
+      Math.max(0, ...o.cells.map((c) => c.sp["cá cơm"] ?? 0));
+    expect(bestCom(withUpw)).toBeGreaterThan(bestCom(base));
   });
 
   it("dòng chảy HỘI TỤ → điểm tăng so với không có dữ liệu dòng", () => {
@@ -542,6 +570,60 @@ describe("gradientStrength", () => {
     ];
     // gradient dọc giữa = (1.2-0)/2 = 0.6 ≥ full 0.25 → 1
     expect(gradientStrength(ramp, 0.25)[1][1]).toBe(1);
+  });
+});
+
+describe("spatialAnomaly (VIỆC 2 — so nước với vùng bên cạnh)", () => {
+  // lưới đều 0.5° để bán kính 1.0° gom lân cận
+  const lats = [10, 10.5, 11, 11.5, 12];
+  const lons = [110, 110.5, 111, 111.5, 112];
+
+  it("trường ĐỒNG ĐỀU → dị thường 0 mọi ô (bỏ nền cả-vùng)", () => {
+    const v = lats.map(() => lons.map(() => 3.7));
+    const out = spatialAnomaly(v, lats, lons, 1.0);
+    for (const row of out) for (const x of row) expect(x).toBeCloseTo(0, 10);
+  });
+
+  it("nền dốc ĐỒNG LOẠT cả vùng: tâm vẫn ~0 (chỉ bỏ phần đồng đều, giữ cấu trúc)", () => {
+    // gradient tuyến tính theo lat — quanh 1 ô trung vị lân cận ≈ giá trị ô đó
+    const v = lats.map((la) => lons.map(() => la));
+    const out = spatialAnomaly(v, lats, lons, 1.0);
+    // ô giữa (11): median lân cận đối xứng ≈ 11 → dị thường ≈ 0
+    expect(out[2][2]).toBeCloseTo(0, 6);
+  });
+
+  it("1 ô LẠNH giữa vùng ấm → dị thường ÂM rõ; hàng xóm dương nhẹ", () => {
+    const v = lats.map(() => lons.map(() => 4.0));
+    v[2][2] = 1.0; // ô lạnh
+    const out = spatialAnomaly(v, lats, lons, 1.0);
+    expect(out[2][2]).toBeLessThan(-2); // âm rõ (median lân cận ~4)
+    expect(out[2][1]).toBeGreaterThanOrEqual(0); // hàng xóm hơi dương
+  });
+
+  it("ô NaN GIỮ NaN; NaN bị loại khỏi median", () => {
+    const v = lats.map(() => lons.map(() => 5.0));
+    v[0][0] = NaN;
+    const out = spatialAnomaly(v, lats, lons, 1.0);
+    expect(Number.isNaN(out[0][0])).toBe(true);
+    // ô kề NaN vẫn tính bình thường (bỏ NaN) → đồng đều còn lại → 0
+    expect(out[0][1]).toBeCloseTo(0, 10);
+  });
+
+  it("biên mảng: ô góc chỉ có lân cận bên trong, không lỗi", () => {
+    const v = lats.map(() => lons.map(() => 2.0));
+    v[4][4] = 9.0; // góc nóng
+    const out = spatialAnomaly(v, lats, lons, 1.0);
+    expect(out[4][4]).toBeGreaterThan(0);
+    expect(Number.isFinite(out[0][0])).toBe(true);
+  });
+
+  it("bán kính lớn → gom cả lưới; ô lạnh lệch so trung vị TOÀN lưới", () => {
+    const v = lats.map(() => lons.map(() => 6.0));
+    v[2][2] = 0.0;
+    const out = spatialAnomaly(v, lats, lons, 100);
+    // median toàn lưới = 6 (24 ô 6 + 1 ô 0) → tâm = 0 - 6 = -6
+    expect(out[2][2]).toBeCloseTo(-6, 6);
+    expect(out[0][0]).toBeCloseTo(0, 6);
   });
 });
 

@@ -77,6 +77,24 @@ const NEUTRAL_AGG = 0.6;
 const FOOD_FLOOR = 0.45;
 /** Ngưỡng GIỮ ô/loài trong payload (điểm 0–100). Client lọc theo sàn hiển thị 50. */
 const KEEP_MIN = 25;
+/** VIỆC 2 — bán kính (độ) so nước với VÙNG BÊN CẠNH (dị thường KHÔNG GIAN).
+ *  Trừ trung vị lân cận = bỏ phần đồng đều cả-bồn (mùa steric / anomaly nhiều
+ *  năm sáng-tối đồng loạt), giữ lại cấu trúc nước trồi/xoáy ĐỊA PHƯƠNG. */
+const SPATIAL_RADIUS_DEG = 2.5;
+// CALIBRATE trên lưới THẬT (30 ngày ERDDAP, xem scripts/fish-predict-viec2-spatial.mjs):
+//   p90(|dị thường không gian|): anom 0.43 °C, sla 0.092 m.
+//   BẰNG CHỨNG fix có tác dụng — std KHÔNG GIAN của yếu tố (giữa các ô) TRƯỚC→SAU:
+//     upwTerm 0.068→0.311 (mùa hè anomaly DƯƠNG cả bồn → upwTerm cũ ~0 KHẮP NƠI,
+//       chết như tín hiệu xếp hạng; nay trải rộng → "lần đầu chỉ vào chỗ cụ thể").
+//     coldStr 0.304→0.293 (sla mùa cả-bồn YẾU trong cửa sổ này, std giữa-ngày
+//       0.011 m < 0.02 → SSHA thô đã mang cấu trúc cục bộ; dị thường không gian
+//       vô hại, đúng nguyên tắc, sẽ có ích ở mùa sla nền mạnh).
+//   %diện tích điểm nóng (s≥50) CŨ→MỚI: 14.9%→16.6% (Δ+1.7, KHÔNG phình).
+/** Chuẩn hoá dị thường KHÔNG GIAN của anomaly nhiệt (°C) → upwTerm 0..1. Trên
+ *  p90=0.43 một chút để giữ %điểm nóng không phình (Δ≤2) mà upwTerm vẫn trải rộng. */
+const UPW_SCALE = 0.55;
+/** Chuẩn hoá dị thường KHÔNG GIAN của SSHA (m) → coldStrength 0..1. ≈ p90=0.092. */
+const COLD_SCALE = 0.09;
 
 export interface SpeciesProfile {
   /** khớp đúng chuỗi `species` trong FISH_SEASONS */
@@ -425,6 +443,63 @@ export function nearestIndex(arr: number[], v: number): number {
   return best;
 }
 
+/** Trung vị của mảng số (đã bỏ NaN). Rỗng → NaN. KHÔNG đột biến đầu vào. */
+function median(a: number[]): number {
+  const n = a.length;
+  if (n === 0) return NaN;
+  const s = a.slice().sort((x, y) => x - y);
+  const m = n >> 1;
+  return n % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+/**
+ * VIỆC 2 — dị thường KHÔNG GIAN: mỗi ô trừ TRUNG VỊ (median) các ô HỮU HẠN
+ * trong bán kính `radiusDeg` (đơn vị độ, khoảng cách Euclid trên lat/lon).
+ * So nước với VÙNG BÊN CẠNH (không so nhiều năm/cả bồn) → bỏ phần sáng-tối
+ * ĐỒNG LOẠT của cả miền (mùa steric SSHA, anomaly nhiều năm), chỉ còn cấu trúc
+ * nước trồi/xoáy lạnh ĐỊA PHƯƠNG — thứ THỰC SỰ xếp hạng được ô nào hơn ô nào.
+ * Ô NaN giữ NaN; NaN bị loại khỏi median (median robust hơn mean với ô biên/khuyết).
+ * O(ô × cửa-sổ): lats/lons tăng dần nên bỏ sớm ngoài dải ±radius.
+ */
+export function spatialAnomaly(
+  values: number[][],
+  lats: number[],
+  lons: number[],
+  radiusDeg: number,
+): number[][] {
+  const H = values.length;
+  const W = H ? values[0].length : 0;
+  const r2 = radiusDeg * radiusDeg;
+  const out = values.map((row) => row.map(() => NaN));
+  const buf: number[] = [];
+  for (let i = 0; i < H; i++) {
+    for (let j = 0; j < W; j++) {
+      const v0 = values[i][j];
+      if (!Number.isFinite(v0)) continue; // ô NaN giữ NaN
+      const lat0 = lats[i];
+      const lon0 = lons[j];
+      buf.length = 0;
+      for (let i2 = 0; i2 < H; i2++) {
+        const dLat = lats[i2] - lat0;
+        if (dLat < -radiusDeg) continue;
+        if (dLat > radiusDeg) break; // lats tăng dần → hết dải
+        const row = values[i2];
+        const dLat2 = dLat * dLat;
+        for (let j2 = 0; j2 < W; j2++) {
+          const dLon = lons[j2] - lon0;
+          if (dLon < -radiusDeg) continue;
+          if (dLon > radiusDeg) break; // lons tăng dần → hết dải
+          if (dLat2 + dLon * dLon > r2) continue; // ngoài hình tròn
+          const v = row[j2];
+          if (Number.isFinite(v)) buf.push(v);
+        }
+      }
+      out[i][j] = v0 - median(buf); // buf luôn chứa v0 → không rỗng
+    }
+  }
+  return out;
+}
+
 export interface FishCell {
   lat: number;
   lon: number;
@@ -492,8 +567,17 @@ export function buildFishForecast(
   const thermFront = frontStrength(sst);
   const logChl = logChlGrid(chl);
   const chlFront = gradientStrength(logChl, 0.25);
-  // rìa xoáy + cường độ nước trồi lạnh (chỉ khi có SSHA)
+  // rìa xoáy = GRADIENT của SSHA (giữ nguyên — cấu trúc cục bộ sẵn có)
   const eddyEdge = sla ? gradientStrength(sla.values, 0.08) : null;
+  // VIỆC 2 — ĐỘ LỚN nước trồi/xoáy lạnh dùng DỊ THƯỜNG KHÔNG GIAN (so vùng bên
+  // cạnh), KHÔNG dùng anomaly nhiều năm / SSHA thô (chúng sáng-tối cả bồn theo
+  // mùa → chỉ chỉnh độ sáng toàn miền, không xếp hạng ô). Precompute 1 lần.
+  const slaSpatial = sla
+    ? spatialAnomaly(sla.values, sla.lats, sla.lons, SPATIAL_RADIUS_DEG)
+    : null;
+  const anomSpatial = anom
+    ? spatialAnomaly(anom.values, anom.lats, anom.lons, SPATIAL_RADIUS_DEG)
+    : null;
   // hội tụ dòng chảy mặt (chỉ khi có u,v) — full 0.1 m/s mỗi ô 0.25°
   const convGrid = cur
     ? convergenceStrength(cur.u.values, cur.v.values, 0.1)
@@ -530,19 +614,22 @@ export function buildFishForecast(
         const si = nearestIndex(sla.lats, lat);
         const sj = nearestIndex(sla.lons, lon);
         fEddy = eddyEdge[si]?.[sj] ?? 0;
-        const slaV = sla.values[si]?.[sj];
-        // mực nước lõm (âm) = xoáy/nước trồi lạnh, năng suất cao
-        coldStrength = Number.isFinite(slaV)
-          ? Math.min(1, Math.max(0, -slaV / 0.12))
+        // mực nước THẤP HƠN VÙNG LÂN CẬN (dị thường không gian âm) = xoáy/nước
+        // trồi lạnh cục bộ, năng suất cao — KHÔNG so mực tuyệt đối (mùa cả bồn).
+        const slaAnomV = slaSpatial?.[si]?.[sj];
+        coldStrength = Number.isFinite(slaAnomV)
+          ? Math.min(1, Math.max(0, -(slaAnomV as number) / COLD_SCALE))
           : 0;
       }
-      // nước trồi/xáo trộn: dị thường nhiệt ÂM rõ (−1.5 °C → 1); null = thiếu
+      // nước trồi/xáo trộn: LẠNH HƠN VÙNG LÂN CẬN (dị thường không gian nhiệt
+      // âm rõ); null = thiếu. So vùng bên cạnh, không so anomaly nhiều năm.
       let upwTerm: number | null = null;
       if (anom) {
         const ai = nearestIndex(anom.lats, lat);
         const aj = nearestIndex(anom.lons, lon);
-        const a = anom.values[ai]?.[aj];
-        if (Number.isFinite(a)) upwTerm = Math.min(1, Math.max(0, -a / 1.5));
+        const a = anomSpatial?.[ai]?.[aj];
+        if (Number.isFinite(a))
+          upwTerm = Math.min(1, Math.max(0, -(a as number) / UPW_SCALE));
       }
       // hội tụ dòng chảy mặt tại ô; null = thiếu dữ liệu
       let convTerm: number | null = null;
