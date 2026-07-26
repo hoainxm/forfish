@@ -271,6 +271,7 @@ export async function GET() {
     const quality: QualityField[] = [];
     for (const [key, r] of Object.entries(fields)) {
       quality.push({
+        key,
         required: REQUIRED_FIELDS.has(key),
         resolved: r ? { stale: r.stale } : null,
       });

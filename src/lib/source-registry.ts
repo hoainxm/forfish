@@ -117,12 +117,56 @@ export async function resolveField<T>(
 
 /** Trường bắt buộc bị CŨ: trừ nặng (SST/phù du cũ = cả bản đồ lệch) */
 export const STALE_REQUIRED_PENALTY = 0.25;
-/** Trường tuỳ chọn MẤT HẲN: bớt một yếu tố gom cá */
+
+/**
+ * PHẠT THEO ĐÒN BẨY — mất mỗi nguồn TUỲ CHỌN trừ bao nhiêu.
+ *
+ * VÌ SAO KHÔNG PHẠT ĐỀU (sửa 2026-07-26): bản cũ trừ 0,05 cho MỌI trường tuỳ
+ * chọn. Chỉ có 5 trường ⇒ điểm thấp nhất còn dữ liệu là 1 − 5×0,05 = 0,75, mà
+ * ngưỡng cảnh báo là 0,5 ⇒ nhánh "thiếu nguồn" của `lowQualityNote` KHÔNG BAO
+ * GIỜ chạy. Hệ quả thật: mất ETOPO (độ sâu) hoặc HYCOM — app IM LẶNG TUYỆT ĐỐI
+ * dù bản đồ đã đổi hẳn.
+ *
+ * CĂN CỨ — ablation ĐÃ ĐO (Δ %diện tích điểm nóng khi BỎ nguồn, hè/đông):
+ *   · bathy  (ETOPO độ sâu)      bỏ đi: %điểm nóng mùa đông 67,8 → 33,0 (−34,8)
+ *   · sla    (SSHA)              −21,9
+ *   · hycom  (nhiệt theo tầng)   −1,7 hè / −6,0 đông — số nhỏ nhưng là nguồn
+ *     DUY NHẤT cho cả ba lưới d20/nhiệt đáy/nhiệt 250 m: mất là mất cả cụm
+ *   · currents (hội tụ)          −2,3
+ *   · anom   (dị thường nhiệt)   −2,1
+ * Trọng số đặt tỉ lệ theo thứ hạng đó, làm tròn cho dễ đọc.
+ *
+ * Trường CÓ nhưng CŨ trừ MỘT NỬA mức mất hẳn (giữ tỉ lệ 2:1 như bản cũ
+ * 0,05 : 0,025) — dữ liệu cũ vẫn hơn không có gì.
+ */
+export const MISSING_PENALTY_BY_FIELD: Record<string, number> = {
+  // ĐÒN BẨY đo được (ablation Δ%điểm nóng khi bỏ nguồn, scripts/model-discrimination-audit.mjs):
+  //   bathy  — mất ETOPO: %điểm nóng mùa đông 67.8 → 33.0 (cổng độ sâu cho loài xa bờ)
+  //   sla    — −21.9đ (mang HAI cơ chế: rìa xoáy + độ lõm mực nước)
+  //   hycom  — −1.7 hè / −6.0 đông, VÀ là cổng nhiệt ĐÁY cho 11 loài đáy mềm
+  //   currents/anom — −2.3 / −2.1, nhẹ
+  // Ngưỡng LOW_QUALITY_THRESHOLD 0.9 chọn để mất BẤT KỲ nguồn nặng nào (bathy/sla/
+  // hycom) đều bật cảnh báo, còn mất nguồn nhẹ thì im — không doạ oan.
+  bathy: 0.2,
+  sla: 0.15,
+  hycom: 0.15,
+  currents: 0.05,
+  anom: 0.05,
+};
+/** Trường tuỳ chọn lạ (thêm sau mà quên khai đòn bẩy) → mức nhẹ, không doạ oan */
 export const MISSING_OPTIONAL_PENALTY = 0.05;
-/** Trường tuỳ chọn CÓ nhưng cũ: nhẹ hơn mất hẳn (dữ liệu cũ vẫn hơn không có) */
-export const STALE_OPTIONAL_PENALTY = 0.025;
+/** Trường CÓ nhưng cũ = một nửa mức mất hẳn của chính trường đó */
+export const STALE_PENALTY_RATIO = 0.5;
+
+/** Mất trường `key` trừ bao nhiêu điểm (trường bắt buộc → 1 = về 0) */
+export function missingPenalty(key: string, required: boolean): number {
+  if (required) return 1;
+  return MISSING_PENALTY_BY_FIELD[key] ?? MISSING_OPTIONAL_PENALTY;
+}
 
 export interface QualityField {
+  /** khoá trường ("sst" | "chl" | "sla" | "anom" | "currents" | "hycom" | "bathy") */
+  key: string;
   /** true = thiếu hẳn thì route trả {ok:false} (SST, phù du) */
   required: boolean;
   /** null = KHÔNG nguồn nào dùng được cho trường này */
@@ -130,26 +174,28 @@ export interface QualityField {
 }
 
 /**
- * Điểm chất lượng 0..1 cho một lượt dự báo — ĐẾM ĐƠN GIẢN, ai đọc cũng hiểu:
+ * Điểm chất lượng 0..1 cho một lượt dự báo:
  *
  *   bắt đầu 1.0
  *   − 0.25 mỗi trường BẮT BUỘC bị cũ (stale)
- *   − 0.05 mỗi trường TUỲ CHỌN mất hẳn
- *   − 0.025 mỗi trường TUỲ CHỌN có nhưng cũ
+ *   − MISSING_PENALTY_BY_FIELD[key] mỗi trường TUỲ CHỌN mất hẳn (theo ĐÒN BẨY)
+ *   − một NỬA mức đó nếu trường TUỲ CHỌN có nhưng cũ
  *   (trường BẮT BUỘC mất hẳn → 0: route đã trả {ok:false}, tính cho đủ luật)
  *   kẹp về [0,1], làm tròn 3 số lẻ (khỏi rác dấu phẩy động).
  *
- * Với bộ trường hiện tại (2 bắt buộc + 5 tuỳ chọn) mức xấu nhất còn dữ liệu là
- * 1 − 0,5 − 0,25 = 0,25. CHỈ để hạ kỳ vọng/nhắc bà con, KHÔNG dùng làm hệ số
- * nhân vào điểm cá (không được lấy chất lượng nguồn sửa điểm loài).
+ * Với bộ trường hiện tại (2 bắt buộc + 5 tuỳ chọn), mất HẾT tuỳ chọn trừ 0,55 →
+ * 0,45; thêm 2 trường bắt buộc cũ nữa thì kẹp về 0. CHỈ để hạ kỳ vọng/nhắc bà
+ * con, KHÔNG dùng làm hệ số nhân vào điểm cá (không được lấy chất lượng nguồn
+ * sửa điểm loài).
  */
 export function dataQuality(fields: QualityField[]): number {
   let q = 1;
   for (const f of fields) {
+    const miss = missingPenalty(f.key, f.required);
     if (f.resolved === null) {
-      q -= f.required ? 1 : MISSING_OPTIONAL_PENALTY;
+      q -= miss;
     } else if (f.resolved.stale) {
-      q -= f.required ? STALE_REQUIRED_PENALTY : STALE_OPTIONAL_PENALTY;
+      q -= f.required ? STALE_REQUIRED_PENALTY : miss * STALE_PENALTY_RATIO;
     }
   }
   return Math.max(0, Math.min(1, Math.round(q * 1000) / 1000));
@@ -181,8 +227,20 @@ export function oldestIsoDate(dates: (string | null | undefined)[]): string {
    Một dòng nói thật cho bà con (client)
 ---------------------------------------------------------------------------- */
 
-/** Dưới mức này thì bản đồ cá đang chắp vá nhiều — phải nói, không im lặng */
-export const LOW_QUALITY_THRESHOLD = 0.5;
+/**
+ * Dưới mức này thì bản đồ cá đang chắp vá nhiều — phải nói, không im lặng.
+ *
+ * LỖI ĐÃ SỬA (2026-07-26): ngưỡng cũ 0.5 là **MÃ CHẾT**. Hồi đó mọi trường tuỳ
+ * chọn phạt đều 0.05, chỉ có 5 trường ⇒ sàn thực tế 0.75, KHÔNG BAO GIỜ chạm
+ * 0.5 (trường BẮT BUỘC cũ thì nhánh trước đã return). Hệ quả: mất ETOPO —
+ * %điểm nóng mùa đông rơi 67.8 → 33.0 — mà app IM LẶNG TUYỆT ĐỐI. Đúng vết
+ * "dữ liệu hỏng trông như dữ liệu lành".
+ *
+ * Nay phạt theo ĐÒN BẨY (xem MISSING_PENALTY_BY_FIELD) và hạ ngưỡng về 0.9:
+ *   mất bathy → 0.80 ✅ báo · mất sla → 0.85 ✅ · mất hycom → 0.85 ✅
+ *   mất currents/anom → 0.95 ❌ im (nhẹ, không doạ oan)
+ */
+export const LOW_QUALITY_THRESHOLD = 0.9;
 
 /**
  * Câu nhắc khi bản đồ cá dựng từ ảnh cũ / thiếu nguồn — `null` = KHÔNG nói gì.

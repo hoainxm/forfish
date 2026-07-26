@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  distanceToPolygonDeg,
   FISH_REGIONS,
   FISH_SEASONS,
   fishInRegion,
+  nearestRegionWithin,
   regionAt,
   type FishRegionId,
 } from "../../data/fish-seasons";
@@ -115,5 +117,70 @@ describe("FISH_SEASONS dữ liệu hợp lệ", () => {
         expect(ids.has(r)).toBe(true);
       }
     }
+  });
+});
+
+describe("nearestRegionWithin — gán vùng theo CẠNH, không theo ĐỈNH", () => {
+  // Sửa 2026-07-26. Trước đây quét từng ĐỈNH đa giác: đa giác vùng chỉ 7–9 đỉnh
+  // nên cạnh rất dài, ô sát GIỮA cạnh dài của vùng A bị gán vùng B chỉ vì B có
+  // một đỉnh nhô gần hơn. ĐO THẬT trên lưới 0,25° (5–22N / 102–118E, 4485 ô):
+  // 96 ô đổi kết quả — 50 ô được CỨU (trước bị bỏ hẳn khỏi bản đồ), 46 ô đổi
+  // vùng; 0 ô bị mất. Sai vùng ⇒ sai bộ lọc loài theo mùa.
+
+  it("khơi Vũng Tàu (10,75N;107,75E) → dong-nam-bo, KHÔNG phải nam-trung-bo", () => {
+    // cách CẠNH bắc Đông Nam Bộ 0,55° nhưng cách ĐỈNH gần nhất của nó 0,85°;
+    // Nam Trung Bộ có một đỉnh cách 0,75° → bản cũ gán nhầm nam-trung-bo
+    expect(regionAt(10.75, 107.75)).toBeNull();
+    expect(nearestRegionWithin(10.75, 107.75, 2)?.id).toBe("dong-nam-bo");
+  });
+
+  it("ô nằm HẲN trong một vùng vẫn ra đúng vùng đó", () => {
+    for (const region of FISH_REGIONS) {
+      const [lng, lat] = region.labelAt;
+      expect(nearestRegionWithin(lat, lng, 2)?.id, region.id).toBe(region.id);
+    }
+    expect(nearestRegionWithin(20, 107.25, 2)?.id).toBe("vinh-bac-bo");
+  });
+
+  it("ô ngoài mọi đa giác nhưng sát một CẠNH → vẫn có vùng (lấp lỗ hổng)", () => {
+    // (8,5N;110E) không thuộc đa giác nào, nằm giữa Đông Nam Bộ / Trường Sa
+    expect(regionAt(8.5, 110)).toBeNull();
+    expect(nearestRegionWithin(8.5, 110, 2)).not.toBeNull();
+  });
+
+  it("xa hơn maxDeg tới mọi CẠNH → null", () => {
+    expect(nearestRegionWithin(20, 112, 2)).toBeNull(); // đông bắc, nước ngoài
+    expect(nearestRegionWithin(3, 110, 2)).toBeNull(); // quá xa về nam
+    // cùng một điểm: tầm rộng thì có vùng, tầm hẹp thì không
+    expect(nearestRegionWithin(10.75, 107.75, 0.6)?.id).toBe("dong-nam-bo");
+    expect(nearestRegionWithin(10.75, 107.75, 0.5)).toBeNull();
+  });
+});
+
+describe("distanceToPolygonDeg — khoảng cách tới ĐOẠN THẲNG", () => {
+  const square: [number, number][] = [
+    [0, 0],
+    [10, 0],
+    [10, 10],
+    [0, 10],
+  ];
+
+  it("điểm vuông góc GIỮA cạnh: lấy chân đường vuông góc, không lấy đỉnh", () => {
+    // đỉnh gần nhất cách hypot(5,3) ≈ 5,83; cạnh dưới chỉ cách 3
+    expect(distanceToPolygonDeg(5, -3, square)).toBeCloseTo(3, 9);
+  });
+
+  it("điểm ngoài hai đầu mút: kẹp về đỉnh (không dùng đường thẳng vô hạn)", () => {
+    expect(distanceToPolygonDeg(-3, -4, square)).toBeCloseTo(5, 9);
+  });
+
+  it("cạnh CUỐI nối đỉnh cuối về đỉnh đầu (đa giác tự khép)", () => {
+    // bên trái cạnh [0,10]→[0,0] — cạnh này chỉ tồn tại nếu đa giác được khép
+    expect(distanceToPolygonDeg(-2, 5, square)).toBeCloseTo(2, 9);
+  });
+
+  it("điểm nằm TRONG đa giác → khoảng cách tới cạnh gần nhất (≥ 0)", () => {
+    expect(distanceToPolygonDeg(5, 1, square)).toBeCloseTo(1, 9);
+    expect(distanceToPolygonDeg(0, 0, square)).toBeCloseTo(0, 9);
   });
 });

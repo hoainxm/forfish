@@ -9,9 +9,20 @@
    · POST + khác origin (map tile nguồn ngoài) → KHÔNG đụng, để mạng lo.
   Đổi shell thì bump SDFISH_CACHE_V (KHÔNG dùng Date.now — phải ổn định).
 */
-const SDFISH_CACHE_V = "sdfish-v4";
+const SDFISH_CACHE_V = "sdfish-v5";
 /** Kho ô bản đồ để riêng — xoá/giới hạn được mà không đụng vỏ app */
 const SDFISH_TILE_V = "sdfish-tiles-v1";
+/*  Kho DỮ LIỆU /api/* — CỐ Ý TÁCH khỏi kho vỏ và KHÔNG mang phiên bản vỏ.
+    LỖI ĐÃ SỬA (2026-07-26): trước đây phản hồi /api/* nằm chung khoá
+    SDFISH_CACHE_V với vỏ app, mà `activate` xoá mọi kho khác phiên bản hiện
+    hành ⇒ **bump vỏ (chỉ đổi giao diện) là XOÁ bản đồ cá bà con đã tải sẵn ở
+    bờ**. Mỗi lần deploy là một chuyến biển mất dữ liệu. Nay bump vỏ không đụng
+    kho này; chỉ bump SDFISH_API_V khi ĐỔI HÌNH DẠNG payload. */
+const SDFISH_API_V = "sdfish-api-v1";
+/*  Trần kho API: pretrip nạp ~2–3 MB/lượt (lưới 3/7/16 ngày + bản đồ cá + điểm
+    ghim) ⇒ 120 mục thừa sức giữ vài lượt tải sẵn + các điểm bà con đã xem,
+    vẫn xa hạn bộ nhớ điện thoại. LRU: Cache API trả key theo thứ tự thêm. */
+const API_CACHE_MAX = 120;
 /** Trần số ô giữ lại (~20 KB/ô → ~12 MB). Quá thì bỏ ô cũ nhất. */
 const TILE_CACHE_MAX = 600;
 
@@ -55,7 +66,12 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((k) => k !== SDFISH_CACHE_V && k !== SDFISH_TILE_V)
+            .filter(
+              (k) =>
+                k !== SDFISH_CACHE_V &&
+                k !== SDFISH_TILE_V &&
+                k !== SDFISH_API_V,
+            )
             .map((k) => caches.delete(k)),
         ),
       )
@@ -63,7 +79,14 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-/** Giữ kho ô trong trần: Cache API trả key theo thứ tự thêm vào → bỏ từ đầu. */
+/** Giữ một kho trong trần: Cache API trả key theo thứ tự thêm vào → bỏ từ đầu. */
+async function trimCache(cache, max) {
+  const keys = await cache.keys();
+  const over = keys.length - max;
+  for (let i = 0; i < over; i++) await cache.delete(keys[i]);
+}
+
+/** Giữ kho ô bản đồ trong trần. */
 async function trimTileCache(cache) {
   const keys = await cache.keys();
   const over = keys.length - TILE_CACHE_MAX;
@@ -117,7 +140,15 @@ self.addEventListener("fetch", (event) => {
         .then((res) => {
           if (res.ok && req.method === "GET") {
             const copy = res.clone();
-            caches.open(SDFISH_CACHE_V).then((c) => c.put(req, copy)).catch(() => {});
+            // dữ liệu /api/* vào kho RIÊNG (không mất khi bump vỏ); trang vào kho vỏ
+            const store = isApi ? SDFISH_API_V : SDFISH_CACHE_V;
+            caches
+              .open(store)
+              .then(async (c) => {
+                await c.put(req, copy);
+                if (isApi) await trimCache(c, API_CACHE_MAX);
+              })
+              .catch(() => {});
           }
           return res;
         })

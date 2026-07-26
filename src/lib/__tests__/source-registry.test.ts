@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   dataQuality,
+  LOW_QUALITY_THRESHOLD,
   lowQualityNote,
   monthOfIsoDate,
   oldestIsoDate,
@@ -142,57 +143,69 @@ describe("resolveField — luật chọn nguồn", () => {
   });
 });
 
-describe("dataQuality", () => {
-  const ok = { required: true, resolved: { stale: false } };
-  const okOpt = { required: false, resolved: { stale: false } };
+describe("dataQuality — phạt theo ĐÒN BẨY của từng nguồn", () => {
+  const ok = { key: "sst", required: true, resolved: { stale: false } };
+  const ok2 = { key: "chl", required: true, resolved: { stale: false } };
+  const opt = (key: string) => ({ key, required: false, resolved: { stale: false } });
+  const gone = (key: string) => ({ key, required: false, resolved: null });
+  const old = (key: string) => ({ key, required: false, resolved: { stale: true } });
 
   it("đủ nguồn và đều mới → 1", () => {
-    expect(dataQuality([ok, ok, okOpt, okOpt, okOpt])).toBe(1);
-  });
-
-  it("mỗi trường tuỳ chọn MẤT trừ 0,05", () => {
-    expect(dataQuality([ok, ok, { required: false, resolved: null }])).toBe(0.95);
     expect(
-      dataQuality([
-        ok,
-        ok,
-        { required: false, resolved: null },
-        { required: false, resolved: null },
-      ]),
-    ).toBe(0.9);
+      dataQuality([ok, ok2, opt("bathy"), opt("sla"), opt("hycom")]),
+    ).toBe(1);
   });
 
-  it("trường tuỳ chọn CŨ trừ 0,025 — nhẹ hơn mất hẳn", () => {
-    expect(dataQuality([ok, ok, { required: false, resolved: { stale: true } }])).toBe(
-      0.975,
-    );
+  it("mất nguồn NẶNG phạt nặng theo đòn bẩy (bathy 0.2 · sla/hycom 0.15)", () => {
+    expect(dataQuality([ok, ok2, gone("bathy")])).toBe(0.8);
+    expect(dataQuality([ok, ok2, gone("sla")])).toBe(0.85);
+    expect(dataQuality([ok, ok2, gone("hycom")])).toBe(0.85);
+  });
+
+  it("mất nguồn NHẸ phạt nhẹ (currents/anom 0.05)", () => {
+    expect(dataQuality([ok, ok2, gone("currents")])).toBe(0.95);
+    expect(dataQuality([ok, ok2, gone("anom")])).toBe(0.95);
+  });
+
+  it("trường lạ (quên khai đòn bẩy) → mức nhẹ mặc định, không doạ oan", () => {
+    expect(dataQuality([ok, ok2, gone("chua-khai")])).toBe(0.95);
+  });
+
+  it("CÓ nhưng cũ = nửa mức mất hẳn của chính trường đó", () => {
+    expect(dataQuality([ok, ok2, old("bathy")])).toBe(0.9);
+    expect(dataQuality([ok, ok2, old("currents")])).toBe(0.975);
   });
 
   it("trường BẮT BUỘC cũ trừ nặng 0,25", () => {
-    expect(dataQuality([{ required: true, resolved: { stale: true } }, ok])).toBe(
+    expect(dataQuality([{ key: "sst", required: true, resolved: { stale: true } }, ok2])).toBe(
       0.75,
     );
   });
 
   it("trường bắt buộc mất hẳn → kéo về 0 (route đã {ok:false})", () => {
-    expect(dataQuality([{ required: true, resolved: null }, ok])).toBe(0);
+    expect(dataQuality([{ key: "sst", required: true, resolved: null }, ok2])).toBe(0);
   });
 
   it("kẹp trong [0,1], không âm", () => {
     const allBad = Array.from({ length: 4 }, () => ({
+      key: "sst",
       required: true,
       resolved: null,
     }));
     expect(dataQuality(allBad)).toBe(0);
   });
 
-  it("mức xấu nhất còn dữ liệu (2 bắt buộc cũ + 5 tuỳ chọn mất) = 0,25", () => {
-    const fields = [
-      { required: true, resolved: { stale: true } },
-      { required: true, resolved: { stale: true } },
-      ...Array.from({ length: 5 }, () => ({ required: false, resolved: null })),
-    ];
-    expect(dataQuality(fields)).toBe(0.25);
+  // CHẶN HỒI QUY cho lỗi "cảnh báo là MÃ CHẾT": trước đây phạt đều 0.05 × 5
+  // trường ⇒ sàn 0.75 mà ngưỡng 0.5 ⇒ nhánh cảnh báo KHÔNG BAO GIỜ chạy.
+  it("mất nguồn NẶNG phải LỌT ngưỡng cảnh báo; nguồn nhẹ thì KHÔNG", () => {
+    for (const k of ["bathy", "sla", "hycom"]) {
+      expect(dataQuality([ok, ok2, gone(k)])).toBeLessThan(LOW_QUALITY_THRESHOLD);
+    }
+    for (const k of ["currents", "anom"]) {
+      expect(dataQuality([ok, ok2, gone(k)])).toBeGreaterThanOrEqual(
+        LOW_QUALITY_THRESHOLD,
+      );
+    }
   });
 });
 
@@ -252,8 +265,16 @@ describe("lowQualityNote — chỉ nói khi THẬT SỰ cần (màn hình phải
     );
   });
 
-  it("đúng 0,5 chưa nói (chỉ DƯỚI ngưỡng mới nói)", () => {
-    expect(lowQualityNote({ dataQuality: 0.5, sources: {} })).toBeNull();
+  it("ĐÚNG ngưỡng thì chưa nói (chỉ DƯỚI ngưỡng mới nói)", () => {
+    expect(
+      lowQualityNote({ dataQuality: LOW_QUALITY_THRESHOLD, sources: {} }),
+    ).toBeNull();
+  });
+
+  // Ngưỡng phải THẬT SỰ với tới được: mất một nguồn nặng là phải nói.
+  // (Trước 2026-07-26 ngưỡng 0.5 nằm dưới sàn 0.75 ⇒ nhánh này là mã chết.)
+  it("mất ETOPO (0.8) là phải NÓI — ngưỡng không được nằm ngoài tầm với", () => {
+    expect(lowQualityNote({ dataQuality: 0.8, sources: {} })).not.toBeNull();
   });
 
   it("payload cũ (chưa có provenance) → IM LẶNG, không doạ oan", () => {
