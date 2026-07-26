@@ -18,6 +18,22 @@ export type FeatureAccess = "checking" | "login" | "upgrade" | "open";
 /** Thời tiết mở miễn phí đúng 3 ngày (hôm nay + 2 ngày kế) — quá 3 ngày là premium. */
 export const FREE_FORECAST_DAYS = 3;
 
+/** 1 lần kích hoạt premium = 1 NĂM (chốt 2026-07-26); hết hạn thì gia hạn. */
+export const PREMIUM_TERM_DAYS = 365;
+
+/**
+ * Hạn premium SAU một lần kích hoạt/gia hạn: còn hạn thì CỘNG NỐI vào hạn cũ
+ * (gia hạn sớm không bị thiệt ngày), hết hạn/chưa có thì tính 1 năm từ bây giờ.
+ */
+export function nextPremiumUntil(
+  currentUntil: string | null | undefined,
+  nowMs: number,
+): string {
+  const cur = currentUntil ? Date.parse(currentUntil) : NaN;
+  const base = Number.isFinite(cur) && cur > nowMs ? cur : nowMs;
+  return new Date(base + PREMIUM_TERM_DAYS * 24 * 3600 * 1000).toISOString();
+}
+
 /**
  * Hạng HIỆU LỰC từ dữ liệu DB: tier='premium' và còn hạn (premium_until null =
  * không hạn). Mọi giá trị lạ/hết hạn/ngày hỏng → 'basic' (khoá nhầm còn hơn mở

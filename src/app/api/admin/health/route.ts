@@ -1,20 +1,21 @@
-// /api/admin/health — sức khoẻ hệ thống cho dashboard /quan-tri (admin only).
-// Trả: cấu hình env, số tài khoản (tổng/premium/đăng nhập được), nhịp webhook
-// gần nhất, migration tier đã apply chưa. TÌNH TRẠNG NGUỒN DỮ LIỆU (cá/bão/
-// giá dầu/giá cảng) do CLIENT dashboard tự gọi các API sẵn có — không lặp lại
-// logic nguồn ở đây.
+// /api/admin/health — sức khoẻ hệ thống cho dashboard /quan-tri (STAFF:
+// admin + quản lý — trang load health đầu tiên nên quản lý cũng phải qua).
+// Trả: me (phone/role — UI thu quyền theo đây), cấu hình env, số tài khoản,
+// nhịp webhook gần nhất, migration đã apply chưa. TÌNH TRẠNG NGUỒN DỮ LIỆU
+// (cá/bão/giá dầu/giá cảng) do CLIENT dashboard tự gọi các API sẵn có.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requireStaff } from "@/lib/admin-auth";
 
 export async function GET() {
-  const who = await requireAdmin();
+  const who = await requireStaff();
   if (!who.ok) {
     return NextResponse.json(
       { ok: false, code: who.code },
       { status: who.status },
     );
   }
+  const me = { phone: who.phone, role: who.role };
   const admin = createAdminClient();
 
   const env = {
@@ -26,7 +27,7 @@ export async function GET() {
       .filter((s) => s.trim()).length,
   };
   if (!admin) {
-    return NextResponse.json({ ok: true, env, db: null });
+    return NextResponse.json({ ok: true, me, env, db: null });
   }
 
   const now = new Date().toISOString();
@@ -82,6 +83,7 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
+    me,
     env,
     db: {
       customers,

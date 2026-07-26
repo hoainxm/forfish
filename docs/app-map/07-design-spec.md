@@ -67,7 +67,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 | 5 | Tiền `/tien` | dock | Bán có lợi + lãi/lỗ rõ | ghi chuyến / chia tiền | "Ghi chuyến biển mới" | M |
 | 6 | Cảng `/cang` | nút trên map | Tìm cảng chỉ định gần | gọi/chỉ đường | (đọc) | M |
 | 7 | Đăng nhập `/login` | chip hero, gate | Vào bằng **SĐT + mật khẩu** (sale báo khi mua; KHÔNG email/OTP) | (vào app) | "Đăng nhập" | L |
-| 8 | Quản trị `/quan-tri` | gõ URL trực tiếp (CHỈ admin — env `ADMIN_PHONES`; không trên dock, không link trong app) | Đội SDVICO theo dõi tài khoản · nguồn dữ liệu · hệ thống | tìm khách → đổi hạng / tạo / xoá (đều qua dialog xác nhận) | theo tab | M — **web độc lập về giao diện** (app-shell thoát khung mobile + dock), responsive PC/tablet/mobile; thống kê 4 ô đầu tab Tài khoản; hành động phá huỷ (xoá, hạ hạng) BẮT BUỘC dialog xác nhận trong trang; STAFF nên không áp chuẩn chữ-to của ngư dân |
+| 8 | Quản trị `/quan-tri` | gõ URL trực tiếp (STAFF: admin env `ADMIN_PHONES` — đủ 3 tab; **quản lý** `role='manager'` — CHỈ tab Tài khoản với nút Kích hoạt/Gia hạn; không trên dock, không link trong app) | Admin theo dõi hệ thống; quản lý (đại lý) cấp premium cho khách | tìm khách → **Kích hoạt premium / Gia hạn +1 năm** (dialog ghi rõ hạn mới + "ghi log dưới tên bạn") / admin: tạo (khách/quản lý) / hạ hạng / xoá — đều dialog xác nhận | theo tab | M — **web độc lập về giao diện** (app-shell thoát khung mobile + dock), responsive PC/tablet/mobile; thống kê 4 ô + bảng "Premium theo người cấp" (quản lý thấy dòng mình, admin thấy hết); hành động phá huỷ BẮT BUỘC dialog; STAFF nên không áp chuẩn chữ-to của ngư dân |
 
 Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline = đạt. /tien, /tau, /nguoi: 1 hàng chip/tab + list — đạt.
 

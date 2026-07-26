@@ -1,32 +1,23 @@
-// /api/admin/accounts — quản lý tài khoản từ dashboard /quan-tri (admin only,
-// env ADMIN_PHONES). Ghi bằng service-role (bypass RLS) NHƯNG mọi method đều
-// qua requireAdmin() trước — không có đường nào từ client thường vào đây.
-// · GET    danh sách customers + trạng thái provision (có auth user chưa)
-// · POST   tạo tài khoản tay: customers row + auth user (SĐT + mật khẩu tạm)
-// · PATCH  đổi hạng basic/premium (+ hạn premium_until)
-// · DELETE xoá tài khoản: customers row + auth user (admin xác nhận ở UI)
-// Webhook SDWork vẫn là đường nạp CHÍNH — tạo tay ở đây dành cho ca lẻ
-// (khách chưa có trong CRM, tài khoản test). sdwork_ref để null → webhook về
-// sau upsert theo ref sẽ KHÔNG đè row tạo tay (khác phone thì thôi, trùng
-// phone thì unique phone chặn — thấy lỗi ở response webhook, đối soát tay).
+// /api/admin/accounts — quản lý tài khoản từ /quan-tri. HAI NẤC QUYỀN
+// (2026-07-26 đợt 2 — lib/admin-auth.ts):
+// · admin (env ADMIN_PHONES): GET/POST/PATCH/DELETE — kể cả tạo TÀI KHOẢN
+//   QUẢN LÝ (role='manager') và hạ hạng/xoá
+// · manager (customers.role='manager'): GET + PATCH action='grant' — KÍCH
+//   HOẠT/GIA HẠN premium cho khách, MỖI LẦN 1 NĂM (nextPremiumUntil), mỗi lần
+//   đều ghi LOG premium_grants (granted_by = SĐT người thao tác) → thống kê
+//   được mỗi quản lý đang quản bao nhiêu account premium
+// Webhook SDWork vẫn là đường nạp khách CHÍNH — tạo tay dành cho ca lẻ.
+// Ghi bằng service-role (bypass RLS) — mọi method qua requireStaff/requireAdmin.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requireAdmin, requireStaff } from "@/lib/admin-auth";
 import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
+import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
-
-/** Guard chung: admin + service-role sẵn sàng, không thì trả lỗi HTTP */
-async function guard(): Promise<Admin | NextResponse> {
-  const who = await requireAdmin();
-  if (!who.ok) return err(who.status, who.code);
-  const admin = createAdminClient();
-  if (!admin) return err(503, "not_configured");
-  return admin;
-}
 
 /** auth user theo email ảo — supabase-js chưa có getUserByEmail nên phân trang */
 async function findAuthUser(admin: Admin, email: string) {
@@ -43,17 +34,40 @@ async function findAuthUser(admin: Admin, email: string) {
   return null;
 }
 
+/** Ghi log cấp/hạ premium — log hỏng KHÔNG chặn thao tác chính, nhưng trả cờ
+ *  `logged` để UI nói thật (không im lặng nuốt lỗi). */
+async function writeGrantLog(
+  admin: Admin,
+  row: {
+    customer_phone: string;
+    granted_by: string;
+    action: "activate" | "renew" | "downgrade";
+    premium_until: string | null;
+  },
+): Promise<boolean> {
+  try {
+    const { error } = await admin.from("premium_grants").insert(row);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
 export async function GET() {
-  const admin = await guard();
-  if (admin instanceof NextResponse) return admin;
+  const who = await requireStaff();
+  if (!who.ok) return err(who.status, who.code);
+  const admin = createAdminClient();
+  if (!admin) return err(503, "not_configured");
 
   const { data: rows, error } = await admin
     .from("customers")
-    .select("phone, name, tier, premium_until, sdwork_ref, updated_at")
+    .select(
+      "phone, name, tier, premium_until, premium_activated_at, role, sdwork_ref, updated_at",
+    )
     .order("updated_at", { ascending: false });
   if (error) return err(500, "query_failed");
 
-  // đối chiếu auth: SĐT nào đăng nhập được (đã provision) — quét 1 lượt
+  // đối chiếu auth: SĐT nào đăng nhập được (đã provision)
   const provisioned = new Set<string>();
   try {
     for (let page = 1; page <= 20; page++) {
@@ -71,47 +85,118 @@ export async function GET() {
     // đối chiếu hỏng thì vẫn trả danh sách — cột "đăng nhập được" để trống
   }
 
+  const accounts = (rows ?? []).map((r) => ({
+    phone: r.phone as string,
+    name: (r.name as string) ?? null,
+    tier: (r.tier as string) ?? "basic",
+    premiumUntil: (r.premium_until as string) ?? null,
+    premiumActivatedAt: (r.premium_activated_at as string) ?? null,
+    role: (r.role as string) ?? "customer",
+    fromSdwork: Boolean(r.sdwork_ref),
+    updatedAt: (r.updated_at as string) ?? null,
+    canLogin: provisioned.has(r.phone as string),
+  }));
+
+  // THỐNG KÊ THEO NGƯỜI CẤP: mỗi khách tính theo lần cấp GẦN NHẤT
+  // (activate/renew); "đang quản" = khách đó hiện còn premium hiệu lực.
+  const grantStats: { by: string; managing: number; totalGrants: number }[] =
+    [];
+  try {
+    const { data: grants, error: gErr } = await admin
+      .from("premium_grants")
+      .select("customer_phone, granted_by, action, created_at")
+      .in("action", ["activate", "renew"])
+      .order("created_at", { ascending: false })
+      .limit(5000);
+    if (!gErr && grants) {
+      const now = Date.now();
+      const premiumNow = new Set(
+        accounts
+          .filter((a) => resolveTier(a.tier, a.premiumUntil, now) === "premium")
+          .map((a) => a.phone),
+      );
+      const latestBy = new Map<string, string>(); // khách → người cấp gần nhất
+      const total = new Map<string, number>();
+      for (const g of grants) {
+        const phone = g.customer_phone as string;
+        const by = g.granted_by as string;
+        if (!latestBy.has(phone)) latestBy.set(phone, by);
+        total.set(by, (total.get(by) ?? 0) + 1);
+      }
+      const managing = new Map<string, number>();
+      for (const [phone, by] of latestBy) {
+        if (premiumNow.has(phone))
+          managing.set(by, (managing.get(by) ?? 0) + 1);
+      }
+      for (const by of new Set([...total.keys(), ...managing.keys()])) {
+        grantStats.push({
+          by,
+          managing: managing.get(by) ?? 0,
+          totalGrants: total.get(by) ?? 0,
+        });
+      }
+      grantStats.sort((a, b) => b.managing - a.managing);
+    }
+  } catch {
+    /* bảng log chưa có (0004 chưa apply) → thống kê trống, danh sách vẫn trả */
+  }
+
   return NextResponse.json({
     ok: true,
-    accounts: (rows ?? []).map((r) => ({
-      phone: r.phone as string,
-      name: (r.name as string) ?? null,
-      tier: (r.tier as string) ?? "basic",
-      premiumUntil: (r.premium_until as string) ?? null,
-      fromSdwork: Boolean(r.sdwork_ref),
-      updatedAt: (r.updated_at as string) ?? null,
-      canLogin: provisioned.has(r.phone as string),
-    })),
+    me: { phone: who.phone, role: who.role },
+    accounts,
+    grantStats,
   });
 }
 
 export async function POST(req: Request) {
-  const admin = await guard();
-  if (admin instanceof NextResponse) return admin;
+  // TẠO tài khoản (khách hoặc TÀI KHOẢN QUẢN LÝ) — chỉ admin
+  const who = await requireAdmin();
+  if (!who.ok) return err(who.status, who.code);
+  const admin = createAdminClient();
+  if (!admin) return err(503, "not_configured");
 
   const body = (await req.json().catch(() => null)) as {
     phone?: string;
     name?: string;
     password?: string;
-    tier?: string;
-    premiumUntil?: string | null;
+    role?: string;
+    activatePremium?: boolean;
   } | null;
   if (!body?.phone || !isValidVnPhone(body.phone)) return err(400, "bad_phone");
-  if (!body.password || body.password.length < 6) return err(400, "bad_password");
-  const tier = body.tier === "premium" ? "premium" : "basic";
+  if (!body.password || body.password.length < 6)
+    return err(400, "bad_password");
+  const role = body.role === "manager" ? "manager" : "customer";
   const phone = normalizeVnPhone(body.phone);
+  const now = new Date().toISOString();
+
+  // tạo kèm premium = một lần KÍCH HOẠT chuẩn (1 năm + log) — không nhập hạn tay
+  const activate = Boolean(body.activatePremium);
+  const until = activate ? nextPremiumUntil(null, Date.now()) : null;
 
   const { error: upErr } = await admin.from("customers").upsert(
     {
       phone,
       name: body.name?.trim() || null,
-      tier,
-      premium_until: tier === "premium" ? (body.premiumUntil ?? null) : null,
-      updated_at: new Date().toISOString(),
+      role,
+      ...(activate
+        ? { tier: "premium", premium_until: until, premium_activated_at: now }
+        : {}),
+      updated_at: now,
     },
     { onConflict: "phone" },
   );
   if (upErr) return err(500, "upsert_failed");
+
+  let logged = true;
+  if (activate) {
+    logged = await writeGrantLog(admin, {
+      customer_phone: phone,
+      granted_by: who.phone,
+      action: "activate",
+      premium_until: until,
+    });
+  }
 
   // provision auth — cùng nếp webhook: đã tồn tại thì bỏ qua, KHÔNG đè mật khẩu
   const { error: authErr } = await admin.auth.admin.createUser({
@@ -122,40 +207,104 @@ export async function POST(req: Request) {
   });
   const provisioned =
     !authErr || /registered|exist|already/i.test(authErr.message);
-  return NextResponse.json({ ok: true, phone, provisioned });
+  return NextResponse.json({ ok: true, phone, provisioned, logged });
 }
 
 export async function PATCH(req: Request) {
-  const admin = await guard();
-  if (admin instanceof NextResponse) return admin;
-
   const body = (await req.json().catch(() => null)) as {
     phone?: string;
-    tier?: string;
-    premiumUntil?: string | null;
+    action?: string;
   } | null;
   if (!body?.phone) return err(400, "bad_phone");
-  if (body.tier !== "basic" && body.tier !== "premium")
-    return err(400, "bad_tier");
+  const phone = normalizeVnPhone(body.phone);
+  const nowIso = new Date().toISOString();
 
-  const { data, error } = await admin
-    .from("customers")
-    .update({
-      tier: body.tier,
-      premium_until:
-        body.tier === "premium" ? (body.premiumUntil ?? null) : null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("phone", normalizeVnPhone(body.phone))
-    .select("phone");
-  if (error) return err(500, "update_failed");
-  if (!data || data.length === 0) return err(404, "not_found");
-  return NextResponse.json({ ok: true });
+  if (body.action === "grant") {
+    // KÍCH HOẠT / GIA HẠN premium (1 năm/lần) — admin + manager đều được
+    const who = await requireStaff();
+    if (!who.ok) return err(who.status, who.code);
+    const admin = createAdminClient();
+    if (!admin) return err(503, "not_configured");
+
+    const { data: cur, error: qErr } = await admin
+      .from("customers")
+      .select("tier, premium_until")
+      .eq("phone", phone)
+      .maybeSingle();
+    if (qErr) return err(500, "query_failed");
+    if (!cur) return err(404, "not_found");
+
+    const isActive =
+      resolveTier(
+        cur.tier as string,
+        cur.premium_until as string | null,
+        Date.now(),
+      ) === "premium";
+    // còn hạn → cộng nối vào hạn cũ; hết hạn/chưa có → 1 năm từ bây giờ
+    const until = nextPremiumUntil(
+      isActive ? (cur.premium_until as string | null) : null,
+      Date.now(),
+    );
+    const action = isActive ? ("renew" as const) : ("activate" as const);
+
+    const { error } = await admin
+      .from("customers")
+      .update({
+        tier: "premium",
+        premium_until: until,
+        premium_activated_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq("phone", phone);
+    if (error) return err(500, "update_failed");
+
+    const logged = await writeGrantLog(admin, {
+      customer_phone: phone,
+      granted_by: who.phone,
+      action,
+      premium_until: until,
+    });
+    return NextResponse.json({ ok: true, action, premiumUntil: until, logged });
+  }
+
+  if (body.action === "downgrade") {
+    // HẠ HẠNG — chỉ admin (quản lý không được hạ khách của người khác)
+    const who = await requireAdmin();
+    if (!who.ok) return err(who.status, who.code);
+    const admin = createAdminClient();
+    if (!admin) return err(503, "not_configured");
+
+    const { data, error } = await admin
+      .from("customers")
+      .update({
+        tier: "basic",
+        premium_until: null,
+        premium_activated_at: null,
+        updated_at: nowIso,
+      })
+      .eq("phone", phone)
+      .select("phone");
+    if (error) return err(500, "update_failed");
+    if (!data || data.length === 0) return err(404, "not_found");
+
+    const logged = await writeGrantLog(admin, {
+      customer_phone: phone,
+      granted_by: who.phone,
+      action: "downgrade",
+      premium_until: null,
+    });
+    return NextResponse.json({ ok: true, action: "downgrade", logged });
+  }
+
+  return err(400, "bad_action");
 }
 
 export async function DELETE(req: Request) {
-  const admin = await guard();
-  if (admin instanceof NextResponse) return admin;
+  // XOÁ — chỉ admin
+  const who = await requireAdmin();
+  if (!who.ok) return err(who.status, who.code);
+  const admin = createAdminClient();
+  if (!admin) return err(503, "not_configured");
 
   const phoneRaw = new URL(req.url).searchParams.get("phone");
   if (!phoneRaw) return err(400, "bad_phone");

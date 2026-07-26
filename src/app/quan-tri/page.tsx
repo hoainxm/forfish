@@ -18,15 +18,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiUrl } from "@/lib/api-base";
-import { resolveTier } from "@/lib/tier";
+import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Tab = "tai-khoan" | "du-lieu" | "he-thong";
 
+/** Vai trò staff — admin (env) toàn quyền; quản lý (DB) chỉ cấp/gia hạn premium */
+type StaffRole = "admin" | "manager";
+
 type Health = {
   ok: boolean;
   code?: string;
+  me?: { phone: string; role: StaffRole };
   env?: {
     supabase: boolean;
     serviceRole: boolean;
@@ -48,10 +52,15 @@ type Account = {
   name: string | null;
   tier: string;
   premiumUntil: string | null;
+  premiumActivatedAt: string | null;
+  role: string;
   fromSdwork: boolean;
   updatedAt: string | null;
   canLogin: boolean;
 };
+
+/** Thống kê theo người cấp premium (log premium_grants) */
+type GrantStat = { by: string; managing: number; totalGrants: number };
 
 /** Một nguồn dữ liệu app đang sống nhờ — check bằng chính API của app */
 type SourceState =
@@ -124,7 +133,7 @@ export default function QuanTriPage() {
           {healthErr === 401 &&
             "Cần đăng nhập bằng tài khoản quản trị viên để vào trang này."}
           {healthErr === 403 &&
-            "Tài khoản đang đăng nhập không có quyền quản trị (SĐT chưa nằm trong ADMIN_PHONES)."}
+            "Tài khoản đang đăng nhập không có quyền quản trị (không phải admin, cũng chưa được gán làm tài khoản quản lý)."}
           {healthErr === 503 &&
             "Hệ thống chưa cấu hình Supabase — trang quản trị cần DB thật, không chạy ở demo mode."}
           {healthErr === 0 && "Không gọi được máy chủ — kiểm tra mạng rồi tải lại."}
@@ -179,11 +188,15 @@ export default function QuanTriPage() {
 
       <div className="mt-4 flex gap-1.5 md:max-w-[560px]" role="tablist">
         {(
-          [
-            ["tai-khoan", "Tài khoản"],
-            ["du-lieu", "Dữ liệu"],
-            ["he-thong", "Hệ thống"],
-          ] as [Tab, string][]
+          // QUẢN LÝ chỉ có tab Tài khoản (cấp/gia hạn premium); Dữ liệu +
+          // Hệ thống là việc của admin
+          (health.me?.role === "manager"
+            ? [["tai-khoan", "Tài khoản"]]
+            : [
+                ["tai-khoan", "Tài khoản"],
+                ["du-lieu", "Dữ liệu"],
+                ["he-thong", "Hệ thống"],
+              ]) as [Tab, string][]
         ).map(([id, label]) => (
           <button
             key={id}
@@ -202,9 +215,13 @@ export default function QuanTriPage() {
         ))}
       </div>
 
-      {tab === "tai-khoan" && <AccountsTab />}
-      {tab === "du-lieu" && <DataTab />}
-      {tab === "he-thong" && <SystemTab health={health} />}
+      {tab === "tai-khoan" && (
+        <AccountsTab me={health.me ?? { phone: "", role: "admin" }} />
+      )}
+      {tab === "du-lieu" && health.me?.role !== "manager" && <DataTab />}
+      {tab === "he-thong" && health.me?.role !== "manager" && (
+        <SystemTab health={health} />
+      )}
     </div>
   );
 }
@@ -213,15 +230,22 @@ export default function QuanTriPage() {
 
 type TierFilter = "all" | "premium" | "basic";
 
-function AccountsTab() {
+function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
+  const isAdmin = me.role === "admin";
   const [accounts, setAccounts] = useState<Account[] | null>(null);
+  const [grantStats, setGrantStats] = useState<GrantStat[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyPhone, setBusyPhone] = useState<string | null>(null);
   // tìm kiếm + lọc hạng (client-side — vài trăm hàng, không cần server)
   const [query, setQuery] = useState("");
   const [tierFilter, setTierFilter] = useState<TierFilter>("all");
-  // dialog xác nhận — thay window.prompt/confirm (yêu cầu 2026-07-26)
-  const [toPremium, setToPremium] = useState<Account | null>(null);
+  // dialog xác nhận — thay window.prompt/confirm (yêu cầu 2026-07-26).
+  // Hạn xem trước tính LÚC BẤM NÚT (không gọi Date.now() trong render)
+  const [toGrant, setToGrant] = useState<{
+    a: Account;
+    active: boolean;
+    until: string;
+  } | null>(null);
   const [toDowngrade, setToDowngrade] = useState<Account | null>(null);
   const [toDelete, setToDelete] = useState<Account | null>(null);
 
@@ -233,9 +257,11 @@ function AccountsTab() {
           ok: boolean;
           code?: string;
           accounts?: Account[];
+          grantStats?: GrantStat[];
         };
         if (!j.ok) throw new Error(j.code ?? "load");
         setAccounts(j.accounts ?? []);
+        setGrantStats(j.grantStats ?? []);
       })
       // thiếu service-role thì nói THẲNG thiếu gì — "thử lại" vô ích
       .catch((e: Error) =>
@@ -279,21 +305,33 @@ function AccountsTab() {
     });
   }, [accounts, query, tierFilter, effTier]);
 
-  async function patchTier(
-    a: Account,
-    tier: "basic" | "premium",
-    premiumUntil: string | null,
-  ) {
+  /** grant = kích hoạt/gia hạn 1 năm (server tự tính hạn + ghi log);
+   *  downgrade = hạ về thường (admin) */
+  async function patchAction(a: Account, action: "grant" | "downgrade") {
     setBusyPhone(a.phone);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ phone: a.phone, tier, premiumUntil }),
+      body: JSON.stringify({ phone: a.phone, action }),
     }).catch(() => null);
+    const j = (await r?.json().catch(() => null)) as {
+      ok?: boolean;
+      logged?: boolean;
+    } | null;
     setBusyPhone(null);
-    if (!r?.ok) {
-      setError("Đổi hạng chưa được — thử lại.");
+    if (!r?.ok || !j?.ok) {
+      setError(
+        action === "grant"
+          ? "Kích hoạt/gia hạn chưa được — thử lại."
+          : "Hạ hạng chưa được — thử lại.",
+      );
       return;
+    }
+    if (j.logged === false) {
+      // thao tác THÀNH CÔNG nhưng ghi log hỏng — nói thật để đối soát tay
+      setError(
+        "Đã đổi hạng nhưng GHI LOG LỖI (bảng premium_grants) — thống kê theo người cấp sẽ thiếu lần này.",
+      );
     }
     load();
   }
@@ -371,7 +409,43 @@ function AccountsTab() {
         </div>
       </div>
 
-      <CreateAccountForm onCreated={load} />
+      {/* tạo tài khoản (khách / QUẢN LÝ) — chỉ admin */}
+      {isAdmin && <CreateAccountForm onCreated={load} />}
+
+      {/* THỐNG KÊ THEO NGƯỜI CẤP premium (log premium_grants): quản lý thấy
+          dòng của mình; admin thấy cả bảng — biết ai đang quản bao nhiêu */}
+      {grantStats.length > 0 && (
+        <div className="surface px-4 py-3.5">
+          <p className="text-[0.9375rem] font-bold text-navy">
+            Premium theo người cấp
+          </p>
+          <ul className="mt-2 space-y-1">
+            {grantStats
+              .filter((g) => isAdmin || g.by === me.phone)
+              .map((g) => {
+                const acc = accounts?.find((a) => a.phone === g.by);
+                return (
+                  <li
+                    key={g.by}
+                    className="flex flex-wrap items-baseline gap-x-2 text-[0.875rem]"
+                  >
+                    <span className="font-bold tabular-nums text-navy">
+                      {g.by}
+                      {g.by === me.phone && " (bạn)"}
+                    </span>
+                    {acc?.name && (
+                      <span className="text-foreground/60">{acc.name}</span>
+                    )}
+                    <span className="text-foreground/70">
+                      đang quản <b className="text-ok">{g.managing}</b> premium
+                      · {g.totalGrants} lượt cấp/gia hạn
+                    </span>
+                  </li>
+                );
+              })}
+          </ul>
+        </div>
+      )}
 
       {error && (
         <div className="surface px-4 py-6 text-center">
@@ -422,18 +496,27 @@ function AccountsTab() {
                           {a.name}
                         </span>
                       )}
+                      {a.role === "manager" && (
+                        <span className="ml-2 rounded-full bg-t1-bg px-2 py-0.5 text-[0.75rem] font-bold text-t1">
+                          Quản lý
+                        </span>
+                      )}
                     </p>
                     <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
                       {a.fromSdwork ? "Từ SDWork" : "Tạo tay"} ·{" "}
                       {a.canLogin ? "đăng nhập được" : "CHƯA đăng nhập được"} ·
                       cập nhật {fmtDT(a.updatedAt)}
+                      {a.premiumActivatedAt &&
+                        ` · premium kích hoạt ${fmtD(a.premiumActivatedAt)}`}
                     </p>
                   </div>
                   <span
                     className={`shrink-0 rounded-full px-3 py-1 text-[0.8125rem] font-bold ${
                       effTier(a) === "premium"
                         ? "bg-ok-bg text-ok"
-                        : "bg-field text-foreground/65"
+                        : a.tier === "premium"
+                          ? "bg-warn-bg text-warn"
+                          : "bg-field text-foreground/65"
                     }`}
                   >
                     {effTier(a) === "premium"
@@ -441,30 +524,51 @@ function AccountsTab() {
                         ? `Premium đến ${fmtD(a.premiumUntil)}`
                         : "Premium"
                       : a.tier === "premium"
-                        ? `Premium HẾT HẠN ${fmtD(a.premiumUntil)}`
+                        ? `HẾT HẠN ${fmtD(a.premiumUntil)}`
                         : "Thường"}
                   </span>
                   <div className="flex shrink-0 gap-1.5">
                     <button
                       type="button"
                       disabled={busyPhone === a.phone}
-                      onClick={() =>
-                        effTier(a) === "premium"
-                          ? setToDowngrade(a)
-                          : setToPremium(a)
-                      }
+                      onClick={() => {
+                        const active = effTier(a) === "premium";
+                        setToGrant({
+                          a,
+                          active,
+                          // xem trước hạn mới bằng ĐÚNG luật server
+                          until: nextPremiumUntil(
+                            active ? a.premiumUntil : null,
+                            Date.now(),
+                          ),
+                        });
+                      }}
                       className="min-h-[2.5rem] rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
                     >
-                      {effTier(a) === "premium" ? "Về thường" : "Lên premium"}
+                      {effTier(a) === "premium"
+                        ? "Gia hạn +1 năm"
+                        : "Kích hoạt premium"}
                     </button>
-                    <button
-                      type="button"
-                      disabled={busyPhone === a.phone}
-                      onClick={() => setToDelete(a)}
-                      className="min-h-[2.5rem] rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
-                    >
-                      Xoá
-                    </button>
+                    {isAdmin && effTier(a) === "premium" && (
+                      <button
+                        type="button"
+                        disabled={busyPhone === a.phone}
+                        onClick={() => setToDowngrade(a)}
+                        className="min-h-[2.5rem] rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-foreground/70 disabled:opacity-50"
+                      >
+                        Về thường
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        disabled={busyPhone === a.phone}
+                        onClick={() => setToDelete(a)}
+                        className="min-h-[2.5rem] rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
+                      >
+                        Xoá
+                      </button>
+                    )}
                   </div>
                 </li>
               ))}
@@ -474,14 +578,22 @@ function AccountsTab() {
       )}
 
       {/* ── DIALOG xác nhận (không dùng prompt/confirm trình duyệt) ───────── */}
-      {toPremium && (
-        <PremiumDialog
-          account={toPremium}
-          onCancel={() => setToPremium(null)}
-          onConfirm={(premiumUntil) => {
-            const a = toPremium;
-            setToPremium(null);
-            patchTier(a, "premium", premiumUntil);
+      {toGrant && (
+        <ConfirmDialog
+          title={
+            toGrant.active
+              ? `Gia hạn premium +1 năm cho ${toGrant.a.phone}?`
+              : `Kích hoạt premium 1 năm cho ${toGrant.a.phone}?`
+          }
+          message={`${toGrant.a.name ?? "Khách"} sẽ có premium đến ${fmtD(toGrant.until)}. Lần cấp này được ghi log dưới tên bạn.`}
+          confirmLabel={toGrant.active ? "Gia hạn +1 năm" : "Kích hoạt 1 năm"}
+          cancelLabel="Không"
+          danger={false}
+          onCancel={() => setToGrant(null)}
+          onConfirm={() => {
+            const a = toGrant.a;
+            setToGrant(null);
+            patchAction(a, "grant");
           }}
         />
       )}
@@ -496,7 +608,7 @@ function AccountsTab() {
           onConfirm={() => {
             const a = toDowngrade;
             setToDowngrade(null);
-            patchTier(a, "basic", null);
+            patchAction(a, "downgrade");
           }}
         />
       )}
@@ -519,86 +631,13 @@ function AccountsTab() {
   );
 }
 
-/** Dialog nâng premium — confirm + chọn hạn (trống = không hạn) */
-function PremiumDialog({
-  account,
-  onCancel,
-  onConfirm,
-}: {
-  account: Account;
-  onCancel: () => void;
-  /** premiumUntil ISO (23:59:59 giờ VN của ngày chọn) hoặc null = không hạn */
-  onConfirm: (premiumUntil: string | null) => void;
-}) {
-  const [until, setUntil] = useState("");
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onCancel();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onCancel]);
-
-  return (
-    <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-6"
-      onClick={onCancel}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Nâng ${account.phone} lên premium`}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[420px] surface p-5"
-      >
-        <p className="display text-center text-[1.25rem] font-bold text-navy">
-          Nâng {account.phone} lên Premium?
-        </p>
-        <p className="mt-1 text-center text-[0.9375rem] text-foreground/70">
-          {account.name ?? "Khách"} sẽ xem được dự báo cá + dự báo 16 ngày.
-        </p>
-        <label className="mt-4 block">
-          <span className="mb-1 block text-[0.875rem] font-bold text-foreground/70">
-            Hạn premium — để trống là không hạn
-          </span>
-          <input
-            type="date"
-            value={until}
-            onChange={(e) => setUntil(e.target.value)}
-            className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
-          />
-        </label>
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="min-h-[3rem] rounded-full bg-field text-[1rem] font-bold text-foreground/70"
-          >
-            Không
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              onConfirm(until ? `${until}T23:59:59+07:00` : null)
-            }
-            className="min-h-[3rem] rounded-xl bg-ok text-[1rem] font-bold text-white"
-          >
-            {until ? `Premium đến ${fmtD(until)}` : "Premium không hạn"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [tier, setTier] = useState<"basic" | "premium">("basic");
-  const [until, setUntil] = useState("");
+  const [role, setRole] = useState<"customer" | "manager">("customer");
+  const [activatePremium, setActivatePremium] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -609,13 +648,8 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        phone,
-        name,
-        password,
-        tier,
-        premiumUntil: until ? `${until}T23:59:59+07:00` : null,
-      }),
+      // premium khi tạo = một lần KÍCH HOẠT chuẩn (1 năm, server tính hạn + log)
+      body: JSON.stringify({ phone, name, password, role, activatePremium }),
     }).catch(() => null);
     setBusy(false);
     const j = (await r?.json().catch(() => null)) as {
@@ -635,14 +669,14 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
     }
     setMsg(
       j.provisioned
-        ? "Đã tạo. Báo khách đăng nhập bằng SĐT + mật khẩu tạm (lần đầu app bắt đổi)."
-        : "Đã lưu khách nhưng TẠO ĐĂNG NHẬP LỖI — kiểm tra lại.",
+        ? "Đã tạo. Báo người dùng đăng nhập bằng SĐT + mật khẩu tạm (lần đầu app bắt đổi)."
+        : "Đã lưu nhưng TẠO ĐĂNG NHẬP LỖI — kiểm tra lại.",
     );
     setPhone("");
     setName("");
     setPassword("");
-    setUntil("");
-    setTier("basic");
+    setRole("customer");
+    setActivatePremium(false);
     onCreated();
   }
 
@@ -657,7 +691,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
         className="flex w-full items-center justify-between text-[1rem] font-bold text-navy"
         aria-expanded={open}
       >
-        Tạo tài khoản tay
+        Tạo tài khoản (khách / quản lý)
         <span aria-hidden>{open ? "−" : "+"}</span>
       </button>
       {open && (
@@ -687,25 +721,27 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
             onChange={(e) => setPassword(e.target.value)}
             className={field}
           />
-          <div className="flex gap-2.5">
+          <div className="flex items-center gap-2.5">
             <select
-              value={tier}
-              onChange={(e) => setTier(e.target.value as "basic" | "premium")}
+              value={role}
+              onChange={(e) =>
+                setRole(e.target.value as "customer" | "manager")
+              }
               className={field}
-              aria-label="Hạng tài khoản"
+              aria-label="Loại tài khoản"
             >
-              <option value="basic">Thường</option>
-              <option value="premium">Premium</option>
+              <option value="customer">Khách</option>
+              <option value="manager">Quản lý (được cấp premium)</option>
             </select>
-            {tier === "premium" && (
+            <label className="flex min-h-[2.75rem] shrink-0 items-center gap-2 rounded-xl bg-field px-3 text-[0.875rem] font-semibold text-foreground/75">
               <input
-                type="date"
-                value={until}
-                onChange={(e) => setUntil(e.target.value)}
-                className={field}
-                aria-label="Hạn premium (để trống = không hạn)"
+                type="checkbox"
+                checked={activatePremium}
+                onChange={(e) => setActivatePremium(e.target.checked)}
+                className="h-4 w-4"
               />
-            )}
+              Kích hoạt premium 1 năm
+            </label>
           </div>
           <button
             type="submit"

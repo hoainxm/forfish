@@ -78,6 +78,17 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - KH đọc hạng của mình qua policy SELECT own-phone sẵn có (0002) — không cần policy mới.
 - **Admin ≠ hạng trong DB**: SĐT trong env `ADMIN_PHONES` (`src/lib/admin.ts`) — được vào `/quan-tri` + xem dự báo cá như premium (middleware).
 
+### Tài khoản quản lý + log cấp premium — migration [`0004_premium_grants.sql`](../../supabase/migrations/0004_premium_grants.sql) (2026-07-26, đợt 2)
+
+| Thay đổi | Nghĩa |
+|---|---|
+| `customers.role text default 'customer'` (check `customer\|manager`) | **QUẢN LÝ** (đại lý/sales, admin tạo ở `/quan-tri`): vào được `/quan-tri` (chỉ tab Tài khoản) để KÍCH HOẠT/GIA HẠN premium cho khách |
+| `customers.premium_activated_at timestamptz` | mốc kích hoạt gần nhất (hạn ở `premium_until`) |
+| bảng `premium_grants` | LOG mỗi lần cấp: `customer_phone` · `granted_by` (SĐT người thao tác) · `action` (`activate\|renew\|downgrade`) · `activated_at` · `premium_until` (hạn SAU thao tác) — đếm được mỗi quản lý đang quản bao nhiêu premium. RLS bật, **KHÔNG policy** = chỉ service-role đọc/ghi |
+
+- **KỲ HẠN: 1 lần kích = 1 NĂM** (`PREMIUM_TERM_DAYS`/`nextPremiumUntil` trong `src/lib/tier.ts`, có test): còn hạn thì gia hạn CỘNG NỐI vào hạn cũ, hết hạn thì tính 1 năm từ hiện tại. Server tự tính — client không gửi hạn tay nữa.
+- **Phân quyền staff** (`requireStaff` trong `lib/admin-auth.ts`): admin (env) = toàn quyền (tạo khách/quản lý, hạ hạng, xoá); manager (DB) = chỉ `PATCH action='grant'`. Log hỏng KHÔNG chặn thao tác nhưng trả cờ `logged:false` — UI nói thật để đối soát.
+
 ## 3. Domain logic — `src/lib/documents.ts`
 
 ### DocumentKind (giữ sync với cột `kind`)
