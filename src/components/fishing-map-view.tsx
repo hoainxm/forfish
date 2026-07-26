@@ -1422,19 +1422,9 @@ export default function FishingMapView() {
             màn hình bị rối vì quá nhiều chữ thường trực). Bản đồ cá vẫn tự lấy
             bản mới khi có sóng. */}
 
-        {/* dự báo cá lỗi → nói thẳng + Thử lại (không phải "hôm nay không có cá") */}
-        {!forecastKind && fishOn && !fishCast && fishFailed && (
-          <button
-            type="button"
-            onClick={loadFish}
-            className="pointer-events-auto inline-flex min-h-[3rem] items-center gap-2 self-start rounded-full bg-card/95 px-4 shadow-md transition active:scale-95"
-          >
-            <FishIcon className="h-5 w-5 shrink-0 text-danger" aria-hidden />
-            <span className="text-[0.875rem] font-bold text-danger">
-              Dự báo cá chưa tải được — chạm để thử lại
-            </span>
-          </button>
-        )}
+        {/* dự báo cá lỗi ("chưa tải được — chạm thử lại") ĐÃ DỜI xuống slot
+            `above` của sheet, xếp NGAY TRÊN nhãn "đã lưu dự báo…" cho khỏi trôi
+            nổi góc trái bản đồ (user 2026-07-26) */}
 
         {/* SỐ BIỂN CŨ / THIẾU NGUỒN → một dòng rồi tự tắt (5s). Chỉ hiện trong
             ca xấu: ảnh SST/phù du quá tuổi, hoặc chất lượng dữ liệu < 0,5 —
@@ -1473,9 +1463,25 @@ export default function FishingMapView() {
             <div className="flex flex-col gap-2">
               {/* Nhãn nhỏ "trong máy đã có dự báo tới đâu" — liếc là biết đã sẵn
                   sàng ra khơi chưa. Chỉ ở nấc peek để khỏi rối lúc mở sheet đọc
-                  chi tiết; căn phải, nằm ngay trên box biển động. */}
+                  chi tiết; căn phải, nằm ngay trên box biển động. Dòng lỗi dự báo
+                  cá (nếu có) xếp NGAY TRÊN nhãn này. */}
               {size === "peek" && (
-                <div className="flex justify-end">
+                <div className="flex flex-col items-end gap-2">
+                  {!forecastKind && fishOn && !fishCast && fishFailed && (
+                    <button
+                      type="button"
+                      onClick={loadFish}
+                      className="pointer-events-auto inline-flex min-h-[3rem] items-center gap-2 rounded-full bg-card/95 px-4 shadow-md transition active:scale-95"
+                    >
+                      <FishIcon
+                        className="h-5 w-5 shrink-0 text-danger"
+                        aria-hidden
+                      />
+                      <span className="text-[0.875rem] font-bold text-danger">
+                        Dự báo cá chưa tải được — chạm để thử lại
+                      </span>
+                    </button>
+                  )}
                   <PretripSavedStatus />
                 </div>
               )}

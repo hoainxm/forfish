@@ -245,6 +245,8 @@ Bỏ cả ba thứ cũ: nút "Chuẩn bị đi biển", thẻ xanh "Xong. Máy g
 | Trong máy đã có bản | **"Đã lưu dữ liệu dự báo tới ngày D/M"** | chữ `text-ok` |
 | Chưa có gì | **"Chưa tải dữ liệu dự báo"** | chữ `text-warn` |
 
+Dòng lỗi **"Dự báo cá chưa tải được — chạm để thử lại"** (khi lớp cá bật mà tải hỏng) **xếp NGAY TRÊN** nhãn này trong cùng slot `above`, căn phải (2026-07-26) — trước đây trôi nổi góc trái bản đồ.
+
 Tải sẵn (không đổi): gió sóng 16 ngày cho **chỗ đang xem + mọi điểm đã ghim** (gộp các chỗ cùng ô 0,25°) · **bản đồ cá** · **lưới gió/sóng khung 3 / 7 / 16 ngày** (`PRETRIP_GRID_DAYS`).
 
 **TIẾT CHẾ DATA (bắt buộc)** — mỗi lượt tải sẵn ≈ **2,5–3 MB**, bà con trả tiền theo dung lượng nên KHÔNG được tải lại mỗi lần vào trang. Luật ở `shouldAutoPretrip` (`lib/pretrip-auto.ts`, thuần, có test):
