@@ -2,7 +2,7 @@
 
 > Load khi: lỗi liên quan nguồn dữ liệu ngoài (timeout, rate limit, đổi format, token hết hạn), thêm nguồn mới, hoặc audit phụ thuộc.
 
-covers: src/lib/tile-proxy.ts, src/lib/offline-basemap.ts, src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/pretrip.ts, src/lib/forecast-ensemble.ts, src/lib/forecast-quality.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/hycom.ts, src/lib/copernicus.ts, src/lib/source-registry.ts, src/lib/sst-tendency.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts
+covers: src/lib/tile-proxy.ts, src/lib/offline-basemap.ts, src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/pretrip.ts, src/lib/forecast-ensemble.ts, src/lib/forecast-quality.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/fish-forecast-run.ts, src/lib/fish-snapshot.ts, src/lib/fish-snapshot-policy.ts, src/lib/hycom.ts, src/lib/copernicus.ts, src/lib/source-registry.ts, src/lib/sst-tendency.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts
 last_verified: 2026-07-26
 ttl_days: 180
 gate: warn
@@ -55,7 +55,17 @@ gate: warn
 ## Sổ nguồn `/api/fish-forecast` — nhiều nguồn / một trường, SO NGÀY lấy mới nhất
 
 > Yêu cầu chủ dự án 2026-07-26: *"dữ liệu có nhiều nguồn thì down về so ngày (lấy ngày mới nhất), khi 1 nguồn lỗi thì hệ thống vẫn luôn hoạt động được."*
-> Luật thuần + test: [`src/lib/source-registry.ts`](../../../src/lib/source-registry.ts) (`resolveField`) · dựng danh sách ứng viên: `src/app/api/fish-forecast/route.ts`.
+> Luật thuần + test: [`src/lib/source-registry.ts`](../../../src/lib/source-registry.ts) (`resolveField`) · dựng danh sách ứng viên + compute: [`src/lib/fish-forecast-run.ts`](../../../src/lib/fish-forecast-run.ts) (`computeFishForecast`).
+
+### PRECOMPUTE — cron tính sẵn, route chỉ đọc snapshot (2026-07-26)
+
+> Vì sao: các nguồn trên NẶNG + HAY TREO (HYCOM OPeNDAP, Copernicus Zarr) — tính tại chỗ mỗi lần cache lạnh dễ vượt mốc hủy 35s của client → "dự báo cá chưa tải được". Trị tận gốc: tách compute khỏi request của user.
+
+- **Cron** `/api/cron/refresh-fish` (`computeFishForecast()` → `saveFishSnapshot()`) chạy theo lịch: **GitHub Actions** `.github/workflows/refresh-fish.yml` cron `20 */6 * * *` (best-effort, có thể trễ/bỏ run — không sao vì route có fallback) + **Vercel cron** `vercel.json` `0 2 * * *` (Hobby chỉ ~1 lần/ngày → dự phòng; Pro đổi thành `20 */6 * * *` được).
+- **Đọc**: `/api/fish-forecast` → `loadFishSnapshot()` đọc bảng `fish_forecast_snapshot` (service-role, `next.revalidate` 30′ giữ ISR). Chưa có snapshot → tự tính fallback (`computeFishForecast`) → KHÔNG bao giờ trắng bản đồ.
+- **Ghi đè**: `shouldReplaceSnapshot` ([`src/lib/fish-snapshot-policy.ts`](../../../src/lib/fish-snapshot-policy.ts), thuần, có test) — không lùi ngày, không thay bản tốt bằng bản hỏng.
+- **KÍCH HOẠT** (chưa có thì degrade êm về hành vi cũ): apply migration `0005` + env `CRON_SECRET` (Vercel — Vercel Cron tự gắn header — và GitHub Secret trùng) + GitHub Variable `APP_BASE_URL`. `SUPABASE_SERVICE_ROLE_KEY` đã có.
+- I/O: [`src/lib/fish-snapshot.ts`](../../../src/lib/fish-snapshot.ts) (server-only, service-role qua `lib/supabase/admin.ts`).
 
 **Luật `resolveField` (mỗi luật một test)**: (1) mọi ứng viên chạy **song song** `Promise.allSettled` — không tuần tự, ngân sách route 60 s; (2) bỏ ứng viên lỗi / trả `null` / ngày không parse được; (3) trong số còn lại lấy bản có **ngày dữ liệu MỚI NHẤT**, hoà ngày → ứng viên **ưu tiên cao hơn** (đứng trước); (4) `ageDays` tính theo **ngày Việt Nam** (`isoDateVN`), ngày tương lai kẹp về 0; (5) bản mới nhất mà **quá `maxAgeDays` vẫn TRẢ VỀ** (thà ảnh cũ còn hơn không có) nhưng gắn `stale: true` — KHÔNG âm thầm coi là hiện tại; (6) không ứng viên nào dùng được → `null` (trường bắt buộc → `{ok:false}`, trường tuỳ chọn → bỏ yếu tố).
 
