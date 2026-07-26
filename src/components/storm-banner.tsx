@@ -9,7 +9,8 @@
  *     tuyệt đối không được nói "không có bão"
  */
 import { useEffect, useState } from "react";
-import { fetchStormCheck, stormStatus, type StormCheck } from "@/lib/storms";
+import { stormStatus } from "@/lib/storms";
+import { useStormCheck } from "@/lib/use-storm-check";
 import { clockVN } from "@/lib/day-labels";
 import { beaufort } from "@/lib/marine-weather";
 import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/icons";
@@ -20,27 +21,14 @@ export function StormBanner({
   /** "overlay" = nổi trên bản đồ full-screen: chip gọn khi yên, thẻ đầy đủ khi có bão */
   variant?: "page" | "overlay";
 }) {
-  const [check, setCheck] = useState<StormCheck | null>(null);
+  // Hỏi tin bão + TỰ THỬ LẠI khi có sóng lại / mở lại app / định kỳ.
+  // KHÔNG gọi fetchStormCheck một lần rồi thôi — xem lib/use-storm-check.ts.
+  const { check, nowMs } = useStormCheck();
   // Overlay: cho thu/mở để tin bão không chiếm hết view (user 2026-06-23).
   // Mặc định MỞ (an toàn — bà con phải thấy ít nhất 1 lần), thu lại thành 1
   // chip đỏ/vàng vẫn nổi bật, chạm để mở lại.
   const [open, setOpen] = useState(true);
 
-  useEffect(() => {
-    let alive = true;
-    fetchStormCheck().then((c) => alive && setCheck(c));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  // Đồng hồ nhích 5 phút/lần: app mở suốt chuyến biển, không có nhịp này thì
-  // tin bão để lâu vẫn trông như tin vừa hỏi.
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNowMs(Date.now()), 5 * 60 * 1000);
-    return () => clearInterval(t);
-  }, []);
 
   // Trạng thái thật của tin bão — tin để lâu quá thì tự rớt về "chưa hỏi được"
   // (không bao giờ để tin cũ trông như tin mới).

@@ -89,7 +89,8 @@ import { borderProximity, haversineKm, type BorderLevel } from "@/lib/geofence";
 import { fetchDepthGrid, depthClassAt, type DepthClass } from "@/lib/depth-grid";
 import { weatherFromCode } from "@/lib/weather-codes";
 import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
-import { fetchStormCheck, stormStatus, type StormCheck } from "@/lib/storms";
+import { stormStatus } from "@/lib/storms";
+import { useStormCheck } from "@/lib/use-storm-check";
 import {
   chipLabel,
   clockVN,
@@ -560,7 +561,9 @@ export default function FishingMapView() {
 
   // Giữ NGUYÊN VẸN câu trả lời của nguồn (kể cả ok:false) — mảng rỗng không
   // được dùng chung cho "không có bão" và "chưa hỏi được" (an toàn tính mạng).
-  const [stormCheck, setStormCheck] = useState<StormCheck | null>(null);
+  // Hỏi tin bão + TỰ THỬ LẠI (có sóng lại / mở lại app / định kỳ / hỏng thì
+  // thử nhanh). KHÔNG được gọi một lần rồi thôi — xem lib/use-storm-check.ts.
+  const { check: stormCheck } = useStormCheck();
   const stormInfo = useMemo(
     () => stormStatus(stormCheck, nowMs),
     [stormCheck, nowMs],
@@ -712,18 +715,6 @@ export default function FishingMapView() {
         duration: 900,
       },
     );
-  }, []);
-
-  // tâm bão (nếu có) vẽ thẳng lên bản đồ
-  useEffect(() => {
-    let alive = true;
-    // Giữ CẢ câu trả lời hỏng (ok:false): UI phải phân biệt được "hỏi rồi,
-    // không có bão" với "chưa hỏi được" — không được im lặng rồi để mảng rỗng
-    // nói hộ thành "không có bão".
-    fetchStormCheck().then((c) => alive && setStormCheck(c));
-    return () => {
-      alive = false;
-    };
   }, []);
 
   // độ sâu tại điểm đang xem — lưới tĩnh, đọc cục bộ
