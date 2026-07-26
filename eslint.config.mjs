@@ -12,9 +12,6 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Web quản trị là APP RIÊNG (admin/ — package + build + deploy độc lập,
-    // tách 2026-07-26): lint gốc không quét vào, khỏi nuốt admin/node_modules.
-    "admin/**",
   ]),
   {
     rules: {

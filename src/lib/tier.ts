@@ -1,7 +1,7 @@
 // Phân hạng tài khoản (logic THUẦN — dùng chung client/middleware/route).
 // 'basic' (mặc định) | 'premium'. Premium mở: dự báo cá + thời tiết quá 3 ngày.
 // Hạng nằm ở customers.tier + customers.premium_until (migration 0003) — nguồn
-// gán: webhook SDWork hoặc web quản trị riêng (admin/). App KHÔNG có luồng
+// gán: webhook SDWork hoặc web quản trị /quan-tri. App KHÔNG có luồng
 // thanh toán.
 
 export type AccountTier = "basic" | "premium";

@@ -1,11 +1,14 @@
-// Quản lý tài khoản khách SDFish từ web quản trị (chuyển từ app chính sang
-// 2026-07-26 — app ngư dân KHÔNG còn route admin nào).
+// /api/admin/accounts — quản lý tài khoản từ dashboard /quan-tri (admin only,
+// env ADMIN_PHONES). Ghi bằng service-role (bypass RLS) NHƯNG mọi method đều
+// qua requireAdmin() trước — không có đường nào từ client thường vào đây.
 // · GET    danh sách customers + trạng thái provision (có auth user chưa)
 // · POST   tạo tài khoản tay: customers row + auth user (SĐT + mật khẩu tạm)
 // · PATCH  đổi hạng basic/premium (+ hạn premium_until)
-// · DELETE xoá tài khoản: auth user + customers row (UI bắt confirm)
-// Ghi bằng service-role (bypass RLS) — MỌI method qua requireAdmin() trước.
-// Webhook SDWork (bên app chính) vẫn là đường nạp CHÍNH; tạo tay cho ca lẻ.
+// · DELETE xoá tài khoản: customers row + auth user (admin xác nhận ở UI)
+// Webhook SDWork vẫn là đường nạp CHÍNH — tạo tay ở đây dành cho ca lẻ
+// (khách chưa có trong CRM, tài khoản test). sdwork_ref để null → webhook về
+// sau upsert theo ref sẽ KHÔNG đè row tạo tay (khác phone thì thôi, trùng
+// phone thì unique phone chặn — thấy lỗi ở response webhook, đối soát tay).
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -16,6 +19,7 @@ type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
 
+/** Guard chung: admin + service-role sẵn sàng, không thì trả lỗi HTTP */
 async function guard(): Promise<Admin | NextResponse> {
   const who = await requireAdmin();
   if (!who.ok) return err(who.status, who.code);
@@ -49,6 +53,7 @@ export async function GET() {
     .order("updated_at", { ascending: false });
   if (error) return err(500, "query_failed");
 
+  // đối chiếu auth: SĐT nào đăng nhập được (đã provision) — quét 1 lượt
   const provisioned = new Set<string>();
   try {
     for (let page = 1; page <= 20; page++) {
@@ -108,7 +113,7 @@ export async function POST(req: Request) {
   );
   if (upErr) return err(500, "upsert_failed");
 
-  // cùng nếp webhook app chính: user đã tồn tại thì bỏ qua, KHÔNG đè mật khẩu
+  // provision auth — cùng nếp webhook: đã tồn tại thì bỏ qua, KHÔNG đè mật khẩu
   const { error: authErr } = await admin.auth.admin.createUser({
     email: phoneToEmail(phone),
     password: body.password,
@@ -156,6 +161,7 @@ export async function DELETE(req: Request) {
   if (!phoneRaw) return err(400, "bad_phone");
   const phone = normalizeVnPhone(phoneRaw);
 
+  // xoá auth user trước (đăng nhập tắt ngay), rồi tới dữ liệu customers
   try {
     const authUser = await findAuthUser(admin, phoneToEmail(phone));
     if (authUser) await admin.auth.admin.deleteUser(authUser.id);

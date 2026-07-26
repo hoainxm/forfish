@@ -1,18 +1,20 @@
 "use client";
 
 /*
-  Dashboard quản trị SDFish — WEB RIÊNG cho đội SDVICO (tách khỏi app ngư dân
-  2026-07-26). Ba tab:
+  /quan-tri — DASHBOARD QUẢN TRỊ (admin only, SĐT trong env ADMIN_PHONES).
+  Cho đội SDVICO, KHÔNG cho ngư dân → không nằm trong dock, không link từ app.
+  Ba tab:
   · Tài khoản — danh sách khách, tạo tay, đổi hạng basic/premium (+ hạn), xoá
-  · Dữ liệu  — tình trạng nguồn app chính (qua /api/admin/sources proxy)
-  · Hệ thống — env, số tài khoản/premium, nhịp webhook, migration tier
+  · Dữ liệu  — tình trạng các nguồn: dự báo cá (sources/quality), bão, giá dầu,
+               giá chợ (client tự gọi API sẵn có của app — không lặp logic nguồn)
+  · Hệ thống — env đã cấu hình chưa, số tài khoản/premium, nhịp webhook,
+               migration tier đã apply chưa
   Quyền THẬT nằm ở /api/admin/* (requireAdmin) — trang này chỉ là vỏ hiển thị.
 */
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { apiUrl } from "@/lib/api-base";
 
 type Tab = "tai-khoan" | "du-lieu" | "he-thong";
 
@@ -22,8 +24,7 @@ type Health = {
   env?: {
     supabase: boolean;
     serviceRole: boolean;
-    appUrl: string | null;
-    adminApiKey: boolean;
+    webhookSecret: boolean;
     adminPhones: number;
   };
   db?: {
@@ -46,18 +47,11 @@ type Account = {
   canLogin: boolean;
 };
 
-type SourceReport =
-  | { state: "ok"; note: string; extra?: FishSource[] }
+/** Một nguồn dữ liệu app đang sống nhờ — check bằng chính API của app */
+type SourceState =
+  | { state: "loading" }
+  | { state: "ok"; note: string }
   | { state: "down"; note: string };
-type FishSource = { key: string; id: string; date: string; stale: boolean };
-type Sources = {
-  ok: boolean;
-  base?: string;
-  fish?: SourceReport;
-  storms?: SourceReport;
-  fuel?: SourceReport;
-  prices?: SourceReport;
-};
 
 const fmtDT = (iso: string | null | undefined): string =>
   iso
@@ -79,14 +73,13 @@ const fmtD = (iso: string | null | undefined): string =>
       }).format(new Date(iso + (iso.length === 10 ? "T00:00:00+07:00" : "")))
     : "—";
 
-export default function DashboardPage() {
-  const router = useRouter();
+export default function QuanTriPage() {
   const [tab, setTab] = useState<Tab>("tai-khoan");
   const [health, setHealth] = useState<Health | null>(null);
   const [healthErr, setHealthErr] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/health")
+    fetch(apiUrl("/api/admin/health"))
       .then(async (r) => {
         if (!r.ok) {
           setHealthErr(r.status);
@@ -97,26 +90,20 @@ export default function DashboardPage() {
       .catch(() => setHealthErr(0));
   }, []);
 
-  async function logout() {
-    const supabase = createClient();
-    await supabase?.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
-
+  // ── chưa đủ quyền — nói rõ vì sao, không im lặng trang trắng ────────────
   if (healthErr != null) {
     return (
       <main className="mx-auto max-w-[640px] px-4 py-16 text-center">
         <h1 className="display text-[1.5rem] font-bold text-navy">
-          Quản trị SDFish
+          Trang quản trị SDFish
         </h1>
         <p className="mt-3 text-[1.0625rem] leading-snug text-foreground/70">
           {healthErr === 401 &&
             "Cần đăng nhập bằng tài khoản quản trị viên để vào trang này."}
           {healthErr === 403 &&
-            "Tài khoản đang đăng nhập không có quyền quản trị (SĐT chưa nằm trong ADMIN_PHONES của web này)."}
+            "Tài khoản đang đăng nhập không có quyền quản trị (SĐT chưa nằm trong ADMIN_PHONES)."}
           {healthErr === 503 &&
-            "Web chưa cấu hình Supabase — kiểm tra biến môi trường."}
+            "Hệ thống chưa cấu hình Supabase — trang quản trị cần DB thật, không chạy ở demo mode."}
           {healthErr === 0 && "Không gọi được máy chủ — kiểm tra mạng rồi tải lại."}
         </p>
         {healthErr === 401 && (
@@ -126,15 +113,6 @@ export default function DashboardPage() {
           >
             Đăng nhập
           </Link>
-        )}
-        {healthErr === 403 && (
-          <button
-            type="button"
-            onClick={logout}
-            className="mx-auto mt-5 block min-h-[2.75rem] rounded-xl bg-field px-6 text-[0.9375rem] font-bold text-navy"
-          >
-            Đăng xuất — vào bằng tài khoản khác
-          </button>
         )}
       </main>
     );
@@ -149,23 +127,12 @@ export default function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-[840px] px-4 pb-16 pt-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="display text-[1.5rem] font-bold text-navy">
-            Quản trị SDFish
-          </h1>
-          <p className="mt-0.5 text-[0.9375rem] text-foreground/65">
-            Theo dõi tài khoản, nguồn dữ liệu và sức khoẻ hệ thống.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={logout}
-          className="min-h-[2.5rem] shrink-0 rounded-xl bg-field px-4 text-[0.875rem] font-bold text-navy"
-        >
-          Đăng xuất
-        </button>
-      </div>
+      <h1 className="display text-[1.5rem] font-bold text-navy">
+        Quản trị SDFish
+      </h1>
+      <p className="mt-0.5 text-[0.9375rem] text-foreground/65">
+        Theo dõi tài khoản, nguồn dữ liệu và sức khoẻ hệ thống.
+      </p>
 
       <div className="mt-4 flex gap-1.5" role="tablist">
         {(
@@ -208,7 +175,7 @@ function AccountsTab() {
 
   const load = useCallback(() => {
     setError(null);
-    fetch("/api/admin/accounts")
+    fetch(apiUrl("/api/admin/accounts"))
       .then(async (r) => {
         const j = (await r.json()) as {
           ok: boolean;
@@ -218,10 +185,11 @@ function AccountsTab() {
         if (!j.ok) throw new Error(j.code ?? "load");
         setAccounts(j.accounts ?? []);
       })
+      // thiếu service-role thì nói THẲNG thiếu gì — "thử lại" vô ích
       .catch((e: Error) =>
         setError(
           e.message === "not_configured"
-            ? "Thiếu SUPABASE_SERVICE_ROLE_KEY trong env của web quản trị — copy từ Supabase Dashboard (Settings → API → service_role) rồi restart/redeploy."
+            ? "Thiếu SUPABASE_SERVICE_ROLE_KEY trong env — copy từ Supabase Dashboard (Settings → API → service_role) rồi restart/redeploy."
             : "Chưa tải được danh sách — thử lại.",
         ),
       );
@@ -236,7 +204,7 @@ function AccountsTab() {
         `Nâng ${a.phone} lên PREMIUM.\nHạn premium (YYYY-MM-DD), để trống = không hạn:`,
         "",
       );
-      if (raw === null) return;
+      if (raw === null) return; // bấm Huỷ
       const t = raw.trim();
       if (t) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) {
@@ -251,7 +219,7 @@ function AccountsTab() {
       return;
     }
     setBusyPhone(a.phone);
-    const r = await fetch("/api/admin/accounts", {
+    const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -277,7 +245,7 @@ function AccountsTab() {
       return;
     setBusyPhone(a.phone);
     const r = await fetch(
-      `/api/admin/accounts?phone=${encodeURIComponent(a.phone)}`,
+      apiUrl(`/api/admin/accounts?phone=${encodeURIComponent(a.phone)}`),
       { method: "DELETE" },
     ).catch(() => null);
     setBusyPhone(null);
@@ -390,7 +358,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
     e.preventDefault();
     setBusy(true);
     setMsg(null);
-    const r = await fetch("/api/admin/accounts", {
+    const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -419,7 +387,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
     }
     setMsg(
       j.provisioned
-        ? "Đã tạo. Báo khách đăng nhập app SDFish bằng SĐT + mật khẩu tạm (lần đầu app bắt đổi)."
+        ? "Đã tạo. Báo khách đăng nhập bằng SĐT + mật khẩu tạm (lần đầu app bắt đổi)."
         : "Đã lưu khách nhưng TẠO ĐĂNG NHẬP LỖI — kiểm tra lại.",
     );
     setPhone("");
@@ -508,83 +476,104 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
 
 /* ── DỮ LIỆU ───────────────────────────────────────────────────────────── */
 
-function Dot({ state }: { state: "ok" | "down" | "loading" }) {
-  return (
-    <span
-      aria-hidden
-      className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
-      style={{
-        backgroundColor:
-          state === "ok"
-            ? "var(--ok)"
-            : state === "down"
-              ? "var(--danger)"
-              : "var(--line)",
-      }}
-    />
-  );
-}
-
 function DataTab() {
-  const [data, setData] = useState<Sources | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [fish, setFish] = useState<SourceState>({ state: "loading" });
+  const [storms, setStorms] = useState<SourceState>({ state: "loading" });
+  const [fuel, setFuel] = useState<SourceState>({ state: "loading" });
+  const [prices, setPrices] = useState<SourceState>({ state: "loading" });
+  const [fishSources, setFishSources] = useState<
+    { key: string; id: string; date: string; stale: boolean }[]
+  >([]);
 
-  const load = useCallback(() => {
-    setData(null);
-    setFailed(false);
-    fetch("/api/admin/sources")
-      .then(async (r) => {
-        if (!r.ok) throw new Error(String(r.status));
-        setData((await r.json()) as Sources);
-      })
-      .catch(() => setFailed(true));
-  }, []);
-  useEffect(load, [load]);
+  useEffect(() => {
+    const check = async (
+      path: string,
+      set: (s: SourceState) => void,
+      okNote: (j: Record<string, unknown>) => string,
+      timeoutMs = 20000,
+    ) => {
+      try {
+        const r = await fetch(apiUrl(path), {
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+        const j = (await r.json()) as Record<string, unknown>;
+        if (!r.ok || j.ok === false) {
+          set({
+            state: "down",
+            note:
+              typeof j.code === "string"
+                ? `lỗi: ${j.code}`
+                : `không trả dữ liệu (HTTP ${r.status})`,
+          });
+          return;
+        }
+        set({ state: "ok", note: okNote(j) });
+        if (path === "/api/fish-forecast" && j.sources) {
+          setFishSources(
+            Object.entries(j.sources as Record<string, Record<string, unknown>>).map(
+              ([key, s]) => ({
+                key,
+                id: String(s.id ?? "?"),
+                date: String(s.date ?? "?"),
+                stale: Boolean(s.stale),
+              }),
+            ),
+          );
+        }
+      } catch {
+        set({ state: "down", note: "không gọi được (timeout/mạng)" });
+      }
+    };
 
-  if (failed) {
-    return (
-      <div className="mt-4 surface px-4 py-6 text-center">
-        <p className="text-[1rem] text-danger">
-          Chưa kiểm tra được nguồn — FORFISH_APP_URL/ADMIN_API_KEY đã cấu hình
-          chưa?
-        </p>
-        <button
-          type="button"
-          onClick={load}
-          className="mt-3 min-h-[2.75rem] rounded-xl bg-navy px-6 text-[0.9375rem] font-bold text-white"
-        >
-          Thử lại
-        </button>
-      </div>
+    // dự báo cá lần lạnh có thể ~30s (maxDuration 60) — timeout rộng hơn
+    check(
+      "/api/fish-forecast",
+      setFish,
+      (j) => `ảnh ngày ${fmtD(String(j.targetDate ?? ""))} · tính lúc ${fmtDT(String(j.generatedAt ?? ""))}`,
+      40000,
     );
-  }
+    check("/api/storms", setStorms, (j) => {
+      const n = Array.isArray(j.storms) ? j.storms.length : 0;
+      return `${n === 0 ? "không có bão" : `${n} cơn bão/ATNĐ`} · kiểm tra ${fmtDT(String(j.checkedAt ?? ""))}`;
+    });
+    check("/api/fuel-price", setFuel, () => "có giá dầu DO mới nhất");
+    check("/api/port-prices", setPrices, (j) =>
+      `nguồn ${String(j.source ?? "?")}${j.province ? ` · ${String(j.province)}` : ""}`,
+    );
+  }, []);
 
-  const rows: [string, SourceReport | undefined][] = [
-    ["Dự báo cá (vệ tinh NOAA/Copernicus/HYCOM)", data?.fish],
-    ["Tin bão Biển Đông", data?.storms],
-    ["Giá dầu DO", data?.fuel],
-    ["Giá thủy sản (VASEP)", data?.prices],
+  const rows: [string, string, SourceState][] = [
+    ["Dự báo cá (vệ tinh NOAA/Copernicus/HYCOM)", "/api/fish-forecast", fish],
+    ["Tin bão Biển Đông", "/api/storms", storms],
+    ["Giá dầu DO", "/api/fuel-price", fuel],
+    ["Giá thủy sản (VASEP)", "/api/port-prices", prices],
   ];
-  const fishSources = data?.fish?.state === "ok" ? (data.fish.extra ?? []) : [];
 
   return (
     <div className="mt-4 space-y-4">
-      {data?.base && (
-        <p className="px-1 text-[0.8125rem] text-foreground/55">
-          Kiểm tra trên app: <span className="tabular-nums">{data.base}</span>
-        </p>
-      )}
       <ul className="surface overflow-hidden">
-        {rows.map(([label, s]) => (
+        {rows.map(([label, path, s]) => (
           <li
-            key={label}
+            key={path}
             className="flex items-start gap-3 border-b border-line px-4 py-3 last:border-b-0"
           >
-            <Dot state={s?.state ?? "loading"} />
+            <span
+              aria-hidden
+              className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{
+                backgroundColor:
+                  s.state === "ok"
+                    ? "var(--ok)"
+                    : s.state === "down"
+                      ? "var(--danger)"
+                      : "var(--line)",
+              }}
+            />
             <div className="min-w-0 flex-1">
               <p className="text-[0.9375rem] font-bold text-navy">{label}</p>
               <p className="text-[0.8125rem] text-foreground/65">
-                {s ? s.note : "đang kiểm tra…"}
+                {s.state === "loading" ? "đang kiểm tra…" : s.note}
+                <span className="text-foreground/40"> · {path}</span>
               </p>
             </div>
           </li>
@@ -619,7 +608,7 @@ function DataTab() {
           </ul>
           <p className="mt-2 text-[0.75rem] leading-snug text-foreground/55">
             Trường vắng mặt = mọi nguồn của trường đó đang hỏng (dự báo vẫn chạy
-            nếu SST + phù du còn).
+            nếu SST + phù du còn; chi tiết luật ở lib/source-registry.ts).
           </p>
         </div>
       )}
@@ -640,7 +629,14 @@ function Row({
 }) {
   return (
     <li className="flex items-start gap-3 border-b border-line px-4 py-3 last:border-b-0">
-      <Dot state={ok == null ? "loading" : ok ? "ok" : "down"} />
+      <span
+        aria-hidden
+        className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+        style={{
+          backgroundColor:
+            ok == null ? "var(--line)" : ok ? "var(--ok)" : "var(--danger)",
+        }}
+      />
       <div>
         <p className="text-[0.9375rem] font-bold text-navy">{label}</p>
         {note && <p className="text-[0.8125rem] text-foreground/65">{note}</p>}
@@ -658,30 +654,25 @@ function SystemTab({ health }: { health: Health }) {
       <ul className="surface overflow-hidden">
         <Row
           ok={env?.supabase ?? false}
-          label="Supabase (DB + Auth, chung với app)"
-          note={env?.supabase ? "đã cấu hình" : "THIẾU env NEXT_PUBLIC_SUPABASE_*"}
+          label="Supabase (DB + Auth)"
+          note={env?.supabase ? "đã cấu hình" : "THIẾU env — app đang demo mode"}
         />
         <Row
           ok={env?.serviceRole ?? false}
           label="Service role key"
           note={
             env?.serviceRole
-              ? "đã cấu hình (đọc/ghi tài khoản được)"
-              : "THIẾU SUPABASE_SERVICE_ROLE_KEY — tab Tài khoản không hoạt động"
+              ? "đã cấu hình (webhook + admin ghi được)"
+              : "THIẾU — webhook SDWork và trang này không ghi được DB"
           }
         />
         <Row
-          ok={Boolean(env?.appUrl)}
-          label="Địa chỉ app ngư dân (FORFISH_APP_URL)"
-          note={env?.appUrl ?? "THIẾU — tab Dữ liệu không kiểm tra được nguồn"}
-        />
-        <Row
-          ok={env?.adminApiKey ?? false}
-          label="Khoá gọi chéo ADMIN_API_KEY"
+          ok={env?.webhookSecret ?? false}
+          label="Webhook SDWork (HMAC secret)"
           note={
-            env?.adminApiKey
-              ? "đã cấu hình (kiểm tra được dự báo cá đang bị khoá premium)"
-              : "THIẾU — dòng dự báo cá ở tab Dữ liệu sẽ báo 401/403"
+            env?.webhookSecret
+              ? "đã cấu hình"
+              : "THIẾU SDWORK_WEBHOOK_SECRET — khách mới bên CRM không tự sang app"
           }
         />
         <Row
@@ -729,7 +720,7 @@ function SystemTab({ health }: { health: Health }) {
           Webhook SDWork đẩy bản ghi khách gần nhất lúc{" "}
           <b className="tabular-nums">{fmtDT(db.lastIngestAt)}</b>. Lâu bất
           thường (khách mới bên CRM mà bên này không thấy) → kiểm tra outbox
-          webhook bên SDWork.
+          webhook bên SDWork và secret ở trên.
         </p>
       )}
     </div>

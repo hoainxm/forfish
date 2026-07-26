@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import { BottomNav } from "@/components/bottom-nav";
+import { AppShell } from "@/components/app-shell";
 import { SwRegister } from "@/components/sw-register";
 
 const display = Archivo({
@@ -76,17 +76,9 @@ export default function RootLayout({
               "try{var m=localStorage.getItem('forfish.displaymode.v1');if(m==='gon'||m==='to')document.documentElement.dataset.mode=m}catch(e){}",
           }}
         />
-        {/* Mobile-first: a phone-width column centred on larger screens. */}
-        <div className="mx-auto flex min-h-dvh max-w-[480px] flex-col bg-background shadow-sm">
-          {/* pb = chừa CHIỀU CAO dock nổi (≈82px) + vùng an toàn đáy (home
-              indicator iOS / thanh gesture Android, env có thể tới ~48px). Cộng
-              env(safe-area-inset-bottom) để máy nút-dưới KHÔNG che nội dung/nút
-              cuối (trước: pb-32 cứng 128px, thiếu trên máy gesture bar lớn). */}
-          <main className="flex-1 pb-[calc(8rem+env(safe-area-inset-bottom))]">
-            {children}
-          </main>
-          <BottomNav />
-        </div>
+        {/* Khung theo KHU (app-shell.tsx): app ngư dân = cột mobile 480px +
+            dock; /quan-tri = web quản trị độc lập full màn hình, không dock. */}
+        <AppShell>{children}</AppShell>
         <SwRegister />
       </body>
     </html>

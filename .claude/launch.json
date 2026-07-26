@@ -14,13 +14,6 @@
       "runtimeArgs": ["run", "start"],
       "port": 3100,
       "autoPort": true
-    },
-    {
-      "name": "forfish-admin",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "admin", "run", "dev"],
-      "port": 3200,
-      "autoPort": true
     }
   ]
 }

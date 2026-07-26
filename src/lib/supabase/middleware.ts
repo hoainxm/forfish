@@ -47,13 +47,6 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getUser();
 
   if (request.nextUrl.pathname === "/api/fish-forecast") {
-    // WEB QUẢN TRỊ (app riêng, thư mục admin/ — tách 2026-07-26) kiểm tra
-    // nguồn dự báo cá bằng server-to-server: header x-admin-key khớp shared
-    // secret ADMIN_API_KEY (set cả hai bên) thì đi qua như premium.
-    const adminKey = process.env.ADMIN_API_KEY;
-    if (adminKey && request.headers.get("x-admin-key") === adminKey) {
-      return supabaseResponse;
-    }
     // JSON lỗi phải mang theo cookie vừa refresh — không thì phiên "đứng hình".
     const deny = (status: number, code: string) => {
       const res = NextResponse.json({ ok: false, code }, { status });
