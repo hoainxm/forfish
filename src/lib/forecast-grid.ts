@@ -13,6 +13,8 @@
 // (lib/forecast-cache) — kéo thanh giờ vẫn xem được lưới đã tải trước lúc đi.
 
 import { saveForecast, loadForecast, loadAll } from "@/lib/forecast-cache";
+import { apiUrl } from "@/lib/api-base";
+import { gridSnapshotId, SNAPSHOT_GRID_DAYS } from "@/lib/weather-snapshot-id";
 
 export type ForecastKind = "wind" | "wave";
 
@@ -170,9 +172,30 @@ export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
     saveForecast(GRID_NS, id, g);
     return g;
   } catch (err) {
+    // LƯỚI AN TOÀN khi live lỗi: bản trong máy trước; nếu chưa có mà là khung
+    // MIỄN PHÍ (d3) thì thử snapshot server cron tính sẵn (khung premium không
+    // snapshot công khai — xem weather-snapshot-id.ts). Giữ cờ stale để UI nói thật.
     const hit = loadForecast<ForecastGrid>(GRID_NS, id);
     if (hit) return { ...hit.data, stale: true, savedAt: hit.savedAt };
+    if (days === SNAPSHOT_GRID_DAYS) {
+      const snap = await loadGridSnapshotClient(days);
+      if (snap) return { ...snap, stale: true, savedAt: null };
+    }
     throw err;
+  }
+}
+
+/** LƯỚI AN TOÀN: snapshot lưới d3 do cron tính sẵn (same-origin) — null nếu chưa có */
+async function loadGridSnapshotClient(days: number): Promise<ForecastGrid | null> {
+  try {
+    const r = await fetch(apiUrl(`/api/weather-snapshot?id=${gridSnapshotId(days)}`), {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) return null;
+    const g = (await r.json()) as ForecastGrid;
+    return g && Array.isArray(g.times) && g.times.length > 0 ? g : null;
+  } catch {
+    return null;
   }
 }
 
@@ -205,7 +228,9 @@ export function loadLongestSavedGrid(): {
   return null;
 }
 
-async function fetchForecastGridLive(days = 3): Promise<ForecastGrid> {
+/** LIVE Open-Meteo THẲNG — export để cron precompute dùng chung (client vẫn gọi
+    qua fetchForecastGrid có cache + fallback). */
+export async function fetchForecastGridLive(days = 3): Promise<ForecastGrid> {
   const pts = gridPoints();
   const lats = pts.map((p) => p.lat).join(",");
   const lons = pts.map((p) => p.lon).join(",");

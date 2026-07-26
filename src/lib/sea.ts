@@ -5,6 +5,8 @@
 // Điểm số chỉ để tham khảo — UI phải luôn kèm lời nhắc nghe đài duyên hải.
 
 import type { FishingPort } from "@/data/ports";
+import { apiUrl } from "@/lib/api-base";
+import { seaSnapshotId } from "@/lib/weather-snapshot-id";
 
 export interface SeaDay {
   date: string; // ISO yyyy-mm-dd
@@ -68,12 +70,12 @@ export const LEVEL_LABEL: Record<SeaLevel, string> = {
   bad: "Không nên ra khơi",
 };
 
-export async function fetchSeaForecast(
-  port: FishingPort,
-): Promise<ScoredSeaDay[]> {
-  const cached = readCache(port.id);
-  if (cached) return cached;
-
+/**
+ * LIVE Open-Meteo THẲNG (không cache, không fallback) — tách ra để cron precompute
+ * (api/cron/refresh-weather) và client dùng CHUNG đúng một phần tải. Ném lỗi khi
+ * nguồn hỏng.
+ */
+export async function fetchSeaLive(port: FishingPort): Promise<ScoredSeaDay[]> {
   const common = `latitude=${port.lat}&longitude=${port.lon}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${FORECAST_DAYS}`;
   const [marineRes, weatherRes] = await Promise.all([
     fetch(
@@ -110,8 +112,46 @@ export async function fetchSeaForecast(
   });
 
   if (days.length === 0) throw new Error("Dự báo trống");
-  writeCache(port.id, days);
   return days;
+}
+
+/**
+ * Dự báo biển theo cảng cho UI. Thứ tự: bản MỚI trong máy (còn TTL) → LIVE
+ * Open-Meteo (chính) → khi live lỗi: LƯỚI AN TOÀN snapshot server (cron tính
+ * sẵn, dùng chung) → bản CŨ trong máy (quá TTL còn hơn không có).
+ */
+export async function fetchSeaForecast(
+  port: FishingPort,
+): Promise<ScoredSeaDay[]> {
+  const cached = readCache(port.id);
+  if (cached) return cached;
+  try {
+    const days = await fetchSeaLive(port);
+    writeCache(port.id, days);
+    return days;
+  } catch (err) {
+    const snap = await loadSeaSnapshotClient(port.id);
+    if (snap) return snap;
+    const stale = readCache(port.id, true);
+    if (stale) return stale;
+    throw err;
+  }
+}
+
+/** LƯỚI AN TOÀN: đọc snapshot cảng do cron tính sẵn (same-origin) — null nếu chưa có */
+async function loadSeaSnapshotClient(
+  portId: string,
+): Promise<ScoredSeaDay[] | null> {
+  try {
+    const r = await fetch(apiUrl(`/api/weather-snapshot?id=${seaSnapshotId(portId)}`), {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return null;
+    const days = (await r.json()) as ScoredSeaDay[];
+    return Array.isArray(days) && days.length > 0 ? days : null;
+  } catch {
+    return null;
+  }
 }
 
 // ── cache trên máy, đỡ gọi mạng mỗi lần mở app ──────────────────────────
@@ -121,7 +161,10 @@ function cacheKey(portId: string) {
   return `forfish.sea.${portId}.v3`;
 }
 
-function readCache(portId: string): ScoredSeaDay[] | null {
+function readCache(
+  portId: string,
+  ignoreTtl = false,
+): ScoredSeaDay[] | null {
   try {
     const raw = window.localStorage.getItem(cacheKey(portId));
     if (!raw) return null;
@@ -129,7 +172,8 @@ function readCache(portId: string): ScoredSeaDay[] | null {
       ts: number;
       days: ScoredSeaDay[];
     };
-    if (Date.now() - ts > CACHE_TTL_MS) return null;
+    // ignoreTtl = fallback cuối khi live + snapshot đều hỏng (bản cũ còn hơn trống)
+    if (!ignoreTtl && Date.now() - ts > CACHE_TTL_MS) return null;
     return days;
   } catch {
     return null;

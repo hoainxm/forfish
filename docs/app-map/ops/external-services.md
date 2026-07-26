@@ -2,7 +2,7 @@
 
 > Load khi: lỗi liên quan nguồn dữ liệu ngoài (timeout, rate limit, đổi format, token hết hạn), thêm nguồn mới, hoặc audit phụ thuộc.
 
-covers: src/lib/tile-proxy.ts, src/lib/offline-basemap.ts, src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/pretrip.ts, src/lib/forecast-ensemble.ts, src/lib/forecast-quality.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/fish-forecast-run.ts, src/lib/fish-snapshot.ts, src/lib/fish-snapshot-policy.ts, src/lib/hycom.ts, src/lib/copernicus.ts, src/lib/source-registry.ts, src/lib/sst-tendency.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts
+covers: src/lib/tile-proxy.ts, src/lib/offline-basemap.ts, src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/pretrip.ts, src/lib/forecast-ensemble.ts, src/lib/forecast-quality.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/fish-forecast-run.ts, src/lib/fish-snapshot.ts, src/lib/fish-snapshot-policy.ts, src/lib/weather-snapshot.ts, src/lib/weather-snapshot-id.ts, src/lib/hycom.ts, src/lib/copernicus.ts, src/lib/source-registry.ts, src/lib/sst-tendency.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts
 last_verified: 2026-07-26
 ttl_days: 180
 gate: warn
@@ -66,6 +66,15 @@ gate: warn
 - **Ghi đè**: `shouldReplaceSnapshot` ([`src/lib/fish-snapshot-policy.ts`](../../../src/lib/fish-snapshot-policy.ts), thuần, có test) — không lùi ngày, không thay bản tốt bằng bản hỏng.
 - **KÍCH HOẠT** (chưa có thì degrade êm về hành vi cũ): apply migration `0005` + env `CRON_SECRET` (Vercel — Vercel Cron tự gắn header — và GitHub Secret trùng) + GitHub Variable `APP_BASE_URL`. `SUPABASE_SERVICE_ROLE_KEY` đã có.
 - I/O: [`src/lib/fish-snapshot.ts`](../../../src/lib/fish-snapshot.ts) (server-only, service-role qua `lib/supabase/admin.ts`).
+
+### LƯỚI AN TOÀN thời tiết Open-Meteo — snapshot là FALLBACK, live là chính (2026-07-26)
+
+> KHÁC snapshot cá (snapshot làm CHÍNH vì nguồn nặng/hay-treo). Open-Meteo NHANH + ỔN ĐỊNH nên client vẫn gọi LIVE trực tiếp (tải phân tán theo IP từng máy — đẩy hết lên 1 server sẽ chạm rate-limit Open-Meteo nhanh hơn). Snapshot server chỉ lùi về khi live LỖI + máy chưa có localStorage.
+
+- **Cron** `/api/cron/refresh-weather` (Vercel cron `30 2 * * *`, chung `CRON_SECRET`): `fetchSeaLive` 10 cảng + `fetchForecastGridLive(3)` → `saveWeatherSnapshot` → bảng `weather_snapshot` (id `sea:<port>` | `grid:d3`).
+- **Fallback client**: `sea.ts` thứ tự cache-TTL → live → `/api/weather-snapshot?id=sea:<port>` → cache cũ; `forecast-grid.ts` live → localStorage → (chỉ d3) `/api/weather-snapshot?id=grid:d3`.
+- **Chỉ khung MIỄN PHÍ**: lưới >3 ngày là premium, non-premium không tải từ live → KHÔNG snapshot công khai (kẻo lộ). Cảng snapshot đủ 16 ngày vì client vốn đã tải đủ từ live (không lộ thêm).
+- Khoá + whitelist thuần: [`src/lib/weather-snapshot-id.ts`](../../../src/lib/weather-snapshot-id.ts) (có test) — chặn `/api/weather-snapshot` thành proxy đọc bảng tuỳ ý.
 
 **Luật `resolveField` (mỗi luật một test)**: (1) mọi ứng viên chạy **song song** `Promise.allSettled` — không tuần tự, ngân sách route 60 s; (2) bỏ ứng viên lỗi / trả `null` / ngày không parse được; (3) trong số còn lại lấy bản có **ngày dữ liệu MỚI NHẤT**, hoà ngày → ứng viên **ưu tiên cao hơn** (đứng trước); (4) `ageDays` tính theo **ngày Việt Nam** (`isoDateVN`), ngày tương lai kẹp về 0; (5) bản mới nhất mà **quá `maxAgeDays` vẫn TRẢ VỀ** (thà ảnh cũ còn hơn không có) nhưng gắn `stale: true` — KHÔNG âm thầm coi là hiện tại; (6) không ứng viên nào dùng được → `null` (trường bắt buộc → `{ok:false}`, trường tuỳ chọn → bỏ yếu tố).
 
