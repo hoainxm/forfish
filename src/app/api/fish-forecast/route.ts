@@ -62,6 +62,15 @@ export const revalidate = 21600;
 // Lưới ERDDAP vài trăm KB nên timeout rộng hơn 15s mặc định nhưng PHẢI có
 // (invariant 02 §5): nguồn treo → fail-fast thay vì treo cả serverless function.
 const GRID_TIMEOUT_MS = 20000;
+
+// NGUỒN HAY TREO (HYCOM OPeNDAP tds.hycom.org · Copernicus ARCO Zarr) — đều
+// TUỲ CHỌN, nhưng route gom mọi trường bằng Promise.all nên MỘT nguồn treo tới
+// 20s là KÉO CẢ route quá mốc hủy 35s của client → "dự báo cá chưa tải được"
+// dù SST + phù du (bắt buộc, ~3s) đã sẵn sàng. Chẩn 2026-07-26: HYCOM .dds treo
+// > 25s. Cho hai nguồn này timeout NGẮN hơn: treo thì bỏ term (bất biến
+// monotonic ở buildFishForecast bảo đảm mất term chỉ GIẢM điểm, không bịa) —
+// còn hơn để bà con mất cả bản đồ cá. ERDDAP bắt buộc giữ 20s (nhanh + cốt lõi).
+const SLOW_SOURCE_TIMEOUT_MS = 12000;
 // NOAA coastwatch ERDDAP CHẶN 403 nếu thiếu User-Agent "thật" (undici/node
 // mặc định bị chặn) — phải gửi UA, không thì lưới không tải được = cá không
 // chạy (chẩn 2026-06-23, trước tưởng do timeout/cache).
@@ -182,7 +191,9 @@ const CURRENT_CANDIDATES: FieldCandidate<CurrentGrids>[] = [
       "utotal/vtotal 1/12° (ARCO Zarr, asset timeChunked)",
     maxAgeDays: HOURLY_MAX_AGE_DAYS,
     load: async () => {
-      const g = await fetchCopernicusCurrents({ timeoutMs: GRID_TIMEOUT_MS });
+      const g = await fetchCopernicusCurrents({
+        timeoutMs: SLOW_SOURCE_TIMEOUT_MS,
+      });
       if (!g) return null;
       // ngày = ngày UTC của MỐC GIỜ đã chọn (dataset bước 1 giờ)
       return { grid: { u: g.u, v: g.v }, date: g.timeISO.slice(0, 10) };
@@ -198,7 +209,7 @@ const HYCOM_CANDIDATES: FieldCandidate<HycomGrids>[] = [
     label: "HYCOM GOFS (OPeNDAP) — nhiệt theo tầng sâu",
     maxAgeDays: DAILY_MAX_AGE_DAYS,
     load: async () => {
-      const g = await fetchHycomGrids();
+      const g = await fetchHycomGrids(SLOW_SOURCE_TIMEOUT_MS);
       if (!g) return null;
       const date = g.d20?.date || g.bottom?.date || g.deep250?.date || "";
       return date ? { grid: g, date } : null;

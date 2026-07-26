@@ -228,13 +228,17 @@ function usable(g: ScalarGrid): ScalarGrid | null {
  * → trả null, mô hình fallback (loài đáy về nhiệt mặt, cá ngừ bỏ yếu tố tầng nhiệt).
  * KHÔNG mở rộng DEPTH_RANGE / KHÔNG fetch thêm — route sát maxDuration 60 s.
  */
-export async function fetchHycomGrids(): Promise<HycomGrids | null> {
+export async function fetchHycomGrids(
+  timeoutMs: number = 20000,
+): Promise<HycomGrids | null> {
   try {
     // OPeNDAP HYCOM có thể treo → BẮT BUỘC timeout (invariant 02 §5); fail-fast
-    // null để không treo `await hycomP` trong route fish-forecast.
+    // null để không treo `await hycomP` trong route fish-forecast. Route truyền
+    // timeout NGẮN hơn (nguồn tuỳ chọn hay treo, không được kéo cả route quá hạn
+    // client 35s) — xem SLOW_SOURCE_TIMEOUT_MS ở api/fish-forecast/route.ts.
     const opt = () => ({
       next: { revalidate: 21600 },
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(timeoutMs),
       // UA "thật" — nhiều host khoa học (NOAA/HYCOM) chặn undici mặc định 403
       headers: { "User-Agent": ERDDAP_UA },
     });
