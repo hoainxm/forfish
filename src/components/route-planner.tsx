@@ -10,7 +10,7 @@
  * Trung thực dữ liệu: chỉ là GỢI Ý từ dự báo — máy không biết đảo, đá ngầm,
  * luồng lạch; copy luôn dặn dò hải đồ + nghe đài duyên hải.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Layer, Marker, Source } from "react-map-gl/maplibre";
 
 import { PORTS } from "@/data/ports";
@@ -108,15 +108,24 @@ function myPosition(): Promise<LatLon> {
 
 /** Tuyến + điểm xuất phát vẽ lên bản đồ — đặt BÊN TRONG <MapGL> */
 export function RouteMapLayers({ route }: { route: PlannedRoute | null }) {
-  if (!route) return null;
-  const line = {
-    type: "Feature" as const,
-    properties: {},
-    geometry: {
-      type: "LineString" as const,
-      coordinates: route.plan.waypoints.map((w) => [w.lon, w.lat]),
-    },
-  };
+  // useMemo giữ nguyên reference GeoJSON giữa các re-render của cha (bản đồ
+  // re-render liên tục khi play animation) — không thì mỗi render là một lần
+  // setData lên MapLibre dù tuyến không đổi
+  const line = useMemo(
+    () =>
+      route
+        ? {
+            type: "Feature" as const,
+            properties: {},
+            geometry: {
+              type: "LineString" as const,
+              coordinates: route.plan.waypoints.map((w) => [w.lon, w.lat]),
+            },
+          }
+        : null,
+    [route],
+  );
+  if (!route || !line) return null;
   return (
     <>
       <Source id="fuel-route" type="geojson" data={line}>
@@ -549,10 +558,28 @@ export function RoutePlanner({
             </p>
           )}
 
+          {plan.hasVeryShallowLeg && (
+            <p className="flex items-start gap-2 rounded-xl bg-[var(--danger-bg)] p-3 text-[0.9375rem] font-bold leading-snug text-danger">
+              <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+              Có đoạn đè lên vùng RẤT CẠN / bãi nổi (dưới 4 m) gần nơi xuất
+              phát hoặc điểm đến — chỉ vào theo con nước lên, đi chậm, hỏi
+              người rành luồng lạch chỗ đó.
+            </p>
+          )}
+
           {plan.hasShallowLeg && (
             <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
               Tuyến có đoạn nước nông (cỡ 4–12 m) — để ý con nước, hải đồ
               đoạn đó.
+            </p>
+          )}
+
+          {plan.beyondForecastH > 0 && (
+            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
+              Chuyến chạy dài hơn dự báo đang có: chừng{" "}
+              {formatHoursVN(plan.beyondForecastH)} cuối máy phải tính bằng dự
+              báo của giờ cuối cùng — đoạn đó CHƯA chắc đúng. Nghe đài duyên
+              hải trước và trong chuyến.
             </p>
           )}
 
@@ -566,10 +593,10 @@ export function RoutePlanner({
           <p className="text-[0.875rem] leading-snug text-foreground/65">
             Đoạn xấu nhất trên tuyến: sóng ~{formatNumberVN(plan.maxWaveM)} m,
             gió cấp {beaufort(plan.maxWindKmh)}. Tuyến tính từ dự báo gió,
-            sóng, dòng nước chảy từng giờ và bản đồ độ sâu (đã né bờ, rạn, bãi
-            cạn sát mặt) — vẫn chỉ để tham khảo: máy chưa biết đá ngầm nhỏ,
-            luồng lạch, đăng đáy; con nước sát bờ có thể lệch. Bà con dò hải
-            đồ và nghe đài duyên hải trước khi chạy.
+            sóng, dòng nước chảy từng giờ và bản đồ độ sâu ô ~5,5 km (né bờ
+            và bãi cạn lớn; rạn nhỏ hơn ô lưới, đá ngầm lẻ, luồng lạch, đăng
+            đáy máy KHÔNG thấy được) — chỉ để tham khảo; con nước sát bờ có
+            thể lệch. Bà con dò hải đồ và nghe đài duyên hải trước khi chạy.
           </p>
 
           <div className="grid grid-cols-2 gap-3">

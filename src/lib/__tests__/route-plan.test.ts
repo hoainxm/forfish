@@ -393,17 +393,19 @@ describe("ràng buộc độ sâu", () => {
     expect(p.hasShallowLeg).toBe(true);
   });
 
-  it("sát cảng RẤT CẠN (class 1) trong 12 km vẫn nối được; vòng đất class 0 ngoài 5 km thì chặn", () => {
+  it("sát cảng RẤT CẠN (class 1) trong 12 km vẫn nối được NHƯNG phải cắm cờ hasVeryShallowLeg; vòng đất class 0 ngoài 5 km thì chặn", () => {
     const f = makeField(BB, 9, calm);
     const shallowRing = makeDepth((la, lo) =>
       haversineKm({ lat: la, lon: lo }, START) < 8 ? 1 : 3,
     );
-    expect(
-      planRoute({
-        start: START, dest: DEST, boat: DEFAULT_BOAT,
-        departHourIdx: 6, field: f, depth: shallowRing, bbox: BB,
-      }),
-    ).not.toBeNull();
+    const pShallow = planRoute({
+      start: START, dest: DEST, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: f, depth: shallowRing, bbox: BB,
+    });
+    expect(pShallow).not.toBeNull();
+    // team review 2026-07-26: trước đây đoạn rất cạn sát cảng đi qua IM LẶNG
+    // trong khi copy nói "đã né rạn" — giờ bắt buộc báo thật
+    expect(pShallow!.hasVeryShallowLeg).toBe(true);
 
     const landRing = makeDepth((la, lo) => {
       const d = haversineKm({ lat: la, lon: lo }, START);
@@ -416,6 +418,88 @@ describe("ràng buộc độ sâu", () => {
         departHourIdx: 6, field: f, depth: landRing, bbox: BB,
       }),
     ).toBeNull(); // không cho cắt ngang doi đất
+  });
+});
+
+// ── team review 2026-07-26: các bất biến mới ─────────────────────────────
+
+describe("lấy mẫu thời tiết dọc chặng (không lọt khe vùng cấm)", () => {
+  it("dải ≥4 m HẸP (mảnh hơn chặng lưới thô) chắn kín → vẫn phải trả null, không xuyên mép", () => {
+    // bbox rất rộng → bước lưới tìm đường ~17 km, chặng nước mã ~39 km;
+    // trường thời tiết 9×9 → dải 4,5 m chỉ chiếm MỘT cột mắt lưới, nội suy
+    // ra vùng ≥4 m rộng ~23 km quanh cột — trung điểm chặng dài có thể đọc
+    // dưới 4 m dù chặng cắt qua vùng cấm. Mẫu mỗi ≤12 km phải bắt được.
+    const a: LatLon = { lat: 10, lon: 105 };
+    const b: LatLon = { lat: 10, lon: 117 };
+    const bb = bboxFor(a, b, 120);
+    const f = makeField(bb, 9, (la, lo) =>
+      Math.abs(lo - 111) < 0.9 ? { waveM: 4.5 } : calm(),
+    );
+    expect(
+      planRoute({
+        start: a, dest: b, boat: DEFAULT_BOAT,
+        departHourIdx: 6, field: f, depth: null, bbox: bb,
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("độ phân biệt dải CẨN THẬN 2–3 m (khuôn always-on)", () => {
+  it("dải 2,5 m có khe êm gần → tuyến dịch vào khe, né lõi sóng", () => {
+    const f = makeField(BB, 9, (la, lo) =>
+      Math.abs(lo - 111) < 0.8 && la < 12.3 ? { waveM: 2.5 } : calm(),
+    );
+    const p = plan(f)!;
+    expect(p).not.toBeNull();
+    expect(p.hasRoughLeg).toBe(false);
+    expect(p.maxWaveM).toBeLessThan(2.3); // né được lõi 2,5 m
+    expect(Math.max(...p.waypoints.map((w) => w.lat))).toBeGreaterThan(12.3);
+    expect(p.distKm).toBeLessThanOrEqual(p.direct!.distKm * MAX_DETOUR_RATIO);
+  });
+
+  it("2,5 m ĐỀU khắp nơi → penalty đồng nhất không được gây vòng vèo, tuyến bám thẳng", () => {
+    const p = plan(makeField(BB, 7, () => ({ waveM: 2.5 })))!;
+    expect(p.distKm).toBeLessThan(haversineKm(START, DEST) * 1.06);
+    expect(p.hasRoughLeg).toBe(false);
+  });
+});
+
+describe("gió trong mô hình ga cố định", () => {
+  it("ngược gió phải LÂU hơn (không chỉ tốn dầu hơn) — ETA không được bỏ qua gió", () => {
+    const head = plan(makeField(BB, 7, () => ({ windKmh: 30, windFromDeg: 90 })))!;
+    const tail = plan(makeField(BB, 7, () => ({ windKmh: 30, windFromDeg: 270 })))!;
+    expect(head.hours).toBeGreaterThan(tail.hours * 1.1);
+    expect(head.fuelL).toBeGreaterThan(tail.fuelL);
+  });
+});
+
+describe("cửa sổ dự báo (beyondForecastH)", () => {
+  it("chuyến ngắn trong 72h → 0; chuyến dài quá cửa sổ → báo số giờ vượt", () => {
+    const f = makeField(BB, 7, calm);
+    expect(plan(f)!.beyondForecastH).toBe(0);
+    // tàu 2 hải lý (~3,7 km/h), ~222 km → ~60h; xuất phát giờ 20 → vượt ~8h
+    const slow = planRoute({
+      start: START, dest: DEST,
+      boat: { speedKn: 2, litersPerHour: 10 },
+      departHourIdx: 20, field: f, depth: null, bbox: BB,
+    })!;
+    expect(slow).not.toBeNull();
+    expect(slow.beyondForecastH).toBeGreaterThanOrEqual(5);
+  });
+});
+
+describe("rất cạn quanh ĐIỂM ĐẾN", () => {
+  it("vành class-1 quanh dest: vẫn nối được nhưng hasVeryShallowLeg phải bật", () => {
+    const f = makeField(BB, 9, calm);
+    const g = makeDepth((la, lo) =>
+      haversineKm({ lat: la, lon: lo }, DEST) < 8 ? 1 : 3,
+    );
+    const p = planRoute({
+      start: START, dest: DEST, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: f, depth: g, bbox: BB,
+    });
+    expect(p).not.toBeNull();
+    expect(p!.hasVeryShallowLeg).toBe(true);
   });
 });
 

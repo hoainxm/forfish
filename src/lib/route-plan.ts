@@ -29,7 +29,15 @@
 // cho dự báo nội suy giờ, không tuyên bố "đúng nghiệm" tuyệt đối).
 // Chi phí cạnh = lít dầu ước tính: máy ga cố định → dầu/giờ ≈ hằng số,
 // sóng làm tàu CHẬM nên cùng quãng đường tốn nhiều giờ máy hơn; ngược gió
-// thêm sức cản; dòng chảy cộng vector vào tốc độ (VISIR-2).
+// cũng LÀM CHẬM (cùng tiền đề ga cố định — không đội lít/giờ); dòng chảy
+// cộng vector vào tốc độ (VISIR-2).
+// Team review 2026-07-26 (5 lăng kính + verify chéo) chốt thêm 3 bất biến:
+//   · Thời tiết lấy mẫu DỌC CHẶNG mỗi ≤ WEATHER_SAMPLE_KM (như độ sâu) —
+//     chặn cứng/cờ cảnh báo không được lọt khe giữa hai mẫu của chặng dài.
+//   · Kéo căng dây (string-pulling) phải KIỂM CHI PHÍ — chord không được
+//     đắt hơn các cạnh nó thay, kẻo cắt thẳng lại vào vùng Dijkstra vừa né.
+//   · Chạy quá cửa sổ dự báo → beyondForecastH > 0, UI phải nói thật phần
+//     đuôi tuyến tính bằng dự báo giờ cuối (không được "êm giả").
 // Mô hình là ƯỚC LƯỢNG THAM KHẢO — UI luôn dặn dò hải đồ + nghe đài.
 
 import { depthClassAt, type DepthGrid } from "@/lib/depth-grid";
@@ -264,7 +272,12 @@ export function speedFactor(waveM: number, dirFactor: number): number {
   return Math.max(0.55, 1 - 0.1 * dirFactor * Math.max(0, waveM - 0.5));
 }
 
-/** Sức cản gió theo hướng chạy: ngược gió tốn thêm tới 25%, xuôi gió đỡ tới 8% */
+/**
+ * Sức cản gió theo hướng chạy: ngược gió chậm đi tới ~20% (1/1,25), xuôi gió
+ * nhanh thêm ~9% (1/0,92). Áp vào TỐC ĐỘ (chia stw cho 1+hệ số) — ga cố định
+ * thì dầu/giờ hằng số, gió xấu quy thành thêm giờ máy (đúng tiền đề header;
+ * bản cũ đội lít/giờ nên ETA bỏ qua gió — team review 2026-07-26).
+ */
 export function windDragFactor(
   windKmh: number,
   windFromDeg: number,
@@ -341,6 +354,16 @@ const VICINITY_SHALLOW_KM = 12;
 /** Nới chặn Ô ĐẤT chỉ trong bán kính nhỏ hơn — không cho tuyến cắt doi đất */
 const VICINITY_LAND_KM = 5;
 
+/**
+ * Bước lấy mẫu THỜI TIẾT dọc chặng (km). Trước đây mỗi chặng chỉ lấy MỘT mẫu
+ * tại trung điểm — chặng dài (lưới thô 25–30 km, nước mã ×√5, chord kéo căng
+ * dây) có thể xuyên mép vùng ≥4 m mà trung điểm đọc dưới ngưỡng (team review
+ * 2026-07-26, phát hiện đã verify). Mẫu mỗi ≤12 km: dày hơn hẳn dải ≥4 m hẹp
+ * nhất mà nội suy song tuyến tạo ra quanh một mắt lưới bão, nên chặng cắt
+ * vùng cấm chắc chắn dính ít nhất một mẫu.
+ */
+const WEATHER_SAMPLE_KM = 12;
+
 // ── lưới tìm đường + Dijkstra ────────────────────────────────────────────
 
 const MAX_NODES = 7500;
@@ -363,6 +386,12 @@ export type RoutePlan = {
   hasRoughLeg: boolean;
   /** có đoạn nước nông 4–12 m */
   hasShallowLeg: boolean;
+  /**
+   * có đoạn đè lên vùng RẤT CẠN (<4 m — rạn, bãi nổi) trong bán kính nới
+   * quanh nơi xuất phát/điểm đến. Đi được (tàu thuộc con nước nhà) nhưng UI
+   * PHẢI cảnh báo — trước đây đi qua im lặng trong khi copy nói "đã né rạn".
+   */
+  hasVeryShallowLeg: boolean;
   /** có đoạn sóng đuôi ngắn ≥2 m (nguy cơ trượt sóng — giảm ga, đổi hướng nhẹ) */
   hasFollowingSeaRisk: boolean;
   /** false = thiếu dữ liệu độ sâu, tuyến CHƯA né vùng cạn */
@@ -386,6 +415,12 @@ export type RoutePlan = {
    * thật, không cắt về 0). null khi không có direct để so.
    */
   fuelDeltaL: number | null;
+  /**
+   * Số giờ phần ĐUÔI tuyến chạy QUÁ cửa sổ dự báo (0 = cả tuyến có số liệu
+   * thật). Quá cửa sổ thì mô hình đóng băng giờ cuối (hourAt kẹp chỉ số) —
+   * UI phải nói thật đoạn đó chưa được kiểm, không được để "êm giả".
+   */
+  beyondForecastH: number;
 };
 
 type LegInfo = {
@@ -398,8 +433,17 @@ type LegInfo = {
   windKmh: number;
   rough: boolean;
   shallow: boolean;
+  veryShallow: boolean;
   following: boolean;
 };
+
+// bất biến + dùng lại cho mọi chặng không đi được — tránh cấp phát object
+// trong vòng lặp nóng của Dijkstra (~120k lần gọi legCost một lượt tính)
+const INFEASIBLE_LEG: LegInfo = Object.freeze({
+  feasible: false, distKm: 0, hours: 0, fuelL: 0, cost: 0,
+  waveM: 0, windKmh: 0, rough: false, shallow: false,
+  veryShallow: false, following: false,
+});
 
 type PlanArgs = {
   start: LatLon;
@@ -496,8 +540,10 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
   const calmKmh = boat.speedKn * KMH_PER_KNOT;
 
   /**
-   * Chi phí chặng from→to. Thời tiết lấy tại TRUNG ĐIỂM chặng vào GIỮA
-   * khoảng giờ chạy chặng (ước lượng bằng tốc độ êm — đủ tốt). Độ sâu kiểm
+   * Chi phí chặng from→to. Thời tiết lấy mẫu DỌC CHẶNG mỗi ≤WEATHER_SAMPLE_KM
+   * (trước đây một mẫu trung điểm — chặng dài xuyên được mép vùng ≥4 m; team
+   * review 2026-07-26): chặn cứng/cờ lấy theo MẪU XẤU NHẤT, giờ/dầu cộng dồn
+   * từng đoạn con. Giờ của mẫu ước lượng bằng tốc độ êm — đủ tốt. Độ sâu kiểm
    * mẫu mỗi ≤5 km dọc chặng để rạn/đảo không lọt khe giữa hai đầu cạnh.
    * relaxed=true (chỉ dùng khi TÍNH LẠI số liệu tuyến đã chọn): không chặn
    * nữa nhưng vẫn đo đủ cờ/maxWave — tổng hiển thị luôn là CẢ tuyến.
@@ -508,82 +554,119 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     atHour: number,
     relaxed: boolean,
   ): LegInfo => {
-    const infeasible: LegInfo = {
-      feasible: false, distKm: 0, hours: 0, fuelL: 0, cost: 0,
-      waveM: 0, windKmh: 0, rough: false, shallow: false, following: false,
-    };
     const distKm = haversineKm(from, to);
-    const mid = lerp(from, to, 0.5);
+    const dLatLeg = to.lat - from.lat;
+    const dLonLeg = to.lon - from.lon;
 
     // ràng buộc tĩnh: độ sâu/bờ (VISIR static constraint) — mẫu dày dọc chặng
     let shallow = false;
+    let veryShallow = false;
     if (depth) {
       const nSamples = Math.max(2, Math.ceil(distKm / 5));
       for (let s = 1; s <= nSamples; s++) {
-        const p = lerp(from, to, s / nSamples);
-        const cls = depthClassAt(depth, p.lat, p.lon);
+        const t = s / nSamples;
+        const pLat = from.lat + dLatLeg * t;
+        const pLon = from.lon + dLonLeg * t;
+        const cls = depthClassAt(depth, pLat, pLon);
         if (cls === 0) {
           // đất liền: chỉ nới trong bán kính nhỏ sát cảng
-          if (!relaxed && !nearEndpoints(p, VICINITY_LAND_KM)) return infeasible;
+          if (!relaxed && !nearEndpoints({ lat: pLat, lon: pLon }, VICINITY_LAND_KM))
+            return INFEASIBLE_LEG;
         } else if (cls === 1) {
-          if (!relaxed && !nearEndpoints(p, VICINITY_SHALLOW_KM)) return infeasible;
+          if (!relaxed && !nearEndpoints({ lat: pLat, lon: pLon }, VICINITY_SHALLOW_KM))
+            return INFEASIBLE_LEG;
+          // đi qua nhờ nới sát cảng/điểm đến — vẫn PHẢI cắm cờ + tính phạt
+          // (trước đây im lặng và còn RẺ hơn nước nông 4–12 m hợp lệ)
+          veryShallow = true;
         } else if (cls === 2) {
           shallow = true;
         }
       }
     }
 
-    const h = sampleField(field, mid.lat, mid.lon, atHour + distKm / calmKmh / 2);
-    if (!h) {
-      // ngoài lưới thời tiết / cả 4 góc đất liền
-      if (!relaxed && !nearEndpoints(to, VICINITY_SHALLOW_KM)) return infeasible;
-      // sát cảng: chạy bằng số 0 an toàn (chặng ngắn)
-      const hours0 = distKm / calmKmh;
-      return {
-        feasible: true, distKm, hours: hours0,
-        fuelL: hours0 * boat.litersPerHour,
-        cost: hours0 * boat.litersPerHour * (shallow ? SHALLOW_PENALTY : 1),
-        waveM: 0, windKmh: 0, rough: false, shallow, following: false,
-      };
+    const heading = bearingDeg(from, to);
+    // mẫu thời tiết dọc chặng — mỗi đoạn con tự tính tốc độ/dầu của nó
+    const nW = Math.max(1, Math.ceil(distKm / WEATHER_SAMPLE_KM));
+    const subKm = distKm / nW;
+    let hours = 0;
+    let fuelL = 0;
+    let weatherCost = 0;
+    let maxWave = 0;
+    let maxWind = 0;
+    let rough = false;
+    let following = false;
+    for (let s = 0; s < nW; s++) {
+      const t = (s + 0.5) / nW;
+      const h = sampleField(
+        field,
+        from.lat + dLatLeg * t,
+        from.lon + dLonLeg * t,
+        atHour + (distKm * t) / calmKmh,
+      );
+      if (!h) {
+        // ngoài lưới thời tiết / cả 4 góc đất liền
+        if (
+          !relaxed &&
+          !nearEndpoints({ lat: from.lat + dLatLeg * t, lon: from.lon + dLonLeg * t }, VICINITY_SHALLOW_KM)
+        )
+          return INFEASIBLE_LEG;
+        // sát cảng: chạy bằng số 0 an toàn (đoạn ngắn)
+        const h0 = subKm / calmKmh;
+        hours += h0;
+        fuelL += h0 * boat.litersPerHour;
+        weatherCost += h0 * boat.litersPerHour;
+        continue;
+      }
+
+      const waveM = h.waveM ?? 0;
+      const hard = waveM >= HARD_WAVE_M || h.windKmh >= HARD_WIND_KMH;
+      if (hard && !relaxed) return INFEASIBLE_LEG; // ≥ cấp 8 — không vẽ tuyến qua
+
+      const dirF = waveDirFactor(h.waveFromDeg, heading);
+      // tốc độ QUA NƯỚC sau khi sóng làm chậm; ngược gió cũng làm CHẬM
+      // (ga cố định → dầu/giờ hằng số — trước đây gió đội lít/giờ mà giờ
+      // đến lại y như ngày lặng gió, sai cả ETA lẫn trục giờ lấy dự báo)
+      const stwKmh =
+        (calmKmh * speedFactor(waveM, dirF)) /
+        (1 + windDragFactor(h.windKmh, h.windFromDeg, heading));
+      // cộng vector dòng chảy (VISIR-2): dọc cộng thẳng, ngang vát mũi bù;
+      // dòng nguồn ≤ ~4 km/h, kẹp sàn 25% để không chia 0
+      const speedKmh = Math.max(
+        stwKmh * 0.25,
+        currentAlongKmh(h, heading) +
+          Math.sqrt(Math.max(stwKmh ** 2 - currentCrossKmh(h, heading) ** 2, 0)),
+      );
+      const subH = subKm / speedKmh;
+      const subFuel = subH * boat.litersPerHour;
+      hours += subH;
+      fuelL += subFuel;
+
+      const fol = followingSeaRisk(waveM, h.waveFromDeg, heading, h.wavePeriodS);
+      // sóng ≥3 m trên nền nước nông 4–12 m: sóng bạc đầu/vỡ — nguy hiểm hơn
+      // hẳn cùng độ cao ngoài khơi → nâng lên mức "không nên đi"
+      const danger =
+        hard ||
+        waveM >= DANGER_WAVE_M ||
+        h.windKmh >= DANGER_WIND_KMH ||
+        (shallow && waveM >= DANGER_WAVE_M - 0.5);
+      const caution = waveM >= CAUTION_WAVE_M || h.windKmh >= CAUTION_WIND_KMH;
+      let pen = danger ? PEN_DANGER : caution ? PEN_CAUTION : 1;
+      if (fol) pen *= PEN_BROACH;
+      weatherCost += subFuel * pen;
+
+      following = following || fol;
+      rough = rough || danger;
+      if (waveM > maxWave) maxWave = waveM;
+      if (h.windKmh > maxWind) maxWind = h.windKmh;
     }
 
-    const waveM = h.waveM ?? 0;
-    const hard = waveM >= HARD_WAVE_M || h.windKmh >= HARD_WIND_KMH;
-    if (hard && !relaxed) return infeasible; // ≥ cấp 8 — không vẽ tuyến qua
-
-    const heading = bearingDeg(from, to);
-    const dirF = waveDirFactor(h.waveFromDeg, heading);
-    // tốc độ QUA NƯỚC sau khi sóng làm chậm
-    const stwKmh = calmKmh * speedFactor(waveM, dirF);
-    // cộng vector dòng chảy (VISIR-2): dọc cộng thẳng, ngang vát mũi bù;
-    // dòng nguồn ≤ ~4 km/h, kẹp sàn 25% để không chia 0
-    const speedKmh = Math.max(
-      stwKmh * 0.25,
-      currentAlongKmh(h, heading) +
-        Math.sqrt(Math.max(stwKmh ** 2 - currentCrossKmh(h, heading) ** 2, 0)),
-    );
-    const hours = distKm / speedKmh;
-    const fuelL =
-      hours *
-      boat.litersPerHour *
-      (1 + windDragFactor(h.windKmh, h.windFromDeg, heading));
-
-    const following = followingSeaRisk(waveM, h.waveFromDeg, heading, h.wavePeriodS);
-    // sóng ≥3 m trên nền nước nông 4–12 m: sóng bạc đầu/vỡ — nguy hiểm hơn
-    // hẳn cùng độ cao ngoài khơi → nâng lên mức "không nên đi"
-    const danger =
-      hard ||
-      waveM >= DANGER_WAVE_M ||
-      h.windKmh >= DANGER_WIND_KMH ||
-      (shallow && waveM >= DANGER_WAVE_M - 0.5);
-    const caution = waveM >= CAUTION_WAVE_M || h.windKmh >= CAUTION_WIND_KMH;
-    let pen = danger ? PEN_DANGER : caution ? PEN_CAUTION : 1;
-    if (following) pen *= PEN_BROACH;
-    if (shallow) pen *= SHALLOW_PENALTY;
+    let cost = weatherCost;
+    if (shallow) cost *= SHALLOW_PENALTY;
+    if (veryShallow) cost *= SHALLOW_PENALTY;
 
     return {
-      feasible: true, distKm, hours, fuelL, cost: fuelL * pen,
-      waveM, windKmh: h.windKmh, rough: danger, shallow, following,
+      feasible: true, distKm, hours, fuelL, cost,
+      waveM: maxWave, windKmh: maxWind, rough, shallow, veryShallow, following,
     };
   };
 
@@ -634,20 +717,44 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     dest,
   ];
 
-  // kéo căng dây (string-pulling): bỏ nút trung gian nếu nối thẳng vẫn an
-  // toàn — khử zigzag bậc thang của lưới trước khi đo quãng đường/vẽ
+  // kéo căng dây (string-pulling) CÓ KIỂM CHI PHÍ: bỏ nút trung gian chỉ khi
+  // chord đi được VÀ không đắt hơn các cạnh nó thay — chord chỉ-cần-feasible
+  // (bản cũ) cắt góc thẳng lại vào vùng phạt 3–4 m mà Dijkstra vừa trả thêm
+  // chi phí để né (team review 2026-07-26). Khử zigzag bậc thang trước khi
+  // đo quãng đường/vẽ.
   const smoothed: LatLon[] = [waypoints[0]];
   let hoursEst = 0;
   let i = 0;
   while (i < waypoints.length - 1) {
-    let j = Math.min(i + 6, waypoints.length - 1);
-    for (; j > i + 1; j--) {
-      if (legCost(waypoints[i], waypoints[j], departHourIdx + hoursEst, false).feasible)
-        break;
+    const maxJ = Math.min(i + 6, waypoints.length - 1);
+    let bestJ = i + 1;
+    let bestHours =
+      haversineKm(waypoints[i], waypoints[i + 1]) / calmKmh;
+    {
+      const first = legCost(waypoints[i], waypoints[i + 1], departHourIdx + hoursEst, false);
+      // cộng dồn chi phí/giờ của chuỗi cạnh gốc i..j để so với chord
+      let sumCost = first.feasible ? first.cost : Infinity;
+      let sumHours = first.feasible ? first.hours : bestHours;
+      if (first.feasible) bestHours = first.hours;
+      for (let j = i + 2; j <= maxJ; j++) {
+        const orig = legCost(
+          waypoints[j - 1], waypoints[j],
+          departHourIdx + hoursEst + sumHours, false,
+        );
+        sumCost += orig.feasible ? orig.cost : Infinity;
+        sumHours += orig.feasible
+          ? orig.hours
+          : haversineKm(waypoints[j - 1], waypoints[j]) / calmKmh;
+        const chord = legCost(waypoints[i], waypoints[j], departHourIdx + hoursEst, false);
+        if (chord.feasible && chord.cost <= sumCost * 1.001) {
+          bestJ = j;
+          bestHours = chord.hours;
+        }
+      }
     }
-    hoursEst += haversineKm(waypoints[i], waypoints[j]) / calmKmh;
-    smoothed.push(waypoints[j]);
-    i = j;
+    hoursEst += bestHours;
+    smoothed.push(waypoints[bestJ]);
+    i = bestJ;
   }
   waypoints = smoothed;
 
@@ -660,6 +767,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       maxWind = 0;
     let rough = false,
       shallowFlag = false,
+      veryShallowFlag = false,
       following = false,
       ok = true;
     for (let k = 1; k < pts.length; k++) {
@@ -675,12 +783,25 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       maxWind = Math.max(maxWind, leg.windKmh);
       rough = rough || leg.rough;
       shallowFlag = shallowFlag || leg.shallow;
+      veryShallowFlag = veryShallowFlag || leg.veryShallow;
       following = following || leg.following;
     }
-    return { ok, hoursSum, fuelSum, distSum, maxWave, maxWind, rough, shallowFlag, following };
+    return {
+      ok, hoursSum, fuelSum, distSum, maxWave, maxWind,
+      rough, shallowFlag, veryShallowFlag, following,
+    };
   };
 
   const chosen = walk(waypoints, true);
+
+  // cửa sổ dự báo thật sự có số liệu — quá mốc này hourAt đóng băng giờ cuối,
+  // phải báo ra ngoài thay vì để phần đuôi tuyến "êm giả"
+  let fieldHours = 0;
+  for (const c of field.cells) {
+    if (c.onSea && c.hours.length > fieldHours) fieldHours = c.hours.length;
+  }
+  const beyondH = (tripHours: number) =>
+    Math.max(0, Math.ceil(departHourIdx + tripHours - fieldHours));
 
   // đường thẳng để so sánh trung thực — chia nhỏ theo bước lưới
   const directDist = haversineKm(start, dest);
@@ -710,11 +831,13 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       maxWindKmh: directWalk.maxWind,
       hasRoughLeg: directWalk.rough,
       hasShallowLeg: directWalk.shallowFlag,
+      hasVeryShallowLeg: directWalk.veryShallowFlag,
       hasFollowingSeaRisk: directWalk.following,
       depthChecked: depth != null,
       cappedToDirect: true,
       direct,
       fuelDeltaL: 0,
+      beyondForecastH: beyondH(directWalk.hoursSum),
     };
   }
 
@@ -727,11 +850,13 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     maxWindKmh: chosen.maxWind,
     hasRoughLeg: chosen.rough,
     hasShallowLeg: chosen.shallowFlag,
+    hasVeryShallowLeg: chosen.veryShallowFlag,
     hasFollowingSeaRisk: chosen.following,
     depthChecked: depth != null,
     cappedToDirect: false,
     direct,
     fuelDeltaL: direct ? chosen.fuelSum - direct.fuelL : null,
+    beyondForecastH: beyondH(chosen.hoursSum),
   };
 }
 
