@@ -1,0 +1,1376 @@
+{
+  "generatedAt": "2026-07-26T01:21:07.723Z",
+  "question": "Copernicus có biết XU HƯỚNG (cái gì đang đổi, đổi hướng nào) không — kể cả khi giá trị tuyệt đối của nó lệch? Đo bằng dự báo NEO: pred(D+k) = obs_sat(D) + [cop(D+k) − cop(D)], so với persistence = obs_sat(D), sự thật = obs_sat(D+k).",
+  "verdictHeadline": {
+    "chl": {
+      "leadsWhereAnchoredBeatsPersistence": [],
+      "leadsWhereOptimalDampingBeats": [
+        1,
+        2,
+        3,
+        4,
+        6,
+        7,
+        8,
+        9
+      ],
+      "leadsWhereOptimalDampingBeatsCrossValidated": [],
+      "bestCvGainPct": -0.14
+    },
+    "sst": {
+      "leadsWhereAnchoredBeatsPersistence": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "leadsWhereOptimalDampingBeats": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "leadsWhereOptimalDampingBeatsCrossValidated": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "bestCvGainPct": 41.55
+    },
+    "readAs": "Đây là CẬN TRÊN (cop(D+k) là analysis đã đồng hoá quan trắc ngày đó). Tầm nào KHÔNG có trong danh sách ⇒ kết luận ÂM chắc chắn cho tầm đó. Tầm CÓ trong danh sách ⇒ chỉ đủ để nói 'đáng đo tiếp bằng snapshot dự báo thật', CHƯA đủ để hứa."
+  },
+  "honestyWarnings": {
+    "analysisIsOptimisticUpperBound": "TỐI QUAN TRỌNG: kho ARCO/native công khai của Copernicus GHI ĐÈ dự báo cũ bằng bản tin mới (mỗi ngày hiệu lực chỉ còn MỘT file; trục Zarr không có forecast_reference_time). Vì D+k ở đây đều trong QUÁ KHỨ, `cop(D+k)` là ANALYSIS đã đồng hoá quan trắc của chính ngày đó — KHÔNG phải dự báo phát ngày D. ⇒ Mọi `gain`/`corrTendency` trong file này là CẬN TRÊN LẠC QUAN của kỹ năng dự báo thật. Cận trên VẪN THUA persistence ⇒ kết luận ÂM chắc chắn. Cận trên THẮNG ⇒ chỉ đủ để nói 'đáng đo tiếp bằng snapshot dự báo thật', CHƯA đủ để hứa.",
+    "whyThisDiffersFromTheAbsoluteBacktest": "copernicus-skill-backtest.mjs so GIÁ TRỊ TUYỆT ĐỐI (chl mô hình vs chl vệ tinh) → lệch ~0,33 log10 (hệ số ~2,1×) do NEMO-PISCES lệch hệ thống ở ven bờ đục. Phép đo này TRỪ hiệu nên bias triệt tiêu (trên log10, hiệu = tỉ số ⇒ triệt tiêu cả bias nhân). Hai phép đo trả lời HAI câu hỏi khác nhau: 'giá trị có đúng không' vs 'xu hướng có đúng không'.",
+    "dofCaveat": "Trường biển tự tương quan ~0,97/ngày ⇒ 15 ngày liên tiếp trong một khối KHÔNG cho 15 mẫu độc lập. dof thời gian thực tế ≈ số KHỐI (4), không phải số cặp ngày (n). ci95 của corrTendency tính trên trung bình TỪNG KHỐI với t-Student df = số khối − 1 — vẫn rộng. Đừng tuyên bố mạnh khi chênh lệch nhỏ.",
+    "chlTruthCaveat": "Sự thật của chl là ảnh DINEOF đã VÁ MÂY bằng nội suy EOF có thành phần THỜI GIAN ⇒ chuỗi ảnh bị làm TRƠN theo ngày. Điều này làm xu hướng quan trắc (obs(D+k) − obs(D)) nhỏ và trơn hơn xu hướng chl thật, nên vừa (i) giúp persistence, vừa (ii) làm khó bất kỳ mô hình nào khớp được xu hướng đó. Đọc `corrTendency.amplitudeRatio` để biết biên độ hai bên lệch bao nhiêu.",
+    "shuffledControlMeaning": "`sanity.shuffled` thay xu hướng Copernicus bằng xu hướng của MỘT ngày khởi tạo KHÁC (cùng tầm, lệch ≥5 ngày, cùng lưới). Nó giữ nguyên biên độ + cấu trúc không gian và chỉ phá đồng bộ thời gian. Nếu `shuffled` cũng thắng thì cái đo được KHÔNG phải kỹ năng dự báo mà là khí hậu/mùa/hình học bờ — pipeline rò rỉ.",
+    "noiseControlMeaning": "`sanity.noise` thay xu hướng bằng nhiễu Gauss TRẮNG cùng RMS. Đây là kiểm tra tối thiểu: gain phải ≈ 0 hoặc ÂM. Gain dương ở đây = pipeline hỏng, mọi số khác vô nghĩa.",
+    "zoocNotAvailable": "`zooc` (động vật phù du) KHÔNG có trong GLOBAL_ANALYSISFORECAST_BGC_001_028 — đã liệt kê biến của kho: chỉ `chl` và `phyc`. zooc chỉ có ở bộ tái phân tích GLOBAL_MULTIYEAR_BGC (không có phần dự báo ⇒ vô dụng cho bản đồ 10 ngày). Thay bằng `phyc` (sinh khối thực vật phù du) và CHỈ chấm GIÁN TIẾP: tương quan xu hướng phyc với xu hướng chl QUAN TRẮC — không có ảnh vệ tinh phyc làm sự thật."
+  },
+  "method": "Với mỗi cặp (D, k=1..9) trong mỗi khối: pred(D+k) = obs(D) + [cop(D+k) − cop(D)]; persist(D+k) = obs(D); sự thật = obs(D+k). MASK CHUNG bắt buộc — ô chỉ được chấm khi obs(D), obs(D+k), cop(D), cop(D+k) đều hữu hạn; pred và persist chấm trên đúng cùng tập ô. chl/phyc trên log10, SST trên °C. Copernicus đưa về lưới quan trắc bằng láng giềng gần nhất (bỏ nếu lệch >0,35°). corrPred/corrPersist = trung bình tương quan KHÔNG GIAN từng cặp ngày. frontCorr = tương quan của |gradient| (mirror gradientStrength() trong fish-predict, KHÔNG kẹp [0,1]). RMSE tính đại số từ tổng gộp Σcc/Σco/Σoo nên chính xác tuyệt đối trên mask chung. ERDDAP snap sang ngày gần nhất khi ngày xin trống → mọi lưới bị kiểm ngày, lệch là vứt.",
+  "algebra": "c = cop(D+k)−cop(D), o = obs(D+k)−obs(D). rmsePersist = √(Σoo/n); rmsePred = √((Σcc−2Σco+Σoo)/n) ⇒ neo THẮNG ⇔ Σco > Σcc/2. alphaOpt = Σco/Σcc; rmsePredOptimalDamping = rmsePersist·√(1−r_uncentered²).",
+  "sources": {
+    "obsChl": "NOAA ERDDAP noaacwNPPN20VIIRSDINEOFDaily (chlor_a, mg/m³, DINEOF vá mây)",
+    "obsSst": "NOAA ERDDAP noaacwBLENDEDsstDaily (analysed_sst, Kelvin → °C)",
+    "copChl": "GLOBAL_ANALYSISFORECAST_BGC_001_028 / cmems_mod_glo_bgc-pft_anfc_0.25deg_P1D-m (timeChunked.zarr)",
+    "copSst": "GLOBAL_ANALYSISFORECAST_PHY_001_024 / cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m (downsampled4.zarr)",
+    "copPhyc": "cùng kho với copChl, biến `phyc` (mmol/m³ C)"
+  },
+  "window": {
+    "blocks": [
+      {
+        "from": "2025-09-25",
+        "to": "2025-10-09"
+      },
+      {
+        "from": "2025-12-29",
+        "to": "2026-01-12"
+      },
+      {
+        "from": "2026-04-03",
+        "to": "2026-04-17"
+      },
+      {
+        "from": "2026-07-07",
+        "to": "2026-07-21"
+      }
+    ],
+    "blockLenDays": 15,
+    "blockGapDays": 95,
+    "maxLead": 9,
+    "dofEstimate": 4
+  },
+  "perLead": {
+    "chl": [
+      {
+        "lead": 1,
+        "rmsePred": 0.0609,
+        "rmsePersist": 0.0443,
+        "gainPct": -37.56,
+        "alphaOpt": -0.04,
+        "rmsePredOptimalDamping": 0.0443,
+        "gainOptPct": 0.07,
+        "gainOptCvPct": -0.16,
+        "alphaByBlock": [
+          -0.128,
+          -0.011,
+          0.068,
+          0.091
+        ],
+        "corrPred": 0.9875,
+        "corrPersist": 0.9932,
+        "frontCorrPred": 0.9671,
+        "frontCorrPersist": 0.9821,
+        "corrTendency": {
+          "pearson": -0.0044,
+          "ci95": [
+            -0.1082,
+            0.0994
+          ],
+          "uncentered": -0.0361,
+          "amplitudeRatio": 0.909,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.0598,
+            "gainPct": -34.99
+          },
+          "shuffled": {
+            "rmse": 0.0548,
+            "gainPct": -23.7,
+            "corrTendency": 0.0068
+          }
+        },
+        "n": 48,
+        "nCells": 152736,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 2,
+        "rmsePred": 0.0955,
+        "rmsePersist": 0.0599,
+        "gainPct": -59.56,
+        "alphaOpt": -0.039,
+        "rmsePredOptimalDamping": 0.0598,
+        "gainOptPct": 0.11,
+        "gainOptCvPct": -0.23,
+        "alphaByBlock": [
+          -0.126,
+          -0.015,
+          0.072,
+          0.086
+        ],
+        "corrPred": 0.97,
+        "corrPersist": 0.9876,
+        "frontCorrPred": 0.9279,
+        "frontCorrPersist": 0.9668,
+        "corrTendency": {
+          "pearson": -0.0133,
+          "ci95": [
+            -0.1547,
+            0.1281
+          ],
+          "uncentered": -0.0462,
+          "amplitudeRatio": 1.198,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.0932,
+            "gainPct": -55.59
+          },
+          "shuffled": {
+            "rmse": 0.0859,
+            "gainPct": -43.41,
+            "corrTendency": 0.009
+          }
+        },
+        "n": 43,
+        "nCells": 136826,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 3,
+        "rmsePred": 0.1196,
+        "rmsePersist": 0.0723,
+        "gainPct": -65.45,
+        "alphaOpt": -0.027,
+        "rmsePredOptimalDamping": 0.0722,
+        "gainOptPct": 0.06,
+        "gainOptCvPct": -0.17,
+        "alphaByBlock": [
+          -0.107,
+          -0.016,
+          0.085,
+          0.091
+        ],
+        "corrPred": 0.9534,
+        "corrPersist": 0.9822,
+        "frontCorrPred": 0.894,
+        "frontCorrPersist": 0.9516,
+        "corrTendency": {
+          "pearson": -0.0179,
+          "ci95": [
+            -0.1741,
+            0.1384
+          ],
+          "uncentered": -0.0346,
+          "amplitudeRatio": 1.284,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.1179,
+            "gainPct": -63.07
+          },
+          "shuffled": {
+            "rmse": 0.1071,
+            "gainPct": -48.13,
+            "corrTendency": 0.0194
+          }
+        },
+        "n": 38,
+        "nCells": 120916,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 4,
+        "rmsePred": 0.1352,
+        "rmsePersist": 0.0835,
+        "gainPct": -61.92,
+        "alphaOpt": -0.009,
+        "rmsePredOptimalDamping": 0.0835,
+        "gainOptPct": 0.01,
+        "gainOptCvPct": -0.14,
+        "alphaByBlock": [
+          -0.082,
+          -0.013,
+          0.088,
+          0.112
+        ],
+        "corrPred": 0.9403,
+        "corrPersist": 0.9767,
+        "frontCorrPred": 0.867,
+        "frontCorrPersist": 0.9359,
+        "corrTendency": {
+          "pearson": -0.0142,
+          "ci95": [
+            -0.1675,
+            0.1391
+          ],
+          "uncentered": -0.0119,
+          "amplitudeRatio": 1.262,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.1342,
+            "gainPct": -60.72
+          },
+          "shuffled": {
+            "rmse": 0.121,
+            "gainPct": -44.91,
+            "corrTendency": 0.016
+          }
+        },
+        "n": 34,
+        "nCells": 108188,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 5,
+        "rmsePred": 0.1448,
+        "rmsePersist": 0.0924,
+        "gainPct": -56.65,
+        "alphaOpt": 0.006,
+        "rmsePredOptimalDamping": 0.0924,
+        "gainOptPct": 0,
+        "gainOptCvPct": -0.18,
+        "alphaByBlock": [
+          -0.092,
+          -0.006,
+          0.106,
+          0.142
+        ],
+        "corrPred": 0.9307,
+        "corrPersist": 0.9716,
+        "frontCorrPred": 0.8498,
+        "frontCorrPersist": 0.9235,
+        "corrTendency": {
+          "pearson": -0.0131,
+          "ci95": [
+            -0.1873,
+            0.161
+          ],
+          "uncentered": 0.0078,
+          "amplitudeRatio": 1.214,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.1454,
+            "gainPct": -57.36
+          },
+          "shuffled": {
+            "rmse": 0.128,
+            "gainPct": -38.53,
+            "corrTendency": 0.0292
+          }
+        },
+        "n": 31,
+        "nCells": 98642,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": false,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 6,
+        "rmsePred": 0.1535,
+        "rmsePersist": 0.1008,
+        "gainPct": -52.33,
+        "alphaOpt": 0.028,
+        "rmsePredOptimalDamping": 0.1007,
+        "gainOptPct": 0.05,
+        "gainOptCvPct": -0.31,
+        "alphaByBlock": [
+          -0.055,
+          0,
+          0.124,
+          0.181
+        ],
+        "corrPred": 0.9225,
+        "corrPersist": 0.9665,
+        "frontCorrPred": 0.8329,
+        "frontCorrPersist": 0.9104,
+        "corrTendency": {
+          "pearson": 0.0137,
+          "ci95": [
+            -0.1312,
+            0.1585
+          ],
+          "uncentered": 0.0329,
+          "amplitudeRatio": 1.183,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.1566,
+            "gainPct": -55.36
+          },
+          "shuffled": {
+            "rmse": 0.1421,
+            "gainPct": -40.97,
+            "corrTendency": 0.0247
+          }
+        },
+        "n": 28,
+        "nCells": 89096,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 7,
+        "rmsePred": 0.1643,
+        "rmsePersist": 0.1104,
+        "gainPct": -48.82,
+        "alphaOpt": 0.037,
+        "rmsePredOptimalDamping": 0.1103,
+        "gainOptPct": 0.09,
+        "gainOptCvPct": -0.6,
+        "alphaByBlock": [
+          -0.084,
+          0.003,
+          0.138,
+          0.239
+        ],
+        "corrPred": 0.9122,
+        "corrPersist": 0.9596,
+        "frontCorrPred": 0.8136,
+        "frontCorrPersist": 0.8941,
+        "corrTendency": {
+          "pearson": 0.0226,
+          "ci95": [
+            -0.1366,
+            0.1818
+          ],
+          "uncentered": 0.0419,
+          "amplitudeRatio": 1.145,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.1682,
+            "gainPct": -52.36
+          },
+          "shuffled": {
+            "rmse": 0.152,
+            "gainPct": -37.68,
+            "corrTendency": 0.0526
+          }
+        },
+        "n": 25,
+        "nCells": 79550,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 8,
+        "rmsePred": 0.1806,
+        "rmsePersist": 0.1219,
+        "gainPct": -48.21,
+        "alphaOpt": 0.032,
+        "rmsePredOptimalDamping": 0.1218,
+        "gainOptPct": 0.07,
+        "gainOptCvPct": -0.49,
+        "alphaByBlock": [
+          -0.101,
+          0.002,
+          0.162,
+          0.326
+        ],
+        "corrPred": 0.8965,
+        "corrPersist": 0.951,
+        "frontCorrPred": 0.7926,
+        "frontCorrPersist": 0.8759,
+        "corrTendency": {
+          "pearson": 0.0356,
+          "ci95": [
+            -0.1496,
+            0.2208
+          ],
+          "uncentered": 0.0365,
+          "amplitudeRatio": 1.131,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.1838,
+            "gainPct": -50.78
+          },
+          "shuffled": {
+            "rmse": 0.1613,
+            "gainPct": -32.32,
+            "corrTendency": 0.0716
+          }
+        },
+        "n": 23,
+        "nCells": 73186,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 9,
+        "rmsePred": 0.1957,
+        "rmsePersist": 0.1323,
+        "gainPct": -47.88,
+        "alphaOpt": 0.031,
+        "rmsePredOptimalDamping": 0.1322,
+        "gainOptPct": 0.06,
+        "gainOptCvPct": -0.44,
+        "alphaByBlock": [
+          -0.115,
+          0.006,
+          0.167,
+          0.413
+        ],
+        "corrPred": 0.8808,
+        "corrPersist": 0.9424,
+        "frontCorrPred": 0.7713,
+        "frontCorrPersist": 0.8581,
+        "corrTendency": {
+          "pearson": 0.0417,
+          "ci95": [
+            -0.1678,
+            0.2512
+          ],
+          "uncentered": 0.035,
+          "amplitudeRatio": 1.125,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.1985,
+            "gainPct": -50.04
+          },
+          "shuffled": {
+            "rmse": 0.171,
+            "gainPct": -29.25,
+            "corrTendency": 0.0686
+          }
+        },
+        "n": 20,
+        "nCells": 63640,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      }
+    ],
+    "sst": [
+      {
+        "lead": 1,
+        "rmsePred": 0.2274,
+        "rmsePersist": 0.2196,
+        "gainPct": -3.55,
+        "alphaOpt": 0.455,
+        "rmsePredOptimalDamping": 0.2004,
+        "gainOptPct": 8.73,
+        "gainOptCvPct": 8.45,
+        "alphaByBlock": [
+          0.391,
+          0.471,
+          0.584,
+          0.426
+        ],
+        "corrPred": 0.9374,
+        "corrPersist": 0.9487,
+        "frontCorrPred": 0.7811,
+        "frontCorrPersist": 0.8376,
+        "corrTendency": {
+          "pearson": 0.2991,
+          "ci95": [
+            0.1266,
+            0.4715
+          ],
+          "uncentered": 0.4086,
+          "amplitudeRatio": 0.898,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.295,
+            "gainPct": -34.34
+          },
+          "shuffled": {
+            "rmse": 0.283,
+            "gainPct": -28.87,
+            "corrTendency": -0.0466
+          }
+        },
+        "n": 56,
+        "nCells": 177072,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": true
+      },
+      {
+        "lead": 2,
+        "rmsePred": 0.301,
+        "rmsePersist": 0.3118,
+        "gainPct": 3.46,
+        "alphaOpt": 0.532,
+        "rmsePredOptimalDamping": 0.2615,
+        "gainOptPct": 16.14,
+        "gainOptCvPct": 15.85,
+        "alphaByBlock": [
+          0.477,
+          0.586,
+          0.646,
+          0.475
+        ],
+        "corrPred": 0.8975,
+        "corrPersist": 0.9076,
+        "frontCorrPred": 0.6841,
+        "frontCorrPersist": 0.7645,
+        "corrTendency": {
+          "pearson": 0.3917,
+          "ci95": [
+            0.2252,
+            0.5582
+          ],
+          "uncentered": 0.5448,
+          "amplitudeRatio": 1.023,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.4473,
+            "gainPct": -43.46
+          },
+          "shuffled": {
+            "rmse": 0.411,
+            "gainPct": -31.82,
+            "corrTendency": -0.0834
+          }
+        },
+        "n": 52,
+        "nCells": 164424,
+        "dof": 4,
+        "beatsPersistence": true,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": true
+      },
+      {
+        "lead": 3,
+        "rmsePred": 0.34,
+        "rmsePersist": 0.3883,
+        "gainPct": 12.42,
+        "alphaOpt": 0.604,
+        "rmsePredOptimalDamping": 0.2984,
+        "gainOptPct": 23.15,
+        "gainOptCvPct": 22.81,
+        "alphaByBlock": [
+          0.544,
+          0.689,
+          0.694,
+          0.525
+        ],
+        "corrPred": 0.8764,
+        "corrPersist": 0.8698,
+        "frontCorrPred": 0.6343,
+        "frontCorrPersist": 0.7122,
+        "corrTendency": {
+          "pearson": 0.4605,
+          "ci95": [
+            0.2995,
+            0.6214
+          ],
+          "uncentered": 0.6399,
+          "amplitudeRatio": 1.06,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.566,
+            "gainPct": -45.76
+          },
+          "shuffled": {
+            "rmse": 0.5586,
+            "gainPct": -43.86,
+            "corrTendency": -0.0949
+          }
+        },
+        "n": 48,
+        "nCells": 151776,
+        "dof": 4,
+        "beatsPersistence": true,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": true
+      },
+      {
+        "lead": 4,
+        "rmsePred": 0.3707,
+        "rmsePersist": 0.4551,
+        "gainPct": 18.54,
+        "alphaOpt": 0.648,
+        "rmsePredOptimalDamping": 0.3292,
+        "gainOptPct": 27.67,
+        "gainOptCvPct": 27.24,
+        "alphaByBlock": [
+          0.586,
+          0.754,
+          0.72,
+          0.54
+        ],
+        "corrPred": 0.8616,
+        "corrPersist": 0.8356,
+        "frontCorrPred": 0.6067,
+        "frontCorrPersist": 0.6739,
+        "corrTendency": {
+          "pearson": 0.4939,
+          "ci95": [
+            0.3452,
+            0.6427
+          ],
+          "uncentered": 0.6905,
+          "amplitudeRatio": 1.065,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.6647,
+            "gainPct": -46.06
+          },
+          "shuffled": {
+            "rmse": 0.6416,
+            "gainPct": -40.98,
+            "corrTendency": -0.0679
+          }
+        },
+        "n": 44,
+        "nCells": 139128,
+        "dof": 4,
+        "beatsPersistence": true,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": true
+      },
+      {
+        "lead": 5,
+        "rmsePred": 0.3888,
+        "rmsePersist": 0.507,
+        "gainPct": 23.33,
+        "alphaOpt": 0.682,
+        "rmsePredOptimalDamping": 0.3487,
+        "gainOptPct": 31.23,
+        "gainOptCvPct": 30.63,
+        "alphaByBlock": [
+          0.606,
+          0.8,
+          0.741,
+          0.552
+        ],
+        "corrPred": 0.8589,
+        "corrPersist": 0.8165,
+        "frontCorrPred": 0.5927,
+        "frontCorrPersist": 0.6495,
+        "corrTendency": {
+          "pearson": 0.519,
+          "ci95": [
+            0.3909,
+            0.6471
+          ],
+          "uncentered": 0.726,
+          "amplitudeRatio": 1.065,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.7385,
+            "gainPct": -45.66
+          },
+          "shuffled": {
+            "rmse": 0.6867,
+            "gainPct": -35.44,
+            "corrTendency": -0.0436
+          }
+        },
+        "n": 40,
+        "nCells": 126480,
+        "dof": 4,
+        "beatsPersistence": true,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": true
+      },
+      {
+        "lead": 6,
+        "rmsePred": 0.3974,
+        "rmsePersist": 0.5475,
+        "gainPct": 27.42,
+        "alphaOpt": 0.709,
+        "rmsePredOptimalDamping": 0.3596,
+        "gainOptPct": 34.32,
+        "gainOptCvPct": 33.36,
+        "alphaByBlock": [
+          0.578,
+          0.842,
+          0.768,
+          0.557
+        ],
+        "corrPred": 0.8609,
+        "corrPersist": 0.8202,
+        "frontCorrPred": 0.5795,
+        "frontCorrPersist": 0.6274,
+        "corrTendency": {
+          "pearson": 0.5398,
+          "ci95": [
+            0.4311,
+            0.6486
+          ],
+          "uncentered": 0.7541,
+          "amplitudeRatio": 1.063,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.7989,
+            "gainPct": -45.92
+          },
+          "shuffled": {
+            "rmse": 0.7182,
+            "gainPct": -31.18,
+            "corrTendency": -0.0693
+          }
+        },
+        "n": 36,
+        "nCells": 113832,
+        "dof": 4,
+        "beatsPersistence": true,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": true
+      },
+      {
+        "lead": 7,
+        "rmsePred": 0.4043,
+        "rmsePersist": 0.5938,
+        "gainPct": 31.92,
+        "alphaOpt": 0.742,
+        "rmsePredOptimalDamping": 0.3705,
+        "gainOptPct": 37.6,
+        "gainOptCvPct": 36.48,
+        "alphaByBlock": [
+          0.554,
+          0.872,
+          0.787,
+          0.582
+        ],
+        "corrPred": 0.8573,
+        "corrPersist": 0.8152,
+        "frontCorrPred": 0.5659,
+        "frontCorrPersist": 0.6039,
+        "corrTendency": {
+          "pearson": 0.5622,
+          "ci95": [
+            0.4732,
+            0.6513
+          ],
+          "uncentered": 0.7814,
+          "amplitudeRatio": 1.054,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.8598,
+            "gainPct": -44.8
+          },
+          "shuffled": {
+            "rmse": 0.7339,
+            "gainPct": -23.59,
+            "corrTendency": -0.0812
+          }
+        },
+        "n": 32,
+        "nCells": 101184,
+        "dof": 4,
+        "beatsPersistence": true,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": true
+      },
+      {
+        "lead": 8,
+        "rmsePred": 0.4176,
+        "rmsePersist": 0.6436,
+        "gainPct": 35.12,
+        "alphaOpt": 0.762,
+        "rmsePredOptimalDamping": 0.3852,
+        "gainOptPct": 40.15,
+        "gainOptCvPct": 38.71,
+        "alphaByBlock": [
+          0.515,
+          0.898,
+          0.806,
+          0.584
+        ],
+        "corrPred": 0.8468,
+        "corrPersist": 0.8045,
+        "frontCorrPred": 0.5605,
+        "frontCorrPersist": 0.5796,
+        "corrTendency": {
+          "pearson": 0.5832,
+          "ci95": [
+            0.5154,
+            0.6509
+          ],
+          "uncentered": 0.8011,
+          "amplitudeRatio": 1.051,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 0.9368,
+            "gainPct": -45.56
+          },
+          "shuffled": {
+            "rmse": 0.7068,
+            "gainPct": -9.82,
+            "corrTendency": -0.0257
+          }
+        },
+        "n": 28,
+        "nCells": 88536,
+        "dof": 4,
+        "beatsPersistence": true,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": true
+      },
+      {
+        "lead": 9,
+        "rmsePred": 0.4261,
+        "rmsePersist": 0.6973,
+        "gainPct": 38.9,
+        "alphaOpt": 0.785,
+        "rmsePredOptimalDamping": 0.3959,
+        "gainOptPct": 43.23,
+        "gainOptCvPct": 41.55,
+        "alphaByBlock": [
+          0.515,
+          0.924,
+          0.823,
+          0.575
+        ],
+        "corrPred": 0.8444,
+        "corrPersist": 0.7964,
+        "frontCorrPred": 0.5602,
+        "frontCorrPersist": 0.5608,
+        "corrTendency": {
+          "pearson": 0.6087,
+          "ci95": [
+            0.5685,
+            0.6489
+          ],
+          "uncentered": 0.8232,
+          "amplitudeRatio": 1.049,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": 1.0109,
+            "gainPct": -44.97
+          },
+          "shuffled": {
+            "rmse": 0.7064,
+            "gainPct": -1.31,
+            "corrTendency": 0.0142
+          }
+        },
+        "n": 24,
+        "nCells": 75888,
+        "dof": 4,
+        "beatsPersistence": true,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": true
+      }
+    ],
+    "phycIndirect": [
+      {
+        "lead": 1,
+        "rmsePred": 0.0506,
+        "rmsePersist": 0.0443,
+        "gainPct": -14.16,
+        "alphaOpt": 0.017,
+        "rmsePredOptimalDamping": 0.0443,
+        "gainOptPct": 0,
+        "gainOptCvPct": -0.03,
+        "alphaByBlock": [
+          -0.061,
+          0.027,
+          -0.011,
+          0.131
+        ],
+        "corrPred": null,
+        "corrPersist": null,
+        "frontCorrPred": null,
+        "frontCorrPersist": null,
+        "corrTendency": {
+          "pearson": 0.0068,
+          "ci95": [
+            -0.0476,
+            0.0612
+          ],
+          "uncentered": 0.0097,
+          "amplitudeRatio": 0.56,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": null,
+            "gainPct": null
+          },
+          "shuffled": {
+            "rmse": null,
+            "gainPct": null,
+            "corrTendency": 0.0126
+          }
+        },
+        "n": 48,
+        "nCells": 152736,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": false,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 2,
+        "rmsePred": 0.0736,
+        "rmsePersist": 0.0599,
+        "gainPct": -23,
+        "alphaOpt": 0.018,
+        "rmsePredOptimalDamping": 0.0599,
+        "gainOptPct": 0.01,
+        "gainOptCvPct": -0.05,
+        "alphaByBlock": [
+          -0.062,
+          0.029,
+          -0.043,
+          0.122
+        ],
+        "corrPred": null,
+        "corrPersist": null,
+        "frontCorrPred": null,
+        "frontCorrPersist": null,
+        "corrTendency": {
+          "pearson": 0,
+          "ci95": [
+            -0.0778,
+            0.0779
+          ],
+          "uncentered": 0.0132,
+          "amplitudeRatio": 0.729,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": null,
+            "gainPct": null
+          },
+          "shuffled": {
+            "rmse": null,
+            "gainPct": null,
+            "corrTendency": 0.0221
+          }
+        },
+        "n": 43,
+        "nCells": 136826,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 3,
+        "rmsePred": 0.0902,
+        "rmsePersist": 0.0723,
+        "gainPct": -24.73,
+        "alphaOpt": 0.034,
+        "rmsePredOptimalDamping": 0.0723,
+        "gainOptPct": 0.03,
+        "gainOptCvPct": -0.01,
+        "alphaByBlock": [
+          -0.028,
+          0.035,
+          -0.042,
+          0.128
+        ],
+        "corrPred": null,
+        "corrPersist": null,
+        "frontCorrPred": null,
+        "frontCorrPersist": null,
+        "corrTendency": {
+          "pearson": 0.0002,
+          "ci95": [
+            -0.0761,
+            0.0764
+          ],
+          "uncentered": 0.0263,
+          "amplitudeRatio": 0.772,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": null,
+            "gainPct": null
+          },
+          "shuffled": {
+            "rmse": null,
+            "gainPct": null,
+            "corrTendency": 0.034
+          }
+        },
+        "n": 38,
+        "nCells": 120916,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 4,
+        "rmsePred": 0.1033,
+        "rmsePersist": 0.0835,
+        "gainPct": -23.69,
+        "alphaOpt": 0.035,
+        "rmsePredOptimalDamping": 0.0835,
+        "gainOptPct": 0.04,
+        "gainOptCvPct": -0.03,
+        "alphaByBlock": [
+          -0.034,
+          0.037,
+          -0.103,
+          0.141
+        ],
+        "corrPred": null,
+        "corrPersist": null,
+        "frontCorrPred": null,
+        "frontCorrPersist": null,
+        "corrTendency": {
+          "pearson": -0.0096,
+          "ci95": [
+            -0.095,
+            0.0758
+          ],
+          "uncentered": 0.0266,
+          "amplitudeRatio": 0.755,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": null,
+            "gainPct": null
+          },
+          "shuffled": {
+            "rmse": null,
+            "gainPct": null,
+            "corrTendency": 0.0359
+          }
+        },
+        "n": 34,
+        "nCells": 108188,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 5,
+        "rmsePred": 0.1134,
+        "rmsePersist": 0.0924,
+        "gainPct": -22.69,
+        "alphaOpt": 0.033,
+        "rmsePredOptimalDamping": 0.0924,
+        "gainOptPct": 0.03,
+        "gainOptCvPct": -0.07,
+        "alphaByBlock": [
+          -0.06,
+          0.035,
+          -0.126,
+          0.157
+        ],
+        "corrPred": null,
+        "corrPersist": null,
+        "frontCorrPred": null,
+        "frontCorrPersist": null,
+        "corrTendency": {
+          "pearson": -0.0192,
+          "ci95": [
+            -0.1179,
+            0.0795
+          ],
+          "uncentered": 0.0245,
+          "amplitudeRatio": 0.736,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": null,
+            "gainPct": null
+          },
+          "shuffled": {
+            "rmse": null,
+            "gainPct": null,
+            "corrTendency": 0.038
+          }
+        },
+        "n": 31,
+        "nCells": 98642,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 6,
+        "rmsePred": 0.1224,
+        "rmsePersist": 0.1008,
+        "gainPct": -21.48,
+        "alphaOpt": 0.035,
+        "rmsePredOptimalDamping": 0.1007,
+        "gainOptPct": 0.03,
+        "gainOptCvPct": -0.1,
+        "alphaByBlock": [
+          0.001,
+          0.027,
+          -0.182,
+          0.17
+        ],
+        "corrPred": null,
+        "corrPersist": null,
+        "frontCorrPred": null,
+        "frontCorrPersist": null,
+        "corrTendency": {
+          "pearson": -0.01,
+          "ci95": [
+            -0.1098,
+            0.0898
+          ],
+          "uncentered": 0.0248,
+          "amplitudeRatio": 0.715,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": null,
+            "gainPct": null
+          },
+          "shuffled": {
+            "rmse": null,
+            "gainPct": null,
+            "corrTendency": 0.0162
+          }
+        },
+        "n": 28,
+        "nCells": 89096,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 7,
+        "rmsePred": 0.1328,
+        "rmsePersist": 0.1104,
+        "gainPct": -20.27,
+        "alphaOpt": 0.023,
+        "rmsePredOptimalDamping": 0.1104,
+        "gainOptPct": 0.01,
+        "gainOptCvPct": -0.15,
+        "alphaByBlock": [
+          -0.062,
+          0.016,
+          -0.201,
+          0.195
+        ],
+        "corrPred": null,
+        "corrPersist": null,
+        "frontCorrPred": null,
+        "frontCorrPersist": null,
+        "corrTendency": {
+          "pearson": -0.015,
+          "ci95": [
+            -0.1246,
+            0.0946
+          ],
+          "uncentered": 0.0154,
+          "amplitudeRatio": 0.684,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": null,
+            "gainPct": null
+          },
+          "shuffled": {
+            "rmse": null,
+            "gainPct": null,
+            "corrTendency": 0.0197
+          }
+        },
+        "n": 25,
+        "nCells": 79550,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 8,
+        "rmsePred": 0.1448,
+        "rmsePersist": 0.1219,
+        "gainPct": -18.82,
+        "alphaOpt": 0.019,
+        "rmsePredOptimalDamping": 0.1219,
+        "gainOptPct": 0.01,
+        "gainOptCvPct": -0.17,
+        "alphaByBlock": [
+          -0.04,
+          0.002,
+          -0.198,
+          0.252
+        ],
+        "corrPred": null,
+        "corrPersist": null,
+        "frontCorrPred": null,
+        "frontCorrPersist": null,
+        "corrTendency": {
+          "pearson": -0.0101,
+          "ci95": [
+            -0.134,
+            0.1139
+          ],
+          "uncentered": 0.0126,
+          "amplitudeRatio": 0.655,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": null,
+            "gainPct": null
+          },
+          "shuffled": {
+            "rmse": null,
+            "gainPct": null,
+            "corrTendency": 0.0239
+          }
+        },
+        "n": 23,
+        "nCells": 73186,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      },
+      {
+        "lead": 9,
+        "rmsePred": 0.155,
+        "rmsePersist": 0.1323,
+        "gainPct": -17.15,
+        "alphaOpt": 0.033,
+        "rmsePredOptimalDamping": 0.1323,
+        "gainOptPct": 0.02,
+        "gainOptCvPct": -0.22,
+        "alphaByBlock": [
+          0.033,
+          -0.003,
+          -0.199,
+          0.335
+        ],
+        "corrPred": null,
+        "corrPersist": null,
+        "frontCorrPred": null,
+        "frontCorrPersist": null,
+        "corrTendency": {
+          "pearson": 0.0001,
+          "ci95": [
+            -0.1471,
+            0.1472
+          ],
+          "uncentered": 0.0209,
+          "amplitudeRatio": 0.632,
+          "nBlocks": 4
+        },
+        "sanity": {
+          "noise": {
+            "rmse": null,
+            "gainPct": null
+          },
+          "shuffled": {
+            "rmse": null,
+            "gainPct": null,
+            "corrTendency": 0.0154
+          }
+        },
+        "n": 20,
+        "nCells": 63640,
+        "dof": 4,
+        "beatsPersistence": false,
+        "beatsPersistenceOptimalDamping": true,
+        "beatsPersistenceOptimalDampingCv": false
+      }
+    ]
+  }
+}
