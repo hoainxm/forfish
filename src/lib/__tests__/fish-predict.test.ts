@@ -358,12 +358,62 @@ describe("convergenceStrength", () => {
   });
 });
 
-describe("thermoFit (tầng nhiệt D20)", () => {
-  it("D20 vừa 70–170 m → 1; quá nông/sâu → 0; dốc ở mép", () => {
-    expect(thermoFit(120)).toBe(1);
-    expect(thermoFit(20)).toBe(0);
-    expect(thermoFit(300)).toBe(0);
-    expect(thermoFit(55)).toBeCloseTo((55 - 40) / (70 - 40), 5);
+describe("thermoFit (dị thường KHÔNG GIAN của D20)", () => {
+  it("dải MẶC ĐỊNH [-4,-23]: nêm NÔNG hơn lân cận mới được điểm", () => {
+    expect(thermoFit(-23)).toBe(1); // nông hơn 23 m → hợp hẳn
+    expect(thermoFit(-40)).toBe(1); // nông hơn nữa vẫn 1 (kẹp)
+    expect(thermoFit(-4)).toBe(0); // lệch chưa tới trung vị → chưa tính
+    expect(thermoFit(-13.5)).toBeCloseTo(0.5, 5);
+    expect(thermoFit(0)).toBe(0);
+    expect(thermoFit(12)).toBe(0); // nêm SÂU hơn: sai khẩu vị mặc định
+    expect(thermoFit(NaN)).toBe(0);
+  });
+
+  it("dải NGƯỢC DẤU (cá ngừ mắt to [4,12]): ưa nêm SÂU hơn lân cận", () => {
+    expect(thermoFit(12, [4, 12])).toBe(1);
+    expect(thermoFit(30, [4, 12])).toBe(1);
+    expect(thermoFit(4, [4, 12])).toBe(0);
+    expect(thermoFit(8, [4, 12])).toBeCloseTo(0.5, 5);
+    expect(thermoFit(-20, [4, 12])).toBe(0); // nêm nông: sai khẩu vị mắt to
+  });
+
+  it("BẤT BIẾN chống lỗi cũ: D20 ĐỒNG ĐỀU (dị thường 0) KHÔNG cho điểm", () => {
+    // Đây chính là lỗi đã sửa: D20 tuyệt đối ở Biển Đông gần như đồng đều nên
+    // cổng tuyệt đối cũ trả ≈1 KHẮP NƠI → yếu tố luôn bật, không xếp hạng được.
+    expect(thermoFit(0)).toBe(0);
+    expect(thermoFit(0, [4, 12])).toBe(0);
+  });
+
+  it("hai loài khẩu vị NGƯỢC NHAU không bao giờ cùng đạt 1 tại một ô", () => {
+    for (const d of [-30, -10, 0, 10, 30]) {
+      const yellowfin = thermoFit(d); // mặc định — ưa nêm nông
+      const bigeye = thermoFit(d, [4, 12]); // ưa nêm sâu
+      expect(Math.min(yellowfin, bigeye)).toBe(0);
+    }
+  });
+});
+
+describe("thermoBand theo loài (hồ sơ SPECIES_PROFILES)", () => {
+  const find = (short: string) => SPECIES_PROFILES.find((p) => p.short === short)!;
+
+  it("ngừ mắt to khai dải DƯƠNG; ngừ vây vàng dùng mặc định (ÂM)", () => {
+    expect(find("ngừ mắt to").thermoBand).toEqual([4, 12]);
+    expect(find("ngừ vây vàng").thermoBand).toBeUndefined();
+  });
+
+  it("mọi thermoBand khai báo đều CÙNG DẤU hai đầu và hướng ra xa 0", () => {
+    for (const p of SPECIES_PROFILES) {
+      if (!p.thermoBand) continue;
+      const [a, b] = p.thermoBand;
+      expect(a).not.toBe(b);
+      expect(Math.sign(a)).toBe(Math.sign(b));
+      expect(Math.abs(b)).toBeGreaterThan(Math.abs(a));
+    }
+  });
+
+  it("loài khai thermoBand thì phải CÓ trọng số w.thermo (nếu không dải vô nghĩa)", () => {
+    for (const p of SPECIES_PROFILES)
+      if (p.thermoBand) expect(p.w.thermo ?? 0).toBeGreaterThan(0);
   });
 });
 
@@ -400,11 +450,42 @@ describe("tầng nhiệt HYCOM tăng điểm cá ngừ", () => {
     tlats,
     tlons,
   );
-  it("D20 vùng tốt (120 m) → điểm 'ngừ vây vàng' cao hơn khi KHÔNG có tầng nhiệt", () => {
+  // NÊM NHIỆT NHÔ (dome) ở ô GIỮA: D20 90 m giữa vùng 120 m → dị thường không
+  // gian −30 m ⇒ thermoFit = 1 cho loài ưa nêm nông. Lưới ĐỒNG ĐỀU không còn
+  // tác dụng (đó chính là lỗi vừa sửa) nên test phải có CẤU TRÚC.
+  const domeD20 = grid(
+    [
+      [120, 120, 120],
+      [120, 90, 120],
+      [120, 120, 120],
+    ],
+    tlats,
+    tlons,
+  );
+  const yellowfinAt = (
+    f: ReturnType<typeof buildFishForecast>,
+    lat: number,
+    lon: number,
+  ) => f.cells.find((c) => c.lat === lat && c.lon === lon)?.sp["ngừ vây vàng"] ?? 0;
+
+  it("nêm nhiệt NHÔ hơn lân cận → điểm 'ngừ vây vàng' cao hơn khi KHÔNG có tầng nhiệt", () => {
     const base = buildFishForecast(warmOff, clearChl, null, 6, {
       depth: deepGrid,
     });
-    const d20 = grid(
+    const withT = buildFishForecast(warmOff, clearChl, null, 6, {
+      thermo: domeD20,
+      depth: deepGrid,
+    });
+    const no = yellowfinAt(base, 11.75, 110.25);
+    const yes = yellowfinAt(withT, 11.75, 110.25);
+    expect(yes).toBeGreaterThan(no);
+    // tầng nhiệt là MỘT cơ chế trong soft-OR (scale 0.4) → đủ đưa ngừ vào payload
+    // (≥ KEEP_MIN 25); muốn cao hơn cần nhiều cơ chế cộng hưởng (front+xoáy+thermo)
+    expect(yes).toBeGreaterThanOrEqual(25);
+  });
+
+  it("D20 ĐỒNG ĐỀU (không cấu trúc) KHÔNG làm điểm tăng — chống lỗi 'luôn bật'", () => {
+    const flat = grid(
       [
         [120, 120, 120],
         [120, 120, 120],
@@ -413,18 +494,37 @@ describe("tầng nhiệt HYCOM tăng điểm cá ngừ", () => {
       tlats,
       tlons,
     );
-    const withT = buildFishForecast(warmOff, clearChl, null, 6, {
-      thermo: d20,
+    const base = buildFishForecast(warmOff, clearChl, null, 6, {
       depth: deepGrid,
     });
-    const no =
-      base.cells.find((c) => c.sp["ngừ vây vàng"])?.sp["ngừ vây vàng"] ?? 0;
-    const yes =
-      withT.cells.find((c) => c.sp["ngừ vây vàng"])?.sp["ngừ vây vàng"] ?? 0;
-    expect(yes).toBeGreaterThan(no);
-    // tầng nhiệt là MỘT cơ chế trong soft-OR (scale 0.4) → đủ đưa ngừ vào payload
-    // (≥ KEEP_MIN 25); muốn cao hơn cần nhiều cơ chế cộng hưởng (front+xoáy+thermo)
-    expect(yes).toBeGreaterThanOrEqual(25);
+    const withFlat = buildFishForecast(warmOff, clearChl, null, 6, {
+      thermo: flat,
+      depth: deepGrid,
+    });
+    expect(yellowfinAt(withFlat, 11.75, 110.25)).toBe(
+      yellowfinAt(base, 11.75, 110.25),
+    );
+  });
+
+  it("cùng ô: nêm NHÔ có lợi cho vây vàng, nêm CHÌM có lợi cho mắt to (khẩu vị ngược nhau)", () => {
+    const sink = grid(
+      [
+        [120, 120, 120],
+        [120, 150, 120],
+        [120, 120, 120],
+      ],
+      tlats,
+      tlons,
+    );
+    const at = (g: ScalarGrid, short: string) =>
+      buildFishForecast(warmOff, clearChl, null, 6, {
+        thermo: g,
+        depth: deepGrid,
+      }).cells.find((c) => c.lat === 11.75 && c.lon === 110.25)?.sp[short] ?? 0;
+    expect(at(domeD20, "ngừ vây vàng")).toBeGreaterThan(
+      at(sink, "ngừ vây vàng"),
+    );
+    expect(at(sink, "ngừ mắt to")).toBeGreaterThan(at(domeD20, "ngừ mắt to"));
   });
 });
 
@@ -625,9 +725,19 @@ describe("cổng độ sâu: cá xa bờ KHÔNG hiện ở nước cạn sát b�
       tlats,
       tlons,
     );
-  // tầng nhiệt D20=120 m cho ngừ vây vàng MỘT cơ chế gom cá thật → điểm nền >0
-  // (soft-OR: ô phẳng không cơ chế thì điểm 0); nhờ đó CỔNG ĐỘ SÂU quan sát được
-  const d20 = depthGrid(120);
+  // NÊM NHIỆT NHÔ ở ô giữa (D20 90 m giữa vùng 120 m → dị thường −30 m) cho ngừ
+  // vây vàng MỘT cơ chế gom cá thật → điểm nền >0 (soft-OR: ô không cơ chế thì
+  // điểm 0); nhờ đó CỔNG ĐỘ SÂU quan sát được. Lưới D20 ĐỒNG ĐỀU không dùng được
+  // nữa: dị thường không gian = 0 ⇒ tầng nhiệt không đóng góp gì (đúng theo thiết kế).
+  const d20 = grid(
+    [
+      [120, 120, 120],
+      [120, 90, 120],
+      [120, 120, 120],
+    ],
+    tlats,
+    tlons,
+  );
   const scoreOf = (depthM: number) => {
     const f = buildFishForecast(warm, clear, null, 6, {
       depth: depthGrid(depthM),
@@ -1019,10 +1129,13 @@ describe("VIỆC 4 — cá ngừ mắt to GIỮ cổng nhiệt MẶT (deepTemp k
     dlats,
     dlons,
   );
+  // Mắt to ưa nêm nhiệt CHÌM hơn lân cận (`thermoBand` [4,12]) → lưới phải có
+  // CẤU TRÚC: ô giữa D20 150 m giữa vùng 120 m ⇒ dị thường +30 m, thermoFit = 1.
+  // (Lưới đồng đều cho dị thường 0 = không tín hiệu — đúng thiết kế mới.)
   const goodThermo = grid(
     [
       [120, 120, 120],
-      [120, 120, 120],
+      [120, 150, 120],
       [120, 120, 120],
     ],
     dlats,

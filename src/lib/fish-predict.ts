@@ -97,6 +97,23 @@ const UPW_SCALE = 0.55;
 /** Chuẩn hoá dị thường KHÔNG GIAN của SSHA (m) → coldStrength 0..1. ≈ p90=0.092. */
 const COLD_SCALE = 0.09;
 /**
+ * KHẨU VỊ TẦNG NHIỆT MẶC ĐỊNH — `[bắt đầu hợp, hợp hẳn]` tính bằng MÉT dị
+ * thường KHÔNG GIAN của D20 (xem `thermoFit`). ÂM = ưa nêm nhiệt NÔNG hơn vùng
+ * lân cận: nêm nhô lên (dome/ridging) đẩy dinh dưỡng lên và NÉN MỎNG tầng sống
+ * → cá nổi tầng mặt (ngừ vây vàng/vằn/chù/ồ/chấm, thu, cờ, nục heo, ngân, mực
+ * xà) dồn lại; đây là cơ chế kinh điển của ngư trường cá ngừ vây vàng/cá cờ
+ * (nén tầng sống ở vùng nêm nhiệt nhô — Costa Rica Dome, sống nhiệt xích đạo).
+ * CĂN CỨ SỐ chọn mốc (scripts/thermofit-diagnose.mjs, lưới HYCOM thật, 1454 ô
+ * biển VN có D20) — LUẬT CHUNG: dải mỗi phía = [p50, p90] của |dị thường| TRÊN
+ * CHÍNH PHÍA ĐÓ, tức đúng 10% số ô của phía đó mới đạt 1 (giữ %điểm nóng không
+ * phình, cùng tinh thần đã chọn UPW_SCALE/COLD_SCALE theo p90).
+ *   phía NÔNG (54% số ô): |dị thường| p50 = 4,1 m · p90 = 22,8 m → [-4, -23].
+ * HAI PHÍA KHÔNG ĐỐI XỨNG (phía nông có đuôi dài hơn: nêm nhô là cấu trúc nhọn,
+ * tới −47 m; nêm chìm chỉ tới +22 m) nên KHÔNG lấy gương của phía kia — mỗi phía
+ * đo riêng, xem `thermoBand` của cá ngừ mắt to.
+ */
+export const THERMO_BAND_DEFAULT: [number, number] = [-4, -23];
+/**
  * CỔNG ĐỘ SÂU khi KHÔNG BIẾT độ sâu ô (thiếu lưới ETOPO, hoặc ô ETOPO NaN) và
  * loài CÓ `offshore`. TRƯỚC = 1 ("không phạt oan") — nhưng như thế NGUỒN HỎNG
  * LÀM ĐIỂM TĂNG: ô nước cạn đang bị ×0 nhảy lên ×1, cá ngừ hiện sát bờ (đúng
@@ -174,6 +191,23 @@ export interface SpeciesProfile {
      *  lớn & mực xà đại dương; bỏ qua/để 0 cho loài ven bờ/đáy. Mặc định 0. */
     thermo?: number;
   };
+  /**
+   * KHẨU VỊ TẦNG NHIỆT RIÊNG của loài — `[bắt đầu hợp, hợp hẳn]` tính bằng MÉT
+   * DỊ THƯỜNG KHÔNG GIAN của D20 (xem `thermoFit`). Bỏ trống = dùng
+   * `THERMO_BAND_DEFAULT` ([-3,-18] — ưa nêm nhiệt NÔNG hơn vùng lân cận).
+   *
+   * VÌ SAO PHẢI THAM SỐ HOÁ THEO LOÀI (đội phản biện nêu, sửa 2026-07-26):
+   * trước đây `thermoFit` là hàm TOÀN CỤC dùng chung cho cá ngừ VÂY VÀNG (bám
+   * lớp trộn/đỉnh nêm nhiệt, ban ngày hầu như không xuống dưới nêm) và cá ngừ
+   * MẮT TO (ngày lặn 200–500 m, sống quanh/dưới nêm nhiệt) — SINH HỌC NGƯỢC
+   * NHAU mà chấm cùng một thước. Nay: vây vàng (và cá nổi mặt nói chung) ưa nêm
+   * NÔNG hơn lân cận; mắt to ưa nêm SÂU hơn (lớp ấm dày = tầng lặn ngày rộng,
+   * nghề câu vàng bắt được nhiều ở nơi nêm nhiệt sâu). Nguồn: Weng & Schaefer
+   * PSAT/archival tag (tầng lặn hai loài), nghiên cứu tầng nhiệt cá ngừ Biển
+   * Đông (Fishes, 2023). CHỈ đặt cho hai loài có căn cứ rõ; các loài còn lại
+   * dùng mặc định, KHÔNG bịa số riêng.
+   */
+  thermoBand?: [number, number];
   /** true = ưa nước trồi/xoáy LẠNH (cá nổi nhỏ ăn mồi); false = ưa rìa xoáy ấm (cá nổi lớn) */
   coldCore: boolean;
   /**
@@ -198,6 +232,8 @@ export const SPECIES_PROFILES: SpeciesProfile[] = [
   // mắt to ngày lặn sâu 200–500 m gắn nêm nhiệt (ảnh mặt biển kém chỉ điểm →
   // surfaceSignal "medium", thermo NẶNG). Nguồn: Weng PSAT, Schaefer archival
   // tags, nghiên cứu tầng nhiệt cá ngừ Biển Đông (Fishes 2023), WCPFC VN.
+  // vây vàng KHÔNG khai `thermoBand` → dùng THERMO_BAND_DEFAULT (ưa nêm NÔNG
+  // hơn lân cận) — đúng sinh học "bám lớp trộn & đỉnh nêm nhiệt" ở `depthBand`.
   { species: "Cá ngừ vây vàng", short: "ngừ vây vàng", category: "pelagic-large", surfaceSignal: "high", color: "#1d4ed8", depthBand: "tầng mặt 0–100 m (lớp trộn & đỉnh nêm nhiệt), xa bờ", sst: [23.5, 26, 30, 31.5], chlLog: [-1.1, -0.1], w: { food: 0.25, thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.1, conv: 0.25, thermo: 0.2 }, coldCore: false, offshore: [50, 200] },
   // Cá ngừ mắt to: GIỮ cổng nhiệt MẶT (không dùng tempSource "deep"). VALIDATE
   // trên số HYCOM thật (scripts/fish-predict-viec4-bottom.mjs) cho thấy nhiệt tầng
@@ -205,7 +241,17 @@ export const SPECIES_PROFILES: SpeciesProfile[] = [
   // ≈1 mọi nơi, KHÔNG tạo biến thiên không gian, lại BỎ phần ghìm của cổng mặt mùa
   // hè → %điểm nóng phình +14đ. Tín hiệu không gian thật của mắt to là ĐỘ SÂU nêm
   // nhiệt (D20) — đã có qua w.thermo. (Hạ tầng "deep"/deepTemp giữ sẵn, chưa gán.)
-  { species: "Cá ngừ mắt to", short: "ngừ mắt to", category: "pelagic-large", surfaceSignal: "medium", color: "#4338ca", depthBand: "đêm tầng mặt <50 m, ngày lặn sâu 200–500 m (quanh/dưới nêm nhiệt), xa bờ", sst: [22, 25, 29, 31], chlLog: [-1.3, -0.3], w: { food: 0.15, thermFront: 0.3, chlFront: 0.1, eddy: 0.35, upw: 0.05, conv: 0.15, thermo: 0.5 }, coldCore: false, offshore: [100, 300] },
+  // `thermoBand` DƯƠNG = loài DUY NHẤT ưa nêm nhiệt SÂU HƠN vùng lân cận: ban
+  // ngày mắt to sống quanh/dưới nêm, nêm chìm sâu = lớp ấm dày, tầng lặn ngày
+  // rộng. Mốc [4, 12] theo ĐÚNG luật của THERMO_BAND_DEFAULT nhưng đo trên PHÍA
+  // DƯƠNG của phân bố thật (46% số ô: p50 = 4,0 m, p90 = 11,7 m) — KHÔNG lấy
+  // gương của phía nông ([4, 23]), vì đuôi dương chỉ tới +22,5 m: dải gương đòi
+  // một mức dị thường mà gần như không ô nào đạt, tức là đặt mốc KHÔNG theo dữ
+  // liệu. Đo trên API thật (2026-07-26): dải gương [4,18] → 6 ô ≥50; dải đo
+  // riêng [4,12] → 8 ô ≥50. Loài này vốn ÍT ô sáng vì `w.thermo`=0,5 là trọng số
+  // LỚN NHẤT của nó (mất cổng "luôn bật" cũ là mất nền điểm) cộng surfaceSignal
+  // "medium" (kéo về trung tính) — thưa nhưng ĐÚNG, còn 348 ô trong payload ≥25.
+  { species: "Cá ngừ mắt to", short: "ngừ mắt to", category: "pelagic-large", surfaceSignal: "medium", color: "#4338ca", depthBand: "đêm tầng mặt <50 m, ngày lặn sâu 200–500 m (quanh/dưới nêm nhiệt), xa bờ", sst: [22, 25, 29, 31], chlLog: [-1.3, -0.3], w: { food: 0.15, thermFront: 0.3, chlFront: 0.1, eddy: 0.35, upw: 0.05, conv: 0.15, thermo: 0.5 }, thermoBand: [4, 12], coldCore: false, offshore: [100, 300] },
   { species: "Cá ngừ vằn", short: "ngừ vằn", category: "pelagic-large", surfaceSignal: "high", color: "#2563eb", depthBand: "tầng mặt 0–260 m", sst: [23, 25, 29.5, 31], chlLog: [-1.0, 0.0], w: { food: 0.25, thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.05, conv: 0.2, thermo: 0.2 }, coldCore: false, offshore: [50, 200] },
   { species: "Cá ngừ chù", short: "ngừ chù", category: "pelagic-large", surfaceSignal: "medium", color: "#0891b2", depthBand: "tầng mặt 0–50 m", sst: [24, 28, 31, 32], chlLog: [-1.1, -0.5], w: { food: 0.25, thermFront: 0.2, chlFront: 0.25, eddy: 0.15, upw: 0.05, conv: 0.1, thermo: 0.2 }, coldCore: false },
   { species: "Cá ngừ ồ", short: "ngừ ồ", category: "pelagic-large", surfaceSignal: "medium", color: "#0e7490", depthBand: "tầng mặt 0–200 m, ven rạn", sst: [18, 24, 28, 30], chlLog: [-0.8, 0.3], w: { food: 0.3, thermFront: 0.25, chlFront: 0.2, eddy: 0.1, upw: 0.1, conv: 0.05, thermo: 0.15 }, coldCore: false },
@@ -314,13 +360,39 @@ export function chlFit(chl: number, lo: number, hi: number): number {
 }
 
 /**
- * Hợp TẦNG NHIỆT cho cá nổi lớn: theo độ sâu đẳng nhiệt 20°C (D20, m).
- * Tốt nhất khi lớp nước ấm vừa phải (70–170 m) — đủ dày cho cá ngừ, vẫn có cấu
- * trúc tầng để dồn cá. Quá nông (<40 m, nước trồi lạnh sát mặt) hoặc quá sâu
- * (>230 m, không cấu trúc) thì kém. Hình thang [40, 70, 170, 230].
+ * Hợp TẦNG NHIỆT — theo DỊ THƯỜNG KHÔNG GIAN của độ sâu đẳng nhiệt 20°C
+ * (`d20AnomM` = D20 của ô TRỪ trung vị D20 các ô lân cận trong bán kính
+ * SPATIAL_RADIUS_DEG; ÂM = nêm nhiệt NÔNG hơn xung quanh, DƯƠNG = SÂU hơn).
+ *
+ * VÌ SAO KHÔNG DÙNG D20 TUYỆT ĐỐI NỮA (đo thật, scripts/thermofit-diagnose.mjs,
+ * lưới HYCOM 23/7/2026, 1454 ô biển VN có D20):
+ *   D20 min 59,8 · p10 84,4 · p50 112,8 · p90 120,3 · max 129,6 m — TOÀN BỘ
+ *   nằm trong dải "tốt" [70,170] của công thức cũ `trapezoid(d20,40,70,170,230)`
+ *   ⇒ thermoFit trung bình 0,996, ĐỘ LỆCH CHUẨN KHÔNG GIAN chỉ 0,028, 98% số ô
+ *   ≥0,95, KHÔNG ô nào ≤0,2. Một yếu tố LUÔN BẬT thì không xếp hạng được ô nào
+ *   hơn ô nào — nó chỉ NÂNG ĐIỂM ĐỒNG LOẠT. Ablation trên buildFishForecast
+ *   thật: bỏ hẳn tầng nhiệt kéo %diện tích điểm nóng 49,6% → 19,9% (Δ −29,7đ),
+ *   lớn nhất trong mọi nguồn ⇒ chính nó làm bản đồ "nhìn đâu cũng đỏ".
+ *   Cùng LOẠI lỗi đã sửa hai lần: `upwTerm` (anomaly nhiều năm sáng-tối cả bồn)
+ *   và `wMax` (thiếu nguồn làm điểm tăng).
+ *
+ * CẤU TRÚC TẦNG NHIỆT ĐỊA PHƯƠNG mới chỉ được chỗ: nêm nhiệt nhô lên (dome/
+ * ridging) so với vùng bên cạnh = dinh dưỡng đẩy lên + tầng sống bị nén mỏng →
+ * cá nổi dồn; nêm chìm xuống = lớp ấm dày, tầng sâu rộng → cá lặn sâu (ngừ mắt
+ * to) có chỗ.
+ *
+ * `band` = `[bắt đầu hợp, hợp hẳn]` tính bằng MÉT dị thường; DẤU mang khẩu vị
+ * loài (âm = ưa nêm nông hơn lân cận, dương = ưa nêm sâu hơn). Dốc tuyến tính,
+ * kẹp [0,1]. Thiếu → `THERMO_BAND_DEFAULT`. `d20AnomM` NaN → 0.
  */
-export function thermoFit(d20: number): number {
-  return trapezoid(d20, 40, 70, 170, 230);
+export function thermoFit(
+  d20AnomM: number,
+  band: [number, number] = THERMO_BAND_DEFAULT,
+): number {
+  if (!Number.isFinite(d20AnomM)) return 0;
+  const [a, b] = band;
+  if (b === a) return d20AnomM === a ? 1 : 0;
+  return Math.max(0, Math.min(1, (d20AnomM - a) / (b - a)));
 }
 
 /**
@@ -707,6 +779,12 @@ export function buildFishForecast(
   const anomSpatial = anom
     ? spatialAnomaly(anom.values, anom.lats, anom.lons, SPATIAL_RADIUS_DEG)
     : null;
+  // TẦNG NHIỆT cũng dùng DỊ THƯỜNG KHÔNG GIAN (cùng lý do, cùng bán kính): D20
+  // tuyệt đối ở Biển Đông gần như đồng đều (đo thật p10–p90 = 84–120 m, đều nằm
+  // trong dải "tốt" cũ) → cổng tuyệt đối ≈1 khắp nơi, chỉ nâng điểm đồng loạt.
+  const thermoSpatial = thermo
+    ? spatialAnomaly(thermo.values, thermo.lats, thermo.lons, SPATIAL_RADIUS_DEG)
+    : null;
   // hội tụ dòng chảy mặt (chỉ khi có u,v) — full 0.1 m/s mỗi ô 0.25°
   const convGrid = cur
     ? convergenceStrength(cur.u.values, cur.v.values, 0.1)
@@ -768,13 +846,15 @@ export function buildFishForecast(
         const cv = convGrid[ui]?.[uj];
         if (cv != null && Number.isFinite(cur.u.values[ui]?.[uj])) convTerm = cv;
       }
-      // tầng nhiệt: hợp theo độ sâu đẳng nhiệt 20°C (HYCOM); null = thiếu
-      let thermoTerm: number | null = null;
+      // tầng nhiệt: DỊ THƯỜNG KHÔNG GIAN của D20 (m) tại ô — âm = nêm nhô lên so
+      // với lân cận, dương = nêm chìm. Chấm thành điểm ở vòng lặp LOÀI (mỗi loài
+      // một khẩu vị `thermoBand`). null = thiếu lưới / ô NaN.
+      let thermoAnomM: number | null = null;
       if (thermo) {
         const ti = nearestIndex(thermo.lats, lat);
         const tj = nearestIndex(thermo.lons, lon);
-        const d20 = thermo.values[ti]?.[tj];
-        if (Number.isFinite(d20)) thermoTerm = thermoFit(d20);
+        const dv = thermoSpatial?.[ti]?.[tj];
+        if (Number.isFinite(dv)) thermoAnomM = dv as number;
       }
       // độ sâu đáy tại ô (m, dương) — để CHẶN loài xa bờ (offshore) ở nước cạn
       let cellDepthM: number | null = null;
@@ -837,9 +917,11 @@ export function buildFishForecast(
         if (eddyTerm != null) mech.push([p.w.eddy, eddyTerm]);
         if (upwTerm != null) mech.push([p.w.upw, upwTerm]);
         if (convTerm != null) mech.push([p.w.conv, convTerm]);
-        // tầng nhiệt: chỉ tính cho loài CÓ trọng số (cá ngừ/cá nổi lớn, mực xà)
-        if (thermoTerm != null && (p.w.thermo ?? 0) > 0)
-          mech.push([p.w.thermo as number, thermoTerm]);
+        // tầng nhiệt: chỉ tính cho loài CÓ trọng số (cá ngừ/cá nổi lớn, mực xà).
+        // Khẩu vị theo LOÀI: vây vàng & cá nổi mặt ưa nêm NÔNG hơn lân cận (dải
+        // mặc định), ngừ mắt to ưa nêm SÂU hơn (`thermoBand` dương).
+        if (thermoAnomM != null && (p.w.thermo ?? 0) > 0)
+          mech.push([p.w.thermo as number, thermoFit(thermoAnomM, p.thermoBand)]);
         const agg = softOrHabitat(
           mech,
           SOFTOR_SCALE,
