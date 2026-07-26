@@ -120,6 +120,7 @@ import { StormBanner } from "@/components/storm-banner";
 import {
   NOTIFY_HIDE_MS,
   PretripAutoNotify,
+  PretripSavedStatus,
 } from "@/components/pretrip-auto-notify";
 import {
   AlertIcon,
@@ -1468,10 +1469,20 @@ export default function FishingMapView() {
         size={size}
         onSizeChange={setSize}
         above={
-          // thanh giờ gió/sóng XUỐNG ĐÁY kiểu Windy — tay với tới, không
-          // chồng 4 tầng trên đầu bản đồ (roadmap hội đồng UX 2026-06-11)
-          forecastKind ? (
-            <div className="pointer-events-auto surface px-3 py-2 shadow-md">
+          forecastKind || size === "peek" ? (
+            <div className="flex flex-col gap-2">
+              {/* Nhãn nhỏ "trong máy đã có dự báo tới đâu" — liếc là biết đã sẵn
+                  sàng ra khơi chưa. Chỉ ở nấc peek để khỏi rối lúc mở sheet đọc
+                  chi tiết; căn phải, nằm ngay trên box biển động. */}
+              {size === "peek" && (
+                <div className="flex justify-end">
+                  <PretripSavedStatus />
+                </div>
+              )}
+              {/* thanh giờ gió/sóng XUỐNG ĐÁY kiểu Windy — tay với tới, không
+                  chồng 4 tầng trên đầu bản đồ (roadmap hội đồng UX 2026-06-11) */}
+              {forecastKind && (
+                <div className="pointer-events-auto surface px-3 py-2 shadow-md">
               {fGrid ? (
                 gridStripOpen ? (
                   <>
@@ -1665,6 +1676,8 @@ export default function FishingMapView() {
                 <p className="text-[0.8125rem] font-semibold text-foreground/70">
                   Đang tải dự báo cho cả vùng biển…
                 </p>
+              )}
+                </div>
               )}
             </div>
           ) : undefined

@@ -50,3 +50,39 @@ export function resolveTier(
   if (!Number.isFinite(t)) return "basic";
   return t >= nowMs ? "premium" : "basic";
 }
+
+export interface FeatureAccessInput {
+  /** Supabase đã cấu hình chưa — chưa thì demo mode mở hết (cùng nếp gate khác) */
+  configured: boolean;
+  /** phiên đã kiểm xong chưa (useAuthUser.ready) */
+  authReady: boolean;
+  /** có user đăng nhập không. LƯU Ý: getUser() cần MẠNG để xác thực → mất sóng
+      ngoài khơi trả null DÙ bà con vẫn đang đăng nhập */
+  hasUser: boolean;
+  /** kết quả tra hạng: true=premium, false=basic, null=chưa tra xong */
+  premium: boolean | null;
+  /** máy đang có sóng không (navigator.onLine) */
+  online: boolean;
+  /** lần online gần nhất tra ĐƯỢC hạng có phải premium không (đọc từ máy) */
+  cachedPremium: boolean;
+}
+
+/**
+ * Quy trạng thái truy cập premium về đúng một nấc FeatureAccess. Thuần để test
+ * được — hook useFeatureAccess chỉ nối state vào đây.
+ *
+ * MẤT SÓNG NGOÀI KHƠI (lý do có nhánh offline): getUser() cần mạng để xác thực,
+ * nên offline trả `hasUser=false` DÙ bà con vẫn đăng nhập → premium đã trả tiền
+ * bị coi như đăng xuất, MẤT bản đồ cá đã tải sẵn ở bờ đúng lúc cần nhất. Đã từng
+ * là premium (dấu lưu trong máy) + đang mất sóng → cho xem tiếp thứ mình đã tải
+ * hợp lệ. KHÔNG phải lỗ hổng: chốt thật vẫn ở middleware/RLS khi có mạng, còn
+ * offline thì SW chỉ trả đúng những gì đã tải hợp lệ lúc còn premium.
+ */
+export function featureAccessDecision(i: FeatureAccessInput): FeatureAccess {
+  if (!i.configured) return "open";
+  if (!i.online && i.cachedPremium) return "open";
+  if (!i.authReady) return "checking";
+  if (!i.hasUser) return "login";
+  if (i.premium == null) return "checking";
+  return i.premium ? "open" : "upgrade";
+}

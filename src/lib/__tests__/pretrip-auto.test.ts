@@ -21,6 +21,7 @@ import {
   autoPretripLine,
   lastAutoPretripAt,
   markAutoPretripRun,
+  pretripSavedText,
   shouldAutoPretrip,
   PRETRIP_MIN_INTERVAL_MS,
   PRETRIP_LAST_RUN_KEY,
@@ -150,5 +151,31 @@ describe("autoPretripLine — dòng báo tự tắt", () => {
     expect(autoPretripLine({ ok: 5, failed: 0, full: true, saved })).toBe(
       "Máy hết chỗ nhớ — xoá bớt điểm đã lưu.",
     );
+  });
+});
+
+describe("pretripSavedText — nhãn nhỏ thường trực trên box biển động", () => {
+  const saved = { places: 6, untilIso: "2026-08-09", gridDays: [3, 7, 16] };
+
+  it("đang tải → 'Đang tải dữ liệu dự báo' (kể cả khi máy đã có bản cũ)", () => {
+    expect(pretripSavedText("loading", saved)).toBe("Đang tải dữ liệu dự báo");
+    expect(pretripSavedText("loading", null)).toBe("Đang tải dữ liệu dự báo");
+  });
+
+  it("đã có bản lưu → nói tới ngày xa nhất", () => {
+    expect(pretripSavedText("idle", saved)).toBe(
+      "Đã lưu dữ liệu dự báo tới ngày 9/8",
+    );
+  });
+
+  it("chưa có gì (rỗng/null/thiếu ngày) → 'Chưa tải dữ liệu dự báo'", () => {
+    expect(pretripSavedText("idle", null)).toBe("Chưa tải dữ liệu dự báo");
+    expect(
+      pretripSavedText("idle", { places: 0, untilIso: null, gridDays: [] }),
+    ).toBe("Chưa tải dữ liệu dự báo");
+    // có chỗ nhưng không có ngày xa nhất → vẫn coi như chưa dùng được
+    expect(
+      pretripSavedText("idle", { places: 3, untilIso: null, gridDays: [3] }),
+    ).toBe("Chưa tải dữ liệu dự báo");
   });
 });

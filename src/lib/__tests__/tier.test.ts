@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  featureAccessDecision,
   FREE_FORECAST_DAYS,
   nextPremiumUntil,
   PREMIUM_TERM_DAYS,
   resolveTier,
+  type FeatureAccessInput,
 } from "@/lib/tier";
 
 // Hạng hiệu lực = tier + hạn. Nguyên tắc: mọi ca mờ ám → 'basic' (fail-closed).
@@ -72,5 +74,71 @@ describe("nextPremiumUntil — 1 lần kích = 1 năm", () => {
 
   it("kỳ hạn đúng 365 ngày", () => {
     expect(PREMIUM_TERM_DAYS).toBe(365);
+  });
+});
+
+describe("featureAccessDecision — cổng UI, có đường lùi offline cho premium", () => {
+  // mặc định: đã cấu hình, đang có sóng, kiểm xong, đã đăng nhập, chưa tra hạng
+  const base: FeatureAccessInput = {
+    configured: true,
+    authReady: true,
+    hasUser: true,
+    premium: null,
+    online: true,
+    cachedPremium: false,
+  };
+
+  it("demo mode (chưa cấu hình Supabase) → open, bất kể mọi thứ khác", () => {
+    expect(
+      featureAccessDecision({ ...base, configured: false, hasUser: false }),
+    ).toBe("open");
+  });
+
+  it("đang có sóng: chưa kiểm xong → checking; chưa đăng nhập → login", () => {
+    expect(featureAccessDecision({ ...base, authReady: false })).toBe("checking");
+    expect(featureAccessDecision({ ...base, hasUser: false })).toBe("login");
+  });
+
+  it("đang có sóng, đã đăng nhập: tra xong premium → open; basic → upgrade", () => {
+    expect(featureAccessDecision({ ...base, premium: true })).toBe("open");
+    expect(featureAccessDecision({ ...base, premium: false })).toBe("upgrade");
+    // chưa tra xong hạng → checking (tránh nháy khoá↔mở)
+    expect(featureAccessDecision({ ...base, premium: null })).toBe("checking");
+  });
+
+  it("MẤT SÓNG + từng là premium → open (xem tiếp bản đồ cá đã tải sẵn ở bờ)", () => {
+    // getUser() offline trả hasUser=false, nhưng dấu premium đã lưu vẫn mở
+    expect(
+      featureAccessDecision({
+        ...base,
+        online: false,
+        hasUser: false,
+        premium: null,
+        cachedPremium: true,
+      }),
+    ).toBe("open");
+  });
+
+  it("MẤT SÓNG + KHÔNG có dấu premium → theo nhánh thường (không rò quyền)", () => {
+    // offline, chưa từng premium, getUser trả null → login (không mở bừa)
+    expect(
+      featureAccessDecision({
+        ...base,
+        online: false,
+        hasUser: false,
+        cachedPremium: false,
+      }),
+    ).toBe("login");
+  });
+
+  it("nhánh offline-premium ưu tiên hơn cả 'chưa kiểm xong'", () => {
+    expect(
+      featureAccessDecision({
+        ...base,
+        online: false,
+        authReady: false,
+        cachedPremium: true,
+      }),
+    ).toBe("open");
   });
 });

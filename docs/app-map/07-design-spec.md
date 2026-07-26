@@ -237,6 +237,14 @@ Bỏ cả ba thứ cũ: nút "Chuẩn bị đi biển", thẻ xanh "Xong. Máy g
 | Hỏng / mất sóng giữa chừng | **"Chưa tải được dự báo — chưa có sóng."** → tự ẩn | `bg-warn-bg` + ⚠ |
 | Máy hết chỗ nhớ | **"Máy hết chỗ nhớ — xoá bớt điểm đã lưu."** → tự ẩn | `bg-warn-bg` + ⚠ |
 
+**Nhãn nhỏ THƯỜNG TRỰC "đã sẵn sàng ra khơi chưa"** (`PretripSavedStatus` trong `pretrip-auto-notify.tsx`, thêm 2026-07-26): khác dòng nổi tự tắt ở trên — đây là **chip nhỏ 13px căn phải, nằm ngay TRÊN box biển động** (slot `above` của `SnapSheet`, **chỉ ở nấc `peek`**), để bà con liếc là biết trong máy đã có dự báo tới ngày nào. Câu chữ ở `pretripSavedText` (`lib/pretrip-auto.ts`, thuần, có test), đọc thẳng `savedSummary()` + bám phase tải sẵn:
+
+| Trạng thái | Chip | Màu |
+|---|---|---|
+| Đang tải sẵn | **"Đang tải dữ liệu dự báo"** | chữ navy |
+| Trong máy đã có bản | **"Đã lưu dữ liệu dự báo tới ngày D/M"** | chữ `text-ok` |
+| Chưa có gì | **"Chưa tải dữ liệu dự báo"** | chữ `text-warn` |
+
 Tải sẵn (không đổi): gió sóng 16 ngày cho **chỗ đang xem + mọi điểm đã ghim** (gộp các chỗ cùng ô 0,25°) · **bản đồ cá** · **lưới gió/sóng khung 3 / 7 / 16 ngày** (`PRETRIP_GRID_DAYS`).
 
 **TIẾT CHẾ DATA (bắt buộc)** — mỗi lượt tải sẵn ≈ **2,5–3 MB**, bà con trả tiền theo dung lượng nên KHÔNG được tải lại mỗi lần vào trang. Luật ở `shouldAutoPretrip` (`lib/pretrip-auto.ts`, thuần, có test):

@@ -10,7 +10,7 @@
 // navigator ẩn) để test được từng trường hợp.
 
 import { formatDateVN } from "@/lib/ocean-map";
-import type { PretripResult } from "@/lib/pretrip";
+import type { PretripResult, SavedSummary } from "@/lib/pretrip";
 
 /**
  * TIẾT CHẾ DATA: chỉ tự tải lại khi bản trong máy đã cũ hơn ngần này.
@@ -86,4 +86,26 @@ export function autoPretripLine(r: PretripResult): string {
     return "Chưa tải được dự báo — chưa có sóng.";
   }
   return `Đã lưu dự báo tới ngày ${formatDateVN(r.saved.untilIso)}.`;
+}
+
+/** Ba trạng thái của nhãn nhỏ THƯỜNG TRỰC (trên box biển động) — không nhập nhằng */
+export type PretripSavedPhase = "loading" | "idle";
+
+/**
+ * Nhãn nhỏ "trong máy đã có dự báo tới đâu" hiện thường trực sát box biển động —
+ * để bà con LIẾC là biết máy đã sẵn sàng cho chuyến biển chưa (khác dòng nổi tự
+ * tắt autoPretripLine). Thuần để test được câu chữ.
+ *  · đang tải       → "Đang tải dữ liệu dự báo"
+ *  · có bản đã lưu  → "Đã lưu dữ liệu dự báo tới ngày <ngày xa nhất>"
+ *  · chưa có gì     → "Chưa tải dữ liệu dự báo"
+ */
+export function pretripSavedText(
+  phase: PretripSavedPhase,
+  saved: SavedSummary | null,
+): string {
+  if (phase === "loading") return "Đang tải dữ liệu dự báo";
+  if (saved && saved.places > 0 && saved.untilIso) {
+    return `Đã lưu dữ liệu dự báo tới ngày ${formatDateVN(saved.untilIso)}`;
+  }
+  return "Chưa tải dữ liệu dự báo";
 }

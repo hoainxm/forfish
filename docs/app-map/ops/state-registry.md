@@ -31,6 +31,7 @@ gate: warn
 | `forfish.fc.point.<lat_lon>` | **Bản lưu** dự báo 16 ngày theo ô lưới 0,25° (ra khơi mất sóng vẫn xem) | `lib/forecast-cache.ts` ← `lib/marine-weather.ts`, `lib/pretrip.ts` | ngu-truong | 1 | xoá → mất số đã tải, có sóng lấy lại |
 | `forfish.fc.grid.d<N>` | **Bản lưu** lưới gió/sóng Windy THEO KHUNG NGÀY (d3/d7/d16…) — chỉ dùng lại đúng khung đã xin | `lib/forecast-cache.ts` ← `lib/forecast-grid.ts`, `lib/pretrip.ts` | ngu-truong | 1 | xoá → khung đó báo "máy chưa lưu khung này" |
 | `forfish.pretrip.lastRunAt.v1` | Mốc (epoch ms) lần **tự tải sẵn dự báo** gần nhất — cửa chặn 6 giờ cho khỏi tốn tiền sóng (mỗi lượt ~2,5–3 MB) | `lib/pretrip-auto.ts` | `components/pretrip-auto-notify.tsx` | 1 | xoá → lần vào Ra khơi kế tiếp tải lại một lượt |
+| `forfish.tier.premium.v1` | **Dấu premium** phiên gần nhất (`"1"`/`"0"`) — đường lùi khi MẤT SÓNG: `getUser()` offline trả null, premium đã trả tiền vẫn xem được bản đồ cá đã tải sẵn | `lib/use-tier.ts` | toàn app (gate premium) | 1 | xoá → mất sóng phải chờ có mạng mới mở lại premium; đăng xuất thật (online) tự xoá |
 | `forfish.products.v1` | Đồ/vật tư của tàu | `components/boat-products.tsx` | van-hanh | 3 | xoá → trống |
 | `forfish.maintenance.v1` | Nhắc bảo dưỡng | `components/maintenance-reminders.tsx` | + `urgent-strip.tsx` | 3 | xoá → mất lịch nhắc |
 | `forfish.crew.v1` | Danh sách thuyền viên | `components/crew-list.tsx` | + `urgent-strip.tsx` | 3 | xoá → trống |

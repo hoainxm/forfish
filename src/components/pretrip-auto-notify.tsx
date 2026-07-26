@@ -14,15 +14,39 @@
  * đã chạy rồi) nằm ở lib/pretrip-auto.ts — xem lý do ở đó.
  */
 
-import { useEffect, useRef, useState } from "react";
-import { runPretrip, type PretripPoint } from "@/lib/pretrip";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  runPretrip,
+  savedSummary,
+  type PretripPoint,
+  type SavedSummary,
+} from "@/lib/pretrip";
 import {
   autoPretripLine,
   lastAutoPretripAt,
   markAutoPretripRun,
+  pretripSavedText,
   shouldAutoPretrip,
+  type PretripSavedPhase,
 } from "@/lib/pretrip-auto";
 import { AlertIcon, CheckIcon } from "@/components/icons";
+
+/* Trạng thái tải sẵn dùng CHUNG cho dòng nổi tự tắt (PretripAutoNotify) và nhãn
+   nhỏ thường trực trên box biển động (PretripSavedStatus). Store nhỏ ở mức
+   module + useSyncExternalStore để hai chỗ luôn khớp mà không phải nâng state
+   lên tận trang. */
+let sharedPhase: PretripSavedPhase = "idle";
+const phaseSubs = new Set<() => void>();
+function setSharedPhase(p: PretripSavedPhase) {
+  sharedPhase = p;
+  phaseSubs.forEach((f) => f());
+}
+function subscribePhase(f: () => void) {
+  phaseSubs.add(f);
+  return () => {
+    phaseSubs.delete(f);
+  };
+}
 
 /**
  * Nói xong thì tắt sau ngần này — đủ đọc một dòng, rồi trả lại bản đồ.
@@ -63,6 +87,7 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
     if (!go) return;
 
     setNote({ text: "Đang tải dự báo…", kind: "busy" });
+    setSharedPhase("loading");
     runPretrip(pointsRef.current)
       .then((r) => {
         markAutoPretripRun();
@@ -71,7 +96,8 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
       })
       .catch(() => {
         setNote({ text: "Chưa tải được dự báo — chưa có sóng.", kind: "warn" });
-      });
+      })
+      .finally(() => setSharedPhase("idle"));
   }, []);
 
   // tự tắt sau khi đã nói xong (lúc đang tải thì cứ để đó)
@@ -99,5 +125,43 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
       {note.kind === "warn" && <AlertIcon className="h-4 w-4 shrink-0" />}
       {note.text}
     </p>
+  );
+}
+
+/**
+ * Nhãn NHỎ THƯỜNG TRỰC sát trên box biển động — bà con liếc là biết trong máy đã
+ * có dự báo tới ngày nào (sẵn sàng ra khơi chưa), khác dòng nổi tự tắt ở trên.
+ * Đọc thẳng "trong máy có gì" (savedSummary) + bám phase tải sẵn để đổi câu.
+ */
+export function PretripSavedStatus() {
+  const phase = useSyncExternalStore(
+    subscribePhase,
+    () => sharedPhase,
+    () => "idle" as PretripSavedPhase,
+  );
+  const [saved, setSaved] = useState<SavedSummary | null>(null);
+
+  // đọc lại "trong máy có gì" khi vào màn + mỗi lần phase đổi (tải xong → cập nhật)
+  useEffect(() => {
+    const read = () => setSaved(savedSummary());
+    read();
+    return subscribePhase(read);
+  }, []);
+
+  const text = pretripSavedText(phase, saved);
+  const tone =
+    phase === "loading"
+      ? "text-navy"
+      : saved && saved.places > 0 && saved.untilIso
+        ? "text-ok"
+        : "text-warn";
+
+  return (
+    <span
+      role="status"
+      className={`pointer-events-none inline-flex items-center rounded-full bg-card/95 px-2.5 py-1 text-[0.8125rem] font-bold shadow-sm ring-1 ring-line ${tone}`}
+    >
+      {text}
+    </span>
   );
 }
