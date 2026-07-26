@@ -596,6 +596,39 @@ export function convergenceStrength(
   return out;
 }
 
+/**
+ * HỘI TỤ — mức "rõ hẳn" tính theo ĐỘ (m/s chênh trên MỘT ĐỘ kinh/vĩ), KHÔNG
+ * theo "một ô".
+ *
+ * VÌ SAO PHẢI THEO ĐỘ (sửa 2026-07-26): `convergenceStrength()` chuẩn hoá theo
+ * chênh lệch giữa hai ô KỀ NHAU, nên hằng "mỗi ô" LỆ THUỘC bước lưới — đổi
+ * nguồn dòng chảy từ 0,25° sang 1/12° là cùng một dòng chảy nhưng chênh mỗi ô
+ * nhỏ đi 3 lần, điểm hội tụ tụt 3 lần mà không ai biết. Ghi theo ĐỘ thì hằng số
+ * là ĐẶC TRƯNG VẬT LÝ, đổi lưới không phải chỉnh tay.
+ *
+ * CĂN CỨ SỐ (scripts/conv-copernicus-calib.mjs, lưới THẬT, 2 ngày hè + 1 ngày
+ * đông — chi tiết trong ops/external-services.md):
+ *   p90 của hội tụ THÔ trên PHÍA ĐƯỢC CHẤM (>0), lấy mẫu về ô cá 0,25°:
+ *     NOAA địa chuyển (nguồn CŨ) 0,2218   ·   Copernicus dòng TỔNG 0,4395 m/s/độ
+ *   Hằng CŨ 0,1 "mỗi ô 0,25°" = 0,4/độ, tức 1,80 × p90 của CHÍNH nguồn nó.
+ *   Giữ NGUYÊN tỷ lệ đó trên nguồn mới: 0,4395 × 1,80 ≈ 0,79 → chốt **0,8**.
+ *
+ * VÌ SAO KHÔNG lấy thẳng p90 = 0,44 như luật UPW_SCALE/COLD_SCALE/THERMO_BAND:
+ * đo trên ĐIỂM CUỐI thì full = 0,44 làm %điểm nóng PHÌNH (21,2→23,2 · 21,0→23,4
+ * · 29,5→31,7). Ràng buộc mạnh hơn là KHÔNG phình, nên neo theo dải động cũ.
+ * Ở 0,8 phân bố `convTerm` khớp gần như y hệt nguồn cũ (mean 0,1214 vs 0,1216;
+ * p90 0,3662 vs 0,3720) — nghĩa là yếu tố hội tụ KHÔNG to lên, chỉ ĐÚNG CHỖ hơn
+ * (nhiễu răng cưa → cấu trúc thật). %điểm nóng 21,6 · 21,7 · 28,7.
+ */
+export const CONV_FULL_PER_DEG = 0.8;
+
+/** Bước lưới (độ) suy từ trục tăng dần; <2 điểm hoặc bước hỏng → `fallback` */
+export function gridStepDeg(axis: number[], fallback = 0.25): number {
+  if (axis.length < 2) return fallback;
+  const d = Math.abs(axis[1] - axis[0]);
+  return Number.isFinite(d) && d > 0 ? d : fallback;
+}
+
 /** Lưới log10(chl) (NaN giữ NaN) — để tính front mồi và lấy mẫu */
 export function logChlGrid(chl: ScalarGrid): number[][] {
   return chl.values.map((row) =>
@@ -767,6 +800,13 @@ export function buildFishForecast(
      * Lưới phải CÙNG kích thước với `sst`; khác cỡ thì bỏ qua (dùng `sst`).
      */
     frontSst?: ScalarGrid | null;
+    /**
+     * CHỈ để hiệu chỉnh (scripts/conv-copernicus-calib.mjs): thay mức "hội tụ rõ
+     * hẳn" mặc định `CONV_FULL_PER_DEG`. Runtime KHÔNG truyền — route dùng mặc
+     * định. Có knob này thì script so TRƯỚC/SAU được trong CÙNG một tiến trình,
+     * cùng dữ liệu, không phải chạy hai lần rồi ghép file.
+     */
+    convFullPerDeg?: number;
   },
 ): FishForecast {
   const anom = extra?.anom ?? null;
@@ -801,9 +841,17 @@ export function buildFishForecast(
   const thermoSpatial = thermo
     ? spatialAnomaly(thermo.values, thermo.lats, thermo.lons, SPATIAL_RADIUS_DEG)
     : null;
-  // hội tụ dòng chảy mặt (chỉ khi có u,v) — full 0.1 m/s mỗi ô 0.25°
+  // HỘI TỤ dòng chảy mặt — tính TRÊN LƯỚI GỐC của nguồn dòng (Copernicus 1/12°),
+  // rồi mới lấy mẫu xuống ô cá 0,25° ở vòng lặp dưới. Đúng chiều vật lý: chi
+  // tiết nước dồn có sẵn ở lưới mịn, đừng làm mượt trước rồi mới đạo hàm.
+  // Mức "rõ hẳn" quy theo ĐỘ nên đổi nguồn/độ phân giải KHÔNG phải chỉnh tay.
+  const convFullPerDeg = extra?.convFullPerDeg ?? CONV_FULL_PER_DEG;
   const convGrid = cur
-    ? convergenceStrength(cur.u.values, cur.v.values, 0.1)
+    ? convergenceStrength(
+        cur.u.values,
+        cur.v.values,
+        convFullPerDeg * gridStepDeg(cur.u.lats),
+      )
     : null;
 
   const cells: FishCell[] = [];

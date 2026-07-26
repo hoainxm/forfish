@@ -63,7 +63,7 @@ gate: warn
 | `chl` (phù du) | **CÓ** | 1. `noaa-viirs-dineof-chl` — `noaacwNPPN20VIIRSDINEOFDaily`<br>2. `noaa-multisensor-dineof-chl` — `noaacwNPPN20S3ASCIDINEOFDaily` (thêm Sentinel-3 OLCI) | 7 (mây che nhiều) | `{ok:false}` |
 | `sla` (SSHA/xoáy) | không | `noaa-blended-ssh` — `noaacwBLENDEDsshDaily` | 3 | bỏ yếu tố rìa xoáy + nước lõm lạnh |
 | `anom` (dị thường nhiệt) | không | `noaa-crw-sst-anomaly` — `noaacrwsstanomalyDaily` | 3 | bỏ yếu tố nước trồi |
-| `currents` (u,v) | không | `noaa-blended-currents` — `noaacwBLENDEDNRTcurrentsDaily`; **cặp u+v là MỘT ứng viên** (thiếu một vế / lệch cỡ lưới = hỏng cả cặp), ngày lấy vế CŨ hơn | 3 | bỏ yếu tố hội tụ dòng |
+| `currents` (u,v) | không | `copernicus-glo-phy-uv-total` — CMEMS `cmems_mod_glo_phy_anfc_merged-uv_PT1H-i`, `utotal`/`vtotal` 1/12° (ARCO Zarr, asset `timeChunked`); **cặp u+v là MỘT ứng viên**, ngày = ngày UTC của mốc GIỜ đã chọn.<br>**KHÔNG có dự phòng — CỐ Ý**: NOAA `noaacwBLENDEDNRTcurrentsDaily` ĐÃ BỊ GỠ khỏi trường này (xem mục Copernicus bên dưới) | 1 (bước 1 giờ) | **bỏ HẲN yếu tố hội tụ dòng** — thà thiếu còn hơn lùi về nhiễu |
 | `hycom` (D20 + nhiệt đáy + 250 m) | không | `hycom-gofs` — 1 cube → 3 lưới | 3 | cá ngừ bỏ yếu tố tầng nhiệt; loài đáy fallback SST mặt |
 | `bathy` (độ sâu đáy) | không | `etopo-2022-15s` (PIFSC ERDDAP) — **TĨNH**, ngày = hôm nay, `maxAgeDays = STATIC_MAX_AGE_DAYS` (không bao giờ stale) | — | KHÔNG bỏ cổng: loài xa bờ nhân `DEPTH_UNKNOWN_FIT` 0.5 (điểm trần 50 = sàn hiển thị → không dựng lại được điểm nóng sát bờ) |
 
@@ -72,34 +72,79 @@ gate: warn
 **Payload thêm** (không phá cấu trúc cũ): `sources[field] = { id, date, ageDays, stale }` (trường vắng mặt = không nguồn nào dùng được), `dataQuality` 0..1, `targetDate` = ngày dữ liệu dùng lọc mùa vụ.
 `dataQuality` = 1 − 0,25/trường **bắt buộc** cũ − 0,05/trường **tuỳ chọn** mất hẳn − 0,025/trường tuỳ chọn có-nhưng-cũ (kẹp [0,1]). CHỈ để hạ kỳ vọng — **KHÔNG nhân vào điểm cá**.
 
-**Tải trọng lên NOAA**: 9 → **11 fetch/lượt tính** (thêm 2 nguồn dự phòng), tất cả **song song** nên wall-clock ≈ lưới chậm nhất, không cộng dồn. Mỗi lưới ~250–300 KB (không phải "vài MB" như ghi trước đây). ISR 6h + cửa chặn `pretrip-auto` giữ trần lượt gọi như cũ. Nếu về sau thêm nhiều ứng viên nữa mà route chạm 60 s thì đổi chiến lược: chỉ gọi dự phòng khi nguồn chính hỏng (mất luật "so ngày lấy mới nhất" — phải cân nhắc, ghi lại lý do).
+**Tải trọng lên NOAA**: 9 → **11 fetch/lượt tính** (thêm 2 nguồn dự phòng) → **9** sau khi gỡ cặp u,v NOAA khỏi trường `currents` (2026-07-26), cộng ~6 request Copernicus (metadata + 3 trục, cache 24 h + 4 chunk dữ liệu). Tất cả **song song** nên wall-clock ≈ lưới chậm nhất, không cộng dồn. Mỗi lưới ~250–300 KB (không phải "vài MB" như ghi trước đây). ISR 6h + cửa chặn `pretrip-auto` giữ trần lượt gọi như cũ. Nếu về sau thêm nhiều ứng viên nữa mà route chạm 60 s thì đổi chiến lược: chỉ gọi dự phòng khi nguồn chính hỏng (mất luật "so ngày lấy mới nhất" — phải cân nhắc, ghi lại lý do).
 
-## Copernicus Marine ARCO (Zarr) — dòng chảy TỔNG, nguồn thứ hai *(thư viện xong, CHƯA nối vào route)*
+## Copernicus Marine ARCO (Zarr) — dòng chảy TỔNG, **ĐANG CHẠY trong `/api/fish-forecast`** (từ 2026-07-26)
 
-> Đọc: [`src/lib/copernicus.ts`](../../../src/lib/copernicus.ts) · kiểm chứng: `node scripts/copernicus-probe.mjs` · test: `src/lib/__tests__/copernicus.test.ts`.
-> Trạng thái 2026-07-26: thư viện + kiểm chứng ĐÃ XONG, **chưa** thêm vào sổ nguồn `/api/fish-forecast` (chờ chốt đổi nguồn `currents`).
+> Đọc: [`src/lib/copernicus.ts`](../../../src/lib/copernicus.ts) · kiểm chứng: `npx tsx scripts/copernicus-probe.mjs` · hiệu chỉnh: `npx tsx scripts/conv-copernicus-calib.mjs` · test: `src/lib/__tests__/copernicus.test.ts`.
+> Trạng thái: là **ứng viên DUY NHẤT** của trường `currents` trong sổ nguồn. NOAA `noaacwBLENDEDNRTcurrentsDaily` **đã gỡ hẳn** khỏi route (bớt 2 fetch).
 
 | Mục | Nội dung |
 |---|---|
-| Nguồn | Copernicus Marine Service (CMEMS) — sản phẩm `GLOBAL_ANALYSISFORECAST_PHY_001_024`, dataset `cmems_mod_glo_phy_anfc_merged-uv_PT1H-i_202211`, asset **`downsampled4`** (Zarr v2 trên CloudFerro S3) |
-| Auth | **KHÔNG cần key, KHÔNG cần đăng nhập** — kho ARCO công khai (fetch thật 2026-07-26: HTTP 200). Nếu về sau đòi đăng nhập thì DỪNG và báo, KHÔNG nhúng secret |
+| Nguồn | Copernicus Marine Service (CMEMS) — sản phẩm `GLOBAL_ANALYSISFORECAST_PHY_001_024`, dataset `cmems_mod_glo_phy_anfc_merged-uv_PT1H-i_202211`, asset **`timeChunked`** (Zarr v2 trên CloudFerro S3) |
+| Auth | **KHÔNG cần key, KHÔNG cần đăng nhập** — kho ARCO công khai (fetch thật: HTTP 200). Nếu về sau đòi đăng nhập thì DỪNG và báo, KHÔNG nhúng secret |
 | Attribution | Bắt buộc ghi nguồn khi hiển thị: *"Generated using E.U. Copernicus Marine Service Information"* (giấy phép Copernicus Marine, dùng lại tự do kể cả thương mại, có ghi nguồn) |
 | Biến dùng | `utotal`/`vtotal` = dòng **TỔNG** (Eulerian + sóng Stokes + triều). Còn có `uo`/`vo` (Eulerian thuần), `utide`/`vtide`, `vsdx`/`vsdy` |
-| Độ phân giải | **1/3°** (lat 511 ô −80…90, lon 1080 ô −180…180 — **hệ có dấu, phải quy đổi**), bước **1 giờ** |
-| Dự báo tương lai | **CÓ** — trục `time` chạy tới **+9/+10 ngày** so với hôm nay (đo 2026-07-26: mốc cuối 2026-08-03T23Z). Khác hẳn NOAA/HYCOM chỉ có nowcast ⇒ dùng được cho trục thời gian bản đồ cá |
-| Định dạng | chunk `[1,1,511,1080]` ⇒ **1 chunk = toàn cầu 1 mốc giờ**; nén **blosc(lz4, shuffle byte)**, dtype `<f4`, `fill_value` 9.969209968386869e+36 → NaN. Giải nén **tự viết thuần TS**, KHÔNG thêm phụ thuộc |
-| Ngân sách | `.zmetadata` 12 KB + trục lat/lon/time ~9 KB (cache 24h) + **2 × 668 KB** chunk u/v. Đo thật: **~1,33 MB, 3,7–4,3 s**; giải nén ~40 ms/chunk. Timeout 20 s + `.catch → null` |
-| Khi nó chết | `fetchCopernicusCurrents()` trả `null` (không ném, không treo) → nếu sau này nối vào sổ nguồn thì lùi về `noaa-blended-currents` như hiện tại |
-| ⚠️ CẤM | Endpoint MOTU cũ `nrt.cmems-du.eu` **đã ngừng và domain bị người khác chiếm** (trang rao bán tên miền). Chỉ đi qua STAC `stac.marine.copernicus.eu` → S3 `s3.waw3-1.cloudferro.com` |
+| Độ phân giải | **1/12° ≈ 9 km** (lat 2041 ô −80…90, lon 4320 ô −180…180 — **hệ có dấu, phải quy đổi**), bước **1 giờ** |
+| Dự báo tương lai | **CÓ** — trục `time` chạy tới **+9/+10 ngày** so với hôm nay. Route hiện chỉ lấy mốc GẦN BÂY GIỜ nhất; phần dự báo để dành |
+| Định dạng | chunk `[1,1,512,2048]`; nén **blosc(lz4, shuffle byte)**, dtype `<f4`, `fill_value` 9.969209968386869e+36 → NaN. Giải nén **tự viết thuần TS**, KHÔNG thêm phụ thuộc. Hộp biển VN **vắt qua ranh lat 1024** ⇒ **2 chunk lat × 1 chunk lon = 2 chunk/biến** (`chunkSpan` + `assembleWindow`, trần `MAX_DATA_CHUNKS = 6`) |
+| Ngân sách | `.zmetadata` 12 KB + trục lat/lon/time (cache 24 h) + **4 × ~958 KB** chunk u/v = **3,83 MB**. Đo thật: **1,2 s (ấm) – 4,0 s (lạnh)**. Timeout 20 s (`GRID_TIMEOUT_MS`), mọi lỗi → `null` |
+| Khi nó chết | `fetchCopernicusCurrents()` trả `null` → `resolveField` cho `currents = null` → **`buildFishForecast` BỎ HẲN term `conv`**. `sources.currents` biến mất, `dataQuality` 1 → 0,95. **KHÔNG lùi về NOAA** — xem lý do dưới. Đo thật kịch bản chặn host: route vẫn **200 trong 1,17 s**, bản đồ vẫn chạy, ô ≥50 giảm 514 → 454, số loài ≥50 giữ nguyên 23 |
+| ⚠️ CẤM | Endpoint MOTU cũ `nrt.cmems-du.eu` **đã ngừng và domain bị người khác chiếm**. Chỉ đi qua STAC `stac.marine.copernicus.eu` → S3 `s3.waw3-1.cloudferro.com` |
 
-**Vì sao đáng đổi (số đo thật 2026-07-26, cùng hộp biển VN)** — NOAA `noaacwBLENDEDNRTcurrentsDaily` khai `standard_name: surface_geostrophic_*_velocity`, mà dòng địa chuyển gần như KHÔNG phân kỳ ⇒ `convergenceStrength()` đang chấm nhiễu:
+### Vì sao GỠ HẲN NOAA địa chuyển khỏi `conv` (không giữ làm dự phòng)
 
-| Chỉ số | Copernicus `utotal` | Copernicus `uo` (đối chứng) | NOAA địa chuyển |
-|---|---|---|---|
-| RMS(phân kỳ)/RMS(xoáy) | **0,359** | 0,344 | **0,133** |
-| Tự tương quan không gian của phân kỳ (trễ 1 ô) | **0,466** (cấu trúc thật) | 0,433 | **0,006** (nhiễu răng cưa) |
+NOAA `noaacwBLENDEDNRTcurrentsDaily` khai `standard_name: surface_geostrophic_*_sea_water_velocity`. Dòng **địa chuyển** về mặt vật lý gần như **KHÔNG PHÂN KỲ** (∂u/∂x+∂v/∂y ≈ 0), nên `-(∂u/∂x+∂v/∂y)` trên nó là **NHIỄU VI PHÂN SỐ**, không phải nước dồn thật. Lùi về nhiễu **tệ hơn** không có yếu tố: bất biến monotonic (f0b907d) bảo đảm thiếu nguồn chỉ làm điểm GIẢM, còn nhiễu thì vẽ điểm nóng **sai chỗ**.
 
-Tự tương quan ≈ 0 của NOAA là bằng chứng mạnh nhất: trường phân kỳ của nó KHÔNG có cấu trúc không gian. Đối chứng `uo` cho thấy chênh lệch đến từ **loại mô hình** (mô hình 3D có nước trồi/chìm thật) chứ không phải từ việc cộng thêm sóng + triều.
+Bằng chứng — **tự tương quan KHÔNG GIAN trễ-1 ô của trường phân kỳ** trên lưới đã cắt về hộp biển VN (nhiễu răng cưa → ≈0 hoặc âm; cấu trúc vật lý thật → dương rõ):
+
+| Nguồn / asset | Bước lưới | RMS(phân kỳ)/RMS(xoáy) | **Tự tương quan phân kỳ** | Tải | Thời gian |
+|---|---|---|---|---|---|
+| NOAA địa chuyển `noaacwBLENDEDNRTcurrentsDaily` | 0,25° | 0,140 | **−0,029** ← NHIỄU | — | — |
+| Copernicus `downsampled4` (1/3°) | 0,3333° | 0,369 | 0,510 | 1,33 MB | 1,0–3,5 s |
+| **Copernicus `timeChunked` (1/12°) ← ĐANG DÙNG** | 0,0833° | 0,404 | **0,732** | 3,83 MB | 1,2–4,0 s |
+
+`geoChunked` **loại thẳng**: chunk `[4272,1,16,8]` gom theo THỜI GIAN — lấy MỘT mốc giờ cho hộp VN phải tải 312 chunk × 2,2 MB. Sai kiểu truy cập.
+
+**Chọn `timeChunked`** vì (a) tự tương quan 0,732 > 0,510 — trường phân kỳ có cấu trúc rõ hơn hẳn; (b) 1/12° **MỊN HƠN** lưới cá 0,25° nên hội tụ được tính **trên lưới gốc rồi mới lấy mẫu xuống** (đúng chiều vật lý), còn `downsampled4` 1/3° **THÔ HƠN** lưới đích — làm mượt trước rồi mới đạo hàm; (c) thêm 2,5 MB / ~3 s vào một route có ngân sách 60 s và 9 fetch khác chạy song song là an toàn (đo thật route: 1,27 s → 4,07 s lần lạnh, 0,88 s lần ấm).
+
+### Hiệu chỉnh lại `CONV_FULL_PER_DEG` (bắt buộc — `w.conv` từng tuned trên nhiễu)
+
+`convergenceStrength()` chuẩn hoá theo chênh lệch giữa hai ô KỀ NHAU, nên hằng "mỗi ô" **lệ thuộc bước lưới**. Đổi 0,25° → 1/12° là **cùng một dòng chảy** nhưng chênh mỗi ô nhỏ đi 3 lần. Vì vậy hằng nay ghi theo **ĐỘ**: `CONV_FULL_PER_DEG` (`src/lib/fish-predict.ts`), nhân với `gridStepDeg(cur.u.lats)` lúc chạy — đổi nguồn/độ phân giải không phải chỉnh tay nữa.
+
+Số đo (`scripts/conv-copernicus-calib.mjs`, lưới THẬT, 2 ngày hè + 1 ngày đông, hội tụ thô lấy mẫu về ô cá 0,25°, chỉ phía HỘI TỤ >0):
+
+| | p50 | p90 | p99 | max |
+|---|---|---|---|---|
+| NOAA địa chuyển (nguồn CŨ) | 0,0664 | **0,2218** | 0,929 | 4,06 |
+| Copernicus dòng TỔNG | 0,1289 | **0,4395** | 0,996 | 2,03 |
+
+Hằng CŨ 0,1 "mỗi ô 0,25°" = **0,4/độ** = **1,80 × p90 của chính nguồn nó**. Giữ nguyên tỷ lệ đó trên nguồn mới: 0,4395 × 1,80 ≈ 0,79 → chốt **`CONV_FULL_PER_DEG = 0,8`**.
+
+**KHÔNG lấy thẳng p90 = 0,44** như luật `UPW_SCALE`/`COLD_SCALE`/`THERMO_BAND`: đo trên ĐIỂM CUỐI thì 0,44 làm %điểm nóng **PHÌNH** (21,2→23,2 · 21,0→23,4 · 29,5→31,7). Ràng buộc mạnh hơn là **KHÔNG phình**, nên neo theo **dải động cũ** — ở 0,8 phân bố `convTerm` khớp gần y hệt nguồn cũ (mean 0,1214 vs 0,1216; p90 0,3662 vs 0,3720; std KHÔNG GIAN 0,306 vs 0,210), nghĩa là yếu tố hội tụ **không to lên, chỉ ĐÚNG CHỖ hơn**.
+
+**TRƯỚC/SAU trên cùng dữ liệu** (%điểm nóng s≥50 / tổng ô biển; loài đại diện = số ô ≥25 / ≥50):
+
+| Ngày | | hot% | med | p90 | ngừ vây vàng | cá nục | mực lá | cá mối | ghẹ xanh | #loài ≥50 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-07-23 | TRƯỚC (NOAA) | 21,2 | 37 | 62 | 667/221 | 299/84 | 359/48 | 0/0 | 266/90 | 23 |
+| | **SAU (Copernicus, 0,8)** | **21,6** | 37 | 62 | 691/215 | 305/83 | 360/48 | 0/0 | 266/94 | 23 |
+| | Copernicus HỎNG (bỏ `conv`) | 19,4 | 36 | 60 | 595/196 | 287/77 | 318/40 | 0/0 | 249/88 | 23 |
+| 2026-07-24 | TRƯỚC (NOAA) | 21,0 | 37 | 60 | 669/220 | 284/77 | 377/42 | 0/0 | 260/94 | 23 |
+| | **SAU (Copernicus, 0,8)** | **21,7** | 37 | 60 | 683/214 | 291/76 | 373/47 | 0/0 | 252/94 | 23 |
+| 2026-01-15 (đông) | TRƯỚC (NOAA) | 29,5 | 44 | 57 | 815/108 | 0/0 | 0/0 | 763/344 | 359/110 | 21 |
+| | **SAU (Copernicus, 0,8)** | **28,7** | 43 | 57 | 819/91 | 0/0 | 0/0 | 767/342 | 349/116 | 21 |
+
+Không loài nào biến mất (số loài đạt sàn hiển thị giữ nguyên 23 hè / 21 đông ở MỌI kịch bản). `cá mối` 0/0 tháng 7 và `cá nục`/`mực lá` 0/0 tháng 1 là **mùa vụ**, đúng như bản TRƯỚC. Giáp xác giữ nguyên `w.conv ≈ 0,12` (loài ĐÁY, dòng MẶT không gom chúng) — **không đụng**; `w.conv` của 40 loài **không đổi một số nào**, chỉ đổi hằng chuẩn hoá.
+
+**Đo trên API THẬT** (`GET /api/fish-forecast`, dev server, cache `.next` xoá sạch mỗi lần):
+
+| | thời gian | payload | ô trả về | ô ≥50 | med / p90 | #loài ≥50 | `dataQuality` | `sources.currents` |
+|---|---|---|---|---|---|---|---|---|
+| TRƯỚC | 1,27 s | 344 KB | 2239 | 494 (22,1%) | 38 / 61 | 23 | 1 | `noaa-blended-currents`, ảnh **2 ngày tuổi** |
+| **SAU** | 4,07 s (lạnh) · 0,88 s (ấm) | 345 KB | 2237 | 514 (23,0%) | 37 / 61 | 23 | 1 | `copernicus-glo-phy-uv-total`, **ageDays 0** |
+| SAU, chặn host Copernicus | 1,17 s | 332 KB | 2210 | 454 (20,5%) | 36 / 60 | 23 | **0,95** | *(vắng mặt)* |
+
 
 ### Copernicus `thetao` (nhiệt mặt) — chỉ dùng ĐỂ ĐO, **KHÔNG vào runtime** (2026-07-26)
 

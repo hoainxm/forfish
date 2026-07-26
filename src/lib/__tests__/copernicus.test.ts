@@ -6,9 +6,11 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  assembleWindow,
   axisRange,
   bloscDecompress,
   cfTimeToMs,
+  chunkSpan,
   decodeFloat32Chunk,
   isAscending,
   isFill,
@@ -478,5 +480,98 @@ describe("sliceToGrid — cắt lát toàn cầu về ScalarGrid", () => {
   it("khớp shape ScalarGrid của fish-predict (values[iLat][iLon])", () => {
     expect(grid.values.length).toBe(grid.lats.length);
     expect(grid.values[0].length).toBe(grid.lons.length);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+   Ghép nhiều chunk lat × lon (asset timeChunked 1/12° — hộp VN vắt qua ranh lat)
+--------------------------------------------------------------------------- */
+
+describe("chunkSpan — chunk nào giao với dải chỉ số cần đọc", () => {
+  it("dải nằm gọn trong MỘT chunk → 1", () => {
+    expect(chunkSpan({ start: 10, count: 5 }, 100)).toEqual({ c0: 0, c1: 0, n: 1 });
+  });
+
+  it("dải VẮT QUA ranh chunk → 2 (đúng ca biển VN trên lưới 1/12°)", () => {
+    // lat 5..22°N trên trục -80..90 bước 1/12 = chỉ số 1020..1224, chunk 512
+    expect(chunkSpan({ start: 1020, count: 205 }, 512)).toEqual({ c0: 1, c1: 2, n: 2 });
+  });
+
+  it("dải rỗng → không chunk nào (KHÔNG tải oan)", () => {
+    expect(chunkSpan({ start: 0, count: 0 }, 512).n).toBe(0);
+  });
+});
+
+describe("assembleWindow — ghép chunk về đúng cửa sổ bbox", () => {
+  // Lưới giả 6×4, chunk 3×2 ⇒ 2×2 chunk. Giá trị = lat*100 + lon (dễ soi lệch).
+  const chunkLat = 3;
+  const chunkLon = 2;
+  const lats = [0, 1, 2, 3, 4, 5];
+  const lons = [10, 11, 12, 13];
+  const chunk = (ci: number, cj: number) => {
+    const a = new Float32Array(chunkLat * chunkLon);
+    for (let i = 0; i < chunkLat; i++)
+      for (let j = 0; j < chunkLon; j++)
+        a[i * chunkLon + j] = (ci * chunkLat + i) * 100 + (cj * chunkLon + j);
+    return a;
+  };
+
+  const g = assembleWindow({
+    get: chunk,
+    lats,
+    lons,
+    latSel: { start: 2, count: 3 }, // vắt qua ranh chunk lat (2|3)
+    lonSel: { start: 1, count: 2 }, // vắt qua ranh chunk lon (1|2)
+    chunkLat,
+    chunkLon,
+    fillValue: 9.969209968386869e36,
+    date: "2026-07-26",
+  });
+
+  it("trục cắt đúng cửa sổ", () => {
+    expect(g.lats).toEqual([2, 3, 4]);
+    expect(g.lons).toEqual([11, 12]);
+  });
+
+  it("giá trị KHÔNG lệch qua ranh chunk (bước hàng = cỡ chunk, không phải cỡ cửa sổ)", () => {
+    expect(g.values).toEqual([
+      [201, 202],
+      [301, 302],
+      [401, 402],
+    ]);
+  });
+
+  it("chunk hỏng (null) → ô đó NaN, các chunk khác VẪN dùng được", () => {
+    const partial = assembleWindow({
+      get: (ci, cj) => (ci === 1 ? null : chunk(ci, cj)),
+      lats,
+      lons,
+      latSel: { start: 2, count: 3 },
+      lonSel: { start: 1, count: 2 },
+      chunkLat,
+      chunkLon,
+      fillValue: 9.969209968386869e36,
+      date: "2026-07-26",
+    });
+    expect(partial.values[0]).toEqual([201, 202]); // chunk lat 0 còn nguyên
+    expect(partial.values[1].every(Number.isNaN)).toBe(true); // chunk lat 1 mất
+  });
+
+  it("fill_value → NaN, và lon quy về độ Đông dương", () => {
+    const one = new Float32Array([9.969209968386869e36, 0.5]);
+    const w = assembleWindow({
+      get: () => one,
+      lats: [10],
+      lons: [-110, -109],
+      latSel: { start: 0, count: 1 },
+      lonSel: { start: 0, count: 2 },
+      chunkLat: 1,
+      chunkLon: 2,
+      fillValue: 9.969209968386869e36,
+      date: "2026-07-26",
+    });
+    expect(Number.isNaN(w.values[0][0])).toBe(true);
+    expect(w.values[0][1]).toBeCloseTo(0.5);
+    expect(w.lons).toEqual([250, 251]);
   });
 });

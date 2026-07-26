@@ -6,6 +6,7 @@ import {
   deepWaterFit,
   frontStrength,
   gradientStrength,
+  gridStepDeg,
   nearestIndex,
   parseBathyGrid,
   parseErddapGrid,
@@ -14,6 +15,7 @@ import {
   spatialAnomaly,
   speciesWMax,
   trapezoid,
+  CONV_FULL_PER_DEG,
   DEPTH_UNKNOWN_FIT,
   SPECIES_META,
   SPECIES_PROFILES,
@@ -355,6 +357,50 @@ describe("convergenceStrength", () => {
     // đảo chiều = phân kỳ (nước toả ra) → 0, không phạt nhưng không thưởng
     const uOut = uIn.map((r) => r.map((x) => -x));
     expect(convergenceStrength(uOut, vZero, 0.1)[1][1]).toBe(0);
+  });
+});
+
+describe("gridStepDeg + CONV_FULL_PER_DEG — hội tụ KHÔNG lệ thuộc bước lưới", () => {
+  it("bước lưới suy từ trục; trục hỏng/quá ngắn → fallback", () => {
+    expect(gridStepDeg([5, 5.25, 5.5])).toBeCloseTo(0.25, 10);
+    expect(gridStepDeg([5, 5 + 1 / 12])).toBeCloseTo(1 / 12, 10);
+    expect(gridStepDeg([5])).toBe(0.25); // <2 điểm → mặc định
+    expect(gridStepDeg([5, 5])).toBe(0.25); // bước 0 → mặc định
+    expect(gridStepDeg([5], 0.5)).toBe(0.5);
+  });
+
+  it("CÙNG một dòng chảy, hai bước lưới khác nhau → CÙNG điểm hội tụ", () => {
+    // dòng dồn vào cột giữa với gradient VẬT LÝ 0.6 m/s trên MỘT ĐỘ:
+    // lưới 0.25° → chênh 0.15 m/s mỗi ô; lưới 1/12° → chênh 0.05 m/s mỗi ô.
+    const build = (perCell: number) => {
+      const u = [
+        [perCell, 0, -perCell],
+        [perCell, 0, -perCell],
+        [perCell, 0, -perCell],
+      ];
+      return { u, v: u.map((r) => r.map(() => 0)) };
+    };
+    const coarse = build(0.15); // 0.25°
+    const fine = build(0.05); // 1/12°
+    const sCoarse = convergenceStrength(
+      coarse.u,
+      coarse.v,
+      CONV_FULL_PER_DEG * gridStepDeg([5, 5.25]),
+    )[1][1];
+    const sFine = convergenceStrength(
+      fine.u,
+      fine.v,
+      CONV_FULL_PER_DEG * gridStepDeg([5, 5 + 1 / 12]),
+    )[1][1];
+    expect(sFine).toBeCloseTo(sCoarse, 6);
+    // …và đó là giá trị THẬT, không phải 0 hay kẹp 1 (0.6 / 0.8 = 0.75)
+    expect(sCoarse).toBeCloseTo(0.75, 6);
+  });
+
+  it("hằng đã HIỆU CHỈNH LẠI cho dòng TỔNG Copernicus, không giữ mức nhiễu cũ", () => {
+    // hằng CŨ 0.1 "mỗi ô 0.25°" = 0.4/độ — đặt khi conv còn chấm NHIỄU địa chuyển
+    expect(CONV_FULL_PER_DEG).toBeGreaterThan(0.4);
+    expect(CONV_FULL_PER_DEG).toBe(0.8);
   });
 });
 

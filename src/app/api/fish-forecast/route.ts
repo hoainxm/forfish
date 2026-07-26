@@ -4,7 +4,6 @@ import {
   buildFishForecast,
   chlBackupGridUrl,
   chlGridUrl,
-  currentGridUrl,
   ERDDAP_UA,
   parseBathyGrid,
   parseErddapGrid,
@@ -15,6 +14,7 @@ import {
   type ScalarGrid,
 } from "@/lib/fish-predict";
 import { isoDateVN } from "@/lib/day-labels";
+import { fetchCopernicusCurrents } from "@/lib/copernicus";
 import { fetchHycomGrids, type HycomGrids } from "@/lib/hycom";
 import {
   dataQuality,
@@ -150,33 +150,32 @@ const ANOM_CANDIDATES: FieldCandidate<ScalarGrid>[] = [
   },
 ];
 
-// Dòng chảy = CẶP u,v: phải CÙNG có và CÙNG cỡ lưới mới tính hội tụ được, nên
-// coi cả cặp là MỘT ứng viên (một trong hai hỏng = ứng viên hỏng).
+/** Dòng chảy giờ (1 mốc/giờ) — quá 1 ngày là đã cũ hẳn với yếu tố hội tụ */
+const HOURLY_MAX_AGE_DAYS = 1;
+
+// DÒNG CHẢY — chỉ dùng cho yếu tố HỘI TỤ (`conv`).
+//
+// CHỈ MỘT ỨNG VIÊN, VÀ ĐÓ LÀ Ý ĐỒ (2026-07-26). NOAA `noaacwBLENDEDNRTcurrentsDaily`
+// ĐÃ BỊ GỠ khỏi trường này: nó khai `surface_geostrophic_*_sea_water_velocity`,
+// mà dòng ĐỊA CHUYỂN về mặt vật lý gần như KHÔNG PHÂN KỲ ⇒ -(∂u/∂x+∂v/∂y) trên
+// nó là NHIỄU VI PHÂN SỐ. Đo thật (scripts/copernicus-probe.mjs,
+// scripts/conv-copernicus-calib.mjs): TỰ TƯƠNG QUAN KHÔNG GIAN của trường phân
+// kỳ — NOAA −0,03 (răng cưa, không cấu trúc) vs Copernicus dòng TỔNG +0,73.
+// Vì vậy NOAA KHÔNG được làm dự phòng: lùi về nhiễu còn TỆ HƠN không có yếu tố.
+// Copernicus hỏng ⇒ trường này = null ⇒ `buildFishForecast` BỎ HẲN term `conv`,
+// và bất biến monotonic (f0b907d) bảo đảm mất nguồn làm điểm GIẢM, không tăng.
 const CURRENT_CANDIDATES: FieldCandidate<CurrentGrids>[] = [
   {
-    id: "noaa-blended-currents",
-    label: "NOAA Blended NRT surface currents daily (noaacwBLENDEDNRTcurrentsDaily)",
-    maxAgeDays: DAILY_MAX_AGE_DAYS,
+    id: "copernicus-glo-phy-uv-total",
+    label:
+      "Copernicus Marine GLOBAL_ANALYSISFORECAST_PHY_001_024 " +
+      "utotal/vtotal 1/12° (ARCO Zarr, asset timeChunked)",
+    maxAgeDays: HOURLY_MAX_AGE_DAYS,
     load: async () => {
-      const [u, v] = await Promise.all([
-        erddapScalar(currentGridUrl("u"), { hasAltitude: false })().catch(
-          () => null,
-        ),
-        erddapScalar(currentGridUrl("v"), { hasAltitude: false })().catch(
-          () => null,
-        ),
-      ]);
-      if (!u || !v) return null;
-      if (
-        u.grid.lats.length !== v.grid.lats.length ||
-        u.grid.lons.length !== v.grid.lons.length
-      )
-        return null;
-      // ngày của cặp = ngày CŨ hơn (nói thật, không lấy ngày đẹp)
-      return {
-        grid: { u: u.grid, v: v.grid },
-        date: oldestIsoDate([u.date, v.date]),
-      };
+      const g = await fetchCopernicusCurrents({ timeoutMs: GRID_TIMEOUT_MS });
+      if (!g) return null;
+      // ngày = ngày UTC của MỐC GIỜ đã chọn (dataset bước 1 giờ)
+      return { grid: { u: g.u, v: g.v }, date: g.timeISO.slice(0, 10) };
     },
   },
 ];

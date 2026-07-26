@@ -36,11 +36,40 @@ import type { ScalarGrid } from "./fish-predict";
    Hằng số nguồn
 --------------------------------------------------------------------------- */
 
-/** Gốc kho Zarr ARCO (asset `downsampled4` — 1 chunk = 1 mốc giờ toàn cầu 1/3°) */
-export const COPERNICUS_ZARR_BASE =
+const ARCO_ROOT =
   "https://s3.waw3-1.cloudferro.com/mdl-arco-time-015/arco/" +
   "GLOBAL_ANALYSISFORECAST_PHY_001_024/" +
-  "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i_202211/downsampled4.zarr";
+  "cmems_mod_glo_phy_anfc_merged-uv_PT1H-i_202211";
+
+/**
+ * Hai asset ARCO của CÙNG dataset (đã đo thật 2026-07-26, xem ops/external-services.md):
+ *
+ * - `downsampled4` — 1/3° (≈37 km), chunk [1,1,511,1080] = MỘT chunk toàn cầu
+ *   mỗi mốc giờ (~668 KB/biến). THÔ HƠN lưới cá 0,25° ⇒ hội tụ bị làm mượt.
+ * - `timeChunked` — 1/12° (≈9 km), chunk [1,1,512,2048]; hộp biển VN vắt qua
+ *   RANH lat 1024 nên cần 2 chunk lat × 1 chunk lon = 2 chunk/biến.
+ *
+ * `geoChunked` ĐÃ LOẠI: chunk [4272,1,16,8] gom theo THỜI GIAN — lấy MỘT mốc
+ * giờ cho hộp VN phải tải 312 chunk × 2,2 MB. Sai kiểu truy cập, không bàn nữa.
+ */
+export const COPERNICUS_ASSETS = {
+  downsampled4: `${ARCO_ROOT}/downsampled4.zarr`,
+  timeChunked: `${ARCO_ROOT}/timeChunked.zarr`,
+} as const;
+
+export type CopernicusAsset = keyof typeof COPERNICUS_ASSETS;
+
+/**
+ * Asset MẶC ĐỊNH cho runtime = `timeChunked` (1/12°).
+ * CĂN CỨ (đo thật, xem ops/external-services.md): trên lưới đã cắt về hộp VN,
+ * tự tương quan không gian của trường phân kỳ 1/12° cao hơn hẳn 1/3°, và hội tụ
+ * được tính trên lưới MỊN HƠN lưới cá 0,25° (đúng chiều: tính ở lưới gốc rồi
+ * lấy mẫu xuống, không phải nội suy lên).
+ */
+export const COPERNICUS_DEFAULT_ASSET: CopernicusAsset = "timeChunked";
+
+/** Gốc kho Zarr ARCO đang dùng mặc định (giữ tên cũ cho script/probe) */
+export const COPERNICUS_ZARR_BASE = COPERNICUS_ASSETS[COPERNICUS_DEFAULT_ASSET];
 
 /** Catalog STAC (chỉ để tra lại href khi Copernicus đổi bucket — không gọi lúc chạy) */
 export const COPERNICUS_STAC_DATASET =
@@ -458,6 +487,69 @@ export function sliceToGrid(opts: {
 }
 
 /* ---------------------------------------------------------------------------
+   Ghép nhiều chunk lat × lon về đúng cửa sổ bbox
+--------------------------------------------------------------------------- */
+
+/** Dải CHUNK (theo chỉ số chunk) phủ một dải CHỈ SỐ ô của một trục */
+export function chunkSpan(
+  sel: { start: number; count: number },
+  chunkSize: number,
+): { c0: number; c1: number; n: number } {
+  if (sel.count <= 0 || chunkSize <= 0) return { c0: 0, c1: -1, n: 0 };
+  const c0 = Math.floor(sel.start / chunkSize);
+  const c1 = Math.floor((sel.start + sel.count - 1) / chunkSize);
+  return { c0, c1, n: c1 - c0 + 1 };
+}
+
+/**
+ * Ghép các chunk (lat × lon) đã giải nén về `ScalarGrid` CHỈ chứa cửa sổ bbox.
+ *
+ * Zarr ĐỆM chunk rìa cho đủ cỡ chunk, nên bước nhảy hàng trong chunk LUÔN là
+ * `chunkLon` (không phải số cột hữu ích) — sai chỗ này thì ảnh bị xé chéo.
+ * `get(ci, cj)` trả về chunk đã decode; `null` = chunk hỏng → ô đó NaN.
+ */
+export function assembleWindow(opts: {
+  get: (ci: number, cj: number) => Float32Array | null;
+  lats: ArrayLike<number>;
+  lons: ArrayLike<number>;
+  latSel: { start: number; count: number };
+  lonSel: { start: number; count: number };
+  chunkLat: number;
+  chunkLon: number;
+  fillValue: number;
+  date: string;
+}): ScalarGrid {
+  const { get, lats, lons, latSel, lonSel, chunkLat, chunkLon, fillValue, date } = opts;
+  const outLats: number[] = [];
+  const outLons: number[] = [];
+  for (let i = 0; i < latSel.count; i++) outLats.push(lats[latSel.start + i]);
+  for (let j = 0; j < lonSel.count; j++) outLons.push(lonToEast(lons[lonSel.start + j]));
+  const values: number[][] = outLats.map(() => new Array<number>(lonSel.count).fill(NaN));
+
+  const latC = chunkSpan(latSel, chunkLat);
+  const lonC = chunkSpan(lonSel, chunkLon);
+  for (let ci = latC.c0; ci <= latC.c1; ci++) {
+    for (let cj = lonC.c0; cj <= lonC.c1; cj++) {
+      const data = get(ci, cj);
+      if (!data) continue;
+      const gi0 = Math.max(latSel.start, ci * chunkLat);
+      const gi1 = Math.min(latSel.start + latSel.count - 1, (ci + 1) * chunkLat - 1);
+      const gj0 = Math.max(lonSel.start, cj * chunkLon);
+      const gj1 = Math.min(lonSel.start + lonSel.count - 1, (cj + 1) * chunkLon - 1);
+      for (let gi = gi0; gi <= gi1; gi++) {
+        const rowBase = (gi - ci * chunkLat) * chunkLon;
+        const outRow = values[gi - latSel.start];
+        for (let gj = gj0; gj <= gj1; gj++) {
+          const v = data[rowBase + (gj - cj * chunkLon)];
+          outRow[gj - lonSel.start] = v === undefined || isFill(v, fillValue) ? NaN : v;
+        }
+      }
+    }
+  }
+  return { lats: outLats, lons: outLons, values, date };
+}
+
+/* ---------------------------------------------------------------------------
    Tải thật
 --------------------------------------------------------------------------- */
 
@@ -472,6 +564,10 @@ export interface CopernicusCurrents {
   forecast: boolean;
   /** tổng byte đã tải trên dây (để tính ngân sách route) */
   bytes: number;
+  /** asset đã dùng (để ghi vào lý lịch nguồn) */
+  asset: CopernicusAsset;
+  /** bước lưới THẬT theo vĩ độ (độ) — cần để chuẩn hoá hội tụ theo ô */
+  stepDeg: number;
 }
 
 async function getBuf(
@@ -480,7 +576,8 @@ async function getBuf(
   revalidate: number,
 ): Promise<Uint8Array> {
   const res = await fetch(url, {
-    // Chunk 668 KB/lần — cache lại 1 giờ (dữ liệu bước 1 giờ, không tươi hơn được)
+    // Chunk vài trăm KB–1 MB/lần — cache lại 1 giờ (dữ liệu bước 1 giờ, không
+    // tươi hơn được)
     next: { revalidate },
     signal: AbortSignal.timeout(timeoutMs),
     headers: { "User-Agent": COPERNICUS_UA },
@@ -491,6 +588,7 @@ async function getBuf(
 
 /** Đọc TOÀN BỘ một mảng 1 chiều (nối các chunk, cắt về đúng `shape`) */
 async function readAxis(
+  base: string,
   name: string,
   meta: ZarrArrayMeta,
   timeoutMs: number,
@@ -501,9 +599,7 @@ async function readAxis(
   if (nChunks > MAX_TIME_CHUNKS) throw new Error(`${name}: ${nChunks} chunk — quá nhiều`);
   const parts = await Promise.all(
     Array.from({ length: nChunks }, (_, c) =>
-      getBuf(`${COPERNICUS_ZARR_BASE}/${name}/${c}`, timeoutMs, 86400).then(
-        decodeFloat32Chunk,
-      ),
+      getBuf(`${base}/${name}/${c}`, timeoutMs, 86400).then(decodeFloat32Chunk),
     ),
   );
   const out = new Float32Array(n);
@@ -515,18 +611,25 @@ async function readAxis(
 }
 
 /**
+ * Trần số chunk DỮ LIỆU cho MỘT biến. Hộp VN trên `timeChunked` cần 2 (vắt qua
+ * ranh lat 1024); để 6 là dây an toàn phòng Copernicus đổi chunking — vượt thì
+ * bail chứ KHÔNG âm thầm tải hàng chục MB trong route 60 s.
+ */
+const MAX_DATA_CHUNKS = 6;
+
+/**
  * Tải dòng chảy TỔNG mặt (utotal/vtotal) của Copernicus cho hộp biển VN tại mốc
  * giờ GẦN `at` nhất (mặc định: bây giờ). Trả `null` khi bất kỳ khâu nào hỏng —
  * KHÔNG ném, KHÔNG treo (giống `fetchHycomGrids`).
  *
- * NGÂN SÁCH mỗi lần gọi (đo thật 2026-07-26): .zmetadata ~12 KB + trục lat/lon
- * ~2 KB + trục time 3×2.4 KB ≈ 7 KB + hai chunk dữ liệu ~668 KB × 2
- * ⇒ **~1,4 MB trên dây, ~3–6 s** (giải nén ~40 ms/chunk, không đáng kể).
- * Trục lat/lon/time đặt revalidate 24 h nên các lần sau chỉ còn 2 chunk dữ liệu.
+ * NGÂN SÁCH mỗi lần gọi — xem bảng đo thật trong ops/external-services.md.
+ * Trục lat/lon/time đặt revalidate 24 h nên các lần sau chỉ còn chunk dữ liệu.
  */
 export async function fetchCopernicusCurrents(opts?: {
   at?: Date;
   timeoutMs?: number;
+  /** asset ARCO cần đọc (mặc định `COPERNICUS_DEFAULT_ASSET`) */
+  asset?: CopernicusAsset;
   /**
    * Cặp biến cần đọc. Mặc định `utotal`/`vtotal` = dòng TỔNG (Eulerian + sóng
    * Stokes + triều) — ĐÂY là cái cho hội tụ có nghĩa. Đổi sang `uo`/`vo` nếu
@@ -537,8 +640,10 @@ export async function fetchCopernicusCurrents(opts?: {
   const timeoutMs = opts?.timeoutMs ?? 20000;
   const uName = opts?.variables?.u ?? "utotal";
   const vName = opts?.variables?.v ?? "vtotal";
+  const asset = opts?.asset ?? COPERNICUS_DEFAULT_ASSET;
+  const base = COPERNICUS_ASSETS[asset];
   try {
-    const metaBuf = await fetch(`${COPERNICUS_ZARR_BASE}/.zmetadata`, {
+    const metaBuf = await fetch(`${base}/.zmetadata`, {
       next: { revalidate: 3600 },
       signal: AbortSignal.timeout(timeoutMs),
       headers: { "User-Agent": COPERNICUS_UA },
@@ -553,21 +658,22 @@ export async function fetchCopernicusCurrents(opts?: {
     const timeMeta = readZarrArrayMeta(zmeta, "time");
     if (!uMeta || !vMeta || !latMeta || !lonMeta || !timeMeta) return null;
     if (uMeta.dtype !== "<f4" || vMeta.dtype !== "<f4") return null;
-    // Chỉ đọc được khi MỘT chunk phủ trọn lat+lon (đúng với asset downsampled4).
-    // Copernicus đổi chunking → bail, KHÔNG ghép chunk (sẽ tốn hàng chục MB).
+    // Một chunk = MỘT mốc giờ (chunks[0] === 1). Asset `geoChunked` gom hàng
+    // nghìn mốc giờ vào một chunk → bail ngay, sai kiểu truy cập.
     const [nT, , nLat, nLon] = uMeta.shape;
-    if (uMeta.chunks[2] < nLat || uMeta.chunks[3] < nLon || uMeta.chunks[0] !== 1) {
-      return null;
-    }
+    const chunkLat = uMeta.chunks[2];
+    const chunkLon = uMeta.chunks[3];
+    if (uMeta.chunks[0] !== 1 || chunkLat <= 0 || chunkLon <= 0) return null;
+    if (vMeta.chunks[2] !== chunkLat || vMeta.chunks[3] !== chunkLon) return null;
 
     const units = readZarrAttr(zmeta, "time", "units");
     const cf = typeof units === "string" ? parseCfTimeUnits(units) : null;
     if (!cf) return null;
 
     const [lats, lons, times] = await Promise.all([
-      readAxis("latitude", latMeta, timeoutMs),
-      readAxis("longitude", lonMeta, timeoutMs),
-      readAxis("time", timeMeta, timeoutMs),
+      readAxis(base, "latitude", latMeta, timeoutMs),
+      readAxis(base, "longitude", lonMeta, timeoutMs),
+      readAxis(base, "time", timeMeta, timeoutMs),
     ]);
     if (lats.length < nLat || lons.length < nLon || times.length < 1) return null;
 
@@ -587,26 +693,51 @@ export async function fetchCopernicusCurrents(opts?: {
     const lonSel = axisRange(lons, lo0, lo1);
     if (latSel.count === 0 || lonSel.count === 0) return null;
 
-    const [uBuf, vBuf] = await Promise.all([
-      getBuf(`${COPERNICUS_ZARR_BASE}/${uName}/${ti}.0.0.0`, timeoutMs, 3600),
-      getBuf(`${COPERNICUS_ZARR_BASE}/${vName}/${ti}.0.0.0`, timeoutMs, 3600),
-    ]);
-    const bytes = uBuf.byteLength + vBuf.byteLength;
-    const uData = decodeFloat32Chunk(uBuf);
-    const vData = decodeFloat32Chunk(vBuf);
-    if (uData.length < nLat * nLon || vData.length < nLat * nLon) return null;
+    // CHỈ tải các chunk lat×lon GIAO với hộp VN (asset 1/12° thì hộp vắt qua
+    // ranh lat ⇒ 2 chunk/biến; asset 1/3° thì 1 chunk toàn cầu/biến).
+    const latC = chunkSpan(latSel, chunkLat);
+    const lonC = chunkSpan(lonSel, chunkLon);
+    if (latC.n * lonC.n > MAX_DATA_CHUNKS) return null;
+
+    const keys: { ci: number; cj: number }[] = [];
+    for (let ci = latC.c0; ci <= latC.c1; ci++)
+      for (let cj = lonC.c0; cj <= lonC.c1; cj++) keys.push({ ci, cj });
+
+    let bytes = 0;
+    const loadVar = async (name: string) => {
+      const bufs = await Promise.all(
+        keys.map((k) => getBuf(`${base}/${name}/${ti}.0.${k.ci}.${k.cj}`, timeoutMs, 3600)),
+      );
+      const map = new Map<string, Float32Array>();
+      for (let i = 0; i < keys.length; i++) {
+        bytes += bufs[i].byteLength;
+        map.set(`${keys[i].ci}.${keys[i].cj}`, decodeFloat32Chunk(bufs[i]));
+      }
+      return map;
+    };
+    const [uMap, vMap] = await Promise.all([loadVar(uName), loadVar(vName)]);
 
     const date = timeISO.slice(0, 10);
-    const common = { lats, lons, latSel, lonSel, fillValue: uMeta.fillValue, date };
-    const u = sliceToGrid({ ...common, data: uData });
-    const v = sliceToGrid({ ...common, data: vData, fillValue: vMeta.fillValue });
+    const common = { lats, lons, latSel, lonSel, chunkLat, chunkLon, date };
+    const u = assembleWindow({
+      ...common,
+      get: (ci, cj) => uMap.get(`${ci}.${cj}`) ?? null,
+      fillValue: uMeta.fillValue,
+    });
+    const v = assembleWindow({
+      ...common,
+      get: (ci, cj) => vMap.get(`${ci}.${cj}`) ?? null,
+      fillValue: vMeta.fillValue,
+    });
     // lưới toàn NaN (bbox rơi vào đất/thiếu) thì coi như không dùng được
     const anyFinite = (g: ScalarGrid) => g.values.some((r) => r.some(Number.isFinite));
     if (!anyFinite(u) || !anyFinite(v)) return null;
     // trục lon phải tăng dần (hộp không vắt qua kinh tuyến 0) — fish-predict giả định thế
     if (!isAscending(u.lons) || !isAscending(u.lats)) return null;
 
-    return { u, v, timeISO, forecast: pickedMs > Date.now(), bytes };
+    const stepDeg =
+      u.lats.length > 1 ? Math.abs(u.lats[1] - u.lats[0]) : Math.abs(360 / nLon);
+    return { u, v, timeISO, forecast: pickedMs > Date.now(), bytes, asset, stepDeg };
   } catch {
     return null;
   }
