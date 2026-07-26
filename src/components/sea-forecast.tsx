@@ -17,6 +17,9 @@ import {
 import { loadForecastSkill } from "@/lib/forecast-skill";
 import { isoDateVN } from "@/lib/day-labels";
 import { weatherFromCode } from "@/lib/weather-codes";
+import { FREE_FORECAST_DAYS } from "@/lib/tier";
+import { useFeatureAccess } from "@/lib/use-tier";
+import { PremiumLock } from "@/components/premium-gate";
 import { AnchorIcon, WavesIcon, WindIcon } from "@/components/icons";
 
 /*
@@ -39,6 +42,10 @@ const levelColor: Record<SeaLevel, { fg: string; bg: string }> = {
 const SKILL = loadForecastSkill();
 
 export function SeaForecast() {
+  // Phân hạng (2026-07-26): miễn phí đúng 3 ngày (hôm nay + 2 ngày kế);
+  // ngày 4 trở đi là premium. Đang "checking" thì chỉ hiện phần miễn phí,
+  // KHÔNG hiện thẻ khoá (tránh nháy khoá↔mở).
+  const { access } = useFeatureAccess();
   const [port, setPort] = useState<FishingPort | null>(null);
   const [days, setDays] = useState<ScoredSeaDay[] | null>(null);
   const [quality, setQuality] = useState<DayQuality[] | null>(null);
@@ -199,7 +206,10 @@ export function SeaForecast() {
               Những ngày tới
             </h2>
             <ul className="overflow-hidden surface">
-              {days.slice(1).map((d, k) => {
+              {(access === "open"
+                ? days.slice(1)
+                : days.slice(1, FREE_FORECAST_DAYS)
+              ).map((d, k) => {
                 const w = weatherFromCode(d.wmoCode);
                 const q = quality?.[k + 1];
                 return (
@@ -248,15 +258,29 @@ export function SeaForecast() {
                 );
               })}
             </ul>
+            {/* ngày 4 trở đi là premium — thẻ khoá thay cho danh sách bị cắt */}
+            <div className="mt-3">
+              <PremiumLock
+                access={access}
+                feature={`dự báo ${days.length} ngày`}
+                blurb={
+                  access === "login"
+                    ? "Đăng nhập bằng tài khoản nâng cao để xem cả nửa tháng tới — tính chuyến dài ngày dễ hơn."
+                    : "Tài khoản của bà con đang là hạng thường — gọi SDVICO nâng cấp để xem cả nửa tháng tới."
+                }
+              />
+            </div>
           </section>
         </>
       )}
 
       <p className="mt-4 rounded-xl bg-t1-bg px-3 py-2.5 text-[0.875rem] font-semibold leading-snug text-t1">
-        Dự báo 16 ngày từ mô hình thời tiết quốc tế, chỉ để tham khảo — chấm
-        màu là độ tin (xanh: khá chắc · cam: vừa · đỏ: kém chắc, xem lại sát
-        ngày). Ngày càng xa càng kém chắc. Trước khi ra khơi, bà con nghe thêm
-        thông báo của đài duyên hải và Bộ đội Biên phòng.
+        {/* đừng hứa "16 ngày" với người đang bị khoá còn 3 ngày */}
+        {access === "open" ? "Dự báo 16 ngày" : "Dự báo"} từ mô hình thời tiết
+        quốc tế, chỉ để tham khảo — chấm màu là độ tin (xanh: khá chắc · cam:
+        vừa · đỏ: kém chắc, xem lại sát ngày). Ngày càng xa càng kém chắc.
+        Trước khi ra khơi, bà con nghe thêm thông báo của đài duyên hải và Bộ
+        đội Biên phòng.
       </p>
     </div>
   );

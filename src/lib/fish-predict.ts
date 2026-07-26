@@ -1328,7 +1328,11 @@ export function currentGridUrl(comp: "u" | "v"): string {
 /* ----------------------------------------------------------------------------
    Client gọi route nội bộ
 ---------------------------------------------------------------------------- */
-export type FishForecastResult = FishForecast | { ok: false };
+export type FishForecastResult =
+  | FishForecast
+  // code "login_required"/"premium_required" = BỊ KHOÁ (middleware chặn,
+  // tính năng premium) — client hiện lời mời, KHÔNG hiện "lỗi, thử lại".
+  | { ok: false; code?: string };
 
 export async function fetchFishForecast(): Promise<FishForecastResult> {
   try {
@@ -1338,6 +1342,17 @@ export async function fetchFishForecast(): Promise<FishForecastResult> {
     const r = await fetch(apiUrl("/api/fish-forecast"), {
       signal: AbortSignal.timeout(35000),
     });
+    if (r.status === 401 || r.status === 403) {
+      const body = (await r.json().catch(() => null)) as {
+        code?: string;
+      } | null;
+      return {
+        ok: false,
+        code:
+          body?.code ??
+          (r.status === 401 ? "login_required" : "premium_required"),
+      };
+    }
     if (!r.ok) return { ok: false };
     return (await r.json()) as FishForecastResult;
   } catch {

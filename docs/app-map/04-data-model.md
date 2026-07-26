@@ -64,6 +64,20 @@ App khách hàng độc lập (tách SDWork): DB RIÊNG giữ KH · thiết bị
 - Idempotent: upsert theo `sdwork_ref` (`onConflict`).
 - 🔴 Migration AUTHOR sẵn, **CHƯA apply prod** — bước duyệt riêng. App degrade gracefully nếu bảng chưa có (`/api/me/sdvico` → `no_link` → UI local).
 
+### Phân hạng tài khoản — migration [`0003_account_tier.sql`](../../supabase/migrations/0003_account_tier.sql) (2026-07-26)
+
+Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic/chưa đăng nhập bị khoá — xem [01-product](01-product.md)). KHÔNG có luồng thanh toán trong app.
+
+| Cột mới trên `customers` | Nghĩa |
+|---|---|
+| `tier text not null default 'basic'` (check `basic\|premium`) | hạng tài khoản |
+| `premium_until timestamptz` | hạn premium; `null` = không hạn; hết hạn → coi như basic |
+
+- **Luật hạng hiệu lực** ở `src/lib/tier.ts` (`resolveTier` — thuần, có test): client (`use-tier.ts`), middleware (chặn `/api/fish-forecast`) và admin health dùng CHUNG; fail-closed (giá trị lạ/ngày hỏng/lỗi query → basic). DB **không cần cron** hạ hạng.
+- **Nguồn gán hạng** (2 đường, không đè nhau): webhook SDWork (customer event kèm `tier`/`premiumUntil` — VẮNG field thì upsert KHÔNG đụng hạng hiện có) và admin `/quan-tri` (PATCH `/api/admin/accounts`, service-role).
+- KH đọc hạng của mình qua policy SELECT own-phone sẵn có (0002) — không cần policy mới.
+- **Admin ≠ hạng trong DB**: SĐT trong env `ADMIN_PHONES` (`src/lib/admin.ts`) — được vào `/quan-tri` + xem dự báo cá như premium.
+
 ## 3. Domain logic — `src/lib/documents.ts`
 
 ### DocumentKind (giữ sync với cột `kind`)

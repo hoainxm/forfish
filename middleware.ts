@@ -2,9 +2,10 @@ import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 /**
- * Middleware chỉ làm tươi phiên đăng nhập (giữ cookie luôn mới).
- * KHÔNG chặn ai, KHÔNG chuyển hướng — toàn bộ app vẫn dùng được không cần
- * tài khoản. Khi chưa cấu hình Supabase, middleware là passthrough.
+ * Middleware làm tươi phiên đăng nhập (giữ cookie luôn mới) và là CHỐT THẬT
+ * của tính năng premium: /api/fish-forecast bị chặn 401/403 tại đây (trước
+ * cache ISR — xem lib/supabase/middleware.ts). Mọi đường dẫn khác: KHÔNG
+ * chặn, KHÔNG chuyển hướng. Khi chưa cấu hình Supabase → passthrough.
  */
 export async function middleware(request: NextRequest) {
   return await updateSession(request);

@@ -9,7 +9,6 @@
   thang kéo lớp nền raster (để sau) · dải % cá lọc thật.
 */
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   OCEAN_LAYERS,
@@ -19,6 +18,8 @@ import {
 import type { ForecastKind } from "@/lib/forecast-grid";
 import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
+import type { FeatureAccess } from "@/lib/tier";
+import { PremiumLock } from "@/components/premium-gate";
 import type { StormStatus } from "@/lib/storms";
 import { clockVN } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
@@ -71,7 +72,7 @@ export function RaKhoiControls({
   fishOn,
   onFish,
   fishSpecies,
-  fishLocked,
+  fishAccess,
   species,
   regionShorts,
   onPickSpecies,
@@ -109,8 +110,9 @@ export function RaKhoiControls({
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
-  /** chưa đăng nhập → khoá chọn loài + dải khả năng (đồng bộ với sheet) */
-  fishLocked: boolean;
+  /** nấc premium (lib/tier.ts): "login"/"upgrade" = dự báo cá KHOÁ HẲN
+      (2026-07-26, thay teaser) — panel hiện thẻ khoá thay vì picker */
+  fishAccess: FeatureAccess;
   /** danh sách loài đang vụ (tên ngắn) — để chọn loài ngay trong panel */
   species: string[];
   regionShorts: Set<string>;
@@ -237,7 +239,7 @@ export function RaKhoiControls({
                   fishOn={fishOn}
                   onFish={onFish}
                   fishSpecies={fishSpecies}
-                  fishLocked={fishLocked}
+                  fishAccess={fishAccess}
                   onOpenSpecies={() => setSpeciesView(true)}
                   fishRange={fishRange}
                   onRange={onRange}
@@ -493,7 +495,7 @@ function NguTruongPanel({
   onOpenSpecies,
   fishRange,
   onRange,
-  fishLocked,
+  fishAccess,
 }: {
   fishOn: boolean;
   onFish: (on: boolean) => void;
@@ -501,9 +503,10 @@ function NguTruongPanel({
   onOpenSpecies: () => void;
   fishRange: [number, number];
   onRange: (r: [number, number]) => void;
-  /** chưa đăng nhập → loài + dải khả năng bị khoá (đồng bộ với sheet) */
-  fishLocked: boolean;
+  /** nấc premium — "login"/"upgrade" = lớp cá khoá hẳn (thẻ khoá thay picker) */
+  fishAccess: FeatureAccess;
 }) {
+  const fishLocked = fishAccess === "login" || fishAccess === "upgrade";
   const name = fishSpecies
     ? SPECIES_META[fishSpecies]?.full ?? fishSpecies
     : "Mọi loài cá";
@@ -522,21 +525,13 @@ function NguTruongPanel({
         }
       />
       {fishOn && fishLocked && (
-        // KHOÁ giống sheet: heatmap public, nhưng chọn loài + xem khả năng cần
-        // đăng nhập → 1 CTA duy nhất, KHÔNG hiện picker/dải để khỏi "chỗ có chỗ thả"
-        <>
-          <Link
-            href="/login"
-            className="mt-2 flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-xl bg-t1 px-3 text-[0.9375rem] font-bold text-white transition active:scale-[0.99]"
-          >
-            <FishIcon className="h-5 w-5" />
-            Đăng nhập để chọn loài &amp; xem khả năng
-          </Link>
-          <p className="mt-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] leading-snug text-foreground/70">
-            Vùng xanh (heatmap) xem được không cần đăng nhập. Chọn loài, dải
-            khả năng &amp; hướng đi thì cần đăng nhập.
-          </p>
-        </>
+        // PREMIUM (2026-07-26, thay teaser): lớp cá khoá HẲN — heatmap cũng
+        // không hiện. Thẻ khoá nói đúng nấc: đăng nhập / gọi SDVICO nâng cấp.
+        <PremiumLock
+          access={fishAccess}
+          feature="dự báo cá"
+          compact
+        />
       )}
       {fishOn && !fishLocked && (
         <>

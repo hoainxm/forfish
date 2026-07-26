@@ -117,6 +117,11 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
     label: "Bản đồ cá",
     run: async () => {
       const r = await fetchFishForecast();
+      // BỊ KHOÁ (chưa đăng nhập / chưa premium) ≠ lỗi mạng: bỏ qua ÊM —
+      // auto-pretrip chạy mỗi lần mở app, không được ngày nào cũng báo
+      // "thiếu bản đồ cá" với người vốn không có quyền xem nó.
+      if (!r.ok && (r.code === "login_required" || r.code === "premium_required"))
+        return;
       if (!r.ok) throw new Error("bản đồ cá chưa tải được");
     },
   });

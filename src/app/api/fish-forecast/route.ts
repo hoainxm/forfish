@@ -43,11 +43,12 @@ import {
  * Trường nào hiện mới có 1 nguồn thì để mảng 1 phần tử — thêm nguồn về sau chỉ
  * là thêm phần tử, không phải sửa luật.
  *
- * PHÂN QUYỀN kiểu TEASER (user chốt 2026-06-11): API CÔNG KHAI để lớp cá
- * (heatmap + điểm nóng) HIỆN cho mọi người — thu hút. Việc xem CHI TIẾT một
- * điểm (loài gì, khả năng bao nhiêu, đi hướng nào) mới cần đăng nhập, chặn ở
- * CLIENT (fishing-map-view). Trước đây chặn 401 ở API khiến lớp cá biến mất,
- * không hấp dẫn được khách đăng ký.
+ * PHÂN QUYỀN PREMIUM (chủ dự án chốt 2026-07-26, THAY mô hình teaser 06-11):
+ * dự báo cá chỉ dành cho tài khoản premium (customers.tier — migration 0003).
+ * Chốt thật nằm ở MIDDLEWARE (lib/supabase/middleware.ts): 401 chưa đăng
+ * nhập · 403 chưa premium — chặn TRƯỚC cache nên route này giữ nguyên ISR 6h
+ * (đọc cookies ở đây sẽ biến route thành dynamic, mỗi request tính lại lưới
+ * 14–30s). Route vì thế KHÔNG kiểm phiên; đừng thêm auth vào đây.
  */
 
 // Lưới ERDDAP + tính PFZ nặng (14-30s lần lạnh) → KHÔNG để Vercel giết ở 10s

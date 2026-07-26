@@ -31,8 +31,8 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 | **Khách SDVICO đã đồng bộ** (`ok`) | Đồ đã mua, bảo hành sắp hết, dịch vụ, **nợ/cước** | "Mọi thứ bà con mua đều theo dõi giúp" | Gọi bảo hành/đóng cước, mua thêm vật tư |
 
 **Quy tắc đã áp dụng:**
-- Tối đa **1 nudge đăng nhập/màn**: chip hero "Đăng nhập", thẻ khóa dự báo cá (teaser), gate "Ai cần mua". KHÔNG spam.
-- Tính năng KHÓA chỉ gồm: **dự báo cá chi tiết** (heatmap hiện cho mọi người làm mồi, chi tiết điểm mới gate) và **nhu cầu mua cá** (mở public chừng nào còn TIN MẪU). Còn lại public.
+- Tối đa **1 nudge đăng nhập/màn**: chip hero "Đăng nhập", thẻ khoá premium (`PremiumLock`), gate "Ai cần mua". KHÔNG spam.
+- **Phân hạng PREMIUM (2026-07-26 — THAY teaser 06-11)**: tính năng KHOÁ HẲN gồm **dự báo cá** (cả heatmap — không còn teaser) và **dự báo thời tiết quá 3 ngày** (ngày 4–16 ở "Những ngày tới" + khung 5/7/10/16 ngày trên bản đồ). Thang khoá 4 nấc (`lib/tier.ts` `FeatureAccess`): `checking` = chỉ hiện phần miễn phí, KHÔNG hiện thẻ khoá (chống nháy khoá↔mở) · `login` = thẻ khoá mời **Đăng nhập** · `upgrade` = thẻ khoá **"Gọi SDVICO 1900 23 23 49"** (hạng thường không tự nâng cấp trong app được) · `open` = premium/demo, hiện đủ. Component `premium-gate.tsx` (`PremiumLock`, có bản `compact` cho panel hẹp); nút khung ngày bị khoá vẫn HIỆN (kèm icon khoá, chạm ra một dòng mời) — biết có gì để mà muốn. **Nhu cầu mua cá** giữ gate đăng nhập cũ (`LoginGate`).
 - Lỗi đồng bộ KHÔNG được hiện thành "đăng nhập đi" với người đã đăng nhập — `useSdvicoAssets` phân biệt `guest/unlinked/error/ok` (nấc `error` có nút Thử lại).
 
 ## 3. Object model
@@ -67,6 +67,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 | 5 | Tiền `/tien` | dock | Bán có lợi + lãi/lỗ rõ | ghi chuyến / chia tiền | "Ghi chuyến biển mới" | M |
 | 6 | Cảng `/cang` | nút trên map | Tìm cảng chỉ định gần | gọi/chỉ đường | (đọc) | M |
 | 7 | Đăng nhập `/login` | chip hero, gate | Vào bằng **SĐT + mật khẩu** (sale báo khi mua; KHÔNG email/OTP) | (vào app) | "Đăng nhập" | L |
+| 8 | Quản trị `/quan-tri` | gõ URL trực tiếp (CHỈ admin — env `ADMIN_PHONES`; không trên dock, không link trong app) | Đội SDVICO theo dõi tài khoản · nguồn dữ liệu · hệ thống | đổi hạng / tạo tài khoản / kiểm tra nguồn | theo tab | M — người dùng là STAFF, không áp chuẩn chữ-to của ngư dân |
 
 Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline = đạt. /tien, /tau, /nguoi: 1 hàng chip/tab + list — đạt.
 
@@ -74,7 +75,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 
 | Màn | Chưa login | Trống | Lỗi/mạng yếu | Đang tải |
 |---|---|---|---|---|
-| Ra khơi | dự báo cá teaser + mời; gió sóng public | điểm: "chạm biển để xem" | scalar/lưới/cá: nút **Thử lại** (không hỏng câm) | "Đang lấy dự báo…" |
+| Ra khơi | dự báo cá KHOÁ (thẻ `PremiumLock` mời đăng nhập; đã đăng nhập hạng thường → mời gọi SDVICO); gió sóng ≤3 ngày public | điểm: "chạm biển để xem" | scalar/lưới/cá: nút **Thử lại** (không hỏng câm; **bị khoá ≠ lỗi** — không hiện Thử lại khi 401/403) | "Đang lấy dự báo…" |
 | Tàu | tab Sản phẩm/Dịch vụ: `guest` mời đăng nhập | "Chưa có … bấm nút cam" | `error` → Thử lại; `unlinked` → giải thích | "Đang kiểm tra đồ SDVICO…" |
 | Bạn thuyền | public; sổ MẪU tự xưng "sổ mẫu" | empty + nút cam | — | hydrate sau mount |
 | Tiền (Chia) | public | chưa có bạn thuyền → EmptyState + link /nguoi | — | — |
@@ -169,6 +170,11 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
   · Chọn loài = drill-down trong panel **Ngư trường** (nút "Chọn loài" → list loài 1 cột + nút quay lại). 
   · Quản lý điểm = nội dung panel **Điểm đã lưu** luôn (toggle hiện-trên-map + thêm theo toạ độ + sửa/xoá compact + tìm cảng) — bỏ nút "Quản lý" mở modal. 
   · Tách thân `FishSpeciesContent` / `MyPlacesContent` dùng chung (panel + wrapper bottom-sheet legacy). Nút "Sửa" ở thẻ "Đã ghim" trong sheet → đổi thành chỉ dẫn "Sửa ở Điểm đã lưu".
+
+**Delta dẫn đường 2026-07-26 (team review 5 lăng kính + verify chéo — thẻ kết quả `route-planner.tsx`):**
+- Thêm 2 trạng thái cảnh báo: **RẤT CẠN** (đỏ — tuyến đè vùng <4 m/bãi nổi gần nơi xuất phát/điểm đến, trước đây đi qua im lặng) và **QUÁ CỬA SỔ DỰ BÁO** (vàng — chuyến dài hơn dự báo đang có, N giờ cuối tính bằng dự báo giờ cuối, `plan.beyondForecastH`). Không được để phần đuôi tuyến "êm giả".
+- Copy chốt kết quả nói THẬT giới hạn: "bản đồ độ sâu ô ~5,5 km — né bờ và bãi cạn lớn; rạn nhỏ hơn ô lưới, đá ngầm lẻ máy KHÔNG thấy" (bỏ câu "đã né bờ, rạn, bãi cạn sát mặt" — hứa quá khả năng lưới ETOPO 0,05°).
+- Còn treo (chưa làm, cần chốt scope): tuyến CHƯA đối chiếu tin bão `/api/storms` — hành lang bão 24–72h có thể lọt dưới ngưỡng sóng/gió số; và Dijkstra vẫn chạy main-thread (chưa Web Worker).
 
 ### 10.1 Mất sóng ngoài khơi — SỐ CŨ KHÔNG ĐƯỢC TRÔNG NHƯ SỐ MỚI (2026-07-25i)
 

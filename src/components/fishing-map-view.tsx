@@ -70,8 +70,10 @@ import {
 } from "@/lib/fish-predict";
 import { lowQualityNote } from "@/lib/source-registry";
 import { moonPhase } from "@/lib/moon";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
-import { useAuthUser } from "@/lib/use-auth";
+import { FREE_FORECAST_DAYS } from "@/lib/tier";
+import { useFeatureAccess } from "@/lib/use-tier";
+import { PremiumLock } from "@/components/premium-gate";
+import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import {
   fetchSeaScalar,
   SEA_SCALARS,
@@ -125,6 +127,7 @@ import {
   ChevronUpIcon,
   FishIcon,
   HomeIcon,
+  LockIcon,
   MoonIcon,
   PauseIcon,
   PinIcon,
@@ -323,12 +326,15 @@ export default function FishingMapView() {
   }, [activeScalar]);
 
   // ── DỰ BÁO CÁ (PFZ) — tính từ ảnh vệ tinh mới nhất, tải 1 lần ───────────
-  // Phân quyền kiểu TEASER (user chốt 2026-06-11): lớp cá (heatmap + điểm nóng)
-  // HIỆN cho mọi người để thu hút; xem CHI TIẾT một điểm mới cần đăng nhập.
-  // fishLocked = đã cấu hình Supabase + CHƯA đăng nhập (đang kiểm tra coi như
-  // chưa khóa để khỏi nháy). Demo mode (chưa cấu hình) = mở hết.
-  const { user, ready: authReady } = useAuthUser();
-  const fishLocked = isSupabaseConfigured() && authReady && !user;
+  // Phân hạng PREMIUM (chủ dự án chốt 2026-07-26, THAY mô hình teaser 06-11):
+  // dự báo cá + thời tiết quá 3 ngày KHOÁ HẲN với người chưa đăng nhập
+  // ("login") và tài khoản thường ("upgrade" — gọi SDVICO nâng cấp). Demo mode
+  // (chưa cấu hình Supabase) = mở hết; "checking" coi như chưa khoá để khỏi
+  // nháy nhưng lớp cá chỉ TẢI khi chắc chắn "open". Chốt thật ở middleware.
+  const { access: premiumAccess } = useFeatureAccess();
+  const premiumLocked =
+    premiumAccess === "login" || premiumAccess === "upgrade";
+  const fishLocked = premiumLocked;
 
   const [fishCast, setFishCast] = useState<FishForecast | null>(null);
   // loài đang lọc trên bản đồ (null = loài tốt nhất mỗi ô)
@@ -357,10 +363,18 @@ export default function FishingMapView() {
     const t = setTimeout(() => setFishQualityNote(null), NOTIFY_HIDE_MS);
     return () => clearTimeout(t);
   }, [fishQualityNote]);
-  // lớp cá tải cho MỌI người (teaser); chi tiết mới gate
+  // lớp cá CHỈ tải khi chắc chắn được xem ("open" = premium/demo) — người bị
+  // khoá không gọi API (middleware cũng sẽ chặn 401/403); đăng xuất / tụt hạng
+  // giữa chừng thì dọn dữ liệu đã tải cho khỏi lộ qua heatmap cũ.
   useEffect(() => {
-    loadFish();
-  }, [loadFish]);
+    if (premiumAccess === "open") loadFish();
+  }, [premiumAccess, loadFish]);
+  useEffect(() => {
+    if (premiumLocked) {
+      setFishCast(null);
+      setFishFailed(false);
+    }
+  }, [premiumLocked]);
   const [size, setSize] = useState<SheetSize>("peek");
 
   // ── dự báo vẽ động kiểu Windy: lớp gió/sóng + thanh thời gian ───────────
@@ -371,13 +385,30 @@ export default function FishingMapView() {
   const [playing, setPlaying] = useState(false);
   // khung ngày lớp vẽ động (3/5/7/10/16) — bà con tự chọn tầm xa/gần
   const [gridDays, setGridDays] = useState<GridDays>(3);
+  // chạm khung ngày bị khoá (premium) → nói lý do một dòng ngay dưới hàng nút
+  const [dayLockNote, setDayLockNote] = useState(false);
   // Khung ngày THẬT SỰ đang có bản lưu trong máy — chỉ đọc khi tải hỏng, để nói
   // thật ("máy chưa lưu khung 16 ngày, đang có 3 và 7") thay vì đưa lưới khung khác.
   const [savedDays, setSavedDays] = useState<number[]>([]);
   useEffect(() => {
     if (!gridFailed) return;
-    setSavedDays(savedGridDays().filter((d) => d !== gridDays));
-  }, [gridFailed, gridDays]);
+    // người bị khoá premium không được mời sang khung >3 ngày đã lưu trong máy
+    setSavedDays(
+      savedGridDays()
+        .filter((d) => d !== gridDays)
+        .filter((d) => !premiumLocked || d <= FREE_FORECAST_DAYS),
+    );
+  }, [gridFailed, gridDays, premiumLocked]);
+
+  // khung >3 ngày là premium — đang xem khung xa mà hạng tụt (đăng xuất…) thì
+  // kéo về 3 ngày, khớp với thẻ khoá trên nút chọn khung
+  useEffect(() => {
+    if (premiumLocked && gridDays > FREE_FORECAST_DAYS) {
+      setPlaying(false);
+      setTimeIdx(0);
+      setGridDays(3);
+    }
+  }, [premiumLocked, gridDays]);
 
   // tải lưới dự báo khi bật lớp lần đầu, hoặc khi ĐỔI khung ngày (tải lại cho tầm mới)
   useEffect(() => {
@@ -789,9 +820,26 @@ export default function FishingMapView() {
   const days = cond?.days ?? [];
   const firstUsableIdx = days.findIndex((d) => !isPastDay(d.date, todayIso));
   const allPast = days.length > 0 && firstUsableIdx === -1;
-  const selIdx = allPast
+  // PREMIUM: ngày cách hôm nay ≥3 (ngày thứ 4 trở đi) khoá với người chưa
+  // premium — đo theo NGÀY THẬT (daysBetweenISO), không theo vị trí mảng
+  // (bản lưu offline có thể chứa ngày đã qua).
+  const dayChipLocked = (dateIso: string) =>
+    premiumLocked &&
+    daysBetweenISO(todayIso, dateIso) >= FREE_FORECAST_DAYS;
+  const rawSelIdx = allPast
     ? -1
     : Math.min(Math.max(dayIdx, Math.max(firstUsableIdx, 0)), days.length - 1);
+  // đang đứng ở ngày bị khoá (vừa đăng xuất / bản lưu cũ) → lùi về ngày còn mở
+  const selIdx =
+    rawSelIdx >= 0 && days[rawSelIdx] && dayChipLocked(days[rawSelIdx].date)
+      ? (() => {
+          for (let i = rawSelIdx; i >= 0; i--) {
+            if (!dayChipLocked(days[i].date) && !isPastDay(days[i].date, todayIso))
+              return i;
+          }
+          return Math.max(firstUsableIdx, 0);
+        })()
+      : rawSelIdx;
   const sel = selIdx >= 0 ? (days[selIdx] ?? null) : null;
   // TẦM NGÀY THẬT: đếm từ hôm nay tới ngày đang xem, KHÔNG lấy vị trí trong
   // mảng — bản lưu 5 ngày trước mà tính theo vị trí thì ngày xa vẫn được gắn
@@ -1346,7 +1394,7 @@ export default function FishingMapView() {
           fishOn={fishOn}
           onFish={setFishOn}
           fishSpecies={fishSpecies}
-          fishLocked={fishLocked}
+          fishAccess={premiumAccess}
           species={fishCast?.species ?? []}
           regionShorts={regionShorts}
           onPickSpecies={setFishSpecies}
@@ -1467,7 +1515,9 @@ export default function FishingMapView() {
                         </button>
                       </div>
                     </div>
-                    {/* chọn khung ngày cho lớp vẽ động (3/5/7/10/16) */}
+                    {/* chọn khung ngày cho lớp vẽ động (3/5/7/10/16) — quá 3
+                        ngày là PREMIUM: nút khoá vẫn hiện (biết có gì để muốn)
+                        nhưng chạm thì mời nâng cấp/đăng nhập, không đổi khung */}
                     <div
                       className="mt-1.5 flex gap-1.5"
                       role="group"
@@ -1475,28 +1525,62 @@ export default function FishingMapView() {
                     >
                       {GRID_DAY_OPTIONS.map((d) => {
                         const on = d === gridDays;
+                        const locked =
+                          premiumLocked && d > FREE_FORECAST_DAYS;
                         return (
                           <button
                             key={d}
                             type="button"
                             onClick={() => {
+                              if (locked) {
+                                setDayLockNote(true);
+                                return;
+                              }
+                              setDayLockNote(false);
                               if (d === gridDays) return;
                               setPlaying(false);
                               setTimeIdx(0);
                               setGridDays(d);
                             }}
                             aria-pressed={on}
-                            className={`min-h-[2.25rem] flex-1 rounded-lg text-[0.8125rem] font-bold transition active:scale-[0.97] ${
+                            aria-disabled={locked || undefined}
+                            className={`flex min-h-[2.25rem] flex-1 items-center justify-center gap-1 rounded-lg text-[0.8125rem] font-bold transition active:scale-[0.97] ${
                               on
                                 ? "bg-navy text-white shadow-sm"
-                                : "bg-field text-foreground/70"
+                                : locked
+                                  ? "bg-field text-foreground/40"
+                                  : "bg-field text-foreground/70"
                             }`}
                           >
+                            {locked && (
+                              <LockIcon
+                                className="h-3.5 w-3.5 shrink-0"
+                                aria-hidden
+                              />
+                            )}
                             {d} ngày
                           </button>
                         );
                       })}
                     </div>
+                    {dayLockNote && premiumLocked && (
+                      <p className="mt-1.5 rounded-lg bg-field/80 px-2.5 py-2 text-[0.8125rem] font-semibold leading-snug text-foreground/75">
+                        Xem quá {FREE_FORECAST_DAYS} ngày là tính năng của tài
+                        khoản nâng cao —{" "}
+                        {premiumAccess === "login" ? (
+                          <Link href="/login" className="font-bold text-trim">
+                            Đăng nhập →
+                          </Link>
+                        ) : (
+                          <a
+                            href={`tel:${SDVICO_HOTLINE}`}
+                            className="font-bold text-trim"
+                          >
+                            gọi SDVICO nâng cấp →
+                          </a>
+                        )}
+                      </p>
+                    )}
                     <input
                       type="range"
                       min={0}
@@ -1676,16 +1760,25 @@ export default function FishingMapView() {
                   {prox.label} — coi chừng vượt ranh giới.
                 </p>
               )}
-              {/* MỒI ngay ở peek (roadmap hội đồng UX): khách chạm trúng chỗ
-                  có dấu hiệu cá thì nói thẳng vào sẽ được gì — không bắt mở
-                  "Xem thêm" mới thấy lời mời */}
-              {fishLocked && fishOn && fishAtPoint && fishAtPoint.s >= 60 && (
-                <Link
-                  href="/login"
-                  className="mt-1 inline-flex min-h-[2.5rem] items-center gap-1 text-[0.9375rem] font-bold text-trim"
-                >
-                  Chỗ này có dấu hiệu cá — Đăng nhập để xem loài gì →
-                </Link>
+              {/* LỜI MỜI ngay ở peek: lớp cá giờ khoá hẳn (không còn teaser
+                  heatmap) nên không có "dấu hiệu cá" để chỉ — nói thẳng dự báo
+                  cá mở bằng gì, theo đúng nấc của người đang xem */}
+              {fishLocked && fishOn && (
+                premiumAccess === "login" ? (
+                  <Link
+                    href="/login"
+                    className="mt-1 inline-flex min-h-[2.5rem] items-center gap-1 text-[0.9375rem] font-bold text-trim"
+                  >
+                    Dự báo cá cần tài khoản nâng cao — Đăng nhập →
+                  </Link>
+                ) : (
+                  <a
+                    href={`tel:${SDVICO_HOTLINE}`}
+                    className="mt-1 inline-flex min-h-[2.5rem] items-center gap-1 text-[0.9375rem] font-bold text-trim"
+                  >
+                    Dự báo cá là tính năng nâng cao — Gọi SDVICO →
+                  </a>
+                )
               )}
             </div>
           ) : null
@@ -1738,13 +1831,24 @@ export default function FishingMapView() {
                   const active = i === selIdx;
                   // ngày đã qua (bản lưu trong máy) — mờ đi, không cho chọn
                   const past = isPastDay(d.date, todayIso);
+                  // ngày 4+ là premium: chip vẫn hiện (biết còn dự báo xa để
+                  // muốn) nhưng KHÔNG hiện số — chạm ra một dòng mời
+                  const locked = dayChipLocked(d.date);
                   return (
                     <button
                       key={d.date}
                       type="button"
-                      onClick={() => setDayIdx(i)}
+                      onClick={() => {
+                        if (locked) {
+                          setDayLockNote(true);
+                          return;
+                        }
+                        setDayLockNote(false);
+                        setDayIdx(i);
+                      }}
                       disabled={past}
                       aria-pressed={active}
+                      aria-disabled={locked || undefined}
                       className={`flex min-h-[3.75rem] min-w-[4.875rem] shrink-0 flex-col items-center justify-center rounded-xl px-2 transition active:scale-[0.97] ${
                         active
                           ? "bg-navy text-white shadow-sm"
@@ -1758,6 +1862,12 @@ export default function FishingMapView() {
                       >
                         {chipLabel(d.date, todayIso)}
                       </span>
+                      {locked ? (
+                        <LockIcon
+                          className="h-4 w-4 text-foreground/45"
+                          aria-hidden
+                        />
+                      ) : (
                       <span
                         className="display text-[1rem] font-bold leading-tight"
                         style={{
@@ -1772,10 +1882,29 @@ export default function FishingMapView() {
                           ? `${formatNumberVN(d.waveMaxM)} m`
                           : `gió c${beaufort(d.windMaxKmh)}`}
                       </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
+              {dayLockNote && premiumLocked && (
+                <p className="rounded-xl bg-field/80 px-3 py-2.5 text-[0.875rem] font-semibold leading-snug text-foreground/75">
+                  Xem quá {FREE_FORECAST_DAYS} ngày là tính năng của tài khoản
+                  nâng cao —{" "}
+                  {premiumAccess === "login" ? (
+                    <Link href="/login" className="font-bold text-trim">
+                      Đăng nhập →
+                    </Link>
+                  ) : (
+                    <a
+                      href={`tel:${SDVICO_HOTLINE}`}
+                      className="font-bold text-trim"
+                    >
+                      gọi SDVICO nâng cấp →
+                    </a>
+                  )}
+                </p>
+              )}
 
               {/* MAX cả ngày đã chọn (giật) — peek phía trên đã có tình trạng
                   + tóm tắt, đây chỉ thêm số đỉnh để khỏi trùng (user: trùng dữ liệu) */}
@@ -1875,27 +2004,18 @@ export default function FishingMapView() {
 
               {/* DỰ BÁO CÁ tại chỗ này — tính từ ảnh mới nhất; không có dữ liệu
                   thì lùi về mùa vụ. Luôn ghi rõ tham khảo.
-                  TEASER: lớp cá hiện cho mọi người; CHI TIẾT điểm thì khoá,
-                  chưa đăng nhập → mời đăng nhập (thu hút đăng ký). */}
+                  PREMIUM (2026-07-26, thay teaser): khoá HẲN — chưa đăng nhập
+                  mời đăng nhập, hạng thường mời gọi SDVICO nâng cấp. */}
               {fishLocked ? (
-                <div className="surface overflow-hidden p-0">
-                  <div className="flex items-start gap-2.5 p-3.5">
-                    <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-trim" />
-                    <p className="text-[0.9375rem] leading-snug text-foreground/80">
-                      Vùng xanh trên bản đồ là <b>chỗ có khả năng nhiều cá</b>.{" "}
-                      <b>Đăng nhập</b> để xem chỗ này{" "}
-                      <b>loài gì, khả năng bao nhiêu, đi hướng nào</b> — và chọn
-                      đúng loài bà con hay đánh.
-                    </p>
-                  </div>
-                  <a
-                    href="/login"
-                    className="flex min-h-[3.25rem] w-full items-center justify-center gap-2 bg-t1 text-[1rem] font-bold text-white transition active:scale-[0.99]"
-                  >
-                    <FishIcon className="h-5 w-5" />
-                    Đăng nhập để xem chi tiết dự báo cá
-                  </a>
-                </div>
+                <PremiumLock
+                  access={premiumAccess}
+                  feature="dự báo cá"
+                  blurb={
+                    premiumAccess === "login"
+                      ? "Bản đồ chỗ có khả năng nhiều cá: loài gì, khả năng bao nhiêu, đi hướng nào — đăng nhập bằng tài khoản nâng cao là xem được."
+                      : "Bản đồ chỗ có khả năng nhiều cá: loài gì, khả năng bao nhiêu, đi hướng nào. Tài khoản của bà con đang là hạng thường — gọi SDVICO để nâng cấp."
+                  }
+                />
               ) : fishCast && fishAtPoint ? (
                 (() => {
                   // theo loài đã chọn trên bản đồ, hoặc loài tốt nhất tại ô
