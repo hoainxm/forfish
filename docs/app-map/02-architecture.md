@@ -153,6 +153,7 @@ src/
     storms.ts           # Trục 1: adapter tin bão (parse/lọc vùng Biển Đông, types) — client gọi /api/storms
     route-plan.ts       # Trục 1: THUẦN LOGIC dẫn đường kiểu VISIR (docs/research/06 + audit §3b) — lưới phủ vùng + Dijkstra, Kwon 4 bậc hướng sóng, thang an toàn KTTV (cấp 6 phạt 1,15 / cấp 7 phạt 1,5 + đỏ / cấp 8 chặn), TRẦN VÒNG 1,3× direct, fuelDeltaL có dấu, độ sâu mẫu ≤5 km/cạnh
     route-weather.ts    # Trục 1: adapter Open-Meteo — LƯỚI thời tiết thô ≤120 điểm/lượt theo GIỜ (72h: sóng+hướng, gió+hướng, DÒNG CHẢY SMOC gồm triều), nội suy song tuyến xuống lưới tìm đường
+    route-storm.ts      # Trục 1: THUẦN LOGIC đối chiếu tuyến ↔ tin bão GDACS (routeStormConflict) — tuyến chêm điểm ~25 km, phạm khi cách tâm/hành lang track DỰ BÁO <200 km hoặc trong polygon vùng ảnh hưởng; track quá khứ không chặn. Phạm → route-planner CHẶN HẲN, không vẽ tuyến
     depth-grid.ts       # Trục 1: lưới độ sâu tĩnh ETOPO 2022 (public/data/depth-grid.v1.bin ~30 KB, sinh bởi scripts/generate-depth-grid.mjs) — chặn đất + <4 m, cảnh báo 4–12 m, vùng rạn HS/TS quét min-pool 15″
     owned-assets.ts     # Trục TÀU: types TRUNG LẬP VENDOR cho đồ khách mua (sản phẩm/bảo hành, dịch vụ/kỳ cước, khoản chờ đóng) + getServiceDueStatus (thuần, có test)
     sdvico-catalog.ts   # Trục TÀU: nhóm catalog theo tiền tố SKU + chủ đề yêu cầu CSKH (thuần, có test)
