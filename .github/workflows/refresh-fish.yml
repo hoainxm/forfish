@@ -29,7 +29,9 @@ jobs:
           if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
             echo "Thiếu vars.APP_BASE_URL hoặc secrets.CRON_SECRET"; exit 1
           fi
-          code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 \
+          # bỏ dấu "/" thừa ở cuối APP_BASE_URL → tránh URL //api/... bị 308 redirect
+          BASE_URL="${BASE_URL%/}"
+          code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
             -H "Authorization: Bearer $CRON_SECRET" \
             "$BASE_URL/api/cron/refresh-fish")
           echo "HTTP $code"; cat resp.json; echo
