@@ -1,8 +1,6 @@
-// /api/admin/health — sức khoẻ hệ thống cho dashboard /quan-tri (admin only).
-// Trả: cấu hình env, số tài khoản (tổng/premium/đăng nhập được), nhịp webhook
-// gần nhất, migration tier đã apply chưa. TÌNH TRẠNG NGUỒN DỮ LIỆU (cá/bão/
-// giá dầu/giá cảng) do CLIENT dashboard tự gọi các API sẵn có — không lặp lại
-// logic nguồn ở đây.
+// Sức khoẻ hệ thống cho dashboard: env của WEB QUẢN TRỊ + số liệu DB chung
+// (customers/premium/devices/supplies), migration tier đã apply chưa, nhịp
+// webhook gần nhất. Tình trạng NGUỒN dữ liệu app chính → /api/admin/sources.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -20,7 +18,8 @@ export async function GET() {
   const env = {
     supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
     serviceRole: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-    webhookSecret: Boolean(process.env.SDWORK_WEBHOOK_SECRET),
+    appUrl: process.env.FORFISH_APP_URL ?? null,
+    adminApiKey: Boolean(process.env.ADMIN_API_KEY),
     adminPhones: (process.env.ADMIN_PHONES ?? "")
       .split(",")
       .filter((s) => s.trim()).length,
@@ -40,7 +39,7 @@ export async function GET() {
       return null;
     }
   };
-  // premium CÒN HIỆU LỰC (không hạn hoặc còn hạn) — khớp luật resolveTier
+  // premium CÒN HIỆU LỰC — khớp luật resolveTier (lib/tier.ts)
   const countPremium = async () => {
     try {
       const { count: c, error } = await admin
@@ -61,12 +60,8 @@ export async function GET() {
     countAll("supplies"),
   ]);
 
-  // premium=null mà customers đếm được → cột tier chưa có = migration 0003
-  // chưa apply (dashboard phải nói to điều này, không im lặng)
   const tierMigrationApplied = !(premium == null && customers != null);
 
-  // nhịp webhook: bản ghi mới nhất trong customers (mọi event customer đều
-  // chạm updated_at) — trễ lâu bất thường = webhook SDWork có thể đứt
   let lastIngestAt: string | null = null;
   try {
     const { data } = await admin

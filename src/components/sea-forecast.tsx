@@ -266,7 +266,7 @@ export function SeaForecast() {
                 blurb={
                   access === "login"
                     ? "Đăng nhập bằng tài khoản nâng cao để xem cả nửa tháng tới — tính chuyến dài ngày dễ hơn."
-                    : "Tài khoản của bà con đang là hạng thường — gọi SDVICO nâng cấp để xem cả nửa tháng tới."
+                    : "Tài khoản hiện thời không hỗ trợ — gọi SDVICO nâng cấp để xem cả nửa tháng tới."
                 }
               />
             </div>

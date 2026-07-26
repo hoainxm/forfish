@@ -67,7 +67,8 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 | 5 | Tiền `/tien` | dock | Bán có lợi + lãi/lỗ rõ | ghi chuyến / chia tiền | "Ghi chuyến biển mới" | M |
 | 6 | Cảng `/cang` | nút trên map | Tìm cảng chỉ định gần | gọi/chỉ đường | (đọc) | M |
 | 7 | Đăng nhập `/login` | chip hero, gate | Vào bằng **SĐT + mật khẩu** (sale báo khi mua; KHÔNG email/OTP) | (vào app) | "Đăng nhập" | L |
-| 8 | Quản trị `/quan-tri` | gõ URL trực tiếp (CHỈ admin — env `ADMIN_PHONES`; không trên dock, không link trong app) | Đội SDVICO theo dõi tài khoản · nguồn dữ liệu · hệ thống | đổi hạng / tạo tài khoản / kiểm tra nguồn | theo tab | M — người dùng là STAFF, không áp chuẩn chữ-to của ngư dân |
+
+Web QUẢN TRỊ cho đội SDVICO là **APP RIÊNG** (`admin/` — Vercel project riêng, tách 2026-07-26 theo yêu cầu chủ dự án), KHÔNG phải màn hình của app này: login riêng + dashboard 3 tab (Tài khoản · Dữ liệu · Hệ thống). Người dùng là STAFF nên không áp chuẩn chữ-to của ngư dân; mượn token màu SDVICO cho cùng tông.
 
 Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline = đạt. /tien, /tau, /nguoi: 1 hàng chip/tab + list — đạt.
 

@@ -74,9 +74,9 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 | `premium_until timestamptz` | hạn premium; `null` = không hạn; hết hạn → coi như basic |
 
 - **Luật hạng hiệu lực** ở `src/lib/tier.ts` (`resolveTier` — thuần, có test): client (`use-tier.ts`), middleware (chặn `/api/fish-forecast`) và admin health dùng CHUNG; fail-closed (giá trị lạ/ngày hỏng/lỗi query → basic). DB **không cần cron** hạ hạng.
-- **Nguồn gán hạng** (2 đường, không đè nhau): webhook SDWork (customer event kèm `tier`/`premiumUntil` — VẮNG field thì upsert KHÔNG đụng hạng hiện có) và admin `/quan-tri` (PATCH `/api/admin/accounts`, service-role).
+- **Nguồn gán hạng** (2 đường, không đè nhau): webhook SDWork (customer event kèm `tier`/`premiumUntil` — VẮNG field thì upsert KHÔNG đụng hạng hiện có) và **web quản trị riêng** (`admin/` — app độc lập tách 2026-07-26, PATCH `/api/admin/accounts` bên đó, service-role).
 - KH đọc hạng của mình qua policy SELECT own-phone sẵn có (0002) — không cần policy mới.
-- **Admin ≠ hạng trong DB**: SĐT trong env `ADMIN_PHONES` (`src/lib/admin.ts`) — được vào `/quan-tri` + xem dự báo cá như premium.
+- **Admin ≠ hạng trong DB**: SĐT trong env `ADMIN_PHONES` (`src/lib/admin.ts`). Trong app ngư dân admin chỉ được xem dự báo cá như premium (middleware); dashboard nằm ở web `admin/`, nói chuyện với app chính qua header `x-admin-key` = `ADMIN_API_KEY` (shared secret, set cả hai bên).
 
 ## 3. Domain logic — `src/lib/documents.ts`
 

@@ -47,7 +47,7 @@ export function PremiumLock({
       ? (blurb ??
         "Tài khoản dùng chung với lúc mua hàng SDVICO — số điện thoại là vào được.")
       : (blurb ??
-        "Tài khoản của bà con đang là hạng thường. Gọi SDVICO để nâng cấp là xem được ngay.");
+        "Tài khoản hiện thời không hỗ trợ — gọi SDVICO để nâng cấp là xem được ngay.");
   const cta =
     access === "login" ? (
       <Link

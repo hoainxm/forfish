@@ -1,11 +1,11 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
-import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
+import { createClient } from "./supabase/server";
+import { isAdminPhone, parseAdminPhones } from "./admin";
 
 /**
- * Kiểm quyền admin cho route /api/admin/* — TRẢ SĐT admin hoặc lý do từ chối.
- * Admin = đã đăng nhập (session Supabase) + SĐT nằm trong env ADMIN_PHONES.
- * Chưa cấu hình Supabase (demo mode) → không có admin (dashboard cần DB thật).
+ * Kiểm quyền admin cho mọi route /api/admin/* của web quản trị.
+ * Admin = đã đăng nhập (SĐT + mật khẩu, chung tài khoản Supabase với app
+ * ngư dân) + SĐT nằm trong env ADMIN_PHONES của WEB NÀY.
  */
 export async function requireAdmin(): Promise<
   { ok: true; phone: string } | { ok: false; status: number; code: string }

@@ -2013,7 +2013,7 @@ export default function FishingMapView() {
                   blurb={
                     premiumAccess === "login"
                       ? "Bản đồ chỗ có khả năng nhiều cá: loài gì, khả năng bao nhiêu, đi hướng nào — đăng nhập bằng tài khoản nâng cao là xem được."
-                      : "Bản đồ chỗ có khả năng nhiều cá: loài gì, khả năng bao nhiêu, đi hướng nào. Tài khoản của bà con đang là hạng thường — gọi SDVICO để nâng cấp."
+                      : "Bản đồ chỗ có khả năng nhiều cá: loài gì, khả năng bao nhiêu, đi hướng nào. Tài khoản hiện thời không hỗ trợ — gọi SDVICO để nâng cấp."
                   }
                 />
               ) : fishCast && fishAtPoint ? (
