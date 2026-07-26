@@ -1325,6 +1325,9 @@ export default function FishingMapView() {
         {/* ĐIỀU KHIỂN LỚP — rail phải + 4 panel (Phương án A); trong luồng dưới
             banner bão nên không đè/lệch */}
         <RaKhoiControls
+          onLocateMe={goToMyBoat}
+          locating={locating}
+          geoError={geoError}
           layerId={layerId}
           onLayer={setLayerId}
           scalarKind={scalarKind}
