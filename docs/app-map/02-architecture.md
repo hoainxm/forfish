@@ -96,7 +96,7 @@ src/
       status-banner.tsx #   Banner trạng thái chung (thông tin/cảnh báo)
       region-filter.tsx #   Bộ lọc Bắc/Trung/Nam (← lib/region.ts) cho danh sách theo vùng
     ui/snap-sheet.tsx   # SnapSheet dùng chung: sheet đáy THƯỜNG TRỰC 3 nấc peek/half/full, không scrim, điều khiển bằng nút to (khác BottomSheet là modal)
-    route-planner.tsx   # Trục 1: dẫn đường tiết kiệm dầu — form xuất phát/thông số tàu + thẻ kết quả + lớp vẽ tuyến (RouteMapLayers, đặt trong MapGL)
+    route-planner.tsx   # Trục 1: dẫn đường tiết kiệm dầu — form xuất phát/thông số tàu + thẻ kết quả + lớp vẽ tuyến (RouteMapLayers, đặt trong MapGL). PERF (team review 2026-07-26): Dijkstra chạy qua planRouteAsync (Web Worker — main thread không đơ); độ sâu + thời tiết fetch SONG SONG (Promise.all, hai nguồn độc lập)
     price-board.tsx     # Trục 2: bảng giá — LIVE giá tuần VASEP (lib/port-price-source) + giá dầu DO (lib/fuel-price), fallback bảng tĩnh
     trip-log.tsx        # Trục 2/TIỀN: sổ lãi lỗ chuyến biển (controlled, chủ sổ = money-insights)
     trip-report.tsx     # Trục TIỀN: BÁO CÁO LỜI/LỖ NĂM — tổng cả năm + tách theo tháng từ sổ trips (← lib/trip-insights yearlyReport/listYears), section "Báo cáo năm" trong tab Hiệu quả
@@ -151,8 +151,10 @@ src/
     hycom.ts            # Trục 1: TẦNG NHIỆT + NHIỆT ĐÁY — kéo nhiệt-theo-tầng HYCOM ESPC-D-V02 (OPeNDAP ascii, decode Int16*0.001+20). **1 fetch cube → NHIỀU lưới (VIỆC 4, 2026-07-25)**: `fetchHycomGrids()` trả `{d20, bottom, deep250}` dùng CHUNG cube (KHÔNG fetch thêm, giữ DEPTH_RANGE 20–300m để không phình route 60s): `iso20Grid` (D20 tầng cá ngừ) · `bottomTempGrid` (nhiệt TẦNG SÂU NHẤT còn hữu hạn mỗi cột = nhiệt ĐÁY, cho cổng nhiệt loài đáy) · `tempAtDepthGrid(cube,250)` (nhiệt ~250m). (Wrapper `fetchThermoclineGrid` cũ đã XOÁ 2026-07-25 — không còn nơi gọi; dùng thẳng `fetchHycomGrids().d20`.) parse/iso20Depth/bottomTempGrid/tempAtDepthGrid/thermoGridUrl thuần có test. URL BẮT BUỘC dạng .ascii?water_temp[...] (thiếu ?water_temp → 400)
     sea-scalars.ts      # Trục 1: lớp số liệu biển — SSHA "Nước dâng, xoáy" (sống); sss độ mặn TẠM RÚT khỏi UI (SMOS nhiễu RFI Biển Đông, SMAP chết) — client gọi /api/sea-scalar?kind=
     storms.ts           # Trục 1: adapter tin bão (parse/lọc vùng Biển Đông, types) — client gọi /api/storms
-    route-plan.ts       # Trục 1: THUẦN LOGIC dẫn đường kiểu VISIR (docs/research/06 + audit §3b) — lưới phủ vùng + Dijkstra, Kwon 4 bậc hướng sóng, thang an toàn KTTV (cấp 6 phạt 1,15 / cấp 7 phạt 1,5 + đỏ / cấp 8 chặn), TRẦN VÒNG 1,3× direct, fuelDeltaL có dấu, độ sâu mẫu ≤5 km/cạnh
-    route-weather.ts    # Trục 1: adapter Open-Meteo — LƯỚI thời tiết thô ≤120 điểm/lượt theo GIỜ (72h: sóng+hướng, gió+hướng, DÒNG CHẢY SMOC gồm triều), nội suy song tuyến xuống lưới tìm đường
+    route-plan.ts       # Trục 1: THUẦN LOGIC dẫn đường kiểu VISIR (docs/research/06 + audit §3b) — lưới phủ vùng + Dijkstra, Kwon 4 bậc hướng sóng, thang an toàn KTTV (cấp 6 phạt 1,15 / cấp 7 phạt 1,5 + đỏ / cấp 8 chặn), TRẦN VÒNG 1,3× direct, fuelDeltaL có dấu, độ sâu mẫu ≤5 km/cạnh. Ô biển thiếu số sóng GIỜ đó → ƯỚC từ gió (estimateWaveFromWind của sea.ts) thay vì 0-giả-êm (hardening 2026-07-26)
+    route-plan-async.ts # Trục 1: cầu gọi planRoute qua WEB WORKER (planRouteAsync — cùng tham số/kết quả): worker sống cả phiên, ghép trả lời theo id; KHÔNG có Worker (SSR/test) hoặc worker chết → tự rơi về chạy đồng bộ, không mất tính năng. Có test nhánh fallback
+    route-plan.worker.ts # Trục 1: vỏ worker nhận PlanRequest → planRoute → PlanResponse (structured clone dữ liệu thuần) — logic KHÔNG ở đây, ở route-plan.ts; component chỉ đi qua route-plan-async
+    route-weather.ts    # Trục 1: adapter Open-Meteo — LƯỚI thời tiết thô ≤120 điểm/lượt theo GIỜ (72h: sóng+hướng, gió+hướng, DÒNG CHẢY SMOC gồm triều), nội suy song tuyến xuống lưới tìm đường. CACHE promise 45 phút khoá bbox+NGÀY-VN (trục giờ tính từ 0h VN — qua đêm là khoá mới; "Tính lại"/nở khung không refetch ~1 MB; lỗi mạng không găm cache — pattern fetchDepthGrid). Ô có sóng mà KHÔNG có giờ gió → onSea=false (chặn biển-lặng giả)
     depth-grid.ts       # Trục 1: lưới độ sâu tĩnh ETOPO 2022 (public/data/depth-grid.v1.bin ~30 KB, sinh bởi scripts/generate-depth-grid.mjs) — chặn đất + <4 m, cảnh báo 4–12 m, vùng rạn HS/TS quét min-pool 15″
     owned-assets.ts     # Trục TÀU: types TRUNG LẬP VENDOR cho đồ khách mua (sản phẩm/bảo hành, dịch vụ/kỳ cước, khoản chờ đóng) + getServiceDueStatus (thuần, có test)
     sdvico-catalog.ts   # Trục TÀU: nhóm catalog theo tiền tố SKU + chủ đề yêu cầu CSKH (thuần, có test)
@@ -204,7 +206,7 @@ Khi `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` chưa set:
 
 ---
 
-**Last updated**: 2026-06-10
+**Last updated**: 2026-07-26
 
 <!-- re-verified: 2026-07-25k — XOÁ route /api/tiles/contour + các export trỏ nó trong nautical-layers.ts (openseamapContourTileUrl/Source/Layer, withContourLayer). LÝ DO SỰ CỐ: thư mục TĨNH `contour` đứng cạnh route ĐỘNG `/api/tiles/[src]` làm Next 16 (Turbopack) DROP TOÀN BỘ /api/* → mọi route 404 lúc chạy (build vẫn pass, unit test vẫn xanh); /api/storms 404 nên app KHÔNG lấy được tin bão dù GDACS đang có bão NOUL trong Biển Đông. Route contour vốn là code chết (0 nơi gọi). Hải đồ + phao đèn vẫn qua proxy /api/tiles/[src]. Chặn hồi quy: src/lib/__tests__/api-routes-structure.test.ts cấm thư mục api vừa có con động vừa có con tĩnh. -->
 

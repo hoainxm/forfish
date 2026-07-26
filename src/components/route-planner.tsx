@@ -3,9 +3,10 @@
 /**
  * Trục 1 — dẫn đường tiết kiệm dầu: chọn nơi xuất phát (cảng hoặc vị trí
  * tàu) → tính tuyến tới điểm đã chạm trên bản đồ, né vùng sóng to gió ngược
- * theo dự báo từng giờ (thuật toán src/lib/route-plan.ts, dữ liệu qua adapter
- * src/lib/route-weather.ts). Tuyến vẽ lên bản đồ do component cha đảm nhận
- * qua onRoute.
+ * theo dự báo từng giờ (thuật toán src/lib/route-plan.ts chạy trong WEB
+ * WORKER qua route-plan-async.ts — main thread không đơ lúc Dijkstra; dữ
+ * liệu qua adapter src/lib/route-weather.ts, có cache 45 phút). Tuyến vẽ lên
+ * bản đồ do component cha đảm nhận qua onRoute.
  *
  * Trung thực dữ liệu: chỉ là GỢI Ý từ dự báo — máy không biết đảo, đá ngầm,
  * luồng lạch; copy luôn dặn dò hải đồ + nghe đài duyên hải.
@@ -21,13 +22,13 @@ import {
   bboxFor,
   formatHoursVN,
   haversineKm,
-  planRoute,
   vnHourIndex,
   type BBox,
   type BoatProfile,
   type LatLon,
   type RoutePlan,
 } from "@/lib/route-plan";
+import { planRouteAsync } from "@/lib/route-plan-async";
 import { fetchWeatherField } from "@/lib/route-weather";
 import { fetchDepthGrid } from "@/lib/depth-grid";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
@@ -273,8 +274,10 @@ export function RoutePlanner({
       setSpeedKn(String(boat.speedKn));
       setLph(String(boat.litersPerHour));
 
-      // độ sâu fail vẫn tính tiếp — kết quả sẽ tự cảnh báo "chưa né vùng cạn"
-      const depth = await fetchDepthGrid().catch(() => null);
+      // độ sâu fail vẫn tính tiếp — kết quả sẽ tự cảnh báo "chưa né vùng
+      // cạn". Kéo SONG SONG với thời tiết (hai nguồn độc lập, đừng bắt nhau
+      // chờ); promise await lại trong vòng nở khung vẫn chỉ fetch một lần
+      const depthPromise = fetchDepthGrid().catch(() => null);
       const departHourIdx = vnHourIndex(new Date());
       const dist = haversineKm(start, dest);
       // khung nhỏ trước cho nhanh; chưa có lối (vd phải vòng qua mũi đất)
@@ -286,8 +289,14 @@ export function RoutePlanner({
       let plan: RoutePlan | null = null;
       for (const m of margins) {
         const bbox = clampBBox(bboxFor(start, dest, m));
-        const field = await fetchWeatherField(bbox);
-        plan = planRoute({ start, dest, boat, departHourIdx, field, depth, bbox });
+        const [field, depth] = await Promise.all([
+          fetchWeatherField(bbox),
+          depthPromise,
+        ]);
+        // Dijkstra chạy trong Web Worker — màn không đơ lúc "Đang tính…"
+        plan = await planRouteAsync({
+          start, dest, boat, departHourIdx, field, depth, bbox,
+        });
         if (plan) break;
       }
       if (!plan) {

@@ -33,6 +33,7 @@
 // Mô hình là ƯỚC LƯỢNG THAM KHẢO — UI luôn dặn dò hải đồ + nghe đài.
 
 import { depthClassAt, type DepthGrid } from "@/lib/depth-grid";
+import { estimateWaveFromWind } from "@/lib/sea";
 
 export type LatLon = { lat: number; lon: number };
 
@@ -401,7 +402,7 @@ type LegInfo = {
   following: boolean;
 };
 
-type PlanArgs = {
+export type PlanArgs = {
   start: LatLon;
   dest: LatLon;
   boat: BoatProfile;
@@ -547,7 +548,11 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       };
     }
 
-    const waveM = h.waveM ?? 0;
+    // Ô biển mà GIỜ này thiếu số sóng (nguồn marine thủng) → ƯỚC từ gió thay
+    // vì coi 0 = biển lặng: 0 giả tắt cả giảm tốc lẫn phạt an toàn đúng lúc
+    // dữ liệu kém nhất. Cùng công thức estimateWaveFromWind của sea.ts (ngày
+    // sóng thủng ở điểm đi biển) — có số sóng thật thì luôn ưu tiên số thật.
+    const waveM = h.waveM ?? estimateWaveFromWind(h.windKmh);
     const hard = waveM >= HARD_WAVE_M || h.windKmh >= HARD_WIND_KMH;
     if (hard && !relaxed) return infeasible; // ≥ cấp 8 — không vẽ tuyến qua
 
