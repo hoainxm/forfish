@@ -88,7 +88,13 @@ export function parseWeatherField(
         currentKmh: num(curVels[t]) ?? 0,
         currentToDeg: num(curDirs[t]),
       }));
-      cells.push({ onSea: waves.some((v) => num(v) != null), hours });
+      // onSea đòi CẢ số sóng LẪN có giờ gió: ô có sóng mà hours rỗng (nguồn
+      // gió trả thiếu vị trí) sẽ làm hourAt trả giờ-0-an-toàn → biển lặng giả
+      // ngay giữa khơi. Coi là ô không dữ liệu (như đất) cho nội suy bỏ qua.
+      cells.push({
+        onSea: hours.length > 0 && waves.some((v) => num(v) != null),
+        hours,
+      });
     }
   }
   return {
@@ -102,8 +108,51 @@ export function parseWeatherField(
   };
 }
 
-/** Lưới thời tiết 72 giờ phủ bbox — 2 lượt gọi cho mọi mắt lưới */
-export async function fetchWeatherField(bbox: BBox): Promise<WeatherField> {
+// ── cache lượt gọi ───────────────────────────────────────────────────────
+// Bấm "Tính lại" hoặc vòng nở khung của route-planner từng REFETCH trọn bộ
+// ~0,7–1,5 MB — cache promise theo khoá bbox+ngày, TTL 45 phút (dự báo giờ
+// Open-Meteo cập nhật ~mỗi giờ). Pattern promise-cache + xoá-khi-lỗi giống
+// fetchDepthGrid.
+const CACHE_TTL_MS = 45 * 60 * 1000;
+const fieldCache = new Map<string, { at: number; field: Promise<WeatherField> }>();
+
+/**
+ * Khoá cache: bbox làm tròn 0,001° + NGÀY theo giờ VN — trục giờ của
+ * WeatherField tính từ 0h HÔM NAY giờ VN, nên bản lấy trước nửa đêm mà dùng
+ * sau nửa đêm sẽ lệch nguyên 24 tiếng → qua ngày là khoá mới.
+ */
+export function weatherFieldCacheKey(bbox: BBox, now: Date): string {
+  const day = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(now);
+  return (
+    [bbox.latMin, bbox.latMax, bbox.lonMin, bbox.lonMax]
+      .map((v) => v.toFixed(3))
+      .join(",") + `|${day}`
+  );
+}
+
+/** Lưới thời tiết 72 giờ phủ bbox — cache 45 phút, `now` truyền được để test */
+export function fetchWeatherField(
+  bbox: BBox,
+  now: Date = new Date(),
+): Promise<WeatherField> {
+  const key = weatherFieldCacheKey(bbox, now);
+  const hit = fieldCache.get(key);
+  if (hit && now.getTime() - hit.at < CACHE_TTL_MS) return hit.field;
+  // dọn bản hết hạn — phiên dài chạm nhiều nơi cũng chỉ giữ vài khung sống
+  for (const [k, v] of fieldCache) {
+    if (now.getTime() - v.at >= CACHE_TTL_MS) fieldCache.delete(k);
+  }
+  const field = fetchWeatherFieldFresh(bbox).catch((e) => {
+    fieldCache.delete(key); // lỗi mạng không được găm 45 phút
+    throw e;
+  });
+  fieldCache.set(key, { at: now.getTime(), field });
+  return field;
+}
+
+async function fetchWeatherFieldFresh(bbox: BBox): Promise<WeatherField> {
   const { lats, lons } = fieldGrid(bbox);
   // Open-Meteo nhận danh sách vị trí: nhân chéo lat×lon thành danh sách phẳng
   const latList: number[] = [];
