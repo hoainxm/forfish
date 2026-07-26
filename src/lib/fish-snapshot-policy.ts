@@ -5,6 +5,32 @@
 /** Route đọc snapshot: 30 phút đủ tươi (cron ghi mỗi ~6h), nhẹ tải DB */
 export const SNAPSHOT_REVALIDATE = 1800;
 
+/**
+ * Snapshot GIÀ hơn ngần này = coi như CRON ĐỨNG → route bỏ snapshot, tự tính live
+ * cho tươi (khỏi âm thầm dọn số cũ như số mới). Cron chạy mỗi ~24h nên 30h cho
+ * dư 6h trễ; quá 30h là bản làm mới đã quá hạn thật.
+ */
+export const SNAPSHOT_MAX_AGE_MS = 30 * 60 * 60 * 1000;
+
+/**
+ * Snapshot còn TƯƠI không — đo bằng `generated_at` (lúc cron TÍNH, không phải
+ * ngày ảnh). `generated_at` đứng yên = pipeline đã chết. Thuần để test.
+ *  · thiếu / hỏng ngày → KHÔNG tươi (đi tính live)
+ *  · ở tương lai xa (đồng hồ lệch) → KHÔNG tin được → không tươi
+ *  · trong hạn → tươi
+ */
+export function isSnapshotFresh(
+  generatedAt: string | null | undefined,
+  nowMs: number,
+): boolean {
+  if (!generatedAt) return false;
+  const t = Date.parse(generatedAt);
+  if (!Number.isFinite(t)) return false;
+  const age = nowMs - t;
+  if (age < -60 * 60 * 1000) return false;
+  return age <= SNAPSHOT_MAX_AGE_MS;
+}
+
 export interface SnapshotMeta {
   ok?: boolean;
   /** ngày ảnh cũ hơn trong SST/phù du — mốc so "không lùi ngày" */

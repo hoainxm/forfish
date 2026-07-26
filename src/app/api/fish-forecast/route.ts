@@ -1,5 +1,6 @@
 import { computeFishForecast } from "@/lib/fish-forecast-run";
 import { loadFishSnapshot } from "@/lib/fish-snapshot";
+import { isSnapshotFresh } from "@/lib/fish-snapshot-policy";
 
 /**
  * Dự báo cá (PFZ) — nay ĐỌC SNAPSHOT do cron tính sẵn, KHÔNG tự kéo nguồn nữa
@@ -23,10 +24,17 @@ export const maxDuration = 60;
 export const revalidate = 1800;
 
 export async function GET() {
-  // 1) SNAPSHOT cron tính sẵn — nhanh, không đụng nguồn treo.
   const snap = await loadFishSnapshot();
-  if (snap) return Response.json(snap);
-  // 2) Chưa có snapshot (lần đầu deploy / cron chưa chạy / bảng chưa tạo) → tự
-  //    tính như trước để KHÔNG BAO GIỜ trắng bản đồ. Chậm nhưng đúng.
-  return Response.json(await computeFishForecast());
+  // 1) Snapshot còn TƯƠI (cron chạy đều) → phục vụ ngay, nhanh.
+  if (snap && snap.ok && isSnapshotFresh(snap.generatedAt, Date.now())) {
+    return Response.json(snap);
+  }
+  // 2) Snapshot CŨ (cron đứng) / chưa có / bảng chưa tạo → tự tính LIVE cho tươi,
+  //    KHÔNG âm thầm dọn số cũ như số mới.
+  const live = await computeFishForecast();
+  if (live.ok) return Response.json(live);
+  // 3) Tính live cũng hỏng (nguồn sập): thà trả snapshot CŨ còn hơn {ok:false}
+  //    trắng bản đồ — vẫn còn hơn không có gì.
+  if (snap && snap.ok) return Response.json(snap);
+  return Response.json(live); // {ok:false} → client "chạm thử lại"
 }
