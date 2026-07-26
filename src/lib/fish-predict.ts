@@ -96,6 +96,26 @@ const SPATIAL_RADIUS_DEG = 2.5;
 const UPW_SCALE = 0.55;
 /** Chuẩn hoá dị thường KHÔNG GIAN của SSHA (m) → coldStrength 0..1. ≈ p90=0.092. */
 const COLD_SCALE = 0.09;
+/**
+ * CỔNG ĐỘ SÂU khi KHÔNG BIẾT độ sâu ô (thiếu lưới ETOPO, hoặc ô ETOPO NaN) và
+ * loài CÓ `offshore`. TRƯỚC = 1 ("không phạt oan") — nhưng như thế NGUỒN HỎNG
+ * LÀM ĐIỂM TĂNG: ô nước cạn đang bị ×0 nhảy lên ×1, cá ngừ hiện sát bờ (đúng
+ * cái bug 83a4e7e đã sửa). NAY "không biết thì bớt chắc chắn": nhân hệ số
+ * trung tính < 1 — không phạt tới 0 (không có bằng chứng ô này cạn), cũng
+ * KHÔNG thưởng đủ 1 (không có bằng chứng ô này sâu).
+ * CĂN CỨ SỐ (scripts/fish-predict-wmax-calib.mjs, ETOPO THẬT 2354 ô biển VN):
+ * kỳ vọng `deepWaterFit` theo từng dải offshore đang dùng = 0.578 (100–300 m,
+ * ngừ mắt to) · 0.592 (80–250 m, mực xà) · 0.628 (50–200 m, ngừ vây vàng/vằn/
+ * cờ) · 0.716 (30–120 m, nục heo) → trung bình 0.63 = giá trị KHÔNG THIÊN VỊ.
+ * Chốt 0.5, THẤP HƠN kỳ vọng đó có chủ đích (thiếu bằng chứng phải bớt tự tin,
+ * không phải hoà vốn). Đo kịch bản MẤT HẲN ETOPO ở 0.4/0.5/0.6/0.7: mọi loài
+ * xa bờ VẪN CÒN trong payload (≥25: ngừ vây vàng 607, mực xà 439, nục heo 644,
+ * ngừ mắt to 171 ô) nhưng gần như không còn ô ≥50 — tức bản đồ ở SÀN HIỂN THỊ
+ * 50 sẽ THƯA cá xa bờ khi mất ETOPO, đúng ý "mất bằng chứng thì bớt khẳng
+ * định"; 0.6/0.7 cũng cho kết quả gần như hệt (5–127 ô ≥50) nên chọn theo
+ * nguyên tắc chứ không phải theo mức cắt.
+ */
+export const DEPTH_UNKNOWN_FIT = 0.5;
 
 export interface SpeciesProfile {
   /** khớp đúng chuỗi `species` trong FISH_SEASONS */
@@ -306,11 +326,13 @@ export function thermoFit(d20: number): number {
 /**
  * Hợp ĐỘ SÂU ĐÁY cho loài xa bờ: nước càng sâu càng hợp — 0 khi nông < a m,
  * dốc tuyến tính a→b, 1 khi ≥ b m. `depthM` là độ sâu ĐÁY dương (mét). Thiếu
- * độ sâu (NaN) → trả 1 (không phạt oan). Đây là "high-pass" chặn loài xa bờ
- * hiện ở ô nước cạn sát bờ (đáp ứng: cá nổi lớn không sát bờ).
+ * độ sâu (NaN) → trả `DEPTH_UNKNOWN_FIT` (<1): KHÔNG BIẾT thì bớt chắc chắn,
+ * KHÔNG thưởng đủ điểm như ô đã chứng minh là sâu (trước đây trả 1 → nguồn độ
+ * sâu hỏng lại LÀM ĐIỂM TĂNG). Đây là "high-pass" chặn loài xa bờ hiện ở ô
+ * nước cạn sát bờ (đáp ứng: cá nổi lớn không sát bờ).
  */
 export function deepWaterFit(depthM: number, a: number, b: number): number {
-  if (!Number.isFinite(depthM)) return 1;
+  if (!Number.isFinite(depthM)) return DEPTH_UNKNOWN_FIT;
   if (b <= a) return depthM >= b ? 1 : 0;
   return Math.max(0, Math.min(1, (depthM - a) / (b - a)));
 }
@@ -324,20 +346,59 @@ export function deepWaterFit(depthM: number, a: number, b: number): number {
  * wMax nên cơ chế QUAN TRỌNG NHẤT của loài có ảnh hưởng đầy đủ (=scale khi x=1);
  * `scale`<1 ghìm để nhiều cơ chế vừa-phải không cộng dồn thành sáng rực.
  * terms rỗng (hoặc mọi trọng số ≤0) → 0. x ngoài [0,1] hoặc NaN → kẹp/bỏ.
+ *
+ * `wMax` — mốc chuẩn hoá trọng số. TRUYỀN TƯỜNG MINH (mức khai báo của HỒ SƠ
+ * LOÀI, `speciesWMax`) trong chấm điểm thật. KHÔNG truyền = suy từ chính
+ * `terms` (hành vi cũ, giữ cho các phép toán đơn lẻ/test).
+ * VÌ SAO PHẢI CỐ ĐỊNH: suy wMax từ terms CÒN LẠI làm NGUỒN HỎNG → ĐIỂM TĂNG —
+ * mất một lưới thì term của nó biến khỏi mảng, mốc chuẩn hoá tụt xuống, các
+ * term còn lại được nhân lên cao hơn. Đo thật (cá ngừ mắt to, `w.thermo = 0.5`
+ * là trọng số lớn nhất, ô front mạnh nhưng D20 không hợp): HYCOM chết → agg
+ * 0.240 → 0.343 (+43%). Thiếu bằng chứng phải BỚT tự tin, không phải thêm.
+ * Với wMax cố định, bỏ bớt term chỉ bỏ bớt thừa số trong tích ⇒ agg GIẢM hoặc
+ * GIỮ, không bao giờ tăng (test "monotonic" khoá tính chất này).
  */
-export function softOrHabitat(terms: [number, number][], scale: number): number {
+export function softOrHabitat(
+  terms: [number, number][],
+  scale: number,
+  wMax?: number,
+): number {
   if (terms.length === 0) return 0;
-  let wMax = 0;
-  for (const [w] of terms) if (w > wMax) wMax = w;
-  if (wMax <= 0) return 0;
+  let wm = wMax ?? 0;
+  if (wMax == null) for (const [w] of terms) if (w > wm) wm = w;
+  if (!(wm > 0)) return 0;
   let prod = 1;
   for (const [w, x] of terms) {
     if (w <= 0) continue;
     const xc = Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : 0;
-    prod *= 1 - scale * (w / wMax) * xc;
+    // kẹp tỷ lệ ≤1: wMax truyền vào có thể nhỏ hơn một trọng số lẻ (không xảy
+    // ra với hồ sơ loài, nhưng phải chặn để thừa số không âm → agg > 1)
+    prod *= 1 - scale * Math.min(1, w / wm) * xc;
   }
   return 1 - prod;
 }
+
+/**
+ * Mốc chuẩn hoá SOFT-OR của MỘT loài = trọng số LỚN NHẤT trong toàn bộ cơ chế
+ * loài KHAI BÁO (thermFront · chlFront · eddy · upw · conv · thermo), kể cả cơ
+ * chế hôm nay THIẾU dữ liệu. `w.food` KHÔNG tính: mồi đã tách ra làm giới hạn
+ * mềm (`foodLimiter`), không nằm trong soft-OR.
+ */
+export function speciesWMax(w: SpeciesProfile["w"]): number {
+  return Math.max(
+    w.thermFront,
+    w.chlFront,
+    w.eddy,
+    w.upw,
+    w.conv,
+    w.thermo ?? 0,
+  );
+}
+
+/** Precompute 1 lần lúc nạp module: tên loài → wMax cố định (chấm điểm nóng) */
+const SPECIES_WMAX: Map<string, number> = new Map(
+  SPECIES_PROFILES.map((p) => [p.species, speciesWMax(p.w)]),
+);
 
 /**
  * Hạng phân vị (0..1) của `v` trong mảng ĐÃ SẮP TĂNG DẦN — vị trí tương đối
@@ -766,8 +827,9 @@ export function buildFishForecast(
           : null;
 
         // SOFT-OR trên các CƠ CHẾ GOM CÁ (một cơ chế mạnh là đủ), loại yếu tố
-        // thiếu dữ liệu. Trọng số dùng p.w.* hiện có (chuẩn hoá theo wMax trong
-        // softOrHabitat). Mồi ĐÃ tách ra làm limiter, không nằm ở đây.
+        // thiếu dữ liệu. Mốc chuẩn hoá wMax là mức KHAI BÁO của hồ sơ loài
+        // (SPECIES_WMAX), KHÔNG suy từ các term còn lại — nếu suy thì mất nguồn
+        // sẽ kéo mốc xuống và LÀM ĐIỂM TĂNG. Mồi ĐÃ tách ra làm limiter.
         const mech: [number, number][] = [
           [p.w.thermFront, fThermFront],
           [p.w.chlFront, fChlFront],
@@ -778,18 +840,25 @@ export function buildFishForecast(
         // tầng nhiệt: chỉ tính cho loài CÓ trọng số (cá ngừ/cá nổi lớn, mực xà)
         if (thermoTerm != null && (p.w.thermo ?? 0) > 0)
           mech.push([p.w.thermo as number, thermoTerm]);
-        const agg = softOrHabitat(mech, SOFTOR_SCALE);
+        const agg = softOrHabitat(
+          mech,
+          SOFTOR_SCALE,
+          SPECIES_WMAX.get(p.species) ?? speciesWMax(p.w),
+        );
         // TRUNG THỰC: loài đáy/rạn ảnh vệ tinh ít nói được → kéo tổ hợp về trung
         // tính, không vẽ điểm nóng giả. Loài nổi (high) giữ nguyên.
         const conf = SURFACE_CONF[p.surfaceSignal];
         const aggEff = conf * agg + (1 - conf) * NEUTRAL_AGG;
         // nền sàn: mùa+nhiệt+mồi vẫn quyết điểm ngay cả khi cơ chế trơ
         const habitat = AGG_FLOOR + (1 - AGG_FLOOR) * aggEff;
-        // CỔNG ĐỘ SÂU: loài xa bờ (offshore) ở nước cạn → điểm kéo về 0
-        const depthFit =
-          p.offshore && cellDepthM != null
+        // CỔNG ĐỘ SÂU: loài xa bờ (offshore) ở nước cạn → điểm kéo về 0.
+        // KHÔNG BIẾT độ sâu (mất lưới ETOPO / ô NaN) → DEPTH_UNKNOWN_FIT (<1),
+        // KHÔNG phải ×1: mất nguồn thì bớt chắc chắn chứ không được thưởng oan.
+        const depthFit = p.offshore
+          ? cellDepthM != null
             ? deepWaterFit(cellDepthM, p.offshore[0], p.offshore[1])
-            : 1;
+            : DEPTH_UNKNOWN_FIT
+          : 1;
         const fit = tFit * foodLimiter * habitat * depthFit;
         if (fit > 0)
           scored.push({ short: p.short, fit, low: p.surfaceSignal === "low" });

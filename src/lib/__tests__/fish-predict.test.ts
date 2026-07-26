@@ -12,7 +12,9 @@ import {
   percentileRank,
   softOrHabitat,
   spatialAnomaly,
+  speciesWMax,
   trapezoid,
+  DEPTH_UNKNOWN_FIT,
   SPECIES_META,
   SPECIES_PROFILES,
   thermoFit,
@@ -387,8 +389,21 @@ describe("tầng nhiệt HYCOM tăng điểm cá ngừ", () => {
     tlats,
     tlons,
   );
+  // nước sâu 2500 m: giữ CỔNG ĐỘ SÂU mở hết (×1) để test cô lập ĐÚNG tác dụng
+  // của tầng nhiệt — thiếu lưới độ sâu thì loài xa bờ bị nhân DEPTH_UNKNOWN_FIT
+  const deepGrid = grid(
+    [
+      [2500, 2500, 2500],
+      [2500, 2500, 2500],
+      [2500, 2500, 2500],
+    ],
+    tlats,
+    tlons,
+  );
   it("D20 vùng tốt (120 m) → điểm 'ngừ vây vàng' cao hơn khi KHÔNG có tầng nhiệt", () => {
-    const base = buildFishForecast(warmOff, clearChl, null, 6);
+    const base = buildFishForecast(warmOff, clearChl, null, 6, {
+      depth: deepGrid,
+    });
     const d20 = grid(
       [
         [120, 120, 120],
@@ -398,7 +413,10 @@ describe("tầng nhiệt HYCOM tăng điểm cá ngừ", () => {
       tlats,
       tlons,
     );
-    const withT = buildFishForecast(warmOff, clearChl, null, 6, { thermo: d20 });
+    const withT = buildFishForecast(warmOff, clearChl, null, 6, {
+      thermo: d20,
+      depth: deepGrid,
+    });
     const no =
       base.cells.find((c) => c.sp["ngừ vây vàng"])?.sp["ngừ vây vàng"] ?? 0;
     const yes =
@@ -411,13 +429,18 @@ describe("tầng nhiệt HYCOM tăng điểm cá ngừ", () => {
 });
 
 describe("deepWaterFit (cổng độ sâu loài xa bờ)", () => {
-  it("nông <a → 0, sâu ≥b → 1, dốc tuyến tính ở giữa, NaN → 1 (không phạt oan)", () => {
+  it("nông <a → 0, sâu ≥b → 1, dốc tuyến tính ở giữa", () => {
     expect(deepWaterFit(30, 50, 200)).toBe(0);
     expect(deepWaterFit(50, 50, 200)).toBe(0);
     expect(deepWaterFit(125, 50, 200)).toBeCloseTo(0.5, 5);
     expect(deepWaterFit(200, 50, 200)).toBe(1);
     expect(deepWaterFit(2000, 50, 200)).toBe(1);
-    expect(deepWaterFit(NaN, 50, 200)).toBe(1);
+  });
+  it("KHÔNG BIẾT độ sâu (NaN) → hệ số trung tính <1, KHÔNG thưởng đủ như ô đã chứng minh là sâu", () => {
+    // hành vi CŨ trả 1 = mất lưới độ sâu lại LÀM ĐIỂM TĂNG (ô cạn ×0 → ×1)
+    expect(deepWaterFit(NaN, 50, 200)).toBe(DEPTH_UNKNOWN_FIT);
+    expect(DEPTH_UNKNOWN_FIT).toBeGreaterThan(0); // không xoá hẳn loài
+    expect(DEPTH_UNKNOWN_FIT).toBeLessThan(1); // không thưởng oan
   });
 });
 
@@ -454,6 +477,76 @@ describe("softOrHabitat (soft-OR tổ hợp cơ chế)", () => {
   it("x ngoài [0,1] / NaN → kẹp (không phá kết quả)", () => {
     expect(softOrHabitat([[0.3, 2]], 0.4)).toBeCloseTo(0.4, 10); // kẹp về 1
     expect(softOrHabitat([[0.3, NaN]], 0.4)).toBe(0); // NaN → 0
+  });
+});
+
+describe("softOrHabitat — wMax CỐ ĐỊNH: nguồn hỏng KHÔNG được làm điểm tăng", () => {
+  it("wMax truyền vào thay cho suy-từ-terms; bỏ term có trọng số LỚN NHẤT → điểm GIẢM", () => {
+    const full: [number, number][] = [
+      [0.5, 0], // cơ chế nặng nhất nhưng hôm nay x=0 (vd D20 không hợp)
+      [0.3, 0.8],
+      [0.1, 0.5],
+    ];
+    const W = 0.5;
+    const withHeavy = softOrHabitat(full, 0.4, W);
+    // nguồn của term nặng CHẾT → term biến khỏi mảng
+    const broken = full.slice(1);
+    expect(softOrHabitat(broken, 0.4, W)).toBeLessThanOrEqual(withHeavy);
+    // hành vi CŨ (tự suy wMax) TĂNG điểm — đây chính là lỗi đã sửa
+    expect(softOrHabitat(broken, 0.4)).toBeGreaterThan(withHeavy);
+  });
+  it("MONOTONIC: bỏ dần từng term (wMax cố định) → agg không bao giờ tăng", () => {
+    const terms: [number, number][] = [
+      [0.35, 0.6],
+      [0.5, 0.2],
+      [0.15, 0.9],
+      [0.25, 0.4],
+      [0.3, 0.75],
+    ];
+    const W = 0.5;
+    let prev = softOrHabitat(terms, 0.4, W);
+    for (let k = terms.length - 1; k >= 0; k--) {
+      const kept = terms.slice(0, k);
+      const now = softOrHabitat(kept, 0.4, W);
+      expect(now).toBeLessThanOrEqual(prev + 1e-12);
+      prev = now;
+    }
+    expect(prev).toBe(0); // hết term → 0
+  });
+  it("wMax cố định = wMax suy-ra khi ĐỦ NGUỒN (không đổi hành vi ngày lành)", () => {
+    const terms: [number, number][] = [[0.5, 0.4], [0.3, 0.9], [0.2, 0.1]];
+    expect(softOrHabitat(terms, 0.4, 0.5)).toBeCloseTo(
+      softOrHabitat(terms, 0.4),
+      12,
+    );
+  });
+  it("wMax nhỏ hơn một trọng số lẻ → kẹp tỷ lệ, kết quả vẫn trong [0,1]", () => {
+    const v = softOrHabitat([[0.9, 1]], 0.4, 0.3);
+    expect(v).toBeGreaterThanOrEqual(0);
+    expect(v).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("speciesWMax (mốc chuẩn hoá theo HỒ SƠ loài)", () => {
+  it("lấy max các cơ chế KHAI BÁO, KHÔNG tính w.food (mồi là giới hạn mềm)", () => {
+    expect(
+      speciesWMax({
+        food: 0.9,
+        thermFront: 0.3,
+        chlFront: 0.15,
+        eddy: 0.35,
+        upw: 0.05,
+        conv: 0.15,
+        thermo: 0.5,
+      }),
+    ).toBe(0.5);
+    // thermo vắng mặt = 0
+    expect(
+      speciesWMax({ food: 0.8, thermFront: 0.6, chlFront: 0.65, eddy: 0.25, upw: 0.65, conv: 0.3 }),
+    ).toBe(0.65);
+  });
+  it("MỌI loài có wMax > 0 (nếu không soft-OR trả 0 → loài biến mất)", () => {
+    for (const p of SPECIES_PROFILES) expect(speciesWMax(p.w)).toBeGreaterThan(0);
   });
 });
 
@@ -548,10 +641,92 @@ describe("cổng độ sâu: cá xa bờ KHÔNG hiện ở nước cạn sát b�
     expect(deep).toBeGreaterThan(shallow);
     expect(shallow).toBe(0); // 30m < 50 → deepWaterFit 0 → loại
   });
-  it("KHÔNG có lưới độ sâu → không chặn (giữ nguyên hành vi cũ)", () => {
+  it("MẤT lưới độ sâu: điểm ô NƯỚC SÂU bị hạ (không còn coi như đã chứng minh là sâu)", () => {
     const f = buildFishForecast(warm, clear, null, 6, { thermo: d20 });
     const s = f.cells.find((c) => c.sp["ngừ vây vàng"])?.sp["ngừ vây vàng"] ?? 0;
-    expect(s).toBeGreaterThan(0);
+    expect(s).toBeLessThan(scoreOf(2000));
+  });
+});
+
+describe("MẤT NGUỒN → điểm GIẢM hoặc GIỮ, tuyệt đối KHÔNG TĂNG (buildFishForecast)", () => {
+  // lưới 4×4 có cấu trúc (front nhiệt, front mồi, xoáy, nước trồi, hội tụ) để
+  // mọi cơ chế đều ĐANG SỐNG ở bản đủ nguồn — bỏ dần từng nguồn mới có nghĩa
+  const la = [11.0, 11.25, 11.5, 11.75];
+  const lo = [110.0, 110.25, 110.5, 110.75];
+  const g4 = (f: (i: number, j: number) => number) =>
+    grid(
+      la.map((_, i) => lo.map((__, j) => f(i, j))),
+      la,
+      lo,
+    );
+  const sst = g4((i, j) => 27 + 0.6 * i + 0.3 * j);
+  const chl = g4((i, j) => 0.15 + 0.12 * j + 0.05 * i);
+  const sla = g4((i, j) => 0.02 * i - 0.03 * j);
+  const anom = g4((i, j) => -0.5 + 0.35 * i - 0.2 * j);
+  const cur = {
+    u: g4((i, j) => 0.05 - 0.04 * j + 0.01 * i),
+    v: g4((i) => 0.06 - 0.05 * i),
+  };
+  const thermo = g4((i, j) => 60 + 40 * i + 25 * j);
+  const depth = g4(() => 2500);
+  const base = { anom, cur, thermo, depth };
+  const run = (over: Parameters<typeof buildFishForecast>[4]) =>
+    buildFishForecast(sst, chl, sla, 6, { ...base, ...over });
+  const table = (f: ReturnType<typeof buildFishForecast>) => {
+    const m = new Map<string, number>();
+    for (const c of f.cells)
+      for (const [k, v] of Object.entries(c.sp)) m.set(`${c.lat},${c.lon}|${k}`, v);
+    return m;
+  };
+
+  const full = table(run({}));
+  const scenarios: [string, Parameters<typeof buildFishForecast>[4]][] = [
+    ["mất tầng nhiệt (HYCOM)", { thermo: null }],
+    ["mất dị thường nhiệt (nước trồi)", { anom: null }],
+    ["mất dòng chảy (hội tụ)", { cur: null }],
+    ["mất tầng nhiệt + dị thường nhiệt", { thermo: null, anom: null }],
+    ["mất tầng nhiệt + dị thường + dòng chảy", { thermo: null, anom: null, cur: null }],
+  ];
+  it("bản ĐỦ NGUỒN có điểm để so (test không rỗng)", () => {
+    expect(full.size).toBeGreaterThan(20);
+  });
+  for (const [label, over] of scenarios)
+    it(`${label}: KHÔNG ô/loài nào tăng điểm`, () => {
+      const broken = table(run(over));
+      const risen: string[] = [];
+      for (const [key, v] of broken)
+        if (v > (full.get(key) ?? 0)) risen.push(`${key} ${full.get(key) ?? 0}→${v}`);
+      expect(risen).toEqual([]);
+    });
+  it("mất SSHA (rìa xoáy) — cũng không ô/loài nào tăng", () => {
+    const noSla = table(buildFishForecast(sst, chl, null, 6, base));
+    const risen: string[] = [];
+    for (const [key, v] of noSla)
+      if (v > (full.get(key) ?? 0)) risen.push(`${key} ${full.get(key) ?? 0}→${v}`);
+    expect(risen).toEqual([]);
+  });
+
+  // ── CỔNG ĐỘ SÂU khi MẤT lưới ETOPO ────────────────────────────────────────
+  const best = (f: ReturnType<typeof buildFishForecast>, k: string) =>
+    Math.max(0, ...f.cells.map((c) => c.sp[k] ?? 0));
+  it("mất lưới độ sâu: loài xa bờ KHÔNG biến mất (còn trong payload) nhưng điểm GIẢM", () => {
+    const deep = best(run({}), "ngừ vây vàng"); // ô đã chứng minh sâu 2500 m
+    const unknown = best(run({ depth: null }), "ngừ vây vàng");
+    expect(deep).toBeGreaterThan(50);
+    expect(unknown).toBeLessThan(deep);
+    expect(unknown).toBeGreaterThanOrEqual(25); // vẫn nằm trong payload
+    // TRẦN CỨNG: thiếu độ sâu thì điểm loài xa bờ ≤ 100·DEPTH_UNKNOWN_FIT = 50
+    // → mất ETOPO KHÔNG thể tự dựng lại điểm nóng cá ngừ ở sàn hiển thị 50
+    expect(unknown).toBeLessThanOrEqual(Math.round(100 * DEPTH_UNKNOWN_FIT));
+  });
+  it("ô ETOPO khuyết (NaN) xử y như MẤT lưới — không nhảy lên ×1", () => {
+    const nan = { ...depth, values: depth.values.map((r) => r.map(() => NaN)) };
+    expect(best(run({ depth: nan }), "ngừ vây vàng")).toBe(
+      best(run({ depth: null }), "ngừ vây vàng"),
+    );
+  });
+  it("loài KHÔNG có cổng xa bờ không bị ảnh hưởng khi mất lưới độ sâu", () => {
+    expect(best(run({ depth: null }), "cá nục")).toBe(best(run({}), "cá nục"));
   });
 });
 
