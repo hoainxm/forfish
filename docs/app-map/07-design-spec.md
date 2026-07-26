@@ -341,6 +341,32 @@ Thứ tự khi `fetchSeaPoint` mất mạng: (1) bản ĐẦY ĐỦ đã lưu c�
 
 **E. Trần bộ nhớ** — ô bản đồ đi qua `/api/tiles/*` được giữ trong kho riêng `sdfish-tiles-v1`, **trần 600 ô (~12 MB)**, quá thì bỏ ô cũ nhất. Xem bản đồ lâu KHÔNG được làm đầy máy bà con (cùng nguyên tắc với "máy hết chỗ nhớ" ở §10.2).
 
+### 10.5 Thanh ngày KHÔNG điều khiển lớp cá — vì đo được là bản đồ cá không đổi (2026-07-26)
+
+Chủ dự án muốn bản đồ cá chạy **hôm nay → +3 ngày** theo thanh ngày. **ĐO TRƯỚC KHI DỰNG** (`scripts/fish-3day-probe.mjs`) rồi mới quyết — và số đo nói: **KHÔNG dựng**.
+
+**Đã đo gì.** Dựng SST cho D+1..D+3 bằng neo vệ tinh + xu hướng nhiệt Copernicus (`lib/sst-tendency.ts`, hệ số α cross-validated từ `src/data/copernicus-tendency-skill.json`), giữ nguyên mọi trường khác (phù du KHÔNG có kỹ năng xu hướng nên phải giữ ảnh hôm nay), rồi chấm lại `buildFishForecast` và so bản đồ.
+
+| Ngày ảnh | Jaccard(ô ≥50) D+3 | ô đổi trạng thái điểm nóng D+3 | tb \|Δđiểm\| | %điểm nóng D+0 → D+3 |
+|---|---|---|---|---|
+| 24/7/2026 (hè) | 0,926 | **1,64 %** (37/2252) | 0,51/100 | 22,1 % → 20,9 % |
+| 10/1/2026 (đông) | 0,982 | **0,52 %** (12/2299) | 0,12/100 | 28,5 % → 28,2 % |
+| 8/4/2026 (chuyển mùa) | 0,967 | **0,53 %** (12/2250) | 0,27/100 | 15,9 % → 15,7 % |
+
+Ngưỡng ĐẶT TRƯỚC khi chạy: "đổi đáng kể" ⇔ Jaccard < 0,90 **hoặc** ≥5 % ô đổi trạng thái ở D+3. **Không mùa nào chạm ngưỡng.** Lý do vật lý: nhiệt mặt biển chỉ đổi ~0,4 °C sau 3 ngày, hãm theo α còn ~0,1–0,24 °C — quá nhỏ so với bề rộng cổng nhiệt của loài (vài °C).
+
+**Quyết định UI**: lớp cá giữ **MỘT bản** (ảnh vệ tinh mới nhất) cho mọi ngày trên thanh ngày. **KHÔNG dựng 4 bản, KHÔNG làm thanh trượt giả** — cho bà con kéo ngày mà bản đồ y hệt là nói dối bằng hình.
+
+| Trạng thái | Chữ trong sheet (chạm điểm, dưới khối cá) |
+|---|---|
+| Đang xem **hôm nay** (`daysAhead = 0`) | KHÔNG thêm chữ gì — màn hình giữ gọn (quyết định 2026-07-25n) |
+| Đang xem **+1..+3 ngày** | "Chỗ cá ít đổi trong vài ngày tới — cái đổi là gió, sóng." |
+| Đang xem **> +3 ngày** (thanh ngày tới 16) | "Lớp cá vẫn là ảnh mới nhất, không phải dự báo riêng cho ngày này — xa ngày thì xem gió, sóng." |
+
+- Mốc 3 ngày là hằng `FISH_STABLE_DAYS` trong `fishing-map-view.tsx` — **đúng bằng tầm đã đo**; xa hơn thì chưa đo nên phải đổi giọng, KHÔNG được nói "ít đổi".
+- **KHÔNG badge thường trực**, không chip mới, không dòng trên bản đồ. Chữ chỉ hiện khi bà con ĐÃ kéo sang ngày khác VÀ đang đọc thẻ cá — đúng lúc câu hỏi "sao kéo ngày mà bản đồ không đổi?" xuất hiện.
+- Thứ ĐỔI theo ngày vẫn là gió/sóng (đã có kỹ năng đo được ở `src/data/forecast-skill.json`, dòng độ tin theo tầm ngày giữ nguyên).
+
 ---
 
 **Last updated**: 2026-06-16
@@ -382,3 +408,4 @@ Thứ tự khi `fetchSeaPoint` mất mạng: (1) bản ĐẦY ĐỦ đã lưu c�
 <!-- re-verified: 2026-07-25n — GỌN MÀN HÌNH (xem §10.2, chủ dự án xem app thật thấy rối): (1) BỎ HẲN mọi chỗ hiện tuổi lớp cá — badge trên map (cả biến thể "Bản đồ cá CŨ" nền vàng), khối warn panel Ngư trường, đuôi "Ảnh ngày…/lấy về…" trong thẻ cá ở sheet; xoá lib/fish-age.ts + test (không còn ai dùng). /api/fish-forecast VẪN trả generatedAt nhưng KHÔNG hiển thị (giữ để đối chiếu). (2) BỎ nút "Chuẩn bị đi biển" + thẻ xanh "Xong. Máy giữ dự báo…" + dòng thường trực "Trong máy: …" → TỰ tải khi vào trang, báo 1 dòng tự ẩn sau 5s ("Đang tải dự báo…" / "Đã lưu dự báo tới ngày D/M." / "Chưa tải được dự báo — chưa có sóng."), kiểu hiển thị mượn storm-banner. (3) TIẾT CHẾ DATA: lib/pretrip-auto.ts shouldAutoPretrip — chỉ tự chạy khi bản cũ hơn PRETRIP_MIN_INTERVAL_MS=6h hoặc chưa có; còn mới/offline → im lặng; 1 lần mỗi lần mở app; mốc ở forfish.pretrip.lastRunAt.v1. lib/pretrip.ts giữ nguyên phần tải (bỏ 2 hàm chữ savedLine/doneLine vì không còn ai hiện). -->
 <!-- re-verified: 2026-07-26 — THÊM §10.3 D: một dòng tự ẩn 5s khi bản đồ cá dựng từ ảnh CŨ hoặc thiếu nhiều nguồn (`sources.sst/chl.stale` hoặc `dataQuality < 0,5`). KHÔNG badge thường trực — giữ quyết định 2026-07-25n (màn hình gọn, không hiện tuổi lớp cá); dùng lại đúng chip + NOTIFY_HIDE_MS của mục C, không thêm kiểu mới. Chữ + luật ở lib/source-registry.ts (lowQualityNote, có test từng nhánh). -->
 <!-- re-verified: 2026-07-25p — CHẠM ĐIỂM LÚC MẤT SÓNG + notify mất sóng tự ẩn (xem §10.3 C + §10.4; chủ dự án bật chế độ máy bay trên bản production): (1) fetchSeaPoint mất mạng, chỗ chưa từng xem → DỰNG số từ LƯỚI ĐÃ LƯU (loadLongestSavedGrid d16→d7→d3 + nearestGridCell, trần nửa-bước-lưới TỪNG CHIỀU GRID_SNAP_MAX_LAT_DEG≈0,86°/GRID_SNAP_MAX_LON_DEG≈1,06°, xa hơn → giữ nguyên câu "chưa có số nào lưu trong máy"); gộp mốc giờ theo NGÀY lấy gió max + sóng max. Bất biến "KHÔNG mượn số toạ độ khác" giữ nguyên — ô lưới phủ đúng chỗ chạm. (2) TRUNG THỰC: SeaPointDay cho phép score/level/precipMm/wmoCode = null; bản từ lưới KHÔNG chấm điểm đi biển, ẩn chấm tình trạng biển + màu level (về trung tính --field/--navy), ẩn thẻ "Gió/Sóng lúc này" (windKmh null), ẩn mưa/dông; chữ warn "Số gió, sóng lấy từ bản đã lưu trong máy (lưu lúc HH:MM ngày D/M). Chưa có mưa, dông cho chỗ này." (3) Nhắc mất sóng: thẻ vàng 2 dòng thường trực → CHIP 1 dòng "Mất sóng — đang dùng bản đồ lưu trong máy." / "Mạng yếu — …", tự ẩn sau NOTIFY_HIDE_MS=5s (xuất từ pretrip-auto-notify), hiện lại khi trạng thái đổi, không lặp khi vẫn đang mất sóng. -->
+<!-- re-verified: 2026-07-26b — THÊM §10.5: bản đồ cá 3 ngày — ĐO TRƯỚC KHI DỰNG rồi KHÔNG DỰNG. scripts/fish-3day-probe.mjs dựng D+1..D+3 bằng neo vệ tinh + xu hướng nhiệt Copernicus (lib/sst-tendency.ts, α cross-validated) trên 3 mùa THẬT: Jaccard(ô≥50) ở D+3 = 0,926 (hè) / 0,982 (đông) / 0,967 (chuyển mùa), ô đổi trạng thái điểm nóng chỉ 0,5–1,6 %, |Δđiểm| trung bình 0,1–0,5 trên thang 100 — KHÔNG mùa nào chạm ngưỡng đặt trước (J<0,90 hoặc ≥5 % ô đổi). ⇒ lớp cá GIỮ MỘT BẢN cho mọi ngày, KHÔNG dựng thanh trượt giả. UI đổi ĐÚNG MỘT CHỖ: trong sheet chạm điểm, khi daysAhead>0 thêm 1 dòng phụ ("Chỗ cá ít đổi trong vài ngày tới — cái đổi là gió, sóng."; >3 ngày đổi giọng "vẫn là ảnh mới nhất, không phải dự báo riêng cho ngày này"). KHÔNG badge thường trực, không chip mới, hôm nay KHÔNG thêm chữ (giữ màn hình gọn 2026-07-25n). Route /api/fish-forecast KHÔNG đổi payload, KHÔNG gọi Copernicus lúc chạy (đo thật cold 3,4 s / 389 KB / 2239 ô / 22,1 % điểm nóng). -->

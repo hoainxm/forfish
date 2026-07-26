@@ -757,6 +757,16 @@ export function buildFishForecast(
     bottomTemp?: ScalarGrid | null;
     /** lưới NHIỆT tầng ~250 m (°C) — HYCOM; cổng nhiệt cá ngừ mắt to (tempSource "deep") */
     deepTemp?: ScalarGrid | null;
+    /**
+     * Lưới SST dùng RIÊNG để tính FRONT nhiệt (|gradient|). Mặc định = `sst`.
+     *
+     * Dùng khi `sst` là bản DỰ BÁO ngày mai (neo vệ tinh + xu hướng Copernicus,
+     * xem lib/sst-tendency.ts): đo thật cho thấy neo xu hướng LÀM XẤU front
+     * (frontCorrPred < frontCorrPersist ở MỌI tầm) trong khi vẫn CẢI THIỆN giá
+     * trị nhiệt. Vì vậy giá trị đi theo dự báo, còn front giữ ảnh vệ tinh gốc.
+     * Lưới phải CÙNG kích thước với `sst`; khác cỡ thì bỏ qua (dùng `sst`).
+     */
+    frontSst?: ScalarGrid | null;
   },
 ): FishForecast {
   const anom = extra?.anom ?? null;
@@ -765,7 +775,13 @@ export function buildFishForecast(
   const depth = extra?.depth ?? null;
   const bottomTemp = extra?.bottomTemp ?? null;
   const deepTemp = extra?.deepTemp ?? null;
-  const thermFront = frontStrength(sst);
+  const frontSrc =
+    extra?.frontSst &&
+    extra.frontSst.lats.length === sst.lats.length &&
+    extra.frontSst.lons.length === sst.lons.length
+      ? extra.frontSst
+      : sst;
+  const thermFront = frontStrength(frontSrc);
   const logChl = logChlGrid(chl);
   const chlFront = gradientStrength(logChl, 0.25);
   // rìa xoáy = GRADIENT của SSHA (giữ nguyên — cấu trúc cục bộ sẵn có)

@@ -2,7 +2,7 @@
 
 > Load khi: lỗi liên quan nguồn dữ liệu ngoài (timeout, rate limit, đổi format, token hết hạn), thêm nguồn mới, hoặc audit phụ thuộc.
 
-covers: src/lib/tile-proxy.ts, src/lib/offline-basemap.ts, src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/pretrip.ts, src/lib/forecast-ensemble.ts, src/lib/forecast-quality.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/hycom.ts, src/lib/copernicus.ts, src/lib/source-registry.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts
+covers: src/lib/tile-proxy.ts, src/lib/offline-basemap.ts, src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/pretrip.ts, src/lib/forecast-ensemble.ts, src/lib/forecast-quality.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/hycom.ts, src/lib/copernicus.ts, src/lib/source-registry.ts, src/lib/sst-tendency.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts
 last_verified: 2026-07-26
 ttl_days: 180
 gate: warn
@@ -19,6 +19,7 @@ gate: warn
 <!-- re-verified: 2026-07-25k — NỀN BẢN ĐỒ LÚC MẤT SÓNG: (a) glyph font BỎ CDN fonts.openmaptiles.org (dò 2026-07-25: trả HTML redirect, không phải .pbf → nhãn số mét chưa từng hiện) → tự host public/fonts; (b) tile hải đồ EMODnet + phao OpenSeaMap ĐỔI ĐƯỜNG ĐI: client → /api/tiles/{chart|seamark}/{z}/{x}/{y} (same-origin, SW giữ được, danh sách TRẮNG trong lib/tile-proxy.ts); (c) nền CARTO giữ cross-origin cố ý (ToS) → bù bằng nền tối giản trong máy vn-coast.v1.json; (d) proxy contour cũ vẫn CHƯA nối vào style, có lý do. -->
 <!-- re-verified: 2026-07-26b — CÁCH DEGRADE ĐỔI (không thêm/bớt nguồn, không đổi URL/UA/timeout): thiếu nguồn nay phải làm ĐIỂM GIẢM chứ không tăng. wMax của soft-OR cố định theo hồ sơ loài (trước suy từ term còn lại → mất nguồn = điểm tăng +43%); thiếu lưới độ sâu ETOPO → DEPTH_UNKNOWN_FIT 0.5 thay vì bỏ cổng. Cột "Khi hỏng" của HYCOM + ETOPO đã sửa cho khớp. -->
 <!-- re-verified: 2026-07-25n — TẢI SẴN nay TỰ CHẠY (bỏ nút "Chuẩn bị đi biển"): KHÔNG nguồn/endpoint/timeout mới, vẫn đúng fetchSeaPoint / fetchFishForecast / fetchForecastGrid chạy TUẦN TỰ, ~2,5–3 MB/lượt. ĐIỂM CẦN NHỚ về tải trọng nguồn: trước bà con chủ động bấm, nay máy tự gọi khi VÀO màn Ra khơi → cửa chặn BẮT BUỘC ở lib/pretrip-auto.ts (shouldAutoPretrip): chỉ chạy khi chưa có bản nào hoặc bản cũ hơn PRETRIP_MIN_INTERVAL_MS=6h (khớp ISR 6h /api/fish-forecast), navigator.onLine=false thì không thử, và chỉ 1 lần mỗi lần mở app → trần thực tế ~4 lượt/máy/ngày thay vì mỗi lần mở màn. Sửa cửa chặn này = đổi tải trọng lên Open-Meteo/ERDDAP, phải cân nhắc kèm. -->
+<!-- re-verified: 2026-07-26b — THÊM mục "Copernicus `thetao` — chỉ dùng ĐỂ ĐO, KHÔNG vào runtime": kho ARCO ngày cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m (downsampled4) dùng cho scripts/fish-3day-probe.mjs, chi phí đo thật 4,58 MB / 7,0–7,3 s cho 4 mốc ngày. KHÔNG thêm fetch nào vào /api/fish-forecast (route vẫn 11 fetch NOAA/HYCOM/ETOPO, cold 3,4 s đo thật) vì bản đồ cá D+3 gần như không đổi. lib mới src/lib/sst-tendency.ts vào `covers`; fail-safe: thiếu Copernicus → persistence, không vỡ. -->
 <!-- re-verified: 2026-07-26 — SỔ NGUỒN + SO NGÀY (lib/source-registry.ts): mỗi TRƯỜNG của /api/fish-forecast nay có DANH SÁCH ứng viên, chạy song song, lấy bản có ngày MỚI NHẤT, quá tuổi thì vẫn dùng nhưng gắn `stale`. THÊM 2 nguồn ERDDAP dự phòng ĐÃ FETCH THỬ THẬT (200, ~255–300 KB, 3–4 s): SST `noaacrwsstDaily` (CoralTemp, **đơn vị °C không kelvin**) + phù du `noaacwNPPN20S3ASCIDINEOFDaily` (thêm cảm biến Sentinel-3 OLCI). Tổng fetch 9 → 11, VẪN song song nên wall-clock không đổi (đo thật 2026-07-26: route trả trong ~5 s ấm cache). Payload thêm `sources` / `dataQuality` / `targetDate`. -->
 **Last updated**: 2026-07-26
 
@@ -99,6 +100,18 @@ gate: warn
 | Tự tương quan không gian của phân kỳ (trễ 1 ô) | **0,466** (cấu trúc thật) | 0,433 | **0,006** (nhiễu răng cưa) |
 
 Tự tương quan ≈ 0 của NOAA là bằng chứng mạnh nhất: trường phân kỳ của nó KHÔNG có cấu trúc không gian. Đối chứng `uo` cho thấy chênh lệch đến từ **loại mô hình** (mô hình 3D có nước trồi/chìm thật) chứ không phải từ việc cộng thêm sóng + triều.
+
+### Copernicus `thetao` (nhiệt mặt) — chỉ dùng ĐỂ ĐO, **KHÔNG vào runtime** (2026-07-26)
+
+> Đọc: [`src/lib/sst-tendency.ts`](../../../src/lib/sst-tendency.ts) · đo lại: `npx tsx scripts/fish-3day-probe.mjs [--date=YYYY-MM-DD]` · bảng kỹ năng: `src/data/copernicus-tendency-skill.json`.
+
+| Mục | Nội dung |
+|---|---|
+| Dataset | `GLOBAL_ANALYSISFORECAST_PHY_001_024` / `cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m_202406`, asset `downsampled4` (bucket `mdl-arco-time-012`) — biến `thetao`, trung bình NGÀY, chọn tầng `elevation` gần mặt nhất |
+| Auth / attribution | Như bảng `merged-uv` ở trên: không key, bắt buộc ghi *"Generated using E.U. Copernicus Marine Service Information"* nếu hiển thị |
+| Chi phí ĐO THẬT | `.zmetadata` + trục (time/elevation/lat/lon) + **1 chunk ≈ 668 KB cho MỖI ngày** ⇒ D+0..D+3 = **4,58 MB / 7,0–7,3 s** trên dây. Cộng vào route hiện tại (~3,4 s cold) là **gấp ~3 lần thời gian** cho một thứ không đổi được bản đồ |
+| Trạng thái | **KHÔNG nối vào `/api/fish-forecast`.** Đo xong thấy kéo nhiệt tới +3 ngày chỉ làm 0,5–1,6 % số ô đổi trạng thái điểm nóng (Jaccard 0,93–0,98, 3 mùa) ⇒ không đáng tiền băng thông lẫn thời gian route. Xem 01-product + 07-design-spec §10.5 |
+| Nếu sau này nối vào | `anchoredSstGrid()` đã fail-safe sẵn: thiếu chunk / ô NaN / snap xa > 0,5° / biên độ > 5 °C đều **rơi êm về persistence** (bản đồ chạy y như hôm nay). Phải bọc `.catch → null` như `fetchCopernicusCurrents` và giữ ngân sách route 60 s |
 
 ## Quy tắc
 

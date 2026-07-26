@@ -192,6 +192,16 @@ const DEPTH_NOTE: Partial<Record<DepthClass, { text: string; danger: boolean }>>
 
 const MAP_LAYER_KEY = "forfish.maplayer.v1";
 
+/**
+ * Số ngày mà "chỗ cá ít đổi" là câu ĐÃ ĐO ĐƯỢC, không phải câu nói cho vui.
+ * scripts/fish-3day-probe.mjs dựng bản đồ cá cho D+1..D+3 bằng neo vệ tinh +
+ * xu hướng nhiệt Copernicus (α cross-validated, src/data/copernicus-tendency-skill.json)
+ * rồi so với bản hôm nay: chỉ 0,5–1,6 % số ô đổi trạng thái điểm nóng, Jaccard
+ * 0,93–0,98 trên cả 3 mùa đã thử ⇒ lớp cá GIỮ MỘT BẢN, không tách theo ngày.
+ * Xa hơn mốc này thì chưa đo ⇒ UI phải đổi giọng (xem chỗ dùng hằng số này).
+ */
+const FISH_STABLE_DAYS = 3;
+
 // Màu lớp cá → ramp heatmap. NỘI DUNG dữ liệu bản đồ (khớp màu loài), không
 // phải token UI — ngoại lệ cho phép theo design-system §5.
 function hexToRgb(hex: string): [number, number, number] {
@@ -1960,6 +1970,21 @@ export default function FishingMapView() {
                           <p className="mt-0.5 text-[0.8125rem] leading-snug text-foreground/70">
                             Vùng tô màu trên bản đồ là chỗ tương tự, hồng tâm là
                             chỗ nổi nhất. Tham khảo, không phải cam kết.
+                          </p>
+                        )}
+                        {/* KÉO SANG NGÀY KHÁC: nói thật vì sao lớp cá KHÔNG đổi
+                            theo thanh ngày. ĐÃ ĐO (scripts/fish-3day-probe.mjs,
+                            3 mùa: 7/2026, 1/2026, 4/2026): kéo nhiệt tới +3 ngày
+                            bằng xu hướng Copernicus chỉ làm 0,5–1,6 % số ô đổi
+                            trạng thái điểm nóng (Jaccard 0,93–0,98, |Δđiểm| trung
+                            bình 0,1–0,5/100) ⇒ KHÔNG dựng bản đồ cá theo từng
+                            ngày (thanh trượt giả). Chỉ hiện khi bà con ĐÃ kéo
+                            sang ngày khác — màn hình mặc định giữ gọn. */}
+                        {daysAhead > 0 && (
+                          <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/70">
+                            {daysAhead <= FISH_STABLE_DAYS
+                              ? "Chỗ cá ít đổi trong vài ngày tới — cái đổi là gió, sóng."
+                              : "Lớp cá vẫn là ảnh mới nhất, không phải dự báo riêng cho ngày này — xa ngày thì xem gió, sóng."}
                           </p>
                         )}
                         {/* ưu tiên gần mình: điểm cá gần chỗ đang xem nhất */}
