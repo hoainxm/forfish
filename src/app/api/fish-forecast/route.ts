@@ -6,11 +6,13 @@ import {
   chlGridUrl,
   ERDDAP_UA,
   parseBathyGrid,
+  gridDateSkewDays,
   parseErddapGrid,
   slaGridUrl,
   sstBackupGridUrl,
   sstGridUrl,
   type CurrentGrids,
+  type GridUnit,
   type ScalarGrid,
 } from "@/lib/fish-predict";
 import { isoDateVN } from "@/lib/day-labels";
@@ -76,7 +78,7 @@ const CHL_MAX_AGE_DAYS = 7;
 /** Nạp một lưới vô hướng ERDDAP → {grid, date}; không dùng được thì null */
 function erddapScalar(
   url: string,
-  opts: { hasAltitude: boolean; kelvin?: boolean },
+  opts: { hasAltitude: boolean; kelvin?: boolean; unit?: GridUnit },
 ): () => Promise<{ grid: ScalarGrid; date: string } | null> {
   return async () => {
     const res = await fetch(url, opt());
@@ -100,13 +102,20 @@ const SST_CANDIDATES: FieldCandidate<ScalarGrid>[] = [
     id: "noaa-blended-sst",
     label: "NOAA Blended SST daily (noaacwBLENDEDsstDaily)",
     maxAgeDays: DAILY_MAX_AGE_DAYS,
-    load: erddapScalar(sstGridUrl(), { hasAltitude: false, kelvin: true }),
+    load: erddapScalar(sstGridUrl(), {
+      hasAltitude: false,
+      kelvin: true,
+      unit: "degC", // đã trừ Kelvin trong parser
+    }),
   },
   {
     id: "noaa-coraltemp-sst",
     label: "NOAA Coral Reef Watch CoralTemp SST daily (noaacrwsstDaily)",
     maxAgeDays: DAILY_MAX_AGE_DAYS,
-    load: erddapScalar(sstBackupGridUrl(), { hasAltitude: false }),
+    load: erddapScalar(sstBackupGridUrl(), {
+      hasAltitude: false,
+      unit: "degC", // CoralTemp trả °C SẴN — KHÔNG kelvin (sai là lệch 273°)
+    }),
   },
 ];
 
@@ -119,14 +128,14 @@ const CHL_CANDIDATES: FieldCandidate<ScalarGrid>[] = [
     id: "noaa-viirs-dineof-chl",
     label: "NOAA VIIRS NPP+N20 DINEOF chlor_a (noaacwNPPN20VIIRSDINEOFDaily)",
     maxAgeDays: CHL_MAX_AGE_DAYS,
-    load: erddapScalar(chlGridUrl(), { hasAltitude: true }),
+    load: erddapScalar(chlGridUrl(), { hasAltitude: true, unit: "mg/m3" }),
   },
   {
     id: "noaa-multisensor-dineof-chl",
     label:
       "NOAA VIIRS + Sentinel-3 OLCI DINEOF chlor_a (noaacwNPPN20S3ASCIDINEOFDaily)",
     maxAgeDays: CHL_MAX_AGE_DAYS,
-    load: erddapScalar(chlBackupGridUrl(), { hasAltitude: true }),
+    load: erddapScalar(chlBackupGridUrl(), { hasAltitude: true, unit: "mg/m3" }),
   },
 ];
 
@@ -137,7 +146,7 @@ const SLA_CANDIDATES: FieldCandidate<ScalarGrid>[] = [
     id: "noaa-blended-ssh",
     label: "NOAA Blended SSHA daily (noaacwBLENDEDsshDaily)",
     maxAgeDays: DAILY_MAX_AGE_DAYS,
-    load: erddapScalar(slaGridUrl(), { hasAltitude: false }),
+    load: erddapScalar(slaGridUrl(), { hasAltitude: false, unit: "m" }),
   },
 ];
 
@@ -146,7 +155,7 @@ const ANOM_CANDIDATES: FieldCandidate<ScalarGrid>[] = [
     id: "noaa-crw-sst-anomaly",
     label: "NOAA Coral Reef Watch SST anomaly daily (noaacrwsstanomalyDaily)",
     maxAgeDays: DAILY_MAX_AGE_DAYS,
-    load: erddapScalar(anomGridUrl(), { hasAltitude: false }),
+    load: erddapScalar(anomGridUrl(), { hasAltitude: false, unit: "degC" }),
   },
 ];
 
@@ -289,6 +298,18 @@ export async function GET() {
     // Route có ISR 6h nên mốc đi kèm bản đã tính, đúng tuổi thật của dữ liệu.
     // KHÔNG hiển thị ra màn hình (quyết định sản phẩm 2026-07-25 — bỏ hẳn tuổi
     // lớp cá khỏi UI cho gọn); giữ lại trong payload để đối chiếu/kiểm tra.
+    // LỆCH NGÀY giữa các lưới: mỗi nguồn một nhịp (ảnh vệ tinh trễ 1–2 ngày,
+    // dòng Copernicus nowcast theo giờ) nên công thức đang nhân front (ảnh cũ)
+    // với hội tụ (hôm nay). Không ép được cùng ngày, nhưng phải ĐO và NÓI.
+    const skewDays = gridDateSkewDays([
+      sstR.grid,
+      chlR.grid,
+      slaR?.grid,
+      anomR?.grid,
+      curR?.grid?.u,
+      hycom?.d20,
+      hycom?.bottom,
+    ]);
     return Response.json({
       ...buildFishForecast(sstR.grid, chlR.grid, slaR?.grid ?? null, month, {
         anom: anomR?.grid ?? null,
@@ -301,8 +322,9 @@ export async function GET() {
       }),
       generatedAt: new Date().toISOString(),
       sources,
-      dataQuality: dataQuality(quality),
+      dataQuality: dataQuality(quality, skewDays),
       targetDate,
+      dateSkewDays: skewDays,
     });
   } catch {
     return Response.json({ ok: false });

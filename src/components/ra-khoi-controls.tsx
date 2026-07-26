@@ -92,7 +92,7 @@ export function RaKhoiControls({
   locating,
   geoError,
 }: {
-  /** Bấm "Tôi ở đâu" → lấy GPS rồi bay tới vị trí (fishing-map-view lo phần đó) */
+  /** Bấm "Vị trí" → lấy GPS rồi bay tới chỗ mình (fishing-map-view lo phần đó) */
   onLocateMe: () => void;
   /** đang xin GPS — nút phải nói đang chạy, đừng để bà con bấm hoài */
   locating: boolean;
@@ -304,13 +304,13 @@ export function RaKhoiControls({
           </span>
         </button>
 
-        {/* TÔI Ở ĐÂU — nút GPS chuẩn như mọi app bản đồ. Đặt ngay dưới nút Lớp
+        {/* VỊ TRÍ — nút GPS chuẩn như mọi app bản đồ. Đặt ngay dưới nút Lớp
             (chỗ tay phải với tới được), luôn hiện kể cả khi thu bảng lớp. */}
         <button
           type="button"
           onClick={onLocateMe}
           disabled={locating}
-          aria-label="Tôi ở đâu — lấy vị trí GPS"
+          aria-label="Vị trí của tôi (GPS)"
           aria-busy={locating}
           className={`flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 shadow-md transition active:scale-95 disabled:opacity-70 ${
             geoError ? "bg-warn-bg text-warn-fg" : "bg-navy text-white"
@@ -318,7 +318,7 @@ export function RaKhoiControls({
         >
           <CrosshairIcon className={`h-6 w-6 ${locating ? "animate-pulse" : ""}`} />
           <span className="text-[0.6875rem] font-bold leading-tight">
-            {locating ? "Đang tìm" : geoError ? "Bật GPS" : "Tôi ở đâu"}
+            {locating ? "Đang tìm" : geoError ? "Bật GPS" : "Vị trí"}
           </span>
         </button>
         {!collapsed &&

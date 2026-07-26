@@ -515,6 +515,22 @@ export function percentileRank(sortedAsc: number[], v: number): number {
 
 export const KELVIN_OFFSET = 273.15;
 
+/**
+ * ĐƠN VỊ của một lưới — khai TRONG DỮ LIỆU, không phải trong comment.
+ *
+ * VÌ SAO (2026-07-26): bất biến "SST là °C chứ không phải Kelvin" trước đây chỉ
+ * được bảo vệ bằng một boolean ở nơi gọi (`parseErddapGrid(..., {kelvin:true})`)
+ * và một dòng comment "lệch 273°". Nguồn dự phòng CoralTemp trả °C còn nguồn
+ * chính trả Kelvin — sai chỗ này là bản đồ lệch 273 độ mà KHÔNG cổng nào bắt.
+ * Cùng nhóm với bẫy "hằng gradient theo Ô": thông tin sống còn nằm ngoài dữ liệu.
+ */
+export type GridUnit =
+  | "degC" // nhiệt độ (đã trừ Kelvin nếu nguồn trả K)
+  | "mg/m3" // phù du chlorophyll-a
+  | "m" // mực nước / độ sâu / độ sâu đẳng nhiệt
+  | "m/s" // dòng chảy
+  | "unknown"; // nguồn chưa khai — chấp nhận, nhưng guard sẽ không bảo vệ được
+
 export interface ScalarGrid {
   /** lat tăng dần */
   lats: number[];
@@ -524,12 +540,42 @@ export interface ScalarGrid {
   values: number[][];
   /** ngày dữ liệu YYYY-MM-DD */
   date: string;
+  /** đơn vị giá trị — khai để `expectUnit` chặn được lỗi trộn đơn vị */
+  unit?: GridUnit;
+}
+
+/**
+ * Chặn LỖI TRỘN ĐƠN VỊ ngay tại chỗ dùng. Lưới chưa khai đơn vị (`undefined` /
+ * "unknown") thì BỎ QUA — không phá nguồn cũ/bản lưu offline, chỉ mất lớp bảo
+ * vệ. Khai SAI thì ném ngay, vì lệch đơn vị là lỗi câm nguy hiểm nhất.
+ */
+export function expectUnit(
+  grid: ScalarGrid | null | undefined,
+  want: GridUnit,
+  where: string,
+): void {
+  if (!grid?.unit || grid.unit === "unknown") return;
+  if (grid.unit !== want) {
+    throw new Error(
+      `${where}: lưới khai đơn vị "${grid.unit}" nhưng chỗ này cần "${want}" — ` +
+        `trộn đơn vị là lỗi câm (vd Kelvin vs °C lệch 273°).`,
+    );
+  }
+}
+
+/** Lệch ngày LỚN NHẤT giữa các lưới (ngày). Bỏ lưới thiếu/ngày hỏng. */
+export function gridDateSkewDays(grids: (ScalarGrid | null | undefined)[]): number {
+  const ts = grids
+    .map((g) => (g?.date ? Date.parse(`${g.date}T00:00:00Z`) : NaN))
+    .filter((t) => Number.isFinite(t));
+  if (ts.length < 2) return 0;
+  return Math.round((Math.max(...ts) - Math.min(...ts)) / 86_400_000);
 }
 
 /** Bảng ERDDAP .json → lưới; cột: [time, (alt), lat, lon, value] */
 export function parseErddapGrid(
   json: unknown,
-  opts: { hasAltitude: boolean; kelvin?: boolean },
+  opts: { hasAltitude: boolean; kelvin?: boolean; unit?: GridUnit },
 ): ScalarGrid {
   const table = (json as { table?: { rows?: unknown[][] } })?.table;
   const rows = (table?.rows ?? []) as (string | number | null)[][];
@@ -559,7 +605,7 @@ export function parseErddapGrid(
       values[li][oi] = opts.kelvin ? v - KELVIN_OFFSET : v;
     }
   }
-  return { lats, lons, values, date };
+  return { lats, lons, values, date, unit: opts.unit ?? "unknown" };
 }
 
 /**
@@ -832,6 +878,18 @@ export interface FishForecast {
   dataQuality?: number;
   /** ngày dữ liệu dùng để lọc MÙA VỤ (ảnh cũ hơn trong SST/phù du) */
   targetDate?: string;
+  /**
+   * LỆCH NGÀY LỚN NHẤT giữa các lưới đã dùng (ngày).
+   *
+   * VÌ SAO PHẢI PHƠI RA (2026-07-26): các trường được `resolveField` giải quyết
+   * ĐỘC LẬP, mỗi nguồn một nhịp — ảnh vệ tinh trễ 1–2 ngày, dòng Copernicus là
+   * nowcast theo GIỜ. Nên công thức đang nhân front (ảnh 2 ngày trước) với hội
+   * tụ (hôm nay) ⇒ LỆCH PHA ~1–2 ô ở chỗ dòng chảy 0,3 m/s. Không sửa được bằng
+   * cách bắt mọi nguồn cùng ngày (nguồn không có), nhưng ít nhất phải ĐO ĐƯỢC và
+   * NÓI RA thay vì để lệch pha vô hình. `dataQuality` trừ điểm khi lệch quá
+   * `MAX_GRID_SKEW_DAYS`.
+   */
+  dateSkewDays?: number;
 }
 
 /** Cặp lưới dòng chảy mặt u (đông+) / v (bắc+) — CÙNG trục lat/lon */
@@ -897,6 +955,22 @@ export function buildFishForecast(
   const depth = extra?.depth ?? null;
   const bottomTemp = extra?.bottomTemp ?? null;
   const deepTemp = extra?.deepTemp ?? null;
+
+  // GUARD ĐƠN VỊ tại chỗ dùng — lưới chưa khai thì bỏ qua, khai SAI thì ném.
+  // Bẫy thật: nguồn SST chính trả Kelvin, nguồn dự phòng CoralTemp trả °C sẵn;
+  // lẫn một cái là bản đồ lệch 273° mà không cổng nào bắt.
+  expectUnit(sst, "degC", "buildFishForecast: sst");
+  expectUnit(chl, "mg/m3", "buildFishForecast: chl");
+  expectUnit(sla, "m", "buildFishForecast: sla");
+  expectUnit(anom, "degC", "buildFishForecast: anom (dị thường nhiệt)");
+  expectUnit(bottomTemp, "degC", "buildFishForecast: bottomTemp");
+  expectUnit(deepTemp, "degC", "buildFishForecast: deepTemp");
+  expectUnit(thermo, "m", "buildFishForecast: thermo (độ sâu đẳng nhiệt)");
+  expectUnit(depth, "m", "buildFishForecast: depth (độ sâu đáy)");
+  if (cur) {
+    expectUnit(cur.u, "m/s", "buildFishForecast: cur.u");
+    expectUnit(cur.v, "m/s", "buildFishForecast: cur.v");
+  }
   const frontSrc =
     extra?.frontSst &&
     extra.frontSst.lats.length === sst.lats.length &&

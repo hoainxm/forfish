@@ -155,6 +155,17 @@ export const MISSING_PENALTY_BY_FIELD: Record<string, number> = {
 };
 /** Trường tuỳ chọn lạ (thêm sau mà quên khai đòn bẩy) → mức nhẹ, không doạ oan */
 export const MISSING_OPTIONAL_PENALTY = 0.05;
+/**
+ * Lệch ngày giữa các lưới quá mức này thì trừ điểm chất lượng.
+ *
+ * Các trường resolve ĐỘC LẬP nên nhịp nguồn khác nhau: ảnh vệ tinh trễ 1–2 ngày,
+ * dòng Copernicus là nowcast theo GIỜ. Công thức đang NHÂN front (ảnh cũ) với
+ * hội tụ (hôm nay) ⇒ lệch pha ~1–2 ô ở dòng 0,3 m/s. Không ép được mọi nguồn
+ * cùng ngày (nguồn không có), nhưng lệch lớn thì phải NÓI, không để vô hình.
+ */
+export const MAX_GRID_SKEW_DAYS = 3;
+/** Trừ bao nhiêu khi lệch ngày vượt ngưỡng */
+export const SKEW_PENALTY = 0.1;
 /** Trường CÓ nhưng cũ = một nửa mức mất hẳn của chính trường đó */
 export const STALE_PENALTY_RATIO = 0.5;
 
@@ -188,7 +199,11 @@ export interface QualityField {
  * con, KHÔNG dùng làm hệ số nhân vào điểm cá (không được lấy chất lượng nguồn
  * sửa điểm loài).
  */
-export function dataQuality(fields: QualityField[]): number {
+export function dataQuality(
+  fields: QualityField[],
+  /** lệch ngày lớn nhất giữa các lưới (từ `gridDateSkewDays`); bỏ trống = 0 */
+  skewDays = 0,
+): number {
   let q = 1;
   for (const f of fields) {
     const miss = missingPenalty(f.key, f.required);
@@ -198,6 +213,10 @@ export function dataQuality(fields: QualityField[]): number {
       q -= f.required ? STALE_REQUIRED_PENALTY : miss * STALE_PENALTY_RATIO;
     }
   }
+  // Lệch pha giữa các lưới: front (ảnh cũ) × hội tụ (hôm nay) là số nhân của hai
+  // thời điểm khác nhau — không sửa được bằng nguồn hiện có, nhưng phải TRỪ ĐIỂM
+  // chứ không im lặng coi như cùng ngày.
+  if (skewDays > MAX_GRID_SKEW_DAYS) q -= SKEW_PENALTY;
   return Math.max(0, Math.min(1, Math.round(q * 1000) / 1000));
 }
 

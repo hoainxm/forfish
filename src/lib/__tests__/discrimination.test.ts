@@ -9,6 +9,12 @@ import {
   judgeTerm,
   termStats,
 } from "../discrimination";
+import { expectUnit, gridDateSkewDays } from "../fish-predict";
+import {
+  dataQuality,
+  MAX_GRID_SKEW_DAYS,
+  SKEW_PENALTY,
+} from "../source-registry";
 
 /** lưới n×n giá trị hằng */
 const flat = (v: number, n = 20) =>
@@ -93,5 +99,68 @@ describe("judgeAll", () => {
   it("mọi yếu tố lành → qua cổng", () => {
     expect(judgeAll([termStats("a", spread()), termStats("b", spread())]).redFlags)
       .toHaveLength(0);
+  });
+});
+
+// ── VIỆC 7: đơn vị + lệch ngày nằm TRONG dữ liệu, không nằm trong comment ────
+describe("expectUnit — chặn trộn đơn vị (bẫy Kelvin vs °C)", () => {
+  const g = (unit?: "degC" | "mg/m3" | "m" | "m/s" | "unknown") => ({
+    lats: [10],
+    lons: [110],
+    values: [[28]],
+    date: "2026-07-26",
+    ...(unit ? { unit } : {}),
+  });
+
+  it("khai ĐÚNG → không ném", () => {
+    expect(() => expectUnit(g("degC"), "degC", "test")).not.toThrow();
+  });
+
+  it("khai SAI → ném ngay (lỗi câm nguy hiểm nhất)", () => {
+    expect(() => expectUnit(g("m"), "degC", "test")).toThrow(/đơn vị/);
+  });
+
+  it("CHƯA khai / 'unknown' → bỏ qua, không phá nguồn cũ & bản lưu offline", () => {
+    expect(() => expectUnit(g(), "degC", "test")).not.toThrow();
+    expect(() => expectUnit(g("unknown"), "degC", "test")).not.toThrow();
+  });
+
+  it("lưới null (nguồn tuỳ chọn vắng) → bỏ qua", () => {
+    expect(() => expectUnit(null, "degC", "test")).not.toThrow();
+  });
+});
+
+describe("gridDateSkewDays — lệch pha giữa các lưới phải ĐO ĐƯỢC", () => {
+  const at = (date: string) => ({ lats: [10], lons: [110], values: [[1]], date });
+
+  it("cùng ngày → 0", () => {
+    expect(gridDateSkewDays([at("2026-07-26"), at("2026-07-26")])).toBe(0);
+  });
+
+  it("ảnh vệ tinh 2 ngày trước × dòng hôm nay → 2", () => {
+    expect(gridDateSkewDays([at("2026-07-24"), at("2026-07-26")])).toBe(2);
+  });
+
+  it("bỏ lưới thiếu / ngày hỏng, không làm hỏng phép đo", () => {
+    expect(gridDateSkewDays([at("2026-07-24"), null, undefined, at("2026-07-26")])).toBe(2);
+    expect(gridDateSkewDays([at("2026-07-26"), at("")])).toBe(0);
+  });
+
+  it("dưới 2 lưới → 0 (không có gì để so)", () => {
+    expect(gridDateSkewDays([at("2026-07-26")])).toBe(0);
+    expect(gridDateSkewDays([])).toBe(0);
+  });
+});
+
+describe("dataQuality — trừ điểm khi các lưới lệch ngày quá mức", () => {
+  const ok = { key: "sst", required: true, resolved: { stale: false } };
+  const ok2 = { key: "chl", required: true, resolved: { stale: false } };
+
+  it("lệch trong ngưỡng → không trừ", () => {
+    expect(dataQuality([ok, ok2], MAX_GRID_SKEW_DAYS)).toBe(1);
+  });
+
+  it("lệch VƯỢT ngưỡng → trừ, không im lặng coi như cùng ngày", () => {
+    expect(dataQuality([ok, ok2], MAX_GRID_SKEW_DAYS + 1)).toBe(1 - SKEW_PENALTY);
   });
 });
