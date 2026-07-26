@@ -352,11 +352,35 @@ export function trapezoid(v: number, a: number, b: number, c: number, d: number)
   return (d - v) / (d - c);
 }
 
-/** Hợp mồi theo log10(chl), mép thoải ±0.45 quanh dải ưa thích */
+/**
+ * Phần dải mồi khai báo được giữ làm CAO NGUYÊN (=1), neo ở đầu GIÀU MỒI.
+ *
+ * VÌ SAO (đo thật, scripts/model-discrimination-audit.mjs): cao nguyên cũ trải
+ * TRỌN dải `chlLog` khai báo, mà dải đó RỘNG HƠN CẢ PHÂN BỐ thật của biển VN —
+ * log10(chl) p05 −1.01 · p50 −0.67 · p90 −0.08 (p25→p75 chỉ trải 0.43 đơn vị
+ * log), còn dải khai rộng 0.9–1.7 + mép ±0.45. Hệ quả: 83–99% ô đạt `chlFit = 1`
+ * ⇒ cổng mồi KHÔNG phân biệt được ô nào giàu hơn ô nào (mực xà std 0.019 —
+ * thấp hơn cả `thermoFit` trước khi sửa). Đây là lần thứ BA cùng khuôn lỗi
+ * "dải khai rộng hơn phân bố" (xem src/lib/discrimination.ts).
+ *
+ * TRUNG THỰC — đây là XẾP HẠNG, không phải sinh học mới: dải `chlLog` của loài
+ * GIỮ NGUYÊN vai trò ngưỡng chịu đựng (ra ngoài = không hợp). Thay đổi duy nhất
+ * là bên TRONG vùng chịu đựng nay có độ dốc: ô ở đầu GIÀU mồi được 1, ô ở đầu
+ * NGHÈO được thấp hơn — "trong mức chịu được thì nhiều mồi hơn là tốt hơn".
+ * MỘT knob duy nhất, áp đều 40 loài ⇒ kiểm lại được, không phải 13 số thủ công.
+ */
+export const CHL_RANK_PLATEAU_FRAC = 0.5;
+
+/**
+ * Hợp mồi theo log10(chl). Dốc lên từ mép dưới vùng chịu đựng tới cao nguyên
+ * (đầu giàu mồi), mép thoải ±0.45 ở hai biên như cũ.
+ */
 export function chlFit(chl: number, lo: number, hi: number): number {
   if (!Number.isFinite(chl) || chl <= 0) return 0;
   const l = Math.log10(chl);
-  return trapezoid(l, lo - 0.45, lo, hi, hi + 0.45);
+  // cao nguyên co về đầu GIÀU (hi); phần còn lại của dải thành đoạn dốc
+  const plateauLo = hi - (hi - lo) * CHL_RANK_PLATEAU_FRAC;
+  return trapezoid(l, lo - 0.45, plateauLo, hi, hi + 0.45);
 }
 
 /**

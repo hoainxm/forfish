@@ -40,7 +40,12 @@ describe("trapezoid", () => {
 
 describe("chlFit", () => {
   it("nước trong quá / đục quá đều kém; trong dải thì 1", () => {
-    expect(chlFit(0.2, -1.0, 0.0)).toBe(1); // log10(0.2) ≈ -0.7
+    // CAO NGUYÊN co về đầu GIÀU mồi (CHL_RANK_PLATEAU_FRAC) — trong dải chịu
+    // đựng nay CÓ ĐỘ DỐC: đầu giàu = 1, đầu nghèo thấp hơn. log10(0.2) ≈ -0.70
+    // nằm ở nửa NGHÈO của dải [-1.0, 0.0] ⇒ chưa đạt 1.
+    expect(chlFit(0.2, -1.0, 0.0)).toBeGreaterThan(0);
+    expect(chlFit(0.2, -1.0, 0.0)).toBeLessThan(1);
+    expect(chlFit(0.7, -1.0, 0.0)).toBe(1); // log10(0.7) ≈ -0.15 = đầu giàu
     expect(chlFit(0.001, -1.0, 0.0)).toBe(0);
     expect(chlFit(0, -1.0, 0.0)).toBe(0);
     expect(chlFit(NaN, -1.0, 0.0)).toBe(0);
@@ -476,11 +481,13 @@ describe("tầng nhiệt HYCOM tăng điểm cá ngừ", () => {
     tlats,
     tlons,
   );
+  // mồi ĐỦ GIÀU để cô lập biến đang đo (cao nguyên mồi co về đầu giàu từ
+  // 2026-07-26; chl 0.1 nằm ở đầu NGHÈO ⇒ mồi ~0.5 sẽ dìm điểm dưới KEEP_MIN)
   const clearChl = grid(
     [
-      [0.1, 0.1, 0.1],
-      [0.1, 0.1, 0.1],
-      [0.1, 0.1, 0.1],
+      [0.4, 0.4, 0.4],
+      [0.4, 0.4, 0.4],
+      [0.4, 0.4, 0.4],
     ],
     tlats,
     tlons,
@@ -752,6 +759,19 @@ describe("cổng độ sâu: cá xa bờ KHÔNG hiện ở nước cạn sát b�
     tlats,
     tlons,
   );
+  // CHÚ Ý: từ 2026-07-26 cao nguyên mồi co về đầu GIÀU, nên chl 0.1 (log −1.0)
+  // nằm ở đầu NGHÈO của dải cá ngừ ⇒ mồi ~0.5, KHÔNG còn 1. Các test dưới đo
+  // CỔNG ĐỘ SÂU / TẦNG NHIỆT nên phải cho mồi ĐỦ GIÀU để cô lập đúng biến cần đo
+  // (chl 0.4 ≈ log −0.40 nằm trong cao nguyên của dải [-1.1, -0.1]).
+  const richGrid = grid(
+    [
+      [0.4, 0.4, 0.4],
+      [0.4, 0.4, 0.4],
+      [0.4, 0.4, 0.4],
+    ],
+    tlats,
+    tlons,
+  );
   const clear = grid(
     [
       [0.1, 0.1, 0.1],
@@ -785,7 +805,7 @@ describe("cổng độ sâu: cá xa bờ KHÔNG hiện ở nước cạn sát b�
     tlons,
   );
   const scoreOf = (depthM: number) => {
-    const f = buildFishForecast(warm, clear, null, 6, {
+    const f = buildFishForecast(warm, richGrid, null, 6, {
       depth: depthGrid(depthM),
       thermo: d20,
     });
@@ -798,7 +818,7 @@ describe("cổng độ sâu: cá xa bờ KHÔNG hiện ở nước cạn sát b�
     expect(shallow).toBe(0); // 30m < 50 → deepWaterFit 0 → loại
   });
   it("MẤT lưới độ sâu: điểm ô NƯỚC SÂU bị hạ (không còn coi như đã chứng minh là sâu)", () => {
-    const f = buildFishForecast(warm, clear, null, 6, { thermo: d20 });
+    const f = buildFishForecast(warm, richGrid, null, 6, { thermo: d20 });
     const s = f.cells.find((c) => c.sp["ngừ vây vàng"])?.sp["ngừ vây vàng"] ?? 0;
     expect(s).toBeLessThan(scoreOf(2000));
   });
@@ -1017,11 +1037,14 @@ describe("trung thực: loài đáy không vẽ điểm nóng giả", () => {
     lats,
     lons,
   );
+  // Cá phèn dải mồi [-0.2, 1.2] ⇒ cao nguyên từ log 0.5 (CHL_RANK_PLATEAU_FRAC).
+  // chl 0.8 (log −0.10) nằm ở đầu NGHÈO ⇒ mồi thấp sẽ dìm điểm dưới KEEP_MIN;
+  // dùng 4.0 (log 0.60) cho mồi HẾT là yếu tố giới hạn, cô lập đúng NHIỆT ĐÁY.
   const food = grid(
     [
-      [0.8, 0.8, 0.8],
-      [0.8, 0.8, 0.8],
-      [0.8, 0.8, 0.8],
+      [4.0, 4.0, 4.0],
+      [4.0, 4.0, 4.0],
+      [4.0, 4.0, 4.0],
     ],
     lats,
     lons,
@@ -1056,11 +1079,14 @@ describe("VIỆC 4 — cổng nhiệt loài đáy dùng NHIỆT ĐÁY (bottomTem
     lats,
     lons,
   ); // 27°C mặt → cá phèn tFit mặt = 1 (dải [22,25,30,32])
+  // Cá phèn dải mồi [-0.2, 1.2] ⇒ cao nguyên từ log 0.5 (CHL_RANK_PLATEAU_FRAC).
+  // chl 0.8 (log −0.10) ở đầu NGHÈO ⇒ mồi ~0.48 dìm điểm dưới KEEP_MIN; dùng
+  // 4.0 (log 0.60) cho mồi HẾT là yếu tố giới hạn, cô lập đúng NHIỆT ĐÁY.
   const food = grid(
     [
-      [0.8, 0.8, 0.8],
-      [0.8, 0.8, 0.8],
-      [0.8, 0.8, 0.8],
+      [4.0, 4.0, 4.0],
+      [4.0, 4.0, 4.0],
+      [4.0, 4.0, 4.0],
     ],
     lats,
     lons,
