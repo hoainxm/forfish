@@ -9,6 +9,7 @@ ttl_days: 90
 gate: warn
 ```
 <!-- gate: warn vì UI churn src/app+src/components cao — cảnh báo thay vì chặn. KHÔNG để comment cùng dòng `gate:` (hook tr -d ' ' giữ lại # → phá so khớp = "warn" → chặn nhầm). -->
+<!-- re-verified: 2026-07-26 — /quan-tri form tạo: chọn loại bằng 2 nút phân đoạn (thay select bị bóp nhỏ), checkbox premium hàng riêng — spec màn 8 không đổi hành vi. -->
 
 
 Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không trộn nội dung token (xem [03-design-system.md](03-design-system.md)) hay route map đầy đủ (xem [02-architecture.md](02-architecture.md)).

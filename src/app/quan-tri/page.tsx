@@ -721,28 +721,43 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
             onChange={(e) => setPassword(e.target.value)}
             className={field}
           />
-          <div className="flex items-center gap-2.5">
-            <select
-              value={role}
-              onChange={(e) =>
-                setRole(e.target.value as "customer" | "manager")
-              }
-              className={field}
-              aria-label="Loại tài khoản"
-            >
-              <option value="customer">Khách</option>
-              <option value="manager">Quản lý (được cấp premium)</option>
-            </select>
-            <label className="flex min-h-[2.75rem] shrink-0 items-center gap-2 rounded-xl bg-field px-3 text-[0.875rem] font-semibold text-foreground/75">
-              <input
-                type="checkbox"
-                checked={activatePremium}
-                onChange={(e) => setActivatePremium(e.target.checked)}
-                className="h-4 w-4"
-              />
-              Kích hoạt premium 1 năm
-            </label>
+          {/* loại tài khoản: 2 nút phân đoạn (select gốc bị bóp nhỏ khó nhìn
+              — user 2026-07-26) */}
+          <div
+            className="grid grid-cols-2 gap-1.5 sm:col-span-2 lg:col-span-2"
+            role="group"
+            aria-label="Loại tài khoản"
+          >
+            {(
+              [
+                ["customer", "Khách"],
+                ["manager", "Quản lý — được cấp premium"],
+              ] as ["customer" | "manager", string][]
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setRole(id)}
+                aria-pressed={role === id}
+                className={`min-h-[2.75rem] rounded-xl px-3 text-[0.875rem] font-bold transition ${
+                  role === id
+                    ? "bg-navy text-white shadow-sm"
+                    : "bg-field text-foreground/70"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
+          <label className="flex min-h-[2.75rem] cursor-pointer items-center gap-2.5 rounded-xl bg-field px-3.5 text-[0.875rem] font-bold text-foreground/80 sm:col-span-2 lg:col-span-2">
+            <input
+              type="checkbox"
+              checked={activatePremium}
+              onChange={(e) => setActivatePremium(e.target.checked)}
+              className="h-5 w-5 accent-[var(--ok)]"
+            />
+            Kích hoạt premium 1 năm ngay khi tạo
+          </label>
           <button
             type="submit"
             disabled={busy}
