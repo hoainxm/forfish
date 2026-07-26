@@ -67,7 +67,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 | 5 | Tiền `/tien` | dock | Bán có lợi + lãi/lỗ rõ | ghi chuyến / chia tiền | "Ghi chuyến biển mới" | M |
 | 6 | Cảng `/cang` | nút trên map | Tìm cảng chỉ định gần | gọi/chỉ đường | (đọc) | M |
 | 7 | Đăng nhập `/login` | chip hero, gate | Vào bằng **SĐT + mật khẩu** (sale báo khi mua; KHÔNG email/OTP) | (vào app) | "Đăng nhập" | L |
-| 8 | Quản trị `/quan-tri` | gõ URL trực tiếp (CHỈ admin — env `ADMIN_PHONES`; không trên dock, không link trong app) | Đội SDVICO theo dõi tài khoản · nguồn dữ liệu · hệ thống | đổi hạng / tạo tài khoản / kiểm tra nguồn | theo tab | M — **web độc lập về giao diện** (app-shell thoát khung mobile + dock, full desktop); người dùng là STAFF, không áp chuẩn chữ-to của ngư dân |
+| 8 | Quản trị `/quan-tri` | gõ URL trực tiếp (CHỈ admin — env `ADMIN_PHONES`; không trên dock, không link trong app) | Đội SDVICO theo dõi tài khoản · nguồn dữ liệu · hệ thống | tìm khách → đổi hạng / tạo / xoá (đều qua dialog xác nhận) | theo tab | M — **web độc lập về giao diện** (app-shell thoát khung mobile + dock), responsive PC/tablet/mobile; thống kê 4 ô đầu tab Tài khoản; hành động phá huỷ (xoá, hạ hạng) BẮT BUỘC dialog xác nhận trong trang; STAFF nên không áp chuẩn chữ-to của ngư dân |
 
 Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline = đạt. /tien, /tau, /nguoi: 1 hàng chip/tab + list — đạt.
 

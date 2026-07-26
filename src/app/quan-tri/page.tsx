@@ -1,20 +1,26 @@
 "use client";
 
 /*
-  /quan-tri — DASHBOARD QUẢN TRỊ (admin only, SĐT trong env ADMIN_PHONES).
-  Cho đội SDVICO, KHÔNG cho ngư dân → không nằm trong dock, không link từ app.
+  /quan-tri — WEB QUẢN TRỊ (admin only, env ADMIN_PHONES). ĐỘC LẬP về giao
+  diện (app-shell cho khu này thoát khung mobile + dock), CHUNG deploy/DB với
+  app ngư dân. Người dùng là STAFF SDVICO — desktop-first, responsive xuống
+  tablet/mobile (bổ sung 2026-07-26 theo yêu cầu chủ dự án: search, confirm
+  khi nâng premium/xoá bằng dialog trong trang, dải số thống kê).
   Ba tab:
-  · Tài khoản — danh sách khách, tạo tay, đổi hạng basic/premium (+ hạn), xoá
-  · Dữ liệu  — tình trạng các nguồn: dự báo cá (sources/quality), bão, giá dầu,
-               giá chợ (client tự gọi API sẵn có của app — không lặp logic nguồn)
-  · Hệ thống — env đã cấu hình chưa, số tài khoản/premium, nhịp webhook,
-               migration tier đã apply chưa
+  · Tài khoản — thống kê + tìm kiếm/lọc + danh sách khách, tạo tay, đổi hạng
+    (confirm + chọn hạn), xoá (confirm)
+  · Dữ liệu  — tình trạng các nguồn (client gọi API sẵn có của app)
+  · Hệ thống — env, đếm, migration, nhịp webhook
   Quyền THẬT nằm ở /api/admin/* (requireAdmin) — trang này chỉ là vỏ hiển thị.
 */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiUrl } from "@/lib/api-base";
+import { resolveTier } from "@/lib/tier";
+import { createClient } from "@/lib/supabase/client";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Tab = "tai-khoan" | "du-lieu" | "he-thong";
 
@@ -73,7 +79,17 @@ const fmtD = (iso: string | null | undefined): string =>
       }).format(new Date(iso + (iso.length === 10 ? "T00:00:00+07:00" : "")))
     : "—";
 
+/** So khớp tìm kiếm không dấu, không phân hoa-thường ("Hải" khớp "hai") */
+const fold = (s: string): string =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    // ̀–ͯ = dấu tổ hợp sau NFD (huyền/sắc/hỏi/ngã/nặng, mũ, móc)
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d");
+
 export default function QuanTriPage() {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("tai-khoan");
   const [health, setHealth] = useState<Health | null>(null);
   const [healthErr, setHealthErr] = useState<number | null>(null);
@@ -90,10 +106,17 @@ export default function QuanTriPage() {
       .catch(() => setHealthErr(0));
   }, []);
 
+  async function logout() {
+    const supabase = createClient();
+    await supabase?.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
   // ── chưa đủ quyền — nói rõ vì sao, không im lặng trang trắng ────────────
   if (healthErr != null) {
     return (
-      <main className="mx-auto max-w-[640px] px-4 py-16 text-center">
+      <div className="mx-auto max-w-[640px] px-4 py-16 text-center">
         <h1 className="display text-[1.5rem] font-bold text-navy">
           Trang quản trị SDFish
         </h1>
@@ -114,27 +137,47 @@ export default function QuanTriPage() {
             Đăng nhập
           </Link>
         )}
-      </main>
+        {healthErr === 403 && (
+          <button
+            type="button"
+            onClick={logout}
+            className="mx-auto mt-5 block min-h-[2.75rem] rounded-xl bg-field px-6 text-[0.9375rem] font-bold text-navy"
+          >
+            Đăng xuất — vào bằng tài khoản khác
+          </button>
+        )}
+      </div>
     );
   }
   if (!health) {
     return (
-      <main className="mx-auto max-w-[640px] px-4 py-16 text-center text-[1.0625rem] text-foreground/65">
+      <div className="mx-auto max-w-[640px] px-4 py-16 text-center text-[1.0625rem] text-foreground/65">
         Đang kiểm tra quyền quản trị…
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="mx-auto max-w-[840px] px-4 pb-16 pt-6">
-      <h1 className="display text-[1.5rem] font-bold text-navy">
-        Quản trị SDFish
-      </h1>
-      <p className="mt-0.5 text-[0.9375rem] text-foreground/65">
-        Theo dõi tài khoản, nguồn dữ liệu và sức khoẻ hệ thống.
-      </p>
+    <div className="mx-auto max-w-[1100px] px-4 pb-16 pt-6 md:px-8">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="display text-[1.5rem] font-bold text-navy md:text-[1.75rem]">
+            Quản trị SDFish
+          </h1>
+          <p className="mt-0.5 text-[0.9375rem] text-foreground/65">
+            Theo dõi tài khoản, nguồn dữ liệu và sức khoẻ hệ thống.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={logout}
+          className="min-h-[2.5rem] shrink-0 rounded-xl bg-field px-4 text-[0.875rem] font-bold text-navy"
+        >
+          Đăng xuất
+        </button>
+      </div>
 
-      <div className="mt-4 flex gap-1.5" role="tablist">
+      <div className="mt-4 flex gap-1.5 md:max-w-[560px]" role="tablist">
         {(
           [
             ["tai-khoan", "Tài khoản"],
@@ -162,16 +205,25 @@ export default function QuanTriPage() {
       {tab === "tai-khoan" && <AccountsTab />}
       {tab === "du-lieu" && <DataTab />}
       {tab === "he-thong" && <SystemTab health={health} />}
-    </main>
+    </div>
   );
 }
 
 /* ── TÀI KHOẢN ─────────────────────────────────────────────────────────── */
 
+type TierFilter = "all" | "premium" | "basic";
+
 function AccountsTab() {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyPhone, setBusyPhone] = useState<string | null>(null);
+  // tìm kiếm + lọc hạng (client-side — vài trăm hàng, không cần server)
+  const [query, setQuery] = useState("");
+  const [tierFilter, setTierFilter] = useState<TierFilter>("all");
+  // dialog xác nhận — thay window.prompt/confirm (yêu cầu 2026-07-26)
+  const [toPremium, setToPremium] = useState<Account | null>(null);
+  const [toDowngrade, setToDowngrade] = useState<Account | null>(null);
+  const [toDelete, setToDelete] = useState<Account | null>(null);
 
   const load = useCallback(() => {
     setError(null);
@@ -196,53 +248,57 @@ function AccountsTab() {
   }, []);
   useEffect(load, [load]);
 
-  async function changeTier(a: Account) {
-    const toPremium = a.tier !== "premium";
-    let premiumUntil: string | null = null;
-    if (toPremium) {
-      const raw = window.prompt(
-        `Nâng ${a.phone} lên PREMIUM.\nHạn premium (YYYY-MM-DD), để trống = không hạn:`,
-        "",
-      );
-      if (raw === null) return; // bấm Huỷ
-      const t = raw.trim();
-      if (t) {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) {
-          window.alert("Hạn phải theo dạng YYYY-MM-DD (vd 2027-01-31).");
-          return;
-        }
-        premiumUntil = `${t}T23:59:59+07:00`;
-      }
-    } else if (
-      !window.confirm(`Hạ ${a.phone} về tài khoản THƯỜNG (mất dự báo cá + 16 ngày)?`)
-    ) {
-      return;
-    }
+  // hạng HIỆU LỰC (premium hết hạn tính là thường) — cùng luật resolveTier
+  const effTier = useCallback(
+    (a: Account) => resolveTier(a.tier, a.premiumUntil, Date.now()),
+    [],
+  );
+
+  // ── số thống kê nhanh trên đầu tab ──────────────────────────────────────
+  const stats = useMemo(() => {
+    if (!accounts) return null;
+    return {
+      total: accounts.length,
+      premium: accounts.filter((a) => effTier(a) === "premium").length,
+      canLogin: accounts.filter((a) => a.canLogin).length,
+      manual: accounts.filter((a) => !a.fromSdwork).length,
+    };
+  }, [accounts, effTier]);
+
+  const visible = useMemo(() => {
+    if (!accounts) return null;
+    const q = fold(query.trim());
+    const qDigits = query.replace(/\D/g, "");
+    return accounts.filter((a) => {
+      if (tierFilter !== "all" && effTier(a) !== tierFilter) return false;
+      if (!q && !qDigits) return true;
+      // SĐT khớp theo chuỗi số; tên khớp không dấu
+      if (qDigits && a.phone.includes(qDigits)) return true;
+      if (q && a.name && fold(a.name).includes(q)) return true;
+      return false;
+    });
+  }, [accounts, query, tierFilter, effTier]);
+
+  async function patchTier(
+    a: Account,
+    tier: "basic" | "premium",
+    premiumUntil: string | null,
+  ) {
     setBusyPhone(a.phone);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        phone: a.phone,
-        tier: toPremium ? "premium" : "basic",
-        premiumUntil,
-      }),
+      body: JSON.stringify({ phone: a.phone, tier, premiumUntil }),
     }).catch(() => null);
     setBusyPhone(null);
     if (!r?.ok) {
-      window.alert("Đổi hạng chưa được — thử lại.");
+      setError("Đổi hạng chưa được — thử lại.");
       return;
     }
     load();
   }
 
   async function remove(a: Account) {
-    if (
-      !window.confirm(
-        `XOÁ tài khoản ${a.phone}${a.name ? ` (${a.name})` : ""}?\nKhách sẽ không đăng nhập được nữa. Không hoàn tác được.`,
-      )
-    )
-      return;
     setBusyPhone(a.phone);
     const r = await fetch(
       apiUrl(`/api/admin/accounts?phone=${encodeURIComponent(a.phone)}`),
@@ -250,14 +306,71 @@ function AccountsTab() {
     ).catch(() => null);
     setBusyPhone(null);
     if (!r?.ok) {
-      window.alert("Xoá chưa được — thử lại.");
+      setError("Xoá chưa được — thử lại.");
       return;
     }
     load();
   }
 
+  const chip = (id: TierFilter, label: string) => (
+    <button
+      key={id}
+      type="button"
+      onClick={() => setTierFilter(id)}
+      aria-pressed={tierFilter === id}
+      className={`min-h-[2.5rem] shrink-0 rounded-full px-4 text-[0.875rem] font-bold transition ${
+        tierFilter === id
+          ? "bg-navy text-white"
+          : "bg-field text-foreground/70"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div className="mt-4 space-y-4">
+      {/* dải THỐNG KÊ — nhìn một phát biết sức khoẻ tệp khách */}
+      {stats && (
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+          {(
+            [
+              ["Tổng tài khoản", stats.total],
+              ["Premium hiệu lực", stats.premium],
+              ["Đăng nhập được", stats.canLogin],
+              ["Tạo tay", stats.manual],
+            ] as [string, number][]
+          ).map(([label, v]) => (
+            <div key={label} className="surface px-3 py-3 text-center">
+              <p className="display text-[1.625rem] font-bold tabular-nums text-navy">
+                {v}
+              </p>
+              <p className="text-[0.8125rem] font-semibold text-foreground/65">
+                {label}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* tìm kiếm + lọc hạng */}
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+        <input
+          type="search"
+          inputMode="search"
+          placeholder="Tìm theo SĐT hoặc tên khách…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Tìm tài khoản"
+          className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-4 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea sm:flex-1"
+        />
+        <div className="flex gap-1.5">
+          {chip("all", "Tất cả")}
+          {chip("premium", "Premium")}
+          {chip("basic", "Thường")}
+        </div>
+      </div>
+
       <CreateAccountForm onCreated={load} />
 
       {error && (
@@ -283,63 +396,198 @@ function AccountsTab() {
           tay bằng form trên.
         </p>
       )}
-      {accounts && accounts.length > 0 && (
-        <ul className="surface overflow-hidden">
-          {accounts.map((a) => (
-            <li
-              key={a.phone}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-line px-4 py-3 last:border-b-0"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="text-[1rem] font-bold tabular-nums text-navy">
-                  {a.phone}
-                  {a.name && (
-                    <span className="ml-2 font-semibold text-foreground/70">
-                      {a.name}
-                    </span>
-                  )}
-                </p>
-                <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
-                  {a.fromSdwork ? "Từ SDWork" : "Tạo tay"} ·{" "}
-                  {a.canLogin ? "đăng nhập được" : "CHƯA đăng nhập được"} · cập
-                  nhật {fmtDT(a.updatedAt)}
-                </p>
-              </div>
-              <span
-                className={`shrink-0 rounded-full px-3 py-1 text-[0.8125rem] font-bold ${
-                  a.tier === "premium"
-                    ? "bg-ok-bg text-ok"
-                    : "bg-field text-foreground/65"
-                }`}
-              >
-                {a.tier === "premium"
-                  ? a.premiumUntil
-                    ? `Premium đến ${fmtD(a.premiumUntil)}`
-                    : "Premium"
-                  : "Thường"}
-              </span>
-              <div className="flex shrink-0 gap-1.5">
-                <button
-                  type="button"
-                  disabled={busyPhone === a.phone}
-                  onClick={() => changeTier(a)}
-                  className="min-h-[2.5rem] rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
+      {visible && accounts && accounts.length > 0 && (
+        <>
+          <p className="px-1 text-[0.8125rem] font-semibold text-foreground/55">
+            {visible.length === accounts.length
+              ? `${accounts.length} tài khoản`
+              : `${visible.length}/${accounts.length} tài khoản khớp`}
+          </p>
+          {visible.length === 0 ? (
+            <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+              Không tài khoản nào khớp tìm kiếm/bộ lọc.
+            </p>
+          ) : (
+            <ul className="surface overflow-hidden">
+              {visible.map((a) => (
+                <li
+                  key={a.phone}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-line px-4 py-3 last:border-b-0"
                 >
-                  {a.tier === "premium" ? "Về thường" : "Lên premium"}
-                </button>
-                <button
-                  type="button"
-                  disabled={busyPhone === a.phone}
-                  onClick={() => remove(a)}
-                  className="min-h-[2.5rem] rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
-                >
-                  Xoá
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+                  <div className="min-w-0 flex-1 basis-[220px]">
+                    <p className="text-[1rem] font-bold tabular-nums text-navy">
+                      {a.phone}
+                      {a.name && (
+                        <span className="ml-2 font-semibold text-foreground/70">
+                          {a.name}
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
+                      {a.fromSdwork ? "Từ SDWork" : "Tạo tay"} ·{" "}
+                      {a.canLogin ? "đăng nhập được" : "CHƯA đăng nhập được"} ·
+                      cập nhật {fmtDT(a.updatedAt)}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-3 py-1 text-[0.8125rem] font-bold ${
+                      effTier(a) === "premium"
+                        ? "bg-ok-bg text-ok"
+                        : "bg-field text-foreground/65"
+                    }`}
+                  >
+                    {effTier(a) === "premium"
+                      ? a.premiumUntil
+                        ? `Premium đến ${fmtD(a.premiumUntil)}`
+                        : "Premium"
+                      : a.tier === "premium"
+                        ? `Premium HẾT HẠN ${fmtD(a.premiumUntil)}`
+                        : "Thường"}
+                  </span>
+                  <div className="flex shrink-0 gap-1.5">
+                    <button
+                      type="button"
+                      disabled={busyPhone === a.phone}
+                      onClick={() =>
+                        effTier(a) === "premium"
+                          ? setToDowngrade(a)
+                          : setToPremium(a)
+                      }
+                      className="min-h-[2.5rem] rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
+                    >
+                      {effTier(a) === "premium" ? "Về thường" : "Lên premium"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyPhone === a.phone}
+                      onClick={() => setToDelete(a)}
+                      className="min-h-[2.5rem] rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
+                    >
+                      Xoá
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
+
+      {/* ── DIALOG xác nhận (không dùng prompt/confirm trình duyệt) ───────── */}
+      {toPremium && (
+        <PremiumDialog
+          account={toPremium}
+          onCancel={() => setToPremium(null)}
+          onConfirm={(premiumUntil) => {
+            const a = toPremium;
+            setToPremium(null);
+            patchTier(a, "premium", premiumUntil);
+          }}
+        />
+      )}
+      {toDowngrade && (
+        <ConfirmDialog
+          title={`Hạ ${toDowngrade.phone} về tài khoản thường?`}
+          message="Khách sẽ mất dự báo cá và dự báo 16 ngày ngay lập tức."
+          confirmLabel="Hạ về thường"
+          cancelLabel="Không"
+          danger
+          onCancel={() => setToDowngrade(null)}
+          onConfirm={() => {
+            const a = toDowngrade;
+            setToDowngrade(null);
+            patchTier(a, "basic", null);
+          }}
+        />
+      )}
+      {toDelete && (
+        <ConfirmDialog
+          title={`Xoá tài khoản ${toDelete.phone}?`}
+          message={`${toDelete.name ? `${toDelete.name} — ` : ""}khách sẽ không đăng nhập được nữa. Không hoàn tác được.`}
+          confirmLabel="Xoá luôn"
+          cancelLabel="Không"
+          danger
+          onCancel={() => setToDelete(null)}
+          onConfirm={() => {
+            const a = toDelete;
+            setToDelete(null);
+            remove(a);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Dialog nâng premium — confirm + chọn hạn (trống = không hạn) */
+function PremiumDialog({
+  account,
+  onCancel,
+  onConfirm,
+}: {
+  account: Account;
+  onCancel: () => void;
+  /** premiumUntil ISO (23:59:59 giờ VN của ngày chọn) hoặc null = không hạn */
+  onConfirm: (premiumUntil: string | null) => void;
+}) {
+  const [until, setUntil] = useState("");
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onCancel();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-6"
+      onClick={onCancel}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Nâng ${account.phone} lên premium`}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[420px] surface p-5"
+      >
+        <p className="display text-center text-[1.25rem] font-bold text-navy">
+          Nâng {account.phone} lên Premium?
+        </p>
+        <p className="mt-1 text-center text-[0.9375rem] text-foreground/70">
+          {account.name ?? "Khách"} sẽ xem được dự báo cá + dự báo 16 ngày.
+        </p>
+        <label className="mt-4 block">
+          <span className="mb-1 block text-[0.875rem] font-bold text-foreground/70">
+            Hạn premium — để trống là không hạn
+          </span>
+          <input
+            type="date"
+            value={until}
+            onChange={(e) => setUntil(e.target.value)}
+            className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+          />
+        </label>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-[3rem] rounded-full bg-field text-[1rem] font-bold text-foreground/70"
+          >
+            Không
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onConfirm(until ? `${until}T23:59:59+07:00` : null)
+            }
+            className="min-h-[3rem] rounded-xl bg-ok text-[1rem] font-bold text-white"
+          >
+            {until ? `Premium đến ${fmtD(until)}` : "Premium không hạn"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -413,7 +661,10 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
         <span aria-hidden>{open ? "−" : "+"}</span>
       </button>
       {open && (
-        <form onSubmit={submit} className="mt-3 grid gap-2.5 sm:grid-cols-2">
+        <form
+          onSubmit={submit}
+          className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4"
+        >
           <input
             required
             inputMode="numeric"
@@ -459,12 +710,12 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
           <button
             type="submit"
             disabled={busy}
-            className="min-h-[2.75rem] rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50 sm:col-span-2"
+            className="min-h-[2.75rem] rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50 sm:col-span-2 lg:col-span-4"
           >
             {busy ? "Đang tạo…" : "Tạo tài khoản"}
           </button>
           {msg && (
-            <p className="text-[0.875rem] font-semibold text-foreground/75 sm:col-span-2">
+            <p className="text-[0.875rem] font-semibold text-foreground/75 sm:col-span-2 lg:col-span-4">
               {msg}
             </p>
           )}
@@ -510,14 +761,14 @@ function DataTab() {
         set({ state: "ok", note: okNote(j) });
         if (path === "/api/fish-forecast" && j.sources) {
           setFishSources(
-            Object.entries(j.sources as Record<string, Record<string, unknown>>).map(
-              ([key, s]) => ({
-                key,
-                id: String(s.id ?? "?"),
-                date: String(s.date ?? "?"),
-                stale: Boolean(s.stale),
-              }),
-            ),
+            Object.entries(
+              j.sources as Record<string, Record<string, unknown>>,
+            ).map(([key, s]) => ({
+              key,
+              id: String(s.id ?? "?"),
+              date: String(s.date ?? "?"),
+              stale: Boolean(s.stale),
+            })),
           );
         }
       } catch {
@@ -529,7 +780,8 @@ function DataTab() {
     check(
       "/api/fish-forecast",
       setFish,
-      (j) => `ảnh ngày ${fmtD(String(j.targetDate ?? ""))} · tính lúc ${fmtDT(String(j.generatedAt ?? ""))}`,
+      (j) =>
+        `ảnh ngày ${fmtD(String(j.targetDate ?? ""))} · tính lúc ${fmtDT(String(j.generatedAt ?? ""))}`,
       40000,
     );
     check("/api/storms", setStorms, (j) => {
@@ -662,7 +914,7 @@ function SystemTab({ health }: { health: Health }) {
           label="Service role key"
           note={
             env?.serviceRole
-              ? "đã cấu hình (webhook + admin ghi được)"
+              ? "đã cấu hình (webhook + trang này ghi được)"
               : "THIẾU — webhook SDWork và trang này không ghi được DB"
           }
         />
@@ -694,7 +946,7 @@ function SystemTab({ health }: { health: Health }) {
       </ul>
 
       {db && (
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
           {(
             [
               ["Tài khoản", db.customers],
