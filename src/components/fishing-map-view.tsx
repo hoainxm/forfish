@@ -2171,6 +2171,7 @@ export default function FishingMapView() {
                 dest={cond.point}
                 activeRoute={route}
                 places={places}
+                storms={storms}
                 onRoute={handleRoute}
               />
 

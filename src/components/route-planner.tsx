@@ -29,6 +29,8 @@ import {
   type RoutePlan,
 } from "@/lib/route-plan";
 import { fetchWeatherField } from "@/lib/route-weather";
+import { routeStormConflict, STORM_SAFE_RADIUS_KM } from "@/lib/route-storm";
+import type { StormAlert } from "@/lib/storms";
 import { fetchDepthGrid } from "@/lib/depth-grid";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
 import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
@@ -163,6 +165,7 @@ export function RoutePlanner({
   dest,
   activeRoute,
   places = [],
+  storms = [],
   onRoute,
 }: {
   dest: LatLon;
@@ -171,6 +174,10 @@ export function RoutePlanner({
   /** Điểm của tôi (cảng nhà + chỗ ghim) — nơi xuất phát THẬT của bà con,
       lít dầu tính từ đây mới đúng (roadmap hội đồng UX 2026-06-11) */
   places?: SavedPlace[];
+  /** Tin bão đang hoạt động (từ useStormCheck của màn bản đồ, gồm cả tin cũ
+      — thà báo thừa). Tuyến cắt vùng bão → CHẶN HẲN, không vẽ. Mất sóng /
+      chưa hỏi được → mảng rỗng → không chặn (không có dữ liệu để nói). */
+  storms?: StormAlert[];
   onRoute: (r: PlannedRoute | null) => void;
 }) {
   const prefs = useMapPrefs();
@@ -302,6 +309,21 @@ export function RoutePlanner({
       if (!plan) {
         setError(
           "Chưa tìm được đường an toàn — giữa đường vướng đất liền, bãi cạn hoặc sóng quá dữ (trên 4 m).",
+        );
+        setResult(null);
+        onRoute(null);
+        return;
+      }
+      // ĐỐI CHIẾU TIN BÃO (team review 2026-07-26): GFS lưới thô ước non
+      // cường độ bão — sóng/gió trên tuyến có thể dưới ngưỡng chặn số dù bão
+      // đang vào. Tuyến đi vào vùng bão → CHẶN HẲN, không vẽ.
+      const conflict = routeStormConflict(plan.waypoints, storms);
+      if (conflict) {
+        const s = conflict.storm;
+        setError(
+          `KHÔNG VẼ TUYẾN — đường đi cắt vào vùng nguy hiểm của ${s.kindLabel.toLowerCase()} ${s.name} ` +
+            `(trong vòng ${STORM_SAFE_RADIUS_KM} km quanh tâm hoặc đường đi dự báo của bão). ` +
+            `Hoãn chuyến, nghe đài duyên hải trước khi quyết.`,
         );
         setResult(null);
         onRoute(null);
