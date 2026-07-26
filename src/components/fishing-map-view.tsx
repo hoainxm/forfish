@@ -68,6 +68,7 @@ import {
   type FishForecast,
   type FishCell,
 } from "@/lib/fish-predict";
+import { lowQualityNote } from "@/lib/source-registry";
 import { moonPhase } from "@/lib/moon";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { useAuthUser } from "@/lib/use-auth";
@@ -324,15 +325,27 @@ export default function FishingMapView() {
   // lỗi tải dự báo cá phải LÊN TIẾNG — không để nút Cá lặng lẽ biến mất
   // còn người dùng tưởng "hôm nay không có cá"
   const [fishFailed, setFishFailed] = useState(false);
+  /* Bản đồ cá dựng từ ảnh CŨ / thiếu nguồn thì phải nói MỘT DÒNG rồi tự tắt —
+     không badge thường trực (màn hình phải gọn), nhưng cũng không im lặng hứa
+     độ chính xác mà nguồn không đảm bảo. Luật + chữ ở lib/source-registry.ts. */
+  const [fishQualityNote, setFishQualityNote] = useState<string | null>(null);
   const loadFish = useCallback(() => {
     setFishFailed(false);
     fetchFishForecast()
       .then((r) => {
-        if (r.ok) setFishCast(r);
-        else setFishFailed(true);
+        if (r.ok) {
+          setFishCast(r);
+          setFishQualityNote(lowQualityNote(r));
+        } else setFishFailed(true);
       })
       .catch(() => setFishFailed(true));
   }, []);
+  // nói xong thì tắt, cùng nhịp với các dòng nổi khác trên bản đồ
+  useEffect(() => {
+    if (!fishQualityNote) return;
+    const t = setTimeout(() => setFishQualityNote(null), NOTIFY_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [fishQualityNote]);
   // lớp cá tải cho MỌI người (teaser); chi tiết mới gate
   useEffect(() => {
     loadFish();
@@ -1368,6 +1381,19 @@ export default function FishingMapView() {
               Dự báo cá chưa tải được — chạm để thử lại
             </span>
           </button>
+        )}
+
+        {/* SỐ BIỂN CŨ / THIẾU NGUỒN → một dòng rồi tự tắt (5s). Chỉ hiện trong
+            ca xấu: ảnh SST/phù du quá tuổi, hoặc chất lượng dữ liệu < 0,5 —
+            xem lib/source-registry.ts (lowQualityNote). */}
+        {fishOn && fishQualityNote && (
+          <p
+            role="status"
+            className="pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-bold leading-snug text-warn shadow-md"
+          >
+            <AlertIcon className="h-4 w-4 shrink-0" />
+            {fishQualityNote}
+          </p>
         )}
 
         {/* MẤT SÓNG → nói MỘT DÒNG rồi tự tắt (cùng kiểu chip với dòng "Đã lưu

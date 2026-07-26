@@ -4,7 +4,7 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-07-25
+last_verified: 2026-07-26
 ttl_days: 90
 gate: warn
 ```
@@ -283,6 +283,20 @@ Trước đây là **thẻ vàng 2 dòng nằm lì** trên bản đồ. Chủ d�
 
 Không dùng từ kỹ thuật (tile / offline / cache / bản đồ nền) — có test chặn jargon lọt vào câu này.
 
+**D. Số biển CŨ / THIẾU NGUỒN — cũng MỘT DÒNG, TỰ ẨN** (thêm 2026-07-26)
+
+Bản đồ cá nay biết mình dựng từ ảnh ngày nào và thiếu nguồn nào (`sources` / `dataQuality`, xem [02](02-architecture.md) + [ops/external-services](ops/external-services.md)). Cân nhắc: chủ dự án vừa yêu cầu màn hình GỌN → **KHÔNG badge thường trực**; nhưng im hẳn thì thành hứa độ chính xác mà nguồn không đảm bảo (bà con ra khơi theo bản đồ này). Chốt: **một dòng, chỉ trong ca xấu, tự ẩn 5 s** — đúng chip như mục C.
+
+| Khi nào | Chữ |
+|---|---|
+| Ảnh nhiệt hoặc phù du quá tuổi (`sources.sst.stale` / `sources.chl.stale`) | **"Số biển hôm nay lấy từ ảnh cũ — có thể chưa sát."** |
+| `dataQuality < 0,5` (thiếu nhiều nguồn phụ) | **"Hôm nay thiếu vài nguồn số biển — bản đồ cá có thể chưa sát."** |
+| Bình thường / payload cũ chưa có `sources` | **im lặng** — không doạ oan |
+
+- Luật + chữ nằm ở `lib/source-registry.ts` (`lowQualityNote`, có test cho từng nhánh); hiển thị trong `fishing-map-view.tsx`, chỉ khi lớp cá đang bật.
+- Cùng `NOTIFY_HIDE_MS` = 5 s như mục C, cùng `bg-warn-bg` + ⚠ — không thêm kiểu chip mới.
+- Không nói tên dataset, không nói "chất lượng dữ liệu 0,45", không hiện tuổi tính bằng ngày (quyết định 2026-07-25n vẫn giữ: **không hiện tuổi lớp cá**).
+
 ### 10.4 Chạm điểm khi mất sóng — LẤY SỐ TỪ LƯỚI ĐÃ LƯU (2026-07-25p)
 
 Chủ dự án bật **chế độ máy bay** trên bản production: bản đồ nền, bờ, đảo, độ sâu và **mũi tên gió đều vẽ đủ**, thanh "Gió · Th 2 27/7 · 6h" chạy được — tức lưới đã lưu đang dùng tốt. Nhưng **chạm một điểm trên biển** thì sheet báo đỏ "Chỗ này chưa có số nào lưu trong máy". Mâu thuẫn thấy bằng mắt: mũi tên đang vẽ ngay chỗ đó mà app nói không có số.
@@ -364,4 +378,5 @@ Thứ tự khi `fetchSeaPoint` mất mạng: (1) bản ĐẦY ĐỦ đã lưu c�
 <!-- re-verified: 2026-06-16 — Ra khơi (#2): legend cá thành BỘ LỌC kéo-thả 2 đầu (chỉ hiện ô [lo,hi]% khả năng có cá). Độ sâu raster KHÔNG lọc được (giữ legend tĩnh). Screen map/object model KHÔNG đổi cấu trúc -->
 <!-- re-verified: 2026-07-25m — BẢN ĐỒ LÚC MẤT SÓNG (xem §10.3): (1) style thêm layer nền nước sea-bg (không còn màn hình trắng); (2) nền tối giản bờ+đảo public/data/vn-coast.v1.json bật qua lib/offline-basemap.ts khi mất mạng hoặc ≥3 ô nền trượt, đặt DƯỚI mọi lớp khác, có mạng thì không vẽ; (3) badge warn "Mất sóng. Đang dùng hình bờ biển lưu trong máy." cùng chỗ badge tuổi lớp cá; (4) glyph font tự host public/fonts (CDN openmaptiles đã chết → nhãn số mét trước nay KHÔNG hiện); (5) hải đồ + phao đèn qua /api/tiles/* để SW giữ được, kho ô riêng trần 600 ô; sw.js → sdfish-v4. -->
 <!-- re-verified: 2026-07-25n — GỌN MÀN HÌNH (xem §10.2, chủ dự án xem app thật thấy rối): (1) BỎ HẲN mọi chỗ hiện tuổi lớp cá — badge trên map (cả biến thể "Bản đồ cá CŨ" nền vàng), khối warn panel Ngư trường, đuôi "Ảnh ngày…/lấy về…" trong thẻ cá ở sheet; xoá lib/fish-age.ts + test (không còn ai dùng). /api/fish-forecast VẪN trả generatedAt nhưng KHÔNG hiển thị (giữ để đối chiếu). (2) BỎ nút "Chuẩn bị đi biển" + thẻ xanh "Xong. Máy giữ dự báo…" + dòng thường trực "Trong máy: …" → TỰ tải khi vào trang, báo 1 dòng tự ẩn sau 5s ("Đang tải dự báo…" / "Đã lưu dự báo tới ngày D/M." / "Chưa tải được dự báo — chưa có sóng."), kiểu hiển thị mượn storm-banner. (3) TIẾT CHẾ DATA: lib/pretrip-auto.ts shouldAutoPretrip — chỉ tự chạy khi bản cũ hơn PRETRIP_MIN_INTERVAL_MS=6h hoặc chưa có; còn mới/offline → im lặng; 1 lần mỗi lần mở app; mốc ở forfish.pretrip.lastRunAt.v1. lib/pretrip.ts giữ nguyên phần tải (bỏ 2 hàm chữ savedLine/doneLine vì không còn ai hiện). -->
+<!-- re-verified: 2026-07-26 — THÊM §10.3 D: một dòng tự ẩn 5s khi bản đồ cá dựng từ ảnh CŨ hoặc thiếu nhiều nguồn (`sources.sst/chl.stale` hoặc `dataQuality < 0,5`). KHÔNG badge thường trực — giữ quyết định 2026-07-25n (màn hình gọn, không hiện tuổi lớp cá); dùng lại đúng chip + NOTIFY_HIDE_MS của mục C, không thêm kiểu mới. Chữ + luật ở lib/source-registry.ts (lowQualityNote, có test từng nhánh). -->
 <!-- re-verified: 2026-07-25p — CHẠM ĐIỂM LÚC MẤT SÓNG + notify mất sóng tự ẩn (xem §10.3 C + §10.4; chủ dự án bật chế độ máy bay trên bản production): (1) fetchSeaPoint mất mạng, chỗ chưa từng xem → DỰNG số từ LƯỚI ĐÃ LƯU (loadLongestSavedGrid d16→d7→d3 + nearestGridCell, trần nửa-bước-lưới TỪNG CHIỀU GRID_SNAP_MAX_LAT_DEG≈0,86°/GRID_SNAP_MAX_LON_DEG≈1,06°, xa hơn → giữ nguyên câu "chưa có số nào lưu trong máy"); gộp mốc giờ theo NGÀY lấy gió max + sóng max. Bất biến "KHÔNG mượn số toạ độ khác" giữ nguyên — ô lưới phủ đúng chỗ chạm. (2) TRUNG THỰC: SeaPointDay cho phép score/level/precipMm/wmoCode = null; bản từ lưới KHÔNG chấm điểm đi biển, ẩn chấm tình trạng biển + màu level (về trung tính --field/--navy), ẩn thẻ "Gió/Sóng lúc này" (windKmh null), ẩn mưa/dông; chữ warn "Số gió, sóng lấy từ bản đã lưu trong máy (lưu lúc HH:MM ngày D/M). Chưa có mưa, dông cho chỗ này." (3) Nhắc mất sóng: thẻ vàng 2 dòng thường trực → CHIP 1 dòng "Mất sóng — đang dùng bản đồ lưu trong máy." / "Mạng yếu — …", tự ẩn sau NOTIFY_HIDE_MS=5s (xuất từ pretrip-auto-notify), hiện lại khi trạng thái đổi, không lặp khi vẫn đang mất sóng. -->

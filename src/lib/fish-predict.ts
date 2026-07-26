@@ -14,6 +14,7 @@
 
 import { FISH_SEASONS, nearestRegionWithin } from "@/data/fish-seasons";
 import { apiUrl } from "@/lib/api-base";
+import type { FieldProvenance } from "@/lib/source-registry";
 
 // Bán kính (độ) gán ô biển về vùng gần nhất — đủ phủ kín toàn EEZ + Hoàng Sa/
 // Trường Sa, vẫn loại nước ngoài xa hẳn (Hải Nam, Philippines). PFZ tính cho
@@ -570,6 +571,19 @@ export interface FishForecast {
    * không tốn gì và cần cho việc đối chiếu/kiểm tra sau này.
    */
   generatedAt?: string;
+  /**
+   * LÝ LỊCH NGUỒN mỗi trường (route gắn vào): đã dùng nguồn nào, ảnh ngày nào,
+   * cũ mấy ngày, có quá tuổi không. Trường KHÔNG có mặt = không nguồn nào dùng
+   * được cho trường đó (yếu tố bị bỏ khỏi mô hình). Xem lib/source-registry.ts.
+   */
+  sources?: Record<string, FieldProvenance>;
+  /**
+   * 0..1 — đủ nguồn và đều mới thì 1; thiếu/cũ thì thấp dần (công thức + test ở
+   * lib/source-registry.ts). CHỈ để hạ kỳ vọng/nhắc bà con, KHÔNG nhân vào điểm cá.
+   */
+  dataQuality?: number;
+  /** ngày dữ liệu dùng để lọc MÙA VỤ (ảnh cũ hơn trong SST/phù du) */
+  targetDate?: string;
 }
 
 /** Cặp lưới dòng chảy mặt u (đông+) / v (bắc+) — CÙNG trục lat/lon */
@@ -841,6 +855,17 @@ export function sstGridUrl(): string {
 }
 
 /**
+ * SST DỰ PHÒNG — NOAA Coral Reef Watch CoralTemp daily 5km (cùng host ERDDAP,
+ * cùng lưới 0.05° nên stride 5 = 0.25° khớp ô với nguồn chính). ĐƠN VỊ ĐỘ C
+ * (KHÔNG kelvin) — gọi parseErddapGrid phải để `kelvin: false`, nếu không cả
+ * bản đồ lệch 273°. Đã fetch thử thật 2026-07-26: 200, ~255 KB, ~3,5 s.
+ * Dùng khi nguồn chính hỏng, hoặc khi nó có ảnh MỚI HƠN (luật so ngày).
+ */
+export function sstBackupGridUrl(): string {
+  return `${ERDDAP}/noaacrwsstDaily.json?analysed_sst%5B(last)%5D%5B(22.0):5:(5.0)%5D%5B(102.0):5:(118.0)%5D`;
+}
+
+/**
  * Độ sâu đáy biển ETOPO 2022 15s (NOAA PIFSC OceanWatch ERDDAP) — TĨNH (đáy
  * không đổi), stride 60 = 0.25° khớp lưới SST. Trả `z` (mét, ÂM = dưới biển).
  * Host KHÁC coastwatch nên URL đầy đủ; vẫn gửi ERDDAP_UA phòng chặn undici.
@@ -888,6 +913,17 @@ export function slaGridUrl(): string {
 export function chlGridUrl(): string {
   // 0.083° × stride 3 = 0.25°; trục lat GIẢM dần + có chiều altitude
   return `${ERDDAP}/noaacwNPPN20VIIRSDINEOFDaily.json?chlor_a%5B(last)%5D%5B(0.0)%5D%5B(22.0):3:(5.0)%5D%5B(102.0):3:(118.0)%5D`;
+}
+
+/**
+ * PHÙ DU DỰ PHÒNG — cùng thuật toán DINEOF (vá lỗ mây) nhưng ghép THÊM cảm
+ * biến Sentinel-3 OLCI, nên có ngày nguồn chính trống thì nó vẫn có. Cùng lưới
+ * 0.083° (stride 3 = 0.25°), cùng có chiều altitude, cùng mg/m³ — thay thẳng
+ * được. Đã fetch thử thật 2026-07-26: 200, ~300 KB, ~3,3 s (ảnh 14/7, cũ hơn
+ * nguồn chính 23/7 → luật so ngày để nguồn chính thắng, đúng ý muốn).
+ */
+export function chlBackupGridUrl(): string {
+  return `${ERDDAP}/noaacwNPPN20S3ASCIDINEOFDaily.json?chlor_a%5B(last)%5D%5B(0.0)%5D%5B(22.0):3:(5.0)%5D%5B(102.0):3:(118.0)%5D`;
 }
 
 export function anomGridUrl(): string {
