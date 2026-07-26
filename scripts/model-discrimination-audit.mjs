@@ -52,6 +52,7 @@ import {
   CONV_FULL_PER_DEG,
 } from "../src/lib/fish-predict.ts";
 import { FISH_SEASONS, nearestRegionWithin } from "../src/data/fish-seasons.ts";
+import { judgeAll, termStats } from "../src/lib/discrimination.ts";
 import { fetchCopernicusCurrents } from "../src/lib/copernicus.ts";
 import { fetchHycomGrids } from "../src/lib/hycom.ts";
 
@@ -550,6 +551,8 @@ async function main() {
   for (const a of TERMS)
     console.log("   " + pad(a, 14) + TERMS.map((b) => padL(f2(corr(colAll[a], colAll[b])), 10)).join(""));
 
+  runDiscriminationGate(perDay);
+
   /* ══ §C PHÂN RÃ PHƯƠNG SAI log(fit) ═════════════════════════════════ */
   console.log(`\n══ §C PHÂN RÃ Var(log fit) theo THỪA SỐ — %đóng góp (cộng lại = 100%), chỉ ô fit>0`);
   console.log(`   ${pad("loài", 15)}${pad("tín hiệu", 9)}${padL("n", 7)}${padL("tFit%", 8)}${padL("food%", 8)}${padL("habitat%", 10)}${padL("depth%", 8)}${padL("std(logfit)", 12)}`);
@@ -880,6 +883,72 @@ function collectTerms(cells) {
     }
   }
   return out;
+}
+
+/* ── CỔNG KIỂM ĐỘ PHÂN BIỆT ────────────────────────────────────────────────
+   Biến bộ đo này thành RÀO CHẶN: yếu tố nào gần như hằng số / bão hoà / kẹp sàn
+   thì in ĐỎ và thoát khác 0. Ba lần dính cùng lỗi (upwTerm · thermoFit ·
+   foodLimiter) đều là "dải khai rộng hơn phân bố cần phân biệt".
+   Logic thuần + test: src/lib/discrimination.ts (+ __tests__/discrimination.test.ts). */
+export function runDiscriminationGate(perDay) {
+  // Cổng NHÂN theo TỪNG LOÀI: `foodLimiter` là chỗ dính lỗi lần thứ ba (mực xà
+  // std 0.019). Phải phủ, không chỉ phủ 8 cơ chế soft-OR.
+  const perSpecies = [];
+  for (const p of SPECIES_PROFILES) {
+    const fl = [], tf = [];
+    for (const P of perDay)
+      for (const c of P.F.cells) {
+        if (!c.inSeason.some((f) => f.species === p.species)) continue;
+        fl.push(FOOD_FLOOR + (1 - FOOD_FLOOR) * chlFit(c.chl, p.chlLog[0], p.chlLog[1]));
+        const t = p.tempSource === "bottom" ? c.tBottom : c.t;
+        if (Number.isFinite(t))
+          tf.push(trapezoid(t, p.sst[0], p.sst[1], p.sst[2], p.sst[3]));
+      }
+    // chỉ xét loài có đủ mẫu để nói được điều gì
+    if (fl.length >= 200) perSpecies.push(termStats(`food:${p.short}`, [fl]));
+    if (tf.length >= 200) perSpecies.push(termStats(`tFit:${p.short}`, [tf]));
+  }
+
+  const colAll = {};
+  for (const P of perDay) {
+    const c = collectTerms(P.F.cells);
+    for (const k of Object.keys(c)) {
+      colAll[k] = colAll[k] ?? [];
+      colAll[k].push(...c[k]);
+    }
+  }
+  const stats = Object.entries(colAll)
+    .map(([k, arr]) => termStats(k, [arr]))
+    .concat(perSpecies);
+  const { verdicts, redFlags } = judgeAll(stats);
+  console.log(`
+══ CỔNG KIỂM ĐỘ PHÂN BIỆT (std không gian · %kịch trần · %kẹp sàn)`);
+  const okSpecies = verdicts.filter((v) => v.ok && v.key.includes(":"));
+  const show = verdicts.filter((v) => !v.ok || !v.key.includes(":"));
+  for (const v of show.sort((a, b) => a.std - b.std)) {
+    const mark = v.ok ? "  ok " : " ĐỎ ";
+    console.log(
+      `  ${mark} ${v.key.padEnd(14)} std ${v.std.toFixed(3)}` +
+        `  trần ${(v.satFrac * 100).toFixed(0).padStart(3)}%` +
+        `  sàn ${(v.floorFrac * 100).toFixed(0).padStart(3)}%   ${v.note}`,
+    );
+  }
+  if (okSpecies.length)
+    console.log(`    ok  (+${okSpecies.length} cổng theo loài đều lành — ẩn cho gọn)`);
+  if (redFlags.length) {
+    console.log(
+      `
+  ⛔ ${redFlags.length} yếu tố KHÔNG phân biệt được: ` +
+        redFlags.map((r) => r.key).join(", ") +
+        `
+  → Xem lại dải khai của chúng so với PHÂN BỐ THẬT (đừng để dải rộng hơn phân bố).`,
+    );
+    process.exitCode = 1;
+  } else {
+    console.log(`
+  ✅ Mọi yếu tố đều còn phân biệt được ô nào hơn ô nào.`);
+  }
+  return redFlags;
 }
 
 main().catch((e) => { console.error("LỖI:", e); process.exitCode = 1; });

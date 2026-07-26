@@ -563,9 +563,27 @@ export function gradientStrength(values: number[][], full: number): number[][] {
   return out;
 }
 
-/** Front nhiệt (giữ tên cũ cho test/đọc) — gradient SST, full 0.5 °C/ô */
+/* ── Hằng gradient khai theo ĐỘ, KHÔNG theo "ô" (sửa 2026-07-26) ───────────
+   BẪY đã dính ở `conv` và suýt dính ở 3 yếu tố này: hằng ghi theo "mỗi Ô" thì
+   LỆ THUỘC BƯỚC LƯỚI — đổi độ phân giải nguồn là thang tự đổi ÂM THẦM, không
+   test nào bắt. Đo được: eddy hiện tương đương 0.16 m/độ (lưới SSHA 0.5°) và
+   tình cờ đúng 1.05× p90 — ĐÚNG DO MAY, không do thiết kế.
+   Ba số dưới chọn để GIỮ NGUYÊN hành vi hôm nay (× bước lưới thật = hằng cũ):
+     nhiệt 2.0 × 0.25° = 0.5 °C/ô · mồi 1.0 × 0.25° = 0.25 · xoáy 0.16 × 0.5° = 0.08
+   Từ nay đổi nguồn/độ phân giải thì thang GIỮ NGUYÊN ý nghĩa vật lý. */
+/** Gradient SST đạt "mạnh hẳn" (°C mỗi ĐỘ) */
+export const THERM_FRONT_FULL_PER_DEG = 2.0;
+/** Gradient log10(chl) đạt "mạnh hẳn" (đơn vị log mỗi ĐỘ) */
+export const CHL_FRONT_FULL_PER_DEG = 1.0;
+/** Gradient SSHA đạt "mạnh hẳn" (m mỗi ĐỘ) */
+export const EDDY_FULL_PER_DEG = 0.16;
+
+/** Front nhiệt (giữ tên cũ cho test/đọc) — gradient SST theo ĐỘ */
 export function frontStrength(grid: ScalarGrid): number[][] {
-  return gradientStrength(grid.values, 0.5);
+  return gradientStrength(
+    grid.values,
+    THERM_FRONT_FULL_PER_DEG * gridStepDeg(grid.lats),
+  );
 }
 
 /**
@@ -623,6 +641,46 @@ export function convergenceStrength(
 export const CONV_FULL_PER_DEG = 0.8;
 
 /** Bước lưới (độ) suy từ trục tăng dần; <2 điểm hoặc bước hỏng → `fallback` */
+/**
+ * GỘP KHỐI khi lưới nguồn MỊN HƠN ô đích (sửa 2026-07-26).
+ *
+ * Lỗi cũ: hội tụ lấy bằng `nearestIndex` — mỗi ô cá 0.25° chỉ nhận **1 trong 9
+ * nút** lưới Copernicus 1/12° ⇒ **vứt 8/9**. Đo được: tự tương quan không gian
+ * của trường hội tụ GỐC 0.680 → sau lấy mẫu điểm còn **0.228** (nhiễu trắng ở
+ * đúng độ phân giải bà con nhìn); gộp khối 3×3 đưa về **0.467**.
+ *
+ * Dùng TRUNG BÌNH (không phải max): trung bình giữ nguyên kỳ vọng của trường
+ * nên KHÔNG làm lệch phân bố đã hiệu chỉnh (`CONV_FULL_PER_DEG`); max/p75 có lý
+ * về sinh học ("ô có dải hội tụ nào không") nhưng khuếch đại nhiễu và bắt buộc
+ * hiệu chỉnh lại — CHƯA đo, để dành.
+ *
+ * `ratio` ≤ 1 (nguồn thô hơn hoặc bằng ô đích) → trả đúng ô tâm, không vỡ.
+ */
+export function blockMeanAt(
+  values: number[][],
+  iCenter: number,
+  jCenter: number,
+  ratioLat: number,
+  ratioLon: number,
+): number {
+  const rI = Math.max(0, Math.floor((ratioLat - 1) / 2));
+  const rJ = Math.max(0, Math.floor((ratioLon - 1) / 2));
+  let sum = 0;
+  let n = 0;
+  for (let i = iCenter - rI; i <= iCenter + rI; i++) {
+    const row = values[i];
+    if (!row) continue;
+    for (let j = jCenter - rJ; j <= jCenter + rJ; j++) {
+      const v = row[j];
+      if (Number.isFinite(v)) {
+        sum += v;
+        n++;
+      }
+    }
+  }
+  return n > 0 ? sum / n : NaN;
+}
+
 export function gridStepDeg(axis: number[], fallback = 0.25): number {
   if (axis.length < 2) return fallback;
   const d = Math.abs(axis[1] - axis[0]);
@@ -823,9 +881,22 @@ export function buildFishForecast(
       : sst;
   const thermFront = frontStrength(frontSrc);
   const logChl = logChlGrid(chl);
-  const chlFront = gradientStrength(logChl, 0.25);
+  const chlFront = gradientStrength(
+    logChl,
+    CHL_FRONT_FULL_PER_DEG * gridStepDeg(chl.lats),
+  );
+  // Bao nhiêu nút lưới dòng chảy rơi vào MỘT ô cá (≥1). Copernicus 1/12° vs ô
+  // 0.25° ⇒ 3×3 = 9 nút; nguồn thô hơn ⇒ 1 (rơi về đúng ô tâm).
+  const convRatioLat = cur
+    ? Math.max(1, Math.round(gridStepDeg(sst.lats) / gridStepDeg(cur.u.lats)))
+    : 1;
+  const convRatioLon = cur
+    ? Math.max(1, Math.round(gridStepDeg(sst.lons) / gridStepDeg(cur.u.lons)))
+    : 1;
   // rìa xoáy = GRADIENT của SSHA (giữ nguyên — cấu trúc cục bộ sẵn có)
-  const eddyEdge = sla ? gradientStrength(sla.values, 0.08) : null;
+  const eddyEdge = sla
+    ? gradientStrength(sla.values, EDDY_FULL_PER_DEG * gridStepDeg(sla.lats))
+    : null;
   // VIỆC 2 — ĐỘ LỚN nước trồi/xoáy lạnh dùng DỊ THƯỜNG KHÔNG GIAN (so vùng bên
   // cạnh), KHÔNG dùng anomaly nhiều năm / SSHA thô (chúng sáng-tối cả bồn theo
   // mùa → chỉ chỉnh độ sáng toàn miền, không xếp hạng ô). Precompute 1 lần.
@@ -907,8 +978,12 @@ export function buildFishForecast(
       if (cur && convGrid) {
         const ui = nearestIndex(cur.u.lats, lat);
         const uj = nearestIndex(cur.u.lons, lon);
-        const cv = convGrid[ui]?.[uj];
-        if (cv != null && Number.isFinite(cur.u.values[ui]?.[uj])) convTerm = cv;
+        // GỘP KHỐI: lưới dòng Copernicus 1/12° mịn hơn ô cá 0.25° ⇒ gộp mọi nút
+        // rơi vào ô, đừng lấy 1 nút rồi vứt 8/9 (xem blockMeanAt).
+        const cv = blockMeanAt(convGrid, ui, uj, convRatioLat, convRatioLon);
+        if (Number.isFinite(cv) && Number.isFinite(cur.u.values[ui]?.[uj])) {
+          convTerm = cv;
+        }
       }
       // tầng nhiệt: DỊ THƯỜNG KHÔNG GIAN của D20 (m) tại ô — âm = nêm nhô lên so
       // với lân cận, dương = nêm chìm. Chấm thành điểm ở vòng lặp LOÀI (mỗi loài
