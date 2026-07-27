@@ -2,10 +2,12 @@
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
-last_verified: 2026-06-15
+last_verified: 2026-07-27
 ttl_days: 90
 
 > **Mục đích**: oracle HÀNH VI cho đa-tàu — định nghĩa hồ sơ nào gắn TÀU, hồ sơ nào gắn CHỦ, vòng đời thêm/xóa/đổi tàu chạy ra sao, đúng-sai đo bằng AC nào. KHÔNG mô tả giao diện (việc của [07-design-spec](07-design-spec.md)).
+
+<!-- re-verified: 2026-07-27 — crew-list.tsx đổi UX cảnh báo thuyền viên (tra INLINE khi gõ CCCD + nút Cảnh báo = báo cáo, sheet ReportSheet). KHÔNG đụng hành vi đa-tàu: thuyền viên VẪN động-theo-chủ (R2), không gắn boatId, không mất khi xóa tàu. Spec §hồ-sơ-động còn đúng. -->
 
 ---
 

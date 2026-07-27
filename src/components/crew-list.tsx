@@ -20,9 +20,9 @@ import {
 } from "@/lib/crew-report";
 import {
   AlertIcon,
+  CheckIcon,
   EditIcon,
   PlusIcon,
-  SearchIcon,
   TrashIcon,
   UsersIcon,
 } from "@/components/icons";
@@ -108,7 +108,7 @@ export function CrewList() {
   const [editing, setEditing] = useState<StoredCrew | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<StoredCrew | null>(null);
-  // sheet tra/báo cảnh báo — mở kèm CCCD+tên của một người, hoặc rỗng (tra tự do)
+  // sheet BÁO CÁO một người (mở từ nút Cảnh báo của thẻ) — luôn kèm CCCD+tên
   const [warningFor, setWarningFor] = useState<{
     cccd: string;
     name: string;
@@ -194,19 +194,10 @@ export function CrewList() {
         Thêm bạn thuyền
       </button>
 
-      {/* Tra cảnh báo theo CCCD bất kỳ (trước khi thuê) — premium */}
-      <button
-        onClick={() => setWarningFor({ cccd: "", name: "" })}
-        className="mb-4 flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-full bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.98]"
-      >
-        <SearchIcon className="h-5 w-5" />
-        Tra cảnh báo theo CCCD
-      </button>
-
       {ready && missingCccd > 0 && !isDemo && (
         <div className="mb-4 overflow-hidden surface">
           <StatusBanner level="warn" icon={<AlertIcon className="h-5 w-5" />}>
-            {missingCccd} người chưa có CCCD — bổ sung để tra được cảnh báo.
+            {missingCccd} người chưa có CCCD — bổ sung để tra cảnh báo & báo cáo.
           </StatusBanner>
         </div>
       )}
@@ -320,6 +311,8 @@ export function CrewList() {
         <CrewForm
           initial={editing}
           takenCccds={takenCccds}
+          access={access}
+          configured={configured}
           onCancel={() => {
             setShowForm(false);
             setEditing(null);
@@ -329,9 +322,9 @@ export function CrewList() {
       )}
 
       {warningFor && (
-        <WarningSheet
-          initialCccd={warningFor.cccd}
-          initialName={warningFor.name}
+        <ReportSheet
+          cccd={warningFor.cccd}
+          name={warningFor.name}
           access={access}
           configured={configured}
           onClose={() => setWarningFor(null)}
@@ -359,11 +352,15 @@ export function CrewList() {
 function CrewForm({
   initial,
   takenCccds,
+  access,
+  configured,
   onCancel,
   onSave,
 }: {
   initial: StoredCrew | null;
   takenCccds: Set<string>;
+  access: ReturnType<typeof useFeatureAccess>["access"];
+  configured: boolean;
   onCancel: () => void;
   onSave: (m: StoredCrew) => void;
 }) {
@@ -441,6 +438,9 @@ function CrewForm({
             maxLength={16}
             placeholder="VD: 079090001234"
           />
+          {/* Tra cảnh báo NGAY khi gõ đủ 12 số — ✓ xanh nếu sạch, hiện cảnh
+              báo nếu có (không cần nút tra riêng) */}
+          <CccdCheck cccd={cccd} access={access} configured={configured} />
         </Field>
 
         <Field label="Làm việc gì trên tàu?">
@@ -576,68 +576,196 @@ function codeMessage(code: string | undefined): string {
   }
 }
 
-function WarningSheet({
-  initialCccd,
-  initialName,
+/** Gọi API tra cảnh báo theo CCCD — trả kết quả hoặc mã lỗi (dùng chung cho
+ *  ô CCCD tra-khi-gõ và sheet báo cáo). */
+async function fetchLookup(
+  cccd: string,
+): Promise<
+  { ok: true; result: CrewLookupResult } | { ok: false; code?: string }
+> {
+  try {
+    const r = await fetch(
+      apiUrl(`/api/crew-reports/lookup?cccd=${encodeURIComponent(cccd)}`),
+    );
+    const j = (await r.json().catch(() => null)) as
+      | { ok: true; count: number; reports: CrewLookupResult["reports"] }
+      | { ok: false; code?: string }
+      | null;
+    if (!j || j.ok !== true) return { ok: false, code: j?.code };
+    return {
+      ok: true,
+      result: { checked: true, count: j.count, reports: j.reports },
+    };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** Danh sách cảnh báo đã duyệt (không kèm nút) — dùng cho cả tra-khi-gõ lẫn
+ *  bối cảnh lúc báo cáo. */
+function WarningsList({ result }: { result: CrewLookupResult }) {
+  if (result.count === 0) return null;
+  return (
+    <div className="overflow-hidden rounded-2xl border border-danger/40">
+      <div className="bg-danger-bg px-4 py-2.5 text-[1rem] font-bold text-danger">
+        {result.count} cảnh báo đã kiểm duyệt
+      </div>
+      <ul>
+        {result.reports.map((rp) => (
+          <li key={rp.id} className="border-t border-line px-4 py-3">
+            <p className="text-[1rem] font-bold text-navy">
+              {crewReportCategoryLabel(rp.category)}
+            </p>
+            {rp.detail && (
+              <p className="mt-0.5 text-[0.9375rem] leading-snug text-foreground/75">
+                {rp.detail}
+              </p>
+            )}
+            <p className="mt-1 text-[0.8125rem] text-foreground/55">
+              {rp.reporterBoat ? `${rp.reporterBoat} · ` : ""}
+              {formatVnDate(rp.createdAt.slice(0, 10))}
+            </p>
+            {rp.subjectResponse && (
+              <p className="mt-1.5 rounded-lg bg-field px-3 py-2 text-[0.875rem] text-foreground/75">
+                <span className="font-bold text-navy">Người bị ghi phản hồi: </span>
+                {rp.subjectResponse}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Tra cảnh báo NGAY khi gõ đủ 12 số CCCD trong form thêm/sửa — ✓ xanh nếu
+ *  sạch, hiện cảnh báo nếu có (không cần nút tra riêng). Chỉ tra khi premium
+ *  + có máy chủ; chưa premium thì mời nâng cấp gọn. */
+function CccdCheck({
+  cccd,
+  access,
+  configured,
+}: {
+  cccd: string;
+  access: ReturnType<typeof useFeatureAccess>["access"];
+  configured: boolean;
+}) {
+  const [state, setState] = useState<LookupState>({ kind: "idle" });
+  const valid = isValidCccd(cccd);
+  const norm = normalizeCccd(cccd);
+  const canCheck = configured && access === "open";
+
+  useEffect(() => {
+    if (!valid || !canCheck) {
+      setState({ kind: "idle" });
+      return;
+    }
+    let alive = true;
+    setState({ kind: "loading" });
+    // chờ gõ xong (debounce) rồi mới hỏi máy chủ
+    const t = setTimeout(async () => {
+      const r = await fetchLookup(norm);
+      if (!alive) return;
+      setState(
+        r.ok
+          ? { kind: "done", result: r.result }
+          : { kind: "error", message: codeMessage(r.code) },
+      );
+    }, 500);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [norm, valid, canCheck]);
+
+  if (!valid) return null;
+  if (access === "login" || access === "upgrade")
+    return (
+      <p className="mt-1.5 text-[0.875rem] text-foreground/60">
+        {access === "login" ? "Đăng nhập" : "Nâng cấp"} để tra cảnh báo bạn
+        thuyền khi thêm.
+      </p>
+    );
+  if (!configured) return null; // demo mode — không có kho cảnh báo
+
+  if (state.kind === "loading")
+    return (
+      <p className="mt-1.5 text-[0.875rem] text-foreground/60">
+        Đang tra cảnh báo…
+      </p>
+    );
+  if (state.kind === "error")
+    return (
+      <p className="mt-1.5 text-[0.875rem] font-semibold text-danger">
+        {state.message}
+      </p>
+    );
+  if (state.kind === "done") {
+    if (state.result.count === 0)
+      return (
+        <p className="mt-1.5 flex items-center gap-1.5 text-[0.9375rem] font-bold text-ok">
+          <CheckIcon className="h-5 w-5" />
+          Không có cảnh báo — bạn thuyền ổn.
+        </p>
+      );
+    return (
+      <div className="mt-2">
+        <p className="mb-1.5 flex items-center gap-1.5 text-[0.9375rem] font-bold text-danger">
+          <AlertIcon className="h-5 w-5" />
+          Có cảnh báo về CCCD này:
+        </p>
+        <WarningsList result={state.result} />
+      </div>
+    );
+  }
+  return null;
+}
+
+/* Sheet BÁO CÁO một bạn thuyền (mở từ nút Cảnh báo của thẻ) — gõ lý do rồi
+   gửi; SDVICO kiểm duyệt ở /quan-tri trước khi hiện cho chủ tàu khác. Cảnh
+   báo cũ (nếu có) hiện ở trên làm bối cảnh, tránh báo trùng. */
+function ReportSheet({
+  cccd,
+  name,
   access,
   configured,
   onClose,
 }: {
-  initialCccd: string;
-  initialName: string;
+  cccd: string;
+  name: string;
   access: ReturnType<typeof useFeatureAccess>["access"];
   configured: boolean;
   onClose: () => void;
 }) {
-  const [cccd, setCccd] = useState(initialCccd);
-  const [state, setState] = useState<LookupState>({ kind: "idle" });
-  const [reporting, setReporting] = useState(false);
-  const valid = isValidCccd(cccd);
-  // access "open" = premium (hoặc demo mode). Chưa cấu hình Supabase thì kho
-  // cảnh báo không tồn tại → chặn ngay với lời nhắn demo.
+  const [ctx, setCtx] = useState<LookupState>({ kind: "idle" });
   const locked = access === "login" || access === "upgrade";
 
-  async function lookup() {
-    if (!valid) return;
-    setState({ kind: "loading" });
-    setReporting(false);
-    try {
-      const r = await fetch(
-        apiUrl(`/api/crew-reports/lookup?cccd=${encodeURIComponent(normalizeCccd(cccd))}`),
-      );
-      const j = (await r.json().catch(() => null)) as
-        | { ok: true; checked: boolean; count: number; reports: CrewLookupResult["reports"] }
-        | { ok: false; code?: string }
-        | null;
-      if (!j || j.ok !== true) {
-        setState({ kind: "error", message: codeMessage(j?.code) });
-        return;
-      }
-      setState({
-        kind: "done",
-        result: { checked: true, count: j.count, reports: j.reports },
-      });
-    } catch {
-      setState({ kind: "error", message: codeMessage(undefined) });
-    }
-  }
-
-  // tra tự động khi mở kèm CCCD sẵn của một người trong sổ
+  // nạp cảnh báo đã có làm bối cảnh (1 lần khi mở)
   useEffect(() => {
-    if (initialCccd && isValidCccd(initialCccd) && !locked && configured) {
-      void lookup();
-    }
-    // chỉ chạy lần mở
+    if (locked || !configured || !isValidCccd(cccd)) return;
+    let alive = true;
+    setCtx({ kind: "loading" });
+    fetchLookup(normalizeCccd(cccd)).then((r) => {
+      if (!alive) return;
+      setCtx(
+        r.ok
+          ? { kind: "done", result: r.result }
+          : { kind: "error", message: codeMessage(r.code) },
+      );
+    });
+    return () => {
+      alive = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <BottomSheet title="Cảnh báo thuyền viên" onClose={onClose}>
+    <BottomSheet title="Báo cáo bạn thuyền" onClose={onClose}>
       {locked ? (
         <PremiumLock
           access={access}
           feature="cảnh báo thuyền viên"
-          blurb="Tra CCCD để biết bạn thuyền từng bị chủ tàu khác báo vấn đề gì — tính năng của tài khoản nâng cao."
+          blurb="Báo cáo & tra cảnh báo bạn thuyền là tính năng của tài khoản nâng cao."
           accent="t4"
         />
       ) : !configured ? (
@@ -646,120 +774,29 @@ function WarningSheet({
         </p>
       ) : (
         <>
-          {initialName && (
-            <p className="mb-2 -mt-1 text-[0.9375rem] text-foreground/70">
-              Đang tra: <strong className="text-navy">{initialName}</strong>
-            </p>
-          )}
-          <Field label="Số CCCD cần tra (12 số)">
-            <input
-              value={cccd}
-              onChange={(e) => {
-                setCccd(e.target.value);
-                setState({ kind: "idle" });
-              }}
-              className={inputClass}
-              inputMode="numeric"
-              maxLength={16}
-              placeholder="VD: 079090001234"
-            />
-          </Field>
-          <button
-            type="button"
-            onClick={lookup}
-            disabled={!valid || state.kind === "loading"}
-            className="mb-3 flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-navy text-[1.0625rem] font-bold text-white disabled:opacity-50"
-          >
-            <SearchIcon className="h-5 w-5" />
-            {state.kind === "loading" ? "Đang tra…" : "Tra cảnh báo"}
-          </button>
+          <p className="mb-3 -mt-1 text-[0.9375rem] tabular-nums text-foreground/70">
+            {name ? <strong className="text-navy">{name} · </strong> : null}
+            CCCD {formatCccd(cccd)}
+          </p>
 
-          {state.kind === "error" && (
-            <p className="rounded-2xl bg-danger-bg px-4 py-4 text-center text-[1rem] font-semibold text-danger">
-              {state.message}
-            </p>
+          {ctx.kind === "done" && ctx.result.count > 0 && (
+            <div className="mb-3">
+              <p className="mb-1.5 text-[0.9375rem] font-bold text-danger">
+                Người này đã bị báo cáo trước đó:
+              </p>
+              <WarningsList result={ctx.result} />
+            </div>
           )}
 
-          {state.kind === "done" && !reporting && (
-            <LookupResult
-              result={state.result}
-              onReport={() => setReporting(true)}
-            />
-          )}
-
-          {reporting && (
-            <ReportForm
-              cccd={normalizeCccd(cccd)}
-              subjectName={initialName}
-              onCancel={() => setReporting(false)}
-              onDone={() => setReporting(false)}
-            />
-          )}
+          <ReportForm
+            cccd={normalizeCccd(cccd)}
+            subjectName={name}
+            onCancel={onClose}
+            onDone={onClose}
+          />
         </>
       )}
     </BottomSheet>
-  );
-}
-
-function LookupResult({
-  result,
-  onReport,
-}: {
-  result: CrewLookupResult;
-  onReport: () => void;
-}) {
-  return (
-    <div>
-      {result.count === 0 ? (
-        <div className="rounded-2xl bg-ok-bg px-4 py-6 text-center">
-          <p className="text-[1.0625rem] font-bold text-ok">
-            Chưa có cảnh báo nào cho CCCD này.
-          </p>
-          <p className="mt-1 text-[0.875rem] text-foreground/70">
-            Chỉ tính các báo cáo đã được SDVICO kiểm duyệt.
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-danger/40">
-          <div className="bg-danger-bg px-4 py-2.5 text-[1.0625rem] font-bold text-danger">
-            {result.count} cảnh báo đã kiểm duyệt
-          </div>
-          <ul>
-            {result.reports.map((rp) => (
-              <li key={rp.id} className="border-t border-line px-4 py-3">
-                <p className="text-[1rem] font-bold text-navy">
-                  {crewReportCategoryLabel(rp.category)}
-                </p>
-                {rp.detail && (
-                  <p className="mt-0.5 text-[0.9375rem] leading-snug text-foreground/75">
-                    {rp.detail}
-                  </p>
-                )}
-                <p className="mt-1 text-[0.8125rem] text-foreground/55">
-                  {rp.reporterBoat ? `${rp.reporterBoat} · ` : ""}
-                  {formatVnDate(rp.createdAt.slice(0, 10))}
-                </p>
-                {rp.subjectResponse && (
-                  <p className="mt-1.5 rounded-lg bg-field px-3 py-2 text-[0.875rem] text-foreground/75">
-                    <span className="font-bold text-navy">Người bị ghi phản hồi: </span>
-                    {rp.subjectResponse}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={onReport}
-        className="mt-3 flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-field text-[1.0625rem] font-bold text-navy active:bg-line"
-      >
-        <AlertIcon className="h-5 w-5" />
-        Báo cáo vấn đề với bạn này
-      </button>
-    </div>
   );
 }
 

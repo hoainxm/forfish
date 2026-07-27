@@ -43,7 +43,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 |---|---|---|---|---|
 | ~~Chuyến biển (lãi/lỗ, báo cáo năm, tính chuyến)~~ | — | — | — | **XÓA HẲN 2026-07-27** (user chốt — bỏ sổ lãi/lỗ, báo cáo năm, tính chuyến, chia tiền, hồ sơ chuyến PDF) |
 | Tin mua/bán | list (tin bán + tin mua) | — | bottom-sheet (đăng tin ≤8 field) | /tien mục Tin mua/bán (`market-board.tsx`) |
-| Bạn thuyền | sổ thuyền viên | cảnh báo CCCD (sheet, premium) | drawer | /nguoi |
+| Bạn thuyền | sổ thuyền viên | báo cáo CCCD (sheet, premium) | drawer (tra cảnh báo INLINE khi gõ CCCD) | /nguoi |
 | Giấy tờ tàu | list | — | drawer | /tau tab Giấy tờ |
 | Sản phẩm/Dịch vụ SDVICO | list (sync read-only + tự ghi) | — | drawer (đồ tự ghi) | /tau tab Sản phẩm/Dịch vụ |
 | Điểm ngư trường / của tôi | map + sheet | peek sheet | sheet | /ngu-truong |
@@ -80,7 +80,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 |---|---|---|---|---|
 | Ra khơi | dự báo cá KHOÁ (thẻ `PremiumLock` mời đăng nhập; đã đăng nhập hạng thường → mời gọi SDVICO); gió sóng ≤3 ngày public | điểm: "chạm biển để xem" | scalar/lưới/cá: nút **Thử lại** (không hỏng câm; **bị khoá ≠ lỗi** — không hiện Thử lại khi 401/403) | "Đang lấy dự báo…" |
 | Tàu | tab Sản phẩm/Dịch vụ: `guest` mời đăng nhập | "Chưa có … bấm nút cam" | `error` → Thử lại; `unlinked` → giải thích | "Đang kiểm tra đồ SDVICO…" |
-| Bạn thuyền | public; sổ MẪU tự xưng "sổ mẫu"; cảnh báo CCCD: hạng thường/chưa login → `PremiumLock`; demo mode → "cần máy chủ thật" | empty + nút cam | tra: nút **Tra cảnh báo** (bị khoá ≠ lỗi) | hydrate sau mount |
+| Bạn thuyền | public; sổ MẪU tự xưng "sổ mẫu"; tra cảnh báo (inline khi gõ CCCD) + báo cáo: hạng thường/chưa login → hint nâng cấp / `PremiumLock`; demo mode → "cần máy chủ thật" | empty + nút cam | tra INLINE khi gõ đủ 12 số (✓ xanh / cảnh báo đỏ) | hydrate sau mount |
 | Đăng nhập | — | — | "Sai số điện thoại hoặc mật khẩu" | nút "Đang vào…" |
 
 ## 7. Action → Expectation (đã hiện thực)
@@ -88,8 +88,8 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 | Hành động | Thấy ngay sau đó |
 |---|---|
 | Đăng tin mua/bán (đã đăng nhập) | tin hiện ngay trên chợ; tin của mình có nút Đóng/Xóa; chưa đăng nhập thì nút → /login |
-| Nhập CCCD bạn thuyền (form) | chống trùng trong sổ; đủ 12 số mới lưu được |
-| Bấm "Tra cảnh báo theo CCCD" (premium) | sheet tra → hiện cảnh báo đã duyệt (đỏ) / "chưa có cảnh báo" (xanh) + nút Báo cáo |
+| Gõ đủ 12 số CCCD trong form (premium) | tra tự động (debounce) NGAY dưới ô: ✓ xanh "không có cảnh báo" / hộp đỏ liệt kê cảnh báo đã duyệt. Chống trùng trong sổ; đủ 12 số mới lưu |
+| Bấm "Cảnh báo" trên thẻ bạn thuyền (premium) | mở sheet Báo cáo: hiện cảnh báo cũ (bối cảnh) + form chọn loại vấn đề + kể rõ → gửi → `pending` chờ SDVICO duyệt ở /quan-tri |
 | Gửi báo cáo thuyền viên | "Đã gửi — SDVICO kiểm duyệt trước khi hiện cho chủ tàu khác" |
 | Xóa điểm ghim / tin mua-bán / sản phẩm | xác nhận inline / ConfirmDialog (KHÔNG xóa 1 chạm) |
 | Gạch nợ ứng | ConfirmDialog nêu rõ số tiền |
