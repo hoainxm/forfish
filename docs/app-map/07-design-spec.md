@@ -9,6 +9,7 @@ ttl_days: 90
 gate: warn
 ```
 <!-- gate: warn vì UI churn src/app+src/components cao — cảnh báo thay vì chặn. KHÔNG để comment cùng dòng `gate:` (hook tr -d ' ' giữ lại # → phá so khớp = "warn" → chặn nhầm). -->
+<!-- re-verified: 2026-07-27 — /quan-tri tab Dữ liệu thêm khối "Cron tự động & bản tính sẵn" (CronsPanel ← /api/admin/crons): 5 dòng trạng thái chấm màu (snapshot cá/thời tiết + 3 collector ngày; storm_events chấm xanh biển trung tính vì chỉ ghi khi có bão). Không đổi flow/nav. -->
 <!-- re-verified: 2026-07-26 — /quan-tri form tạo: chọn loại bằng 2 nút phân đoạn (thay select bị bóp nhỏ), checkbox premium hàng riêng — spec màn 8 không đổi hành vi. -->
 
 

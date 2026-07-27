@@ -778,6 +778,199 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
 
 /* ── DỮ LIỆU ───────────────────────────────────────────────────────────── */
 
+/** Sức khoẻ cron + precompute từ /api/admin/crons */
+type CronsReport = {
+  ok: boolean;
+  fish?:
+    | { ok: false; error: string }
+    | { ok: true; exists: false }
+    | {
+        ok: true;
+        exists: true;
+        targetDate: string | null;
+        dataQuality: number | null;
+        generatedAt: string | null;
+        updatedAt: string | null;
+        fresh: boolean;
+      };
+  weather?:
+    | { ok: false; error: string }
+    | {
+        ok: true;
+        keys: number;
+        newest?: string;
+        oldest?: string;
+        fresh?: boolean;
+        staleKeys?: string[];
+      };
+  daily?: Record<
+    string,
+    | { ok: false; error: string }
+    | { ok: true; latest: string | null; rows: number; fresh: boolean | null }
+  >;
+};
+
+function CronRow({
+  state,
+  label,
+  note,
+}: {
+  state: "ok" | "down" | "loading" | "neutral";
+  label: string;
+  note: string;
+}) {
+  return (
+    <li className="flex items-start gap-3 border-b border-line px-4 py-3 last:border-b-0">
+      <span
+        aria-hidden
+        className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+        style={{
+          backgroundColor:
+            state === "ok"
+              ? "var(--ok)"
+              : state === "down"
+                ? "var(--danger)"
+                : state === "neutral"
+                  ? "var(--sea)"
+                  : "var(--line)",
+        }}
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-[0.9375rem] font-bold text-navy">{label}</p>
+        <p className="text-[0.8125rem] leading-snug text-foreground/65">
+          {note}
+        </p>
+      </div>
+    </li>
+  );
+}
+
+function CronsPanel() {
+  const [report, setReport] = useState<CronsReport | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    fetch(apiUrl("/api/admin/crons"))
+      .then(async (r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        setReport((await r.json()) as CronsReport);
+      })
+      .catch(() => setFailed(true));
+  }, []);
+
+  if (failed) {
+    return (
+      <div className="surface px-4 py-4">
+        <p className="text-[0.9375rem] font-bold text-navy">
+          Cron tự động & bản tính sẵn
+        </p>
+        <p className="mt-1 text-[0.875rem] text-danger">
+          Chưa kiểm tra được — thiếu SUPABASE_SERVICE_ROLE_KEY hoặc lỗi mạng.
+        </p>
+      </div>
+    );
+  }
+
+  const f = report?.fish;
+  const w = report?.weather;
+  const d = report?.daily ?? {};
+  const dailyRow = (
+    key: string,
+    label: string,
+    noteWhenNeutral?: string,
+  ): { state: "ok" | "down" | "loading" | "neutral"; note: string } => {
+    const t = d[key];
+    if (!report) return { state: "loading", note: "đang kiểm tra…" };
+    if (!t) return { state: "down", note: "không có dữ liệu trả về" };
+    if (!t.ok) return { state: "down", note: `lỗi truy vấn: ${t.error}` };
+    const base = t.latest
+      ? `bản ${fmtD(t.latest)} · ${t.rows} dòng`
+      : "chưa có bản nào";
+    if (t.fresh === null)
+      return { state: "neutral", note: `${base}${noteWhenNeutral ? ` — ${noteWhenNeutral}` : ""}` };
+    return t.fresh
+      ? { state: "ok", note: `${base} — đúng nhịp ngày` }
+      : {
+          state: "down",
+          note: `${base} — TRỄ (không có bản hôm nay/hôm qua): collector ngoài repo có thể đã đứng`,
+        };
+  };
+
+  const seaR = dailyRow("sea_daily", "");
+  const fdR = dailyRow("fish_forecast_daily", "");
+  const stR = dailyRow("storm_events", "", "chỉ ghi khi có bão/ATNĐ — không tính trễ");
+
+  return (
+    <div className="surface overflow-hidden">
+      <p className="border-b border-line px-4 py-3 text-[0.9375rem] font-bold text-navy">
+        Cron tự động & bản tính sẵn (precompute)
+      </p>
+      <ul>
+        <CronRow
+          state={
+            !report ? "loading" : !f || !f.ok ? "down" : !f.exists ? "down" : f.fresh ? "ok" : "down"
+          }
+          label="Snapshot dự báo cá — cron refresh-fish (Vercel 02:00 UTC/ngày + GitHub Actions 6h/lần)"
+          note={
+            !report
+              ? "đang kiểm tra…"
+              : !f || !f.ok
+                ? `lỗi truy vấn: ${!f ? "?" : (f as { error: string }).error}`
+                : !f.exists
+                  ? "CHƯA CÓ snapshot nào — cron chưa chạy lần nào (migration 0005 đã apply chưa?)"
+                  : `tính lúc ${fmtDT(f.generatedAt)} · ảnh vệ tinh ${fmtD(f.targetDate)} · chất lượng ${f.dataQuality != null ? Math.round(f.dataQuality * 100) + "%" : "—"}${
+                      f.fresh
+                        ? " — đang tươi"
+                        : " — QUÁ 30 GIỜ: cron đứng, app đang tự tính live (chậm hơn); kiểm tra Vercel Cron + GitHub Actions"
+                    }`
+          }
+        />
+        <CronRow
+          state={
+            !report ? "loading" : !w || !w.ok ? "down" : w.keys === 0 ? "down" : w.fresh ? "ok" : "down"
+          }
+          label="Snapshot thời tiết — cron refresh-weather (Vercel 02:30 UTC/ngày, lưới an toàn khi Open-Meteo lỗi)"
+          note={
+            !report
+              ? "đang kiểm tra…"
+              : !w || !w.ok
+                ? `lỗi truy vấn: ${!w ? "?" : (w as { error: string }).error}`
+                : w.keys === 0
+                  ? "CHƯA CÓ khoá nào — cron chưa chạy lần nào"
+                  : `${w.keys} khoá (10 cảng + lưới) · mới nhất ${fmtDT(w.newest)}${
+                      w.fresh ? " — đang tươi" : " — QUÁ 30 GIỜ: cron đứng"
+                    }${
+                      w.staleKeys && w.staleKeys.length > 0 && w.fresh
+                        ? ` · ${w.staleKeys.length} khoá bị bỏ rơi: ${w.staleKeys.join(", ")}`
+                        : ""
+                    }`
+          }
+        />
+        <CronRow
+          state={seaR.state}
+          label="sea_daily — collector dự báo biển theo ngày (NGOÀI repo)"
+          note={seaR.note}
+        />
+        <CronRow
+          state={fdR.state}
+          label="fish_forecast_daily — collector bản đồ cá theo ngày (NGOÀI repo)"
+          note={fdR.note}
+        />
+        <CronRow
+          state={stR.state}
+          label="storm_events — collector tin bão (NGOÀI repo)"
+          note={stR.note}
+        />
+      </ul>
+      <p className="border-t border-line px-4 py-2.5 text-[0.75rem] leading-snug text-foreground/55">
+        Trạng thái đo bằng TUỔI bản ghi trong DB so với nhịp kỳ vọng — cron chết
+        thì tuổi phình, không cần tra log Vercel/GitHub. Snapshot cá quá 30 giờ
+        thì app tự tính live nên bà con không mất dự báo, chỉ chậm hơn.
+      </p>
+    </div>
+  );
+}
+
 function DataTab() {
   const [fish, setFish] = useState<SourceState>({ state: "loading" });
   const [storms, setStorms] = useState<SourceState>({ state: "loading" });
@@ -854,6 +1047,8 @@ function DataTab() {
 
   return (
     <div className="mt-4 space-y-4">
+      {/* cron chạy hay chết + precompute theo ngày có lỗi không */}
+      <CronsPanel />
       <ul className="surface overflow-hidden">
         {rows.map(([label, path, s]) => (
           <li
