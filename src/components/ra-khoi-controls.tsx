@@ -542,11 +542,11 @@ function NguTruongPanel({
             />
           </button>
 
-          {/* Danh sách loài CUỘN TRONG khung cao vừa phải → panel không phình
-              tới 62vh + hiện scrollbar ngoài (user 2026-07-27: hết nhảy kích
-              thước). */}
+          {/* Danh sách loài dùng CHUNG thanh cuộn của panel (max-h-[62vh]
+              overflow-y-auto ở div panel) — KHÔNG bọc khung cuộn riêng, tránh
+              2 thanh scroll lồng nhau (user 2026-07-27). */}
           {expanded && (
-            <div className="mt-2 max-h-[42vh] overflow-y-auto [overscroll-behavior:contain] pr-0.5">
+            <div className="mt-2">
               <FishSpeciesContent
                 species={species}
                 current={fishSpecies}
