@@ -303,19 +303,19 @@ Trước đây là **thẻ vàng 2 dòng nằm lì** trên bản đồ. Chủ d�
 
 Không dùng từ kỹ thuật (tile / offline / cache / bản đồ nền) — có test chặn jargon lọt vào câu này.
 
-**D. Số biển CŨ / THIẾU NGUỒN — cũng MỘT DÒNG, TỰ ẨN** (thêm 2026-07-26)
+**D. Số biển từ ảnh CŨ — MỘT DÒNG, TỰ ẨN** (thêm 2026-07-26; bỏ nhánh "thiếu nguồn" 2026-07-27)
 
-Bản đồ cá nay biết mình dựng từ ảnh ngày nào và thiếu nguồn nào (`sources` / `dataQuality`, xem [02](02-architecture.md) + [ops/external-services](ops/external-services.md)). Cân nhắc: chủ dự án vừa yêu cầu màn hình GỌN → **KHÔNG badge thường trực**; nhưng im hẳn thì thành hứa độ chính xác mà nguồn không đảm bảo (bà con ra khơi theo bản đồ này). Chốt: **một dòng, chỉ trong ca xấu, tự ẩn 5 s** — đúng chip như mục C.
+Bản đồ cá biết mình dựng từ ảnh ngày nào (`sources`, xem [02](02-architecture.md) + [ops/external-services](ops/external-services.md)). Màn hình GỌN → **KHÔNG badge thường trực**; nhưng im hẳn khi ảnh CŨ thì thành hứa "hôm nay" mà dữ liệu không đảm bảo (bà con ra khơi theo bản đồ này). Chốt: **một dòng, chỉ khi ảnh cũ, tự ẩn 5 s** — đúng chip như mục C.
 
 | Khi nào | Chữ |
 |---|---|
 | Ảnh nhiệt hoặc phù du quá tuổi (`sources.sst.stale` / `sources.chl.stale`) | **"Số biển hôm nay lấy từ ảnh cũ — có thể chưa sát."** |
-| `dataQuality < 0,5` (thiếu nhiều nguồn phụ) | **"Hôm nay thiếu vài nguồn số biển — bản đồ cá có thể chưa sát."** |
 | Bình thường / payload cũ chưa có `sources` | **im lặng** — không doạ oan |
 
-- Luật + chữ nằm ở `lib/source-registry.ts` (`lowQualityNote`, có test cho từng nhánh); hiển thị trong `fishing-map-view.tsx`, chỉ khi lớp cá đang bật.
+- **BỎ cảnh báo "thiếu vài nguồn số biển" (chủ dự án 2026-07-27)**: bà con thấy dữ liệu vẫn hiển thị bình thường mà lại báo "thiếu nguồn — chưa sát" là gây hoang mang vô ích. Bản đồ vẫn dựng từ nguồn còn sống (bất biến monotonic: mất nguồn phụ chỉ GIẢM điểm, không bịa) nên KHÔNG cần báo user. Tình trạng thiếu nguồn + `dataQuality` GIỮ cho trang **quản trị** (`/quan-tri` tab Dữ liệu).
+- Luật + chữ nằm ở `lib/source-registry.ts` (`lowQualityNote` — nay chỉ còn nhánh ảnh cũ, có test); hiển thị trong `fishing-map-view.tsx`, chỉ khi lớp cá đang bật.
 - Cùng `NOTIFY_HIDE_MS` = 5 s như mục C, cùng `bg-warn-bg` + ⚠ — không thêm kiểu chip mới.
-- Không nói tên dataset, không nói "chất lượng dữ liệu 0,45", không hiện tuổi tính bằng ngày (quyết định 2026-07-25n vẫn giữ: **không hiện tuổi lớp cá**).
+- Không nói tên dataset, không hiện tuổi tính bằng ngày (quyết định 2026-07-25n vẫn giữ: **không hiện tuổi lớp cá**).
 
 ### 10.4 Chạm điểm khi mất sóng — LẤY SỐ TỪ LƯỚI ĐÃ LƯU (2026-07-25p)
 
@@ -430,6 +430,7 @@ Ngưỡng ĐẶT TRƯỚC khi chạy: "đổi đáng kể" ⇔ Jaccard < 0,90 **
 <!-- re-verified: 2026-07-25p — CHẠM ĐIỂM LÚC MẤT SÓNG + notify mất sóng tự ẩn (xem §10.3 C + §10.4; chủ dự án bật chế độ máy bay trên bản production): (1) fetchSeaPoint mất mạng, chỗ chưa từng xem → DỰNG số từ LƯỚI ĐÃ LƯU (loadLongestSavedGrid d16→d7→d3 + nearestGridCell, trần nửa-bước-lưới TỪNG CHIỀU GRID_SNAP_MAX_LAT_DEG≈0,86°/GRID_SNAP_MAX_LON_DEG≈1,06°, xa hơn → giữ nguyên câu "chưa có số nào lưu trong máy"); gộp mốc giờ theo NGÀY lấy gió max + sóng max. Bất biến "KHÔNG mượn số toạ độ khác" giữ nguyên — ô lưới phủ đúng chỗ chạm. (2) TRUNG THỰC: SeaPointDay cho phép score/level/precipMm/wmoCode = null; bản từ lưới KHÔNG chấm điểm đi biển, ẩn chấm tình trạng biển + màu level (về trung tính --field/--navy), ẩn thẻ "Gió/Sóng lúc này" (windKmh null), ẩn mưa/dông; chữ warn "Số gió, sóng lấy từ bản đã lưu trong máy (lưu lúc HH:MM ngày D/M). Chưa có mưa, dông cho chỗ này." (3) Nhắc mất sóng: thẻ vàng 2 dòng thường trực → CHIP 1 dòng "Mất sóng — đang dùng bản đồ lưu trong máy." / "Mạng yếu — …", tự ẩn sau NOTIFY_HIDE_MS=5s (xuất từ pretrip-auto-notify), hiện lại khi trạng thái đổi, không lặp khi vẫn đang mất sóng. -->
 <!-- re-verified: 2026-07-26b — THÊM §10.5: bản đồ cá 3 ngày — ĐO TRƯỚC KHI DỰNG rồi KHÔNG DỰNG. scripts/fish-3day-probe.mjs dựng D+1..D+3 bằng neo vệ tinh + xu hướng nhiệt Copernicus (lib/sst-tendency.ts, α cross-validated) trên 3 mùa THẬT: Jaccard(ô≥50) ở D+3 = 0,926 (hè) / 0,982 (đông) / 0,967 (chuyển mùa), ô đổi trạng thái điểm nóng chỉ 0,5–1,6 %, |Δđiểm| trung bình 0,1–0,5 trên thang 100 — KHÔNG mùa nào chạm ngưỡng đặt trước (J<0,90 hoặc ≥5 % ô đổi). ⇒ lớp cá GIỮ MỘT BẢN cho mọi ngày, KHÔNG dựng thanh trượt giả. UI đổi ĐÚNG MỘT CHỖ: trong sheet chạm điểm, khi daysAhead>0 thêm 1 dòng phụ ("Chỗ cá ít đổi trong vài ngày tới — cái đổi là gió, sóng."; >3 ngày đổi giọng "vẫn là ảnh mới nhất, không phải dự báo riêng cho ngày này"). KHÔNG badge thường trực, không chip mới, hôm nay KHÔNG thêm chữ (giữ màn hình gọn 2026-07-25n). Route /api/fish-forecast KHÔNG đổi payload, KHÔNG gọi Copernicus lúc chạy (đo thật cold 3,4 s / 389 KB / 2239 ô / 22,1 % điểm nóng). -->
 <!-- re-verified: 2026-07-26c — ĐÍNH CHÍNH câu trên: từ 2026-07-26 route CÓ gọi Copernicus lúc chạy, nhưng cho **DÒNG CHẢY** (`utotal/vtotal`, yếu tố hội tụ `conv`), KHÔNG phải cho lớp NHIỆT của bản đồ 3 ngày — quyết định "không dựng thanh trượt giả" ở §10.5 KHÔNG đổi. UI KHÔNG đụng gì (không màn hình mới, không chữ mới, không badge). Đo API thật sau khi đổi nguồn: cold 4,07 s / ấm 0,88 s / 345 KB / 2237 ô / ô ≥50 514 (494 trước) / dataQuality 1; chặn host Copernicus → vẫn 200 trong 1,17 s, dataQuality 0,95, bản đồ vẫn chạy, không loài nào biến mất. Căn cứ + bảng số: ops/external-services.md + 01-product.md. -->
+<!-- re-verified: 2026-07-27 — §10.3 D: BỎ nhánh cảnh báo "thiếu vài nguồn số biển — bản đồ cá có thể chưa sát" (chủ dự án: bà con thấy dữ liệu hiện bình thường mà báo thiếu nguồn = hoang mang vô ích). `lowQualityNote` (lib/source-registry.ts) nay CHỈ còn nhánh ẢNH CŨ (sst/chl.stale); bỏ tham số `dataQuality` khỏi hàm. `dataQuality` + tình trạng thiếu nguồn GIỮ cho /quan-tri (staff), KHÔNG hiển thị cho user. Test source-registry cập nhật (32 pass): thiếu nguồn + ảnh mới → IM LẶNG. LOW_QUALITY_THRESHOLD nay chỉ dùng cho quản trị/test. -->
 
 <!-- re-verified: 2026-07-26e — NÚT "TÔI Ở ĐÂU" (GPS) trên rail bản đồ (user yêu cầu: "thêm cái nút lấy toạ độ của tôi tương tự như các app khác để biết gps vị trí mình đang đứng").
 PHÁT HIỆN: `goToMyBoat` trong `fishing-map-view.tsx` ĐÃ CÓ SẴN (lấy GPS → bay tới → set điểm → peek sheet) nhưng **KHÔNG NƠI NÀO GỌI** — code chết, nên app thực tế CHƯA có nút GPS. `locating`/`geoError` cũng khai mà không hiển thị.

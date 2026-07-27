@@ -343,9 +343,10 @@ export default function FishingMapView() {
   // lỗi tải dự báo cá phải LÊN TIẾNG — không để nút Cá lặng lẽ biến mất
   // còn người dùng tưởng "hôm nay không có cá"
   const [fishFailed, setFishFailed] = useState(false);
-  /* Bản đồ cá dựng từ ảnh CŨ / thiếu nguồn thì phải nói MỘT DÒNG rồi tự tắt —
-     không badge thường trực (màn hình phải gọn), nhưng cũng không im lặng hứa
-     độ chính xác mà nguồn không đảm bảo. Luật + chữ ở lib/source-registry.ts. */
+  /* Bản đồ cá dựng từ ảnh CŨ thì phải nói MỘT DÒNG rồi tự tắt — không badge
+     thường trực (màn hình phải gọn), nhưng cũng không im lặng hứa "hôm nay" khi
+     ảnh đã cũ. CHỈ chuyện ảnh cũ: cảnh báo "thiếu vài nguồn" đã bỏ (chủ dự án
+     2026-07-27, bà con không cần biết). Luật + chữ ở lib/source-registry.ts. */
   const [fishQualityNote, setFishQualityNote] = useState<string | null>(null);
   const loadFish = useCallback(() => {
     setFishFailed(false);
