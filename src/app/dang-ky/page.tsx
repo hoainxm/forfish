@@ -128,6 +128,13 @@ export default function DangKyPage() {
             {loading ? "Đang tạo…" : "Tạo tài khoản"}
           </PrimaryButton>
         </form>
+        <p className="mt-3 text-center text-[0.9375rem] leading-snug text-foreground/60">
+          Tạo tài khoản tức là bạn đồng ý với{" "}
+          <Link href="/quyen-rieng-tu" className="font-bold text-sea underline">
+            Chính sách quyền riêng tư
+          </Link>
+          .
+        </p>
         <p className="mt-4 text-[0.9375rem] leading-snug text-foreground/70">
           Đã có tài khoản?{" "}
           <Link href="/login" className="font-bold text-sea">

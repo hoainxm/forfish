@@ -40,7 +40,8 @@
 | 07 | [07-design-spec.md](07-design-spec.md) | DESIGN-SPEC: thang user, object model, screen map + density budget, ma trận trạng thái, action→expectation (chốt chặn pipeline ui-design-logic) |
 | 08 | [08-ba-spec-da-tau.md](08-ba-spec-da-tau.md) | ba-spec ĐA TÀU: hồ sơ cố-định-theo-tàu vs động-theo-chủ, vòng đời thêm/xóa/đổi tàu, gán hàng SDVICO theo tàu, nhắc đa-tàu (oracle hành vi, chốt chặn pipeline BA) |
 | ops | [ops/external-services.md](ops/external-services.md) | Registry nguồn dữ liệu ngoài (Open-Meteo, GDACS, VASEP, Supabase ×2, CRM gateway…) + "khi nó chết thì sao" |
-| ops | [ops/native-deploy.md](ops/native-deploy.md) | Deploy iOS/Android: PWA (manifest/SW/icons) + Capacitor (api-base, 2 chế độ wrap) + việc còn thiếu (Mac/store account/hosting) |
+| ops | [ops/native-deploy.md](ops/native-deploy.md) | Deploy iOS/Android: PWA (manifest/SW/icons) + Capacitor (api-base, 2 chế độ wrap) + việc còn thiếu (Mac/store account/hosting) + lịch sử reject App Store |
+| ops | [ops/build-publish-store.md](ops/build-publish-store.md) | RUNBOOK build & phát hành CH Play + App Store: chốt version → AAB/Archive → store, xử lý reject 5.1.2 Privacy, chuyển domain sang sdfish.sdvico.vn |
 | ops | [ops/dot1-setup.md](ops/dot1-setup.md) | **Hướng dẫn THỦ CÔNG bật Đợt 1**: apply migration, email provider, env Vercel, dựng webhook với SDWork (+ test curl HMAC), cắm OTP provider (Zalo/SMS), kiểm RLS |
 | ops | [ops/state-registry.md](ops/state-registry.md) | Registry CANONICAL state client — mọi key `forfish.*` localStorage (writer/reader/reset), governance single-writer + versioned key |
 | ops | [ops/runbook.md](ops/runbook.md) | Runbook vận hành: dev/build/lint, regenerate asset tĩnh, deploy Vercel/PWA, health-check doc, escalation 🔴 |

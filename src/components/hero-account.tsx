@@ -288,6 +288,19 @@ export function HeroAccount() {
             )}
           </div>
 
+          {/* Chính sách quyền riêng tư — công khai, luôn tới được (App Store
+              5.1.2 bắt buộc app có link trong ứng dụng, không chỉ trong hồ sơ). */}
+          <Link
+            href="/quyen-rieng-tu"
+            onClick={() => setOpen(false)}
+            className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left surface"
+          >
+            <span className="min-w-0 flex-1 text-[1rem] font-bold text-navy">
+              Chính sách quyền riêng tư
+            </span>
+            <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+          </Link>
+
           {user && (
             <>
               {/* tự đổi mật khẩu — trước đây /doi-mat-khau chỉ vào được khi bị

@@ -87,6 +87,16 @@ export const TOURS: Tour[] = [
         title: "Chạm vào biển để xem",
         body: "Chạm bất kỳ chỗ nào trên biển: bảng dưới đáy sẽ đổi sang gió sóng của đúng chỗ đó. Số liệu là tham khảo — quyết định ra khơi vẫn là của thuyền trưởng.",
       },
+      {
+        target: null,
+        title: "Tin bão Biển Đông",
+        body: "Dải trên cùng báo bão hay áp thấp: đỏ hoặc vàng là có, kèm giờ bản tin; biển yên thì dòng xanh. Mất sóng không hỏi được thì nền vàng — app không nói liều 'không có bão'.",
+      },
+      {
+        target: null,
+        title: "Dẫn đường và dự báo cá",
+        body: "Chấm điểm đi rồi điểm đến, app vẽ tuyến né sóng gió và ước tính lít dầu (tham khảo). Dự báo cá và thời tiết quá 3 ngày cần tài khoản nâng cao — gọi SDVICO để mở.",
+      },
     ],
   },
   {

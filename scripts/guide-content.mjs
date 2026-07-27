@@ -97,7 +97,9 @@ export const prose = {
     title: "Hỏi đáp nhanh",
     items: [
       { q: "Chữ nhỏ quá, đọc không ra", a: "Bấm nút tài khoản trên Trang chủ → <b>Cỡ giao diện</b> → <b>Chữ to</b>. Hoặc chỉnh cỡ chữ trong cài đặt điện thoại, app tự to theo." },
-      { q: "Ngoài khơi mất sóng thì sao?", a: "Những gì đã ghi trong máy — giấy tờ, thuyền viên, sổ lãi lỗ, công nợ — vẫn xem được. Gió sóng, giá cá, tin bão cần mạng mới cập nhật được." },
+      { q: "Ngoài khơi mất sóng thì sao?", a: "Những gì đã ghi trong máy — giấy tờ, thuyền viên, sổ lãi lỗ, công nợ — vẫn xem được. Trên màn Ra khơi, <b>chỗ nào đã mở lúc còn mạng</b> thì app giữ lại bản đồ và số gió sóng, có ghi 'đã lưu tới ngày…' (bản lưu không chấm điểm biển, không có mưa dông). Giá cá, tin bão, và chỗ chưa từng mở thì cần có mạng mới xem được." },
+      { q: "Sao dự báo cá với thời tiết dài ngày bắt có tài khoản nâng cao?", a: "<b>Dự báo cá</b> (chỗ có khả năng có cá theo loài) và <b>thời tiết quá 3 ngày</b> là tính năng của <b>tài khoản nâng cao (premium)</b>. Gió sóng 3 ngày, tin bão, giá cá, mức phạt, giấy tờ… thì mọi tài khoản đều dùng. Muốn mở premium: <b>gọi SDVICO</b> (Tàu của tôi → Dịch vụ → Gọi SDVICO), không phải trả tiền trong app — bên SDVICO mở giúp, mở xong đăng nhập lại là thấy." },
+      { q: "Tài khoản premium mở ở đâu?", a: "Không có nút mua trong app. Bà con <b>gọi SDVICO</b> nhờ mở — dùng chung số điện thoại đã đăng nhập. SDVICO mở xong thì tính năng tự hiện, khỏi cài lại gì." },
       { q: "Sao mở màn Ra khơi lâu hơn màn khác?", a: "Bản đồ nặng nên nạp chậm hơn một chút. Nguồn dữ liệu nào hỏng thì app <b>nói rõ và cho nút Thử lại</b> — không bao giờ im lặng giả vờ như không có bão." },
       { q: "Tôi có mấy tàu, ghi chung hay riêng?", a: "Riêng theo tàu: giấy tờ, bảo dưỡng, sổ lãi lỗ. Chung cả chủ tàu: sổ bạn thuyền. Đổi tàu bằng nút chọn tàu ngay dưới phần đầu màn." },
       { q: "Xoá nhầm thì sao?", a: "App luôn hỏi lại trước khi xoá và nêu rõ xoá cái gì. Đã xoá thì không lấy lại được — đọc kỹ câu hỏi rồi hãy bấm." },
@@ -133,8 +135,8 @@ export const screens = [
     settle: 900,
     marks: [
       { text: "Chữ to", label: "Cỡ giao diện", desc: "Ba kiểu: Theo máy (mặc định — chữ trong điện thoại to thì app to theo), Chữ to, Gọn. Bấm lại lựa chọn đang bật để về Theo máy." },
-      { text: "Xem hướng dẫn đầy đủ", label: "Xem hướng dẫn đầy đủ", desc: "Mở đúng quyển sách hướng dẫn này, in ra giấy được." },
-      { text: "Chỉ lại từ đầu", label: "Chỉ lại từ đầu trên màn hình", desc: "Bật lại phần chỉ dẫn từng nút ở mọi màn, như lúc mới dùng app." },
+      { text: "Chỉ dẫn trên màn hình", label: "Chỉ dẫn trên màn hình (bật/tắt)", desc: "Công tắc phần chỉ dẫn từng nút. Bật (mặc định) thì có nút Hướng dẫn ở mọi màn và tự chỉ một lượt lần đầu. Quen app rồi thì tắt cho gọn — ẩn nút, không tự chỉ nữa." },
+      { text: "Chỉ lại từ đầu", label: "Chỉ lại từ đầu trên màn hình", desc: "Bật lại phần chỉ dẫn từng nút ở mọi màn, như lúc mới dùng app. Chỉ hiện khi công tắc trên đang bật." },
       { text: "Đổi mật khẩu", label: "Đổi mật khẩu", desc: "Đặt mật khẩu mới. Mật khẩu mới dùng được cả bên SDVICO." },
       { text: "Đăng xuất", label: "Đăng xuất", desc: "Thoát tài khoản. Dữ liệu riêng trên máy được dọn đi, người khác cầm máy không xem được." },
     ],
@@ -155,6 +157,7 @@ export const screens = [
       { text: "Cài đặt", scope: '[data-tour="rail"]', label: "Cài đặt", desc: "Đổi đơn vị khoảng cách (hải lý / km) và kiểu toạ độ." },
       { sel: '[data-tour="sheet-day"]', label: "Bảng dưới đáy", desc: "Biển êm hay động, sóng mấy mét, gió cấp mấy ở chỗ đang xem. Chạm vào biển là bảng đổi sang chỗ vừa chạm; kéo bảng lên để xem đủ mưa dông, nước cạn, tuần trăng, toạ độ." },
     ],
+    note: "<b>Còn mấy thứ nổi trên bản đồ, không đánh số vì lúc có lúc không:</b><br>· <b>Tin bão Biển Đông</b> — dải trên cùng. Có bão/áp thấp thì đỏ hoặc vàng, kèm giờ của bản tin; biển yên thì dòng xanh trấn an; mất sóng không hỏi được thì nền vàng, app KHÔNG bao giờ nói liều 'không có bão'.<br>· <b>Dẫn đường tiết kiệm dầu</b> — chấm điểm đi rồi điểm đến, app vẽ tuyến né bớt sóng gió theo giờ và ước tính số lít dầu. Con số dầu là tham khảo.<br>· <b>Dự báo cá</b> (chỗ có khả năng có cá theo loài) và <b>thời tiết quá 3 ngày</b> là của <b>tài khoản nâng cao (premium)</b> — xem mục hỏi đáp bên dưới.<br>· <b>Mất sóng ngoài khơi:</b> chỗ nào đã xem lúc còn mạng thì app giữ lại bản đồ, vẫn xem được gió sóng đã lưu, có ghi 'đã lưu tới ngày…'. Bản lưu không chấm điểm biển và không có mưa/dông.",
     warn: "Số liệu là tham khảo. App nói biển êm hay động, sóng mấy mét, gió cấp mấy — app KHÔNG phán đi hay không đi. Quyết định vẫn là của thuyền trưởng. Ảnh vệ tinh luôn chậm vài ngày; chỗ trống trên ảnh là mây che, không phải biển trống.",
   },
   {

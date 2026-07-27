@@ -46,6 +46,18 @@ npm run cap:open:ios   # / cap:open:android
 - Map tile/source trong `lib/nautical-layers.ts` đã qua `apiUrl`; các tile NGOÀI (NASA GIBS, OpenSeaMap) là origin ngoài — SW bỏ qua, native gọi trực tiếp (cần mạng).
 - Splash screen Android (adaptive icon đã sinh qua `npm run icons` — 2026-07-14).
 
+> **RUNBOOK build & phát hành chi tiết (Android + iOS từ chốt code → store)**: [build-publish-store.md](build-publish-store.md). File này chỉ giữ hiện trạng + lịch sử reject.
+
+## 5c. Reject lần 2 — 5.1.2 Data Use and Sharing (2026-07-27)
+
+Nguyên nhân gốc: **app KHÔNG có trang chính sách quyền riêng tư nào** → thiếu điều kiện cơ bản của 5.1.2 (privacy policy truy cập được + nhãn khớp thực tế). **Domain KHÔNG phải nguyên nhân trực tiếp**, nhưng Privacy Policy URL phải mở được — không dùng `sdfish.sdvico.vn` được vì domain đó hiện trỏ nhầm host + TLS sai + 404 (kiểm 2026-07-27; xem [build-publish-store.md §0.1](build-publish-store.md)).
+
+Đã sửa trong code (commit 2026-07-27):
+- Trang công khai **`/quyen-rieng-tu`** (`src/app/quyen-rieng-tu/page.tsx`, xem [02 §2](../02-architecture.md)) — khai đúng bảng §5a, không tracking.
+- Link từ `/login`, `/dang-ky`, sheet Tài khoản.
+
+Còn phải làm ở store (không phải code): nhãn App Privacy khớp §5a + Privacy Policy URL trỏ `/quyen-rieng-tu` + `NSLocationWhenInUseUsageDescription` trong Info.plist + tài khoản demo. Chi tiết [build-publish-store.md §5](build-publish-store.md).
+
 ## 5. App Store review — hồ sơ nộp (lần 1 bị từ chối 2026-07-17)
 
 Submission `4300b669-820b-404a-b2f5-fe3c72a84ca6`, bản 1.0 (1), máy review **iPad Air 11" (M3)**. Hai lỗi:
@@ -85,4 +97,4 @@ Nguyên nhân hồ sơ: tài khoản demo khai trong ASC phải **tồn tại th
 
 ---
 
-**Last updated**: 2026-07-24
+**Last updated**: 2026-07-27

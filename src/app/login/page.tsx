@@ -136,6 +136,13 @@ export default function LoginPage() {
         >
           Quên mật khẩu?
         </Link>
+        <p className="mt-4 text-center text-[0.9375rem] leading-snug text-foreground/60">
+          Đăng nhập tức là bạn đồng ý với{" "}
+          <Link href="/quyen-rieng-tu" className="font-bold text-sea underline">
+            Chính sách quyền riêng tư
+          </Link>
+          .
+        </p>
       </AuthCard>
     </div>
   );
