@@ -1,7 +1,7 @@
 # 08 — ba-spec: Đa tàu — hồ sơ cố-định-theo-tàu vs động-theo-chủ
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
-covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/money-insights.tsx, src/components/trip-log.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
+covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
 last_verified: 2026-06-15
 ttl_days: 90
 
@@ -165,6 +165,6 @@ ttl_days: 90
 
 <!-- re-verified: 2026-06-15 — build 5/5 XONG: AC-6 (lib/sdvico-assign.ts store + SdvicoAssignPrompt "Đồ này của tàu nào?" trên /tau Sản phẩm; verify unit, e2e cần SDVICO login) + AC-7 (urgent-strip gắn nhãn tàu mỗi việc, gộp mọi tàu, chưa-gán=của chung). TOÀN BỘ AC-1..7 đã hiện thực. -->
 - build 1/5 (2026-06-15): AC-4 + AC-3-guard hiện thực (boat-store).
-- build 2/5 (2026-06-15): AC-1 (trips boatId — money-insights/trip-log lọc theo tàu, thêm chip /tien) + AC-5 (crew owner-scope).
+- build 2/5 (2026-06-15): AC-1 (trips boatId — sổ lãi/lỗ lọc theo tàu) + AC-5 (crew owner-scope). *(Sổ lãi/lỗ money-insights/trip-log XÓA HẲN 2026-07-27; AC-1 phần trips không còn hiệu lực, giữ AC-5.)*
 - build 3/5 (2026-06-15): AC-2 (cascade `lib/boat-cascade.ts` purgeBoatData + UI Xóa tàu + reload-on-count 4 component) + AC-3 (guard ≥1 tàu UI + store).
 - build 4-5/5 (2026-06-15): AC-6 (`lib/sdvico-assign.ts` + `SdvicoAssignPrompt`) + AC-7 (urgent-strip nhãn tàu). **HOÀN THÀNH AC-1..7.** AC-6 e2e chờ verify khi có tài khoản SDVICO đăng nhập (preview demo không có synced data).

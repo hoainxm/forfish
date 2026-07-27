@@ -14,14 +14,14 @@ import {
   Dock điều hướng NỔI (redesign "Mặt nước"): thanh navy kính mờ bo tròn,
   tách khỏi mép màn hình — chuẩn app mobile hiện đại. Vẫn cho tay ướt:
   item cao ≥60px, icon + chữ luôn đi cùng nhau, tab đang chọn nổi pill sáng.
-  Taxonomy MECE theo đối tượng: Ra khơi (chuyến) · Tàu · Bạn thuyền · Tiền.
+  Taxonomy MECE theo đối tượng: Ra khơi (chuyến) · Tàu · Bạn thuyền · Giao dịch.
 */
 const items = [
   { href: "/", label: "Trang chủ", icon: HomeIcon },
   { href: "/ngu-truong", label: "Ra khơi", icon: FishIcon },
   { href: "/tau", label: "Tàu", icon: AnchorIcon },
   { href: "/nguoi", label: "Bạn thuyền", icon: UsersIcon },
-  { href: "/tien", label: "Tiền", icon: PriceIcon },
+  { href: "/tien", label: "Giao dịch", icon: PriceIcon },
 ];
 
 export function BottomNav() {

@@ -59,7 +59,7 @@ Hướng mới: **modern edge-to-edge mobile** — nền sáng lạnh, hero bi�
 - **Nút GỌI = `CallButton`** (`ui/primitives.tsx`, 2026-06-11): pill xanh biển icon + chữ, tap ≥48px, tự lấy số đầu khi chuỗi nhiều số. Không tự chế nút gọi chữ trần.
 - **Ô mật khẩu = `PasswordField`** (`auth-form.tsx`): có nút Hiện/Ẩn → form đăng ký KHÔNG cần ô "nhập lại".
 - **Slider trên bản đồ dùng class `.range-big`** (globals.css): núm 1.75rem tự vẽ cho tay ướt — `accent-color` mặc định núm quá nhỏ.
-- **In hồ sơ = `@media print` + `.print-area`/`.no-print`** (globals.css, 2026-06-15): bản in chỉ hiện vùng `.print-area` (hồ sơ chuyến biển), giấu nav + nút `.no-print`. Dùng cho `trip-dossier.tsx` (Lưu PDF qua hộp in của máy).
+- **In hồ sơ = `@media print` + `.print-area`/`.no-print`** (globals.css, 2026-06-15): bản in chỉ hiện vùng `.print-area`, giấu nav + nút `.no-print`. *(Người dùng đầu tiên `trip-dossier.tsx` đã XÓA 2026-07-27 — CSS còn trong globals.css cho lần in kế tiếp, hiện chưa component nào dùng.)*
 - **Safe-area edge-to-edge** (globals.css + layout.tsx, 2026-06-16): `viewport.viewportFit:"cover"` → app vẽ tràn dưới notch/Dynamic Island. Chrome né vùng an toàn bằng `.safe-pt`/`.safe-pb` (= `env(safe-area-inset-top/bottom)`): hero `page-header.tsx` (`calc(1.5rem+inset-top)`), overlay top map `fishing-map-view.tsx`, đáy `bottom-sheet`/`snap-sheet`. Dock đã tự cộng inset-bottom. `body { overscroll-behavior-y: none }` chặn rubber-band (cảm giác app).
 - **Motion điềm đạm** (globals.css, 2026-06-16): chuyển động chuẩn native, CSS THUẦN (không lib). Keyframes `sdf-{scrim,sheet,pop}-{in,out}` + class `.anim-{scrim,sheet,pop,fade}-{in,out}` (180–220ms ease). Áp: BottomSheet (scrim mờ + panel trượt lên/xuống), ConfirmDialog (scrim mờ + card pop), Tabs (tabpanel `.anim-fade-in` đổi tab). Đóng-có-animation qua hook `lib/use-exit-transition.ts` (chạy animation thoát rồi mới gọi onClose; API component KHÔNG đổi). **KHÔNG bounce/nhún nhảy**; block `prefers-reduced-motion` tự tắt mọi animation. Haptics nhẹ `lib/haptics.ts` (`tapFeedback`) chỉ ở ConfirmDialog confirm.
 - **Tap target**: nâng Tabs + nút SnapSheet lên `min-h-[3.5rem]` (56px) — đạt sàn tap chính cho tay ướt.
@@ -68,7 +68,7 @@ Hướng mới: **modern edge-to-edge mobile** — nền sáng lạnh, hero bi�
 
 ### Phân cấp điều hướng TRONG trang (chốt 2026-06-10, khi cấu trúc mới sinh chip lồng chip)
 Người 40–60 tuổi phải biết mình đang ở tầng nào bằng MẮT, không bằng suy luận:
-1. **Tabs** (`ui/tabs.tsx`) — chia KHU trong một trang (vd /tien: Giao dịch · Hiệu quả). Track pill sticky, tab chọn navy đặc.
+1. **Tabs** (`ui/tabs.tsx`) — chia KHU trong một trang (vd /tau: Giấy tờ · Dịch vụ · Sản phẩm). Track pill sticky, tab chọn navy đặc. *(/tien bỏ Tabs 2026-07-27 — chỉ còn 1 khu Giao dịch.)*
 2. **Chip tầng 1** (`ui/chip-row.tsx` `level=1`) — mục chính TRONG một tab: pill ĐẶC màu trục, 48px, chữ 16px (vd Giá cá · Ai cần mua · Bán ở đâu).
 3. **Chip tầng 2** (`level=2`) — mục con bên trong một mục: pill TONAL nền nhạt màu trục, 42px, chữ 15px — nhỏ + nhẹ hơn hẳn tầng 1 (vd 5 mục của Bán ở đâu).
 KHÔNG tự chép tay style chip nữa — mọi hàng chip điều hướng dùng `ChipRow` (truyền `accent` đúng màu trục). Không đào sâu quá 3 tầng (Tabs → chip 1 → chip 2 là kịch trần).

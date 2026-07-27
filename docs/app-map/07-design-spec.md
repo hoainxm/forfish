@@ -20,7 +20,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 ## 1. Người dùng & nhiệm vụ
 
 - **User chính**: chủ tàu / ngư dân Việt 40–60 tuổi, ít rành công nghệ, đọc ngoài nắng, tay ướt. MỘT vai trò (B2C) — KHÔNG có admin/staff/role, nên không có biến thể theo role, chỉ biến thể theo VÒNG ĐỜI đăng nhập.
-- **Job hằng ngày**: trước/trong/sau chuyến biển — coi gió sóng + dự báo cá, giữ giấy tờ khỏi quá hạn, ghi lãi lỗ & chia tiền bạn thuyền, hỏi/được SDVICO hỗ trợ.
+- **Job hằng ngày**: trước/trong/sau chuyến biển — coi gió sóng + dự báo cá, giữ giấy tờ khỏi quá hạn, ghi lãi lỗ, quản hồ sơ + tra cảnh báo bạn thuyền (CCCD), hỏi/được SDVICO hỗ trợ.
 - **Platform**: mobile-first tuyệt đối (cột ≤480px, dock nổi). Desktop = cùng cột mobile căn giữa, KHÔNG có layout desktop riêng.
 - **Brand**: SDVICO (commissioned). ForFish là kênh CSKH + giá trị vượt trội cho bà con.
 
@@ -33,7 +33,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 | **Khách SDVICO đã đồng bộ** (`ok`) | Đồ đã mua, bảo hành sắp hết, dịch vụ, **nợ/cước** | "Mọi thứ bà con mua đều theo dõi giúp" | Gọi bảo hành/đóng cước, mua thêm vật tư |
 
 **Quy tắc đã áp dụng:**
-- Tối đa **1 nudge đăng nhập/màn**: chip hero "Đăng nhập", thẻ khoá premium (`PremiumLock`), gate "Ai cần mua". KHÔNG spam.
+- Tối đa **1 nudge đăng nhập/màn**: chip hero "Đăng nhập", thẻ khoá premium (`PremiumLock`), nút "Đăng nhập để đăng tin" ở Tin mua/bán. KHÔNG spam.
 - **Phân hạng PREMIUM (2026-07-26 — THAY teaser 06-11)**: tính năng KHOÁ HẲN gồm **dự báo cá** (cả heatmap — không còn teaser) và **dự báo thời tiết quá 3 ngày** (ngày 4–16 ở "Những ngày tới" + khung 5/7/10/16 ngày trên bản đồ). Thang khoá 4 nấc (`lib/tier.ts` `FeatureAccess`): `checking` = chỉ hiện phần miễn phí, KHÔNG hiện thẻ khoá (chống nháy khoá↔mở) · `login` = thẻ khoá mời **Đăng nhập** · `upgrade` = thẻ khoá **"Gọi SDVICO 1900 23 23 49"** (hạng thường không tự nâng cấp trong app được) · `open` = premium/demo, hiện đủ. Component `premium-gate.tsx` (`PremiumLock`, có bản `compact` cho panel hẹp); nút khung ngày bị khoá vẫn HIỆN (kèm icon khoá, chạm ra một dòng mời) — biết có gì để mà muốn. **Nhu cầu mua cá** giữ gate đăng nhập cũ (`LoginGate`).
 - Lỗi đồng bộ KHÔNG được hiện thành "đăng nhập đi" với người đã đăng nhập — `useSdvicoAssets` phân biệt `guest/unlinked/error/ok` (nấc `error` có nút Thử lại).
 
@@ -41,21 +41,22 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 
 | Object | List | Detail | Form | Màn sinh ra |
 |---|---|---|---|---|
-| Chuyến biển | sổ lãi/lỗ + báo cáo năm + máy tính tổn | — | drawer (≤5 field) | trong /tien tab Hiệu quả (4 chip: Sổ lãi/lỗ · Báo cáo năm · Tính chuyến · Chia tiền) |
-| Bạn thuyền | sổ thuyền viên | sổ ứng (sheet) | drawer | /nguoi |
+| ~~Chuyến biển (lãi/lỗ, báo cáo năm, tính chuyến)~~ | — | — | — | **XÓA HẲN 2026-07-27** (user chốt — bỏ sổ lãi/lỗ, báo cáo năm, tính chuyến, chia tiền, hồ sơ chuyến PDF) |
+| Tin mua/bán | list (tin bán + tin mua) | — | bottom-sheet (đăng tin ≤8 field) | /tien mục Tin mua/bán (`market-board.tsx`) |
+| Bạn thuyền | sổ thuyền viên | cảnh báo CCCD (sheet, premium) | drawer | /nguoi |
 | Giấy tờ tàu | list | — | drawer | /tau tab Giấy tờ |
 | Sản phẩm/Dịch vụ SDVICO | list (sync read-only + tự ghi) | — | drawer (đồ tự ghi) | /tau tab Sản phẩm/Dịch vụ |
 | Điểm ngư trường / của tôi | map + sheet | peek sheet | sheet | /ngu-truong |
-| Giá cá / Nhu cầu mua | list | — | — | /tien tab Giao dịch |
+| Giá cá | list | — | — | /tien mục Giá cá |
 | ~~Mức phạt~~ | ~~searchable list~~ | — | — | **gỡ khỏi /tau 2026-07-27 (user: không cần); giữ `fines-lookup.tsx` + `data/fines.ts`** |
-| Công nợ (chủ nợ) | list theo chủ nợ | sổ vay/trả (sheet) | drawer | /tien tab Công nợ |
+| ~~Công nợ (chủ nợ)~~ | — | — | — | **XÓA HẲN 2026-07-27** (user chốt — bỏ sổ công nợ) |
 
-→ 8 object. Tạo/sửa đều ≤5 field nên dùng **drawer/bottom-sheet**, KHÔNG đẻ page riêng (quyết định đã chốt).
+→ 8 object. Tạo/sửa đa số ≤5 field nên dùng **drawer/bottom-sheet**, KHÔNG đẻ page riêng (quyết định đã chốt); form đăng tin mua/bán ≤8 field vẫn ở bottom-sheet.
 
 ## 4. Nav model
 
-- **Mobile bottom dock (5)**: Trang chủ · Ra khơi · Tàu · Bạn thuyền · Tiền — đúng trần M3 = 5, taxonomy MECE theo đối tượng. Item ≥3.75rem, icon + chữ.
-- **Tab trong page**: /tau = 3 tab (Giấy tờ/Dịch vụ/Sản phẩm) — **bỏ tab Mức phạt + Checklist xuất bến 2026-07-27 (user: không cần, chủ tàu tự biết)**; /tien = 3 tab (Giao dịch/Hiệu quả/Công nợ). Trong tab dùng `ChipRow` (≤3 tier: Tabs → chip1 → chip2). KHÔNG tab lồng tab. Thanh tab **dính (sticky top-0)** có padding-top `+env(safe-area-inset-top)` → khi hero cuộn mất, thanh không chui dưới notch/status bar (edge-to-edge).
+- **Mobile bottom dock (5)**: Trang chủ · Ra khơi · Tàu · Bạn thuyền · **Giao dịch** (dock đổi nhãn "Tiền"→"Giao dịch" 2026-07-27) — đúng trần M3 = 5, taxonomy MECE theo đối tượng. Item ≥3.75rem, icon + chữ.
+- **Tab trong page**: /tau = 3 tab (Giấy tờ/Dịch vụ/Sản phẩm) — **bỏ tab Mức phạt + Checklist xuất bến 2026-07-27 (user: không cần, chủ tàu tự biết)**; **/tien KHÔNG còn Tabs** (bỏ Hiệu quả/Công nợ 2026-07-27) — render thẳng `trade-hub.tsx` với 3 chip level-1 (Giá cá/Tin mua/bán/Bán ở đâu). Trong chip dùng `ChipRow` (≤3 tier). KHÔNG tab lồng tab. Thanh tab **dính (sticky top-0)** có padding-top `+env(safe-area-inset-top)` → khi hero cuộn mất, thanh không chui dưới notch/status bar (edge-to-edge).
 - Route phụ (`/cang`, `/login`, `/dang-ky`, `/doi-mat-khau`) vào từ ngữ cảnh, không nằm trên dock. Route cũ (`/gia-ca`, `/giay-to`, `/van-hanh`, `/thuyen-vien`) = redirect 1 dòng sang trục mới.
 
 ## 5. Screen map + density budget
@@ -65,8 +66,8 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 | 1 | Trang chủ `/` | dock, login | Coi việc cần làm ngay trong 5 giây | chạm việc khẩn / 1 trong 4 trục | (không — màn điều hướng) | M |
 | 2 | Ra khơi `/ngu-truong` | dock | Coi gió sóng + dự báo cá chỗ định đi | dẫn đường / ghim điểm | "Dẫn đường tới chỗ này" | H (map ≥60%) |
 | 3 | Tàu `/tau` | dock, nhắc `?tab=` | Coi **đủ điều kiện xuất bến chưa** (đèn xanh-đỏ + **mốc khai báo eCDT/NKKT** đầu tab Giấy tờ) + giữ giấy tờ + đồ SDVICO | xử việc đỏ (thiếu giấy/quá hạn/nợ) | theo tab | M |
-| 4 | Bạn thuyền `/nguoi` | dock | Quản hồ sơ + sổ ứng | thêm bạn / gạch nợ | "Thêm bạn thuyền" | M |
-| 5 | Tiền `/tien` | dock | Bán có lợi + lãi/lỗ rõ | ghi chuyến / chia tiền | "Ghi chuyến biển mới" | M |
+| 4 | Bạn thuyền `/nguoi` | dock | Quản hồ sơ (CCCD/giấy tờ) + tra cảnh báo trước khi thuê | thêm bạn / tra + báo cáo CCCD | "Thêm bạn thuyền" | M |
+| 5 | Giao dịch `/tien` | dock | Bán có lợi: nắm giá + đăng tin mua/bán | đăng tin bán/mua · gọi đầu mối | "Đăng tin mua/bán" | M |
 | 6 | Cảng `/cang` | nút trên map | Tìm cảng chỉ định gần | gọi/chỉ đường | (đọc) | M |
 | 7 | Đăng nhập `/login` | chip hero, gate | Vào bằng **SĐT + mật khẩu** (sale báo khi mua; KHÔNG email/OTP) | (vào app) | "Đăng nhập" | L |
 | 8 | Quản trị `/quan-tri` | gõ URL trực tiếp (STAFF: admin env `ADMIN_PHONES` — đủ 3 tab; **quản lý** `role='manager'` — CHỈ tab Tài khoản với nút Kích hoạt/Gia hạn; không trên dock, không link trong app) | Admin theo dõi hệ thống; quản lý (đại lý) cấp premium cho khách | tìm khách → **Kích hoạt premium / Gia hạn +1 năm** (dialog ghi rõ hạn mới + "ghi log dưới tên bạn") / admin: tạo (khách/quản lý) / hạ hạng / xoá — đều dialog xác nhận | theo tab | M — **web độc lập về giao diện** (app-shell thoát khung mobile + dock), responsive PC/tablet/mobile; thống kê 4 ô + bảng "Premium theo người cấp" (quản lý thấy dòng mình, admin thấy hết); hành động phá huỷ BẮT BUỘC dialog; STAFF nên không áp chuẩn chữ-to của ngư dân |
@@ -79,19 +80,18 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 |---|---|---|---|---|
 | Ra khơi | dự báo cá KHOÁ (thẻ `PremiumLock` mời đăng nhập; đã đăng nhập hạng thường → mời gọi SDVICO); gió sóng ≤3 ngày public | điểm: "chạm biển để xem" | scalar/lưới/cá: nút **Thử lại** (không hỏng câm; **bị khoá ≠ lỗi** — không hiện Thử lại khi 401/403) | "Đang lấy dự báo…" |
 | Tàu | tab Sản phẩm/Dịch vụ: `guest` mời đăng nhập | "Chưa có … bấm nút cam" | `error` → Thử lại; `unlinked` → giải thích | "Đang kiểm tra đồ SDVICO…" |
-| Bạn thuyền | public; sổ MẪU tự xưng "sổ mẫu" | empty + nút cam | — | hydrate sau mount |
-| Tiền (Chia) | public | chưa có bạn thuyền → EmptyState + link /nguoi | — | — |
+| Bạn thuyền | public; sổ MẪU tự xưng "sổ mẫu"; cảnh báo CCCD: hạng thường/chưa login → `PremiumLock`; demo mode → "cần máy chủ thật" | empty + nút cam | tra: nút **Tra cảnh báo** (bị khoá ≠ lỗi) | hydrate sau mount |
 | Đăng nhập | — | — | "Sai số điện thoại hoặc mật khẩu" | nút "Đang vào…" |
 
 ## 7. Action → Expectation (đã hiện thực)
 
 | Hành động | Thấy ngay sau đó |
 |---|---|
-| Ghi chuyến biển | sổ có dòng mới + thẻ "Nhìn nhanh" cập nhật tức thì (một nguồn `trips`) |
-| Bấm "Chia tiền" trên thẻ chuyến | sang tab Chia tiền, số đã đổ sẵn (sửa được) |
-| Bấm "Hồ sơ chuyến (PDF)" trên thẻ chuyến | mở bản hồ sơ in được (tàu + thu/tổn/lãi + thuyền viên + giấy tờ), nút In/Lưu PDF |
-| Bấm "Lặp lại chuyến" trên thẻ chuyến | mở form chuyến MỚI (id mới, ngày hôm nay) prefill số tổn chuyến cũ — chuẩn bị chuyến nhanh, không đè chuyến cũ |
-| Xóa điểm ghim / chuyến / sản phẩm | xác nhận inline / ConfirmDialog (KHÔNG xóa 1 chạm) |
+| Đăng tin mua/bán (đã đăng nhập) | tin hiện ngay trên chợ; tin của mình có nút Đóng/Xóa; chưa đăng nhập thì nút → /login |
+| Nhập CCCD bạn thuyền (form) | chống trùng trong sổ; đủ 12 số mới lưu được |
+| Bấm "Tra cảnh báo theo CCCD" (premium) | sheet tra → hiện cảnh báo đã duyệt (đỏ) / "chưa có cảnh báo" (xanh) + nút Báo cáo |
+| Gửi báo cáo thuyền viên | "Đã gửi — SDVICO kiểm duyệt trước khi hiện cho chủ tàu khác" |
+| Xóa điểm ghim / tin mua-bán / sản phẩm | xác nhận inline / ConfirmDialog (KHÔNG xóa 1 chạm) |
 | Gạch nợ ứng | ConfirmDialog nêu rõ số tiền |
 | Gửi yêu cầu SDVICO | "Đã gửi" + mục "Yêu cầu đã gửi" hiện ngay (optimistic) |
 | Đổi điểm xem trên map khi đang có tuyến | tuyến CŨ giữ nguyên + dải nhắc "tới chỗ chạm trước" + Xóa tuyến |
@@ -109,7 +109,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 ## 9. Trạng thái audit ui-design-logic (2026-06-11)
 
 - **Contrast AA**: đã quét computed-style 6 màn (home, /ngu-truong, /tau, /nguoi, /tien, /login, /cang) → **0 lỗi <4.5:1**. Sàn neutral text = `/65`; accent text/fill kiểm cả 2 chiều (t3 đậm về `#8f6010`).
-- **`tabular-nums`**: đã phủ MỌI cột/figure số: giá cá, chia tiền (per-member), sổ lãi/lỗ, sổ ứng (lịch sử + tổng), nhìn nhanh, thẻ tổng quan bạn thuyền (3 ô), cột điểm + sóng/gió `sea-forecast`.
+- **`tabular-nums`**: đã phủ MỌI cột/figure số: giá cá, tin mua/bán (giá tự do), thẻ tổng quan bạn thuyền (2 ô), CCCD (thẻ + tra), cột điểm + sóng/gió `sea-forecast`.
 - Tên trục ở Home ("Tàu của tôi", "Sổ tiền") khác nhãn dock ("Tàu", "Tiền") — cố ý (dock cần ngắn), giữ nguyên.
 - Lint `set-state-in-effect`: pattern hydrate-on-mount cố ý → rule đã tắt có chủ đích (commit 76acf4f).
 - **Safe-area đa thiết bị (2026-06-18)**: mọi phần neo mép màn né tai thỏ + home-indicator iOS + thanh gesture/nút-dưới Android. TOP: PageHeader + map-overlay + sticky Tabs/dossier dùng `env(safe-area-inset-top)`. BOTTOM: `<main pb=calc(8rem+env(sab))>`, bottom-nav/bottom-sheet/snap-sheet dùng `env(safe-area-inset-bottom)` (body KHÔNG pad đáy — tránh cộng đôi). Overlay (sheet/dialog) **portal ra body** nên không bị stacking context của cha che. Render 320/360/landscape: 0 tràn ngang, form cuộn được, nút không bị ẩn. Mục tiêu: không đè nút, không mất form, không tràn.

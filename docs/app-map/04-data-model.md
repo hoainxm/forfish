@@ -105,6 +105,26 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 
 - **KÍCH HOẠT**: dùng CHUNG `CRON_SECRET` với refresh-fish (đã có). Vercel cron `30 2 * * *` (lệch 30′ sau fish). Khoá whitelist ở `lib/weather-snapshot-id.ts` (thuần, có test) — chặn `/api/weather-snapshot` thành proxy đọc bảng tuỳ ý.
 
+### Cảnh báo THUYỀN VIÊN chéo (theo CCCD) — migration [`0007_crew_reports.sql`](../../supabase/migrations/0007_crew_reports.sql) (2026-07-27) — ✅ ĐÃ APPLY prod 2026-07-27
+
+| Thay đổi | Nghĩa |
+|---|---|
+| bảng `crew_reports` | Chủ tàu **premium** báo cáo vấn đề của thuyền viên (định danh **CCCD**); chủ tàu khác nhập CCCD trước khi thuê thấy cảnh báo **đã kiểm duyệt**. Cột: `subject_cccd_hash` (**khoá TRA** = SHA-256(pepper+CCCD), env `CREW_CCCD_PEPPER` — không dò/duyệt được danh sách) · `subject_cccd`/`subject_name` (thô, CHỈ admin duyệt + liên hệ) · `reporter_phone`/`reporter_boat` (ẩn với người tra) · `category` (bo_tau/trom_cap/gay_roi/chat_kich_thich/no_ung/khac) · `detail` · `status` (pending→approved/rejected/withdrawn) · `moderated_by`/`at` · `subject_response`/`at` (người bị ghi phản hồi, qua admin v1) · `created_at`. RLS bật, **KHÔNG policy** = chỉ service-role (`lib/crew-report.ts` thuần + `lib/crew-report-hash.ts` server) |
+| RLS + quyền | Client KHÔNG đọc/ghi trực tiếp. Ghi/tra qua route (đã gác **premium** + kiểm duyệt): `POST /api/crew-reports` (nộp→pending), `GET /api/crew-reports/lookup?cccd=` (chỉ approved, ẩn người báo), `GET+PATCH /api/admin/crew-reports` (staff duyệt/từ chối/ghi phản hồi). Premium chốt ở `lib/premium-guard.ts` (admin env = premium, giống middleware) |
+
+- ✅ **ĐÃ APPLY prod 2026-07-27** (ref znzgugvfhgmiszqgjulk, qua Supabase MCP; advisor chỉ INFO `rls_enabled_no_policy` = đúng thiết kế service-role, như snapshot/premium_grants). **CÒN THIẾU env `CREW_CCCD_PEPPER`** (≥16 ký tự) trên Vercel — chưa đặt thì route tra/báo trả 503 `cccd_pepper_missing` (fail-closed, KHÔNG hash khoá rỗng). Sổ thuyền viên (định danh + giấy tờ) vẫn dùng bình thường trên localStorage khi chưa có pepper.
+- **Pháp lý (NĐ 13/2023)**: CCCD là dữ liệu cá nhân → chốt với chủ dự án: **kiểm duyệt bắt buộc** + người bị ghi được phản hồi; khoá tra là hash (không lộ danh sách); người báo ẩn với người tra.
+
+### Chợ TIN MUA/BÁN — migration [`0008_market_listings.sql`](../../supabase/migrations/0008_market_listings.sql) (2026-07-27) — ✅ ĐÃ APPLY prod
+
+| Thay đổi | Nghĩa |
+|---|---|
+| bảng `market_listings` | Chủ tàu tự đăng **tin bán** (`side='ban'`) / **tin mua** (`side='mua'`) trong `/tien` mục Tin mua/bán. Cột: `owner_id`→auth.users (NULL = tin từ webhook thu mua) · `side` · `poster_kind` (ngu-dan/nau/vua/nha-may/cho) · `poster_name` · `species` · `quantity`/`price_text`/`province`/`phone`/`note` (chữ tự do) · `status` (open/closed) · `sdwork_ref` (unique, idempotent upsert từ app thu mua sau này). Ghi/đọc client qua `lib/market-listings.ts` (helper `validateDraft`/`rowToListing` thuần, có test) |
+| RLS | **ĐỌC**: user đã đăng nhập xem mọi tin `open` + tin của mình (`status='open' and auth.uid() is not null` **or** `auth.uid()=owner_id`) — chưa đăng nhập KHÔNG thấy tin thật, client rơi về `DEMO_LISTINGS` TIN MẪU. **GHI/SỬA/XÓA**: chỉ chủ tin (`auth.uid()=owner_id`). Webhook bên thu mua ghi tin cần mua qua **service-role** (bypass RLS) như customers/devices |
+
+- ✅ **ĐÃ APPLY lên prod** (ref znzgugvfhgmiszqgjulk) qua Supabase MCP 2026-07-27, RLS + 4 policy đã kiểm (advisor không cảnh báo bảng này). Trên máy chưa cấu hình env → `fetchListings` trả null → UI hiện TIN MẪU, đăng tin báo lỗi mềm.
+- **Lộ trình**: app riêng cho bên thu mua sẽ đăng tin cần mua đổ về bảng này qua webhook (`sdwork_ref`, `owner_id` NULL) — khi làm cần bổ sung [contract SDWork](../contracts/sdwork-assets.contract.md).
+
 ## 3. Domain logic — `src/lib/documents.ts`
 
 ### DocumentKind (giữ sync với cột `kind`)
@@ -194,9 +214,10 @@ App yêu cầu đăng nhập (tài khoản đồng bộ SDWork) cho tính năng 
 | Tính năng | Quyền | Chặn ở đâu |
 |---|---|---|
 | **Dự báo cá (PFZ)** | 🟢 teaser → 🔒 chi tiết | **TEASER (user chốt 2026-06-11)**: `GET /api/fish-forecast` CÔNG KHAI (bỏ gate 401) → lớp cá heatmap + điểm nóng HIỆN cho mọi người (thu hút). Xem CHI TIẾT một điểm (loài gì, khả năng bao nhiêu, đi hướng nào) mới khoá: `fishing-map-view` dùng `useAuthUser`+`isSupabaseConfigured` → `fishLocked` (đã cấu hình Supabase + chưa login) → thẻ cá trong sheet thành nút "Đăng nhập để xem chi tiết dự báo cá" (→/login) thay readout. Heatmap/chọn loài vẫn xem được (làm mồi). Demo mode = mở hết. (Lý do đổi từ "khoá API" cũ: lớp cá biến mất hẳn → không hấp dẫn được khách đăng ký) |
-| **Nhu cầu mua cá ("Ai cần mua")** | 🔒 đăng nhập | `LoginGate` quanh `buy-board.tsx`; nguồn API thật sau này PHẢI kiểm session như fish-forecast |
+| **Tin mua/bán (đăng + xem tin thật)** | 🟢 xem TIN MẪU công khai → 🔒 đăng tin & xem tin thật | `market-board.tsx`: chưa đăng nhập XEM được `DEMO_LISTINGS` (mồi) nhưng nút đăng tin → /login. Tin THẬT (`market_listings`) chỉ user đã đăng nhập đọc (RLS `auth.uid() is not null`), chỉ chủ tin ghi/sửa/xóa — chặn thật ở RLS, không lách được |
 | **Đồ SDVICO của tôi / dịch vụ / cước / yêu cầu đã gửi** | 🔒 (bản chất) | `/api/me/sdvico` suy khách từ session — chưa đăng nhập tự ok:false. **Nguồn thiết bị (2026-06-11)**: gateway `forfish-gateway` v4 (CRM) gộp `warranty_cards` (theo account) + `vw_imported_serials` (import Excel, chủ yếu giám sát hành trình Viettel) khớp theo **SĐT chuẩn hoá 9 số cuối** (0xxx/84xxx/+84 — trước lệch định dạng nên thiết bị import không hiện) qua RPC CRM-side `forfish_imported_serials` (xem [contract](../contracts/sdwork-assets.contract.md)). Khách chỉ có serial import (chưa account) VẪN thấy đồ. Thiết bị import không có hạn BH → hiện tên+serial, không bịa bảo hành |
-| Bản đồ + gió sóng + bão + hải đồ + cá MÙA VỤ · giá cá · bán ở đâu · catalog SDVICO + nút Gọi SDVICO · sổ tự ghi (giấy tờ/bảo dưỡng/thuyền viên/lãi lỗ/chia tiền) · mức phạt | 🌐 public | không chặn — gửi yêu cầu khi chưa đăng nhập = mối bán hàng mới |
+| Bản đồ + gió sóng + bão + hải đồ + cá MÙA VỤ · giá cá · bán ở đâu · catalog SDVICO + nút Gọi SDVICO · sổ tự ghi (giấy tờ/bảo dưỡng/thuyền viên) · mức phạt | 🌐 public | không chặn — gửi yêu cầu khi chưa đăng nhập = mối bán hàng mới |
+| **Cảnh báo thuyền viên chéo** (tra/báo cáo theo CCCD) | 🔒 **premium** | chốt server `lib/premium-guard.ts` (route /api/crew-reports*) + khoá UI ở `crew-list.tsx` |
 
 Quy ước: tính năng khóa MỚI → bọc `components/login-gate.tsx` (UI) **và** kiểm session ở API (thật). Hook trạng thái: `lib/use-auth.ts`. Khi Supabase chưa cấu hình (demo mode dev) thì KHÔNG khóa — giữ invariant demo mode §"Demo mode".
 

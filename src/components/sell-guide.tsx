@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  SELL_CHANNELS,
   WHOLESALE_MARKETS,
   type SavedBuyer,
 } from "@/data/market-channels";
@@ -26,8 +25,6 @@ import {
   inputClass,
 } from "@/components/ui/primitives";
 import {
-  AlertIcon,
-  CheckIcon,
   EditIcon,
   PinIcon,
   PlusIcon,
@@ -37,19 +34,19 @@ import {
 } from "@/components/icons";
 
 /*
-  "Bán ở đâu / bán cho ai" (trục TIỀN) — giúp bà con không bị ép giá:
-  4 mảng gọn, chuyển bằng chip nhẹ (không lồng segmented nặng):
-   · Kênh bán  — 5 cách bán, ưu/nhược về GIÁ (research/08)
+  "Bán ở đâu / bán cho ai" (trục GIAO DỊCH) — giúp bà con không bị ép giá.
+  Vào thẳng DANH SÁCH ĐẦU MỐI (bỏ mục "Kênh bán" giải thích — chủ tàu đã
+  rành, user chốt 2026-07-27). 4 mảng, chuyển bằng chip nhẹ:
+   · Nậu vựa   — vựa/cơ sở thu mua công khai, lọc theo vùng
    · Chợ đầu mối — chợ công khai (địa chỉ, giờ họp)
    · Nhà máy    — DN thu mua/xuất khẩu, lọc theo loài cá (seafood-buyers)
    · Mối quen   — nậu/vựa/nhà máy bà con TỰ thêm (localStorage, riêng tư)
 */
 
 
-type Section = "kenh" | "vua" | "cho" | "nhamay" | "moiquen";
+type Section = "vua" | "cho" | "nhamay" | "moiquen";
 
 const SECTIONS: { id: Section; label: string }[] = [
-  { id: "kenh", label: "Kênh bán" },
   { id: "vua", label: "Nậu vựa" },
   { id: "cho", label: "Chợ đầu mối" },
   { id: "nhamay", label: "Nhà máy" },
@@ -57,7 +54,7 @@ const SECTIONS: { id: Section; label: string }[] = [
 ];
 
 export function SellGuide() {
-  const [section, setSection] = useState<Section>("kenh");
+  const [section, setSection] = useState<Section>("vua");
   const { home } = useHome();
   const [near, setNear] = useState(true);
   // các mục danh bạ có lọc theo vùng (nậu vựa / chợ / nhà máy)
@@ -81,55 +78,10 @@ export function SellGuide() {
         <HomeBar home={home} near={near} setNear={setNear} />
       )}
 
-      {section === "kenh" && <Channels />}
       {section === "vua" && <Wholesalers home={home} near={near} />}
       {section === "cho" && <Markets home={home} near={near} />}
       {section === "nhamay" && <Factories home={home} near={near} />}
       {section === "moiquen" && <MyBuyers />}
-    </div>
-  );
-}
-
-function Channels() {
-  return (
-    <div className="space-y-3">
-      <RefNote tone="var(--t2)" bg="var(--t2-bg)">
-        Xếp từ giá thấp → cao. Bán càng gần nhà máy/khách cuối càng được giá,
-        nhưng tốn công và cần giấy tờ hơn.
-      </RefNote>
-      {SELL_CHANNELS.map((c, i) => (
-        <Card key={c.id} className="p-4">
-          <div className="flex items-start gap-2">
-            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-t2 text-[0.875rem] font-bold text-white">
-              {i + 1}
-            </span>
-            <div className="min-w-0">
-              <p className="display text-[1.125rem] font-bold leading-snug text-navy">
-                {c.name}
-              </p>
-              {c.bestFor && (
-                <p className="text-[0.875rem] font-semibold text-t2">
-                  Hợp khi: {c.bestFor}
-                </p>
-              )}
-            </div>
-          </div>
-          <ul className="mt-2 space-y-1">
-            {c.pros.map((p) => (
-              <li key={p} className="flex gap-2 text-[0.9375rem] text-foreground/80">
-                <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-ok" />
-                <span>{p}</span>
-              </li>
-            ))}
-            {c.cons.map((p) => (
-              <li key={p} className="flex gap-2 text-[0.9375rem] text-foreground/80">
-                <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
-                <span>{p}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ))}
     </div>
   );
 }

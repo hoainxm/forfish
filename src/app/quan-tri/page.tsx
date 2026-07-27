@@ -21,8 +21,10 @@ import { apiUrl } from "@/lib/api-base";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { formatCccd } from "@/lib/crew";
+import { crewReportCategoryLabel } from "@/lib/crew-report";
 
-type Tab = "tai-khoan" | "du-lieu" | "he-thong";
+type Tab = "tai-khoan" | "canh-bao" | "du-lieu" | "he-thong";
 
 /** Vai trò staff — admin (env) toàn quyền; quản lý (DB) chỉ cấp/gia hạn premium */
 type StaffRole = "admin" | "manager";
@@ -188,12 +190,16 @@ export default function QuanTriPage() {
 
       <div className="mt-4 flex gap-1.5 md:max-w-[560px]" role="tablist">
         {(
-          // QUẢN LÝ chỉ có tab Tài khoản (cấp/gia hạn premium); Dữ liệu +
-          // Hệ thống là việc của admin
+          // QUẢN LÝ: Tài khoản (cấp premium) + Cảnh báo TV (kiểm duyệt); Dữ
+          // liệu + Hệ thống là việc của admin
           (health.me?.role === "manager"
-            ? [["tai-khoan", "Tài khoản"]]
+            ? [
+                ["tai-khoan", "Tài khoản"],
+                ["canh-bao", "Cảnh báo TV"],
+              ]
             : [
                 ["tai-khoan", "Tài khoản"],
+                ["canh-bao", "Cảnh báo TV"],
                 ["du-lieu", "Dữ liệu"],
                 ["he-thong", "Hệ thống"],
               ]) as [Tab, string][]
@@ -218,6 +224,7 @@ export default function QuanTriPage() {
       {tab === "tai-khoan" && (
         <AccountsTab me={health.me ?? { phone: "", role: "admin" }} />
       )}
+      {tab === "canh-bao" && <CrewReportsTab />}
       {tab === "du-lieu" && health.me?.role !== "manager" && <DataTab />}
       {tab === "he-thong" && health.me?.role !== "manager" && (
         <SystemTab health={health} />
@@ -773,6 +780,304 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
         </form>
       )}
     </div>
+  );
+}
+
+/* ── CẢNH BÁO THUYỀN VIÊN (kiểm duyệt) ───────────────────────────────────── */
+
+type CrewReportRow = {
+  id: string;
+  subjectCccd: string;
+  subjectName: string | null;
+  reporterPhone: string;
+  reporterBoat: string | null;
+  category: string;
+  detail: string | null;
+  status: string;
+  moderatedBy: string | null;
+  moderatedAt: string | null;
+  subjectResponse: string | null;
+  subjectRespondedAt: string | null;
+  createdAt: string;
+};
+
+type ReportStatusFilter = "pending" | "approved" | "rejected" | "all";
+
+const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+  pending: { label: "Chờ duyệt", cls: "bg-warn-bg text-warn" },
+  approved: { label: "Đã duyệt", cls: "bg-danger-bg text-danger" },
+  rejected: { label: "Từ chối", cls: "bg-field text-foreground/65" },
+  withdrawn: { label: "Đã rút", cls: "bg-field text-foreground/65" },
+};
+
+function CrewReportsTab() {
+  const [status, setStatus] = useState<ReportStatusFilter>("pending");
+  const [rows, setRows] = useState<CrewReportRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  // xác nhận đổi trạng thái (duyệt/từ chối/rút) qua dialog trong trang
+  const [confirm, setConfirm] = useState<{
+    row: CrewReportRow;
+    action: "approve" | "reject" | "withdraw";
+  } | null>(null);
+
+  const load = useCallback(() => {
+    setError(null);
+    setRows(null);
+    fetch(apiUrl(`/api/admin/crew-reports?status=${status}`))
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok: boolean;
+          code?: string;
+          reports?: CrewReportRow[];
+        };
+        if (!j.ok) throw new Error(j.code ?? "load");
+        setRows(j.reports ?? []);
+      })
+      .catch((e: Error) =>
+        setError(
+          e.message === "not_configured"
+            ? "Chưa cấu hình Supabase/service-role — cảnh báo cần DB thật."
+            : "Chưa tải được danh sách — thử lại.",
+        ),
+      );
+  }, [status]);
+  useEffect(load, [load]);
+
+  async function act(
+    row: CrewReportRow,
+    action: "approve" | "reject" | "withdraw" | "respond",
+    subjectResponse?: string,
+  ) {
+    setBusyId(row.id);
+    const r = await fetch(apiUrl("/api/admin/crew-reports"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: row.id, action, subjectResponse }),
+    }).catch(() => null);
+    setBusyId(null);
+    if (!r?.ok) {
+      setError("Thao tác chưa được — thử lại.");
+      return;
+    }
+    load();
+  }
+
+  const chip = (id: ReportStatusFilter, label: string) => (
+    <button
+      key={id}
+      type="button"
+      onClick={() => setStatus(id)}
+      aria-pressed={status === id}
+      className={`min-h-[2.5rem] shrink-0 rounded-full px-4 text-[0.875rem] font-bold transition ${
+        status === id ? "bg-navy text-white" : "bg-field text-foreground/70"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="mt-4 space-y-4">
+      <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
+        Chủ tàu premium báo cáo vấn đề thuyền viên (theo CCCD). Chỉ báo cáo{" "}
+        <b>đã duyệt</b> mới hiện cho chủ tàu khác. Kiểm tra kỹ trước khi duyệt —
+        người bị ghi có quyền phản hồi (ghi vào ô bên dưới mỗi báo cáo).
+      </p>
+
+      <div className="flex gap-1.5">
+        {chip("pending", "Chờ duyệt")}
+        {chip("approved", "Đã duyệt")}
+        {chip("rejected", "Từ chối")}
+        {chip("all", "Tất cả")}
+      </div>
+
+      {error && (
+        <div className="surface px-4 py-6 text-center">
+          <p className="text-[1rem] text-danger">{error}</p>
+          <button
+            type="button"
+            onClick={load}
+            className="mt-3 min-h-[2.75rem] rounded-xl bg-navy px-6 text-[0.9375rem] font-bold text-white"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+      {!rows && !error && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Đang tải…
+        </p>
+      )}
+      {rows && rows.length === 0 && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Không có báo cáo nào ở mục này.
+        </p>
+      )}
+
+      {rows && rows.length > 0 && (
+        <ul className="space-y-3">
+          {rows.map((row) => (
+            <ReportCard
+              key={row.id}
+              row={row}
+              busy={busyId === row.id}
+              onStatus={(action) => setConfirm({ row, action })}
+              onRespond={(text) => act(row, "respond", text)}
+            />
+          ))}
+        </ul>
+      )}
+
+      {confirm && (
+        <ConfirmDialog
+          title={
+            confirm.action === "approve"
+              ? "Duyệt báo cáo này?"
+              : confirm.action === "reject"
+                ? "Từ chối báo cáo này?"
+                : "Rút báo cáo đã duyệt xuống?"
+          }
+          message={
+            confirm.action === "approve"
+              ? "Sau khi duyệt, chủ tàu khác nhập CCCD này sẽ THẤY cảnh báo. Đảm bảo đã kiểm tra."
+              : confirm.action === "reject"
+                ? "Báo cáo sẽ không hiện cho ai. Dùng khi nội dung sai/không đủ căn cứ."
+                : "Cảnh báo sẽ ngừng hiện cho chủ tàu khác."
+          }
+          confirmLabel={
+            confirm.action === "approve"
+              ? "Duyệt, cho hiện"
+              : confirm.action === "reject"
+                ? "Từ chối"
+                : "Rút xuống"
+          }
+          cancelLabel="Không"
+          danger={confirm.action !== "approve"}
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => {
+            const { row, action } = confirm;
+            setConfirm(null);
+            act(row, action);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ReportCard({
+  row,
+  busy,
+  onStatus,
+  onRespond,
+}: {
+  row: CrewReportRow;
+  busy: boolean;
+  onStatus: (action: "approve" | "reject" | "withdraw") => void;
+  onRespond: (text: string) => void;
+}) {
+  const [resp, setResp] = useState(row.subjectResponse ?? "");
+  const badge = STATUS_BADGE[row.status] ?? STATUS_BADGE.pending;
+
+  return (
+    <li className="surface overflow-hidden">
+      <div className="flex items-start justify-between gap-3 px-4 pt-3">
+        <div className="min-w-0">
+          <p className="text-[1rem] font-bold text-navy">
+            {crewReportCategoryLabel(row.category)}
+          </p>
+          <p className="mt-0.5 text-[0.8125rem] tabular-nums text-foreground/70">
+            CCCD {formatCccd(row.subjectCccd)}
+            {row.subjectName ? ` · ${row.subjectName}` : ""}
+          </p>
+        </div>
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-1 text-[0.75rem] font-bold ${badge.cls}`}
+        >
+          {badge.label}
+        </span>
+      </div>
+
+      {row.detail && (
+        <p className="px-4 pt-2 text-[0.9375rem] leading-snug text-foreground/80">
+          {row.detail}
+        </p>
+      )}
+
+      <p className="px-4 pt-2 text-[0.8125rem] text-foreground/55">
+        Người báo: <span className="tabular-nums">{row.reporterPhone}</span>
+        {row.reporterBoat ? ` (${row.reporterBoat})` : ""} · gửi{" "}
+        {fmtDT(row.createdAt)}
+        {row.moderatedBy &&
+          ` · duyệt bởi ${row.moderatedBy} ${fmtDT(row.moderatedAt)}`}
+      </p>
+
+      {/* phản hồi người bị ghi (admin thay mặt ghi, v1) */}
+      <div className="mt-2 border-t border-line bg-background px-4 py-3">
+        <label className="mb-1 block text-[0.8125rem] font-bold text-navy">
+          Phản hồi của người bị ghi
+        </label>
+        <textarea
+          value={resp}
+          onChange={(e) => setResp(e.target.value)}
+          maxLength={500}
+          placeholder="Ghi lại đính chính/giải thích của người bị ghi nếu họ liên hệ SDVICO…"
+          className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+        />
+        <button
+          type="button"
+          disabled={busy || resp.trim() === (row.subjectResponse ?? "")}
+          onClick={() => onRespond(resp.trim())}
+          className="mt-1.5 min-h-[2.5rem] rounded-lg bg-field px-4 text-[0.8125rem] font-bold text-navy disabled:opacity-40"
+        >
+          Lưu phản hồi
+        </button>
+      </div>
+
+      <div className="flex gap-1.5 border-t border-line px-4 py-2.5">
+        {row.status === "pending" && (
+          <>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onStatus("approve")}
+              className="min-h-[2.5rem] flex-1 rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
+            >
+              Duyệt
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onStatus("reject")}
+              className="min-h-[2.5rem] flex-1 rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-foreground/70 disabled:opacity-50"
+            >
+              Từ chối
+            </button>
+          </>
+        )}
+        {row.status === "approved" && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onStatus("withdraw")}
+            className="min-h-[2.5rem] flex-1 rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
+          >
+            Rút cảnh báo xuống
+          </button>
+        )}
+        {(row.status === "rejected" || row.status === "withdrawn") && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onStatus("approve")}
+            className="min-h-[2.5rem] flex-1 rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
+          >
+            Duyệt lại (cho hiện)
+          </button>
+        )}
+      </div>
+    </li>
   );
 }
 

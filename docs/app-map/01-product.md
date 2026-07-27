@@ -43,15 +43,16 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
   - ⚠️ Khuyến nghị ngư trường của họ chỉ cập nhật **2 lần/tuần** → KHÔNG hứa với người dùng độ chính xác hằng ngày cho phần khuyến nghị.
 - ⚠️ Độ phân giải ảnh vệ tinh là **mức vùng (vài km)**, không phải tọa độ điểm — không hứa "chỉ đúng chỗ thả lưới". Lớp phù du bị mây che mất chỗ — UI giải thích "chỗ trống là mây che".
 
-### Trục 2 — Bán được đắt hơn (ở `/tien` tab Giao dịch · route cũ `/gia-ca` → redirect)
+### Trục 2 — Bán được đắt hơn (ở `/tien`, dock nhãn "Giao dịch" · route cũ `/gia-ca` → redirect)
 - **Hứa gì**: cá về bờ bán được giá, không bị ép.
-- **Cấu trúc TÁCH ĐÔI (user chốt 2026-06-10)**:
-  1. **GIAO DỊCH** — thông tin được cấp để bán có LỢI THẾ: giá cá hôm nay · **"Ai cần mua"** (bảng yêu cầu loài + khối lượng + giá từ đầu nậu/vựa/nhà máy) · danh bạ chỗ bán.
-  2. **HIỆU QUẢ** — phân tích chuyện làm ăn: thẻ nhìn nhanh (tổng lãi, bình quân/chuyến, % chuyến lãi, % tiền bán vào dầu — `lib/trip-insights.ts`) + sổ lãi/lỗ + máy chia tiền.
-- **Lộ trình "Ai cần mua"**: sẽ có **app riêng cho bên thu mua** đăng yêu cầu (loài, khối lượng, giá) → tin chảy thẳng về mục Giao dịch, ngư dân gọi chào bán. Trong lúc chờ: `src/data/buy-requests.ts` chỉ chứa TIN MẪU (`demo: true`, UI ghi rõ từng thẻ, không SĐT) — KHÔNG bịa tin thật. Shape `BuyRequest` là hợp đồng cho app thu mua sau này.
+- **Cấu trúc GỌN VỀ 1 VIỆC MUA–BÁN (user chốt 2026-07-27)** — bỏ tab Hiệu quả/Công nợ khỏi khu này, chỉ còn 3 mục:
+  1. **Giá cá** — giá cá tuần VASEP + giá dầu DO live.
+  2. **Tin mua/bán** — chủ tàu tự ĐĂNG tin bán (có cá cần bán) và tin mua (cần mua gì); đầu nậu/vựa/nhà máy đăng tin cần mua. Cả làng cùng xem tin đang mở, gọi thẳng nhau.
+  3. **Bán ở đâu** — danh bạ đầu mối (nậu vựa · chợ · nhà máy · mối quen), vào thẳng danh sách (bỏ mục "Kênh bán" giải thích).
+- **Lộ trình "Tin mua/bán"**: chủ tàu đăng tin ghi thật vào bảng Supabase `market_listings` (RLS owner-write, xem [04 §2](04-data-model.md)); **app riêng cho bên thu mua** sẽ đổ tin cần mua về cùng bảng qua webhook (`owner_id` NULL, `sdwork_ref`). Chưa đăng nhập / chưa cấu hình env → chỉ xem `DEMO_LISTINGS` TIN MẪU (UI ghi rõ) — KHÔNG bịa tin thật.
 - **Giá cá LIVE (2026-06-10)**: `/api/port-prices` (cache 24h) kéo bản tin giá nguyên liệu **hằng TUẦN của VASEP** (Khánh Hòa — "giá tại bến/vựa", scrape bảng HTML qua `lib/port-price-source.ts`, khớp keyword → 13 loài app). TRUNG THỰC: giá TUẦN không phải ngày (VN chưa có nguồn giá-tại-bến hằng ngày máy-đọc-được); parser phòng thủ, nguồn fail/parse vỡ → lùi về bảng tĩnh `data/port-prices.ts`; loài tuần này VASEP không có thì giữ giá tĩnh + nhãn "tham khảo"; UI ghi "Nguồn VASEP, tuần X". Loại hàng khô/giống khỏi giá tươi.
 - **Giá dầu DO LIVE**: `/api/fuel-price` (cache 6h) → giaxanghomnay.com (Petrolimex, JSON không key) lấy DO 0,05S vùng 1/vùng 2 — chi phí lớn nhất chuyến biển, hiện trên đầu bảng giá. Fail → ẩn (không bịa). `lib/fuel-price.ts` có test.
-- **Dữ liệu nậu vựa/người mua**: **tự thu thập** qua mạng lưới đại lý/cảng của SDVICO (moat riêng), feed từ SDWork. "Ai cần mua" còn là tin mẫu chờ app thu mua.
+- **Dữ liệu nậu vựa/người mua**: **tự thu thập** qua mạng lưới đại lý/cảng của SDVICO (moat riêng), feed từ SDWork. Tin cần mua từ đầu nậu/nhà máy còn là tin mẫu chờ app thu mua nối vào `market_listings`.
 
 ### Trục 3 — Vận hành rẻ hơn (ở `/tau` tab Dịch vụ/Sản phẩm · route cũ `/van-hanh` → redirect)
 - **Hứa gì**: giữ tàu chạy bền, tốn ít tiền hơn.
@@ -63,8 +64,10 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 
 ### Trục 4 — Tuân thủ dễ hơn (ở `/tau` tab Giấy tờ + `/nguoi` · route cũ `/giay-to` → redirect · bỏ tab Mức phạt + Checklist xuất bến 2026-07-27, user không cần)
 - **Hứa gì**: lo giấy tờ nhẹ đầu, tránh bị phạt oan.
-- **Gồm**: tủ giấy tờ (document vault) + nhắc hạn, trợ lý hỏi đáp pháp luật thủy sản VN.
-- **Dữ liệu**: KHÔNG phụ thuộc nguồn ngoài → được build **ĐẦU TIÊN**. Logic ở [04-data-model.md](04-data-model.md).
+- **Gồm**: tủ giấy tờ (document vault) + nhắc hạn, trợ lý hỏi đáp pháp luật thủy sản VN, **sổ thuyền viên** (`/nguoi`) — định danh **CCCD** (bắt buộc) + bảo hiểm/chứng chỉ hạn.
+- **Cảnh báo thuyền viên chéo (premium, 2026-07-27)**: CCCD là định danh toàn hệ thống. Chủ tàu premium báo cáo vấn đề thuyền viên sau chuyến; chủ tàu khác nhập CCCD trước khi thuê thấy cảnh báo **đã được SDVICO kiểm duyệt**. Chống lạm dụng: **kiểm duyệt bắt buộc** (report `pending` im lặng tới khi duyệt) + người bị ghi được phản hồi (qua admin, v1) + khoá tra là HASH(CCCD) (không dò danh sách) + người báo ẩn với người tra. Pháp lý: CCCD là dữ liệu cá nhân — theo tinh thần NĐ 13/2023. Bảng `crew_reports` ([04 §2](04-data-model.md)), 🔴 chưa apply prod.
+- **Dữ liệu**: tủ giấy tờ + sổ thuyền viên KHÔNG phụ thuộc nguồn ngoài → được build **ĐẦU TIÊN**. Cảnh báo chéo cần Supabase (server chia sẻ). Logic ở [04-data-model.md](04-data-model.md).
+- **Đã gỡ 2026-07-27**: phần TIỀN khỏi Bạn thuyền (sổ ứng + số phần ăn chia) và **máy Chia tiền chuyến** — sổ thuyền viên chỉ còn định danh + giấy tờ + cảnh báo.
 
 ## 3. Thứ tự build / Build order
 
@@ -74,7 +77,7 @@ Trục 4 + 3  →  Trục 1  →  Trục 2
  thuộc ngoài)    ngoài)      tự thu thập)
 ```
 
-Hiện trạng (2026-06-10): cả 4 trục đều có MVP chạy được — Trục 1: điểm đi biển dữ liệu thật Open-Meteo + bản đồ ngư trường ảnh vệ tinh (nhiệt độ/phù du/ảnh mây, nhãn chủ quyền VN, chạm xem gió sóng); Trục 2: bảng giá tham khảo + sổ lãi lỗ; Trục 3: nhắc bảo dưỡng + danh mục vật tư; Trục 4: tủ giấy tờ + tra mức phạt NĐ 38/2024. Dữ liệu giá/vật tư/mức phạt là bản tổng hợp THAM KHẢO từ nguồn công khai — bước tiếp: thay bằng nguồn tự thu qua mạng đại lý.
+Hiện trạng (2026-06-10): cả 4 trục đều có MVP chạy được — Trục 1: điểm đi biển dữ liệu thật Open-Meteo + bản đồ ngư trường ảnh vệ tinh (nhiệt độ/phù du/ảnh mây, nhãn chủ quyền VN, chạm xem gió sóng); Trục 2: bảng giá tham khảo + chợ tin mua/bán (sổ lãi/lỗ đã bỏ 2026-07-27); Trục 3: nhắc bảo dưỡng + danh mục vật tư; Trục 4: tủ giấy tờ + tra mức phạt NĐ 38/2024. Dữ liệu giá/vật tư/mức phạt là bản tổng hợp THAM KHẢO từ nguồn công khai — bước tiếp: thay bằng nguồn tự thu qua mạng đại lý.
 
 ## 4. Vòng lặp cross-trục / Cross-pillar loop
 
@@ -100,9 +103,9 @@ Trục 2 tăng thu nhập → mua nhiều hơn từ Trục 3
 
 > **Quyết định phạm vi (2026-06-10, từ user)**: khai báo **eCDT / nhật ký khai thác điện tử (NKKT)** là nghiệp vụ với hệ thống NHÀ NƯỚC — **ngoài phạm vi ForFish** (hệ sinh thái đã có sản phẩm NKKT riêng phụ trách mảng này). ForFish chỉ dừng ở: NHẮC mốc nghĩa vụ, checklist trước chuyến, giải thích quy định bằng lời thường. KHÔNG xây wizard khai hộ, KHÔNG tích hợp/đồng bộ hệ thống khai báo nhà nước.
 
-1. **Đợt 1 — Thuyền viên + sổ tiền (wedge)** *(đang xây)*: crew module `/thuyen-vien` (hồ sơ + chứng chỉ/bảo hiểm + sổ ứng tiền + máy tính chia tiền) và sổ tiền của tàu trên nền trip-log. Đây là khoảng trống vàng số 1 — chưa app nào ở VN đụng tới phần "tiền"; không phụ thuộc nguồn ngoài, đúng triết lý build order ở mục 3.
+1. **Đợt 1 — Thuyền viên (wedge)** *(đang xây)*: crew module `/nguoi` (hồ sơ + **định danh CCCD** + chứng chỉ/bảo hiểm + **cảnh báo chéo premium**). *(Toàn bộ nhóm "sổ tiền tự ghi" — sổ lãi/lỗ trên nền trip-log, sổ ứng, máy chia tiền, công nợ — đã XÓA HẲN 2026-07-27 theo user: /tien gọn về đúng việc mua–bán, không ôm kế toán chuyến.)*
 2. **Đợt 2 — Checklist xuất bến + nhắc tuân thủ**: checklist xuất bến tự sinh theo Lmax (đèn xanh-đỏ "đủ điều kiện xuất bến": giấy tàu, chứng chỉ, bảo hiểm thuyền viên, sổ danh bạ) + cảnh báo hạn giấy tờ cho cả người nhà trên bờ + NHẮC mốc nghĩa vụ khai báo (không khai hộ — xem quyết định phạm vi ở trên).
-3. **Đợt 3 — Công nợ nậu + hồ sơ chuyến QR**: sổ công nợ đa đối tượng (đại lý dầu, nậu, ngân hàng — minh bạch hóa trước, thay thế nậu sau) + gói hồ sơ chuyến biển PDF/QR chứng minh truy xuất cho người mua.
+3. **Đợt 3 — Chợ tin mua/bán nối mạng thu mua**: `market_listings` đã có (chủ tàu đăng tin bán/mua); bước tiếp nối app bên thu mua đổ tin cần mua qua webhook + gói hồ sơ chuyến biển PDF/QR truy xuất cho người mua (làm lại khi cần — trip-dossier cũ đã bỏ). *(Sổ công nợ nậu bỏ khỏi lộ trình 2026-07-27.)*
 4. **Đợt 4 — Kết nối SDWork/marketplace**: hồ sơ kinh nghiệm thuyền viên thành "chợ lao động đi biển", kênh bán/chào giá nối mạng đại lý SDVICO, đơn vật tư chảy sâu hơn vào SDWork — chỉ sau khi dữ liệu từ đợt 1–3 đủ dày.
 
 ## 8. Cross-references

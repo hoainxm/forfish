@@ -7,25 +7,35 @@ import {
   ROLE_LABELS,
   crewIssue,
   demoCrew,
-  outstandingAdvance,
+  formatCccd,
+  isValidCccd,
+  normalizeCccd,
 } from "@/lib/crew";
 import {
+  CrewReportCategory,
+  CREW_REPORT_CATEGORIES,
+  CREW_REPORT_CATEGORY_LABELS,
+  crewReportCategoryLabel,
+  type CrewLookupResult,
+} from "@/lib/crew-report";
+import {
+  AlertIcon,
   EditIcon,
-  MoneyHandIcon,
   PlusIcon,
+  SearchIcon,
   TrashIcon,
   UsersIcon,
 } from "@/components/icons";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import {
-  Field,
-  inputClass,
-  MoneyField,
-  PrimaryButton,
-} from "@/components/ui/primitives";
-import { formatVnd, formatVnDate } from "@/lib/format";
+import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+import { PremiumLock } from "@/components/premium-gate";
+import { useFeatureAccess } from "@/lib/use-tier";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { useBoats } from "@/components/boat-switcher";
+import { apiUrl } from "@/lib/api-base";
+import { formatVnDate } from "@/lib/format";
 
 // Thuyền viên là hồ sơ ĐỘNG theo CHỦ TÀU (ba-spec 08 R2): dùng chung cho mọi
 // tàu của chủ, KHÔNG gắn boatId, KHÔNG mất khi xóa 1 tàu. (boatId cũ giữ trong
@@ -35,8 +45,9 @@ type StoredCrew = CrewMember & { boatId?: string };
 /*
   Sổ thuyền viên — theo nghiên cứu 02-lao-dong-tren-tau.md:
   · hồ sơ tái dùng giữa các chuyến (bạn thuyền đổi liên tục)
+  · CCCD là ĐỊNH DANH — nền cho CẢNH BÁO CHÉO giữa chủ tàu (premium)
   · cảnh báo bảo hiểm/chứng chỉ TRƯỚC khi biên phòng kiểm tra
-  · sổ ứng tiền từng người — thay trí nhớ + sổ tay
+  2026-07-27: BỎ phần tiền (ăn chia/ứng) khỏi màn này — chỉ định danh + giấy tờ.
 */
 
 const STORAGE_KEY = "forfish.crew.v1";
@@ -44,8 +55,7 @@ const STORAGE_KEY = "forfish.crew.v1";
 /*
   Sổ MẪU tự xưng là mẫu (hội đồng UX 2026-06-11): lần đầu mở vẫn thấy ví dụ
   cho dễ hình dung, nhưng (1) app biết rõ đây là demo, (2) KHÔNG ghi demo
-  xuống localStorage — dải "việc cần làm ngay" ngoài trang chủ không bao giờ
-  báo đỏ vì người mẫu, (3) thêm người thật đầu tiên là sổ mẫu tự biến mất.
+  xuống localStorage, (3) thêm người thật đầu tiên là sổ mẫu tự biến mất.
 */
 function loadCrew(today: Date): { crew: StoredCrew[]; isDemo: boolean } {
   if (typeof window === "undefined") return { crew: [], isDemo: false };
@@ -97,26 +107,23 @@ export function CrewList() {
   const { today, crew, setCrew, ready, isDemo, startRealCrew } = useCrew();
   const [editing, setEditing] = useState<StoredCrew | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [advanceFor, setAdvanceFor] = useState<StoredCrew | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<StoredCrew | null>(null);
-  // sổ ứng từng người (lịch sử khoản) + xác nhận gạch nợ — roadmap hội đồng
-  // UX 2026-06-11: "Đã trừ xong" một chạm settle TẤT CẢ không hoàn tác là
-  // tai nạn sổ giấy không bao giờ gặp. Giữ ID, derive từ crew để sheet luôn
-  // thấy dữ liệu mới sau khi ghi thêm khoản.
-  const [bookForId, setBookForId] = useState<string | null>(null);
-  const [confirmSettleId, setConfirmSettleId] = useState<string | null>(null);
-  const bookFor = crew.find((m) => m.id === bookForId) ?? null;
-  const confirmSettle = crew.find((m) => m.id === confirmSettleId) ?? null;
+  // sheet tra/báo cảnh báo — mở kèm CCCD+tên của một người, hoặc rỗng (tra tự do)
+  const [warningFor, setWarningFor] = useState<{
+    cccd: string;
+    name: string;
+  } | null>(null);
+
+  const { access } = useFeatureAccess();
+  const configured = isSupabaseConfigured();
 
   // Thuyền viên theo CHỦ (ba-spec 08 R2): hiện toàn bộ, không lọc theo tàu.
   const boatCrew = crew;
 
-  // Stats reflect ONLY the current boat's filtered crew. Đếm bằng crewIssue()
-  // — bắt cả giấy tờ/bảo hiểm QUÁ HẠN chứ không riêng "chưa có bảo hiểm".
   const issueCount = boatCrew.filter(
     (m) => crewIssue(m, today).level === "danger",
   ).length;
-  const totalAdvance = boatCrew.reduce((s, m) => s + outstandingAdvance(m), 0);
+  const missingCccd = boatCrew.filter((m) => !isValidCccd(m.cccd)).length;
 
   // người có chuyện xếp lên đầu: đỏ → vàng → ổn
   const sortedCrew = useMemo(() => {
@@ -128,7 +135,6 @@ export function CrewList() {
 
   function upsert(m: StoredCrew) {
     const withBoat: StoredCrew = { ...m }; // không gắn boatId — theo chủ (R2)
-    // Thêm người THẬT đầu tiên = sổ mẫu nhường chỗ luôn, không lẫn lộn.
     if (isDemo) {
       startRealCrew([withBoat]);
       setShowForm(false);
@@ -146,46 +152,21 @@ export function CrewList() {
     setEditing(null);
   }
 
-  function addAdvance(memberId: string, amountVnd: number, note: string) {
-    setCrew((prev) =>
-      prev.map((m) =>
-        m.id === memberId
-          ? {
-              ...m,
-              advances: [
-                ...m.advances,
-                {
-                  id: `adv-${Date.now()}`,
-                  date: new Date().toISOString().slice(0, 10),
-                  amountVnd,
-                  note: note || undefined,
-                  settled: false,
-                },
-              ],
-            }
-          : m,
+  // CCCD đã có trong sổ (trừ chính người đang sửa) — chống trùng
+  const takenCccds = useMemo(
+    () =>
+      new Set(
+        boatCrew
+          .filter((m) => isValidCccd(m.cccd))
+          .map((m) => normalizeCccd(m.cccd)),
       ),
-    );
-    setAdvanceFor(null);
-  }
-
-  function settleAdvances(memberId: string) {
-    setCrew((prev) =>
-      prev.map((m) =>
-        m.id === memberId
-          ? {
-              ...m,
-              advances: m.advances.map((a) => ({ ...a, settled: true })),
-            }
-          : m,
-      ),
-    );
-  }
+    [boatCrew],
+  );
 
   return (
     <div className="px-4 pt-1">
-      {/* tổng quan */}
-      <div className="mb-4 grid grid-cols-3 gap-2">
+      {/* tổng quan — 2 ô (bỏ ô tiền "Đang ứng") */}
+      <div className="mb-4 grid grid-cols-2 gap-2">
         <div className="surface py-3 text-center">
           <p className="display text-[1.5rem] font-bold text-navy tabular-nums">
             {boatCrew.length}
@@ -200,12 +181,6 @@ export function CrewList() {
           </p>
           <p className="text-[0.8125rem] text-foreground/70">Kẹt giấy tờ</p>
         </div>
-        <div className="surface py-3 text-center">
-          <p className="display text-[1.125rem] font-bold leading-[2] text-navy tabular-nums">
-            {formatShortVnd(totalAdvance)}
-          </p>
-          <p className="text-[0.8125rem] text-foreground/70">Đang ứng</p>
-        </div>
       </div>
 
       <button
@@ -213,11 +188,28 @@ export function CrewList() {
           setEditing(null);
           setShowForm(true);
         }}
-        className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+        className="display mb-3 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
       >
         <PlusIcon className="h-6 w-6" />
         Thêm bạn thuyền
       </button>
+
+      {/* Tra cảnh báo theo CCCD bất kỳ (trước khi thuê) — premium */}
+      <button
+        onClick={() => setWarningFor({ cccd: "", name: "" })}
+        className="mb-4 flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-full bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.98]"
+      >
+        <SearchIcon className="h-5 w-5" />
+        Tra cảnh báo theo CCCD
+      </button>
+
+      {ready && missingCccd > 0 && !isDemo && (
+        <div className="mb-4 overflow-hidden surface">
+          <StatusBanner level="warn" icon={<AlertIcon className="h-5 w-5" />}>
+            {missingCccd} người chưa có CCCD — bổ sung để tra được cảnh báo.
+          </StatusBanner>
+        </div>
+      )}
 
       {ready && isDemo && (
         <div className="mb-4 overflow-hidden surface">
@@ -247,22 +239,27 @@ export function CrewList() {
       <ul className="space-y-3">
         {sortedCrew.map((m) => {
           const issue = crewIssue(m, today);
-          const owing = outstandingAdvance(m);
+          const hasCccd = isValidCccd(m.cccd);
           return (
-            <li
-              key={m.id}
-              className="overflow-hidden surface"
-            >
+            <li key={m.id} className="overflow-hidden surface">
               <StatusBanner level={issue.level}>{issue.label}</StatusBanner>
 
               <div className="px-4 py-3">
                 <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
                   {ROLE_LABELS[m.role]}
-                  {m.shares !== 1 && ` · ${m.shares} phần`}
                 </p>
                 <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                   {m.name}
                 </p>
+                {hasCccd ? (
+                  <p className="text-[0.9375rem] tabular-nums text-foreground/70">
+                    CCCD: {formatCccd(m.cccd)}
+                  </p>
+                ) : (
+                  <p className="text-[0.9375rem] font-semibold text-warn">
+                    Chưa có CCCD — bấm Sửa để bổ sung
+                  </p>
+                )}
                 {m.phone && (
                   <a
                     href={`tel:${m.phone}`}
@@ -277,40 +274,19 @@ export function CrewList() {
                     {m.certExpiry && ` — hạn ${formatVnDate(m.certExpiry)}`}
                   </p>
                 )}
-                {owing > 0 && (
-                  <div className="mt-1.5 flex items-stretch overflow-hidden rounded-xl bg-background text-[0.9375rem]">
-                    {/* chạm là mở SỔ — xem từng khoản, không chỉ con số tổng */}
-                    <button
-                      onClick={() => setBookForId(m.id)}
-                      className="flex min-h-[3.25rem] min-w-0 flex-1 items-center gap-1.5 px-3 text-left active:bg-field"
-                    >
-                      <span className="min-w-0 truncate">
-                        Đang ứng:{" "}
-                        <strong className="text-danger">
-                          {owing.toLocaleString("vi-VN")} đ
-                        </strong>
-                      </span>
-                      <span className="shrink-0 text-[0.8125rem] font-bold text-sea">
-                        Xem sổ
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => setConfirmSettleId(m.id)}
-                      className="min-h-[3.25rem] shrink-0 border-l border-line px-3 font-bold text-sea active:bg-field"
-                    >
-                      Đã trừ xong
-                    </button>
-                  </div>
-                )}
               </div>
 
               <div className="grid grid-cols-3 border-t border-line">
                 <button
-                  onClick={() => setAdvanceFor(m)}
-                  className="flex min-h-[3.25rem] items-center justify-center gap-1.5 text-[1rem] font-bold text-t3 active:bg-background"
+                  onClick={() =>
+                    hasCccd
+                      ? setWarningFor({ cccd: m.cccd, name: m.name })
+                      : (setEditing(m), setShowForm(true))
+                  }
+                  className="flex min-h-[3.25rem] items-center justify-center gap-1.5 text-[1rem] font-bold text-t4 active:bg-background"
                 >
-                  <MoneyHandIcon className="h-5 w-5" />
-                  Ứng tiền
+                  <AlertIcon className="h-5 w-5" />
+                  Cảnh báo
                 </button>
                 <button
                   onClick={() => {
@@ -336,12 +312,14 @@ export function CrewList() {
       </ul>
 
       <p className="py-4 text-center text-[0.875rem] text-foreground/65">
-        Sổ thuyền viên lưu ngay trên máy của bà con.
+        Hồ sơ thuyền viên lưu trên máy bà con. Cảnh báo chéo do SDVICO kiểm
+        duyệt trước khi hiện.
       </p>
 
       {showForm && (
         <CrewForm
           initial={editing}
+          takenCccds={takenCccds}
           onCancel={() => {
             setShowForm(false);
             setEditing(null);
@@ -350,39 +328,13 @@ export function CrewList() {
         />
       )}
 
-      {advanceFor && (
-        <AdvanceForm
-          member={advanceFor}
-          onCancel={() => setAdvanceFor(null)}
-          onSave={(amount, note) => addAdvance(advanceFor.id, amount, note)}
-        />
-      )}
-
-      {/* sổ ứng từng người — lịch sử khoản, không chỉ một con số */}
-      {bookFor && (
-        <AdvanceBookSheet
-          member={bookFor}
-          onAddAdvance={() => {
-            setAdvanceFor(bookFor);
-          }}
-          onSettle={() => setConfirmSettleId(bookFor.id)}
-          onClose={() => setBookForId(null)}
-        />
-      )}
-
-      {/* gạch nợ phải XÁC NHẬN, nói rõ số tiền — không một chạm mất sổ */}
-      {confirmSettle && (
-        <ConfirmDialog
-          icon={<MoneyHandIcon className="h-9 w-9 text-sea" />}
-          title="Gạch hết nợ ứng?"
-          message={`${confirmSettle.name} đang ứng ${formatVnd(outstandingAdvance(confirmSettle))}. Bấm xác nhận nghĩa là khoản này ĐÃ TRỪ vào tiền chia chuyến — không hoàn tác được.`}
-          cancelLabel="Thôi, để đó"
-          confirmLabel="Đã trừ xong"
-          onCancel={() => setConfirmSettleId(null)}
-          onConfirm={() => {
-            settleAdvances(confirmSettle.id);
-            setConfirmSettleId(null);
-          }}
+      {warningFor && (
+        <WarningSheet
+          initialCccd={warningFor.cccd}
+          initialName={warningFor.name}
+          access={access}
+          configured={configured}
+          onClose={() => setWarningFor(null)}
         />
       )}
 
@@ -390,11 +342,7 @@ export function CrewList() {
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
           title="Xóa khỏi sổ thuyền viên?"
-          message={
-            outstandingAdvance(confirmDelete) > 0
-              ? `“${confirmDelete.name}” ĐANG ỨNG ${formatVnd(outstandingAdvance(confirmDelete))} chưa trừ — xóa là mất luôn ghi nhận khoản này.`
-              : `“${confirmDelete.name}” và lịch sử ứng tiền sẽ bị xóa.`
-          }
+          message={`“${confirmDelete.name}” sẽ bị xóa khỏi sổ trên máy này (không ảnh hưởng cảnh báo đã gửi).`}
           cancelLabel="Không xóa"
           confirmLabel="Xóa luôn"
           onCancel={() => setConfirmDelete(null)}
@@ -410,17 +358,19 @@ export function CrewList() {
 
 function CrewForm({
   initial,
+  takenCccds,
   onCancel,
   onSave,
 }: {
   initial: StoredCrew | null;
+  takenCccds: Set<string>;
   onCancel: () => void;
   onSave: (m: StoredCrew) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
+  const [cccd, setCccd] = useState(initial?.cccd ?? "");
   const [role, setRole] = useState<CrewRole>(initial?.role ?? "thuyen_vien");
   const [phone, setPhone] = useState(initial?.phone ?? "");
-  const [shares, setShares] = useState(String(initial?.shares ?? 1));
   const [hasInsurance, setHasInsurance] = useState(
     initial?.hasInsurance ?? false,
   );
@@ -429,24 +379,40 @@ function CrewForm({
   );
   const [certLabel, setCertLabel] = useState(initial?.certLabel ?? "");
   const [certExpiry, setCertExpiry] = useState(initial?.certExpiry ?? "");
+  const [err, setErr] = useState<string | null>(null);
 
   const needsCert = role !== "thuyen_vien";
+  const initialCccdNorm = initial ? normalizeCccd(initial.cccd) : "";
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    setErr(null);
+    if (!name.trim()) {
+      setErr("Chưa nhập tên.");
+      return;
+    }
+    if (!isValidCccd(cccd)) {
+      setErr("CCCD phải đủ 12 số.");
+      return;
+    }
+    const cccdNorm = normalizeCccd(cccd);
+    // trùng CCCD với người khác trong sổ (cho phép giữ nguyên của chính mình)
+    if (cccdNorm !== initialCccdNorm && takenCccds.has(cccdNorm)) {
+      setErr("CCCD này đã có trong sổ — mỗi người một CCCD.");
+      return;
+    }
     onSave({
       id: initial?.id ?? `crew-${Date.now()}`,
       name: name.trim(),
+      cccd: cccdNorm,
       role,
       phone: phone.trim() || undefined,
-      shares: Math.max(0.5, parseFloat(shares) || 1),
       hasInsurance,
-      insuranceExpiry: hasInsurance && insuranceExpiry ? insuranceExpiry : undefined,
+      insuranceExpiry:
+        hasInsurance && insuranceExpiry ? insuranceExpiry : undefined,
       certLabel: needsCert && certLabel.trim() ? certLabel.trim() : undefined,
       certExpiry: needsCert && certExpiry ? certExpiry : undefined,
       note: initial?.note,
-      advances: initial?.advances ?? [],
     });
   }
 
@@ -466,19 +432,30 @@ function CrewForm({
           />
         </Field>
 
+        <Field label="Số CCCD (bắt buộc — 12 số)">
+          <input
+            value={cccd}
+            onChange={(e) => setCccd(e.target.value)}
+            className={inputClass}
+            inputMode="numeric"
+            maxLength={16}
+            placeholder="VD: 079090001234"
+          />
+        </Field>
+
         <Field label="Làm việc gì trên tàu?">
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as CrewRole)}
             className={inputClass}
           >
-            {(
-              Object.entries(ROLE_LABELS) as [CrewRole, string][]
-            ).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
+            {(Object.entries(ROLE_LABELS) as [CrewRole, string][]).map(
+              ([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ),
+            )}
           </select>
         </Field>
 
@@ -492,24 +469,13 @@ function CrewForm({
           />
         </Field>
 
-        <Field label="Mấy phần khi ăn chia? (bạn thường 1, tài công 1.5–2)">
-          <input
-            value={shares}
-            onChange={(e) => setShares(e.target.value)}
-            className={inputClass}
-            inputMode="decimal"
-          />
-        </Field>
-
         <Field label="Bảo hiểm thuyền viên">
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => setHasInsurance(true)}
               className={`min-h-[3.25rem] rounded-xl text-[1.125rem] font-bold ${
-                hasInsurance
-                  ? "bg-ok text-white"
-                  : "bg-field text-foreground/70"
+                hasInsurance ? "bg-ok text-white" : "bg-field text-foreground/70"
               }`}
             >
               Có rồi
@@ -564,6 +530,12 @@ function CrewForm({
           </>
         )}
 
+        {err && (
+          <p className="mb-2 text-[0.9375rem] font-semibold text-danger">
+            {err}
+          </p>
+        )}
+
         <div className="mt-3 grid grid-cols-2 gap-3">
           <button
             type="button"
@@ -579,162 +551,346 @@ function CrewForm({
   );
 }
 
-/** Sổ ứng của một người — LỊCH SỬ từng khoản, không chỉ con số tổng. */
-function AdvanceBookSheet({
-  member,
-  onAddAdvance,
-  onSettle,
+/* ── CẢNH BÁO CHÉO — tra + báo cáo (PREMIUM) ─────────────────────────────── */
+
+type LookupState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "done"; result: CrewLookupResult }
+  | { kind: "error"; message: string };
+
+function codeMessage(code: string | undefined): string {
+  switch (code) {
+    case "not_configured":
+      return "Tính năng cảnh báo cần máy chủ thật — bản demo chưa dùng được.";
+    case "cccd_pepper_missing":
+      return "Máy chủ chưa cấu hình khoá bảo mật CCCD — báo SDVICO.";
+    case "premium_required":
+      return "Cảnh báo thuyền viên là tính năng nâng cao — gọi SDVICO để mở.";
+    case "login_required":
+      return "Cần đăng nhập để dùng cảnh báo thuyền viên.";
+    case "bad_cccd":
+      return "CCCD phải đủ 12 số.";
+    default:
+      return "Không tra được — kiểm tra mạng rồi thử lại.";
+  }
+}
+
+function WarningSheet({
+  initialCccd,
+  initialName,
+  access,
+  configured,
   onClose,
 }: {
-  member: CrewMember;
-  onAddAdvance: () => void;
-  onSettle: () => void;
+  initialCccd: string;
+  initialName: string;
+  access: ReturnType<typeof useFeatureAccess>["access"];
+  configured: boolean;
   onClose: () => void;
 }) {
-  const owing = outstandingAdvance(member);
-  // mới nhất lên đầu — khoản đã trừ mờ đi nhưng vẫn còn đó (sổ là sổ)
-  const sorted = [...member.advances].sort((a, b) =>
-    a.date === b.date ? b.id.localeCompare(a.id) : b.date < a.date ? -1 : 1,
-  );
-  return (
-    <BottomSheet title={`Sổ ứng của ${member.name}`} onClose={onClose}>
-      <div className="mb-3 flex items-baseline justify-between rounded-2xl bg-field px-4 py-3">
-        <span className="text-[1rem] font-bold text-navy">Đang ứng</span>
-        <span
-          className="display text-[1.375rem] font-bold tabular-nums"
-          style={{ color: owing > 0 ? "var(--danger)" : "var(--ok)" }}
-        >
-          {formatVnd(owing)}
-        </span>
-      </div>
+  const [cccd, setCccd] = useState(initialCccd);
+  const [state, setState] = useState<LookupState>({ kind: "idle" });
+  const [reporting, setReporting] = useState(false);
+  const valid = isValidCccd(cccd);
+  // access "open" = premium (hoặc demo mode). Chưa cấu hình Supabase thì kho
+  // cảnh báo không tồn tại → chặn ngay với lời nhắn demo.
+  const locked = access === "login" || access === "upgrade";
 
-      {sorted.length === 0 ? (
-        <p className="rounded-[1.25rem] bg-field/70 px-4 py-8 text-center text-[1rem] text-foreground/70">
-          Chưa có khoản ứng nào trong sổ.
+  async function lookup() {
+    if (!valid) return;
+    setState({ kind: "loading" });
+    setReporting(false);
+    try {
+      const r = await fetch(
+        apiUrl(`/api/crew-reports/lookup?cccd=${encodeURIComponent(normalizeCccd(cccd))}`),
+      );
+      const j = (await r.json().catch(() => null)) as
+        | { ok: true; checked: boolean; count: number; reports: CrewLookupResult["reports"] }
+        | { ok: false; code?: string }
+        | null;
+      if (!j || j.ok !== true) {
+        setState({ kind: "error", message: codeMessage(j?.code) });
+        return;
+      }
+      setState({
+        kind: "done",
+        result: { checked: true, count: j.count, reports: j.reports },
+      });
+    } catch {
+      setState({ kind: "error", message: codeMessage(undefined) });
+    }
+  }
+
+  // tra tự động khi mở kèm CCCD sẵn của một người trong sổ
+  useEffect(() => {
+    if (initialCccd && isValidCccd(initialCccd) && !locked && configured) {
+      void lookup();
+    }
+    // chỉ chạy lần mở
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <BottomSheet title="Cảnh báo thuyền viên" onClose={onClose}>
+      {locked ? (
+        <PremiumLock
+          access={access}
+          feature="cảnh báo thuyền viên"
+          blurb="Tra CCCD để biết bạn thuyền từng bị chủ tàu khác báo vấn đề gì — tính năng của tài khoản nâng cao."
+          accent="t4"
+        />
+      ) : !configured ? (
+        <p className="rounded-2xl bg-field/70 px-4 py-8 text-center text-[1rem] text-foreground/70">
+          Tính năng cảnh báo cần máy chủ thật — bản demo trên máy chưa dùng được.
         </p>
       ) : (
-        <ul className="overflow-hidden surface">
-          {sorted.map((a, i) => (
-            <li
-              key={a.id}
-              className={`flex items-center justify-between gap-3 px-4 py-3 ${
-                i > 0 ? "border-t border-line" : ""
-              } ${a.settled ? "opacity-50" : ""}`}
-            >
-              <span className="min-w-0">
-                <span className="block text-[0.9375rem] font-bold text-foreground/70">
-                  Ứng ngày {formatVnDate(a.date)}
-                  {a.settled && " — đã trừ"}
-                </span>
-                {a.note && (
-                  <span className="block truncate text-[0.9375rem] text-foreground/70">
-                    {a.note}
-                  </span>
-                )}
-              </span>
-              <span
-                className={`display shrink-0 text-[1.125rem] font-bold tabular-nums ${
-                  a.settled ? "text-foreground/65 line-through" : "text-danger"
-                }`}
-              >
-                {a.amountVnd.toLocaleString("vi-VN")} đ
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={onAddAdvance}
-          className="flex min-h-[3.75rem] items-center justify-center gap-2 rounded-full bg-field text-[1.0625rem] font-bold text-navy"
-        >
-          <MoneyHandIcon className="h-5 w-5" />
-          Ứng thêm
-        </button>
-        <PrimaryButton onClick={onSettle} disabled={owing <= 0}>
-          Đã trừ xong
-        </PrimaryButton>
-      </div>
-    </BottomSheet>
-  );
-}
-
-function AdvanceForm({
-  member,
-  onCancel,
-  onSave,
-}: {
-  member: CrewMember;
-  onCancel: () => void;
-  onSave: (amountVnd: number, note: string) => void;
-}) {
-  const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
-  const parsed = Number(amount || 0);
-
-  return (
-    <BottomSheet title={`Ứng tiền cho ${member.name}`} onClose={onCancel}>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (parsed > 0) onSave(parsed, note.trim());
-        }}
-      >
-        <p className="mb-4 -mt-2 text-[0.9375rem] text-foreground/70">
-          Khoản ứng sẽ tự trừ khi chia tiền chuyến.
-        </p>
-
-        <MoneyField
-          label="Số tiền ứng (đồng)"
-          digits={amount}
-          onDigits={setAmount}
-          placeholder="VD: 10.000.000"
-        />
-        <div className="mb-3 flex gap-2">
-          {[5_000_000, 10_000_000, 15_000_000].map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setAmount(String(v))}
-              className="min-h-[3.25rem] flex-1 rounded-full bg-field text-[1rem] font-bold text-foreground/70 active:bg-line"
-            >
-              {v / 1_000_000} triệu
-            </button>
-          ))}
-        </div>
-
-        <Field label="Ghi chú">
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            className={inputClass}
-            placeholder="VD: Ứng trước chuyến tháng 6"
-          />
-        </Field>
-
-        <div className="mt-3 grid grid-cols-2 gap-3">
+        <>
+          {initialName && (
+            <p className="mb-2 -mt-1 text-[0.9375rem] text-foreground/70">
+              Đang tra: <strong className="text-navy">{initialName}</strong>
+            </p>
+          )}
+          <Field label="Số CCCD cần tra (12 số)">
+            <input
+              value={cccd}
+              onChange={(e) => {
+                setCccd(e.target.value);
+                setState({ kind: "idle" });
+              }}
+              className={inputClass}
+              inputMode="numeric"
+              maxLength={16}
+              placeholder="VD: 079090001234"
+            />
+          </Field>
           <button
             type="button"
-            onClick={onCancel}
-            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            onClick={lookup}
+            disabled={!valid || state.kind === "loading"}
+            className="mb-3 flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-navy text-[1.0625rem] font-bold text-white disabled:opacity-50"
           >
-            Hủy
+            <SearchIcon className="h-5 w-5" />
+            {state.kind === "loading" ? "Đang tra…" : "Tra cảnh báo"}
           </button>
-          <PrimaryButton type="submit" disabled={parsed <= 0}>
-            Ghi khoản ứng
-          </PrimaryButton>
-        </div>
-      </form>
+
+          {state.kind === "error" && (
+            <p className="rounded-2xl bg-danger-bg px-4 py-4 text-center text-[1rem] font-semibold text-danger">
+              {state.message}
+            </p>
+          )}
+
+          {state.kind === "done" && !reporting && (
+            <LookupResult
+              result={state.result}
+              onReport={() => setReporting(true)}
+            />
+          )}
+
+          {reporting && (
+            <ReportForm
+              cccd={normalizeCccd(cccd)}
+              subjectName={initialName}
+              onCancel={() => setReporting(false)}
+              onDone={() => setReporting(false)}
+            />
+          )}
+        </>
+      )}
     </BottomSheet>
   );
 }
 
-function formatShortVnd(v: number): string {
-  if (v >= 1_000_000) {
-    const m = v / 1_000_000;
-    return `${m % 1 === 0 ? m : m.toFixed(1)} tr`;
+function LookupResult({
+  result,
+  onReport,
+}: {
+  result: CrewLookupResult;
+  onReport: () => void;
+}) {
+  return (
+    <div>
+      {result.count === 0 ? (
+        <div className="rounded-2xl bg-ok-bg px-4 py-6 text-center">
+          <p className="text-[1.0625rem] font-bold text-ok">
+            Chưa có cảnh báo nào cho CCCD này.
+          </p>
+          <p className="mt-1 text-[0.875rem] text-foreground/70">
+            Chỉ tính các báo cáo đã được SDVICO kiểm duyệt.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-danger/40">
+          <div className="bg-danger-bg px-4 py-2.5 text-[1.0625rem] font-bold text-danger">
+            {result.count} cảnh báo đã kiểm duyệt
+          </div>
+          <ul>
+            {result.reports.map((rp) => (
+              <li key={rp.id} className="border-t border-line px-4 py-3">
+                <p className="text-[1rem] font-bold text-navy">
+                  {crewReportCategoryLabel(rp.category)}
+                </p>
+                {rp.detail && (
+                  <p className="mt-0.5 text-[0.9375rem] leading-snug text-foreground/75">
+                    {rp.detail}
+                  </p>
+                )}
+                <p className="mt-1 text-[0.8125rem] text-foreground/55">
+                  {rp.reporterBoat ? `${rp.reporterBoat} · ` : ""}
+                  {formatVnDate(rp.createdAt.slice(0, 10))}
+                </p>
+                {rp.subjectResponse && (
+                  <p className="mt-1.5 rounded-lg bg-field px-3 py-2 text-[0.875rem] text-foreground/75">
+                    <span className="font-bold text-navy">Người bị ghi phản hồi: </span>
+                    {rp.subjectResponse}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onReport}
+        className="mt-3 flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-field text-[1.0625rem] font-bold text-navy active:bg-line"
+      >
+        <AlertIcon className="h-5 w-5" />
+        Báo cáo vấn đề với bạn này
+      </button>
+    </div>
+  );
+}
+
+function ReportForm({
+  cccd,
+  subjectName,
+  onCancel,
+  onDone,
+}: {
+  cccd: string;
+  subjectName: string;
+  onCancel: () => void;
+  onDone: () => void;
+}) {
+  const { current } = useBoats();
+  const [name, setName] = useState(subjectName);
+  const [category, setCategory] = useState<CrewReportCategory | "">("");
+  const [detail, setDetail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!category) {
+      setMsg("Chọn loại vấn đề.");
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    const r = await fetch(apiUrl("/api/crew-reports"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        cccd,
+        subjectName: name.trim() || undefined,
+        category,
+        detail: detail.trim() || undefined,
+        reporterBoat: current?.name || undefined,
+      }),
+    }).catch(() => null);
+    setBusy(false);
+    const j = (await r?.json().catch(() => null)) as
+      | { ok: true }
+      | { ok: false; code?: string }
+      | null;
+    if (!j || j.ok !== true) {
+      setMsg(codeMessage(j && "code" in j ? j.code : undefined));
+      return;
+    }
+    setDone(true);
   }
-  return v.toLocaleString("vi-VN");
+
+  if (done) {
+    return (
+      <div className="rounded-2xl bg-ok-bg px-4 py-8 text-center">
+        <p className="text-[1.0625rem] font-bold text-ok">Đã gửi báo cáo.</p>
+        <p className="mt-1 text-[0.9375rem] text-foreground/70">
+          SDVICO sẽ kiểm duyệt trước khi cảnh báo hiện cho chủ tàu khác.
+        </p>
+        <button
+          type="button"
+          onClick={onDone}
+          className="mt-4 min-h-[3.25rem] rounded-full bg-navy px-6 text-[1rem] font-bold text-white"
+        >
+          Xong
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="mt-1">
+      <p className="mb-3 text-[0.9375rem] leading-snug text-foreground/70">
+        Báo cáo được SDVICO kiểm duyệt trước khi hiện. Người bị ghi có quyền
+        phản hồi — vui lòng ghi đúng sự thật.
+      </p>
+
+      <Field label="Tên bạn thuyền (tuỳ chọn)">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className={inputClass}
+          placeholder="VD: Nguyễn Văn A"
+        />
+      </Field>
+
+      <span className="mb-1.5 block text-[1rem] font-bold text-navy">
+        Vấn đề gì?
+      </span>
+      <div className="mb-3 grid gap-2">
+        {CREW_REPORT_CATEGORIES.map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => setCategory(c)}
+            className={`min-h-[3.25rem] rounded-xl px-3 text-left text-[1rem] font-bold ${
+              category === c ? "bg-navy text-white" : "bg-field text-foreground/70"
+            }`}
+          >
+            {CREW_REPORT_CATEGORY_LABELS[c]}
+          </button>
+        ))}
+      </div>
+
+      <Field label="Kể rõ hơn (tuỳ chọn)">
+        <textarea
+          value={detail}
+          onChange={(e) => setDetail(e.target.value)}
+          className={`${inputClass} min-h-[5rem]`}
+          maxLength={500}
+          placeholder="VD: Bỏ tàu ở đảo giữa chuyến, không báo trước."
+        />
+      </Field>
+
+      {msg && (
+        <p className="mb-2 text-[0.9375rem] font-semibold text-danger">{msg}</p>
+      )}
+
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+        >
+          Quay lại
+        </button>
+        <PrimaryButton type="submit" disabled={busy || !category}>
+          {busy ? "Đang gửi…" : "Gửi báo cáo"}
+        </PrimaryButton>
+      </div>
+    </form>
+  );
 }
