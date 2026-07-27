@@ -858,6 +858,21 @@ export function spatialAnomaly(
   return out;
 }
 
+/**
+ * 3 MỨC khả năng có cá cho LƯỚI Ô + chú giải. Quy ước màu CỐ ĐỊNH, KHÔNG đổi
+ * theo loài — bà con quen bản tin ngư trường "Thấp / Trung bình / Cao": Thấp =
+ * xanh dương, Trung bình = xanh lá, Cao = đỏ. `min` = ngưỡng dưới (%) của mức.
+ * Chọn loài chỉ đổi SỐ trong ô (điểm theo loài), màu vẫn theo 3 mức này để
+ * giao diện thống nhất, đỡ rối. Dùng CHUNG: lớp bản đồ (fill step) + chú giải
+ * panel Ngư trường. `min` của mức Thấp = SÀN hiển thị lưới (ô dưới ngưỡng này
+ * bị ẩn). Ngưỡng: Thấp 40–60 · Trung bình 60–75 · Cao 75–100 (user 2026-07-27).
+ */
+export const FISH_LEVEL_BANDS = [
+  { key: "low", label: "Thấp", min: 40, color: "#5b9bd5" },
+  { key: "mid", label: "Trung bình", min: 60, color: "#22c55e" },
+  { key: "high", label: "Cao", min: 75, color: "#ef4444" },
+] as const;
+
 export interface FishCell {
   lat: number;
   lon: number;

@@ -146,11 +146,11 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 | Nhóm | Panel chứa |
 |---|---|
 | **Hải đồ** | Lớp nền bản đồ (chọn-1: Hải đồ độ sâu / Nước nóng-lạnh / Nhiều mồi / Ảnh mây) + nhịp + nhãn dải + note "ảnh vệ tinh trễ ~2 ngày · phao chỉ hiện khi zoom gần bờ" |
-| **Ngư trường** | Dự báo cá PFZ (bật/tắt) + nhịp · **chọn loài** (drill-down) · **dải lọc khả năng có cá (kéo 2 đầu)** · note "heatmap public, chi tiết cần đăng nhập" — chưa đăng nhập thì ẩn picker+dải, chỉ 1 CTA đăng nhập |
+| **Ngư trường** | Dự báo cá PFZ (bật/tắt) + nhịp · **chọn loài** (drill-down) · **dải lọc khả năng có cá (kéo 2 đầu)** · note "public, chi tiết cần đăng nhập" — chưa đăng nhập thì ẩn picker+dải, chỉ 1 CTA đăng nhập. **Hiển thị = LƯỚI Ô** (thay heatmap mềm cũ, 2026-07-27): mỗi ô SST (~0,25°) là ô vuông tô theo **3 MỨC CỐ ĐỊNH** kiểu bản tin ngư trường Viện Hải sản — **Thấp** (xanh dương, 40–60) · **Trung bình** (xanh lá, 60–75) · **Cao** (đỏ, 75–100), quy ước màu `FISH_LEVEL_BANDS` **KHÔNG đổi theo loài** (đỡ rối); viền ô trắng mảnh; **CHỈ MÀU, không in số** (user 2026-07-27: zoom lên chỉ cần màu). Sàn hiển thị = `FISH_LEVEL_BANDS[0].min` (40); dải lọc `fishRange` mặc định [40,100], RangeBand min=40. Chọn loài chỉ đổi mức (điểm `sp[loài]`), màu vẫn 3 mức. **KHÔNG hiện sản lượng (kg)** — nguồn chỉ có điểm khả năng 0–100, in kg là hứa sai. Chú giải Thấp/TB/Cao ngay trong panel. Bật/tắt lưới ở panel **Cài đặt** (`prefs.fishGrid`, mặc định bật); tắt = chỉ còn hồng tâm điểm nóng, không phủ ô |
 | **Thời tiết** | Lớp gió/sóng + scalar (nước dâng/xoáy) + nhịp · note "tham khảo, lỗi thì thử lại" |
 | **Điểm đã lưu** | Bật/tắt hiện điểm trên map + quản lý điểm (thêm theo toạ độ, sửa/xoá, tìm cảng) ngay trong panel |
 | **Công cụ** | **Đo khoảng cách 2 điểm** — bật chế độ đo, chạm 2 điểm trên map → đường nối + mốc 1/2 + kết quả (khoảng cách đường chim bay + hướng) theo đơn vị đang chọn; "Xoá, đo lại" |
-| **Cài đặt** | **Đơn vị khoảng cách** (Hải lý/km) + **Hệ toạ độ** (độ thập phân / độ-phút) — đổi thì MỌI chỗ (peek toạ độ, whereLine, điểm cá gần, dẫn đường, công cụ đo) đổi theo. Store dùng chung `lib/map-prefs.ts` (localStorage `forfish.mapPrefs.v1`) |
+| **Cài đặt** | **Đơn vị khoảng cách** (Hải lý/km) + **Hệ toạ độ** (độ thập phân / độ-phút) — đổi thì MỌI chỗ (peek toạ độ, whereLine, điểm cá gần, dẫn đường, công cụ đo) đổi theo. **Lớp bản đồ**: toggle **Lưới ngư trường** (`prefs.fishGrid`, mặc định bật) + Ranh giới vùng lộng. Store dùng chung `lib/map-prefs.ts` (localStorage `forfish.mapPrefs.v1`) |
 
 **TRÊN:** banner bão (đỏ, ưu tiên) + **dải dự báo gió/sóng 1–16 ngày** (chip ngày cuộn ngang, `FORECAST_MAX_DAYS=16`; sóng từ `ncep_gfswave025`). Dưới dải: **dòng độ tin theo tầm ngày** (`forecastConfidence(daysAhead, skillConf)` — `daysAhead` đếm từ NGÀY THẬT tới ngày đang xem, KHÔNG theo vị trí trong mảng) — hạ nhãn khi backtest (`forecast-skill.json`) đo được sai số lớn ở tầm ngày đó; KHÔNG để mọi ngày trông chắc như nhau.
 **ĐÁY — sheet số liệu điểm (3 nấc):**
@@ -349,13 +349,13 @@ Thứ tự khi `fetchSeaPoint` mất mạng: (1) bản ĐẦY ĐỦ đã lưu c�
 | Dải chọn ngày + "Cả ngày: sóng tới … · gió tới cấp …" | có | **có** |
 | Độ tin theo tầm ngày | có | **có** |
 
-**C. Chữ trong sheet**
+**C. Chữ trong sheet** — thẻ "số cũ" là **chip nhỏ TỰ ẨN** (13px, nền warn, có `AlertIcon`, `staleNoteOn` tắt sau `NOTIFY_HIDE_MS` như chip mất-sóng/chất-lượng-cá) — trước là hộp vàng 17px nằm lì che bản đồ, bà con than "không tự ẩn, mất view" (2026-07-27). Vẫn nói thật MỘT lần rồi trả lại tầm nhìn (an toàn nhưng không cản). Signal tự ẩn = `source:savedAt` nên vẫn stale thì không nhấp nháy báo lại.
 
-| Trường hợp | Chữ (nền warn, 17px đậm) |
+| Trường hợp | Chip (tự ẩn) |
 |---|---|
-| Bản đầy đủ đã lưu | "Số cũ lưu trong máy — lưu lúc HH:MM ngày D/M (lưu N giờ trước). Chưa phải số mới." |
-| **Dựng từ lưới** | **"Số gió, sóng lấy từ bản đã lưu trong máy (lưu lúc HH:MM ngày D/M). Chưa có mưa, dông cho chỗ này."** |
-| Ngoài vùng lưới / máy chưa lưu gì | "Chỗ này chưa có số nào lưu trong máy — vuốt lên để thử lại." (giữ nguyên) |
+| Bản đầy đủ đã lưu | "Số cũ trong máy (lưu N giờ trước). Chưa phải số mới." |
+| **Dựng từ lưới** | **"Số gió, sóng lấy từ bản đã lưu (lưu lúc HH:MM ngày D/M). Chưa có mưa, dông chỗ này."** |
+| Ngoài vùng lưới / máy chưa lưu gì | "Chỗ này chưa có số nào lưu trong máy — vuốt lên để thử lại." (giữ nguyên, KHÔNG tự ẩn — chưa có số là chuyện phải nói mãi) |
 
 **D. Chữ/số trên bản đồ** — `glyphs` trước trỏ CDN `fonts.openmaptiles.org`; dò 2026-07-25 thấy CDN đó **trả trang HTML chuyển hướng thay vì file font** → nhãn "50 m" trên đường đẳng sâu **chưa từng hiện, kể cả lúc có sóng**. Nay tự host `public/fonts/` (Noto Sans Regular + Bold, giấy phép OFL) → chữ hiện, và mất sóng vẫn còn.
 
@@ -406,10 +406,12 @@ Ngưỡng ĐẶT TRƯỚC khi chạy: "đổi đáng kể" ⇔ Jaccard < 0,90 **
 <!-- re-verified: 2026-06-23f — sheet: tap nở dần peek→half→full, ở full tap lần nữa thu về peek (không còn tap vô tác dụng); banner bão overlay tự thu thành chip sau 3s kể từ lúc check bão về (refresh/back lại map), chạm mở lại -->
 <!-- re-verified: 2026-06-23g — panel rail width theo nội dung: Điểm đã lưu + Chọn loài rộng w-22rem (max calc(100vw-4.25rem)) cho khỏi chồng chéo/dễ nhìn; panel đơn giản (Hải đồ/Thời tiết/Ngư trường-menu) giữ w-16.5rem cân đối -->
 <!-- re-verified: 2026-07-25 — thanh giờ Windy (gió/sóng) thêm HÀNG CHỌN KHUNG NGÀY 3/5/7/10/16 (chip đầy đủ chiều ngang) ngay trên slider; nhãn mốc slider động theo khung (Bây giờ → N ngày); đổi khung = tải lại lưới tầm mới. forecast-grid: bước tăng dần 3/6/12h + sóng ncep_gfswave025 -->
+<!-- re-verified: 2026-07-27 — BẤM khung ngày (3/5/7/10/16) → khi lưới mới về, thanh giờ NHẢY tới NGÀY CUỐI của khung (bấm "10 ngày" = xem luôn gió ~ngày 10, kéo lùi để về gần). `jumpEndRef` đặt cờ lúc bấm, áp lúc grid sẵn sàng; lần MỞ lớp đầu KHÔNG bật cờ → giữ "Bây giờ". Sửa nhầm lẫn bà con: 2 control cùng nhãn "ngày" (khung vs giờ) → trước bấm khung reset về Bây giờ, tưởng gió không đổi. -->
 <!-- re-verified: 2026-07-25b — api/fish-forecast route thêm fetch ETOPO (cổng độ sâu chặn loài xa bờ). BACKEND-only: không đổi màn hình/mật độ/trạng thái nào; lớp cá trên map chỉ bớt điểm nóng sát bờ cho loài xa bờ. -->
 <!-- re-verified: 2026-07-25c — THÊM lớp map "Ranh giới vùng lộng" (NĐ 26/2019, polygon 36 đỉnh SDVico): nét đứt teal #0d9488 + fill mờ 6%, vẽ TRƯỚC ranh giới ngoài (cam-đỏ IUU vẫn nổi trên, GIỮ độc quyền màu). Toggle bật/tắt trong panel CÀI ĐẶT (mục "Lớp bản đồ") + nhãn THAM KHẢO "tra Chi cục Thủy sản". Mặc định bật. (chuyển từ Thời tiết → Cài đặt theo user 2026-07-25) -->
 <!-- re-verified: 2026-07-25d — badge lớp nền Hải đồ BỎ "Ảnh {ngày} · chậm ~2 ngày" (user: không cần), chỉ còn "Theo ngày". Giữ 1 dòng ghi chú chung "Ảnh vệ tinh trễ ~2 ngày" ở chân panel. -->
 <!-- re-verified: 2026-07-25e — dải lọc khả năng có cá SÀN 50 (trước 35, user: dưới 50 làm nhiễu): default fishRange [50,100], hard-floor Math.max(50,…) áp cả "Mọi loài" lẫn theo loài, RangeBand min=50. Lõi PFZ tính ≥25 (chỉ lọc HIỂN THỊ ở client). -->
+<!-- re-verified: 2026-07-27 — SÀN HẠ 50→40 (user: dải 40–60 Thấp / 60–75 TB / 75–100 Cao cho lưới ô 3 mức). Sàn = FISH_LEVEL_BANDS[0].min (40); default fishRange [40,100], hard-floor Math.max(40,…), RangeBand min=40 (span 60). Lõi PFZ vẫn tính ≥25. Điểm nóng hồng tâm giữ ngưỡng ≥75 (= mức Cao). -->
 <!-- re-verified: 2026-07-25f — VIỆC 3: lõi chấm điểm đổi TRUNG BÌNH CỘNG → soft-OR (cổng nhiệt × mồi-giới-hạn-mềm × soft-OR cơ chế × cổng độ sâu; hằng calibrate lưới thật, xem 01-product + scripts/fish-predict-viec3-calib.mjs). BACKEND-only, KHÔNG đổi màn hình/mật độ/trạng thái/chữ UI. HỆ QUẢ HIỂN THỊ: điểm nóng s≥50 CO LẠI (~½→~⅕ vùng biển) → bản đồ ở sàn 50 sẽ THƯA điểm hơn (đúng ý đồ: điểm nóng thật hơn); ngưỡng giữ ô lõi hạ 35→25 nên payload không rỗng khi user kéo dải xuống. Nếu bà con thấy "ít điểm quá" cân nhắc chữ trấn an — CHƯA đổi wording. -->
 <!-- re-verified: 2026-07-25f — cá ĐÁY/RẠN/giáp xác (surfaceSignal low) giữ hiển thị được ở sàn 50: NEUTRAL_AGG 0.6 đủ để vùng hợp MÙA VỤ+nhiệt+mồi của loài đáy vượt 50 (calib mùa đông: cá mối/tôm bạc/ghẹ đều có ô ≥50) → chọn loài đáy KHÔNG ra bản đồ trống. Vẫn TRUNG THỰC: là suy theo mùa+nhiệt+mồi, không phải điểm nóng vệ tinh giả. -->
 <!-- re-verified: 2026-07-26 — THIẾU NGUỒN nay làm ĐIỂM GIẢM chứ không tăng (wMax cố định theo hồ sơ loài + DEPTH_UNKNOWN_FIT 0.5 khi mất lưới độ sâu). BACKEND-only: KHÔNG đổi màn hình/mật độ/trạng thái/chữ UI nào. HỆ QUẢ HIỂN THỊ: ngày ĐỦ NGUỒN bản đồ y như cũ (đo lưới thật: %điểm nóng 48.8→48.8 t7, 66.6→66.5 t1). Ngày HỎNG NGUỒN thì THƯA hơn thay vì dày lên: mất HYCOM → cá ngừ bớt điểm nóng; mất ETOPO → loài xa bờ (ngừ/cờ/nục heo/mực xà) gần như không còn ô ≥50 (vẫn nằm trong payload ≥25 nên kéo dải xuống dưới 50 vẫn thấy). Chưa có chữ UI nào giải thích "hôm nay thiếu nguồn nên bản đồ thưa" — đã có sổ nguồn/dataQuality trong payload, CÂN NHẮC dùng cho dòng tự-ẩn 5s nếu bà con thắc mắc; CHƯA đổi wording. -->

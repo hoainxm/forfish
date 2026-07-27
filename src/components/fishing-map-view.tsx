@@ -19,10 +19,7 @@ import MapGL, {
   Layer,
   type MapRef,
 } from "react-map-gl/maplibre";
-import type {
-  ExpressionSpecification,
-  StyleSpecification,
-} from "maplibre-gl";
+import type { StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import {
@@ -65,6 +62,7 @@ import { fishInRegion, regionAt } from "@/data/fish-seasons";
 import {
   fetchFishForecast,
   SPECIES_META,
+  FISH_LEVEL_BANDS,
   type FishForecast,
   type FishCell,
 } from "@/lib/fish-predict";
@@ -206,40 +204,6 @@ const MAP_LAYER_KEY = "forfish.maplayer.v1";
  * Xa hơn mốc này thì chưa đo ⇒ UI phải đổi giọng (xem chỗ dùng hằng số này).
  */
 const FISH_STABLE_DAYS = 3;
-
-// Màu lớp cá → ramp heatmap. NỘI DUNG dữ liệu bản đồ (khớp màu loài), không
-// phải token UI — ngoại lệ cho phép theo design-system §5.
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace("#", "");
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
-}
-// Mọi loài = XANH LÁ nhiều tông (user chốt: xanh lá xấu, về xanh lá như cũ);
-// chọn loài = 1 màu của loài
-const FISH_HEAT_DEFAULT = [
-  "interpolate", ["linear"], ["heatmap-density"],
-  0, "rgba(64,145,108,0)",
-  0.18, "rgba(149,213,178,0.4)",
-  0.45, "rgba(82,183,136,0.62)",
-  0.75, "rgba(45,134,89,0.78)",
-  1, "rgba(27,75,44,0.88)",
-];
-function fishHeatColor(hex: string | null): unknown[] {
-  if (!hex) return FISH_HEAT_DEFAULT;
-  const [r, g, b] = hexToRgb(hex);
-  const a = (alpha: number) => `rgba(${r},${g},${b},${alpha})`;
-  return [
-    "interpolate", ["linear"], ["heatmap-density"],
-    0, a(0),
-    0.18, a(0.4),
-    0.45, a(0.64),
-    0.75, a(0.8),
-    1, a(0.92),
-  ];
-}
 
 // Điểm mặc định khi CHƯA ghim cảng nhà: ngoài khơi Nam Trung Bộ (trung tâm
 // vùng đánh bắt) — đủ để thấy cả Hoàng Sa/Trường Sa, có sóng để xem ngay.
@@ -412,13 +376,26 @@ export default function FishingMapView() {
     }
   }, [premiumLocked, gridDays]);
 
+  // Bấm khung ngày (3/5/7/10/16) → khi lưới MỚI về, nhảy thanh giờ tới NGÀY
+  // CUỐI của khung (bấm "10 ngày" = xem luôn gió ~ngày 10, kéo lùi để về gần).
+  // Lưới tải bất đồng bộ nên đặt cờ lúc bấm, áp lúc grid sẵn sàng. Lần mở lớp
+  // đầu tiên KHÔNG bật cờ → giữ "Bây giờ".
+  const jumpEndRef = useRef(false);
+
   // tải lưới dự báo khi bật lớp lần đầu, hoặc khi ĐỔI khung ngày (tải lại cho tầm mới)
   useEffect(() => {
     if (!forecastKind || gridFailed) return;
     let alive = true;
     setFGrid(null); // hiện "đang tải" khi đổi khung; timeIdx kẹp lại ở render
     fetchForecastGrid(gridDays)
-      .then((g) => alive && setFGrid(g))
+      .then((g) => {
+        if (!alive) return;
+        setFGrid(g);
+        if (jumpEndRef.current) {
+          setTimeIdx(Math.max(0, g.times.length - 1)); // (B) xem luôn ngày cuối
+          jumpEndRef.current = false;
+        }
+      })
       .catch(() => alive && setGridFailed(true));
     return () => {
       alive = false;
@@ -445,26 +422,24 @@ export default function FishingMapView() {
 
   // Lọc theo KHOẢNG khả năng có cá (kéo-thả 2 đầu ở legend): chỉ hiện ô trong
   // [lo,hi]%. Sàn 50 (user 2026-07-25: dưới 50 làm nhiễu — trước là 35).
-  const [fishRange, setFishRange] = useState<[number, number]>([50, 100]);
+  const [fishRange, setFishRange] = useState<[number, number]>([
+    FISH_LEVEL_BANDS[0].min,
+    100,
+  ]);
 
-  // ô dự báo cá → ĐIỂM cho lớp heatmap (vùng mềm xanh lá kiểu PFZ chuẩn,
-  // như OceanFishMap — không còn ô vuông); lọc theo loài + khoảng đã chọn
-  const fishCellsGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
-    if (!fishOn || !fishCast) return null;
-    const lo = Math.max(50, fishRange[0]);
-    const hi = fishRange[1];
-    const features: GeoJSON.Feature[] = [];
-    for (const c of fishCast.cells) {
-      const v = fishSpecies ? (c.sp?.[fishSpecies] ?? 0) : c.s;
-      if (v < lo || v > hi) continue;
-      features.push({
-        type: "Feature",
-        properties: { s: v },
-        geometry: { type: "Point", coordinates: [c.lon, c.lat] },
-      });
+  // BƯỚC LƯỚI (độ): suy từ khoảng cách nhỏ nhất giữa các vĩ độ ô — để vẽ ô
+  // vuông phủ đúng một ô lưới SST (~0,25°), không phụ thuộc hằng số cứng.
+  const fishGridStep = useMemo(() => {
+    const cells = fishCast?.cells;
+    if (!cells?.length) return 0.25;
+    const lats = [...new Set(cells.map((c) => c.lat))].sort((a, b) => a - b);
+    let step = Infinity;
+    for (let i = 1; i < lats.length; i++) {
+      const d = lats[i] - lats[i - 1];
+      if (d > 1e-4 && d < step) step = d;
     }
-    return { type: "FeatureCollection", features };
-  }, [fishOn, fishCast, fishSpecies, fishRange]);
+    return Number.isFinite(step) ? step : 0.25;
+  }, [fishCast]);
 
   // màu lớp cá đang xem: theo loài đã chọn, hoặc xanh lá khi "Mọi loài"
   const activeFishColor = fishSpecies
@@ -481,6 +456,44 @@ export default function FishingMapView() {
   const home = homeOf(places);
   // đơn vị khoảng cách + hệ toạ độ (panel Cài đặt) — đổi thì mọi chỗ đổi theo
   const prefs = useMapPrefs();
+
+  // Ô LƯỚI DỰ BÁO CÁ — mỗi ô SST thành một ô vuông TÔ MÀU theo mức khả năng có
+  // cá (kiểu bản tin ngư trường Viện Hải sản), CHỈ MÀU không in số. Bật/tắt ở
+  // panel Cài đặt (prefs.fishGrid). Lọc theo loài + khoảng đã chọn, sàn = ngưỡng
+  // mức Thấp (FISH_LEVEL_BANDS[0].min).
+  const fishGridGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!fishOn || !fishCast || !prefs.fishGrid) return null;
+    const lo = Math.max(FISH_LEVEL_BANDS[0].min, fishRange[0]);
+    const hi = fishRange[1];
+    const h = fishGridStep / 2;
+    const features: GeoJSON.Feature[] = [];
+    for (const c of fishCast.cells) {
+      const v = fishSpecies ? (c.sp?.[fishSpecies] ?? 0) : c.s;
+      if (v < lo || v > hi) continue;
+      const r = Math.round(v);
+      const x0 = c.lon - h;
+      const x1 = c.lon + h;
+      const y0 = c.lat - h;
+      const y1 = c.lat + h;
+      features.push({
+        type: "Feature",
+        properties: { s: r },
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [x0, y0],
+              [x1, y0],
+              [x1, y1],
+              [x0, y1],
+              [x0, y0],
+            ],
+          ],
+        },
+      });
+    }
+    return { type: "FeatureCollection", features };
+  }, [fishOn, fishCast, fishSpecies, fishRange, fishGridStep, prefs.fishGrid]);
   // Hiện điểm đã lưu trên bản đồ (panel Điểm đã lưu — Phương án A)
   const [showPlaces, setShowPlaces] = useState(true);
   // thanh giờ Windy (gió/sóng) cho thu/mở — đỡ chiếm mép sheet (user 2026-06-23)
@@ -783,6 +796,21 @@ export default function FishingMapView() {
   const loading = result?.key !== reqKey;
   const cond = loading ? null : (result?.cond ?? null);
   const errored = !loading && result?.cond === null;
+
+  // Thẻ "số cũ trong máy" (mất mạng → dùng bản đã lưu) TỰ ẨN sau NOTIFY_HIDE_MS
+  // như mấy chip khác — trước là hộp vàng nằm lì che bản đồ. Effect chạy lại
+  // khi CHỖ/tuổi bản lưu đổi, nên vẫn stale thì không nhấp nháy báo lại.
+  const staleSig = cond?.stale ? `${cond.source ?? ""}:${cond.savedAt ?? ""}` : null;
+  const [staleNoteOn, setStaleNoteOn] = useState(false);
+  useEffect(() => {
+    if (!staleSig) {
+      setStaleNoteOn(false);
+      return;
+    }
+    setStaleNoteOn(true);
+    const t = setTimeout(() => setStaleNoteOn(false), NOTIFY_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [staleSig]);
 
   const goToMyBoat = useCallback(() => {
     if (!navigator.geolocation || locating) return;
@@ -1098,35 +1126,38 @@ export default function FishingMapView() {
           </Source>
         )}
 
-        {/* DỰ BÁO CÁ — vùng mềm XANH LÁ (heatmap) đậm dần theo khả năng,
-            kiểu bản đồ PFZ chuẩn (OceanFishMap/INCOIS) — không ô vuông */}
-        {fishCellsGeo && (
-          <Source id="fish-cells" type="geojson" data={fishCellsGeo}>
+        {/* DỰ BÁO CÁ — LƯỚI Ô kiểu bản tin ngư trường: mỗi ô vuông tô theo 3
+            MỨC CỐ ĐỊNH (Thấp xanh dương / Trung bình xanh lá / Cao đỏ —
+            FISH_LEVEL_BANDS), quy ước màu KHÔNG đổi theo loài cho đỡ rối. Chọn
+            loài chỉ đổi mức (điểm theo loài). CHỈ MÀU, không in số (user
+            2026-07-27: zoom lên chỉ cần màu). Chú giải Thấp/TB/Cao ở panel. */}
+        {fishGridGeo && (
+          <Source id="fish-grid" type="geojson" data={fishGridGeo}>
             <Layer
-              id="fish-cells-heat"
-              type="heatmap"
+              id="fish-grid-fill"
+              type="fill"
               paint={{
-                "heatmap-weight": [
-                  "interpolate",
-                  ["linear"],
+                // bậc màu theo ngưỡng dưới của từng mức (< mid = Thấp, …)
+                "fill-color": [
+                  "step",
                   ["get", "s"],
-                  35, 0.15,
-                  100, 1,
-                ] as unknown as number,
-                // bán kính phủ kín bước lưới 0,25° ở mọi mức zoom
-                "heatmap-radius": [
-                  "interpolate",
-                  ["exponential", 2],
-                  ["zoom"],
-                  4, 9,
-                  6, 30,
-                  8, 110,
-                ] as unknown as number,
-                "heatmap-intensity": 0.9,
-                // màu theo loài đã chọn (mỗi loài 1 màu), Mọi loài = xanh lá
-                "heatmap-color": fishHeatColor(
-                  activeFishColor,
-                ) as unknown as ExpressionSpecification,
+                  FISH_LEVEL_BANDS[0].color,
+                  FISH_LEVEL_BANDS[1].min,
+                  FISH_LEVEL_BANDS[1].color,
+                  FISH_LEVEL_BANDS[2].min,
+                  FISH_LEVEL_BANDS[2].color,
+                ] as unknown as string,
+                "fill-opacity": 0.6,
+              }}
+            />
+            <Layer
+              id="fish-grid-line"
+              type="line"
+              paint={{
+                // viền ô trắng mảnh — tách ô rõ như lưới bản tin ngư trường
+                "line-color": "#ffffff",
+                "line-width": 0.6,
+                "line-opacity": 0.5,
               }}
             />
           </Source>
@@ -1557,7 +1588,7 @@ export default function FishingMapView() {
                               setDayLockNote(false);
                               if (d === gridDays) return;
                               setPlaying(false);
-                              setTimeIdx(0);
+                              jumpEndRef.current = true; // (B) nhảy tới ngày cuối khi lưới về
                               setGridDays(d);
                             }}
                             aria-pressed={on}
@@ -1666,7 +1697,7 @@ export default function FishingMapView() {
                             type="button"
                             onClick={() => {
                               setPlaying(false);
-                              setTimeIdx(0);
+                              jumpEndRef.current = true; // (B) nhảy tới ngày cuối khi lưới về
                               setGridFailed(false);
                               setGridDays(d as GridDays);
                             }}
@@ -1713,21 +1744,30 @@ export default function FishingMapView() {
             </p>
           ) : sel ? (
             <div className="py-1">
+              {/* Thẻ "số cũ trong máy" TỰ ẨN sau vài giây (staleNoteOn) + chip
+                  nhỏ gọn — trước là hộp vàng to nằm lì che mất bản đồ. Vẫn nói
+                  thật một lần rồi trả lại tầm nhìn (an toàn nhưng không cản). */}
               {cond?.stale &&
+                staleNoteOn &&
                 (cond.source === "saved-grid" ? (
-                  /* Số dựng từ LƯỚI gió/sóng đã lưu — đúng chỗ này, nhưng lưới
-                     chỉ có gió với sóng. Nói thẳng phần còn thiếu. */
-                  <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[1.0625rem] font-bold leading-snug text-warn">
-                    Số gió, sóng lấy từ bản đã lưu trong máy
-                    {cond.savedAt != null && ` (lưu lúc ${clockVN(cond.savedAt)})`}
-                    . Chưa có mưa, dông cho chỗ này.
+                  <p className="mb-1.5 flex items-center gap-1.5 rounded-full bg-warn-bg px-2.5 py-1.5 text-[0.8125rem] font-bold leading-snug text-warn">
+                    <AlertIcon className="h-4 w-4 shrink-0" />
+                    <span>
+                      Số gió, sóng lấy từ bản đã lưu
+                      {cond.savedAt != null &&
+                        ` (lưu lúc ${clockVN(cond.savedAt)})`}
+                      . Chưa có mưa, dông chỗ này.
+                    </span>
                   </p>
                 ) : (
-                  <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[1.0625rem] font-bold leading-snug text-warn">
-                    Số cũ lưu trong máy
-                    {cond.savedAt != null &&
-                      ` — lưu lúc ${clockVN(cond.savedAt)} (${savedAgoLabel(cond.savedAt, nowMs)})`}
-                    . Chưa phải số mới.
+                  <p className="mb-1.5 flex items-center gap-1.5 rounded-full bg-warn-bg px-2.5 py-1.5 text-[0.8125rem] font-bold leading-snug text-warn">
+                    <AlertIcon className="h-4 w-4 shrink-0" />
+                    <span>
+                      Số cũ trong máy
+                      {cond.savedAt != null &&
+                        ` (${savedAgoLabel(cond.savedAt, nowMs)})`}
+                      . Chưa phải số mới.
+                    </span>
                   </p>
                 ))}
               <div className="flex items-center gap-2">

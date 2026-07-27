@@ -17,7 +17,7 @@ import {
 } from "@/lib/ocean-map";
 import type { ForecastKind } from "@/lib/forecast-grid";
 import { type SeaScalarKind } from "@/lib/sea-scalars";
-import { SPECIES_META } from "@/lib/fish-predict";
+import { SPECIES_META, FISH_LEVEL_BANDS } from "@/lib/fish-predict";
 import type { FeatureAccess } from "@/lib/tier";
 import { PremiumLock } from "@/components/premium-gate";
 import type { StormStatus } from "@/lib/storms";
@@ -555,6 +555,27 @@ function NguTruongPanel({
             <ChevronRightIcon className="h-4 w-4 shrink-0 text-navy/55" />
           </button>
 
+          {/* CHÚ GIẢI 3 MỨC — quy ước màu ô lưới trên bản đồ (Thấp/TB/Cao),
+              CỐ ĐỊNH cho mọi loài để đỡ rối. Khớp FISH_LEVEL_BANDS + lớp
+              fish-grid-fill. */}
+          <div className="mt-3 flex items-center gap-3">
+            {FISH_LEVEL_BANDS.map((b) => (
+              <span key={b.key} className="flex items-center gap-1.5">
+                <span
+                  className="h-4 w-4 shrink-0 rounded-sm"
+                  style={{ background: b.color }}
+                  aria-hidden
+                />
+                <span className="text-[0.8125rem] font-bold text-navy">
+                  {b.label}
+                </span>
+              </span>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[0.6875rem] leading-snug text-foreground/60">
+            Màu ô = mức khả năng có cá, quy ước chung cho mọi loài.
+          </p>
+
           <p className="mb-1 mt-3 flex items-center justify-between text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
             <span>Dải khả năng có cá</span>
             <span className="tabular-nums" style={{ color: FISH_COLOR }}>
@@ -794,6 +815,14 @@ function SettingsPanel({
         Lớp bản đồ
       </p>
       <Toggle
+        label="Lưới ngư trường"
+        sub="Ô vuông tô màu theo mức khả năng có cá · kiểu bản tin ngư trường"
+        on={prefs.fishGrid}
+        onToggle={() => setMapPrefs({ fishGrid: !prefs.fishGrid })}
+        icon={<FishIcon className="h-5 w-5 text-t1" />}
+      />
+      <div className="mb-2" />
+      <Toggle
         label="Ranh giới vùng lộng"
         sub="NĐ 26/2019 · tàu 12–<15m · tham khảo"
         on={vungLongOn}
@@ -918,6 +947,9 @@ function RangeBand({
   onChange: (r: [number, number]) => void;
   color: string;
 }) {
+  // sàn = ngưỡng dưới của mức Thấp (khớp lưới bản đồ); nhịp span để đặt vệt màu
+  const min = FISH_LEVEL_BANDS[0].min;
+  const span = 100 - min;
   return (
     <span className="relative block h-6">
       <span
@@ -927,15 +959,15 @@ function RangeBand({
       <span
         className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
         style={{
-          left: `${((value[0] - 50) / 50) * 100}%`,
-          right: `${((100 - value[1]) / 50) * 100}%`,
+          left: `${((value[0] - min) / span) * 100}%`,
+          right: `${((100 - value[1]) / span) * 100}%`,
           background: color,
         }}
         aria-hidden
       />
       <input
         type="range"
-        min={50}
+        min={min}
         max={100}
         value={value[0]}
         aria-label="Khả năng có cá tối thiểu"
@@ -944,7 +976,7 @@ function RangeBand({
       />
       <input
         type="range"
-        min={50}
+        min={min}
         max={100}
         value={value[1]}
         aria-label="Khả năng có cá tối đa"

@@ -15,10 +15,12 @@ export type CoordFormat = "dd" | "dms";
 export interface MapPrefs {
   distUnit: DistUnit;
   coordFormat: CoordFormat;
+  /** Hiện lưới ô dự báo cá (kiểu bản tin ngư trường) — tắt được để bản đồ gọn */
+  fishGrid: boolean;
 }
 
 const KEY = "forfish.mapPrefs.v1";
-const DEFAULT: MapPrefs = { distUnit: "nm", coordFormat: "dd" };
+const DEFAULT: MapPrefs = { distUnit: "nm", coordFormat: "dd", fishGrid: true };
 const KM_PER_NM = 1.852;
 
 let state: MapPrefs = DEFAULT;
@@ -34,6 +36,7 @@ function load(): MapPrefs {
     return {
       distUnit: p.distUnit === "km" ? "km" : "nm",
       coordFormat: p.coordFormat === "dms" ? "dms" : "dd",
+      fishGrid: p.fishGrid !== false, // mặc định bật; chỉ tắt khi đã lưu false
     };
   } catch {
     return DEFAULT;
