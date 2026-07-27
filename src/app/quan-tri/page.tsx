@@ -1216,7 +1216,7 @@ function AddCrewReportForm({ onAdded }: { onAdded: () => void }) {
         className="flex w-full items-center justify-between text-[1rem] font-bold text-navy"
         aria-expanded={open}
       >
-        + Thêm thuyền viên có vấn đề (duyệt luôn)
+        Thêm thuyền viên có vấn đề (duyệt luôn)
         <span aria-hidden>{open ? "−" : "+"}</span>
       </button>
       {open && (
