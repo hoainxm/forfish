@@ -47,7 +47,7 @@ const pillars = [
     tone: "t2",
     icon: PriceIcon,
     title: "Sổ tiền",
-    sub: "Giá cá, ai cần mua, lãi lỗ",
+    sub: "Giá cá, ai cần mua, công nợ",
   },
 ] as const;
 

@@ -9,7 +9,7 @@
   thang kéo lớp nền raster (để sau) · dải % cá lọc thật.
 */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   OCEAN_LAYERS,
   OCEAN_LAYER_ORDER,
@@ -17,7 +17,7 @@ import {
 } from "@/lib/ocean-map";
 import type { ForecastKind } from "@/lib/forecast-grid";
 import { type SeaScalarKind } from "@/lib/sea-scalars";
-import { SPECIES_META, FISH_LEVEL_BANDS } from "@/lib/fish-predict";
+import { SPECIES_META } from "@/lib/fish-predict";
 import type { FeatureAccess } from "@/lib/tier";
 import { PremiumLock } from "@/components/premium-gate";
 import type { StormStatus } from "@/lib/storms";
@@ -136,12 +136,6 @@ export function RaKhoiControls({
 }) {
   const [open, setOpen] = useState<PanelId | null>(null);
   const [collapsed, setCollapsed] = useState(false); // ẩn/hiện rail như menu bản đồ
-  // drill-down trong panel Ngư trường: danh sách chọn loài (không mở modal)
-  const [speciesView, setSpeciesView] = useState(false);
-  // đổi panel hay đóng → thoát view chọn loài
-  useEffect(() => {
-    if (open !== "ngu-truong") setSpeciesView(false);
-  }, [open]);
 
   const RAIL: {
     id: PanelId;
@@ -192,30 +186,12 @@ export function RaKhoiControls({
       {open && !collapsed && (
         <div
           className={`pointer-events-auto absolute right-[4.5rem] top-0 max-h-[62vh] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl [overscroll-behavior:contain] ${
-            open === "diem" || (open === "ngu-truong" && speciesView)
+            open === "diem"
               ? "w-[22rem] max-w-[calc(100vw-4.25rem)]"
               : "w-[16.5rem] max-w-[calc(100vw-5rem)]"
           }`}
         >
-          {open === "ngu-truong" && speciesView ? (
-            <>
-              <PanelHeader
-                title="Chọn loài cá"
-                onClose={() => setOpen(null)}
-                onBack={() => setSpeciesView(false)}
-              />
-              <FishSpeciesContent
-                species={species}
-                current={fishSpecies}
-                regionShorts={regionShorts}
-                cols={1}
-                onPick={(sp) => {
-                  onPickSpecies(sp);
-                  setSpeciesView(false);
-                }}
-              />
-            </>
-          ) : (
+          {
             <>
               <PanelHeader
                 title={PANEL_TITLE[open]}
@@ -237,7 +213,9 @@ export function RaKhoiControls({
                   onFish={onFish}
                   fishSpecies={fishSpecies}
                   fishAccess={fishAccess}
-                  onOpenSpecies={() => setSpeciesView(true)}
+                  species={species}
+                  regionShorts={regionShorts}
+                  onPickSpecies={onPickSpecies}
                 />
               )}
               {open === "thoi-tiet" && (
@@ -275,7 +253,7 @@ export function RaKhoiControls({
                 />
               )}
             </>
-          )}
+          }
         </div>
       )}
 
@@ -487,17 +465,24 @@ function NguTruongPanel({
   fishOn,
   onFish,
   fishSpecies,
-  onOpenSpecies,
   fishAccess,
+  species,
+  regionShorts,
+  onPickSpecies,
 }: {
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
-  onOpenSpecies: () => void;
   /** nấc premium — "login"/"upgrade" = lớp cá khoá hẳn (thẻ khoá thay picker) */
   fishAccess: FeatureAccess;
+  species: string[];
+  regionShorts: Set<string>;
+  onPickSpecies: (sp: string | null) => void;
 }) {
   const fishLocked = fishAccess === "login" || fishAccess === "upgrade";
+  // Chọn loài XỔ RA ngay trong panel (dropdown), KHÔNG swap view/đổi bề rộng
+  // panel nữa (user 2026-07-27: đừng nhảy panel giật ra giật vô).
+  const [expanded, setExpanded] = useState(false);
   const name = fishSpecies
     ? SPECIES_META[fishSpecies]?.full ?? fishSpecies
     : "Mọi loài cá";
@@ -526,9 +511,12 @@ function NguTruongPanel({
       )}
       {fishOn && !fishLocked && (
         <>
+          {/* Chú giải Thấp/TB/Cao ĐÃ DỜI ra nổi mép trái bản đồ (user
+              2026-07-27) — không lặp lại trong panel nữa. */}
           <button
             type="button"
-            onClick={onOpenSpecies}
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
             className="mt-2 flex w-full items-center gap-2 rounded-xl bg-field px-3 py-2.5 text-left active:scale-[0.99]"
           >
             <span
@@ -543,29 +531,27 @@ function NguTruongPanel({
             <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-bold text-navy">
               {name}
             </span>
-            <ChevronRightIcon className="h-4 w-4 shrink-0 text-navy/55" />
+            <ChevronRightIcon
+              className={`h-4 w-4 shrink-0 text-navy/55 transition-transform ${
+                expanded ? "rotate-90" : ""
+              }`}
+            />
           </button>
 
-          {/* CHÚ GIẢI 3 MỨC — quy ước màu ô lưới trên bản đồ (Thấp/TB/Cao),
-              CỐ ĐỊNH cho mọi loài để đỡ rối. Khớp FISH_LEVEL_BANDS + lớp
-              fish-grid-fill. */}
-          <div className="mt-3 flex items-center gap-3">
-            {FISH_LEVEL_BANDS.map((b) => (
-              <span key={b.key} className="flex items-center gap-1.5">
-                <span
-                  className="h-4 w-4 shrink-0 rounded-sm"
-                  style={{ background: b.color }}
-                  aria-hidden
-                />
-                <span className="text-[0.8125rem] font-bold text-navy">
-                  {b.label}
-                </span>
-              </span>
-            ))}
-          </div>
-          <p className="mt-1.5 text-[0.6875rem] leading-snug text-foreground/60">
-            Màu ô = mức khả năng có cá, quy ước chung cho mọi loài.
-          </p>
+          {expanded && (
+            <div className="mt-2">
+              <FishSpeciesContent
+                species={species}
+                current={fishSpecies}
+                regionShorts={regionShorts}
+                cols={1}
+                onPick={(sp) => {
+                  onPickSpecies(sp);
+                  setExpanded(false);
+                }}
+              />
+            </div>
+          )}
         </>
       )}
     </div>

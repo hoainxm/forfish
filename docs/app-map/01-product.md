@@ -18,7 +18,7 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 
 ## 2. Bốn trục / The four promises
 
-> **Lời hứa ≠ route** (cập nhật 2026-06-15): nav đã đổi sang **hướng đối tượng** (dock: Trang chủ · Ra khơi · Tàu · Bạn thuyền · Tiền), KHÔNG còn 1 route/trục. Bản đồ lời-hứa → nơi ở thật: **Trục 1** `/ngu-truong` · **Trục 2** `/tien` (tab Giao dịch) · **Trục 3** `/tau` (tab Dịch vụ/Sản phẩm) · **Trục 4** `/tau` (tab Giấy tờ/Mức phạt) + `/nguoi` (thuyền viên). Route cũ `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` = **redirect**. Nguồn đúng về nav: [07-design-spec §4](07-design-spec.md). Lời hứa thì không đổi — đó mới là trục.
+> **Lời hứa ≠ route** (cập nhật 2026-06-15): nav đã đổi sang **hướng đối tượng** (dock: Trang chủ · Ra khơi · Tàu · Bạn thuyền · Tiền), KHÔNG còn 1 route/trục. Bản đồ lời-hứa → nơi ở thật: **Trục 1** `/ngu-truong` · **Trục 2** `/tien` (tab Giao dịch) · **Trục 3** `/tau` (tab Dịch vụ/Sản phẩm) · **Trục 4** `/tau` (tab Giấy tờ) + `/nguoi` (thuyền viên). Route cũ `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` = **redirect**. Nguồn đúng về nav: [07-design-spec §4](07-design-spec.md). Lời hứa thì không đổi — đó mới là trục.
 
 ### Trục 1 — Đánh bắt tốt hơn (`/ngu-truong`)
 - **Hứa gì**: ra khơi trúng hơn, đỡ phí dầu phí công.
@@ -61,7 +61,7 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 - **ForFish = kênh CSKH của SDVICO (2026-06-10, user chốt)**: tab Sản phẩm hiện danh mục hàng đang bán theo NHÓM (lọc nước biển / giám sát hành trình / wifi biển / lọc dầu / nhớt / sơn tàu / điện-lái) — nhóm ĐÃ MUA gắn nhãn "đang dùng", nhóm CHƯA MUA là gợi ý kèm nút **"Hỏi mua / tư vấn"**; tab Bảo dưỡng đổi thành **Dịch vụ** (sửa chữa + bảo dưỡng + cước + sổ nhắc tự ghi). Mọi nút "Gọi SDVICO" gửi yêu cầu thẳng vào hộp tư vấn của SDWork (kể cả khách chưa đăng nhập = mối bán hàng mới) — nhân viên gọi lại. Đây là vòng lặp cross-trục mục 4 chạy bằng dữ liệu thật.
 - **Vai trò**: đây là **động cơ doanh thu** của công ty.
 
-### Trục 4 — Tuân thủ dễ hơn (ở `/tau` tab Giấy tờ/Mức phạt + `/nguoi` · route cũ `/giay-to` → redirect)
+### Trục 4 — Tuân thủ dễ hơn (ở `/tau` tab Giấy tờ + `/nguoi` · route cũ `/giay-to` → redirect · bỏ tab Mức phạt + Checklist xuất bến 2026-07-27, user không cần)
 - **Hứa gì**: lo giấy tờ nhẹ đầu, tránh bị phạt oan.
 - **Gồm**: tủ giấy tờ (document vault) + nhắc hạn, trợ lý hỏi đáp pháp luật thủy sản VN.
 - **Dữ liệu**: KHÔNG phụ thuộc nguồn ngoài → được build **ĐẦU TIÊN**. Logic ở [04-data-model.md](04-data-model.md).

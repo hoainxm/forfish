@@ -47,7 +47,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 | Sản phẩm/Dịch vụ SDVICO | list (sync read-only + tự ghi) | — | drawer (đồ tự ghi) | /tau tab Sản phẩm/Dịch vụ |
 | Điểm ngư trường / của tôi | map + sheet | peek sheet | sheet | /ngu-truong |
 | Giá cá / Nhu cầu mua | list | — | — | /tien tab Giao dịch |
-| Mức phạt | searchable list | — | — | /tau tab Mức phạt |
+| ~~Mức phạt~~ | ~~searchable list~~ | — | — | **gỡ khỏi /tau 2026-07-27 (user: không cần); giữ `fines-lookup.tsx` + `data/fines.ts`** |
 | Công nợ (chủ nợ) | list theo chủ nợ | sổ vay/trả (sheet) | drawer | /tien tab Công nợ |
 
 → 8 object. Tạo/sửa đều ≤5 field nên dùng **drawer/bottom-sheet**, KHÔNG đẻ page riêng (quyết định đã chốt).
@@ -55,7 +55,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 ## 4. Nav model
 
 - **Mobile bottom dock (5)**: Trang chủ · Ra khơi · Tàu · Bạn thuyền · Tiền — đúng trần M3 = 5, taxonomy MECE theo đối tượng. Item ≥3.75rem, icon + chữ.
-- **Tab trong page**: /tau = 4 tab (Giấy tờ/Dịch vụ/Sản phẩm/Mức phạt); /tien = 3 tab (Giao dịch/Hiệu quả/Công nợ). Trong tab dùng `ChipRow` (≤3 tier: Tabs → chip1 → chip2). KHÔNG tab lồng tab. Thanh tab **dính (sticky top-0)** có padding-top `+env(safe-area-inset-top)` → khi hero cuộn mất, thanh không chui dưới notch/status bar (edge-to-edge).
+- **Tab trong page**: /tau = 3 tab (Giấy tờ/Dịch vụ/Sản phẩm) — **bỏ tab Mức phạt + Checklist xuất bến 2026-07-27 (user: không cần, chủ tàu tự biết)**; /tien = 3 tab (Giao dịch/Hiệu quả/Công nợ). Trong tab dùng `ChipRow` (≤3 tier: Tabs → chip1 → chip2). KHÔNG tab lồng tab. Thanh tab **dính (sticky top-0)** có padding-top `+env(safe-area-inset-top)` → khi hero cuộn mất, thanh không chui dưới notch/status bar (edge-to-edge).
 - Route phụ (`/cang`, `/login`, `/dang-ky`, `/doi-mat-khau`) vào từ ngữ cảnh, không nằm trên dock. Route cũ (`/gia-ca`, `/giay-to`, `/van-hanh`, `/thuyen-vien`) = redirect 1 dòng sang trục mới.
 
 ## 5. Screen map + density budget
@@ -146,7 +146,7 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 | Nhóm | Panel chứa |
 |---|---|
 | **Hải đồ** | Lớp nền bản đồ (chọn-1: Hải đồ độ sâu / Nước nóng-lạnh / Nhiều mồi / Ảnh mây) + nhịp + nhãn dải + note "ảnh vệ tinh trễ ~2 ngày · phao chỉ hiện khi zoom gần bờ" |
-| **Ngư trường** | Dự báo cá PFZ (bật/tắt) + nhịp · **chọn loài** (drill-down) · note "public, chi tiết cần đăng nhập" — chưa đăng nhập thì ẩn picker, chỉ 1 CTA đăng nhập. **Hiển thị = LƯỚI Ô** (thay heatmap mềm cũ, 2026-07-27): mỗi ô SST (~0,25°) là ô vuông tô theo **3 MỨC CỐ ĐỊNH** kiểu bản tin ngư trường Viện Hải sản — **Thấp** (vàng, 40–60) · **Trung bình** (xanh lá, 60–75) · **Cao** (đỏ, 75–100), quy ước màu `FISH_LEVEL_BANDS` **KHÔNG đổi theo loài** (đỡ rối); viền ô trắng mảnh; **CHỈ MÀU, không in số** (user 2026-07-27: zoom lên chỉ cần màu). Sàn hiển thị cố định = `FISH_LEVEL_BANDS[0].min` (40) — **đã BỎ dải lọc kéo-2-đầu** (user 2026-07-27: không cần), luôn hiện đủ 3 mức. Chọn loài chỉ đổi mức (điểm `sp[loài]`), màu vẫn 3 mức. **KHÔNG hiện sản lượng (kg)** — nguồn chỉ có điểm khả năng 0–100, in kg là hứa sai. Chú giải Thấp/TB/Cao vừa trong panel, vừa **NỔI SÁT MÉP TRÁI bản đồ** khi lớp Cá bật (gate `fishGridGeo`, tự mờ khi kéo sheet lên như rail — user 2026-07-27: cho ra ngoài cho dễ nhìn khỏi mở panel). **Lớp màu cá THUỘC nút lớp "Cá" ở rail** (`fishGridGeo` cần `fishOn` + `fishCast`, khoá premium khi `fishCast`=null) — KHÁC hẳn lưới kẻ ô toạ độ ở Cài đặt (2026-07-27: user chốt toggle Cài đặt là lưới grid toạ độ, KHÔNG liên quan cá) |
+| **Ngư trường** | Dự báo cá PFZ (bật/tắt) + nhịp · **chọn loài** (dropdown XỔ INLINE trong panel — không swap view/đổi bề rộng panel, user 2026-07-27: đừng nhảy panel giật ra giật vô) · note "public, chi tiết cần đăng nhập" — chưa đăng nhập thì ẩn picker, chỉ 1 CTA đăng nhập. **Hiển thị = LƯỚI Ô** (thay heatmap mềm cũ, 2026-07-27): mỗi ô SST (~0,25°) là ô vuông tô theo **3 MỨC CỐ ĐỊNH** kiểu bản tin ngư trường Viện Hải sản — **Thấp** (vàng, 40–60) · **Trung bình** (xanh lá, 60–75) · **Cao** (đỏ, 75–100), quy ước màu `FISH_LEVEL_BANDS` **KHÔNG đổi theo loài** (đỡ rối); viền ô trắng mảnh; **CHỈ MÀU, không in số** (user 2026-07-27: zoom lên chỉ cần màu). Sàn hiển thị cố định = `FISH_LEVEL_BANDS[0].min` (40) — **đã BỎ dải lọc kéo-2-đầu** (user 2026-07-27: không cần), luôn hiện đủ 3 mức. Chọn loài chỉ đổi mức (điểm `sp[loài]`), màu vẫn 3 mức. **KHÔNG hiện sản lượng (kg)** — nguồn chỉ có điểm khả năng 0–100, in kg là hứa sai. Chú giải Thấp/TB/Cao **CHỈ nổi sát mép trái bản đồ** khi lớp Cá bật (gate `fishGridGeo`, tự mờ khi kéo sheet lên như rail) — **đã BỎ khỏi panel** cho đỡ lặp (user 2026-07-27). **Lớp màu cá THUỘC nút lớp "Cá" ở rail** (`fishGridGeo` cần `fishOn` + `fishCast`, khoá premium khi `fishCast`=null) — KHÁC hẳn lưới kẻ ô toạ độ ở Cài đặt (2026-07-27: user chốt toggle Cài đặt là lưới grid toạ độ, KHÔNG liên quan cá) |
 | **Thời tiết** | Lớp gió/sóng + scalar (nước dâng/xoáy) + nhịp · note "tham khảo, lỗi thì thử lại" |
 | **Điểm đã lưu** | Bật/tắt hiện điểm trên map + quản lý điểm (thêm theo toạ độ, sửa/xoá, tìm cảng) ngay trong panel |
 | **Công cụ** | **Đo khoảng cách 2 điểm** — bật chế độ đo, chạm 2 điểm trên map → đường nối + mốc 1/2 + kết quả (khoảng cách đường chim bay + hướng) theo đơn vị đang chọn; "Xoá, đo lại" |
@@ -169,7 +169,7 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 - **Điểm đã lưu: bỏ hàng "Chỗ tàu tôi đang đứng" (GPS)** — user: vô nghĩa (không còn entry-point GPS). Giữ "Thêm điểm theo toạ độ".
 - **BottomSheet (modal) cap `max-h-[85dvh]`** (trước 92) — đọc như sheet cân đối, còn thấy map sau lưng.
 - **"Chọn loài cá" + "Điểm đã lưu" = PANEL RAIL, không bottom-sheet modal** (user: 2 popup này "ko đồng bộ các kiểu popup trước" → cho khớp panel rail): 
-  · Chọn loài = drill-down trong panel **Ngư trường** (nút "Chọn loài" → list loài 1 cột + nút quay lại). 
+  · Chọn loài = **dropdown XỔ INLINE** trong panel **Ngư trường** (nút loài → list `FishSpeciesContent` 1 cột xổ ngay dưới, chevron xoay 90°; chọn xong tự thu). KHÔNG swap view / KHÔNG đổi bề rộng panel (user 2026-07-27: đừng nhảy panel giật ra giật vô — bỏ `speciesView` + panel width 22rem cho ngư-trường). 
   · Quản lý điểm = nội dung panel **Điểm đã lưu** luôn (toggle hiện-trên-map + thêm theo toạ độ + sửa/xoá compact + tìm cảng) — bỏ nút "Quản lý" mở modal. 
   · Tách thân `FishSpeciesContent` / `MyPlacesContent` dùng chung (panel + wrapper bottom-sheet legacy). Nút "Sửa" ở thẻ "Đã ghim" trong sheet → đổi thành chỉ dẫn "Sửa ở Điểm đã lưu".
 

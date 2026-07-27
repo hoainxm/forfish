@@ -11,7 +11,7 @@
 | 1 | Đánh bắt tốt hơn | `/ngu-truong` | **MVP**: điểm đi biển 1–100, dữ liệu thật Open-Meteo (sóng/gió/mưa/dông, 10 cảng) + bản đồ ngư trường vệ tinh (nhiệt độ/phù du/ảnh mây/độ sâu + phao đèn biển, nhãn chủ quyền VN, chạm xem gió sóng) + tin bão Biển Đông (`/api/storms`) + dẫn đường tiết kiệm dầu (tuyến né sóng gió theo giờ, ước tính lít dầu — tham khảo). ⚠️ **PREMIUM (2026-07-26)**: dự báo cá + thời tiết >3 ngày chỉ cho tài khoản premium (`customers.tier`, gán qua webhook SDWork / web quản trị `/quan-tri` — độc lập về giao diện, chung deploy/DB; luật ở `src/lib/tier.ts`, chặn thật ở middleware) |
 | 2 | Bán được đắt hơn | `/tien` (tab Giao dịch) | **MVP**: bảng giá tham khảo + sổ lãi lỗ chuyến biển — **theo từng tàu** (localStorage) |
 | 3 | Vận hành rẻ hơn | `/tau` (tab Dịch vụ/Sản phẩm) | **MVP**: nhắc bảo dưỡng (localStorage) + danh mục vật tư tham khảo |
-| 4 | Tuân thủ dễ hơn | `/tau` (tab Giấy tờ/Mức phạt) + `/nguoi` | **MVP**: tủ giấy tờ + tra mức phạt (NĐ 38/2024) + sổ thuyền viên |
+| 4 | Tuân thủ dễ hơn | `/tau` (tab Giấy tờ) + `/nguoi` | **MVP**: tủ giấy tờ + sổ thuyền viên. **Bỏ 2026-07-27 (user không cần)**: tab Mức phạt (NĐ 38/2024) + Checklist xuất bến — file `fines-lookup.tsx`/`departure-checklist.tsx` giữ lại, chỉ gỡ khỏi tab |
 
 Thứ tự build: **4 + 3 trước → 1 → 2**. Trục 4 làm trước vì không phụ thuộc dữ liệu bên ngoài. Chi tiết: [docs/app-map/01-product.md](docs/app-map/01-product.md). Đa tàu (hồ sơ cố-định/động): [08-ba-spec](docs/app-map/08-ba-spec-da-tau.md).
 
