@@ -4,6 +4,7 @@ import {
   chlFit,
   convergenceStrength,
   deepWaterFit,
+  foodGate,
   frontStrength,
   gradientStrength,
   gridStepDeg,
@@ -680,11 +681,34 @@ describe("softOrHabitat — wMax CỐ ĐỊNH: nguồn hỏng KHÔNG được l�
   });
 });
 
+describe("foodGate (cổng mồi mềm — THAY dead field w.food)", () => {
+  it("dependence mặc định (1) = hành vi CŨ: FOOD_FLOOR + (1−FOOD_FLOOR)·food", () => {
+    expect(foodGate(0)).toBeCloseTo(0.45, 9); // FOOD_FLOOR
+    expect(foodGate(1)).toBeCloseTo(1, 9);
+    expect(foodGate(0.5)).toBeCloseTo(0.45 + 0.55 * 0.5, 9);
+  });
+
+  it("dependence = 0 → mồi KHÔNG ảnh hưởng (luôn 1)", () => {
+    expect(foodGate(0, 0)).toBe(1);
+    expect(foodGate(1, 0)).toBe(1);
+    expect(foodGate(0.3, 0)).toBe(1);
+  });
+
+  it("dependence trung gian nội suy giữa 'bỏ qua' và 'gồng đầy đủ'", () => {
+    // food=0: dep=0 → 1, dep=1 → 0.45 ⇒ dep=0.5 → 0.725
+    expect(foodGate(0, 0.5)).toBeCloseTo(0.725, 9);
+  });
+
+  it("là hệ số ≤ 1 (giới hạn, không thưởng): mồi thấp không kéo điểm quá 1", () => {
+    for (const f of [0, 0.25, 0.5, 0.75, 1])
+      for (const d of [0, 0.5, 1]) expect(foodGate(f, d)).toBeLessThanOrEqual(1);
+  });
+});
+
 describe("speciesWMax (mốc chuẩn hoá theo HỒ SƠ loài)", () => {
-  it("lấy max các cơ chế KHAI BÁO, KHÔNG tính w.food (mồi là giới hạn mềm)", () => {
+  it("lấy max các cơ chế KHAI BÁO (mồi là giới hạn mềm riêng, không nằm ở đây)", () => {
     expect(
       speciesWMax({
-        food: 0.9,
         thermFront: 0.3,
         chlFront: 0.15,
         eddy: 0.35,
@@ -695,7 +719,7 @@ describe("speciesWMax (mốc chuẩn hoá theo HỒ SƠ loài)", () => {
     ).toBe(0.5);
     // thermo vắng mặt = 0
     expect(
-      speciesWMax({ food: 0.8, thermFront: 0.6, chlFront: 0.65, eddy: 0.25, upw: 0.65, conv: 0.3 }),
+      speciesWMax({ thermFront: 0.6, chlFront: 0.65, eddy: 0.25, upw: 0.65, conv: 0.3 }),
     ).toBe(0.65);
   });
   it("MỌI loài có wMax > 0 (nếu không soft-OR trả 0 → loài biến mất)", () => {
