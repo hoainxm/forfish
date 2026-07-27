@@ -209,6 +209,11 @@ const FISH_STABLE_DAYS = 3;
 // vùng đánh bắt) — đủ để thấy cả Hoàng Sa/Trường Sa, có sóng để xem ngay.
 const DEFAULT_SEA_POINT: SeaPoint = { lat: 13.0, lon: 110.5 };
 
+// LƯỚI KẺ Ô TOẠ ĐỘ (graticule) — phủ vùng biển VN gồm Hoàng Sa/Trường Sa.
+// [lonMin, lonMax, latMin, latMax] + bước 1° (chuẩn hải đồ). KHÔNG liên quan cá.
+const MAP_GRID_BOUNDS: [number, number, number, number] = [102, 119, 4, 24];
+const MAP_GRID_STEP_DEG = 1;
+
 // Lớp mở app: HẢI ĐỒ — chuẩn mọi app hàng hải (Navionics/C-MAP/OpenCPN đều
 // mặc định nautical chart, vệ tinh chỉ là tuỳ chọn — docs/research/09).
 // Người dùng đổi lớp thì nhớ cho lần sau. Đọc thẳng localStorage được vì
@@ -451,13 +456,12 @@ export default function FishingMapView() {
   // đơn vị khoảng cách + hệ toạ độ (panel Cài đặt) — đổi thì mọi chỗ đổi theo
   const prefs = useMapPrefs();
 
-  // Ô LƯỚI DỰ BÁO CÁ — mỗi ô SST thành một ô vuông TÔ MÀU theo mức khả năng có
-  // cá (kiểu bản tin ngư trường Viện Hải sản), CHỈ MÀU không in số. Bật/tắt ở
-  // panel Cài đặt (prefs.fishGrid) — ĐỘC LẬP với nút lớp "Cá" ở rail (user
-  // 2026-07-27: lưới luôn hiện khi bật toggle, không cần bật lớp Cá). Vẫn khoá
+  // Ô MÀU DỰ BÁO CÁ (ngư trường) — mỗi ô SST tô theo mức Thấp/TB/Cao (kiểu bản
+  // tin Viện Hải sản), CHỈ MÀU không in số. Thuộc LỚP "CÁ" ở rail (fishOn) —
+  // KHÁC với lưới kẻ ô toạ độ (prefs.mapGrid) không liên quan cá. Vẫn khoá
   // premium: fishCast = null khi chưa mở khoá. Sàn = ngưỡng mức Thấp.
   const fishGridGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
-    if (!fishCast || !prefs.fishGrid) return null;
+    if (!fishOn || !fishCast) return null;
     const lo = FISH_LEVEL_BANDS[0].min; // sàn = ngưỡng mức Thấp; hiện đủ 3 mức
     const h = fishGridStep / 2;
     const features: GeoJSON.Feature[] = [];
@@ -487,7 +491,42 @@ export default function FishingMapView() {
       });
     }
     return { type: "FeatureCollection", features };
-  }, [fishCast, fishSpecies, fishGridStep, prefs.fishGrid]);
+  }, [fishOn, fishCast, fishSpecies, fishGridStep]);
+
+  // LƯỚI KẺ Ô TOẠ ĐỘ (graticule) — kinh/vĩ tuyến mỗi 1° phủ vùng biển VN, KHÔNG
+  // liên quan dự báo cá. Bật/tắt ở panel Cài đặt (prefs.mapGrid). Tĩnh nên tính
+  // một lần. Nhãn số độ để riêng lớp symbol.
+  const mapGridGeo = useMemo<GeoJSON.FeatureCollection>(() => {
+    const [lonMin, lonMax, latMin, latMax] = MAP_GRID_BOUNDS;
+    const features: GeoJSON.Feature[] = [];
+    for (let lon = lonMin; lon <= lonMax; lon += MAP_GRID_STEP_DEG) {
+      features.push({
+        type: "Feature",
+        properties: { deg: `${lon}°Đ` },
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [lon, latMin],
+            [lon, latMax],
+          ],
+        },
+      });
+    }
+    for (let lat = latMin; lat <= latMax; lat += MAP_GRID_STEP_DEG) {
+      features.push({
+        type: "Feature",
+        properties: { deg: `${lat}°B` },
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [lonMin, lat],
+            [lonMax, lat],
+          ],
+        },
+      });
+    }
+    return { type: "FeatureCollection", features };
+  }, []);
   // Hiện điểm đã lưu trên bản đồ (panel Điểm đã lưu — Phương án A)
   const [showPlaces, setShowPlaces] = useState(true);
   // thanh giờ Windy (gió/sóng) cho thu/mở — đỡ chiếm mép sheet (user 2026-06-23)
@@ -1120,11 +1159,46 @@ export default function FishingMapView() {
           </Source>
         )}
 
+        {/* LƯỚI KẺ Ô TOẠ ĐỘ (graticule) — kinh/vĩ tuyến mỗi 1°, KHÔNG liên quan
+            dự báo cá. Bật/tắt ở panel Cài đặt (prefs.mapGrid). Vẽ dưới mọi lớp
+            dữ liệu để không che số. */}
+        {prefs.mapGrid && (
+          <Source id="map-grid" type="geojson" data={mapGridGeo}>
+            <Layer
+              id="map-grid-line"
+              type="line"
+              paint={{
+                "line-color": "#334155",
+                "line-width": 0.5,
+                "line-opacity": 0.35,
+              }}
+            />
+            <Layer
+              id="map-grid-label"
+              type="symbol"
+              minzoom={5}
+              layout={{
+                "text-field": ["get", "deg"] as unknown as string,
+                "text-font": ["Noto Sans Bold"],
+                "text-size": 11,
+                "symbol-placement": "line",
+                "text-allow-overlap": false,
+              }}
+              paint={{
+                "text-color": "#334155",
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 1.2,
+                "text-opacity": 0.7,
+              }}
+            />
+          </Source>
+        )}
+
         {/* DỰ BÁO CÁ — LƯỚI Ô kiểu bản tin ngư trường: mỗi ô vuông tô theo 3
-            MỨC CỐ ĐỊNH (Thấp xanh dương / Trung bình xanh lá / Cao đỏ —
+            MỨC CỐ ĐỊNH (Thấp vàng / Trung bình xanh lá / Cao đỏ —
             FISH_LEVEL_BANDS), quy ước màu KHÔNG đổi theo loài cho đỡ rối. Chọn
             loài chỉ đổi mức (điểm theo loài). CHỈ MÀU, không in số (user
-            2026-07-27: zoom lên chỉ cần màu). Chú giải Thấp/TB/Cao ở panel. */}
+            2026-07-27: zoom lên chỉ cần màu). Thuộc lớp Cá. */}
         {fishGridGeo && (
           <Source id="fish-grid" type="geojson" data={fishGridGeo}>
             <Layer

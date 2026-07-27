@@ -33,6 +33,7 @@ import {
   ChevronRightIcon,
   DepthIcon,
   CrosshairIcon,
+  GridIcon,
   LayersIcon,
   EddyIcon,
   FishIcon,
@@ -797,11 +798,11 @@ function SettingsPanel({
         Lớp bản đồ
       </p>
       <Toggle
-        label="Lưới ngư trường"
-        sub="Ô vuông màu Thấp/TB/Cao phủ khắp biển · hiện ngay, không cần bật lớp Cá"
-        on={prefs.fishGrid}
-        onToggle={() => setMapPrefs({ fishGrid: !prefs.fishGrid })}
-        icon={<FishIcon className="h-5 w-5 text-t1" />}
+        label="Lưới kẻ ô (toạ độ)"
+        sub="Kẻ kinh/vĩ tuyến 1° trên bản đồ · không liên quan dự báo cá"
+        on={prefs.mapGrid}
+        onToggle={() => setMapPrefs({ mapGrid: !prefs.mapGrid })}
+        icon={<GridIcon className="h-5 w-5 text-navy" />}
       />
       <div className="mb-2" />
       <Toggle
