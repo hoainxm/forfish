@@ -138,7 +138,7 @@ export function BoatSwitcher() {
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
           title={`Xóa tàu "${confirmDelete.name}"?`}
-          message="Giấy tờ, lịch bảo dưỡng và sổ lãi/lỗ của riêng tàu này sẽ bị xóa. Thuyền viên và đồ đã mua SDVICO vẫn giữ (về của chung)."
+          message="Giấy tờ và lịch bảo dưỡng của riêng tàu này sẽ bị xóa. Thuyền viên và đồ đã mua SDVICO vẫn giữ (về của chung)."
           cancelLabel="Không xóa"
           confirmLabel="Xóa tàu"
           onCancel={() => setConfirmDelete(null)}

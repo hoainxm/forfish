@@ -7,6 +7,7 @@ ttl_days: 90
 
 > **Mục đích**: oracle HÀNH VI cho đa-tàu — định nghĩa hồ sơ nào gắn TÀU, hồ sơ nào gắn CHỦ, vòng đời thêm/xóa/đổi tàu chạy ra sao, đúng-sai đo bằng AC nào. KHÔNG mô tả giao diện (việc của [07-design-spec](07-design-spec.md)).
 
+<!-- re-verified: 2026-07-27b — boat-switcher.tsx CHỈ đổi CHỮ ConfirmDialog xóa tàu: bỏ "sổ lãi/lỗ" khỏi danh sách thứ bị xóa (feature sổ lãi/lỗ đã XÓA HẲN 2026-07-27). Hành vi đa-tàu giữ nguyên: cascade R3, guard R7, hồ sơ động không mất. -->
 <!-- re-verified: 2026-07-27 — crew-list.tsx đổi UX cảnh báo thuyền viên (tra INLINE khi gõ CCCD + nút Cảnh báo = báo cáo, sheet ReportSheet). KHÔNG đụng hành vi đa-tàu: thuyền viên VẪN động-theo-chủ (R2), không gắn boatId, không mất khi xóa tàu. Spec §hồ-sơ-động còn đúng. -->
 
 ---

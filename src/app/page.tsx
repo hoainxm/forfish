@@ -14,12 +14,14 @@ import {
   Home — built for first-time, low-tech users:
   · one glance = "what needs my attention" (urgent strip)
   · one tap   = one of FOUR entities you manage (taxonomy MECE theo đối tượng):
-    Ra khơi (chuyến) · Tàu của tôi (tài sản) · Bạn thuyền (người) · Sổ tiền (tiền)
+    Ra khơi (chuyến) · Tàu của tôi (tài sản) · Bạn thuyền (người) · Giao dịch (mua bán)
   Tone: a dependable work tool — plain words, no emoji, no decoration.
 */
 
-// Mô tả thẻ bám CẤU TRÚC MỚI (2026-06-10): Ra khơi có dự báo cá; Tàu là
-// kênh CSKH SDVICO (dịch vụ + đồ đã mua); Tiền tách giao dịch / hiệu quả.
+// Mô tả thẻ bám CẤU TRÚC 2026-07-27: Ra khơi có dự báo cá; Tàu là kênh CSKH
+// SDVICO (giấy tờ + dịch vụ + đồ đã mua); Bạn thuyền = hồ sơ + tra cảnh báo
+// CCCD; Giao dịch gọn về đúng việc mua–bán (giá cá / tin mua bán / chỗ bán —
+// đã bỏ hẳn lãi lỗ + công nợ).
 const pillars = [
   {
     href: "/ngu-truong",
@@ -40,14 +42,14 @@ const pillars = [
     tone: "t4",
     icon: UsersIcon,
     title: "Bạn thuyền",
-    sub: "Hồ sơ, chứng chỉ, bảo hiểm",
+    sub: "Hồ sơ, giấy tờ, tra cảnh báo",
   },
   {
     href: "/tien",
     tone: "t2",
     icon: PriceIcon,
-    title: "Sổ tiền",
-    sub: "Giá cá, ai cần mua, công nợ",
+    title: "Giao dịch",
+    sub: "Giá cá, tin mua bán, chỗ bán",
   },
 ] as const;
 

@@ -9,6 +9,7 @@ ttl_days: 90
 gate: warn
 ```
 <!-- gate: warn vì UI churn src/app+src/components cao — cảnh báo thay vì chặn. KHÔNG để comment cùng dòng `gate:` (hook tr -d ' ' giữ lại # → phá so khớp = "warn" → chặn nhầm). -->
+<!-- re-verified: 2026-07-27b — ĐỒNG BỘ COPY theo đợt cắt 2026-07-27: trang chủ thẻ 4 đổi "Sổ tiền / Giá cá, ai cần mua, công nợ" → "Giao dịch / Giá cá, tin mua bán, chỗ bán" (khớp nhãn dock + 3 chip /tien); thẻ Bạn thuyền "Hồ sơ, chứng chỉ, bảo hiểm" → "Hồ sơ, giấy tờ, tra cảnh báo"; sub /nguoi thêm "tra cảnh báo trước khi nhận bạn mới" (không ghi CCCD — user chốt); ConfirmDialog xóa tàu bỏ "sổ lãi/lỗ" (feature đã xóa hẳn). Chỉ đổi CHỮ, không đổi flow/nav/route. -->
 <!-- re-verified: 2026-07-27 — /quan-tri tab Dữ liệu thêm khối "Cron tự động & bản tính sẵn" (CronsPanel ← /api/admin/crons): 5 dòng trạng thái chấm màu (snapshot cá/thời tiết + 3 collector ngày; storm_events chấm xanh biển trung tính vì chỉ ghi khi có bão). Không đổi flow/nav. -->
 <!-- re-verified: 2026-07-26 — /quan-tri form tạo: chọn loại bằng 2 nút phân đoạn (thay select bị bóp nhỏ), checkbox premium hàng riêng — spec màn 8 không đổi hành vi. -->
 
@@ -20,7 +21,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 ## 1. Người dùng & nhiệm vụ
 
 - **User chính**: chủ tàu / ngư dân Việt 40–60 tuổi, ít rành công nghệ, đọc ngoài nắng, tay ướt. MỘT vai trò (B2C) — KHÔNG có admin/staff/role, nên không có biến thể theo role, chỉ biến thể theo VÒNG ĐỜI đăng nhập.
-- **Job hằng ngày**: trước/trong/sau chuyến biển — coi gió sóng + dự báo cá, giữ giấy tờ khỏi quá hạn, ghi lãi lỗ, quản hồ sơ + tra cảnh báo bạn thuyền (CCCD), hỏi/được SDVICO hỗ trợ.
+- **Job hằng ngày**: trước/trong/sau chuyến biển — coi gió sóng + dự báo cá, giữ giấy tờ khỏi quá hạn, nắm giá + đăng tin mua/bán, quản hồ sơ + tra cảnh báo bạn thuyền (CCCD), hỏi/được SDVICO hỗ trợ.
 - **Platform**: mobile-first tuyệt đối (cột ≤480px, dock nổi). Desktop = cùng cột mobile căn giữa, KHÔNG có layout desktop riêng.
 - **Brand**: SDVICO (commissioned). ForFish là kênh CSKH + giá trị vượt trội cho bà con.
 
@@ -28,7 +29,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 
 | Bậc | Muốn thấy gì | Sản phẩm truyền tải | Thúc đẩy action tiếp |
 |---|---|---|---|
-| **Public / chưa đăng nhập** | Dùng được NGAY: giá cá, bản đồ gió sóng, tra phạt, sổ tay (localStorage) | "App này lo được việc của bà con, không cần đăng ký mới xài" | 1 lời mời đăng nhập bằng SĐT — KHÔNG chặn cửa |
+| **Public / chưa đăng nhập** | Dùng được NGAY: giá cá, bản đồ gió sóng, sổ tay (localStorage) | "App này lo được việc của bà con, không cần đăng ký mới xài" | 1 lời mời đăng nhập bằng SĐT — KHÔNG chặn cửa |
 | **Đã đăng nhập, chưa khớp đơn SDVICO** (`unlinked`) | Đồ tự ghi + lời mời "mua hàng là đồ tự hiện" | "Tài khoản đã sẵn, mua hàng SDVICO là nối luôn" | Gọi SDVICO tư vấn / mua |
 | **Khách SDVICO đã đồng bộ** (`ok`) | Đồ đã mua, bảo hành sắp hết, dịch vụ, **nợ/cước** | "Mọi thứ bà con mua đều theo dõi giúp" | Gọi bảo hành/đóng cước, mua thêm vật tư |
 
@@ -96,7 +97,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 | Gửi yêu cầu SDVICO | "Đã gửi" + mục "Yêu cầu đã gửi" hiện ngay (optimistic) |
 | Đổi điểm xem trên map khi đang có tuyến | tuyến CŨ giữ nguyên + dải nhắc "tới chỗ chạm trước" + Xóa tuyến |
 | Đổi tàu (chip BoatSwitcher) | mọi màn đang mở đổi theo tàu đó NGAY, không reload (ba-spec [08](08-ba-spec-da-tau.md) AC-4) |
-| Xóa tàu (form Sửa tàu → Xóa tàu này) | ConfirmDialog nêu rõ; giấy tờ/bảo dưỡng/lãi-lỗ của tàu bị xóa, thuyền viên + đồ SDVICO giữ; nhảy sang tàu còn lại. Còn 1 tàu → KHÔNG hiện nút xóa (08 R7) |
+| Xóa tàu (form Sửa tàu → Xóa tàu này) | ConfirmDialog nêu rõ; giấy tờ/bảo dưỡng của tàu bị xóa, thuyền viên + đồ SDVICO giữ; nhảy sang tàu còn lại. Còn 1 tàu → KHÔNG hiện nút xóa (08 R7) |
 
 ## 8. Quyết định đã chốt (không hỏi lại)
 
