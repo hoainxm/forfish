@@ -36,6 +36,11 @@ export interface CustomerRow {
   phone: string;
   name: string | null;
   sdwork_ref: string;
+  /** Hạng tài khoản — CHỈ có mặt khi event gửi tier hợp lệ; vắng mặt thì
+   *  upsert KHÔNG đụng hạng hiện có (admin gán tay không bị webhook ghi đè). */
+  tier?: "basic" | "premium";
+  /** Hạn premium (đi kèm tier) — null = không hạn. */
+  premium_until?: string | null;
 }
 export interface DeviceRow {
   customer_phone: string;
@@ -62,7 +67,19 @@ const str = (v: unknown): string | null =>
 export function toCustomerRow(e: WebhookEvent): CustomerRow | null {
   const phone = str(e.data.phone);
   if (!phone) return null;
-  return { phone: normalizeVnPhone(phone), name: str(e.data.name), sdwork_ref: e.ref };
+  const row: CustomerRow = {
+    phone: normalizeVnPhone(phone),
+    name: str(e.data.name),
+    sdwork_ref: e.ref,
+  };
+  // tier là optional trong event: chỉ 'basic'/'premium' mới được nhận, giá trị
+  // lạ coi như KHÔNG gửi (không hạ nhầm hạng vì SDWork gửi sai chữ).
+  const tier = str(e.data.tier);
+  if (tier === "basic" || tier === "premium") {
+    row.tier = tier;
+    row.premium_until = str(e.data.premiumUntil);
+  }
+  return row;
 }
 
 export function toDeviceRow(e: WebhookEvent): DeviceRow | null {

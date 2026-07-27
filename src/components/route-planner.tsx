@@ -3,14 +3,15 @@
 /**
  * Trục 1 — dẫn đường tiết kiệm dầu: chọn nơi xuất phát (cảng hoặc vị trí
  * tàu) → tính tuyến tới điểm đã chạm trên bản đồ, né vùng sóng to gió ngược
- * theo dự báo từng giờ (thuật toán src/lib/route-plan.ts, dữ liệu qua adapter
- * src/lib/route-weather.ts). Tuyến vẽ lên bản đồ do component cha đảm nhận
- * qua onRoute.
+ * theo dự báo từng giờ (thuật toán src/lib/route-plan.ts chạy trong WEB
+ * WORKER qua route-plan-async.ts — main thread không đơ lúc Dijkstra; dữ
+ * liệu qua adapter src/lib/route-weather.ts, có cache 45 phút). Tuyến vẽ lên
+ * bản đồ do component cha đảm nhận qua onRoute.
  *
  * Trung thực dữ liệu: chỉ là GỢI Ý từ dự báo — máy không biết đảo, đá ngầm,
  * luồng lạch; copy luôn dặn dò hải đồ + nghe đài duyên hải.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Layer, Marker, Source } from "react-map-gl/maplibre";
 
 import { PORTS } from "@/data/ports";
@@ -21,14 +22,16 @@ import {
   bboxFor,
   formatHoursVN,
   haversineKm,
-  planRoute,
   vnHourIndex,
   type BBox,
   type BoatProfile,
   type LatLon,
   type RoutePlan,
 } from "@/lib/route-plan";
+import { planRouteAsync } from "@/lib/route-plan-async";
 import { fetchWeatherField } from "@/lib/route-weather";
+import { routeStormConflict, STORM_SAFE_RADIUS_KM } from "@/lib/route-storm";
+import type { StormAlert } from "@/lib/storms";
 import { fetchDepthGrid } from "@/lib/depth-grid";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
 import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
@@ -108,15 +111,24 @@ function myPosition(): Promise<LatLon> {
 
 /** Tuyến + điểm xuất phát vẽ lên bản đồ — đặt BÊN TRONG <MapGL> */
 export function RouteMapLayers({ route }: { route: PlannedRoute | null }) {
-  if (!route) return null;
-  const line = {
-    type: "Feature" as const,
-    properties: {},
-    geometry: {
-      type: "LineString" as const,
-      coordinates: route.plan.waypoints.map((w) => [w.lon, w.lat]),
-    },
-  };
+  // useMemo giữ nguyên reference GeoJSON giữa các re-render của cha (bản đồ
+  // re-render liên tục khi play animation) — không thì mỗi render là một lần
+  // setData lên MapLibre dù tuyến không đổi
+  const line = useMemo(
+    () =>
+      route
+        ? {
+            type: "Feature" as const,
+            properties: {},
+            geometry: {
+              type: "LineString" as const,
+              coordinates: route.plan.waypoints.map((w) => [w.lon, w.lat]),
+            },
+          }
+        : null,
+    [route],
+  );
+  if (!route || !line) return null;
   return (
     <>
       <Source id="fuel-route" type="geojson" data={line}>
@@ -154,6 +166,7 @@ export function RoutePlanner({
   dest,
   activeRoute,
   places = [],
+  storms = [],
   onRoute,
 }: {
   dest: LatLon;
@@ -162,6 +175,10 @@ export function RoutePlanner({
   /** Điểm của tôi (cảng nhà + chỗ ghim) — nơi xuất phát THẬT của bà con,
       lít dầu tính từ đây mới đúng (roadmap hội đồng UX 2026-06-11) */
   places?: SavedPlace[];
+  /** Tin bão đang hoạt động (từ useStormCheck của màn bản đồ, gồm cả tin cũ
+      — thà báo thừa). Tuyến cắt vùng bão → CHẶN HẲN, không vẽ. Mất sóng /
+      chưa hỏi được → mảng rỗng → không chặn (không có dữ liệu để nói). */
+  storms?: StormAlert[];
   onRoute: (r: PlannedRoute | null) => void;
 }) {
   const prefs = useMapPrefs();
@@ -273,8 +290,10 @@ export function RoutePlanner({
       setSpeedKn(String(boat.speedKn));
       setLph(String(boat.litersPerHour));
 
-      // độ sâu fail vẫn tính tiếp — kết quả sẽ tự cảnh báo "chưa né vùng cạn"
-      const depth = await fetchDepthGrid().catch(() => null);
+      // độ sâu fail vẫn tính tiếp — kết quả sẽ tự cảnh báo "chưa né vùng
+      // cạn". Kéo SONG SONG với thời tiết (hai nguồn độc lập, đừng bắt nhau
+      // chờ); promise await lại trong vòng nở khung vẫn chỉ fetch một lần
+      const depthPromise = fetchDepthGrid().catch(() => null);
       const departHourIdx = vnHourIndex(new Date());
       const dist = haversineKm(start, dest);
       // khung nhỏ trước cho nhanh; chưa có lối (vd phải vòng qua mũi đất)
@@ -286,13 +305,34 @@ export function RoutePlanner({
       let plan: RoutePlan | null = null;
       for (const m of margins) {
         const bbox = clampBBox(bboxFor(start, dest, m));
-        const field = await fetchWeatherField(bbox);
-        plan = planRoute({ start, dest, boat, departHourIdx, field, depth, bbox });
+        const [field, depth] = await Promise.all([
+          fetchWeatherField(bbox),
+          depthPromise,
+        ]);
+        // Dijkstra chạy trong Web Worker — màn không đơ lúc "Đang tính…"
+        plan = await planRouteAsync({
+          start, dest, boat, departHourIdx, field, depth, bbox,
+        });
         if (plan) break;
       }
       if (!plan) {
         setError(
           "Chưa tìm được đường an toàn — giữa đường vướng đất liền, bãi cạn hoặc sóng quá dữ (trên 4 m).",
+        );
+        setResult(null);
+        onRoute(null);
+        return;
+      }
+      // ĐỐI CHIẾU TIN BÃO (team review 2026-07-26): GFS lưới thô ước non
+      // cường độ bão — sóng/gió trên tuyến có thể dưới ngưỡng chặn số dù bão
+      // đang vào. Tuyến đi vào vùng bão → CHẶN HẲN, không vẽ.
+      const conflict = routeStormConflict(plan.waypoints, storms);
+      if (conflict) {
+        const s = conflict.storm;
+        setError(
+          `KHÔNG VẼ TUYẾN — đường đi cắt vào vùng nguy hiểm của ${s.kindLabel.toLowerCase()} ${s.name} ` +
+            `(trong vòng ${STORM_SAFE_RADIUS_KM} km quanh tâm hoặc đường đi dự báo của bão). ` +
+            `Hoãn chuyến, nghe đài duyên hải trước khi quyết.`,
         );
         setResult(null);
         onRoute(null);
@@ -549,10 +589,28 @@ export function RoutePlanner({
             </p>
           )}
 
+          {plan.hasVeryShallowLeg && (
+            <p className="flex items-start gap-2 rounded-xl bg-[var(--danger-bg)] p-3 text-[0.9375rem] font-bold leading-snug text-danger">
+              <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+              Có đoạn đè lên vùng RẤT CẠN / bãi nổi (dưới 4 m) gần nơi xuất
+              phát hoặc điểm đến — chỉ vào theo con nước lên, đi chậm, hỏi
+              người rành luồng lạch chỗ đó.
+            </p>
+          )}
+
           {plan.hasShallowLeg && (
             <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
               Tuyến có đoạn nước nông (cỡ 4–12 m) — để ý con nước, hải đồ
               đoạn đó.
+            </p>
+          )}
+
+          {plan.beyondForecastH > 0 && (
+            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
+              Chuyến chạy dài hơn dự báo đang có: chừng{" "}
+              {formatHoursVN(plan.beyondForecastH)} cuối máy phải tính bằng dự
+              báo của giờ cuối cùng — đoạn đó CHƯA chắc đúng. Nghe đài duyên
+              hải trước và trong chuyến.
             </p>
           )}
 
@@ -566,10 +624,10 @@ export function RoutePlanner({
           <p className="text-[0.875rem] leading-snug text-foreground/65">
             Đoạn xấu nhất trên tuyến: sóng ~{formatNumberVN(plan.maxWaveM)} m,
             gió cấp {beaufort(plan.maxWindKmh)}. Tuyến tính từ dự báo gió,
-            sóng, dòng nước chảy từng giờ và bản đồ độ sâu (đã né bờ, rạn, bãi
-            cạn sát mặt) — vẫn chỉ để tham khảo: máy chưa biết đá ngầm nhỏ,
-            luồng lạch, đăng đáy; con nước sát bờ có thể lệch. Bà con dò hải
-            đồ và nghe đài duyên hải trước khi chạy.
+            sóng, dòng nước chảy từng giờ và bản đồ độ sâu ô ~5,5 km (né bờ
+            và bãi cạn lớn; rạn nhỏ hơn ô lưới, đá ngầm lẻ, luồng lạch, đăng
+            đáy máy KHÔNG thấy được) — chỉ để tham khảo; con nước sát bờ có
+            thể lệch. Bà con dò hải đồ và nghe đài duyên hải trước khi chạy.
           </p>
 
           <div className="grid grid-cols-2 gap-3">

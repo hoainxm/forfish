@@ -1,0 +1,27 @@
+// Khoá snapshot thời tiết (Open-Meteo) — THUẦN, client-safe (dùng cả 2 phía).
+//
+// Snapshot thời tiết là LƯỚI AN TOÀN: live Open-Meteo vẫn là CHÍNH (nhanh, tải
+// phân tán theo IP từng máy — tốt cho rate-limit), snapshot server chỉ dùng khi
+// live lỗi. Cron ghi các khoá này; client đọc lại qua /api/weather-snapshot.
+
+/** Dự báo biển theo cảng (10 cảng) — client vốn đã tải đủ 16 ngày nên không lộ thêm */
+export function seaSnapshotId(portId: string): string {
+  return `sea:${portId}`;
+}
+
+/**
+ * Lưới gió/sóng Windy theo khung ngày. CHỈ snapshot khung MIỄN PHÍ (d3): khung
+ * >3 ngày là premium, non-premium không hề tải d7/d16 từ live → serve public sẽ
+ * LỘ. Premium vẫn có fallback riêng (pretrip + localStorage).
+ */
+export function gridSnapshotId(days: number): string {
+  return `grid:d${days}`;
+}
+
+/** Khung ngày lưới được phép snapshot công khai (chỉ miễn phí) */
+export const SNAPSHOT_GRID_DAYS = 3;
+
+/** Chặn id lạ trước khi đụng DB / trả về client (whitelist đúng 2 dạng) */
+export function isValidSnapshotId(id: string): boolean {
+  return /^sea:[a-z0-9_-]+$/.test(id) || /^grid:d\d+$/.test(id);
+}

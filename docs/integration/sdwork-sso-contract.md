@@ -33,6 +33,9 @@ POST /api/sdwork/webhook
       "data": { "phone": "0901234567", "name": "Nguyễn Văn A",
                 "password": "<mk khởi tạo, tuỳ chọn>",
                 "resetPassword": false } },   // password → tạo tài khoản; resetPassword:true → ĐẶT LẠI mk hiện hữu
+                "password": "<mk khởi tạo, tuỳ chọn>",       // có password → provision tài khoản đăng nhập
+                "tier": "premium",                            // tuỳ chọn: "basic" | "premium" (2026-07-26)
+                "premiumUntil": "2027-01-31T23:59:59+07:00" } }, // hạn premium; vắng/null = không hạn
     { "entity": "device", "action": "upsert", "ref": "<id SDWork>",
       "data": { "customerPhone": "0901234567", "name": "Anten vệ tinh SF-50",
                 "serial": "SF50-001", "model": "SF-50",
@@ -52,6 +55,7 @@ POST /api/sdwork/webhook
 - `supply.qty`: number, **chấp nhận thập phân** (`1.5`). `supply.unit`: đơn vị (cái/cuộn/kg/m), optional.
 - `device`: `model` = `products.sku`; `warrantyUntil` = `warranty_cards.expires_at` hoặc compute `purchasedOn + warranty_months` (xem [field-map](sdwork-field-map.md)).
 - Map → hàng bảng: `toCustomerRow` / `toDeviceRow` / `toSupplyRow` (`src/lib/sdwork-webhook.ts`, có test). Thiếu field bắt buộc (phone/name) → bỏ qua hàng đó.
+- **`customer.tier` (2026-07-26, additive — không breaking)**: `"basic"` | `"premium"` mở dự báo cá + thời tiết >3 ngày bên SDFish. **VẮNG field / giá trị lạ → upsert KHÔNG đụng hạng hiện có** (admin SDFish gán tay ở `/quan-tri` không bị webhook ghi đè ngoài ý muốn; muốn hạ hạng phải gửi `"tier": "basic"` tường minh). `premiumUntil` chỉ có nghĩa khi đi kèm `tier: "premium"`; hết hạn SDFish tự coi là basic (không cần event hạ hạng đúng ngày).
 
 ### Response (đối soát outbox)
 

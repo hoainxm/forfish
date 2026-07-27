@@ -169,10 +169,23 @@ export interface FishSeason {
 // (vd mực ống: vịnh Bắc Bộ rộ hè, Phú Quốc rộ mùa khô).
 export const FISH_SEASONS: FishSeason[] = [
   {
-    species: "Cá ngừ đại dương (vây vàng, mắt to)",
-    months: [12, 1, 2, 3, 4, 5, 6],
-    regions: ["nam-trung-bo", "hoang-sa", "truong-sa-dk1"],
-    note: "Chính vụ câu từ tháng 12 tới tháng 6; đầu vụ cá ở phía Bắc, cuối vụ dồn về Trường Sa.",
+    // "Cá ngừ đại dương" TÁCH 2 LOÀI (2026-07-25): vây vàng + mắt to. Cả hai loài
+    // nổi lớn di cư, có mặt QUANH NĂM ở khơi VN (Biển Đông ấm cả 12 tháng) — đổi
+    // theo mùa là NGƯ TRƯỜNG + SẢN LƯỢNG, không phải sự hiện diện. Cùng ngư trường
+    // (câu vàng/câu tay bắt lẫn nhau), khác biệt chính là TẦNG NƯỚC nên vùng/mùa
+    // để giống nhau. Nguồn: RIMF/Thủy sản VN, Báo Khánh Hòa 1/2024 (chính vụ gấp
+    // 3–4 lần giữa năm ⇒ giữa năm ≠ 0), SEAFDEC (đỉnh phụ T7–9 Trường Sa),
+    // FishBase/WCPFC. (agent khảo cứu 2026-07-25)
+    species: "Cá ngừ vây vàng",
+    months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    regions: ["trung-bo", "nam-trung-bo", "hoang-sa", "truong-sa-dk1"],
+    note: "Có quanh năm ở biển khơi; rộ mùa gió Đông Bắc (khoảng tháng 12–6), câu tay/câu vàng khơi Trung Bộ – Trường Sa. Cá bám tầng mặt, dễ trúng khi biển êm.",
+  },
+  {
+    species: "Cá ngừ mắt to",
+    months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    regions: ["trung-bo", "nam-trung-bo", "hoang-sa", "truong-sa-dk1"],
+    note: "Có quanh năm, đi cùng ngư trường vây vàng (câu vàng khơi xa Trung Bộ – Trường Sa). Cá ở tầng sâu ban ngày, thường dính câu vàng thả sâu; sản lượng lẫn với vây vàng.",
   },
   {
     species: "Cá ngừ vằn",
@@ -477,19 +490,67 @@ export function nearestRegionWithin(
   // nằm hẳn trong một vùng → dùng vùng đó
   const inside = regionAt(lat, lon);
   if (inside) return inside;
-  // không thì gán vùng có đỉnh gần nhất, nếu còn trong tầm
+  // không thì gán vùng có CẠNH gần nhất, nếu còn trong tầm
   let best: FishRegion | null = null;
   let bd = Infinity;
   for (const region of FISH_REGIONS) {
-    for (const [x, y] of region.polygon) {
-      const d = Math.hypot(x - lon, y - lat);
-      if (d < bd) {
-        bd = d;
-        best = region;
-      }
+    const d = distanceToPolygonDeg(lon, lat, region.polygon);
+    if (d < bd) {
+      bd = d;
+      best = region;
     }
   }
   return bd <= maxDeg ? best : null;
+}
+
+/**
+ * Khoảng cách (độ, mặt phẳng lon/lat như phần còn lại của file) từ một điểm tới
+ * ĐA GIÁC — đo tới CẠNH gần nhất, không phải tới ĐỈNH gần nhất.
+ *
+ * VÌ SAO (sửa 2026-07-26): bản cũ quét từng ĐỈNH bằng `Math.hypot`. Đa giác vùng
+ * chỉ có 7–9 đỉnh nên cạnh rất DÀI (có cạnh > 1,4°); một ô nằm sát GIỮA cạnh dài
+ * của vùng A vẫn bị gán vùng B chỉ vì B tình cờ có một đỉnh nhô ra gần hơn.
+ * Ví dụ đã xác minh: (10,75°N; 107,75°E) khơi Vũng Tàu — cách cạnh bắc Đông Nam
+ * Bộ 0,55° nhưng cách đỉnh gần nhất của nó 0,85°, trong khi Nam Trung Bộ có đỉnh
+ * cách 0,75° ⇒ bản cũ gán nhầm `nam-trung-bo`. Sai vùng ⇒ sai bộ lọc loài, và ô
+ * quá `maxDeg` tới mọi ĐỈNH mà vẫn sát một CẠNH thì bị BỎ HẲN khỏi bản đồ.
+ *
+ * Điểm nằm TRONG đa giác vẫn trả khoảng cách tới cạnh (≥ 0) — `nearestRegionWithin`
+ * đã lọc ca "nằm trong" bằng `regionAt` trước khi gọi, nên ý nghĩa `maxDeg` (tầm
+ * với tính từ MÉP vùng) giữ nguyên như trước.
+ */
+export function distanceToPolygonDeg(
+  x: number,
+  y: number,
+  polygon: [number, number][]
+): number {
+  let best = Infinity;
+  // đa giác không khép điểm cuối → cạnh cuối nối đỉnh cuối về đỉnh đầu
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const d = pointToSegmentDeg(x, y, polygon[j], polygon[i]);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+/** Khoảng cách từ điểm (x,y) tới ĐOẠN THẲNG a→b (không phải đường thẳng vô hạn) */
+function pointToSegmentDeg(
+  x: number,
+  y: number,
+  a: [number, number],
+  b: [number, number]
+): number {
+  const [ax, ay] = a;
+  const [bx, by] = b;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  // đoạn suy biến thành một điểm
+  if (len2 === 0) return Math.hypot(x - ax, y - ay);
+  // chiếu điểm lên đoạn rồi KẸP về [0,1] để không rơi ra ngoài hai đầu mút
+  let t = ((x - ax) * dx + (y - ay) * dy) / len2;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
 }
 
 function pointInPolygon(

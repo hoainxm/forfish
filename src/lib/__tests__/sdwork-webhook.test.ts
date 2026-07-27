@@ -44,6 +44,47 @@ describe("map payload → row (chuẩn hoá SĐT, idempotent theo ref)", () => {
       toCustomerRow({ entity: "customer", action: "upsert", ref: "c", data: {} }),
     ).toBeNull();
   });
+  it("customer kèm tier hợp lệ → nhận tier + premium_until", () => {
+    const r = toCustomerRow({
+      entity: "customer",
+      action: "upsert",
+      ref: "c2",
+      data: {
+        phone: "0901234567",
+        tier: "premium",
+        premiumUntil: "2027-01-01T00:00:00Z",
+      },
+    })!;
+    expect(r.tier).toBe("premium");
+    expect(r.premium_until).toBe("2027-01-01T00:00:00Z");
+  });
+  it("tier premium không kèm hạn → premium_until null (không hạn)", () => {
+    const r = toCustomerRow({
+      entity: "customer",
+      action: "upsert",
+      ref: "c3",
+      data: { phone: "0901234567", tier: "premium" },
+    })!;
+    expect(r.tier).toBe("premium");
+    expect(r.premium_until).toBeNull();
+  });
+  it("tier vắng mặt / giá trị lạ → KHÔNG có key tier (upsert không đụng hạng cũ)", () => {
+    const noTier = toCustomerRow({
+      entity: "customer",
+      action: "upsert",
+      ref: "c4",
+      data: { phone: "0901234567", name: "Anh Ba" },
+    })!;
+    expect("tier" in noTier).toBe(false);
+    expect("premium_until" in noTier).toBe(false);
+    const badTier = toCustomerRow({
+      entity: "customer",
+      action: "upsert",
+      ref: "c5",
+      data: { phone: "0901234567", tier: "vip" },
+    })!;
+    expect("tier" in badTier).toBe(false);
+  });
   it("device: đủ field + warranty", () => {
     const e: WebhookEvent = {
       entity: "device",

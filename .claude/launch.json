@@ -1,11 +1,18 @@
 {
-  "version": "0.0.1",
+  "version": "0.2.0",
   "configurations": [
     {
       "name": "forfish-dev",
-      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
-      "runtimeArgs": ["node_modules/next/dist/bin/next", "dev"],
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
       "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "forfish-prod",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start"],
+      "port": 3100,
       "autoPort": true
     }
   ]

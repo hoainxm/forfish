@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_BOAT,
   KMH_PER_KNOT,
@@ -21,7 +21,13 @@ import {
   type LatLon,
   type WeatherField,
 } from "../route-plan";
-import { parseWeatherField, fieldGrid } from "../route-weather";
+import {
+  fetchWeatherField,
+  fieldGrid,
+  parseWeatherField,
+  weatherFieldCacheKey,
+} from "../route-weather";
+import { planRouteAsync } from "../route-plan-async";
 import { DEPTH_META, decodeDepthGrid, depthClassAt } from "../depth-grid";
 
 // ── dựng trường thời tiết giả ────────────────────────────────────────────
@@ -287,6 +293,33 @@ describe("planRoute", () => {
     const tail = plan(makeField(BB, 7, () => ({ windKmh: 30, windFromDeg: 270 })))!;
     expect(head.fuelL).toBeGreaterThan(tail.fuelL);
   });
+
+  it("ô biển thiếu số sóng + gió mạnh → ƯỚC sóng từ gió, không thành biển lặng giả", () => {
+    // makeField mặc định waveM 0.3 (?? nuốt null) → xoá tay sau khi dựng
+    const noWave = makeField(BB, 7, () => ({ windKmh: 45 }));
+    for (const c of noWave.cells)
+      for (const h of c.hours) h.waveM = null;
+    const pNo = plan(noWave)!;
+    const pCalm = plan(makeField(BB, 7, () => ({ windKmh: 45, waveM: 0.3 })))!;
+    expect(pNo).not.toBeNull();
+    // estimateWaveFromWind(45) = 1,4 m — hiện ra maxWaveM + làm tàu chậm hơn
+    expect(pNo.maxWaveM).toBeGreaterThan(1);
+    expect(pNo.hours).toBeGreaterThan(pCalm.hours);
+  });
+});
+
+// ── worker bridge ────────────────────────────────────────────────────────
+
+describe("planRouteAsync", () => {
+  it("môi trường không có Worker (node/test) → rơi về đồng bộ, kết quả y hệt planRoute", async () => {
+    const f = makeField(BB, 7, calm);
+    const args = {
+      start: START, dest: DEST, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: f, depth: null, bbox: BB,
+    };
+    expect(typeof Worker).toBe("undefined"); // tiền đề của nhánh fallback
+    expect(await planRouteAsync(args)).toEqual(planRoute(args));
+  });
 });
 
 // ── dòng hải lưu ─────────────────────────────────────────────────────────
@@ -393,17 +426,19 @@ describe("ràng buộc độ sâu", () => {
     expect(p.hasShallowLeg).toBe(true);
   });
 
-  it("sát cảng RẤT CẠN (class 1) trong 12 km vẫn nối được; vòng đất class 0 ngoài 5 km thì chặn", () => {
+  it("sát cảng RẤT CẠN (class 1) trong 12 km vẫn nối được NHƯNG phải cắm cờ hasVeryShallowLeg; vòng đất class 0 ngoài 5 km thì chặn", () => {
     const f = makeField(BB, 9, calm);
     const shallowRing = makeDepth((la, lo) =>
       haversineKm({ lat: la, lon: lo }, START) < 8 ? 1 : 3,
     );
-    expect(
-      planRoute({
-        start: START, dest: DEST, boat: DEFAULT_BOAT,
-        departHourIdx: 6, field: f, depth: shallowRing, bbox: BB,
-      }),
-    ).not.toBeNull();
+    const pShallow = planRoute({
+      start: START, dest: DEST, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: f, depth: shallowRing, bbox: BB,
+    });
+    expect(pShallow).not.toBeNull();
+    // team review 2026-07-26: trước đây đoạn rất cạn sát cảng đi qua IM LẶNG
+    // trong khi copy nói "đã né rạn" — giờ bắt buộc báo thật
+    expect(pShallow!.hasVeryShallowLeg).toBe(true);
 
     const landRing = makeDepth((la, lo) => {
       const d = haversineKm({ lat: la, lon: lo }, START);
@@ -416,6 +451,88 @@ describe("ràng buộc độ sâu", () => {
         departHourIdx: 6, field: f, depth: landRing, bbox: BB,
       }),
     ).toBeNull(); // không cho cắt ngang doi đất
+  });
+});
+
+// ── team review 2026-07-26: các bất biến mới ─────────────────────────────
+
+describe("lấy mẫu thời tiết dọc chặng (không lọt khe vùng cấm)", () => {
+  it("dải ≥4 m HẸP (mảnh hơn chặng lưới thô) chắn kín → vẫn phải trả null, không xuyên mép", () => {
+    // bbox rất rộng → bước lưới tìm đường ~17 km, chặng nước mã ~39 km;
+    // trường thời tiết 9×9 → dải 4,5 m chỉ chiếm MỘT cột mắt lưới, nội suy
+    // ra vùng ≥4 m rộng ~23 km quanh cột — trung điểm chặng dài có thể đọc
+    // dưới 4 m dù chặng cắt qua vùng cấm. Mẫu mỗi ≤12 km phải bắt được.
+    const a: LatLon = { lat: 10, lon: 105 };
+    const b: LatLon = { lat: 10, lon: 117 };
+    const bb = bboxFor(a, b, 120);
+    const f = makeField(bb, 9, (la, lo) =>
+      Math.abs(lo - 111) < 0.9 ? { waveM: 4.5 } : calm(),
+    );
+    expect(
+      planRoute({
+        start: a, dest: b, boat: DEFAULT_BOAT,
+        departHourIdx: 6, field: f, depth: null, bbox: bb,
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("độ phân biệt dải CẨN THẬN 2–3 m (khuôn always-on)", () => {
+  it("dải 2,5 m có khe êm gần → tuyến dịch vào khe, né lõi sóng", () => {
+    const f = makeField(BB, 9, (la, lo) =>
+      Math.abs(lo - 111) < 0.8 && la < 12.3 ? { waveM: 2.5 } : calm(),
+    );
+    const p = plan(f)!;
+    expect(p).not.toBeNull();
+    expect(p.hasRoughLeg).toBe(false);
+    expect(p.maxWaveM).toBeLessThan(2.3); // né được lõi 2,5 m
+    expect(Math.max(...p.waypoints.map((w) => w.lat))).toBeGreaterThan(12.3);
+    expect(p.distKm).toBeLessThanOrEqual(p.direct!.distKm * MAX_DETOUR_RATIO);
+  });
+
+  it("2,5 m ĐỀU khắp nơi → penalty đồng nhất không được gây vòng vèo, tuyến bám thẳng", () => {
+    const p = plan(makeField(BB, 7, () => ({ waveM: 2.5 })))!;
+    expect(p.distKm).toBeLessThan(haversineKm(START, DEST) * 1.06);
+    expect(p.hasRoughLeg).toBe(false);
+  });
+});
+
+describe("gió trong mô hình ga cố định", () => {
+  it("ngược gió phải LÂU hơn (không chỉ tốn dầu hơn) — ETA không được bỏ qua gió", () => {
+    const head = plan(makeField(BB, 7, () => ({ windKmh: 30, windFromDeg: 90 })))!;
+    const tail = plan(makeField(BB, 7, () => ({ windKmh: 30, windFromDeg: 270 })))!;
+    expect(head.hours).toBeGreaterThan(tail.hours * 1.1);
+    expect(head.fuelL).toBeGreaterThan(tail.fuelL);
+  });
+});
+
+describe("cửa sổ dự báo (beyondForecastH)", () => {
+  it("chuyến ngắn trong 72h → 0; chuyến dài quá cửa sổ → báo số giờ vượt", () => {
+    const f = makeField(BB, 7, calm);
+    expect(plan(f)!.beyondForecastH).toBe(0);
+    // tàu 2 hải lý (~3,7 km/h), ~222 km → ~60h; xuất phát giờ 20 → vượt ~8h
+    const slow = planRoute({
+      start: START, dest: DEST,
+      boat: { speedKn: 2, litersPerHour: 10 },
+      departHourIdx: 20, field: f, depth: null, bbox: BB,
+    })!;
+    expect(slow).not.toBeNull();
+    expect(slow.beyondForecastH).toBeGreaterThanOrEqual(5);
+  });
+});
+
+describe("rất cạn quanh ĐIỂM ĐẾN", () => {
+  it("vành class-1 quanh dest: vẫn nối được nhưng hasVeryShallowLeg phải bật", () => {
+    const f = makeField(BB, 9, calm);
+    const g = makeDepth((la, lo) =>
+      haversineKm({ lat: la, lon: lo }, DEST) < 8 ? 1 : 3,
+    );
+    const p = planRoute({
+      start: START, dest: DEST, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: f, depth: g, bbox: BB,
+    });
+    expect(p).not.toBeNull();
+    expect(p!.hasVeryShallowLeg).toBe(true);
   });
 });
 
@@ -457,6 +574,91 @@ describe("parseWeatherField (adapter)", () => {
       latMin: 5, latMax: 23, lonMin: 102, lonMax: 118,
     });
     expect(lats.length * lons.length).toBeLessThanOrEqual(120);
+  });
+
+  it("ô có số sóng nhưng KHÔNG có giờ gió nào → onSea=false (không biển-lặng giả)", () => {
+    const lats = [10, 10.5];
+    const lons = [105, 105.5];
+    const emptyWind = { hourly: { wind_speed_10m: [], wind_direction_10m: [] } };
+    const okWind = {
+      hourly: { wind_speed_10m: [12], wind_direction_10m: [45] },
+    };
+    const okWave = { hourly: { wave_height: [1.2] } };
+    const f = parseWeatherField(
+      [emptyWind, okWind, okWind, okWind],
+      [okWave, okWave, okWave, okWave],
+      lats,
+      lons,
+    );
+    expect(f.cells[0].hours.length).toBe(0);
+    expect(f.cells[0].onSea).toBe(false); // sóng có số mà giờ rỗng → coi như không dữ liệu
+    expect(f.cells[1].onSea).toBe(true);
+  });
+});
+
+// ── cache lưới thời tiết ─────────────────────────────────────────────────
+
+describe("fetchWeatherField cache", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("weatherFieldCacheKey: cùng bbox cùng ngày VN → một khoá; qua nửa đêm VN → khoá mới", () => {
+    const bb: BBox = { latMin: 9, latMax: 10, lonMin: 108, lonMax: 109 };
+    const before = new Date("2026-07-25T16:30:00Z"); // 23:30 VN 25/7
+    const sameDay = new Date("2026-07-25T10:00:00Z"); // 17:00 VN 25/7
+    const after = new Date("2026-07-25T17:30:00Z"); // 00:30 VN 26/7
+    expect(weatherFieldCacheKey(bb, before)).toBe(weatherFieldCacheKey(bb, sameDay));
+    expect(weatherFieldCacheKey(bb, before)).not.toBe(weatherFieldCacheKey(bb, after));
+  });
+
+  it("cùng bbox trong TTL → không refetch; quá TTL → gọi lại", async () => {
+    const calls: string[] = [];
+    const loc = {
+      hourly: {
+        wind_speed_10m: [10],
+        wind_direction_10m: [0],
+        wave_height: [0.5],
+      },
+    };
+    vi.stubGlobal("fetch", async (url: unknown) => {
+      calls.push(String(url));
+      // đủ vị trí cho lưới thô (fieldGrid tối đa 12×10)
+      return {
+        ok: true,
+        json: async () => Array.from({ length: 120 }, () => loc),
+      } as unknown as Response;
+    });
+    const bb: BBox = { latMin: 9.1, latMax: 10.1, lonMin: 108.1, lonMax: 109.1 };
+    const t0 = new Date("2026-07-26T02:00:00Z");
+    await fetchWeatherField(bb, t0);
+    expect(calls.length).toBe(2); // gió + sóng
+    await fetchWeatherField(bb, new Date(t0.getTime() + 10 * 60_000));
+    expect(calls.length).toBe(2); // "Tính lại" trong 45 phút — ăn cache
+    await fetchWeatherField(bb, new Date(t0.getTime() + 46 * 60_000));
+    expect(calls.length).toBe(4); // quá TTL — lấy dự báo mới
+  });
+
+  it("lượt fetch lỗi KHÔNG bị găm vào cache — gọi lại là thử mạng lại", async () => {
+    let fail = true;
+    const loc = {
+      hourly: {
+        wind_speed_10m: [10],
+        wind_direction_10m: [0],
+        wave_height: [0.5],
+      },
+    };
+    vi.stubGlobal("fetch", async () => {
+      if (fail) throw new Error("mạng yếu");
+      return {
+        ok: true,
+        json: async () => Array.from({ length: 120 }, () => loc),
+      } as unknown as Response;
+    });
+    const bb: BBox = { latMin: 9.2, latMax: 10.2, lonMin: 108.2, lonMax: 109.2 };
+    const t0 = new Date("2026-07-26T03:00:00Z");
+    await expect(fetchWeatherField(bb, t0)).rejects.toThrow();
+    fail = false;
+    const f = await fetchWeatherField(bb, new Date(t0.getTime() + 60_000));
+    expect(f.nLat).toBeGreaterThan(0);
   });
 });
 

@@ -1,20 +1,22 @@
-import { loadFishForecast } from "@/lib/fish-forecast-server";
+import { computeFishForecast } from "@/lib/fish-forecast-run";
+import { loadFishSnapshot } from "@/lib/fish-snapshot";
+import { isSnapshotFresh } from "@/lib/fish-snapshot-policy";
 
 /**
- * Dự báo cá (PFZ) — tính server: kéo lưới SST + phù du mới nhất từ nguồn
- * công khai (chậm, vài MB) rồi chấm điểm bằng lib thuần, trả về gọn cho app.
- * Cache 6 giờ — ảnh nguồn mỗi ngày một bản, không cần tươi hơn.
- * Nguồn fail → { ok:false }, client im lặng/fallback mùa vụ (không bịa).
- * Builder tách ra lib/fish-forecast-server.ts (dùng chung collector 0005).
- *
- * PHÂN QUYỀN kiểu TEASER (user chốt 2026-06-11): API CÔNG KHAI để lớp cá
- * (heatmap + điểm nóng) HIỆN cho mọi người — thu hút. Việc xem CHI TIẾT một
- * điểm (loài gì, khả năng bao nhiêu, đi hướng nào) mới cần đăng nhập, chặn ở
- * CLIENT (fishing-map-view). Trước đây chặn 401 ở API khiến lớp cá biến mất,
- * không hấp dẫn được khách đăng ký.
+ * Dự báo cá (PFZ) đọc snapshot do cron tính sẵn. Middleware chặn premium trước
+ * cache; route không đọc cookie để giữ ISR.
  */
+export const maxDuration = 60;
+export const revalidate = 1800;
+
 export async function GET() {
-  const month = new Date().getMonth() + 1;
-  const forecast = await loadFishForecast(month);
-  return Response.json(forecast ?? { ok: false });
+  const snap = await loadFishSnapshot();
+  if (snap && snap.ok && isSnapshotFresh(snap.generatedAt, Date.now())) {
+    return Response.json(snap);
+  }
+
+  const live = await computeFishForecast();
+  if (live.ok) return Response.json(live);
+  if (snap && snap.ok) return Response.json(snap);
+  return Response.json(live);
 }

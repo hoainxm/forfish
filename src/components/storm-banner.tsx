@@ -2,13 +2,16 @@
 
 /**
  * Trục 1 — banner tin bão / áp thấp trên Biển Đông (nguồn qua lib/storms.ts).
- * Ba trạng thái:
- *   · có bão  → thẻ đỏ/vàng to, không thể bỏ qua
- *   · không có (đã kiểm tra được) → một dòng xanh trấn an
- *   · chưa kiểm tra được → KHÔNG render gì (không nói bừa "không có bão")
+ * BA trạng thái, không được nhập nhằng (xem stormStatus trong lib/storms.ts):
+ *   · có bão  → thẻ đỏ/vàng to, không thể bỏ qua, KÈM GIỜ CỦA BẢN TIN
+ *   · hỏi được & không có bão → dòng xanh trấn an, KÈM GIỜ ĐÃ HỎI
+ *   · KHÔNG hỏi được (mất sóng / nguồn lỗi / tin quá cũ) → nền VÀNG cảnh báo,
+ *     tuyệt đối không được nói "không có bão"
  */
 import { useEffect, useState } from "react";
-import { fetchStormCheck, type StormCheck } from "@/lib/storms";
+import { stormStatus } from "@/lib/storms";
+import { useStormCheck } from "@/lib/use-storm-check";
+import { clockVN } from "@/lib/day-labels";
 import { beaufort } from "@/lib/marine-weather";
 import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/icons";
 
@@ -18,19 +21,18 @@ export function StormBanner({
   /** "overlay" = nổi trên bản đồ full-screen: chip gọn khi yên, thẻ đầy đủ khi có bão */
   variant?: "page" | "overlay";
 }) {
-  const [check, setCheck] = useState<StormCheck | null>(null);
+  // Hỏi tin bão + TỰ THỬ LẠI khi có sóng lại / mở lại app / định kỳ.
+  // KHÔNG gọi fetchStormCheck một lần rồi thôi — xem lib/use-storm-check.ts.
+  const { check, nowMs } = useStormCheck();
   // Overlay: cho thu/mở để tin bão không chiếm hết view (user 2026-06-23).
   // Mặc định MỞ (an toàn — bà con phải thấy ít nhất 1 lần), thu lại thành 1
   // chip đỏ/vàng vẫn nổi bật, chạm để mở lại.
   const [open, setOpen] = useState(true);
 
-  useEffect(() => {
-    let alive = true;
-    fetchStormCheck().then((c) => alive && setCheck(c));
-    return () => {
-      alive = false;
-    };
-  }, []);
+
+  // Trạng thái thật của tin bão — tin để lâu quá thì tự rớt về "chưa hỏi được"
+  // (không bao giờ để tin cũ trông như tin mới).
+  const status = stormStatus(check, nowMs);
 
   // Overlay có bão: hiện đầy đủ ~3s lúc mở/refresh bản đồ rồi TỰ THU thành chip
   // (user 2026-06-23) — bà con thấy 1 lần, sau đó không chiếm view; chạm mở lại.
@@ -41,46 +43,61 @@ export function StormBanner({
     return () => clearTimeout(t);
   }, [check, variant]);
 
-  if (!check) return null; // đang kiểm tra — chưa nói gì
+  if (status.kind === "dang-hoi") return null; // đang hỏi — chưa nói gì
 
-  // Nguồn fail: nói rõ "chưa kiểm tra được" — khác hẳn với "không có bão".
-  // (Audit flow: im lặng hoàn toàn khiến người dùng không phân biệt được
-  // hai trạng thái; vẫn giữ nguyên tắc KHÔNG BAO GIỜ nói "không có bão" bừa.)
-  if (!check.ok) {
+  // KHÔNG hỏi được (mất sóng / nguồn lỗi / tin trong máy đã quá cũ): nền VÀNG,
+  // nói thẳng là app CHƯA hỏi được — khác hẳn "không có bão".
+  if (status.kind === "khong-hoi-duoc") {
     if (variant === "overlay") {
       return (
-        <p role="status" className="pointer-events-auto mx-auto flex w-fit items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-[0.8125rem] font-bold text-foreground/65">
-          Chưa kiểm tra được tin bão — nghe đài duyên hải
+        <p
+          role="status"
+          className="pointer-events-auto mx-auto flex w-fit max-w-[92%] items-start gap-1.5 rounded-2xl bg-warn-bg px-3 py-2 text-[0.9375rem] font-bold leading-snug text-warn shadow-md"
+        >
+          <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+          <span>
+            Chưa hỏi được tin bão — máy không có sóng. Nghe thêm đài duyên hải /
+            Icom.
+          </span>
         </p>
       );
     }
     return (
-      <p role="status" className="mx-4 mb-3 rounded-xl bg-card px-3 py-2 text-[0.9375rem] font-semibold text-foreground/65">
-        Chưa kiểm tra được tin bão — bà con nghe đài duyên hải.
+      <p
+        role="status"
+        className="mx-4 mb-3 flex items-start gap-2 rounded-xl bg-warn-bg px-3 py-2.5 text-[1rem] font-bold leading-snug text-warn"
+      >
+        <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+        <span>
+          Chưa hỏi được tin bão — máy không có sóng. Nghe thêm đài duyên hải /
+          Icom.
+        </span>
       </p>
     );
   }
 
-  if (check.storms.length === 0) {
+  // Hỏi được thật và không có bão → nói kèm GIỜ ĐÃ HỎI.
+  if (status.kind === "khong-co") {
+    const at = clockVN(status.checkedAt);
     if (variant === "overlay") {
       return (
-        <p role="status" className="pointer-events-auto mx-auto flex w-fit items-center gap-1.5 rounded-full bg-ok-bg px-3 py-1.5 text-[0.8125rem] font-bold text-ok">
+        <p role="status" className="pointer-events-auto mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-ok-bg px-3 py-1.5 text-[0.875rem] font-bold leading-snug text-ok">
           <CheckIcon className="h-4 w-4 shrink-0" />
-          Không có tin bão trên Biển Đông
+          Không có tin bão — hỏi lúc {at}
         </p>
       );
     }
     return (
       <p role="status" className="mx-4 mb-3 flex items-center gap-2 rounded-xl bg-ok-bg px-3 py-2 text-[0.9375rem] font-semibold text-ok">
         <CheckIcon className="h-4.5 w-4.5 shrink-0" />
-        Hiện không có tin bão, áp thấp trên Biển Đông.
+        Không có tin bão trên Biển Đông (hỏi lúc {at}).
       </p>
     );
   }
 
   // Overlay đã thu: 1 chip cảnh báo gọn, vẫn nổi bật, chạm để mở lại.
   if (variant === "overlay" && !open) {
-    const anyDanger = check.storms.some((s) => s.alert === "danger");
+    const anyDanger = status.storms.some((s) => s.alert === "danger");
     return (
       <button
         type="button"
@@ -90,7 +107,7 @@ export function StormBanner({
         }`}
       >
         <AlertIcon className="h-4 w-4 shrink-0" />
-        {check.storms.length} tin bão — chạm xem
+        {status.storms.length} tin bão — chạm xem
         <ChevronDownIcon className="h-4 w-4" />
       </button>
     );
@@ -105,7 +122,7 @@ export function StormBanner({
           : "mx-4 mb-3 space-y-2"
       }
     >
-      {check.storms.map((s) => {
+      {status.storms.map((s) => {
         const danger = s.alert === "danger";
         return (
           <div
@@ -136,6 +153,18 @@ export function StormBanner({
                   `Gió mạnh nhất khoảng ${s.windKmh} km/giờ (cấp ${beaufort(s.windKmh)}). `}
                 Đừng ra khơi vùng ảnh hưởng — nghe ngay đài duyên hải hoặc
                 đồn biên phòng.
+              </p>
+              {/* GIỜ THẬT của bản tin — bão đi rất nhanh, tin mấy hôm trước
+                  không được để trông như tin vừa xong */}
+              <p
+                className={`mt-1 text-[0.9375rem] font-bold leading-snug ${
+                  status.cu ? "text-warn" : "text-foreground/65"
+                }`}
+              >
+                {status.checkedAt != null
+                  ? `Tin lúc ${clockVN(status.checkedAt)}`
+                  : "Chưa rõ tin lúc nào"}
+                {status.cu && " — tin cũ trong máy, nghe lại đài duyên hải"}
               </p>
             </div>
             {variant === "overlay" && (

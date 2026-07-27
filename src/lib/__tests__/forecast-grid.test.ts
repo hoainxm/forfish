@@ -3,8 +3,16 @@ import {
   arrowFeatures,
   gridPoints,
   timeLabelVN,
+  stepHourIndices,
+  GRID_DAY_OPTIONS,
   TIME_STEP_HOURS,
   FORECAST_GRID_HOURS,
+  GRID_SNAP_MAX_DEG,
+  GRID_SNAP_MAX_LAT_DEG,
+  GRID_SNAP_MAX_LON_DEG,
+  GRID_STEP_LAT_DEG,
+  GRID_STEP_LON_DEG,
+  nearestGridCell,
   type ForecastGrid,
 } from "../forecast-grid";
 
@@ -83,5 +91,99 @@ describe("hằng số thanh thời gian", () => {
   it("72 giờ chia hết cho bước 3 giờ → 24 nấc", () => {
     expect(FORECAST_GRID_HOURS % TIME_STEP_HOURS).toBe(0);
     expect(FORECAST_GRID_HOURS / TIME_STEP_HOURS).toBe(24);
+  });
+});
+
+describe("stepHourIndices (bước tăng dần theo tầm ngày)", () => {
+  it("3 ngày = bước 3h đều → 25 mốc (0..72), khớp hành vi cũ", () => {
+    const idx = stepHourIndices(3, 96);
+    expect(idx[0]).toBe(0);
+    expect(idx[1]).toBe(3);
+    expect(idx[idx.length - 1]).toBe(72);
+    expect(idx).toHaveLength(25);
+    // mọi bước trong 3 ngày đều = 3h
+    for (let i = 1; i < idx.length; i++) expect(idx[i] - idx[i - 1]).toBe(3);
+  });
+
+  it("16 ngày: dày ở gần (3h ≤72), thưa dần (6h ≤168, 12h >168) → chặn số khung", () => {
+    const idx = stepHourIndices(16, 384);
+    // đơn điệu tăng
+    for (let i = 1; i < idx.length; i++)
+      expect(idx[i]).toBeGreaterThan(idx[i - 1]);
+    // bước theo tầm
+    const stepAt = (h: number) => {
+      const a = idx.indexOf(h);
+      return idx[a + 1] - idx[a];
+    };
+    expect(stepAt(0)).toBe(3); // gần: 3h
+    expect(stepAt(72)).toBe(6); // 3–7 ngày: 6h
+    expect(stepAt(168)).toBe(12); // >7 ngày: 12h
+    // số khung gọn (không phải 128) và không vượt giờ nguồn
+    expect(idx.length).toBeLessThan(70);
+    expect(idx[idx.length - 1]).toBeLessThanOrEqual(383);
+  });
+
+  it("không lấy quá số giờ nguồn thật trả về", () => {
+    const idx = stepHourIndices(16, 100); // nguồn chỉ 100 giờ
+    expect(idx[idx.length - 1]).toBeLessThanOrEqual(99);
+  });
+
+  it("GRID_DAY_OPTIONS = 3/5/7/10/16", () => {
+    expect([...GRID_DAY_OPTIONS]).toEqual([3, 5, 7, 10, 16]);
+  });
+});
+
+/* Ô lưới GẦN NHẤT — dùng khi mất sóng, chạm điểm chưa từng mở xem. Ràng buộc
+   sống còn: chỉ nhận ô CÒN PHỦ chỗ vừa chạm, không nhận ô cách xa. */
+describe("nearestGridCell + GRID_SNAP_MAX_DEG", () => {
+  const grid: ForecastGrid = {
+    cells: gridPoints().map((p) => ({ lat: p.lat, lon: p.lon, hours: [] })),
+    times: [],
+  };
+
+  it("ngưỡng snap ≈ NỬA BƯỚC LƯỚI từng chiều (chỉ bù 0,01° làm tròn toạ độ ô)", () => {
+    // đúng nửa bước, chỉ được nhỉnh hơn tối đa 0,01° (bù làm tròn toạ độ ô)
+    expect(GRID_SNAP_MAX_LAT_DEG).toBeGreaterThan(GRID_STEP_LAT_DEG / 2);
+    expect(GRID_SNAP_MAX_LAT_DEG).toBeLessThan(GRID_STEP_LAT_DEG / 2 + 0.01);
+    expect(GRID_SNAP_MAX_LON_DEG).toBeGreaterThan(GRID_STEP_LON_DEG / 2);
+    expect(GRID_SNAP_MAX_LON_DEG).toBeLessThan(GRID_STEP_LON_DEG / 2 + 0.01);
+    expect(GRID_SNAP_MAX_DEG).toBeCloseTo(GRID_SNAP_MAX_LON_DEG, 6);
+    // lưới thưa ~2°: ngưỡng phải đủ rộng để chạm giữa hai mũi tên vẫn ăn
+    expect(GRID_SNAP_MAX_DEG).toBeGreaterThan(1);
+  });
+
+  it("phủ KÍN cả vùng lưới — quét dày không chỗ nào thủng", () => {
+    for (let lat = 6.0; lat <= 21.3; lat += 0.25) {
+      for (let lon = 102.5; lon <= 117.25; lon += 0.25) {
+        expect(nearestGridCell(grid, lat, lon)).not.toBeNull();
+      }
+    }
+  });
+
+  it("ra ngoài rìa lưới quá nửa bước → null (không nhận ô rìa cho chỗ xa)", () => {
+    // ngay rìa dưới vẫn còn phủ
+    expect(nearestGridCell(grid, 6.0 - GRID_SNAP_MAX_LAT_DEG + 0.05, 110)).not.toBeNull();
+    // quá nửa bước → từ chối
+    expect(nearestGridCell(grid, 6.0 - GRID_SNAP_MAX_LAT_DEG - 0.05, 110)).toBeNull();
+    expect(nearestGridCell(grid, 13, 117.25 + GRID_SNAP_MAX_LON_DEG + 0.05)).toBeNull();
+  });
+
+  it("chạm giữa vùng biển → luôn có ô phủ (mũi tên vẽ tới đâu, chạm được tới đó)", () => {
+    for (const p of [
+      { lat: 16.5, lon: 112.0 }, // Hoàng Sa
+      { lat: 8.68, lon: 106.6 }, // Côn Đảo
+      { lat: 10.5, lon: 114.0 }, // Trường Sa
+      { lat: 13.0, lon: 110.5 }, // điểm mặc định
+    ]) {
+      expect(nearestGridCell(grid, p.lat, p.lon)).not.toBeNull();
+    }
+  });
+
+  it("ngoài vùng lưới (Nhật Bản) → null, KHÔNG nhận ô cách hàng nghìn km", () => {
+    expect(nearestGridCell(grid, 35.0, 139.0)).toBeNull();
+  });
+
+  it("lưới rỗng → null", () => {
+    expect(nearestGridCell({ cells: [], times: [] }, 13, 110)).toBeNull();
   });
 });

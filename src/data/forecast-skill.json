@@ -1,0 +1,157 @@
+{
+  "generatedAt": "2026-07-25T03:09:37.795Z",
+  "method": "Init-anchored backtest: Single Runs API (run=<init>) vs ERA5 archive. Gió = wind_speed_10m_max (GFS, lead 1..15) vs archive-api ERA5. Sóng = wave_height_max từ hourly wave_height model gwam (lead 1..~6) vs marine-api ERA5-Ocean. 10 cảng, 12 ngày khởi tạo (2026-06-04..2026-07-07), bước 3 ngày. confidence[L]=clamp(1-windMae/12,0,1). Sóng lead 7..15 không có nguồn dự-báo-lưu-trữ (Open-Meteo free) → null. Xem docs/app-map/ops/forecast-accuracy.md.",
+  "sampleSize": 2394,
+  "perLeadDay": [
+    {
+      "leadDay": 1,
+      "windMae": 3.04,
+      "windBias": 1.37,
+      "waveMae": 0.17,
+      "waveBias": 0.01,
+      "confidence": 0.747,
+      "n": 120,
+      "nWave": 99
+    },
+    {
+      "leadDay": 2,
+      "windMae": 3.04,
+      "windBias": 1.12,
+      "waveMae": 0.18,
+      "waveBias": 0,
+      "confidence": 0.747,
+      "n": 120,
+      "nWave": 99
+    },
+    {
+      "leadDay": 3,
+      "windMae": 3.39,
+      "windBias": 1.71,
+      "waveMae": 0.19,
+      "waveBias": 0.04,
+      "confidence": 0.718,
+      "n": 120,
+      "nWave": 99
+    },
+    {
+      "leadDay": 4,
+      "windMae": 3.67,
+      "windBias": -0.5,
+      "waveMae": 0.26,
+      "waveBias": 0.04,
+      "confidence": 0.695,
+      "n": 120,
+      "nWave": 99
+    },
+    {
+      "leadDay": 5,
+      "windMae": 3.55,
+      "windBias": -0.11,
+      "waveMae": 0.27,
+      "waveBias": 0.03,
+      "confidence": 0.705,
+      "n": 120,
+      "nWave": 99
+    },
+    {
+      "leadDay": 6,
+      "windMae": 4.33,
+      "windBias": -1.17,
+      "waveMae": 0.27,
+      "waveBias": 0.07,
+      "confidence": 0.64,
+      "n": 120,
+      "nWave": 99
+    },
+    {
+      "leadDay": 7,
+      "windMae": 4.17,
+      "windBias": -1.22,
+      "waveMae": null,
+      "waveBias": null,
+      "confidence": 0.653,
+      "n": 120,
+      "nWave": 0
+    },
+    {
+      "leadDay": 8,
+      "windMae": 3.83,
+      "windBias": -0.91,
+      "waveMae": null,
+      "waveBias": null,
+      "confidence": 0.681,
+      "n": 120,
+      "nWave": 0
+    },
+    {
+      "leadDay": 9,
+      "windMae": 4.29,
+      "windBias": -0.51,
+      "waveMae": null,
+      "waveBias": null,
+      "confidence": 0.643,
+      "n": 120,
+      "nWave": 0
+    },
+    {
+      "leadDay": 10,
+      "windMae": 4.49,
+      "windBias": -1.49,
+      "waveMae": null,
+      "waveBias": null,
+      "confidence": 0.626,
+      "n": 120,
+      "nWave": 0
+    },
+    {
+      "leadDay": 11,
+      "windMae": 4.22,
+      "windBias": -2.02,
+      "waveMae": null,
+      "waveBias": null,
+      "confidence": 0.649,
+      "n": 120,
+      "nWave": 0
+    },
+    {
+      "leadDay": 12,
+      "windMae": 4.88,
+      "windBias": -1.35,
+      "waveMae": null,
+      "waveBias": null,
+      "confidence": 0.593,
+      "n": 120,
+      "nWave": 0
+    },
+    {
+      "leadDay": 13,
+      "windMae": 4.96,
+      "windBias": -1.26,
+      "waveMae": null,
+      "waveBias": null,
+      "confidence": 0.586,
+      "n": 120,
+      "nWave": 0
+    },
+    {
+      "leadDay": 14,
+      "windMae": 4.7,
+      "windBias": -1.56,
+      "waveMae": null,
+      "waveBias": null,
+      "confidence": 0.609,
+      "n": 120,
+      "nWave": 0
+    },
+    {
+      "leadDay": 15,
+      "windMae": 8.05,
+      "windBias": 4.41,
+      "waveMae": null,
+      "waveBias": null,
+      "confidence": 0.329,
+      "n": 120,
+      "nWave": 0
+    }
+  ]
+}

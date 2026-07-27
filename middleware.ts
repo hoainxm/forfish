@@ -2,10 +2,10 @@ import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 /**
- * Middleware làm tươi phiên đăng nhập (giữ cookie luôn mới). KHÔNG gate app
- * công khai — dùng được không cần tài khoản. Ngoại lệ duy nhất: user còn cờ
- * buộc đổi mật khẩu mặc định thì bị ép về /doi-mat-khau (xem updateSession).
- * Khi chưa cấu hình Supabase, middleware là passthrough.
+ * Middleware làm tươi phiên đăng nhập (giữ cookie luôn mới). App công khai vẫn
+ * dùng được khi chưa đăng nhập. Ngoại lệ:
+ * - user còn cờ đổi mật khẩu mặc định bị ép về /doi-mat-khau
+ * - /api/fish-forecast bị chặn premium trong lib/supabase/middleware.ts
  */
 export async function middleware(request: NextRequest) {
   return await updateSession(request);

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { inWatchRegion, parseStorms, stormKindLabel } from "../storms";
+import {
+  inWatchRegion,
+  parseStorms,
+  stormKindLabel,
+  stormStatus,
+  STORM_MAX_AGE_MS,
+  type StormAlert,
+} from "../storms";
 
 const NOW = new Date("2026-06-10T12:00:00Z");
 
@@ -92,5 +99,89 @@ describe("parseStorms", () => {
     expect(s.alert).toBe("danger");
     expect(s.name).toBe("WUTIP");
     expect(s.kindLabel).toBe("Bão mạnh");
+  });
+});
+
+/* AN TOÀN TÍNH MẠNG: app không bao giờ được nói "không có bão" khi chưa hỏi
+   được ai. Mảng rỗng KHÔNG được mang hai nghĩa. */
+describe("stormStatus — ba trạng thái không nhập nhằng", () => {
+  const T0 = Date.parse("2026-07-20T07:00:00Z");
+  const bao: StormAlert = {
+    id: "1",
+    name: "WUTIP",
+    kindLabel: "Bão",
+    windKmh: 90,
+    lat: 14,
+    lon: 113,
+    alert: "danger",
+    updated: "",
+    track: [],
+    areas: [],
+  };
+
+  it("chưa có trả lời → đang hỏi (chưa nói gì)", () => {
+    expect(stormStatus(null, T0).kind).toBe("dang-hoi");
+  });
+
+  it("nguồn lỗi / mất sóng → chưa hỏi được, KHÔNG phải không có bão", () => {
+    expect(stormStatus({ ok: false }, T0).kind).toBe("khong-hoi-duoc");
+  });
+
+  it("hỏi được & không có bão → khong-co, kèm giờ đã hỏi", () => {
+    const s = stormStatus(
+      { ok: true, storms: [], checkedAt: new Date(T0).toISOString() },
+      T0 + 60_000,
+    );
+    expect(s.kind).toBe("khong-co");
+    if (s.kind === "khong-co") expect(s.checkedAt).toBe(T0);
+  });
+
+  it("tin không có bão nhưng đã quá cũ → ép về chưa hỏi được", () => {
+    const s = stormStatus(
+      { ok: true, storms: [], checkedAt: new Date(T0).toISOString() },
+      T0 + STORM_MAX_AGE_MS + 1000,
+    );
+    expect(s.kind).toBe("khong-hoi-duoc");
+  });
+
+  it("ngay trước ngưỡng vẫn được nói không có bão", () => {
+    const s = stormStatus(
+      { ok: true, storms: [], checkedAt: new Date(T0).toISOString() },
+      T0 + STORM_MAX_AGE_MS - 1000,
+    );
+    expect(s.kind).toBe("khong-co");
+  });
+
+  it("checkedAt hỏng → không được nói không có bão", () => {
+    expect(
+      stormStatus({ ok: true, storms: [], checkedAt: "khong-phai-ngay" }, T0).kind,
+    ).toBe("khong-hoi-duoc");
+  });
+
+  it("CÓ bão thì vẫn hiện dù tin cũ — nhưng bị đánh dấu cũ", () => {
+    const moi = stormStatus(
+      { ok: true, storms: [bao], checkedAt: new Date(T0).toISOString() },
+      T0 + 60_000,
+    );
+    expect(moi.kind).toBe("co-bao");
+    if (moi.kind === "co-bao") {
+      expect(moi.cu).toBe(false);
+      expect(moi.checkedAt).toBe(T0);
+    }
+
+    const cu = stormStatus(
+      { ok: true, storms: [bao], checkedAt: new Date(T0).toISOString() },
+      T0 + 3 * STORM_MAX_AGE_MS,
+    );
+    expect(cu.kind).toBe("co-bao");
+    if (cu.kind === "co-bao") expect(cu.cu).toBe(true);
+  });
+
+  it("máy lệch giờ nhiều (tin ở tương lai) → không tin được", () => {
+    const s = stormStatus(
+      { ok: true, storms: [], checkedAt: new Date(T0).toISOString() },
+      T0 - 5 * 60 * 60 * 1000,
+    );
+    expect(s.kind).toBe("khong-hoi-duoc");
   });
 });

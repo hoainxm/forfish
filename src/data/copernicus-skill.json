@@ -1,0 +1,811 @@
+{
+  "generatedAt": "2026-07-26T00:54:30.280Z",
+  "question": "Dự báo Copernicus tầm 1..9 ngày có giỏi hơn baseline 'giữ nguyên hôm nay' (persistence) cho vùng biển VN không?",
+  "honestyWarnings": {
+    "analysisOverwritesForecast": true,
+    "whatThisMeans": "Kho ARCO/native công khai của Copernicus chỉ giữ MỘT file cho mỗi ngày hiệu lực và ghi đè bằng bản tin mới nhất (tên file có _R<bulletin> + nhãn hcst/nwct/fcst, nhưng bản cũ không còn). Trục Zarr KHÔNG có chiều forecast_reference_time. ⇒ KHÔNG backtest được 'dự báo khởi tạo ngày D cho ngày D+k'. Đọc kho hiện tại tại ngày D+k là đọc ANALYSIS đã đồng hoá quan trắc của chính ngày đó → skill sẽ ĐẸP GIẢ nếu gọi nó là forecast.",
+    "howWeHandledIt": "Không đọc được dự báo thật thì KẸP nó: `forecastErrorBracket.lower` = `copernicusBestCase` (analysis ngày đích — dự báo không thể giỏi hơn); `upper` = `persistenceCop` (analysis ngày init giữ nguyên — mô hình có kỹ năng phải khá hơn thế). verdict: 'no' = cận DƯỚI vẫn thua persistence ⇒ BÁC BỎ chắc chắn; 'likely-yes' = cận TRÊN đã thắng ⇒ thắng kể cả kịch bản xấu nhất; 'inconclusive' = kẹp vắt qua baseline, TUYỆT ĐỐI không đọc thành thắng.",
+    "upperBoundAssumption": "Cận TRÊN giả định mô hình dự báo không tệ hơn chính nó đứng yên. Đúng trong hầu hết đánh giá SST/BGC tầm ≤10 ngày, nhưng vẫn là GIẢ ĐỊNH chưa kiểm được trên đúng vùng biển VN — chỉ `--snapshot` rồi đối chiếu sau mới kiểm được.",
+    "chlTruthCaveat": "SỰ THẬT của chl là ảnh DINEOF đã VÁ MÂY bằng nội suy EOF có thành phần THỜI GIAN ⇒ chuỗi ảnh bị làm TRƠN theo ngày, khiến persistence của chính nó được lợi (RMSE lead 1 chỉ ~0,044 log10 ≈ 10%/ngày, thấp hơn biến động chl thật). Dù vậy khoảng cách với Copernicus quá lớn (RMSE ~0,33 log10 ≈ sai số hệ số ~2,1 lần; tương quan không gian chỉ ~0,49) nên kết luận KHÔNG đảo chiều vì hiệu ứng này: đó là hai trường khác nhau về bản chất, không phải sai số nhỏ.",
+    "degreesOfFreedom": "4 khối × 15 ngày liên tiếp, các khối cách nhau 95 ngày. Trường biển tự tương quan ~0,97/ngày nên các ngày trong cùng khối KHÔNG độc lập: dof thời gian thực tế ≈ số KHỐI (4), không phải số cặp ngày. Về không gian, hộp VN ~1700×1900 km với thang phân rã ~100–200 km ⇒ ~50–100 mảng độc lập mỗi ảnh. Đừng tuyên bố mạnh dựa trên chênh lệch RMSE nhỏ.",
+    "currentsNotTested": "Dòng chảy KHÔNG đo được ở đây: không có quan trắc lưới, mà so 'dự báo D+k' với 'analysis D+k' của chính Copernicus thì bản dự báo đã bị ghi đè mất. Chỉ còn `copernicusDrift` (trường tự xê dịch) làm chẩn đoán YẾU."
+  },
+  "method": "Cùng SỰ THẬT = ảnh vệ tinh NOAA quan trắc tại ngày đích T=D+k. Ba bộ dự đoán: persistenceObs = quan trắc(D) giữ nguyên; persistenceCop = Copernicus(D) giữ nguyên; copernicusBestCase = Copernicus(T) (cận dưới sai số dự báo). Chẩn đoán copernicusDrift = Copernicus(D) vs Copernicus(T). MASK CHUNG bắt buộc: ô chỉ được chấm khi hữu hạn ở CẢ bốn trường. chl so trên log10(mg/m³), SST trên °C. Copernicus đưa về lưới quan trắc bằng láng giềng gần nhất (bỏ nếu lệch >0,35°). corr = trung bình tương quan KHÔNG GIAN từng cặp ngày; frontCorr = tương quan của |gradient| (mirror gradientStrength() trong fish-predict, không kẹp [0,1]). ERDDAP snap sang ngày gần nhất khi ngày xin trống → mọi lưới bị kiểm ngày, lệch là vứt.",
+  "sources": {
+    "obsChl": "NOAA ERDDAP noaacwNPPN20VIIRSDINEOFDaily (chlor_a, mg/m³, DINEOF vá mây)",
+    "obsSst": "NOAA ERDDAP noaacwBLENDEDsstDaily (analysed_sst, Kelvin → °C)",
+    "copChl": "GLOBAL_ANALYSISFORECAST_BGC_001_028 / cmems_mod_glo_bgc-pft_anfc_0.25deg_P1D-m (timeChunked.zarr)",
+    "copSst": "GLOBAL_ANALYSISFORECAST_PHY_001_024 / cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m (downsampled4.zarr)"
+  },
+  "window": {
+    "blocks": [
+      {
+        "from": "2025-09-25",
+        "to": "2025-10-09"
+      },
+      {
+        "from": "2025-12-29",
+        "to": "2026-01-12"
+      },
+      {
+        "from": "2026-04-03",
+        "to": "2026-04-17"
+      },
+      {
+        "from": "2026-07-07",
+        "to": "2026-07-21"
+      }
+    ],
+    "blockLenDays": 15,
+    "blockGapDays": 95,
+    "maxLead": 9
+  },
+  "provenanceAudit": {
+    "chl": {
+      "dataset": "cmems_mod_glo_bgc-pft_anfc_0.25deg_P1D-m_202311",
+      "filesListed": 61,
+      "validityDates": 61,
+      "validityDatesWithMultipleFiles": 0,
+      "distinctBulletinDates": 0,
+      "filenameCarriesBulletinDate": false,
+      "kindTagCounts": {},
+      "forecastArchivePreserved": false,
+      "sample": [
+        "mercatorbiomer4v2r1_global_mean_pft_20260625.nc (ghi 2026-07-09)",
+        "mercatorbiomer4v2r1_global_mean_pft_20260626.nc (ghi 2026-07-09)",
+        "mercatorbiomer4v2r1_global_mean_pft_20260627.nc (ghi 2026-07-09)",
+        "mercatorbiomer4v2r1_global_mean_pft_20260628.nc (ghi 2026-07-09)",
+        "mercatorbiomer4v2r1_global_mean_pft_20260629.nc (ghi 2026-07-09)",
+        "mercatorbiomer4v2r1_global_mean_pft_20260630.nc (ghi 2026-07-09)"
+      ]
+    },
+    "sst": {
+      "dataset": "cmems_mod_glo_phy-thetao_anfc_0.083deg_P1D-m_202406",
+      "filesListed": 61,
+      "validityDates": 61,
+      "validityDatesWithMultipleFiles": 0,
+      "distinctBulletinDates": 10,
+      "filenameCarriesBulletinDate": true,
+      "kindTagCounts": {
+        "hcst": 44,
+        "nwct": 7,
+        "fcst": 10
+      },
+      "forecastArchivePreserved": false,
+      "sample": [
+        "glo12_rg_1d-m_20260625-20260625_3D-thetao_hcst_R20260708.nc (ghi 2026-07-09)",
+        "glo12_rg_1d-m_20260626-20260626_3D-thetao_hcst_R20260708.nc (ghi 2026-07-09)",
+        "glo12_rg_1d-m_20260627-20260627_3D-thetao_hcst_R20260708.nc (ghi 2026-07-09)",
+        "glo12_rg_1d-m_20260628-20260628_3D-thetao_hcst_R20260708.nc (ghi 2026-07-09)",
+        "glo12_rg_1d-m_20260629-20260629_3D-thetao_hcst_R20260708.nc (ghi 2026-07-09)",
+        "glo12_rg_1d-m_20260630-20260630_3D-thetao_hcst_R20260708.nc (ghi 2026-07-09)"
+      ]
+    }
+  },
+  "perLead": {
+    "chl": [
+      {
+        "lead": 1,
+        "persistenceObs": {
+          "rmse": 0.0443,
+          "corr": 0.9932,
+          "frontCorr": 0.9821,
+          "nCells": 152736,
+          "nPairs": 48
+        },
+        "persistenceCop": {
+          "rmse": 0.3319,
+          "corr": 0.5217,
+          "frontCorr": 0.4089,
+          "nCells": 152736,
+          "nPairs": 48
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3332,
+          "corr": 0.5152,
+          "frontCorr": 0.4064,
+          "nCells": 152736,
+          "nPairs": 48
+        },
+        "copernicusDrift": {
+          "rmse": 0.0403,
+          "corr": 0.9858,
+          "frontCorr": 0.9545,
+          "nCells": 152736,
+          "nPairs": 48
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3332,
+          "upper": 0.3319,
+          "baselineToBeat": 0.0443
+        },
+        "gainPctBestCase": -652.14,
+        "beatsPersistence": false,
+        "verdict": "no",
+        "n": 48
+      },
+      {
+        "lead": 2,
+        "persistenceObs": {
+          "rmse": 0.0599,
+          "corr": 0.9876,
+          "frontCorr": 0.9668,
+          "nCells": 136826,
+          "nPairs": 43
+        },
+        "persistenceCop": {
+          "rmse": 0.3318,
+          "corr": 0.5237,
+          "frontCorr": 0.4083,
+          "nCells": 136826,
+          "nPairs": 43
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3348,
+          "corr": 0.5063,
+          "frontCorr": 0.4042,
+          "nCells": 136826,
+          "nPairs": 43
+        },
+        "copernicusDrift": {
+          "rmse": 0.0717,
+          "corr": 0.9557,
+          "frontCorr": 0.8801,
+          "nCells": 136826,
+          "nPairs": 43
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3348,
+          "upper": 0.3318,
+          "baselineToBeat": 0.0599
+        },
+        "gainPctBestCase": -458.93,
+        "beatsPersistence": false,
+        "verdict": "no",
+        "n": 43
+      },
+      {
+        "lead": 3,
+        "persistenceObs": {
+          "rmse": 0.0723,
+          "corr": 0.9822,
+          "frontCorr": 0.9516,
+          "nCells": 120916,
+          "nPairs": 38
+        },
+        "persistenceCop": {
+          "rmse": 0.3321,
+          "corr": 0.526,
+          "frontCorr": 0.4054,
+          "nCells": 120916,
+          "nPairs": 38
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3375,
+          "corr": 0.4936,
+          "frontCorr": 0.4003,
+          "nCells": 120916,
+          "nPairs": 38
+        },
+        "copernicusDrift": {
+          "rmse": 0.0928,
+          "corr": 0.9262,
+          "frontCorr": 0.8188,
+          "nCells": 120916,
+          "nPairs": 38
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3375,
+          "upper": 0.3321,
+          "baselineToBeat": 0.0723
+        },
+        "gainPctBestCase": -366.8,
+        "beatsPersistence": false,
+        "verdict": "no",
+        "n": 38
+      },
+      {
+        "lead": 4,
+        "persistenceObs": {
+          "rmse": 0.0835,
+          "corr": 0.9767,
+          "frontCorr": 0.9359,
+          "nCells": 108188,
+          "nPairs": 34
+        },
+        "persistenceCop": {
+          "rmse": 0.3328,
+          "corr": 0.5318,
+          "frontCorr": 0.4026,
+          "nCells": 108188,
+          "nPairs": 34
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3408,
+          "corr": 0.485,
+          "frontCorr": 0.3992,
+          "nCells": 108188,
+          "nPairs": 34
+        },
+        "copernicusDrift": {
+          "rmse": 0.1053,
+          "corr": 0.904,
+          "frontCorr": 0.7754,
+          "nCells": 108188,
+          "nPairs": 34
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3408,
+          "upper": 0.3328,
+          "baselineToBeat": 0.0835
+        },
+        "gainPctBestCase": -308.14,
+        "beatsPersistence": false,
+        "verdict": "no",
+        "n": 34
+      },
+      {
+        "lead": 5,
+        "persistenceObs": {
+          "rmse": 0.0924,
+          "corr": 0.9716,
+          "frontCorr": 0.9235,
+          "nCells": 98642,
+          "nPairs": 31
+        },
+        "persistenceCop": {
+          "rmse": 0.3326,
+          "corr": 0.5448,
+          "frontCorr": 0.4041,
+          "nCells": 98642,
+          "nPairs": 31
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3425,
+          "corr": 0.4851,
+          "frontCorr": 0.4017,
+          "nCells": 98642,
+          "nPairs": 31
+        },
+        "copernicusDrift": {
+          "rmse": 0.1122,
+          "corr": 0.8902,
+          "frontCorr": 0.7508,
+          "nCells": 98642,
+          "nPairs": 31
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3425,
+          "upper": 0.3326,
+          "baselineToBeat": 0.0924
+        },
+        "gainPctBestCase": -270.67,
+        "beatsPersistence": false,
+        "verdict": "no",
+        "n": 31
+      },
+      {
+        "lead": 6,
+        "persistenceObs": {
+          "rmse": 0.1008,
+          "corr": 0.9665,
+          "frontCorr": 0.9104,
+          "nCells": 89096,
+          "nPairs": 28
+        },
+        "persistenceCop": {
+          "rmse": 0.3334,
+          "corr": 0.5534,
+          "frontCorr": 0.4029,
+          "nCells": 89096,
+          "nPairs": 28
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3444,
+          "corr": 0.4854,
+          "frontCorr": 0.4033,
+          "nCells": 89096,
+          "nPairs": 28
+        },
+        "copernicusDrift": {
+          "rmse": 0.1191,
+          "corr": 0.8781,
+          "frontCorr": 0.7365,
+          "nCells": 89096,
+          "nPairs": 28
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3444,
+          "upper": 0.3334,
+          "baselineToBeat": 0.1008
+        },
+        "gainPctBestCase": -241.67,
+        "beatsPersistence": false,
+        "verdict": "no",
+        "n": 28
+      },
+      {
+        "lead": 7,
+        "persistenceObs": {
+          "rmse": 0.1104,
+          "corr": 0.9596,
+          "frontCorr": 0.8941,
+          "nCells": 79550,
+          "nPairs": 25
+        },
+        "persistenceCop": {
+          "rmse": 0.3346,
+          "corr": 0.5587,
+          "frontCorr": 0.4013,
+          "nCells": 79550,
+          "nPairs": 25
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3468,
+          "corr": 0.4841,
+          "frontCorr": 0.4049,
+          "nCells": 79550,
+          "nPairs": 25
+        },
+        "copernicusDrift": {
+          "rmse": 0.1264,
+          "corr": 0.867,
+          "frontCorr": 0.7218,
+          "nCells": 79550,
+          "nPairs": 25
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3468,
+          "upper": 0.3346,
+          "baselineToBeat": 0.1104
+        },
+        "gainPctBestCase": -214.13,
+        "beatsPersistence": false,
+        "verdict": "no",
+        "n": 25
+      },
+      {
+        "lead": 8,
+        "persistenceObs": {
+          "rmse": 0.1219,
+          "corr": 0.951,
+          "frontCorr": 0.8759,
+          "nCells": 73186,
+          "nPairs": 23
+        },
+        "persistenceCop": {
+          "rmse": 0.3354,
+          "corr": 0.5638,
+          "frontCorr": 0.4012,
+          "nCells": 73186,
+          "nPairs": 23
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3484,
+          "corr": 0.4893,
+          "frontCorr": 0.4086,
+          "nCells": 73186,
+          "nPairs": 23
+        },
+        "copernicusDrift": {
+          "rmse": 0.1378,
+          "corr": 0.847,
+          "frontCorr": 0.7001,
+          "nCells": 73186,
+          "nPairs": 23
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3484,
+          "upper": 0.3354,
+          "baselineToBeat": 0.1219
+        },
+        "gainPctBestCase": -185.81,
+        "beatsPersistence": false,
+        "verdict": "no",
+        "n": 23
+      },
+      {
+        "lead": 9,
+        "persistenceObs": {
+          "rmse": 0.1323,
+          "corr": 0.9424,
+          "frontCorr": 0.8581,
+          "nCells": 63640,
+          "nPairs": 20
+        },
+        "persistenceCop": {
+          "rmse": 0.3363,
+          "corr": 0.5661,
+          "frontCorr": 0.3959,
+          "nCells": 63640,
+          "nPairs": 20
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3512,
+          "corr": 0.4849,
+          "frontCorr": 0.4063,
+          "nCells": 63640,
+          "nPairs": 20
+        },
+        "copernicusDrift": {
+          "rmse": 0.1489,
+          "corr": 0.8282,
+          "frontCorr": 0.6806,
+          "nCells": 63640,
+          "nPairs": 20
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3512,
+          "upper": 0.3363,
+          "baselineToBeat": 0.1323
+        },
+        "gainPctBestCase": -165.46,
+        "beatsPersistence": false,
+        "verdict": "no",
+        "n": 20
+      }
+    ],
+    "sst": [
+      {
+        "lead": 1,
+        "persistenceObs": {
+          "rmse": 0.2196,
+          "corr": 0.9487,
+          "frontCorr": 0.8376,
+          "nCells": 177072,
+          "nPairs": 56
+        },
+        "persistenceCop": {
+          "rmse": 0.3956,
+          "corr": 0.8909,
+          "frontCorr": 0.5823,
+          "nCells": 177072,
+          "nPairs": 56
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3897,
+          "corr": 0.8912,
+          "frontCorr": 0.5817,
+          "nCells": 177072,
+          "nPairs": 56
+        },
+        "copernicusDrift": {
+          "rmse": 0.1971,
+          "corr": 0.9732,
+          "frontCorr": 0.9401,
+          "nCells": 177072,
+          "nPairs": 56
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3897,
+          "upper": 0.3956,
+          "baselineToBeat": 0.2196
+        },
+        "gainPctBestCase": -77.46,
+        "beatsPersistence": false,
+        "verdict": "no",
+        "n": 56
+      },
+      {
+        "lead": 2,
+        "persistenceObs": {
+          "rmse": 0.3118,
+          "corr": 0.9076,
+          "frontCorr": 0.7645,
+          "nCells": 164424,
+          "nPairs": 52
+        },
+        "persistenceCop": {
+          "rmse": 0.4308,
+          "corr": 0.8712,
+          "frontCorr": 0.5775,
+          "nCells": 164424,
+          "nPairs": 52
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3906,
+          "corr": 0.8904,
+          "frontCorr": 0.585,
+          "nCells": 164424,
+          "nPairs": 52
+        },
+        "copernicusDrift": {
+          "rmse": 0.319,
+          "corr": 0.9348,
+          "frontCorr": 0.8663,
+          "nCells": 164424,
+          "nPairs": 52
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3906,
+          "upper": 0.4308,
+          "baselineToBeat": 0.3118
+        },
+        "gainPctBestCase": -25.27,
+        "beatsPersistence": false,
+        "verdict": "no",
+        "n": 52
+      },
+      {
+        "lead": 3,
+        "persistenceObs": {
+          "rmse": 0.3883,
+          "corr": 0.8698,
+          "frontCorr": 0.7122,
+          "nCells": 151776,
+          "nPairs": 48
+        },
+        "persistenceCop": {
+          "rmse": 0.478,
+          "corr": 0.8433,
+          "frontCorr": 0.5668,
+          "nCells": 151776,
+          "nPairs": 48
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3934,
+          "corr": 0.8893,
+          "frontCorr": 0.5886,
+          "nCells": 151776,
+          "nPairs": 48
+        },
+        "copernicusDrift": {
+          "rmse": 0.4116,
+          "corr": 0.8963,
+          "frontCorr": 0.8066,
+          "nCells": 151776,
+          "nPairs": 48
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3934,
+          "upper": 0.478,
+          "baselineToBeat": 0.3883
+        },
+        "gainPctBestCase": -1.31,
+        "beatsPersistence": false,
+        "verdict": "no",
+        "n": 48
+      },
+      {
+        "lead": 4,
+        "persistenceObs": {
+          "rmse": 0.4551,
+          "corr": 0.8356,
+          "frontCorr": 0.6739,
+          "nCells": 139128,
+          "nPairs": 44
+        },
+        "persistenceCop": {
+          "rmse": 0.5233,
+          "corr": 0.8186,
+          "frontCorr": 0.5556,
+          "nCells": 139128,
+          "nPairs": 44
+        },
+        "copernicusBestCase": {
+          "rmse": 0.393,
+          "corr": 0.8907,
+          "frontCorr": 0.5936,
+          "nCells": 139128,
+          "nPairs": 44
+        },
+        "copernicusDrift": {
+          "rmse": 0.4848,
+          "corr": 0.864,
+          "frontCorr": 0.761,
+          "nCells": 139128,
+          "nPairs": 44
+        },
+        "forecastErrorBracket": {
+          "lower": 0.393,
+          "upper": 0.5233,
+          "baselineToBeat": 0.4551
+        },
+        "gainPctBestCase": 13.65,
+        "beatsPersistence": false,
+        "verdict": "inconclusive",
+        "n": 44
+      },
+      {
+        "lead": 5,
+        "persistenceObs": {
+          "rmse": 0.507,
+          "corr": 0.8165,
+          "frontCorr": 0.6495,
+          "nCells": 126480,
+          "nPairs": 40
+        },
+        "persistenceCop": {
+          "rmse": 0.565,
+          "corr": 0.7985,
+          "frontCorr": 0.5439,
+          "nCells": 126480,
+          "nPairs": 40
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3921,
+          "corr": 0.8925,
+          "frontCorr": 0.5994,
+          "nCells": 126480,
+          "nPairs": 40
+        },
+        "copernicusDrift": {
+          "rmse": 0.54,
+          "corr": 0.8422,
+          "frontCorr": 0.7279,
+          "nCells": 126480,
+          "nPairs": 40
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3921,
+          "upper": 0.565,
+          "baselineToBeat": 0.507
+        },
+        "gainPctBestCase": 22.66,
+        "beatsPersistence": false,
+        "verdict": "inconclusive",
+        "n": 40
+      },
+      {
+        "lead": 6,
+        "persistenceObs": {
+          "rmse": 0.5475,
+          "corr": 0.8202,
+          "frontCorr": 0.6274,
+          "nCells": 113832,
+          "nPairs": 36
+        },
+        "persistenceCop": {
+          "rmse": 0.5965,
+          "corr": 0.7965,
+          "frontCorr": 0.534,
+          "nCells": 113832,
+          "nPairs": 36
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3938,
+          "corr": 0.8933,
+          "frontCorr": 0.6002,
+          "nCells": 113832,
+          "nPairs": 36
+        },
+        "copernicusDrift": {
+          "rmse": 0.5821,
+          "corr": 0.8371,
+          "frontCorr": 0.7045,
+          "nCells": 113832,
+          "nPairs": 36
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3938,
+          "upper": 0.5965,
+          "baselineToBeat": 0.5475
+        },
+        "gainPctBestCase": 28.07,
+        "beatsPersistence": false,
+        "verdict": "inconclusive",
+        "n": 36
+      },
+      {
+        "lead": 7,
+        "persistenceObs": {
+          "rmse": 0.5938,
+          "corr": 0.8152,
+          "frontCorr": 0.6039,
+          "nCells": 101184,
+          "nPairs": 32
+        },
+        "persistenceCop": {
+          "rmse": 0.6311,
+          "corr": 0.7953,
+          "frontCorr": 0.5225,
+          "nCells": 101184,
+          "nPairs": 32
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3954,
+          "corr": 0.8934,
+          "frontCorr": 0.5989,
+          "nCells": 101184,
+          "nPairs": 32
+        },
+        "copernicusDrift": {
+          "rmse": 0.6257,
+          "corr": 0.8358,
+          "frontCorr": 0.6879,
+          "nCells": 101184,
+          "nPairs": 32
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3954,
+          "upper": 0.6311,
+          "baselineToBeat": 0.5938
+        },
+        "gainPctBestCase": 33.41,
+        "beatsPersistence": false,
+        "verdict": "inconclusive",
+        "n": 32
+      },
+      {
+        "lead": 8,
+        "persistenceObs": {
+          "rmse": 0.6436,
+          "corr": 0.8045,
+          "frontCorr": 0.5796,
+          "nCells": 88536,
+          "nPairs": 28
+        },
+        "persistenceCop": {
+          "rmse": 0.6714,
+          "corr": 0.7925,
+          "frontCorr": 0.5106,
+          "nCells": 88536,
+          "nPairs": 28
+        },
+        "copernicusBestCase": {
+          "rmse": 0.3989,
+          "corr": 0.8915,
+          "frontCorr": 0.5999,
+          "nCells": 88536,
+          "nPairs": 28
+        },
+        "copernicusDrift": {
+          "rmse": 0.6768,
+          "corr": 0.8256,
+          "frontCorr": 0.6714,
+          "nCells": 88536,
+          "nPairs": 28
+        },
+        "forecastErrorBracket": {
+          "lower": 0.3989,
+          "upper": 0.6714,
+          "baselineToBeat": 0.6436
+        },
+        "gainPctBestCase": 38.02,
+        "beatsPersistence": false,
+        "verdict": "inconclusive",
+        "n": 28
+      },
+      {
+        "lead": 9,
+        "persistenceObs": {
+          "rmse": 0.6973,
+          "corr": 0.7964,
+          "frontCorr": 0.5608,
+          "nCells": 75888,
+          "nPairs": 24
+        },
+        "persistenceCop": {
+          "rmse": 0.7191,
+          "corr": 0.7885,
+          "frontCorr": 0.498,
+          "nCells": 75888,
+          "nPairs": 24
+        },
+        "copernicusBestCase": {
+          "rmse": 0.4018,
+          "corr": 0.892,
+          "frontCorr": 0.6017,
+          "nCells": 75888,
+          "nPairs": 24
+        },
+        "copernicusDrift": {
+          "rmse": 0.7316,
+          "corr": 0.8153,
+          "frontCorr": 0.6556,
+          "nCells": 75888,
+          "nPairs": 24
+        },
+        "forecastErrorBracket": {
+          "lower": 0.4018,
+          "upper": 0.7191,
+          "baselineToBeat": 0.6973
+        },
+        "gainPctBestCase": 42.38,
+        "beatsPersistence": false,
+        "verdict": "inconclusive",
+        "n": 24
+      }
+    ]
+  }
+}

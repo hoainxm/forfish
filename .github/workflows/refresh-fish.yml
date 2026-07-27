@@ -1,0 +1,38 @@
+# Precompute dự báo cá — gọi /api/cron/refresh-fish theo lịch để nó tính bản đồ
+# cá rồi ghi snapshot Supabase. GitHub cron là "best-effort" (có thể trễ 5–30′
+# hoặc bỏ run lúc tải cao) → route vẫn có fallback tự tính nên trễ/bỏ không sao.
+#
+# CẦN CẤU HÌNH (Settings → Secrets and variables → Actions):
+#   · Variable  APP_BASE_URL  = URL production, vd https://<app>.vercel.app
+#   · Secret    CRON_SECRET   = TRÙNG với env CRON_SECRET đặt trên Vercel
+name: refresh-fish-forecast
+
+on:
+  schedule:
+    # 00:20 · 06:20 · 12:20 · 18:20 UTC — lệch phút :00 cho đỡ bị GitHub dồn/bỏ
+    - cron: "20 */6 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: refresh-fish
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gọi cron precompute
+        env:
+          BASE_URL: ${{ vars.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Thiếu vars.APP_BASE_URL hoặc secrets.CRON_SECRET"; exit 1
+          fi
+          # bỏ dấu "/" thừa ở cuối APP_BASE_URL → tránh URL //api/... bị 308 redirect
+          BASE_URL="${BASE_URL%/}"
+          code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$BASE_URL/api/cron/refresh-fish")
+          echo "HTTP $code"; cat resp.json; echo
+          test "$code" = "200"

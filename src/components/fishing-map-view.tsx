@@ -27,13 +27,19 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import {
   buildMapStyle,
-  formatDateVN,
-  latestAvailableDate,
   DEFAULT_VIEW,
   OCEAN_LAYERS,
   SOVEREIGNTY_LABELS,
   type OceanLayerId,
 } from "@/lib/ocean-map";
+import {
+  COAST_DATA_URL,
+  OFFLINE_COAST_COLOR,
+  OFFLINE_LAND_COLOR,
+  nextFailCount,
+  offlineBasemapNote,
+  shouldUseOfflineBasemap,
+} from "@/lib/offline-basemap";
 import { type SeaLevel } from "@/lib/sea";
 import {
   loadPlaces,
@@ -49,6 +55,9 @@ import {
   timeLabelVN,
   WIND_COLOR_EXPR,
   WAVE_COLOR_EXPR,
+  GRID_DAY_OPTIONS,
+  savedGridDays,
+  type GridDays,
   type ForecastGrid,
   type ForecastKind,
 } from "@/lib/forecast-grid";
@@ -59,9 +68,12 @@ import {
   type FishForecast,
   type FishCell,
 } from "@/lib/fish-predict";
+import { lowQualityNote } from "@/lib/source-registry";
 import { moonPhase } from "@/lib/moon";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
-import { useAuthUser } from "@/lib/use-auth";
+import { FREE_FORECAST_DAYS } from "@/lib/tier";
+import { useFeatureAccess } from "@/lib/use-tier";
+import { PremiumLock } from "@/components/premium-gate";
+import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import {
   fetchSeaScalar,
   SEA_SCALARS,
@@ -74,11 +86,21 @@ import {
   type PlannedRoute,
 } from "@/components/route-planner";
 import { borderGeoJSON } from "@/data/vn-maritime-border";
+import { vungLongGeoJSON } from "@/data/vn-fishing-zones";
 import { borderProximity, haversineKm, type BorderLevel } from "@/lib/geofence";
 import { fetchDepthGrid, depthClassAt, type DepthClass } from "@/lib/depth-grid";
 import { weatherFromCode } from "@/lib/weather-codes";
 import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
-import { fetchStormCheck, type StormAlert } from "@/lib/storms";
+import { stormStatus } from "@/lib/storms";
+import { useStormCheck } from "@/lib/use-storm-check";
+import {
+  chipLabel,
+  clockVN,
+  dayLabel,
+  daysBetweenISO,
+  isoDateVN,
+  isPastDay,
+} from "@/lib/day-labels";
 import {
   beaufort,
   fetchSeaPoint,
@@ -88,15 +110,25 @@ import {
   type SeaPoint,
   type SeaPointConditions,
 } from "@/lib/marine-weather";
+import type { PretripPoint } from "@/lib/pretrip";
+import { skillForLead } from "@/lib/forecast-quality";
+import { FORECAST_SKILL } from "@/lib/forecast-skill";
+import { savedAgoLabel } from "@/lib/forecast-cache";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
 import { RaKhoiControls } from "@/components/ra-khoi-controls";
 import { StormBanner } from "@/components/storm-banner";
+import {
+  NOTIFY_HIDE_MS,
+  PretripAutoNotify,
+  PretripSavedStatus,
+} from "@/components/pretrip-auto-notify";
 import {
   AlertIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   FishIcon,
   HomeIcon,
+  LockIcon,
   MoonIcon,
   PauseIcon,
   PinIcon,
@@ -107,33 +139,8 @@ import {
   WindIcon,
 } from "@/components/icons";
 
-const WEEKDAYS = [
-  "Chủ nhật",
-  "Thứ hai",
-  "Thứ ba",
-  "Thứ tư",
-  "Thứ năm",
-  "Thứ sáu",
-  "Thứ bảy",
-];
-
-function dayLabel(isoDate: string, index: number): string {
-  if (index === 0) return "Hôm nay";
-  if (index === 1) return "Ngày mai";
-  // T12:00Z giữ nguyên ngày lịch khi đọc bằng getUTCDay
-  const d = new Date(`${isoDate}T12:00:00Z`);
-  return `${WEEKDAYS[d.getUTCDay()]} ${formatDateVN(isoDate)}`;
-}
-
-const WEEKDAYS_SHORT = ["CN", "Th 2", "Th 3", "Th 4", "Th 5", "Th 6", "Th 7"];
-
-/** Nhãn ngắn cho chip chọn ngày */
-function chipLabel(isoDate: string, index: number): string {
-  if (index === 0) return "Hôm nay";
-  if (index === 1) return "Ngày mai";
-  const d = new Date(`${isoDate}T12:00:00Z`);
-  return `${WEEKDAYS_SHORT[d.getUTCDay()]} ${formatDateVN(isoDate)}`;
-}
+/* Nhãn ngày ("Hôm nay" / "Ngày mai" / ngày thật) nằm ở lib/day-labels.ts —
+   so NGÀY THẬT chứ không so vị trí mảng, để bản lưu trong máy không nói dối. */
 
 /** Hướng đi từ điểm 1 tới điểm 2 (độ) — để nói "hướng Đông Nam" */
 function bearingDeg(
@@ -171,6 +178,8 @@ const THIS_MONTH = new Date().getMonth() + 1;
 
 // Ranh giới biển VN không đổi → tạo GeoJSON một lần ở cấp module.
 const BORDER_DATA = borderGeoJSON();
+// Ranh giới vùng lộng (NĐ 26/2019) — tĩnh, tạo một lần.
+const VUNG_LONG_DATA = vungLongGeoJSON();
 
 // màu cảnh báo theo mức gần ranh giới
 const BORDER_LEVEL_STYLE: Record<BorderLevel, { bg: string; fg: string }> = {
@@ -187,6 +196,16 @@ const DEPTH_NOTE: Partial<Record<DepthClass, { text: string; danger: boolean }>>
 };
 
 const MAP_LAYER_KEY = "forfish.maplayer.v1";
+
+/**
+ * Số ngày mà "chỗ cá ít đổi" là câu ĐÃ ĐO ĐƯỢC, không phải câu nói cho vui.
+ * scripts/fish-3day-probe.mjs dựng bản đồ cá cho D+1..D+3 bằng neo vệ tinh +
+ * xu hướng nhiệt Copernicus (α cross-validated, src/data/copernicus-tendency-skill.json)
+ * rồi so với bản hôm nay: chỉ 0,5–1,6 % số ô đổi trạng thái điểm nóng, Jaccard
+ * 0,93–0,98 trên cả 3 mùa đã thử ⇒ lớp cá GIỮ MỘT BẢN, không tách theo ngày.
+ * Xa hơn mốc này thì chưa đo ⇒ UI phải đổi giọng (xem chỗ dùng hằng số này).
+ */
+const FISH_STABLE_DAYS = 3;
 
 // Màu lớp cá → ramp heatmap. NỘI DUNG dữ liệu bản đồ (khớp màu loài), không
 // phải token UI — ngoại lệ cho phép theo design-system §5.
@@ -240,6 +259,13 @@ function initialLayerId(): OceanLayerId {
   return "bathymetry";
 }
 
+/** 4 nhãn mốc cho thanh thời gian theo khung ngày đang chọn (Bây giờ → N ngày) */
+function gridTickLabels(days: number): string[] {
+  const q1 = Math.max(1, Math.round(days / 3));
+  const q2 = Math.max(q1 + 1, Math.round((2 * days) / 3));
+  return ["Bây giờ", `${q1} ngày`, `${q2} ngày`, `${days} ngày`];
+}
+
 export default function FishingMapView() {
   const mapRef = useRef<MapRef>(null);
   const [layerId, setLayerIdState] = useState<OceanLayerId>(initialLayerId);
@@ -253,6 +279,8 @@ export default function FishingMapView() {
   }, []);
   const [seamarksOn, setSeamarksOn] = useState(true);
   const [fishOn, setFishOn] = useState(true);
+  // ranh giới vùng lộng (NĐ 26/2019) — bật mặc định, tắt được ở panel lớp
+  const [vungLongOn, setVungLongOn] = useState(true);
 
   // ── lớp số liệu biển (nước dâng/xoáy, độ mặn) — tải khi chọn, nhớ cache ──
   const [scalarKind, setScalarKind] = useState<SeaScalarKind | null>(null);
@@ -299,12 +327,15 @@ export default function FishingMapView() {
   }, [activeScalar]);
 
   // ── DỰ BÁO CÁ (PFZ) — tính từ ảnh vệ tinh mới nhất, tải 1 lần ───────────
-  // Phân quyền kiểu TEASER (user chốt 2026-06-11): lớp cá (heatmap + điểm nóng)
-  // HIỆN cho mọi người để thu hút; xem CHI TIẾT một điểm mới cần đăng nhập.
-  // fishLocked = đã cấu hình Supabase + CHƯA đăng nhập (đang kiểm tra coi như
-  // chưa khóa để khỏi nháy). Demo mode (chưa cấu hình) = mở hết.
-  const { user, ready: authReady } = useAuthUser();
-  const fishLocked = isSupabaseConfigured() && authReady && !user;
+  // Phân hạng PREMIUM (chủ dự án chốt 2026-07-26, THAY mô hình teaser 06-11):
+  // dự báo cá + thời tiết quá 3 ngày KHOÁ HẲN với người chưa đăng nhập
+  // ("login") và tài khoản thường ("upgrade" — gọi SDVICO nâng cấp). Demo mode
+  // (chưa cấu hình Supabase) = mở hết; "checking" coi như chưa khoá để khỏi
+  // nháy nhưng lớp cá chỉ TẢI khi chắc chắn "open". Chốt thật ở middleware.
+  const { access: premiumAccess } = useFeatureAccess();
+  const premiumLocked =
+    premiumAccess === "login" || premiumAccess === "upgrade";
+  const fishLocked = premiumLocked;
 
   const [fishCast, setFishCast] = useState<FishForecast | null>(null);
   // loài đang lọc trên bản đồ (null = loài tốt nhất mỗi ô)
@@ -312,19 +343,39 @@ export default function FishingMapView() {
   // lỗi tải dự báo cá phải LÊN TIẾNG — không để nút Cá lặng lẽ biến mất
   // còn người dùng tưởng "hôm nay không có cá"
   const [fishFailed, setFishFailed] = useState(false);
+  /* Bản đồ cá dựng từ ảnh CŨ / thiếu nguồn thì phải nói MỘT DÒNG rồi tự tắt —
+     không badge thường trực (màn hình phải gọn), nhưng cũng không im lặng hứa
+     độ chính xác mà nguồn không đảm bảo. Luật + chữ ở lib/source-registry.ts. */
+  const [fishQualityNote, setFishQualityNote] = useState<string | null>(null);
   const loadFish = useCallback(() => {
     setFishFailed(false);
     fetchFishForecast()
       .then((r) => {
-        if (r.ok) setFishCast(r);
-        else setFishFailed(true);
+        if (r.ok) {
+          setFishCast(r);
+          setFishQualityNote(lowQualityNote(r));
+        } else setFishFailed(true);
       })
       .catch(() => setFishFailed(true));
   }, []);
-  // lớp cá tải cho MỌI người (teaser); chi tiết mới gate
+  // nói xong thì tắt, cùng nhịp với các dòng nổi khác trên bản đồ
   useEffect(() => {
-    loadFish();
-  }, [loadFish]);
+    if (!fishQualityNote) return;
+    const t = setTimeout(() => setFishQualityNote(null), NOTIFY_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [fishQualityNote]);
+  // lớp cá CHỈ tải khi chắc chắn được xem ("open" = premium/demo) — người bị
+  // khoá không gọi API (middleware cũng sẽ chặn 401/403); đăng xuất / tụt hạng
+  // giữa chừng thì dọn dữ liệu đã tải cho khỏi lộ qua heatmap cũ.
+  useEffect(() => {
+    if (premiumAccess === "open") loadFish();
+  }, [premiumAccess, loadFish]);
+  useEffect(() => {
+    if (premiumLocked) {
+      setFishCast(null);
+      setFishFailed(false);
+    }
+  }, [premiumLocked]);
   const [size, setSize] = useState<SheetSize>("peek");
 
   // ── dự báo vẽ động kiểu Windy: lớp gió/sóng + thanh thời gian ───────────
@@ -333,18 +384,45 @@ export default function FishingMapView() {
   const [gridFailed, setGridFailed] = useState(false);
   const [timeIdx, setTimeIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
-
-  // tải lưới dự báo MỘT lần, khi người dùng bật lớp dự báo lần đầu
+  // khung ngày lớp vẽ động (3/5/7/10/16) — bà con tự chọn tầm xa/gần
+  const [gridDays, setGridDays] = useState<GridDays>(3);
+  // chạm khung ngày bị khoá (premium) → nói lý do một dòng ngay dưới hàng nút
+  const [dayLockNote, setDayLockNote] = useState(false);
+  // Khung ngày THẬT SỰ đang có bản lưu trong máy — chỉ đọc khi tải hỏng, để nói
+  // thật ("máy chưa lưu khung 16 ngày, đang có 3 và 7") thay vì đưa lưới khung khác.
+  const [savedDays, setSavedDays] = useState<number[]>([]);
   useEffect(() => {
-    if (!forecastKind || fGrid || gridFailed) return;
+    if (!gridFailed) return;
+    // người bị khoá premium không được mời sang khung >3 ngày đã lưu trong máy
+    setSavedDays(
+      savedGridDays()
+        .filter((d) => d !== gridDays)
+        .filter((d) => !premiumLocked || d <= FREE_FORECAST_DAYS),
+    );
+  }, [gridFailed, gridDays, premiumLocked]);
+
+  // khung >3 ngày là premium — đang xem khung xa mà hạng tụt (đăng xuất…) thì
+  // kéo về 3 ngày, khớp với thẻ khoá trên nút chọn khung
+  useEffect(() => {
+    if (premiumLocked && gridDays > FREE_FORECAST_DAYS) {
+      setPlaying(false);
+      setTimeIdx(0);
+      setGridDays(3);
+    }
+  }, [premiumLocked, gridDays]);
+
+  // tải lưới dự báo khi bật lớp lần đầu, hoặc khi ĐỔI khung ngày (tải lại cho tầm mới)
+  useEffect(() => {
+    if (!forecastKind || gridFailed) return;
     let alive = true;
-    fetchForecastGrid()
+    setFGrid(null); // hiện "đang tải" khi đổi khung; timeIdx kẹp lại ở render
+    fetchForecastGrid(gridDays)
       .then((g) => alive && setFGrid(g))
       .catch(() => alive && setGridFailed(true));
     return () => {
       alive = false;
     };
-  }, [forecastKind, fGrid, gridFailed]);
+  }, [forecastKind, gridFailed, gridDays]);
 
   // nút chạy ▶ — tự trượt thời gian như Windy
   useEffect(() => {
@@ -365,15 +443,14 @@ export default function FishingMapView() {
   );
 
   // Lọc theo KHOẢNG khả năng có cá (kéo-thả 2 đầu ở legend): chỉ hiện ô trong
-  // [lo,hi]%. Sàn 35 vẫn giữ (dưới mức này heatmap không vẽ). user chốt:
-  // "chỉ muốn hiện đoạn nhiều cá 60-80%".
-  const [fishRange, setFishRange] = useState<[number, number]>([35, 100]);
+  // [lo,hi]%. Sàn 50 (user 2026-07-25: dưới 50 làm nhiễu — trước là 35).
+  const [fishRange, setFishRange] = useState<[number, number]>([50, 100]);
 
   // ô dự báo cá → ĐIỂM cho lớp heatmap (vùng mềm xanh lá kiểu PFZ chuẩn,
   // như OceanFishMap — không còn ô vuông); lọc theo loài + khoảng đã chọn
   const fishCellsGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
     if (!fishOn || !fishCast) return null;
-    const lo = Math.max(35, fishRange[0]);
+    const lo = Math.max(50, fishRange[0]);
     const hi = fishRange[1];
     const features: GeoJSON.Feature[] = [];
     for (const c of fishCast.cells) {
@@ -504,7 +581,33 @@ export default function FishingMapView() {
   const [retry, setRetry] = useState(0);
   const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState(false);
-  const [storms, setStorms] = useState<StormAlert[]>([]);
+  // ĐỒNG HỒ của màn hình — nhích 5 phút một lần. Chuyến biển dài, app mở suốt:
+  // không có nhịp này thì "Hôm nay" và tuổi tin bão đứng yên ở lúc mở app.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  /** Ngày HÔM NAY thật (giờ VN) — mọi nhãn ngày so với cái này, không so vị trí */
+  const todayIso = useMemo(() => isoDateVN(nowMs), [nowMs]);
+
+  // Giữ NGUYÊN VẸN câu trả lời của nguồn (kể cả ok:false) — mảng rỗng không
+  // được dùng chung cho "không có bão" và "chưa hỏi được" (an toàn tính mạng).
+  // Hỏi tin bão + TỰ THỬ LẠI (có sóng lại / mở lại app / định kỳ / hỏng thì
+  // thử nhanh). KHÔNG được gọi một lần rồi thôi — xem lib/use-storm-check.ts.
+  const { check: stormCheck } = useStormCheck();
+  const stormInfo = useMemo(
+    () => stormStatus(stormCheck, nowMs),
+    [stormCheck, nowMs],
+  );
+  const storms = useMemo(
+    () => (stormInfo.kind === "co-bao" ? stormInfo.storms : []),
+    [stormInfo],
+  );
+  const stormTimeLabel =
+    stormInfo.kind === "co-bao" && stormInfo.checkedAt != null
+      ? `Tin lúc ${clockVN(stormInfo.checkedAt)}`
+      : "Chưa rõ tin lúc nào";
   // Geometry bão → GeoJSON: vùng ảnh hưởng (polygon) + đường đi (track) để vẽ
   // đè bản đồ kiểu app thời tiết chuyên nghiệp (nguồn GDACS đã có sẵn).
   const stormGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
@@ -533,6 +636,60 @@ export default function FishingMapView() {
   const [route, setRoute] = useState<PlannedRoute | null>(null);
   // hạng độ sâu tại điểm đang xem (null = chưa biết/không cảnh báo)
   const [depth, setDepth] = useState<DepthClass | null>(null);
+
+  /* ── MẤT SÓNG: nền tối giản trong máy ───────────────────────────────────
+     Ô bản đồ nền lấy từ host ngoài nên mất sóng là nền trắng — bà con có số
+     gió sóng mà không thấy bờ, không thấy đảo. Đếm ô nền tải trượt + nghe
+     máy báo mất mạng để bật hình bờ biển lưu trong máy (lib/offline-basemap). */
+  const [netOnline, setNetOnline] = useState(true);
+  const [basemapFails, setBasemapFails] = useState(0);
+  useEffect(() => {
+    const sync = () => setNetOnline(navigator.onLine);
+    sync();
+    // có sóng lại thì cho nền thật một cơ hội mới (xoá số ô trượt cũ)
+    const back = () => {
+      setNetOnline(true);
+      setBasemapFails(0);
+    };
+    window.addEventListener("online", back);
+    window.addEventListener("offline", sync);
+    return () => {
+      window.removeEventListener("online", back);
+      window.removeEventListener("offline", sync);
+    };
+  }, []);
+  const basemapHealth = { online: netOnline, fails: basemapFails };
+  const offlineBase = shouldUseOfflineBasemap(basemapHealth);
+  const offlineNote = offlineBasemapNote(basemapHealth);
+  /* Nhắc "mất sóng" HIỆN RỒI TỰ TẮT như dòng "Đã lưu dự báo tới ngày…" — thẻ
+     vàng 2 dòng nằm lì trước đây làm rối bản đồ. Effect chỉ chạy lại khi CÂU
+     ĐỔI, nên vẫn đang mất sóng thì không báo đi báo lại; có sóng lại rồi mất
+     tiếp thì câu quay về từ null → báo một lần nữa. */
+  const [offlineNoteOn, setOfflineNoteOn] = useState(false);
+  useEffect(() => {
+    if (!offlineNote) {
+      setOfflineNoteOn(false);
+      return;
+    }
+    setOfflineNoteOn(true);
+    const t = setTimeout(() => setOfflineNoteOn(false), NOTIFY_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [offlineNote]);
+  /** Hình bờ + đảo: chỉ nạp khi CẦN (mất sóng), không tốn dữ liệu lúc bình thường */
+  const [coastData, setCoastData] = useState<GeoJSON.FeatureCollection | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!offlineBase || coastData) return;
+    let alive = true;
+    fetch(COAST_DATA_URL)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => alive && j && setCoastData(j as GeoJSON.FeatureCollection))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [offlineBase, coastData]);
 
   /** Bay tới điểm, dồn tâm lên nửa trên màn hình để sheet không che */
   const flyToPoint = useCallback((lon: number, lat: number, zoom?: number) => {
@@ -592,15 +749,6 @@ export default function FishingMapView() {
     );
   }, []);
 
-  // tâm bão (nếu có) vẽ thẳng lên bản đồ
-  useEffect(() => {
-    let alive = true;
-    fetchStormCheck().then((c) => alive && c.ok && setStorms(c.storms));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
   // độ sâu tại điểm đang xem — lưới tĩnh, đọc cục bộ
   useEffect(() => {
     let alive = true;
@@ -612,8 +760,6 @@ export default function FishingMapView() {
     };
   }, [point]);
 
-  const layer = OCEAN_LAYERS[layerId];
-  const dataDate = latestAvailableDate(new Date(), layer.lagDays);
   const mapStyle = useMemo(
     () =>
       buildMapStyle(layerId, new Date(), {
@@ -670,10 +816,43 @@ export default function FishingMapView() {
   ]);
 
   const today = cond?.days[0] ?? null;
-  // ngày đang chọn để xem dự báo (kẹp lại nếu nguồn trả ít ngày hơn)
-  const sel =
-    cond?.days[Math.min(dayIdx, (cond?.days.length ?? 1) - 1)] ?? null;
-  const confidence = forecastConfidence(dayIdx);
+  // Bản lưu trong máy giữ nguyên dãy ngày CŨ → có ngày đã trôi qua. Bỏ qua các
+  // ngày đã qua khi chọn, và nếu qua hết thì coi như không còn số nào dùng được.
+  const days = cond?.days ?? [];
+  const firstUsableIdx = days.findIndex((d) => !isPastDay(d.date, todayIso));
+  const allPast = days.length > 0 && firstUsableIdx === -1;
+  // PREMIUM: ngày cách hôm nay ≥3 (ngày thứ 4 trở đi) khoá với người chưa
+  // premium — đo theo NGÀY THẬT (daysBetweenISO), không theo vị trí mảng
+  // (bản lưu offline có thể chứa ngày đã qua).
+  const dayChipLocked = (dateIso: string) =>
+    premiumLocked &&
+    daysBetweenISO(todayIso, dateIso) >= FREE_FORECAST_DAYS;
+  const rawSelIdx = allPast
+    ? -1
+    : Math.min(Math.max(dayIdx, Math.max(firstUsableIdx, 0)), days.length - 1);
+  // đang đứng ở ngày bị khoá (vừa đăng xuất / bản lưu cũ) → lùi về ngày còn mở
+  const selIdx =
+    rawSelIdx >= 0 && days[rawSelIdx] && dayChipLocked(days[rawSelIdx].date)
+      ? (() => {
+          for (let i = rawSelIdx; i >= 0; i--) {
+            if (!dayChipLocked(days[i].date) && !isPastDay(days[i].date, todayIso))
+              return i;
+          }
+          return Math.max(firstUsableIdx, 0);
+        })()
+      : rawSelIdx;
+  const sel = selIdx >= 0 ? (days[selIdx] ?? null) : null;
+  // TẦM NGÀY THẬT: đếm từ hôm nay tới ngày đang xem, KHÔNG lấy vị trí trong
+  // mảng — bản lưu 5 ngày trước mà tính theo vị trí thì ngày xa vẫn được gắn
+  // nhãn "khá sát" (sai theo hướng lạc quan, đúng chỗ nguy hiểm nhất).
+  const daysAhead = sel ? Math.max(0, daysBetweenISO(todayIso, sel.date)) : 0;
+  // độ tin nói thật: nhãn theo tầm ngày, hạ thêm nếu backtest đo được sai số
+  // lớn ở tầm ngày này (skill từ src/data/forecast-skill.json, không gọi mạng)
+  const skillConf =
+    skillForLead(FORECAST_SKILL, daysAhead + 1)?.confidence ?? null;
+  const confidence = forecastConfidence(daysAhead, skillConf);
+  /** Số đo "lúc này" trong bản lưu là số ĐÔNG CỨNG lúc lưu — chỉ nói thật giờ đo */
+  const isToday = sel?.date === todayIso;
   const prox = borderProximity(point.lat, point.lon);
   const depthNote = depth != null ? DEPTH_NOTE[depth] : undefined;
   // tuần trăng đêm nay — quyết với nghề đèn (mực, cá cơm); tính offline
@@ -715,8 +894,10 @@ export default function FishingMapView() {
   }, [fishCast, point]);
 
   // tóm tắt điều kiện — con số nói chuyện, không phán đi/ở
+  // Số "lúc này" chỉ được nói khi đúng là hôm nay VÀ là số vừa lấy về; bản lưu
+  // trong máy thì phải nói theo cả ngày (số "lúc này" đã đông cứng từ lúc lưu).
   const condSummary = sel
-    ? dayIdx === 0 && cond
+    ? isToday && cond && !cond.stale && cond.windKmh != null
       ? `Sóng ${cond.waveM != null ? `${formatNumberVN(cond.waveM)} m` : "—"} · Gió cấp ${beaufort(cond.windKmh)}${
           cond.windDirDeg != null ? ` ${windDirectionVN(cond.windDirDeg)}` : ""
         }`
@@ -737,6 +918,20 @@ export default function FishingMapView() {
           return `Cách ${home.name} ~${fmtDist(km, prefs.distUnit)} hướng ${dir}`;
         })()
       : "Chỗ đang xem trên biển";
+
+  // TẢI SẴN TRƯỚC KHI RỜI BỜ: các chỗ tải sẵn = chỗ đang xem + mọi điểm đã ghim
+  // (cảng nhà nằm trong đó). Không tự bịa thêm chỗ — chỉ nơi bà con đã đánh dấu.
+  const pretripPoints = useMemo<PretripPoint[]>(
+    () => [
+      { lat: point.lat, lon: point.lon, name: currentPlace?.name ?? "Chỗ đang xem" },
+      ...places.map((p) => ({
+        lat: p.lat,
+        lon: p.lon,
+        name: p.kind === "home" ? `Cảng nhà — ${p.name}` : p.name,
+      })),
+    ],
+    [point, places, currentPlace],
+  );
 
   // kết quả đo 2 điểm (đường chim bay) — định dạng theo đơn vị đang chọn
   const measureResult =
@@ -773,6 +968,22 @@ export default function FishingMapView() {
         // biển VN nhưng tự do di chuyển/zoom đi nơi khác)
         minZoom={2}
         style={{ width: "100%", height: "100%" }}
+        // Ô nền không về (mất sóng / wifi cảng "có mà không ra") → đếm để bật
+        // hình bờ biển lưu trong máy. Chỉ tính ô của lớp NỀN, không tính lớp
+        // ảnh vệ tinh (ảnh thiếu ô là chuyện thường, mây che cũng trống).
+        onError={(e) => {
+          const src = (e as unknown as { sourceId?: string }).sourceId;
+          if (src === "basemap") setBasemapFails((n) => nextFailCount(n, false));
+        }}
+        // Có Ô NỀN VỀ THẬT (`tile` có mặt = một ô vừa tải xong) → đường đã
+        // thông, xoá số ô trượt. KHÔNG dùng cờ "source đã tải xong": ô lỗi
+        // cũng làm cờ đó bật, sẽ xoá nhầm ngay sau khi vừa đếm lỗi.
+        onSourceData={(e) => {
+          const d = e as unknown as { sourceId?: string; tile?: unknown };
+          if (d.sourceId === "basemap" && d.tile) {
+            setBasemapFails((n) => nextFailCount(n, true));
+          }
+        }}
         onClick={(e) => {
           // đổi điểm xem — tuyến cũ GIỮ NGUYÊN trên bản đồ (hội đồng UX
           // 2026-06-11: tuyến tính mất 10s, không tự ý vứt vì một cú chạm
@@ -796,6 +1007,50 @@ export default function FishingMapView() {
           flyToPoint(lon, lat);
         }}
       >
+        {/* NỀN TỐI GIẢN KHI MẤT SÓNG — hình bờ + đảo lưu trong máy. Đặt Ở ĐẦU
+            danh sách để nằm DƯỚI mọi lớp khác (ranh giới, cá, mũi tên gió).
+            Có mạng thì KHÔNG vẽ (nền thật đủ tốt, vẽ chồng chỉ gây rối). */}
+        {offlineBase && coastData && (
+          <Source id="offline-coast" type="geojson" data={coastData}>
+            <Layer
+              id="offline-coast-fill"
+              type="fill"
+              paint={{ "fill-color": OFFLINE_LAND_COLOR }}
+            />
+            <Layer
+              id="offline-coast-line"
+              type="line"
+              paint={{
+                "line-color": OFFLINE_COAST_COLOR,
+                "line-width": 1,
+              }}
+            />
+          </Source>
+        )}
+
+        {/* ranh giới VÙNG LỘNG (NĐ 26/2019, cho tàu 12–<15m) — THAM KHẢO, dữ
+            liệu SDVico. Vẽ TRƯỚC ranh giới ngoài để cam-đỏ IUU luôn nổi trên.
+            Màu teal + nét đứt, tách hẳn cam-đỏ độc quyền của ranh giới ngoài. */}
+        {vungLongOn && (
+          <Source id="vung-long" type="geojson" data={VUNG_LONG_DATA}>
+            <Layer
+              id="vung-long-fill"
+              type="fill"
+              paint={{ "fill-color": "#0d9488", "fill-opacity": 0.06 }}
+            />
+            <Layer
+              id="vung-long-line"
+              type="line"
+              paint={{
+                "line-color": "#0d9488",
+                "line-width": 1.75,
+                "line-dasharray": [3, 2],
+                "line-opacity": 0.9,
+              }}
+            />
+          </Source>
+        )}
+
         {/* đường ranh giới biển VN — cảnh báo vượt vùng (chống IUU).
             Cam đỏ là MÀU ĐỘC QUYỀN của ranh giới trên bản đồ này. */}
         <Source id="vn-border" type="geojson" data={BORDER_DATA}>
@@ -966,8 +1221,18 @@ export default function FishingMapView() {
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md ring-2 ring-danger">
                 <AlertIcon className="h-6 w-6" />
               </span>
-              <span className="mt-0.5 rounded bg-white/90 px-1.5 text-[0.6875rem] font-bold leading-tight">
+              <span className="mt-0.5 rounded bg-white/90 px-1.5 text-center text-[0.6875rem] font-bold leading-tight">
                 {s.kindLabel} {s.name}
+                {/* giờ của bản tin — vẽ từ bản lưu thì tâm bão có thể đã đi xa */}
+                <span
+                  className={`block font-bold ${
+                    stormInfo.kind === "co-bao" && stormInfo.cu
+                      ? "text-warn"
+                      : "text-navy/70"
+                  }`}
+                >
+                  {stormTimeLabel}
+                </span>
               </span>
             </div>
           </Marker>
@@ -1103,9 +1368,15 @@ export default function FishingMapView() {
         aria-hidden={size !== "peek"}
       >
         <StormBanner variant="overlay" />
+        {/* TẢI SẴN DỰ BÁO: tự chạy khi vào trang (không còn nút bấm), báo một
+            dòng nhỏ rồi tự tắt — xem components/pretrip-auto-notify.tsx */}
+        <PretripAutoNotify points={pretripPoints} />
         {/* ĐIỀU KHIỂN LỚP — rail phải + 4 panel (Phương án A); trong luồng dưới
             banner bão nên không đè/lệch */}
         <RaKhoiControls
+          onLocateMe={goToMyBoat}
+          locating={locating}
+          geoError={geoError}
           layerId={layerId}
           onLayer={setLayerId}
           scalarKind={scalarKind}
@@ -1119,17 +1390,18 @@ export default function FishingMapView() {
             if (k == null) setPlaying(false);
             else setGridFailed(false);
           }}
+          vungLongOn={vungLongOn}
+          onVungLong={setVungLongOn}
           fishOn={fishOn}
           onFish={setFishOn}
           fishSpecies={fishSpecies}
-          fishLocked={fishLocked}
+          fishAccess={premiumAccess}
           species={fishCast?.species ?? []}
           regionShorts={regionShorts}
           onPickSpecies={setFishSpecies}
           fishRange={fishRange}
           onRange={setFishRange}
-          storms={storms}
-          dataDate={dataDate}
+          stormInfo={stormInfo}
           showPlaces={showPlaces}
           onShowPlaces={setShowPlaces}
           places={places}
@@ -1146,21 +1418,38 @@ export default function FishingMapView() {
           onClearMeasure={() => setMeasurePts([])}
         />
 
-        {/* (cũ) nút "Cá" GỌN — thay hàng chip ngang (chắn bản đồ). Chỉ rộng bằng nội
-            dung, chạm là mở bảng chọn loài. Hiện loài đang chọn + chấm màu.
-            ẨN khi đang xem gió/sóng — bớt tầng đè map (roadmap hội đồng UX). */}
-        {/* dự báo cá lỗi → nói thẳng + Thử lại (không phải "hôm nay không có cá") */}
-        {!forecastKind && fishOn && !fishCast && fishFailed && (
-          <button
-            type="button"
-            onClick={loadFish}
-            className="pointer-events-auto inline-flex min-h-[3rem] items-center gap-2 self-start rounded-full bg-card/95 px-4 shadow-md transition active:scale-95"
+        {/* KHÔNG có badge tuổi lớp cá (bỏ 2026-07-25 theo quyết định sản phẩm:
+            màn hình bị rối vì quá nhiều chữ thường trực). Bản đồ cá vẫn tự lấy
+            bản mới khi có sóng. */}
+
+        {/* dự báo cá lỗi ("chưa tải được — chạm thử lại") ĐÃ DỜI xuống slot
+            `above` của sheet, xếp NGAY TRÊN nhãn "đã lưu dự báo…" cho khỏi trôi
+            nổi góc trái bản đồ (user 2026-07-26) */}
+
+        {/* SỐ BIỂN CŨ / THIẾU NGUỒN → một dòng rồi tự tắt (5s). Chỉ hiện trong
+            ca xấu: ảnh SST/phù du quá tuổi, hoặc chất lượng dữ liệu < 0,5 —
+            xem lib/source-registry.ts (lowQualityNote). */}
+        {fishOn && fishQualityNote && (
+          <p
+            role="status"
+            className="pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-bold leading-snug text-warn shadow-md"
           >
-            <FishIcon className="h-5 w-5 shrink-0 text-danger" aria-hidden />
-            <span className="text-[0.875rem] font-bold text-danger">
-              Dự báo cá chưa tải được — chạm để thử lại
-            </span>
-          </button>
+            <AlertIcon className="h-4 w-4 shrink-0" />
+            {fishQualityNote}
+          </p>
+        )}
+
+        {/* MẤT SÓNG → nói MỘT DÒNG rồi tự tắt (cùng kiểu chip với dòng "Đã lưu
+            dự báo…" và banner bão): đủ để bà con biết nền là hình lưu trong
+            máy, không phải app hỏng — rồi trả lại bản đồ, không nằm lì. */}
+        {offlineNote && offlineNoteOn && (
+          <p
+            role="status"
+            className="pointer-events-none mx-auto flex w-fit max-w-[92%] items-center gap-1.5 rounded-full bg-warn-bg px-3 py-1.5 text-[0.875rem] font-bold leading-snug text-warn shadow-md"
+          >
+            <AlertIcon className="h-4 w-4 shrink-0" />
+            {offlineNote}
+          </p>
         )}
 
       </div>
@@ -1170,26 +1459,58 @@ export default function FishingMapView() {
         size={size}
         onSizeChange={setSize}
         above={
-          // thanh giờ gió/sóng XUỐNG ĐÁY kiểu Windy — tay với tới, không
-          // chồng 4 tầng trên đầu bản đồ (roadmap hội đồng UX 2026-06-11)
-          forecastKind ? (
-            <div className="pointer-events-auto surface px-3 py-2 shadow-md">
+          forecastKind || size === "peek" ? (
+            <div className="flex flex-col gap-2">
+              {/* Nhãn nhỏ "trong máy đã có dự báo tới đâu" — liếc là biết đã sẵn
+                  sàng ra khơi chưa. Chỉ ở nấc peek để khỏi rối lúc mở sheet đọc
+                  chi tiết; căn phải, nằm ngay trên box biển động. Dòng lỗi dự báo
+                  cá (nếu có) xếp NGAY TRÊN nhãn này. */}
+              {size === "peek" && (
+                <div className="flex flex-col items-end gap-2">
+                  {!forecastKind && fishOn && !fishCast && fishFailed && (
+                    <button
+                      type="button"
+                      onClick={loadFish}
+                      className="pointer-events-auto inline-flex min-h-[3rem] items-center gap-2 rounded-full bg-card/95 px-4 shadow-md transition active:scale-95"
+                    >
+                      <FishIcon
+                        className="h-5 w-5 shrink-0 text-danger"
+                        aria-hidden
+                      />
+                      <span className="text-[0.875rem] font-bold text-danger">
+                        Dự báo cá chưa tải được — chạm để thử lại
+                      </span>
+                    </button>
+                  )}
+                  <PretripSavedStatus />
+                </div>
+              )}
+              {/* thanh giờ gió/sóng XUỐNG ĐÁY kiểu Windy — tay với tới, không
+                  chồng 4 tầng trên đầu bản đồ (roadmap hội đồng UX 2026-06-11) */}
+              {forecastKind && (
+                <div className="pointer-events-auto surface px-3 py-2 shadow-md">
               {fGrid ? (
                 gridStripOpen ? (
                   <>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[0.875rem] font-bold text-navy">
                         {forecastKind === "wind" ? "Gió" : "Sóng"} ·{" "}
-                        {timeLabelVN(
-                          fGrid.times[timeIdx] ?? "",
-                          fGrid.times[0]?.split("T")[0],
+                        {/* mốc "Hôm nay" so NGÀY THẬT, không so ngày đầu của
+                            bản lưu — bản lưu mấy hôm trước từng nói dối ở đây */}
+                        {timeLabelVN(fGrid.times[timeIdx] ?? "", todayIso)}
+                        {fGrid.stale && (
+                          <span className="ml-1 block font-bold text-warn">
+                            Số cũ lưu trong máy
+                            {fGrid.savedAt != null &&
+                              ` — lưu lúc ${clockVN(fGrid.savedAt)}`}
+                          </span>
                         )}
                       </span>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => setPlaying((p) => !p)}
-                          aria-label={playing ? "Dừng chạy" : "Chạy thử 3 ngày"}
+                          aria-label={playing ? "Dừng chạy" : `Chạy thử ${gridDays} ngày`}
                           className="flex h-11 w-11 items-center justify-center rounded-full bg-navy text-white active:scale-95"
                         >
                           {playing ? (
@@ -1211,6 +1532,72 @@ export default function FishingMapView() {
                         </button>
                       </div>
                     </div>
+                    {/* chọn khung ngày cho lớp vẽ động (3/5/7/10/16) — quá 3
+                        ngày là PREMIUM: nút khoá vẫn hiện (biết có gì để muốn)
+                        nhưng chạm thì mời nâng cấp/đăng nhập, không đổi khung */}
+                    <div
+                      className="mt-1.5 flex gap-1.5"
+                      role="group"
+                      aria-label="Chọn khung ngày dự báo trên bản đồ"
+                    >
+                      {GRID_DAY_OPTIONS.map((d) => {
+                        const on = d === gridDays;
+                        const locked =
+                          premiumLocked && d > FREE_FORECAST_DAYS;
+                        return (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => {
+                              if (locked) {
+                                setDayLockNote(true);
+                                return;
+                              }
+                              setDayLockNote(false);
+                              if (d === gridDays) return;
+                              setPlaying(false);
+                              setTimeIdx(0);
+                              setGridDays(d);
+                            }}
+                            aria-pressed={on}
+                            aria-disabled={locked || undefined}
+                            className={`flex min-h-[2.25rem] flex-1 items-center justify-center gap-1 rounded-lg text-[0.8125rem] font-bold transition active:scale-[0.97] ${
+                              on
+                                ? "bg-navy text-white shadow-sm"
+                                : locked
+                                  ? "bg-field text-foreground/40"
+                                  : "bg-field text-foreground/70"
+                            }`}
+                          >
+                            {locked && (
+                              <LockIcon
+                                className="h-3.5 w-3.5 shrink-0"
+                                aria-hidden
+                              />
+                            )}
+                            {d} ngày
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {dayLockNote && premiumLocked && (
+                      <p className="mt-1.5 rounded-lg bg-field/80 px-2.5 py-2 text-[0.8125rem] font-semibold leading-snug text-foreground/75">
+                        Xem quá {FREE_FORECAST_DAYS} ngày là tính năng của tài
+                        khoản nâng cao —{" "}
+                        {premiumAccess === "login" ? (
+                          <Link href="/login" className="font-bold text-trim">
+                            Đăng nhập →
+                          </Link>
+                        ) : (
+                          <a
+                            href={`tel:${SDVICO_HOTLINE}`}
+                            className="font-bold text-trim"
+                          >
+                            gọi SDVICO nâng cấp →
+                          </a>
+                        )}
+                      </p>
+                    )}
                     <input
                       type="range"
                       min={0}
@@ -1225,10 +1612,9 @@ export default function FishingMapView() {
                       className="range-big mt-1 w-full"
                     />
                     <div className="flex justify-between text-[0.6875rem] font-semibold text-foreground/65">
-                      <span>Bây giờ</span>
-                      <span>Ngày mai</span>
-                      <span>2 ngày</span>
-                      <span>3 ngày</span>
+                      {gridTickLabels(gridDays).map((t, i) => (
+                        <span key={i}>{t}</span>
+                      ))}
                     </div>
                   </>
                 ) : (
@@ -1250,22 +1636,54 @@ export default function FishingMapView() {
                   </button>
                 )
               ) : gridFailed ? (
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[0.875rem] font-semibold text-danger">
-                    Chưa tải được dự báo — kiểm tra mạng.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setGridFailed(false)}
-                    className="shrink-0 rounded-xl bg-navy px-4 py-2.5 text-[0.9375rem] font-bold text-white"
-                  >
-                    Thử lại
-                  </button>
+                /* KHÔNG mượn lưới của khung ngày khác nữa (xin 16 ngày mà đưa
+                   lưới 3 ngày đã lưu, chip vẫn sáng "16 ngày"). Nói thật khung
+                   nào đang có trong máy, chạm là đổi đúng khung đó. */
+                <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[0.9375rem] font-bold leading-snug text-danger">
+                      Chưa tải được khung {gridDays} ngày — máy chưa lưu khung
+                      này.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setGridFailed(false)}
+                      className="shrink-0 rounded-xl bg-navy px-4 py-2.5 text-[0.9375rem] font-bold text-white"
+                    >
+                      Thử lại
+                    </button>
+                  </div>
+                  {savedDays.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-[0.8125rem] font-semibold text-foreground/70">
+                        Trong máy đang có:
+                      </p>
+                      <div className="mt-1 flex gap-1.5">
+                        {savedDays.map((d) => (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => {
+                              setPlaying(false);
+                              setTimeIdx(0);
+                              setGridFailed(false);
+                              setGridDays(d as GridDays);
+                            }}
+                            className="min-h-[2.75rem] flex-1 rounded-lg bg-field text-[0.9375rem] font-bold text-navy active:scale-[0.97]"
+                          >
+                            {d} ngày
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-[0.8125rem] font-semibold text-foreground/70">
                   Đang tải dự báo cho cả vùng biển…
                 </p>
+              )}
+                </div>
               )}
             </div>
           ) : undefined
@@ -1277,29 +1695,68 @@ export default function FishingMapView() {
               Đang lấy dự báo sóng gió…
             </p>
           ) : errored ? (
-            <p className="py-3 text-[0.9375rem] font-semibold text-danger">
-              Chưa lấy được dự báo — vuốt lên để thử lại.
+            /* Máy CHỈ giữ số ở đúng chỗ đã xem — không mượn số chỗ khác nữa,
+               nên chỗ lạ mà mất sóng thì nói thẳng là chưa có gì. */
+            <p className="py-3 text-[1rem] font-bold leading-snug text-danger">
+              Chỗ này chưa có số nào lưu trong máy — vuốt lên để thử lại.
             </p>
           ) : cond && !cond.onSea ? (
             <p className="py-3 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
               Chỗ này trên đất liền — chạm ra biển để xem gió sóng.
             </p>
+          ) : allPast ? (
+            <p className="py-3 text-[1rem] font-bold leading-snug text-warn">
+              Số lưu trong máy ở chỗ này đã qua ngày hết
+              {cond?.savedAt != null && ` (lưu ${clockVN(cond.savedAt)})`}. Có
+              sóng lại máy sẽ tự lấy số mới.
+            </p>
           ) : sel ? (
             <div className="py-1">
+              {cond?.stale &&
+                (cond.source === "saved-grid" ? (
+                  /* Số dựng từ LƯỚI gió/sóng đã lưu — đúng chỗ này, nhưng lưới
+                     chỉ có gió với sóng. Nói thẳng phần còn thiếu. */
+                  <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[1.0625rem] font-bold leading-snug text-warn">
+                    Số gió, sóng lấy từ bản đã lưu trong máy
+                    {cond.savedAt != null && ` (lưu lúc ${clockVN(cond.savedAt)})`}
+                    . Chưa có mưa, dông cho chỗ này.
+                  </p>
+                ) : (
+                  <p className="mb-2 rounded-xl bg-warn-bg px-3 py-2 text-[1.0625rem] font-bold leading-snug text-warn">
+                    Số cũ lưu trong máy
+                    {cond.savedAt != null &&
+                      ` — lưu lúc ${clockVN(cond.savedAt)} (${savedAgoLabel(cond.savedAt, nowMs)})`}
+                    . Chưa phải số mới.
+                  </p>
+                ))}
               <div className="flex items-center gap-2">
+                {/* Không đủ dữ liệu (bản từ lưới) thì KHÔNG chấm tình trạng
+                    biển — chỉ nói ngày, số gió/sóng để ngay dưới. */}
+                {sel.level && (
+                  <>
+                    <span
+                      className="h-3.5 w-3.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: LEVEL_STYLE[sel.level].fg }}
+                      aria-hidden
+                    />
+                    <span
+                      className="display text-[1.1875rem] font-bold leading-snug"
+                      style={{ color: LEVEL_STYLE[sel.level].fg }}
+                    >
+                      {SEA_STATE[sel.level]}
+                    </span>
+                  </>
+                )}
                 <span
-                  className="h-3.5 w-3.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: LEVEL_STYLE[sel.level].fg }}
-                  aria-hidden
-                />
-                <span
-                  className="display text-[1.1875rem] font-bold leading-snug"
-                  style={{ color: LEVEL_STYLE[sel.level].fg }}
+                  className={
+                    sel.level
+                      ? "text-[0.9375rem] font-semibold text-foreground/70"
+                      : "display text-[1.1875rem] font-bold leading-snug text-navy"
+                  }
                 >
-                  {SEA_STATE[sel.level]}
-                </span>
-                <span className="text-[0.9375rem] font-semibold text-foreground/70">
-                  — {dayLabel(sel.date, dayIdx).toLowerCase()}
+                  {sel.level
+                    ? `— ${dayLabel(sel.date, todayIso).toLowerCase()}`
+                    : dayLabel(sel.date, todayIso)}
                 </span>
               </div>
               <p className="text-[0.9375rem] font-semibold leading-snug text-foreground/80">
@@ -1322,16 +1779,25 @@ export default function FishingMapView() {
                   {prox.label} — coi chừng vượt ranh giới.
                 </p>
               )}
-              {/* MỒI ngay ở peek (roadmap hội đồng UX): khách chạm trúng chỗ
-                  có dấu hiệu cá thì nói thẳng vào sẽ được gì — không bắt mở
-                  "Xem thêm" mới thấy lời mời */}
-              {fishLocked && fishOn && fishAtPoint && fishAtPoint.s >= 60 && (
-                <Link
-                  href="/login"
-                  className="mt-1 inline-flex min-h-[2.5rem] items-center gap-1 text-[0.9375rem] font-bold text-trim"
-                >
-                  Chỗ này có dấu hiệu cá — Đăng nhập để xem loài gì →
-                </Link>
+              {/* LỜI MỜI ngay ở peek: lớp cá giờ khoá hẳn (không còn teaser
+                  heatmap) nên không có "dấu hiệu cá" để chỉ — nói thẳng dự báo
+                  cá mở bằng gì, theo đúng nấc của người đang xem */}
+              {fishLocked && fishOn && (
+                premiumAccess === "login" ? (
+                  <Link
+                    href="/login"
+                    className="mt-1 inline-flex min-h-[2.5rem] items-center gap-1 text-[0.9375rem] font-bold text-trim"
+                  >
+                    Dự báo cá cần tài khoản nâng cao — Đăng nhập →
+                  </Link>
+                ) : (
+                  <a
+                    href={`tel:${SDVICO_HOTLINE}`}
+                    className="mt-1 inline-flex min-h-[2.5rem] items-center gap-1 text-[0.9375rem] font-bold text-trim"
+                  >
+                    Dự báo cá là tính năng nâng cao — Gọi SDVICO →
+                  </a>
+                )
               )}
             </div>
           ) : null
@@ -1356,66 +1822,120 @@ export default function FishingMapView() {
           )}
 
           {errored && (
-            <button
-              type="button"
-              onClick={() => setRetry((n) => n + 1)}
-              className="min-h-[3.5rem] w-full rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
-            >
-              Thử lại
-            </button>
+            <>
+              <p className="rounded-xl bg-warn-bg px-3 py-2.5 text-[1rem] font-bold leading-snug text-warn">
+                Lúc mất sóng, máy chỉ có số ở những chỗ bà con đã mở xem lúc còn
+                sóng. Chạm lại đúng chỗ đó để coi.
+              </p>
+              <button
+                type="button"
+                onClick={() => setRetry((n) => n + 1)}
+                className="min-h-[3.5rem] w-full rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
+              >
+                Thử lại
+              </button>
+            </>
           )}
 
           {cond && cond.onSea && today && sel && (
             <>
-              {/* chọn xem trước ngày nào — gió/sóng dự báo được tới 10 ngày */}
+              {/* chọn xem trước ngày nào — gió/sóng dự báo được tới 16 ngày
+                  (dải cuộn ngang; độ tin theo tầm ngày + skill đo hiện ở dưới) */}
               <div
                 className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
                 role="group"
                 aria-label="Chọn ngày xem dự báo"
               >
                 {cond.days.map((d, i) => {
-                  const active = i === Math.min(dayIdx, cond.days.length - 1);
+                  const active = i === selIdx;
+                  // ngày đã qua (bản lưu trong máy) — mờ đi, không cho chọn
+                  const past = isPastDay(d.date, todayIso);
+                  // ngày 4+ là premium: chip vẫn hiện (biết còn dự báo xa để
+                  // muốn) nhưng KHÔNG hiện số — chạm ra một dòng mời
+                  const locked = dayChipLocked(d.date);
                   return (
                     <button
                       key={d.date}
                       type="button"
-                      onClick={() => setDayIdx(i)}
+                      onClick={() => {
+                        if (locked) {
+                          setDayLockNote(true);
+                          return;
+                        }
+                        setDayLockNote(false);
+                        setDayIdx(i);
+                      }}
+                      disabled={past}
                       aria-pressed={active}
+                      aria-disabled={locked || undefined}
                       className={`flex min-h-[3.75rem] min-w-[4.875rem] shrink-0 flex-col items-center justify-center rounded-xl px-2 transition active:scale-[0.97] ${
                         active
                           ? "bg-navy text-white shadow-sm"
                           : "bg-field"
-                      }`}
+                      } ${past ? "opacity-40" : ""}`}
                     >
                       <span
                         className={`text-[0.8125rem] font-bold leading-tight ${
                           active ? "text-white/85" : "text-foreground/70"
                         }`}
                       >
-                        {chipLabel(d.date, i)}
+                        {chipLabel(d.date, todayIso)}
                       </span>
+                      {locked ? (
+                        <LockIcon
+                          className="h-4 w-4 text-foreground/45"
+                          aria-hidden
+                        />
+                      ) : (
                       <span
                         className="display text-[1rem] font-bold leading-tight"
                         style={{
-                          color: active ? "#fff" : LEVEL_STYLE[d.level].fg,
+                          color: active
+                            ? "#fff"
+                            : d.level
+                              ? LEVEL_STYLE[d.level].fg
+                              : "var(--navy)",
                         }}
                       >
                         {d.waveMaxM > 0
                           ? `${formatNumberVN(d.waveMaxM)} m`
                           : `gió c${beaufort(d.windMaxKmh)}`}
                       </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
+              {dayLockNote && premiumLocked && (
+                <p className="rounded-xl bg-field/80 px-3 py-2.5 text-[0.875rem] font-semibold leading-snug text-foreground/75">
+                  Xem quá {FREE_FORECAST_DAYS} ngày là tính năng của tài khoản
+                  nâng cao —{" "}
+                  {premiumAccess === "login" ? (
+                    <Link href="/login" className="font-bold text-trim">
+                      Đăng nhập →
+                    </Link>
+                  ) : (
+                    <a
+                      href={`tel:${SDVICO_HOTLINE}`}
+                      className="font-bold text-trim"
+                    >
+                      gọi SDVICO nâng cấp →
+                    </a>
+                  )}
+                </p>
+              )}
 
               {/* MAX cả ngày đã chọn (giật) — peek phía trên đã có tình trạng
                   + tóm tắt, đây chỉ thêm số đỉnh để khỏi trùng (user: trùng dữ liệu) */}
               <p
                 className="rounded-xl px-3 py-2.5 text-[0.9375rem] font-semibold leading-snug"
                 style={{
-                  backgroundColor: LEVEL_STYLE[sel.level].bg,
-                  color: LEVEL_STYLE[sel.level].fg,
+                  // level null (bản dựng từ lưới) → nền trung tính, không tô
+                  // xanh/đỏ như thể đã chấm được điểm đi biển
+                  backgroundColor: sel.level
+                    ? LEVEL_STYLE[sel.level].bg
+                    : "var(--field)",
+                  color: sel.level ? LEVEL_STYLE[sel.level].fg : "var(--navy)",
                 }}
               >
                 Cả ngày: sóng tới{" "}
@@ -1428,13 +1948,21 @@ export default function FishingMapView() {
 
               {/* số đo LÚC NÀY — để LIỀN với dải ngày + "cả ngày" cho khỏi
                   nói sóng/gió trên một khúc, dưới một khúc (user 2026-06-23).
-                  Ngày sau đã gọn trong thẻ ngày + "cả ngày" nên chỉ hiện hôm nay. */}
-              {dayIdx === 0 && (
+                  Ngày sau đã gọn trong thẻ ngày + "cả ngày" nên chỉ hiện hôm nay.
+                  BẢN LƯU: hai số này đông cứng từ lúc lưu → đổi tiêu đề thành
+                  "đo lúc …", tuyệt đối không để chữ "lúc này". */}
+              {/* Bản dựng từ lưới KHÔNG có số đo "lúc này" (windKmh null) →
+                  ẩn hẳn hai thẻ này, thà trống còn hơn hiện số bịa. */}
+              {isToday && cond.windKmh != null && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="surface p-4">
                     <div className="flex items-center gap-2 text-t1">
-                      <WindIcon className="h-5 w-5" />
-                      <span className="text-[0.9375rem] font-bold">Gió lúc này</span>
+                      <WindIcon className="h-5 w-5 shrink-0" />
+                      <span className="text-[0.9375rem] font-bold leading-snug">
+                        {cond.stale && cond.savedAt != null
+                          ? `Gió đo lúc ${clockVN(cond.savedAt)}`
+                          : "Gió lúc này"}
+                      </span>
                     </div>
                     <p className="display mt-1.5 text-[1.5rem] font-bold leading-none text-navy">
                       Cấp {beaufort(cond.windKmh)}
@@ -1447,9 +1975,11 @@ export default function FishingMapView() {
                   </div>
                   <div className="surface p-4">
                     <div className="flex items-center gap-2 text-t1">
-                      <WavesIcon className="h-5 w-5" />
-                      <span className="text-[0.9375rem] font-bold">
-                        Sóng lúc này
+                      <WavesIcon className="h-5 w-5 shrink-0" />
+                      <span className="text-[0.9375rem] font-bold leading-snug">
+                        {cond.stale && cond.savedAt != null
+                          ? `Sóng đo lúc ${clockVN(cond.savedAt)}`
+                          : "Sóng lúc này"}
                       </span>
                     </div>
                     {cond.waveM != null ? (
@@ -1493,27 +2023,18 @@ export default function FishingMapView() {
 
               {/* DỰ BÁO CÁ tại chỗ này — tính từ ảnh mới nhất; không có dữ liệu
                   thì lùi về mùa vụ. Luôn ghi rõ tham khảo.
-                  TEASER: lớp cá hiện cho mọi người; CHI TIẾT điểm thì khoá,
-                  chưa đăng nhập → mời đăng nhập (thu hút đăng ký). */}
+                  PREMIUM (2026-07-26, thay teaser): khoá HẲN — chưa đăng nhập
+                  mời đăng nhập, hạng thường mời gọi SDVICO nâng cấp. */}
               {fishLocked ? (
-                <div className="surface overflow-hidden p-0">
-                  <div className="flex items-start gap-2.5 p-3.5">
-                    <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-trim" />
-                    <p className="text-[0.9375rem] leading-snug text-foreground/80">
-                      Vùng xanh trên bản đồ là <b>chỗ có khả năng nhiều cá</b>.{" "}
-                      <b>Đăng nhập</b> để xem chỗ này{" "}
-                      <b>loài gì, khả năng bao nhiêu, đi hướng nào</b> — và chọn
-                      đúng loài bà con hay đánh.
-                    </p>
-                  </div>
-                  <a
-                    href="/login"
-                    className="flex min-h-[3.25rem] w-full items-center justify-center gap-2 bg-t1 text-[1rem] font-bold text-white transition active:scale-[0.99]"
-                  >
-                    <FishIcon className="h-5 w-5" />
-                    Đăng nhập để xem chi tiết dự báo cá
-                  </a>
-                </div>
+                <PremiumLock
+                  access={premiumAccess}
+                  feature="dự báo cá"
+                  blurb={
+                    premiumAccess === "login"
+                      ? "Bản đồ chỗ có khả năng nhiều cá: loài gì, khả năng bao nhiêu, đi hướng nào — đăng nhập bằng tài khoản nâng cao là xem được."
+                      : "Bản đồ chỗ có khả năng nhiều cá: loài gì, khả năng bao nhiêu, đi hướng nào. Tài khoản hiện thời không hỗ trợ — gọi SDVICO để nâng cấp."
+                  }
+                />
               ) : fishCast && fishAtPoint ? (
                 (() => {
                   // theo loài đã chọn trên bản đồ, hoặc loài tốt nhất tại ô
@@ -1561,10 +2082,11 @@ export default function FishingMapView() {
                           </b>{" "}
                           cho: <b>{names.join(", ")}</b>
                         </p>
+                        {/* CHỈ số môi trường tại ô — bỏ phần ngày ảnh/lấy về
+                            (quyết định sản phẩm 2026-07-25: gọn màn hình) */}
                         <p className="mt-1 text-[0.875rem] font-semibold leading-snug text-foreground/65">
                           Nước {formatNumberVN(fishAtPoint.t)}°C
-                          {bait ? ` · ${bait}` : ""} — ảnh ngày{" "}
-                          {formatDateVN(fishCast.date)}
+                          {bait ? ` · ${bait}` : ""}
                         </p>
                         {/* TRUNG THỰC: loài đáy/rạn dự báo theo mùa + độ sâu */}
                         {lowSig ? (
@@ -1581,6 +2103,21 @@ export default function FishingMapView() {
                           <p className="mt-0.5 text-[0.8125rem] leading-snug text-foreground/70">
                             Vùng tô màu trên bản đồ là chỗ tương tự, hồng tâm là
                             chỗ nổi nhất. Tham khảo, không phải cam kết.
+                          </p>
+                        )}
+                        {/* KÉO SANG NGÀY KHÁC: nói thật vì sao lớp cá KHÔNG đổi
+                            theo thanh ngày. ĐÃ ĐO (scripts/fish-3day-probe.mjs,
+                            3 mùa: 7/2026, 1/2026, 4/2026): kéo nhiệt tới +3 ngày
+                            bằng xu hướng Copernicus chỉ làm 0,5–1,6 % số ô đổi
+                            trạng thái điểm nóng (Jaccard 0,93–0,98, |Δđiểm| trung
+                            bình 0,1–0,5/100) ⇒ KHÔNG dựng bản đồ cá theo từng
+                            ngày (thanh trượt giả). Chỉ hiện khi bà con ĐÃ kéo
+                            sang ngày khác — màn hình mặc định giữ gọn. */}
+                        {daysAhead > 0 && (
+                          <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/70">
+                            {daysAhead <= FISH_STABLE_DAYS
+                              ? "Chỗ cá ít đổi trong vài ngày tới — cái đổi là gió, sóng."
+                              : "Lớp cá vẫn là ảnh mới nhất, không phải dự báo riêng cho ngày này — xa ngày thì xem gió, sóng."}
                           </p>
                         )}
                         {/* ưu tiên gần mình: điểm cá gần chỗ đang xem nhất */}
@@ -1653,6 +2190,7 @@ export default function FishingMapView() {
                 dest={cond.point}
                 activeRoute={route}
                 places={places}
+                storms={storms}
                 onRoute={handleRoute}
               />
 

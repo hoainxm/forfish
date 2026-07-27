@@ -136,6 +136,57 @@ export function iso20Grid(cube: HycomTempCube): ScalarGrid {
   return { lats: cube.lats, lons: cube.lons, values, date: cube.date };
 }
 
+/**
+ * Nhiệt độ ĐÁY (°C) mỗi ô: nhiệt của TẦNG SÂU NHẤT CÒN HỮU HẠN trong cột (đáy
+ * trong dải tải 20–300 m). HYCOM đánh dấu tầng dưới đáy/đất = fill → NaN, nên
+ * tầng hữu hạn sâu nhất là lớp nước sát đáy (ở nơi đáy < 300 m) hoặc lớp 300 m
+ * (nơi sâu hơn dải tải). TỰ NHẤT QUÁN theo cube — KHÔNG trộn độ sâu ETOPO
+ * (bathymetry khác → NaN rải rác/sai). Cột không có tầng hữu hạn nào → NaN.
+ */
+export function bottomTempGrid(cube: HycomTempCube): ScalarGrid {
+  const nD = cube.depths.length;
+  const values = cube.lats.map((_, la) =>
+    cube.lons.map((__, lo) => {
+      for (let d = nD - 1; d >= 0; d--) {
+        const t = cube.temp[d][la][lo];
+        if (Number.isFinite(t)) return t;
+      }
+      return NaN;
+    }),
+  );
+  return { lats: cube.lats, lons: cube.lons, values, date: cube.date };
+}
+
+/**
+ * Nhiệt độ (°C) tại TẦNG gần `depthM` nhất mỗi ô (vd 250 m cho cá ngừ mắt to
+ * lặn ngày). Chọn tầng theo khoảng cách độ sâu; ô mà tầng đó là fill (đáy nông
+ * hơn depthM) → NaN (mô hình sẽ fallback về nhiệt mặt cho ô đó). Dùng lại CÙNG
+ * cube — không fetch thêm.
+ */
+export function tempAtDepthGrid(cube: HycomTempCube, depthM: number): ScalarGrid {
+  const di = nearestDepthIndex(cube.depths, depthM);
+  const values = cube.lats.map((_, la) =>
+    cube.lons.map((__, lo) =>
+      di >= 0 ? cube.temp[di][la][lo] : NaN,
+    ),
+  );
+  return { lats: cube.lats, lons: cube.lons, values, date: cube.date };
+}
+
+/** Chỉ số tầng gần `depthM` nhất trong mảng độ sâu (rỗng → -1) */
+function nearestDepthIndex(depths: number[], depthM: number): number {
+  let best = -1;
+  let bd = Infinity;
+  for (let i = 0; i < depths.length; i++) {
+    const d = Math.abs(depths[i] - depthM);
+    if (d < bd) {
+      bd = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
 /** Lấy số mốc thời gian hiện có từ .dds (để lấy mốc mới nhất = nowcast) */
 export function parseTimeCount(dds: string): number {
   const m = /time\s*=\s*(\d+)\s*\]/.exec(dds);
@@ -150,17 +201,44 @@ export function thermoGridUrl(timeIdx: number): string {
   )}`;
 }
 
+/** Độ sâu (m) lấy nhiệt cho loài đáy-sâu (cá ngừ mắt to lặn ngày ~250 m) */
+export const DEEP_TUNA_DEPTH_M = 250;
+
 /**
- * Tải lưới D20 (độ sâu đẳng nhiệt 20°C) cho vùng biển VN. TUỲ CHỌN với mô hình
- * dự báo cá — fail thì trả null, mô hình bỏ yếu tố tầng nhiệt + chia lại trọng số.
+ * Bộ lưới rút từ MỘT cube HYCOM (fetch 1 lần, dùng lại cho nhiều yếu tố):
+ *   `d20`     — độ sâu đẳng nhiệt 20°C (m) cho tầng cá ngừ nổi
+ *   `bottom`  — nhiệt độ ĐÁY (°C) cho loài sống đáy/rạn/giáp xác
+ *   `deep250` — nhiệt độ tầng ~250 m (°C) cho cá ngừ mắt to lặn ngày
+ * Mỗi lưới TUỲ CHỌN (null nếu không đủ ô hữu hạn); cả bộ null nếu cube vỡ.
  */
-export async function fetchThermoclineGrid(): Promise<ScalarGrid | null> {
+export interface HycomGrids {
+  d20: ScalarGrid | null;
+  bottom: ScalarGrid | null;
+  deep250: ScalarGrid | null;
+}
+
+/** true nếu lưới có ít nhất 1 ô hữu hạn (đáng dùng), ngược lại null-hoá */
+function usable(g: ScalarGrid): ScalarGrid | null {
+  return g.values.some((row) => row.some((v) => Number.isFinite(v))) ? g : null;
+}
+
+/**
+ * Tải cube nhiệt HYCOM 1 LẦN cho vùng biển VN rồi rút NHIỀU lưới (D20 tầng cá
+ * ngừ + nhiệt đáy + nhiệt 250 m). TUỲ CHỌN với mô hình dự báo cá — cube vỡ/timeout
+ * → trả null, mô hình fallback (loài đáy về nhiệt mặt, cá ngừ bỏ yếu tố tầng nhiệt).
+ * KHÔNG mở rộng DEPTH_RANGE / KHÔNG fetch thêm — route sát maxDuration 60 s.
+ */
+export async function fetchHycomGrids(
+  timeoutMs: number = 20000,
+): Promise<HycomGrids | null> {
   try {
     // OPeNDAP HYCOM có thể treo → BẮT BUỘC timeout (invariant 02 §5); fail-fast
-    // null để không treo `await thermoP` trong route fish-forecast.
+    // null để không treo `await hycomP` trong route fish-forecast. Route truyền
+    // timeout NGẮN hơn (nguồn tuỳ chọn hay treo, không được kéo cả route quá hạn
+    // client 35s) — xem SLOW_SOURCE_TIMEOUT_MS ở api/fish-forecast/route.ts.
     const opt = () => ({
       next: { revalidate: 21600 },
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(timeoutMs),
       // UA "thật" — nhiều host khoa học (NOAA/HYCOM) chặn undici mặc định 403
       headers: { "User-Agent": ERDDAP_UA },
     });
@@ -173,10 +251,11 @@ export async function fetchThermoclineGrid(): Promise<ScalarGrid | null> {
     if (!res.ok) return null;
     const cube = parseHycomTempAscii(await res.text());
     if (cube.lats.length === 0 || cube.depths.length === 0) return null;
-    const grid = iso20Grid(cube);
-    // ít nhất vài ô có D20 hợp lệ mới coi là dùng được
-    const ok = grid.values.some((row) => row.some((v) => Number.isFinite(v)));
-    return ok ? grid : null;
+    return {
+      d20: usable(iso20Grid(cube)),
+      bottom: usable(bottomTempGrid(cube)),
+      deep250: usable(tempAtDepthGrid(cube, DEEP_TUNA_DEPTH_M)),
+    };
   } catch {
     return null;
   }

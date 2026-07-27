@@ -9,18 +9,19 @@
   thang kéo lớp nền raster (để sau) · dải % cá lọc thật.
 */
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   OCEAN_LAYERS,
   OCEAN_LAYER_ORDER,
-  formatDateVN,
   type OceanLayerId,
 } from "@/lib/ocean-map";
 import type { ForecastKind } from "@/lib/forecast-grid";
 import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
-import type { StormAlert } from "@/lib/storms";
+import type { FeatureAccess } from "@/lib/tier";
+import { PremiumLock } from "@/components/premium-gate";
+import type { StormStatus } from "@/lib/storms";
+import { clockVN } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
 import { useMapPrefs, setMapPrefs } from "@/lib/map-prefs";
 import { FishSpeciesContent } from "@/components/fish-species-sheet";
@@ -31,6 +32,7 @@ import {
   CheckIcon,
   ChevronRightIcon,
   DepthIcon,
+  CrosshairIcon,
   LayersIcon,
   EddyIcon,
   FishIcon,
@@ -65,17 +67,18 @@ export function RaKhoiControls({
   onScalar,
   forecastKind,
   onForecast,
+  vungLongOn,
+  onVungLong,
   fishOn,
   onFish,
   fishSpecies,
-  fishLocked,
+  fishAccess,
   species,
   regionShorts,
   onPickSpecies,
   fishRange,
   onRange,
-  storms,
-  dataDate,
+  stormInfo,
   showPlaces,
   onShowPlaces,
   places,
@@ -86,26 +89,39 @@ export function RaKhoiControls({
   measureCount,
   measureResult,
   onClearMeasure,
+  onLocateMe,
+  locating,
+  geoError,
 }: {
+  /** Bấm "Vị trí" → lấy GPS rồi bay tới chỗ mình (fishing-map-view lo phần đó) */
+  onLocateMe: () => void;
+  /** đang xin GPS — nút phải nói đang chạy, đừng để bà con bấm hoài */
+  locating: boolean;
+  /** máy từ chối / không có GPS — PHẢI nói, không được câm (nguyên tắc trung thực) */
+  geoError: boolean;
   layerId: OceanLayerId;
   onLayer: (id: OceanLayerId) => void;
   scalarKind: SeaScalarKind | null;
   onScalar: (k: SeaScalarKind | null) => void;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
+  vungLongOn: boolean;
+  onVungLong: (on: boolean) => void;
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
-  /** chưa đăng nhập → khoá chọn loài + dải khả năng (đồng bộ với sheet) */
-  fishLocked: boolean;
+  /** nấc premium (lib/tier.ts): "login"/"upgrade" = dự báo cá KHOÁ HẲN
+      (2026-07-26, thay teaser) — panel hiện thẻ khoá thay vì picker */
+  fishAccess: FeatureAccess;
   /** danh sách loài đang vụ (tên ngắn) — để chọn loài ngay trong panel */
   species: string[];
   regionShorts: Set<string>;
   onPickSpecies: (sp: string | null) => void;
   fishRange: [number, number];
   onRange: (r: [number, number]) => void;
-  storms: StormAlert[];
-  dataDate: string;
+  /** Trạng thái tin bão đã quy về 4 nhánh (lib/storms.ts) — KHÔNG dùng mảng
+      rỗng để vừa nghĩa "không có bão" vừa nghĩa "chưa hỏi được" */
+  stormInfo: StormStatus;
   showPlaces: boolean;
   onShowPlaces: (on: boolean) => void;
   /** điểm đã lưu — quản lý ngay trong panel rail (không bottom-sheet) */
@@ -150,7 +166,11 @@ export function RaKhoiControls({
       label: "Thời tiết",
       icon: WindIcon,
       color: "var(--t3)",
-      dot: storms.length > 0 || !!forecastKind || !!scalarKind,
+      dot:
+        stormInfo.kind === "co-bao" ||
+        stormInfo.kind === "khong-hoi-duoc" ||
+        !!forecastKind ||
+        !!scalarKind,
     },
     { id: "diem", label: "Điểm đã lưu", icon: StarIcon, color: "var(--navy)" },
     {
@@ -165,6 +185,10 @@ export function RaKhoiControls({
 
   return (
     <div className="pointer-events-none relative flex justify-end gap-2">
+      {/* KHÔNG còn thẻ "Chuẩn bị đi biển" ở đây (bỏ 2026-07-25): máy TỰ tải sẵn
+          khi vào trang và chỉ báo một dòng nhỏ tự tắt — xem
+          components/pretrip-auto-notify.tsx. Bản đồ nhờ vậy sạch chữ. */}
+
       {/* PANEL neo TRÁI rail, bounded trong màn (không tràn/đè banner).
           Panel nhiều nội dung (Điểm đã lưu, Chọn loài) rộng hơn cho dễ nhìn,
           khỏi chồng chéo (user 2026-06-23); panel đơn giản giữ cân đối. */}
@@ -208,7 +232,6 @@ export function RaKhoiControls({
                     onScalar(null);
                     onLayer(id);
                   }}
-                  dataDate={dataDate}
                 />
               )}
               {open === "ngu-truong" && (
@@ -216,7 +239,7 @@ export function RaKhoiControls({
                   fishOn={fishOn}
                   onFish={onFish}
                   fishSpecies={fishSpecies}
-                  fishLocked={fishLocked}
+                  fishAccess={fishAccess}
                   onOpenSpecies={() => setSpeciesView(true)}
                   fishRange={fishRange}
                   onRange={onRange}
@@ -224,7 +247,7 @@ export function RaKhoiControls({
               )}
               {open === "thoi-tiet" && (
                 <ThoiTietPanel
-                  storms={storms}
+                  stormInfo={stormInfo}
                   forecastKind={forecastKind}
                   onForecast={onForecast}
                   scalarKind={scalarKind}
@@ -250,7 +273,12 @@ export function RaKhoiControls({
                   onClearMeasure={onClearMeasure}
                 />
               )}
-              {open === "cai-dat" && <SettingsPanel />}
+              {open === "cai-dat" && (
+                <SettingsPanel
+                  vungLongOn={vungLongOn}
+                  onVungLong={onVungLong}
+                />
+              )}
             </>
           )}
         </div>
@@ -278,6 +306,24 @@ export function RaKhoiControls({
           )}
           <span className="text-[0.6875rem] font-bold leading-tight">
             {collapsed ? "Lớp" : "Ẩn"}
+          </span>
+        </button>
+
+        {/* VỊ TRÍ — nút GPS chuẩn như mọi app bản đồ. Đặt ngay dưới nút Lớp
+            (chỗ tay phải với tới được), luôn hiện kể cả khi thu bảng lớp. */}
+        <button
+          type="button"
+          onClick={onLocateMe}
+          disabled={locating}
+          aria-label="Vị trí của tôi (GPS)"
+          aria-busy={locating}
+          className={`flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 shadow-md transition active:scale-95 disabled:opacity-70 ${
+            geoError ? "bg-warn-bg text-warn-fg" : "bg-navy text-white"
+          }`}
+        >
+          <CrosshairIcon className={`h-6 w-6 ${locating ? "animate-pulse" : ""}`} />
+          <span className="text-[0.6875rem] font-bold leading-tight">
+            {locating ? "Đang tìm" : geoError ? "Bật GPS" : "Vị trí"}
           </span>
         </button>
         {!collapsed &&
@@ -374,22 +420,20 @@ function PanelHeader({
   );
 }
 
-function cadLine(id: OceanLayerId, dataDate: string): { text: string; dot: string } {
+function cadLine(id: OceanLayerId): { text: string; dot: string } {
   const def = OCEAN_LAYERS[id];
   if (!def.dated) return { text: "Cố định · Không đổi theo ngày", dot: DOT.coDinh };
-  return { text: `Theo ngày · Ảnh ${formatDateVN(dataDate)} · chậm ~2 ngày`, dot: DOT.ngay };
+  return { text: "Theo ngày", dot: DOT.ngay };
 }
 
 function HaiDoPanel({
   layerId,
   scalarKind,
   onLayer,
-  dataDate,
 }: {
   layerId: OceanLayerId;
   scalarKind: SeaScalarKind | null;
   onLayer: (id: OceanLayerId) => void;
-  dataDate: string;
 }) {
   return (
     <div>
@@ -400,7 +444,7 @@ function HaiDoPanel({
         {OCEAN_LAYER_ORDER.map((id) => {
           const def = OCEAN_LAYERS[id];
           const active = !scalarKind && id === layerId;
-          const cad = cadLine(id, dataDate);
+          const cad = cadLine(id);
           return (
             <li key={id}>
               <button
@@ -454,7 +498,7 @@ function NguTruongPanel({
   onOpenSpecies,
   fishRange,
   onRange,
-  fishLocked,
+  fishAccess,
 }: {
   fishOn: boolean;
   onFish: (on: boolean) => void;
@@ -462,17 +506,19 @@ function NguTruongPanel({
   onOpenSpecies: () => void;
   fishRange: [number, number];
   onRange: (r: [number, number]) => void;
-  /** chưa đăng nhập → loài + dải khả năng bị khoá (đồng bộ với sheet) */
-  fishLocked: boolean;
+  /** nấc premium — "login"/"upgrade" = lớp cá khoá hẳn (thẻ khoá thay picker) */
+  fishAccess: FeatureAccess;
 }) {
+  const fishLocked = fishAccess === "login" || fishAccess === "upgrade";
   const name = fishSpecies
     ? SPECIES_META[fishSpecies]?.full ?? fishSpecies
     : "Mọi loài cá";
   return (
     <div>
+      {/* KHÔNG nói tuổi bản đồ cá ở đây nữa (bỏ 2026-07-25 — màn hình rối) */}
       <Toggle
         label="Dự báo cá (PFZ)"
-        sub="Theo ngày · cache 6h"
+        sub="Theo ngày · ảnh vệ tinh"
         on={fishOn}
         onToggle={() => onFish(!fishOn)}
         icon={
@@ -482,21 +528,13 @@ function NguTruongPanel({
         }
       />
       {fishOn && fishLocked && (
-        // KHOÁ giống sheet: heatmap public, nhưng chọn loài + xem khả năng cần
-        // đăng nhập → 1 CTA duy nhất, KHÔNG hiện picker/dải để khỏi "chỗ có chỗ thả"
-        <>
-          <Link
-            href="/login"
-            className="mt-2 flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-xl bg-t1 px-3 text-[0.9375rem] font-bold text-white transition active:scale-[0.99]"
-          >
-            <FishIcon className="h-5 w-5" />
-            Đăng nhập để chọn loài &amp; xem khả năng
-          </Link>
-          <p className="mt-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] leading-snug text-foreground/70">
-            Vùng xanh (heatmap) xem được không cần đăng nhập. Chọn loài, dải
-            khả năng &amp; hướng đi thì cần đăng nhập.
-          </p>
-        </>
+        // PREMIUM (2026-07-26, thay teaser): lớp cá khoá HẲN — heatmap cũng
+        // không hiện. Thẻ khoá nói đúng nấc: đăng nhập / gọi SDVICO nâng cấp.
+        <PremiumLock
+          access={fishAccess}
+          feature="dự báo cá"
+          compact
+        />
       )}
       {fishOn && !fishLocked && (
         <>
@@ -534,13 +572,13 @@ function NguTruongPanel({
 }
 
 function ThoiTietPanel({
-  storms,
+  stormInfo,
   forecastKind,
   onForecast,
   scalarKind,
   onScalar,
 }: {
-  storms: StormAlert[];
+  stormInfo: StormStatus;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
   scalarKind: SeaScalarKind | null;
@@ -552,8 +590,10 @@ function ThoiTietPanel({
         <span>Cảnh báo bão</span>
         <span className="text-danger">Ưu tiên cao nhất</span>
       </p>
-      {storms.length > 0 ? (
-        storms.map((s) => (
+      {/* BỐN trạng thái tách bạch — "chưa hỏi được" KHÔNG bao giờ được hiện
+          thành "không có bão" (lib/storms.ts stormStatus) */}
+      {stormInfo.kind === "co-bao" &&
+        stormInfo.storms.map((s) => (
           <div
             key={s.id}
             className="mb-2 flex items-center gap-2 rounded-xl bg-danger-bg px-2.5 py-2"
@@ -563,15 +603,37 @@ function ThoiTietPanel({
               <span className="block text-[0.9375rem] font-bold leading-tight text-danger">
                 {s.kindLabel} {s.name}
               </span>
-              <span className="block text-[0.6875rem] text-foreground/65">
-                Liên tục · cập nhật vừa xong
+              <span
+                className={`block text-[0.8125rem] leading-snug ${
+                  stormInfo.cu ? "font-bold text-warn" : "text-foreground/65"
+                }`}
+              >
+                {stormInfo.checkedAt != null
+                  ? `Tin lúc ${clockVN(stormInfo.checkedAt)}`
+                  : "Chưa rõ tin lúc nào"}
+                {stormInfo.cu && " · tin cũ trong máy"}
               </span>
             </span>
           </div>
-        ))
-      ) : (
-        <p className="mb-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] text-foreground/70">
-          Không có tin bão trên Biển Đông (đã kiểm tra).
+        ))}
+      {stormInfo.kind === "khong-co" && (
+        <p className="mb-2 rounded-xl bg-ok-bg px-2.5 py-2 text-[0.8125rem] font-semibold leading-snug text-ok">
+          Không có tin bão trên Biển Đông (hỏi lúc{" "}
+          {clockVN(stormInfo.checkedAt)}).
+        </p>
+      )}
+      {stormInfo.kind === "khong-hoi-duoc" && (
+        <p className="mb-2 flex items-start gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.875rem] font-bold leading-snug text-warn">
+          <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+          <span>
+            Chưa hỏi được tin bão — máy không có sóng. Nghe thêm đài duyên hải /
+            Icom.
+          </span>
+        </p>
+      )}
+      {stormInfo.kind === "dang-hoi" && (
+        <p className="mb-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.8125rem] font-semibold text-foreground/70">
+          Đang hỏi tin bão…
         </p>
       )}
 
@@ -681,7 +743,13 @@ function RadioCard({
   );
 }
 
-function SettingsPanel() {
+function SettingsPanel({
+  vungLongOn,
+  onVungLong,
+}: {
+  vungLongOn: boolean;
+  onVungLong: (on: boolean) => void;
+}) {
   const prefs = useMapPrefs();
   return (
     <div>
@@ -723,6 +791,21 @@ function SettingsPanel() {
 
       <p className="mt-3 rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] leading-snug text-foreground/70">
         Đổi ở đây thì toạ độ, khoảng cách, dẫn đường và công cụ đo đều đổi theo.
+      </p>
+
+      <p className="mb-1 mt-4 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+        Lớp bản đồ
+      </p>
+      <Toggle
+        label="Ranh giới vùng lộng"
+        sub="NĐ 26/2019 · tàu 12–<15m · tham khảo"
+        on={vungLongOn}
+        onToggle={() => onVungLong(!vungLongOn)}
+        icon={<DepthIcon className="h-5 w-5 text-[#0d9488]" />}
+      />
+      <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/60">
+        Ranh giới vùng lộng (nét đứt xanh) chỉ để hình dung vùng theo cỡ tàu —
+        ranh chính thức tra Chi cục Thủy sản.
       </p>
     </div>
   );
@@ -847,15 +930,15 @@ function RangeBand({
       <span
         className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
         style={{
-          left: `${((value[0] - 35) / 65) * 100}%`,
-          right: `${((100 - value[1]) / 65) * 100}%`,
+          left: `${((value[0] - 50) / 50) * 100}%`,
+          right: `${((100 - value[1]) / 50) * 100}%`,
           background: color,
         }}
         aria-hidden
       />
       <input
         type="range"
-        min={35}
+        min={50}
         max={100}
         value={value[0]}
         aria-label="Khả năng có cá tối thiểu"
@@ -864,7 +947,7 @@ function RangeBand({
       />
       <input
         type="range"
-        min={35}
+        min={50}
         max={100}
         value={value[1]}
         aria-label="Khả năng có cá tối đa"
