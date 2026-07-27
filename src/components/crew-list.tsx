@@ -36,6 +36,20 @@ import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { useBoats } from "@/components/boat-switcher";
 import { apiUrl } from "@/lib/api-base";
 import { formatVnDate } from "@/lib/format";
+import { isValidVnPhone } from "@/lib/phone";
+
+/** Định danh một bạn thuyền để tra/báo cảnh báo — CCCD hoặc SĐT (1 trong 2). */
+type Identity = { cccd?: string; phone?: string };
+function hasIdentity(id: Identity): boolean {
+  return isValidCccd(id.cccd ?? "") || isValidVnPhone(id.phone ?? "");
+}
+/** Query string cho lookup — chỉ gắn định danh HỢP LỆ. */
+function identityQuery(id: Identity): string {
+  const p = new URLSearchParams();
+  if (isValidCccd(id.cccd ?? "")) p.set("cccd", id.cccd as string);
+  if (isValidVnPhone(id.phone ?? "")) p.set("phone", id.phone as string);
+  return p.toString();
+}
 
 // Thuyền viên là hồ sơ ĐỘNG theo CHỦ TÀU (ba-spec 08 R2): dùng chung cho mọi
 // tàu của chủ, KHÔNG gắn boatId, KHÔNG mất khi xóa 1 tàu. (boatId cũ giữ trong
@@ -108,9 +122,11 @@ export function CrewList() {
   const [editing, setEditing] = useState<StoredCrew | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<StoredCrew | null>(null);
-  // sheet BÁO CÁO một người (mở từ nút Cảnh báo của thẻ) — luôn kèm CCCD+tên
+  // sheet BÁO CÁO một người (mở từ nút Cảnh báo của thẻ) — kèm định danh (CCCD
+  // và/hoặc SĐT) + tên
   const [warningFor, setWarningFor] = useState<{
     cccd: string;
+    phone: string;
     name: string;
   } | null>(null);
 
@@ -123,7 +139,10 @@ export function CrewList() {
   const issueCount = boatCrew.filter(
     (m) => crewIssue(m, today).level === "danger",
   ).length;
-  const missingCccd = boatCrew.filter((m) => !isValidCccd(m.cccd)).length;
+  // chưa có ĐỊNH DANH nào (cả CCCD lẫn SĐT) → không tra/báo cảnh báo được
+  const missingId = boatCrew.filter(
+    (m) => !hasIdentity({ cccd: m.cccd, phone: m.phone }),
+  ).length;
 
   // người có chuyện xếp lên đầu: đỏ → vàng → ổn
   const sortedCrew = useMemo(() => {
@@ -194,10 +213,10 @@ export function CrewList() {
         Thêm bạn thuyền
       </button>
 
-      {ready && missingCccd > 0 && !isDemo && (
+      {ready && missingId > 0 && !isDemo && (
         <div className="mb-4 overflow-hidden surface">
           <StatusBanner level="warn" icon={<AlertIcon className="h-5 w-5" />}>
-            {missingCccd} người chưa có CCCD — bổ sung để tra cảnh báo & báo cáo.
+            {missingId} người chưa có CCCD/SĐT — bổ sung để tra cảnh báo & báo cáo.
           </StatusBanner>
         </div>
       )}
@@ -231,6 +250,7 @@ export function CrewList() {
         {sortedCrew.map((m) => {
           const issue = crewIssue(m, today);
           const hasCccd = isValidCccd(m.cccd);
+          const canWarn = hasIdentity({ cccd: m.cccd, phone: m.phone });
           return (
             <li key={m.id} className="overflow-hidden surface">
               <StatusBanner level={issue.level}>{issue.label}</StatusBanner>
@@ -246,11 +266,11 @@ export function CrewList() {
                   <p className="text-[0.9375rem] tabular-nums text-foreground/70">
                     CCCD: {formatCccd(m.cccd)}
                   </p>
-                ) : (
+                ) : !canWarn ? (
                   <p className="text-[0.9375rem] font-semibold text-warn">
-                    Chưa có CCCD — bấm Sửa để bổ sung
+                    Chưa có CCCD/SĐT — bấm Sửa để bổ sung
                   </p>
-                )}
+                ) : null}
                 {m.phone && (
                   <a
                     href={`tel:${m.phone}`}
@@ -270,8 +290,12 @@ export function CrewList() {
               <div className="grid grid-cols-3 border-t border-line">
                 <button
                   onClick={() =>
-                    hasCccd
-                      ? setWarningFor({ cccd: m.cccd, name: m.name })
+                    canWarn
+                      ? setWarningFor({
+                          cccd: m.cccd,
+                          phone: m.phone ?? "",
+                          name: m.name,
+                        })
                       : (setEditing(m), setShowForm(true))
                   }
                   className="flex min-h-[3.25rem] items-center justify-center gap-1.5 text-[1rem] font-bold text-t4 active:bg-background"
@@ -324,6 +348,7 @@ export function CrewList() {
       {warningFor && (
         <ReportSheet
           cccd={warningFor.cccd}
+          phone={warningFor.phone}
           name={warningFor.name}
           access={access}
           configured={configured}
@@ -388,13 +413,24 @@ function CrewForm({
       setErr("Chưa nhập tên.");
       return;
     }
-    if (!isValidCccd(cccd)) {
-      setErr("CCCD phải đủ 12 số.");
+    const cccdEntered = cccd.trim() !== "";
+    const phoneEntered = phone.trim() !== "";
+    // Định danh = CCCD HOẶC SĐT (1 trong 2). Cái nào có nhập thì phải đúng.
+    if (cccdEntered && !isValidCccd(cccd)) {
+      setErr("CCCD phải đủ 12 số (hoặc để trống, dùng SĐT).");
       return;
     }
-    const cccdNorm = normalizeCccd(cccd);
+    if (phoneEntered && !isValidVnPhone(phone)) {
+      setErr("Số điện thoại chưa hợp lệ.");
+      return;
+    }
+    if (!isValidCccd(cccd) && !isValidVnPhone(phone)) {
+      setErr("Cần CCCD (12 số) hoặc số điện thoại để định danh bạn thuyền.");
+      return;
+    }
+    const cccdNorm = isValidCccd(cccd) ? normalizeCccd(cccd) : "";
     // trùng CCCD với người khác trong sổ (cho phép giữ nguyên của chính mình)
-    if (cccdNorm !== initialCccdNorm && takenCccds.has(cccdNorm)) {
+    if (cccdNorm && cccdNorm !== initialCccdNorm && takenCccds.has(cccdNorm)) {
       setErr("CCCD này đã có trong sổ — mỗi người một CCCD.");
       return;
     }
@@ -429,7 +465,7 @@ function CrewForm({
           />
         </Field>
 
-        <Field label="Số CCCD (bắt buộc — 12 số)">
+        <Field label="Số CCCD (12 số — hoặc dùng SĐT bên dưới)">
           <input
             value={cccd}
             onChange={(e) => setCccd(e.target.value)}
@@ -438,9 +474,6 @@ function CrewForm({
             maxLength={16}
             placeholder="VD: 079090001234"
           />
-          {/* Tra cảnh báo NGAY khi gõ đủ 12 số — ✓ xanh nếu sạch, hiện cảnh
-              báo nếu có (không cần nút tra riêng) */}
-          <CccdCheck cccd={cccd} access={access} configured={configured} />
         </Field>
 
         <Field label="Làm việc gì trên tàu?">
@@ -459,13 +492,21 @@ function CrewForm({
           </select>
         </Field>
 
-        <Field label="Số điện thoại">
+        <Field label="Số điện thoại (định danh nếu không có CCCD)">
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className={inputClass}
             inputMode="tel"
             placeholder="VD: 0901234567"
+          />
+          {/* Tra cảnh báo NGAY khi có đủ định danh (CCCD 12 số HOẶC SĐT) — ✓
+              xanh nếu sạch, hiện cảnh báo nếu có (không cần nút tra riêng) */}
+          <IdentityCheck
+            cccd={cccd}
+            phone={phone}
+            access={access}
+            configured={configured}
           />
         </Field>
 
@@ -576,16 +617,16 @@ function codeMessage(code: string | undefined): string {
   }
 }
 
-/** Gọi API tra cảnh báo theo CCCD — trả kết quả hoặc mã lỗi (dùng chung cho
- *  ô CCCD tra-khi-gõ và sheet báo cáo). */
+/** Gọi API tra cảnh báo theo CCCD/SĐT — trả kết quả hoặc mã lỗi (dùng chung
+ *  cho ô tra-khi-gõ và sheet báo cáo). */
 async function fetchLookup(
-  cccd: string,
+  id: Identity,
 ): Promise<
   { ok: true; result: CrewLookupResult } | { ok: false; code?: string }
 > {
   try {
     const r = await fetch(
-      apiUrl(`/api/crew-reports/lookup?cccd=${encodeURIComponent(cccd)}`),
+      apiUrl(`/api/crew-reports/lookup?${identityQuery(id)}`),
     );
     const j = (await r.json().catch(() => null)) as
       | { ok: true; count: number; reports: CrewLookupResult["reports"] }
@@ -638,21 +679,24 @@ function WarningsList({ result }: { result: CrewLookupResult }) {
   );
 }
 
-/** Tra cảnh báo NGAY khi gõ đủ 12 số CCCD trong form thêm/sửa — ✓ xanh nếu
- *  sạch, hiện cảnh báo nếu có (không cần nút tra riêng). Chỉ tra khi premium
- *  + có máy chủ; chưa premium thì mời nâng cấp gọn. */
-function CccdCheck({
+/** Tra cảnh báo NGAY khi gõ đủ định danh (CCCD 12 số HOẶC SĐT) trong form
+ *  thêm/sửa — ✓ xanh nếu sạch, hiện cảnh báo nếu có (không cần nút tra riêng).
+ *  Chỉ tra khi premium + có máy chủ; chưa premium thì mời nâng cấp gọn. */
+function IdentityCheck({
   cccd,
+  phone,
   access,
   configured,
 }: {
   cccd: string;
+  phone: string;
   access: ReturnType<typeof useFeatureAccess>["access"];
   configured: boolean;
 }) {
   const [state, setState] = useState<LookupState>({ kind: "idle" });
-  const valid = isValidCccd(cccd);
-  const norm = normalizeCccd(cccd);
+  const valid = hasIdentity({ cccd, phone });
+  // khoá debounce theo định danh hợp lệ (đổi CCCD/SĐT thì tra lại)
+  const key = identityQuery({ cccd, phone });
   const canCheck = configured && access === "open";
 
   useEffect(() => {
@@ -664,7 +708,7 @@ function CccdCheck({
     setState({ kind: "loading" });
     // chờ gõ xong (debounce) rồi mới hỏi máy chủ
     const t = setTimeout(async () => {
-      const r = await fetchLookup(norm);
+      const r = await fetchLookup({ cccd, phone });
       if (!alive) return;
       setState(
         r.ok
@@ -676,7 +720,8 @@ function CccdCheck({
       alive = false;
       clearTimeout(t);
     };
-  }, [norm, valid, canCheck]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, valid, canCheck]);
 
   if (!valid) return null;
   if (access === "login" || access === "upgrade")
@@ -712,7 +757,7 @@ function CccdCheck({
       <div className="mt-2">
         <p className="mb-1.5 flex items-center gap-1.5 text-[0.9375rem] font-bold text-danger">
           <AlertIcon className="h-5 w-5" />
-          Có cảnh báo về CCCD này:
+          Có cảnh báo về người này:
         </p>
         <WarningsList result={state.result} />
       </div>
@@ -726,12 +771,14 @@ function CccdCheck({
    báo cũ (nếu có) hiện ở trên làm bối cảnh, tránh báo trùng. */
 function ReportSheet({
   cccd,
+  phone,
   name,
   access,
   configured,
   onClose,
 }: {
   cccd: string;
+  phone: string;
   name: string;
   access: ReturnType<typeof useFeatureAccess>["access"];
   configured: boolean;
@@ -739,13 +786,15 @@ function ReportSheet({
 }) {
   const [ctx, setCtx] = useState<LookupState>({ kind: "idle" });
   const locked = access === "login" || access === "upgrade";
+  const idValidCccd = isValidCccd(cccd);
+  const idValidPhone = isValidVnPhone(phone);
 
   // nạp cảnh báo đã có làm bối cảnh (1 lần khi mở)
   useEffect(() => {
-    if (locked || !configured || !isValidCccd(cccd)) return;
+    if (locked || !configured || !hasIdentity({ cccd, phone })) return;
     let alive = true;
     setCtx({ kind: "loading" });
-    fetchLookup(normalizeCccd(cccd)).then((r) => {
+    fetchLookup({ cccd, phone }).then((r) => {
       if (!alive) return;
       setCtx(
         r.ok
@@ -776,7 +825,9 @@ function ReportSheet({
         <>
           <p className="mb-3 -mt-1 text-[0.9375rem] tabular-nums text-foreground/70">
             {name ? <strong className="text-navy">{name} · </strong> : null}
-            CCCD {formatCccd(cccd)}
+            {idValidCccd ? `CCCD ${formatCccd(cccd)}` : ""}
+            {idValidCccd && idValidPhone ? " · " : ""}
+            {idValidPhone ? `SĐT ${phone}` : ""}
           </p>
 
           {ctx.kind === "done" && ctx.result.count > 0 && (
@@ -789,7 +840,8 @@ function ReportSheet({
           )}
 
           <ReportForm
-            cccd={normalizeCccd(cccd)}
+            cccd={idValidCccd ? normalizeCccd(cccd) : ""}
+            phone={idValidPhone ? phone : ""}
             subjectName={name}
             onCancel={onClose}
             onDone={onClose}
@@ -802,11 +854,13 @@ function ReportSheet({
 
 function ReportForm({
   cccd,
+  phone,
   subjectName,
   onCancel,
   onDone,
 }: {
   cccd: string;
+  phone: string;
   subjectName: string;
   onCancel: () => void;
   onDone: () => void;
@@ -831,7 +885,8 @@ function ReportForm({
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        cccd,
+        cccd: cccd || undefined,
+        phone: phone || undefined,
         subjectName: name.trim() || undefined,
         category,
         detail: detail.trim() || undefined,

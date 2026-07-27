@@ -9,6 +9,7 @@ ttl_days: 90
 
 <!-- re-verified: 2026-07-27b — boat-switcher.tsx CHỈ đổi CHỮ ConfirmDialog xóa tàu: bỏ "sổ lãi/lỗ" khỏi danh sách thứ bị xóa (feature sổ lãi/lỗ đã XÓA HẲN 2026-07-27). Hành vi đa-tàu giữ nguyên: cascade R3, guard R7, hồ sơ động không mất. -->
 <!-- re-verified: 2026-07-27 — crew-list.tsx đổi UX cảnh báo thuyền viên (tra INLINE khi gõ CCCD + nút Cảnh báo = báo cáo, sheet ReportSheet). KHÔNG đụng hành vi đa-tàu: thuyền viên VẪN động-theo-chủ (R2), không gắn boatId, không mất khi xóa tàu. Spec §hồ-sơ-động còn đúng. -->
+<!-- re-verified: 2026-07-27c — crew-list.tsx: định danh thuyền viên CCCD HOẶC SĐT (1 trong 2, IdentityCheck), + admin tự thêm/xóa cảnh báo ở /quan-tri. Vẫn KHÔNG đụng đa-tàu: thuyền viên động-theo-chủ (R2), không boatId. Hồ sơ giờ cần CCCD hoặc SĐT (trước bắt buộc CCCD) — không ảnh hưởng vòng đời tàu. -->
 
 ---
 

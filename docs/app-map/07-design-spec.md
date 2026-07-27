@@ -44,7 +44,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 |---|---|---|---|---|
 | ~~Chuyến biển (lãi/lỗ, báo cáo năm, tính chuyến)~~ | — | — | — | **XÓA HẲN 2026-07-27** (user chốt — bỏ sổ lãi/lỗ, báo cáo năm, tính chuyến, chia tiền, hồ sơ chuyến PDF) |
 | Tin mua/bán | list (tin bán + tin mua) | — | bottom-sheet (đăng tin ≤8 field) | /tien mục Tin mua/bán (`market-board.tsx`) |
-| Bạn thuyền | sổ thuyền viên | báo cáo CCCD (sheet, premium) | drawer (tra cảnh báo INLINE khi gõ CCCD) | /nguoi |
+| Bạn thuyền | sổ thuyền viên | báo cáo CCCD/SĐT (sheet, premium) | drawer (tra cảnh báo INLINE khi gõ CCCD hoặc SĐT) | /nguoi |
 | Giấy tờ tàu | list | — | drawer | /tau tab Giấy tờ |
 | Sản phẩm/Dịch vụ SDVICO | list (sync read-only + tự ghi) | — | drawer (đồ tự ghi) | /tau tab Sản phẩm/Dịch vụ |
 | Điểm ngư trường / của tôi | map + sheet | peek sheet | sheet | /ngu-truong |
@@ -89,7 +89,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 | Hành động | Thấy ngay sau đó |
 |---|---|
 | Đăng tin mua/bán (đã đăng nhập) | tin hiện ngay trên chợ; tin của mình có nút Đóng/Xóa; chưa đăng nhập thì nút → /login |
-| Gõ đủ 12 số CCCD trong form (premium) | tra tự động (debounce) NGAY dưới ô: ✓ xanh "không có cảnh báo" / hộp đỏ liệt kê cảnh báo đã duyệt. Chống trùng trong sổ; đủ 12 số mới lưu |
+| Gõ CCCD (12 số) hoặc SĐT trong form (premium) | tra tự động (debounce) NGAY dưới ô: ✓ xanh "không có cảnh báo" / hộp đỏ liệt kê cảnh báo đã duyệt. Định danh = 1 trong 2 (CCCD/SĐT), chống trùng CCCD trong sổ |
 | Bấm "Cảnh báo" trên thẻ bạn thuyền (premium) | mở sheet Báo cáo: hiện cảnh báo cũ (bối cảnh) + form chọn loại vấn đề + kể rõ → gửi → `pending` chờ SDVICO duyệt ở /quan-tri |
 | Gửi báo cáo thuyền viên | "Đã gửi — SDVICO kiểm duyệt trước khi hiện cho chủ tàu khác" |
 | Xóa điểm ghim / tin mua-bán / sản phẩm | xác nhận inline / ConfirmDialog (KHÔNG xóa 1 chạm) |

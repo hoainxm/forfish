@@ -1,12 +1,14 @@
-// GET /api/crew-reports/lookup?cccd=... — chủ tàu PREMIUM tra cảnh báo theo
-// CCCD. Chỉ trả report ĐÃ DUYỆT (status='approved'); KHÔNG lộ SĐT người báo
-// (giảm trả thù/vu khống — người báo chỉ admin thấy). Đọc bằng service-role
-// qua khoá HASH(CCCD) (bảng RLS không policy client, migration 0007).
+// GET /api/crew-reports/lookup?cccd=…&phone=… — chủ tàu PREMIUM tra cảnh báo
+// theo CCCD HOẶC SĐT (1 trong 2 đủ; có cả hai thì khớp bên nào cũng ra). Chỉ
+// trả report ĐÃ DUYỆT (status='approved'); KHÔNG lộ SĐT người báo (giảm trả
+// thù/vu khống). Đọc bằng service-role qua khoá HASH (bảng RLS không policy
+// client, migration 0007 + 0009).
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePremiumUser } from "@/lib/premium-guard";
-import { hashCccd } from "@/lib/crew-report-hash";
+import { hashCccd, hashPhone } from "@/lib/crew-report-hash";
 import { isValidCccd } from "@/lib/crew";
+import { isValidVnPhone } from "@/lib/phone";
 import type { CrewReportPublic } from "@/lib/crew-report";
 
 const err = (status: number, code: string) =>
@@ -16,11 +18,25 @@ export async function GET(req: Request) {
   const who = await requirePremiumUser();
   if (!who.ok) return err(who.status, who.code);
 
-  const cccd = new URL(req.url).searchParams.get("cccd") ?? "";
-  if (!isValidCccd(cccd)) return err(400, "bad_cccd");
+  const url = new URL(req.url);
+  const cccd = url.searchParams.get("cccd") ?? "";
+  const phone = url.searchParams.get("phone") ?? "";
 
-  const hash = hashCccd(cccd);
-  if (!hash) return err(503, "cccd_pepper_missing");
+  // gom khoá hash của các định danh HỢP LỆ được gửi lên (CCCD và/hoặc SĐT)
+  const orConds: string[] = [];
+  if (cccd) {
+    if (!isValidCccd(cccd)) return err(400, "bad_cccd");
+    const h = hashCccd(cccd);
+    if (!h) return err(503, "cccd_pepper_missing");
+    orConds.push(`subject_cccd_hash.eq.${h}`);
+  }
+  if (phone) {
+    if (!isValidVnPhone(phone)) return err(400, "bad_phone");
+    const h = hashPhone(phone);
+    if (!h) return err(503, "cccd_pepper_missing");
+    orConds.push(`subject_phone_hash.eq.${h}`);
+  }
+  if (orConds.length === 0) return err(400, "bad_input");
 
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -30,8 +46,8 @@ export async function GET(req: Request) {
     .select(
       "id, category, detail, reporter_boat, created_at, subject_response, subject_responded_at",
     )
-    .eq("subject_cccd_hash", hash)
     .eq("status", "approved")
+    .or(orConds.join(","))
     .order("created_at", { ascending: false });
   if (error) return err(500, "query_failed");
 

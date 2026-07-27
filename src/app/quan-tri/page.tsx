@@ -21,8 +21,14 @@ import { apiUrl } from "@/lib/api-base";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { formatCccd } from "@/lib/crew";
-import { crewReportCategoryLabel } from "@/lib/crew-report";
+import { formatCccd, isValidCccd } from "@/lib/crew";
+import { isValidVnPhone } from "@/lib/phone";
+import {
+  crewReportCategoryLabel,
+  CREW_REPORT_CATEGORIES,
+  CREW_REPORT_CATEGORY_LABELS,
+  type CrewReportCategory,
+} from "@/lib/crew-report";
 
 type Tab = "tai-khoan" | "canh-bao" | "du-lieu" | "he-thong";
 
@@ -787,7 +793,8 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
 
 type CrewReportRow = {
   id: string;
-  subjectCccd: string;
+  subjectCccd: string | null;
+  subjectPhone: string | null;
   subjectName: string | null;
   reporterPhone: string;
   reporterBoat: string | null;
@@ -820,6 +827,7 @@ function CrewReportsTab() {
     row: CrewReportRow;
     action: "approve" | "reject" | "withdraw";
   } | null>(null);
+  const [toDelete, setToDelete] = useState<CrewReportRow | null>(null);
 
   const load = useCallback(() => {
     setError(null);
@@ -863,6 +871,20 @@ function CrewReportsTab() {
     load();
   }
 
+  async function remove(row: CrewReportRow) {
+    setBusyId(row.id);
+    const r = await fetch(
+      apiUrl(`/api/admin/crew-reports?id=${encodeURIComponent(row.id)}`),
+      { method: "DELETE" },
+    ).catch(() => null);
+    setBusyId(null);
+    if (!r?.ok) {
+      setError("Xóa chưa được — thử lại.");
+      return;
+    }
+    load();
+  }
+
   const chip = (id: ReportStatusFilter, label: string) => (
     <button
       key={id}
@@ -884,6 +906,9 @@ function CrewReportsTab() {
         <b>đã duyệt</b> mới hiện cho chủ tàu khác. Kiểm tra kỹ trước khi duyệt —
         người bị ghi có quyền phản hồi (ghi vào ô bên dưới mỗi báo cáo).
       </p>
+
+      {/* STAFF tự thêm thuyền viên có vấn đề → duyệt luôn (hiện ngay) */}
+      <AddCrewReportForm onAdded={load} />
 
       <div className="flex gap-1.5">
         {chip("pending", "Chờ duyệt")}
@@ -924,6 +949,7 @@ function CrewReportsTab() {
               busy={busyId === row.id}
               onStatus={(action) => setConfirm({ row, action })}
               onRespond={(text) => act(row, "respond", text)}
+              onDelete={() => setToDelete(row)}
             />
           ))}
         </ul>
@@ -962,6 +988,22 @@ function CrewReportsTab() {
           }}
         />
       )}
+
+      {toDelete && (
+        <ConfirmDialog
+          title="Xóa cảnh báo khỏi danh sách?"
+          message="Xóa HẲN bản ghi này (khác 'rút xuống' vẫn giữ lại). Không hoàn tác được — dùng khi báo cáo sai/trùng."
+          confirmLabel="Xóa luôn"
+          cancelLabel="Không"
+          danger
+          onCancel={() => setToDelete(null)}
+          onConfirm={() => {
+            const row = toDelete;
+            setToDelete(null);
+            remove(row);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -971,11 +1013,13 @@ function ReportCard({
   busy,
   onStatus,
   onRespond,
+  onDelete,
 }: {
   row: CrewReportRow;
   busy: boolean;
   onStatus: (action: "approve" | "reject" | "withdraw") => void;
   onRespond: (text: string) => void;
+  onDelete: () => void;
 }) {
   const [resp, setResp] = useState(row.subjectResponse ?? "");
   const badge = STATUS_BADGE[row.status] ?? STATUS_BADGE.pending;
@@ -988,7 +1032,9 @@ function ReportCard({
             {crewReportCategoryLabel(row.category)}
           </p>
           <p className="mt-0.5 text-[0.8125rem] tabular-nums text-foreground/70">
-            CCCD {formatCccd(row.subjectCccd)}
+            {row.subjectCccd ? `CCCD ${formatCccd(row.subjectCccd)}` : ""}
+            {row.subjectCccd && row.subjectPhone ? " · " : ""}
+            {row.subjectPhone ? `SĐT ${row.subjectPhone}` : ""}
             {row.subjectName ? ` · ${row.subjectName}` : ""}
           </p>
         </div>
@@ -1076,8 +1122,170 @@ function ReportCard({
             Duyệt lại (cho hiện)
           </button>
         )}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onDelete}
+          title="Xóa hẳn khỏi danh sách"
+          className="min-h-[2.5rem] shrink-0 rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
+        >
+          Xóa
+        </button>
       </div>
     </li>
+  );
+}
+
+/** STAFF tự thêm một thuyền viên có vấn đề (CCCD HOẶC SĐT) → vào thẳng
+ *  'approved', hiện ngay cho chủ tàu khác khi tra. */
+function AddCrewReportForm({ onAdded }: { onAdded: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [cccd, setCccd] = useState("");
+  const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState<CrewReportCategory | "">("");
+  const [detail, setDetail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const cccdOk = isValidCccd(cccd);
+  const phoneOk = isValidVnPhone(phone);
+  const canSubmit = (cccdOk || phoneOk) && !!category;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    if (!cccdOk && !phoneOk) {
+      setMsg("Cần CCCD (12 số) hoặc SĐT.");
+      return;
+    }
+    if (cccd.trim() && !cccdOk) {
+      setMsg("CCCD phải đủ 12 số (hoặc để trống).");
+      return;
+    }
+    if (phone.trim() && !phoneOk) {
+      setMsg("SĐT chưa hợp lệ.");
+      return;
+    }
+    if (!category) {
+      setMsg("Chọn loại vấn đề.");
+      return;
+    }
+    setBusy(true);
+    const r = await fetch(apiUrl("/api/admin/crew-reports"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        cccd: cccdOk ? cccd : undefined,
+        phone: phoneOk ? phone : undefined,
+        subjectName: name.trim() || undefined,
+        category,
+        detail: detail.trim() || undefined,
+      }),
+    }).catch(() => null);
+    setBusy(false);
+    const j = (await r?.json().catch(() => null)) as {
+      ok?: boolean;
+      code?: string;
+    } | null;
+    if (!r?.ok || !j?.ok) {
+      setMsg(
+        j?.code === "cccd_pepper_missing"
+          ? "Máy chủ chưa cấu hình CREW_CCCD_PEPPER."
+          : "Thêm chưa được — thử lại.",
+      );
+      return;
+    }
+    setMsg("Đã thêm — cảnh báo hiện ngay cho chủ tàu khác khi tra.");
+    setCccd("");
+    setPhone("");
+    setName("");
+    setCategory("");
+    setDetail("");
+    onAdded();
+  }
+
+  const field =
+    "min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea";
+
+  return (
+    <div className="surface px-4 py-3.5">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between text-[1rem] font-bold text-navy"
+        aria-expanded={open}
+      >
+        + Thêm thuyền viên có vấn đề (duyệt luôn)
+        <span aria-hidden>{open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <form onSubmit={submit} className="mt-3 space-y-2.5">
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <input
+              inputMode="numeric"
+              placeholder="CCCD (12 số) — hoặc dùng SĐT"
+              value={cccd}
+              onChange={(e) => setCccd(e.target.value)}
+              className={field}
+            />
+            <input
+              inputMode="tel"
+              placeholder="SĐT (nếu không có CCCD)"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className={field}
+            />
+          </div>
+          <input
+            placeholder="Tên thuyền viên (tuỳ chọn)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={field}
+          />
+          <div
+            className="grid gap-1.5 sm:grid-cols-2"
+            role="group"
+            aria-label="Loại vấn đề"
+          >
+            {CREW_REPORT_CATEGORIES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCategory(c)}
+                aria-pressed={category === c}
+                className={`min-h-[2.75rem] rounded-xl px-3 text-left text-[0.8125rem] font-bold transition ${
+                  category === c
+                    ? "bg-navy text-white"
+                    : "bg-field text-foreground/70"
+                }`}
+              >
+                {CREW_REPORT_CATEGORY_LABELS[c]}
+              </button>
+            ))}
+          </div>
+          <textarea
+            placeholder="Kể rõ hơn (tuỳ chọn)"
+            value={detail}
+            onChange={(e) => setDetail(e.target.value)}
+            maxLength={500}
+            className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+          />
+          <button
+            type="submit"
+            disabled={busy || !canSubmit}
+            className="min-h-[2.75rem] w-full rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50"
+          >
+            {busy ? "Đang thêm…" : "Thêm & duyệt luôn"}
+          </button>
+          {msg && (
+            <p className="text-[0.875rem] font-semibold text-foreground/75">
+              {msg}
+            </p>
+          )}
+        </form>
+      )}
+    </div>
   );
 }
 
