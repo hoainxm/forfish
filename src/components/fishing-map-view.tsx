@@ -420,12 +420,6 @@ export default function FishingMapView() {
     [forecastKind, fGrid, timeIdx],
   );
 
-  // Lọc theo KHOẢNG khả năng có cá (kéo-thả 2 đầu ở legend): chỉ hiện ô trong
-  // [lo,hi]%. Sàn 50 (user 2026-07-25: dưới 50 làm nhiễu — trước là 35).
-  const [fishRange, setFishRange] = useState<[number, number]>([
-    FISH_LEVEL_BANDS[0].min,
-    100,
-  ]);
 
   // BƯỚC LƯỚI (độ): suy từ khoảng cách nhỏ nhất giữa các vĩ độ ô — để vẽ ô
   // vuông phủ đúng một ô lưới SST (~0,25°), không phụ thuộc hằng số cứng.
@@ -459,17 +453,17 @@ export default function FishingMapView() {
 
   // Ô LƯỚI DỰ BÁO CÁ — mỗi ô SST thành một ô vuông TÔ MÀU theo mức khả năng có
   // cá (kiểu bản tin ngư trường Viện Hải sản), CHỈ MÀU không in số. Bật/tắt ở
-  // panel Cài đặt (prefs.fishGrid). Lọc theo loài + khoảng đã chọn, sàn = ngưỡng
-  // mức Thấp (FISH_LEVEL_BANDS[0].min).
+  // panel Cài đặt (prefs.fishGrid) — ĐỘC LẬP với nút lớp "Cá" ở rail (user
+  // 2026-07-27: lưới luôn hiện khi bật toggle, không cần bật lớp Cá). Vẫn khoá
+  // premium: fishCast = null khi chưa mở khoá. Sàn = ngưỡng mức Thấp.
   const fishGridGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
-    if (!fishOn || !fishCast || !prefs.fishGrid) return null;
-    const lo = Math.max(FISH_LEVEL_BANDS[0].min, fishRange[0]);
-    const hi = fishRange[1];
+    if (!fishCast || !prefs.fishGrid) return null;
+    const lo = FISH_LEVEL_BANDS[0].min; // sàn = ngưỡng mức Thấp; hiện đủ 3 mức
     const h = fishGridStep / 2;
     const features: GeoJSON.Feature[] = [];
     for (const c of fishCast.cells) {
       const v = fishSpecies ? (c.sp?.[fishSpecies] ?? 0) : c.s;
-      if (v < lo || v > hi) continue;
+      if (v < lo) continue;
       const r = Math.round(v);
       const x0 = c.lon - h;
       const x1 = c.lon + h;
@@ -493,7 +487,7 @@ export default function FishingMapView() {
       });
     }
     return { type: "FeatureCollection", features };
-  }, [fishOn, fishCast, fishSpecies, fishRange, fishGridStep, prefs.fishGrid]);
+  }, [fishCast, fishSpecies, fishGridStep, prefs.fishGrid]);
   // Hiện điểm đã lưu trên bản đồ (panel Điểm đã lưu — Phương án A)
   const [showPlaces, setShowPlaces] = useState(true);
   // thanh giờ Windy (gió/sóng) cho thu/mở — đỡ chiếm mép sheet (user 2026-06-23)
@@ -546,7 +540,7 @@ export default function FishingMapView() {
           priority: v + bonus,
         };
       })
-      .filter((c) => c.v >= Math.max(75, fishRange[0]) && c.v <= fishRange[1])
+      .filter((c) => c.v >= 75)
       .sort((a, b) => b.priority - a.priority);
     const picked: typeof scored = [];
     for (const c of scored) {
@@ -564,7 +558,7 @@ export default function FishingMapView() {
       top,
       near,
     }));
-  }, [fishOn, fishCast, fishSpecies, point, places, fishRange]);
+  }, [fishOn, fishCast, fishSpecies, point, places]);
 
   // điểm cá gần chỗ đang xem nhất — câu gợi ý "đi hướng nào" trong thẻ cá
   const nearestHotspot = useMemo(() => {
@@ -1431,8 +1425,6 @@ export default function FishingMapView() {
           species={fishCast?.species ?? []}
           regionShorts={regionShorts}
           onPickSpecies={setFishSpecies}
-          fishRange={fishRange}
-          onRange={setFishRange}
           stormInfo={stormInfo}
           showPlaces={showPlaces}
           onShowPlaces={setShowPlaces}

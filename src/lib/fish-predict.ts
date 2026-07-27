@@ -868,7 +868,7 @@ export function spatialAnomaly(
  * bị ẩn). Ngưỡng: Thấp 40–60 · Trung bình 60–75 · Cao 75–100 (user 2026-07-27).
  */
 export const FISH_LEVEL_BANDS = [
-  { key: "low", label: "Thấp", min: 40, color: "#5b9bd5" },
+  { key: "low", label: "Thấp", min: 40, color: "#eab308" },
   { key: "mid", label: "Trung bình", min: 60, color: "#22c55e" },
   { key: "high", label: "Cao", min: 75, color: "#ef4444" },
 ] as const;

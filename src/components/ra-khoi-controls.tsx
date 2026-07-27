@@ -76,8 +76,6 @@ export function RaKhoiControls({
   species,
   regionShorts,
   onPickSpecies,
-  fishRange,
-  onRange,
   stormInfo,
   showPlaces,
   onShowPlaces,
@@ -117,8 +115,6 @@ export function RaKhoiControls({
   species: string[];
   regionShorts: Set<string>;
   onPickSpecies: (sp: string | null) => void;
-  fishRange: [number, number];
-  onRange: (r: [number, number]) => void;
   /** Trạng thái tin bão đã quy về 4 nhánh (lib/storms.ts) — KHÔNG dùng mảng
       rỗng để vừa nghĩa "không có bão" vừa nghĩa "chưa hỏi được" */
   stormInfo: StormStatus;
@@ -241,8 +237,6 @@ export function RaKhoiControls({
                   fishSpecies={fishSpecies}
                   fishAccess={fishAccess}
                   onOpenSpecies={() => setSpeciesView(true)}
-                  fishRange={fishRange}
-                  onRange={onRange}
                 />
               )}
               {open === "thoi-tiet" && (
@@ -493,16 +487,12 @@ function NguTruongPanel({
   onFish,
   fishSpecies,
   onOpenSpecies,
-  fishRange,
-  onRange,
   fishAccess,
 }: {
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
   onOpenSpecies: () => void;
-  fishRange: [number, number];
-  onRange: (r: [number, number]) => void;
   /** nấc premium — "login"/"upgrade" = lớp cá khoá hẳn (thẻ khoá thay picker) */
   fishAccess: FeatureAccess;
 }) {
@@ -575,14 +565,6 @@ function NguTruongPanel({
           <p className="mt-1.5 text-[0.6875rem] leading-snug text-foreground/60">
             Màu ô = mức khả năng có cá, quy ước chung cho mọi loài.
           </p>
-
-          <p className="mb-1 mt-3 flex items-center justify-between text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
-            <span>Dải khả năng có cá</span>
-            <span className="tabular-nums" style={{ color: FISH_COLOR }}>
-              {fishRange[0]}–{fishRange[1]}%
-            </span>
-          </p>
-          <RangeBand value={fishRange} onChange={onRange} color={FISH_COLOR} />
         </>
       )}
     </div>
@@ -816,7 +798,7 @@ function SettingsPanel({
       </p>
       <Toggle
         label="Lưới ngư trường"
-        sub="Ô vuông tô màu theo mức khả năng có cá · kiểu bản tin ngư trường"
+        sub="Ô vuông màu Thấp/TB/Cao phủ khắp biển · hiện ngay, không cần bật lớp Cá"
         on={prefs.fishGrid}
         onToggle={() => setMapPrefs({ fishGrid: !prefs.fishGrid })}
         icon={<FishIcon className="h-5 w-5 text-t1" />}
@@ -937,56 +919,3 @@ function Toggle({
   );
 }
 
-// dải kéo 2 đầu (dual-range) — tái dùng .range-dual (globals.css)
-function RangeBand({
-  value,
-  onChange,
-  color,
-}: {
-  value: [number, number];
-  onChange: (r: [number, number]) => void;
-  color: string;
-}) {
-  // sàn = ngưỡng dưới của mức Thấp (khớp lưới bản đồ); nhịp span để đặt vệt màu
-  const min = FISH_LEVEL_BANDS[0].min;
-  const span = 100 - min;
-  return (
-    <span className="relative block h-6">
-      <span
-        className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-line"
-        aria-hidden
-      />
-      <span
-        className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
-        style={{
-          left: `${((value[0] - min) / span) * 100}%`,
-          right: `${((100 - value[1]) / span) * 100}%`,
-          background: color,
-        }}
-        aria-hidden
-      />
-      <input
-        type="range"
-        min={min}
-        max={100}
-        value={value[0]}
-        aria-label="Khả năng có cá tối thiểu"
-        className="range-dual"
-        onChange={(e) => onChange([Math.min(Number(e.target.value), value[1]), value[1]])}
-      />
-      <input
-        type="range"
-        min={min}
-        max={100}
-        value={value[1]}
-        aria-label="Khả năng có cá tối đa"
-        className="range-dual"
-        onChange={(e) => onChange([value[0], Math.max(Number(e.target.value), value[0])])}
-      />
-      <span className="mt-5 flex justify-between text-[0.625rem] font-semibold text-foreground/60">
-        <span>Ít cá</span>
-        <span>Nhiều cá</span>
-      </span>
-    </span>
-  );
-}
