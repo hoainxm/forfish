@@ -1552,6 +1552,33 @@ export default function FishingMapView() {
 
       </div>
 
+      {/* CHÚ GIẢI NGƯ TRƯỜNG — nổi sát MÉP TRÁI bản đồ, chỉ khi lớp Cá đang
+          hiện lưới màu (user 2026-07-27: cho ra ngoài bản đồ cho dễ nhìn, khỏi
+          mở panel). Tự mờ khi kéo sheet lên như rail phải. */}
+      {fishGridGeo && (
+        <div
+          className={`pointer-events-none absolute left-2 top-1/2 z-20 -translate-y-1/2 transition-opacity duration-200 ${
+            size === "peek" ? "opacity-100" : "opacity-0"
+          }`}
+          aria-hidden={size !== "peek"}
+        >
+          <div className="flex flex-col gap-1.5 rounded-xl bg-card/90 px-2.5 py-2 shadow-md">
+            {FISH_LEVEL_BANDS.map((b) => (
+              <span key={b.key} className="flex items-center gap-1.5">
+                <span
+                  className="h-3.5 w-3.5 shrink-0 rounded-sm"
+                  style={{ background: b.color }}
+                  aria-hidden
+                />
+                <span className="text-[0.8125rem] font-bold text-navy">
+                  {b.label}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── SHEET ĐÁY 3 NẤC — một chế độ duy nhất ────────────────────────── */}
       <SnapSheet
         size={size}
