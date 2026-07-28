@@ -4,11 +4,12 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-07-26
+last_verified: 2026-07-28
 ttl_days: 90
 gate: warn
 ```
 <!-- gate: warn vì UI churn src/app+src/components cao — cảnh báo thay vì chặn. KHÔNG để comment cùng dòng `gate:` (hook tr -d ' ' giữ lại # → phá so khớp = "warn" → chặn nhầm). -->
+<!-- re-verified: 2026-07-28 — /quan-tri thêm 2 tab: **Sản phẩm** (CRUD danh mục product_listings — danh sách + toggle Hiện/Ẩn + form Sửa/Thêm collapsible cùng khuôn "Tạo tài khoản": 2 nút phân đoạn SDVICO/Đơn vị ngoài, input tên/loại/mô tả/tính năng theo dòng/giá/ảnh, thêm SĐT+ghi chú liên hệ khi chọn "Đơn vị ngoài"; ConfirmDialog khi xóa) và **Yêu cầu** (danh sách product_inquiries — chip lọc Mới/Đã liên hệ/Xong/Tất cả, thẻ hiện SĐT/tên/lời nhắn + 2 nút chuyển trạng thái + Xóa qua ConfirmDialog). Tab Sản phẩm /tau khu "Cửa hàng" (sdvico-catalog.tsx): sản phẩm đơn vị ngoài SDWork thêm nhãn tên đơn vị trên thẻ + nút "Gọi {SĐT}" + nút mới "Để lại yêu cầu" (mở BottomSheet form SĐT/tên/lời nhắn, cùng khuôn "Gọi SDVICO") thay cho nút Hỏi mua (giữ nguyên cho hàng SDVICO). Không đổi nav/dock. -->
 <!-- re-verified: 2026-07-27c — /quan-tri tab Cảnh báo TV: form "Thêm thuyền viên có vấn đề" bỏ dấu "+" thừa ở tiêu đề collapsible cho khớp khuôn form "Tạo tài khoản". Chỉ đổi CHỮ, không đổi flow/nav/route. -->
 <!-- re-verified: 2026-07-27b — ĐỒNG BỘ COPY theo đợt cắt 2026-07-27: trang chủ thẻ 4 đổi "Sổ tiền / Giá cá, ai cần mua, công nợ" → "Giao dịch / Giá cá, tin mua bán, chỗ bán" (khớp nhãn dock + 3 chip /tien); thẻ Bạn thuyền "Hồ sơ, chứng chỉ, bảo hiểm" → "Hồ sơ, giấy tờ, tra cảnh báo"; sub /nguoi thêm "tra cảnh báo trước khi nhận bạn mới" (không ghi CCCD — user chốt); ConfirmDialog xóa tàu bỏ "sổ lãi/lỗ" (feature đã xóa hẳn). Chỉ đổi CHỮ, không đổi flow/nav/route. -->
 <!-- re-verified: 2026-07-27 — /quan-tri tab Dữ liệu thêm khối "Cron tự động & bản tính sẵn" (CronsPanel ← /api/admin/crons): 5 dòng trạng thái chấm màu (snapshot cá/thời tiết + 3 collector ngày; storm_events chấm xanh biển trung tính vì chỉ ghi khi có bão). Không đổi flow/nav. -->
