@@ -35,6 +35,7 @@ type Tab =
   | "canh-bao"
   | "san-pham"
   | "yeu-cau"
+  | "thong-bao"
   | "du-lieu"
   | "he-thong";
 
@@ -210,12 +211,14 @@ export default function QuanTriPage() {
                 ["canh-bao", "Cảnh báo TV"],
                 ["san-pham", "Sản phẩm"],
                 ["yeu-cau", "Yêu cầu"],
+                ["thong-bao", "Thông báo"],
               ]
             : [
                 ["tai-khoan", "Tài khoản"],
                 ["canh-bao", "Cảnh báo TV"],
                 ["san-pham", "Sản phẩm"],
                 ["yeu-cau", "Yêu cầu"],
+                ["thong-bao", "Thông báo"],
                 ["du-lieu", "Dữ liệu"],
                 ["he-thong", "Hệ thống"],
               ]) as [Tab, string][]
@@ -243,6 +246,7 @@ export default function QuanTriPage() {
       {tab === "canh-bao" && <CrewReportsTab />}
       {tab === "san-pham" && <ProductsTab />}
       {tab === "yeu-cau" && <InquiriesTab />}
+      {tab === "thong-bao" && <PushNotificationsTab />}
       {tab === "du-lieu" && health.me?.role !== "manager" && <DataTab />}
       {tab === "he-thong" && health.me?.role !== "manager" && (
         <SystemTab health={health} />
@@ -1939,6 +1943,241 @@ function InquiriesTab() {
             const row = toDelete;
             setToDelete(null);
             remove(row);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── THÔNG BÁO (Web Push per-user/broadcast, Phase 3) ─────────────────────
+   Gửi qua PWA service worker (public/sw.js) — không cần app store update.
+   Người dùng phải tự bấm "Bật thông báo" trong sheet Tài khoản trước. */
+
+type PushStats = {
+  configured: boolean;
+  total: number;
+  named: number;
+  anonymous: number;
+};
+
+function PushNotificationsTab() {
+  const [stats, setStats] = useState<PushStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [target, setTarget] = useState<"all" | "phone">("all");
+  const [phone, setPhone] = useState("");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [confirmSend, setConfirmSend] = useState(false);
+
+  const load = useCallback(() => {
+    setError(null);
+    fetch(apiUrl("/api/admin/push"))
+      .then(async (r) => {
+        const j = (await r.json()) as { ok: boolean; code?: string } & Partial<PushStats>;
+        if (!j.ok) throw new Error(j.code ?? "load");
+        setStats({
+          configured: Boolean(j.configured),
+          total: j.total ?? 0,
+          named: j.named ?? 0,
+          anonymous: j.anonymous ?? 0,
+        });
+      })
+      .catch((e: Error) =>
+        setError(
+          e.message === "not_configured"
+            ? "Chưa cấu hình Supabase/service-role."
+            : "Chưa tải được thống kê — thử lại.",
+        ),
+      );
+  }, []);
+  useEffect(load, [load]);
+
+  async function send() {
+    setBusy(true);
+    setResult(null);
+    const r = await fetch(apiUrl("/api/admin/push"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        target,
+        phone: target === "phone" ? phone.trim() : undefined,
+        title: title.trim(),
+        body: body.trim(),
+        url: url.trim() || undefined,
+      }),
+    }).catch(() => null);
+    setBusy(false);
+    const j = (await r?.json().catch(() => null)) as {
+      ok?: boolean;
+      code?: string;
+      sent?: number;
+      failed?: number;
+      cleaned?: number;
+    } | null;
+    if (!r?.ok || !j?.ok) {
+      setResult(
+        j?.code === "vapid_not_configured"
+          ? "Máy chủ chưa cấu hình VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY/VAPID_SUBJECT."
+          : j?.code === "missing_content"
+            ? "Nhập đủ tiêu đề + nội dung."
+            : j?.code === "missing_phone"
+              ? "Nhập SĐT khi gửi theo từng người."
+              : "Gửi chưa được — thử lại.",
+      );
+      return;
+    }
+    setResult(
+      `Đã gửi ${j.sent} máy${j.failed ? ` · lỗi ${j.failed}` : ""}${j.cleaned ? ` · dọn ${j.cleaned} đăng ký chết` : ""}.`,
+    );
+    setTitle("");
+    setBody("");
+    setUrl("");
+    load();
+  }
+
+  const canSend =
+    title.trim().length > 0 &&
+    body.trim().length > 0 &&
+    (target === "all" || phone.trim().length > 0);
+
+  return (
+    <div className="mt-4 space-y-4">
+      <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
+        Gửi thông báo cho từng người (theo SĐT) hoặc toàn bộ người đã bấm{" "}
+        <b>&ldquo;Bật thông báo&rdquo;</b> trong app (sheet Tài khoản). Không cần cập
+        nhật app.
+      </p>
+
+      {error && (
+        <div className="surface px-4 py-6 text-center">
+          <p className="text-[1rem] text-danger">{error}</p>
+          <button
+            type="button"
+            onClick={load}
+            className="mt-3 min-h-[2.75rem] rounded-xl bg-navy px-6 text-[0.9375rem] font-bold text-white"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+
+      {stats && (
+        <div className="grid grid-cols-3 gap-2.5">
+          {(
+            [
+              ["Tổng đã đăng ký", stats.total],
+              ["Có SĐT", stats.named],
+              ["Ẩn danh", stats.anonymous],
+            ] as [string, number][]
+          ).map(([label, v]) => (
+            <div key={label} className="surface px-3 py-3 text-center">
+              <p className="display text-[1.5rem] font-bold tabular-nums text-navy">
+                {v}
+              </p>
+              <p className="text-[0.8125rem] font-semibold text-foreground/65">
+                {label}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+      {stats && !stats.configured && (
+        <p className="surface px-4 py-3 text-[0.875rem] font-semibold text-danger">
+          Máy chủ chưa cấu hình VAPID — set env VAPID_PUBLIC_KEY /
+          VAPID_PRIVATE_KEY / VAPID_SUBJECT (và NEXT_PUBLIC_VAPID_PUBLIC_KEY
+          khớp VAPID_PUBLIC_KEY) rồi redeploy.
+        </p>
+      )}
+
+      <div className="surface space-y-2.5 px-4 py-3.5">
+        <div
+          className="grid grid-cols-2 gap-1.5"
+          role="group"
+          aria-label="Gửi cho ai"
+        >
+          {(
+            [
+              ["all", "Toàn bộ"],
+              ["phone", "Một người (SĐT)"],
+            ] as ["all" | "phone", string][]
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTarget(id)}
+              aria-pressed={target === id}
+              className={`min-h-[2.75rem] rounded-xl px-3 text-[0.875rem] font-bold transition ${
+                target === id
+                  ? "bg-navy text-white shadow-sm"
+                  : "bg-field text-foreground/70"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {target === "phone" && (
+          <input
+            inputMode="tel"
+            placeholder="SĐT người nhận (0901234567)"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+          />
+        )}
+        <input
+          placeholder="Tiêu đề"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+        />
+        <textarea
+          placeholder="Nội dung"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={2}
+          className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+        />
+        <input
+          placeholder="Mở trang nào khi bấm vào (tuỳ chọn, VD /tien)"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+        />
+        <button
+          type="button"
+          disabled={!canSend || busy || (stats ? !stats.configured : false)}
+          onClick={() => setConfirmSend(true)}
+          className="min-h-[2.75rem] w-full rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50"
+        >
+          {busy ? "Đang gửi…" : "Gửi thông báo"}
+        </button>
+        {result && (
+          <p className="text-[0.875rem] font-semibold text-foreground/75">
+            {result}
+          </p>
+        )}
+      </div>
+
+      {confirmSend && (
+        <ConfirmDialog
+          title={
+            target === "all"
+              ? "Gửi cho TOÀN BỘ người đã bật thông báo?"
+              : `Gửi cho SĐT ${phone.trim()}?`
+          }
+          message={`"${title.trim()}" — ${body.trim()}`}
+          confirmLabel="Gửi ngay"
+          cancelLabel="Không"
+          danger={target === "all"}
+          onCancel={() => setConfirmSend(false)}
+          onConfirm={() => {
+            setConfirmSend(false);
+            send();
           }}
         />
       )}

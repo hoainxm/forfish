@@ -63,6 +63,15 @@ export function SettingsIcon(p: IconProps) {
   );
 }
 
+export function BellIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M6 17.5V11a6 6 0 1 1 12 0v6.5l1.5 2H4.5l1.5-2Z" />
+      <path d="M10 20a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+
 export function RulerIcon(p: IconProps) {
   return (
     <svg {...base(p)}>

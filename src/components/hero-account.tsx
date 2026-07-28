@@ -4,9 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { ChevronRightIcon, UsersIcon } from "@/components/icons";
+import { BellIcon, ChevronRightIcon, UsersIcon } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthUser } from "@/lib/use-auth";
+import {
+  getExistingPushSubscription,
+  isPushSupported,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "@/lib/push-client";
 
 /*
   Tài khoản trên hero — GỌN (sửa 2026-06-11 theo góp ý "design thô"):
@@ -35,11 +41,48 @@ function prettyPhone(p: string): string {
   return local.replace(/(\d{4})(\d{3})(\d{0,3})/, "$1 $2 $3").trim();
 }
 
+// NEXT_PUBLIC_* inline lúc build — vắng thì tắt hẳn khối "Bật thông báo"
+// (Phase 3, 2026-07-28) thay vì hiện nút bấm không chạy được.
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+type PushUiState =
+  | "checking"
+  | "off"
+  | "on"
+  | "busy"
+  | "unsupported"
+  | "unconfigured";
+
 export function HeroAccount() {
   const router = useRouter();
   const { user, phone, ready } = useAuthUser();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("gon");
+  const [pushState, setPushState] = useState<PushUiState>("checking");
+
+  useEffect(() => {
+    if (!isPushSupported()) {
+      setPushState("unsupported");
+      return;
+    }
+    if (!VAPID_PUBLIC_KEY) {
+      setPushState("unconfigured");
+      return;
+    }
+    getExistingPushSubscription().then((sub) => setPushState(sub ? "on" : "off"));
+  }, []);
+
+  async function togglePush() {
+    if (pushState === "on") {
+      setPushState("busy");
+      await unsubscribeFromPush();
+      setPushState("off");
+      return;
+    }
+    setPushState("busy");
+    const r = await subscribeToPush(VAPID_PUBLIC_KEY!, phone);
+    setPushState(r.ok ? "on" : "off");
+  }
 
   useEffect(() => {
     try {
@@ -155,6 +198,31 @@ export function HeroAccount() {
               );
             })}
           </div>
+
+          {/* Bật thông báo (Web Push, 2026-07-28) — ẩn hẳn nếu máy không hỗ
+              trợ hoặc server chưa cấu hình VAPID (không hiện nút vô dụng) */}
+          {pushState !== "unsupported" && pushState !== "unconfigured" && (
+            <button
+              type="button"
+              onClick={togglePush}
+              disabled={pushState === "checking" || pushState === "busy"}
+              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 rounded-2xl bg-field px-4 text-left disabled:opacity-60"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white">
+                <BellIcon className="h-5 w-5 text-navy" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[1rem] font-bold text-navy">
+                  {pushState === "on" ? "Đã bật thông báo" : "Bật thông báo"}
+                </span>
+                <span className="block text-[0.8125rem] leading-snug text-foreground/70">
+                  {pushState === "on"
+                    ? "Nhấn để tắt trên máy này"
+                    : "Nhận tin nhắn từ SDVICO ngay trên điện thoại"}
+                </span>
+              </span>
+            </button>
+          )}
 
           {user && (
             <button
