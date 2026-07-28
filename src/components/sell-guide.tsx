@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { type SavedBuyer } from "@/data/market-channels";
 import {
-  WHOLESALE_MARKETS,
-  type SavedBuyer,
-} from "@/data/market-channels";
-import { SEAFOOD_BUYERS, buyersForSpecies } from "@/data/seafood-buyers";
-import {
-  WHOLESALER_KIND_LABEL,
-  WHOLESALERS,
-} from "@/data/wholesalers";
+  fetchPublicSellContacts,
+  STATIC_SELL_CONTACTS,
+  type SellContact,
+} from "@/lib/sell-contacts";
 import { useHome, HomeBar, applyHome } from "@/components/ui/region-filter";
 import { type HomePref } from "@/lib/region";
 import { ChipRow } from "@/components/ui/chip-row";
@@ -60,6 +57,19 @@ export function SellGuide() {
   // các mục danh bạ có lọc theo vùng (nậu vựa / chợ / nhà máy)
   const geo = section === "vua" || section === "cho" || section === "nhamay";
 
+  // Danh bạ nay do admin quản lý (bảng sell_contacts): đọc DB, chưa cấu
+  // hình/lỗi/rỗng → gộp tĩnh (STATIC_SELL_CONTACTS) — giữ nguyên hành vi cũ.
+  const [contacts, setContacts] = useState<SellContact[]>(STATIC_SELL_CONTACTS);
+  useEffect(() => {
+    let alive = true;
+    fetchPublicSellContacts().then((c) => {
+      if (alive && c) setContacts(c);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <div className="px-4">
       {/* tầng 2 — mục con của "Bán ở đâu" (nằm dưới chip Giao dịch tầng 1) */}
@@ -78,18 +88,44 @@ export function SellGuide() {
         <HomeBar home={home} near={near} setNear={setNear} />
       )}
 
-      {section === "vua" && <Wholesalers home={home} near={near} />}
-      {section === "cho" && <Markets home={home} near={near} />}
-      {section === "nhamay" && <Factories home={home} near={near} />}
+      {section === "vua" && (
+        <Wholesalers
+          list={contacts.filter((c) => c.kind === "vua")}
+          home={home}
+          near={near}
+        />
+      )}
+      {section === "cho" && (
+        <Markets
+          list={contacts.filter((c) => c.kind === "cho")}
+          home={home}
+          near={near}
+        />
+      )}
+      {section === "nhamay" && (
+        <Factories
+          list={contacts.filter((c) => c.kind === "nhamay")}
+          home={home}
+          near={near}
+        />
+      )}
       {section === "moiquen" && <MyBuyers />}
     </div>
   );
 }
 
-function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
+function Wholesalers({
+  list: all,
+  home,
+  near,
+}: {
+  list: SellContact[];
+  home: HomePref;
+  near: boolean;
+}) {
   const list = useMemo(
-    () => applyHome(WHOLESALERS, (w) => w.province, home.province, near),
-    [home.province, near],
+    () => applyHome(all, (w) => w.province, home.province, near),
+    [all, home.province, near],
   );
 
   return (
@@ -111,7 +147,7 @@ function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/65">
-                    {WHOLESALER_KIND_LABEL[w.kind] ?? "Vựa"}
+                    {w.subLabel ?? "Vựa"}
                   </p>
                   <p className="display text-[1.125rem] font-bold leading-snug text-navy">
                     {w.name}
@@ -128,14 +164,14 @@ function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
               {w.phone && (
                 <p className="text-[0.9375rem] text-foreground/70">SĐT: {w.phone}</p>
               )}
-              {w.species && w.species.length > 0 && (
+              {w.species.length > 0 && (
                 <p className="text-[0.875rem] text-foreground/70">
                   Thu mua: {w.species.join(", ")}
                 </p>
               )}
-              {w.source && (
+              {w.website && (
                 <a
-                  href={w.source.startsWith("http") ? w.source : `https://${w.source}`}
+                  href={w.website.startsWith("http") ? w.website : `https://${w.website}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-1 inline-block text-[0.8125rem] font-semibold text-foreground/65 underline"
@@ -157,8 +193,16 @@ function Wholesalers({ home, near }: { home: HomePref; near: boolean }) {
   );
 }
 
-function Markets({ home, near }: { home: HomePref; near: boolean }) {
-  const list = applyHome(WHOLESALE_MARKETS, (m) => m.province, home.province, near);
+function Markets({
+  list: all,
+  home,
+  near,
+}: {
+  list: SellContact[];
+  home: HomePref;
+  near: boolean;
+}) {
+  const list = applyHome(all, (m) => m.province, home.province, near);
   return (
     <div className="space-y-3">
       <RefNote>
@@ -184,7 +228,7 @@ function Markets({ home, near }: { home: HomePref; near: boolean }) {
           {m.hours && (
             <p className="text-[0.9375rem] text-foreground/70">Giờ họp: {m.hours}</p>
           )}
-          {m.species && m.species.length > 0 && (
+          {m.species.length > 0 && (
             <p className="mt-1 text-[0.875rem] text-foreground/70">
               Loài chính: {m.species.join(", ")}
             </p>
@@ -195,13 +239,27 @@ function Markets({ home, near }: { home: HomePref; near: boolean }) {
   );
 }
 
-function Factories({ home, near }: { home: HomePref; near: boolean }) {
+function Factories({
+  list: all,
+  home,
+  near,
+}: {
+  list: SellContact[];
+  home: HomePref;
+  near: boolean;
+}) {
   const [q, setQ] = useState("");
   const list = useMemo(() => {
-    const query = q.trim();
-    const base = query ? buyersForSpecies(query) : SEAFOOD_BUYERS;
+    const query = q.trim().toLowerCase();
+    const base = query
+      ? all.filter(
+          (b) =>
+            b.name.toLowerCase().includes(query) ||
+            b.species.some((s) => s.toLowerCase().includes(query)),
+        )
+      : all;
     return applyHome(base, (b) => b.province, home.province, near);
-  }, [q, home.province, near]);
+  }, [all, q, home.province, near]);
 
   return (
     <div>
@@ -243,7 +301,7 @@ function Factories({ home, near }: { home: HomePref; near: boolean }) {
               <p className="mt-0.5 text-[0.875rem] text-foreground/70">
                 Loài: {b.species.join(", ")}
               </p>
-              {b.markets && b.markets.length > 0 && (
+              {b.markets.length > 0 && (
                 <p className="text-[0.875rem] text-foreground/70">
                   Bán đi: {b.markets.join(", ")}
                 </p>
