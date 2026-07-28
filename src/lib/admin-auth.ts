@@ -6,9 +6,11 @@ import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
 export type StaffRole = "admin" | "manager";
 
 /**
- * Kiểm quyền STAFF cho route /api/admin/* — hai nấc (2026-07-26 đợt 2):
- * · admin   — SĐT trong env ADMIN_PHONES: toàn quyền (tạo/xoá/hạ hạng/tạo
- *             tài khoản quản lý)
+ * Kiểm quyền STAFF cho route /api/admin/* — hai nấc:
+ * · admin   — SĐT trong env ADMIN_PHONES **HOẶC** customers.role='admin'
+ *             (DB, migration 0019, 2026-07-28): toàn quyền (tạo/xoá/hạ hạng/tạo
+ *             tài khoản quản lý). Env = bootstrap khó tác động; DB = quản lý
+ *             admin không cần sửa env từng deploy.
  * · manager — customers.role='manager' (admin gán): chỉ KÍCH HOẠT/GIA HẠN
  *             premium cho khách (mỗi lần 1 năm, có log premium_grants)
  * Chưa cấu hình Supabase (demo mode) → không có staff.
@@ -38,8 +40,10 @@ export async function requireStaff(): Promise<
       .select("role")
       .eq("phone", phone)
       .maybeSingle();
-    if (!error && row?.role === "manager") {
-      return { ok: true, phone, role: "manager" };
+    // role='admin' trong DB = full-admin (ngang env ADMIN_PHONES); 'manager' =
+    // hạn chế. Mở role='admin' ở migration 0019 (user chốt 2026-07-28).
+    if (!error && (row?.role === "admin" || row?.role === "manager")) {
+      return { ok: true, phone, role: row.role as StaffRole };
     }
   } catch {
     /* cột role chưa có (migration 0004 chưa apply) → không phải manager */

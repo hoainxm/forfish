@@ -6,6 +6,7 @@
 
 covers: src/app
 last_verified: 2026-07-28
+<!-- re-verified: 2026-07-28h — FULL-ADMIN TRONG DB (user chốt): migration 0019 mở customers.role='admin' (check cũ chỉ customer|manager); admin-auth.ts requireStaff coi role='admin' = admin toàn quyền NGANG env ADMIN_PHONES (env vẫn dùng = bootstrap). /api/admin/* không đổi shape. Xem 04 §5b + 0019. -->
 <!-- re-verified: 2026-07-28g — /quyen-rieng-tu (privacy) ĐỒNG BỘ SẢN PHẨM X: gỡ "sổ lãi lỗ, công nợ" khỏi danh sách "nội dung tự nhập" (đã bỏ khỏi /tien 2026-07-27) → thay "nhắc bảo dưỡng" (VN + EN). Route/nav/API KHÔNG đổi. README gốc viết lại theo X (Tiền = chợ mua/bán, Tàu bỏ Mức phạt, thuyền viên CCCD). Migration base đụng số đã đổi 0013–0018 (xem 04). -->
 <!-- re-verified: 2026-07-28f — ĐỒNG BỘ TÊN TRỤC TÀU (user chốt): dock bottom-nav.tsx nhãn "Tàu"→"Tàu cá"; thẻ Home page.tsx "Tàu của tôi"→"Tàu cá"; /tau H1+metadata → "Tàu cá". Pure label — route/href/API/nav structure KHÔNG đổi. Xem 03 "Nhãn ngang hàng" + 07 §4/§9. -->
 <!-- re-verified: 2026-07-28e — /quan-tri tablist ĐỒNG BỘ NHÃN (user chốt quy định nhãn ngang hàng — xem 03-design-system "Nhãn ngang hàng"): 7 tab bỏ flex-1 (ép 1 hàng làm nhãn gãy 2 dòng lộn xộn) → hàng cuộn ngang shrink-0 + whitespace-nowrap theo pattern ui/tabs.tsx; tab "Cảnh báo TV" ĐỔI NHÃN → "Thuyền viên" cho đủ khuôn 2 chữ/nhãn (id "canh-bao" + route API giữ nguyên). Pure UI — KHÔNG đổi route/API/payload/nav. -->

@@ -83,7 +83,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 
 | Thay đổi | Nghĩa |
 |---|---|
-| `customers.role text default 'customer'` (check `customer\|manager`) | **QUẢN LÝ** (đại lý/sales, admin tạo ở `/quan-tri`): vào được `/quan-tri` (chỉ tab Tài khoản) để KÍCH HOẠT/GIA HẠN premium cho khách |
+| `customers.role text default 'customer'` (check `customer\|manager\|admin` — **'admin' mở ở [0019](../../supabase/migrations/0019_admin_role.sql), 2026-07-28**) | **manager** = đại lý/sales (admin tạo ở `/quan-tri`): chỉ KÍCH HOẠT/GIA HẠN premium. **admin** = FULL-ADMIN trong DB (ngang env `ADMIN_PHONES`): `requireStaff` coi `role='admin'` = toàn quyền. Bootstrap admin đầu (sau khi đăng ký ở `/dang-ky`): `insert into customers (phone,role) values ('<sđt>','admin') on conflict (phone) do update set role='admin';` |
 | `customers.premium_activated_at timestamptz` | mốc kích hoạt gần nhất (hạn ở `premium_until`) |
 | bảng `premium_grants` | LOG mỗi lần cấp: `customer_phone` · `granted_by` (SĐT người thao tác) · `action` (`activate\|renew\|downgrade`) · `activated_at` · `premium_until` (hạn SAU thao tác) — đếm được mỗi quản lý đang quản bao nhiêu premium. RLS bật, **KHÔNG policy** = chỉ service-role đọc/ghi |
 
