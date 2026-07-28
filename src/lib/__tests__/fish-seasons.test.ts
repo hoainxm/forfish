@@ -6,8 +6,50 @@ import {
   fishInRegion,
   nearestRegionWithin,
   regionAt,
+  SEASON_TAPER_MONTHS,
+  seasonPrior,
   type FishRegionId,
 } from "../../data/fish-seasons";
+
+describe("seasonPrior (mùa vụ MỀM, thay cổng nhị phân)", () => {
+  const S = [4, 5, 6, 7, 8, 9]; // vụ Nam điển hình
+
+  it("tháng chính vụ = 1", () => {
+    for (const m of S) expect(seasonPrior(S, m)).toBe(1);
+  });
+
+  it("tháng đệm ngay sát vụ = 0.5, cách 2 tháng = 0 (vạt hẹp)", () => {
+    expect(seasonPrior(S, 3)).toBeCloseTo(0.5, 9); // liền trước
+    expect(seasonPrior(S, 10)).toBeCloseTo(0.5, 9); // liền sau
+    expect(seasonPrior(S, 2)).toBe(0); // cách 2
+    expect(seasonPrior(S, 11)).toBe(0);
+  });
+
+  it("KHÔNG còn cú nhảy 0↔1: có bậc trung gian ở ranh giới", () => {
+    // trước đây tháng 3 = 0 và tháng 4 = 1 (nhảy vách); nay 3 = 0.5
+    expect(seasonPrior(S, 3)).toBeGreaterThan(0);
+    expect(seasonPrior(S, 3)).toBeLessThan(seasonPrior(S, 4));
+  });
+
+  it("khoảng cách tính VÒNG TRÒN (tháng 12 nối tháng 1)", () => {
+    expect(seasonPrior([12], 1)).toBeCloseTo(0.5, 9);
+    expect(seasonPrior([1], 12)).toBeCloseTo(0.5, 9);
+    expect(seasonPrior([1, 2], 12)).toBeCloseTo(0.5, 9);
+  });
+
+  it("loài quanh năm (đủ 12 tháng) → luôn 1", () => {
+    const all = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    for (let m = 1; m <= 12; m++) expect(seasonPrior(all, m)).toBe(1);
+  });
+
+  it("months rỗng → 0 (không bịa)", () => {
+    expect(seasonPrior([], 6)).toBe(0);
+  });
+
+  it("hằng vạt giữ HẸP (chỉ 1 tháng đệm mỗi phía)", () => {
+    expect(SEASON_TAPER_MONTHS).toBe(2);
+  });
+});
 
 describe("regionAt", () => {
   it("giữa Vịnh Bắc Bộ → vinh-bac-bo", () => {

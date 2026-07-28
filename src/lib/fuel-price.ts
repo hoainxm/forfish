@@ -1,4 +1,4 @@
-// Giá dầu DO LIVE — cho sổ lãi lỗ chuyến biển (dầu là chi phí lớn nhất).
+// Giá dầu DO LIVE — hiện ở bảng giá /tien (dầu là chi phí lớn nhất mỗi chuyến).
 // Nguồn: giaxanghomnay.com (scrape Petrolimex hộ, JSON sạch không key). Theo
 // kỳ điều hành giá (thường thứ Năm). DO 0,05S là dầu tàu cá dùng phổ biến.
 // Nguồn fail → null, UI ẩn (không bịa giá).

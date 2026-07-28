@@ -18,10 +18,9 @@ const doc = (
 const member = (hasInsurance: boolean): CrewMember => ({
   id: `m-${hasInsurance}`,
   name: "x",
+  cccd: "079090001234",
   role: "thuyen_vien",
-  shares: 1,
   hasInsurance,
-  advances: [],
 });
 
 describe("boatZone", () => {

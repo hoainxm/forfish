@@ -16,7 +16,10 @@ const config: CapacitorConfig = {
   appId: "vn.sdvico.sdfish",
   appName: "SDFish",
   webDir: "out",
-  server: { url: "https://forfish.vercel.app/", cleartext: false },
+  // Deploy CỦA SDVICO (project Vercel hoainxms-projects/forfish) — KHÔNG phải
+  // forfish.vercel.app (deploy Long-Forfun/base). App phải load bản sdvico để
+  // có trang /quyen-rieng-tu + delta sdvico. Đổi sang sdfish.sdvico.vn khi domain xong.
+  server: { url: "https://forfish-alpha.vercel.app/", cleartext: false },
 };
 
 export default config;

@@ -63,6 +63,15 @@ export function SettingsIcon(p: IconProps) {
   );
 }
 
+export function BellIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M6 17.5V11a6 6 0 1 1 12 0v6.5l1.5 2H4.5l1.5-2Z" />
+      <path d="M10 20a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+
 export function RulerIcon(p: IconProps) {
   return (
     <svg {...base(p)}>
@@ -390,6 +399,15 @@ export function LayersIcon(p: IconProps) {
       <path d="m12 3 9 5-9 5-9-5 9-5Z" />
       <path d="m4.2 11.8 7.8 4.3 7.8-4.3" />
       <path d="m4.2 15.8 7.8 4.3 7.8-4.3" />
+    </svg>
+  );
+}
+
+export function GridIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect x="3" y="3" width="18" height="18" rx="1" />
+      <path d="M9 3v18M15 3v18M3 9h18M3 15h18" />
     </svg>
   );
 }

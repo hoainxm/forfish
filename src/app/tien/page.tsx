@@ -1,64 +1,26 @@
 import { TradeHub } from "@/components/trade-hub";
-import { MoneyInsights } from "@/components/money-insights";
-import { DebtLedger } from "@/components/debt-ledger";
 import { BoatSwitcher } from "@/components/boat-switcher";
 import { PageHeader } from "@/components/page-header";
-import { Tabs } from "@/components/ui/tabs";
-import { LoginGate } from "@/components/login-gate";
 
-export const metadata = { title: "Sổ tiền — SDFish" };
+export const metadata = { title: "Giao dịch — SDFish" };
 
-// Trục TIỀN — tách ĐÔI (user chốt 2026-06-10):
-// · GIAO DỊCH: thông tin được cấp để bán có lợi thế — giá cá hôm nay,
-//   "ai đang cần mua" (đầu nậu/nhà máy đăng loài + khối lượng + giá,
-//   app bên thu mua đang xây), danh bạ chỗ bán.
-// · HIỆU QUẢ: phân tích chuyện làm ăn — thẻ nhìn nhanh + sổ lãi/lỗ +
-//   máy chia tiền.
+// Trục GIAO DỊCH (user chốt 2026-07-27 — gộp về đúng 1 việc: mua–bán):
+// thông tin được cấp để bán có lợi thế — giá cá hôm nay, tin mua/bán
+// (chủ tàu đăng tin bán / tin mua, đầu nậu–nhà máy đăng tin cần mua),
+// và danh bạ đầu mối bán. Bỏ Hiệu quả + Công nợ khỏi tab này.
 export default function TienPage() {
   return (
     <div>
       <PageHeader
-        kicker="Sổ tiền"
-        title="Tiền nong của tàu"
-        sub="Bán có lợi thế nhờ nắm giá và mối mua — lãi lỗ rõ ràng từng chuyến."
+        kicker="Giao dịch"
+        title="Mua bán của tàu"
+        sub="Bán có lợi thế nhờ nắm giá và mối mua — đăng tin, gọi thẳng đầu mối."
         toColor="var(--t2)"
       />
       {/* Giao dịch (giá cá tham khảo) để PUBLIC — nắm giá là quyền lợi chung,
           không bắt đăng nhập. Sổ lãi lỗ + công nợ là data cá nhân → khóa. */}
       <BoatSwitcher />
-      <Tabs
-        ariaLabel="Mục tiền nong"
-        paramKey="tab"
-        tabs={[
-          { id: "giao-dich", label: "Giao dịch", content: <TradeHub /> },
-          {
-            id: "hieu-qua",
-            label: "Hiệu quả",
-            content: (
-              <LoginGate
-                feature="sổ lãi lỗ chuyến biển"
-                blurb="Đăng nhập để ghi và xem lãi lỗ từng chuyến — dữ liệu riêng của bạn, đồng bộ nhiều máy."
-                accent="t2"
-              >
-                <MoneyInsights />
-              </LoginGate>
-            ),
-          },
-          {
-            id: "cong-no",
-            label: "Công nợ",
-            content: (
-              <LoginGate
-                feature="sổ công nợ"
-                blurb="Đăng nhập để ghi ai nợ ai, ứng trước bao nhiêu — dữ liệu riêng của bạn, đồng bộ nhiều máy."
-                accent="t2"
-              >
-                <DebtLedger />
-              </LoginGate>
-            ),
-          },
-        ]}
-      />
+      <TradeHub />
     </div>
   );
 }

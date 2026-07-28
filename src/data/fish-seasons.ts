@@ -464,6 +464,37 @@ export function fishInRegion(
 }
 
 /**
+ * Độ rộng "vạt" mùa vụ tính bằng tháng — chỉ THÁNG ĐỆM ngay sát vụ được điểm
+ * >0 (với giá trị 2 thì tháng liền kề = 0.5, cách 2 tháng = 0). Giữ HẸP có chủ
+ * ý: chỉ làm mượt ranh giới đầu/cuối vụ, KHÔNG kéo dài vụ ra vô tội vạ.
+ */
+export const SEASON_TAPER_MONTHS = 2;
+
+/**
+ * PRIOR MÙA VỤ MỀM ∈ [0,1] cho một loài ở một tháng — THAY cổng nhị phân cũ
+ * (trong vụ = 1, ngoài vụ = 0, điểm NHẢY VÁCH ở ranh giới tháng). Quy tắc:
+ *   · tháng chính vụ            → 1
+ *   · tháng đệm ngay đầu/cuối vụ → giảm tuyến tính (đầu/cuối vụ, khả năng thấp hơn)
+ *   · ngoài vụ hẳn             → 0
+ * Khoảng cách tính VÒNG TRÒN (tháng 12 nối tháng 1). Loài có mặt QUANH NĂM
+ * (đủ 12 tháng, vd cá ngừ) → luôn 1, không đổi.
+ *
+ * Đây CHỈ mã hoá độ bất định ở ranh giới tốt hơn cổng cứng — KHÔNG bịa đường
+ * cong sản lượng theo loài (muốn đường cong thật phải học từ CPUE, chưa có).
+ */
+export function seasonPrior(months: number[], month: number): number {
+  if (months.length === 0) return 0;
+  if (months.includes(month)) return 1;
+  let dmin = Infinity;
+  for (const m of months) {
+    const raw = Math.abs(m - month);
+    const d = Math.min(raw, 12 - raw); // vòng tròn 12 tháng
+    if (d < dmin) dmin = d;
+  }
+  return Math.max(0, 1 - dmin / SEASON_TAPER_MONTHS);
+}
+
+/**
  * Vùng chứa một toạ độ (ray casting đơn giản, đa giác tự khép) —
  * null nếu nằm ngoài mọi vùng (vd trên đất liền).
  */

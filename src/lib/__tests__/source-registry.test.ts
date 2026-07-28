@@ -230,51 +230,30 @@ describe("tháng mùa vụ theo NGÀY DỮ LIỆU (không theo đồng hồ máy
   });
 });
 
-describe("lowQualityNote — chỉ nói khi THẬT SỰ cần (màn hình phải gọn)", () => {
+describe("lowQualityNote — CHỈ nói khi ảnh CŨ (thiếu nguồn KHÔNG doạ user)", () => {
   it("đủ nguồn, đều mới → IM LẶNG", () => {
     expect(
-      lowQualityNote({
-        dataQuality: 1,
-        sources: { sst: { stale: false }, chl: { stale: false } },
-      }),
+      lowQualityNote({ sources: { sst: { stale: false }, chl: { stale: false } } }),
     ).toBeNull();
-  });
-
-  it("thiếu vài nguồn tuỳ chọn nhưng vẫn khá → IM LẶNG", () => {
-    expect(lowQualityNote({ dataQuality: 0.9, sources: {} })).toBeNull();
   });
 
   it("ảnh nhiệt CŨ → nói chuyện ảnh cũ", () => {
     expect(
-      lowQualityNote({
-        dataQuality: 0.75,
-        sources: { sst: { stale: true }, chl: { stale: false } },
-      }),
+      lowQualityNote({ sources: { sst: { stale: true }, chl: { stale: false } } }),
     ).toBe("Số biển hôm nay lấy từ ảnh cũ — có thể chưa sát.");
   });
 
   it("ảnh phù du CŨ cũng nói", () => {
-    expect(
-      lowQualityNote({ dataQuality: 0.75, sources: { chl: { stale: true } } }),
-    ).toContain("ảnh cũ");
+    expect(lowQualityNote({ sources: { chl: { stale: true } } })).toContain("ảnh cũ");
   });
 
-  it("chất lượng dưới 0,5 → nói thiếu nguồn", () => {
-    expect(lowQualityNote({ dataQuality: 0.45, sources: {} })).toBe(
-      "Hôm nay thiếu vài nguồn số biển — bản đồ cá có thể chưa sát.",
-    );
-  });
-
-  it("ĐÚNG ngưỡng thì chưa nói (chỉ DƯỚI ngưỡng mới nói)", () => {
+  // Chủ dự án chốt 2026-07-27: bà con KHÔNG cần biết chuyện thiếu nguồn phụ
+  // (ảnh vẫn mới, bản đồ vẫn dựng từ nguồn còn sống). dataQuality giữ cho QUẢN TRỊ.
+  it("THIẾU NGUỒN nhưng ảnh MỚI → IM LẶNG (không còn cảnh báo 'thiếu vài nguồn')", () => {
+    expect(lowQualityNote({ sources: {} })).toBeNull();
     expect(
-      lowQualityNote({ dataQuality: LOW_QUALITY_THRESHOLD, sources: {} }),
+      lowQualityNote({ sources: { sst: { stale: false }, currents: { stale: false } } }),
     ).toBeNull();
-  });
-
-  // Ngưỡng phải THẬT SỰ với tới được: mất một nguồn nặng là phải nói.
-  // (Trước 2026-07-26 ngưỡng 0.5 nằm dưới sàn 0.75 ⇒ nhánh này là mã chết.)
-  it("mất ETOPO (0.8) là phải NÓI — ngưỡng không được nằm ngoài tầm với", () => {
-    expect(lowQualityNote({ dataQuality: 0.8, sources: {} })).not.toBeNull();
   });
 
   it("payload cũ (chưa có provenance) → IM LẶNG, không doạ oan", () => {

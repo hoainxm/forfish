@@ -4,8 +4,6 @@ import { useMemo, useState } from "react";
 import { Tabs } from "@/components/ui/tabs";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { DocumentVault } from "@/components/document-vault";
-import { DepartureChecklist } from "@/components/departure-checklist";
-import { FinesLookup } from "@/components/fines-lookup";
 import { BoatServices } from "@/components/boat-services";
 import { BoatProducts } from "@/components/boat-products";
 import { LoginGate } from "@/components/login-gate";
@@ -52,16 +50,7 @@ export function TauTabs() {
           {
             id: "giay-to",
             label: "Giấy tờ",
-            content: (
-              <LoginGate
-                feature="giấy tờ tàu"
-                blurb="Đăng nhập để lưu và xem giấy tờ tàu — dữ liệu riêng của bạn, đồng bộ nhiều máy."
-                accent="t3"
-              >
-                <DepartureChecklist />
-                <DocumentVault />
-              </LoginGate>
-            ),
+            content: <DocumentVault />,
           },
           {
             id: "dich-vu",
@@ -90,7 +79,7 @@ export function TauTabs() {
               </LoginGate>
             ),
           },
-          { id: "muc-phat", label: "Mức phạt", content: <FinesLookup /> },
+          { id: "san-pham", label: "Sản phẩm", content: <BoatProducts /> },
         ]}
       />
     </div>

@@ -9,7 +9,7 @@
   thang kéo lớp nền raster (để sau) · dải % cá lọc thật.
 */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   OCEAN_LAYERS,
   OCEAN_LAYER_ORDER,
@@ -24,15 +24,18 @@ import type { StormStatus } from "@/lib/storms";
 import { clockVN } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
 import { useMapPrefs, setMapPrefs } from "@/lib/map-prefs";
+import { VMS_ZONES_UPDATED } from "@/data/vms-fishing-zones";
 import { FishSpeciesContent } from "@/components/fish-species-sheet";
 import { MyPlacesContent } from "@/components/my-places-sheet";
 import {
   AlertIcon,
+  AnchorIcon,
   ChevronLeftIcon,
   CheckIcon,
   ChevronRightIcon,
   DepthIcon,
   CrosshairIcon,
+  GridIcon,
   LayersIcon,
   EddyIcon,
   FishIcon,
@@ -43,6 +46,9 @@ import {
 } from "@/components/icons";
 
 const FISH_COLOR = "#2d8659"; // xanh lá — cá/ngư trường (design Phương án A)
+
+// rail xổ ra mà bà con không chạm gì 5s → tự thu (user 2026-07-28)
+const AUTO_HIDE_MS = 5000;
 
 type PanelId =
   | "hai-do"
@@ -67,8 +73,6 @@ export function RaKhoiControls({
   onScalar,
   forecastKind,
   onForecast,
-  vungLongOn,
-  onVungLong,
   fishOn,
   onFish,
   fishSpecies,
@@ -76,8 +80,6 @@ export function RaKhoiControls({
   species,
   regionShorts,
   onPickSpecies,
-  fishRange,
-  onRange,
   stormInfo,
   showPlaces,
   onShowPlaces,
@@ -105,8 +107,6 @@ export function RaKhoiControls({
   onScalar: (k: SeaScalarKind | null) => void;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
-  vungLongOn: boolean;
-  onVungLong: (on: boolean) => void;
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
@@ -117,8 +117,6 @@ export function RaKhoiControls({
   species: string[];
   regionShorts: Set<string>;
   onPickSpecies: (sp: string | null) => void;
-  fishRange: [number, number];
-  onRange: (r: [number, number]) => void;
   /** Trạng thái tin bão đã quy về 4 nhánh (lib/storms.ts) — KHÔNG dùng mảng
       rỗng để vừa nghĩa "không có bão" vừa nghĩa "chưa hỏi được" */
   stormInfo: StormStatus;
@@ -138,13 +136,25 @@ export function RaKhoiControls({
   onClearMeasure: () => void;
 }) {
   const [open, setOpen] = useState<PanelId | null>(null);
-  const [collapsed, setCollapsed] = useState(false); // ẩn/hiện rail như menu bản đồ
-  // drill-down trong panel Ngư trường: danh sách chọn loài (không mở modal)
-  const [speciesView, setSpeciesView] = useState(false);
-  // đổi panel hay đóng → thoát view chọn loài
+  // MẶC ĐỊNH THU GỌN (user 2026-07-28): map sạch, chạm "Lớp" mới xổ rail ra;
+  // xổ rồi mà 5s không chạm gì (trong rail/panel) thì TỰ thu lại.
+  const [collapsed, setCollapsed] = useState(true);
+
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const armAutoHide = useCallback(() => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => {
+      setOpen(null);
+      setCollapsed(true);
+    }, AUTO_HIDE_MS);
+  }, []);
   useEffect(() => {
-    if (open !== "ngu-truong") setSpeciesView(false);
-  }, [open]);
+    if (collapsed) return;
+    armAutoHide(); // nạp lại mỗi khi mở/đổi panel (một "thao tác")
+    return () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, [collapsed, open, armAutoHide]);
 
   const RAIL: {
     id: PanelId;
@@ -184,7 +194,12 @@ export function RaKhoiControls({
   ];
 
   return (
-    <div className="pointer-events-none relative flex justify-end gap-2">
+    <div
+      className="pointer-events-none relative flex justify-end gap-2"
+      // mọi chạm/gõ phím trong rail + panel = "thao tác" → hoãn tự thu 5s
+      onPointerDownCapture={() => !collapsed && armAutoHide()}
+      onKeyDownCapture={() => !collapsed && armAutoHide()}
+    >
       {/* KHÔNG còn thẻ "Chuẩn bị đi biển" ở đây (bỏ 2026-07-25): máy TỰ tải sẵn
           khi vào trang và chỉ báo một dòng nhỏ tự tắt — xem
           components/pretrip-auto-notify.tsx. Bản đồ nhờ vậy sạch chữ. */}
@@ -195,30 +210,12 @@ export function RaKhoiControls({
       {open && !collapsed && (
         <div
           className={`pointer-events-auto absolute right-[4.5rem] top-0 max-h-[62vh] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl [overscroll-behavior:contain] ${
-            open === "diem" || (open === "ngu-truong" && speciesView)
+            open === "diem"
               ? "w-[22rem] max-w-[calc(100vw-4.25rem)]"
               : "w-[16.5rem] max-w-[calc(100vw-5rem)]"
           }`}
         >
-          {open === "ngu-truong" && speciesView ? (
-            <>
-              <PanelHeader
-                title="Chọn loài cá"
-                onClose={() => setOpen(null)}
-                onBack={() => setSpeciesView(false)}
-              />
-              <FishSpeciesContent
-                species={species}
-                current={fishSpecies}
-                regionShorts={regionShorts}
-                cols={1}
-                onPick={(sp) => {
-                  onPickSpecies(sp);
-                  setSpeciesView(false);
-                }}
-              />
-            </>
-          ) : (
+          {
             <>
               <PanelHeader
                 title={PANEL_TITLE[open]}
@@ -240,9 +237,9 @@ export function RaKhoiControls({
                   onFish={onFish}
                   fishSpecies={fishSpecies}
                   fishAccess={fishAccess}
-                  onOpenSpecies={() => setSpeciesView(true)}
-                  fishRange={fishRange}
-                  onRange={onRange}
+                  species={species}
+                  regionShorts={regionShorts}
+                  onPickSpecies={onPickSpecies}
                 />
               )}
               {open === "thoi-tiet" && (
@@ -273,14 +270,9 @@ export function RaKhoiControls({
                   onClearMeasure={onClearMeasure}
                 />
               )}
-              {open === "cai-dat" && (
-                <SettingsPanel
-                  vungLongOn={vungLongOn}
-                  onVungLong={onVungLong}
-                />
-              )}
+              {open === "cai-dat" && <SettingsPanel />}
             </>
-          )}
+          }
         </div>
       )}
 
@@ -495,21 +487,24 @@ function NguTruongPanel({
   fishOn,
   onFish,
   fishSpecies,
-  onOpenSpecies,
-  fishRange,
-  onRange,
   fishAccess,
+  species,
+  regionShorts,
+  onPickSpecies,
 }: {
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
-  onOpenSpecies: () => void;
-  fishRange: [number, number];
-  onRange: (r: [number, number]) => void;
   /** nấc premium — "login"/"upgrade" = lớp cá khoá hẳn (thẻ khoá thay picker) */
   fishAccess: FeatureAccess;
+  species: string[];
+  regionShorts: Set<string>;
+  onPickSpecies: (sp: string | null) => void;
 }) {
   const fishLocked = fishAccess === "login" || fishAccess === "upgrade";
+  // Chọn loài XỔ RA ngay trong panel (dropdown), KHÔNG swap view/đổi bề rộng
+  // panel nữa (user 2026-07-27: đừng nhảy panel giật ra giật vô).
+  const [expanded, setExpanded] = useState(false);
   const name = fishSpecies
     ? SPECIES_META[fishSpecies]?.full ?? fishSpecies
     : "Mọi loài cá";
@@ -538,33 +533,54 @@ function NguTruongPanel({
       )}
       {fishOn && !fishLocked && (
         <>
+          {/* Chú giải Thấp/TB/Cao ĐÃ DỜI ra nổi mép trái bản đồ (user
+              2026-07-27) — không lặp lại trong panel nữa. */}
           <button
             type="button"
-            onClick={onOpenSpecies}
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
             className="mt-2 flex w-full items-center gap-2 rounded-xl bg-field px-3 py-2.5 text-left active:scale-[0.99]"
           >
-            <span
-              className="h-3 w-3 shrink-0 rounded-full"
-              style={{
-                background: fishSpecies
-                  ? SPECIES_META[fishSpecies]?.color ?? FISH_COLOR
-                  : FISH_COLOR,
-              }}
-              aria-hidden
-            />
+            {/* khi MỞ dropdown → nhãn "Chọn loài cá" + ẩn chấm, để KHÔNG trùng
+                với item "Mọi loài" trong danh sách (user 2026-07-27) */}
+            {!expanded && (
+              <span
+                className="h-3 w-3 shrink-0 rounded-full"
+                style={{
+                  background: fishSpecies
+                    ? SPECIES_META[fishSpecies]?.color ?? FISH_COLOR
+                    : FISH_COLOR,
+                }}
+                aria-hidden
+              />
+            )}
             <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-bold text-navy">
-              {name}
+              {expanded ? "Chọn loài cá" : name}
             </span>
-            <ChevronRightIcon className="h-4 w-4 shrink-0 text-navy/55" />
+            <ChevronRightIcon
+              className={`h-4 w-4 shrink-0 text-navy/55 transition-transform ${
+                expanded ? "rotate-90" : ""
+              }`}
+            />
           </button>
 
-          <p className="mb-1 mt-3 flex items-center justify-between text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
-            <span>Dải khả năng có cá</span>
-            <span className="tabular-nums" style={{ color: FISH_COLOR }}>
-              {fishRange[0]}–{fishRange[1]}%
-            </span>
-          </p>
-          <RangeBand value={fishRange} onChange={onRange} color={FISH_COLOR} />
+          {/* Danh sách loài dùng CHUNG thanh cuộn của panel (max-h-[62vh]
+              overflow-y-auto ở div panel) — KHÔNG bọc khung cuộn riêng, tránh
+              2 thanh scroll lồng nhau (user 2026-07-27). */}
+          {expanded && (
+            <div className="mt-2">
+              <FishSpeciesContent
+                species={species}
+                current={fishSpecies}
+                regionShorts={regionShorts}
+                cols={1}
+                onPick={(sp) => {
+                  onPickSpecies(sp);
+                  setExpanded(false);
+                }}
+              />
+            </div>
+          )}
         </>
       )}
     </div>
@@ -743,13 +759,7 @@ function RadioCard({
   );
 }
 
-function SettingsPanel({
-  vungLongOn,
-  onVungLong,
-}: {
-  vungLongOn: boolean;
-  onVungLong: (on: boolean) => void;
-}) {
+function SettingsPanel() {
   const prefs = useMapPrefs();
   return (
     <div>
@@ -797,15 +807,51 @@ function SettingsPanel({
         Lớp bản đồ
       </p>
       <Toggle
+        label="Lưới kẻ ô (toạ độ)"
+        sub="Kẻ kinh/vĩ tuyến 1° trên bản đồ · không liên quan dự báo cá"
+        on={prefs.mapGrid}
+        onToggle={() => setMapPrefs({ mapGrid: !prefs.mapGrid })}
+        icon={<GridIcon className="h-5 w-5 text-navy" />}
+      />
+      <div className="mb-2" />
+      <Toggle
         label="Ranh giới vùng lộng"
         sub="NĐ 26/2019 · tàu 12–<15m · tham khảo"
-        on={vungLongOn}
-        onToggle={() => onVungLong(!vungLongOn)}
+        on={prefs.vungLong}
+        onToggle={() => setMapPrefs({ vungLong: !prefs.vungLong })}
         icon={<DepthIcon className="h-5 w-5 text-[#0d9488]" />}
       />
+
+      <p className="mb-1 mt-4 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+        Vùng biển (dữ liệu VMS)
+      </p>
+      <Toggle
+        label="Vùng được phép đánh bắt"
+        sub="Viền xanh lá · toàn vùng biển VN"
+        on={prefs.vmsAllowed}
+        onToggle={() => setMapPrefs({ vmsAllowed: !prefs.vmsAllowed })}
+        icon={<CheckIcon className="h-5 w-5 text-[#16a34a]" />}
+      />
+      <div className="mb-2" />
+      <Toggle
+        label="Vùng cần chú ý khi đánh bắt"
+        sub="Vàng cam · quanh Hoàng Sa, Trường Sa"
+        on={prefs.vmsCaution}
+        onToggle={() => setMapPrefs({ vmsCaution: !prefs.vmsCaution })}
+        icon={<AlertIcon className="h-5 w-5 text-[#f59e0b]" />}
+      />
+      <div className="mb-2" />
+      <Toggle
+        label="Vùng chỉ đánh được cá đáy"
+        sub="Tím · giáp ranh VN – Indonesia"
+        on={prefs.vmsBottomOnly}
+        onToggle={() => setMapPrefs({ vmsBottomOnly: !prefs.vmsBottomOnly })}
+        icon={<AnchorIcon className="h-5 w-5 text-[#8b5cf6]" />}
+      />
       <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/60">
-        Ranh giới vùng lộng (nét đứt xanh) chỉ để hình dung vùng theo cỡ tàu —
-        ranh chính thức tra Chi cục Thủy sản.
+        Các ranh giới trên chỉ để hình dung (dữ liệu VMS{" "}
+        {VMS_ZONES_UPDATED.split("-").reverse().join("/")}) — ranh chính thức
+        tra Chi cục Thủy sản.
       </p>
     </div>
   );
@@ -911,53 +957,3 @@ function Toggle({
   );
 }
 
-// dải kéo 2 đầu (dual-range) — tái dùng .range-dual (globals.css)
-function RangeBand({
-  value,
-  onChange,
-  color,
-}: {
-  value: [number, number];
-  onChange: (r: [number, number]) => void;
-  color: string;
-}) {
-  return (
-    <span className="relative block h-6">
-      <span
-        className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-line"
-        aria-hidden
-      />
-      <span
-        className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
-        style={{
-          left: `${((value[0] - 50) / 50) * 100}%`,
-          right: `${((100 - value[1]) / 50) * 100}%`,
-          background: color,
-        }}
-        aria-hidden
-      />
-      <input
-        type="range"
-        min={50}
-        max={100}
-        value={value[0]}
-        aria-label="Khả năng có cá tối thiểu"
-        className="range-dual"
-        onChange={(e) => onChange([Math.min(Number(e.target.value), value[1]), value[1]])}
-      />
-      <input
-        type="range"
-        min={50}
-        max={100}
-        value={value[1]}
-        aria-label="Khả năng có cá tối đa"
-        className="range-dual"
-        onChange={(e) => onChange([value[0], Math.max(Number(e.target.value), value[0])])}
-      />
-      <span className="mt-5 flex justify-between text-[0.625rem] font-semibold text-foreground/60">
-        <span>Ít cá</span>
-        <span>Nhiều cá</span>
-      </span>
-    </span>
-  );
-}

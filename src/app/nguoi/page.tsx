@@ -5,15 +5,16 @@ import { LoginGate } from "@/components/login-gate";
 
 export const metadata = { title: "Bạn thuyền — SDFish" };
 
-// Trục NGƯỜI (lao động): hồ sơ thuyền viên + chứng chỉ/bảo hiểm + hạn.
-// Chia tiền chuyến đã chuyển sang trục TIỀN (/tien) cho gọn taxonomy.
+// Trục NGƯỜI (lao động), cấu trúc 2026-07-27: hồ sơ thuyền viên (định danh
+// CCCD) + chứng chỉ/bảo hiểm + tra cảnh báo chéo trước khi nhận người
+// (premium). KHÔNG dính tiền — sổ ứng/chia tiền đã gỡ hẳn.
 export default function NguoiPage() {
   return (
     <div>
       <PageHeader
         kicker="Bạn thuyền"
         title="Sổ thuyền viên"
-        sub="Hồ sơ, chứng chỉ, bảo hiểm — đủ giấy trước khi ra khơi, khỏi bị phạt."
+        sub="Hồ sơ, chứng chỉ, bảo hiểm — tra cảnh báo trước khi nhận bạn mới."
         toColor="var(--t4)"
       />
       <LoginGate

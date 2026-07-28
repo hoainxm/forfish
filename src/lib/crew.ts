@@ -1,8 +1,12 @@
 // Thuyền viên — domain logic. Theo nghiên cứu docs/research/02-lao-dong-tren-tau.md:
 // · chứng chỉ thuyền trưởng/máy trưởng hạng I/II/III theo cỡ tàu (TT 22/2018),
 //   sai hạng phạt 5–10 triệu; không bảo hiểm phạt 15–20 triệu/thuyền viên
-// · tạm ứng 10–15 triệu/người trước chuyến, thường thỏa thuận miệng → sổ ứng
-// · ăn chia: doanh thu trừ chi phí chung rồi chia chủ/bạn theo tỉ lệ, bạn chia theo "phần"
+// · CCCD là ĐỊNH DANH thuyền viên toàn hệ thống — nền cho cảnh báo chéo giữa
+//   các chủ tàu (xem lib/crew-report.ts + /api/crew-reports).
+//
+// 2026-07-27: BỎ phần tiền khỏi hồ sơ thuyền viên (ăn chia/số phần + sổ ứng) —
+// màn Bạn thuyền chỉ còn ĐỊNH DANH + GIẤY TỜ + CẢNH BÁO, không dính tiền
+// (chốt với chủ dự án). Máy chia tiền chuyến cũng gỡ khỏi app cùng đợt.
 
 export type CrewRole = "thuyen_truong" | "may_truong" | "thuyen_vien";
 
@@ -12,31 +16,39 @@ export const ROLE_LABELS: Record<CrewRole, string> = {
   thuyen_vien: "Bạn thuyền",
 };
 
-export interface CrewAdvance {
-  id: string;
-  date: string; // ISO yyyy-mm-dd
-  amountVnd: number;
-  note?: string;
-  /** đã trừ vào tiền chia chuyến nào đó chưa */
-  settled: boolean;
-}
-
 export interface CrewMember {
   id: string;
   name: string;
+  /** CCCD 12 số — ĐỊNH DANH toàn hệ thống (bắt buộc cho mọi vai từ 2026-07-27).
+   *  Người cũ trong sổ có thể còn rỗng → nhắc bổ sung, không mất dữ liệu. */
+  cccd: string;
   role: CrewRole;
   phone?: string;
-  /** số căn cước công dân (12 số) — để khai báo biên phòng / hợp đồng đi bạn */
-  cccd?: string;
-  /** số phần khi ăn chia (tài công thường 1.5–2 phần, bạn 1 phần) */
-  shares: number;
   hasInsurance: boolean;
   insuranceExpiry?: string; // ISO
   /** văn bằng/chứng chỉ (chỉ thuyền trưởng/máy trưởng cần) */
   certLabel?: string; // vd "Thuyền trưởng hạng II"
   certExpiry?: string; // ISO
   note?: string;
-  advances: CrewAdvance[];
+}
+
+// ── CCCD (định danh) ───────────────────────────────────────────────────────
+
+/** Bỏ mọi ký tự không phải số — chấp nhận người dùng gõ có dấu cách/gạch. */
+export function normalizeCccd(raw: string): string {
+  return (raw || "").replace(/\D/g, "");
+}
+
+/** CCCD hợp lệ = đúng 12 chữ số (căn cước công dân gắn chip). */
+export function isValidCccd(raw: string): boolean {
+  return /^\d{12}$/.test(normalizeCccd(raw));
+}
+
+/** Hiện CCCD dạng nhóm 4-4-4 cho dễ đọc; không hợp lệ thì trả nguyên. */
+export function formatCccd(raw: string): string {
+  const n = normalizeCccd(raw);
+  if (n.length !== 12) return raw;
+  return `${n.slice(0, 4)} ${n.slice(4, 8)} ${n.slice(8, 12)}`;
 }
 
 export type CrewIssueLevel = "danger" | "warn" | "ok";
@@ -89,57 +101,6 @@ export function crewIssue(m: CrewMember, today: Date): CrewIssue {
   return { level: "ok", label: "Giấy tờ ổn" };
 }
 
-/** Tổng tiền đã ứng chưa trừ của một thuyền viên. */
-export function outstandingAdvance(m: CrewMember): number {
-  return m.advances
-    .filter((a) => !a.settled)
-    .reduce((sum, a) => sum + a.amountVnd, 0);
-}
-
-// ── chia tiền chuyến (ăn chia) ───────────────────────────────────────────
-export interface ShareInput {
-  revenueVnd: number; // tiền bán cá
-  commonCostVnd: number; // tổn chung: dầu, đá, lương thực...
-  ownerPercent: number; // phần chủ tàu trên số còn lại (50–70 thường gặp)
-}
-
-export interface ShareResult {
-  netVnd: number; // còn lại sau tổn
-  ownerVnd: number;
-  crewPoolVnd: number;
-  perShareVnd: number; // tiền 1 phần
-  perMember: {
-    member: CrewMember;
-    grossVnd: number; // phần được chia
-    advanceVnd: number; // ứng chưa trừ
-    finalVnd: number; // thực nhận = chia − ứng
-  }[];
-}
-
-export function splitTrip(input: ShareInput, crew: CrewMember[]): ShareResult {
-  const net = Math.max(0, input.revenueVnd - input.commonCostVnd);
-  const ownerVnd = Math.round((net * input.ownerPercent) / 100);
-  const crewPoolVnd = net - ownerVnd;
-  const totalShares = crew.reduce((s, m) => s + m.shares, 0);
-  const perShareVnd = totalShares > 0 ? crewPoolVnd / totalShares : 0;
-  return {
-    netVnd: net,
-    ownerVnd,
-    crewPoolVnd,
-    perShareVnd: Math.round(perShareVnd),
-    perMember: crew.map((m) => {
-      const gross = Math.round(perShareVnd * m.shares);
-      const adv = outstandingAdvance(m);
-      return {
-        member: m,
-        grossVnd: gross,
-        advanceVnd: adv,
-        finalVnd: gross - adv,
-      };
-    }),
-  };
-}
-
 /** Demo seed — màn hình tự giải thích chính nó khi chưa có dữ liệu. */
 export function demoCrew(today: Date): CrewMember[] {
   const d = (offsetDays: number) => {
@@ -151,49 +112,31 @@ export function demoCrew(today: Date): CrewMember[] {
     {
       id: "demo-c1",
       name: "Nguyễn Văn Hai",
+      cccd: "079090001234",
       role: "thuyen_truong",
       phone: "0901234567",
-      shares: 2,
       hasInsurance: true,
       insuranceExpiry: d(120),
       certLabel: "Thuyền trưởng hạng II",
       certExpiry: d(20),
-      advances: [],
     },
     {
       id: "demo-c2",
       name: "Trần Minh Bảo",
+      cccd: "079091005678",
       role: "may_truong",
       phone: "0912345678",
-      shares: 1.5,
       hasInsurance: true,
       insuranceExpiry: d(200),
       certLabel: "Máy trưởng hạng II",
       certExpiry: d(180),
-      advances: [
-        {
-          id: "demo-a1",
-          date: d(-6),
-          amountVnd: 10_000_000,
-          note: "Ứng trước chuyến",
-          settled: false,
-        },
-      ],
     },
     {
       id: "demo-c3",
       name: "Lê Thành Tâm",
+      cccd: "079092009012",
       role: "thuyen_vien",
-      shares: 1,
       hasInsurance: false,
-      advances: [
-        {
-          id: "demo-a2",
-          date: d(-6),
-          amountVnd: 12_000_000,
-          settled: false,
-        },
-      ],
     },
   ];
 }

@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   CrewMember,
   crewIssue,
-  outstandingAdvance,
-  splitTrip,
+  formatCccd,
+  isValidCccd,
+  normalizeCccd,
 } from "../crew";
 
 const TODAY = new Date("2026-06-10T00:00:00Z");
@@ -12,10 +13,9 @@ function member(over: Partial<CrewMember>): CrewMember {
   return {
     id: "m1",
     name: "Test",
+    cccd: "079090001234",
     role: "thuyen_vien",
-    shares: 1,
     hasInsurance: true,
-    advances: [],
     ...over,
   };
 }
@@ -60,65 +60,23 @@ describe("crewIssue", () => {
   });
 });
 
-describe("outstandingAdvance", () => {
-  it("chỉ cộng khoản chưa trừ", () => {
-    const m = member({
-      advances: [
-        { id: "a1", date: "2026-06-01", amountVnd: 10_000_000, settled: false },
-        { id: "a2", date: "2026-05-01", amountVnd: 5_000_000, settled: true },
-        { id: "a3", date: "2026-06-05", amountVnd: 2_000_000, settled: false },
-      ],
-    });
-    expect(outstandingAdvance(m)).toBe(12_000_000);
-  });
-});
-
-describe("splitTrip — ăn chia", () => {
-  const crew = [
-    member({ id: "tt", shares: 2 }), // tài công 2 phần
-    member({ id: "mt", shares: 1.5 }),
-    member({
-      id: "b1",
-      shares: 1,
-      advances: [
-        { id: "a", date: "2026-06-01", amountVnd: 3_000_000, settled: false },
-      ],
-    }),
-  ];
-
-  it("trừ tổn chung rồi chia chủ/bạn, bạn chia theo phần", () => {
-    // doanh thu 200tr, tổn 100tr → còn 100tr; chủ 50% = 50tr; bạn 50tr / 4.5 phần
-    const r = splitTrip(
-      { revenueVnd: 200_000_000, commonCostVnd: 100_000_000, ownerPercent: 50 },
-      crew,
-    );
-    expect(r.netVnd).toBe(100_000_000);
-    expect(r.ownerVnd).toBe(50_000_000);
-    expect(r.crewPoolVnd).toBe(50_000_000);
-    expect(r.perShareVnd).toBe(Math.round(50_000_000 / 4.5));
-    expect(r.perMember[0].grossVnd).toBe(Math.round((50_000_000 / 4.5) * 2));
-    // bạn b1: 1 phần trừ ứng 3tr
-    const b1 = r.perMember[2];
-    expect(b1.advanceVnd).toBe(3_000_000);
-    expect(b1.finalVnd).toBe(b1.grossVnd - 3_000_000);
+describe("CCCD — định danh", () => {
+  it("bỏ dấu cách/gạch khi chuẩn hoá", () => {
+    expect(normalizeCccd("079 090 001 234")).toBe("079090001234");
+    expect(normalizeCccd("079-090-001-234")).toBe("079090001234");
   });
 
-  it("chuyến lỗ → không chia âm", () => {
-    const r = splitTrip(
-      { revenueVnd: 80_000_000, commonCostVnd: 100_000_000, ownerPercent: 50 },
-      crew,
-    );
-    expect(r.netVnd).toBe(0);
-    expect(r.ownerVnd).toBe(0);
-    expect(r.perShareVnd).toBe(0);
+  it("hợp lệ đúng 12 chữ số", () => {
+    expect(isValidCccd("079090001234")).toBe(true);
+    expect(isValidCccd("079 090 001 234")).toBe(true);
+    expect(isValidCccd("07909000123")).toBe(false); // 11 số
+    expect(isValidCccd("0790900012345")).toBe(false); // 13 số
+    expect(isValidCccd("07909000123a")).toBe(false); // có chữ
+    expect(isValidCccd("")).toBe(false);
   });
 
-  it("không thuyền viên → không chia", () => {
-    const r = splitTrip(
-      { revenueVnd: 100_000_000, commonCostVnd: 50_000_000, ownerPercent: 60 },
-      [],
-    );
-    expect(r.perShareVnd).toBe(0);
-    expect(r.perMember).toEqual([]);
+  it("hiện dạng nhóm 4-4-4", () => {
+    expect(formatCccd("079090001234")).toBe("0790 9000 1234");
+    expect(formatCccd("bậy")).toBe("bậy");
   });
 });

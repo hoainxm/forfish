@@ -4,40 +4,31 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import {
-  AnchorIcon,
-  ChevronRightIcon,
-  HelpIcon,
-  PhoneIcon,
-  PlayIcon,
-  UsersIcon,
-} from "@/components/icons";
-import { loadTourEnabled, resetTours, setTourEnabled } from "@/lib/tour";
+import { BellIcon, ChevronRightIcon, UsersIcon } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthUser } from "@/lib/use-auth";
-import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
-import { useBoats } from "@/lib/boat-store";
 import {
-  accountDisplayName,
-  boatCountLine,
-  deviceCountLine,
-} from "@/lib/account-display";
+  getExistingPushSubscription,
+  isPushSupported,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "@/lib/push-client";
 
 /*
   Tài khoản trên hero — GỌN (sửa 2026-06-11 theo góp ý "design thô"):
   hero chỉ bày MỘT chip kính mờ; mọi thứ phụ (cỡ giao diện, đăng xuất)
   nằm trong SHEET TÀI KHOẢN — cái gì trực tiếp thì show, còn lại menu phụ.
 
-  Cỡ giao diện: MẶC ĐỊNH "Theo máy" — ăn theo cỡ chữ cài trong điện thoại
-  (không đặt font gốc); "Chữ to"/"Gọn" là khóa tay (xem globals.css).
+  Cỡ giao diện: MẶC ĐỊNH "Gọn" (user chốt 2026-07-28 — kể cả chưa đăng nhập);
+  bấm lại lựa chọn đang chọn = về "auto" theo cỡ chữ máy (xem globals.css).
 */
 
 const MODE_KEY = "forfish.displaymode.v1";
 
 type Mode = "auto" | "to" | "gon";
 
-// "Theo máy" là TRẠNG THÁI NỀN (auto) — không bày thành lựa chọn (góp ý
-// user 2026-06-11). Chỉ 2 tùy chọn ghi đè; bấm lại cái đang chọn = về auto.
+// "Theo máy" (auto) không bày thành lựa chọn (góp ý user 2026-06-11) — chỉ
+// 2 tùy chọn; bấm lại cái đang chọn = về auto. MẶC ĐỊNH là "gon" (2026-07-28).
 const MODES: { id: Exclude<Mode, "auto">; label: string; sub: string }[] = [
   { id: "to", label: "Chữ to", sub: "Luôn to rõ, dễ đọc ngoài nắng" },
   { id: "gon", label: "Gọn", sub: "Mật độ như các app thường dùng" },
@@ -50,31 +41,68 @@ function prettyPhone(p: string): string {
   return local.replace(/(\d{4})(\d{3})(\d{0,3})/, "$1 $2 $3").trim();
 }
 
+// NEXT_PUBLIC_* inline lúc build — vắng thì tắt hẳn khối "Bật thông báo"
+// (Phase 3, 2026-07-28) thay vì hiện nút bấm không chạy được.
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+type PushUiState =
+  | "checking"
+  | "off"
+  | "on"
+  | "busy"
+  | "unsupported"
+  | "unconfigured";
+
 export function HeroAccount() {
   const router = useRouter();
   const { user, phone, ready } = useAuthUser();
-  const { assets } = useSdvicoAssets();
-  const { boats } = useBoats();
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<Mode>("auto");
-  // Công tắc chỉ dẫn trên màn (nút nổi + tự chạy tour). Mặc định bật.
-  const [guideOn, setGuideOn] = useState(true);
+  const [mode, setMode] = useState<Mode>("gon");
+  const [pushState, setPushState] = useState<PushUiState>("checking");
+  const [pushError, setPushError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isPushSupported()) {
+      setPushState("unsupported");
+      return;
+    }
+    if (!VAPID_PUBLIC_KEY) {
+      setPushState("unconfigured");
+      return;
+    }
+    getExistingPushSubscription().then((sub) => setPushState(sub ? "on" : "off"));
+  }, []);
+
+  async function togglePush() {
+    setPushError(null);
+    if (pushState === "on") {
+      setPushState("busy");
+      await unsubscribeFromPush();
+      setPushState("off");
+      return;
+    }
+    setPushState("busy");
+    const r = await subscribeToPush(VAPID_PUBLIC_KEY!, phone);
+    if (r.ok) {
+      setPushState("on");
+      return;
+    }
+    setPushState("off");
+    setPushError(
+      r.error === "denied"
+        ? "Trình duyệt đang chặn quyền thông báo — vào cài đặt trình duyệt để bật lại."
+        : "Chưa bật được — kiểm tra mạng rồi thử lại.",
+    );
+  }
 
   useEffect(() => {
     try {
       const m = window.localStorage.getItem(MODE_KEY);
-      if (m === "to" || m === "gon") setMode(m);
+      if (m === "to" || m === "gon" || m === "auto") setMode(m);
     } catch {
-      // storage bị chặn — dùng mặc định
+      // storage bị chặn — dùng mặc định "gon"
     }
-    setGuideOn(loadTourEnabled());
   }, []);
-
-  function toggleGuide() {
-    const next = !guideOn;
-    setGuideOn(next);
-    setTourEnabled(next); // ghi localStorage + báo TourLauncher đổi ngay
-  }
 
   function applyMode(next: Mode) {
     setMode(next);
@@ -93,22 +121,13 @@ export function HeroAccount() {
 
   if (!ready) return <div className="mt-3 h-[2.75rem]" aria-hidden />;
 
-  // Tên: bảng customers (CRM, qua /api/me/sdvico) trước — webhook provision
-  // KHÔNG set user_metadata.full_name nên đa số tài khoản chỉ có SĐT nếu
-  // dựa metadata (báo user 2026-07-21 "mục tài khoản chỉ hiện SĐT").
-  const name = accountDisplayName(
-    assets?.customerName,
-    user?.user_metadata?.full_name as string | undefined,
-  );
-  const deviceLine = deviceCountLine(assets?.products.length);
-  const boatLine = boatCountLine(boats.length);
+  const name = (user?.user_metadata?.full_name as string | undefined)?.trim();
 
   return (
     <>
       {/* MỘT chip duy nhất trên hero — bấm mở menu phụ */}
       <button
         type="button"
-        data-tour="tai-khoan"
         onClick={() => setOpen(true)}
         className="mt-3 flex min-h-[2.75rem] max-w-full items-center gap-2 rounded-full bg-white/15 pl-2 pr-3.5 text-white backdrop-blur-sm transition active:scale-[0.97]"
       >
@@ -127,51 +146,15 @@ export function HeroAccount() {
         <BottomSheet title="Tài khoản" onClose={() => setOpen(false)}>
           {/* danh tính / đăng nhập */}
           {user && phone ? (
-            <div className="mb-4 surface px-4 py-3.5">
+            <div className="mb-4 surface px-4 py-3">
               {name && (
-                <p className="display text-[1.25rem] font-bold text-navy">
-                  {/* tên trơn — KHÔNG thêm kính ngữ "Bác": data không có
-                      giới tính/tuổi + nhiều "tên" là tổ chức (đại lý/xí
-                      nghiệp/ghe) nên "Bác {tên công ty}" sai. Danh tính ấm
-                      áp đã có pill "Khách hàng SDVICO" lo. */}
-                  {name}
+                <p className="display text-[1.125rem] font-bold text-navy">
+                  Bác {name}
                 </p>
               )}
-              {/* SĐT LUÔN hiện — kể cả khi chưa có tên (account chưa đồng bộ
-                  hồ sơ) thì đây là danh tính duy nhất, cho to rõ */}
-              <p
-                className={`flex items-center gap-1.5 font-semibold text-foreground/70 ${
-                  name ? "mt-0.5 text-[1rem]" : "text-[1.125rem] text-navy"
-                }`}
-              >
-                <PhoneIcon className="h-4 w-4 shrink-0 text-foreground/45" />
+              <p className="text-[1rem] font-semibold text-foreground/70">
                 {prettyPhone(phone)}
               </p>
-              {/* nhãn nhận diện — mọi tài khoản đều là khách SDVICO (đồng bộ
-                  từ SDWork); cho danh tính đầy hơn khi hồ sơ còn mỏng */}
-              <span className="mt-2 inline-flex items-center rounded-full bg-t1-bg px-2.5 py-1 text-[0.8125rem] font-bold text-t1">
-                Khách hàng SDVICO
-              </span>
-              {(boatLine || deviceLine) && (
-                <div className="mt-3 space-y-2 border-t border-line pt-3">
-                  {boatLine && (
-                    <p className="flex items-center gap-1.5 text-[0.9375rem] font-semibold text-foreground/75">
-                      <AnchorIcon className="h-4 w-4 shrink-0 text-foreground/45" />
-                      {boatLine}
-                    </p>
-                  )}
-                  {deviceLine && (
-                    <Link
-                      href="/tau?tab=san-pham"
-                      onClick={() => setOpen(false)}
-                      className="flex min-h-[2.75rem] items-center gap-1 text-[0.9375rem] font-bold text-sea"
-                    >
-                      {deviceLine}
-                      <ChevronRightIcon className="h-4 w-4" />
-                    </Link>
-                  )}
-                </div>
-              )}
             </div>
           ) : (
             <Link
@@ -227,66 +210,35 @@ export function HeroAccount() {
             })}
           </div>
 
-          {/* HƯỚNG DẪN DÙNG APP — công khai, khách chưa đăng nhập cũng cần */}
-          <p className="mb-1.5 px-1 text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
-            Hướng dẫn dùng app
-          </p>
-          <div className="mb-4 overflow-hidden surface">
-            {/* Công tắc tổng: tắt = ẩn nút nổi "Hướng dẫn" + không tự chạy tour */}
+          {/* Bật thông báo (Web Push, 2026-07-28) — ẩn hẳn nếu máy không hỗ
+              trợ hoặc server chưa cấu hình VAPID (không hiện nút vô dụng) */}
+          {pushState !== "unsupported" && pushState !== "unconfigured" && (
             <button
               type="button"
-              role="switch"
-              aria-checked={guideOn}
-              onClick={toggleGuide}
-              className="flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left"
+              onClick={togglePush}
+              disabled={pushState === "checking" || pushState === "busy"}
+              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 rounded-2xl bg-field px-4 text-left disabled:opacity-60"
             >
-              <HelpIcon className="h-5 w-5 shrink-0 text-sea" />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white">
+                <BellIcon className="h-5 w-5 text-navy" />
+              </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[1rem] font-bold text-navy">
-                  Chỉ dẫn trên màn hình
+                  {pushState === "on" ? "Đã bật thông báo" : "Bật thông báo"}
                 </span>
                 <span className="block text-[0.8125rem] leading-snug text-foreground/70">
-                  {guideOn
-                    ? "Hiện nút Hướng dẫn và tự chỉ từng nút lần đầu"
-                    : "Đang tắt — bật để hiện lại nút Hướng dẫn"}
+                  {pushState === "on"
+                    ? "Nhấn để tắt trên máy này"
+                    : "Nhận tin nhắn từ SDVICO ngay trên điện thoại"}
                 </span>
-              </span>
-              {/* switch: nền + núm trượt, ≥ khổ chạm; màu sea khi bật */}
-              <span
-                aria-hidden
-                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
-                  guideOn ? "bg-sea" : "bg-line"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${
-                    guideOn ? "left-[1.375rem]" : "left-0.5"
-                  }`}
-                />
               </span>
             </button>
-            {/* "Chỉ lại từ đầu" chỉ có nghĩa khi chỉ dẫn đang bật */}
-            {guideOn && (
-              <button
-                type="button"
-                onClick={() => {
-                  resetTours();
-                  setOpen(false);
-                }}
-                className="flex min-h-[3.5rem] w-full items-center gap-3 border-t border-line px-4 text-left"
-              >
-                <PlayIcon className="h-5 w-5 shrink-0 text-sea" />
-                <span className="min-w-0">
-                  <span className="block text-[1rem] font-bold text-navy">
-                    Chỉ lại từ đầu trên màn hình
-                  </span>
-                  <span className="block text-[0.8125rem] leading-snug text-foreground/70">
-                    Bật lại phần chỉ dẫn từng nút ở mọi màn
-                  </span>
-                </span>
-              </button>
-            )}
-          </div>
+          )}
+          {pushError && (
+            <p className="-mt-2.5 mb-4 px-1 text-[0.8125rem] font-semibold text-danger">
+              {pushError}
+            </p>
+          )}
 
           {/* Chính sách quyền riêng tư — công khai, luôn tới được (App Store
               5.1.2 bắt buộc app có link trong ứng dụng, không chỉ trong hồ sơ). */}
@@ -302,30 +254,18 @@ export function HeroAccount() {
           </Link>
 
           {user && (
-            <>
-              {/* tự đổi mật khẩu — trước đây /doi-mat-khau chỉ vào được khi bị
-                  ép lần đầu, TK thường không có đường vào (báo cáo tester
-                  2026-07-02: DN-001-04/07 kẹt "chưa có chức năng đổi mk") */}
-              <Link
-                href="/doi-mat-khau"
-                onClick={() => setOpen(false)}
-                className="mb-3 flex min-h-[3.25rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-sea transition active:scale-[0.98]"
-              >
-                Đổi mật khẩu
-              </Link>
-              <button
-                type="button"
-                onClick={async () => {
-                  const supabase = createClient();
-                  await supabase?.auth.signOut();
-                  setOpen(false);
-                  router.refresh();
-                }}
-                className="flex min-h-[3.25rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-trim transition active:scale-[0.98]"
-              >
-                Đăng xuất
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={async () => {
+                const supabase = createClient();
+                await supabase?.auth.signOut();
+                setOpen(false);
+                router.refresh();
+              }}
+              className="flex min-h-[3.25rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-trim transition active:scale-[0.98]"
+            >
+              Đăng xuất
+            </button>
           )}
         </BottomSheet>
       )}

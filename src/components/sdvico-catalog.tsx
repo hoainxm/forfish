@@ -3,8 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckIcon, PhoneIcon } from "@/components/icons";
 import { SdvicoRequestButton } from "@/components/sdvico-request";
+import { ProductInquiryButton } from "@/components/product-inquiry-button";
 import { apiUrl } from "@/lib/api-base";
 import { type CatalogGroup } from "@/lib/sdvico-catalog";
+import {
+  fetchProductListings,
+  type ProductListing,
+} from "@/lib/product-catalog";
 import {
   SDVICO_HOTLINE,
   SDVICO_HOTLINE_DISPLAY,
@@ -13,13 +18,37 @@ import {
 
 /*
   KHUYẾN NGHỊ — kiểu app shop (user chốt 2026-06-11): CHỈ sản phẩm CHÍNH,
-  ảnh + thông tin lấy từ sdvico.vn, không đổ phụ kiện/vật tư lẻ cho rối.
+  không đổ phụ kiện/vật tư lẻ cho rối.
   · Khu 1 — MUA THÊM cho dòng ĐANG DÙNG (vật tư thay thế — upsale trúng nhất)
   · Khu 2 — thẻ sản phẩm kiểu shop: ảnh + loại + tên + mô tả + tính năng
-    + nút Hỏi mua (1 chạm vì đã đăng nhập) + Gọi ngay hotline
+    + hành động liên hệ + Gọi ngay hotline
   Dòng khách đang dùng → thẻ gắn nhãn xanh "đang dùng dòng này".
   CRM catalog chỉ còn dùng để NHẬN DIỆN dòng đang dùng (không hiển thị).
+
+  DANH MỤC ADMIN QUẢN LÝ (2026-07-28): danh sách thẻ nay đọc từ bảng Supabase
+  `product_listings` (admin ẩn/hiện/xóa/thêm trong /quan-tri, áp dụng NGAY —
+  không cần build app) thay cho mảng cứng SDVICO_SHOWCASE. Chưa cấu hình
+  Supabase/lỗi mạng → rơi về SDVICO_SHOWCASE (giữ hành vi cũ, demo mode).
+  Sản phẩm của ĐƠN VỊ NGOÀI SDWork (vendorKind='external') hiện nhãn tên đơn
+  vị + liên hệ trực tiếp (KHÔNG dùng nút Hỏi mua — nút đó gửi vào hộp tư vấn
+  CRM của SDVICO, sai kênh cho đơn vị khác).
 */
+
+function fromStaticShowcase(): ProductListing[] {
+  return SDVICO_SHOWCASE.map((p, i) => ({
+    id: p.id,
+    vendorKind: "sdvico" as const,
+    title: p.title,
+    category: p.category,
+    description: p.desc,
+    features: p.features,
+    imageUrl: p.image,
+    line: p.line,
+    visible: true,
+    sortOrder: i,
+    createdAt: "",
+  }));
+}
 
 export function SdvicoCatalog({
   ownedProductNames = [],
@@ -28,6 +57,20 @@ export function SdvicoCatalog({
   ownedProductNames?: string[];
 }) {
   const [groups, setGroups] = useState<CatalogGroup[] | null>(null);
+  const [listings, setListings] = useState<ProductListing[]>(
+    fromStaticShowcase(),
+  );
+
+  useEffect(() => {
+    let alive = true;
+    fetchProductListings().then((rows) => {
+      if (alive && rows !== null) setListings(rows);
+      // rows === null (chưa cấu hình/lỗi mạng) → giữ SDVICO_SHOWCASE tĩnh
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (ownedProductNames.length === 0) return; // khách chưa có đồ → khỏi tải
@@ -60,12 +103,13 @@ export function SdvicoCatalog({
 
   // dòng đang dùng xếp LÊN ĐẦU (mua thêm vật tư dễ hơn mua máy mới)
   const showcase = useMemo(() => {
-    if (ownedLines.size === 0) return SDVICO_SHOWCASE;
-    return [...SDVICO_SHOWCASE].sort(
+    if (ownedLines.size === 0) return listings;
+    return [...listings].sort(
       (a, b) =>
-        (ownedLines.has(a.line) ? 0 : 1) - (ownedLines.has(b.line) ? 0 : 1),
+        (a.line && ownedLines.has(a.line) ? 0 : 1) -
+        (b.line && ownedLines.has(b.line) ? 0 : 1),
     );
-  }, [ownedLines]);
+  }, [ownedLines, listings]);
 
   return (
     <div>
@@ -76,25 +120,38 @@ export function SdvicoCatalog({
         Hàng chính hãng đang bán — hỏi mua là nhân viên gọi lại tư vấn.
       </p>
 
+      {showcase.length === 0 && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Chưa có sản phẩm nào — gọi hotline bên dưới để được tư vấn trực tiếp.
+        </p>
+      )}
+
       <ul className="space-y-4">
         {showcase.map((p) => {
-          const owned = ownedLines.has(p.line);
+          const owned = Boolean(p.line && ownedLines.has(p.line));
+          const external = p.vendorKind === "external";
           return (
             <li key={p.id} className="overflow-hidden surface">
-              {/* ảnh sản phẩm — như thẻ shop */}
+              {/* ảnh sản phẩm — như thẻ shop (bỏ qua nếu admin chưa gắn ảnh) */}
               <div className="relative aspect-[4/3] w-full overflow-hidden bg-field">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={p.image}
-                  alt={p.title}
-                  width={p.imgW}
-                  height={p.imgH}
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
-                <span className="absolute left-3 top-3 rounded-full bg-navy/85 px-3 py-1 text-[0.75rem] font-bold text-white backdrop-blur-sm">
-                  {p.category}
-                </span>
+                {p.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.imageUrl}
+                    alt={p.title}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[0.9375rem] font-semibold text-foreground/40">
+                    {p.category || "Sản phẩm"}
+                  </div>
+                )}
+                {p.category && (
+                  <span className="absolute left-3 top-3 rounded-full bg-navy/85 px-3 py-1 text-[0.75rem] font-bold text-white backdrop-blur-sm">
+                    {p.category}
+                  </span>
+                )}
                 {owned && (
                   <span
                     className="absolute right-3 top-3 flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.75rem] font-bold"
@@ -107,38 +164,78 @@ export function SdvicoCatalog({
               </div>
 
               <div className="p-4">
+                {external && (
+                  <p className="mb-1 text-[0.8125rem] font-bold uppercase tracking-wide text-t3">
+                    Đơn vị: {p.vendorName}
+                  </p>
+                )}
                 <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
                   {p.title}
                 </p>
-                <p className="mt-1 text-[0.9375rem] leading-snug text-foreground/70">
-                  {p.desc}
-                </p>
-                <ul className="mt-2 space-y-1">
-                  {p.features.map((f) => (
-                    <li
-                      key={f}
-                      className="flex items-start gap-2 text-[0.875rem] text-foreground/75"
-                    >
-                      <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-ok" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
+                {p.description && (
+                  <p className="mt-1 text-[0.9375rem] leading-snug text-foreground/70">
+                    {p.description}
+                  </p>
+                )}
+                {p.features.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {p.features.map((f) => (
+                      <li
+                        key={f}
+                        className="flex items-start gap-2 text-[0.875rem] text-foreground/75"
+                      >
+                        <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-ok" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
                 {/* neo kỳ vọng giá — hỏi không mất gì, không bị ép mua */}
                 <p className="mt-2 text-[0.8125rem] font-semibold text-foreground/70">
-                  Giá báo theo tàu — hỏi là nhân viên gọi lại, không mất phí.
+                  {p.priceText
+                    ? `Giá tham khảo: ${p.priceText}`
+                    : external
+                      ? "Liên hệ đơn vị để biết giá."
+                      : "Giá báo theo tàu — hỏi là nhân viên gọi lại, không mất phí."}
                 </p>
 
-                {/* MỘT hành động chính mỗi thẻ — nút Gọi lặp từng thẻ đã dồn
-                    về khối hotline cuối trang (roadmap hội đồng UX) */}
+                {/* MỘT hành động chính mỗi thẻ. SDVICO → hộp tư vấn CRM (kênh
+                    bán hàng thật); đơn vị NGOÀI → liên hệ trực tiếp + "Để lại
+                    yêu cầu" ghi vào product_inquiries (admin xem ở /quan-tri
+                    tab Yêu cầu) — KHÔNG đi qua hộp tư vấn CRM của SDVICO (sai
+                    kênh, không phải hàng của họ). */}
                 <div className="mt-2.5">
-                  <SdvicoRequestButton
-                    variant="chip"
-                    topic="mua"
-                    productName={p.title}
-                    label={owned ? "Mua thêm / vật tư thay" : "Hỏi mua / tư vấn"}
-                  />
+                  {external ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {p.contactPhone && (
+                        <a
+                          href={`tel:${p.contactPhone}`}
+                          className="flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-full bg-t3 px-4 text-[0.9375rem] font-bold text-white transition active:scale-[0.97]"
+                        >
+                          <PhoneIcon className="h-4 w-4" />
+                          Gọi {p.contactPhone}
+                        </a>
+                      )}
+                      <ProductInquiryButton
+                        listingId={p.id}
+                        listingTitle={p.title}
+                        vendorKind="external"
+                      />
+                      {p.contactNote && (
+                        <p className="w-full text-[0.8125rem] text-foreground/65">
+                          {p.contactNote}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <SdvicoRequestButton
+                      variant="chip"
+                      topic="mua"
+                      productName={p.title}
+                      label={owned ? "Mua thêm / vật tư thay" : "Hỏi mua / tư vấn"}
+                    />
+                  )}
                 </div>
               </div>
             </li>

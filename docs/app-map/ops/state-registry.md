@@ -19,7 +19,7 @@ gate: warn
 
 | Key | Nội dung | Writer (module ghi) | Reader chính | Trục | Reset |
 |---|---|---|---|---|---|
-| `forfish.displaymode.v1` | Chế độ hiển thị (sáng/tối) | `components/hero-account.tsx` + boot script `app/layout.tsx` | `globals.css`, `layout.tsx` | chung | xoá key → về mặc định theo hệ |
+| `forfish.displaymode.v1` | Cỡ giao diện (`gon`/`to`/`auto`) | `components/hero-account.tsx` + boot script `app/layout.tsx` | `globals.css`, `layout.tsx` | chung | xoá key → về mặc định "Gọn" (2026-07-28) |
 | `forfish.boats.v1` | Danh sách tàu | `lib/boats.ts` | toàn app | chung | xoá → trống, tạo lại tàu |
 | `forfish.currentBoat.v1` | Tàu đang chọn | `lib/boats.ts` | toàn app | chung | xoá → chọn tàu đầu |
 | `forfish.boat.v1` | Tàu cho dẫn đường (route planner) — **khác `boats.v1`** | `components/route-planner.tsx` | route-planner | 1 | xoá → nhập lại thông số |

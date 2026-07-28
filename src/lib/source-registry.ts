@@ -119,13 +119,16 @@ export async function resolveField<T>(
 export const STALE_REQUIRED_PENALTY = 0.25;
 
 /**
- * PHẠT THEO ĐÒN BẨY — mất mỗi nguồn TUỲ CHỌN trừ bao nhiêu.
+ * PHẠT THEO ĐÒN BẨY — mất mỗi nguồn TUỲ CHỌN trừ bao nhiêu vào `dataQuality`.
  *
- * VÌ SAO KHÔNG PHẠT ĐỀU (sửa 2026-07-26): bản cũ trừ 0,05 cho MỌI trường tuỳ
- * chọn. Chỉ có 5 trường ⇒ điểm thấp nhất còn dữ liệu là 1 − 5×0,05 = 0,75, mà
- * ngưỡng cảnh báo là 0,5 ⇒ nhánh "thiếu nguồn" của `lowQualityNote` KHÔNG BAO
- * GIỜ chạy. Hệ quả thật: mất ETOPO (độ sâu) hoặc HYCOM — app IM LẶNG TUYỆT ĐỐI
- * dù bản đồ đã đổi hẳn.
+ * PHẠM VI (chốt 2026-07-27): `dataQuality` chỉ còn phục vụ TRANG QUẢN TRỊ (staff
+ * xem sức khoẻ nguồn) — KHÔNG còn cảnh báo bà con ("thiếu vài nguồn" đã bỏ ở
+ * `lowQualityNote`). Vẫn phạt theo ĐÒN BẨY để số quản trị phản ánh đúng nguồn
+ * nào mất nặng, không phải để doạ user.
+ *
+ * VÌ SAO KHÔNG PHẠT ĐỀU (sửa 2026-07-26): bản cũ trừ 0,05 đều cho mọi trường ⇒
+ * mất nguồn NẶNG (ETOPO/HYCOM/SSHA) và mất nguồn NHẸ (dòng/dị thường) trông như
+ * nhau trong số quản trị, không phân biệt được mức hệ trọng.
  *
  * CĂN CỨ — ablation ĐÃ ĐO (Δ %diện tích điểm nóng khi BỎ nguồn, hè/đông):
  *   · bathy  (ETOPO độ sâu)      bỏ đi: %điểm nóng mùa đông 67,8 → 33,0 (−34,8)
@@ -247,41 +250,36 @@ export function oldestIsoDate(dates: (string | null | undefined)[]): string {
 ---------------------------------------------------------------------------- */
 
 /**
- * Dưới mức này thì bản đồ cá đang chắp vá nhiều — phải nói, không im lặng.
+ * Ngưỡng `dataQuality` coi là "chắp vá nhiều" — nay CHỈ dùng cho TRANG QUẢN TRỊ
+ * và test (KHÔNG còn gác câu cảnh báo bà con; xem `lowQualityNote`).
  *
- * LỖI ĐÃ SỬA (2026-07-26): ngưỡng cũ 0.5 là **MÃ CHẾT**. Hồi đó mọi trường tuỳ
- * chọn phạt đều 0.05, chỉ có 5 trường ⇒ sàn thực tế 0.75, KHÔNG BAO GIỜ chạm
- * 0.5 (trường BẮT BUỘC cũ thì nhánh trước đã return). Hệ quả: mất ETOPO —
- * %điểm nóng mùa đông rơi 67.8 → 33.0 — mà app IM LẶNG TUYỆT ĐỐI. Đúng vết
- * "dữ liệu hỏng trông như dữ liệu lành".
- *
- * Nay phạt theo ĐÒN BẨY (xem MISSING_PENALTY_BY_FIELD) và hạ ngưỡng về 0.9:
- *   mất bathy → 0.80 ✅ báo · mất sla → 0.85 ✅ · mất hycom → 0.85 ✅
- *   mất currents/anom → 0.95 ❌ im (nhẹ, không doạ oan)
+ * Với đòn bẩy hiện tại: mất bathy → 0.80 · sla → 0.85 · hycom → 0.85 (nặng);
+ * mất currents/anom → 0.95 (nhẹ). Staff nhìn số này để biết nguồn nào rụng.
  */
 export const LOW_QUALITY_THRESHOLD = 0.9;
 
 /**
- * Câu nhắc khi bản đồ cá dựng từ ảnh cũ / thiếu nguồn — `null` = KHÔNG nói gì.
+ * Câu nhắc khi bản đồ cá dựng từ ảnh CŨ — `null` = KHÔNG nói gì.
  *
  * Màn hình phải GỌN (quyết định sản phẩm 2026-07-25) nên đây KHÔNG phải badge
  * thường trực: chỉ hiện trong ca xấu, rồi tự tắt sau NOTIFY_HIDE_MS như dòng
- * "mất sóng". Nhưng im hẳn thì thành hứa độ chính xác mà nguồn không đảm bảo —
- * bà con ra khơi theo bản đồ này.
+ * "mất sóng". Nhưng im hẳn khi ảnh CŨ thì thành hứa "hôm nay" mà dữ liệu không
+ * đảm bảo — bà con ra khơi theo bản đồ này (bệnh "số cũ trông như mới").
+ *
+ * CHỈ nói chuyện ẢNH CŨ. KHÔNG còn nói "thiếu vài nguồn": chủ dự án chốt
+ * 2026-07-27 — bà con KHÔNG cần biết chuyện thiếu nguồn phụ (bản đồ vẫn dựng từ
+ * nguồn còn sống, bất biến monotonic bảo đảm mất nguồn chỉ GIẢM điểm chứ không
+ * bịa). Tình trạng thiếu nguồn / `dataQuality` vẫn giữ cho trang QUẢN TRỊ.
  *
  * Chữ đời thường, không nói "dataQuality", không nói tên dataset.
  */
 export function lowQualityNote(cast: {
-  dataQuality?: number;
   sources?: Record<string, { stale: boolean }>;
 }): string | null {
   const s = cast.sources ?? {};
   // ảnh nhiệt/phù du cũ = cả bản đồ lệch → nói thẳng chuyện "ảnh cũ"
   if (s.sst?.stale || s.chl?.stale) {
     return "Số biển hôm nay lấy từ ảnh cũ — có thể chưa sát.";
-  }
-  if ((cast.dataQuality ?? 1) < LOW_QUALITY_THRESHOLD) {
-    return "Hôm nay thiếu vài nguồn số biển — bản đồ cá có thể chưa sát.";
   }
   return null;
 }
