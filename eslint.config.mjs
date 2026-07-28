@@ -12,6 +12,16 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Build của harness e2e quay video (scripts/e2e-build.mjs) — cùng loại với
+    // .next nhưng khác tên nên KHÔNG lọt danh sách mặc định; để nguyên thì
+    // `npm run lint` báo hàng nghìn lỗi trong mã sinh tự động, lấp mất lỗi thật.
+    ".next-e2e/**",
+    ".next-e2e-auth/**",
+    // Build NẰM SÂU: worktree của agent (.claude/worktrees/*/.next/**) — mẫu
+    // ".next/**" chỉ khớp ở gốc repo. Không chặn thì mỗi worktree bỏ lại thêm
+    // ~1000 "lỗi" trong mã đã biên dịch.
+    "**/.next/**",
+    ".claude/**",
   ]),
   {
     rules: {

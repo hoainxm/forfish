@@ -1,6 +1,13 @@
-# 09 — ĐỀ XUẤT: Lộ trình chuyến biển nhiều ngày (route suggest)
+# 09 — ba-spec: Lộ trình chuyến biển nhiều ngày (route suggest)
 
-> **Trạng thái: ĐỀ XUẤT — đã chốt 4 quyết định khung (2026-07-28), chưa build.** Kết quả
+> Load khi: task chạm đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (pha trộn dự báo × mùa vụ), nguồn dữ liệu cho tầm 16 ngày, hoặc so vị trí hiện tại với tuyến đã lưu.
+covers: src/lib/fish-blend.ts, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
+last_verified: 2026-07-28
+ttl_days: 90
+
+> **Mục đích**: oracle HÀNH VI cho tính năng đề xuất lộ trình — bài toán là gì, nguồn dữ liệu phải đạt gì, pha trộn lớp cá theo tỷ lệ nào (số ĐO ĐƯỢC), lưu/đối chiếu tuyến ra sao. KHÔNG mô tả giao diện (việc của [07-design-spec](07-design-spec.md)).
+
+> **Trạng thái: phần TÍNH NĂNG còn là ĐỀ XUẤT (chưa build); phần NỀN DỮ LIỆU lớp cá 16 ngày ĐÃ LÀM XONG — xem §5d.** Kết quả
 > nghiên cứu team-agent 2026-07-28 (3 hướng: kiểm kê repo · thuật toán · nghiệp vụ chuyến biển).
 >
 > **CHỦ DỰ ÁN CHỐT (2026-07-28):**
@@ -177,10 +184,76 @@ nếu nguồn cũ với tham số khác là đủ.
 |---|---|---|---|
 | **Gió + sóng theo TUYẾN** (`route-weather.ts`) | `FORECAST_DAYS=3` (72h), 0,35°, ≤120 điểm, kèm chu kỳ sóng + dòng chảy | CÙNG API với lưới d16 (Open-Meteo forecast + marine, sóng `ncep_gfswave025` đã chứng minh chạy 16 ngày ở `forecast-grid.ts:244-256`). Nâng `forecast_days=16` NHƯNG phải quản payload (120 điểm × 384h × 7 trường ≈ vài MB): **72h đầu giữ nguyên theo giờ; 72h–16d hạ bước 6h/12h + bớt trường** (bỏ chu kỳ sóng/dòng chảy ở xa) — đúng khuôn bước giờ 3h→6h→12h của `forecast-grid`. Fallback offline: lưới d16 đã lưu (`gridToWeatherField` sẵn có) | Vừa |
 | **Dòng chảy theo tuyến** (marine API, 72h nay) | Có trong 72h | **ĐO THẬT trần `forecast_days` của `ocean_current_*` trên marine API** (chưa ai đo; có thể chỉ 5–10 ngày). Quá trần → bỏ dòng chảy khỏi cost các chặng xa (sai số nhỏ so với sóng/gió) + ghi chú trong plan. Viết probe script kiểu `fish-3day-probe.mjs` | Dễ (probe) |
-| **Bản đồ cá — MỘT LỚP PHA TRỘN dùng cả 16 ngày** (user chốt 2026-07-28: KHÔNG phân biệt "cá 3 ngày" trong UI) | Tĩnh 1 bản; `sst-tendency.ts` D+1..D+3 viết xong chưa nối | `fishBlend(ô, d) = w(d)·fishForecast(ô) + (1−w(d))·climatology(ô, tháng)`. (a) Nối `frontSst` → thành phần dự báo D+1..D+3 thật; (b) **climatology mùa vụ**: bản đồ điểm cá theo THÁNG dựng từ 2–3 năm lịch sử ERDDAP (đúng khuyến nghị memory fish-predict: kéo lịch sử thêm bậc tự do), build offline 1 lần/tháng, lưu asset tĩnh hoặc bảng snapshot (check `list_tables` trước — luật memory); (c) **w(d) KHÔNG đặt tay — TÍNH TỐI ƯU từ backtest** (user chốt): script offline chạy trên lịch sử — với mỗi tầm ngày d, hồi quy điểm thực tế tại T+d theo (dự báo từ T, climatology) → w(d) tối ưu (nghiệm least-squares = cov/var, kẹp [0,1], đơn điệu giảm theo d); xuất `fish-blend-weights.json` (khuôn giống `forecast-skill.json`), fit riêng 2 mùa gió nếu số liệu đủ. **Bắt buộc chạy guard "always-on-term"** (memory: dải khai báo rộng hơn phân bố thật = hằng số chết) trước khi chốt w | (a) Dễ · (b) Vừa · (c) Vừa — cùng khuôn script probe đã có |
+| **Bản đồ cá — MỘT LỚP PHA TRỘN dùng cả 16 ngày** (user chốt 2026-07-28: KHÔNG phân biệt "cá 3 ngày" trong UI) — ✅ **ĐÃ LÀM XONG 2026-07-28**, xem §5d | Tĩnh 1 bản; `sst-tendency.ts` D+1..D+3 viết xong chưa nối | `fishBlend(ô, d) = w(d)·fishForecast(ô) + (1−w(d))·climatology(ô, tháng)`. (a) Nối `frontSst` → thành phần dự báo D+1..D+3 thật *(còn lại — chưa làm)*; (b) ✅ **climatology mùa vụ** dựng xong từ 6 năm ERDDAP; (c) ✅ **w(d) đo bằng backtest**, không đặt tay; guard always-on-term PASS | (a) Dễ · (b) ✅ · (c) ✅ |
 | **Bão** | GDACS không mốc giờ track → gate bảo thủ 200km; chuyến 10+ ngày mùa bão sẽ bị chặn gần hết | Chấp nhận sự thật: **không nguồn nào dự báo bão 16 ngày**. Cách xử: gate cứng chỉ áp cho **cửa sổ 0–5 ngày** (tầm dự báo bão có thật); ngày 6+ không chặn theo bão mà gắn nhãn "mùa bão — sẽ tính lại khi có tin" + **re-plan là cơ chế phòng thủ chính**. Nâng cấp sau: thêm nguồn track CÓ MỐC GIỜ (JTWC/KTTV bulletin) để gate 0–5 ngày so được ETA từng chặng với vị trí bão theo giờ | Vừa (nguồn mới để sau) |
 | **Điểm ngày/cảng** (`sea.ts` 16 ngày) + **độ tin** (`forecast-quality`, `forecast-skill`) | Đủ 16 ngày sẵn | Dùng nguyên cho nhãn tin cậy từng ngày của lịch chuyến — không làm gì thêm | — |
 | **Premium gate** | Cá: middleware server-side; lưới >3 ngày: đang chặn client | Tính năng này ăn TRỌN dữ liệu premium (cá + lưới 16d) nên gate tự nhiên nằm ở API sẵn có; màn lộ trình check tier như bản đồ cá. **Việc phải làm: dời chặn lưới >3 ngày từ client về server** cho kín (lỗ hổng #13 của kiểm kê) | Dễ |
+
+## 5d. ✅ ĐÃ LÀM: lớp cá 16 ngày (nhánh `feat/fish-climatology-blend`, 2026-07-28)
+
+Nền dữ liệu của lộ trình 16 ngày đã dựng xong và **đo được số thật** — không còn là đề xuất.
+
+**Bản đồ mùa vụ** (`public/data/fish-climatology.v1.json`, 71 KB, SW pre-cache `sdfish-v6`):
+- 12 tháng × lưới 0,25° (69×65 = 4485 ô), 1 byte/ô mã base64.
+- Nguồn: SST CoralTemp `noaacrwsstDaily` (**6 năm 2020–2025**, mỗi tháng ~18–24 lát ngày) + phù du
+  `noaacwNPPVIIRSSQchlaMonthly` (ảnh THÁNG sẵn, 6 năm). Trung bình chl lấy **hình học** (log) vì
+  phân bố lệch phải nặng.
+- Chấm điểm bằng **ĐÚNG `buildFishForecast` của app** (cùng mùa vụ loài, cổng nhiệt, front) ⇒ điểm
+  mùa vụ và điểm dự báo **so sánh được**, pha trộn mới có nghĩa.
+- Mùa vụ hiện rõ trong số liệu: ô ≥50 đi từ **8 ô (tháng 10)** tới **123 ô (tháng 12)** — không phải
+  một bản chép 12 lần (có test khoá điều này).
+- **Kiểm chứng ĐỘC LẬP bằng địa lý** (bằng chứng bản đồ không phải số vô nghĩa): ô điểm cao nhất
+  tháng 7 rơi đúng **vùng nước trồi Nam Trung Bộ** (12,3°N 109,3°E — Ninh Thuận/Khánh Hoà), đặc
+  trưng gió mùa Tây Nam kinh điển trong tài liệu hải dương VN; tháng 1 chuyển về **cửa sông Mê Kông
+  / thềm Đông Nam** (9–10°N, 106–107°E); tháng 12 lên **cửa vịnh Bắc Bộ** (17,8–18,3°N). Mô hình
+  KHÔNG được "dạy" các vùng này — nó tự ra từ nhiệt + phù du nhiều năm.
+- Script: `scripts/collect-fish-climatology.mjs` (chạy lại ~1 lần/năm là đủ).
+
+**Tỷ lệ pha trộn w(d)** (`src/data/fish-blend-weights.json` ← `scripts/fit-fish-blend-weights.mjs`):
+backtest **16 mốc gốc** (2022–2025 × 4 mùa) × 7 tầm ngày, **30–33 nghìn ô mỗi tầm**, kiểm chéo 4
+nhóm **theo mốc gốc** (không trộn mẫu trong cùng một mốc — nếu trộn thì rò rỉ, gain sẽ đẹp giả).
+
+| tầm ngày | 1 | 2 | 3 | 5 | 8 | 11 | 16 |
+|---|---|---|---|---|---|---|---|
+| **w (tin ảnh vệ tinh)** | 0,823 | 0,767 | 0,722 | 0,672 | 0,635 | 0,605 | 0,547 |
+| lợi RMSE vs persistence (CV) | +4,4 % | +6,2 % | +6,9 % | +9,0 % | +8,7 % | +8,5 % | +7,5 % |
+| lợi RMSE vs mùa vụ thuần (CV) | +43,0 % | +34,5 % | +28,7 % | +24,9 % | +18,9 % | +15,7 % | +8,9 % |
+
+- w **tự nhiên đơn điệu giảm** (không phải do ép) — đúng trực giác: ảnh cũ càng đi xa càng ít giá trị.
+- **Pha trộn THẮNG persistence ở MỌI tầm** khi kiểm chéo, kể cả ngày 1. Đây là kết quả DƯƠNG, khác
+  hẳn hai lần đo trước (advection phù du, front composite) đều âm.
+- Guard **always-on-term PASS**: biên độ w = 0,276, không suy biến (test khoá `guard.degenerate === false`).
+- **Caveat ghi thẳng trong file kết quả**: "sự thật" đối chiếu là *bản đồ cá tính từ ảnh ngày T+d*
+  (chính sản phẩm app phục vụ), **KHÔNG PHẢI sản lượng cá thật**.
+- Ổn định khi thêm dữ liệu: chạy 12 mốc gốc cho w = 0,793→0,493; 16 mốc gốc cho 0,823→0,547 — cùng
+  hình dạng, cùng kết luận, chỉ dịch nhẹ. Bản 16 mốc là bản đang dùng.
+
+**KẾT LUẬN ÂM (giữ lại để lần sau khỏi đo lại): KHÔNG nên tách w theo MÙA GIÓ.** Biển Đông có hai
+mùa gió trái ngược nên câu hỏi tự nhiên là fit riêng Đông Bắc (T11–T3) và Tây Nam. Đo thật: w quả
+thật khác nhau (wNE 0,456–0,771 vs wSW 0,577–0,839 — mùa Đông Bắc tin ảnh vệ tinh ÍT hơn, hợp lý
+vì nhiều mây và xáo trộn hơn), **nhưng khi kiểm chéo thì bảng-theo-mùa THUA bảng chung ở CẢ 7 tầm
+(−2,4 % đến −6,5 %)** — chia đôi dữ liệu để fit 2 tham số là overfit, không phải thêm thông tin.
+⇒ Giữ MỘT bảng. Muốn tách mùa thì phải có nhiều năm mốc gốc hơn hẳn, không phải chỉnh code.
+Kết luận này lưu trong chính `fish-blend-weights.json` (khoá `seasonSplit`).
+
+**Code**: `src/lib/fish-blend.ts` — thuần, `blendWeight(d)` nội suy giữa các mốc đo (ngày 0 = 1;
+quá mốc cuối GIỮ w cuối, không ngoại suy; bảng suy biến → 1 = giữ persistence), `blendScore`,
+`climScoreAt`, `fetchClimatology` **không bao giờ ném** (thiếu → null → giữ nguyên bản dự báo,
+bất biến monotonic). 23 test trong `__tests__/fish-blend.test.ts`.
+
+**Offline** (kiểm chứng thật trên trình duyệt, không chỉ test đơn vị): bảng w **nhúng trong bundle**
+(không bao giờ phải tải); bản mùa vụ nằm trong SHELL pre-cache của service worker + thêm một bước
+"Bản đồ mùa vụ" cuối `pretrip.ts` (lưới an toàn cho máy cài từ bản cũ). Đã chạy Playwright: cắt mạng
+hẳn → fetch mạng hỏng đúng như mong đợi nhưng **đọc từ kho vẫn ra đủ 12 tháng**.
+
+**Chưa làm (còn lại của Phase 0)**: nối `sst-tendency.ts` vào `fish-forecast-run.ts` (thành phần dự
+báo D+1..D+3 thật — hiện thành phần "dự báo" trong blend vẫn là persistence), probe trần
+`forecast_days` của dòng chảy, ràng buộc VMS, dời chặn lưới >3 ngày về server.
+
+**NÓI RÕ để khỏi hiểu nhầm**: `fish-blend.ts` hiện CHƯA có chỗ dùng nào ở runtime ngoài bước tải
+sẵn (`pretrip`) — nó là NỀN cho màn lộ trình sắp build, không phải thay đổi bản đồ cá đang chạy.
+Bản đồ Ra khơi hôm nay vẫn hiển thị MỘT lớp như cũ, chưa đổi theo ngày chọn. Nối blend vào lớp cá
+của bản đồ là quyết định sản phẩm riêng (đổi ý nghĩa lớp cá đang phục vụ) — chờ chốt, không tự làm.
 
 ## 5c. Lưu lộ trình + offline so vị trí (chốt #3, #4)
 
