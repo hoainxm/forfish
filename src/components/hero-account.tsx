@@ -13,16 +13,16 @@ import { useAuthUser } from "@/lib/use-auth";
   hero chỉ bày MỘT chip kính mờ; mọi thứ phụ (cỡ giao diện, đăng xuất)
   nằm trong SHEET TÀI KHOẢN — cái gì trực tiếp thì show, còn lại menu phụ.
 
-  Cỡ giao diện: MẶC ĐỊNH "Theo máy" — ăn theo cỡ chữ cài trong điện thoại
-  (không đặt font gốc); "Chữ to"/"Gọn" là khóa tay (xem globals.css).
+  Cỡ giao diện: MẶC ĐỊNH "Gọn" (user chốt 2026-07-28 — kể cả chưa đăng nhập);
+  bấm lại lựa chọn đang chọn = về "auto" theo cỡ chữ máy (xem globals.css).
 */
 
 const MODE_KEY = "forfish.displaymode.v1";
 
 type Mode = "auto" | "to" | "gon";
 
-// "Theo máy" là TRẠNG THÁI NỀN (auto) — không bày thành lựa chọn (góp ý
-// user 2026-06-11). Chỉ 2 tùy chọn ghi đè; bấm lại cái đang chọn = về auto.
+// "Theo máy" (auto) không bày thành lựa chọn (góp ý user 2026-06-11) — chỉ
+// 2 tùy chọn; bấm lại cái đang chọn = về auto. MẶC ĐỊNH là "gon" (2026-07-28).
 const MODES: { id: Exclude<Mode, "auto">; label: string; sub: string }[] = [
   { id: "to", label: "Chữ to", sub: "Luôn to rõ, dễ đọc ngoài nắng" },
   { id: "gon", label: "Gọn", sub: "Mật độ như các app thường dùng" },
@@ -39,14 +39,14 @@ export function HeroAccount() {
   const router = useRouter();
   const { user, phone, ready } = useAuthUser();
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<Mode>("auto");
+  const [mode, setMode] = useState<Mode>("gon");
 
   useEffect(() => {
     try {
       const m = window.localStorage.getItem(MODE_KEY);
-      if (m === "to" || m === "gon") setMode(m);
+      if (m === "to" || m === "gon" || m === "auto") setMode(m);
     } catch {
-      // storage bị chặn — dùng mặc định
+      // storage bị chặn — dùng mặc định "gon"
     }
   }, []);
 

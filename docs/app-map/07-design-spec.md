@@ -103,7 +103,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 ## 8. Quyết định đã chốt (không hỏi lại)
 
 - Tạo/sửa mọi object → **drawer/bottom-sheet**, không page riêng. Sheet + ConfirmDialog **PORTAL ra `document.body`** (`createPortal`) → thoát stacking context của tổ tiên (vd wrapper `relative z-10` của BoatSwitcher nhốt sheet z-30 xuống lớp z-10 khiến bottom-nav z-20 đè che nút Lưu/Hủy). Sheet: `max-h-92dvh` cuộn trong, `pb` safe-area; viewport `interactiveWidget: resizes-content` → bàn phím CO layout (không đè) nên nút đáy luôn với tới. Khóa cuộn nền **đếm tham chiếu** (mở sheet-trong-sheet không nhả khóa sớm → nền không trôi sau lưng).
-- Cỡ giao diện mặc định **theo máy** (rem); chỉnh tay ("Chữ to"/"Gọn") trong **sheet tài khoản**, không bày toggle ra hero.
+- Cỡ giao diện mặc định **"Gọn"** (user chốt 2026-07-28 — kể cả chưa đăng nhập/màn login); chỉnh tay ("Chữ to"/"Gọn") trong **sheet tài khoản**, bấm lại lựa chọn đang chọn = về theo máy (auto); không bày toggle ra hero.
 - Ngôn ngữ status DUY NHẤT = `StatusBanner`; màu cam-đỏ ĐỘC QUYỀN cho ranh giới biển trên map.
 - Demo/sổ mẫu KHÔNG ghi xuống máy, KHÔNG lọt vào dải nhắc khẩn.
 - Visual "international" (font Plus Jakarta Sans + Archivo) nhưng COPY tiếng Việt đời thường.
@@ -144,7 +144,7 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 4. **Hai việc TÁCH BẠCH, KHÔNG TRÙNG** — bỏ legend-bấm-mở-Lớp trùng + cụm 3 nút rải phải + chip cá nổi giữa map.
 5. **Bão TỰ NỔI, ưu tiên cao nhất** — banner đỏ trên cùng bất kể đang xem lớp gì.
 
-**RAIL PHẢI — thanh điều khiển = 6 nút (mỗi nút mở 1 panel):**
+**RAIL PHẢI — thanh điều khiển = 6 nút (mỗi nút mở 1 panel). MẶC ĐỊNH THU GỌN (user 2026-07-28)**: chỉ hiện nút "Lớp" + "Vị trí"; chạm "Lớp" mới xổ rail; xổ rồi mà **5s không thao tác** (chạm/gõ trong rail hoặc panel) thì TỰ thu lại (đóng cả panel đang mở). Thanh giờ Windy dưới đáy cùng luật: mặc định thu 1 dòng "chạm để chọn giờ", xổ ra 5s không thao tác tự thu — trừ khi đang chạy ▶ (đang coi thì không giật khỏi tay).
 | Nhóm | Panel chứa |
 |---|---|
 | **Hải đồ** | Lớp nền bản đồ (chọn-1: Hải đồ độ sâu / Nước nóng-lạnh / Nhiều mồi / Ảnh mây) + nhịp + nhãn dải + note "ảnh vệ tinh trễ ~2 ngày · phao chỉ hiện khi zoom gần bờ" |
@@ -446,3 +446,7 @@ KIỂM CHẠY THẬT trên trình duyệt: nút hiện đúng vị trí trong ra
 LỖ HỔNG: compute() trong route-planner.tsx chỉ nhìn Open-Meteo GFS lưới thô — bão dự báo 24–72h có thể lọt dưới ngưỡng chặn số (sóng <4 m, gió <62 km/h sau nội suy song tuyến; GFS ước non cường độ bão) → tuyến vẽ bình thường không một chữ "bão"; storm-banner lại tự ẩn đúng lúc sheet dẫn đường mở.
 NAY: sau khi tính xong tuyến, đối chiếu waypoints (chêm điểm mỗi ~25 km) với tin bão GDACS qua lib/route-storm.ts (routeStormConflict, thuần + test): phạm khi cách tâm bão hoặc HÀNH LANG TRACK DỰ BÁO (từ tâm hiện tại về sau — track quá khứ KHÔNG chặn) dưới 200 km, hoặc nằm trong polygon vùng ảnh hưởng. Phạm → CHẶN HẲN (chốt chủ dự án 2026-07-26: chặn MỌI trường hợp kể cả áp thấp mức watch; bán kính 200 km): không vẽ tuyến, thông báo đỏ "KHÔNG VẼ TUYẾN — đường đi cắt vào vùng nguy hiểm của {loại bão} {TÊN} …" + lời dặn nghe đài; nhiều bão thì nêu con sát tuyến nhất.
 GIỚI HẠN NÓI THẬT: GDACS không có mốc giờ từng điểm track → KHÔNG so được ETA từng chặng với vị trí bão theo thời gian — dùng phép kiểm không-thời-gian bảo thủ (thà báo thừa). Mất sóng/chưa hỏi được tin bão → KHÔNG chặn (không có dữ liệu để nói; mảng storms rỗng), lời dặn nghe đài sẵn có vẫn giữ. Cost model route-plan.ts KHÔNG đổi — đây là cổng chặn cộng thêm sau khi plan xong. Dữ liệu bão truyền từ fishing-map-view (mảng storms của useStormCheck, gồm cả tin cũ — thà báo thừa) vào prop storms của RoutePlanner. Test src/lib/__tests__/route-storm.test.ts (11 case: tâm/hành lang/polygon/track quá khứ/chêm điểm/nhiều bão). -->
+
+<!-- re-verified: 2026-07-28 — RAIL + THANH GIỜ MẶC ĐỊNH THU GỌN, TỰ THU 5s (user: "mặc định ẩn đi, click vào xổ ra, nếu ko chọn hay thao tác gì thì 5s tự động ẩn").
+ra-khoi-controls.tsx: `collapsed` khởi tạo TRUE (trước false) — mở trang chỉ thấy nút "Lớp" + "Vị trí"; xổ rail thì timer 5s (AUTO_HIDE_MS) tự thu + đóng panel; mọi pointerdown/keydown TRONG rail-panel (capture ở wrapper) + đổi `open` đều nạp lại timer.
+fishing-map-view.tsx: `gridStripOpen` khởi tạo FALSE (trước true) — bật lớp gió/sóng chỉ thấy 1 dòng "chạm để chọn giờ"; xổ thanh thì timer 5s (STRIP_AUTO_HIDE_MS) tự thu; nạp lại khi kéo slider/đổi khung ngày/chạm-gõ trong thanh; ĐANG CHẠY ▶ thì KHÔNG tự thu (đang coi, không giật khỏi tay — dừng mới đếm lại). -->

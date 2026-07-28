@@ -14,15 +14,15 @@ gate: warn
 
 ---
 
-## 0. CỠ GIAO DIỆN — một kiến trúc rem, mặc định THEO MÁY (user chốt 2026-06-11)
+## 0. CỠ GIAO DIỆN — một kiến trúc rem, mặc định GỌN (user chốt 2026-07-28; trước đó theo máy 2026-06-11)
 
 Toàn bộ cỡ chữ / tap-size / bo góc viết bằng **REM** (đã quét sạch `text-[Npx]`/`min-h-[Npx]`/`rounded-[Npx]` → rem; utility chuẩn Tailwind vốn là rem). Chế độ chỉ là font-size gốc của `<html>`:
 
 | Chế độ | Gốc | Cho ai |
 |---|---|---|
-| **Theo máy** (MẶC ĐỊNH) | không đặt → ăn theo cỡ chữ cài trong điện thoại/trình duyệt | bác nào chỉnh chữ to trong máy, app TỰ to theo — thông minh, không cần dạy |
+| **Gọn** (`data-mode="gon"`, MẶC ĐỊNH — kể cả chưa đăng nhập/màn login) | khóa 14px → body ~15.8px, nút ~52px | mật độ chuẩn app, cân đối |
 | **Chữ to** (`data-mode="to"`) | khóa 16px → body 18px, nút 60px | khóa to bất kể máy |
-| **Gọn** (`data-mode="gon"`) | khóa 14px → body ~15.8px, nút ~52px | mật độ chuẩn app, cân đối |
+| **Theo máy** (auto — bấm lại lựa chọn đang chọn trong sheet) | không đặt → ăn theo cỡ chữ cài trong điện thoại/trình duyệt | bác nào chỉnh chữ to trong máy, app TỰ to theo |
 
 - **Chỉnh trong SHEET TÀI KHOẢN** (`hero-account.tsx` — chip duy nhất trên hero mở sheet: danh tính · cỡ giao diện · đăng xuất). KHÔNG bày toggle thô ra hero — nguyên tắc: cái gì trực tiếp thì show, còn lại vào menu phụ. Lưu `forfish.displaymode.v1`; script đầu `<body>` đặt `data-mode` TRƯỚC khi vẽ — không nháy.
 - **QUY TẮC**: cấm viết `text-[Npx]`/`min-h-[Npx]` trong component — dùng rem (`text-[1.125rem]`…) để mọi chế độ cùng ăn. Tỷ lệ giữa các phần tử giữ nguyên → một hệ giao diện, không phải nhiều bộ.

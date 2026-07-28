@@ -69,11 +69,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full">
-        {/* Đặt chế độ hiển thị TRƯỚC khi vẽ — không nháy cỡ chữ (xem globals.css) */}
+        {/* Đặt chế độ hiển thị TRƯỚC khi vẽ — không nháy cỡ chữ (xem globals.css).
+            MẶC ĐỊNH "Gọn" (user chốt 2026-07-28) — kể cả chưa đăng nhập/màn login;
+            "auto" (theo máy) chỉ khi user đã chọn lại trong sheet tài khoản. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{var m=localStorage.getItem('forfish.displaymode.v1');if(m==='gon'||m==='to')document.documentElement.dataset.mode=m}catch(e){}",
+              "var m=null;try{m=localStorage.getItem('forfish.displaymode.v1')}catch(e){}var d=document.documentElement.dataset;if(m==='to')d.mode='to';else if(m!=='auto')d.mode='gon'",
           }}
         />
         {/* Khung theo KHU (app-shell.tsx): app ngư dân = cột mobile 480px +

@@ -81,10 +81,11 @@ html {
   toàn bộ cỡ chữ / tap-size / bo góc viết bằng REM, nên chế độ chỉ là
   font-size gốc của <html>:
 
-  · MẶC ĐỊNH "Theo máy": KHÔNG đặt font-size → 1rem ăn theo cài đặt cỡ chữ
-    của điện thoại/trình duyệt (bác nào chỉnh chữ to trong máy, app tự to).
+  · MẶC ĐỊNH "Gọn" (user chốt 2026-07-28 — kể cả chưa đăng nhập/màn login):
+    1rem = 14px → body ~15.8px, nút ~52px. Mật độ chuẩn app.
   · "Chữ to" (khóa to bất kể máy):  1rem = 16px → body 18px, nút 60px.
-  · "Gọn"    (mật độ chuẩn app):    1rem = 14px → body ~15.8px, nút ~52px.
+  · "Theo máy" (auto — bấm lại lựa chọn đang chọn): KHÔNG đặt font-size →
+    1rem ăn theo cài đặt cỡ chữ của điện thoại/trình duyệt.
   Mọi tỷ lệ giữ nguyên giữa các chế độ → luôn cân đối.
 
   Chỉnh trong SHEET TÀI KHOẢN (menu phụ — không bày toggle thô ra hero),

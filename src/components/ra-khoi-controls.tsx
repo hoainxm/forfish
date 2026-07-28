@@ -9,7 +9,7 @@
   thang kéo lớp nền raster (để sau) · dải % cá lọc thật.
 */
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   OCEAN_LAYERS,
   OCEAN_LAYER_ORDER,
@@ -44,6 +44,9 @@ import {
 } from "@/components/icons";
 
 const FISH_COLOR = "#2d8659"; // xanh lá — cá/ngư trường (design Phương án A)
+
+// rail xổ ra mà bà con không chạm gì 5s → tự thu (user 2026-07-28)
+const AUTO_HIDE_MS = 5000;
 
 type PanelId =
   | "hai-do"
@@ -135,7 +138,25 @@ export function RaKhoiControls({
   onClearMeasure: () => void;
 }) {
   const [open, setOpen] = useState<PanelId | null>(null);
-  const [collapsed, setCollapsed] = useState(false); // ẩn/hiện rail như menu bản đồ
+  // MẶC ĐỊNH THU GỌN (user 2026-07-28): map sạch, chạm "Lớp" mới xổ rail ra;
+  // xổ rồi mà 5s không chạm gì (trong rail/panel) thì TỰ thu lại.
+  const [collapsed, setCollapsed] = useState(true);
+
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const armAutoHide = useCallback(() => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => {
+      setOpen(null);
+      setCollapsed(true);
+    }, AUTO_HIDE_MS);
+  }, []);
+  useEffect(() => {
+    if (collapsed) return;
+    armAutoHide(); // nạp lại mỗi khi mở/đổi panel (một "thao tác")
+    return () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, [collapsed, open, armAutoHide]);
 
   const RAIL: {
     id: PanelId;
@@ -175,7 +196,12 @@ export function RaKhoiControls({
   ];
 
   return (
-    <div className="pointer-events-none relative flex justify-end gap-2">
+    <div
+      className="pointer-events-none relative flex justify-end gap-2"
+      // mọi chạm/gõ phím trong rail + panel = "thao tác" → hoãn tự thu 5s
+      onPointerDownCapture={() => !collapsed && armAutoHide()}
+      onKeyDownCapture={() => !collapsed && armAutoHide()}
+    >
       {/* KHÔNG còn thẻ "Chuẩn bị đi biển" ở đây (bỏ 2026-07-25): máy TỰ tải sẵn
           khi vào trang và chỉ báo một dòng nhỏ tự tắt — xem
           components/pretrip-auto-notify.tsx. Bản đồ nhờ vậy sạch chữ. */}

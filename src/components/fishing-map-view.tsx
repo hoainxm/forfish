@@ -195,6 +195,9 @@ const DEPTH_NOTE: Partial<Record<DepthClass, { text: string; danger: boolean }>>
 
 const MAP_LAYER_KEY = "forfish.maplayer.v1";
 
+// thanh giờ gió/sóng xổ ra mà 5s không thao tác → tự thu (user 2026-07-28)
+const STRIP_AUTO_HIDE_MS = 5000;
+
 /**
  * Số ngày mà "chỗ cá ít đổi" là câu ĐÃ ĐO ĐƯỢC, không phải câu nói cho vui.
  * scripts/fish-3day-probe.mjs dựng bản đồ cá cho D+1..D+3 bằng neo vệ tinh +
@@ -529,8 +532,29 @@ export default function FishingMapView() {
   }, []);
   // Hiện điểm đã lưu trên bản đồ (panel Điểm đã lưu — Phương án A)
   const [showPlaces, setShowPlaces] = useState(true);
-  // thanh giờ Windy (gió/sóng) cho thu/mở — đỡ chiếm mép sheet (user 2026-06-23)
-  const [gridStripOpen, setGridStripOpen] = useState(true);
+  // thanh giờ Windy (gió/sóng) cho thu/mở — đỡ chiếm mép sheet (user 2026-06-23).
+  // MẶC ĐỊNH THU GỌN (user 2026-07-28): chạm dòng "chạm để chọn giờ" mới xổ;
+  // xổ rồi mà 5s không thao tác (và không đang chạy ▶) thì TỰ thu lại.
+  const [gridStripOpen, setGridStripOpen] = useState(false);
+  const stripHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const armStripHide = useCallback(() => {
+    if (stripHideTimer.current) clearTimeout(stripHideTimer.current);
+    stripHideTimer.current = setTimeout(
+      () => setGridStripOpen(false),
+      STRIP_AUTO_HIDE_MS,
+    );
+  }, []);
+  useEffect(() => {
+    if (!gridStripOpen || playing) {
+      // đang chạy ▶ = đang coi, không giật thanh khỏi tay; dừng thì đếm lại
+      if (stripHideTimer.current) clearTimeout(stripHideTimer.current);
+      return;
+    }
+    armStripHide(); // nạp lại khi kéo giờ / đổi khung ngày (một "thao tác")
+    return () => {
+      if (stripHideTimer.current) clearTimeout(stripHideTimer.current);
+    };
+  }, [gridStripOpen, playing, timeIdx, gridDays, armStripHide]);
   // công cụ đo khoảng cách 2 điểm (panel Công cụ)
   const [measureMode, setMeasureMode] = useState(false);
   const [measurePts, setMeasurePts] = useState<SeaPoint[]>([]);
@@ -1613,7 +1637,12 @@ export default function FishingMapView() {
               {/* thanh giờ gió/sóng XUỐNG ĐÁY kiểu Windy — tay với tới, không
                   chồng 4 tầng trên đầu bản đồ (roadmap hội đồng UX 2026-06-11) */}
               {forecastKind && (
-                <div className="pointer-events-auto surface px-3 py-2 shadow-md">
+                <div
+                  className="pointer-events-auto surface px-3 py-2 shadow-md"
+                  // mọi chạm/gõ phím trong thanh = "thao tác" → hoãn tự thu 5s
+                  onPointerDownCapture={() => gridStripOpen && armStripHide()}
+                  onKeyDownCapture={() => gridStripOpen && armStripHide()}
+                >
               {fGrid ? (
                 gridStripOpen ? (
                   <>
