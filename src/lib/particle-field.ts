@@ -75,7 +75,16 @@ export function buildUVField(
   };
 }
 
-/** u/v tại (lat,lon) — BILINEAR (chuyển ô mượt). Ngoài lưới / góc thiếu → null */
+/**
+ * u/v tại (lat,lon) — BILINEAR (chuyển ô mượt). Ngoài lưới → null.
+ *
+ * Góc THIẾU SỐ (đất liền với lớp sóng — marine API trả null trên bờ/đảo) thì
+ * BỎ góc đó và CHIA LẠI trọng số cho các góc còn số — không giết cả quad.
+ * Vì sao (user 2026-07-29, ảnh lớp sóng "ô có ô không"): lưới thưa ~2°, đòi đủ
+ * 4 góc thì MỘT ô đất (Hải Nam, ven bờ, Luzon…) tắt hạt cả vùng ~2°×2° quanh
+ * nó trong khi màu + mũi tên (vẽ theo TỪNG ô) vẫn hiện — loang lổ. Ngưỡng 0,25:
+ * quá 3/4 trọng số rơi vào góc thiếu (đi sâu về phía đất) thì hạt chết như cũ.
+ */
 export function sampleUV(
   f: UVField,
   lat: number,
@@ -90,13 +99,24 @@ export function sampleUV(
   const dj = fj - j0;
   const idx = (i: number, j: number) => i * f.nLon + j;
   const corners = [idx(i0, j0), idx(i0, j0 + 1), idx(i0 + 1, j0), idx(i0 + 1, j0 + 1)];
-  for (const k of corners) if (!Number.isFinite(f.u[k])) return null;
-  const mix = (a: Float32Array) => {
-    const top = a[corners[0]] * (1 - dj) + a[corners[1]] * dj;
-    const bot = a[corners[2]] * (1 - dj) + a[corners[3]] * dj;
-    return top * (1 - di) + bot * di;
-  };
-  return [mix(f.u), mix(f.v)];
+  const weights = [
+    (1 - di) * (1 - dj),
+    (1 - di) * dj,
+    di * (1 - dj),
+    di * dj,
+  ];
+  let sw = 0;
+  let su = 0;
+  let sv = 0;
+  for (let k = 0; k < 4; k++) {
+    const c = corners[k];
+    if (!Number.isFinite(f.u[c])) continue;
+    sw += weights[k];
+    su += f.u[c] * weights[k];
+    sv += f.v[c] * weights[k];
+  }
+  if (sw < 0.25) return null;
+  return [su / sw, sv / sw];
 }
 
 const KM_PER_DEG = 111;

@@ -61,14 +61,29 @@ describe("buildUVField", () => {
     expect(uv[1]).toBeLessThan(0); // gió từ Bắc → về Nam
   });
 
-  it("ô thiếu số (đất liền với sóng) → sample quanh đó null", () => {
+  it("ô thiếu số (đất liền với sóng) → sample SÁT ô đó null, còn lại chia lại trọng số", () => {
     const grid = makeGrid(northWind);
     grid.cells[0] = { ...grid.cells[0], hours: [{ ...northWind, waveM: null, waveDirDeg: null }] };
     const f = buildUVField(grid, 0, "wave")!;
-    // góc (lat0,lon0) thiếu → điểm sát góc đó null
+    // sát góc thiếu (trọng số góc còn số < 0,25) → null: hạt vẫn chết trên đất
     expect(sampleUV(f, f.lat0 + 0.1, f.lon0 + 0.1)).toBeNull();
     // giữa lưới vẫn có
     expect(sampleUV(f, 13, 110)).not.toBeNull();
+  });
+
+  it("quad chạm ô đất KHÔNG chết cả quad — chia lại trọng số 3 góc còn số (2026-07-29)", () => {
+    const grid = makeGrid(northWind);
+    grid.cells[0] = { ...grid.cells[0], hours: [{ ...northWind, waveM: null, waveDirDeg: null }] };
+    const f = buildUVField(grid, 0, "wave")!;
+    // CHÍNH GIỮA quad góc (0,0): 3/4 trọng số còn số → phải có u/v (trước đây null
+    // → lớp sóng loang lổ "ô có ô không" quanh mọi bờ/đảo)
+    const midLat = f.lat0 + f.dLat / 2;
+    const midLon = f.lon0 + f.dLon / 2;
+    const uv = sampleUV(f, midLat, midLon)!;
+    expect(uv).not.toBeNull();
+    // vẫn là sóng TỪ Đông → u âm, độ lớn cỡ 2 m × 12
+    expect(uv[0]).toBeLessThan(0);
+    expect(Math.hypot(uv[0], uv[1])).toBeCloseTo(24, 1);
   });
 });
 
