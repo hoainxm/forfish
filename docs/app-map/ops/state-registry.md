@@ -27,6 +27,7 @@ gate: warn
 | `forfish.places.v1` | Địa điểm đã lưu | `lib/places.ts` | nơi dùng places | 1 | xoá → trống |
 | `forfish.port.v1` | Cảng đang chọn (dự báo) | `components/sea-forecast.tsx` | sea-forecast | 1 | xoá → cảng mặc định |
 | `forfish.maplayer.v1` | Lớp bản đồ đang bật | `components/fishing-map-view.tsx` | fishing-map-view | 1 | xoá → lớp mặc định |
+| `forfish.installNudge.dismissed.v1` | Đã tắt banner "Cài về máy" (`"1"`) | `components/install-prompt.tsx` | install-prompt | chung | xoá → hiện lại nhắc cài |
 | `forfish.sea.<port>.v3` | **Cache** dự báo biển 16 ngày theo cảng (prefix; v3 = +waveEstimated, model sóng ncep_gfswave025) | `lib/sea.ts` | sea-forecast | 1 | xoá an toàn (chỉ cache, TTL 1h) |
 | `forfish.fc.point.<lat_lon>` | **Bản lưu** dự báo 16 ngày theo ô lưới 0,25° (ra khơi mất sóng vẫn xem) | `lib/forecast-cache.ts` ← `lib/marine-weather.ts`, `lib/pretrip.ts` | ngu-truong | 1 | xoá → mất số đã tải, có sóng lấy lại |
 | `forfish.fc.grid.d<N>` | **Bản lưu** lưới gió/sóng Windy THEO KHUNG NGÀY (d3/d7/d16…) — chỉ dùng lại đúng khung đã xin | `lib/forecast-cache.ts` ← `lib/forecast-grid.ts`, `lib/pretrip.ts` | ngu-truong | 1 | xoá → khung đó báo "máy chưa lưu khung này" |

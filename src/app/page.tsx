@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { UrgentStrip } from "@/components/urgent-strip";
 import { HeroAccount } from "@/components/hero-account";
 import { BoatSwitcher } from "@/components/boat-switcher";
+import { InstallBanner } from "@/components/install-prompt";
 import {
   AnchorIcon,
   FishIcon,
@@ -65,6 +66,10 @@ export default function Home() {
 
       <div className="space-y-4 px-4 pt-3">
         <UrgentStrip />
+
+        {/* Nhắc cài về máy để offline chạy đáng tin trên web (tự ẩn khi đã cài
+            / đã tắt / trình duyệt không cho cài) — xem 07-design-spec §10.8 */}
+        <InstallBanner />
 
         <section aria-label="Bốn nhóm việc">
           {/* "Quản lý tàu" bán sai app (trùng tiêu đề /tau) — app là 4 việc */}
