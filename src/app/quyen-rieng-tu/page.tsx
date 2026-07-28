@@ -71,8 +71,8 @@ export default function QuyenRiengTuPage() {
         <Section id="tom-tat" title="Tóm tắt nhanh">
           <ul className="list-disc space-y-1.5 pl-5">
             <li>
-              Phần lớn sổ sách của bà con (chuyến biển, giấy tờ, thuyền viên,
-              công nợ) nằm <b>ngay trong máy điện thoại</b>, không đẩy lên mạng.
+              Phần lớn sổ sách của bà con (hồ sơ tàu, giấy tờ, thuyền viên,
+              nhắc bảo dưỡng) nằm <b>ngay trong máy điện thoại</b>, không đẩy lên mạng.
             </li>
             <li>
               App <b>không có quảng cáo</b>, <b>không theo dõi</b> bà con, không
@@ -104,7 +104,7 @@ export default function QuyenRiengTuPage() {
             </li>
             <li>
               <b>Nội dung bà con tự nhập</b> — hồ sơ tàu, giấy tờ, thuyền viên,
-              sổ lãi lỗ, công nợ. Những thứ này <b>lưu trong máy</b> (bộ nhớ
+              nhắc bảo dưỡng. Những thứ này <b>lưu trong máy</b> (bộ nhớ
               trình duyệt/ứng dụng), không tự động gửi lên máy chủ.
             </li>
             <li>
@@ -206,7 +206,7 @@ export default function QuyenRiengTuPage() {
             SDFish is a companion app for Vietnamese fishermen, published by
             SDVICO. We collect only what the app needs to function: phone number
             (login), name and account ID (from SDVICO&apos;s own CRM), and
-            content you enter (boat records, documents, crew, ledgers) which is
+            content you enter (boat records, documents, crew, maintenance) which is
             stored <b>on your device</b>. Precise location is used only, with your
             permission, to center the map and fetch marine weather for that spot —
             it is <b>not stored and not linked to your account</b>. We do{" "}
