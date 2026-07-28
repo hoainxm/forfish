@@ -91,13 +91,25 @@ export function measuredWeight(dayIdx: number): number {
 export const PRODUCT_SHARE_FIRST = 0.06; // mùa vụ gánh ở tầm ngày đo đầu tiên
 export const PRODUCT_SHARE_LAST = 0.56; // ... và ở tầm ngày đo cuối cùng
 /**
- * ĐỘ CONG — đo được, không đặt tay (2026-07-28, `scripts/fit-fish-blend-weights.mjs`
- * bảng "DÒ ĐỘ CONG"). gamma > 1 = giữ THẤP mấy ngày đầu rồi VỌT LÊN về cuối,
- * đúng nhận định của chủ dự án: "ảnh dự báo consistent trong X ngày, vượt X thì
- * dự báo hôm nay giảm mạnh, mùa vụ tăng nhanh".
- * Quét gamma ∈ {1; 1,5; 2; 2,5; 3} trên top-100 hit → **2,5 thắng**: tổng hơn
- * ảnh-thuần 7,4 điểm % (gamma=1 chỉ 4,6). Tốt hơn gamma=1 ở MỌI tầm:
- * d3 70,0 vs 68,8 · d5 64,8 vs 64,1 · d8 61,4 vs 60,3 · d11 61,6 vs 61,3.
+ * ĐỘ CONG. gamma > 1 = giữ THẤP mấy ngày đầu rồi VỌT LÊN về cuối.
+ *
+ * ⚠ ĐÍNH CHÍNH 2026-07-28 (bản ghi trước ở đây SAI — đã khẳng định gamma=2,5
+ * "thắng" dựa trên một con số chưa hề đọc được):
+ * Đo lại nghiêm túc bằng `scripts/fish-knee-probe.mjs` (11 tầm ngày, ghép cặp
+ * theo mốc gốc, có sai số chuẩn) cho kết quả **HOÀ**: top-100 trung bình
+ * gamma 0,75 = 63,96 · 1 = 63,93 · 1,5 = 63,95 · 2,5 = 63,81 (bản đang chạy
+ * dùng t đo được: 63,94) — chênh nhau < 0,2 điểm %, dưới ngưỡng đáng kể 0,5.
+ * Chỉ gamma ≥ 4 và logistic dốc là THUA rõ. ⇒ GIỮ 2,5 vì hoà với bản tốt nhất
+ * và khớp ý đồ sản phẩm ("ngày gần đừng đụng vào ảnh"), KHÔNG phải vì nó thắng.
+ *
+ * ĐIỂM GÃY THẬT: X = 4 ngày (gãy khúc thắng hàm mũ, R² 0,99), NHƯNG chiều gãy
+ * NGƯỢC với giả định: ảnh rữa NHANH NHẤT trong 1–4 ngày đầu (−0,050 top-100/ngày)
+ * rồi mới phẳng (−0,011/ngày), chứ không phải "consistent rồi rơi".
+ *
+ * TRẦN CỦA CẢ LỚP NÀY: pha trộn chỉ mua được **+1,4 điểm %** so với ảnh thuần,
+ * gần như toàn bộ nằm ở d ≥ 10. Mùa vụ thuần chỉ 49,1 vs ảnh 62,5 — KHÔNG bao
+ * giờ vượt ảnh ở bất kỳ tầm nào trong 16 ngày. Muốn khá hơn phải có NGUỒN TÍN
+ * HIỆU MỚI, không phải vặn đường cong.
  */
 export const PRODUCT_SHARE_GAMMA = 2.5;
 

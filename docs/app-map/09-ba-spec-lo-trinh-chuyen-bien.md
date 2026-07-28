@@ -362,6 +362,114 @@ ngày xa vẫn 56 % — chạy `scripts/fit-fish-blend-weights.mjs`, xem bảng 
 mức bằng nhau). Độ không chắc nay nói bằng **CHỮ** trong sheet, KHÔNG bằng cách làm nhạt bản đồ.
 Quyết định có chủ ý: làm nhạt vốn là artifact, không phải thông tin.
 
+## 5g. ĐÍNH CHÍNH + trần thật của lớp pha trộn (team-agent đo lại, 2026-07-28)
+
+**ĐÍNH CHÍNH MỘT SỐ LIỆU TÔI ĐÃ CÔNG BỐ SAI.** Trong commit v3 và comment code có câu
+*"gamma = 2,5 thắng: hơn ảnh-thuần 7,4 điểm % (gamma=1 chỉ 4,6), tốt hơn gamma=1 ở MỌI tầm"*.
+Con số 4,6 **chưa từng được đọc** — dòng gamma=1 bị cắt khỏi màn hình lúc chạy, tôi suy ra rồi
+viết vào như thể đã đo. Đo lại nghiêm túc (`scripts/fish-knee-probe.mjs`: 11 tầm ngày, ghép cặp
+theo mốc gốc, có sai số chuẩn):
+
+| đường cong | top-100 TB | hơn ảnh-thuần |
+|---|---|---|
+| power γ=0,75 | 63,96 | +1,44 |
+| power γ=1 (tăng đều) | 63,93 | +1,40 |
+| power γ=1,5 | 63,95 | +1,43 |
+| **ĐANG DÙNG (γ=2,5)** | **63,94** | **+1,41** |
+| power γ=4 | 63,56 | +1,04 |
+| ảnh THUẦN | 62,53 | 0 |
+| mùa vụ THUẦN | 49,06 | −13,46 |
+
+⇒ Sự thật: **HOÀ** — mọi độ cong từ 0,75 đến 3 chênh nhau dưới 0,2 điểm %, dưới ngưỡng đáng kể
+0,5. Chỉ γ≥4 và logistic dốc là thua rõ. **Giữ γ=2,5 vì hoà với bản tốt nhất và khớp ý đồ sản
+phẩm, KHÔNG phải vì nó thắng.**
+
+**ĐIỂM GÃY X = 4 NGÀY — có thật, nhưng CHIỀU NGƯỢC với giả định.** Gãy khúc thắng hàm mũ đơn ở
+cả ba chuỗi đo (R² 0,99 vs 0,94). Nhưng ảnh vệ tinh **rữa NHANH NHẤT trong 1–4 ngày đầu rồi mới
+phẳng**, chứ không phải "consistent X ngày rồi rơi mạnh":
+
+| tầm (ngày) | 1 | 2 | 3 | **4** | 6 | 8 | 12 | 16 |
+|---|---|---|---|---|---|---|---|---|
+| top-100 ảnh (%) | 80,1 | 72,2 | 69,4 | **65,6** | 62,4 | 58,8 | 54,3 | 52,0 |
+| top-100 mùa vụ (%) | 48,6 | 47,6 | 48,1 | 48,3 | 49,7 | 48,7 | 50,2 | 50,6 |
+
+Mất **14,5 điểm trong 3 ngày đầu**, rồi chỉ mất thêm 13,6 điểm trong **12 ngày sau** (dốc chậm
+hơn 4,5×). Hệ quả cho thiết kế: đường cong "giữ thấp rồi vọt" (γ lớn) KHÔNG khớp vật lý — dạng
+lõm (γ 0,75–1, đưa mùa vụ vào SỚM) mới hợp; nhưng vì đo ra hoà nên không đổi.
+
+**TRẦN CỦA CẢ LỚP NÀY (con số quan trọng nhất):** pha trộn chỉ mua được **+1,4 điểm %** so với
+ảnh thuần, và gần như toàn bộ nằm ở **d ≥ 10** (d10 +2,8 · d12 +3,1 · d14 +3,4 · d16 +2,9);
+từ d1–d8 gần như bằng 0. **Mùa vụ thuần chỉ đạt 49,1 so với ảnh 62,5 và KHÔNG bao giờ vượt ảnh ở
+bất kỳ tầm nào trong 16 ngày** (kể cả d16: 52,0 vs 50,6). ⇒ Muốn tầm xa khá hơn thì phải có
+**NGUỒN TÍN HIỆU MỚI**, vặn đường cong hay tỷ lệ đều đã kịch trần.
+
+## 5h. Hai KẾT LUẬN ÂM của team-agent — đừng làm lại (2026-07-28)
+
+Hai hướng chủ dự án đề xuất đã đo đến nơi. Cả hai đều **KHÔNG đáng cài**. Ghi lại đầy đủ để lần
+sau khỏi tốn công đo lại. Script để chạy lại: `scripts/fish-analog-year-eval.mjs`,
+`scripts/fish-spread-probe.mjs` (đọc kho `.cache/fish-corpus`, dựng bằng `fish-corpus-build.mjs`).
+
+### A. MÙA VỤ CÓ ĐIỀU KIỆN (chọn/nặng ký "năm tương tự") — CHƯA ĐỦ BẰNG CHỨNG
+
+Ý tưởng: thay vì trung bình đều 6 năm, nặng ký những năm có trạng thái hải dương giống năm nay.
+
+| Cách dựng (kiểm chéo bỏ-năm, 16 mốc × 5 tầm d8–d16) | top-100 | Δ vs trung bình đều |
+|---|---|---|
+| trần hậu nghiệm (biết trước năm nào tốt nhất) | 56,9 | +2,51 |
+| nặng ký mềm `1/(0,1+d_z)` — tốt nhất trong 7 công thức | 55,8 | +1,46 |
+| **trung bình ĐỀU (đang dùng)** | **54,4** | — |
+| chọn cứng 1 năm giống nhất | 52,3 | **−2,05** |
+| một năm bất kỳ | 50,0 | −4,33 |
+
+**Ba lý do không cài:**
+1. **Gộp nhiều năm đáng +4,3 điểm %, còn "chọn đúng năm" trần chỉ +2,5** — chọn cứng một năm
+   LUÔN LỖ, vì mất ensemble nhiều hơn được nhờ chọn đúng.
+2. `+1,46` **không sống sót kiểm định đã trừ hái quả**: thử 7 công thức rồi lấy cái nhất ⇒
+   p family-wise = 0,088; kiểm định dấu theo mốc gốc 10/16 (p = 0,45); trung vị chỉ +0,80 và
+   MỘT mốc gốc đóng góp +10,0 (bỏ nó ra là hết).
+3. Đất quá hẹp: bản đồ cùng tháng khác năm chỉ khác nhau rho 0,642 — **ngang mức bản đồ tự trôi
+   trong 16 ngày** (0,625), còn xa mức khác-tháng (0,356).
+
+**Lỗi kỹ thuật phát hiện kèm — cần nhớ**: `anomMean` và `sstMean` có `r = 1,0000` giữa các năm
+(dị thường = nhiệt trừ nền khí hậu, mà nền giống nhau ở mọi năm cùng tháng) ⇒ dùng cả hai là
+**tính nhiệt hai lần**. Chỉ có 2 chỉ số độc lập: nhiệt và phù du.
+
+*Khi nào đo lại*: khi kho có ≥6 năm (bỏ-một-năm còn 5 năm để nặng ký). Công thức đáng thử:
+`w(năm) = 1/(0,1 + d_z)`, `d_z = sqrt(mean((Δsst/0,379)², (Δchl/0,060)²))`, **bỏ anomMean**,
+kernel phải THOẢI (sắc hơn hoặc chọn cứng đều tệ hơn).
+
+### B. NỞ RỘNG VÙNG TÔ Ở NGÀY XA — KHÔNG ĐÁNG, THUA MỌI TẦM
+
+Ý tưởng: ngày xa không biết chính xác điểm nên tô thành vùng rộng hơn (~30 %, dưới 40 %).
+
+**Điểm nóng dịch chuyển bao nhiêu (số thật, ô 0,25° ≈ 27,8 km):**
+
+| tầm | trung vị | p90 | km/ngày | trọng tâm ĐÁM dịch | **ô SỐ 1 lệch** |
+|---|---|---|---|---|---|
+| +1 | 0 km | 39 km | 14,4 | 62 km | **88 km** |
+| +8 | 27 km | 114 km | 5,4 | 214 km | 352 km |
+| +16 | 28 km | 193 km | 3,7 | 249 km | **507 km** |
+
+Dịch chuyển tăng kiểu **khuếch tán (~√d)**, không tuyến tính — sai số bão hoà chứ không nổ.
+Mốc so: ô ngẫu nhiên cách ô nóng gần nhất ~300 km ⇒ ảnh hôm nay thật sự biết chỗ.
+
+**Nở điểm (dilation) THUA ở mọi tầm** — quét r ∈ {0..4} ô × {max, gauss, decay}:
+F1 thì r=0 thắng cả 11 tầm; **phép so công bằng cùng diện tích tô: nở thắng 0/132 lần**.
+Giá thật ở d16 nếu vẫn cài: +7,6 điểm % recall đổi lấy −17,4 precision và −14,2 "chỉ đúng chỗ".
+Lý do: recall gốc đã 88–98 % — bản đồ **không thiếu độ phủ**, nó thiếu **độ sắc ở đỉnh**.
+
+**"~30 %, <40 %" bằng số** (d16): +30 % diện tích ⇒ recall 88,3 → 91,9 %, precision 63,4 → 56,0 %.
+Còn hạ ngưỡng 40 → 30 KHÔNG phải "30 %" mà làm vùng tô **gấp 2,85 lần** (+185 %), vượt xa trần
+chủ dự án đặt. Nếu vẫn muốn +30 % diện tích thì làm bằng **hạ ngưỡng nhẹ (40 → ~37)**, KHÔNG
+bằng nở — cùng diện tích mà hơn cả recall lẫn precision.
+
+### ⇒ VIỆC ĐÁNG LÀM MÀ SỐ LIỆU CHỈ RA (khác cả hai đề xuất ban đầu)
+
+Chỗ app "giả vờ chính xác" KHÔNG nằm ở độ rộng ô mà ở **THỨ HẠNG ĐỈNH**: ô số 1 lệch 400–500 km
+từ ngày 12, trong khi **trọng tâm CỤM chỉ lệch 214–249 km** (ổn định gấp ~2 lần). ⇒ Từ tầm xa,
+đừng chỉ "một ô tốt nhất" mà chỉ **CỤM rộng**. Đây là thay đổi rẻ, không đụng điểm số, không mất
+precision — xem 5i.
+
 ## 5c. Lưu lộ trình + offline so vị trí (chốt #3, #4)
 
 **Lưu lộ trình** (sau khi tính xong, 1 nút "Lưu chuyến này"):
