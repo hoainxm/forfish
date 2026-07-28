@@ -202,6 +202,11 @@ Nền dữ liệu của lộ trình 16 ngày đã dựng xong và **đo được
   mùa vụ và điểm dự báo **so sánh được**, pha trộn mới có nghĩa.
 - Mùa vụ hiện rõ trong số liệu: ô ≥50 đi từ **8 ô (tháng 10)** tới **123 ô (tháng 12)** — không phải
   một bản chép 12 lần (có test khoá điều này).
+- **Kiểm chứng ĐỘC LẬP bằng địa lý** (bằng chứng bản đồ không phải số vô nghĩa): ô điểm cao nhất
+  tháng 7 rơi đúng **vùng nước trồi Nam Trung Bộ** (12,3°N 109,3°E — Ninh Thuận/Khánh Hoà), đặc
+  trưng gió mùa Tây Nam kinh điển trong tài liệu hải dương VN; tháng 1 chuyển về **cửa sông Mê Kông
+  / thềm Đông Nam** (9–10°N, 106–107°E); tháng 12 lên **cửa vịnh Bắc Bộ** (17,8–18,3°N). Mô hình
+  KHÔNG được "dạy" các vùng này — nó tự ra từ nhiệt + phù du nhiều năm.
 - Script: `scripts/collect-fish-climatology.mjs` (chạy lại ~1 lần/năm là đủ).
 
 **Tỷ lệ pha trộn w(d)** (`src/data/fish-blend-weights.json` ← `scripts/fit-fish-blend-weights.mjs`):
@@ -234,6 +239,11 @@ hẳn → fetch mạng hỏng đúng như mong đợi nhưng **đọc từ kho v
 **Chưa làm (còn lại của Phase 0)**: nối `sst-tendency.ts` vào `fish-forecast-run.ts` (thành phần dự
 báo D+1..D+3 thật — hiện thành phần "dự báo" trong blend vẫn là persistence), probe trần
 `forecast_days` của dòng chảy, ràng buộc VMS, dời chặn lưới >3 ngày về server.
+
+**NÓI RÕ để khỏi hiểu nhầm**: `fish-blend.ts` hiện CHƯA có chỗ dùng nào ở runtime ngoài bước tải
+sẵn (`pretrip`) — nó là NỀN cho màn lộ trình sắp build, không phải thay đổi bản đồ cá đang chạy.
+Bản đồ Ra khơi hôm nay vẫn hiển thị MỘT lớp như cũ, chưa đổi theo ngày chọn. Nối blend vào lớp cá
+của bản đồ là quyết định sản phẩm riêng (đổi ý nghĩa lớp cá đang phục vụ) — chờ chốt, không tự làm.
 
 ## 5c. Lưu lộ trình + offline so vị trí (chốt #3, #4)
 

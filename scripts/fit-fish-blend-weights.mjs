@@ -24,7 +24,12 @@
 // GUARD "always-on-term" (bài học lặp lại của dự án): nếu w gần như hằng số ở
 // mọi tầm (không phân biệt được) thì pha trộn KHÔNG có tác dụng → phải nói ra.
 //
-//   npx tsx scripts/fit-fish-blend-weights.mjs [--origins 12] [--out src/data/fish-blend-weights.json]
+//   npx tsx scripts/fit-fish-blend-weights.mjs [--origins 16] [--out src/data/fish-blend-weights.json]
+//
+// KHI NÀO CHẠY LẠI: sau mỗi lần dựng lại bản mùa vụ, hoặc khi đổi hàm chấm điểm
+// fish-predict.ts. Chạy xong `npm test` — test khoá bảng w (đơn điệu, [0,1],
+// guard không suy biến, số mẫu >1000/tầm) sẽ bắt ngay nếu kết quả suy biến.
+// ~200 request ERDDAP, ~7–10 phút.
 // ─────────────────────────────────────────────────────────────────────────────
 import { writeFileSync, readFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -305,8 +310,86 @@ console.log(
     : "Blend KHÔNG thắng persistence ở tầm nào (kiểm chéo) — nói thẳng trong doc",
 );
 
+/* ── TÁCH THEO MÙA GIÓ có đáng không? ─────────────────────────────────────
+   Biển Đông có hai mùa gió trái ngược (Đông Bắc T11–T3, Tây Nam T5–T9). Nếu w
+   khác nhau rõ giữa hai mùa VÀ bản tách mùa thắng khi KIỂM CHÉO, thì nên dùng
+   bảng theo mùa. Không thắng → giữ MỘT bảng (ít tham số, ít cơ hội overfit) và
+   ghi lại kết luận âm — đừng để lần sau đo lại từ đầu. */
+const NE_MONTHS = new Set([11, 12, 1, 2, 3]);
+const seasonOf = (T, d) => (NE_MONTHS.has(monthOf(addDays(T, d))) ? "NE" : "SW");
+
+const seasonRows = [];
+for (const d of LEADS) {
+  const samples = perLead.get(d);
+  if (!samples.length) continue;
+  const bySeason = { NE: [], SW: [] };
+  for (const s of samples) bySeason[seasonOf(s.origin, d)].push(s);
+  if (!bySeason.NE.length || !bySeason.SW.length) continue;
+
+  const wNE = fitW(bySeason.NE).w;
+  const wSW = fitW(bySeason.SW).w;
+
+  // KIỂM CHÉO: bảng-theo-mùa vs bảng-chung, đo trên nhóm giữ lại
+  const byOrigin = [...new Set(samples.map((s) => s.origin))];
+  let cvSeason = 0;
+  let cvSingle = 0;
+  let folds = 0;
+  for (let f = 0; f < CV_FOLDS; f++) {
+    const testO = byOrigin.filter((_, i) => i % CV_FOLDS === f);
+    if (!testO.length) continue;
+    const train = samples.filter((s) => !testO.includes(s.origin));
+    const test = samples.filter((s) => testO.includes(s.origin));
+    if (!train.length || !test.length) continue;
+    const wAll = fitW(train).w;
+    const wTrainSeason = {
+      NE: fitW(train.filter((s) => seasonOf(s.origin, d) === "NE")).w,
+      SW: fitW(train.filter((s) => seasonOf(s.origin, d) === "SW")).w,
+    };
+    // RMSE gộp hai mùa, mỗi mẫu dùng w của mùa nó
+    let seSeason = 0;
+    let seSingle = 0;
+    let n = 0;
+    for (const s of test) {
+      const wS = wTrainSeason[seasonOf(s.origin, d)];
+      for (let i = 0; i < s.a.length; i++) {
+        const eS = wS * s.a[i] - s.b[i];
+        const eA = wAll * s.a[i] - s.b[i];
+        seSeason += eS * eS;
+        seSingle += eA * eA;
+        n++;
+      }
+    }
+    if (!n) continue;
+    cvSeason += Math.sqrt(seSeason / n);
+    cvSingle += Math.sqrt(seSingle / n);
+    folds++;
+  }
+  if (!folds) continue;
+  seasonRows.push({
+    lead: d,
+    wNE: Math.round(wNE * 1000) / 1000,
+    wSW: Math.round(wSW * 1000) / 1000,
+    diff: Math.round(Math.abs(wNE - wSW) * 1000) / 1000,
+    cvGainPct:
+      Math.round(((cvSingle / folds - cvSeason / folds) / (cvSingle / folds)) * 10000) / 100,
+  });
+}
+
+if (seasonRows.length) {
+  console.log("\n=== TÁCH THEO MÙA GIÓ có đáng không? ===");
+  console.table(seasonRows);
+}
+const seasonWins = seasonRows.filter((r) => r.cvGainPct > 0.5).map((r) => r.lead);
+const seasonVerdict = !seasonRows.length
+  ? "không đủ dữ liệu để so"
+  : seasonWins.length >= Math.ceil(seasonRows.length / 2)
+    ? `NÊN tách mùa — thắng ở tầm ${seasonWins.join(", ")} ngày (>0,5% RMSE khi kiểm chéo)`
+    : "KHÔNG đáng tách mùa — bảng chung tốt ngang hoặc hơn khi kiểm chéo; giữ MỘT bảng cho gọn";
+console.log(seasonVerdict);
+
 const out = {
   generatedAt: new Date().toISOString(),
+  seasonSplit: { verdict: seasonVerdict, perLead: seasonRows },
   question:
     "Tầm ngày d thì nên tin ảnh vệ tinh ngày T (persistence) bao nhiêu, tin bản mùa vụ bao nhiêu? blend = w(d)·persist + (1−w(d))·clim",
   method:

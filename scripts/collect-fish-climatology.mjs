@@ -20,7 +20,13 @@
 // ĐẦU RA: lưới dùng chung + 12 mảng điểm 0..100 (1 byte/ô, base64) → nhỏ, nhét
 // vừa asset tĩnh cho SW giữ offline.
 //
-//   npx tsx scripts/collect-fish-climatology.mjs [--years 2021-2025] [--out <path>]
+//   npx tsx scripts/collect-fish-climatology.mjs [--years 2020-2025] [--out <path>]
+//
+// KHI NÀO CHẠY LẠI: ~1 lần/năm (mùa vụ đổi rất chậm) hoặc khi đổi hàm chấm điểm
+// trong fish-predict.ts — vì bản mùa vụ phải CÙNG thang điểm với bản dự báo thì
+// pha trộn mới có nghĩa. Chạy xong PHẢI chạy lại scripts/fit-fish-blend-weights.mjs
+// (tỷ lệ w(d) đo trên chính bản mùa vụ này) rồi `npm test`.
+// Lần chạy 2026-07-28: 6 năm 2020–2025, ~144 request, ~6 phút, 12/12 tháng, 71 KB.
 // ─────────────────────────────────────────────────────────────────────────────
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
