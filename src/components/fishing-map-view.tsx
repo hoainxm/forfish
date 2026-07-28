@@ -66,6 +66,13 @@ import {
   type FishForecast,
   type FishCell,
 } from "@/lib/fish-predict";
+import {
+  fetchClimatology,
+  blendScore,
+  climScoreAt,
+  BLEND_USABLE,
+  type Climatology,
+} from "@/lib/fish-blend";
 import { lowQualityNote } from "@/lib/source-registry";
 import { moonPhase } from "@/lib/moon";
 import { FREE_FORECAST_DAYS } from "@/lib/tier";
@@ -396,6 +403,20 @@ export default function FishingMapView() {
   useEffect(() => {
     if (premiumAccess === "open") loadFish();
   }, [premiumAccess, loadFish]);
+  /* BẢN ĐỒ MÙA VỤ — asset tĩnh cùng origin (~71 KB), service worker giữ sẵn nên
+     giữa biển vẫn có. Dùng để pha trộn lớp cá cho NGÀY XA (xem lib/fish-blend.ts).
+     Không bao giờ ném: hỏng → null → lớp cá giữ nguyên bản ảnh mới nhất. */
+  const [clim, setClim] = useState<Climatology | null>(null);
+  useEffect(() => {
+    if (premiumAccess !== "open") return;
+    let alive = true;
+    fetchClimatology().then((c) => {
+      if (alive) setClim(c);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [premiumAccess]);
   useEffect(() => {
     if (premiumLocked) {
       setFishCast(null);
@@ -512,42 +533,6 @@ export default function FishingMapView() {
   // đơn vị khoảng cách + hệ toạ độ (panel Cài đặt) — đổi thì mọi chỗ đổi theo
   const prefs = useMapPrefs();
 
-  // Ô MÀU DỰ BÁO CÁ (ngư trường) — mỗi ô SST tô theo mức Thấp/TB/Cao (kiểu bản
-  // tin Viện Hải sản), CHỈ MÀU không in số. Thuộc LỚP "CÁ" ở rail (fishOn) —
-  // KHÁC với lưới kẻ ô toạ độ (prefs.mapGrid) không liên quan cá. Vẫn khoá
-  // premium: fishCast = null khi chưa mở khoá. Sàn = ngưỡng mức Thấp.
-  const fishGridGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
-    if (!fishOn || !fishCast) return null;
-    const lo = FISH_LEVEL_BANDS[0].min; // sàn = ngưỡng mức Thấp; hiện đủ 3 mức
-    const h = fishGridStep / 2;
-    const features: GeoJSON.Feature[] = [];
-    for (const c of fishCast.cells) {
-      const v = fishSpecies ? (c.sp?.[fishSpecies] ?? 0) : c.s;
-      if (v < lo) continue;
-      const r = Math.round(v);
-      const x0 = c.lon - h;
-      const x1 = c.lon + h;
-      const y0 = c.lat - h;
-      const y1 = c.lat + h;
-      features.push({
-        type: "Feature",
-        properties: { s: r },
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [x0, y0],
-              [x1, y0],
-              [x1, y1],
-              [x0, y1],
-              [x0, y0],
-            ],
-          ],
-        },
-      });
-    }
-    return { type: "FeatureCollection", features };
-  }, [fishOn, fishCast, fishSpecies, fishGridStep]);
 
   // LƯỚI KẺ Ô TOẠ ĐỘ (graticule) — kinh/vĩ tuyến mỗi 1° phủ vùng biển VN, KHÔNG
   // liên quan dự báo cá. Bật/tắt ở panel Cài đặt (prefs.mapGrid). Tĩnh nên tính
@@ -626,75 +611,6 @@ export default function FishingMapView() {
   const currentPlace = placeAt(places, point.lat, point.lon);
   const atHome = home != null && currentPlace?.id === home.id;
 
-  // điểm NÓNG (hồng tâm chạm-là-tới): ô điểm cao, cách nhau ≥0.7° cho khỏi
-  // chùm, tối đa 8. ƯU TIÊN KHU VỰC GẦN MÌNH: cộng điểm thưởng cho ô gần chỗ
-  // đang xem / cảng nhà / điểm ghim (chỗ bà con hay đánh) — không bịa điểm cá,
-  // chỉ xếp chỗ gần lên trước khi điểm xấp xỉ nhau.
-  const fishHotspots = useMemo<
-    { lat: number; lon: number; v: number; top: string[]; near: boolean }[]
-  >(() => {
-    if (!fishOn || !fishCast) return [];
-    // các "mỏ neo gần mình": điểm đang xem + cảng nhà + điểm ghim
-    const anchors: { lat: number; lon: number }[] = [
-      { lat: point.lat, lon: point.lon },
-      ...places.map((p) => ({ lat: p.lat, lon: p.lon })),
-    ];
-    const nearestKm = (lat: number, lon: number) =>
-      Math.min(...anchors.map((a) => haversineKm(a.lat, a.lon, lat, lon)));
-    const scored = fishCast.cells
-      .map((c) => {
-        const v = fishSpecies ? (c.sp?.[fishSpecies] ?? 0) : c.s;
-        const km = nearestKm(c.lat, c.lon);
-        // thưởng tối đa +12 điểm cho ô ngay cạnh, mờ dần tới 0 ở ~220 km
-        const bonus = Math.max(0, 1 - km / 220) * 12;
-        return {
-          lat: c.lat,
-          lon: c.lon,
-          v,
-          top: fishSpecies ? [fishSpecies] : c.top,
-          near: km <= 74, // ~40 hải lý
-          priority: v + bonus,
-        };
-      })
-      .filter((c) => c.v >= 75)
-      .sort((a, b) => b.priority - a.priority);
-    const picked: typeof scored = [];
-    for (const c of scored) {
-      if (picked.length >= 8) break;
-      const clash = picked.some(
-        (p) =>
-          Math.max(Math.abs(p.lat - c.lat), Math.abs(p.lon - c.lon)) < 0.7,
-      );
-      if (!clash) picked.push(c);
-    }
-    return picked.map(({ lat, lon, v, top, near }) => ({
-      lat,
-      lon,
-      v,
-      top,
-      near,
-    }));
-  }, [fishOn, fishCast, fishSpecies, point, places]);
-
-  // điểm cá gần chỗ đang xem nhất — câu gợi ý "đi hướng nào" trong thẻ cá
-  const nearestHotspot = useMemo(() => {
-    if (!fishHotspots.length) return null;
-    let best: (typeof fishHotspots)[number] | null = null;
-    let bd = Infinity;
-    for (const h of fishHotspots) {
-      const km = haversineKm(point.lat, point.lon, h.lat, h.lon);
-      if (km < bd) {
-        bd = km;
-        best = h;
-      }
-    }
-    if (!best) return null;
-    return {
-      km: bd,
-      dir: windDirectionVN(bearingDeg(point.lat, point.lon, best.lat, best.lon)),
-      v: best.v,
-    };
-  }, [fishHotspots, point]);
 
   // kết quả gắn với key của yêu cầu — "đang tải" suy ra từ key lệch nhau,
   // không setState đồng bộ trong effect
@@ -1021,6 +937,146 @@ export default function FishingMapView() {
   // mảng — bản lưu 5 ngày trước mà tính theo vị trí thì ngày xa vẫn được gắn
   // nhãn "khá sát" (sai theo hướng lạc quan, đúng chỗ nguy hiểm nhất).
   const daysAhead = sel ? Math.max(0, daysBetweenISO(todayIso, sel.date)) : 0;
+
+  /* ── LỚP CÁ THEO NGÀY ĐANG XEM ────────────────────────────────────────────
+     Ảnh vệ tinh chỉ nói được vài ngày đầu; ngày xa thì trộn với BẢN ĐỒ MÙA VỤ
+     (điều kiện điển hình của tháng, dựng từ 6 năm lịch sử) theo tỷ lệ w(d) ĐO
+     ĐƯỢC bằng backtest — xem lib/fish-blend.ts + docs/app-map/09 §5d.
+     · Hôm nay (d=0) → y hệt trước: đúng ảnh mới nhất, không pha.
+     · Thiếu bản mùa vụ / bảng w suy biến → giữ nguyên fishCast (bất biến
+       monotonic: mất nguồn thì bớt thông tin, KHÔNG bịa).
+     Điểm từng LOÀI giữ TỈ LỆ với điểm "Mọi loài" (mùa vụ chỉ có một lớp chung:
+     nó nói vùng này tháng này nhìn chung tốt cỡ nào, còn loài nào trội hơn loài
+     nào thì theo ảnh mới nhất). */
+  const fishView = useMemo<FishForecast | null>(() => {
+    if (!fishCast) return null;
+    if (daysAhead <= 0 || !clim || !BLEND_USABLE) return fishCast;
+    const month = Number((sel?.date ?? todayIso).slice(5, 7));
+    if (!Number.isFinite(month) || month < 1 || month > 12) return fishCast;
+    const cells = fishCast.cells.map((c) => {
+      const climS = climScoreAt(clim, c.lat, c.lon, month);
+      const s = blendScore(c.s, climS, daysAhead);
+      let sp = c.sp;
+      if (c.sp && c.s > 0 && s !== c.s) {
+        const k = s / c.s;
+        sp = Object.fromEntries(
+          Object.entries(c.sp).map(([name, v]) => [
+            name,
+            Math.max(0, Math.min(100, Math.round(v * k))),
+          ]),
+        );
+      }
+      return { ...c, s, sp };
+    });
+    return { ...fishCast, cells };
+  }, [fishCast, clim, daysAhead, sel?.date, todayIso]);
+
+  // Ô MÀU DỰ BÁO CÁ (ngư trường) — mỗi ô SST tô theo mức Thấp/TB/Cao (kiểu bản
+  // tin Viện Hải sản), CHỈ MÀU không in số. Thuộc LỚP "CÁ" ở rail (fishOn) —
+  // KHÁC với lưới kẻ ô toạ độ (prefs.mapGrid) không liên quan cá. Vẫn khoá
+  // premium: fishCast = null khi chưa mở khoá. Sàn = ngưỡng mức Thấp.
+  const fishGridGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!fishOn || !fishView) return null;
+    const lo = FISH_LEVEL_BANDS[0].min; // sàn = ngưỡng mức Thấp; hiện đủ 3 mức
+    const h = fishGridStep / 2;
+    const features: GeoJSON.Feature[] = [];
+    for (const c of fishView.cells) {
+      const v = fishSpecies ? (c.sp?.[fishSpecies] ?? 0) : c.s;
+      if (v < lo) continue;
+      const r = Math.round(v);
+      const x0 = c.lon - h;
+      const x1 = c.lon + h;
+      const y0 = c.lat - h;
+      const y1 = c.lat + h;
+      features.push({
+        type: "Feature",
+        properties: { s: r },
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [x0, y0],
+              [x1, y0],
+              [x1, y1],
+              [x0, y1],
+              [x0, y0],
+            ],
+          ],
+        },
+      });
+    }
+    return { type: "FeatureCollection", features };
+  }, [fishOn, fishView, fishSpecies, fishGridStep]);
+
+  // điểm NÓNG (hồng tâm chạm-là-tới): ô điểm cao, cách nhau ≥0.7° cho khỏi
+  // chùm, tối đa 8. ƯU TIÊN KHU VỰC GẦN MÌNH: cộng điểm thưởng cho ô gần chỗ
+  // đang xem / cảng nhà / điểm ghim (chỗ bà con hay đánh) — không bịa điểm cá,
+  // chỉ xếp chỗ gần lên trước khi điểm xấp xỉ nhau.
+  const fishHotspots = useMemo<
+    { lat: number; lon: number; v: number; top: string[]; near: boolean }[]
+  >(() => {
+    if (!fishOn || !fishView) return [];
+    // các "mỏ neo gần mình": điểm đang xem + cảng nhà + điểm ghim
+    const anchors: { lat: number; lon: number }[] = [
+      { lat: point.lat, lon: point.lon },
+      ...places.map((p) => ({ lat: p.lat, lon: p.lon })),
+    ];
+    const nearestKm = (lat: number, lon: number) =>
+      Math.min(...anchors.map((a) => haversineKm(a.lat, a.lon, lat, lon)));
+    const scored = fishView.cells
+      .map((c) => {
+        const v = fishSpecies ? (c.sp?.[fishSpecies] ?? 0) : c.s;
+        const km = nearestKm(c.lat, c.lon);
+        // thưởng tối đa +12 điểm cho ô ngay cạnh, mờ dần tới 0 ở ~220 km
+        const bonus = Math.max(0, 1 - km / 220) * 12;
+        return {
+          lat: c.lat,
+          lon: c.lon,
+          v,
+          top: fishSpecies ? [fishSpecies] : c.top,
+          near: km <= 74, // ~40 hải lý
+          priority: v + bonus,
+        };
+      })
+      .filter((c) => c.v >= 75)
+      .sort((a, b) => b.priority - a.priority);
+    const picked: typeof scored = [];
+    for (const c of scored) {
+      if (picked.length >= 8) break;
+      const clash = picked.some(
+        (p) =>
+          Math.max(Math.abs(p.lat - c.lat), Math.abs(p.lon - c.lon)) < 0.7,
+      );
+      if (!clash) picked.push(c);
+    }
+    return picked.map(({ lat, lon, v, top, near }) => ({
+      lat,
+      lon,
+      v,
+      top,
+      near,
+    }));
+  }, [fishOn, fishView, fishSpecies, point, places]);
+
+  // điểm cá gần chỗ đang xem nhất — câu gợi ý "đi hướng nào" trong thẻ cá
+  const nearestHotspot = useMemo(() => {
+    if (!fishHotspots.length) return null;
+    let best: (typeof fishHotspots)[number] | null = null;
+    let bd = Infinity;
+    for (const h of fishHotspots) {
+      const km = haversineKm(point.lat, point.lon, h.lat, h.lon);
+      if (km < bd) {
+        bd = km;
+        best = h;
+      }
+    }
+    if (!best) return null;
+    return {
+      km: bd,
+      dir: windDirectionVN(bearingDeg(point.lat, point.lon, best.lat, best.lon)),
+      v: best.v,
+    };
+  }, [fishHotspots, point]);
   // độ tin nói thật: nhãn theo tầm ngày, hạ thêm nếu backtest đo được sai số
   // lớn ở tầm ngày này (skill từ src/data/forecast-skill.json, không gọi mạng)
   const skillConf =
@@ -1050,12 +1106,13 @@ export default function FishingMapView() {
   }
 
 
-  // dự báo cá TÍNH TỪ ẢNH tại điểm đang xem — ô gần nhất trong ~0.3°
+  // dự báo cá tại điểm đang xem — ô gần nhất trong ~0.3°, THEO NGÀY ĐANG XEM
+  // (fishView đã pha mùa vụ cho ngày xa; hôm nay = đúng ảnh mới nhất)
   const fishAtPoint = useMemo<FishCell | null>(() => {
-    if (!fishCast) return null;
+    if (!fishView) return null;
     let best: FishCell | null = null;
     let bd = Infinity;
-    for (const c of fishCast.cells) {
+    for (const c of fishView.cells) {
       const d = Math.max(
         Math.abs(c.lat - point.lat),
         Math.abs(c.lon - point.lon),
@@ -1066,7 +1123,7 @@ export default function FishingMapView() {
       }
     }
     return bd <= 0.3 ? best : null;
-  }, [fishCast, point]);
+  }, [fishView, point]);
 
   // tóm tắt điều kiện — con số nói chuyện, không phán đi/ở
   // Số "lúc này" chỉ được nói khi đúng là hôm nay VÀ là số vừa lấy về; bản lưu
@@ -2368,19 +2425,19 @@ export default function FishingMapView() {
                             chỗ nổi nhất. Tham khảo, không phải cam kết.
                           </p>
                         )}
-                        {/* KÉO SANG NGÀY KHÁC: nói thật vì sao lớp cá KHÔNG đổi
-                            theo thanh ngày. ĐÃ ĐO (scripts/fish-3day-probe.mjs,
-                            3 mùa: 7/2026, 1/2026, 4/2026): kéo nhiệt tới +3 ngày
-                            bằng xu hướng Copernicus chỉ làm 0,5–1,6 % số ô đổi
-                            trạng thái điểm nóng (Jaccard 0,93–0,98, |Δđiểm| trung
-                            bình 0,1–0,5/100) ⇒ KHÔNG dựng bản đồ cá theo từng
-                            ngày (thanh trượt giả). Chỉ hiện khi bà con ĐÃ kéo
-                            sang ngày khác — màn hình mặc định giữ gọn. */}
+                        {/* KÉO SANG NGÀY KHÁC: từ 2026-07-28 lớp cá ĐỔI THẬT theo
+                            ngày — pha ảnh mới nhất với bản đồ mùa vụ theo tỷ lệ
+                            w(d) đo bằng backtest (lib/fish-blend.ts; thắng
+                            persistence ở mọi tầm, xem 09 §5d). Câu chữ đổi theo:
+                            ngày gần thì ảnh vẫn quyết phần lớn, ngày xa thì mùa
+                            vụ gánh dần — nói đúng cái đang xảy ra, KHÔNG hứa
+                            "dự báo cá riêng cho ngày này". Chỉ hiện khi bà con ĐÃ
+                            kéo sang ngày khác — màn hình mặc định giữ gọn. */}
                         {daysAhead > 0 && (
                           <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/70">
                             {daysAhead <= FISH_STABLE_DAYS
                               ? "Chỗ cá ít đổi trong vài ngày tới — cái đổi là gió, sóng."
-                              : "Lớp cá vẫn là ảnh mới nhất, không phải dự báo riêng cho ngày này — xa ngày thì xem gió, sóng."}
+                              : "Ngày xa thế này, chỗ cá dựa nhiều vào kinh nghiệm nhiều năm của tháng — càng xa càng nên xem thêm gió, sóng."}
                           </p>
                         )}
                         {/* ưu tiên gần mình: điểm cá gần chỗ đang xem nhất */}

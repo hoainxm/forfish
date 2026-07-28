@@ -250,10 +250,11 @@ hẳn → fetch mạng hỏng đúng như mong đợi nhưng **đọc từ kho v
 báo D+1..D+3 thật — hiện thành phần "dự báo" trong blend vẫn là persistence), probe trần
 `forecast_days` của dòng chảy, ràng buộc VMS, dời chặn lưới >3 ngày về server.
 
-**NÓI RÕ để khỏi hiểu nhầm**: `fish-blend.ts` hiện CHƯA có chỗ dùng nào ở runtime ngoài bước tải
-sẵn (`pretrip`) — nó là NỀN cho màn lộ trình sắp build, không phải thay đổi bản đồ cá đang chạy.
-Bản đồ Ra khơi hôm nay vẫn hiển thị MỘT lớp như cũ, chưa đổi theo ngày chọn. Nối blend vào lớp cá
-của bản đồ là quyết định sản phẩm riêng (đổi ý nghĩa lớp cá đang phục vụ) — chờ chốt, không tự làm.
+**ĐÃ NỐI VÀO BẢN ĐỒ RA KHƠI (2026-07-28, user chốt "nối lớp cá xem thử")**: kéo thanh ngày thì lớp
+cá đổi thật — ô màu, điểm nóng và số trong sheet đều lấy từ bản đã pha. Ngày 0 giữ nguyên hành vi cũ.
+Đo trên dữ liệu thật (2135 ô): ngày 3 đổi mức 423 ô · ngày 8: 515 · ngày 16: 578; điểm TB 38,6 → 30,3.
+Hệ quả cần theo dõi: ngày xa bản đồ THƯA và NHẠT hơn hẳn (gần hết hồng tâm ≥75) — trung thực nhưng nếu
+muốn ngày xa vẫn "nói được gì" thì chỉnh NGƯỠNG HIỂN THỊ, KHÔNG chỉnh w (w là số đo, không phải nút vặn).
 
 ## 5c. Lưu lộ trình + offline so vị trí (chốt #3, #4)
 
