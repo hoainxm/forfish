@@ -366,6 +366,89 @@ console.table(
     "top100 mùa": r.hitClimPct,
   })),
 );
+/* CÁI GIÁ CỦA LỚP CHỌN SẢN PHẨM: chủ dự án chốt mùa vụ gánh 6 % (tầm đo đầu) →
+   56 % (tầm đo cuối), cao hơn mức tối ưu theo sai số. Đo xem mất bao nhiêu độ
+   "chỉ đúng chỗ" — phải in ra, không được giấu. Công thức giãn PHẢI khớp
+   `climShare` trong src/lib/fish-blend.ts. */
+const PRODUCT_FIRST = 0.06;
+const PRODUCT_LAST = 0.56;
+{
+  const meas = rows.filter((r) => typeof r.w === "number");
+  const lo = 1 - meas[0].w;
+  const hi = 1 - meas[meas.length - 1].w;
+  for (const r of meas) {
+    const raw = 1 - r.w;
+    const t = hi > lo ? (raw - lo) / (hi - lo) : 0;
+    r.productShare = Math.round((PRODUCT_FIRST + t * (PRODUCT_LAST - PRODUCT_FIRST)) * 1000) / 1000;
+    const samples = perLead.get(r.lead);
+    r.hitProductPct =
+      Math.round(
+        (samples.reduce((a, s) => a + hitK(s, 1 - r.productShare), 0) / samples.length) * 1000,
+      ) / 10;
+    r.hitCostVsOptimalPct = Math.round((r.hitBlendPct - r.hitProductPct) * 10) / 10;
+  }
+  console.log("");
+  console.log("=== CÁI GIÁ CỦA MỨC CHỦ DỰ ÁN CHỌN (6 % → 56 %) ===");
+  console.table(
+    meas.map((r) => ({
+      lead: r.lead,
+      "%mùa vụ tối ưu": Math.round((1 - r.w) * 100),
+      "%mùa vụ dùng": Math.round(r.productShare * 100),
+      "top100 tối ưu": r.hitBlendPct,
+      "top100 khi dùng": r.hitProductPct,
+      "top100 ảnh thuần": r.hitPersistPct,
+      "mất bao nhiêu": r.hitCostVsOptimalPct,
+    })),
+  );
+  /* DÒ DẠNG ĐƯỜNG CONG: giữ nguyên hai đầu 6 % → 56 % (chủ dự án chốt), chỉ đổi
+     ĐỘ CONG. gamma > 1 = lên chậm mấy ngày đầu rồi vọt về cuối ⇒ giữ được độ
+     chính xác ngày gần mà vẫn đủ mùa vụ cho ngày xa. Chọn theo top-100. */
+  console.log("");
+  console.log("=== DÒ ĐỘ CONG (hai đầu giữ nguyên 6 % → 56 %) ===");
+  const gammas = [1, 1.5, 2, 2.5, 3];
+  const shapeRows = [];
+  for (const g of gammas) {
+    const row = { gamma: g };
+    let sum = 0;
+    let sumFar = 0;
+    for (const r of meas) {
+      const raw = 1 - r.w;
+      const t = hi > lo ? (raw - lo) / (hi - lo) : 0;
+      const share = PRODUCT_FIRST + Math.pow(t, g) * (PRODUCT_LAST - PRODUCT_FIRST);
+      const samples = perLead.get(r.lead);
+      const hit =
+        Math.round(
+          (samples.reduce((a, x) => a + hitK(x, 1 - share), 0) / samples.length) * 1000,
+        ) / 10;
+      row[`d${r.lead}`] = hit;
+      row[`%d${r.lead}`] = Math.round(share * 100);
+      sum += hit - r.hitPersistPct;
+      if (r.lead >= 8) sumFar += hit - r.hitPersistPct;
+    }
+    row.tongHonAnh = Math.round(sum * 10) / 10;
+    row.xaHonAnh = Math.round(sumFar * 10) / 10;
+    shapeRows.push(row);
+  }
+  console.table(
+    shapeRows.map((r) => ({
+      gamma: r.gamma,
+      "%d3": r["%d3"], "%d8": r["%d8"], "%d16": r["%d16"],
+      d1: r.d1, d3: r.d3, d5: r.d5, d8: r.d8, d11: r.d11, d16: r.d16,
+      "TỔNG hơn ảnh": r.tongHonAnh,
+      "TẦM XA hơn ảnh": r.xaHonAnh,
+    })),
+  );
+  const best = shapeRows.reduce((a, b) => (b.tongHonAnh > a.tongHonAnh ? b : a));
+  console.log(`⇒ ĐỘ CONG TỐT NHẤT: gamma = ${best.gamma} (tổng hơn ảnh-thuần ${best.tongHonAnh} điểm %)`);
+
+  const stillBeats = meas.filter((r) => r.hitProductPct > r.hitPersistPct).map((r) => r.lead);
+  console.log(
+    stillBeats.length
+      ? `Ở mức đang dùng, vẫn CHỈ ĐÚNG CHỖ hơn ảnh-thuần ở tầm: ${stillBeats.join(", ")} ngày`
+      : "Ở mức đang dùng, KHÔNG còn thắng ảnh-thuần ở tầm nào — phải nói với chủ dự án",
+  );
+}
+
 const hitWins = rows.filter((r) => (r.hitBlendPct ?? 0) > (r.hitPersistPct ?? 0)).map((r) => r.lead);
 console.log(
   hitWins.length
@@ -496,6 +579,7 @@ const out = {
   cvWinsOverPersistence: wins,
   topKWinsOverPersistence: hitWins,
   topK: TOP_K,
+  productCurve: { first: PRODUCT_FIRST, last: PRODUCT_LAST, note: "LỚP CHỌN CỦA CHỦ DỰ ÁN, KHÔNG phải số đo — xem climShare trong src/lib/fish-blend.ts và 09 §5f" },
   perLead: rows,
 };
 mkdirSync(dirname(OUT), { recursive: true });

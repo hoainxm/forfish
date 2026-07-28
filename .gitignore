@@ -43,3 +43,6 @@ next-env.d.ts
 .next-e2e/
 .next-e2e-auth/
 test-reports/
+
+# Kho dữ liệu tạm cho nghiên cứu lớp cá (scripts/fish-corpus-build.mjs) — tải lại được
+.cache/

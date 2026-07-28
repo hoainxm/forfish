@@ -6,6 +6,10 @@ import {
   MAX_MEASURED_LEAD,
   ABSENT_PERSIST,
   blendWeight,
+  measuredWeight,
+  climShare,
+  PRODUCT_SHARE_FIRST,
+  PRODUCT_SHARE_LAST,
   blendScore,
   blendFishCells,
   buildClimScaleMap,
@@ -278,5 +282,82 @@ describe("v2 — chuẩn hoá phân vị + pha trên HỢP hai tập", () => {
 
   it("mảng rỗng → trả rỗng, không ném", () => {
     expect(blendFishCells([], clim, month, 8)).toEqual([]);
+  });
+});
+
+describe("v3 — lớp chọn của chủ dự án + giãn lại phân bố", () => {
+  const clim = decodeClimatology(climFile as unknown as ClimatologyFile);
+  const month = 7;
+
+  it("tỷ lệ mùa vụ chạm đúng hai mốc chủ dự án chốt (6 % → 56 %)", () => {
+    const leads = w.perLead
+      .filter((r): r is { lead: number; w: number } => typeof r.w === "number")
+      .map((r) => r.lead)
+      .sort((a, b) => a - b);
+    expect(climShare(leads[0])).toBeCloseTo(PRODUCT_SHARE_FIRST, 3);
+    expect(climShare(leads[leads.length - 1])).toBeCloseTo(PRODUCT_SHARE_LAST, 3);
+  });
+
+  it("tỷ lệ mùa vụ TĂNG DẦN theo ngày, không bao giờ giảm", () => {
+    let prev = -1;
+    for (let d = 1; d <= 20; d++) {
+      const v = climShare(d);
+      expect(v).toBeGreaterThanOrEqual(prev - 1e-9);
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
+      prev = v;
+    }
+  });
+
+  it("ngày 0 KHÔNG pha (mùa vụ gánh 0 %)", () => {
+    expect(climShare(0)).toBe(0);
+    expect(blendWeight(0)).toBe(1);
+  });
+
+  it("TẦM XA đẩy lên trên mức đo; tầm GẦN được phép thấp hơn (độ cong gamma)", () => {
+    const leads = w.perLead
+      .filter((r): r is { lead: number; w: number } => typeof r.w === "number")
+      .map((r) => r.lead)
+      .sort((a, b) => a - b);
+    const last = leads[leads.length - 1];
+    // xa: cố ý đẩy lên hẳn trên mức tối ưu theo sai số
+    expect(climShare(last)).toBeGreaterThan(1 - measuredWeight(last));
+    // gần: đường cong gamma>1 giữ thấp — đo được là TỐT HƠN, nên không ép ≥ mức đo
+    expect(climShare(3)).toBeLessThan(climShare(last));
+  });
+
+  const mkCells = () =>
+    Array.from({ length: 60 }, (_, i) => ({
+      lat: 9 + Math.floor(i / 8) * 0.25,
+      lon: 106 + (i % 8) * 0.25,
+      s: 25 + ((i * 7) % 60),
+      top: [] as string[],
+      sp: {} as Record<string, number>,
+      t: 29,
+      c: 0.2,
+    }));
+
+  it("KHÔNG làm bản đồ nghèo đi — số ô mỗi mức giữ như hôm nay", () => {
+    const cells = mkCells();
+    const cnt = (arr: { s: number }[], lo: number) => arr.filter((c) => c.s >= lo).length;
+    const base40 = cnt(cells, 40);
+    const base60 = cnt(cells, 60);
+    for (const d of [3, 8, 16]) {
+      const out = blendFishCells(cells, clim, month, d);
+      // cho phép chênh nhẹ do làm tròn/ô mùa vụ thêm vào, nhưng KHÔNG được tụt
+      expect(cnt(out, 40)).toBeGreaterThanOrEqual(base40);
+      expect(cnt(out, 60)).toBeGreaterThanOrEqual(base60 - 1);
+    }
+  });
+
+  it("ngày càng xa càng ĐỔI CHỖ nhiều (thứ tự ô khác dần so với hôm nay)", () => {
+    const cells = mkCells();
+    const key = (c: { lat: number; lon: number }) => `${c.lat},${c.lon}`;
+    const base = new Set(cells.filter((c) => c.s >= 40).map(key));
+    const changedAt = (d: number) => {
+      const out = blendFishCells(cells, clim, month, d);
+      return out.filter((c) => c.s >= 40 && !base.has(key(c))).length;
+    };
+    expect(changedAt(16)).toBeGreaterThanOrEqual(changedAt(3));
   });
 });

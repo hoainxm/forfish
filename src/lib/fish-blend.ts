@@ -49,18 +49,15 @@ export const MAX_MEASURED_LEAD = MEASURED.length
   : 0;
 
 /**
- * Tỷ lệ tin bản DỰ BÁO tại tầm `dayIdx` ngày (0 = hôm nay).
- * · d ≤ mốc đo đầu tiên → w của mốc đó (hôm nay luôn 1: chính là ảnh hôm nay)
- * · giữa hai mốc đã đo → nội suy tuyến tính
- * · quá mốc cuối → giữ w mốc cuối (KHÔNG ngoại suy — không có số thì không đoán)
- * · bảng hỏng/suy biến → 1 (dùng thẳng bản dự báo, không pha)
+ * TỶ LỆ ĐO ĐƯỢC — bao nhiêu phần tin bản dự báo tại tầm `dayIdx`, theo backtest.
+ * Đây là SỐ ĐO thuần, giữ lại để đối chiếu; cái app dùng là `blendWeight`
+ * (có lớp chọn của chủ dự án đè lên — xem PRODUCT_SHARE bên dưới).
  */
-export function blendWeight(dayIdx: number): number {
+export function measuredWeight(dayIdx: number): number {
   if (!BLEND_USABLE) return 1;
   const d = Math.max(0, dayIdx);
-  if (d === 0) return 1; // hôm nay = chính ảnh hôm nay, không pha
+  if (d === 0) return 1;
   if (d <= MEASURED[0].lead) {
-    // từ 1 (ngày 0) hạ dần về w đo được ở mốc đầu
     const t = d / MEASURED[0].lead;
     return 1 + t * (MEASURED[0].w - 1);
   }
@@ -73,6 +70,67 @@ export function blendWeight(dayIdx: number): number {
     }
   }
   return MEASURED[MEASURED.length - 1].w;
+}
+
+/* ── LỚP CHỌN CỦA CHỦ DỰ ÁN (2026-07-28) ─────────────────────────────────────
+   Backtest nói mùa vụ chỉ đáng ~20 % ở ngày 16 (tối ưu theo sai số). CHỦ DỰ ÁN
+   CHỐT: "tăng theo ngày từ 6 % ngày 1 tới 56 % ngày 16 chứ 20 % thì ít quá".
+
+   ĐÂY LÀ QUYẾT ĐỊNH SẢN PHẨM, KHÔNG PHẢI SỐ ĐO — ghi rõ để người sau khỏi tưởng
+   là kết quả backtest. Lý do sản phẩm chính đáng: ở 20 % thì KHÔNG ô mới nào
+   vượt nổi sàn hiển thị 40 ⇒ bản đồ ngày xa chỉ là bản đồ hôm nay nhạt đi, mùa
+   vụ không nói được gì. Ở 56 % thì ô mùa vụ mạnh mới nổi lên được.
+
+   CÁI GIÁ (đo thật, đừng quên): xem `productCurve` trong fish-blend-weights.json
+   và 09 §5f — nhích tỷ lệ lên khỏi mức tối ưu thì độ "chỉ đúng chỗ" (top-100)
+   giảm. Đánh đổi: ít chính xác hơn một chút, đổi lấy bản đồ ngày xa có nội dung.
+
+   CÁCH DỰNG: giữ nguyên HÌNH DẠNG đường cong đo được (lên nhanh mấy ngày đầu
+   rồi thoải dần) và kéo giãn tuyến tính để hai đầu chạm đúng 6 % và 56 %. Đổi
+   hai mốc này = đổi hằng số ở đây; KHÔNG sửa file weights (file đó là số đo). */
+export const PRODUCT_SHARE_FIRST = 0.06; // mùa vụ gánh ở tầm ngày đo đầu tiên
+export const PRODUCT_SHARE_LAST = 0.56; // ... và ở tầm ngày đo cuối cùng
+/**
+ * ĐỘ CONG — đo được, không đặt tay (2026-07-28, `scripts/fit-fish-blend-weights.mjs`
+ * bảng "DÒ ĐỘ CONG"). gamma > 1 = giữ THẤP mấy ngày đầu rồi VỌT LÊN về cuối,
+ * đúng nhận định của chủ dự án: "ảnh dự báo consistent trong X ngày, vượt X thì
+ * dự báo hôm nay giảm mạnh, mùa vụ tăng nhanh".
+ * Quét gamma ∈ {1; 1,5; 2; 2,5; 3} trên top-100 hit → **2,5 thắng**: tổng hơn
+ * ảnh-thuần 7,4 điểm % (gamma=1 chỉ 4,6). Tốt hơn gamma=1 ở MỌI tầm:
+ * d3 70,0 vs 68,8 · d5 64,8 vs 64,1 · d8 61,4 vs 60,3 · d11 61,6 vs 61,3.
+ */
+export const PRODUCT_SHARE_GAMMA = 2.5;
+
+/** Tỷ lệ MÙA VỤ gánh tại tầm `dayIdx` (0..1) — số app thật sự dùng */
+export function climShare(dayIdx: number): number {
+  const d = Math.max(0, dayIdx);
+  if (!BLEND_USABLE || d === 0) return 0;
+  const raw = 1 - measuredWeight(d);
+  const lo = 1 - measuredWeight(MEASURED[0].lead);
+  const hi = 1 - measuredWeight(MEASURED[MEASURED.length - 1].lead);
+  // dải đo suy biến (hai đầu bằng nhau) → rơi về nội suy thẳng giữa hai mốc chọn
+  if (!(hi > lo)) {
+    const t = Math.min(1, d / Math.max(1, MEASURED[MEASURED.length - 1].lead));
+    return PRODUCT_SHARE_FIRST + t * (PRODUCT_SHARE_LAST - PRODUCT_SHARE_FIRST);
+  }
+  const t = (raw - lo) / (hi - lo);
+  const v =
+    PRODUCT_SHARE_FIRST +
+    Math.pow(Math.max(0, Math.min(1, t)), PRODUCT_SHARE_GAMMA) *
+      (PRODUCT_SHARE_LAST - PRODUCT_SHARE_FIRST);
+  return Math.max(0, Math.min(1, v));
+}
+
+/**
+ * Tỷ lệ tin bản DỰ BÁO tại tầm `dayIdx` ngày (0 = hôm nay).
+ * · ngày 0 → 1 (hôm nay chính là ảnh hôm nay, KHÔNG BAO GIỜ pha)
+ * · ngày 1..16 → theo `climShare` (hình dạng đo được, hai đầu do chủ dự án chốt)
+ * · bảng hỏng/suy biến → 1 (dùng thẳng bản dự báo, không pha)
+ */
+export function blendWeight(dayIdx: number): number {
+  if (!BLEND_USABLE) return 1;
+  if (Math.max(0, dayIdx) === 0) return 1;
+  return 1 - climShare(dayIdx);
 }
 
 /* ── bản mùa vụ (asset tĩnh, SW giữ offline) ──────────────────────────────── */
@@ -300,6 +358,7 @@ export function blendFishCells(
 
   const seen = new Set<string>();
   const out: BlendableCell[] = [];
+  const rawBlend: number[] = [];
 
   for (const c of cells) {
     seen.add(key(c.lat, c.lon));
@@ -308,18 +367,8 @@ export function blendFishCells(
     const raw =
       i >= 0 && i < nLat && j >= 0 && j < nLon ? (buf[i * nLon + j] ?? 0) : 0;
     const climS = scale[Math.min(100, raw)] ?? 0;
-    const s = Math.max(0, Math.min(100, Math.round(w * c.s + (1 - w) * climS)));
-    let sp = c.sp;
-    if (c.sp && c.s > 0 && s !== c.s) {
-      const k = s / c.s;
-      sp = Object.fromEntries(
-        Object.entries(c.sp).map(([n, v]) => [
-          n,
-          Math.max(0, Math.min(100, Math.round(v * k))),
-        ]),
-      );
-    }
-    out.push({ ...c, s, sp });
+    rawBlend.push(w * c.s + (1 - w) * climS);
+    out.push(c);
   }
 
   // Ô CHỈ CÓ Ở MÙA VỤ — đây mới là chỗ đẻ ra VỊ TRÍ MỚI cho ngày xa
@@ -331,13 +380,42 @@ export function blendFishCells(
       const lon = Math.round((lon0 + j * dLon) * 100) / 100;
       if (seen.has(key(lat, lon))) continue;
       const climS = scale[Math.min(100, raw)] ?? 0;
-      const s = Math.max(
-        0,
-        Math.min(100, Math.round(w * ABSENT_PERSIST + (1 - w) * climS)),
-      );
-      if (s <= 0) continue;
-      out.push({ lat, lon, s, sp: {}, top: [], t: 0, c: null, fromClim: true });
+      const v = w * ABSENT_PERSIST + (1 - w) * climS;
+      if (v <= 0) continue;
+      rawBlend.push(v);
+      out.push({ lat, lon, s: 0, sp: {}, top: [], t: 0, c: null, fromClim: true });
     }
+
+  /* GIÃN LẠI VỀ PHÂN BỐ CỦA BẢN ĐỒ HÔM NAY.
+     Trộn hai bản tương quan nhau LUÔN làm co phương sai — đo thật: để nguyên
+     thì càng pha nhiều bản đồ càng NGHÈO (ô ≥40 tụt 785 → 603, hồng tâm 55 → 14
+     ở mức 56 %), tức là ngược hẳn ý đồ "ngày xa phải có nội dung". Đây là
+     ARTIFACT của phép trung bình, không phải điều dữ liệu muốn nói.
+     Cách chữa: dùng điểm pha để XẾP HẠNG, rồi ánh xạ hạng đó trở lại ĐÚNG phân
+     bố điểm của bản đồ hôm nay ⇒ số ô mỗi mức giữ nguyên như hôm nay, nhưng
+     CHỖ NÀO đứng ở mức nào thì đổi theo ngày. Đánh đổi phải nhớ: bản đồ ngày xa
+     trông "chắc" ngang ngày gần — độ không chắc nói bằng CHỮ trong sheet, không
+     bằng cách làm nhạt bản đồ (quyết định sản phẩm 2026-07-28). */
+  const target = [...cells.map((c) => c.s)].sort((a, b) => a - b);
+  const order = rawBlend.map((v, i) => [v, i] as [number, number]).sort((a, b) => a[0] - b[0]);
+  const n = order.length;
+  for (let k = 0; k < n; k++) {
+    const i = order[k][1];
+    const pos = n === 1 ? target.length - 1 : Math.round((k / (n - 1)) * (target.length - 1));
+    const s = Math.max(0, Math.min(100, Math.round(target[pos] ?? 0)));
+    const cell = out[i];
+    let sp = cell.sp;
+    if (cell.sp && cell.s > 0 && s !== cell.s) {
+      const kk = s / cell.s;
+      sp = Object.fromEntries(
+        Object.entries(cell.sp).map(([nm, v]) => [
+          nm,
+          Math.max(0, Math.min(100, Math.round(v * kk))),
+        ]),
+      );
+    }
+    out[i] = { ...cell, s, sp };
+  }
 
   return out;
 }

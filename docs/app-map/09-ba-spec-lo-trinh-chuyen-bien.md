@@ -311,6 +311,57 @@ hơn). 48 ô mùa-vụ-sinh vẫn nằm trong payload dù chưa hiện — hữu
 sàn hiển thị riêng cho ngày xa, hoặc (b) làm bản mùa vụ tốt hơn (dựng front từ composite từng
 ngày rồi mới trung bình, thay vì trung bình rồi mới tính front — chính chỗ làm mất front).
 
+## 5f. v3 — MỨC MÙA VỤ DO CHỦ DỰ ÁN CHỌN (6 % → 56 %) + giãn lại phân bố
+
+Chủ dự án chốt 2026-07-28: *"tăng theo ngày từ 6 % ngày 1 tới 56 % ngày 16 chứ 20 % thì ít quá"*.
+Đây là **QUYẾT ĐỊNH SẢN PHẨM đè lên số đo** — ghi rõ để người sau khỏi tưởng là kết quả backtest.
+Hằng số ở `PRODUCT_SHARE_FIRST/LAST` trong `lib/fish-blend.ts` (KHÔNG sửa file weights — file đó
+là số đo thuần; `measuredWeight()` giữ nguyên để đối chiếu).
+
+**Cách dựng**: giữ nguyên HÌNH DẠNG đường cong đo được (lên nhanh mấy ngày đầu rồi thoải) và kéo
+giãn để hai đầu chạm đúng 6 % / 56 %. Kết quả: 6 % (d1) · 16 % (d2) · 24 % (d3) · 37 % (d5) ·
+41 % (d8) · 46 % (d11) · **56 % (d16)**. Ngày 0 luôn 0 % (hôm nay không bao giờ pha).
+
+**LỖI THỨ HAI phát hiện khi nâng lên 56 % — và đã sửa**: càng pha nhiều, bản đồ càng NGHÈO
+(ô ≥40 tụt 785 → 603, hồng tâm 55 → 14). Đây là ARTIFACT của phép trung bình (trộn hai bản tương
+quan nhau luôn co phương sai, mọi thứ dồn về giữa), KHÔNG phải điều dữ liệu muốn nói — và nó
+ngược hẳn mục tiêu "ngày xa phải có nội dung". Chữa: dùng điểm pha để **XẾP HẠNG**, rồi ánh xạ
+hạng đó trở lại **đúng phân bố điểm của bản đồ hôm nay**. Đo lại trên lưới thật 2138 ô:
+
+| ngày | % mùa vụ | ô được tô (≥40) | hồng tâm (≥75) | **chỗ tô mà HÔM NAY không tô** |
+|---|---|---|---|---|
+| 0 | 0 % | 785 | 55 | — |
+| 3 | 24 % | 803 | 56 | 117 |
+| 8 | 41 % | 803 | 56 | 179 |
+| 16 | 56 % | 803 | 56 | **224** |
+
+⇒ Ngày 16 có **224/~800 ô được tô là chỗ bản đồ hôm nay KHÔNG chỉ tới** — đây mới đúng nghĩa
+"vị trí mới" có ích cho bà con (§5e nói 0 ô mới là đúng với định nghĩa hẹp "ô do mùa vụ tự đẻ";
+giá trị thật đến từ ĐỔI THỨ HẠNG, và nay nó đã hiện ra được trên bản đồ).
+
+**CÁI GIÁ — đo bằng top-100 hit, không giấu:**
+
+| tầm ngày | 1 | 2 | 3 | 5 | 8 | 11 | 16 |
+|---|---|---|---|---|---|---|---|
+| mức TỐI ƯU theo sai số (%) | 6 | 9 | 12 | 15 | 16 | 18 | 20 |
+| **mức ĐANG DÙNG (%)** | 6 | 16 | 24 | 37 | 41 | 46 | **56** |
+| top-100 ở mức tối ưu | 80,9 | 73,4 | 69,9 | 65,1 | 61,5 | 60,6 | 56,9 |
+| **top-100 ở mức đang dùng** | 81,0 | 72,9 | 68,8 | 64,1 | **60,3** | **61,3** | **59,1** |
+| top-100 ảnh thuần | 81,7 | 73,4 | 69,6 | 65,2 | 60,1 | 59,0 | 54,9 |
+
+**Đọc cho đúng — trực giác của chủ dự án ĐÚNG ở tầm xa**: ở ngày 11 và 16, mức 56 % chẳng những
+không mất gì mà còn **TỐT HƠN cả mức "tối ưu" 20 %** (61,3 vs 60,6 và 59,1 vs 56,9). Lý do: w
+được fit để tối thiểu SAI SỐ (RMSE), mà RMSE thưởng cho việc đoán an toàn; còn thước đo "chỉ đúng
+chỗ" thì thích nhiều mùa vụ hơn ở tầm xa. Cái giá nằm ở **ngày 2–5**: thua mức tối ưu ~0,5–1,1
+điểm % và thua cả ảnh-thuần ~0,5–1,1 điểm %.
+
+⇒ Việc còn lại: **dò ĐỘ CONG** (giữ nguyên hai đầu, đổi gamma) để ngày gần bám sát mức tối ưu mà
+ngày xa vẫn 56 % — chạy `scripts/fit-fish-blend-weights.mjs`, xem bảng "DÒ ĐỘ CONG".
+
+**Đánh đổi phải nhớ**: giãn lại phân bố ⇒ bản đồ ngày xa trông "chắc" ngang ngày gần (số ô mỗi
+mức bằng nhau). Độ không chắc nay nói bằng **CHỮ** trong sheet, KHÔNG bằng cách làm nhạt bản đồ.
+Quyết định có chủ ý: làm nhạt vốn là artifact, không phải thông tin.
+
 ## 5c. Lưu lộ trình + offline so vị trí (chốt #3, #4)
 
 **Lưu lộ trình** (sau khi tính xong, 1 nút "Lưu chuyến này"):

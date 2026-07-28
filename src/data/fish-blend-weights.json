@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-28T13:33:47.038Z",
+  "generatedAt": "2026-07-28T13:56:35.917Z",
   "seasonSplit": {
     "verdict": "KHÔNG đáng tách mùa — bảng chung tốt ngang hoặc hơn khi kiểm chéo; giữ MỘT bảng cho gọn",
     "perLead": [
@@ -117,6 +117,11 @@
     16
   ],
   "topK": 100,
+  "productCurve": {
+    "first": 0.06,
+    "last": 0.56,
+    "note": "LỚP CHỌN CỦA CHỦ DỰ ÁN, KHÔNG phải số đo — xem climShare trong src/lib/fish-blend.ts và 09 §5f"
+  },
   "perLead": [
     {
       "lead": 1,
@@ -131,7 +136,10 @@
       "rmseClim": 10.75,
       "cvGainVsPersistPct": 1.55,
       "cvGainVsClimPct": 65.54,
-      "wRaw": 0.935
+      "wRaw": 0.935,
+      "productShare": 0.06,
+      "hitProductPct": 81,
+      "hitCostVsOptimalPct": -0.1
     },
     {
       "lead": 2,
@@ -146,7 +154,10 @@
       "rmseClim": 10.82,
       "cvGainVsPersistPct": 2.1,
       "cvGainVsClimPct": 57.22,
-      "wRaw": 0.907
+      "wRaw": 0.907,
+      "productShare": 0.16,
+      "hitProductPct": 72.9,
+      "hitCostVsOptimalPct": 0.5
     },
     {
       "lead": 3,
@@ -161,7 +172,10 @@
       "rmseClim": 10.81,
       "cvGainVsPersistPct": 2.21,
       "cvGainVsClimPct": 52.26,
-      "wRaw": 0.885
+      "wRaw": 0.885,
+      "productShare": 0.239,
+      "hitProductPct": 68.8,
+      "hitCostVsOptimalPct": 1.1
     },
     {
       "lead": 5,
@@ -176,7 +190,10 @@
       "rmseClim": 10.64,
       "cvGainVsPersistPct": 4.12,
       "cvGainVsClimPct": 48.09,
-      "wRaw": 0.848
+      "wRaw": 0.848,
+      "productShare": 0.371,
+      "hitProductPct": 64.1,
+      "hitCostVsOptimalPct": 1
     },
     {
       "lead": 8,
@@ -191,7 +208,10 @@
       "rmseClim": 10.88,
       "cvGainVsPersistPct": 3.6,
       "cvGainVsClimPct": 43.16,
-      "wRaw": 0.837
+      "wRaw": 0.837,
+      "productShare": 0.41,
+      "hitProductPct": 60.3,
+      "hitCostVsOptimalPct": 1.2
     },
     {
       "lead": 11,
@@ -206,7 +226,10 @@
       "rmseClim": 10.96,
       "cvGainVsPersistPct": 3.67,
       "cvGainVsClimPct": 39.81,
-      "wRaw": 0.822
+      "wRaw": 0.822,
+      "productShare": 0.464,
+      "hitProductPct": 61.3,
+      "hitCostVsOptimalPct": -0.7
     },
     {
       "lead": 16,
@@ -221,7 +244,10 @@
       "rmseClim": 11.39,
       "cvGainVsPersistPct": 2.6,
       "cvGainVsClimPct": 31.79,
-      "wRaw": 0.795
+      "wRaw": 0.795,
+      "productShare": 0.56,
+      "hitProductPct": 59.1,
+      "hitCostVsOptimalPct": -2.2
     }
   ]
 }
