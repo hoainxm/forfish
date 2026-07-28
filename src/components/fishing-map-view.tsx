@@ -2037,37 +2037,45 @@ export default function FishingMapView() {
                     </span>
                   </p>
                 ))}
-              <div className="flex items-start gap-2">
-                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+              {/* Tiêu đề + tóm tắt = CỘT TRÁI; nơi đang xem + toạ độ = CỘT PHẢI
+                  → hai cột xếp cạnh nhau, "Sóng tới…" nằm SÁT dưới "Biển động…"
+                  (không bị khối phải 2 dòng đẩy xuống). */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
                   {/* Không đủ dữ liệu (bản từ lưới) thì KHÔNG chấm tình trạng
                       biển — chỉ nói ngày, số gió/sóng để ngay dưới. */}
-                  {sel.level && (
-                    <>
-                      <span
-                        className="h-3.5 w-3.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: LEVEL_STYLE[sel.level].fg }}
-                        aria-hidden
-                      />
-                      <span
-                        className="display text-[1.1875rem] font-bold leading-snug"
-                        style={{ color: LEVEL_STYLE[sel.level].fg }}
-                      >
-                        {SEA_STATE[sel.level]}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    {sel.level && (
+                      <>
+                        <span
+                          className="h-3.5 w-3.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: LEVEL_STYLE[sel.level].fg }}
+                          aria-hidden
+                        />
+                        <span
+                          className="display text-[1.1875rem] font-bold leading-snug"
+                          style={{ color: LEVEL_STYLE[sel.level].fg }}
+                        >
+                          {SEA_STATE[sel.level]}
+                        </span>
+                      </>
+                    )}
+                    {/* KHÔNG lặp nhãn ngày ở tiêu đề — đã có trong ô chọn ngày
+                        (chip đang chọn). Chỉ khi bản dựng từ lưới (không chấm
+                        được tình trạng biển) mới lấy tên ngày làm tiêu đề. */}
+                    {!sel.level && (
+                      <span className="display text-[1.1875rem] font-bold leading-snug text-navy">
+                        {dayLabel(sel.date, todayIso)}
                       </span>
-                    </>
-                  )}
-                  {/* KHÔNG lặp nhãn ngày ở tiêu đề — đã có trong ô chọn ngày
-                      (chip đang chọn). Chỉ khi bản dựng từ lưới (không chấm được
-                      tình trạng biển) mới lấy tên ngày làm tiêu đề. */}
-                  {!sel.level && (
-                    <span className="display text-[1.1875rem] font-bold leading-snug text-navy">
-                      {dayLabel(sel.date, todayIso)}
-                    </span>
-                  )}
+                    )}
+                  </div>
+                  <p className="text-[0.9375rem] font-semibold leading-snug text-foreground/80">
+                    {condSummary}
+                  </p>
                 </div>
                 {/* nơi đang xem + toạ độ XẾP CHỒNG ở góc phải — gộp hai dòng vào
                     một góc, bớt một hàng cho panel gọn (user 2026-07-28) */}
-                <div className="flex shrink-0 flex-col items-end pt-1 text-right">
+                <div className="flex shrink-0 flex-col items-end text-right">
                   <span className="text-[0.8125rem] leading-snug text-foreground/70">
                     {whereLine}
                   </span>
@@ -2076,9 +2084,6 @@ export default function FishingMapView() {
                   </span>
                 </div>
               </div>
-              <p className="text-[0.9375rem] font-semibold leading-snug text-foreground/80">
-                {condSummary}
-              </p>
               {atHome && (
                 <p className="mt-1 text-[0.875rem] font-semibold text-t1">
                   Chạm vào chỗ nào trên biển để xem gió sóng chỗ đó.
