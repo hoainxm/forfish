@@ -494,18 +494,14 @@ export default function FishingMapView() {
   // đầu tiên KHÔNG bật cờ → giữ "Bây giờ".
   const jumpEndRef = useRef(false);
 
-  // Lớp DẢI MÀU theo GIỜ (mây/mưa/nhiệt/dông/áp suất) có PHỦ STREAK GIÓ lên trên
-  // (hiệu ứng dòng chảy kiểu Windy, user 2026-07-28). Độ mặn theo NGÀY → không phủ.
-  const scalarWantsStreaks = !!overlayField && overlayField !== "salinity";
+  // MỌI lớp dải màu đều có HẠT BAY theo gió (user 2026-07-29: hạt mặc định chạy
+  // trong tất cả layer) → lớp màu nào bật cũng cần lưới gió fGrid.
+  const scalarWantsStreaks = !!overlayField;
 
-  // tải lưới GIÓ/SÓNG: khi bật lớp gió/sóng, HOẶC khi bật lớp màu theo giờ (để
-  // lấy hướng gió vẽ streak). Gió lỗi lúc đang xem lớp màu → chỉ bỏ streak,
-  // KHÔNG làm hỏng lớp màu (không set gridFailed).
+  // tải lưới GIÓ/SÓNG — LUÔN tải (2026-07-29): hạt bay theo gió chạy mặc định
+  // ở MỌI chế độ, kể cả hải đồ + ngư trường. Gió lỗi khi không ở lớp gió/sóng
+  // → chỉ mất hạt, KHÔNG làm hỏng gì (không set gridFailed).
   useEffect(() => {
-    if (!forecastKind && !scalarWantsStreaks) {
-      setFGrid(null);
-      return;
-    }
     if (forecastKind && gridFailed) return;
     let alive = true;
     if (forecastKind) setFGrid(null); // "đang tải" cho strip gió/sóng
@@ -524,7 +520,7 @@ export default function FishingMapView() {
     return () => {
       alive = false;
     };
-  }, [forecastKind, scalarWantsStreaks, gridFailed, gridDays]);
+  }, [forecastKind, gridFailed, gridDays]);
 
   // tải lưới DẢI MÀU khi bật lớp mây/mưa/nhiệt, hoặc khi đổi khung ngày. Cùng
   // luật offline/fallback với forecast-grid (lib tự lo). Lỗi → dùng chung
@@ -594,30 +590,27 @@ export default function FishingMapView() {
     return () => clearInterval(t);
   }, [playing, stripGrid]);
 
-  // máy xin GIẢM chuyển động → không chạy hạt bay, giữ hình tĩnh
-  const [reducedMotion] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
-  );
-
-  // HẠT BAY animated (kiểu Windy): gió/lớp màu theo giờ bay theo HƯỚNG GIÓ,
-  // lớp sóng bay theo HƯỚNG SÓNG. Trường u/v bilinear từ cùng lưới fGrid.
+  // HẠT BAY animated (kiểu Windy) — MẶC ĐỊNH CHẠY trong MỌI layer (user
+  // 2026-07-29, bỏ cổng reduced-motion): gió/lớp màu theo giờ bay theo HƯỚNG
+  // GIÓ, lớp SÓNG bay theo HƯỚNG SÓNG (hạt khác nhau); độ mặn (theo ngày) lấy
+  // gió hiện tại (mốc 0). Trường u/v bilinear từ cùng lưới fGrid.
   const particleField = useMemo(() => {
-    if (reducedMotion || !fGrid) return null;
+    if (!fGrid) return null;
     if (forecastKind) return buildUVField(fGrid, timeIdx, forecastKind);
-    if (scalarWantsStreaks) return buildUVField(fGrid, timeIdx, "wind");
-    return null;
-  }, [reducedMotion, forecastKind, scalarWantsStreaks, fGrid, timeIdx]);
+    if (overlayField && overlayField !== "salinity")
+      return buildUVField(fGrid, timeIdx, "wind");
+    // hải đồ / ngư trường / độ mặn: hạt gió HIỆN TẠI (mốc 0) chạy nền
+    return buildUVField(fGrid, 0, "wind");
+  }, [forecastKind, overlayField, fGrid, timeIdx]);
 
-  // Mũi tên TĨNH: chỉ khi KHÔNG chạy được hạt bay (reduced-motion) — có hạt thì
-  // thôi (đúng Windy: nền màu nói cường độ, hạt nói hướng, không cần mũi tên).
+  // Mũi tên TĨNH: chỉ còn là FALLBACK khi không dựng được trường hạt (thiếu
+  // lưới) — có hạt thì thôi (nền màu nói cường độ, hạt nói hướng).
   const arrows = useMemo(() => {
-    if (!fGrid || !reducedMotion) return null;
+    if (!fGrid || particleField) return null;
     if (forecastKind) return arrowFeatures(fGrid, timeIdx, forecastKind);
     if (scalarWantsStreaks) return arrowFeatures(fGrid, timeIdx, "wind");
     return null;
-  }, [forecastKind, scalarWantsStreaks, reducedMotion, fGrid, timeIdx]);
+  }, [forecastKind, scalarWantsStreaks, particleField, fGrid, timeIdx]);
 
   // NỀN MÀU lớp GIÓ/SÓNG (mô hình Windy, user 2026-07-29): speed/độ cao từ
   // CHÍNH fGrid → ScalarGrid render-only, đi chung pipeline dải màu. Kích thước
@@ -1908,7 +1901,17 @@ export default function FishingMapView() {
       {/* HẠT BAY animated kiểu Windy — canvas overlay TRÊN bản đồ + lớp màu
           (z-10, dưới UI z-20), hạt trắng không bị nền màu che (user 2026-07-29).
           Gió/lớp màu bay theo hướng gió, lớp sóng theo hướng sóng. */}
-      <WindParticles mapRef={mapRef} field={particleField} />
+      <WindParticles
+        mapRef={mapRef}
+        field={particleField}
+        variant={
+          forecastKind === "wave"
+            ? "wave"
+            : forecastKind || (overlayField && overlayField !== "salinity")
+              ? "wind"
+              : "ambient"
+        }
+      />
 
       {/* ── VÙNG NỔI TRÊN CÙNG: tin bão (không gì che) + badge + FAB ──────── */}
       {/* Kéo sheet info lên (half/full) → TỰ ẨN tin bão + rail bên phải cho

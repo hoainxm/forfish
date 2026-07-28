@@ -26,11 +26,13 @@ import { sampleUV, stepParticle, type UVField } from "@/lib/particle-field";
 export function WindParticles({
   mapRef,
   field,
-  opacity = 0.75,
+  variant = "wind",
 }: {
   mapRef: React.RefObject<MapRef | null>;
   field: UVField | null;
-  opacity?: number;
+  /** wind = trắng mảnh trên lớp màu · wave = trắng dày (hướng SÓNG) ·
+      ambient = sẫm mảnh cho nền hải đồ/ngư trường SÁNG (chạy mặc định) */
+  variant?: "wind" | "wave" | "ambient";
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -101,8 +103,16 @@ export function WindParticles({
         ctx.fillStyle = "rgba(0,0,0,0.93)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.globalCompositeOperation = "source-over";
-        ctx.strokeStyle = `rgba(255,255,255,${opacity})`;
-        ctx.lineWidth = 1.4 * dpr;
+        // gió: vệt trắng mảnh · sóng: vệt trắng DÀY (trôi chậm sẵn vì tốc lấy
+        // từ độ cao sóng — hướng đã khác nhau) · ambient: vệt SẪM dịu trên nền
+        // hải đồ sáng (chạy nền ở mọi chế độ)
+        ctx.strokeStyle =
+          variant === "wave"
+            ? "rgba(255,255,255,0.6)"
+            : variant === "ambient"
+              ? "rgba(30,60,95,0.45)"
+              : "rgba(255,255,255,0.75)";
+        ctx.lineWidth = (variant === "wave" ? 2.4 : 1.4) * dpr;
         ctx.lineCap = "round";
         ctx.beginPath();
         for (const p of ps) {
@@ -153,7 +163,7 @@ export function WindParticles({
       cancelAnimationFrame(raf);
       teardown?.();
     };
-  }, [mapRef, field, opacity]);
+  }, [mapRef, field, variant]);
 
   if (!field) return null;
   return (
