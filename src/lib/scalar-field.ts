@@ -28,12 +28,15 @@ import {
   GRID_N_LON,
 } from "@/lib/forecast-grid";
 
-// mây/mưa/nhiệt/dông = Open-Meteo (lưới gió 8×10, theo GIỜ);
-// salinity = Copernicus (lưới 1/3° riêng, theo NGÀY) qua /api/salinity.
+// mây/mưa/nhiệt/dông/áp suất = Open-Meteo (lưới gió, theo GIỜ);
+// salinity = Copernicus (lưới 1/3° riêng, theo NGÀY) qua /api/salinity;
+// windspeed/waveheight = NỀN MÀU cho lớp Gió/Sóng (speed / độ cao — đúng mô
+// hình Windy, user 2026-07-29): RENDER-ONLY, dựng từ fGrid sẵn, KHÔNG fetch.
 // "storm" (dông) = CAPE J/kg: NGUY CƠ dông/sét, KHÔNG phải sét thật
 // (Open-Meteo `lightning_potential` trả null ở VN — chỉ có model châu Âu).
 export type OMKind = "cloud" | "rain" | "airtemp" | "storm" | "pressure";
-export type ScalarKind = OMKind | "salinity";
+export type FetchScalarKind = OMKind | "salinity";
+export type ScalarKind = FetchScalarKind | "windspeed" | "waveheight";
 
 export interface ScalarGrid {
   kind: ScalarKind;
@@ -160,7 +163,7 @@ async function fetchSalinityField(days: number): Promise<ScalarGrid> {
  * ĐÚNG (kind, khung) + cờ stale; chưa lưu thì ném lỗi để UI nói thật.
  */
 export async function fetchScalarField(
-  kind: ScalarKind,
+  kind: FetchScalarKind,
   days = 3,
 ): Promise<ScalarGrid> {
   if (kind === "salinity") return fetchSalinityField(days);
@@ -263,6 +266,23 @@ export const SCALAR_RAMP: Record<ScalarKind, ScalarRampStop[]> = {
     { value: 1020, rgba: [205, 165, 110, 0.62] },
     { value: 1032, rgba: [150, 95, 55, 0.75] },
   ],
+  // NỀN MÀU lớp GIÓ (km/h) — cùng breakpoint với WIND_COLOR_EXPR/legend, mốc
+  // CỐ ĐỊNH toàn timeline (không tự chuẩn hoá từng frame → không nhấp nháy)
+  windspeed: [
+    { value: 5, rgba: [116, 173, 209, 0.5] },
+    { value: 20, rgba: [61, 127, 181, 0.6] },
+    { value: 30, rgba: [232, 179, 57, 0.68] },
+    { value: 39, rgba: [224, 108, 31, 0.72] },
+    { value: 55, rgba: [183, 29, 29, 0.78] },
+  ],
+  // NỀN MÀU lớp SÓNG (m) — cùng breakpoint với WAVE_COLOR_EXPR/legend
+  waveheight: [
+    { value: 0.3, rgba: [117, 200, 190, 0.5] },
+    { value: 1.0, rgba: [70, 130, 200, 0.62] },
+    { value: 2.0, rgba: [90, 80, 180, 0.7] },
+    { value: 3.0, rgba: [180, 60, 120, 0.76] },
+    { value: 4.5, rgba: [198, 40, 40, 0.8] },
+  ],
 };
 
 export const SCALAR_META: Record<
@@ -298,6 +318,17 @@ export const SCALAR_META: Record<
     label: "Áp suất",
     unit: "hPa",
     help: "Áp suất mực biển — lam là áp thấp (dễ xấu trời), nâu là áp cao (thường êm).",
+  },
+  // 2 kind render-only (nền màu lớp Gió/Sóng) — không có toggle riêng
+  windspeed: {
+    label: "Sức gió",
+    unit: "km/h",
+    help: "Nền màu theo sức gió — đậm là gió mạnh.",
+  },
+  waveheight: {
+    label: "Độ cao sóng",
+    unit: "m",
+    help: "Nền màu theo độ cao sóng — đậm là sóng lớn.",
   },
 };
 

@@ -96,7 +96,7 @@ import {
   scalarGradientCss,
   SCALAR_META,
   SCALAR_RAMP,
-  type ScalarKind,
+  type FetchScalarKind,
   type ScalarGrid,
 } from "@/lib/scalar-field";
 import {
@@ -109,6 +109,8 @@ import {
   createScalarFieldLayer,
   type ScalarFieldLayer,
 } from "@/components/scalar-gl-field";
+import { buildUVField } from "@/lib/particle-field";
+import { WindParticles } from "@/components/wind-particles";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { useNavTracking } from "@/lib/use-nav-tracking";
 import { computeNavProgress } from "@/lib/nav-progress";
@@ -453,7 +455,7 @@ export default function FishingMapView() {
   const [gridFailed, setGridFailed] = useState(false);
   // Lớp DẢI MÀU vô hướng (mây/mưa/nhiệt) — loại trừ lẫn nhau với gió/sóng (một
   // lớp overlay mỗi lần, như Windy). Dùng chung thanh giờ + khung ngày + timeIdx.
-  const [overlayField, setOverlayField] = useState<ScalarKind | null>(null);
+  const [overlayField, setOverlayField] = useState<FetchScalarKind | null>(null);
   const [sfGrid, setSfGrid] = useState<ScalarGrid | null>(null);
   const [timeIdx, setTimeIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -584,40 +586,6 @@ export default function FishingMapView() {
     };
   }, [anyExclusiveOverlay]);
 
-  // ── LỚP WEBGL NỀN MÀU MỊN (thay polygon khối) ──────────────────────────
-  // Custom layer WebGL: nạp lưới → texture, GPU nội suy bilinear → mượt. Xử lý
-  // MapLibre setStyle XOÁ custom-layer: nghe 'styledata' để tự thêm lại.
-  const glFieldRef = useRef<ScalarFieldLayer | null>(null);
-  const GL_FIELD_ID = "scalar-gl-field";
-  useEffect(() => {
-    const map = mapRef.current?.getMap();
-    if (!map) return;
-    const ensure = () => {
-      if (!map.isStyleLoaded()) return;
-      const has = !!map.getLayer(GL_FIELD_ID);
-      if (overlayField && sfGrid) {
-        if (!has) {
-          const layer = createScalarFieldLayer(GL_FIELD_ID);
-          glFieldRef.current = layer;
-          try {
-            map.addLayer(layer);
-          } catch {
-            /* style chưa sẵn — 'styledata' sẽ thử lại */
-          }
-        }
-        glFieldRef.current?.setField(sfGrid, timeIdx);
-      } else if (has) {
-        map.removeLayer(GL_FIELD_ID);
-        glFieldRef.current = null;
-      }
-    };
-    ensure();
-    map.on("styledata", ensure);
-    return () => {
-      map.off("styledata", ensure);
-    };
-  }, [overlayField, sfGrid, timeIdx]);
-
   // nút chạy ▶ — tự trượt thời gian như Windy (theo lưới đang bật)
   useEffect(() => {
     if (!playing || !stripGrid?.times.length) return;
@@ -626,23 +594,110 @@ export default function FishingMapView() {
     return () => clearInterval(t);
   }, [playing, stripGrid]);
 
-  // Mũi tên/streak: gió/sóng dùng đúng hướng của nó; lớp màu theo giờ phủ streak
-  // theo HƯỚNG GIÓ (kiểu Windy) — vẽ từ cùng lưới fGrid, tô trắng dịu ở dưới.
+  // máy xin GIẢM chuyển động → không chạy hạt bay, giữ hình tĩnh
+  const [reducedMotion] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+  );
+
+  // HẠT BAY animated (kiểu Windy): gió/lớp màu theo giờ bay theo HƯỚNG GIÓ,
+  // lớp sóng bay theo HƯỚNG SÓNG. Trường u/v bilinear từ cùng lưới fGrid.
+  const particleField = useMemo(() => {
+    if (reducedMotion || !fGrid) return null;
+    if (forecastKind) return buildUVField(fGrid, timeIdx, forecastKind);
+    if (scalarWantsStreaks) return buildUVField(fGrid, timeIdx, "wind");
+    return null;
+  }, [reducedMotion, forecastKind, scalarWantsStreaks, fGrid, timeIdx]);
+
+  // Mũi tên TĨNH: chỉ khi KHÔNG chạy được hạt bay (reduced-motion) — có hạt thì
+  // thôi (đúng Windy: nền màu nói cường độ, hạt nói hướng, không cần mũi tên).
   const arrows = useMemo(() => {
-    if (!fGrid) return null;
+    if (!fGrid || !reducedMotion) return null;
     if (forecastKind) return arrowFeatures(fGrid, timeIdx, forecastKind);
     if (scalarWantsStreaks) return arrowFeatures(fGrid, timeIdx, "wind");
     return null;
-  }, [forecastKind, scalarWantsStreaks, fGrid, timeIdx]);
+  }, [forecastKind, scalarWantsStreaks, reducedMotion, fGrid, timeIdx]);
 
-  // ô tô màu cho lớp dải màu tại mốc đang chọn. Độ mặn có lưới MỊN sẵn (1/3°)
-  // → factor 1; các lớp Open-Meteo lưới thưa 8×10 → nội suy ×3 cho đỡ khối.
+  // NỀN MÀU lớp GIÓ/SÓNG (mô hình Windy, user 2026-07-29): speed/độ cao từ
+  // CHÍNH fGrid → ScalarGrid render-only, đi chung pipeline dải màu. Kích thước
+  // lưới tự suy (bản lưu cỡ cũ vẫn chạy).
+  const windScalarGrid = useMemo<ScalarGrid | null>(() => {
+    if (!forecastKind || !fGrid?.cells?.length) return null;
+    const cells = fGrid.cells;
+    let nLon = 1;
+    while (nLon < cells.length && cells[nLon].lat === cells[0].lat) nLon++;
+    const nLat = Math.floor(cells.length / nLon);
+    if (nLat < 2 || nLon < 2 || nLat * nLon !== cells.length) return null;
+    return {
+      kind: forecastKind === "wind" ? "windspeed" : "waveheight",
+      times: fGrid.times,
+      nLat,
+      nLon,
+      cells: cells.map((c) => ({
+        lat: c.lat,
+        lon: c.lon,
+        values: c.hours.map((h) =>
+          forecastKind === "wind" ? (h?.windKmh ?? null) : (h?.waveM ?? null),
+        ),
+      })),
+    };
+  }, [forecastKind, fGrid]);
+
+  // Lưới dải màu ĐANG HIỂN THỊ: lớp màu chọn tay HOẶC nền màu gió/sóng
+  const activeScalarGrid = overlayField ? sfGrid : windScalarGrid;
+
+  // ── LỚP WEBGL NỀN MÀU MỊN (thay polygon khối) ──────────────────────────
+  // Custom layer WebGL: nạp lưới → texture, GPU nội suy bilinear → mượt. Xử lý
+  // MapLibre setStyle XOÁ custom-layer: nghe 'styledata' để tự thêm lại.
+  // glOk=true → TẮT polygon fill (GL mịn đứng một mình — đúng chất Windy);
+  // GL hỏng (máy yếu/WebGL lỗi) → polygon fill là fallback.
+  const glFieldRef = useRef<ScalarFieldLayer | null>(null);
+  const [glOk, setGlOk] = useState(false);
+  const GL_FIELD_ID = "scalar-gl-field";
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const ensure = () => {
+      if (!map.isStyleLoaded()) return;
+      const has = !!map.getLayer(GL_FIELD_ID);
+      if (activeScalarGrid) {
+        if (!has) {
+          const layer = createScalarFieldLayer(GL_FIELD_ID);
+          glFieldRef.current = layer;
+          try {
+            map.addLayer(layer);
+            setGlOk(true);
+          } catch {
+            setGlOk(false); // style chưa sẵn — 'styledata' sẽ thử lại
+          }
+        }
+        glFieldRef.current?.setField(activeScalarGrid, timeIdx);
+      } else if (has) {
+        map.removeLayer(GL_FIELD_ID);
+        glFieldRef.current = null;
+        setGlOk(false);
+      }
+    };
+    ensure();
+    map.on("styledata", ensure);
+    return () => {
+      map.off("styledata", ensure);
+    };
+  }, [activeScalarGrid, timeIdx]);
+
+  // ô tô màu polygon — CHỈ là fallback khi lớp GL mịn không chạy (glOk=false).
+  // Độ mặn lưới mịn sẵn (1/3°) → factor 1; còn lại nội suy ×5.
   const scalarFC = useMemo(
     () =>
-      overlayField && sfGrid
-        ? scalarFieldFeatures(sfGrid, timeIdx, overlayField === "salinity" ? 1 : 5)
+      activeScalarGrid && !glOk
+        ? scalarFieldFeatures(
+            activeScalarGrid,
+            timeIdx,
+            activeScalarGrid.kind === "salinity" ? 1 : 5,
+          )
         : null,
-    [overlayField, sfGrid, timeIdx],
+    [activeScalarGrid, glOk, timeIdx],
   );
 
   // Chú giải thanh cường độ cho lớp đang bật (gió/sóng km/h·m · mây/mưa/nhiệt)
@@ -1821,6 +1876,11 @@ export default function FishingMapView() {
           </Marker>
         )}
       </MapGL>
+
+      {/* HẠT BAY animated kiểu Windy — canvas overlay TRÊN bản đồ + lớp màu
+          (z-10, dưới UI z-20), hạt trắng không bị nền màu che (user 2026-07-29).
+          Gió/lớp màu bay theo hướng gió, lớp sóng theo hướng sóng. */}
+      <WindParticles mapRef={mapRef} field={particleField} />
 
       {/* ── VÙNG NỔI TRÊN CÙNG: tin bão (không gì che) + badge + FAB ──────── */}
       {/* Kéo sheet info lên (half/full) → TỰ ẨN tin bão + rail bên phải cho

@@ -19,7 +19,7 @@ import type { ForecastKind } from "@/lib/forecast-grid";
 import {
   SCALAR_META,
   scalarGradientCss,
-  type ScalarKind,
+  type FetchScalarKind,
 } from "@/lib/scalar-field";
 import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
@@ -121,8 +121,8 @@ export function RaKhoiControls({
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
   /** Lớp DẢI MÀU vô hướng (mây/mưa/nhiệt) — loại trừ lẫn nhau với gió/sóng */
-  overlayField: ScalarKind | null;
-  onOverlayField: (k: ScalarKind | null) => void;
+  overlayField: FetchScalarKind | null;
+  onOverlayField: (k: FetchScalarKind | null) => void;
   /** Vùng biển VMS (admin quản lý) — mỗi vùng 1 toggle trong panel Cài đặt */
   vmsZones: VmsZone[];
   fishOn: boolean;
@@ -619,8 +619,8 @@ function ThoiTietPanel({
   stormInfo: StormStatus;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
-  overlayField: ScalarKind | null;
-  onOverlayField: (k: ScalarKind | null) => void;
+  overlayField: FetchScalarKind | null;
+  onOverlayField: (k: FetchScalarKind | null) => void;
   scalarKind: SeaScalarKind | null;
   onScalar: (k: SeaScalarKind | null) => void;
 }) {
@@ -697,7 +697,7 @@ function ThoiTietPanel({
       {/* LỚP DẢI MÀU (mây/mưa/nhiệt) — dự báo theo giờ, dùng chung thanh giờ với
           gió/sóng, LOẠI TRỪ nhau (một lớp overlay mỗi lần, như Windy). */}
       {(
-        ["cloud", "rain", "airtemp", "storm", "pressure", "salinity"] as ScalarKind[]
+        ["cloud", "rain", "airtemp", "storm", "pressure", "salinity"] as FetchScalarKind[]
       ).map((k) => (
         <Toggle
           key={k}
