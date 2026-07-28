@@ -666,7 +666,11 @@ export default function FishingMapView() {
           const layer = createScalarFieldLayer(GL_FIELD_ID);
           glFieldRef.current = layer;
           try {
-            map.addLayer(layer);
+            // chèn DƯỚI lớp bờ/đất (nếu đã có) — bờ + viền phải nổi trên màu
+            map.addLayer(
+              layer,
+              map.getLayer("overlay-coast-fill") ? "overlay-coast-fill" : undefined,
+            );
             setGlOk(true);
           } catch {
             setGlOk(false); // style chưa sẵn — 'styledata' sẽ thử lại
@@ -1654,6 +1658,30 @@ export default function FishingMapView() {
                     ? WAVE_COLOR_EXPR
                     : "rgba(255,255,255,0.6)") as unknown as string,
                 "line-width": forecastKind ? 2.5 : 1.6,
+              }}
+            />
+          </Source>
+        )}
+
+        {/* BỜ + ĐẤT LÊN TRÊN lớp màu khi bật lớp động (user 2026-07-29: màu che
+            hết bờ, không thấy đâu là đất/đảo). Đúng thứ tự Windy: nền màu →
+            hạt → ĐƯỜNG BỜ → nhãn. Lớp GL chèn DƯỚI lớp này (beforeId). */}
+        {anyExclusiveOverlay && (
+          <Source id="overlay-coast" type="geojson" data={COAST_DATA_URL}>
+            <Layer
+              id="overlay-coast-fill"
+              type="fill"
+              paint={{
+                "fill-color": OFFLINE_LAND_COLOR,
+                "fill-opacity": 0.9,
+              }}
+            />
+            <Layer
+              id="overlay-coast-line"
+              type="line"
+              paint={{
+                "line-color": OFFLINE_COAST_COLOR,
+                "line-width": 1.2,
               }}
             />
           </Source>
