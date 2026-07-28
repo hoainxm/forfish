@@ -23,8 +23,13 @@ import { PremiumLock } from "@/components/premium-gate";
 import type { StormStatus } from "@/lib/storms";
 import { clockVN } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
-import { useMapPrefs, setMapPrefs } from "@/lib/map-prefs";
-import { VMS_ZONES_UPDATED } from "@/data/vms-fishing-zones";
+import {
+  useMapPrefs,
+  setMapPrefs,
+  isVmsZoneOn,
+  setVmsZoneOn,
+} from "@/lib/map-prefs";
+import { VMS_ZONES_UPDATED, type VmsZone } from "@/lib/vms-zones";
 import { FishSpeciesContent } from "@/components/fish-species-sheet";
 import { MyPlacesContent } from "@/components/my-places-sheet";
 import {
@@ -73,6 +78,7 @@ export function RaKhoiControls({
   onScalar,
   forecastKind,
   onForecast,
+  vmsZones,
   fishOn,
   onFish,
   fishSpecies,
@@ -107,6 +113,8 @@ export function RaKhoiControls({
   onScalar: (k: SeaScalarKind | null) => void;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
+  /** Vùng biển VMS (admin quản lý) — mỗi vùng 1 toggle trong panel Cài đặt */
+  vmsZones: VmsZone[];
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
@@ -270,7 +278,7 @@ export function RaKhoiControls({
                   onClearMeasure={onClearMeasure}
                 />
               )}
-              {open === "cai-dat" && <SettingsPanel />}
+              {open === "cai-dat" && <SettingsPanel vmsZones={vmsZones} />}
             </>
           }
         </div>
@@ -756,7 +764,7 @@ function RadioCard({
   );
 }
 
-function SettingsPanel() {
+function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
   const prefs = useMapPrefs();
   return (
     <div>
@@ -819,37 +827,45 @@ function SettingsPanel() {
         icon={<DepthIcon className="h-5 w-5 text-[#0d9488]" />}
       />
 
-      <p className="mb-1 mt-4 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
-        Vùng biển (dữ liệu VMS)
-      </p>
-      <Toggle
-        label="Vùng được phép đánh bắt"
-        sub="Viền xanh lá · toàn vùng biển VN"
-        on={prefs.vmsAllowed}
-        onToggle={() => setMapPrefs({ vmsAllowed: !prefs.vmsAllowed })}
-        icon={<CheckIcon className="h-5 w-5 text-[#16a34a]" />}
-      />
-      <div className="mb-2" />
-      <Toggle
-        label="Vùng cần chú ý khi đánh bắt"
-        sub="Vàng cam · quanh Hoàng Sa, Trường Sa"
-        on={prefs.vmsCaution}
-        onToggle={() => setMapPrefs({ vmsCaution: !prefs.vmsCaution })}
-        icon={<AlertIcon className="h-5 w-5 text-[#f59e0b]" />}
-      />
-      <div className="mb-2" />
-      <Toggle
-        label="Vùng chỉ đánh được cá đáy"
-        sub="Tím · giáp ranh VN – Indonesia"
-        on={prefs.vmsBottomOnly}
-        onToggle={() => setMapPrefs({ vmsBottomOnly: !prefs.vmsBottomOnly })}
-        icon={<AnchorIcon className="h-5 w-5 text-[#8b5cf6]" />}
-      />
-      <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/60">
-        Các ranh giới trên chỉ để hình dung (dữ liệu VMS{" "}
-        {VMS_ZONES_UPDATED.split("-").reverse().join("/")}) — ranh chính thức
-        tra Chi cục Thủy sản.
-      </p>
+      {vmsZones.length > 0 && (
+        <>
+          <p className="mb-1 mt-4 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+            Vùng biển (dữ liệu VMS)
+          </p>
+          {vmsZones.map((zone, i) => (
+            <div key={zone.id}>
+              {i > 0 && <div className="mb-2" />}
+              <Toggle
+                label={zone.name}
+                sub={
+                  zone.style === "line-dashed"
+                    ? "Viền nét đứt · tham khảo"
+                    : zone.style === "fill"
+                      ? "Vùng tô nền · tham khảo"
+                      : "Viền · tham khảo"
+                }
+                on={isVmsZoneOn(prefs.vmsOverrides, zone.id, zone.defaultOn)}
+                onToggle={() =>
+                  setVmsZoneOn(
+                    zone.id,
+                    !isVmsZoneOn(prefs.vmsOverrides, zone.id, zone.defaultOn),
+                  )
+                }
+                icon={
+                  <span style={{ color: zone.color }}>
+                    <AnchorIcon className="h-5 w-5" />
+                  </span>
+                }
+              />
+            </div>
+          ))}
+          <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/60">
+            Các ranh giới trên chỉ để hình dung (dữ liệu VMS{" "}
+            {VMS_ZONES_UPDATED.split("-").reverse().join("/")}) — ranh chính
+            thức tra Chi cục Thủy sản.
+          </p>
+        </>
+      )}
     </div>
   );
 }

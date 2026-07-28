@@ -155,7 +155,7 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 | **Thời tiết** | Lớp gió/sóng + scalar (nước dâng/xoáy) + nhịp · note "tham khảo, lỗi thì thử lại" |
 | **Điểm đã lưu** | Bật/tắt hiện điểm trên map + quản lý điểm (thêm theo toạ độ, sửa/xoá, tìm cảng) ngay trong panel |
 | **Công cụ** | **Đo khoảng cách 2 điểm** — bật chế độ đo, chạm 2 điểm trên map → đường nối + mốc 1/2 + kết quả (khoảng cách đường chim bay + hướng) theo đơn vị đang chọn; "Xoá, đo lại" |
-| **Cài đặt** | **Đơn vị khoảng cách** (Hải lý/km) + **Hệ toạ độ** (độ thập phân / độ-phút) — đổi thì MỌI chỗ (peek toạ độ, whereLine, điểm cá gần, dẫn đường, công cụ đo) đổi theo. **Lớp bản đồ**: toggle **Lưới kẻ ô (toạ độ)** — `prefs.mapGrid` (mặc định bật): graticule kinh/vĩ tuyến 1° (`MAP_GRID_BOUNDS` [102,119,4,24]) + nhãn độ, KHÔNG liên quan dự báo cá — + Ranh giới vùng lộng (`prefs.vungLong`, trước 2026-07-28 là useState không nhớ). **Vùng biển (dữ liệu VMS)** (2026-07-28): 3 toggle — Vùng được phép đánh bắt (CheckIcon xanh lá) · Vùng cần chú ý khi đánh bắt (AlertIcon vàng cam, quanh Hoàng Sa/Trường Sa) · Vùng chỉ đánh được cá đáy (AnchorIcon tím, giáp VN–Indonesia) — `prefs.vmsAllowed/vmsCaution/vmsBottomOnly`, mặc định bật, chú thích "chỉ để hình dung… tra Chi cục Thủy sản". Store dùng chung `lib/map-prefs.ts` (localStorage `forfish.mapPrefs.v1`) |
+| **Cài đặt** | **Đơn vị khoảng cách** (Hải lý/km) + **Hệ toạ độ** (độ thập phân / độ-phút) — đổi thì MỌI chỗ (peek toạ độ, whereLine, điểm cá gần, dẫn đường, công cụ đo) đổi theo. **Lớp bản đồ**: toggle **Lưới kẻ ô (toạ độ)** — `prefs.mapGrid` (mặc định bật): graticule kinh/vĩ tuyến 1° (`MAP_GRID_BOUNDS` [102,119,4,24]) + nhãn độ, KHÔNG liên quan dự báo cá — + Ranh giới vùng lộng (`prefs.vungLong`, trước 2026-07-28 là useState không nhớ). **Vùng biển (dữ liệu VMS)** (2026-07-28): danh sách toggle ĐỘNG — mỗi vùng do admin quản lý (`vms_zones`, xem 04) một toggle, nhãn = tên vùng, chấm màu = màu vùng; mặc định bật/tắt theo `defaultOn` của vùng, bà con đổi thì lưu override `prefs.vmsOverrides[id]` (`isVmsZoneOn`). Chưa cấu hình DB → 3 vùng mặc định tĩnh (được phép ngoài khơi đỏ nét đứt · cần chú ý vàng · cá đáy cam). Store dùng chung `lib/map-prefs.ts` (localStorage `forfish.mapPrefs.v1`) |
 
 **TRÊN:** banner bão (đỏ, ưu tiên) + **dải dự báo gió/sóng 1–16 ngày** (chip ngày cuộn ngang, `FORECAST_MAX_DAYS=16`; sóng từ `ncep_gfswave025`). Dưới dải: **dòng độ tin theo tầm ngày** (`forecastConfidence(daysAhead, skillConf)` — `daysAhead` đếm từ NGÀY THẬT tới ngày đang xem, KHÔNG theo vị trí trong mảng) — hạ nhãn khi backtest (`forecast-skill.json`) đo được sai số lớn ở tầm ngày đó; KHÔNG để mọi ngày trông chắc như nhau.
 **ĐÁY — sheet số liệu điểm (3 nấc):**
@@ -392,6 +392,29 @@ Ngưỡng ĐẶT TRƯỚC khi chạy: "đổi đáng kể" ⇔ Jaccard < 0,90 **
 - **KHÔNG badge thường trực**, không chip mới, không dòng trên bản đồ. Chữ chỉ hiện khi bà con ĐÃ kéo sang ngày khác VÀ đang đọc thẻ cá — đúng lúc câu hỏi "sao kéo ngày mà bản đồ không đổi?" xuất hiện.
 - Thứ ĐỔI theo ngày vẫn là gió/sóng (đã có kỹ năng đo được ở `src/data/forecast-skill.json`, dòng độ tin theo tầm ngày giữ nguyên).
 
+### 10.6 DẪN ĐƯỜNG khi mất sóng — LÙI VỀ LƯỚI ĐÃ LƯU (2026-07-28)
+
+Trước đây dẫn đường tiết kiệm dầu là tính năng DUY NHẤT của Ra khơi **không chạy offline**: `route-weather.ts` gọi thẳng Open-Meteo (cross-origin, SW không giữ), cache chỉ trong RAM 45 phút, và pretrip cố ý không tải nó. Mất sóng → bấm "Tính đường" chỉ báo "mạng yếu". Đúng lúc bà con cần nhất (giữa khơi) thì nó chết. Nay áp **cùng luật §10.4**: lùi về LƯỚI Windy đã lưu.
+
+**A. Luật lấy số** (`lib/route-weather.ts`, thuần, có test `route-weather-offline.test.ts`)
+
+Thứ tự `fetchWeatherField`: (1) live Open-Meteo (cache RAM 45' như cũ) → (2) mất sóng thì **dựng WeatherField từ lưới đã lưu** (`gridToWeatherField(loadLongestSavedGrid())`) → (3) không có lưới nào → ném lỗi, UI hướng dẫn tải sẵn.
+
+| Việc | Luật |
+|---|---|
+| Chọn khung lưới | **Khung DÀI NGÀY NHẤT đang có** (`loadLongestSavedGrid`: d16 → d7 → d3) — cùng hàm §10.4 |
+| Trục giờ | **ĐẶT LẠI về 0h HÔM NAY giờ VN** (`gridHourOffsetFromToday`, so theo NGÀY LỊCH). Bản lưu từ hôm trước vẫn ghép đúng — tránh lỗi lệch nguyên 24h khi đi biển nhiều ngày (memory *offline-16d-gaps*). Lưới toàn quá khứ → trả `null` (thà báo thiếu còn hơn dẫn theo bản cũ) |
+| Trường thiếu | Lưới Windy CHỈ có gió + sóng → `wavePeriodS = null`, `currentKmh = 0`. `sampleField`/`route-plan` vốn đã chịu được (giảm chất lượng né sóng, KHÔNG mất an toàn: né bờ/bãi cạn do **lưới độ sâu tĩnh** `depth-grid.v1.bin` lo, asset precache trong SW) |
+| Độ phân giải | Lưới ~2° (thô hơn ~0,35° của tuyến live) → tuyến offline kém mịn hơn. `source: "grid"` + `savedAt` để UI nói thật |
+
+**B. TRUNG THỰC — banner khi tuyến tính từ lưới offline** (`components/route-planner.tsx`)
+
+- Tuyến chọn dựng từ lưới lưu (`chosenField.source === "grid"`) → **banner vàng đầu thẻ kết quả** kèm `AlertIcon`: "Đang mất sóng — tuyến tính từ lưới gió sóng ĐÃ LƯU trong máy (lưu N giờ trước). Lưới này thô hơn dự báo tuyến và CHƯA tính dòng chảy — chỉ để tham khảo hướng đi; nghe đài duyên hải, dò hải đồ trước khi chạy." (`savedAgoLabel`).
+- Không có lưới nào trong máy → thay câu lỗi cũ "mạng yếu" bằng: **"Chưa lấy được dự báo cho tuyến và trong máy chưa có lưới đã lưu. Mở màn Ra khơi lúc còn sóng để máy tự tải sẵn gió sóng, rồi thử lại."** (chỉ đúng việc bà con phải làm).
+- Mọi cảnh báo cũ (RẤT CẠN / QUÁ CỬA SỔ DỰ BÁO / sóng dữ / bão) vẫn chạy trên bản offline — `beyondForecastH` tự đúng vì cửa sổ lưới ngắn hơn.
+
+**C. Vì sao KHÔNG persist riêng lưới tuyến**: giữ đúng triết lý pretrip ("KHÔNG thêm nguồn/kho mới — xài lại thứ đã có"). Lưới Windy đã được pretrip tải cho CẢ vùng biển 3/7/16 ngày; tuyến chỉ mượn lại. Không tốn thêm dung lượng máy bà con, không đội thêm lượt tải lúc còn ở bờ.
+
 ---
 
 **Last updated**: 2026-06-16
@@ -414,7 +437,8 @@ Ngưỡng ĐẶT TRƯỚC khi chạy: "đổi đáng kể" ⇔ Jaccard < 0,90 **
 <!-- re-verified: 2026-07-27 — BẤM khung ngày (3/5/7/10/16) → khi lưới mới về, thanh giờ NHẢY tới NGÀY CUỐI của khung (bấm "10 ngày" = xem luôn gió ~ngày 10, kéo lùi để về gần). `jumpEndRef` đặt cờ lúc bấm, áp lúc grid sẵn sàng; lần MỞ lớp đầu KHÔNG bật cờ → giữ "Bây giờ". Sửa nhầm lẫn bà con: 2 control cùng nhãn "ngày" (khung vs giờ) → trước bấm khung reset về Bây giờ, tưởng gió không đổi. -->
 <!-- re-verified: 2026-07-25b — api/fish-forecast route thêm fetch ETOPO (cổng độ sâu chặn loài xa bờ). BACKEND-only: không đổi màn hình/mật độ/trạng thái nào; lớp cá trên map chỉ bớt điểm nóng sát bờ cho loài xa bờ. -->
 <!-- re-verified: 2026-07-25c — THÊM lớp map "Ranh giới vùng lộng" (NĐ 26/2019, polygon 36 đỉnh SDVico): nét đứt teal #0d9488 + fill mờ 6%, vẽ TRƯỚC ranh giới ngoài (cam-đỏ IUU vẫn nổi trên, GIỮ độc quyền màu). Toggle bật/tắt trong panel CÀI ĐẶT (mục "Lớp bản đồ") + nhãn THAM KHẢO "tra Chi cục Thủy sản". Mặc định bật. (chuyển từ Thời tiết → Cài đặt theo user 2026-07-25) -->
-<!-- re-verified: 2026-07-28 — THÊM 3 lớp map VÙNG BIỂN VMS (data/vms-fishing-zones.ts, giản lược từ GeoJSON SDVico 28/07): được phép đánh bắt (xanh lá #16a34a, nét liền + fill 5%) · cần chú ý khi đánh bắt (vàng cam #f59e0b, nét đứt + fill 12%, quanh Hoàng Sa/Trường Sa) · chỉ đánh cá đáy (tím #8b5cf6, nét đứt + fill 10%, giáp VN–Indonesia). Vẽ DƯỚI vùng lộng + ranh giới ngoài (cam-đỏ giữ độc quyền). 3 toggle mục mới "Vùng biển (dữ liệu VMS)" trong panel Cài đặt, mặc định bật, nhớ qua map-prefs; vùng lộng cũng chuyển sang map-prefs (nhớ lựa chọn). -->
+<!-- re-verified: 2026-07-28 — THÊM lớp map VÙNG BIỂN VMS (giản lược từ GeoJSON SDVico 28/07). ĐÃ THAY ĐỔI trong ngày (chốt cuối): (1) vùng "được phép" chỉ vẽ CUNG NGOÀI KHƠI đỏ nét đứt — tách từ polygon bằng scripts/derive-allowed-offshore.py (cắt tại 2 mốc giáp đất liền Hà Tiên/Móng Cái), bỏ đường 75 điểm cũ; cần chú ý = vàng, cá đáy = cam; CHỈ VẼ VIỀN không tô nền. (2) 3 vùng cứng → DYNAMIC: nguồn thật là bảng vms_zones (admin quản lý), data/vms-zones.json chỉ còn là fallback tĩnh. Toggle panel Cài đặt sinh động theo danh sách vùng (defaultOn + override prefs.vmsOverrides). Vẽ DƯỚI vùng lộng. -->
+<!-- re-verified: 2026-07-28 — /quan-tri tab MỚI "Vùng biển": quản lý vms_zones — bản đồ MapLibre (components/admin/vms-zones-map.tsx, dynamic ssr:false) xem mọi vùng (chọn tô đậm, ẩn thì mờ) + form TẢI FILE GeoJSON thêm vùng (tên/màu/kiểu vẽ fill|line|line-dashed/bật-sẵn-app) + mỗi vùng bật-tắt "hiển thị mặc định trên app ngư dân" (default_on), ẩn/hiện (visible), xóa (ConfirmDialog). Server giản lược GeoJSON khi lưu (/api/admin/vms-zones). Nhãn tab đúng khuôn 2 chữ (03 "Nhãn ngang hàng"). -->
 <!-- re-verified: 2026-07-25d — badge lớp nền Hải đồ BỎ "Ảnh {ngày} · chậm ~2 ngày" (user: không cần), chỉ còn "Theo ngày". Giữ 1 dòng ghi chú chung "Ảnh vệ tinh trễ ~2 ngày" ở chân panel. -->
 <!-- re-verified: 2026-07-25e — dải lọc khả năng có cá SÀN 50 (trước 35, user: dưới 50 làm nhiễu): default fishRange [50,100], hard-floor Math.max(50,…) áp cả "Mọi loài" lẫn theo loài, RangeBand min=50. Lõi PFZ tính ≥25 (chỉ lọc HIỂN THỊ ở client). -->
 <!-- re-verified: 2026-07-27 — SÀN HẠ 50→40 (user: dải 40–60 Thấp[xanh lá] / 60–75 TB[vàng] / 75–100 Cao[đỏ] cho lưới ô 3 mức). Sàn CỐ ĐỊNH = FISH_LEVEL_BANDS[0].min (40). ĐÃ BỎ dải lọc kéo-2-đầu + state fishRange + hàm RangeBand (user: không cần) → lưới luôn hiện đủ 3 mức ≥40. Lõi PFZ vẫn tính ≥25. Điểm nóng hồng tâm giữ ngưỡng ≥75 (= mức Cao). -->

@@ -86,14 +86,19 @@ import {
 import { borderGeoJSON } from "@/data/vn-maritime-border";
 import { vungLongGeoJSON } from "@/data/vn-fishing-zones";
 import {
-  vmsAllowedGeoJSON,
-  vmsBottomOnlyGeoJSON,
-  vmsCautionGeoJSON,
-} from "@/data/vms-fishing-zones";
+  fetchPublicVmsZones,
+  STATIC_VMS_ZONES,
+  type VmsZone,
+} from "@/lib/vms-zones";
 import { borderProximity, haversineKm, type BorderLevel } from "@/lib/geofence";
 import { fetchDepthGrid, depthClassAt, type DepthClass } from "@/lib/depth-grid";
 import { weatherFromCode } from "@/lib/weather-codes";
-import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
+import {
+  useMapPrefs,
+  fmtDist,
+  fmtCoordPair,
+  isVmsZoneOn,
+} from "@/lib/map-prefs";
 import { stormStatus } from "@/lib/storms";
 import { useStormCheck } from "@/lib/use-storm-check";
 import {
@@ -183,10 +188,6 @@ const THIS_MONTH = new Date().getMonth() + 1;
 const BORDER_DATA = borderGeoJSON();
 // Ranh giới vùng lộng (NĐ 26/2019) — tĩnh, tạo một lần.
 const VUNG_LONG_DATA = vungLongGeoJSON();
-// 3 vùng biển VMS (SDVico 2026-07-28, đã giản lược) — tĩnh, tạo một lần.
-const VMS_ALLOWED_DATA = vmsAllowedGeoJSON();
-const VMS_CAUTION_DATA = vmsCautionGeoJSON();
-const VMS_BOTTOM_DATA = vmsBottomOnlyGeoJSON();
 
 // màu cảnh báo theo mức gần ranh giới
 const BORDER_LEVEL_STYLE: Record<BorderLevel, { bg: string; fg: string }> = {
@@ -247,6 +248,36 @@ function gridTickLabels(days: number): string[] {
   return ["Bây giờ", `${q1} ngày`, `${q2} ngày`, `${days} ngày`];
 }
 
+/** Lớp bản đồ cho MỘT vùng biển VMS (admin quản lý) — vẽ theo style + màu.
+    fill = nền mờ + viền; line = viền liền; line-dashed = viền nét đứt. */
+function VmsZoneLayers({ zone }: { zone: VmsZone }) {
+  const sid = `vms-${zone.id}`;
+  return (
+    <Source id={sid} type="geojson" data={zone.geojson}>
+      {zone.style === "fill" && (
+        <Layer
+          id={`${sid}-fill`}
+          type="fill"
+          paint={{ "fill-color": zone.color, "fill-opacity": 0.1 }}
+        />
+      )}
+      <Layer
+        id={`${sid}-line`}
+        type="line"
+        layout={{ "line-join": "round" }}
+        paint={{
+          "line-color": zone.color,
+          "line-width": zone.style === "line-dashed" ? 2.5 : 2,
+          "line-opacity": 0.95,
+          ...(zone.style === "line-dashed"
+            ? { "line-dasharray": [2, 1.5] }
+            : {}),
+        }}
+      />
+    </Source>
+  );
+}
+
 export default function FishingMapView() {
   const mapRef = useRef<MapRef>(null);
   const [layerId, setLayerIdState] = useState<OceanLayerId>(initialLayerId);
@@ -260,8 +291,18 @@ export default function FishingMapView() {
   }, []);
   const [seamarksOn, setSeamarksOn] = useState(true);
   const [fishOn, setFishOn] = useState(true);
-  // Ranh giới vùng lộng + 3 vùng VMS: bật/tắt ở panel Cài đặt, NHỚ qua
-  // map-prefs (trước 2026-07-28 vùng lộng là useState — tắt xong mở lại mất).
+  // Ranh giới vùng lộng bật/tắt qua map-prefs. VÙNG BIỂN VMS nay do admin quản
+  // lý (bảng vms_zones): đọc từ DB, chưa cấu hình/lỗi → 3 vùng mặc định tĩnh.
+  const [vmsZones, setVmsZones] = useState<VmsZone[]>(STATIC_VMS_ZONES);
+  useEffect(() => {
+    let alive = true;
+    fetchPublicVmsZones().then((z) => {
+      if (alive && z) setVmsZones(z); // null = fallback tĩnh, giữ nguyên
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // ── lớp số liệu biển (nước dâng/xoáy, độ mặn) — tải khi chọn, nhớ cache ──
   const [scalarKind, setScalarKind] = useState<SeaScalarKind | null>(null);
@@ -1123,69 +1164,18 @@ export default function FishingMapView() {
           </Source>
         )}
 
-        {/* ranh giới VÙNG LỘNG (NĐ 26/2019, cho tàu 12–<15m) — THAM KHẢO, dữ
-            liệu SDVico. Vẽ TRƯỚC ranh giới ngoài để cam-đỏ IUU luôn nổi trên.
-            Màu teal + nét đứt, tách hẳn cam-đỏ độc quyền của ranh giới ngoài. */}
-        {/* 3 VÙNG BIỂN VMS (SDVico 2026-07-28) — THAM KHẢO, vẽ dưới vùng lộng
-            + ranh giới ngoài. Màu tách hẳn cam-đỏ (ranh giới) và teal (lộng):
-            xanh lá = được phép, vàng cam = cần chú ý, tím = chỉ cá đáy. */}
-        {prefs.vmsAllowed && (
-          <Source id="vms-allowed" type="geojson" data={VMS_ALLOWED_DATA}>
-            <Layer
-              id="vms-allowed-fill"
-              type="fill"
-              paint={{ "fill-color": "#16a34a", "fill-opacity": 0.05 }}
-            />
-            <Layer
-              id="vms-allowed-line"
-              type="line"
-              paint={{
-                "line-color": "#16a34a",
-                "line-width": 1.25,
-                "line-opacity": 0.7,
-              }}
-            />
-          </Source>
-        )}
-        {prefs.vmsBottomOnly && (
-          <Source id="vms-bottom" type="geojson" data={VMS_BOTTOM_DATA}>
-            <Layer
-              id="vms-bottom-fill"
-              type="fill"
-              paint={{ "fill-color": "#8b5cf6", "fill-opacity": 0.1 }}
-            />
-            <Layer
-              id="vms-bottom-line"
-              type="line"
-              paint={{
-                "line-color": "#8b5cf6",
-                "line-width": 1.75,
-                "line-dasharray": [3, 2],
-                "line-opacity": 0.9,
-              }}
-            />
-          </Source>
-        )}
-        {prefs.vmsCaution && (
-          <Source id="vms-caution" type="geojson" data={VMS_CAUTION_DATA}>
-            <Layer
-              id="vms-caution-fill"
-              type="fill"
-              paint={{ "fill-color": "#f59e0b", "fill-opacity": 0.12 }}
-            />
-            <Layer
-              id="vms-caution-line"
-              type="line"
-              paint={{
-                "line-color": "#f59e0b",
-                "line-width": 1.75,
-                "line-dasharray": [3, 2],
-                "line-opacity": 0.9,
-              }}
-            />
-          </Source>
+        {/* VÙNG BIỂN VMS (admin quản lý — bảng vms_zones, 2026-07-28) — THAM
+            KHẢO. Danh sách + màu + style do admin đặt ở /quan-tri; mỗi vùng có
+            toggle riêng trong panel Cài đặt (mặc định theo defaultOn). Vẽ TRƯỚC
+            vùng lộng + để cam-đỏ IUU (nếu có) nổi trên. */}
+        {vmsZones.map((zone) =>
+          isVmsZoneOn(prefs.vmsOverrides, zone.id, zone.defaultOn) ? (
+            <VmsZoneLayers key={zone.id} zone={zone} />
+          ) : null,
         )}
 
+        {/* ranh giới VÙNG LỘNG (NĐ 26/2019, cho tàu 12–<15m) — THAM KHẢO, dữ
+            liệu SDVico. Màu teal + nét đứt, tách hẳn cam-đỏ ranh giới ngoài. */}
         {prefs.vungLong && (
           <Source id="vung-long" type="geojson" data={VUNG_LONG_DATA}>
             <Layer
@@ -1206,28 +1196,11 @@ export default function FishingMapView() {
           </Source>
         )}
 
-        {/* đường ranh giới biển VN — cảnh báo vượt vùng (chống IUU).
-            Cam đỏ là MÀU ĐỘC QUYỀN của ranh giới trên bản đồ này. */}
-        <Source id="vn-border" type="geojson" data={BORDER_DATA}>
-          <Layer
-            id="vn-border-casing"
-            type="line"
-            paint={{
-              "line-color": "#ffffff",
-              "line-width": 4,
-              "line-opacity": 0.5,
-            }}
-          />
-          <Layer
-            id="vn-border-line"
-            type="line"
-            paint={{
-              "line-color": "#e4572e",
-              "line-width": 2,
-              "line-dasharray": [2, 1.5],
-            }}
-          />
-        </Source>
+        {/* Đường ranh giới 75 điểm cũ (cam-đỏ nét đứt) ĐÃ XÓA khỏi bản đồ
+            (user chốt 2026-07-28: "biên giới mới = đường 1+2+3" = hợp 3 vùng
+            VMS ở trên). LƯU Ý: dữ liệu VN_MARITIME_BORDER + geofence cảnh báo
+            IUU (borderProximity) VẪN CÒN trong code — chỉ bỏ phần VẼ, cảnh báo
+            khoảng cách tới ranh giới không bị ảnh hưởng. */}
 
         {/* (đã bỏ viền 7 vùng khoanh sẵn — dự báo cá nay tính TOÀN BỘ vùng
             biển VN, không còn giới hạn trong các đa giác; viền cũ gây hiểu lầm
@@ -1583,6 +1556,7 @@ export default function FishingMapView() {
             if (k == null) setPlaying(false);
             else setGridFailed(false);
           }}
+          vmsZones={vmsZones}
           fishOn={fishOn}
           onFish={setFishOn}
           fishSpecies={fishSpecies}

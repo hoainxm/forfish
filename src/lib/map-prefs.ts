@@ -19,12 +19,13 @@ export interface MapPrefs {
   mapGrid: boolean;
   /** Ranh giới vùng lộng (NĐ 26/2019, tàu 12–<15m) — nét đứt teal */
   vungLong: boolean;
-  /** Vùng VMS: được phép đánh bắt (viền + nền xanh lá nhạt) */
-  vmsAllowed: boolean;
-  /** Vùng VMS: cần chú ý khi đánh bắt (quanh Hoàng Sa/Trường Sa, vàng cam) */
-  vmsCaution: boolean;
-  /** Vùng VMS: chỉ được đánh cá đáy (giáp VN–Indonesia, tím) */
-  vmsBottomOnly: boolean;
+  /**
+   * Ghi đè bật/tắt vùng biển VMS theo id (vùng do admin quản lý, danh sách
+   * động). KHÔNG có id trong map = dùng `defaultOn` của vùng. Bà con bật/tắt
+   * thì lưu override ở đây; đổi vùng mặc định bên admin vẫn tôn trọng lựa chọn
+   * cũ của từng người.
+   */
+  vmsOverrides: Record<string, boolean>;
 }
 
 const KEY = "forfish.mapPrefs.v1";
@@ -33,9 +34,7 @@ const DEFAULT: MapPrefs = {
   coordFormat: "dd",
   mapGrid: true,
   vungLong: true,
-  vmsAllowed: true,
-  vmsCaution: true,
-  vmsBottomOnly: true,
+  vmsOverrides: {},
 };
 const KM_PER_NM = 1.852;
 
@@ -55,9 +54,10 @@ function load(): MapPrefs {
       // các lớp ranh giới mặc định bật; chỉ tắt khi đã lưu false
       mapGrid: p.mapGrid !== false,
       vungLong: p.vungLong !== false,
-      vmsAllowed: p.vmsAllowed !== false,
-      vmsCaution: p.vmsCaution !== false,
-      vmsBottomOnly: p.vmsBottomOnly !== false,
+      vmsOverrides:
+        p.vmsOverrides && typeof p.vmsOverrides === "object"
+          ? (p.vmsOverrides as Record<string, boolean>)
+          : {},
     };
   } catch {
     return DEFAULT;
@@ -95,6 +95,23 @@ function getSnapshot(): MapPrefs {
 
 export function useMapPrefs(): MapPrefs {
   return useSyncExternalStore(subscribe, getSnapshot, () => DEFAULT);
+}
+
+// ── VÙNG BIỂN VMS (bật/tắt theo id) ─────────────────────────────────────────
+
+/** Vùng có đang hiện không: override của bà con (nếu có), không thì defaultOn. */
+export function isVmsZoneOn(
+  overrides: Record<string, boolean>,
+  id: string,
+  defaultOn: boolean,
+): boolean {
+  return id in overrides ? overrides[id] : defaultOn;
+}
+
+/** Lưu bật/tắt một vùng VMS (ghi override). */
+export function setVmsZoneOn(id: string, on: boolean) {
+  ensure();
+  setMapPrefs({ vmsOverrides: { ...state.vmsOverrides, [id]: on } });
 }
 
 // ── ĐƠN VỊ KHOẢNG CÁCH ─────────────────────────────────────────────────────
