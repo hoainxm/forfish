@@ -18,6 +18,10 @@
 import { saveForecast, loadForecast } from "@/lib/forecast-cache";
 import { apiUrl } from "@/lib/api-base";
 import {
+  scalarSnapshotId,
+  SNAPSHOT_GRID_DAYS,
+} from "@/lib/weather-snapshot-id";
+import {
   gridPoints,
   stepHourIndices,
   GRID_N_LAT,
@@ -167,9 +171,33 @@ export async function fetchScalarField(
     );
     return all[kind];
   } catch (err) {
+    // live lỗi (429/mất mạng): bản trong máy trước; chưa có mà là khung MIỄN
+    // PHÍ d3 → snapshot server do cron tính sẵn (pattern forecast-grid).
     const hit = loadForecast<ScalarGrid>(SCALAR_NS, cacheId(kind, days));
     if (hit) return { ...hit.data, stale: true, savedAt: hit.savedAt };
+    if (days === SNAPSHOT_GRID_DAYS) {
+      const snap = await loadScalarSnapshotClient(kind, days);
+      if (snap) return { ...snap, stale: true, savedAt: null };
+    }
     throw err;
+  }
+}
+
+/** LƯỚI AN TOÀN: snapshot lớp dải màu d3 do cron tính sẵn — null nếu chưa có */
+async function loadScalarSnapshotClient(
+  kind: OMKind,
+  days: number,
+): Promise<ScalarGrid | null> {
+  try {
+    const r = await fetch(
+      apiUrl(`/api/weather-snapshot?id=${scalarSnapshotId(kind, days)}`),
+      { signal: AbortSignal.timeout(10000) },
+    );
+    if (!r.ok) return null;
+    const g = (await r.json()) as ScalarGrid;
+    return g && Array.isArray(g.times) && g.times.length > 0 ? g : null;
+  } catch {
+    return null;
   }
 }
 

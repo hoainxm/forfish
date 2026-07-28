@@ -2,22 +2,28 @@ import { describe, expect, it } from "vitest";
 import {
   seaSnapshotId,
   gridSnapshotId,
+  scalarSnapshotId,
   isValidSnapshotId,
   SNAPSHOT_GRID_DAYS,
 } from "@/lib/weather-snapshot-id";
 
 describe("weather-snapshot id — khoá + whitelist", () => {
-  it("dựng khoá cảng / lưới đúng dạng", () => {
+  it("dựng khoá cảng / lưới / lớp dải màu đúng dạng", () => {
     expect(seaSnapshotId("phu-quy")).toBe("sea:phu-quy");
     expect(gridSnapshotId(3)).toBe("grid:d3");
     expect(gridSnapshotId(SNAPSHOT_GRID_DAYS)).toBe("grid:d3");
+    expect(scalarSnapshotId("cloud", 3)).toBe("scalar:cloud:d3");
   });
 
-  it("chấp nhận đúng 2 dạng khoá hợp lệ", () => {
+  it("chấp nhận đúng 3 dạng khoá hợp lệ", () => {
     expect(isValidSnapshotId("sea:phu-quy")).toBe(true);
     expect(isValidSnapshotId("sea:cua_lo")).toBe(true);
     expect(isValidSnapshotId("grid:d3")).toBe(true);
     expect(isValidSnapshotId("grid:d16")).toBe(true);
+    // 5 lớp dải màu Open-Meteo (KHÔNG có salinity — đã server-side riêng)
+    for (const k of ["cloud", "rain", "airtemp", "storm", "pressure"]) {
+      expect(isValidSnapshotId(`scalar:${k}:d3`)).toBe(true);
+    }
   });
 
   it("chặn id lạ (khỏi thành proxy đọc bảng tuỳ ý)", () => {
@@ -28,6 +34,9 @@ describe("weather-snapshot id — khoá + whitelist", () => {
     expect(isValidSnapshotId("grid:x")).toBe(false);
     expect(isValidSnapshotId("sea:phu-quy;drop")).toBe(false);
     expect(isValidSnapshotId("SEA:phu-quy")).toBe(false); // hoa
+    expect(isValidSnapshotId("scalar:salinity:d3")).toBe(false); // không public
+    expect(isValidSnapshotId("scalar:cloud:x")).toBe(false);
+    expect(isValidSnapshotId("scalar:evil:d3")).toBe(false);
   });
 
   it("khung snapshot công khai chỉ là d3 (miễn phí)", () => {

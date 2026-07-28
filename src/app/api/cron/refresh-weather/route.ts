@@ -1,10 +1,12 @@
 import { PORTS } from "@/data/ports";
 import { fetchSeaLive } from "@/lib/sea";
 import { fetchForecastGridLive } from "@/lib/forecast-grid";
+import { fetchScalarFieldsLive, type OMKind } from "@/lib/scalar-field";
 import { saveWeatherSnapshot } from "@/lib/weather-snapshot";
 import {
   seaSnapshotId,
   gridSnapshotId,
+  scalarSnapshotId,
   SNAPSHOT_GRID_DAYS,
 } from "@/lib/weather-snapshot-id";
 
@@ -54,9 +56,28 @@ export async function GET(req: Request) {
     gridOk = false;
   }
 
+  // Lớp DẢI MÀU (mây/mưa/nhiệt/dông/áp suất) — MỘT fetch Open-Meteo ra cả 5
+  // kind, lưu 5 snapshot khung miễn phí d3. Lưới an toàn cho 429 (2026-07-29).
+  let scalarOk = 0;
+  try {
+    const fields = await fetchScalarFieldsLive(SNAPSHOT_GRID_DAYS);
+    for (const kind of Object.keys(fields) as OMKind[]) {
+      if (
+        await saveWeatherSnapshot(
+          scalarSnapshotId(kind, SNAPSHOT_GRID_DAYS),
+          fields[kind],
+        )
+      )
+        scalarOk++;
+    }
+  } catch {
+    scalarOk = 0;
+  }
+
   return Response.json({
-    ok: seaOk > 0 || gridOk,
+    ok: seaOk > 0 || gridOk || scalarOk > 0,
     sea: { ok: seaOk, failed: seaFail, total: PORTS.length },
     grid: { d: SNAPSHOT_GRID_DAYS, ok: gridOk },
+    scalar: { d: SNAPSHOT_GRID_DAYS, ok: scalarOk, total: 5 },
   });
 }

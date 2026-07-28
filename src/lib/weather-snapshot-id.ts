@@ -21,7 +21,22 @@ export function gridSnapshotId(days: number): string {
 /** Khung ngày lưới được phép snapshot công khai (chỉ miễn phí) */
 export const SNAPSHOT_GRID_DAYS = 3;
 
-/** Chặn id lạ trước khi đụng DB / trả về client (whitelist đúng 2 dạng) */
+/**
+ * Lớp DẢI MÀU Open-Meteo (mây/mưa/nhiệt/dông/áp suất) theo khung ngày — cùng
+ * luật với lưới gió: CHỈ snapshot khung MIỄN PHÍ d3. Vì sao cần (2026-07-29):
+ * lưới mở 156 điểm × 5 biến làm request live NẶNG theo cách Open-Meteo tính
+ * trọng số — dính 429 khi gọi dày; snapshot server là lưới an toàn khi live lỗi.
+ * (Độ mặn KHÔNG ở đây — Copernicus đã server-side qua /api/salinity.)
+ */
+export function scalarSnapshotId(kind: string, days: number): string {
+  return `scalar:${kind}:d${days}`;
+}
+
+/** Chặn id lạ trước khi đụng DB / trả về client (whitelist đúng 3 dạng) */
 export function isValidSnapshotId(id: string): boolean {
-  return /^sea:[a-z0-9_-]+$/.test(id) || /^grid:d\d+$/.test(id);
+  return (
+    /^sea:[a-z0-9_-]+$/.test(id) ||
+    /^grid:d\d+$/.test(id) ||
+    /^scalar:(cloud|rain|airtemp|storm|pressure):d\d+$/.test(id)
+  );
 }
