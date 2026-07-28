@@ -27,9 +27,11 @@ import {
   type BoatProfile,
   type LatLon,
   type RoutePlan,
+  type WeatherField,
 } from "@/lib/route-plan";
 import { planRouteAsync } from "@/lib/route-plan-async";
 import { fetchWeatherField } from "@/lib/route-weather";
+import { savedAgoLabel } from "@/lib/forecast-cache";
 import { routeStormConflict, STORM_SAFE_RADIUS_KM } from "@/lib/route-storm";
 import type { StormAlert } from "@/lib/storms";
 import { fetchDepthGrid } from "@/lib/depth-grid";
@@ -40,6 +42,7 @@ import {
   AnchorIcon,
   ClockIcon,
   FuelIcon,
+  PlayIcon,
   RouteIcon,
 } from "@/components/icons";
 
@@ -168,6 +171,7 @@ export function RoutePlanner({
   places = [],
   storms = [],
   onRoute,
+  onStart,
 }: {
   dest: LatLon;
   /** tuyến đang vẽ trên bản đồ (có thể tới điểm CŨ — xem ghi chú dưới) */
@@ -180,6 +184,8 @@ export function RoutePlanner({
       chưa hỏi được → mảng rỗng → không chặn (không có dữ liệu để nói). */
   storms?: StormAlert[];
   onRoute: (r: PlannedRoute | null) => void;
+  /** Bắt đầu DẪN ĐƯỜNG LIVE theo tuyến vừa tính (bám tuyến, theo dõi GPS) */
+  onStart?: (r: PlannedRoute) => void;
 }) {
   const prefs = useMapPrefs();
   const [open, setOpen] = useState(false);
@@ -193,6 +199,11 @@ export function RoutePlanner({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PlannedRoute | null>(null);
+  // Mất sóng: tuyến tính từ lưới Windy ĐÃ LƯU (thô hơn, không dòng chảy) — giữ
+  // mốc lưu để nói thật với bà con. null = tính từ dự báo mới (online).
+  const [offlineSavedAt, setOfflineSavedAt] = useState<number | null | undefined>(
+    undefined,
+  );
 
   /*
     Đổi ĐÍCH (chạm chỗ khác trên bản đồ) — hội đồng UX 2026-06-11: KHÔNG
@@ -203,6 +214,7 @@ export function RoutePlanner({
   useEffect(() => {
     setResult(null);
     setError(null);
+    setOfflineSavedAt(undefined);
   }, [dest.lat, dest.lon]);
 
   // tuyến trên bản đồ đang trỏ tới điểm KHÁC chỗ đang xem?
@@ -303,6 +315,8 @@ export function RoutePlanner({
         Math.min(420, Math.max(200, dist * 1.1)),
       ];
       let plan: RoutePlan | null = null;
+      // lưới đã dùng cho tuyến CHỌN: 'grid' = lùi về bản lưu offline → báo thật
+      let chosenField: WeatherField | null = null;
       for (const m of margins) {
         const bbox = clampBBox(bboxFor(start, dest, m));
         const [field, depth] = await Promise.all([
@@ -313,7 +327,10 @@ export function RoutePlanner({
         plan = await planRouteAsync({
           start, dest, boat, departHourIdx, field, depth, bbox,
         });
-        if (plan) break;
+        if (plan) {
+          chosenField = field;
+          break;
+        }
       }
       if (!plan) {
         setError(
@@ -338,11 +355,19 @@ export function RoutePlanner({
         onRoute(null);
         return;
       }
+      // Lùi về lưới đã lưu (offline) → nhớ mốc lưu để banner nói thật; dự báo
+      // mới (online) → xóa cờ. source undefined = 'live'.
+      setOfflineSavedAt(
+        chosenField?.source === "grid" ? chosenField.savedAt ?? null : undefined,
+      );
       const r: PlannedRoute = { plan, start, startLabel, dest };
       setResult(r);
       onRoute(r);
     } catch {
-      setError("Chưa lấy được dự báo cho tuyến — mạng có thể đang yếu, thử lại giúp.");
+      setError(
+        "Chưa lấy được dự báo cho tuyến và trong máy chưa có lưới đã lưu. " +
+          "Mở màn Ra khơi lúc còn sóng để máy tự tải sẵn gió sóng, rồi thử lại.",
+      );
     } finally {
       setBusy(false);
     }
@@ -351,6 +376,7 @@ export function RoutePlanner({
   function clearRoute() {
     setResult(null);
     setError(null);
+    setOfflineSavedAt(undefined);
     onRoute(null);
   }
 
@@ -503,6 +529,15 @@ export function RoutePlanner({
 
       {plan && result && (
         <>
+          {offlineSavedAt !== undefined && (
+            <p className="flex items-start gap-2 rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
+              <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+              Đang mất sóng — tuyến tính từ lưới gió sóng ĐÃ LƯU trong máy
+              {offlineSavedAt != null ? ` (${savedAgoLabel(offlineSavedAt)})` : ""}.
+              Lưới này thô hơn dự báo tuyến và CHƯA tính dòng chảy — chỉ để tham
+              khảo hướng đi; nghe đài duyên hải, dò hải đồ trước khi chạy.
+            </p>
+          )}
           <p className="text-[0.9375rem] font-semibold text-foreground/70">
             {result.startLabel} →{" "}
             {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)} — tuyến đã vẽ
@@ -629,6 +664,19 @@ export function RoutePlanner({
             đáy máy KHÔNG thấy được) — chỉ để tham khảo; con nước sát bờ có
             thể lệch. Bà con dò hải đồ và nghe đài duyên hải trước khi chạy.
           </p>
+
+          {/* DẪN ĐƯỜNG LIVE: bám tuyến, theo dõi GPS. Chỉ hiện khi cha nối
+              onStart (màn bản đồ) và tuyến đã tính xong (result). */}
+          {onStart && result && (
+            <button
+              type="button"
+              onClick={() => onStart(result)}
+              className="flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
+            >
+              <PlayIcon className="h-6 w-6" />
+              Bắt đầu dẫn đường
+            </button>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <button

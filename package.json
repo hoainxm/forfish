@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "e2e:build": "node scripts/e2e-build.mjs",
+    "e2e:videos": "playwright test",
     "icons": "node scripts/generate-icons.mjs",
     "cap:sync": "cap sync",
     "cap:open:ios": "cap open ios",
@@ -26,6 +28,7 @@
   "devDependencies": {
     "@capacitor/cli": "^8.4.0",
     "@capacitor/core": "^8.4.0",
+    "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

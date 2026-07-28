@@ -81,6 +81,11 @@ const N_LAT = 10;
 export const GRID_STEP_LAT_DEG = (LAT_MAX - LAT_MIN) / (N_LAT - 1); // ≈ 1,70°
 export const GRID_STEP_LON_DEG = (LON_MAX - LON_MIN) / (N_LON - 1); // ≈ 2,11°
 
+/** Số điểm lưới mỗi chiều — export để dựng WeatherField offline cho DẪN ĐƯỜNG
+    (route-weather.ts lùi về lưới này khi mất sóng). Đổi khung ở trên là đủ. */
+export const GRID_N_LAT = N_LAT;
+export const GRID_N_LON = N_LON;
+
 /**
  * TRẦN SNAP = NỬA BƯỚC LƯỚI, tính RIÊNG từng chiều. Xa hơn thì ô lưới KHÔNG CÒN
  * PHỦ chỗ bà con vừa chạm → cấm lấy số của nó (chỗ chạm thuộc ô KHÁC, dán số ô

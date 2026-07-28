@@ -83,6 +83,9 @@ import {
   RoutePlanner,
   type PlannedRoute,
 } from "@/components/route-planner";
+import { NavHud, NavBoatMarker } from "@/components/nav-mode";
+import { useNavTracking } from "@/lib/use-nav-tracking";
+import { computeNavProgress } from "@/lib/nav-progress";
 import { borderGeoJSON } from "@/data/vn-maritime-border";
 import { vungLongGeoJSON } from "@/data/vn-fishing-zones";
 import {
@@ -755,6 +758,8 @@ export default function FishingMapView() {
   const [dayIdx, setDayIdx] = useState(0);
   // tuyến dẫn đường tiết kiệm dầu (route-planner.tsx) — vẽ đè lên bản đồ
   const [route, setRoute] = useState<PlannedRoute | null>(null);
+  // DẪN ĐƯỜNG LIVE: tuyến đang chạy theo (bám tuyến + theo dõi GPS). null = tắt
+  const [navMode, setNavMode] = useState<PlannedRoute | null>(null);
   // hạng độ sâu tại điểm đang xem (null = chưa biết/không cảnh báo)
   const [depth, setDepth] = useState<DepthClass | null>(null);
 
@@ -869,6 +874,40 @@ export default function FishingMapView() {
       },
     );
   }, []);
+
+  // ── DẪN ĐƯỜNG LIVE ────────────────────────────────────────────────────
+  // Theo dõi GPS khi đang dẫn đường; tính tiến trình bám tuyến; camera bám tàu.
+  const tracking = useNavTracking(navMode != null);
+  const navProgress = useMemo(
+    () =>
+      navMode && tracking.pos
+        ? computeNavProgress({
+            pos: tracking.pos,
+            headingDeg: tracking.headingDeg,
+            speedKmh: tracking.speedKmh,
+            waypoints: navMode.plan.waypoints,
+          })
+        : null,
+    [navMode, tracking.pos, tracking.headingDeg, tracking.speedKmh],
+  );
+
+  // camera bám vị trí tàu mỗi khi có fix mới (chỉ khi định vị còn tốt — mất
+  // định vị thì GIỮ NGUYÊN khung, không giật camera theo vị trí cũ)
+  useEffect(() => {
+    if (navMode && tracking.pos && tracking.status === "tracking") {
+      flyToPoint(tracking.pos.lon, tracking.pos.lat);
+    }
+  }, [navMode, tracking.pos, tracking.status, flyToPoint]);
+
+  const startNav = useCallback(
+    (r: PlannedRoute) => {
+      setNavMode(r);
+      setRoute(r); // đảm bảo tuyến đang vẽ đúng tuyến đang dẫn
+      setSize("peek"); // để bản đồ + HUD lộ tối đa
+    },
+    [setSize],
+  );
+  const stopNav = useCallback(() => setNavMode(null), []);
 
   // độ sâu tại điểm đang xem — lưới tĩnh, đọc cục bộ
   useEffect(() => {
@@ -1465,6 +1504,15 @@ export default function FishingMapView() {
         {/* tuyến dẫn đường tiết kiệm dầu + điểm xuất phát */}
         <RouteMapLayers route={route} />
 
+        {/* DẪN ĐƯỜNG LIVE: chấm tàu + mũi tên hướng (mờ khi mất định vị) */}
+        {navMode && (
+          <NavBoatMarker
+            pos={tracking.pos}
+            headingDeg={tracking.headingDeg}
+            stale={tracking.status === "lost"}
+          />
+        )}
+
         {/* công cụ ĐO: đường nối 2 điểm + mốc số thứ tự */}
         {measurePts.length === 2 && (
           <Source
@@ -1529,11 +1577,22 @@ export default function FishingMapView() {
           Về peek thì hiện lại. */}
       <div
         className={`safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2 transition-opacity duration-200 ${
-          size === "peek" ? "opacity-100" : "opacity-0 [&_*]:pointer-events-none"
+          size === "peek" || navMode
+            ? "opacity-100"
+            : "opacity-0 [&_*]:pointer-events-none"
         }`}
-        aria-hidden={size !== "peek"}
+        aria-hidden={size !== "peek" && !navMode}
       >
         <StormBanner variant="overlay" />
+        {/* DẪN ĐƯỜNG LIVE: thẻ HUD LUÔN hiện khi đang dẫn đường (kể cả kéo sheet
+            lên) — dưới banner bão. Gợi ý lái + quãng/giờ còn lại + nút Dừng. */}
+        {navMode && (
+          <NavHud
+            progress={navProgress}
+            status={tracking.status}
+            onStop={stopNav}
+          />
+        )}
         {/* TẢI SẴN DỰ BÁO: tự chạy khi vào trang (không còn nút bấm), báo một
             dòng nhỏ rồi tự tắt — xem components/pretrip-auto-notify.tsx */}
         <PretripAutoNotify points={pretripPoints} />
@@ -2396,6 +2455,7 @@ export default function FishingMapView() {
                 places={places}
                 storms={storms}
                 onRoute={handleRoute}
+                onStart={startNav}
               />
 
 

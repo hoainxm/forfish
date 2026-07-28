@@ -321,6 +321,16 @@ export function PinIcon(p: IconProps) {
   );
 }
 
+// Mũi tên điều hướng — CHỈ THẲNG LÊN (12h) để xoay theo heading bằng CSS
+// transform:rotate(headingDeg). Dùng cho marker tàu lúc dẫn đường live.
+export function NavArrowIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M12 3 19 20l-7-4-7 4 7-17Z" />
+    </svg>
+  );
+}
+
 export function DepthIcon(p: IconProps) {
   return (
     <svg {...base(p)}>

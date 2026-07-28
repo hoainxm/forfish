@@ -150,6 +150,15 @@ export type WeatherField = {
   nLon: number;
   /** row-major i*nLon+j, i theo vĩ độ tăng dần */
   cells: WeatherCellSeries[];
+  /**
+   * Nguồn lưới: 'live' = Open-Meteo mới (mặc định, undefined) · 'grid' = dựng
+   * từ lưới Windy ĐÃ LƯU trong máy lúc mất sóng (route-weather.offlineFieldFromGrid).
+   * Bản 'grid' THÔ hơn (~2° thay vì ~0,35°) và KHÔNG có dòng chảy/chu kỳ sóng —
+   * UI phải nói thật (memory: "dữ liệu cũ đội lốt mới" là lỗi nặng nhất).
+   */
+  source?: "live" | "grid";
+  /** epoch ms lúc lưới offline được lưu — chỉ có nghĩa khi source='grid' */
+  savedAt?: number | null;
 };
 
 const EMPTY_HOUR: HourSample = {

@@ -415,6 +415,31 @@ Thứ tự `fetchWeatherField`: (1) live Open-Meteo (cache RAM 45' như cũ) →
 
 **C. Vì sao KHÔNG persist riêng lưới tuyến**: giữ đúng triết lý pretrip ("KHÔNG thêm nguồn/kho mới — xài lại thứ đã có"). Lưới Windy đã được pretrip tải cho CẢ vùng biển 3/7/16 ngày; tuyến chỉ mượn lại. Không tốn thêm dung lượng máy bà con, không đội thêm lượt tải lúc còn ở bờ.
 
+### 10.7 DẪN ĐƯỜNG LIVE — "Bắt đầu dẫn đường", bám tuyến theo GPS (2026-07-28)
+
+CTA **"Bắt đầu dẫn đường"** trong mockup đã duyệt (`design-review/07`) nay thành chế độ THẬT. Vẽ xong tuyến (§10.6) → panel kết quả có nút **"Bắt đầu dẫn đường"** (`route-planner.tsx`, prop `onStart`, chỉ hiện khi màn bản đồ nối vào). Bấm → theo dõi GPS, **bám tuyến đã vẽ** (dẫn tới khúc rẽ kế tiếp — tôn trọng đường vòng né sóng/cạn, KHÔNG chim bay cắt vào vùng vừa né), tính quãng + giờ còn lại tới đích. Chạy hoàn toàn trên máy bằng GPS — **không cần mạng** (khớp offline §10.6). Vị trí CHỈ nằm trên máy, KHÔNG gửi đi đâu (chia sẻ vị trí VMS cho người nhà = việc tương lai).
+
+**A. Logic thuần** `lib/nav-progress.ts` (có test `nav-progress.test.ts`): `projectOntoRoute` (chiếu vị trí lên polyline → lệch tuyến + quãng dọc-tuyến), `computeNavProgress` (quãng/giờ còn lại, waypoint kế tiếp, gợi ý lái, tới nơi). Tái dùng `haversineKm`/`bearingDeg`/`angleDiffDeg`/`windDirectionVN`. Hằng: `ARRIVE_KM=0.4`, `OFF_ROUTE_WARN_KM=2`, `MIN_MOVING_KMH=0.9`.
+
+**B. Vòng đời GPS** `lib/use-nav-tracking.ts`: `watchPosition` (thay one-shot cũ). Hướng: `coords.heading` khi đang chạy → suy từ 2 fix (>15 m) → giữ hướng cũ. Tốc độ: `coords.speed` → suy từ 2 fix (chặn nhiễu >74 km/h). **Giữ màn hình sáng** bằng Wake Lock (xin khi vào chế độ, nhả khi dừng, xin lại on `visibilitychange`). Bọc try/catch — máy không hỗ trợ thì bỏ qua êm.
+
+**C. TRUNG THỰC — 3 trạng thái** (mẫu §10.1 / `use-storm-check`):
+
+| Trạng thái | Điều kiện | HUD |
+|---|---|---|
+| Đang dẫn | có fix mới < 10 s | số chạy bình thường |
+| **Mất định vị** | không fix mới > 10 s / lỗi | nền warn "Mất định vị — đang tìm lại. Số dưới là lần cuối, chưa phải vị trí bây giờ", **làm mờ số + marker**, camera GIỮ NGUYÊN (không giật theo vị trí cũ); watch vẫn chạy, thử lại on `visibilitychange`/`online` |
+| **Máy từ chối định vị** | permission denied / không GPS | nền warn "Bật định vị (GPS) trên máy rồi mở lại" (không câm) |
+
+- **Tàu chưa chạy** (tốc độ < ngưỡng) → ô giờ hiện "—" + "tàu chưa chạy", KHÔNG bịa giờ tới. **Chưa bắt được hướng** → "Đang bắt hướng đi…", KHÔNG vẽ mũi tên giả.
+
+**D. HUD + marker** `components/nav-mode.tsx`:
+- `NavHud`: thẻ `.surface` nổi TRÊN CÙNG (dưới banner bão), **LUÔN hiện khi đang dẫn đường** kể cả kéo sheet lên (override auto-hide của vùng overlay). Dòng lớn: gợi ý lái ("Đi thẳng" / "Chếch phải" / "Rẽ trái") + mũi tên xoay + hướng đi VN; hai ô: **còn lại** (`fmtDist`) · **giờ còn chạy** (`formatHoursVN`); cảnh báo "Đang lệch tuyến ~X — lái về đường xanh" khi `offRoute`; "Đã tới gần điểm đến" khi `arrived`; dòng dặn "Chỉ tham khảo — không thay máy định vị của tàu, dò hải đồ, nghe đài duyên hải"; nút **"Dừng dẫn đường"** to (≥56px) luôn thấy.
+- `NavBoatMarker`: chấm tàu + `NavArrowIcon` xoay theo hướng (chấm tròn khi chưa có hướng), làm mờ khi mất định vị.
+- **Follow-camera**: mỗi fix `flyTo` bám tàu (bắc-lên, không xoay bản đồ). Vào chế độ = `setSize("peek")` để map lộ tối đa. Route line giữ **xanh** (không cam-đỏ).
+
+**E. Ngoài phạm vi bản này**: tự tính lại tuyến khi lệch (chỉ CẢNH BÁO); xoay bản đồ heading-up; đọc chỉ dẫn bằng giọng; chia sẻ vị trí cho người nhà (VMS); ghi lại hành trình.
+
 ---
 
 **Last updated**: 2026-06-16
