@@ -256,6 +256,61 @@ cá đổi thật — ô màu, điểm nóng và số trong sheet đều lấy t
 Hệ quả cần theo dõi: ngày xa bản đồ THƯA và NHẠT hơn hẳn (gần hết hồng tâm ≥75) — trung thực nhưng nếu
 muốn ngày xa vẫn "nói được gì" thì chỉnh NGƯỠNG HIỂN THỊ, KHÔNG chỉnh w (w là số đo, không phải nút vặn).
 
+## 5e. v2 — CHUẨN HOÁ PHÂN VỊ, và câu trả lời thật cho "mùa vụ có đẻ ra vị trí mới không?"
+
+Chủ dự án hỏi đúng chỗ đau (2026-07-28): *"thông tin mùa vụ nó không tạo ra các vị trí mới à?
+thấy gần như chỉ giảm cái chỉ số của ảnh vệ tinh?"* — **ĐÚNG**. Đo bằng
+`scripts/fish-blend-audit.mjs` rồi sửa; dưới đây là toàn bộ sự thật, kể cả phần không đẹp.
+
+**Bản v1 sai ở đâu (2 lớp):**
+1. Bản mùa vụ dựng trên nền nhiệt/phù du TRUNG BÌNH nhiều năm ⇒ các FRONT (ranh nước — thứ đẻ
+   ra điểm cao) bị làm mượt mất ⇒ thang điểm BỊ NÉN (tháng 7: p90 40 / max 59 so với bản đồ
+   ngày p90 44 / max 62).
+2. Lưới cá chỉ chứa ô ≥25 điểm nên vòng lặp chạy trên DANH SÁCH Ô CỦA ẢNH — chỗ nào ảnh chê thì
+   không có mặt để mà nâng.
+⇒ Kết quả đo: **0 ô mới ở mọi tầm ngày**, và về toán học là không thể (muốn một ô mới chạm sàn
+hiển thị 40 ở ngày 16 thì mùa vụ phải ≥88 điểm, trong khi cao nhất cả năm là 64).
+
+**ĐÍNH CHÍNH cách đọc kết quả v1**: con số "+4–9 % RMSE thắng persistence" là THẬT nhưng bản
+chất là **hiệu ứng hạ độ tự tin** (kéo mọi điểm về trung bình thì sai số bình phương giảm), KHÔNG
+phải "tìm thêm được chỗ có cá". RMSE là thước đo sai cho câu hỏi này.
+
+**v2 đã sửa** (`lib/fish-blend.ts`): `buildClimScaleMap` quy điểm mùa vụ về ĐÚNG thang phân bố
+của bản đồ ngày bằng PHÂN VỊ (giữ nguyên thứ tự, chỉ kéo giãn biên độ); `blendFishCells` pha trên
+HỢP hai tập ô, ô chỉ-có-ở-mùa-vụ lấy `ABSENT_PERSIST = 12` làm điểm ảnh (vắng mặt nghĩa là <25,
+không phải =0). Thêm thước đo đúng: **top-100 hit** — trong 100 ô app cho điểm cao nhất, bao
+nhiêu ô nằm trong 100 ô cao nhất THẬT của ngày đó.
+
+| tầm ngày | 1 | 2 | 3 | 5 | 8 | 11 | 16 |
+|---|---|---|---|---|---|---|---|
+| **% mùa vụ gánh** (1−w) | 6 % | 9 % | 12 % | 15 % | 16 % | 18 % | **20 %** |
+| top-100 hit — **pha** | 80,9 | 73,4 | **69,9** | 65,1 | **61,5** | **60,6** | **56,9** |
+| top-100 hit — ảnh thuần | 81,7 | 73,4 | 69,6 | 65,2 | 60,1 | 59,0 | 54,9 |
+| top-100 hit — mùa vụ thuần | 52,1 | 51,1 | 52,0 | 52,4 | 51,8 | 54,4 | 52,4 |
+
+**Đọc bảng này cho đúng:**
+- Pha trộn **CHỈ ĐÚNG CHỖ HƠN ảnh thuần ở ngày 3, 8, 11, 16** (+1,4 → +2,0 điểm phần trăm ở tầm
+  xa). Ngày 1–2 thì hoà hoặc kém chút ⇒ đúng như thiết kế: gần thì đừng đụng vào ảnh.
+- Tỷ lệ mùa vụ **TĂNG DẦN theo ngày** (6 % → 20 %) đúng yêu cầu chủ dự án; có test khoá.
+- Mùa vụ thuần chỉ đạt ~52 % và **KHÔNG rữa theo ngày** — nó có thông tin thật, chỉ là ít.
+
+**NHƯNG — vẫn KHÔNG có ô mới nào HIỆN RA** (đo trên lưới thật 2138 ô): mọi tầm ngày đều
+**0 ô mới ≥40**. Lý do không phải lỗi code nữa mà là DỮ LIỆU NÓI THẾ: hồi quy chỉ cho mùa vụ
+20 % trọng số ngay cả ở ngày 16, nên ô mới cao nhất cũng chỉ ~22 điểm, dưới sàn hiển thị 40.
+Nói cách khác: **chỗ nào ảnh vệ tinh hôm nay chê thì thường là chê đúng** — tương quan hạng của
+ảnh với sự thật vẫn 0,51 ở ngày 16, cao hơn mùa vụ (0,45). Ép mùa vụ nặng tay hơn sẽ làm kết quả
+XẤU đi ở cả RMSE lẫn top-100.
+
+⇒ **Kết luận trung thực**: mùa vụ KHÔNG đẻ ra ngư trường mới; giá trị thật của nó là **xếp lại
+thứ tự** các chỗ đã có, đáng ~2 điểm phần trăm ở tầm xa. Bản v2 giữ lại vì tốt hơn v1 ở MỌI trục
+đo (thang điểm đúng, bản đồ ngày xa bớt bị nhạt: ô ≥40 còn 681/748 thay vì tụt sâu, top-100 tốt
+hơn). 48 ô mùa-vụ-sinh vẫn nằm trong payload dù chưa hiện — hữu ích cho màn lộ trình sau này
+(chạm điểm ở chỗ ảnh không có vẫn ra được con số tham khảo).
+
+**Nếu sau này muốn ngày xa thật sự gợi ý chỗ khác** thì đòn bẩy KHÔNG phải tăng w — mà là (a) hạ
+sàn hiển thị riêng cho ngày xa, hoặc (b) làm bản mùa vụ tốt hơn (dựng front từ composite từng
+ngày rồi mới trung bình, thay vì trung bình rồi mới tính front — chính chỗ làm mất front).
+
 ## 5c. Lưu lộ trình + offline so vị trí (chốt #3, #4)
 
 **Lưu lộ trình** (sau khi tính xong, 1 nút "Lưu chuyến này"):

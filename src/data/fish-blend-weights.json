@@ -1,56 +1,56 @@
 {
-  "generatedAt": "2026-07-28T10:54:54.382Z",
+  "generatedAt": "2026-07-28T13:33:47.038Z",
   "seasonSplit": {
     "verdict": "KHÔNG đáng tách mùa — bảng chung tốt ngang hoặc hơn khi kiểm chéo; giữ MỘT bảng cho gọn",
     "perLead": [
       {
         "lead": 1,
-        "wNE": 0.771,
-        "wSW": 0.839,
-        "diff": 0.067,
-        "cvGainPct": -2.36
+        "wNE": 0.937,
+        "wSW": 0.934,
+        "diff": 0.003,
+        "cvGainPct": -0.93
       },
       {
         "lead": 2,
-        "wNE": 0.741,
-        "wSW": 0.775,
-        "diff": 0.033,
-        "cvGainPct": -2.6
+        "wNE": 0.935,
+        "wSW": 0.898,
+        "diff": 0.037,
+        "cvGainPct": -0.84
       },
       {
         "lead": 3,
-        "wNE": 0.64,
-        "wSW": 0.749,
-        "diff": 0.109,
-        "cvGainPct": -3.8
+        "wNE": 0.87,
+        "wSW": 0.891,
+        "diff": 0.02,
+        "cvGainPct": -1.81
       },
       {
         "lead": 5,
-        "wNE": 0.611,
-        "wSW": 0.691,
-        "diff": 0.08,
-        "cvGainPct": -4.1
+        "wNE": 0.85,
+        "wSW": 0.848,
+        "diff": 0.002,
+        "cvGainPct": -1.74
       },
       {
         "lead": 8,
-        "wNE": 0.566,
-        "wSW": 0.657,
-        "diff": 0.091,
-        "cvGainPct": -4.49
+        "wNE": 0.846,
+        "wSW": 0.834,
+        "diff": 0.012,
+        "cvGainPct": -1.87
       },
       {
         "lead": 11,
-        "wNE": 0.557,
-        "wSW": 0.621,
-        "diff": 0.064,
-        "cvGainPct": -5.31
+        "wNE": 0.848,
+        "wSW": 0.813,
+        "diff": 0.035,
+        "cvGainPct": -2.23
       },
       {
         "lead": 16,
-        "wNE": 0.456,
-        "wSW": 0.577,
-        "diff": 0.12,
-        "cvGainPct": -6.53
+        "wNE": 0.785,
+        "wSW": 0.798,
+        "diff": 0.013,
+        "cvGainPct": -3.54
       }
     ]
   },
@@ -97,7 +97,7 @@
     "2025-10-10"
   ],
   "guard": {
-    "spread": 0.276,
+    "spread": 0.14,
     "degenerate": false,
     "verdict": "OK — w phân biệt rõ theo tầm ngày"
   },
@@ -110,90 +110,118 @@
     11,
     16
   ],
+  "topKWinsOverPersistence": [
+    3,
+    8,
+    11,
+    16
+  ],
+  "topK": 100,
   "perLead": [
     {
       "lead": 1,
-      "w": 0.823,
-      "n": 30764,
+      "w": 0.935,
+      "n": 33916,
       "origins": 16,
-      "rmseBlend": 5.92,
-      "rmsePersist": 6.24,
-      "rmseClim": 11,
-      "cvGainVsPersistPct": 4.35,
-      "cvGainVsClimPct": 42.99,
-      "wRaw": 0.823
+      "hitBlendPct": 80.9,
+      "hitPersistPct": 81.7,
+      "hitClimPct": 52.1,
+      "rmseBlend": 3.61,
+      "rmsePersist": 3.68,
+      "rmseClim": 10.75,
+      "cvGainVsPersistPct": 1.55,
+      "cvGainVsClimPct": 65.54,
+      "wRaw": 0.935
     },
     {
       "lead": 2,
-      "w": 0.767,
-      "n": 31044,
+      "w": 0.907,
+      "n": 34075,
       "origins": 16,
-      "rmseBlend": 6.99,
-      "rmsePersist": 7.48,
-      "rmseClim": 11.16,
-      "cvGainVsPersistPct": 6.17,
-      "cvGainVsClimPct": 34.48,
-      "wRaw": 0.767
+      "hitBlendPct": 73.4,
+      "hitPersistPct": 73.4,
+      "hitClimPct": 51.1,
+      "rmseBlend": 4.52,
+      "rmsePersist": 4.63,
+      "rmseClim": 10.82,
+      "cvGainVsPersistPct": 2.1,
+      "cvGainVsClimPct": 57.22,
+      "wRaw": 0.907
     },
     {
       "lead": 3,
-      "w": 0.722,
-      "n": 31276,
+      "w": 0.885,
+      "n": 34125,
       "origins": 16,
-      "rmseBlend": 7.5,
-      "rmsePersist": 8.14,
-      "rmseClim": 11.13,
-      "cvGainVsPersistPct": 6.86,
-      "cvGainVsClimPct": 28.65,
-      "wRaw": 0.722
+      "hitBlendPct": 69.9,
+      "hitPersistPct": 69.6,
+      "hitClimPct": 52,
+      "rmseBlend": 4.96,
+      "rmsePersist": 5.12,
+      "rmseClim": 10.81,
+      "cvGainVsPersistPct": 2.21,
+      "cvGainVsClimPct": 52.26,
+      "wRaw": 0.885
     },
     {
       "lead": 5,
-      "w": 0.672,
-      "n": 31585,
+      "w": 0.848,
+      "n": 34084,
       "origins": 16,
-      "rmseBlend": 7.8,
-      "rmsePersist": 8.66,
-      "rmseClim": 10.95,
-      "cvGainVsPersistPct": 8.98,
-      "cvGainVsClimPct": 24.92,
-      "wRaw": 0.672
+      "hitBlendPct": 65.1,
+      "hitPersistPct": 65.2,
+      "hitClimPct": 52.4,
+      "rmseBlend": 5.35,
+      "rmsePersist": 5.6,
+      "rmseClim": 10.64,
+      "cvGainVsPersistPct": 4.12,
+      "cvGainVsClimPct": 48.09,
+      "wRaw": 0.848
     },
     {
       "lead": 8,
-      "w": 0.635,
-      "n": 31866,
+      "w": 0.837,
+      "n": 34271,
       "origins": 16,
-      "rmseBlend": 8.79,
-      "rmsePersist": 9.74,
-      "rmseClim": 11.41,
-      "cvGainVsPersistPct": 8.66,
-      "cvGainVsClimPct": 18.85,
-      "wRaw": 0.635
+      "hitBlendPct": 61.5,
+      "hitPersistPct": 60.1,
+      "hitClimPct": 51.8,
+      "rmseBlend": 5.99,
+      "rmsePersist": 6.25,
+      "rmseClim": 10.88,
+      "cvGainVsPersistPct": 3.6,
+      "cvGainVsClimPct": 43.16,
+      "wRaw": 0.837
     },
     {
       "lead": 11,
-      "w": 0.605,
-      "n": 32373,
+      "w": 0.822,
+      "n": 34326,
       "origins": 16,
-      "rmseBlend": 9.21,
-      "rmsePersist": 10.27,
-      "rmseClim": 11.55,
-      "cvGainVsPersistPct": 8.45,
-      "cvGainVsClimPct": 15.68,
-      "wRaw": 0.605
+      "hitBlendPct": 60.6,
+      "hitPersistPct": 59,
+      "hitClimPct": 54.4,
+      "rmseBlend": 6.38,
+      "rmsePersist": 6.67,
+      "rmseClim": 10.96,
+      "cvGainVsPersistPct": 3.67,
+      "cvGainVsClimPct": 39.81,
+      "wRaw": 0.822
     },
     {
       "lead": 16,
-      "w": 0.547,
-      "n": 33042,
+      "w": 0.795,
+      "n": 34507,
       "origins": 16,
-      "rmseBlend": 10.69,
-      "rmsePersist": 11.9,
-      "rmseClim": 12.42,
-      "cvGainVsPersistPct": 7.45,
-      "cvGainVsClimPct": 8.89,
-      "wRaw": 0.547
+      "hitBlendPct": 56.9,
+      "hitPersistPct": 54.9,
+      "hitClimPct": 52.4,
+      "rmseBlend": 7.44,
+      "rmsePersist": 7.77,
+      "rmseClim": 11.39,
+      "cvGainVsPersistPct": 2.6,
+      "cvGainVsClimPct": 31.79,
+      "wRaw": 0.795
     }
   ]
 }

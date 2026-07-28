@@ -129,7 +129,7 @@ const climBuf = {};
 for (let m = 1; m <= 12; m++)
   climBuf[m] = CLIM.months?.[m] ? Buffer.from(CLIM.months[m], "base64") : null;
 
-function climScore(key, month) {
+function climRaw(key, month) {
   const buf = climBuf[month];
   if (!buf) return 0;
   const [lat, lon] = key.split(",").map(Number);
@@ -138,6 +138,46 @@ function climScore(key, month) {
   if (i < 0 || i >= CLIM.nLat || j < 0 || j >= CLIM.nLon) return 0;
   return buf[i * CLIM.nLon + j] ?? 0;
 }
+
+/* CHUẨN HOÁ PHÂN VỊ (v2, 2026-07-28) — PHẢI khớp buildClimScaleMap trong
+   src/lib/fish-blend.ts. Bản mùa vụ dựng trên nền trung bình nhiều năm nên
+   thang điểm bị NÉN; không quy về thang bản đồ ngày thì nó chỉ biết kéo xuống,
+   không bao giờ đẩy được ô nào lên (đo: 0 ô mới ở mọi tầm — fish-blend-audit). */
+function buildScale(month, dayScores) {
+  const identity = new Uint8Array(101);
+  for (let i = 0; i <= 100; i++) identity[i] = i;
+  const buf = climBuf[month];
+  if (!buf || !dayScores.length) return identity;
+  const ch = new Int32Array(101);
+  let nc = 0;
+  for (const v of buf) if (v > 0) (ch[Math.min(100, v)]++, nc++);
+  const dh = new Int32Array(101);
+  let nd = 0;
+  for (const v of dayScores)
+    if (v > 0) (dh[Math.max(0, Math.min(100, Math.round(v)))]++, nd++);
+  if (!nc || !nd) return identity;
+  const dayAtPct = [];
+  { let acc = 0, sIdx = 0;
+    for (let step = 0; step <= 1000; step++) {
+      const p = step / 1000;
+      while (sIdx <= 100 && (acc + dh[sIdx]) / nd < p) { acc += dh[sIdx]; sIdx++; }
+      dayAtPct.push(Math.min(100, sIdx));
+    } }
+  const out = new Uint8Array(101);
+  let acc = 0;
+  for (let v = 0; v <= 100; v++) {
+    if (v === 0) { out[0] = 0; continue; }
+    const p = (acc + ch[v] / 2) / nc;
+    acc += ch[v];
+    out[v] = ch[v] === 0 ? out[v - 1] : dayAtPct[Math.round(p * 1000)];
+  }
+  for (let v = 1; v <= 100; v++) if (out[v] < out[v - 1]) out[v] = out[v - 1];
+  return out;
+}
+
+/** Ô vắng mặt trong lưới cá = điểm < KEEP_MIN(25), KHÔNG phải 0 — khớp
+    ABSENT_PERSIST trong src/lib/fish-blend.ts */
+const ABSENT_PERSIST = 12;
 
 /* ── chọn mốc gốc T rải đều mùa + năm ─────────────────────────────────────── */
 function pickOrigins(n) {
@@ -170,15 +210,31 @@ for (const T of origins) {
       scoreMap(target, m), // sự thật: ảnh ngày T+d
     ]);
     if (!persist || !truth) continue;
+    // thang quy đổi dựng trên phân bố của CHÍNH bản đồ ngày T (đúng như runtime)
+    const scale = buildScale(m, [...persist.values()]);
+    // HỢP ba tập: ô ảnh ∪ ô sự thật ∪ ô mùa vụ (ô mùa vụ mới là chỗ đẻ vị trí mới)
     const keys = new Set([...persist.keys(), ...truth.keys()]);
+    for (let i = 0; i < CLIM.nLat; i++)
+      for (let j = 0; j < CLIM.nLon; j++) {
+        if (!climBuf[m] || !climBuf[m][i * CLIM.nLon + j]) continue;
+        const lat = Math.round((CLIM.lat0 + i * CLIM.dLat) * 100) / 100;
+        const lon = Math.round((CLIM.lon0 + j * CLIM.dLon) * 100) / 100;
+        keys.add(`${lat},${lon}`);
+      }
     const a = [];
     const b = [];
+    const P = [];
+    const C = [];
+    const Y = [];
     for (const k of keys) {
-      const c = climScore(k, m);
-      a.push((persist.get(k) ?? 0) - c);
-      b.push((truth.get(k) ?? 0) - c);
+      const c = scale[Math.min(100, climRaw(k, m))] ?? 0;
+      const pv = persist.has(k) ? persist.get(k) : ABSENT_PERSIST;
+      const tv = truth.has(k) ? truth.get(k) : ABSENT_PERSIST;
+      a.push(pv - c);
+      b.push(tv - c);
+      P.push(pv); C.push(c); Y.push(tv);
     }
-    perLead.get(d).push({ origin: T, a, b });
+    perLead.get(d).push({ origin: T, a, b, P, C, Y });
     process.stdout.write(".");
   }
 }
@@ -210,6 +266,25 @@ function rmse(samples, w) {
       n++;
     }
   return n ? Math.sqrt(se / n) : NaN;
+}
+
+/* ── THƯỚC ĐO "CHỈ ĐÚNG CHỖ" (top-K) ─────────────────────────────────────────
+   RMSE thưởng cho việc đoán AN TOÀN (kéo mọi ô về trung bình là sai số giảm),
+   nên nó KHÔNG trả lời được câu "app có chỉ đúng chỗ đáng đi không". Đo thêm:
+   lấy K ô app cho điểm cao nhất, xem bao nhiêu ô nằm trong K ô CAO NHẤT THẬT.
+   So ba bản: chỉ ảnh (w=1) · chỉ mùa vụ (w=0) · pha với w đã fit. */
+const TOP_K = 100;
+function hitK(sample, w) {
+  const n = sample.Y.length;
+  const idx = Array.from({ length: n }, (_, i) => i);
+  const pred = idx.map((i) => w * sample.P[i] + (1 - w) * sample.C[i]);
+  const topPred = [...idx].sort((x, y) => pred[y] - pred[x]).slice(0, TOP_K);
+  const topTrue = new Set(
+    [...idx].sort((x, y) => sample.Y[y] - sample.Y[x]).slice(0, TOP_K),
+  );
+  let hit = 0;
+  for (const i of topPred) if (topTrue.has(i)) hit++;
+  return hit / TOP_K;
 }
 
 const rows = [];
@@ -245,11 +320,18 @@ for (const d of LEADS) {
         clim: cvClim / folds,
       }
     : null;
+  const meanHit = (ww) =>
+    Math.round(
+      (samples.reduce((acc, s) => acc + hitK(s, ww), 0) / samples.length) * 1000,
+    ) / 10;
   rows.push({
     lead: d,
     w: Math.round(w * 1000) / 1000,
     n,
     origins: byOrigin.length,
+    hitBlendPct: meanHit(w),
+    hitPersistPct: meanHit(1),
+    hitClimPct: meanHit(0),
     rmseBlend: Math.round(rmse(samples, w) * 100) / 100,
     rmsePersist: Math.round(rmse(samples, 1) * 100) / 100,
     rmseClim: Math.round(rmse(samples, 0) * 100) / 100,
@@ -275,14 +357,20 @@ console.table(
   rows.map((r) => ({
     lead: r.lead,
     w: r.w,
-    wRaw: r.wRaw,
     n: r.n,
     rmseBlend: r.rmseBlend,
     rmsePersist: r.rmsePersist,
-    rmseClim: r.rmseClim,
     "cv%vsPersist": r.cvGainVsPersistPct,
-    "cv%vsClim": r.cvGainVsClimPct,
+    "top100 pha": r.hitBlendPct,
+    "top100 ảnh": r.hitPersistPct,
+    "top100 mùa": r.hitClimPct,
   })),
+);
+const hitWins = rows.filter((r) => (r.hitBlendPct ?? 0) > (r.hitPersistPct ?? 0)).map((r) => r.lead);
+console.log(
+  hitWins.length
+    ? `CHỈ ĐÚNG CHỖ: pha thắng ảnh-thuần ở tầm ${hitWins.join(", ")} ngày`
+    : "CHỈ ĐÚNG CHỖ: pha KHÔNG thắng ảnh-thuần ở tầm nào — nói thẳng, đừng giữ cho có",
 );
 
 /* ── GUARD always-on-term ─────────────────────────────────────────────────── */
@@ -406,6 +494,8 @@ const out = {
   origins,
   guard,
   cvWinsOverPersistence: wins,
+  topKWinsOverPersistence: hitWins,
+  topK: TOP_K,
   perLead: rows,
 };
 mkdirSync(dirname(OUT), { recursive: true });

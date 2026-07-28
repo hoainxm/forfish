@@ -68,8 +68,7 @@ import {
 } from "@/lib/fish-predict";
 import {
   fetchClimatology,
-  blendScore,
-  climScoreAt,
+  blendFishCells,
   BLEND_USABLE,
   type Climatology,
 } from "@/lib/fish-blend";
@@ -953,21 +952,10 @@ export default function FishingMapView() {
     if (daysAhead <= 0 || !clim || !BLEND_USABLE) return fishCast;
     const month = Number((sel?.date ?? todayIso).slice(5, 7));
     if (!Number.isFinite(month) || month < 1 || month > 12) return fishCast;
-    const cells = fishCast.cells.map((c) => {
-      const climS = climScoreAt(clim, c.lat, c.lon, month);
-      const s = blendScore(c.s, climS, daysAhead);
-      let sp = c.sp;
-      if (c.sp && c.s > 0 && s !== c.s) {
-        const k = s / c.s;
-        sp = Object.fromEntries(
-          Object.entries(c.sp).map(([name, v]) => [
-            name,
-            Math.max(0, Math.min(100, Math.round(v * k))),
-          ]),
-        );
-      }
-      return { ...c, s, sp };
-    });
+    // v2: quy điểm mùa vụ về ĐÚNG thang bản đồ ngày (phân vị) rồi pha trên HỢP
+    // hai tập ô — bản v1 chỉ chạy trên danh sách ô của ảnh nên mùa vụ chỉ biết
+    // kéo xuống, KHÔNG bao giờ đẻ được vị trí mới (đo: 0 ô mới ở mọi tầm).
+    const cells = blendFishCells(fishCast.cells, clim, month, daysAhead);
     return { ...fishCast, cells };
   }, [fishCast, clim, daysAhead, sel?.date, todayIso]);
 
@@ -2049,45 +2037,47 @@ export default function FishingMapView() {
                     </span>
                   </p>
                 ))}
-              <div className="flex items-center gap-2">
-                {/* Không đủ dữ liệu (bản từ lưới) thì KHÔNG chấm tình trạng
-                    biển — chỉ nói ngày, số gió/sóng để ngay dưới. */}
-                {sel.level && (
-                  <>
-                    <span
-                      className="h-3.5 w-3.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: LEVEL_STYLE[sel.level].fg }}
-                      aria-hidden
-                    />
-                    <span
-                      className="display text-[1.1875rem] font-bold leading-snug"
-                      style={{ color: LEVEL_STYLE[sel.level].fg }}
-                    >
-                      {SEA_STATE[sel.level]}
+              <div className="flex items-start gap-2">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+                  {/* Không đủ dữ liệu (bản từ lưới) thì KHÔNG chấm tình trạng
+                      biển — chỉ nói ngày, số gió/sóng để ngay dưới. */}
+                  {sel.level && (
+                    <>
+                      <span
+                        className="h-3.5 w-3.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: LEVEL_STYLE[sel.level].fg }}
+                        aria-hidden
+                      />
+                      <span
+                        className="display text-[1.1875rem] font-bold leading-snug"
+                        style={{ color: LEVEL_STYLE[sel.level].fg }}
+                      >
+                        {SEA_STATE[sel.level]}
+                      </span>
+                    </>
+                  )}
+                  {/* KHÔNG lặp nhãn ngày ở tiêu đề — đã có trong ô chọn ngày
+                      (chip đang chọn). Chỉ khi bản dựng từ lưới (không chấm được
+                      tình trạng biển) mới lấy tên ngày làm tiêu đề. */}
+                  {!sel.level && (
+                    <span className="display text-[1.1875rem] font-bold leading-snug text-navy">
+                      {dayLabel(sel.date, todayIso)}
                     </span>
-                  </>
-                )}
-                <span
-                  className={
-                    sel.level
-                      ? "text-[0.9375rem] font-semibold text-foreground/70"
-                      : "display text-[1.1875rem] font-bold leading-snug text-navy"
-                  }
-                >
-                  {sel.level
-                    ? `— ${dayLabel(sel.date, todayIso).toLowerCase()}`
-                    : dayLabel(sel.date, todayIso)}
-                </span>
+                  )}
+                </div>
+                {/* nơi đang xem + toạ độ XẾP CHỒNG ở góc phải — gộp hai dòng vào
+                    một góc, bớt một hàng cho panel gọn (user 2026-07-28) */}
+                <div className="flex shrink-0 flex-col items-end pt-1 text-right">
+                  <span className="text-[0.8125rem] leading-snug text-foreground/70">
+                    {whereLine}
+                  </span>
+                  <span className="whitespace-nowrap text-[0.75rem] font-semibold tabular-nums leading-snug text-foreground/55">
+                    {fmtCoordPair(point.lat, point.lon, prefs.coordFormat)}
+                  </span>
+                </div>
               </div>
               <p className="text-[0.9375rem] font-semibold leading-snug text-foreground/80">
                 {condSummary}
-              </p>
-              <p className="text-[0.8125rem] leading-snug text-foreground/70">
-                {whereLine}
-              </p>
-              {/* toạ độ điểm đang xem — luôn thấy ở peek, đọc vào máy định vị */}
-              <p className="mt-0.5 text-[0.75rem] font-semibold tabular-nums leading-snug text-foreground/55">
-                Toạ độ: {fmtCoordPair(point.lat, point.lon, prefs.coordFormat)}
               </p>
               {atHome && (
                 <p className="mt-1 text-[0.875rem] font-semibold text-t1">
@@ -2118,6 +2108,99 @@ export default function FishingMapView() {
                     Dự báo cá là tính năng nâng cao — Gọi SDVICO →
                   </a>
                 )
+              )}
+              {/* THANH NGÀY hiện luôn ở peek (mặc định), không đợi nở sheet —
+                  chọn xem trước ngày nào, gió/sóng dự báo tới 16 ngày (dải cuộn
+                  ngang; độ tin theo tầm ngày + skill đo hiện khi nở) */}
+              {cond && today && (
+                <>
+                  <div
+                    className="-mx-1 mt-1.5 flex gap-2 overflow-x-auto px-1 pb-1"
+                    role="group"
+                    aria-label="Chọn ngày xem dự báo"
+                    // trong vùng vuốt của SnapSheet (touch-action:none) — mở lại
+                    // cuộn ngang cho dải ngày và chặn cử chỉ nở/thu sheet
+                    style={{ touchAction: "pan-x" }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    {cond.days.map((d, i) => {
+                      const active = i === selIdx;
+                      // ngày đã qua (bản lưu trong máy) — mờ đi, không cho chọn
+                      const past = isPastDay(d.date, todayIso);
+                      // ngày 4+ là premium: chip vẫn hiện (biết còn dự báo xa để
+                      // muốn) nhưng KHÔNG hiện số — chạm ra một dòng mời
+                      const locked = dayChipLocked(d.date);
+                      return (
+                        <button
+                          key={d.date}
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={() => {
+                            if (locked) {
+                              setDayLockNote(true);
+                              return;
+                            }
+                            setDayLockNote(false);
+                            setDayIdx(i);
+                          }}
+                          disabled={past}
+                          aria-pressed={active}
+                          aria-disabled={locked || undefined}
+                          className={`flex min-h-[3.75rem] min-w-[4.875rem] shrink-0 flex-col items-center justify-center rounded-xl px-2 transition active:scale-[0.97] ${
+                            active ? "bg-navy text-white shadow-sm" : "bg-field"
+                          } ${past ? "opacity-40" : ""}`}
+                        >
+                          <span
+                            className={`text-[0.8125rem] font-bold leading-tight ${
+                              active ? "text-white/85" : "text-foreground/70"
+                            }`}
+                          >
+                            {chipLabel(d.date, todayIso)}
+                          </span>
+                          {locked ? (
+                            <LockIcon
+                              className="h-4 w-4 text-foreground/45"
+                              aria-hidden
+                            />
+                          ) : (
+                            <span
+                              className="display text-[1rem] font-bold leading-tight"
+                              style={{
+                                color: active
+                                  ? "#fff"
+                                  : d.level
+                                    ? LEVEL_STYLE[d.level].fg
+                                    : "var(--navy)",
+                              }}
+                            >
+                              {d.waveMaxM > 0
+                                ? `${formatNumberVN(d.waveMaxM)} m`
+                                : `gió c${beaufort(d.windMaxKmh)}`}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {dayLockNote && premiumLocked && (
+                    <p className="mt-1 rounded-xl bg-field/80 px-3 py-2.5 text-[0.875rem] font-semibold leading-snug text-foreground/75">
+                      Xem quá {FREE_FORECAST_DAYS} ngày là tính năng của tài khoản
+                      nâng cao —{" "}
+                      {premiumAccess === "login" ? (
+                        <Link href="/login" className="font-bold text-trim">
+                          Đăng nhập →
+                        </Link>
+                      ) : (
+                        <a
+                          href={`tel:${SDVICO_HOTLINE}`}
+                          className="font-bold text-trim"
+                        >
+                          gọi SDVICO nâng cấp →
+                        </a>
+                      )}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           ) : null
@@ -2159,92 +2242,8 @@ export default function FishingMapView() {
 
           {cond && cond.onSea && today && sel && (
             <>
-              {/* chọn xem trước ngày nào — gió/sóng dự báo được tới 16 ngày
-                  (dải cuộn ngang; độ tin theo tầm ngày + skill đo hiện ở dưới) */}
-              <div
-                className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
-                role="group"
-                aria-label="Chọn ngày xem dự báo"
-              >
-                {cond.days.map((d, i) => {
-                  const active = i === selIdx;
-                  // ngày đã qua (bản lưu trong máy) — mờ đi, không cho chọn
-                  const past = isPastDay(d.date, todayIso);
-                  // ngày 4+ là premium: chip vẫn hiện (biết còn dự báo xa để
-                  // muốn) nhưng KHÔNG hiện số — chạm ra một dòng mời
-                  const locked = dayChipLocked(d.date);
-                  return (
-                    <button
-                      key={d.date}
-                      type="button"
-                      onClick={() => {
-                        if (locked) {
-                          setDayLockNote(true);
-                          return;
-                        }
-                        setDayLockNote(false);
-                        setDayIdx(i);
-                      }}
-                      disabled={past}
-                      aria-pressed={active}
-                      aria-disabled={locked || undefined}
-                      className={`flex min-h-[3.75rem] min-w-[4.875rem] shrink-0 flex-col items-center justify-center rounded-xl px-2 transition active:scale-[0.97] ${
-                        active
-                          ? "bg-navy text-white shadow-sm"
-                          : "bg-field"
-                      } ${past ? "opacity-40" : ""}`}
-                    >
-                      <span
-                        className={`text-[0.8125rem] font-bold leading-tight ${
-                          active ? "text-white/85" : "text-foreground/70"
-                        }`}
-                      >
-                        {chipLabel(d.date, todayIso)}
-                      </span>
-                      {locked ? (
-                        <LockIcon
-                          className="h-4 w-4 text-foreground/45"
-                          aria-hidden
-                        />
-                      ) : (
-                      <span
-                        className="display text-[1rem] font-bold leading-tight"
-                        style={{
-                          color: active
-                            ? "#fff"
-                            : d.level
-                              ? LEVEL_STYLE[d.level].fg
-                              : "var(--navy)",
-                        }}
-                      >
-                        {d.waveMaxM > 0
-                          ? `${formatNumberVN(d.waveMaxM)} m`
-                          : `gió c${beaufort(d.windMaxKmh)}`}
-                      </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              {dayLockNote && premiumLocked && (
-                <p className="rounded-xl bg-field/80 px-3 py-2.5 text-[0.875rem] font-semibold leading-snug text-foreground/75">
-                  Xem quá {FREE_FORECAST_DAYS} ngày là tính năng của tài khoản
-                  nâng cao —{" "}
-                  {premiumAccess === "login" ? (
-                    <Link href="/login" className="font-bold text-trim">
-                      Đăng nhập →
-                    </Link>
-                  ) : (
-                    <a
-                      href={`tel:${SDVICO_HOTLINE}`}
-                      className="font-bold text-trim"
-                    >
-                      gọi SDVICO nâng cấp →
-                    </a>
-                  )}
-                </p>
-              )}
-
+              {/* THANH NGÀY đã dời LÊN peek (hiện luôn mặc định) — ở body không
+                  lặp lại nữa; body bắt đầu thẳng bằng số đỉnh cả ngày. */}
               {/* MAX cả ngày đã chọn (giật) — peek phía trên đã có tình trạng
                   + tóm tắt, đây chỉ thêm số đỉnh để khỏi trùng (user: trùng dữ liệu) */}
               <p
