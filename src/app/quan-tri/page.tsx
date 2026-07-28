@@ -2910,9 +2910,10 @@ function PushNotificationsTab() {
       )}
       {stats && !stats.configured && (
         <p className="surface px-4 py-3 text-[0.875rem] font-semibold text-danger">
-          Máy chủ chưa cấu hình VAPID — set env VAPID_PUBLIC_KEY /
-          VAPID_PRIVATE_KEY / VAPID_SUBJECT (và NEXT_PUBLIC_VAPID_PUBLIC_KEY
-          khớp VAPID_PUBLIC_KEY) rồi redeploy.
+          Chưa cấu hình khoá VAPID. Dán 3 khoá ngay trong tab{" "}
+          <span className="underline">Hệ thống → Cấu hình ứng dụng</span> (lưu
+          vào DB, áp dụng ngay, KHÔNG cần env Vercel / redeploy). Tạo khoá bằng:
+          npx web-push generate-vapid-keys.
         </p>
       )}
 
@@ -3375,12 +3376,163 @@ function Row({
   );
 }
 
+// Cấu hình ứng dụng lưu DB (app_config) — thay lệ thuộc env máy chủ deploy.
+type ConfigRow = {
+  key: string;
+  label: string;
+  secret: boolean;
+  help?: string;
+  source: "db" | "env" | "none";
+  set: boolean;
+  value: string | null;
+};
+
+function AppConfigCard() {
+  const [rows, setRows] = useState<ConfigRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setError(null);
+    fetch(apiUrl("/api/admin/app-config"))
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok: boolean;
+          code?: string;
+          keys?: ConfigRow[];
+        };
+        if (!j.ok) throw new Error(j.code ?? "load");
+        setRows(j.keys ?? []);
+      })
+      .catch((e: Error) =>
+        setError(
+          e.message === "admin_only"
+            ? "Chỉ admin xem/sửa được cấu hình."
+            : "Chưa tải được cấu hình — thử lại.",
+        ),
+      );
+  }, []);
+  useEffect(load, [load]);
+
+  async function save(key: string) {
+    const value = drafts[key] ?? "";
+    if (!value.trim()) return;
+    setBusy(key);
+    setSaved(null);
+    try {
+      const r = await fetch(apiUrl("/api/admin/app-config"), {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key, value }),
+      });
+      const j = (await r.json()) as { ok: boolean };
+      if (!j.ok) throw new Error();
+      setDrafts((d) => ({ ...d, [key]: "" }));
+      setSaved(key);
+      load();
+    } catch {
+      setError("Không lưu được — thử lại.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const badge = (s: ConfigRow["source"]) =>
+    s === "db"
+      ? { t: "DB ✓", c: "bg-ok-bg text-ok" }
+      : s === "env"
+        ? { t: "env (host)", c: "bg-field text-foreground/70" }
+        : { t: "chưa đặt", c: "bg-danger-bg text-danger" };
+
+  return (
+    <div className="surface p-4">
+      <p className="display text-[1.125rem] font-bold text-navy">
+        Cấu hình ứng dụng
+      </p>
+      <p className="mt-0.5 text-[0.875rem] text-foreground/70">
+        Dán khoá/cấu hình vào đây (lưu DB) để KHÔNG lệ thuộc env máy chủ deploy —
+        áp dụng ngay, không cần redeploy. DB đè lên env cùng tên.
+      </p>
+      {error && (
+        <p className="mt-2 text-[0.875rem] font-semibold text-danger">{error}</p>
+      )}
+      {rows === null && !error && (
+        <p className="mt-2 text-[0.875rem] text-foreground/60">Đang tải…</p>
+      )}
+      <div className="mt-3 space-y-3">
+        {rows?.map((row) => {
+          const b = badge(row.source);
+          return (
+            <div key={row.key} className="rounded-xl bg-field/50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[0.9375rem] font-bold text-navy">
+                  {row.label}
+                </span>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[0.75rem] font-semibold ${b.c}`}
+                >
+                  {b.t}
+                </span>
+              </div>
+              {row.help && (
+                <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
+                  {row.help}
+                </p>
+              )}
+              {!row.secret && row.value && (
+                <p className="mt-1 truncate text-[0.8125rem] text-foreground/70">
+                  Hiện tại: {row.value}
+                </p>
+              )}
+              {row.secret && row.set && (
+                <p className="mt-1 text-[0.8125rem] text-foreground/60">
+                  Đã đặt (ẩn) — nhập mới để thay.
+                </p>
+              )}
+              <div className="mt-2 flex gap-2">
+                <input
+                  type={row.secret ? "password" : "text"}
+                  value={drafts[row.key] ?? ""}
+                  onChange={(e) =>
+                    setDrafts((d) => ({ ...d, [row.key]: e.target.value }))
+                  }
+                  placeholder={
+                    row.source === "none"
+                      ? "Dán giá trị…"
+                      : "Dán giá trị mới để thay…"
+                  }
+                  className="min-w-0 flex-1 rounded-lg border border-line bg-card px-3 py-2 text-[0.875rem]"
+                />
+                <button
+                  type="button"
+                  disabled={busy === row.key || !(drafts[row.key] ?? "").trim()}
+                  onClick={() => save(row.key)}
+                  className="shrink-0 rounded-lg bg-sea px-4 py-2 text-[0.875rem] font-bold text-white disabled:opacity-50"
+                >
+                  {busy === row.key
+                    ? "Đang lưu…"
+                    : saved === row.key
+                      ? "Đã lưu ✓"
+                      : "Lưu"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SystemTab({ health }: { health: Health }) {
   const env = health.env;
   const db = health.db;
 
   return (
     <div className="mt-4 space-y-4">
+      <AppConfigCard />
       <ul className="surface overflow-hidden">
         <Row
           ok={env?.supabase ?? false}

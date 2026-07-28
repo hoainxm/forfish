@@ -8,6 +8,7 @@ import { BellIcon, ChevronRightIcon, UsersIcon } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthUser } from "@/lib/use-auth";
 import {
+  fetchVapidPublicKey,
   getExistingPushSubscription,
   isPushSupported,
   subscribeToPush,
@@ -41,10 +42,6 @@ function prettyPhone(p: string): string {
   return local.replace(/(\d{4})(\d{3})(\d{0,3})/, "$1 $2 $3").trim();
 }
 
-// NEXT_PUBLIC_* inline lúc build — vắng thì tắt hẳn khối "Bật thông báo"
-// (Phase 3, 2026-07-28) thay vì hiện nút bấm không chạy được.
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-
 type PushUiState =
   | "checking"
   | "off"
@@ -60,17 +57,29 @@ export function HeroAccount() {
   const [mode, setMode] = useState<Mode>("gon");
   const [pushState, setPushState] = useState<PushUiState>("checking");
   const [pushError, setPushError] = useState<string | null>(null);
+  // Khoá VAPID lấy RUNTIME (DB-trước rồi env) — undefined = đang lấy.
+  const [vapidKey, setVapidKey] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     if (!isPushSupported()) {
       setPushState("unsupported");
       return;
     }
-    if (!VAPID_PUBLIC_KEY) {
-      setPushState("unconfigured");
-      return;
-    }
-    getExistingPushSubscription().then((sub) => setPushState(sub ? "on" : "off"));
+    let alive = true;
+    fetchVapidPublicKey().then((key) => {
+      if (!alive) return;
+      setVapidKey(key);
+      if (!key) {
+        setPushState("unconfigured");
+        return;
+      }
+      getExistingPushSubscription().then(
+        (sub) => alive && setPushState(sub ? "on" : "off"),
+      );
+    });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   async function togglePush() {
@@ -81,8 +90,9 @@ export function HeroAccount() {
       setPushState("off");
       return;
     }
+    if (!vapidKey) return; // chưa cấu hình khoá — nút đã ẩn/không bật
     setPushState("busy");
-    const r = await subscribeToPush(VAPID_PUBLIC_KEY!, phone);
+    const r = await subscribeToPush(vapidKey, phone);
     if (r.ok) {
       setPushState("on");
       return;
