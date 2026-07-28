@@ -2125,7 +2125,7 @@ export default function FishingMapView() {
               {/* thanh giờ gió/sóng/mây/mưa/nhiệt XUỐNG ĐÁY kiểu Windy — tay với
                   tới, không chồng 4 tầng trên đầu bản đồ (roadmap UX 2026-06-11) */}
               {overlayOn && (
-                <div className="pointer-events-auto surface px-3 py-1.5 shadow-md">
+                <div className="pointer-events-auto glass px-3 py-1.5">
               {/* LUÔN HIỆN khi mở lớp (kiểu Windy) — bỏ thu gọn/auto-hide; strip
                   gọn: 1 dòng tiêu đề + play, rồi dải ngày + thanh dải màu (user
                   2026-07-28). Thanh dải màu KHÔNG bao giờ ẩn khi lớp đang bật. */}

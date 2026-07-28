@@ -211,6 +211,28 @@ textarea,
     0 8px 24px -12px rgb(13 35 54 / 0.12);
 }
 
+/*
+  Liquid glass — panel NỔI TRÊN BẢN ĐỒ: trong suốt nhìn xuyên thấy map phía
+  sau (blur + saturate cho chữ vẫn rõ), viền sáng mảnh kiểu kính. Chỉ dùng cho
+  panel đè lên bản đồ (thanh giờ, HUD dẫn đường) — thẻ thường vẫn dùng .surface.
+*/
+.glass {
+  background: rgb(255 255 255 / 0.62);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  backdrop-filter: blur(14px) saturate(1.5);
+  border-radius: 1.25rem;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.5),
+    0 1px 2px rgb(13 35 54 / 0.08),
+    0 8px 24px -12px rgb(13 35 54 / 0.22);
+}
+/* Máy không hỗ trợ blur → nền đặc hơn cho chữ khỏi chìm vào bản đồ */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass {
+    background: rgb(255 255 255 / 0.92);
+  }
+}
+
 /* Hero tràn viền — gradient biển sâu + quầng sáng, bo đáy lớn */
 .hero {
   position: relative;

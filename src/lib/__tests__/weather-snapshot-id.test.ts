@@ -4,7 +4,10 @@ import {
   gridSnapshotId,
   scalarSnapshotId,
   isValidSnapshotId,
+  snapshotNeedsPremium,
   SNAPSHOT_GRID_DAYS,
+  SNAPSHOT_PREMIUM_GRID_DAYS,
+  SNAPSHOT_DAY_SET,
 } from "@/lib/weather-snapshot-id";
 
 describe("weather-snapshot id — khoá + whitelist", () => {
@@ -41,5 +44,32 @@ describe("weather-snapshot id — khoá + whitelist", () => {
 
   it("khung snapshot công khai chỉ là d3 (miễn phí)", () => {
     expect(SNAPSHOT_GRID_DAYS).toBe(3);
+  });
+
+  /*
+    2026-07-29: cron snapshot THÊM khung premium d16 — vì màn Ra khơi tự đặt tầm
+    theo hạng nên premium LUÔN xin d16, trước đây không bao giờ có lưới an toàn.
+    Không lộ hàng: route /api/weather-snapshot chặn thật các id cần premium.
+  */
+  describe("khung premium d16 (snapshotNeedsPremium)", () => {
+    it("cron tính sẵn cả 2 khung: miễn phí d3 + premium d16", () => {
+      expect(SNAPSHOT_PREMIUM_GRID_DAYS).toBe(16);
+      expect([...SNAPSHOT_DAY_SET]).toEqual([3, 16]);
+    });
+
+    it("id khung >3 ngày CẦN premium; d3 và cảng thì KHÔNG", () => {
+      expect(snapshotNeedsPremium("grid:d16")).toBe(true);
+      expect(snapshotNeedsPremium("scalar:cloud:d16")).toBe(true);
+      expect(snapshotNeedsPremium("grid:d3")).toBe(false);
+      expect(snapshotNeedsPremium("scalar:rain:d3")).toBe(false);
+      // dự báo theo cảng không mang khung ngày → public
+      expect(snapshotNeedsPremium("sea:phu-quy")).toBe(false);
+    });
+
+    it("id premium vẫn phải qua whitelist (không mở cửa cho id lạ)", () => {
+      expect(isValidSnapshotId(gridSnapshotId(16))).toBe(true);
+      expect(isValidSnapshotId(scalarSnapshotId("storm", 16))).toBe(true);
+      expect(isValidSnapshotId("scalar:salinity:d16")).toBe(false);
+    });
   });
 });

@@ -18,8 +18,29 @@ export function gridSnapshotId(days: number): string {
   return `grid:d${days}`;
 }
 
-/** Khung ngày lưới được phép snapshot công khai (chỉ miễn phí) */
+/** Khung ngày lưới MIỄN PHÍ — snapshot đọc được không cần đăng nhập */
 export const SNAPSHOT_GRID_DAYS = 3;
+
+/**
+ * Khung ngày PREMIUM cũng được snapshot (2026-07-29). Vì sao: từ khi bỏ chip
+ * chọn khung, màn Ra khơi TỰ đặt tầm theo hạng — premium LUÔN xin 16 ngày, nên
+ * trước đây họ KHÔNG BAO GIỜ chạm tới lưới an toàn (chỉ có d3) và gặp
+ * "chưa tải được khung 16 ngày" mỗi khi Open-Meteo lỗi/429. Không lộ premium:
+ * `/api/weather-snapshot` CHẶN THẬT các id khung >3 ngày (snapshotNeedsPremium).
+ */
+export const SNAPSHOT_PREMIUM_GRID_DAYS = 16;
+
+/** Các khung được cron tính sẵn (client chỉ lùi về snapshot ở đúng các khung này) */
+export const SNAPSHOT_DAY_SET: readonly number[] = [
+  SNAPSHOT_GRID_DAYS,
+  SNAPSHOT_PREMIUM_GRID_DAYS,
+];
+
+/** id này có phải hàng PREMIUM không (khung > khung miễn phí) — thuần, test được */
+export function snapshotNeedsPremium(id: string): boolean {
+  const d = Number(/:d(\d+)$/.exec(id)?.[1]);
+  return Number.isFinite(d) && d > SNAPSHOT_GRID_DAYS;
+}
 
 /**
  * Lớp DẢI MÀU Open-Meteo (mây/mưa/nhiệt/dông/áp suất) theo khung ngày — cùng

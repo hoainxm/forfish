@@ -7,7 +7,7 @@ import {
   seaSnapshotId,
   gridSnapshotId,
   scalarSnapshotId,
-  SNAPSHOT_GRID_DAYS,
+  SNAPSHOT_DAY_SET,
 } from "@/lib/weather-snapshot-id";
 
 /**
@@ -48,36 +48,38 @@ export async function GET(req: Request) {
     }
   }
 
-  let gridOk = false;
-  try {
-    const grid = await fetchForecastGridLive(SNAPSHOT_GRID_DAYS);
-    gridOk = await saveWeatherSnapshot(gridSnapshotId(SNAPSHOT_GRID_DAYS), grid);
-  } catch {
-    gridOk = false;
-  }
-
-  // Lớp DẢI MÀU (mây/mưa/nhiệt/dông/áp suất) — MỘT fetch Open-Meteo ra cả 5
-  // kind, lưu 5 snapshot khung miễn phí d3. Lưới an toàn cho 429 (2026-07-29).
-  let scalarOk = 0;
-  try {
-    const fields = await fetchScalarFieldsLive(SNAPSHOT_GRID_DAYS);
-    for (const kind of Object.keys(fields) as OMKind[]) {
-      if (
-        await saveWeatherSnapshot(
-          scalarSnapshotId(kind, SNAPSHOT_GRID_DAYS),
-          fields[kind],
-        )
-      )
-        scalarOk++;
+  // Lưới gió/sóng + 5 lớp DẢI MÀU, cho CẢ khung miễn phí (d3) LẪN khung premium
+  // (d16) — 2026-07-29: màn Ra khơi tự đặt tầm theo hạng nên premium luôn xin
+  // d16; không snapshot d16 thì họ không bao giờ có lưới an toàn khi nguồn lỗi.
+  // Tuần tự cho khỏi dội Open-Meteo. Khung premium được CHẶN THẬT lúc ĐỌC.
+  const gridOk: Record<number, boolean> = {};
+  const scalarOk: Record<number, number> = {};
+  for (const days of SNAPSHOT_DAY_SET) {
+    try {
+      const grid = await fetchForecastGridLive(days);
+      gridOk[days] = await saveWeatherSnapshot(gridSnapshotId(days), grid);
+    } catch {
+      gridOk[days] = false;
     }
-  } catch {
-    scalarOk = 0;
+    let n = 0;
+    try {
+      const fields = await fetchScalarFieldsLive(days);
+      for (const kind of Object.keys(fields) as OMKind[]) {
+        if (await saveWeatherSnapshot(scalarSnapshotId(kind, days), fields[kind]))
+          n++;
+      }
+    } catch {
+      n = 0;
+    }
+    scalarOk[days] = n;
   }
 
+  const anyGrid = Object.values(gridOk).some(Boolean);
+  const anyScalar = Object.values(scalarOk).some((n) => n > 0);
   return Response.json({
-    ok: seaOk > 0 || gridOk || scalarOk > 0,
+    ok: seaOk > 0 || anyGrid || anyScalar,
     sea: { ok: seaOk, failed: seaFail, total: PORTS.length },
-    grid: { d: SNAPSHOT_GRID_DAYS, ok: gridOk },
-    scalar: { d: SNAPSHOT_GRID_DAYS, ok: scalarOk, total: 5 },
+    grid: gridOk,
+    scalar: { ok: scalarOk, perDay: 5 },
   });
 }

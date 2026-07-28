@@ -19,7 +19,7 @@ import { saveForecast, loadForecast } from "@/lib/forecast-cache";
 import { apiUrl } from "@/lib/api-base";
 import {
   scalarSnapshotId,
-  SNAPSHOT_GRID_DAYS,
+  SNAPSHOT_DAY_SET,
 } from "@/lib/weather-snapshot-id";
 import {
   gridPoints,
@@ -194,7 +194,8 @@ export async function fetchScalarField(
     const hit = loadForecast<ScalarGrid>(SCALAR_NS, cacheId(kind, days));
     if (hit && scalarGridUsable(hit.data))
       return { ...hit.data, stale: true, savedAt: hit.savedAt };
-    if (days === SNAPSHOT_GRID_DAYS) {
+    // snapshot cron có CẢ d3 (miễn phí) LẪN d16 (premium — route chặn thật)
+    if (SNAPSHOT_DAY_SET.includes(days)) {
       const snap = await loadScalarSnapshotClient(kind, days);
       if (snap && scalarGridUsable(snap))
         return { ...snap, stale: true, savedAt: null };

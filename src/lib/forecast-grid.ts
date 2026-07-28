@@ -14,7 +14,7 @@
 
 import { saveForecast, loadForecast, loadAll } from "@/lib/forecast-cache";
 import { apiUrl } from "@/lib/api-base";
-import { gridSnapshotId, SNAPSHOT_GRID_DAYS } from "@/lib/weather-snapshot-id";
+import { gridSnapshotId, SNAPSHOT_DAY_SET } from "@/lib/weather-snapshot-id";
 
 export type ForecastKind = "wind" | "wave";
 
@@ -204,7 +204,10 @@ export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
     const hit = loadForecast<ForecastGrid>(GRID_NS, id);
     if (hit && gridIsCurrent(hit.data))
       return { ...hit.data, stale: true, savedAt: hit.savedAt };
-    if (days === SNAPSHOT_GRID_DAYS) {
+    // Snapshot cron: CẢ khung miễn phí d3 LẪN khung premium d16 (2026-07-29 —
+    // premium luôn xin d16 nên trước đây không bao giờ có lưới an toàn). Khung
+    // premium bị route chặn thật nếu chưa đủ hạng → trả null, báo lỗi như cũ.
+    if (SNAPSHOT_DAY_SET.includes(days)) {
       const snap = await loadGridSnapshotClient(days);
       if (snap && gridIsCurrent(snap)) return { ...snap, stale: true, savedAt: null };
     }
