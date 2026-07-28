@@ -17,7 +17,16 @@ const _ls = (() => {
 (globalThis as unknown as { window: unknown }).window = { localStorage: _ls };
 (globalThis as unknown as { localStorage: Storage }).localStorage = _ls;
 
-import { fetchForecastGrid, savedGridDays } from "../forecast-grid";
+import {
+  fetchForecastGrid,
+  savedGridDays,
+  savedCurrentGridDays,
+  gridIsCurrent,
+  gridPoints,
+  GRID_NS,
+  type ForecastGrid,
+} from "../forecast-grid";
+import { saveForecast } from "../forecast-cache";
 
 /** Open-Meteo giả: trả đủ giờ cho `hours` mốc, 80 điểm lưới */
 function fakeOk(hours: number) {
@@ -105,5 +114,45 @@ describe("fetchForecastGrid offline — đúng khung ngày đã xin", () => {
     globalThis.fetch = offline();
     await expect(fetchForecastGrid(7)).rejects.toThrow();
     expect(savedGridDays()).toEqual([]);
+  });
+});
+
+/*
+  2026-07-29: mở lưới 80→156 điểm phủ vùng RỘNG hơn. Bản lưu ĐỜI CŨ chỉ phủ
+  "cửa sổ nhỏ" cũ — 429/mất sóng mà nhận nó thì lớp màu/hạt co cụm một góc.
+*/
+describe("gridIsCurrent — loại bản lưu đời cũ (vùng phủ nhỏ)", () => {
+  /** lưới đời cũ 8×10 = 80 ô, bbox 102,5–117,25 / 6–21,3 */
+  function oldGrid(): ForecastGrid {
+    const cells = [];
+    for (let i = 0; i < 10; i++) {
+      for (let j = 0; j < 8; j++) {
+        cells.push({
+          lat: Math.round((6 + (i * (21.3 - 6)) / 9) * 100) / 100,
+          lon: Math.round((102.5 + (j * (117.25 - 102.5)) / 7) * 100) / 100,
+          hours: [{ windKmh: 20, windDirDeg: 45, waveM: 1, waveDirDeg: 90 }],
+        });
+      }
+    }
+    return { cells, times: ["2026-07-20T00:00"] };
+  }
+
+  it("lưới hiện tại → true; lưới cũ 80 ô → false", () => {
+    const current: ForecastGrid = {
+      cells: gridPoints().map((p) => ({ lat: p.lat, lon: p.lon, hours: [] })),
+      times: [],
+    };
+    expect(gridIsCurrent(current)).toBe(true);
+    expect(gridIsCurrent(oldGrid())).toBe(false);
+  });
+
+  it("mất sóng + máy chỉ có bản ĐỜI CŨ → LỚP VẼ coi như không có (báo lỗi, không co cụm)", async () => {
+    saveForecast(GRID_NS, "d16", oldGrid());
+    globalThis.fetch = offline();
+    await expect(fetchForecastGrid(16)).rejects.toThrow();
+    // chip khung của LỚP VẼ không mời sang bản cũ…
+    expect(savedCurrentGridDays()).toEqual([]);
+    // …nhưng tra ĐIỂM/tuyến vẫn biết trong máy còn bản d16 (nearestGridCell tự chặn vùng)
+    expect(savedGridDays()).toEqual([16]);
   });
 });

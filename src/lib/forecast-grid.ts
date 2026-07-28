@@ -171,6 +171,25 @@ export function gridCacheId(days: number): string {
  * ngày". Bà con kéo thanh giờ tưởng đang xem nửa tháng tới. Nay không có đúng
  * khung thì BÁO LỖI, UI nói thật + chỉ ra khung nào thật sự đang có trong máy.
  */
+/**
+ * Bản lưu có khớp ĐỊNH NGHĨA LƯỚI hiện tại không (đủ số ô + đúng 4 góc bbox).
+ * Vì sao (2026-07-29): mở lưới 80→156 điểm phủ vùng RỘNG hơn — bản lưu đời cũ
+ * chỉ phủ "cửa sổ nhỏ" cũ; live lỗi (429) mà nhận bản cũ thì lớp màu/hạt co
+ * cụm một góc trong khi khung nhìn đã mở rộng. Bản không khớp coi như KHÔNG CÓ.
+ */
+export function gridIsCurrent(g: ForecastGrid | null | undefined): boolean {
+  const cells = g?.cells;
+  if (!cells || cells.length !== N_LAT * N_LON) return false;
+  const eps = 0.02; // toạ độ ô làm tròn 0,01°
+  const last = cells[cells.length - 1];
+  return (
+    Math.abs(cells[0].lat - LAT_MIN) < eps &&
+    Math.abs(cells[0].lon - LON_MIN) < eps &&
+    Math.abs(last.lat - LAT_MAX) < eps &&
+    Math.abs(last.lon - LON_MAX) < eps
+  );
+}
+
 export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
   const id = gridCacheId(days);
   try {
@@ -180,12 +199,14 @@ export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
   } catch (err) {
     // LƯỚI AN TOÀN khi live lỗi: bản trong máy trước; nếu chưa có mà là khung
     // MIỄN PHÍ (d3) thì thử snapshot server cron tính sẵn (khung premium không
-    // snapshot công khai — xem weather-snapshot-id.ts). Giữ cờ stale để UI nói thật.
+    // snapshot công khai — xem weather-snapshot-id.ts). Giữ cờ stale để UI nói
+    // thật. Bản lưu ĐỜI CŨ (vùng phủ nhỏ hơn) bị LOẠI — xem gridIsCurrent.
     const hit = loadForecast<ForecastGrid>(GRID_NS, id);
-    if (hit) return { ...hit.data, stale: true, savedAt: hit.savedAt };
+    if (hit && gridIsCurrent(hit.data))
+      return { ...hit.data, stale: true, savedAt: hit.savedAt };
     if (days === SNAPSHOT_GRID_DAYS) {
       const snap = await loadGridSnapshotClient(days);
-      if (snap) return { ...snap, stale: true, savedAt: null };
+      if (snap && gridIsCurrent(snap)) return { ...snap, stale: true, savedAt: null };
     }
     throw err;
   }
@@ -205,9 +226,22 @@ async function loadGridSnapshotClient(days: number): Promise<ForecastGrid | null
   }
 }
 
-/** Các khung ngày ĐANG CÓ bản lưu trong máy (tăng dần) — để UI nói đúng sự thật */
+/** Các khung ngày ĐANG CÓ bản lưu trong máy (tăng dần). Bản ĐỜI CŨ (vùng phủ
+    nhỏ) VẪN đếm: tra ĐIỂM/tuyến dùng được (nearestGridCell tự chặn ngoài vùng
+    phủ). Đường HIỂN THỊ LƯỚI dùng savedCurrentGridDays. */
 export function savedGridDays(): number[] {
   return loadAll<ForecastGrid>(GRID_NS)
+    .map((e) => Number(/^d(\d+)$/.exec(e.id)?.[1]))
+    .filter((d) => Number.isFinite(d) && d > 0)
+    .sort((a, b) => a - b);
+}
+
+/** Như savedGridDays nhưng CHỈ bản khớp lưới hiện tại — cho UI chọn khung của
+    LỚP VẼ (chip "Trong máy đang có"): mời bà con sang khung mà fetchForecastGrid
+    sẽ từ chối (bản cũ) là mời vào ngõ cụt. */
+export function savedCurrentGridDays(): number[] {
+  return loadAll<ForecastGrid>(GRID_NS)
+    .filter((e) => gridIsCurrent(e.data))
     .map((e) => Number(/^d(\d+)$/.exec(e.id)?.[1]))
     .filter((d) => Number.isFinite(d) && d > 0)
     .sort((a, b) => a - b);

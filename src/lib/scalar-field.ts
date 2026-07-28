@@ -123,6 +123,15 @@ export async function fetchScalarFieldsLive(
 export const SCALAR_NS = "scalar";
 const cacheId = (kind: ScalarKind, days: number) => `${kind}.d${Math.round(days)}`;
 
+/** Bản lưu còn DÙNG ĐƯỢC không: đủ ô khớp kích thước khai (bản đời cũ trước khi
+    mở lưới 156 không có nLat/nLon và lệch số ô → loại, coi như không có). */
+function scalarGridUsable(g: ScalarGrid | null | undefined): boolean {
+  if (!g?.cells?.length || !g.times?.length) return false;
+  const nLat = g.nLat ?? GRID_N_LAT;
+  const nLon = g.nLon ?? GRID_N_LON;
+  return g.cells.length === nLat * nLon;
+}
+
 /** Độ mặn (Copernicus, theo NGÀY) — qua /api/salinity (server fetch S3). Cache
     offline giống các lớp kia; mất mạng → bản lưu + stale. */
 async function fetchSalinityField(days: number): Promise<ScalarGrid> {
@@ -152,7 +161,8 @@ async function fetchSalinityField(days: number): Promise<ScalarGrid> {
     return g;
   } catch (err) {
     const hit = loadForecast<ScalarGrid>(SCALAR_NS, cacheId("salinity", days));
-    if (hit) return { ...hit.data, stale: true, savedAt: hit.savedAt };
+    if (hit && scalarGridUsable(hit.data))
+      return { ...hit.data, stale: true, savedAt: hit.savedAt };
     throw err;
   }
 }
@@ -182,10 +192,12 @@ export async function fetchScalarField(
     // live lỗi (429/mất mạng): bản trong máy trước; chưa có mà là khung MIỄN
     // PHÍ d3 → snapshot server do cron tính sẵn (pattern forecast-grid).
     const hit = loadForecast<ScalarGrid>(SCALAR_NS, cacheId(kind, days));
-    if (hit) return { ...hit.data, stale: true, savedAt: hit.savedAt };
+    if (hit && scalarGridUsable(hit.data))
+      return { ...hit.data, stale: true, savedAt: hit.savedAt };
     if (days === SNAPSHOT_GRID_DAYS) {
       const snap = await loadScalarSnapshotClient(kind, days);
-      if (snap) return { ...snap, stale: true, savedAt: null };
+      if (snap && scalarGridUsable(snap))
+        return { ...snap, stale: true, savedAt: null };
     }
     throw err;
   }

@@ -52,7 +52,7 @@ import {
   timeLabelVN,
   WIND_COLOR_EXPR,
   WAVE_COLOR_EXPR,
-  savedGridDays,
+  savedCurrentGridDays,
   type GridDays,
   type ForecastGrid,
   type ForecastKind,
@@ -470,7 +470,7 @@ export default function FishingMapView() {
     if (!gridFailed) return;
     // người bị khoá premium không được mời sang khung >3 ngày đã lưu trong máy
     setSavedDays(
-      savedGridDays()
+      savedCurrentGridDays()
         .filter((d) => d !== gridDays)
         .filter((d) => !premiumLocked || d <= FREE_FORECAST_DAYS),
     );
@@ -675,13 +675,18 @@ export default function FishingMapView() {
       } else if (has) {
         map.removeLayer(GL_FIELD_ID);
         glFieldRef.current = null;
-        setGlOk(false);
       }
+      // glOk TỰ LÀNH: suy từ SỰ HIỆN DIỆN THẬT của layer sau mỗi lần ensure —
+      // một lần addLayer trượt (style đang nạp) không được găm polygon fallback
+      // vĩnh viễn (2026-07-29: production từng dính ô vuông thô vì kẹt false).
+      setGlOk(!!map.getLayer(GL_FIELD_ID));
     };
     ensure();
     map.on("styledata", ensure);
+    map.on("load", ensure);
     return () => {
       map.off("styledata", ensure);
+      map.off("load", ensure);
     };
   }, [activeScalarGrid, timeIdx]);
 
