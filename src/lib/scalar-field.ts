@@ -162,11 +162,16 @@ async function fetchSalinityField(days: number): Promise<ScalarGrid> {
  * một request); salinity = Copernicus qua route riêng. Mất mạng → bản đã lưu
  * ĐÚNG (kind, khung) + cờ stale; chưa lưu thì ném lỗi để UI nói thật.
  */
+/** Độ mặn: nguồn chỉ có 4 mốc NGÀY — chuẩn hoá về MỘT khoá cache duy nhất
+    (salinity.d4) bất kể màn hình xin 3 hay 16 ngày, để pretrip tải sẵn một lần
+    là offline dùng được ở mọi hạng. */
+export const SALINITY_DAYS = 4;
+
 export async function fetchScalarField(
   kind: FetchScalarKind,
   days = 3,
 ): Promise<ScalarGrid> {
-  if (kind === "salinity") return fetchSalinityField(days);
+  if (kind === "salinity") return fetchSalinityField(SALINITY_DAYS);
   try {
     const all = await fetchScalarFieldsLive(days);
     (Object.keys(all) as OMKind[]).forEach((k) =>

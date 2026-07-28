@@ -14,6 +14,7 @@ import { fetchSeaPoint, POINT_NS, type SeaPointConditions } from "@/lib/marine-w
 import { fetchFishForecast } from "@/lib/fish-predict";
 import { fetchClimatology } from "@/lib/fish-blend";
 import { fetchForecastGrid, savedGridDays } from "@/lib/forecast-grid";
+import { fetchScalarField } from "@/lib/scalar-field";
 import { coordId, lastStorageFullAt, loadAll } from "@/lib/forecast-cache";
 
 /**
@@ -23,6 +24,14 @@ import { coordId, lastStorageFullAt, loadAll } from "@/lib/forecast-cache";
  * 5 khung chỉ tổ chiếm chỗ và tốn sóng lúc còn ở bờ.
  */
 export const PRETRIP_GRID_DAYS = [3, 7, 16] as const;
+
+/**
+ * Khung ngày LỚP DẢI MÀU (mây/mưa/nhiệt/dông/áp suất) tải sẵn — màn Ra khơi
+ * chỉ xin đúng 3 (thường) hoặc 16 (premium) từ khi bỏ chip chọn khung, nên tải
+ * cả hai là offline chạy được ở mọi hạng. MỖI lượt là MỘT request Open-Meteo
+ * ra cả 5 lớp (fetchScalarField tự lưu cả 5).
+ */
+export const PRETRIP_SCALAR_DAYS = [3, 16] as const;
 
 export interface PretripStep {
   /** câu bà con đọc được, vd "Gió sóng — Cảng nhà" */
@@ -134,6 +143,25 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
       },
     });
   }
+  // LỚP DẢI MÀU (mây/mưa/nhiệt/dông/áp suất) — một request/khung ra cả 5 lớp,
+  // tự lưu vào máy (2026-07-29: trước đây KHÔNG tải sẵn → ra khơi mở lớp lần
+  // đầu là trống).
+  for (const d of PRETRIP_SCALAR_DAYS) {
+    steps.push({
+      label: `Lớp mây mưa nhiệt — ${d} ngày`,
+      run: async () => {
+        await fetchScalarField("cloud", d);
+      },
+    });
+  }
+  // ĐỘ MẶN (Copernicus, same-origin ~140 KB, 4 mốc ngày) — một khoá cache duy
+  // nhất nên một lần tải là đủ mọi hạng.
+  steps.push({
+    label: "Độ mặn",
+    run: async () => {
+      await fetchScalarField("salinity");
+    },
+  });
   // BẢN ĐỒ MÙA VỤ — asset tĩnh cùng origin (~70 KB), lớp cá của chuyến dài pha
   // trộn với nó. Service worker đã pre-cache lúc cài app; gọi ở đây là lưới an
   // toàn cho máy cài từ bản cũ (chưa có file trong kho). Không bao giờ ném.

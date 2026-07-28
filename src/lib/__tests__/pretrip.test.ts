@@ -23,6 +23,7 @@ import {
   pretripSteps,
   savedSummary,
   PRETRIP_GRID_DAYS,
+  PRETRIP_SCALAR_DAYS,
 } from "../pretrip";
 
 /** Bản dự báo điểm rút gọn — chỉ cần mảng `days` để tính "giữ tới ngày nào" */
@@ -42,21 +43,30 @@ describe("dedupePoints", () => {
 });
 
 describe("pretripSteps", () => {
-  it("mỗi chỗ một việc + bản đồ cá + các khung lưới gió/sóng + bản đồ mùa vụ", () => {
+  // 2026-07-29: + lớp dải màu (mây/mưa/nhiệt/dông/áp suất, 2 khung) + độ mặn
+  const EXTRA = PRETRIP_SCALAR_DAYS.length + 1;
+
+  it("mỗi chỗ một việc + bản đồ cá + lưới gió/sóng + lớp màu + độ mặn + mùa vụ", () => {
     const steps = pretripSteps([
       { lat: 8.68, lon: 106.6, name: "Cảng nhà" },
       { lat: 16.5, lon: 112.0, name: "Hoàng Sa" },
     ]);
-    expect(steps).toHaveLength(2 + 1 + PRETRIP_GRID_DAYS.length + 1);
+    expect(steps).toHaveLength(2 + 1 + PRETRIP_GRID_DAYS.length + EXTRA + 1);
     expect(steps[0].label).toBe("Gió sóng — Cảng nhà");
     expect(steps[2].label).toBe("Bản đồ cá");
     expect(steps[3].label).toBe("Gió sóng cả vùng biển — 3 ngày");
+    expect(
+      steps.some((s) => s.label === "Lớp mây mưa nhiệt — 16 ngày"),
+    ).toBe(true);
+    expect(steps.some((s) => s.label === "Độ mặn")).toBe(true);
     // mùa vụ đi CUỐI: nhẹ nhất, và không được chiếm sóng của dự báo thật
     expect(steps[steps.length - 1].label).toBe("Bản đồ mùa vụ");
   });
 
-  it("không chỗ nào ghim → vẫn tải bản đồ cá + lưới + mùa vụ (không rỗng)", () => {
-    expect(pretripSteps([]).length).toBe(1 + PRETRIP_GRID_DAYS.length + 1);
+  it("không chỗ nào ghim → vẫn tải bản đồ cá + lưới + lớp màu + mùa vụ (không rỗng)", () => {
+    expect(pretripSteps([]).length).toBe(
+      1 + PRETRIP_GRID_DAYS.length + EXTRA + 1,
+    );
   });
 });
 
