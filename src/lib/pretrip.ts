@@ -12,6 +12,7 @@
 
 import { fetchSeaPoint, POINT_NS, type SeaPointConditions } from "@/lib/marine-weather";
 import { fetchFishForecast } from "@/lib/fish-predict";
+import { fetchClimatology } from "@/lib/fish-blend";
 import { fetchForecastGrid, savedGridDays } from "@/lib/forecast-grid";
 import { coordId, lastStorageFullAt, loadAll } from "@/lib/forecast-cache";
 
@@ -133,6 +134,15 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
       },
     });
   }
+  // BẢN ĐỒ MÙA VỤ — asset tĩnh cùng origin (~70 KB), lớp cá của chuyến dài pha
+  // trộn với nó. Service worker đã pre-cache lúc cài app; gọi ở đây là lưới an
+  // toàn cho máy cài từ bản cũ (chưa có file trong kho). Không bao giờ ném.
+  steps.push({
+    label: "Bản đồ mùa vụ",
+    run: async () => {
+      await fetchClimatology();
+    },
+  });
   return steps;
 }
 

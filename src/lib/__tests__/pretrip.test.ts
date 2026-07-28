@@ -42,19 +42,21 @@ describe("dedupePoints", () => {
 });
 
 describe("pretripSteps", () => {
-  it("mỗi chỗ một việc + bản đồ cá + các khung lưới gió/sóng", () => {
+  it("mỗi chỗ một việc + bản đồ cá + các khung lưới gió/sóng + bản đồ mùa vụ", () => {
     const steps = pretripSteps([
       { lat: 8.68, lon: 106.6, name: "Cảng nhà" },
       { lat: 16.5, lon: 112.0, name: "Hoàng Sa" },
     ]);
-    expect(steps).toHaveLength(2 + 1 + PRETRIP_GRID_DAYS.length);
+    expect(steps).toHaveLength(2 + 1 + PRETRIP_GRID_DAYS.length + 1);
     expect(steps[0].label).toBe("Gió sóng — Cảng nhà");
     expect(steps[2].label).toBe("Bản đồ cá");
     expect(steps[3].label).toBe("Gió sóng cả vùng biển — 3 ngày");
+    // mùa vụ đi CUỐI: nhẹ nhất, và không được chiếm sóng của dự báo thật
+    expect(steps[steps.length - 1].label).toBe("Bản đồ mùa vụ");
   });
 
-  it("không chỗ nào ghim → vẫn tải bản đồ cá + lưới (không rỗng)", () => {
-    expect(pretripSteps([]).length).toBe(1 + PRETRIP_GRID_DAYS.length);
+  it("không chỗ nào ghim → vẫn tải bản đồ cá + lưới + mùa vụ (không rỗng)", () => {
+    expect(pretripSteps([]).length).toBe(1 + PRETRIP_GRID_DAYS.length + 1);
   });
 });
 
