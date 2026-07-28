@@ -1,6 +1,13 @@
-# 09 — ĐỀ XUẤT: Lộ trình chuyến biển nhiều ngày (route suggest)
+# 09 — ba-spec: Lộ trình chuyến biển nhiều ngày (route suggest)
 
-> **Trạng thái: ĐỀ XUẤT — đã chốt 4 quyết định khung (2026-07-28), chưa build.** Kết quả
+> Load khi: task chạm đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (pha trộn dự báo × mùa vụ), nguồn dữ liệu cho tầm 16 ngày, hoặc so vị trí hiện tại với tuyến đã lưu.
+covers: src/lib/fish-blend.ts, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
+last_verified: 2026-07-28
+ttl_days: 90
+
+> **Mục đích**: oracle HÀNH VI cho tính năng đề xuất lộ trình — bài toán là gì, nguồn dữ liệu phải đạt gì, pha trộn lớp cá theo tỷ lệ nào (số ĐO ĐƯỢC), lưu/đối chiếu tuyến ra sao. KHÔNG mô tả giao diện (việc của [07-design-spec](07-design-spec.md)).
+
+> **Trạng thái: phần TÍNH NĂNG còn là ĐỀ XUẤT (chưa build); phần NỀN DỮ LIỆU lớp cá 16 ngày ĐÃ LÀM XONG — xem §5d.** Kết quả
 > nghiên cứu team-agent 2026-07-28 (3 hướng: kiểm kê repo · thuật toán · nghiệp vụ chuyến biển).
 >
 > **CHỦ DỰ ÁN CHỐT (2026-07-28):**
