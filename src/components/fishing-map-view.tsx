@@ -85,6 +85,11 @@ import {
 } from "@/components/route-planner";
 import { borderGeoJSON } from "@/data/vn-maritime-border";
 import { vungLongGeoJSON } from "@/data/vn-fishing-zones";
+import {
+  vmsAllowedGeoJSON,
+  vmsBottomOnlyGeoJSON,
+  vmsCautionGeoJSON,
+} from "@/data/vms-fishing-zones";
 import { borderProximity, haversineKm, type BorderLevel } from "@/lib/geofence";
 import { fetchDepthGrid, depthClassAt, type DepthClass } from "@/lib/depth-grid";
 import { weatherFromCode } from "@/lib/weather-codes";
@@ -178,6 +183,10 @@ const THIS_MONTH = new Date().getMonth() + 1;
 const BORDER_DATA = borderGeoJSON();
 // Ranh giới vùng lộng (NĐ 26/2019) — tĩnh, tạo một lần.
 const VUNG_LONG_DATA = vungLongGeoJSON();
+// 3 vùng biển VMS (SDVico 2026-07-28, đã giản lược) — tĩnh, tạo một lần.
+const VMS_ALLOWED_DATA = vmsAllowedGeoJSON();
+const VMS_CAUTION_DATA = vmsCautionGeoJSON();
+const VMS_BOTTOM_DATA = vmsBottomOnlyGeoJSON();
 
 // màu cảnh báo theo mức gần ranh giới
 const BORDER_LEVEL_STYLE: Record<BorderLevel, { bg: string; fg: string }> = {
@@ -251,8 +260,8 @@ export default function FishingMapView() {
   }, []);
   const [seamarksOn, setSeamarksOn] = useState(true);
   const [fishOn, setFishOn] = useState(true);
-  // ranh giới vùng lộng (NĐ 26/2019) — bật mặc định, tắt được ở panel lớp
-  const [vungLongOn, setVungLongOn] = useState(true);
+  // Ranh giới vùng lộng + 3 vùng VMS: bật/tắt ở panel Cài đặt, NHỚ qua
+  // map-prefs (trước 2026-07-28 vùng lộng là useState — tắt xong mở lại mất).
 
   // ── lớp số liệu biển (nước dâng/xoáy, độ mặn) — tải khi chọn, nhớ cache ──
   const [scalarKind, setScalarKind] = useState<SeaScalarKind | null>(null);
@@ -1117,7 +1126,67 @@ export default function FishingMapView() {
         {/* ranh giới VÙNG LỘNG (NĐ 26/2019, cho tàu 12–<15m) — THAM KHẢO, dữ
             liệu SDVico. Vẽ TRƯỚC ranh giới ngoài để cam-đỏ IUU luôn nổi trên.
             Màu teal + nét đứt, tách hẳn cam-đỏ độc quyền của ranh giới ngoài. */}
-        {vungLongOn && (
+        {/* 3 VÙNG BIỂN VMS (SDVico 2026-07-28) — THAM KHẢO, vẽ dưới vùng lộng
+            + ranh giới ngoài. Màu tách hẳn cam-đỏ (ranh giới) và teal (lộng):
+            xanh lá = được phép, vàng cam = cần chú ý, tím = chỉ cá đáy. */}
+        {prefs.vmsAllowed && (
+          <Source id="vms-allowed" type="geojson" data={VMS_ALLOWED_DATA}>
+            <Layer
+              id="vms-allowed-fill"
+              type="fill"
+              paint={{ "fill-color": "#16a34a", "fill-opacity": 0.05 }}
+            />
+            <Layer
+              id="vms-allowed-line"
+              type="line"
+              paint={{
+                "line-color": "#16a34a",
+                "line-width": 1.25,
+                "line-opacity": 0.7,
+              }}
+            />
+          </Source>
+        )}
+        {prefs.vmsBottomOnly && (
+          <Source id="vms-bottom" type="geojson" data={VMS_BOTTOM_DATA}>
+            <Layer
+              id="vms-bottom-fill"
+              type="fill"
+              paint={{ "fill-color": "#8b5cf6", "fill-opacity": 0.1 }}
+            />
+            <Layer
+              id="vms-bottom-line"
+              type="line"
+              paint={{
+                "line-color": "#8b5cf6",
+                "line-width": 1.75,
+                "line-dasharray": [3, 2],
+                "line-opacity": 0.9,
+              }}
+            />
+          </Source>
+        )}
+        {prefs.vmsCaution && (
+          <Source id="vms-caution" type="geojson" data={VMS_CAUTION_DATA}>
+            <Layer
+              id="vms-caution-fill"
+              type="fill"
+              paint={{ "fill-color": "#f59e0b", "fill-opacity": 0.12 }}
+            />
+            <Layer
+              id="vms-caution-line"
+              type="line"
+              paint={{
+                "line-color": "#f59e0b",
+                "line-width": 1.75,
+                "line-dasharray": [3, 2],
+                "line-opacity": 0.9,
+              }}
+            />
+          </Source>
+        )}
+
+        {prefs.vungLong && (
           <Source id="vung-long" type="geojson" data={VUNG_LONG_DATA}>
             <Layer
               id="vung-long-fill"
@@ -1514,8 +1583,6 @@ export default function FishingMapView() {
             if (k == null) setPlaying(false);
             else setGridFailed(false);
           }}
-          vungLongOn={vungLongOn}
-          onVungLong={setVungLongOn}
           fishOn={fishOn}
           onFish={setFishOn}
           fishSpecies={fishSpecies}

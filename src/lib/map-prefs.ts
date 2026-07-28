@@ -17,10 +17,26 @@ export interface MapPrefs {
   coordFormat: CoordFormat;
   /** Kẻ lưới ô toạ độ trên bản đồ (graticule) — KHÔNG liên quan dự báo cá */
   mapGrid: boolean;
+  /** Ranh giới vùng lộng (NĐ 26/2019, tàu 12–<15m) — nét đứt teal */
+  vungLong: boolean;
+  /** Vùng VMS: được phép đánh bắt (viền + nền xanh lá nhạt) */
+  vmsAllowed: boolean;
+  /** Vùng VMS: cần chú ý khi đánh bắt (quanh Hoàng Sa/Trường Sa, vàng cam) */
+  vmsCaution: boolean;
+  /** Vùng VMS: chỉ được đánh cá đáy (giáp VN–Indonesia, tím) */
+  vmsBottomOnly: boolean;
 }
 
 const KEY = "forfish.mapPrefs.v1";
-const DEFAULT: MapPrefs = { distUnit: "nm", coordFormat: "dd", mapGrid: true };
+const DEFAULT: MapPrefs = {
+  distUnit: "nm",
+  coordFormat: "dd",
+  mapGrid: true,
+  vungLong: true,
+  vmsAllowed: true,
+  vmsCaution: true,
+  vmsBottomOnly: true,
+};
 const KM_PER_NM = 1.852;
 
 let state: MapPrefs = DEFAULT;
@@ -36,7 +52,12 @@ function load(): MapPrefs {
     return {
       distUnit: p.distUnit === "km" ? "km" : "nm",
       coordFormat: p.coordFormat === "dms" ? "dms" : "dd",
-      mapGrid: p.mapGrid !== false, // mặc định bật; chỉ tắt khi đã lưu false
+      // các lớp ranh giới mặc định bật; chỉ tắt khi đã lưu false
+      mapGrid: p.mapGrid !== false,
+      vungLong: p.vungLong !== false,
+      vmsAllowed: p.vmsAllowed !== false,
+      vmsCaution: p.vmsCaution !== false,
+      vmsBottomOnly: p.vmsBottomOnly !== false,
     };
   } catch {
     return DEFAULT;

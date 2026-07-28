@@ -24,10 +24,12 @@ import type { StormStatus } from "@/lib/storms";
 import { clockVN } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
 import { useMapPrefs, setMapPrefs } from "@/lib/map-prefs";
+import { VMS_ZONES_UPDATED } from "@/data/vms-fishing-zones";
 import { FishSpeciesContent } from "@/components/fish-species-sheet";
 import { MyPlacesContent } from "@/components/my-places-sheet";
 import {
   AlertIcon,
+  AnchorIcon,
   ChevronLeftIcon,
   CheckIcon,
   ChevronRightIcon,
@@ -71,8 +73,6 @@ export function RaKhoiControls({
   onScalar,
   forecastKind,
   onForecast,
-  vungLongOn,
-  onVungLong,
   fishOn,
   onFish,
   fishSpecies,
@@ -107,8 +107,6 @@ export function RaKhoiControls({
   onScalar: (k: SeaScalarKind | null) => void;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
-  vungLongOn: boolean;
-  onVungLong: (on: boolean) => void;
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
@@ -272,12 +270,7 @@ export function RaKhoiControls({
                   onClearMeasure={onClearMeasure}
                 />
               )}
-              {open === "cai-dat" && (
-                <SettingsPanel
-                  vungLongOn={vungLongOn}
-                  onVungLong={onVungLong}
-                />
-              )}
+              {open === "cai-dat" && <SettingsPanel />}
             </>
           }
         </div>
@@ -763,13 +756,7 @@ function RadioCard({
   );
 }
 
-function SettingsPanel({
-  vungLongOn,
-  onVungLong,
-}: {
-  vungLongOn: boolean;
-  onVungLong: (on: boolean) => void;
-}) {
+function SettingsPanel() {
   const prefs = useMapPrefs();
   return (
     <div>
@@ -827,13 +814,41 @@ function SettingsPanel({
       <Toggle
         label="Ranh giới vùng lộng"
         sub="NĐ 26/2019 · tàu 12–<15m · tham khảo"
-        on={vungLongOn}
-        onToggle={() => onVungLong(!vungLongOn)}
+        on={prefs.vungLong}
+        onToggle={() => setMapPrefs({ vungLong: !prefs.vungLong })}
         icon={<DepthIcon className="h-5 w-5 text-[#0d9488]" />}
       />
+
+      <p className="mb-1 mt-4 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+        Vùng biển (dữ liệu VMS)
+      </p>
+      <Toggle
+        label="Vùng được phép đánh bắt"
+        sub="Viền xanh lá · toàn vùng biển VN"
+        on={prefs.vmsAllowed}
+        onToggle={() => setMapPrefs({ vmsAllowed: !prefs.vmsAllowed })}
+        icon={<CheckIcon className="h-5 w-5 text-[#16a34a]" />}
+      />
+      <div className="mb-2" />
+      <Toggle
+        label="Vùng cần chú ý khi đánh bắt"
+        sub="Vàng cam · quanh Hoàng Sa, Trường Sa"
+        on={prefs.vmsCaution}
+        onToggle={() => setMapPrefs({ vmsCaution: !prefs.vmsCaution })}
+        icon={<AlertIcon className="h-5 w-5 text-[#f59e0b]" />}
+      />
+      <div className="mb-2" />
+      <Toggle
+        label="Vùng chỉ đánh được cá đáy"
+        sub="Tím · giáp ranh VN – Indonesia"
+        on={prefs.vmsBottomOnly}
+        onToggle={() => setMapPrefs({ vmsBottomOnly: !prefs.vmsBottomOnly })}
+        icon={<AnchorIcon className="h-5 w-5 text-[#8b5cf6]" />}
+      />
       <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/60">
-        Ranh giới vùng lộng (nét đứt xanh) chỉ để hình dung vùng theo cỡ tàu —
-        ranh chính thức tra Chi cục Thủy sản.
+        Các ranh giới trên chỉ để hình dung (dữ liệu VMS{" "}
+        {VMS_ZONES_UPDATED.split("-").reverse().join("/")}) — ranh chính thức
+        tra Chi cục Thủy sản.
       </p>
     </div>
   );
