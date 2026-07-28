@@ -603,12 +603,14 @@ export default function FishingMapView() {
     return buildUVField(fGrid, 0, "wind");
   }, [forecastKind, overlayField, fGrid, timeIdx]);
 
-  // Mũi tên TĨNH: chỉ còn là FALLBACK khi không dựng được trường hạt (thiếu
-  // lưới) — có hạt thì thôi (nền màu nói cường độ, hạt nói hướng).
+  // Mũi tên TĨNH: lớp GIÓ/SÓNG luôn hiện mũi tên MÀU kèm hạt (user 2026-07-29:
+  // kéo trục ngày nhìn mũi tên là thấy đổi hướng ngay — hạt đổi chậm hơn).
+  // Các lớp màu khác: chỉ là fallback khi không dựng được trường hạt.
   const arrows = useMemo(() => {
-    if (!fGrid || particleField) return null;
+    if (!fGrid) return null;
     if (forecastKind) return arrowFeatures(fGrid, timeIdx, forecastKind);
-    if (scalarWantsStreaks) return arrowFeatures(fGrid, timeIdx, "wind");
+    if (scalarWantsStreaks && !particleField)
+      return arrowFeatures(fGrid, timeIdx, "wind");
     return null;
   }, [forecastKind, scalarWantsStreaks, particleField, fGrid, timeIdx]);
 
