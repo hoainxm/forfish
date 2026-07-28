@@ -16,6 +16,11 @@ import {
   type OceanLayerId,
 } from "@/lib/ocean-map";
 import type { ForecastKind } from "@/lib/forecast-grid";
+import {
+  SCALAR_META,
+  scalarGradientCss,
+  type ScalarKind,
+} from "@/lib/scalar-field";
 import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
 import type { FeatureAccess } from "@/lib/tier";
@@ -78,6 +83,8 @@ export function RaKhoiControls({
   onScalar,
   forecastKind,
   onForecast,
+  overlayField,
+  onOverlayField,
   vmsZones,
   fishOn,
   onFish,
@@ -113,6 +120,9 @@ export function RaKhoiControls({
   onScalar: (k: SeaScalarKind | null) => void;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
+  /** Lớp DẢI MÀU vô hướng (mây/mưa/nhiệt) — loại trừ lẫn nhau với gió/sóng */
+  overlayField: ScalarKind | null;
+  onOverlayField: (k: ScalarKind | null) => void;
   /** Vùng biển VMS (admin quản lý) — mỗi vùng 1 toggle trong panel Cài đặt */
   vmsZones: VmsZone[];
   fishOn: boolean;
@@ -188,6 +198,7 @@ export function RaKhoiControls({
         stormInfo.kind === "co-bao" ||
         stormInfo.kind === "khong-hoi-duoc" ||
         !!forecastKind ||
+        !!overlayField ||
         !!scalarKind,
     },
     { id: "diem", label: "Điểm đã lưu", icon: StarIcon, color: "var(--navy)" },
@@ -255,6 +266,8 @@ export function RaKhoiControls({
                   stormInfo={stormInfo}
                   forecastKind={forecastKind}
                   onForecast={onForecast}
+                  overlayField={overlayField}
+                  onOverlayField={onOverlayField}
                   scalarKind={scalarKind}
                   onScalar={onScalar}
                 />
@@ -420,7 +433,9 @@ function PanelHeader({
 function cadLine(id: OceanLayerId): { text: string; dot: string } {
   const def = OCEAN_LAYERS[id];
   if (!def.dated) return { text: "Cố định · Không đổi theo ngày", dot: DOT.coDinh };
-  return { text: "Theo ngày", dot: DOT.ngay };
+  // NÓI THẬT: đây là ẢNH VỆ TINH đã qua (trễ ~2 ngày), KHÔNG phải dự báo — để
+  // bà con khỏi nhầm với lớp dự báo mây/gió/sóng (user 2026-07-28).
+  return { text: `Ảnh trễ ~${def.lagDays} ngày · không phải dự báo`, dot: DOT.ngay };
 }
 
 function HaiDoPanel({
@@ -596,12 +611,16 @@ function ThoiTietPanel({
   stormInfo,
   forecastKind,
   onForecast,
+  overlayField,
+  onOverlayField,
   scalarKind,
   onScalar,
 }: {
   stormInfo: StormStatus;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
+  overlayField: ScalarKind | null;
+  onOverlayField: (k: ScalarKind | null) => void;
   scalarKind: SeaScalarKind | null;
   onScalar: (k: SeaScalarKind | null) => void;
 }) {
@@ -662,19 +681,39 @@ function ThoiTietPanel({
         Lớp thời tiết khác
       </p>
       <Toggle
-        label="Gió (Windy)"
+        label="Gió"
         sub="Theo giờ · cập nhật vài giờ"
         on={forecastKind === "wind"}
         onToggle={() => onForecast(forecastKind === "wind" ? null : "wind")}
         icon={<WindIcon className="h-5 w-5 text-t1" />}
       />
       <Toggle
-        label="Sóng (Windy)"
+        label="Sóng"
         sub="Theo giờ · cập nhật vài giờ"
         on={forecastKind === "wave"}
         onToggle={() => onForecast(forecastKind === "wave" ? null : "wave")}
         icon={<WindIcon className="h-5 w-5 text-t2" />}
       />
+      {/* LỚP DẢI MÀU (mây/mưa/nhiệt) — dự báo theo giờ, dùng chung thanh giờ với
+          gió/sóng, LOẠI TRỪ nhau (một lớp overlay mỗi lần, như Windy). */}
+      {(
+        ["cloud", "rain", "airtemp", "storm", "pressure", "salinity"] as ScalarKind[]
+      ).map((k) => (
+        <Toggle
+          key={k}
+          label={SCALAR_META[k].label}
+          sub={SCALAR_META[k].help}
+          on={overlayField === k}
+          onToggle={() => onOverlayField(overlayField === k ? null : k)}
+          icon={
+            <span
+              className="h-5 w-5 shrink-0 rounded"
+              style={{ background: scalarGradientCss(k) }}
+              aria-hidden
+            />
+          }
+        />
+      ))}
       <Toggle
         label="Nước dâng/xoáy"
         sub="SSHA · theo ngày, chậm ~2 ngày"

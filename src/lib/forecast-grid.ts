@@ -68,14 +68,15 @@ export function stepHourIndices(days: number, availableHours: number): number[] 
   return idx;
 }
 
-// Lưới phủ vùng đánh bắt VN — thưa (≈2°) vì mỗi mũi tên đại diện cả ô lớn;
-// Open-Meteo nhận tối đa ~120 điểm/lượt nên giữ 8×10 = 80.
-const LON_MIN = 102.5;
-const LON_MAX = 117.25;
-const LAT_MIN = 6.0;
-const LAT_MAX = 21.3;
-const N_LON = 8;
-const N_LAT = 10;
+// Lưới phủ vùng lớn (98–123°Đ, 1–24°B) — MỞ RỘNG 2026-07-28 để lớp màu/gió
+// KHÔNG "hụt" mép khi zoom thoải mái; thưa (~2,5°) vì là nền, mỗi mũi tên đại
+// diện ô lớn. Open-Meteo nhận ~120 điểm/lượt → giữ 10×11 = 110.
+const LON_MIN = 98;
+const LON_MAX = 123;
+const LAT_MIN = 1;
+const LAT_MAX = 24;
+const N_LON = 13;
+const N_LAT = 12; // 13×12 = 156 điểm (~150, user 2026-07-28) · bước ~2° đều
 
 /** Bước lưới THẬT theo từng chiều (độ) — suy từ khung trên, không gõ số rời */
 export const GRID_STEP_LAT_DEG = (LAT_MAX - LAT_MIN) / (N_LAT - 1); // ≈ 1,70°
@@ -381,15 +382,17 @@ export const WIND_COLOR_EXPR = [
   55, "#b71d1d",
 ] as const;
 
+// Sóng (m): bám thang Windy — teal nhạt (êm) → lam → chàm → đỏ (dữ). KHÔNG
+// dùng vàng/cam như trước (Windy sóng đi thẳng lam→đỏ tím).
 export const WAVE_COLOR_EXPR = [
   "interpolate",
   ["linear"],
   ["get", "v"],
-  0.3, "#74add1",
-  1.0, "#3d7fb5",
-  1.5, "#e8b339",
-  2.5, "#e06c1f",
-  4.0, "#b71d1d",
+  0.3, "#75c8be",
+  1.0, "#4682c8",
+  2.0, "#5a50b4",
+  3.0, "#b43c78",
+  4.5, "#c62828",
 ] as const;
 
 const WD_SHORT = ["CN", "Th 2", "Th 3", "Th 4", "Th 5", "Th 6", "Th 7"];
@@ -407,4 +410,87 @@ export function timeLabelVN(iso: string, todayIso?: string): string {
     dayName = `${WD_SHORT[dt.getUTCDay()]} ${Number(d)}/${Number(m)}`;
   }
   return `${dayName} · ${Number(hour)}h`;
+}
+
+// ── THANH THỜI GIAN KIỂU WINDY ────────────────────────────────────────────
+// Dải ngày cuộn ngang: mỗi ngày một khối, dưới có nấc GIỜ (không ghi số
+// gió/sóng lên thanh — chỉ ngày + giờ). Nấc giờ ánh xạ về đúng chỉ số trong
+// mảng times[] để chạm là nhảy tới khung đó.
+
+/** Nhãn ngắn cho ĐẦU khối ngày trên thanh: "Hôm nay" / "Mai" / "Th 6 12/6" */
+export function scrubDayLabel(isoDate: string, todayIso?: string): string {
+  if (todayIso) {
+    const a = Date.parse(`${todayIso}T00:00:00Z`);
+    const b = Date.parse(`${isoDate}T00:00:00Z`);
+    if (Number.isFinite(a) && Number.isFinite(b)) {
+      const diff = Math.round((b - a) / (24 * 60 * 60 * 1000));
+      if (diff === 0) return "Hôm nay";
+      if (diff === 1) return "Mai";
+    }
+  }
+  const dt = new Date(`${isoDate}T12:00:00Z`);
+  return `${WD_SHORT[dt.getUTCDay()]} ${dt.getUTCDate()}/${dt.getUTCMonth() + 1}`;
+}
+
+export interface ScrubDay {
+  /** ngày lịch "YYYY-MM-DD" (giờ VN) */
+  iso: string;
+  /** các nấc giờ trong ngày, kèm chỉ số vào mảng times[] để seek */
+  ticks: { idx: number; hour: number }[];
+}
+
+/**
+ * Gom mảng times[] (ISO giờ VN, đã thưa dần theo tầm) thành các KHỐI NGÀY để
+ * vẽ thanh cuộn. Giữ nguyên chỉ số gốc — chạm nấc giờ là seek đúng khung đó.
+ */
+export function groupTimesByDay(times: string[]): ScrubDay[] {
+  const days: ScrubDay[] = [];
+  times.forEach((t, idx) => {
+    const [date, time] = t.split("T");
+    const hour = Number(time?.slice(0, 2) ?? "0");
+    const last = days[days.length - 1];
+    if (last && last.iso === date) last.ticks.push({ idx, hour });
+    else days.push({ iso: date, ticks: [{ idx, hour: Number.isFinite(hour) ? hour : 0 }] });
+  });
+  return days;
+}
+
+export interface LegendStop {
+  /** ngưỡng: gió km/h · sóng m */
+  value: number;
+  color: string;
+}
+
+/**
+ * Thang màu cường độ (chú giải "thanh cường độ" kiểu Windy) — suy THẲNG từ
+ * WIND/WAVE_COLOR_EXPR để chú giải KHÔNG BAO GIỜ lệch với màu vẽ trên bản đồ.
+ */
+export function legendStops(kind: ForecastKind): LegendStop[] {
+  const expr = kind === "wind" ? WIND_COLOR_EXPR : WAVE_COLOR_EXPR;
+  const stops: LegendStop[] = [];
+  // cấu trúc: [..., value, color, value, color, ...] bắt đầu ở chỉ số 3
+  for (let i = 3; i + 1 < expr.length; i += 2) {
+    stops.push({ value: expr[i] as number, color: expr[i + 1] as string });
+  }
+  return stops;
+}
+
+/** CSS gradient cho thanh cường độ — vị trí mỗi chặng theo TỶ LỆ giá trị thật
+    (khớp cách MapLibre nội suy tuyến tính), không chia đều giả tạo. */
+export function legendGradientCss(kind: ForecastKind): string {
+  const stops = legendStops(kind);
+  if (stops.length === 0) return "var(--field)";
+  const min = stops[0].value;
+  const max = stops[stops.length - 1].value;
+  const span = max - min || 1;
+  const parts = stops.map(
+    (s) => `${s.color} ${Math.round(((s.value - min) / span) * 100)}%`,
+  );
+  return `linear-gradient(90deg, ${parts.join(", ")})`;
+}
+
+/** Đơn vị hiển thị trên thanh cường độ — GIỮ đơn vị của app (không đổi sang
+    knot như Windy): gió km/h, sóng m. */
+export function legendUnit(kind: ForecastKind): string {
+  return kind === "wind" ? "km/h" : "m";
 }

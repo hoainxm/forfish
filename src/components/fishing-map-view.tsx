@@ -52,7 +52,6 @@ import {
   timeLabelVN,
   WIND_COLOR_EXPR,
   WAVE_COLOR_EXPR,
-  GRID_DAY_OPTIONS,
   savedGridDays,
   type GridDays,
   type ForecastGrid,
@@ -91,6 +90,25 @@ import {
   RoutePlanner,
   type PlannedRoute,
 } from "@/components/route-planner";
+import {
+  fetchScalarField,
+  scalarFieldFeatures,
+  scalarGradientCss,
+  SCALAR_META,
+  SCALAR_RAMP,
+  type ScalarKind,
+  type ScalarGrid,
+} from "@/lib/scalar-field";
+import {
+  legendStops,
+  legendGradientCss,
+  legendUnit,
+} from "@/lib/forecast-grid";
+import { TimeScrubber, type ScrubberLegend } from "@/components/time-scrubber";
+import {
+  createScalarFieldLayer,
+  type ScalarFieldLayer,
+} from "@/components/scalar-gl-field";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { useNavTracking } from "@/lib/use-nav-tracking";
 import { computeNavProgress } from "@/lib/nav-progress";
@@ -143,8 +161,6 @@ import {
 } from "@/components/pretrip-auto-notify";
 import {
   AlertIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   FishIcon,
   HomeIcon,
   LockIcon,
@@ -238,6 +254,18 @@ const DEFAULT_SEA_POINT: SeaPoint = { lat: 13.0, lon: 110.5 };
 const MAP_GRID_BOUNDS: [number, number, number, number] = [102, 119, 4, 24];
 const MAP_GRID_STEP_DEG = 1;
 
+// Lưới dự báo phủ ~102,5–117,25°Đ, 6–21,3°B (gridPoints). Khi có lớp động bật:
+// khoá view NẰM GỌN TRONG vùng data (maxBounds đặt HƠI VÀO TRONG mép lưới) →
+// màn hình LUÔN được field phủ kín, KHÔNG lộ mép hình chữ nhật / nền trống
+// (user 2026-07-28). [[Tây, Nam], [Đông, Bắc]].
+// Khung khi bật lớp dự báo — vừa là khung fitBounds lúc bật, vừa là maxBounds
+// (chặn pan/zoom-out vượt data). Sát mép lưới data (98–123 / 1–24) để field phủ
+// kín; chừa chút để không lộ mép. Vẫn cho zoom IN + move trong khung.
+const LOCKED_BOUNDS: [[number, number], [number, number]] = [
+  [97.3, 0.4],
+  [123.7, 24.6],
+];
+
 // Lớp mở app: HẢI ĐỒ — chuẩn mọi app hàng hải (Navionics/C-MAP/OpenCPN đều
 // mặc định nautical chart, vệ tinh chỉ là tuỳ chọn — docs/research/09).
 // Người dùng đổi lớp thì nhớ cho lần sau. Đọc thẳng localStorage được vì
@@ -250,13 +278,6 @@ function initialLayerId(): OceanLayerId {
     // không có window/storage → dùng mặc định
   }
   return "bathymetry";
-}
-
-/** 4 nhãn mốc cho thanh thời gian theo khung ngày đang chọn (Bây giờ → N ngày) */
-function gridTickLabels(days: number): string[] {
-  const q1 = Math.max(1, Math.round(days / 3));
-  const q2 = Math.max(q1 + 1, Math.round((2 * days) / 3));
-  return ["Bây giờ", `${q1} ngày`, `${q2} ngày`, `${days} ngày`];
 }
 
 /** Lớp bản đồ cho MỘT vùng biển VMS (admin quản lý) — vẽ theo style + màu.
@@ -430,6 +451,10 @@ export default function FishingMapView() {
   const [forecastKind, setForecastKind] = useState<ForecastKind | null>(null);
   const [fGrid, setFGrid] = useState<ForecastGrid | null>(null);
   const [gridFailed, setGridFailed] = useState(false);
+  // Lớp DẢI MÀU vô hướng (mây/mưa/nhiệt) — loại trừ lẫn nhau với gió/sóng (một
+  // lớp overlay mỗi lần, như Windy). Dùng chung thanh giờ + khung ngày + timeIdx.
+  const [overlayField, setOverlayField] = useState<ScalarKind | null>(null);
+  const [sfGrid, setSfGrid] = useState<ScalarGrid | null>(null);
   const [timeIdx, setTimeIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
   // khung ngày lớp vẽ động (3/5/7/10/16) — bà con tự chọn tầm xa/gần
@@ -449,13 +474,15 @@ export default function FishingMapView() {
     );
   }, [gridFailed, gridDays, premiumLocked]);
 
-  // khung >3 ngày là premium — đang xem khung xa mà hạng tụt (đăng xuất…) thì
-  // kéo về 3 ngày, khớp với thẻ khoá trên nút chọn khung
+  // TẦM NGÀY TỰ ĐẶT THEO HẠNG (bỏ chip chọn khung, user 2026-07-28): premium =
+  // 16 ngày, thường = 3 ngày (FREE_FORECAST_DAYS). Bà con cuộn dải ngày để xem
+  // xa/gần; hạng tụt (đăng xuất) thì tự kéo về 3.
   useEffect(() => {
-    if (premiumLocked && gridDays > FREE_FORECAST_DAYS) {
+    const target = (premiumLocked ? FREE_FORECAST_DAYS : 16) as GridDays;
+    if (gridDays !== target) {
       setPlaying(false);
       setTimeIdx(0);
-      setGridDays(3);
+      setGridDays(target);
     }
   }, [premiumLocked, gridDays]);
 
@@ -465,11 +492,21 @@ export default function FishingMapView() {
   // đầu tiên KHÔNG bật cờ → giữ "Bây giờ".
   const jumpEndRef = useRef(false);
 
-  // tải lưới dự báo khi bật lớp lần đầu, hoặc khi ĐỔI khung ngày (tải lại cho tầm mới)
+  // Lớp DẢI MÀU theo GIỜ (mây/mưa/nhiệt/dông/áp suất) có PHỦ STREAK GIÓ lên trên
+  // (hiệu ứng dòng chảy kiểu Windy, user 2026-07-28). Độ mặn theo NGÀY → không phủ.
+  const scalarWantsStreaks = !!overlayField && overlayField !== "salinity";
+
+  // tải lưới GIÓ/SÓNG: khi bật lớp gió/sóng, HOẶC khi bật lớp màu theo giờ (để
+  // lấy hướng gió vẽ streak). Gió lỗi lúc đang xem lớp màu → chỉ bỏ streak,
+  // KHÔNG làm hỏng lớp màu (không set gridFailed).
   useEffect(() => {
-    if (!forecastKind || gridFailed) return;
+    if (!forecastKind && !scalarWantsStreaks) {
+      setFGrid(null);
+      return;
+    }
+    if (forecastKind && gridFailed) return;
     let alive = true;
-    setFGrid(null); // hiện "đang tải" khi đổi khung; timeIdx kẹp lại ở render
+    if (forecastKind) setFGrid(null); // "đang tải" cho strip gió/sóng
     fetchForecastGrid(gridDays)
       .then((g) => {
         if (!alive) return;
@@ -479,29 +516,164 @@ export default function FishingMapView() {
           jumpEndRef.current = false;
         }
       })
+      .catch(() => {
+        if (alive && forecastKind) setGridFailed(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [forecastKind, scalarWantsStreaks, gridFailed, gridDays]);
+
+  // tải lưới DẢI MÀU khi bật lớp mây/mưa/nhiệt, hoặc khi đổi khung ngày. Cùng
+  // luật offline/fallback với forecast-grid (lib tự lo). Lỗi → dùng chung
+  // gridFailed để thanh giờ báo thật.
+  useEffect(() => {
+    if (!overlayField || gridFailed) return;
+    let alive = true;
+    setSfGrid(null);
+    fetchScalarField(overlayField, gridDays)
+      .then((g) => {
+        if (!alive) return;
+        setSfGrid(g);
+        if (jumpEndRef.current) {
+          setTimeIdx(Math.max(0, g.times.length - 1));
+          jumpEndRef.current = false;
+        }
+      })
       .catch(() => alive && setGridFailed(true));
     return () => {
       alive = false;
     };
-  }, [forecastKind, gridFailed, gridDays]);
+  }, [overlayField, gridFailed, gridDays]);
 
-  // nút chạy ▶ — tự trượt thời gian như Windy
+  // Lưới đang điều khiển thanh giờ: gió/sóng HOẶC dải màu (loại trừ nhau)
+  const stripGrid: { times: string[]; stale?: boolean; savedAt?: number | null } | null =
+    forecastKind ? fGrid : overlayField ? sfGrid : null;
+  // overlayOn = có thanh giờ (gió/sóng/mây/mưa/nhiệt). SSHA (nước dâng/xoáy) là
+  // raster tĩnh, KHÔNG có thanh giờ nên không tính ở đây.
+  const overlayOn = !!forecastKind || !!overlayField;
+  // LUẬT HIỂN THỊ (user 2026-07-28): chỉ HẢI ĐỒ + CÁ được hiện cùng lúc. Bật
+  // BẤT KỲ lớp động nào (gió/sóng/mây/mưa/nhiệt + nước dâng/xoáy) → ẩn hải đồ
+  // nền + ẩn cá, chỉ còn 1 lớp đó. Các lớp động loại trừ lẫn nhau (handler dưới).
+  const anyExclusiveOverlay = !!forecastKind || !!overlayField || !!scalarKind;
+
+  // NHỐT KHUNG khi bật lớp dự báo — setMaxBounds imperative + RE-APPLY sau MỖI
+  // 'styledata' (đổi lớp gọi setStyle → maplibre reset maxBounds; prop của
+  // react-map-gl cũng không giữ nổi qua setStyle → phải tự găm lại, user
+  // 2026-07-29 đã bắt được maxBounds "không chạy" 2 lần vì vụ này).
+  const fitOnceRef = useRef(false);
   useEffect(() => {
-    if (!playing || !fGrid) return;
-    const t = setInterval(
-      () => setTimeIdx((i) => (i + 1) % fGrid.times.length),
-      800,
-    );
-    return () => clearInterval(t);
-  }, [playing, fGrid]);
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const apply = () => {
+      if (anyExclusiveOverlay) {
+        map.setMaxBounds(LOCKED_BOUNDS);
+        if (!fitOnceRef.current) {
+          fitOnceRef.current = true;
+          map.fitBounds(LOCKED_BOUNDS, { padding: 0, duration: 350 });
+        }
+      } else {
+        fitOnceRef.current = false;
+        map.setMaxBounds(null);
+      }
+    };
+    apply();
+    map.on("styledata", apply);
+    return () => {
+      map.off("styledata", apply);
+    };
+  }, [anyExclusiveOverlay]);
 
-  const arrows = useMemo(
+  // ── LỚP WEBGL NỀN MÀU MỊN (thay polygon khối) ──────────────────────────
+  // Custom layer WebGL: nạp lưới → texture, GPU nội suy bilinear → mượt. Xử lý
+  // MapLibre setStyle XOÁ custom-layer: nghe 'styledata' để tự thêm lại.
+  const glFieldRef = useRef<ScalarFieldLayer | null>(null);
+  const GL_FIELD_ID = "scalar-gl-field";
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const ensure = () => {
+      if (!map.isStyleLoaded()) return;
+      const has = !!map.getLayer(GL_FIELD_ID);
+      if (overlayField && sfGrid) {
+        if (!has) {
+          const layer = createScalarFieldLayer(GL_FIELD_ID);
+          glFieldRef.current = layer;
+          try {
+            map.addLayer(layer);
+          } catch {
+            /* style chưa sẵn — 'styledata' sẽ thử lại */
+          }
+        }
+        glFieldRef.current?.setField(sfGrid, timeIdx);
+      } else if (has) {
+        map.removeLayer(GL_FIELD_ID);
+        glFieldRef.current = null;
+      }
+    };
+    ensure();
+    map.on("styledata", ensure);
+    return () => {
+      map.off("styledata", ensure);
+    };
+  }, [overlayField, sfGrid, timeIdx]);
+
+  // nút chạy ▶ — tự trượt thời gian như Windy (theo lưới đang bật)
+  useEffect(() => {
+    if (!playing || !stripGrid?.times.length) return;
+    const len = stripGrid.times.length;
+    const t = setInterval(() => setTimeIdx((i) => (i + 1) % len), 800);
+    return () => clearInterval(t);
+  }, [playing, stripGrid]);
+
+  // Mũi tên/streak: gió/sóng dùng đúng hướng của nó; lớp màu theo giờ phủ streak
+  // theo HƯỚNG GIÓ (kiểu Windy) — vẽ từ cùng lưới fGrid, tô trắng dịu ở dưới.
+  const arrows = useMemo(() => {
+    if (!fGrid) return null;
+    if (forecastKind) return arrowFeatures(fGrid, timeIdx, forecastKind);
+    if (scalarWantsStreaks) return arrowFeatures(fGrid, timeIdx, "wind");
+    return null;
+  }, [forecastKind, scalarWantsStreaks, fGrid, timeIdx]);
+
+  // ô tô màu cho lớp dải màu tại mốc đang chọn. Độ mặn có lưới MỊN sẵn (1/3°)
+  // → factor 1; các lớp Open-Meteo lưới thưa 8×10 → nội suy ×3 cho đỡ khối.
+  const scalarFC = useMemo(
     () =>
-      forecastKind && fGrid
-        ? arrowFeatures(fGrid, timeIdx, forecastKind)
+      overlayField && sfGrid
+        ? scalarFieldFeatures(sfGrid, timeIdx, overlayField === "salinity" ? 1 : 5)
         : null,
-    [forecastKind, fGrid, timeIdx],
+    [overlayField, sfGrid, timeIdx],
   );
+
+  // Chú giải thanh cường độ cho lớp đang bật (gió/sóng km/h·m · mây/mưa/nhiệt)
+  const stripLegend: ScrubberLegend | null = useMemo(() => {
+    if (forecastKind) {
+      return {
+        title: forecastKind === "wind" ? "Sức gió" : "Độ cao",
+        unit: legendUnit(forecastKind),
+        gradient: legendGradientCss(forecastKind),
+        ticks: legendStops(forecastKind).map((s) => s.value),
+      };
+    }
+    if (overlayField) {
+      return {
+        title: SCALAR_META[overlayField].label,
+        unit: SCALAR_META[overlayField].unit,
+        gradient: scalarGradientCss(overlayField),
+        ticks: SCALAR_RAMP[overlayField].map((s) => s.value),
+      };
+    }
+    return null;
+  }, [forecastKind, overlayField]);
+
+  // tiêu đề thanh giờ: gió/sóng giữ tên ngắn, dải màu lấy nhãn của lớp
+  const overlayTitle = forecastKind
+    ? forecastKind === "wind"
+      ? "Gió"
+      : "Sóng"
+    : overlayField
+      ? SCALAR_META[overlayField].label
+      : "";
 
 
   // BƯỚC LƯỚI (độ): suy từ khoảng cách nhỏ nhất giữa các vĩ độ ô — để vẽ ô
@@ -839,10 +1011,13 @@ export default function FishingMapView() {
 
   const mapStyle = useMemo(
     () =>
-      buildMapStyle(layerId, new Date(), {
+      // lớp động đang bật → nền HẢI ĐỒ ĐỘ SÂU (trung tính) thay cho lớp nền màu
+      // (SST/phù du) đang chọn: lớp dự báo chỉ phủ vùng VN, phần NGOÀI vùng phủ
+      // để hải đồ che cho đẹp (không trống), mà không chồng 2 lớp màu rối mắt.
+      buildMapStyle(anyExclusiveOverlay ? "bathymetry" : layerId, new Date(), {
         seamarks: seamarksOn,
       }) as unknown as StyleSpecification,
-    [layerId, seamarksOn],
+    [layerId, seamarksOn, anyExclusiveOverlay],
   );
 
   const reqKey = `${point.lat},${point.lon}:${retry}`;
@@ -966,7 +1141,8 @@ export default function FishingMapView() {
   // KHÁC với lưới kẻ ô toạ độ (prefs.mapGrid) không liên quan cá. Vẫn khoá
   // premium: fishCast = null khi chưa mở khoá. Sàn = ngưỡng mức Thấp.
   const fishGridGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
-    if (!fishOn || !fishView) return null;
+    // LUẬT: cá KHÔNG hiện cùng lớp động (gió/sóng/mây/…) — chỉ hiện cùng hải đồ
+    if (!fishOn || !fishView || anyExclusiveOverlay) return null;
     const lo = FISH_LEVEL_BANDS[0].min; // sàn = ngưỡng mức Thấp; hiện đủ 3 mức
     const h = fishGridStep / 2;
     const features: GeoJSON.Feature[] = [];
@@ -996,7 +1172,7 @@ export default function FishingMapView() {
       });
     }
     return { type: "FeatureCollection", features };
-  }, [fishOn, fishView, fishSpecies, fishGridStep]);
+  }, [fishOn, fishView, fishSpecies, fishGridStep, anyExclusiveOverlay]);
 
   // điểm NÓNG (hồng tâm chạm-là-tới): ô điểm cao, cách nhau ≥0.7° cho khỏi
   // chùm, tối đa 8. ƯU TIÊN KHU VỰC GẦN MÌNH: cộng điểm thưởng cho ô gần chỗ
@@ -1005,7 +1181,8 @@ export default function FishingMapView() {
   const fishHotspots = useMemo<
     { lat: number; lon: number; v: number; top: string[]; near: boolean }[]
   >(() => {
-    if (!fishOn || !fishView) return [];
+    // ẩn hồng tâm cá khi có lớp động (cùng luật với lưới cá)
+    if (!fishOn || !fishView || anyExclusiveOverlay) return [];
     // các "mỏ neo gần mình": điểm đang xem + cảng nhà + điểm ghim
     const anchors: { lat: number; lon: number }[] = [
       { lat: point.lat, lon: point.lon },
@@ -1053,7 +1230,7 @@ export default function FishingMapView() {
       top,
       near,
     }));
-  }, [fishOn, fishView, fishSpecies, point, places, daysAhead]);
+  }, [fishOn, fishView, fishSpecies, point, places, daysAhead, anyExclusiveOverlay]);
 
   // điểm cá gần chỗ đang xem nhất — câu gợi ý "đi hướng nào" trong thẻ cá
   const nearestHotspot = useMemo(() => {
@@ -1193,9 +1370,10 @@ export default function FishingMapView() {
         ref={mapRef}
         initialViewState={DEFAULT_VIEW}
         mapStyle={mapStyle}
-        // user chốt: KHÔNG khoá vùng — cho kéo xem toàn cầu (mặc định mở quanh
-        // biển VN nhưng tự do di chuyển/zoom đi nơi khác)
-        minZoom={2}
+        // KHUNG khi có lớp dự báo (user 2026-07-28): VẪN cho zoom IN + move
+        // TRONG khung, chỉ CHẶN zoom-out/pan VƯỢT khung phủ data (minZoom +
+        // maxBounds). fitBounds ở effect ghim khung lúc bật lớp.
+        minZoom={anyExclusiveOverlay ? 4 : 2}
         style={{ width: "100%", height: "100%" }}
         // Ô nền không về (mất sóng / wifi cảng "có mà không ra") → đếm để bật
         // hình bờ biển lưu trong máy. Chỉ tính ô của lớp NỀN, không tính lớp
@@ -1390,6 +1568,21 @@ export default function FishingMapView() {
           </Source>
         )}
 
+        {/* lớp DẢI MÀU vô hướng (mây/mưa/nhiệt) — ô nội suy tô rgba sẵn (alpha
+            trong màu), vẽ DƯỚI mũi tên/nhãn/bão để không che thông tin quan trọng */}
+        {scalarFC && (
+          <Source id="scalar-field" type="geojson" data={scalarFC}>
+            <Layer
+              id="scalar-field-fill"
+              type="fill"
+              paint={{
+                "fill-color": ["get", "color"] as unknown as string,
+                "fill-antialias": false,
+              }}
+            />
+          </Source>
+        )}
+
         {/* mũi tên dự báo gió/sóng theo giờ (kiểu Windy) */}
         {arrows && (
           <Source id="forecast-arrows" type="geojson" data={arrows}>
@@ -1398,10 +1591,14 @@ export default function FishingMapView() {
               type="line"
               layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
+                // gió/sóng tô theo độ lớn; streak trên lớp màu tô TRẮNG DỊU (chỉ
+                // hướng gió, không tranh màu với dải màu bên dưới — kiểu Windy)
                 "line-color": (forecastKind === "wind"
                   ? WIND_COLOR_EXPR
-                  : WAVE_COLOR_EXPR) as unknown as string,
-                "line-width": 2.5,
+                  : forecastKind === "wave"
+                    ? WAVE_COLOR_EXPR
+                    : "rgba(255,255,255,0.6)") as unknown as string,
+                "line-width": forecastKind ? 2.5 : 1.6,
               }}
             />
           </Source>
@@ -1657,21 +1854,60 @@ export default function FishingMapView() {
           locating={locating}
           geoError={geoError}
           layerId={layerId}
-          onLayer={setLayerId}
+          onLayer={(id) => {
+            // chọn hải đồ nền = về nhóm "hải đồ + cá" → tắt mọi lớp động
+            setForecastKind(null);
+            setOverlayField(null);
+            setScalarKind(null);
+            setPlaying(false);
+            setLayerId(id);
+          }}
           scalarKind={scalarKind}
           onScalar={(k) => {
             setScalarKind(k);
-            if (k != null) setLayerId("bathymetry");
+            if (k != null) {
+              // SSHA là lớp động → loại trừ gió/sóng/dải màu (cá ẩn theo luật render)
+              setForecastKind(null);
+              setOverlayField(null);
+              setPlaying(false);
+              setLayerId("bathymetry");
+            }
           }}
           forecastKind={forecastKind}
           onForecast={(k) => {
             setForecastKind(k);
             if (k == null) setPlaying(false);
-            else setGridFailed(false);
+            else {
+              // một lớp động mỗi lần: tắt dải màu + SSHA
+              setOverlayField(null);
+              setScalarKind(null);
+              setGridFailed(false);
+              setTimeIdx(0);
+            }
+          }}
+          overlayField={overlayField}
+          onOverlayField={(k) => {
+            setOverlayField(k);
+            if (k == null) setPlaying(false);
+            else {
+              setForecastKind(null); // tắt gió/sóng + SSHA
+              setScalarKind(null);
+              setGridFailed(false);
+              setTimeIdx(0);
+            }
           }}
           vmsZones={vmsZones}
           fishOn={fishOn}
-          onFish={setFishOn}
+          onFish={(on) => {
+            // bật cá = về nhóm "hải đồ + cá" → tắt mọi lớp động cho cá hiện ra
+            if (on) {
+              setForecastKind(null);
+              setOverlayField(null);
+              setScalarKind(null);
+              setPlaying(false);
+            }
+            setFishOn(on);
+          }}
           fishSpecies={fishSpecies}
           fishAccess={premiumAccess}
           species={fishCast?.species ?? []}
@@ -1762,7 +1998,7 @@ export default function FishingMapView() {
         size={size}
         onSizeChange={setSize}
         above={
-          forecastKind || size === "peek" ? (
+          overlayOn || size === "peek" ? (
             <div className="flex flex-col gap-2">
               {/* Nhãn nhỏ "trong máy đã có dự báo tới đâu" — liếc là biết đã sẵn
                   sàng ra khơi chưa. Chỉ ở nấc peek để khỏi rối lúc mở sheet đọc
@@ -1770,7 +2006,7 @@ export default function FishingMapView() {
                   cá (nếu có) xếp NGAY TRÊN nhãn này. */}
               {size === "peek" && (
                 <div className="flex flex-col items-end gap-2">
-                  {!forecastKind && fishOn && !fishCast && fishFailed && (
+                  {!overlayOn && fishOn && !fishCast && fishFailed && (
                     <button
                       type="button"
                       onClick={loadFish}
@@ -1788,161 +2024,50 @@ export default function FishingMapView() {
                   <PretripSavedStatus />
                 </div>
               )}
-              {/* thanh giờ gió/sóng XUỐNG ĐÁY kiểu Windy — tay với tới, không
-                  chồng 4 tầng trên đầu bản đồ (roadmap hội đồng UX 2026-06-11) */}
-              {forecastKind && (
-                <div
-                  className="pointer-events-auto surface px-3 py-2 shadow-md"
-                  // mọi chạm/gõ phím trong thanh = "thao tác" → hoãn tự thu 5s
-                  onPointerDownCapture={() => gridStripOpen && armStripHide()}
-                  onKeyDownCapture={() => gridStripOpen && armStripHide()}
-                >
-              {fGrid ? (
-                gridStripOpen ? (
-                  <>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[0.875rem] font-bold text-navy">
-                        {forecastKind === "wind" ? "Gió" : "Sóng"} ·{" "}
-                        {/* mốc "Hôm nay" so NGÀY THẬT, không so ngày đầu của
-                            bản lưu — bản lưu mấy hôm trước từng nói dối ở đây */}
-                        {timeLabelVN(fGrid.times[timeIdx] ?? "", todayIso)}
-                        {fGrid.stale && (
-                          <span className="ml-1 block font-bold text-warn">
-                            Số cũ lưu trong máy
-                            {fGrid.savedAt != null &&
-                              ` — lưu lúc ${clockVN(fGrid.savedAt)}`}
-                          </span>
-                        )}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setPlaying((p) => !p)}
-                          aria-label={playing ? "Dừng chạy" : `Chạy thử ${gridDays} ngày`}
-                          className="flex h-11 w-11 items-center justify-center rounded-full bg-navy text-white active:scale-95"
-                        >
-                          {playing ? (
-                            <PauseIcon className="h-5 w-5" />
-                          ) : (
-                            <PlayIcon className="h-5 w-5" />
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPlaying(false);
-                            setGridStripOpen(false);
-                          }}
-                          aria-label="Ẩn thanh giờ"
-                          className="flex h-11 w-9 items-center justify-center rounded-full text-navy active:scale-95"
-                        >
-                          <ChevronDownIcon className="h-5 w-5" />
-                        </button>
-                      </div>
-                    </div>
-                    {/* chọn khung ngày cho lớp vẽ động (3/5/7/10/16) — quá 3
-                        ngày là PREMIUM: nút khoá vẫn hiện (biết có gì để muốn)
-                        nhưng chạm thì mời nâng cấp/đăng nhập, không đổi khung */}
-                    <div
-                      className="mt-1.5 flex gap-1.5"
-                      role="group"
-                      aria-label="Chọn khung ngày dự báo trên bản đồ"
-                    >
-                      {GRID_DAY_OPTIONS.map((d) => {
-                        const on = d === gridDays;
-                        const locked =
-                          premiumLocked && d > FREE_FORECAST_DAYS;
-                        return (
-                          <button
-                            key={d}
-                            type="button"
-                            onClick={() => {
-                              if (locked) {
-                                setDayLockNote(true);
-                                return;
-                              }
-                              setDayLockNote(false);
-                              if (d === gridDays) return;
-                              setPlaying(false);
-                              jumpEndRef.current = true; // (B) nhảy tới ngày cuối khi lưới về
-                              setGridDays(d);
-                            }}
-                            aria-pressed={on}
-                            aria-disabled={locked || undefined}
-                            className={`flex min-h-[2.25rem] flex-1 items-center justify-center gap-1 rounded-lg text-[0.8125rem] font-bold transition active:scale-[0.97] ${
-                              on
-                                ? "bg-navy text-white shadow-sm"
-                                : locked
-                                  ? "bg-field text-foreground/40"
-                                  : "bg-field text-foreground/70"
-                            }`}
-                          >
-                            {locked && (
-                              <LockIcon
-                                className="h-3.5 w-3.5 shrink-0"
-                                aria-hidden
-                              />
-                            )}
-                            {d} ngày
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {dayLockNote && premiumLocked && (
-                      <p className="mt-1.5 rounded-lg bg-field/80 px-2.5 py-2 text-[0.8125rem] font-semibold leading-snug text-foreground/75">
-                        Xem quá {FREE_FORECAST_DAYS} ngày là tính năng của tài
-                        khoản nâng cao —{" "}
-                        {premiumAccess === "login" ? (
-                          <Link href="/login" className="font-bold text-trim">
-                            Đăng nhập →
-                          </Link>
-                        ) : (
-                          <a
-                            href={`tel:${SDVICO_HOTLINE}`}
-                            className="font-bold text-trim"
-                          >
-                            gọi SDVICO nâng cấp →
-                          </a>
-                        )}
-                      </p>
-                    )}
-                    <input
-                      type="range"
-                      min={0}
-                      max={fGrid.times.length - 1}
-                      step={1}
-                      value={Math.min(timeIdx, fGrid.times.length - 1)}
-                      onChange={(e) => {
-                        setPlaying(false);
-                        setTimeIdx(Number(e.target.value));
-                      }}
-                      aria-label="Chọn giờ xem dự báo"
-                      className="range-big mt-1 w-full"
-                    />
-                    <div className="flex justify-between text-[0.6875rem] font-semibold text-foreground/65">
-                      {gridTickLabels(gridDays).map((t, i) => (
-                        <span key={i}>{t}</span>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setGridStripOpen(true)}
-                    className="flex w-full items-center justify-between gap-2"
-                    aria-label="Hiện thanh giờ dự báo"
-                  >
-                    <span className="text-[0.875rem] font-bold text-navy">
-                      {forecastKind === "wind" ? "Gió" : "Sóng"} ·{" "}
-                      {timeLabelVN(
-                        fGrid.times[timeIdx] ?? "",
-                        fGrid.times[0]?.split("T")[0],
-                      )}{" "}
-                      · chạm để chọn giờ
+              {/* thanh giờ gió/sóng/mây/mưa/nhiệt XUỐNG ĐÁY kiểu Windy — tay với
+                  tới, không chồng 4 tầng trên đầu bản đồ (roadmap UX 2026-06-11) */}
+              {overlayOn && (
+                <div className="pointer-events-auto surface px-3 py-1.5 shadow-md">
+              {/* LUÔN HIỆN khi mở lớp (kiểu Windy) — bỏ thu gọn/auto-hide; strip
+                  gọn: 1 dòng tiêu đề + play, rồi dải ngày + thanh dải màu (user
+                  2026-07-28). Thanh dải màu KHÔNG bao giờ ẩn khi lớp đang bật. */}
+              {stripGrid ? (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[0.8125rem] font-bold leading-tight text-navy">
+                      {overlayTitle} ·{" "}
+                      {/* mốc "Hôm nay" so NGÀY THẬT, không so ngày đầu bản lưu */}
+                      {timeLabelVN(stripGrid.times[timeIdx] ?? "", todayIso)}
+                      {/* bỏ dòng "Số cũ lưu trong máy" trên strip cho gọn (user
+                          2026-07-28) — trạng thái bản lưu vẫn hiện ở sheet điểm */}
                     </span>
-                    <ChevronUpIcon className="h-5 w-5 shrink-0 text-navy" />
-                  </button>
-                )
+                    <button
+                      type="button"
+                      onClick={() => setPlaying((p) => !p)}
+                      aria-label={playing ? "Dừng chạy" : "Chạy thử"}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy text-white active:scale-95"
+                    >
+                      {playing ? (
+                        <PauseIcon className="h-4 w-4" />
+                      ) : (
+                        <PlayIcon className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  {/* dải ngày + nấc giờ + THANH DẢI MÀU (luôn hiện) */}
+                  {stripLegend && (
+                    <TimeScrubber
+                      times={stripGrid.times}
+                      timeIdx={timeIdx}
+                      onSeek={(i) => {
+                        setPlaying(false);
+                        setTimeIdx(i);
+                      }}
+                      legend={stripLegend}
+                      todayIso={todayIso}
+                    />
+                  )}
+                </>
               ) : gridFailed ? (
                 /* KHÔNG mượn lưới của khung ngày khác nữa (xin 16 ngày mà đưa
                    lưới 3 ngày đã lưu, chip vẫn sáng "16 ngày"). Nói thật khung
@@ -1998,7 +2123,10 @@ export default function FishingMapView() {
         }
         label="Gió sóng chỗ đang xem"
         peek={
-          loading ? (
+          // Bật lớp dự báo + đang ở nấc PEEK (strip hiện ở trên) → ẨN panel biển
+          // động cho gọn. Vuốt LÊN (half/full) thì panel + chip ngày HIỆN LẠI đầy
+          // đủ (user 2026-07-28: đừng mất phần liên quan khi mở ra).
+          overlayOn && size === "peek" ? null : loading ? (
             <p className="py-3 text-[1rem] font-semibold text-foreground/70">
               Đang lấy dự báo sóng gió…
             </p>
@@ -2160,37 +2288,24 @@ export default function FishingMapView() {
                           disabled={past}
                           aria-pressed={active}
                           aria-disabled={locked || undefined}
-                          className={`flex min-h-[3.75rem] min-w-[4.875rem] shrink-0 flex-col items-center justify-center rounded-xl px-2 transition active:scale-[0.97] ${
+                          className={`flex min-h-[2.75rem] min-w-[4.5rem] shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl px-3 transition active:scale-[0.97] ${
                             active ? "bg-navy text-white shadow-sm" : "bg-field"
                           } ${past ? "opacity-40" : ""}`}
                         >
+                          {/* CHỈ NGÀY — bỏ số sóng/gió cho gọn (user 2026-07-28);
+                              số chi tiết xem ở thân sheet cho ngày đang chọn */}
                           <span
-                            className={`text-[0.8125rem] font-bold leading-tight ${
-                              active ? "text-white/85" : "text-foreground/70"
+                            className={`text-[0.9375rem] font-bold leading-tight ${
+                              active ? "text-white" : "text-navy"
                             }`}
                           >
                             {chipLabel(d.date, todayIso)}
                           </span>
-                          {locked ? (
+                          {locked && (
                             <LockIcon
-                              className="h-4 w-4 text-foreground/45"
+                              className="h-3.5 w-3.5 text-foreground/45"
                               aria-hidden
                             />
-                          ) : (
-                            <span
-                              className="display text-[1rem] font-bold leading-tight"
-                              style={{
-                                color: active
-                                  ? "#fff"
-                                  : d.level
-                                    ? LEVEL_STYLE[d.level].fg
-                                    : "var(--navy)",
-                              }}
-                            >
-                              {d.waveMaxM > 0
-                                ? `${formatNumberVN(d.waveMaxM)} m`
-                                : `gió c${beaufort(d.windMaxKmh)}`}
-                            </span>
                           )}
                         </button>
                       );

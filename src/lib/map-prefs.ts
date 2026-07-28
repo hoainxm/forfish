@@ -32,7 +32,7 @@ const KEY = "forfish.mapPrefs.v1";
 const DEFAULT: MapPrefs = {
   distUnit: "nm",
   coordFormat: "dd",
-  mapGrid: true,
+  mapGrid: false, // lưới kẻ ô toạ độ MẶC ĐỊNH ẨN (user 2026-07-28)
   vungLong: true,
   vmsOverrides: {},
 };
@@ -51,8 +51,9 @@ function load(): MapPrefs {
     return {
       distUnit: p.distUnit === "km" ? "km" : "nm",
       coordFormat: p.coordFormat === "dms" ? "dms" : "dd",
-      // các lớp ranh giới mặc định bật; chỉ tắt khi đã lưu false
-      mapGrid: p.mapGrid !== false,
+      // lưới kẻ ô toạ độ MẶC ĐỊNH ẨN — chỉ hiện khi đã lưu true (user chốt bật)
+      mapGrid: p.mapGrid === true,
+      // ranh giới vùng lộng mặc định bật; chỉ tắt khi đã lưu false
       vungLong: p.vungLong !== false,
       vmsOverrides:
         p.vmsOverrides && typeof p.vmsOverrides === "object"

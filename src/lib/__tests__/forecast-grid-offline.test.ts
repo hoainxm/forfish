@@ -44,7 +44,7 @@ function fakeOk(hours: number) {
         };
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve(Array.from({ length: 80 }, () => one)),
+      json: () => Promise.resolve(Array.from({ length: 156 }, () => one)),
     });
   };
 }
@@ -72,7 +72,7 @@ describe("fetchForecastGrid offline — đúng khung ngày đã xin", () => {
     const g = await fetchForecastGrid(3);
     expect(g.stale).toBe(true);
     expect(g.savedAt).toBeTypeOf("number");
-    expect(g.cells).toHaveLength(80);
+    expect(g.cells).toHaveLength(156);
   });
 
   it("mất sóng, xin khung KHÁC với khung đã lưu → BÁO LỖI, không đưa lưới khung khác", async () => {
