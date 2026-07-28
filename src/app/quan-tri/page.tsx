@@ -201,21 +201,24 @@ export default function QuanTriPage() {
         </button>
       </div>
 
-      <div className="mt-4 flex gap-1.5 md:max-w-[560px]" role="tablist">
+      {/* Nhãn ngang hàng ĐỒNG BỘ (03-design-system): mọi tab đúng 2 chữ,
+          1 dòng (nowrap); >4 tab → hàng cuộn ngang theo pattern ui/tabs.tsx,
+          KHÔNG flex-1 ép 7 tab vào một hàng làm nhãn gãy dòng lung tung. */}
+      <div className="mt-4 flex gap-1.5 overflow-x-auto pb-1" role="tablist">
         {(
-          // QUẢN LÝ: Tài khoản (cấp premium) + Cảnh báo TV (kiểm duyệt); Dữ
-          // liệu + Hệ thống là việc của admin
+          // QUẢN LÝ: Tài khoản (cấp premium) + Thuyền viên (kiểm duyệt cảnh
+          // báo); Dữ liệu + Hệ thống là việc của admin
           (health.me?.role === "manager"
             ? [
                 ["tai-khoan", "Tài khoản"],
-                ["canh-bao", "Cảnh báo TV"],
+                ["canh-bao", "Thuyền viên"],
                 ["san-pham", "Sản phẩm"],
                 ["yeu-cau", "Yêu cầu"],
                 ["thong-bao", "Thông báo"],
               ]
             : [
                 ["tai-khoan", "Tài khoản"],
-                ["canh-bao", "Cảnh báo TV"],
+                ["canh-bao", "Thuyền viên"],
                 ["san-pham", "Sản phẩm"],
                 ["yeu-cau", "Yêu cầu"],
                 ["thong-bao", "Thông báo"],
@@ -229,7 +232,7 @@ export default function QuanTriPage() {
             role="tab"
             aria-selected={tab === id}
             onClick={() => setTab(id)}
-            className={`min-h-[2.75rem] flex-1 rounded-xl text-[0.9375rem] font-bold transition ${
+            className={`min-h-[2.75rem] shrink-0 whitespace-nowrap rounded-xl px-4 text-[0.9375rem] font-bold transition ${
               tab === id
                 ? "bg-navy text-white shadow-sm"
                 : "bg-field text-foreground/70"

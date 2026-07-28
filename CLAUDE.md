@@ -4,7 +4,7 @@
 
 ## Bốn trục / The four promises
 
-> **Lời hứa ≠ route**: nav hướng-đối-tượng (dock: Trang chủ · Ra khơi · Tàu · Bạn thuyền · Giao dịch), không 1 route/trục. Route cũ `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` = **redirect**. Nguồn đúng: [07-design-spec §4](docs/app-map/07-design-spec.md).
+> **Lời hứa ≠ route**: nav hướng-đối-tượng (dock: Trang chủ · Ra khơi · Tàu cá · Bạn thuyền · Giao dịch), không 1 route/trục. Route cũ `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` = **redirect**. Nguồn đúng: [07-design-spec §4](docs/app-map/07-design-spec.md).
 
 | Trục | Lời hứa | Ở đâu (route thật) | Trạng thái |
 |---|---|---|---|

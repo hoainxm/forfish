@@ -73,6 +73,17 @@ Người 40–60 tuổi phải biết mình đang ở tầng nào bằng MẮT, 
 3. **Chip tầng 2** (`level=2`) — mục con bên trong một mục: pill TONAL nền nhạt màu trục, 42px, chữ 15px — nhỏ + nhẹ hơn hẳn tầng 1 (vd 5 mục của Bán ở đâu).
 KHÔNG tự chép tay style chip nữa — mọi hàng chip điều hướng dùng `ChipRow` (truyền `accent` đúng màu trục). Không đào sâu quá 3 tầng (Tabs → chip 1 → chip 2 là kịch trần).
 
+### Nhãn ngang hàng — ĐỒNG BỘ hình dạng (user chốt 2026-07-28)
+
+Mọi cụm điều khiển ngang hàng (thanh tab, hàng chip, hàng nút phân đoạn, dock) phải có nhãn CÙNG KHUÔN — người dùng lướt mắt một lượt là đọc được, không bị cái dài cái ngắn kéo mắt:
+
+1. **Cùng số dòng**: cả cụm 1 dòng thì 1 dòng hết, 2 dòng thì 2 dòng hết. KHÔNG trộn (đã dính: tab /quan-tri 7 nhãn `flex-1` → "Yêu cầu" 1 dòng cạnh "Tài khoản" 2 dòng — sửa 2026-07-28).
+2. **Cùng biên độ số chữ**: đặt budget cho cụm trước (vd tab /quan-tri: đúng 2 chữ/nhãn) rồi CHỌN TỪ cho vừa khuôn — không co giãn khuôn theo từ. Tên không vừa → đổi từ (vd "Cảnh báo TV" 3 chữ → "Thuyền viên" 2 chữ), KHÔNG để nhãn 1 chữ cụt lủn đứng cạnh nhãn 3 chữ dài ngoằng.
+3. **Cơ chế chống gãy dòng**: ≤4 tab mới được segmented `flex-1` (và phải kiểm nhãn dài nhất vẫn 1 dòng ở 360px); >4 tab → hàng CUỘN NGANG (`overflow-x-auto` + nút `shrink-0 whitespace-nowrap`) đúng pattern `ui/tabs.tsx`. KHÔNG ép nhiều tab vào một hàng bằng flex-1.
+4. **Không tự chế tablist**: trong app dùng `ui/tabs.tsx` / `ChipRow`; trang đứng riêng (vd /quan-tri) được style riêng nhưng vẫn phải theo 3 luật trên.
+
+Luật này áp cho CHỮ trong nhãn, không chỉ CSS: viết copy cho tab/nút là phải nghĩ theo cụm, không đặt tên từng cái một.
+
 ### Màu theo trục (per-trục accents) — đã có trong `globals.css`
 
 | Trục | Tên | Hex |

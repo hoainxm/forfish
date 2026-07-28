@@ -14,7 +14,7 @@ import {
   Home — built for first-time, low-tech users:
   · one glance = "what needs my attention" (urgent strip)
   · one tap   = one of FOUR entities you manage (taxonomy MECE theo đối tượng):
-    Ra khơi (chuyến) · Tàu của tôi (tài sản) · Bạn thuyền (người) · Giao dịch (mua bán)
+    Ra khơi (chuyến) · Tàu cá (tài sản) · Bạn thuyền (người) · Giao dịch (mua bán)
   Tone: a dependable work tool — plain words, no emoji, no decoration.
 */
 
@@ -34,7 +34,7 @@ const pillars = [
     href: "/tau",
     tone: "t3",
     icon: AnchorIcon,
-    title: "Tàu của tôi",
+    title: "Tàu cá",
     sub: "Giấy tờ, dịch vụ, đồ SDVICO",
   },
   {

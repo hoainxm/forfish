@@ -60,7 +60,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 
 ## 4. Nav model
 
-- **Mobile bottom dock (5)**: Trang chủ · Ra khơi · Tàu · Bạn thuyền · **Giao dịch** (dock đổi nhãn "Tiền"→"Giao dịch" 2026-07-27) — đúng trần M3 = 5, taxonomy MECE theo đối tượng. Item ≥3.75rem, icon + chữ.
+- **Mobile bottom dock (5)**: Trang chủ · Ra khơi · **Tàu cá** · Bạn thuyền · **Giao dịch** (dock đổi nhãn "Tiền"→"Giao dịch" 2026-07-27; "Tàu"→"Tàu cá" 2026-07-28 cho ĐỦ KHUÔN 2 chữ/nhãn — 03 "Nhãn ngang hàng") — đúng trần M3 = 5, taxonomy MECE theo đối tượng. Item ≥3.75rem, icon + chữ.
 - **Tab trong page**: /tau = 3 tab (Giấy tờ/Dịch vụ/Sản phẩm) — **bỏ tab Mức phạt + Checklist xuất bến 2026-07-27 (user: không cần, chủ tàu tự biết)**; **/tien KHÔNG còn Tabs** (bỏ Hiệu quả/Công nợ 2026-07-27) — render thẳng `trade-hub.tsx` với 3 chip level-1 (Giá cá/Tin mua/bán/Bán ở đâu). Trong chip dùng `ChipRow` (≤3 tier). KHÔNG tab lồng tab. Thanh tab **dính (sticky top-0)** có padding-top `+env(safe-area-inset-top)` → khi hero cuộn mất, thanh không chui dưới notch/status bar (edge-to-edge).
 - Route phụ (`/cang`, `/login`, `/dang-ky`, `/doi-mat-khau`) vào từ ngữ cảnh, không nằm trên dock. Route cũ (`/gia-ca`, `/giay-to`, `/van-hanh`, `/thuyen-vien`) = redirect 1 dòng sang trục mới.
 
@@ -115,7 +115,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 
 - **Contrast AA**: đã quét computed-style 6 màn (home, /ngu-truong, /tau, /nguoi, /tien, /login, /cang) → **0 lỗi <4.5:1**. Sàn neutral text = `/65`; accent text/fill kiểm cả 2 chiều (t3 đậm về `#8f6010`).
 - **`tabular-nums`**: đã phủ MỌI cột/figure số: giá cá, tin mua/bán (giá tự do), thẻ tổng quan bạn thuyền (2 ô), CCCD (thẻ + tra), cột điểm + sóng/gió `sea-forecast`.
-- Tên trục ở Home ("Tàu của tôi", "Sổ tiền") khác nhãn dock ("Tàu", "Tiền") — cố ý (dock cần ngắn), giữ nguyên.
+- ~~Tên trục ở Home ("Tàu của tôi", "Sổ tiền") khác nhãn dock ("Tàu", "Tiền") — cố ý (dock cần ngắn), giữ nguyên.~~ **HẾT HIỆU LỰC 2026-07-28**: quy định "Nhãn ngang hàng" (03) + user chốt MỘT TÊN xuyên suốt — nay dock = thẻ Home = H1 /tau = **"Tàu cá"** (Giao dịch đã về một mối từ 2026-07-27).
 - Lint `set-state-in-effect`: pattern hydrate-on-mount cố ý → rule đã tắt có chủ đích (commit 76acf4f).
 - **Safe-area đa thiết bị (2026-06-18)**: mọi phần neo mép màn né tai thỏ + home-indicator iOS + thanh gesture/nút-dưới Android. TOP: PageHeader + map-overlay + sticky Tabs/dossier dùng `env(safe-area-inset-top)`. BOTTOM: `<main pb=calc(8rem+env(sab))>`, bottom-nav/bottom-sheet/snap-sheet dùng `env(safe-area-inset-bottom)` (body KHÔNG pad đáy — tránh cộng đôi). Overlay (sheet/dialog) **portal ra body** nên không bị stacking context của cha che. Render 320/360/landscape: 0 tràn ngang, form cuộn được, nút không bị ẩn. Mục tiêu: không đè nút, không mất form, không tràn.
 
@@ -453,3 +453,7 @@ GIỚI HẠN NÓI THẬT: GDACS không có mốc giờ từng điểm track → 
 <!-- re-verified: 2026-07-28 — RAIL + THANH GIỜ MẶC ĐỊNH THU GỌN, TỰ THU 5s (user: "mặc định ẩn đi, click vào xổ ra, nếu ko chọn hay thao tác gì thì 5s tự động ẩn").
 ra-khoi-controls.tsx: `collapsed` khởi tạo TRUE (trước false) — mở trang chỉ thấy nút "Lớp" + "Vị trí"; xổ rail thì timer 5s (AUTO_HIDE_MS) tự thu + đóng panel; mọi pointerdown/keydown TRONG rail-panel (capture ở wrapper) + đổi `open` đều nạp lại timer.
 fishing-map-view.tsx: `gridStripOpen` khởi tạo FALSE (trước true) — bật lớp gió/sóng chỉ thấy 1 dòng "chạm để chọn giờ"; xổ thanh thì timer 5s (STRIP_AUTO_HIDE_MS) tự thu; nạp lại khi kéo slider/đổi khung ngày/chạm-gõ trong thanh; ĐANG CHẠY ▶ thì KHÔNG tự thu (đang coi, không giật khỏi tay — dừng mới đếm lại). -->
+
+<!-- re-verified: 2026-07-28c — QUY ĐỊNH NHÃN NGANG HÀNG (user chốt, kèm screenshot tab /quan-tri gãy dòng lộn xộn): mọi cụm tab/chip/nút ngang hàng phải CÙNG KHUÔN nhãn — cùng số dòng, cùng biên độ số chữ, chọn TỪ cho vừa khuôn chứ không co giãn khuôn theo từ. Luật đầy đủ ở 03-design-system mục "Nhãn ngang hàng — ĐỒNG BỘ hình dạng". Áp ngay cho /quan-tri: 7 tab bỏ flex-1 → hàng cuộn ngang nowrap (pattern ui/tabs.tsx, >4 tab thì cuộn), nhãn "Cảnh báo TV" → "Thuyền viên" cho đủ khuôn 2 chữ/nhãn (Tài khoản · Thuyền viên · Sản phẩm · Yêu cầu · Thông báo · Dữ liệu · Hệ thống — tất cả 2 chữ 1 dòng). CHƯA đụng dock (nhãn "Tàu" 1 chữ giữa 4 nhãn 2 chữ — cross-trục, chờ user chốt có đổi "Tàu cá" không). -->
+
+<!-- re-verified: 2026-07-28d — USER CHỐT "sửa đi, cho đồng bộ" → MỘT TÊN "Tàu cá" xuyên suốt: dock bottom-nav "Tàu"→"Tàu cá" (5 nhãn đều 2 chữ: Trang chủ · Ra khơi · Tàu cá · Bạn thuyền · Giao dịch); thẻ trục 3 ở Home "Tàu của tôi"→"Tàu cá" (4 thẻ đều 2 chữ); H1 + metadata /tau "Tàu của tôi"→"Tàu cá" (kicker "Quản lý tàu" giữ). Đóng luôn note cũ §9 "khác nhãn dock — cố ý, giữ nguyên" (gạch bỏ tại chỗ) + note review-final #6. Route /tau, BoatSwitcher, tên tàu mặc định lib/boats.ts ("Tàu của tôi" = TÊN CON TÀU của user, không phải nhãn nav) KHÔNG đổi. -->

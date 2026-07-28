@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { BoatSwitcher } from "@/components/boat-switcher";
 import { TauTabs } from "@/components/tau-tabs";
 
-export const metadata = { title: "Tàu của tôi — SDFish" };
+export const metadata = { title: "Tàu cá — SDFish" };
 
 // Trục TÀU (tài sản) — ForFish là kênh CSKH của SDVICO: giấy tờ + tuân thủ,
 // DỊCH VỤ (sửa chữa/bảo dưỡng/cước + sổ nhắc tự ghi), sản phẩm SDVICO
@@ -14,7 +14,7 @@ export default function TauPage() {
     <div>
       <PageHeader
         kicker="Quản lý tàu"
-        title="Tàu của tôi"
+        title="Tàu cá"
         sub="Giấy tờ, dịch vụ, sản phẩm — giữ tàu đủ điều kiện ra khơi."
         toColor="var(--t3)"
       />

@@ -18,7 +18,7 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 
 ## 2. Bốn trục / The four promises
 
-> **Lời hứa ≠ route** (cập nhật 2026-06-15): nav đã đổi sang **hướng đối tượng** (dock: Trang chủ · Ra khơi · Tàu · Bạn thuyền · Tiền), KHÔNG còn 1 route/trục. Bản đồ lời-hứa → nơi ở thật: **Trục 1** `/ngu-truong` · **Trục 2** `/tien` (tab Giao dịch) · **Trục 3** `/tau` (tab Dịch vụ/Sản phẩm) · **Trục 4** `/tau` (tab Giấy tờ) + `/nguoi` (thuyền viên). Route cũ `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` = **redirect**. Nguồn đúng về nav: [07-design-spec §4](07-design-spec.md). Lời hứa thì không đổi — đó mới là trục.
+> **Lời hứa ≠ route** (cập nhật 2026-06-15): nav đã đổi sang **hướng đối tượng** (dock: Trang chủ · Ra khơi · Tàu cá · Bạn thuyền · Giao dịch — nhãn 2026-07-28), KHÔNG còn 1 route/trục. Bản đồ lời-hứa → nơi ở thật: **Trục 1** `/ngu-truong` · **Trục 2** `/tien` (tab Giao dịch) · **Trục 3** `/tau` (tab Dịch vụ/Sản phẩm) · **Trục 4** `/tau` (tab Giấy tờ) + `/nguoi` (thuyền viên). Route cũ `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` = **redirect**. Nguồn đúng về nav: [07-design-spec §4](07-design-spec.md). Lời hứa thì không đổi — đó mới là trục.
 
 ### Trục 1 — Đánh bắt tốt hơn (`/ngu-truong`)
 - **Hứa gì**: ra khơi trúng hơn, đỡ phí dầu phí công.
