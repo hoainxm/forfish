@@ -137,6 +137,8 @@ src/
     ports.ts            # 10 cảng + tọa độ đã kiểm chứng Open-Meteo
     vn-maritime-border.ts # Ranh giới biển VN — 75 điểm CHUẨN (user cấp 2026-06-10, "borderpoints.json"), Campuchia → Trường Sa → Hoàng Sa → Vịnh Bắc Bộ → Móng Cái; nguồn cho geofence cảnh báo IUU
     vn-fishing-zones.ts # Ranh giới VÙNG LỘNG (NĐ 26/2019, tàu 12–<15m) — polygon 36 đỉnh do SDVico cấp (data.json cat map/VungLong, 2026-07-25); vungLongGeoJSON → lớp map nét đứt teal (toggle panel Cài đặt → Lớp bản đồ). THAM KHẢO, không phải căn cứ pháp lý
+    vms-fishing-zones.ts # 3 VÙNG BIỂN VMS (SDVico 2026-07-28): được phép đánh bắt (xanh lá #16a34a) · cần chú ý khi đánh bắt — 13 khu quanh Hoàng Sa/Trường Sa (vàng cam #f59e0b) · chỉ đánh cá đáy giáp VN–Indonesia (tím #8b5cf6). Đọc vms-zones.json (bản GIẢN LƯỢC từ 3 GeoJSON gốc ~1,6MB → 24KB: Douglas-Peucker ~1km, bỏ mảnh ven bờ <3km — scripts/convert-vms-zones.py; đường duong200hl gốc BỎ vì trùng vn-maritime-border). Toggle từng lớp panel Cài đặt (prefs vmsAllowed/vmsCaution/vmsBottomOnly, mặc định bật). THAM KHẢO — test gác dữ liệu: lib/__tests__/vms-zones.test.ts
+    vms-zones.json      # dữ liệu 3 vùng VMS đã giản lược (sinh bởi scripts/convert-vms-zones.py — KHÔNG sửa tay)
     fish-seasons.ts     # Cá mùa này — 7 vùng biển (polygon + labelAt) × 40 loài × tháng, nguồn RIMF/báo ngành THAM KHẢO; regionAt (chứa)/nearestRegionWithin (vùng gần nhất ≤2° — PHỦ KÍN toàn EEZ, không lỗ hổng)/fishInRegion (có test)
     port-prices.ts      # Giá cá tĩnh = FALLBACK cho /api/port-prices (khi VASEP fail/parse vỡ); nguồn báo công khai, có ngày tổng hợp
     supplies.ts         # Danh mục vật tư THAM KHẢO
