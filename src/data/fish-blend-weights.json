@@ -1,5 +1,59 @@
 {
-  "generatedAt": "2026-07-28T10:17:59.968Z",
+  "generatedAt": "2026-07-28T10:54:54.382Z",
+  "seasonSplit": {
+    "verdict": "KHÔNG đáng tách mùa — bảng chung tốt ngang hoặc hơn khi kiểm chéo; giữ MỘT bảng cho gọn",
+    "perLead": [
+      {
+        "lead": 1,
+        "wNE": 0.771,
+        "wSW": 0.839,
+        "diff": 0.067,
+        "cvGainPct": -2.36
+      },
+      {
+        "lead": 2,
+        "wNE": 0.741,
+        "wSW": 0.775,
+        "diff": 0.033,
+        "cvGainPct": -2.6
+      },
+      {
+        "lead": 3,
+        "wNE": 0.64,
+        "wSW": 0.749,
+        "diff": 0.109,
+        "cvGainPct": -3.8
+      },
+      {
+        "lead": 5,
+        "wNE": 0.611,
+        "wSW": 0.691,
+        "diff": 0.08,
+        "cvGainPct": -4.1
+      },
+      {
+        "lead": 8,
+        "wNE": 0.566,
+        "wSW": 0.657,
+        "diff": 0.091,
+        "cvGainPct": -4.49
+      },
+      {
+        "lead": 11,
+        "wNE": 0.557,
+        "wSW": 0.621,
+        "diff": 0.064,
+        "cvGainPct": -5.31
+      },
+      {
+        "lead": 16,
+        "wNE": 0.456,
+        "wSW": 0.577,
+        "diff": 0.12,
+        "cvGainPct": -6.53
+      }
+    ]
+  },
   "question": "Tầm ngày d thì nên tin ảnh vệ tinh ngày T (persistence) bao nhiêu, tin bản mùa vụ bao nhiêu? blend = w(d)·persist + (1−w(d))·clim",
   "method": "Bình phương tối thiểu w* = Σ(a·b)/Σ(a²) với a = persist−clim, b = truth−clim; kẹp [0,1]; ép đơn điệu không tăng theo d. Kiểm chéo 4 nhóm theo MỐC GỐC.",
   "caveat": "SỰ THẬT ở đây là bản đồ cá tính từ ảnh vệ tinh ngày T+d (chính sản phẩm app phục vụ), KHÔNG PHẢI sản lượng cá thật. w tối ưu theo nghĩa 'khớp bản đồ ngày đó', không phải 'bắt được nhiều cá hơn'.",
@@ -36,10 +90,14 @@
     "2024-01-10",
     "2024-04-10",
     "2024-07-10",
-    "2024-10-10"
+    "2024-10-10",
+    "2025-01-10",
+    "2025-04-10",
+    "2025-07-10",
+    "2025-10-10"
   ],
   "guard": {
-    "spread": 0.3,
+    "spread": 0.276,
     "degenerate": false,
     "verdict": "OK — w phân biệt rõ theo tầm ngày"
   },
@@ -55,87 +113,87 @@
   "perLead": [
     {
       "lead": 1,
-      "w": 0.793,
-      "n": 22099,
-      "origins": 12,
-      "rmseBlend": 6.28,
-      "rmsePersist": 6.7,
-      "rmseClim": 10.92,
-      "cvGainVsPersistPct": 4.77,
-      "cvGainVsClimPct": 38.5,
-      "wRaw": 0.793
+      "w": 0.823,
+      "n": 30764,
+      "origins": 16,
+      "rmseBlend": 5.92,
+      "rmsePersist": 6.24,
+      "rmseClim": 11,
+      "cvGainVsPersistPct": 4.35,
+      "cvGainVsClimPct": 42.99,
+      "wRaw": 0.823
     },
     {
       "lead": 2,
-      "w": 0.732,
-      "n": 22367,
-      "origins": 12,
-      "rmseBlend": 7.43,
-      "rmsePersist": 8.03,
-      "rmseClim": 11.15,
-      "cvGainVsPersistPct": 7.09,
-      "cvGainVsClimPct": 30.65,
-      "wRaw": 0.732
+      "w": 0.767,
+      "n": 31044,
+      "origins": 16,
+      "rmseBlend": 6.99,
+      "rmsePersist": 7.48,
+      "rmseClim": 11.16,
+      "cvGainVsPersistPct": 6.17,
+      "cvGainVsClimPct": 34.48,
+      "wRaw": 0.767
     },
     {
       "lead": 3,
-      "w": 0.693,
-      "n": 22653,
-      "origins": 12,
-      "rmseBlend": 7.88,
-      "rmsePersist": 8.62,
-      "rmseClim": 11.17,
-      "cvGainVsPersistPct": 7.47,
-      "cvGainVsClimPct": 25.54,
-      "wRaw": 0.693
+      "w": 0.722,
+      "n": 31276,
+      "origins": 16,
+      "rmseBlend": 7.5,
+      "rmsePersist": 8.14,
+      "rmseClim": 11.13,
+      "cvGainVsPersistPct": 6.86,
+      "cvGainVsClimPct": 28.65,
+      "wRaw": 0.722
     },
     {
       "lead": 5,
-      "w": 0.64,
-      "n": 22927,
-      "origins": 12,
-      "rmseBlend": 8.03,
-      "rmsePersist": 9.03,
-      "rmseClim": 10.88,
-      "cvGainVsPersistPct": 9.85,
-      "cvGainVsClimPct": 21.81,
-      "wRaw": 0.64
+      "w": 0.672,
+      "n": 31585,
+      "origins": 16,
+      "rmseBlend": 7.8,
+      "rmsePersist": 8.66,
+      "rmseClim": 10.95,
+      "cvGainVsPersistPct": 8.98,
+      "cvGainVsClimPct": 24.92,
+      "wRaw": 0.672
     },
     {
       "lead": 8,
-      "w": 0.605,
-      "n": 23158,
-      "origins": 12,
-      "rmseBlend": 9.05,
-      "rmsePersist": 10.13,
-      "rmseClim": 11.43,
-      "cvGainVsPersistPct": 9.28,
-      "cvGainVsClimPct": 15.94,
-      "wRaw": 0.605
+      "w": 0.635,
+      "n": 31866,
+      "origins": 16,
+      "rmseBlend": 8.79,
+      "rmsePersist": 9.74,
+      "rmseClim": 11.41,
+      "cvGainVsPersistPct": 8.66,
+      "cvGainVsClimPct": 18.85,
+      "wRaw": 0.635
     },
     {
       "lead": 11,
-      "w": 0.558,
-      "n": 23614,
-      "origins": 12,
-      "rmseBlend": 9.45,
-      "rmsePersist": 10.75,
-      "rmseClim": 11.46,
-      "cvGainVsPersistPct": 10.45,
-      "cvGainVsClimPct": 13.05,
-      "wRaw": 0.558
+      "w": 0.605,
+      "n": 32373,
+      "origins": 16,
+      "rmseBlend": 9.21,
+      "rmsePersist": 10.27,
+      "rmseClim": 11.55,
+      "cvGainVsPersistPct": 8.45,
+      "cvGainVsClimPct": 15.68,
+      "wRaw": 0.605
     },
     {
       "lead": 16,
-      "w": 0.493,
-      "n": 24232,
-      "origins": 12,
-      "rmseBlend": 10.99,
-      "rmsePersist": 12.48,
-      "rmseClim": 12.41,
-      "cvGainVsPersistPct": 9.89,
-      "cvGainVsClimPct": 6.97,
-      "wRaw": 0.493
+      "w": 0.547,
+      "n": 33042,
+      "origins": 16,
+      "rmseBlend": 10.69,
+      "rmsePersist": 11.9,
+      "rmseClim": 12.42,
+      "cvGainVsPersistPct": 7.45,
+      "cvGainVsClimPct": 8.89,
+      "wRaw": 0.547
     }
   ]
 }

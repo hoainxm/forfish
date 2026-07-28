@@ -210,21 +210,31 @@ Nền dữ liệu của lộ trình 16 ngày đã dựng xong và **đo được
 - Script: `scripts/collect-fish-climatology.mjs` (chạy lại ~1 lần/năm là đủ).
 
 **Tỷ lệ pha trộn w(d)** (`src/data/fish-blend-weights.json` ← `scripts/fit-fish-blend-weights.mjs`):
-backtest 12 mốc gốc (2022–2025, rải 4 mùa) × 7 tầm ngày, ~22–24 nghìn ô/mốc, kiểm chéo 4 nhóm
-**theo mốc gốc** (không trộn trong cùng mốc).
+backtest **16 mốc gốc** (2022–2025 × 4 mùa) × 7 tầm ngày, **30–33 nghìn ô mỗi tầm**, kiểm chéo 4
+nhóm **theo mốc gốc** (không trộn mẫu trong cùng một mốc — nếu trộn thì rò rỉ, gain sẽ đẹp giả).
 
 | tầm ngày | 1 | 2 | 3 | 5 | 8 | 11 | 16 |
 |---|---|---|---|---|---|---|---|
-| **w (tin ảnh vệ tinh)** | 0,793 | 0,732 | 0,693 | 0,640 | 0,605 | 0,558 | 0,493 |
-| lợi RMSE vs persistence (CV) | +4,8 % | +7,1 % | +7,5 % | +9,9 % | +9,3 % | +10,5 % | +9,9 % |
-| lợi RMSE vs mùa vụ thuần (CV) | +38,5 % | +30,7 % | +25,5 % | +21,8 % | +15,9 % | +13,1 % | +7,0 % |
+| **w (tin ảnh vệ tinh)** | 0,823 | 0,767 | 0,722 | 0,672 | 0,635 | 0,605 | 0,547 |
+| lợi RMSE vs persistence (CV) | +4,4 % | +6,2 % | +6,9 % | +9,0 % | +8,7 % | +8,5 % | +7,5 % |
+| lợi RMSE vs mùa vụ thuần (CV) | +43,0 % | +34,5 % | +28,7 % | +24,9 % | +18,9 % | +15,7 % | +8,9 % |
 
 - w **tự nhiên đơn điệu giảm** (không phải do ép) — đúng trực giác: ảnh cũ càng đi xa càng ít giá trị.
 - **Pha trộn THẮNG persistence ở MỌI tầm** khi kiểm chéo, kể cả ngày 1. Đây là kết quả DƯƠNG, khác
   hẳn hai lần đo trước (advection phù du, front composite) đều âm.
-- Guard **always-on-term PASS**: biên độ w = 0,30, không suy biến (test khoá `guard.degenerate === false`).
+- Guard **always-on-term PASS**: biên độ w = 0,276, không suy biến (test khoá `guard.degenerate === false`).
 - **Caveat ghi thẳng trong file kết quả**: "sự thật" đối chiếu là *bản đồ cá tính từ ảnh ngày T+d*
   (chính sản phẩm app phục vụ), **KHÔNG PHẢI sản lượng cá thật**.
+- Ổn định khi thêm dữ liệu: chạy 12 mốc gốc cho w = 0,793→0,493; 16 mốc gốc cho 0,823→0,547 — cùng
+  hình dạng, cùng kết luận, chỉ dịch nhẹ. Bản 16 mốc là bản đang dùng.
+
+**KẾT LUẬN ÂM (giữ lại để lần sau khỏi đo lại): KHÔNG nên tách w theo MÙA GIÓ.** Biển Đông có hai
+mùa gió trái ngược nên câu hỏi tự nhiên là fit riêng Đông Bắc (T11–T3) và Tây Nam. Đo thật: w quả
+thật khác nhau (wNE 0,456–0,771 vs wSW 0,577–0,839 — mùa Đông Bắc tin ảnh vệ tinh ÍT hơn, hợp lý
+vì nhiều mây và xáo trộn hơn), **nhưng khi kiểm chéo thì bảng-theo-mùa THUA bảng chung ở CẢ 7 tầm
+(−2,4 % đến −6,5 %)** — chia đôi dữ liệu để fit 2 tham số là overfit, không phải thêm thông tin.
+⇒ Giữ MỘT bảng. Muốn tách mùa thì phải có nhiều năm mốc gốc hơn hẳn, không phải chỉnh code.
+Kết luận này lưu trong chính `fish-blend-weights.json` (khoá `seasonSplit`).
 
 **Code**: `src/lib/fish-blend.ts` — thuần, `blendWeight(d)` nội suy giữa các mốc đo (ngày 0 = 1;
 quá mốc cuối GIỮ w cuối, không ngoại suy; bảng suy biến → 1 = giữ persistence), `blendScore`,
