@@ -133,3 +133,49 @@ SỬA: cao nguyên co về đầu GIÀU MỒI, phần còn lại của dải th�
 CHỐT 0.5 BẰNG SỐ (sweep trên API thật): 0.35 → hot 15.3% nhưng **MẤT 1 loài** (23→22) ⇒ loại; **0.5 → hot 17.9%, GIỮ đủ 23 loài**, median 34, payload 335 KB; 0.65 → hot 19.5% (phân biệt kém hơn). Cổng kiểm sau khi sửa: cờ đỏ 19 → 13; `food:mực xà` std 0.019→0.076 và bão hoà 99%→**5%**; 7 cờ mồi sạch hẳn (cá hồng · cá mối · ngừ vây vàng · nục heo · cá thu · ngừ ồ · ngừ chù · ngừ chấm).
 CÒN MỞ (ghi để không ai chạy vòng vô ích): 13 cờ đỏ còn lại KHÔNG phải bão hoà nữa mà là std hơi dưới 0.10 — đó là **giới hạn dải động của trường chl ở biển VN** (chỉ trải 0.43 đơn vị log), không phải lỗi dải khai. Riêng 6 cờ `tFit:*` (ngừ chù 0.027 · cá cơm 0.040 · cá cờ · cá lầm · mực xà · nục heo) là VẤN ĐỀ RIÊNG chưa xử: dải nhiệt loài rộng hơn phân bố nhiệt mặt Biển Đông 27–30°C — cùng khuôn lỗi, cần một mạch riêng có calibrate.
 Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để cô lập đúng biến đang đo (chl 0.1/0.8 nay nằm ở đầu NGHÈO) — KHÔNG nới lỏng assertion nào. -->
+
+<!-- re-verified: 2026-07-28 — KIỂM CHỨNG THÔNG SỐ CÁ NGỪ (trước khi build tính năng lộ trình câu cá ngừ).
+Đối chiếu SPECIES_PROFILES + FISH_SEASONS với RIMF, WCPFC, ICCAT, FishBase, SPC. CHƯA SỬA GÌ — đây là biên bản kiểm.
+
+🔴 MÙA VỤ HỎNG Ở 3/6 LOÀI NGỪ — nặng nhất, và đúng loài quan trọng nhất:
+ · vây vàng + mắt to khai ĐỦ 12 THÁNG ⇒ seasonPrior luôn = 1 ⇒ TERM MÙA VỤ CHẾT (chỉ 2/44 dòng mùa vụ
+   toàn mô hình bị vậy, và đúng 2 loài này). Ghi chú trong chính dữ liệu lại nói "rộ tháng 12–6" ⇒ dữ liệu
+   TỰ MÂU THUẪN. Thực tế: Bình Định "từ tháng 7 DL biển rất vắng cá ngừ đại dương"; Đào Mạnh Sơn 2004 vụ
+   chính 11–4; WCPFC 2012 đỉnh 12–2. Đề xuất vây vàng 11–6 cao / 7–8 giảm / 9–10 thấp; mắt to 11–7
+   (mắt to là ngoại lệ: WCPFC dẫn Toàn 2011 nói hè 4–7 CAO HƠN đông).
+ · cá ngừ VẰN khai 11–5 là NGƯỢC MÙA — bỏ trắng nguyên đỉnh 7–9. Nguồn: Bình Định "từ tháng 7 là mùa cá
+   nổi (chủ yếu ngừ sọc dưa)"; Vinatuna rộ đến hết tháng 9; WCPFC 2012 hai đỉnh 12–1 và 7–8.
+ · cá ngừ Ồ khai 11–5 cũng NGƯỢC — nguồn VN nói rộ tháng 3–8.
+
+🟡 CỔNG NHIỆT LỆCH ẤM (đo độc lập trên SST thật xác nhận): tháng 7 biển VN chỉ trải 28,7–30,0 °C mà
+ plateau vây vàng là 26–30 ⇒ 90,4 % ô đạt điểm tối đa, độ lệch chuẩn 0,081 ⇒ TERM NHIỆT KHÔNG PHÂN BIỆT
+ (cá ngừ chù còn tệ hơn: 97,8 %). Đúng mẫu lỗi "always-on term" đã ghi trong memory. ICCAT (systematic
+ review) cho SST ưa thích vây vàng 24,4–28,6 · vằn 23,0–28,3 · mắt to 24,2–28,5.
+ Đề xuất: vây vàng [22, 24.5, 29, 31] · vằn [20, 23, 28.5, 31] · chấm [18, 24, 29, 31].
+ ⚠ PHẢI PHÂN BIỆT ambient vs SST: "mắt to ưa 17–22 °C" là nhiệt Ở TẦNG SÂU, KHÔNG phải SST — đừng ai sửa
+ cổng SST theo con số đó.
+
+🟡 THÔNG SỐ NGHỀ (dùng cho spec lộ trình 09 §4):
+ · "sashimi ≤7 ngày sau con cá đầu" CHẶT GẤP ĐÔI chuẩn — SPC "Onboard handling of sashimi-grade tuna":
+   xử lý đúng (cắt tiết, moi mang/ruột, hạ tâm về 0 °C bằng slurry) giữ chuẩn sashimi TỚI 2 TUẦN.
+   Đề xuất ≤14 ngày, hoặc ≤10 nếu tàu chỉ có đá xay. Giữ 7 ngày = khuyên bà con cắt đôi chuyến vô căn cứ.
+ · "chạy ra ~3 ngày" QUÁ DÀI — kỹ thuật nghề câu VN: Quy Nhơn → ngư trường 30–48 giờ ⇒ ~2 ngày.
+ · CHƯA TÁCH 2 NGHỀ: câu vàng (longline, vàng 40–55 km, thả 14–17h30, chuyến >20 ngày, theo vụ, giá cao)
+   vs CÂU TAY KẾT HỢP ÁNH SÁNG (từ 2011, Hoài Nhơn; 4 cần + mồi mực sống + giàn 15–20 bóng cao áp; bắt
+   buộc ĐÊM; ~20 ngày; QUANH NĂM; thịt bị chua, giá chỉ 40–60 % câu vàng). Hai nghề khác nhau về mùa,
+   chuyến, cách đánh ⇒ preset lộ trình phải tách.
+ · Cổng độ sâu vây vàng [50,200] m: ngư trường THẬT 200–4.000 m (Hoàng Sa 400–4.000, Trường Sa 200–3.000)
+   ⇒ cổng trả 1,0 trên 100 % ngư trường thật, chỉ còn tác dụng chặn thềm. Đề xuất [100,400] / mắt to
+   [200,600] — NHƯNG cân nhắc: nâng lên sẽ chặn oan tàu câu tay/lưới vây nước nông (quyết định sản phẩm).
+ · chlLog vây vàng [-1.1,-0.1] = 0,079–0,79 mg/m³ nhưng khơi Biển Đông chỉ 0,11 ± 0,06 ⇒ NỬA TRÊN không
+   bao giờ dùng tới. Đề xuất [-1.3,-0.5].
+ · thermoBand D20 [4,12] m: HƯỚNG đúng (y văn: nêm nhiệt sâu ⇒ CPUE mắt to cao hơn) nhưng cửa sổ 4–12 m
+   KHÔNG CÓ NGUỒN và hẹp so dị thường D20 do xoáy trung quy mô. Nới hoặc đổi sang phân vị.
+
+✅ ĐÚNG, KHÔNG ĐỤNG: SST mắt to [22,25,29,31] (khớp ICCAT 24,2–28,5 — thông số tốt nhất app đang có) ·
+ mùa cá ngừ chù (3–9) và chấm (1–5,10–12) · mô tả depthBand cả hai loài · chlLog mắt to · "đánh đêm" ·
+ ">200 hải lý" · "chuyến 15–30 ngày" · hướng dương của thermoBand.
+
+⚠ TRƯỚC KHI SỬA BẤT KỲ HẰNG SỐ CHẤM ĐIỂM NÀO: chạy scripts/model-discrimination-audit.mjs (guard
+ always-on-term) — luật của dự án sau khi dính bẫy này 4 lần trong một ngày. Nguồn đầy đủ: transcript
+ phiên 2026-07-28. -->
