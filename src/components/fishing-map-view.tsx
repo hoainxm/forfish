@@ -69,6 +69,8 @@ import {
 import {
   fetchClimatology,
   blendFishCells,
+  hotspotSpacingDeg,
+  hotspotMaxCount,
   BLEND_USABLE,
   type Climatology,
 } from "@/lib/fish-blend";
@@ -1028,12 +1030,19 @@ export default function FishingMapView() {
       })
       .filter((c) => c.v >= 75)
       .sort((a, b) => b.priority - a.priority);
+    // TẦM NGÀY CÀNG XA, MỘT HỒNG TÂM = MỘT VÙNG CÀNG RỘNG. Đo thật
+    // (scripts/fish-spread-probe.mjs): ô đích danh số 1 lệch 88 km ở ngày 1
+    // nhưng 507 km từ ngày 16, trong khi TRỌNG TÂM CỤM chỉ lệch 62 → 249 km.
+    // Chỉ đích danh một ô ở ngày xa là nói dối; nới khoảng cách + bớt chấm thì
+    // mỗi hồng tâm đại diện đúng độ không chắc thật. Ngày 0 giữ y như cũ.
+    const spacing = hotspotSpacingDeg(daysAhead);
+    const maxCount = hotspotMaxCount(daysAhead);
     const picked: typeof scored = [];
     for (const c of scored) {
-      if (picked.length >= 8) break;
+      if (picked.length >= maxCount) break;
       const clash = picked.some(
         (p) =>
-          Math.max(Math.abs(p.lat - c.lat), Math.abs(p.lon - c.lon)) < 0.7,
+          Math.max(Math.abs(p.lat - c.lat), Math.abs(p.lon - c.lon)) < spacing,
       );
       if (!clash) picked.push(c);
     }
@@ -1044,7 +1053,7 @@ export default function FishingMapView() {
       top,
       near,
     }));
-  }, [fishOn, fishView, fishSpecies, point, places]);
+  }, [fishOn, fishView, fishSpecies, point, places, daysAhead]);
 
   // điểm cá gần chỗ đang xem nhất — câu gợi ý "đi hướng nào" trong thẻ cá
   const nearestHotspot = useMemo(() => {

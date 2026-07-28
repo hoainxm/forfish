@@ -470,6 +470,32 @@ từ ngày 12, trong khi **trọng tâm CỤM chỉ lệch 214–249 km** (ổn 
 đừng chỉ "một ô tốt nhất" mà chỉ **CỤM rộng**. Đây là thay đổi rẻ, không đụng điểm số, không mất
 precision — xem 5i.
 
+## 5i. ĐÃ CÀI: hồng tâm nới rộng theo tầm ngày (2026-07-28)
+
+Đây là việc DUY NHẤT trong đợt nghiên cứu này mà số liệu ủng hộ cài — và nó KHÁC cả hai đề xuất
+ban đầu (mùa vụ có điều kiện, nở rộng vùng tô — cả hai đã loại ở §5h).
+
+**Vấn đề thật**: app chỉ đích danh MỘT ô là "điểm nóng". Đo ra ô số 1 lệch **88 km ở ngày 1 nhưng
+507 km từ ngày 16** — bà con chạy tới đó có thể sai nửa nghìn cây số. Trong khi **trọng tâm CỤM
+chỉ lệch 62 → 249 km** (ổn định gấp ~2 lần).
+
+**Cách chữa**: giữ nguyên điểm số và vùng tô, chỉ **nới khoảng cách tối thiểu giữa hai hồng tâm**
+theo đúng mức lệch đo được, và bớt số hồng tâm cho khỏi chật màn. Mỗi hồng tâm khi đó đại diện
+một VÙNG rộng bằng độ không chắc thật, thay vì một chấm giả vờ chính xác.
+
+| tầm ngày | 0–1 | 3 | 5 | 8 | 12 | 16+ |
+|---|---|---|---|---|---|---|
+| hai hồng tâm cách nhau ≥ | 0,70° (78 km) | 1,07° (119 km) | 1,35° (150 km) | 1,93° (214 km) | 2,10° (233 km) | 2,24° (249 km) |
+| tối đa mấy hồng tâm | 8 | 8 | 6 | 6 | 4 | 4 |
+
+`hotspotSpacingDeg()` / `hotspotMaxCount()` trong `lib/fish-blend.ts` — thuần, có test khoá:
+**ngày 0 giữ y như cũ** (không đổi gì đang chạy), không bao giờ hẹp lại theo ngày, khớp mức đo
+(214 km ở d8 · 249 km ở d16), quá mốc đo cuối thì GIỮ chứ không ngoại suy.
+`fishing-map-view.tsx` chỉ đổi 2 hằng số cứng (8 và 0,7) thành lời gọi hai hàm này.
+
+KHÔNG đụng: điểm số ô, vùng tô, ngưỡng hiển thị, payload API. Nên không mất precision/top-100 —
+khác hẳn phương án nở vùng tô đã loại.
+
 ## 5c. Lưu lộ trình + offline so vị trí (chốt #3, #4)
 
 **Lưu lộ trình** (sau khi tính xong, 1 nút "Lưu chuyến này"):

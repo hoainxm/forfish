@@ -13,6 +13,9 @@ import {
   blendScore,
   blendFishCells,
   buildClimScaleMap,
+  hotspotSpacingDeg,
+  hotspotMaxCount,
+  HOTSPOT_SPACING_TODAY_DEG,
   decodeClimatology,
   climScoreAt,
   type ClimatologyFile,
@@ -359,5 +362,44 @@ describe("v3 — lớp chọn của chủ dự án + giãn lại phân bố", ()
       return out.filter((c) => c.s >= 40 && !base.has(key(c))).length;
     };
     expect(changedAt(16)).toBeGreaterThanOrEqual(changedAt(3));
+  });
+});
+
+describe("độ rộng hồng tâm theo tầm ngày (đo từ dịch chuyển thật)", () => {
+  it("HÔM NAY giữ y như cũ — không đổi hành vi đang chạy", () => {
+    expect(hotspotSpacingDeg(0)).toBe(HOTSPOT_SPACING_TODAY_DEG);
+    expect(hotspotSpacingDeg(1)).toBe(HOTSPOT_SPACING_TODAY_DEG);
+    expect(hotspotMaxCount(0)).toBe(8);
+  });
+
+  it("càng xa càng NỚI RỘNG, không bao giờ hẹp lại", () => {
+    let prev = 0;
+    for (let d = 0; d <= 20; d++) {
+      const v = hotspotSpacingDeg(d);
+      expect(v).toBeGreaterThanOrEqual(prev - 1e-9);
+      expect(v).toBeGreaterThanOrEqual(HOTSPOT_SPACING_TODAY_DEG);
+      prev = v;
+    }
+  });
+
+  it("khớp mức lệch ĐO ĐƯỢC của trọng tâm cụm (214 km ở ngày 8, 249 km ở ngày 16)", () => {
+    expect(hotspotSpacingDeg(8) * 111).toBeGreaterThan(190);
+    expect(hotspotSpacingDeg(8) * 111).toBeLessThan(240);
+    expect(hotspotSpacingDeg(16) * 111).toBeGreaterThan(230);
+    expect(hotspotSpacingDeg(16) * 111).toBeLessThan(270);
+  });
+
+  it("quá mốc đo cuối thì GIỮ, không ngoại suy vô hạn", () => {
+    expect(hotspotSpacingDeg(99)).toBeCloseTo(hotspotSpacingDeg(16), 9);
+  });
+
+  it("nới rộng thì BỚT chấm (không để chật kín màn)", () => {
+    let prev = 99;
+    for (const d of [0, 3, 5, 8, 12, 16]) {
+      const n = hotspotMaxCount(d);
+      expect(n).toBeLessThanOrEqual(prev);
+      expect(n).toBeGreaterThanOrEqual(3);
+      prev = n;
+    }
   });
 });

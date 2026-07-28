@@ -432,6 +432,74 @@ export function blendFishCells(
   return out;
 }
 
+/* ── ĐỘ RỘNG "CHỖ CÁ" THEO TẦM NGÀY ──────────────────────────────────────────
+   ĐO ĐƯỢC (scripts/fish-spread-probe.mjs, 16 mốc gốc × 11 tầm, 2026-07-28):
+   chỗ app chỉ đích danh MỘT ô ("hồng tâm") lệch so với thực tế
+       88 km (ngày 1) · 352 km (ngày 8) · 507 km (ngày 16)
+   trong khi TRỌNG TÂM CỦA CỤM chỉ lệch
+       62 km (ngày 1) · 214 km (ngày 8) · 249 km (ngày 16)
+   ⇒ cụm ổn định gấp ~2 lần ô đơn. Chỉ đích danh một ô ở ngày xa là NÓI DỐI
+   (bà con chạy tới đó có thể sai nửa nghìn cây số).
+
+   ⚠ ĐÃ THỬ VÀ LOẠI: nở rộng vùng TÔ (dilation) — thua 0/132 phép so công bằng
+   cùng diện tích, d16 mất 17,4 điểm % precision đổi lấy 7,6 recall. Bản đồ
+   KHÔNG thiếu độ phủ (recall gốc đã 88–98 %), nó thiếu độ SẮC ở đỉnh. Vì vậy
+   cách chữa đúng là NỚI KHOẢNG CÁCH GIỮA CÁC HỒNG TÂM (một hồng tâm = một
+   VÙNG), KHÔNG phải tô loang ra. Chi tiết + số: 09 §5h.
+
+   Hai hàm dưới đây là thuần + có test; component bản đồ chỉ việc gọi. */
+
+/** Mốc đo: [tầm ngày, trọng tâm cụm lệch bao nhiêu km] */
+const DRIFT_KM: [number, number][] = [
+  [1, 62],
+  [3, 119],
+  [5, 150],
+  [8, 214],
+  [12, 233],
+  [16, 249],
+];
+const KM_PER_DEG = 111;
+/** Khoảng cách tối thiểu giữa hai hồng tâm khi xem HÔM NAY (hành vi cũ) */
+export const HOTSPOT_SPACING_TODAY_DEG = 0.7;
+
+/**
+ * Hai hồng tâm phải cách nhau ít nhất bao nhiêu ĐỘ ở tầm `dayIdx` ngày.
+ * Ngày 0 giữ nguyên 0,7° (không đổi gì so với trước). Ngày xa nới rộng theo
+ * đúng mức lệch ĐO ĐƯỢC của trọng tâm cụm ⇒ mỗi hồng tâm đại diện một VÙNG
+ * rộng bằng độ không chắc thật, thay vì một chấm giả vờ chính xác.
+ */
+export function hotspotSpacingDeg(dayIdx: number): number {
+  const d = Math.max(0, dayIdx);
+  if (d === 0) return HOTSPOT_SPACING_TODAY_DEG;
+  let km = DRIFT_KM[0][1];
+  if (d >= DRIFT_KM[DRIFT_KM.length - 1][0]) {
+    km = DRIFT_KM[DRIFT_KM.length - 1][1];
+  } else {
+    for (let i = 0; i < DRIFT_KM.length - 1; i++) {
+      const [d0, k0] = DRIFT_KM[i];
+      const [d1, k1] = DRIFT_KM[i + 1];
+      if (d <= d0) {
+        km = k0;
+        break;
+      }
+      if (d <= d1) {
+        km = k0 + ((d - d0) / (d1 - d0)) * (k1 - k0);
+        break;
+      }
+    }
+  }
+  return Math.max(HOTSPOT_SPACING_TODAY_DEG, km / KM_PER_DEG);
+}
+
+/** Số hồng tâm tối đa — nới khoảng cách thì phải bớt chấm, kẻo chật kín màn */
+export function hotspotMaxCount(dayIdx: number): number {
+  const d = Math.max(0, dayIdx);
+  if (d === 0) return 8;
+  if (d <= 3) return 8;
+  if (d <= 8) return 6;
+  return 4;
+}
+
 /* ── nạp asset (client) ───────────────────────────────────────────────────── */
 
 let cached: Promise<Climatology | null> | null = null;
