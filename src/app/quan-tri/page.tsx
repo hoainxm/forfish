@@ -30,7 +30,13 @@ import {
   type CrewReportCategory,
 } from "@/lib/crew-report";
 
-type Tab = "tai-khoan" | "canh-bao" | "du-lieu" | "he-thong";
+type Tab =
+  | "tai-khoan"
+  | "canh-bao"
+  | "san-pham"
+  | "yeu-cau"
+  | "du-lieu"
+  | "he-thong";
 
 /** Vai trò staff — admin (env) toàn quyền; quản lý (DB) chỉ cấp/gia hạn premium */
 type StaffRole = "admin" | "manager";
@@ -202,10 +208,14 @@ export default function QuanTriPage() {
             ? [
                 ["tai-khoan", "Tài khoản"],
                 ["canh-bao", "Cảnh báo TV"],
+                ["san-pham", "Sản phẩm"],
+                ["yeu-cau", "Yêu cầu"],
               ]
             : [
                 ["tai-khoan", "Tài khoản"],
                 ["canh-bao", "Cảnh báo TV"],
+                ["san-pham", "Sản phẩm"],
+                ["yeu-cau", "Yêu cầu"],
                 ["du-lieu", "Dữ liệu"],
                 ["he-thong", "Hệ thống"],
               ]) as [Tab, string][]
@@ -231,6 +241,8 @@ export default function QuanTriPage() {
         <AccountsTab me={health.me ?? { phone: "", role: "admin" }} />
       )}
       {tab === "canh-bao" && <CrewReportsTab />}
+      {tab === "san-pham" && <ProductsTab />}
+      {tab === "yeu-cau" && <InquiriesTab />}
       {tab === "du-lieu" && health.me?.role !== "manager" && <DataTab />}
       {tab === "he-thong" && health.me?.role !== "manager" && (
         <SystemTab health={health} />
@@ -1284,6 +1296,651 @@ function AddCrewReportForm({ onAdded }: { onAdded: () => void }) {
             </p>
           )}
         </form>
+      )}
+    </div>
+  );
+}
+
+/* ── SẢN PHẨM (danh mục tab Sản phẩm /tau) ────────────────────────────────
+   Admin ẩn/hiện/xóa/thêm sản phẩm — kể cả đơn vị NGOÀI SDWork (vendor_name +
+   liên hệ riêng). Áp dụng NGAY cho app (client đọc thẳng bảng), không cần
+   build lại app. */
+
+type VendorKind = "sdvico" | "external";
+
+type ProductRow = {
+  id: string;
+  vendorKind: VendorKind;
+  vendorName: string | null;
+  title: string;
+  category: string | null;
+  description: string | null;
+  features: string[];
+  priceText: string | null;
+  imageUrl: string | null;
+  contactPhone: string | null;
+  contactNote: string | null;
+  line: string | null;
+  visible: boolean;
+  sortOrder: number;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+function ProductsTab() {
+  const [rows, setRows] = useState<ProductRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<ProductRow | "new" | null>(null);
+  const [toDelete, setToDelete] = useState<ProductRow | null>(null);
+
+  const load = useCallback(() => {
+    setError(null);
+    fetch(apiUrl("/api/admin/products"))
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok: boolean;
+          code?: string;
+          listings?: ProductRow[];
+        };
+        if (!j.ok) throw new Error(j.code ?? "load");
+        setRows(j.listings ?? []);
+      })
+      .catch((e: Error) =>
+        setError(
+          e.message === "not_configured"
+            ? "Chưa cấu hình Supabase/service-role — danh mục cần DB thật."
+            : "Chưa tải được danh mục — thử lại.",
+        ),
+      );
+  }, []);
+  useEffect(load, [load]);
+
+  async function toggleVisible(row: ProductRow) {
+    setBusyId(row.id);
+    const r = await fetch(apiUrl("/api/admin/products"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: row.id, visible: !row.visible }),
+    }).catch(() => null);
+    setBusyId(null);
+    if (!r?.ok) {
+      setError("Đổi trạng thái chưa được — thử lại.");
+      return;
+    }
+    load();
+  }
+
+  async function remove(row: ProductRow) {
+    setBusyId(row.id);
+    const r = await fetch(
+      apiUrl(`/api/admin/products?id=${encodeURIComponent(row.id)}`),
+      { method: "DELETE" },
+    ).catch(() => null);
+    setBusyId(null);
+    if (!r?.ok) {
+      setError("Xóa chưa được — thử lại.");
+      return;
+    }
+    load();
+  }
+
+  return (
+    <div className="mt-4 space-y-4">
+      <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
+        Danh mục hiện trong tab <b>Sản phẩm → Cửa hàng</b> của app ngư dân.
+        Ẩn/hiện/xóa/thêm ở đây áp dụng NGAY, không cần build lại app. Có thể
+        thêm sản phẩm/dịch vụ của <b>đơn vị ngoài SDWork</b> (ghi rõ tên đơn
+        vị + số điện thoại/ghi chú liên hệ).
+      </p>
+
+      <button
+        type="button"
+        onClick={() => setEditing("new")}
+        className="min-h-[2.75rem] w-full rounded-xl bg-trim text-[0.9375rem] font-bold text-white sm:w-auto sm:px-6"
+      >
+        + Thêm sản phẩm
+      </button>
+
+      {error && (
+        <div className="surface px-4 py-6 text-center">
+          <p className="text-[1rem] text-danger">{error}</p>
+          <button
+            type="button"
+            onClick={load}
+            className="mt-3 min-h-[2.75rem] rounded-xl bg-navy px-6 text-[0.9375rem] font-bold text-white"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+      {!rows && !error && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Đang tải danh mục…
+        </p>
+      )}
+      {rows && rows.length === 0 && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Chưa có sản phẩm nào — bấm nút trên để thêm.
+        </p>
+      )}
+
+      {rows && rows.length > 0 && (
+        <ul className="surface overflow-hidden">
+          {rows.map((row) => (
+            <li
+              key={row.id}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-line px-4 py-3 last:border-b-0"
+            >
+              <div className="min-w-0 flex-1 basis-[240px]">
+                <p className="text-[1rem] font-bold text-navy">
+                  {row.title}
+                  {row.vendorKind === "external" && (
+                    <span className="ml-2 rounded-full bg-t3/15 px-2 py-0.5 text-[0.75rem] font-bold text-t3">
+                      {row.vendorName ?? "Đơn vị ngoài"}
+                    </span>
+                  )}
+                </p>
+                <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
+                  {row.category ?? "Chưa gắn loại"} ·{" "}
+                  {row.visible ? "đang hiện" : "ĐANG ẨN"}
+                  {row.createdBy && ` · sửa gần nhất bởi ${row.createdBy}`}
+                </p>
+              </div>
+              <span
+                className={`shrink-0 rounded-full px-3 py-1 text-[0.8125rem] font-bold ${
+                  row.visible
+                    ? "bg-ok-bg text-ok"
+                    : "bg-field text-foreground/65"
+                }`}
+              >
+                {row.visible ? "Hiện" : "Ẩn"}
+              </span>
+              <div className="flex shrink-0 gap-1.5">
+                <button
+                  type="button"
+                  disabled={busyId === row.id}
+                  onClick={() => toggleVisible(row)}
+                  className="min-h-[2.5rem] rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-navy disabled:opacity-50"
+                >
+                  {row.visible ? "Ẩn đi" : "Cho hiện"}
+                </button>
+                <button
+                  type="button"
+                  disabled={busyId === row.id}
+                  onClick={() => setEditing(row)}
+                  className="min-h-[2.5rem] rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-navy disabled:opacity-50"
+                >
+                  Sửa
+                </button>
+                <button
+                  type="button"
+                  disabled={busyId === row.id}
+                  onClick={() => setToDelete(row)}
+                  className="min-h-[2.5rem] rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
+                >
+                  Xóa
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {editing && (
+        <ProductForm
+          initial={editing === "new" ? null : editing}
+          onCancel={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            load();
+          }}
+        />
+      )}
+
+      {toDelete && (
+        <ConfirmDialog
+          title={`Xóa "${toDelete.title}" khỏi danh mục?`}
+          message="Sản phẩm sẽ biến mất khỏi tab Sản phẩm của app ngay lập tức. Không hoàn tác được."
+          confirmLabel="Xóa luôn"
+          cancelLabel="Không"
+          danger
+          onCancel={() => setToDelete(null)}
+          onConfirm={() => {
+            const row = toDelete;
+            setToDelete(null);
+            remove(row);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ProductForm({
+  initial,
+  onCancel,
+  onSaved,
+}: {
+  initial: ProductRow | null;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const [vendorKind, setVendorKind] = useState<VendorKind>(
+    initial?.vendorKind ?? "sdvico",
+  );
+  const [vendorName, setVendorName] = useState(initial?.vendorName ?? "");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [category, setCategory] = useState(initial?.category ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [features, setFeatures] = useState(
+    (initial?.features ?? []).join("\n"),
+  );
+  const [priceText, setPriceText] = useState(initial?.priceText ?? "");
+  const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? "");
+  const [contactPhone, setContactPhone] = useState(
+    initial?.contactPhone ?? "",
+  );
+  const [contactNote, setContactNote] = useState(initial?.contactNote ?? "");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    const body = {
+      id: initial?.id,
+      vendorKind,
+      vendorName: vendorName.trim() || undefined,
+      title: title.trim(),
+      category: category.trim() || undefined,
+      description: description.trim() || undefined,
+      features: features
+        .split("\n")
+        .map((f) => f.trim())
+        .filter(Boolean),
+      priceText: priceText.trim() || undefined,
+      imageUrl: imageUrl.trim() || undefined,
+      contactPhone: contactPhone.trim() || undefined,
+      contactNote: contactNote.trim() || undefined,
+      visible: initial?.visible ?? true,
+    };
+    const r = await fetch(apiUrl("/api/admin/products"), {
+      method: initial ? "PATCH" : "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch(() => null);
+    setBusy(false);
+    const j = (await r?.json().catch(() => null)) as {
+      ok?: boolean;
+      code?: string;
+    } | null;
+    if (!r?.ok || !j?.ok) {
+      setMsg(
+        j?.code === "invalid_draft"
+          ? "Thiếu tên, hoặc (đơn vị ngoài) thiếu tên đơn vị/liên hệ."
+          : "Lưu chưa được — thử lại.",
+      );
+      return;
+    }
+    onSaved();
+  }
+
+  const field =
+    "min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea";
+
+  return (
+    <div className="surface px-4 py-3.5">
+      <p className="mb-3 text-[1rem] font-bold text-navy">
+        {initial ? `Sửa "${initial.title}"` : "Thêm sản phẩm mới"}
+      </p>
+      <form onSubmit={submit} className="space-y-2.5">
+        <div
+          className="grid grid-cols-2 gap-1.5"
+          role="group"
+          aria-label="Nguồn sản phẩm"
+        >
+          {(
+            [
+              ["sdvico", "SDVICO"],
+              ["external", "Đơn vị ngoài"],
+            ] as [VendorKind, string][]
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setVendorKind(id)}
+              aria-pressed={vendorKind === id}
+              className={`min-h-[2.75rem] rounded-xl px-3 text-[0.875rem] font-bold transition ${
+                vendorKind === id
+                  ? "bg-navy text-white shadow-sm"
+                  : "bg-field text-foreground/70"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {vendorKind === "external" && (
+          <input
+            placeholder="Tên đơn vị (bắt buộc — VD: Cơ sở lưới Vũng Tàu)"
+            value={vendorName}
+            onChange={(e) => setVendorName(e.target.value)}
+            className={field}
+          />
+        )}
+
+        <input
+          required
+          placeholder="Tên sản phẩm/dịch vụ"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className={field}
+        />
+        <input
+          placeholder="Loại (VD: Máy lọc nước biển)"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className={field}
+        />
+        <textarea
+          placeholder="Mô tả ngắn"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={2}
+          className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+        />
+        <textarea
+          placeholder={"Tính năng — mỗi dòng một ý"}
+          value={features}
+          onChange={(e) => setFeatures(e.target.value)}
+          rows={3}
+          className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+        />
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          <input
+            placeholder="Giá tham khảo (tuỳ chọn)"
+            value={priceText}
+            onChange={(e) => setPriceText(e.target.value)}
+            className={field}
+          />
+          <input
+            placeholder="URL ảnh (tuỳ chọn)"
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            className={field}
+          />
+        </div>
+        {vendorKind === "external" && (
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            <input
+              inputMode="tel"
+              placeholder="SĐT liên hệ"
+              value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)}
+              className={field}
+            />
+            <input
+              placeholder="Ghi chú liên hệ (địa chỉ, chợ…)"
+              value={contactNote}
+              onChange={(e) => setContactNote(e.target.value)}
+              className={field}
+            />
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-[2.75rem] rounded-xl bg-field text-[0.9375rem] font-bold text-foreground/70"
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            disabled={busy}
+            className="min-h-[2.75rem] rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50"
+          >
+            {busy ? "Đang lưu…" : "Lưu"}
+          </button>
+        </div>
+        {msg && (
+          <p className="text-[0.875rem] font-semibold text-foreground/75">
+            {msg}
+          </p>
+        )}
+      </form>
+    </div>
+  );
+}
+
+/* ── YÊU CẦU (hỏi mua/tư vấn từ danh mục sản phẩm) ────────────────────────
+   Chủ yếu từ sản phẩm ĐƠN VỊ NGOÀI SDWork (nút "Để lại yêu cầu" —
+   product-inquiry-button.tsx). Sản phẩm SDVICO vẫn đi CRM consultation_requests
+   như cũ (không đụng), không hiện ở đây. */
+
+type InquiryStatus = "moi" | "da_lien_he" | "xong";
+
+const INQUIRY_STATUS_BADGE: Record<InquiryStatus, { label: string; cls: string }> = {
+  moi: { label: "Mới", cls: "bg-warn-bg text-warn" },
+  da_lien_he: { label: "Đã liên hệ", cls: "bg-sea/15 text-sea" },
+  xong: { label: "Xong", cls: "bg-ok-bg text-ok" },
+};
+
+type InquiryRow = {
+  id: string;
+  listingId: string | null;
+  listingTitle: string | null;
+  vendorKind: string | null;
+  customerPhone: string;
+  customerName: string | null;
+  message: string | null;
+  status: InquiryStatus;
+  createdAt: string;
+  handledBy: string | null;
+  handledAt: string | null;
+  note: string | null;
+};
+
+type InquiryStatusFilter = InquiryStatus | "all";
+
+function InquiriesTab() {
+  const [status, setStatus] = useState<InquiryStatusFilter>("moi");
+  const [rows, setRows] = useState<InquiryRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [toDelete, setToDelete] = useState<InquiryRow | null>(null);
+
+  const load = useCallback(() => {
+    setError(null);
+    setRows(null);
+    fetch(apiUrl(`/api/admin/product-inquiries?status=${status}`))
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok: boolean;
+          code?: string;
+          inquiries?: InquiryRow[];
+        };
+        if (!j.ok) throw new Error(j.code ?? "load");
+        setRows(j.inquiries ?? []);
+      })
+      .catch((e: Error) =>
+        setError(
+          e.message === "not_configured"
+            ? "Chưa cấu hình Supabase/service-role — yêu cầu cần DB thật."
+            : "Chưa tải được danh sách — thử lại.",
+        ),
+      );
+  }, [status]);
+  useEffect(load, [load]);
+
+  async function setInquiryStatus(row: InquiryRow, next: InquiryStatus) {
+    setBusyId(row.id);
+    const r = await fetch(apiUrl("/api/admin/product-inquiries"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: row.id, status: next }),
+    }).catch(() => null);
+    setBusyId(null);
+    if (!r?.ok) {
+      setError("Đổi trạng thái chưa được — thử lại.");
+      return;
+    }
+    load();
+  }
+
+  async function remove(row: InquiryRow) {
+    setBusyId(row.id);
+    const r = await fetch(
+      apiUrl(`/api/admin/product-inquiries?id=${encodeURIComponent(row.id)}`),
+      { method: "DELETE" },
+    ).catch(() => null);
+    setBusyId(null);
+    if (!r?.ok) {
+      setError("Xóa chưa được — thử lại.");
+      return;
+    }
+    load();
+  }
+
+  const chip = (id: InquiryStatusFilter, label: string) => (
+    <button
+      key={id}
+      type="button"
+      onClick={() => setStatus(id)}
+      aria-pressed={status === id}
+      className={`min-h-[2.5rem] shrink-0 rounded-full px-4 text-[0.875rem] font-bold transition ${
+        status === id ? "bg-navy text-white" : "bg-field text-foreground/70"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="mt-4 space-y-4">
+      <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
+        Yêu cầu &ldquo;Để lại yêu cầu&rdquo; bà con gửi từ danh mục sản phẩm — chủ yếu sản
+        phẩm của <b>đơn vị ngoài SDWork</b> (hàng SDVICO vẫn đi qua hộp tư vấn
+        CRM như cũ, không hiện ở đây).
+      </p>
+
+      <div className="flex flex-wrap gap-1.5">
+        {chip("moi", "Mới")}
+        {chip("da_lien_he", "Đã liên hệ")}
+        {chip("xong", "Xong")}
+        {chip("all", "Tất cả")}
+      </div>
+
+      {error && (
+        <div className="surface px-4 py-6 text-center">
+          <p className="text-[1rem] text-danger">{error}</p>
+          <button
+            type="button"
+            onClick={load}
+            className="mt-3 min-h-[2.75rem] rounded-xl bg-navy px-6 text-[0.9375rem] font-bold text-white"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+      {!rows && !error && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Đang tải…
+        </p>
+      )}
+      {rows && rows.length === 0 && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Không có yêu cầu nào ở mục này.
+        </p>
+      )}
+
+      {rows && rows.length > 0 && (
+        <ul className="space-y-3">
+          {rows.map((row) => {
+            const badge = INQUIRY_STATUS_BADGE[row.status] ?? INQUIRY_STATUS_BADGE.moi;
+            return (
+              <li key={row.id} className="surface overflow-hidden">
+                <div className="flex items-start justify-between gap-3 px-4 pt-3">
+                  <div className="min-w-0">
+                    <p className="text-[1rem] font-bold text-navy">
+                      {row.listingTitle ?? "Sản phẩm không rõ"}
+                    </p>
+                    <p className="mt-0.5 text-[0.8125rem] tabular-nums text-foreground/70">
+                      SĐT {row.customerPhone}
+                      {row.customerName ? ` · ${row.customerName}` : ""}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-[0.75rem] font-bold ${badge.cls}`}
+                  >
+                    {badge.label}
+                  </span>
+                </div>
+                {row.message && (
+                  <p className="px-4 pt-2 text-[0.9375rem] leading-snug text-foreground/80">
+                    {row.message}
+                  </p>
+                )}
+                <p className="px-4 pt-2 text-[0.8125rem] text-foreground/55">
+                  gửi {fmtDT(row.createdAt)}
+                  {row.handledBy &&
+                    ` · xử lý bởi ${row.handledBy} ${fmtDT(row.handledAt)}`}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5 border-t border-line px-4 py-2.5">
+                  {row.status !== "da_lien_he" && (
+                    <button
+                      type="button"
+                      disabled={busyId === row.id}
+                      onClick={() => setInquiryStatus(row, "da_lien_he")}
+                      className="min-h-[2.5rem] flex-1 rounded-lg bg-sea/15 px-3 text-[0.8125rem] font-bold text-sea disabled:opacity-50"
+                    >
+                      Đã liên hệ
+                    </button>
+                  )}
+                  {row.status !== "xong" && (
+                    <button
+                      type="button"
+                      disabled={busyId === row.id}
+                      onClick={() => setInquiryStatus(row, "xong")}
+                      className="min-h-[2.5rem] flex-1 rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
+                    >
+                      Đánh dấu xong
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={busyId === row.id}
+                    onClick={() => setToDelete(row)}
+                    className="min-h-[2.5rem] shrink-0 rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
+                  >
+                    Xóa
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {toDelete && (
+        <ConfirmDialog
+          title="Xóa yêu cầu này?"
+          message="Xóa hẳn khỏi danh sách. Không hoàn tác được."
+          confirmLabel="Xóa luôn"
+          cancelLabel="Không"
+          danger
+          onCancel={() => setToDelete(null)}
+          onConfirm={() => {
+            const row = toDelete;
+            setToDelete(null);
+            remove(row);
+          }}
+        />
       )}
     </div>
   );
