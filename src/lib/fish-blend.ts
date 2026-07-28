@@ -106,10 +106,33 @@ export const PRODUCT_SHARE_LAST = 0.56; // ... và ở tầm ngày đo cuối c�
  * NGƯỢC với giả định: ảnh rữa NHANH NHẤT trong 1–4 ngày đầu (−0,050 top-100/ngày)
  * rồi mới phẳng (−0,011/ngày), chứ không phải "consistent rồi rơi".
  *
- * TRẦN CỦA CẢ LỚP NÀY: pha trộn chỉ mua được **+1,4 điểm %** so với ảnh thuần,
- * gần như toàn bộ nằm ở d ≥ 10. Mùa vụ thuần chỉ 49,1 vs ảnh 62,5 — KHÔNG bao
- * giờ vượt ảnh ở bất kỳ tầm nào trong 16 ngày. Muốn khá hơn phải có NGUỒN TÍN
- * HIỆU MỚI, không phải vặn đường cong.
+ * TRẦN CỦA CẢ LỚP NÀY: pha trộn chỉ mua được ~+1,4 điểm % so với ảnh thuần, gần
+ * như toàn bộ ở d ≥ 10. Mùa vụ thuần 49,1 vs ảnh 62,5 — KHÔNG bao giờ vượt ảnh ở
+ * bất kỳ tầm nào trong 16 ngày.
+ *
+ * ⚠ BA ĐIỀU BẮT BUỘC BIẾT (vòng phản biện 8 agent, 2026-07-28 — xem 09 §5j):
+ * 1. Con số "+1,4" BỊ THỔI LÊN vì RÒ RỈ: bản mùa vụ dựng từ 2020–2025 mà backtest
+ *    chạy trên 2022–2025 ⇒ bản neo chứa sẵn dị thường của chính năm test
+ *    (ρ ≈ 1/√6). Bỏ năm test đi thì lời tụt từ +3,42 → +2,61 (d≥10: 7,02 → 5,51),
+ *    tức ~22 % là rò rỉ. SẢN PHẨM KHÔNG SAI (dùng mọi năm quá khứ là hợp lệ),
+ *    nhưng KHÔNG ĐƯỢC fit lại w theo số cũ — phải dựng bản neo bỏ-năm-test trước.
+ * 2. THƯỚC ĐO ĐANG PHÓNG ĐẠI SAI SỐ: trường điểm là RUY-BĂNG rộng 1–2 ô men theo
+ *    front (86,8 % ô top-100 có ô top-100 kề). Lệch MỘT ô (28 km — vài giờ chạy
+ *    tàu) bị tính sai hoàn toàn. Đo với dung sai ±1 ô thì d16 = 80,9 % chứ không
+ *    phải 52,7 %. Đừng mô tả sản phẩm bằng con số đúng-ô.
+ * 3. 16 mốc gốc chỉ phân giải được hiệu ứng ≥1,1–2,9 điểm % ⇒ mọi kết quả "hoà"
+ *    dưới mức đó là KHÔNG ĐO ĐƯỢC, không phải "không có hiệu ứng".
+ *
+ * ĐÃ THỬ VÀ TRƯỢT (đừng làm lại — 09 §5h, §5j): mùa vụ có điều kiện theo năm
+ * tương tự · nở rộng vùng tô · tách w theo mùa gió · đổi dạng đường cong · advect
+ * phù du · front composite · neo SST+xu hướng · trung bình động của chính mình
+ * (THUA −1,8) · độ tin theo từng ô · dịch trường theo vectơ · **gió/sóng 16 ngày**
+ * (nhánh này ĐÃ ĐÓNG: biết HOÀN HẢO thành phần 1° của phần dư cũng chỉ đáng
+ * +9–10 điểm %, gió thật hiện thực hoá 1,2 % của trần đó).
+ *
+ * NHÁNH DUY NHẤT CÒN TÍN HIỆU: bản neo dựng từ NHIỀU NĂM HƠN (5–8 năm trước
+ * 2022). Bản bỏ-năm-test cho +1,10 vs bản đang ship (0 tham số fit), nhưng bản
+ * chỉ-dùng-năm-TRƯỚC (nhân quả thật) chỉ +0,68 ± 0,47 — chưa chứng minh.
  */
 export const PRODUCT_SHARE_GAMMA = 2.5;
 

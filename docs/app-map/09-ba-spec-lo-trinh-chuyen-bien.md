@@ -496,6 +496,96 @@ một VÙNG rộng bằng độ không chắc thật, thay vì một chấm gi�
 KHÔNG đụng: điểm số ô, vùng tô, ngưỡng hiển thị, payload API. Nên không mất precision/top-100 —
 khác hẳn phương án nở vùng tô đã loại.
 
+## 5j. VÒNG GIẢ THUYẾT + PHẢN BIỆN (8 agent, 2026-07-28) — ĐỌC MỤC NÀY TRƯỚC
+
+Chủ dự án yêu cầu: đẻ giả thuyết có cơ sở rồi kiểm chứng, để có "dự báo tương đối chính xác cho
+16 ngày". Kết quả: **6/6 giả thuyết thất bại**, nhưng vòng phản biện đẻ ra ba thứ giá trị hơn cả
+sáu giả thuyết cộng lại — trong đó có **một lỗi của chính đợt làm trước**.
+
+### ⚠ (1) THƯỚC ĐO ĐANG PHÓNG ĐẠI SAI SỐ ~28 ĐIỂM % — phát hiện lớn nhất
+
+top-100 hit tính theo **ĐÚNG Ô** là bộ dò rìa. Trường điểm cá không phải đốm nhiễu mà là
+**RUY-BĂNG rộng 1–2 ô** men theo front (đo: **86,8 %** ô top-100 có ít nhất một ô top-100 kề,
+trung bình 1,82/4 lân cận). Ruy-băng lệch **một ô = 28 km** là bị tính SAI HOÀN TOÀN — trong khi
+với tàu cá 28 km chỉ là vài giờ chạy, không phải "chỉ sai chỗ".
+
+Đo lại persistence với dung sai không gian:
+
+| tầm ngày | đúng ô (đang dùng) | **±1 ô (28 km)** | ±2 ô (55 km) |
+|---|---|---|---|
+| 1 | 79,9 | **95,4** | 97,4 |
+| 4 | 66,0 | 89,9 | 95,1 |
+| 8 | 58,8 | 87,8 | 93,5 |
+| **16** | **52,7** | **80,9** | 87,8 |
+
+⇒ **Câu trả lời cho "16 ngày chính xác tới đâu" phụ thuộc hoàn toàn vào định nghĩa "chính xác":**
+- trúng **đúng ô 28 km**: trần thực dụng ~59–62 ở d16, hiện 55,6 — gần kịch trần, hết đất.
+- trúng **đúng VÙNG bán kính 28 km** (thứ ngư dân thật sự cần): **d16 ĐÃ ĐẠT 80,9 % ngay hôm nay
+  bằng ảnh thuần**, ~88 % ở bán kính 55 km, trần ~96–97.
+
+**Việc phải làm**: công bố kèm thước đo có dung sai, đừng mô tả sản phẩm bằng con số 52 %.
+
+### ⚠ (2) RÒ RỈ DỮ LIỆU trong chính bản mùa vụ tôi đã dựng
+
+`fish-climatology.v1.json` dựng từ **2020–2025**, mà backtest lại chạy trên **2022–2025** ⇒ bản
+neo chứa sẵn dị thường của chính năm đang test (ρ ≈ 1/√6 ≈ 0,41 theo cấu tạo; chl là ảnh THÁNG
+nên tháng đích đóng trọn 1/6 trọng số). Đo độ lớn thật:
+
+| bản neo | hơn ảnh thuần (mọi tầm) | d≥10 |
+|---|---|---|
+| gồm cả năm test (= bản đã đo trước) | +3,42 | +7,02 |
+| **bỏ hẳn năm test** | **+2,61** | **+5,51** |
+
+⇒ **~22 % giá trị của bản neo ở d≥10 là rò rỉ tự-chứa.** SẢN PHẨM KHÔNG SAI (dùng mọi năm quá khứ
+là hợp lệ) — cái sai là **PHÉP ĐO**: mọi con số "+1,4 điểm %" và mọi w "đo được" đều bị thổi lên.
+**Không được sửa file weights theo số cũ.** Phải dựng bản neo bỏ-năm-test rồi fit lại.
+
+### ⚠ (3) THIẾT KẾ MẪU KHÔNG ĐỦ SỨC PHÂN GIẢI NGƯỠNG CỦA CHÍNH NÓ
+
+16 mốc gốc ⇒ sai số chuẩn 0,38–1,03 ⇒ hiệu ứng nhỏ nhất phát hiện được ở lực 80 % là **1,1–2,9
+điểm %**. Ngưỡng "đáng kể 0,5" **nằm DƯỚI sàn phân giải**. Nên mọi phán quyết "HOÀ" ở mức
+0,01–0,40 phải đọc là **"không đo được"**, KHÔNG phải "không có hiệu ứng". Thêm: cả 16 mốc đều là
+ngày 10 của tháng 1/4/7/10 ⇒ tháng chuyển mùa (3, 9, 11) CHƯA HỀ được thử.
+
+### Sáu giả thuyết — tất cả trượt
+
+| giả thuyết | kết quả | ghi chú |
+|---|---|---|
+| Trung bình động của chính mình (5–7 ngày) | **THUA −1,8** | cơ chế THẬT (triệt nhiễu đáng 3,2–3,6 ngày tầm) nhưng cửa sổ chỉ-nhìn-lùi tốn đúng ngần ấy ⇒ triệt tiêu nhau |
+| Độ tin theo TỪNG Ô thay vì w toàn cục | hoà +0,01 | gợi ý đóng của nó ("chỗ ăn điểm ở CHẤT LƯỢNG BẢN NEO") lại là gợi ý đúng nhất |
+| **Gió/sóng 16 ngày** (thông tin tương lai thật) | hoà +0,11 | xem dưới — nhánh này ĐÃ BỊ ĐÓNG |
+| Fit trọng số theo đúng thước đo top-100 | hoà +0,08 | |
+| Dịch cả trường theo vectơ đo được | THUA 0 | trần oracle của tịnh tiến cứng = 0 |
+| Cộng xu hướng mùa (anomaly-persistence) | hoà +0,4 | biến thể mùa vụ nội suy theo NGÀY đáng làm vì lý do SẢN PHẨM (xoá cú nhảy bậc thang khi qua tháng), KHÔNG phải vì chính xác |
+
+**NHÁNH GIÓ/SÓNG ĐÃ ĐÓNG — đừng đề xuất lại.** Chính số liệu của giả thuyết gió bác nó: cho biết
+**HOÀN HẢO** thành phần 1° của phần dư cũng chỉ mua được **+9–10 điểm %** trên ~40 điểm còn thiếu
+(trần cứng cho MỌI trường thô 1°, gồm gió/sóng Open-Meteo). Gió thật hiện thực hoá **1,2 %** của
+trần đó. Bốn trong sáu báo cáo chuyền tay nhau khuyến nghị "ưu tiên khai thác gió" — nó đã bị
+chính dữ liệu của họ bác.
+
+### Nhánh DUY NHẤT còn tín hiệu: bản neo NHIỀU NĂM HƠN
+
+Thay bản mùa vụ đang ship bằng bản neo dựng từ corpus **loại hẳn năm test**, giữ nguyên công thức
+pha, **0 tham số fit**: +2,41 ± 0,38 vs ảnh thuần (dương **16/16** mốc, p < 0,0001) và
+**+1,10 ± 0,39 vs bản đang ship** (p = 0,013, bỏ-1-mốc [0,91; 1,23]). Thắng CẢ HAI mốc, vượt
+ngưỡng, bền, không có gì để hái quả.
+
+**NHƯNG** bản đó dùng cả năm SAU mốc gốc — không nhân quả. Bản chỉ-dùng-năm-TRƯỚC:
+**+0,68 ± 0,47, dương 7/12, p = 0,19** — ngay tại ngưỡng, **CHƯA CHỨNG MINH**. Xu hướng 1→3 năm
+neo cho thấy nhiều năm hơn sẽ khá lên.
+
+**Phép đo tiếp theo đáng làm (chốt trước ngưỡng):** dựng bản neo từ **5–8 năm TRƯỚC 2022**, đủ 12
+tháng (~570 ngày-bản-đồ, chạy nền theo lô 1–2 ngày máy, mở rộng `fish-corpus-build.mjs`), đo lại
+LOYO nhân quả. **≥ +0,7 vs bản đang ship ⇒ cài. < +0,4 ⇒ đóng vĩnh viễn nhánh "pha với quá khứ".**
+
+### ĐÍNH CHÍNH nội bộ hồ sơ
+
+Con số **"trần 79,6–84,9 ⇒ còn 17–19 điểm % đất trống"** trong báo cáo giả thuyết #1 **KHÔNG DÙNG
+ĐƯỢC**: nó dùng ngày SAU ngày đích và phẳng theo tầm ngày *theo cấu tạo*, nên đo "trường sự thật
+trơn tới mức nào" chứ không đo "dự báo được bao nhiêu". Trần đúng cho bài toán nhân quả là mục (1)
+ở trên.
+
 ## 5c. Lưu lộ trình + offline so vị trí (chốt #3, #4)
 
 **Lưu lộ trình** (sau khi tính xong, 1 nút "Lưu chuyến này"):
