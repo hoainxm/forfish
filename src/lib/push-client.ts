@@ -34,10 +34,21 @@ function toInput(sub: PushSubscription): PushSubscriptionInput {
   };
 }
 
-/** Đã đăng ký nhận thông báo trên máy này chưa (không hỏi quyền). */
+/**
+ * Đã đăng ký nhận thông báo trên máy này chưa (không hỏi quyền).
+ * `navigator.serviceWorker.ready` KHÔNG BAO GIỜ resolve nếu chưa có service
+ * worker nào active cho scope này (vd dev mode — `sw-register.tsx` chỉ đăng
+ * ký ở production) → không được để nút "Bật thông báo" treo `disabled` vô
+ * hạn (cùng nguyên tắc "không thất bại câm" ở 02-architecture.md §5). Đua
+ * với timeout 3s, coi như "chưa đăng ký" nếu quá hạn.
+ */
 export async function getExistingPushSubscription(): Promise<PushSubscription | null> {
   if (!isPushSupported()) return null;
-  const reg = await navigator.serviceWorker.ready.catch(() => null);
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
+  const reg = await Promise.race([
+    navigator.serviceWorker.ready.catch(() => null),
+    timeout,
+  ]);
   if (!reg) return null;
   return reg.pushManager.getSubscription();
 }
@@ -55,7 +66,11 @@ export async function subscribeToPush(
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return { ok: false, error: "denied" };
 
-  const reg = await navigator.serviceWorker.ready;
+  // Không service worker active thì không thể subscribe — timeout thay vì
+  // treo "Đang xử lý" vô hạn (cùng lý do getExistingPushSubscription ở trên).
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000));
+  const reg = await Promise.race([navigator.serviceWorker.ready, timeout]);
+  if (!reg) return { ok: false, error: "no_service_worker" };
   const existing = await reg.pushManager.getSubscription();
   const sub =
     existing ??

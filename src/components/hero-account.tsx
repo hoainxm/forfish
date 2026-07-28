@@ -59,6 +59,7 @@ export function HeroAccount() {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("gon");
   const [pushState, setPushState] = useState<PushUiState>("checking");
+  const [pushError, setPushError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isPushSupported()) {
@@ -73,6 +74,7 @@ export function HeroAccount() {
   }, []);
 
   async function togglePush() {
+    setPushError(null);
     if (pushState === "on") {
       setPushState("busy");
       await unsubscribeFromPush();
@@ -81,7 +83,16 @@ export function HeroAccount() {
     }
     setPushState("busy");
     const r = await subscribeToPush(VAPID_PUBLIC_KEY!, phone);
-    setPushState(r.ok ? "on" : "off");
+    if (r.ok) {
+      setPushState("on");
+      return;
+    }
+    setPushState("off");
+    setPushError(
+      r.error === "denied"
+        ? "Trình duyệt đang chặn quyền thông báo — vào cài đặt trình duyệt để bật lại."
+        : "Chưa bật được — kiểm tra mạng rồi thử lại.",
+    );
   }
 
   useEffect(() => {
@@ -222,6 +233,11 @@ export function HeroAccount() {
                 </span>
               </span>
             </button>
+          )}
+          {pushError && (
+            <p className="-mt-2.5 mb-4 px-1 text-[0.8125rem] font-semibold text-danger">
+              {pushError}
+            </p>
           )}
 
           {user && (
