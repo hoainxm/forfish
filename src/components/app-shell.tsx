@@ -18,15 +18,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <main className="min-h-dvh bg-background">{children}</main>;
   }
 
+  // GIỮ body scroll (min-h-dvh, không overflow ở main) để body-lock của
+  // bottom-sheet còn tác dụng. Dock là DockFrame fixed riêng (BottomNav). Nội
+  // dung chừa đúng chiều cao dock qua .app-content (globals.css, dùng chung
+  // --dock-total) thay số 8rem rời.
   return (
     <div className="mx-auto flex min-h-dvh max-w-[480px] flex-col bg-background shadow-sm">
-      {/* pb = chừa CHIỀU CAO dock nổi (≈82px) + vùng an toàn đáy (home
-          indicator iOS / thanh gesture Android, env có thể tới ~48px). Cộng
-          env(safe-area-inset-bottom) để máy nút-dưới KHÔNG che nội dung/nút
-          cuối (trước: pb-32 cứng 128px, thiếu trên máy gesture bar lớn). */}
-      <main className="flex-1 pb-[calc(8rem+env(safe-area-inset-bottom))]">
-        {children}
-      </main>
+      <main className="app-content flex-1">{children}</main>
       <BottomNav />
     </div>
   );

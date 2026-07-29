@@ -1,30 +1,24 @@
 "use client";
 
 /*
-  BÙ BUG iOS 26 STANDALONE — layout viewport kẹt NGẮN (Apple xác nhận sửa ở
-  Safari 26.1, số 158055568): "fixed a bottom gap appearing on layouts with
-  viewport-sized fixed containers on iOS".
+  DOCK iOS 26 STANDALONE — GHIM VÀO SHELL cao đúng màn NHÌN THẤY.
 
-  Ở bản cài (standalone), sau khi bàn phím / thanh công cụ đóng, layout viewport
-  kẹt ngắn hơn màn thật → position:fixed bottom:0 (dock, map, sheet, thanh ngày)
-  bám đáy viewport NGẮN → cả cụm bị nâng, lòi khối trống bên dưới.
+  Bug WebKit (Apple sửa Safari 26.1, số 158055568): ở bản cài, layout viewport
+  kẹt ngắn → position:fixed bottom:0 (dock/map/sheet) bám đáy viewport ngắn,
+  lòi khối trống. Mọi cách "đo phần hụt rồi bù" đều lệch vì iOS báo chiều cao
+  KHÁC nhau giữa trang có scroll và không.
 
-  Cách vá (user chốt): đo phần viewport bị HỤT (visual − layout) → gán vào biến
-  chung --pwa-viewport-gap; dock dịch xuống bằng transform, map nới đáy — cùng
-  một biến nên cả cụm bottom xuống đều.
+  Cách chắc (spec user): CHỈ bản cài iOS → thêm class `pwa-frame` trên <html> +
+  đặt --app-vh = đáy vùng NHÌN THẤY (visualViewport.offsetTop + height — giá
+  trị duy nhất đáng tin). CSS cho DockFrame cao đúng --app-vh, dock neo
+  `absolute bottom:0` trong frame (globals.css .dock-frame/.full-map). Ngoài
+  standalone: KHÔNG chạy → không có class → giao diện y hệt cũ.
 
-  NGUYÊN TẮC:
-   · CHỈ standalone. Ngoài standalone: không chạy → biến giữ 0px, Safari thường
-     KHÔNG bị bù oan khi thanh công cụ co giãn.
-   · CHỈ đo sau khi bàn phím ĐÓNG / app RESUME / xoay màn. KHÔNG đo lúc input
-     còn focus (bàn phím mở làm viewport ngắn HỢP LỆ — không phải bug).
-   · safe-area vẫn là padding trong dock, KHÔNG lẫn với biến này.
+  KHÔNG cập nhật lúc bàn phím MỞ (input focus): giữ chiều cao khung ổn định,
+  khỏi nhảy layout khi gõ; đo lại sau khi bàn phím đóng / app resume / xoay.
 */
 
 import { useEffect } from "react";
-
-/** Chặn số đo rác (xoay màn giữa chừng, zoom…) — hụt thật cỡ thanh công cụ */
-const GAP_MAX_PX = 200;
 
 export function ViewportGapFix() {
   useEffect(() => {
@@ -33,9 +27,10 @@ export function ViewportGapFix() {
     const standalone =
       window.matchMedia?.("(display-mode: standalone)").matches === true ||
       (navigator as { standalone?: boolean }).standalone === true;
-    if (!standalone) return; // ngoài standalone: biến giữ 0px, không đụng gì
+    if (!standalone) return; // ngoài standalone: không đụng gì
 
     const de = document.documentElement;
+    de.classList.add("pwa-frame");
     let raf = 0;
 
     const isTyping = () => {
@@ -45,39 +40,39 @@ export function ViewportGapFix() {
       return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable === true;
     };
 
-    const measure = () => {
+    const apply = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        if (isTyping()) return; // bàn phím đang mở → viewport ngắn HỢP LỆ, bỏ
-        // phần HỤT = màn nhìn thấy thật (visual) − layout viewport (bị kẹt ngắn)
-        const gap = Math.round(vv.height - de.clientHeight);
-        const px = gap > 2 && gap <= GAP_MAX_PX ? gap : 0;
-        de.style.setProperty("--pwa-viewport-gap", `${px}px`);
+        if (isTyping()) return; // bàn phím mở → giữ chiều cao khung, không nhảy
+        // đáy vùng NHÌN THẤY thật (visual viewport), làm chiều cao DockFrame
+        const visibleBottom = Math.round(vv.offsetTop + vv.height);
+        de.style.setProperty("--app-vh", `${visibleBottom}px`);
       });
     };
 
-    measure();
-    // bàn phím đóng (blur ô nhập) — chờ viewport settle rồi mới đo
-    const onFocusOut = () => window.setTimeout(measure, 120);
+    apply();
+    vv.addEventListener("resize", apply);
+    vv.addEventListener("scroll", apply);
+    window.addEventListener("orientationchange", apply);
+    const onFocusOut = () => window.setTimeout(apply, 120); // bàn phím đóng
     const onVisible = () => {
-      if (!document.hidden) measure();
+      if (!document.hidden) apply();
     };
     window.addEventListener("focusout", onFocusOut);
     document.addEventListener("visibilitychange", onVisible);
-    vv.addEventListener("resize", measure);
-    window.addEventListener("orientationchange", measure);
-    // lưới an toàn: đổi tab có thể đổi trạng thái viewport mà không bắn event;
-    // measure tự bỏ khi đang gõ nên không bù oan lúc bàn phím mở
-    const tick = window.setInterval(measure, 600);
+    // lưới an toàn: đổi tab / trạng thái viewport tự đổi không bắn event
+    const tick = window.setInterval(apply, 600);
 
     return () => {
       cancelAnimationFrame(raf);
       window.clearInterval(tick);
+      vv.removeEventListener("resize", apply);
+      vv.removeEventListener("scroll", apply);
+      window.removeEventListener("orientationchange", apply);
       window.removeEventListener("focusout", onFocusOut);
       document.removeEventListener("visibilitychange", onVisible);
-      vv.removeEventListener("resize", measure);
-      window.removeEventListener("orientationchange", measure);
-      de.style.removeProperty("--pwa-viewport-gap");
+      de.classList.remove("pwa-frame");
+      de.style.removeProperty("--app-vh");
     };
   }, []);
 

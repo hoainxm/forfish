@@ -76,16 +76,65 @@ html {
 }
 
 /*
-  BÙ BUG iOS 26 STANDALONE — layout viewport kẹt NGẮN (Apple sửa Safari 26.1,
-  số 158055568). Biến CHUNG: mặc định 0px (Safari thường / Android / desktop
-  KHÔNG bao giờ bị bù oan). CHỈ bản cài iOS lỗi mới được JS gán khác 0
-  (viewport-gap-fix.tsx). Dock + cụm bottom UI (map page chứa sheet + thanh
-  ngày) neo theo biến này để cùng xuống đúng phần hụt.
-  ⚠️ KHÁC safe-area: safe-area là padding bảo vệ chữ khỏi home-indicator; biến
-  này chỉ sửa viewport kẹt. Hai giá trị KHÔNG dùng thay nhau.
+  DOCK — DOCKFRAME (spec user 2026-07-29): một frame fixed cao bằng vùng NHÌN
+  THẤY, dock neo `absolute bottom:0` trong frame → tab ngắn lẫn tab dài chung
+  MỘT đáy, không cần dịch dock theo tab. GIỮ body scroll (không biến <main>
+  thành scroll container — để body-lock của bottom-sheet còn tác dụng).
+
+  Một chiều cao dock DUY NHẤT (--dock-total) thay cho các số rời 8rem/84px.
+  Nền navy phủ TỚI đáy màn; safe-area là padding TRONG dock (icon/chữ nằm trên
+  home-indicator) — KHÔNG lẫn với chiều cao khung.
+
+  Bản cài iOS (bug 158055568): frame cao đúng --app-vh (= visualViewport, do
+  viewport-gap-fix đặt kèm class `pwa-frame`). Ngoài standalone: frame ngắn
+  bằng --dock-total ở đáy viewport = y hệt cũ.
 */
 :root {
-  --pwa-viewport-gap: 0px;
+  --dock-safe: max(10px, env(safe-area-inset-bottom, 0px));
+  --dock-row: 4.5rem;
+  --dock-total: calc(var(--dock-row) + var(--dock-safe));
+}
+
+.dock-frame {
+  position: fixed;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--dock-total);
+  max-width: 480px;
+  margin-inline: auto;
+  pointer-events: none; /* trong suốt, để map/nội dung sau nhận chạm */
+}
+.bottom-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: auto;
+  min-height: var(--dock-total);
+  padding-bottom: var(--dock-safe);
+  background: rgb(17 42 66 / 0.96);
+  border-radius: 1.625rem 1.625rem 0 0;
+  box-shadow: 0 -6px 24px -10px rgb(10 30 50 / 0.45);
+}
+/* nội dung trang cuộn: chừa đúng chiều cao dock + thở 1rem */
+.app-content {
+  padding-bottom: calc(var(--dock-total) + 1rem);
+}
+/* bản đồ full-bleed: đáy chừa dock (bản cài iOS: cao đúng vùng nhìn thấy) */
+.full-map {
+  bottom: var(--dock-total);
+}
+
+:root.pwa-frame .dock-frame {
+  top: 0;
+  bottom: auto;
+  height: var(--app-vh, 100dvh);
+}
+:root.pwa-frame .full-map {
+  bottom: auto;
+  height: calc(var(--app-vh, 100dvh) - var(--dock-total));
 }
 
 /*

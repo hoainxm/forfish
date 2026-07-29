@@ -13,18 +13,10 @@ export const metadata = { title: "Đánh bắt — SDFish" };
   dock không đè nút thao tác của SnapSheet (Xem thêm / Về cảng) ở đáy.
 */
 export default function NguTruongPage() {
+  // .full-map: fixed top:0, đáy chừa đúng --dock-total (globals.css). Bản cài
+  // iOS (pwa-frame): cao = --app-vh − --dock-total, khớp DockFrame.
   return (
-    <div
-      // top:0 GIỮ NGUYÊN (mốc trên không dính bug), chỉ NỚI ĐÁY xuống đúng phần
-      // viewport hụt của bug iOS 26 standalone (--pwa-viewport-gap; ngoài
-      // standalone = 0 → y hệt cũ). Nhờ vậy sheet + thanh ngày (nằm trong map,
-      // neo đáy map) tụt xuống CÙNG dock — cả cụm bottom đi đều, không lệch tab.
-      className="fixed inset-x-0 top-0 mx-auto max-w-[480px]"
-      style={{
-        bottom:
-          "calc(84px + env(safe-area-inset-bottom) - var(--pwa-viewport-gap, 0px))",
-      }}
-    >
+    <div className="full-map fixed inset-x-0 top-0 mx-auto max-w-[480px]">
       <FishingMap />
     </div>
   );
