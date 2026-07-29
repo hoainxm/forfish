@@ -1,128 +1,60 @@
 "use client";
 
 /*
-  VÁ BUG iOS 26 SAFARI — dock đáy "treo lưng chừng" (ảnh user 2026-07-29).
+  DOCK iOS 26 (bản cài / standalone) — GHIM VÀO ĐÁY MÀN HÌNH NHÌN THẤY.
 
-  Bug WebKit (Apple sửa từ Safari 26.1, số 158055568): sau khi bàn phím /
-  thanh công cụ Safari đóng-mở, LAYOUT viewport không nở lại theo màn hình →
-  phần tử position:fixed bám đáy layout viewport CŨ (ngắn hơn), lòi dải nền
-  trống bên dưới; dính cả Safari thường lẫn PWA cài về máy. Cộng đồng xác
-  nhận CUỘN TRANG là Safari neo lại đúng.
+  Cách làm (user 2026-07-29 chốt, sau khi mọi bản "đo phần hụt rồi bù" đều sai
+  qua lại giữa các tab): KHÔNG so layout viewport, KHÔNG so screen.height,
+  KHÔNG hích cuộn. Chỉ đo CHIỀU CAO NHÌN THẤY THẬT (visualViewport) rồi đặt
+  MỘT biến `--sd-vh` = vị trí ĐÁY nhìn thấy tính từ đỉnh trang. Dock ghim đáy
+  đó, trang bản đồ cao tới đó — mọi tab như nhau, trên dock là phần hiển thị.
 
-  HAI ĐƯỜNG VÁ, gate theo chế độ chạy:
-
-  · SAFARI THƯỜNG — chỉ HÍCH CUỘN (scrollBy 1px xuống-lên; trang vừa khít thì
-    nới đáy body 2px một nhịp cho có chỗ cuộn). TUYỆT ĐỐI không đo-rồi-dịch:
-    thanh công cụ Safari thu gọn làm visual/layout viewport lệch nhau MỘT CÁCH
-    BÌNH THƯỜNG (fixed vẫn được neo đúng đáy) — không phân biệt được với bug
-    thật, đã bù oan một lần (v2 2026-07-29 sáng, dock chui mất nửa → revert).
-
-  · STANDALONE (PWA cài màn hình, ảnh user 2026-07-29 13:20 vẫn treo) — KHÔNG
-    có thanh công cụ nào ⇒ lệch dương kéo dài giữa đáy NHÌN THẤY và đáy LAYOUT
-    chính LÀ bug, bù không bao giờ oan. Đặt CSS var `--vvgap` trên <html>;
-    bottom-nav tụt xuống đúng phần hụt (transform) và trang bản đồ nở đáy theo
-    (bottom: calc(... - var(--vvgap))). Bàn phím mở / pinch-zoom cho gap ÂM
-    hoặc 0 → var về 0, không đụng gì. Safari 26.1 sửa bug → gap 0 → vá tự tắt.
+  CHỈ chạy trong bản cài iOS (standalone). Safari thường / Android / desktop
+  KHÔNG đụng: thêm class `sd-pinned` để CSS chỉ bật ghim đúng lúc đó; ngoài ra
+  dock giữ nguyên `bottom:0` gốc.
 */
 
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
-
-/** Trần bù (px) — hụt thật đo được cỡ thanh công cụ (~50–120); quá trần coi
-    như số đo rác (xoay màn giữa chừng…), không bù bừa. */
-const VVGAP_MAX_PX = 160;
-
-/*
-  ĐÃ GỠ 2026-07-29 (số đo user gửi: màn hình 874 · cửa sổ 812 · trang 812 ·
-  nhìn thấy 812 → bù 72px, dock cắt nửa/chìm hẳn):
-
-  · so với `screen.height` — SAI CĂN BẢN. Bản cài KHÔNG trải hết chiều cao màn:
-    iOS chừa vùng thanh trạng thái (~60px), nên `screen − nhìn thấy` luôn dương
-    kể cả khi mọi thứ bình thường. Lấy chênh đó làm "phần hụt" là bù oan cố định
-    → dock bị đẩy xuống khỏi màn ở MỌI tab.
-  · VVGAP_BASE_PX (bù nền 10px) — cộng lên một số đo vốn đã sai, càng lệch.
-
-  MỐC ĐÚNG DUY NHẤT: `nhìn thấy` (visual) so với `trang` (layout). Ba số bằng
-  nhau = không có bug, KHÔNG bù gì hết.
-*/
 
 export function ViewportGapFix() {
-  const pathname = usePathname();
-
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const de = document.documentElement;
-    // PWA cài màn hình: display-mode standalone (manifest) / navigator.standalone (iOS)
     const standalone =
       window.matchMedia?.("(display-mode: standalone)").matches === true ||
       (navigator as { standalone?: boolean }).standalone === true;
-    let raf = 0;
-    let undoPad = 0;
-    let recheck = 0;
+    if (!standalone) return; // chỉ bản cài iOS — "làm cho phần iOS docker thôi"
 
-    /** Đo phần hụt + cập nhật --vvgap; `nudge` mới hích cuộn. */
-    const check = (nudge: boolean, followUp = true) => {
+    const de = document.documentElement;
+    de.classList.add("sd-pinned");
+    let raf = 0;
+    const apply = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        const gap = vv.height + vv.offsetTop - de.clientHeight;
-        if (standalone) {
-          // bù ĐÚNG phần hụt đo được, không cộng thêm gì: dương rõ ràng và
-          // trong trần hợp lý mới bù, còn lại = 0 (không có bug thì không dịch)
-          const px = gap > 2 && gap <= VVGAP_MAX_PX ? Math.round(gap) : 0;
-          de.style.setProperty("--vvgap", `${px}px`);
-        }
-        if (gap > 2 && nudge) {
-          // hích cuộn cho Safari neo lại (chạy ở CẢ hai chế độ — vô hại, và là
-          // đường vá duy nhất của Safari thường)
-          if (de.scrollHeight <= de.clientHeight + 1) {
-            document.body.style.paddingBottom = "2px";
-            window.clearTimeout(undoPad);
-            undoPad = window.setTimeout(() => {
-              document.body.style.paddingBottom = "";
-            }, 350);
-          }
-          window.scrollBy(0, 1);
-          window.scrollBy(0, -1);
-          // ĐO LẠI sau khi hích: trang CUỘN ĐƯỢC thì cú hích làm Safari nở lại
-          // viewport NGAY (bug tự hết) mà không bắn event → var phải về 0 liền,
-          // không chờ nhịp interval kế. Chỉ nối MỘT nhịp, không lặp vô hạn.
-          if (followUp) {
-            window.clearTimeout(recheck);
-            recheck = window.setTimeout(() => check(false, false), 350);
-          }
-        }
+        // đáy vùng nhìn thấy, tính từ đỉnh layout viewport (mốc trên luôn đúng)
+        const bottom = Math.round(vv.offsetTop + vv.height);
+        de.style.setProperty("--sd-vh", `${bottom}px`);
       });
     };
-    const onEvent = () => check(true);
-
-    vv.addEventListener("resize", onEvent);
-    vv.addEventListener("scroll", onEvent);
-    // layout viewport nở lại bắn resize trên WINDOW (không phải visualViewport)
-    window.addEventListener("resize", onEvent);
-    // đóng bàn phím (blur ô nhập) — thời điểm bug hay lộ nhất
-    window.addEventListener("focusout", onEvent);
-    window.addEventListener("orientationchange", onEvent);
-    // (v4, user 2026-07-29 "cho responsive"): trạng thái bug là ĐỘNG — đổi tab
-    // là viewport có thể tự lành/tự hỏng mà KHÔNG bắn event nào. Standalone đo
-    // LIÊN TỤC 500ms (chỉ đọc 3 số + set var khi đổi — rẻ), KHÔNG hích trong
-    // interval để khỏi phá cử chỉ cuộn của bà con.
-    const interval = standalone
-      ? window.setInterval(() => check(false), 500)
-      : 0;
-    check(true);
+    apply();
+    // đo lại khi bàn phím/thanh công cụ đổi, xoay màn, và định kỳ (đổi tab có
+    // thể khiến viewport tự lành/hỏng mà không bắn event nào — 500ms bắt được)
+    vv.addEventListener("resize", apply);
+    vv.addEventListener("scroll", apply);
+    window.addEventListener("resize", apply);
+    window.addEventListener("orientationchange", apply);
+    const tick = window.setInterval(apply, 500);
     return () => {
       cancelAnimationFrame(raf);
-      window.clearTimeout(undoPad);
-      window.clearTimeout(recheck);
-      if (interval) window.clearInterval(interval);
-      vv.removeEventListener("resize", onEvent);
-      vv.removeEventListener("scroll", onEvent);
-      window.removeEventListener("resize", onEvent);
-      window.removeEventListener("focusout", onEvent);
-      window.removeEventListener("orientationchange", onEvent);
+      window.clearInterval(tick);
+      vv.removeEventListener("resize", apply);
+      vv.removeEventListener("scroll", apply);
+      window.removeEventListener("resize", apply);
+      window.removeEventListener("orientationchange", apply);
+      de.classList.remove("sd-pinned");
+      de.style.removeProperty("--sd-vh");
     };
-  }, [pathname]);
+  }, []);
 
   return null;
 }

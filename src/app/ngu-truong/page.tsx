@@ -15,14 +15,10 @@ export const metadata = { title: "Đánh bắt — SDFish" };
 export default function NguTruongPage() {
   return (
     <div
-      className="fixed inset-x-0 top-0 mx-auto max-w-[480px]"
-      // --vvgap: bug iOS 26 layout-viewport NGẮN hơn màn (dock treo lưng chừng,
-      // lòi khối trắng dưới sheet — ảnh user 2026-07-29 13:20 bản cài): đáy
-      // trang NỞ xuống đúng phần hụt, cùng biến với dock (viewport-gap-fix.tsx,
-      // CHỈ standalone đặt khác 0; bình thường var = 0 → y hệt cũ).
-      style={{
-        bottom: "calc(84px + env(safe-area-inset-bottom) - var(--vvgap, 0px))",
-      }}
+      // Bản đồ là cả màn hình, chừa 84px + safe-area cho dock nổi. Bản cài iOS
+      // (class `sd-pinned`): CSS ghim CHIỀU CAO theo đáy nhìn thấy thật
+      // (--sd-vh) để khớp dock đã ghim — xem globals.css + viewport-gap-fix.tsx.
+      className="sd-fullmap fixed inset-x-0 top-0 mx-auto max-w-[480px] bottom-[calc(84px+env(safe-area-inset-bottom))]"
     >
       <FishingMap />
     </div>

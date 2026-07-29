@@ -920,53 +920,6 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
           </p>
         </>
       )}
-
-      <ScreenInfo />
-    </div>
-  );
-}
-
-/**
- * SỐ ĐO MÀN HÌNH — để chẩn lỗi "dock lơ lửng" trên máy thật mà không cần cắm
- * dây (2026-07-29): bản cài iOS không mở được console, mỗi vòng chỉnh phải hỏi
- * user "lệch chừng nào" rồi đoán. Nay chụp màn hình khối này là đủ số.
- * Chỉ hiện đúng một dòng gọn ở cuối panel Cài đặt, không ảnh hưởng ai.
- */
-function ScreenInfo() {
-  const [info, setInfo] = useState<string[] | null>(null);
-  useEffect(() => {
-    const read = () => {
-      const vv = window.visualViewport;
-      const de = document.documentElement;
-      const standalone =
-        window.matchMedia?.("(display-mode: standalone)").matches === true ||
-        (navigator as { standalone?: boolean }).standalone === true;
-      setInfo([
-        `bản cài: ${standalone ? "có" : "không"}`,
-        `màn hình: ${window.screen?.height ?? "?"}`,
-        `cửa sổ: ${window.innerHeight}`,
-        `trang: ${de.clientHeight}`,
-        `nhìn thấy: ${vv ? Math.round(vv.height + vv.offsetTop) : "?"}`,
-        `bù: ${de.style.getPropertyValue("--vvgap") || "0"}`,
-      ]);
-    };
-    read();
-    const t = window.setInterval(read, 500);
-    return () => window.clearInterval(t);
-  }, []);
-  if (!info) return null;
-  return (
-    <div className="mt-4">
-      <p className="mb-1 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
-        Số đo màn hình
-      </p>
-      <p className="rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] leading-snug text-foreground/70">
-        {info.join(" · ")}
-      </p>
-      <p className="mt-1 text-[0.6875rem] leading-snug text-foreground/60">
-        Dòng này để dò lỗi hiển thị — chụp màn hình gửi kỹ thuật khi thanh dưới
-        cùng nằm sai chỗ.
-      </p>
     </div>
   );
 }

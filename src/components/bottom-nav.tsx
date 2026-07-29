@@ -27,23 +27,14 @@ const items = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  // (2026-07-29 v4) ĐÃ GỠ số bù tĩnh theo tab (±10 rồi 30/−15): trạng thái bug
-  // iOS 26 là ĐỘNG — qua trang cuộn được là viewport tự nở lại, số ghim của
-  // trạng thái trước thành bù oan ("quay về tab 1 dock vượt cả view"). Toàn bộ
-  // vị trí nay theo MỘT biến --vvgap do viewport-gap-fix ĐO LIÊN TỤC.
+  // Vị trí đáy: mặc định `bottom-0` (Safari thường / Android / desktop). Bản
+  // cài iOS bật class `sd-pinned` trên <html> (viewport-gap-fix.tsx) → CSS
+  // `.sd-pinned .sd-dock` GHIM dock vào đáy vùng nhìn thấy thật (--sd-vh).
   return (
     <nav
       aria-label="Điều hướng chính"
-      className="fixed bottom-0 left-1/2 z-20 w-full max-w-[480px] px-3"
-      style={{
-        paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)",
-        // --vvgap: bù bug iOS 26 layout-viewport ngắn — CHỈ standalone mới đặt
-        // khác 0 (viewport-gap-fix.tsx). Thay class -translate-x-1/2 để khỏi
-        // hai transform đè nhau; bình thường var = 0 → y hệt cũ.
-        transform: "translate(-50%, var(--vvgap, 0px))",
-        // số bù đổi (đo liên tục 500ms) → trượt êm thay vì nhảy giật
-        transition: "transform 180ms ease-out",
-      }}
+      className="sd-dock fixed bottom-0 left-1/2 z-20 w-full max-w-[480px] -translate-x-1/2 px-3"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
     >
       <ul
         className="grid grid-cols-5 rounded-[1.625rem] px-1.5 py-1.5 shadow-[0_12px_32px_-8px_rgba(10,30,50,0.45)] backdrop-blur-md"

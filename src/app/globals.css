@@ -120,6 +120,28 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/*
+  DOCK iOS 26 (bản cài / standalone) — GHIM ĐÁY MÀN HÌNH NHÌN THẤY.
+  viewport-gap-fix.tsx thêm class `sd-pinned` + đặt --sd-vh = vị trí đáy nhìn
+  thấy (px từ đỉnh trang). Chỉ bản cài iOS mới có class này → Safari thường /
+  Android / desktop không dính, dock giữ bottom:0 gốc.
+
+  Dock: bỏ neo `bottom`, neo `top:0` rồi đẩy xuống đúng (--sd-vh − chiều-cao-
+  chính-nó). translateY theo % = theo chiều cao element nên `calc(--sd-vh − 100%)`
+  đặt ĐÁY dock đúng tại --sd-vh — không cần đo chiều cao dock bằng JS.
+  Trang bản đồ: cao tới ngay trên dock (chừa 84px).
+*/
+:root.sd-pinned .sd-dock {
+  top: 0;
+  bottom: auto;
+  transform: translate(-50%, calc(var(--sd-vh, 100dvh) - 100%));
+  transition: transform 140ms ease-out;
+}
+:root.sd-pinned .sd-fullmap {
+  bottom: auto;
+  height: calc(var(--sd-vh, 100dvh) - 84px);
+}
+
 h1,
 h2,
 h3,
