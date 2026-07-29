@@ -216,7 +216,7 @@ Vì sao có ngưỡng 12 h: Service Worker cache `/api/*` network-first → mấ
 
 **D. Chạm điểm lạ khi mất sóng — KHÔNG mượn số chỗ khác** (`lib/marine-weather.ts`)
 
-Bỏ fallback "bản lưu mới nhất của bất kỳ toạ độ nào". Chỉ dùng bản lưu **đúng ô lưới ~0,25°** của chỗ vừa chạm. Không có → **thử tiếp LƯỚI đã lưu** (§10.4); lưới cũng không phủ → peek: "Chỗ này chưa có số nào lưu trong máy — vuốt lên để thử lại."; mở sheet có thêm "Lúc mất sóng, máy chỉ có số ở những chỗ bà con đã mở xem lúc còn sóng. Chạm lại đúng chỗ đó để coi." + nút Thử lại.
+Bỏ fallback "bản lưu mới nhất của bất kỳ toạ độ nào". Chỉ dùng bản lưu **đúng ô lưới ~0,25°** của chỗ vừa chạm. Không có → **thử tiếp LƯỚI đã lưu** (§10.4) → **NẤC CUỐI (2026-07-29): lưới SNAPSHOT server** `/api/weather-snapshot` (same-origin, cron tính sẵn — cứu bản web Safari mở lần đầu có kho localStorage TÁCH RIÊNG với PWA, trống trơn, đúng lúc Open-Meteo 429 theo IP; khung dài nhất trước, khung premium route tự chặn với tài khoản thường → rơi về d3; vẫn chỉ lấy số đúng ô phủ chỗ chạm). Tất cả trượt → peek: "Chỗ này chưa có số nào lưu trong máy — vuốt lên để thử lại."; mở sheet có thêm "Lúc mất sóng, máy chỉ có số ở những chỗ bà con đã mở xem lúc còn sóng. Chạm lại đúng chỗ đó để coi." + nút Thử lại.
 
 **E. Độ tin theo tầm ngày THẬT** — `assessForecast` / `applyBiasCorrection` / `forecastConfidence` nhận `todayIso`; lead = số ngày từ hôm nay tới ngày dự báo (`leadOf`), không phải chỉ số mảng. Bản lưu cũ vì thế bị hạ độ tin đúng mức thay vì được nắn bias theo hàng lead 1 (sai theo hướng lạc quan).
 

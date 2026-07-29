@@ -259,3 +259,49 @@ describe("fetchSeaPoint offline — lùi về LƯỚI đã lưu khi chưa từng
     expect(c.source).toBe("saved-point");
   });
 });
+
+/* ---------------------------------------------------------------------------
+   NẤC CUỐI: SNAPSHOT SERVER (2026-07-29) — bản web Safari mở lần đầu có kho
+   localStorage TÁCH RIÊNG với PWA (trống trơn); Open-Meteo 429 theo IP → mọi
+   nấc trong máy đều trượt. /api/weather-snapshot (same-origin, cron tính sẵn)
+   là chỗ dựa cuối. Khung premium bị route chặn → tự rơi về d3.
+--------------------------------------------------------------------------- */
+
+describe("fetchSeaPoint — nấc cuối lùi về SNAPSHOT server", () => {
+  const snapMock = (grids: Record<string, ForecastGrid>) =>
+    vi.fn().mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes("/api/weather-snapshot")) {
+        const id = /id=grid%3Ad(\d+)|id=grid:d(\d+)/.exec(u);
+        const d = id?.[1] ?? id?.[2];
+        const g = d ? grids[d] : undefined;
+        return Promise.resolve(
+          g
+            ? { ok: true, json: () => Promise.resolve(g) }
+            : { ok: false },
+        );
+      }
+      return Promise.reject(new Error("429"));
+    }) as unknown as typeof fetch;
+
+  it("máy trống trơn + live lỗi → dùng snapshot, nguồn saved-grid, savedAt null", async () => {
+    globalThis.fetch = snapMock({ "16": gridAt(16.5, 112.0) });
+    const c = await fetchSeaPoint(HOANG_SA);
+    expect(c.source).toBe("saved-grid");
+    expect(c.savedAt).toBeNull();
+    expect(c.point).toEqual(HOANG_SA);
+    expect(c.days[0].windMaxKmh).toBe(30);
+  });
+
+  it("khung premium bị chặn (d16 không trả) → rơi về snapshot d3", async () => {
+    globalThis.fetch = snapMock({ "3": gridAt(16.5, 112.0) });
+    const c = await fetchSeaPoint(HOANG_SA);
+    expect(c.source).toBe("saved-grid");
+    expect(c.days.length).toBeGreaterThan(0);
+  });
+
+  it("snapshot không phủ chỗ chạm → vẫn nói thật là chưa có số", async () => {
+    globalThis.fetch = snapMock({ "16": gridAt(16.5, 112.0) });
+    await expect(fetchSeaPoint(CON_DAO)).rejects.toThrow();
+  });
+});

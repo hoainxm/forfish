@@ -245,8 +245,10 @@ export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
   }
 }
 
-/** LƯỚI AN TOÀN: snapshot lưới d3 do cron tính sẵn (same-origin) — null nếu chưa có */
-async function loadGridSnapshotClient(days: number): Promise<ForecastGrid | null> {
+/** LƯỚI AN TOÀN: snapshot lưới do cron tính sẵn (same-origin) — null nếu chưa
+    có / route chặn premium. Export cho marine-weather dùng làm nấc cuối của
+    DỰ BÁO ĐIỂM (2026-07-29: bản web mở lần đầu máy trống trơn + live 429). */
+export async function loadGridSnapshotClient(days: number): Promise<ForecastGrid | null> {
   try {
     const r = await fetch(apiUrl(`/api/weather-snapshot?id=${gridSnapshotId(days)}`), {
       signal: AbortSignal.timeout(10000),

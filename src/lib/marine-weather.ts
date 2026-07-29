@@ -13,10 +13,12 @@ import {
 } from "@/lib/sea";
 import { saveForecast, loadForecast, coordId } from "@/lib/forecast-cache";
 import {
+  loadGridSnapshotClient,
   loadLongestSavedGrid,
   nearestGridCell,
   type ForecastGrid,
 } from "@/lib/forecast-grid";
+import { SNAPSHOT_DAY_SET } from "@/lib/weather-snapshot-id";
 
 export type SeaPoint = { lat: number; lon: number };
 
@@ -189,6 +191,17 @@ export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
     // chỗ chạm — vẫn là số của chính chỗ đó, không phải mượn của toạ độ khác.
     const fromGrid = seaPointFromSavedGrid(p);
     if (fromGrid) return fromGrid;
+    // NẤC CUỐI (2026-07-29, ảnh user bản web iOS "chưa có số nào lưu trong
+    // máy"): máy TRỐNG TRƠN (bản web Safari mở lần đầu — kho localStorage TÁCH
+    // RIÊNG với PWA đã cài) + live lỗi/429 → còn lưới SNAPSHOT server cron
+    // (same-origin, không đụng quota Open-Meteo theo IP). Khung dài nhất
+    // trước; khung premium bị route chặn với tài khoản thường → tự rơi về d3.
+    // Vẫn là số ĐÚNG Ô phủ chỗ chạm — seaPointFromGrid tự chặn ô xa.
+    for (const d of [...SNAPSHOT_DAY_SET].sort((a, b) => b - a)) {
+      const snap = await loadGridSnapshotClient(d);
+      const cond = snap ? seaPointFromGrid(snap, p, null) : null;
+      if (cond) return cond;
+    }
     throw err; // ngoài vùng lưới / máy chưa lưu gì → UI nói thật là chưa có số
   }
 }
