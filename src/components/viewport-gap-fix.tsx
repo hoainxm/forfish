@@ -32,14 +32,19 @@ import { usePathname } from "next/navigation";
     như số đo rác (xoay màn giữa chừng…), không bù bừa. */
 const VVGAP_MAX_PX = 160;
 
-/**
- * BÙ NỀN (px) — user đo trên máy thật 2026-07-29 sau v4: MỌI tab đều còn hở
- * đúng chừng này (dock cao hơn đáy), kể cả khi phần hụt đo được đã về 0. Đây
- * là chênh lệch CỐ ĐỊNH của bản cài (thanh gạch home + cách iOS tính đáy an
- * toàn), khác với phần hụt động của bug — nên cộng THẲNG, không phụ thuộc tab.
- * Chỉnh MỘT số này là dịch cả dock; standalone-only như phần còn lại.
- */
-const VVGAP_BASE_PX = 10;
+/*
+  ĐÃ GỠ 2026-07-29 (số đo user gửi: màn hình 874 · cửa sổ 812 · trang 812 ·
+  nhìn thấy 812 → bù 72px, dock cắt nửa/chìm hẳn):
+
+  · so với `screen.height` — SAI CĂN BẢN. Bản cài KHÔNG trải hết chiều cao màn:
+    iOS chừa vùng thanh trạng thái (~60px), nên `screen − nhìn thấy` luôn dương
+    kể cả khi mọi thứ bình thường. Lấy chênh đó làm "phần hụt" là bù oan cố định
+    → dock bị đẩy xuống khỏi màn ở MỌI tab.
+  · VVGAP_BASE_PX (bù nền 10px) — cộng lên một số đo vốn đã sai, càng lệch.
+
+  MỐC ĐÚNG DUY NHẤT: `nhìn thấy` (visual) so với `trang` (layout). Ba số bằng
+  nhau = không có bug, KHÔNG bù gì hết.
+*/
 
 export function ViewportGapFix() {
   const pathname = usePathname();
@@ -62,23 +67,10 @@ export function ViewportGapFix() {
       raf = requestAnimationFrame(() => {
         const gap = vv.height + vv.offsetTop - de.clientHeight;
         if (standalone) {
-          // ĐO HAI ĐƯỜNG rồi lấy cái lớn hơn (user 2026-07-29: "2 tab kia dock
-          // vẫn lơ lửng giữa màn" dù vá v4 đo ra 0):
-          //  · gap  = visual so với LAYOUT — bắt ca layout viewport kẹt ngắn;
-          //  · sGap = đáy nhìn thấy so với MÀN HÌNH THẬT — bắt ca CẢ HAI viewport
-          //    cùng ngắn (so nhau thì khớp nên đường trên mù tịt, đúng ca này).
-          // Bản cài chiếm trọn màn nên screen.height là mốc đáng tin; xoay ngang
-          // thì mốc là screen.width.
-          const portrait =
-            window.matchMedia?.("(orientation: portrait)").matches !== false;
-          const screenH = portrait ? window.screen?.height : window.screen?.width;
-          const sGap =
-            typeof screenH === "number" && screenH > 0
-              ? screenH - (vv.height + vv.offsetTop)
-              : 0;
-          const pick = (v: number) => (v > 2 && v <= VVGAP_MAX_PX ? Math.round(v) : 0);
-          const dyn = Math.max(pick(gap), pick(sGap));
-          de.style.setProperty("--vvgap", `${dyn + VVGAP_BASE_PX}px`);
+          // bù ĐÚNG phần hụt đo được, không cộng thêm gì: dương rõ ràng và
+          // trong trần hợp lý mới bù, còn lại = 0 (không có bug thì không dịch)
+          const px = gap > 2 && gap <= VVGAP_MAX_PX ? Math.round(gap) : 0;
+          de.style.setProperty("--vvgap", `${px}px`);
         }
         if (gap > 2 && nudge) {
           // hích cuộn cho Safari neo lại (chạy ở CẢ hai chế độ — vô hại, và là
