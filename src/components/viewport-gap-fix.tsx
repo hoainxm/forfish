@@ -52,7 +52,11 @@ export function ViewportGapFix() {
       raf = requestAnimationFrame(() => {
         if (isTyping()) return; // bàn phím mở → viewport ngắn hợp lệ, bỏ
         const key = `forfish.pwa-frame.${screen.width}x${screen.height}`;
-        const measured = Math.round(vv.offsetTop + vv.height);
+        // KÍCH THƯỚC viewport (vv.height) — KHÔNG cộng offsetTop: ở tab DÀI cuộn
+        // được offsetTop thành khác 0, offsetTop+height vọt quá đáy thật → max
+        // chốt số quá lớn → dock đẩy xuống dưới mép màn, che mất ~1/3 (ảnh user
+        // 2026-07-29). height là kích thước viewport, không dính offset cuộn.
+        const measured = Math.round(vv.height);
         if (key !== stableKey) {
           // đổi chiều màn (xoay) → mốc mới: lấy bản đã lưu của chiều này, hoặc số đo hiện tại
           stableKey = key;
