@@ -52,7 +52,6 @@ import {
   timeLabelVN,
   WIND_COLOR_EXPR,
   WAVE_COLOR_EXPR,
-  savedCurrentGridDays,
   type GridDays,
   type ForecastGrid,
   type ForecastKind,
@@ -463,18 +462,9 @@ export default function FishingMapView() {
   const [gridDays, setGridDays] = useState<GridDays>(3);
   // chạm khung ngày bị khoá (premium) → nói lý do một dòng ngay dưới hàng nút
   const [dayLockNote, setDayLockNote] = useState(false);
-  // Khung ngày THẬT SỰ đang có bản lưu trong máy — chỉ đọc khi tải hỏng, để nói
-  // thật ("máy chưa lưu khung 16 ngày, đang có 3 và 7") thay vì đưa lưới khung khác.
-  const [savedDays, setSavedDays] = useState<number[]>([]);
-  useEffect(() => {
-    if (!gridFailed) return;
-    // người bị khoá premium không được mời sang khung >3 ngày đã lưu trong máy
-    setSavedDays(
-      savedCurrentGridDays()
-        .filter((d) => d !== gridDays)
-        .filter((d) => !premiumLocked || d <= FREE_FORECAST_DAYS),
-    );
-  }, [gridFailed, gridDays, premiumLocked]);
+  // (BỎ 2026-07-29) state "khung nào đang có trong máy" + khối mời đổi khung:
+  // lib nay TỰ mượn khung ngắn hơn (localStorage rồi snapshot) nên còn bản nào
+  // là đã dùng — tới nhánh lỗi nghĩa là KHÔNG CÒN GÌ, chẳng có gì để mời.
 
   // TẦM NGÀY TỰ ĐẶT THEO HẠNG (bỏ chip chọn khung, user 2026-07-28): premium =
   // 16 ngày, thường = 3 ngày (FREE_FORECAST_DAYS). Bà con cuộn dải ngày để xem
@@ -2195,47 +2185,24 @@ export default function FishingMapView() {
                   )}
                 </>
               ) : gridFailed ? (
-                /* KHÔNG mượn lưới của khung ngày khác nữa (xin 16 ngày mà đưa
-                   lưới 3 ngày đã lưu, chip vẫn sáng "16 ngày"). Nói thật khung
-                   nào đang có trong máy, chạm là đổi đúng khung đó. */
-                <div>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[0.9375rem] font-bold leading-snug text-danger">
-                      Chưa tải được khung {gridDays} ngày — máy chưa lưu khung
-                      này.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setGridFailed(false)}
-                      className="shrink-0 rounded-xl bg-navy px-4 py-2.5 text-[0.9375rem] font-bold text-white"
-                    >
-                      Thử lại
-                    </button>
-                  </div>
-                  {savedDays.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-[0.8125rem] font-semibold text-foreground/70">
-                        Trong máy đang có:
-                      </p>
-                      <div className="mt-1 flex gap-1.5">
-                        {savedDays.map((d) => (
-                          <button
-                            key={d}
-                            type="button"
-                            onClick={() => {
-                              setPlaying(false);
-                              jumpEndRef.current = true; // (B) nhảy tới ngày cuối khi lưới về
-                              setGridFailed(false);
-                              setGridDays(d as GridDays);
-                            }}
-                            className="min-h-[2.75rem] flex-1 rounded-lg bg-field text-[0.9375rem] font-bold text-navy active:scale-[0.97]"
-                          >
-                            {d} ngày
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                /* 2026-07-29: từ khi có lưới an toàn 5 tầng (live → bản lưu đúng
+                   khung → snapshot đúng khung → bản lưu khung NGẮN hơn → snapshot
+                   khung ngắn hơn), tới được đây nghĩa là KHÔNG CÒN GÌ CẢ — nói
+                   đúng nguyên nhân đó, đừng đổ cho "chưa lưu khung này" (câu cũ
+                   của luật cấm-mượn-khung, nay sai). Khối "Trong máy đang có:
+                   [3 ngày]" cũng BỎ: có bản nào thì code đã tự dùng rồi. */
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[0.9375rem] font-bold leading-snug text-danger">
+                    Chưa lấy được dự báo cả vùng biển — máy chưa có bản nào và
+                    nguồn đang không cho tải.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setGridFailed(false)}
+                    className="shrink-0 rounded-xl bg-navy px-4 py-2.5 text-[0.9375rem] font-bold text-white"
+                  >
+                    Thử lại
+                  </button>
                 </div>
               ) : (
                 <p className="text-[0.8125rem] font-semibold text-foreground/70">
