@@ -8,14 +8,14 @@
   lòi khối trống. Mọi cách "đo phần hụt rồi bù" đều lệch vì iOS báo chiều cao
   KHÁC nhau giữa trang có scroll và không.
 
-  Cách chắc (spec user): CHỈ bản cài iOS → thêm class `pwa-frame` trên <html> +
-  đặt --app-vh = đáy vùng NHÌN THẤY (visualViewport.offsetTop + height — giá
-  trị duy nhất đáng tin). CSS cho DockFrame cao đúng --app-vh, dock neo
-  `absolute bottom:0` trong frame (globals.css .dock-frame/.full-map). Ngoài
-  standalone: KHÔNG chạy → không có class → giao diện y hệt cũ.
+  Cách chắc: CHỈ bản cài iOS → class `pwa-frame` trên <html> + --app-vh = ĐÁY
+  LỚN NHẤT của viewport (vv.height, chỉ cho lớn lên). CSS cho DockFrame + khung
+  app (app-shell min-height) cao đúng --app-vh → tab viewport nhỏ tự nở bằng
+  tab dài, dock khớp (globals.css). Ngoài standalone: KHÔNG chạy → y hệt cũ.
 
-  KHÔNG cập nhật lúc bàn phím MỞ (input focus): giữ chiều cao khung ổn định,
-  khỏi nhảy layout khi gõ; đo lại sau khi bàn phím đóng / app resume / xoay.
+  localStorage theo screen.w×h: giữ mốc qua các lần mở app (khỏi học lại). Đặt
+  --app-vh NGAY từ localStorage lúc init + chỉ ghi lại khi số LỚN LÊN → chuyển
+  tab không reflow, MƯỢT. KHÔNG cập nhật lúc input focus (bàn phím mở).
 */
 
 import { useEffect } from "react";
@@ -32,13 +32,29 @@ export function ViewportGapFix() {
     const de = document.documentElement;
     de.classList.add("pwa-frame");
     let raf = 0;
-    // GIỮ ĐÁY LỚN NHẤT đã đo cho từng CHIỀU màn hình (user 2026-07-29): tab
-    // KHÔNG cuộn iOS báo visualViewport thấp hơn, tab cuộn được WebKit tự nở →
-    // nếu ghi thẳng số đo mỗi tab, --app-vh co/nở theo tab, dock nhảy. Chỉ cho
-    // LỚN LÊN, không cho nhỏ lại; key theo screen.width×height (xoay màn = mốc
-    // mới). sessionStorage: ổn định trong một lần mở app.
+    // GIỮ ĐÁY LỚN NHẤT đã đo cho từng CHIỀU màn hình: tab KHÔNG cuộn iOS báo
+    // viewport thấp hơn tab cuộn được → chỉ cho LỚN LÊN, không cho nhỏ lại.
+    // localStorage (2026-07-29 user): GIỮ qua các lần mở app — mở lại là có
+    // ngay mốc đã học, KHÔNG phải đo lại (đỡ giật lúc khởi động + chuyển tab).
     let stableKey = "";
     let stableBottom = 0;
+
+    /** đọc mốc đã lưu cho chiều màn hiện tại + đặt --app-vh NGAY (khỏi nhảy).
+        Trả key hiện tại; đổi chiều (xoay) thì nạp lại mốc của chiều mới. */
+    const syncKey = () => {
+      const key = `forfish.pwa-frame.${screen.width}x${screen.height}`;
+      if (key !== stableKey) {
+        stableKey = key;
+        let saved = 0;
+        try {
+          saved = Number(localStorage.getItem(key)) || 0;
+        } catch {}
+        stableBottom = saved;
+        if (saved > 0) de.style.setProperty("--app-vh", `${saved}px`);
+      }
+      return key;
+    };
+    syncKey(); // đặt --app-vh ngay từ localStorage trước khi vẽ
 
     const isTyping = () => {
       const el = document.activeElement as HTMLElement | null;
@@ -51,25 +67,16 @@ export function ViewportGapFix() {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         if (isTyping()) return; // bàn phím mở → viewport ngắn hợp lệ, bỏ
-        const key = `forfish.pwa-frame.${screen.width}x${screen.height}`;
-        // KÍCH THƯỚC viewport (vv.height) — KHÔNG cộng offsetTop: ở tab DÀI cuộn
-        // được offsetTop thành khác 0, offsetTop+height vọt quá đáy thật → max
-        // chốt số quá lớn → dock đẩy xuống dưới mép màn, che mất ~1/3 (ảnh user
-        // 2026-07-29). height là kích thước viewport, không dính offset cuộn.
+        const key = syncKey();
+        // KÍCH THƯỚC viewport (vv.height, không offsetTop — offset cuộn làm vọt)
         const measured = Math.round(vv.height);
-        if (key !== stableKey) {
-          // đổi chiều màn (xoay) → mốc mới: lấy bản đã lưu của chiều này, hoặc số đo hiện tại
-          stableKey = key;
-          let saved = 0;
-          try {
-            saved = Number(sessionStorage.getItem(key)) || 0;
-          } catch {}
-          stableBottom = saved > 0 ? saved : measured;
-        }
-        // CHỈ cho lớn lên: tab ngắn đo nhỏ hơn KHÔNG kéo chuẩn xuống
-        stableBottom = Math.max(stableBottom, measured);
+        // CHỈ đụng DOM khi LỚN LÊN: tab đo nhỏ hơn → return, KHÔNG set lại
+        // --app-vh → không reflow → chuyển tab MƯỢT (user báo giật vì trước đây
+        // set mỗi lần). Đã ổn định thì mọi tab dùng cùng mốc, không giật.
+        if (measured <= stableBottom) return;
+        stableBottom = measured;
         try {
-          sessionStorage.setItem(key, String(stableBottom));
+          localStorage.setItem(key, String(stableBottom));
         } catch {}
         de.style.setProperty("--app-vh", `${stableBottom}px`);
       });
