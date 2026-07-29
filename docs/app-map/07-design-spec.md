@@ -245,7 +245,7 @@ Bỏ cả ba thứ cũ: nút "Chuẩn bị đi biển", thẻ xanh "Xong. Máy g
 | Hỏng / mất sóng giữa chừng | **"Chưa tải được dự báo — chưa có sóng."** → tự ẩn | `bg-warn-bg` + ⚠ |
 | Máy hết chỗ nhớ | **"Máy hết chỗ nhớ — xoá bớt điểm đã lưu."** → tự ẩn | `bg-warn-bg` + ⚠ |
 
-**Nhãn nhỏ THƯỜNG TRỰC "đã sẵn sàng ra khơi chưa"** (`PretripSavedStatus` trong `pretrip-auto-notify.tsx`, thêm 2026-07-26): khác dòng nổi tự tắt ở trên — đây là **chip nhỏ 13px căn phải, nằm ngay TRÊN box biển động** (slot `above` của `SnapSheet`, **chỉ ở nấc `peek`**), để bà con liếc là biết trong máy đã có dự báo tới ngày nào. Câu chữ ở `pretripSavedText` (`lib/pretrip-auto.ts`, thuần, có test), đọc thẳng `savedSummary()` + bám phase tải sẵn:
+**Nhãn nhỏ THƯỜNG TRỰC "đã sẵn sàng ra khơi chưa"** (`PretripSavedStatus` trong `pretrip-auto-notify.tsx`, thêm 2026-07-26): khác dòng nổi tự tắt ở trên — đây là **chip nhỏ 13px căn phải, nằm ngay TRÊN box biển động** (slot `above` của `SnapSheet`, **chỉ ở nấc `peek`**), để bà con liếc là biết trong máy đã có dự báo tới ngày nào. **CHẠM ĐƯỢC (2026-07-29, user)**: chip là `<button>` (min-h 2,75rem) — chạm là TẢI NGAY/thử lại (bỏ cửa chặn tự động vì bà con chủ động xin; khoá nút khi đang tải); chưa có dữ liệu thì chữ kèm hint "— chạm để tải". Câu chữ ở `pretripSavedText` (`lib/pretrip-auto.ts`, thuần, có test), đọc thẳng `savedSummary()` + bám phase tải sẵn:
 
 | Trạng thái | Chip | Màu |
 |---|---|---|

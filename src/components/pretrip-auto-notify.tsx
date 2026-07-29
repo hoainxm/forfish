@@ -48,6 +48,22 @@ function subscribePhase(f: () => void) {
   };
 }
 
+/* CHẠM NHÃN = XIN TẢI NGAY (user 2026-07-29: chip "Chưa tải dữ liệu dự báo"
+   phải chạm được để tải/thử lại). Nhãn (PretripSavedStatus) và bộ máy tải
+   (PretripAutoNotify) nằm hai nhánh cây khác nhau → chuyển yêu cầu qua store
+   module giống phase. Chạm là BỎ QUA cửa chặn tự động (bà con đã chủ động xin),
+   chỉ giữ chống bắn chồng khi đang chạy dở. */
+const runReqSubs = new Set<() => void>();
+function requestPretripRun() {
+  runReqSubs.forEach((f) => f());
+}
+function subscribeRunReq(f: () => void) {
+  runReqSubs.add(f);
+  return () => {
+    runReqSubs.delete(f);
+  };
+}
+
 /**
  * Nói xong thì tắt sau ngần này — đủ đọc một dòng, rồi trả lại bản đồ.
  * Xuất ra để MỌI dòng báo nổi trên bản đồ tắt cùng một nhịp (vd nhắc "mất
@@ -80,12 +96,15 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
     pointsRef.current = points;
   }, [points]);
 
-  const tryRun = useCallback(() => {
+  const tryRun = useCallback((force = false) => {
     if (running) return;
     const online =
       typeof navigator === "undefined" ? true : navigator.onLine !== false;
     // Bản còn mới / mất sóng / vừa thử xong → IM LẶNG hoàn toàn, không báo gì.
+    // `force` = bà con CHẠM nhãn xin tải → bỏ cửa chặn, chạy luôn (mất sóng
+    // thì runPretrip fail và báo thật "chưa có sóng" — vẫn là trả lời).
     if (
+      !force &&
       !shouldAttemptAutoPretrip({
         lastRunAt: lastAutoPretripAt(),
         lastAttemptAt,
@@ -126,9 +145,12 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
     };
     window.addEventListener("online", onOnline);
     document.addEventListener("visibilitychange", onVisible);
+    // bà con chạm nhãn trạng thái → tải ngay, bỏ cửa chặn
+    const unReq = subscribeRunReq(() => tryRun(true));
     return () => {
       window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisible);
+      unReq();
     };
   }, [tryRun]);
 
@@ -181,19 +203,22 @@ export function PretripSavedStatus() {
   }, []);
 
   const text = pretripSavedText(phase, saved);
+  const hasData = !!saved && saved.places > 0 && !!saved.untilIso;
   const tone =
-    phase === "loading"
-      ? "text-navy"
-      : saved && saved.places > 0 && saved.untilIso
-        ? "text-ok"
-        : "text-warn";
+    phase === "loading" ? "text-navy" : hasData ? "text-ok" : "text-warn";
 
+  // CHẠM ĐƯỢC (user 2026-07-29): chưa có dữ liệu → chạm để tải/thử lại (kèm
+  // hint trong chữ); đã có → chạm để tải bản mới. Đang tải thì khoá nút.
   return (
-    <span
-      role="status"
-      className={`pointer-events-none inline-flex items-center rounded-full bg-card/95 px-2.5 py-1 text-[0.8125rem] font-bold shadow-sm ring-1 ring-line ${tone}`}
+    <button
+      type="button"
+      onClick={requestPretripRun}
+      disabled={phase === "loading"}
+      aria-label="Chạm để tải dự báo về máy"
+      className={`pointer-events-auto inline-flex min-h-[2.75rem] items-center rounded-full bg-card/95 px-3 py-1 text-[0.8125rem] font-bold shadow-sm ring-1 ring-line transition active:scale-95 ${tone}`}
     >
       {text}
-    </span>
+      {phase !== "loading" && !hasData && " — chạm để tải"}
+    </button>
   );
 }
