@@ -9,15 +9,16 @@
   trống bên dưới; dính cả Safari thường lẫn PWA cài về máy. Cộng đồng xác
   nhận CUỘN TRANG là Safari neo lại đúng.
 
-  V2 (user 2026-07-29: "/tau tự hết mà trang chủ thì không"): trang chủ nội
-  dung VỪA KHÍT màn hình — không có gì để cuộn nên cú hích scrollBy vô tác
-  dụng (/tau dài, cuộn được nên tự khỏi). Nay:
-   1. BÙ VỊ TRÍ qua CSS var --vvgap: dock (bottom-nav) tự tụt xuống đúng phần
-      hụt ngay cả khi chưa hích được — hết treo lưng chừng tức thì.
-   2. Hích CÓ ĐỆM: trang không cuộn được thì nới đáy body 2px một nhịp cho
-      scrollBy có chỗ làm việc, rồi trả lại.
-   3. Kiểm lại mỗi lần ĐỔI TRANG (pathname) — không chỉ lúc mount.
-  Máy đã lên 26.1+ hoặc Android: gap không xuất hiện → im lặng cả đời.
+  Cách vá: nghe visualViewport — khi đáy NHÌN THẤY thấp hơn đáy LAYOUT quá 2px
+  thì hích cuộn 1px xuống-lên cho Safari tính lại. Trang VỪA KHÍT màn hình
+  (trang chủ) không có gì để cuộn → nới đáy body 2px MỘT NHỊP cho scrollBy có
+  chỗ làm việc rồi trả lại; kiểm lại mỗi lần đổi trang (dep pathname).
+
+  ĐÃ GỠ 2026-07-29 (user: "tệ hơn bản trước, mất cả góc nhìn"): bù vị trí dock
+  bằng CSS var --vvgap. Sai ở chỗ: thanh công cụ Safari thu gọn thì visual và
+  layout viewport lệch nhau MỘT CÁCH BÌNH THƯỜNG (Safari vẫn tự neo fixed đúng
+  đáy) → phép đo không phân biệt được trạng thái đó với bug thật, bù oan làm
+  dock chui xuống dưới mép màn hình. KHÔNG làm lại kiểu đo-rồi-dịch này.
 */
 
 import { useEffect } from "react";
@@ -37,13 +38,8 @@ export function ViewportGapFix() {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const gap = vv.height + vv.offsetTop - de.clientHeight;
-        // (1) dock đọc var này để tự tụt xuống phần hụt (bottom-nav.tsx)
-        de.style.setProperty(
-          "--vvgap",
-          gap > 2 ? `${Math.round(gap)}px` : "0px",
-        );
         if (gap > 2) {
-          // (2) không có gì để cuộn (trang vừa khít) → nới đáy 2px một nhịp
+          // không có gì để cuộn (trang vừa khít) → nới đáy 2px một nhịp
           if (de.scrollHeight <= de.clientHeight + 1) {
             document.body.style.paddingBottom = "2px";
             window.clearTimeout(undoPad);
@@ -62,7 +58,7 @@ export function ViewportGapFix() {
     // đóng bàn phím (blur ô nhập) — thời điểm bug hay lộ nhất
     window.addEventListener("focusout", check);
     window.addEventListener("orientationchange", check);
-    check(); // (3) chạy lại mỗi lần đổi trang nhờ dep pathname
+    check();
     return () => {
       cancelAnimationFrame(raf);
       window.clearTimeout(undoPad);

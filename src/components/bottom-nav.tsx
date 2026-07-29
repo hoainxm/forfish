@@ -30,13 +30,8 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Điều hướng chính"
-      className="fixed bottom-0 left-1/2 z-20 w-full max-w-[480px] px-3"
-      style={{
-        // --vvgap: bug iOS 26 làm layout viewport ngắn hơn màn hình → dock tự
-        // tụt xuống đúng phần hụt (viewport-gap-fix.tsx đặt var, bình thường 0)
-        transform: "translate(-50%, var(--vvgap, 0px))",
-        paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)",
-      }}
+      className="fixed bottom-0 left-1/2 z-20 w-full max-w-[480px] -translate-x-1/2 px-3"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
     >
       <ul
         className="grid grid-cols-5 rounded-[1.625rem] px-1.5 py-1.5 shadow-[0_12px_32px_-8px_rgba(10,30,50,0.45)] backdrop-blur-md"
