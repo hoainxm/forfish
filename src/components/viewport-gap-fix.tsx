@@ -47,7 +47,8 @@ export function ViewportGapFix() {
     let undoPad = 0;
     let recheck = 0;
 
-    const check = (followUp = true) => {
+    /** Đo phần hụt + cập nhật --vvgap; `nudge` mới hích cuộn. */
+    const check = (nudge: boolean, followUp = true) => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const gap = vv.height + vv.offsetTop - de.clientHeight;
@@ -56,7 +57,7 @@ export function ViewportGapFix() {
           const px = gap > 2 && gap <= VVGAP_MAX_PX ? Math.round(gap) : 0;
           de.style.setProperty("--vvgap", `${px}px`);
         }
-        if (gap > 2) {
+        if (gap > 2 && nudge) {
           // hích cuộn cho Safari neo lại (chạy ở CẢ hai chế độ — vô hại, và là
           // đường vá duy nhất của Safari thường)
           if (de.scrollHeight <= de.clientHeight + 1) {
@@ -68,15 +69,12 @@ export function ViewportGapFix() {
           }
           window.scrollBy(0, 1);
           window.scrollBy(0, -1);
-          // ĐO LẠI sau khi hích (ảnh user 2026-07-29 13:30, /tau + /nguoi):
-          // trang CUỘN ĐƯỢC thì cú hích làm Safari nở lại viewport NGAY (bug
-          // tự hết) nhưng KHÔNG bắn event nào → --vvgap giữ số cũ, dock bị đẩy
-          // oan chui mất nửa chữ. Một nhịp đo lại là var về 0. Chỉ nối MỘT
-          // nhịp (followUp=false) — gap còn thật (trang không cuộn được) thì
-          // giữ nguyên bù, không lặp vô hạn.
+          // ĐO LẠI sau khi hích: trang CUỘN ĐƯỢC thì cú hích làm Safari nở lại
+          // viewport NGAY (bug tự hết) mà không bắn event → var phải về 0 liền,
+          // không chờ nhịp interval kế. Chỉ nối MỘT nhịp, không lặp vô hạn.
           if (followUp) {
             window.clearTimeout(recheck);
-            recheck = window.setTimeout(() => check(false), 350);
+            recheck = window.setTimeout(() => check(false, false), 350);
           }
         }
       });
@@ -86,16 +84,23 @@ export function ViewportGapFix() {
     vv.addEventListener("resize", onEvent);
     vv.addEventListener("scroll", onEvent);
     // layout viewport nở lại bắn resize trên WINDOW (không phải visualViewport)
-    // — thiếu listener này là lý do var kẹt số cũ
     window.addEventListener("resize", onEvent);
     // đóng bàn phím (blur ô nhập) — thời điểm bug hay lộ nhất
     window.addEventListener("focusout", onEvent);
     window.addEventListener("orientationchange", onEvent);
-    check();
+    // (v4, user 2026-07-29 "cho responsive"): trạng thái bug là ĐỘNG — đổi tab
+    // là viewport có thể tự lành/tự hỏng mà KHÔNG bắn event nào. Standalone đo
+    // LIÊN TỤC 500ms (chỉ đọc 3 số + set var khi đổi — rẻ), KHÔNG hích trong
+    // interval để khỏi phá cử chỉ cuộn của bà con.
+    const interval = standalone
+      ? window.setInterval(() => check(false), 500)
+      : 0;
+    check(true);
     return () => {
       cancelAnimationFrame(raf);
       window.clearTimeout(undoPad);
       window.clearTimeout(recheck);
+      if (interval) window.clearInterval(interval);
       vv.removeEventListener("resize", onEvent);
       vv.removeEventListener("scroll", onEvent);
       window.removeEventListener("resize", onEvent);

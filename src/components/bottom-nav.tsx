@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import {
   AnchorIcon,
   FishIcon,
@@ -28,21 +27,10 @@ const items = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  // Bản cài iOS (standalone): sau vá v3.1 vẫn còn lệch dư ~10px hai chiều —
-  // user đo bằng mắt 2026-07-29: Trang chủ + Ra khơi (trang VỪA KHÍT, đang ăn
-  // bù --vvgap) dock CAO hơn đáy 10px → tụt thêm; 3 tab cuộn được (var đã về
-  // 0) dock THẤP quá 10px → nhấc lên. CHỈ áp trong standalone — Android /
-  // desktop / Safari thường không dính, giữ nguyên.
-  const [standalone, setStandalone] = useState(false);
-  useEffect(() => {
-    setStandalone(
-      window.matchMedia?.("(display-mode: standalone)").matches === true ||
-        (navigator as { standalone?: boolean }).standalone === true,
-    );
-  }, []);
-  // số đo user chỉnh vòng 2 (2026-07-29): 2 tab đầu tụt 30 · 3 tab sau nhấc 15
-  const firstTwoTabs = pathname === "/" || pathname.startsWith("/ngu-truong");
-  const iosTrimPx = standalone ? (firstTwoTabs ? 30 : -15) : 0;
+  // (2026-07-29 v4) ĐÃ GỠ số bù tĩnh theo tab (±10 rồi 30/−15): trạng thái bug
+  // iOS 26 là ĐỘNG — qua trang cuộn được là viewport tự nở lại, số ghim của
+  // trạng thái trước thành bù oan ("quay về tab 1 dock vượt cả view"). Toàn bộ
+  // vị trí nay theo MỘT biến --vvgap do viewport-gap-fix ĐO LIÊN TỤC.
   return (
     <nav
       aria-label="Điều hướng chính"
@@ -51,8 +39,10 @@ export function BottomNav() {
         paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)",
         // --vvgap: bù bug iOS 26 layout-viewport ngắn — CHỈ standalone mới đặt
         // khác 0 (viewport-gap-fix.tsx). Thay class -translate-x-1/2 để khỏi
-        // hai transform đè nhau; bình thường var + trim = 0 → y hệt cũ.
-        transform: `translate(-50%, calc(var(--vvgap, 0px) + ${iosTrimPx}px))`,
+        // hai transform đè nhau; bình thường var = 0 → y hệt cũ.
+        transform: "translate(-50%, var(--vvgap, 0px))",
+        // số bù đổi (đo liên tục 500ms) → trượt êm thay vì nhảy giật
+        transition: "transform 180ms ease-out",
       }}
     >
       <ul
