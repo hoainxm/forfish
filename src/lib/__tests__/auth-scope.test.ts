@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearUserScopedData,
+  purgeApiCache,
   shouldReloadForScope,
   syncAuthScope,
   __USER_SCOPED_KEYS_FOR_TEST,
@@ -86,6 +87,38 @@ describe("syncAuthScope", () => {
     syncAuthScope("0902222222");
 
     for (const k of __USER_SCOPED_KEYS_FOR_TEST) expect(store.getItem(k)).toBe(null);
+  });
+
+  it("đổi user → xoá cả gán SDVICO + dấu premium (không rò sang tài khoản sau)", () => {
+    expect(__USER_SCOPED_KEYS_FOR_TEST).toContain("forfish.sdvico-boat.v1");
+    expect(__USER_SCOPED_KEYS_FOR_TEST).toContain("forfish.tier.premium.v1");
+
+    store.setItem(__LAST_PHONE_KEY_FOR_TEST, "0901111111");
+    store.setItem("forfish.sdvico-boat.v1", JSON.stringify({ "asset-A": "boat-A" }));
+    store.setItem("forfish.tier.premium.v1", "1"); // A là premium
+
+    expect(syncAuthScope("0902222222")).toBe(true);
+
+    expect(store.getItem("forfish.sdvico-boat.v1")).toBe(null);
+    expect(store.getItem("forfish.tier.premium.v1")).toBe(null);
+  });
+});
+
+describe("purgeApiCache — nhờ SW xoá kho /api/* (bản cache riêng tư user cũ)", () => {
+  it("có SW controller → postMessage đúng type", () => {
+    const posted: unknown[] = [];
+    vi.stubGlobal("navigator", {
+      serviceWorker: { controller: { postMessage: (m: unknown) => posted.push(m) } },
+    });
+    purgeApiCache();
+    expect(posted).toEqual([{ type: "forfish:purge-api-cache" }]);
+    vi.stubGlobal("navigator", undefined);
+  });
+
+  it("không có SW (chưa control / trình duyệt cũ) → không ném", () => {
+    vi.stubGlobal("navigator", { serviceWorker: { controller: null } });
+    expect(() => purgeApiCache()).not.toThrow();
+    vi.stubGlobal("navigator", undefined);
   });
 });
 

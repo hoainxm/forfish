@@ -22,10 +22,39 @@ const USER_SCOPED_KEYS = [
   "forfish.debts.v1",
   "forfish.trips.v1",
   "forfish.crew.v1",
+  // Gán món SDVICO → tàu: map id-món của CHÍNH user (lib/sdvico-assign.ts).
+  // Không xoá → user B thấy bản đồ gán của A trên cùng máy.
+  "forfish.sdvico-boat.v1",
+  // Dấu "phiên gần nhất là premium" (lib/use-tier.ts). use-tier tự xoá khi
+  // logout NHƯNG chỉ lúc hook mount + ONLINE — đổi user lúc offline thì dấu
+  // premium của A còn cho B (quyền offline rò). Xoá ở đây đóng nốt đường đó.
+  "forfish.tier.premium.v1",
 ] as const;
 
+/**
+ * Bảo service worker XOÁ kho phản hồi `/api/*` đã cache (SDFISH_API_V).
+ *
+ * Vì sao: SW cache mọi GET `/api/*` theo URL, KHÔNG theo user. Endpoint riêng
+ * tư (`/api/me/*`…) do đó dính chung khoá → user B mất sóng, SW trả bản cache
+ * của A (rò tên/serial/mã đơn). localStorage đã scope, nhưng Cache API thì
+ * `clearUserScopedData` không với tới → phải nhờ SW tự xoá. Best-effort:
+ * không có SW / chưa control thì bỏ qua (sw.js cũng đã CHẶN cache các path
+ * riêng tư ngay từ đầu — đây là lớp dọn thêm cho bản cache cũ còn sót).
+ */
+export function purgeApiCache(): void {
+  if (typeof navigator === "undefined") return;
+  try {
+    navigator.serviceWorker?.controller?.postMessage({
+      type: "forfish:purge-api-cache",
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Xoá TRẦN các key data KH — không đụng tracking phone. Dùng cả trong
- *  pagehide (xoá lần cuối trước unload, chặn save-effect hồi sinh data). */
+ *  pagehide (xoá lần cuối trước unload, chặn save-effect hồi sinh data).
+ *  Kèm nhờ SW xoá kho `/api/*` (bản cache riêng tư của user cũ). */
 export function clearUserScopedData(): void {
   if (typeof window === "undefined") return;
   try {
@@ -33,6 +62,7 @@ export function clearUserScopedData(): void {
   } catch {
     /* ignore */
   }
+  purgeApiCache();
 }
 
 /**

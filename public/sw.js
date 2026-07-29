@@ -18,7 +18,24 @@ const SDFISH_TILE_V = "sdfish-tiles-v1";
     hành ⇒ **bump vỏ (chỉ đổi giao diện) là XOÁ bản đồ cá bà con đã tải sẵn ở
     bờ**. Mỗi lần deploy là một chuyến biển mất dữ liệu. Nay bump vỏ không đụng
     kho này; chỉ bump SDFISH_API_V khi ĐỔI HÌNH DẠNG payload. */
-const SDFISH_API_V = "sdfish-api-v1";
+/*  Bump v1→v2 (2026-07-29): kho api-v1 cũ có thể chứa phản hồi /api/me/* của
+    user trước (trước khi có chặn dưới đây). `activate` xoá mọi kho khác phiên
+    ⇒ nâng số này dọn sạch bản cache riêng tư cũ ngay lần deploy tới. */
+const SDFISH_API_V = "sdfish-api-v2";
+
+/*  RÒ DỮ LIỆU CHÉO USER: kho /api/* khoá theo URL, KHÔNG theo user. Endpoint
+    riêng tư dính chung khoá ⇒ user B mất sóng, SW trả bản cache của A (tên,
+    serial, mã đơn, yêu cầu hỗ trợ). CHẶN cache các path này: chạy MẠNG-THUẦN,
+    mất sóng trả {ok:false} để client lùi về dữ liệu trong máy — KHÔNG bao giờ
+    lấy bản của người khác. (auth-scope.purgeApiCache còn nhờ SW xoá kho khi
+    đổi user/logout — lớp dọn thêm.) */
+function isPrivateApi(pathname) {
+  return (
+    pathname.startsWith("/api/me/") ||
+    pathname.startsWith("/api/admin/") ||
+    pathname.startsWith("/api/crew-reports/")
+  );
+}
 /*  Trần kho API: pretrip nạp ~2–3 MB/lượt (lưới 3/7/16 ngày + bản đồ cá + điểm
     ghim) ⇒ 120 mục thừa sức giữ vài lượt tải sẵn + các điểm bà con đã xem,
     vẫn xa hạn bộ nhớ điện thoại. LRU: Cache API trả key theo thứ tự thêm. */
@@ -133,6 +150,22 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // API RIÊNG TƯ (đồ của tôi / admin / sổ thuyền viên): mạng-thuần, KHÔNG cache.
+  // Mất sóng → trả {ok:false, code:"offline"} (client lùi dữ liệu local) thay
+  // vì bản cache của user khác. Đây là chốt chống rò dữ liệu chéo tài khoản.
+  if (isApi && isPrivateApi(url.pathname)) {
+    event.respondWith(
+      fetch(req).catch(
+        () =>
+          new Response(JSON.stringify({ ok: false, code: "offline" }), {
+            status: 503,
+            headers: { "Content-Type": "application/json" },
+          }),
+      ),
+    );
+    return;
+  }
+
   if (isNavigation || isApi) {
     // network-first: ưu tiên dữ liệu mới, mất mạng dùng cache/last-good
     event.respondWith(
@@ -182,6 +215,18 @@ self.addEventListener("fetch", (event) => {
   /quan-tri qua /api/admin/push (server dùng web-push + VAPID). Payload JSON
   {title, body, url}. Độc lập với cache versioning ở trên — không đụng gì.
 */
+/*
+  XOÁ KHO /api/* theo yêu cầu (auth-scope.purgeApiCache khi đổi user/logout).
+  Dọn nốt phản hồi riêng tư còn sót của user cũ — bổ trợ cho việc isPrivateApi
+  đã chặn cache từ đầu (bản cache cũ trước khi có chặn vẫn cần dọn).
+*/
+self.addEventListener("message", (event) => {
+  const data = event.data;
+  if (data && data.type === "forfish:purge-api-cache") {
+    event.waitUntil(caches.delete(SDFISH_API_V).catch(() => {}));
+  }
+});
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {
