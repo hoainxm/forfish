@@ -45,8 +45,9 @@ export function ViewportGapFix() {
       (navigator as { standalone?: boolean }).standalone === true;
     let raf = 0;
     let undoPad = 0;
+    let recheck = 0;
 
-    const check = () => {
+    const check = (followUp = true) => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const gap = vv.height + vv.offsetTop - de.clientHeight;
@@ -67,23 +68,39 @@ export function ViewportGapFix() {
           }
           window.scrollBy(0, 1);
           window.scrollBy(0, -1);
+          // ĐO LẠI sau khi hích (ảnh user 2026-07-29 13:30, /tau + /nguoi):
+          // trang CUỘN ĐƯỢC thì cú hích làm Safari nở lại viewport NGAY (bug
+          // tự hết) nhưng KHÔNG bắn event nào → --vvgap giữ số cũ, dock bị đẩy
+          // oan chui mất nửa chữ. Một nhịp đo lại là var về 0. Chỉ nối MỘT
+          // nhịp (followUp=false) — gap còn thật (trang không cuộn được) thì
+          // giữ nguyên bù, không lặp vô hạn.
+          if (followUp) {
+            window.clearTimeout(recheck);
+            recheck = window.setTimeout(() => check(false), 350);
+          }
         }
       });
     };
+    const onEvent = () => check(true);
 
-    vv.addEventListener("resize", check);
-    vv.addEventListener("scroll", check);
+    vv.addEventListener("resize", onEvent);
+    vv.addEventListener("scroll", onEvent);
+    // layout viewport nở lại bắn resize trên WINDOW (không phải visualViewport)
+    // — thiếu listener này là lý do var kẹt số cũ
+    window.addEventListener("resize", onEvent);
     // đóng bàn phím (blur ô nhập) — thời điểm bug hay lộ nhất
-    window.addEventListener("focusout", check);
-    window.addEventListener("orientationchange", check);
+    window.addEventListener("focusout", onEvent);
+    window.addEventListener("orientationchange", onEvent);
     check();
     return () => {
       cancelAnimationFrame(raf);
       window.clearTimeout(undoPad);
-      vv.removeEventListener("resize", check);
-      vv.removeEventListener("scroll", check);
-      window.removeEventListener("focusout", check);
-      window.removeEventListener("orientationchange", check);
+      window.clearTimeout(recheck);
+      vv.removeEventListener("resize", onEvent);
+      vv.removeEventListener("scroll", onEvent);
+      window.removeEventListener("resize", onEvent);
+      window.removeEventListener("focusout", onEvent);
+      window.removeEventListener("orientationchange", onEvent);
     };
   }, [pathname]);
 
