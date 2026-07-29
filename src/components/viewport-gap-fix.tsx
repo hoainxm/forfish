@@ -62,9 +62,22 @@ export function ViewportGapFix() {
       raf = requestAnimationFrame(() => {
         const gap = vv.height + vv.offsetTop - de.clientHeight;
         if (standalone) {
-          // phần hụt ĐỘNG của bug (chỉ nhận khi dương rõ và trong trần hợp lý)
-          // + bù NỀN cố định của bản cài
-          const dyn = gap > 2 && gap <= VVGAP_MAX_PX ? Math.round(gap) : 0;
+          // ĐO HAI ĐƯỜNG rồi lấy cái lớn hơn (user 2026-07-29: "2 tab kia dock
+          // vẫn lơ lửng giữa màn" dù vá v4 đo ra 0):
+          //  · gap  = visual so với LAYOUT — bắt ca layout viewport kẹt ngắn;
+          //  · sGap = đáy nhìn thấy so với MÀN HÌNH THẬT — bắt ca CẢ HAI viewport
+          //    cùng ngắn (so nhau thì khớp nên đường trên mù tịt, đúng ca này).
+          // Bản cài chiếm trọn màn nên screen.height là mốc đáng tin; xoay ngang
+          // thì mốc là screen.width.
+          const portrait =
+            window.matchMedia?.("(orientation: portrait)").matches !== false;
+          const screenH = portrait ? window.screen?.height : window.screen?.width;
+          const sGap =
+            typeof screenH === "number" && screenH > 0
+              ? screenH - (vv.height + vv.offsetTop)
+              : 0;
+          const pick = (v: number) => (v > 2 && v <= VVGAP_MAX_PX ? Math.round(v) : 0);
+          const dyn = Math.max(pick(gap), pick(sGap));
           de.style.setProperty("--vvgap", `${dyn + VVGAP_BASE_PX}px`);
         }
         if (gap > 2 && nudge) {
