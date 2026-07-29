@@ -14,12 +14,7 @@ export const metadata = { title: "Đánh bắt — SDFish" };
 */
 export default function NguTruongPage() {
   return (
-    <div
-      // Bản đồ là cả màn hình, chừa 84px + safe-area cho dock nổi. Bản cài iOS
-      // (class `sd-pinned`): CSS ghim CHIỀU CAO theo đáy nhìn thấy thật
-      // (--sd-vh) để khớp dock đã ghim — xem globals.css + viewport-gap-fix.tsx.
-      className="sd-fullmap fixed inset-x-0 top-0 mx-auto max-w-[480px] bottom-[calc(84px+env(safe-area-inset-bottom))]"
-    >
+    <div className="fixed inset-x-0 top-0 bottom-[calc(84px+env(safe-area-inset-bottom))] mx-auto max-w-[480px]">
       <FishingMap />
     </div>
   );

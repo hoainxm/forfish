@@ -1,60 +1,73 @@
 "use client";
 
 /*
-  DOCK iOS 26 (bản cài / standalone) — GHIM VÀO ĐÁY MÀN HÌNH NHÌN THẤY.
+  VÁ BUG iOS 26 SAFARI — dock đáy "treo lưng chừng" (ảnh user 2026-07-29).
 
-  Cách làm (user 2026-07-29 chốt, sau khi mọi bản "đo phần hụt rồi bù" đều sai
-  qua lại giữa các tab): KHÔNG so layout viewport, KHÔNG so screen.height,
-  KHÔNG hích cuộn. Chỉ đo CHIỀU CAO NHÌN THẤY THẬT (visualViewport) rồi đặt
-  MỘT biến `--sd-vh` = vị trí ĐÁY nhìn thấy tính từ đỉnh trang. Dock ghim đáy
-  đó, trang bản đồ cao tới đó — mọi tab như nhau, trên dock là phần hiển thị.
+  Bug WebKit (Apple sửa từ Safari 26.1, số 158055568): sau khi bàn phím /
+  thanh công cụ Safari đóng-mở, LAYOUT viewport không nở lại theo màn hình →
+  phần tử position:fixed bám đáy layout viewport CŨ (ngắn hơn), lòi dải nền
+  trống bên dưới; dính cả Safari thường lẫn PWA cài về máy. Cộng đồng xác
+  nhận CUỘN TRANG là Safari neo lại đúng.
 
-  CHỈ chạy trong bản cài iOS (standalone). Safari thường / Android / desktop
-  KHÔNG đụng: thêm class `sd-pinned` để CSS chỉ bật ghim đúng lúc đó; ngoài ra
-  dock giữ nguyên `bottom:0` gốc.
+  Cách vá: nghe visualViewport — khi đáy NHÌN THẤY thấp hơn đáy LAYOUT quá 2px
+  thì hích cuộn 1px xuống-lên cho Safari tính lại. Trang VỪA KHÍT màn hình
+  (trang chủ) không có gì để cuộn → nới đáy body 2px MỘT NHỊP cho scrollBy có
+  chỗ làm việc rồi trả lại; kiểm lại mỗi lần đổi trang (dep pathname).
+
+  ĐÃ GỠ 2026-07-29 (user: "tệ hơn bản trước, mất cả góc nhìn"): bù vị trí dock
+  bằng CSS var --vvgap. Sai ở chỗ: thanh công cụ Safari thu gọn thì visual và
+  layout viewport lệch nhau MỘT CÁCH BÌNH THƯỜNG (Safari vẫn tự neo fixed đúng
+  đáy) → phép đo không phân biệt được trạng thái đó với bug thật, bù oan làm
+  dock chui xuống dưới mép màn hình. KHÔNG làm lại kiểu đo-rồi-dịch này.
 */
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 export function ViewportGapFix() {
+  const pathname = usePathname();
+
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const standalone =
-      window.matchMedia?.("(display-mode: standalone)").matches === true ||
-      (navigator as { standalone?: boolean }).standalone === true;
-    if (!standalone) return; // chỉ bản cài iOS — "làm cho phần iOS docker thôi"
-
     const de = document.documentElement;
-    de.classList.add("sd-pinned");
     let raf = 0;
-    const apply = () => {
+    let undoPad = 0;
+
+    const check = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        // đáy vùng nhìn thấy, tính từ đỉnh layout viewport (mốc trên luôn đúng)
-        const bottom = Math.round(vv.offsetTop + vv.height);
-        de.style.setProperty("--sd-vh", `${bottom}px`);
+        const gap = vv.height + vv.offsetTop - de.clientHeight;
+        if (gap > 2) {
+          // không có gì để cuộn (trang vừa khít) → nới đáy 2px một nhịp
+          if (de.scrollHeight <= de.clientHeight + 1) {
+            document.body.style.paddingBottom = "2px";
+            window.clearTimeout(undoPad);
+            undoPad = window.setTimeout(() => {
+              document.body.style.paddingBottom = "";
+            }, 350);
+          }
+          window.scrollBy(0, 1);
+          window.scrollBy(0, -1);
+        }
       });
     };
-    apply();
-    // đo lại khi bàn phím/thanh công cụ đổi, xoay màn, và định kỳ (đổi tab có
-    // thể khiến viewport tự lành/hỏng mà không bắn event nào — 500ms bắt được)
-    vv.addEventListener("resize", apply);
-    vv.addEventListener("scroll", apply);
-    window.addEventListener("resize", apply);
-    window.addEventListener("orientationchange", apply);
-    const tick = window.setInterval(apply, 500);
+
+    vv.addEventListener("resize", check);
+    vv.addEventListener("scroll", check);
+    // đóng bàn phím (blur ô nhập) — thời điểm bug hay lộ nhất
+    window.addEventListener("focusout", check);
+    window.addEventListener("orientationchange", check);
+    check();
     return () => {
       cancelAnimationFrame(raf);
-      window.clearInterval(tick);
-      vv.removeEventListener("resize", apply);
-      vv.removeEventListener("scroll", apply);
-      window.removeEventListener("resize", apply);
-      window.removeEventListener("orientationchange", apply);
-      de.classList.remove("sd-pinned");
-      de.style.removeProperty("--sd-vh");
+      window.clearTimeout(undoPad);
+      vv.removeEventListener("resize", check);
+      vv.removeEventListener("scroll", check);
+      window.removeEventListener("focusout", check);
+      window.removeEventListener("orientationchange", check);
     };
-  }, []);
+  }, [pathname]);
 
   return null;
 }
