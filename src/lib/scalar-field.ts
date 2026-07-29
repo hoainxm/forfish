@@ -379,13 +379,18 @@ export interface ScalarRampStop {
 }
 
 export const SCALAR_RAMP: Record<ScalarKind, ScalarRampStop[]> = {
-  // Mây (% che phủ): quang (trong) → trắng-lam DỊU (sạch, không xám đục)
+  // Mây (% che phủ): ĐỘ ĐỤC BÁM LƯỢNG MÂY (user 2026-07-30, "tham khảo Windy").
+  // Trước: 25% đã alpha 0,28 → biển VN hay 20–40% mây khắp nơi nên phủ MÀN MỜ cả
+  // bản đồ, che địa hình dù trời "ít mây". Nay giữ đúng nguyên lý Windy: ít mây =
+  // gần như TRONG (thấy rõ nền/địa hình), độ đục chỉ vọt lên khi trời NHIỀU mây →
+  // âm u. Đường cong dồn alpha về đầu cao (75→100%); màu trắng-lam sạch giữ nguyên.
   cloud: [
     { value: 0, rgba: [255, 255, 255, 0] },
-    { value: 25, rgba: [226, 236, 246, 0.28] },
-    { value: 55, rgba: [214, 228, 243, 0.52] },
-    { value: 80, rgba: [230, 239, 249, 0.7] },
-    { value: 100, rgba: [247, 250, 253, 0.9] },
+    { value: 30, rgba: [236, 242, 248, 0.04] }, // ít mây: gần trong, rõ địa hình
+    { value: 55, rgba: [228, 237, 246, 0.16] }, // vài đám: chớm thấy màn mờ nhạt
+    { value: 75, rgba: [233, 240, 248, 0.38] }, // nhiều mây: đục dần
+    { value: 90, rgba: [242, 247, 252, 0.6] }, // gần kín trời
+    { value: 100, rgba: [250, 252, 254, 0.82] }, // âm u/kín mây: trắng đục
   ],
   // Mưa (mm/giờ): tạnh → lam nhạt → lục → vàng → cam → đỏ → tím (bám thang Windy)
   rain: [

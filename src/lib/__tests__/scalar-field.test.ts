@@ -25,13 +25,13 @@ describe("scalarColor", () => {
   it("kẹp hai đầu + nội suy giữa hai chặng", () => {
     // cloud: 0 → alpha 0 (trong suốt); 100 → đục
     expect(scalarColor("cloud", -5)).toBe("rgba(255,255,255,0)");
-    expect(scalarColor("cloud", 200)).toBe("rgba(247,250,253,0.9)");
-    // giữa hai chặng đầu (0 và 40) → alpha nằm giữa 0 và 0.35
+    expect(scalarColor("cloud", 200)).toBe("rgba(250,252,254,0.82)");
+    // ít mây (dưới chặng 30) → alpha rất nhỏ: thấy rõ địa hình, không phủ màn mờ
     const mid = scalarColor("cloud", 20);
     expect(mid).toMatch(/^rgba\(/);
     const alpha = Number(mid.split(",")[3].replace(")", ""));
     expect(alpha).toBeGreaterThan(0);
-    expect(alpha).toBeLessThan(0.35);
+    expect(alpha).toBeLessThan(0.1);
   });
 });
 
