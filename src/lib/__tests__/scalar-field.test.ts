@@ -23,24 +23,32 @@ function makeGrid(kind: ScalarKind, valueOf: (i: number) => number | null): Scal
 
 describe("scalarColor", () => {
   it("kẹp hai đầu + nội suy giữa hai chặng", () => {
-    // cloud: 0 → alpha 0 (trong suốt); 100 → đục
+    // cloud: 0 → alpha 0 (trong suốt); 100 → xám chì đục
     expect(scalarColor("cloud", -5)).toBe("rgba(255,255,255,0)");
-    expect(scalarColor("cloud", 200)).toBe("rgba(250,250,251,0.88)");
-    // ít mây (dưới chặng 30) → alpha rất nhỏ: thấy rõ địa hình, không phủ màn mờ
+    expect(scalarColor("cloud", 200)).toBe("rgba(104,105,108,0.86)");
+    // mây thưa (dưới chặng 25) → alpha nhỏ: vẫn thấy rõ địa hình
     const mid = scalarColor("cloud", 20);
     expect(mid).toMatch(/^rgba\(/);
     const alpha = Number(mid.split(",")[3].replace(")", ""));
     expect(alpha).toBeGreaterThan(0);
-    expect(alpha).toBeLessThan(0.1);
+    expect(alpha).toBeLessThan(0.16);
   });
 
-  it("mây TRUNG TÍNH xám-trắng — không ánh lam ở mọi mức (màn lam đè biển lam làm rõ nước, sai)", () => {
-    for (const v of [30, 55, 75, 90, 100]) {
+  it("mây: PHÂN BIỆT MẬT ĐỘ bằng sắc độ — thưa sáng, dày xám đậm (độ sáng giảm dần)", () => {
+    // độ sáng (lấy kênh R vì xám trung tính R≈G≈B) phải GIẢM khi mây dày hơn
+    const lum = (v: number) =>
+      Number(scalarColor("cloud", v).match(/rgba?\(([^,]+)/)![1]);
+    for (const [lo, hi] of [[25, 50], [50, 70], [70, 85], [85, 100]]) {
+      expect(lum(hi)).toBeLessThan(lum(lo));
+    }
+  });
+
+  it("mây TRUNG TÍNH — không ánh lam (b−r nhỏ để khỏi tô đậm biển lam)", () => {
+    for (const v of [25, 50, 70, 85, 100]) {
       const [r, g, b] = scalarColor("cloud", v)
         .match(/rgba?\(([^)]+)\)/)![1]
         .split(",")
         .map(Number);
-      // lam vượt đỏ (b − r) phải nhỏ: giữ xám-trắng, không kéo về xanh
       expect(b - r).toBeLessThanOrEqual(4);
     }
   });

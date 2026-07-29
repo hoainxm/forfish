@@ -379,19 +379,19 @@ export interface ScalarRampStop {
 }
 
 export const SCALAR_RAMP: Record<ScalarKind, ScalarRampStop[]> = {
-  // Mây (% che phủ): CHỈ MỘT BIẾN = ĐỘ ĐỤC (opacity), MÀU TRUNG TÍNH XÁM-TRẮNG.
-  // Bản trước có ánh LAM ở khúc giữa (55% [228,237,246] lam hơn hẳn): màn lam mờ
-  // đè lên biển lam → nước ĐẬM/RÕ hơn, đọc nhầm là "tô sáng vùng biển" chứ không
-  // phải mây (user 2026-07-30: "mây nhiều kéo qua xanh, vô tình làm rõ vùng biển").
-  // Nay MÂY = màn xám-trắng trung tính (R≈G≈B, không lam): mây CÀNG NHIỀU → CÀNG
-  // ĐỤC + TRẮNG (alpha tăng đều); ít mây = gần trong, thấy rõ địa hình. Kiểu Windy.
+  // Mây (% che phủ): PHÂN BIỆT MẬT ĐỘ BẰNG SẮC ĐỘ (giống Windy/ảnh vệ tinh),
+  // không chỉ bằng opacity. Bản trắng-đều trước: mây thưa hay dày đều ra TRẮNG,
+  // không đọc được mật độ (user 2026-07-30: "trắng hết, ko phân biệt dày/thưa").
+  // Nay MÂY = thang XÁM TRUNG TÍNH theo độ sáng: mây THƯA → TRẮNG sáng; mây càng
+  // DÀY → càng XÁM ĐẬM (xám chì khi kín trời) + đục dần. R≈G≈B (không lam để khỏi
+  // tô đậm biển). Quang trời = trong, thấy rõ địa hình.
   cloud: [
-    { value: 0, rgba: [255, 255, 255, 0] },
-    { value: 30, rgba: [244, 245, 246, 0.05] }, // ít mây: gần trong, rõ địa hình
-    { value: 55, rgba: [240, 241, 242, 0.18] }, // vài đám: màn xám-trắng mờ nhạt
-    { value: 75, rgba: [240, 241, 242, 0.42] }, // nhiều mây: đục dần, trắng hơn
-    { value: 90, rgba: [244, 245, 246, 0.66] }, // gần kín trời: trắng đục
-    { value: 100, rgba: [250, 250, 251, 0.88] }, // âm u/kín mây: trắng đục nhất
+    { value: 0, rgba: [255, 255, 255, 0] }, // quang: trong suốt
+    { value: 25, rgba: [240, 240, 241, 0.16] }, // mây thưa: trắng nhạt, rõ địa hình
+    { value: 50, rgba: [212, 213, 214, 0.42] }, // mây vừa: trắng xám
+    { value: 70, rgba: [176, 177, 179, 0.6] }, // nhiều mây: xám
+    { value: 85, rgba: [138, 139, 142, 0.74] }, // mây dày: xám đậm
+    { value: 100, rgba: [104, 105, 108, 0.86] }, // kín trời/âm u: xám chì
   ],
   // Mưa (mm/giờ): tạnh → lam nhạt → lục → vàng → cam → đỏ → tím (bám thang Windy)
   rain: [
@@ -470,7 +470,7 @@ export const SCALAR_META: Record<
   cloud: {
     label: "Mây",
     unit: "%",
-    help: "Chỗ trắng đục là trời nhiều mây; chỗ trong là trời quang.",
+    help: "Xám đậm là mây dày; trắng nhạt là mây thưa; chỗ trong là trời quang.",
   },
   rain: {
     label: "Mưa",
