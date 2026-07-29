@@ -379,18 +379,19 @@ export interface ScalarRampStop {
 }
 
 export const SCALAR_RAMP: Record<ScalarKind, ScalarRampStop[]> = {
-  // Mây (% che phủ): ĐỘ ĐỤC BÁM LƯỢNG MÂY (user 2026-07-30, "tham khảo Windy").
-  // Trước: 25% đã alpha 0,28 → biển VN hay 20–40% mây khắp nơi nên phủ MÀN MỜ cả
-  // bản đồ, che địa hình dù trời "ít mây". Nay giữ đúng nguyên lý Windy: ít mây =
-  // gần như TRONG (thấy rõ nền/địa hình), độ đục chỉ vọt lên khi trời NHIỀU mây →
-  // âm u. Đường cong dồn alpha về đầu cao (75→100%); màu trắng-lam sạch giữ nguyên.
+  // Mây (% che phủ): CHỈ MỘT BIẾN = ĐỘ ĐỤC (opacity), MÀU TRUNG TÍNH XÁM-TRẮNG.
+  // Bản trước có ánh LAM ở khúc giữa (55% [228,237,246] lam hơn hẳn): màn lam mờ
+  // đè lên biển lam → nước ĐẬM/RÕ hơn, đọc nhầm là "tô sáng vùng biển" chứ không
+  // phải mây (user 2026-07-30: "mây nhiều kéo qua xanh, vô tình làm rõ vùng biển").
+  // Nay MÂY = màn xám-trắng trung tính (R≈G≈B, không lam): mây CÀNG NHIỀU → CÀNG
+  // ĐỤC + TRẮNG (alpha tăng đều); ít mây = gần trong, thấy rõ địa hình. Kiểu Windy.
   cloud: [
     { value: 0, rgba: [255, 255, 255, 0] },
-    { value: 30, rgba: [236, 242, 248, 0.04] }, // ít mây: gần trong, rõ địa hình
-    { value: 55, rgba: [228, 237, 246, 0.16] }, // vài đám: chớm thấy màn mờ nhạt
-    { value: 75, rgba: [233, 240, 248, 0.38] }, // nhiều mây: đục dần
-    { value: 90, rgba: [242, 247, 252, 0.6] }, // gần kín trời
-    { value: 100, rgba: [250, 252, 254, 0.82] }, // âm u/kín mây: trắng đục
+    { value: 30, rgba: [244, 245, 246, 0.05] }, // ít mây: gần trong, rõ địa hình
+    { value: 55, rgba: [240, 241, 242, 0.18] }, // vài đám: màn xám-trắng mờ nhạt
+    { value: 75, rgba: [240, 241, 242, 0.42] }, // nhiều mây: đục dần, trắng hơn
+    { value: 90, rgba: [244, 245, 246, 0.66] }, // gần kín trời: trắng đục
+    { value: 100, rgba: [250, 250, 251, 0.88] }, // âm u/kín mây: trắng đục nhất
   ],
   // Mưa (mm/giờ): tạnh → lam nhạt → lục → vàng → cam → đỏ → tím (bám thang Windy)
   rain: [

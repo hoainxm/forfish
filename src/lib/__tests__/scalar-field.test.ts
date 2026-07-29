@@ -25,13 +25,24 @@ describe("scalarColor", () => {
   it("kẹp hai đầu + nội suy giữa hai chặng", () => {
     // cloud: 0 → alpha 0 (trong suốt); 100 → đục
     expect(scalarColor("cloud", -5)).toBe("rgba(255,255,255,0)");
-    expect(scalarColor("cloud", 200)).toBe("rgba(250,252,254,0.82)");
+    expect(scalarColor("cloud", 200)).toBe("rgba(250,250,251,0.88)");
     // ít mây (dưới chặng 30) → alpha rất nhỏ: thấy rõ địa hình, không phủ màn mờ
     const mid = scalarColor("cloud", 20);
     expect(mid).toMatch(/^rgba\(/);
     const alpha = Number(mid.split(",")[3].replace(")", ""));
     expect(alpha).toBeGreaterThan(0);
     expect(alpha).toBeLessThan(0.1);
+  });
+
+  it("mây TRUNG TÍNH xám-trắng — không ánh lam ở mọi mức (màn lam đè biển lam làm rõ nước, sai)", () => {
+    for (const v of [30, 55, 75, 90, 100]) {
+      const [r, g, b] = scalarColor("cloud", v)
+        .match(/rgba?\(([^)]+)\)/)![1]
+        .split(",")
+        .map(Number);
+      // lam vượt đỏ (b − r) phải nhỏ: giữ xám-trắng, không kéo về xanh
+      expect(b - r).toBeLessThanOrEqual(4);
+    }
   });
 });
 
