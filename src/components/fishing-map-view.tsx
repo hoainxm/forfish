@@ -52,6 +52,7 @@ import {
   timeLabelVN,
   WIND_COLOR_EXPR,
   WAVE_COLOR_EXPR,
+  CURRENT_COLOR_EXPR,
   type GridDays,
   type ForecastGrid,
   type ForecastKind,
@@ -504,7 +505,9 @@ export default function FishingMapView() {
     if (forecastKind && gridFailed) return;
     let alive = true;
     if (forecastKind) setFGrid(null); // "đang tải" cho strip gió/sóng
-    fetchForecastGrid(gridDays)
+    // lớp Dòng chảy cần lưới CÓ số dòng chảy — bản lưu/snapshot đời cũ thiếu
+    // trường này thì lib tự bỏ qua nấc đó và kéo bản mới
+    fetchForecastGrid(gridDays, { needCurrent: forecastKind === "current" })
       .then((g) => {
         if (!alive) return;
         setFGrid(g);
@@ -624,7 +627,12 @@ export default function FishingMapView() {
     const nLat = Math.floor(cells.length / nLon);
     if (nLat < 2 || nLon < 2 || nLat * nLon !== cells.length) return null;
     return {
-      kind: forecastKind === "wind" ? "windspeed" : "waveheight",
+      kind:
+        forecastKind === "wind"
+          ? "windspeed"
+          : forecastKind === "wave"
+            ? "waveheight"
+            : "currentspeed",
       times: fGrid.times,
       nLat,
       nLon,
@@ -632,7 +640,11 @@ export default function FishingMapView() {
         lat: c.lat,
         lon: c.lon,
         values: c.hours.map((h) =>
-          forecastKind === "wind" ? (h?.windKmh ?? null) : (h?.waveM ?? null),
+          forecastKind === "wind"
+            ? (h?.windKmh ?? null)
+            : forecastKind === "wave"
+              ? (h?.waveM ?? null)
+              : (h?.curKmh ?? null),
         ),
       })),
     };
@@ -707,7 +719,12 @@ export default function FishingMapView() {
   const stripLegend: ScrubberLegend | null = useMemo(() => {
     if (forecastKind) {
       return {
-        title: forecastKind === "wind" ? "Sức gió" : "Độ cao",
+        title:
+          forecastKind === "wind"
+            ? "Sức gió"
+            : forecastKind === "wave"
+              ? "Độ cao"
+              : "Dòng chảy",
         unit: legendUnit(forecastKind),
         gradient: legendGradientCss(forecastKind),
         ticks: legendStops(forecastKind).map((s) => s.value),
@@ -728,7 +745,9 @@ export default function FishingMapView() {
   const overlayTitle = forecastKind
     ? forecastKind === "wind"
       ? "Gió"
-      : "Sóng"
+      : forecastKind === "wave"
+        ? "Sóng"
+        : "Dòng chảy"
     : overlayField
       ? SCALAR_META[overlayField].label
       : "";
@@ -1691,7 +1710,9 @@ export default function FishingMapView() {
                   ? WIND_COLOR_EXPR
                   : forecastKind === "wave"
                     ? WAVE_COLOR_EXPR
-                    : "rgba(255,255,255,0.6)") as unknown as string,
+                    : forecastKind === "current"
+                      ? CURRENT_COLOR_EXPR
+                      : "rgba(255,255,255,0.6)") as unknown as string,
                 "line-width": forecastKind ? 2.5 : 1.6,
               }}
             />
@@ -1947,7 +1968,8 @@ export default function FishingMapView() {
         mapRef={mapRef}
         field={particleField}
         variant={
-          forecastKind === "wave"
+          // dòng chảy dùng vệt dày kiểu sóng — đọc là "nước đang trôi"
+          forecastKind === "wave" || forecastKind === "current"
             ? "wave"
             : forecastKind || (overlayField && overlayField !== "salinity")
               ? "wind"
@@ -2552,6 +2574,24 @@ export default function FishingMapView() {
                   </div>
                 </div>
               )}
+
+              {/* DÒNG CHẢY tại điểm (user 2026-07-29): hôm nay ưu tiên số "lúc
+                  này", ngày sau lấy số đại diện giữa trưa từ chuỗi giờ. Nguồn
+                  SMOC chỉ tới ~10 ngày — ngày xa hơn không có số thì ẨN, không
+                  bịa. Hướng nguồn ghi sẵn là hướng nước CHẢY VỀ. */}
+              {(() => {
+                const useNow = isToday && cond.curKmh != null && !cond.stale;
+                const kmh = useNow ? cond.curKmh : (sel.curKmh ?? null);
+                const dir = useNow ? (cond.curDirDeg ?? null) : (sel.curDirDeg ?? null);
+                if (kmh == null) return null;
+                return (
+                  <p className="rounded-xl bg-field px-3 py-2.5 text-[0.9375rem] font-semibold leading-snug text-navy">
+                    Dòng chảy{useNow ? " lúc này" : isToday ? " hôm nay" : ""}:{" "}
+                    {formatNumberVN(kmh)} km/giờ
+                    {dir != null && ` · nước chảy về hướng ${windDirectionVN(dir)}`}
+                  </p>
+                );
+              })()}
 
               {/* mưa/dông + độ tin — để LIỀN với sóng/gió (user 2026-06-23) */}
               {(() => {

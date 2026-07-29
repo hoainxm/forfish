@@ -5,10 +5,12 @@
 // của Ô KẾ (trường u/v nội suy BILINEAR nên chuyển hướng mượt, không gãy khúc).
 // Nền màu là chuyện của scalar-field/scalar-gl — file này CHỈ lo chuyển động.
 //
-// Đơn vị: u (đông+) / v (bắc+) theo km/h. Hướng nguồn là "TỚI TỪ" (chuẩn khí
-// tượng) → hướng BAY = from + 180°. Sóng không có tốc độ km/h nên lấy độ cao
-// (m) × hệ số làm tốc độ TƯỢNG TRƯNG (chỉ để hạt chạy nhanh chậm theo sóng to
-// nhỏ — không phải vận tốc thật, không hiển thị số).
+// Đơn vị: u (đông+) / v (bắc+) theo km/h. Hướng gió/sóng nguồn là "TỚI TỪ"
+// (chuẩn khí tượng) → hướng BAY = from + 180°. DÒNG CHẢY nguồn ghi sẵn hướng
+// CHẢY VỀ (Open-Meteo: "where the current is heading towards") → dùng THẲNG.
+// Sóng không có tốc độ km/h nên lấy độ cao (m) × hệ số làm tốc độ TƯỢNG TRƯNG;
+// dòng chảy có km/h thật nhưng chỉ 0,3–3 km/h — cũng nhân hệ số cho hạt thấy
+// được (số HIỂN THỊ vẫn là km/h thật, chỉ tốc độ hạt là tượng trưng).
 
 import type { ForecastGrid, ForecastKind } from "@/lib/forecast-grid";
 
@@ -26,6 +28,10 @@ export interface UVField {
 
 /** Sóng: m → "km/h tượng trưng" cho tốc độ hạt (2 m ≈ gió 24 km/h nhìn vừa mắt) */
 const WAVE_M_TO_KMH = 12;
+
+/** Dòng chảy: nhân cho hạt nhìn thấy được (2 km/h thật ≈ gió 16 km/h trên màn) —
+    chỉ áp vào TỐC ĐỘ HẠT, số km/h hiển thị nơi khác vẫn là số thật */
+const CURRENT_SPEED_BOOST = 8;
 
 /**
  * Dựng trường u/v từ lưới dự báo tại một mốc giờ. Kích thước lưới TỰ SUY từ
@@ -51,12 +57,23 @@ export function buildUVField(
     const speed =
       kind === "wind"
         ? h.windKmh
-        : h.waveM != null
-          ? h.waveM * WAVE_M_TO_KMH
-          : null;
-    const from = kind === "wind" ? h.windDirDeg : h.waveDirDeg;
-    if (speed == null || from == null) continue;
-    const toRad = (((from + 180) % 360) * Math.PI) / 180;
+        : kind === "wave"
+          ? h.waveM != null
+            ? h.waveM * WAVE_M_TO_KMH
+            : null
+          : h.curKmh != null
+            ? h.curKmh * CURRENT_SPEED_BOOST
+            : null;
+    const dir =
+      kind === "wind"
+        ? h.windDirDeg
+        : kind === "wave"
+          ? h.waveDirDeg
+          : h.curDirDeg ?? null;
+    if (speed == null || dir == null) continue;
+    // gió/sóng: "tới từ" → +180°; dòng chảy: nguồn đã là hướng CHẢY VỀ
+    const toDeg = kind === "current" ? dir % 360 : (dir + 180) % 360;
+    const toRad = (toDeg * Math.PI) / 180;
     u[i] = speed * Math.sin(toRad);
     v[i] = speed * Math.cos(toRad);
   }

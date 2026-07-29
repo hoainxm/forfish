@@ -205,6 +205,32 @@ describe("seaPointFromGrid — dựng số điểm từ lưới đã lưu", () =
     expect(seaPointFromGrid(grid, CON_DAO, 1)).toBeNull();
   });
 
+  it("DÒNG CHẢY từ lưới: lấy mốc gần giữa trưa, cặp đúng hướng; lưới đời cũ → null", () => {
+    // lưới có cur: 00h (1 km/h·0°) + 12h (2 km/h·90°) ngày 27; ngày 28 chỉ 00h
+    const g: ForecastGrid = {
+      cells: [
+        {
+          lat: 16.5,
+          lon: 112.0,
+          hours: [
+            { ...h(10, 1.0), curKmh: 1, curDirDeg: 0 },
+            { ...h(30, 2.2), curKmh: 2, curDirDeg: 90 },
+            { ...h(20, 1.5), curKmh: 3, curDirDeg: 180 },
+          ],
+        },
+      ],
+      times: ["2026-07-27T00:00", "2026-07-27T12:00", "2026-07-28T00:00"],
+    };
+    const c = seaPointFromGrid(g, HOANG_SA, 111)!;
+    expect(c.days[0].curKmh).toBe(2); // đúng mốc 12h
+    expect(c.days[0].curDirDeg).toBe(90); // hướng CÙNG mốc đó
+    expect(c.days[1].curKmh).toBe(3);
+    // lưới đời cũ không có trường cur → null, UI ẩn
+    const old = seaPointFromGrid(gridAt(16.5, 112.0), HOANG_SA, 111)!;
+    expect(old.days[0].curKmh).toBeNull();
+    expect(old.curKmh).toBeNull();
+  });
+
   it("ô lưới không có số sóng nào (điểm trên đất liền) → onSea = false", () => {
     const g: ForecastGrid = {
       cells: [{ lat: 16.5, lon: 112.0, hours: [h(12, null), h(15, null)] }],

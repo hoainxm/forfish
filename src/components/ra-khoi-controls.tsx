@@ -694,6 +694,21 @@ function ThoiTietPanel({
         onToggle={() => onForecast(forecastKind === "wave" ? null : "wave")}
         icon={<WindIcon className="h-5 w-5 text-t2" />}
       />
+      {/* DÒNG CHẢY mặt biển — nguồn dự báo tới ~10 ngày (SMOC), ngày xa hơn lớp
+          tự trống. Mũi tên chỉ hướng nước CHẢY VỀ. */}
+      <Toggle
+        label="Dòng chảy"
+        sub="Theo giờ · dự báo tới ~10 ngày"
+        on={forecastKind === "current"}
+        onToggle={() => onForecast(forecastKind === "current" ? null : "current")}
+        icon={
+          <span
+            className="h-5 w-5 shrink-0 rounded"
+            style={{ background: scalarGradientCss("currentspeed") }}
+            aria-hidden
+          />
+        }
+      />
       {/* LỚP DẢI MÀU (mây/mưa/nhiệt) — dự báo theo giờ, dùng chung thanh giờ với
           gió/sóng, LOẠI TRỪ nhau (một lớp overlay mỗi lần, như Windy). */}
       {(

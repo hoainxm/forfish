@@ -61,3 +61,13 @@ export function isValidSnapshotId(id: string): boolean {
     /^scalar:(cloud|rain|airtemp|storm|pressure):d\d+$/.test(id)
   );
 }
+
+/**
+ * Hàng THÔ từng nguồn của cron ghép 2 nguồn (2026-07-29): `raw:<id>:<src>` —
+ * cron giữ bản tốt gần nhất của MỖI nguồn để nguồn chết một lượt vẫn còn đồ
+ * ghép. CỐ Ý không lọt whitelist trên → /api/weather-snapshot trả bad_id,
+ * client không bao giờ đọc trực tiếp hàng thô.
+ */
+export function rawSourceId(id: string, src: string): string {
+  return `raw:${id}:${src}`;
+}

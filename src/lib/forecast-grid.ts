@@ -1,5 +1,5 @@
-// Trục 1 — LƯỚI DỰ BÁO VẼ LÊN BẢN ĐỒ (kiểu Windy): gió / sóng theo GIỜ,
-// CHỌN KHUNG NGÀY 3/5/7/10/16, kéo thanh thời gian là cả vùng biển đổi theo.
+// Trục 1 — LƯỚI DỰ BÁO VẼ LÊN BẢN ĐỒ (kiểu Windy): gió / sóng / DÒNG CHẢY theo
+// GIỜ, khung ngày 3/16 theo hạng, kéo thanh thời gian là cả vùng biển đổi theo.
 //
 // Nguồn: Open-Meteo (miễn phí, không key) — một lượt gọi lấy ~80 điểm lưới
 // phủ vùng biển VN. Quy tắc adapter: đổi nguồn chỉ sửa fetchForecastGrid,
@@ -17,13 +17,19 @@ import { apiUrl } from "@/lib/api-base";
 import { gridSnapshotId, SNAPSHOT_DAY_SET } from "@/lib/weather-snapshot-id";
 import { isCacheCurrent } from "@/lib/source-cadence";
 
-export type ForecastKind = "wind" | "wave";
+export type ForecastKind = "wind" | "wave" | "current";
 
 export interface GridHour {
   windKmh: number | null;
   windDirDeg: number | null; // hướng gió THỔI TỪ (chuẩn khí tượng)
   waveM: number | null;
   waveDirDeg: number | null; // hướng sóng TỚI TỪ
+  /** dòng chảy mặt (km/h) — nguồn MeteoFrance SMOC qua Open-Meteo, tới ~10 ngày;
+      bản lưu đời cũ không có trường này → undefined, đọc bằng `?? null` */
+  curKmh?: number | null;
+  /** hướng dòng CHẢY VỀ (0° = chảy lên Bắc) — NGƯỢC quy ước gió/sóng "tới từ",
+      docs Open-Meteo: "where the current is heading towards". KHÔNG +180° khi vẽ */
+  curDirDeg?: number | null;
 }
 
 export interface GridCell {
@@ -52,6 +58,12 @@ export type GridDays = (typeof GRID_DAY_OPTIONS)[number];
 
 /** Model sóng phủ đủ 16 ngày theo giờ (best-match sóng chỉ ~9 ngày) */
 const WAVE_MODEL = "ncep_gfswave025";
+
+/** Model DỰ PHÒNG (cron ghép snapshot 2 nguồn, 2026-07-29): ECMWF qua cùng API
+    Open-Meteo — khác model thật (IFS ≠ GFS), probe thật phủ tới ~+14,5 ngày
+    (gió + đủ 5 biến dải màu) / ~+14,5 ngày (sóng WAM). CHỈ cron gọi. */
+export const BACKUP_WIND_MODEL = "ecmwf_ifs025";
+export const BACKUP_WAVE_MODEL = "ecmwf_wam025";
 
 /**
  * Chỉ số GIỜ cho từng khung của thanh thời gian: dày (3h) ở gần, thưa dần khi
@@ -195,15 +207,45 @@ export function gridIsCurrent(g: ForecastGrid | null | undefined): boolean {
   );
 }
 
-export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
+/** Lưới có SỐ DÒNG CHẢY chưa (bản lưu/snapshot đời trước 2026-07-29 chưa có) —
+    lớp Dòng chảy cần thật, các lớp khác kệ. Chỉ cần MỘT ô một mốc có số. */
+export function gridHasCurrent(g: ForecastGrid | null | undefined): boolean {
+  return !!g?.cells?.some((c) => c.hours?.some((h) => h?.curKmh != null));
+}
+
+export async function fetchForecastGrid(
+  days = 3,
+  opts?: { needCurrent?: boolean },
+): Promise<ForecastGrid> {
   const id = gridCacheId(days);
+  const needCur = !!opts?.needCurrent;
+  // dùng được cho lớp đang xin không: lưới hiện hành + (lớp Dòng chảy thì phải
+  // CÓ số dòng chảy — bản đời cũ thiếu trường này, nhận vào là lớp trống câm)
+  const usable = (g: ForecastGrid | null | undefined): g is ForecastGrid =>
+    gridIsCurrent(g) && (!needCur || gridHasCurrent(g));
   // TIẾT CHẾ NGUỒN (2026-07-29): bản trong máy còn là BẢN HIỆN HÀNH (nguồn chưa
   // ra bản mới — lib/source-cadence) thì dùng luôn, KHÔNG gọi Open-Meteo. Trước
   // đây bật/tắt lớp chục lần là chục lượt tải cùng một con số → cháy hạn ngạch
   // IP (429) làm CẢ APP mất dự báo. KHÔNG gắn stale: đây đúng là bản mới nhất.
   const fresh = loadForecast<ForecastGrid>(GRID_NS, id);
-  if (fresh && gridIsCurrent(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
+  if (fresh && usable(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
     return fresh.data;
+  }
+  // ƯU TIÊN SNAPSHOT (user 2026-07-29: "luôn ưu tiên snapshot để hạn chế bị
+  // lock do IP tải nhiều"): trước khi gọi Open-Meteo bằng IP của MÁY BÀ CON,
+  // hỏi snapshot server do cron tính sẵn (same-origin, CDN + SW cache — không
+  // đụng hạn ngạch nguồn). Chỉ nhận khi bản snapshot CÒN HIỆN HÀNH theo nhịp
+  // phát hành (cron nhét savedAt vào payload); cũ hơn thì mới đi live — không
+  // hy sinh độ tươi. KHÔNG gắn stale: đây đúng là bản mới nhất nguồn có.
+  if (SNAPSHOT_DAY_SET.includes(days)) {
+    const snap = await loadGridSnapshotClient(days);
+    if (snap && usable(snap) && isCacheCurrent(snap.savedAt, Date.now())) {
+      // LƯU vào máy với ĐÚNG TUỔI THẬT của snapshot (không phải Date.now()):
+      // pretrip/offline trông cậy bản localStorage, còn tuổi thật giữ cho
+      // isCacheCurrent lần sau không tưởng bản cũ là bản vừa tải.
+      saveForecast(GRID_NS, id, snap, snap.savedAt ?? undefined);
+      return snap;
+    }
   }
   try {
     const g = await fetchForecastGridLive(days);
@@ -222,7 +264,8 @@ export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
     // premium bị route chặn thật nếu chưa đủ hạng → trả null, báo lỗi như cũ.
     if (SNAPSHOT_DAY_SET.includes(days)) {
       const snap = await loadGridSnapshotClient(days);
-      if (snap && gridIsCurrent(snap)) return { ...snap, stale: true, savedAt: null };
+      if (snap && gridIsCurrent(snap))
+        return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
     }
     // CUỐI CÙNG: mượn khung NGẮN HƠN đã lưu (2026-07-29). An toàn từ khi BỎ chip
     // chọn khung: thanh ngày vẽ THEO times[] thật nên xin 16 mà chỉ có 3 thì bà
@@ -239,7 +282,8 @@ export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
     // localStorage trống — server vẫn có bản cron tính sẵn.
     for (const d of [...SNAPSHOT_DAY_SET].filter((x) => x < days).sort((a, b) => b - a)) {
       const snap = await loadGridSnapshotClient(d);
-      if (snap && gridIsCurrent(snap)) return { ...snap, stale: true, savedAt: null };
+      if (snap && gridIsCurrent(snap))
+        return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
     }
     throw err;
   }
@@ -306,6 +350,24 @@ export function loadLongestSavedGrid(): {
 /** LIVE Open-Meteo THẲNG — export để cron precompute dùng chung (client vẫn gọi
     qua fetchForecastGrid có cache + fallback). */
 export async function fetchForecastGridLive(days = 3): Promise<ForecastGrid> {
+  return fetchGridCore(days, { withCurrent: true });
+}
+
+/** NGUỒN DỰ PHÒNG cho cron ghép snapshot (2026-07-29): ECMWF IFS/WAM — cùng
+    API, khác model. KHÔNG lấy dòng chảy (Open-Meteo chỉ có SMOC; dự phòng dòng
+    chảy là Copernicus, cron lo riêng). Client KHÔNG gọi hàm này. */
+export async function fetchForecastGridBackupLive(days = 3): Promise<ForecastGrid> {
+  return fetchGridCore(days, {
+    windModel: BACKUP_WIND_MODEL,
+    waveModel: BACKUP_WAVE_MODEL,
+    withCurrent: false,
+  });
+}
+
+async function fetchGridCore(
+  days: number,
+  opts: { windModel?: string; waveModel?: string; withCurrent: boolean },
+): Promise<ForecastGrid> {
   const pts = gridPoints();
   const lats = pts.map((p) => p.lat).join(",");
   const lons = pts.map((p) => p.lon).join(",");
@@ -314,20 +376,33 @@ export async function fetchForecastGridLive(days = 3): Promise<ForecastGrid> {
   const common = `latitude=${lats}&longitude=${lons}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${fd}`;
 
   // Timeout 20s (tầm 16 ngày × 80 điểm là payload lớn) — thà báo lỗi rõ còn hơn treo UI
-  const [windRes, waveRes] = await Promise.all([
+  // DÒNG CHẢY là REQUEST RIÊNG (không models): probe 2026-07-29 cho thấy ghim
+  // models=ncep_gfswave025 thì ocean_current_* trả toàn null (model sóng không
+  // có biến dòng chảy). Nguồn dòng chảy = MeteoFrance SMOC (best_match), phủ
+  // ~10 ngày — ngày 11–16 null, lớp vẽ tự trống, KHÔNG bịa số.
+  const windModelQ = opts.windModel ? `&models=${opts.windModel}` : "";
+  const [windRes, waveRes, curRes] = await Promise.all([
     fetch(
-      `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=kmh`,
+      `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=kmh${windModelQ}`,
       { signal: AbortSignal.timeout(20000) },
     ).then((r) => {
       if (!r.ok) throw new Error(`wind grid ${r.status}`);
       return r.json();
     }),
     fetch(
-      `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction&models=${WAVE_MODEL}`,
+      `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction&models=${opts.waveModel ?? WAVE_MODEL}`,
       { signal: AbortSignal.timeout(20000) },
     )
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null),
+    opts.withCurrent
+      ? fetch(
+          `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=ocean_current_velocity,ocean_current_direction`,
+          { signal: AbortSignal.timeout(20000) },
+        )
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+      : Promise.resolve(null),
   ]);
 
   const windArr: unknown[] = Array.isArray(windRes) ? windRes : [windRes];
@@ -335,6 +410,11 @@ export async function fetchForecastGridLive(days = 3): Promise<ForecastGrid> {
     ? waveRes
     : waveRes
       ? [waveRes]
+      : [];
+  const curArr: unknown[] = Array.isArray(curRes)
+    ? curRes
+    : curRes
+      ? [curRes]
       : [];
 
   const first = windArr[0] as { hourly?: { time?: string[] } };
@@ -353,11 +433,21 @@ export async function fetchForecastGridLive(days = 3): Promise<ForecastGrid> {
     const v = waveArr[idx] as
       | { hourly?: { wave_height?: unknown[]; wave_direction?: unknown[] } }
       | undefined;
+    const cu = curArr[idx] as
+      | {
+          hourly?: {
+            ocean_current_velocity?: unknown[];
+            ocean_current_direction?: unknown[];
+          };
+        }
+      | undefined;
     const hours: GridHour[] = hourIdx.map((h) => ({
       windKmh: num(w?.hourly?.wind_speed_10m?.[h]),
       windDirDeg: num(w?.hourly?.wind_direction_10m?.[h]),
       waveM: num(v?.hourly?.wave_height?.[h]),
       waveDirDeg: num(v?.hourly?.wave_direction?.[h]),
+      curKmh: num(cu?.hourly?.ocean_current_velocity?.[h]),
+      curDirDeg: num(cu?.hourly?.ocean_current_direction?.[h]),
     }));
     return { lat: p.lat, lon: p.lon, hours };
   });
@@ -392,8 +482,11 @@ function destPoint(
 
 /**
  * FeatureCollection mũi tên cho một mốc thời gian.
- * properties.v = độ lớn (km/h với gió, mét với sóng) để tô màu data-driven.
- * Cell thiếu dữ liệu (đất liền với sóng) thì bỏ qua.
+ * properties.v = độ lớn (km/h với gió/dòng chảy, mét với sóng) để tô màu.
+ * Cell thiếu dữ liệu (đất liền với sóng/dòng chảy; ngày >10 với dòng chảy) bỏ qua.
+ *
+ * HƯỚNG: gió/sóng nguồn ghi "TỚI TỪ" → +180° ra hướng đi; DÒNG CHẢY nguồn ghi
+ * sẵn hướng CHẢY VỀ (0° = lên Bắc) → dùng THẲNG, +180° là vẽ ngược dòng.
  */
 export function arrowFeatures(
   grid: ForecastGrid,
@@ -404,16 +497,24 @@ export function arrowFeatures(
   for (const c of grid.cells) {
     const h = c.hours[timeIdx];
     if (!h) continue;
-    const mag = kind === "wind" ? h.windKmh : h.waveM;
-    const fromDeg = kind === "wind" ? h.windDirDeg : h.waveDirDeg;
-    if (mag == null || fromDeg == null) continue;
+    const mag =
+      kind === "wind" ? h.windKmh : kind === "wave" ? h.waveM : h.curKmh ?? null;
+    const dirDeg =
+      kind === "wind"
+        ? h.windDirDeg
+        : kind === "wave"
+          ? h.waveDirDeg
+          : h.curDirDeg ?? null;
+    if (mag == null || dirDeg == null) continue;
 
-    const toDeg = (fromDeg + 180) % 360;
-    // thân ngắn dài theo độ lớn một chút cho có "nhịp"
+    const toDeg = kind === "current" ? dirDeg % 360 : (dirDeg + 180) % 360;
+    // thân ngắn dài theo độ lớn một chút cho có "nhịp" (dòng chảy 0–4 km/h)
     const scale =
       kind === "wind"
         ? Math.min(1.25, 0.55 + mag / 60)
-        : Math.min(1.25, 0.55 + mag / 4);
+        : kind === "wave"
+          ? Math.min(1.25, 0.55 + mag / 4)
+          : Math.min(1.25, 0.55 + mag / 3);
     const tail: [number, number] = [c.lon, c.lat];
     const head = destPoint(c.lon, c.lat, toDeg, SHAFT_DEG * scale);
     const barbL = destPoint(head[0], head[1], toDeg + 150, HEAD_DEG * scale);
@@ -462,6 +563,19 @@ export const WAVE_COLOR_EXPR = [
   2.0, "#5a50b4",
   3.0, "#b43c78",
   4.5, "#c62828",
+] as const;
+
+// Dòng chảy (km/h): biển VN mặt phần lớn 0,3–3 km/h, dòng mạnh (mùa gió, eo) tới
+// ~5. Lam nhạt (êm) → lục lam → vàng → cam (xiết) — kiểu Windy currents.
+export const CURRENT_COLOR_EXPR = [
+  "interpolate",
+  ["linear"],
+  ["get", "v"],
+  0.2, "#79b8d1",
+  1.0, "#3f96a8",
+  2.0, "#d9b83c",
+  3.5, "#e0851f",
+  5.0, "#c0392b",
 ] as const;
 
 const WD_SHORT = ["CN", "Th 2", "Th 3", "Th 4", "Th 5", "Th 6", "Th 7"];
@@ -535,7 +649,12 @@ export interface LegendStop {
  * WIND/WAVE_COLOR_EXPR để chú giải KHÔNG BAO GIỜ lệch với màu vẽ trên bản đồ.
  */
 export function legendStops(kind: ForecastKind): LegendStop[] {
-  const expr = kind === "wind" ? WIND_COLOR_EXPR : WAVE_COLOR_EXPR;
+  const expr =
+    kind === "wind"
+      ? WIND_COLOR_EXPR
+      : kind === "wave"
+        ? WAVE_COLOR_EXPR
+        : CURRENT_COLOR_EXPR;
   const stops: LegendStop[] = [];
   // cấu trúc: [..., value, color, value, color, ...] bắt đầu ở chỉ số 3
   for (let i = 3; i + 1 < expr.length; i += 2) {
@@ -559,7 +678,7 @@ export function legendGradientCss(kind: ForecastKind): string {
 }
 
 /** Đơn vị hiển thị trên thanh cường độ — GIỮ đơn vị của app (không đổi sang
-    knot như Windy): gió km/h, sóng m. */
+    knot như Windy): gió + dòng chảy km/h, sóng m. */
 export function legendUnit(kind: ForecastKind): string {
-  return kind === "wind" ? "km/h" : "m";
+  return kind === "wave" ? "m" : "km/h";
 }

@@ -301,6 +301,31 @@ export function decodeFloat32Chunk(buf: Uint8Array): Float32Array {
   return new Float32Array(aligned.buffer);
 }
 
+/**
+ * Buffer chunk Zarr (blosc) → mảng SỐ THÔ theo dtype khai trong `.zarray`.
+ * Vì sao (2026-07-29, probe WAV): asset `downsampled4` của WAV đóng gói
+ * `<i2` + `scale_factor` (nhiệt/mặn của PHY là `<f4`) và trục time là `<i4` —
+ * đọc bằng decodeFloat32Chunk ra rác. Caller tự áp scale/offset/fill.
+ */
+export function decodeTypedChunk(buf: Uint8Array, dtype: string): Float64Array {
+  const raw = bloscDecompress(buf);
+  const aligned = new Uint8Array(raw.byteLength);
+  aligned.set(raw);
+  const ab = aligned.buffer;
+  const view =
+    dtype === "<f4"
+      ? new Float32Array(ab)
+      : dtype === "<f8"
+        ? new Float64Array(ab)
+        : dtype === "<i2"
+          ? new Int16Array(ab)
+          : dtype === "<i4"
+            ? new Int32Array(ab)
+            : null;
+  if (!view) throw new Error(`chunk dtype lạ: ${dtype}`);
+  return Float64Array.from(view as ArrayLike<number>);
+}
+
 /* ---------------------------------------------------------------------------
    Metadata Zarr v2 (.zmetadata hợp nhất)
 --------------------------------------------------------------------------- */

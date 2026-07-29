@@ -37,7 +37,11 @@ import {
 // (Open-Meteo `lightning_potential` trả null ở VN — chỉ có model châu Âu).
 export type OMKind = "cloud" | "rain" | "airtemp" | "storm" | "pressure";
 export type FetchScalarKind = OMKind | "salinity";
-export type ScalarKind = FetchScalarKind | "windspeed" | "waveheight";
+export type ScalarKind =
+  | FetchScalarKind
+  | "windspeed"
+  | "waveheight"
+  | "currentspeed";
 
 export interface ScalarGrid {
   kind: ScalarKind;
@@ -72,6 +76,7 @@ const OM_VAR: Record<OMKind, string> = {
  */
 export async function fetchScalarFieldsLive(
   days = 3,
+  opts?: { model?: string },
 ): Promise<Record<OMKind, ScalarGrid>> {
   const pts = gridPoints();
   const lats = pts.map((p) => p.lat).join(",");
@@ -80,7 +85,8 @@ export async function fetchScalarFieldsLive(
   const hourly = Object.values(OM_VAR).join(",");
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}` +
-    `&timezone=Asia%2FHo_Chi_Minh&forecast_days=${fd}&hourly=${hourly}`;
+    `&timezone=Asia%2FHo_Chi_Minh&forecast_days=${fd}&hourly=${hourly}` +
+    (opts?.model ? `&models=${opts.model}` : "");
 
   const res = await fetch(url, { signal: AbortSignal.timeout(20000) }).then(
     (r) => {
@@ -119,6 +125,15 @@ export async function fetchScalarFieldsLive(
     storm: build("storm"),
     pressure: build("pressure"),
   };
+}
+
+/** NGUỒN DỰ PHÒNG cho cron ghép snapshot (2026-07-29): ECMWF IFS 0,25° — cùng
+    API, khác model; probe thật đủ 5 biến (kể cả CAPE) tới ~+14,5 ngày. CHỈ cron
+    gọi — client vẫn một nguồn qua fetchScalarField. */
+export async function fetchScalarFieldsBackupLive(
+  days = 3,
+): Promise<Record<OMKind, ScalarGrid>> {
+  return fetchScalarFieldsLive(days, { model: "ecmwf_ifs025" });
 }
 
 export const SCALAR_NS = "scalar";
@@ -193,6 +208,19 @@ export async function fetchScalarField(
   if (fresh && scalarGridUsable(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
     return fresh.data;
   }
+  // ƯU TIÊN SNAPSHOT (user 2026-07-29: hạn chế bị khoá IP vì tải nhiều): hỏi
+  // bản cron tính sẵn (same-origin, CDN + SW cache) TRƯỚC khi gọi Open-Meteo
+  // bằng IP máy bà con. Chỉ nhận khi bản còn HIỆN HÀNH theo nhịp phát hành
+  // (cron nhét savedAt); cũ hơn thì đi live — không hy sinh độ tươi.
+  if (SNAPSHOT_DAY_SET.includes(days)) {
+    const snap = await loadScalarSnapshotClient(kind, days);
+    if (snap && scalarGridUsable(snap) && isCacheCurrent(snap.savedAt, Date.now())) {
+      // lưu vào máy với ĐÚNG tuổi thật (pretrip/offline cần bản localStorage;
+      // tuổi thật giữ isCacheCurrent lần sau không nhầm bản cũ là mới)
+      saveForecast(SCALAR_NS, cacheId(kind, days), snap, snap.savedAt ?? undefined);
+      return snap;
+    }
+  }
   try {
     const all = await fetchScalarFieldsLive(days);
     (Object.keys(all) as OMKind[]).forEach((k) =>
@@ -209,7 +237,7 @@ export async function fetchScalarField(
     if (SNAPSHOT_DAY_SET.includes(days)) {
       const snap = await loadScalarSnapshotClient(kind, days);
       if (snap && scalarGridUsable(snap))
-        return { ...snap, stale: true, savedAt: null };
+        return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
     }
     // CUỐI CÙNG: mượn khung NGẮN HƠN đã lưu (cùng luật forecast-grid — thanh
     // ngày vẽ theo times[] thật nên không nói dối; thà 3 ngày còn hơn trắng)
@@ -221,7 +249,7 @@ export async function fetchScalarField(
       if (SNAPSHOT_DAY_SET.includes(d)) {
         const snap = await loadScalarSnapshotClient(kind, d);
         if (snap && scalarGridUsable(snap))
-          return { ...snap, stale: true, savedAt: null };
+          return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
       }
     }
     throw err;
@@ -325,6 +353,14 @@ export const SCALAR_RAMP: Record<ScalarKind, ScalarRampStop[]> = {
     { value: 3.0, rgba: [180, 60, 120, 0.76] },
     { value: 4.5, rgba: [198, 40, 40, 0.8] },
   ],
+  // NỀN MÀU lớp DÒNG CHẢY (km/h) — cùng breakpoint với CURRENT_COLOR_EXPR/legend
+  currentspeed: [
+    { value: 0.2, rgba: [121, 184, 209, 0.5] },
+    { value: 1.0, rgba: [63, 150, 168, 0.62] },
+    { value: 2.0, rgba: [217, 184, 60, 0.7] },
+    { value: 3.5, rgba: [224, 133, 31, 0.76] },
+    { value: 5.0, rgba: [192, 57, 43, 0.8] },
+  ],
 };
 
 export const SCALAR_META: Record<
@@ -361,7 +397,7 @@ export const SCALAR_META: Record<
     unit: "hPa",
     help: "Áp suất mực biển — lam là áp thấp (dễ xấu trời), nâu là áp cao (thường êm).",
   },
-  // 2 kind render-only (nền màu lớp Gió/Sóng) — không có toggle riêng
+  // 3 kind render-only (nền màu lớp Gió/Sóng/Dòng chảy) — không có toggle riêng
   windspeed: {
     label: "Sức gió",
     unit: "km/h",
@@ -371,6 +407,11 @@ export const SCALAR_META: Record<
     label: "Độ cao sóng",
     unit: "m",
     help: "Nền màu theo độ cao sóng — đậm là sóng lớn.",
+  },
+  currentspeed: {
+    label: "Dòng chảy",
+    unit: "km/h",
+    help: "Nền màu theo tốc độ dòng chảy — đậm là nước chảy xiết.",
   },
 };
 

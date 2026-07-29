@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   arrowFeatures,
+  gridHasCurrent,
   gridPoints,
+  CURRENT_COLOR_EXPR,
   timeLabelVN,
   stepHourIndices,
   groupTimesByDay,
@@ -81,6 +83,62 @@ describe("arrowFeatures", () => {
   it("timeIdx ngoài tầm → rỗng", () => {
     const fc = arrowFeatures(makeGrid([calmHour]), 5, "wind");
     expect(fc.features).toHaveLength(0);
+  });
+});
+
+/* Dòng chảy (2026-07-29): nguồn Open-Meteo ghi sẵn hướng CHẢY VỀ ("0° = Going
+   north") — NGƯỢC quy ước gió/sóng "tới từ". Vẽ +180° là NGƯỢC DÒNG. */
+describe("arrowFeatures — dòng chảy (hướng CHẢY VỀ, không +180°)", () => {
+  const curHour = {
+    windKmh: null,
+    windDirDeg: null,
+    waveM: null,
+    waveDirDeg: null,
+    curKmh: 2,
+    curDirDeg: 0, // nước chảy VỀ Bắc
+  };
+
+  it("chảy về Bắc → mũi tên chỉ LÊN Bắc (đầu cao hơn đuôi)", () => {
+    const fc = arrowFeatures(makeGrid([curHour]), 0, "current");
+    expect(fc.features).toHaveLength(1);
+    const [tail, head] = (
+      fc.features[0].geometry as GeoJSON.MultiLineString
+    ).coordinates[0];
+    expect(head[1]).toBeGreaterThan(tail[1]); // lat TĂNG = về Bắc, đúng chiều nước
+    expect(fc.features[0].properties?.v).toBe(2);
+  });
+
+  it("bản lưu ĐỜI CŨ không có trường dòng chảy → bỏ qua, không vỡ", () => {
+    const oldHour = { windKmh: 10, windDirDeg: 0, waveM: 1, waveDirDeg: 90 };
+    const fc = arrowFeatures(makeGrid([oldHour]), 0, "current");
+    expect(fc.features).toHaveLength(0);
+  });
+
+  it("legend: đơn vị km/h (giữ đơn vị app), stops suy từ CURRENT_COLOR_EXPR", () => {
+    expect(legendUnit("current")).toBe("km/h");
+    const stops = legendStops("current");
+    expect(stops[0].value).toBe(CURRENT_COLOR_EXPR[3]);
+    expect(stops[stops.length - 1].color).toBe(
+      CURRENT_COLOR_EXPR[CURRENT_COLOR_EXPR.length - 1],
+    );
+  });
+});
+
+describe("gridHasCurrent — lưới có số dòng chảy chưa", () => {
+  it("có ít nhất một ô một mốc có số → true; bản đời cũ/null → false", () => {
+    const withCur = makeGrid([
+      { windKmh: 10, windDirDeg: 0, waveM: 1, waveDirDeg: 90, curKmh: 1.5, curDirDeg: 45 },
+    ]);
+    const without = makeGrid([
+      { windKmh: 10, windDirDeg: 0, waveM: 1, waveDirDeg: 90 },
+    ]);
+    const nullCur = makeGrid([
+      { windKmh: 10, windDirDeg: 0, waveM: 1, waveDirDeg: 90, curKmh: null, curDirDeg: null },
+    ]);
+    expect(gridHasCurrent(withCur)).toBe(true);
+    expect(gridHasCurrent(without)).toBe(false);
+    expect(gridHasCurrent(nullCur)).toBe(false);
+    expect(gridHasCurrent(null)).toBe(false);
   });
 });
 

@@ -22,6 +22,7 @@ import {
   savedGridDays,
   savedCurrentGridDays,
   gridIsCurrent,
+  gridHasCurrent,
   gridPoints,
   GRID_NS,
   type ForecastGrid,
@@ -143,6 +144,94 @@ describe("fetchForecastGrid offline — đúng khung ngày đã xin", () => {
     globalThis.fetch = offline();
     await expect(fetchForecastGrid(7)).rejects.toThrow();
     expect(savedGridDays()).toEqual([]);
+  });
+});
+
+/*
+  2026-07-29 (user): "luôn ưu tiên snapshot để hạn chế bị lock do IP tải nhiều"
+  — máy không có bản tươi thì hỏi SNAPSHOT server (same-origin, không đụng hạn
+  ngạch Open-Meteo theo IP) TRƯỚC khi gọi live; chỉ nhận khi snapshot còn HIỆN
+  HÀNH theo nhịp phát hành (savedAt cron nhét vào payload).
+*/
+describe("ƯU TIÊN SNAPSHOT trước live", () => {
+  const snapGrid = (savedAt: number, withCur = false): ForecastGrid & { savedAt: number } => ({
+    cells: gridPoints().map((p) => ({
+      lat: p.lat,
+      lon: p.lon,
+      hours: [
+        {
+          windKmh: 5,
+          windDirDeg: 0,
+          waveM: 1,
+          waveDirDeg: 0,
+          ...(withCur ? { curKmh: 1.2, curDirDeg: 45 } : {}),
+        },
+      ],
+    })),
+    times: ["2026-07-29T00:00"],
+    savedAt,
+  });
+
+  it("máy trống + snapshot TƯƠI → dùng snapshot, KHÔNG gọi Open-Meteo, không gắn số cũ", async () => {
+    const calls: string[] = [];
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      calls.push(String(url));
+      if (String(url).includes("/api/weather-snapshot"))
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(snapGrid(Date.now())),
+        });
+      return Promise.reject(new Error("không được gọi nguồn"));
+    }) as unknown as typeof fetch;
+    const g = await fetchForecastGrid(3);
+    expect(g.stale).toBeUndefined();
+    expect(g.cells).toHaveLength(156);
+    expect(calls.some((u) => u.includes("open-meteo"))).toBe(false);
+  });
+
+  it("snapshot CŨ (quá trần cache) → bỏ qua, đi live như cũ", async () => {
+    const old = snapGrid(Date.now() - 20 * 60 * 60 * 1000);
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes("/api/weather-snapshot"))
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(old) });
+      return fakeOk(96)(String(url));
+    }) as unknown as typeof fetch;
+    const g = await fetchForecastGrid(3);
+    // bản live 3 ngày có 25 mốc; snapshot giả chỉ 1 mốc → chứng tỏ đã đi live
+    expect(g.times.length).toBe(25);
+    expect(g.stale).toBeUndefined();
+  });
+
+  it("khung KHÔNG nằm trong bộ snapshot (d7) → không hỏi snapshot, đi live thẳng", async () => {
+    const calls: string[] = [];
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      calls.push(String(url));
+      return fakeOk(96)(String(url));
+    }) as unknown as typeof fetch;
+    await fetchForecastGrid(7);
+    expect(calls.some((u) => u.includes("/api/weather-snapshot"))).toBe(false);
+  });
+
+  it("lớp DÒNG CHẢY: bản tươi trong máy KHÔNG có số dòng chảy → bỏ nấc đó, kéo bản có", async () => {
+    globalThis.fetch = online(96); // fakeOk không có ocean_current → bản lưu thiếu cur
+    await fetchForecastGrid(3);
+    // giờ snapshot có cur — needCurrent phải vượt qua cache tươi (thiếu cur) mà lấy nó
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (String(url).includes("/api/weather-snapshot"))
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(snapGrid(Date.now(), true)),
+        });
+      return Promise.reject(new Error("nguồn hỏng"));
+    }) as unknown as typeof fetch;
+    const g = await fetchForecastGrid(3, { needCurrent: true });
+    expect(gridHasCurrent(g)).toBe(true);
+    // snapshot vừa nhận được LƯU ĐÈ vào máy (đúng tuổi thật) → lớp GIÓ sau đó
+    // cũng đọc được bản có dòng chảy, khỏi tải lại
+    globalThis.fetch = offline();
+    const g2 = await fetchForecastGrid(3);
+    expect(gridHasCurrent(g2)).toBe(true);
+    expect(g2.stale).toBeUndefined(); // bản hiện hành, không phải "số cũ"
   });
 });
 

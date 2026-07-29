@@ -37,6 +37,24 @@ describe("buildUVField", () => {
     expect(Math.hypot(uv[0], uv[1])).toBeCloseTo(2 * 12, 3);
   });
 
+  it("DÒNG CHẢY: hướng nguồn là CHẢY VỀ → dùng thẳng (không +180°), tốc độ nhân hệ số tượng trưng", () => {
+    const f = buildUVField(
+      makeGrid({ ...northWind, curKmh: 2, curDirDeg: 90 }), // chảy VỀ Đông
+      0,
+      "current",
+    )!;
+    const uv = sampleUV(f, 13, 110)!;
+    expect(uv[0]).toBeGreaterThan(0); // u dương = trôi về Đông, đúng chiều nước
+    expect(Math.abs(uv[1])).toBeLessThan(1e-6);
+    expect(Math.hypot(uv[0], uv[1])).toBeCloseTo(2 * 8, 3); // CURRENT_SPEED_BOOST
+  });
+
+  it("DÒNG CHẢY: bản lưu đời cũ không có trường cur → trường u/v toàn NaN, sample null", () => {
+    const f = buildUVField(makeGrid(northWind), 0, "current");
+    // mọi ô đều thiếu số → buildUVField vẫn trả field nhưng sample ra null
+    expect(f === null || sampleUV(f!, 13, 110) === null).toBe(true);
+  });
+
   it("lưới sai kích thước → null, không ném", () => {
     const bad: ForecastGrid = {
       cells: [{ lat: 13, lon: 110, hours: [northWind] }],

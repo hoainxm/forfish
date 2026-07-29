@@ -3,6 +3,7 @@ import {
   seaSnapshotId,
   gridSnapshotId,
   scalarSnapshotId,
+  rawSourceId,
   isValidSnapshotId,
   snapshotNeedsPremium,
   SNAPSHOT_GRID_DAYS,
@@ -44,6 +45,20 @@ describe("weather-snapshot id — khoá + whitelist", () => {
 
   it("khung snapshot công khai chỉ là d3 (miễn phí)", () => {
     expect(SNAPSHOT_GRID_DAYS).toBe(3);
+  });
+
+  /* 2026-07-29: cron ghép 2 nguồn giữ bản THÔ từng nguồn ở hàng raw:<id>:<src>
+     — hàng nội bộ, /api/weather-snapshot KHÔNG được trả ra. */
+  it("hàng THÔ raw:<id>:<src> KHÔNG lọt whitelist đọc public", () => {
+    expect(rawSourceId("grid:d16", "ecmwf")).toBe("raw:grid:d16:ecmwf");
+    for (const id of [
+      rawSourceId("grid:d3", "om"),
+      rawSourceId("grid:d16", "ecmwf"),
+      rawSourceId("sea:phu-quy", "om"),
+      rawSourceId("scalar:d3", "ecmwf"),
+    ]) {
+      expect(isValidSnapshotId(id)).toBe(false);
+    }
   });
 
   /*
