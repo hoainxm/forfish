@@ -32,6 +32,15 @@ import { usePathname } from "next/navigation";
     như số đo rác (xoay màn giữa chừng…), không bù bừa. */
 const VVGAP_MAX_PX = 160;
 
+/**
+ * BÙ NỀN (px) — user đo trên máy thật 2026-07-29 sau v4: MỌI tab đều còn hở
+ * đúng chừng này (dock cao hơn đáy), kể cả khi phần hụt đo được đã về 0. Đây
+ * là chênh lệch CỐ ĐỊNH của bản cài (thanh gạch home + cách iOS tính đáy an
+ * toàn), khác với phần hụt động của bug — nên cộng THẲNG, không phụ thuộc tab.
+ * Chỉnh MỘT số này là dịch cả dock; standalone-only như phần còn lại.
+ */
+const VVGAP_BASE_PX = 10;
+
 export function ViewportGapFix() {
   const pathname = usePathname();
 
@@ -53,9 +62,10 @@ export function ViewportGapFix() {
       raf = requestAnimationFrame(() => {
         const gap = vv.height + vv.offsetTop - de.clientHeight;
         if (standalone) {
-          // bù đúng phần hụt — chỉ khi dương rõ ràng và trong trần hợp lý
-          const px = gap > 2 && gap <= VVGAP_MAX_PX ? Math.round(gap) : 0;
-          de.style.setProperty("--vvgap", `${px}px`);
+          // phần hụt ĐỘNG của bug (chỉ nhận khi dương rõ và trong trần hợp lý)
+          // + bù NỀN cố định của bản cài
+          const dyn = gap > 2 && gap <= VVGAP_MAX_PX ? Math.round(gap) : 0;
+          de.style.setProperty("--vvgap", `${dyn + VVGAP_BASE_PX}px`);
         }
         if (gap > 2 && nudge) {
           // hích cuộn cho Safari neo lại (chạy ở CẢ hai chế độ — vô hại, và là
