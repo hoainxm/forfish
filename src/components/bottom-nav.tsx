@@ -40,8 +40,9 @@ export function BottomNav() {
         (navigator as { standalone?: boolean }).standalone === true,
     );
   }, []);
+  // số đo user chỉnh vòng 2 (2026-07-29): 2 tab đầu tụt 30 · 3 tab sau nhấc 15
   const firstTwoTabs = pathname === "/" || pathname.startsWith("/ngu-truong");
-  const iosTrimPx = standalone ? (firstTwoTabs ? 10 : -10) : 0;
+  const iosTrimPx = standalone ? (firstTwoTabs ? 30 : -15) : 0;
   return (
     <nav
       aria-label="Điều hướng chính"
