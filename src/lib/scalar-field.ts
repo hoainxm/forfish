@@ -17,6 +17,7 @@
 
 import { saveForecast, loadForecast } from "@/lib/forecast-cache";
 import { apiUrl } from "@/lib/api-base";
+import { isCacheCurrent } from "@/lib/source-cadence";
 import {
   scalarSnapshotId,
   SNAPSHOT_DAY_SET,
@@ -186,6 +187,12 @@ export async function fetchScalarField(
   days = 3,
 ): Promise<ScalarGrid> {
   if (kind === "salinity") return fetchSalinityField(SALINITY_DAYS);
+  // Cùng luật tiết chế nguồn với lưới gió/sóng (lib/source-cadence): bản còn là
+  // bản hiện hành thì dùng luôn, không gọi lại Open-Meteo.
+  const fresh = loadForecast<ScalarGrid>(SCALAR_NS, cacheId(kind, days));
+  if (fresh && scalarGridUsable(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
+    return fresh.data;
+  }
   try {
     const all = await fetchScalarFieldsLive(days);
     (Object.keys(all) as OMKind[]).forEach((k) =>

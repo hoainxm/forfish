@@ -74,9 +74,24 @@ beforeEach(() => {
   ngày vẫn sáng "16 ngày". Bà con kéo thanh giờ tưởng đang xem nửa tháng tới.
 */
 describe("fetchForecastGrid offline — đúng khung ngày đã xin", () => {
-  it("mất sóng, ĐÚNG khung đã lưu → trả bản lưu + cờ đã lưu", async () => {
+  /* 2026-07-29: bản VỪA TẢI là bản HIỆN HÀNH (nguồn chưa ra bản mới) → dùng lại
+     KHÔNG gọi nguồn và KHÔNG gắn "số cũ" — xem lib/source-cadence. */
+  it("vừa tải xong, gọi lại → dùng cache, KHÔNG gọi nguồn, không gắn số cũ", async () => {
     globalThis.fetch = online(96);
     await fetchForecastGrid(3);
+    const spy = vi.fn().mockRejectedValue(new Error("không được gọi"));
+    globalThis.fetch = spy as unknown as typeof fetch;
+    const g = await fetchForecastGrid(3);
+    expect(spy).not.toHaveBeenCalled();
+    expect(g.stale).toBeUndefined();
+    expect(g.cells).toHaveLength(156);
+  });
+
+  it("mất sóng + bản lưu ĐÃ CŨ (qua mốc bản tin) → trả bản lưu + cờ đã lưu", async () => {
+    globalThis.fetch = online(96);
+    const g0 = await fetchForecastGrid(3);
+    // ghi đè mốc lưu về 20 giờ trước (quá MAX_CACHE_MS) để ra đường "số cũ"
+    saveForecast(GRID_NS, "d3", g0, Date.now() - 20 * 60 * 60 * 1000);
     globalThis.fetch = offline();
     const g = await fetchForecastGrid(3);
     expect(g.stale).toBe(true);

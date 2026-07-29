@@ -311,8 +311,16 @@ function VmsZoneLayers({ zone }: { zone: VmsZone }) {
   );
 }
 
+/** Cách nhau tối thiểu giữa hai lần làm mới do "có sóng lại" (mạng chập chờn) */
+const ONLINE_REFRESH_GAP_MS = 2 * 60 * 1000;
+
 export default function FishingMapView() {
   const mapRef = useRef<MapRef>(null);
+
+  /** Có sóng lại → tăng, các effect tải dữ liệu nghe theo để LÀM MỚI (2026-07-29) */
+  const [netEpoch, setNetEpoch] = useState(0);
+  const lastNetRefreshRef = useRef(0);
+
   const [layerId, setLayerIdState] = useState<OceanLayerId>(initialLayerId);
   const setLayerId = useCallback((id: OceanLayerId) => {
     setLayerIdState(id);
@@ -425,7 +433,8 @@ export default function FishingMapView() {
   // giữa chừng thì dọn dữ liệu đã tải cho khỏi lộ qua heatmap cũ.
   useEffect(() => {
     if (premiumAccess === "open") loadFish();
-  }, [premiumAccess, loadFish]);
+    // netEpoch: có sóng lại → kéo bản đồ cá mới (không phải chờ mở lại app)
+  }, [premiumAccess, loadFish, netEpoch]);
   /* BẢN ĐỒ MÙA VỤ — asset tĩnh cùng origin (~71 KB), service worker giữ sẵn nên
      giữa biển vẫn có. Dùng để pha trộn lớp cá cho NGÀY XA (xem lib/fish-blend.ts).
      Không bao giờ ném: hỏng → null → lớp cá giữ nguyên bản ảnh mới nhất. */
@@ -510,7 +519,7 @@ export default function FishingMapView() {
     return () => {
       alive = false;
     };
-  }, [forecastKind, gridFailed, gridDays]);
+  }, [forecastKind, gridFailed, gridDays, netEpoch]);
 
   // tải lưới DẢI MÀU khi bật lớp mây/mưa/nhiệt, hoặc khi đổi khung ngày. Cùng
   // luật offline/fallback với forecast-grid (lib tự lo). Lỗi → dùng chung
@@ -532,7 +541,7 @@ export default function FishingMapView() {
     return () => {
       alive = false;
     };
-  }, [overlayField, gridFailed, gridDays]);
+  }, [overlayField, gridFailed, gridDays, netEpoch]);
 
   // Lưới đang điều khiển thanh giờ: gió/sóng HOẶC dải màu (loại trừ nhau)
   const stripGrid: { times: string[]; stale?: boolean; savedAt?: number | null } | null =
@@ -910,10 +919,18 @@ export default function FishingMapView() {
   useEffect(() => {
     const sync = () => setNetOnline(navigator.onLine);
     sync();
-    // có sóng lại thì cho nền thật một cơ hội mới (xoá số ô trượt cũ)
+    // có sóng lại thì cho nền thật một cơ hội mới (xoá số ô trượt cũ) VÀ kéo lại
+    // các lớp đang bật (2026-07-29: netEpoch nằm trong deps của effect tải lưới
+    // gió/sóng, lớp dải màu, bản đồ cá — số cũ tự được làm mới, không phải chờ
+    // bà con bấm). Cửa chặn ONLINE_REFRESH_GAP_MS chống mạng chập chờn.
     const back = () => {
       setNetOnline(true);
       setBasemapFails(0);
+      const now = Date.now();
+      if (now - lastNetRefreshRef.current >= ONLINE_REFRESH_GAP_MS) {
+        lastNetRefreshRef.current = now;
+        setNetEpoch((n) => n + 1);
+      }
     };
     window.addEventListener("online", back);
     window.addEventListener("offline", sync);

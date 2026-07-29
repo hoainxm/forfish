@@ -2,8 +2,8 @@
 
 > Load khi: cần deploy / build lỗi / regenerate asset tĩnh (icon, lưới độ sâu, isobath) / kiểm tra sức khỏe app trước khi push.
 
-covers: scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh
-last_verified: 2026-06-17
+covers: scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
+last_verified: 2026-07-29
 ttl_days: 90
 gate: warn
 <!-- re-verified: 2026-06-17 - lệnh regenerate asset (icons/depth-grid/isobaths) + deploy/health-check khớp scripts/ hiện tại -->
@@ -11,7 +11,7 @@ gate: warn
 
 > Viết cho người đang cuống: lệnh copy-paste được ngay. **ForFish KHÔNG có process nền** (Vercel serverless + Supabase Edge Functions) → không có start/stop daemon. "Vận hành" = build, deploy, regenerate asset, đọc registry khi nguồn ngoài chết.
 
-**Last updated**: 2026-06-17
+**Last updated**: 2026-07-29
 
 ---
 
@@ -51,6 +51,29 @@ git push origin main
 # PWA/native: xem ops/native-deploy.md (manifest/SW + Capacitor wrap)
 ```
 **Verify sau deploy**: mở route từng trục (`/ngu-truong` `/gia-ca` `/van-hanh` `/giay-to`), check nguồn ngoài degrade đúng (thẻ "Thử lại", không treo).
+
+## Video hướng dẫn cho bà con (quay tự động)
+
+Bộ video dạy dùng app — quay bằng Playwright trên **build riêng**, không đụng `.next` của dev server và không đụng DB thật.
+
+```bash
+node scripts/e2e-build.mjs all     # demo → .next-e2e (cổng 3100) · auth → .next-e2e-auth (3101)
+npm run e2e:videos                 # quay tất cả → test-reports/triage/e2e-output/**/video.webm
+npx playwright test tests/e2e/demo/06-cai-ve-may-android.spec.ts --project=demo   # quay riêng 1 video
+npm run e2e:export                 # .webm → .mp4 (phóng 3×, H.264) → test-reports/videos/
+```
+
+| Video | Nội dung |
+|---|---|
+| 01–03 (demo) | thời tiết biển · bản đồ ngư trường · dẫn đường tiết kiệm dầu |
+| 04–05 (auth) | sổ thuyền viên (cảnh báo chéo) · giá cá & tin mua bán |
+| **06 (demo)** | **Android: cài SDFish về máy từ web + dùng lúc mất sóng** |
+| **07 (demo)** | **iPhone: thêm vào Màn hình chính + dùng lúc mất sóng** |
+
+- Cỡ chữ: `E2E_DISPLAY_MODE=to|gon` (bà con cần cả 2 bộ). Địa chỉ web hiện trên thanh trình duyệt giả: `E2E_SITE_URL=<tên miền thật>`.
+- 06/07 vẽ lại **vỏ máy** (thanh Chrome, hộp thoại "Cài đặt", khay Chia sẻ iOS, màn hình chính) vì đó là giao diện hệ điều hành — Playwright không quay được. App + đoạn mất sóng (`context.setOffline(true)`) là **thật**.
+- **Sau khi build e2e, `tsconfig.json` bị Next chèn thêm `include` `.next-e2e/*` + format lại** → `git checkout -- tsconfig.json` trước khi commit.
+- Cần `ffmpeg` trong PATH cho bước export (`winget install Gyan.FFmpeg`).
 
 ## Health check doc (nguyên tắc 12)
 

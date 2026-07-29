@@ -18,6 +18,7 @@ const _ls = (() => {
 (globalThis as unknown as { localStorage: Storage }).localStorage = _ls;
 
 import {
+  shouldAttemptAutoPretrip,
   autoPretripLine,
   lastAutoPretripAt,
   markAutoPretripRun,
@@ -177,5 +178,70 @@ describe("pretripSavedText — nhãn nhỏ thường trực trên box biển đ�
     expect(
       pretripSavedText("idle", { places: 3, untilIso: null, gridDays: [3] }),
     ).toBe("Chưa tải dữ liệu dự báo");
+  });
+});
+
+/*
+  2026-07-29: mở app lúc mất sóng thì TRƯỚC ĐÂY cả phiên không bao giờ tự kéo
+  lại (cờ startedThisLoad một-lần). Nay có shouldAttemptAutoPretrip để thử lại
+  khi máy có sóng lại / bà con quay lại app, nhưng phải chống mạng chập chờn.
+*/
+describe("shouldAttemptAutoPretrip — tự kéo lại khi có sóng", () => {
+  const HOUR = 60 * 60 * 1000;
+  const now = 1_700_000_000_000;
+
+  it("mất sóng → không thử (dù chưa thử lần nào)", () => {
+    expect(
+      shouldAttemptAutoPretrip({
+        lastRunAt: null,
+        lastAttemptAt: null,
+        nowMs: now,
+        online: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("có sóng lại + bản đã cũ + chưa thử lần nào → THỬ", () => {
+    expect(
+      shouldAttemptAutoPretrip({
+        lastRunAt: now - 8 * HOUR,
+        lastAttemptAt: null,
+        nowMs: now,
+        online: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("vừa thử 30 giây trước → KHÔNG bắn lại (mạng chập chờn bật/tắt liên tục)", () => {
+    expect(
+      shouldAttemptAutoPretrip({
+        lastRunAt: now - 8 * HOUR,
+        lastAttemptAt: now - 30_000,
+        nowMs: now,
+        online: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("thử hỏng cách đây 3 phút → THỬ LẠI (lần hỏng không ghi lastRunAt)", () => {
+    expect(
+      shouldAttemptAutoPretrip({
+        lastRunAt: now - 8 * HOUR,
+        lastAttemptAt: now - 3 * 60_000,
+        nowMs: now,
+        online: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("bản trong máy CÒN MỚI → không thử dù online (giữ tiền sóng)", () => {
+    expect(
+      shouldAttemptAutoPretrip({
+        lastRunAt: now - 60_000,
+        lastAttemptAt: null,
+        nowMs: now,
+        online: true,
+      }),
+    ).toBe(false);
   });
 });

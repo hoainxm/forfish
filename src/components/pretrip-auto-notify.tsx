@@ -14,7 +14,7 @@
  * đã chạy rồi) nằm ở lib/pretrip-auto.ts — xem lý do ở đó.
  */
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   runPretrip,
   savedSummary,
@@ -26,7 +26,7 @@ import {
   lastAutoPretripAt,
   markAutoPretripRun,
   pretripSavedText,
-  shouldAutoPretrip,
+  shouldAttemptAutoPretrip,
   type PretripSavedPhase,
 } from "@/lib/pretrip-auto";
 import { AlertIcon, CheckIcon } from "@/components/icons";
@@ -56,10 +56,18 @@ function subscribePhase(f: () => void) {
 export const NOTIFY_HIDE_MS = 5000;
 
 /**
- * CHỈ MỘT LẦN mỗi lần mở app. Để ở mức module (không phải state) nên vẽ lại,
- * đóng/mở sheet hay đổi qua lại trong màn đều KHÔNG gọi tải lại.
+ * Mốc lần THỬ tải gần nhất trong PHIÊN này (không phải lần tải xong — cái đó
+ * nằm ở localStorage `PRETRIP_LAST_RUN_KEY`). Ở mức module nên vẽ lại, đóng/mở
+ * sheet hay đi qua lại giữa các màn đều không bắn lại.
+ *
+ * 2026-07-29: TRƯỚC đây là cờ `startedThisLoad` một-lần-mỗi-phiên — mở app lúc
+ * mất sóng là cả phiên không bao giờ tự kéo nữa (ra khơi bắt được sóng lại cũng
+ * nằm im). Nay đổi thành MỐC THỜI GIAN để còn thử lại được, cửa chặn
+ * PRETRIP_MIN_RETRY_MS lo phần không dội data.
  */
-let startedThisLoad = false;
+let lastAttemptAt: number | null = null;
+/** đang chạy dở → không bắn chồng */
+let running = false;
 
 type Note = { text: string; kind: "busy" | "ok" | "warn" };
 
@@ -72,20 +80,24 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
     pointsRef.current = points;
   }, [points]);
 
-  useEffect(() => {
-    if (startedThisLoad) return;
-    startedThisLoad = true;
-
+  const tryRun = useCallback(() => {
+    if (running) return;
     const online =
       typeof navigator === "undefined" ? true : navigator.onLine !== false;
-    const go = shouldAutoPretrip({
-      lastRunAt: lastAutoPretripAt(),
-      nowMs: Date.now(),
-      online,
-    });
-    // Bản còn mới hoặc đang mất sóng → IM LẶNG hoàn toàn, không báo gì cả.
-    if (!go) return;
+    // Bản còn mới / mất sóng / vừa thử xong → IM LẶNG hoàn toàn, không báo gì.
+    if (
+      !shouldAttemptAutoPretrip({
+        lastRunAt: lastAutoPretripAt(),
+        lastAttemptAt,
+        nowMs: Date.now(),
+        online,
+      })
+    ) {
+      return;
+    }
 
+    running = true;
+    lastAttemptAt = Date.now();
     setNote({ text: "Đang tải dự báo…", kind: "busy" });
     setSharedPhase("loading");
     runPretrip(pointsRef.current)
@@ -97,8 +109,28 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
       .catch(() => {
         setNote({ text: "Chưa tải được dự báo — chưa có sóng.", kind: "warn" });
       })
-      .finally(() => setSharedPhase("idle"));
+      .finally(() => {
+        running = false;
+        setSharedPhase("idle");
+      });
   }, []);
+
+  // Chạy lúc mở màn + TỰ CHẠY LẠI khi máy CÓ SÓNG LẠI hoặc bà con quay lại app
+  // (user 2026-07-29: "khi máy online thì tự kéo các nguồn để làm mới"). Điện
+  // thoại hay ngủ tab nên nghe cả `visibilitychange`, không chỉ `online`.
+  useEffect(() => {
+    tryRun();
+    const onOnline = () => tryRun();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tryRun();
+    };
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [tryRun]);
 
   // tự tắt sau khi đã nói xong (lúc đang tải thì cứ để đó)
   useEffect(() => {

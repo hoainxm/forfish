@@ -52,6 +52,37 @@ export function shouldAutoPretrip({
   return nowMs - lastRunAt >= PRETRIP_MIN_INTERVAL_MS;
 }
 
+/**
+ * Cách nhau tối thiểu giữa hai lần THỬ tải (khác `PRETRIP_MIN_INTERVAL_MS` là
+ * khoảng cách giữa hai lần tải THÀNH CÔNG). Cần vì: lần thử hỏng KHÔNG ghi mốc
+ * `lastRunAt` — mạng chập chờn ngoài khơi có thể bật/tắt liên tục, không có cửa
+ * này thì mỗi lần `online` nháy là bắn lại cả mẻ 2,5–3 MB.
+ */
+export const PRETRIP_MIN_RETRY_MS = 2 * 60 * 1000;
+
+export interface AutoPretripAttemptGate extends AutoPretripGate {
+  /** mốc lần THỬ gần nhất trong phiên (epoch ms); null = chưa thử lần nào */
+  lastAttemptAt: number | null;
+}
+
+/**
+ * Có nên THỬ tự tải lúc này không — dùng cho cả lần mở app LẪN các lần máy có
+ * sóng lại / quay lại app (2026-07-29). Hai cửa chặn cộng lại:
+ *  · `shouldAutoPretrip` — bản trong máy còn mới / mất sóng thì thôi
+ *  · cách lần THỬ trước ≥ PRETRIP_MIN_RETRY_MS — chống mạng chập chờn bắn liên tục
+ */
+export function shouldAttemptAutoPretrip({
+  lastRunAt,
+  lastAttemptAt,
+  nowMs,
+  online,
+}: AutoPretripAttemptGate): boolean {
+  if (!shouldAutoPretrip({ lastRunAt, nowMs, online })) return false;
+  if (lastAttemptAt == null || !Number.isFinite(lastAttemptAt)) return true;
+  if (lastAttemptAt > nowMs) return true; // đồng hồ máy chỉnh lùi
+  return nowMs - lastAttemptAt >= PRETRIP_MIN_RETRY_MS;
+}
+
 /** Đọc mốc lần tự tải gần nhất trong máy (null khi chưa có / máy chặn lưu). */
 export function lastAutoPretripAt(): number | null {
   if (typeof window === "undefined") return null;

@@ -15,6 +15,7 @@
 import { saveForecast, loadForecast, loadAll } from "@/lib/forecast-cache";
 import { apiUrl } from "@/lib/api-base";
 import { gridSnapshotId, SNAPSHOT_DAY_SET } from "@/lib/weather-snapshot-id";
+import { isCacheCurrent } from "@/lib/source-cadence";
 
 export type ForecastKind = "wind" | "wave";
 
@@ -196,6 +197,14 @@ export function gridIsCurrent(g: ForecastGrid | null | undefined): boolean {
 
 export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
   const id = gridCacheId(days);
+  // TIẾT CHẾ NGUỒN (2026-07-29): bản trong máy còn là BẢN HIỆN HÀNH (nguồn chưa
+  // ra bản mới — lib/source-cadence) thì dùng luôn, KHÔNG gọi Open-Meteo. Trước
+  // đây bật/tắt lớp chục lần là chục lượt tải cùng một con số → cháy hạn ngạch
+  // IP (429) làm CẢ APP mất dự báo. KHÔNG gắn stale: đây đúng là bản mới nhất.
+  const fresh = loadForecast<ForecastGrid>(GRID_NS, id);
+  if (fresh && gridIsCurrent(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
+    return fresh.data;
+  }
   try {
     const g = await fetchForecastGridLive(days);
     saveForecast(GRID_NS, id, g);

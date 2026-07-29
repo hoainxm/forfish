@@ -19,6 +19,7 @@
 2. `npm run build && npm start` (hoặc deploy Vercel) — SW chỉ chạy ở production.
 3. Kiểm: DevTools → Application → Manifest (name SDFish, icons) + Service Worker (activated). Lighthouse → Installable.
 4. iOS: Safari → Share → Add to Home Screen. Android: Chrome → Install app.
+5. **Hướng dẫn bà con**: video 06 (Android) + 07 (iPhone) quay sẵn đúng hai luồng này, kèm đoạn tắt mạng thật để thấy app vẫn mở — cách quay/xuất ở [runbook.md](runbook.md) §"Video hướng dẫn cho bà con". Trong app, thẻ nhắc `components/install-prompt.tsx` nói đúng việc phải làm theo từng máy.
 
 Offline: sau lần mở đầu, mất mạng vẫn mở được vỏ app (`/` cache); dữ liệu sổ vẫn ở localStorage `forfish.*`. Bão/giá/cá là network-first → mất mạng hiện bản cache gần nhất.
 
@@ -52,4 +53,4 @@ npm run cap:open:ios   # / cap:open:android
 
 ---
 
-**Last updated**: 2026-06-16
+**Last updated**: 2026-07-29
