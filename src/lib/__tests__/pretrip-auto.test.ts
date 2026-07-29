@@ -20,6 +20,7 @@ const _ls = (() => {
 import {
   shouldAttemptAutoPretrip,
   autoPretripLine,
+  coverageChipText,
   lastAutoPretripAt,
   markAutoPretripRun,
   pretripSavedText,
@@ -27,6 +28,7 @@ import {
   PRETRIP_MIN_INTERVAL_MS,
   PRETRIP_LAST_RUN_KEY,
 } from "../pretrip-auto";
+import type { SavedCoverage, SavedLayer } from "../pretrip";
 
 const NOW = Date.parse("2026-07-25T03:00:00Z"); // 10:00 ngày 25/7 giờ VN
 
@@ -243,5 +245,53 @@ describe("shouldAttemptAutoPretrip — tự kéo lại khi có sóng", () => {
         online: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe("coverageChipText — câu chữ TRUNG THỰC theo độ phủ lớp", () => {
+  const layer = (over: Partial<SavedLayer>): SavedLayer => ({
+    id: "grid",
+    label: "x",
+    saved: true,
+    detail: "",
+    savedAt: null,
+    sizeBytes: 0,
+    fresh: false,
+    retriable: true,
+    ...over,
+  });
+  const cov = (over: Partial<SavedCoverage>): SavedCoverage => ({
+    layers: [layer({})],
+    allSaved: true,
+    missing: 0,
+    untilIso: null,
+    totalBytes: 0,
+    ...over,
+  });
+
+  it("đang tải → 'Đang tải dữ liệu dự báo'", () => {
+    expect(coverageChipText("loading", null)).toBe("Đang tải dữ liệu dự báo");
+  });
+
+  it("máy trống → 'Chưa tải dữ liệu dự báo'", () => {
+    expect(
+      coverageChipText("idle", cov({ layers: [layer({ saved: false })], allSaved: false, missing: 1 })),
+    ).toBe("Chưa tải dữ liệu dự báo");
+  });
+
+  it("đủ mọi lớp + có ngày → 'Đã lưu đủ … tới ngày X' (chỉ nói khi allSaved)", () => {
+    expect(coverageChipText("idle", cov({ untilIso: "2026-08-13" }))).toBe(
+      "Đã lưu đủ dự báo — tới ngày 13/8",
+    );
+  });
+
+  it("còn thiếu lớp → nói thẳng số lớp, KHÔNG nói 'đã lưu tới ngày X'", () => {
+    const c = cov({
+      layers: [layer({ saved: true }), layer({ id: "scalar", saved: false })],
+      allSaved: false,
+      missing: 2,
+      untilIso: "2026-08-13",
+    });
+    expect(coverageChipText("idle", c)).toBe("Còn thiếu 2 lớp — chạm xem");
   });
 });

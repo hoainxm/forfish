@@ -264,8 +264,13 @@ export async function fetchForecastGrid(
     // premium bị route chặn thật nếu chưa đủ hạng → trả null, báo lỗi như cũ.
     if (SNAPSHOT_DAY_SET.includes(days)) {
       const snap = await loadGridSnapshotClient(days);
-      if (snap && gridIsCurrent(snap))
+      if (snap && gridIsCurrent(snap)) {
+        // LƯU khi live 429 (2026-07-29): trước chỉ trả stale mà không ghi →
+        // "Tải lại" trong popup coi như hỏng (savedGridDays vẫn trống) dù đã
+        // lấy được snapshot. Ghi để offline có bản + hàng đổi xanh.
+        saveForecast(GRID_NS, id, snap, snap.savedAt ?? undefined);
         return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
+      }
     }
     // CUỐI CÙNG: mượn khung NGẮN HƠN đã lưu (2026-07-29). An toàn từ khi BỎ chip
     // chọn khung: thanh ngày vẽ THEO times[] thật nên xin 16 mà chỉ có 3 thì bà
@@ -313,6 +318,21 @@ export function savedGridDays(): number[] {
     .map((e) => Number(/^d(\d+)$/.exec(e.id)?.[1]))
     .filter((d) => Number.isFinite(d) && d > 0)
     .sort((a, b) => a - b);
+}
+
+/** Ngày (ISO) xa nhất lưới gió/sóng trong máy phủ tới — đọc times[] THẬT của
+ *  khung rộng nhất đã lưu. null nếu chưa có. Cho popup "dự báo tới ngày nào". */
+export function savedGridUntil(): string | null {
+  let best: { days: number; until: string | null } | null = null;
+  for (const e of loadAll<ForecastGrid>(GRID_NS)) {
+    const m = /^d(\d+)$/.exec(e.id);
+    if (!m) continue;
+    const d = Number(m[1]);
+    const t = e.data?.times;
+    const until = t && t.length ? t[t.length - 1].slice(0, 10) : null;
+    if (!best || d > best.days) best = { days: d, until };
+  }
+  return best?.until ?? null;
 }
 
 /** Như savedGridDays nhưng CHỈ bản khớp lưới hiện tại — cho UI chọn khung của

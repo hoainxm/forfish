@@ -11,13 +11,37 @@
 // chúng đã tự lưu vào máy. Chạy TUẦN TỰ cho khỏi dội nguồn miễn phí.
 
 import { fetchSeaPoint, POINT_NS, type SeaPointConditions } from "@/lib/marine-weather";
-import { fetchFishForecast } from "@/lib/fish-predict";
+import { fetchFishForecast, savedFishMark } from "@/lib/fish-predict";
 import { fetchClimatology } from "@/lib/fish-blend";
-import { fetchForecastGrid, savedGridDays } from "@/lib/forecast-grid";
-import { fetchScalarField } from "@/lib/scalar-field";
-import { fetchCurDepthGridClient } from "@/lib/cur-depth";
+import { fetchForecastGrid, savedGridDays, savedGridUntil } from "@/lib/forecast-grid";
+import {
+  fetchScalarField,
+  savedScalarDays,
+  savedScalarUntil,
+  SALINITY_DAYS,
+} from "@/lib/scalar-field";
+import {
+  fetchCurDepthGridClient,
+  savedCurDepthTiers,
+  savedCurDepthDays,
+  savedCurDepthUntil,
+} from "@/lib/cur-depth";
+import { isCacheCurrent } from "@/lib/source-cadence";
 import { CUR_DEPTH_MAX_DAYS } from "@/lib/weather-snapshot-id";
-import { coordId, lastStorageFullAt, loadAll } from "@/lib/forecast-cache";
+import {
+  fetchSeaScalar,
+  savedSeaScalar,
+  savedSeaScalarAt,
+  SEA_SCALAR_NS,
+} from "@/lib/sea-scalars";
+import {
+  bytesUnder,
+  coordId,
+  lastStorageFullAt,
+  latestSavedAt,
+  loadAll,
+} from "@/lib/forecast-cache";
+import { formatDateVN } from "@/lib/ocean-map";
 
 /** Tầng SÂU tải sẵn (tầng mặt đã nằm trong lưới gió/sóng SMOC) */
 export const CUR_DEPTH_PRETRIP_TIERS = [50, 150, 300] as const;
@@ -101,6 +125,254 @@ export function savedSummary(): SavedSummary {
    lib/pretrip-auto.ts (autoPretripLine). File này chỉ còn lo phần TẢI. */
 
 /* --------------------------------------------------------------------------
+   TRONG MÁY CÓ GÌ — THEO TỪNG LỚP (cho popup "đã lưu những gì" + tải lại lẻ).
+   savedSummary ở trên chỉ đo GIÓ SÓNG THEO ĐIỂM; dòng "đã lưu tới ngày X" vì
+   thế TRƯỚC ĐÂY nói quá (cá/lưới/lớp màu/độ mặn/dòng chảy chưa chắc đã có). Bảng
+   dưới soi TỪNG lớp để câu chữ trung thực và cho tải lại đúng lớp còn thiếu.
+-------------------------------------------------------------------------- */
+
+export type SavedLayerId =
+  | "point"
+  | "fish"
+  | "grid"
+  | "scalar"
+  | "salinity"
+  | "seascalar"
+  | "curdepth";
+
+export interface SavedLayer {
+  id: SavedLayerId;
+  /** tên bà con đọc được */
+  label: string;
+  /** đủ để xem offline chưa */
+  saved: boolean;
+  /** câu ngắn: "3 chỗ · tới 13/8" / "khung 3, 16 ngày" / "chưa lưu" */
+  detail: string;
+  /** epoch ms lưu gần nhất (null nếu không đo được / chưa lưu) */
+  savedAt: number | null;
+  /** DUNG LƯỢNG ước lượng lớp này chiếm trong máy (byte; 0 nếu không đo được /
+   *  nằm ở kho khác như bản đồ cá) */
+  sizeBytes: number;
+  /** true = bản trong máy CÒN MỚI theo nhịp nguồn (chưa cần tải lại). false khi
+   *  chưa lưu HOẶC đã quá chu kỳ cập nhật (nên tải lại). */
+  fresh: boolean;
+  /** false = không tự tải ở đây (vd bản đồ cá đang khoá premium) */
+  retriable: boolean;
+}
+
+export interface SavedLayersOpts {
+  /** bản đồ cá đang khoá (chưa đăng nhập / chưa premium) → không tính là thiếu */
+  fishLocked?: boolean;
+}
+
+/** Soi TỪNG lớp trong máy (thuần đọc, không gọi mạng). */
+export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
+  const pts = loadAll<SeaPointConditions>(POINT_NS);
+  let untilIso: string | null = null;
+  let ptSavedAt: number | null = null;
+  for (const p of pts) {
+    const days = p.data?.days ?? [];
+    const last = days.length ? days[days.length - 1]?.date : null;
+    if (last && (untilIso == null || last > untilIso)) untilIso = last;
+    if (ptSavedAt == null || p.savedAt > ptSavedAt) ptSavedAt = p.savedAt;
+  }
+  const now = Date.now();
+  const gridDays = savedGridDays();
+  const gMax = gridDays.length ? Math.max(...gridDays) : 0;
+  const gridUntil = savedGridUntil();
+  const scalarDays = savedScalarDays("cloud");
+  const sMax = scalarDays.length ? Math.max(...scalarDays) : 0;
+  const scalarUntil = savedScalarUntil("cloud");
+  const salOk = savedScalarDays("salinity").includes(SALINITY_DAYS);
+  const salUntil = savedScalarUntil("salinity");
+  const tiers = savedCurDepthTiers();
+  const cdDays = savedCurDepthDays();
+  const cdUntil = savedCurDepthUntil();
+  const fish = opts.fishLocked ? null : savedFishMark();
+  const sshaOk = savedSeaScalar("ssha");
+
+  // dung lượng theo key-prefix (byte); scalar tách salinity ra khỏi 5 lớp màu
+  const salinityBytes = bytesUnder("scalar.salinity.");
+  const scalarBytes = bytesUnder("scalar.") - salinityBytes;
+
+  // "{cái gì} · {N} ngày · tới {ngày}" — chỉ ghép phần nào có
+  const line = (what: string, days: number, iso: string | null) =>
+    [what, days ? `${days} ngày` : null, iso ? `tới ${formatDateVN(iso)}` : null]
+      .filter(Boolean)
+      .join(" · ");
+
+  const mk = (
+    id: SavedLayerId,
+    label: string,
+    saved: boolean,
+    savedAt: number | null,
+    sizeBytes: number,
+    detail: string,
+    retriable = true,
+  ): SavedLayer => ({
+    id,
+    label,
+    saved,
+    detail,
+    savedAt,
+    sizeBytes,
+    fresh: saved && isCacheCurrent(savedAt, now),
+    retriable,
+  });
+
+  return [
+    mk(
+      "grid",
+      "Gió sóng CẢ VÙNG biển",
+      gridDays.length > 0,
+      latestSavedAt("grid."),
+      bytesUnder("grid."),
+      gridDays.length ? line("cả Biển Đông", gMax, gridUntil) : "chưa lưu",
+    ),
+    mk(
+      "point",
+      "Gió sóng chi tiết điểm ghim",
+      pts.length > 0,
+      ptSavedAt,
+      bytesUnder("point."),
+      pts.length ? line(`${pts.length} điểm bất kỳ`, 16, untilIso) : "chưa lưu",
+    ),
+    // Bản đồ cá là PFZ NGẮN NGÀY (ảnh vệ tinh không có kỹ năng 16 ngày như
+    // gió/sóng) — KHÔNG hiện ngày ảnh kèm "tới" (gây hiểu nhầm "chỉ tới 27/7").
+    mk(
+      "fish",
+      "Bản đồ cá",
+      !opts.fishLocked && !!fish,
+      fish?.savedAt ?? null,
+      0, // payload ở kho ứng dụng (SW), không phải localStorage
+      opts.fishLocked
+        ? "cần premium — có gói sẽ tự tải"
+        : fish
+          ? "bản đồ mới nhất · vài ngày tới"
+          : "chưa lưu",
+      !opts.fishLocked,
+    ),
+    mk(
+      "scalar",
+      "Lớp màu mây · mưa · nhiệt",
+      scalarDays.length > 0,
+      latestSavedAt("scalar.cloud."),
+      scalarBytes,
+      scalarDays.length
+        ? line("mây, mưa, nhiệt, dông, áp suất", sMax, scalarUntil)
+        : "chưa lưu",
+    ),
+    mk(
+      "salinity",
+      "Độ mặn",
+      salOk,
+      latestSavedAt("scalar.salinity."),
+      salinityBytes,
+      salOk ? line("độ mặn", SALINITY_DAYS, salUntil) : "chưa lưu",
+    ),
+    mk(
+      "seascalar",
+      "Nước dâng / xoáy",
+      sshaOk,
+      savedSeaScalarAt("ssha"),
+      bytesUnder(`${SEA_SCALAR_NS}.`),
+      sshaOk ? "ảnh mới nhất · nay" : "chưa lưu",
+    ),
+    // Mặt (surface) đi cùng lưới CẢ VÙNG; đây thêm 3 tầng SÂU 50/150/300 m
+    mk(
+      "curdepth",
+      "Dòng chảy: Mặt + 3 tầng sâu",
+      tiers.length > 0,
+      latestSavedAt("curdepth."),
+      bytesUnder("curdepth."),
+      tiers.length
+        ? line(`Mặt + ${tiers.length}/3 tầng sâu (50/150/300m)`, cdDays, cdUntil)
+        : "chưa lưu",
+    ),
+  ];
+}
+
+export interface SavedCoverage {
+  layers: SavedLayer[];
+  /** đủ MỌI lớp tự-tải-được chưa */
+  allSaved: boolean;
+  /** số lớp tự-tải-được còn thiếu */
+  missing: number;
+  /** ngày xa nhất còn dự báo gió sóng theo điểm (mốc hiện trên chip) */
+  untilIso: string | null;
+  /** TỔNG dung lượng dự báo trong máy (byte) — mọi bản `forfish.fc.*` */
+  totalBytes: number;
+}
+
+/** Gộp per-layer → tình trạng tổng để dựng câu chữ chip. */
+export function savedCoverage(opts: SavedLayersOpts = {}): SavedCoverage {
+  const layers = savedLayers(opts);
+  const essential = layers.filter((l) => l.retriable);
+  const missing = essential.filter((l) => !l.saved).length;
+  return {
+    layers,
+    allSaved: essential.length > 0 && missing === 0,
+    missing,
+    untilIso: savedSummary().untilIso,
+    totalBytes: bytesUnder(""),
+  };
+}
+
+/**
+ * TẢI LẠI đúng MỘT lớp (bà con chạm "Tải lại" ở dòng còn thiếu trong popup).
+ * Dùng lại đúng các hàm màn Ra khơi vẫn gọi — chúng tự lưu vào máy. Giữ ĐỒNG BỘ
+ * với `pretripSteps` bên dưới (cùng nguồn, khác cách gói).
+ */
+export async function runLayer(
+  id: SavedLayerId,
+  points: PretripPoint[],
+): Promise<void> {
+  switch (id) {
+    case "point":
+      for (const p of dedupePoints(points))
+        await fetchSeaPoint({ lat: p.lat, lon: p.lon });
+      return;
+    case "fish": {
+      const r = await fetchFishForecast();
+      if (
+        !r.ok &&
+        !(r.code === "login_required" || r.code === "premium_required")
+      )
+        throw new Error("bản đồ cá chưa tải được");
+      return;
+    }
+    case "grid":
+      for (const d of PRETRIP_GRID_DAYS) await fetchForecastGrid(d);
+      return;
+    case "scalar":
+      for (const d of PRETRIP_SCALAR_DAYS) await fetchScalarField("cloud", d);
+      return;
+    case "salinity":
+      await fetchScalarField("salinity");
+      return;
+    case "seascalar":
+      await fetchSeaScalar("ssha");
+      return;
+    case "curdepth": {
+      let ok = 0;
+      for (const t of CUR_DEPTH_PRETRIP_TIERS) {
+        try {
+          await fetchCurDepthGridClient(t, CUR_DEPTH_MAX_DAYS);
+          ok++;
+          continue;
+        } catch {}
+        try {
+          await fetchCurDepthGridClient(t, 3);
+          ok++;
+        } catch {}
+      }
+      if (ok === 0) throw new Error("dòng chảy theo tầng chưa tải được");
+      return;
+    }
+  }
+}
+
+/* --------------------------------------------------------------------------
    DANH SÁCH VIỆC + CHẠY
 -------------------------------------------------------------------------- */
 
@@ -165,6 +437,15 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
     label: "Độ mặn",
     run: async () => {
       await fetchScalarField("salinity");
+    },
+  });
+  // NƯỚC DÂNG / XOÁY (SSHA, ERDDAP qua /api/sea-scalar) — 2026-07-29: đưa vào
+  // flow tải sẵn + lưu localStorage để ra khơi mất sóng vẫn xem được (trước chỉ
+  // dựa Service Worker, không tải sẵn được). Nguồn có thể trống → bỏ qua êm.
+  steps.push({
+    label: "Nước dâng / xoáy",
+    run: async () => {
+      await fetchSeaScalar("ssha");
     },
   });
   // DÒNG CHẢY THEO TẦNG (2026-07-29, same-origin ~50 KB/tầng từ snapshot) —

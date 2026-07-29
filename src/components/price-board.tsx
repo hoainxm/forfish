@@ -9,12 +9,19 @@ import {
 } from "@/lib/port-price-source";
 import { fetchFuelPrice, type FuelPrice } from "@/lib/fuel-price";
 import {
+  ChevronRightIcon,
   MinusIcon,
   SearchIcon,
   TrendDownIcon,
   TrendUpIcon,
 } from "@/components/icons";
 import { formatVnDate } from "@/lib/format";
+import { PriceHistorySheet } from "@/components/price-history-sheet";
+import {
+  fetchPriceHistory,
+  seriesForSpecies,
+  type PriceHistoryResult,
+} from "@/lib/port-price-history";
 
 /*
   Bảng giá — giá nguyên liệu tại bến TUẦN từ VASEP (live, fallback bảng tĩnh
@@ -51,6 +58,20 @@ export function PriceBoard() {
   // mặc định bảng tĩnh; thay bằng giá tuần khi tải xong (async → không lint effect)
   const [result, setResult] = useState<LivePriceResult>(STATIC_RESULT);
   const [fuel, setFuel] = useState<FuelPrice | null>(null);
+  // biểu đồ lịch sử: mở theo id loài; lịch sử tải LƯỜI (1 lần, khi chạm thẻ đầu)
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [history, setHistory] = useState<PriceHistoryResult | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  function openChart(id: string) {
+    setOpenId(id);
+    if (!history && !historyLoading) {
+      setHistoryLoading(true);
+      fetchPriceHistory()
+        .then((h) => setHistory(h))
+        .finally(() => setHistoryLoading(false));
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -132,7 +153,13 @@ export function PriceBoard() {
         {shown.map((p) => {
           const t = TREND[p.trend];
           return (
-            <li key={p.id} className="surface px-4 py-3.5">
+            <li key={p.id} className="surface overflow-hidden">
+              <button
+                type="button"
+                onClick={() => openChart(p.id)}
+                aria-label={`Xem biểu đồ giá ${p.species}`}
+                className="block w-full px-4 py-3.5 text-left transition active:scale-[0.99]"
+              >
               <div className="flex items-start justify-between gap-3">
                 <p className="display flex items-center gap-2 text-[1.125rem] font-bold leading-snug text-navy">
                   {p.species}
@@ -165,10 +192,27 @@ export function PriceBoard() {
                   {[p.region, p.note].filter(Boolean).join(" · ")}
                 </p>
               )}
+              <span className="mt-1.5 flex items-center gap-1 text-[0.875rem] font-bold text-sea">
+                Xem biểu đồ giá
+                <ChevronRightIcon className="h-4 w-4" />
+              </span>
+              </button>
             </li>
           );
         })}
       </ul>
+
+      {openId && (
+        <PriceHistorySheet
+          species={
+            result.prices.find((p) => p.id === openId)?.species ?? "cá"
+          }
+          unit={result.prices.find((p) => p.id === openId)?.unit ?? "đ/kg"}
+          points={history ? seriesForSpecies(history.weeks, openId) : []}
+          loading={historyLoading && !history}
+          onClose={() => setOpenId(null)}
+        />
+      )}
     </div>
   );
 }

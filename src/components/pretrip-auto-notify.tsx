@@ -16,20 +16,33 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
+  runLayer,
   runPretrip,
-  savedSummary,
+  savedCoverage,
   type PretripPoint,
-  type SavedSummary,
+  type SavedCoverage,
+  type SavedLayerId,
 } from "@/lib/pretrip";
 import {
   autoPretripLine,
+  coverageChipText,
   lastAutoPretripAt,
   markAutoPretripRun,
-  pretripSavedText,
   shouldAttemptAutoPretrip,
   type PretripSavedPhase,
 } from "@/lib/pretrip-auto";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { savedAgoLabel } from "@/lib/forecast-cache";
+import { exportOfflineData, importOfflineData } from "@/lib/offline-backup";
 import { AlertIcon, CheckIcon } from "@/components/icons";
+
+/** byte → "~1,2 MB" / "~340 KB" (rỗng nếu 0 — lớp nằm kho khác) */
+function fmtBytes(b: number): string {
+  if (b <= 0) return "";
+  if (b >= 1024 * 1024)
+    return `${(b / 1024 / 1024).toFixed(1).replace(".", ",")} MB`;
+  return `${Math.max(1, Math.round(b / 1024))} KB`;
+}
 
 /* Trạng thái tải sẵn dùng CHUNG cho dòng nổi tự tắt (PretripAutoNotify) và nhãn
    nhỏ thường trực trên box biển động (PretripSavedStatus). Store nhỏ ở mức
@@ -48,21 +61,9 @@ function subscribePhase(f: () => void) {
   };
 }
 
-/* CHẠM NHÃN = XIN TẢI NGAY (user 2026-07-29: chip "Chưa tải dữ liệu dự báo"
-   phải chạm được để tải/thử lại). Nhãn (PretripSavedStatus) và bộ máy tải
-   (PretripAutoNotify) nằm hai nhánh cây khác nhau → chuyển yêu cầu qua store
-   module giống phase. Chạm là BỎ QUA cửa chặn tự động (bà con đã chủ động xin),
-   chỉ giữ chống bắn chồng khi đang chạy dở. */
-const runReqSubs = new Set<() => void>();
-function requestPretripRun() {
-  runReqSubs.forEach((f) => f());
-}
-function subscribeRunReq(f: () => void) {
-  runReqSubs.add(f);
-  return () => {
-    runReqSubs.delete(f);
-  };
-}
+/* CHẠM NHÃN = MỞ POPUP "đã lưu những gì" (2026-07-29): thay vì bắn tải cả mẻ,
+   chip mở bảng per-layer để bà con thấy lớp nào đã lưu / còn thiếu và chạm "Tải
+   lại" đúng lớp cần. Bộ máy tự tải (PretripAutoNotify) vẫn chạy nền như cũ. */
 
 /**
  * Nói xong thì tắt sau ngần này — đủ đọc một dòng, rồi trả lại bản đồ.
@@ -145,12 +146,9 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
     };
     window.addEventListener("online", onOnline);
     document.addEventListener("visibilitychange", onVisible);
-    // bà con chạm nhãn trạng thái → tải ngay, bỏ cửa chặn
-    const unReq = subscribeRunReq(() => tryRun(true));
     return () => {
       window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisible);
-      unReq();
     };
   }, [tryRun]);
 
@@ -184,41 +182,319 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
 
 /**
  * Nhãn NHỎ THƯỜNG TRỰC sát trên box biển động — bà con liếc là biết trong máy đã
- * có dự báo tới ngày nào (sẵn sàng ra khơi chưa), khác dòng nổi tự tắt ở trên.
- * Đọc thẳng "trong máy có gì" (savedSummary) + bám phase tải sẵn để đổi câu.
+ * lưu ĐỦ dự báo cho offline chưa, khác dòng nổi tự tắt ở trên. Câu chữ THEO ĐỘ
+ * PHỦ TỪNG LỚP (coverageChipText) nên "đã lưu tới ngày X" chỉ nói khi MỌI lớp đã
+ * có. Chạm → mở popup liệt kê từng lớp + nút "Tải lại" cho lớp còn thiếu.
  */
-export function PretripSavedStatus() {
+export function PretripSavedStatus({
+  points,
+  fishLocked,
+}: {
+  points: PretripPoint[];
+  /** bản đồ cá đang khoá (chưa đăng nhập / chưa premium) → không tính là thiếu */
+  fishLocked: boolean;
+}) {
   const phase = useSyncExternalStore(
     subscribePhase,
     () => sharedPhase,
     () => "idle" as PretripSavedPhase,
   );
-  const [saved, setSaved] = useState<SavedSummary | null>(null);
+  const [cov, setCov] = useState<SavedCoverage | null>(null);
+  const [open, setOpen] = useState(false);
 
-  // đọc lại "trong máy có gì" khi vào màn + mỗi lần phase đổi (tải xong → cập nhật)
+  const reread = useCallback(
+    () => setCov(savedCoverage({ fishLocked })),
+    [fishLocked],
+  );
+  // đọc lại khi vào màn + mỗi lần phase đổi (tự tải xong → cập nhật)
   useEffect(() => {
-    const read = () => setSaved(savedSummary());
-    read();
-    return subscribePhase(read);
+    reread();
+    return subscribePhase(reread);
+  }, [reread]);
+
+  const text = coverageChipText(phase, cov);
+  const allSaved = !!cov?.allSaved;
+  const tone =
+    phase === "loading" ? "text-navy" : allSaved ? "text-ok" : "text-warn";
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Xem dữ liệu đã lưu để đi biển"
+        className={`pointer-events-auto inline-flex min-h-[2.75rem] items-center gap-1.5 rounded-full bg-card/95 px-3 py-1 text-[0.8125rem] font-bold shadow-sm ring-1 ring-line transition active:scale-95 ${tone}`}
+      >
+        {phase === "loading" && (
+          <span
+            className="h-2 w-2 animate-pulse rounded-full bg-navy"
+            aria-hidden
+          />
+        )}
+        {text}
+      </button>
+      {open && (
+        <PretripSavedSheet
+          points={points}
+          fishLocked={fishLocked}
+          onChanged={reread}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+const LAYER_HELP: Record<SavedLayerId, string> = {
+  grid: "Gió & sóng CẢ Biển Đông — xem ở BẤT KỲ đâu (kể cả tầng mặt)",
+  point: "Ghim điểm nào là có dự báo chi tiết 16 ngày điểm đó",
+  fish: "Bản đồ điểm cá (dự báo ngắn ngày, cần premium)",
+  scalar: "Mây, mưa, nhiệt không khí, nguy cơ dông, áp suất",
+  salinity: "Độ mặn nước biển",
+  seascalar: "Nước dâng / xoáy nước (gom mồi)",
+  curdepth: "Dòng chảy 3 tầng SÂU — tầng mặt đã có ở lưới cả vùng",
+};
+
+/**
+ * Popup "đã lưu những gì" — liệt kê TỪNG lớp: đã lưu (xanh ✓ + chi tiết/tuổi)
+ * hay chưa (vàng ⚠ + nút "Tải lại"). Chạm "Tải lại" tải đúng lớp đó (runLayer),
+ * xong đọc lại. "Tải lại N lớp còn thiếu" chạy tuần tự các lớp thiếu.
+ */
+function PretripSavedSheet({
+  points,
+  fishLocked,
+  onChanged,
+  onClose,
+}: {
+  points: PretripPoint[];
+  fishLocked: boolean;
+  onChanged: () => void;
+  onClose: () => void;
+}) {
+  const initial = savedCoverage({ fishLocked });
+  const [layers, setLayers] = useState(() => initial.layers);
+  const [total, setTotal] = useState(() => initial.totalBytes);
+  const [busy, setBusy] = useState<SavedLayerId | "all" | null>(null);
+  // lớp vừa TẢI LẠI mà vẫn không có dữ liệu → nói thật (mất sóng / nguồn bận),
+  // đừng để nút bấm xong im ru như hỏng
+  const [failed, setFailed] = useState<Set<SavedLayerId>>(new Set());
+  const [backupBusy, setBackupBusy] = useState<"export" | "import" | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const refresh = useCallback(() => {
+    const c = savedCoverage({ fishLocked });
+    setLayers(c.layers);
+    setTotal(c.totalBytes);
+    onChanged();
+  }, [fishLocked, onChanged]);
+
+  // SAO LƯU ra tệp .json (bà con cầm theo, phòng app/máy xoá cache)
+  const doExport = useCallback(async () => {
+    setBackupBusy("export");
+    try {
+      const json = await exportOfflineData();
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "sdfish-du-bao-da-luu.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      /* trình duyệt chặn tải — bỏ qua, không làm app chết */
+    }
+    setBackupBusy(null);
   }, []);
 
-  const text = pretripSavedText(phase, saved);
-  const hasData = !!saved && saved.places > 0 && !!saved.untilIso;
-  const tone =
-    phase === "loading" ? "text-navy" : hasData ? "text-ok" : "text-warn";
+  // PHỤC HỒI từ tệp đã sao lưu
+  const doImport = useCallback(
+    async (file: File) => {
+      setBackupBusy("import");
+      try {
+        await importOfflineData(await file.text());
+      } catch {
+        /* tệp hỏng — bỏ qua */
+      }
+      setBackupBusy(null);
+      refresh();
+    },
+    [refresh],
+  );
 
-  // CHẠM ĐƯỢC (user 2026-07-29): chưa có dữ liệu → chạm để tải/thử lại (kèm
-  // hint trong chữ); đã có → chạm để tải bản mới. Đang tải thì khoá nút.
+  const retry = useCallback(
+    async (id: SavedLayerId) => {
+      if (busy) return;
+      setBusy(id);
+      let threw = false;
+      try {
+        await runLayer(id, points);
+      } catch {
+        threw = true;
+      }
+      setBusy(null);
+      // vẫn chưa lưu được sau khi thử → đánh dấu lỗi để nói thật với bà con
+      const after = savedCoverage({ fishLocked }).layers.find((l) => l.id === id);
+      setFailed((prev) => {
+        const n = new Set(prev);
+        if (threw || (after && !after.saved)) n.add(id);
+        else n.delete(id);
+        return n;
+      });
+      refresh();
+    },
+    [busy, points, refresh, fishLocked],
+  );
+
+  const retryAll = useCallback(async () => {
+    if (busy) return;
+    setBusy("all");
+    for (const l of layers) {
+      if (l.retriable && !l.saved) {
+        try {
+          await runLayer(l.id, points);
+        } catch {
+          /* bỏ qua lớp hỏng, chạy tiếp lớp khác */
+        }
+      }
+    }
+    setBusy(null);
+    refresh();
+  }, [busy, layers, points, refresh]);
+
+  const missing = layers.filter((l) => l.retriable && !l.saved).length;
+
   return (
-    <button
-      type="button"
-      onClick={requestPretripRun}
-      disabled={phase === "loading"}
-      aria-label="Chạm để tải dự báo về máy"
-      className={`pointer-events-auto inline-flex min-h-[2.75rem] items-center rounded-full bg-card/95 px-3 py-1 text-[0.8125rem] font-bold shadow-sm ring-1 ring-line transition active:scale-95 ${tone}`}
-    >
-      {text}
-      {phase !== "loading" && !hasData && " — chạm để tải"}
-    </button>
+    <BottomSheet title="Dữ liệu đã lưu để đi biển" onClose={onClose}>
+      <p className="mb-3 text-[0.9375rem] leading-snug text-foreground/70">
+        Mỗi lớp cần tải sẵn lúc còn sóng để xem được khi ra khơi mất sóng. Dòng
+        nào <b>chưa lưu</b> thì chạm <b>Tải lại</b>.
+      </p>
+      <ul className="space-y-2">
+        {layers.map((l) => {
+          const rowBusy = busy === l.id || busy === "all";
+          return (
+            <li
+              key={l.id}
+              className="flex items-center gap-3 rounded-xl bg-field px-3 py-2.5"
+            >
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                  l.saved ? "bg-ok-bg text-ok" : "bg-warn-bg text-warn"
+                }`}
+                aria-hidden
+              >
+                {l.saved ? (
+                  <CheckIcon className="h-4 w-4" />
+                ) : (
+                  <AlertIcon className="h-4 w-4" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[1rem] font-bold leading-tight text-navy">
+                  {l.label}
+                </span>
+                {!l.saved && failed.has(l.id) ? (
+                  <span className="block text-[0.8125rem] font-semibold leading-snug text-warn">
+                    Chưa tải được — cần có sóng, hoặc nguồn đang bận. Thử lại sau.
+                  </span>
+                ) : (
+                  <span className="block text-[0.8125rem] leading-snug text-foreground/65">
+                    {l.saved ? l.detail : LAYER_HELP[l.id]}
+                    {l.saved && l.savedAt != null && ` · ${savedAgoLabel(l.savedAt)}`}
+                    {l.saved && l.sizeBytes > 0 && ` · ${fmtBytes(l.sizeBytes)}`}
+                  </span>
+                )}
+              </span>
+              {!l.retriable ? (
+                <span className="shrink-0 text-[0.75rem] font-semibold text-foreground/55">
+                  khoá
+                </span>
+              ) : rowBusy ? (
+                <span className="shrink-0 text-[0.8125rem] font-bold text-foreground/55">
+                  Đang tải…
+                </span>
+              ) : l.saved && l.fresh ? (
+                // còn trong chu kỳ cập nhật → KHÔNG cần tải lại (user: >chu kỳ mới cần)
+                <span className="shrink-0 text-[0.75rem] font-bold text-ok">
+                  ✓ còn mới
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => retry(l.id)}
+                  disabled={!!busy}
+                  className={`shrink-0 rounded-lg px-3 py-1.5 text-[0.8125rem] font-bold transition active:scale-95 disabled:opacity-50 ${
+                    l.saved ? "text-sea" : "bg-navy text-white"
+                  }`}
+                >
+                  {l.saved ? "Tải mới" : "Tải lại"}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      {missing > 0 && (
+        <button
+          type="button"
+          onClick={retryAll}
+          disabled={!!busy}
+          className="mt-4 min-h-[3.25rem] w-full rounded-xl bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-60"
+        >
+          {busy === "all"
+            ? "Đang tải các lớp còn thiếu…"
+            : `Tải lại ${missing} lớp còn thiếu`}
+        </button>
+      )}
+      {total > 0 && (
+        <p className="mt-3 text-[0.875rem] font-semibold text-foreground/70">
+          Tổng trong máy: ~{fmtBytes(total)}
+        </p>
+      )}
+
+      {/* SAO LƯU / PHỤC HỒI ra tệp — phòng app hay máy lỡ xoá cache */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={doExport}
+          disabled={!!backupBusy || total <= 0}
+          className="min-h-[3rem] rounded-xl bg-field text-[0.9375rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
+        >
+          {backupBusy === "export" ? "Đang lưu…" : "Lưu ra tệp"}
+        </button>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={!!backupBusy}
+          className="min-h-[3rem] rounded-xl bg-field text-[0.9375rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
+        >
+          {backupBusy === "import" ? "Đang phục hồi…" : "Phục hồi từ tệp"}
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) doImport(f);
+            e.target.value = "";
+          }}
+        />
+      </div>
+
+      <p className="mt-3 text-[0.8125rem] leading-snug text-foreground/60">
+        Cần có sóng (mạng) để tải. Ngoài khơi mất sóng thì chỉ xem lại được thứ
+        đã tải sẵn. <b>Lưu ra tệp</b> để giữ bản dự phòng phòng khi máy xoá.
+      </p>
+      <button
+        type="button"
+        onClick={onClose}
+        className="mt-2 min-h-[3rem] w-full rounded-xl bg-field text-[1rem] font-bold text-navy transition active:scale-[0.99]"
+      >
+        Đóng
+      </button>
+    </BottomSheet>
   );
 }

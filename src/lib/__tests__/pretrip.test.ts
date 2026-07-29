@@ -22,6 +22,8 @@ import {
   dedupePoints,
   pretripSteps,
   savedSummary,
+  savedLayers,
+  savedCoverage,
   PRETRIP_GRID_DAYS,
   PRETRIP_SCALAR_DAYS,
 } from "../pretrip";
@@ -42,9 +44,58 @@ describe("dedupePoints", () => {
   });
 });
 
+describe("savedLayers / savedCoverage — độ phủ TỪNG lớp", () => {
+  // seed đủ mọi lớp offline vào localStorage giả
+  const seedAll = () => {
+    saveForecast("point", "8.50_106.50", cond(["2026-08-10", "2026-08-13"]));
+    saveForecast("grid", "d3", { x: 1 });
+    saveForecast("grid", "d16", { x: 1 });
+    saveForecast("scalar", "cloud.d3", { x: 1 });
+    saveForecast("scalar", "salinity.d4", { x: 1 });
+    saveForecast("seascalar", "ssha", { ok: true });
+    saveForecast("curdepth", "t50.d10", { x: 1 });
+    saveForecast("fishmark", "latest", { targetDate: "2026-08-01" });
+  };
+
+  it("đủ mọi lớp → allSaved, missing 0, untilIso theo điểm gió sóng", () => {
+    seedAll();
+    const cov = savedCoverage({ fishLocked: false });
+    expect(cov.allSaved).toBe(true);
+    expect(cov.missing).toBe(0);
+    expect(cov.untilIso).toBe("2026-08-13");
+    expect(cov.layers.find((l) => l.id === "fish")?.saved).toBe(true);
+  });
+
+  it("thiếu lớp màu → allSaved=false, missing đếm đúng, dòng scalar 'chưa lưu'", () => {
+    seedAll();
+    localStorage.removeItem("forfish.fc.scalar.cloud.d3");
+    const cov = savedCoverage({ fishLocked: false });
+    expect(cov.allSaved).toBe(false);
+    expect(cov.missing).toBe(1);
+    const scalar = cov.layers.find((l) => l.id === "scalar");
+    expect(scalar?.saved).toBe(false);
+  });
+
+  it("bản đồ cá KHOÁ premium → không tính là thiếu (retriable=false), vẫn allSaved", () => {
+    seedAll();
+    localStorage.removeItem("forfish.fc.fishmark.latest"); // premium chưa tải cá
+    const cov = savedCoverage({ fishLocked: true });
+    const fish = cov.layers.find((l) => l.id === "fish");
+    expect(fish?.retriable).toBe(false);
+    expect(fish?.saved).toBe(false);
+    expect(cov.allSaved).toBe(true); // cá khoá không kéo tụt độ phủ
+  });
+
+  it("máy trống → mọi lớp chưa lưu, allSaved=false", () => {
+    const layers = savedLayers({ fishLocked: false });
+    expect(layers.every((l) => !l.saved)).toBe(true);
+    expect(savedCoverage({ fishLocked: false }).allSaved).toBe(false);
+  });
+});
+
 describe("pretripSteps", () => {
-  // 2026-07-29: + lớp dải màu (2 khung) + độ mặn + dòng chảy theo tầng (1 việc)
-  const EXTRA = PRETRIP_SCALAR_DAYS.length + 1 + 1;
+  // 2026-07-29: + lớp dải màu (2 khung) + độ mặn + nước dâng/xoáy + dòng chảy tầng
+  const EXTRA = PRETRIP_SCALAR_DAYS.length + 1 + 1 + 1;
 
   it("mỗi chỗ một việc + bản đồ cá + lưới gió/sóng + lớp màu + độ mặn + mùa vụ", () => {
     const steps = pretripSteps([

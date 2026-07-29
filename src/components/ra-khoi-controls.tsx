@@ -433,9 +433,10 @@ function PanelHeader({
 function cadLine(id: OceanLayerId): { text: string; dot: string } {
   const def = OCEAN_LAYERS[id];
   if (!def.dated) return { text: "Cố định · Không đổi theo ngày", dot: DOT.coDinh };
-  // NÓI THẬT: đây là ẢNH VỆ TINH đã qua (trễ ~2 ngày), KHÔNG phải dự báo — để
-  // bà con khỏi nhầm với lớp dự báo mây/gió/sóng (user 2026-07-28).
-  return { text: `Ảnh trễ ~${def.lagDays} ngày · không phải dự báo`, dot: DOT.ngay };
+  // Ảnh vệ tinh theo ngày (KHÔNG phải dự báo). Bỏ số "trễ ~2 ngày" khỏi UI
+  // (user 2026-07-29: ngư dân không cần biết), nhưng vẫn ghi "ảnh vệ tinh" để
+  // khỏi nhầm với lớp dự báo mây/gió/sóng. `lagDays` vẫn dùng để lấy ảnh mới nhất.
+  return { text: "Ảnh vệ tinh · theo ngày", dot: DOT.ngay };
 }
 
 function HaiDoPanel({
@@ -496,8 +497,8 @@ function HaiDoPanel({
         })}
       </ul>
       <p className="mt-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] leading-snug text-foreground/70">
-        Ảnh vệ tinh trễ ~2 ngày — không phải thời gian thực. Phao báo hiệu chỉ
-        hiện khi phóng to gần bờ.
+        Ảnh vệ tinh, không phải thời gian thực. Phao báo hiệu chỉ hiện khi phóng
+        to gần bờ.
       </p>
     </div>
   );

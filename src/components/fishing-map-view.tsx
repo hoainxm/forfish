@@ -99,7 +99,11 @@ import {
   type FetchScalarKind,
   type ScalarGrid,
 } from "@/lib/scalar-field";
-import { fetchCurDepthGridClient, type CurDepthClientGrid } from "@/lib/cur-depth";
+import {
+  fetchCurDepthGridClient,
+  peekCurDepthGrid,
+  type CurDepthClientGrid,
+} from "@/lib/cur-depth";
 import { CUR_DEPTH_TIERS, CUR_DEPTH_MAX_DAYS } from "@/lib/weather-snapshot-id";
 import {
   legendStops,
@@ -542,15 +546,19 @@ export default function FishingMapView() {
       return;
     }
     let alive = true;
-    setDepthGrid(null);
-    fetchCurDepthGridClient(
-      curDepthTier,
-      premiumLocked ? 3 : CUR_DEPTH_MAX_DAYS,
-    )
+    const days = premiumLocked ? 3 : CUR_DEPTH_MAX_DAYS;
+    // KHÔNG nháy trống nếu tầng này đã có sẵn (RAM/máy) — hiện ngay bản cũ rồi
+    // làm mới nền (hết giật khi đổi qua lại Mặt/50/150/300).
+    const warm = peekCurDepthGrid(curDepthTier, days);
+    setDepthGrid(warm);
+    fetchCurDepthGridClient(curDepthTier, days)
       .then((g) => {
         if (alive) setDepthGrid(g);
       })
-      .catch(() => alive && setGridFailed(true));
+      .catch(() => {
+        // đã có bản cũ hiện thì GIỮ (đừng nhảy sang lỗi); chưa có mới báo lỗi
+        if (alive && !warm) setGridFailed(true);
+      });
     return () => {
       alive = false;
     };
@@ -2221,7 +2229,10 @@ export default function FishingMapView() {
                       </span>
                     </button>
                   )}
-                  <PretripSavedStatus />
+                  <PretripSavedStatus
+                    points={pretripPoints}
+                    fishLocked={fishLocked}
+                  />
                 </div>
               )}
               {/* thanh giờ gió/sóng/mây/mưa/nhiệt XUỐNG ĐÁY kiểu Windy — tay với

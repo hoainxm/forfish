@@ -9,8 +9,13 @@
 
 import { parseErddapGrid, ERDDAP_UA, type ScalarGrid } from "@/lib/fish-predict";
 import { apiUrl } from "@/lib/api-base";
+import { saveForecast, loadForecast } from "@/lib/forecast-cache";
 
 export type SeaScalarKind = "ssha" | "sss";
+
+/** Namespace cache offline cho lớp số liệu biển (nước dâng/xoáy…) — cùng nếp
+ *  forecast-cache như gió/sóng/lớp màu, để ra khơi mất sóng vẫn xem lại được. */
+export const SEA_SCALAR_NS = "seascalar";
 
 export interface SeaScalarDef {
   id: SeaScalarKind;
@@ -133,7 +138,8 @@ export async function loadSeaScalar(
   return { ok: false };
 }
 
-/** Client gọi route nội bộ */
+/** Client gọi route nội bộ — LƯU vào máy khi được, MẤT SÓNG lùi về bản đã lưu
+ *  (2026-07-29: trước đây chỉ dựa Service Worker, không tự tải sẵn được). */
 export async function fetchSeaScalar(
   kind: SeaScalarKind,
 ): Promise<SeaScalarResult> {
@@ -141,9 +147,28 @@ export async function fetchSeaScalar(
     const r = await fetch(apiUrl(`/api/sea-scalar?kind=${kind}`), {
       signal: AbortSignal.timeout(25000),
     });
-    if (!r.ok) return { ok: false };
-    return (await r.json()) as SeaScalarResult;
+    if (r.ok) {
+      const j = (await r.json()) as SeaScalarResult;
+      if (j.ok) {
+        saveForecast(SEA_SCALAR_NS, kind, j);
+        return j;
+      }
+    }
   } catch {
-    return { ok: false };
+    // mạng lỗi → lùi về bản lưu bên dưới
   }
+  const hit = loadForecast<SeaScalarResult>(SEA_SCALAR_NS, kind);
+  return hit && hit.data.ok ? hit.data : { ok: false };
+}
+
+/** Đã lưu offline lớp số liệu biển `kind` chưa (thuần đọc — cho pretrip-status). */
+export function savedSeaScalar(kind: SeaScalarKind): boolean {
+  const hit = loadForecast<SeaScalarResult>(SEA_SCALAR_NS, kind);
+  return !!hit && hit.data.ok;
+}
+
+/** Mốc lưu gần nhất của lớp số liệu biển `kind` (null nếu chưa lưu). */
+export function savedSeaScalarAt(kind: SeaScalarKind): number | null {
+  const hit = loadForecast<SeaScalarResult>(SEA_SCALAR_NS, kind);
+  return hit ? hit.savedAt : null;
 }

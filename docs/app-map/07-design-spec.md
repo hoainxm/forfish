@@ -53,7 +53,7 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 | Giấy tờ tàu | list | — | drawer | /tau tab Giấy tờ |
 | Sản phẩm/Dịch vụ SDVICO | list (sync read-only + tự ghi) | — | drawer (đồ tự ghi) | /tau tab Sản phẩm/Dịch vụ |
 | Điểm ngư trường / của tôi | map + sheet | peek sheet | sheet | /ngu-truong |
-| Giá cá | list | — | — | /tien mục Giá cá |
+| Giá cá | list (mỗi dòng CHẠM được) | — | **bottom-sheet biểu đồ giá lịch sử** (`PriceHistorySheet`, 2026-07-29) | /tien mục Giá cá |
 | ~~Mức phạt~~ | ~~searchable list~~ | — | — | **gỡ khỏi /tau 2026-07-27 (user: không cần); giữ `fines-lookup.tsx` + `data/fines.ts`** |
 | ~~Công nợ (chủ nợ)~~ | — | — | — | **XÓA HẲN 2026-07-27** (user chốt — bỏ sổ công nợ) |
 
@@ -174,6 +174,12 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 - **Số liệu sóng/gió LIỀN MẠCH**: thẻ "Gió/Sóng lúc này" dời lên ngay dưới dải ngày + "cả ngày" (trước nằm sau khối cá/trăng/dẫn đường → user: "trên dưới cách cả 1 khúc").
 - **Điểm đã lưu: bỏ hàng "Chỗ tàu tôi đang đứng" (GPS)** — user: vô nghĩa (không còn entry-point GPS). Giữ "Thêm điểm theo toạ độ".
 - **BottomSheet (modal) cap `max-h-[85dvh]`** (trước 92) — đọc như sheet cân đối, còn thấy map sau lưng.
+
+**Delta biểu đồ giá lịch sử 2026-07-29 (`price-history-sheet.tsx`, Trục 2):**
+- **Entry**: mỗi dòng ở Bảng giá thành **nút** (`aria-label="Xem biểu đồ giá {loài}"`, min tap cao ≥3.5rem), có affordance "Xem biểu đồ giá ›" màu `sea`. Chạm → mở `PriceHistorySheet` (BottomSheet dùng chung, đủ a11y). Lịch sử tải **LƯỜI 1 lần** cho cả bảng khi chạm thẻ đầu (`fetchPriceHistory`), các thẻ sau mở tức thì.
+- **Mật độ**: 1 biểu đồ/loài — trên cùng là **số tuần mới nhất IN TO** (`1.375rem`, khoảng thấp–cao) + mũi tên xu hướng so đầu kỳ (`đang lên`/`đang xuống`/`đi ngang`, ngưỡng ±3%). Dưới là SVG **DẢI giá thấp–cao** (fill `sea` 16%) + **đường giữa** đậm, trục X ngày/tháng (≤4 nhãn), trục Y nghìn đồng/kg (3 mốc). Nhãn trục 12px (ngoại lệ data-viz cho font ≥18px — số quan trọng vẫn to ở HTML).
+- **4 trạng thái**: (1) **đang tải** → "Đang tải lịch sử giá…"; (2) **có ≥2 điểm** → biểu đồ; (3) **<2 điểm / loài tuần nào cũng vắng** → banner vàng "Chưa lấy được lịch sử giá cho loại này" (KHÔNG vẽ đường ma); (4) **nguồn fail** → route `{ok:false}` → rơi về (3). Luôn có dòng nguồn "Nguồn: VASEP (Khánh Hòa) · giá tham khảo".
+- **TRUNG THỰC (trục "bán được đắt hơn")**: mỗi điểm = 1 tuần VASEP THẬT, không nội suy/bịa — tuần thiếu loài thành **khoảng trống** (điểm bị bỏ), không nối giả.
 - **"Chọn loài cá" + "Điểm đã lưu" = PANEL RAIL, không bottom-sheet modal** (user: 2 popup này "ko đồng bộ các kiểu popup trước" → cho khớp panel rail): 
   · Chọn loài = **dropdown XỔ INLINE** trong panel **Ngư trường** (nút loài → list `FishSpeciesContent` 1 cột xổ ngay dưới, chevron xoay 90°; chọn xong tự thu). KHÔNG swap view / KHÔNG đổi bề rộng panel (bỏ `speciesView` + panel width 22rem cho ngư-trường). Khi MỞ: nút trigger đổi nhãn "Chọn loài cá" + ẩn chấm (khỏi TRÙNG item "Mọi loài" trong list). List dùng **CHUNG thanh cuộn của panel** (`max-h-[62vh] overflow-y-auto`) — KHÔNG bọc khung cuộn riêng → chỉ **1 thanh scroll**, tránh 2 thanh lồng nhau (user 2026-07-27). 
   · Quản lý điểm = nội dung panel **Điểm đã lưu** luôn (toggle hiện-trên-map + thêm theo toạ độ + sửa/xoá compact + tìm cảng) — bỏ nút "Quản lý" mở modal. 
@@ -246,15 +252,22 @@ Bỏ cả ba thứ cũ: nút "Chuẩn bị đi biển", thẻ xanh "Xong. Máy g
 | Hỏng / mất sóng giữa chừng | **"Chưa tải được dự báo — chưa có sóng."** → tự ẩn | `bg-warn-bg` + ⚠ |
 | Máy hết chỗ nhớ | **"Máy hết chỗ nhớ — xoá bớt điểm đã lưu."** → tự ẩn | `bg-warn-bg` + ⚠ |
 
-**Nhãn nhỏ THƯỜNG TRỰC "đã sẵn sàng ra khơi chưa"** (`PretripSavedStatus` trong `pretrip-auto-notify.tsx`, thêm 2026-07-26): khác dòng nổi tự tắt ở trên — đây là **chip nhỏ 13px căn phải, nằm ngay TRÊN box biển động** (slot `above` của `SnapSheet`, **chỉ ở nấc `peek`**), để bà con liếc là biết trong máy đã có dự báo tới ngày nào. **CHẠM ĐƯỢC (2026-07-29, user)**: chip là `<button>` (min-h 2,75rem) — chạm là TẢI NGAY/thử lại (bỏ cửa chặn tự động vì bà con chủ động xin; khoá nút khi đang tải); chưa có dữ liệu thì chữ kèm hint "— chạm để tải". Câu chữ ở `pretripSavedText` (`lib/pretrip-auto.ts`, thuần, có test), đọc thẳng `savedSummary()` + bám phase tải sẵn:
+**Nhãn nhỏ THƯỜNG TRỰC "đã sẵn sàng ra khơi chưa"** (`PretripSavedStatus` trong `pretrip-auto-notify.tsx`, thêm 2026-07-26): khác dòng nổi tự tắt ở trên — đây là **chip nhỏ 13px căn phải, nằm ngay TRÊN box biển động** (slot `above` của `SnapSheet`, **chỉ ở nấc `peek`**), để bà con liếc là biết trong máy đã lưu ĐỦ dự báo cho offline chưa. **ĐỘ PHỦ TRUNG THỰC (2026-07-29, user)**: câu chữ ở `coverageChipText` (`lib/pretrip-auto.ts`, thuần, có test) đọc `savedCoverage()` — "Đã lưu đủ… tới ngày X" **CHỈ** nói khi MỌI lớp tự-tải-được đã có (điểm gió sóng · bản đồ cá · lưới gió sóng · lớp mây-mưa-nhiệt · độ mặn · dòng chảy tầng); thiếu thì nói thẳng số lớp. Trước đây "tới ngày X" đo mỗi gió-sóng-điểm nên **nói quá** (cá/lớp màu/dòng chảy chưa chắc có).
 
 | Trạng thái | Chip | Màu |
 |---|---|---|
-| Đang tải sẵn | **"Đang tải dữ liệu dự báo"** | chữ navy |
-| Trong máy đã có bản | **"Đã lưu dữ liệu dự báo tới ngày D/M"** | chữ `text-ok` |
+| Đang tải sẵn | **"Đang tải dữ liệu dự báo"** (+ chấm nhấp nháy) | chữ navy |
+| ĐỦ mọi lớp | **"Đã lưu đủ dự báo — tới ngày D/M"** | chữ `text-ok` |
+| Còn thiếu lớp | **"Còn thiếu N lớp — chạm xem"** | chữ `text-warn` |
 | Chưa có gì | **"Chưa tải dữ liệu dự báo"** | chữ `text-warn` |
 
+**CHẠM → POPUP "Dữ liệu đã lưu để đi biển"** (`PretripSavedSheet`, BottomSheet dùng chung): liệt kê **7 lớp** (2026-07-29z2 thêm **Nước dâng/xoáy** SSHA), mỗi dòng ✓ xanh (đã lưu + chi tiết + "lưu X trước" + **~dung lượng**) hoặc ⚠ vàng (chưa lưu) + nút **"Tải lại"** (chạy `runLayer(id)` đúng lớp đó) / "Tải mới" cho lớp đã có; đáy có **"Tải lại N lớp còn thiếu"** + **"Tổng trong máy ~X MB"**. Bản đồ cá khoá premium → nhãn "khoá", không tính là thiếu. **Nhãn lớp NÓI RÕ phạm vi**: "Gió sóng CẢ VÙNG biển" (lưới toàn Biển Đông — xem ở bất kỳ đâu) vs "Gió sóng chi tiết theo điểm" (chỉ điểm ghim + đang xem); lớp màu ghi đủ 5 (mây, mưa, nhiệt, dông, áp suất). **SAO LƯU RA TỆP** (2026-07-29z2): 2 nút "Lưu ra tệp" (tải JSON gom localStorage + bản đồ cá SW) / "Phục hồi từ tệp" (`offline-backup.ts`) — phòng máy/trình duyệt xoá cache giữa chuyến dài. Đây là chỗ bà con thấy CHÍNH XÁC đã lưu gì + tải bù lớp còn trống (thay hành vi "chạm = tải cả mẻ" cũ).
+
+> **Copy 2026-07-29**: bỏ "Ảnh trễ ~2 ngày" khỏi lớp Hải đồ (ra-khoi-controls) — user chốt "ngư dân không cần biết"; nay ghi "Ảnh vệ tinh · theo ngày" (vẫn rõ KHÔNG phải dự báo, không nêu số ngày trễ).
+
 Dòng lỗi **"Dự báo cá chưa tải được — chạm để thử lại"** (khi lớp cá bật mà tải hỏng) **xếp NGAY TRÊN** nhãn này trong cùng slot `above`, căn phải (2026-07-26) — trước đây trôi nổi góc trái bản đồ.
+
+**FIX "lớp cá quay hoài không ra" (2026-07-29)**: gốc là `useAuthUser.getUser()` không `.catch`/timeout → khi sóng "sống mà chết" (`navigator.onLine` lỡ = true) thì `ready` kẹt `false` → `featureAccessDecision` trả `"checking"` mãi → `loadFish` không chạy (không data, không cả pill lỗi). Nay `getUser()` có `.catch` + đồng hồ 8s (LUÔN `ready`) + cờ `errored`; `featureAccessDecision` thêm nhánh `authErrored`: onLine=true nhưng auth hỏng + đã từng premium → vẫn **mở** bản cá đã tải (khỏi bắt đăng nhập lại). Chốt thật vẫn ở middleware/RLS khi có mạng.
 
 Tải sẵn (không đổi): gió sóng 16 ngày cho **chỗ đang xem + mọi điểm đã ghim** (gộp các chỗ cùng ô 0,25°) · **bản đồ cá** · **lưới gió/sóng khung 3 / 7 / 16 ngày** (`PRETRIP_GRID_DAYS`).
 

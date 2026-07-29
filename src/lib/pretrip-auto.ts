@@ -10,7 +10,7 @@
 // navigator ẩn) để test được từng trường hợp.
 
 import { formatDateVN } from "@/lib/ocean-map";
-import type { PretripResult, SavedSummary } from "@/lib/pretrip";
+import type { PretripResult, SavedSummary, SavedCoverage } from "@/lib/pretrip";
 
 /**
  * TIẾT CHẾ DATA: chỉ tự tải lại khi bản trong máy đã cũ hơn ngần này.
@@ -139,4 +139,24 @@ export function pretripSavedText(
     return `Đã lưu dữ liệu dự báo tới ngày ${formatDateVN(saved.untilIso)}`;
   }
   return "Chưa tải dữ liệu dự báo";
+}
+
+/**
+ * Câu chữ chip THEO ĐỘ PHỦ TỪNG LỚP (2026-07-29). "Đã lưu … tới ngày X" chỉ
+ * được nói khi MỌI lớp tự-tải-được (cá, điểm, lưới, mây/mưa/nhiệt, độ mặn, dòng
+ * chảy) đã có trong máy — TRUNG THỰC, không còn nói quá theo mỗi gió-sóng-điểm.
+ * Thiếu lớp nào thì nói thẳng còn mấy lớp + mời chạm mở popup để tải lại lẻ.
+ */
+export function coverageChipText(
+  phase: PretripSavedPhase,
+  cov: SavedCoverage | null,
+): string {
+  if (phase === "loading") return "Đang tải dữ liệu dự báo";
+  if (!cov || cov.layers.every((l) => !l.saved)) return "Chưa tải dữ liệu dự báo";
+  if (cov.allSaved) {
+    return cov.untilIso
+      ? `Đã lưu đủ dự báo — tới ngày ${formatDateVN(cov.untilIso)}`
+      : "Đã lưu đủ dự báo cho offline";
+  }
+  return `Còn thiếu ${cov.missing} lớp — chạm xem`;
 }

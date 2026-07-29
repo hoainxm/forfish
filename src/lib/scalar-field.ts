@@ -15,7 +15,7 @@
 // ĐỘ MẶN (Copernicus): CHƯA nối — theo luật repo phải fetch thử thật kiểm
 // đơn vị/endpoint Zarr trước (external-services.md). Để đợt sau kèm probe.
 
-import { saveForecast, loadForecast } from "@/lib/forecast-cache";
+import { saveForecast, loadForecast, loadAll } from "@/lib/forecast-cache";
 import { apiUrl } from "@/lib/api-base";
 import { isCacheCurrent } from "@/lib/source-cadence";
 import {
@@ -147,6 +147,33 @@ const cacheId = (kind: ScalarKind, days: number) => `${kind}.d${Math.round(days)
     hơn khi khung đang xin không có (nguồn 429/mất sóng). */
 const SCALAR_FALLBACK_DAYS = [3, 16] as const;
 
+/** Các khung ngày lớp dải màu `kind` đang giữ trong máy (thuần đọc — cho
+    bảng "trong máy đang có gì" của pretrip-status). */
+export function savedScalarDays(kind: ScalarKind): number[] {
+  const pre = `${kind}.d`;
+  return loadAll<unknown>(SCALAR_NS)
+    .map((e) => e.id)
+    .filter((id) => id.startsWith(pre))
+    .map((id) => Number(id.slice(pre.length)))
+    .filter((n) => Number.isFinite(n))
+    .sort((a, b) => a - b);
+}
+
+/** Ngày (ISO) xa nhất lớp `kind` phủ tới (times[] thật của khung rộng nhất). */
+export function savedScalarUntil(kind: ScalarKind): string | null {
+  const pre = `${kind}.d`;
+  let best: { days: number; until: string | null } | null = null;
+  for (const e of loadAll<ScalarGrid>(SCALAR_NS)) {
+    if (!e.id.startsWith(pre)) continue;
+    const d = Number(e.id.slice(pre.length));
+    if (!Number.isFinite(d)) continue;
+    const t = e.data?.times;
+    const until = t && t.length ? t[t.length - 1].slice(0, 10) : null;
+    if (!best || d > best.days) best = { days: d, until };
+  }
+  return best?.until ?? null;
+}
+
 /** Bản lưu còn DÙNG ĐƯỢC không: đủ ô khớp kích thước khai (bản đời cũ trước khi
     mở lưới 156 không có nLat/nLon và lệch số ô → loại, coi như không có). */
 function scalarGridUsable(g: ScalarGrid | null | undefined): boolean {
@@ -237,11 +264,17 @@ export async function fetchScalarField(
     const hit = loadForecast<ScalarGrid>(SCALAR_NS, cacheId(kind, days));
     if (hit && scalarGridUsable(hit.data))
       return { ...hit.data, stale: true, savedAt: hit.savedAt };
-    // snapshot cron có CẢ d3 (miễn phí) LẪN d16 (premium — route chặn thật)
+    // snapshot cron có CẢ d3 (miễn phí) LẪN d16 (premium — route chặn thật).
+    // LƯU luôn khi live 429 (2026-07-29): trước đây trả stale mà KHÔNG ghi →
+    // "Tải lại" trong popup coi như thất bại (savedScalarDays vẫn trống) dù
+    // đã lấy được snapshot. Ghi để offline có bản + hàng đổi xanh. isCacheCurrent
+    // vẫn thấy cũ nên lần sau có sóng vẫn tải mới.
     if (SNAPSHOT_DAY_SET.includes(days)) {
       const snap = await loadScalarSnapshotClient(kind, days);
-      if (snap && scalarGridUsable(snap))
+      if (snap && scalarGridUsable(snap)) {
+        saveForecast(SCALAR_NS, cacheId(kind, days), snap, snap.savedAt ?? undefined);
         return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
+      }
     }
     // CUỐI CÙNG: mượn khung NGẮN HƠN đã lưu (cùng luật forecast-grid — thanh
     // ngày vẽ theo times[] thật nên không nói dối; thà 3 ngày còn hơn trắng)
