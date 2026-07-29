@@ -76,6 +76,19 @@ html {
 }
 
 /*
+  BÙ BUG iOS 26 STANDALONE — layout viewport kẹt NGẮN (Apple sửa Safari 26.1,
+  số 158055568). Biến CHUNG: mặc định 0px (Safari thường / Android / desktop
+  KHÔNG bao giờ bị bù oan). CHỈ bản cài iOS lỗi mới được JS gán khác 0
+  (viewport-gap-fix.tsx). Dock + cụm bottom UI (map page chứa sheet + thanh
+  ngày) neo theo biến này để cùng xuống đúng phần hụt.
+  ⚠️ KHÁC safe-area: safe-area là padding bảo vệ chữ khỏi home-indicator; biến
+  này chỉ sửa viewport kẹt. Hai giá trị KHÔNG dùng thay nhau.
+*/
+:root {
+  --pwa-viewport-gap: 0px;
+}
+
+/*
   CỠ GIAO DIỆN (sửa 2026-06-11 theo góp ý user: "bắt theo size hệ thống
   điện thoại, chỉnh tay đưa vào cài đặt account") — kiến trúc MỘT hệ rem:
   toàn bộ cỡ chữ / tap-size / bo góc viết bằng REM, nên chế độ chỉ là

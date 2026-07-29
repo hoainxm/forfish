@@ -1,73 +1,85 @@
 "use client";
 
 /*
-  VÁ BUG iOS 26 SAFARI — dock đáy "treo lưng chừng" (ảnh user 2026-07-29).
+  BÙ BUG iOS 26 STANDALONE — layout viewport kẹt NGẮN (Apple xác nhận sửa ở
+  Safari 26.1, số 158055568): "fixed a bottom gap appearing on layouts with
+  viewport-sized fixed containers on iOS".
 
-  Bug WebKit (Apple sửa từ Safari 26.1, số 158055568): sau khi bàn phím /
-  thanh công cụ Safari đóng-mở, LAYOUT viewport không nở lại theo màn hình →
-  phần tử position:fixed bám đáy layout viewport CŨ (ngắn hơn), lòi dải nền
-  trống bên dưới; dính cả Safari thường lẫn PWA cài về máy. Cộng đồng xác
-  nhận CUỘN TRANG là Safari neo lại đúng.
+  Ở bản cài (standalone), sau khi bàn phím / thanh công cụ đóng, layout viewport
+  kẹt ngắn hơn màn thật → position:fixed bottom:0 (dock, map, sheet, thanh ngày)
+  bám đáy viewport NGẮN → cả cụm bị nâng, lòi khối trống bên dưới.
 
-  Cách vá: nghe visualViewport — khi đáy NHÌN THẤY thấp hơn đáy LAYOUT quá 2px
-  thì hích cuộn 1px xuống-lên cho Safari tính lại. Trang VỪA KHÍT màn hình
-  (trang chủ) không có gì để cuộn → nới đáy body 2px MỘT NHỊP cho scrollBy có
-  chỗ làm việc rồi trả lại; kiểm lại mỗi lần đổi trang (dep pathname).
+  Cách vá (user chốt): đo phần viewport bị HỤT (visual − layout) → gán vào biến
+  chung --pwa-viewport-gap; dock dịch xuống bằng transform, map nới đáy — cùng
+  một biến nên cả cụm bottom xuống đều.
 
-  ĐÃ GỠ 2026-07-29 (user: "tệ hơn bản trước, mất cả góc nhìn"): bù vị trí dock
-  bằng CSS var --vvgap. Sai ở chỗ: thanh công cụ Safari thu gọn thì visual và
-  layout viewport lệch nhau MỘT CÁCH BÌNH THƯỜNG (Safari vẫn tự neo fixed đúng
-  đáy) → phép đo không phân biệt được trạng thái đó với bug thật, bù oan làm
-  dock chui xuống dưới mép màn hình. KHÔNG làm lại kiểu đo-rồi-dịch này.
+  NGUYÊN TẮC:
+   · CHỈ standalone. Ngoài standalone: không chạy → biến giữ 0px, Safari thường
+     KHÔNG bị bù oan khi thanh công cụ co giãn.
+   · CHỈ đo sau khi bàn phím ĐÓNG / app RESUME / xoay màn. KHÔNG đo lúc input
+     còn focus (bàn phím mở làm viewport ngắn HỢP LỆ — không phải bug).
+   · safe-area vẫn là padding trong dock, KHÔNG lẫn với biến này.
 */
 
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+
+/** Chặn số đo rác (xoay màn giữa chừng, zoom…) — hụt thật cỡ thanh công cụ */
+const GAP_MAX_PX = 200;
 
 export function ViewportGapFix() {
-  const pathname = usePathname();
-
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
+    const standalone =
+      window.matchMedia?.("(display-mode: standalone)").matches === true ||
+      (navigator as { standalone?: boolean }).standalone === true;
+    if (!standalone) return; // ngoài standalone: biến giữ 0px, không đụng gì
+
     const de = document.documentElement;
     let raf = 0;
-    let undoPad = 0;
 
-    const check = () => {
+    const isTyping = () => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable === true;
+    };
+
+    const measure = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        const gap = vv.height + vv.offsetTop - de.clientHeight;
-        if (gap > 2) {
-          // không có gì để cuộn (trang vừa khít) → nới đáy 2px một nhịp
-          if (de.scrollHeight <= de.clientHeight + 1) {
-            document.body.style.paddingBottom = "2px";
-            window.clearTimeout(undoPad);
-            undoPad = window.setTimeout(() => {
-              document.body.style.paddingBottom = "";
-            }, 350);
-          }
-          window.scrollBy(0, 1);
-          window.scrollBy(0, -1);
-        }
+        if (isTyping()) return; // bàn phím đang mở → viewport ngắn HỢP LỆ, bỏ
+        // phần HỤT = màn nhìn thấy thật (visual) − layout viewport (bị kẹt ngắn)
+        const gap = Math.round(vv.height - de.clientHeight);
+        const px = gap > 2 && gap <= GAP_MAX_PX ? gap : 0;
+        de.style.setProperty("--pwa-viewport-gap", `${px}px`);
       });
     };
 
-    vv.addEventListener("resize", check);
-    vv.addEventListener("scroll", check);
-    // đóng bàn phím (blur ô nhập) — thời điểm bug hay lộ nhất
-    window.addEventListener("focusout", check);
-    window.addEventListener("orientationchange", check);
-    check();
+    measure();
+    // bàn phím đóng (blur ô nhập) — chờ viewport settle rồi mới đo
+    const onFocusOut = () => window.setTimeout(measure, 120);
+    const onVisible = () => {
+      if (!document.hidden) measure();
+    };
+    window.addEventListener("focusout", onFocusOut);
+    document.addEventListener("visibilitychange", onVisible);
+    vv.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    // lưới an toàn: đổi tab có thể đổi trạng thái viewport mà không bắn event;
+    // measure tự bỏ khi đang gõ nên không bù oan lúc bàn phím mở
+    const tick = window.setInterval(measure, 600);
+
     return () => {
       cancelAnimationFrame(raf);
-      window.clearTimeout(undoPad);
-      vv.removeEventListener("resize", check);
-      vv.removeEventListener("scroll", check);
-      window.removeEventListener("focusout", check);
-      window.removeEventListener("orientationchange", check);
+      window.clearInterval(tick);
+      window.removeEventListener("focusout", onFocusOut);
+      document.removeEventListener("visibilitychange", onVisible);
+      vv.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+      de.style.removeProperty("--pwa-viewport-gap");
     };
-  }, [pathname]);
+  }, []);
 
   return null;
 }

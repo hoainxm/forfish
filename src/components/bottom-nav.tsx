@@ -30,8 +30,17 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Điều hướng chính"
-      className="fixed bottom-0 left-1/2 z-20 w-full max-w-[480px] -translate-x-1/2 px-3"
-      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
+      // Canh giữa bằng LỀ (left-0/right-0/mx-auto) để transform CHỈ còn trục
+      // dọc. bottom:0 + padding safe-area giữ nguyên (nguyên tắc dock). Bug iOS
+      // 26 standalone: dịch dock XUỐNG đúng phần viewport hụt bằng
+      // translate3d(0, --pwa-viewport-gap, 0). Ngoài standalone biến = 0px →
+      // translate3d(0,0,0) = y hệt cũ.
+      className="fixed bottom-0 left-0 right-0 z-20 mx-auto w-full max-w-[480px] px-3"
+      style={{
+        paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)",
+        transform: "translate3d(0, var(--pwa-viewport-gap, 0px), 0)",
+        transition: "transform 140ms ease-out",
+      }}
     >
       <ul
         className="grid grid-cols-5 rounded-[1.625rem] px-1.5 py-1.5 shadow-[0_12px_32px_-8px_rgba(10,30,50,0.45)] backdrop-blur-md"

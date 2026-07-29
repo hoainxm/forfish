@@ -14,7 +14,17 @@ export const metadata = { title: "Đánh bắt — SDFish" };
 */
 export default function NguTruongPage() {
   return (
-    <div className="fixed inset-x-0 top-0 bottom-[calc(84px+env(safe-area-inset-bottom))] mx-auto max-w-[480px]">
+    <div
+      // top:0 GIỮ NGUYÊN (mốc trên không dính bug), chỉ NỚI ĐÁY xuống đúng phần
+      // viewport hụt của bug iOS 26 standalone (--pwa-viewport-gap; ngoài
+      // standalone = 0 → y hệt cũ). Nhờ vậy sheet + thanh ngày (nằm trong map,
+      // neo đáy map) tụt xuống CÙNG dock — cả cụm bottom đi đều, không lệch tab.
+      className="fixed inset-x-0 top-0 mx-auto max-w-[480px]"
+      style={{
+        bottom:
+          "calc(84px + env(safe-area-inset-bottom) - var(--pwa-viewport-gap, 0px))",
+      }}
+    >
       <FishingMap />
     </div>
   );
