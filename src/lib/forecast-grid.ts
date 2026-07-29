@@ -256,15 +256,17 @@ export async function fetchForecastGrid(
     // MIỄN PHÍ (d3) thì thử snapshot server cron tính sẵn (khung premium không
     // snapshot công khai — xem weather-snapshot-id.ts). Giữ cờ stale để UI nói
     // thật. Bản lưu ĐỜI CŨ (vùng phủ nhỏ hơn) bị LOẠI — xem gridIsCurrent.
+    // usable (KHÔNG chỉ gridIsCurrent): lớp Dòng chảy đòi grid CÓ số dòng chảy —
+    // bản thiếu current mà nhận vào là "loaded mà không vẽ mũi tên" (blank câm).
     const hit = loadForecast<ForecastGrid>(GRID_NS, id);
-    if (hit && gridIsCurrent(hit.data))
+    if (hit && usable(hit.data))
       return { ...hit.data, stale: true, savedAt: hit.savedAt };
     // Snapshot cron: CẢ khung miễn phí d3 LẪN khung premium d16 (2026-07-29 —
     // premium luôn xin d16 nên trước đây không bao giờ có lưới an toàn). Khung
     // premium bị route chặn thật nếu chưa đủ hạng → trả null, báo lỗi như cũ.
     if (SNAPSHOT_DAY_SET.includes(days)) {
       const snap = await loadGridSnapshotClient(days);
-      if (snap && gridIsCurrent(snap)) {
+      if (snap && usable(snap)) {
         // LƯU khi live 429 (2026-07-29): trước chỉ trả stale mà không ghi →
         // "Tải lại" trong popup coi như hỏng (savedGridDays vẫn trống) dù đã
         // lấy được snapshot. Ghi để offline có bản + hàng đổi xanh.
@@ -279,7 +281,7 @@ export async function fetchForecastGrid(
     const shorter = savedCurrentGridDays().filter((d) => d < days);
     for (let i = shorter.length - 1; i >= 0; i--) {
       const alt = loadForecast<ForecastGrid>(GRID_NS, gridCacheId(shorter[i]));
-      if (alt && gridIsCurrent(alt.data))
+      if (alt && usable(alt.data))
         return { ...alt.data, stale: true, savedAt: alt.savedAt };
     }
     // …và SNAPSHOT SERVER của khung ngắn hơn (user 2026-07-29: "không live được
@@ -287,7 +289,7 @@ export async function fetchForecastGrid(
     // localStorage trống — server vẫn có bản cron tính sẵn.
     for (const d of [...SNAPSHOT_DAY_SET].filter((x) => x < days).sort((a, b) => b - a)) {
       const snap = await loadGridSnapshotClient(d);
-      if (snap && gridIsCurrent(snap))
+      if (snap && usable(snap))
         return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
     }
     throw err;
