@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { BellIcon, ChevronRightIcon, UsersIcon } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
+import { apiUrl } from "@/lib/api-base";
 import { useAuthUser } from "@/lib/use-auth";
 import {
   getExistingPushSubscription,
@@ -60,6 +61,29 @@ export function HeroAccount() {
   const [mode, setMode] = useState<Mode>("gon");
   const [pushState, setPushState] = useState<PushUiState>("checking");
   const [pushError, setPushError] = useState<string | null>(null);
+  // lối vào trang quản trị — CHỈ hiện cho STAFF (admin/manager). Dò quyền thật
+  // qua /api/admin/health (200 = staff) thay vì đoán ở client. /quan-tri vẫn
+  // tự bảo vệ ở API — nút này chỉ là lối tắt cho người có quyền.
+  const [isStaff, setIsStaff] = useState(false);
+
+  useEffect(() => {
+    // chưa đăng nhập → chắc chắn không phải staff, khỏi gọi API
+    if (!user) {
+      setIsStaff(false);
+      return;
+    }
+    let alive = true;
+    fetch(apiUrl("/api/admin/health"))
+      .then((r) => {
+        if (alive) setIsStaff(r.ok);
+      })
+      .catch(() => {
+        if (alive) setIsStaff(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!isPushSupported()) {
@@ -238,6 +262,21 @@ export function HeroAccount() {
             <p className="-mt-2.5 mb-4 px-1 text-[0.8125rem] font-semibold text-danger">
               {pushError}
             </p>
+          )}
+
+          {/* Lối vào TRANG QUẢN TRỊ — chỉ STAFF thấy (isStaff dò từ
+              /api/admin/health). Ngư dân thường không thấy; quyền thật vẫn ở API. */}
+          {isStaff && (
+            <Link
+              href="/quan-tri"
+              onClick={() => setOpen(false)}
+              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left surface"
+            >
+              <span className="min-w-0 flex-1 text-[1rem] font-bold text-navy">
+                Trang quản trị
+              </span>
+              <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+            </Link>
           )}
 
           {/* Chính sách quyền riêng tư — công khai, luôn tới được (App Store

@@ -1,0 +1,136 @@
+# Build AAB đã ký + (tùy chọn) đẩy lên CH Play tự động.
+#
+# KHI NÀO CHẠY: bấm tay (Actions → Run workflow) hoặc push tag vX.Y.Z.
+#   KHÔNG chạy mỗi push — chế độ wrap (a) server.url nghĩa là đa số cập nhật chỉ
+#   cần deploy Vercel, không cần binary mới. Chỉ build khi đổi vỏ native / bump
+#   version / đóng rejection. Xem docs/app-map/ops/build-publish-store.md §3b.
+#
+# SECRETS cần set (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_BASE64  — `base64 -w0 android/app/sdfish-release.keystore`
+#   ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+#   PLAY_SERVICE_ACCOUNT_JSON — JSON service account (Play Console → API access),
+#                               role tối thiểu "Release apps". Chỉ cần cho bước publish.
+#
+# LƯU Ý: workflow KHÔNG chạy `cap sync` lên platform mới — nó build từ android/ đã
+# commit + sync lại web/plugin. Đổi icon/splash/plugin native thì chạy `npm run
+# cap:sync` local + commit TRƯỚC. App content / Data safety / screenshot / tài
+# khoản demo trên Play vẫn phải làm tay (§5 runbook).
+
+name: Android release (build + publish CH Play)
+
+on:
+  workflow_dispatch:
+    inputs:
+      versionName:
+        description: "versionName hiển thị (vd 1.0.4). Bỏ trống = giữ mặc định build.gradle."
+        required: false
+        default: ""
+      track:
+        description: "Play track"
+        required: true
+        default: "internal"
+        type: choice
+        options: [internal, alpha, beta, production]
+      publish:
+        description: "Đẩy lên CH Play (cần PLAY_SERVICE_ACCOUNT_JSON). Bỏ = chỉ build AAB."
+        required: true
+        default: true
+        type: boolean
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # versionCode phải TĂNG mỗi upload. 10000 + run_number: luôn > versionCode
+      # hiện tại (4) và đơn điệu tăng theo mỗi lần chạy. Không bao giờ đụng tay.
+      # (Biểu thức ${{ }} của GHA không làm số học → tính ở bash.)
+      - name: Tính versionCode
+        run: echo "APP_VERSION_CODE=$((10000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Xác định versionName
+        id: ver
+        run: |
+          NAME="${{ inputs.versionName }}"
+          if [ -z "$NAME" ] && [ "${{ github.ref_type }}" = "tag" ]; then
+            NAME="${GITHUB_REF_NAME#v}"   # tag v1.0.4 -> 1.0.4
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "versionCode=$APP_VERSION_CODE  versionName=${NAME:-<mặc định build.gradle>}"
+
+      # Chế độ (a) server.url: web load từ Vercel lúc chạy. cap sync vẫn cần webDir
+      # 'out' tồn tại để copy → tạo stub tối thiểu (bị server.url ghi đè runtime).
+      - name: Stub web dir cho Capacitor (mode server.url)
+        run: |
+          mkdir -p out
+          echo '<!doctype html><meta charset="utf-8"><title>SDFish</title><body>Đang tải SDFish…</body>' > out/index.html
+
+      - name: Đồng bộ web + plugin sang android/
+        run: npx cap sync android
+
+      - name: Sinh lại launcher icon (đè icon mặc định Capacitor)
+        run: npm run icons
+
+      - name: Khôi phục keystore ký release
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS_B64" ]; then echo "::error::Thiếu secret ANDROID_KEYSTORE_BASE64"; exit 1; fi
+          echo "$KS_B64" | base64 -d > android/app/sdfish-release.keystore
+          cat > android/keystore.properties <<EOF
+          storeFile=sdfish-release.keystore
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+
+      - name: Build AAB đã ký
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon bundleRelease \
+            -PappVersionCode=${APP_VERSION_CODE} \
+            ${{ steps.ver.outputs.name && format('-PappVersionName={0}', steps.ver.outputs.name) || '' }}
+
+      - name: Lưu AAB làm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      - name: Đẩy lên CH Play
+        if: ${{ github.ref_type == 'tag' || inputs.publish }}
+        working-directory: android
+        env:
+          ANDROID_PUBLISHER_CREDENTIALS: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$ANDROID_PUBLISHER_CREDENTIALS" ]; then
+            echo "::error::Thiếu secret PLAY_SERVICE_ACCOUNT_JSON — không publish được. Bỏ tick publish nếu chỉ muốn build."
+            exit 1
+          fi
+          ./gradlew --no-daemon publishReleaseBundle \
+            -PappVersionCode=${APP_VERSION_CODE} \
+            ${{ steps.ver.outputs.name && format('-PappVersionName={0}', steps.ver.outputs.name) || '' }} \
+            -PplayTrack=${{ inputs.track || 'internal' }}
