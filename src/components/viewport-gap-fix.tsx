@@ -32,6 +32,13 @@ export function ViewportGapFix() {
     const de = document.documentElement;
     de.classList.add("pwa-frame");
     let raf = 0;
+    // GIỮ ĐÁY LỚN NHẤT đã đo cho từng CHIỀU màn hình (user 2026-07-29): tab
+    // KHÔNG cuộn iOS báo visualViewport thấp hơn, tab cuộn được WebKit tự nở →
+    // nếu ghi thẳng số đo mỗi tab, --app-vh co/nở theo tab, dock nhảy. Chỉ cho
+    // LỚN LÊN, không cho nhỏ lại; key theo screen.width×height (xoay màn = mốc
+    // mới). sessionStorage: ổn định trong một lần mở app.
+    let stableKey = "";
+    let stableBottom = 0;
 
     const isTyping = () => {
       const el = document.activeElement as HTMLElement | null;
@@ -43,10 +50,24 @@ export function ViewportGapFix() {
     const apply = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        if (isTyping()) return; // bàn phím mở → giữ chiều cao khung, không nhảy
-        // đáy vùng NHÌN THẤY thật (visual viewport), làm chiều cao DockFrame
-        const visibleBottom = Math.round(vv.offsetTop + vv.height);
-        de.style.setProperty("--app-vh", `${visibleBottom}px`);
+        if (isTyping()) return; // bàn phím mở → viewport ngắn hợp lệ, bỏ
+        const key = `forfish.pwa-frame.${screen.width}x${screen.height}`;
+        const measured = Math.round(vv.offsetTop + vv.height);
+        if (key !== stableKey) {
+          // đổi chiều màn (xoay) → mốc mới: lấy bản đã lưu của chiều này, hoặc số đo hiện tại
+          stableKey = key;
+          let saved = 0;
+          try {
+            saved = Number(sessionStorage.getItem(key)) || 0;
+          } catch {}
+          stableBottom = saved > 0 ? saved : measured;
+        }
+        // CHỈ cho lớn lên: tab ngắn đo nhỏ hơn KHÔNG kéo chuẩn xuống
+        stableBottom = Math.max(stableBottom, measured);
+        try {
+          sessionStorage.setItem(key, String(stableBottom));
+        } catch {}
+        de.style.setProperty("--app-vh", `${stableBottom}px`);
       });
     };
 
