@@ -3,6 +3,8 @@ import {
   seaSnapshotId,
   gridSnapshotId,
   scalarSnapshotId,
+  salinitySnapshotId,
+  seaScalarSnapshotId,
   rawSourceId,
   curDepthSnapshotId,
   isValidSnapshotId,
@@ -22,15 +24,20 @@ describe("weather-snapshot id — khoá + whitelist", () => {
     expect(scalarSnapshotId("cloud", 3)).toBe("scalar:cloud:d3");
   });
 
-  it("chấp nhận đúng 3 dạng khoá hợp lệ", () => {
+  it("chấp nhận các dạng khoá hợp lệ", () => {
     expect(isValidSnapshotId("sea:phu-quy")).toBe(true);
     expect(isValidSnapshotId("sea:cua_lo")).toBe(true);
     expect(isValidSnapshotId("grid:d3")).toBe(true);
     expect(isValidSnapshotId("grid:d16")).toBe(true);
-    // 5 lớp dải màu Open-Meteo (KHÔNG có salinity — đã server-side riêng)
+    // 5 lớp dải màu Open-Meteo (salinity dùng khoá RIÊNG salinity:d4)
     for (const k of ["cloud", "rain", "airtemp", "storm", "pressure"]) {
       expect(isValidSnapshotId(`scalar:${k}:d3`)).toBe(true);
     }
+    // ĐỘ MẶN + NƯỚC DÂNG/XOÁY — snapshot server riêng (2026-07-29)
+    expect(salinitySnapshotId(4)).toBe("salinity:d4");
+    expect(seaScalarSnapshotId("ssha")).toBe("seascalar:ssha");
+    expect(isValidSnapshotId("salinity:d4")).toBe(true);
+    expect(isValidSnapshotId("seascalar:ssha")).toBe(true);
   });
 
   it("chặn id lạ (khỏi thành proxy đọc bảng tuỳ ý)", () => {
@@ -41,9 +48,11 @@ describe("weather-snapshot id — khoá + whitelist", () => {
     expect(isValidSnapshotId("grid:x")).toBe(false);
     expect(isValidSnapshotId("sea:phu-quy;drop")).toBe(false);
     expect(isValidSnapshotId("SEA:phu-quy")).toBe(false); // hoa
-    expect(isValidSnapshotId("scalar:salinity:d3")).toBe(false); // không public
+    expect(isValidSnapshotId("scalar:salinity:d3")).toBe(false); // salinity KHÔNG ở prefix scalar:
     expect(isValidSnapshotId("scalar:cloud:x")).toBe(false);
     expect(isValidSnapshotId("scalar:evil:d3")).toBe(false);
+    expect(isValidSnapshotId("salinity:x")).toBe(false);
+    expect(isValidSnapshotId("seascalar:evil")).toBe(false); // chỉ ssha/sss
   });
 
   it("khung snapshot công khai chỉ là d3 (miễn phí)", () => {
@@ -95,6 +104,9 @@ describe("weather-snapshot id — khoá + whitelist", () => {
       expect(snapshotNeedsPremium("scalar:rain:d3")).toBe(false);
       // dự báo theo cảng không mang khung ngày → public
       expect(snapshotNeedsPremium("sea:phu-quy")).toBe(false);
+      // độ mặn/nước dâng LUÔN công khai dù id có "d4" (frame cố định, không phải tầm premium)
+      expect(snapshotNeedsPremium("salinity:d4")).toBe(false);
+      expect(snapshotNeedsPremium("seascalar:ssha")).toBe(false);
     });
 
     it("id premium vẫn phải qua whitelist (không mở cửa cho id lạ)", () => {

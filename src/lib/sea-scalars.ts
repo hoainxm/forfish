@@ -10,6 +10,7 @@
 import { parseErddapGrid, ERDDAP_UA, type ScalarGrid } from "@/lib/fish-predict";
 import { apiUrl } from "@/lib/api-base";
 import { saveForecast, loadForecast } from "@/lib/forecast-cache";
+import { seaScalarSnapshotId } from "@/lib/weather-snapshot-id";
 
 export type SeaScalarKind = "ssha" | "sss";
 
@@ -138,11 +139,38 @@ export async function loadSeaScalar(
   return { ok: false };
 }
 
-/** Client gọi route nội bộ — LƯU vào máy khi được, MẤT SÓNG lùi về bản đã lưu
- *  (2026-07-29: trước đây chỉ dựa Service Worker, không tự tải sẵn được). */
+/** Snapshot lớp số liệu biển do cron tính sẵn (same-origin) — null nếu chưa có */
+async function loadSeaScalarSnapshot(
+  kind: SeaScalarKind,
+): Promise<SeaScalarResult | null> {
+  try {
+    const r = await fetch(
+      apiUrl(`/api/weather-snapshot?id=${seaScalarSnapshotId(kind)}`),
+      { signal: AbortSignal.timeout(10000) },
+    );
+    if (!r.ok) return null;
+    const j = (await r.json()) as SeaScalarResult;
+    return j && j.ok && Array.isArray(j.cells) && j.cells.length > 0 ? j : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Client gọi lấy lớp số liệu biển. ƯU TIÊN SNAPSHOT cron (same-origin, không đập
+ * ERDDAP hay treo/403) → live → bản đã lưu. LƯU vào máy khi được để mất sóng vẫn
+ * xem lại được (2026-07-29: thêm snapshot server như các lớp khác).
+ */
 export async function fetchSeaScalar(
   kind: SeaScalarKind,
 ): Promise<SeaScalarResult> {
+  // 1) snapshot cron (nguồn ERDDAP hay chết → đây là đường chính đáng tin)
+  const snap = await loadSeaScalarSnapshot(kind);
+  if (snap && snap.ok) {
+    saveForecast(SEA_SCALAR_NS, kind, snap);
+    return snap;
+  }
+  // 2) live
   try {
     const r = await fetch(apiUrl(`/api/sea-scalar?kind=${kind}`), {
       signal: AbortSignal.timeout(25000),
@@ -157,6 +185,7 @@ export async function fetchSeaScalar(
   } catch {
     // mạng lỗi → lùi về bản lưu bên dưới
   }
+  // 3) bản đã lưu trong máy (mất sóng)
   const hit = loadForecast<SeaScalarResult>(SEA_SCALAR_NS, kind);
   return hit && hit.data.ok ? hit.data : { ok: false };
 }

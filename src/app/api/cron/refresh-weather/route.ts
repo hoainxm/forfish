@@ -16,11 +16,15 @@ import {
   seaSnapshotId,
   gridSnapshotId,
   scalarSnapshotId,
+  salinitySnapshotId,
+  seaScalarSnapshotId,
   rawSourceId,
   curDepthSnapshotId,
   CUR_DEPTH_MAX_DAYS,
   SNAPSHOT_DAY_SET,
 } from "@/lib/weather-snapshot-id";
+import { fetchSalinityDaily, SALINITY_MAX_DAYS } from "@/lib/copernicus-salinity";
+import { loadSeaScalar } from "@/lib/sea-scalars";
 import {
   mergeForecastGrids,
   mergeScalarGrids,
@@ -423,6 +427,41 @@ export async function GET(req: Request) {
     scalarOk[days] = n;
   }
 
+  // ĐỘ MẶN (Copernicus) + NƯỚC DÂNG/XOÁY (ERDDAP) — snapshot server để live
+  // route (/api/salinity, /api/sea-scalar) lỗi vẫn có bản (2026-07-29). Chạy
+  // SONG SONG, cuối mẻ; nguồn hỏng/lượt quá giờ → KHÔNG ghi đè (saveWeatherSnapshot
+  // chỉ gọi khi có data) nên bản CŨ giữ nguyên (last-good), client vẫn đọc được.
+  const [salinityOk, sshaOk] = await Promise.all([
+    (async () => {
+      try {
+        const sal = await fetchSalinityDaily(SALINITY_MAX_DAYS);
+        if (!sal) return false;
+        return await saveWeatherSnapshot(salinitySnapshotId(SALINITY_MAX_DAYS), {
+          kind: "salinity",
+          times: sal.times,
+          cells: sal.cells,
+          nLat: sal.nLat,
+          nLon: sal.nLon,
+          savedAt,
+        });
+      } catch {
+        return false;
+      }
+    })(),
+    (async () => {
+      try {
+        const r = await loadSeaScalar("ssha");
+        if (!r.ok) return false;
+        return await saveWeatherSnapshot(seaScalarSnapshotId("ssha"), {
+          ...r,
+          savedAt,
+        });
+      } catch {
+        return false;
+      }
+    })(),
+  ]);
+
   const anyGrid = Object.values(gridOk).some(Boolean);
   const anyScalar = Object.values(scalarOk).some((n) => n > 0);
   return Response.json({
@@ -430,6 +469,8 @@ export async function GET(req: Request) {
     sea: { ok: seaOk, failed: seaFail, total: PORTS.length },
     grid: gridOk,
     scalar: { ok: scalarOk, perDay: OM_KINDS.length },
+    salinity: salinityOk,
+    ssha: sshaOk,
     lastResort: { wav: wavP != null, uv: uvP != null },
   });
 }

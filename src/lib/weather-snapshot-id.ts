@@ -36,8 +36,11 @@ export const SNAPSHOT_DAY_SET: readonly number[] = [
   SNAPSHOT_PREMIUM_GRID_DAYS,
 ];
 
-/** id này có phải hàng PREMIUM không (khung > khung miễn phí) — thuần, test được */
+/** id này có phải hàng PREMIUM không (khung > khung miễn phí) — thuần, test được.
+ *  Độ mặn + nước dâng/xoáy LUÔN công khai (số "d4" là frame cố định, KHÔNG phải
+ *  tầm dự báo premium) → không bị chặn dù có "d4". */
 export function snapshotNeedsPremium(id: string): boolean {
+  if (id.startsWith("salinity:") || id.startsWith("seascalar:")) return false;
   const d = Number(/:d(\d+)$/.exec(id)?.[1]);
   return Number.isFinite(d) && d > SNAPSHOT_GRID_DAYS;
 }
@@ -70,13 +73,32 @@ export function curDepthSnapshotId(tier: number, days: number): string {
   return `curdepth:t${tier}:d${days}`;
 }
 
-/** Chặn id lạ trước khi đụng DB / trả về client (whitelist đúng 4 dạng) */
+/**
+ * ĐỘ MẶN (Copernicus) — 1 khung d4 (SALINITY_DAYS). Snapshot server để live
+ * /api/salinity lỗi (Copernicus S3 chậm/hỏng) vẫn có bản (2026-07-29). Miễn phí
+ * — độ mặn không phải hàng premium.
+ */
+export function salinitySnapshotId(days: number): string {
+  return `salinity:d${days}`;
+}
+
+/**
+ * LỚP SỐ LIỆU BIỂN ERDDAP (nước dâng/xoáy SSHA…) — snapshot server để live
+ * /api/sea-scalar lỗi (ERDDAP hay treo/403) vẫn có bản (2026-07-29). Miễn phí.
+ */
+export function seaScalarSnapshotId(kind: string): string {
+  return `seascalar:${kind}`;
+}
+
+/** Chặn id lạ trước khi đụng DB / trả về client (whitelist các dạng hợp lệ) */
 export function isValidSnapshotId(id: string): boolean {
   return (
     /^sea:[a-z0-9_-]+$/.test(id) ||
     /^grid:d\d+$/.test(id) ||
     /^scalar:(cloud|rain|airtemp|storm|pressure):d\d+$/.test(id) ||
-    /^curdepth:t(0|50|150|300):d\d+$/.test(id)
+    /^curdepth:t(0|50|150|300):d\d+$/.test(id) ||
+    /^salinity:d\d+$/.test(id) ||
+    /^seascalar:(ssha|sss)$/.test(id)
   );
 }
 

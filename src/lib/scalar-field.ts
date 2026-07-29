@@ -20,6 +20,7 @@ import { apiUrl } from "@/lib/api-base";
 import { isCacheCurrent } from "@/lib/source-cadence";
 import {
   scalarSnapshotId,
+  salinitySnapshotId,
   SNAPSHOT_DAY_SET,
 } from "@/lib/weather-snapshot-id";
 import {
@@ -186,6 +187,19 @@ function scalarGridUsable(g: ScalarGrid | null | undefined): boolean {
 /** Độ mặn (Copernicus, theo NGÀY) — qua /api/salinity (server fetch S3). Cache
     offline giống các lớp kia; mất mạng → bản lưu + stale. */
 async function fetchSalinityField(days: number): Promise<ScalarGrid> {
+  const id = cacheId("salinity", days);
+  // bản trong máy còn hiện hành → dùng luôn (khỏi đập nguồn)
+  const fresh = loadForecast<ScalarGrid>(SCALAR_NS, id);
+  if (fresh && scalarGridUsable(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
+    return fresh.data;
+  }
+  // ƯU TIÊN SNAPSHOT cron (same-origin, không đập Copernicus bằng IP máy) —
+  // 2026-07-29: độ mặn nay CÓ snapshot server như các lớp khác.
+  const snap = await loadSalinitySnapshotClient(days);
+  if (snap && scalarGridUsable(snap) && isCacheCurrent(snap.savedAt, Date.now())) {
+    saveForecast(SCALAR_NS, id, snap, snap.savedAt ?? undefined);
+    return snap;
+  }
   try {
     const r = await fetch(apiUrl(`/api/salinity?days=${Math.round(days)}`), {
       signal: AbortSignal.timeout(35000),
@@ -208,13 +222,34 @@ async function fetchSalinityField(days: number): Promise<ScalarGrid> {
       nLat: j.nLat,
       nLon: j.nLon,
     };
-    saveForecast(SCALAR_NS, cacheId("salinity", days), g);
+    saveForecast(SCALAR_NS, id, g);
     return g;
   } catch (err) {
-    const hit = loadForecast<ScalarGrid>(SCALAR_NS, cacheId("salinity", days));
+    // live lỗi (Copernicus S3 chậm/hỏng): bản trong máy trước, rồi SNAPSHOT cron
+    // (kể cả cũ — GHI để offline có bản + hàng đổi xanh)
+    const hit = loadForecast<ScalarGrid>(SCALAR_NS, id);
     if (hit && scalarGridUsable(hit.data))
       return { ...hit.data, stale: true, savedAt: hit.savedAt };
+    if (snap && scalarGridUsable(snap)) {
+      saveForecast(SCALAR_NS, id, snap, snap.savedAt ?? undefined);
+      return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
+    }
     throw err;
+  }
+}
+
+/** Snapshot ĐỘ MẶN do cron tính sẵn (same-origin) — null nếu chưa có */
+async function loadSalinitySnapshotClient(days: number): Promise<ScalarGrid | null> {
+  try {
+    const r = await fetch(
+      apiUrl(`/api/weather-snapshot?id=${salinitySnapshotId(days)}`),
+      { signal: AbortSignal.timeout(10000) },
+    );
+    if (!r.ok) return null;
+    const g = (await r.json()) as ScalarGrid;
+    return g && Array.isArray(g.times) && g.times.length > 0 ? g : null;
+  } catch {
+    return null;
   }
 }
 

@@ -453,40 +453,49 @@ function PretripSavedSheet({
         </p>
       )}
 
-      {/* SAO LƯU / PHỤC HỒI ra tệp — phòng app hay máy lỡ xoá cache */}
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={doExport}
-          disabled={!!backupBusy || total <= 0}
-          className="min-h-[3rem] rounded-xl bg-field text-[0.9375rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
-        >
-          {backupBusy === "export" ? "Đang lưu…" : "Lưu ra tệp"}
-        </button>
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={!!backupBusy}
-          className="min-h-[3rem] rounded-xl bg-field text-[0.9375rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
-        >
-          {backupBusy === "import" ? "Đang phục hồi…" : "Phục hồi từ tệp"}
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".json,application/json"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) doImport(f);
-            e.target.value = "";
-          }}
-        />
-      </div>
+      {/* SAO LƯU / PHỤC HỒI ra tệp — CHỈ PREMIUM (user chốt: chỉ premium xem
+          được dự báo >3 ngày nên chỉ premium mới thấy nút xuất/nhập tệp). */}
+      {!fishLocked && (
+        <>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={doExport}
+              disabled={!!backupBusy || total <= 0}
+              className="min-h-[3rem] rounded-xl bg-field text-[0.9375rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
+            >
+              {backupBusy === "export" ? "Đang lưu…" : "Lưu ra tệp"}
+            </button>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={!!backupBusy}
+              className="min-h-[3rem] rounded-xl bg-field text-[0.9375rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
+            >
+              {backupBusy === "import" ? "Đang phục hồi…" : "Phục hồi từ tệp"}
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) doImport(f);
+                e.target.value = "";
+              }}
+            />
+          </div>
+          <p className="mt-3 text-[0.8125rem] leading-snug text-foreground/60">
+            <b>Lưu ra tệp</b> để giữ bản dự phòng phòng khi máy xoá — cầm theo
+            đi biển, cần thì phục hồi lại.
+          </p>
+        </>
+      )}
 
       <p className="mt-3 text-[0.8125rem] leading-snug text-foreground/60">
         Cần có sóng (mạng) để tải. Ngoài khơi mất sóng thì chỉ xem lại được thứ
-        đã tải sẵn. <b>Lưu ra tệp</b> để giữ bản dự phòng phòng khi máy xoá.
+        đã tải sẵn.
       </p>
       <button
         type="button"
