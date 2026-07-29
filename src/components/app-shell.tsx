@@ -19,11 +19,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   // GIỮ body scroll (min-h-dvh, không overflow ở main) để body-lock của
-  // bottom-sheet còn tác dụng. Dock là DockFrame fixed riêng (BottomNav). Nội
-  // dung chừa đúng chiều cao dock qua .app-content (globals.css, dùng chung
-  // --dock-total) thay số 8rem rời.
+  // bottom-sheet còn tác dụng. class `app-shell`: bản cài iOS ép min-height =
+  // --app-vh (globals.css) → tab viewport NHỎ (Trang chủ/Ra khơi) cao bằng
+  // --app-vh max nên iOS tự NỞ viewport bằng tab dài → dock max không còn bị
+  // che (user 2026-07-29: "khung view của tab 1/2 phải nở theo vh mới").
   return (
-    <div className="mx-auto flex min-h-dvh max-w-[480px] flex-col bg-background shadow-sm">
+    <div className="app-shell mx-auto flex min-h-dvh max-w-[480px] flex-col bg-background shadow-sm">
       <main className="app-content flex-1">{children}</main>
       <BottomNav />
     </div>
