@@ -110,15 +110,12 @@ export function BoatProducts() {
   }, [boats.length]);
 
   // Chỉ hiện sản phẩm của tàu đang chọn (item chưa gắn tàu cũng hiện).
-  // Khi đã đồng bộ được đồ thật từ SDVICO thì ẩn hàng demo cho khỏi lẫn.
   const forBoat = useMemo(
     () =>
       products.filter(
-        (p) =>
-          (p.boatId === current?.id || p.boatId == null) &&
-          !(synced && p.id.startsWith("demo-sp-")),
+        (p) => p.boatId === current?.id || p.boatId == null,
       ),
-    [products, current?.id, synced],
+    [products, current?.id],
   );
 
   const sorted = useMemo(

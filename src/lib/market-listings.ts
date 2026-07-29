@@ -2,8 +2,9 @@
 // tin bán / tin mua, cả làng cùng xem để gọi thẳng. Ghi/đọc bảng Supabase
 // `market_listings` (migration 0008, RLS owner-write / signed-in-read).
 //
-// Chưa cấu hình Supabase hoặc chưa đăng nhập → fetch trả null/[] và UI rơi về
-// DEMO_LISTINGS (tin mẫu minh họa) — KHÔNG bao giờ bịa tin thật.
+// Chưa cấu hình Supabase hoặc chưa đăng nhập → fetch trả null/[]; UI hiện empty
+// state ("chưa có tin nào — đăng tin đầu tiên đi"). App đã lên thật (2026-07-29):
+// KHÔNG còn TIN MẪU minh họa, KHÔNG bao giờ bịa tin.
 //
 // Helper thuần (validateDraft, rowToListing) tách riêng để test ở
 // src/lib/__tests__/market-listings.test.ts.
@@ -45,8 +46,6 @@ export interface MarketListing {
   status: "open" | "closed";
   /** ISO date ngày đăng */
   postedOn: string;
-  /** true = tin mẫu minh họa, UI phải ghi rõ */
-  demo?: boolean;
   /** true = tin của chính user đang đăng nhập (cho sửa/đóng/xóa) */
   mine?: boolean;
 }
@@ -121,7 +120,7 @@ export function rowToListing(r: Row, uid: string | null): MarketListing {
 
 /**
  * Tin thật (đang mở + tin của mình). null = Supabase chưa cấu hình hoặc lỗi →
- * caller rơi về DEMO_LISTINGS. Mảng rỗng = đã cấu hình nhưng chưa có tin nào.
+ * caller hiện empty state. Mảng rỗng = đã cấu hình nhưng chưa có tin nào.
  */
 export async function fetchListings(): Promise<MarketListing[] | null> {
   const supabase = createClient();
@@ -192,49 +191,3 @@ export async function deleteListing(id: string): Promise<boolean> {
   const { error } = await supabase.from(TABLE).delete().eq("id", id);
   return !error;
 }
-
-// ── TIN MẪU minh họa (khi chưa có tin thật) ────────────────────────────────
-// Không SĐT thật, UI ghi rõ "TIN MẪU". KHÔNG được bịa tin thật.
-export const DEMO_LISTINGS: MarketListing[] = [
-  {
-    id: "demo-ml-sell-1",
-    side: "ban",
-    posterKind: "ngu-dan",
-    posterName: "Tàu bà con (tin mẫu)",
-    species: "Cá ngừ đại dương",
-    quantity: "~1,2 tấn, câu tay, ướp đá chuẩn",
-    priceText: "Muốn 130 nghìn/kg trở lên",
-    province: "Khánh Hòa",
-    note: "Về bến Hòn Rớ sáng mai, ai lấy cả lô gọi sớm.",
-    status: "open",
-    postedOn: "2026-07-26",
-    demo: true,
-  },
-  {
-    id: "demo-ml-buy-1",
-    side: "mua",
-    posterKind: "nha-may",
-    posterName: "Nhà máy chế biến (tin mẫu)",
-    species: "Cá ngừ sọc dưa",
-    quantity: "Cần đều ~3 tấn/ngày",
-    priceText: "Giá theo chợ, cộng thêm cho cá ướp đá chuẩn",
-    province: "Khánh Hòa",
-    note: "Yêu cầu cá ướp đá ngay khi lên khoang.",
-    status: "open",
-    postedOn: "2026-07-25",
-    demo: true,
-  },
-  {
-    id: "demo-ml-buy-2",
-    side: "mua",
-    posterKind: "vua",
-    posterName: "Vựa hải sản (tin mẫu)",
-    species: "Mực ống",
-    quantity: "500 kg – 1 tấn/chuyến",
-    priceText: "Báo giá theo ngày, ứng tổn cho mối quen",
-    province: "Bà Rịa - Vũng Tàu",
-    status: "open",
-    postedOn: "2026-07-24",
-    demo: true,
-  },
-];

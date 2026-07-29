@@ -72,31 +72,3 @@ export function byWarrantyUrgency(today: Date) {
   };
 }
 
-/** Demo seed scoped to a boat, so the screen demonstrates itself before
- *  first use (and before SDWork sync exists). */
-export function demoProducts(today: Date, boatId?: string): BoatProduct[] {
-  const d = (offsetDays: number) => {
-    const t = new Date(today);
-    t.setUTCDate(t.getUTCDate() + offsetDays);
-    return t.toISOString().slice(0, 10);
-  };
-  return [
-    {
-      id: "demo-sp-1",
-      boatId,
-      name: "Máy giám sát hành trình (VMS)",
-      serial: "VMS-STK-2024-0188",
-      purchasedOn: d(-345),
-      warrantyUntil: d(20),
-      note: "Liên hệ SDVICO để gia hạn dịch vụ giám sát.",
-    },
-    {
-      id: "demo-sp-2",
-      boatId,
-      name: "Bộ đàm ICOM IC-M324",
-      serial: "ICOM-M324-77310",
-      purchasedOn: d(-160),
-      warrantyUntil: d(200),
-    },
-  ];
-}

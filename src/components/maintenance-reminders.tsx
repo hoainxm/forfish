@@ -79,56 +79,20 @@ function getDueStatus(entry: MaintenanceEntry, today: Date): DueStatus {
 
 // ── storage ──────────────────────────────────────────────────
 
-function isoDaysAgo(today: Date, days: number): string {
-  const d = new Date(today);
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-
-/** Demo seed so the screen demonstrates itself before first use. */
-function demoEntries(today: Date): MaintenanceEntry[] {
-  return [
-    {
-      id: "demo-bd-1",
-      item: "Thay lọc dầu",
-      lastDone: isoDaysAgo(today, 100),
-      intervalDays: 90,
-      note: "Mua lọc đúng mã máy, xem bảng giá bên dưới.",
-    },
-    {
-      id: "demo-bd-2",
-      item: "Thay dầu máy",
-      lastDone: isoDaysAgo(today, 54),
-      intervalDays: 60,
-    },
-    {
-      id: "demo-bd-3",
-      item: "Bơm mỡ trục láp",
-      lastDone: isoDaysAgo(today, 5),
-      intervalDays: 30,
-    },
-  ];
-}
-
 /*
-  Lịch mẫu tự xưng là mẫu (mirror crew-list 2026-06-11): lần đầu mở vẫn thấy ví
-  dụ cho dễ hình dung, nhưng (1) app biết rõ đây là demo, (2) KHÔNG ghi demo
-  xuống localStorage — dải "việc cần làm ngay" ngoài trang chủ không bao giờ báo
-  đỏ vì việc mẫu, (3) ghi việc thật đầu tiên là lịch mẫu tự biến mất.
+  App đã đưa vào sử dụng (chủ dự án 2026-07-29): KHÔNG seed lịch mẫu nữa. User
+  mới mở thấy màn RỖNG, tự thêm việc bảo dưỡng thật. (Trước có lịch mẫu tự-xưng
+  theo hội đồng UX 2026-06-11 — bỏ khi lên thật.)
 */
-function loadEntries(today: Date): {
-  entries: MaintenanceEntry[];
-  isDemo: boolean;
-} {
-  if (typeof window === "undefined") return { entries: [], isDemo: false };
+function loadEntries(): MaintenanceEntry[] {
+  if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw)
-      return { entries: JSON.parse(raw) as MaintenanceEntry[], isDemo: false };
+    if (raw) return JSON.parse(raw) as MaintenanceEntry[];
   } catch {
-    // corrupt storage — fall through to demo seed
+    // corrupt storage — coi như chưa có lịch
   }
-  return { entries: demoEntries(today), isDemo: true };
+  return [];
 }
 
 function saveEntries(entries: MaintenanceEntry[]) {
@@ -145,7 +109,6 @@ export function MaintenanceReminders() {
   const today = useMemo(() => new Date(), []);
   const { current, boats, ready: boatReady } = useBoats();
   const [entries, setEntries] = useState<MaintenanceEntry[]>([]);
-  const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<MaintenanceEntry | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -155,23 +118,18 @@ export function MaintenanceReminders() {
 
   // Hydrate from localStorage on mount (avoids SSR/CSR mismatch).
   useEffect(() => {
-    const loaded = loadEntries(today);
-    setEntries(loaded.entries);
-    setIsDemo(loaded.isDemo);
+    setEntries(loadEntries());
     setReady(true);
-  }, [today]);
+  }, []);
 
-  // Lịch mẫu sống trong bộ nhớ thôi — chỉ việc THẬT mới được ghi xuống máy.
   useEffect(() => {
-    if (ready && !isDemo) saveEntries(entries);
-  }, [entries, ready, isDemo]);
+    if (ready) saveEntries(entries);
+  }, [entries, ready]);
 
   // Xóa tàu → lịch bảo dưỡng tàu đó đã bị purge (ba-spec 08 R3); đọc lại.
   useEffect(() => {
     if (!ready) return;
-    const loaded = loadEntries(today);
-    setEntries(loaded.entries);
-    setIsDemo(loaded.isDemo);
+    setEntries(loadEntries());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boats.length]);
 
@@ -192,14 +150,6 @@ export function MaintenanceReminders() {
 
   function upsert(entry: MaintenanceEntry) {
     const withBoat: MaintenanceEntry = { ...entry, boatId: current?.id };
-    // Ghi/sửa việc THẬT đầu tiên = lịch mẫu nhường chỗ luôn, không lẫn lộn.
-    if (isDemo) {
-      setIsDemo(false);
-      setEntries([withBoat]);
-      setShowForm(false);
-      setEditing(null);
-      return;
-    }
     setEntries((prev) => {
       const idx = prev.findIndex((e) => e.id === withBoat.id);
       if (idx === -1) return [...prev, withBoat];

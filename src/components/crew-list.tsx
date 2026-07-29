@@ -6,7 +6,6 @@ import {
   CrewRole,
   ROLE_LABELS,
   crewIssue,
-  demoCrew,
   formatCccd,
   isValidCccd,
   normalizeCccd,
@@ -67,19 +66,19 @@ type StoredCrew = CrewMember & { boatId?: string };
 const STORAGE_KEY = "forfish.crew.v1";
 
 /*
-  Sổ MẪU tự xưng là mẫu (hội đồng UX 2026-06-11): lần đầu mở vẫn thấy ví dụ
-  cho dễ hình dung, nhưng (1) app biết rõ đây là demo, (2) KHÔNG ghi demo
-  xuống localStorage, (3) thêm người thật đầu tiên là sổ mẫu tự biến mất.
+  App đã đưa vào sử dụng (chủ dự án 2026-07-29): KHÔNG seed sổ mẫu nữa. User mới
+  mở thấy màn RỖNG "chưa có ai trong sổ — bấm thêm", tự điền người thật. (Trước
+  đây có "sổ mẫu tự xưng là mẫu" theo hội đồng UX 2026-06-11 — bỏ khi lên thật.)
 */
-function loadCrew(today: Date): { crew: StoredCrew[]; isDemo: boolean } {
-  if (typeof window === "undefined") return { crew: [], isDemo: false };
+function loadCrew(): StoredCrew[] {
+  if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return { crew: JSON.parse(raw) as StoredCrew[], isDemo: false };
+    if (raw) return JSON.parse(raw) as StoredCrew[];
   } catch {
-    // hỏng storage — rơi xuống seed demo
+    // hỏng storage — coi như chưa có sổ
   }
-  return { crew: demoCrew(today), isDemo: true };
+  return [];
 }
 
 function saveCrew(crew: StoredCrew[]) {
@@ -93,32 +92,22 @@ function saveCrew(crew: StoredCrew[]) {
 export function useCrew() {
   const today = useMemo(() => new Date(), []);
   const [crew, setCrew] = useState<StoredCrew[]>([]);
-  const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const loaded = loadCrew(today);
-    setCrew(loaded.crew);
-    setIsDemo(loaded.isDemo);
+    setCrew(loadCrew());
     setReady(true);
-  }, [today]);
+  }, []);
 
-  // Sổ mẫu sống trong bộ nhớ thôi — chỉ sổ THẬT mới được ghi xuống máy.
   useEffect(() => {
-    if (ready && !isDemo) saveCrew(crew);
-  }, [crew, ready, isDemo]);
+    if (ready) saveCrew(crew);
+  }, [crew, ready]);
 
-  /** Bỏ sổ mẫu, bắt đầu sổ thật (rỗng hoặc với người đầu tiên). */
-  function startRealCrew(next: StoredCrew[]) {
-    setIsDemo(false);
-    setCrew(next);
-  }
-
-  return { today, crew, setCrew, ready, isDemo, startRealCrew };
+  return { today, crew, setCrew, ready };
 }
 
 export function CrewList() {
-  const { today, crew, setCrew, ready, isDemo, startRealCrew } = useCrew();
+  const { today, crew, setCrew, ready } = useCrew();
   const [editing, setEditing] = useState<StoredCrew | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<StoredCrew | null>(null);
@@ -154,12 +143,6 @@ export function CrewList() {
 
   function upsert(m: StoredCrew) {
     const withBoat: StoredCrew = { ...m }; // không gắn boatId — theo chủ (R2)
-    if (isDemo) {
-      startRealCrew([withBoat]);
-      setShowForm(false);
-      setEditing(null);
-      return;
-    }
     setCrew((prev) => {
       const idx = prev.findIndex((x) => x.id === withBoat.id);
       if (idx === -1) return [...prev, withBoat];
@@ -213,25 +196,11 @@ export function CrewList() {
         Thêm bạn thuyền
       </button>
 
-      {ready && missingId > 0 && !isDemo && (
+      {ready && missingId > 0 && (
         <div className="mb-4 overflow-hidden surface">
           <StatusBanner level="warn" icon={<AlertIcon className="h-5 w-5" />}>
             {missingId} người chưa có CCCD/SĐT — bổ sung để tra cảnh báo & báo cáo.
           </StatusBanner>
-        </div>
-      )}
-
-      {ready && isDemo && (
-        <div className="mb-4 overflow-hidden surface">
-          <StatusBanner level="neutral" icon={<UsersIcon className="h-5 w-5" />}>
-            Đây là sổ mẫu cho bà con xem thử — chưa lưu vào máy.
-          </StatusBanner>
-          <button
-            onClick={() => startRealCrew([])}
-            className="flex min-h-[3.25rem] w-full items-center justify-center border-t border-line text-[1.0625rem] font-bold text-sea active:bg-background"
-          >
-            Xóa sổ mẫu, ghi sổ của tôi
-          </button>
         </div>
       )}
 

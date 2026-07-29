@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   BoatProduct,
   byWarrantyUrgency,
-  demoProducts,
   getWarrantyStatus,
 } from "../products";
 
@@ -74,16 +73,5 @@ describe("byWarrantyUrgency", () => {
     ];
     const sorted = [...items].sort(byWarrantyUrgency(TODAY)).map((p) => p.id);
     expect(sorted).toEqual(["expired", "soon", "ok", "none"]);
-  });
-});
-
-describe("demoProducts", () => {
-  it("gắn boatId truyền vào và có 2 sản phẩm (1 soon, 1 ok)", () => {
-    const items = demoProducts(TODAY, "boat-9");
-    expect(items).toHaveLength(2);
-    expect(items.every((p) => p.boatId === "boat-9")).toBe(true);
-    const levels = items.map((p) => getWarrantyStatus(p, TODAY).level);
-    expect(levels).toContain("soon");
-    expect(levels).toContain("ok");
   });
 });

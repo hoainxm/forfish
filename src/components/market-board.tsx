@@ -23,7 +23,6 @@ import { CheckIcon, PlusIcon, TrashIcon, UsersIcon } from "@/components/icons";
 import { useAuthUser } from "@/lib/use-auth";
 import { formatVnDate } from "@/lib/format";
 import {
-  DEMO_LISTINGS,
   POSTER_KIND_LABEL,
   SIDE_LABEL,
   createListing,
@@ -62,8 +61,9 @@ export function MarketBoard() {
     void refresh();
   }, [refresh, user?.id]);
 
-  const useDemo = !real || real.length === 0;
-  const source = useDemo ? DEMO_LISTINGS : real;
+  // App đã lên thật (2026-07-29): KHÔNG còn TIN MẪU — chợ rỗng thì hiện empty
+  // state, tin thật hiện khi bà con đăng. real=null (chưa cấu hình/ lỗi) coi rỗng.
+  const source = real ?? [];
   const listings = source.filter(
     (l) =>
       (filter === "all" || l.side === filter) &&
@@ -75,7 +75,6 @@ export function MarketBoard() {
       <RefNote tone="var(--t2)" bg="var(--t2-bg)">
         Nơi đăng tin bán cá và tin cần mua — cả làng cùng xem, gọi thẳng nhau
         đỡ bị ép giá. Đầu nậu, vựa, nhà máy cũng đăng tin cần mua ở đây.
-        {useDemo && " Bên dưới là TIN MẪU, tin thật sẽ tự hiện khi bà con đăng."}
       </RefNote>
 
       <div className="my-3">
@@ -179,11 +178,6 @@ function ListingCard({
             {l.species}
           </p>
         </div>
-        {l.demo && (
-          <span className="shrink-0 rounded-full bg-field px-2.5 py-1 text-[0.75rem] font-bold text-foreground/70">
-            TIN MẪU
-          </span>
-        )}
         {l.status === "closed" && (
           <span className="shrink-0 rounded-full bg-field px-2.5 py-1 text-[0.75rem] font-bold text-foreground/70">
             Đã đóng

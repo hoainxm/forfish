@@ -92,7 +92,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 | Tiền | Giao dịch (giá cá) public; **Hiệu quả + Công nợ: LoginGate** | đã login, chưa có → EmptyState | — | — |
 | Ra khơi | dự báo cá KHOÁ (thẻ `PremiumLock` mời đăng nhập; đã đăng nhập hạng thường → mời gọi SDVICO); gió sóng ≤3 ngày public | điểm: "chạm biển để xem" | scalar/lưới/cá: nút **Thử lại** (không hỏng câm; **bị khoá ≠ lỗi** — không hiện Thử lại khi 401/403) | "Đang lấy dự báo…" |
 | Tàu | tab Sản phẩm/Dịch vụ: `guest` mời đăng nhập | "Chưa có … bấm nút cam" | `error` → Thử lại; `unlinked` → giải thích | "Đang kiểm tra đồ SDVICO…" |
-| Bạn thuyền | public; sổ MẪU tự xưng "sổ mẫu"; tra cảnh báo (inline khi gõ CCCD) + báo cáo: hạng thường/chưa login → hint nâng cấp / `PremiumLock`; demo mode → "cần máy chủ thật" | empty + nút cam | tra INLINE khi gõ đủ 12 số (✓ xanh / cảnh báo đỏ) | hydrate sau mount |
+| Bạn thuyền | public; KHÔNG seed sổ mẫu — mở rỗng "Chưa có ai trong sổ, bấm thêm"; tra cảnh báo (inline khi gõ CCCD) + báo cáo: hạng thường/chưa login → hint nâng cấp / `PremiumLock`; demo mode → "cần máy chủ thật" | empty + nút cam | tra INLINE khi gõ đủ 12 số (✓ xanh / cảnh báo đỏ) | hydrate sau mount |
 | Đăng nhập | — | — | "Sai số điện thoại hoặc mật khẩu" | nút "Đang vào…" |
 
 **Ô mật khẩu (`PasswordField`)**: nút Hiện/Ẩn đổi `type` password↔text. Ở trạng thái `text`, iOS/iPadOS tự viết hoa chữ đầu + tự sửa chính tả → mật khẩu gõ đúng vẫn báo sai. Bắt buộc `autoCapitalize="none" autoCorrect="off" spellCheck={false}` cho cả hai trạng thái (Apple App Review từ chối 2026-07-17 Guideline 2.1 — reviewer không đăng nhập được, máy iPad Air 11" M3).
@@ -117,7 +117,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 - Tạo/sửa mọi object → **drawer/bottom-sheet**, không page riêng. Sheet + ConfirmDialog **PORTAL ra `document.body`** (`createPortal`) → thoát stacking context của tổ tiên (vd wrapper `relative z-10` của BoatSwitcher nhốt sheet z-30 xuống lớp z-10 khiến bottom-nav z-20 đè che nút Lưu/Hủy). Sheet: `max-h-92dvh` cuộn trong, `pb` safe-area; viewport `interactiveWidget: resizes-content` → bàn phím CO layout (không đè) nên nút đáy luôn với tới. Khóa cuộn nền **đếm tham chiếu** (mở sheet-trong-sheet không nhả khóa sớm → nền không trôi sau lưng).
 - Cỡ giao diện mặc định **"Gọn"** (user chốt 2026-07-28 — kể cả chưa đăng nhập/màn login); chỉnh tay ("Chữ to"/"Gọn") trong **sheet tài khoản**, bấm lại lựa chọn đang chọn = về theo máy (auto); không bày toggle ra hero.
 - Ngôn ngữ status DUY NHẤT = `StatusBanner`; màu cam-đỏ ĐỘC QUYỀN cho ranh giới biển trên map.
-- **KHÔNG còn demo/sổ mẫu trong UI (2026-07-02)**: các hàm load trả rỗng khi chưa có data thật; data cá nhân khóa sau đăng nhập (xem §2). Trước đây seed demo tự-xưng-mẫu — bỏ vì gây hiểu nhầm "data dùng chung".
+- **KHÔNG còn demo/sổ mẫu trong UI (doc-vault/boats 2026-07-02 → crew/maintenance/chợ tin 2026-07-29)**: các hàm load trả rỗng khi chưa có data thật, mỗi màn có empty state; data cá nhân khóa sau đăng nhập (xem §2). Trước đây seed demo tự-xưng-mẫu (`demoCrew`/`demoEntries`/`DEMO_LISTINGS`) — bỏ HẲN khi app lên thật (gây hiểu nhầm "data dùng chung" + lộ dữ liệu test). `demoDocuments`/`demoProducts` cũng gỡ (dead code).
 - Visual "international" (font Plus Jakarta Sans + Archivo) nhưng COPY tiếng Việt đời thường.
 
 ## 9. Trạng thái audit ui-design-logic (2026-06-11)

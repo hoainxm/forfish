@@ -107,7 +107,7 @@ function ItemRow({ item }: { item: CheckItem }) {
 export function DepartureChecklist() {
   const today = useMemo(() => new Date(), []);
   const { current, ready: boatReady, updateBoat } = useBoats();
-  const { crew, isDemo: crewIsDemo, ready: crewReady } = useCrew();
+  const { crew, ready: crewReady } = useCrew();
   const [docs, setDocs] = useState<(BoatDocument & { boatId?: string })[]>([]);
   const [docsReal, setDocsReal] = useState(false);
   const [ready, setReady] = useState(false);
@@ -184,7 +184,9 @@ export function DepartureChecklist() {
   const autoItems = check.items.filter((i) => i.auto);
   const manualItems = check.items.filter((i) => !i.auto);
   const milestones = complianceMilestones(current.lengthM, today);
-  const isSample = !docsReal || crewIsDemo;
+  // App đã lên thật: không còn dữ liệu mẫu. Chưa lưu giấy tờ nào → đèn dựa trên
+  // tủ giấy tờ RỖNG, nhắc bà con nhập giấy tờ thật thì đèn mới đúng.
+  const noDocsYet = !docsReal;
 
   return (
     <div className="mb-4 px-4">
@@ -268,11 +270,11 @@ export function DepartureChecklist() {
         </p>
       </Card>
 
-      {isSample && (
+      {noDocsYet && (
         <div className="mt-2">
           <StatusBanner level="neutral" icon={null}>
-            Đang có dữ liệu mẫu — đèn chỉ đúng khi bà con nhập giấy tờ thật
-            {crewIsDemo ? " và sổ thuyền viên thật" : ""}.
+            Chưa có giấy tờ nào trong máy — đèn chỉ đúng khi bà con nhập giấy tờ
+            thật vào tủ giấy tờ.
           </StatusBanner>
         </div>
       )}
