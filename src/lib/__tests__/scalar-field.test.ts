@@ -5,6 +5,7 @@ import {
   scalarGradientCss,
   scalarFieldFeatures,
   scalarValueAt,
+  fillCoastalGaps,
   SCALAR_RAMP,
   type ScalarGrid,
   type ScalarKind,
@@ -57,11 +58,14 @@ describe("scalarFieldFeatures", () => {
     }
   });
 
-  it("ô null (thiếu số) làm cả ô mịn quanh đó bị bỏ — không tô bừa", () => {
-    // đúng 1 điểm có số, còn lại null → mọi ô mịn đều thiếu góc → rỗng
+  it("ô null: LAN màu 2 vòng quanh ô có số (2026-07-29 — hết thủng sát bờ), xa hơn vẫn bỏ", () => {
+    // đúng 1 điểm có số, còn lại null → chỉ vùng LÂN CẬN (≤2 ô lưới) được tô,
+    // phần biển xa vẫn trống — không tô bừa cả bản đồ
     const grid = makeGrid("cloud", (i) => (i === 0 ? 80 : null));
     const fc = scalarFieldFeatures(grid, 0, 3);
-    expect(fc.features).toHaveLength(0);
+    expect(fc.features.length).toBeGreaterThan(0);
+    const total = ((GRID_N_LAT - 1) * 3 + 1) * ((GRID_N_LON - 1) * 3 + 1);
+    expect(fc.features.length).toBeLessThan(total * 0.1);
   });
 
   it("lưới sai kích thước → rỗng, không ném", () => {
@@ -71,6 +75,36 @@ describe("scalarFieldFeatures", () => {
       cells: [{ lat: 6, lon: 102, values: [50] }],
     };
     expect(scalarFieldFeatures(bad, 0).features).toEqual([]);
+  });
+});
+
+/* 2026-07-29 (ảnh user): nền màu dòng chảy/sóng thủng lỗ ở ô gần đất — ô đất
+   null giết cả nửa ô biển kề. Lan màu CHỈ cho nền (đất bị lớp bờ vẽ đè); số
+   đọc ra (scalarValueAt) vẫn từ lưới gốc. */
+describe("fillCoastalGaps", () => {
+  it("ô null cạnh ô có số → nhận TRUNG BÌNH các ô kề; 2 vòng lan được 2 ô", () => {
+    // lưới 1×5: [4, null, null, null, 8]
+    const out = fillCoastalGaps([4, null, null, null, 8], 1, 5, 2);
+    expect(out[1]).toBe(4); // vòng 1
+    expect(out[3]).toBe(8);
+    expect(out[2]).toBe(6); // vòng 2: trung bình 2 phía đã lan (4+8)/2
+    expect(out[0]).toBe(4); // ô có số KHÔNG bị đổi
+    expect(out[4]).toBe(8);
+  });
+
+  it("xa quá số vòng lan → vẫn null; toàn null → giữ nguyên, không ném", () => {
+    const out = fillCoastalGaps([1, null, null, null, null, null], 1, 6, 2);
+    expect(out[1]).toBe(1); // vòng 1
+    expect(out[2]).toBe(1); // vòng 2
+    expect(out[3]).toBeNull(); // quá 2 vòng — không lan nữa
+    expect(out[4]).toBeNull();
+    expect(fillCoastalGaps([null, null], 1, 2)).toEqual([null, null]);
+  });
+
+  it("scalarValueAt KHÔNG bị ảnh hưởng — số đọc ra vẫn là số thật (null là null)", () => {
+    const grid = makeGrid("cloud", (i) => (i === 0 ? 80 : null));
+    const pts = gridPoints();
+    expect(scalarValueAt(grid, 0, pts[5].lat, pts[5].lon)).toBeNull();
   });
 });
 

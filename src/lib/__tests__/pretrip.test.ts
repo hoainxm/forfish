@@ -43,8 +43,8 @@ describe("dedupePoints", () => {
 });
 
 describe("pretripSteps", () => {
-  // 2026-07-29: + lớp dải màu (mây/mưa/nhiệt/dông/áp suất, 2 khung) + độ mặn
-  const EXTRA = PRETRIP_SCALAR_DAYS.length + 1;
+  // 2026-07-29: + lớp dải màu (2 khung) + độ mặn + dòng chảy theo tầng (1 việc)
+  const EXTRA = PRETRIP_SCALAR_DAYS.length + 1 + 1;
 
   it("mỗi chỗ một việc + bản đồ cá + lưới gió/sóng + lớp màu + độ mặn + mùa vụ", () => {
     const steps = pretripSteps([

@@ -53,12 +53,30 @@ export function scalarSnapshotId(kind: string, days: number): string {
   return `scalar:${kind}:d${days}`;
 }
 
-/** Chặn id lạ trước khi đụng DB / trả về client (whitelist đúng 3 dạng) */
+/**
+ * DÒNG CHẢY THEO TẦNG (2026-07-29): 4 tầng danh nghĩa (m) khớp nghề — mặt
+ * (thả trôi/chà) · ~50 m · ~150 m (câu vàng) · ~300 m (rê đáy sâu). Nguồn
+ * Copernicus phy-cur P1D theo NGÀY, ~+9 ngày; tầng 0 (mặt, trung bình ngày)
+ * còn kiêm nguồn VÉT CUỐI cho dòng chảy mặt của lưới Windy khi SMOC chết.
+ */
+export const CUR_DEPTH_TIERS = [0, 50, 150, 300] as const;
+export type CurDepthTier = (typeof CUR_DEPTH_TIERS)[number];
+/** Khung ngày premium của lớp tầng sâu (nguồn chỉ ~+9 ngày, lấy trần 10) */
+export const CUR_DEPTH_MAX_DAYS = 10;
+
+/** id snapshot dòng chảy theo tầng — d3 miễn phí, d10 premium (chung luật
+    snapshotNeedsPremium: >3 ngày là premium) */
+export function curDepthSnapshotId(tier: number, days: number): string {
+  return `curdepth:t${tier}:d${days}`;
+}
+
+/** Chặn id lạ trước khi đụng DB / trả về client (whitelist đúng 4 dạng) */
 export function isValidSnapshotId(id: string): boolean {
   return (
     /^sea:[a-z0-9_-]+$/.test(id) ||
     /^grid:d\d+$/.test(id) ||
-    /^scalar:(cloud|rain|airtemp|storm|pressure):d\d+$/.test(id)
+    /^scalar:(cloud|rain|airtemp|storm|pressure):d\d+$/.test(id) ||
+    /^curdepth:t(0|50|150|300):d\d+$/.test(id)
   );
 }
 

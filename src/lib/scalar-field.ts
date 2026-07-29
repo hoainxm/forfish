@@ -54,6 +54,10 @@ export interface ScalarGrid {
   nLon?: number;
   stale?: boolean;
   savedAt?: number | null;
+  /** true = KHÔNG lan màu ven rìa (fillCoastalGaps) — dòng chảy TẦNG SÂU: ô
+      null là "đáy nông hơn tầng này" (biển thật, không bị lớp bờ che), lan màu
+      vào đó là vẽ dòng tầng sâu lên vùng nông — sai vật lý */
+  noFill?: boolean;
 }
 
 const num = (v: unknown): number | null =>
@@ -458,6 +462,61 @@ export function scalarGradientCss(kind: ScalarKind): string {
 
 // ── DỰNG HÌNH: nội suy song tuyến → lưới ô mịn (fill) ────────────────────────
 
+/**
+ * LAN MÀU VEN BỜ (user 2026-07-29, ảnh lớp dòng chảy "màu hổng ở ô gần đất"):
+ * ô lưới rơi trên ĐẤT (sóng/dòng chảy null) làm nền màu thủng cả NỬA Ô biển kề
+ * bên — GL discard khi cờ hợp lệ nội suy < 0,5, polygon bilinear bỏ quad thiếu
+ * góc. Đất liền vốn bị lớp bờ (overlay-coast-fill) vẽ ĐÈ LÊN TRÊN nền màu, nên
+ * cứ LAN giá trị ô biển kề sang ô null (`passes` vòng, trung bình 4 ô cạnh) —
+ * màu liền dải tới sát bờ, phần lan trên đất bị lớp bờ che.
+ *
+ * CHỈ dùng cho NỀN MÀU (texture GL + polygon fallback). Số ĐỌC RA cho người
+ * dùng (scalarValueAt, sampleUV hạt, mũi tên) vẫn đọc lưới gốc — không bịa số.
+ */
+export function fillCoastalGaps(
+  values: (number | null)[],
+  nLat: number,
+  nLon: number,
+  passes = 2,
+): (number | null)[] {
+  let cur = values.slice();
+  for (let p = 0; p < passes; p++) {
+    const next = cur.slice();
+    let changed = false;
+    for (let i = 0; i < nLat; i++) {
+      for (let j = 0; j < nLon; j++) {
+        const idx = i * nLon + j;
+        if (cur[idx] != null) continue;
+        let sum = 0;
+        let n = 0;
+        if (i > 0 && cur[idx - nLon] != null) {
+          sum += cur[idx - nLon]!;
+          n++;
+        }
+        if (i < nLat - 1 && cur[idx + nLon] != null) {
+          sum += cur[idx + nLon]!;
+          n++;
+        }
+        if (j > 0 && cur[idx - 1] != null) {
+          sum += cur[idx - 1]!;
+          n++;
+        }
+        if (j < nLon - 1 && cur[idx + 1] != null) {
+          sum += cur[idx + 1]!;
+          n++;
+        }
+        if (n > 0) {
+          next[idx] = sum / n;
+          changed = true;
+        }
+      }
+    }
+    cur = next;
+    if (!changed) break;
+  }
+  return cur;
+}
+
 /** Song tuyến trên lưới đều, bỏ qua ô null (trả null nếu thiếu góc) */
 function bilinear(
   grid: (number | null)[],
@@ -496,10 +555,12 @@ export function scalarFieldFeatures(
   // lưới gió 8×10 (mây/mưa/nhiệt/dông) hoặc lưới riêng của độ mặn (nLat/nLon)
   const nLat = grid.nLat ?? GRID_N_LAT;
   const nLon = grid.nLon ?? GRID_N_LON;
-  const values = grid.cells.map((c) => c.values[timeIdx] ?? null);
-  if (values.length !== nLat * nLon || nLat < 2 || nLon < 2) {
+  const raw = grid.cells.map((c) => c.values[timeIdx] ?? null);
+  if (raw.length !== nLat * nLon || nLat < 2 || nLon < 2) {
     return { type: "FeatureCollection", features: [] };
   }
+  // cùng phép lan màu ven bờ với lớp GL — fallback không được thủng khác kiểu
+  const values = grid.noFill ? raw : fillCoastalGaps(raw, nLat, nLon);
   const lat0 = grid.cells[0].lat;
   const lon0 = grid.cells[0].lon;
   const latStep = (grid.cells[nLat * nLon - 1].lat - lat0) / (nLat - 1);

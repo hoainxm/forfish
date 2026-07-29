@@ -99,6 +99,8 @@ import {
   type FetchScalarKind,
   type ScalarGrid,
 } from "@/lib/scalar-field";
+import { fetchCurDepthGridClient, type CurDepthClientGrid } from "@/lib/cur-depth";
+import { CUR_DEPTH_TIERS, CUR_DEPTH_MAX_DAYS } from "@/lib/weather-snapshot-id";
 import {
   legendStops,
   legendGradientCss,
@@ -462,6 +464,10 @@ export default function FishingMapView() {
   const [forecastKind, setForecastKind] = useState<ForecastKind | null>(null);
   const [fGrid, setFGrid] = useState<ForecastGrid | null>(null);
   const [gridFailed, setGridFailed] = useState(false);
+  // DÒNG CHẢY THEO TẦNG (user 2026-07-29): 0 = mặt (lưới SMOC theo giờ),
+  // 50/150/300 = lưới NGÀY Copernicus. Chip chọn tầng nằm dưới thanh ngày.
+  const [curDepthTier, setCurDepthTier] = useState(0);
+  const [depthGrid, setDepthGrid] = useState<CurDepthClientGrid | null>(null);
   // Lớp DẢI MÀU vô hướng (mây/mưa/nhiệt) — loại trừ lẫn nhau với gió/sóng (một
   // lớp overlay mỗi lần, như Windy). Dùng chung thanh giờ + khung ngày + timeIdx.
   const [overlayField, setOverlayField] = useState<FetchScalarKind | null>(null);
@@ -524,6 +530,37 @@ export default function FishingMapView() {
     };
   }, [forecastKind, gridFailed, gridDays, netEpoch]);
 
+  // TẦNG SÂU: rời lớp Dòng chảy là về Mặt; chọn tầng >0 thì tải lưới NGÀY của
+  // tầng đó (free 3 ngày / premium 10 — lib + route tự chặn). Lỗi → gridFailed
+  // (dòng báo lỗi chung của thanh giờ).
+  useEffect(() => {
+    if (forecastKind !== "current" && curDepthTier !== 0) setCurDepthTier(0);
+  }, [forecastKind, curDepthTier]);
+  useEffect(() => {
+    if (forecastKind !== "current" || curDepthTier === 0 || gridFailed) {
+      setDepthGrid(null);
+      return;
+    }
+    let alive = true;
+    setDepthGrid(null);
+    fetchCurDepthGridClient(
+      curDepthTier,
+      premiumLocked ? 3 : CUR_DEPTH_MAX_DAYS,
+    )
+      .then((g) => {
+        if (alive) setDepthGrid(g);
+      })
+      .catch(() => alive && setGridFailed(true));
+    return () => {
+      alive = false;
+    };
+  }, [forecastKind, curDepthTier, gridFailed, premiumLocked, netEpoch]);
+
+  // Lưới đang cấp số cho LỚP forecastKind: tầng sâu thì thay fGrid bằng lưới
+  // ngày của tầng (fGrid vẫn tải để hạt gió nền + tra điểm dùng)
+  const kindGrid: ForecastGrid | null =
+    forecastKind === "current" && curDepthTier !== 0 ? depthGrid : fGrid;
+
   // tải lưới DẢI MÀU khi bật lớp mây/mưa/nhiệt, hoặc khi đổi khung ngày. Cùng
   // luật offline/fallback với forecast-grid (lib tự lo). Lỗi → dùng chung
   // gridFailed để thanh giờ báo thật.
@@ -546,9 +583,10 @@ export default function FishingMapView() {
     };
   }, [overlayField, gridFailed, gridDays, netEpoch]);
 
-  // Lưới đang điều khiển thanh giờ: gió/sóng HOẶC dải màu (loại trừ nhau)
+  // Lưới đang điều khiển thanh giờ: gió/sóng/dòng chảy (kể cả tầng sâu) HOẶC
+  // dải màu (loại trừ nhau)
   const stripGrid: { times: string[]; stale?: boolean; savedAt?: number | null } | null =
-    forecastKind ? fGrid : overlayField ? sfGrid : null;
+    forecastKind ? kindGrid : overlayField ? sfGrid : null;
   // overlayOn = có thanh giờ (gió/sóng/mây/mưa/nhiệt). SSHA (nước dâng/xoáy) là
   // raster tĩnh, KHÔNG có thanh giờ nên không tính ở đây.
   const overlayOn = !!forecastKind || !!overlayField;
@@ -597,31 +635,33 @@ export default function FishingMapView() {
   // GIÓ, lớp SÓNG bay theo HƯỚNG SÓNG (hạt khác nhau); độ mặn (theo ngày) lấy
   // gió hiện tại (mốc 0). Trường u/v bilinear từ cùng lưới fGrid.
   const particleField = useMemo(() => {
+    if (forecastKind)
+      return kindGrid ? buildUVField(kindGrid, timeIdx, forecastKind) : null;
     if (!fGrid) return null;
-    if (forecastKind) return buildUVField(fGrid, timeIdx, forecastKind);
     if (overlayField && overlayField !== "salinity")
       return buildUVField(fGrid, timeIdx, "wind");
     // hải đồ / ngư trường / độ mặn: hạt gió HIỆN TẠI (mốc 0) chạy nền
     return buildUVField(fGrid, 0, "wind");
-  }, [forecastKind, overlayField, fGrid, timeIdx]);
+  }, [forecastKind, overlayField, fGrid, kindGrid, timeIdx]);
 
   // Mũi tên TĨNH: lớp GIÓ/SÓNG luôn hiện mũi tên MÀU kèm hạt (user 2026-07-29:
   // kéo trục ngày nhìn mũi tên là thấy đổi hướng ngay — hạt đổi chậm hơn).
   // Các lớp màu khác: chỉ là fallback khi không dựng được trường hạt.
   const arrows = useMemo(() => {
+    if (forecastKind)
+      return kindGrid ? arrowFeatures(kindGrid, timeIdx, forecastKind) : null;
     if (!fGrid) return null;
-    if (forecastKind) return arrowFeatures(fGrid, timeIdx, forecastKind);
     if (scalarWantsStreaks && !particleField)
       return arrowFeatures(fGrid, timeIdx, "wind");
     return null;
-  }, [forecastKind, scalarWantsStreaks, particleField, fGrid, timeIdx]);
+  }, [forecastKind, scalarWantsStreaks, particleField, fGrid, kindGrid, timeIdx]);
 
   // NỀN MÀU lớp GIÓ/SÓNG (mô hình Windy, user 2026-07-29): speed/độ cao từ
   // CHÍNH fGrid → ScalarGrid render-only, đi chung pipeline dải màu. Kích thước
   // lưới tự suy (bản lưu cỡ cũ vẫn chạy).
   const windScalarGrid = useMemo<ScalarGrid | null>(() => {
-    if (!forecastKind || !fGrid?.cells?.length) return null;
-    const cells = fGrid.cells;
+    if (!forecastKind || !kindGrid?.cells?.length) return null;
+    const cells = kindGrid.cells;
     let nLon = 1;
     while (nLon < cells.length && cells[nLon].lat === cells[0].lat) nLon++;
     const nLat = Math.floor(cells.length / nLon);
@@ -633,9 +673,12 @@ export default function FishingMapView() {
           : forecastKind === "wave"
             ? "waveheight"
             : "currentspeed",
-      times: fGrid.times,
+      times: kindGrid.times,
       nLat,
       nLon,
+      // TẦNG SÂU: ô null = đáy NÔNG hơn tầng (biển thật, không bị lớp bờ che)
+      // → cấm lan màu vào đó (fillCoastalGaps) — vùng nông phải trống thật
+      noFill: forecastKind === "current" && curDepthTier !== 0,
       cells: cells.map((c) => ({
         lat: c.lat,
         lon: c.lon,
@@ -648,7 +691,7 @@ export default function FishingMapView() {
         ),
       })),
     };
-  }, [forecastKind, fGrid]);
+  }, [forecastKind, kindGrid, curDepthTier]);
 
   // Lưới dải màu ĐANG HIỂN THỊ: lớp màu chọn tay HOẶC nền màu gió/sóng
   const activeScalarGrid = overlayField ? sfGrid : windScalarGrid;
@@ -747,7 +790,9 @@ export default function FishingMapView() {
       ? "Gió"
       : forecastKind === "wave"
         ? "Sóng"
-        : "Dòng chảy"
+        : curDepthTier === 0
+          ? "Dòng chảy"
+          : `Dòng chảy ~${curDepthTier} m`
     : overlayField
       ? SCALAR_META[overlayField].label
       : "";
@@ -2183,6 +2228,38 @@ export default function FishingMapView() {
                   tới, không chồng 4 tầng trên đầu bản đồ (roadmap UX 2026-06-11) */}
               {overlayOn && (
                 <div className="pointer-events-auto glass px-3 py-1.5">
+              {/* THANH ĐỘ SÂU (user 2026-07-29) — chỉ lớp Dòng chảy: Mặt (SMOC
+                  theo giờ) · 50/150/300 m (Copernicus theo NGÀY). Nằm NGOÀI
+                  nhánh stripGrid để lúc đang tải / lỗi vẫn đổi tầng được. Nhãn
+                  cùng khuôn 1 dòng. Vùng nông hơn tầng thì bản đồ trống thật. */}
+              {forecastKind === "current" && (
+                <div
+                  className="mb-1 flex items-center gap-1.5"
+                  role="group"
+                  aria-label="Chọn tầng sâu dòng chảy"
+                >
+                  {CUR_DEPTH_TIERS.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => {
+                        if (curDepthTier === t) return;
+                        setPlaying(false);
+                        setTimeIdx(0);
+                        setGridFailed(false);
+                        setCurDepthTier(t);
+                      }}
+                      className={`h-9 flex-1 rounded-lg text-[0.8125rem] font-bold active:scale-95 ${
+                        curDepthTier === t
+                          ? "bg-navy text-white"
+                          : "bg-field text-navy"
+                      }`}
+                    >
+                      {t === 0 ? "Mặt" : `${t} m`}
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* LUÔN HIỆN khi mở lớp (kiểu Windy) — bỏ thu gọn/auto-hide; strip
                   gọn: 1 dòng tiêu đề + play, rồi dải ngày + thanh dải màu (user
                   2026-07-28). Thanh dải màu KHÔNG bao giờ ẩn khi lớp đang bật. */}

@@ -17,6 +17,8 @@ import {
   gridSnapshotId,
   scalarSnapshotId,
   rawSourceId,
+  curDepthSnapshotId,
+  CUR_DEPTH_MAX_DAYS,
   SNAPSHOT_DAY_SET,
 } from "@/lib/weather-snapshot-id";
 import {
@@ -157,6 +159,48 @@ function uvGridSource(
   };
 }
 
+/** Lưới NGÀY (dòng chảy tầng mặt Copernicus, cron refresh-currents-depth ghi
+    sẵn) → GridSource vét cuối: gán hằng số ngày vào mọi tick của ngày — SMOC
+    chết vẫn có dòng chảy ĐỦ ~10 ngày thay vì chỉ hôm nay (user 2026-07-29).
+    KHÔNG fetch Copernicus ở đây — chỉ đọc lại hàng snapshot đã có. */
+function curDailyGridSource(
+  daily: { savedAt: number; times: string[]; cells: ForecastGrid["cells"] },
+  times: string[],
+  coords: { lat: number; lon: number }[],
+): GridSource {
+  const dayIdx = new Map(daily.times.map((t, i) => [dayOf(t), i] as const));
+  const cellByCoord = new Map(
+    daily.cells.map((c) => [`${Math.round(c.lat * 100)},${Math.round(c.lon * 100)}`, c] as const),
+  );
+  return {
+    id: "copernicus-cur-daily",
+    savedAt: daily.savedAt,
+    lastResort: true,
+    grid: {
+      times,
+      cells: coords.map(({ lat, lon }) => {
+        const src = cellByCoord.get(`${Math.round(lat * 100)},${Math.round(lon * 100)}`);
+        return {
+          lat,
+          lon,
+          hours: times.map((t) => {
+            const di = dayIdx.get(dayOf(t));
+            const h = di != null ? src?.hours[di] : undefined;
+            return {
+              windKmh: null,
+              windDirDeg: null,
+              waveM: null,
+              waveDirDeg: null,
+              curKmh: h?.curKmh ?? null,
+              curDirDeg: h?.curDirDeg ?? null,
+            };
+          }),
+        };
+      }),
+    },
+  };
+}
+
 /** WAV theo NGÀY tại một cảng → SeaSource vét cuối: CHỈ mang số sóng (gió NaN
     nên không bao giờ được chọn làm nguồn gió — mergeSeaDays tự lo). */
 function wavSeaSource(
@@ -289,9 +333,34 @@ export async function GET(req: Request) {
           extras.push(wavGridSource(wav, merged.times, coords, savedAt));
       }
       // dòng chảy trống NGAY HÔM NAY (an toàn nhất) → merged-uv một mốc
-      if (gridDaysMissing(merged, "current").includes(dayOf(merged.times[0]))) {
+      const missCur = gridDaysMissing(merged, "current");
+      if (missCur.includes(dayOf(merged.times[0]))) {
         const uv = await getUv();
         if (uv) extras.push(uvGridSource(uv, merged.times, coords, savedAt));
+      }
+      // …và các NGÀY SAU trống → lưới ngày tầng mặt (curdepth:t0) do cron
+      // refresh-currents-depth ghi sẵn — chỉ ĐỌC DB, không fetch nguồn. uv đứng
+      // TRƯỚC trong extras nên hôm nay vẫn ưu tiên bản theo giờ (có triều).
+      if (missCur.length > 0) {
+        const row = (await loadWeatherSnapshot(
+          curDepthSnapshotId(0, CUR_DEPTH_MAX_DAYS),
+        )) as { savedAt?: number; times?: string[]; cells?: ForecastGrid["cells"] } | null;
+        if (
+          row &&
+          Number.isFinite(row.savedAt) &&
+          Array.isArray(row.times) &&
+          row.times.length > 0 &&
+          Array.isArray(row.cells) &&
+          row.cells.length > 0
+        ) {
+          extras.push(
+            curDailyGridSource(
+              { savedAt: row.savedAt!, times: row.times, cells: row.cells },
+              merged.times,
+              coords,
+            ),
+          );
+        }
       }
       if (extras.length > 0) merged = mergeForecastGrids([...srcs, ...extras]) ?? merged;
     }

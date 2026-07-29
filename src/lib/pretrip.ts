@@ -15,7 +15,12 @@ import { fetchFishForecast } from "@/lib/fish-predict";
 import { fetchClimatology } from "@/lib/fish-blend";
 import { fetchForecastGrid, savedGridDays } from "@/lib/forecast-grid";
 import { fetchScalarField } from "@/lib/scalar-field";
+import { fetchCurDepthGridClient } from "@/lib/cur-depth";
+import { CUR_DEPTH_MAX_DAYS } from "@/lib/weather-snapshot-id";
 import { coordId, lastStorageFullAt, loadAll } from "@/lib/forecast-cache";
+
+/** Tầng SÂU tải sẵn (tầng mặt đã nằm trong lưới gió/sóng SMOC) */
+export const CUR_DEPTH_PRETRIP_TIERS = [50, 150, 300] as const;
 
 /**
  * Khung ngày lưới gió/sóng tải sẵn: gần (3) · giữa (7) · cả chuyến dài (16).
@@ -160,6 +165,27 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
     label: "Độ mặn",
     run: async () => {
       await fetchScalarField("salinity");
+    },
+  });
+  // DÒNG CHẢY THEO TẦNG (2026-07-29, same-origin ~50 KB/tầng từ snapshot) —
+  // 3 tầng sâu; thử khung premium 10 ngày trước, bị chặn thì rơi về 3 (không
+  // biết hạng ở đây — route tự chặn). Một tầng tải được là coi như xong việc.
+  steps.push({
+    label: "Dòng chảy theo tầng",
+    run: async () => {
+      let ok = 0;
+      for (const t of CUR_DEPTH_PRETRIP_TIERS) {
+        try {
+          await fetchCurDepthGridClient(t, CUR_DEPTH_MAX_DAYS);
+          ok++;
+          continue;
+        } catch {}
+        try {
+          await fetchCurDepthGridClient(t, 3);
+          ok++;
+        } catch {}
+      }
+      if (ok === 0) throw new Error("dòng chảy theo tầng chưa tải được");
     },
   });
   // BẢN ĐỒ MÙA VỤ — asset tĩnh cùng origin (~70 KB), lớp cá của chuyến dài pha

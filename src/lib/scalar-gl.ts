@@ -9,6 +9,7 @@
 import {
   SCALAR_RAMP,
   scalarColor,
+  fillCoastalGaps,
   type ScalarKind,
   type ScalarGrid,
 } from "@/lib/scalar-field";
@@ -57,13 +58,20 @@ export function buildValueTexture(
   if (grid.cells.length !== nLat * nLon) return null;
   const [min, max] = rampRange(grid.kind);
   const span = max - min || 1;
+  // lan màu ven bờ TRƯỚC khi nướng texture — hết thủng lỗ sát bờ. Lưới gắn
+  // noFill (dòng chảy tầng sâu) thì GIỮ NGUYÊN null — vùng nông phải trống thật.
+  const raw = grid.cells.map((c) => {
+    const v = c.values[timeIdx];
+    return v != null && Number.isFinite(v) ? v : null;
+  });
+  const values = grid.noFill ? raw : fillCoastalGaps(raw, nLat, nLon);
   const data = new Uint8Array(nLat * nLon * 4);
   for (let i = 0; i < nLat * nLon; i++) {
-    const v = grid.cells[i].values[timeIdx];
+    const v = values[i];
     const o = i * 4;
-    if (v == null || !Number.isFinite(v)) {
+    if (v == null) {
       data[o] = 0;
-      data[o + 1] = 0; // cờ null
+      data[o + 1] = 0; // cờ null (xa biển hẳn — 2 vòng lan không tới)
     } else {
       const n = Math.max(0, Math.min(1, (v - min) / span));
       data[o] = Math.round(n * 255);

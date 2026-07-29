@@ -4,11 +4,14 @@ import {
   gridSnapshotId,
   scalarSnapshotId,
   rawSourceId,
+  curDepthSnapshotId,
   isValidSnapshotId,
   snapshotNeedsPremium,
   SNAPSHOT_GRID_DAYS,
   SNAPSHOT_PREMIUM_GRID_DAYS,
   SNAPSHOT_DAY_SET,
+  CUR_DEPTH_TIERS,
+  CUR_DEPTH_MAX_DAYS,
 } from "@/lib/weather-snapshot-id";
 
 describe("weather-snapshot id — khoá + whitelist", () => {
@@ -45,6 +48,19 @@ describe("weather-snapshot id — khoá + whitelist", () => {
 
   it("khung snapshot công khai chỉ là d3 (miễn phí)", () => {
     expect(SNAPSHOT_GRID_DAYS).toBe(3);
+  });
+
+  /* 2026-07-29: dòng chảy THEO TẦNG — 4 tầng cố định, d3 miễn phí, d10 premium
+     (chung luật >3 ngày). */
+  it("curdepth: đúng 4 tầng qua whitelist; d10 cần premium, d3 không; tầng lạ chặn", () => {
+    for (const t of CUR_DEPTH_TIERS) {
+      expect(isValidSnapshotId(curDepthSnapshotId(t, 3))).toBe(true);
+      expect(isValidSnapshotId(curDepthSnapshotId(t, CUR_DEPTH_MAX_DAYS))).toBe(true);
+    }
+    expect(snapshotNeedsPremium(curDepthSnapshotId(150, CUR_DEPTH_MAX_DAYS))).toBe(true);
+    expect(snapshotNeedsPremium(curDepthSnapshotId(150, 3))).toBe(false);
+    expect(isValidSnapshotId("curdepth:t100:d10")).toBe(false); // tầng không có
+    expect(isValidSnapshotId("curdepth:t50:dx")).toBe(false);
   });
 
   /* 2026-07-29: cron ghép 2 nguồn giữ bản THÔ từng nguồn ở hàng raw:<id>:<src>
