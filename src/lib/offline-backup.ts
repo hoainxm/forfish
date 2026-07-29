@@ -9,6 +9,16 @@
 
 /** Khoá localStorage của app đều bắt đầu forfish.* (quy ước dự án) */
 const LS_PREFIX = "forfish.";
+/**
+ * KHÔNG sao lưu các khoá QUYỀN/định danh — nếu không, chia tệp cho người khác là
+ * chia luôn "dấu premium" (forfish.tier.premium.v1) → import vào máy thường sẽ
+ * MỞ KHOÁ bản đồ cá premium offline (leo thang quyền). Tệp chỉ mang DỮ LIỆU dự
+ * báo CÔNG KHAI, không mang entitlement. (Đăng nhập nằm ở cookie Supabase, không
+ * ở localStorage, nên không lo giả mạo user.)
+ */
+const SKIP_PREFIXES = ["forfish.tier."];
+const isBackupable = (k: string) =>
+  k.startsWith(LS_PREFIX) && !SKIP_PREFIXES.some((p) => k.startsWith(p));
 /** Kho /api/* của Service Worker — khớp SDFISH_API_V trong public/sw.js */
 const API_CACHE = "sdfish-api-v1";
 const FISH_URL = "/api/fish-forecast";
@@ -48,8 +58,7 @@ export async function exportOfflineData(): Promise<string> {
   try {
     for (let i = 0; i < window.localStorage.length; i++) {
       const k = window.localStorage.key(i);
-      if (k && k.startsWith(LS_PREFIX))
-        ls[k] = window.localStorage.getItem(k) ?? "";
+      if (k && isBackupable(k)) ls[k] = window.localStorage.getItem(k) ?? "";
     }
   } catch {
     /* SSR / chặn lưu — trả phần gom được */
@@ -76,7 +85,9 @@ export async function importOfflineData(
   if (!b) return { ok: false, keys: 0 };
   let keys = 0;
   for (const [k, v] of Object.entries(b.ls)) {
-    if (k.startsWith(LS_PREFIX) && typeof v === "string") {
+    // PHÒNG THỦ 2 LỚP: kể cả tệp cũ / sửa tay có lẫn khoá quyền → KHÔNG ghi
+    // (không cho import mở khoá premium bằng dấu tier của người khác).
+    if (isBackupable(k) && typeof v === "string") {
       try {
         window.localStorage.setItem(k, v);
         keys++;

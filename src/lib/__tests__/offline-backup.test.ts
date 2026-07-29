@@ -40,25 +40,35 @@ describe("parseBackup", () => {
 });
 
 describe("export → import round-trip (localStorage)", () => {
-  it("gom mọi khoá forfish.* và phục hồi lại đúng", async () => {
+  it("gom dữ liệu forfish.* NHƯNG loại dấu quyền tier, phục hồi lại đúng", async () => {
     localStorage.setItem("forfish.fc.grid.d3", "GRID");
-    localStorage.setItem("forfish.tier.premium.v1", "1");
+    localStorage.setItem("forfish.tier.premium.v1", "1"); // dấu premium — KHÔNG gom
     localStorage.setItem("khac.khong-lien-quan", "BỎ"); // không phải forfish → không gom
 
     const json = await exportOfflineData();
     const parsed = parseBackup(json);
-    expect(Object.keys(parsed!.ls).sort()).toEqual([
-      "forfish.fc.grid.d3",
-      "forfish.tier.premium.v1",
-    ]);
+    // chỉ dữ liệu dự báo, KHÔNG có forfish.tier.*
+    expect(Object.keys(parsed!.ls)).toEqual(["forfish.fc.grid.d3"]);
 
     // xoá sạch (giả lập máy xoá cache) rồi phục hồi
     localStorage.clear();
     const r = await importOfflineData(json);
     expect(r.ok).toBe(true);
-    expect(r.keys).toBe(2);
+    expect(r.keys).toBe(1);
     expect(localStorage.getItem("forfish.fc.grid.d3")).toBe("GRID");
-    expect(localStorage.getItem("forfish.tier.premium.v1")).toBe("1");
+  });
+
+  it("import tệp có LẪN dấu premium → KHÔNG mở khoá (leo thang quyền)", async () => {
+    // tệp do người khác sửa tay, cố nhét dấu premium
+    const json = JSON.stringify({
+      v: 1,
+      savedAt: 1,
+      ls: { "forfish.fc.grid.d3": "GRID", "forfish.tier.premium.v1": "1" },
+    });
+    const r = await importOfflineData(json);
+    expect(r.ok).toBe(true);
+    expect(r.keys).toBe(1); // chỉ ghi grid, KHÔNG ghi dấu tier
+    expect(localStorage.getItem("forfish.tier.premium.v1")).toBeNull();
   });
 
   it("import tệp hỏng → ok:false, không ghi gì", async () => {
