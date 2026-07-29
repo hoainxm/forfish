@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   AnchorIcon,
   FishIcon,
@@ -27,6 +28,20 @@ const items = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  // Bản cài iOS (standalone): sau vá v3.1 vẫn còn lệch dư ~10px hai chiều —
+  // user đo bằng mắt 2026-07-29: Trang chủ + Ra khơi (trang VỪA KHÍT, đang ăn
+  // bù --vvgap) dock CAO hơn đáy 10px → tụt thêm; 3 tab cuộn được (var đã về
+  // 0) dock THẤP quá 10px → nhấc lên. CHỈ áp trong standalone — Android /
+  // desktop / Safari thường không dính, giữ nguyên.
+  const [standalone, setStandalone] = useState(false);
+  useEffect(() => {
+    setStandalone(
+      window.matchMedia?.("(display-mode: standalone)").matches === true ||
+        (navigator as { standalone?: boolean }).standalone === true,
+    );
+  }, []);
+  const firstTwoTabs = pathname === "/" || pathname.startsWith("/ngu-truong");
+  const iosTrimPx = standalone ? (firstTwoTabs ? 10 : -10) : 0;
   return (
     <nav
       aria-label="Điều hướng chính"
@@ -35,8 +50,8 @@ export function BottomNav() {
         paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)",
         // --vvgap: bù bug iOS 26 layout-viewport ngắn — CHỈ standalone mới đặt
         // khác 0 (viewport-gap-fix.tsx). Thay class -translate-x-1/2 để khỏi
-        // hai transform đè nhau; bình thường var = 0 → y hệt cũ.
-        transform: "translate(-50%, var(--vvgap, 0px))",
+        // hai transform đè nhau; bình thường var + trim = 0 → y hệt cũ.
+        transform: `translate(-50%, calc(var(--vvgap, 0px) + ${iosTrimPx}px))`,
       }}
     >
       <ul
