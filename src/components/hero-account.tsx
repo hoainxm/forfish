@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { BellIcon, ChevronRightIcon, UsersIcon } from "@/components/icons";
+import {
+  BellIcon,
+  ChevronRightIcon,
+  LockIcon,
+  UsersIcon,
+} from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthUser } from "@/lib/use-auth";
 import {
@@ -248,6 +253,29 @@ export function HeroAccount() {
             <p className="-mt-2.5 mb-4 px-1 text-[0.8125rem] font-semibold text-danger">
               {pushError}
             </p>
+          )}
+
+          {/* Đổi mật khẩu tự nguyện (2026-07-29) — trang /doi-mat-khau hỏi
+              mật khẩu hiện tại rồi mới cho đổi */}
+          {user && (
+            <Link
+              href="/doi-mat-khau"
+              onClick={() => setOpen(false)}
+              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 rounded-2xl bg-field px-4 text-left"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white">
+                <LockIcon className="h-5 w-5 text-navy" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[1rem] font-bold text-navy">
+                  Đổi mật khẩu
+                </span>
+                <span className="block text-[0.8125rem] leading-snug text-foreground/70">
+                  Đặt mật khẩu mới cho tài khoản của bạn
+                </span>
+              </span>
+              <ChevronRightIcon className="h-4 w-4 shrink-0 text-foreground/40" />
+            </Link>
           )}
 
           {user && (

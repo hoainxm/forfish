@@ -6,12 +6,15 @@
 //   HOẠT/GIA HẠN premium cho khách, MỖI LẦN 1 NĂM (nextPremiumUntil), mỗi lần
 //   đều ghi LOG premium_grants (granted_by = SĐT người thao tác) → thống kê
 //   được mỗi quản lý đang quản bao nhiêu account premium
+// · PATCH action='reset-password' (2026-07-29): CHỈ admin — mật khẩu về tạm
+//   cố định sd123456 (lib/temp-password), bật lại must_change_password
 // Webhook SDWork vẫn là đường nạp khách CHÍNH — tạo tay dành cho ca lẻ.
 // Ghi bằng service-role (bypass RLS) — mọi method qua requireStaff/requireAdmin.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requireStaff } from "@/lib/admin-auth";
 import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
+import { TEMP_RESET_PASSWORD } from "@/lib/temp-password";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
@@ -294,6 +297,39 @@ export async function PATCH(req: Request) {
       premium_until: null,
     });
     return NextResponse.json({ ok: true, action: "downgrade", logged });
+  }
+
+  if (body.action === "reset-password") {
+    // ĐẶT LẠI MẬT KHẨU — chỉ admin (manager không được reset tài khoản khách).
+    // Mật khẩu về tạm cố định sd123456; must_change_password bật lại để khách
+    // bị bắt tự đổi ngay lần đăng nhập kế. Phiên cũ của khách không thu hồi
+    // được từ đây (supabase-js chưa có admin signOut theo id) — nhưng lần
+    // đăng nhập mới sẽ tự đá phiên cũ (signOut scope 'others' ở /login).
+    const who = await requireAdmin();
+    if (!who.ok) return err(who.status, who.code);
+    const admin = createAdminClient();
+    if (!admin) return err(503, "not_configured");
+
+    let authUser: Awaited<ReturnType<typeof findAuthUser>>;
+    try {
+      authUser = await findAuthUser(admin, phoneToEmail(phone));
+    } catch {
+      return err(500, "auth_lookup_failed");
+    }
+    if (!authUser) return err(404, "not_provisioned");
+
+    const { error } = await admin.auth.admin.updateUserById(authUser.id, {
+      password: TEMP_RESET_PASSWORD,
+      // giữ metadata cũ (full_name…) — updateUserById GHI ĐÈ cả object
+      user_metadata: { ...authUser.user_metadata, must_change_password: true },
+    });
+    if (error) return err(500, "reset_failed");
+
+    return NextResponse.json({
+      ok: true,
+      action: "reset-password",
+      tempPassword: TEMP_RESET_PASSWORD,
+    });
   }
 
   return err(400, "bad_action");

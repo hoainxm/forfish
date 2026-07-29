@@ -303,6 +303,9 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
   } | null>(null);
   const [toDowngrade, setToDowngrade] = useState<Account | null>(null);
   const [toDelete, setToDelete] = useState<Account | null>(null);
+  const [toReset, setToReset] = useState<Account | null>(null);
+  // thông báo thành công (đặt lại mật khẩu…) — tách khỏi error để không đỏ oan
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setError(null);
@@ -364,6 +367,7 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
    *  downgrade = hạ về thường (admin) */
   async function patchAction(a: Account, action: "grant" | "downgrade") {
     setBusyPhone(a.phone);
+    setNotice(null);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -389,6 +393,35 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
       );
     }
     load();
+  }
+
+  /** reset-password = mật khẩu về tạm sd123456, khách bị bắt tự đổi khi
+   *  đăng nhập lại (chỉ admin — server chặn bằng requireAdmin) */
+  async function resetPassword(a: Account) {
+    setBusyPhone(a.phone);
+    setNotice(null);
+    const r = await fetch(apiUrl("/api/admin/accounts"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ phone: a.phone, action: "reset-password" }),
+    }).catch(() => null);
+    const j = (await r?.json().catch(() => null)) as {
+      ok?: boolean;
+      code?: string;
+      tempPassword?: string;
+    } | null;
+    setBusyPhone(null);
+    if (!r?.ok || !j?.ok) {
+      setError(
+        j?.code === "not_provisioned"
+          ? "Tài khoản này chưa đăng nhập được (chưa provision) — không có mật khẩu để đặt lại."
+          : "Đặt lại mật khẩu chưa được — thử lại.",
+      );
+      return;
+    }
+    setNotice(
+      `Đã đặt lại mật khẩu cho ${a.phone}${a.name ? ` (${a.name})` : ""} — báo khách đăng nhập bằng mật khẩu tạm ${j.tempPassword ?? "sd123456"}, vào xong app sẽ bắt tự đổi.`,
+    );
   }
 
   async function remove(a: Account) {
@@ -514,6 +547,19 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
           </button>
         </div>
       )}
+      {notice && (
+        <div className="surface flex items-start justify-between gap-3 bg-ok-bg px-4 py-3.5">
+          <p className="text-[0.9375rem] font-semibold text-ok">{notice}</p>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="Đóng thông báo"
+            className="shrink-0 text-[0.875rem] font-bold text-ok/70"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
       {!accounts && !error && (
         <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
           Đang tải danh sách tài khoản…
@@ -614,6 +660,16 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
                         Về thường
                       </button>
                     )}
+                    {isAdmin && a.canLogin && (
+                      <button
+                        type="button"
+                        disabled={busyPhone === a.phone}
+                        onClick={() => setToReset(a)}
+                        className="min-h-[2.5rem] rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-foreground/70 disabled:opacity-50"
+                      >
+                        Đặt lại mật khẩu
+                      </button>
+                    )}
                     {isAdmin && (
                       <button
                         type="button"
@@ -664,6 +720,21 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
             const a = toDowngrade;
             setToDowngrade(null);
             patchAction(a, "downgrade");
+          }}
+        />
+      )}
+      {toReset && (
+        <ConfirmDialog
+          title={`Đặt lại mật khẩu cho ${toReset.phone}?`}
+          message={`${toReset.name ? `${toReset.name} — ` : ""}mật khẩu về tạm sd123456, mật khẩu cũ hết dùng được. Khách đăng nhập lại sẽ bị bắt tự đổi mật khẩu mới.`}
+          confirmLabel="Đặt lại"
+          cancelLabel="Không"
+          danger={false}
+          onCancel={() => setToReset(null)}
+          onConfirm={() => {
+            const a = toReset;
+            setToReset(null);
+            resetPassword(a);
           }}
         />
       )}

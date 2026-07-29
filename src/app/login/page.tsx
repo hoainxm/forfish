@@ -62,6 +62,14 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
+    // 1 TÀI KHOẢN = 1 MÁY (2026-07-29): đăng nhập máy này thì thu hồi phiên
+    // mọi máy khác — máy cũ tự thoát ở lần mở app/refresh kế. Lỗi thu hồi
+    // KHÔNG chặn đăng nhập (mạng biển chập chờn).
+    try {
+      await supabase!.auth.signOut({ scope: "others" });
+    } catch {
+      /* bỏ qua — phiên máy này vẫn hợp lệ */
+    }
     // lần đầu (webhook đặt must_change_password) → bắt đổi mật khẩu
     const mustChange = data.user.user_metadata?.must_change_password === true;
     router.replace(mustChange ? "/doi-mat-khau" : "/");
@@ -103,6 +111,9 @@ export default function LoginPage() {
         <p className="mt-4 text-[1rem] leading-snug text-foreground/70">
           Khách đã mua hàng SDVICO: dùng số điện thoại + mật khẩu nhân viên báo
           khi mua. Vào xong app nhắc đổi mật khẩu.
+        </p>
+        <p className="mt-2 text-[1rem] leading-snug text-foreground/70">
+          Tài khoản premium hỗ trợ đăng nhập trên một máy.
         </p>
         <p className="mt-2 text-[1rem] leading-snug">
           Quên mật khẩu?{" "}
