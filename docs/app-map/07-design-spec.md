@@ -276,6 +276,8 @@ Mốc lần chạy gần nhất lưu ở `forfish.pretrip.lastRunAt.v1` (xem `op
 
 Bỏ fallback "bản lưu gần nhất": xin 16 ngày mà máy chỉ có 3 ngày thì trước đây đưa lưới 3 ngày trong khi chip vẫn sáng "16 ngày". Nay không có đúng khung → thanh giờ báo: **"Chưa tải được khung {N} ngày — máy chưa lưu khung này."** + nút "Thử lại"; nếu máy có khung khác thì liệt kê thật **"Trong máy đang có: [3 ngày] [7 ngày]"**, chạm là đổi sang đúng khung đó (chip khung ngày đổi theo, không nói dối).
 
+**NỚI 2026-07-29 — được mượn khung NGẮN HƠN** (`fetchForecastGrid`): từ khi BỎ chip chọn khung, thanh ngày vẽ theo `times[]` THẬT nên đưa lưới ngắn hơn không còn nói dối — xin 16 mà chỉ có 3 thì bà con thấy đúng 3 ngày. Thứ tự lưới an toàn: bản lưu đúng khung → snapshot cron → **khung NGẮN HƠN dài nhất đã lưu** (dài hơn thì KHÔNG — kẻo lộ tầm premium cho tài khoản thường); hết cả mới báo lỗi như trên. Kèm: `gridIsCurrent` chỉ xét VÙNG PHỦ 4 góc (bản lưu thưa 110 ô vẫn dùng — mọi chỗ dựng hình tự suy kích thước), và khi đang hiện SỐ CŨ/lỗi thì **tự thử lại** mỗi 5 phút + lúc quay lại tab/có mạng lại (fishing-map-view, cửa chặn chung một mốc để không dội nguồn đang 429).
+
 ### 10.3 BẢN ĐỒ khi mất sóng — không được để màn hình trắng (2026-07-25m)
 
 Lỗ hổng cuối của mạch §10.1–10.2: số liệu đã nói thật, nhưng **cái nền dưới nó thì biến mất**. Mọi ô bản đồ đến từ host ngoài mà Service Worker không giữ được (chỉ giữ same-origin) → mất sóng là nền trắng: bà con có số gió sóng và điểm nóng cá, nhưng **mũi tên gió lơ lửng giữa khoảng trắng**, không thấy bờ, không thấy đảo. Đây là lỗi AN TOÀN (mất định hướng), không phải lỗi thẩm mỹ.

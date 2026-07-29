@@ -84,13 +84,27 @@ describe("fetchForecastGrid offline — đúng khung ngày đã xin", () => {
     expect(g.cells).toHaveLength(156);
   });
 
-  it("mất sóng, xin khung KHÁC với khung đã lưu → BÁO LỖI, không đưa lưới khung khác", async () => {
+  /*
+    2026-07-29 ĐỔI LUẬT (trước: xin khung khác → luôn báo lỗi): từ khi BỎ chip
+    chọn khung, thanh ngày vẽ theo times[] THẬT nên đưa lưới ngắn hơn KHÔNG còn
+    nói dối (trước đây chip vẫn sáng "16 ngày" mới là dối). Thà 3 ngày thật còn
+    hơn màn trắng khi Open-Meteo 429. Nhưng CHỈ mượn khung NGẮN HƠN.
+  */
+  it("mất sóng, xin khung DÀI mà chỉ có khung NGẮN → mượn khung ngắn (thà ít còn hơn trắng)", async () => {
     globalThis.fetch = online(96);
     const near = await fetchForecastGrid(3);
     globalThis.fetch = offline();
-    await expect(fetchForecastGrid(16)).rejects.toThrow();
-    // xác nhận đúng là hai khung khác nhau về số mốc giờ (không phải trùng ngẫu nhiên)
+    const g = await fetchForecastGrid(16);
+    expect(g.stale).toBe(true);
+    expect(g.times.length).toBe(near.times.length); // đúng là bản d3
     expect(near.times.length).toBe(25);
+  });
+
+  it("KHÔNG mượn khung DÀI hơn cho khung ngắn (kẻo lộ tầm premium cho tài khoản thường)", async () => {
+    globalThis.fetch = online(400);
+    await fetchForecastGrid(16);
+    globalThis.fetch = offline();
+    await expect(fetchForecastGrid(3)).rejects.toThrow();
   });
 
   it("bản lưu khung 3 ngày KHÔNG bị dùng cho khung 16 ngày dù lưu sau", async () => {
@@ -137,13 +151,28 @@ describe("gridIsCurrent — loại bản lưu đời cũ (vùng phủ nhỏ)", (
     return { cells, times: ["2026-07-20T00:00"] };
   }
 
-  it("lưới hiện tại → true; lưới cũ 80 ô → false", () => {
+  it("lưới hiện tại → true; lưới cũ 80 ô (bbox NHỎ) → false", () => {
     const current: ForecastGrid = {
       cells: gridPoints().map((p) => ({ lat: p.lat, lon: p.lon, hours: [] })),
       times: [],
     };
     expect(gridIsCurrent(current)).toBe(true);
     expect(gridIsCurrent(oldGrid())).toBe(false);
+  });
+
+  it("bản THƯA HƠN nhưng CÙNG VÙNG PHỦ (110 ô) → vẫn dùng được", () => {
+    // 11×10 phủ đúng 98–123°Đ / 1–24°B như lưới hiện tại, chỉ thưa hơn
+    const cells = [];
+    for (let i = 0; i < 11; i++) {
+      for (let j = 0; j < 10; j++) {
+        cells.push({
+          lat: Math.round((1 + (i * 23) / 10) * 100) / 100,
+          lon: Math.round((98 + (j * 25) / 9) * 100) / 100,
+          hours: [],
+        });
+      }
+    }
+    expect(gridIsCurrent({ cells, times: [] })).toBe(true);
   });
 
   it("mất sóng + máy chỉ có bản ĐỜI CŨ → LỚP VẼ coi như không có (báo lỗi, không co cụm)", async () => {

@@ -123,6 +123,10 @@ export async function fetchScalarFieldsLive(
 export const SCALAR_NS = "scalar";
 const cacheId = (kind: ScalarKind, days: number) => `${kind}.d${Math.round(days)}`;
 
+/** Các khung có thể đã lưu trong máy (pretrip tải 3 + 16) — để mượn khung ngắn
+    hơn khi khung đang xin không có (nguồn 429/mất sóng). */
+const SCALAR_FALLBACK_DAYS = [3, 16] as const;
+
 /** Bản lưu còn DÙNG ĐƯỢC không: đủ ô khớp kích thước khai (bản đời cũ trước khi
     mở lưới 156 không có nLat/nLon và lệch số ô → loại, coi như không có). */
 function scalarGridUsable(g: ScalarGrid | null | undefined): boolean {
@@ -199,6 +203,19 @@ export async function fetchScalarField(
       const snap = await loadScalarSnapshotClient(kind, days);
       if (snap && scalarGridUsable(snap))
         return { ...snap, stale: true, savedAt: null };
+    }
+    // CUỐI CÙNG: mượn khung NGẮN HƠN đã lưu (cùng luật forecast-grid — thanh
+    // ngày vẽ theo times[] thật nên không nói dối; thà 3 ngày còn hơn trắng)
+    for (const d of [...SCALAR_FALLBACK_DAYS].filter((x) => x < days).reverse()) {
+      const alt = loadForecast<ScalarGrid>(SCALAR_NS, cacheId(kind, d));
+      if (alt && scalarGridUsable(alt.data))
+        return { ...alt.data, stale: true, savedAt: alt.savedAt };
+      // …rồi snapshot server của khung ngắn đó (máy chưa từng tải được lần nào)
+      if (SNAPSHOT_DAY_SET.includes(d)) {
+        const snap = await loadScalarSnapshotClient(kind, d);
+        if (snap && scalarGridUsable(snap))
+          return { ...snap, stale: true, savedAt: null };
+      }
     }
     throw err;
   }

@@ -179,7 +179,11 @@ export function gridCacheId(days: number): string {
  */
 export function gridIsCurrent(g: ForecastGrid | null | undefined): boolean {
   const cells = g?.cells;
-  if (!cells || cells.length !== N_LAT * N_LON) return false;
+  if (!cells || cells.length < 20) return false;
+  // CHỈ xét VÙNG PHỦ (4 góc), KHÔNG xét mật độ (2026-07-29 sửa lại): bản lưu
+  // thưa hơn (110 ô) vẫn phủ ĐÚNG vùng — vẽ thô hơn chút nhưng dùng tốt, và
+  // mọi chỗ dựng hình đều tự suy kích thước lưới. Chỉ bản đời CŨ HẲN (bbox nhỏ
+  // 102,5–117,25 / 6–21,3) mới bị loại vì nó gây "co cụm một góc".
   const eps = 0.02; // toạ độ ô làm tròn 0,01°
   const last = cells[cells.length - 1];
   return (
@@ -209,6 +213,23 @@ export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
     // premium bị route chặn thật nếu chưa đủ hạng → trả null, báo lỗi như cũ.
     if (SNAPSHOT_DAY_SET.includes(days)) {
       const snap = await loadGridSnapshotClient(days);
+      if (snap && gridIsCurrent(snap)) return { ...snap, stale: true, savedAt: null };
+    }
+    // CUỐI CÙNG: mượn khung NGẮN HƠN đã lưu (2026-07-29). An toàn từ khi BỎ chip
+    // chọn khung: thanh ngày vẽ THEO times[] thật nên xin 16 mà chỉ có 3 thì bà
+    // con thấy đúng 3 ngày — không còn nhãn "16 ngày" nói dối như lúc chặn luật
+    // này (2026-07-25). Thà 3 ngày thật còn hơn màn hình trắng khi nguồn 429.
+    const shorter = savedCurrentGridDays().filter((d) => d < days);
+    for (let i = shorter.length - 1; i >= 0; i--) {
+      const alt = loadForecast<ForecastGrid>(GRID_NS, gridCacheId(shorter[i]));
+      if (alt && gridIsCurrent(alt.data))
+        return { ...alt.data, stale: true, savedAt: alt.savedAt };
+    }
+    // …và SNAPSHOT SERVER của khung ngắn hơn (user 2026-07-29: "không live được
+    // thì lấy snapshot"). Máy chưa từng tải được lần nào (429 ngay từ đầu) thì
+    // localStorage trống — server vẫn có bản cron tính sẵn.
+    for (const d of [...SNAPSHOT_DAY_SET].filter((x) => x < days).sort((a, b) => b - a)) {
+      const snap = await loadGridSnapshotClient(d);
       if (snap && gridIsCurrent(snap)) return { ...snap, stale: true, savedAt: null };
     }
     throw err;

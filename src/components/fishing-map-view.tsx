@@ -1094,6 +1094,34 @@ export default function FishingMapView() {
   const cond = loading ? null : (result?.cond ?? null);
   const errored = !loading && result?.cond === null;
 
+  // ĐANG DÙNG SỐ CŨ → TỰ THỬ LẠI, không bắt bà con ngồi nhìn cảnh báo
+  // (user 2026-07-29: "sao nó không tự kéo lại?"). Kích khi: quay lại tab ·
+  // có mạng lại · hoặc mỗi RETRY_STALE_MS. Cửa chặn cùng mốc cho cả ba để
+  // KHÔNG dội nguồn đang 429 (Open-Meteo tính quota theo IP từng máy).
+  const staleNow = (!!cond?.stale || errored) && !loading;
+  const lastTryRef = useRef(0);
+  useEffect(() => {
+    if (!staleNow) return;
+    const RETRY_STALE_MS = 5 * 60 * 1000;
+    const tryAgain = () => {
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+      if (Date.now() - lastTryRef.current < RETRY_STALE_MS) return;
+      lastTryRef.current = Date.now();
+      setRetry((n) => n + 1);
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tryAgain();
+    };
+    const t = setInterval(tryAgain, RETRY_STALE_MS);
+    window.addEventListener("online", tryAgain);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("online", tryAgain);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [staleNow]);
+
   // Thẻ "số cũ trong máy" (mất mạng → dùng bản đã lưu) TỰ ẨN sau NOTIFY_HIDE_MS
   // như mấy chip khác — trước là hộp vàng nằm lì che bản đồ. Effect chạy lại
   // khi CHỖ/tuổi bản lưu đổi, nên vẫn stale thì không nhấp nháy báo lại.
