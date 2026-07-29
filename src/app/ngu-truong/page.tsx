@@ -14,7 +14,16 @@ export const metadata = { title: "Đánh bắt — SDFish" };
 */
 export default function NguTruongPage() {
   return (
-    <div className="fixed inset-x-0 top-0 bottom-[calc(84px+env(safe-area-inset-bottom))] mx-auto max-w-[480px]">
+    <div
+      className="fixed inset-x-0 top-0 mx-auto max-w-[480px]"
+      // --vvgap: bug iOS 26 layout-viewport NGẮN hơn màn (dock treo lưng chừng,
+      // lòi khối trắng dưới sheet — ảnh user 2026-07-29 13:20 bản cài): đáy
+      // trang NỞ xuống đúng phần hụt, cùng biến với dock (viewport-gap-fix.tsx,
+      // CHỈ standalone đặt khác 0; bình thường var = 0 → y hệt cũ).
+      style={{
+        bottom: "calc(84px + env(safe-area-inset-bottom) - var(--vvgap, 0px))",
+      }}
+    >
       <FishingMap />
     </div>
   );

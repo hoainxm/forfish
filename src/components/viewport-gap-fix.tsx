@@ -9,20 +9,28 @@
   trống bên dưới; dính cả Safari thường lẫn PWA cài về máy. Cộng đồng xác
   nhận CUỘN TRANG là Safari neo lại đúng.
 
-  Cách vá: nghe visualViewport — khi đáy NHÌN THẤY thấp hơn đáy LAYOUT quá 2px
-  thì hích cuộn 1px xuống-lên cho Safari tính lại. Trang VỪA KHÍT màn hình
-  (trang chủ) không có gì để cuộn → nới đáy body 2px MỘT NHỊP cho scrollBy có
-  chỗ làm việc rồi trả lại; kiểm lại mỗi lần đổi trang (dep pathname).
+  HAI ĐƯỜNG VÁ, gate theo chế độ chạy:
 
-  ĐÃ GỠ 2026-07-29 (user: "tệ hơn bản trước, mất cả góc nhìn"): bù vị trí dock
-  bằng CSS var --vvgap. Sai ở chỗ: thanh công cụ Safari thu gọn thì visual và
-  layout viewport lệch nhau MỘT CÁCH BÌNH THƯỜNG (Safari vẫn tự neo fixed đúng
-  đáy) → phép đo không phân biệt được trạng thái đó với bug thật, bù oan làm
-  dock chui xuống dưới mép màn hình. KHÔNG làm lại kiểu đo-rồi-dịch này.
+  · SAFARI THƯỜNG — chỉ HÍCH CUỘN (scrollBy 1px xuống-lên; trang vừa khít thì
+    nới đáy body 2px một nhịp cho có chỗ cuộn). TUYỆT ĐỐI không đo-rồi-dịch:
+    thanh công cụ Safari thu gọn làm visual/layout viewport lệch nhau MỘT CÁCH
+    BÌNH THƯỜNG (fixed vẫn được neo đúng đáy) — không phân biệt được với bug
+    thật, đã bù oan một lần (v2 2026-07-29 sáng, dock chui mất nửa → revert).
+
+  · STANDALONE (PWA cài màn hình, ảnh user 2026-07-29 13:20 vẫn treo) — KHÔNG
+    có thanh công cụ nào ⇒ lệch dương kéo dài giữa đáy NHÌN THẤY và đáy LAYOUT
+    chính LÀ bug, bù không bao giờ oan. Đặt CSS var `--vvgap` trên <html>;
+    bottom-nav tụt xuống đúng phần hụt (transform) và trang bản đồ nở đáy theo
+    (bottom: calc(... - var(--vvgap))). Bàn phím mở / pinch-zoom cho gap ÂM
+    hoặc 0 → var về 0, không đụng gì. Safari 26.1 sửa bug → gap 0 → vá tự tắt.
 */
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+
+/** Trần bù (px) — hụt thật đo được cỡ thanh công cụ (~50–120); quá trần coi
+    như số đo rác (xoay màn giữa chừng…), không bù bừa. */
+const VVGAP_MAX_PX = 160;
 
 export function ViewportGapFix() {
   const pathname = usePathname();
@@ -31,6 +39,10 @@ export function ViewportGapFix() {
     const vv = window.visualViewport;
     if (!vv) return;
     const de = document.documentElement;
+    // PWA cài màn hình: display-mode standalone (manifest) / navigator.standalone (iOS)
+    const standalone =
+      window.matchMedia?.("(display-mode: standalone)").matches === true ||
+      (navigator as { standalone?: boolean }).standalone === true;
     let raf = 0;
     let undoPad = 0;
 
@@ -38,8 +50,14 @@ export function ViewportGapFix() {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const gap = vv.height + vv.offsetTop - de.clientHeight;
+        if (standalone) {
+          // bù đúng phần hụt — chỉ khi dương rõ ràng và trong trần hợp lý
+          const px = gap > 2 && gap <= VVGAP_MAX_PX ? Math.round(gap) : 0;
+          de.style.setProperty("--vvgap", `${px}px`);
+        }
         if (gap > 2) {
-          // không có gì để cuộn (trang vừa khít) → nới đáy 2px một nhịp
+          // hích cuộn cho Safari neo lại (chạy ở CẢ hai chế độ — vô hại, và là
+          // đường vá duy nhất của Safari thường)
           if (de.scrollHeight <= de.clientHeight + 1) {
             document.body.style.paddingBottom = "2px";
             window.clearTimeout(undoPad);

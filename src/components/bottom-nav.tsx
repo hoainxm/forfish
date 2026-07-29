@@ -30,8 +30,14 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Điều hướng chính"
-      className="fixed bottom-0 left-1/2 z-20 w-full max-w-[480px] -translate-x-1/2 px-3"
-      style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
+      className="fixed bottom-0 left-1/2 z-20 w-full max-w-[480px] px-3"
+      style={{
+        paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)",
+        // --vvgap: bù bug iOS 26 layout-viewport ngắn — CHỈ standalone mới đặt
+        // khác 0 (viewport-gap-fix.tsx). Thay class -translate-x-1/2 để khỏi
+        // hai transform đè nhau; bình thường var = 0 → y hệt cũ.
+        transform: "translate(-50%, var(--vvgap, 0px))",
+      }}
     >
       <ul
         className="grid grid-cols-5 rounded-[1.625rem] px-1.5 py-1.5 shadow-[0_12px_32px_-8px_rgba(10,30,50,0.45)] backdrop-blur-md"
