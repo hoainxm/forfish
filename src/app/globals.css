@@ -128,13 +128,17 @@ body {
 
   Dock: bỏ neo `bottom`, neo `top:0` rồi đẩy xuống đúng (--sd-vh − chiều-cao-
   chính-nó). translateY theo % = theo chiều cao element nên `calc(--sd-vh − 100%)`
-  đặt ĐÁY dock đúng tại --sd-vh — không cần đo chiều cao dock bằng JS.
+  đặt ĐÁY dock đúng tại --sd-vh — không cần đo chiều cao dock bằng JS. Dock căn
+  giữa bằng LỀ (mx-auto) nên transform CHỈ có trục dọc — không đụng canh ngang.
   Trang bản đồ: cao tới ngay trên dock (chừa 84px).
 */
 :root.sd-pinned .sd-dock {
   top: 0;
   bottom: auto;
-  transform: translate(-50%, calc(var(--sd-vh, 100dvh) - 100%));
+  /* X = 0 (canh giữa đã lo bằng mx-auto); Y = --sd-vh − chiều-cao-dock. Dùng
+     translate() 2 tham số vì translateY() một-tham-số resolve calc px+% ra 0
+     trên WebKit (đo được: dock dính lên đỉnh). 100% Y = chiều cao chính dock. */
+  transform: translate(0px, calc(var(--sd-vh, 100dvh) - 100%));
   transition: transform 140ms ease-out;
 }
 :root.sd-pinned .sd-fullmap {

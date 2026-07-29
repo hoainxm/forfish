@@ -33,7 +33,10 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Điều hướng chính"
-      className="sd-dock fixed bottom-0 left-1/2 z-20 w-full max-w-[480px] -translate-x-1/2 px-3"
+      // Căn giữa bằng LỀ (inset-x-0 + mx-auto), KHÔNG bằng translateX — để
+      // pinned chỉ đụng trục DỌC (translateY). Gộp -50% X vào cùng transform
+      // với calc dọc thì iOS drop cả cụm nếu calc lỗi → dock lệch hẳn sang trái.
+      className="sd-dock fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[480px] px-3"
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
     >
       <ul
