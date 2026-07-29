@@ -16,6 +16,11 @@ import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
+/** Mật khẩu mặc định khi admin ĐẶT LẠI (action='reset_password'). Khách buộc
+ *  đổi ngay lần đăng nhập sau (user_metadata.must_change_password). Chốt với
+ *  chủ dự án 2026-07-29. Đổi thẳng auth → KHÔNG đồng bộ SDWork. */
+const DEFAULT_RESET_PASSWORD = "sd123456";
+
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
 
@@ -265,6 +270,37 @@ export async function PATCH(req: Request) {
       premium_until: until,
     });
     return NextResponse.json({ ok: true, action, premiumUntil: until, logged });
+  }
+
+  if (body.action === "reset_password") {
+    // ĐẶT LẠI mật khẩu về mặc định — chỉ admin. Đưa auth user về sd123456 +
+    // bật must_change_password (app bắt đổi lần đăng nhập sau). KHÔNG đẩy sang
+    // SDWork (đổi thẳng auth, không qua luồng password-sync) → credential 2 app
+    // lệch tới khi khách tự đổi; UI nhắc admin báo khách đổi ngay.
+    const who = await requireAdmin();
+    if (!who.ok) return err(who.status, who.code);
+    const admin = createAdminClient();
+    if (!admin) return err(503, "not_configured");
+
+    let authUser: Awaited<ReturnType<typeof findAuthUser>>;
+    try {
+      authUser = await findAuthUser(admin, phoneToEmail(phone));
+    } catch {
+      return err(500, "auth_lookup_failed");
+    }
+    // chưa provision (chưa đăng nhập lần nào) → không có mật khẩu để đặt lại
+    if (!authUser) return err(404, "not_provisioned");
+
+    const { error } = await admin.auth.admin.updateUserById(authUser.id, {
+      password: DEFAULT_RESET_PASSWORD,
+      // updateUserById GHI ĐÈ user_metadata → merge để giữ cờ cũ, thêm cờ đổi
+      user_metadata: {
+        ...(authUser.user_metadata ?? {}),
+        must_change_password: true,
+      },
+    });
+    if (error) return err(500, "reset_failed");
+    return NextResponse.json({ ok: true, action: "reset_password" });
   }
 
   if (body.action === "downgrade") {

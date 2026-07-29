@@ -267,6 +267,7 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [grantStats, setGrantStats] = useState<GrantStat[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busyPhone, setBusyPhone] = useState<string | null>(null);
   // tìm kiếm + lọc hạng (client-side — vài trăm hàng, không cần server)
   const [query, setQuery] = useState("");
@@ -279,6 +280,7 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
     until: string;
   } | null>(null);
   const [toDowngrade, setToDowngrade] = useState<Account | null>(null);
+  const [toResetPw, setToResetPw] = useState<Account | null>(null);
   const [toDelete, setToDelete] = useState<Account | null>(null);
 
   const load = useCallback(() => {
@@ -366,6 +368,34 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
       );
     }
     load();
+  }
+
+  /** đặt lại mật khẩu về mặc định (sd123456) — server bật must_change_password */
+  async function resetPassword(a: Account) {
+    setBusyPhone(a.phone);
+    setNotice(null);
+    setError(null);
+    const r = await fetch(apiUrl("/api/admin/accounts"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ phone: a.phone, action: "reset_password" }),
+    }).catch(() => null);
+    const j = (await r?.json().catch(() => null)) as {
+      ok?: boolean;
+      code?: string;
+    } | null;
+    setBusyPhone(null);
+    if (!r?.ok || !j?.ok) {
+      setError(
+        j?.code === "not_provisioned"
+          ? "Tài khoản này chưa đăng nhập được lần nào (chưa provision) — không có mật khẩu để đặt lại."
+          : "Đặt lại mật khẩu chưa được — thử lại.",
+      );
+      return;
+    }
+    setNotice(
+      `Đã đặt lại mật khẩu ${a.phone} về "sd123456". Báo khách đăng nhập bằng mật khẩu này — app sẽ bắt đổi ngay lần đầu. (Không đồng bộ sang SDWork.)`,
+    );
   }
 
   async function remove(a: Account) {
@@ -479,6 +509,21 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
         </div>
       )}
 
+      {notice && (
+        <div className="surface flex items-start gap-3 px-4 py-4">
+          <p className="flex-1 text-[0.9375rem] font-semibold leading-snug text-ok">
+            {notice}
+          </p>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="Đóng"
+            className="shrink-0 rounded-lg bg-field px-3 py-1 text-[0.8125rem] font-bold text-foreground/70"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
       {error && (
         <div className="surface px-4 py-6 text-center">
           <p className="text-[1rem] text-danger">{error}</p>
@@ -591,6 +636,16 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
                         Về thường
                       </button>
                     )}
+                    {isAdmin && a.canLogin && (
+                      <button
+                        type="button"
+                        disabled={busyPhone === a.phone}
+                        onClick={() => setToResetPw(a)}
+                        className="min-h-[2.5rem] rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-navy disabled:opacity-50"
+                      >
+                        Đặt lại mật khẩu
+                      </button>
+                    )}
                     {isAdmin && (
                       <button
                         type="button"
@@ -641,6 +696,21 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
             const a = toDowngrade;
             setToDowngrade(null);
             patchAction(a, "downgrade");
+          }}
+        />
+      )}
+      {toResetPw && (
+        <ConfirmDialog
+          title={`Đặt lại mật khẩu ${toResetPw.phone}?`}
+          message={`${toResetPw.name ? `${toResetPw.name} — ` : ""}mật khẩu sẽ về mặc định "sd123456". Khách phải đổi ngay lần đăng nhập sau. KHÔNG đồng bộ sang SDWork — nhắc khách đổi sớm.`}
+          confirmLabel="Đặt lại về sd123456"
+          cancelLabel="Không"
+          danger
+          onCancel={() => setToResetPw(null)}
+          onConfirm={() => {
+            const a = toResetPw;
+            setToResetPw(null);
+            resetPassword(a);
           }}
         />
       )}
