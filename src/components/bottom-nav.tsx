@@ -29,8 +29,8 @@ export function BottomNav() {
   const pathname = usePathname();
   return (
     <div className="dock-frame">
-      <nav aria-label="Điều hướng chính" className="bottom-dock px-2 backdrop-blur-md">
-        <ul className="grid grid-cols-5 px-1 py-1.5">
+      <nav aria-label="Điều hướng chính" className="bottom-dock backdrop-blur-md">
+        <ul className="grid h-full grid-cols-5 items-stretch gap-1 px-1.5 py-1.5">
           {items.map(({ href, label, icon: Icon }) => {
             const active =
               href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -39,7 +39,7 @@ export function BottomNav() {
                 <Link
                   href={href}
                   aria-current={active ? "page" : undefined}
-                  className={`flex min-h-[3.75rem] flex-col items-center justify-center gap-0.5 rounded-[1.25rem] transition-colors ${
+                  className={`flex h-full flex-col items-center justify-center gap-0.5 rounded-[1.25rem] transition-colors ${
                     active ? "bg-white text-navy" : "text-white/75"
                   }`}
                 >

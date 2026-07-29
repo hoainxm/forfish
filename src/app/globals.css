@@ -90,8 +90,9 @@ html {
   bằng --dock-total ở đáy viewport = y hệt cũ.
 */
 :root {
-  --dock-safe: max(10px, env(safe-area-inset-bottom, 0px));
-  --dock-row: 4.5rem;
+  /* hở đáy nhỏ để PILL nổi trên home-indicator (bớt "dư bottom": floor 6px) */
+  --dock-safe: max(6px, env(safe-area-inset-bottom, 0px));
+  --dock-row: calc(4.5rem - 5px); /* chiều cao pill — bớt 5px (user) */
   --dock-total: calc(var(--dock-row) + var(--dock-safe));
 }
 
@@ -106,17 +107,17 @@ html {
   margin-inline: auto;
   pointer-events: none; /* trong suốt, để map/nội dung sau nhận chạm */
 }
+/* PILL NỔI 4 GÓC TRÒN, tách mép, nổi trên home-indicator (--dock-safe) */
 .bottom-dock {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 12px;
+  right: 12px;
+  bottom: var(--dock-safe);
+  height: var(--dock-row);
   pointer-events: auto;
-  min-height: var(--dock-total);
-  padding-bottom: var(--dock-safe);
-  background: rgb(17 42 66 / 0.96);
-  border-radius: 1.625rem 1.625rem 0 0;
-  box-shadow: 0 -6px 24px -10px rgb(10 30 50 / 0.45);
+  background: rgb(17 42 66 / 0.92);
+  border-radius: 1.625rem;
+  box-shadow: 0 12px 32px -8px rgb(10 30 50 / 0.45);
 }
 /* nội dung trang cuộn: chừa đúng chiều cao dock + thở 1rem */
 .app-content {
