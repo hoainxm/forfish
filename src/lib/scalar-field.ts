@@ -81,12 +81,16 @@ const OM_VAR: Record<OMKind, string> = {
  */
 export async function fetchScalarFieldsLive(
   days = 3,
-  opts?: { model?: string },
+  opts?: { model?: string; maxForecastDays?: number },
 ): Promise<Record<OMKind, ScalarGrid>> {
   const pts = gridPoints();
   const lats = pts.map((p) => p.lat).join(",");
   const lons = pts.map((p) => p.lon).join(",");
-  const fd = Math.min(16, Math.max(1, Math.round(days)) + 1);
+  // Trần forecast_days theo model: mặc định 16 (Open-Meteo best-match), nhưng
+  // ECMWF IFS chỉ ~15 ngày → xin 16 là LỖI 400 cả request. Cắt trần để backup
+  // vẫn ra 15 ngày; ngày 16 để trống (không available) — user chốt 2026-07-29.
+  const cap = opts?.maxForecastDays ?? 16;
+  const fd = Math.min(cap, Math.max(1, Math.round(days)) + 1);
   const hourly = Object.values(OM_VAR).join(",");
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}` +
@@ -132,13 +136,31 @@ export async function fetchScalarFieldsLive(
   };
 }
 
+/** Trần ngày ECMWF IFS trên Open-Meteo (~+14,5 ngày) — xin quá là 400 cả request */
+export const ECMWF_MAX_FORECAST_DAYS = 15;
+
 /** NGUỒN DỰ PHÒNG cho cron ghép snapshot (2026-07-29): ECMWF IFS 0,25° — cùng
-    API, khác model; probe thật đủ 5 biến (kể cả CAPE) tới ~+14,5 ngày. CHỈ cron
-    gọi — client vẫn một nguồn qua fetchScalarField. */
+    API, khác model; probe thật đủ 5 biến (kể cả CAPE) tới ~+14,5 ngày. Cắt trần
+    forecast_days ở 15 để backup khung 16 vẫn RA (15 ngày, ngày 16 trống) thay vì
+    LỖI cả request → scalar:*:d16 hết bị cũ khi Open-Meteo 429. CHỈ cron gọi. */
 export async function fetchScalarFieldsBackupLive(
   days = 3,
 ): Promise<Record<OMKind, ScalarGrid>> {
-  return fetchScalarFieldsLive(days, { model: "ecmwf_ifs025" });
+  return fetchScalarFieldsLive(days, {
+    model: "ecmwf_ifs025",
+    maxForecastDays: ECMWF_MAX_FORECAST_DAYS,
+  });
+}
+
+/** NGUỒN 3 cho cron ghép snapshot (2026-07-29, user "cho backup nguồn 3, tránh
+    chết nguồn"): NOAA GFS 0,25° qua Open-Meteo — MODEL khác hẳn best-match/ECMWF,
+    tới 16 ngày (không cần cắt trần). Lớp màu là biến KHÍ QUYỂN (mây/mưa/nhiệt/
+    dông/áp suất) nên Copernicus Marine KHÔNG có; 3 model thời tiết là cách đa
+    nguồn hợp lý ở đây. CHỈ cron gọi. */
+export async function fetchScalarFieldsThirdLive(
+  days = 3,
+): Promise<Record<OMKind, ScalarGrid>> {
+  return fetchScalarFieldsLive(days, { model: "gfs_seamless" });
 }
 
 export const SCALAR_NS = "scalar";

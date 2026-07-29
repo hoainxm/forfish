@@ -8,6 +8,7 @@ import {
 import {
   fetchScalarFieldsLive,
   fetchScalarFieldsBackupLive,
+  fetchScalarFieldsThirdLive,
   type OMKind,
   type ScalarGrid,
 } from "@/lib/scalar-field";
@@ -376,24 +377,26 @@ export async function GET(req: Request) {
       : false;
 
     // LỚP DẢI MÀU: một fetch/nguồn ra cả 5 lớp; raw giữ NGUYÊN BỘ mỗi nguồn
-    let omF: Record<OMKind, ScalarGrid> | null = null;
-    try {
-      omF = await fetchScalarFieldsLive(days);
-      await saveWeatherSnapshot(rawSourceId(`scalar:d${days}`, "om"), {
-        savedAt,
-        data: omF,
-      });
-    } catch {}
-    let ecF: Record<OMKind, ScalarGrid> | null = null;
-    try {
-      ecF = await fetchScalarFieldsBackupLive(days);
-      await saveWeatherSnapshot(rawSourceId(`scalar:d${days}`, "ecmwf"), {
-        savedAt,
-        data: ecF,
-      });
-    } catch {}
+    // BA NGUỒN lớp màu — chạy SONG SONG (né trần 60s cron): Open-Meteo best-match
+    // + ECMWF (cắt 15 ngày) + NOAA GFS (model khác hẳn, tránh chết nguồn). Nguồn
+    // nào ra thì lưu raw của nguồn đó; merge lấy bản tốt nhất.
+    const settled = await Promise.allSettled([
+      fetchScalarFieldsLive(days),
+      fetchScalarFieldsBackupLive(days),
+      fetchScalarFieldsThirdLive(days),
+    ]);
+    let omF = settled[0].status === "fulfilled" ? settled[0].value : null;
+    let ecF = settled[1].status === "fulfilled" ? settled[1].value : null;
+    let gfF = settled[2].status === "fulfilled" ? settled[2].value : null;
+    if (omF)
+      await saveWeatherSnapshot(rawSourceId(`scalar:d${days}`, "om"), { savedAt, data: omF });
+    if (ecF)
+      await saveWeatherSnapshot(rawSourceId(`scalar:d${days}`, "ecmwf"), { savedAt, data: ecF });
+    if (gfF)
+      await saveWeatherSnapshot(rawSourceId(`scalar:d${days}`, "gfs"), { savedAt, data: gfF });
     let omAt = savedAt;
     let ecAt = savedAt;
+    let gfAt = savedAt;
     if (!omF) {
       const r = await loadRaw<Record<OMKind, ScalarGrid>>(rawSourceId(`scalar:d${days}`, "om"));
       if (r) {
@@ -408,11 +411,19 @@ export async function GET(req: Request) {
         ecAt = r.savedAt;
       }
     }
+    if (!gfF) {
+      const r = await loadRaw<Record<OMKind, ScalarGrid>>(rawSourceId(`scalar:d${days}`, "gfs"));
+      if (r) {
+        gfF = r.data;
+        gfAt = r.savedAt;
+      }
+    }
     let n = 0;
     for (const kind of OM_KINDS) {
       const srcsK = [
         omF?.[kind] ? { id: "om", savedAt: omAt, grid: omF[kind] } : null,
         ecF?.[kind] ? { id: "ecmwf", savedAt: ecAt, grid: ecF[kind] } : null,
+        gfF?.[kind] ? { id: "gfs", savedAt: gfAt, grid: gfF[kind] } : null,
       ].filter((s): s is { id: string; savedAt: number; grid: ScalarGrid } => s != null);
       const m = mergeScalarGrids(srcsK);
       if (
