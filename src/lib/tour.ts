@@ -32,7 +32,7 @@ export interface Tour {
 const BOAT_STEP: TourStep = {
   target: "chon-tau",
   title: "Chọn tàu đang xem",
-  body: "Chạm để đổi tàu hoặc thêm tàu mới. Giấy tờ, bảo dưỡng, lãi lỗ đều tính theo tàu đang chọn ở đây.",
+  body: "Chạm để đổi tàu hoặc thêm tàu mới. Giấy tờ, bảo dưỡng đều tính theo tàu đang chọn ở đây.",
 };
 
 export const TOURS: Tour[] = [
@@ -54,7 +54,7 @@ export const TOURS: Tour[] = [
       {
         target: "bon-viec",
         title: "Bốn việc chính",
-        body: "Bốn ô lớn là bốn việc app lo giúp: Ra khơi (gió sóng, chỗ có cá) · Tàu của tôi (giấy tờ, dịch vụ) · Bạn thuyền (hồ sơ, bảo hiểm) · Sổ tiền (giá cá, lãi lỗ).",
+        body: "Bốn ô lớn là bốn việc app lo giúp: Ra khơi (gió sóng, chỗ có cá) · Tàu cá (giấy tờ, dịch vụ) · Bạn thuyền (hồ sơ, tra cảnh báo) · Giao dịch (giá cá, tin mua bán, chỗ bán).",
       },
       {
         target: "dock",
@@ -101,13 +101,13 @@ export const TOURS: Tour[] = [
   },
   {
     id: "tau",
-    label: "Tàu của tôi",
+    label: "Tàu cá",
     steps: [
       BOAT_STEP,
       {
         target: "tab-giay-to",
         title: "Giấy tờ",
-        body: "Checklist xuất bến đèn xanh–đỏ cho biết tàu đủ điều kiện ra khơi chưa, kèm tủ giấy tờ. App nhắc trước khi hết hạn.",
+        body: "Tủ giấy tờ tàu — App nhắc trước khi giấy tờ sắp hết hạn.",
       },
       {
         target: "tab-dich-vu",
@@ -118,11 +118,6 @@ export const TOURS: Tour[] = [
         target: "tab-san-pham",
         title: "Sản phẩm",
         body: "Đồ đã mua và hạn bảo hành. Xem SDVICO còn có gì hợp với tàu mình.",
-      },
-      {
-        target: "tab-muc-phat",
-        title: "Mức phạt",
-        body: "Tra mức phạt theo Nghị định 38/2024 trước khi ra khơi. Số liệu tham khảo, không thay văn bản gốc.",
       },
     ],
   },
@@ -136,31 +131,16 @@ export const TOURS: Tour[] = [
         title: "Thêm bạn thuyền",
         body: "Chạm để ghi tên, số điện thoại, chứng chỉ, bảo hiểm của từng người. App nhắc khi bảo hiểm hay chứng chỉ sắp hết hạn.",
       },
-      {
-        target: null,
-        title: "Sổ ứng tiền",
-        body: "Mỗi bạn thuyền có sổ ứng tiền riêng — ứng bao nhiêu, gạch nợ lúc nào đều ghi lại, khỏi cãi nhau cuối chuyến.",
-      },
     ],
   },
   {
     id: "tien",
-    label: "Sổ tiền",
+    label: "Giao dịch",
     steps: [
       {
         target: "tab-giao-dich",
         title: "Giao dịch",
         body: "Giá cá tham khảo, ai đang cần mua, và bán ở đâu (vựa, đầu mối theo vùng). Không cần đăng nhập cũng xem được.",
-      },
-      {
-        target: "tab-hieu-qua",
-        title: "Hiệu quả",
-        body: "Sổ lãi lỗ từng chuyến, báo cáo cả năm, máy tính tổn trước khi đi, và chia tiền cho bạn thuyền.",
-      },
-      {
-        target: "tab-cong-no",
-        title: "Công nợ",
-        body: "Ghi nợ đại lý dầu, nậu, ngân hàng — mỗi chủ nợ một dư nợ, có lịch sử vay và trả.",
       },
       BOAT_STEP,
     ],
