@@ -10,7 +10,7 @@
 // navigator ẩn) để test được từng trường hợp.
 
 import { formatDateVN } from "@/lib/ocean-map";
-import type { PretripResult, SavedSummary } from "@/lib/pretrip";
+import type { PretripResult, SavedSummary, SavedCoverage } from "@/lib/pretrip";
 
 /**
  * TIẾT CHẾ DATA: chỉ tự tải lại khi bản trong máy đã cũ hơn ngần này.
@@ -50,6 +50,37 @@ export function shouldAutoPretrip({
   // không thì cửa chặn kẹt mãi và máy không bao giờ tải bản mới.
   if (lastRunAt > nowMs) return true;
   return nowMs - lastRunAt >= PRETRIP_MIN_INTERVAL_MS;
+}
+
+/**
+ * Cách nhau tối thiểu giữa hai lần THỬ tải (khác `PRETRIP_MIN_INTERVAL_MS` là
+ * khoảng cách giữa hai lần tải THÀNH CÔNG). Cần vì: lần thử hỏng KHÔNG ghi mốc
+ * `lastRunAt` — mạng chập chờn ngoài khơi có thể bật/tắt liên tục, không có cửa
+ * này thì mỗi lần `online` nháy là bắn lại cả mẻ 2,5–3 MB.
+ */
+export const PRETRIP_MIN_RETRY_MS = 2 * 60 * 1000;
+
+export interface AutoPretripAttemptGate extends AutoPretripGate {
+  /** mốc lần THỬ gần nhất trong phiên (epoch ms); null = chưa thử lần nào */
+  lastAttemptAt: number | null;
+}
+
+/**
+ * Có nên THỬ tự tải lúc này không — dùng cho cả lần mở app LẪN các lần máy có
+ * sóng lại / quay lại app (2026-07-29). Hai cửa chặn cộng lại:
+ *  · `shouldAutoPretrip` — bản trong máy còn mới / mất sóng thì thôi
+ *  · cách lần THỬ trước ≥ PRETRIP_MIN_RETRY_MS — chống mạng chập chờn bắn liên tục
+ */
+export function shouldAttemptAutoPretrip({
+  lastRunAt,
+  lastAttemptAt,
+  nowMs,
+  online,
+}: AutoPretripAttemptGate): boolean {
+  if (!shouldAutoPretrip({ lastRunAt, nowMs, online })) return false;
+  if (lastAttemptAt == null || !Number.isFinite(lastAttemptAt)) return true;
+  if (lastAttemptAt > nowMs) return true; // đồng hồ máy chỉnh lùi
+  return nowMs - lastAttemptAt >= PRETRIP_MIN_RETRY_MS;
 }
 
 /** Đọc mốc lần tự tải gần nhất trong máy (null khi chưa có / máy chặn lưu). */
@@ -108,4 +139,24 @@ export function pretripSavedText(
     return `Đã lưu dữ liệu dự báo tới ngày ${formatDateVN(saved.untilIso)}`;
   }
   return "Chưa tải dữ liệu dự báo";
+}
+
+/**
+ * Câu chữ chip THEO ĐỘ PHỦ TỪNG LỚP (2026-07-29). "Đã lưu … tới ngày X" chỉ
+ * được nói khi MỌI lớp tự-tải-được (cá, điểm, lưới, mây/mưa/nhiệt, độ mặn, dòng
+ * chảy) đã có trong máy — TRUNG THỰC, không còn nói quá theo mỗi gió-sóng-điểm.
+ * Thiếu lớp nào thì nói thẳng còn mấy lớp + mời chạm mở popup để tải lại lẻ.
+ */
+export function coverageChipText(
+  phase: PretripSavedPhase,
+  cov: SavedCoverage | null,
+): string {
+  if (phase === "loading") return "Đang tải dữ liệu dự báo";
+  if (!cov || cov.layers.every((l) => !l.saved)) return "Chưa tải dữ liệu dự báo";
+  if (cov.allSaved) {
+    return cov.untilIso
+      ? `Đã lưu đủ dự báo — tới ngày ${formatDateVN(cov.untilIso)}`
+      : "Đã lưu đủ dự báo cho offline";
+  }
+  return `Còn thiếu ${cov.missing} lớp — chạm xem`;
 }

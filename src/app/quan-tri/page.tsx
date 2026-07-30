@@ -15,9 +15,24 @@
 */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiUrl } from "@/lib/api-base";
+import {
+  countPoints,
+  parseUploadedGeoJSON,
+  validateZoneDraft,
+  VMS_ZONE_STYLES,
+  type VmsZoneStyle,
+} from "@/lib/vms-zones";
+import {
+  SELL_KINDS,
+  SELL_KIND_LABEL,
+  validateSellContactDraft,
+  type SellKind,
+  type SellContactDraft,
+} from "@/lib/sell-contacts";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -35,6 +50,8 @@ type Tab =
   | "canh-bao"
   | "san-pham"
   | "yeu-cau"
+  | "vung-bien"
+  | "cho-ban"
   | "thong-bao"
   | "du-lieu"
   | "he-thong";
@@ -214,6 +231,8 @@ export default function QuanTriPage() {
                 ["canh-bao", "Thuyền viên"],
                 ["san-pham", "Sản phẩm"],
                 ["yeu-cau", "Yêu cầu"],
+                ["vung-bien", "Vùng biển"],
+                ["cho-ban", "Chỗ bán"],
                 ["thong-bao", "Thông báo"],
               ]
             : [
@@ -221,6 +240,8 @@ export default function QuanTriPage() {
                 ["canh-bao", "Thuyền viên"],
                 ["san-pham", "Sản phẩm"],
                 ["yeu-cau", "Yêu cầu"],
+                ["vung-bien", "Vùng biển"],
+                ["cho-ban", "Chỗ bán"],
                 ["thong-bao", "Thông báo"],
                 ["du-lieu", "Dữ liệu"],
                 ["he-thong", "Hệ thống"],
@@ -249,6 +270,8 @@ export default function QuanTriPage() {
       {tab === "canh-bao" && <CrewReportsTab />}
       {tab === "san-pham" && <ProductsTab />}
       {tab === "yeu-cau" && <InquiriesTab />}
+      {tab === "vung-bien" && <VmsZonesTab />}
+      {tab === "cho-ban" && <SellContactsTab />}
       {tab === "thong-bao" && <PushNotificationsTab />}
       {tab === "du-lieu" && health.me?.role !== "manager" && <DataTab />}
       {tab === "he-thong" && health.me?.role !== "manager" && (
@@ -267,7 +290,6 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [grantStats, setGrantStats] = useState<GrantStat[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [busyPhone, setBusyPhone] = useState<string | null>(null);
   // tìm kiếm + lọc hạng (client-side — vài trăm hàng, không cần server)
   const [query, setQuery] = useState("");
@@ -280,8 +302,10 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
     until: string;
   } | null>(null);
   const [toDowngrade, setToDowngrade] = useState<Account | null>(null);
-  const [toResetPw, setToResetPw] = useState<Account | null>(null);
   const [toDelete, setToDelete] = useState<Account | null>(null);
+  const [toReset, setToReset] = useState<Account | null>(null);
+  // thông báo thành công (đặt lại mật khẩu…) — tách khỏi error để không đỏ oan
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setError(null);
@@ -343,6 +367,7 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
    *  downgrade = hạ về thường (admin) */
   async function patchAction(a: Account, action: "grant" | "downgrade") {
     setBusyPhone(a.phone);
+    setNotice(null);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -370,31 +395,32 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
     load();
   }
 
-  /** đặt lại mật khẩu về mặc định (sd123456) — server bật must_change_password */
+  /** reset-password = mật khẩu về tạm sd123456, khách bị bắt tự đổi khi
+   *  đăng nhập lại (chỉ admin — server chặn bằng requireAdmin) */
   async function resetPassword(a: Account) {
     setBusyPhone(a.phone);
     setNotice(null);
-    setError(null);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ phone: a.phone, action: "reset_password" }),
+      body: JSON.stringify({ phone: a.phone, action: "reset-password" }),
     }).catch(() => null);
     const j = (await r?.json().catch(() => null)) as {
       ok?: boolean;
       code?: string;
+      tempPassword?: string;
     } | null;
     setBusyPhone(null);
     if (!r?.ok || !j?.ok) {
       setError(
         j?.code === "not_provisioned"
-          ? "Tài khoản này chưa đăng nhập được lần nào (chưa provision) — không có mật khẩu để đặt lại."
+          ? "Tài khoản này chưa đăng nhập được (chưa provision) — không có mật khẩu để đặt lại."
           : "Đặt lại mật khẩu chưa được — thử lại.",
       );
       return;
     }
     setNotice(
-      `Đã đặt lại mật khẩu ${a.phone} về "sd123456". Báo khách đăng nhập bằng mật khẩu này — app sẽ bắt đổi ngay lần đầu. (Không đồng bộ sang SDWork.)`,
+      `Đã đặt lại mật khẩu cho ${a.phone}${a.name ? ` (${a.name})` : ""} — báo khách đăng nhập bằng mật khẩu tạm ${j.tempPassword ?? "sd123456"}, vào xong app sẽ bắt tự đổi.`,
     );
   }
 
@@ -509,21 +535,6 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
         </div>
       )}
 
-      {notice && (
-        <div className="surface flex items-start gap-3 px-4 py-4">
-          <p className="flex-1 text-[0.9375rem] font-semibold leading-snug text-ok">
-            {notice}
-          </p>
-          <button
-            type="button"
-            onClick={() => setNotice(null)}
-            aria-label="Đóng"
-            className="shrink-0 rounded-lg bg-field px-3 py-1 text-[0.8125rem] font-bold text-foreground/70"
-          >
-            Đóng
-          </button>
-        </div>
-      )}
       {error && (
         <div className="surface px-4 py-6 text-center">
           <p className="text-[1rem] text-danger">{error}</p>
@@ -533,6 +544,19 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
             className="mt-3 min-h-[2.75rem] rounded-xl bg-navy px-6 text-[0.9375rem] font-bold text-white"
           >
             Thử lại
+          </button>
+        </div>
+      )}
+      {notice && (
+        <div className="surface flex items-start justify-between gap-3 bg-ok-bg px-4 py-3.5">
+          <p className="text-[0.9375rem] font-semibold text-ok">{notice}</p>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="Đóng thông báo"
+            className="shrink-0 text-[0.875rem] font-bold text-ok/70"
+          >
+            Đóng
           </button>
         </div>
       )}
@@ -640,8 +664,8 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
                       <button
                         type="button"
                         disabled={busyPhone === a.phone}
-                        onClick={() => setToResetPw(a)}
-                        className="min-h-[2.5rem] rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-navy disabled:opacity-50"
+                        onClick={() => setToReset(a)}
+                        className="min-h-[2.5rem] rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-foreground/70 disabled:opacity-50"
                       >
                         Đặt lại mật khẩu
                       </button>
@@ -699,17 +723,17 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
           }}
         />
       )}
-      {toResetPw && (
+      {toReset && (
         <ConfirmDialog
-          title={`Đặt lại mật khẩu ${toResetPw.phone}?`}
-          message={`${toResetPw.name ? `${toResetPw.name} — ` : ""}mật khẩu sẽ về mặc định "sd123456". Khách phải đổi ngay lần đăng nhập sau. KHÔNG đồng bộ sang SDWork — nhắc khách đổi sớm.`}
-          confirmLabel="Đặt lại về sd123456"
+          title={`Đặt lại mật khẩu cho ${toReset.phone}?`}
+          message={`${toReset.name ? `${toReset.name} — ` : ""}mật khẩu về tạm sd123456, mật khẩu cũ hết dùng được. Khách đăng nhập lại sẽ bị bắt tự đổi mật khẩu mới.`}
+          confirmLabel="Đặt lại"
           cancelLabel="Không"
-          danger
-          onCancel={() => setToResetPw(null)}
+          danger={false}
+          onCancel={() => setToReset(null)}
           onConfirm={() => {
-            const a = toResetPw;
-            setToResetPw(null);
+            const a = toReset;
+            setToReset(null);
             resetPassword(a);
           }}
         />
@@ -1825,6 +1849,803 @@ type InquiryRow = {
 
 type InquiryStatusFilter = InquiryStatus | "all";
 
+// ── Tab VÙNG BIỂN (VMS) — bản đồ + tải GeoJSON + ẩn/hiện + mặc định-app + xóa ──
+
+type AdminVmsZone = {
+  id: string;
+  name: string;
+  color: string;
+  style: string;
+  defaultOn: boolean;
+  visible: boolean;
+  geojson: GeoJSON.FeatureCollection;
+  sortOrder: number;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Bản đồ lazy-load (MapLibre nặng + không SSR được).
+const VmsZonesMapDyn = dynamic(
+  () => import("@/components/admin/vms-zones-map"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full items-center justify-center bg-field">
+        <p className="text-[1rem] font-semibold text-t1">Đang mở bản đồ…</p>
+      </div>
+    ),
+  },
+);
+
+const STYLE_LABEL: Record<VmsZoneStyle, string> = {
+  fill: "Tô nền",
+  line: "Viền liền",
+  "line-dashed": "Viền nét đứt",
+};
+
+function VmsZonesTab() {
+  const [zones, setZones] = useState<AdminVmsZone[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [toDelete, setToDelete] = useState<AdminVmsZone | null>(null);
+
+  // form thêm vùng
+  const [name, setName] = useState("");
+  const [color, setColor] = useState("#0d9488");
+  const [style, setStyle] = useState<VmsZoneStyle>("line");
+  const [defaultOn, setDefaultOn] = useState(true);
+  const [geojson, setGeojson] = useState<GeoJSON.FeatureCollection | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileErr, setFileErr] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [formMsg, setFormMsg] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setError(null);
+    setZones(null);
+    fetch(apiUrl("/api/admin/vms-zones"))
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok: boolean;
+          code?: string;
+          zones?: AdminVmsZone[];
+        };
+        if (!j.ok) throw new Error(j.code ?? "load");
+        setZones(j.zones ?? []);
+      })
+      .catch((e: Error) =>
+        setError(
+          e.message === "not_configured"
+            ? "Chưa cấu hình Supabase/service-role — vùng biển cần DB thật. Chạy migration 0013_vms_zones trước."
+            : "Chưa tải được danh sách vùng — thử lại.",
+        ),
+      );
+  }, []);
+  useEffect(load, [load]);
+
+  const patch = useCallback(
+    async (id: string, body: Record<string, unknown>) => {
+      setBusyId(id);
+      try {
+        const r = await fetch(apiUrl("/api/admin/vms-zones"), {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id, ...body }),
+        });
+        const j = (await r.json()) as { ok: boolean };
+        if (!j.ok) throw new Error();
+        load();
+      } catch {
+        setError("Không lưu được thay đổi — thử lại.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [load],
+  );
+
+  const remove = useCallback(
+    async (id: string) => {
+      setBusyId(id);
+      try {
+        const r = await fetch(apiUrl(`/api/admin/vms-zones?id=${id}`), {
+          method: "DELETE",
+        });
+        const j = (await r.json()) as { ok: boolean };
+        if (!j.ok) throw new Error();
+        load();
+      } catch {
+        setError("Không xóa được — thử lại.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [load],
+  );
+
+  async function onFile(file: File | null) {
+    setFileErr(null);
+    setGeojson(null);
+    setFileName(null);
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const fc = parseUploadedGeoJSON(text);
+      setGeojson(fc);
+      setFileName(`${file.name} · ${countPoints(fc).toLocaleString("vi-VN")} điểm`);
+      if (!name.trim()) setName(file.name.replace(/\.(geo)?json$/i, ""));
+    } catch (e) {
+      setFileErr((e as Error).message);
+    }
+  }
+
+  async function submit() {
+    setFormMsg(null);
+    if (!geojson) {
+      setFileErr("Chọn tệp GeoJSON trước.");
+      return;
+    }
+    const draft = { name, color, style, defaultOn, visible: true, geojson };
+    const invalid = validateZoneDraft(draft);
+    if (invalid) {
+      setFormMsg(invalid);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const r = await fetch(apiUrl("/api/admin/vms-zones"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...draft, sortOrder: (zones?.length ?? 0) + 10 }),
+      });
+      const j = (await r.json()) as { ok: boolean; code?: string };
+      if (!j.ok) throw new Error(j.code ?? "post");
+      setName("");
+      setGeojson(null);
+      setFileName(null);
+      setDefaultOn(true);
+      load();
+    } catch (e) {
+      setFormMsg(
+        (e as Error).message === "too_big"
+          ? "Tệp quá nặng (>200.000 điểm) — cắt gọn nguồn trước khi tải."
+          : "Không thêm được vùng — thử lại.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="mt-5">
+      <h2 className="display text-[1.375rem] font-bold text-navy">
+        Vùng biển trên bản đồ Ra khơi
+      </h2>
+      <p className="mt-1 text-[0.9375rem] text-foreground/70">
+        Thêm / ẩn / xóa vùng và chọn vùng có bật sẵn trên app ngư dân hay không.
+        Áp dụng ngay, không cần build lại app.
+      </p>
+
+      {error && (
+        <p className="mt-3 rounded-xl bg-danger-bg px-3 py-2 text-[0.9375rem] font-semibold text-danger">
+          {error}
+        </p>
+      )}
+
+      {/* Bản đồ xem tất cả vùng */}
+      <div className="mt-4 h-[26rem] overflow-hidden rounded-2xl border border-line">
+        {zones && (
+          <VmsZonesMapDyn
+            zones={zones.map((z) => ({
+              id: z.id,
+              color: z.color,
+              style: z.style,
+              visible: z.visible,
+              geojson: z.geojson,
+            }))}
+            selectedId={selectedId}
+          />
+        )}
+      </div>
+
+      {/* Thêm vùng bằng GeoJSON */}
+      <div className="mt-4 rounded-2xl border border-line bg-field/40 p-4">
+        <p className="text-[1rem] font-bold text-navy">Thêm vùng (tải GeoJSON)</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-[0.8125rem] font-semibold text-foreground/70">
+              Tệp GeoJSON
+            </span>
+            <input
+              type="file"
+              accept=".json,.geojson,application/geo+json,application/json"
+              onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+              className="mt-1 block w-full text-[0.875rem] file:mr-3 file:rounded-lg file:border-0 file:bg-navy file:px-3 file:py-2 file:font-semibold file:text-white"
+            />
+            {fileName && (
+              <span className="mt-1 block text-[0.8125rem] text-ok">{fileName}</span>
+            )}
+            {fileErr && (
+              <span className="mt-1 block text-[0.8125rem] font-semibold text-danger">
+                {fileErr}
+              </span>
+            )}
+          </label>
+          <label className="block">
+            <span className="text-[0.8125rem] font-semibold text-foreground/70">
+              Tên vùng
+            </span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="vd Vùng cấm đánh bắt mùa sinh sản"
+              className="mt-1 block w-full rounded-lg border border-line bg-card px-3 py-2 text-[0.9375rem]"
+            />
+          </label>
+          <label className="flex items-center gap-3">
+            <span className="text-[0.8125rem] font-semibold text-foreground/70">
+              Màu
+            </span>
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              className="h-10 w-16 rounded-lg border border-line"
+            />
+            <span className="text-[0.8125rem] tabular-nums text-foreground/60">
+              {color}
+            </span>
+          </label>
+          <div>
+            <span className="text-[0.8125rem] font-semibold text-foreground/70">
+              Kiểu vẽ
+            </span>
+            <div className="mt-1 flex gap-1.5">
+              {VMS_ZONE_STYLES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStyle(s)}
+                  className={`flex-1 rounded-lg px-2 py-2 text-[0.8125rem] font-semibold ${
+                    style === s ? "bg-navy text-white" : "bg-field text-foreground/70"
+                  }`}
+                >
+                  {STYLE_LABEL[s]}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <label className="mt-3 flex items-center gap-2 text-[0.9375rem]">
+          <input
+            type="checkbox"
+            checked={defaultOn}
+            onChange={(e) => setDefaultOn(e.target.checked)}
+            className="h-5 w-5"
+          />
+          Bật sẵn trên app ngư dân (bà con vẫn tắt được)
+        </label>
+        {formMsg && (
+          <p className="mt-2 text-[0.875rem] font-semibold text-danger">{formMsg}</p>
+        )}
+        <button
+          type="button"
+          disabled={submitting || !geojson}
+          onClick={submit}
+          className="mt-3 rounded-xl bg-sea px-5 py-2.5 text-[1rem] font-bold text-white disabled:opacity-50"
+        >
+          {submitting ? "Đang lưu…" : "Thêm vùng"}
+        </button>
+      </div>
+
+      {/* Danh sách vùng */}
+      <div className="mt-4 space-y-2">
+        {zones === null && !error && (
+          <p className="text-[0.9375rem] text-foreground/60">Đang tải…</p>
+        )}
+        {zones?.length === 0 && (
+          <p className="rounded-xl bg-field px-3 py-3 text-[0.9375rem] text-foreground/60">
+            Chưa có vùng nào. Tải GeoJSON ở trên để thêm.
+          </p>
+        )}
+        {zones?.map((z) => (
+          <div
+            key={z.id}
+            onClick={() => setSelectedId(z.id === selectedId ? null : z.id)}
+            className={`cursor-pointer rounded-xl border bg-card p-3 transition ${
+              selectedId === z.id ? "border-navy ring-1 ring-navy" : "border-line"
+            } ${z.visible ? "" : "opacity-60"}`}
+          >
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span
+                className="h-4 w-4 shrink-0 rounded-full border border-line"
+                style={{ backgroundColor: z.color }}
+              />
+              <span className="text-[1rem] font-bold text-navy">{z.name}</span>
+              <span className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] text-foreground/60">
+                {STYLE_LABEL[z.style as VmsZoneStyle] ?? z.style}
+              </span>
+              <span className="text-[0.75rem] tabular-nums text-foreground/50">
+                {countPoints(z.geojson).toLocaleString("vi-VN")} điểm
+              </span>
+            </div>
+            <div
+              className="mt-2.5 flex flex-wrap gap-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                disabled={busyId === z.id}
+                onClick={() => patch(z.id, { defaultOn: !z.defaultOn })}
+                className={`rounded-lg px-3 py-1.5 text-[0.8125rem] font-semibold ${
+                  z.defaultOn ? "bg-ok-bg text-ok" : "bg-field text-foreground/60"
+                }`}
+              >
+                {z.defaultOn ? "✓ Bật sẵn trên app" : "Tắt sẵn trên app"}
+              </button>
+              <button
+                type="button"
+                disabled={busyId === z.id}
+                onClick={() => patch(z.id, { visible: !z.visible })}
+                className={`rounded-lg px-3 py-1.5 text-[0.8125rem] font-semibold ${
+                  z.visible ? "bg-field text-foreground/70" : "bg-warn-bg text-warn"
+                }`}
+              >
+                {z.visible ? "Đang hiện — ẩn đi" : "Đang ẩn — hiện lại"}
+              </button>
+              <button
+                type="button"
+                disabled={busyId === z.id}
+                onClick={() => setToDelete(z)}
+                className="rounded-lg bg-danger-bg px-3 py-1.5 text-[0.8125rem] font-semibold text-danger"
+              >
+                Xóa
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {toDelete && (
+        <ConfirmDialog
+          title="Xóa vùng này?"
+          message={`"${toDelete.name}" sẽ bị xóa khỏi bản đồ của app ngư dân.`}
+          confirmLabel="Xóa luôn"
+          onCancel={() => setToDelete(null)}
+          onConfirm={() => {
+            remove(toDelete.id);
+            setToDelete(null);
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+// ── Tab CHỖ BÁN — danh bạ "Bán ở đâu" (nậu vựa/chợ/nhà máy): sửa/ẩn/hiện/xóa/thêm ──
+
+type AdminSellContact = {
+  id: string;
+  kind: string;
+  name: string;
+  subLabel: string | null;
+  province: string | null;
+  address: string | null;
+  phone: string | null;
+  hours: string | null;
+  species: string[];
+  markets: string[];
+  website: string | null;
+  direct: boolean;
+  visible: boolean;
+  sortOrder: number;
+};
+
+function SellContactsTab() {
+  const [contacts, setContacts] = useState<AdminSellContact[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [kindFilter, setKindFilter] = useState<SellKind | "all">("all");
+  const [editing, setEditing] = useState<AdminSellContact | "new" | null>(null);
+  const [toDelete, setToDelete] = useState<AdminSellContact | null>(null);
+  const [seeding, setSeeding] = useState(false);
+
+  const load = useCallback(() => {
+    setError(null);
+    setContacts(null);
+    fetch(apiUrl("/api/admin/sell-contacts"))
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok: boolean;
+          code?: string;
+          contacts?: AdminSellContact[];
+        };
+        if (!j.ok) throw new Error(j.code ?? "load");
+        setContacts(j.contacts ?? []);
+      })
+      .catch((e: Error) =>
+        setError(
+          e.message === "not_configured"
+            ? "Chưa cấu hình Supabase/service-role — danh bạ cần DB thật. Chạy migration 0014_sell_contacts trước."
+            : "Chưa tải được danh bạ — thử lại.",
+        ),
+      );
+  }, []);
+  useEffect(load, [load]);
+
+  const patch = useCallback(
+    async (id: string, body: Record<string, unknown>) => {
+      setBusyId(id);
+      try {
+        const r = await fetch(apiUrl("/api/admin/sell-contacts"), {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id, ...body }),
+        });
+        if (!((await r.json()) as { ok: boolean }).ok) throw new Error();
+        load();
+      } catch {
+        setError("Không lưu được thay đổi — thử lại.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [load],
+  );
+
+  const remove = useCallback(
+    async (id: string) => {
+      setBusyId(id);
+      try {
+        const r = await fetch(apiUrl(`/api/admin/sell-contacts?id=${id}`), {
+          method: "DELETE",
+        });
+        if (!((await r.json()) as { ok: boolean }).ok) throw new Error();
+        load();
+      } catch {
+        setError("Không xóa được — thử lại.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [load],
+  );
+
+  async function seedDefaults() {
+    setSeeding(true);
+    setError(null);
+    try {
+      const r = await fetch(apiUrl("/api/admin/sell-contacts"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "seed" }),
+      });
+      const j = (await r.json()) as { ok: boolean; code?: string };
+      if (!j.ok) {
+        setError(
+          j.code === "not_empty"
+            ? "Danh bạ đã có dữ liệu — không nạp đè."
+            : "Không nạp được danh bạ mặc định.",
+        );
+      } else load();
+    } finally {
+      setSeeding(false);
+    }
+  }
+
+  const shown = (contacts ?? []).filter(
+    (c) => kindFilter === "all" || c.kind === kindFilter,
+  );
+
+  return (
+    <section className="mt-5">
+      <h2 className="display text-[1.375rem] font-bold text-navy">
+        Danh bạ “Bán ở đâu”
+      </h2>
+      <p className="mt-1 text-[0.9375rem] text-foreground/70">
+        Nậu vựa · Chợ đầu mối · Nhà máy hiện trong app ngư dân (mục Giao dịch →
+        Bán ở đâu). Sửa / ẩn / hiện / xóa / thêm — áp dụng ngay. (“Mối quen” là
+        sổ riêng của bà con, không quản lý ở đây.)
+      </p>
+
+      {error && (
+        <p className="mt-3 rounded-xl bg-danger-bg px-3 py-2 text-[0.9375rem] font-semibold text-danger">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        {(["all", ...SELL_KINDS] as (SellKind | "all")[]).map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setKindFilter(k)}
+            className={`rounded-full px-3.5 py-1.5 text-[0.875rem] font-bold ${
+              kindFilter === k ? "bg-navy text-white" : "bg-field text-foreground/70"
+            }`}
+          >
+            {k === "all" ? "Tất cả" : SELL_KIND_LABEL[k]}
+          </button>
+        ))}
+        <div className="ml-auto flex gap-2">
+          <button
+            type="button"
+            onClick={() => setEditing("new")}
+            className="rounded-xl bg-sea px-4 py-2 text-[0.9375rem] font-bold text-white"
+          >
+            + Thêm đầu mối
+          </button>
+          {contacts?.length === 0 && (
+            <button
+              type="button"
+              disabled={seeding}
+              onClick={seedDefaults}
+              className="rounded-xl bg-field px-4 py-2 text-[0.9375rem] font-bold text-navy disabled:opacity-50"
+            >
+              {seeding ? "Đang nạp…" : "Nạp danh bạ mặc định"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {contacts === null && !error && (
+        <p className="mt-4 text-[0.9375rem] text-foreground/60">Đang tải…</p>
+      )}
+      {contacts?.length === 0 && (
+        <p className="mt-4 rounded-xl bg-field px-3 py-3 text-[0.9375rem] text-foreground/60">
+          Danh bạ trống. Bấm “Nạp danh bạ mặc định” để đưa ~143 đầu mối có sẵn
+          vào quản lý, hoặc tự thêm.
+        </p>
+      )}
+
+      <div className="mt-3 space-y-2">
+        {shown.map((c) => (
+          <div
+            key={c.id}
+            className={`rounded-xl border border-line bg-card p-3 ${
+              c.visible ? "" : "opacity-60"
+            }`}
+          >
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              <span className="rounded-full bg-t2-bg px-2 py-0.5 text-[0.75rem] font-bold text-t2">
+                {SELL_KIND_LABEL[c.kind as SellKind] ?? c.kind}
+              </span>
+              <span className="text-[1rem] font-bold text-navy">{c.name}</span>
+              {c.province && (
+                <span className="text-[0.8125rem] text-foreground/60">
+                  {c.province}
+                </span>
+              )}
+              {c.phone && (
+                <span className="text-[0.8125rem] tabular-nums text-foreground/60">
+                  {c.phone}
+                </span>
+              )}
+            </div>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setEditing(c)}
+                className="rounded-lg bg-field px-3 py-1.5 text-[0.8125rem] font-semibold text-sea"
+              >
+                Sửa
+              </button>
+              <button
+                type="button"
+                disabled={busyId === c.id}
+                onClick={() => patch(c.id, { visible: !c.visible })}
+                className={`rounded-lg px-3 py-1.5 text-[0.8125rem] font-semibold ${
+                  c.visible ? "bg-field text-foreground/70" : "bg-warn-bg text-warn"
+                }`}
+              >
+                {c.visible ? "Đang hiện — ẩn đi" : "Đang ẩn — hiện lại"}
+              </button>
+              <button
+                type="button"
+                disabled={busyId === c.id}
+                onClick={() => setToDelete(c)}
+                className="rounded-lg bg-danger-bg px-3 py-1.5 text-[0.8125rem] font-semibold text-danger"
+              >
+                Xóa
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {editing && (
+        <SellContactForm
+          initial={editing === "new" ? null : editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            load();
+          }}
+          onError={setError}
+        />
+      )}
+      {toDelete && (
+        <ConfirmDialog
+          title="Xóa đầu mối này?"
+          message={`"${toDelete.name}" sẽ bị xóa khỏi danh bạ của app ngư dân.`}
+          confirmLabel="Xóa luôn"
+          onCancel={() => setToDelete(null)}
+          onConfirm={() => {
+            remove(toDelete.id);
+            setToDelete(null);
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+function SellContactForm({
+  initial,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  initial: AdminSellContact | null;
+  onClose: () => void;
+  onSaved: () => void;
+  onError: (m: string) => void;
+}) {
+  const [kind, setKind] = useState<SellKind>(
+    (initial?.kind as SellKind) ?? "vua",
+  );
+  const [name, setName] = useState(initial?.name ?? "");
+  const [province, setProvince] = useState(initial?.province ?? "");
+  const [address, setAddress] = useState(initial?.address ?? "");
+  const [phone, setPhone] = useState(initial?.phone ?? "");
+  const [hours, setHours] = useState(initial?.hours ?? "");
+  const [species, setSpecies] = useState((initial?.species ?? []).join(", "));
+  const [website, setWebsite] = useState(initial?.website ?? "");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function submit() {
+    setMsg(null);
+    const draft: SellContactDraft = {
+      kind,
+      name,
+      province: province.trim() || undefined,
+      address: address.trim() || undefined,
+      phone: phone.trim() || undefined,
+      hours: hours.trim() || undefined,
+      species: species
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      markets: initial?.markets ?? [],
+      website: website.trim() || undefined,
+      direct: initial?.direct ?? false,
+      visible: initial?.visible ?? true,
+    };
+    const invalid = validateSellContactDraft(draft);
+    if (invalid) {
+      setMsg(invalid);
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await fetch(apiUrl("/api/admin/sell-contacts"), {
+        method: initial ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(initial ? { id: initial.id, ...draft } : draft),
+      });
+      if (!((await r.json()) as { ok: boolean }).ok) throw new Error();
+      onSaved();
+    } catch {
+      onError("Không lưu được đầu mối — thử lại.");
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[85vh] w-full max-w-[440px] overflow-y-auto rounded-2xl bg-card p-5"
+      >
+        <p className="display text-[1.25rem] font-bold text-navy">
+          {initial ? "Sửa đầu mối" : "Thêm đầu mối"}
+        </p>
+        <div className="mt-3 space-y-3">
+          <div>
+            <span className="text-[0.8125rem] font-semibold text-foreground/70">
+              Nhóm
+            </span>
+            <div className="mt-1 flex gap-1.5">
+              {SELL_KINDS.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setKind(k)}
+                  className={`flex-1 rounded-lg px-2 py-2 text-[0.8125rem] font-semibold ${
+                    kind === k ? "bg-navy text-white" : "bg-field text-foreground/70"
+                  }`}
+                >
+                  {SELL_KIND_LABEL[k]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <SellField label="Tên (bắt buộc)" value={name} onChange={setName} />
+          <SellField label="Tỉnh" value={province} onChange={setProvince} />
+          <SellField label="Địa chỉ" value={address} onChange={setAddress} />
+          <SellField label="Số điện thoại" value={phone} onChange={setPhone} />
+          {kind === "cho" && (
+            <SellField label="Giờ họp" value={hours} onChange={setHours} />
+          )}
+          <SellField
+            label="Loài (cách nhau dấu phẩy)"
+            value={species}
+            onChange={setSpecies}
+          />
+          {kind === "nhamay" && (
+            <SellField
+              label="Website"
+              value={website}
+              onChange={setWebsite}
+            />
+          )}
+        </div>
+        {msg && (
+          <p className="mt-2 text-[0.875rem] font-semibold text-danger">{msg}</p>
+        )}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-[3rem] rounded-full bg-field text-[1rem] font-bold text-foreground/70"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={submit}
+            className="min-h-[3rem] rounded-xl bg-sea text-[1rem] font-bold text-white disabled:opacity-50"
+          >
+            {busy ? "Đang lưu…" : "Lưu lại"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SellField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[0.8125rem] font-semibold text-foreground/70">
+        {label}
+      </span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 block w-full rounded-lg border border-line bg-card px-3 py-2 text-[0.9375rem]"
+      />
+    </label>
+  );
+}
+
 function InquiriesTab() {
   const [status, setStatus] = useState<InquiryStatusFilter>("moi");
   const [rows, setRows] = useState<InquiryRow[] | null>(null);
@@ -2160,9 +2981,10 @@ function PushNotificationsTab() {
       )}
       {stats && !stats.configured && (
         <p className="surface px-4 py-3 text-[0.875rem] font-semibold text-danger">
-          Máy chủ chưa cấu hình VAPID — set env VAPID_PUBLIC_KEY /
-          VAPID_PRIVATE_KEY / VAPID_SUBJECT (và NEXT_PUBLIC_VAPID_PUBLIC_KEY
-          khớp VAPID_PUBLIC_KEY) rồi redeploy.
+          Chưa cấu hình khoá VAPID. Dán 3 khoá ngay trong tab{" "}
+          <span className="underline">Hệ thống → Cấu hình ứng dụng</span> (lưu
+          vào DB, áp dụng ngay, KHÔNG cần env Vercel / redeploy). Tạo khoá bằng:
+          npx web-push generate-vapid-keys.
         </p>
       )}
 
@@ -2625,12 +3447,163 @@ function Row({
   );
 }
 
+// Cấu hình ứng dụng lưu DB (app_config) — thay lệ thuộc env máy chủ deploy.
+type ConfigRow = {
+  key: string;
+  label: string;
+  secret: boolean;
+  help?: string;
+  source: "db" | "env" | "none";
+  set: boolean;
+  value: string | null;
+};
+
+function AppConfigCard() {
+  const [rows, setRows] = useState<ConfigRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setError(null);
+    fetch(apiUrl("/api/admin/app-config"))
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok: boolean;
+          code?: string;
+          keys?: ConfigRow[];
+        };
+        if (!j.ok) throw new Error(j.code ?? "load");
+        setRows(j.keys ?? []);
+      })
+      .catch((e: Error) =>
+        setError(
+          e.message === "admin_only"
+            ? "Chỉ admin xem/sửa được cấu hình."
+            : "Chưa tải được cấu hình — thử lại.",
+        ),
+      );
+  }, []);
+  useEffect(load, [load]);
+
+  async function save(key: string) {
+    const value = drafts[key] ?? "";
+    if (!value.trim()) return;
+    setBusy(key);
+    setSaved(null);
+    try {
+      const r = await fetch(apiUrl("/api/admin/app-config"), {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key, value }),
+      });
+      const j = (await r.json()) as { ok: boolean };
+      if (!j.ok) throw new Error();
+      setDrafts((d) => ({ ...d, [key]: "" }));
+      setSaved(key);
+      load();
+    } catch {
+      setError("Không lưu được — thử lại.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const badge = (s: ConfigRow["source"]) =>
+    s === "db"
+      ? { t: "DB ✓", c: "bg-ok-bg text-ok" }
+      : s === "env"
+        ? { t: "env (host)", c: "bg-field text-foreground/70" }
+        : { t: "chưa đặt", c: "bg-danger-bg text-danger" };
+
+  return (
+    <div className="surface p-4">
+      <p className="display text-[1.125rem] font-bold text-navy">
+        Cấu hình ứng dụng
+      </p>
+      <p className="mt-0.5 text-[0.875rem] text-foreground/70">
+        Dán khoá/cấu hình vào đây (lưu DB) để KHÔNG lệ thuộc env máy chủ deploy —
+        áp dụng ngay, không cần redeploy. DB đè lên env cùng tên.
+      </p>
+      {error && (
+        <p className="mt-2 text-[0.875rem] font-semibold text-danger">{error}</p>
+      )}
+      {rows === null && !error && (
+        <p className="mt-2 text-[0.875rem] text-foreground/60">Đang tải…</p>
+      )}
+      <div className="mt-3 space-y-3">
+        {rows?.map((row) => {
+          const b = badge(row.source);
+          return (
+            <div key={row.key} className="rounded-xl bg-field/50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[0.9375rem] font-bold text-navy">
+                  {row.label}
+                </span>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[0.75rem] font-semibold ${b.c}`}
+                >
+                  {b.t}
+                </span>
+              </div>
+              {row.help && (
+                <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
+                  {row.help}
+                </p>
+              )}
+              {!row.secret && row.value && (
+                <p className="mt-1 truncate text-[0.8125rem] text-foreground/70">
+                  Hiện tại: {row.value}
+                </p>
+              )}
+              {row.secret && row.set && (
+                <p className="mt-1 text-[0.8125rem] text-foreground/60">
+                  Đã đặt (ẩn) — nhập mới để thay.
+                </p>
+              )}
+              <div className="mt-2 flex gap-2">
+                <input
+                  type={row.secret ? "password" : "text"}
+                  value={drafts[row.key] ?? ""}
+                  onChange={(e) =>
+                    setDrafts((d) => ({ ...d, [row.key]: e.target.value }))
+                  }
+                  placeholder={
+                    row.source === "none"
+                      ? "Dán giá trị…"
+                      : "Dán giá trị mới để thay…"
+                  }
+                  className="min-w-0 flex-1 rounded-lg border border-line bg-card px-3 py-2 text-[0.875rem]"
+                />
+                <button
+                  type="button"
+                  disabled={busy === row.key || !(drafts[row.key] ?? "").trim()}
+                  onClick={() => save(row.key)}
+                  className="shrink-0 rounded-lg bg-sea px-4 py-2 text-[0.875rem] font-bold text-white disabled:opacity-50"
+                >
+                  {busy === row.key
+                    ? "Đang lưu…"
+                    : saved === row.key
+                      ? "Đã lưu ✓"
+                      : "Lưu"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SystemTab({ health }: { health: Health }) {
   const env = health.env;
   const db = health.db;
 
   return (
     <div className="mt-4 space-y-4">
+      <AppConfigCard />
       <ul className="surface overflow-hidden">
         <Row
           ok={env?.supabase ?? false}
@@ -2662,7 +3635,7 @@ function SystemTab({ health }: { health: Health }) {
         />
         <Row
           ok={db ? db.tierMigrationApplied : null}
-          label="Migration phân hạng (0006_account_tier)"
+          label="Migration phân hạng (0003_account_tier)"
           note={
             db == null
               ? "chưa kiểm tra được (thiếu service role)"

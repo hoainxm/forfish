@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/admin-auth";
-import { pushConfigured, sendPush } from "@/lib/push-send";
+import { isPushConfigured, sendPush } from "@/lib/push-send";
 
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
@@ -27,7 +27,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     me: who,
-    configured: pushConfigured(),
+    configured: await isPushConfigured(),
     total: total ?? 0,
     named: named ?? 0,
     anonymous: (total ?? 0) - (named ?? 0),
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
-  if (!pushConfigured()) return err(503, "vapid_not_configured");
+  if (!(await isPushConfigured())) return err(503, "vapid_not_configured");
 
   const body = (await req.json().catch(() => null)) as {
     target?: "all" | "phone";

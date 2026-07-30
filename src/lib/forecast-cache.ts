@@ -164,6 +164,50 @@ export function loadAll<T>(
   }
 }
 
+/**
+ * Ước lượng DUNG LƯỢNG (byte) các bản đã lưu có key bắt đầu `forfish.fc.<sub>`
+ * — cho popup hiện "trong máy nặng bao nhiêu". `sub` là phần sau prefix, vd
+ * "grid.", "scalar.salinity.", "" = mọi bản dự báo. localStorage là UTF-16 nên
+ * ~2 byte/ký tự (ước lượng, không cần chính xác từng byte).
+ */
+export function bytesUnder(sub: string): number {
+  try {
+    const full = `${PREFIX}${sub}`;
+    let n = 0;
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (!k || !k.startsWith(full)) continue;
+      const v = window.localStorage.getItem(k) ?? "";
+      n += (k.length + v.length) * 2;
+    }
+    return n;
+  } catch {
+    return 0;
+  }
+}
+
+/** Mốc lưu MỚI NHẤT (epoch ms) trong các bản có key bắt đầu `forfish.fc.<sub>`
+ *  — cho popup hiện "lưu lúc nào" + tính còn-mới theo nhịp nguồn. null nếu trống. */
+export function latestSavedAt(sub: string): number | null {
+  try {
+    const full = `${PREFIX}${sub}`;
+    let max: number | null = null;
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (!k || !k.startsWith(full)) continue;
+      try {
+        const s = (JSON.parse(window.localStorage.getItem(k) ?? "{}") as Cached<unknown>).savedAt;
+        if (typeof s === "number" && (max == null || s > max)) max = s;
+      } catch {
+        /* mục hỏng — bỏ qua */
+      }
+    }
+    return max;
+  } catch {
+    return null;
+  }
+}
+
 /** Toạ độ → id lưới ~0.25° (gộp các lần tap gần nhau về một bản) */
 export function coordId(lat: number, lon: number): string {
   const r = (v: number) => (Math.round(v * 4) / 4).toFixed(2);

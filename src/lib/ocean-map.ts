@@ -12,7 +12,10 @@
 
 import { proxyTileTemplate } from "@/lib/tile-proxy";
 
-export type OceanLayerId = "sst" | "chlorophyll" | "bathymetry" | "truecolor";
+// "truecolor" (Ảnh mây trời) ĐÃ GỘP về lớp DỰ BÁO "Mây" (panel Thời tiết,
+// scalar-field) — user 2026-07-28: một chỗ cho mây, coi ảnh đã-qua là hôm nay
+// nhưng nay dùng thẳng dự báo (hôm nay→tương lai) thay ảnh vệ tinh trễ 2 ngày.
+export type OceanLayerId = "sst" | "chlorophyll" | "bathymetry";
 
 export type OceanLayerDef = {
   id: OceanLayerId;
@@ -96,27 +99,14 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
     tiles: () => proxyTileTemplate("chart"),
     maxNativeZoom: 10,
   },
-  truecolor: {
-    id: "truecolor",
-    label: "Ảnh mây trời",
-    help: "Ảnh chụp thật từ vệ tinh — thấy mây, vệt nước đục, ranh nước trong.",
-    legend: null,
-    lagDays: 2,
-    dated: true,
-    // JPG đặc — vẽ mờ 0.85 làm nhãn/đường basemap "ma" lộ xuyên ảnh (đục bẩn)
-    opacity: 1,
-    tiles: (d) =>
-      `${GIBS}/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/${d}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
-    maxNativeZoom: 9,
-  },
 };
 
-// Hải đồ đứng ĐẦU + là mặc định; các lớp tìm cá (nhiệt/mồi/mây) xếp sau
+// Hải đồ đứng ĐẦU + là mặc định; các lớp tìm cá (nhiệt/mồi) xếp sau.
+// Mây KHÔNG còn ở đây — đã gộp về lớp dự báo "Mây" (panel Thời tiết).
 export const OCEAN_LAYER_ORDER: OceanLayerId[] = [
   "bathymetry",
   "sst",
   "chlorophyll",
-  "truecolor",
 ];
 
 /** Ngày (UTC) mới nhất chắc chắn có ảnh, lùi `lagDays` so với `now`. */

@@ -9,7 +9,7 @@
    · POST + khác origin (map tile nguồn ngoài) → KHÔNG đụng, để mạng lo.
   Đổi shell thì bump SDFISH_CACHE_V (KHÔNG dùng Date.now — phải ổn định).
 */
-const SDFISH_CACHE_V = "sdfish-v5";
+const SDFISH_CACHE_V = "sdfish-v6";
 /** Kho ô bản đồ để riêng — xoá/giới hạn được mà không đụng vỏ app */
 const SDFISH_TILE_V = "sdfish-tiles-v1";
 /*  Kho DỮ LIỆU /api/* — CỐ Ý TÁCH khỏi kho vỏ và KHÔNG mang phiên bản vỏ.
@@ -58,6 +58,10 @@ const SHELL = [
   "/data/vn-coast.v1.json",
   "/data/isobaths.v1.json",
   "/data/depth-grid.v1.bin",
+  // BẢN ĐỒ MÙA VỤ (điểm cá điển hình từng tháng, dựng từ nhiều năm lịch sử) —
+  // lớp cá của chuyến DÀI pha trộn bản này với dự báo. Nằm sẵn trong máy thì
+  // giữa biển mất sóng vẫn tính được lộ trình 16 ngày.
+  "/data/fish-climatology.v1.json",
   // font chữ trên bản đồ (số mét đường đẳng sâu) — thiếu là mất hết CHỮ/SỐ
   "/fonts/Noto%20Sans%20Regular/0-255.pbf",
 ];

@@ -85,7 +85,15 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    // Cờ must_change_password chỉ còn khi bật thủ công (webhook không bật nữa)
+    // 1 TÀI KHOẢN = 1 MÁY (2026-07-29): đăng nhập máy này thì thu hồi phiên
+    // mọi máy khác — máy cũ tự thoát ở lần mở app/refresh kế. Lỗi thu hồi
+    // KHÔNG chặn đăng nhập (mạng biển chập chờn).
+    try {
+      await supabase!.auth.signOut({ scope: "others" });
+    } catch {
+      /* bỏ qua — phiên máy này vẫn hợp lệ */
+    }
+    // lần đầu (webhook đặt must_change_password) → bắt đổi mật khẩu
     const mustChange = data.user.user_metadata?.must_change_password === true;
     router.replace(mustChange ? "/doi-mat-khau" : "/");
   }
@@ -127,9 +135,12 @@ export default function LoginPage() {
           Khách đã mua hàng SDVICO: dùng số điện thoại + mật khẩu nhân viên báo
           khi mua.
         </p>
+        <p className="mt-2 text-[1rem] leading-snug text-foreground/70">
+          Tài khoản premium hỗ trợ đăng nhập trên một máy.
+        </p>
         {/* Quên mật khẩu: gửi yêu cầu sang CRM để nhân viên duyệt (thêm
             2026-07-21) — trước đây chỉ có số hotline, KH ngoài giờ làm việc
-            không biết bấu víu vào đâu. Vẫn giữ nút gọi cho ai cần gấp. */}
+            không biết bấu víu vào đâu. */}
         <Link
           href="/quen-mat-khau"
           className="mt-4 flex min-h-[3.75rem] w-full items-center justify-center rounded-full border-2 border-line text-[1.0625rem] font-bold text-foreground/80 transition active:scale-[0.98]"

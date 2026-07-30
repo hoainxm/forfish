@@ -7,6 +7,7 @@
 import type { FishingPort } from "@/data/ports";
 import { apiUrl } from "@/lib/api-base";
 import { seaSnapshotId } from "@/lib/weather-snapshot-id";
+import { isCacheCurrent } from "@/lib/source-cadence";
 
 export interface SeaDay {
   date: string; // ISO yyyy-mm-dd
@@ -116,39 +117,113 @@ export async function fetchSeaLive(port: FishingPort): Promise<ScoredSeaDay[]> {
 }
 
 /**
- * Dự báo biển theo cảng cho UI. Thứ tự: bản MỚI trong máy (còn TTL) → LIVE
- * Open-Meteo (chính) → khi live lỗi: LƯỚI AN TOÀN snapshot server (cron tính
- * sẵn, dùng chung) → bản CŨ trong máy (quá TTL còn hơn không có).
+ * NGUỒN DỰ PHÒNG cho cron ghép snapshot (2026-07-29): ECMWF qua cùng API.
+ * Probe thật: daily gió/giật/mưa/weather_code của `ecmwf_ifs025` phủ ~14 ngày,
+ * NHƯNG `daily=wave_height_max` của `ecmwf_wam025` trả TOÀN NULL → sóng phải
+ * tự gộp MAX theo ngày từ hourly. CHỈ cron gọi.
+ */
+export async function fetchSeaBackupLive(port: FishingPort): Promise<ScoredSeaDay[]> {
+  const common = `latitude=${port.lat}&longitude=${port.lon}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${FORECAST_DAYS}`;
+  const [marineRes, weatherRes] = await Promise.all([
+    fetch(
+      `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height&models=ecmwf_wam025`,
+      { signal: AbortSignal.timeout(15000) },
+    ),
+    fetch(
+      `https://api.open-meteo.com/v1/forecast?${common}&daily=wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,weather_code&models=ecmwf_ifs025`,
+      { signal: AbortSignal.timeout(15000) },
+    ),
+  ]);
+  if (!marineRes.ok || !weatherRes.ok) {
+    throw new Error("Không lấy được dự báo dự phòng");
+  }
+  const marine = await marineRes.json();
+  const weather = await weatherRes.json();
+
+  // MAX sóng theo ngày từ chuỗi giờ (giờ VN — nguồn xin theo Asia/Ho_Chi_Minh)
+  const waveMaxByDate = new Map<string, number>();
+  const hTimes: string[] = marine.hourly?.time ?? [];
+  const hWave: unknown[] = marine.hourly?.wave_height ?? [];
+  for (let i = 0; i < hTimes.length; i++) {
+    const v = hWave[i];
+    if (typeof v !== "number" || !Number.isFinite(v)) continue;
+    const date = String(hTimes[i]).slice(0, 10);
+    const cur = waveMaxByDate.get(date);
+    if (cur == null || v > cur) waveMaxByDate.set(date, v);
+  }
+
+  const dates: string[] = weather.daily?.time ?? [];
+  const days: ScoredSeaDay[] = [];
+  for (let i = 0; i < dates.length; i++) {
+    const windMaxKmh = weather.daily?.wind_speed_10m_max?.[i];
+    // đuôi ECMWF hết tầm (~14 ngày) → ngày null bỏ hẳn, KHÔNG điền 0 giả êm
+    if (typeof windMaxKmh !== "number" || !Number.isFinite(windMaxKmh)) continue;
+    const rawWave = waveMaxByDate.get(dates[i]);
+    const waveMissing = rawWave == null;
+    const d: SeaDay = {
+      date: dates[i],
+      waveMaxM: waveMissing ? estimateWaveFromWind(windMaxKmh) : rawWave,
+      windMaxKmh,
+      gustMaxKmh: weather.daily?.wind_gusts_10m_max?.[i] ?? 0,
+      precipMm: weather.daily?.precipitation_sum?.[i] ?? 0,
+      wmoCode: weather.daily?.weather_code?.[i] ?? null,
+      waveEstimated: waveMissing,
+    };
+    const score = scoreDay(d);
+    days.push({ ...d, score, level: levelOf(score) });
+  }
+  if (days.length === 0) throw new Error("Dự báo dự phòng trống");
+  return days;
+}
+
+/**
+ * Dự báo biển theo cảng cho UI. Thứ tự (user 2026-07-29 "luôn ưu tiên snapshot
+ * để hạn chế bị lock IP"): bản MỚI trong máy (còn TTL) → SNAPSHOT server còn
+ * HIỆN HÀNH theo nhịp phát hành (cron tính sẵn, same-origin — không đụng hạn
+ * ngạch Open-Meteo theo IP máy) → LIVE Open-Meteo → snapshot CŨ → bản CŨ trong
+ * máy (quá TTL còn hơn không có).
  */
 export async function fetchSeaForecast(
   port: FishingPort,
 ): Promise<ScoredSeaDay[]> {
   const cached = readCache(port.id);
   if (cached) return cached;
+  const snap = await loadSeaSnapshotClient(port.id);
+  if (snap && isCacheCurrent(snap.savedAt, Date.now())) {
+    writeCache(port.id, snap.days); // giữ bản trong máy cho lúc mất sóng
+    return snap.days;
+  }
   try {
     const days = await fetchSeaLive(port);
     writeCache(port.id, days);
     return days;
   } catch (err) {
-    const snap = await loadSeaSnapshotClient(port.id);
-    if (snap) return snap;
+    // snapshot đã hỏi ở trên — cũ vẫn hơn không có (không hỏi lại cho đỡ 1 lượt)
+    if (snap) return snap.days;
     const stale = readCache(port.id, true);
     if (stale) return stale;
     throw err;
   }
 }
 
-/** LƯỚI AN TOÀN: đọc snapshot cảng do cron tính sẵn (same-origin) — null nếu chưa có */
+/** Snapshot cảng do cron tính sẵn (same-origin) — null nếu chưa có. Nhận CẢ
+    hai dạng payload: cũ = mảng ngày trần; mới = { savedAt, days } (cron nhét
+    savedAt để client biết bản còn hiện hành không). */
 async function loadSeaSnapshotClient(
   portId: string,
-): Promise<ScoredSeaDay[] | null> {
+): Promise<{ days: ScoredSeaDay[]; savedAt: number | null } | null> {
   try {
     const r = await fetch(apiUrl(`/api/weather-snapshot?id=${seaSnapshotId(portId)}`), {
       signal: AbortSignal.timeout(8000),
     });
     if (!r.ok) return null;
-    const days = (await r.json()) as ScoredSeaDay[];
-    return Array.isArray(days) && days.length > 0 ? days : null;
+    const j = (await r.json()) as
+      | ScoredSeaDay[]
+      | { savedAt?: number; days?: ScoredSeaDay[] };
+    const days = Array.isArray(j) ? j : j?.days;
+    if (!Array.isArray(days) || days.length === 0) return null;
+    const savedAt = Array.isArray(j) ? null : (j.savedAt ?? null);
+    return { days, savedAt: Number.isFinite(savedAt as number) ? (savedAt as number) : null };
   } catch {
     return null;
   }

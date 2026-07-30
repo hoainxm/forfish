@@ -65,6 +65,9 @@ export interface FeatureAccessInput {
   online: boolean;
   /** lần online gần nhất tra ĐƯỢC hạng có phải premium không (đọc từ máy) */
   cachedPremium: boolean;
+  /** getUser() reject/timeout (mất sóng "sống mà chết" — onLine có thể lỡ=true).
+      KHÁC hasUser=false do tra ĐƯỢC mà không có ai (đăng xuất thật). */
+  authErrored?: boolean;
 }
 
 /**
@@ -80,9 +83,17 @@ export interface FeatureAccessInput {
  */
 export function featureAccessDecision(i: FeatureAccessInput): FeatureAccess {
   if (!i.configured) return "open";
+  // đã từng xác nhận premium (dấu lưu máy) + đang MẤT SÓNG → cho xem bản đã tải,
+  // khỏi kẹt "checking" khi auth chưa tra xong.
   if (!i.online && i.cachedPremium) return "open";
   if (!i.authReady) return "checking";
-  if (!i.hasUser) return "login";
+  // auth ĐÃ tra xong mà KHÔNG ra user: nếu vì mất sóng ("sống mà chết" khiến
+  // getUser hỏng dù onLine=true) + đã từng premium → vẫn cho xem bản tải sẵn
+  // (chốt thật vẫn ở middleware/RLS khi có mạng). Tra ĐƯỢC mà không có ai
+  // (đăng xuất thật, không errored) → mời đăng nhập.
+  if (!i.hasUser) {
+    return i.cachedPremium && (!i.online || i.authErrored) ? "open" : "login";
+  }
   if (i.premium == null) return "checking";
   return i.premium ? "open" : "upgrade";
 }

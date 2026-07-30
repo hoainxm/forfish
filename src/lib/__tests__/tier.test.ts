@@ -141,4 +141,43 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
       }),
     ).toBe("open");
   });
+
+  // MẤT SÓNG "SỐNG MÀ CHẾT": navigator.onLine lỡ = true nhưng getUser() hỏng
+  // (authErrored) → premium đã tải vẫn xem được, KHÔNG bắt đăng nhập lại; đây
+  // là gốc lỗi "lớp cá quay hoài không ra" (2026-07-29).
+  it("onLine=true nhưng auth HỎNG + từng premium → open (không kẹt, không bắt login)", () => {
+    expect(
+      featureAccessDecision({
+        ...base,
+        online: true,
+        hasUser: false,
+        authErrored: true,
+        cachedPremium: true,
+      }),
+    ).toBe("open");
+  });
+
+  it("onLine=true, auth tra ĐƯỢC mà không có user (đăng xuất thật) + từng premium → login (không rò quyền)", () => {
+    expect(
+      featureAccessDecision({
+        ...base,
+        online: true,
+        hasUser: false,
+        authErrored: false,
+        cachedPremium: true,
+      }),
+    ).toBe("login");
+  });
+
+  it("auth HỎNG nhưng CHƯA từng premium → login (không mở bừa)", () => {
+    expect(
+      featureAccessDecision({
+        ...base,
+        online: true,
+        hasUser: false,
+        authErrored: true,
+        cachedPremium: false,
+      }),
+    ).toBe("login");
+  });
 });

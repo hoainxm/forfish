@@ -16,6 +16,11 @@ import {
   type OceanLayerId,
 } from "@/lib/ocean-map";
 import type { ForecastKind } from "@/lib/forecast-grid";
+import {
+  SCALAR_META,
+  scalarGradientCss,
+  type FetchScalarKind,
+} from "@/lib/scalar-field";
 import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
 import type { FeatureAccess } from "@/lib/tier";
@@ -23,8 +28,13 @@ import { PremiumLock } from "@/components/premium-gate";
 import type { StormStatus } from "@/lib/storms";
 import { clockVN } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
-import { useMapPrefs, setMapPrefs } from "@/lib/map-prefs";
-import { VMS_ZONES_UPDATED } from "@/data/vms-fishing-zones";
+import {
+  useMapPrefs,
+  setMapPrefs,
+  isVmsZoneOn,
+  setVmsZoneOn,
+} from "@/lib/map-prefs";
+import { VMS_ZONES_UPDATED, type VmsZone } from "@/lib/vms-zones";
 import { FishSpeciesContent } from "@/components/fish-species-sheet";
 import { MyPlacesContent } from "@/components/my-places-sheet";
 import {
@@ -73,6 +83,9 @@ export function RaKhoiControls({
   onScalar,
   forecastKind,
   onForecast,
+  overlayField,
+  onOverlayField,
+  vmsZones,
   fishOn,
   onFish,
   fishSpecies,
@@ -107,6 +120,11 @@ export function RaKhoiControls({
   onScalar: (k: SeaScalarKind | null) => void;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
+  /** Lớp DẢI MÀU vô hướng (mây/mưa/nhiệt) — loại trừ lẫn nhau với gió/sóng */
+  overlayField: FetchScalarKind | null;
+  onOverlayField: (k: FetchScalarKind | null) => void;
+  /** Vùng biển VMS (admin quản lý) — mỗi vùng 1 toggle trong panel Cài đặt */
+  vmsZones: VmsZone[];
   fishOn: boolean;
   onFish: (on: boolean) => void;
   fishSpecies: string | null;
@@ -180,6 +198,7 @@ export function RaKhoiControls({
         stormInfo.kind === "co-bao" ||
         stormInfo.kind === "khong-hoi-duoc" ||
         !!forecastKind ||
+        !!overlayField ||
         !!scalarKind,
     },
     { id: "diem", label: "Điểm đã lưu", icon: StarIcon, color: "var(--navy)" },
@@ -247,6 +266,8 @@ export function RaKhoiControls({
                   stormInfo={stormInfo}
                   forecastKind={forecastKind}
                   onForecast={onForecast}
+                  overlayField={overlayField}
+                  onOverlayField={onOverlayField}
                   scalarKind={scalarKind}
                   onScalar={onScalar}
                 />
@@ -270,7 +291,7 @@ export function RaKhoiControls({
                   onClearMeasure={onClearMeasure}
                 />
               )}
-              {open === "cai-dat" && <SettingsPanel />}
+              {open === "cai-dat" && <SettingsPanel vmsZones={vmsZones} />}
             </>
           }
         </div>
@@ -415,7 +436,10 @@ function PanelHeader({
 function cadLine(id: OceanLayerId): { text: string; dot: string } {
   const def = OCEAN_LAYERS[id];
   if (!def.dated) return { text: "Cố định · Không đổi theo ngày", dot: DOT.coDinh };
-  return { text: "Theo ngày", dot: DOT.ngay };
+  // Ảnh vệ tinh theo ngày (KHÔNG phải dự báo). Bỏ số "trễ ~2 ngày" khỏi UI
+  // (user 2026-07-29: ngư dân không cần biết), nhưng vẫn ghi "ảnh vệ tinh" để
+  // khỏi nhầm với lớp dự báo mây/gió/sóng. `lagDays` vẫn dùng để lấy ảnh mới nhất.
+  return { text: "Ảnh vệ tinh · theo ngày", dot: DOT.ngay };
 }
 
 function HaiDoPanel({
@@ -476,8 +500,8 @@ function HaiDoPanel({
         })}
       </ul>
       <p className="mt-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] leading-snug text-foreground/70">
-        Ảnh vệ tinh trễ ~2 ngày — không phải thời gian thực. Phao báo hiệu chỉ
-        hiện khi phóng to gần bờ.
+        Ảnh vệ tinh, không phải thời gian thực. Phao báo hiệu chỉ hiện khi phóng
+        to gần bờ.
       </p>
     </div>
   );
@@ -591,12 +615,16 @@ function ThoiTietPanel({
   stormInfo,
   forecastKind,
   onForecast,
+  overlayField,
+  onOverlayField,
   scalarKind,
   onScalar,
 }: {
   stormInfo: StormStatus;
   forecastKind: ForecastKind | null;
   onForecast: (k: ForecastKind | null) => void;
+  overlayField: FetchScalarKind | null;
+  onOverlayField: (k: FetchScalarKind | null) => void;
   scalarKind: SeaScalarKind | null;
   onScalar: (k: SeaScalarKind | null) => void;
 }) {
@@ -657,19 +685,54 @@ function ThoiTietPanel({
         Lớp thời tiết khác
       </p>
       <Toggle
-        label="Gió (Windy)"
+        label="Gió"
         sub="Theo giờ · cập nhật vài giờ"
         on={forecastKind === "wind"}
         onToggle={() => onForecast(forecastKind === "wind" ? null : "wind")}
         icon={<WindIcon className="h-5 w-5 text-t1" />}
       />
       <Toggle
-        label="Sóng (Windy)"
+        label="Sóng"
         sub="Theo giờ · cập nhật vài giờ"
         on={forecastKind === "wave"}
         onToggle={() => onForecast(forecastKind === "wave" ? null : "wave")}
         icon={<WindIcon className="h-5 w-5 text-t2" />}
       />
+      {/* DÒNG CHẢY mặt biển — nguồn dự báo tới ~10 ngày (SMOC), ngày xa hơn lớp
+          tự trống. Mũi tên chỉ hướng nước CHẢY VỀ. */}
+      <Toggle
+        label="Dòng chảy"
+        sub="Theo giờ · dự báo tới ~10 ngày"
+        on={forecastKind === "current"}
+        onToggle={() => onForecast(forecastKind === "current" ? null : "current")}
+        icon={
+          <span
+            className="h-5 w-5 shrink-0 rounded"
+            style={{ background: scalarGradientCss("currentspeed") }}
+            aria-hidden
+          />
+        }
+      />
+      {/* LỚP DẢI MÀU (mây/mưa/nhiệt) — dự báo theo giờ, dùng chung thanh giờ với
+          gió/sóng, LOẠI TRỪ nhau (một lớp overlay mỗi lần, như Windy). */}
+      {(
+        ["cloud", "rain", "airtemp", "storm", "pressure", "salinity"] as FetchScalarKind[]
+      ).map((k) => (
+        <Toggle
+          key={k}
+          label={SCALAR_META[k].label}
+          sub={SCALAR_META[k].help}
+          on={overlayField === k}
+          onToggle={() => onOverlayField(overlayField === k ? null : k)}
+          icon={
+            <span
+              className="h-5 w-5 shrink-0 rounded"
+              style={{ background: scalarGradientCss(k) }}
+              aria-hidden
+            />
+          }
+        />
+      ))}
       <Toggle
         label="Nước dâng/xoáy"
         sub="SSHA · theo ngày, chậm ~2 ngày"
@@ -759,7 +822,7 @@ function RadioCard({
   );
 }
 
-function SettingsPanel() {
+function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
   const prefs = useMapPrefs();
   return (
     <div>
@@ -822,37 +885,45 @@ function SettingsPanel() {
         icon={<DepthIcon className="h-5 w-5 text-[#0d9488]" />}
       />
 
-      <p className="mb-1 mt-4 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
-        Vùng biển (dữ liệu VMS)
-      </p>
-      <Toggle
-        label="Vùng được phép đánh bắt"
-        sub="Viền xanh lá · toàn vùng biển VN"
-        on={prefs.vmsAllowed}
-        onToggle={() => setMapPrefs({ vmsAllowed: !prefs.vmsAllowed })}
-        icon={<CheckIcon className="h-5 w-5 text-[#16a34a]" />}
-      />
-      <div className="mb-2" />
-      <Toggle
-        label="Vùng cần chú ý khi đánh bắt"
-        sub="Vàng cam · quanh Hoàng Sa, Trường Sa"
-        on={prefs.vmsCaution}
-        onToggle={() => setMapPrefs({ vmsCaution: !prefs.vmsCaution })}
-        icon={<AlertIcon className="h-5 w-5 text-[#f59e0b]" />}
-      />
-      <div className="mb-2" />
-      <Toggle
-        label="Vùng chỉ đánh được cá đáy"
-        sub="Tím · giáp ranh VN – Indonesia"
-        on={prefs.vmsBottomOnly}
-        onToggle={() => setMapPrefs({ vmsBottomOnly: !prefs.vmsBottomOnly })}
-        icon={<AnchorIcon className="h-5 w-5 text-[#8b5cf6]" />}
-      />
-      <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/60">
-        Các ranh giới trên chỉ để hình dung (dữ liệu VMS{" "}
-        {VMS_ZONES_UPDATED.split("-").reverse().join("/")}) — ranh chính thức
-        tra Chi cục Thủy sản.
-      </p>
+      {vmsZones.length > 0 && (
+        <>
+          <p className="mb-1 mt-4 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+            Vùng biển (dữ liệu VMS)
+          </p>
+          {vmsZones.map((zone, i) => (
+            <div key={zone.id}>
+              {i > 0 && <div className="mb-2" />}
+              <Toggle
+                label={zone.name}
+                sub={
+                  zone.style === "line-dashed"
+                    ? "Viền nét đứt · tham khảo"
+                    : zone.style === "fill"
+                      ? "Vùng tô nền · tham khảo"
+                      : "Viền · tham khảo"
+                }
+                on={isVmsZoneOn(prefs.vmsOverrides, zone.id, zone.defaultOn)}
+                onToggle={() =>
+                  setVmsZoneOn(
+                    zone.id,
+                    !isVmsZoneOn(prefs.vmsOverrides, zone.id, zone.defaultOn),
+                  )
+                }
+                icon={
+                  <span style={{ color: zone.color }}>
+                    <AnchorIcon className="h-5 w-5" />
+                  </span>
+                }
+              />
+            </div>
+          ))}
+          <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/60">
+            Các ranh giới trên chỉ để hình dung (dữ liệu VMS{" "}
+            {VMS_ZONES_UPDATED.split("-").reverse().join("/")}) — ranh chính
+            thức tra Chi cục Thủy sản.
+          </p>
+        </>
+      )}
     </div>
   );
 }

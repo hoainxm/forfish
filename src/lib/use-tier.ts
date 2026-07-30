@@ -42,7 +42,7 @@ function isOnline(): boolean {
 }
 
 export function useFeatureAccess(): { access: FeatureAccess; ready: boolean } {
-  const { user, ready: authReady } = useAuthUser();
+  const { user, ready: authReady, errored: authErrored } = useAuthUser();
   // null = chưa tra xong hạng (chỉ có nghĩa khi đã đăng nhập + có sóng)
   const [premium, setPremium] = useState<boolean | null>(null);
   const [cachedPremium, setCachedPremium] = useState(false);
@@ -98,13 +98,14 @@ export function useFeatureAccess(): { access: FeatureAccess; ready: boolean } {
 
   // ĐĂNG XUẤT THẬT (đang có sóng, kiểm xong mà không có user) → xoá dấu premium,
   // khỏi rò quyền offline sang tài khoản sau trên cùng máy. Offline user=null là
-  // do getUser() không xác thực được → KHÔNG xoá.
+  // do getUser() không xác thực được → KHÔNG xoá. authErrored (getUser hỏng dù
+  // onLine=true) cũng KHÔNG xoá — không chắc là đăng xuất thật.
   useEffect(() => {
-    if (isOnline() && authReady && !user) {
+    if (isOnline() && authReady && !authErrored && !user) {
       writeCachedPremium(false);
       setCachedPremium(false);
     }
-  }, [authReady, user]);
+  }, [authReady, authErrored, user]);
 
   const access = featureAccessDecision({
     configured: isSupabaseConfigured(),
@@ -113,6 +114,7 @@ export function useFeatureAccess(): { access: FeatureAccess; ready: boolean } {
     premium,
     online,
     cachedPremium,
+    authErrored,
   });
   return { access, ready: access !== "checking" };
 }

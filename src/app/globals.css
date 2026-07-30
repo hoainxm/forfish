@@ -76,6 +76,80 @@ html {
 }
 
 /*
+  DOCK — DOCKFRAME (spec user 2026-07-29): một frame fixed cao bằng vùng NHÌN
+  THẤY, dock neo `absolute bottom:0` trong frame → tab ngắn lẫn tab dài chung
+  MỘT đáy, không cần dịch dock theo tab. GIỮ body scroll (không biến <main>
+  thành scroll container — để body-lock của bottom-sheet còn tác dụng).
+
+  Một chiều cao dock DUY NHẤT (--dock-total) thay cho các số rời 8rem/84px.
+  Nền navy phủ TỚI đáy màn; safe-area là padding TRONG dock (icon/chữ nằm trên
+  home-indicator) — KHÔNG lẫn với chiều cao khung.
+
+  Bản cài iOS (bug 158055568): frame cao đúng --app-vh (= visualViewport, do
+  viewport-gap-fix đặt kèm class `pwa-frame`). Ngoài standalone: frame ngắn
+  bằng --dock-total ở đáy viewport = y hệt cũ.
+*/
+:root {
+  /* hở đáy nhỏ để PILL nổi trên home-indicator (bớt "dư bottom": floor 6px) */
+  --dock-safe: max(6px, env(safe-area-inset-bottom, 0px));
+  --dock-row: calc(4.5rem - 5px); /* chiều cao pill — bớt 5px (user) */
+  --dock-total: calc(var(--dock-row) + var(--dock-safe));
+}
+
+.dock-frame {
+  position: fixed;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--dock-total);
+  max-width: 480px;
+  margin-inline: auto;
+  pointer-events: none; /* trong suốt, để map/nội dung sau nhận chạm */
+}
+/* PILL NỔI 4 GÓC TRÒN, tách mép, nổi trên home-indicator (--dock-safe) */
+.bottom-dock {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: var(--dock-safe);
+  height: var(--dock-row);
+  pointer-events: auto;
+  background: rgb(17 42 66 / 0.92);
+  border-radius: 1.625rem;
+  box-shadow: 0 12px 32px -8px rgb(10 30 50 / 0.45);
+}
+/* nội dung trang cuộn: chừa đúng chiều cao dock + thở 1rem */
+.app-content {
+  padding-bottom: calc(var(--dock-total) + 1rem);
+}
+/* bản đồ full-bleed: đáy chừa dock (bản cài iOS: cao đúng vùng nhìn thấy) */
+.full-map {
+  bottom: var(--dock-total);
+}
+
+:root.pwa-frame .dock-frame {
+  top: 0;
+  bottom: auto;
+  height: var(--app-vh, 100dvh);
+}
+:root.pwa-frame .full-map {
+  bottom: auto;
+  height: calc(var(--app-vh, 100dvh) - var(--dock-total));
+}
+/*
+  ÉP KHUNG APP nở theo --app-vh (user 2026-07-29): tab KHÔNG cuộn (Trang chủ,
+  Ra khơi) iOS cho viewport NHỎ hơn tab cuộn được. Dock dùng --app-vh (max) nên
+  xuống vị trí lớn, nhưng viewport tab đó vẫn nhỏ → dock chui dưới mép, che 1/3.
+  Cho app-shell CAO bằng --app-vh (max): trang thành cao hơn viewport nhỏ →
+  cuộn được → iOS TỰ NỞ viewport bằng tab dài → dock max khớp, hết che.
+  (min-height, KHÔNG overflow — body vẫn là scroll container, body-lock giữ.)
+*/
+:root.pwa-frame .app-shell {
+  min-height: var(--app-vh, 100dvh);
+}
+
+/*
   CỠ GIAO DIỆN (sửa 2026-06-11 theo góp ý user: "bắt theo size hệ thống
   điện thoại, chỉnh tay đưa vào cài đặt account") — kiến trúc MỘT hệ rem:
   toàn bộ cỡ chữ / tap-size / bo góc viết bằng REM, nên chế độ chỉ là
@@ -209,6 +283,28 @@ textarea,
   box-shadow:
     0 1px 2px rgb(13 35 54 / 0.05),
     0 8px 24px -12px rgb(13 35 54 / 0.12);
+}
+
+/*
+  Liquid glass — panel NỔI TRÊN BẢN ĐỒ: trong suốt nhìn xuyên thấy map phía
+  sau (blur + saturate cho chữ vẫn rõ), viền sáng mảnh kiểu kính. Chỉ dùng cho
+  panel đè lên bản đồ (thanh giờ, HUD dẫn đường) — thẻ thường vẫn dùng .surface.
+*/
+.glass {
+  background: rgb(255 255 255 / 0.62);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  backdrop-filter: blur(14px) saturate(1.5);
+  border-radius: 1.25rem;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.5),
+    0 1px 2px rgb(13 35 54 / 0.08),
+    0 8px 24px -12px rgb(13 35 54 / 0.22);
+}
+/* Máy không hỗ trợ blur → nền đặc hơn cho chữ khỏi chìm vào bản đồ */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass {
+    background: rgb(255 255 255 / 0.92);
+  }
 }
 
 /* Hero tràn viền — gradient biển sâu + quầng sáng, bo đáy lớn */

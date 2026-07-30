@@ -3,6 +3,7 @@ import { Archivo, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { SwRegister } from "@/components/sw-register";
+import { ViewportGapFix } from "@/components/viewport-gap-fix";
 
 const display = Archivo({
   variable: "--font-display",
@@ -67,6 +68,9 @@ export default function RootLayout({
         />
         <AppShell>{children}</AppShell>
         <SwRegister />
+        {/* Vá bug iOS 26 Safari: dock đáy treo lưng chừng sau đóng bàn phím —
+            xem viewport-gap-fix.tsx. Máy không dính bug thì nó im lặng. */}
+        <ViewportGapFix />
       </body>
     </html>
   );

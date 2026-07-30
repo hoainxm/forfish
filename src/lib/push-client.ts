@@ -17,6 +17,26 @@ export function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return output;
 }
 
+/**
+ * Khoá công khai VAPID — lấy RUNTIME từ server (/api/push/vapid-public-key,
+ * đọc DB-trước rồi env) nên đổi khoá KHÔNG cần build lại. Rơi về
+ * NEXT_PUBLIC_VAPID_PUBLIC_KEY (nhúng lúc build) nếu API lỗi. null = chưa cấu hình.
+ */
+export async function fetchVapidPublicKey(): Promise<string | null> {
+  try {
+    const r = await fetch(apiUrl("/api/push/vapid-public-key"), {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (r.ok) {
+      const j = (await r.json()) as { key?: string | null };
+      if (j.key) return j.key;
+    }
+  } catch {
+    // mất mạng / timeout → thử env build-time
+  }
+  return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || null;
+}
+
 /** Máy có hỗ trợ Web Push không (Safari cũ / trình duyệt lạ có thể thiếu). */
 export function isPushSupported(): boolean {
   return (

@@ -1,0 +1,253 @@
+{
+  "generatedAt": "2026-07-28T13:56:35.917Z",
+  "seasonSplit": {
+    "verdict": "KHÔNG đáng tách mùa — bảng chung tốt ngang hoặc hơn khi kiểm chéo; giữ MỘT bảng cho gọn",
+    "perLead": [
+      {
+        "lead": 1,
+        "wNE": 0.937,
+        "wSW": 0.934,
+        "diff": 0.003,
+        "cvGainPct": -0.93
+      },
+      {
+        "lead": 2,
+        "wNE": 0.935,
+        "wSW": 0.898,
+        "diff": 0.037,
+        "cvGainPct": -0.84
+      },
+      {
+        "lead": 3,
+        "wNE": 0.87,
+        "wSW": 0.891,
+        "diff": 0.02,
+        "cvGainPct": -1.81
+      },
+      {
+        "lead": 5,
+        "wNE": 0.85,
+        "wSW": 0.848,
+        "diff": 0.002,
+        "cvGainPct": -1.74
+      },
+      {
+        "lead": 8,
+        "wNE": 0.846,
+        "wSW": 0.834,
+        "diff": 0.012,
+        "cvGainPct": -1.87
+      },
+      {
+        "lead": 11,
+        "wNE": 0.848,
+        "wSW": 0.813,
+        "diff": 0.035,
+        "cvGainPct": -2.23
+      },
+      {
+        "lead": 16,
+        "wNE": 0.785,
+        "wSW": 0.798,
+        "diff": 0.013,
+        "cvGainPct": -3.54
+      }
+    ]
+  },
+  "question": "Tầm ngày d thì nên tin ảnh vệ tinh ngày T (persistence) bao nhiêu, tin bản mùa vụ bao nhiêu? blend = w(d)·persist + (1−w(d))·clim",
+  "method": "Bình phương tối thiểu w* = Σ(a·b)/Σ(a²) với a = persist−clim, b = truth−clim; kẹp [0,1]; ép đơn điệu không tăng theo d. Kiểm chéo 4 nhóm theo MỐC GỐC.",
+  "caveat": "SỰ THẬT ở đây là bản đồ cá tính từ ảnh vệ tinh ngày T+d (chính sản phẩm app phục vụ), KHÔNG PHẢI sản lượng cá thật. w tối ưu theo nghĩa 'khớp bản đồ ngày đó', không phải 'bắt được nhiều cá hơn'.",
+  "climatology": {
+    "file": "public/data/fish-climatology.v1.json",
+    "years": [
+      2020,
+      2025
+    ],
+    "generatedAt": "2026-07-28",
+    "sources": {
+      "sst": "noaacrwsstDaily",
+      "chl": "noaacwNPPVIIRSSQchlaMonthly"
+    }
+  },
+  "leads": [
+    1,
+    2,
+    3,
+    5,
+    8,
+    11,
+    16
+  ],
+  "origins": [
+    "2022-01-10",
+    "2022-04-10",
+    "2022-07-10",
+    "2022-10-10",
+    "2023-01-10",
+    "2023-04-10",
+    "2023-07-10",
+    "2023-10-10",
+    "2024-01-10",
+    "2024-04-10",
+    "2024-07-10",
+    "2024-10-10",
+    "2025-01-10",
+    "2025-04-10",
+    "2025-07-10",
+    "2025-10-10"
+  ],
+  "guard": {
+    "spread": 0.14,
+    "degenerate": false,
+    "verdict": "OK — w phân biệt rõ theo tầm ngày"
+  },
+  "cvWinsOverPersistence": [
+    1,
+    2,
+    3,
+    5,
+    8,
+    11,
+    16
+  ],
+  "topKWinsOverPersistence": [
+    3,
+    8,
+    11,
+    16
+  ],
+  "topK": 100,
+  "productCurve": {
+    "first": 0.06,
+    "last": 0.56,
+    "note": "LỚP CHỌN CỦA CHỦ DỰ ÁN, KHÔNG phải số đo — xem climShare trong src/lib/fish-blend.ts và 09 §5f"
+  },
+  "perLead": [
+    {
+      "lead": 1,
+      "w": 0.935,
+      "n": 33916,
+      "origins": 16,
+      "hitBlendPct": 80.9,
+      "hitPersistPct": 81.7,
+      "hitClimPct": 52.1,
+      "rmseBlend": 3.61,
+      "rmsePersist": 3.68,
+      "rmseClim": 10.75,
+      "cvGainVsPersistPct": 1.55,
+      "cvGainVsClimPct": 65.54,
+      "wRaw": 0.935,
+      "productShare": 0.06,
+      "hitProductPct": 81,
+      "hitCostVsOptimalPct": -0.1
+    },
+    {
+      "lead": 2,
+      "w": 0.907,
+      "n": 34075,
+      "origins": 16,
+      "hitBlendPct": 73.4,
+      "hitPersistPct": 73.4,
+      "hitClimPct": 51.1,
+      "rmseBlend": 4.52,
+      "rmsePersist": 4.63,
+      "rmseClim": 10.82,
+      "cvGainVsPersistPct": 2.1,
+      "cvGainVsClimPct": 57.22,
+      "wRaw": 0.907,
+      "productShare": 0.16,
+      "hitProductPct": 72.9,
+      "hitCostVsOptimalPct": 0.5
+    },
+    {
+      "lead": 3,
+      "w": 0.885,
+      "n": 34125,
+      "origins": 16,
+      "hitBlendPct": 69.9,
+      "hitPersistPct": 69.6,
+      "hitClimPct": 52,
+      "rmseBlend": 4.96,
+      "rmsePersist": 5.12,
+      "rmseClim": 10.81,
+      "cvGainVsPersistPct": 2.21,
+      "cvGainVsClimPct": 52.26,
+      "wRaw": 0.885,
+      "productShare": 0.239,
+      "hitProductPct": 68.8,
+      "hitCostVsOptimalPct": 1.1
+    },
+    {
+      "lead": 5,
+      "w": 0.848,
+      "n": 34084,
+      "origins": 16,
+      "hitBlendPct": 65.1,
+      "hitPersistPct": 65.2,
+      "hitClimPct": 52.4,
+      "rmseBlend": 5.35,
+      "rmsePersist": 5.6,
+      "rmseClim": 10.64,
+      "cvGainVsPersistPct": 4.12,
+      "cvGainVsClimPct": 48.09,
+      "wRaw": 0.848,
+      "productShare": 0.371,
+      "hitProductPct": 64.1,
+      "hitCostVsOptimalPct": 1
+    },
+    {
+      "lead": 8,
+      "w": 0.837,
+      "n": 34271,
+      "origins": 16,
+      "hitBlendPct": 61.5,
+      "hitPersistPct": 60.1,
+      "hitClimPct": 51.8,
+      "rmseBlend": 5.99,
+      "rmsePersist": 6.25,
+      "rmseClim": 10.88,
+      "cvGainVsPersistPct": 3.6,
+      "cvGainVsClimPct": 43.16,
+      "wRaw": 0.837,
+      "productShare": 0.41,
+      "hitProductPct": 60.3,
+      "hitCostVsOptimalPct": 1.2
+    },
+    {
+      "lead": 11,
+      "w": 0.822,
+      "n": 34326,
+      "origins": 16,
+      "hitBlendPct": 60.6,
+      "hitPersistPct": 59,
+      "hitClimPct": 54.4,
+      "rmseBlend": 6.38,
+      "rmsePersist": 6.67,
+      "rmseClim": 10.96,
+      "cvGainVsPersistPct": 3.67,
+      "cvGainVsClimPct": 39.81,
+      "wRaw": 0.822,
+      "productShare": 0.464,
+      "hitProductPct": 61.3,
+      "hitCostVsOptimalPct": -0.7
+    },
+    {
+      "lead": 16,
+      "w": 0.795,
+      "n": 34507,
+      "origins": 16,
+      "hitBlendPct": 56.9,
+      "hitPersistPct": 54.9,
+      "hitClimPct": 52.4,
+      "rmseBlend": 7.44,
+      "rmsePersist": 7.77,
+      "rmseClim": 11.39,
+      "cvGainVsPersistPct": 2.6,
+      "cvGainVsClimPct": 31.79,
+      "wRaw": 0.795,
+      "productShare": 0.56,
+      "hitProductPct": 59.1,
+      "hitCostVsOptimalPct": -2.2
+    }
+  ]
+}

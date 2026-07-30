@@ -1,5 +1,5 @@
-// Trục 1 — LƯỚI DỰ BÁO VẼ LÊN BẢN ĐỒ (kiểu Windy): gió / sóng theo GIỜ,
-// CHỌN KHUNG NGÀY 3/5/7/10/16, kéo thanh thời gian là cả vùng biển đổi theo.
+// Trục 1 — LƯỚI DỰ BÁO VẼ LÊN BẢN ĐỒ (kiểu Windy): gió / sóng / DÒNG CHẢY theo
+// GIỜ, khung ngày 3/16 theo hạng, kéo thanh thời gian là cả vùng biển đổi theo.
 //
 // Nguồn: Open-Meteo (miễn phí, không key) — một lượt gọi lấy ~80 điểm lưới
 // phủ vùng biển VN. Quy tắc adapter: đổi nguồn chỉ sửa fetchForecastGrid,
@@ -14,15 +14,22 @@
 
 import { saveForecast, loadForecast, loadAll } from "@/lib/forecast-cache";
 import { apiUrl } from "@/lib/api-base";
-import { gridSnapshotId, SNAPSHOT_GRID_DAYS } from "@/lib/weather-snapshot-id";
+import { gridSnapshotId, SNAPSHOT_DAY_SET } from "@/lib/weather-snapshot-id";
+import { isCacheCurrent } from "@/lib/source-cadence";
 
-export type ForecastKind = "wind" | "wave";
+export type ForecastKind = "wind" | "wave" | "current";
 
 export interface GridHour {
   windKmh: number | null;
   windDirDeg: number | null; // hướng gió THỔI TỪ (chuẩn khí tượng)
   waveM: number | null;
   waveDirDeg: number | null; // hướng sóng TỚI TỪ
+  /** dòng chảy mặt (km/h) — nguồn MeteoFrance SMOC qua Open-Meteo, tới ~10 ngày;
+      bản lưu đời cũ không có trường này → undefined, đọc bằng `?? null` */
+  curKmh?: number | null;
+  /** hướng dòng CHẢY VỀ (0° = chảy lên Bắc) — NGƯỢC quy ước gió/sóng "tới từ",
+      docs Open-Meteo: "where the current is heading towards". KHÔNG +180° khi vẽ */
+  curDirDeg?: number | null;
 }
 
 export interface GridCell {
@@ -52,6 +59,12 @@ export type GridDays = (typeof GRID_DAY_OPTIONS)[number];
 /** Model sóng phủ đủ 16 ngày theo giờ (best-match sóng chỉ ~9 ngày) */
 const WAVE_MODEL = "ncep_gfswave025";
 
+/** Model DỰ PHÒNG (cron ghép snapshot 2 nguồn, 2026-07-29): ECMWF qua cùng API
+    Open-Meteo — khác model thật (IFS ≠ GFS), probe thật phủ tới ~+14,5 ngày
+    (gió + đủ 5 biến dải màu) / ~+14,5 ngày (sóng WAM). CHỈ cron gọi. */
+export const BACKUP_WIND_MODEL = "ecmwf_ifs025";
+export const BACKUP_WAVE_MODEL = "ecmwf_wam025";
+
 /**
  * Chỉ số GIỜ cho từng khung của thanh thời gian: dày (3h) ở gần, thưa dần khi
  * ra xa để chặn số khung (16 ngày ~ 50 khung thay vì 128). `availableHours` là
@@ -68,18 +81,24 @@ export function stepHourIndices(days: number, availableHours: number): number[] 
   return idx;
 }
 
-// Lưới phủ vùng đánh bắt VN — thưa (≈2°) vì mỗi mũi tên đại diện cả ô lớn;
-// Open-Meteo nhận tối đa ~120 điểm/lượt nên giữ 8×10 = 80.
-const LON_MIN = 102.5;
-const LON_MAX = 117.25;
-const LAT_MIN = 6.0;
-const LAT_MAX = 21.3;
-const N_LON = 8;
-const N_LAT = 10;
+// Lưới phủ vùng lớn (98–123°Đ, 1–24°B) — MỞ RỘNG 2026-07-28 để lớp màu/gió
+// KHÔNG "hụt" mép khi zoom thoải mái; thưa (~2,5°) vì là nền, mỗi mũi tên đại
+// diện ô lớn. Open-Meteo nhận ~120 điểm/lượt → giữ 10×11 = 110.
+const LON_MIN = 98;
+const LON_MAX = 123;
+const LAT_MIN = 1;
+const LAT_MAX = 24;
+const N_LON = 13;
+const N_LAT = 12; // 13×12 = 156 điểm (~150, user 2026-07-28) · bước ~2° đều
 
 /** Bước lưới THẬT theo từng chiều (độ) — suy từ khung trên, không gõ số rời */
 export const GRID_STEP_LAT_DEG = (LAT_MAX - LAT_MIN) / (N_LAT - 1); // ≈ 1,70°
 export const GRID_STEP_LON_DEG = (LON_MAX - LON_MIN) / (N_LON - 1); // ≈ 2,11°
+
+/** Số điểm lưới mỗi chiều — export để dựng WeatherField offline cho DẪN ĐƯỜNG
+    (route-weather.ts lùi về lưới này khi mất sóng). Đổi khung ở trên là đủ. */
+export const GRID_N_LAT = N_LAT;
+export const GRID_N_LON = N_LON;
 
 /**
  * TRẦN SNAP = NỬA BƯỚC LƯỚI, tính RIÊNG từng chiều. Xa hơn thì ô lưới KHÔNG CÒN
@@ -165,8 +184,69 @@ export function gridCacheId(days: number): string {
  * ngày". Bà con kéo thanh giờ tưởng đang xem nửa tháng tới. Nay không có đúng
  * khung thì BÁO LỖI, UI nói thật + chỉ ra khung nào thật sự đang có trong máy.
  */
-export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
+/**
+ * Bản lưu có khớp ĐỊNH NGHĨA LƯỚI hiện tại không (đủ số ô + đúng 4 góc bbox).
+ * Vì sao (2026-07-29): mở lưới 80→156 điểm phủ vùng RỘNG hơn — bản lưu đời cũ
+ * chỉ phủ "cửa sổ nhỏ" cũ; live lỗi (429) mà nhận bản cũ thì lớp màu/hạt co
+ * cụm một góc trong khi khung nhìn đã mở rộng. Bản không khớp coi như KHÔNG CÓ.
+ */
+export function gridIsCurrent(g: ForecastGrid | null | undefined): boolean {
+  const cells = g?.cells;
+  if (!cells || cells.length < 20) return false;
+  // CHỈ xét VÙNG PHỦ (4 góc), KHÔNG xét mật độ (2026-07-29 sửa lại): bản lưu
+  // thưa hơn (110 ô) vẫn phủ ĐÚNG vùng — vẽ thô hơn chút nhưng dùng tốt, và
+  // mọi chỗ dựng hình đều tự suy kích thước lưới. Chỉ bản đời CŨ HẲN (bbox nhỏ
+  // 102,5–117,25 / 6–21,3) mới bị loại vì nó gây "co cụm một góc".
+  const eps = 0.02; // toạ độ ô làm tròn 0,01°
+  const last = cells[cells.length - 1];
+  return (
+    Math.abs(cells[0].lat - LAT_MIN) < eps &&
+    Math.abs(cells[0].lon - LON_MIN) < eps &&
+    Math.abs(last.lat - LAT_MAX) < eps &&
+    Math.abs(last.lon - LON_MAX) < eps
+  );
+}
+
+/** Lưới có SỐ DÒNG CHẢY chưa (bản lưu/snapshot đời trước 2026-07-29 chưa có) —
+    lớp Dòng chảy cần thật, các lớp khác kệ. Chỉ cần MỘT ô một mốc có số. */
+export function gridHasCurrent(g: ForecastGrid | null | undefined): boolean {
+  return !!g?.cells?.some((c) => c.hours?.some((h) => h?.curKmh != null));
+}
+
+export async function fetchForecastGrid(
+  days = 3,
+  opts?: { needCurrent?: boolean },
+): Promise<ForecastGrid> {
   const id = gridCacheId(days);
+  const needCur = !!opts?.needCurrent;
+  // dùng được cho lớp đang xin không: lưới hiện hành + (lớp Dòng chảy thì phải
+  // CÓ số dòng chảy — bản đời cũ thiếu trường này, nhận vào là lớp trống câm)
+  const usable = (g: ForecastGrid | null | undefined): g is ForecastGrid =>
+    gridIsCurrent(g) && (!needCur || gridHasCurrent(g));
+  // TIẾT CHẾ NGUỒN (2026-07-29): bản trong máy còn là BẢN HIỆN HÀNH (nguồn chưa
+  // ra bản mới — lib/source-cadence) thì dùng luôn, KHÔNG gọi Open-Meteo. Trước
+  // đây bật/tắt lớp chục lần là chục lượt tải cùng một con số → cháy hạn ngạch
+  // IP (429) làm CẢ APP mất dự báo. KHÔNG gắn stale: đây đúng là bản mới nhất.
+  const fresh = loadForecast<ForecastGrid>(GRID_NS, id);
+  if (fresh && usable(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
+    return fresh.data;
+  }
+  // ƯU TIÊN SNAPSHOT (user 2026-07-29: "luôn ưu tiên snapshot để hạn chế bị
+  // lock do IP tải nhiều"): trước khi gọi Open-Meteo bằng IP của MÁY BÀ CON,
+  // hỏi snapshot server do cron tính sẵn (same-origin, CDN + SW cache — không
+  // đụng hạn ngạch nguồn). Chỉ nhận khi bản snapshot CÒN HIỆN HÀNH theo nhịp
+  // phát hành (cron nhét savedAt vào payload); cũ hơn thì mới đi live — không
+  // hy sinh độ tươi. KHÔNG gắn stale: đây đúng là bản mới nhất nguồn có.
+  if (SNAPSHOT_DAY_SET.includes(days)) {
+    const snap = await loadGridSnapshotClient(days);
+    if (snap && usable(snap) && isCacheCurrent(snap.savedAt, Date.now())) {
+      // LƯU vào máy với ĐÚNG TUỔI THẬT của snapshot (không phải Date.now()):
+      // pretrip/offline trông cậy bản localStorage, còn tuổi thật giữ cho
+      // isCacheCurrent lần sau không tưởng bản cũ là bản vừa tải.
+      saveForecast(GRID_NS, id, snap, snap.savedAt ?? undefined);
+      return snap;
+    }
+  }
   try {
     const g = await fetchForecastGridLive(days);
     saveForecast(GRID_NS, id, g);
@@ -174,19 +254,52 @@ export async function fetchForecastGrid(days = 3): Promise<ForecastGrid> {
   } catch (err) {
     // LƯỚI AN TOÀN khi live lỗi: bản trong máy trước; nếu chưa có mà là khung
     // MIỄN PHÍ (d3) thì thử snapshot server cron tính sẵn (khung premium không
-    // snapshot công khai — xem weather-snapshot-id.ts). Giữ cờ stale để UI nói thật.
+    // snapshot công khai — xem weather-snapshot-id.ts). Giữ cờ stale để UI nói
+    // thật. Bản lưu ĐỜI CŨ (vùng phủ nhỏ hơn) bị LOẠI — xem gridIsCurrent.
+    // usable (KHÔNG chỉ gridIsCurrent): lớp Dòng chảy đòi grid CÓ số dòng chảy —
+    // bản thiếu current mà nhận vào là "loaded mà không vẽ mũi tên" (blank câm).
     const hit = loadForecast<ForecastGrid>(GRID_NS, id);
-    if (hit) return { ...hit.data, stale: true, savedAt: hit.savedAt };
-    if (days === SNAPSHOT_GRID_DAYS) {
+    if (hit && usable(hit.data))
+      return { ...hit.data, stale: true, savedAt: hit.savedAt };
+    // Snapshot cron: CẢ khung miễn phí d3 LẪN khung premium d16 (2026-07-29 —
+    // premium luôn xin d16 nên trước đây không bao giờ có lưới an toàn). Khung
+    // premium bị route chặn thật nếu chưa đủ hạng → trả null, báo lỗi như cũ.
+    if (SNAPSHOT_DAY_SET.includes(days)) {
       const snap = await loadGridSnapshotClient(days);
-      if (snap) return { ...snap, stale: true, savedAt: null };
+      if (snap && usable(snap)) {
+        // LƯU khi live 429 (2026-07-29): trước chỉ trả stale mà không ghi →
+        // "Tải lại" trong popup coi như hỏng (savedGridDays vẫn trống) dù đã
+        // lấy được snapshot. Ghi để offline có bản + hàng đổi xanh.
+        saveForecast(GRID_NS, id, snap, snap.savedAt ?? undefined);
+        return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
+      }
+    }
+    // CUỐI CÙNG: mượn khung NGẮN HƠN đã lưu (2026-07-29). An toàn từ khi BỎ chip
+    // chọn khung: thanh ngày vẽ THEO times[] thật nên xin 16 mà chỉ có 3 thì bà
+    // con thấy đúng 3 ngày — không còn nhãn "16 ngày" nói dối như lúc chặn luật
+    // này (2026-07-25). Thà 3 ngày thật còn hơn màn hình trắng khi nguồn 429.
+    const shorter = savedCurrentGridDays().filter((d) => d < days);
+    for (let i = shorter.length - 1; i >= 0; i--) {
+      const alt = loadForecast<ForecastGrid>(GRID_NS, gridCacheId(shorter[i]));
+      if (alt && usable(alt.data))
+        return { ...alt.data, stale: true, savedAt: alt.savedAt };
+    }
+    // …và SNAPSHOT SERVER của khung ngắn hơn (user 2026-07-29: "không live được
+    // thì lấy snapshot"). Máy chưa từng tải được lần nào (429 ngay từ đầu) thì
+    // localStorage trống — server vẫn có bản cron tính sẵn.
+    for (const d of [...SNAPSHOT_DAY_SET].filter((x) => x < days).sort((a, b) => b - a)) {
+      const snap = await loadGridSnapshotClient(d);
+      if (snap && usable(snap))
+        return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
     }
     throw err;
   }
 }
 
-/** LƯỚI AN TOÀN: snapshot lưới d3 do cron tính sẵn (same-origin) — null nếu chưa có */
-async function loadGridSnapshotClient(days: number): Promise<ForecastGrid | null> {
+/** LƯỚI AN TOÀN: snapshot lưới do cron tính sẵn (same-origin) — null nếu chưa
+    có / route chặn premium. Export cho marine-weather dùng làm nấc cuối của
+    DỰ BÁO ĐIỂM (2026-07-29: bản web mở lần đầu máy trống trơn + live 429). */
+export async function loadGridSnapshotClient(days: number): Promise<ForecastGrid | null> {
   try {
     const r = await fetch(apiUrl(`/api/weather-snapshot?id=${gridSnapshotId(days)}`), {
       signal: AbortSignal.timeout(10000),
@@ -199,9 +312,37 @@ async function loadGridSnapshotClient(days: number): Promise<ForecastGrid | null
   }
 }
 
-/** Các khung ngày ĐANG CÓ bản lưu trong máy (tăng dần) — để UI nói đúng sự thật */
+/** Các khung ngày ĐANG CÓ bản lưu trong máy (tăng dần). Bản ĐỜI CŨ (vùng phủ
+    nhỏ) VẪN đếm: tra ĐIỂM/tuyến dùng được (nearestGridCell tự chặn ngoài vùng
+    phủ). Đường HIỂN THỊ LƯỚI dùng savedCurrentGridDays. */
 export function savedGridDays(): number[] {
   return loadAll<ForecastGrid>(GRID_NS)
+    .map((e) => Number(/^d(\d+)$/.exec(e.id)?.[1]))
+    .filter((d) => Number.isFinite(d) && d > 0)
+    .sort((a, b) => a - b);
+}
+
+/** Ngày (ISO) xa nhất lưới gió/sóng trong máy phủ tới — đọc times[] THẬT của
+ *  khung rộng nhất đã lưu. null nếu chưa có. Cho popup "dự báo tới ngày nào". */
+export function savedGridUntil(): string | null {
+  let best: { days: number; until: string | null } | null = null;
+  for (const e of loadAll<ForecastGrid>(GRID_NS)) {
+    const m = /^d(\d+)$/.exec(e.id);
+    if (!m) continue;
+    const d = Number(m[1]);
+    const t = e.data?.times;
+    const until = t && t.length ? t[t.length - 1].slice(0, 10) : null;
+    if (!best || d > best.days) best = { days: d, until };
+  }
+  return best?.until ?? null;
+}
+
+/** Như savedGridDays nhưng CHỈ bản khớp lưới hiện tại — cho UI chọn khung của
+    LỚP VẼ (chip "Trong máy đang có"): mời bà con sang khung mà fetchForecastGrid
+    sẽ từ chối (bản cũ) là mời vào ngõ cụt. */
+export function savedCurrentGridDays(): number[] {
+  return loadAll<ForecastGrid>(GRID_NS)
+    .filter((e) => gridIsCurrent(e.data))
     .map((e) => Number(/^d(\d+)$/.exec(e.id)?.[1]))
     .filter((d) => Number.isFinite(d) && d > 0)
     .sort((a, b) => a - b);
@@ -231,6 +372,24 @@ export function loadLongestSavedGrid(): {
 /** LIVE Open-Meteo THẲNG — export để cron precompute dùng chung (client vẫn gọi
     qua fetchForecastGrid có cache + fallback). */
 export async function fetchForecastGridLive(days = 3): Promise<ForecastGrid> {
+  return fetchGridCore(days, { withCurrent: true });
+}
+
+/** NGUỒN DỰ PHÒNG cho cron ghép snapshot (2026-07-29): ECMWF IFS/WAM — cùng
+    API, khác model. KHÔNG lấy dòng chảy (Open-Meteo chỉ có SMOC; dự phòng dòng
+    chảy là Copernicus, cron lo riêng). Client KHÔNG gọi hàm này. */
+export async function fetchForecastGridBackupLive(days = 3): Promise<ForecastGrid> {
+  return fetchGridCore(days, {
+    windModel: BACKUP_WIND_MODEL,
+    waveModel: BACKUP_WAVE_MODEL,
+    withCurrent: false,
+  });
+}
+
+async function fetchGridCore(
+  days: number,
+  opts: { windModel?: string; waveModel?: string; withCurrent: boolean },
+): Promise<ForecastGrid> {
   const pts = gridPoints();
   const lats = pts.map((p) => p.lat).join(",");
   const lons = pts.map((p) => p.lon).join(",");
@@ -239,20 +398,33 @@ export async function fetchForecastGridLive(days = 3): Promise<ForecastGrid> {
   const common = `latitude=${lats}&longitude=${lons}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${fd}`;
 
   // Timeout 20s (tầm 16 ngày × 80 điểm là payload lớn) — thà báo lỗi rõ còn hơn treo UI
-  const [windRes, waveRes] = await Promise.all([
+  // DÒNG CHẢY là REQUEST RIÊNG (không models): probe 2026-07-29 cho thấy ghim
+  // models=ncep_gfswave025 thì ocean_current_* trả toàn null (model sóng không
+  // có biến dòng chảy). Nguồn dòng chảy = MeteoFrance SMOC (best_match), phủ
+  // ~10 ngày — ngày 11–16 null, lớp vẽ tự trống, KHÔNG bịa số.
+  const windModelQ = opts.windModel ? `&models=${opts.windModel}` : "";
+  const [windRes, waveRes, curRes] = await Promise.all([
     fetch(
-      `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=kmh`,
+      `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=kmh${windModelQ}`,
       { signal: AbortSignal.timeout(20000) },
     ).then((r) => {
       if (!r.ok) throw new Error(`wind grid ${r.status}`);
       return r.json();
     }),
     fetch(
-      `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction&models=${WAVE_MODEL}`,
+      `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction&models=${opts.waveModel ?? WAVE_MODEL}`,
       { signal: AbortSignal.timeout(20000) },
     )
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null),
+    opts.withCurrent
+      ? fetch(
+          `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=ocean_current_velocity,ocean_current_direction`,
+          { signal: AbortSignal.timeout(20000) },
+        )
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+      : Promise.resolve(null),
   ]);
 
   const windArr: unknown[] = Array.isArray(windRes) ? windRes : [windRes];
@@ -260,6 +432,11 @@ export async function fetchForecastGridLive(days = 3): Promise<ForecastGrid> {
     ? waveRes
     : waveRes
       ? [waveRes]
+      : [];
+  const curArr: unknown[] = Array.isArray(curRes)
+    ? curRes
+    : curRes
+      ? [curRes]
       : [];
 
   const first = windArr[0] as { hourly?: { time?: string[] } };
@@ -278,11 +455,21 @@ export async function fetchForecastGridLive(days = 3): Promise<ForecastGrid> {
     const v = waveArr[idx] as
       | { hourly?: { wave_height?: unknown[]; wave_direction?: unknown[] } }
       | undefined;
+    const cu = curArr[idx] as
+      | {
+          hourly?: {
+            ocean_current_velocity?: unknown[];
+            ocean_current_direction?: unknown[];
+          };
+        }
+      | undefined;
     const hours: GridHour[] = hourIdx.map((h) => ({
       windKmh: num(w?.hourly?.wind_speed_10m?.[h]),
       windDirDeg: num(w?.hourly?.wind_direction_10m?.[h]),
       waveM: num(v?.hourly?.wave_height?.[h]),
       waveDirDeg: num(v?.hourly?.wave_direction?.[h]),
+      curKmh: num(cu?.hourly?.ocean_current_velocity?.[h]),
+      curDirDeg: num(cu?.hourly?.ocean_current_direction?.[h]),
     }));
     return { lat: p.lat, lon: p.lon, hours };
   });
@@ -317,8 +504,11 @@ function destPoint(
 
 /**
  * FeatureCollection mũi tên cho một mốc thời gian.
- * properties.v = độ lớn (km/h với gió, mét với sóng) để tô màu data-driven.
- * Cell thiếu dữ liệu (đất liền với sóng) thì bỏ qua.
+ * properties.v = độ lớn (km/h với gió/dòng chảy, mét với sóng) để tô màu.
+ * Cell thiếu dữ liệu (đất liền với sóng/dòng chảy; ngày >10 với dòng chảy) bỏ qua.
+ *
+ * HƯỚNG: gió/sóng nguồn ghi "TỚI TỪ" → +180° ra hướng đi; DÒNG CHẢY nguồn ghi
+ * sẵn hướng CHẢY VỀ (0° = lên Bắc) → dùng THẲNG, +180° là vẽ ngược dòng.
  */
 export function arrowFeatures(
   grid: ForecastGrid,
@@ -329,16 +519,24 @@ export function arrowFeatures(
   for (const c of grid.cells) {
     const h = c.hours[timeIdx];
     if (!h) continue;
-    const mag = kind === "wind" ? h.windKmh : h.waveM;
-    const fromDeg = kind === "wind" ? h.windDirDeg : h.waveDirDeg;
-    if (mag == null || fromDeg == null) continue;
+    const mag =
+      kind === "wind" ? h.windKmh : kind === "wave" ? h.waveM : h.curKmh ?? null;
+    const dirDeg =
+      kind === "wind"
+        ? h.windDirDeg
+        : kind === "wave"
+          ? h.waveDirDeg
+          : h.curDirDeg ?? null;
+    if (mag == null || dirDeg == null) continue;
 
-    const toDeg = (fromDeg + 180) % 360;
-    // thân ngắn dài theo độ lớn một chút cho có "nhịp"
+    const toDeg = kind === "current" ? dirDeg % 360 : (dirDeg + 180) % 360;
+    // thân ngắn dài theo độ lớn một chút cho có "nhịp" (dòng chảy 0–4 km/h)
     const scale =
       kind === "wind"
         ? Math.min(1.25, 0.55 + mag / 60)
-        : Math.min(1.25, 0.55 + mag / 4);
+        : kind === "wave"
+          ? Math.min(1.25, 0.55 + mag / 4)
+          : Math.min(1.25, 0.55 + mag / 3);
     const tail: [number, number] = [c.lon, c.lat];
     const head = destPoint(c.lon, c.lat, toDeg, SHAFT_DEG * scale);
     const barbL = destPoint(head[0], head[1], toDeg + 150, HEAD_DEG * scale);
@@ -376,15 +574,30 @@ export const WIND_COLOR_EXPR = [
   55, "#b71d1d",
 ] as const;
 
+// Sóng (m): bám thang Windy — teal nhạt (êm) → lam → chàm → đỏ (dữ). KHÔNG
+// dùng vàng/cam như trước (Windy sóng đi thẳng lam→đỏ tím).
 export const WAVE_COLOR_EXPR = [
   "interpolate",
   ["linear"],
   ["get", "v"],
-  0.3, "#74add1",
-  1.0, "#3d7fb5",
-  1.5, "#e8b339",
-  2.5, "#e06c1f",
-  4.0, "#b71d1d",
+  0.3, "#75c8be",
+  1.0, "#4682c8",
+  2.0, "#5a50b4",
+  3.0, "#b43c78",
+  4.5, "#c62828",
+] as const;
+
+// Dòng chảy (km/h): biển VN mặt phần lớn 0,3–3 km/h, dòng mạnh (mùa gió, eo) tới
+// ~5. Lam nhạt (êm) → lục lam → vàng → cam (xiết) — kiểu Windy currents.
+export const CURRENT_COLOR_EXPR = [
+  "interpolate",
+  ["linear"],
+  ["get", "v"],
+  0.2, "#79b8d1",
+  1.0, "#3f96a8",
+  2.0, "#d9b83c",
+  3.5, "#e0851f",
+  5.0, "#c0392b",
 ] as const;
 
 const WD_SHORT = ["CN", "Th 2", "Th 3", "Th 4", "Th 5", "Th 6", "Th 7"];
@@ -402,4 +615,92 @@ export function timeLabelVN(iso: string, todayIso?: string): string {
     dayName = `${WD_SHORT[dt.getUTCDay()]} ${Number(d)}/${Number(m)}`;
   }
   return `${dayName} · ${Number(hour)}h`;
+}
+
+// ── THANH THỜI GIAN KIỂU WINDY ────────────────────────────────────────────
+// Dải ngày cuộn ngang: mỗi ngày một khối, dưới có nấc GIỜ (không ghi số
+// gió/sóng lên thanh — chỉ ngày + giờ). Nấc giờ ánh xạ về đúng chỉ số trong
+// mảng times[] để chạm là nhảy tới khung đó.
+
+/** Nhãn ngắn cho ĐẦU khối ngày trên thanh: "Hôm nay" / "Mai" / "Th 6 12/6" */
+export function scrubDayLabel(isoDate: string, todayIso?: string): string {
+  if (todayIso) {
+    const a = Date.parse(`${todayIso}T00:00:00Z`);
+    const b = Date.parse(`${isoDate}T00:00:00Z`);
+    if (Number.isFinite(a) && Number.isFinite(b)) {
+      const diff = Math.round((b - a) / (24 * 60 * 60 * 1000));
+      if (diff === 0) return "Hôm nay";
+      if (diff === 1) return "Mai";
+    }
+  }
+  const dt = new Date(`${isoDate}T12:00:00Z`);
+  return `${WD_SHORT[dt.getUTCDay()]} ${dt.getUTCDate()}/${dt.getUTCMonth() + 1}`;
+}
+
+export interface ScrubDay {
+  /** ngày lịch "YYYY-MM-DD" (giờ VN) */
+  iso: string;
+  /** các nấc giờ trong ngày, kèm chỉ số vào mảng times[] để seek */
+  ticks: { idx: number; hour: number }[];
+}
+
+/**
+ * Gom mảng times[] (ISO giờ VN, đã thưa dần theo tầm) thành các KHỐI NGÀY để
+ * vẽ thanh cuộn. Giữ nguyên chỉ số gốc — chạm nấc giờ là seek đúng khung đó.
+ */
+export function groupTimesByDay(times: string[]): ScrubDay[] {
+  const days: ScrubDay[] = [];
+  times.forEach((t, idx) => {
+    const [date, time] = t.split("T");
+    const hour = Number(time?.slice(0, 2) ?? "0");
+    const last = days[days.length - 1];
+    if (last && last.iso === date) last.ticks.push({ idx, hour });
+    else days.push({ iso: date, ticks: [{ idx, hour: Number.isFinite(hour) ? hour : 0 }] });
+  });
+  return days;
+}
+
+export interface LegendStop {
+  /** ngưỡng: gió km/h · sóng m */
+  value: number;
+  color: string;
+}
+
+/**
+ * Thang màu cường độ (chú giải "thanh cường độ" kiểu Windy) — suy THẲNG từ
+ * WIND/WAVE_COLOR_EXPR để chú giải KHÔNG BAO GIỜ lệch với màu vẽ trên bản đồ.
+ */
+export function legendStops(kind: ForecastKind): LegendStop[] {
+  const expr =
+    kind === "wind"
+      ? WIND_COLOR_EXPR
+      : kind === "wave"
+        ? WAVE_COLOR_EXPR
+        : CURRENT_COLOR_EXPR;
+  const stops: LegendStop[] = [];
+  // cấu trúc: [..., value, color, value, color, ...] bắt đầu ở chỉ số 3
+  for (let i = 3; i + 1 < expr.length; i += 2) {
+    stops.push({ value: expr[i] as number, color: expr[i + 1] as string });
+  }
+  return stops;
+}
+
+/** CSS gradient cho thanh cường độ — vị trí mỗi chặng theo TỶ LỆ giá trị thật
+    (khớp cách MapLibre nội suy tuyến tính), không chia đều giả tạo. */
+export function legendGradientCss(kind: ForecastKind): string {
+  const stops = legendStops(kind);
+  if (stops.length === 0) return "var(--field)";
+  const min = stops[0].value;
+  const max = stops[stops.length - 1].value;
+  const span = max - min || 1;
+  const parts = stops.map(
+    (s) => `${s.color} ${Math.round(((s.value - min) / span) * 100)}%`,
+  );
+  return `linear-gradient(90deg, ${parts.join(", ")})`;
+}
+
+/** Đơn vị hiển thị trên thanh cường độ — GIỮ đơn vị của app (không đổi sang
+    knot như Windy): gió + dòng chảy km/h, sóng m. */
+export function legendUnit(kind: ForecastKind): string {
+  return kind === "wave" ? "m" : "km/h";
 }

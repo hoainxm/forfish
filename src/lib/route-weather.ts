@@ -9,6 +9,15 @@ import type {
   WeatherCellSeries,
   WeatherField,
 } from "@/lib/route-plan";
+import {
+  GRID_N_LAT,
+  GRID_N_LON,
+  GRID_STEP_LAT_DEG,
+  GRID_STEP_LON_DEG,
+  gridPoints,
+  loadLongestSavedGrid,
+  type ForecastGrid,
+} from "@/lib/forecast-grid";
 
 // 72 giờ — đủ cho chuyến dài quanh mũi đất; route-plan giữ giờ cuối khi hơn
 const FORECAST_DAYS = 3;
@@ -145,11 +154,138 @@ export function fetchWeatherField(
     if (now.getTime() - v.at >= CACHE_TTL_MS) fieldCache.delete(k);
   }
   const field = fetchWeatherFieldFresh(bbox).catch((e) => {
-    fieldCache.delete(key); // lỗi mạng không được găm 45 phút
+    fieldCache.delete(key); // lỗi/offline không được găm 45 phút
+    // OFFLINE (2026-07-28): mất sóng thì lùi về lưới Windy đã lưu sẵn (pretrip
+    // tải lúc còn ở bờ) — cùng triết lý forecast-grid: KHÔNG thêm nguồn mới,
+    // xài lại thứ đã có trong máy. Thô hơn + không dòng chảy, source='grid' để
+    // UI nói thật. Không có lưới nào trong máy → ném lại như cũ (UI báo thiếu).
+    const fb = offlineFieldFromGrid(now);
+    if (fb) return fb;
     throw e;
   });
   fieldCache.set(key, { at: now.getTime(), field });
   return field;
+}
+
+// ── OFFLINE: dựng WeatherField từ lưới Windy đã lưu ─────────────────────────
+// Lưới Windy (forecast-grid) đã được pretrip tải sẵn cho CẢ vùng biển VN 3/7/16
+// ngày và lưu localStorage. Mất sóng, ta dựng lại WeatherField từ nó cho dẫn
+// đường. Khác biệt phải nói thật: lưới ~2° (thô hơn ~0,35° của tuyến), CHỈ có
+// gió + sóng (không chu kỳ sóng, không dòng chảy) — sampleField/route-plan vốn
+// đã chịu được các trường null này (giảm chất lượng, vẫn an toàn nhờ lưới độ sâu
+// riêng). Độ sâu vẫn né bãi cạn như thường (asset tĩnh precache trong SW).
+
+const VN_DATE_FMT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Ho_Chi_Minh",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+const ymdToDays = (y: number, m: number, d: number): number =>
+  Date.UTC(y, m - 1, d) / 86400000;
+
+/**
+ * Số giờ của một mốc ISO (đã ở GIỜ VN — forecast-grid gọi Open-Meteo với
+ * timezone VN) so với 0h HÔM NAY giờ VN. null nếu chuỗi không parse được.
+ * So sánh THEO NGÀY LỊCH nên bản lưới lưu từ hôm trước vẫn ghép đúng vào trục
+ * giờ hôm nay (tránh lỗi "lệch nguyên 24h" khi đi biển nhiều ngày).
+ */
+export function gridHourOffsetFromToday(
+  iso: string,
+  today: { y: number; m: number; d: number },
+): number | null {
+  const mt = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})/.exec(iso);
+  if (!mt) return null;
+  return (
+    (ymdToDays(+mt[1], +mt[2], +mt[3]) - ymdToDays(today.y, today.m, today.d)) *
+      24 +
+    Number(mt[4])
+  );
+}
+
+/**
+ * Lưới Windy đã lưu → WeatherField cho dẫn đường. Trục giờ ĐẶT LẠI về 0h hôm
+ * nay (khớp departHourIdx = vnHourIndex(now) của route-planner); mốc trong quá
+ * khứ bị loại. Lưới toàn quá khứ → null (thà báo thiếu còn hơn dẫn theo bản cũ
+ * đội lốt mới). Thuần — test được, không đụng localStorage.
+ */
+export function gridToWeatherField(
+  grid: ForecastGrid,
+  now: Date = new Date(),
+  savedAt: number | null = null,
+): WeatherField | null {
+  const times = grid.times ?? [];
+  const cells = grid.cells ?? [];
+  if (times.length === 0 || cells.length === 0) return null;
+
+  const [ty, tm, td] = VN_DATE_FMT.format(now).split("-").map(Number);
+  const today = { y: ty, m: tm, d: td };
+
+  // mốc nguồn → giờ so với 0h hôm nay; chỉ giữ HÔM NAY trở đi, xếp tăng dần
+  const src: { gi: number; hour: number }[] = [];
+  for (let gi = 0; gi < times.length; gi++) {
+    const ho = gridHourOffsetFromToday(times[gi], today);
+    if (ho == null || ho < 0) continue;
+    src.push({ gi, hour: ho });
+  }
+  if (src.length === 0) return null; // lưới toàn quá khứ
+  src.sort((a, b) => a.hour - b.hour);
+
+  // forward-fill: mỗi giờ 0..max → chỉ số nguồn gần nhất KHÔNG vượt quá nó
+  // (lưới thưa 3/6/12h; hourAt của route-plan cũng làm tròn nên khớp cách dùng)
+  const maxHour = src[src.length - 1].hour;
+  const fillGi = new Array<number>(maxHour + 1);
+  let p = 0;
+  for (let h = 0; h <= maxHour; h++) {
+    while (p + 1 < src.length && src[p + 1].hour <= h) p++;
+    fillGi[h] = src[p].gi;
+  }
+
+  const wfCells: WeatherCellSeries[] = cells.map((c) => {
+    const gh = c.hours ?? [];
+    // onSea theo CÙNG quy ước parseWeatherField: ô có số sóng = biển
+    const onSea = gh.some((h) => h && h.waveM != null);
+    if (!onSea) return { onSea: false, hours: [] };
+    const hours: HourSample[] = new Array(maxHour + 1);
+    for (let h = 0; h <= maxHour; h++) {
+      const g = gh[fillGi[h]];
+      hours[h] = {
+        waveM: g?.waveM ?? null,
+        waveFromDeg: g?.waveDirDeg ?? null,
+        wavePeriodS: null, // lưới Windy không có chu kỳ sóng
+        windKmh: g?.windKmh ?? 0,
+        windFromDeg: g?.windDirDeg ?? 0,
+        currentKmh: 0, // không có dòng chảy khi offline
+        currentToDeg: null,
+      };
+    }
+    return { onSea: true, hours };
+  });
+
+  const origin = gridPoints()[0];
+  return {
+    lat0: origin.lat,
+    lon0: origin.lon,
+    dLat: GRID_STEP_LAT_DEG,
+    dLon: GRID_STEP_LON_DEG,
+    nLat: GRID_N_LAT,
+    nLon: GRID_N_LON,
+    cells: wfCells,
+    source: "grid",
+    savedAt,
+  };
+}
+
+/** Lấy lưới đã lưu DÀI NGÀY NHẤT trong máy → WeatherField, hoặc null nếu chưa có. */
+function offlineFieldFromGrid(now: Date): WeatherField | null {
+  try {
+    const saved = loadLongestSavedGrid();
+    if (!saved) return null;
+    return gridToWeatherField(saved.grid, now, saved.savedAt);
+  } catch {
+    return null;
+  }
 }
 
 async function fetchWeatherFieldFresh(bbox: BBox): Promise<WeatherField> {

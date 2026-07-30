@@ -53,6 +53,7 @@ Hướng mới: **modern edge-to-edge mobile** — nền sáng lạnh, hero bi�
 
 ### Hình khối hiện đại (thay quy tắc bo 12px cũ)
 - **Thẻ = `.surface`** (globals.css): trắng KHÔNG viền, bo 20px, bóng mềm 2 lớp. KHÔNG dùng `ring-1 ring-line` làm viền thẻ nữa — `--line` chỉ còn cho divider trong thẻ (`border-t/b/l border-line`).
+- **Panel nổi trên bản đồ = `.glass`** (globals.css, 2026-07-29): liquid glass — nền trắng 62% + `backdrop-filter: blur(14px) saturate(1.5)`, viền sáng inset 1px, bo 20px; có fallback nền 92% cho máy không hỗ trợ blur. CHỈ dùng cho panel đè lên bản đồ (thanh giờ Windy, HUD dẫn đường) — thẻ nội dung thường vẫn `.surface`.
 - **Hero = `.hero`**: gradient `navy → màu trục`, quầng sáng radial, bo đáy 28px, tiêu đề display 28px. Chip tàu (`BoatSwitcher`) nổi đè mép hero (`-mt-6`).
 - **Nút chính + chip + tab**: pill (`rounded-full`); nút cam có bóng màu. Ô nhập: filled (`bg-field`, không viền, focus ring sea). Sheet đáy: bo trên 28px.
 - **Ô nhập TIỀN = `MoneyField`** (`ui/primitives.tsx`, hội đồng UX 2026-06-11): mọi ô nhập tiền đồng dùng chung component này — chấm nghìn ngay khi gõ, cap 12 chữ số, dòng đọc-lại "= 45 triệu đồng" khi ≥1 triệu (chống lỗi thừa/thiếu một số 0 làm lệch 10 lần). State giữ CHUỖI SỐ THÔ (`digits`/`onDigits`), helpers `formatDigits`/`parseDigits`/`readbackVnd` trong `lib/format.ts` (có test). KHÔNG tự chế ô tiền với `parseVnd` + toLocaleString tay nữa.

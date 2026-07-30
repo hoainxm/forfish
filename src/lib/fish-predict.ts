@@ -14,6 +14,7 @@
 
 import { FISH_SEASONS, nearestRegionWithin, seasonPrior } from "@/data/fish-seasons";
 import { apiUrl } from "@/lib/api-base";
+import { saveForecast, loadForecast } from "@/lib/forecast-cache";
 import type { FieldProvenance } from "@/lib/source-registry";
 
 // Bán kính (độ) gán ô biển về vùng gần nhất — đủ phủ kín toàn EEZ + Hoàng Sa/
@@ -1408,8 +1409,28 @@ export async function fetchFishForecast(): Promise<FishForecastResult> {
       };
     }
     if (!r.ok) return { ok: false };
-    return (await r.json()) as FishForecastResult;
+    const data = (await r.json()) as FishForecastResult;
+    // DẤU "bản đồ cá đã có offline" — payload thật do Service Worker cache
+    // (/api/fish-forecast, same-origin), nhưng JS không đọc được kho SW đồng bộ.
+    // Ghi 1 dấu localStorage khi nhận 200 để bảng "trong máy có gì" báo được lớp
+    // cá + tới ngày nào (fetchFishForecast luôn qua đây).
+    if (data && (data as FishForecast).ok === true) {
+      saveForecast(FISH_MARK_NS, FISH_MARK_ID, {
+        targetDate: (data as FishForecast).targetDate ?? null,
+      });
+    }
+    return data;
   } catch {
     return { ok: false };
   }
+}
+
+const FISH_MARK_NS = "fishmark";
+const FISH_MARK_ID = "latest";
+
+/** Dấu "bản đồ cá đã tải offline" (từ lần fetchFishForecast gần nhất nhận 200).
+ *  null = chưa lần nào tải được. Thuần đọc — cho pretrip-status. */
+export function savedFishMark(): { savedAt: number; targetDate: string | null } | null {
+  const c = loadForecast<{ targetDate: string | null }>(FISH_MARK_NS, FISH_MARK_ID);
+  return c ? { savedAt: c.savedAt, targetDate: c.data?.targetDate ?? null } : null;
 }

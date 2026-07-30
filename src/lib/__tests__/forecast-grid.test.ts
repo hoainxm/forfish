@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   arrowFeatures,
+  gridHasCurrent,
   gridPoints,
+  CURRENT_COLOR_EXPR,
   timeLabelVN,
   stepHourIndices,
+  groupTimesByDay,
+  scrubDayLabel,
+  legendStops,
+  legendGradientCss,
+  legendUnit,
   GRID_DAY_OPTIONS,
   TIME_STEP_HOURS,
   FORECAST_GRID_HOURS,
@@ -17,16 +24,16 @@ import {
 } from "../forecast-grid";
 
 describe("gridPoints", () => {
-  it("80 điểm (8×10), nằm trong khung biển VN, không trùng nhau", () => {
+  it("156 điểm (13×12), phủ vùng lớn 98–123°Đ / 1–24°B, không trùng nhau", () => {
     const pts = gridPoints();
-    expect(pts).toHaveLength(80);
+    expect(pts).toHaveLength(156);
     for (const p of pts) {
-      expect(p.lon).toBeGreaterThanOrEqual(102);
-      expect(p.lon).toBeLessThanOrEqual(118);
-      expect(p.lat).toBeGreaterThanOrEqual(5.5);
-      expect(p.lat).toBeLessThanOrEqual(22);
+      expect(p.lon).toBeGreaterThanOrEqual(98);
+      expect(p.lon).toBeLessThanOrEqual(123);
+      expect(p.lat).toBeGreaterThanOrEqual(1);
+      expect(p.lat).toBeLessThanOrEqual(24);
     }
-    expect(new Set(pts.map((p) => `${p.lat},${p.lon}`)).size).toBe(80);
+    expect(new Set(pts.map((p) => `${p.lat},${p.lon}`)).size).toBe(156);
   });
 });
 
@@ -79,6 +86,62 @@ describe("arrowFeatures", () => {
   });
 });
 
+/* Dòng chảy (2026-07-29): nguồn Open-Meteo ghi sẵn hướng CHẢY VỀ ("0° = Going
+   north") — NGƯỢC quy ước gió/sóng "tới từ". Vẽ +180° là NGƯỢC DÒNG. */
+describe("arrowFeatures — dòng chảy (hướng CHẢY VỀ, không +180°)", () => {
+  const curHour = {
+    windKmh: null,
+    windDirDeg: null,
+    waveM: null,
+    waveDirDeg: null,
+    curKmh: 2,
+    curDirDeg: 0, // nước chảy VỀ Bắc
+  };
+
+  it("chảy về Bắc → mũi tên chỉ LÊN Bắc (đầu cao hơn đuôi)", () => {
+    const fc = arrowFeatures(makeGrid([curHour]), 0, "current");
+    expect(fc.features).toHaveLength(1);
+    const [tail, head] = (
+      fc.features[0].geometry as GeoJSON.MultiLineString
+    ).coordinates[0];
+    expect(head[1]).toBeGreaterThan(tail[1]); // lat TĂNG = về Bắc, đúng chiều nước
+    expect(fc.features[0].properties?.v).toBe(2);
+  });
+
+  it("bản lưu ĐỜI CŨ không có trường dòng chảy → bỏ qua, không vỡ", () => {
+    const oldHour = { windKmh: 10, windDirDeg: 0, waveM: 1, waveDirDeg: 90 };
+    const fc = arrowFeatures(makeGrid([oldHour]), 0, "current");
+    expect(fc.features).toHaveLength(0);
+  });
+
+  it("legend: đơn vị km/h (giữ đơn vị app), stops suy từ CURRENT_COLOR_EXPR", () => {
+    expect(legendUnit("current")).toBe("km/h");
+    const stops = legendStops("current");
+    expect(stops[0].value).toBe(CURRENT_COLOR_EXPR[3]);
+    expect(stops[stops.length - 1].color).toBe(
+      CURRENT_COLOR_EXPR[CURRENT_COLOR_EXPR.length - 1],
+    );
+  });
+});
+
+describe("gridHasCurrent — lưới có số dòng chảy chưa", () => {
+  it("có ít nhất một ô một mốc có số → true; bản đời cũ/null → false", () => {
+    const withCur = makeGrid([
+      { windKmh: 10, windDirDeg: 0, waveM: 1, waveDirDeg: 90, curKmh: 1.5, curDirDeg: 45 },
+    ]);
+    const without = makeGrid([
+      { windKmh: 10, windDirDeg: 0, waveM: 1, waveDirDeg: 90 },
+    ]);
+    const nullCur = makeGrid([
+      { windKmh: 10, windDirDeg: 0, waveM: 1, waveDirDeg: 90, curKmh: null, curDirDeg: null },
+    ]);
+    expect(gridHasCurrent(withCur)).toBe(true);
+    expect(gridHasCurrent(without)).toBe(false);
+    expect(gridHasCurrent(nullCur)).toBe(false);
+    expect(gridHasCurrent(null)).toBe(false);
+  });
+});
+
 describe("timeLabelVN", () => {
   it("hôm nay nói thẳng, ngày khác ra thứ + ngày/tháng + giờ", () => {
     expect(timeLabelVN("2026-06-12T13:00", "2026-06-12")).toBe("Hôm nay · 13h");
@@ -91,6 +154,67 @@ describe("hằng số thanh thời gian", () => {
   it("72 giờ chia hết cho bước 3 giờ → 24 nấc", () => {
     expect(FORECAST_GRID_HOURS % TIME_STEP_HOURS).toBe(0);
     expect(FORECAST_GRID_HOURS / TIME_STEP_HOURS).toBe(24);
+  });
+});
+
+describe("groupTimesByDay (thanh ngày kiểu Windy)", () => {
+  it("gom theo ngày lịch, GIỮ chỉ số gốc để seek", () => {
+    const times = [
+      "2026-06-12T00:00",
+      "2026-06-12T03:00",
+      "2026-06-12T21:00",
+      "2026-06-13T00:00",
+      "2026-06-13T06:00",
+    ];
+    const days = groupTimesByDay(times);
+    expect(days.map((d) => d.iso)).toEqual(["2026-06-12", "2026-06-13"]);
+    expect(days[0].ticks).toEqual([
+      { idx: 0, hour: 0 },
+      { idx: 1, hour: 3 },
+      { idx: 2, hour: 21 },
+    ]);
+    expect(days[1].ticks).toEqual([
+      { idx: 3, hour: 0 },
+      { idx: 4, hour: 6 },
+    ]);
+  });
+
+  it("mảng rỗng → không ngày nào", () => {
+    expect(groupTimesByDay([])).toEqual([]);
+  });
+});
+
+describe("scrubDayLabel", () => {
+  it("hôm nay/mai nói thẳng, xa hơn ra thứ + ngày/tháng", () => {
+    expect(scrubDayLabel("2026-06-12", "2026-06-12")).toBe("Hôm nay");
+    expect(scrubDayLabel("2026-06-13", "2026-06-12")).toBe("Mai");
+    // 2026-06-14 là Chủ nhật
+    expect(scrubDayLabel("2026-06-14", "2026-06-12")).toBe("CN 14/6");
+    // không có mốc hôm nay → luôn ra thứ + ngày
+    expect(scrubDayLabel("2026-06-12")).toBe("Th 6 12/6");
+  });
+});
+
+describe("thang cường độ (thanh màu)", () => {
+  it("legendStops suy đúng cặp (value,color) từ color-expr", () => {
+    const wind = legendStops("wind");
+    expect(wind[0]).toEqual({ value: 5, color: "#74add1" });
+    expect(wind[wind.length - 1]).toEqual({ value: 55, color: "#b71d1d" });
+    const wave = legendStops("wave");
+    expect(wave[0].value).toBe(0.3);
+    expect(wave[wave.length - 1].value).toBe(4.5);
+  });
+
+  it("gradient đặt chặng theo TỶ LỆ giá trị thật (0% đầu, 100% cuối)", () => {
+    const css = legendGradientCss("wind");
+    expect(css.startsWith("linear-gradient(90deg,")).toBe(true);
+    expect(css).toContain("#74add1 0%");
+    expect(css).toContain("#b71d1d 100%");
+  });
+
+  it("đơn vị GIỮ của app: gió km/h, sóng m", () => {
+    expect(legendUnit("wind")).toBe("km/h");
+    expect(legendUnit("wave")).toBe("m");
   });
 });
 
@@ -147,7 +271,10 @@ describe("nearestGridCell + GRID_SNAP_MAX_DEG", () => {
     expect(GRID_SNAP_MAX_LAT_DEG).toBeLessThan(GRID_STEP_LAT_DEG / 2 + 0.01);
     expect(GRID_SNAP_MAX_LON_DEG).toBeGreaterThan(GRID_STEP_LON_DEG / 2);
     expect(GRID_SNAP_MAX_LON_DEG).toBeLessThan(GRID_STEP_LON_DEG / 2 + 0.01);
-    expect(GRID_SNAP_MAX_DEG).toBeCloseTo(GRID_SNAP_MAX_LON_DEG, 6);
+    expect(GRID_SNAP_MAX_DEG).toBeCloseTo(
+      Math.max(GRID_SNAP_MAX_LAT_DEG, GRID_SNAP_MAX_LON_DEG),
+      6,
+    );
     // lưới thưa ~2°: ngưỡng phải đủ rộng để chạm giữa hai mũi tên vẫn ăn
     expect(GRID_SNAP_MAX_DEG).toBeGreaterThan(1);
   });
@@ -161,11 +288,11 @@ describe("nearestGridCell + GRID_SNAP_MAX_DEG", () => {
   });
 
   it("ra ngoài rìa lưới quá nửa bước → null (không nhận ô rìa cho chỗ xa)", () => {
-    // ngay rìa dưới vẫn còn phủ
-    expect(nearestGridCell(grid, 6.0 - GRID_SNAP_MAX_LAT_DEG + 0.05, 110)).not.toBeNull();
-    // quá nửa bước → từ chối
-    expect(nearestGridCell(grid, 6.0 - GRID_SNAP_MAX_LAT_DEG - 0.05, 110)).toBeNull();
-    expect(nearestGridCell(grid, 13, 117.25 + GRID_SNAP_MAX_LON_DEG + 0.05)).toBeNull();
+    // rìa dưới lưới = LAT_MIN 1,0 (đã mở rộng 2026-07-28). Ngay trong rìa còn phủ
+    expect(nearestGridCell(grid, 1.0 - GRID_SNAP_MAX_LAT_DEG + 0.05, 110)).not.toBeNull();
+    // quá nửa bước ra ngoài → từ chối
+    expect(nearestGridCell(grid, 1.0 - GRID_SNAP_MAX_LAT_DEG - 0.05, 110)).toBeNull();
+    expect(nearestGridCell(grid, 13, 123 + GRID_SNAP_MAX_LON_DEG + 0.05)).toBeNull();
   });
 
   it("chạm giữa vùng biển → luôn có ô phủ (mũi tên vẽ tới đâu, chạm được tới đó)", () => {

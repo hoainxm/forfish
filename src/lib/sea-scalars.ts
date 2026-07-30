@@ -9,8 +9,14 @@
 
 import { parseErddapGrid, ERDDAP_UA, type ScalarGrid } from "@/lib/fish-predict";
 import { apiUrl } from "@/lib/api-base";
+import { saveForecast, loadForecast } from "@/lib/forecast-cache";
+import { seaScalarSnapshotId } from "@/lib/weather-snapshot-id";
 
 export type SeaScalarKind = "ssha" | "sss";
+
+/** Namespace cache offline cho lớp số liệu biển (nước dâng/xoáy…) — cùng nếp
+ *  forecast-cache như gió/sóng/lớp màu, để ra khơi mất sóng vẫn xem lại được. */
+export const SEA_SCALAR_NS = "seascalar";
 
 export interface SeaScalarDef {
   id: SeaScalarKind;
@@ -133,17 +139,65 @@ export async function loadSeaScalar(
   return { ok: false };
 }
 
-/** Client gọi route nội bộ */
+/** Snapshot lớp số liệu biển do cron tính sẵn (same-origin) — null nếu chưa có */
+async function loadSeaScalarSnapshot(
+  kind: SeaScalarKind,
+): Promise<SeaScalarResult | null> {
+  try {
+    const r = await fetch(
+      apiUrl(`/api/weather-snapshot?id=${seaScalarSnapshotId(kind)}`),
+      { signal: AbortSignal.timeout(10000) },
+    );
+    if (!r.ok) return null;
+    const j = (await r.json()) as SeaScalarResult;
+    return j && j.ok && Array.isArray(j.cells) && j.cells.length > 0 ? j : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Client gọi lấy lớp số liệu biển. ƯU TIÊN SNAPSHOT cron (same-origin, không đập
+ * ERDDAP hay treo/403) → live → bản đã lưu. LƯU vào máy khi được để mất sóng vẫn
+ * xem lại được (2026-07-29: thêm snapshot server như các lớp khác).
+ */
 export async function fetchSeaScalar(
   kind: SeaScalarKind,
 ): Promise<SeaScalarResult> {
+  // 1) snapshot cron (nguồn ERDDAP hay chết → đây là đường chính đáng tin)
+  const snap = await loadSeaScalarSnapshot(kind);
+  if (snap && snap.ok) {
+    saveForecast(SEA_SCALAR_NS, kind, snap);
+    return snap;
+  }
+  // 2) live
   try {
     const r = await fetch(apiUrl(`/api/sea-scalar?kind=${kind}`), {
       signal: AbortSignal.timeout(25000),
     });
-    if (!r.ok) return { ok: false };
-    return (await r.json()) as SeaScalarResult;
+    if (r.ok) {
+      const j = (await r.json()) as SeaScalarResult;
+      if (j.ok) {
+        saveForecast(SEA_SCALAR_NS, kind, j);
+        return j;
+      }
+    }
   } catch {
-    return { ok: false };
+    // mạng lỗi → lùi về bản lưu bên dưới
   }
+  // 3) bản đã lưu trong máy (mất sóng)
+  const hit = loadForecast<SeaScalarResult>(SEA_SCALAR_NS, kind);
+  return hit && hit.data.ok ? hit.data : { ok: false };
+}
+
+/** Đã lưu offline lớp số liệu biển `kind` chưa (thuần đọc — cho pretrip-status). */
+export function savedSeaScalar(kind: SeaScalarKind): boolean {
+  const hit = loadForecast<SeaScalarResult>(SEA_SCALAR_NS, kind);
+  return !!hit && hit.data.ok;
+}
+
+/** Mốc lưu gần nhất của lớp số liệu biển `kind` (null nếu chưa lưu). */
+export function savedSeaScalarAt(kind: SeaScalarKind): number | null {
+  const hit = loadForecast<SeaScalarResult>(SEA_SCALAR_NS, kind);
+  return hit ? hit.savedAt : null;
 }

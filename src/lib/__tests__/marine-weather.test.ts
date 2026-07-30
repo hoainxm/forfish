@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   beaufort,
+  dailyCurrentFromHourly,
   forecastConfidence,
   formatNumberVN,
   windDirectionVN,
@@ -33,6 +34,36 @@ describe("windDirectionVN", () => {
     expect(windDirectionVN(350)).toBe("Bắc");
     expect(windDirectionVN(211)).toBe("Tây Nam");
     expect(windDirectionVN(360)).toBe("Bắc");
+  });
+});
+
+/* Dòng chảy tại điểm (2026-07-29): mỗi ngày lấy MỘT số đại diện GIỮA TRƯA —
+   tốc độ + hướng phải là CÙNG một mốc giờ (không max tốc rồi ghép hướng khác). */
+describe("dailyCurrentFromHourly", () => {
+  it("chọn mốc gần 12h nhất, cặp đúng hướng của mốc đó", () => {
+    const times = [
+      "2026-07-29T00:00",
+      "2026-07-29T12:00",
+      "2026-07-29T18:00",
+      "2026-07-30T06:00",
+    ];
+    const vel = [3, 1.5, 2.8, 2];
+    const dir = [10, 90, 200, 180];
+    const m = dailyCurrentFromHourly(times, vel, dir);
+    // ngày 29: đúng mốc 12h (1,5 km/h · 90°) dù 00h/18h chảy mạnh hơn
+    expect(m.get("2026-07-29")).toEqual({ curKmh: 1.5, curDirDeg: 90 });
+    // ngày 30 chỉ có 06h → lấy nó
+    expect(m.get("2026-07-30")).toEqual({ curKmh: 2, curDirDeg: 180 });
+  });
+
+  it("giờ có tốc mà thiếu số (null) → bỏ mốc đó; ngày không mốc nào → không có entry", () => {
+    const m = dailyCurrentFromHourly(
+      ["2026-08-05T12:00", "2026-08-06T12:00"],
+      [null, 1],
+      [90, null],
+    );
+    expect(m.has("2026-08-05")).toBe(false); // nguồn hết tầm (~10 ngày) → trống
+    expect(m.get("2026-08-06")).toEqual({ curKmh: 1, curDirDeg: null });
   });
 });
 

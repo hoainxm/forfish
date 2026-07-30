@@ -37,6 +37,7 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
   - **Tầm dự báo 1–16 ngày** (mở rộng 2026-07-25, `FORECAST_MAX_DAYS = 16` = trần nguồn): gió/mưa/dông từ mô hình best-match Open-Meteo (GFS 16 ngày) và **SÓNG từ NCEP GFS-Wave 0.25° toàn cầu** (`WAVE_MODEL = "ncep_gfswave025"` trong `sea.ts`/`marine-weather.ts`, cũng 16 ngày) — best-match sóng chỉ phủ ~8 ngày nên phải chỉ định model mới đủ 16. Ngày sóng thủng (hiếm) ước thô từ gió (`estimateWaveFromWind`, cờ `waveEstimated`) thay vì để 0 giả êm.
   - **Độ tin nói THẬT theo từng ngày** (`forecastConfidence` mở tới 16 ngày + lớp `lib/forecast-quality.ts`): gộp 3 tín hiệu — (1) tầm ngày (skill khí tượng giảm dần), (2) **ensemble spread** (`lib/forecast-ensemble.ts`, Open-Meteo GFS-EPS 31 thành viên — mô hình lệch nhau nhiều = khó đoán, hạ độ tin kể cả ngày gần), (3) **bảng skill backtest** (`src/data/forecast-skill.json` — dự-báo-cũ vs thực-tế ERA5, sinh offline bởi `scripts/forecast-backtest.mjs`, xem [ops/forecast-accuracy.md](ops/forecast-accuracy.md); đo tới lead 15, ngày 16 lùi về độ tin theo tầm ngày). Bảng skill còn dùng nắn **bias** thô của điểm số (`applyBiasCorrection`) — phần "tối ưu độ chính xác" từ dữ liệu thật. Nhãn nền: 1–3 ngày khá sát · 4–7 tham khảo · 8–10 liệu đường · 11–16 hướng chung, chắc chắn xem lại. Ảnh vệ tinh là ảnh ĐÃ CHỤP — không dự báo trước được, UI nói thẳng cạnh bộ chọn ngày.
   - Dẫn đường tiết kiệm dầu: thuật toán theo mô hình nghiên cứu VISIR cho tàu nhỏ (xem [../research/06-weather-routing.md](../research/06-weather-routing.md)) — lưới phủ vùng + Dijkstra theo giờ dự báo Open-Meteo (72h: sóng + hướng, gió + hướng, **dòng chảy mặt biển** nguồn SMOC ~8 km gồm cả dòng triều — cộng vector vào tốc độ tàu, biết "đi nhờ nước"/né nước ngược), né bờ/rạn/bãi cạn bằng lưới độ sâu ETOPO 2022 đóng gói sẵn (chặn <4 m, cảnh báo 4–12 m; rạn Hoàng Sa/Trường Sa quét ở phân giải gốc). **Mô hình dầu là ƯỚC LƯỢNG THAM KHẢO** (sóng làm tàu chậm theo hướng sóng — hệ số Kwon 4 bậc; ngược gió ăn dầu hơn). **An toàn theo thang KTTV VN** (audit 2026-06-10, research/06 §3b): cấp 6/sóng 2–3 m phạt nhẹ "cẩn thận" · cấp 7/3–4 m cảnh báo đỏ "không nên đi" · cấp 8/≥4 m chặn cứng; sóng đuôi ngắn ≥2 m chỉ CẢNH BÁO giảm ga; **trần đường vòng 30%** — đường thẳng đi được mà tuyến vòng quá 30% thì trả đường thẳng + cảnh báo, không vẽ tuyến 4× rồi gọi là tiết kiệm. KHÔNG hứa con số lít chính xác; chưa biết đá ngầm nhỏ, luồng lạch; dòng nước sát bờ kém chính xác (nguồn ghi rõ "not suitable for coastal navigation") — UI bắt buộc dặn dò hải đồ + nghe đài trước khi chạy.
+    - **Dẫn đường LIVE "Bắt đầu dẫn đường" (2026-07-28)**: vẽ xong tuyến → theo dõi GPS trên máy, **bám tuyến đã vẽ** (dẫn tới khúc rẽ kế tiếp), tính quãng + giờ còn lại tới đích, giữ màn hình sáng. Chạy hoàn toàn TRÊN MÁY, **không cần mạng** (khớp offline). **Vị trí CHỈ nằm trên máy — KHÔNG gửi đi đâu, không log**; chia sẻ vị trí cho người nhà (VMS) là việc TƯƠNG LAI, ngoài phạm vi bản này. Vẫn "chỉ tham khảo — không thay máy định vị của tàu"; mất định vị/tàu chưa chạy thì nói thật, không bịa số. Xem [07-design-spec §10.7](07-design-spec.md).
   - Tin bão/áp thấp: hệ cảnh báo thiên tai quốc tế GDACS (EU/UN, JSON công khai) qua proxy `/api/storms`, lọc vùng Biển Đông. **Vẽ trên bản đồ (2026-06-16)**: ngoài tâm bão còn có **đường đi (track)** + **vùng ảnh hưởng (polygon đỏ mờ)** — GDACS trả sẵn LineString/Polygon, parse trong `storms.ts`. **Quy tắc an toàn** (sửa sau audit 2026-06-10): nguồn fail → hiện rõ "Chưa kiểm tra được tin bão — nghe đài duyên hải" (KHÔNG BAO GIỜ nói "không có bão" khi chưa chắc; cũng không im lặng — người dùng không phân biệt được im lặng với "đã kiểm tra, không có"); dòng trấn an xanh chỉ hiện khi đã kiểm tra được thật. Nguồn quốc tế có thể lệch tên/cấp so với bản tin KTTV VN bà con nghe đài — nâng cấp lên nguồn chính thống VN khi có thỏa thuận.
 - **Dữ liệu tương lai**: feed thương mại (vd OceanByte) — **bắt buộc đi qua adapter có thể thay thế**.
   - ⚠️ OceanByte là bên thứ ba nước ngoài, có sản phẩm vessel-tracking cạnh tranh → **không bao giờ là core**, không hardcode vào domain logic.
@@ -46,11 +47,13 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 ### Trục 2 — Bán được đắt hơn (ở `/tien`, dock nhãn "Giao dịch" · route cũ `/gia-ca` → redirect)
 - **Hứa gì**: cá về bờ bán được giá, không bị ép.
 - **Cấu trúc GỌN VỀ 1 VIỆC MUA–BÁN (user chốt 2026-07-27)** — bỏ tab Hiệu quả/Công nợ khỏi khu này, chỉ còn 3 mục:
-  1. **Giá cá** — giá cá tuần VASEP + giá dầu DO live.
+  1. **Giá cá** — giá cá tuần VASEP + giá dầu DO live. **Chạm 1 loài → biểu đồ giá LỊCH SỬ** (kiểu chứng khoán, 2026-07-29).
   2. **Tin mua/bán** — chủ tàu tự ĐĂNG tin bán (có cá cần bán) và tin mua (cần mua gì); đầu nậu/vựa/nhà máy đăng tin cần mua. Cả làng cùng xem tin đang mở, gọi thẳng nhau.
   3. **Bán ở đâu** — danh bạ đầu mối (nậu vựa · chợ · nhà máy · mối quen), vào thẳng danh sách (bỏ mục "Kênh bán" giải thích).
 - **Lộ trình "Tin mua/bán"**: chủ tàu đăng tin ghi thật vào bảng Supabase `market_listings` (RLS owner-write, xem [04 §2](04-data-model.md)); **app riêng cho bên thu mua** sẽ đổ tin cần mua về cùng bảng qua webhook (`owner_id` NULL, `sdwork_ref`). Chưa đăng nhập / chưa cấu hình env → chỉ xem `DEMO_LISTINGS` TIN MẪU (UI ghi rõ) — KHÔNG bịa tin thật.
 - **Giá cá LIVE (2026-06-10)**: `/api/port-prices` (cache 24h) kéo bản tin giá nguyên liệu **hằng TUẦN của VASEP** (Khánh Hòa — "giá tại bến/vựa", scrape bảng HTML qua `lib/port-price-source.ts`, khớp keyword → 13 loài app). TRUNG THỰC: giá TUẦN không phải ngày (VN chưa có nguồn giá-tại-bến hằng ngày máy-đọc-được); parser phòng thủ, nguồn fail/parse vỡ → lùi về bảng tĩnh `data/port-prices.ts`; loài tuần này VASEP không có thì giữ giá tĩnh + nhãn "tham khảo"; UI ghi "Nguồn VASEP, tuần X". Loại hàng khô/giống khỏi giá tươi.
+- **Biểu đồ giá lịch sử (2026-07-29)**: chạm 1 dòng ở Bảng giá → `PriceHistorySheet` vẽ DẢI giá thấp–cao theo TUẦN (kiểu chứng khoán). Nguồn = `/api/port-prices/history`, gom KHO bản tin VASEP cũ (`?trang=1..2` ≈ 13 tuần ≈ 3 tháng), ngày lấy từ slug URL, parse bằng đúng parser giá tuần. TRUNG THỰC (trục "bán được đắt hơn"): **mỗi điểm là giá VASEP THẬT, KHÔNG nội suy/bịa** — tuần parse hỏng thì bỏ (thành khoảng trống), <2 điểm hoặc nguồn fail → sheet báo "chưa lấy được lịch sử" chứ không vẽ đường giả. Lịch sử tải LƯỜI 1 lần khi chạm thẻ đầu.
+- **TÍCH LUỸ lâu dài (2026-07-29)**: kho VASEP chỉ giữ ~13 tuần trên listing → cron `/api/cron/snapshot-prices` (**Vercel cron, thứ Bảy**) UPSERT giá tuần vào bảng `price_history` (Supabase, migration 0016 — xem [04 §2](04-data-model.md)); route ĐỌC DB trước, lịch sử **dài dần theo thời gian** kể cả khi tuần cũ rơi khỏi listing. ✅ migration 0016 ĐÃ apply prod 2026-07-29 (bảng rỗng, backfill ở lần cron chạy đầu — ⚠️ cron thứ 3 cần Vercel Pro, Hobby trần 2). Chưa chạy cron → route tự lùi về gom kho VASEP trực tiếp (biểu đồ vẫn chạy, tối đa ~13 tuần).
 - **Giá dầu DO LIVE**: `/api/fuel-price` (cache 6h) → giaxanghomnay.com (Petrolimex, JSON không key) lấy DO 0,05S vùng 1/vùng 2 — chi phí lớn nhất chuyến biển, hiện trên đầu bảng giá. Fail → ẩn (không bịa). `lib/fuel-price.ts` có test.
 - **Dữ liệu nậu vựa/người mua**: **tự thu thập** qua mạng lưới đại lý/cảng của SDVICO (moat riêng), feed từ SDWork. Tin cần mua từ đầu nậu/nhà máy còn là tin mẫu chờ app thu mua nối vào `market_listings`.
 
@@ -132,3 +135,49 @@ SỬA: cao nguyên co về đầu GIÀU MỒI, phần còn lại của dải th�
 CHỐT 0.5 BẰNG SỐ (sweep trên API thật): 0.35 → hot 15.3% nhưng **MẤT 1 loài** (23→22) ⇒ loại; **0.5 → hot 17.9%, GIỮ đủ 23 loài**, median 34, payload 335 KB; 0.65 → hot 19.5% (phân biệt kém hơn). Cổng kiểm sau khi sửa: cờ đỏ 19 → 13; `food:mực xà` std 0.019→0.076 và bão hoà 99%→**5%**; 7 cờ mồi sạch hẳn (cá hồng · cá mối · ngừ vây vàng · nục heo · cá thu · ngừ ồ · ngừ chù · ngừ chấm).
 CÒN MỞ (ghi để không ai chạy vòng vô ích): 13 cờ đỏ còn lại KHÔNG phải bão hoà nữa mà là std hơi dưới 0.10 — đó là **giới hạn dải động của trường chl ở biển VN** (chỉ trải 0.43 đơn vị log), không phải lỗi dải khai. Riêng 6 cờ `tFit:*` (ngừ chù 0.027 · cá cơm 0.040 · cá cờ · cá lầm · mực xà · nục heo) là VẤN ĐỀ RIÊNG chưa xử: dải nhiệt loài rộng hơn phân bố nhiệt mặt Biển Đông 27–30°C — cùng khuôn lỗi, cần một mạch riêng có calibrate.
 Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để cô lập đúng biến đang đo (chl 0.1/0.8 nay nằm ở đầu NGHÈO) — KHÔNG nới lỏng assertion nào. -->
+
+<!-- re-verified: 2026-07-28 — KIỂM CHỨNG THÔNG SỐ CÁ NGỪ (trước khi build tính năng lộ trình câu cá ngừ).
+Đối chiếu SPECIES_PROFILES + FISH_SEASONS với RIMF, WCPFC, ICCAT, FishBase, SPC. CHƯA SỬA GÌ — đây là biên bản kiểm.
+
+🔴 MÙA VỤ HỎNG Ở 3/6 LOÀI NGỪ — nặng nhất, và đúng loài quan trọng nhất:
+ · vây vàng + mắt to khai ĐỦ 12 THÁNG ⇒ seasonPrior luôn = 1 ⇒ TERM MÙA VỤ CHẾT (chỉ 2/44 dòng mùa vụ
+   toàn mô hình bị vậy, và đúng 2 loài này). Ghi chú trong chính dữ liệu lại nói "rộ tháng 12–6" ⇒ dữ liệu
+   TỰ MÂU THUẪN. Thực tế: Bình Định "từ tháng 7 DL biển rất vắng cá ngừ đại dương"; Đào Mạnh Sơn 2004 vụ
+   chính 11–4; WCPFC 2012 đỉnh 12–2. Đề xuất vây vàng 11–6 cao / 7–8 giảm / 9–10 thấp; mắt to 11–7
+   (mắt to là ngoại lệ: WCPFC dẫn Toàn 2011 nói hè 4–7 CAO HƠN đông).
+ · cá ngừ VẰN khai 11–5 là NGƯỢC MÙA — bỏ trắng nguyên đỉnh 7–9. Nguồn: Bình Định "từ tháng 7 là mùa cá
+   nổi (chủ yếu ngừ sọc dưa)"; Vinatuna rộ đến hết tháng 9; WCPFC 2012 hai đỉnh 12–1 và 7–8.
+ · cá ngừ Ồ khai 11–5 cũng NGƯỢC — nguồn VN nói rộ tháng 3–8.
+
+🟡 CỔNG NHIỆT LỆCH ẤM (đo độc lập trên SST thật xác nhận): tháng 7 biển VN chỉ trải 28,7–30,0 °C mà
+ plateau vây vàng là 26–30 ⇒ 90,4 % ô đạt điểm tối đa, độ lệch chuẩn 0,081 ⇒ TERM NHIỆT KHÔNG PHÂN BIỆT
+ (cá ngừ chù còn tệ hơn: 97,8 %). Đúng mẫu lỗi "always-on term" đã ghi trong memory. ICCAT (systematic
+ review) cho SST ưa thích vây vàng 24,4–28,6 · vằn 23,0–28,3 · mắt to 24,2–28,5.
+ Đề xuất: vây vàng [22, 24.5, 29, 31] · vằn [20, 23, 28.5, 31] · chấm [18, 24, 29, 31].
+ ⚠ PHẢI PHÂN BIỆT ambient vs SST: "mắt to ưa 17–22 °C" là nhiệt Ở TẦNG SÂU, KHÔNG phải SST — đừng ai sửa
+ cổng SST theo con số đó.
+
+🟡 THÔNG SỐ NGHỀ (dùng cho spec lộ trình 09 §4):
+ · "sashimi ≤7 ngày sau con cá đầu" CHẶT GẤP ĐÔI chuẩn — SPC "Onboard handling of sashimi-grade tuna":
+   xử lý đúng (cắt tiết, moi mang/ruột, hạ tâm về 0 °C bằng slurry) giữ chuẩn sashimi TỚI 2 TUẦN.
+   Đề xuất ≤14 ngày, hoặc ≤10 nếu tàu chỉ có đá xay. Giữ 7 ngày = khuyên bà con cắt đôi chuyến vô căn cứ.
+ · "chạy ra ~3 ngày" QUÁ DÀI — kỹ thuật nghề câu VN: Quy Nhơn → ngư trường 30–48 giờ ⇒ ~2 ngày.
+ · CHƯA TÁCH 2 NGHỀ: câu vàng (longline, vàng 40–55 km, thả 14–17h30, chuyến >20 ngày, theo vụ, giá cao)
+   vs CÂU TAY KẾT HỢP ÁNH SÁNG (từ 2011, Hoài Nhơn; 4 cần + mồi mực sống + giàn 15–20 bóng cao áp; bắt
+   buộc ĐÊM; ~20 ngày; QUANH NĂM; thịt bị chua, giá chỉ 40–60 % câu vàng). Hai nghề khác nhau về mùa,
+   chuyến, cách đánh ⇒ preset lộ trình phải tách.
+ · Cổng độ sâu vây vàng [50,200] m: ngư trường THẬT 200–4.000 m (Hoàng Sa 400–4.000, Trường Sa 200–3.000)
+   ⇒ cổng trả 1,0 trên 100 % ngư trường thật, chỉ còn tác dụng chặn thềm. Đề xuất [100,400] / mắt to
+   [200,600] — NHƯNG cân nhắc: nâng lên sẽ chặn oan tàu câu tay/lưới vây nước nông (quyết định sản phẩm).
+ · chlLog vây vàng [-1.1,-0.1] = 0,079–0,79 mg/m³ nhưng khơi Biển Đông chỉ 0,11 ± 0,06 ⇒ NỬA TRÊN không
+   bao giờ dùng tới. Đề xuất [-1.3,-0.5].
+ · thermoBand D20 [4,12] m: HƯỚNG đúng (y văn: nêm nhiệt sâu ⇒ CPUE mắt to cao hơn) nhưng cửa sổ 4–12 m
+   KHÔNG CÓ NGUỒN và hẹp so dị thường D20 do xoáy trung quy mô. Nới hoặc đổi sang phân vị.
+
+✅ ĐÚNG, KHÔNG ĐỤNG: SST mắt to [22,25,29,31] (khớp ICCAT 24,2–28,5 — thông số tốt nhất app đang có) ·
+ mùa cá ngừ chù (3–9) và chấm (1–5,10–12) · mô tả depthBand cả hai loài · chlLog mắt to · "đánh đêm" ·
+ ">200 hải lý" · "chuyến 15–30 ngày" · hướng dương của thermoBand.
+
+⚠ TRƯỚC KHI SỬA BẤT KỲ HẰNG SỐ CHẤM ĐIỂM NÀO: chạy scripts/model-discrimination-audit.mjs (guard
+ always-on-term) — luật của dự án sau khi dính bẫy này 4 lần trong một ngày. Nguồn đầy đủ: transcript
+ phiên 2026-07-28. -->

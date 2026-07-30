@@ -13,10 +13,12 @@ import {
 } from "@/lib/sea";
 import { saveForecast, loadForecast, coordId } from "@/lib/forecast-cache";
 import {
+  loadGridSnapshotClient,
   loadLongestSavedGrid,
   nearestGridCell,
   type ForecastGrid,
 } from "@/lib/forecast-grid";
+import { SNAPSHOT_DAY_SET } from "@/lib/weather-snapshot-id";
 
 export type SeaPoint = { lat: number; lon: number };
 
@@ -39,6 +41,11 @@ export type SeaPointDay = Omit<SeaDay, "precipMm"> & {
   /** null = KHÔNG đủ dữ liệu để chấm điểm — UI phải ẩn phần điểm/tình trạng */
   score: number | null;
   level: SeaLevel | null;
+  /** Dòng chảy đại diện GIỮA TRƯA của ngày (km/h) — nguồn SMOC chỉ tới ~10
+      ngày, ngày xa hơn (và bản lưu đời cũ) là undefined/null → UI ẩn */
+  curKmh?: number | null;
+  /** hướng dòng CHẢY VỀ (0° = lên Bắc) — Open-Meteo ghi sẵn hướng đi của nước */
+  curDirDeg?: number | null;
 };
 
 export type SeaPointConditions = {
@@ -51,6 +58,11 @@ export type SeaPointConditions = {
   windDirDeg: number | null;
   waveM: number | null;
   wavePeriodS: number | null;
+  /** Dòng chảy LÚC NÀY (km/h) — null khi nguồn hỏng / bản dựng từ lưới /
+      bản lưu đời cũ (trường optional để đọc được bản đã lưu trước đây) */
+  curKmh?: number | null;
+  /** hướng dòng CHẢY VỀ lúc này (0° = lên Bắc) */
+  curDirDeg?: number | null;
   /** FORECAST_MAX_DAYS ngày, phần tử đầu là hôm nay (score/level có thể null) */
   days: SeaPointDay[];
   /** true = đang xem bản ĐÃ LƯU (offline/mất mạng), không phải bản mới */
@@ -189,6 +201,17 @@ export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
     // chỗ chạm — vẫn là số của chính chỗ đó, không phải mượn của toạ độ khác.
     const fromGrid = seaPointFromSavedGrid(p);
     if (fromGrid) return fromGrid;
+    // NẤC CUỐI (2026-07-29, ảnh user bản web iOS "chưa có số nào lưu trong
+    // máy"): máy TRỐNG TRƠN (bản web Safari mở lần đầu — kho localStorage TÁCH
+    // RIÊNG với PWA đã cài) + live lỗi/429 → còn lưới SNAPSHOT server cron
+    // (same-origin, không đụng quota Open-Meteo theo IP). Khung dài nhất
+    // trước; khung premium bị route chặn với tài khoản thường → tự rơi về d3.
+    // Vẫn là số ĐÚNG Ô phủ chỗ chạm — seaPointFromGrid tự chặn ô xa.
+    for (const d of [...SNAPSHOT_DAY_SET].sort((a, b) => b - a)) {
+      const snap = await loadGridSnapshotClient(d);
+      const cond = snap ? seaPointFromGrid(snap, p, null) : null;
+      if (cond) return cond;
+    }
     throw err; // ngoài vùng lưới / máy chưa lưu gì → UI nói thật là chưa có số
   }
 }
@@ -225,16 +248,26 @@ export function seaPointFromGrid(
 
   const times = grid.times ?? [];
   // gộp theo ngày — "2026-07-27T06:00" đã là giờ VN (nguồn xin theo Asia/Ho_Chi_Minh)
-  const byDate = new Map<string, { wind: number | null; wave: number | null }>();
+  const byDate = new Map<
+    string,
+    {
+      wind: number | null;
+      wave: number | null;
+      // dòng chảy lấy MỐC GẦN GIỮA TRƯA nhất (không lấy max — hướng phải đi
+      // cặp với tốc độ của CÙNG một mốc giờ)
+      cur: { kmh: number; dir: number | null; distTo12: number } | null;
+    }
+  >();
   const order: string[] = [];
   for (let i = 0; i < times.length; i++) {
-    const date = String(times[i] ?? "").slice(0, 10);
+    const t = String(times[i] ?? "");
+    const date = t.slice(0, 10);
     if (date.length !== 10) continue;
     const h = near.cell.hours?.[i];
     if (!h) continue;
     let acc = byDate.get(date);
     if (!acc) {
-      acc = { wind: null, wave: null };
+      acc = { wind: null, wave: null, cur: null };
       byDate.set(date, acc);
       order.push(date);
     }
@@ -242,6 +275,13 @@ export function seaPointFromGrid(
     const s = num(h.waveM);
     if (w != null) acc.wind = acc.wind == null ? w : Math.max(acc.wind, w);
     if (s != null) acc.wave = acc.wave == null ? s : Math.max(acc.wave, s);
+    const ck = num(h.curKmh);
+    const hour = Number(t.slice(11, 13));
+    if (ck != null && Number.isFinite(hour)) {
+      const distTo12 = Math.abs(hour - 12);
+      if (!acc.cur || distTo12 < acc.cur.distTo12)
+        acc.cur = { kmh: ck, dir: num(h.curDirDeg), distTo12 };
+    }
   }
 
   const days: SeaPointDay[] = [];
@@ -259,6 +299,8 @@ export function seaPointFromGrid(
       waveEstimated: false,
       score: null, // thiếu mưa/dông thì KHÔNG chấm điểm đi biển
       level: null,
+      curKmh: acc.cur?.kmh ?? null,
+      curDirDeg: acc.cur?.dir ?? null,
     });
   }
   if (days.length === 0) return null;
@@ -275,11 +317,46 @@ export function seaPointFromGrid(
     windDirDeg: null,
     waveM: null,
     wavePeriodS: null,
+    curKmh: null,
+    curDirDeg: null,
     days,
     stale: true,
     savedAt,
     source: "saved-grid",
   };
+}
+
+/**
+ * Dòng chảy ĐẠI DIỆN theo ngày từ chuỗi GIỜ: lấy mốc GIỮA TRƯA (12h, gần nhất
+ * có số) — dòng chảy đổi chậm trong ngày, một số đại diện đủ để bà con liệu
+ * hướng thả trôi/kéo lưới. Thuần, test được. Ngày nguồn không phủ (SMOC ~10
+ * ngày) → không có entry.
+ */
+export function dailyCurrentFromHourly(
+  times: string[],
+  vel: unknown[],
+  dir: unknown[],
+): Map<string, { curKmh: number; curDirDeg: number | null }> {
+  const best = new Map<
+    string,
+    { curKmh: number; curDirDeg: number | null; distTo12: number }
+  >();
+  for (let i = 0; i < times.length; i++) {
+    const t = String(times[i] ?? "");
+    const date = t.slice(0, 10);
+    const hour = Number(t.slice(11, 13));
+    const v = num(vel?.[i]);
+    if (date.length !== 10 || !Number.isFinite(hour) || v == null) continue;
+    const d = Math.abs(hour - 12);
+    const cur = best.get(date);
+    if (!cur || d < cur.distTo12) {
+      best.set(date, { curKmh: v, curDirDeg: num(dir?.[i]), distTo12: d });
+    }
+  }
+  const out = new Map<string, { curKmh: number; curDirDeg: number | null }>();
+  for (const [date, b] of best)
+    out.set(date, { curKmh: b.curKmh, curDirDeg: b.curDirDeg });
+  return out;
 }
 
 /** Gọi Open-Meteo THẬT (không cache) — tách ra để fetchSeaPoint bọc offline. */
@@ -292,8 +369,14 @@ async function fetchSeaPointLive(p: SeaPoint): Promise<SeaPointConditions> {
   const waveUrl =
     `https://marine-api.open-meteo.com/v1/marine?${common}` +
     `&current=wave_height,wave_period&daily=wave_height_max&models=${WAVE_MODEL}`;
+  // DÒNG CHẢY = request riêng (SMOC best_match): ghim models sóng thì
+  // ocean_current_* trả toàn null (probe 2026-07-29). Hỏng không kéo sập dự báo.
+  const curUrl =
+    `https://marine-api.open-meteo.com/v1/marine?${common}` +
+    `&current=ocean_current_velocity,ocean_current_direction` +
+    `&hourly=ocean_current_velocity,ocean_current_direction`;
 
-  const [wind, wave] = await Promise.all([
+  const [wind, wave, cur] = await Promise.all([
     fetch(windUrl, { signal: AbortSignal.timeout(15000) }).then((r) => {
       if (!r.ok) throw new Error(`wind ${r.status}`);
       return r.json();
@@ -301,10 +384,20 @@ async function fetchSeaPointLive(p: SeaPoint): Promise<SeaPointConditions> {
     fetch(waveUrl, { signal: AbortSignal.timeout(15000) })
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null),
+    fetch(curUrl, { signal: AbortSignal.timeout(15000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null),
   ]);
 
-  const days: ScoredSeaDay[] = (wind.daily?.time ?? []).map(
-    (date: string, i: number) => {
+  const dayCur = dailyCurrentFromHourly(
+    cur?.hourly?.time ?? [],
+    cur?.hourly?.ocean_current_velocity ?? [],
+    cur?.hourly?.ocean_current_direction ?? [],
+  );
+
+  const days: (ScoredSeaDay & Pick<SeaPointDay, "curKmh" | "curDirDeg">)[] = (
+    wind.daily?.time ?? []
+  ).map((date: string, i: number) => {
       const windMaxKmh = num(wind.daily?.wind_speed_10m_max?.[i]) ?? 0;
       const rawWave = num(wave?.daily?.wave_height_max?.[i]);
       const waveMissing = rawWave == null;
@@ -318,7 +411,14 @@ async function fetchSeaPointLive(p: SeaPoint): Promise<SeaPointConditions> {
         waveEstimated: waveMissing,
       };
       const score = scoreDay(d);
-      return { ...d, score, level: levelOf(score) };
+      const dc = dayCur.get(date);
+      return {
+        ...d,
+        score,
+        level: levelOf(score),
+        curKmh: dc?.curKmh ?? null,
+        curDirDeg: dc?.curDirDeg ?? null,
+      };
     },
   );
   if (days.length === 0) throw new Error("Dự báo trống");
@@ -336,6 +436,8 @@ async function fetchSeaPointLive(p: SeaPoint): Promise<SeaPointConditions> {
     windDirDeg: num(wind.current?.wind_direction_10m),
     waveM: num(wave?.current?.wave_height),
     wavePeriodS: num(wave?.current?.wave_period),
+    curKmh: num(cur?.current?.ocean_current_velocity),
+    curDirDeg: num(cur?.current?.ocean_current_direction),
     days,
     stale: false,
     savedAt: null,

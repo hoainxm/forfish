@@ -18,7 +18,9 @@ const _ls = (() => {
 (globalThis as unknown as { localStorage: Storage }).localStorage = _ls;
 
 import {
+  shouldAttemptAutoPretrip,
   autoPretripLine,
+  coverageChipText,
   lastAutoPretripAt,
   markAutoPretripRun,
   pretripSavedText,
@@ -26,6 +28,7 @@ import {
   PRETRIP_MIN_INTERVAL_MS,
   PRETRIP_LAST_RUN_KEY,
 } from "../pretrip-auto";
+import type { SavedCoverage, SavedLayer } from "../pretrip";
 
 const NOW = Date.parse("2026-07-25T03:00:00Z"); // 10:00 ngày 25/7 giờ VN
 
@@ -177,5 +180,118 @@ describe("pretripSavedText — nhãn nhỏ thường trực trên box biển đ�
     expect(
       pretripSavedText("idle", { places: 3, untilIso: null, gridDays: [3] }),
     ).toBe("Chưa tải dữ liệu dự báo");
+  });
+});
+
+/*
+  2026-07-29: mở app lúc mất sóng thì TRƯỚC ĐÂY cả phiên không bao giờ tự kéo
+  lại (cờ startedThisLoad một-lần). Nay có shouldAttemptAutoPretrip để thử lại
+  khi máy có sóng lại / bà con quay lại app, nhưng phải chống mạng chập chờn.
+*/
+describe("shouldAttemptAutoPretrip — tự kéo lại khi có sóng", () => {
+  const HOUR = 60 * 60 * 1000;
+  const now = 1_700_000_000_000;
+
+  it("mất sóng → không thử (dù chưa thử lần nào)", () => {
+    expect(
+      shouldAttemptAutoPretrip({
+        lastRunAt: null,
+        lastAttemptAt: null,
+        nowMs: now,
+        online: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("có sóng lại + bản đã cũ + chưa thử lần nào → THỬ", () => {
+    expect(
+      shouldAttemptAutoPretrip({
+        lastRunAt: now - 8 * HOUR,
+        lastAttemptAt: null,
+        nowMs: now,
+        online: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("vừa thử 30 giây trước → KHÔNG bắn lại (mạng chập chờn bật/tắt liên tục)", () => {
+    expect(
+      shouldAttemptAutoPretrip({
+        lastRunAt: now - 8 * HOUR,
+        lastAttemptAt: now - 30_000,
+        nowMs: now,
+        online: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("thử hỏng cách đây 3 phút → THỬ LẠI (lần hỏng không ghi lastRunAt)", () => {
+    expect(
+      shouldAttemptAutoPretrip({
+        lastRunAt: now - 8 * HOUR,
+        lastAttemptAt: now - 3 * 60_000,
+        nowMs: now,
+        online: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("bản trong máy CÒN MỚI → không thử dù online (giữ tiền sóng)", () => {
+    expect(
+      shouldAttemptAutoPretrip({
+        lastRunAt: now - 60_000,
+        lastAttemptAt: null,
+        nowMs: now,
+        online: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("coverageChipText — câu chữ TRUNG THỰC theo độ phủ lớp", () => {
+  const layer = (over: Partial<SavedLayer>): SavedLayer => ({
+    id: "grid",
+    label: "x",
+    saved: true,
+    detail: "",
+    savedAt: null,
+    sizeBytes: 0,
+    fresh: false,
+    retriable: true,
+    ...over,
+  });
+  const cov = (over: Partial<SavedCoverage>): SavedCoverage => ({
+    layers: [layer({})],
+    allSaved: true,
+    missing: 0,
+    untilIso: null,
+    totalBytes: 0,
+    ...over,
+  });
+
+  it("đang tải → 'Đang tải dữ liệu dự báo'", () => {
+    expect(coverageChipText("loading", null)).toBe("Đang tải dữ liệu dự báo");
+  });
+
+  it("máy trống → 'Chưa tải dữ liệu dự báo'", () => {
+    expect(
+      coverageChipText("idle", cov({ layers: [layer({ saved: false })], allSaved: false, missing: 1 })),
+    ).toBe("Chưa tải dữ liệu dự báo");
+  });
+
+  it("đủ mọi lớp + có ngày → 'Đã lưu đủ … tới ngày X' (chỉ nói khi allSaved)", () => {
+    expect(coverageChipText("idle", cov({ untilIso: "2026-08-13" }))).toBe(
+      "Đã lưu đủ dự báo — tới ngày 13/8",
+    );
+  });
+
+  it("còn thiếu lớp → nói thẳng số lớp, KHÔNG nói 'đã lưu tới ngày X'", () => {
+    const c = cov({
+      layers: [layer({ saved: true }), layer({ id: "scalar", saved: false })],
+      allSaved: false,
+      missing: 2,
+      untilIso: "2026-08-13",
+    });
+    expect(coverageChipText("idle", c)).toBe("Còn thiếu 2 lớp — chạm xem");
   });
 });

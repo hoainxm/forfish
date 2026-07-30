@@ -205,6 +205,32 @@ describe("seaPointFromGrid — dựng số điểm từ lưới đã lưu", () =
     expect(seaPointFromGrid(grid, CON_DAO, 1)).toBeNull();
   });
 
+  it("DÒNG CHẢY từ lưới: lấy mốc gần giữa trưa, cặp đúng hướng; lưới đời cũ → null", () => {
+    // lưới có cur: 00h (1 km/h·0°) + 12h (2 km/h·90°) ngày 27; ngày 28 chỉ 00h
+    const g: ForecastGrid = {
+      cells: [
+        {
+          lat: 16.5,
+          lon: 112.0,
+          hours: [
+            { ...h(10, 1.0), curKmh: 1, curDirDeg: 0 },
+            { ...h(30, 2.2), curKmh: 2, curDirDeg: 90 },
+            { ...h(20, 1.5), curKmh: 3, curDirDeg: 180 },
+          ],
+        },
+      ],
+      times: ["2026-07-27T00:00", "2026-07-27T12:00", "2026-07-28T00:00"],
+    };
+    const c = seaPointFromGrid(g, HOANG_SA, 111)!;
+    expect(c.days[0].curKmh).toBe(2); // đúng mốc 12h
+    expect(c.days[0].curDirDeg).toBe(90); // hướng CÙNG mốc đó
+    expect(c.days[1].curKmh).toBe(3);
+    // lưới đời cũ không có trường cur → null, UI ẩn
+    const old = seaPointFromGrid(gridAt(16.5, 112.0), HOANG_SA, 111)!;
+    expect(old.days[0].curKmh).toBeNull();
+    expect(old.curKmh).toBeNull();
+  });
+
   it("ô lưới không có số sóng nào (điểm trên đất liền) → onSea = false", () => {
     const g: ForecastGrid = {
       cells: [{ lat: 16.5, lon: 112.0, hours: [h(12, null), h(15, null)] }],
@@ -257,5 +283,51 @@ describe("fetchSeaPoint offline — lùi về LƯỚI đã lưu khi chưa từng
     globalThis.fetch = offline();
     const c = await fetchSeaPoint(CON_DAO);
     expect(c.source).toBe("saved-point");
+  });
+});
+
+/* ---------------------------------------------------------------------------
+   NẤC CUỐI: SNAPSHOT SERVER (2026-07-29) — bản web Safari mở lần đầu có kho
+   localStorage TÁCH RIÊNG với PWA (trống trơn); Open-Meteo 429 theo IP → mọi
+   nấc trong máy đều trượt. /api/weather-snapshot (same-origin, cron tính sẵn)
+   là chỗ dựa cuối. Khung premium bị route chặn → tự rơi về d3.
+--------------------------------------------------------------------------- */
+
+describe("fetchSeaPoint — nấc cuối lùi về SNAPSHOT server", () => {
+  const snapMock = (grids: Record<string, ForecastGrid>) =>
+    vi.fn().mockImplementation((url: string) => {
+      const u = String(url);
+      if (u.includes("/api/weather-snapshot")) {
+        const id = /id=grid%3Ad(\d+)|id=grid:d(\d+)/.exec(u);
+        const d = id?.[1] ?? id?.[2];
+        const g = d ? grids[d] : undefined;
+        return Promise.resolve(
+          g
+            ? { ok: true, json: () => Promise.resolve(g) }
+            : { ok: false },
+        );
+      }
+      return Promise.reject(new Error("429"));
+    }) as unknown as typeof fetch;
+
+  it("máy trống trơn + live lỗi → dùng snapshot, nguồn saved-grid, savedAt null", async () => {
+    globalThis.fetch = snapMock({ "16": gridAt(16.5, 112.0) });
+    const c = await fetchSeaPoint(HOANG_SA);
+    expect(c.source).toBe("saved-grid");
+    expect(c.savedAt).toBeNull();
+    expect(c.point).toEqual(HOANG_SA);
+    expect(c.days[0].windMaxKmh).toBe(30);
+  });
+
+  it("khung premium bị chặn (d16 không trả) → rơi về snapshot d3", async () => {
+    globalThis.fetch = snapMock({ "3": gridAt(16.5, 112.0) });
+    const c = await fetchSeaPoint(HOANG_SA);
+    expect(c.source).toBe("saved-grid");
+    expect(c.days.length).toBeGreaterThan(0);
+  });
+
+  it("snapshot không phủ chỗ chạm → vẫn nói thật là chưa có số", async () => {
+    globalThis.fetch = snapMock({ "16": gridAt(16.5, 112.0) });
+    await expect(fetchSeaPoint(CON_DAO)).rejects.toThrow();
   });
 });

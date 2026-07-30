@@ -22,6 +22,7 @@
 | Sửa UI, màu, font, copy cho ngư dân | Root + [03-design-system.md](03-design-system.md) |
 | Thêm/sửa màn hình, flow, density, trạng thái, audit UI | Root + [07-design-spec.md](07-design-spec.md) (+ 03 cho token) |
 | Hành vi đa-tàu, hồ sơ cố định/động, vòng đời thêm/xóa/đổi tàu, nhắc theo tàu | Root + [08-ba-spec-da-tau.md](08-ba-spec-da-tau.md) |
+| Đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (dự báo × mùa vụ), nguồn cho tầm 16 ngày | Root + [09-ba-spec-lo-trinh-chuyen-bien.md](09-ba-spec-lo-trinh-chuyen-bien.md) |
 | Đụng DB, migration, RLS, logic giấy tờ / hạn | Root + [04-data-model.md](04-data-model.md) |
 | Phối hợp nhiều agent / chia việc | Root + [05-agents-team.md](05-agents-team.md) |
 
@@ -39,6 +40,7 @@
 | 06 | [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md) | JTBD hợp nhất từ nghiên cứu, chân dung người dùng, mốc pháp lý eCDT, map nhóm việc → module |
 | 07 | [07-design-spec.md](07-design-spec.md) | DESIGN-SPEC: thang user, object model, screen map + density budget, ma trận trạng thái, action→expectation (chốt chặn pipeline ui-design-logic) |
 | 08 | [08-ba-spec-da-tau.md](08-ba-spec-da-tau.md) | ba-spec ĐA TÀU: hồ sơ cố-định-theo-tàu vs động-theo-chủ, vòng đời thêm/xóa/đổi tàu, gán hàng SDVICO theo tàu, nhắc đa-tàu (oracle hành vi, chốt chặn pipeline BA) |
+| 09 | [09-ba-spec-lo-trinh-chuyen-bien.md](09-ba-spec-lo-trinh-chuyen-bien.md) | ba-spec LỘ TRÌNH CHUYẾN BIỂN: bài toán orienteering có điểm bắt buộc, nguồn dữ liệu cho tầm 16 ngày, lớp cá pha trộn dự-báo × mùa-vụ (§5d — ĐÃ LÀM, có số đo), lưu tuyến + so vị trí offline |
 | ops | [ops/external-services.md](ops/external-services.md) | Registry nguồn dữ liệu ngoài (Open-Meteo, GDACS, VASEP, Supabase ×2, CRM gateway…) + "khi nó chết thì sao" |
 | ops | [ops/native-deploy.md](ops/native-deploy.md) | Deploy iOS/Android: PWA (manifest/SW/icons) + Capacitor (api-base, 2 chế độ wrap) + việc còn thiếu (Mac/store account/hosting) + lịch sử reject App Store |
 | ops | [ops/build-publish-store.md](ops/build-publish-store.md) | RUNBOOK build & phát hành CH Play + App Store: chốt version → AAB/Archive → store, xử lý reject 5.1.2 Privacy, chuyển domain sang sdfish.sdvico.vn |

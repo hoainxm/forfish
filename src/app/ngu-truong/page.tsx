@@ -13,8 +13,10 @@ export const metadata = { title: "Đánh bắt — SDFish" };
   dock không đè nút thao tác của SnapSheet (Xem thêm / Về cảng) ở đáy.
 */
 export default function NguTruongPage() {
+  // .full-map: fixed top:0, đáy chừa đúng --dock-total (globals.css). Bản cài
+  // iOS (pwa-frame): cao = --app-vh − --dock-total, khớp DockFrame.
   return (
-    <div className="fixed inset-x-0 top-0 bottom-[calc(84px+env(safe-area-inset-bottom))] mx-auto max-w-[480px]">
+    <div className="full-map fixed inset-x-0 top-0 mx-auto max-w-[480px]">
       <FishingMap />
     </div>
   );
