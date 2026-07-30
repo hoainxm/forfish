@@ -15,7 +15,13 @@ export async function GET() {
       { status: who.status },
     );
   }
-  const me = { phone: who.phone, role: who.role };
+  // permissions: admin=null (toàn quyền); manager=bảng quyền đã chuẩn hoá →
+  // UI /quan-tri ẩn/hiện tab + nút theo đây (chốt thật vẫn ở từng route).
+  const me = {
+    phone: who.phone,
+    role: who.role,
+    permissions: who.role === "manager" ? who.permissions : null,
+  };
   const admin = createAdminClient();
 
   const env = {

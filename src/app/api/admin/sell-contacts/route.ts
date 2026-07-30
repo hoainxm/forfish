@@ -7,10 +7,11 @@
 //        tĩnh vào bảng, CHỈ khi bảng đang rỗng — tránh trùng).
 // PATCH: sửa 1 hàng theo id (toggle visible/sort, hoặc sửa meta).
 // DELETE ?id=: xóa hẳn.
-// Ghi bằng service-role; quyền qua requireStaff.
+// Ghi bằng service-role; PHÂN QUYỀN (2026-07-30) qua requirePermission trên tab
+// "cho-ban": GET=view · POST/seed=create · PATCH=edit · DELETE=delete.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireStaff } from "@/lib/admin-auth";
+import { requirePermission } from "@/lib/admin-auth";
 import {
   defaultSellContactDrafts,
   validateSellContactDraft,
@@ -75,7 +76,7 @@ function draftToRow(d: SellContactDraft, who: string, sortOrder: number) {
 }
 
 export async function GET() {
-  const who = await requireStaff();
+  const who = await requirePermission("cho-ban", "view");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -112,7 +113,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const who = await requireStaff();
+  const who = await requirePermission("cho-ban", "create");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -151,7 +152,7 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const who = await requireStaff();
+  const who = await requirePermission("cho-ban", "edit");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -188,7 +189,7 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const who = await requireStaff();
+  const who = await requirePermission("cho-ban", "delete");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");

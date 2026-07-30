@@ -44,6 +44,16 @@ import {
   CREW_REPORT_CATEGORY_LABELS,
   type CrewReportCategory,
 } from "@/lib/crew-report";
+import {
+  ACTION_LABEL,
+  MANAGER_TABS,
+  PERM_ACTIONS,
+  TAB_LABEL,
+  visibleTabs,
+  type ManagerTab,
+  type StaffPermissions,
+  type TabPerms,
+} from "@/lib/staff-permissions";
 
 type Tab =
   | "tai-khoan"
@@ -54,15 +64,28 @@ type Tab =
   | "cho-ban"
   | "thong-bao"
   | "du-lieu"
-  | "he-thong";
+  | "he-thong"
+  | "phan-quyen";
 
-/** Vai trò staff — admin (env) toàn quyền; quản lý (DB) chỉ cấp/gia hạn premium */
+/** Vai trò staff — admin (env) toàn quyền; quản lý (DB) theo bảng phân quyền */
 type StaffRole = "admin" | "manager";
+
+/** Người đang đăng nhập trang quản trị. permissions=null khi admin (toàn quyền). */
+type Me = { phone: string; role: StaffRole; permissions: StaffPermissions | null };
+
+const ADMIN_ALL: TabPerms = { view: true, create: true, edit: true, delete: true };
+const NONE: TabPerms = { view: false, create: false, edit: false, delete: false };
+
+/** Quyền của người đang đăng nhập trên một tab (admin = toàn quyền mọi tab). */
+function permsFor(me: Me, tab: ManagerTab): TabPerms {
+  if (me.role === "admin") return ADMIN_ALL;
+  return me.permissions?.[tab] ?? NONE;
+}
 
 type Health = {
   ok: boolean;
   code?: string;
-  me?: { phone: string; role: StaffRole };
+  me?: { phone: string; role: StaffRole; permissions: StaffPermissions | null };
   env?: {
     supabase: boolean;
     serviceRole: boolean;
@@ -89,6 +112,11 @@ type Account = {
   fromSdwork: boolean;
   updatedAt: string | null;
   canLogin: boolean;
+  // ghi chú theo dõi onboarding của staff (migration 0018)
+  staffUsed: boolean;
+  staffGuided: boolean;
+  noteBy: string | null;
+  noteAt: string | null;
 };
 
 /** Thống kê theo người cấp premium (log premium_grants) */
@@ -198,16 +226,57 @@ export default function QuanTriPage() {
     );
   }
 
+  const me: Me = {
+    phone: health.me?.phone ?? "",
+    role: health.me?.role ?? "admin",
+    permissions: health.me?.permissions ?? null,
+  };
+  const isAdmin = me.role === "admin";
+
+  // TAB được thấy: admin = 9 tab nghiệp vụ + Phân quyền; quản lý = chỉ các tab
+  // có cờ view trong bảng quyền (4 tab admin-only cứng không bao giờ hiện).
+  const tabs: [Tab, string][] = isAdmin
+    ? [
+        ["tai-khoan", "Tài khoản"],
+        ["canh-bao", "Thuyền viên"],
+        ["san-pham", "Sản phẩm"],
+        ["yeu-cau", "Yêu cầu"],
+        ["vung-bien", "Vùng biển"],
+        ["cho-ban", "Chỗ bán"],
+        ["thong-bao", "Thông báo"],
+        ["du-lieu", "Dữ liệu"],
+        ["he-thong", "Hệ thống"],
+        ["phan-quyen", "Phân quyền"],
+      ]
+    : visibleTabs(me.permissions).map((t) => [t, TAB_LABEL[t]] as [Tab, string]);
+
+  // Tab đang chọn không nằm trong danh sách được phép → về tab đầu (quản lý bị
+  // thu quyền giữa chừng vẫn không kẹt ở tab trống).
+  const activeTab = tabs.some(([id]) => id === tab) ? tab : (tabs[0]?.[0] ?? tab);
+
   return (
     <div className="mx-auto max-w-[1100px] px-4 pb-16 pt-6 md:px-8">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="display text-[1.5rem] font-bold text-navy md:text-[1.75rem]">
-            Quản trị SDFish
-          </h1>
-          <p className="mt-0.5 text-[0.9375rem] text-foreground/65">
-            Theo dõi tài khoản, nguồn dữ liệu và sức khoẻ hệ thống.
-          </p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          {/* Logo CHUNG với app ngư dân (bộ icon PWA sinh từ image/logo sdfish.png) */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icons/icon-192.png"
+            alt="SDFish"
+            width={44}
+            height={44}
+            className="h-11 w-11 shrink-0 rounded-xl border border-line"
+          />
+          <div>
+            <h1 className="display text-[1.5rem] font-bold leading-tight text-navy md:text-[1.75rem]">
+              SDFish Quản trị
+            </h1>
+            <p className="mt-0.5 text-[0.9375rem] text-foreground/65">
+              {isAdmin
+                ? "Quản trị viên · toàn quyền"
+                : `Quản lý · ${me.phone}`}
+            </p>
+          </div>
         </div>
         <button
           type="button"
@@ -218,43 +287,20 @@ export default function QuanTriPage() {
         </button>
       </div>
 
-      {/* Nhãn ngang hàng ĐỒNG BỘ (03-design-system): mọi tab đúng 2 chữ,
-          1 dòng (nowrap); >4 tab → hàng cuộn ngang theo pattern ui/tabs.tsx,
-          KHÔNG flex-1 ép 7 tab vào một hàng làm nhãn gãy dòng lung tung. */}
-      <div className="mt-4 flex gap-1.5 overflow-x-auto pb-1" role="tablist">
-        {(
-          // QUẢN LÝ: Tài khoản (cấp premium) + Thuyền viên (kiểm duyệt cảnh
-          // báo); Dữ liệu + Hệ thống là việc của admin
-          (health.me?.role === "manager"
-            ? [
-                ["tai-khoan", "Tài khoản"],
-                ["canh-bao", "Thuyền viên"],
-                ["san-pham", "Sản phẩm"],
-                ["yeu-cau", "Yêu cầu"],
-                ["vung-bien", "Vùng biển"],
-                ["cho-ban", "Chỗ bán"],
-                ["thong-bao", "Thông báo"],
-              ]
-            : [
-                ["tai-khoan", "Tài khoản"],
-                ["canh-bao", "Thuyền viên"],
-                ["san-pham", "Sản phẩm"],
-                ["yeu-cau", "Yêu cầu"],
-                ["vung-bien", "Vùng biển"],
-                ["cho-ban", "Chỗ bán"],
-                ["thong-bao", "Thông báo"],
-                ["du-lieu", "Dữ liệu"],
-                ["he-thong", "Hệ thống"],
-              ]) as [Tab, string][]
-        ).map(([id, label]) => (
+      {/* Thanh tab cuộn ngang (pattern ui/tabs.tsx) — nhãn 1 dòng (nowrap). */}
+      <div
+        className="mt-4 flex gap-1.5 overflow-x-auto border-b border-line pb-2"
+        role="tablist"
+      >
+        {tabs.map(([id, label]) => (
           <button
             key={id}
             type="button"
             role="tab"
-            aria-selected={tab === id}
+            aria-selected={activeTab === id}
             onClick={() => setTab(id)}
             className={`min-h-[2.75rem] shrink-0 whitespace-nowrap rounded-xl px-4 text-[0.9375rem] font-bold transition ${
-              tab === id
+              activeTab === id
                 ? "bg-navy text-white shadow-sm"
                 : "bg-field text-foreground/70"
             }`}
@@ -264,19 +310,24 @@ export default function QuanTriPage() {
         ))}
       </div>
 
-      {tab === "tai-khoan" && (
-        <AccountsTab me={health.me ?? { phone: "", role: "admin" }} />
+      {activeTab === "tai-khoan" && <AccountsTab me={me} />}
+      {activeTab === "canh-bao" && (
+        <CrewReportsTab perms={permsFor(me, "canh-bao")} />
       )}
-      {tab === "canh-bao" && <CrewReportsTab />}
-      {tab === "san-pham" && <ProductsTab />}
-      {tab === "yeu-cau" && <InquiriesTab />}
-      {tab === "vung-bien" && <VmsZonesTab />}
-      {tab === "cho-ban" && <SellContactsTab />}
-      {tab === "thong-bao" && <PushNotificationsTab />}
-      {tab === "du-lieu" && health.me?.role !== "manager" && <DataTab />}
-      {tab === "he-thong" && health.me?.role !== "manager" && (
-        <SystemTab health={health} />
+      {activeTab === "san-pham" && (
+        <ProductsTab perms={permsFor(me, "san-pham")} />
       )}
+      {activeTab === "yeu-cau" && isAdmin && <InquiriesTab />}
+      {activeTab === "vung-bien" && isAdmin && <VmsZonesTab />}
+      {activeTab === "cho-ban" && (
+        <SellContactsTab perms={permsFor(me, "cho-ban")} />
+      )}
+      {activeTab === "thong-bao" && (
+        <PushNotificationsTab perms={permsFor(me, "thong-bao")} />
+      )}
+      {activeTab === "du-lieu" && isAdmin && <DataTab />}
+      {activeTab === "he-thong" && isAdmin && <SystemTab health={health} />}
+      {activeTab === "phan-quyen" && isAdmin && <PermissionsTab />}
     </div>
   );
 }
@@ -285,8 +336,11 @@ export default function QuanTriPage() {
 
 type TierFilter = "all" | "premium" | "basic";
 
-function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
+function AccountsTab({ me }: { me: Me }) {
   const isAdmin = me.role === "admin";
+  // Quyền trên tab Tài khoản: create=tạo khách · edit=cấp/gia hạn premium ·
+  // delete=xoá tài khoản. Hạ hạng + đặt-lại-mật-khẩu vẫn ADMIN-ONLY cứng.
+  const perms = permsFor(me, "tai-khoan");
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [grantStats, setGrantStats] = useState<GrantStat[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -438,6 +492,35 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
     load();
   }
 
+  /** Ghi chú theo dõi onboarding (đã/chưa sử dụng · đã/chưa hướng dẫn trực
+   *  tiếp). Cập nhật NGAY trên màn (optimistic), hỏng thì tải lại về đúng DB. */
+  async function setFlag(a: Account, patch: { used?: boolean; guided?: boolean }) {
+    setNotice(null);
+    setAccounts((prev) =>
+      prev
+        ? prev.map((x) =>
+            x.phone === a.phone
+              ? {
+                  ...x,
+                  staffUsed: patch.used ?? x.staffUsed,
+                  staffGuided: patch.guided ?? x.staffGuided,
+                }
+              : x,
+          )
+        : prev,
+    );
+    const r = await fetch(apiUrl("/api/admin/accounts"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ phone: a.phone, action: "set-flags", ...patch }),
+    }).catch(() => null);
+    const j = (await r?.json().catch(() => null)) as { ok?: boolean } | null;
+    if (!r?.ok || !j?.ok) {
+      setError("Lưu ghi chú chưa được — thử lại.");
+      load(); // trả màn về đúng trạng thái DB
+    }
+  }
+
   const chip = (id: TierFilter, label: string) => (
     <button
       key={id}
@@ -497,8 +580,10 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
         </div>
       </div>
 
-      {/* tạo tài khoản (khách / QUẢN LÝ) — chỉ admin */}
-      {isAdmin && <CreateAccountForm onCreated={load} />}
+      {/* tạo tài khoản — cần cờ create; tạo tài khoản QUẢN LÝ chỉ admin */}
+      {perms.create && (
+        <CreateAccountForm onCreated={load} canCreateManager={isAdmin} />
+      )}
 
       {/* THỐNG KÊ THEO NGƯỜI CẤP premium (log premium_grants): quản lý thấy
           dòng của mình; admin thấy cả bảng — biết ai đang quản bao nhiêu */}
@@ -629,27 +714,29 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
                         : "Thường"}
                   </span>
                   <div className="flex shrink-0 gap-1.5">
-                    <button
-                      type="button"
-                      disabled={busyPhone === a.phone}
-                      onClick={() => {
-                        const active = effTier(a) === "premium";
-                        setToGrant({
-                          a,
-                          active,
-                          // xem trước hạn mới bằng ĐÚNG luật server
-                          until: nextPremiumUntil(
-                            active ? a.premiumUntil : null,
-                            Date.now(),
-                          ),
-                        });
-                      }}
-                      className="min-h-[2.5rem] rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
-                    >
-                      {effTier(a) === "premium"
-                        ? "Gia hạn +1 năm"
-                        : "Kích hoạt premium"}
-                    </button>
+                    {perms.edit && (
+                      <button
+                        type="button"
+                        disabled={busyPhone === a.phone}
+                        onClick={() => {
+                          const active = effTier(a) === "premium";
+                          setToGrant({
+                            a,
+                            active,
+                            // xem trước hạn mới bằng ĐÚNG luật server
+                            until: nextPremiumUntil(
+                              active ? a.premiumUntil : null,
+                              Date.now(),
+                            ),
+                          });
+                        }}
+                        className="min-h-[2.5rem] rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
+                      >
+                        {effTier(a) === "premium"
+                          ? "Gia hạn +1 năm"
+                          : "Kích hoạt premium"}
+                      </button>
+                    )}
                     {isAdmin && effTier(a) === "premium" && (
                       <button
                         type="button"
@@ -670,7 +757,7 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
                         Đặt lại mật khẩu
                       </button>
                     )}
-                    {isAdmin && (
+                    {perms.delete && (
                       <button
                         type="button"
                         disabled={busyPhone === a.phone}
@@ -679,6 +766,34 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
                       >
                         Xoá
                       </button>
+                    )}
+                  </div>
+
+                  {/* THEO DÕI onboarding (0018): đã/chưa sử dụng · đã/chưa
+                      hướng dẫn trực tiếp. Sửa được khi có cờ edit; không thì
+                      hiện trạng thái để xem. */}
+                  <div className="mt-1 flex basis-full flex-wrap items-center gap-1.5">
+                    <span className="text-[0.75rem] font-semibold text-foreground/50">
+                      Theo dõi:
+                    </span>
+                    <FlagToggle
+                      onLabel="Đã sử dụng"
+                      offLabel="Chưa sử dụng"
+                      value={a.staffUsed}
+                      editable={perms.edit}
+                      onToggle={() => setFlag(a, { used: !a.staffUsed })}
+                    />
+                    <FlagToggle
+                      onLabel="Đã hướng dẫn trực tiếp"
+                      offLabel="Chưa hướng dẫn trực tiếp"
+                      value={a.staffGuided}
+                      editable={perms.edit}
+                      onToggle={() => setFlag(a, { guided: !a.staffGuided })}
+                    />
+                    {a.noteBy && (
+                      <span className="text-[0.75rem] text-foreground/40">
+                        · {a.noteBy} {fmtDT(a.noteAt)}
+                      </span>
                     )}
                   </div>
                 </li>
@@ -757,7 +872,52 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
   );
 }
 
-function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
+/** Chip theo dõi 2 trạng thái (đã/chưa). Sửa được → nút bật/tắt; chỉ xem →
+ *  badge tĩnh. Bật = xanh (bg-ok-bg), tắt = xám trung tính. */
+function FlagToggle({
+  onLabel,
+  offLabel,
+  value,
+  editable,
+  onToggle,
+}: {
+  onLabel: string;
+  offLabel: string;
+  value: boolean;
+  editable: boolean;
+  onToggle: () => void;
+}) {
+  const cls = value ? "bg-ok-bg text-ok" : "bg-field text-foreground/55";
+  const label = value ? onLabel : offLabel;
+  if (!editable) {
+    return (
+      <span
+        className={`inline-flex min-h-[2rem] items-center rounded-full px-3 text-[0.75rem] font-bold ${cls}`}
+      >
+        {label}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={value}
+      onClick={onToggle}
+      className={`inline-flex min-h-[2rem] items-center rounded-full px-3 text-[0.75rem] font-bold transition ${cls}`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function CreateAccountForm({
+  onCreated,
+  canCreateManager,
+}: {
+  onCreated: () => void;
+  canCreateManager: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
@@ -817,7 +977,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
         className="flex w-full items-center justify-between text-[1rem] font-bold text-navy"
         aria-expanded={open}
       >
-        Tạo tài khoản (khách / quản lý)
+        {canCreateManager ? "Tạo tài khoản (khách / quản lý)" : "Tạo tài khoản khách"}
         <span aria-hidden>{open ? "−" : "+"}</span>
       </button>
       {open && (
@@ -848,33 +1008,36 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
             className={field}
           />
           {/* loại tài khoản: 2 nút phân đoạn (select gốc bị bóp nhỏ khó nhìn
-              — user 2026-07-26) */}
-          <div
-            className="grid grid-cols-2 gap-1.5 sm:col-span-2 lg:col-span-2"
-            role="group"
-            aria-label="Loại tài khoản"
-          >
-            {(
-              [
-                ["customer", "Khách"],
-                ["manager", "Quản lý — được cấp premium"],
-              ] as ["customer" | "manager", string][]
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setRole(id)}
-                aria-pressed={role === id}
-                className={`min-h-[2.75rem] rounded-xl px-3 text-[0.875rem] font-bold transition ${
-                  role === id
-                    ? "bg-navy text-white shadow-sm"
-                    : "bg-field text-foreground/70"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+              — user 2026-07-26). Tạo tài khoản QUẢN LÝ chỉ hiện cho admin;
+              quản lý có cờ create chỉ tạo được khách. */}
+          {canCreateManager && (
+            <div
+              className="grid grid-cols-2 gap-1.5 sm:col-span-2 lg:col-span-2"
+              role="group"
+              aria-label="Loại tài khoản"
+            >
+              {(
+                [
+                  ["customer", "Khách"],
+                  ["manager", "Quản lý — được phân quyền"],
+                ] as ["customer" | "manager", string][]
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setRole(id)}
+                  aria-pressed={role === id}
+                  className={`min-h-[2.75rem] rounded-xl px-3 text-[0.875rem] font-bold transition ${
+                    role === id
+                      ? "bg-navy text-white shadow-sm"
+                      : "bg-field text-foreground/70"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           <label className="flex min-h-[2.75rem] cursor-pointer items-center gap-2.5 rounded-xl bg-field px-3.5 text-[0.875rem] font-bold text-foreground/80 sm:col-span-2 lg:col-span-2">
             <input
               type="checkbox"
@@ -930,7 +1093,7 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   withdrawn: { label: "Đã rút", cls: "bg-field text-foreground/65" },
 };
 
-function CrewReportsTab() {
+function CrewReportsTab({ perms }: { perms: TabPerms }) {
   const [status, setStatus] = useState<ReportStatusFilter>("pending");
   const [rows, setRows] = useState<CrewReportRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1020,8 +1183,8 @@ function CrewReportsTab() {
         người bị ghi có quyền phản hồi (ghi vào ô bên dưới mỗi báo cáo).
       </p>
 
-      {/* STAFF tự thêm thuyền viên có vấn đề → duyệt luôn (hiện ngay) */}
-      <AddCrewReportForm onAdded={load} />
+      {/* STAFF tự thêm thuyền viên có vấn đề → duyệt luôn (hiện ngay) — cần create */}
+      {perms.create && <AddCrewReportForm onAdded={load} />}
 
       <div className="flex gap-1.5">
         {chip("pending", "Chờ duyệt")}
@@ -1060,6 +1223,7 @@ function CrewReportsTab() {
               key={row.id}
               row={row}
               busy={busyId === row.id}
+              perms={perms}
               onStatus={(action) => setConfirm({ row, action })}
               onRespond={(text) => act(row, "respond", text)}
               onDelete={() => setToDelete(row)}
@@ -1124,12 +1288,14 @@ function CrewReportsTab() {
 function ReportCard({
   row,
   busy,
+  perms,
   onStatus,
   onRespond,
   onDelete,
 }: {
   row: CrewReportRow;
   busy: boolean;
+  perms: TabPerms;
   onStatus: (action: "approve" | "reject" | "withdraw") => void;
   onRespond: (text: string) => void;
   onDelete: () => void;
@@ -1172,7 +1338,8 @@ function ReportCard({
           ` · duyệt bởi ${row.moderatedBy} ${fmtDT(row.moderatedAt)}`}
       </p>
 
-      {/* phản hồi người bị ghi (admin thay mặt ghi, v1) */}
+      {/* phản hồi người bị ghi (admin thay mặt ghi, v1) — ghi = edit */}
+      {perms.edit && (
       <div className="mt-2 border-t border-line bg-background px-4 py-3">
         <label className="mb-1 block text-[0.8125rem] font-bold text-navy">
           Phản hồi của người bị ghi
@@ -1193,9 +1360,11 @@ function ReportCard({
           Lưu phản hồi
         </button>
       </div>
+      )}
 
+      {(perms.edit || perms.delete) && (
       <div className="flex gap-1.5 border-t border-line px-4 py-2.5">
-        {row.status === "pending" && (
+        {perms.edit && row.status === "pending" && (
           <>
             <button
               type="button"
@@ -1215,7 +1384,7 @@ function ReportCard({
             </button>
           </>
         )}
-        {row.status === "approved" && (
+        {perms.edit && row.status === "approved" && (
           <button
             type="button"
             disabled={busy}
@@ -1225,26 +1394,30 @@ function ReportCard({
             Rút cảnh báo xuống
           </button>
         )}
-        {(row.status === "rejected" || row.status === "withdrawn") && (
+        {perms.edit &&
+          (row.status === "rejected" || row.status === "withdrawn") && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onStatus("approve")}
+              className="min-h-[2.5rem] flex-1 rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
+            >
+              Duyệt lại (cho hiện)
+            </button>
+          )}
+        {perms.delete && (
           <button
             type="button"
             disabled={busy}
-            onClick={() => onStatus("approve")}
-            className="min-h-[2.5rem] flex-1 rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
+            onClick={onDelete}
+            title="Xóa hẳn khỏi danh sách"
+            className="min-h-[2.5rem] shrink-0 rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
           >
-            Duyệt lại (cho hiện)
+            Xóa
           </button>
         )}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onDelete}
-          title="Xóa hẳn khỏi danh sách"
-          className="min-h-[2.5rem] shrink-0 rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
-        >
-          Xóa
-        </button>
       </div>
+      )}
     </li>
   );
 }
@@ -1429,7 +1602,7 @@ type ProductRow = {
   updatedAt: string;
 };
 
-function ProductsTab() {
+function ProductsTab({ perms }: { perms: TabPerms }) {
   const [rows, setRows] = useState<ProductRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -1496,13 +1669,15 @@ function ProductsTab() {
         vị + số điện thoại/ghi chú liên hệ).
       </p>
 
-      <button
-        type="button"
-        onClick={() => setEditing("new")}
-        className="min-h-[2.75rem] w-full rounded-xl bg-trim text-[0.9375rem] font-bold text-white sm:w-auto sm:px-6"
-      >
-        + Thêm sản phẩm
-      </button>
+      {perms.create && (
+        <button
+          type="button"
+          onClick={() => setEditing("new")}
+          className="min-h-[2.75rem] w-full rounded-xl bg-trim text-[0.9375rem] font-bold text-white sm:w-auto sm:px-6"
+        >
+          + Thêm sản phẩm
+        </button>
+      )}
 
       {error && (
         <div className="surface px-4 py-6 text-center">
@@ -1559,30 +1734,36 @@ function ProductsTab() {
                 {row.visible ? "Hiện" : "Ẩn"}
               </span>
               <div className="flex shrink-0 gap-1.5">
-                <button
-                  type="button"
-                  disabled={busyId === row.id}
-                  onClick={() => toggleVisible(row)}
-                  className="min-h-[2.5rem] rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-navy disabled:opacity-50"
-                >
-                  {row.visible ? "Ẩn đi" : "Cho hiện"}
-                </button>
-                <button
-                  type="button"
-                  disabled={busyId === row.id}
-                  onClick={() => setEditing(row)}
-                  className="min-h-[2.5rem] rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-navy disabled:opacity-50"
-                >
-                  Sửa
-                </button>
-                <button
-                  type="button"
-                  disabled={busyId === row.id}
-                  onClick={() => setToDelete(row)}
-                  className="min-h-[2.5rem] rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
-                >
-                  Xóa
-                </button>
+                {perms.edit && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={busyId === row.id}
+                      onClick={() => toggleVisible(row)}
+                      className="min-h-[2.5rem] rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-navy disabled:opacity-50"
+                    >
+                      {row.visible ? "Ẩn đi" : "Cho hiện"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyId === row.id}
+                      onClick={() => setEditing(row)}
+                      className="min-h-[2.5rem] rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-navy disabled:opacity-50"
+                    >
+                      Sửa
+                    </button>
+                  </>
+                )}
+                {perms.delete && (
+                  <button
+                    type="button"
+                    disabled={busyId === row.id}
+                    onClick={() => setToDelete(row)}
+                    className="min-h-[2.5rem] rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
+                  >
+                    Xóa
+                  </button>
+                )}
               </div>
             </li>
           ))}
@@ -2243,7 +2424,7 @@ type AdminSellContact = {
   sortOrder: number;
 };
 
-function SellContactsTab() {
+function SellContactsTab({ perms }: { perms: TabPerms }) {
   const [contacts, setContacts] = useState<AdminSellContact[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -2369,25 +2550,27 @@ function SellContactsTab() {
             {k === "all" ? "Tất cả" : SELL_KIND_LABEL[k]}
           </button>
         ))}
-        <div className="ml-auto flex gap-2">
-          <button
-            type="button"
-            onClick={() => setEditing("new")}
-            className="rounded-xl bg-sea px-4 py-2 text-[0.9375rem] font-bold text-white"
-          >
-            + Thêm đầu mối
-          </button>
-          {contacts?.length === 0 && (
+        {perms.create && (
+          <div className="ml-auto flex gap-2">
             <button
               type="button"
-              disabled={seeding}
-              onClick={seedDefaults}
-              className="rounded-xl bg-field px-4 py-2 text-[0.9375rem] font-bold text-navy disabled:opacity-50"
+              onClick={() => setEditing("new")}
+              className="rounded-xl bg-sea px-4 py-2 text-[0.9375rem] font-bold text-white"
             >
-              {seeding ? "Đang nạp…" : "Nạp danh bạ mặc định"}
+              + Thêm đầu mối
             </button>
-          )}
-        </div>
+            {contacts?.length === 0 && (
+              <button
+                type="button"
+                disabled={seeding}
+                onClick={seedDefaults}
+                className="rounded-xl bg-field px-4 py-2 text-[0.9375rem] font-bold text-navy disabled:opacity-50"
+              >
+                {seeding ? "Đang nạp…" : "Nạp danh bạ mặc định"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {contacts === null && !error && (
@@ -2425,31 +2608,37 @@ function SellContactsTab() {
               )}
             </div>
             <div className="mt-2.5 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setEditing(c)}
-                className="rounded-lg bg-field px-3 py-1.5 text-[0.8125rem] font-semibold text-sea"
-              >
-                Sửa
-              </button>
-              <button
-                type="button"
-                disabled={busyId === c.id}
-                onClick={() => patch(c.id, { visible: !c.visible })}
-                className={`rounded-lg px-3 py-1.5 text-[0.8125rem] font-semibold ${
-                  c.visible ? "bg-field text-foreground/70" : "bg-warn-bg text-warn"
-                }`}
-              >
-                {c.visible ? "Đang hiện — ẩn đi" : "Đang ẩn — hiện lại"}
-              </button>
-              <button
-                type="button"
-                disabled={busyId === c.id}
-                onClick={() => setToDelete(c)}
-                className="rounded-lg bg-danger-bg px-3 py-1.5 text-[0.8125rem] font-semibold text-danger"
-              >
-                Xóa
-              </button>
+              {perms.edit && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(c)}
+                    className="rounded-lg bg-field px-3 py-1.5 text-[0.8125rem] font-semibold text-sea"
+                  >
+                    Sửa
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyId === c.id}
+                    onClick={() => patch(c.id, { visible: !c.visible })}
+                    className={`rounded-lg px-3 py-1.5 text-[0.8125rem] font-semibold ${
+                      c.visible ? "bg-field text-foreground/70" : "bg-warn-bg text-warn"
+                    }`}
+                  >
+                    {c.visible ? "Đang hiện — ẩn đi" : "Đang ẩn — hiện lại"}
+                  </button>
+                </>
+              )}
+              {perms.delete && (
+                <button
+                  type="button"
+                  disabled={busyId === c.id}
+                  onClick={() => setToDelete(c)}
+                  className="rounded-lg bg-danger-bg px-3 py-1.5 text-[0.8125rem] font-semibold text-danger"
+                >
+                  Xóa
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -2855,7 +3044,7 @@ type PushStats = {
   anonymous: number;
 };
 
-function PushNotificationsTab() {
+function PushNotificationsTab({ perms }: { perms: TabPerms }) {
   const [stats, setStats] = useState<PushStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [target, setTarget] = useState<"all" | "phone">("all");
@@ -2988,6 +3177,7 @@ function PushNotificationsTab() {
         </p>
       )}
 
+      {perms.create ? (
       <div className="surface space-y-2.5 px-4 py-3.5">
         <div
           className="grid grid-cols-2 gap-1.5"
@@ -3057,6 +3247,12 @@ function PushNotificationsTab() {
           </p>
         )}
       </div>
+      ) : (
+        <p className="surface px-4 py-6 text-center text-[0.9375rem] text-foreground/65">
+          Bạn chỉ có quyền xem thống kê thông báo. Cần quyền gửi thì báo quản trị
+          viên bật thêm.
+        </p>
+      )}
 
       {confirmSend && (
         <ConfirmDialog
@@ -3676,6 +3872,249 @@ function SystemTab({ health }: { health: Health }) {
           webhook bên SDWork và secret ở trên.
         </p>
       )}
+    </div>
+  );
+}
+
+/* ── PHÂN QUYỀN (admin-only) ───────────────────────────────────────────────
+   Bảng quyền từng tài khoản QUẢN LÝ: 5 tab × 4 hành động (Xem/Tạo mới/Sửa/
+   Xóa). Admin (env) luôn toàn quyền — không hiện ở đây. Chốt thật ở
+   /api/admin/* (requirePermission); bảng này chỉ soạn cấu hình. */
+
+type ManagerPerm = {
+  phone: string;
+  name: string | null;
+  permissions: StaffPermissions;
+  configured: boolean;
+};
+
+function PermissionsTab() {
+  const [managers, setManagers] = useState<ManagerPerm[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [migrationNeeded, setMigrationNeeded] = useState(false);
+
+  const load = useCallback(() => {
+    setError(null);
+    setManagers(null);
+    fetch(apiUrl("/api/admin/staff"))
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok: boolean;
+          code?: string;
+          managers?: ManagerPerm[];
+          migrationNeeded?: boolean;
+        };
+        if (!j.ok) throw new Error(j.code ?? "load");
+        setManagers(j.managers ?? []);
+        setMigrationNeeded(Boolean(j.migrationNeeded));
+      })
+      .catch((e: Error) =>
+        setError(
+          e.message === "not_configured"
+            ? "Chưa cấu hình Supabase/service-role — phân quyền cần DB thật."
+            : e.message === "admin_only"
+              ? "Chỉ quản trị viên vào được mục Phân quyền."
+              : "Chưa tải được danh sách quản lý — thử lại.",
+        ),
+      );
+  }, []);
+  useEffect(load, [load]);
+
+  return (
+    <div className="mt-4 space-y-4">
+      <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
+        Bật/tắt quyền từng <b>tài khoản quản lý</b> trên 5 khu: Tài khoản · Sản
+        phẩm · Thuyền viên · Thông báo · Chỗ bán. Mỗi khu có 4 mức{" "}
+        <b>Xem · Tạo mới · Sửa · Xóa</b>. Bỏ <b>Xem</b> = ẩn hẳn khu đó khỏi
+        quản lý. Quản trị viên (admin) luôn toàn quyền, không cần cấu hình.
+        (4 khu Yêu cầu · Vùng biển · Dữ liệu · Hệ thống chỉ dành cho quản trị
+        viên.)
+      </p>
+
+      {migrationNeeded && (
+        <p className="surface bg-warn-bg px-4 py-3 text-[0.875rem] font-semibold text-warn">
+          Cột phân quyền chưa có trong DB — cần apply migration
+          0017_staff_permissions. Hiện quản lý đang chạy theo quyền mặc định
+          (Xem + Tạo + Sửa, không Xóa); lưu thay đổi sẽ báo lỗi cho tới khi
+          apply xong.
+        </p>
+      )}
+
+      {error && (
+        <div className="surface px-4 py-6 text-center">
+          <p className="text-[1rem] text-danger">{error}</p>
+          <button
+            type="button"
+            onClick={load}
+            className="mt-3 min-h-[2.75rem] rounded-xl bg-navy px-6 text-[0.9375rem] font-bold text-white"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+      {!managers && !error && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Đang tải danh sách quản lý…
+        </p>
+      )}
+      {managers && managers.length === 0 && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Chưa có tài khoản quản lý nào. Tạo ở tab <b>Tài khoản</b> (chọn loại
+          &ldquo;Quản lý&rdquo;), rồi quay lại đây phân quyền.
+        </p>
+      )}
+
+      {managers?.map((m) => (
+        <ManagerPermCard key={m.phone} manager={m} onSaved={load} />
+      ))}
+    </div>
+  );
+}
+
+function ManagerPermCard({
+  manager,
+  onSaved,
+}: {
+  manager: ManagerPerm;
+  onSaved: () => void;
+}) {
+  const [draft, setDraft] = useState<StaffPermissions>(manager.permissions);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const dirty = useMemo(
+    () => JSON.stringify(draft) !== JSON.stringify(manager.permissions),
+    [draft, manager.permissions],
+  );
+
+  function toggle(tab: ManagerTab, action: (typeof PERM_ACTIONS)[number]) {
+    setMsg(null);
+    setDraft((d) => ({
+      ...d,
+      [tab]: { ...d[tab], [action]: !d[tab][action] },
+    }));
+  }
+
+  async function save() {
+    setBusy(true);
+    setMsg(null);
+    const r = await fetch(apiUrl("/api/admin/staff"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ phone: manager.phone, permissions: draft }),
+    }).catch(() => null);
+    setBusy(false);
+    const j = (await r?.json().catch(() => null)) as {
+      ok?: boolean;
+      code?: string;
+    } | null;
+    if (!r?.ok || !j?.ok) {
+      setMsg(
+        j?.code === "migration_needed"
+          ? "Chưa lưu được — DB chưa có cột phân quyền (apply migration 0017)."
+          : "Lưu chưa được — thử lại.",
+      );
+      return;
+    }
+    setMsg("Đã lưu quyền.");
+    onSaved();
+  }
+
+  return (
+    <div className="surface px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <p className="text-[1rem] font-bold tabular-nums text-navy">
+          {manager.phone}
+        </p>
+        {manager.name && (
+          <span className="font-semibold text-foreground/70">
+            {manager.name}
+          </span>
+        )}
+        {!manager.configured && (
+          <span className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-bold text-foreground/60">
+            đang dùng quyền mặc định
+          </span>
+        )}
+      </div>
+
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full border-collapse text-left">
+          <thead>
+            <tr>
+              <th className="pb-2 pr-3 text-[0.8125rem] font-bold text-foreground/60">
+                Khu
+              </th>
+              {PERM_ACTIONS.map((a) => (
+                <th
+                  key={a}
+                  className="pb-2 text-center text-[0.8125rem] font-bold text-foreground/60"
+                >
+                  {ACTION_LABEL[a]}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {MANAGER_TABS.map((tab) => (
+              <tr key={tab} className="border-t border-line">
+                <td className="py-2 pr-3 text-[0.9375rem] font-semibold text-navy">
+                  {TAB_LABEL[tab]}
+                </td>
+                {PERM_ACTIONS.map((action) => {
+                  const on = draft[tab][action];
+                  return (
+                    <td key={action} className="py-2 text-center">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={on}
+                        aria-label={`${TAB_LABEL[tab]} — ${ACTION_LABEL[action]}`}
+                        onClick={() => toggle(tab, action)}
+                        className={`inline-flex h-9 min-w-[2.75rem] items-center justify-center rounded-lg px-2 text-[0.8125rem] font-bold transition ${
+                          on
+                            ? "bg-ok-bg text-ok"
+                            : "bg-field text-foreground/45"
+                        }`}
+                      >
+                        {on ? "Bật" : "Tắt"}
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          type="button"
+          disabled={busy || !dirty}
+          onClick={save}
+          className="min-h-[2.75rem] rounded-xl bg-trim px-6 text-[0.9375rem] font-bold text-white disabled:opacity-50"
+        >
+          {busy ? "Đang lưu…" : "Lưu quyền"}
+        </button>
+        {dirty && !busy && (
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(manager.permissions);
+              setMsg(null);
+            }}
+            className="min-h-[2.75rem] rounded-xl bg-field px-4 text-[0.9375rem] font-bold text-foreground/70"
+          >
+            Hoàn tác
+          </button>
+        )}
+        {msg && (
+          <span className="text-[0.875rem] font-semibold text-foreground/75">
+            {msg}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
