@@ -54,6 +54,11 @@ import {
   type StaffPermissions,
   type TabPerms,
 } from "@/lib/staff-permissions";
+import {
+  ADMIN_ACTIONS,
+  actionLabel,
+  isDangerAction,
+} from "@/lib/admin-activity";
 
 type Tab =
   | "tai-khoan"
@@ -65,7 +70,8 @@ type Tab =
   | "thong-bao"
   | "du-lieu"
   | "he-thong"
-  | "phan-quyen";
+  | "phan-quyen"
+  | "nhat-ky";
 
 /** Vai trò staff — admin (env) toàn quyền; quản lý (DB) theo bảng phân quyền */
 type StaffRole = "admin" | "manager";
@@ -247,6 +253,7 @@ export default function QuanTriPage() {
         ["du-lieu", "Dữ liệu"],
         ["he-thong", "Hệ thống"],
         ["phan-quyen", "Phân quyền"],
+        ["nhat-ky", "Nhật ký"],
       ]
     : visibleTabs(me.permissions).map((t) => [t, TAB_LABEL[t]] as [Tab, string]);
 
@@ -328,6 +335,7 @@ export default function QuanTriPage() {
       {activeTab === "du-lieu" && isAdmin && <DataTab />}
       {activeTab === "he-thong" && isAdmin && <SystemTab health={health} />}
       {activeTab === "phan-quyen" && isAdmin && <PermissionsTab />}
+      {activeTab === "nhat-ky" && isAdmin && <ActivityLogTab />}
     </div>
   );
 }
@@ -4117,4 +4125,211 @@ function ManagerPermCard({
       </div>
     </div>
   );
+}
+
+/* ── NHẬT KÝ HOẠT ĐỘNG (admin-only) ────────────────────────────────────────
+   Log append-only mọi thao tác ghi/xóa của staff (admin_activity_log, 0019) →
+   soát được ai làm gì, lúc nào; nhất là XÓA/RESET/ĐỔI QUYỀN (tô đỏ). */
+
+type ActivityEvent = {
+  id: string;
+  actorPhone: string;
+  actorRole: string;
+  action: string;
+  target: string | null;
+  detail: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+function ActivityLogTab() {
+  const [events, setEvents] = useState<ActivityEvent[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [migrationNeeded, setMigrationNeeded] = useState(false);
+  const [query, setQuery] = useState("");
+  const [actionFilter, setActionFilter] = useState<string>("all");
+  const [dangerOnly, setDangerOnly] = useState(false);
+
+  const load = useCallback(() => {
+    setError(null);
+    setEvents(null);
+    fetch(apiUrl("/api/admin/activity"))
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok: boolean;
+          code?: string;
+          events?: ActivityEvent[];
+          migrationNeeded?: boolean;
+        };
+        if (!j.ok) throw new Error(j.code ?? "load");
+        setEvents(j.events ?? []);
+        setMigrationNeeded(Boolean(j.migrationNeeded));
+      })
+      .catch((e: Error) =>
+        setError(
+          e.message === "not_configured"
+            ? "Chưa cấu hình Supabase/service-role — nhật ký cần DB thật."
+            : e.message === "admin_only"
+              ? "Chỉ quản trị viên xem được nhật ký."
+              : "Chưa tải được nhật ký — thử lại.",
+        ),
+      );
+  }, []);
+  useEffect(load, [load]);
+
+  const visible = useMemo(() => {
+    if (!events) return null;
+    const q = fold(query.trim());
+    const qDigits = query.replace(/\D/g, "");
+    return events.filter((e) => {
+      if (actionFilter !== "all" && e.action !== actionFilter) return false;
+      if (dangerOnly && !isDangerAction(e.action)) return false;
+      if (!q && !qDigits) return true;
+      if (qDigits && e.actorPhone.includes(qDigits)) return true;
+      if (q && fold(actionLabel(e.action)).includes(q)) return true;
+      return false;
+    });
+  }, [events, query, actionFilter, dangerOnly]);
+
+  return (
+    <div className="mt-4 space-y-4">
+      <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
+        Ghi lại mọi thao tác <b>ghi/xóa</b> của quản trị viên & quản lý (tạo/xóa
+        tài khoản, cấp premium, đổi ghi chú, gửi thông báo, đổi phân quyền…) —
+        soát được <b>ai làm gì, lúc nào</b>. Thao tác xóa/nhạy cảm tô{" "}
+        <span className="font-bold text-danger">đỏ</span>. Không sửa/xóa được
+        nhật ký.
+      </p>
+
+      {migrationNeeded && (
+        <p className="surface bg-warn-bg px-4 py-3 text-[0.875rem] font-semibold text-warn">
+          Bảng nhật ký chưa có trong DB — cần apply migration
+          0019_admin_activity_log. Thao tác vẫn chạy nhưng chưa được ghi lại.
+        </p>
+      )}
+
+      {/* lọc: tìm theo SĐT/tên hành động + chọn loại + chỉ nhạy cảm */}
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+        <input
+          type="search"
+          inputMode="search"
+          placeholder="Tìm theo SĐT người làm hoặc tên thao tác…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Tìm nhật ký"
+          className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-4 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea sm:flex-1"
+        />
+        <select
+          value={actionFilter}
+          onChange={(e) => setActionFilter(e.target.value)}
+          aria-label="Lọc loại thao tác"
+          className="min-h-[2.75rem] rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+        >
+          <option value="all">Mọi thao tác</option>
+          {ADMIN_ACTIONS.map((a) => (
+            <option key={a} value={a}>
+              {actionLabel(a)}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => setDangerOnly((v) => !v)}
+          aria-pressed={dangerOnly}
+          className={`min-h-[2.75rem] shrink-0 rounded-xl px-4 text-[0.875rem] font-bold transition ${
+            dangerOnly ? "bg-danger text-white" : "bg-field text-foreground/70"
+          }`}
+        >
+          Chỉ xóa/nhạy cảm
+        </button>
+      </div>
+
+      {error && (
+        <div className="surface px-4 py-6 text-center">
+          <p className="text-[1rem] text-danger">{error}</p>
+          <button
+            type="button"
+            onClick={load}
+            className="mt-3 min-h-[2.75rem] rounded-xl bg-navy px-6 text-[0.9375rem] font-bold text-white"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+      {!events && !error && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Đang tải nhật ký…
+        </p>
+      )}
+      {events && events.length === 0 && !error && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Chưa có hoạt động nào được ghi.
+        </p>
+      )}
+
+      {visible && events && events.length > 0 && (
+        <>
+          <p className="px-1 text-[0.8125rem] font-semibold text-foreground/55">
+            {visible.length === events.length
+              ? `${events.length} hoạt động gần nhất`
+              : `${visible.length}/${events.length} hoạt động khớp`}
+          </p>
+          {visible.length === 0 ? (
+            <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+              Không hoạt động nào khớp bộ lọc.
+            </p>
+          ) : (
+            <ul className="surface overflow-hidden">
+              {visible.map((e) => {
+                const danger = isDangerAction(e.action);
+                return (
+                  <li
+                    key={e.id}
+                    className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b border-line px-4 py-2.5 last:border-b-0"
+                  >
+                    <span
+                      className={`text-[0.9375rem] font-bold ${danger ? "text-danger" : "text-navy"}`}
+                    >
+                      {actionLabel(e.action)}
+                    </span>
+                    <span className="text-[0.875rem] tabular-nums text-foreground/70">
+                      {e.actorPhone}
+                    </span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[0.6875rem] font-bold ${
+                        e.actorRole === "admin"
+                          ? "bg-navy/10 text-navy"
+                          : "bg-t1-bg text-t1"
+                      }`}
+                    >
+                      {e.actorRole === "admin" ? "admin" : "quản lý"}
+                    </span>
+                    {e.target && (
+                      <span className="text-[0.8125rem] tabular-nums text-foreground/60">
+                        → {e.target}
+                      </span>
+                    )}
+                    {e.detail && Object.keys(e.detail).length > 0 && (
+                      <span className="text-[0.75rem] text-foreground/45">
+                        {summarizeDetail(e.detail)}
+                      </span>
+                    )}
+                    <span className="ml-auto shrink-0 text-[0.75rem] tabular-nums text-foreground/50">
+                      {fmtDT(e.createdAt)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Gói `detail` jsonb thành chuỗi "khóa: giá trị" ngắn cho một dòng nhật ký. */
+function summarizeDetail(detail: Record<string, unknown>): string {
+  return Object.entries(detail)
+    .map(([k, v]) => `${k}: ${typeof v === "object" ? "…" : String(v)}`)
+    .join(" · ");
 }

@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
 
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
@@ -70,6 +71,13 @@ export async function PATCH(req: Request) {
   if (error) return err(500, "update_failed");
   if (!data || data.length === 0) return err(404, "not_found");
 
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: "admin",
+    action: "inquiry.update",
+    target: body.id,
+    detail: body.status !== undefined ? { status: body.status } : {},
+  });
   return NextResponse.json({ ok: true });
 }
 
@@ -89,5 +97,11 @@ export async function DELETE(req: Request) {
     .select("id");
   if (error) return err(500, "delete_failed");
   if (!data || data.length === 0) return err(404, "not_found");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: "admin",
+    action: "inquiry.delete",
+    target: id,
+  });
   return NextResponse.json({ ok: true });
 }

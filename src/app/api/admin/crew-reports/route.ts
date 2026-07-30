@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
 import { cleanReportDetail, isCrewReportCategory } from "@/lib/crew-report";
 import { subjectIdentity } from "@/lib/crew-report-hash";
 
@@ -92,6 +93,14 @@ export async function POST(req: Request) {
     moderated_at: nowIso,
   });
   if (error) return err(500, "insert_failed");
+  // KHÔNG log CCCD/SĐT vào nhật ký (đã nằm ở crew_reports) — chỉ ghi loại vấn đề
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "crew.create",
+    target: null,
+    detail: { category: body?.category },
+  });
   return NextResponse.json({ ok: true, status: "approved" });
 }
 
@@ -141,6 +150,13 @@ export async function PATCH(req: Request) {
   if (error) return err(500, "update_failed");
   if (!data || data.length === 0) return err(404, "not_found");
 
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "crew.moderate",
+    target: body.id,
+    detail: { moderate: body.action },
+  });
   return NextResponse.json({ ok: true });
 }
 
@@ -163,5 +179,11 @@ export async function DELETE(req: Request) {
   if (error) return err(500, "delete_failed");
   if (!data || data.length === 0) return err(404, "not_found");
 
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "crew.delete",
+    target: id,
+  });
   return NextResponse.json({ ok: true });
 }

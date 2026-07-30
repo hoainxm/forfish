@@ -11,6 +11,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
 import {
   countPoints,
   simplifyFeatureCollection,
@@ -116,6 +117,13 @@ export async function POST(req: Request) {
     .select("id")
     .maybeSingle();
   if (error) return err(500, "insert_failed");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: "admin",
+    action: "zone.create",
+    target: (data?.id as string) ?? null,
+    detail: { name: draft.name },
+  });
   return NextResponse.json({ ok: true, id: data?.id });
 }
 
@@ -144,6 +152,12 @@ export async function PATCH(req: Request) {
 
   const { error } = await admin.from(TABLE).update(patch).eq("id", id);
   if (error) return err(500, "update_failed");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: "admin",
+    action: "zone.update",
+    target: id,
+  });
   return NextResponse.json({ ok: true });
 }
 
@@ -163,5 +177,11 @@ export async function DELETE(req: Request) {
     .select("id");
   if (error) return err(500, "delete_failed");
   if (!data || data.length === 0) return err(404, "not_found");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: "admin",
+    action: "zone.delete",
+    target: id,
+  });
   return NextResponse.json({ ok: true });
 }

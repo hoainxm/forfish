@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
 import { validateProductDraft, type ProductDraft } from "@/lib/product-catalog";
 
 const err = (status: number, code: string) =>
@@ -111,6 +112,13 @@ export async function POST(req: Request) {
     .select("id")
     .maybeSingle();
   if (error) return err(500, "insert_failed");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "product.create",
+    target: (data?.id as string) ?? null,
+    detail: { title: draft.title },
+  });
   return NextResponse.json({ ok: true, id: data?.id });
 }
 
@@ -151,6 +159,13 @@ export async function PATCH(req: Request) {
       .update(patch)
       .eq("id", body.id);
     if (error) return err(500, "update_failed");
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: who.role,
+      action: "product.update",
+      target: body.id,
+      detail: { title: body.title },
+    });
     return NextResponse.json({ ok: true });
   }
 
@@ -164,6 +179,13 @@ export async function PATCH(req: Request) {
     .update(patch)
     .eq("id", body.id);
   if (error) return err(500, "update_failed");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "product.update",
+    target: body.id,
+    detail: body.visible !== undefined ? { visible: body.visible } : {},
+  });
   return NextResponse.json({ ok: true });
 }
 
@@ -183,5 +205,11 @@ export async function DELETE(req: Request) {
     .select("id");
   if (error) return err(500, "delete_failed");
   if (!data || data.length === 0) return err(404, "not_found");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "product.delete",
+    target: id,
+  });
   return NextResponse.json({ ok: true });
 }

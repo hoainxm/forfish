@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
 import { isPushConfigured, sendPush } from "@/lib/push-send";
 
 const err = (status: number, code: string) =>
@@ -86,6 +87,13 @@ export async function POST(req: Request) {
     await admin.from("push_subscriptions").delete().in("id", gone);
   }
 
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "push.send",
+    target: body?.target === "phone" ? (body.phone?.trim() ?? null) : "all",
+    detail: { target: body?.target ?? "all", title, sent },
+  });
   return NextResponse.json({
     ok: true,
     sent,

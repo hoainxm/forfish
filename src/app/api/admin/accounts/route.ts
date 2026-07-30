@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requirePermission } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
 import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
 import { TEMP_RESET_PASSWORD } from "@/lib/temp-password";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
@@ -219,6 +220,14 @@ export async function POST(req: Request) {
   });
   const provisioned =
     !authErr || /registered|exist|already/i.test(authErr.message);
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    // requireAdmin (tạo quản lý) không trả role → mặc định 'admin'
+    actorRole: (who as { role?: "admin" | "manager" }).role ?? "admin",
+    action: "account.create",
+    target: phone,
+    detail: { role, activatePremium: activate },
+  });
   return NextResponse.json({ ok: true, phone, provisioned, logged });
 }
 
@@ -278,6 +287,13 @@ export async function PATCH(req: Request) {
       action,
       premium_until: until,
     });
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: who.role,
+      action: "account.grant",
+      target: phone,
+      detail: { grant: action, premiumUntil: until },
+    });
     return NextResponse.json({ ok: true, action, premiumUntil: until, logged });
   }
 
@@ -306,6 +322,12 @@ export async function PATCH(req: Request) {
       granted_by: who.phone,
       action: "downgrade",
       premium_until: null,
+    });
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: "admin",
+      action: "account.downgrade",
+      target: phone,
     });
     return NextResponse.json({ ok: true, action: "downgrade", logged });
   }
@@ -336,6 +358,12 @@ export async function PATCH(req: Request) {
     });
     if (error) return err(500, "reset_failed");
 
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: "admin",
+      action: "account.reset-password",
+      target: phone,
+    });
     return NextResponse.json({
       ok: true,
       action: "reset-password",
@@ -367,6 +395,16 @@ export async function PATCH(req: Request) {
     if (error) return err(500, "update_failed");
     if (!data || data.length === 0) return err(404, "not_found");
 
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: who.role,
+      action: "account.set-flags",
+      target: phone,
+      detail: {
+        ...(typeof body.used === "boolean" ? { used: body.used } : {}),
+        ...(typeof body.guided === "boolean" ? { guided: body.guided } : {}),
+      },
+    });
     return NextResponse.json({
       ok: true,
       action: "set-flags",
@@ -398,5 +436,11 @@ export async function DELETE(req: Request) {
   }
   const { error } = await admin.from("customers").delete().eq("phone", phone);
   if (error) return err(500, "delete_failed");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "account.delete",
+    target: phone,
+  });
   return NextResponse.json({ ok: true });
 }

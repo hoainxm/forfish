@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
 import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
 import { normalizeVnPhone } from "@/lib/phone";
 import { normalizePermissions } from "@/lib/staff-permissions";
@@ -96,5 +97,12 @@ export async function PATCH(req: Request) {
   // cột chưa có (0017 chưa apply) → nói thật để admin đi apply migration
   if (error) return err(500, "migration_needed");
 
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: "admin",
+    action: "staff.set-permissions",
+    target: phone,
+    detail: { permissions },
+  });
   return NextResponse.json({ ok: true, phone, permissions });
 }
