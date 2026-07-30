@@ -67,13 +67,26 @@ export async function GET() {
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
 
-  const { data: rows, error } = await admin
+  const BASE_COLS =
+    "phone, name, tier, premium_until, premium_activated_at, role, sdwork_ref, updated_at";
+  // Cờ chăm khách (0025) — SELECT kèm; cột chưa có (migration chưa apply) thì
+  // DEGRADE về select cũ (cờ = false) thay vì 500 vỡ cả danh sách. Kiểu hoá
+  // Record để tránh Supabase infer union hỏng khi 2 select khác cột.
+  let rows: Record<string, unknown>[] | null = null;
+  const first = await admin
     .from("customers")
-    .select(
-      "phone, name, tier, premium_until, premium_activated_at, role, sdwork_ref, updated_at",
-    )
+    .select(BASE_COLS + ", premium_used, contacted")
     .order("updated_at", { ascending: false });
-  if (error) return err(500, "query_failed");
+  if (first.error) {
+    const fallback = await admin
+      .from("customers")
+      .select(BASE_COLS)
+      .order("updated_at", { ascending: false });
+    if (fallback.error) return err(500, "query_failed");
+    rows = fallback.data as unknown as Record<string, unknown>[];
+  } else {
+    rows = first.data as unknown as Record<string, unknown>[];
+  }
 
   // đối chiếu auth: SĐT nào đăng nhập được (đã provision)
   const provisioned = new Set<string>();
@@ -103,7 +116,27 @@ export async function GET() {
     fromSdwork: Boolean(r.sdwork_ref),
     updatedAt: (r.updated_at as string) ?? null,
     canLogin: provisioned.has(r.phone as string),
+    premiumUsed: Boolean(r.premium_used),
+    contacted: Boolean(r.contacted),
   }));
+
+  // R3/AC-8 — ĐẠI LÝ (manager) CHỈ thấy khách MÌNH cấp premium (granted_by).
+  // Admin thấy hết. Scope ở SERVER, không chỉ ẩn UI. Bảng log chưa có / đại lý
+  // chưa cấp ai → thấy RỖNG (an toàn, không lộ khách người khác).
+  let visible = accounts;
+  if (who.role === "manager") {
+    const owned = new Set<string>();
+    try {
+      const { data: g } = await admin
+        .from("premium_grants")
+        .select("customer_phone")
+        .eq("granted_by", who.phone);
+      for (const row of g ?? []) owned.add(row.customer_phone as string);
+    } catch {
+      /* premium_grants chưa có → đại lý thấy rỗng */
+    }
+    visible = accounts.filter((a) => owned.has(a.phone));
+  }
 
   // THỐNG KÊ THEO NGƯỜI CẤP: mỗi khách tính theo lần cấp GẦN NHẤT
   // (activate/renew); "đang quản" = khách đó hiện còn premium hiệu lực.
@@ -152,7 +185,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     me: { phone: who.phone, role: who.role },
-    accounts,
+    accounts: visible,
     grantStats,
   });
 }
@@ -234,6 +267,47 @@ export async function PATCH(req: Request) {
   if (!body?.phone) return err(400, "bad_phone");
   const phone = normalizeVnPhone(body.phone);
   const nowIso = new Date().toISOString();
+
+  if (body.action === "set_flag") {
+    // NV2 (ba-spec 10) — đổi CỜ CHĂM KHÁCH: premium_used | contacted. Staff;
+    // manager CHỈ đổi được khách MÌNH cấp premium (R3, scope server).
+    const b = body as { flag?: string; value?: boolean };
+    const flag =
+      b.flag === "premium_used"
+        ? "premium_used"
+        : b.flag === "contacted"
+          ? "contacted"
+          : null;
+    if (!flag) return err(400, "bad_flag");
+    const who = await requireStaff();
+    if (!who.ok) return err(who.status, who.code);
+    const admin = createAdminClient();
+    if (!admin) return err(503, "not_configured");
+
+    if (who.role === "manager") {
+      const { data: g } = await admin
+        .from("premium_grants")
+        .select("customer_phone")
+        .eq("granted_by", who.phone)
+        .eq("customer_phone", phone)
+        .limit(1);
+      if (!g || g.length === 0) return err(403, "not_your_customer");
+    }
+
+    const { data, error } = await admin
+      .from("customers")
+      .update({ [flag]: b.value === true, updated_at: nowIso })
+      .eq("phone", phone)
+      .select("phone");
+    if (error) return err(500, "update_failed");
+    if (!data || data.length === 0) return err(404, "not_found");
+    return NextResponse.json({
+      ok: true,
+      action: "set_flag",
+      flag,
+      value: b.value === true,
+    });
+  }
 
   if (body.action === "grant") {
     // KÍCH HOẠT / GIA HẠN premium (1 năm/lần) — admin + manager đều được

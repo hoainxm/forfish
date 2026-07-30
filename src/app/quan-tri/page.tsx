@@ -89,6 +89,8 @@ type Account = {
   fromSdwork: boolean;
   updatedAt: string | null;
   canLogin: boolean;
+  premiumUsed: boolean;
+  contacted: boolean;
 };
 
 /** Thống kê theo người cấp premium (log premium_grants) */
@@ -395,6 +397,29 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
     load();
   }
 
+  /** NV2 (ba-spec 10) — đảo cờ CHĂM KHÁCH (premium_used | contacted). Lưu ngay,
+   *  cập nhật local optimistic cho mượt; thất bại thì hoàn lại + báo. */
+  async function setFlag(a: Account, flag: "premium_used" | "contacted") {
+    const key = flag === "premium_used" ? "premiumUsed" : "contacted";
+    const next = !a[key];
+    const flip = (v: boolean) =>
+      setAccounts((prev) =>
+        prev
+          ? prev.map((x) => (x.phone === a.phone ? { ...x, [key]: v } : x))
+          : prev,
+      );
+    flip(next);
+    const r = await fetch(apiUrl("/api/admin/accounts"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ phone: a.phone, action: "set_flag", flag, value: next }),
+    }).catch(() => null);
+    if (!r?.ok) {
+      flip(!next);
+      setError("Chưa đổi được trạng thái chăm khách — thử lại.");
+    }
+  }
+
   /** reset-password = mật khẩu về tạm sd123456, khách bị bắt tự đổi khi
    *  đăng nhập lại (chỉ admin — server chặn bằng requireAdmin) */
   async function resetPassword(a: Account) {
@@ -610,6 +635,33 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
                       {a.premiumActivatedAt &&
                         ` · premium kích hoạt ${fmtD(a.premiumActivatedAt)}`}
                     </p>
+                    {/* NV2 (ba-spec 10) — chip chăm khách, bấm đổi ngay */}
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setFlag(a, "premium_used")}
+                        aria-pressed={a.premiumUsed}
+                        className={`min-h-[2rem] rounded-full px-2.5 text-[0.75rem] font-bold transition ${
+                          a.premiumUsed
+                            ? "bg-ok-bg text-ok"
+                            : "bg-field text-foreground/55"
+                        }`}
+                      >
+                        {a.premiumUsed ? "✓ Đã dùng" : "Chưa dùng"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFlag(a, "contacted")}
+                        aria-pressed={a.contacted}
+                        className={`min-h-[2rem] rounded-full px-2.5 text-[0.75rem] font-bold transition ${
+                          a.contacted
+                            ? "bg-t1-bg text-t1"
+                            : "bg-field text-foreground/55"
+                        }`}
+                      >
+                        {a.contacted ? "✓ Đã liên hệ" : "Chưa liên hệ"}
+                      </button>
+                    </div>
                   </div>
                   <span
                     className={`shrink-0 rounded-full px-3 py-1 text-[0.8125rem] font-bold ${
