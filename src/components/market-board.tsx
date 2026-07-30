@@ -3,7 +3,8 @@
 // TIN MUA/BÁN (nhánh 2 khu GIAO DỊCH, user chốt 2026-07-27) — chủ tàu tự ĐĂNG
 // tin bán (có cá cần bán) và tin mua (cần mua gì), cả làng cùng xem để gọi
 // thẳng nhau. Ghi thật vào Supabase `market_listings` (RLS owner-write). Chưa
-// đăng nhập / chưa cấu hình máy chủ → chỉ xem TIN MẪU, muốn đăng thì đăng nhập.
+// có tin thật / chưa cấu hình máy chủ → hiện EMPTY STATE (2026-07-29: bỏ TIN
+// MẪU, app đã lên thật); muốn đăng thì đăng nhập.
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";

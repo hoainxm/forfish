@@ -214,7 +214,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 | `none` | không có `expiresOn` | — | "Không có hạn" |
 
 - `byUrgency(today)` — sort gấp nhất lên đầu (expired trước, rồi gần hạn nhất; không hạn xuống cuối)
-- `demoDocuments(today)` — CÒN trong lib cho unit test, **KHÔNG còn gọi trong UI (2026-07-02)**: `loadDocs()` trả rỗng khi chưa có data thật (bỏ seed vì data giả chung máy gây hiểu nhầm "dùng chung")
+- Seed mẫu tủ giấy tờ **đã gỡ HẲN** (2026-07-29): `loadDocs()` trả rỗng khi chưa có data thật → màn "chưa có, bấm thêm". Hàm `demoDocuments` (từng seed rồi thành dead code) nay xoá khỏi `documents.ts`. Xem 02 §4.
 
 ### Camel ↔ snake mapping (khi nối Supabase)
 TS dùng camelCase (`expiresOn`), DB dùng snake_case (`expires_on`) — khi wire vault lên Supabase phải map rõ ràng, không đổi shape của `BoatDocument`.

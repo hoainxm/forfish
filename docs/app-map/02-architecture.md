@@ -284,7 +284,7 @@ Quy ước `src/data/`: dữ liệu tĩnh tổng hợp từ nguồn công khai P
 Khi `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` chưa set:
 
 1. `src/lib/supabase/client.ts` và `server.ts` đều **trả về `null`** (không throw)
-2. App fallback về **demo mode**: dữ liệu KH lưu localStorage (vd `forfish.documents.v1`). **KHÔNG seed demo (sửa 2026-07-02)** — trước đây `loadDocs` seed `demoDocuments()` cho "app không bao giờ trống", nhưng data giả chung máy khiến bà con tưởng "dùng chung" → BỎ. Load rỗng → màn "chưa có, bấm thêm".
+2. App fallback về **demo mode**: dữ liệu KH lưu localStorage (vd `forfish.documents.v1`). **KHÔNG seed demo (sửa 2026-07-02, hàm seed xoá HẲN 2026-07-29)** — trước đây `loadDocs` seed dữ liệu mẫu cho "app không bao giờ trống", nhưng data giả chung máy khiến bà con tưởng "dùng chung" → BỎ. Load rỗng → màn "chưa có, bấm thêm".
 3. Vault **hydrate từ localStorage trong `useEffect` sau mount** — tránh SSR/CSR mismatch. KHÔNG đọc localStorage lúc render đầu. Rule `react-hooks/set-state-in-effect` flag pattern này nên đã tắt trong `eslint.config.mjs` kèm comment (2026-06-11) — pattern là cố ý, giữ nguyên.
 
 → Mọi feature mới đụng dữ liệu phải giữ pattern này: chạy được không cần Supabase, degrade gracefully.
