@@ -106,6 +106,29 @@ export async function GET() {
     // đối chiếu hỏng thì vẫn trả danh sách — cột "đăng nhập được" để trống
   }
 
+  // NV3 — TRẠNG THÁI THU TIỀN mới nhất mỗi khách (mã CK + đối chiếu). Degrade
+  // nếu bảng payments chưa có (0026 chưa apply).
+  const latestPay = new Map<
+    string,
+    { code: string; reconciledStatus: string }
+  >();
+  try {
+    const { data: pays } = await admin
+      .from("payments")
+      .select("customer_phone, code, reconciled_status, created_at")
+      .order("created_at", { ascending: false });
+    for (const p of (pays ?? []) as Record<string, unknown>[]) {
+      const ph = p.customer_phone as string;
+      if (!latestPay.has(ph))
+        latestPay.set(ph, {
+          code: p.code as string,
+          reconciledStatus: (p.reconciled_status as string) ?? "pending",
+        });
+    }
+  } catch {
+    /* bảng payments chưa có → không trạng thái thu */
+  }
+
   const accounts = (rows ?? []).map((r) => ({
     phone: r.phone as string,
     name: (r.name as string) ?? null,
@@ -118,6 +141,7 @@ export async function GET() {
     canLogin: provisioned.has(r.phone as string),
     premiumUsed: Boolean(r.premium_used),
     contacted: Boolean(r.contacted),
+    payment: latestPay.get(r.phone as string) ?? null,
   }));
 
   // R3/AC-8 — ĐẠI LÝ (manager) CHỈ thấy khách MÌNH cấp premium (granted_by).
@@ -306,6 +330,43 @@ export async function PATCH(req: Request) {
       action: "set_flag",
       flag,
       value: b.value === true,
+    });
+  }
+
+  if (body.action === "record_payment") {
+    // NV3 (ba-spec 10) — GHI NHẬN THU TIỀN bằng MÃ CK. Chỉ mã, KHÔNG số tiền
+    // (R1/AC-4). reconciled_status='pending' → chờ SDWork xác nhận (NV4/NV5).
+    // Staff; manager CHỈ ghi cho khách MÌNH cấp (R3).
+    const b = body as { code?: string };
+    const code = (b.code ?? "").trim();
+    if (!code) return err(400, "bad_code");
+    const who = await requireStaff();
+    if (!who.ok) return err(who.status, who.code);
+    const admin = createAdminClient();
+    if (!admin) return err(503, "not_configured");
+
+    if (who.role === "manager") {
+      const { data: g } = await admin
+        .from("premium_grants")
+        .select("customer_phone")
+        .eq("granted_by", who.phone)
+        .eq("customer_phone", phone)
+        .limit(1);
+      if (!g || g.length === 0) return err(403, "not_your_customer");
+    }
+
+    const { error } = await admin.from("payments").insert({
+      customer_phone: phone,
+      code,
+      agent_phone: who.phone,
+      reconciled_status: "pending",
+    });
+    if (error) return err(500, "insert_failed");
+    return NextResponse.json({
+      ok: true,
+      action: "record_payment",
+      code,
+      reconciledStatus: "pending",
     });
   }
 

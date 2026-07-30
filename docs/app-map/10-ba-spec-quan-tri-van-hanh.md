@@ -217,4 +217,5 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 ## History
 - 2026-07-30 — Tạo từ hội thoại team (Long/Nam/Hòa). Chốt ranh giới SDFish vận hành vs SDWork quản trị tiền; scope IN/OUT; NV1–NV8; AC-1..10.
 - 2026-07-30 — Chốt D1 (đại lý 1 khu "Khách của tôi", scoped), D2 (staff cũng 1-máy — R6), D3 (webhook SDWork→SDFish, tái dùng inbound). +AC-10.
-- 2026-07-30 — **BUILD đợt 1**: NV2 (2 cờ chăm khách premium_used/contacted, migration 0025, chip bấm đổi ở /quan-tri) + NV6 scope đại lý (GET accounts lọc theo premium_grants.granted_by, PATCH set_flag chặn khách người khác). AC-1/2/8 có mã. **CÒN**: NV3 mã CK + NV4 trace outbound + NV5 webhook SDWork xác nhận + NV7 audit — đợt sau (cần SDWork dựng đầu nhận + duyệt migration payment/audit).
+- 2026-07-30 — **BUILD đợt 1**: NV2 (2 cờ chăm khách premium_used/contacted, migration 0025, chip bấm đổi ở /quan-tri) + NV6 scope đại lý (GET accounts lọc theo premium_grants.granted_by, PATCH set_flag chặn khách người khác). AC-1/2/8 có mã.
+- 2026-07-30 — **BUILD đợt 2 (NV3)**: bảng `payments` (0026, MÃ CK + reconciled_status, KHÔNG số tiền), PATCH `action='record_payment'` (staff, manager scoped R3), GET đính trạng thái thu mới nhất, UI chip trạng thái thu + dialog nhập mã CK ở /quan-tri. AC-3/4 có mã. **CÒN**: NV4 trace outbound bắn SDWork + NV5 webhook SDWork xác nhận (cần SDWork dựng đầu nhận) + NV7 audit — đợt sau.

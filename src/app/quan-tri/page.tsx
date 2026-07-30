@@ -91,6 +91,7 @@ type Account = {
   canLogin: boolean;
   premiumUsed: boolean;
   contacted: boolean;
+  payment: { code: string; reconciledStatus: string } | null;
 };
 
 /** Thống kê theo người cấp premium (log premium_grants) */
@@ -306,6 +307,9 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
   const [toDowngrade, setToDowngrade] = useState<Account | null>(null);
   const [toDelete, setToDelete] = useState<Account | null>(null);
   const [toReset, setToReset] = useState<Account | null>(null);
+  // NV3 — ghi thu tiền: khách đang nhập mã + nội dung ô mã CK
+  const [toPay, setToPay] = useState<Account | null>(null);
+  const [payCode, setPayCode] = useState("");
   // thông báo thành công (đặt lại mật khẩu…) — tách khỏi error để không đỏ oan
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -418,6 +422,38 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
       flip(!next);
       setError("Chưa đổi được trạng thái chăm khách — thử lại.");
     }
+  }
+
+  /** NV3 (ba-spec 10) — ghi thu tiền bằng MÃ CK (chỉ mã, không số tiền).
+   *  reconciled_status='pending' chờ SDWork đối chiếu (NV4/NV5). */
+  async function recordPayment(a: Account, code: string) {
+    setBusyPhone(a.phone);
+    setError(null);
+    setNotice(null);
+    const r = await fetch(apiUrl("/api/admin/accounts"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ phone: a.phone, action: "record_payment", code }),
+    }).catch(() => null);
+    const j = (await r?.json().catch(() => null)) as {
+      ok?: boolean;
+      code?: string;
+    } | null;
+    setBusyPhone(null);
+    if (!r?.ok || !j?.ok) {
+      setError(
+        j?.code === "bad_code"
+          ? "Nhập mã chuyển khoản."
+          : j?.code === "not_your_customer"
+            ? "Chỉ ghi thu tiền cho khách của bạn."
+            : "Ghi thu tiền chưa được — thử lại.",
+      );
+      return;
+    }
+    setNotice(
+      `Đã ghi mã CK cho ${a.phone} — chờ SDWork đối chiếu sao kê xác nhận.`,
+    );
+    load();
   }
 
   /** reset-password = mật khẩu về tạm sd123456, khách bị bắt tự đổi khi
@@ -661,6 +697,36 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
                       >
                         {a.contacted ? "✓ Đã liên hệ" : "Chưa liên hệ"}
                       </button>
+                      {/* NV3 — trạng thái thu tiền + ghi mã CK */}
+                      {a.payment ? (
+                        <span
+                          className={`inline-flex min-h-[2rem] items-center rounded-full px-2.5 text-[0.75rem] font-bold ${
+                            a.payment.reconciledStatus === "reconciled"
+                              ? "bg-ok-bg text-ok"
+                              : "bg-warn-bg text-warn"
+                          }`}
+                          title={`Mã CK: ${a.payment.code}`}
+                        >
+                          {a.payment.reconciledStatus === "reconciled"
+                            ? "✓ Đã thu · đối chiếu"
+                            : "Đã thu · chờ đối chiếu"}
+                        </span>
+                      ) : (
+                        <span className="inline-flex min-h-[2rem] items-center rounded-full bg-field px-2.5 text-[0.75rem] font-bold text-foreground/55">
+                          Chưa thu
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        disabled={busyPhone === a.phone}
+                        onClick={() => {
+                          setPayCode("");
+                          setToPay(a);
+                        }}
+                        className="min-h-[2rem] rounded-full bg-navy px-2.5 text-[0.75rem] font-bold text-white disabled:opacity-50"
+                      >
+                        Ghi thu tiền
+                      </button>
                     </div>
                   </div>
                   <span
@@ -804,6 +870,51 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
             remove(a);
           }}
         />
+      )}
+
+      {/* NV3 — dialog nhập MÃ CK ghi thu tiền */}
+      {toPay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="surface w-full max-w-[420px] p-5">
+            <p className="display text-[1.125rem] font-bold text-navy">
+              Ghi thu tiền — {toPay.phone}
+            </p>
+            <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
+              Nhập MÃ chuyển khoản khách đã trả (chỉ mã — như thanh toán tên
+              miền). Số tiền + đối soát ở SDWork; SDWork tra sao kê theo mã rồi
+              xác nhận đã nhận.
+            </p>
+            <input
+              autoFocus
+              value={payCode}
+              onChange={(e) => setPayCode(e.target.value)}
+              placeholder="Mã CK (vd FT25073012345)"
+              className="mt-3 min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+            />
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setToPay(null)}
+                className="min-h-[2.75rem] flex-1 rounded-xl bg-field text-[0.9375rem] font-bold text-foreground/70"
+              >
+                Không
+              </button>
+              <button
+                type="button"
+                disabled={!payCode.trim() || busyPhone === toPay.phone}
+                onClick={() => {
+                  const a = toPay;
+                  const code = payCode.trim();
+                  setToPay(null);
+                  recordPayment(a, code);
+                }}
+                className="min-h-[2.75rem] flex-1 rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50"
+              >
+                Ghi thu
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
