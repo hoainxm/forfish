@@ -19,11 +19,6 @@ import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
-/** Mật khẩu mặc định khi admin ĐẶT LẠI (action='reset_password'). Khách buộc
- *  đổi ngay lần đăng nhập sau (user_metadata.must_change_password). Chốt với
- *  chủ dự án 2026-07-29. Đổi thẳng auth → KHÔNG đồng bộ SDWork. */
-const DEFAULT_RESET_PASSWORD = "sd123456";
-
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
 
@@ -58,6 +53,29 @@ async function writeGrantLog(
     return !error;
   } catch {
     return false;
+  }
+}
+
+/** NV7 (ba-spec 10) — ghi 1 dòng NHẬT KÝ QUẢN TRỊ. Lỗi ghi KHÔNG chặn thao tác
+ *  chính (R4); bảng chưa có (0027 chưa apply) → bỏ qua êm. */
+async function writeAudit(
+  admin: Admin,
+  row: {
+    actor: string;
+    action: string;
+    target?: string | null;
+    detail?: string | null;
+  },
+): Promise<void> {
+  try {
+    await admin.from("admin_audit").insert({
+      actor: row.actor,
+      action: row.action,
+      target: row.target ?? null,
+      detail: row.detail ?? null,
+    });
+  } catch {
+    /* bảng admin_audit chưa có → bỏ qua */
   }
 }
 
@@ -280,6 +298,12 @@ export async function POST(req: Request) {
   });
   const provisioned =
     !authErr || /registered|exist|already/i.test(authErr.message);
+  await writeAudit(admin, {
+    actor: who.phone,
+    action: "create_account",
+    target: phone,
+    detail: `role=${role}${activate ? " +premium" : ""}`,
+  });
   return NextResponse.json({ ok: true, phone, provisioned, logged });
 }
 
@@ -325,6 +349,12 @@ export async function PATCH(req: Request) {
       .select("phone");
     if (error) return err(500, "update_failed");
     if (!data || data.length === 0) return err(404, "not_found");
+    await writeAudit(admin, {
+      actor: who.phone,
+      action: "set_flag",
+      target: phone,
+      detail: `${flag}=${b.value === true}`,
+    });
     return NextResponse.json({
       ok: true,
       action: "set_flag",
@@ -362,6 +392,12 @@ export async function PATCH(req: Request) {
       reconciled_status: "pending",
     });
     if (error) return err(500, "insert_failed");
+    await writeAudit(admin, {
+      actor: who.phone,
+      action: "record_payment",
+      target: phone,
+      detail: `code=${code}`,
+    });
     return NextResponse.json({
       ok: true,
       action: "record_payment",
@@ -415,38 +451,13 @@ export async function PATCH(req: Request) {
       action,
       premium_until: until,
     });
-    return NextResponse.json({ ok: true, action, premiumUntil: until, logged });
-  }
-
-  if (body.action === "reset_password") {
-    // ĐẶT LẠI mật khẩu về mặc định — chỉ admin. Đưa auth user về sd123456 +
-    // bật must_change_password (app bắt đổi lần đăng nhập sau). KHÔNG đẩy sang
-    // SDWork (đổi thẳng auth, không qua luồng password-sync) → credential 2 app
-    // lệch tới khi khách tự đổi; UI nhắc admin báo khách đổi ngay.
-    const who = await requireAdmin();
-    if (!who.ok) return err(who.status, who.code);
-    const admin = createAdminClient();
-    if (!admin) return err(503, "not_configured");
-
-    let authUser: Awaited<ReturnType<typeof findAuthUser>>;
-    try {
-      authUser = await findAuthUser(admin, phoneToEmail(phone));
-    } catch {
-      return err(500, "auth_lookup_failed");
-    }
-    // chưa provision (chưa đăng nhập lần nào) → không có mật khẩu để đặt lại
-    if (!authUser) return err(404, "not_provisioned");
-
-    const { error } = await admin.auth.admin.updateUserById(authUser.id, {
-      password: DEFAULT_RESET_PASSWORD,
-      // updateUserById GHI ĐÈ user_metadata → merge để giữ cờ cũ, thêm cờ đổi
-      user_metadata: {
-        ...(authUser.user_metadata ?? {}),
-        must_change_password: true,
-      },
+    await writeAudit(admin, {
+      actor: who.phone,
+      action,
+      target: phone,
+      detail: `premium_until=${until}`,
     });
-    if (error) return err(500, "reset_failed");
-    return NextResponse.json({ ok: true, action: "reset_password" });
+    return NextResponse.json({ ok: true, action, premiumUntil: until, logged });
   }
 
   if (body.action === "downgrade") {
@@ -474,6 +485,11 @@ export async function PATCH(req: Request) {
       granted_by: who.phone,
       action: "downgrade",
       premium_until: null,
+    });
+    await writeAudit(admin, {
+      actor: who.phone,
+      action: "downgrade",
+      target: phone,
     });
     return NextResponse.json({ ok: true, action: "downgrade", logged });
   }
@@ -504,6 +520,11 @@ export async function PATCH(req: Request) {
     });
     if (error) return err(500, "reset_failed");
 
+    await writeAudit(admin, {
+      actor: who.phone,
+      action: "reset_password",
+      target: phone,
+    });
     return NextResponse.json({
       ok: true,
       action: "reset-password",

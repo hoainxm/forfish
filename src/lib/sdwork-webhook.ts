@@ -21,8 +21,11 @@ export function verifyWebhookSignature(
 }
 
 // ── Shape sự kiện (hợp đồng với SDWork — xem docs/integration/sdwork-sso-contract.md) ──
-export type WebhookEntity = "customer" | "device" | "supply";
-export type WebhookAction = "upsert" | "delete";
+// "payment"/"reconciled" (2026-07-30, ba-spec 10 NV5): SDWork đối chiếu sao kê
+// xong bắn về xác nhận đã nhận tiền theo MÃ CK (ref=code) → SDFish set
+// payments.reconciled_status='reconciled'. Xử riêng ở route (không qua TABLE map).
+export type WebhookEntity = "customer" | "device" | "supply" | "payment";
+export type WebhookAction = "upsert" | "delete" | "reconciled";
 
 export interface WebhookEvent {
   entity: WebhookEntity;

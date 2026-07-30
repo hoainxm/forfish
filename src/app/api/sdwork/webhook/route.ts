@@ -67,7 +67,7 @@ async function syncAuthPassword(
   if (updErr) throw updErr;
 }
 
-const TABLE: Record<WebhookEvent["entity"], string> = {
+const TABLE: Partial<Record<WebhookEvent["entity"], string>> = {
   customer: "customers",
   device: "devices",
   supply: "supplies",
@@ -112,6 +112,35 @@ export async function POST(req: Request) {
 
   for (const e of events) {
     const base = { ref: e.ref, entity: e.entity, action: e.action };
+
+    // NV5 (ba-spec 10) — SDWork xác nhận ĐÃ NHẬN tiền theo MÃ CK (ref=code) →
+    // set payments.reconciled_status='reconciled'. Xử riêng, không qua TABLE.
+    if (e.entity === "payment" && e.action === "reconciled") {
+      if (!e.ref) {
+        results.push({ ...base, ok: false, code: "bad_event" });
+        continue;
+      }
+      const { data, error } = await admin
+        .from("payments")
+        .update({
+          reconciled_status: "reconciled",
+          reconciled_at: new Date().toISOString(),
+        })
+        .eq("code", e.ref)
+        .select("id");
+      results.push({
+        ...base,
+        ok: !error,
+        code: error
+          ? "reconcile_failed"
+          : !data || data.length === 0
+            ? "code_not_found"
+            : undefined,
+        detail: error ? dbErrorDetail(error) : undefined,
+      });
+      continue;
+    }
+
     const table = TABLE[e.entity];
     if (!table || !e.ref) {
       results.push({ ...base, ok: false, code: "bad_event" });

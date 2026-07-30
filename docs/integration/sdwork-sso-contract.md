@@ -97,6 +97,16 @@ POST /api/sdwork/webhook
 - **Outbound (SDFish → SDWork)**: KH đổi mk ở `/doi-mat-khau` → SDFish `POST {SDWORK_SYNC_URL}` body `{ phone, password }` (SĐT lấy từ **session**, không tin client), header **`x-sdfish-signature`** = HMAC-SHA256(raw, `SDWORK_WEBHOOK_SECRET`). **Best-effort**: đổi tại SDFish đã xong, lỗi đẩy ngược KHÔNG chặn KH; cron đối soát/đẩy lại = sau.
 - **SDWork phải dựng endpoint nhận** (xem §7): verify `x-sdfish-signature` → đặt mk khách bên CRM = `password`. Nếu không dựng → mk chỉ đổi ở SDFish, đăng nhập SDWork vẫn mk cũ.
 - 🔐 Mật khẩu đi **plaintext** trên kênh HMAC+TLS (đối xứng inbound vốn cũng gửi plaintext). KHÔNG log password 2 đầu.
+- ⚠️ **2026-07-30**: hướng SDWork-master 1 chiều đã BỎ outbound password-sync `/api/sdwork/password-sync` (§8 ✅ cũ HẾT HIỆU LỰC); chỉ còn inbound. §5b giữ để tham chiếu lịch sử.
+
+## 5c. Trace tiền — MÃ CK (ba-spec 10 NV4/NV5, 2026-07-30)
+
+Ngư dân trả tiền premium → đại lý/nhân viên nhập **MÃ CK** ở SDFish `/quan-tri` (chỉ mã, KHÔNG số tiền — tiền thật + đối soát ở SDWork). SDFish CHUYỂN mã sang SDWork để đối chiếu sao kê; SDWork xác nhận đã nhận → SDFish đánh dấu "đã đối chiếu".
+
+- **Outbound (SDFish → SDWork)** — cron `/api/cron/trace-payments` (hàng giờ): mỗi payment chưa bắn → `POST {SDWORK_TRACE_URL}` body `{ code, phone, agent, recordedAt }`, header **`x-sdfish-signature`** = HMAC-SHA256(raw, `SDWORK_WEBHOOK_SECRET`). SDFish set `traced_at` khi HTTP 2xx (không bắn lại); lỗi → giữ, cron sau thử lại.
+- **SDWork phải dựng endpoint nhận** ở `SDWORK_TRACE_URL`: verify `x-sdfish-signature` → lưu mã + tra sao kê ngân hàng theo `code` → khi thấy khớp, **bắn webhook xác nhận về** SDFish.
+- **Inbound xác nhận (SDWork → SDFish)** — tái dùng `/api/sdwork/webhook`: gửi event `{ "entity": "payment", "action": "reconciled", "ref": "<code>" }` (cùng HMAC `x-sdwork-signature`). SDFish set `payments.reconciled_status='reconciled'` cho mã đó (response `ok:false code:'code_not_found'` nếu mã lạ).
+- Thiếu `SDWORK_TRACE_URL` → cron no-op (SDFish vẫn ghi mã local, chỉ chưa bắn).
 - `/api/auth/sso` (verify CRM) **LEGACY** — login không còn gọi, retire sau.
 
 ## 6. Cấu hình (.env SDFish)
@@ -106,7 +116,9 @@ NEXT_PUBLIC_SUPABASE_URL=https://znzgugvfhgmiszqgjulk.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
 SUPABASE_SERVICE_ROLE_KEY=...            # admin client: webhook upsert + provision/reset auth user
 SDWORK_WEBHOOK_SECRET=...                # HMAC chung 2 chiều (inbound verify + outbound ký)
-SDWORK_SYNC_URL=https://<sdwork>/...     # endpoint SDWork nhận mk đổi từ SDFish (outbound); trống = tắt đẩy ngược
+SDWORK_SYNC_URL=https://<sdwork>/...     # (HẾT DÙNG 2026-07-30 — password-sync outbound đã bỏ)
+SDWORK_TRACE_URL=https://<sdwork>/...     # endpoint SDWork nhận MÃ CK trace tiền (§5c); trống = cron trace no-op
+CRON_SECRET=...                          # Bearer cho cron /api/cron/trace-payments (+ các cron khác)
 ```
 
 ## 7. Việc phía SDWork (user quản CẢ 2 project — tự cấu hình)

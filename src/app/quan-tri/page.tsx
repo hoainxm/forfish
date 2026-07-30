@@ -54,7 +54,8 @@ type Tab =
   | "cho-ban"
   | "thong-bao"
   | "du-lieu"
-  | "he-thong";
+  | "he-thong"
+  | "nhat-ky";
 
 /** Vai trò staff — admin (env) toàn quyền; quản lý (DB) chỉ cấp/gia hạn premium */
 type StaffRole = "admin" | "manager";
@@ -248,6 +249,7 @@ export default function QuanTriPage() {
                 ["thong-bao", "Thông báo"],
                 ["du-lieu", "Dữ liệu"],
                 ["he-thong", "Hệ thống"],
+                ["nhat-ky", "Nhật ký"],
               ]) as [Tab, string][]
         ).map(([id, label]) => (
           <button
@@ -280,6 +282,7 @@ export default function QuanTriPage() {
       {tab === "he-thong" && health.me?.role !== "manager" && (
         <SystemTab health={health} />
       )}
+      {tab === "nhat-ky" && health.me?.role !== "manager" && <AuditTab />}
     </div>
   );
 }
@@ -3437,6 +3440,122 @@ function CronsPanel() {
         thì tuổi phình, không cần tra log Vercel/GitHub. Snapshot cá quá 30 giờ
         thì app tự tính live nên bà con không mất dự báo, chỉ chậm hơn.
       </p>
+    </div>
+  );
+}
+
+/* ── NHẬT KÝ HOẠT ĐỘNG QUẢN TRỊ (NV7, admin) ─────────────────────────────── */
+
+type AuditRow = {
+  id: string;
+  actor: string;
+  action: string;
+  target: string | null;
+  detail: string | null;
+  created_at: string;
+};
+
+const AUDIT_ACTION_LABEL: Record<string, string> = {
+  activate: "Kích hoạt premium",
+  renew: "Gia hạn premium",
+  downgrade: "Hạ về thường",
+  reset_password: "Đặt lại mật khẩu",
+  set_flag: "Đổi trạng thái chăm khách",
+  record_payment: "Ghi thu tiền (mã CK)",
+  create_account: "Tạo tài khoản",
+  delete_account: "Xoá tài khoản",
+};
+
+function AuditTab() {
+  const [rows, setRows] = useState<AuditRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    fetch(apiUrl("/api/admin/audit"))
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok: boolean;
+          rows?: AuditRow[];
+          code?: string;
+        };
+        if (!j.ok) throw new Error(j.code ?? "load");
+        setRows(j.rows ?? []);
+      })
+      .catch(() => setError("Chưa tải được nhật ký — thử lại."));
+  }, []);
+
+  const visible = useMemo(() => {
+    if (!rows) return null;
+    const q = query.trim().toLowerCase();
+    const digits = query.replace(/\D/g, "");
+    if (!q && !digits) return rows;
+    return rows.filter(
+      (r) =>
+        (digits &&
+          (r.actor.includes(digits) || (r.target ?? "").includes(digits))) ||
+        (q &&
+          (AUDIT_ACTION_LABEL[r.action] ?? r.action)
+            .toLowerCase()
+            .includes(q)),
+    );
+  }, [rows, query]);
+
+  return (
+    <div className="mt-4 space-y-4">
+      <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
+        Nhật ký mọi thao tác quản trị (cấp premium, đặt lại mật khẩu, đổi trạng
+        thái chăm khách, ghi thu tiền, tạo/xoá tài khoản) — ai làm, cho ai, lúc
+        nào. Chỉ admin xem.
+      </p>
+      <input
+        type="search"
+        inputMode="search"
+        placeholder="Lọc theo SĐT (người làm/khách) hoặc loại thao tác…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        aria-label="Lọc nhật ký"
+        className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-4 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+      />
+      {error && (
+        <p className="surface px-4 py-6 text-center text-[1rem] text-danger">
+          {error}
+        </p>
+      )}
+      {!rows && !error && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Đang tải nhật ký…
+        </p>
+      )}
+      {rows && rows.length === 0 && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Chưa có hoạt động nào được ghi (hoặc migration 0027 chưa apply).
+        </p>
+      )}
+      {visible && visible.length > 0 && (
+        <ul className="surface overflow-hidden">
+          {visible.map((r) => (
+            <li
+              key={r.id}
+              className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b border-line px-4 py-2.5 text-[0.875rem] last:border-b-0"
+            >
+              <span className="font-bold text-navy">
+                {AUDIT_ACTION_LABEL[r.action] ?? r.action}
+              </span>
+              <span className="tabular-nums text-foreground/70">
+                bởi {r.actor}
+                {r.target && ` → ${r.target}`}
+              </span>
+              {r.detail && (
+                <span className="text-foreground/55">({r.detail})</span>
+              )}
+              <span className="ml-auto tabular-nums text-foreground/50">
+                {fmtDT(r.created_at)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
