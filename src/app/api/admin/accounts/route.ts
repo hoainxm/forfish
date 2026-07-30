@@ -174,7 +174,15 @@ export async function POST(req: Request) {
   if (!body?.phone || !isValidVnPhone(body.phone)) return err(400, "bad_phone");
   if (!body.password || body.password.length < 6)
     return err(400, "bad_password");
-  const role = body.role === "manager" ? "manager" : "customer";
+  // admin (toàn quyền) chỉ admin hiện tại tạo được — POST đã gated requireAdmin
+  // ở trên nên an toàn. Dùng để lập TÀI KHOẢN ADMIN CHUNG thay vì gán SĐT cá
+  // nhân vào ADMIN_PHONES (env chỉ giữ 1 số bootstrap break-glass).
+  const role =
+    body.role === "admin"
+      ? "admin"
+      : body.role === "manager"
+        ? "manager"
+        : "customer";
   const phone = normalizeVnPhone(body.phone);
   const now = new Date().toISOString();
 

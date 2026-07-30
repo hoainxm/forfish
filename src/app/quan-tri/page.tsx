@@ -762,7 +762,9 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"customer" | "manager">("customer");
+  const [role, setRole] = useState<"customer" | "manager" | "admin">(
+    "customer",
+  );
   const [activatePremium, setActivatePremium] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -817,7 +819,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
         className="flex w-full items-center justify-between text-[1rem] font-bold text-navy"
         aria-expanded={open}
       >
-        Tạo tài khoản (khách / quản lý)
+        Tạo tài khoản (khách / quản lý / admin)
         <span aria-hidden>{open ? "−" : "+"}</span>
       </button>
       {open && (
@@ -850,15 +852,16 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
           {/* loại tài khoản: 2 nút phân đoạn (select gốc bị bóp nhỏ khó nhìn
               — user 2026-07-26) */}
           <div
-            className="grid grid-cols-2 gap-1.5 sm:col-span-2 lg:col-span-2"
+            className="grid grid-cols-3 gap-1.5 sm:col-span-2 lg:col-span-2"
             role="group"
             aria-label="Loại tài khoản"
           >
             {(
               [
                 ["customer", "Khách"],
-                ["manager", "Quản lý — được cấp premium"],
-              ] as ["customer" | "manager", string][]
+                ["manager", "Quản lý — cấp premium"],
+                ["admin", "Admin — toàn quyền"],
+              ] as ["customer" | "manager" | "admin", string][]
             ).map(([id, label]) => (
               <button
                 key={id}
