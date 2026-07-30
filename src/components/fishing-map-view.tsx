@@ -648,8 +648,12 @@ export default function FishingMapView() {
     if (!fGrid) return null;
     if (overlayField && overlayField !== "salinity")
       return buildUVField(fGrid, timeIdx, "wind");
-    // hải đồ / ngư trường / độ mặn: hạt gió HIỆN TẠI (mốc 0) chạy nền
-    return buildUVField(fGrid, 0, "wind");
+    // sdvico 2026-07-30 (user báo "không tắt được giao diện gió + màn đen"):
+    // BỎ hạt gió NỀN chạy mặc định trên hải đồ/ngư trường/độ mặn. Canvas hạt
+    // always-on (destination-in fade) không có nút tắt + render đen trên vài
+    // WebView Android máy yếu. Nay hạt CHỈ hiện khi CHỌN lớp gió/sóng/dòng
+    // (forecastKind) hoặc lớp màu cần vệt → tắt được bằng cách bỏ chọn lớp.
+    return null;
   }, [forecastKind, overlayField, fGrid, kindGrid, timeIdx]);
 
   // Mũi tên TĨNH: lớp GIÓ/SÓNG luôn hiện mũi tên MÀU kèm hạt (user 2026-07-29:
