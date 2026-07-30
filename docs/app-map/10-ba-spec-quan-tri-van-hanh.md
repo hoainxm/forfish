@@ -109,7 +109,7 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 | NV3 | A: SDFish giữ full sổ tiền · B: SDFish chỉ giữ MÃ CK + cờ, tiền thật ở SDWork | Chọn **B** | A phá ranh giới §0 (trộn quản trị vào vận hành); B tối thiểu cross + đúng chủ sở hữu dữ liệu (rubric: định hướng + cross tối thiểu) |
 | NV3 | A: bắt nhập số tiền + nội dung · B: chỉ MÃ CK | Chọn **B** | NVHòa chốt "chỉ cần mã"; ít bước, mã đủ để SDWork tra sao kê (rubric: ít bước) |
 | NV5 | A: SDFish tự đánh "đã nhận" · B: SDWork xác nhận rồi trả về | Chọn **B** | tiền là chân lý SDWork; A cho phép đánh dấu khống, sai chuẩn thu-chi (Domain: kế toán veto A) |
-| NV1-máy | A: 1 máy áp CẢ admin/đại lý · B: staff được nhiều phiên (web + mobile) | **CHỜ CHỐT** | Long nêu 1-máy đá cả web quản trị — cần user quyết (§10 D2) |
+| NV1-máy | A: 1 máy áp CẢ admin/đại lý · B: staff được nhiều phiên (web + mobile) | Chọn **A** (D2 chốt) | Chống chia sẻ tài khoản admin > tiện đa thiết bị; đánh đổi có chủ đích (rubric: an toàn) — R6 |
 
 ## 7. Scope & Priority
 - **IN (SDFish repo này)**: NV1 (có sẵn) · NV2 chip chăm khách · NV3 nhập mã CK + cờ đã thu · NV4/NV5 trace + đồng bộ SDWork · NV6 giới hạn tab đại lý · NV7 audit (Should) · NV8 đăng nhập (Should).
@@ -133,6 +133,7 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 | R3 | đại lý (manager) chỉ thao tác trên khách MÌNH cấp/chăm; admin toàn quyền | đại lý xem acc người khác → chặn ở API (không chỉ ẩn UI) |
 | R4 | mọi mutation quản trị ghi audit {actor, hành động, đối tượng, giờ} | audit lỗi KHÔNG chặn thao tác, nhưng trả cờ logged=false |
 | R5 | reset mật khẩu / đổi chip / cấp premium đều là mutation → vào audit + (cấp premium) log premium_grants sẵn có | — |
+| R6 | 1 tài khoản = 1 máy áp CHO CẢ staff (admin/đại lý) — đăng nhập máy mới thu hồi phiên mọi máy khác kể cả web quản trị (D2 chốt 2026-07-30) | staff đổi máy → đăng nhập lại; chấp nhận để chống chia sẻ acc admin |
 
 ## 10. Assumptions & Open decisions (elicitation)
 **Giả định an toàn đã chọn (fail-closed):**
@@ -140,10 +141,12 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 - **B**: NV3 chỉ lưu mã CK + cờ; số tiền/đối soát ở SDWork.
 - **C**: premium kích hoạt ĐỘC LẬP với thu tiền (đại lý có thể kích trước, thu sau) — cờ "đã thu" theo dõi riêng, KHÔNG chặn kích hoạt.
 
-**Cần chủ dự án chốt (RED — ảnh hưởng downstream):**
-- **D1**: 1–2 tab của đại lý gồm những tab NÀO? (đề xuất: Tài khoản khách của mình + [Thuyền viên/cảnh báo]?)
-- **D2**: `1 tài khoản 1 máy` có áp cho admin/đại lý không? Hiện đá cả phiên web quản trị. → miễn cho staff (cho web + mobile song song) HAY giữ nguyên?
-- **D3**: SDWork trả "đã nhận" theo cơ chế nào — webhook đẩy về SDFish, hay SDFish hỏi (poll) theo mã? (ảnh hưởng NV5)
+**Đã chốt (2026-07-30):**
+- **D1 → 1 khu "Khách của tôi"**: đại lý chỉ thấy DANH SÁCH KHÁCH của mình (scoped, chặn ở API — R3) gồm: kích/gia hạn premium + 2 cờ (đã dùng / đã liên hệ) + nhập mã CK + cờ đã thu. KHÔNG có Thuyền viên/Sản phẩm/Thông báo/Dữ liệu/Hệ thống. Chừa khu thứ 2 cho sau (bảng doanh thu — nhưng số liệu đó ở SDWork). Lý do: toàn bộ việc đại lý xoay quanh khách của họ; các khu kia là việc admin.
+- **D2 → GIỮ NGUYÊN 1 tài khoản 1 máy CHO CẢ staff** (chủ dự án chốt). Admin/đại lý đăng nhập máy mới → đá phiên máy cũ (gồm web quản trị). Hệ quả: staff dùng 1 thiết bị 1 lúc; đổi máy phải đăng nhập lại. Đánh đổi: chống chia sẻ tài khoản admin (bảo mật) > tiện đa thiết bị. → thành **R6**.
+- **D3 → WEBHOOK (SDWork→SDFish)**: tái dùng webhook inbound sẵn có (`/api/sdwork/webhook`, HMAC verify) — thêm event `payment_reconciled`. SDWork đối chiếu sao kê xong bắn về, SDFish set trạng-thái-đối-chiếu. Tức thì + ít hạ tầng mới. Poll bị loại (SDFish chưa có đường outbound-query; trễ). NV5 dùng cơ chế này.
+
+> NV4 (bắn mã CK sang SDWork) là outbound MỚI của SDFish — KHÁC luồng password-sync đã bỏ (2026-07-30 SDWork-master); trace tiền là mục đích chính đáng riêng.
 
 ---
 
@@ -203,7 +206,14 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 - **Then** sinh đúng 1 dòng audit {actor, action, target, thời điểm}
 - **Assert**: mỗi mutation làm `count(audit)` tăng đúng `1` && dòng có `actor!=null && action!=null && ts!=null`
 
+### AC-10 — Staff cũng bị 1 tài khoản 1 máy · Maps to: NV8 · Test: e2e
+- **Given** tài khoản admin hoặc đại lý đang có phiên hợp lệ trên máy A (kể cả phiên web quản trị)
+- **When** cùng tài khoản đó đăng nhập trên máy B
+- **Then** phiên máy A bị thu hồi; thao tác kế ở máy A bị đưa về đăng nhập (R6 — không miễn staff)
+- **Assert**: sau đăng nhập máy B, request tiếp theo của máy A trả HTTP `401` && `count(phiên hợp lệ của tài khoản)==1`
+
 ---
 
 ## History
-- 2026-07-30 — Tạo từ hội thoại team (Long/Nam/Hòa). Chốt ranh giới SDFish vận hành vs SDWork quản trị tiền; scope IN/OUT; NV1–NV8; AC-NV2..NV7; 3 open decision D1–D3.
+- 2026-07-30 — Tạo từ hội thoại team (Long/Nam/Hòa). Chốt ranh giới SDFish vận hành vs SDWork quản trị tiền; scope IN/OUT; NV1–NV8; AC-1..10.
+- 2026-07-30 — Chốt D1 (đại lý 1 khu "Khách của tôi", scoped), D2 (staff cũng 1-máy — R6), D3 (webhook SDWork→SDFish, tái dùng inbound). +AC-10.
