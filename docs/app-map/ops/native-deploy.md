@@ -48,6 +48,8 @@ npm run cap:open:ios   # / cap:open:android
 
 > **RUNBOOK build & phát hành chi tiết (Android + iOS từ chốt code → store)**: [build-publish-store.md](build-publish-store.md). File này chỉ giữ hiện trạng + lịch sử reject.
 
+- **CI auto Android (2026-07-28)**: `.github/workflows/android-release.yml` — build AAB đã ký + upload CH Play qua Gradle Play Publisher. Trigger tay hoặc tag `vX.Y.Z`; `versionCode` tự tăng (`10000 + run_number`). Cần secrets keystore + `PLAY_SERVICE_ACCOUNT_JSON`. Chi tiết [build-publish-store.md §3b](build-publish-store.md). iOS chưa auto (cần Mac/Xcode).
+
 ## 5c. Reject lần 2 — 5.1.2 Data Use and Sharing (2026-07-27)
 
 Nguyên nhân gốc: **app KHÔNG có trang chính sách quyền riêng tư nào** → thiếu điều kiện cơ bản của 5.1.2 (privacy policy truy cập được + nhãn khớp thực tế). **Domain KHÔNG phải nguyên nhân trực tiếp**, nhưng Privacy Policy URL phải mở được — không dùng `sdfish.sdvico.vn` được vì domain đó hiện trỏ nhầm host + TLS sai + 404 (kiểm 2026-07-27; xem [build-publish-store.md §0.1](build-publish-store.md)).

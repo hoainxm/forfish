@@ -57,11 +57,13 @@ const SIZES = [
 //  · Cũng KHÔNG login khi chụp: login vào thì Home hiện "Thêm tàu của bạn" (rỗng),
 //    xấu hơn bản logged-out ("Bốn việc chính").
 // Có tài khoản gắn sản phẩm SDVICO → thêm route needLogin:true, script tự đăng nhập.
+// 2026-07-30: bỏ 3-muc-phat (tab Mức phạt gỡ 2026-07-27 → route chết); 4-gia-ca
+// đổi path /tien?tab=giao-dich → /tien (khu Giao dịch KHÔNG còn tab). Giữ nguyên
+// nguyên tắc chỉ chụp màn PUBLIC (tài khoản test chưa gắn tàu/SP → gated ra trống).
 const ROUTES = [
-  { slug: "1-home",     path: "/",                   wait: 1500, needLogin: false },
-  { slug: "2-ra-khoi",  path: "/ngu-truong",         wait: 8000, needLogin: false }, // map tile chậm
-  { slug: "3-muc-phat", path: "/tau?tab=muc-phat",   wait: 2500, needLogin: false },
-  { slug: "4-gia-ca",   path: "/tien?tab=giao-dich", wait: 3000, needLogin: false },
+  { slug: "1-home",     path: "/",           wait: 1500, needLogin: false },
+  { slug: "2-ra-khoi",  path: "/ngu-truong", wait: 8000, needLogin: false }, // map tile chậm
+  { slug: "3-cho",      path: "/tien",       wait: 3000, needLogin: false },
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -75,6 +77,14 @@ async function cleanChrome(page) {
 
 const browser = await puppeteer.launch({ executablePath: CHROME, args: ["--no-sandbox"] });
 const page = await browser.newPage();
+// TẮT tour onboarding (coach-mark "BƯỚC 1/2") trước khi app JS chạy — profile
+// puppeteer mới toanh nên tour bung ra che màn + làm tối nền = ảnh store hỏng.
+// forfish.tour.enabled.v1 = "off" ⇒ isTourEnabled() false (src/lib/tour.ts).
+await page.evaluateOnNewDocument(() => {
+  try {
+    localStorage.setItem("forfish.tour.enabled.v1", "off");
+  } catch {}
+});
 await page.setViewport({ width: 414, height: 896, deviceScaleFactor: 3 });
 
 // ── đăng nhập 1 lần (session giữ trong localStorage, dùng lại cho mọi viewport).

@@ -105,6 +105,28 @@ cd android
 
 > App dùng **vị trí** → Play hỏi lý do trong Data safety; ghi đúng: "hiển thị bản đồ và thời tiết biển theo vị trí, không lưu trữ".
 
+### 3b. TỰ ĐỘNG hoá build + upload (GitHub Actions)
+
+Workflow `.github/workflows/android-release.yml` gộp §3 bước 1–3 + upload Play qua API. **Trigger: bấm tay** (Actions → *Android release* → Run workflow) **hoặc push tag `vX.Y.Z`**. KHÔNG chạy mỗi push — chế độ (a) `server.url` nên đa số cập nhật chỉ cần deploy Vercel, không cần binary.
+
+**Cơ chế:**
+- `versionCode = 10000 + run_number` → tự tăng, đơn điệu, khỏi sửa `build.gradle` tay. `versionName` lấy từ input hoặc tag (`v1.0.4` → `1.0.4`); `build.gradle` đọc qua `-PappVersionCode/-PappVersionName` (fallback giá trị chốt tay khi build local).
+- Ký bằng keystore khôi phục từ secret → ghi `android/keystore.properties` runtime (không commit).
+- Upload bằng plugin **Gradle Play Publisher** (`com.github.triplet.play`, classpath ở `android/build.gradle`, block `play{}` ở `android/app/build.gradle`) đọc credential từ env `ANDROID_PUBLISHER_CREDENTIALS`. Track mặc định `internal`.
+- KHÔNG chạy `cap add`; chỉ `cap sync` + `npm run icons`. Web là **stub** (`out/index.html`) vì `server.url` load Vercel lúc chạy.
+
+**Secrets phải set** (Settings → Secrets and variables → Actions):
+
+| Secret | Lấy từ |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 android/app/sdfish-release.keystore` |
+| `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD` | `android/keystore.properties` (hiện `sdvico`/`sdfish`/`sdvico`) |
+| `PLAY_SERVICE_ACCOUNT_JSON` | Play Console → **Setup → API access** → link GCP → tạo service account → grant **Release apps** → JSON key. Chỉ cần cho bước publish. |
+
+**Điều kiện tiên quyết (một lần, làm TAY):** app SDFish phải **đã tạo + upload AAB đầu tiên bằng tay** lên Play — Play chặn upload API cho app chưa có bản phát hành nào. Sau đó CI đảm nhận các bản kế.
+
+**CI KHÔNG làm** (vẫn tay trên Play, xem §5): App content, Data safety, Privacy Policy URL, screenshot, tài khoản demo, bấm "Send for review" bản production đầu. Đổi icon/splash/plugin native → chạy `npm run cap:sync` local + commit trước (CI không sync platform mới).
+
 ---
 
 ## 4. Build & phát hành iOS (App Store) — cần Mac

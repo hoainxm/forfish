@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'com.github.triplet.play'
 
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
@@ -13,8 +14,11 @@ android {
         applicationId "vn.sdvico.forfish"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 4
-        versionName "1.0.3"
+        // CI (android-release.yml) truyền -PappVersionCode/-PappVersionName để tự
+        // tăng versionCode (Play bắt buộc mỗi upload phải lớn hơn lần trước) mà không
+        // sửa file. Build local không truyền → dùng giá trị chốt tay bên dưới.
+        versionCode (project.hasProperty('appVersionCode') ? project.property('appVersionCode').toString().toInteger() : 4)
+        versionName (project.hasProperty('appVersionName') ? project.property('appVersionName').toString() : "1.0.3")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -70,4 +74,16 @@ try {
     }
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
+
+// --- Gradle Play Publisher (CI upload) ---------------------------------------
+// Credential lấy từ env ANDROID_PUBLISHER_CREDENTIALS (nội dung JSON service
+// account) → KHÔNG commit file. Không set env (build local) thì task publish*
+// bỏ qua, task build vẫn chạy bình thường.
+// Track mặc định 'internal' (an toàn — chỉ tester); -PplayTrack=production để đẩy live.
+play {
+    track.set(project.hasProperty('playTrack') ? project.property('playTrack').toString() : "internal")
+    defaultToAppBundles.set(true)
+    // 'completed' = phát hành ngay trong track; đổi 'draft' nếu muốn giữ nháp.
+    releaseStatus.set(com.github.triplet.gradle.androidpublisher.ReleaseStatus.COMPLETED)
 }
