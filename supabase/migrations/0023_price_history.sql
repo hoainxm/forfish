@@ -27,6 +27,7 @@ create table if not exists public.price_history (
 alter table public.price_history enable row level security;
 
 -- Giá tham khảo công khai — ai cũng đọc được (kể cả chưa đăng nhập)
+drop policy if exists price_history_read on public.price_history;
 create policy price_history_read on public.price_history
   for select using (true);
 
