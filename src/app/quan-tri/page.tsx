@@ -454,8 +454,36 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
       return;
     }
     setNotice(
-      `Đã ghi mã CK cho ${a.phone} — chờ SDWork đối chiếu sao kê xác nhận.`,
+      `Đã ghi mã CK cho ${a.phone} — chờ đối chiếu (xem biến động số dư SDWork rồi bấm "Đã đối chiếu").`,
     );
+    load();
+  }
+
+  /** Đối chiếu THỦ CÔNG (admin) — sau khi xem biến động số dư SDWork thấy tiền
+   *  vào (mã = SĐT khách), bấm để đánh dấu payment 'pending' → 'reconciled'. */
+  async function reconcilePayment(a: Account) {
+    setBusyPhone(a.phone);
+    setError(null);
+    setNotice(null);
+    const r = await fetch(apiUrl("/api/admin/accounts"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ phone: a.phone, action: "reconcile_payment" }),
+    }).catch(() => null);
+    const j = (await r?.json().catch(() => null)) as {
+      ok?: boolean;
+      code?: string;
+    } | null;
+    setBusyPhone(null);
+    if (!r?.ok || !j?.ok) {
+      setError(
+        j?.code === "no_pending_payment"
+          ? "Khách này không có khoản nào đang chờ đối chiếu."
+          : "Đối chiếu chưa được — thử lại.",
+      );
+      return;
+    }
+    setNotice(`Đã đối chiếu khoản thu của ${a.phone}.`);
     load();
   }
 
@@ -719,11 +747,24 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
                           Chưa thu
                         </span>
                       )}
+                      {a.payment &&
+                        a.payment.reconciledStatus !== "reconciled" &&
+                        isAdmin && (
+                          <button
+                            type="button"
+                            disabled={busyPhone === a.phone}
+                            onClick={() => reconcilePayment(a)}
+                            title="Đã xem biến động số dư SDWork thấy tiền vào → đánh dấu đối chiếu"
+                            className="min-h-[2rem] rounded-full bg-ok-bg px-2.5 text-[0.75rem] font-bold text-ok disabled:opacity-50"
+                          >
+                            ✓ Đối chiếu
+                          </button>
+                        )}
                       <button
                         type="button"
                         disabled={busyPhone === a.phone}
                         onClick={() => {
-                          setPayCode("");
+                          setPayCode(a.phone);
                           setToPay(a);
                         }}
                         className="min-h-[2rem] rounded-full bg-navy px-2.5 text-[0.75rem] font-bold text-white disabled:opacity-50"
@@ -883,15 +924,15 @@ function AccountsTab({ me }: { me: { phone: string; role: StaffRole } }) {
               Ghi thu tiền — {toPay.phone}
             </p>
             <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
-              Nhập MÃ chuyển khoản khách đã trả (chỉ mã — như thanh toán tên
-              miền). Số tiền + đối soát ở SDWork; SDWork tra sao kê theo mã rồi
-              xác nhận đã nhận.
+              Mã CK = <b>SĐT khách</b> (khách ghi SĐT vào nội dung chuyển khoản)
+              — đã điền sẵn, sửa nếu khách ghi mã khác. Sau đó xem biến động số
+              dư SDWork thấy tiền vào rồi bấm &quot;Đã đối chiếu&quot;.
             </p>
             <input
               autoFocus
               value={payCode}
               onChange={(e) => setPayCode(e.target.value)}
-              placeholder="Mã CK (vd FT25073012345)"
+              placeholder="Mã CK = SĐT khách (vd 0912345678)"
               className="mt-3 min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
             />
             <div className="mt-4 flex gap-2">
@@ -3462,6 +3503,7 @@ const AUDIT_ACTION_LABEL: Record<string, string> = {
   reset_password: "Đặt lại mật khẩu",
   set_flag: "Đổi trạng thái chăm khách",
   record_payment: "Ghi thu tiền (mã CK)",
+  reconcile_payment: "Đối chiếu thu tiền",
   create_account: "Tạo tài khoản",
   delete_account: "Xoá tài khoản",
 };

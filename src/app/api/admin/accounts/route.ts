@@ -406,6 +406,37 @@ export async function PATCH(req: Request) {
     });
   }
 
+  if (body.action === "reconcile_payment") {
+    // NV5 THỦ CÔNG (2026-07-30) — admin ĐÁNH DẤU ĐÃ ĐỐI CHIẾU sau khi xem trang
+    // biến động số dư SDWork thấy tiền vào (mã CK = SĐT khách). Chỉ ADMIN (xác
+    // nhận tiền = việc quản trị công ty). Set mọi payment 'pending' của khách →
+    // 'reconciled'. (Webhook SDWork auto vẫn còn cho sau — cùng đặt reconciled.)
+    const who = await requireAdmin();
+    if (!who.ok) return err(who.status, who.code);
+    const admin = createAdminClient();
+    if (!admin) return err(503, "not_configured");
+
+    const { data, error } = await admin
+      .from("payments")
+      .update({ reconciled_status: "reconciled", reconciled_at: nowIso })
+      .eq("customer_phone", phone)
+      .eq("reconciled_status", "pending")
+      .select("id");
+    if (error) return err(500, "update_failed");
+    if (!data || data.length === 0) return err(404, "no_pending_payment");
+    await writeAudit(admin, {
+      actor: who.phone,
+      action: "reconcile_payment",
+      target: phone,
+      detail: `count=${data.length}`,
+    });
+    return NextResponse.json({
+      ok: true,
+      action: "reconcile_payment",
+      count: data.length,
+    });
+  }
+
   if (body.action === "grant") {
     // KÍCH HOẠT / GIA HẠN premium (1 năm/lần) — admin + manager đều được
     const who = await requireStaff();
