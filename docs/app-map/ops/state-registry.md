@@ -2,10 +2,14 @@
 
 > Load khi: đọc/ghi/sửa state phía client, hoặc debug "dữ liệu mất / sai / không lưu". Mọi key `forfish.*` trong localStorage liệt kê ở đây.
 
-covers: src/lib/boats.ts, src/lib/debts.ts, src/lib/region.ts, src/lib/places.ts, src/lib/sea.ts, src/lib/forecast-cache.ts
-last_verified: 2026-07-25
+covers: src/lib/boats.ts, src/lib/region.ts, src/lib/places.ts, src/lib/sea.ts, src/lib/forecast-cache.ts
+last_verified: 2026-07-30
 ttl_days: 180
 gate: warn
+<!-- re-verified: 2026-07-30 — dọn drift: gỡ `src/lib/debts.ts` khỏi covers (file + feature sổ lãi/lỗ XÓA HẲN 2026-07-27, xem 01-product Trục 2). Bỏ 2 hàng key `forfish.debts.v1` + `forfish.trips.v1` (component debt-ledger/trip-report/trip-log đã xóa) — key chỉ còn trong USER_SCOPED_KEYS (auth-scope) để wipe back-compat máy cũ, KHÔNG còn nơi ghi. -->
+<!-- re-verified: 2026-07-29b — seed mẫu crew/maintenance gỡ (app lên thật): key forfish.crew.v1 / forfish.maintenance.v1 nay CHỈ ghi khi có data thật (trước seed in-memory không ghi) — semantics key không đổi, chỉ bỏ đường seed. -->
+<!-- re-verified: 2026-07-29c — THÊM key forfish.tier.premium.v1 (dấu premium, use-tier) + forfish.sdvico-boat.v1 (gán món→tàu) vào USER_SCOPED_KEYS wipe khi đổi user/logout — chống rò chéo user. -->
+
 <!-- re-verified: 2026-07-25j — thêm 2 hàng `forfish.fc.point.*` / `forfish.fc.grid.d<N>` (bản lưu dự báo xem lúc mất sóng, lib/forecast-cache.ts). Trần 40 bản/namespace, dọn TRƯỚC khi ghi + bỏ bản cũ nhất khi máy hết chỗ; saveForecast trả boolean để UI báo "máy hết chỗ". -->
 <!-- re-verified: 2026-07-25 — forfish.sea bump v2→v3 (dự báo 16 ngày + waveEstimated); TTL sửa 6h→1h khớp CACHE_TTL_MS -->
 <!-- re-verified: 2026-07-29 — KHÔNG key mới, chỉ đổi TƯƠNG THÍCH NGƯỢC bên trong key cũ: (a) `forfish.fc.grid.d<N>` — GridHour thêm 2 trường OPTIONAL curKmh/curDirDeg (dòng chảy, hướng CHẢY VỀ); bản lưu đời cũ thiếu trường → đọc `?? null`, lớp Dòng chảy tự bỏ nấc cache thiếu cur (needCurrent). (b) `forfish.fc.point.*` — SeaPointConditions/SeaPointDay thêm curKmh/curDirDeg optional, luật đọc y vậy. (c) Cả 3 đường fetch (grid/scalar/sea) nay LƯU cả bản lấy từ SNAPSHOT server vào các key này với savedAt = TUỔI THẬT của snapshot (không phải Date.now) — semantics savedAt không đổi, chỉ nguồn ghi thêm. KHÔNG bump version key nào. -->
@@ -37,9 +41,8 @@ gate: warn
 | `forfish.products.v1` | Đồ/vật tư của tàu | `components/boat-products.tsx` | van-hanh | 3 | xoá → trống |
 | `forfish.maintenance.v1` | Nhắc bảo dưỡng | `components/maintenance-reminders.tsx` | + `urgent-strip.tsx` | 3 | xoá → mất lịch nhắc |
 | `forfish.crew.v1` | Danh sách thuyền viên | `components/crew-list.tsx` | + `urgent-strip.tsx` | 3 | xoá → trống |
-| `forfish.debts.v1` | Sổ lãi lỗ chuyến biển | `components/debt-ledger.tsx` (+ `lib/debts.ts`) | gia-ca | 2 | xoá → **mất sổ — backup trước** |
-| `forfish.buyers.v1` | Danh bạ thương lái | `components/sell-guide.tsx` | gia-ca | 2 | xoá → trống |
-| `forfish.trips.v1` | Nhật ký chuyến biển | `components/trip-report.tsx`, `trip-log.tsx` | gia-ca, van-hanh | 2 | xoá → **mất nhật ký — backup trước** |
+| `forfish.buyers.v1` | Danh bạ chỗ bán | `components/sell-guide.tsx` | /tien | 2 | xoá → trống |
+| ~~`forfish.debts.v1`~~ ~~`forfish.trips.v1`~~ | **XÓA 2026-07-27** — sổ lãi/lỗ + nhật ký chuyến (feature bỏ). Không component nào ghi nữa; key chỉ còn trong USER_SCOPED_KEYS để wipe máy cũ | — | — | — |
 | `forfish.documents.v1` | Tủ giấy tờ (loại, hạn) | `components/document-vault.tsx` | + `urgent-strip.tsx` | 4 | xoá → **mất hồ sơ — backup trước** |
 
 > `urgent-strip.tsx` là reader chéo: đọc `documents` + `maintenance` + `crew` để hiện cảnh báo gần đến hạn.
