@@ -21,7 +21,10 @@ export type StaffContext =
 
 /**
  * Kiểm quyền STAFF cho route /api/admin/* — hai vai (2026-07-30 phân quyền):
- * · admin   — SĐT trong env ADMIN_PHONES: toàn quyền (permissions=null).
+ * · admin   — SĐT trong env ADMIN_PHONES **HOẶC** customers.role='admin'
+ *             (2026-07-31, user chốt): toàn quyền (permissions=null). Nguồn DB
+ *             để thêm/bớt quản trị viên ngay trên web không cần deploy; env
+ *             giữ lại làm CỬA CỨU HỘ (web không hạ được admin từ env).
  * · manager — customers.role='manager' (0004) + customers.staff_permissions
  *             (0017): quyền theo TAB × HÀNH ĐỘNG. Chưa apply 0017 (cột chưa
  *             có) → dùng preset mặc định để quản lý vẫn làm việc được.
@@ -39,7 +42,7 @@ export async function requireStaff(): Promise<StaffContext> {
     return { ok: true, phone, role: "admin", permissions: null };
   }
 
-  // quản lý nằm trong DB — tra bằng service-role (chỉ đọc đúng hàng của SĐT
+  // staff nằm trong DB — tra bằng service-role (chỉ đọc đúng hàng của SĐT
   // đang đăng nhập, không lộ gì thêm)
   const admin = createAdminClient();
   if (!admin) return { ok: false, status: 503, code: "not_configured" };
@@ -49,6 +52,10 @@ export async function requireStaff(): Promise<StaffContext> {
       .select("role")
       .eq("phone", phone)
       .maybeSingle();
+    // QUẢN TRỊ VIÊN nguồn DB — toàn quyền y như admin env, KHÔNG tra bảng quyền
+    if (!error && row?.role === "admin") {
+      return { ok: true, phone, role: "admin", permissions: null };
+    }
     if (!error && row?.role === "manager") {
       // Bảng quyền tra RIÊNG + có try/catch: 0017 chưa apply (cột chưa có) thì
       // KHÔNG được coi quản lý là "không phải staff" — vẫn cho vào với preset

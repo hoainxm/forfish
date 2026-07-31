@@ -497,6 +497,10 @@ function AccountsTab({ me }: { me: Me }) {
   // tìm kiếm + lọc hạng (client-side — vài trăm hàng, không cần server)
   const [query, setQuery] = useState("");
   const [tierFilter, setTierFilter] = useState<TierFilter>("all");
+  // Tab này là của NGƯỜI DÙNG APP (user 2026-07-31) → mặc định chỉ hiện khách;
+  // nhân sự (quản lý/quản trị viên) vẫn xem được bằng chip, vì đôi khi cần đặt
+  // lại mật khẩu hoặc cấp premium cho chính họ.
+  const [roleFilter, setRoleFilter] = useState<"khach" | "nhan-su">("khach");
   // dialog xác nhận — thay window.prompt/confirm (yêu cầu 2026-07-26).
   // Hạn xem trước tính LÚC BẤM NÚT (không gọi Date.now() trong render)
   const [toGrant, setToGrant] = useState<{
@@ -552,7 +556,14 @@ function AccountsTab({ me }: { me: Me }) {
     };
   }, [accounts, effTier]);
 
-  const visible = useMemo(() => {
+  /** nhân sự = có quyền vào web quản trị (KHÁC hạng premium — hai trục rời) */
+  const isStaff = useCallback(
+    (a: Account) => a.isAdmin || a.role === "manager",
+    [],
+  );
+
+  /** khớp tìm kiếm + lọc hạng, CHƯA xét vai */
+  const matched = useMemo(() => {
     if (!accounts) return null;
     const q = fold(query.trim());
     const qDigits = query.replace(/\D/g, "");
@@ -565,6 +576,23 @@ function AccountsTab({ me }: { me: Me }) {
       return false;
     });
   }, [accounts, query, tierFilter, effTier]);
+
+  const visible = useMemo(
+    () =>
+      matched?.filter((a) =>
+        roleFilter === "nhan-su" ? isStaff(a) : !isStaff(a),
+      ) ?? null,
+    [matched, roleFilter, isStaff],
+  );
+
+  /** đang xem Khách mà tìm trúng nhân sự → mách một câu, đừng để tưởng mất */
+  const hiddenStaff = useMemo(
+    () =>
+      roleFilter === "khach" && matched
+        ? matched.filter(isStaff).length
+        : 0,
+    [matched, roleFilter, isStaff],
+  );
 
   /** grant = kích hoạt/gia hạn 1 năm (server tự tính hạn + ghi log);
    *  downgrade = hạ về thường (admin) */
@@ -729,10 +757,46 @@ function AccountsTab({ me }: { me: Me }) {
         </div>
       </div>
 
-      {/* tạo tài khoản — cần cờ create; tạo tài khoản QUẢN LÝ chỉ admin */}
-      {perms.create && (
-        <CreateAccountForm onCreated={load} canCreateManager={isAdmin} />
+      {/* VAI: tab này của NGƯỜI DÙNG APP; nhân sự để riêng cho khỏi lẫn */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {(
+          [
+            ["khach", "Khách dùng app"],
+            ["nhan-su", "Nhân sự quản trị"],
+          ] as ["khach" | "nhan-su", string][]
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setRoleFilter(id)}
+            aria-pressed={roleFilter === id}
+            className={`min-h-[2.5rem] shrink-0 rounded-full px-4 text-[0.875rem] font-bold transition ${
+              roleFilter === id
+                ? "bg-navy text-white"
+                : "bg-field text-foreground/70"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="text-[0.8125rem] text-foreground/55">
+          {roleFilter === "khach"
+            ? "Tạo/phân quyền nhân sự làm ở tab Phân quyền"
+            : "Chỉ để cấp premium / đặt lại mật khẩu cho nhân sự"}
+        </span>
+      </div>
+
+      {hiddenStaff > 0 && (
+        <p className="surface px-4 py-2.5 text-[0.875rem] text-foreground/70">
+          Có <b>{hiddenStaff}</b> tài khoản <b>nhân sự</b> cũng khớp tìm kiếm —
+          bấm <b>Nhân sự quản trị</b> để xem.
+        </p>
       )}
+
+      {/* Tạo KHÁCH (thường/premium) — cần cờ create. Tạo NHÂN SỰ (quản lý,
+          quản trị viên) đã tách hẳn sang tab Phân quyền (user 2026-07-31: hai
+          luồng lẫn vào nhau khó nhìn). */}
+      {perms.create && <CreateAccountForm onCreated={load} />}
 
       {/* THỐNG KÊ THEO NGƯỜI CẤP premium (log premium_grants): quản lý thấy
           dòng của mình; admin thấy cả bảng — biết ai đang quản bao nhiêu */}
@@ -811,9 +875,17 @@ function AccountsTab({ me }: { me: Me }) {
       {visible && accounts && accounts.length > 0 && (
         <>
           <p className="px-1 text-[0.8125rem] font-semibold text-foreground/55">
-            {visible.length === accounts.length
-              ? `${accounts.length} tài khoản`
-              : `${visible.length}/${accounts.length} tài khoản khớp`}
+            {/* đếm theo ĐÚNG nhóm đang xem — trước so với tổng cả bảng nên
+                lúc nào cũng ra "x/y khớp" dù không lọc gì */}
+            {`${visible.length} ${roleFilter === "khach" ? "khách" : "nhân sự"}`}
+            {visible.length !== (roleFilter === "khach"
+              ? accounts.filter((a) => !isStaff(a)).length
+              : accounts.filter(isStaff).length) &&
+              ` khớp (trên ${
+                roleFilter === "khach"
+                  ? accounts.filter((a) => !isStaff(a)).length
+                  : accounts.filter(isStaff).length
+              })`}
           </p>
           {visible.length === 0 ? (
             <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
@@ -1026,13 +1098,10 @@ function AccountsTab({ me }: { me: Me }) {
  * VAI của một tài khoản — nói rõ ADMIN vs QUẢN LÝ cho khỏi lẫn (user
  * 2026-07-31: "nếu nó là admin thì cần biết nó là admin").
  *
- * Ba trường hợp, theo đúng luật ở lib/admin-auth.ts:
- * · `isAdmin` (SĐT trong env ADMIN_PHONES) → QUẢN TRỊ VIÊN, toàn quyền. Không
- *   cấu hình được từ web, không nằm trong tab Phân quyền.
+ * Hai vai, theo đúng luật ở lib/admin-auth.ts:
+ * · `isAdmin` — QUẢN TRỊ VIÊN, toàn quyền. Nguồn: env ADMIN_PHONES HOẶC
+ *   customers.role='admin' (nâng/hạ ở tab Phân quyền).
  * · `role='manager'` → QUẢN LÝ, quyền theo bảng ở tab Phân quyền.
- * · `role='admin'` trong DB mà KHÔNG có trong env → BẪY: nhìn tưởng admin
- *   nhưng code chỉ đọc 'manager', tài khoản này KHÔNG có quyền staff nào. Tô
- *   cảnh báo để không ai yên trí nhầm.
  */
 function RoleBadge({ account }: { account: Account }) {
   if (account.isAdmin) {
@@ -1046,16 +1115,6 @@ function RoleBadge({ account }: { account: Account }) {
     return (
       <span className="ml-2 rounded-full bg-t1-bg px-2 py-0.5 text-[0.75rem] font-bold text-t1">
         Quản lý
-      </span>
-    );
-  }
-  if (account.role === "admin") {
-    return (
-      <span
-        className="ml-2 rounded-full bg-warn-bg px-2 py-0.5 text-[0.75rem] font-bold text-warn"
-        title="Cột role trong DB ghi 'admin' nhưng SĐT không có trong ADMIN_PHONES — tài khoản này KHÔNG có quyền quản trị"
-      >
-        role=admin · KHÔNG có quyền
       </span>
     );
   }
@@ -1101,18 +1160,13 @@ function FlagToggle({
   );
 }
 
-function CreateAccountForm({
-  onCreated,
-  canCreateManager,
-}: {
-  onCreated: () => void;
-  canCreateManager: boolean;
-}) {
+/** Tạo tài khoản KHÁCH (người dùng app: thường hoặc premium). Nhân sự
+ *  (quản lý / quản trị viên) tạo ở tab Phân quyền — xem CreateStaffForm. */
+function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"customer" | "manager">("customer");
   const [activatePremium, setActivatePremium] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -1125,7 +1179,13 @@ function CreateAccountForm({
       method: "POST",
       headers: { "content-type": "application/json" },
       // premium khi tạo = một lần KÍCH HOẠT chuẩn (1 năm, server tính hạn + log)
-      body: JSON.stringify({ phone, name, password, role, activatePremium }),
+      body: JSON.stringify({
+        phone,
+        name,
+        password,
+        role: "customer",
+        activatePremium,
+      }),
     }).catch(() => null);
     setBusy(false);
     const j = (await r?.json().catch(() => null)) as {
@@ -1151,7 +1211,6 @@ function CreateAccountForm({
     setPhone("");
     setName("");
     setPassword("");
-    setRole("customer");
     setActivatePremium(false);
     onCreated();
   }
@@ -1167,7 +1226,7 @@ function CreateAccountForm({
         className="flex w-full items-center justify-between text-[1rem] font-bold text-navy"
         aria-expanded={open}
       >
-        {canCreateManager ? "Tạo tài khoản (khách / quản lý)" : "Tạo tài khoản khách"}
+        Tạo tài khoản khách
         <span aria-hidden>{open ? "−" : "+"}</span>
       </button>
       {open && (
@@ -1197,37 +1256,6 @@ function CreateAccountForm({
             onChange={(e) => setPassword(e.target.value)}
             className={field}
           />
-          {/* loại tài khoản: 2 nút phân đoạn (select gốc bị bóp nhỏ khó nhìn
-              — user 2026-07-26). Tạo tài khoản QUẢN LÝ chỉ hiện cho admin;
-              quản lý có cờ create chỉ tạo được khách. */}
-          {canCreateManager && (
-            <div
-              className="grid grid-cols-2 gap-1.5 sm:col-span-2 lg:col-span-2"
-              role="group"
-              aria-label="Loại tài khoản"
-            >
-              {(
-                [
-                  ["customer", "Khách"],
-                  ["manager", "Quản lý — được phân quyền"],
-                ] as ["customer" | "manager", string][]
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setRole(id)}
-                  aria-pressed={role === id}
-                  className={`min-h-[2.75rem] rounded-xl px-3 text-[0.875rem] font-bold transition ${
-                    role === id
-                      ? "bg-navy text-white shadow-sm"
-                      : "bg-field text-foreground/70"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
           <label className="flex min-h-[2.75rem] cursor-pointer items-center gap-2.5 rounded-xl bg-field px-3.5 text-[0.875rem] font-bold text-foreground/80 sm:col-span-2 lg:col-span-2">
             <input
               type="checkbox"
@@ -4067,9 +4095,11 @@ function SystemTab({ health }: { health: Health }) {
 }
 
 /* ── PHÂN QUYỀN (admin-only) ───────────────────────────────────────────────
-   Bảng quyền từng tài khoản QUẢN LÝ: 5 tab × 4 hành động (Xem/Tạo mới/Sửa/
-   Xóa). Admin (env) luôn toàn quyền — không hiện ở đây. Chốt thật ở
-   /api/admin/* (requirePermission); bảng này chỉ soạn cấu hình. */
+   Hai khối: (1) QUẢN TRỊ VIÊN toàn quyền — nâng/hạ ngay tại đây (nguồn DB
+   role='admin'), riêng người từ env ADMIN_PHONES chỉ xem được vì web không
+   sửa env; (2) bảng quyền từng tài khoản QUẢN LÝ: 5 tab × 4 hành động
+   (Xem/Tạo mới/Sửa/Xóa). Chốt thật ở /api/admin/* (requireAdmin /
+   requirePermission); màn này chỉ soạn cấu hình. */
 
 type ManagerPerm = {
   phone: string;
@@ -4078,13 +4108,186 @@ type ManagerPerm = {
   configured: boolean;
 };
 
+/** Một quản trị viên + NGUỒN quyền: 'db' hạ được ở đây, 'env' thì không. */
+type AdminRow = { phone: string; name: string | null; source: "env" | "db" };
+
+/**
+ * Tạo tài khoản NHÂN SỰ (quản lý / quản trị viên) — tách hẳn khỏi form tạo
+ * KHÁCH ở tab Tài khoản (user 2026-07-31: "tách hẳn luồng tạo quản trị viên và
+ * user riêng ra cho đỡ lẫn"). Cùng gọi POST /api/admin/accounts (vẫn là một
+ * hàng customers) nhưng server bắt ADMIN-ONLY khi role != 'customer'.
+ * KHÔNG có ô premium: premium là HẠNG của người dùng app, không dính vai nhân
+ * sự — cần thì cấp bên tab Tài khoản.
+ */
+function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"manager" | "admin">("manager");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [confirmAdmin, setConfirmAdmin] = useState(false);
+
+  async function create() {
+    setBusy(true);
+    setMsg(null);
+    const r = await fetch(apiUrl("/api/admin/accounts"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ phone, name, password, role }),
+    }).catch(() => null);
+    setBusy(false);
+    const j = (await r?.json().catch(() => null)) as {
+      ok?: boolean;
+      code?: string;
+      provisioned?: boolean;
+    } | null;
+    if (!r?.ok || !j?.ok) {
+      setMsg(
+        j?.code === "bad_phone"
+          ? "SĐT chưa hợp lệ."
+          : j?.code === "bad_password"
+            ? "Mật khẩu tối thiểu 6 ký tự."
+            : j?.code === "admin_only"
+              ? "Chỉ quản trị viên tạo được tài khoản nhân sự."
+              : "Tạo chưa được — thử lại.",
+      );
+      return;
+    }
+    setMsg(
+      j.provisioned
+        ? `Đã tạo ${role === "admin" ? "quản trị viên" : "quản lý"} ${phone}. Báo họ đăng nhập bằng SĐT + mật khẩu tạm (lần đầu bắt đổi).`
+        : "Đã lưu nhưng TẠO ĐĂNG NHẬP LỖI — kiểm tra lại.",
+    );
+    setPhone("");
+    setName("");
+    setPassword("");
+    setRole("manager");
+    onCreated();
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    // tạo QUẢN TRỊ VIÊN = trao toàn quyền ngay → hỏi lại một nhịp
+    if (role === "admin") {
+      setConfirmAdmin(true);
+      return;
+    }
+    create();
+  }
+
+  const field =
+    "min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea";
+
+  return (
+    <div className="surface px-4 py-3.5">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between text-[1rem] font-bold text-navy"
+        aria-expanded={open}
+      >
+        Tạo tài khoản nhân sự (quản lý / quản trị viên)
+        <span aria-hidden>{open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <form
+          onSubmit={submit}
+          className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          <input
+            required
+            inputMode="numeric"
+            placeholder="SĐT (0901234567)"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className={field}
+          />
+          <input
+            placeholder="Tên nhân sự (tuỳ chọn)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={field}
+          />
+          <input
+            required
+            type="text"
+            placeholder="Mật khẩu tạm (≥6 ký tự)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={field}
+          />
+          <div
+            className="grid grid-cols-2 gap-1.5 sm:col-span-2 lg:col-span-2"
+            role="group"
+            aria-label="Vai"
+          >
+            {(
+              [
+                ["manager", "Quản lý — theo bảng quyền"],
+                ["admin", "Quản trị viên — toàn quyền"],
+              ] as ["manager" | "admin", string][]
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setRole(id)}
+                aria-pressed={role === id}
+                className={`min-h-[2.75rem] rounded-xl px-3 text-[0.875rem] font-bold transition ${
+                  role === id
+                    ? "bg-navy text-white shadow-sm"
+                    : "bg-field text-foreground/70"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="submit"
+            disabled={busy}
+            className="min-h-[2.75rem] rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50"
+          >
+            {busy ? "Đang tạo…" : "Tạo tài khoản"}
+          </button>
+          {msg && (
+            <p className="text-[0.875rem] font-semibold text-foreground/75 sm:col-span-2 lg:col-span-3">
+              {msg}
+            </p>
+          )}
+        </form>
+      )}
+
+      {confirmAdmin && (
+        <ConfirmDialog
+          title={`Tạo ${phone} làm quản trị viên?`}
+          message="Tài khoản mới sẽ TOÀN QUYỀN ngay: xóa tài khoản, đặt lại mật khẩu, đổi phân quyền, gửi thông báo… và tự tạo/nâng được quản trị viên khác. Nếu chỉ cần làm việc theo khu thì chọn Quản lý."
+          confirmLabel="Tạo quản trị viên"
+          cancelLabel="Không"
+          danger
+          onCancel={() => setConfirmAdmin(false)}
+          onConfirm={() => {
+            setConfirmAdmin(false);
+            create();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 function PermissionsTab() {
   const [managers, setManagers] = useState<ManagerPerm[] | null>(null);
-  const [admins, setAdmins] = useState<{ phone: string; name: string | null }[]>(
-    [],
-  );
+  const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [migrationNeeded, setMigrationNeeded] = useState(false);
+  // nâng/hạ quản trị viên
+  const [roleMsg, setRoleMsg] = useState<string | null>(null);
+  const [roleBusy, setRoleBusy] = useState(false);
+  const [promotePhone, setPromotePhone] = useState("");
+  const [toPromote, setToPromote] = useState<string | null>(null);
+  const [toDemote, setToDemote] = useState<AdminRow | null>(null);
 
   const load = useCallback(() => {
     setError(null);
@@ -4095,7 +4298,7 @@ function PermissionsTab() {
           ok: boolean;
           code?: string;
           managers?: ManagerPerm[];
-          admins?: { phone: string; name: string | null }[];
+          admins?: AdminRow[];
           migrationNeeded?: boolean;
         };
         if (!j.ok) throw new Error(j.code ?? "load");
@@ -4115,53 +4318,169 @@ function PermissionsTab() {
   }, []);
   useEffect(load, [load]);
 
+  /** Nâng/hạ quản trị viên. Server chốt lại mọi luật (tự hạ mình · admin env ·
+   *  người cuối cùng) — ở đây chỉ dịch mã lỗi ra tiếng người. */
+  async function setRole(phone: string, role: "admin" | "manager") {
+    setRoleBusy(true);
+    setRoleMsg(null);
+    const r = await fetch(apiUrl("/api/admin/staff"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "set-role", phone, role }),
+    }).catch(() => null);
+    const j = (await r?.json().catch(() => null)) as {
+      ok?: boolean;
+      code?: string;
+    } | null;
+    setRoleBusy(false);
+    if (!r?.ok || !j?.ok) {
+      const why: Record<string, string> = {
+        self: "Không tự hạ chính mình được — nhờ quản trị viên khác làm.",
+        env_admin:
+          "SĐT này là quản trị viên từ env ADMIN_PHONES — phải sửa biến môi trường trên Vercel rồi deploy lại, web không đổi được.",
+        last_admin:
+          "Đây là quản trị viên CUỐI CÙNG — hạ xuống là không ai vào được web quản trị nữa. Nâng người khác lên trước đã.",
+        not_found:
+          "Chưa có tài khoản nào mang SĐT này — tạo tài khoản ở tab Tài khoản trước.",
+        bad_phone: "SĐT chưa hợp lệ.",
+      };
+      setRoleMsg(why[j?.code ?? ""] ?? "Chưa đổi được — thử lại.");
+      return;
+    }
+    setRoleMsg(
+      role === "admin"
+        ? `Đã nâng ${phone} lên quản trị viên.`
+        : `Đã hạ ${phone} xuống quản lý.`,
+    );
+    setPromotePhone("");
+    load();
+  }
+
   return (
     <div className="mt-4 space-y-4">
       <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
-        Bật/tắt quyền từng <b>tài khoản quản lý</b> trên 5 khu: Tài khoản · Sản
-        phẩm · Thuyền viên · Thông báo · Chỗ bán. Mỗi khu có 4 mức{" "}
-        <b>Xem · Tạo mới · Sửa · Xóa</b>. Bỏ <b>Xem</b> = ẩn hẳn khu đó khỏi
-        quản lý. Quản trị viên (admin) luôn toàn quyền, không cần cấu hình.
-        (4 khu Yêu cầu · Vùng biển · Dữ liệu · Hệ thống chỉ dành cho quản trị
-        viên.)
+        Khu <b>NHÂN SỰ</b>: tạo và phân quyền người làm việc trên web quản trị.
+        Người dùng app (khách thường / premium) nằm ở tab <b>Tài khoản</b> —
+        hai luồng tách hẳn cho khỏi lẫn.
+        <br />
+        <b className="text-navy">Quản trị viên</b> toàn quyền mọi khu, không cần
+        cấu hình. <b className="text-navy">Quản lý</b> chạy theo bảng quyền: 5
+        khu (Tài khoản · Sản phẩm · Thuyền viên · Thông báo · Chỗ bán) × 4 mức{" "}
+        <b>Xem · Tạo mới · Sửa · Xóa</b>; bỏ <b>Xem</b> = ẩn hẳn khu đó. (4 khu
+        Yêu cầu · Vùng biển · Dữ liệu · Hệ thống chỉ dành cho quản trị viên.)
       </p>
 
-      {/* QUẢN TRỊ VIÊN — chỉ để XEM. Không nằm trong bảng phân quyền nên
-          trước đây không hiện ở đâu trong web, nhìn danh sách dưới tưởng
-          những SĐT này không có quyền gì (user 2026-07-31). */}
+      <CreateStaffForm onCreated={load} />
+
+      {/* QUẢN TRỊ VIÊN — toàn quyền, nâng/hạ ngay tại đây (trừ người từ env). */}
       <div className="surface px-4 py-3.5">
         <p className="text-[0.9375rem] font-bold text-navy">
           Quản trị viên · toàn quyền ({admins.length})
         </p>
         {admins.length === 0 ? (
-          <p className="mt-1 text-[0.875rem] text-foreground/65">
-            Chưa đọc được danh sách (env ADMIN_PHONES trống?).
+          <p className="mt-1 text-[0.875rem] font-semibold text-danger">
+            KHÔNG còn quản trị viên nào — kiểm tra lại ngay.
           </p>
         ) : (
-          <ul className="mt-2 space-y-1">
+          <ul className="mt-2 space-y-1.5">
             {admins.map((a) => (
               <li
                 key={a.phone}
-                className="flex flex-wrap items-baseline gap-x-2 text-[0.875rem]"
+                className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.875rem]"
               >
                 <span className="font-bold tabular-nums text-navy">
                   {a.phone}
                 </span>
                 {a.name && <span className="text-foreground/60">{a.name}</span>}
-                <span className="rounded-full bg-navy px-2 py-0.5 text-[0.75rem] font-bold text-white">
-                  Quản trị viên
-                </span>
+                {a.source === "env" ? (
+                  <span
+                    className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-bold text-foreground/65"
+                    title="Quyền từ biến môi trường ADMIN_PHONES — web không hạ được, phải sửa trên Vercel rồi deploy"
+                  >
+                    từ env · cửa cứu hộ
+                  </span>
+                ) : (
+                  <>
+                    <span className="rounded-full bg-navy px-2 py-0.5 text-[0.75rem] font-bold text-white">
+                      từ tài khoản
+                    </span>
+                    <button
+                      type="button"
+                      disabled={roleBusy}
+                      onClick={() => setToDemote(a)}
+                      className="min-h-[2rem] rounded-lg bg-danger-bg px-3 text-[0.75rem] font-bold text-danger disabled:opacity-50"
+                    >
+                      Hạ xuống quản lý
+                    </button>
+                  </>
+                )}
               </li>
             ))}
           </ul>
         )}
+
+        {/* NÂNG: nhập SĐT một tài khoản đã có → thành quản trị viên */}
+        <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3 sm:flex-row">
+          <input
+            inputMode="numeric"
+            placeholder="SĐT tài khoản muốn nâng lên quản trị viên…"
+            value={promotePhone}
+            onChange={(e) => setPromotePhone(e.target.value)}
+            aria-label="SĐT nâng lên quản trị viên"
+            className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea sm:flex-1"
+          />
+          <button
+            type="button"
+            disabled={roleBusy || !isValidVnPhone(promotePhone)}
+            onClick={() => setToPromote(promotePhone.trim())}
+            className="min-h-[2.75rem] shrink-0 rounded-xl bg-trim px-4 text-[0.9375rem] font-bold text-white disabled:opacity-40"
+          >
+            Nâng lên quản trị viên
+          </button>
+        </div>
+        {roleMsg && (
+          <p className="mt-2 text-[0.875rem] font-semibold text-foreground/75">
+            {roleMsg}
+          </p>
+        )}
         <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/60">
-          Quản trị viên toàn quyền mọi khu, KHÔNG phân quyền được ở đây. Danh
-          sách này lấy từ biến môi trường <b>ADMIN_PHONES</b> trên Vercel —
-          thêm/bớt quản trị viên phải sửa ở đó rồi deploy lại. Đặt{" "}
-          <b>role=&ldquo;admin&rdquo;</b> trong DB KHÔNG cấp quyền gì.
+          Quản trị viên toàn quyền mọi khu, không cần bảng quyền. Nâng/hạ ở đây
+          ăn ngay, không cần deploy. Người ghi <b>từ env</b> lấy quyền từ biến{" "}
+          <b>ADMIN_PHONES</b> trên Vercel — giữ làm cửa cứu hộ, web không hạ
+          được. Không thể tự hạ chính mình, cũng không hạ được người cuối cùng.
         </p>
       </div>
+
+      {toPromote && (
+        <ConfirmDialog
+          title={`Nâng ${toPromote} lên quản trị viên?`}
+          message="Tài khoản này sẽ TOÀN QUYỀN mọi khu: xóa tài khoản, đặt lại mật khẩu, đổi phân quyền, gửi thông báo… và tự nâng được người khác lên quản trị viên. Chỉ nâng người bạn thật sự tin."
+          confirmLabel="Nâng lên quản trị viên"
+          cancelLabel="Không"
+          danger
+          onCancel={() => setToPromote(null)}
+          onConfirm={() => {
+            const p = toPromote;
+            setToPromote(null);
+            setRole(p, "admin");
+          }}
+        />
+      )}
+      {toDemote && (
+        <ConfirmDialog
+          title={`Hạ ${toDemote.phone} xuống quản lý?`}
+          message={`${toDemote.name ? `${toDemote.name} — ` : ""}mất toàn quyền ngay, chỉ còn quyền theo bảng phân quyền của tài khoản quản lý (bảng cũ giữ nguyên nếu trước đây từng có).`}
+          confirmLabel="Hạ xuống quản lý"
+          cancelLabel="Không"
+          danger
+          onCancel={() => setToDemote(null)}
+          onConfirm={() => {
+            const p = toDemote.phone;
+            setToDemote(null);
+            setRole(p, "manager");
+          }}
+        />
+      )}
 
       {migrationNeeded && (
         <p className="surface bg-warn-bg px-4 py-3 text-[0.875rem] font-semibold text-warn">

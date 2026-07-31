@@ -10,7 +10,12 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
-import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
+import {
+  checkDemoteAdmin,
+  isAdminPhone,
+  mergeAdmins,
+  parseAdminPhones,
+} from "@/lib/admin";
 import { normalizeVnPhone } from "@/lib/phone";
 import { normalizePermissions } from "@/lib/staff-permissions";
 
@@ -57,27 +62,48 @@ export async function GET() {
     configured: r.staff_permissions != null,
   }));
 
-  // QUẢN TRỊ VIÊN (env ADMIN_PHONES) — trả về để UI LIỆT KÊ (chỉ xem, không
-  // phân quyền được). Trước đây admin không hiện ở đâu trong web nên nhìn tab
-  // này tưởng người ta không có quyền gì (user 2026-07-31). Kèm tên trong DB
-  // nếu có; SĐT admin chưa có hàng customers vẫn liệt kê (quyền từ env).
-  const adminPhones = parseAdminPhones(process.env.ADMIN_PHONES);
-  let adminNames: Record<string, string | null> = {};
-  if (adminPhones.length > 0) {
-    const { data: aRows } = await admin
+  // QUẢN TRỊ VIÊN — HAI NGUỒN (2026-07-31): env ADMIN_PHONES (cửa cứu hộ, web
+  // không hạ được) + customers.role='admin' (quản ngay trên web). Trả kèm
+  // `source` để UI nói rõ cái nào sửa được ở đây.
+  const envPhones = parseAdminPhones(process.env.ADMIN_PHONES);
+  const { data: dbAdminRows } = await admin
+    .from("customers")
+    .select("phone, name")
+    .eq("role", "admin");
+  const dbAdminPhones = (dbAdminRows ?? []).map(
+    (r) => (r as { phone: string }).phone,
+  );
+  const merged = mergeAdmins(envPhones, dbAdminPhones);
+
+  // tên hiển thị: gom từ hàng customers (admin env có thể chưa có hàng nào)
+  let adminNames: Record<string, string | null> = Object.fromEntries(
+    (dbAdminRows ?? []).map((r) => [
+      (r as { phone: string }).phone,
+      (r as { name: string | null }).name ?? null,
+    ]),
+  );
+  const missing = merged
+    .map((a) => a.phone)
+    .filter((p) => !(p in adminNames));
+  if (missing.length > 0) {
+    const { data: nRows } = await admin
       .from("customers")
       .select("phone, name")
-      .in("phone", adminPhones);
-    adminNames = Object.fromEntries(
-      (aRows ?? []).map((r) => [
-        (r as { phone: string }).phone,
-        (r as { name: string | null }).name ?? null,
-      ]),
-    );
+      .in("phone", missing);
+    adminNames = {
+      ...adminNames,
+      ...Object.fromEntries(
+        (nRows ?? []).map((r) => [
+          (r as { phone: string }).phone,
+          (r as { name: string | null }).name ?? null,
+        ]),
+      ),
+    };
   }
-  const admins = adminPhones.map((phone) => ({
-    phone,
-    name: adminNames[phone] ?? null,
+  const admins = merged.map((a) => ({
+    phone: a.phone,
+    name: adminNames[a.phone] ?? null,
+    source: a.source,
   }));
 
   return NextResponse.json({ ok: true, managers, admins, migrationNeeded });
@@ -92,9 +118,74 @@ export async function PATCH(req: Request) {
   const body = (await req.json().catch(() => null)) as {
     phone?: string;
     permissions?: unknown;
+    action?: string;
+    role?: string;
   } | null;
   if (!body?.phone) return err(400, "bad_phone");
   const phone = normalizeVnPhone(body.phone);
+
+  // ── NÂNG/HẠ QUẢN TRỊ VIÊN (2026-07-31) ───────────────────────────────────
+  // Đổi customers.role giữa 'admin' ⇄ 'manager'/'customer'. Chặn 3 kiểu tự bắn
+  // vào chân bằng checkDemoteAdmin (thuần, có test): tự hạ mình · hạ admin từ
+  // env (web không sửa được env) · hạ mất người cuối cùng.
+  if (body.action === "set-role") {
+    const nextRole =
+      body.role === "admin"
+        ? "admin"
+        : body.role === "manager"
+          ? "manager"
+          : body.role === "customer"
+            ? "customer"
+            : null;
+    if (!nextRole) return err(400, "bad_role");
+
+    const envPhones = parseAdminPhones(process.env.ADMIN_PHONES);
+    // SĐT trong env: đổi cột role KHÔNG có tác dụng (env vẫn thắng) → chặn hẳn
+    // cho khỏi tưởng đã hạ xong.
+    if (isAdminPhone(phone, envPhones)) return err(400, "env_admin");
+
+    const { data: cur, error: qErr } = await admin
+      .from("customers")
+      .select("role")
+      .eq("phone", phone)
+      .maybeSingle();
+    if (qErr) return err(500, "query_failed");
+    if (!cur) return err(404, "not_found");
+    const curRole = (cur as { role?: string }).role ?? "customer";
+    if (curRole === nextRole)
+      return NextResponse.json({ ok: true, phone, role: nextRole });
+
+    if (curRole === "admin") {
+      const { data: dbAdmins } = await admin
+        .from("customers")
+        .select("phone")
+        .eq("role", "admin");
+      const reason = checkDemoteAdmin({
+        actorPhone: who.phone,
+        targetPhone: phone,
+        envPhones,
+        dbAdminPhones: (dbAdmins ?? []).map(
+          (r) => (r as { phone: string }).phone,
+        ),
+      });
+      if (reason) return err(400, reason);
+    }
+
+    const { error: upErr } = await admin
+      .from("customers")
+      .update({ role: nextRole, updated_at: new Date().toISOString() })
+      .eq("phone", phone);
+    if (upErr) return err(500, "update_failed");
+
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: "admin",
+      action: "staff.set-role",
+      target: phone,
+      detail: { from: curRole, to: nextRole },
+    });
+    return NextResponse.json({ ok: true, phone, role: nextRole });
+  }
 
   // KHÔNG cho gán quyền cho SĐT admin (admin đã toàn quyền, cột này vô nghĩa
   // và gây hiểu nhầm là quyền của admin bị giới hạn).

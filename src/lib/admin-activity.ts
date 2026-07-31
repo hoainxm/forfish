@@ -34,6 +34,7 @@ export const ADMIN_ACTIONS = [
   "zone.delete",
   // Phân quyền
   "staff.set-permissions",
+  "staff.set-role",
   // Tự kiểm tra: nút "Kiểm tra ghi nhật ký" ở tab Nhật ký ghi thử một dòng —
   // để biết nhật ký CÓ ghi được không mà không phải đợi một thao tác thật
   "system.log-probe",
@@ -64,6 +65,7 @@ export const ACTION_LABEL: Record<AdminActionKey, string> = {
   "zone.update": "Sửa vùng biển",
   "zone.delete": "Xóa vùng biển",
   "staff.set-permissions": "Đổi phân quyền quản lý",
+  "staff.set-role": "Nâng/hạ quản trị viên",
   "system.log-probe": "Kiểm tra ghi nhật ký",
 };
 
@@ -83,6 +85,8 @@ const DANGER_ACTIONS = new Set<string>([
   "inquiry.delete",
   "zone.delete",
   "staff.set-permissions",
+  // nâng/hạ quản trị viên = đổi quyền cao nhất — luôn phải soi
+  "staff.set-role",
 ]);
 
 export function isDangerAction(action: string): boolean {

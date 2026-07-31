@@ -90,9 +90,9 @@ export async function GET() {
     // đối chiếu hỏng thì vẫn trả danh sách — cột "đăng nhập được" để trống
   }
 
-  // QUẢN TRỊ VIÊN = SĐT trong env ADMIN_PHONES, KHÔNG phải customers.role
-  // (2026-07-31: cột role có hàng ghi 'admin' mà chẳng có tác dụng gì — nhìn
-  // vào tưởng là admin. Trả cờ thật để UI dán nhãn cho khỏi lẫn).
+  // QUẢN TRỊ VIÊN = env ADMIN_PHONES HOẶC role='admin' (2026-07-31, hai nguồn
+  // — xem lib/admin-auth.ts). Trả cờ thật + nguồn để UI dán nhãn khỏi lẫn với
+  // quản lý.
   const adminPhones = parseAdminPhones(process.env.ADMIN_PHONES);
 
   const accounts = (rows ?? []).map((r) => ({
@@ -102,8 +102,9 @@ export async function GET() {
     premiumUntil: (r.premium_until as string) ?? null,
     premiumActivatedAt: (r.premium_activated_at as string) ?? null,
     role: (r.role as string) ?? "customer",
-    /** admin THẬT (env) — quyền không đến từ cột role */
-    isAdmin: isAdminPhone(r.phone as string, adminPhones),
+    /** admin THẬT — env HOẶC role='admin' */
+    isAdmin:
+      isAdminPhone(r.phone as string, adminPhones) || r.role === "admin",
     fromSdwork: Boolean(r.sdwork_ref),
     updatedAt: (r.updated_at as string) ?? null,
     canLogin: provisioned.has(r.phone as string),
@@ -167,8 +168,10 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  // TẠO tài khoản. Đọc body TRƯỚC để chọn cổng quyền: tạo tài khoản QUẢN LÝ
-  // (role='manager') vẫn ADMIN-ONLY CỨNG; tạo KHÁCH cần cờ tai-khoan:create.
+  // TẠO tài khoản. Đọc body TRƯỚC để chọn cổng quyền: tạo NHÂN SỰ (quản lý
+  // hoặc quản trị viên) ADMIN-ONLY CỨNG; tạo KHÁCH cần cờ tai-khoan:create.
+  // Hai luồng tách hẳn trên UI (user 2026-07-31): khách ở tab Tài khoản, nhân
+  // sự ở tab Phân quyền — nhưng chung một route vì cùng là một hàng customers.
   const body = (await req.json().catch(() => null)) as {
     phone?: string;
     name?: string;
@@ -176,11 +179,16 @@ export async function POST(req: Request) {
     role?: string;
     activatePremium?: boolean;
   } | null;
-  const role = body?.role === "manager" ? "manager" : "customer";
+  const role =
+    body?.role === "manager"
+      ? "manager"
+      : body?.role === "admin"
+        ? "admin"
+        : "customer";
   const who =
-    role === "manager"
-      ? await requireAdmin()
-      : await requirePermission("tai-khoan", "create");
+    role === "customer"
+      ? await requirePermission("tai-khoan", "create")
+      : await requireAdmin();
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");

@@ -225,9 +225,20 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 | bảng `admin_activity_log` (`id` · `actor_phone` · `actor_role` · `action` · `target` · `detail jsonb` · `created_at`; index theo created_at desc / actor / action) | LOG **APPEND-ONLY** mọi thao tác GHI/XÓA của staff trên `/quan-tri` → soát "ai làm gì, lúc nào" (chống thao tác bậy). RLS bật, **KHÔNG policy** = chỉ service-role đọc/ghi |
 
 - **Mã hành động + nhãn**: `src/lib/admin-activity.ts` (THUẦN, client-safe, có test) — `ADMIN_ACTIONS` (`account.create/grant/downgrade/reset-password/set-flags/delete` · `product.*` · `crew.*` · `sell.*` · `push.send` · `inquiry.*` · `zone.*` · `staff.set-permissions`), `ACTION_LABEL` (test bắt buộc mọi mã có nhãn), `isDangerAction` (xóa/reset/hạ hạng/đổi quyền → UI tô đỏ).
-- **Ghi log**: helper `src/lib/admin-activity-log.ts` `logActivity(admin, {...})` — **FIRE-AND-FORGET** (try/catch, log hỏng KHÔNG chặn thao tác chính; bảng chưa có cũng nuốt lỗi). Gọi ở MỌI mutation của `/api/admin/*` sau khi thành công. **KHÔNG log bí mật** (mật khẩu/token; crew: không log CCCD/SĐT — chỉ loại vấn đề).
-- **Đọc**: `GET /api/admin/activity` (**`requireAdmin`** — chỉ quản trị viên) trả tối đa 300 dòng mới nhất, lọc `?actor=` (khớp SĐT) & `?action=`; bảng chưa có → trả rỗng + `migrationNeeded`. UI: tab **Nhật ký** (admin-only) — tìm theo SĐT/tên thao tác + chọn loại + nút "Chỉ xóa/nhạy cảm".
+- **Ghi log**: helper `src/lib/admin-activity-log.ts` `logActivity(admin, {...})` — log hỏng KHÔNG chặn thao tác chính, nhưng **KHÔNG im lặng** (sửa 2026-07-31): đọc `{ error }` của supabase-js, `console.error("[activity-log] …")` (thấy ở Vercel Logs) và trả boolean. ⚠️ Bản đầu chỉ `await insert()` trong try/catch — supabase-js KHÔNG ném lỗi mà TRẢ error, nên mọi lần ghi hỏng biến mất không dấu vết (prod 31/7: 2 lượt cấp premium mà bảng vẫn 0 dòng; DB đã loại trừ — probe insert bằng service_role chạy được, grants/policy giống hệt `premium_grants`). Gọi ở MỌI mutation của `/api/admin/*` sau khi thành công. **KHÔNG log bí mật** (mật khẩu/token; crew: không log CCCD/SĐT — chỉ loại vấn đề).
+- **Đọc**: `GET /api/admin/activity` (**`requireAdmin`** — chỉ quản trị viên) trả tối đa 300 dòng mới nhất, lọc `?actor=` (khớp SĐT) & `?action=`; đọc hỏng → rỗng + `migrationNeeded` + `error{code,message,hint}` THẬT. **`POST`** (requireAdmin) = GHI THỬ một dòng `system.log-probe` rồi đếm lại → nút "Kiểm tra ghi nhật ký" ở tab Nhật ký (biết log câm hay không mà không phải đợi thao tác thật). UI: tab **Nhật ký** (admin-only) — tìm theo SĐT/tên thao tác + chọn loại + nút "Chỉ xóa/nhạy cảm".
 - ✅ **ĐÃ APPLY prod 2026-07-30** (ref `znzgugvfhgmiszqgjulk`).
+
+### Quản trị viên nguồn DB — migration [`0020_role_admin.sql`](../../supabase/migrations/0020_role_admin.sql) (2026-07-31) — ⚠️ CHƯA APPLY (prod đã sẵn đúng, file này để đồng bộ repo)
+
+| Thay đổi | Nghĩa |
+|---|---|
+| `customers_role_check` nới thành `('customer','manager','admin')` | `role='admin'` **là quản trị viên thật** từ 2026-07-31 (`requireStaff` đọc, toàn quyền, `permissions=null`) — trước đó giá trị này vô tác dụng vì code chỉ đọc `'manager'` |
+
+- **HAI NGUỒN ADMIN** (user chốt 2026-07-31): env `ADMIN_PHONES` **HOẶC** `customers.role='admin'`. Nguồn DB để thêm/bớt quản trị viên ngay trên web (đổi là ăn ngay, không deploy); **env giữ lại làm CỬA CỨU HỘ** — web KHÔNG hạ được admin từ env, phòng khi DB bị hạ nhầm hết (không thì phải vào Supabase chạy SQL tay).
+- **Luật thuần** (`src/lib/admin.ts`, có test): `mergeAdmins(env, db)` (gộp không trùng, env thắng) · `checkDemoteAdmin({actor,target,env,dbAdmins})` chặn 3 ca — `self` (tự hạ mình) · `env_admin` (web không sửa env) · `last_admin` (hạ mất người cuối = khoá cửa cả nhà).
+- **Nâng/hạ**: `PATCH /api/admin/staff` `{action:"set-role", phone, role}` (**`requireAdmin`**), ghi nhật ký `staff.set-role` (đánh dấu nhạy cảm). UI: tab **Phân quyền** → khối "Quản trị viên · toàn quyền" (mỗi người ghi rõ nguồn `từ env` / `từ tài khoản`, nút Hạ chỉ hiện với nguồn DB) + ô nhập SĐT "Nâng lên quản trị viên", cả hai qua `ConfirmDialog`.
+- ⚠️ **LỆCH SCHEMA đã có từ trước**: prod được sửa tay nên ràng buộc thật đã nhận `'admin'` (hàng `0900000001` đang mang giá trị này) trong khi `0004` trong repo chỉ có 2 giá trị. `0020` kéo repo về đúng prod; chạy trên prod là no-op.
 
 ## 3. Domain logic — `src/lib/documents.ts`
 
