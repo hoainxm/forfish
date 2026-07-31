@@ -16,7 +16,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiUrl } from "@/lib/api-base";
 import {
@@ -37,7 +36,7 @@ import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCccd, isValidCccd } from "@/lib/crew";
-import { isValidVnPhone } from "@/lib/phone";
+import { isValidVnPhone, phoneToEmail, sanitizePhoneInput } from "@/lib/phone";
 import {
   crewReportCategoryLabel,
   CREW_REPORT_CATEGORIES,
@@ -169,7 +168,9 @@ export default function QuanTriPage() {
   const [health, setHealth] = useState<Health | null>(null);
   const [healthErr, setHealthErr] = useState<number | null>(null);
 
-  useEffect(() => {
+  const loadHealth = useCallback(() => {
+    setHealth(null);
+    setHealthErr(null);
     fetch(apiUrl("/api/admin/health"))
       .then(async (r) => {
         if (!r.ok) {
@@ -180,15 +181,24 @@ export default function QuanTriPage() {
       })
       .catch(() => setHealthErr(0));
   }, []);
+  useEffect(loadHealth, [loadHealth]);
 
   async function logout() {
     const supabase = createClient();
     await supabase?.auth.signOut();
-    router.push("/login");
+    // Ở LẠI /quan-tri và hiện form đăng nhập quản trị ngay tại đây — KHÔNG đá
+    // sang /login của app khách (user 2026-07-31).
+    setHealth(null);
+    setHealthErr(401);
     router.refresh();
   }
 
-  // ── chưa đủ quyền — nói rõ vì sao, không im lặng trang trắng ────────────
+  // ── CHƯA ĐĂNG NHẬP → đăng nhập THẲNG tại /quan-tri, không chuyển trang ───
+  if (healthErr === 401) {
+    return <AdminLogin onLoggedIn={loadHealth} />;
+  }
+
+  // ── đã đăng nhập nhưng chưa đủ quyền / hệ thống lỗi — nói rõ vì sao ──────
   if (healthErr != null) {
     return (
       <div className="mx-auto max-w-[640px] px-4 py-16 text-center">
@@ -196,22 +206,12 @@ export default function QuanTriPage() {
           Trang quản trị SDFish
         </h1>
         <p className="mt-3 text-[1.0625rem] leading-snug text-foreground/70">
-          {healthErr === 401 &&
-            "Cần đăng nhập bằng tài khoản quản trị viên để vào trang này."}
           {healthErr === 403 &&
             "Tài khoản đang đăng nhập không có quyền quản trị (không phải admin, cũng chưa được gán làm tài khoản quản lý)."}
           {healthErr === 503 &&
             "Hệ thống chưa cấu hình Supabase — trang quản trị cần DB thật, không chạy ở demo mode."}
           {healthErr === 0 && "Không gọi được máy chủ — kiểm tra mạng rồi tải lại."}
         </p>
-        {healthErr === 401 && (
-          <Link
-            href="/login"
-            className="display mx-auto mt-5 flex min-h-[3.25rem] w-full max-w-[280px] items-center justify-center rounded-full bg-trim text-[1.0625rem] font-bold text-white"
-          >
-            Đăng nhập
-          </Link>
-        )}
         {healthErr === 403 && (
           <button
             type="button"
@@ -336,6 +336,143 @@ export default function QuanTriPage() {
       {activeTab === "he-thong" && isAdmin && <SystemTab health={health} />}
       {activeTab === "phan-quyen" && isAdmin && <PermissionsTab />}
       {activeTab === "nhat-ky" && isAdmin && <ActivityLogTab />}
+    </div>
+  );
+}
+
+/* ── ĐĂNG NHẬP TẠI CHỖ ───────────────────────────────────────────────────── */
+
+/**
+ * Form đăng nhập NGAY TRÊN /quan-tri (user 2026-07-31: trước đây bị đá sang
+ * /login của app ngư dân, vào xong rơi về trang chủ app, phải gõ lại địa chỉ
+ * trang quản trị).
+ *
+ * KHÔNG mở thêm cửa nào: vẫn là tài khoản Supabase chung, vẫn giữ luật 1 tài
+ * khoản = 1 máy như /login. Quyền THẬT do /api/admin/* chốt (requireAdmin /
+ * requirePermission) — đăng nhập xong mà không phải staff thì health trả 403
+ * và màn dưới hiện "không có quyền quản trị".
+ */
+function AdminLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
+  const router = useRouter();
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!isValidVnPhone(phone)) {
+      setError("Số điện thoại chưa hợp lệ.");
+      return;
+    }
+    const supabase = createClient();
+    if (!supabase) {
+      setError(
+        "Máy chủ chưa cấu hình Supabase — trang quản trị cần DB thật, không chạy ở demo mode.",
+      );
+      return;
+    }
+    setBusy(true);
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email: phoneToEmail(phone),
+      password,
+    });
+    if (signInError || !data.user) {
+      setBusy(false);
+      setError("Sai số điện thoại hoặc mật khẩu.");
+      return;
+    }
+    // 1 TÀI KHOẢN = 1 MÁY — giữ ĐÚNG luật của /login, không nới riêng cho
+    // trang quản trị. Thu hồi hỏng thì bỏ qua, phiên máy này vẫn hợp lệ.
+    try {
+      await supabase.auth.signOut({ scope: "others" });
+    } catch {
+      /* mạng chập chờn — không chặn đăng nhập */
+    }
+    // tài khoản còn mật khẩu tạm: bắt đổi trước (đổi xong app trả về trang chủ,
+    // quay lại /quan-tri là vào thẳng)
+    if (data.user.user_metadata?.must_change_password === true) {
+      router.push("/doi-mat-khau");
+      return;
+    }
+    setBusy(false);
+    onLoggedIn(); // gọi lại /api/admin/health — đủ quyền là vào thẳng bảng điều khiển
+  }
+
+  return (
+    <div className="mx-auto flex min-h-[70vh] max-w-[420px] flex-col justify-center px-4 py-10">
+      <div className="flex items-center gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/icons/icon-192.png"
+          alt="SDFish"
+          width={44}
+          height={44}
+          className="h-11 w-11 shrink-0 rounded-xl border border-line"
+        />
+        <div>
+          <h1 className="display text-[1.5rem] font-bold leading-tight text-navy">
+            SDFish Quản trị
+          </h1>
+          <p className="mt-0.5 text-[0.9375rem] text-foreground/65">
+            Dành cho nhân viên SDVICO
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={submit} className="surface mt-5 space-y-3 px-4 py-4">
+        {error && (
+          <p
+            role="alert"
+            className="rounded-xl px-3.5 py-3 text-[0.9375rem] font-semibold leading-snug"
+            style={{ color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
+          >
+            {error}
+          </p>
+        )}
+        <label className="block">
+          <span className="mb-1 block text-[0.875rem] font-bold text-navy">
+            Số điện thoại
+          </span>
+          <input
+            type="tel"
+            inputMode="tel"
+            autoComplete="username"
+            required
+            autoFocus
+            placeholder="0901 234 567"
+            value={phone}
+            onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
+            className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[0.875rem] font-bold text-navy">
+            Mật khẩu
+          </span>
+          <input
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={busy}
+          className="min-h-[2.75rem] w-full rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50"
+        >
+          {busy ? "Đang vào…" : "Đăng nhập"}
+        </button>
+      </form>
+
+      <p className="mt-3 px-1 text-[0.875rem] leading-snug text-foreground/60">
+        Chỉ tài khoản quản trị viên hoặc quản lý được vào đây. Quên mật khẩu thì
+        báo quản trị viên đặt lại giúp.
+      </p>
     </div>
   );
 }
