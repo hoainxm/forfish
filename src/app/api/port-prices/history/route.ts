@@ -23,9 +23,9 @@ export async function GET() {
     }
     // 2) Lùi về gom kho VASEP trực tiếp
     const weeks = await gatherArchiveWeeks();
-    if (weeks.length < 2) return Response.json({ ok: false });
+    if (weeks.length < 2) return Response.json({ ok: false }, { status: 503 });
     return Response.json({ ok: true, source: "vasep", weeks });
   } catch {
-    return Response.json({ ok: false });
+    return Response.json({ ok: false }, { status: 503 });
   }
 }
