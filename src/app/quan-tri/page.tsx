@@ -4337,7 +4337,7 @@ function PermissionsTab() {
       const why: Record<string, string> = {
         self: "Không tự hạ chính mình được — nhờ quản trị viên khác làm.",
         env_admin:
-          "SĐT này là quản trị viên từ env ADMIN_PHONES — phải sửa biến môi trường trên Vercel rồi deploy lại, web không đổi được.",
+          "SĐT này lấy quyền từ env ADMIN_PHONES — muốn bỏ quyền phải xoá khỏi biến môi trường trên Vercel rồi deploy lại, web không hạ được.",
         last_admin:
           "Đây là quản trị viên CUỐI CÙNG — hạ xuống là không ai vào được web quản trị nữa. Nâng người khác lên trước đã.",
         not_found:
@@ -4445,9 +4445,14 @@ function PermissionsTab() {
         )}
         <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/60">
           Quản trị viên toàn quyền mọi khu, không cần bảng quyền. Nâng/hạ ở đây
-          ăn ngay, không cần deploy. Người ghi <b>từ env</b> lấy quyền từ biến{" "}
-          <b>ADMIN_PHONES</b> trên Vercel — giữ làm cửa cứu hộ, web không hạ
-          được. Không thể tự hạ chính mình, cũng không hạ được người cuối cùng.
+          ăn ngay, không cần deploy. Không thể tự hạ chính mình, cũng không hạ
+          được người cuối cùng.
+          <br />
+          Người ghi <b>từ env</b> lấy quyền từ biến <b>ADMIN_PHONES</b> trên
+          Vercel — giữ làm cửa cứu hộ, web không hạ được. Muốn chuyển hẳn sang
+          quản từ web: nâng chính SĐT đó lên quản trị viên ở ô dưới (ghi quyền
+          vào tài khoản), kiểm tra vẫn vào được, rồi mới xoá nó khỏi{" "}
+          <b>ADMIN_PHONES</b>.
         </p>
       </div>
 

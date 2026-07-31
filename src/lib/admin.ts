@@ -78,3 +78,33 @@ export function checkDemoteAdmin(args: {
   );
   return remaining.length === 0 ? "last_admin" : null;
 }
+
+/**
+ * Luật đầy đủ cho một lần đổi vai (`PATCH /api/admin/staff` action=set-role).
+ * Trả `null` = được phép.
+ *
+ * NÂNG lên quản trị viên thì LUÔN được, kể cả SĐT đang là admin nhờ env —
+ * đó chính là đường DI CƯ env → DB (ghi vai vào DB xong mới xoá bớt env cho
+ * an toàn). Chỉ khi HẠ mới phải qua checkDemoteAdmin.
+ */
+export function checkSetRole(args: {
+  actorPhone: string;
+  targetPhone: string;
+  curRole: string;
+  nextRole: "customer" | "manager" | "admin";
+  envPhones: string[];
+  dbAdminPhones: string[];
+}): "self" | "env_admin" | "last_admin" | null {
+  if (args.nextRole === "admin") return null;
+  // đang là admin (dù nguồn nào) mà hạ xuống → soi kỹ
+  const isAdminNow =
+    args.curRole === "admin" ||
+    isAdminPhone(args.targetPhone, args.envPhones.map(normalizeVnPhone));
+  if (!isAdminNow) return null;
+  return checkDemoteAdmin({
+    actorPhone: args.actorPhone,
+    targetPhone: args.targetPhone,
+    envPhones: args.envPhones,
+    dbAdminPhones: args.dbAdminPhones,
+  });
+}

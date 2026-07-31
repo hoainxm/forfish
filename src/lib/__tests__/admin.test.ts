@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   checkDemoteAdmin,
+  checkSetRole,
   isAdminPhone,
   mergeAdmins,
   parseAdminPhones,
@@ -105,5 +106,79 @@ describe("checkDemoteAdmin — chặn tự khoá cửa", () => {
         dbAdminPhones: ["0987654321", "0912345678"],
       }),
     ).toBeNull();
+  });
+});
+
+describe("checkSetRole — nâng thoáng, hạ chặt", () => {
+  const env = ["0901234567"];
+  it("NÂNG admin cho SĐT đang ở env → CHO PHÉP (đường di cư env → DB)", () => {
+    expect(
+      checkSetRole({
+        actorPhone: "0901234567",
+        targetPhone: "0901234567",
+        curRole: "customer",
+        nextRole: "admin",
+        envPhones: env,
+        dbAdminPhones: [],
+      }),
+    ).toBeNull();
+  });
+  it("nâng khách thường lên admin → cho phép", () => {
+    expect(
+      checkSetRole({
+        actorPhone: "0901234567",
+        targetPhone: "0977777777",
+        curRole: "customer",
+        nextRole: "admin",
+        envPhones: env,
+        dbAdminPhones: [],
+      }),
+    ).toBeNull();
+  });
+  it("đổi vai người KHÔNG phải admin → cho phép (customer ⇄ manager)", () => {
+    expect(
+      checkSetRole({
+        actorPhone: "0901234567",
+        targetPhone: "0977777777",
+        curRole: "customer",
+        nextRole: "manager",
+        envPhones: env,
+        dbAdminPhones: [],
+      }),
+    ).toBeNull();
+  });
+  it("HẠ admin DB → vẫn qua đủ 3 chốt", () => {
+    expect(
+      checkSetRole({
+        actorPhone: "0912345678",
+        targetPhone: "0912345678",
+        curRole: "admin",
+        nextRole: "manager",
+        envPhones: env,
+        dbAdminPhones: ["0912345678"],
+      }),
+    ).toBe("self");
+    expect(
+      checkSetRole({
+        actorPhone: "0912345678",
+        targetPhone: "0987654321",
+        curRole: "admin",
+        nextRole: "manager",
+        envPhones: [],
+        dbAdminPhones: ["0987654321"],
+      }),
+    ).toBe("last_admin");
+  });
+  it("HẠ SĐT ở env dù cột role không phải 'admin' → env_admin", () => {
+    expect(
+      checkSetRole({
+        actorPhone: "0912345678",
+        targetPhone: "0901234567",
+        curRole: "customer",
+        nextRole: "manager",
+        envPhones: env,
+        dbAdminPhones: ["0912345678"],
+      }),
+    ).toBe("env_admin");
   });
 });

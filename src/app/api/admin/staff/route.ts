@@ -11,7 +11,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
 import {
-  checkDemoteAdmin,
+  checkSetRole,
   isAdminPhone,
   mergeAdmins,
   parseAdminPhones,
@@ -140,9 +140,6 @@ export async function PATCH(req: Request) {
     if (!nextRole) return err(400, "bad_role");
 
     const envPhones = parseAdminPhones(process.env.ADMIN_PHONES);
-    // SĐT trong env: đổi cột role KHÔNG có tác dụng (env vẫn thắng) → chặn hẳn
-    // cho khỏi tưởng đã hạ xong.
-    if (isAdminPhone(phone, envPhones)) return err(400, "env_admin");
 
     const { data: cur, error: qErr } = await admin
       .from("customers")
@@ -155,21 +152,19 @@ export async function PATCH(req: Request) {
     if (curRole === nextRole)
       return NextResponse.json({ ok: true, phone, role: nextRole });
 
-    if (curRole === "admin") {
-      const { data: dbAdmins } = await admin
-        .from("customers")
-        .select("phone")
-        .eq("role", "admin");
-      const reason = checkDemoteAdmin({
-        actorPhone: who.phone,
-        targetPhone: phone,
-        envPhones,
-        dbAdminPhones: (dbAdmins ?? []).map(
-          (r) => (r as { phone: string }).phone,
-        ),
-      });
-      if (reason) return err(400, reason);
-    }
+    const { data: dbAdmins } = await admin
+      .from("customers")
+      .select("phone")
+      .eq("role", "admin");
+    const reason = checkSetRole({
+      actorPhone: who.phone,
+      targetPhone: phone,
+      curRole,
+      nextRole,
+      envPhones,
+      dbAdminPhones: (dbAdmins ?? []).map((r) => (r as { phone: string }).phone),
+    });
+    if (reason) return err(400, reason);
 
     const { error: upErr } = await admin
       .from("customers")
