@@ -48,9 +48,11 @@ export const CUR_DEPTH_PRETRIP_TIERS = [50, 150, 300] as const;
 
 /**
  * Khung ngày lưới gió/sóng tải sẵn: gần (3) · giữa (7) · cả chuyến dài (16).
- * KHÔNG lấy đủ cả 5 khung: mỗi khung là một lưới 80 điểm × mấy chục mốc giờ
- * (~0,2–0,4 MB trong máy, tải về nặng hơn nhiều) — 3 khung đã phủ mọi tầm nhìn,
- * 5 khung chỉ tổ chiếm chỗ và tốn sóng lúc còn ở bờ.
+ * KHÔNG lấy đủ cả 5 khung: mỗi khung là một lưới 156 ô × mấy chục mốc giờ —
+ * ĐO THẬT (2026-07-31): khung 3 ≈ 0,7 MB · khung 7 ≈ 1,1 MB · khung 16 ≈ 1,6 MB
+ * trong localStorage (UTF-16), tức CẢ MẺ tải sẵn ~5 MB, sát trần một số trình
+ * duyệt. (Comment cũ ghi "~0,2–0,4 MB mỗi khung" — sai gấp ~4 lần.) 3 khung đã
+ * phủ mọi tầm nhìn; thêm khung nữa chỉ tổ chiếm chỗ và tốn sóng lúc còn ở bờ.
  */
 export const PRETRIP_GRID_DAYS = [3, 7, 16] as const;
 
@@ -243,7 +245,10 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
       "fish",
       "Bản đồ cá",
       !opts.fishLocked && !!fish,
-      fish?.savedAt ?? null,
+      // TUỔI THẬT của bản (lúc máy chủ tính), KHÔNG phải lúc ghi dấu: mất sóng
+      // thì service worker trả lại bản cũ mà vẫn 200 ⇒ dấu được ghi lại mỗi
+      // lần hỏi ⇒ dòng này báo "còn mới" cho số liệu mấy ngày tuổi.
+      fish?.dataAt ?? null,
       0, // payload ở kho ứng dụng (SW), không phải localStorage
       opts.fishLocked
         ? "cần premium — có gói sẽ tự tải"

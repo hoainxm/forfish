@@ -11,7 +11,7 @@
 const PREFIX = "forfish.fc.";
 /** Trần số bản điểm-chạm giữ lại (đủ vài chuyến, không phình localStorage) */
 const MAX_ENTRIES = 40;
-/** Mỗi lần máy báo hết chỗ thì bỏ bấy nhiêu bản CŨ NHẤT (mọi namespace) rồi ghi lại */
+/** Mỗi lần máy báo hết chỗ thì bỏ ÍT NHẤT bấy nhiêu bản CŨ NHẤT (mọi namespace) */
 const DROP_PER_RETRY = 4;
 /** Số lần dọn-rồi-ghi-lại trước khi chịu thua (thà báo thật còn hơn treo) */
 const MAX_RETRY = 3;
@@ -67,13 +67,21 @@ export function saveForecast<T>(
   } catch {
     return false; // SSR / không có window
   }
+  // Chỗ cần cho bản này (localStorage đếm UTF-16 ⇒ ~2 byte/ký tự)
+  const needBytes = (k.length + payload.length) * 2;
   for (let attempt = 0; attempt <= MAX_RETRY; attempt++) {
     try {
       window.localStorage.setItem(k, payload);
       return true;
     } catch {
-      // hết chỗ: bỏ bản cũ nhất (mọi namespace dự báo) rồi thử lại
-      if (attempt === MAX_RETRY || dropOldest(DROP_PER_RETRY) === 0) {
+      // Hết chỗ: bỏ bản CŨ NHẤT (mọi namespace dự báo) rồi thử lại. Dọn theo
+      // BYTE chứ không theo số bản (sửa 2026-07-31): bỏ 4 bản điểm ghim ~3 KB
+      // không bao giờ đủ chỗ cho một lưới 16 ngày ~800 KB ⇒ các lớp chạy CUỐI
+      // (độ mặn, nước dâng, dòng chảy tầng sâu) không bao giờ lưu được.
+      // Nới DẦN (1/4 → 1/2 → cả bản): trình duyệt không cho hỏi còn trống bao
+      // nhiêu, nên thiếu một tí cũng đừng dọn sạch cả kho ngay lượt đầu.
+      const want = Math.ceil((needBytes * (attempt + 1)) / (MAX_RETRY + 1));
+      if (attempt === MAX_RETRY || dropOldest(DROP_PER_RETRY, want, k) === 0) {
         lastFullAt = now;
         return false;
       }
@@ -135,15 +143,41 @@ function trim(ns: string, max: number = MAX_ENTRIES): void {
   }
 }
 
-/** Máy hết chỗ: bỏ `n` bản CŨ NHẤT của mọi namespace dự báo. Trả số bản đã bỏ. */
-function dropOldest(n: number): number {
+/**
+ * Máy hết chỗ: bỏ bản CŨ NHẤT của mọi namespace dự báo cho tới khi bỏ đủ `n`
+ * bản VÀ giải phóng đủ `needBytes`. `keep` = khoá đang định ghi (bỏ nó thì ghi
+ * lại ngay, chẳng dôi ra chỗ nào). Trả về SỐ BẢN đã bỏ.
+ */
+function dropOldest(n: number, needBytes = 0, keep?: string): number {
   try {
-    const items = entriesUnder(PREFIX).slice(0, n);
-    for (const it of items) window.localStorage.removeItem(it.k);
-    return items.length;
+    let dropped = 0;
+    let freed = 0;
+    for (const it of entriesUnder(PREFIX)) {
+      if (dropped >= n && freed >= needBytes) break;
+      if (it.k === keep) continue;
+      const v = window.localStorage.getItem(it.k) ?? "";
+      window.localStorage.removeItem(it.k);
+      freed += (it.k.length + v.length) * 2;
+      dropped++;
+    }
+    return dropped;
   } catch {
     return 0;
   }
+}
+
+/**
+ * NHƯỜNG CHỖ CHO DỮ LIỆU BÀ CON TỰ NHẬP (2026-07-31).
+ *
+ * Vì sao: dự báo tải sẵn chiếm gần hết localStorage, nên giấy tờ / bạn thuyền /
+ * mốc bảo dưỡng vừa nhập có thể KHÔNG ghi xuống được — mà thứ đó bà con gõ tay,
+ * mất là mất luôn, còn dự báo thì có sóng là tải lại. Vậy khi ghi dữ liệu tự
+ * nhập bị máy báo hết chỗ, gọi hàm này để bỏ bớt bản dự báo CŨ NHẤT rồi ghi lại.
+ *
+ * Trả về SỐ BẢN dự báo đã bỏ (0 = không còn gì để bỏ).
+ */
+export function reclaimForecastSpace(needBytes: number): number {
+  return dropOldest(1, Math.max(0, needBytes));
 }
 
 /** Mọi bản đã lưu trong namespace (mới nhất trước) — để đếm "trong máy có gì". */

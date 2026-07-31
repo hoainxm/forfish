@@ -93,9 +93,15 @@ export function InstallBanner() {
         <p className="display text-[1.0625rem] font-bold leading-tight text-navy">
           Cài SDFish về máy
         </p>
+        {/* CÂU CHỮ TÁCH THEO MÁY (sửa 2026-07-31): trên Android bản cài dùng
+            CHUNG kho với trình duyệt nên cài xong là mang theo được thật. Trên
+            iPhone bản cài giữ kho RIÊNG — dự báo đã tải trong Safari KHÔNG theo
+            sang, mà lần mở đầu tiên của bản cài bắt buộc phải có sóng. Hứa
+            "cài xong là ra khơi mở được" cho iPhone là hứa hão. */}
         <p className="mt-1 text-[0.9375rem] leading-snug text-foreground/70">
-          Cài về màn hình chính thì ra khơi mất sóng vẫn mở được, và máy giữ dự
-          báo lâu hơn — không tự xoá sau ít ngày.
+          {mode === "ios"
+            ? "Cài về màn hình chính thì máy giữ dự báo lâu hơn — không tự xoá sau ít ngày."
+            : "Cài về màn hình chính thì ra khơi mất sóng vẫn mở được, và máy giữ dự báo lâu hơn — không tự xoá sau ít ngày."}
         </p>
 
         {mode === "ios" ? (
@@ -103,6 +109,10 @@ export function InstallBanner() {
             Trên iPhone: bấm nút <span className="font-bold">Chia sẻ</span> ở thanh
             dưới trình duyệt, rồi chọn{" "}
             <span className="font-bold">“Thêm vào Màn hình chính”</span>.
+            <span className="mt-2 block font-bold text-danger">
+              Cài xong mở app vừa cài NGAY khi còn sóng: bản cài bắt đầu từ kho
+              trống, phải tải lại dự báo một lần.
+            </span>
           </p>
         ) : (
           <button

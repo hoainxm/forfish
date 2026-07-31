@@ -1417,6 +1417,11 @@ export async function fetchFishForecast(): Promise<FishForecastResult> {
     if (data && (data as FishForecast).ok === true) {
       saveForecast(FISH_MARK_NS, FISH_MARK_ID, {
         targetDate: (data as FishForecast).targetDate ?? null,
+        // GHI KÈM MỐC MÁY CHỦ TÍNH (2026-07-31): mất sóng thì service worker
+        // vẫn trả 200 bằng bản CŨ, nên `savedAt` được làm mới mỗi lần vào đây
+        // ⇒ bảng "trong máy có gì" báo lớp cá còn tươi trong khi số liệu đã
+        // mấy ngày tuổi. `generatedAt` là tuổi THẬT của bản, không đổi.
+        generatedAt: (data as FishForecast).generatedAt ?? null,
       });
     }
     return data;
@@ -1429,8 +1434,23 @@ const FISH_MARK_NS = "fishmark";
 const FISH_MARK_ID = "latest";
 
 /** Dấu "bản đồ cá đã tải offline" (từ lần fetchFishForecast gần nhất nhận 200).
- *  null = chưa lần nào tải được. Thuần đọc — cho pretrip-status. */
-export function savedFishMark(): { savedAt: number; targetDate: string | null } | null {
-  const c = loadForecast<{ targetDate: string | null }>(FISH_MARK_NS, FISH_MARK_ID);
-  return c ? { savedAt: c.savedAt, targetDate: c.data?.targetDate ?? null } : null;
+ *  null = chưa lần nào tải được. Thuần đọc — cho pretrip-status.
+ *  `dataAt` = lúc MÁY CHỦ TÍNH bản đang giữ (tuổi thật); thiếu thì đành lấy
+ *  `savedAt` (bản lưu từ trước 2026-07-31, chưa ghi kèm generatedAt). */
+export function savedFishMark(): {
+  savedAt: number;
+  dataAt: number;
+  targetDate: string | null;
+} | null {
+  const c = loadForecast<{
+    targetDate: string | null;
+    generatedAt?: string | null;
+  }>(FISH_MARK_NS, FISH_MARK_ID);
+  if (!c) return null;
+  const gen = Date.parse(c.data?.generatedAt ?? "");
+  return {
+    savedAt: c.savedAt,
+    dataAt: Number.isFinite(gen) ? gen : c.savedAt,
+    targetDate: c.data?.targetDate ?? null,
+  };
 }

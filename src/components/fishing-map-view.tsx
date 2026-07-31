@@ -68,6 +68,7 @@ import {
 import {
   fetchClimatology,
   blendFishCells,
+  fishLeadDays,
   hotspotSpacingDeg,
   hotspotMaxCount,
   BLEND_USABLE,
@@ -1290,17 +1291,31 @@ export default function FishingMapView() {
      Điểm từng LOÀI giữ TỈ LỆ với điểm "Mọi loài" (mùa vụ chỉ có một lớp chung:
      nó nói vùng này tháng này nhìn chung tốt cỡ nào, còn loài nào trội hơn loài
      nào thì theo ảnh mới nhất). */
+  /* TẦM NGÀY CỦA LỚP CÁ — đếm từ NGÀY ẢNH, không phải từ hôm nay: mất sóng thì
+     service worker trả lại bản đồ cá tải mấy ngày trước, chip vẫn đứng "Hôm
+     nay" ⇒ tính theo hôm nay là w=1 = tin trọn tấm ảnh cũ nhất (lib/fish-blend).
+     DÙNG CHUNG cho cả PHA TRỘN lẫn CÁCH VẼ (2026-07-31): bản trước chỉ sửa pha
+     trộn, còn hồng tâm vẫn vẽ theo `daysAhead` nên ảnh 8 ngày tuổi vẫn được
+     chấm 8 điểm ở mật độ dày nhất của ngày 0 — vẽ tự tin hơn dữ liệu. */
+  const fishLead = useMemo(
+    () =>
+      fishCast
+        ? fishLeadDays(fishCast.date, sel?.date ?? todayIso, daysAhead)
+        : daysAhead,
+    [fishCast, sel?.date, todayIso, daysAhead],
+  );
+
   const fishView = useMemo<FishForecast | null>(() => {
     if (!fishCast) return null;
-    if (daysAhead <= 0 || !clim || !BLEND_USABLE) return fishCast;
+    if (fishLead <= 0 || !clim || !BLEND_USABLE) return fishCast;
     const month = Number((sel?.date ?? todayIso).slice(5, 7));
     if (!Number.isFinite(month) || month < 1 || month > 12) return fishCast;
     // v2: quy điểm mùa vụ về ĐÚNG thang bản đồ ngày (phân vị) rồi pha trên HỢP
     // hai tập ô — bản v1 chỉ chạy trên danh sách ô của ảnh nên mùa vụ chỉ biết
     // kéo xuống, KHÔNG bao giờ đẻ được vị trí mới (đo: 0 ô mới ở mọi tầm).
-    const cells = blendFishCells(fishCast.cells, clim, month, daysAhead);
+    const cells = blendFishCells(fishCast.cells, clim, month, fishLead);
     return { ...fishCast, cells };
-  }, [fishCast, clim, daysAhead, sel?.date, todayIso]);
+  }, [fishCast, clim, fishLead, sel?.date, todayIso]);
 
   // Ô MÀU DỰ BÁO CÁ (ngư trường) — mỗi ô SST tô theo mức Thấp/TB/Cao (kiểu bản
   // tin Viện Hải sản), CHỈ MÀU không in số. Thuộc LỚP "CÁ" ở rail (fishOn) —
@@ -1378,8 +1393,10 @@ export default function FishingMapView() {
     // nhưng 507 km từ ngày 16, trong khi TRỌNG TÂM CỤM chỉ lệch 62 → 249 km.
     // Chỉ đích danh một ô ở ngày xa là nói dối; nới khoảng cách + bớt chấm thì
     // mỗi hồng tâm đại diện đúng độ không chắc thật. Ngày 0 giữ y như cũ.
-    const spacing = hotspotSpacingDeg(daysAhead);
-    const maxCount = hotspotMaxCount(daysAhead);
+    // Theo fishLead (tuổi ẢNH), không theo daysAhead: bản đồ tải 8 ngày trước
+    // cũng phải nới khoảng cách + bớt chấm như xem ngày thứ 8.
+    const spacing = hotspotSpacingDeg(fishLead);
+    const maxCount = hotspotMaxCount(fishLead);
     const picked: typeof scored = [];
     for (const c of scored) {
       if (picked.length >= maxCount) break;
@@ -1396,7 +1413,7 @@ export default function FishingMapView() {
       top,
       near,
     }));
-  }, [fishOn, fishView, fishSpecies, point, places, daysAhead, anyExclusiveOverlay]);
+  }, [fishOn, fishView, fishSpecies, point, places, fishLead, anyExclusiveOverlay]);
 
   // điểm cá gần chỗ đang xem nhất — câu gợi ý "đi hướng nào" trong thẻ cá
   const nearestHotspot = useMemo(() => {
@@ -2741,7 +2758,11 @@ export default function FishingMapView() {
                       <div className="flex items-start gap-2.5 surface p-3.5">
                         <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-t3" />
                         <p className="text-[0.9375rem] leading-snug text-foreground/80">
-                          Hôm nay chỗ này <b>không nổi bật</b> cho{" "}
+                          {/* KHÔNG nói "Hôm nay" (sửa 2026-07-31): mất sóng thì
+                              bản đồ cá là bản service worker giữ lại, có thể
+                              mấy ngày tuổi — nói "ảnh mới nhất" là đúng ở cả
+                              hai ca, mà vẫn không phải khoe tuổi ảnh ra màn hình. */}
+                          Chỗ này <b>không nổi bật</b> trên ảnh mới nhất cho{" "}
                           <b>{selMeta?.full ?? fishSpecies}</b> — dò vùng tô màu
                           khi chọn loài này trên bản đồ.
                         </p>
@@ -2798,10 +2819,13 @@ export default function FishingMapView() {
                             ngày gần thì ảnh vẫn quyết phần lớn, ngày xa thì mùa
                             vụ gánh dần — nói đúng cái đang xảy ra, KHÔNG hứa
                             "dự báo cá riêng cho ngày này". Chỉ hiện khi bà con ĐÃ
-                            kéo sang ngày khác — màn hình mặc định giữ gọn. */}
-                        {daysAhead > 0 && (
+                            kéo sang ngày khác — màn hình mặc định giữ gọn.
+                            Theo fishLead (tuổi ẢNH): bản tải mấy ngày trước thì
+                            câu này hiện ngay ở "Hôm nay", vì lúc đó mùa vụ ĐANG
+                            gánh thật — im lặng mới là nói dối. */}
+                        {fishLead > 0 && (
                           <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/70">
-                            {daysAhead <= FISH_STABLE_DAYS
+                            {fishLead <= FISH_STABLE_DAYS
                               ? "Chỗ cá ít đổi trong vài ngày tới — cái đổi là gió, sóng."
                               : "Ngày xa thế này, chỗ cá dựa nhiều vào kinh nghiệm nhiều năm của tháng — càng xa càng nên xem thêm gió, sóng."}
                           </p>
@@ -2828,7 +2852,7 @@ export default function FishingMapView() {
                 <div className="flex items-start gap-2.5 surface p-3.5">
                   <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-t3" />
                   <p className="text-[0.9375rem] leading-snug text-foreground/80">
-                    Hôm nay chỗ này <b>không nổi bật</b> trên ảnh vệ tinh — dò
+                    Chỗ này <b>không nổi bật</b> trên ảnh vệ tinh mới nhất — dò
                     các vùng xanh lá trên bản đồ. Mùa này vùng{" "}
                     <b>{fishRegion?.name}</b> thường có:{" "}
                     {fishHere.join(", ")}{" "}

@@ -37,6 +37,7 @@ import { useBoats } from "@/components/boat-switcher";
 import { apiUrl } from "@/lib/api-base";
 import { formatVnDate } from "@/lib/format";
 import { isValidVnPhone } from "@/lib/phone";
+import { saveUserJson } from "@/lib/user-store";
 
 /** Định danh một bạn thuyền để tra/báo cảnh báo — CCCD hoặc SĐT (1 trong 2). */
 type Identity = { cccd?: string; phone?: string };
@@ -82,12 +83,11 @@ function loadCrew(today: Date): { crew: StoredCrew[]; isDemo: boolean } {
   return { crew: demoCrew(today), isDemo: true };
 }
 
-function saveCrew(crew: StoredCrew[]) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(crew));
-  } catch {
-    // storage đầy — tiếp tục trong bộ nhớ
-  }
+/* Trả `false` khi máy KHÔNG giữ được (hết chỗ / trình duyệt chặn) — trước đây
+   nuốt im: sổ vẫn hiện người vừa thêm mà máy chẳng lưu, mở lại app là về SỔ MẪU.
+   Dự báo tải sẵn nhường chỗ cho sổ (lib/user-store.ts); không đủ thì BÁO. */
+function saveCrew(crew: StoredCrew[]): boolean {
+  return saveUserJson(STORAGE_KEY, crew);
 }
 
 export function useCrew() {
@@ -95,6 +95,8 @@ export function useCrew() {
   const [crew, setCrew] = useState<StoredCrew[]>([]);
   const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
+  /** máy không giữ được người vừa thêm → phải nói ra, không im */
+  const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
     const loaded = loadCrew(today);
@@ -105,7 +107,7 @@ export function useCrew() {
 
   // Sổ mẫu sống trong bộ nhớ thôi — chỉ sổ THẬT mới được ghi xuống máy.
   useEffect(() => {
-    if (ready && !isDemo) saveCrew(crew);
+    if (ready && !isDemo) setSaveFailed(!saveCrew(crew));
   }, [crew, ready, isDemo]);
 
   /** Bỏ sổ mẫu, bắt đầu sổ thật (rỗng hoặc với người đầu tiên). */
@@ -114,11 +116,12 @@ export function useCrew() {
     setCrew(next);
   }
 
-  return { today, crew, setCrew, ready, isDemo, startRealCrew };
+  return { today, crew, setCrew, ready, isDemo, saveFailed, startRealCrew };
 }
 
 export function CrewList() {
-  const { today, crew, setCrew, ready, isDemo, startRealCrew } = useCrew();
+  const { today, crew, setCrew, ready, isDemo, saveFailed, startRealCrew } =
+    useCrew();
   const [editing, setEditing] = useState<StoredCrew | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<StoredCrew | null>(null);
@@ -212,6 +215,16 @@ export function CrewList() {
         <PlusIcon className="h-6 w-6" />
         Thêm bạn thuyền
       </button>
+
+      {/* MÁY KHÔNG GIỮ ĐƯỢC — nói ngay, đừng để mở lại app mới thấy sổ trống */}
+      {saveFailed && (
+        <div className="mb-4 overflow-hidden surface">
+          <StatusBanner level="danger" icon={<AlertIcon className="h-5 w-5" />}>
+            Máy hết chỗ — CHƯA lưu được người vừa thêm. Xoá bớt ảnh/ứng dụng
+            trong máy rồi sửa lại người này để lưu.
+          </StatusBanner>
+        </div>
+      )}
 
       {ready && missingId > 0 && !isDemo && (
         <div className="mb-4 overflow-hidden surface">

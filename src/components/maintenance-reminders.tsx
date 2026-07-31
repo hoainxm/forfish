@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertIcon,
   CheckIcon,
   EditIcon,
   PlusIcon,
@@ -13,6 +14,7 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
+import { saveUserJson } from "@/lib/user-store";
 import { useBoats } from "@/components/boat-switcher";
 
 /*
@@ -131,12 +133,11 @@ function loadEntries(today: Date): {
   return { entries: demoEntries(today), isDemo: true };
 }
 
-function saveEntries(entries: MaintenanceEntry[]) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-  } catch {
-    // storage full / disabled — keep working in-memory
-  }
+/* Trả `false` khi máy KHÔNG giữ được (hết chỗ / trình duyệt chặn) — trước đây
+   nuốt im, mốc bảo dưỡng vừa ghi biến mất lúc mở lại app. Dự báo tải sẵn nhường
+   chỗ cho việc bà con tự ghi (lib/user-store.ts); nhường vẫn không đủ thì BÁO. */
+function saveEntries(entries: MaintenanceEntry[]): boolean {
+  return saveUserJson(STORAGE_KEY, entries);
 }
 
 // ── component ────────────────────────────────────────────────
@@ -147,6 +148,8 @@ export function MaintenanceReminders() {
   const [entries, setEntries] = useState<MaintenanceEntry[]>([]);
   const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
+  /** máy không giữ được việc vừa ghi → phải nói ra, không im */
+  const [saveFailed, setSaveFailed] = useState(false);
   const [editing, setEditing] = useState<MaintenanceEntry | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<MaintenanceEntry | null>(
@@ -163,7 +166,7 @@ export function MaintenanceReminders() {
 
   // Lịch mẫu sống trong bộ nhớ thôi — chỉ việc THẬT mới được ghi xuống máy.
   useEffect(() => {
-    if (ready && !isDemo) saveEntries(entries);
+    if (ready && !isDemo) setSaveFailed(!saveEntries(entries));
   }, [entries, ready, isDemo]);
 
   // Xóa tàu → lịch bảo dưỡng tàu đó đã bị purge (ba-spec 08 R3); đọc lại.
@@ -235,6 +238,35 @@ export function MaintenanceReminders() {
         <PlusIcon className="h-6 w-6" />
         Thêm việc bảo dưỡng
       </button>
+
+      {/* MÁY KHÔNG GIỮ ĐƯỢC — nói ngay, đừng để tưởng đã ghi rồi quên luôn việc */}
+      {saveFailed && (
+        <div className="mb-4 overflow-hidden surface">
+          <StatusBanner level="danger" icon={<AlertIcon className="h-5 w-5" />}>
+            Máy hết chỗ — CHƯA lưu được việc vừa ghi. Xoá bớt ảnh/ứng dụng trong
+            máy rồi ghi lại việc này.
+          </StatusBanner>
+        </div>
+      )}
+
+      {/* Lịch mẫu phải TỰ XƯNG là mẫu (mirror crew-list) — việc mẫu trông y như
+          việc thật thì bà con tưởng đã có lịch bảo dưỡng */}
+      {ready && isDemo && (
+        <div className="mb-4 overflow-hidden surface">
+          <StatusBanner level="neutral" icon={<WrenchIcon className="h-5 w-5" />}>
+            Đây là lịch mẫu cho bà con xem thử — chưa lưu vào máy.
+          </StatusBanner>
+          <button
+            onClick={() => {
+              setIsDemo(false);
+              setEntries([]);
+            }}
+            className="flex min-h-[3.25rem] w-full items-center justify-center border-t border-line text-[1.0625rem] font-bold text-sea active:bg-background"
+          >
+            Xóa lịch mẫu, ghi việc của tôi
+          </button>
+        </div>
+      )}
 
       {ready && boatReady && sorted.length === 0 && (
         <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">

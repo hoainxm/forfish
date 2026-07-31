@@ -3,13 +3,14 @@
 > Load khi: đọc/ghi/sửa state phía client, hoặc debug "dữ liệu mất / sai / không lưu". Mọi key `forfish.*` trong localStorage liệt kê ở đây.
 
 covers: src/lib/boats.ts, src/lib/debts.ts, src/lib/region.ts, src/lib/places.ts, src/lib/sea.ts, src/lib/forecast-cache.ts
-last_verified: 2026-07-25
+last_verified: 2026-07-31
 ttl_days: 180
 gate: warn
 <!-- re-verified: 2026-07-25j — thêm 2 hàng `forfish.fc.point.*` / `forfish.fc.grid.d<N>` (bản lưu dự báo xem lúc mất sóng, lib/forecast-cache.ts). Trần 40 bản/namespace, dọn TRƯỚC khi ghi + bỏ bản cũ nhất khi máy hết chỗ; saveForecast trả boolean để UI báo "máy hết chỗ". -->
 <!-- re-verified: 2026-07-25 — forfish.sea bump v2→v3 (dự báo 16 ngày + waveEstimated); TTL sửa 6h→1h khớp CACHE_TTL_MS -->
 <!-- re-verified: 2026-07-29 — KHÔNG key mới, chỉ đổi TƯƠNG THÍCH NGƯỢC bên trong key cũ: (a) `forfish.fc.grid.d<N>` — GridHour thêm 2 trường OPTIONAL curKmh/curDirDeg (dòng chảy, hướng CHẢY VỀ); bản lưu đời cũ thiếu trường → đọc `?? null`, lớp Dòng chảy tự bỏ nấc cache thiếu cur (needCurrent). (b) `forfish.fc.point.*` — SeaPointConditions/SeaPointDay thêm curKmh/curDirDeg optional, luật đọc y vậy. (c) Cả 3 đường fetch (grid/scalar/sea) nay LƯU cả bản lấy từ SNAPSHOT server vào các key này với savedAt = TUỔI THẬT của snapshot (không phải Date.now) — semantics savedAt không đổi, chỉ nguồn ghi thêm. KHÔNG bump version key nào. -->
 
+<!-- re-verified: 2026-07-31 — KHÔNG key mới cho dự báo; đổi CÁCH DỌN: forecast-cache `dropOldest(n, needBytes, keep)` nay dọn theo BYTE và nới dần 1/4 → 1/2 → cả bản (trước dọn theo SỐ BẢN nên máy đầy vẫn không đủ chỗ), thêm `reclaimForecastSpace()` để dữ liệu bà con TỰ NHẬP (giấy tờ, thuyền viên, bảo dưỡng) mượn chỗ của dự báo — ưu tiên: dữ liệu người dùng gõ tay > dự báo tải lại được. Ghi dữ liệu tự nhập đi qua lib mới `src/lib/user-store.ts` (`saveUserJson` trả boolean; hết chỗ → UI banner đỏ, KHÔNG nuốt lỗi). Key `forfish.*` giữ nguyên tên và semantics savedAt. -->
 > Registry CANONICAL cho state client (nguyên tắc 11 §state). **State không có trong bảng này = coi như không tồn tại — KHÔNG đoán schema.** ForFish chạy Vercel serverless + demo mode → "state nền" duy nhất là localStorage của trình duyệt (prefix `forfish.*`, GIỮ tên cũ — đổi sẽ mất dữ liệu user). Khi đã đăng nhập Supabase, nguồn sự thật là DB (xem [04-data-model](../04-data-model.md)); localStorage là fallback demo mode (xem [02-architecture §4](../02-architecture.md)).
 
 **Last updated**: 2026-07-25

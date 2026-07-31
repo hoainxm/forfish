@@ -11,6 +11,7 @@ import {
   kindLabel,
 } from "@/lib/documents";
 import {
+  AlertIcon,
   DocIcon,
   EditIcon,
   PlusIcon,
@@ -21,6 +22,7 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
+import { saveUserJson } from "@/lib/user-store";
 import { useBoats } from "@/components/boat-switcher";
 
 // BoatDocument lives in @/lib/documents (shared, not edited). We attach a boat
@@ -60,12 +62,12 @@ export function loadDocs(today: Date): {
   return { docs: demoDocuments(today), isDemo: true };
 }
 
-function saveDocs(docs: StoredDocument[]) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
-  } catch {
-    // storage full / disabled — keep working in-memory
-  }
+/* Trả `false` khi máy KHÔNG giữ được (hết chỗ / trình duyệt chặn) — trước đây
+   nuốt im: màn hình vẫn hiện giấy vừa nhập (nằm trong bộ nhớ) mà máy chẳng lưu
+   gì, mở lại app là mất, tệ hơn là rơi về TỦ MẪU trông y như thật. Dự báo tải
+   sẵn nhường chỗ cho giấy tờ (lib/user-store.ts), nhường vẫn không đủ thì BÁO. */
+function saveDocs(docs: StoredDocument[]): boolean {
+  return saveUserJson(STORAGE_KEY, docs);
 }
 
 export function DocumentVault() {
@@ -74,6 +76,8 @@ export function DocumentVault() {
   const [docs, setDocs] = useState<StoredDocument[]>([]);
   const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
+  /** máy không giữ được giấy vừa nhập → phải nói ra, không im */
+  const [saveFailed, setSaveFailed] = useState(false);
   const [editing, setEditing] = useState<StoredDocument | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<StoredDocument | null>(
@@ -90,7 +94,7 @@ export function DocumentVault() {
 
   // Tủ mẫu sống trong bộ nhớ thôi — chỉ giấy THẬT mới được ghi xuống máy.
   useEffect(() => {
-    if (ready && !isDemo) saveDocs(docs);
+    if (ready && !isDemo) setSaveFailed(!saveDocs(docs));
   }, [docs, ready, isDemo]);
 
   // Xóa tàu → giấy tờ tàu đó đã bị purge khỏi máy (ba-spec 08 R3); đọc lại để
@@ -153,6 +157,35 @@ export function DocumentVault() {
         <PlusIcon className="h-6 w-6" />
         Thêm giấy tờ mới
       </button>
+
+      {/* MÁY KHÔNG GIỮ ĐƯỢC — nói ngay, đừng để ra cảng biên phòng kiểm mới biết */}
+      {saveFailed && (
+        <div className="mb-4 overflow-hidden surface">
+          <StatusBanner level="danger" icon={<AlertIcon className="h-5 w-5" />}>
+            Máy hết chỗ — CHƯA lưu được giấy tờ vừa nhập. Xoá bớt ảnh/ứng dụng
+            trong máy rồi sửa lại giấy này để lưu.
+          </StatusBanner>
+        </div>
+      )}
+
+      {/* Tủ mẫu phải TỰ XƯNG là mẫu (mirror crew-list) — giấy tờ mẫu trông y
+          như giấy thật là kiểu nói dối nguy hiểm nhất của trục giấy tờ */}
+      {ready && isDemo && (
+        <div className="mb-4 overflow-hidden surface">
+          <StatusBanner level="neutral" icon={<DocIcon className="h-5 w-5" />}>
+            Đây là tủ mẫu cho bà con xem thử — chưa lưu vào máy.
+          </StatusBanner>
+          <button
+            onClick={() => {
+              setIsDemo(false);
+              setDocs([]);
+            }}
+            className="flex min-h-[3.25rem] w-full items-center justify-center border-t border-line text-[1.0625rem] font-bold text-sea active:bg-background"
+          >
+            Xóa tủ mẫu, ghi giấy của tôi
+          </button>
+        </div>
+      )}
 
       {ready && boatReady && sorted.length === 0 && (
         <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
