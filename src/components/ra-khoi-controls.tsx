@@ -848,14 +848,14 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
         <RadioCard
           active={prefs.coordFormat === "dms"}
           onClick={() => setMapPrefs({ coordFormat: "dms" })}
-          title="Độ – phút"
-          sub="vd 8°30,0′B · 109°18,0′Đ"
+          title="Độ – phút – giây"
+          sub="vd 8°30′00″N · 109°18′00″E"
         />
         <RadioCard
           active={prefs.coordFormat === "dd"}
           onClick={() => setMapPrefs({ coordFormat: "dd" })}
           title="Độ thập phân"
-          sub="vd 8,50°B · 109,30°Đ"
+          sub="vd 8,50°N · 109,30°E"
         />
       </div>
 

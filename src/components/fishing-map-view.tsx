@@ -846,7 +846,7 @@ export default function FishingMapView() {
     for (let lon = lonMin; lon <= lonMax; lon += MAP_GRID_STEP_DEG) {
       features.push({
         type: "Feature",
-        properties: { deg: `${lon}°Đ` },
+        properties: { deg: `${lon}°E` },
         geometry: {
           type: "LineString",
           coordinates: [
@@ -859,7 +859,7 @@ export default function FishingMapView() {
     for (let lat = latMin; lat <= latMax; lat += MAP_GRID_STEP_DEG) {
       features.push({
         type: "Feature",
-        properties: { deg: `${lat}°B` },
+        properties: { deg: `${lat}°N` },
         geometry: {
           type: "LineString",
           coordinates: [
