@@ -34,6 +34,9 @@ export const ADMIN_ACTIONS = [
   "zone.delete",
   // Phân quyền
   "staff.set-permissions",
+  // Tự kiểm tra: nút "Kiểm tra ghi nhật ký" ở tab Nhật ký ghi thử một dòng —
+  // để biết nhật ký CÓ ghi được không mà không phải đợi một thao tác thật
+  "system.log-probe",
 ] as const;
 
 export type AdminActionKey = (typeof ADMIN_ACTIONS)[number];
@@ -61,6 +64,7 @@ export const ACTION_LABEL: Record<AdminActionKey, string> = {
   "zone.update": "Sửa vùng biển",
   "zone.delete": "Xóa vùng biển",
   "staff.set-permissions": "Đổi phân quyền quản lý",
+  "system.log-probe": "Kiểm tra ghi nhật ký",
 };
 
 /** Nhãn tiếng Việt cho một mã; mã lạ (log cũ) trả về chính mã. */

@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requirePermission } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
+import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
 import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
 import { TEMP_RESET_PASSWORD } from "@/lib/temp-password";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
@@ -89,6 +90,11 @@ export async function GET() {
     // đối chiếu hỏng thì vẫn trả danh sách — cột "đăng nhập được" để trống
   }
 
+  // QUẢN TRỊ VIÊN = SĐT trong env ADMIN_PHONES, KHÔNG phải customers.role
+  // (2026-07-31: cột role có hàng ghi 'admin' mà chẳng có tác dụng gì — nhìn
+  // vào tưởng là admin. Trả cờ thật để UI dán nhãn cho khỏi lẫn).
+  const adminPhones = parseAdminPhones(process.env.ADMIN_PHONES);
+
   const accounts = (rows ?? []).map((r) => ({
     phone: r.phone as string,
     name: (r.name as string) ?? null,
@@ -96,6 +102,8 @@ export async function GET() {
     premiumUntil: (r.premium_until as string) ?? null,
     premiumActivatedAt: (r.premium_activated_at as string) ?? null,
     role: (r.role as string) ?? "customer",
+    /** admin THẬT (env) — quyền không đến từ cột role */
+    isAdmin: isAdminPhone(r.phone as string, adminPhones),
     fromSdwork: Boolean(r.sdwork_ref),
     updatedAt: (r.updated_at as string) ?? null,
     canLogin: provisioned.has(r.phone as string),

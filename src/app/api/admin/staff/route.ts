@@ -57,7 +57,30 @@ export async function GET() {
     configured: r.staff_permissions != null,
   }));
 
-  return NextResponse.json({ ok: true, managers, migrationNeeded });
+  // QUẢN TRỊ VIÊN (env ADMIN_PHONES) — trả về để UI LIỆT KÊ (chỉ xem, không
+  // phân quyền được). Trước đây admin không hiện ở đâu trong web nên nhìn tab
+  // này tưởng người ta không có quyền gì (user 2026-07-31). Kèm tên trong DB
+  // nếu có; SĐT admin chưa có hàng customers vẫn liệt kê (quyền từ env).
+  const adminPhones = parseAdminPhones(process.env.ADMIN_PHONES);
+  let adminNames: Record<string, string | null> = {};
+  if (adminPhones.length > 0) {
+    const { data: aRows } = await admin
+      .from("customers")
+      .select("phone, name")
+      .in("phone", adminPhones);
+    adminNames = Object.fromEntries(
+      (aRows ?? []).map((r) => [
+        (r as { phone: string }).phone,
+        (r as { name: string | null }).name ?? null,
+      ]),
+    );
+  }
+  const admins = adminPhones.map((phone) => ({
+    phone,
+    name: adminNames[phone] ?? null,
+  }));
+
+  return NextResponse.json({ ok: true, managers, admins, migrationNeeded });
 }
 
 export async function PATCH(req: Request) {

@@ -114,6 +114,10 @@ type Account = {
   premiumUntil: string | null;
   premiumActivatedAt: string | null;
   role: string;
+  /** QUẢN TRỊ VIÊN thật (SĐT trong env ADMIN_PHONES) — KHÁC cột `role` trong
+   *  DB: role='admin' trong DB không có tác dụng gì, chỉ 'manager' mới được
+   *  code đọc. Xem badge ở danh sách tài khoản. */
+  isAdmin: boolean;
   fromSdwork: boolean;
   updatedAt: string | null;
   canLogin: boolean;
@@ -754,6 +758,9 @@ function AccountsTab({ me }: { me: Me }) {
                     {acc?.name && (
                       <span className="text-foreground/60">{acc.name}</span>
                     )}
+                    {/* VAI của người cấp — hỏi nhiều nhất ở chỗ này: thấy SĐT
+                        lạ cấp premium mà không biết admin hay quản lý */}
+                    {acc && <RoleBadge account={acc} />}
                     <span className="text-foreground/70">
                       đang quản <b className="text-ok">{g.managing}</b> premium
                       · {g.totalGrants} lượt cấp/gia hạn
@@ -827,11 +834,9 @@ function AccountsTab({ me }: { me: Me }) {
                           {a.name}
                         </span>
                       )}
-                      {a.role === "manager" && (
-                        <span className="ml-2 rounded-full bg-t1-bg px-2 py-0.5 text-[0.75rem] font-bold text-t1">
-                          Quản lý
-                        </span>
-                      )}
+                      {/* VAI: quản trị viên (env) > quản lý (DB role). Ghi rõ
+                          để khỏi lẫn — xem RoleBadge. */}
+                      <RoleBadge account={a} />
                     </p>
                     <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
                       {a.fromSdwork ? "Từ SDWork" : "Tạo tay"} ·{" "}
@@ -1015,6 +1020,46 @@ function AccountsTab({ me }: { me: Me }) {
       )}
     </div>
   );
+}
+
+/**
+ * VAI của một tài khoản — nói rõ ADMIN vs QUẢN LÝ cho khỏi lẫn (user
+ * 2026-07-31: "nếu nó là admin thì cần biết nó là admin").
+ *
+ * Ba trường hợp, theo đúng luật ở lib/admin-auth.ts:
+ * · `isAdmin` (SĐT trong env ADMIN_PHONES) → QUẢN TRỊ VIÊN, toàn quyền. Không
+ *   cấu hình được từ web, không nằm trong tab Phân quyền.
+ * · `role='manager'` → QUẢN LÝ, quyền theo bảng ở tab Phân quyền.
+ * · `role='admin'` trong DB mà KHÔNG có trong env → BẪY: nhìn tưởng admin
+ *   nhưng code chỉ đọc 'manager', tài khoản này KHÔNG có quyền staff nào. Tô
+ *   cảnh báo để không ai yên trí nhầm.
+ */
+function RoleBadge({ account }: { account: Account }) {
+  if (account.isAdmin) {
+    return (
+      <span className="ml-2 rounded-full bg-navy px-2 py-0.5 text-[0.75rem] font-bold text-white">
+        Quản trị viên
+      </span>
+    );
+  }
+  if (account.role === "manager") {
+    return (
+      <span className="ml-2 rounded-full bg-t1-bg px-2 py-0.5 text-[0.75rem] font-bold text-t1">
+        Quản lý
+      </span>
+    );
+  }
+  if (account.role === "admin") {
+    return (
+      <span
+        className="ml-2 rounded-full bg-warn-bg px-2 py-0.5 text-[0.75rem] font-bold text-warn"
+        title="Cột role trong DB ghi 'admin' nhưng SĐT không có trong ADMIN_PHONES — tài khoản này KHÔNG có quyền quản trị"
+      >
+        role=admin · KHÔNG có quyền
+      </span>
+    );
+  }
+  return null;
 }
 
 /** Chip theo dõi 2 trạng thái (đã/chưa). Sửa được → nút bật/tắt; chỉ xem →
@@ -4035,6 +4080,9 @@ type ManagerPerm = {
 
 function PermissionsTab() {
   const [managers, setManagers] = useState<ManagerPerm[] | null>(null);
+  const [admins, setAdmins] = useState<{ phone: string; name: string | null }[]>(
+    [],
+  );
   const [error, setError] = useState<string | null>(null);
   const [migrationNeeded, setMigrationNeeded] = useState(false);
 
@@ -4047,10 +4095,12 @@ function PermissionsTab() {
           ok: boolean;
           code?: string;
           managers?: ManagerPerm[];
+          admins?: { phone: string; name: string | null }[];
           migrationNeeded?: boolean;
         };
         if (!j.ok) throw new Error(j.code ?? "load");
         setManagers(j.managers ?? []);
+        setAdmins(j.admins ?? []);
         setMigrationNeeded(Boolean(j.migrationNeeded));
       })
       .catch((e: Error) =>
@@ -4075,6 +4125,43 @@ function PermissionsTab() {
         (4 khu Yêu cầu · Vùng biển · Dữ liệu · Hệ thống chỉ dành cho quản trị
         viên.)
       </p>
+
+      {/* QUẢN TRỊ VIÊN — chỉ để XEM. Không nằm trong bảng phân quyền nên
+          trước đây không hiện ở đâu trong web, nhìn danh sách dưới tưởng
+          những SĐT này không có quyền gì (user 2026-07-31). */}
+      <div className="surface px-4 py-3.5">
+        <p className="text-[0.9375rem] font-bold text-navy">
+          Quản trị viên · toàn quyền ({admins.length})
+        </p>
+        {admins.length === 0 ? (
+          <p className="mt-1 text-[0.875rem] text-foreground/65">
+            Chưa đọc được danh sách (env ADMIN_PHONES trống?).
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-1">
+            {admins.map((a) => (
+              <li
+                key={a.phone}
+                className="flex flex-wrap items-baseline gap-x-2 text-[0.875rem]"
+              >
+                <span className="font-bold tabular-nums text-navy">
+                  {a.phone}
+                </span>
+                {a.name && <span className="text-foreground/60">{a.name}</span>}
+                <span className="rounded-full bg-navy px-2 py-0.5 text-[0.75rem] font-bold text-white">
+                  Quản trị viên
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/60">
+          Quản trị viên toàn quyền mọi khu, KHÔNG phân quyền được ở đây. Danh
+          sách này lấy từ biến môi trường <b>ADMIN_PHONES</b> trên Vercel —
+          thêm/bớt quản trị viên phải sửa ở đó rồi deploy lại. Đặt{" "}
+          <b>role=&ldquo;admin&rdquo;</b> trong DB KHÔNG cấp quyền gì.
+        </p>
+      </div>
 
       {migrationNeeded && (
         <p className="surface bg-warn-bg px-4 py-3 text-[0.875rem] font-semibold text-warn">
@@ -4282,6 +4369,9 @@ function ActivityLogTab() {
   const [events, setEvents] = useState<ActivityEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [migrationNeeded, setMigrationNeeded] = useState(false);
+  const [readErr, setReadErr] = useState<string | null>(null);
+  const [probe, setProbe] = useState<string | null>(null);
+  const [probing, setProbing] = useState(false);
   const [query, setQuery] = useState("");
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [dangerOnly, setDangerOnly] = useState(false);
@@ -4296,10 +4386,14 @@ function ActivityLogTab() {
           code?: string;
           events?: ActivityEvent[];
           migrationNeeded?: boolean;
+          error?: { code?: string; message?: string; hint?: string };
         };
         if (!j.ok) throw new Error(j.code ?? "load");
         setEvents(j.events ?? []);
         setMigrationNeeded(Boolean(j.migrationNeeded));
+        setReadErr(
+          j.error ? `${j.error.code ?? ""} ${j.error.message ?? ""}`.trim() : null,
+        );
       })
       .catch((e: Error) =>
         setError(
@@ -4339,10 +4433,56 @@ function ActivityLogTab() {
 
       {migrationNeeded && (
         <p className="surface bg-warn-bg px-4 py-3 text-[0.875rem] font-semibold text-warn">
-          Bảng nhật ký chưa có trong DB — cần apply migration
+          Đọc bảng nhật ký KHÔNG được — thường là chưa apply migration
           0019_admin_activity_log. Thao tác vẫn chạy nhưng chưa được ghi lại.
+          {readErr && (
+            <span className="mt-1 block font-mono text-[0.75rem] font-normal">
+              Lỗi thật: {readErr}
+            </span>
+          )}
         </p>
       )}
+
+      {/* TỰ KIỂM TRA: ghi log là fire-and-forget nên nhật ký câm mà không ai
+          biết vì sao (prod 2026-07-31: có thao tác thật mà bảng rỗng). Nút này
+          ghi thử một dòng ngay và nói kết quả. */}
+      <div className="surface flex flex-wrap items-center gap-3 px-4 py-3">
+        <button
+          type="button"
+          disabled={probing}
+          onClick={async () => {
+            setProbing(true);
+            setProbe(null);
+            const r = await fetch(apiUrl("/api/admin/activity"), {
+              method: "POST",
+            }).catch(() => null);
+            const j = (await r?.json().catch(() => null)) as {
+              ok?: boolean;
+              wrote?: boolean;
+              readBack?: number | null;
+            } | null;
+            setProbing(false);
+            if (!r?.ok || !j?.ok) {
+              setProbe("Không gọi được máy chủ — thử lại.");
+              return;
+            }
+            setProbe(
+              j.wrote
+                ? `Ghi được. Nhật ký đang có ${j.readBack ?? "?"} dòng.`
+                : "GHI HỎNG — nhật ký không ghi được. Mã lỗi nằm ở Vercel → Logs (tìm \"activity-log\").",
+            );
+            if (j.wrote) load();
+          }}
+          className="min-h-[2.5rem] rounded-xl bg-field px-4 text-[0.875rem] font-bold text-navy disabled:opacity-50"
+        >
+          {probing ? "Đang kiểm tra…" : "Kiểm tra ghi nhật ký"}
+        </button>
+        {probe && (
+          <span className="text-[0.875rem] font-semibold text-foreground/75">
+            {probe}
+          </span>
+        )}
+      </div>
 
       {/* lọc: tìm theo SĐT/tên hành động + chọn loại + chỉ nhạy cảm */}
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
