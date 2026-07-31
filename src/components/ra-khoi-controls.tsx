@@ -846,16 +846,16 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
       </p>
       <div className="space-y-2">
         <RadioCard
+          active={prefs.coordFormat === "dms"}
+          onClick={() => setMapPrefs({ coordFormat: "dms" })}
+          title="Độ – phút"
+          sub="vd 8°30,0′B · 109°18,0′Đ"
+        />
+        <RadioCard
           active={prefs.coordFormat === "dd"}
           onClick={() => setMapPrefs({ coordFormat: "dd" })}
           title="Độ thập phân"
           sub="vd 8,50°B · 109,30°Đ"
-        />
-        <RadioCard
-          active={prefs.coordFormat === "dms"}
-          onClick={() => setMapPrefs({ coordFormat: "dms" })}
-          title="Độ – phút"
-          sub="vd 8°30′B · 109°18′Đ"
         />
       </div>
 

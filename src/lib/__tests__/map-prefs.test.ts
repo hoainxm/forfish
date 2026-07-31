@@ -31,14 +31,20 @@ describe("map-prefs hệ toạ độ", () => {
     expect(fmtLon(-109.3, "dd")).toBe("109,30°T");
   });
 
-  it("dms: độ-phút, phút 2 chữ số", () => {
-    expect(fmtLat(8.5, "dms")).toBe("8°30′B");
-    expect(fmtLon(109.25, "dms")).toBe("109°15′Đ");
-    // 8,999° → 8°59,94′ ≈ 60′ tràn thành 9°00′
-    expect(fmtLat(8.999, "dms")).toBe("9°00′B");
+  it("dms: độ-phút lẻ 1 số, phần nguyên phút 2 chữ số", () => {
+    expect(fmtLat(8.5, "dms")).toBe("8°30,0′B");
+    expect(fmtLon(109.25, "dms")).toBe("109°15,0′Đ");
+    // phút <10 vẫn 2 chữ số phần nguyên
+    expect(fmtLat(10.09, "dms")).toBe("10°05,4′B");
+    // âm → bán cầu Nam/Tây
+    expect(fmtLat(-8.5, "dms")).toBe("8°30,0′N");
+    expect(fmtLon(-109.25, "dms")).toBe("109°15,0′T");
+    // 8,99999° → 59,99′ làm tròn 60,0′ tràn thành 9°00,0′
+    expect(fmtLat(8.99999, "dms")).toBe("9°00,0′B");
   });
 
   it("fmtCoordPair ghép B · Đ", () => {
     expect(fmtCoordPair(8.5, 109.3, "dd")).toBe("8,50°B · 109,30°Đ");
+    expect(fmtCoordPair(8.5, 109.3, "dms")).toBe("8°30,0′B · 109°18,0′Đ");
   });
 });

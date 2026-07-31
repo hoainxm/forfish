@@ -10,7 +10,7 @@ import { useSyncExternalStore } from "react";
 import { formatNumberVN } from "@/lib/marine-weather";
 
 export type DistUnit = "nm" | "km";
-/** dd = độ thập phân (8,50°); dms = độ-phút (8°30′) */
+/** dd = độ thập phân (8,50°); dms = độ-phút (8°30,0′) — MẶC ĐỊNH là dms */
 export type CoordFormat = "dd" | "dms";
 export interface MapPrefs {
   distUnit: DistUnit;
@@ -31,7 +31,8 @@ export interface MapPrefs {
 const KEY = "forfish.mapPrefs.v1";
 const DEFAULT: MapPrefs = {
   distUnit: "nm",
-  coordFormat: "dd",
+  // độ-phút MẶC ĐỊNH (user 2026-07-31): khớp máy định vị/hải đồ bà con đang dùng
+  coordFormat: "dms",
   mapGrid: false, // lưới kẻ ô toạ độ MẶC ĐỊNH ẨN (user 2026-07-28)
   vungLong: true,
   vmsOverrides: {},
@@ -50,7 +51,8 @@ function load(): MapPrefs {
     const p = JSON.parse(raw) as Partial<MapPrefs>;
     return {
       distUnit: p.distUnit === "km" ? "km" : "nm",
-      coordFormat: p.coordFormat === "dms" ? "dms" : "dd",
+      // độ-phút mặc định — chỉ dùng độ thập phân khi đã lưu "dd" (user tự chọn)
+      coordFormat: p.coordFormat === "dd" ? "dd" : "dms",
       // lưới kẻ ô toạ độ MẶC ĐỊNH ẨN — chỉ hiện khi đã lưu true (user chốt bật)
       mapGrid: p.mapGrid === true,
       // ranh giới vùng lộng mặc định bật; chỉ tắt khi đã lưu false
@@ -135,11 +137,14 @@ function oneCoord(v: number, fmt: CoordFormat, pos: string, neg: string): string
   const a = Math.abs(v);
   if (fmt === "dms") {
     const d = Math.floor(a);
-    const m = Math.round((a - d) * 60);
-    // 60′ tràn → cộng độ
-    const dd = m === 60 ? d + 1 : d;
-    const mm = m === 60 ? 0 : m;
-    return `${dd}°${String(mm).padStart(2, "0")}′${hemi}`;
+    // phút LẺ 1 số (8°30,5′) — giữ độ chính xác ~0,1 hải lý, khớp máy định vị;
+    // phút tròn (làm tròn số nguyên) sai tới ~1,8 km, thô hơn cả độ thập phân
+    const m = Math.round((a - d) * 600) / 10;
+    // 60,0′ tràn → cộng độ
+    const dd = m >= 60 ? d + 1 : d;
+    const mm = m >= 60 ? 0 : m;
+    // "5,5" → "05,5": phút luôn 2 chữ số phần nguyên cho dễ đọc nhanh
+    return `${dd}°${formatNumberVN(mm, 1).padStart(4, "0")}′${hemi}`;
   }
   return `${formatNumberVN(a, 2)}°${hemi}`;
 }
