@@ -115,14 +115,81 @@ sudo apt-get install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d sdfish.sdvico.vn --redirect
 ```
 
-## 7. Verify
+## 7. Cron (THAY Vercel Cron)
+
+VPS = KHÔNG có Vercel Cron. Phải TỰ trigger `/api/cron/*` từ máy → **hết Hobby limit** (5 cron + hàng-giờ chạy thoải mái, miễn phí). `vercel.json crons` chỉ Vercel đọc; Next.js server bỏ qua.
+
+### 7a. Script gọi chung (đọc CRON_SECRET từ .env.production)
+
+```bash
+sudo tee /usr/local/bin/sdfish-cron.sh >/dev/null <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+SECRET=$(grep -E '^CRON_SECRET=' /var/www/sdfish/.env.production | cut -d= -f2-)
+curl -fsS -m 90 -X "${2:-GET}" -H "Authorization: Bearer $SECRET" \
+  "http://127.0.0.1:3000$1"      # localhost → bỏ qua nginx/TLS, nhanh + kín
+SH
+sudo chmod 755 /usr/local/bin/sdfish-cron.sh
+```
+
+### 7b. Cách A — crontab (đơn giản, đủ dùng)
+
+```bash
+sudo crontab -e     # dán các dòng dưới (UTC — khớp lịch vercel.json cũ)
+```
+
+```cron
+0 2 * * *    /usr/local/bin/sdfish-cron.sh /api/cron/refresh-fish     >> /var/log/sdfish-cron.log 2>&1
+30 2 * * *   /usr/local/bin/sdfish-cron.sh /api/cron/refresh-weather  >> /var/log/sdfish-cron.log 2>&1
+30 23 * * *  /usr/local/bin/sdfish-cron.sh /api/collect/sea-daily     >> /var/log/sdfish-cron.log 2>&1
+0 3 * * 6    /usr/local/bin/sdfish-cron.sh /api/cron/snapshot-prices  >> /var/log/sdfish-cron.log 2>&1
+0 * * * *    /usr/local/bin/sdfish-cron.sh /api/cron/trace-payments POST >> /var/log/sdfish-cron.log 2>&1
+```
+
+> `trace-payments` là **POST** (khác refresh-* GET). Trên VPS đặt lại **hàng-giờ** (`0 * * * *`) vì không còn Hobby limit. Timezone crontab theo giờ hệ thống — set `TZ=UTC` ở đầu crontab nếu VPS chạy giờ VN mà muốn khớp UTC.
+
+### 7c. Cách B — systemd timer (bền hơn: log journald, OnFailure)
+
+Ví dụ 1 cron (nhân bản cho các cron khác):
+
+```bash
+sudo tee /etc/systemd/system/sdfish-trace.service >/dev/null <<'UNIT'
+[Unit]
+Description=SDFish trace-payments cron
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/sdfish-cron.sh /api/cron/trace-payments POST
+UNIT
+
+sudo tee /etc/systemd/system/sdfish-trace.timer >/dev/null <<'UNIT'
+[Unit]
+Description=SDFish trace-payments hourly
+[Timer]
+OnCalendar=hourly
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now sdfish-trace.timer
+systemctl list-timers | grep sdfish     # kiểm lịch
+```
+
+### 7d. Dọn nguồn trùng
+
+- **Bỏ `crons` khỏi `vercel.json`** nếu KHÔNG còn deploy Vercel (Vercel không chạy nữa thì vô hại nếu để, nhưng gỡ cho sạch).
+- **GitHub Actions `refresh-*.yml`**: chọn 1 nguồn — hoặc VPS cron, hoặc GH Actions. Chạy CẢ 2 = double-hit endpoint. Khi VPS cron lo hết → tắt/ xoá workflow GH (Actions → Disable).
+- Verify chạy tay: `sudo /usr/local/bin/sdfish-cron.sh /api/cron/refresh-weather` → kỳ vọng JSON 200.
+
+## 8. Verify
 
 ```bash
 curl -I https://sdfish.sdvico.vn/quyen-rieng-tu   # HTTP/2 200
 curl -s https://sdfish.sdvico.vn/tien | grep -o "Giao dịch"
 ```
 
-## 8. Cập nhật khi có code mới
+## 9. Cập nhật khi có code mới
 
 ```bash
 cd /var/www/sdfish && git pull && npm ci && \
@@ -132,11 +199,11 @@ cd /var/www/sdfish && git pull && npm ci && \
 
 (Có thể tự động hóa bằng GitHub Actions self-hosted runner hoặc webhook + script deploy — làm sau nếu cần.)
 
-## 9. Sau khi domain LIVE
+## 10. Sau khi domain LIVE
 
 - `capacitor.config.ts` `server.url` → `https://sdfish.sdvico.vn/` → rebuild AAB → nộp store.
 - Gỡ `sdfish.sdvico.vn` khỏi project Vercel hoainxm (Dashboard → Domains → Remove) để Vercel không giữ tên miền (vô hại nếu để, DNS đã trỏ VPS).
 
 ---
 
-**Last updated**: 2026-07-28 · Host: VPS `116.103.228.188` (PA Vietnam) · Runtime: Node 20 + pm2 + nginx + certbot
+**Last updated**: 2026-08-01 (thêm §7 Cron — systemd/crontab thay Vercel Cron) · Host: VPS `116.103.228.188` (PA Vietnam) · Runtime: Node 20 + pm2 + nginx + certbot

@@ -103,7 +103,7 @@ POST /api/sdwork/webhook
 
 Ngư dân trả tiền premium → đại lý/nhân viên nhập **MÃ CK** ở SDFish `/quan-tri` (chỉ mã, KHÔNG số tiền — tiền thật + đối soát ở SDWork). SDFish CHUYỂN mã sang SDWork để đối chiếu sao kê; SDWork xác nhận đã nhận → SDFish đánh dấu "đã đối chiếu".
 
-- **Outbound (SDFish → SDWork)** — cron `/api/cron/trace-payments` (hàng giờ): mỗi payment chưa bắn → `POST {SDWORK_TRACE_URL}` body `{ code, phone, agent, recordedAt }`, header **`x-sdfish-signature`** = HMAC-SHA256(raw, `SDWORK_WEBHOOK_SECRET`). SDFish set `traced_at` khi HTTP 2xx (không bắn lại); lỗi → giữ, cron sau thử lại.
+- **Outbound (SDFish → SDWork)** — cron `/api/cron/trace-payments` (Vercel Hobby: 1 lần/ngày `0 1 * * *`; hàng-giờ khi self-host/GH Actions — cadence là chi tiết vận hành, KHÔNG đổi wire contract): mỗi payment chưa bắn → `POST {SDWORK_TRACE_URL}` body `{ code, phone, agent, recordedAt }`, header **`x-sdfish-signature`** = HMAC-SHA256(raw, `SDWORK_WEBHOOK_SECRET`). SDFish set `traced_at` khi HTTP 2xx (không bắn lại); lỗi → giữ, cron sau thử lại.
 - **SDWork phải dựng endpoint nhận** ở `SDWORK_TRACE_URL`: verify `x-sdfish-signature` → lưu mã + tra sao kê ngân hàng theo `code` → khi thấy khớp, **bắn webhook xác nhận về** SDFish.
 - **Inbound xác nhận (SDWork → SDFish)** — tái dùng `/api/sdwork/webhook`: gửi event `{ "entity": "payment", "action": "reconciled", "ref": "<code>" }` (cùng HMAC `x-sdwork-signature`). SDFish set `payments.reconciled_status='reconciled'` cho mã đó (response `ok:false code:'code_not_found'` nếu mã lạ).
 - Thiếu `SDWORK_TRACE_URL` → cron no-op (SDFish vẫn ghi mã local, chỉ chưa bắn).
