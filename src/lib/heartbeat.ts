@@ -101,6 +101,8 @@ const HEARTBEAT_TIMEOUT_MS = 5000;
  * nguyên và vẫn im 12 tiếng như cũ.
  */
 export function beatSignature(info: {
+  /** TÀI KHOẢN đang đăng nhập — phần quan trọng nhất của chữ ký, xem dưới */
+  account?: string | null;
   standalone: boolean;
   offlineReady: boolean;
 }): string {
@@ -108,7 +110,14 @@ export function beatSignature(info: {
     offlineReady: info.offlineReady,
     standalone: info.standalone,
   });
-  return `${info.standalone ? "p" : "w"}${ready ? "r" : "-"}`;
+  /* TÀI KHOẢN NẰM TRONG CHỮ KÝ (lỗi đã sửa 2026-08-01o, chủ dự án phát hiện
+     trên máy thật: "máy này trước đăng nhập 0938635689, sau đổi acc 012xx, nên
+     cả cái trạng thái acc nó cũng không thay đổi").
+     Bản trước chữ ký chỉ gồm chế độ chạy + đủ-đồ, nên ĐỔI TÀI KHOẢN trên cùng
+     một máy là chữ ký y nguyên ⇒ cửa 12 giờ chặn ⇒ tài khoản MỚI không được ghi
+     một mốc nào, /quan-tri đứng mãi ở "Chưa ghi nhận". Mà đổi tài khoản chính
+     là TIN MỚI đáng gửi nhất: mốc đang nói về một người khác hẳn. */
+  return `${info.account ?? "-"}|${info.standalone ? "p" : "w"}${ready ? "r" : "-"}`;
 }
 
 /**
@@ -193,6 +202,10 @@ function writeText(key: string, value: string): void {
  * gửi thật (dùng cho test/gỡ lỗi, chỗ gọi không cần đọc).
  */
 export async function sendHeartbeat(info: {
+  /** TÀI KHOẢN đang đăng nhập — vào chữ ký để ĐỔI TÀI KHOẢN là gửi ngay, không
+   *  phải chờ hết cửa 12 giờ. KHÔNG gửi lên máy chủ (server tự đọc từ phiên,
+   *  client không được khai mình là ai). */
+  account?: string | null;
   standalone: boolean;
   offlineReady: boolean;
   /** loại máy THÔ để nhân viên gọi điện chỉ đúng bước cài (ios|android|khac).
@@ -229,7 +242,9 @@ export async function sendHeartbeat(info: {
     const res = await fetch(apiUrl("/api/me/heartbeat"), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(info),
+      // `account` CHỈ dùng cho chữ ký phía máy — máy chủ tự đọc tài khoản từ
+      // cookie phiên, client khai gì cũng không được tin.
+      body: JSON.stringify({ ...info, account: undefined }),
       signal: AbortSignal.timeout(HEARTBEAT_TIMEOUT_MS),
       keepalive: true,
     });

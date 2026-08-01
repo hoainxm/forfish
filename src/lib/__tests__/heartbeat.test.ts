@@ -157,6 +157,44 @@ describe("netBackoffMs — thang lùi khi không nghe được máy chủ", () =
 // thứ cần báo là TRẠNG THÁI ĐÃ ĐỔI. Ca chủ dự án chỉ ra: mở web rồi 5 giây sau
 // mở bản cài, trên Android (bản cài dùng CHUNG kho với Chrome) nhịp thứ hai bị
 // chặn ⇒ pwa_last_open_at mãi null.
+describe("beatSignature — ĐỔI TÀI KHOẢN trên cùng máy là tin mới", () => {
+  // Chủ dự án phát hiện trên máy thật 2026-08-01: đăng nhập 0938635689 lúc
+  // 17:02, sau đó đổi sang 0123456154 → chữ ký cũ không có tài khoản nên y
+  // nguyên → cửa 12 giờ chặn → tài khoản MỚI không được ghi mốc nào.
+  const base = { standalone: false, offlineReady: false };
+
+  it("hai tài khoản khác nhau → hai chữ ký khác nhau", () => {
+    expect(beatSignature({ ...base, account: "0938635689" })).not.toBe(
+      beatSignature({ ...base, account: "0123456154" }),
+    );
+  });
+
+  it("đăng xuất (account null) cũng khác với đang đăng nhập", () => {
+    expect(beatSignature({ ...base, account: null })).not.toBe(
+      beatSignature({ ...base, account: "0123456154" }),
+    );
+  });
+
+  it("cùng tài khoản + cùng điều kiện → chữ ký y nguyên (vẫn im 12 giờ)", () => {
+    expect(beatSignature({ ...base, account: "0123456154" })).toBe(
+      beatSignature({ ...base, account: "0123456154" }),
+    );
+  });
+
+  it("đổi tài khoản 5 giây sau nhịp trước → VẪN GỬI", () => {
+    expect(
+      shouldSendHeartbeat({
+        online: true,
+        lastAt: NOW - 5_000,
+        sigChanged:
+          beatSignature({ ...base, account: "0938635689" }) !==
+          beatSignature({ ...base, account: "0123456154" }),
+        nowMs: NOW,
+      }),
+    ).toBe(true);
+  });
+});
+
 describe("beatSignature — phần TIN TỨC của một nhịp", () => {
   const web = { standalone: false, offlineReady: false };
 
