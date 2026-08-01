@@ -40,6 +40,8 @@ function fmt(iso: string): string {
 }
 
 export function InboxSection() {
+  // `user` chỉ để biết ĐANG là tài khoản nào (chọn đúng ngăn bản lưu trong
+  // máy) — KHÔNG dùng để chặn hiện mục này.
   const { user, ready } = useAuthUser();
   const phone = user?.email ? user.email.split("@")[0] : null;
   const [messages, setMessages] = useState<InboxMessage[]>([]);
@@ -58,15 +60,18 @@ export function InboxSection() {
     });
   }, []);
   useEffect(() => {
-    if (!ready || !user) return;
+    if (!ready) return;
     refresh();
     const onOnline = () => refresh();
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
-  }, [ready, user, refresh]);
+  }, [ready, refresh]);
 
-  // chưa đăng nhập hoặc chưa có tin nào → ẩn hẳn, không để khối trống
-  if (!user || messages.length === 0) return null;
+  /* Chưa có tin nào → ẩn hẳn, không để khối trống. KHÔNG chặn theo đăng nhập:
+     máy chưa gắn tài khoản vẫn nhận được tin gửi chung qua push, mà vuốt tắt là
+     mất — đúng cái lỗ hộp thư sinh ra để bịt (sửa 2026-08-01n). Tin nhắm riêng
+     thì server vốn chỉ trả khi đã đăng nhập. */
+  if (messages.length === 0) return null;
 
   const shown = expanded ? messages : messages.slice(0, PREVIEW_COUNT);
   const rest = messages.length - shown.length;

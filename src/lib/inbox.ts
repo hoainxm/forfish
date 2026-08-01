@@ -32,25 +32,35 @@ export const INBOX_KEY = "forfish.inbox.v1";
 
 type Stored = { phone: string; savedAt: number; messages: InboxMessage[] };
 
+/* Ngăn của KHÁCH CHƯA ĐĂNG NHẬP — chỉ chứa tin gửi chung (ai xem cũng như
+   nhau) nên để chung máy không lộ gì của ai. Đăng nhập thì ghi sang ngăn của
+   SĐT đó, đăng xuất thì xoá sạch. */
+const GUEST = "__khach__";
+const bucket = (phone: string | null) => phone ?? GUEST;
+
 /** Bản lưu của ĐÚNG tài khoản này; SĐT lệch → coi như chưa có gì. */
 export function loadInbox(phone: string | null): InboxMessage[] {
-  if (!phone || typeof window === "undefined") return [];
+  if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(INBOX_KEY);
     if (!raw) return [];
     const s = JSON.parse(raw) as Stored;
-    if (s?.phone !== phone || !Array.isArray(s.messages)) return [];
+    if (s?.phone !== bucket(phone) || !Array.isArray(s.messages)) return [];
     return s.messages;
   } catch {
     return [];
   }
 }
 
-function saveInbox(phone: string, messages: InboxMessage[]): void {
+function saveInbox(phone: string | null, messages: InboxMessage[]): void {
   try {
     window.localStorage.setItem(
       INBOX_KEY,
-      JSON.stringify({ phone, savedAt: Date.now(), messages } satisfies Stored),
+      JSON.stringify({
+        phone: bucket(phone),
+        savedAt: Date.now(),
+        messages,
+      } satisfies Stored),
     );
   } catch {
     /* máy hết chỗ — hộp thư là tiện ích, không được chen chỗ của dự báo */
@@ -92,7 +102,7 @@ export async function refreshInbox(): Promise<{
     };
     if (!j.ok) return null;
     const messages = j.messages ?? [];
-    if (j.phone) saveInbox(j.phone, messages);
+    saveInbox(j.phone ?? null, messages);
     return { phone: j.phone ?? null, messages };
   } catch {
     return null;

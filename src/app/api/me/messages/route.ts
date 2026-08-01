@@ -24,17 +24,22 @@ export async function GET() {
   if (!supabase) return NextResponse.json({ ok: false }, { status: 503 });
   const { data } = await supabase.auth.getUser();
   const email = data?.user?.email;
-  // chưa đăng nhập → hộp thư rỗng, KHÔNG phải lỗi (trang chủ tự ẩn mục này)
-  if (!email) return NextResponse.json({ ok: true, phone: null, messages: [] });
-  const phone = normalizeVnPhone(email.split("@")[0]);
+  /* CHƯA ĐĂNG NHẬP VẪN XEM ĐƯỢC TIN GỬI CHUNG (sửa 2026-08-01n).
+     Bản đầu trả rỗng ⇒ trang chủ ẩn hẳn mục Thông báo. Nhưng máy CHƯA gắn tài
+     khoản vẫn NHẬN được thông báo chung qua push — mà vuốt tắt là mất, đúng
+     cái lỗ hộp thư sinh ra để bịt. Thực tế lúc này MỌI máy đăng ký đều đang ẩn
+     danh, nên chặn khách vãng lai là tự vô hiệu hoá tính năng.
+     Tin nhắm riêng thì vẫn phải đăng nhập mới thấy. */
+  const phone = email ? normalizeVnPhone(email.split("@")[0]) : null;
 
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ ok: false }, { status: 503 });
 
-  const { data: rows, error } = await admin
+  let q = admin
     .from("push_messages")
-    .select("id, title, body, url, target, target_phone, created_at")
-    .or(`target.eq.all,target_phone.eq.${phone}`)
+    .select("id, title, body, url, target, target_phone, created_at");
+  q = phone ? q.or(`target.eq.all,target_phone.eq.${phone}`) : q.eq("target", "all");
+  const { data: rows, error } = await q
     .order("created_at", { ascending: false })
     .limit(MAX_MESSAGES);
   if (error) return NextResponse.json({ ok: false }, { status: 500 });

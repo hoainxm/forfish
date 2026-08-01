@@ -26,6 +26,8 @@ gate: warn
 
 <!-- re-verified: 2026-08-01m — KEY MỚI `forfish.inbox.v1`: hộp thư đã tải (≤50 tin) để đọc offline. Writer/reader: `src/lib/inbox.ts`. **MANG THEO SĐT CHỦ NHÂN** — đọc mà SĐT lệch thì coi như trống, và `clearInbox()` chạy lúc ĐĂNG XUẤT: máy dùng chung trên tàu, thư người trước không được nằm lại cho người sau. Cùng luật cách ly tài khoản với dấu premium và với API_CACHE_ALLOW của service worker. -->
 
+<!-- re-verified: 2026-08-01n — `forfish.inbox.v1` thêm NGĂN KHÁCH `__khach__` cho người chưa đăng nhập (chỉ chứa tin gửi chung — công khai, ai xem cũng như nhau). Đăng nhập ghi sang ngăn mang SĐT; đăng xuất `clearInbox()` xoá sạch. Luật cũ giữ nguyên: SĐT lệch → coi như trống. -->
+
 > Registry CANONICAL cho state client (nguyên tắc 11 §state). **State không có trong bảng này = coi như không tồn tại — KHÔNG đoán schema.** ForFish chạy Vercel serverless + demo mode → "state nền" duy nhất là localStorage của trình duyệt (prefix `forfish.*`, GIỮ tên cũ — đổi sẽ mất dữ liệu user). Khi đã đăng nhập Supabase, nguồn sự thật là DB (xem [04-data-model](../04-data-model.md)); localStorage là fallback demo mode (xem [02-architecture §4](../02-architecture.md)).
 
 **Last updated**: 2026-07-25
