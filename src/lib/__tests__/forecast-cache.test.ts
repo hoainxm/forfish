@@ -51,6 +51,7 @@ import {
   loadAll,
   lastStorageFullAt,
   coordId,
+  reclaimForecastSpace,
   savedAgoLabel,
 } from "../forecast-cache";
 
@@ -196,6 +197,56 @@ describe("máy hết chỗ — dọn theo DUNG LƯỢNG", () => {
     saveForecast("grid", "d16", { blob: big(6000) }, 1000);
     expect(saveForecast("grid", "d16", { blob: big(6000) }, 2000)).toBe(true);
     expect(loadForecast<{ blob: string }>("grid", "d16")?.savedAt).toBe(2000);
+  });
+});
+
+/*
+  NHƯỜNG CHỖ CHO DỮ LIỆU TỰ NHẬP — chọn nạn nhân theo GIÁ TRỊ, không theo tuổi
+  (sửa 2026-08-01). `savedAt` của lớp nặng là GIỜ CHẠY CRON của snapshot, còn
+  bản điểm-chạm tí hon lưu bằng Date.now ⇒ xếp theo tuổi thì lớp nặng luôn đứng
+  đầu hàng bị bỏ: một ghi chú 3 KB xoá nguyên lưới gió/sóng 16 ngày.
+*/
+describe("reclaimForecastSpace — bỏ thứ RẺ trước, chừa lưới gió/sóng", () => {
+  const big = (n: number) => "x".repeat(n);
+
+  it("lưới gió/sóng CŨ HƠN vẫn được chừa, bản điểm-chạm mới hơn nhường chỗ", () => {
+    saveForecast("grid", "d16", { blob: big(2000) }, 1000); // savedAt = giờ cron
+    saveForecast("point", "a", { blob: big(50) }, 9000); // savedAt = Date.now
+    expect(reclaimForecastSpace(100)).toBe(1);
+    expect(loadForecast("grid", "d16")).not.toBeNull();
+    expect(loadForecast("point", "a")).toBeNull();
+  });
+
+  it("thứ tự hy sinh: điểm → dải màu → dòng chảy tầng → lưới → bản đồ cá ghim", () => {
+    saveForecast("fishmark", "m", { blob: big(60) }, 1000);
+    saveForecast("grid", "d16", { blob: big(60) }, 1000);
+    saveForecast("curdepth", "t150", { blob: big(60) }, 1000);
+    saveForecast("scalar", "cloud", { blob: big(60) }, 1000);
+    saveForecast("point", "a", { blob: big(60) }, 1000);
+    const gone: string[] = [];
+    for (const [ns, id] of [
+      ["point", "a"],
+      ["scalar", "cloud"],
+      ["curdepth", "t150"],
+      ["grid", "d16"],
+      ["fishmark", "m"],
+    ] as const) {
+      reclaimForecastSpace(0);
+      if (loadForecast(ns, id) === null && !gone.includes(ns)) gone.push(ns);
+    }
+    expect(gone).toEqual(["point", "scalar", "curdepth", "grid", "fishmark"]);
+  });
+
+  it("cùng bậc thì bỏ bản CŨ trước", () => {
+    saveForecast("point", "moi", { blob: big(50) }, 9000);
+    saveForecast("point", "cu", { blob: big(50) }, 1000);
+    reclaimForecastSpace(0);
+    expect(loadForecast("point", "cu")).toBeNull();
+    expect(loadForecast("point", "moi")).not.toBeNull();
+  });
+
+  it("kho trống → trả 0, không ném", () => {
+    expect(reclaimForecastSpace(5000)).toBe(0);
   });
 });
 

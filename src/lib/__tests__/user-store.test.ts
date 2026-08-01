@@ -55,14 +55,17 @@ describe("saveUserJson", () => {
     expect(localStorage.getItem("forfish.documents.v1")).toContain('"a"');
   });
 
-  it("máy chật vì DỰ BÁO → bỏ bản dự báo cũ nhất, giấy tờ vẫn vào được", () => {
+  /* Sửa 2026-08-01: nạn nhân chọn theo GIÁ TRỊ, không theo `savedAt`. Lớp nặng
+     lưu bằng giờ chạy cron nên luôn trông "cũ" hơn bản điểm-chạm tí hon — xếp
+     theo tuổi thì một ghi chú 3 KB xoá nguyên lưới gió/sóng 16 ngày, thứ giữa
+     biển KHÔNG tải lại được. */
+  it("máy chật vì DỰ BÁO → bỏ lớp RẺ trước, LƯỚI GIÓ/SÓNG được chừa", () => {
     QUOTA_CHARS = 3000;
-    saveForecast("grid", "d16", { blob: big(1000) }, 1000);
+    saveForecast("grid", "d16", { blob: big(1000) }, 1000); // savedAt = giờ cron (trông cũ)
     saveForecast("scalar", "cloud", { blob: big(1000) }, 2000);
     expect(saveUserJson("forfish.documents.v1", { blob: big(900) })).toBe(true);
-    // bản dự báo CŨ NHẤT nhường chỗ, bản mới hơn còn nguyên
-    expect(loadForecast("grid", "d16")).toBeNull();
-    expect(loadForecast("scalar", "cloud")).not.toBeNull();
+    expect(loadForecast("scalar", "cloud")).toBeNull(); // lớp dải màu nhường chỗ
+    expect(loadForecast("grid", "d16")).not.toBeNull(); // sóng gió còn nguyên
   });
 
   it("nhường hết dự báo mà vẫn không đủ → trả FALSE (để màn hình báo đỏ)", () => {

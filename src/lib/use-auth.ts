@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { isNetworkAuthError } from "@/lib/auth-error";
 
 export function useAuthUser(): {
   user: User | null;
@@ -47,8 +48,19 @@ export function useAuthUser(): {
     }, 8000);
     supabase.auth
       .getUser()
-      .then(({ data }) => {
-        if (alive) setUser(data?.user ?? null);
+      .then(({ data, error }) => {
+        if (!alive) return;
+        // LỖI ĐÃ SỬA (2026-08-01): getUser() KHÔNG reject khi mất sóng — auth-js
+        // RESOLVE kèm `error` (AuthRetryableFetchError). Bản trước chỉ bóc
+        // `data` nên `.catch` không bao giờ nổ, `errored` không bao giờ bật, và
+        // lỗi mạng đội lốt ĐĂNG XUẤT THẬT ⇒ use-tier xoá dấu premium giữa biển.
+        // Đồng hồ 8s chỉ đỡ được ca TREO, không đỡ ca hỏng NHANH (DNS chết,
+        // ENETUNREACH, 502/503/504) — mà ngoài khơi ca đó mới là ca thường.
+        if (error && isNetworkAuthError(error)) {
+          setErrored(true);
+          return; // GIỮ user cũ, đừng hạ xuống null
+        }
+        setUser(data?.user ?? null);
       })
       .catch(() => {
         /* mất sóng / auth không tra được — đánh dấu errored, KHÔNG kẹt */

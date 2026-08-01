@@ -28,6 +28,7 @@ import {
   coverageChipText,
   lastAutoPretripAt,
   markAutoPretripRun,
+  shouldMarkPretripRun,
   shouldAttemptAutoPretrip,
   type PretripSavedPhase,
 } from "@/lib/pretrip-auto";
@@ -122,7 +123,10 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
     setSharedPhase("loading");
     runPretrip(pointsRef.current)
       .then((r) => {
-        markAutoPretripRun();
+        // CHỈ ghi mốc khi mẻ này thật sự giữ được gì (hoặc máy hết chỗ — thử
+        // lại cũng vô ích). Ghi vô điều kiện là khoá 6 giờ ngay cả khi hỏng
+        // sạch — xem shouldMarkPretripRun.
+        if (shouldMarkPretripRun(r)) markAutoPretripRun();
         const ok = !r.full && r.ok > 0 && r.saved.places > 0 && !!r.saved.untilIso;
         setNote({ text: autoPretripLine(r), kind: ok ? "ok" : "warn" });
       })

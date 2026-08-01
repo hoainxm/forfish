@@ -10,6 +10,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { isValidVnPhone, normalizeVnPhone } from "@/lib/phone";
+import { isNetworkAuthError } from "@/lib/auth-error";
 
 const TABLE = "market_listings";
 
@@ -148,8 +149,14 @@ export async function createListing(
   const supabase = createClient();
   if (!supabase) return { ok: false, error: "Chưa kết nối máy chủ." };
 
-  const { data: userData } = await supabase.auth.getUser();
+  // getUser() RESOLVE kèm `error` khi mất sóng (không reject) — bỏ `error` thì
+  // người ĐANG đăng nhập bị báo "cần đăng nhập" chỉ vì sóng chập chờn. Nói đúng
+  // chuyện: chưa gửi được vì sóng, không phải vì tài khoản.
+  const { data: userData, error: authError } = await supabase.auth.getUser();
   const user = userData?.user;
+  if (!user && isNetworkAuthError(authError)) {
+    return { ok: false, error: "Chưa gửi được — máy chưa có sóng. Thử lại sau." };
+  }
   if (!user) return { ok: false, error: "Cần đăng nhập để đăng tin." };
 
   const phone =

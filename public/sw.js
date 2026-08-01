@@ -10,7 +10,14 @@
      xem bản đồ lâu là đầy bộ nhớ máy.
    · asset tĩnh same-origin (_next/static, icon, font, /data) → cache-first.
    · POST + khác origin (map tile nguồn ngoài) → KHÔNG đụng, để mạng lo.
-  Đổi shell thì bump SDFISH_CACHE_V (KHÔNG dùng Date.now — phải ổn định).
+   · /api/admin/* → KHÔNG đụng (xem ghi chú ở nhánh fetch).
+
+  BUMP SDFISH_CACHE_V khi nào (làm rõ 2026-08-01): chỉ khi cần XOÁ SẠCH kho vỏ
+  cũ — đổi hình dạng entry, hoặc bỏ bớt URL khỏi SHELL. THÊM url vào SHELL thì
+  KHÔNG cần bump: sw.js đổi byte là trình duyệt cài lại, `c.add` nhét entry mới
+  vào chính kho đang dùng. Và bump có GIÁ: kho vỏ cũ bị `activate` xoá trước khi
+  biết mẻ `c.add` mới có đủ không — mạng chập chờn lúc cập nhật là bà con mất vỏ
+  đang chạy được. (KHÔNG dùng Date.now — phải ổn định.)
 */
 const SDFISH_CACHE_V = "sdfish-v6";
 /** Kho ô bản đồ để riêng — xoá/giới hạn được mà không đụng vỏ app */
@@ -24,7 +31,8 @@ const SDFISH_TILE_V = "sdfish-tiles-v1";
 const SDFISH_API_V = "sdfish-api-v1";
 /*  Trần kho API: pretrip nạp ~2–3 MB/lượt (lưới 3/7/16 ngày + bản đồ cá + điểm
     ghim) ⇒ 120 mục thừa sức giữ vài lượt tải sẵn + các điểm bà con đã xem,
-    vẫn xa hạn bộ nhớ điện thoại. LRU: Cache API trả key theo thứ tự thêm. */
+    vẫn xa hạn bộ nhớ điện thoại. Dọn kiểu FIFO: Cache API trả key theo thứ
+    tự THÊM VÀO, nên bỏ từ đầu = bỏ bản cất sớm nhất (KHÔNG phải ít-dùng-nhất). */
 const API_CACHE_MAX = 120;
 /** Trần số ô giữ lại (~20 KB/ô → ~12 MB). Quá thì bỏ ô cũ nhất. */
 const TILE_CACHE_MAX = 600;
@@ -35,7 +43,10 @@ const TILE_CACHE_MAX = 600;
     mọi kho khác phiên bản ⇒ **bump vỏ là xoá sạch chunk đã tích luỹ**; HTML
     trong kho vẫn còn nhưng gọi chunk không còn ai giữ ⇒ ra khơi mở app là
     MÀN HÌNH TRẮNG. Tên file có băm hash nên bản build khác nhau không đụng
-    nhau — chỉ cần trần LRU, không cần xoá trắng. */
+    nhau — chỉ cần trần (dọn FIFO), không cần xoá trắng. LƯU Ý: chunk đã có thì
+    precache bỏ qua, nên chunk khung sườn dùng suốt vẫn giữ vị trí cất LẦN ĐẦU
+    và có thể bị bỏ trước đống `_rsc` mới — chưa cắn ở trần 400, nhưng đừng đọc
+    chữ "trần" thành "ưu tiên cái hay dùng". */
 const SDFISH_STATIC_V = "sdfish-static-v1";
 /** Trần số asset băm tên giữ lại (đủ vài bản build; quá thì bỏ cũ nhất) */
 const STATIC_CACHE_MAX = 400;
@@ -52,6 +63,10 @@ const RSC_NETWORK_MS = 3500;
 /** Trần thời gian tải sẵn JS/CSS của vỏ lúc install — quá thì thôi, cài vỏ mới
     quan trọng hơn (chunk còn thiếu sẽ cất dần lúc bà con mở trang) */
 const PRECACHE_MAX_MS = 20000;
+/** Bao nhiêu lớp "chunk gọi chunk" thì lần theo (xem precacheShellAssets) */
+const PRECACHE_MAX_DEPTH = 2;
+/** Trần số URL tải sẵn — chặn trường hợp bản build sau nở ra cả cây lazy chunk */
+const PRECACHE_MAX_URLS = 120;
 
 const SHELL = [
   "/",
@@ -93,37 +108,93 @@ function staticAssetUrls(html) {
   return [...out];
 }
 
+/** Rút các chunk mà MỘT FILE JS gọi tới lúc chạy (dynamic import).
+    Turbopack ghi thẳng đường dẫn tương đối vào mã, ví dụ trong chunk của
+    /ngu-truong: `["static/chunks/…","static/chunks/261cq39jf3lqt.js"].map(t=>e.l(t))`
+    ⇒ KHÔNG có tiền tố `/_next/` nên `staticAssetUrls` (quét HTML) không thấy. */
+function lazyChunkUrls(js) {
+  const out = new Set();
+  const re = /["'](static\/(?:chunks|css|media)\/[^"'\s\\]+)["']/g;
+  let m;
+  while ((m = re.exec(js))) out.add(`/_next/${m[1]}`);
+  return [...out];
+}
+
+/** Cất một asset vào kho tĩnh (đã có thì thôi). Trả về NỘI DUNG nếu là .js —
+    để đi tiếp sang các chunk mà nó gọi. */
+async function precacheOne(store, url) {
+  const isJs = url.endsWith(".js");
+  const hit = await store.match(url); // bản build cũ đã có thì khỏi tải lại
+  if (hit) return isJs ? hit.clone().text() : null;
+  const net = await fetch(url);
+  if (!net.ok) return null;
+  // Nhân bản TRƯỚC khi ai đó đọc thân — put() nuốt một bản, đọc chữ một bản.
+  const forCache = net.clone();
+  const body = isJs ? await net.clone().text() : null;
+  await store.put(url, forCache);
+  return body;
+}
+
 /*
-  TẢI SẴN LUÔN JS/CSS CỦA VỎ (2026-07-31).
+  TẢI SẴN LUÔN JS/CSS CỦA VỎ (2026-07-31, mở rộng 2026-08-01).
   Vì sao: SHELL chỉ có HTML + dữ liệu + font bản đồ, KHÔNG có một file JS nào.
   HTML lấy từ kho mà chunk không có ai giữ thì trang chủ mất hết kiểu dáng, còn
   /ngu-truong (bản đồ dựng bằng JS, server render ra div rỗng) là TRỐNG TRƠN —
-  đúng màn bà con mở giữa biển. Đọc HTML VỪA cất trong kho vỏ (không tải lại)
-  rồi cất các chunk nó gọi. Best-effort: hỏng thì thôi, không chặn install.
+  đúng màn bà con mở giữa biển.
+
+  HAI LỖ CỦA BẢN ĐẦU, vá ở đây:
+  (1) Chỉ đọc HTML của "/" và "/ngu-truong" trong khi SHELL đã thêm /tau /nguoi
+      /tien /cang ⇒ bốn màn đó có HTML mà THIẾU chunk: giữa biển hiện đúng tiêu
+      đề + tab nhưng KHÔNG hydrate (tủ giấy tờ đọc localStorage trong useEffect
+      nên vĩnh viễn rỗng, bấm tab không ăn) — dối hơn cả màn trắng. Nay danh
+      sách trang lấy THẲNG từ SHELL, thêm màn vào SHELL là tự có chunk.
+  (2) Chunk nạp bằng dynamic import (MapLibre ~1 MB của /ngu-truong) KHÔNG được
+      HTML nhắc tên — chỉ chunk khác gọi nó ⇒ quét HTML về mặt cấu trúc không
+      bao giờ với tới. Nay lần theo `PRECACHE_MAX_DEPTH` lớp "chunk gọi chunk".
+      Thiếu nó thì /ngu-truong offline = import reject, mà app KHÔNG có
+      error.tsx ⇒ màn lỗi mặc định của Next, mất bản đồ + lớp bão + đẳng sâu.
+  Best-effort: hỏng thì thôi, không chặn install.
 */
 async function precacheShellAssets() {
   try {
     const shell = await caches.open(SDFISH_CACHE_V);
     const store = await caches.open(SDFISH_STATIC_V);
-    const urls = new Set();
-    for (const page of ["/", "/ngu-truong"]) {
+    const seen = new Set();
+    let wave = [];
+    const push = (u) => {
+      if (seen.has(u) || seen.size >= PRECACHE_MAX_URLS) return;
+      seen.add(u);
+      wave.push(u);
+    };
+    // Trang = mục SHELL không có đuôi file (icon/json/font thì tự nó là asset)
+    for (const page of SHELL) {
+      if (page.includes(".")) continue;
       const res = await shell.match(page);
       if (!res) continue;
-      const html = await res.clone().text();
-      for (const u of staticAssetUrls(html)) urls.add(u);
+      for (const u of staticAssetUrls(await res.clone().text())) push(u);
     }
-    // Có trần thời gian: sóng chập chờn thì `add` có thể treo rất lâu, mà cài
+    // Có trần thời gian: sóng chập chờn thì tải có thể treo rất lâu, mà cài
     // xong vỏ mới còn quan trọng hơn việc tải đủ chunk (chunk thiếu sẽ được
     // cất lúc bà con mở trang, nhánh cache-first bên dưới).
-    await Promise.race([
-      Promise.allSettled(
-        [...urls].map(async (u) => {
-          if (await store.match(u)) return; // bản build cũ đã có thì thôi
-          return store.add(u);
-        }),
-      ),
-      new Promise((resolve) => setTimeout(resolve, PRECACHE_MAX_MS)),
-    ]);
+    let timedOut = false;
+    const deadline = new Promise((resolve) =>
+      setTimeout(() => {
+        timedOut = true;
+        resolve([]);
+      }, PRECACHE_MAX_MS),
+    );
+    for (let d = 0; d <= PRECACHE_MAX_DEPTH && wave.length && !timedOut; d++) {
+      const batch = wave;
+      wave = [];
+      const done = await Promise.race([
+        Promise.allSettled(batch.map((u) => precacheOne(store, u))),
+        deadline,
+      ]);
+      for (const r of done) {
+        if (r.status !== "fulfilled" || !r.value) continue;
+        for (const u of lazyChunkUrls(r.value)) push(u);
+      }
+    }
     await trimCache(store, STATIC_CACHE_MAX);
   } catch {
     /* không tải sẵn được thì vỏ vẫn chạy như cũ */
@@ -162,9 +233,52 @@ self.addEventListener("activate", (event) => {
             .map((k) => caches.delete(k)),
         ),
       )
+      .then(() => purgeLegacyEntries())
       .then(() => self.clients.claim()),
   );
 });
+
+/*
+  DỌN RÁC BẢN TRƯỚC LỠ CẤT (2026-08-01). Hai kho này CỐ Ý không bị xoá theo
+  phiên bản vỏ, nên thứ cất sai phải xoá tay:
+   · kho vỏ: phản hồi `?_rsc=` — nay đưa sang kho tĩnh (có trần, dọn FIFO). Kho vỏ
+     KHÔNG có trần, mà mỗi bản deploy sinh một bộ URL `_rsc` mới ⇒ phình mãi.
+   · kho API: `/api/admin/*` — nay KHÔNG cache nữa (xem nhánh fetch); bản 200
+     đã lỡ cất là danh bạ khách (SĐT + tên + hạng) nằm lại trên máy nhân viên.
+*/
+async function purgeLegacyEntries() {
+  try {
+    const shell = await caches.open(SDFISH_CACHE_V);
+    for (const req of await shell.keys()) {
+      if (new URL(req.url).searchParams.has("_rsc")) await shell.delete(req);
+    }
+  } catch {
+    /* dọn được thì tốt, không thì thôi */
+  }
+  try {
+    const api = await caches.open(SDFISH_API_V);
+    for (const req of await api.keys()) {
+      if (new URL(req.url).pathname.startsWith("/api/admin/")) {
+        await api.delete(req);
+      }
+    }
+  } catch {
+    /* dọn được thì tốt, không thì thôi */
+  }
+}
+
+/**
+ * Lỗi này có ĐƯỢC CỨU bằng bản trong kho không (2026-08-01).
+ *
+ * LỖI ĐÃ SỬA: bản 2026-07-31b cứu theo `!res.ok`, tức nuốt LUÔN 401/403. Mà
+ * 401/403 KHÔNG phải nguồn hỏng — đó là từ chối CÓ CHỦ ĐÍCH của middleware /
+ * `lib/admin-auth.ts` (hết hạn premium, bị gỡ quyền, đăng xuất). Trả bản 200 cũ
+ * cho một cái 403 là biến chốt THẬT phía máy chủ thành vô nghĩa trên đúng cái
+ * máy đã từng có quyền. Chỉ cứu khi lỗi thuộc về NGUỒN/HẠ TẦNG.
+ */
+function isRescuableStatus(status) {
+  return status >= 500 || status === 408 || status === 429;
+}
 
 /** Giữ một kho trong trần: Cache API trả key theo thứ tự thêm vào → bỏ từ đầu. */
 async function trimCache(cache, max) {
@@ -230,11 +344,20 @@ function navigationFirst(req) {
   const waited = new Promise((resolve) => setTimeout(resolve, NAV_NETWORK_MS));
   return Promise.race([net.then((r) => r, () => undefined), waited]).then(
     async (winner) => {
-      // MÁY CHỦ TRẢ LỖI mà trang này đã nằm trong kho → trả bản trong kho
+      // NGUỒN/HẠ TẦNG HỎNG mà trang này đã nằm trong kho → trả bản trong kho
       // (2026-07-31b). Bản trước chỉ lo mạng ĐỨT và mạng CHẬM; còn 504 của
       // gateway vệ tinh / 500 của Vercel vẫn đi thẳng ra app, bà con nhận
       // trang lỗi DÙ trang đó có sẵn trong máy.
-      if (winner && !winner.ok) {
+      // Thu hẹp 2026-08-01: chỉ 5xx/408/429. `!winner.ok` cũ khớp cả 404 (phải
+      // hiện 404 thật) lẫn `opaqueredirect` (status 0 — chuyển hướng của
+      // middleware) ⇒ mọi redirect thêm sau này lên route trong SHELL sẽ bị
+      // nuốt im lặng, bà con đứng lại ở trang cũ mà không hiểu vì sao.
+      if (
+        winner &&
+        !winner.ok &&
+        winner.type !== "opaqueredirect" &&
+        isRescuableStatus(winner.status)
+      ) {
         const hit = await caches.match(req);
         if (hit) return hit;
       }
@@ -264,6 +387,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  /*  WEB QUẢN TRỊ — KHÔNG ĐỤNG (2026-08-01).
+      `/quan-tri` dựng toàn bộ bảng điều khiển từ THÂN JSON của
+      /api/admin/health (vai + bảng quyền) rồi /api/admin/accounts (danh bạ
+      khách: SĐT + tên + hạng). Cất chúng vào kho là: đăng xuất hoặc bị gỡ
+      quyền xong tải lại trang vẫn thấy y nguyên — bản 200 cũ đè lên 401/403
+      thật. Khu này CHỈ dùng khi ngồi bờ có mạng, chẳng có lời hứa offline nào
+      để giữ ⇒ để mạng lo, SW đứng ngoài. */
+  if (url.pathname.startsWith("/api/admin/")) return;
+
   if (isNavigation) {
     event.respondWith(navigationFirst(req));
     return;
@@ -289,11 +421,29 @@ self.addEventListener("fetch", (event) => {
               .catch(() => {});
             return res;
           }
+          // TỪ CHỐI CÓ CHỦ ĐÍCH (401/403) → trả THẲNG, KHÔNG cứu bằng kho
+          // (2026-08-01). Đây là middleware nói "hết hạn premium / bị gỡ quyền
+          // / chưa đăng nhập"; trả bản 200 cũ là vô hiệu hoá chốt thật ngay
+          // trên máy đã từng có quyền.
+          //
+          // NHƯNG KHÔNG XOÁ BẢN CŨ (bỏ `caches.delete`, 2026-08-01b — hồi quy
+          // do chính bản trước gây ra, giám sát vòng 2 bắt được): payload BẢN
+          // ĐỒ CÁ chỉ tồn tại trong kho này, KHÔNG có bản localStorage nào
+          // (fish-predict.ts chỉ lưu DẤU; offline-backup phải moi thẳng từ
+          // sdfish-api-v1). Mà middleware fail-closed: tra `customers` lỗi tạm
+          // thời cũng ra 403, và fishing-map-view bắn lại mỗi lần sóng chợt về
+          // ⇒ một cú 403 thoáng qua giữa biển là xoá VĨNH VIỄN bản đồ cá tải
+          // trước chuyến, không đường lấy lại. Giữ bản cũ chẳng mở cửa cho ai:
+          // nhánh này đã thôi cứu bằng kho, bản cũ chỉ còn dùng ở nhánh
+          // offline (.catch) — đúng nấc offline-premium sản phẩm cố ý có.
+          // Khu quản trị (/api/admin/*) đã bị loại khỏi SW từ đầu nhánh fetch.
+          if (res.status === 401 || res.status === 403) return res;
           // NGUỒN HỎNG mà kho có bản tốt → trả bản đó (2026-07-31b). Ví dụ
           // thật: /api/storms trả 503 khi GDACS chết, /api/fish-forecast 500 —
           // trước đây lỗi đi thẳng ra app, xoá trắng bản tin bão + bản đồ cá
           // bà con tải trước lúc rời bờ, dù chúng còn nằm nguyên trong máy.
           // Bản trong kho có mốc thời gian, phía client tự nói cũ bao lâu.
+          if (!isRescuableStatus(res.status)) return res; // 404… → nói thật
           const hit = await caches.match(req);
           return hit || res;
         })
@@ -314,12 +464,17 @@ self.addEventListener("fetch", (event) => {
         .then((res) => {
           if (res.ok) {
             const copy = res.clone();
-            // JS/CSS băm tên vào kho RIÊNG (bump vỏ không xoá) + trần LRU
+            // JS/CSS băm tên vào kho RIÊNG (bump vỏ không xoá) + trần (FIFO).
+            // Phản hồi `?_rsc=` cũng vào kho đó (2026-08-01): URL của nó mang
+            // dấu bản build nên mỗi lần deploy đẻ một bộ mới — để trong kho vỏ
+            // (KHÔNG có trần) là phình mãi, mà đặt trần cho kho vỏ thì lại ăn
+            // mất chính SHELL (thứ được cất SỚM NHẤT, bị bỏ TRƯỚC NHẤT).
+            const intoStore = isHashed || isRsc;
             caches
-              .open(isHashed ? SDFISH_STATIC_V : SDFISH_CACHE_V)
+              .open(intoStore ? SDFISH_STATIC_V : SDFISH_CACHE_V)
               .then(async (c) => {
                 await c.put(req, copy);
-                if (isHashed) await trimCache(c, STATIC_CACHE_MAX);
+                if (intoStore) await trimCache(c, STATIC_CACHE_MAX);
               })
               .catch(() => {});
           }

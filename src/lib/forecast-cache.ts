@@ -167,17 +167,71 @@ function dropOldest(n: number, needBytes = 0, keep?: string): number {
 }
 
 /**
- * NHƯỜNG CHỖ CHO DỮ LIỆU BÀ CON TỰ NHẬP (2026-07-31).
+ * BẬC HY SINH khi phải bỏ bản dự báo để nhường chỗ cho dữ liệu bà con tự gõ.
+ * Số NHỎ = bỏ TRƯỚC. Xếp theo "giữa biển mất thì thiệt tới đâu":
+ *   0 `point`    — dự báo một toạ độ, vài KB, chạm lại là có
+ *   1 `scalar`/`seascalar` — lớp dải màu (mây/mưa/nhiệt/độ mặn/nước dâng): xem cho biết
+ *   2 `curdepth` — dòng chảy tầng sâu
+ *   3 `grid`     — LƯỚI GIÓ/SÓNG cả vùng: an toàn tính mạng, giữa biển không tải lại được
+ *   4 `fishmark` — bản đồ cá bà con chủ động ghim cho chuyến này
+ * Namespace lạ (thêm sau) rơi vào bậc mặc định giữa bảng — không bao giờ bị bỏ
+ * trước `point`, cũng không được ưu tiên hơn `grid`.
+ */
+const DROP_RANK: Record<string, number> = {
+  point: 0,
+  scalar: 1,
+  seascalar: 1,
+  curdepth: 2,
+  grid: 3,
+  fishmark: 4,
+};
+const DROP_RANK_DEFAULT = 2;
+
+/** Bậc hy sinh của một key đầy đủ `forfish.fc.<ns>.<id>` */
+function dropRank(fullKey: string): number {
+  const ns = fullKey.slice(PREFIX.length).split(".")[0] ?? "";
+  return DROP_RANK[ns] ?? DROP_RANK_DEFAULT;
+}
+
+/**
+ * NHƯỜNG CHỖ CHO DỮ LIỆU BÀ CON TỰ NHẬP (2026-07-31, xếp lại nạn nhân 2026-08-01).
  *
  * Vì sao: dự báo tải sẵn chiếm gần hết localStorage, nên giấy tờ / bạn thuyền /
  * mốc bảo dưỡng vừa nhập có thể KHÔNG ghi xuống được — mà thứ đó bà con gõ tay,
  * mất là mất luôn, còn dự báo thì có sóng là tải lại. Vậy khi ghi dữ liệu tự
- * nhập bị máy báo hết chỗ, gọi hàm này để bỏ bớt bản dự báo CŨ NHẤT rồi ghi lại.
+ * nhập bị máy báo hết chỗ, gọi hàm này để bỏ bớt bản dự báo rồi ghi lại.
+ *
+ * LỖI ĐÃ SỬA: bản đầu gọi `dropOldest(1, needBytes)` — chọn nạn nhân theo
+ * `savedAt`. Nhưng `savedAt` của các lớp NẶNG là GIỜ CHẠY CRON của snapshot
+ * (forecast-grid/cur-depth/scalar-field truyền `snap.savedAt`), còn bản
+ * điểm-chạm tí hon lại lưu bằng `Date.now()` ⇒ lớp nặng LUÔN nằm phía "cũ".
+ * Kết quả: một ghi chú 3 KB xoá nguyên lưới gió/sóng 16 ngày ~1,6 MB — thứ giữa
+ * biển KHÔNG tải lại được — trong khi hàng chục bản điểm-chạm vụn vặt sống
+ * nguyên. `savedAt` là TUỔI CỦA SỐ LIỆU (cho `isCacheCurrent`), không phải giá
+ * trị của bản lưu ⇒ chọn nạn nhân theo BẬC HY SINH, trong cùng bậc mới xét cũ
+ * trước.
  *
  * Trả về SỐ BẢN dự báo đã bỏ (0 = không còn gì để bỏ).
  */
 export function reclaimForecastSpace(needBytes: number): number {
-  return dropOldest(1, Math.max(0, needBytes));
+  const need = Math.max(0, needBytes);
+  try {
+    const items = entriesUnder(PREFIX).sort(
+      (a, b) => dropRank(a.k) - dropRank(b.k) || a.savedAt - b.savedAt,
+    );
+    let dropped = 0;
+    let freed = 0;
+    for (const it of items) {
+      if (dropped >= 1 && freed >= need) break;
+      const v = window.localStorage.getItem(it.k) ?? "";
+      window.localStorage.removeItem(it.k);
+      freed += (it.k.length + v.length) * 2;
+      dropped++;
+    }
+    return dropped;
+  } catch {
+    return 0;
+  }
 }
 
 /** Mọi bản đã lưu trong namespace (mới nhất trước) — để đếm "trong máy có gì". */

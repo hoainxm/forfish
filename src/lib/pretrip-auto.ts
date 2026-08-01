@@ -83,6 +83,32 @@ export function shouldAttemptAutoPretrip({
   return nowMs - lastAttemptAt >= PRETRIP_MIN_RETRY_MS;
 }
 
+/**
+ * MẺ TẢI SẴN VỪA RỒI CÓ ĐƯỢC GHI MỐC `lastRunAt` KHÔNG (thuần, 2026-08-01).
+ *
+ * LỖI ĐÃ SỬA: `pretrip-auto-notify` gọi `markAutoPretripRun()` VÔ ĐIỀU KIỆN
+ * trong `.then()` — mà `runPretrip` không bao giờ reject (mỗi bước có catch
+ * riêng), nên mẻ hỏng sạch cũng ghi mốc và khoá `PRETRIP_MIN_INTERVAL_MS` = 6
+ * GIỜ. Cảnh thật: 5h sáng chủ tàu mở app lúc còn ở khu neo khuất sóng, cả mẻ
+ * hỏng, 20 phút sau ra cửa biển sóng đầy vạch — app không tải nữa, tàu đi biển
+ * với máy trống dự báo. Trái đúng bất biến ghi ở `PRETRIP_MIN_RETRY_MS` bên
+ * trên: "lần thử hỏng KHÔNG ghi mốc `lastRunAt`".
+ *
+ * Luật:
+ *  · giữ được dự báo (có chỗ + có ngày xa nhất) → GHI mốc, nghỉ 6 giờ
+ *  · máy HẾT CHỖ → GHI mốc: thử lại cũng không giữ được, chỉ tổ đốt tiền sóng
+ *  · hỏng vì sóng → KHÔNG ghi, để cửa 2 phút (`PRETRIP_MIN_RETRY_MS`) tự thử lại
+ *
+ * KHÔNG dùng `r.ok > 0` làm điều kiện: hai bước "Nước dâng / xoáy" và "Bản đồ
+ * mùa vụ" không bao giờ ném (fetchSeaScalar trả `{ok:false}`, fetchClimatology
+ * kết bằng `.catch(() => null)`), nên `r.ok >= 2` kể cả khi rút cáp mạng — gác
+ * bằng `ok` là không gác gì cả.
+ */
+export function shouldMarkPretripRun(r: PretripResult): boolean {
+  if (r.full) return true;
+  return r.saved.places > 0 && !!r.saved.untilIso;
+}
+
 /** Đọc mốc lần tự tải gần nhất trong máy (null khi chưa có / máy chặn lưu). */
 export function lastAutoPretripAt(): number | null {
   if (typeof window === "undefined") return null;
