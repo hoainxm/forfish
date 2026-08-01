@@ -67,7 +67,7 @@ export async function GET() {
   const { data: rows, error } = await admin
     .from("customers")
     .select(
-      "phone, name, tier, premium_until, premium_activated_at, role, sdwork_ref, updated_at, staff_used, staff_guided, staff_note_by, staff_note_at",
+      "phone, name, tier, premium_until, premium_activated_at, role, sdwork_ref, updated_at, staff_used, staff_guided, staff_note_by, staff_note_at, pwa_last_open_at, web_last_open_at, offline_ready_at",
     )
     .order("updated_at", { ascending: false });
   if (error) return err(500, "query_failed");
@@ -113,6 +113,10 @@ export async function GET() {
     staffGuided: Boolean(r.staff_guided),
     noteBy: (r.staff_note_by as string) ?? null,
     noteAt: (r.staff_note_at as string) ?? null,
+    // ĐO THẬT việc dùng app (0021) — khác chip staff tự tick ở trên
+    pwaLastOpenAt: (r.pwa_last_open_at as string) ?? null,
+    webLastOpenAt: (r.web_last_open_at as string) ?? null,
+    offlineReadyAt: (r.offline_ready_at as string) ?? null,
   }));
 
   // THỐNG KÊ THEO NGƯỜI CẤP: mỗi khách tính theo lần cấp GẦN NHẤT

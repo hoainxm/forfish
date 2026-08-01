@@ -126,6 +126,11 @@ type Account = {
   staffGuided: boolean;
   noteBy: string | null;
   noteAt: string | null;
+  /* ĐO THẬT việc dùng app (migration 0021) — KHÁC chip staff tự tick ở trên:
+     cái này máy tự báo, cái kia là niềm tin của nhân viên. */
+  pwaLastOpenAt: string | null;
+  webLastOpenAt: string | null;
+  offlineReadyAt: string | null;
 };
 
 /** Thống kê theo người cấp premium (log premium_grants) */
@@ -1017,6 +1022,7 @@ function AccountsTab({ me }: { me: Me }) {
                         · {a.noteBy} {fmtDT(a.noteAt)}
                       </span>
                     )}
+                    <AppUsage a={a} />
                   </div>
                 </li>
               ))}
@@ -1119,6 +1125,51 @@ function RoleBadge({ account }: { account: Account }) {
     );
   }
   return null;
+}
+
+/**
+ * ĐO THẬT việc dùng app (0021) — máy tự báo, khác chip "đã sử dụng" nhân viên
+ * tự tick ngay bên cạnh.
+ *
+ * Thứ đáng nhìn nhất KHÔNG phải "có mở app không" mà là **đã cài mà chưa bao
+ * giờ mở BẢN CÀI**: trên iPhone, kho của bản Thêm-vào-Màn-hình-chính TÁCH RIÊNG
+ * với Safari, nên nhóm đó tải đủ dữ liệu trong Safari rồi ra khơi với máy trắng
+ * tay. Đây là danh sách để GỌI ĐIỆN NHẮC.
+ */
+function AppUsage({ a }: { a: Account }) {
+  const chip = (cls: string, text: string, title?: string) => (
+    <span
+      title={title}
+      className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${cls}`}
+    >
+      {text}
+    </span>
+  );
+  if (!a.pwaLastOpenAt && !a.webLastOpenAt) {
+    return chip(
+      "bg-field text-foreground/50",
+      "chưa ghi nhận mở app",
+      "Máy chưa gửi nhịp nào — có thể chưa đăng nhập trên app, hoặc chưa mở lần nào từ 2026-08-01",
+    );
+  }
+  return (
+    <>
+      {a.pwaLastOpenAt
+        ? chip("bg-ok-bg text-ok", `Bản cài · ${fmtDT(a.pwaLastOpenAt)}`)
+        : chip(
+            "bg-warn-bg text-warn",
+            "CHƯA mở bản cài",
+            "Mới chỉ mở trong trình duyệt. Trên iPhone, bản Thêm-vào-Màn-hình-chính có kho RIÊNG — chưa mở nó lần nào lúc còn sóng thì ra khơi là trắng tay.",
+          )}
+      {a.offlineReadyAt
+        ? chip("bg-ok-bg text-ok", `Đủ đồ đi biển · ${fmtDT(a.offlineReadyAt)}`)
+        : chip(
+            "bg-field text-foreground/55",
+            "chưa đủ đồ đi biển",
+            "Máy chưa báo lần nào rằng vỏ app + mọi lớp dữ liệu đã tải xong",
+          )}
+    </>
+  );
 }
 
 /** Chip theo dõi 2 trạng thái (đã/chưa). Sửa được → nút bật/tắt; chỉ xem →

@@ -229,6 +229,20 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - **Đọc**: `GET /api/admin/activity` (**`requireAdmin`** — chỉ quản trị viên) trả tối đa 300 dòng mới nhất, lọc `?actor=` (khớp SĐT) & `?action=`; đọc hỏng → rỗng + `migrationNeeded` + `error{code,message,hint}` THẬT. **`POST`** (requireAdmin) = GHI THỬ một dòng `system.log-probe` rồi đếm lại → nút "Kiểm tra ghi nhật ký" ở tab Nhật ký (biết log câm hay không mà không phải đợi thao tác thật). UI: tab **Nhật ký** (admin-only) — tìm theo SĐT/tên thao tác + chọn loại + nút "Chỉ xóa/nhạy cảm".
 - ✅ **ĐÃ APPLY prod 2026-07-30** (ref `znzgugvfhgmiszqgjulk`).
 
+### Đo thật việc dùng app — migration [`0021_customer_app_usage.sql`](../../supabase/migrations/0021_customer_app_usage.sql) (2026-08-01) — ✅ ĐÃ APPLY prod
+
+| Cột mới trên `customers` | Nghĩa |
+|---|---|
+| `pwa_last_open_at` | Lần cuối mở ở **chế độ đã cài** (standalone). **NULL = chưa bao giờ mở bản cài** — đây là con số đáng nhìn nhất |
+| `web_last_open_at` | Lần cuối mở trong tab trình duyệt thường |
+| `offline_ready_at` | Lần cuối máy tự báo ĐỦ ĐỒ ĐI BIỂN = vỏ app cài đủ (`shell-ready`) **và** mọi lớp dữ liệu đã tải (`savedCoverage.allSaved`) |
+
+- **Vì sao**: chip "đã/chưa sử dụng" (0018) là nhân viên TỰ TICK — niềm tin, không phải số đo. Thứ cần biết là **ai đã cài mà chưa bao giờ mở BẢN CÀI**: trên iPhone kho của bản A2HS tách riêng với Safari, nhóm đó ra khơi với máy trắng tay (ca TC-13 trong [ops/qa-offline-acceptance.md](ops/qa-offline-acceptance.md)). Danh sách để GỌI ĐIỆN NHẮC.
+- **Ghi**: `POST /api/me/heartbeat` (đăng nhập mới ghi; chưa đăng nhập → `recorded:false`, KHÔNG lỗi). Chỉ ghi MỐC + CHẾ ĐỘ — **không vị trí, không thao tác**. KHÔNG đụng `updated_at` (cột đó là mốc dữ liệu khách đổi; heartbeat ghi vào là mọi tài khoản trông như vừa sửa mỗi lần mở app).
+- **Client** `src/lib/heartbeat.ts` — bốn hàng rào offline: mất sóng thì KHÔNG gọi · cửa chặn **12 giờ/máy** (`forfish.heartbeat.v1`) · `AbortSignal.timeout` 8s + `.catch` nuốt sạch · gọi trong `useEffect` sau 3s, không `await` ở đường vẽ màn. Là POST nên service worker bỏ qua hẳn. Luật thuần `shouldSendHeartbeat` có test.
+- **Đọc**: `/quan-tri` tab Tài khoản, chip `AppUsage` cạnh chip staff: **"Bản cài · <giờ>"** (xanh) hoặc **"CHƯA mở bản cài"** (vàng, tooltip giải thích kho A2HS tách riêng), + **"Đủ đồ đi biển · <giờ>"**.
+- ✅ **ĐÃ APPLY prod 2026-08-01** (ref `znzgugvfhgmiszqgjulk`).
+
 ### Quản trị viên nguồn DB — migration [`0020_role_admin.sql`](../../supabase/migrations/0020_role_admin.sql) (2026-07-31) — ⚠️ CHƯA APPLY (prod đã sẵn đúng, file này để đồng bộ repo)
 
 | Thay đổi | Nghĩa |

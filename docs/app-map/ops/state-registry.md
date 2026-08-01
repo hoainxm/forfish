@@ -16,6 +16,8 @@ gate: warn
 
 <!-- re-verified: 2026-08-01d — HAI NAMESPACE MỚI trong `forfish.fc.*`: `storm.latest` (bản tin bão hỏi được gần nhất, payload mang `checkedAt` nên `stormStatus` vẫn tự coi >12h là chưa-hỏi-được) và `price.{port,fuel}` (bảng giá tuần VASEP + kỳ giá dầu). Writer: `storms.ts` / `port-price-source.ts` / `fuel-price.ts` khi hỏi được; reader: chính chúng khi mất sóng, + `pretrip.savedLayers` để popup đếm. Vào tệp sao lưu tự động (offline-backup gom mọi khoá `forfish.*`). Dọn theo `DROP_RANK` như các lớp khác. -->
 
+<!-- re-verified: 2026-08-01e — KEY MỚI `forfish.heartbeat.v1`: mốc epoch ms lần cuối máy gửi nhịp "đã mở app" về server (`src/lib/heartbeat.ts`). Writer: sendHeartbeat, ghi TRƯỚC khi gửi (gửi hỏng cũng không thử lại ngay — thà mất một nhịp thống kê còn hơn đập vào đường truyền yếu giữa biển). Reader: chính nó, để chặn 12 giờ/máy. Không có PII, xoá đi chỉ tốn thêm một nhịp. -->
+
 > Registry CANONICAL cho state client (nguyên tắc 11 §state). **State không có trong bảng này = coi như không tồn tại — KHÔNG đoán schema.** ForFish chạy Vercel serverless + demo mode → "state nền" duy nhất là localStorage của trình duyệt (prefix `forfish.*`, GIỮ tên cũ — đổi sẽ mất dữ liệu user). Khi đã đăng nhập Supabase, nguồn sự thật là DB (xem [04-data-model](../04-data-model.md)); localStorage là fallback demo mode (xem [02-architecture §4](../02-architecture.md)).
 
 **Last updated**: 2026-07-25
