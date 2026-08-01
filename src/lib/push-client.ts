@@ -144,12 +144,24 @@ export async function unsubscribeFromPush(): Promise<boolean> {
  * nuốt sạch lỗi, không ai đợi kết quả. App không cần cái "OK" của server để
  * chạy: hỏng thì lần mở sau tự thử lại.
  */
-export async function syncPushAccount(): Promise<void> {
+export type SyncPushResult =
+  /** đã gắn máy này vào tài khoản đang đăng nhập */
+  | "attached"
+  /** máy chưa bật thông báo → không có gì để gắn */
+  | "no-subscription"
+  /** máy chủ nhận được nhưng KHÔNG đọc được phiên (chưa đăng nhập / cookie hỏng) */
+  | "no-session"
+  /** mất sóng / hết giờ / máy chủ lỗi */
+  | "failed";
+
+export async function syncPushAccount(): Promise<SyncPushResult> {
   try {
-    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      return "failed";
+    }
     const sub = await getExistingPushSubscription();
-    if (!sub) return; // chưa bật thông báo → không có gì để gắn
-    await fetch(apiUrl("/api/push/subscribe"), {
+    if (!sub) return "no-subscription";
+    const r = await fetch(apiUrl("/api/push/subscribe"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -159,8 +171,12 @@ export async function syncPushAccount(): Promise<void> {
       signal: AbortSignal.timeout(10000),
       keepalive: true,
     });
+    if (!r.ok) return "failed";
+    const j = (await r.json().catch(() => null)) as { attached?: boolean } | null;
+    return j?.attached ? "attached" : "no-session";
   } catch {
     /* mất sóng / hết giờ — kệ, lần mở app sau tự gắn lại */
+    return "failed";
   }
 }
 

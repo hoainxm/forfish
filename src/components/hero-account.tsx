@@ -20,6 +20,8 @@ import {
   getExistingPushSubscription,
   isPushSupported,
   subscribeToPush,
+  syncPushAccount,
+  type SyncPushResult,
   unsubscribeFromPush,
   detachPushAccount,
 } from "@/lib/push-client";
@@ -95,6 +97,16 @@ export function HeroAccount() {
     };
   }, []);
 
+  /* GẮN MÁY ↔ TÀI KHOẢN có nói ra kết quả (2026-08-01p). Trước đây việc gắn
+     chạy ngầm và im lặng, nên khi /quan-tri báo "chưa gán account nào" thì
+     không ai biết hỏng ở khâu nào: chưa bật thông báo? máy chủ không đọc được
+     phiên? hay mất sóng? Nay sheet Tài khoản nói thẳng. */
+  const [attach, setAttach] = useState<SyncPushResult | null>(null);
+  useEffect(() => {
+    if (pushState !== "on" || !user) return;
+    void syncPushAccount().then(setAttach);
+  }, [pushState, user]);
+
   async function togglePush() {
     setPushError(null);
     if (pushState === "on") {
@@ -108,6 +120,8 @@ export function HeroAccount() {
     const r = await subscribeToPush(vapidKey, phone);
     if (r.ok) {
       setPushState("on");
+      // gắn ngay vào tài khoản đang đăng nhập, đừng đợi lần mở app sau
+      void syncPushAccount().then(setAttach);
       return;
     }
     setPushState("off");
@@ -270,7 +284,13 @@ export function HeroAccount() {
                 </span>
                 <span className="block text-[0.8125rem] leading-snug text-foreground/70">
                   {pushState === "on"
-                    ? "Nhấn để tắt trên máy này"
+                    ? attach === "attached"
+                      ? "Đã gắn với tài khoản này · nhấn để tắt"
+                      : attach === "no-session"
+                        ? "CHƯA gắn tài khoản — đăng nhập rồi mở lại app"
+                        : attach === "failed"
+                          ? "Chưa gắn được (mất sóng) — mở lại lúc có sóng"
+                          : "Nhấn để tắt trên máy này"
                     : "Nhận tin nhắn từ SDVICO ngay trên điện thoại"}
                 </span>
               </span>

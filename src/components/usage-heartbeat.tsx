@@ -20,6 +20,18 @@ import { syncPushAccount } from "@/lib/push-client";
 export function UsageHeartbeat() {
   const { user, ready } = useAuthUser();
 
+  /* GẮN MÁY ↔ TÀI KHOẢN — effect RIÊNG, chạy NGAY khi biết tài khoản.
+     Lỗi đã sửa (2026-08-01p, chủ dự án thử trên máy thật: bật thông báo, đăng
+     nhập, đổi tài khoản mà /quan-tri vẫn "chưa gán account nào"): trước đây nó
+     nằm SAU chuỗi `setTimeout 3 giây → await isShellReady()` của nhịp
+     heartbeat, nên đóng app sớm / kiểm vỏ chậm là không kịp chạy — mà việc gắn
+     thì phải chắc chắn, nó là gốc của cả tính năng thông báo.
+     Deps có `user` nên ĐỔI TÀI KHOẢN là gắn lại ngay. */
+  useEffect(() => {
+    if (!ready || !user) return;
+    void syncPushAccount();
+  }, [ready, user]);
+
   useEffect(() => {
     if (!ready || !user) return;
     let alive = true;
