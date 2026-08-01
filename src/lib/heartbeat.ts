@@ -35,14 +35,33 @@ export const HEARTBEAT_MIN_GAP_MS = 12 * 60 * 60 * 1000;
     thử lại sau 30 phút. Đã có phản hồi tức là ĐƯỜNG TRUYỀN VẪN TỐT, nên thử
     lại không tốn sóng của bà con. */
 export const HEARTBEAT_SOFT_RETRY_MS = 30 * 60 * 1000;
-/*  KHÔNG NHẬN ĐƯỢC PHẢN HỒI NÀO (hết 8 giây · sóng "sống mà chết" · mạng đứt
-    giữa chừng) → lùi hẳn 12 giờ, ĐÚNG BẰNG bản cũ. Ngoài khơi đây là ca
-    THƯỜNG, và mỗi lần thử là một lần tranh băng thông với tin bão — tuyệt đối
-    không được thử dày hơn chỉ vì muốn đếm cho đủ số liệu quản trị. */
-export const HEARTBEAT_NET_BACKOFF_MS = 12 * 60 * 60 * 1000;
+/*  KHÔNG NHẬN ĐƯỢC PHẢN HỒI NÀO (hết giờ · sóng "sống mà chết" · mạng đứt
+    giữa chừng) → THANG LÙI DẦN, chủ dự án chốt 2026-08-01g: 3 phút → 5 phút →
+    12 giờ. Vì sao không lùi thẳng 12 giờ: máy ĐANG ONLINE mà không nghe được
+    máy chủ thường là trục trặc NGẮN (route cold-start, wifi cảng chập chờn,
+    vừa đổi 4G↔wifi) — hai lần thử thưa trong 8 phút gỡ được hầu hết, mà tổng
+    chi phí chỉ là 2 request nhỏ. Hết thang thì im 12 giờ ĐÚNG BẰNG bản cũ:
+    ngoài khơi mỗi lần thử là một lần tranh băng thông với tin bão. */
+export const HEARTBEAT_NET_BACKOFF_STEPS_MS = [
+  3 * 60 * 1000,
+  5 * 60 * 1000,
+  12 * 60 * 60 * 1000,
+];
+/** Số lần hỏng LIÊN TIẾP (không phản hồi) — chọn nấc trong thang lùi */
+export const HEARTBEAT_FAILS_KEY = "forfish.heartbeat.fails.v1";
 
-/** Đồng hồ chặn: sóng treo thì bỏ, đừng để promise lửng lơ */
-const HEARTBEAT_TIMEOUT_MS = 8000;
+/**
+ * Hỏng lần thứ `failCount` (tính cả lần vừa rồi) thì chờ bao lâu — THUẦN, có
+ * test. Quá thang → nấc cuối (12 giờ). `failCount` lạ/âm → nấc đầu.
+ */
+export function netBackoffMs(failCount: number): number {
+  const steps = HEARTBEAT_NET_BACKOFF_STEPS_MS;
+  if (!Number.isFinite(failCount) || failCount < 1) return steps[0];
+  return steps[Math.min(Math.round(failCount), steps.length) - 1];
+}
+
+/** Đồng hồ chặn: chờ máy chủ 5 giây, không nghe thì bỏ (chủ dự án chốt) */
+const HEARTBEAT_TIMEOUT_MS = 5000;
 
 /**
  * Có nên gửi lúc này không — THUẦN, có test.
@@ -124,12 +143,14 @@ export async function sendHeartbeat(info: {
     ) {
       return false;
     }
-    // HOÃN THEO KIỂU BI QUAN NGAY TRƯỚC KHI GỬI: coi như sẽ mất sóng (lùi 12
-    // giờ). Hai lý do: (1) chặn gửi dồn nếu component mount lại trong cùng
-    // phiên; (2) nếu máy tắt/mất sóng giữa chừng thì mốc bi quan là mốc còn
-    // lại — an toàn cho đường truyền. Có phản hồi thì hạ xuống 30 phút ngay
-    // bên dưới.
-    writeMark(HEARTBEAT_RETRY_KEY, now + HEARTBEAT_NET_BACKOFF_MS);
+    // HOÃN THEO KIỂU BI QUAN NGAY TRƯỚC KHI GỬI: coi như sẽ không nghe được
+    // máy chủ, lùi đúng nấc kế tiếp trong thang. Hai lý do: (1) chặn gửi dồn
+    // nếu component mount lại trong cùng phiên; (2) máy tắt/mất sóng giữa
+    // chừng thì mốc bi quan là mốc còn lại — an toàn cho đường truyền. Có
+    // phản hồi thì hạ xuống 30 phút ngay bên dưới.
+    const fails = (readMark(HEARTBEAT_FAILS_KEY) ?? 0) + 1;
+    writeMark(HEARTBEAT_FAILS_KEY, fails);
+    writeMark(HEARTBEAT_RETRY_KEY, now + netBackoffMs(fails));
     const res = await fetch(apiUrl("/api/me/heartbeat"), {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -137,9 +158,11 @@ export async function sendHeartbeat(info: {
       signal: AbortSignal.timeout(HEARTBEAT_TIMEOUT_MS),
       keepalive: true,
     });
-    // CÓ PHẢN HỒI = đường truyền tốt ⇒ hạ mức hoãn xuống 30 phút. Thử lại lúc
-    // này không tốn sóng của bà con, mà lại gỡ được đúng ca "máy chủ chưa ghi
-    // được" (chưa có hàng khách, chưa đăng nhập, cột chưa apply).
+    // CÓ PHẢN HỒI = nghe được máy chủ ⇒ thang lùi-vì-mạng KHÔNG áp dụng nữa:
+    // xoá bộ đếm hỏng và hạ mức hoãn xuống 30 phút. Thử lại lúc này không tốn
+    // sóng của bà con, mà lại gỡ được đúng ca "máy chủ chưa ghi được" (chưa có
+    // hàng khách, chưa đăng nhập, cột chưa apply).
+    clearMark(HEARTBEAT_FAILS_KEY);
     writeMark(HEARTBEAT_RETRY_KEY, now + HEARTBEAT_SOFT_RETRY_MS);
     // ĐỌC CÂU TRẢ LỜI (2026-08-01g): trước đây không ai đọc `recorded`, nên
     // "gửi đi rồi" bị coi là "ghi được rồi".
@@ -147,13 +170,32 @@ export async function sendHeartbeat(info: {
       recorded?: boolean;
     } | null;
     if (!res.ok || body?.recorded !== true) return false;
-    // GHI ĐƯỢC → đóng cửa 12 giờ và bỏ mức hoãn
+    // GHI ĐƯỢC → đóng cửa 12 giờ và bỏ mọi mức hoãn
     writeMark(HEARTBEAT_KEY, now);
     clearMark(HEARTBEAT_RETRY_KEY);
     return true;
   } catch {
-    // KHÔNG có phản hồi (hết giờ / mạng đứt) → giữ nguyên mốc bi quan 12 giờ
-    // đã ghi ở trên. Đúng bằng nhịp của bản cũ, không đốt thêm sóng.
+    // KHÔNG nghe được máy chủ (hết 5 giây / mạng đứt) → giữ nguyên mốc bi quan
+    // đã ghi ở trên (nấc kế tiếp trong thang 3 phút → 5 phút → 12 giờ).
     return false;
   }
+}
+
+/**
+ * Còn được thử lại SỚM trong phiên này không, và sau bao lâu — để
+ * `UsageHeartbeat` đặt hẹn giờ. Trả `null` khi đã hết thang nhanh (nấc cuối là
+ * 12 giờ, không ai ngồi chờ trong một phiên) hoặc chưa hỏng lần nào.
+ *
+ * VÌ SAO CẦN: `sendHeartbeat` chỉ chạy lúc component mount, mà bà con thường
+ * MỞ APP RỒI ĐỂ ĐÓ. Không có hẹn giờ thì "3 phút sau gửi lại" chỉ đúng nếu họ
+ * tình cờ mở lại app đúng lúc — tức gần như không bao giờ.
+ */
+export function nextFastRetryDelayMs(): number | null {
+  const fails = readMark(HEARTBEAT_FAILS_KEY) ?? 0;
+  if (fails < 1) return null;
+  // nấc cuối = bỏ cuộc trong phiên này
+  if (fails >= HEARTBEAT_NET_BACKOFF_STEPS_MS.length) return null;
+  const retryAfter = readMark(HEARTBEAT_RETRY_KEY);
+  if (retryAfter == null) return null;
+  return Math.max(0, retryAfter - Date.now());
 }
