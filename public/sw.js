@@ -172,8 +172,20 @@ function lazyChunkUrls(js) {
     để đi tiếp sang các chunk mà nó gọi. */
 async function precacheOne(store, url) {
   const isJs = url.endsWith(".js");
-  const hit = await store.match(url); // bản build cũ đã có thì khỏi tải lại
-  if (hit) return isJs ? hit.clone().text() : null;
+  const hit = await store.match(url);
+  if (hit) {
+    // ĐÃ CÓ (bản build trước cũng dùng chunk này) → KHÔNG tải lại, nhưng phải
+    // GHI LẠI để đưa xuống CUỐI HÀNG. Cache API trả key theo thứ tự THÊM VÀO và
+    // `trimCache` bỏ từ đầu ⇒ chunk khung sườn dùng suốt nhiều bản build mà
+    // không ai đụng tới sẽ bị đuổi TRƯỚC đống chunk mới toanh — đúng chunk mà
+    // vỏ đang cần, cold-start offline nhận 504 = trắng màn. Ghi lại mỗi lần
+    // install biến "cũ nhất" thành "lâu nhất không còn ai tham chiếu".
+    const forPut = hit.clone();
+    const body = isJs ? await hit.clone().text() : null;
+    await store.delete(url);
+    await store.put(url, forPut);
+    return body;
+  }
   const net = await fetch(url);
   if (!net.ok) return null;
   // Nhân bản TRƯỚC khi ai đó đọc thân — put() nuốt một bản, đọc chữ một bản.
@@ -203,7 +215,7 @@ async function precacheOne(store, url) {
       error.tsx ⇒ màn lỗi mặc định của Next, mất bản đồ + lớp bão + đẳng sâu.
   Best-effort: hỏng thì thôi, không chặn install.
 */
-async function precacheShellAssets() {
+async function precacheShellAssets(pages) {
   try {
     const shell = await caches.open(SDFISH_CACHE_V);
     const store = await caches.open(SDFISH_STATIC_V);
@@ -214,8 +226,8 @@ async function precacheShellAssets() {
       seen.add(u);
       wave.push(u);
     };
-    // Trang = mục SHELL không có đuôi file (icon/json/font thì tự nó là asset)
-    for (const page of SHELL) {
+    // Trang = mục không có đuôi file (icon/json/font thì tự nó là asset)
+    for (const page of pages) {
       if (page.includes(".")) continue;
       const res = await shell.match(page);
       if (!res) continue;
@@ -244,8 +256,15 @@ async function precacheShellAssets() {
       }
     }
     await trimCache(store, STATIC_CACHE_MAX);
+    // KIỂM LẠI: mọi URL đã điểm danh có thật nằm trong kho không. Người gọi
+    // dùng cờ này để quyết định install có được coi là xong hay không.
+    for (const u of seen) {
+      if (!(await store.match(u))) return false;
+    }
+    return !timedOut;
   } catch {
-    /* không tải sẵn được thì vỏ vẫn chạy như cũ */
+    /* không tải sẵn được thì báo thiếu, đừng nuốt */
+    return false;
   }
 }
 
@@ -266,17 +285,35 @@ async function precacheShellAssets() {
 */
 async function installShell() {
   const c = await caches.open(SDFISH_CACHE_V);
-  // nguyên khối — hỏng một là hỏng cả mẻ, và ném ra ngoài
-  await c.addAll(CRITICAL_SHELL);
+  // nguyên khối — hỏng một là hỏng cả mẻ, và ném ra ngoài.
+  // `cache: "reload"` để KHÔNG lấy bản cũ trong kho HTTP của trình duyệt: vỏ
+  // vừa deploy mà cất nhầm HTML bản trước là chunk gọi tên không còn ai giữ.
+  await c.addAll(
+    CRITICAL_SHELL.map((u) => new Request(u, { cache: "reload" })),
+  );
   // kiểm lại: có thật nằm trong kho không (quota đầy vẫn có thể trượt)
   for (const u of CRITICAL_SHELL) {
     const hit = await c.match(u);
     if (!hit) throw new Error(`vỏ sống-còn thiếu: ${u}`);
   }
-  // phần "có thì tốt" — hỏng thì thôi
+
+  /* JS/CSS CỦA HAI MÀN SỐNG-CÒN CŨNG LÀ BẮT BUỘC (2026-08-01c).
+     Lỗ của bản trước: CRITICAL_SHELL chỉ có HTML + dữ liệu + font, KHÔNG một
+     dòng JS. Install vẫn "xong" trong khi chunk MapLibre thiếu ⇒ ra khơi mở
+     /ngu-truong là màn lỗi mặc định của Next, mất bản đồ + lớp bão + đẳng sâu.
+     Mà /ngu-truong server render ra div rỗng: thiếu JS thì nó KHÔNG phải "xấu
+     một chút", nó là trống trơn. Nên: thiếu chunk của "/" hoặc "/ngu-truong"
+     → install HỎNG luôn, y như thiếu HTML. */
+  const criticalPages = CRITICAL_SHELL.filter((u) => !u.includes("."));
+  const okCritical = await precacheShellAssets(criticalPages);
+  if (!okCritical) throw new Error("thiếu JS/CSS của vỏ sống-còn");
+
+  // phần "có thì tốt" — hỏng thì thôi, cất dần khi bà con mở trang
   const optional = SHELL.filter((u) => !CRITICAL_SHELL.includes(u));
-  await Promise.allSettled(optional.map((u) => c.add(u)));
-  await precacheShellAssets();
+  await Promise.allSettled(
+    optional.map((u) => c.add(new Request(u, { cache: "reload" }))),
+  );
+  await precacheShellAssets(optional);
 }
 
 self.addEventListener("install", (event) => {
@@ -554,7 +591,6 @@ self.addEventListener("fetch", (event) => {
             // ⇒ trần FIFO chung sẽ đẩy chính CHUNK KHUNG SƯỜN (cất sớm nhất, và
             // không được làm mới vị trí khi trúng kho) ra trước ⇒ cold-start
             // offline nhận 504 cho chunk = trắng màn. Hai kho, hai trần.
-            const intoStore = isHashed || isRsc;
             caches
               .open(
                 isRsc

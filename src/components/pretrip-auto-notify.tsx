@@ -35,6 +35,7 @@ import {
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { exportOfflineData, importOfflineData } from "@/lib/offline-backup";
+import { isIOS, isStandalone } from "@/lib/storage-persist";
 import { AlertIcon, CheckIcon } from "@/components/icons";
 
 /** byte → "~1,2 MB" / "~340 KB" (rỗng nếu 0 — lớp nằm kho khác) */
@@ -369,6 +370,22 @@ function PretripSavedSheet({
 
   return (
     <BottomSheet title="Dữ liệu đã lưu để đi biển" onClose={onClose}>
+      {/* CHẶN Ở CỬA VÀO thay vì chữa hậu quả (2026-08-01c): iPhone chạy trong
+          TAB Safari bị iOS xoá sạch dữ liệu website sau ~7 ngày không mở —
+          xoá cả kho lẫn service worker, nên tải sẵn bao nhiêu cũng thành công
+          cốc, mà không API nào chống được. Bản THÊM VÀO MÀN HÌNH CHÍNH được
+          miễn luật đó. Nói trước một câu ở đúng chỗ bà con sắp bấm Tải, còn
+          hơn để họ tin nhầm rồi ra khơi mới biết. */}
+      {isIOS() && !isStandalone() && (
+        <p
+          className="mb-3 rounded-xl px-3.5 py-3 text-[0.9375rem] font-semibold leading-snug"
+          style={{ color: "var(--warn)", backgroundColor: "var(--warn-bg)" }}
+        >
+          Máy iPhone: hãy <b>Thêm vào Màn hình chính</b> rồi tải trong app vừa
+          thêm. Chạy trong Safari thì máy có thể tự xoá sạch dữ liệu đã tải sau
+          khoảng 7 ngày không mở.
+        </p>
+      )}
       <p className="mb-3 text-[0.9375rem] leading-snug text-foreground/70">
         Mỗi lớp cần tải sẵn lúc còn sóng để xem được khi ra khơi mất sóng. Dòng
         nào <b>chưa lưu</b> thì chạm <b>Tải lại</b>.

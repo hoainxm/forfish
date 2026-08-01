@@ -207,12 +207,20 @@ Mở app vào **ngày 1, 3, 7** (và ngày 16 nếu theo được):
 ---
 
 ### TC-12 — iPhone bỏ không 7 ngày 🔴 chỉ iOS
-**Máy**: A và B (làm song song để so).
+**Máy**: **BA cấu hình chạy song song** để tách được nguyên nhân:
 
-Ngày 0: tải đủ dữ liệu trên **cả hai**. Không mở app.
-Ngày 8: mở lại cả hai **khi đang bật máy bay**.
+| Nhánh | Máy | Ngày 1→7 |
+|---|---|---|
+| **12a** | A (tab Safari) | **Không mở** app lần nào |
+| **12b** | A′ (tab Safari, máy/hồ sơ khác) | **Mở app mỗi ngày ~1 phút, GIỮ NGUYÊN chế độ máy bay** |
+| **12c** | B (đã Thêm vào Màn hình chính) | Không mở app lần nào |
 
-**ĐẠT (mong đợi)**: máy B (đã thêm vào màn hình chính) vẫn còn dữ liệu; máy A (chỉ Safari) có thể mất — **đó là luật của iOS, không phải lỗi app**, nhưng app phải nói rõ chứ không được hiện dữ liệu mẫu như thật.
+Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đang bật máy bay**, xem còn dữ liệu không.
+
+**ĐẠT (mong đợi)**: 12c còn đủ. 12a có thể mất — **luật iOS, không phải lỗi app** — nhưng app phải nói rõ là không có dữ liệu, KHÔNG được hiện dữ liệu mẫu như thật.
+
+**12b là câu hỏi mở, chưa ai biết đáp án**: đồng hồ 7 ngày của iOS đếm theo **tương tác của người dùng**, không theo việc có mạng — nên mở app hằng ngày lúc đang máy bay *có thể* đủ để reset. Nếu 12b còn dữ liệu mà 12a mất, ta có một lời khuyên thật để dặn bà con ("mỗi ngày mở app một lần cho dù không có sóng"). Nếu cả hai đều mất thì luật iOS chặt hơn ta tưởng, và bản A2HS là con đường duy nhất.
+
 **PHẢI GHI LẠI DÙ ĐẠT HAY HỎNG** — đây là một trong ba câu hỏi lớn chưa ai trả lời được bằng đọc code.
 
 ---
