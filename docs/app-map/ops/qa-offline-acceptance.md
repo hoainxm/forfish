@@ -7,6 +7,8 @@ last_verified: 2026-08-01
 ttl_days: 120
 gate: warn
 
+<!-- re-verified: 2026-08-01q — sw.js CÓ đổi (nhánh `notificationclick`): cú báo "đã đọc" trước đây đứng NGOÀI `event.waitUntil` nên trình duyệt được phép giết service worker ngay khi mở xong cửa sổ, cắt request đang bay; nay `waitUntil(Promise.all([focus, ack]))`. KHÔNG chạm `SHELL`, danh sách cache, hay khoá `forfish.*` cũ ⇒ bộ ca offline dưới đây KHÔNG đổi. THÊM một ca cho đợt nghiệm thu tới (xem §1, ca N-4). -->
+
 > **Mục đích**: cho người TEST (không phải lập trình viên) một danh sách bấm-theo-là-làm-được, và cho người duyệt phát hành một tiêu chí ĐẠT/KHÔNG rõ ràng.
 >
 > **Vì sao cần**: mọi kết luận offline tới giờ đều là **đọc code**, chưa có máy thật. Ba thứ không đọc code nào thay được: hạn ngạch lưu trữ của iOS, luật xoá dữ liệu sau ~7 ngày của Safari, và app có thật sự mở được khi đang lênh đênh giữa biển hay không.
@@ -292,3 +294,19 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 ---
 
 **Người soạn**: đội phát triển · **Bản**: 2026-08-01 · Có ca nào mô tả không khớp app thật thì báo lại để sửa tài liệu — tài liệu sai cũng là lỗi.
+
+### N-4 · Bấm vào thông báo giữa biển thì trang quản trị có ghi nhận không (mới 2026-08-01q)
+
+> **Vì sao có ca này**: cột "đọc" ở `/quan-tri` từng đứng yên ở 0 vĩnh viễn vì cú báo bị trình duyệt cắt giữa chừng. Lỗi chỉ lộ trên MÁY THẬT — chạy trên máy tính không bắt được, vì máy tính không giết service worker như iOS.
+
+| Bước | Làm gì | ĐẠT khi |
+|---|---|---|
+| 1 | Máy **B** (iPhone đã Thêm vào Màn hình chính) và **D** (Android đã cài): đăng nhập, bật thông báo. **Đóng hẳn app** | |
+| 2 | Quản trị viên gửi một tin thử tới đúng tài khoản đó | `/quan-tri` → tab Thông báo hiện dòng tin, cột **nhận** lên trong vài giây |
+| 3 | Trên máy, **bấm vào banner thông báo** (đừng vuốt tắt) | App mở ra; sau ~5 giây tải lại `/quan-tri` thì cột **đọc** tăng |
+| 4 | Vẫn máy đó, mở app, kéo tới mục **Thông báo** ở trang chủ, để tin hiện trên màn ~2 giây | Cột **đọc** **KHÔNG tăng thêm** — cùng một người, tính một lần |
+| 5 | Máy **khác** của cùng người đó làm bước 4 | Cột **đọc** vẫn **KHÔNG tăng** (đếm theo NGƯỜI, không theo máy) |
+| 6 | Bật **Chế độ máy bay**, mở app, để tin hiện trên màn | App không quay vòng, tin cũ vẫn đọc được. Cột **đọc** không đổi (chưa báo được) |
+| 7 | Tắt chế độ máy bay, **mở lại app**, để tin hiện trên màn | Cột **đọc** lên — biên nhận hụt lúc mất sóng phải báo lại được, không mất luôn |
+
+> **HỎNG** nếu: bước 3 bấm xong mà cột "đọc" không bao giờ lên (⇒ cú báo lại bị cắt — kiểm `waitUntil` trong `notificationclick`), hoặc bước 7 không bao giờ lên (⇒ bản lưu đã đánh dấu nhầm là "đã báo" dù máy chủ chưa xác nhận).

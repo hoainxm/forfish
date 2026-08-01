@@ -29,6 +29,8 @@ export interface InboxMessage {
 
 /** Quy ước key forfish.* (xem ops/state-registry.md) */
 export const INBOX_KEY = "forfish.inbox.v1";
+/** Tin đã BÁO VỀ được là "đã đọc" — để khỏi báo lại mỗi lần mở app (0024) */
+export const INBOX_READ_KEY = "forfish.inbox.read.v1";
 
 type Stored = { phone: string; savedAt: number; messages: InboxMessage[] };
 
@@ -71,8 +73,94 @@ function saveInbox(phone: string | null, messages: InboxMessage[]): void {
 export function clearInbox(): void {
   try {
     window.localStorage.removeItem(INBOX_KEY);
+    window.localStorage.removeItem(INBOX_READ_KEY);
   } catch {
     /* bỏ qua */
+  }
+}
+
+/* ── BÁO VỀ "ĐÃ ĐỌC" (0024) ────────────────────────────────────────────────
+   Vì sao cần: trước đây chỉ nhánh `notificationclick` của service worker mới
+   ghi "đã đọc", tức là CHỈ đếm khi bấm vào banner. Bà con phần lớn đọc trên
+   màn khoá rồi vuốt tắt, hoặc mở app xem ở đây — trang quản trị vì thế hiện
+   "đọc 0" vĩnh viễn dù tin đã tới mắt. Số dối còn hại hơn không có số.
+
+   Trong màn này, thẻ tin hiện SẴN cả tiêu đề lẫn nội dung, không có gì để "mở
+   ra" — nên mốc đọc đúng là LÚC THẺ HIỆN RA TRƯỚC MẮT, không phải lúc bấm. */
+
+type ReadStore = { phone: string; ids: string[] };
+
+/** Id đã báo về được, của ĐÚNG tài khoản này (đổi tài khoản → coi như chưa) */
+function loadReported(phone: string | null): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(INBOX_READ_KEY);
+    if (!raw) return new Set();
+    const s = JSON.parse(raw) as ReadStore;
+    if (s?.phone !== bucket(phone) || !Array.isArray(s.ids)) return new Set();
+    return new Set(s.ids);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveReported(phone: string | null, ids: Set<string>): void {
+  try {
+    window.localStorage.setItem(
+      INBOX_READ_KEY,
+      // giữ trần bằng hộp thư (≤50 tin) — cắt từ đầu, tin cũ nhất rụng trước
+      JSON.stringify({ phone: bucket(phone), ids: [...ids].slice(-50) } satisfies ReadStore),
+    );
+  } catch {
+    /* máy hết chỗ — thà báo trùng còn hơn chen chỗ của dự báo */
+  }
+}
+
+/** Chỉ những id CHƯA báo về được lần nào — chỗ gọi khỏi tự lọc */
+export function unreportedIds(phone: string | null, ids: string[]): string[] {
+  if (typeof window === "undefined") return [];
+  const done = loadReported(phone);
+  return ids.filter((id) => !done.has(id));
+}
+
+/**
+ * Báo về "bà con đã đọc mấy tin này". BẮN RỒI QUÊN.
+ *
+ * KHÔNG BAO GIỜ ném, có đồng hồ 8 giây, và bỏ qua hẳn khi máy biết mình mất
+ * sóng. Chỉ ghi vào bản lưu khi máy chủ ĐÃ xác nhận — hỏng thì lần mở app sau
+ * có sóng sẽ báo lại, chứ không mất luôn. Biên nhận là thống kê: nó không được
+ * phép làm chậm hay làm hỏng việc đọc tin của bà con.
+ */
+export async function markRead(
+  phone: string | null,
+  ids: string[],
+): Promise<void> {
+  if (typeof window === "undefined" || ids.length === 0) return;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+  try {
+    // Máy đã bật thông báo thì gửi kèm endpoint — đó là danh tính DUY NHẤT của
+    // khách chưa đăng nhập (hộp thư mở cho cả khách, xem /api/me/messages).
+    let endpoint: string | undefined;
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      const sub = await reg?.pushManager?.getSubscription();
+      endpoint = sub?.endpoint;
+    } catch {
+      /* không có SW / bị chặn — vẫn báo được nếu đã đăng nhập */
+    }
+    const r = await fetch(apiUrl("/api/me/messages/read"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, endpoint }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return;
+    const j = (await r.json().catch(() => null)) as { ok?: boolean } | null;
+    if (!j?.ok) return;
+    const done = loadReported(phone);
+    for (const id of ids) done.add(id);
+    saveReported(phone, done);
+  } catch {
+    /* mất sóng giữa chừng — lần sau báo lại */
   }
 }
 

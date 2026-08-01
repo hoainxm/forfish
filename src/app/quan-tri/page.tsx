@@ -3688,9 +3688,14 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
           </ul>
           <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/55">
             <b>Đẩy</b> = máy chủ giao được cho Apple/Google. <b>Nhận</b> = máy bà
-            con báo về đã nhận thật. <b>Đọc</b> = đã bấm vào thông báo. Tin luôn
-            nằm trong mục Thông báo ở trang chủ, nên đẩy hụt thì mở app vẫn đọc
-            được.
+            con báo về đã nhận thật (đếm theo <b>máy</b>). <b>Đọc</b> = đếm theo{" "}
+            <b>người</b>: bấm vào thông báo, hoặc mở app xem tin ở mục Thông báo
+            trang chủ — một người hai máy vẫn tính một. Tin luôn nằm trong mục
+            Thông báo ở trang chủ, nên đẩy hụt thì mở app vẫn đọc được.
+          </p>
+          <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/45">
+            Đọc thấp hơn Nhận là <b>bình thường</b>: bà con hay liếc thông báo
+            trên màn khoá rồi vuốt tắt — đường đó không máy nào đo được.
           </p>
         </div>
       )}

@@ -16,17 +16,24 @@
  * thì vẫn hiện đủ tin cũ, không quay vòng chờ (xem lib/inbox.ts).
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuthUser } from "@/lib/use-auth";
 import {
   loadInbox,
+  markRead,
   refreshInbox,
+  unreportedIds,
   type InboxMessage,
 } from "@/lib/inbox";
 
 /** Mấy tin hiện sẵn khi chưa mở rộng */
 const PREVIEW_COUNT = 3;
+
+/** Nửa thẻ lọt vào màn hình thì tính là đã tới mắt bà con */
+const SEEN_RATIO = 0.5;
+/** Gom mấy tin lướt qua trong khoảng này thành MỘT cú báo — tiết kiệm sóng */
+const BATCH_MS = 1200;
 
 /** "14:30 · 01/08" — giờ gửi, thứ bà con cần để biết tin mới hay cũ */
 function fmt(iso: string): string {
@@ -67,6 +74,77 @@ export function InboxSection() {
     return () => window.removeEventListener("online", onOnline);
   }, [ready, refresh]);
 
+  /* ── BÁO VỀ "ĐÃ ĐỌC" (0024) ───────────────────────────────────────────────
+     Thẻ tin ở đây hiện SẴN cả tiêu đề lẫn nội dung — không có gì để "mở ra".
+     Nên mốc đọc đúng là lúc THẺ TỚI TRƯỚC MẮT, không phải lúc bấm (đa số tin
+     không có link, bấm cũng chẳng đi đâu). Tin còn nằm sau nút "Xem N tin cũ
+     hơn" thì chưa vẽ ra ⇒ tự động không bị tính.
+
+     KHÔNG cản gì cả: quan sát bằng IntersectionObserver, gửi bắn-rồi-quên,
+     mất sóng thì lib bỏ qua và lần mở app sau báo lại (xem lib/inbox.ts). */
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const pendingRef = useRef<Set<string>>(new Set());
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* Đã bắn đi trong PHIÊN này. Bản lưu chỉ được ghi SAU khi máy chủ xác nhận,
+     nên trong lúc chờ mà hộp thư làm mới (effect chạy lại) thì `unreportedIds`
+     vẫn nói "chưa báo" ⇒ bắn trùng. Sổ này bịt chỗ đó — sóng ngoài biển tính
+     bằng tiền. Máy chủ vốn cũng chịu được trùng (ignoreDuplicates), đây là
+     lớp thứ hai. */
+  const sentRef = useRef<Set<string>>(new Set());
+  // Đổi tài khoản trên cùng máy = NGƯỜI ĐỌC khác ⇒ sổ của người trước không
+  // được chặn người sau (máy dùng chung trên tàu, cùng luật với bản lưu).
+  useEffect(() => {
+    sentRef.current = new Set();
+  }, [phone]);
+  useEffect(() => {
+    const root = listRef.current;
+    if (!root || typeof IntersectionObserver === "undefined") return;
+
+    const flush = () => {
+      timerRef.current = null;
+      const ids = [...pendingRef.current].filter((id) => !sentRef.current.has(id));
+      pendingRef.current.clear();
+      if (ids.length === 0) return;
+      for (const id of ids) sentRef.current.add(id);
+      void markRead(phone, ids);
+    };
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          const id = (e.target as HTMLElement).dataset.msgId;
+          if (id) pendingRef.current.add(id);
+          io.unobserve(e.target); // tới mắt một lần là đủ
+        }
+        if (pendingRef.current.size > 0 && timerRef.current === null) {
+          timerRef.current = setTimeout(flush, BATCH_MS);
+        }
+      },
+      { threshold: SEEN_RATIO },
+    );
+    // chỉ ngó tin CHƯA báo được lần nào — mở app lần thứ mười không gọi lại
+    const fresh = new Set(
+      unreportedIds(
+        phone,
+        [...root.querySelectorAll<HTMLElement>("[data-msg-id]")].map(
+          (el) => el.dataset.msgId ?? "",
+        ),
+      ),
+    );
+    for (const el of root.querySelectorAll<HTMLElement>("[data-msg-id]")) {
+      const id = el.dataset.msgId ?? "";
+      if (fresh.has(id) && !sentRef.current.has(id)) io.observe(el);
+    }
+    return () => {
+      io.disconnect();
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      flush(); // rời trang giữa chừng vẫn báo nốt phần đã thấy
+    };
+  }, [messages, expanded, phone]);
+
   /* Chưa có tin nào → ẩn hẳn, không để khối trống. KHÔNG chặn theo đăng nhập:
      máy chưa gắn tài khoản vẫn nhận được tin gửi chung qua push, mà vuốt tắt là
      mất — đúng cái lỗ hộp thư sinh ra để bịt (sửa 2026-08-01n). Tin nhắm riêng
@@ -81,7 +159,7 @@ export function InboxSection() {
       <h2 className="display mb-1.5 px-1 text-[1.125rem] font-bold text-navy">
         Thông báo
       </h2>
-      <ul className="space-y-2">
+      <ul ref={listRef} className="space-y-2">
         {shown.map((m) => {
           const inner = (
             <>
@@ -104,7 +182,7 @@ export function InboxSection() {
             </>
           );
           return (
-            <li key={m.id}>
+            <li key={m.id} data-msg-id={m.id}>
               {m.url ? (
                 <Link
                   href={m.url}

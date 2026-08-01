@@ -731,33 +731,38 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = (event.notification.data && event.notification.data.url) || "/";
   const messageId = event.notification.data && event.notification.data.messageId;
-  // BÁO VỀ "ĐÃ ĐỌC" — bấm được thì đương nhiên đã nhận (route ghi cả hai mốc)
-  if (messageId) {
-    self.registration.pushManager
-      .getSubscription()
-      .then((sub) =>
-        sub
-          ? fetch("/api/push/ack", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                messageId,
-                endpoint: sub.endpoint,
-                kind: "opened",
-              }),
-            })
-          : null,
-      )
-      .catch(() => {});
-  }
-  event.waitUntil(
-    self.clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clients) => {
-        for (const client of clients) {
-          if (client.url.includes(url) && "focus" in client) return client.focus();
-        }
-        if (self.clients.openWindow) return self.clients.openWindow(url);
-      }),
-  );
+  /* BÁO VỀ "ĐÃ ĐỌC" — bấm được thì đương nhiên đã nhận (route ghi cả hai mốc).
+     ⚠️ PHẢI nằm TRONG waitUntil (sửa 2026-08-01p): trước đây cú fetch này đứng
+     ngoài, mà trình duyệt được phép giết service worker ngay khi promise trong
+     waitUntil xong ⇒ request đang bay bị cắt. iOS giết SW rất mạnh tay đúng
+     lúc PWA bật lên foreground, nên bà con CÓ bấm mà "đọc" vẫn không lên. */
+  const ack = messageId
+    ? self.registration.pushManager
+        .getSubscription()
+        .then((sub) =>
+          sub
+            ? fetch("/api/push/ack", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  messageId,
+                  endpoint: sub.endpoint,
+                  kind: "opened",
+                }),
+              })
+            : null,
+        )
+        .catch(() => {})
+    : Promise.resolve();
+  const focus = self.clients
+    .matchAll({ type: "window", includeUncontrolled: true })
+    .then((clients) => {
+      for (const client of clients) {
+        if (client.url.includes(url) && "focus" in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    });
+  // Mở app KHÔNG được chờ cú báo: biên nhận hỏng thì thôi, bà con vẫn phải vào
+  // được app ngay (`ack` đã nuốt lỗi ở trên nên Promise.all không bao giờ reject).
+  event.waitUntil(Promise.all([focus, ack]));
 });

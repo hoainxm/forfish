@@ -66,19 +66,45 @@ export async function GET() {
     .order("created_at", { ascending: false })
     .limit(10);
   const ids = (msgs ?? []).map((m) => (m as { id: string }).id);
+  /* NHẬN đếm theo MÁY (việc giao tin), ĐỌC đếm theo NGƯỜI (việc đọc) — hai đơn
+     vị khác nhau, cố ý. Một người hai máy đọc một tin vẫn là MỘT người đọc. */
   const delivered = new Map<string, number>();
-  const opened = new Map<string, number>();
+  const readers = new Map<string, Set<string>>();
+  const addReader = (msg: string, key: string) => {
+    const s = readers.get(msg) ?? new Set<string>();
+    s.add(key);
+    readers.set(msg, s);
+  };
   if (ids.length > 0) {
-    const { data: rec } = await admin
-      .from("push_receipts")
-      .select("message_id, delivered_at, opened_at")
-      .in("message_id", ids);
+    const [{ data: rec }, { data: reads }] = await Promise.all([
+      admin
+        .from("push_receipts")
+        .select("message_id, endpoint, account_phone, delivered_at, opened_at")
+        .in("message_id", ids),
+      admin.from("push_reads").select("message_id, reader").in("message_id", ids),
+    ]);
     for (const r of rec ?? []) {
-      const k = (r as { message_id: string }).message_id;
-      if ((r as { delivered_at: string | null }).delivered_at)
-        delivered.set(k, (delivered.get(k) ?? 0) + 1);
-      if ((r as { opened_at: string | null }).opened_at)
-        opened.set(k, (opened.get(k) ?? 0) + 1);
+      const row = r as {
+        message_id: string;
+        endpoint: string;
+        account_phone: string | null;
+        delivered_at: string | null;
+        opened_at: string | null;
+      };
+      if (row.delivered_at)
+        delivered.set(row.message_id, (delivered.get(row.message_id) ?? 0) + 1);
+      /* BẤM VÀO BANNER — quy về cùng khoá với đường đọc-trong-app (0024) để
+         bấm xong rồi mở app đọc lại vẫn chỉ tính một người. */
+      if (row.opened_at)
+        addReader(
+          row.message_id,
+          row.account_phone ? `sdt:${row.account_phone}` : `may:${row.endpoint}`,
+        );
+    }
+    // ĐỌC TRONG APP — đường phổ biến nhất, trước 0024 không đếm được (đọc 0 dối)
+    for (const r of reads ?? []) {
+      const row = r as { message_id: string; reader: string };
+      addReader(row.message_id, row.reader);
     }
   }
   const recent = (msgs ?? []).map((m) => {
@@ -99,7 +125,8 @@ export async function GET() {
       devices: r.devices,
       sent: r.sent,
       delivered: delivered.get(r.id) ?? 0,
-      opened: opened.get(r.id) ?? 0,
+      /** số NGƯỜI đã đọc — bấm banner hoặc mở app xem hộp thư, gộp không trùng */
+      opened: readers.get(r.id)?.size ?? 0,
       createdAt: r.created_at,
     };
   });

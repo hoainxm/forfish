@@ -242,6 +242,20 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - **UI**: trang chủ mục **Thông báo** ngay dưới "Bốn việc chính" — 3 tin gần nhất, bấm mở tin cũ hơn; tự ẩn khi chưa đăng nhập/chưa có tin. `/quan-tri` tab Thông báo có **10 tin gần nhất + cột máy · đẩy · nhận · đọc**.
 - ✅ **ĐÃ APPLY prod 2026-08-01** (ref `znzgugvfhgmiszqgjulk`).
 
+### Đọc trong app cũng là đọc — migration [`0024_push_reads.sql`](../../supabase/migrations/0024_push_reads.sql) (2026-08-01) — ✅ ĐÃ APPLY prod
+
+| Bảng | Nghĩa |
+|---|---|
+| `push_reads` (`message_id` × `reader` · `account_phone` · `read_at`) | Bà con đã ĐỌC tin, đếm theo **người** |
+
+- **Vì sao**: 0023 chỉ ghi `opened_at` ở nhánh `notificationclick` ⇒ **chỉ** đếm khi bấm vào banner. Nhưng đường đọc phổ biến nhất là liếc trên màn khoá rồi vuốt tắt, hoặc mở app xem mục Thông báo — cả hai không ghi gì, nên `/quan-tri` hiện **"đọc 0" vĩnh viễn** dù tin đã tới mắt. Số dối hại hơn không có số: người gửi tin bão sẽ tưởng tin không tới mà gửi lại, hoặc kết luận sai là bà con không quan tâm.
+- **Đơn vị đếm — cố ý khác nhau**: `push_receipts` đếm theo **MÁY** (đo việc *giao tin*), `push_reads` đếm theo **NGƯỜI** (đo việc *đọc*) — một người hai máy đọc một tin vẫn là một người đọc. Khoá `reader` = `sdt:<SĐT>` khi đã đăng nhập (máy chủ tự lấy từ phiên), `may:<endpoint>` khi chưa (hộp thư mở cho cả khách). `/api/admin/push` **GỘP** hai nguồn về cùng dạng khoá rồi đếm số khoá khác nhau, nên bấm banner xong lại mở app đọc chỉ tính một.
+- **Mốc đọc đo ở đâu**: `POST /api/me/messages/read` — `InboxSection` quan sát bằng `IntersectionObserver`, thẻ tin lọt ≥50% vào màn hình thì tính là tới mắt (thẻ hiện sẵn cả nội dung, không có gì để "mở ra"; tin sau nút "Xem N tin cũ hơn" chưa vẽ nên không bị tính). Gom 1,2 s một cú. Ghi bằng `upsert ignoreDuplicates` — **lần đầu** đọc mới là mốc có nghĩa.
+- **Lỗi kèm theo đã sửa**: `notificationclick` trong `public/sw.js` bắn ack **ngoài** `event.waitUntil` ⇒ trình duyệt được phép giết service worker ngay khi mở xong cửa sổ, cắt request đang bay (iOS giết SW rất mạnh lúc PWA lên foreground) — bà con CÓ bấm mà cột "đọc" vẫn không lên. Nay `waitUntil(Promise.all([focus, ack]))`, test đọc thẳng `sw.js` chống tái phát.
+- **⚠️ ẢNH HƯỞNG OFFLINE**: biên nhận là **thống kê**, không phải dữ liệu bà con cần. Client bỏ qua hẳn khi `navigator.onLine === false`, timeout 8 s, nuốt mọi lỗi, và **chỉ ghi vào bản lưu khi máy chủ đã xác nhận** ⇒ hỏng thì lần mở app sau có sóng báo lại, không mất luôn. Không đụng `SHELL`/danh sách cache; route là POST nên SW vốn bỏ qua. Khoá mới `forfish.inbox.read.v1` mang theo SĐT chủ nhân và bị `clearInbox()` xoá lúc đăng xuất — cùng luật cách ly tài khoản với `forfish.inbox.v1`.
+- **Đường lùi nếu bảng chưa có**: supabase-js **trả** `error` chứ không ném ⇒ `reads` về rỗng, cột "đọc" tụt về đúng nguồn bấm-banner như cũ; app phía bà con không hỏng gì (route read trả 500, client nuốt lỗi và báo lại lần sau).
+- ✅ **ĐÃ APPLY prod 2026-08-01** (ref `znzgugvfhgmiszqgjulk`) — kiểm lại sau khi chạy: bảng có · `rls=true` · **0 policy** (chỉ service-role) · 0 dòng.
+
 ### Đo thật việc dùng app — migration [`0021_customer_app_usage.sql`](../../supabase/migrations/0021_customer_app_usage.sql) (2026-08-01) — ✅ ĐÃ APPLY prod
 
 | Cột mới trên `customers` | Nghĩa |
