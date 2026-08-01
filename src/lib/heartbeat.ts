@@ -41,13 +41,17 @@ export const HEARTBEAT_MIN_GAP_MS = 12 * 60 * 60 * 1000;
     lại không tốn sóng của bà con. */
 export const HEARTBEAT_SOFT_RETRY_MS = 30 * 60 * 1000;
 /*  KHÔNG NHẬN ĐƯỢC PHẢN HỒI NÀO (hết giờ · sóng "sống mà chết" · mạng đứt
-    giữa chừng) → THANG LÙI DẦN, chủ dự án chốt 2026-08-01g: 3 phút → 5 phút →
-    12 giờ. Vì sao không lùi thẳng 12 giờ: máy ĐANG ONLINE mà không nghe được
-    máy chủ thường là trục trặc NGẮN (route cold-start, wifi cảng chập chờn,
-    vừa đổi 4G↔wifi) — hai lần thử thưa trong 8 phút gỡ được hầu hết, mà tổng
-    chi phí chỉ là 2 request nhỏ. Hết thang thì im 12 giờ ĐÚNG BẰNG bản cũ:
-    ngoài khơi mỗi lần thử là một lần tranh băng thông với tin bão. */
+    giữa chừng) → THANG LÙI DẦN, chủ dự án chốt: 30 giây → 3 phút → 5 phút →
+    12 giờ (nấc 30 giây thêm 2026-08-01i).
+    Vì sao không lùi thẳng 12 giờ: máy ĐANG ONLINE mà không nghe được máy chủ
+    thường là trục trặc NGẮN — route cold-start (Vercel ngủ dậy có khi quá 5
+    giây), wifi cảng chập chờn, vừa đổi 4G↔wifi. Nấc 30 giây bắt đúng ca
+    cold-start: lần đầu đánh thức route thì trượt, nửa phút sau route đã nóng.
+    Ba lần thử thưa trong ~8 phút gỡ được hầu hết, tổng chi phí 3 request nhỏ.
+    Hết thang thì im 12 giờ ĐÚNG BẰNG bản cũ: ngoài khơi mỗi lần thử là một lần
+    tranh băng thông với tin bão. */
 export const HEARTBEAT_NET_BACKOFF_STEPS_MS = [
+  30 * 1000,
   3 * 60 * 1000,
   5 * 60 * 1000,
   12 * 60 * 60 * 1000,
