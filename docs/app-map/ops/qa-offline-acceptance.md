@@ -206,7 +206,9 @@ Mở app vào **ngày 1, 3, 7** (và ngày 16 nếu theo được):
 
 ---
 
-### TC-12 — iPhone bỏ không 7 ngày 🔴 chỉ iOS
+### TC-12 — iPhone bỏ không 7 ngày 🟡 chỉ iOS · HẠ ƯU TIÊN 2026-08-01
+> **Chủ dự án xác nhận**: bà con đều được hướng dẫn **Thêm vào Màn hình chính**, không dùng tab Safari để đi biển. Luật xoá-sau-7-ngày của iOS **miễn cho bản A2HS**, nên ca này còn giá trị ĐO ĐẠC (biết Safari mất bao lâu, để tư vấn khi có người lỡ dùng Safari) chứ **không còn là ca chặn phát hành**. Nhánh **12c là nhánh phải chạy**; 12a/12b chạy nếu còn thời gian.
+
 **Máy**: **BA cấu hình chạy song song** để tách được nguyên nhân:
 
 | Nhánh | Máy | Ngày 1→7 |
@@ -225,15 +227,22 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 
 ---
 
-### TC-13 — Bản cài iOS bắt đầu từ kho trống 🔴 chỉ iOS
+### TC-13 — Bản cài iOS bắt đầu từ kho trống 🔴🔴 CA IOS QUAN TRỌNG NHẤT
+> **Nâng ưu tiên 2026-08-01**: vì bà con đều dùng bản Thêm-vào-Màn-hình-chính, đây là ca sát thực tế nhất và là cách MẤT SẠCH dữ liệu dễ xảy ra nhất — bà con làm đúng mọi bước mà vẫn trắng tay, chỉ vì kho của bản cài TÁCH RIÊNG với Safari.
+
 **Máy**: B.
 
 1. Trong **Safari**, tải đủ dữ liệu đi biển.
 2. Thêm vào Màn hình chính. **Đừng mở icon vừa tạo.**
 3. Bật máy bay. Mở icon.
 
-**ĐẠT**: app nói rõ chưa có dữ liệu / cần mở lúc còn sóng (banner cài đặt đã ghi câu này).
-**HỎNG (chặn)**: trang lỗi trắng không một chữ tiếng Việt.
+4. Bật lại mạng, mở icon, đợi tải sẵn xong (chip/popup báo đã lưu).
+5. Bật máy bay, mở lại icon, vào Ra khơi.
+
+**ĐẠT**: ở bước 3 app nói rõ **chưa có dữ liệu / cần mở lúc còn sóng** bằng tiếng Việt (banner cài đặt đã ghi câu này); sau bước 4–5 thì đầy đủ như máy Android đã cài.
+**HỎNG (chặn)**: bước 3 ra trang lỗi trắng không một chữ tiếng Việt; hoặc sau bước 4–5 vẫn thiếu dữ liệu.
+
+**Ghi thêm cho đội dev**: ở bước 3, lời nhắc "hãy tải dữ liệu" hiện to hay chỉ là chip nhỏ dễ lướt qua? Ghi lại ảnh — đây đang là câu chữ, chưa có gì ép, và là chỗ đội dev cân nhắc làm thẻ nhắc TO ở bản cài khi kho trống.
 
 > Đây là **hạn chế của iOS**, không sửa được bằng code: bản cài dùng kho lưu trữ riêng với Safari. Việc của app là nói trước, không hứa suông.
 
@@ -257,7 +266,7 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 | 🟡 **Ghi nhận** | Chậm, xấu, khó hiểu nhưng vẫn dùng được | Vào backlog, không chặn |
 | ⚪ **Đã biết** | Nằm trong mục 3 dưới đây | Không cần báo, trừ khi nặng hơn mô tả |
 
-**Bắt buộc phải chạy trước mỗi lần phát hành có đụng service worker**: TC-02 · TC-03 · TC-06 · TC-07 · TC-10.
+**Bắt buộc phải chạy trước mỗi lần phát hành có đụng service worker**: TC-02 · TC-03 · TC-06 · TC-07 · TC-10 · **TC-13** (iOS — bà con dùng bản Thêm-vào-Màn-hình-chính nên đây là ca sát thực tế nhất).
 
 ---
 
@@ -276,7 +285,7 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 
 Đây là những thứ **không đọc code nào thay được**, xin ưu tiên làm và ghi kỹ:
 
-1. **TC-12** — iPhone bỏ không 7 ngày thì bản A2HS có giữ được dữ liệu không?
+1. **TC-13** — bản A2HS, sau khi chỉ mở đúng một lần lúc còn sóng, ra khơi có đủ dữ liệu không? (thay TC-12 làm câu hỏi số 1: bà con đều dùng bản A2HS, mà kho của nó tách riêng với Safari)
 2. **TC-02 + TC-07** — trên máy Android yếu và iPhone, mẻ tải sẵn (~2,7 MB) có chạy trọn trong lúc cài không, hay bị cắt giữa chừng?
 3. **TC-03 trên máy B** — bản cài iOS, sau khi chỉ mở đúng một lần lúc còn sóng, có mở được cả 6 màn khi máy bay không?
 
