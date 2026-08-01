@@ -12,6 +12,7 @@ import {
   shouldReloadForScope,
   syncAuthScope,
 } from "@/lib/auth-scope";
+import { isNetworkAuthError } from "@/lib/auth-error";
 
 function deriveBoatPhone(u: User | null): string | null {
   return u?.phone || (u?.email ? u.email.split("@")[0] : null) || null;
@@ -81,8 +82,18 @@ export function useAuthUser(): {
     }, 8000);
     supabase.auth
       .getUser()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (!alive) return;
+        // LỖI ĐÃ SỬA (2026-08-01): getUser() KHÔNG reject khi mất sóng — auth-js
+        // RESOLVE kèm `error` (AuthRetryableFetchError). Bản trước chỉ bóc
+        // `data` nên `.catch` không bao giờ nổ, `errored` không bao giờ bật, và
+        // lỗi mạng đội lốt ĐĂNG XUẤT THẬT ⇒ use-tier xoá dấu premium giữa biển.
+        // Đồng hồ 8s chỉ đỡ được ca TREO, không đỡ ca hỏng NHANH (DNS chết,
+        // ENETUNREACH, 502/503/504) — mà ngoài khơi ca đó mới là ca thường.
+        if (error && isNetworkAuthError(error)) {
+          setErrored(true);
+          return; // GIỮ user cũ, đừng hạ xuống null
+        }
         const u = data?.user ?? null;
         // GIỮ chống-rò chéo user (origin): reset scope + RAM khi đổi user/logout
         syncScopeAndResetRam(deriveBoatPhone(u));

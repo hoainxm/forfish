@@ -5,6 +5,7 @@ covers: src/lib/fish-blend.ts, public/data/fish-climatology.v1.json, src/data/fi
 last_verified: 2026-07-28
 ttl_days: 90
 
+<!-- re-verified: 2026-07-31 — fish-blend.ts THÊM `fishLeadDays(imageDateIso, viewDateIso, viewLead)` (thuần, có test): tầm ngày của lớp cá phải đếm từ NGÀY ẢNH, không phải từ hôm nay — mất sóng thì service worker trả lại bản đồ cá tải mấy ngày trước mà chip vẫn đứng "Hôm nay", tính theo hôm nay ra w=1 = tin trọn tấm ảnh cũ. Khớp định nghĩa của chính bộ số: scripts/fit-fish-blend-weights.mjs đo `target = addDays(T, d)` với T = ngày ẢNH. Tỷ lệ w(d), thang phân vị, blendFishCells KHÔNG đổi — §5d/§5e/§5f còn đúng nguyên. Chủ dự án 2026-07-31 chốt KHÔNG trừ độ trễ vệ tinh khỏi fishLead (giữ hành vi ngày thường). -->
 > **Mục đích**: oracle HÀNH VI cho tính năng đề xuất lộ trình — bài toán là gì, nguồn dữ liệu phải đạt gì, pha trộn lớp cá theo tỷ lệ nào (số ĐO ĐƯỢC), lưu/đối chiếu tuyến ra sao. KHÔNG mô tả giao diện (việc của [07-design-spec](07-design-spec.md)).
 
 > **Trạng thái: phần TÍNH NĂNG còn là ĐỀ XUẤT (chưa build); phần NỀN DỮ LIỆU lớp cá 16 ngày ĐÃ LÀM XONG — xem §5d.** Kết quả

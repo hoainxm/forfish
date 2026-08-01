@@ -49,6 +49,7 @@ import {
 import {
   arrowFeatures,
   fetchForecastGrid,
+  savedCurrentGridDays,
   timeLabelVN,
   WIND_COLOR_EXPR,
   WAVE_COLOR_EXPR,
@@ -68,6 +69,7 @@ import {
 import {
   fetchClimatology,
   blendFishCells,
+  fishLeadDays,
   hotspotSpacingDeg,
   hotspotMaxCount,
   BLEND_USABLE,
@@ -398,14 +400,19 @@ export default function FishingMapView() {
 
   // ── DỰ BÁO CÁ (PFZ) — tính từ ảnh vệ tinh mới nhất, tải 1 lần ───────────
   // Phân hạng PREMIUM (chủ dự án chốt 2026-07-26, THAY mô hình teaser 06-11):
-  // dự báo cá + thời tiết quá 3 ngày KHOÁ HẲN với người chưa đăng nhập
-  // ("login") và tài khoản thường ("upgrade" — gọi SDVICO nâng cấp). Demo mode
-  // (chưa cấu hình Supabase) = mở hết; "checking" coi như chưa khoá để khỏi
-  // nháy nhưng lớp cá chỉ TẢI khi chắc chắn "open". Chốt thật ở middleware.
+  // dự báo cá + thời tiết quá 3 ngày dành cho tài khoản premium.
+  //
+  // LUẬT GỌN LẠI (chủ dự án 2026-08-01): "đã là premium mới TẢI được; đã tải
+  // được, lưu trong máy rồi thì cứ dùng, không liên quan gì tới auth nữa — vì
+  // cái tải về cũng chỉ có 16 ngày. Khi nào online lại, còn hạn thì tải mới,
+  // hết hạn thì không tải mới được."
+  // ⇒ Premium gác Ở CỬA TẢI (middleware, chốt thật phía máy chủ), KHÔNG gác cửa
+  //   XEM. Có dữ liệu trong máy là hiện, bất kể phiên đăng nhập còn hay không.
+  //   Dữ liệu tự già đi và hết giá trị sau ≤16 ngày nên không cần khoá thêm.
+  // ⇒ Màn mời đăng nhập/nâng cấp CHỈ hiện khi thật sự KHÔNG CÓ GÌ để xem.
   const { access: premiumAccess } = useFeatureAccess();
   const premiumLocked =
     premiumAccess === "login" || premiumAccess === "upgrade";
-  const fishLocked = premiumLocked;
 
   const [fishCast, setFishCast] = useState<FishForecast | null>(null);
   // loài đang lọc trên bản đồ (null = loài tốt nhất mỗi ô)
@@ -435,19 +442,22 @@ export default function FishingMapView() {
     const t = setTimeout(() => setFishQualityNote(null), NOTIFY_HIDE_MS);
     return () => clearTimeout(t);
   }, [fishQualityNote]);
-  // lớp cá CHỈ tải khi chắc chắn được xem ("open" = premium/demo) — người bị
-  // khoá không gọi API (middleware cũng sẽ chặn 401/403); đăng xuất / tụt hạng
-  // giữa chừng thì dọn dữ liệu đã tải cho khỏi lộ qua heatmap cũ.
+  // LUÔN THỬ TẢI, để MÁY CHỦ quyết (2026-08-01, luật gọn ở đầu khối premium):
+  // còn hạn → 200, bản mới; hết hạn/chưa đăng nhập → middleware trả 401/403 và
+  // service worker đưa lại bản đã tải trong máy (nếu có). Bản cũ chỉ gọi khi
+  // premiumAccess==="open" nên người vừa hết hạn KHÔNG còn thấy cả thứ mình đã
+  // tải hợp lệ lúc còn hạn — trái luật "đã tải thì cứ dùng".
   useEffect(() => {
-    if (premiumAccess === "open") loadFish();
-    // netEpoch: có sóng lại → kéo bản đồ cá mới (không phải chờ mở lại app)
+    loadFish();
+    // netEpoch: có sóng lại → thử kéo bản mới (không phải chờ mở lại app)
   }, [premiumAccess, loadFish, netEpoch]);
   /* BẢN ĐỒ MÙA VỤ — asset tĩnh cùng origin (~71 KB), service worker giữ sẵn nên
      giữa biển vẫn có. Dùng để pha trộn lớp cá cho NGÀY XA (xem lib/fish-blend.ts).
      Không bao giờ ném: hỏng → null → lớp cá giữ nguyên bản ảnh mới nhất. */
   const [clim, setClim] = useState<Climatology | null>(null);
   useEffect(() => {
-    if (premiumAccess !== "open") return;
+    // asset TĨNH cùng origin, không phải hàng premium — tải bất kể hạng, để bản
+    // đồ cá đã có trong máy vẫn pha trộn được cho ngày xa (2026-08-01).
     let alive = true;
     fetchClimatology().then((c) => {
       if (alive) setClim(c);
@@ -456,12 +466,13 @@ export default function FishingMapView() {
       alive = false;
     };
   }, [premiumAccess]);
-  useEffect(() => {
-    if (premiumLocked) {
-      setFishCast(null);
-      setFishFailed(false);
-    }
-  }, [premiumLocked]);
+  /* KHOÁ LỚP CÁ = "không có gì để xem", KHÔNG phải "không phải premium"
+     (2026-08-01). Trước đây `fishLocked = premiumLocked` và có hẳn một effect
+     XOÁ `fishCast` khi bị khoá — nghĩa là hết hạn giữa chuyến (hoặc phiên rớt)
+     là bản đồ cá đã tải hợp lệ ở bờ biến mất khỏi màn, dù nó còn nằm nguyên
+     trong máy. Nay: có `fishCast` thì hiện; chỉ khi KHÔNG tải nổi và trong máy
+     cũng không có gì thì mới hiện lời mời đăng nhập/nâng cấp. */
+  const fishLocked = premiumLocked && !fishCast;
   const [size, setSize] = useState<SheetSize>("peek");
 
   // ── dự báo vẽ động kiểu Windy: lớp gió/sóng + thanh thời gian ───────────
@@ -482,15 +493,31 @@ export default function FishingMapView() {
   const [gridDays, setGridDays] = useState<GridDays>(3);
   // chạm khung ngày bị khoá (premium) → nói lý do một dòng ngay dưới hàng nút
   const [dayLockNote, setDayLockNote] = useState(false);
+  /* TRONG MÁY ĐÃ CÓ lưới dài hơn khung miễn phí chưa? (2026-08-01)
+     Dùng cho luật "đã tải thì cứ dùng": người tải đủ 16 ngày lúc còn premium,
+     ra biển hết hạn/rớt phiên vẫn được xem trọn bản đó. Tính lại khi lưới đổi
+     hoặc sóng về — đọc localStorage, chỉ chạy phía máy (trang này ssr:false). */
+  const savedLongGrid = useMemo(
+    () => savedCurrentGridDays().some((d) => d > FREE_FORECAST_DAYS),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fGrid, netEpoch],
+  );
   // (BỎ 2026-07-29) state "khung nào đang có trong máy" + khối mời đổi khung:
   // lib nay TỰ mượn khung ngắn hơn (localStorage rồi snapshot) nên còn bản nào
   // là đã dùng — tới nhánh lỗi nghĩa là KHÔNG CÒN GÌ, chẳng có gì để mời.
 
   // TẦM NGÀY TỰ ĐẶT THEO HẠNG (bỏ chip chọn khung, user 2026-07-28): premium =
   // 16 ngày, thường = 3 ngày (FREE_FORECAST_DAYS). Bà con cuộn dải ngày để xem
-  // xa/gần; hạng tụt (đăng xuất) thì tự kéo về 3.
+  // xa/gần.
+  //
+  // NGOẠI LỆ (2026-08-01, cùng luật "đã tải thì cứ dùng"): hạng tụt/hết hạn mà
+  // TRONG MÁY ĐÃ CÓ lưới dài thì vẫn xin đúng khung đó — lib tự lấy bản lưu ra.
+  // Chỉ xin dài khi máy CÓ SẴN, không xin bừa: người chưa từng premium mà xin
+  // d16 là hai request chắc chắn bị chặn, tốn sóng vô ích giữa biển.
   useEffect(() => {
-    const target = (premiumLocked ? FREE_FORECAST_DAYS : 16) as GridDays;
+    const target = (
+      premiumLocked && !savedLongGrid ? FREE_FORECAST_DAYS : 16
+    ) as GridDays;
     if (gridDays !== target) {
       setPlaying(false);
       setTimeIdx(0);
@@ -850,7 +877,7 @@ export default function FishingMapView() {
     for (let lon = lonMin; lon <= lonMax; lon += MAP_GRID_STEP_DEG) {
       features.push({
         type: "Feature",
-        properties: { deg: `${lon}°Đ` },
+        properties: { deg: `${lon}°E` },
         geometry: {
           type: "LineString",
           coordinates: [
@@ -863,7 +890,7 @@ export default function FishingMapView() {
     for (let lat = latMin; lat <= latMax; lat += MAP_GRID_STEP_DEG) {
       features.push({
         type: "Feature",
-        properties: { deg: `${lat}°B` },
+        properties: { deg: `${lat}°N` },
         geometry: {
           type: "LineString",
           coordinates: [
@@ -1261,8 +1288,11 @@ export default function FishingMapView() {
   // PREMIUM: ngày cách hôm nay ≥3 (ngày thứ 4 trở đi) khoá với người chưa
   // premium — đo theo NGÀY THẬT (daysBetweenISO), không theo vị trí mảng
   // (bản lưu offline có thể chứa ngày đã qua).
+  // (2026-08-01) …TRỪ khi lưới dài đã nằm trong máy: đã tải hợp lệ lúc còn hạn
+  // thì cứ xem, khoá lại là giấu chính thứ bà con đã tải về.
   const dayChipLocked = (dateIso: string) =>
     premiumLocked &&
+    !savedLongGrid &&
     daysBetweenISO(todayIso, dateIso) >= FREE_FORECAST_DAYS;
   const rawSelIdx = allPast
     ? -1
@@ -1294,17 +1324,31 @@ export default function FishingMapView() {
      Điểm từng LOÀI giữ TỈ LỆ với điểm "Mọi loài" (mùa vụ chỉ có một lớp chung:
      nó nói vùng này tháng này nhìn chung tốt cỡ nào, còn loài nào trội hơn loài
      nào thì theo ảnh mới nhất). */
+  /* TẦM NGÀY CỦA LỚP CÁ — đếm từ NGÀY ẢNH, không phải từ hôm nay: mất sóng thì
+     service worker trả lại bản đồ cá tải mấy ngày trước, chip vẫn đứng "Hôm
+     nay" ⇒ tính theo hôm nay là w=1 = tin trọn tấm ảnh cũ nhất (lib/fish-blend).
+     DÙNG CHUNG cho cả PHA TRỘN lẫn CÁCH VẼ (2026-07-31): bản trước chỉ sửa pha
+     trộn, còn hồng tâm vẫn vẽ theo `daysAhead` nên ảnh 8 ngày tuổi vẫn được
+     chấm 8 điểm ở mật độ dày nhất của ngày 0 — vẽ tự tin hơn dữ liệu. */
+  const fishLead = useMemo(
+    () =>
+      fishCast
+        ? fishLeadDays(fishCast.date, sel?.date ?? todayIso, daysAhead)
+        : daysAhead,
+    [fishCast, sel?.date, todayIso, daysAhead],
+  );
+
   const fishView = useMemo<FishForecast | null>(() => {
     if (!fishCast) return null;
-    if (daysAhead <= 0 || !clim || !BLEND_USABLE) return fishCast;
+    if (fishLead <= 0 || !clim || !BLEND_USABLE) return fishCast;
     const month = Number((sel?.date ?? todayIso).slice(5, 7));
     if (!Number.isFinite(month) || month < 1 || month > 12) return fishCast;
     // v2: quy điểm mùa vụ về ĐÚNG thang bản đồ ngày (phân vị) rồi pha trên HỢP
     // hai tập ô — bản v1 chỉ chạy trên danh sách ô của ảnh nên mùa vụ chỉ biết
     // kéo xuống, KHÔNG bao giờ đẻ được vị trí mới (đo: 0 ô mới ở mọi tầm).
-    const cells = blendFishCells(fishCast.cells, clim, month, daysAhead);
+    const cells = blendFishCells(fishCast.cells, clim, month, fishLead);
     return { ...fishCast, cells };
-  }, [fishCast, clim, daysAhead, sel?.date, todayIso]);
+  }, [fishCast, clim, fishLead, sel?.date, todayIso]);
 
   // Ô MÀU DỰ BÁO CÁ (ngư trường) — mỗi ô SST tô theo mức Thấp/TB/Cao (kiểu bản
   // tin Viện Hải sản), CHỈ MÀU không in số. Thuộc LỚP "CÁ" ở rail (fishOn) —
@@ -1382,8 +1426,10 @@ export default function FishingMapView() {
     // nhưng 507 km từ ngày 16, trong khi TRỌNG TÂM CỤM chỉ lệch 62 → 249 km.
     // Chỉ đích danh một ô ở ngày xa là nói dối; nới khoảng cách + bớt chấm thì
     // mỗi hồng tâm đại diện đúng độ không chắc thật. Ngày 0 giữ y như cũ.
-    const spacing = hotspotSpacingDeg(daysAhead);
-    const maxCount = hotspotMaxCount(daysAhead);
+    // Theo fishLead (tuổi ẢNH), không theo daysAhead: bản đồ tải 8 ngày trước
+    // cũng phải nới khoảng cách + bớt chấm như xem ngày thứ 8.
+    const spacing = hotspotSpacingDeg(fishLead);
+    const maxCount = hotspotMaxCount(fishLead);
     const picked: typeof scored = [];
     for (const c of scored) {
       if (picked.length >= maxCount) break;
@@ -1400,7 +1446,7 @@ export default function FishingMapView() {
       top,
       near,
     }));
-  }, [fishOn, fishView, fishSpecies, point, places, daysAhead, anyExclusiveOverlay]);
+  }, [fishOn, fishView, fishSpecies, point, places, fishLead, anyExclusiveOverlay]);
 
   // điểm cá gần chỗ đang xem nhất — câu gợi ý "đi hướng nào" trong thẻ cá
   const nearestHotspot = useMemo(() => {
@@ -2745,7 +2791,11 @@ export default function FishingMapView() {
                       <div className="flex items-start gap-2.5 surface p-3.5">
                         <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-t3" />
                         <p className="text-[0.9375rem] leading-snug text-foreground/80">
-                          Hôm nay chỗ này <b>không nổi bật</b> cho{" "}
+                          {/* KHÔNG nói "Hôm nay" (sửa 2026-07-31): mất sóng thì
+                              bản đồ cá là bản service worker giữ lại, có thể
+                              mấy ngày tuổi — nói "ảnh mới nhất" là đúng ở cả
+                              hai ca, mà vẫn không phải khoe tuổi ảnh ra màn hình. */}
+                          Chỗ này <b>không nổi bật</b> trên ảnh mới nhất cho{" "}
                           <b>{selMeta?.full ?? fishSpecies}</b> — dò vùng tô màu
                           khi chọn loài này trên bản đồ.
                         </p>
@@ -2802,10 +2852,13 @@ export default function FishingMapView() {
                             ngày gần thì ảnh vẫn quyết phần lớn, ngày xa thì mùa
                             vụ gánh dần — nói đúng cái đang xảy ra, KHÔNG hứa
                             "dự báo cá riêng cho ngày này". Chỉ hiện khi bà con ĐÃ
-                            kéo sang ngày khác — màn hình mặc định giữ gọn. */}
-                        {daysAhead > 0 && (
+                            kéo sang ngày khác — màn hình mặc định giữ gọn.
+                            Theo fishLead (tuổi ẢNH): bản tải mấy ngày trước thì
+                            câu này hiện ngay ở "Hôm nay", vì lúc đó mùa vụ ĐANG
+                            gánh thật — im lặng mới là nói dối. */}
+                        {fishLead > 0 && (
                           <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/70">
-                            {daysAhead <= FISH_STABLE_DAYS
+                            {fishLead <= FISH_STABLE_DAYS
                               ? "Chỗ cá ít đổi trong vài ngày tới — cái đổi là gió, sóng."
                               : "Ngày xa thế này, chỗ cá dựa nhiều vào kinh nghiệm nhiều năm của tháng — càng xa càng nên xem thêm gió, sóng."}
                           </p>
@@ -2832,7 +2885,7 @@ export default function FishingMapView() {
                 <div className="flex items-start gap-2.5 surface p-3.5">
                   <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-t3" />
                   <p className="text-[0.9375rem] leading-snug text-foreground/80">
-                    Hôm nay chỗ này <b>không nổi bật</b> trên ảnh vệ tinh — dò
+                    Chỗ này <b>không nổi bật</b> trên ảnh vệ tinh mới nhất — dò
                     các vùng xanh lá trên bản đồ. Mùa này vùng{" "}
                     <b>{fishRegion?.name}</b> thường có:{" "}
                     {fishHere.join(", ")}{" "}

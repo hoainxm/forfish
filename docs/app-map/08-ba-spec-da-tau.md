@@ -2,7 +2,7 @@
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
-last_verified: 2026-07-29
+last_verified: 2026-07-31
 ttl_days: 90
 <!-- re-verified: 2026-07-25 - boat-switcher/crew-list/urgent-strip chỉ thêm anchor data-tour (chon-tau, them-thuyen-vien, nhac-viec) cho coach-tour hướng dẫn; KHÔNG đổi hành vi đa-tàu — NV1–NV5, handoff H1, vòng đời thêm/xóa/đổi tàu, AC §8 giữ nguyên. -->
 <!-- re-verified: 2026-07-29 — GỠ seed mẫu (app lên thật): crew-list bỏ demoCrew/isDemo/startRealCrew, maintenance-reminders bỏ demoEntries/isDemo, boat-products bỏ filter demo-sp-. User mới thấy màn RỖNG + empty state, tự nhập. KHÔNG đụng hành vi đa-tàu: thuyền viên vẫn động-theo-chủ R2 (không boatId), lịch bảo dưỡng/sản phẩm vẫn gắn tàu + cascade R3 khi xóa tàu giữ nguyên. AC §8 không đổi. -->
@@ -11,6 +11,7 @@ ttl_days: 90
 
 > **Mục đích**: oracle HÀNH VI cho đa-tàu — định nghĩa hồ sơ nào gắn TÀU, hồ sơ nào gắn CHỦ, vòng đời thêm/xóa/đổi tàu chạy ra sao, đúng-sai đo bằng AC nào. KHÔNG mô tả giao diện (việc của [07-design-spec](07-design-spec.md)).
 
+<!-- re-verified: 2026-07-31 — document-vault / maintenance-reminders / crew-list: CHỈ đổi cách nói + đường ghi khi MÁY HẾT CHỖ, KHÔNG đụng hành vi đa-tàu. (a) Ghi qua `lib/user-store.ts` mới (saveUserJson trả boolean, mượn chỗ của dự báo qua reclaimForecastSpace) → hết chỗ thì hiện banner ĐỎ "CHƯA lưu được" thay vì nuốt lỗi im lặng. (b) Tủ giấy tờ + lịch bảo dưỡng nay TỰ XƯNG LÀ MẪU khi đang hiện dữ liệu seed (mirror crew-list) + nút xoá mẫu — trước iOS xoá storage sau ~7 ngày là rơi về sổ mẫu trông y như giấy tờ thật. Phân loại cố-định-theo-tàu vs động-theo-chủ (R1/R2), cascade R3, guard R7 giữ nguyên. -->
 <!-- re-verified: 2026-07-27b — boat-switcher.tsx CHỈ đổi CHỮ ConfirmDialog xóa tàu: bỏ "sổ lãi/lỗ" khỏi danh sách thứ bị xóa (feature sổ lãi/lỗ đã XÓA HẲN 2026-07-27). Hành vi đa-tàu giữ nguyên: cascade R3, guard R7, hồ sơ động không mất. -->
 <!-- re-verified: 2026-07-27 — crew-list.tsx đổi UX cảnh báo thuyền viên (tra INLINE khi gõ CCCD + nút Cảnh báo = báo cáo, sheet ReportSheet). KHÔNG đụng hành vi đa-tàu: thuyền viên VẪN động-theo-chủ (R2), không gắn boatId, không mất khi xóa tàu. Spec §hồ-sơ-động còn đúng. -->
 <!-- re-verified: 2026-07-27c — crew-list.tsx: định danh thuyền viên CCCD HOẶC SĐT (1 trong 2, IdentityCheck), + admin tự thêm/xóa cảnh báo ở /quan-tri. Vẫn KHÔNG đụng đa-tàu: thuyền viên động-theo-chủ (R2), không boatId. Hồ sơ giờ cần CCCD hoặc SĐT (trước bắt buộc CCCD) — không ảnh hưởng vòng đời tàu. -->

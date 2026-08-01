@@ -18,7 +18,14 @@ const mobile = {
   deviceScaleFactor: 1,
   isMobile: true,
   hasTouch: true,
-  browserName: "chromium" as const, // Safari thật là WebKit — dùng Chromium (đã cài, ổn định trên Windows)
+  // ⚠️ CHROMIUM đội lốt iPhone, KHÔNG phải WebKit. Bộ này chỉ để QUAY VIDEO
+  // hướng dẫn — user-agent Safari cho khớp khung hình, thế thôi.
+  // TUYỆT ĐỐI KHÔNG dùng nó làm bằng chứng cho hành vi iOS: service worker,
+  // Add-to-Home-Screen, hạn ngạch lưu trữ và luật xoá dữ liệu sau ~7 ngày của
+  // WebKit khác Chromium ở đúng những chỗ quyết định app có chạy offline được
+  // trên iPhone hay không. Muốn chốt phần đó phải chạy WebKit thật
+  // (`npx playwright install webkit`) và cuối cùng là iPhone thật.
+  browserName: "chromium" as const,
   userAgent:
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
   video: {

@@ -41,6 +41,17 @@ function isOnline(): boolean {
   return typeof navigator === "undefined" ? true : navigator.onLine !== false;
 }
 
+/**
+ * Tra hạng chờ tối đa bấy nhiêu rồi chịu thua (2026-07-31).
+ *
+ * VÌ SAO CÓ: query dưới đây trước không có đồng hồ, không có `.catch`. Ngoài
+ * khơi hay gặp sóng "sống mà chết" (bắt tay được, gói tin không về) ⇒ promise
+ * KHÔNG BAO GIỜ xong ⇒ `premium` kẹt `null` ⇒ `featureAccessDecision` trả
+ * "checking" VĨNH VIỄN ⇒ lớp cá im lặng tuyệt đối, không cả nút thử lại. Khách
+ * đã trả tiền mất đúng thứ mình mua, ngay giữa chuyến biển.
+ */
+const TIER_QUERY_MS = 12000;
+
 export function useFeatureAccess(): { access: FeatureAccess; ready: boolean } {
   const { user, ready: authReady, errored: authErrored } = useAuthUser();
   // null = chưa tra xong hạng (chỉ có nghĩa khi đã đăng nhập + có sóng)
@@ -73,16 +84,28 @@ export function useFeatureAccess(): { access: FeatureAccess; ready: boolean } {
     if (!supabase) return;
     let alive = true;
     setPremium(null);
-    supabase
-      .from("customers")
-      .select("tier, premium_until")
-      .maybeSingle()
-      .then(({ data, error }) => {
+    // TRA HỎNG (lỗi · treo · hết giờ) → lùi về DẤU ĐÃ LƯU, không kẹt "checking"
+    // và cũng không hạ oan khách premium xuống màn mời-nâng-cấp chỉ vì sóng
+    // chập chờn. Dấu chỉ bật khi đã tra ĐƯỢC lúc còn sóng, và chốt thật vẫn ở
+    // middleware/RLS khi có mạng — đây KHÔNG phải cửa sau.
+    const fallback = () => {
+      if (alive) setPremium(readCachedPremium());
+    };
+    // đồng hồ riêng: abortSignal lo phần mạng, timer lo cả ca promise không
+    // bao giờ settle vì lý do khác
+    const timer = setTimeout(fallback, TIER_QUERY_MS);
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("customers")
+          .select("tier, premium_until")
+          .abortSignal(AbortSignal.timeout(TIER_QUERY_MS))
+          .maybeSingle();
         if (!alive) return;
+        clearTimeout(timer);
         if (error) {
-          // lỗi/mất sóng → fail-closed cho PHIÊN NÀY nhưng KHÔNG ghi đè dấu tốt
-          // đã lưu (kẻo mất sóng lại xoá mất quyền offline của premium)
-          setPremium(false);
+          // KHÔNG ghi đè dấu tốt đã lưu (kẻo mất sóng lại xoá mất quyền offline)
+          fallback();
           return;
         }
         const p =
@@ -90,9 +113,15 @@ export function useFeatureAccess(): { access: FeatureAccess; ready: boolean } {
         setPremium(p);
         writeCachedPremium(p);
         setCachedPremium(p);
-      });
+      } catch {
+        // abort do hết giờ, hoặc mạng ném lỗi
+        clearTimeout(timer);
+        fallback();
+      }
+    })();
     return () => {
       alive = false;
+      clearTimeout(timer);
     };
   }, [authReady, user]);
 

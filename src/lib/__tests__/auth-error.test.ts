@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   FALLBACK_MESSAGE,
+  isNetworkAuthError,
   passwordChangeErrorMessage,
 } from "@/lib/auth-error";
+
+/** dựng lỗi giả kiểu auth-js (name + status) cho test isNetworkAuthError */
+const err = (name: string, status?: number) =>
+  Object.assign(new Error("x"), { name, status });
 
 describe("passwordChangeErrorMessage", () => {
   it("gõ lại mật khẩu cũ → nói THẲNG là trùng, bảo đặt mật khẩu khác", () => {
@@ -66,5 +71,35 @@ describe("passwordChangeErrorMessage", () => {
       passwordChangeErrorMessage(null),
     ];
     all.forEach((m) => expect(m).not.toMatch(/sd123456|123456/));
+  });
+});
+
+describe("isNetworkAuthError", () => {
+  it("mất sóng (AuthRetryableFetchError) → KHÔNG kết luận đăng xuất", () => {
+    expect(isNetworkAuthError(err("AuthRetryableFetchError", 0))).toBe(true);
+  });
+
+  it("lỗi không rõ của auth-js → cũng coi là chưa tra được", () => {
+    expect(isNetworkAuthError(err("AuthUnknownError"))).toBe(true);
+  });
+
+  it("gateway vệ tinh hỏng (502/504) → chưa tra được", () => {
+    expect(isNetworkAuthError(err("AuthApiError", 502))).toBe(true);
+    expect(isNetworkAuthError(err("AuthApiError", 504))).toBe(true);
+  });
+
+  it("HẾT PHIÊN (AuthSessionMissingError) → đăng xuất THẬT, phải xử như chưa đăng nhập", () => {
+    expect(isNetworkAuthError(err("AuthSessionMissingError", 400))).toBe(false);
+  });
+
+  it("máy chủ từ chối 401/403 → đăng xuất thật, KHÔNG được giữ quyền cũ", () => {
+    expect(isNetworkAuthError(err("AuthApiError", 401))).toBe(false);
+    expect(isNetworkAuthError(err("AuthApiError", 403))).toBe(false);
+  });
+
+  it("không có lỗi → false (tra được, kết quả là kết quả)", () => {
+    expect(isNetworkAuthError(null)).toBe(false);
+    expect(isNetworkAuthError(undefined)).toBe(false);
+    expect(isNetworkAuthError("hỏng")).toBe(false);
   });
 });

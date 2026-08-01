@@ -4,6 +4,7 @@
 // Nguồn fail → null, UI ẩn (không bịa giá).
 
 import { apiUrl } from "@/lib/api-base";
+import { loadForecast, saveForecast } from "@/lib/forecast-cache";
 
 export interface FuelPrice {
   /** đồng/lít, vùng 1 (gần kho) */
@@ -44,15 +45,30 @@ export function parseDieselDo(json: unknown): FuelPrice | null {
   };
 }
 
+/** Kho giá dầu trong máy — `forfish.fc.price.fuel` */
+export const PRICE_NS = "price";
+const FUEL_ID = "fuel";
+
+/**
+ * Lấy được thì LƯU VÀO MÁY; không lấy được thì trả bản đã lưu (2026-08-01).
+ * Giá dầu điều hành theo KỲ (thứ Năm) nên bản cũ vẫn dùng được — UI in kèm
+ * NGÀY của kỳ giá (price-board.tsx) nên không ai nhầm là giá hôm nay. Trước đây
+ * giá chỉ sống trong kho service worker, không vào tệp sao lưu, không ai kiểm.
+ */
 export async function fetchFuelPrice(): Promise<FuelPrice | null> {
   try {
     const r = await fetch(apiUrl("/api/fuel-price"), {
       signal: AbortSignal.timeout(15000),
     });
-    if (!r.ok) return null;
-    const j = (await r.json()) as { ok: boolean; fuel?: FuelPrice };
-    return j.ok && j.fuel ? j.fuel : null;
+    if (r.ok) {
+      const j = (await r.json()) as { ok: boolean; fuel?: FuelPrice };
+      if (j.ok && j.fuel) {
+        saveForecast(PRICE_NS, FUEL_ID, j.fuel);
+        return j.fuel;
+      }
+    }
   } catch {
-    return null;
+    /* mất sóng → xuống nhánh bản lưu */
   }
+  return loadForecast<FuelPrice>(PRICE_NS, FUEL_ID)?.data ?? null;
 }

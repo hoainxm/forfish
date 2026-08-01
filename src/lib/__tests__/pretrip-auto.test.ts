@@ -25,10 +25,11 @@ import {
   markAutoPretripRun,
   pretripSavedText,
   shouldAutoPretrip,
+  shouldMarkPretripRun,
   PRETRIP_MIN_INTERVAL_MS,
   PRETRIP_LAST_RUN_KEY,
 } from "../pretrip-auto";
-import type { SavedCoverage, SavedLayer } from "../pretrip";
+import type { PretripResult, SavedCoverage, SavedLayer } from "../pretrip";
 
 const NOW = Date.parse("2026-07-25T03:00:00Z"); // 10:00 ngày 25/7 giờ VN
 
@@ -266,6 +267,7 @@ describe("coverageChipText — câu chữ TRUNG THỰC theo độ phủ lớp", 
     missing: 0,
     untilIso: null,
     totalBytes: 0,
+    savedCount: 1,
     ...over,
   });
 
@@ -293,5 +295,42 @@ describe("coverageChipText — câu chữ TRUNG THỰC theo độ phủ lớp", 
       untilIso: "2026-08-13",
     });
     expect(coverageChipText("idle", c)).toBe("Còn thiếu 2 lớp — chạm xem");
+  });
+});
+
+/*
+  CỬA CHẶN 6 GIỜ CHỈ ĐƯỢC ĐÓNG KHI MẺ TẢI THẬT SỰ GIỮ ĐƯỢC GÌ (2026-08-01).
+  Cảnh thật: 5h sáng chủ tàu mở app ở khu neo khuất sóng, cả mẻ hỏng; 20 phút
+  sau ra cửa biển sóng đầy vạch mà app không tải nữa vì mốc đã ghi.
+  KHÔNG được gác bằng `r.ok > 0`: hai bước "Nước dâng / xoáy" và "Bản đồ mùa vụ"
+  không bao giờ ném nên `ok >= 2` kể cả khi rút cáp mạng.
+*/
+describe("shouldMarkPretripRun — hỏng sạch thì ĐỪNG khoá 6 giờ", () => {
+  const res = (over: Partial<PretripResult> = {}): PretripResult => ({
+    ok: 2,
+    failed: 9,
+    full: false,
+    saved: { places: 0, untilIso: null, gridDays: [] },
+    ...over,
+  });
+
+  it("hỏng vì sóng (không giữ được gì) → KHÔNG ghi mốc, để cửa 2 phút thử lại", () => {
+    expect(shouldMarkPretripRun(res())).toBe(false);
+  });
+
+  it("có ok>0 mà chẳng lưu được chỗ nào → vẫn KHÔNG ghi mốc", () => {
+    expect(shouldMarkPretripRun(res({ ok: 5, failed: 4 }))).toBe(false);
+  });
+
+  it("lưu được chỗ + có ngày xa nhất → GHI mốc, nghỉ 6 giờ", () => {
+    expect(
+      shouldMarkPretripRun(
+        res({ saved: { places: 3, untilIso: "2026-08-10", gridDays: [3] } }),
+      ),
+    ).toBe(true);
+  });
+
+  it("máy HẾT CHỖ → GHI mốc (thử lại cũng không giữ được, chỉ tốn tiền sóng)", () => {
+    expect(shouldMarkPretripRun(res({ full: true }))).toBe(true);
   });
 });

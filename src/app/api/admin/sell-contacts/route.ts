@@ -7,10 +7,12 @@
 //        tĩnh vào bảng, CHỈ khi bảng đang rỗng — tránh trùng).
 // PATCH: sửa 1 hàng theo id (toggle visible/sort, hoặc sửa meta).
 // DELETE ?id=: xóa hẳn.
-// Ghi bằng service-role; quyền qua requireStaff.
+// Ghi bằng service-role; PHÂN QUYỀN (2026-07-30) qua requirePermission trên tab
+// "cho-ban": GET=view · POST/seed=create · PATCH=edit · DELETE=delete.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireStaff } from "@/lib/admin-auth";
+import { requirePermission } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
 import {
   defaultSellContactDrafts,
   validateSellContactDraft,
@@ -75,7 +77,7 @@ function draftToRow(d: SellContactDraft, who: string, sortOrder: number) {
 }
 
 export async function GET() {
-  const who = await requireStaff();
+  const who = await requirePermission("cho-ban", "view");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -112,7 +114,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const who = await requireStaff();
+  const who = await requirePermission("cho-ban", "create");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -135,6 +137,13 @@ export async function POST(req: Request) {
     );
     const { error } = await admin.from(TABLE).insert(rows);
     if (error) return err(500, "seed_failed");
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: who.role,
+      action: "sell.create",
+      target: null,
+      detail: { seed: true, count: rows.length },
+    });
     return NextResponse.json({ ok: true, seeded: rows.length });
   }
 
@@ -147,11 +156,18 @@ export async function POST(req: Request) {
     .select("id")
     .maybeSingle();
   if (error) return err(500, "insert_failed");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "sell.create",
+    target: (data?.id as string) ?? null,
+    detail: { name: draft.name },
+  });
   return NextResponse.json({ ok: true, id: data?.id });
 }
 
 export async function PATCH(req: Request) {
-  const who = await requireStaff();
+  const who = await requirePermission("cho-ban", "edit");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -173,6 +189,13 @@ export async function PATCH(req: Request) {
     if (typeof body!.sortOrder === "number") patch.sort_order = body!.sortOrder;
     const { error } = await admin.from(TABLE).update(patch).eq("id", id);
     if (error) return err(500, "update_failed");
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: who.role,
+      action: "sell.update",
+      target: id,
+      detail: { name: body!.name },
+    });
     return NextResponse.json({ ok: true });
   }
 
@@ -184,11 +207,18 @@ export async function PATCH(req: Request) {
 
   const { error } = await admin.from(TABLE).update(patch).eq("id", id);
   if (error) return err(500, "update_failed");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "sell.update",
+    target: id,
+    detail: typeof body!.visible === "boolean" ? { visible: body!.visible } : {},
+  });
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: Request) {
-  const who = await requireStaff();
+  const who = await requirePermission("cho-ban", "delete");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -203,5 +233,11 @@ export async function DELETE(req: Request) {
     .select("id");
   if (error) return err(500, "delete_failed");
   if (!data || data.length === 0) return err(404, "not_found");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "sell.delete",
+    target: id,
+  });
   return NextResponse.json({ ok: true });
 }

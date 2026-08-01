@@ -168,6 +168,34 @@ export function blendWeight(dayIdx: number): number {
   return 1 - climShare(dayIdx);
 }
 
+/**
+ * TẦM NGÀY THẬT của lớp cá = ngày ĐANG XEM − NGÀY ẢNH, KHÔNG phải trừ hôm nay.
+ *
+ * VÌ SAO (sửa 2026-07-31): backtest đo w(d) với d tính TỪ NGÀY ẢNH
+ * (scripts/fit-fish-blend-weights.mjs — chấm ảnh ngày T rồi so với ngày T+d).
+ * Nhưng màn hình lại truyền "hôm nay → ngày xem". Ra khơi mất sóng, service
+ * worker trả lại bản đồ cá tải từ 8 ngày trước mà chip vẫn đứng ở "Hôm nay"
+ * ⇒ d = 0 ⇒ w = 1 = TIN 100% tấm ảnh cũ nhất, đúng lúc nó đáng tin nhất.
+ * Đếm từ ngày ảnh thì ảnh càng cũ càng tự pha loãng về bản mùa vụ.
+ *
+ * Ngày ảnh thiếu/hỏng → lùi về `viewLead` (hành vi cũ, không bịa).
+ */
+export function fishLeadDays(
+  imageDateIso: string | null | undefined,
+  viewDateIso: string,
+  viewLead: number,
+): number {
+  if (!imageDateIso || !viewDateIso) return Math.max(0, viewLead);
+  const from = Date.parse(`${imageDateIso}T00:00:00Z`);
+  const to = Date.parse(`${viewDateIso}T00:00:00Z`);
+  if (!Number.isFinite(from) || !Number.isFinite(to))
+    return Math.max(0, viewLead);
+  const d = Math.round((to - from) / 86400000);
+  // Ảnh mới hơn ngày xem (múi giờ / ngày quá khứ) → coi như tầm 0, không âm.
+  // KHÔNG bao giờ nhỏ hơn tầm tính từ hôm nay: thà pha loãng thừa còn hơn thiếu.
+  return Math.max(0, Math.max(d, viewLead));
+}
+
 /* ── bản mùa vụ (asset tĩnh, SW giữ offline) ──────────────────────────────── */
 
 export interface ClimatologyFile {

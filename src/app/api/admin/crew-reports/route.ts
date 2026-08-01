@@ -5,10 +5,12 @@
 // POST: STAFF TỰ THÊM một thuyền viên có vấn đề → vào thẳng 'approved' (thẩm
 //   quyền SDVICO, không qua hàng chờ) — hiện ngay cho chủ tàu khác khi tra.
 // PATCH: duyệt/từ chối/rút + ghi PHẢN HỒI của người bị ghi (qua admin, v1).
-// Ghi bằng service-role; quyền qua requireStaff (admin env + manager DB).
+// Ghi bằng service-role; PHÂN QUYỀN (2026-07-30) qua requirePermission trên tab
+// "canh-bao": GET=view · POST=create · PATCH=edit · DELETE=delete.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireStaff } from "@/lib/admin-auth";
+import { requirePermission } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
 import { cleanReportDetail, isCrewReportCategory } from "@/lib/crew-report";
 import { subjectIdentity } from "@/lib/crew-report-hash";
 
@@ -18,7 +20,7 @@ const err = (status: number, code: string) =>
 const STATUSES = ["pending", "approved", "rejected", "withdrawn"] as const;
 
 export async function GET(req: Request) {
-  const who = await requireStaff();
+  const who = await requirePermission("canh-bao", "view");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -62,7 +64,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   // STAFF tự thêm thuyền viên có vấn đề — vào thẳng 'approved' (hiện ngay).
-  const who = await requireStaff();
+  const who = await requirePermission("canh-bao", "create");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -91,11 +93,19 @@ export async function POST(req: Request) {
     moderated_at: nowIso,
   });
   if (error) return err(500, "insert_failed");
+  // KHÔNG log CCCD/SĐT vào nhật ký (đã nằm ở crew_reports) — chỉ ghi loại vấn đề
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "crew.create",
+    target: null,
+    detail: { category: body?.category },
+  });
   return NextResponse.json({ ok: true, status: "approved" });
 }
 
 export async function PATCH(req: Request) {
-  const who = await requireStaff();
+  const who = await requirePermission("canh-bao", "edit");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -140,13 +150,20 @@ export async function PATCH(req: Request) {
   if (error) return err(500, "update_failed");
   if (!data || data.length === 0) return err(404, "not_found");
 
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "crew.moderate",
+    target: body.id,
+    detail: { moderate: body.action },
+  });
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: Request) {
   // XÓA HẲN một cảnh báo khỏi danh sách (khác 'withdraw' vẫn giữ hàng) — dùng
   // khi báo cáo sai/trùng/không còn giá trị. Không hoàn tác được.
-  const who = await requireStaff();
+  const who = await requirePermission("canh-bao", "delete");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -162,5 +179,11 @@ export async function DELETE(req: Request) {
   if (error) return err(500, "delete_failed");
   if (!data || data.length === 0) return err(404, "not_found");
 
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "crew.delete",
+    target: id,
+  });
   return NextResponse.json({ ok: true });
 }

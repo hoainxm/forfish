@@ -7,11 +7,13 @@
 // POST: tạo mới.
 // PATCH: sửa 1 hàng theo id (đổi visible/sort_order/nội dung).
 // DELETE ?id=: xóa hẳn.
-// Ghi bằng service-role; quyền qua requireStaff (admin env + manager DB) —
-// giống pattern crew-reports, không phân biệt admin/manager cho danh mục.
+// Ghi bằng service-role; PHÂN QUYỀN (2026-07-30) qua requirePermission trên
+// tab "san-pham": GET=view · POST=create · PATCH=edit · DELETE=delete (admin
+// toàn quyền; quản lý theo bảng quyền customers.staff_permissions).
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireStaff } from "@/lib/admin-auth";
+import { requirePermission } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
 import { validateProductDraft, type ProductDraft } from "@/lib/product-catalog";
 
 const err = (status: number, code: string) =>
@@ -37,7 +39,7 @@ function draftToRow(d: ProductDraft, who: string) {
 }
 
 export async function GET() {
-  const who = await requireStaff();
+  const who = await requirePermission("san-pham", "view");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -78,7 +80,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const who = await requireStaff();
+  const who = await requirePermission("san-pham", "create");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -110,11 +112,18 @@ export async function POST(req: Request) {
     .select("id")
     .maybeSingle();
   if (error) return err(500, "insert_failed");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "product.create",
+    target: (data?.id as string) ?? null,
+    detail: { title: draft.title },
+  });
   return NextResponse.json({ ok: true, id: data?.id });
 }
 
 export async function PATCH(req: Request) {
-  const who = await requireStaff();
+  const who = await requirePermission("san-pham", "edit");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -150,6 +159,13 @@ export async function PATCH(req: Request) {
       .update(patch)
       .eq("id", body.id);
     if (error) return err(500, "update_failed");
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: who.role,
+      action: "product.update",
+      target: body.id,
+      detail: { title: body.title },
+    });
     return NextResponse.json({ ok: true });
   }
 
@@ -163,11 +179,18 @@ export async function PATCH(req: Request) {
     .update(patch)
     .eq("id", body.id);
   if (error) return err(500, "update_failed");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "product.update",
+    target: body.id,
+    detail: body.visible !== undefined ? { visible: body.visible } : {},
+  });
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: Request) {
-  const who = await requireStaff();
+  const who = await requirePermission("san-pham", "delete");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -182,5 +205,11 @@ export async function DELETE(req: Request) {
     .select("id");
   if (error) return err(500, "delete_failed");
   if (!data || data.length === 0) return err(404, "not_found");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "product.delete",
+    target: id,
+  });
   return NextResponse.json({ ok: true });
 }

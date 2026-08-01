@@ -1,18 +1,20 @@
-// /api/admin/accounts — quản lý tài khoản từ /quan-tri. HAI NẤC QUYỀN
-// (2026-07-26 đợt 2 — lib/admin-auth.ts):
-// · admin (env ADMIN_PHONES): GET/POST/PATCH/DELETE — kể cả tạo TÀI KHOẢN
-//   QUẢN LÝ (role='manager') và hạ hạng/xoá
-// · manager (customers.role='manager'): GET + PATCH action='grant' — KÍCH
-//   HOẠT/GIA HẠN premium cho khách, MỖI LẦN 1 NĂM (nextPremiumUntil), mỗi lần
-//   đều ghi LOG premium_grants (granted_by = SĐT người thao tác) → thống kê
-//   được mỗi quản lý đang quản bao nhiêu account premium
-// · PATCH action='reset-password' (2026-07-29): CHỈ admin — mật khẩu về tạm
-//   cố định sd123456 (lib/temp-password), bật lại must_change_password
+// /api/admin/accounts — quản lý tài khoản từ /quan-tri. PHÂN QUYỀN (2026-07-30
+// — lib/admin-auth.ts + staff-permissions.ts) trên tab "tai-khoan":
+// · GET                     → view   (admin + quản lý có cờ view)
+// · POST tạo KHÁCH          → create; tạo TÀI KHOẢN QUẢN LÝ (role='manager')
+//                             vẫn ADMIN-ONLY CỨNG dù có cờ create
+// · PATCH action='grant'    → edit   (kích hoạt/gia hạn premium 1 năm + log)
+// · PATCH action='downgrade'→ ADMIN-ONLY CỨNG (hạ hạng — thao tác nhạy cảm)
+// · PATCH action='reset-password' → ADMIN-ONLY CỨNG (đặt lại mật khẩu tạm)
+// · DELETE                  → delete (admin + quản lý có cờ delete)
+// Mỗi lần cấp/hạ đều ghi LOG premium_grants (granted_by = SĐT người thao tác).
 // Webhook SDWork vẫn là đường nạp khách CHÍNH — tạo tay dành cho ca lẻ.
-// Ghi bằng service-role (bypass RLS) — mọi method qua requireStaff/requireAdmin.
+// Ghi bằng service-role (bypass RLS).
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin, requireStaff } from "@/lib/admin-auth";
+import { requireAdmin, requirePermission, requireStaff } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
+import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
 import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
 import { TEMP_RESET_PASSWORD } from "@/lib/temp-password";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
@@ -80,7 +82,7 @@ async function writeAudit(
 }
 
 export async function GET() {
-  const who = await requireStaff();
+  const who = await requirePermission("tai-khoan", "view");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -93,7 +95,10 @@ export async function GET() {
   let rows: Record<string, unknown>[] | null = null;
   const first = await admin
     .from("customers")
-    .select(BASE_COLS + ", premium_used, contacted")
+    .select(
+      BASE_COLS +
+        ", premium_used, contacted, staff_used, staff_guided, staff_note_by, staff_note_at, pwa_last_open_at, web_last_open_at, offline_ready_at",
+    )
     .order("updated_at", { ascending: false });
   if (first.error) {
     const fallback = await admin
@@ -125,7 +130,7 @@ export async function GET() {
   }
 
   // NV3 — TRẠNG THÁI THU TIỀN mới nhất mỗi khách (mã CK + đối chiếu). Degrade
-  // nếu bảng payments chưa có (0026 chưa apply).
+  // nếu bảng payments chưa có (migration payments chưa apply).
   const latestPay = new Map<
     string,
     { code: string; reconciledStatus: string }
@@ -147,6 +152,11 @@ export async function GET() {
     /* bảng payments chưa có → không trạng thái thu */
   }
 
+  // QUẢN TRỊ VIÊN = env ADMIN_PHONES HOẶC role='admin' (2026-07-31, hai nguồn
+  // — xem lib/admin-auth.ts). Trả cờ thật + nguồn để UI dán nhãn khỏi lẫn với
+  // quản lý.
+  const adminPhones = parseAdminPhones(process.env.ADMIN_PHONES);
+
   const accounts = (rows ?? []).map((r) => ({
     phone: r.phone as string,
     name: (r.name as string) ?? null,
@@ -154,12 +164,24 @@ export async function GET() {
     premiumUntil: (r.premium_until as string) ?? null,
     premiumActivatedAt: (r.premium_activated_at as string) ?? null,
     role: (r.role as string) ?? "customer",
+    /** admin THẬT — env HOẶC role='admin' */
+    isAdmin:
+      isAdminPhone(r.phone as string, adminPhones) || r.role === "admin",
     fromSdwork: Boolean(r.sdwork_ref),
     updatedAt: (r.updated_at as string) ?? null,
     canLogin: provisioned.has(r.phone as string),
     premiumUsed: Boolean(r.premium_used),
     contacted: Boolean(r.contacted),
     payment: latestPay.get(r.phone as string) ?? null,
+    // ghi chú theo dõi onboarding của staff
+    staffUsed: Boolean(r.staff_used),
+    staffGuided: Boolean(r.staff_guided),
+    noteBy: (r.staff_note_by as string) ?? null,
+    noteAt: (r.staff_note_at as string) ?? null,
+    // ĐO THẬT việc dùng app — khác chip staff tự tick ở trên
+    pwaLastOpenAt: (r.pwa_last_open_at as string) ?? null,
+    webLastOpenAt: (r.web_last_open_at as string) ?? null,
+    offlineReadyAt: (r.offline_ready_at as string) ?? null,
   }));
 
   // R3/AC-8 — ĐẠI LÝ (manager) CHỈ thấy khách MÌNH cấp premium (granted_by).
@@ -233,12 +255,10 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  // TẠO tài khoản (khách hoặc TÀI KHOẢN QUẢN LÝ) — chỉ admin
-  const who = await requireAdmin();
-  if (!who.ok) return err(who.status, who.code);
-  const admin = createAdminClient();
-  if (!admin) return err(503, "not_configured");
-
+  // TẠO tài khoản. Đọc body TRƯỚC để chọn cổng quyền: tạo NHÂN SỰ (quản lý
+  // hoặc quản trị viên) ADMIN-ONLY CỨNG; tạo KHÁCH cần cờ tai-khoan:create.
+  // Hai luồng tách hẳn trên UI (user 2026-07-31): khách ở tab Tài khoản, nhân
+  // sự ở tab Phân quyền — nhưng chung một route vì cùng là một hàng customers.
   const body = (await req.json().catch(() => null)) as {
     phone?: string;
     name?: string;
@@ -246,18 +266,23 @@ export async function POST(req: Request) {
     role?: string;
     activatePremium?: boolean;
   } | null;
+  const role =
+    body?.role === "manager"
+      ? "manager"
+      : body?.role === "admin"
+        ? "admin"
+        : "customer";
+  const who =
+    role === "customer"
+      ? await requirePermission("tai-khoan", "create")
+      : await requireAdmin();
+  if (!who.ok) return err(who.status, who.code);
+  const admin = createAdminClient();
+  if (!admin) return err(503, "not_configured");
+
   if (!body?.phone || !isValidVnPhone(body.phone)) return err(400, "bad_phone");
   if (!body.password || body.password.length < 6)
     return err(400, "bad_password");
-  // admin (toàn quyền) chỉ admin hiện tại tạo được — POST đã gated requireAdmin
-  // ở trên nên an toàn. Dùng để lập TÀI KHOẢN ADMIN CHUNG thay vì gán SĐT cá
-  // nhân vào ADMIN_PHONES (env chỉ giữ 1 số bootstrap break-glass).
-  const role =
-    body.role === "admin"
-      ? "admin"
-      : body.role === "manager"
-        ? "manager"
-        : "customer";
   const phone = normalizeVnPhone(body.phone);
   const now = new Date().toISOString();
 
@@ -304,6 +329,14 @@ export async function POST(req: Request) {
     target: phone,
     detail: `role=${role}${activate ? " +premium" : ""}`,
   });
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    // requireAdmin (tạo quản lý) không trả role → mặc định 'admin'
+    actorRole: (who as { role?: "admin" | "manager" }).role ?? "admin",
+    action: "account.create",
+    target: phone,
+    detail: { role, activatePremium: activate },
+  });
   return NextResponse.json({ ok: true, phone, provisioned, logged });
 }
 
@@ -311,6 +344,8 @@ export async function PATCH(req: Request) {
   const body = (await req.json().catch(() => null)) as {
     phone?: string;
     action?: string;
+    used?: boolean;
+    guided?: boolean;
   } | null;
   if (!body?.phone) return err(400, "bad_phone");
   const phone = normalizeVnPhone(body.phone);
@@ -438,8 +473,8 @@ export async function PATCH(req: Request) {
   }
 
   if (body.action === "grant") {
-    // KÍCH HOẠT / GIA HẠN premium (1 năm/lần) — admin + manager đều được
-    const who = await requireStaff();
+    // KÍCH HOẠT / GIA HẠN premium (1 năm/lần) — cần cờ tai-khoan:edit
+    const who = await requirePermission("tai-khoan", "edit");
     if (!who.ok) return err(who.status, who.code);
     const admin = createAdminClient();
     if (!admin) return err(503, "not_configured");
@@ -488,6 +523,13 @@ export async function PATCH(req: Request) {
       target: phone,
       detail: `premium_until=${until}`,
     });
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: who.role,
+      action: "account.grant",
+      target: phone,
+      detail: { grant: action, premiumUntil: until },
+    });
     return NextResponse.json({ ok: true, action, premiumUntil: until, logged });
   }
 
@@ -520,6 +562,12 @@ export async function PATCH(req: Request) {
     await writeAudit(admin, {
       actor: who.phone,
       action: "downgrade",
+      target: phone,
+    });
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: "admin",
+      action: "account.downgrade",
       target: phone,
     });
     return NextResponse.json({ ok: true, action: "downgrade", logged });
@@ -556,6 +604,12 @@ export async function PATCH(req: Request) {
       action: "reset_password",
       target: phone,
     });
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: "admin",
+      action: "account.reset-password",
+      target: phone,
+    });
     return NextResponse.json({
       ok: true,
       action: "reset-password",
@@ -563,12 +617,54 @@ export async function PATCH(req: Request) {
     });
   }
 
+  if (body.action === "set-flags") {
+    // GHI CHÚ THEO DÕI onboarding (0018): đã/chưa SỬ DỤNG · đã/chưa HƯỚNG DẪN
+    // TRỰC TIẾP — cần cờ tai-khoan:edit (admin toàn quyền). Chỉ vá cờ được gửi.
+    const who = await requirePermission("tai-khoan", "edit");
+    if (!who.ok) return err(who.status, who.code);
+    const admin = createAdminClient();
+    if (!admin) return err(503, "not_configured");
+
+    const patch: Record<string, unknown> = {
+      staff_note_by: who.phone,
+      staff_note_at: nowIso,
+    };
+    if (typeof body.used === "boolean") patch.staff_used = body.used;
+    if (typeof body.guided === "boolean") patch.staff_guided = body.guided;
+    if (Object.keys(patch).length <= 2) return err(400, "nothing_to_update");
+
+    const { data, error } = await admin
+      .from("customers")
+      .update(patch)
+      .eq("phone", phone)
+      .select("phone");
+    if (error) return err(500, "update_failed");
+    if (!data || data.length === 0) return err(404, "not_found");
+
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: who.role,
+      action: "account.set-flags",
+      target: phone,
+      detail: {
+        ...(typeof body.used === "boolean" ? { used: body.used } : {}),
+        ...(typeof body.guided === "boolean" ? { guided: body.guided } : {}),
+      },
+    });
+    return NextResponse.json({
+      ok: true,
+      action: "set-flags",
+      noteBy: who.phone,
+      noteAt: nowIso,
+    });
+  }
+
   return err(400, "bad_action");
 }
 
 export async function DELETE(req: Request) {
-  // XOÁ — chỉ admin
-  const who = await requireAdmin();
+  // XOÁ tài khoản — cần cờ tai-khoan:delete (admin toàn quyền)
+  const who = await requirePermission("tai-khoan", "delete");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -586,5 +682,11 @@ export async function DELETE(req: Request) {
   }
   const { error } = await admin.from("customers").delete().eq("phone", phone);
   if (error) return err(500, "delete_failed");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "account.delete",
+    target: phone,
+  });
   return NextResponse.json({ ok: true });
 }

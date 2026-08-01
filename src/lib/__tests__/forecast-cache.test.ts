@@ -6,12 +6,28 @@ import { describe, it, expect, beforeEach } from "vitest";
   để thử đúng đường "máy hết chỗ" — chỗ từng kẹt vĩnh viễn.
 */
 let QUOTA = Infinity;
+/* Trần theo DUNG LƯỢNG (byte UTF-16 = 2 × ký tự, như máy thật) — máy chật vì
+   dung lượng chứ không vì số mục; đó đúng là trục mà bản cũ dọn nhầm (bỏ 4 bản
+   điểm ~3 KB rồi tưởng đủ chỗ cho một lưới 16 ngày ~800 KB). Infinity = tắt,
+   để các test cũ chạy như trước. */
+let QUOTA_BYTES = Infinity;
 const _ls = (() => {
   const m = new Map<string, string>();
+  const usedBytes = () => {
+    let n = 0;
+    for (const [k, v] of m) n += (k.length + v.length) * 2;
+    return n;
+  };
   return {
     getItem: (k: string) => (m.has(k) ? m.get(k)! : null),
     setItem: (k: string, v: string) => {
       if (!m.has(k) && m.size >= QUOTA) {
+        const e = new Error("QuotaExceededError");
+        e.name = "QuotaExceededError";
+        throw e;
+      }
+      const cur = m.has(k) ? (k.length + m.get(k)!.length) * 2 : 0;
+      if (usedBytes() - cur + (k.length + String(v).length) * 2 > QUOTA_BYTES) {
         const e = new Error("QuotaExceededError");
         e.name = "QuotaExceededError";
         throw e;
@@ -35,6 +51,7 @@ import {
   loadAll,
   lastStorageFullAt,
   coordId,
+  reclaimForecastSpace,
   savedAgoLabel,
 } from "../forecast-cache";
 
@@ -49,6 +66,7 @@ const countNs = (ns: string) => {
 beforeEach(() => {
   localStorage.clear();
   QUOTA = Infinity;
+  QUOTA_BYTES = Infinity;
 });
 
 describe("save/load round-trip", () => {
@@ -145,6 +163,90 @@ describe("máy hết chỗ (QuotaExceeded)", () => {
     const before = lastStorageFullAt();
     expect(saveForecast("point", "a", { v: 1 }, 777777)).toBe(true);
     expect(lastStorageFullAt()).toBe(before);
+  });
+});
+
+/*
+  DỌN THEO BYTE, KHÔNG THEO SỐ BẢN (sửa 2026-07-31): lớp nặng chạy CUỐI trong
+  mẻ tải sẵn (độ mặn · nước dâng · dòng chảy tầng sâu · lưới 16 ngày) trước đây
+  không bao giờ lưu được — bỏ 12 bản điểm ghim tí xíu vẫn không ra nổi chỗ cho
+  một bản mấy trăm KB.
+*/
+describe("máy hết chỗ — dọn theo DUNG LƯỢNG", () => {
+  const big = (n: number) => "x".repeat(n);
+
+  it("bản NẶNG vẫn vào được: bỏ bao nhiêu bản tí hon cũng bỏ, miễn đủ chỗ", () => {
+    QUOTA_BYTES = 14000;
+    for (let i = 0; i < 40; i++) saveForecast("point", `p${i}`, { i }, i);
+    expect(saveForecast("grid", "d16", { blob: big(6000) }, 9999)).toBe(true);
+    expect(loadForecast("grid", "d16")).not.toBeNull();
+  });
+
+  it("chỉ bỏ vừa đủ — bản mới nhất còn nguyên", () => {
+    QUOTA_BYTES = 14000;
+    for (let i = 0; i < 40; i++) saveForecast("point", `p${i}`, { i }, i);
+    saveForecast("grid", "d3", { blob: big(500) }, 5000);
+    expect(saveForecast("scalar", "cloud", { blob: big(5000) }, 9999)).toBe(true);
+    expect(loadForecast("point", "p0")).toBeNull(); // cũ nhất nhường chỗ
+    expect(loadForecast("point", "p39")).not.toBeNull(); // mới hơn còn
+    expect(loadForecast("grid", "d3")).not.toBeNull();
+  });
+
+  it("ghi đè bản NẶNG của chính mình không tự xoá mình rồi mất chỗ", () => {
+    QUOTA_BYTES = 13000;
+    saveForecast("grid", "d16", { blob: big(6000) }, 1000);
+    expect(saveForecast("grid", "d16", { blob: big(6000) }, 2000)).toBe(true);
+    expect(loadForecast<{ blob: string }>("grid", "d16")?.savedAt).toBe(2000);
+  });
+});
+
+/*
+  NHƯỜNG CHỖ CHO DỮ LIỆU TỰ NHẬP — chọn nạn nhân theo GIÁ TRỊ, không theo tuổi
+  (sửa 2026-08-01). `savedAt` của lớp nặng là GIỜ CHẠY CRON của snapshot, còn
+  bản điểm-chạm tí hon lưu bằng Date.now ⇒ xếp theo tuổi thì lớp nặng luôn đứng
+  đầu hàng bị bỏ: một ghi chú 3 KB xoá nguyên lưới gió/sóng 16 ngày.
+*/
+describe("reclaimForecastSpace — bỏ thứ RẺ trước, chừa lưới gió/sóng", () => {
+  const big = (n: number) => "x".repeat(n);
+
+  it("lưới gió/sóng CŨ HƠN vẫn được chừa, bản điểm-chạm mới hơn nhường chỗ", () => {
+    saveForecast("grid", "d16", { blob: big(2000) }, 1000); // savedAt = giờ cron
+    saveForecast("point", "a", { blob: big(50) }, 9000); // savedAt = Date.now
+    expect(reclaimForecastSpace(100)).toBe(1);
+    expect(loadForecast("grid", "d16")).not.toBeNull();
+    expect(loadForecast("point", "a")).toBeNull();
+  });
+
+  it("thứ tự hy sinh: điểm → dải màu → dòng chảy tầng → lưới → bản đồ cá ghim", () => {
+    saveForecast("fishmark", "m", { blob: big(60) }, 1000);
+    saveForecast("grid", "d16", { blob: big(60) }, 1000);
+    saveForecast("curdepth", "t150", { blob: big(60) }, 1000);
+    saveForecast("scalar", "cloud", { blob: big(60) }, 1000);
+    saveForecast("point", "a", { blob: big(60) }, 1000);
+    const gone: string[] = [];
+    for (const [ns, id] of [
+      ["point", "a"],
+      ["scalar", "cloud"],
+      ["curdepth", "t150"],
+      ["grid", "d16"],
+      ["fishmark", "m"],
+    ] as const) {
+      reclaimForecastSpace(0);
+      if (loadForecast(ns, id) === null && !gone.includes(ns)) gone.push(ns);
+    }
+    expect(gone).toEqual(["point", "scalar", "curdepth", "grid", "fishmark"]);
+  });
+
+  it("cùng bậc thì bỏ bản CŨ trước", () => {
+    saveForecast("point", "moi", { blob: big(50) }, 9000);
+    saveForecast("point", "cu", { blob: big(50) }, 1000);
+    reclaimForecastSpace(0);
+    expect(loadForecast("point", "cu")).toBeNull();
+    expect(loadForecast("point", "moi")).not.toBeNull();
+  });
+
+  it("kho trống → trả 0, không ném", () => {
+    expect(reclaimForecastSpace(5000)).toBe(0);
   });
 });
 

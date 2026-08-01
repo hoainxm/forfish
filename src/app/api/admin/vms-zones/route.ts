@@ -6,10 +6,12 @@
 // POST: tạo vùng mới (nhận GeoJSON đã parse → server giản lược trước khi lưu).
 // PATCH ?: sửa 1 hàng theo id (toggle visible/default_on/sort, hoặc sửa đủ meta).
 // DELETE ?id=: xóa hẳn.
-// Ghi bằng service-role; quyền qua requireStaff (giống crew-reports/products).
+// Ghi bằng service-role. ADMIN-ONLY CỨNG (2026-07-30 phân quyền): tab Vùng biển
+// không nằm trong 5 tab cấu hình được cho quản lý → requireAdmin mọi method.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireStaff } from "@/lib/admin-auth";
+import { requireAdmin } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
 import {
   countPoints,
   simplifyFeatureCollection,
@@ -48,7 +50,7 @@ function readDraft(body: Record<string, unknown>): VmsZoneDraft {
 }
 
 export async function GET() {
-  const who = await requireStaff();
+  const who = await requireAdmin();
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -79,7 +81,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const who = await requireStaff();
+  const who = await requireAdmin();
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -115,11 +117,18 @@ export async function POST(req: Request) {
     .select("id")
     .maybeSingle();
   if (error) return err(500, "insert_failed");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: "admin",
+    action: "zone.create",
+    target: (data?.id as string) ?? null,
+    detail: { name: draft.name },
+  });
   return NextResponse.json({ ok: true, id: data?.id });
 }
 
 export async function PATCH(req: Request) {
-  const who = await requireStaff();
+  const who = await requireAdmin();
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -143,11 +152,17 @@ export async function PATCH(req: Request) {
 
   const { error } = await admin.from(TABLE).update(patch).eq("id", id);
   if (error) return err(500, "update_failed");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: "admin",
+    action: "zone.update",
+    target: id,
+  });
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: Request) {
-  const who = await requireStaff();
+  const who = await requireAdmin();
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -162,5 +177,11 @@ export async function DELETE(req: Request) {
     .select("id");
   if (error) return err(500, "delete_failed");
   if (!data || data.length === 0) return err(404, "not_found");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: "admin",
+    action: "zone.delete",
+    target: id,
+  });
   return NextResponse.json({ ok: true });
 }

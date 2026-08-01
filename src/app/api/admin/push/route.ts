@@ -1,17 +1,19 @@
 // /api/admin/push — GỬI THÔNG BÁO cho từng user (theo SĐT) hoặc TOÀN BỘ user
 // đã đăng ký Web Push (2026-07-28, Phase 3). GET trả thống kê số máy đã đăng
 // ký; POST gửi thật qua web-push (VAPID) — endpoint đã chết (404/410) thì tự
-// xóa khỏi bảng (dọn rác, không cần cron riêng). requireStaff.
+// xóa khỏi bảng (dọn rác, không cần cron riêng). PHÂN QUYỀN (2026-07-30) qua
+// requirePermission tab "thong-bao": GET=view · POST(gửi)=create.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireStaff } from "@/lib/admin-auth";
+import { requirePermission } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
 import { isPushConfigured, sendPush } from "@/lib/push-send";
 
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
 
 export async function GET() {
-  const who = await requireStaff();
+  const who = await requirePermission("thong-bao", "view");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -35,7 +37,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const who = await requireStaff();
+  const who = await requirePermission("thong-bao", "create");
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -85,6 +87,13 @@ export async function POST(req: Request) {
     await admin.from("push_subscriptions").delete().in("id", gone);
   }
 
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "push.send",
+    target: body?.target === "phone" ? (body.phone?.trim() ?? null) : "all",
+    detail: { target: body?.target ?? "all", title, sent },
+  });
   return NextResponse.json({
     ok: true,
     sent,

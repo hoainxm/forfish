@@ -45,6 +45,9 @@ Ngư dân 40–60 tuổi, dùng điện thoại ngoài trời **nắng chói**, 
 
 Hướng mới: **modern edge-to-edge mobile** — nền sáng lạnh, hero biển sâu tràn viền, bề mặt không viền. Bỏ nền cát ấm cũ.
 
+### Logo / brand mark
+- **Một logo DUY NHẤT cho cả sản phẩm**: bộ icon PWA sinh từ `image/logo sdfish.png` (`npm run icons` → `public/icons/icon-192.png`, `icon-512.png`, `apple-touch-icon.png`, maskable). App ngư dân dùng qua manifest/PWA; **web quản trị `/quan-tri` dùng CHUNG chính icon đó** (`/icons/icon-192.png`) trong header (44px, bo góc `rounded-xl` + `border-line`) — KHÔNG tạo logo riêng cho khu quản trị (chốt user 2026-07-30 "logo chung với logo app"). Đổi logo = thay `image/logo sdfish.png` rồi chạy lại `npm run icons`; cả hai khu tự cập nhật.
+
 ### Màu nền tảng
 - **Deep sea navy** — màu chủ đạo, hero/brand/dock
 - **Sunrise orange-red** — accent, call-to-action (nút pill + bóng màu)

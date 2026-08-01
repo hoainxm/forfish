@@ -3,6 +3,7 @@ import { Archivo, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { SwRegister } from "@/components/sw-register";
+import { UsageHeartbeat } from "@/components/usage-heartbeat";
 import { ViewportGapFix } from "@/components/viewport-gap-fix";
 
 const display = Archivo({
@@ -68,6 +69,9 @@ export default function RootLayout({
         />
         <AppShell>{children}</AppShell>
         <SwRegister />
+        {/* Máy tự báo đã mở app (cho /quan-tri biết ai chưa mở BẢN CÀI).
+            Không vẽ gì, không chặn gì — xem lib/heartbeat.ts. */}
+        <UsageHeartbeat />
         {/* Vá bug iOS 26 Safari: dock đáy treo lưng chừng sau đóng bàn phím —
             xem viewport-gap-fix.tsx. Máy không dính bug thì nó im lặng. */}
         <ViewportGapFix />

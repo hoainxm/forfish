@@ -2,8 +2,11 @@
 
 > Load khi: task chạm /quan-tri (vận hành), phân quyền đại lý, trạng thái premium (đã dùng/đã liên hệ), thu tiền + trace tiền đồng bộ SDWork, audit hoạt động admin, luồng đăng nhập admin.
 covers: src/app/quan-tri, src/app/api/admin, src/lib/admin-auth.ts, src/lib/admin.ts
-last_verified: 2026-07-30
+last_verified: 2026-08-01
 ttl_days: 90
+<!-- re-verified: 2026-08-01 — SYNC BASE (Long-Forfun→sdvico). Vùng vận hành nhận thêm mô hình quyền của base, KHÔNG mất năng lực sdvico: (admin-auth.ts) `requireStaff` nay theo staff-permissions — admin (env HOẶC role='admin') permissions=null toàn quyền, manager tra bảng `customers.staff_permissions` (jsonb, migration 0028 — ĐÃ ĐỔI SỐ từ 0017 base) theo TAB×HÀNH ĐỘNG, cột chưa apply thì preset mặc định; `requirePermission(tab,action)` + `requireAdmin` giữ nguyên. (admin.ts base) nguồn admin KÉP env+DB: `mergeAdmins`/`checkDemoteAdmin`/`checkSetRole` (chặn self/env_admin/last_admin, NÂNG luôn được = đường di cư env→DB). (api/admin) thêm route `/api/admin/activity` + `/api/admin/staff`; `accounts` GHI **2 nhật ký song song** — `writeAudit`→bảng `admin_audit` (NV7 sdvico, 0027) VÀ `logActivity`→`admin_activity_log` (base, 0030) — cùng cột onboarding (0029) + đo-dùng-app (0031). (quan-tri) thêm tab Phân quyền (PermissionsTab) + Nhật ký (ActivityLogTab base) + chip onboarding; GIỮ NV2/NV3 chip chăm khách + ghi mã CK. NV4/NV5/NV7 (H2/H3/§8) KHÔNG đổi hành vi. ⚠️ Migration 0028-0031 CHƯA apply prod (ref znzgugvfhgmiszqgjulk). -->
+<!-- last_verified 2026-07-30 (giữ mốc cũ): xác lập NV1-NV7 + ranh giới SDWork. -->
+
 
 > **Mục đích**: oracle HÀNH VI cho web quản trị VẬN HÀNH của SDFish — USER nào làm gì, vào/ra sao, đúng-sai đo bằng AC. Chốt RANH GIỚI với SDWork (CRM tiền/khách). KHÔNG mô tả giao diện (việc của [07-design-spec](07-design-spec.md)).
 

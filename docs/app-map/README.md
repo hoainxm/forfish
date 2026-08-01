@@ -47,6 +47,7 @@
 | ops | [ops/build-publish-store.md](ops/build-publish-store.md) | RUNBOOK build & phát hành CH Play + App Store: chốt version → AAB/Archive → store, xử lý reject 5.1.2 Privacy, chuyển domain sang sdfish.sdvico.vn |
 | ops | [ops/dot1-setup.md](ops/dot1-setup.md) | **Hướng dẫn THỦ CÔNG bật Đợt 1**: apply migration, email provider, env Vercel, dựng webhook với SDWork (+ test curl HMAC), cắm OTP provider (Zalo/SMS), kiểm RLS |
 | ops | [ops/state-registry.md](ops/state-registry.md) | Registry CANONICAL state client — mọi key `forfish.*` localStorage (writer/reader/reset), governance single-writer + versioned key |
+| ops | [ops/qa-offline-acceptance.md](ops/qa-offline-acceptance.md) | **Kịch bản nghiệm thu OFFLINE cho đội tester**: 14 ca test theo từng loại máy (iPhone Safari/A2HS · Android Chrome/PWA), cách giả lập sóng "sống mà chết", tiêu chí chặn phát hành |
 | ops | [ops/runbook.md](ops/runbook.md) | Runbook vận hành: dev/build/lint, regenerate asset tĩnh, deploy Vercel/PWA, health-check doc, escalation 🔴 |
 | — | [../contracts/sdwork-assets.contract.md](../contracts/sdwork-assets.contract.md) | Contract shape đồ đã mua giữa CRM SDViCo (producer) ↔ ForFish (consumer), versioned |
 | — | [../adr/README.md](../adr/README.md) | ADR — log quyết định kiến trúc (vì sao chọn X), đánh số bất biến |

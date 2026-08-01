@@ -18,6 +18,7 @@ import {
   HOTSPOT_SPACING_TODAY_DEG,
   decodeClimatology,
   climScoreAt,
+  fishLeadDays,
   type ClimatologyFile,
 } from "@/lib/fish-blend";
 
@@ -401,5 +402,41 @@ describe("độ rộng hồng tâm theo tầm ngày (đo từ dịch chuyển th
       expect(n).toBeGreaterThanOrEqual(3);
       prev = n;
     }
+  });
+});
+
+/*
+  TẦM NGÀY ĐẾM TỪ NGÀY ẢNH (fishLeadDays) — lỗi 2026-07-31: backtest đo w(d) với
+  d = ngày xem − NGÀY ẢNH, còn màn hình truyền d = ngày xem − HÔM NAY. Mất sóng,
+  service worker trả bản đồ cá mấy ngày tuổi mà chip vẫn ở "Hôm nay" ⇒ d=0 ⇒
+  w=1 = tin trọn tấm ảnh cũ nhất, đúng lúc nó đáng tin nhất.
+*/
+describe("fishLeadDays — tuổi ảnh cũng là tầm ngày", () => {
+  it("ảnh hôm nay, xem hôm nay → 0 (y hệt hành vi cũ)", () => {
+    expect(fishLeadDays("2026-07-31", "2026-07-31", 0)).toBe(0);
+  });
+
+  it("ảnh 8 ngày trước, xem HÔM NAY → 8 (không còn là 0)", () => {
+    expect(fishLeadDays("2026-07-23", "2026-07-31", 0)).toBe(8);
+  });
+
+  it("cộng dồn: ảnh cũ 8 ngày + xem thêm 2 ngày nữa → 10", () => {
+    expect(fishLeadDays("2026-07-23", "2026-08-02", 2)).toBe(10);
+  });
+
+  it("ảnh 8 ngày tuổi thì PHA LOÃNG thật, không giữ w=1", () => {
+    const lead = fishLeadDays("2026-07-23", "2026-07-31", 0);
+    if (BLEND_USABLE) expect(blendWeight(lead)).toBeLessThan(1);
+    expect(blendWeight(0)).toBe(1);
+  });
+
+  it("thiếu/hỏng ngày ảnh → lùi về tầm tính từ hôm nay, KHÔNG bịa", () => {
+    expect(fishLeadDays(null, "2026-08-02", 2)).toBe(2);
+    expect(fishLeadDays("khong-phai-ngay", "2026-08-02", 2)).toBe(2);
+  });
+
+  it("ảnh mới hơn ngày xem (đồng hồ lệch) → không bao giờ âm, không tụt dưới tầm cũ", () => {
+    expect(fishLeadDays("2026-08-05", "2026-08-02", 0)).toBe(0);
+    expect(fishLeadDays("2026-08-05", "2026-08-02", 3)).toBe(3);
   });
 });

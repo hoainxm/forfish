@@ -1,11 +1,12 @@
 // /api/admin/product-inquiries — QUẢN LÝ yêu cầu hỏi mua/tư vấn từ danh mục
 // sản phẩm (2026-07-28, Phase 2). GET danh sách theo status · PATCH đổi
 // trạng thái/ghi chú (ghi handled_by/handled_at) · DELETE xóa hẳn (dọn
-// spam/trùng). requireStaff — không phân biệt admin/manager, giống
-// crew-reports/products.
+// spam/trùng). ADMIN-ONLY CỨNG (2026-07-30 phân quyền): tab Yêu cầu không nằm
+// trong 5 tab cấu hình được cho quản lý → requireAdmin mọi method.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireStaff } from "@/lib/admin-auth";
+import { requireAdmin } from "@/lib/admin-auth";
+import { logActivity } from "@/lib/admin-activity-log";
 
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
@@ -13,7 +14,7 @@ const err = (status: number, code: string) =>
 const STATUSES = ["moi", "da_lien_he", "xong"] as const;
 
 export async function GET(req: Request) {
-  const who = await requireStaff();
+  const who = await requireAdmin();
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -39,7 +40,7 @@ export async function GET(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const who = await requireStaff();
+  const who = await requireAdmin();
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -70,11 +71,18 @@ export async function PATCH(req: Request) {
   if (error) return err(500, "update_failed");
   if (!data || data.length === 0) return err(404, "not_found");
 
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: "admin",
+    action: "inquiry.update",
+    target: body.id,
+    detail: body.status !== undefined ? { status: body.status } : {},
+  });
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: Request) {
-  const who = await requireStaff();
+  const who = await requireAdmin();
   if (!who.ok) return err(who.status, who.code);
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
@@ -89,5 +97,11 @@ export async function DELETE(req: Request) {
     .select("id");
   if (error) return err(500, "delete_failed");
   if (!data || data.length === 0) return err(404, "not_found");
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: "admin",
+    action: "inquiry.delete",
+    target: id,
+  });
   return NextResponse.json({ ok: true });
 }
