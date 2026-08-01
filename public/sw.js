@@ -649,6 +649,38 @@ self.addEventListener("fetch", (event) => {
   /quan-tri qua /api/admin/push (server dùng web-push + VAPID). Payload JSON
   {title, body, url}. Độc lập với cache versioning ở trên — không đụng gì.
 */
+/*  TIN PHẢI TỰ KHAI TUỔI (2026-08-01, chủ dự án chốt: giữ TTL 4 tuần nhưng
+    "user nhận biết được tin đó trễ bao nhiêu ngày").
+    Mất sóng thì Apple/Google GIỮ tin rồi đẩy khi máy online lại — tin bão gửi
+    hôm nay có thể nổ trên máy bà con hai tuần sau, đọc như đang xảy ra. Với app
+    của ngư dân đó là nói dối chuyện tính mạng.
+    GIỮ ĐỒNG BỘ với src/lib/push-message.ts (có test đọc file này bắt lệch). */
+const PUSH_FRESH_MS = 2 * 60 * 60 * 1000;
+
+function formatSentAtVN(ms) {
+  const d = new Date(ms + 7 * 3600 * 1000); // UTC+7
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())} ${p(d.getUTCDate())}/${p(
+    d.getUTCMonth() + 1,
+  )}`;
+}
+
+function staleWarningVN(sentAtMs, nowMs) {
+  const late = nowMs - sentAtMs;
+  if (!Number.isFinite(late) || late < PUSH_FRESH_MS) return null;
+  const hours = Math.round(late / 3600000);
+  if (hours < 24) return `TIN CŨ ${hours} GIỜ TRƯỚC —`;
+  return `TIN CŨ ${Math.round(hours / 24)} NGÀY TRƯỚC —`;
+}
+
+function pushBodyVN(body, sentAtMs, nowMs) {
+  if (sentAtMs == null || !Number.isFinite(sentAtMs)) return body;
+  const warn = staleWarningVN(sentAtMs, nowMs);
+  return [warn, body, `(tin lúc ${formatSentAtVN(sentAtMs)})`]
+    .filter(Boolean)
+    .join(" ");
+}
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {
@@ -657,10 +689,13 @@ self.addEventListener("push", (event) => {
     data = {};
   }
   const title = data.title || "SDFish";
+  const sentAtMs = data.sentAt ? Date.parse(data.sentAt) : NaN;
   const options = {
-    body: data.body || "",
+    body: pushBodyVN(data.body || "", sentAtMs, Date.now()),
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
+    // giờ hệ điều hành hiện cạnh thông báo = GIỜ GỬI THẬT, không phải giờ tới
+    ...(Number.isFinite(sentAtMs) ? { timestamp: sentAtMs } : {}),
     data: { url: data.url || "/" },
   };
   event.waitUntil(self.registration.showNotification(title, options));

@@ -122,7 +122,14 @@ export async function POST(req: Request) {
     });
   }
 
-  const payload = { title, body: message, url: body?.url || "/" };
+  // sentAt đi kèm để service worker TỰ TÍNH tin trễ bao lâu lúc nó tới máy —
+  // TTL 4 tuần nên tin hoàn toàn có thể nổ nhiều ngày sau (xem sw.js pushBodyVN)
+  const payload = {
+    title,
+    body: message,
+    url: body?.url || "/",
+    sentAt: new Date().toISOString(),
+  };
   const results = await Promise.all(
     rows.map((r) =>
       sendPush(
