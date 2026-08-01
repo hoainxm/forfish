@@ -51,6 +51,43 @@ const SDFISH_STATIC_V = "sdfish-static-v1";
 /** Trần số asset băm tên giữ lại (đủ vài bản build; quá thì bỏ cũ nhất) */
 const STATIC_CACHE_MAX = 400;
 
+/*  Kho RSC (phản hồi `?_rsc=` — Next xin nội dung trang khi bấm dock) — TÁCH
+    RIÊNG 2026-08-01b. LỖI ĐÃ SỬA: trước để chung kho asset băm tên, mà mỗi lần
+    điều hướng lại đẻ một entry `_rsc` mới trong khi `trimCache` bỏ theo THỨ TỰ
+    THÊM VÀO (FIFO, không phải LRU) và `precacheOne` bỏ qua asset đã có (không
+    làm mới vị trí) ⇒ đủ nhiều deploy/điều hướng thì chính CHUNK KHUNG SƯỜN mà
+    vỏ đang tham chiếu bị đẩy ra trước, cold-start offline nhận 504 → trắng màn.
+    Hai kho riêng thì `_rsc` không bao giờ ăn được chỗ của JS/CSS. */
+const SDFISH_RSC_V = "sdfish-rsc-v1";
+/** Trần entry RSC (đủ vài vòng dock × vài build) */
+const RSC_CACHE_MAX = 60;
+
+/*  DANH SÁCH /api ĐƯỢC CACHE — GIỮ ĐỒNG BỘ với src/lib/sw-cache-policy.ts
+    (test `sw-cache-policy.test.ts` đọc file này và bắt lệch).
+    Vì sao có: SW từng cache MỌI /api/* GET, mà từ 2026-08-01 còn cứu cả 401/403
+    bằng bản trong kho ("đã tải thì cứ dùng"). Trên MÁY DÙNG CHUNG (chủ tàu +
+    bạn thuyền chung điện thoại) thì đó là đổi tài khoản vẫn đọc được phản hồi
+    của người trước. Luật "đã tải thì cứ dùng" chỉ đúng cho DỰ BÁO/GIÁ — thứ ai
+    xem cũng như nhau — KHÔNG đúng cho hồ sơ cá nhân. */
+const API_CACHE_ALLOW = [
+  "/api/fish-forecast",
+  "/api/storms",
+  "/api/weather-snapshot",
+  "/api/salinity",
+  "/api/sea-scalar",
+  "/api/currents-depth",
+  "/api/nautical",
+  "/api/port-prices",
+  "/api/fuel-price",
+];
+
+/** /api này có được cache + được cứu bằng bản trong kho không */
+function isCacheableApiPath(pathname) {
+  return API_CACHE_ALLOW.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
+
 /** Điều hướng chờ mạng bao lâu trước khi trả bản trong máy (ms).
     Ngoài khơi hay gặp sóng "sống mà chết" — bắt tay được nhưng gói tin không
     về; không có đồng hồ này thì bà con nhìn màn trắng tới lúc trình duyệt tự
@@ -68,11 +105,30 @@ const PRECACHE_MAX_DEPTH = 2;
 /** Trần số URL tải sẵn — chặn trường hợp bản build sau nở ra cả cây lazy chunk */
 const PRECACHE_MAX_URLS = 120;
 
-const SHELL = [
+/*  VỎ SỐNG-CÒN — thiếu MỘT thứ trong đây là app coi như không dùng được ngoài
+    biển, nên mẻ này TẢI NGUYÊN KHỐI: `addAll` (được tất hoặc không được gì) và
+    thiếu thì INSTALL HỎNG HẲN → service worker mới KHÔNG activate, bản cũ tiếp
+    tục phục vụ.
+    LỖI ĐÃ SỬA (2026-08-01b, review ngoài chỉ ra): trước dùng `allSettled` cho
+    cả SHELL rồi `skipWaiting()` vô điều kiện + `.catch(() => {})` — cài lần đầu
+    ở cảng sóng chập chờn có thể sinh ra một PWA ĐÃ ACTIVATE mà thiếu
+    `/ngu-truong` hoặc thiếu dữ liệu nền bản đồ, và bà con chỉ phát hiện khi đã
+    ra khơi. Thà cài hỏng ở bờ (thử lại được) còn hơn "cài xong" mà rỗng. */
+const CRITICAL_SHELL = [
   "/",
   // Ra khơi (bản đồ ngư trường) — màn bà con mở giữa biển lúc mất sóng. Không
   // nằm sẵn trong vỏ thì mở app ngoài khơi chỉ về được trang chủ.
   "/ngu-truong",
+  // NỀN BẢN ĐỒ LÚC MẤT SÓNG: hình bờ + đảo, đường đẳng sâu, độ sâu tại điểm.
+  "/data/vn-coast.v1.json",
+  "/data/isobaths.v1.json",
+  "/data/depth-grid.v1.bin",
+  // font chữ trên bản đồ (số mét đường đẳng sâu) — thiếu là mất hết CHỮ/SỐ
+  "/fonts/Noto%20Sans%20Regular/0-255.pbf",
+];
+
+const SHELL = [
+  ...CRITICAL_SHELL,
   // BỐN MÀN CÒN LẠI của dock (2026-07-31b). Rẻ nhất trong cả đợt soát offline
   // mà trước đây bỏ sót: thiếu chúng thì giữa biển bấm Tàu cá / Bạn thuyền /
   // Giao dịch / Cảng là màn trắng — trong khi giấy tờ, sổ thuyền viên, danh bạ
@@ -85,18 +141,10 @@ const SHELL = [
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/apple-touch-icon.png",
-  // NỀN BẢN ĐỒ LÚC MẤT SÓNG. Ô bản đồ nền là host ngoài, SW không giữ được →
-  // mất sóng là màn hình trắng. Bốn file này nằm sẵn trong máy từ lúc cài app,
-  // đủ để vẽ: hình bờ + đảo, đường đẳng sâu có số mét, độ sâu tại điểm chạm.
-  "/data/vn-coast.v1.json",
-  "/data/isobaths.v1.json",
-  "/data/depth-grid.v1.bin",
   // BẢN ĐỒ MÙA VỤ (điểm cá điển hình từng tháng, dựng từ nhiều năm lịch sử) —
   // lớp cá của chuyến DÀI pha trộn bản này với dự báo. Nằm sẵn trong máy thì
   // giữa biển mất sóng vẫn tính được lộ trình 16 ngày.
   "/data/fish-climatology.v1.json",
-  // font chữ trên bản đồ (số mét đường đẳng sâu) — thiếu là mất hết CHỮ/SỐ
-  "/fonts/Noto%20Sans%20Regular/0-255.pbf",
 ];
 
 /** Rút các đường dẫn /_next/static/... mà một trang HTML cần (JS · CSS · font) */
@@ -201,19 +249,39 @@ async function precacheShellAssets() {
   }
 }
 
+/*
+  CÀI ĐẶT — HAI MỨC, CÓ KIỂM LẠI (2026-08-01b).
+
+  Mức 1 (BẮT BUỘC): CRITICAL_SHELL tải NGUYÊN KHỐI bằng `addAll`, xong còn ĐỌC
+  LẠI từng entry trong kho để chắc nó có thật (addAll xong mà quota đầy thì
+  entry vẫn có thể không nằm lại). Thiếu một thứ → THROW → install HỎNG → SW mới
+  KHÔNG activate, bản cũ tiếp tục phục vụ và trình duyệt sẽ thử cài lại sau.
+  Mức 2 (CÓ THÌ TỐT): phần còn lại của SHELL + JS/CSS — `allSettled`, hỏng thì
+  thôi, cất dần khi bà con mở trang.
+
+  Trước đây cả hai mức chung một rổ `allSettled` rồi `skipWaiting()` vô điều
+  kiện + `.catch(() => {})`: cài ở cảng sóng chập chờn có thể ra một PWA "đã
+  cài" mà thiếu /ngu-truong hoặc thiếu dữ liệu nền — bà con chỉ biết khi đã ra
+  khơi. Thà cài hỏng ở bờ còn hơn.
+*/
+async function installShell() {
+  const c = await caches.open(SDFISH_CACHE_V);
+  // nguyên khối — hỏng một là hỏng cả mẻ, và ném ra ngoài
+  await c.addAll(CRITICAL_SHELL);
+  // kiểm lại: có thật nằm trong kho không (quota đầy vẫn có thể trượt)
+  for (const u of CRITICAL_SHELL) {
+    const hit = await c.match(u);
+    if (!hit) throw new Error(`vỏ sống-còn thiếu: ${u}`);
+  }
+  // phần "có thì tốt" — hỏng thì thôi
+  const optional = SHELL.filter((u) => !CRITICAL_SHELL.includes(u));
+  await Promise.allSettled(optional.map((u) => c.add(u)));
+  await precacheShellAssets();
+}
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(SDFISH_CACHE_V)
-      .then((c) =>
-        // Từng file một: một file hỏng KHÔNG được kéo đổ cả mẻ (addAll là
-        // "được tất hoặc không được gì" — trước đây hỏng 1 là vỏ trống trơn).
-        Promise.allSettled(SHELL.map((u) => c.add(u))),
-      )
-      .then(() => precacheShellAssets())
-      .then(() => self.skipWaiting())
-      .catch(() => {}),
-  );
+  // KHÔNG bọc .catch: để lỗi nổi lên cho trình duyệt biết install thất bại.
+  event.waitUntil(installShell().then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (event) => {
@@ -228,7 +296,8 @@ self.addEventListener("activate", (event) => {
                 k !== SDFISH_CACHE_V &&
                 k !== SDFISH_TILE_V &&
                 k !== SDFISH_API_V &&
-                k !== SDFISH_STATIC_V,
+                k !== SDFISH_STATIC_V &&
+                k !== SDFISH_RSC_V,
             )
             .map((k) => caches.delete(k)),
         ),
@@ -256,11 +325,21 @@ async function purgeLegacyEntries() {
     /* dọn được thì tốt, không thì thôi */
   }
   try {
+    // Kho API: bỏ MỌI thứ ngoài allowlist — gồm cả /api/admin/* và hồ sơ cá
+    // nhân (/api/me, /api/crew-reports…) mà bản trước đã lỡ cất. Máy dùng chung
+    // trên tàu thì đó là dữ liệu người trước nằm lại cho người sau đọc.
     const api = await caches.open(SDFISH_API_V);
     for (const req of await api.keys()) {
-      if (new URL(req.url).pathname.startsWith("/api/admin/")) {
-        await api.delete(req);
-      }
+      if (!isCacheableApiPath(new URL(req.url).pathname)) await api.delete(req);
+    }
+  } catch {
+    /* dọn được thì tốt, không thì thôi */
+  }
+  try {
+    // Kho tĩnh: bỏ `_rsc` lẫn vào từ bản 2026-08-01 (nay có kho riêng)
+    const st = await caches.open(SDFISH_STATIC_V);
+    for (const req of await st.keys()) {
+      if (new URL(req.url).searchParams.has("_rsc")) await st.delete(req);
     }
   } catch {
     /* dọn được thì tốt, không thì thôi */
@@ -406,6 +485,15 @@ self.addEventListener("fetch", (event) => {
       để giữ ⇒ để mạng lo, SW đứng ngoài. */
   if (url.pathname.startsWith("/api/admin/")) return;
 
+  /*  MỌI /api KHÁC KHÔNG NẰM TRONG ALLOWLIST — cũng để mạng lo (2026-08-01b).
+      Trước đây SW cache TẤT CẢ /api/* GET: gồm /api/me, /api/crew-reports,
+      /api/product-inquiries… tức HỒ SƠ GẮN VỚI NGƯỜI ĐANG ĐĂNG NHẬP. Ghép với
+      luật mới "lỗi/từ chối thì cứu bằng bản trong kho" thì trên một điện thoại
+      dùng chung (chủ tàu + bạn thuyền), đổi tài khoản vẫn đọc được phản hồi của
+      người trước — kể cả khi máy chủ đã trả 401. Dự báo/giá thì ai xem cũng như
+      nhau nên cache thoải mái; hồ sơ cá nhân thì không. */
+  if (isApi && !isCacheableApiPath(url.pathname)) return;
+
   if (isNavigation) {
     event.respondWith(navigationFirst(req));
     return;
@@ -461,16 +549,24 @@ self.addEventListener("fetch", (event) => {
           if (res.ok) {
             const copy = res.clone();
             // JS/CSS băm tên vào kho RIÊNG (bump vỏ không xoá) + trần (FIFO).
-            // Phản hồi `?_rsc=` cũng vào kho đó (2026-08-01): URL của nó mang
-            // dấu bản build nên mỗi lần deploy đẻ một bộ mới — để trong kho vỏ
-            // (KHÔNG có trần) là phình mãi, mà đặt trần cho kho vỏ thì lại ăn
-            // mất chính SHELL (thứ được cất SỚM NHẤT, bị bỏ TRƯỚC NHẤT).
+            // Phản hồi `?_rsc=` vào KHO RSC RIÊNG (2026-08-01b): trước để chung
+            // kho asset, mà `_rsc` đẻ một bộ mới mỗi deploy + mỗi lần bấm dock
+            // ⇒ trần FIFO chung sẽ đẩy chính CHUNK KHUNG SƯỜN (cất sớm nhất, và
+            // không được làm mới vị trí khi trúng kho) ra trước ⇒ cold-start
+            // offline nhận 504 cho chunk = trắng màn. Hai kho, hai trần.
             const intoStore = isHashed || isRsc;
             caches
-              .open(intoStore ? SDFISH_STATIC_V : SDFISH_CACHE_V)
+              .open(
+                isRsc
+                  ? SDFISH_RSC_V
+                  : isHashed
+                    ? SDFISH_STATIC_V
+                    : SDFISH_CACHE_V,
+              )
               .then(async (c) => {
                 await c.put(req, copy);
-                if (intoStore) await trimCache(c, STATIC_CACHE_MAX);
+                if (isRsc) await trimCache(c, RSC_CACHE_MAX);
+                else if (isHashed) await trimCache(c, STATIC_CACHE_MAX);
               })
               .catch(() => {});
           }
