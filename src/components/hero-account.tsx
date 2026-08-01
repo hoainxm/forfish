@@ -12,6 +12,8 @@ import {
 } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthUser } from "@/lib/use-auth";
+import { useFeatureAccess } from "@/lib/use-tier";
+import { tierBadge } from "@/lib/tier";
 import {
   fetchVapidPublicKey,
   getExistingPushSubscription,
@@ -58,6 +60,10 @@ type PushUiState =
 export function HeroAccount() {
   const router = useRouter();
   const { user, phone, ready } = useAuthUser();
+  // HẠNG CỦA TÔI (2026-08-01): premium gán ngoài đời ở /quan-tri, trong app
+  // trước nay không có chỗ nào xác nhận ⇒ khách trả tiền phải vào Ra khơi thử
+  // bật lớp Cá mới biết. `null` = chưa chắc, không bày gì (luật ở lib/tier.ts).
+  const { access, premiumUntil } = useFeatureAccess();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("gon");
   const [pushState, setPushState] = useState<PushUiState>("checking");
@@ -137,6 +143,7 @@ export function HeroAccount() {
   if (!ready) return <div className="mt-3 h-[2.75rem]" aria-hidden />;
 
   const name = (user?.user_metadata?.full_name as string | undefined)?.trim();
+  const badge = tierBadge({ access, premiumUntil });
 
   return (
     <>
@@ -170,6 +177,24 @@ export function HeroAccount() {
               <p className="text-[1rem] font-semibold text-foreground/70">
                 {prettyPhone(phone)}
               </p>
+              {/* HẠNG — chỉ hiện khi đã CHẮC (tierBadge trả null lúc đang tra),
+                  khỏi nháy "thường" rồi mới đổi thành "Premium" */}
+              {badge && (
+                <div className="mt-3 border-t border-line pt-3">
+                  <span
+                    className={`inline-block rounded-full px-3 py-1 text-[0.875rem] font-bold ${
+                      badge.tone === "premium"
+                        ? "bg-ok-bg text-ok"
+                        : "bg-field text-foreground/75"
+                    }`}
+                  >
+                    {badge.label}
+                  </span>
+                  <p className="mt-1.5 text-[0.875rem] leading-snug text-foreground/70">
+                    {badge.detail}
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <Link

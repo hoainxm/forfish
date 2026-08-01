@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   featureAccessDecision,
+  formatPremiumUntil,
   FREE_FORECAST_DAYS,
   nextPremiumUntil,
   PREMIUM_TERM_DAYS,
   resolveTier,
+  tierBadge,
   type FeatureAccessInput,
 } from "@/lib/tier";
 
@@ -179,5 +181,54 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
         cachedPremium: false,
       }),
     ).toBe("login");
+  });
+});
+
+describe("formatPremiumUntil — cùng con số với web quản trị", () => {
+  it("timestamptz UTC buổi chiều VN vẫn ra ĐÚNG ngày VN (không lệch 1 ngày)", () => {
+    // 01/08/2027 lúc 00:48 giờ VN = 31/07/2027 17:48 UTC. Đọc theo UTC sẽ ra
+    // 31/07 — lệch với chip "Premium đến 01/08/2027" ở /quan-tri.
+    expect(formatPremiumUntil("2027-07-31T17:48:00.000Z")).toBe("01/08/2027");
+  });
+
+  it("dạng ngày trần yyyy-mm-dd hiểu theo giờ VN", () => {
+    expect(formatPremiumUntil("2027-08-01")).toBe("01/08/2027");
+  });
+
+  it("rỗng / null / hỏng → null (không bịa ngày)", () => {
+    expect(formatPremiumUntil(null)).toBeNull();
+    expect(formatPremiumUntil(undefined)).toBeNull();
+    expect(formatPremiumUntil("")).toBeNull();
+    expect(formatPremiumUntil("không-phải-ngày")).toBeNull();
+  });
+});
+
+describe("tierBadge — dòng 'hạng của tôi' trong sheet Tài khoản", () => {
+  it("CHƯA CHẮC (đang tra / chưa đăng nhập) → không bày gì", () => {
+    expect(tierBadge({ access: "checking", premiumUntil: null })).toBeNull();
+    expect(tierBadge({ access: "login", premiumUntil: null })).toBeNull();
+    // kể cả khi đã có hạn trong máy — chưa chắc thì vẫn im
+    expect(tierBadge({ access: "checking", premiumUntil: "2027-08-01" })).toBeNull();
+  });
+
+  it("premium có hạn → chip Premium + nói rõ dùng tới ngày nào", () => {
+    const b = tierBadge({ access: "open", premiumUntil: "2027-07-31T17:48:00Z" });
+    expect(b?.tone).toBe("premium");
+    expect(b?.label).toBe("Premium");
+    expect(b?.detail).toContain("01/08/2027");
+  });
+
+  it("premium KHÔNG hạn → vẫn là Premium, không bịa ngày", () => {
+    const b = tierBadge({ access: "open", premiumUntil: null });
+    expect(b?.tone).toBe("premium");
+    expect(b?.detail).not.toMatch(/\d{2}\/\d{2}\/\d{4}/);
+  });
+
+  it("hạng thường → giọng MỜI, không doạ (luật copy giới hạn)", () => {
+    const b = tierBadge({ access: "upgrade", premiumUntil: null });
+    expect(b?.tone).toBe("basic");
+    expect(b?.label).toBe("Tài khoản thường");
+    // không dùng từ chặn/khoá/không được — chỉ nói premium mở thêm gì
+    expect(b?.detail).not.toMatch(/khoá|khóa|bị chặn|không được/i);
   });
 });

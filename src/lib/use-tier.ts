@@ -18,6 +18,11 @@ import { featureAccessDecision, resolveTier, type FeatureAccess } from "@/lib/ti
 
 /** Dấu "phiên gần nhất là premium" — quy ước key forfish.* */
 export const TIER_CACHE_KEY = "forfish.tier.premium.v1";
+/*  Hạn premium lần tra gần nhất — để sheet Tài khoản vẫn nói được "dùng tới
+    ngày nào" khi đang mất sóng. Cùng tiền tố `forfish.tier.` nên KHÔNG bị gom
+    vào tệp sao lưu (lib/offline-backup.ts SKIP_PREFIXES) — hạn là entitlement,
+    không phải dữ liệu dự báo, chia tệp không được kéo theo. */
+export const TIER_UNTIL_KEY = "forfish.tier.until.v1";
 
 function readCachedPremium(): boolean {
   if (typeof window === "undefined") return false;
@@ -32,6 +37,25 @@ function writeCachedPremium(premium: boolean): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(TIER_CACHE_KEY, premium ? "1" : "0");
+  } catch {
+    /* hết chỗ / chế độ riêng tư — bỏ qua */
+  }
+}
+
+function readCachedUntil(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(TIER_UNTIL_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedUntil(until: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (until) window.localStorage.setItem(TIER_UNTIL_KEY, until);
+    else window.localStorage.removeItem(TIER_UNTIL_KEY);
   } catch {
     /* hết chỗ / chế độ riêng tư — bỏ qua */
   }
@@ -52,16 +76,23 @@ function isOnline(): boolean {
  */
 const TIER_QUERY_MS = 12000;
 
-export function useFeatureAccess(): { access: FeatureAccess; ready: boolean } {
+export function useFeatureAccess(): {
+  access: FeatureAccess;
+  ready: boolean;
+  /** hạn premium (ISO) để bày "dùng tới ngày nào"; null = không hạn/chưa biết */
+  premiumUntil: string | null;
+} {
   const { user, ready: authReady, errored: authErrored } = useAuthUser();
   // null = chưa tra xong hạng (chỉ có nghĩa khi đã đăng nhập + có sóng)
   const [premium, setPremium] = useState<boolean | null>(null);
   const [cachedPremium, setCachedPremium] = useState(false);
+  const [premiumUntil, setPremiumUntil] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
 
   // đọc dấu premium đã lưu (client-only)
   useEffect(() => {
     setCachedPremium(readCachedPremium());
+    setPremiumUntil(readCachedUntil());
   }, []);
 
   // theo dõi sóng để đổi nhánh offline↔online ngay khi mất/được sóng
@@ -113,6 +144,11 @@ export function useFeatureAccess(): { access: FeatureAccess; ready: boolean } {
         setPremium(p);
         writeCachedPremium(p);
         setCachedPremium(p);
+        // hạn chỉ có nghĩa khi ĐANG premium — hạ hạng thì xoá luôn, khỏi để
+        // sheet Tài khoản khoe một cái hạn đã hết giá trị.
+        const until = p ? ((data?.premium_until as string | null) ?? null) : null;
+        setPremiumUntil(until);
+        writeCachedUntil(until);
       } catch {
         // abort do hết giờ, hoặc mạng ném lỗi
         clearTimeout(timer);
@@ -133,6 +169,8 @@ export function useFeatureAccess(): { access: FeatureAccess; ready: boolean } {
     if (isOnline() && authReady && !authErrored && !user) {
       writeCachedPremium(false);
       setCachedPremium(false);
+      writeCachedUntil(null);
+      setPremiumUntil(null);
     }
   }, [authReady, authErrored, user]);
 
@@ -145,5 +183,5 @@ export function useFeatureAccess(): { access: FeatureAccess; ready: boolean } {
     cachedPremium,
     authErrored,
   });
-  return { access, ready: access !== "checking" };
+  return { access, ready: access !== "checking", premiumUntil };
 }

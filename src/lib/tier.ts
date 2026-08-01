@@ -51,6 +51,72 @@ export function resolveTier(
   return t >= nowMs ? "premium" : "basic";
 }
 
+/**
+ * Hạn premium → "01/08/2027" theo LỊCH VN. Rỗng/hỏng → null.
+ *
+ * Ghim `timeZone` chứ không để theo máy: `premium_until` là timestamptz lưu
+ * UTC, mà kích hoạt buổi chiều VN thì mốc UTC rơi sang NGÀY HÔM TRƯỚC — máy đọc
+ * theo giờ máy sẽ hiện lệch một ngày so với web quản trị. Cùng cách với `fmtD`
+ * ở /quan-tri để hai bên nói cùng một con số.
+ */
+export function formatPremiumUntil(
+  iso: string | null | undefined,
+): string | null {
+  if (!iso) return null;
+  const t = Date.parse(iso.length === 10 ? `${iso}T00:00:00+07:00` : iso);
+  if (!Number.isFinite(t)) return null;
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date(t));
+}
+
+/** Dòng "hạng của tôi" bày trong sheet Tài khoản. */
+export interface TierBadge {
+  tone: "premium" | "basic";
+  /** nhãn ngắn trong chip */
+  label: string;
+  /** một câu giải thích kế bên */
+  detail: string;
+}
+
+/**
+ * HẠNG CỦA TÔI — dòng cho bà con TỰ THẤY mình đang là gì (2026-08-01).
+ *
+ * VÌ SAO CÓ: premium bán ngoài đời (SDVICO gán tay ở /quan-tri), mà trong app
+ * KHÔNG có chỗ nào xác nhận. Khách đã trả tiền chỉ biết bằng cách vào Ra khơi
+ * thử bật lớp Cá — không thấy gì đổi thì gọi điện hỏi. Một dòng chữ ở sheet
+ * Tài khoản đóng được khoảng trống đó.
+ *
+ * Trả `null` khi CHƯA CHẮC (đang tra hạng) hoặc chưa đăng nhập — thà không nói
+ * gì còn hơn nháy "thường" rồi mới đổi thành "premium", hoặc ngược lại.
+ */
+export function tierBadge(a: {
+  access: FeatureAccess;
+  premiumUntil: string | null | undefined;
+}): TierBadge | null {
+  if (a.access === "checking" || a.access === "login") return null;
+  if (a.access === "upgrade") {
+    return {
+      tone: "basic",
+      label: "Tài khoản thường",
+      // giọng MỜI, không doạ: nói premium mở thêm gì, không nói bà con đang bị
+      // chặn cái gì (luật copy giới hạn — 03-design-system)
+      detail: "Gọi SDVICO để mở dự báo cá và thời tiết dài ngày.",
+    };
+  }
+  const until = formatPremiumUntil(a.premiumUntil);
+  return {
+    tone: "premium",
+    label: "Premium",
+    detail: until
+      ? `Đang mở dự báo cá và thời tiết dài ngày, dùng tới ${until}.`
+      : "Đang mở dự báo cá và thời tiết dài ngày.",
+  };
+}
+
 export interface FeatureAccessInput {
   /** Supabase đã cấu hình chưa — chưa thì demo mode mở hết (cùng nếp gate khác) */
   configured: boolean;
