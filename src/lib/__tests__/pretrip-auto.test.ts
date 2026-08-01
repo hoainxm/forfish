@@ -267,6 +267,7 @@ describe("coverageChipText — câu chữ TRUNG THỰC theo độ phủ lớp", 
     missing: 0,
     untilIso: null,
     totalBytes: 0,
+    savedCount: 1,
     ...over,
   });
 

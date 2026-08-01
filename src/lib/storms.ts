@@ -7,6 +7,7 @@
 // và để lời dặn nghe đài duyên hải làm việc của nó.
 
 import { apiUrl } from "@/lib/api-base";
+import { loadForecast, saveForecast } from "@/lib/forecast-cache";
 
 export type StormAlert = {
   id: string;
@@ -184,15 +185,44 @@ export function parseStorms(json: unknown, now: Date): StormAlert[] {
   return out;
 }
 
-/** Client gọi route nội bộ — fail thì trả ok:false, UI tự im lặng */
+/** Kho bản tin bão trong máy — `forfish.fc.storm.latest` */
+export const STORM_NS = "storm";
+const STORM_ID = "latest";
+
+/**
+ * Client gọi route nội bộ; hỏi được thì LƯU VÀO MÁY, hỏi không được thì lấy
+ * bản đã lưu ra.
+ *
+ * VÌ SAO LƯU (2026-08-01): trước đây bản tin bão CHỈ sống trong kho service
+ * worker — không nằm trong gói tải sẵn, không nằm trong tệp sao lưu, không ai
+ * kiểm nó còn hay mất. Thứ duy nhất trong app dính TÍNH MẠNG mà lại tồn tại
+ * nhờ may mắn. Nay nó đi cùng đường với dự báo: localStorage `forfish.*` ⇒ tự
+ * vào tệp sao lưu ⇒ pretrip kiểm được ⇒ popup "đã lưu gì" đếm được.
+ *
+ * KHÔNG nói dối khi dùng bản cũ: payload mang sẵn `checkedAt`, và
+ * `stormStatus()` coi tin quá STORM_MAX_AGE_MS (12h) là CHƯA HỎI ĐƯỢC — banner
+ * vàng "Chưa hỏi được tin bão", tuyệt đối không có câu "không có bão".
+ */
 export async function fetchStormCheck(): Promise<StormCheck> {
   try {
     const r = await fetch(apiUrl("/api/storms"), {
       signal: AbortSignal.timeout(20000),
     });
-    if (!r.ok) return { ok: false };
-    return (await r.json()) as StormCheck;
+    if (r.ok) {
+      const j = (await r.json()) as StormCheck;
+      if (j.ok) {
+        saveForecast(STORM_NS, STORM_ID, j);
+        return j;
+      }
+    }
   } catch {
-    return { ok: false };
+    /* mất sóng → xuống nhánh bản lưu */
   }
+  const hit = loadForecast<StormCheck>(STORM_NS, STORM_ID);
+  return hit?.data?.ok ? hit.data : { ok: false };
+}
+
+/** Đã có bản tin bão nào trong máy chưa (popup "đã lưu gì" + pretrip đọc) */
+export function savedStormAt(): number | null {
+  return loadForecast<StormCheck>(STORM_NS, STORM_ID)?.savedAt ?? null;
 }

@@ -316,9 +316,28 @@ async function installShell() {
   await precacheShellAssets(optional);
 }
 
+/*  DẤU "VỎ ĐÃ ĐỦ" — nguồn SỰ THẬT DUY NHẤT cho chữ "sẵn sàng đi biển".
+    Trước đây app tự kết luận bằng cách đếm localStorage, còn service worker cài
+    đủ hay chưa thì KHÔNG AI ĐỌC ⇒ chip có thể báo xanh trên một cái vỏ rỗng.
+    Nay install chỉ ghi dấu này khi ĐÃ qua hết cửa (vỏ sống-còn + JS của nó);
+    client đọc bằng caches.match, không cần postMessage, không cần bắt tay. */
+const SHELL_READY_MARK = "/__sdfish-shell-ready";
+
 self.addEventListener("install", (event) => {
   // KHÔNG bọc .catch: để lỗi nổi lên cho trình duyệt biết install thất bại.
-  event.waitUntil(installShell().then(() => self.skipWaiting()));
+  event.waitUntil(
+    installShell()
+      .then(async () => {
+        const c = await caches.open(SDFISH_CACHE_V);
+        await c.put(
+          SHELL_READY_MARK,
+          new Response(JSON.stringify({ at: Date.now() }), {
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      })
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (event) => {

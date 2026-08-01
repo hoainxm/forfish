@@ -10,6 +10,7 @@
 
 import { PORT_PRICES, type PortPrice } from "@/data/port-prices";
 import { apiUrl } from "@/lib/api-base";
+import { loadForecast, saveForecast } from "@/lib/forecast-cache";
 
 export const VASEP_LISTING_URL =
   "https://vasep.com.vn/gia-thuy-san/gia-trong-nuoc";
@@ -162,7 +163,19 @@ export function mergeLivePrices(
   });
 }
 
-/** Client gọi route nội bộ; lỗi/nguồn fail → lùi về bảng tĩnh (không bịa). */
+/** Kho bảng giá tuần trong máy — `forfish.fc.price.port` */
+export const PRICE_NS = "price";
+const PORT_ID = "port";
+
+/**
+ * Client gọi route nội bộ; lấy được thì LƯU VÀO MÁY, không lấy được thì trả
+ * bản tuần đã lưu, cuối cùng mới lùi về bảng tĩnh (KHÔNG bịa giá).
+ *
+ * Vì sao lưu (2026-08-01): bảng giá trước đây chỉ sống trong kho service
+ * worker — không vào gói tải sẵn, không vào tệp sao lưu. Bản tin VASEP ra mỗi
+ * tuần nên bản cũ vẫn dùng được, và UI in kèm TUẦN của bản tin
+ * (price-board.tsx) nên bà con biết giá đó của tuần nào.
+ */
 export async function fetchLivePrices(): Promise<LivePriceResult> {
   try {
     const r = await fetch(apiUrl("/api/port-prices"), {
@@ -170,14 +183,24 @@ export async function fetchLivePrices(): Promise<LivePriceResult> {
     });
     if (r.ok) {
       const j = (await r.json()) as LivePriceResult;
-      if (j.ok) return j;
+      if (j.ok) {
+        saveForecast(PRICE_NS, PORT_ID, j);
+        return j;
+      }
     }
   } catch {
-    // mạng lỗi → fallback
+    // mạng lỗi → xuống nhánh bản lưu
   }
+  const hit = loadForecast<LivePriceResult>(PRICE_NS, PORT_ID);
+  if (hit?.data?.ok) return hit.data;
   return {
     ok: false,
     source: "static",
     prices: PORT_PRICES.map((p) => ({ ...p, live: false })),
   };
+}
+
+/** Đã có bảng giá nào trong máy chưa (popup "đã lưu gì" + pretrip đọc) */
+export function savedPricesAt(): number | null {
+  return loadForecast<LivePriceResult>(PRICE_NS, PORT_ID)?.savedAt ?? null;
 }

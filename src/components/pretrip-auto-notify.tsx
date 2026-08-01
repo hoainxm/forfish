@@ -36,6 +36,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { exportOfflineData, importOfflineData } from "@/lib/offline-backup";
 import { isIOS, isStandalone } from "@/lib/storage-persist";
+import { isShellReady } from "@/lib/shell-ready";
 import { AlertIcon, CheckIcon } from "@/components/icons";
 
 /** byte → "~1,2 MB" / "~340 KB" (rỗng nếu 0 — lớp nằm kho khác) */
@@ -206,21 +207,65 @@ export function PretripSavedStatus({
   );
   const [cov, setCov] = useState<SavedCoverage | null>(null);
   const [open, setOpen] = useState(false);
+  /* VỎ APP đã cài đủ chưa — MỘT NGUỒN SỰ THẬT cho chữ "sẵn sàng" (2026-08-01).
+     Trước đây chip chỉ đếm localStorage (dữ liệu), còn vỏ app đủ hay thiếu thì
+     không ai đọc ⇒ chip báo xanh trên vỏ rỗng. Dữ liệu đủ mà vỏ thiếu vẫn là
+     không mở được app giữa biển. null = chưa đọc xong. */
+  const [shellOk, setShellOk] = useState<boolean | null>(null);
 
-  const reread = useCallback(
-    () => setCov(savedCoverage({ fishLocked })),
-    [fishLocked],
-  );
+  const reread = useCallback(() => {
+    setCov(savedCoverage({ fishLocked }));
+    void isShellReady().then(setShellOk);
+  }, [fishLocked]);
   // đọc lại khi vào màn + mỗi lần phase đổi (tự tải xong → cập nhật)
   useEffect(() => {
     reread();
     return subscribePhase(reread);
   }, [reread]);
 
-  const text = coverageChipText(phase, cov);
-  const allSaved = !!cov?.allSaved;
+  // Vỏ chưa đủ thì KHÔNG được nói "đã lưu đủ" dù dữ liệu đầy.
+  const shellMissing = shellOk === false;
+  const text = shellMissing
+    ? "Vỏ app chưa tải đủ — mở lại lúc có sóng"
+    : coverageChipText(phase, cov);
+  const allSaved = !!cov?.allSaved && shellOk === true;
   const tone =
     phase === "loading" ? "text-navy" : allSaved ? "text-ok" : "text-warn";
+
+  /* THẺ NHẮC TO khi BẢN ĐÃ CÀI mà trong máy chưa có gì (2026-08-01).
+     Ca thật hay gặp nhất trên iPhone: bà con tải đủ dữ liệu trong Safari rồi
+     mới "Thêm vào Màn hình chính" — kho của bản cài TÁCH RIÊNG nên nó bắt đầu
+     từ TRỐNG KHÔNG. Chip nhỏ ở góc dễ lướt qua; nhổ neo xong mới biết thì
+     không quay lại bờ được nữa. */
+  const emptyOnInstalled =
+    isStandalone() && phase !== "loading" && !!cov && cov.savedCount === 0;
+  if (emptyOnInstalled) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="pointer-events-auto w-full rounded-2xl bg-warn-bg px-4 py-3 text-left shadow-md ring-1 ring-warn/30 transition active:scale-[0.99]"
+        >
+          <p className="text-[1rem] font-bold leading-snug text-warn">
+            Máy chưa có dữ liệu đi biển
+          </p>
+          <p className="mt-0.5 text-[0.875rem] leading-snug text-warn/90">
+            App vừa cài bắt đầu từ trống. Chạm để tải ngay khi còn sóng — ra
+            khơi mất sóng là không tải được nữa.
+          </p>
+        </button>
+        {open && (
+          <PretripSavedSheet
+            points={points}
+            fishLocked={fishLocked}
+            onChanged={reread}
+            onClose={() => setOpen(false)}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <>
@@ -258,6 +303,8 @@ const LAYER_HELP: Record<SavedLayerId, string> = {
   salinity: "Độ mặn nước biển",
   seascalar: "Nước dâng / xoáy nước (gom mồi)",
   curdepth: "Dòng chảy 3 tầng SÂU — tầng mặt đã có ở lưới cả vùng",
+  storm: "Bản tin bão Biển Đông hỏi được gần nhất — mất sóng vẫn xem lại được",
+  price: "Bảng giá cá tuần + kỳ giá dầu lúc rời bờ",
 };
 
 /**

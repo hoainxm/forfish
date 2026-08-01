@@ -55,6 +55,10 @@ describe("savedLayers / savedCoverage — độ phủ TỪNG lớp", () => {
     saveForecast("seascalar", "ssha", { ok: true });
     saveForecast("curdepth", "t50.d10", { x: 1 });
     saveForecast("fishmark", "latest", { targetDate: "2026-08-01" });
+    // 2026-08-01: tin bão + giá cá/dầu nay cũng nằm trong máy (trước chỉ sống
+    // trong kho service worker, không ai tải sẵn và không ai kiểm)
+    saveForecast("storm", "latest", { ok: true, storms: [], checkedAt: "x" });
+    saveForecast("price", "port", { ok: true, prices: [] });
   };
 
   it("đủ mọi lớp → allSaved, missing 0, untilIso theo điểm gió sóng", () => {
@@ -95,7 +99,8 @@ describe("savedLayers / savedCoverage — độ phủ TỪNG lớp", () => {
 
 describe("pretripSteps", () => {
   // 2026-07-29: + lớp dải màu (2 khung) + độ mặn + nước dâng/xoáy + dòng chảy tầng
-  const EXTRA = PRETRIP_SCALAR_DAYS.length + 1 + 1 + 1;
+  // 2026-08-01: + tin bão + giá cá/dầu (2 bước), đứng TRƯỚC bản đồ cá
+  const EXTRA = PRETRIP_SCALAR_DAYS.length + 1 + 1 + 1 + 2;
 
   it("mỗi chỗ một việc + bản đồ cá + lưới gió/sóng + lớp màu + độ mặn + mùa vụ", () => {
     const steps = pretripSteps([
@@ -104,8 +109,11 @@ describe("pretripSteps", () => {
     ]);
     expect(steps).toHaveLength(2 + 1 + PRETRIP_GRID_DAYS.length + EXTRA + 1);
     expect(steps[0].label).toBe("Gió sóng — Cảng nhà");
-    expect(steps[2].label).toBe("Bản đồ cá");
-    expect(steps[3].label).toBe("Gió sóng cả vùng biển — 3 ngày");
+    // tin bão đứng TRƯỚC bản đồ cá: thứ duy nhất dính tính mạng
+    expect(steps[2].label).toBe("Tin bão");
+    expect(steps[3].label).toBe("Giá cá, giá dầu");
+    expect(steps[4].label).toBe("Bản đồ cá");
+    expect(steps[5].label).toBe("Gió sóng cả vùng biển — 3 ngày");
     expect(
       steps.some((s) => s.label === "Lớp mây mưa nhiệt — 16 ngày"),
     ).toBe(true);

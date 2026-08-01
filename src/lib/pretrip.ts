@@ -42,6 +42,13 @@ import {
   loadAll,
 } from "@/lib/forecast-cache";
 import { formatDateVN } from "@/lib/ocean-map";
+import { fetchStormCheck, savedStormAt, STORM_NS } from "@/lib/storms";
+import {
+  fetchLivePrices,
+  savedPricesAt,
+  PRICE_NS,
+} from "@/lib/port-price-source";
+import { fetchFuelPrice } from "@/lib/fuel-price";
 
 /** Tầng SÂU tải sẵn (tầng mặt đã nằm trong lưới gió/sóng SMOC) */
 export const CUR_DEPTH_PRETRIP_TIERS = [50, 150, 300] as const;
@@ -140,7 +147,9 @@ export type SavedLayerId =
   | "scalar"
   | "salinity"
   | "seascalar"
-  | "curdepth";
+  | "curdepth"
+  | "storm"
+  | "price";
 
 export interface SavedLayer {
   id: SavedLayerId;
@@ -222,7 +231,21 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
     retriable,
   });
 
+  const stormAt = savedStormAt();
+  const priceAt = savedPricesAt();
+
   return [
+    /* TIN BÃO đứng ĐẦU danh sách (2026-08-01): thứ duy nhất trong đây dính
+       TÍNH MẠNG. Trước không có dòng này vì bản tin chỉ nằm trong kho service
+       worker — tải sẵn không đụng tới, popup không đếm, tệp sao lưu không có. */
+    mk(
+      "storm",
+      "Tin bão Biển Đông",
+      stormAt != null,
+      stormAt,
+      bytesUnder(`${STORM_NS}.`),
+      stormAt != null ? "bản tin mới nhất hỏi được" : "chưa lưu",
+    ),
     mk(
       "grid",
       "Gió sóng CẢ VÙNG biển",
@@ -283,6 +306,14 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
       bytesUnder(`${SEA_SCALAR_NS}.`),
       sshaOk ? "ảnh mới nhất · nay" : "chưa lưu",
     ),
+    mk(
+      "price",
+      "Giá cá, giá dầu",
+      priceAt != null,
+      priceAt,
+      bytesUnder(`${PRICE_NS}.`),
+      priceAt != null ? "bảng giá tuần gần nhất" : "chưa lưu",
+    ),
     // Mặt (surface) đi cùng lưới CẢ VÙNG; đây thêm 3 tầng SÂU 50/150/300 m
     mk(
       "curdepth",
@@ -307,6 +338,8 @@ export interface SavedCoverage {
   untilIso: string | null;
   /** TỔNG dung lượng dự báo trong máy (byte) — mọi bản `forfish.fc.*` */
   totalBytes: number;
+  /** số lớp ĐÃ có trong máy — 0 = máy trắng tinh (bản vừa cài trên iOS) */
+  savedCount: number;
 }
 
 /** Gộp per-layer → tình trạng tổng để dựng câu chữ chip. */
@@ -320,6 +353,7 @@ export function savedCoverage(opts: SavedLayersOpts = {}): SavedCoverage {
     missing,
     untilIso: savedSummary().untilIso,
     totalBytes: bytesUnder(""),
+    savedCount: layers.filter((l) => l.saved).length,
   };
 }
 
@@ -358,6 +392,22 @@ export async function runLayer(
     case "seascalar":
       await fetchSeaScalar("ssha");
       return;
+    case "storm": {
+      // Nguồn hỏng → fetchStormCheck trả {ok:false} chứ không ném; ném ở đây
+      // để nút "Tải lại" của lớp này nói thật là chưa lấy được.
+      const st = await fetchStormCheck();
+      if (!st.ok) throw new Error("tin bão chưa hỏi được");
+      return;
+    }
+    case "price": {
+      const [live, fuel] = await Promise.all([
+        fetchLivePrices(),
+        fetchFuelPrice(),
+      ]);
+      // giá cá là chính; thiếu giá dầu thì thôi, không kéo cả lớp thành đỏ
+      if (!live.ok && fuel == null) throw new Error("giá chưa tải được");
+      return;
+    }
     case "curdepth": {
       let ok = 0;
       for (const t of CUR_DEPTH_PRETRIP_TIERS) {
@@ -405,6 +455,25 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
       },
     });
   }
+  /* TIN BÃO — việc AN TOÀN TÍNH MẠNG, phải nằm trong gói tải sẵn (2026-08-01).
+     Trước đây bản tin chỉ sống nhờ kho service worker: không ai tải sẵn, không
+     ai kiểm, không vào tệp sao lưu. Nay fetchStormCheck tự ghi localStorage nên
+     bước này vừa tải vừa ghi. KHÔNG ném khi nguồn hỏng: bản tin bão hỏng không
+     được làm cả mẻ tải sẵn đỏ lòm — nhưng có ghi vào độ phủ để popup nói thật. */
+  steps.push({
+    label: "Tin bão",
+    run: async () => {
+      await fetchStormCheck();
+    },
+  });
+  /* GIÁ CÁ + GIÁ DẦU — nhẹ (vài KB), bản tin theo tuần/kỳ nên tải một lần dùng
+     cả chuyến. Ra khơi còn biết giá lúc rời bờ mà tính toán. */
+  steps.push({
+    label: "Giá cá, giá dầu",
+    run: async () => {
+      await Promise.allSettled([fetchLivePrices(), fetchFuelPrice()]);
+    },
+  });
   steps.push({
     label: "Bản đồ cá",
     run: async () => {
