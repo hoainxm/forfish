@@ -11,6 +11,7 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
+import { clearInbox } from "@/lib/inbox";
 import { useAuthUser } from "@/lib/use-auth";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { tierBadge } from "@/lib/tier";
@@ -313,6 +314,9 @@ export function HeroAccount() {
                 // điện thoại thì tin của chủ tàu không được chạy tới máy đang
                 // trong tay bạn thuyền. Bắn rồi quên — đăng xuất KHÔNG chờ nó.
                 void detachPushAccount();
+                // xoá hộp thư khỏi máy: tàu dùng chung điện thoại, thư của
+                // người trước không được nằm lại cho người sau đọc
+                clearInbox();
                 const supabase = createClient();
                 await supabase?.auth.signOut();
                 setOpen(false);

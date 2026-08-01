@@ -4,6 +4,7 @@ import { UrgentStrip } from "@/components/urgent-strip";
 import { HeroAccount } from "@/components/hero-account";
 import { BoatSwitcher } from "@/components/boat-switcher";
 import { InstallBanner } from "@/components/install-prompt";
+import { InboxSection } from "@/components/inbox-section";
 import {
   AnchorIcon,
   FishIcon,
@@ -106,6 +107,11 @@ export default function Home() {
             })}
           </div>
         </section>
+
+        {/* THÔNG BÁO — ngay dưới bốn việc chính (chủ dự án 2026-08-01). Đây là
+            chỗ DUY NHẤT đọc lại được tin đã vuốt tắt. Tự ẩn khi chưa đăng nhập
+            hoặc chưa có tin nào: màn hình chính không được có khối trống. */}
+        <InboxSection />
 
         <p className="pb-2 text-center text-[0.875rem] text-foreground/65">
           Thuận buồm xuôi gió, cá đầy khoang.

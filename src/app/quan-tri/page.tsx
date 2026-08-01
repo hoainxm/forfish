@@ -3383,6 +3383,18 @@ type PushStats = {
   anonymous: number;
   /** TÀI KHOẢN đã gắn máy — để CHỌN, không gõ tay số (2026-08-01) */
   accounts: { phone: string; name: string | null; devices: number }[];
+  /** 10 tin gần nhất + biên nhận thật từ máy bà con (0023) */
+  recent: {
+    id: string;
+    title: string;
+    target: string;
+    targetPhone: string | null;
+    devices: number;
+    sent: number;
+    delivered: number;
+    opened: number;
+    createdAt: string;
+  }[];
 };
 
 function PushNotificationsTab({ perms }: { perms: TabPerms }) {
@@ -3409,6 +3421,7 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
           named: j.named ?? 0,
           anonymous: j.anonymous ?? 0,
           accounts: j.accounts ?? [],
+          recent: j.recent ?? [],
         });
       })
       .catch((e: Error) =>
@@ -3638,6 +3651,48 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
           Bạn chỉ có quyền xem thống kê thông báo. Cần quyền gửi thì báo quản trị
           viên bật thêm.
         </p>
+      )}
+
+      {/* LỊCH SỬ + BIÊN NHẬN THẬT (0023). "Đã đẩy" là biên nhận của Apple/
+          Google, KHÁC HẲN "máy bà con đã nhận" — cột Nhận/Đọc do chính service
+          worker trên máy báo về. Tin nằm trong hộp thư ở trang chủ nên kể cả
+          đẩy hụt bà con vẫn đọc được khi mở app. */}
+      {(stats?.recent.length ?? 0) > 0 && (
+        <div className="surface px-4 py-3.5">
+          <p className="text-[0.9375rem] font-bold text-navy">
+            10 tin gần nhất
+          </p>
+          <ul className="mt-2 space-y-2">
+            {stats?.recent.map((m) => (
+              <li
+                key={m.id}
+                className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b border-line pb-2 text-[0.875rem] last:border-b-0 last:pb-0"
+              >
+                <span className="font-bold text-navy">{m.title}</span>
+                <span className="text-foreground/55">
+                  {m.target === "account"
+                    ? `→ ${m.targetPhone ?? "?"}`
+                    : "→ toàn bộ"}
+                </span>
+                <span className="text-foreground/45">{fmtDT(m.createdAt)}</span>
+                <span className="ml-auto tabular-nums">
+                  <b className="text-navy">{m.devices}</b> máy · đẩy{" "}
+                  <b className={m.sent > 0 ? "text-ok" : "text-danger"}>
+                    {m.sent}
+                  </b>{" "}
+                  · nhận <b className="text-ok">{m.delivered}</b> · đọc{" "}
+                  <b className="text-t1">{m.opened}</b>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/55">
+            <b>Đẩy</b> = máy chủ giao được cho Apple/Google. <b>Nhận</b> = máy bà
+            con báo về đã nhận thật. <b>Đọc</b> = đã bấm vào thông báo. Tin luôn
+            nằm trong mục Thông báo ở trang chủ, nên đẩy hụt thì mở app vẫn đọc
+            được.
+          </p>
+        </div>
       )}
 
       {confirmSend && (

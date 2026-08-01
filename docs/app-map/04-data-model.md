@@ -229,6 +229,19 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - **Đọc**: `GET /api/admin/activity` (**`requireAdmin`** — chỉ quản trị viên) trả tối đa 300 dòng mới nhất, lọc `?actor=` (khớp SĐT) & `?action=`; đọc hỏng → rỗng + `migrationNeeded` + `error{code,message,hint}` THẬT. **`POST`** (requireAdmin) = GHI THỬ một dòng `system.log-probe` rồi đếm lại → nút "Kiểm tra ghi nhật ký" ở tab Nhật ký (biết log câm hay không mà không phải đợi thao tác thật). UI: tab **Nhật ký** (admin-only) — tìm theo SĐT/tên thao tác + chọn loại + nút "Chỉ xóa/nhạy cảm".
 - ✅ **ĐÃ APPLY prod 2026-07-30** (ref `znzgugvfhgmiszqgjulk`).
 
+### Hộp thư + biên nhận thông báo — migration [`0023_push_messages_receipts.sql`](../../supabase/migrations/0023_push_messages_receipts.sql) (2026-08-01) — ✅ ĐÃ APPLY prod
+
+| Bảng | Nghĩa |
+|---|---|
+| `push_messages` (`id` · `title` · `body` · `url` · `target` `all\|account` · `target_phone` · `sent_by` · `devices` · `sent` · `created_at`) | MỘT DÒNG mỗi lần gửi. Ghi **TRƯỚC khi đẩy** nên tin vẫn còn kể cả đẩy hụt |
+| `push_receipts` (`message_id` × `endpoint` · `account_phone` · `delivered_at` · `opened_at`) | Biên nhận THẬT từ máy bà con |
+
+- **Vì sao**: (a) thông báo vuốt tắt là MẤT — ngư dân tay ướt dễ vuốt nhầm, tin bão biến mất không dấu vết; (b) trước chỉ biết "đã đẩy tới Apple/Google", không biết máy có nhận không.
+- **Biên nhận đo bằng gì**: service worker CHẠY THẬT trên máy — nhánh `push` gọi `POST /api/push/ack` (`delivered`), `notificationclick` gọi (`opened`, ghi cả hai mốc vì bấm được nghĩa là đã nhận). Không đòi đăng nhập (tin tới lúc app đóng, không chắc có phiên); khoá là cặp `(messageId, endpoint)`, biết endpoint máy khác cũng chỉ đánh dấu hộ, không đọc được nội dung.
+- **Hộp thư**: `GET /api/me/messages` (lọc phía SERVER theo phiên) trả tin `target='all'` + tin nhắm đúng tài khoản, ≤50 tin mới nhất. **KHÔNG cho SW cache** (route gắn danh tính, không nằm trong `API_CACHE_ALLOW`); bản offline ở `localStorage forfish.inbox.v1` **mang theo SĐT chủ nhân**, SĐT lệch → coi như trống, và **xoá khi đăng xuất** — máy dùng chung trên tàu.
+- **UI**: trang chủ mục **Thông báo** ngay dưới "Bốn việc chính" — 3 tin gần nhất, bấm mở tin cũ hơn; tự ẩn khi chưa đăng nhập/chưa có tin. `/quan-tri` tab Thông báo có **10 tin gần nhất + cột máy · đẩy · nhận · đọc**.
+- ✅ **ĐÃ APPLY prod 2026-08-01** (ref `znzgugvfhgmiszqgjulk`).
+
 ### Đo thật việc dùng app — migration [`0021_customer_app_usage.sql`](../../supabase/migrations/0021_customer_app_usage.sql) (2026-08-01) — ✅ ĐÃ APPLY prod
 
 | Cột mới trên `customers` | Nghĩa |

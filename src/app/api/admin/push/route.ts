@@ -58,9 +58,56 @@ export async function GET() {
     .map(([phone, devices]) => ({ phone, name: names.get(phone) ?? null, devices }))
     .sort((a, b) => a.phone.localeCompare(b.phone));
 
+  /* LỊCH SỬ GỬI + BIÊN NHẬN (0023): "đã đẩy tới Apple" khác hẳn "máy bà con
+     đã nhận". Service worker báo về nên đếm được thật. */
+  const { data: msgs } = await admin
+    .from("push_messages")
+    .select("id, title, target, target_phone, devices, sent, created_at")
+    .order("created_at", { ascending: false })
+    .limit(10);
+  const ids = (msgs ?? []).map((m) => (m as { id: string }).id);
+  const delivered = new Map<string, number>();
+  const opened = new Map<string, number>();
+  if (ids.length > 0) {
+    const { data: rec } = await admin
+      .from("push_receipts")
+      .select("message_id, delivered_at, opened_at")
+      .in("message_id", ids);
+    for (const r of rec ?? []) {
+      const k = (r as { message_id: string }).message_id;
+      if ((r as { delivered_at: string | null }).delivered_at)
+        delivered.set(k, (delivered.get(k) ?? 0) + 1);
+      if ((r as { opened_at: string | null }).opened_at)
+        opened.set(k, (opened.get(k) ?? 0) + 1);
+    }
+  }
+  const recent = (msgs ?? []).map((m) => {
+    const r = m as {
+      id: string;
+      title: string;
+      target: string;
+      target_phone: string | null;
+      devices: number;
+      sent: number;
+      created_at: string;
+    };
+    return {
+      id: r.id,
+      title: r.title,
+      target: r.target,
+      targetPhone: r.target_phone,
+      devices: r.devices,
+      sent: r.sent,
+      delivered: delivered.get(r.id) ?? 0,
+      opened: opened.get(r.id) ?? 0,
+      createdAt: r.created_at,
+    };
+  });
+
   return NextResponse.json({
     ok: true,
     me: who,
+    recent,
     configured: await isPushConfigured(),
     total: total ?? 0,
     named: named ?? 0,
@@ -102,6 +149,27 @@ export async function POST(req: Request) {
   if (error) return err(500, "query_failed");
 
   const rows = data ?? [];
+
+  /* GHI BẢN TIN TRƯỚC KHI ĐẨY (0023): id của nó đi kèm payload để service
+     worker báo về "đã nhận / đã đọc", và để trang chủ có HỘP THƯ đọc lại —
+     thông báo vuốt tắt là mất, ngư dân tay ướt dễ vuốt nhầm. Ghi cả khi không
+     tìm được máy nào: tin vẫn nằm trong hộp thư, bà con mở app sau vẫn đọc
+     được, đó chính là lưới an toàn cho ca đẩy hụt. */
+  const { data: msg } = await admin
+    .from("push_messages")
+    .insert({
+      title,
+      body: message,
+      url: body?.url || null,
+      target: targetAccount ? "account" : "all",
+      target_phone: targetAccount,
+      sent_by: who.phone,
+      devices: rows.length,
+      sent: 0,
+    })
+    .select("id")
+    .maybeSingle();
+  const messageId = (msg as { id: string } | null)?.id ?? null;
   /* GỬI HỤT CŨNG PHẢI ĐỂ LẠI DẤU VẾT (2026-08-01): trước đây nhánh này thoát
      sớm TRƯỚC logActivity, nên đúng ca cần soi nhất — bấm gửi mà không tới ai —
      lại là ca duy nhất không có dòng nhật ký nào. */
@@ -111,7 +179,7 @@ export async function POST(req: Request) {
       actorRole: who.role,
       action: "push.send",
       target: targetAccount ?? "all",
-      detail: { target: body?.target ?? "all", title, found: 0, sent: 0 },
+      detail: { target: body?.target ?? "all", title, found: 0, sent: 0, messageId },
     });
     return NextResponse.json({
       ok: true,
@@ -129,6 +197,8 @@ export async function POST(req: Request) {
     body: message,
     url: body?.url || "/",
     sentAt: new Date().toISOString(),
+    // để máy báo về đã nhận/đã đọc (/api/push/ack)
+    messageId,
   };
   const results = await Promise.all(
     rows.map((r) =>
@@ -145,6 +215,9 @@ export async function POST(req: Request) {
 
   if (gone.length > 0) {
     await admin.from("push_subscriptions").delete().in("id", gone);
+  }
+  if (messageId) {
+    await admin.from("push_messages").update({ sent }).eq("id", messageId);
   }
 
   await logActivity(admin, {

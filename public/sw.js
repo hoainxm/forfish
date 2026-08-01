@@ -696,14 +696,60 @@ self.addEventListener("push", (event) => {
     badge: "/icons/icon-192.png",
     // giờ hệ điều hành hiện cạnh thông báo = GIỜ GỬI THẬT, không phải giờ tới
     ...(Number.isFinite(sentAtMs) ? { timestamp: sentAtMs } : {}),
-    data: { url: data.url || "/" },
+    data: { url: data.url || "/", messageId: data.messageId || null },
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  /* BÁO VỀ "ĐÃ NHẬN" (0023): gửi xong chỉ biết đã đẩy tới Apple/Google, không
+     biết máy bà con có nhận không. Nhánh này CHẠY THẬT trên máy khi tin tới, mà
+     lúc đó máy đang có mạng (nó vừa nhận được push) ⇒ cú báo gần như luôn đi
+     được. Bắn rồi quên: hỏng thì thôi, KHÔNG được cản việc hiện thông báo. */
+  const ack =
+    data.messageId && self.registration.pushManager
+      ? self.registration.pushManager
+          .getSubscription()
+          .then((sub) =>
+            sub
+              ? fetch("/api/push/ack", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    messageId: data.messageId,
+                    endpoint: sub.endpoint,
+                    kind: "delivered",
+                  }),
+                })
+              : null,
+          )
+          .catch(() => {})
+      : Promise.resolve();
+
+  event.waitUntil(
+    Promise.all([self.registration.showNotification(title, options), ack]),
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = (event.notification.data && event.notification.data.url) || "/";
+  const messageId = event.notification.data && event.notification.data.messageId;
+  // BÁO VỀ "ĐÃ ĐỌC" — bấm được thì đương nhiên đã nhận (route ghi cả hai mốc)
+  if (messageId) {
+    self.registration.pushManager
+      .getSubscription()
+      .then((sub) =>
+        sub
+          ? fetch("/api/push/ack", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                messageId,
+                endpoint: sub.endpoint,
+                kind: "opened",
+              }),
+            })
+          : null,
+      )
+      .catch(() => {});
+  }
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
