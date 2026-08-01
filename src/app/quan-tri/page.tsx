@@ -3381,6 +3381,8 @@ type PushStats = {
   total: number;
   named: number;
   anonymous: number;
+  /** TÀI KHOẢN đã gắn máy — để CHỌN, không gõ tay số (2026-08-01) */
+  accounts: { phone: string; name: string | null; devices: number }[];
 };
 
 function PushNotificationsTab({ perms }: { perms: TabPerms }) {
@@ -3406,6 +3408,7 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
           total: j.total ?? 0,
           named: j.named ?? 0,
           anonymous: j.anonymous ?? 0,
+          accounts: j.accounts ?? [],
         });
       })
       .catch((e: Error) =>
@@ -3436,6 +3439,7 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
     const j = (await r?.json().catch(() => null)) as {
       ok?: boolean;
       code?: string;
+      found?: number;
       sent?: number;
       failed?: number;
       cleaned?: number;
@@ -3452,8 +3456,18 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
       );
       return;
     }
+    // GỬI HỤT PHẢI NÓI THẬT (2026-08-01): trước đây `sent: 0` cũng hiện câu
+    // "Đã gửi 0 máy" trông như đã xong — người gửi tưởng khách đã nhận.
+    if (!j.found) {
+      setResult(
+        target === "phone"
+          ? "KHÔNG có máy nào gắn tài khoản này — chưa ai nhận được. Bà con phải mở app, đăng nhập rồi bật Thông báo thì mới nhận được tin nhắm riêng."
+          : "KHÔNG có máy nào đăng ký nhận thông báo — chưa ai nhận được.",
+      );
+      return;
+    }
     setResult(
-      `Đã gửi ${j.sent} máy${j.failed ? ` · lỗi ${j.failed}` : ""}${j.cleaned ? ` · dọn ${j.cleaned} đăng ký chết` : ""}.`,
+      `Đã gửi ${j.sent}/${j.found} máy${j.failed ? ` · lỗi ${j.failed}` : ""}${j.cleaned ? ` · dọn ${j.cleaned} đăng ký chết` : ""}.`,
     );
     setTitle("");
     setBody("");
@@ -3491,9 +3505,11 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
         <div className="grid grid-cols-3 gap-2.5">
           {(
             [
-              ["Tổng đã đăng ký", stats.total],
-              ["Có SĐT", stats.named],
-              ["Ẩn danh", stats.anonymous],
+              // "Có SĐT / Ẩn danh" nói sai bản chất: cột đó là CON TRỎ TỚI
+              // TÀI KHOẢN, không phải số liên lạc (2026-08-01).
+              ["Máy đã đăng ký", stats.total],
+              ["Đã gắn tài khoản", stats.named],
+              ["Chưa gắn tài khoản", stats.anonymous],
             ] as [string, number][]
           ).map(([label, v]) => (
             <div key={label} className="surface px-3 py-3 text-center">
@@ -3526,7 +3542,7 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
           {(
             [
               ["all", "Toàn bộ"],
-              ["phone", "Một người (SĐT)"],
+              ["phone", "Một tài khoản"],
             ] as ["all" | "phone", string][]
           ).map(([id, label]) => (
             <button
@@ -3544,14 +3560,45 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
             </button>
           ))}
         </div>
+        {/* CHỌN TÀI KHOẢN, KHÔNG GÕ SỐ (2026-08-01). Việc thật là "gửi cho một
+            TÀI KHOẢN" — SĐT chỉ tình cờ là id của tài khoản trong app này. Gõ
+            tay sai một ký tự là bắn vào hư không mà không ai biết; và chỉ tài
+            khoản ĐÃ GẮN MÁY mới gửi tới được, nên liệt kê đúng những tài khoản
+            đó, kèm số máy sẽ nhận. */}
         {target === "phone" && (
-          <input
-            inputMode="tel"
-            placeholder="SĐT người nhận (0901234567)"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
-          />
+          <div className="space-y-1.5">
+            {(stats?.accounts.length ?? 0) === 0 ? (
+              <p className="rounded-xl bg-warn-bg px-3.5 py-3 text-[0.875rem] font-semibold leading-snug text-warn">
+                Chưa tài khoản nào gắn máy — gửi nhắm riêng sẽ không tới được
+                ai. Bà con phải mở app, ĐĂNG NHẬP rồi bật Thông báo trong sheet
+                Tài khoản.
+              </p>
+            ) : (
+              <>
+                <select
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  aria-label="Chọn tài khoản nhận thông báo"
+                  className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+                >
+                  <option value="">— Chọn tài khoản nhận —</option>
+                  {stats?.accounts.map((a) => (
+                    <option key={a.phone} value={a.phone}>
+                      {a.phone}
+                      {a.name ? ` · ${a.name}` : ""} — {a.devices} máy
+                    </option>
+                  ))}
+                </select>
+                {phone && (
+                  <p className="px-1 text-[0.8125rem] font-semibold text-t1">
+                    Sẽ gửi tới{" "}
+                    {stats?.accounts.find((a) => a.phone === phone)?.devices ?? 0}{" "}
+                    máy của tài khoản này.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         )}
         <input
           placeholder="Tiêu đề"

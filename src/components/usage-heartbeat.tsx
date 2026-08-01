@@ -15,6 +15,7 @@ import { devicePlatform, isStandalone } from "@/lib/storage-persist";
 import { deviceId } from "@/lib/device-id";
 import { isShellReady } from "@/lib/shell-ready";
 import { savedCoverage } from "@/lib/pretrip";
+import { syncPushAccount } from "@/lib/push-client";
 
 export function UsageHeartbeat() {
   const { user, ready } = useAuthUser();

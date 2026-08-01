@@ -20,6 +20,7 @@ import {
   isPushSupported,
   subscribeToPush,
   unsubscribeFromPush,
+  detachPushAccount,
 } from "@/lib/push-client";
 
 /*
@@ -307,6 +308,11 @@ export function HeroAccount() {
             <button
               type="button"
               onClick={async () => {
+                // GỠ tài khoản khỏi máy này TRƯỚC khi mất phiên: máy vẫn nhận
+                // thông báo chung, thôi nhận tin nhắm riêng. Tàu dùng chung
+                // điện thoại thì tin của chủ tàu không được chạy tới máy đang
+                // trong tay bạn thuyền. Bắn rồi quên — đăng xuất KHÔNG chờ nó.
+                void detachPushAccount();
                 const supabase = createClient();
                 await supabase?.auth.signOut();
                 setOpen(false);

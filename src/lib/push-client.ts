@@ -126,3 +126,61 @@ export async function unsubscribeFromPush(): Promise<boolean> {
   }).catch(() => null);
   return Boolean(r?.ok);
 }
+
+/* --------------------------------------------------------------------------
+   ĐỒNG BỘ TÀI KHOẢN ↔ MÁY (2026-08-01)
+-------------------------------------------------------------------------- */
+
+/**
+ * Gắn lại máy này vào TÀI KHOẢN đang đăng nhập. Gọi mỗi lần mở app (ghép vào
+ * nhịp heartbeat) — KHÔNG phải chỉ lúc bấm nút bật thông báo.
+ *
+ * Vì sao cần: (a) ai bật thông báo TRƯỚC khi đăng nhập thì máy ẩn danh vĩnh
+ * viễn, đăng nhập sau cũng không có gì gắn lại; (b) Apple/Google XOAY endpoint
+ * định kỳ — endpoint mới mà không báo lên là mất liên lạc lặng lẽ.
+ *
+ * ⚠️ KHÔNG ĐƯỢC LÀM PHIỀN VIỆC ĐI BIỂN: máy chưa đăng ký thông báo thì thoát
+ * ngay, không gọi mạng; có đăng ký thì bắn một POST rồi QUÊN — hết giờ 10 giây,
+ * nuốt sạch lỗi, không ai đợi kết quả. App không cần cái "OK" của server để
+ * chạy: hỏng thì lần mở sau tự thử lại.
+ */
+export async function syncPushAccount(): Promise<void> {
+  try {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    const sub = await getExistingPushSubscription();
+    if (!sub) return; // chưa bật thông báo → không có gì để gắn
+    await fetch(apiUrl("/api/push/subscribe"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subscription: toInput(sub),
+        userAgent: navigator.userAgent,
+      }),
+      signal: AbortSignal.timeout(10000),
+      keepalive: true,
+    });
+  } catch {
+    /* mất sóng / hết giờ — kệ, lần mở app sau tự gắn lại */
+  }
+}
+
+/**
+ * GỠ tài khoản khỏi máy này (gọi lúc ĐĂNG XUẤT) nhưng GIỮ đăng ký thông báo.
+ * Máy vẫn nhận tin chung, thôi nhận tin nhắm riêng — tàu dùng chung điện thoại
+ * thì tin của chủ tàu không được chạy tới máy đang trong tay bạn thuyền.
+ */
+export async function detachPushAccount(): Promise<void> {
+  try {
+    const sub = await getExistingPushSubscription();
+    if (!sub) return;
+    await fetch(apiUrl("/api/push/subscribe"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint: sub.endpoint }),
+      signal: AbortSignal.timeout(10000),
+      keepalive: true,
+    });
+  } catch {
+    /* đăng xuất KHÔNG được chờ việc này — hỏng thì thôi */
+  }
+}

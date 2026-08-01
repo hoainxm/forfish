@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
 import { isPushConfigured, sendPush } from "@/lib/push-send";
+import { normalizeVnPhone } from "@/lib/phone";
 
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
@@ -26,6 +27,37 @@ export async function GET() {
     .select("id", { count: "exact", head: true })
     .not("customer_phone", "is", null);
 
+  /* DANH SÁCH TÀI KHOẢN ĐÃ GẮN MÁY — để UI CHỌN thay vì gõ tay số (2026-08-01).
+     Gõ tay sai một ký tự là gửi vào hư không mà không ai biết; và mô hình tinh
+     thần cũng sai — việc thật là "chọn một TÀI KHOẢN", SĐT chỉ tình cờ là id
+     của tài khoản trong app này. Chỉ liệt kê tài khoản CÓ máy: gửi cho tài
+     khoản chưa gắn máy nào thì vốn không tới được ai. */
+  const { data: subs } = await admin
+    .from("push_subscriptions")
+    .select("customer_phone")
+    .not("customer_phone", "is", null);
+  const byAccount = new Map<string, number>();
+  for (const r of subs ?? []) {
+    const k = (r as { customer_phone: string }).customer_phone;
+    byAccount.set(k, (byAccount.get(k) ?? 0) + 1);
+  }
+  let names = new Map<string, string | null>();
+  if (byAccount.size > 0) {
+    const { data: cs } = await admin
+      .from("customers")
+      .select("phone, name")
+      .in("phone", [...byAccount.keys()]);
+    names = new Map(
+      (cs ?? []).map((c) => [
+        (c as { phone: string }).phone,
+        (c as { name: string | null }).name ?? null,
+      ]),
+    );
+  }
+  const accounts = [...byAccount.entries()]
+    .map(([phone, devices]) => ({ phone, name: names.get(phone) ?? null, devices }))
+    .sort((a, b) => a.phone.localeCompare(b.phone));
+
   return NextResponse.json({
     ok: true,
     me: who,
@@ -33,6 +65,7 @@ export async function GET() {
     total: total ?? 0,
     named: named ?? 0,
     anonymous: (total ?? 0) - (named ?? 0),
+    accounts,
   });
 }
 
@@ -59,15 +92,35 @@ export async function POST(req: Request) {
   let q = admin
     .from("push_subscriptions")
     .select("id,endpoint,p256dh,auth_key");
-  if (body?.target === "phone") {
-    q = q.eq("customer_phone", body.phone!.trim());
-  }
+  // CHUẨN HOÁ id tài khoản — cả app dùng normalizeVnPhone, riêng đường push
+  // trước đây chỉ .trim() ⇒ "0938 635 689" hay dạng 84xxx là khớp trượt, gửi
+  // cho 0 người mà im lặng.
+  const targetAccount =
+    body?.target === "phone" ? normalizeVnPhone(body.phone!.trim()) : null;
+  if (targetAccount) q = q.eq("customer_phone", targetAccount);
   const { data, error } = await q;
   if (error) return err(500, "query_failed");
 
   const rows = data ?? [];
-  if (rows.length === 0)
-    return NextResponse.json({ ok: true, sent: 0, failed: 0, cleaned: 0 });
+  /* GỬI HỤT CŨNG PHẢI ĐỂ LẠI DẤU VẾT (2026-08-01): trước đây nhánh này thoát
+     sớm TRƯỚC logActivity, nên đúng ca cần soi nhất — bấm gửi mà không tới ai —
+     lại là ca duy nhất không có dòng nhật ký nào. */
+  if (rows.length === 0) {
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: who.role,
+      action: "push.send",
+      target: targetAccount ?? "all",
+      detail: { target: body?.target ?? "all", title, found: 0, sent: 0 },
+    });
+    return NextResponse.json({
+      ok: true,
+      found: 0,
+      sent: 0,
+      failed: 0,
+      cleaned: 0,
+    });
+  }
 
   const payload = { title, body: message, url: body?.url || "/" };
   const results = await Promise.all(
@@ -91,11 +144,12 @@ export async function POST(req: Request) {
     actorPhone: who.phone,
     actorRole: who.role,
     action: "push.send",
-    target: body?.target === "phone" ? (body.phone?.trim() ?? null) : "all",
-    detail: { target: body?.target ?? "all", title, sent },
+    target: targetAccount ?? "all",
+    detail: { target: body?.target ?? "all", title, found: rows.length, sent },
   });
   return NextResponse.json({
     ok: true,
+    found: rows.length,
     sent,
     failed,
     cleaned: gone.length,
