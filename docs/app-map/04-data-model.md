@@ -197,7 +197,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - ✅ **ĐÃ APPLY prod 2026-07-29** (ref `znzgugvfhgmiszqgjulk`) — bảng RỖNG (chưa backfill). Chưa chạy cron → `loadHistoryFromDb` trả rỗng, route lùi về gom kho VASEP trực tiếp = hành vi trước khi có DB (biểu đồ vẫn chạy, chỉ không dài quá ~13 tuần).
 - **KÍCH HOẠT còn thiếu**: cron dùng chung env `CRON_SECRET` với refresh-fish (đã có); `SUPABASE_SERVICE_ROLE_KEY` đã có. Chạy trên **Vercel cron** (`vercel.json`, thứ Bảy) — Vercel Cron tự gắn `Authorization: Bearer CRON_SECRET`. ⚠️ Đây là cron THỨ 3 → **Hobby chỉ cho 2 cron/dự án**, cần Pro (hoặc chờ đến thứ Bảy đầu tiên để backfill; muốn ngay thì gọi tay endpoint với header Bearer).
 
-### Phân quyền tài khoản quản lý — migration [`0028_staff_permissions.sql`](../../supabase/migrations/0028_staff_permissions.sql) (2026-07-30) — ⚠️ CHƯA APPLY prod
+### Phân quyền tài khoản quản lý — migration [`0028_staff_permissions.sql`](../../supabase/migrations/0028_staff_permissions.sql) (2026-07-30) — ✅ ĐÃ APPLY prod 2026-08-01
 
 | Thay đổi | Nghĩa |
 |---|---|
@@ -210,7 +210,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - **Chưa apply cột thì AN TOÀN**: `requireStaff` tra `staff_permissions` trong try/catch riêng → cột chưa có ⇒ quản lý vẫn vào được với **preset mặc định** (không bị coi là "không phải staff"). Ghi quyền (`PATCH /api/admin/staff`) khi cột chưa có → trả `migration_needed`, UI báo cần apply 0028.
 - ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`). Chưa apply: quản lý cũ chạy theo preset mặc định; tab Phân quyền hiện cảnh báo `migrationNeeded`.
 
-### Ghi chú theo dõi onboarding khách — migration [`0029_customer_staff_notes.sql`](../../supabase/migrations/0029_customer_staff_notes.sql) (2026-07-30) — ⚠️ CHƯA APPLY prod
+### Ghi chú theo dõi onboarding khách — migration [`0029_customer_staff_notes.sql`](../../supabase/migrations/0029_customer_staff_notes.sql) (2026-07-30) — ✅ ĐÃ APPLY prod 2026-08-01
 
 | Thay đổi | Nghĩa |
 |---|---|
@@ -221,7 +221,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - Cờ theo dõi NỘI BỘ của SDVICO — **không đụng luồng khách/premium**. Đọc trong `GET /api/admin/accounts` (map `staffUsed`/`staffGuided`/`noteBy`/`noteAt`); ghi qua `PATCH action='set-flags'` (`{used?,guided?}`) cần cờ **`tai-khoan:edit`** — chỉ vá cờ được gửi, ghi kèm `staff_note_by`/`staff_note_at`, **KHÔNG đụng `updated_at`** (khỏi làm sai nhịp webhook). UI: 2 chip bật/tắt mỗi hàng khách trong tab Tài khoản (sửa được khi có edit; chỉ xem thì hiện badge trạng thái).
 - Cột đọc được qua RLS bởi chính chủ (customers self-select) nhưng KHÔNG nhạy cảm (tình trạng onboarding của chính họ); app khách không hiển thị.
 
-### Nhật ký hoạt động admin — migration [`0030_admin_activity_log.sql`](../../supabase/migrations/0030_admin_activity_log.sql) (2026-07-30) — ⚠️ CHƯA APPLY prod
+### Nhật ký hoạt động admin — migration [`0030_admin_activity_log.sql`](../../supabase/migrations/0030_admin_activity_log.sql) (2026-07-30) — ✅ ĐÃ APPLY prod 2026-08-01
 
 | Thay đổi | Nghĩa |
 |---|---|
@@ -232,7 +232,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - **Đọc**: `GET /api/admin/activity` (**`requireAdmin`** — chỉ quản trị viên) trả tối đa 300 dòng mới nhất, lọc `?actor=` (khớp SĐT) & `?action=`; đọc hỏng → rỗng + `migrationNeeded` + `error{code,message,hint}` THẬT. **`POST`** (requireAdmin) = GHI THỬ một dòng `system.log-probe` rồi đếm lại → nút "Kiểm tra ghi nhật ký" ở tab Nhật ký (biết log câm hay không mà không phải đợi thao tác thật). UI: tab **Nhật ký** (admin-only) — tìm theo SĐT/tên thao tác + chọn loại + nút "Chỉ xóa/nhạy cảm".
 - ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`).
 
-### Đo thật việc dùng app — migration [`0031_customer_app_usage.sql`](../../supabase/migrations/0031_customer_app_usage.sql) (2026-08-01) — ⚠️ CHƯA APPLY prod
+### Đo thật việc dùng app — migration [`0031_customer_app_usage.sql`](../../supabase/migrations/0031_customer_app_usage.sql) (2026-08-01) — ✅ ĐÃ APPLY prod 2026-08-01
 
 | Cột mới trên `customers` | Nghĩa |
 |---|---|
@@ -244,7 +244,9 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - **Ghi**: `POST /api/me/heartbeat` (đăng nhập mới ghi; chưa đăng nhập → `recorded:false`, KHÔNG lỗi). Chỉ ghi MỐC + CHẾ ĐỘ — **không vị trí, không thao tác**. KHÔNG đụng `updated_at` (cột đó là mốc dữ liệu khách đổi; heartbeat ghi vào là mọi tài khoản trông như vừa sửa mỗi lần mở app).
 - **Client** `src/lib/heartbeat.ts` — bốn hàng rào offline: mất sóng thì KHÔNG gọi · cửa chặn **12 giờ/máy** (`forfish.heartbeat.v1`) · `AbortSignal.timeout` 8s + `.catch` nuốt sạch · gọi trong `useEffect` sau 3s, không `await` ở đường vẽ màn. Là POST nên service worker bỏ qua hẳn. Luật thuần `shouldSendHeartbeat` có test.
 - **Đọc**: `/quan-tri` tab Tài khoản, chip `AppUsage` cạnh chip staff: **"Bản cài · <giờ>"** (xanh) hoặc **"CHƯA mở bản cài"** (vàng, tooltip giải thích kho A2HS tách riêng), + **"Đủ đồ đi biển · <giờ>"**.
-- ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`).
+- ⚠️ **`offline_ready_at` chỉ ghi khi ĐO ĐƯỢC TRÊN ĐÚNG KHO** (sửa 2026-08-01f): iOS cho bản A2HS kho RIÊNG tách Safari ⇒ tải đủ trong Safari KHÔNG chứng minh gì cho bản cài; luật ở `src/lib/app-usage.ts` `countsAsOfflineReady` (iOS đòi `standalone`; Android tính cả hai vì dùng chung kho). Client gửi kèm cờ `ios`.
+- **Đọc thành BẬC THANG**: `usageStage()` → `chua-ghi-nhan` (chưa gửi nhịp — KHÔNG có nghĩa chưa dùng app) → `moi-vo-web` (mở web, chưa mở bản cài — **nhóm gọi điện trước tiên**) → `da-mo-ban-cai` → `du-do-di-bien`. `usageCallPriority()` xếp ai gọi trước. Cột `staff_used` (0029) vẫn còn trong DB nhưng ĐÃ GỠ khỏi màn — máy đo thật thay cho nhân viên tự tick.
+- ✅ **ĐÃ APPLY prod 2026-08-01** (ref `znzgugvfhgmiszqgjulk`).
 
 ## 3. Domain logic — `src/lib/documents.ts`
 

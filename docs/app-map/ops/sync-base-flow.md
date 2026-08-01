@@ -1,6 +1,8 @@
 # ops: Luồng SYNC BASE → sdvico + hoainxm (chuẩn tái dùng)
 
-> **Kích hoạt bằng mô tả ngắn**: "sync base", "merge base về", "kéo code mới từ Long-Forfun", "check repo base cập nhật". Khi thấy các cụm này → chạy ĐÚNG luồng dưới, KHÔNG cần giải thích lại từ đầu.
+> Load khi: user nói "sync base", "merge base về", "kéo code mới từ Long-Forfun", "check repo base cập nhật", hoặc bất kỳ task đồng bộ code từ repo gốc Long-Forfun sang sdvico + hoainxm.
+
+> **Kích hoạt bằng mô tả ngắn**: các cụm trên → chạy ĐÚNG luồng dưới, KHÔNG cần giải thích lại từ đầu.
 
 ## 0. Bất biến của luồng (đọc 1 lần, nhớ mãi)
 
