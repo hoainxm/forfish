@@ -11,7 +11,7 @@
 import { useEffect } from "react";
 import { useAuthUser } from "@/lib/use-auth";
 import { sendHeartbeat } from "@/lib/heartbeat";
-import { isStandalone } from "@/lib/storage-persist";
+import { isIOS, isStandalone } from "@/lib/storage-persist";
 import { isShellReady } from "@/lib/shell-ready";
 import { savedCoverage } from "@/lib/pretrip";
 
@@ -28,10 +28,13 @@ export function UsageHeartbeat() {
         try {
           const shellOk = await isShellReady();
           if (!alive) return;
-          // "đủ đồ đi biển" = vỏ app cài đủ VÀ mọi lớp dữ liệu đã tải
+          // "đủ đồ" = vỏ app cài đủ VÀ mọi lớp dữ liệu đã tải. Máy chủ còn
+          // lọc thêm một lần theo chế độ chạy (iOS/Safari không tính) — xem
+          // countsAsOfflineReady trong lib/app-usage.ts.
           const cov = savedCoverage({});
           void sendHeartbeat({
             standalone: isStandalone(),
+            ios: isIOS(),
             offlineReady: shellOk && cov.allSaved,
           });
         } catch {

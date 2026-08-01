@@ -65,6 +65,9 @@ function markSent(now: number): void {
  */
 export async function sendHeartbeat(info: {
   standalone: boolean;
+  /** máy iOS — máy chủ cần biết để KHÔNG tính "đủ đồ" khi nhịp gửi từ Safari
+   *  (bản cài trên iOS có kho riêng — xem lib/app-usage.ts) */
+  ios: boolean;
   offlineReady: boolean;
 }): Promise<boolean> {
   try {

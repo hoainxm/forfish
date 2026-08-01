@@ -33,6 +33,11 @@ import {
   type SellContactDraft,
 } from "@/lib/sell-contacts";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
+import {
+  usageStage,
+  USAGE_STAGE_LABEL,
+  type UsageStage,
+} from "@/lib/app-usage";
 import { createClient } from "@/lib/supabase/client";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCccd, isValidCccd } from "@/lib/crew";
@@ -1001,15 +1006,16 @@ function AccountsTab({ me }: { me: Me }) {
                       hiện trạng thái để xem. */}
                   <div className="mt-1 flex basis-full flex-wrap items-center gap-1.5">
                     <span className="text-[0.75rem] font-semibold text-foreground/50">
-                      Theo dõi:
+                      Hướng dẫn:
                     </span>
-                    <FlagToggle
-                      onLabel="Đã sử dụng"
-                      offLabel="Chưa sử dụng"
-                      value={a.staffUsed}
-                      editable={perms.edit}
-                      onToggle={() => setFlag(a, { used: !a.staffUsed })}
-                    />
+                    {/* BỎ chip "Đã/Chưa sử dụng" (2026-08-01, chủ dự án):
+                        nó là nhân viên TỰ TICK để đoán khách có dùng app không
+                        — nay máy TỰ BÁO (chip trạng thái bên dưới), đo thật
+                        thay cho đoán. Giữ lại đúng chip "đã hướng dẫn": cái đó
+                        ghi VIỆC NHÂN VIÊN ĐÃ LÀM, không phép đo nào thay được.
+                        Cặp đọc rất gọn: đã hướng dẫn chưa (mình làm gì) ×
+                        trạng thái đo được (khách làm được tới đâu). Cột
+                        `staff_used` giữ nguyên trong DB, chỉ gỡ khỏi màn. */}
                     <FlagToggle
                       onLabel="Đã hướng dẫn trực tiếp"
                       offLabel="Chưa hướng dẫn trực tiếp"
@@ -1137,37 +1143,41 @@ function RoleBadge({ account }: { account: Account }) {
  * tay. Đây là danh sách để GỌI ĐIỆN NHẮC.
  */
 function AppUsage({ a }: { a: Account }) {
-  const chip = (cls: string, text: string, title?: string) => (
-    <span
-      title={title}
-      className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${cls}`}
-    >
-      {text}
-    </span>
-  );
-  if (!a.pwaLastOpenAt && !a.webLastOpenAt) {
-    return chip(
-      "bg-field text-foreground/50",
-      "chưa ghi nhận mở app",
-      "Máy chưa gửi nhịp nào — có thể chưa đăng nhập trên app, hoặc chưa mở lần nào từ 2026-08-01",
-    );
-  }
+  const stage = usageStage(a);
+  const skin: Record<UsageStage, string> = {
+    "chua-ghi-nhan": "bg-field text-foreground/50",
+    "moi-vo-web": "bg-warn-bg text-warn",
+    "da-mo-ban-cai": "bg-t1-bg text-t1",
+    "du-do-di-bien": "bg-ok-bg text-ok",
+  };
+  const why: Record<UsageStage, string> = {
+    "chua-ghi-nhan":
+      "Máy chưa gửi nhịp nào. KHÔNG có nghĩa chưa dùng app: nhịp chỉ gửi khi ĐÃ ĐĂNG NHẬP + còn sóng, và chỉ ghi từ 01/08/2026.",
+    "moi-vo-web":
+      "Đã mở app trong trình duyệt nhưng CHƯA lần nào mở bản cài. Trên iPhone, bản Thêm-vào-Màn-hình-chính có kho RIÊNG — ra khơi là trắng tay. Gọi nhắc: mở icon vừa cài ngay khi còn sóng.",
+    "da-mo-ban-cai":
+      "Đã mở bản cài nhưng chưa lần nào tải xong đủ vỏ app + mọi lớp dữ liệu. Chỉ cần nhắc bấm tải lúc còn sóng.",
+    "du-do-di-bien":
+      "Máy đã báo: vỏ app đủ + mọi lớp dữ liệu đã tải, ĐO TRÊN ĐÚNG KHO sẽ dùng ngoài biển. Lưu ý: đây là mốc ĐÃ TỪNG đủ, không phải bây giờ còn đủ.",
+  };
+  const mocs = [
+    a.offlineReadyAt ? `đủ đồ ${fmtDT(a.offlineReadyAt)}` : null,
+    a.pwaLastOpenAt ? `bản cài ${fmtDT(a.pwaLastOpenAt)}` : null,
+    a.webLastOpenAt ? `web ${fmtDT(a.webLastOpenAt)}` : null,
+  ].filter(Boolean);
   return (
     <>
-      {a.pwaLastOpenAt
-        ? chip("bg-ok-bg text-ok", `Bản cài · ${fmtDT(a.pwaLastOpenAt)}`)
-        : chip(
-            "bg-warn-bg text-warn",
-            "CHƯA mở bản cài",
-            "Mới chỉ mở trong trình duyệt. Trên iPhone, bản Thêm-vào-Màn-hình-chính có kho RIÊNG — chưa mở nó lần nào lúc còn sóng thì ra khơi là trắng tay.",
-          )}
-      {a.offlineReadyAt
-        ? chip("bg-ok-bg text-ok", `Đủ đồ đi biển · ${fmtDT(a.offlineReadyAt)}`)
-        : chip(
-            "bg-field text-foreground/55",
-            "chưa đủ đồ đi biển",
-            "Máy chưa báo lần nào rằng vỏ app + mọi lớp dữ liệu đã tải xong",
-          )}
+      <span
+        title={why[stage]}
+        className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${skin[stage]}`}
+      >
+        {USAGE_STAGE_LABEL[stage]}
+      </span>
+      {mocs.length > 0 && (
+        <span className="text-[0.75rem] text-foreground/40">
+          {mocs.join(" · ")}
+        </span>
+      )}
     </>
   );
 }

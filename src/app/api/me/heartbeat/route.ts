@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeVnPhone } from "@/lib/phone";
+import { countsAsOfflineReady } from "@/lib/app-usage";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -26,6 +27,7 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as {
     standalone?: boolean;
+    ios?: boolean;
     offlineReady?: boolean;
   } | null;
 
@@ -36,7 +38,17 @@ export async function POST(req: Request) {
   const patch: Record<string, string> = body?.standalone
     ? { pwa_last_open_at: now }
     : { web_last_open_at: now };
-  if (body?.offlineReady) patch.offline_ready_at = now;
+  // "ĐỦ ĐỒ ĐI BIỂN" phải đo trên ĐÚNG CÁI KHO sẽ dùng ngoài biển: trên iOS,
+  // tải đủ trong Safari KHÔNG chứng minh gì cho bản cài (kho tách riêng).
+  if (
+    countsAsOfflineReady({
+      offlineReady: !!body?.offlineReady,
+      standalone: !!body?.standalone,
+      ios: !!body?.ios,
+    })
+  ) {
+    patch.offline_ready_at = now;
+  }
 
   // KHÔNG đụng `updated_at`: cột đó là mốc dữ liệu KHÁCH đổi (hạng, tên…), để
   // heartbeat ghi vào là mọi tài khoản trông như vừa được sửa mỗi lần mở app.
