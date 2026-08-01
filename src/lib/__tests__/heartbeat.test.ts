@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  beatSignature,
   shouldSendHeartbeat,
   netBackoffMs,
   HEARTBEAT_MIN_GAP_MS,
@@ -141,5 +142,87 @@ describe("netBackoffMs — thang lùi khi không nghe được máy chủ", () =
     for (let i = 1; i < steps.length; i++) {
       expect(steps[i]).toBeGreaterThan(steps[i - 1]);
     }
+  });
+});
+
+// TIN MỚI ĐI NGAY (2026-08-01h) — gốc: cửa 12 giờ gác theo THỜI GIAN trong khi
+// thứ cần báo là TRẠNG THÁI ĐÃ ĐỔI. Ca chủ dự án chỉ ra: mở web rồi 5 giây sau
+// mở bản cài, trên Android (bản cài dùng CHUNG kho với Chrome) nhịp thứ hai bị
+// chặn ⇒ pwa_last_open_at mãi null.
+describe("beatSignature — phần TIN TỨC của một nhịp", () => {
+  const web = { standalone: false, ios: false, offlineReady: false };
+
+  it("web vs bản cài là hai chữ ký KHÁC nhau", () => {
+    expect(beatSignature(web)).not.toBe(
+      beatSignature({ ...web, standalone: true }),
+    );
+  });
+
+  it("chưa đủ đồ vs đủ đồ đi biển là hai chữ ký KHÁC nhau", () => {
+    expect(beatSignature(web)).not.toBe(
+      beatSignature({ ...web, offlineReady: true }),
+    );
+  });
+
+  it("iOS-Safari báo 'đủ đồ' KHÔNG đổi chữ ký — máy chủ vốn không ghi (kho A2HS tách riêng)", () => {
+    const iosWeb = { standalone: false, ios: true, offlineReady: false };
+    expect(beatSignature({ ...iosWeb, offlineReady: true })).toBe(
+      beatSignature(iosWeb),
+    );
+    // nhưng iOS BẢN CÀI + đủ đồ thì có ghi ⇒ phải đổi
+    expect(
+      beatSignature({ standalone: true, ios: true, offlineReady: true }),
+    ).not.toBe(beatSignature({ standalone: true, ios: true, offlineReady: false }));
+  });
+
+  it("mở app lần nữa y hệt điều kiện → chữ ký y nguyên (vẫn im 12 giờ)", () => {
+    expect(beatSignature(web)).toBe(beatSignature({ ...web }));
+  });
+});
+
+describe("shouldSendHeartbeat — tin mới vượt cửa 12 giờ, nhưng không vượt mức hoãn vì mạng", () => {
+  it("VỪA gửi 5 giây trước mà chữ ký ĐỔI (web → bản cài) → vẫn gửi", () => {
+    expect(
+      shouldSendHeartbeat({
+        online: true,
+        lastAt: NOW - 5_000,
+        sigChanged: true,
+        nowMs: NOW,
+      }),
+    ).toBe(true);
+  });
+
+  it("chữ ký KHÔNG đổi → cửa 12 giờ vẫn chặn như cũ", () => {
+    expect(
+      shouldSendHeartbeat({
+        online: true,
+        lastAt: NOW - 5_000,
+        sigChanged: false,
+        nowMs: NOW,
+      }),
+    ).toBe(false);
+  });
+
+  it("MẤT SÓNG thì tin mới cũng nằm im", () => {
+    expect(
+      shouldSendHeartbeat({
+        online: false,
+        lastAt: NOW - 5_000,
+        sigChanged: true,
+        nowMs: NOW,
+      }),
+    ).toBe(false);
+  });
+
+  it("ĐANG HOÃN VÌ MẠNG thì tin mới cũng phải chờ — đường truyền vẫn hỏng", () => {
+    expect(
+      shouldSendHeartbeat({
+        online: true,
+        lastAt: NOW - 5_000,
+        retryAfter: NOW + 60_000,
+        sigChanged: true,
+        nowMs: NOW,
+      }),
+    ).toBe(false);
   });
 });

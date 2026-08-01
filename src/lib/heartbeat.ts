@@ -9,7 +9,9 @@
 //   1. MẤT SÓNG → không gọi gì cả (kiểm `navigator.onLine` trước tiên).
 //   2. CỬA CHẶN 12 GIỜ/máy — mở app 20 lần/ngày cũng chỉ gửi một lần. Ngoài
 //      khơi sóng yếu, mỗi request thừa là một lần tranh băng thông với tin bão.
-//   3. ĐỒNG HỒ 8 giây + `.catch()` nuốt sạch — sóng "sống mà chết" (bắt tay
+//      NGOẠI LỆ: TIN CÓ THẬT SỰ MỚI thì đi ngay, không phải chờ đồng hồ — xem
+//      `beatSignature`.
+//   3. ĐỒNG HỒ 5 giây + `.catch()` nuốt sạch — sóng "sống mà chết" (bắt tay
 //      được, gói tin không về) không được để lại một promise treo.
 //   4. GỌI TRONG useEffect, KHÔNG await ở đường vẽ màn — màn hình không bao giờ
 //      phải đợi nó.
@@ -17,6 +19,7 @@
 // đụng gì tới kho offline.
 
 import { apiUrl } from "@/lib/api-base";
+import { countsAsOfflineReady } from "@/lib/app-usage";
 
 /*  Mốc lần GHI ĐƯỢC gần nhất — quy ước key forfish.* (state-registry).
     v1 → v2 (2026-08-01g) VÌ ĐỔI NGHĨA: v1 là "đã GỬI ĐI" (ghi trước khi gửi),
@@ -28,6 +31,8 @@ export const HEARTBEAT_KEY = "forfish.heartbeat.v2";
     mốc ghi được, 2026-08-01g. Xem ghi chú ở sendHeartbeat: hoãn bao lâu tuỳ
     kiểu hỏng, nên phải lưu MỐC chứ không lưu khoảng cách. */
 export const HEARTBEAT_RETRY_KEY = "forfish.heartbeat.retry.v1";
+/*  CHỮ KÝ của nhịp GHI ĐƯỢC gần nhất — xem beatSignature. */
+export const HEARTBEAT_SIG_KEY = "forfish.heartbeat.sig.v1";
 
 /** GHI ĐƯỢC rồi thì im 12 giờ (mở app 20 lần/ngày cũng chỉ một nhịp) */
 export const HEARTBEAT_MIN_GAP_MS = 12 * 60 * 60 * 1000;
@@ -64,6 +69,47 @@ export function netBackoffMs(failCount: number): number {
 const HEARTBEAT_TIMEOUT_MS = 5000;
 
 /**
+ * CHỮ KÝ của một nhịp = phần TIN TỨC trong đó, rút gọn thành vài ký tự.
+ * `"w-"` web chưa đủ đồ · `"wr"` web đã đủ đồ · `"p-"` bản cài chưa đủ đồ ·
+ * `"pr"` bản cài + đủ đồ.
+ *
+ * VÌ SAO CÓ (2026-08-01h, chủ dự án hỏi "mở web rồi 5s sau mở PWA thì có chạy
+ * không"): cửa 12 giờ gác theo THỜI GIAN, trong khi thứ cần báo là TRẠNG THÁI
+ * ĐÃ ĐỔI. Hai cái lệch nhau đúng ở hai chỗ quan trọng nhất:
+ *
+ *  · web → BẢN CÀI: trên Android bản cài dùng CHUNG kho với Chrome, nên mở web
+ *    lúc 15:00 rồi mở bản cài lúc 15:00:05 là nhịp thứ hai bị cửa 12 giờ chặn
+ *    ⇒ `pwa_last_open_at` mãi null ⇒ /quan-tri báo "Chưa mở bản cài" cho ĐÚNG
+ *    người vừa mở bản cài — sai đúng con số mà tính năng này sinh ra để đếm.
+ *    (iOS không dính, nhưng chỉ vì kho A2HS tách riêng Safari — ăn may, không
+ *    phải thiết kế.)
+ *  · chưa đủ đồ → ĐỦ ĐỒ ĐI BIỂN: nặng hơn, dính CẢ HAI nền. Bà con tải xong
+ *    gói đi biển lúc 15:00 thì `offline_ready_at` vẫn trống tới 03:00 sáng hôm
+ *    sau ⇒ người đã sẵn sàng vẫn nằm trong danh sách đáng-gọi-điện, người thật
+ *    sự thiếu thì lẫn vào đám đông. Đây là cột an toàn, không phải cột vui.
+ *
+ * Dùng `countsAsOfflineReady` (luật của MÁY CHỦ) chứ không dùng thẳng cờ
+ * `offlineReady`: trên iOS-Safari máy chủ KHÔNG ghi "đủ đồ" dù client báo có,
+ * nên cờ đó đổi mà chữ ký không đổi — khỏi gửi một nhịp chẳng ghi được gì.
+ *
+ * Chi phí sóng gần như không đổi: chữ ký chỉ đổi vài lần trong ĐỜI một máy
+ * (lần đầu mở bản cài, lần đầu tải đủ đồ). Mở app hằng ngày thì chữ ký y
+ * nguyên và vẫn im 12 tiếng như cũ.
+ */
+export function beatSignature(info: {
+  standalone: boolean;
+  ios: boolean;
+  offlineReady: boolean;
+}): string {
+  const ready = countsAsOfflineReady({
+    offlineReady: info.offlineReady,
+    standalone: info.standalone,
+    ios: info.ios,
+  });
+  return `${info.standalone ? "p" : "w"}${ready ? "r" : "-"}`;
+}
+
+/**
  * Có nên gửi lúc này không — THUẦN, có test.
  *
  * LỖI ĐÃ SỬA (2026-08-01g) — "MỘT LẦN HỎNG = IM 12 TIẾNG": bản trước ghi dấu
@@ -82,13 +128,19 @@ export function shouldSendHeartbeat(args: {
   lastAt: number | null;
   /** sớm nhất được thử lại (mốc tuyệt đối); null = không hoãn */
   retryAfter?: number | null;
+  /** chữ ký nhịp này KHÁC lần ghi được gần nhất → tin mới, đi ngay */
+  sigChanged?: boolean;
   nowMs: number;
 }): boolean {
   if (!args.online) return false;
+  // MỨC HOÃN VÌ MẠNG gác TRƯỚC và không ai vượt được: tin có mới tới đâu thì
+  // đường truyền vẫn đang hỏng, gửi thêm chỉ tốn sóng.
+  if (args.retryAfter != null && args.nowMs < args.retryAfter) return false;
+  // TIN MỚI (đổi chế độ chạy / vừa đủ đồ đi biển) → không phải chờ đồng hồ.
+  if (args.sigChanged) return true;
   if (args.lastAt != null && args.nowMs - args.lastAt < HEARTBEAT_MIN_GAP_MS) {
     return false;
   }
-  if (args.retryAfter != null && args.nowMs < args.retryAfter) return false;
   return true;
 }
 
@@ -118,6 +170,22 @@ function clearMark(key: string): void {
   }
 }
 
+function readText(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeText(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    /* hết chỗ / chế độ riêng tư — bỏ qua */
+  }
+}
+
 /**
  * Gửi một nhịp. KHÔNG BAO GIỜ ném, không bao giờ chặn. Trả về `true` nếu có
  * gửi thật (dùng cho test/gỡ lỗi, chỗ gọi không cần đọc).
@@ -133,11 +201,13 @@ export async function sendHeartbeat(info: {
     const online =
       typeof navigator === "undefined" ? false : navigator.onLine !== false;
     const now = Date.now();
+    const sig = beatSignature(info);
     if (
       !shouldSendHeartbeat({
         online,
         lastAt: readMark(HEARTBEAT_KEY),
         retryAfter: readMark(HEARTBEAT_RETRY_KEY),
+        sigChanged: readText(HEARTBEAT_SIG_KEY) !== sig,
         nowMs: now,
       })
     ) {
@@ -170,8 +240,11 @@ export async function sendHeartbeat(info: {
       recorded?: boolean;
     } | null;
     if (!res.ok || body?.recorded !== true) return false;
-    // GHI ĐƯỢC → đóng cửa 12 giờ và bỏ mọi mức hoãn
+    // GHI ĐƯỢC → đóng cửa 12 giờ, nhớ CHỮ KÝ vừa báo, bỏ mọi mức hoãn.
+    // Chữ ký chỉ ghi ở đây (sau khi máy chủ xác nhận) — gửi mà không ghi được
+    // thì lần sau vẫn phải coi là tin mới.
     writeMark(HEARTBEAT_KEY, now);
+    writeText(HEARTBEAT_SIG_KEY, sig);
     clearMark(HEARTBEAT_RETRY_KEY);
     return true;
   } catch {
