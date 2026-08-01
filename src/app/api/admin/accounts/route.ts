@@ -18,6 +18,7 @@ import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
 import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
 import { TEMP_RESET_PASSWORD } from "@/lib/temp-password";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
+import { normalizePlatform } from "@/lib/app-usage";
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -64,12 +65,27 @@ export async function GET() {
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
 
-  const { data: rows, error } = await admin
-    .from("customers")
-    .select(
-      "phone, name, tier, premium_until, premium_activated_at, role, sdwork_ref, updated_at, staff_used, staff_guided, staff_note_by, staff_note_at, pwa_last_open_at, web_last_open_at, offline_ready_at",
-    )
-    .order("updated_at", { ascending: false });
+  // CỘT LOẠI MÁY CÓ THỂ CHƯA CÓ: migration 0022 do chủ dự án tự apply. Chọn
+  // một cột không tồn tại là HỎNG CẢ CÂU ⇒ mất trắng danh sách 700+ khách chỉ
+  // vì một chip phụ. Nên: thử có cột, hỏng thì lấy lại bộ cũ.
+  const BASE_COLS =
+    "phone, name, tier, premium_until, premium_activated_at, role, sdwork_ref, updated_at, staff_used, staff_guided, staff_note_by, staff_note_at, pwa_last_open_at, web_last_open_at, offline_ready_at";
+  // `.select()` với chuỗi cột ĐỘNG thì Supabase không suy được kiểu hàng nữa
+  // (trả union kèm GenericStringError) — ép về bản ghi thô, phía dưới vẫn bóc
+  // từng cột bằng `as` y như trước.
+  const read = async (cols: string) => {
+    const r = await admin
+      .from("customers")
+      .select(cols)
+      .order("updated_at", { ascending: false });
+    return {
+      data: r.data as unknown as Record<string, unknown>[] | null,
+      error: r.error,
+    };
+  };
+
+  let { data: rows, error } = await read(`${BASE_COLS}, device_platform`);
+  if (error) ({ data: rows, error } = await read(BASE_COLS));
   if (error) return err(500, "query_failed");
 
   // đối chiếu auth: SĐT nào đăng nhập được (đã provision)
@@ -117,6 +133,7 @@ export async function GET() {
     pwaLastOpenAt: (r.pwa_last_open_at as string) ?? null,
     webLastOpenAt: (r.web_last_open_at as string) ?? null,
     offlineReadyAt: (r.offline_ready_at as string) ?? null,
+    devicePlatform: normalizePlatform(r.device_platform),
   }));
 
   // THỐNG KÊ THEO NGƯỜI CẤP: mỗi khách tính theo lần cấp GẦN NHẤT

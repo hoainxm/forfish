@@ -158,7 +158,7 @@ describe("netBackoffMs — thang lùi khi không nghe được máy chủ", () =
 // mở bản cài, trên Android (bản cài dùng CHUNG kho với Chrome) nhịp thứ hai bị
 // chặn ⇒ pwa_last_open_at mãi null.
 describe("beatSignature — phần TIN TỨC của một nhịp", () => {
-  const web = { standalone: false, ios: false, offlineReady: false };
+  const web = { standalone: false, offlineReady: false };
 
   it("web vs bản cài là hai chữ ký KHÁC nhau", () => {
     expect(beatSignature(web)).not.toBe(
@@ -166,21 +166,24 @@ describe("beatSignature — phần TIN TỨC của một nhịp", () => {
     );
   });
 
-  it("chưa đủ đồ vs đủ đồ đi biển là hai chữ ký KHÁC nhau", () => {
-    expect(beatSignature(web)).not.toBe(
-      beatSignature({ ...web, offlineReady: true }),
+  it("chưa đủ đồ vs đủ đồ đi biển là hai chữ ký KHÁC nhau (trên BẢN CÀI)", () => {
+    // phải xét trên bản cài: luật một chiều nên ở web thì "đủ đồ" chưa với tới
+    const pwa = { standalone: true, offlineReady: false };
+    expect(beatSignature(pwa)).not.toBe(
+      beatSignature({ ...pwa, offlineReady: true }),
     );
   });
 
-  it("iOS-Safari báo 'đủ đồ' KHÔNG đổi chữ ký — máy chủ vốn không ghi (kho A2HS tách riêng)", () => {
-    const iosWeb = { standalone: false, ios: true, offlineReady: false };
-    expect(beatSignature({ ...iosWeb, offlineReady: true })).toBe(
-      beatSignature(iosWeb),
+  it("CHƯA CÀI mà báo 'đủ đồ' KHÔNG đổi chữ ký — máy chủ vốn không ghi", () => {
+    // luật một chiều: chưa qua bản cài thì bậc "đủ đồ" không với tới được, nên
+    // cờ offlineReady đổi cũng chẳng có tin gì mới để báo
+    expect(beatSignature({ standalone: false, offlineReady: true })).toBe(
+      beatSignature({ standalone: false, offlineReady: false }),
     );
-    // nhưng iOS BẢN CÀI + đủ đồ thì có ghi ⇒ phải đổi
-    expect(
-      beatSignature({ standalone: true, ios: true, offlineReady: true }),
-    ).not.toBe(beatSignature({ standalone: true, ios: true, offlineReady: false }));
+    // còn BẢN CÀI + đủ đồ thì có ghi ⇒ phải đổi
+    expect(beatSignature({ standalone: true, offlineReady: true })).not.toBe(
+      beatSignature({ standalone: true, offlineReady: false }),
+    );
   });
 
   it("mở app lần nữa y hệt điều kiện → chữ ký y nguyên (vẫn im 12 giờ)", () => {

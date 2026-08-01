@@ -11,7 +11,8 @@
 import { useEffect } from "react";
 import { useAuthUser } from "@/lib/use-auth";
 import { nextFastRetryDelayMs, sendHeartbeat } from "@/lib/heartbeat";
-import { isIOS, isStandalone } from "@/lib/storage-persist";
+import { devicePlatform, isStandalone } from "@/lib/storage-persist";
+import { deviceId } from "@/lib/device-id";
 import { isShellReady } from "@/lib/shell-ready";
 import { savedCoverage } from "@/lib/pretrip";
 
@@ -31,14 +32,18 @@ export function UsageHeartbeat() {
       try {
         const shellOk = await isShellReady();
         if (!alive) return;
-        // "đủ đồ" = vỏ app cài đủ VÀ mọi lớp dữ liệu đã tải. Máy chủ còn
-        // lọc thêm một lần theo chế độ chạy (iOS/Safari không tính) — xem
-        // countsAsOfflineReady trong lib/app-usage.ts.
+        // "đủ đồ" = vỏ app cài đủ VÀ mọi lớp dữ liệu đã tải. Máy chủ còn lọc
+        // thêm: CHƯA MỞ BẢN CÀI thì không tính, mọi nền — thang một chiều
+        // web → bản cài → tải (countsAsOfflineReady, lib/app-usage.ts).
         const cov = savedCoverage({});
         const ok = await sendHeartbeat({
           standalone: isStandalone(),
-          ios: isIOS(),
           offlineReady: shellOk && cov.allSaved,
+          // loại máy THÔ (ios|android|khac) — để nhân viên gọi điện chỉ đúng
+          // bước cài. KHÔNG gửi user-agent đầy đủ (dấu vân tay).
+          platform: devicePlatform(),
+          // mã máy — để máy chủ biết bà con vừa đổi điện thoại và dọn mốc cũ
+          deviceId: deviceId(),
         });
         if (!alive || ok) return;
         const wait = nextFastRetryDelayMs();

@@ -33,6 +33,29 @@ export function isIOS(): boolean {
   return iOSClassic || iPadOS;
 }
 
+/** Máy Android (loại trừ máy iOS — có UA lẫn chữ "Mobile" giống nhau) */
+export function isAndroid(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /android/i.test(navigator.userAgent || "");
+}
+
+/**
+ * LOẠI MÁY THÔ để báo về /quan-tri — `"ios" | "android" | "khac"`.
+ *
+ * CHỈ loại máy, KHÔNG bao giờ gửi user-agent đầy đủ: chuỗi UA là dấu vân tay
+ * nhận diện được từng máy, mà app của ngư dân không được biến thành thứ theo
+ * dõi bà con (cùng luật với migration 0021/0022).
+ *
+ * Vì sao nhân viên cần biết: hướng dẫn cài đặt của hai nền KHÁC HẲN nhau, mà
+ * bản cài trên iOS còn có kho riêng tách Safari — gọi điện nhắc mà không biết
+ * máy gì thì dễ chỉ sai bước, bà con làm theo xong vẫn ra khơi tay trắng.
+ */
+export function devicePlatform(): "ios" | "android" | "khac" {
+  if (isIOS()) return "ios";
+  if (isAndroid()) return "android";
+  return "khac";
+}
+
 /**
  * Xin bộ nhớ BỀN. Trả true nếu đang/được cấp bền. Idempotent (đã bền thì thôi).
  * Best-effort: máy không hỗ trợ / bị chặn → false, KHÔNG ném. Chrome cấp theo

@@ -35,6 +35,8 @@ import {
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 import {
   usageStage,
+  PLATFORM_LABEL,
+  type DevicePlatform,
   USAGE_STAGE_LABEL,
   type UsageStage,
 } from "@/lib/app-usage";
@@ -136,6 +138,7 @@ type Account = {
   pwaLastOpenAt: string | null;
   webLastOpenAt: string | null;
   offlineReadyAt: string | null;
+  devicePlatform: DevicePlatform | null;
 };
 
 /** Thống kê theo người cấp premium (log premium_grants) */
@@ -1185,6 +1188,23 @@ function AppUsage({ a }: { a: Account }) {
       >
         {USAGE_STAGE_LABEL[stage]}
       </span>
+      {/* LOẠI MÁY (0022) — nhân viên gọi điện phải chỉ ĐÚNG bước của máy đó:
+          iPhone thì Chia sẻ → Thêm vào Màn hình chính (và bản cài có kho RIÊNG
+          tách Safari), Android thì Cài ứng dụng. Chỉ hiện khi máy đã báo. */}
+      {a.devicePlatform && (
+        <span
+          title={
+            a.devicePlatform === "ios"
+              ? "Máy iPhone/iPad — hướng dẫn: Chia sẻ → Thêm vào Màn hình chính. LƯU Ý: bản cài trên iOS dùng kho RIÊNG, tải dữ liệu trong Safari không tính cho bản cài."
+              : a.devicePlatform === "android"
+                ? "Máy Android — hướng dẫn: bấm Cài ứng dụng. Bản cài dùng chung kho với Chrome nên tải ở đâu cũng như nhau."
+                : "Không nhận ra iPhone hay Android (máy tính, hoặc trình duyệt lạ)."
+          }
+          className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-semibold text-foreground/70"
+        >
+          {PLATFORM_LABEL[a.devicePlatform]}
+        </span>
+      )}
       {mocs.length > 0 && (
         <span className="text-[0.75rem] text-foreground/40">
           {mocs.join(" · ")}

@@ -14,6 +14,28 @@
 //   3 du-do-di-bien   — vỏ app đủ + mọi lớp dữ liệu đã tải, ĐO TRÊN ĐÚNG CÁI
 //                       KHO sẽ dùng ngoài biển (xem countsAsOfflineReady).
 
+/** Loại máy thô — khớp check constraint của `customers.device_platform` (0022) */
+export type DevicePlatform = "ios" | "android" | "khac";
+
+/** Nhãn chip loại máy ở /quan-tri — cùng khuôn ngắn, một dòng (luật nhãn 03) */
+export const PLATFORM_LABEL: Record<DevicePlatform, string> = {
+  ios: "iPhone",
+  android: "Android",
+  khac: "Máy khác",
+};
+
+/**
+ * Ép giá trị máy gửi lên về đúng một loại hợp lệ — THUẦN, có test.
+ *
+ * Vì sao cần: giá trị này đi thẳng vào cột có CHECK constraint. Client cũ
+ * (chưa có bản mới) không gửi gì → `null`, và null phải được giữ nguyên là
+ * "chưa biết" chứ KHÔNG được đoán thành 'khac' — hai thứ đó khác nhau: một
+ * bên là chưa hỏi, một bên là hỏi rồi mà không phải iOS/Android.
+ */
+export function normalizePlatform(v: unknown): DevicePlatform | null {
+  return v === "ios" || v === "android" || v === "khac" ? v : null;
+}
+
 export type UsageStage =
   | "chua-ghi-nhan"
   | "moi-vo-web"
@@ -31,25 +53,32 @@ export const USAGE_STAGE_LABEL: Record<UsageStage, string> = {
 /**
  * Nhịp này có được tính là "ĐỦ ĐỒ ĐI BIỂN" không.
  *
- * ⚠️ LÝ DO CÓ HÀM NÀY (2026-08-01, chủ dự án chỉ ra): iOS cho bản "Thêm vào
- * Màn hình chính" một KHO LƯU TRỮ RIÊNG, tách hẳn Safari. Nên tải đủ dữ liệu
- * TRONG SAFARI **không chứng minh được gì** cho cái icon mà bà con sẽ bấm lúc
- * ra khơi. Bản đầu ghi `offline_ready_at` cho cả hai đường ⇒ chip báo xanh "đủ
- * đồ đi biển" cho đúng người sắp nhổ neo với bản cài TRỐNG TRƠN — nói dối ngay
- * tại ca nguy hiểm nhất (TC-13 trong ops/qa-offline-acceptance.md).
+ * LUẬT: **phải gửi TỪ BẢN CÀI**, mọi nền, không ngoại lệ.
  *
- * Android KHÔNG dính: bản cài dùng CHUNG kho với Chrome (cùng origin), tải ở
- * đâu cũng như nhau — nên bắt buộc standalone ở đó là bắt oan.
+ * ⚠️ LÝ DO GỐC (2026-08-01): iOS cho bản "Thêm vào Màn hình chính" một KHO
+ * LƯU TRỮ RIÊNG, tách hẳn Safari. Tải đủ dữ liệu TRONG SAFARI **không chứng
+ * minh được gì** cho cái icon mà bà con sẽ bấm lúc ra khơi — chip báo xanh cho
+ * đúng người sắp nhổ neo với bản cài TRỐNG TRƠN (TC-13 trong
+ * ops/qa-offline-acceptance.md).
+ *
+ * ⚠️ SIẾT SANG CẢ ANDROID (2026-08-01j, chủ dự án chốt: "1 chiều thôi, web →
+ * PWA → tải; nếu không PWA thì cứ nằm ở Web để đảm bảo họ có PWA"). Bản trước
+ * miễn cho Android vì bản cài ở đó dùng CHUNG kho với Chrome, nên xét về DỮ
+ * LIỆU thì tải ở tab cũng như tải ở bản cài. Nhưng thang này không chỉ đo dữ
+ * liệu — nó là DANH SÁCH GỌI ĐIỆN. Người Android tải đủ trong tab sẽ nhảy
+ * thẳng lên bậc cao nhất, `usageCallPriority` = 3 ("yên tâm nhất"), rơi khỏi
+ * danh sách nhắc cài — dù màn hình họ chưa có cái icon nào. Mà tab Chrome dễ
+ * bị dọn hơn bản cài, `persist()` cũng khó được cấp hơn, và bà con phải nhớ
+ * đường vào thay vì bấm icon. Nay chưa cài thì đứng lại ở "Chưa mở bản cài",
+ * bậc "đủ đồ" KHÔNG có đường tắt.
  */
 export function countsAsOfflineReady(beat: {
   offlineReady: boolean;
   standalone: boolean;
-  ios: boolean;
 }): boolean {
   if (!beat.offlineReady) return false;
-  // iOS: chỉ tính khi nhịp gửi TỪ BẢN CÀI — đúng cái kho sẽ dùng ngoài biển
-  if (beat.ios && !beat.standalone) return false;
-  return true;
+  // chỉ tính khi nhịp gửi TỪ BẢN CÀI — đúng cái kho sẽ dùng ngoài biển
+  return beat.standalone;
 }
 
 /** Quy 3 mốc trong DB về đúng một bậc (bậc cao nhất đạt được). */

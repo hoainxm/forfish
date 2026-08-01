@@ -19,7 +19,7 @@
 // đụng gì tới kho offline.
 
 import { apiUrl } from "@/lib/api-base";
-import { countsAsOfflineReady } from "@/lib/app-usage";
+import { countsAsOfflineReady, type DevicePlatform } from "@/lib/app-usage";
 
 /*  Mốc lần GHI ĐƯỢC gần nhất — quy ước key forfish.* (state-registry).
     v1 → v2 (2026-08-01g) VÌ ĐỔI NGHĨA: v1 là "đã GỬI ĐI" (ghi trước khi gửi),
@@ -102,13 +102,11 @@ const HEARTBEAT_TIMEOUT_MS = 5000;
  */
 export function beatSignature(info: {
   standalone: boolean;
-  ios: boolean;
   offlineReady: boolean;
 }): string {
   const ready = countsAsOfflineReady({
     offlineReady: info.offlineReady,
     standalone: info.standalone,
-    ios: info.ios,
   });
   return `${info.standalone ? "p" : "w"}${ready ? "r" : "-"}`;
 }
@@ -196,10 +194,13 @@ function writeText(key: string, value: string): void {
  */
 export async function sendHeartbeat(info: {
   standalone: boolean;
-  /** máy iOS — máy chủ cần biết để KHÔNG tính "đủ đồ" khi nhịp gửi từ Safari
-   *  (bản cài trên iOS có kho riêng — xem lib/app-usage.ts) */
-  ios: boolean;
   offlineReady: boolean;
+  /** loại máy THÔ để nhân viên gọi điện chỉ đúng bước cài (ios|android|khac).
+   *  KHÔNG BAO GIỜ gửi user-agent đầy đủ — xem lib/storage-persist.ts */
+  platform?: DevicePlatform;
+  /** mã máy (app tự sinh) — máy chủ nhận ra ĐỔI MÁY để reset mốc; null khi
+   *  storage bị chặn, khi đó máy chủ giữ nguyên hành vi cũ */
+  deviceId?: string | null;
 }): Promise<boolean> {
   try {
     const online =
