@@ -111,6 +111,37 @@ export async function GET() {
   // quản lý.
   const adminPhones = parseAdminPhones(process.env.ADMIN_PHONES);
 
+  /*  LỊCH SỬ MÁY (customer_devices, 0022) — MỘT câu cho cả danh sách rồi gom
+      trong JS, KHÔNG hỏi từng khách (716 khách = 716 câu). Bảng nhỏ (mỗi khách
+      1–2 máy) nên lấy hết rẻ hơn nhiều lần hỏi lẻ.
+      KHÔNG trả `device_id` nguyên vẹn ra ngoài — chỉ 6 ký tự cuối làm NHÃN
+      PHÂN BIỆT hai máy cùng loại. Mã đầy đủ không giúp gì cho việc gọi điện,
+      mà vọng một định danh ra API là chuyện không cần thiết.
+      Hỏng (bảng chưa có / lỗi) → danh sách vẫn về, chỉ thiếu chip lịch sử. */
+  const devicesByPhone = new Map<
+    string,
+    { tag: string; platform: string | null; firstSeenAt: string | null; lastSeenAt: string | null }[]
+  >();
+  try {
+    const { data: devs } = await admin
+      .from("customer_devices")
+      .select("customer_phone, device_id, platform, first_seen_at, last_seen_at")
+      .order("last_seen_at", { ascending: false });
+    for (const d of (devs ?? []) as Record<string, unknown>[]) {
+      const key = d.customer_phone as string;
+      const list = devicesByPhone.get(key) ?? [];
+      list.push({
+        tag: String(d.device_id ?? "").slice(-6),
+        platform: normalizePlatform(d.platform),
+        firstSeenAt: (d.first_seen_at as string) ?? null,
+        lastSeenAt: (d.last_seen_at as string) ?? null,
+      });
+      devicesByPhone.set(key, list);
+    }
+  } catch {
+    /* sổ phụ — không có thì thôi, danh sách chính vẫn phải về */
+  }
+
   const accounts = (rows ?? []).map((r) => ({
     phone: r.phone as string,
     name: (r.name as string) ?? null,
@@ -134,6 +165,8 @@ export async function GET() {
     webLastOpenAt: (r.web_last_open_at as string) ?? null,
     offlineReadyAt: (r.offline_ready_at as string) ?? null,
     devicePlatform: normalizePlatform(r.device_platform),
+    // lịch sử máy — mới nhất trước; rỗng nếu chưa máy nào báo
+    devices: devicesByPhone.get(r.phone as string) ?? [],
   }));
 
   // THỐNG KÊ THEO NGƯỜI CẤP: mỗi khách tính theo lần cấp GẦN NHẤT

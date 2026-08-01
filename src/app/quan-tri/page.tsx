@@ -139,6 +139,12 @@ type Account = {
   webLastOpenAt: string | null;
   offlineReadyAt: string | null;
   devicePlatform: DevicePlatform | null;
+  devices: {
+    tag: string;
+    platform: DevicePlatform | null;
+    firstSeenAt: string | null;
+    lastSeenAt: string | null;
+  }[];
 };
 
 /** Thống kê theo người cấp premium (log premium_grants) */
@@ -1203,6 +1209,28 @@ function AppUsage({ a }: { a: Account }) {
           className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-semibold text-foreground/70"
         >
           {PLATFORM_LABEL[a.devicePlatform]}
+        </span>
+      )}
+      {/* ĐÃ ĐỔI MÁY (bảng customer_devices, 0022) — chỉ hiện khi TỪ 2 MÁY trở
+          lên; một máy là chuyện thường, không cần chip. Danh sách nằm trong
+          tooltip cho khỏi tốn chỗ: hàng khách vốn đã dày. Máy MỚI NHẤT đứng
+          đầu (API trả theo last_seen_at giảm dần). */}
+      {a.devices.length > 1 && (
+        <span
+          title={[
+            `Tài khoản này đã dùng ${a.devices.length} máy (mới nhất trước):`,
+            ...a.devices.map(
+              (d, i) =>
+                `${i === 0 ? "▸ đang dùng" : "·"} ${
+                  d.platform ? PLATFORM_LABEL[d.platform] : "Không rõ máy"
+                } …${d.tag} — lần đầu ${fmtD(d.firstSeenAt)}, gần nhất ${fmtDT(d.lastSeenAt)}`,
+            ),
+            "",
+            "Mốc ở dòng này là của MÁY ĐANG DÙNG — đổi máy là đếm lại từ đầu.",
+          ].join("\n")}
+          className="rounded-full bg-warn-bg px-2 py-0.5 text-[0.75rem] font-bold text-warn"
+        >
+          Đã đổi {a.devices.length} máy
         </span>
       )}
       {mocs.length > 0 && (
