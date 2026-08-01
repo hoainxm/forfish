@@ -268,16 +268,26 @@ async function purgeLegacyEntries() {
 }
 
 /**
- * Lỗi này có ĐƯỢC CỨU bằng bản trong kho không (2026-08-01).
+ * Lỗi này có ĐƯỢC CỨU bằng bản trong kho không (2026-08-01b).
  *
- * LỖI ĐÃ SỬA: bản 2026-07-31b cứu theo `!res.ok`, tức nuốt LUÔN 401/403. Mà
- * 401/403 KHÔNG phải nguồn hỏng — đó là từ chối CÓ CHỦ ĐÍCH của middleware /
- * `lib/admin-auth.ts` (hết hạn premium, bị gỡ quyền, đăng xuất). Trả bản 200 cũ
- * cho một cái 403 là biến chốt THẬT phía máy chủ thành vô nghĩa trên đúng cái
- * máy đã từng có quyền. Chỉ cứu khi lỗi thuộc về NGUỒN/HẠ TẦNG.
+ * · 5xx · 408 · 429 — nguồn/hạ tầng hỏng: cứu, hiển nhiên.
+ * · 401 · 403 — máy chủ nói "hết hạn premium / chưa đăng nhập". VẪN CỨU, theo
+ *   luật chủ dự án chốt 2026-08-01: premium gác CỬA TẢI chứ không gác cửa XEM
+ *   ("đã tải được, lưu trong máy rồi thì cứ dùng… online lại, hết hạn thì không
+ *   tải mới được"). Cứu ở đây KHÔNG phá chốt thật: middleware vẫn chặn, nên
+ *   không ai lấy thêm được dữ liệu MỚI — thứ trả về chỉ là bản chính máy đó đã
+ *   tải hợp lệ lúc còn hạn, và nó tự hết giá trị sau ≤16 ngày.
+ *   `/api/admin/*` KHÔNG dính: SW loại khỏi cache từ đầu nhánh fetch.
+ * · 404 và các mã khác — nói thật, đừng che.
  */
 function isRescuableStatus(status) {
-  return status >= 500 || status === 408 || status === 429;
+  return (
+    status >= 500 ||
+    status === 408 ||
+    status === 429 ||
+    status === 401 ||
+    status === 403
+  );
 }
 
 /** Giữ một kho trong trần: Cache API trả key theo thứ tự thêm vào → bỏ từ đầu. */
@@ -421,28 +431,14 @@ self.addEventListener("fetch", (event) => {
               .catch(() => {});
             return res;
           }
-          // TỪ CHỐI CÓ CHỦ ĐÍCH (401/403) → trả THẲNG, KHÔNG cứu bằng kho
-          // (2026-08-01). Đây là middleware nói "hết hạn premium / bị gỡ quyền
-          // / chưa đăng nhập"; trả bản 200 cũ là vô hiệu hoá chốt thật ngay
-          // trên máy đã từng có quyền.
-          //
-          // NHƯNG KHÔNG XOÁ BẢN CŨ (bỏ `caches.delete`, 2026-08-01b — hồi quy
-          // do chính bản trước gây ra, giám sát vòng 2 bắt được): payload BẢN
-          // ĐỒ CÁ chỉ tồn tại trong kho này, KHÔNG có bản localStorage nào
-          // (fish-predict.ts chỉ lưu DẤU; offline-backup phải moi thẳng từ
-          // sdfish-api-v1). Mà middleware fail-closed: tra `customers` lỗi tạm
-          // thời cũng ra 403, và fishing-map-view bắn lại mỗi lần sóng chợt về
-          // ⇒ một cú 403 thoáng qua giữa biển là xoá VĨNH VIỄN bản đồ cá tải
-          // trước chuyến, không đường lấy lại. Giữ bản cũ chẳng mở cửa cho ai:
-          // nhánh này đã thôi cứu bằng kho, bản cũ chỉ còn dùng ở nhánh
-          // offline (.catch) — đúng nấc offline-premium sản phẩm cố ý có.
-          // Khu quản trị (/api/admin/*) đã bị loại khỏi SW từ đầu nhánh fetch.
-          if (res.status === 401 || res.status === 403) return res;
-          // NGUỒN HỎNG mà kho có bản tốt → trả bản đó (2026-07-31b). Ví dụ
-          // thật: /api/storms trả 503 khi GDACS chết, /api/fish-forecast 500 —
-          // trước đây lỗi đi thẳng ra app, xoá trắng bản tin bão + bản đồ cá
-          // bà con tải trước lúc rời bờ, dù chúng còn nằm nguyên trong máy.
-          // Bản trong kho có mốc thời gian, phía client tự nói cũ bao lâu.
+          // LỖI mà kho có bản tốt → trả bản đó. Hai loại được cứu (xem
+          // isRescuableStatus): NGUỒN HỎNG (503 của /api/storms khi GDACS chết,
+          // 500 của fish-forecast) và HẾT HẠN/CHƯA ĐĂNG NHẬP (401/403 — premium
+          // gác cửa TẢI, không gác cửa XEM, luật 2026-08-01). Bản trong kho có
+          // mốc thời gian, phía client tự nói cũ bao lâu.
+          // KHÔNG xoá bản cũ ở đây: payload bản đồ cá CHỈ tồn tại trong kho này
+          // (fish-predict chỉ lưu DẤU), mà middleware fail-closed nên một cú
+          // 403 thoáng qua giữa biển sẽ xoá vĩnh viễn thứ không tải lại được.
           if (!isRescuableStatus(res.status)) return res; // 404… → nói thật
           const hit = await caches.match(req);
           return hit || res;
