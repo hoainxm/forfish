@@ -1023,11 +1023,23 @@ function AccountsTab({ me }: { me: Me }) {
                       editable={perms.edit}
                       onToggle={() => setFlag(a, { guided: !a.staffGuided })}
                     />
+                    {/* AI ghi chú — phải nói RÕ đây là SĐT NHÂN VIÊN.
+                        Lỗi đã sửa (2026-08-01g): trước in trần "· 0938635689
+                        13:20" ngay sát chip trạng thái máy khách ⇒ đọc dính
+                        thành một cụm, tưởng khách có hai số điện thoại. */}
                     {a.noteBy && (
-                      <span className="text-[0.75rem] text-foreground/40">
-                        · {a.noteBy} {fmtDT(a.noteAt)}
+                      <span className="text-[0.75rem] text-foreground/45">
+                        (nhân viên {a.noteBy} · {fmtDT(a.noteAt)})
                       </span>
                     )}
+                  </div>
+
+                  {/* MÁY KHÁCH — hàng RIÊNG, có nhãn: đây là thứ MÁY TỰ BÁO,
+                      khác hẳn hàng "Hướng dẫn" bên trên (nhân viên tự tick). */}
+                  <div className="mt-1 flex basis-full flex-wrap items-center gap-1.5">
+                    <span className="text-[0.75rem] font-semibold text-foreground/50">
+                      Máy khách:
+                    </span>
                     <AppUsage a={a} />
                   </div>
                 </li>
