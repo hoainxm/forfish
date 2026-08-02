@@ -229,12 +229,29 @@ export function gridHasWave(g: ForecastGrid | null | undefined): boolean {
 }
 
 /**
- * TRẦN TUỔI cho luật "đừng ghi đè bản đầy đủ bằng bản thiếu": bản cũ hơn ngần
- * này thì CHO ghi đè dù nghèo hơn. Không có trần thì nguồn sóng chết dài ngày là
- * lưới gió mới không bao giờ vào được máy — kẹt vĩnh viễn ở bản một tuần tuổi.
- * 24 giờ: gió/sóng đổi theo ngày, số một ngày tuổi đã hết dùng để đi biển.
+ * ⚠️ HẰNG SỐ NÀY ĐÃ BỎ KHỎI CỬA GHI ĐÈ (2026-08-02h). Giữ tên để chỗ gọi/test cũ
+ * không vỡ, nhưng KHÔNG được dùng lại làm cớ mở cửa — đọc `shouldOverwriteGrid`.
  */
 export const GRID_OVERWRITE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * SỐ SÓNG ĐÃ LƯU CÒN DÙNG ĐƯỢC KHÔNG — tức trục thời gian của nó còn với tới
+ * HÔM NAY trở đi. THUẦN, có test.
+ *
+ * Đây là thứ THAY CHO trần tuổi 24 giờ. Câu hỏi đúng không phải "bản này lưu lâu
+ * chưa" mà là "số sóng trong đó còn nói về tương lai không": lưới 16 ngày tải ở
+ * bờ, sang ngày thứ hai của chuyến vẫn còn 15 ngày phía trước — cực kỳ đáng giữ,
+ * dù đã 25 giờ tuổi.
+ */
+export function gridWaveStillUseful(
+  g: ForecastGrid | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  const times = g?.times ?? [];
+  if (times.length === 0) return false;
+  const last = Date.parse(times[times.length - 1]);
+  return Number.isFinite(last) && last >= now;
+}
 
 /**
  * CÓ ĐƯỢC GHI ĐÈ BẢN ĐANG CÓ KHÔNG (thuần, 2026-08-02).
@@ -266,9 +283,35 @@ export function shouldOverwriteGrid(
   if (!prev?.data) return true;
   // bản đời cũ (vùng phủ nhỏ) coi như không có — đè thoải mái
   if (!gridIsCurrent(prev.data)) return true;
-  if (now - prev.savedAt >= GRID_OVERWRITE_MAX_AGE_MS) return true;
-  // "nghèo hơn" = mất hẳn SÓNG, thứ giữa biển không tải lại được
-  return !(gridHasWave(prev.data) && !gridHasWave(next));
+  /*  ═══ TUỔI KHÔNG PHẢI LÀ CỚ ĐỂ MẤT SỐ SÓNG ═══ (sửa 2026-08-02h — lỗi NẶNG)
+
+      LỖI ĐÃ SỬA: cửa cũ là `now - prev.savedAt >= 24 giờ → cho đè vô điều kiện`.
+      Sang NGÀY THỨ HAI của chuyến biển thì MỌI bản trong máy đều quá 24 giờ —
+      đó là trạng thái BÌNH THƯỜNG của một chuyến, không phải ca hiếm. Lúc đó chỉ
+      cần bắt được một vạch sóng trong khi nguồn marine trả 429 (chuyện thường)
+      là `fetchGridCore` dựng xong lưới với `waveM` toàn null và ĐÈ THẲNG lên
+      lưới có sóng đã tải ở bờ. `mergeGridCurrent` ghép lại dòng chảy nhưng
+      KHÔNG ghép lại sóng ⇒ mất hẳn, giữa biển không tải lại được.
+
+      Câu hỏi đúng không phải "bản này lưu lâu chưa" mà là "số sóng trong đó còn
+      nói về tương lai không". Lưới 16 ngày tải ở bờ, sang ngày thứ hai vẫn còn
+      15 ngày phía trước — đáng giữ. Còn bản mà trục thời gian đã trôi qua hết
+      thì giữ cũng vô nghĩa, cho đè để lưới GIÓ mới vào được máy (đó mới là ca
+      "nguồn sóng chết dài ngày" mà trần 24 giờ định chữa). */
+  if (
+    gridHasWave(prev.data) &&
+    !gridHasWave(next) &&
+    gridWaveStillUseful(prev.data, now)
+  ) {
+    /*  ⚠️ CHỈ TỪ CHỐI KHI KHÔNG GHÉP ĐƯỢC (siết 2026-08-02h — vòng soát chéo).
+        Từ chối thẳng là vứt luôn số GIÓ mới, và nguồn marine 429 dài ngày sẽ
+        khoá máy ở số gió của ngày rời bờ tới 16 ngày. Ghép được (cùng trục thời
+        gian, cùng bộ ô) thì `saveGridChecked` lấy gió mới + sóng cũ — được cả
+        hai, không phải chọn. Ghép không được (trục lệch, đổi bộ ô) thì mới đúng
+        là bài toán đánh đổi, và lúc đó giữ sóng là đúng. */
+    return mergeGridCurrent(prev.data, next) !== next;
+  }
+  return true;
 }
 
 /**
@@ -291,25 +334,63 @@ export function mergeGridCurrent(
   prev: ForecastGrid | null | undefined,
   next: ForecastGrid,
 ): ForecastGrid {
-  if (!prev || !gridHasCurrent(prev) || gridHasCurrent(next)) return next;
+  /*  GHÉP CẢ SÓNG, KHÔNG CHỈ DÒNG CHẢY (mở rộng 2026-08-02h — vòng soát chéo).
+
+      LỖI ĐÃ SỬA: cửa `shouldOverwriteGrid` từ chối lưới rỗng-sóng để giữ số sóng
+      đã tải ở bờ. Đúng, nhưng từ chối là vứt CẢ lưới mới — gồm số GIÓ vừa lấy
+      tươi. Nguồn marine 429 dài ngày là chuyện thường, nên máy có thể ôm số gió
+      của ngày rời bờ suốt tới 16 ngày. Gió cũng là an toàn tính mạng.
+
+      Lối ra đúng: lấy GIÓ mới, ghép SÓNG cũ vào — được cả hai. Điều kiện khớp
+      (cùng trục thời gian, cùng bộ ô) đã có sẵn cho dòng chảy, dùng lại nguyên. */
+  const thieuCur = !!prev && gridHasCurrent(prev) && !gridHasCurrent(next);
+  const thieuWave = !!prev && gridHasWave(prev) && !gridHasWave(next);
+  if (!prev || (!thieuCur && !thieuWave)) return next;
   const a = prev.cells ?? [];
   const b = next.cells ?? [];
   if (a.length === 0 || a.length !== b.length) return next;
   const ta = prev.times ?? [];
   const tb = next.times ?? [];
-  if (ta.length === 0 || ta.length !== tb.length) return next;
-  for (let i = 0; i < ta.length; i++) if (ta[i] !== tb[i]) return next;
+  if (ta.length === 0 || tb.length === 0) return next;
   for (let i = 0; i < a.length; i++) {
     if (a[i].lat !== b[i].lat || a[i].lon !== b[i].lon) return next;
   }
+  /*  ⚠️ GHÉP THEO PHẦN GIAO CỦA TRỤC THỜI GIAN, KHÔNG ĐÒI KHỚP TOÀN PHẦN
+      (sửa 2026-08-02i — vòng đánh giá cuối bắt).
+
+      LỖI ĐÃ SỬA: điều kiện cũ đòi `ta` và `tb` khớp TỪNG PHẦN TỬ. Nhưng `times`
+      dựng từ `hourly.time` TUYỆT ĐỐI của Open-Meteo nên nó **trượt mỗi ngày**.
+      Nghĩa là qua ngày thứ hai của chuyến, nhánh ghép gần như KHÔNG BAO GIỜ
+      chạy ⇒ `shouldOverwriteGrid` từ chối ⇒ **lưới GIÓ kẹt ở ngày rời bờ suốt
+      tới 16 ngày**, đúng lúc nguồn marine 429 (chuyện thường). Gió cũng là an
+      toàn tính mạng, và chú thích thì vẫn khoe "được cả hai".
+
+      Hai lưới cách nhau một ngày vẫn trùng 15/16 ngày — thừa sức ghép. Chỉ số
+      giờ NÀO CÓ Ở CẢ HAI mới được ghép; giờ mới hoàn toàn thì để nguyên giá trị
+      của bản mới (thường là null, đúng: mình không có số cũ cho giờ đó). */
+  const viTriCu = new Map<string, number>();
+  for (let i = 0; i < ta.length; i++) viTriCu.set(ta[i], i);
+  let trung = 0;
+  for (const t of tb) if (viTriCu.has(t)) trung++;
+  // không có giờ nào chung ⇒ hai bản nói về hai quãng khác hẳn, đừng dán vào nhau
+  if (trung === 0) return next;
   return {
     ...next,
     cells: b.map((c, i) => ({
       ...c,
       hours: c.hours.map((h, k) => {
-        const old = a[i].hours?.[k];
-        if (!old || old.curKmh == null) return h;
-        return { ...h, curKmh: old.curKmh, curDirDeg: old.curDirDeg ?? null };
+        // giờ này ở bản MỚI ứng với vị trí nào trong bản CŨ (có thể lệch)
+        const kCu = viTriCu.get(tb[k]);
+        const old = kCu == null ? undefined : a[i].hours?.[kCu];
+        if (!old) return h;
+        let out = h;
+        if (thieuCur && old.curKmh != null) {
+          out = { ...out, curKmh: old.curKmh, curDirDeg: old.curDirDeg ?? null };
+        }
+        if (thieuWave && old.waveM != null) {
+          out = { ...out, waveM: old.waveM, waveDirDeg: old.waveDirDeg ?? null };
+        }
+        return out;
       }),
     })),
   };

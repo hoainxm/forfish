@@ -74,7 +74,16 @@ type PushUiState =
 
 export function HeroAccount() {
   const router = useRouter();
-  const { user, phone, ready } = useAuthUser();
+  /*  ⚠️ `signedIn`, KHÔNG PHẢI `user` (sửa 2026-08-02h — lỗi CHẶN).
+      `user` là phiên Supabase, mà `/login` cấp chuỗi cứng xong là `signOut()`
+      ngay ⇒ `user` null VĨNH VIỄN trên mọi máy ngư dân. Rẽ nhánh theo nó thì
+      người ĐANG đăng nhập thấy chip "Đăng nhập", sheet không có nút Đăng xuất,
+      không có Đổi mật khẩu — tức **xoá mất đường ra hợp lệ duy nhất của bà con**
+      (`signOutLocal("user")` chỉ gọi được từ trong nhánh đó). Tệ hơn: nút "Gỡ
+      tài khoản khỏi máy này" (điều kiện `!user && deviceBound`) lại HIỆN, mà nó
+      KHÔNG xoá chuỗi — máy thành "quên người, vẫn còn chuỗi".
+      `user` chỉ giữ cho `full_name` (metadata của phiên, có thì hiện). */
+  const { user, phone, ready, signedIn } = useAuthUser();
   // HẠNG CỦA TÔI (2026-08-01): premium gán ngoài đời ở /quan-tri, trong app
   // trước nay không có chỗ nào xác nhận ⇒ khách trả tiền phải vào Ra khơi thử
   // bật lớp Cá mới biết. `null` = chưa chắc, không bày gì (luật ở lib/tier.ts).
@@ -116,9 +125,9 @@ export function HeroAccount() {
      phiên? hay mất sóng? Nay sheet Tài khoản nói thẳng. */
   const [attach, setAttach] = useState<SyncPushResult | null>(null);
   useEffect(() => {
-    if (pushState !== "on" || !user) return;
+    if (pushState !== "on" || !signedIn) return;
     void syncPushAccount().then(setAttach);
-  }, [pushState, user]);
+  }, [pushState, signedIn]);
 
   async function togglePush() {
     setPushError(null);
@@ -158,7 +167,7 @@ export function HeroAccount() {
   const [deviceBound, setDeviceBound] = useState(false);
   useEffect(() => {
     setDeviceBound(offlineIdentityPhone() !== null);
-  }, [user]);
+  }, [signedIn]);
 
   async function doSignOut() {
     if (signingOut) return;
@@ -181,6 +190,22 @@ export function HeroAccount() {
           công thì một cú `signOut()` HỎNG vì mất sóng bị che lại, và câu "Chưa
           đăng xuất được — chưa có sóng" (lá chắn Extra-2) thôi chạy đúng lúc nó
           cần nhất. */
+      /*  ⚠️ CÓ CHUỖI THÌ **KẾT QUẢ THU HỒI LÀ CÂU TRẢ LỜI DUY NHẤT** (sửa
+          2026-08-02h — phản biện bắt: bản vá trước KHÔNG thật sự vá).
+
+          `supabase.auth.signOut()` chỉ gọi mạng khi CÒN phiên
+          (`GoTrueClient._signOut` kiểm `data.session?.access_token`). Máy ngư
+          dân sau 0026 không còn phiên nào — `/login` bỏ ngay sau khi cấp chuỗi —
+          nên nó trả `{error: null}` **tức thì, offline, không một gói tin nào**.
+          Với `revoked || signedOut` thì `signedOut` LUÔN true ⇒ `done` LUÔN true
+          ⇒ câu "Chưa đăng xuất được — chưa có sóng" là MÃ CHẾT, và cú 503 mà
+          route vừa được dạy trả về bị nuốt sạch.
+          Hậu quả offline: chạm nhầm nút Đăng xuất giữa biển là xoá chuỗi + danh
+          tính + dấu premium, không có sóng để đăng nhập lại ⇒ mất tài khoản trọn
+          chuyến, mà hàng `device_tokens` thì ở lại `revoked_at = null` vĩnh viễn.
+
+          Nay: máy CÓ chuỗi ⇒ chỉ tin `revoked`. Máy KHÔNG có chuỗi (15 máy phiên
+          cũ) ⇒ mới tin `signedOut`. */
       const hadToken = readToken() !== null;
       done = await Promise.race([
         Promise.all([
@@ -195,14 +220,26 @@ export function HeroAccount() {
                 headers: tokenHeader(),
                 signal: timeoutSignal(SIGN_OUT_MS),
               })
-                .then((r) => r.ok)
+                /*  ⚠️ ĐỌC THÂN, KHÔNG CHỈ ĐỌC `r.ok` (sửa 2026-08-02i — vòng
+                    đánh giá cuối bắt). Cổng wifi captive ở cảng trả **200 kèm
+                    HTML đăng nhập** ⇒ `r.ok` true ⇒ app tưởng đã thu hồi ⇒ xoá
+                    chuỗi + danh tính + dấu hạng, trong khi hàng `device_tokens`
+                    ở lại `revoked_at = null` mãi mãi. Đúng ca mà route vừa được
+                    dạy trả 503 để đỡ. */
+                .then(async (r) => {
+                  if (!r.ok) return false;
+                  const j = (await r.json().catch(() => null)) as {
+                    ok?: boolean;
+                  } | null;
+                  return j?.ok === true;
+                })
                 .catch(() => false)
             : Promise.resolve(false),
           supabase.auth
             .signOut()
             .then((r) => !r?.error)
             .catch(() => false),
-        ]).then(([revoked, signedOut]) => revoked || signedOut),
+        ]).then(([revoked, signedOut]) => (hadToken ? revoked : signedOut)),
         // đồng hồ: mất sóng thì signOut() có thể không bao giờ settle
         new Promise<boolean>((res) => setTimeout(() => res(false), SIGN_OUT_MS)),
       ]);
@@ -312,7 +349,7 @@ export function HeroAccount() {
         <span className="min-w-0 truncate text-[0.9375rem] font-bold">
           {/* khách lạ thấy thẳng "Đăng nhập" — "Tài khoản" trung tính không
               mời ai làm gì (roadmap hội đồng UX 2026-06-11) */}
-          {user && phone ? name || prettyPhone(phone) : "Đăng nhập"}
+          {signedIn && phone ? name || prettyPhone(phone) : "Đăng nhập"}
         </span>
         <ChevronRightIcon className="h-4 w-4 shrink-0 rotate-90 text-white/60" />
       </button>
@@ -320,7 +357,7 @@ export function HeroAccount() {
       {open && (
         <BottomSheet title="Tài khoản" onClose={() => setOpen(false)}>
           {/* danh tính / đăng nhập */}
-          {user && phone ? (
+          {signedIn && phone ? (
             <div className="mb-4 surface px-4 py-3">
               {name && (
                 <p className="display text-[1.125rem] font-bold text-navy">
@@ -461,7 +498,7 @@ export function HeroAccount() {
 
           {/* Đổi mật khẩu tự nguyện (2026-07-29) — trang /doi-mat-khau hỏi
               mật khẩu hiện tại rồi mới cho đổi */}
-          {user && (
+          {signedIn && (
             <Link
               href="/doi-mat-khau"
               onClick={() => setOpen(false)}
@@ -482,7 +519,7 @@ export function HeroAccount() {
             </Link>
           )}
 
-          {user && (
+          {signedIn && (
             <>
               <button
                 type="button"
@@ -507,7 +544,7 @@ export function HeroAccount() {
               tài khoản người trước → phải có đường gỡ, và đường đó không được
               cần sóng. Không có nó thì tàu dùng chung máy sẽ mang theo hộp thư
               và quyền premium của chủ tàu ra khơi. */}
-          {!user && deviceBound && (
+          {!signedIn && deviceBound && (
             <>
               <button
                 type="button"

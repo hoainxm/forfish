@@ -7,6 +7,11 @@ last_verified: 2026-08-02
 ttl_days: 120
 gate: warn
 
+<!-- re-verified: 2026-08-02h — sw.js CÓ ĐỔI, nhưng chỉ ở HÀM DỌN KHI HẾT QUOTA; KHÔNG chạm `SHELL`, `CRITICAL_SHELL`, danh sách cache, tên kho, hay khoá `forfish.*` ⇒ bộ ca offline dưới đây KHÔNG đổi.
+(1) `reclaimRoom`: `Math.max(8, keys.length >> 2)` → `keys.length >> 1`. Cái SÀN 8 nuốt luôn cái trần — kho 4–7 mục thì `maxDrop > keys.length` ⇒ vòng lặp **xoá sạch kho** rồi còn chạy tiếp với `keys[i] === undefined`. Ca kích hoạt: máy gần đầy ở cảng, một lượt làm tươi bất kỳ là bay bản dự báo/chunk cuối cùng.
+(2) `putWithRoom` thêm cổng `evictable = max != null || trimFn != null`. Kho KHÔNG trần KHÔNG trim = `precacheOne` = **lớp cố định** (vỏ app, nền bản đồ, đường bờ, độ sâu, font) ⇒ từ nay không đường dọn nào chạm tới. Đường dọn hợp lệ duy nhất của lớp này vẫn là đổi tên kho lúc deploy + `activate` xoá nguyên khối — nhánh đó không đổi.
+THÊM CA CHO ĐỢT NGHIỆM THU TỚI: dựng máy gần đầy hạn ngạch (tải nhiều ô bản đồ) rồi mở app — phải KHÔNG mất vỏ app và KHÔNG mất bản dự báo đã tải; app hết chỗ thì báo thật, không im lặng xoá. Hai cổng test đọc thẳng `sw.js` khoá cả hai điều trên (`sw-timeouts.test.ts`). -->
+
 <!-- re-verified: 2026-08-02 — sw.js ĐỔI NHIỀU (soát MECE offline, biên bản `audit-offline-2026-08-02.md`): kho tạm lúc cài `sdfish-stage-v1`, đồng hồ cho asset/ô bản đồ/api/điều hướng-nấc-hai/ack, `keepAlive` đưa mọi cú ghi kho vào `waitUntil`, `CRITICAL_SHELL` thêm font Bold, dấu "vỏ đã đủ" ghi kèm danh sách URL để client kiểm lại. ĐỤNG cả `SHELL` lẫn danh sách cache lẫn khoá `forfish.*` (khoá mới `identity.v1`, `inbox.v1`→`v2` có migrate) ⇒ chạy TRỌN bộ bắt buộc ở §2 + 6 ca mới ở §3b. Năm trong sáu ca mới CHỈ tái hiện được bằng hotspot-không-internet. -->
 
 <!-- re-verified: 2026-08-01q — sw.js CÓ đổi (nhánh `notificationclick`): cú báo "đã đọc" trước đây đứng NGOÀI `event.waitUntil` nên trình duyệt được phép giết service worker ngay khi mở xong cửa sổ, cắt request đang bay; nay `waitUntil(Promise.all([focus, ack]))`. KHÔNG chạm `SHELL`, danh sách cache, hay khoá `forfish.*` cũ ⇒ bộ ca offline dưới đây KHÔNG đổi. THÊM một ca cho đợt nghiệm thu tới (xem §1, ca N-4). -->

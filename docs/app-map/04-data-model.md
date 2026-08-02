@@ -458,6 +458,20 @@ Android dùng chung kho nên hai cột trùng nhau — vô hại. iOS thì lệc
 **KHÔNG có cột `last_online_at`** — cố ý. "Lần cuối máy còn sóng" chính là `pwa_last_open_at` / `web_last_open_at`: nhịp chỉ gửi được khi có sóng. Thêm cột mới là chép lại dữ liệu đã có rồi phải giữ hai chỗ đồng bộ. Luật gộp chip ở [`src/lib/app-usage.ts`](../../src/lib/app-usage.ts) (`readinessChip`, thuần, có test).
 
 
+
+### Một tài khoản một chuỗi sống — migration [`0028_device_tokens_one_live.sql`](../../supabase/migrations/0028_device_tokens_one_live.sql) (2026-08-02) — ✅ ĐÃ APPLY prod
+
+`POST /api/auth/token` thu hồi chuỗi cũ rồi cấp chuỗi mới bằng **hai truy vấn rời**. Hai lượt đăng nhập chạy sát nhau xen kẽ được:
+
+```
+A: revoke → B: revoke (no-op) → A: insert (sống) → B: insert (CŨNG sống)
+```
+
+⇒ hai máy cùng hiệu lực, tức luật "1 tài khoản 1 máy" thủng đúng ở ca nó sinh ra để chặn. Không hiếm: bà con bấm Đăng nhập hai lần vì mạng chậm.
+
+Không vá bằng cách viết code cẩn thận hơn — đây là **ràng buộc**, phải nằm chỗ không ai lách được. `create unique index … on device_tokens (customer_phone) where revoked_at is null` thay index thường của 0026. Lượt insert thua cuộc ném `23505`; route thu hồi lại rồi cấp lại **đúng một lần** → người đăng nhập SAU thắng. Fail-closed: xấu nhất là một lượt đăng nhập phải bấm lại.
+
+
 <!-- re-verified: 2026-06-14 — schema 0001 boats/documents + §6 gateway khớp code -->
 <!-- re-verified earlier baseline -->
 

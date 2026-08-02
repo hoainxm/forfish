@@ -60,13 +60,30 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ ok: false, code: "not_configured" }, { status: 503 });
 
-  const token = newDeviceToken();
-  const { error } = await admin.from("device_tokens").insert({
-    token_hash: await hashDeviceToken(token),
-    customer_phone: phone,
-    ...(deviceId ? { device_id: deviceId } : {}),
-    ...(platform ? { platform } : {}),
-  });
+  /*  THỬ LẠI MỘT LẦN KHI ĐỤNG RÀNG BUỘC "MỘT CHUỖI SỐNG" (0028).
+      Hai lượt đăng nhập chạy sát nhau có thể xen kẽ revoke/insert; index unique
+      partial làm lượt thua NÉM (mã Postgres 23505) thay vì để hai máy cùng sống.
+      Lượt thua chỉ cần thu hồi lại rồi cấp lại — lần này chuỗi của bên kia đã
+      nằm đó nên thu hồi ăn, và người đăng nhập SAU thắng, đúng ý tính năng.
+      Đúng MỘT lần thử lại: quá đó thì có gì đó sai hẳn, báo thật còn hơn quay
+      vòng trong khi bà con đang đứng chờ. */
+  let token = "";
+  let error: { code?: string; message: string } | null = null;
+  for (let lan = 0; lan < 2; lan++) {
+    if (lan > 0) {
+      const lai = await revokeTokensOfPhone(phone, "new_login");
+      if (!lai.ok) break;
+    }
+    token = newDeviceToken();
+    const res = await admin.from("device_tokens").insert({
+      token_hash: await hashDeviceToken(token),
+      customer_phone: phone,
+      ...(deviceId ? { device_id: deviceId } : {}),
+      ...(platform ? { platform } : {}),
+    });
+    error = res.error;
+    if (!error || error.code !== "23505") break;
+  }
   if (error) {
     /*  Đã thu hồi chuỗi cũ mà cấp chuỗi mới hỏng ⇒ tài khoản này tạm thời KHÔNG
         máy nào vào được. Nói thật để máy thử lại; bà con vẫn đang giữ phiên
@@ -91,7 +108,20 @@ export async function DELETE(req: Request) {
   // phiên Supabase (đã bỏ từ bước 3 lúc đăng nhập).
   const who = await tokenIdentity(req);
   if (!who.ok) {
-    // Không tra được / chuỗi đã chết: máy cứ dọn phía nó, ở đây không có gì để làm.
+    /*  ⚠️ KHÔNG TRA ĐƯỢC ≠ ĐÃ ĐĂNG XUẤT (sửa 2026-08-02h).
+        LỖI ĐÃ SỬA: nhánh này trả HTTP 200 cho MỌI ca, kể cả khi env thiếu /
+        Supabase nghẹt. Client chỉ đọc `res.ok` ⇒ tính là đăng xuất xong ⇒ xoá
+        hộp thư + xoá chuỗi trong máy, trong khi hàng `device_tokens` vẫn
+        `revoked_at = null` **mãi mãi**: máy đó coi như không đăng xuất được nữa
+        và vẫn chiếm suất "một máy" của tài khoản. Lá chắn "Chưa đăng xuất được
+        — chưa có sóng" bị vô hiệu đúng ca nó sinh ra để đỡ (cổng wifi ở cảng trả
+        200 HTML cũng lọt y hệt).
+        Nay: hạ tầng không tra được → 503, máy giữ nguyên mọi thứ và mời bấm lại.
+        Chuỗi đã chết sẵn (thu hồi/không có trong sổ) → 200, vì phía server thật
+        sự không còn gì để làm. */
+    if (who.unavailable) {
+      return NextResponse.json({ ok: false, code: "unavailable" }, { status: 503 });
+    }
     return NextResponse.json({ ok: true, revoked: 0 });
   }
   const r = await revokeTokensOfPhone(who.phone, "user_signout");

@@ -225,9 +225,18 @@ export function pretripGainedCore(r: PretripResult): boolean {
  *    kho, không gọi mạng, không ghi gì: `gained` lẫn `kept` đều rỗng mà máy thật
  *    sự đã sẵn sàng.
  *
- * KHÔNG dựng lại lỗi C-5 ("kho có bản 3 hôm trước thì cũng khoá 6 giờ"): cả hai
- * vế đều có trần tuổi — `kept` ≤ 24 giờ (GRID_OVERWRITE_MAX_AGE_MS), `coreFresh`
- * theo nhịp phát hành nguồn (isCacheCurrent, trần 12 giờ).
+ * ⚠️ TRẦN TUỔI CỦA `kept` ĐÃ BỎ (2026-08-02h/i) — chú thích cũ ở đây nói SAI và
+ * đã sửa. `shouldOverwriteGrid` không còn xét tuổi bản lưu: nó hỏi "số sóng đã
+ * lưu còn nói về tương lai không" (`gridWaveStillUseful`), vì sang ngày thứ hai
+ * của chuyến thì MỌI bản đều quá 24 giờ — đó là trạng thái bình thường, không
+ * phải cớ để xoá số sóng của cả chuyến.
+ *
+ * Hệ quả cho chỗ này: `kept` nay có thể trả về cho một lưới bao nhiêu ngày tuổi
+ * cũng được, MIỄN trục thời gian còn phủ tới tương lai — tức đúng nghĩa "máy
+ * đang giữ bản còn dùng được", và đó vẫn là điều kiện đúng để khoá 6 giờ. Cái
+ * KHÔNG được phép là lấy KHO làm cớ khi mẻ này hỏng sạch (lỗi C-5) — vế đó do
+ * `pretripGainedCore` + `pretripGridTooShort` gác, không phải trần tuổi.
+ * `coreFresh` vẫn theo nhịp phát hành nguồn (isCacheCurrent, trần 12 giờ).
  */
 export function pretripKeptCore(r: PretripResult): boolean {
   if (pretripGainedCore(r)) return true;

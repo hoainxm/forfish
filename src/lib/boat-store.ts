@@ -71,19 +71,25 @@ export function setCurrentBoat(id: string) {
   emit();
 }
 
-export function addBoat(b: Boat) {
+/*  ⚠️ TRẢ KẾT QUẢ GHI RA NGOÀI (sửa 2026-08-02h — vòng soát chéo bắt).
+    Bản cũ vứt giá trị `saveBoats` rồi vẫn `emit()`: thêm/sửa/xoá tàu HIỆN ĐÚNG
+    trên màn hình, mở lại app là quay về cũ. Ca này nay phổ biến hơn hẳn vì
+    đường ghi không còn xoá dự báo để lấy chỗ (luật "hết chỗ thì từ chối ghi"). */
+export function addBoat(b: Boat): boolean {
   const boats = [...snapshot.boats, b];
-  saveBoats(boats);
+  const ok = saveBoats(boats);
   saveCurrentBoatId(b.id);
   snapshot = { ...snapshot, boats, currentId: b.id };
   emit();
+  return ok;
 }
 
-export function updateBoat(b: Boat) {
+export function updateBoat(b: Boat): boolean {
   const boats = snapshot.boats.map((x) => (x.id === b.id ? b : x));
-  saveBoats(boats);
+  const ok = saveBoats(boats);
   snapshot = { ...snapshot, boats };
   emit();
+  return ok;
 }
 
 /**

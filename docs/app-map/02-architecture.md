@@ -488,3 +488,49 @@ Khi `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` chưa set:
 
 (5) **PHÂN BIỆT KHO** (chủ dự án chỉ ra): *"user đã pass qua bước bản cài, đã có dữ liệu, nhưng sau đó toàn dùng bản web?"* — nhóm này nguy hiểm mà nhìn qua rất đẹp: mở app hằng ngày (mốc online luôn tươi), bậc thang vẫn xanh, nhưng kho sẽ ra khơi đứng im. Chip nay đo mốc của ĐÚNG kho bản cài, không đo mốc mới nhất, và có riêng lý do `ban-cai-cu` với việc-cần-làm khác hẳn ("mở đúng cái icon đã cài", không phải "gọi lúc có sóng"). Kéo theo migration 0027 tách `data_until` (bản cài) / `data_until_web`, và route heartbeat ghi đúng cột theo `standalone`.
 -->
+
+<!-- re-verified: 2026-08-02h — VÒNG SOÁT ĐỘI-AGENT SAU KHI ĐỔI TẦNG XÁC THỰC. Ba mũi soát độc lập (mất dữ liệu offline · mất phiên · treo/lặp/phình) + một vòng phản biện. 10 mục đã vá, trong đó 5 mức CHẶN.
+
+(1) **MỘT NGUỒN SỰ THẬT CHO "ĐÃ ĐĂNG NHẬP CHƯA"** — lỗi CHẶN, một gốc đẻ ra bốn triệu chứng. Cả app vẫn hỏi `useAuthUser().user`, tức phiên Supabase, mà `/login` cấp chuỗi cứng xong là `signOut()` ngay ⇒ `user` null VĨNH VIỄN. Hậu quả: sheet Tài khoản giấu mất nút Đăng xuất và Đổi mật khẩu (**xoá đường ra hợp lệ duy nhất của bà con**, vì `signOutLocal("user")` chỉ gọi được từ trong nhánh đó); nhịp "đã mở app" bị cổng `!user` chặn nên hạng KHÔNG BAO GIỜ về ⇒ `featureAccessDecision` kẹt `"checking"` vĩnh viễn ⇒ màn dự báo cá trắng trơn và khách trả tiền chỉ tải được 3 ngày; `/tien` khoá nút đăng tin; thông báo nhắm riêng không gắn được tài khoản. Nay `useAuthUser` trả thêm `signedIn` (phiên HOẶC chuỗi), có `TOKEN_STORE_EVENT` để đăng nhập/đăng xuất xong màn vẽ lại ngay (bản cài PWA mở lại từ nền KHÔNG remount React). Cổng chặn khuôn quét THEO DÒNG + ca đối chứng trong `identity-gate.test.ts` — bản đầu của chính cổng này dùng regex đa dòng, ăn nhầm dấu `}` của khối import và bắt trượt `use-tier.ts` mà vẫn xanh.
+
+(2) **`/dang-ky` chưa từng cấp chuỗi** — lỗi CHẶN. Mọi tài khoản đăng ký mới chạy hoàn toàn bằng phiên Supabase, tức đúng thứ 0026 sinh ra để diệt; ra khơi mất sóng quá một giờ là bị đá mà không ai đăng nhập ở đâu. Nay đổi phiên lấy chuỗi y hệt `/login`.
+
+(3) **`must_change_password` là vòng lặp kín** — `/login` `signOut()` rồi mới chuyển sang `/doi-mat-khau`, mà màn đó cần phiên để gọi `auth.updateUser`. Nay giữ phiên tạm tới khi đổi xong.
+
+(4) **`saveToken` nuốt lỗi** — kho bị chặn (riêng tư iOS) hay đầy ⇒ mất chuỗi mới + mất phiên tạm, trong khi server ĐÃ thu hồi máy cũ: tài khoản không còn credential nào ở cả hai đầu. Nay trả `boolean` có đọc lại xác minh; cất không được thì giữ phiên và báo thật.
+
+(5) **Hai máy cùng sống** — revoke/insert là hai truy vấn rời. Migration 0028 thêm `unique partial index`; route thử lại đúng một lần khi đụng `23505`.
+
+(6) **`sw.js` dọn nhầm lớp cố định** — `Math.max(8, keys.length >> 2)`: cái SÀN nuốt cái trần, kho 4–7 mục bị xoá SẠCH rồi còn đọc `keys[i]` ngoài mảng. Nay `keys.length >> 1`, và thêm cổng `evictable`: kho KHÔNG trần KHÔNG trim = lớp cố định (vỏ app, nền bản đồ, đường bờ, độ sâu, font) ⇒ không đường dọn nào chạm tới.
+
+(7) **`saveUserJson` ăn dự báo khi MỞ MÀN, offline** — lỗi CHẶN. Lặp 4 lượt gọi `reclaimForecastSpace`, không cầu dao, trần bậc chỉ dừng trước `storm` nên lưới 16 ngày và bản đồ cá vẫn bị xoá để nhường chỗ cho một ghi chú vài KB; và nó chạy trong `useEffect` của màn Giao dịch/Tàu cá chứ không phải lúc bà con gõ. Nay **xoá hẳn `reclaimForecastSpace`**: hết chỗ thì TỪ CHỐI GHI và báo đỏ.
+
+(8) **`saveForecast` xoá trước khi biết ghi được không** — vòng nới dần 1/4→1/2→3/4 làm mất tới ~2,4 MB dự báo mà không ghi nổi một byte. Nay **xoá ĐÚNG MỘT bản rồi thử lại ngay**, hai cửa dừng + trần cứng chống vòng lặp.
+
+(9) **Cửa chống-đè tự mở sau 24 giờ** — sang ngày thứ hai của chuyến thì MỌI bản đều quá 24 giờ (trạng thái bình thường), nên chỉ cần một vạch sóng + nguồn marine 429 là lưới `waveM` toàn null đè lên lưới có sóng, mà `mergeGridCurrent` không ghép lại sóng. Nay hỏi đúng câu: **số sóng đã lưu còn nói về tương lai không** (`gridWaveStillUseful`).
+
+(10) **Tin bão ghi LÙI** — service worker trả bản cũ kèm 200 theo ba đường ⇒ bản tin TRƯỚC lúc bão hình thành đè lên bản CÓ bão. Nay chặn mốc đi lùi, có test.
+
+(11) Treo/lặp/phình: `savedCoverage()` gọi trong THÂN RENDER (vài MB `JSON.parse` mỗi render, ≥6 lượt cho một cú bấm, ngay màn chuẩn bị đi biển) → vào `useState` lazy một lần; vòng rAF chờ map quay 60 fps vô hạn khi chunk MapLibre thiếu → trần 10 giây; `planRouteAsync` treo vĩnh viễn khi worker bị OS giết (không bắn `onerror`) → trần 20 giây + dọn `pending`; ba đường GHI chợ tin thiếu đồng hồ → nút "Đang đăng…" kẹt vĩnh viễn; `fieldCache` khoá theo toạ độ chỉ dọn theo thời gian (~20 MB heap) → trần 6 bản; `DELETE /api/auth/token` trả 200 khi DB không tra được ⇒ "đăng xuất giả" → nay 503.
+
+ẢNH HƯỞNG OFFLINE: (a) BỚT request, không thêm; (b) `sw.js` chỉ đổi hàm dọn quota, KHÔNG chạm `SHELL`/danh sách cache/tên kho/khoá `forfish.*` — xem re-verify ở `ops/qa-offline-acceptance.md`; (c) ba đường xoá dữ liệu đã tải đều đã bịt (7, 8, 9, 10); (d) mọi màn giữ nhánh đọc bản đã lưu.
+-->
+
+<!-- re-verified: 2026-08-02i — VÒNG PHẢN BIỆN + ĐÁNH GIÁ CUỐI. Ba vòng soát đội-agent, và **cả ba vòng đều bắt được bản vá tự đẻ lỗi mới** — ghi lại đây vì đó mới là bài học, không phải danh sách lỗi.
+
+BA LỖI CHẶN DO CHÍNH BẢN VÁ VÒNG TRƯỚC ĐẺ RA:
+(a) cổng `evictable` chặn dọn cho `SDFISH_STATIC_V` ⇒ máy gần đầy **không cài được bản mới** (install ném, service worker không activate, lặp mọi lần). Nay chỉ chặn kho VỎ; `precacheOne` truyền `DON_KHI_DAY` để vẫn dọn được.
+(b) sheet Tài khoản đổi sang `signedIn` làm nút "Đổi mật khẩu" từ ẨN thành **HIỆN + ngõ cụt vòng tròn** (100% người dùng, mọi lần) — `/doi-mat-khau` đòi `user` mà máy ngư dân không còn phiên. Nay màn đó tự dựng phiên tạm bằng chính mật khẩu hiện tại nó vốn đã hỏi.
+(c) `/doi-mat-khau` `signOut()` vô điều kiện ⇒ người có phiên mà chưa có chuỗi (đăng ký mới lúc cấp chuỗi hỏng, máy đời trước 0026) **đăng xuất sạch ngay sau khi đổi mật khẩu xong**. Nay chỉ bỏ phiên khi `readToken()` có.
+
+HAI LUẬT MỚI, CẢ HAI DO CHỦ DỰ ÁN CHỐT VÀ CẢ HAI GỌN HƠN THỨ CHÚNG THAY THẾ:
+(1) **MẤT SÓNG THÌ KHÔNG XOÁ GÌ HẾT.** *"Đã lưu offline mà chưa online lại thì cứ dùng kho offline chứ xoá cái gì? Offline thì làm sao tăng kích thước kho offline nữa mà phải xoá?"* — kiểm được bằng mã: cả 12 chỗ gọi `saveForecast` đều nằm sau một lượt fetch THÀNH CÔNG, nhập tệp sao lưu thì ghi thẳng `setItem`. Nên offline kho không thể phình. Trước là lập luận, nay là cổng gác đặt TRƯỚC mọi cầu dao khác.
+(2) **MỖI LỚP CHỈ ĂN TRONG CHÍNH NÓ.** *"Chỉ dọn khi down được 1 bản ghi mới thôi thì nó luôn tối ưu và đảm bảo cái offline luôn đủ info trong 16 ngày đã down về; hành vi qua ngày 2, 3, 4 … 16 offline là giống nhau."* — `DROP_RANK` cho ăn XUYÊN LỚP, tức ghi lưới mới có thể xoá điểm ghim/giá cá, **ăn vào chính gói 16 ngày vừa tải**. Nay nạn nhân phải cùng namespace; không còn nạn nhân thì TỪ CHỐI GHI.
+(3) **XOÁ THÌ GIỮ BẢN SAO, GHI KHÔNG ĐƯỢC THÌ TRẢ LẠI.** localStorage không cho ghi-trước-xoá-sau, nhưng cho hoàn tác. Trước đây khi tổng nạn nhân nhỏ hơn chỗ cần, vòng xoá SẠCH rồi mới chịu thua — ca thật: ghi `grid.d16` (~1,6 MB) mà nạn nhân chỉ có `d3`+`d7` vài trăm KB ⇒ cả hai bay, d16 không vào ⇒ **tàu ra khơi không còn lưới gió/sóng nào**. Nay mỗi bản gỡ ra được giữ nguyên nội dung và trả lại nếu cú ghi cuối vẫn hỏng.
+
+MỘT LỖI TINH VI ĐÁNG GHI: `mergeGridCurrent` đòi trục thời gian khớp TỪNG PHẦN TỬ, mà `times` dựng từ `hourly.time` TUYỆT ĐỐI của Open-Meteo nên nó **trượt một bậc mỗi ngày** (bản 2/8 bắt đầu từ 2/8, bản 3/8 bắt đầu từ 3/8 — trùng 15/16 nội dung nhưng lệch hết chỉ số). Nghĩa là từ ngày thứ hai của chuyến, nhánh ghép KHÔNG BAO GIỜ chạy ⇒ lưới GIÓ kẹt ở số của ngày rời bờ suốt tới 16 ngày, đúng lúc nguồn marine 429. Nay ghép theo PHẦN GIAO (bảng tra giờ→vị trí); lệch hẳn không giờ nào chung mới từ chối.
+
+CÒN LẠI: `hero-account` đọc THÂN JSON thay vì chỉ `r.ok` (cổng wifi captive ở cảng trả 200 HTML ⇒ tưởng đã thu hồi rồi xoá chuỗi) · `storms` kẹp mốc về hiện tại (đồng hồ máy chạy trước + payload thiếu `checkedAt` sẽ khoá vĩnh viễn mọi bản tin sau) · `sea-scalars` thêm cửa thoát 3 ngày (không thì nguồn đổi độ phân giải là kẹt vĩnh viễn) · gỡ ba mẩu mã chết (`dropOldest`, `RECLAIM_KEEP_RANK`, và chú thích `pretrip-auto` khai trần tuổi 24 giờ đã bị bỏ).
+
+⚠️ GỐC THẬT CHƯA XỬ — **`forfish.fc.*` nằm trong localStorage, thùng ~5 MB/origin, và đếm UTF-16 (2 byte/ký tự)**. Riêng `grid.d16` ~1,6 MB JSON ăn ~3,2 MB, tức hai phần ba cái thùng cho đúng một lớp. Toàn bộ tầng dọn kho — bậc hy sinh, dọn theo byte, cầu dao, hoàn tác — **chỉ tồn tại vì cái nắp đó**; Cache API và IndexedDB thì rộng hàng trăm MB và app đã dùng Cache API cho ô bản đồ rồi. Dời lớp nặng sang IndexedDB là xoá được cả tầng này, nhưng `loadForecast` đang ĐỒNG BỘ nên phải đổi mọi đường đọc (hoặc nạp bản gương vào RAM lúc mở app) — mạch việc riêng, KHÔNG nhét vào commit này.
+-->

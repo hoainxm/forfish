@@ -149,12 +149,35 @@ export function WindParticles({
       };
     };
 
-    // chờ ref map sẵn (async) rồi khởi động
+    /*  ⚠️ VÒNG CHỜ PHẢI CÓ NẤC CUỐI (sửa 2026-08-02h).
+
+        LỖI ĐÃ SỬA: điều kiện dừng duy nhất là `alive = false` (unmount). Ca
+        `getMap()` KHÔNG BAO GIỜ trả về map có thật và không hiếm: chunk MapLibre
+        (~1 MB, nạp bằng dynamic import) không nằm trong kho service worker ⇒
+        giữa biển `import` reject ⇒ `<MapGL>` không render ⇒ `mapRef.current` mãi
+        null. Lúc đó `boot` tự hẹn lại **60 lần/giây cho tới khi bà con rời màn**
+        — mà `/ngu-truong` chính là màn mở suốt chuyến. Ghim CPU và đốt pin đúng
+        lúc bản đồ đã hỏng; pin là thứ quý nhất ngoài biển.
+
+        10 giây là rộng rãi: `react-map-gl` gán ref async nhưng trong cùng một
+        vài khung hình. Quá đó thì bản đồ đã hỏng thật — lớp hạt gió không có gì
+        để vẽ lên, đứng im là đúng. */
+    /*  ⚠️ ĐẾM KHUNG, KHÔNG ĐẾM ĐỒNG HỒ TƯỜNG (sửa 2026-08-02h — vòng soát chéo).
+        `requestAnimationFrame` NGỪNG HẲN khi app xuống nền / khoá màn. Đo bằng
+        `Date.now()` thì bà con mở `/ngu-truong` rồi bỏ điện thoại vào túi trước
+        khi map ref kịp gán, 10 phút sau mở lại là lượt `boot` kế thấy "quá hạn"
+        và BỎ HẲN — mà deps của effect chỉ đổi khi `field` đổi, nên mất sóng là
+        lớp hạt gió chết câm cả phiên, không có nút nào dựng lại.
+        Đếm khung thì miễn nhiễm với chuyện xuống nền, và vẫn chặn đúng cảnh ghim
+        CPU 60fps vĩnh viễn. 600 khung ≈ 10 giây màn hình SÁNG — rộng cho cả máy
+        yếu nạp chunk MapLibre trên 3G ở cảng. */
+    const BOOT_GIVEUP_FRAMES = 600;
+    let bootTries = 0;
     const boot = () => {
       if (!alive) return;
       const map = mapRef.current?.getMap();
       if (map) start(map);
-      else raf = requestAnimationFrame(boot);
+      else if (++bootTries < BOOT_GIVEUP_FRAMES) raf = requestAnimationFrame(boot);
     };
     boot();
 

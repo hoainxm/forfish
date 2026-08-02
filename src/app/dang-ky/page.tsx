@@ -18,6 +18,10 @@ import {
   sanitizePhoneInput,
 } from "@/components/auth-form";
 import { timeoutSignal } from "@/lib/abort";
+import { deviceId } from "@/lib/device-id";
+import { devicePlatform } from "@/lib/storage-persist";
+import { isValidTokenShape } from "@/lib/device-token";
+import { saveToken } from "@/lib/device-token-store";
 
 /*
   Đăng ký tài khoản bằng SĐT (thật chất là email ảo — bà con không thấy).
@@ -98,6 +102,50 @@ export default function DangKyPage() {
       router.replace("/login");
       return;
     }
+
+    /*  ĐỔI PHIÊN LẤY CHUỖI CỨNG — Y HỆT `/login` (sửa 2026-08-02h, lỗi CHẶN).
+        LỖI ĐÃ SỬA: đường này trước đây `signInWithPassword` xong là vào thẳng
+        app, KHÔNG cấp chuỗi. Nghĩa là **mọi tài khoản đăng ký mới chạy hoàn
+        toàn bằng phiên Supabase** — JWT ngắn hạn + refresh tự xoay, tức đúng
+        thứ migration 0026 sinh ra để diệt. Ra khơi mất sóng quá một giờ là
+        auth-js tự xoá phiên và bà con bị đá **mà không ai đăng nhập ở đâu cả**.
+        Và khi gỡ "đường lùi một nhịp phát hành" trong `lib/api-identity.ts`
+        theo kế hoạch, cả nhóm đăng ký mới văng ra cùng lúc.
+
+        Cất không được thì KHÔNG bỏ phiên: giữ đường lùi để bà con vẫn vào được
+        app, hơn là đá họ ra ngay sau khi vừa tạo tài khoản. Câu nhắc để dành cho
+        `/login` — ở đây bà con vừa tạo xong, đừng chặn bằng một hộp lỗi. */
+    const issued = await withDeadline(
+      fetch(apiUrl("/api/auth/token"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          deviceId: deviceId(),
+          platform: devicePlatform(),
+        }),
+        signal: timeoutSignal(20000),
+      }).then((r) => r.json().catch(() => null)),
+      20000,
+    );
+    /*  ⚠️ CẤP CHUỖI HỎNG THÌ CHẶN, ĐỪNG CHO ĐI TIẾP (sửa 2026-08-02h — phản biện
+        bắt: bản vá trước thiếu vế `else`).
+        Không có vế này thì tài khoản vừa tạo chạy THUẦN phiên Supabase — JWT
+        ngắn hạn + refresh tự xoay — tức đúng thứ 0026 sinh ra để diệt: ra khơi
+        mất sóng quá một giờ là bị đá mà KHÔNG ai đăng nhập ở đâu cả. `/login` đã
+        chặn thật; `/dang-ky` mà thả thì cả nhóm đăng ký mới rơi vào đó. */
+    if (!issued?.ok || !isValidTokenShape(issued.token)) {
+      setError("Tạo tài khoản xong rồi, nhưng mạng yếu nên chưa vào được. Bà con bấm Đăng nhập giúp nhé.");
+      setLoading(false);
+      return;
+    }
+    if (!saveToken(issued.token)) {
+      setError(
+        "Máy đang không cho app lưu dữ liệu nên chưa giữ được đăng nhập. Bà con tắt chế độ duyệt web riêng tư (ẩn danh) rồi thử lại giúp.",
+      );
+      setLoading(false);
+      return;
+    }
+    await withDeadline(supabase!.auth.signOut(), 8000);
     router.replace("/");
   }
 

@@ -17,7 +17,14 @@ const _ls = (() => {
 (globalThis as unknown as { window: unknown }).window = { localStorage: _ls };
 (globalThis as unknown as { localStorage: Storage }).localStorage = _ls;
 
-import { fetchStormCheck, savedStormAt, stormStatus } from "../storms";
+import {
+  fetchStormCheck,
+  savedStormAt,
+  stormStatus,
+  STORM_ID,
+  STORM_NS,
+} from "../storms";
+import { loadForecast, saveForecast } from "../forecast-cache";
 
 /*  CA THẬT (2026-08-02, audit R3 — tin bão bị đóng mốc "vừa xong").
 
@@ -106,5 +113,45 @@ describe("fetchStormCheck — mốc lưu là GIỜ BẢN TIN, không phải gi�
     stubFetch({ ok: true, storms: [], checkedAt: cu });
     const j = await fetchStormCheck();
     expect(stormStatus(j).kind).toBe("khong-hoi-duoc");
+  });
+});
+
+/*  ═══ TIN BÃO KHÔNG ĐƯỢC ĐI LÙI ═══ (2026-08-02h — an toàn tính mạng)
+
+    Service worker trả bản CŨ kèm `200 + ok:true` theo ba đường (mất sóng, nguồn
+    5xx được cứu bằng bản kho, hết hạn đua đồng hồ). Không có cửa này thì bản tin
+    TRƯỚC lúc bão hình thành ghi đè lên bản CÓ bão — và `savedStormAt()` lùi theo
+    nên lớp bão trong mẻ tải sẵn báo xanh. */
+describe("fetchStormCheck — bản CŨ HƠN không được ghi đè", () => {
+  it("mốc bản tin lùi → GIỮ bản đang có", async () => {
+    localStorage.clear();
+    saveForecast(STORM_NS, STORM_ID, { ok: true, storms: [{ id: "bao1" }] }, 12_000);
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({ ok: true, checkedAt: new Date(8_000).toISOString() }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      )) as typeof fetch;
+    await fetchStormCheck();
+    const hit = loadForecast<{ storms?: unknown[] }>(STORM_NS, STORM_ID);
+    expect(hit?.savedAt, "mốc bị kéo lùi").toBe(12_000);
+    expect(hit?.data?.storms, "bản CÓ bão bị bản cũ đè mất").toHaveLength(1);
+  });
+
+  it("mốc bản tin tiến → ghi bình thường", async () => {
+    localStorage.clear();
+    saveForecast(STORM_NS, STORM_ID, { ok: true, storms: [] }, 8_000);
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          ok: true,
+          checkedAt: new Date(20_000).toISOString(),
+          storms: [{ id: "bao2" }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      )) as typeof fetch;
+    await fetchStormCheck();
+    const hit = loadForecast<{ storms?: unknown[] }>(STORM_NS, STORM_ID);
+    expect(hit?.savedAt).toBe(20_000);
+    expect(hit?.data?.storms).toHaveLength(1);
   });
 });

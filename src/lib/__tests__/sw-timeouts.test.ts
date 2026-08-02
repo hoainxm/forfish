@@ -473,10 +473,63 @@ describe("service worker — cất được cả khi máy gần hết chỗ", ()
     ).toBe(1);
   });
 
+  /*  LỚP CỐ ĐỊNH KHÔNG BAO GIỜ BỊ DỌN (chủ dự án chốt 2026-08-02h: "mấy cái
+      thuộc về lớp cố định thì cần gì dọn").
+      Vỏ app · nền bản đồ · đường bờ · độ sâu · font đi qua `precacheOne`, tức
+      `putWithRoom(store, url, res, null)` — KHÔNG trần, KHÔNG trim. Chúng không
+      bao giờ cũ, và mất là app không mở nổi giữa biển; đuổi vài chục KB ở đây
+      để đổi lấy một cái app không chạy là lỗ nặng. Đường dọn hợp lệ duy nhất
+      của lớp này là đổi tên kho lúc deploy rồi `activate` xoá nguyên khối.
+      Cổng này canh đúng cái cửa đó, vì `reclaimRoom` phục vụ CHUNG cả kho ô bản
+      đồ lẫn kho vỏ — mở nhầm một lần là mất cả hai. */
+  it("kho KHÔNG trần/KHÔNG trim (lớp cố định) thì KHÔNG được dọn", () => {
+    /*  GÁC THEO TÊN KHO, KHÔNG GÁC THEO THAM SỐ CHỖ GỌI (siết 2026-08-02h).
+        Bản đầu suy "không trần + không trim ⇒ lớp cố định" — SAI, vì
+        `SDFISH_STATIC_V` có HAI chỗ ghi và chỗ thứ hai truyền
+        `max = STATIC_CACHE_MAX` ⇒ evictable ⇒ chunk khung sườn vẫn bị đuổi,
+        cold-start offline là trắng màn. */
+    /*  ⚠️ CHỈ KHO VỎ bị chặn dọn (siết lại 2026-08-02h, vòng soát chéo).
+        Bản trước chặn cả `SDFISH_STATIC_V` — kho CHUNK BĂM TÊN — và đó là lỗi
+        CHẶN do chính bản vá đẻ ra: đường CÀI ĐẶT trên máy gần đầy không còn cách
+        lấy chỗ ⇒ `precacheShellAssets` thấy thiếu asset ⇒ install NÉM ⇒ service
+        worker mới KHÔNG BAO GIỜ activate. Chunk bản build cũ nằm trong kho đó
+        đúng là thứ đáng đuổi. */
+    expect(putBody, "thiếu cổng gác theo TÊN KHO").toMatch(
+      /cacheName !== SDFISH_CACHE_V/,
+    );
+    expect(
+      putBody,
+      "chặn nhầm kho chunk băm tên ⇒ máy gần đầy không cài được bản mới",
+    ).not.toMatch(/cacheName === SDFISH_STATIC_V/);
+    /*  Mọi CHỖ GỌI phải khai tên kho, không thì cổng mù. `callArgs` chỉ lấy đối
+        số của các lời gọi; phần khai báo hàm không lọt vào đây. */
+    const chiChoGoi = CODE.replace(/async function putWithRoom\([^)]*\)/, "");
+    const thieuTen = callArgs(chiChoGoi, "putWithRoom(").filter(
+      (a) => !/SDFISH_|,\s*store\s*$/.test(a),
+    );
+    expect(
+      thieuTen,
+      `chỗ gọi putWithRoom không khai tên kho ⇒ cổng lớp cố định mù: ${thieuTen.join(" | ")}`,
+    ).toEqual([]);
+    const goiDon = putBody.indexOf("reclaimRoom(");
+    expect(goiDon, "không tìm thấy lượt dọn").toBeGreaterThan(0);
+    // lượt dọn phải nằm sau một cửa có `evictable`
+    expect(
+      putBody.slice(0, goiDon),
+      "dọn mà không hỏi kho có được phép dọn không",
+    ).toMatch(/if \(spare && evictable\)/);
+  });
+
   it("(b) KHÔNG có sàn cứng, và không bao giờ đuổi quá NỬA kho", () => {
     expect(
       /Math\.max\(\s*8/.test(putBody + reclaimBody),
       "sàn cứng 8 quay lại — kho 3 mục sẽ bị xoá sạch",
+    ).toBe(false);
+    /*  SÀN nào cũng cấm, không riêng số 8: `Math.max(n, ...)` ở đây luôn là một
+        sàn, và sàn thì nuốt trần bất kể n bằng mấy. */
+    expect(
+      /Math\.max\(/.test(reclaimBody),
+      "sàn cứng (Math.max) quay lại dưới dạng khác",
     ).toBe(false);
     expect(reclaimBody, "thiếu trần nửa kho").toMatch(/keys\.length >> 1/);
     expect(reclaimBody, "kho ít mục vẫn bị đuổi").toMatch(
@@ -495,16 +548,22 @@ describe("service worker — cất được cả khi máy gần hết chỗ", ()
   it("MỌI nhánh cất có trần đều đi qua nó (ô bản đồ · /api · asset · cài đặt)", () => {
     const uses = CODE.split("putWithRoom(").length - 1 - 1; // trừ chỗ khai báo
     expect(uses, "còn nhánh cất chưa dọn chỗ khi máy đầy").toBe(5);
-    expect(/putWithRoom\(c, req, copy, null, trimTileCache\)/.test(CODE)).toBe(
-      true,
-    );
-    expect(/putWithRoom\(c, req, copy, API_CACHE_MAX\)/.test(CODE)).toBe(true);
-    expect(/putWithRoom\(c, req, copy, max\)/.test(CODE)).toBe(true);
+    expect(
+      /putWithRoom\(c, req, copy, null, trimTileCache, SDFISH_TILE_V\)/.test(CODE),
+    ).toBe(true);
+    expect(
+      /putWithRoom\(c, req, copy, API_CACHE_MAX, null, SDFISH_API_V\)/.test(CODE),
+    ).toBe(true);
+    expect(/putWithRoom\(c, req, copy, max, null, store\)/.test(CODE)).toBe(true);
     // đường CÀI ĐẶT trên máy gần đầy — chỗ cuối cùng còn giữ khuôn `put` trần
     const pre = fnBody(CODE, "precacheOne") ?? "";
     expect(pre.length).toBeGreaterThan(80);
     expect(
-      (pre.match(/putWithRoom\(store, url, \w+, null\)/g) ?? []).length,
+      (
+        pre.match(
+          /putWithRoom\(store, url, \w+, null, DON_KHI_DAY, SDFISH_STATIC_V\)/g,
+        ) ?? []
+      ).length,
       "precacheOne còn ghi kho bằng put trần, không bắt quota",
     ).toBe(2);
     expect(/await store\.put\(/.test(pre), "còn store.put trần").toBe(false);

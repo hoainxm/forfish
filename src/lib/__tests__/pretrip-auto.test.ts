@@ -675,7 +675,49 @@ describe("shouldMarkPretripRun — hỏng sạch thì ĐỪNG khoá 6 giờ", ()
     máy chỉ có gió sóng 3 ngày mà tàu đi 10 ngày. Lưới cả vùng là lớp an toàn
     tính mạng và giữa biển KHÔNG tải lại được ⇒ việc CHƯA XONG.
   */
-  it("kho chỉ còn lưới 3 ngày → KHÔNG khoá 6 giờ dù mẻ có ghi được d3", () => {
+  /*  ⚠️ CA NÀY ĐÃ SIẾT LẠI (2026-08-02h) — bản test đầu chỉ soi `saved.gridDays`
+      và ĐỎ với mã hiện tại. Mã đúng, test cũ. Vì sao:
+
+      Bỏ vế `failedSteps` thì `gridDays = [3]` là VĨNH VIỄN ở một ca rất thường —
+      `/api/weather-snapshot` chặn 403 khung 16 với khách hạng thường, và
+      Open-Meteo 429 làm `d7`/`d16` rơi xuống nhánh "mượn khung ngắn hơn" (trả
+      bản `stale`, KHÔNG ném, KHÔNG ghi). Không bao giờ ghi được mốc 6 giờ ⇒ cửa
+      còn lại là 2 phút, bắn ở MỖI `visibilitychange`/`online` ⇒ ~180 request/giờ
+      × ~3 MB tiền sóng của bà con, đập vào đúng cái IP đang bị 429.
+      Vòng đốt sóng vĩnh viễn còn hỏng hơn cái nó định chữa.
+
+      Nên luật đúng là: chỉ coi "lưới quá ngắn" khi mẻ này THẬT SỰ thử khung dài
+      VÀ bước đó NÉM. "Mượn được khung ngắn hơn" = đã lấy hết mức nguồn cho, thử
+      lại sau 2 phút cũng ra chừng đó.
+      Khoá CẢ HAI CHIỀU ở đây để không ai nới nhầm một bên. */
+  it("d16 NÉM vì sóng + kho chỉ còn 3 ngày → KHÔNG khoá 6 giờ", () => {
+    expect(
+      shouldMarkPretripRun(
+        res({
+          ok: 9,
+          gained: { grid: 1, point: 4 },
+          failedSteps: ["grid.d16"],
+          saved: { places: 4, untilIso: "2026-08-18", gridDays: [3] },
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      pretripGridTooShort(
+        res({
+          failedSteps: ["grid.d16"],
+          saved: { places: 0, untilIso: null, gridDays: [3, 7] },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("d16 KHÔNG ném (mượn được khung ngắn) → VẪN khoá 6 giờ, đừng đốt sóng", () => {
+    expect(
+      pretripGridTooShort(
+        res({ saved: { places: 4, untilIso: "2026-08-18", gridDays: [3] } }),
+      ),
+      "không có bước nào ném mà vẫn báo 'quá ngắn' ⇒ vòng thử lại 2 phút vĩnh viễn",
+    ).toBe(false);
     expect(
       shouldMarkPretripRun(
         res({
@@ -683,11 +725,6 @@ describe("shouldMarkPretripRun — hỏng sạch thì ĐỪNG khoá 6 giờ", ()
           gained: { grid: 1, point: 4 },
           saved: { places: 4, untilIso: "2026-08-18", gridDays: [3] },
         }),
-      ),
-    ).toBe(false);
-    expect(
-      pretripGridTooShort(
-        res({ saved: { places: 0, untilIso: null, gridDays: [3, 7] } }),
       ),
     ).toBe(true);
   });

@@ -52,7 +52,15 @@ function grid(opts: { wave: boolean; current: boolean }): ForecastGrid {
       });
     }
   }
-  return { cells, times: ["2026-08-02T00:00", "2026-08-02T03:00"] };
+  /*  TRỤC THỜI GIAN PHẢI PHỦ TƯƠNG LAI — như lưới 16 ngày thật (sửa 2026-08-02h).
+      Fixture cũ chỉ có 2 mốc trong quá khứ, nên nó vô tình hợp lệ với cửa cũ
+      (xét TUỔI BẢN LƯU) mà vô hiệu với cửa mới (xét SỐ SÓNG CÒN NÓI VỀ TƯƠNG
+      LAI). Lưới thật luôn phủ nhiều ngày phía trước — đó mới là thứ đáng giữ. */
+  const t0 = Date.parse("2026-08-02T03:00:00Z");
+  const times = Array.from({ length: 16 }, (_, d) =>
+    new Date(t0 + d * 86_400_000).toISOString(),
+  );
+  return { cells, times };
 }
 
 describe("gridHasWave / gridHasCurrent — soi TỪNG mặt hàng của lưới", () => {
@@ -79,9 +87,43 @@ describe("shouldOverwriteGrid — đừng đè bản ĐẦY ĐỦ bằng bản T
     );
   });
 
-  it("nguồn SÓNG hỏng (lưới rỗng-sóng) → TỪ CHỐI ghi đè bản đầy đủ", () => {
+  /*  ⚠️ ĐỔI HỢP ĐỒNG 2026-08-02h — GHÉP, KHÔNG PHẢI TỪ CHỐI.
+
+      Bất biến thật là **số sóng không bao giờ mất**, không phải "cấm ghi". Từ
+      chối thẳng là vứt luôn số GIÓ vừa lấy tươi, mà nguồn marine 429 dài ngày là
+      chuyện thường ⇒ máy ôm số gió của ngày rời bờ tới 16 ngày. Gió cũng là an
+      toàn tính mạng.
+      Nay: trục thời gian khớp ⇒ CHO ghi, và `saveGridChecked` ghép sóng cũ vào
+      lưới mới (`mergeGridCurrent`). Chỉ khi KHÔNG ghép được mới từ chối. */
+  it("nguồn SÓNG hỏng, trục khớp → CHO ghi, và sóng cũ được GHÉP vào", () => {
+    const ngheo = grid({ wave: false, current: true });
+    expect(shouldOverwriteGrid(full, ngheo, NOW)).toBe(true);
+    const out = mergeGridCurrent(full.data, ngheo);
+    expect(gridHasWave(out), "số sóng bị mất").toBe(true);
+    expect(out.cells[0].hours[0].waveM).toBe(1.2);
+    // gió vẫn là của bản MỚI
+    expect(out.cells[0].hours[0].windKmh).toBe(ngheo.cells[0].hours[0].windKmh);
+  });
+
+  it("nguồn SÓNG hỏng, trục LỆCH (không ghép được) → TỪ CHỐI ghi", () => {
+    /*  Sóng cũ VẪN CÒN DÙNG ĐƯỢC (trục phủ tương lai) nhưng LỆCH trục với bản
+        mới ⇒ không ghép được ⇒ đây mới đúng là bài toán đánh đổi, và lúc đó giữ
+        sóng là đúng. */
+    const lech = {
+      data: {
+        ...grid({ wave: true, current: true }),
+        /*  KHÔNG một giờ nào chung với bản mới (lệch hẳn 40 ngày) — hai bản nói
+            về hai quãng khác hẳn, ghép vào nhau là dán số giờ sai. Trục lệch
+            MỘT NGÀY thì vẫn trùng 15/16 và PHẢI ghép được (ca ngay dưới). */
+        times: Array.from({ length: 16 }, (_, d) =>
+          new Date(NOW + (d + 40) * 86_400_000).toISOString(),
+        ),
+      },
+      savedAt: NOW - 3600_000,
+    };
     expect(
-      shouldOverwriteGrid(full, grid({ wave: false, current: true }), NOW),
+      shouldOverwriteGrid(lech, grid({ wave: false, current: true }), NOW),
+      "không ghép được mà vẫn cho đè ⇒ mất số sóng",
     ).toBe(false);
   });
 
@@ -109,14 +151,62 @@ describe("shouldOverwriteGrid — đừng đè bản ĐẦY ĐỦ bằng bản T
     ).toBe(true);
   });
 
-  it("bản cũ QUÁ 24 GIỜ → cho đè, đừng kẹt vĩnh viễn khi nguồn sóng chết dài ngày", () => {
-    const old = {
-      data: grid({ wave: true, current: true }),
-      savedAt: NOW - GRID_OVERWRITE_MAX_AGE_MS,
+  /*  ⚠️ ĐỔI LUẬT 2026-08-02h — TUỔI KHÔNG CÒN LÀ CỚ ĐỂ MẤT SỐ SÓNG.
+
+      Cửa cũ: "bản lưu quá 24 giờ → cho đè vô điều kiện". Nghe hợp lý ở bờ, nhưng
+      sang NGÀY THỨ HAI của chuyến biển thì MỌI bản trong máy đều quá 24 giờ — đó
+      là trạng thái BÌNH THƯỜNG, không phải ca hiếm. Lúc đó chỉ cần bắt một vạch
+      sóng trong khi nguồn marine trả 429 là lưới `waveM` toàn null đè thẳng lên
+      lưới có sóng đã tải ở bờ, và `mergeGridCurrent` KHÔNG ghép lại sóng.
+
+      Cửa mới hỏi đúng câu: **số sóng đã lưu còn nói về tương lai không.** */
+  /*  ⚠️ CA QUAN TRỌNG NHẤT CỦA CẢ CỬA NÀY (2026-08-02i — vòng đánh giá cuối).
+      `times` dựng từ `hourly.time` TUYỆT ĐỐI nên nó TRƯỢT MỖI NGÀY. Điều kiện
+      ghép cũ đòi khớp TOÀN PHẦN ⇒ qua ngày thứ hai của chuyến là nhánh ghép
+      không bao giờ chạy ⇒ lưới GIÓ kẹt ở ngày rời bờ suốt tới 16 ngày, đúng lúc
+      nguồn marine 429. Hai lưới cách nhau một ngày trùng 15/16 — thừa sức ghép. */
+  it("trục LỆCH MỘT NGÀY (trùng 15/16) → vẫn ghép được, gió mới + sóng cũ", () => {
+    const cu = {
+      data: {
+        ...grid({ wave: true, current: true }),
+        times: Array.from({ length: 16 }, (_, d) =>
+          new Date(Date.parse("2026-08-01T03:00:00Z") + d * 86_400_000).toISOString(),
+        ),
+      },
+      savedAt: NOW - 25 * 3600_000,
     };
-    expect(shouldOverwriteGrid(old, grid({ wave: false, current: false }), NOW)).toBe(
-      true,
-    );
+    const ngheo = grid({ wave: false, current: false });
+    expect(
+      shouldOverwriteGrid(cu, ngheo, NOW),
+      "trục trượt một ngày mà đã coi là không ghép được ⇒ kẹt gió cả chuyến",
+    ).toBe(true);
+    const out = mergeGridCurrent(cu.data, ngheo);
+    expect(gridHasWave(out), "sóng cũ không được ghép vào").toBe(true);
+    expect(out.times, "trục thời gian phải là của bản MỚI").toEqual(ngheo.times);
+  });
+
+  it("bản lưu 25 GIỜ, còn phủ 15 ngày → ghi được mà KHÔNG mất số sóng", () => {
+    const cu = {
+      data: grid({ wave: true, current: true }),
+      savedAt: NOW - 25 * 3600_000,
+    };
+    const ngheo = grid({ wave: false, current: false });
+    // tuổi KHÔNG còn là cớ để chặn, nhưng cũng không được là cớ để mất sóng
+    expect(shouldOverwriteGrid(cu, ngheo, NOW)).toBe(true);
+    expect(
+      gridHasWave(mergeGridCurrent(cu.data, ngheo)),
+      "tuổi bản lưu lại được lấy làm cớ xoá số sóng của cả chuyến",
+    ).toBe(true);
+  });
+
+  it("trục thời gian đã TRÔI QUA HẾT → cho đè, đừng kẹt khi nguồn sóng chết dài ngày", () => {
+    const hetHan = {
+      data: { ...grid({ wave: true, current: true }), times: ["2026-07-01T00:00:00Z"] },
+      savedAt: NOW - 40 * 24 * 3600_000,
+    };
+    expect(
+      shouldOverwriteGrid(hetHan, grid({ wave: false, current: false }), NOW),
+    ).toBe(true);
   });
 
   it("bản cũ ĐỜI CŨ (vùng phủ nhỏ) → không tiếc, cứ đè", () => {

@@ -11,8 +11,6 @@
 const PREFIX = "forfish.fc.";
 /** Trần số bản điểm-chạm giữ lại (đủ vài chuyến, không phình localStorage) */
 const MAX_ENTRIES = 40;
-/** Số lần dọn-rồi-ghi-lại trước khi chịu thua (thà báo thật còn hơn treo) */
-const MAX_RETRY = 3;
 
 export interface Cached<T> {
   /** epoch ms lúc lưu — để hiện "dữ liệu lưu lúc …" */
@@ -192,7 +190,42 @@ export function saveForecast<T>(
   // Chỗ cần cho bản này (localStorage đếm UTF-16 ⇒ ~2 byte/ký tự)
   const needBytes = (k.length + payload.length) * 2;
   let freedTotal = 0;
-  for (let attempt = 0; attempt <= MAX_RETRY; attempt++) {
+  /*  ═══ XOÁ MỘT BẢN → THỬ GHI LẠI NGAY ═══ (sửa 2026-08-02h)
+
+      Chủ dự án chốt: "nó phải down được cái mới nó mới xoá cái cũ đi chứ."
+      localStorage không cho ghi-rồi-xoá thật (đầy thì không ghi nổi), nên cái
+      gần nhất làm được là: **xoá ĐÚNG MỘT bản rồi thử lại ngay**.
+
+      LỖI ĐÃ SỬA: vòng cũ nới dần 1/4 → 1/2 → 3/4 `needBytes` MỖI LƯỢT, tức
+      trước khi cầu dao kịp nhận ra dọn vô ích thì đã xoá tới ~1,5 lần chỗ cần —
+      với lưới 16 ngày (~1,6 MB) là ~2,4 MB dự báo bay mà **không ghi được byte
+      nào**. Ca kích hoạt rất thường trên iOS: localStorage dùng CHUNG hạn ngạch
+      origin với Cache API, nên ô bản đồ 12 MB vừa tải làm `setItem` ném dù
+      localStorage còn rộng.
+
+      Nay mỗi lượt chỉ mất đúng một bản, và mất tới đâu thử tới đó. Hai cửa dừng:
+        · giải phóng ĐỦ chỗ cần mà vẫn ném ⇒ sức ép nằm ở kho khác, DỪNG;
+        · không còn nạn nhân hợp lệ (`dropOne` trả null) ⇒ DỪNG.
+      Vòng LUÔN tiến: mỗi lượt bỏ hẳn một mục khỏi danh sách đã tính sẵn, nên
+      `dropOne` chắc chắn trả 0 sau hữu hạn lượt — không cần trần giả. */
+  let nanNhan: { k: string; savedAt: number }[] | null = null;
+  /*  ═══ XOÁ THÌ GIỮ BẢN SAO — GHI KHÔNG ĐƯỢC THÌ TRẢ LẠI ═══ (2026-08-02i)
+
+      Chủ dự án chốt từ đầu: *"nó phải down được cái mới nó mới xoá cái cũ đi
+      chứ."* localStorage không cho ghi-trước-xoá-sau, nhưng cho **hoàn tác**.
+
+      LỖI ĐÃ SỬA (vòng đánh giá cuối bắt): cầu dao chỉ nổ khi đã giải phóng đủ
+      byte, nên khi tổng nạn nhân vẫn nhỏ hơn chỗ cần thì vòng xoá SẠCH danh sách
+      rồi mới chịu thua — mất hết mà không ghi được gì. Ca cụ thể: máy gần đầy,
+      ghi `grid.d16` (~1,6 MB), nạn nhân cùng lớp chỉ có `d3`+`d7` vài trăm KB ⇒
+      cả hai bay, d16 không vào ⇒ tàu ra khơi KHÔNG CÒN lưới gió/sóng nào.
+
+      Nay mỗi bản gỡ ra được giữ nguyên nội dung; cú ghi cuối cùng vẫn hỏng thì
+      trả lại hết. Thành công (đường thường ngày) thì thả ngay, không giữ gì.
+      Chi phí RAM chỉ tồn tại trong đúng mấy lượt thử, và cùng cỡ với payload
+      đang cầm sẵn trên tay. */
+  const daGo: DaGo[] = [];
+  for (;;) {
     try {
       window.localStorage.setItem(k, payload);
       const s = activeScope();
@@ -202,41 +235,61 @@ export function saveForecast<T>(
       }
       return true;
     } catch {
-      /* CẦU DAO "DỌN KHÔNG ĂN THUA" (T2, 2026-08-02).
-         Trên WebKit/iOS localStorage dùng CHUNG hạn ngạch origin với Cache API:
-         ô bản đồ 12 MB vừa tải làm `setItem` ném, mà sức ép KHÔNG nằm ở
-         localStorage. Điều kiện dừng cũ là "không còn gì để xoá" ⇒ vòng dọn ăn
-         lần lượt price → point → scalar → curdepth, mất gần trọn kho dự báo mà
-         vẫn không ghi nổi một byte. Nay: đã giải phóng ĐỦ chỗ cần mà vẫn ném thì
-         DỪNG — dọn không ăn thua = sức ép không nằm ở localStorage; xoá tiếp chỉ
-         mất dự báo mà vẫn không ghi được, thà dừng và nói thật "máy hết chỗ".
-         Từ lượt thứ 2 trở đi (attempt ≥ 1) mới xét: lượt đầu chưa dọn gì. */
-      if (attempt >= 1 && freedTotal >= needBytes) {
-        lastFullAt = Date.now();
-        return false;
-      }
-      // Hết chỗ: bỏ bản RẺ NHẤT trước (bậc hy sinh), rồi mới tới bản cũ trong
-      // cùng bậc. Dọn theo BYTE chứ không theo số bản (sửa 2026-07-31): bỏ 4
-      // bản điểm ghim ~3 KB không bao giờ đủ chỗ cho một lưới 16 ngày ~800 KB
-      // ⇒ các lớp chạy CUỐI (độ mặn, nước dâng, dòng chảy tầng sâu) không bao
-      // giờ lưu được.
-      // Nới DẦN (1/4 → 1/2 → 3/4): trình duyệt không cho hỏi còn trống bao
-      // nhiêu, nên thiếu một tí cũng đừng dọn sạch cả kho ngay lượt đầu. GIỮ
-      // vòng nới dần này — bỏ nó là dựng lại đúng lỗi "kẹt vĩnh viễn" 2026-07-25.
-      const want = Math.ceil((needBytes * (attempt + 1)) / (MAX_RETRY + 1));
-      const freed = dropOldest(want, k);
-      freedTotal += freed;
-      if (attempt === MAX_RETRY || freed === 0) {
-        // MỐC SỰ CỐ, KHÔNG phải tuổi số liệu (sửa 2026-08-02): `now` là tuổi
-        // của SỐ LIỆU (giờ chạy cron của snapshot, thường mấy giờ TRƯỚC), ghi
-        // nó vào đây thì `lastStorageFullAt() >= startedAt` luôn sai ⇒ bà con
-        // KHÔNG bao giờ thấy dòng "Máy hết chỗ nhớ" dù lưới 16 ngày không lưu
-        // nổi; tệ hơn, mốc thật do bước khác đặt bị kéo LÙI, xoá luôn cảnh báo.
-        lastFullAt = Date.now();
-        return false;
-      }
+      /*  ═══ MẤT SÓNG THÌ KHÔNG XOÁ GÌ HẾT ═══ (chủ dự án chốt 2026-08-02i)
+
+          "Đã lưu offline mà chưa online lại thì cứ dùng kho offline chứ xoá cái
+          gì? Offline thì làm sao tăng kích thước kho offline nữa mà phải xoá?"
+
+          Đúng, và kiểm được bằng mã: MỌI lời gọi `saveForecast` đều nằm sau một
+          lượt fetch THÀNH CÔNG (grid · scalar · sea-scalar · cur-depth · storms ·
+          fish-mark · price · marine-weather). Nhập tệp sao lưu thì ghi thẳng
+          `setItem`, không đi qua đây. Nên offline, kho dự báo KHÔNG THỂ phình —
+          và cũng không có gì đáng đổi chỗ.
+
+          Trước đây đây là LẬP LUẬN. Nay là LUẬT có cổng gác: mất sóng thì tuyệt
+          đối không xoá một bản nào, chỉ báo "không ghi được". Ai thêm một đường
+          ghi chạy offline sau này cũng không thể vô tình ăn vào kho của bà con.
+          `navigator.onLine === false` là tín hiệu ĐÁNG TIN theo CHIỀU NÀY: nó
+          hay báo `true` nhầm (wifi nội bộ trên tàu), chứ báo `false` thì gần như
+          chắc chắn là mất sóng thật. */
+      if (typeof navigator !== "undefined" && navigator.onLine === false) break;
+      /* CẦU DAO "DỌN KHÔNG ĂN THUA" (T2): đã giải phóng đủ chỗ cần mà vẫn ném ⇒
+         sức ép KHÔNG nằm ở localStorage; xoá tiếp chỉ mất thêm dự báo mà vẫn
+         không ghi được. Thà dừng và nói thật "máy hết chỗ". */
+      if (freedTotal >= needBytes) break;
+      /* ĐÚNG MỘT BẢN mỗi lượt. `eligibleVictims(k)` đã lọc sẵn: cùng lớp với
+         thứ đang ghi, và khung ngắn không giết khung dài. */
+      /*  ⚠️ LUÔN CHỪA LẠI MỘT BẢN CỦA LỚP (sửa 2026-08-02i — vòng đánh giá cuối).
+
+          LỖI ĐÃ SỬA: cầu dao chỉ nổ khi `freedTotal >= needBytes`. Nếu tổng byte
+          của toàn bộ nạn nhân vẫn nhỏ hơn chỗ cần, vòng xoá SẠCH danh sách rồi
+          mới chịu thua ⇒ mất hết mà không ghi được gì. Ca cụ thể: máy gần đầy,
+          mẻ tải sẵn ghi `grid.d16` (~1,6 MB), nạn nhân cùng lớp chỉ có `d3` +
+          `d7` (vài trăm KB) ⇒ **cả hai bị xoá, d16 không ghi được** ⇒ tàu ra
+          khơi KHÔNG CÒN lưới gió/sóng nào.
+
+          Không đo tổng trước được: trình duyệt không cho hỏi còn trống bao
+          nhiêu, nên "tổng nạn nhân < chỗ cần" KHÔNG có nghĩa là vô vọng (phần
+          trống sẵn có cũng góp vào) — đo kiểu đó là chặn oan cả ca ghi được.
+
+          Bảo đảm rẻ mà chắc: **bỏ bản QUÝ NHẤT ra khỏi danh sách nạn nhân**.
+          `eligibleVictims` xếp rẻ/cũ trước, nên phần tử cuối là bản đáng giữ
+          nhất của lớp. Xấu nhất bây giờ: mất mấy bản cũ, nhưng lớp đó **luôn còn
+          ít nhất một bản dùng được** — đúng lời hứa "16 ngày luôn đủ info". */
+      nanNhan ??= eligibleVictims(k);
+      const go = dropOne(nanNhan);
+      if (!go) break; // không còn nạn nhân hợp lệ
+      daGo.push(go);
+      freedTotal += go.bytes;
     }
   }
+  /*  KHÔNG GHI ĐƯỢC ⇒ TRẢ LẠI HẾT. Đây là vế làm cho luật "chỉ xoá khi đã ghi
+      được bản mới" thành đúng, chứ không chỉ là lời hứa. */
+  hoanTac(daGo);
+  /* MỐC SỰ CỐ, KHÔNG phải tuổi số liệu (sửa 2026-08-02): `now` là tuổi của SỐ
+     LIỆU (giờ chạy cron của snapshot, thường mấy giờ TRƯỚC), ghi nó vào đây thì
+     `lastStorageFullAt() >= startedAt` luôn sai ⇒ bà con KHÔNG bao giờ thấy dòng
+     "Máy hết chỗ nhớ" dù lưới 16 ngày không lưu nổi. */
   lastFullAt = Date.now();
   return false;
 }
@@ -334,57 +387,94 @@ function trim(ns: string, max: number = MAX_ENTRIES): void {
  *     cho biết". Đúng thứ mà DROP_RANK tuyên bố đang bảo vệ. Nay dừng ngay khi
  *     nạn nhân kế tiếp QUÝ HƠN thứ đang ghi.
  */
-function dropOldest(needBytes = 0, keep?: string): number {
-  try {
-    /* TRẦN BẬC: chỉ được hy sinh thứ RẺ HƠN HOẶC NGANG HÀNG với thứ đang ghi.
-       `keep` không truyền (không biết đang ghi gì) → không đặt trần, giữ nguyên
-       hành vi cũ.
+/**
+ * DANH SÁCH NẠN NHÂN HỢP LỆ, ĐÃ XẾP THỨ TỰ ĐEM BỎ — tính MỘT LẦN.
+ *
+ * ⚠️ VÌ SAO TÁCH RA (2026-08-02h — vòng soát chéo bắt): `rankedVictims()` gọi
+ * `entriesUnder()`, mà hàm đó `JSON.parse` **TOÀN BỘ payload của mọi bản** chỉ để
+ * đọc `savedAt` — kể cả `grid.d16` ~1,6 MB. Vòng "xoá một bản rồi thử lại" gọi
+ * `dropOldest` mỗi lượt, tức quét lại cả kho ~5 MB ĐỒNG BỘ mỗi lượt: vài chục
+ * lượt là vài giây đơ luồng chính, ngay lúc bà con đang tải sẵn trước chuyến.
+ * Danh sách chỉ ngắn đi trong lúc dọn nên tính một lần là đủ.
+ */
+function eligibleVictims(keep?: string): { k: string; savedAt: number }[] {
+  /*  ═══ CHỈ ĂN TRONG CHÍNH LỚP CỦA MÌNH ═══ (chủ dự án chốt 2026-08-02i)
 
-       Vì sao `>` chứ không `>=` (đừng đổi mà không đọc chỗ này): NGANG HÀNG =
-       cùng một hạng giá trị, bỏ bản CŨ để nhận bản MỚI cùng loại là đúng việc —
-       `rankedVictims` trong cùng bậc đã xếp cũ trước. Đặt `>=` là cấm luôn cả
-       chuyện đó: 40 bản điểm-chạm lấp đầy máy thì KHÔNG bản điểm nào ghi được
-       nữa, tức dựng lại đúng lỗi "kẹt vĩnh viễn" 2026-07-25 mà vòng MAX_RETRY
-       nới dần sinh ra để chống. */
-    const ceiling = keep == null ? Infinity : dropRank(keep);
-    /* KHUNG NGẮN KHÔNG ĐƯỢC GIẾT KHUNG DÀI (C-5 đường 2, 2026-08-02).
-       `grid.d3` và `grid.d16` CÙNG bậc 4, mà `savedAt` của d16 là giờ chạy cron
-       nên hay trông "cũ" hơn ⇒ bước ghi d3 (chạy TRƯỚC trong PRETRIP_GRID_DAYS)
-       chọn đúng d16 làm nạn nhân. Hậu quả thật: máy còn mỗi lưới 3 ngày trong
-       khi tàu đi 10 ngày, mà chip vẫn XANH "Đã lưu đủ dự báo — tới ngày 18/8"
-       (ngày lấy từ lớp điểm ghim). Đây là chỗ đổi lưới an-toàn-tính-mạng lấy một
-       bản NGHÈO HƠN của chính nó — không bao giờ đúng.
-       KHÔNG chữa bằng cách đảo thứ tự [16,7,3]: khung 1,6 MB chạy đầu thì mẻ
-       sóng yếu chỉ lấy được mỗi nó rồi hết giờ. */
-    const keepGridDays = keep == null ? null : gridFrameDays(keep);
-    const victims = rankedVictims();
-    let dropped = 0;
-    let freed = 0;
-    for (const it of victims) {
-      if (dropped >= 1 && freed >= needBytes) break;
-      if (it.k === keep) continue;
-      // nạn nhân kế tiếp quý hơn thứ đang ghi → THÀ KHÔNG GHI. Trả về số byte đã
-      // giải phóng; saveForecast thấy 0 thì báo "máy hết chỗ" — nói thật còn hơn
-      // âm thầm xoá tin bão.
-      if (dropRank(it.k) > ceiling) break;
-      if (keepGridDays != null) {
-        const d = gridFrameDays(it.k);
-        // khung DÀI HƠN thứ đang ghi → bỏ qua (chỉ bỏ qua nó, các bản khác vẫn
-        // được xét: `continue` chứ không `break`)
-        if (d != null && d > keepGridDays) continue;
-      }
-      const v = window.localStorage.getItem(it.k) ?? "";
-      debitScopes(it.k);
-      noteEvicted(); // máy chật tới mức phải xoá — dòng báo phải nói ĐÚNG chuyện đó
-      window.localStorage.removeItem(it.k);
-      freed += (it.k.length + v.length) * 2;
-      dropped++;
+      "Chỉ dọn khi down được 1 bản ghi mới thôi (online và down về thành công)
+      thì nó luôn tối ưu và đảm bảo cái offline luôn đủ info truy cập được mọi
+      lúc trong 16 ngày đã down về. Hành vi qua ngày 2, 3, 4 … 16 offline là
+      giống nhau, đều đọc từ bản ghi local thôi."
+
+      Vế thứ nhất đã đúng sẵn: mọi lời gọi `saveForecast` đều nằm sau một lượt
+      fetch THÀNH CÔNG. Vế thứ hai thì CHƯA — và đây là chỗ vá.
+
+      LỖI ĐÃ SỬA: bậc hy sinh `DROP_RANK` cho phép ăn XUYÊN LỚP. Ghi một lưới
+      gió/sóng mới có thể xoá điểm ghim, lớp dải màu, giá cá — tức **ăn vào chính
+      cái gói 16 ngày vừa tải về**. Kết cục: gói đó không còn "đủ info", và ngày
+      thứ mấy của chuyến mở ra thấy gì thì tuỳ vào lượt ghi nào tình cờ chạy
+      trước — đúng thứ làm hành vi ngày 2 khác ngày 9.
+
+      Nay: nạn nhân phải CÙNG LỚP với thứ đang ghi. Lưới mới thay lưới cũ, điểm
+      ghim thay điểm ghim — đúng nghĩa "bản mới thế chỗ bản nó thay thế". Không
+      còn lớp nào ăn được lớp khác, nên gói đã tải giữ nguyên vẹn suốt chuyến.
+      Không còn nạn nhân cùng lớp ⇒ TỪ CHỐI GHI và báo "máy hết chỗ" — nói thật,
+      đúng luật đã áp cho dữ liệu bà con tự gõ.
+
+      `DROP_RANK` giữ lại vì nó vẫn là thứ tự đúng để xếp nạn nhân TRONG cùng
+      một lớp (`rankedVictims`). */
+  const nsKeep = keep == null ? null : nsOf(keep);
+  const keepGridDays = keep == null ? null : gridFrameDays(keep);
+  const out: { k: string; savedAt: number }[] = [];
+  for (const it of rankedVictims()) {
+    if (it.k === keep) continue;
+    if (nsKeep != null && nsOf(it.k) !== nsKeep) continue;
+    if (keepGridDays != null) {
+      const d = gridFrameDays(it.k);
+      // khung DÀI HƠN thứ đang ghi → bỏ qua (khung ngắn không giết khung dài)
+      if (d != null && d > keepGridDays) continue;
     }
-    return freed;
+    out.push(it);
+  }
+  return out;
+}
+
+/** Một bản vừa bị gỡ ra — giữ nguyên nội dung để CÒN TRẢ LẠI ĐƯỢC. */
+interface DaGo {
+  k: string;
+  v: string;
+  bytes: number;
+}
+
+/** Gỡ ĐÚNG MỘT bản trong danh sách đã tính sẵn. `null` = hết nạn nhân. */
+function dropOne(list: { k: string; savedAt: number }[]): DaGo | null {
+  const it = list.shift();
+  if (!it) return null;
+  try {
+    const v = window.localStorage.getItem(it.k) ?? "";
+    debitScopes(it.k);
+    noteEvicted();
+    window.localStorage.removeItem(it.k);
+    return { k: it.k, v, bytes: (it.k.length + v.length) * 2 };
   } catch {
-    return 0;
+    return null;
   }
 }
+
+/** Trả lại những bản đã gỡ khi cú ghi cuối cùng vẫn không thành. */
+function hoanTac(daGo: DaGo[]): void {
+  for (const it of daGo) {
+    try {
+      window.localStorage.setItem(it.k, it.v);
+    } catch {
+      /* trả lại cũng không nổi thì thôi — đã cố hết sức */
+    }
+  }
+}
+
+/*  `dropOldest` ĐÃ XOÁ (2026-08-02i): vòng ghi nay dùng `eligibleVictims` +
+    `dropOne` để khỏi quét-parse cả kho mỗi lượt, và để còn HOÀN TÁC được. Không
+    chỗ nào trong `src/` gọi nó nữa. */
+
 
 /**
  * BẬC HY SINH khi phải bỏ bản dự báo (nhường chỗ cho dữ liệu bà con tự gõ, HOẶC
@@ -416,9 +506,6 @@ const DROP_RANK: Record<string, number> = {
 };
 const DROP_RANK_DEFAULT = 3;
 
-/** BẬC KHÔNG BAO GIỜ NHƯỜNG CHỖ cho dữ liệu bà con tự gõ: từ `storm` trở lên.
-    Tin bão vài KB — bỏ nó chẳng dôi ra chỗ nào mà lại lấy mất thứ cứu người. */
-const RECLAIM_KEEP_RANK = DROP_RANK.storm;
 
 /** Namespace của một key đầy đủ `forfish.fc.<ns>.<id>` */
 function nsOf(fullKey: string): string {
@@ -446,52 +533,19 @@ function rankedVictims(): { k: string; savedAt: number }[] {
   );
 }
 
-/**
- * NHƯỜNG CHỖ CHO DỮ LIỆU BÀ CON TỰ NHẬP (2026-07-31, xếp lại nạn nhân 2026-08-01).
- *
- * Vì sao: dự báo tải sẵn chiếm gần hết localStorage, nên giấy tờ / bạn thuyền /
- * mốc bảo dưỡng vừa nhập có thể KHÔNG ghi xuống được — mà thứ đó bà con gõ tay,
- * mất là mất luôn, còn dự báo thì có sóng là tải lại. Vậy khi ghi dữ liệu tự
- * nhập bị máy báo hết chỗ, gọi hàm này để bỏ bớt bản dự báo rồi ghi lại.
- *
- * LỖI ĐÃ SỬA: bản đầu gọi `dropOldest(1, needBytes)` — chọn nạn nhân theo
- * `savedAt`. Nhưng `savedAt` của các lớp NẶNG là GIỜ CHẠY CRON của snapshot
- * (forecast-grid/cur-depth/scalar-field truyền `snap.savedAt`), còn bản
- * điểm-chạm tí hon lại lưu bằng `Date.now()` ⇒ lớp nặng LUÔN nằm phía "cũ".
- * Kết quả: một ghi chú 3 KB xoá nguyên lưới gió/sóng 16 ngày ~1,6 MB — thứ giữa
- * biển KHÔNG tải lại được — trong khi hàng chục bản điểm-chạm vụn vặt sống
- * nguyên. `savedAt` là TUỔI CỦA SỐ LIỆU (cho `isCacheCurrent`), không phải giá
- * trị của bản lưu ⇒ chọn nạn nhân theo BẬC HY SINH, trong cùng bậc mới xét cũ
- * trước.
- *
- * Trả về SỐ BẢN dự báo đã bỏ (0 = không còn gì để bỏ).
- */
-export function reclaimForecastSpace(needBytes: number): number {
-  const need = Math.max(0, needBytes);
-  try {
-    const items = rankedVictims();
-    let dropped = 0;
-    let freed = 0;
-    for (const it of items) {
-      if (dropped >= 1 && freed >= need) break;
-      /* TRẦN BẬC cho ĐƯỜNG NÀY NỮA (T8, 2026-08-02): trước đây vòng lặp duyệt
-         hết `rankedVictims()`, không trần, không `break` theo bậc — đối lập
-         thẳng với dropOldest. Ghi một tủ giấy tờ / sổ thuyền viên đủ lớn là dọn
-         tới TIN BÃO (bậc 6). Bỏ tin bão chỉ dôi ra vài KB mà lấy mất đúng thứ
-         cứu người ⇒ dừng trước nó, rồi `saveUserJson` báo thật "máy hết chỗ". */
-      if (dropRank(it.k) >= RECLAIM_KEEP_RANK) break;
-      const v = window.localStorage.getItem(it.k) ?? "";
-      debitScopes(it.k);
-      noteEvicted(); // cũng là "máy hết chỗ" — chỉ khác là chỗ cho dữ liệu tự gõ
-      window.localStorage.removeItem(it.k);
-      freed += (it.k.length + v.length) * 2;
-      dropped++;
-    }
-    return dropped;
-  } catch {
-    return 0;
-  }
-}
+/*  `reclaimForecastSpace` ĐÃ XOÁ HẲN (2026-08-02h) — chủ dự án chốt: "hết chỗ
+    thì TỪ CHỐI GHI và nói thật, KHÔNG đi xoá đồ của bà con để lấy chỗ."
+
+    Nó là đường ghi dữ liệu bà con TỰ GÕ (giấy tờ, thuyền viên, tàu) mượn chỗ của
+    DỰ BÁO. Ba chỗ hỏng, cả ba nổ đúng lúc đang ngoài biển: không có cầu dao "dọn
+    không ăn thua" (iOS dùng CHUNG hạn ngạch cho localStorage và Cache API, nên
+    máy đầy vì kho service worker vẫn ăn 4 bản dự báo mà không ghi nổi một byte);
+    trần bậc chỉ dừng trước `storm` nên lưới gió/sóng và bản đồ cá VẪN bị xoá
+    được; và nó chạy lúc MỞ MÀN chứ không phải lúc bà con gõ.
+    `saveUserJson` (lib/user-store.ts) nay chỉ thử ghi rồi trả `false`, màn hình
+    đã có sẵn banner đỏ "chưa lưu được". Có cổng chặn khuôn trong
+    `__tests__/user-store.test.ts` cấm file đó biết tới bất kỳ hàm dọn nào. */
+
 
 /** Mọi bản đã lưu trong namespace (mới nhất trước) — để đếm "trong máy có gì". */
 export function loadAll<T>(

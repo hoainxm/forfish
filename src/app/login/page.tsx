@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { withDeadline } from "@/lib/auth-error";
 import { apiUrl } from "@/lib/api-base";
+import { timeoutSignal } from "@/lib/abort";
 import { deviceId } from "@/lib/device-id";
 import { devicePlatform } from "@/lib/storage-persist";
 import { isValidTokenShape } from "@/lib/device-token";
@@ -98,6 +99,14 @@ export default function LoginPage() {
           deviceId: deviceId(),
           platform: devicePlatform(),
         }),
+        /*  `signal` LÀ BẮT BUỘC, KHÔNG chỉ dựa `withDeadline` (sửa 2026-08-02h).
+            `withDeadline` chỉ bỏ KẾT QUẢ sau 20 giây; request vẫn chạy tiếp trên
+            máy chủ. Bà con thấy lỗi, bấm Đăng nhập lần hai ⇒ hai lượt cấp chuỗi
+            đua nhau: lượt B cấp chuỗi và máy lưu, rồi lượt A về sau THU HỒI chuỗi
+            của B để cấp chuỗi A mà không máy nào cầm ⇒ lượt gọi kế của máy nhận
+            `401 token_revoked` ⇒ màn hình nói dối "máy khác vừa đăng nhập".
+            Cắt thật thì lượt A chết hẳn, không còn ai đi thu hồi. */
+        signal: timeoutSignal(20000),
       }).then((r) => r.json().catch(() => null)),
       20000,
     );
@@ -110,14 +119,38 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    saveToken(issued.token);
+    /*  CẤT ĐƯỢC CHUỖI RỒI MỚI ĐƯỢC ĐI TIẾP (sửa 2026-08-02h, Codex bắt).
+        Máy chủ đã thu hồi chuỗi máy cũ ở bước trên. Nếu kho máy này bị chặn
+        (chế độ riêng tư iOS) hay đầy mà mình vẫn đi tiếp rồi bỏ phiên tạm, thì
+        tài khoản KHÔNG CÒN credential nào: máy mới không giữ được chuỗi, máy cũ
+        thì vừa bị đá. Mất cả hai đầu.
+        Cất không được ⇒ GIỮ NGUYÊN phiên tạm, báo thật, để bà con bấm lại. */
+    if (!saveToken(issued.token)) {
+      setError(
+        "Máy đang không cho app lưu dữ liệu nên chưa giữ được đăng nhập. Bà con tắt chế độ duyệt web riêng tư (ẩn danh) rồi thử lại giúp.",
+      );
+      setLoading(false);
+      return;
+    }
+    // lần đầu (webhook đặt must_change_password) → bắt đổi mật khẩu
+    const mustChange = issued.mustChangePassword === true;
+    /*  ĐỔI MẬT KHẨU LẦN ĐẦU THÌ GIỮ PHIÊN TẠM (sửa 2026-08-02h, Codex bắt).
+        `/doi-mat-khau` đổi mật khẩu bằng `supabase.auth.updateUser`, tức nó CẦN
+        phiên. Bỏ phiên ngay ở đây rồi mới chuyển sang là màn đó chỉ báo "phải
+        đăng nhập" ⇒ bà con đăng nhập lại ⇒ lại cấp chuỗi, lại bỏ phiên, lại
+        chuyển sang ⇒ VÒNG LẶP KHÔNG LỐI RA, và đây là màn BẮT BUỘC của mọi tài
+        khoản mới. Phiên tạm sẽ bị bỏ ở cuối `/doi-mat-khau`, sau khi đổi xong.
+        Chuỗi cứng đã nằm trong máy từ trên, nên giữ thêm phiên không nới quyền
+        gì — nó chỉ sống thêm vài phút cho đúng một việc. */
+    if (mustChange) {
+      router.replace("/doi-mat-khau");
+      return;
+    }
     /*  BỎ PHIÊN SUPABASE. Không `scope:'others'` nữa — việc đá máy cũ đã do route
         làm rồi. Hỏng thì thôi, không chặn: chuỗi đã nằm trong máy, mà cái phiên
         bỏ lại cũng chỉ tự chết chứ không mở được cửa nào. */
     await withDeadline(supabase!.auth.signOut(), 8000);
-    // lần đầu (webhook đặt must_change_password) → bắt đổi mật khẩu
-    const mustChange = issued.mustChangePassword === true;
-    router.replace(mustChange ? "/doi-mat-khau" : "/");
+    router.replace("/");
   }
 
   return (

@@ -23,6 +23,24 @@ export const DEVICE_TOKEN_KEY = "forfish.token.v1";
 /** Máy vừa bị đá — màn hình nghe sự kiện này để nói thật với bà con */
 export const TOKEN_KICKED_EVENT = "forfish:kicked";
 
+/**  KHO CHUỖI VỪA ĐỔI (cất mới / xoá đi) — màn hình nghe để vẽ lại NGAY.
+ *
+ *   VÌ SAO CẦN (2026-08-02h): `saveToken` trước đây ghi im lặng, không báo ai.
+ *   Component đã mount giữ nguyên trạng thái "chưa có chuỗi" cho tới lần mount
+ *   sau — mà bản cài PWA mở lại từ nền thì KHÔNG remount React. Trước nay đỡ
+ *   được nhờ `router.replace` sau đăng nhập, tức dựa vào may.
+ *   Từ bản này "máy có tài khoản chưa" là câu hỏi cả app đi hỏi (useAuthUser),
+ *   nên nó phải có tín hiệu thật, không dựa vào may. */
+export const TOKEN_STORE_EVENT = "forfish:token";
+
+function announceToken(): void {
+  try {
+    window.dispatchEvent(new CustomEvent(TOKEN_STORE_EVENT));
+  } catch {
+    /* CustomEvent không có (WebView rất cũ) — màn vẽ lại ở lần mở sau */
+  }
+}
+
 export function readToken(): string | null {
   try {
     const v = window.localStorage.getItem(DEVICE_TOKEN_KEY);
@@ -32,12 +50,28 @@ export function readToken(): string | null {
   }
 }
 
-export function saveToken(token: string): void {
+/**
+ * Cất chuỗi vào máy. Trả `true` khi ĐÃ ĐỌC LẠI ĐƯỢC đúng chuỗi vừa ghi.
+ *
+ * ⚠️ PHẢI TRẢ TRẠNG THÁI, KHÔNG ĐƯỢC NUỐT (sửa 2026-08-02h).
+ * LỖI ĐÃ SỬA: bản trước nuốt mọi lỗi và trả `void`, nên màn đăng nhập cứ thế đi
+ * tiếp — trong khi máy chủ ĐÃ thu hồi chuỗi của máy cũ và app thì sắp bỏ luôn
+ * phiên Supabase tạm. Kho bị chặn (chế độ riêng tư iOS) hoặc đầy ⇒ chuỗi mới
+ * mất vĩnh viễn, phiên tạm cũng mất ⇒ **tài khoản không còn credential nào trên
+ * máy dù vừa đăng nhập đúng mật khẩu**, mà máy cũ thì cũng đã bị đá. Mất cả hai
+ * đầu cùng lúc.
+ *
+ * ĐỌC LẠI để xác minh chứ không tin `setItem` im lặng: Safari chế độ riêng tư
+ * đời cũ nhận `setItem` rồi vứt, không ném gì cả.
+ */
+export function saveToken(token: string): boolean {
   try {
     window.localStorage.setItem(DEVICE_TOKEN_KEY, token);
+    const ok = window.localStorage.getItem(DEVICE_TOKEN_KEY) === token;
+    if (ok) announceToken();
+    return ok;
   } catch {
-    /* kho bị chặn (chế độ riêng tư iOS) — bà con vẫn dùng được hết phiên này,
-       mở lại app thì phải đăng nhập lại. Không có gì cứu được ở đây. */
+    return false;
   }
 }
 
@@ -66,6 +100,7 @@ export function signOutLocal(reason: "user" | "kicked"): void {
   } catch {
     /* bỏ qua */
   }
+  announceToken();
   /*  QUA CỔNG `applyIdentityAction`, KHÔNG gọi thẳng `forgetIdentity` — luật K7:
       sổ danh tính chỉ có MỘT người ghi. Cổng `identity-gate.test.ts` bắt được
       đúng chỗ này lúc tôi viết tắt, và nó bắt đúng: mỗi đường ghi thứ hai là một

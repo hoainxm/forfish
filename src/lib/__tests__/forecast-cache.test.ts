@@ -62,7 +62,6 @@ import {
   beginForecastWrites,
   coordId,
   noteForecastKept,
-  reclaimForecastSpace,
   savedAgoLabel,
 } from "../forecast-cache";
 
@@ -155,90 +154,73 @@ describe("máy hết chỗ (QuotaExceeded)", () => {
     expect(saveForecast("point", "moi2", { i: 100 }, 10000)).toBe(true);
   });
 
-  /*
-    DỌN XUYÊN NAMESPACE THEO BẬC HY SINH (viết lại 2026-08-02). Bản cũ của test
-    này dựng kho CHỈ CÓ grid — kịch bản suy biến, không phân biệt được bậc nào
-    với bậc nào — mà TÊN test lại phát biểu chính sách NGƯỢC với DROP_RANK
-    ("lưới gió nhường chỗ cho dự báo điểm"). Luật thật: LƯỚI GIÓ/SÓNG là an toàn
-    tính mạng, giữa biển không tải lại được ⇒ bỏ SAU điểm-chạm.
-  */
-  it("dọn xuyên namespace: bỏ bản RẺ trước, lưới gió/sóng được chừa", () => {
+  /*  ═══ ĐỔI CHÍNH SÁCH 2026-08-02i — MỖI LỚP CHỈ ĂN TRONG CHÍNH NÓ ═══
+
+      Chủ dự án chốt: *"chỉ dọn khi down được 1 bản ghi mới thôi (online và down
+      về thành công) thì nó luôn tối ưu và đảm bảo cái offline luôn đủ info truy
+      cập được mọi lúc trong 16 ngày đã down về. Hành vi qua ngày 2, 3, 4 … 16
+      offline là giống nhau, đều đọc từ bản ghi local thôi."*
+
+      Chính sách cũ (`DROP_RANK`, dọn XUYÊN LỚP) nghe hợp lý — bỏ thứ rẻ giữ thứ
+      quý — nhưng nó phá đúng lời hứa trên: ghi một lưới gió mới có thể xoá điểm
+      ghim / lớp dải màu / giá cá, tức **ăn vào chính cái gói 16 ngày vừa tải**.
+      Hậu quả không phải "mất một lớp rẻ" mà là **gói đó không còn đủ info**, và
+      ngày thứ mấy của chuyến mở ra thấy gì thì tuỳ lượt ghi nào tình cờ chạy
+      trước. Ngày 2 khác ngày 9 — đúng thứ lời hứa cấm.
+
+      Luật mới: nạn nhân phải CÙNG LỚP với thứ đang ghi. Lưới thay lưới, điểm
+      ghim thay điểm ghim — đúng nghĩa "bản mới thế chỗ bản nó thay thế". Không
+      còn nạn nhân cùng lớp ⇒ TỪ CHỐI GHI, báo "máy hết chỗ" (cùng luật đã áp
+      cho dữ liệu bà con tự gõ).
+
+      Mấy ca dưới đây trước kia khoá chính sách xuyên lớp; nay khoá chính sách
+      mới, và khoá luôn chiều ngược: **không lớp nào được đụng lớp khác.** */
+  it("lớp MỚI không được ăn lớp KHÁC — gói đã tải giữ nguyên vẹn", () => {
     QUOTA = 4;
-    saveForecast("grid", "d16", { i: 0 }, 0); // savedAt = giờ cron → trông "cũ nhất"
+    saveForecast("grid", "d16", { i: 0 }, 0);
     saveForecast("point", "a", { i: 1 }, 100);
-    saveForecast("point", "b", { i: 2 }, 200);
-    saveForecast("point", "c", { i: 3 }, 300);
-    expect(saveForecast("scalar", "cloud", { v: 1 }, 400)).toBe(true);
-    // nạn nhân là bản điểm CŨ NHẤT, KHÔNG phải lưới 16 ngày
-    expect(loadForecast("point", "a")).toBeNull();
-    expect(loadForecast("grid", "d16")).not.toBeNull();
-    expect(loadForecast("scalar", "cloud")).not.toBeNull();
+    saveForecast("price", "port", { i: 2 }, 200);
+    saveForecast("storm", "latest", { i: 3 }, 300);
+    // kho đầy, lớp dải màu là lớp MỚI ⇒ không có nạn nhân cùng lớp ⇒ TỪ CHỐI
+    expect(saveForecast("scalar", "cloud", { v: 1 }, 400)).toBe(false);
+    // và KHÔNG một lớp nào của gói bị đụng
+    for (const [ns, id] of [
+      ["grid", "d16"],
+      ["point", "a"],
+      ["price", "port"],
+      ["storm", "latest"],
+    ] as const) {
+      expect(loadForecast(ns, id), `${ns} bị lớp khác ăn`).not.toBeNull();
+    }
+    expect(lastStorageFullAt()).toBeGreaterThan(0); // có báo "máy hết chỗ"
   });
 
-  it("TIN BÃO không bị hy sinh trước lưới gió (an toàn tính mạng, chỉ vài KB)", () => {
+  it("bản đồ cá mới KHÔNG được xoá tin bão / lưới gió để lấy chỗ", () => {
     QUOTA = 3;
-    saveForecast("storm", "latest", { ok: true }, 0); // cũ nhất theo savedAt
+    saveForecast("storm", "latest", { ok: true }, 0);
     saveForecast("grid", "d16", { i: 1 }, 100);
     saveForecast("curdepth", "t150", { i: 2 }, 200);
-    // ghi bản đồ cá GHIM (bậc 5) — được phép hy sinh thứ rẻ hơn nó
-    expect(saveForecast("fishmark", "m", { v: 1 }, 300)).toBe(true);
-    expect(loadForecast("storm", "latest")).not.toBeNull(); // bậc cao nhất
-    expect(loadForecast("curdepth", "t150")).toBeNull(); // rẻ nhất → đi trước
+    expect(saveForecast("fishmark", "m", { v: 1 }, 300)).toBe(false);
+    expect(loadForecast("storm", "latest")).not.toBeNull();
+    expect(loadForecast("grid", "d16")).not.toBeNull();
+    expect(loadForecast("curdepth", "t150"), "lớp khác bị ăn").not.toBeNull();
   });
 
-  /*
-    TRẦN BẬC (lỗi K4-b, 2026-08-02): vòng dọn xếp đúng thứ tự nạn nhân nhưng
-    KHÔNG có luật dừng, nên khi thứ rẻ không đủ chỗ nó cứ đi tiếp lên bậc quý
-    hơn. Ghi một lớp dải màu "xem cho biết" lúc máy đầy là ăn sạch price →
-    point → scalar → grid → fishmark → STORM: bản tin bão bị xoá để nhét một
-    lớp màu. Nay thà KHÔNG GHI được và báo "máy hết chỗ" — nói thật.
-  */
-  describe("trần bậc — đừng hy sinh thứ QUÝ HƠN thứ đang ghi", () => {
-    const big = (n: number) => "x".repeat(n);
-
-    it("lớp dải màu KHÔNG được xoá tin bão / lưới gió / bản đồ cá ghim", () => {
-      QUOTA_BYTES = 6000;
-      saveForecast("storm", "latest", { blob: big(300) }, 0);
-      saveForecast("grid", "d16", { blob: big(600) }, 100);
-      saveForecast("fishmark", "m", { blob: big(300) }, 200);
-      // lớp độ mặn to hơn phần trống còn lại → PHẢI trượt, không được ăn bậc trên
-      expect(saveForecast("scalar", "salinity", { blob: big(2000) }, 300)).toBe(
-        false,
-      );
-      expect(loadForecast("storm", "latest")).not.toBeNull();
-      expect(loadForecast("grid", "d16")).not.toBeNull();
-      expect(loadForecast("fishmark", "m")).not.toBeNull();
-      expect(lastStorageFullAt()).toBeGreaterThan(0); // có báo "máy hết chỗ"
-    });
-
-    it("lớp dải màu VẪN được hy sinh thứ RẺ HƠN (giá cá, điểm ghim)", () => {
-      QUOTA_BYTES = 6000;
-      saveForecast("price", "port", { blob: big(400) }, 0);
-      saveForecast("point", "a", { blob: big(400) }, 100);
-      saveForecast("storm", "latest", { blob: big(200) }, 200);
-      expect(saveForecast("scalar", "cloud", { blob: big(2000) }, 300)).toBe(true);
-      expect(loadForecast("price", "port")).toBeNull();
-      expect(loadForecast("storm", "latest")).not.toBeNull();
-    });
-
-    /* KHÔNG được dựng lại lỗi "kẹt vĩnh viễn" 2026-07-25: NGANG HÀNG là cùng
-       hạng giá trị, bỏ bản CŨ để nhận bản MỚI cùng loại vẫn phải chạy được. */
-    it("NGANG HÀNG vẫn nhường chỗ được — không kẹt vĩnh viễn", () => {
-      QUOTA = 5;
-      for (let i = 0; i < 5; i++) saveForecast("point", `p${i}`, { i }, i);
-      expect(saveForecast("point", "moi", { v: 1 }, 999)).toBe(true);
-      expect(loadForecast("point", "p0")).toBeNull();
-      expect(loadForecast("point", "moi")).not.toBeNull();
-    });
+  it("TRONG cùng lớp thì bản mới vẫn thay được bản cũ — không kẹt vĩnh viễn", () => {
+    QUOTA = 5;
+    for (let i = 0; i < 5; i++) saveForecast("point", `p${i}`, { i }, i);
+    expect(saveForecast("point", "moi", { v: 1 }, 999)).toBe(true);
+    expect(loadForecast("point", "p0")).toBeNull(); // bản cũ NHẤT cùng lớp
+    expect(loadForecast("point", "moi")).not.toBeNull();
   });
 
-  it("giá cá là thứ bỏ ĐẦU TIÊN (rẻ nhất trong bảng)", () => {
+  it("khung NGẮN không giết khung DÀI dù cùng lớp `grid`", () => {
     QUOTA = 2;
-    saveForecast("point", "a", { v: 1 }, 0); // cũ nhất theo savedAt
-    saveForecast("price", "port", { v: 2 }, 900);
-    expect(saveForecast("grid", "d3", { v: 3 }, 1000)).toBe(true);
-    expect(loadForecast("price", "port")).toBeNull();
-    expect(loadForecast("point", "a")).not.toBeNull();
+    saveForecast("grid", "d16", { i: 0 }, 0); // savedAt giờ cron → trông cũ nhất
+    saveForecast("grid", "d7", { i: 1 }, 100);
+    // ghi d3 (khung ngắn nhất) — KHÔNG được ăn d16
+    saveForecast("grid", "d3", { i: 2 }, 200);
+    expect(loadForecast("grid", "d16"), "khung 16 ngày bị khung 3 ngày ăn").not.toBeNull();
   });
 
   it("chỉ cần vài KB thì CHỈ bỏ 1 bản, không bỏ tối thiểu 4 bản như trước", () => {
@@ -357,8 +339,11 @@ describe("máy hết chỗ — dọn theo DUNG LƯỢNG", () => {
   const big = (n: number) => "x".repeat(n);
 
   it("bản NẶNG vẫn vào được: bỏ bao nhiêu bản tí hon cũng bỏ, miễn đủ chỗ", () => {
+    /*  CÙNG LỚP (2026-08-02i): lớp mới không được ăn lớp khác, nên ca "bản nặng
+        vào được" phải dựng trong CHÍNH lớp đó. */
     QUOTA_BYTES = 14000;
-    for (let i = 0; i < 40; i++) saveForecast("point", `p${i}`, { i }, i);
+    for (let i = 0; i < 12; i++)
+      saveForecast("grid", `d${i}`, { blob: big(500) }, i);
     expect(saveForecast("grid", "d16", { blob: big(6000) }, 9999)).toBe(true);
     expect(loadForecast("grid", "d16")).not.toBeNull();
   });
@@ -367,10 +352,11 @@ describe("máy hết chỗ — dọn theo DUNG LƯỢNG", () => {
     QUOTA_BYTES = 14000;
     for (let i = 0; i < 40; i++) saveForecast("point", `p${i}`, { i }, i);
     saveForecast("grid", "d3", { blob: big(500) }, 5000);
-    expect(saveForecast("scalar", "cloud", { blob: big(5000) }, 9999)).toBe(true);
+    // bản MỚI cùng lớp `point` — chỉ được ăn trong `point`
+    expect(saveForecast("point", "moi", { blob: big(5000) }, 9999)).toBe(true);
     expect(loadForecast("point", "p0")).toBeNull(); // cũ nhất nhường chỗ
     expect(loadForecast("point", "p39")).not.toBeNull(); // mới hơn còn
-    expect(loadForecast("grid", "d3")).not.toBeNull();
+    expect(loadForecast("grid", "d3"), "lớp khác bị ăn").not.toBeNull();
   });
 
   it("ghi đè bản NẶNG của chính mình không tự xoá mình rồi mất chỗ", () => {
@@ -387,54 +373,11 @@ describe("máy hết chỗ — dọn theo DUNG LƯỢNG", () => {
   bản điểm-chạm tí hon lưu bằng Date.now ⇒ xếp theo tuổi thì lớp nặng luôn đứng
   đầu hàng bị bỏ: một ghi chú 3 KB xoá nguyên lưới gió/sóng 16 ngày.
 */
-describe("reclaimForecastSpace — bỏ thứ RẺ trước, chừa lưới gió/sóng", () => {
-  const big = (n: number) => "x".repeat(n);
-
-  it("lưới gió/sóng CŨ HƠN vẫn được chừa, bản điểm-chạm mới hơn nhường chỗ", () => {
-    saveForecast("grid", "d16", { blob: big(2000) }, 1000); // savedAt = giờ cron
-    saveForecast("point", "a", { blob: big(50) }, 9000); // savedAt = Date.now
-    expect(reclaimForecastSpace(100)).toBe(1);
-    expect(loadForecast("grid", "d16")).not.toBeNull();
-    expect(loadForecast("point", "a")).toBeNull();
-  });
-
-  it("thứ tự hy sinh: điểm → dải màu → dòng chảy tầng → lưới → bản đồ cá ghim", () => {
-    saveForecast("fishmark", "m", { blob: big(60) }, 1000);
-    saveForecast("grid", "d16", { blob: big(60) }, 1000);
-    saveForecast("curdepth", "t150", { blob: big(60) }, 1000);
-    saveForecast("scalar", "cloud", { blob: big(60) }, 1000);
-    saveForecast("point", "a", { blob: big(60) }, 1000);
-    const gone: string[] = [];
-    for (const [ns, id] of [
-      ["point", "a"],
-      ["scalar", "cloud"],
-      ["curdepth", "t150"],
-      ["grid", "d16"],
-      ["fishmark", "m"],
-    ] as const) {
-      reclaimForecastSpace(0);
-      if (loadForecast(ns, id) === null && !gone.includes(ns)) gone.push(ns);
-    }
-    expect(gone).toEqual(["point", "scalar", "curdepth", "grid", "fishmark"]);
-  });
-
-  it("cùng bậc thì bỏ bản CŨ trước", () => {
-    saveForecast("point", "moi", { blob: big(50) }, 9000);
-    saveForecast("point", "cu", { blob: big(50) }, 1000);
-    reclaimForecastSpace(0);
-    expect(loadForecast("point", "cu")).toBeNull();
-    expect(loadForecast("point", "moi")).not.toBeNull();
-  });
-
-  it("kho trống → trả 0, không ném", () => {
-    expect(reclaimForecastSpace(5000)).toBe(0);
-  });
-});
 
 /*
   T3 — MẺ TẢI SẴN TỰ XOÁ THỨ NÓ VỪA GHI RỒI VẪN KHOÁ 6 GIỜ (2026-08-02).
   `saveForecast` chỉ CỘNG `counts[ns]`; ba đường xoá (trim · dropOldest ·
-  reclaimForecastSpace) không đường nào TRỪ. Bước ghi điểm ghim xong
+  dropOldest) không đường nào TRỪ. Bước ghi điểm ghim xong
   (`gained.point = 3`), bước ghi lớp dải màu làm `setItem` ném ⇒ dropOldest xoá
   luôn ba bản `point` VỪA ghi ⇒ `gained.point` vẫn 3 ⇒ khoá 6 giờ, mà dòng báo
   lại xanh "Đã lưu dự báo mới về máy." vì `savedSummary()` chạy sau và thấy kho
@@ -443,17 +386,19 @@ describe("reclaimForecastSpace — bỏ thứ RẺ trước, chừa lưới gió
 describe("phạm vi đếm ghi — TRỪ CÔNG khi bản vừa ghi bị xoá đi", () => {
   const big = (n: number) => "x".repeat(n);
 
-  it("ba bản point vừa ghi bị dọn để nhường lớp dải màu → counts.point về 0", () => {
+  it("bản point vừa ghi bị chính lớp point dọn → counts.point trừ đúng", () => {
     QUOTA_BYTES = 4000;
     const s = beginForecastWrites();
     for (const id of ["a", "b", "c"]) {
       expect(saveForecast("point", id, { blob: big(500) }, 100)).toBe(true);
     }
     expect(s.counts.point).toBe(3);
-    saveForecast("scalar", "cloud", { blob: big(1500) }, 200);
+    // bản point MỚI, nặng ⇒ ăn bản point cũ của chính mẻ này
+    saveForecast("point", "nang", { blob: big(1500) }, 200);
     s.end();
-    expect(countNs("point")).toBe(0); // kho đã sạch bản điểm
-    expect(s.counts.point).toBe(0); // …và công cũng phải sạch theo
+    expect(s.counts.point, "công không được đếm THỪA").toBeLessThanOrEqual(
+      countNs("point"),
+    );
   });
 
   it("trim (quá 40 bản) cũng phải trừ công", () => {
@@ -464,13 +409,19 @@ describe("phạm vi đếm ghi — TRỪ CÔNG khi bản vừa ghi bị xoá đi
     expect(s.counts.point).toBe(40); // 45 lần ghi − 5 bản bị trim
   });
 
-  it("nhường chỗ cho dữ liệu tự nhập cũng phải trừ công", () => {
+  /*  Kích dọn bằng ĐÚNG ĐƯỜNG THẬT — ghi lúc kho đã đầy — chứ không gọi tay hàm
+      dọn nữa: đường "dữ liệu tự gõ mượn chỗ của dự báo" đã xoá hẳn 2026-08-02h
+      (xem `user-store.test.ts`), nên gọi tay là kiểm một thứ không còn tồn tại. */
+  it("dọn chỗ lúc GHI cũng phải trừ công", () => {
+    QUOTA = 2;
     const s = beginForecastWrites();
-    saveForecast("point", "a", { blob: big(50) }, 100);
-    saveForecast("point", "b", { blob: big(50) }, 200);
-    reclaimForecastSpace(10); // bỏ 1 bản rẻ nhất
+    saveForecast("point", "a", { i: 1 }, 100);
+    saveForecast("point", "b", { i: 2 }, 200);
+    // kho đầy ⇒ bản point MỚI ép dọn bản point CŨ NHẤT ("a") — cùng lớp
+    saveForecast("point", "c", { i: 3 }, 300);
     s.end();
-    expect(s.counts.point).toBe(1);
+    expect(loadForecast("point", "a")).toBeNull();
+    expect(s.counts.point).toBe(2);
   });
 
   /* BẤT BIẾN chốt cả họ lỗi này: sau MỌI chuỗi ghi/xoá, công đếm được không bao
@@ -482,7 +433,6 @@ describe("phạm vi đếm ghi — TRỪ CÔNG khi bản vừa ghi bị xoá đi
     for (let i = 0; i < 12; i++) {
       saveForecast("point", `p${i}`, { blob: big(300) }, i);
       saveForecast("scalar", `s${i}`, { blob: big(400) }, i);
-      if (i % 3 === 0) reclaimForecastSpace(1200);
     }
     s.end();
     for (const ns of ["point", "scalar", "grid"]) {
@@ -510,7 +460,8 @@ describe("phạm vi đếm ghi — chỉ trừ bản của CHÍNH mẻ này", ()
     for (const id of ["moi1", "moi2", "moi3"])
       expect(saveForecast("point", id, { blob: big(100) }, 900)).toBe(true);
     expect(s.counts.point).toBe(3);
-    saveForecast("scalar", "cloud.d16", { blob: big(1000) }, 1000);
+    // bản point MỚI, nặng ⇒ ăn bản point ĐỜI CŨ (cùng lớp)
+    saveForecast("point", "nang", { blob: big(1000) }, 1000);
     s.end();
     return s;
   };
@@ -519,7 +470,7 @@ describe("phạm vi đếm ghi — chỉ trừ bản của CHÍNH mẻ này", ()
     const s = runBatch();
     expect(loadForecast("point", "cu1")).toBeNull(); // bản cũ đã nhường chỗ
     expect(loadForecast("point", "moi3")).not.toBeNull(); // bản MỚI còn nguyên
-    expect(s.counts.point).toBe(3); // ⇒ công phải còn nguyên theo
+    expect(s.counts.point).toBe(4); // 3 bản mới + bản "nang" — không bản nào của mẻ bị ăn
   });
 
   it("đếm số bản phải XOÁ để có chỗ (dòng báo cần, để đổ đúng bệnh)", () => {
@@ -542,13 +493,15 @@ describe("phạm vi đếm ghi — chỉ trừ bản của CHÍNH mẻ này", ()
     saveForecast("point", "a", { blob: big(50) }, 100); // của mẻ tự động
     const tay = beginForecastWrites(); // bà con chạm "Tải lại"
     saveForecast("point", "b", { blob: big(50) }, 900);
-    reclaimForecastSpace(1); // bỏ bản RẺ + CŨ nhất = "a"
+    // kho đầy ⇒ cú ghi kế (CÙNG LỚP) ép dọn bản cũ nhất = "a"
+    QUOTA = 2;
+    saveForecast("point", "c", { blob: big(50) }, 1000);
     tay.end();
     auto.end();
     expect(loadForecast("point", "a")).toBeNull();
     expect(loadForecast("point", "b")).not.toBeNull();
     expect(auto.counts.point).toBe(0);
-    expect(tay.counts.point).toBe(1);
+    expect(tay.counts.point).toBe(2); // 'b' + 'c', cả hai còn sống
   });
 });
 
@@ -570,13 +523,24 @@ describe("lưới gió/sóng — khung NGẮN không được hy sinh khung DÀI
     expect(lastStorageFullAt()).toBeGreaterThan(0); // và có nói thật "hết chỗ"
   });
 
-  it("d3 vẫn được hy sinh thứ RẺ HƠN — không kẹt vô cớ", () => {
-    QUOTA_BYTES = 7000;
+  /*  ĐỔI 2026-08-02i — hai vế, và vế thứ hai mới là điều đáng nói.
+
+      (a) `d3` làm tươi CHÍNH NÓ vẫn chạy: `setItem` cùng khoá là thay chỗ, không
+          cần đuổi ai. Đây là đường thường ngày, không được kẹt.
+      (b) `d3` KHÔNG được lấy chỗ của `d16` (khung dài) **và cũng không được lấy
+          chỗ của lớp khác** (`point`). Trước 2026-08-02i nó ăn được `point` —
+          tức một lưới 3 ngày xoá điểm ghim của bà con để tự nhét mình vào. */
+  it("d3 làm tươi chính nó thì chạy; KHÔNG ăn d16, KHÔNG ăn lớp khác", () => {
+    QUOTA_BYTES = 9000;
     saveForecast("grid", "d16", { blob: big(1200) }, 1000);
-    saveForecast("point", "a", { blob: big(1200) }, 2000);
+    saveForecast("grid", "d3", { blob: big(1200) }, 2000);
+    saveForecast("point", "a", { blob: big(1200) }, 2500);
+    // (a) thay chính mình, cùng cỡ → phải chạy
     expect(saveForecast("grid", "d3", { blob: big(1200) }, 9000)).toBe(true);
-    expect(loadForecast("grid", "d16")).not.toBeNull();
-    expect(loadForecast("point", "a")).toBeNull();
+    // (b) đòi thêm chỗ → thà TỪ CHỐI, không ăn d16 cũng không ăn point
+    expect(saveForecast("grid", "d3", { blob: big(4000) }, 9500)).toBe(false);
+    expect(loadForecast("grid", "d16"), "khung DÀI bị khung ngắn ăn").not.toBeNull();
+    expect(loadForecast("point", "a"), "lớp khác bị ăn").not.toBeNull();
   });
 
   it("khung DÀI vẫn được nhận chỗ của khung NGẮN (chiều ngược lại vẫn chạy)", () => {
@@ -588,29 +552,11 @@ describe("lưới gió/sóng — khung NGẮN không được hy sinh khung DÀI
   });
 });
 
-/*
-  T8 — `reclaimForecastSpace` KHÔNG CÓ TRẦN BẬC: duyệt hết `rankedVictims()`,
-  không `ceiling`, không `break` — đối lập thẳng với dropOldest. Ghi tủ giấy tờ /
-  sổ thuyền viên đủ lớn là dọn tới TIN BÃO. Bỏ tin bão (vài KB) chẳng dôi ra chỗ
-  nào mà lấy mất đúng thứ cứu người.
-*/
-describe("reclaimForecastSpace — KHÔNG bao giờ đụng tin bão", () => {
-  const big = (n: number) => "x".repeat(n);
+/*  `reclaimForecastSpace` ĐÃ XOÁ HẲN (2026-08-02h) cùng với cả tầng "dữ liệu bà
+    con tự gõ mượn chỗ của dự báo". Luật thay thế: hết chỗ thì TỪ CHỐI GHI và nói
+    thật — cổng chặn khuôn nằm ở `__tests__/user-store.test.ts`.
+    Mấy ca cũ ở đây (bậc hy sinh, chừa tin bão) không còn đối tượng để kiểm. */
 
-  it("kho chỉ có tin bão → không bỏ gì cả, dù xin bao nhiêu chỗ", () => {
-    saveForecast("storm", "latest", { blob: big(200) }, 1000);
-    expect(reclaimForecastSpace(999999)).toBe(0);
-    expect(loadForecast("storm", "latest")).not.toBeNull();
-  });
-
-  it("có lưới + tin bão → lưới nhường chỗ, tin bão còn nguyên", () => {
-    saveForecast("storm", "latest", { blob: big(200) }, 1000);
-    saveForecast("grid", "d16", { blob: big(2000) }, 1000);
-    expect(reclaimForecastSpace(999999)).toBe(1);
-    expect(loadForecast("grid", "d16")).toBeNull();
-    expect(loadForecast("storm", "latest")).not.toBeNull();
-  });
-});
 
 /*
   T2 — SỨC ÉP Ở KHO KHÁC MÀ ĐI DỌN localStorage (2026-08-02).
@@ -643,5 +589,81 @@ describe("savedAgoLabel", () => {
     expect(savedAgoLabel(0, 5 * 60000)).toBe("lưu 5 phút trước");
     expect(savedAgoLabel(0, 3 * 3600000)).toBe("lưu 3 giờ trước");
     expect(savedAgoLabel(0, 2 * 86400000)).toBe("lưu 2 ngày trước");
+  });
+});
+
+
+/*  ═══ MẤT SÓNG THÌ KHÔNG XOÁ GÌ HẾT ═══ (chủ dự án chốt 2026-08-02i)
+
+    "Đã lưu offline mà chưa online lại thì cứ dùng kho offline chứ xoá cái gì?
+    Offline thì làm sao tăng kích thước kho offline nữa mà phải xoá?"
+
+    Kiểm được bằng mã: mọi lời gọi `saveForecast` đều nằm sau một lượt fetch
+    THÀNH CÔNG, nên offline kho dự báo không thể phình. Cổng này biến lập luận đó
+    thành luật, để ai thêm một đường ghi chạy offline sau này cũng không vô tình
+    ăn vào kho của bà con. */
+describe("mất sóng → KHÔNG xoá một bản dự báo nào", () => {
+  /* `navigator` trong node là getter-only ⇒ phải `defineProperty`, không gán được */
+  const setOnline = (v: boolean) => {
+    Object.defineProperty(globalThis, "navigator", {
+      value: { onLine: v },
+      configurable: true,
+      writable: true,
+    });
+  };
+
+  it("offline + máy đầy → từ chối ghi, kho còn NGUYÊN", () => {
+    setOnline(false);
+    QUOTA = 2;
+    saveForecast("grid", "d16", { i: 1 }, 100);
+    saveForecast("point", "a", { i: 2 }, 200);
+    expect(saveForecast("fishmark", "m", { i: 3 }, 300)).toBe(false);
+    expect(loadForecast("grid", "d16"), "LƯỚI bị ăn khi mất sóng").not.toBeNull();
+    expect(loadForecast("point", "a"), "điểm ghim bị ăn khi mất sóng").not.toBeNull();
+    setOnline(true);
+  });
+
+  it("CÓ sóng + máy đầy → vẫn được nhường chỗ như cũ", () => {
+    setOnline(true);
+    QUOTA = 2;
+    saveForecast("point", "a", { i: 1 }, 100);
+    saveForecast("point", "b", { i: 2 }, 200);
+    // cùng lớp `point` — chỗ duy nhất còn được nhường (xem eligibleVictims)
+    expect(saveForecast("point", "c", { i: 3 }, 300)).toBe(true);
+    expect(loadForecast("point", "a")).toBeNull();
+  });
+});
+
+
+/*  ═══ DỌN HẾT CŨNG KHÔNG ĐỦ ⇒ KHÔNG ĐƯỢC XOÁ GÌ ═══ (2026-08-02i)
+
+    Cầu dao cũ chỉ nổ SAU khi đã giải phóng đủ byte. Tổng nạn nhân hợp lệ mà nhỏ
+    hơn chỗ cần thì vòng xoá sạch danh sách rồi mới chịu thua — mất hết mà không
+    ghi được gì. Ca thật: máy gần đầy, mẻ tải sẵn ghi `grid.d16` (~1,6 MB), nạn
+    nhân cùng lớp chỉ có `d3` + `d7` (vài trăm KB) ⇒ tàu ra khơi KHÔNG CÒN lưới
+    gió/sóng nào. */
+describe("dọn hết cũng không đủ → KHÔNG xoá một bản nào", () => {
+  const big = (n: number) => "x".repeat(n);
+
+  it("ghi không được ⇒ TRẢ LẠI HẾT, kho y như chưa đụng vào", () => {
+    QUOTA_BYTES = 6000;
+    saveForecast("grid", "d3", { blob: big(300) }, 100);
+    saveForecast("grid", "d7", { blob: big(300) }, 200);
+    // d16 to hơn tổng d3+d7 rất nhiều ⇒ dọn hết cũng không đủ
+    expect(saveForecast("grid", "d16", { blob: big(5000) }, 300)).toBe(false);
+    // …và mọi bản bị gỡ ra phải được trả lại NGUYÊN VẸN
+    expect(loadForecast("grid", "d3"), "d3 mất trắng").not.toBeNull();
+    expect(loadForecast("grid", "d7"), "d7 mất trắng").not.toBeNull();
+    expect(
+      (loadForecast("grid", "d3")?.data as { blob: string }).blob.length,
+      "trả lại mà nội dung sai",
+    ).toBe(300);
+  });
+
+  it("đủ chỗ thì vẫn nhường như thường (không chặn oan)", () => {
+    QUOTA_BYTES = 6000;
+    saveForecast("grid", "d3", { blob: big(1200) }, 100);
+    saveForecast("grid", "d7", { blob: big(1200) }, 200);
+    expect(saveForecast("grid", "d16", { blob: big(1500) }, 300)).toBe(true);
   });
 });

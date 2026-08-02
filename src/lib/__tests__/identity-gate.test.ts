@@ -360,3 +360,81 @@ describe("gỡ tài khoản khỏi máy — cả hai đường đều gỡ push"
     expect(shaved, `tap target bị gọt: ${shaved.join(" · ")}rem`).toEqual([]);
   });
 });
+
+/* ── "ĐÃ ĐĂNG NHẬP CHƯA" CHỈ CÓ MỘT CÂU TRẢ LỜI ───────────────────────────────
+   (2026-08-02h — lỗi CHẶN, một gốc đẻ ra bốn triệu chứng.)
+
+   `useAuthUser().user` là phiên Supabase, mà `/login` và `/dang-ky` cấp chuỗi
+   cứng xong là `signOut()` ngay ⇒ `user` null VĨNH VIỄN trên mọi máy ngư dân.
+   Mọi chỗ rẽ nhánh theo nó đối xử với người ĐANG đăng nhập như khách vãng lai:
+     · sheet Tài khoản giấu nút Đăng xuất + Đổi mật khẩu — tức xoá mất đường ra
+       hợp lệ DUY NHẤT của bà con;
+     · nhịp "đã mở app" không chạy ⇒ hạng không bao giờ về ⇒ màn dự báo cá kẹt
+       "đang kiểm tra" vĩnh viễn, khách trả tiền chỉ tải được 3 ngày;
+     · `/tien` khoá nút đăng tin;
+     · thông báo nhắm riêng không gắn được vào tài khoản.
+
+   Câu trả lời đúng là `signedIn` (phiên HOẶC chuỗi cứng).
+
+   ⚠️ QUÉT THEO DÒNG, KHÔNG QUÉT ĐA DÒNG. Bản đầu của cổng này dùng một regex
+   trải nhiều dòng (`\{([^}]*)\}\s*=\s*useAuthUser\(`) và nó ĂN NHẦM dấu `}` của
+   khối import phía trên ⇒ bắt trượt `use-tier.ts` mà vẫn XANH. Đúng khuôn "bộ dò
+   chết mà cổng vẫn xanh" mà file này đã cảnh báo ở trên. Nay quét từng dòng, và
+   có ca đối chứng bắt buộc bộ dò phải chứng minh nó còn sống. */
+const DONG_LAY_USER = /^\s*const\s*\{[^}]*\buser\b[^}]*\}\s*=\s*useAuthUser\(/;
+
+describe("chỉ MỘT câu trả lời cho 'đã đăng nhập chưa'", () => {
+  /*  Ba chỗ CÒN ĐƯỢC cầm `user`, kèm lý do — thêm tên vào đây phải có lý do thật:
+      · `use-auth.ts`      — chính nó dựng ra `signedIn`
+      · `use-tier.ts`      — bắc cầu `hasUser = !!user || tokenPresent`
+      · `doi-mat-khau`     — `auth.updateUser` BẮT BUỘC cần phiên thật
+      · `quan-tri`         — web quản trị giữ nguyên phiên Supabase (cố ý)
+      · `hero-account.tsx` — chỉ đọc `user_metadata.full_name` để hiện tên */
+  const CO_LY_DO = [
+    join("src", "lib", "use-auth.ts"),
+    join("src", "lib", "use-tier.ts"),
+    join("src", "app", "doi-mat-khau", "page.tsx"),
+    join("src", "app", "quan-tri", "page.tsx"),
+    join("src", "components", "hero-account.tsx"),
+  ];
+
+  it("bộ dò CÒN SỐNG — mẫu xấu phải bị bắt, mẫu sạch không báo oan", () => {
+    expect(
+      DONG_LAY_USER.test("  const { user, ready } = useAuthUser();"),
+    ).toBe(true);
+    expect(
+      DONG_LAY_USER.test("  const { user, phone, ready, signedIn } = useAuthUser();"),
+    ).toBe(true);
+    expect(
+      DONG_LAY_USER.test("  const { signedIn, ready } = useAuthUser();"),
+    ).toBe(false);
+    expect(DONG_LAY_USER.test("  const { phone, ready } = useAuthUser();")).toBe(
+      false,
+    );
+  });
+
+  it("không file nào ngoài danh sách có lý do được cầm `user`", () => {
+    const pham: string[] = [];
+    for (const file of sourceFilesUnder(SRC)) {
+      const rel = file.slice(process.cwd().length + 1);
+      if (CO_LY_DO.includes(rel)) continue;
+      const lines = readFileSync(file, "utf8").split("\n");
+      if (lines.some((l) => DONG_LAY_USER.test(l))) pham.push(rel);
+    }
+    expect(
+      pham,
+      `phải hỏi \`signedIn\` (phiên HOẶC chuỗi cứng), không hỏi \`user\`: ${pham.join(" · ")}`,
+    ).toEqual([]);
+  });
+
+  it("`useAuthUser` thật sự tính `signedIn` từ CẢ chuỗi cứng", () => {
+    const src = stripComments(
+      readFileSync(join(SRC, "lib", "use-auth.ts"), "utf8"),
+    );
+    expect(src).toMatch(/signedIn:\s*!!user \|\| hasToken/);
+    expect(
+      src,
+      "không nghe kho chuỗi đổi ⇒ đăng nhập xong màn không vẽ lại",
+    ).toContain("TOKEN_STORE_EVENT");
+  });
+});

@@ -162,13 +162,63 @@ async function loadSeaScalarSnapshot(
  * ERDDAP hay treo/403) → live → bản đã lưu. LƯU vào máy khi được để mất sóng vẫn
  * xem lại được (2026-07-29: thêm snapshot server như các lớp khác).
  */
+/**
+ * CÓ ĐƯỢC GHI ĐÈ BẢN ĐANG CÓ KHÔNG — THUẦN, có test (thêm 2026-08-02h).
+ *
+ * VÌ SAO CÓ: lớp này là namespace DUY NHẤT trong họ `forfish.fc.*` không có cửa
+ * ghi đè nào — `forecast-grid` có `shouldOverwriteGrid`, `scalar-field` có
+ * `shouldOverwriteScalar`, `storms` vừa được cấp cửa chống đi lùi, còn đây thì
+ * `saveForecast(...)` trần.
+ *
+ * Hai chỗ thủng, cả hai đều nổ về phía MẤT DỮ LIỆU:
+ *  · cửa nhận SNAPSHOT lỏng hơn cửa ĐỌC — `loadSeaScalarSnapshot` chỉ đòi
+ *    `cells.length > 0`, trong khi `loadSeaScalar` đòi `>= 20` mới coi là dùng
+ *    được. Một snapshot 1 ô đè lên lưới đầy đã lưu, rồi chính app lại coi bản
+ *    vừa ghi là KHÔNG dùng được;
+ *  · `savedAt` lấy `Date.now()` nên bản nghèo còn trông TƯƠI HƠN bản vừa bị xoá.
+ *
+ * Luật: bản mới phải KHÔNG ÍT Ô HƠN bản đang giữ. Ít hơn thì từ chối ghi — phiên
+ * này vẫn xem được bản vừa lấy (hàm gọi vẫn trả nó ra), chỉ là không đem bản
+ * nghèo đó thay bản tốt trong kho.
+ */
+/** Bản đang giữ cũ hơn ngần này thì cho đè dù nghèo hơn — cửa thoát chống
+ *  "kẹt vĩnh viễn" khi nguồn đổi độ phân giải / thu hẹp vùng phủ. 3 ngày: lớp
+ *  này là "xem cho biết", không phải an toàn tính mạng như lưới gió/sóng. */
+export const SEA_SCALAR_OVERWRITE_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+
+export function shouldOverwriteSeaScalar(
+  prev: { data: SeaScalarResult; savedAt?: number } | null | undefined,
+  next: SeaScalarResult,
+  now: number = Date.now(),
+): boolean {
+  const soO = (r: SeaScalarResult | null | undefined): number =>
+    r && r.ok && Array.isArray(r.cells) ? r.cells.length : 0;
+  const cu = soO(prev?.data);
+  if (cu === 0) return true;
+  /*  CỬA THOÁT (thêm 2026-08-02i — vòng đánh giá cuối bắt): không có nó thì
+      nguồn Copernicus đổi độ phân giải / thu hẹp vùng phủ là **mọi bản mới đều
+      ít ô hơn ⇒ không bao giờ ghi được nữa**, `savedAt` đứng yên vĩnh viễn.
+      Đúng khuôn "kẹt vĩnh viễn 2026-07-25". */
+  const cuLau =
+    prev?.savedAt != null && now - prev.savedAt >= SEA_SCALAR_OVERWRITE_MAX_AGE_MS;
+  if (cuLau) return true;
+  return soO(next) >= cu;
+}
+
+/** Ghi nếu bản mới không nghèo hơn bản đang giữ. Trả `true` khi đã ghi. */
+function saveSeaScalarChecked(kind: SeaScalarKind, next: SeaScalarResult): boolean {
+  const prev = loadForecast<SeaScalarResult>(SEA_SCALAR_NS, kind);
+  if (!shouldOverwriteSeaScalar(prev, next)) return false;
+  return saveForecast(SEA_SCALAR_NS, kind, next);
+}
+
 export async function fetchSeaScalar(
   kind: SeaScalarKind,
 ): Promise<SeaScalarResult> {
   // 1) snapshot cron (nguồn ERDDAP hay chết → đây là đường chính đáng tin)
   const snap = await loadSeaScalarSnapshot(kind);
   if (snap && snap.ok) {
-    saveForecast(SEA_SCALAR_NS, kind, snap);
+    saveSeaScalarChecked(kind, snap);
     return snap;
   }
   // 2) live
@@ -179,7 +229,7 @@ export async function fetchSeaScalar(
     if (r.ok) {
       const j = (await r.json()) as SeaScalarResult;
       if (j.ok) {
-        saveForecast(SEA_SCALAR_NS, kind, j);
+        saveSeaScalarChecked(kind, j);
         return j;
       }
     }

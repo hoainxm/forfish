@@ -56,7 +56,15 @@ const BEAT_DEFER_MS = 3000;
 const MIN_RESCHEDULE_MS = 30_000;
 
 export function UsageHeartbeat() {
-  const { user, ready } = useAuthUser();
+  /*  HỎI `signedIn`, KHÔNG HỎI `user` (sửa 2026-08-02h — lỗi CHẶN).
+      `user` là phiên Supabase, mà app đã bỏ hẳn phiên đó sau khi cấp chuỗi cứng
+      ⇒ `user` null VĨNH VIỄN ⇒ hai cổng dưới chặn sạch ⇒ nhịp "đã mở app" KHÔNG
+      BAO GIỜ chạy. Mà từ bản 2026-08-02g, phản hồi của chính nhịp này là đường
+      DUY NHẤT máy biết hạng của mình ⇒ `premium` đứng `null` mãi ⇒
+      `featureAccessDecision` trả "checking" vĩnh viễn ⇒ màn dự báo cá trắng
+      trơn (không nội dung, không khoá, không lời mời, không nút thử lại) và
+      khách đã trả tiền chỉ tải được 3 ngày. */
+  const { signedIn, ready, phone } = useAuthUser();
 
   /* GẮN MÁY ↔ TÀI KHOẢN — effect RIÊNG, chạy NGAY khi biết tài khoản.
      Lỗi đã sửa (2026-08-01p, chủ dự án thử trên máy thật: bật thông báo, đăng
@@ -66,12 +74,12 @@ export function UsageHeartbeat() {
      thì phải chắc chắn, nó là gốc của cả tính năng thông báo.
      Deps có `user` nên ĐỔI TÀI KHOẢN là gắn lại ngay. */
   useEffect(() => {
-    if (!ready || !user) return;
+    if (!ready || !signedIn) return;
     void syncPushAccount();
-  }, [ready, user]);
+  }, [ready, signedIn]);
 
   useEffect(() => {
-    if (!ready || !user) return;
+    if (!ready || !signedIn) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
     /*  ĐANG CHẠY DỞ — chống chạy chồng (2026-08-02e). Hai `visibilitychange`
@@ -105,7 +113,12 @@ export function UsageHeartbeat() {
       if (!alive || isOffline() || inFlight) return;
       inFlight = true;
       try {
-        const account = user.email ?? null;
+        /*  CHỮ KÝ NHỊP LẤY SĐT TỪ `useAuthUser().phone` (sửa 2026-08-02h).
+            Trước lấy `user.email` — mà `user` nay null vĩnh viễn (đã bỏ phiên
+            Supabase) nên vừa ném vừa làm chữ ký luôn là "-", tức ĐỔI TÀI KHOẢN
+            trên cùng một máy không còn là sự kiện. `phone` đã tự lùi về danh
+            tính offline khi mất sóng, đúng thứ chữ ký cần. */
+        const account = phone;
         const standalone = isStandalone();
         const dev = deviceId();
         /*  CỔNG RẺ TRƯỚC, QUÉT KHO SAU (2026-08-02e). `isShellReady()` (34 lượt
@@ -197,7 +210,10 @@ export function UsageHeartbeat() {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
     };
-  }, [ready, user]);
+  /*  `phone` TRONG DEPS (sửa 2026-08-02h): chữ ký nhịp gồm tài khoản, nên đổi
+      tài khoản trên cùng một máy phải dựng lại vòng nhịp — không thì `beat` giữ
+      SĐT cũ trong closure và mốc /quan-tri nói về nhầm người. */
+  }, [ready, signedIn, phone]);
 
   return null;
 }

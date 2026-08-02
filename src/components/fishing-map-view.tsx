@@ -903,9 +903,17 @@ export default function FishingMapView() {
   // "Điểm của tôi": ghim đặc thù của chủ tàu + cảng nhà (localStorage).
   // ssr:false nên đọc localStorage trong initializer là an toàn.
   const [places, setPlacesState] = useState<SavedPlace[]>(() => loadPlaces());
+  /*  ⚠️ GHI HỎNG PHẢI NÓI RA (sửa 2026-08-02h — vòng soát chéo bắt).
+      Bản cũ vứt giá trị trả về của `persistPlaces`: state đã đổi nên ghim HIỆN
+      TRÊN BẢN ĐỒ như đã lưu, đóng app là mất sạch. Mà `lib/places.ts` ghi rõ
+      "dự báo tải lại được, **chỗ đánh cá thì không**" — đây là dữ liệu bà con tự
+      đo bằng cả chuyến biển.
+      Ca này nay phổ biến hơn hẳn: đường ghi không còn xoá dự báo để lấy chỗ nữa
+      (luật "hết chỗ thì từ chối ghi"), nên `false` trả về ngay lần ném đầu. */
+  const [placesSaveFailed, setPlacesSaveFailed] = useState(false);
   const setPlaces = useCallback((next: SavedPlace[]) => {
     setPlacesState(next);
-    persistPlaces(next);
+    setPlacesSaveFailed(!persistPlaces(next));
   }, []);
   const home = homeOf(places);
   // đơn vị khoảng cách + hệ toạ độ (panel Cài đặt) — đổi thì mọi chỗ đổi theo
@@ -2285,6 +2293,18 @@ export default function FishingMapView() {
         {/* TẢI SẴN DỰ BÁO: tự chạy khi vào trang (không còn nút bấm), báo một
             dòng nhỏ rồi tự tắt — xem components/pretrip-auto-notify.tsx */}
         <PretripAutoNotify points={pretripPoints} />
+        {/*  GHIM CHƯA LƯU ĐƯỢC — nói thẳng, đừng để ghim hiện trên bản đồ như đã
+             lưu rồi đóng app là mất. Chỗ đánh cá là thứ bà con đo bằng cả chuyến
+             biển, tải lại không được từ đâu (xem lib/places.ts). */}
+        {placesSaveFailed && (
+          <div
+            role="alert"
+            className="mx-4 mt-2 rounded-2xl bg-danger-bg px-4 py-3 text-[1rem] font-bold leading-snug text-danger"
+          >
+            Máy hết chỗ nên CHƯA lưu được điểm vừa ghim. Bà con xoá bớt ảnh/video
+            rồi ghim lại giúp nhé.
+          </div>
+        )}
         {/* ĐIỀU KHIỂN LỚP — rail phải + 4 panel (Phương án A); trong luồng dưới
             banner bão nên không đè/lệch */}
         <RaKhoiControls

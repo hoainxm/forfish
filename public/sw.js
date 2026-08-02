@@ -229,7 +229,7 @@ async function precacheOne(store, url) {
         API, `put` là MỘT thao tác lô: xoá mọi bản ghi khớp rồi NỐI VÀO CUỐI —
         đúng thứ đoạn này cần, mà không để khe "SW bị giết giữa hai lệnh" làm
         chunk BIẾN MẤT trong khi HTML vẫn gọi tên nó (iOS giết SW rất mạnh tay).*/
-    await putWithRoom(store, url, forPut, null);
+    await putWithRoom(store, url, forPut, null, DON_KHI_DAY, SDFISH_STATIC_V);
     return body;
   }
   const net = await fetch(url);
@@ -247,7 +247,7 @@ async function precacheOne(store, url) {
       `trimCache(store, STATIC_CACHE_MAX)` MỘT LẦN ở cuối; trim mỗi asset là
       thêm ~120 lượt `cache.keys()` vào đúng mẻ install đang chạy đua với
       PRECACHE_MAX_MS. */
-  await putWithRoom(store, url, forCache, null);
+  await putWithRoom(store, url, forCache, null, DON_KHI_DAY, SDFISH_STATIC_V);
   return body;
 }
 
@@ -831,7 +831,13 @@ async function bodyBytes(res, allowRead) {
 async function reclaimRoom(c, needBytes) {
   const keys = await c.keys();
   if (keys.length < RECLAIM_MIN_KEYS) return 0;
-  const maxDrop = Math.max(8, keys.length >> 2);
+  /*  TRẦN LÀ NỬA KHO, KHÔNG CÓ SÀN (sửa 2026-08-02h).
+      LỖI ĐÃ SỬA: `Math.max(8, keys.length >> 2)` — cái SÀN 8 nuốt luôn cái trần.
+      Kho 4–7 mục thì `maxDrop = 8 > keys.length` ⇒ vòng lặp xoá SẠCH kho, rồi
+      còn chạy tiếp với `keys[i] === undefined`. Đúng cảnh máy gần đầy lúc còn ở
+      cảng: một lượt làm tươi là bay bản dự báo cuối cùng, ra biển trắng tay.
+      `keys.length >> 1` vừa là trần nửa kho vừa tự chặn tràn mảng. */
+  const maxDrop = keys.length >> 1;
   let freed = 0;
   // Cache API trả key theo thứ tự THÊM VÀO → bỏ từ đầu = bỏ bản cất sớm nhất.
   for (let i = 0; i < maxDrop; i++) {
@@ -843,17 +849,65 @@ async function reclaimRoom(c, needBytes) {
   return freed;
 }
 
-async function putWithRoom(c, req, res, max, trimFn) {
+/*  Cờ "kho này ĐƯỢC dọn khi đầy, nhưng ĐỪNG trim theo số mục ở mỗi lượt ghi".
+    `precacheShellAssets` đã gọi `trimCache(store, STATIC_CACHE_MAX)` MỘT LẦN ở
+    cuối; trim mỗi asset là quét lại cả kho hàng trăm lượt. */
+const DON_KHI_DAY = async () => {};
+
+async function putWithRoom(c, req, res, max, trimFn, cacheName) {
   /*  ĐO TRƯỚC, KHÔNG ĐỌC THÂN (`allowRead: false`): đọc thân ở đây là hỏng luôn
       cú `put` ngay dưới. Không có `content-length` → 0 → không giữ bản dự phòng,
       cũng không dọn: thà nuốt im còn hơn xoá mù. */
+  /*  ═══ LỚP CỐ ĐỊNH THÌ KHÔNG DỌN ═══ (chủ dự án chốt 2026-08-02h)
+
+      Kho nào CÓ trần (`max`) hoặc CÓ hàm trim thì mới là kho tự phình — ô bản
+      đồ (bà con kéo tới đâu cất tới đó), kho /api. Chỉ những kho đó mới có thứ
+      đáng đuổi, và đuổi cái cũ nhất là đúng.
+
+      Kho KHÔNG trần, KHÔNG trim = `precacheOne` → vỏ app, nền bản đồ, đường bờ,
+      độ sâu, font. Đó là LỚP CỐ ĐỊNH: tải một lần, không bao giờ cũ, và mất là
+      app không mở nổi giữa biển. Đuổi ở đây thì được vài chục KB mà đổi lấy một
+      cái app không chạy — trong khi đường dọn HỢP LỆ của lớp này đã có sẵn và
+      đúng: deploy bản mới thì đổi tên kho, `activate` xoá nguyên khối kho cũ.
+
+      Call-site vốn đã tự khai loại kho, nên không phải đổi một chỗ gọi nào. */
+  /*  ⚠️ GÁC THEO **TÊN KHO**, KHÔNG GÁC THEO THAM SỐ CHỖ GỌI (sửa 2026-08-02h —
+      phản biện bắt: bản vá trước gác nhầm trục).
+
+      Bản trước suy "không trần + không trim ⇒ lớp cố định". Sai, vì `SDFISH_STATIC_V`
+      có HAI chỗ ghi: `precacheOne` (không trần) VÀ nhánh fetch cho asset băm tên
+      (`max = STATIC_CACHE_MAX` ⇒ `evictable = true`). Đường phá thật: máy gần đầy
+      hạn ngạch, bà con mở một màn nạp lazy chunk chưa precache ⇒ `put` ném ⇒
+      `reclaimRoom` bỏ **từ đầu hàng** = đúng các chunk `precacheOne` cất SỚM NHẤT
+      lúc install = khung sườn + MapLibre của `/` và `/ngu-truong` ⇒ cold-start
+      offline giữa biển: `caches.match` trượt, `fetch` hỏng ⇒ **trắng màn**.
+
+      Hai kho dưới đây là LỚP CỐ ĐỊNH: tải một lần, không bao giờ cũ, mất là app
+      không mở nổi. Đường dọn hợp lệ duy nhất của chúng là đổi tên kho lúc deploy
+      rồi `activate` xoá nguyên khối — nhánh đó không đụng tới đây. */
+  /*  ⚠️ CHỈ CHẶN KHO VỎ. Bản trước chặn CẢ `SDFISH_STATIC_V` và đó là một lỗi
+      CHẶN do chính bản vá đẻ ra (soát chéo 2026-08-02h bắt được):
+
+      `SDFISH_STATIC_V` là kho CHUNK BĂM TÊN, và nó là kho ĐƯỢC PHÉP dọn — chunk
+      của bản build CŨ nằm đó chính là thứ đáng đuổi. Chặn dọn ở đây thì đường
+      CÀI ĐẶT trên máy gần đầy (`precacheOne` → `put` ném QuotaExceeded) không
+      còn cách nào lấy chỗ ⇒ asset không nằm xuống ⇒ vòng kiểm cuối
+      `precacheShellAssets` thấy thiếu ⇒ **install NÉM, service worker mới không
+      bao giờ activate, lặp lại mọi lần mở app**. Tức là để tránh mất vài chunk,
+      bản vá làm bà con không cài nổi bản mới.
+
+      Kho VỎ (`SDFISH_CACHE_V` — HTML, `/data/*`, `/fonts/*.pbf`, icon) thì khác
+      hẳn: mục cũ nhất ở đó là `/` và `/ngu-truong`, mất là app không mở nổi giữa
+      biển. Kho này vốn đã không đi qua `putWithRoom` ở cả hai chỗ ghi (`c.put`
+      trần) — giữ cổng ở đây là lớp khoá thứ hai, phòng người sau nối nhầm. */
+  const evictable = cacheName !== SDFISH_CACHE_V && (max != null || trimFn != null);
   const need = await bodyBytes(res, false);
   const spare = need > 0 && need <= SPARE_MAX_BYTES ? res.clone() : null;
   try {
     await c.put(req, res);
   } catch {
     // QuotaExceeded — kho đầy theo BYTE, trần theo số mục không cứu được
-    if (spare) {
+    if (spare && evictable) {
       const freed = await reclaimRoom(c, need);
       // freed === 0 ⇒ không đuổi được ai (kho quá ít mục) ⇒ đừng thử lại vô ích
       if (freed > 0) {
@@ -910,7 +964,7 @@ function tileFirst(event) {
           event,
           caches
             .open(SDFISH_TILE_V)
-            .then((c) => putWithRoom(c, req, copy, null, trimTileCache)),
+            .then((c) => putWithRoom(c, req, copy, null, trimTileCache, SDFISH_TILE_V)),
         );
       }
       return res;
@@ -1071,7 +1125,7 @@ self.addEventListener("fetch", (event) => {
             event,
             caches
               .open(SDFISH_API_V)
-              .then((c) => putWithRoom(c, req, copy, API_CACHE_MAX)),
+              .then((c) => putWithRoom(c, req, copy, API_CACHE_MAX, null, SDFISH_API_V)),
           );
           return res;
         }
@@ -1162,7 +1216,7 @@ self.addEventListener("fetch", (event) => {
                     chỗ khi máy đầy (xem putWithRoom). */
                 max == null
                   ? c.put(req, copy)
-                  : putWithRoom(c, req, copy, max),
+                  : putWithRoom(c, req, copy, max, null, store),
               ),
             );
           }

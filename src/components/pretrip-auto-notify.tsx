@@ -379,9 +379,28 @@ function PretripSavedSheet({
   onChanged: () => void;
   onClose: () => void;
 }) {
-  const initial = savedCoverage({ fishLocked });
-  const [layers, setLayers] = useState(() => initial.layers);
-  const [total, setTotal] = useState(() => initial.totalBytes);
+  /*  ⚠️ QUÉT KHO CHỈ ĐƯỢC CHẠY MỘT LẦN, TRONG `useState` LAZY (sửa 2026-08-02h).
+
+      LỖI ĐÃ SỬA: bản cũ gọi `savedCoverage({ fishLocked })` THẲNG TRONG THÂN
+      RENDER rồi mới đưa kết quả vào `useState(() => initial…)`. Dạng lazy chỉ
+      hoãn việc DÙNG — lời gọi vẫn chạy MỌI LẦN RENDER.
+
+      Giá một lượt (đọc được từ mã, và `usage-heartbeat.tsx` cũng ghi đúng con
+      số này): 11 lượt `loadAll` + 9 lượt `bytesUnder`, mà `entriesUnder` lại
+      `JSON.parse` CẢ payload chỉ để đọc `savedAt` ⇒ riêng lưới `grid.d16`
+      (~1,6 MB) bị parse 4 lượt; `bytesUnder("")` dựng lại toàn bộ chuỗi ~5 MB.
+      Sheet này có 10 ô state, và một cú bấm "Tải lại N lớp còn thiếu" đi qua
+      `setBusy` → `setBusy(null)` → `setFailed` → `refresh()` ⇒ **≥6 lượt quét
+      kho liên tiếp**, mỗi lượt vài trăm ms tới hơn 1 giây trên Android rẻ.
+
+      Đây là màn CHUẨN BỊ ĐI BIỂN — màn quyết định có nhổ neo được không. Bà con
+      thấy popup "chết" nên bấm lại, mỗi lần bấm lại thêm một vòng quét.
+
+      `useState` với hàm khởi tạo chỉ chạy ở lần render ĐẦU; `refresh()` là
+      đường cập nhật sau đó. */
+  const [initial] = useState(() => savedCoverage({ fishLocked }));
+  const [layers, setLayers] = useState(initial.layers);
+  const [total, setTotal] = useState(initial.totalBytes);
   const [busy, setBusy] = useState<SavedLayerId | "all" | null>(null);
   // lớp vừa TẢI LẠI mà vẫn không có dữ liệu → nói thật (mất sóng / nguồn bận),
   // đừng để nút bấm xong im ru như hỏng

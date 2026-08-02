@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { isNetworkAuthError } from "@/lib/auth-error";
+import { readToken, TOKEN_STORE_EVENT } from "@/lib/device-token-store";
 import {
   applyIdentityAction,
   offlineIdentityPhone,
@@ -41,6 +42,25 @@ export function useAuthUser(): {
    *  với tra ĐƯỢC mà không có user (đăng xuất thật). Để tier còn cho premium đã
    *  tải sẵn xem tiếp thay vì bắt đăng nhập lại. */
   errored: boolean;
+  /**
+   * MÁY NÀY CÓ TÀI KHOẢN CHƯA — **câu hỏi mà giao diện phải hỏi**, thay cho
+   * `!!user` (2026-08-02h).
+   *
+   * ⚠️ ĐỌC KỸ TRƯỚC KHI DÙNG LẠI `user`. Sau khi app bỏ phiên Supabase (0026),
+   * `user` là `null` VĨNH VIỄN trên mọi máy ngư dân — `/login` cấp chuỗi cứng
+   * rồi `signOut()` ngay. Mọi chỗ còn rẽ nhánh theo `user` sẽ đối xử với người
+   * ĐANG đăng nhập như khách vãng lai. Đã dính thật, cùng một gốc, ở bốn chỗ:
+   *   · sheet Tài khoản giấu mất nút Đăng xuất và Đổi mật khẩu — tức xoá luôn
+   *     đường ra HỢP LỆ duy nhất của bà con;
+   *   · nhịp "đã mở app" không chạy ⇒ hạng không bao giờ về ⇒ màn dự báo cá kẹt
+   *     "đang kiểm tra" vĩnh viễn, khách trả tiền chỉ tải được 3 ngày;
+   *   · `/tien` khoá nút đăng tin;
+   *   · thông báo nhắm riêng không gắn được vào tài khoản.
+   *
+   * `user` GIỮ LẠI cho đúng hai việc còn cần phiên thật: `/quan-tri` và màn đổi
+   * mật khẩu lần đầu. Ngoài hai chỗ đó, hỏi `signedIn`.
+   */
+  signedIn: boolean;
 } {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
@@ -63,6 +83,18 @@ export function useAuthUser(): {
     const sync = () => setIdentityPhone(offlineIdentityPhone());
     sync();
     return subscribeIdentity(sync);
+  }, []);
+
+  /*  CHUỖI CỨNG CÓ TRONG MÁY KHÔNG — đọc trong effect (không đọc lúc render) để
+      bản dựng máy chủ và bản vẽ đầu ở máy khớp nhau. Nghe `TOKEN_STORE_EVENT` để
+      đăng nhập/đăng xuất xong là màn vẽ lại NGAY: bản cài PWA mở lại từ nền
+      KHÔNG remount React, nên trông vào lần mount sau là trông vào may. */
+  const [hasToken, setHasToken] = useState(false);
+  useEffect(() => {
+    const sync = () => setHasToken(readToken() !== null);
+    sync();
+    window.addEventListener(TOKEN_STORE_EVENT, sync);
+    return () => window.removeEventListener(TOKEN_STORE_EVENT, sync);
   }, []);
 
   useEffect(() => {
@@ -155,5 +187,8 @@ export function useAuthUser(): {
   const phone =
     (user ? rawUserPhone(user) : null) || identityPhone || null;
 
-  return { user, phone, ready, errored };
+  /*  `signedIn` = có phiên Supabase (đường lùi một nhịp phát hành + /quan-tri)
+      HOẶC có chuỗi cứng. Đây là câu trả lời cho "máy này có tài khoản chưa";
+      `user` chỉ còn trả lời "có phiên Supabase không". */
+  return { user, phone, ready, errored, signedIn: !!user || hasToken };
 }

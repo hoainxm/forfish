@@ -135,7 +135,12 @@ export async function fetchCurDepthGridClient(
   // live route (server tự fetch Copernicus, chunk cache 6h)
   const live = await fetchJson(`/api/currents-depth?tier=${tier}&days=${days}`, 45000);
   if (live) {
-    saveForecast(CUR_DEPTH_NS, id, live);
+    /*  CHỈ GHI KHI BẢN LIVE THẬT SỰ DÙNG ĐƯỢC (sửa 2026-08-02h).
+        Bản cũ ghi trần: một phản hồi `ok` mà lưới rỗng/thiếu ô vẫn đè thẳng lên
+        bản đầy đủ đã tải ở bờ, rồi nhánh đọc ngay dưới lại từ chối chính bản vừa
+        ghi (`usable(hit.data)`) — mất bản tốt mà cũng chẳng dùng được bản mới.
+        Cùng luật với `shouldOverwriteGrid`/`shouldOverwriteScalar`. */
+    if (usable(live)) saveForecast(CUR_DEPTH_NS, id, live);
     return remember(live);
   }
   // các nấc cũ — thà số cũ (nguồn ngày, đổi chậm) còn hơn trống

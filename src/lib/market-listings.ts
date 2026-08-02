@@ -121,6 +121,23 @@ export function rowToListing(r: Row, uid: string | null): MarketListing {
 
 // ── CRUD Supabase ──────────────────────────────────────────────────────────
 
+
+/*  ĐỒNG HỒ CHO BA ĐƯỜNG GHI (thêm 2026-08-02h). Vòng soát trước chỉ gắn cho
+    đường ĐỌC. Ca "sóng sống mà chết" ở cảng (bắt tay TCP được, gói tin không
+    về): `createListing` không settle ⇒ `setSaving(false)` không chạy ⇒ nút kẹt
+    "Đang đăng…" VĨNH VIỄN, không lỗi, không nút thử lại — bà con tưởng tin đã
+    đăng, thật ra chưa, và mất chuyến bán.
+    `timeoutSignal` trả `undefined` trên máy quá cũ (không có AbortController),
+    mà `.abortSignal()` không nhận `undefined` — nên phải gắn có điều kiện, cùng
+    khuôn với đường đọc ở trên. */
+function withSignal<T extends { abortSignal(s: AbortSignal): T }>(q: T): T {
+  const sig = timeoutSignal(WRITE_TIMEOUT_MS);
+  return sig ? q.abortSignal(sig) : q;
+}
+
+/** Ghi chợ tin chờ tối đa bấy nhiêu rồi coi như hỏng (nút phải trả về cho bà con) */
+const WRITE_TIMEOUT_MS = 20000;
+
 /**
  * Tin thật (đang mở + tin của mình). null = Supabase chưa cấu hình hoặc lỗi →
  * caller rơi về DEMO_LISTINGS. Mảng rỗng = đã cấu hình nhưng chưa có tin nào.
@@ -181,18 +198,20 @@ export async function createListing(
       ? normalizeVnPhone(d.phone)
       : (user.email?.split("@")[0] ?? null);
 
-  const { error } = await supabase.from(TABLE).insert({
-    owner_id: user.id,
-    side: d.side,
-    poster_kind: d.posterKind,
-    poster_name: d.posterName.trim(),
-    species: d.species.trim(),
-    quantity: d.quantity?.trim() || null,
-    price_text: d.priceText?.trim() || null,
-    province: d.province?.trim() || null,
-    phone,
-    note: d.note?.trim() || null,
-  });
+  const { error } = await withSignal(
+    supabase.from(TABLE).insert({
+      owner_id: user.id,
+      side: d.side,
+      poster_kind: d.posterKind,
+      poster_name: d.posterName.trim(),
+      species: d.species.trim(),
+      quantity: d.quantity?.trim() || null,
+      price_text: d.priceText?.trim() || null,
+      province: d.province?.trim() || null,
+      phone,
+      note: d.note?.trim() || null,
+    }),
+  );
   if (error) return { ok: false, error: "Đăng chưa được, thử lại." };
   return { ok: true };
 }
@@ -203,17 +222,21 @@ export async function setListingStatus(
 ): Promise<boolean> {
   const supabase = createClient();
   if (!supabase) return false;
-  const { error } = await supabase
-    .from(TABLE)
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq("id", id);
+  const { error } = await withSignal(
+    supabase
+      .from(TABLE)
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id),
+  );
   return !error;
 }
 
 export async function deleteListing(id: string): Promise<boolean> {
   const supabase = createClient();
   if (!supabase) return false;
-  const { error } = await supabase.from(TABLE).delete().eq("id", id);
+  const { error } = await withSignal(
+    supabase.from(TABLE).delete().eq("id", id),
+  );
   return !error;
 }
 
