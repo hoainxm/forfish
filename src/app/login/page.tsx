@@ -4,6 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { withDeadline } from "@/lib/auth-error";
+import { apiUrl } from "@/lib/api-base";
+import { deviceId } from "@/lib/device-id";
+import { devicePlatform } from "@/lib/storage-persist";
+import { isValidTokenShape } from "@/lib/device-token";
+import { saveToken } from "@/lib/device-token-store";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -77,14 +82,41 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    // 1 TÀI KHOẢN = 1 MÁY (2026-07-29): đăng nhập máy này thì thu hồi phiên
-    // mọi máy khác — máy cũ tự thoát ở lần mở app/refresh kế. Lỗi thu hồi
-    // KHÔNG chặn đăng nhập (mạng biển chập chờn).
-    // Cú này nằm SAU khi đã đăng nhập XONG nên tuyệt đối không được giữ màn
-    // hình: 8 giây, treo thì bỏ qua, đi tiếp.
-    await withDeadline(supabase!.auth.signOut({ scope: "others" }), 8000);
+    /*  ĐỔI PHIÊN VỪA CÓ LẤY CHUỖI CỨNG (2026-08-02, chủ dự án chốt).
+        Phiên Supabase là JWT ngắn hạn + refresh token tự xoay — ngoài biển, một
+        lượt xoay mà phản hồi không về là bà con bị đá khỏi tài khoản dù KHÔNG ai
+        đăng nhập ở đâu cả. Nay: nhận một chuỗi không hạn, không xoay, rồi BỎ HẲN
+        phiên Supabase. Từ đây không còn thứ gì trên máy tự hết hạn.
+
+        Đây cũng là chỗ cưỡng chế 1-tài-khoản-1-máy: route thu hồi chuỗi của mọi
+        máy cũ TRƯỚC khi cấp chuỗi mới (thay cho `signOut({scope:'others'})`). */
+    const issued = await withDeadline(
+      fetch(apiUrl("/api/auth/token"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          deviceId: deviceId(),
+          platform: devicePlatform(),
+        }),
+      }).then((r) => r.json().catch(() => null)),
+      20000,
+    );
+    /*  KHÔNG cấp được chuỗi ⇒ DỪNG LẠI, đừng cho vào app. Phiên Supabase tạm vẫn
+        còn nên bấm lại là chạy, khỏi nhập lại mật khẩu. Cho vào mà không có chuỗi
+        thì bà con thấy mình "đã đăng nhập" trong khi mọi cửa server đều đóng —
+        tệ hơn hẳn một câu báo lỗi thật thà. */
+    if (!issued?.ok || !isValidTokenShape(issued.token)) {
+      setError("Mạng yếu quá, chưa vào được. Bà con thử lại giúp nhé.");
+      setLoading(false);
+      return;
+    }
+    saveToken(issued.token);
+    /*  BỎ PHIÊN SUPABASE. Không `scope:'others'` nữa — việc đá máy cũ đã do route
+        làm rồi. Hỏng thì thôi, không chặn: chuỗi đã nằm trong máy, mà cái phiên
+        bỏ lại cũng chỉ tự chết chứ không mở được cửa nào. */
+    await withDeadline(supabase!.auth.signOut(), 8000);
     // lần đầu (webhook đặt must_change_password) → bắt đổi mật khẩu
-    const mustChange = data.user.user_metadata?.must_change_password === true;
+    const mustChange = issued.mustChangePassword === true;
     router.replace(mustChange ? "/doi-mat-khau" : "/");
   }
 
@@ -126,7 +158,16 @@ export default function LoginPage() {
           khi mua. Vào xong app nhắc đổi mật khẩu.
         </p>
         <p className="mt-2 text-[1rem] leading-snug text-foreground/70">
-          Tài khoản premium hỗ trợ đăng nhập trên một máy.
+          Tài khoản premium hỗ trợ đăng nhập trên một máy. Vào rồi thì máy nhớ
+          luôn, không phải đăng nhập lại — trừ khi bà con đăng nhập ở máy khác.
+        </p>
+        {/*  iOS Safari xoá sạch dữ liệu trang web sau 7 ngày không mở, kể cả chỗ
+             lưu đăng nhập — bản cài về màn hình thì không dính. Đây là luật của
+             máy, không phải lựa chọn của app, nên phải nói trước. Giọng "hỗ trợ",
+             không doạ (xem 03-design-system). */}
+        <p className="mt-2 text-[1rem] leading-snug text-foreground/70">
+          Cài app về màn hình chính giúp máy nhớ đăng nhập lâu dài, kể cả khi đi
+          biển nhiều ngày.
         </p>
         <p className="mt-2 text-[1rem] leading-snug">
           Quên mật khẩu?{" "}

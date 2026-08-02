@@ -17,6 +17,8 @@ import {
   type RequestTopicId,
 } from "@/lib/sdvico-catalog";
 import { addOptimisticRequest } from "@/lib/use-sdvico-assets";
+import { timeoutSignal } from "@/lib/abort";
+import { tokenHeader } from "@/lib/device-token-store";
 
 /*
   "Gọi SDVICO" — kênh CSKH ngay trong app: bà con để lại tên + SĐT + việc
@@ -148,7 +150,7 @@ function RequestForm({
     try {
       const r = await fetch(apiUrl("/api/sdvico/request"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...tokenHeader() },
         body: JSON.stringify({
           topic,
           name: name.trim(),
@@ -156,7 +158,7 @@ function RequestForm({
           detail: detail.trim(),
           productName,
         }),
-        signal: AbortSignal.timeout(20000),
+        signal: timeoutSignal(20000),
       });
       const j = await r.json().catch(() => null);
       if (j?.ok) {

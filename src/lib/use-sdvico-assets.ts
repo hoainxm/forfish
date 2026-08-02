@@ -17,6 +17,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { OwnedAssets } from "@/lib/owned-assets";
 import { apiUrl } from "@/lib/api-base";
+import { timeoutSignal } from "@/lib/abort";
+import { noteResponse, tokenHeader } from "@/lib/device-token-store";
 
 export type SdvicoStatus = "loading" | "guest" | "unlinked" | "error" | "ok";
 
@@ -64,8 +66,12 @@ function startFetch() {
     let next: CacheEntry;
     try {
       const r = await fetch(apiUrl("/api/me/sdvico"), {
-        signal: AbortSignal.timeout(20000),
+        headers: tokenHeader(),
+        signal: timeoutSignal(20000),
       });
+      /* MỘT DÒNG NÀY = chỗ này cũng phát hiện được máy bị đá. Bộ não vẫn
+         nằm ở `noteResponse`; ở đây chỉ đưa phản hồi cho nó soi. */
+      void noteResponse(r);
       const j = await r.json().catch(() => null);
       next = classifySdvicoResponse(r.ok, j);
     } catch {

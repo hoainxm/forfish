@@ -17,6 +17,7 @@ import {
   phoneToEmail,
   sanitizePhoneInput,
 } from "@/components/auth-form";
+import { timeoutSignal } from "@/lib/abort";
 
 /*
   Đăng ký tài khoản bằng SĐT (thật chất là email ảo — bà con không thấy).
@@ -65,7 +66,7 @@ export default function DangKyPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone, password }),
-      signal: AbortSignal.timeout(25000),
+      signal: timeoutSignal(25000),
     }).catch(() => null);
 
     if (!res || !res.ok) {

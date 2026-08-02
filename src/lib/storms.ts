@@ -8,6 +8,7 @@
 
 import { apiUrl } from "@/lib/api-base";
 import { loadForecast, saveForecast } from "@/lib/forecast-cache";
+import { timeoutSignal } from "@/lib/abort";
 
 export type StormAlert = {
   id: string;
@@ -206,12 +207,24 @@ const STORM_ID = "latest";
 export async function fetchStormCheck(): Promise<StormCheck> {
   try {
     const r = await fetch(apiUrl("/api/storms"), {
-      signal: AbortSignal.timeout(20000),
+      signal: timeoutSignal(20000),
     });
     if (r.ok) {
       const j = (await r.json()) as StormCheck;
       if (j.ok) {
-        saveForecast(STORM_NS, STORM_ID, j);
+        /*  MỐC LƯU = GIỜ BẢN TIN, KHÔNG PHẢI GIỜ MÁY (2026-08-02, audit R3).
+            `r.ok` KHÔNG có nghĩa là "vừa hỏi được nguồn": service worker trả
+            bản trong kho với status 200 theo BA đường — mất sóng (`.catch` →
+            `caches.match`), nguồn 5xx (isRescuableStatus cứu bằng bản kho), và
+            hết `API_STALE_MS` (đua đồng hồ, có bản lưu thì trả ngay). Cả ba đều
+            xuống tới đây với `j.ok === true`.
+            Đóng `Date.now()` cho một bản có thể 6 giờ tuổi là NÓI DỐI hai chỗ:
+            popup "đã lưu gì" khoe "Tin bão · vừa xong", và `savedStormAt()` làm
+            lớp bão trong pretrip báo xanh. Với thứ dính TÍNH MẠNG thì mốc phải
+            là tuổi THẬT của bản tin. Cùng khuôn với `generatedAt` của bản đồ cá
+            (fish-predict.ts). `checkedAt` rác/thiếu → đành lấy giờ máy. */
+        const at = Date.parse(j.checkedAt ?? "");
+        saveForecast(STORM_NS, STORM_ID, j, Number.isFinite(at) ? at : Date.now());
         return j;
       }
     }

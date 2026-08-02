@@ -5,12 +5,15 @@ import {
   formatPremiumUntil,
   FREE_FORECAST_DAYS,
   nextPremiumUntil,
+  premiumMarkHasExpiry,
   premiumMarkWithinGrace,
   PREMIUM_TERM_DAYS,
   resolveTier,
+  shouldQueryOnBackOnline,
   shouldRetryTierQuery,
   tierBadge,
   TIER_MARK_GRACE_DAYS,
+  TIER_ONLINE_DEBOUNCE_MS,
   TIER_RETRY_BASE_MS,
   TIER_RETRY_MAX_MS,
   tierRetryDelayMs,
@@ -168,7 +171,92 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
     ).toBe("open");
   });
 
-  it("onLine=true, auth tra ĐƯỢC mà không có user (đăng xuất thật) + từng premium → login (không rò quyền)", () => {
+  /* HAI CA GIỐNG HỆT NHAU TRÊN DÂY, KHÁC NHAU Ở ĐỜI THẬT (tách 2026-08-02, C-7).
+     Cả hai đều: có sóng · auth tra được · không có user · dấu premium còn.
+     Phân biệt bằng SỔ DANH TÍNH — máy còn nhớ ai từng đăng nhập ở đây không. */
+  it("ĐĂNG XUẤT THẬT (máy đã quên người cũ) + từng premium → login (không rò quyền)", () => {
+    expect(
+      featureAccessDecision({
+        ...base,
+        online: true,
+        hasUser: false,
+        authErrored: false,
+        cachedMark: "premium",
+        hasOfflineIdentity: false,
+      }),
+    ).toBe("login");
+  });
+
+  it("MÁY TỰ QUÊN PHIÊN (C-7) + máy CÒN nhớ người + dấu premium CÓ HẠN → open", () => {
+    // auth-js `_removeSession()` khi làm mới token gặp lỗi KHÔNG phải mạng
+    // (400/401/500, thân HTML của cổng wifi ở cảng) ⇒ authErrored=false; tàu có
+    // router wifi nội bộ ⇒ online=true. Không có vế danh tính thì người đã trả
+    // tiền tới 2027 rơi xuống "Đăng nhập" và mất quyền CẢ CHUYẾN BIỂN.
+    expect(
+      featureAccessDecision({
+        ...base,
+        online: true,
+        hasUser: false,
+        authErrored: false,
+        cachedMark: "premium",
+        hasOfflineIdentity: true,
+        premiumMarkUntil: "2027-08-01T00:00:00Z",
+      }),
+    ).toBe("open");
+  });
+
+  /* HỒI QUY 2026-08-02c: `premiumMarkWithinGrace(null) === true`, nên dấu
+     KHÔNG HẠN mở nhánh này VĨNH VIỄN — mà ở ca này `hasUser=false` cũng chặn
+     luôn đường tra lại (effect tra hạng có dep `userId`). Tài khoản bị hạ hạng
+     hay xoá ở `/quan-tri` vẫn giữ cửa "open" tới khi cài lại app. */
+  it("còn nhớ người + dấu premium NHƯNG KHÔNG CÓ HẠN → login (cửa phải đóng được)", () => {
+    for (const premiumMarkUntil of [null, undefined, "", "không-phải-ngày"]) {
+      expect(
+        featureAccessDecision({
+          ...base,
+          online: true,
+          hasUser: false,
+          authErrored: false,
+          cachedMark: "premium",
+          hasOfflineIdentity: true,
+          premiumMarkUntil,
+        }),
+      ).toBe("login");
+    }
+  });
+
+  it("MẤT SÓNG thì dấu không hạn VẪN dùng được (đừng khoá oan giữa biển)", () => {
+    // nhánh offline khác hẳn: ở đó không hỏi được ai, thà cho xem tiếp bản đã
+    // tải. Chỉ nhánh CÒN SÓNG mới đòi hạn thật.
+    expect(
+      featureAccessDecision({
+        ...base,
+        online: false,
+        hasUser: false,
+        cachedMark: "premium",
+        hasOfflineIdentity: true,
+        premiumMarkUntil: null,
+      }),
+    ).toBe("open");
+  });
+
+  it("còn nhớ người NHƯNG dấu là basic/unknown → vẫn login, KHÔNG mở bừa", () => {
+    for (const cachedMark of ["basic", "unknown"] as const) {
+      expect(
+        featureAccessDecision({
+          ...base,
+          online: true,
+          hasUser: false,
+          authErrored: false,
+          cachedMark,
+          hasOfflineIdentity: true,
+          premiumMarkUntil: "2027-08-01T00:00:00Z",
+        }),
+      ).toBe("login");
+    }
+  });
+
+  it("KHÔNG khai `hasOfflineIdentity` → fail-closed như cũ (mặc định là login)", () => {
     expect(
       featureAccessDecision({
         ...base,
@@ -178,6 +266,20 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
         cachedMark: "premium",
       }),
     ).toBe("login");
+  });
+
+  it("nhánh quyền-đã-lưu KHÔNG đụng ca đang có user (không nháy khoá↔mở)", () => {
+    // đã đăng nhập + đang tra hạng: vẫn im lặng chờ câu trả lời tươi, dù dấu
+    // trong máy là premium — mở rồi đóng lại còn khó hiểu hơn
+    expect(
+      featureAccessDecision({
+        ...base,
+        hasUser: true,
+        premium: null,
+        cachedMark: "premium",
+        hasOfflineIdentity: true,
+      }),
+    ).toBe("checking");
   });
 
   it("auth HỎNG nhưng CHƯA từng premium → login (không mở bừa)", () => {
@@ -201,6 +303,17 @@ describe("dấu premium PHẢI mang theo hạn (E4 — premium offline không v�
     expect(premiumMarkWithinGrace(undefined, NOW)).toBe(true);
     expect(premiumMarkWithinGrace("", NOW)).toBe(true);
     expect(premiumMarkWithinGrace("không-phải-ngày", NOW)).toBe(true);
+  });
+
+  /* …CHÍNH VÌ THẾ nhánh "quyền đã lưu" lúc CÒN SÓNG phải hỏi thêm câu khác:
+     dấu này có hạn ĐỌC ĐƯỢC không? Không thì nó không bao giờ hết. */
+  it("premiumMarkHasExpiry: chỉ mốc thời gian ĐỌC ĐƯỢC mới tính là có hạn", () => {
+    expect(premiumMarkHasExpiry("2027-08-01T00:00:00Z")).toBe(true);
+    expect(premiumMarkHasExpiry("2027-08-01")).toBe(true); // dạng ngày trần
+    expect(premiumMarkHasExpiry(null)).toBe(false);
+    expect(premiumMarkHasExpiry(undefined)).toBe(false);
+    expect(premiumMarkHasExpiry("")).toBe(false);
+    expect(premiumMarkHasExpiry("không-phải-ngày")).toBe(false);
   });
 
   it("còn hạn → dùng được; quá hạn TRONG biên → vẫn dùng được", () => {
@@ -365,6 +478,57 @@ describe("KHÔNG ĐƯỢC KẸT 'đang kiểm tra' VĨNH VIỄN (hồi quy 2026-
       expect(d).toBeGreaterThanOrEqual(TIER_RETRY_BASE_MS);
       expect(d).toBeLessThanOrEqual(TIER_RETRY_MAX_MS);
     }
+  });
+
+  /* R6: thang lùi tra hạng KHÔNG biết máy đang mất sóng, trong khi
+     `stormRetryMs` cùng đợt vá đã có vế đó. Chuyến 10 ngày mất sóng = ~1.400
+     lượt hỏi, mỗi lượt còn dựng thêm một đồng hồ chặn. */
+  it("MẤT SÓNG → nhảy thẳng về trần, mọi lần thử (đừng quay pin giữa biển)", () => {
+    expect(tierRetryDelayMs(0, true)).toBe(TIER_RETRY_MAX_MS);
+    for (const n of [0, 1, 2, 5, 50, 1e6, -3, NaN]) {
+      expect(tierRetryDelayMs(n, true)).toBe(TIER_RETRY_MAX_MS);
+    }
+  });
+
+  it("KHÔNG dừng hẳn nhịp — trần là con số hữu hạn (WebView cũ không bắn `online`)", () => {
+    expect(Number.isFinite(tierRetryDelayMs(0, true))).toBe(true);
+    expect(tierRetryDelayMs(0, true)).toBeGreaterThan(0);
+  });
+
+  it("có sóng → giữ nguyên thang cũ (mặc định offline=false)", () => {
+    expect(tierRetryDelayMs(0, false)).toBe(TIER_RETRY_BASE_MS);
+    expect(tierRetryDelayMs(0)).toBe(tierRetryDelayMs(0, false));
+  });
+});
+
+/* ── SÓNG VỀ THÌ HỎI NGAY, NHƯNG ĐỪNG DỘI (R6) ─────────────────────────────
+   `onBackOnline` trước đây gọi thẳng `runQuery()`, bỏ qua mọi độ trễ. Ven bờ
+   trình duyệt bắn `online`/`offline` nhấp nháy liên tục ⇒ mỗi cái nhấp là một
+   truy vấn 12 giây. Thang lùi dựng lên để chống đúng chuyện đó, mà cửa này lại
+   mở toang. */
+describe("shouldQueryOnBackOnline — cửa chống dội", () => {
+  const T = Date.parse("2026-08-02T08:00:00+07:00");
+
+  it("chưa hỏi lần nào → cho hỏi ngay", () => {
+    expect(shouldQueryOnBackOnline(0, T)).toBe(true);
+    expect(shouldQueryOnBackOnline(NaN, T)).toBe(true);
+  });
+
+  it("vừa hỏi xong → CHẶN (sóng nhấp nháy không thành mưa truy vấn)", () => {
+    expect(shouldQueryOnBackOnline(T, T + 1000)).toBe(false);
+    expect(shouldQueryOnBackOnline(T, T + TIER_ONLINE_DEBOUNCE_MS - 1)).toBe(
+      false,
+    );
+  });
+
+  it("đủ lâu rồi → cho hỏi lại (sóng về thật thì không phải chờ 10 phút)", () => {
+    expect(shouldQueryOnBackOnline(T, T + TIER_ONLINE_DEBOUNCE_MS)).toBe(true);
+    expect(shouldQueryOnBackOnline(T, T + 60_000)).toBe(true);
+  });
+
+  it("cửa hẹp hơn trần thang lùi — sóng về vẫn nhanh hơn nhịp hẹn giờ", () => {
+    expect(TIER_ONLINE_DEBOUNCE_MS).toBeLessThan(TIER_RETRY_MAX_MS);
+    expect(TIER_ONLINE_DEBOUNCE_MS).toBeGreaterThanOrEqual(20_000);
   });
 });
 

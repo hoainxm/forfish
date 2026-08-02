@@ -6,6 +6,7 @@ import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { apiUrl } from "@/lib/api-base";
 import { CheckIcon, PhoneIcon } from "@/components/icons";
 import { sanitizePhoneInput } from "@/components/auth-form";
+import { timeoutSignal } from "@/lib/abort";
 
 /*
   "Để lại yêu cầu" — hỏi mua/tư vấn cho sản phẩm của ĐƠN VỊ NGOÀI SDWork
@@ -84,7 +85,7 @@ function InquiryForm({
           name: name.trim(),
           message: message.trim(),
         }),
-        signal: AbortSignal.timeout(20000),
+        signal: timeoutSignal(20000),
       });
       const j = await r.json().catch(() => null);
       setState(j?.ok ? "done" : "error");

@@ -27,7 +27,9 @@ import {
   lastAutoPretripAt,
   markAutoPretripRun,
   pretripGainedCore,
+  pretripGridTooShort,
   pretripKeptCore,
+  PRETRIP_GRID_LONGEST_DAYS,
   pretripSavedText,
   shouldAutoPretrip,
   shouldMarkPretripRun,
@@ -44,12 +46,16 @@ const NOW = Date.parse("2026-07-25T03:00:00Z"); // 10:00 ngày 25/7 giờ VN
 const result = (over: Partial<PretripResult> = {}): PretripResult => ({
   ok: 2,
   failed: 9,
+  // mặc định KHÔNG có bước nào ném có mã: "hỏng vì sóng" ở đây là các bước
+  // không mã. Ca "khung dài thử-và-hỏng" phải khai rõ, xem pretripGridTooShort.
+  failedSteps: [],
   full: false,
   saved: { places: 0, untilIso: null, gridDays: [] },
   gained: {},
   kept: {},
   coreFresh: false,
   timedOut: false,
+  evicted: 0,
   ...over,
 });
 
@@ -392,13 +398,19 @@ describe("coverageChipText — câu chữ TRUNG THỰC theo độ phủ lớp", 
     sizeBytes: 0,
     fresh: true,
     retriable: true,
+    untilIso: null,
     ...over,
   });
+  /* `coreUntilIso` MẶC ĐỊNH BÁM THEO `untilIso` — hầu hết ca thử ở đây là máy
+     đủ cả hai lớp cốt lõi (lưới + điểm ghim) nên hai ngày trùng nhau. Ca chúng
+     LỆCH (máy còn mỗi lưới 3 ngày) khai riêng `coreUntilIso`, xem describe
+     "chip nói ngày CỐT LÕI". */
   const cov = (over: Partial<SavedCoverage>): SavedCoverage => ({
     layers: [layer({})],
     allSaved: true,
     missing: 0,
     untilIso: null,
+    coreUntilIso: over.untilIso ?? null,
     totalBytes: 0,
     savedCount: 1,
     ...over,
@@ -439,10 +451,12 @@ describe("coverageChipText — câu chữ TRUNG THỰC theo độ phủ lớp", 
 
   /* CHIP NÓI DỐI (2026-08-02): `saved` chỉ nói "có bản trong máy", không nói bản
      đó còn dùng được. Đây là chỗ bà con LIẾC TRƯỚC KHI NHỔ NEO. */
-  it("đủ 9 lớp nhưng ngày xa nhất ĐÃ QUA → nói hết hạn, không khoe ngày cũ", () => {
+  /* "HẾT NGÀY" chứ KHÔNG "hết hạn" (2026-08-02): "hết hạn" nghe như tài khoản
+     bị cắt — bà con tưởng phải đóng tiền mới xem được dự báo. */
+  it("đủ 9 lớp nhưng ngày xa nhất ĐÃ QUA → nói hết ngày, không khoe ngày cũ", () => {
     const c = cov({ untilIso: "2026-07-25" });
     expect(coverageChipText("idle", c, TODAY)).toBe(
-      "Dự báo đã lưu hết hạn — chạm tải lại",
+      "Dự báo đã lưu hết ngày — chạm tải lại",
     );
     expect(coverageChipOk(c, TODAY)).toBe(false);
   });
@@ -453,16 +467,23 @@ describe("coverageChipText — câu chữ TRUNG THỰC theo độ phủ lớp", 
     ).toBe("Đã lưu đủ dự báo — tới ngày 2/8");
   });
 
-  it("đủ lớp nhưng có lớp QUÁ CHU KỲ cập nhật → nói đã cũ, không nói 'đủ'", () => {
+  it("đủ lớp nhưng có lớp QUÁ CHU KỲ cập nhật → nói đã cũ, VẪN GIỮ NGÀY", () => {
     const c = cov({
       layers: [layer({}), layer({ id: "scalar", fresh: false })],
       untilIso: "2026-08-13",
       savedCount: 2,
     });
     expect(coverageChipText("idle", c, TODAY)).toBe(
-      "Dự báo trong máy đã cũ — chạm tải mới",
+      "Còn dùng tới ngày 13/8 — chạm tải mới",
     );
     expect(coverageChipOk(c, TODAY)).toBe(false);
+  });
+
+  it("đã cũ mà KHÔNG có ngày nào để nói → câu cũ, không bịa ngày", () => {
+    const c = cov({ layers: [layer({ fresh: false })] });
+    expect(coverageChipText("idle", c, TODAY)).toBe(
+      "Dự báo trong máy đã cũ — chạm tải mới",
+    );
   });
 
   it("lớp KHOÁ (bản đồ cá chưa premium) cũ thì kệ — không kéo chip sang vàng", () => {
@@ -471,6 +492,90 @@ describe("coverageChipText — câu chữ TRUNG THỰC theo độ phủ lớp", 
       untilIso: "2026-08-13",
     });
     expect(coverageChipOk(c, TODAY)).toBe(true);
+  });
+
+  /*
+    R1 — CHIP NÓI DỐI BẰNG MÀU SUỐT CẢ CHUYẾN (2026-08-02).
+    Ra khơi quá 6 giờ là MỌI lớp hết "tươi" ⇒ luật cũ trả chip VÀNG "Dự báo trong
+    máy đã cũ — chạm tải mới" (việc KHÔNG làm được giữa biển) và DÒNG NGÀY biến
+    mất hẳn — đúng thông tin duy nhất còn giá trị. "Cũ so với nhịp phát hành GFS"
+    KHÁC HẲN "hết dùng được": bản 16 ngày tải ở bờ còn dùng tốt 15 ngày nữa.
+  */
+  describe("MẤT SÓNG — bốn ô {có sóng × đã cũ}", () => {
+    const fresh = cov({ untilIso: "2026-08-18" });
+    const stale = cov({
+      layers: [layer({}), layer({ id: "scalar", fresh: false })],
+      untilIso: "2026-08-18",
+    });
+    const doneDays = cov({ untilIso: "2026-07-25" });
+
+    it("mất sóng, còn ngày phía trước → nói ngày, tô XANH, KHÔNG giục tải", () => {
+      expect(coverageChipText("idle", stale, TODAY, false)).toBe(
+        "Trong máy còn dự báo tới ngày 18/8",
+      );
+      expect(coverageChipOk(stale, TODAY, false)).toBe(true);
+    });
+
+    it("có sóng, lớp đã cũ → giục tải NHƯNG vẫn giữ ngày", () => {
+      expect(coverageChipText("idle", stale, TODAY, true)).toBe(
+        "Còn dùng tới ngày 18/8 — chạm tải mới",
+      );
+      expect(coverageChipOk(stale, TODAY, true)).toBe(false);
+    });
+
+    it("đủ + còn tươi → 'Đã lưu đủ dự báo — tới ngày X'", () => {
+      expect(coverageChipText("idle", fresh, TODAY, true)).toBe(
+        "Đã lưu đủ dự báo — tới ngày 18/8",
+      );
+      expect(coverageChipOk(fresh, TODAY, true)).toBe(true);
+    });
+
+    it("HẾT NGÀY thì vẫn báo động, kể cả mất sóng", () => {
+      for (const online of [true, false]) {
+        expect(coverageChipText("idle", doneDays, TODAY, online)).toBe(
+          "Dự báo đã lưu hết ngày — chạm tải lại",
+        );
+        expect(coverageChipOk(doneDays, TODAY, online)).toBe(false);
+      }
+    });
+
+    it("mặc định `online` = true → chỗ gọi cũ không đổi hành vi", () => {
+      expect(coverageChipText("idle", stale, TODAY)).toBe(
+        coverageChipText("idle", stale, TODAY, true),
+      );
+      expect(coverageChipOk(stale, TODAY)).toBe(coverageChipOk(stale, TODAY, true));
+    });
+
+    /* BẤT BIẾN chống "nói dối bằng màu": chữ hứa ĐỦ chỉ được xuất hiện khi chip
+       XANH; và chip xanh thì tuyệt đối không được kèm lời giục/lời thiếu. Lưu ý
+       chiều ngược lại KHÔNG phải tương đương: ô "mất sóng còn ngày" cũng xanh mà
+       câu là "Trong máy còn dự báo tới ngày X" — xanh vì máy đang có đủ thứ cần,
+       chỉ không khoe chữ "đã lưu đủ". */
+    it("bất biến: chữ 'Đã lưu đủ' ⟹ chip XANH; chip XANH ⟹ không có lời giục", () => {
+      const cases: SavedCoverage[] = [
+        fresh,
+        stale,
+        doneDays,
+        cov({ untilIso: null }),
+        cov({ layers: [layer({ saved: false })], allSaved: false, missing: 1 }),
+        cov({
+          layers: [layer({}), layer({ id: "fish", fresh: false, retriable: false })],
+          untilIso: "2026-08-18",
+        }),
+      ];
+      for (const c of cases) {
+        for (const online of [true, false]) {
+          const text = coverageChipText("idle", c, TODAY, online);
+          const ok = coverageChipOk(c, TODAY, online);
+          if (text.includes("Đã lưu đủ")) expect(ok).toBe(true);
+          if (ok) {
+            expect(text).not.toContain("chạm tải");
+            expect(text).not.toContain("Còn thiếu");
+            expect(text).not.toContain("Chưa tải");
+          }
+        }
+      }
+    });
   });
 });
 
@@ -562,6 +667,49 @@ describe("shouldMarkPretripRun — hỏng sạch thì ĐỪNG khoá 6 giờ", ()
 
   it("bị cắt NHƯNG máy hết chỗ → vẫn ghi mốc (tải tiếp cũng không giữ nổi)", () => {
     expect(shouldMarkPretripRun(res({ full: true, timedOut: true }))).toBe(true);
+  });
+
+  /*
+    C-5 ĐƯỜNG 2 — MÁY CHỈ CÒN LƯỚI KHUNG NGẮN. Bước `grid.d3` ghi được, hai bước
+    `d7`/`d16` hỏng vì sóng ⇒ `gained.grid = 1` ⇒ luật cũ khoá 6 GIỜ trong khi
+    máy chỉ có gió sóng 3 ngày mà tàu đi 10 ngày. Lưới cả vùng là lớp an toàn
+    tính mạng và giữa biển KHÔNG tải lại được ⇒ việc CHƯA XONG.
+  */
+  it("kho chỉ còn lưới 3 ngày → KHÔNG khoá 6 giờ dù mẻ có ghi được d3", () => {
+    expect(
+      shouldMarkPretripRun(
+        res({
+          ok: 9,
+          gained: { grid: 1, point: 4 },
+          saved: { places: 4, untilIso: "2026-08-18", gridDays: [3] },
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      pretripGridTooShort(
+        res({ saved: { places: 0, untilIso: null, gridDays: [3, 7] } }),
+      ),
+    ).toBe(true);
+  });
+
+  it("đủ khung dài nhất → khoá 6 giờ như thường", () => {
+    expect(
+      shouldMarkPretripRun(
+        res({
+          gained: { grid: 3 },
+          saved: {
+            places: 4,
+            untilIso: "2026-08-18",
+            gridDays: [3, 7, PRETRIP_GRID_LONGEST_DAYS],
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("kho CHƯA có lưới nào → không phán gì thêm, luật cũ quyết", () => {
+    expect(pretripGridTooShort(res())).toBe(false);
+    expect(shouldMarkPretripRun(res({ gained: { point: 3 } }))).toBe(true);
   });
 });
 

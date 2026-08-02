@@ -31,6 +31,7 @@ import {
   type QualityField,
   type Resolved,
 } from "@/lib/source-registry";
+import { timeoutSignal } from "@/lib/abort";
 
 /**
  * TÍNH bản đồ dự báo cá (PFZ) — kéo lưới SST + phù du mới nhất từ nguồn công
@@ -67,7 +68,7 @@ const SLOW_SOURCE_TIMEOUT_MS = 12000;
 // chạy (chẩn 2026-06-23, trước tưởng do timeout/cache).
 const opt = () => ({
   next: { revalidate: 21600 },
-  signal: AbortSignal.timeout(GRID_TIMEOUT_MS),
+  signal: timeoutSignal(GRID_TIMEOUT_MS),
   headers: { "User-Agent": ERDDAP_UA },
 });
 

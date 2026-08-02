@@ -18,6 +18,7 @@ import {
   loadLongestSavedGrid,
   type ForecastGrid,
 } from "@/lib/forecast-grid";
+import { timeoutSignal } from "@/lib/abort";
 
 // 72 giờ — đủ cho chuyến dài quanh mũi đất; route-plan giữ giờ cuối khi hơn
 const FORECAST_DAYS = 3;
@@ -306,11 +307,11 @@ async function fetchWeatherFieldFresh(bbox: BBox): Promise<WeatherField> {
   const [windRes, waveRes] = await Promise.all([
     fetch(
       `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m`,
-      { signal: AbortSignal.timeout(15000) },
+      { signal: timeoutSignal(15000) },
     ),
     fetch(
       `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction,wave_period,ocean_current_velocity,ocean_current_direction`,
-      { signal: AbortSignal.timeout(15000) },
+      { signal: timeoutSignal(15000) },
     ),
   ]);
   if (!windRes.ok || !waveRes.ok) {

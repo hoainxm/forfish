@@ -34,15 +34,18 @@ import {
 } from "@/lib/sell-contacts";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 import {
+  readinessChip,
   usageStage,
   PLATFORM_LABEL,
   type DevicePlatform,
   USAGE_STAGE_LABEL,
+  type ReadinessReason,
+  type ReadinessTone,
   type UsageStage,
 } from "@/lib/app-usage";
 import { createClient } from "@/lib/supabase/client";
 import { clearInbox } from "@/lib/inbox";
-import { forgetIdentity } from "@/lib/offline-identity";
+import { applyIdentityAction } from "@/lib/offline-identity";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCccd, isValidCccd } from "@/lib/crew";
 import { isValidVnPhone, phoneToEmail, sanitizePhoneInput } from "@/lib/phone";
@@ -67,6 +70,7 @@ import {
   actionLabel,
   isDangerAction,
 } from "@/lib/admin-activity";
+import { timeoutSignal } from "@/lib/abort";
 
 type Tab =
   | "tai-khoan"
@@ -142,6 +146,7 @@ type Account = {
   offlineReadyAt: string | null;
   /** dữ liệu đi biển trong máy phủ tới ngày nào (0025) */
   dataUntil?: string | null;
+  dataUntilWeb?: string | null;
   devicePlatform: DevicePlatform | null;
   devices: {
     tag: string;
@@ -230,7 +235,8 @@ export default function QuanTriPage() {
        không cần đồng hồ như hero-account: mất sóng thì cùng lắm phiên còn trên
        máy chủ, phần trong máy vẫn phải sạch. */
     clearInbox();
-    forgetIdentity(); // đã kèm xoá dấu hạng
+    // đi qua CỔNG DUY NHẤT (K7) — quên = xoá luôn dấu hạng
+    applyIdentityAction("user-signed-out", false);
     // Ở LẠI /quan-tri và hiện form đăng nhập quản trị ngay tại đây — KHÔNG đá
     // sang /login của app khách (user 2026-07-31).
     setHealth(null);
@@ -1203,14 +1209,63 @@ function AppUsage({ a }: { a: Account }) {
     "du-do-di-bien":
       "Máy đã báo: vỏ app đủ + mọi lớp dữ liệu đã tải, ĐO TRÊN ĐÚNG KHO sẽ dùng ngoài biển. Lưu ý: đây là mốc ĐÃ TỪNG đủ, không phải bây giờ còn đủ.",
   };
+  /*  CHIP SẴN SÀNG (2026-08-02g) — gộp "online lần cuối" + "dữ liệu tới ngày
+      nào", và ĐO TRÊN ĐÚNG KHO SẼ RA KHƠI. Luật thuần + test ở lib/app-usage.ts.
+      Hai con số này tách ra thì người trực tổng đài phải tự ghép trong đầu mỗi
+      hàng một lần — và sẽ bỏ sót đúng nhóm nguy hiểm nhất: đã cài, đã đủ đồ, mở
+      app hằng ngày, nhưng toàn mở bằng Safari nên kho ra khơi đứng im. */
+  const rd = readinessChip(
+    {
+      pwaLastOpenAt: a.pwaLastOpenAt ?? null,
+      webLastOpenAt: a.webLastOpenAt ?? null,
+      dataUntil: a.dataUntil ?? null,
+      dataUntilWeb: a.dataUntilWeb ?? null,
+    },
+    Date.now(),
+  );
+  const rdSkin: Record<ReadinessTone, string> = {
+    ok: "bg-ok-bg text-ok",
+    warn: "bg-warn-bg text-warn",
+    risk: "bg-danger-bg text-danger",
+    unknown: "bg-field text-foreground/50",
+  };
+  const rdLabel: Record<ReadinessReason, string> = {
+    "chua-ghi-nhan": "Chưa ghi nhận",
+    "chua-cai": "Chưa mở bản cài",
+    "ban-cai-cu": "Bản cài lâu chưa mở",
+    "het-du-lieu": "Hết dữ liệu",
+    "sap-can": "Dữ liệu sắp cạn",
+    "mat-song-lau": "Lâu chưa lên sóng",
+    "chua-bao-ngay": "Chưa rõ dữ liệu",
+    on: "Sẵn sàng",
+  };
+  /* VIỆC CẦN LÀM, không phải mô tả trạng thái — nhân viên đọc là gọi được luôn */
+  const rdWhy: Record<ReadinessReason, string> = {
+    "chua-ghi-nhan":
+      "Máy chưa gửi nhịp nào. KHÔNG có nghĩa chưa dùng app: nhịp chỉ gửi khi ĐÃ ĐĂNG NHẬP + còn sóng, và chỉ ghi từ 01/08/2026.",
+    "chua-cai":
+      "Chỉ mới mở app trong trình duyệt. Trên iPhone bản Thêm-vào-Màn-hình-chính có kho RIÊNG — dữ liệu tải trong Safari KHÔNG theo ra khơi được. Gọi nhắc: mở icon vừa cài, rồi bấm tải.",
+    "ban-cai-cu":
+      "Đã cài và đã tải, NHƯNG gần đây toàn mở bằng trình duyệt. Kho của bản cài (thứ sẽ theo ra khơi) đứng im từ lâu. Gọi nhắc: mở ĐÚNG cái icon đã cài khi còn sóng.",
+    "het-du-lieu":
+      "Dữ liệu trong bản cài đã hết hạn phủ. Ra khơi bây giờ là không có dự báo. Gọi ngay.",
+    "sap-can":
+      "Dữ liệu trong bản cài chỉ còn vài ngày. Còn sóng thì còn kịp — gọi nhắc bấm tải.",
+    "mat-song-lau":
+      "Máy lâu chưa lên sóng, nên con số dữ liệu là lời khai cũ. Có thể bà con đang ngoài khơi.",
+    "chua-bao-ngay":
+      "Có mở bản cài gần đây nhưng máy chưa báo được dữ liệu phủ tới ngày nào.",
+    on: "Bản cài mở gần đây và dữ liệu còn dài. Không cần gọi.",
+  };
   const mocs = [
-    /*  DỮ LIỆU TỚI NGÀY NÀO (0025) — đứng ĐẦU vì đây là câu người trực tổng đài
-        cần nhất: máy này ra khơi ngày mai thì trong tay bà con có dự báo tới
-        đâu. Ba mốc còn lại chỉ nói "đã từng mở/đã từng đủ". */
-    a.dataUntil ? `dữ liệu tới ${fmtNgay(a.dataUntil)}` : null,
+    /*  DÁN NHÃN KHO (0027): trên iOS kho bản cài tách riêng Safari, nên một con
+        số trần "dữ liệu tới 17/08" là câu nói thiếu — không biết nó tả cái kho
+        sẽ ra khơi hay cái kho nằm lại bờ. */
+    a.dataUntil ? `bản cài: dữ liệu tới ${fmtNgay(a.dataUntil)}` : null,
+    a.dataUntilWeb ? `web: dữ liệu tới ${fmtNgay(a.dataUntilWeb)}` : null,
     a.offlineReadyAt ? `đủ đồ ${fmtDT(a.offlineReadyAt)}` : null,
-    a.pwaLastOpenAt ? `bản cài ${fmtDT(a.pwaLastOpenAt)}` : null,
-    a.webLastOpenAt ? `web ${fmtDT(a.webLastOpenAt)}` : null,
+    a.pwaLastOpenAt ? `bản cài mở ${fmtDT(a.pwaLastOpenAt)}` : null,
+    a.webLastOpenAt ? `web mở ${fmtDT(a.webLastOpenAt)}` : null,
   ].filter(Boolean);
   return (
     <>
@@ -1219,6 +1274,16 @@ function AppUsage({ a }: { a: Account }) {
         className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${skin[stage]}`}
       >
         {USAGE_STAGE_LABEL[stage]}
+      </span>
+      {/* CHIP SẴN SÀNG — gộp "online lần cuối" + "dữ liệu tới ngày nào", đo trên
+          ĐÚNG kho sẽ ra khơi. Đứng ngay sau bậc thang vì đây mới là chip trả lời
+          câu "có phải gọi người này không". */}
+      <span
+        title={rdWhy[rd.reason]}
+        className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${rdSkin[rd.tone]}`}
+      >
+        {rdLabel[rd.reason]}
+        {rd.seaDays != null && rd.seaDays > 0 ? ` · còn ${rd.seaDays}n` : ""}
       </span>
       {/* LOẠI MÁY (0022) — nhân viên gọi điện phải chỉ ĐÚNG bước của máy đó:
           iPhone thì Chia sẻ → Thêm vào Màn hình chính (và bản cài có kho RIÊNG
@@ -3961,7 +4026,7 @@ function DataTab() {
     ) => {
       try {
         const r = await fetch(apiUrl(path), {
-          signal: AbortSignal.timeout(timeoutMs),
+          signal: timeoutSignal(timeoutMs),
         });
         const j = (await r.json()) as Record<string, unknown>;
         if (!r.ok || j.ok === false) {

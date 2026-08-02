@@ -12,18 +12,22 @@
 // vẫn ở middleware/RLS khi có mạng.
 
 import { useEffect, useState } from "react";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { readToken, TOKEN_KICKED_EVENT } from "@/lib/device-token-store";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { useAuthUser } from "@/lib/use-auth";
-import { clearTierMark, offlineIdentityPhone } from "@/lib/offline-identity";
+import {
+  applyIdentityAction,
+  offlineIdentityPhone,
+  subscribeIdentity,
+} from "@/lib/offline-identity";
 import {
   effectivePremiumMark,
   featureAccessDecision,
   readPremiumMark,
   resolveTier,
   shouldClearPremiumMark,
-  shouldRetryTierQuery,
-  tierRetryDelayMs,
   TIER_CACHE_KEY,
+  TIER_EVENT,
   TIER_UNTIL_KEY,
   type FeatureAccess,
   type PremiumMark,
@@ -45,19 +49,11 @@ function readCachedMark(): PremiumMark {
   }
 }
 
-function writeCachedPremium(premium: boolean): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(TIER_CACHE_KEY, premium ? "1" : "0");
-  } catch {
-    /* hết chỗ / chế độ riêng tư — bỏ qua */
-  }
-}
-
-/* Xoá dấu hạng — thân hàm nay ở lib/offline-identity (module KHÔNG React) để
-   nút Đăng xuất gọi được THẲNG, không phải chờ một effect nào chạy đúng thứ tự
-   (xem clearTierMark). Giữ tên cũ + xuất ra ngoài cho chỗ gọi ngoài hook. */
-export const clearCachedTier = clearTierMark;
+/* Bí danh `clearCachedTier` (= clearTierMark) ĐÃ GỠ 2026-08-02c: không chỗ nào
+   trong repo còn gọi, mà nó lại là một CỬA SAU của cổng quét chữ trong
+   identity-gate.test.ts — cổng cấm gọi `clearTierMark(` ngoài module danh tính,
+   đổi tên một cái là lách qua. Xoá dấu hạng nay chỉ có một đường:
+   `applyIdentityAction` (xem lưới đỡ ở cuối file). */
 
 function readCachedUntil(): string | null {
   if (typeof window === "undefined") return null;
@@ -68,36 +64,20 @@ function readCachedUntil(): string | null {
   }
 }
 
-function writeCachedUntil(until: string | null): void {
-  if (typeof window === "undefined") return;
-  try {
-    if (until) window.localStorage.setItem(TIER_UNTIL_KEY, until);
-    else window.localStorage.removeItem(TIER_UNTIL_KEY);
-  } catch {
-    /* hết chỗ / chế độ riêng tư — bỏ qua */
-  }
-}
-
 function isOnline(): boolean {
   return typeof navigator === "undefined" ? true : navigator.onLine !== false;
 }
-
-/**
- * Tra hạng chờ tối đa bấy nhiêu rồi chịu thua (2026-07-31).
- *
- * VÌ SAO CÓ: query dưới đây trước không có đồng hồ, không có `.catch`. Ngoài
- * khơi hay gặp sóng "sống mà chết" (bắt tay được, gói tin không về) ⇒ promise
- * KHÔNG BAO GIỜ xong ⇒ `premium` kẹt `null` ⇒ `featureAccessDecision` trả
- * "checking" VĨNH VIỄN ⇒ lớp cá im lặng tuyệt đối, không cả nút thử lại. Khách
- * đã trả tiền mất đúng thứ mình mua, ngay giữa chuyến biển.
- */
-const TIER_QUERY_MS = 12000;
 
 export function useFeatureAccess(): {
   access: FeatureAccess;
   ready: boolean;
   /** hạn premium (ISO) để bày "dùng tới ngày nào"; null = không hạn/chưa biết */
   premiumUntil: string | null;
+  /** ĐANG MỞ BẰNG QUYỀN ĐÃ LƯU TRÊN MÁY, không phải bằng phiên đăng nhập còn
+   *  sống (ca C-7). Màn hình PHẢI nói thẳng chuyện này — chủ dự án chốt: không
+   *  được giả vờ là đã đăng nhập, mà cũng không được bắt bà con "Đăng nhập"
+   *  giữa biển như thể quyền đã mất. */
+  savedAccess: boolean;
 } {
   const { user, ready: authReady, errored: authErrored } = useAuthUser();
   // null = chưa tra xong hạng (chỉ có nghĩa khi đã đăng nhập + có sóng)
@@ -108,14 +88,58 @@ export function useFeatureAccess(): {
   /* `premium === false` CHỈ VÌ HẠN (máy chủ vẫn ghi tier='premium'). Tách ra
      vì đồng hồ máy lệch là chuyện thường ngoài biển — xem featureAccessDecision. */
   const [expiredOnly, setExpiredOnly] = useState(false);
+  /* MÁY CÒN NHỚ AI TỪNG ĐĂNG NHẬP Ở ĐÂY KHÔNG (C-7). Đọc trong effect, không
+     đọc lúc render, để bản dựng máy chủ và bản vẽ đầu ở máy khớp nhau. */
+  const [deviceBound, setDeviceBound] = useState(false);
+  /*  MÁY CÓ CHUỖI CỨNG KHÔNG (2026-08-02f) — điều kiện MỚI để được tra hạng,
+      thay cho `userId` vốn chỉ còn đúng với /quan-tri và mấy máy phiên cũ.
+      Đọc trong effect, không đọc lúc render, để bản dựng máy chủ và bản vẽ đầu
+      ở máy khớp nhau. */
+  const [tokenPresent, setTokenPresent] = useState(false);
 
   /* đọc dấu premium đã lưu (client-only). Dấu ĐÃ XÉT HẠN ngay lúc đọc: dấu thô
      lưu theo cột `tier`, hạn lưu riêng, và hết hạn quá biên thì dấu không còn
-     giá trị nữa (E4 — nếu không thì premium offline không bao giờ hết hạn). */
+     giá trị nữa (E4 — nếu không thì premium offline không bao giờ hết hạn).
+
+     ĐỌC LẠI KHI KHO ĐỔI (2026-08-02): nút Đăng xuất / Gỡ khỏi máy gọi thẳng
+     `forgetIdentity()` — không đổi dep nào của hook này, nên nếu chỉ đọc lúc
+     mount thì `cachedMark` và `deviceBound` trong state sẽ CÒN NGUYÊN sau khi
+     localStorage đã sạch, và nhánh "quyền đã lưu" mới thêm sẽ mở cửa cho bạn
+     thuyền bằng dấu của chủ tàu. Sổ danh tính nay bắn `IDENTITY_EVENT` mỗi lần
+     đổi (và `subscribeIdentity` nghe cả `storage` của tab khác); đây là chỗ
+     nghe.
+
+     TÍNH LẠI THEO THỜI GIAN, KHÔNG CHỈ LÚC MOUNT (sửa 2026-08-02c): `Date.now()`
+     ở đây chỉ được đọc khi effect chạy. Giữa chuyến biển `user` là null nên
+     effect tra hạng (dep `userId`) không chạy, `fallback()` cũng không — tức
+     `cachedMark` ĐÔNG CỨNG ở giá trị lúc mở app, và dấu premium hết hạn thật
+     cũng không tự đóng. Mở lại app / bật lại màn hình / sóng vừa về là ba mốc
+     rẻ tiền để tính lại. */
   useEffect(() => {
-    const until = readCachedUntil();
-    setCachedMark(effectivePremiumMark(readCachedMark(), until, Date.now()));
-    setPremiumUntil(until);
+    const sync = () => {
+      const until = readCachedUntil();
+      setCachedMark(effectivePremiumMark(readCachedMark(), until, Date.now()));
+      setPremiumUntil(until);
+      setDeviceBound(offlineIdentityPhone() !== null);
+      setTokenPresent(readToken() !== null);
+    };
+    sync();
+    const off = subscribeIdentity(sync);
+    const onVisible = () => {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "visible") sync();
+    };
+    window.addEventListener("online", sync);
+    /*  BỊ ĐÁ thì `tokenPresent` phải về false NGAY, không đợi lần mở app sau —
+        nếu không, effect tra hạng vẫn chạy với một chuỗi đã chết và bám vô ích. */
+    window.addEventListener(TOKEN_KICKED_EVENT, sync);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      off();
+      window.removeEventListener("online", sync);
+      window.removeEventListener(TOKEN_KICKED_EVENT, sync);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   // theo dõi sóng để đổi nhánh offline↔online ngay khi mất/được sóng
@@ -137,149 +161,49 @@ export function useFeatureAccess(): {
      ⇒ effect chạy lại ⇒ `setPremium(null)` ⇒ lớp cá nháy về "đang kiểm tra"
      kèm một truy vấn 12 giây, lặp đi lặp lại suốt chuyến. Đổi người thì `id`
      mới đổi, đúng lúc cần tra lại. */
-  const userId = user?.id;
+  /*  ═══ HẠNG ĐI NHỜ NHỊP "ĐÃ MỞ APP" ═══ (2026-08-02g, chủ dự án chốt)
+
+      NHỊP TRA HẠNG RIÊNG ĐÃ XOÁ HẲN — cùng với route `/api/me/tier`. Chủ dự án
+      hỏi đúng hai câu và cả hai đều không có câu trả lời tử tế:
+        · "offline thì gọi hạng làm gì?" — không làm gì cả. Nhịp cũ vẫn bắn ~6
+          lượt/giờ suốt chuyến biển mất sóng, mỗi lượt một đồng hồ chặn.
+        · "token lúc đăng nhập đã biết hạng rồi, check riêng làm gì?" — thứ duy
+          nhất còn cần máy chủ là hạng ĐỔI SAU khi đăng nhập (nhân viên gán
+          premium ở /quan-tri lúc bà con đã đăng nhập từ tuần trước). Mà nhịp
+          "đã mở app" vốn đã nói chuyện với máy chủ về ĐÚNG tài khoản đó, 30
+          phút/lần, và **im lặng tuyệt đối khi mất sóng**.
+
+      Nay `/api/me/heartbeat` trả kèm `tier` + `premiumUntil` (đọc từ chính hàng
+      vừa update — KHÔNG tốn thêm truy vấn nào), `lib/heartbeat.ts` ghi dấu rồi
+      bắn `TIER_EVENT`, và đây là chỗ nghe. Kết quả: offline = 0 lượt gọi.
+
+      CÒN "BỊ ĐÁ" thì không cần ai đi hỏi riêng nữa: mọi cửa server đã trả
+      `401 token_revoked`, nên request nào tới trước thì bắt trước — nhanh hơn
+      một nhịp hẹn giờ. Chỗ HIỂU vẫn chỉ có một (`authedFetch`).
+
+      ⚠️ GIỮ NGUYÊN LUẬT E4: dấu ghi theo cột `tier` THÔ, hạn lưu riêng, xét hạn
+      lúc ĐỌC với biên rộng. Máy hết pin sạch rồi nhảy ngày là chuyện thường
+      ngoài biển; so hạn bằng đồng hồ máy lúc GHI là xoá quyền đã trả tiền. */
   useEffect(() => {
-    if (!authReady || !userId) return;
-    const supabase = createClient();
-    if (!supabase) return;
-    let alive = true;
-    /* đếm số lần đã chịu thua — để giãn dần các lần hỏi lại */
-    let tries = 0;
-    /* đang có một lượt hỏi chạy dở (đừng bắn chồng lượt khi sóng chớp tắt) */
-    let inFlight = false;
-    /* ĐÃ có câu trả lời TƯƠI từ máy chủ — hết việc, thôi hỏi lại */
-    let answered = false;
-    let queryTimer: ReturnType<typeof setTimeout> | undefined;
-    let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    setPremium(null);
-    setExpiredOnly(false);
-
-    /* HỎI LẠI — ĐƯỜNG THOÁT BẮT BUỘC (sửa 2026-08-02, hồi quy của bản vá cùng
-       ngày). Deps của effect là `userId` (chống nháy, xem chú thích trên), mà
-       trước đó đường tự thử lại DUY NHẤT lại chính là `user` đổi object mỗi lần
-       TOKEN_REFRESHED — đổi deps là cắt mất nó. Không có chỗ này thì một cú tra
-       hỏng lúc mở app ở cảng sóng "sống mà chết" khoá bà con ở "đang kiểm tra"
-       tới lúc tắt hẳn app: lớp cá im lặng, không khoá, không mời nâng cấp,
-       không nút thử lại, sóng về cũng không tra lại. */
-    function scheduleRetry() {
-      // effect này chỉ chạy khi authReady && userId nên hai vế đó luôn đúng —
-      // vế thật sự quyết định là "đã có câu trả lời tươi chưa"
-      if (!alive) return;
-      if (!shouldRetryTierQuery({ authReady: true, hasUser: true, answered })) {
-        return;
-      }
-      clearTimeout(retryTimer);
-      retryTimer = setTimeout(runQuery, tierRetryDelayMs(tries++));
-    }
-
-    // TRA HỎNG (lỗi · treo · hết giờ) → lùi về DẤU ĐÃ LƯU, không kẹt "checking"
-    // và cũng không hạ oan khách premium xuống màn mời-nâng-cấp chỉ vì sóng
-    // chập chờn. Dấu chỉ bật khi đã tra ĐƯỢC lúc còn sóng, và chốt thật vẫn ở
-    // middleware/RLS khi có mạng — đây KHÔNG phải cửa sau.
-    // "unknown" (chưa bao giờ tra được) giữ `premium = null` để
-    // featureAccessDecision im lặng thay vì khẳng định hạng thường (E5).
-    function fallback() {
-      if (!alive) return;
-      const until = readCachedUntil();
-      // dấu đã XÉT HẠN: hết hạn quá biên thì không còn là premium nữa (E4)
-      const mark = effectivePremiumMark(readCachedMark(), until, Date.now());
-      setCachedMark(mark);
-      setPremiumUntil(until);
-      setExpiredOnly(false);
-      setPremium(mark === "premium" ? true : mark === "basic" ? false : null);
-      // chưa hỏi được máy chủ ⇒ CÒN PHẢI HỎI LẠI, kể cả khi dấu cũ đủ để trả
-      // lời tạm: bà con vừa được gán premium ở cảng cũng cần lần hỏi sau mới
-      // thấy quyền của mình.
-      scheduleRetry();
-    }
-
-    function runQuery() {
-      if (!alive || answered || inFlight) return;
-      inFlight = true;
-      let settled = false;
-      const finish = (apply: () => void) => {
-        if (!alive || settled) return;
-        settled = true;
-        inFlight = false;
-        clearTimeout(queryTimer);
-        apply();
-      };
-      // đồng hồ riêng: abortSignal lo phần mạng, timer lo cả ca promise không
-      // bao giờ settle vì lý do khác
-      queryTimer = setTimeout(() => finish(fallback), TIER_QUERY_MS);
-      void (async () => {
-        // kiểm lại cho TypeScript: `runQuery` là function declaration nên bị
-        // hoist lên TRƯỚC chỗ chặn `if (!supabase) return` ở đầu effect, TS
-        // không mang được kết luận "khác null" vào đây. Thực tế không bao giờ
-        // chạy tới nhánh return này.
-        if (!supabase) return;
-        try {
-          const { data, error } = await supabase
-            .from("customers")
-            .select("tier, premium_until")
-            .abortSignal(AbortSignal.timeout(TIER_QUERY_MS))
-            .maybeSingle();
-          if (error) {
-            // KHÔNG ghi đè dấu tốt đã lưu (kẻo mất sóng lại xoá quyền offline)
-            finish(fallback);
-            return;
-          }
-          finish(() => {
-            answered = true;
-            clearTimeout(retryTimer);
-            /* ĐƯỜNG GHI DẤU chỉ dựa cột `tier` THÔ của DB (sửa 2026-08-02, E4).
-               Trước đây ghi theo `resolveTier(..., Date.now())` — tức so hạn
-               bằng ĐỒNG HỒ MÁY. Máy hết pin sạch rồi mất đồng bộ giờ, ngày nhảy
-               tới tương lai ⇒ hạn coi như hết ⇒ `writeCachedPremium(false)` XOÁ
-               quyền đã trả tiền bằng chính đường ghi bình thường, không cần đăng
-               xuất, không cần mất sóng. HẠN được lưu RIÊNG (TIER_UNTIL_KEY) và
-               chỉ đem ra xét lúc ĐỌC, có biên rộng — nhờ vậy hết hạn thật thì
-               dấu cũng hết, mà đồng hồ lệch vài ngày thì không mất quyền. */
-            const marked = data?.tier === "premium";
-            const until = marked
-              ? ((data?.premium_until as string | null) ?? null)
-              : null;
-            writeCachedPremium(marked);
-            writeCachedUntil(until);
-            setPremiumUntil(until);
-            setCachedMark(
-              effectivePremiumMark(
-                marked ? "premium" : "basic",
-                until,
-                Date.now(),
-              ),
-            );
-            // HIỂN THỊ: hạng hiệu lực (có xét hạn) — vẫn là nguồn cho access
-            const live =
-              resolveTier(data?.tier, data?.premium_until, Date.now()) ===
-              "premium";
-            // hạ hạng CHỈ VÌ hạn? nói ra để featureAccessDecision còn cân với
-            // dấu trong máy thay vì tin đồng hồ máy một cách mù quáng
-            setExpiredOnly(marked && !live);
-            setPremium(live);
-          });
-        } catch {
-          // abort do hết giờ, hoặc mạng ném lỗi
-          finish(fallback);
-        }
-      })();
-    }
-
-    runQuery();
-    /* sóng vừa về là cơ hội tốt nhất — hỏi lại NGAY, đừng bắt bà con đợi hết
-       nhịp hẹn giờ (nhịp giãn dần có thể lên tới 10 phút) */
-    const onBackOnline = () => {
-      clearTimeout(retryTimer);
-      runQuery();
+    const onTier = (e: Event) => {
+      const d = (e as CustomEvent<{ marked: boolean; until: string | null }>)
+        .detail;
+      if (!d) return;
+      const now = Date.now();
+      const live =
+        resolveTier(d.marked ? "premium" : "basic", d.until, now) === "premium";
+      setPremium(live);
+      // hạ hạng CHỈ VÌ hạn? nói ra để featureAccessDecision còn cân với dấu
+      // trong máy thay vì tin đồng hồ máy một cách mù quáng
+      setExpiredOnly(d.marked && !live);
+      setPremiumUntil(d.until);
+      setCachedMark(
+        effectivePremiumMark(d.marked ? "premium" : "basic", d.until, now),
+      );
     };
-    window.addEventListener("online", onBackOnline);
-    return () => {
-      alive = false;
-      clearTimeout(queryTimer);
-      clearTimeout(retryTimer);
-      window.removeEventListener("online", onBackOnline);
-    };
-  }, [authReady, userId]);
+    window.addEventListener(TIER_EVENT, onTier);
+    return () => window.removeEventListener(TIER_EVENT, onTier);
+  }, []);
 
   /* ĐĂNG XUẤT THẬT → xoá dấu premium, khỏi rò quyền sang tài khoản sau trên
      cùng máy. Điều kiện nay là hàm THUẦN `shouldClearPremiumMark` và KHÔNG còn
@@ -294,17 +218,30 @@ export function useFeatureAccess(): {
      này — effect chỉ chạy khi có dep đổi, mà lúc đăng xuất thì `hasUser` đổi
      TRƯỚC khi danh tính bị quên, nên trông vào nó là trông vào thứ tự lập lịch
      của React. */
-  const hasUser = !!user;
+  /*  "ĐANG CÓ TÀI KHOẢN TRÊN MÁY" = phiên Supabase HOẶC chuỗi cứng (2026-08-02g).
+      Đây là cây cầu duy nhất cần bắc sau khi app bỏ phiên: mọi luật bên dưới
+      (`shouldClearPremiumMark`, `featureAccessDecision`) đều hỏi câu "máy này có
+      ai đăng nhập không", và với chuỗi cứng thì câu trả lời là CÓ — dù
+      `supabase.auth.getUser()` trả null vĩnh viễn.
+      Thiếu vế `tokenPresent`: máy đang đăng nhập bằng chuỗi bị đọc thành "phiên
+      đã rụng" ⇒ rơi xuống nhánh mời "Đăng nhập", và tệ hơn là `shouldClearPremiumMark`
+      có cửa xoá dấu hạng của người đã trả tiền. */
+  const hasUser = !!user || tokenPresent;
   useEffect(() => {
+    const bound = offlineIdentityPhone() !== null;
+    setDeviceBound(bound);
     if (
       shouldClearPremiumMark({
         authReady,
         authErrored,
         hasUser,
-        hasOfflineIdentity: offlineIdentityPhone() !== null,
+        hasOfflineIdentity: bound,
       })
     ) {
-      clearCachedTier();
+      /* QUA CỔNG DUY NHẤT (K7): tới đây thì `hasOfflineIdentity` đã là false —
+         không còn danh tính nào để mất, việc duy nhất còn lại là bỏ dấu hạng.
+         Đi qua cổng để repo không có đường ghi thứ hai (identity-gate canh). */
+      applyIdentityAction("session-gone-no-identity", false);
       // xoá khoá = "chưa biết gì về người kế tiếp", đúng như đọc lại từ máy
       setCachedMark("unknown");
       setPremiumUntil(null);
@@ -321,6 +258,19 @@ export function useFeatureAccess(): {
     cachedMark,
     authErrored,
     premiumExpiredOnly: expiredOnly,
+    /* DỮ LIỆU ĐÃ NẰM SẴN TRONG HOOK, CHỈ CHƯA ĐƯỢC CHUYỂN SANG CỬA QUYẾT ĐỊNH
+       (sửa 2026-08-02, C-7): thiếu vế này thì tàu có wifi nội bộ + auth-js tự
+       xoá phiên = người trả tiền tới 2027 rơi xuống "Đăng nhập" giữa biển. */
+    hasOfflineIdentity: deviceBound,
+    /* …và nhánh đó đòi HẠN THẬT: dấu không hạn thì không bao giờ hết, mà ở ca
+       này `hasUser=false` cũng chặn luôn đường tra lại (2026-08-02c). */
+    premiumMarkUntil: premiumUntil,
   });
-  return { access, ready: access !== "checking", premiumUntil };
+  const savedAccess =
+    isSupabaseConfigured() &&
+    access === "open" &&
+    !hasUser &&
+    deviceBound &&
+    cachedMark === "premium";
+  return { access, ready: access !== "checking", premiumUntil, savedAccess };
 }

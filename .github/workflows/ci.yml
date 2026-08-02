@@ -1,0 +1,62 @@
+# CỔNG CHẶN THẬT — chạy lint + typecheck + test trên MỌI push vào main và MỌI PR.
+#
+# VÌ SAO CÓ (2026-08-02, audit vòng 2 mục 3): repo đã dựng 7 cổng test chặn KHUÔN
+# lỗi (route trả 200 kèm {ok:false}, ranh giới client/server, khoá `forfish.*`
+# lọt tệp sao lưu…) nhưng KHÔNG có gì cắm chúng vào đường đi của code:
+#   · `.githooks/pre-commit` chỉ soi doc/migration/spacing — KHÔNG chạy npm test.
+#   · Hook lại còn phải tự bật (`git config core.hooksPath .githooks`); máy nào
+#     chưa bật thì mọi cổng đều câm.
+#   · `.github/workflows/` trước đây chỉ có 3 cron dữ liệu, không `on: push` nào.
+# ⇒ Cổng chỉ nổ khi có người tự tay gõ `npm test`. Đó là sân khấu, không phải cổng.
+#
+# VÌ SAO CI CHỨ KHÔNG PHẢI pre-push: Actions đã bật sẵn (3 cron đang chạy) nên chi
+# phí gần 0, và CI gác cả commit từ máy chưa cấu hình hook — trong khi pre-push
+# bắt chờ 2-3 phút MỖI LẦN push, đau thật với repo mà main đi rất nhanh (và người
+# ta sẽ học cách gõ --no-verify).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+
+concurrency:
+  # PR đẩy thêm commit → huỷ lượt cũ; push vào main thì KHÔNG huỷ (mỗi commit
+  # trên nhánh chung phải có kết quả riêng của nó).
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Cài đúng bản trong lockfile
+        run: npm ci
+
+      # VỎ OFFLINE KHÔNG CÓ AI SOI CÚ PHÁP (thêm 2026-08-02c, soát chéo bắt):
+      #   · `npx tsc --noEmit` KHÔNG đọc `public/sw.js` — file này nằm ngoài
+      #     `include` của tsconfig.
+      #   · `npx vitest run sw-timeouts` đọc sw.js như VĂN BẢN ⇒ 43/43 vẫn XANH
+      #     trên một sw.js gãy cú pháp.
+      # Tức trước bước này chỉ còn `npm run lint` chặn được, mà nó là cổng đắt
+      # và ồn. `node --check` chạy vài mili-giây và nói thẳng dòng nào gãy —
+      # đặt TRƯỚC mọi cổng khác vì sw.js gãy là bà con MẤT VỎ OFFLINE giữa biển.
+      - name: Cú pháp vỏ offline (public/sw.js)
+        run: node --check public/sw.js
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Chạy CUỐI vì đây là cổng đắt nhất và cũng là cổng nói nhiều nhất khi đỏ.
+      - name: Test (gồm 7 cổng chặn khuôn lỗi)
+        run: npm test

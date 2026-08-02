@@ -13,7 +13,12 @@
 import { fetchSeaPoint, POINT_NS, type SeaPointConditions } from "@/lib/marine-weather";
 import { fetchFishForecast, savedFishMark } from "@/lib/fish-predict";
 import { fetchClimatology } from "@/lib/fish-blend";
-import { fetchForecastGrid, savedGridDays, savedGridUntil } from "@/lib/forecast-grid";
+import {
+  fetchForecastGrid,
+  gridCacheId,
+  savedGridDays,
+  savedGridUntil,
+} from "@/lib/forecast-grid";
 import {
   fetchScalarField,
   savedScalarDays,
@@ -76,7 +81,20 @@ export const PRETRIP_SCALAR_DAYS = [3, 16] as const;
 export interface PretripStep {
   /** câu bà con đọc được, vd "Gió sóng — Cảng nhà" */
   label: string;
+  /**
+   * MÃ MÁY ĐỌC của bước (vd `grid.d16`) — để `PretripResult.failedSteps` nói
+   * được ĐÚNG BƯỚC NÀO hỏng, không phải chỉ "có N việc hỏng". Chỉ đặt cho
+   * những bước mà cửa chặn cần phân biệt; nhãn tiếng Việt KHÔNG dùng làm mã
+   * (đổi câu chữ là hỏng cửa chặn trong im lặng).
+   */
+  id?: string;
   run: () => Promise<void>;
+}
+
+/** Mã bước tải lưới gió/sóng khung `days` — khuôn khoá cùng
+    `PRETRIP_GRID_LONGEST_STEP_ID` bên `pretrip-auto.ts` (có test giữ hai chỗ). */
+export function gridStepId(days: number): string {
+  return `grid.d${days}`;
 }
 
 export interface PretripProgress {
@@ -93,6 +111,17 @@ export interface PretripResult {
   ok: number;
   /** số việc hỏng (mạng chập chờn) */
   failed: number;
+  /**
+   * MÃ NHỮNG BƯỚC HỎNG VÌ MẠNG (bước có `id`, vd `["grid.d16"]`) — 2026-08-02.
+   *
+   * Vì sao cần riêng, không dùng `failed`: `failed` là một con số gộp cả mẻ.
+   * Cửa `pretripGridTooShort` cần biết CHÍNH bước khung dài có thử-và-hỏng
+   * không; lấy `failed > 0` thay thế thì một bước chẳng liên quan (dòng chảy
+   * tầng sâu) hỏng cũng đủ giữ cửa 6 giờ đóng, và app rơi lại vòng thử-lại 2
+   * phút/lượt. Bước KHÔNG ném (mượn được khung ngắn hơn, trả bản `stale`) thì
+   * KHÔNG có tên ở đây — đó là "lấy được hết mức có thể", không phải hỏng.
+   */
+  failedSteps: string[];
   /** máy hết chỗ nhớ — có tải cũng không giữ được */
   full: boolean;
   /** tóm tắt "trong máy đang có gì" sau khi tải */
@@ -135,6 +164,15 @@ export interface PretripResult {
    * hình nói ngược nhau.
    */
   timedOut: boolean;
+  /**
+   * SỐ BẢN PHẢI XOÁ ĐI ĐỂ CÓ CHỖ GHI trong mẻ này (T4, 2026-08-02).
+   *
+   * Vì sao: máy đầy, `dropOldest` dọn được chỗ nên cú `setItem` CUỐI thành công
+   * ⇒ `full = false`; nhưng thứ bị dọn lại chính là bản mẻ này vừa ghi ⇒
+   * `gained` rỗng ⇒ dòng báo đổ cho "chưa có sóng" trong khi sóng đầy vạch và
+   * nguyên nhân là CHỖ NHỚ. Có con số này thì `autoPretripLine` nói đúng bệnh.
+   */
+  evicted: number;
 }
 
 export interface PretripPoint {
@@ -209,6 +247,18 @@ export interface SavedLayer {
   fresh: boolean;
   /** false = không tự tải ở đây (vd bản đồ cá đang khoá premium) */
   retriable: boolean;
+  /**
+   * NGÀY XA NHẤT (ISO) lớp này phủ tới — đọc `times[]`/`days[]` THẬT của bản đã
+   * lưu; null khi lớp không có trục ngày (tin bão, bảng giá) hoặc chưa lưu.
+   *
+   * Vì sao đưa lên đây (2026-08-02): con số này vốn đã được tính trong
+   * `savedLayers` để dựng câu `detail`, rồi bị bỏ đi — nên `savedCoverage` phải
+   * gọi `savedSummary()` đọc LẠI kho điểm ghim và kho lưới lần nữa. Kho lưới là
+   * namespace NẶNG NHẤT (`loadAll` parse HAI lượt mỗi bản: `entriesUnder` rồi
+   * `loadForecast` — cỡ ~7 MB chuỗi cho một kho đầy), đọc lại lần hai là tự
+   * đánh thuế mỗi lần dựng chip.
+   */
+  untilIso: string | null;
 }
 
 export interface SavedLayersOpts {
@@ -264,7 +314,12 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
     savedAt: number | null,
     sizeBytes: number,
     detail: string,
-    extra: { retriable?: boolean; fresh?: boolean } = {},
+    extra: {
+      retriable?: boolean;
+      fresh?: boolean;
+      /** ngày xa nhất lớp phủ tới — chỉ lớp có trục ngày mới truyền */
+      untilIso?: string | null;
+    } = {},
   ): SavedLayer => ({
     id,
     label,
@@ -274,6 +329,7 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
     sizeBytes,
     fresh: extra.fresh ?? (saved && isCacheCurrent(savedAt, now)),
     retriable: extra.retriable ?? true,
+    untilIso: saved ? (extra.untilIso ?? null) : null,
   });
 
   const stormAt = savedStormAt();
@@ -295,9 +351,16 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
       "grid",
       "Gió sóng CẢ VÙNG biển",
       gridDays.length > 0,
-      latestSavedAt("grid."),
+      /* ĐO BẰNG KHUNG DÀI NHẤT, KHÔNG GỘP MỌI KHUNG (C-5 đường 2, 2026-08-02).
+         `latestSavedAt("grid.")` lấy mốc MỚI NHẤT trong cả `d3`/`d7`/`d16`: chỉ
+         cần khung 3 ngày vừa tải là cả lớp được gọi là "còn mới", dù khung 16
+         ngày — thứ bà con thật sự dựa vào cho chuyến 10 ngày — đã cũ mấy chục
+         giờ. Chip đó là lời hứa nặng nhất trong app (bà con liếc trước lúc nhổ
+         neo), nên phải đo đúng bản dài nhất máy đang giữ. */
+      gMax > 0 ? latestSavedAt(`grid.${gridCacheId(gMax)}`) : null,
       bytesUnder("grid."),
       gridDays.length ? line("cả Biển Đông", gMax, gridUntil) : "chưa lưu",
+      { untilIso: gridUntil },
     ),
     mk(
       "point",
@@ -306,6 +369,7 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
       ptSavedAt,
       bytesUnder("point."),
       pts.length ? line(`${pts.length} điểm bất kỳ`, 16, untilIso) : "chưa lưu",
+      { untilIso },
     ),
     // Bản đồ cá là PFZ NGẮN NGÀY (ảnh vệ tinh không có kỹ năng 16 ngày như
     // gió/sóng) — KHÔNG hiện ngày ảnh kèm "tới" (gây hiểu nhầm "chỉ tới 27/7").
@@ -347,6 +411,7 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
       scalarDays.length
         ? line("mây, mưa, nhiệt, dông, áp suất", sMax, scalarUntil)
         : "chưa lưu",
+      { untilIso: scalarUntil },
     ),
     mk(
       "salinity",
@@ -355,6 +420,7 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
       latestSavedAt("scalar.salinity."),
       salinityBytes,
       salOk ? line("độ mặn", SALINITY_DAYS, salUntil) : "chưa lưu",
+      { untilIso: salUntil },
     ),
     mk(
       "seascalar",
@@ -382,6 +448,7 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
       tiers.length
         ? line(`Mặt + ${tiers.length}/3 tầng sâu (50/150/300m)`, cdDays, cdUntil)
         : "chưa lưu",
+      { untilIso: cdUntil },
     ),
   ];
 }
@@ -392,8 +459,23 @@ export interface SavedCoverage {
   allSaved: boolean;
   /** số lớp tự-tải-được còn thiếu */
   missing: number;
-  /** ngày xa nhất còn dự báo gió sóng theo điểm (mốc hiện trên chip) */
+  /** ngày xa nhất còn dự báo gió sóng theo ĐIỂM GHIM (nghĩa cũ, giữ nguyên) */
   untilIso: string | null;
+  /**
+   * NGÀY PHỦ CỐT LÕI — ngày SỚM NHẤT giữa LƯỚI CẢ VÙNG và ĐIỂM GHIM; `null` khi
+   * thiếu một trong hai lớp cốt lõi (không dám khẳng định).
+   *
+   * VÌ SAO CÓ (2026-08-02): chip màn Ra khơi trước đây nói theo `untilIso` = CHỈ
+   * lớp điểm ghim, còn lớp "Gió sóng CẢ VÙNG" chỉ cần `gridDays.length > 0` là
+   * tính `saved`. Máy còn mỗi `grid.d3` ⇒ chip XANH "Trong máy còn dự báo tới
+   * ngày 18/8" trong khi lưới chỉ tới ngày 5/8 — mà chuyến đi 10 ngày và giữa
+   * biển KHÔNG tải lại được. Chip đó là lời hứa nặng nhất trong app.
+   *
+   * CÙNG LUẬT với `coreSavedUntil` (lib/heartbeat.ts) mà nhịp báo về máy chủ
+   * dùng — hai chỗ phải nói CÙNG một ngày, có test khoá lại. Không import chéo:
+   * `heartbeat.ts` là tầng gọi mạng, kéo nó vào đây là kéo cả vào mọi màn.
+   */
+  coreUntilIso: string | null;
   /** TỔNG dung lượng dự báo trong máy (byte) — mọi bản `forfish.fc.*` */
   totalBytes: number;
   /** số lớp ĐÃ có trong máy — 0 = máy trắng tinh (bản vừa cài trên iOS) */
@@ -405,11 +487,26 @@ export function savedCoverage(opts: SavedLayersOpts = {}): SavedCoverage {
   const layers = savedLayers(opts);
   const essential = layers.filter((l) => l.retriable);
   const missing = essential.filter((l) => !l.saved).length;
+  /* DÙNG LẠI SỐ ĐÃ TÍNH, KHÔNG ĐỌC KHO LẦN HAI (2026-08-02): bản cũ gọi
+     `savedSummary()` ở đây, mà hàm đó đọc lại CẢ kho điểm ghim LẪN kho lưới —
+     hai namespace `savedLayers` vừa duyệt xong. `loadAll` parse HAI lượt mỗi
+     bản (`entriesUnder` rồi `loadForecast`), kho lưới đầy là ~7 MB chuỗi mỗi
+     lượt; chip này dựng lại mỗi lần mở màn Ra khơi và mỗi nhịp heartbeat. */
+  const pointUntil = layers.find((l) => l.id === "point")?.untilIso ?? null;
+  const gridUntil = layers.find((l) => l.id === "grid")?.untilIso ?? null;
   return {
     layers,
     allSaved: essential.length > 0 && missing === 0,
     missing,
-    untilIso: savedSummary().untilIso,
+    untilIso: pointUntil,
+    // thiếu một lớp cốt lõi → null (xem SavedCoverage.coreUntilIso). So chuỗi
+    // ISO `YYYY-MM-DD` là so ngày, không cần Date.parse.
+    coreUntilIso:
+      !gridUntil || !pointUntil
+        ? null
+        : gridUntil < pointUntil
+          ? gridUntil
+          : pointUntil,
     totalBytes: bytesUnder(""),
     savedCount: layers.filter((l) => l.saved).length,
   };
@@ -582,6 +679,9 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
   for (const d of PRETRIP_GRID_DAYS) {
     steps.push({
       label: `Gió sóng cả vùng biển — ${d} ngày`,
+      // có MÃ vì cửa 6 giờ phải phân biệt "khung dài thử-và-hỏng vì mạng" với
+      // "khung dài lấy được hết mức có thể" — xem PretripResult.failedSteps
+      id: gridStepId(d),
       run: async () => {
         await fetchForecastGrid(d);
       },
@@ -676,12 +776,16 @@ export async function runPretrip(
   let ok = 0;
   let failed = 0;
   let timedOut = false;
+  const failedSteps: string[] = [];
   try {
     for (let i = 0; i < total; i++) {
       // Kiểm TRƯỚC MỖI BƯỚC: bước vừa rồi có thể đã ngốn cả phút.
       if (pretripTimedOut(startedAt, Date.now())) {
         failed += total - i; // các việc chưa kịp làm = chưa tải được, nói thật
         timedOut = true; // còn việc chưa chạy → KHÔNG được khoá 6 giờ
+        /* CÁC BƯỚC CHƯA CHẠY KHÔNG VÀO `failedSteps`: chúng không hề thử, nên
+           không được làm cửa `pretripGridTooShort` tưởng khung dài đã thử-và-
+           hỏng. Mẻ bị cắt vốn đã có đường riêng (`timedOut`). */
         break;
       }
       onProgress?.({ done: i, total, label: steps[i].label });
@@ -690,6 +794,8 @@ export async function runPretrip(
         ok++;
       } catch {
         failed++;
+        const id = steps[i].id;
+        if (id) failedSteps.push(id);
       }
     }
   } finally {
@@ -704,12 +810,14 @@ export async function runPretrip(
   return {
     ok,
     failed,
+    failedSteps,
     full,
     saved: savedSummary(),
     gained,
     kept,
     coreFresh: coreLayersFresh(),
     timedOut,
+    evicted: scope.evicted,
   };
 }
 

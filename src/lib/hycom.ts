@@ -14,6 +14,7 @@
 // lon[m]=0.08*m (tăng). Bản ascii OPeNDAP tự kèm mảng depth/lat/lon thật.
 
 import { ERDDAP_UA, type ScalarGrid } from "./fish-predict";
+import { timeoutSignal } from "@/lib/abort";
 
 const DODS = "https://tds.hycom.org/thredds/dodsC/ESPC-D-V02/t3z";
 
@@ -238,7 +239,7 @@ export async function fetchHycomGrids(
     // client 35s) — xem SLOW_SOURCE_TIMEOUT_MS ở api/fish-forecast/route.ts.
     const opt = () => ({
       next: { revalidate: 21600 },
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: timeoutSignal(timeoutMs),
       // UA "thật" — nhiều host khoa học (NOAA/HYCOM) chặn undici mặc định 403
       headers: { "User-Agent": ERDDAP_UA },
     });

@@ -11,6 +11,7 @@
 import { PORT_PRICES, type PortPrice } from "@/data/port-prices";
 import { apiUrl } from "@/lib/api-base";
 import { loadForecast, saveForecast } from "@/lib/forecast-cache";
+import { timeoutSignal } from "@/lib/abort";
 
 export const VASEP_LISTING_URL =
   "https://vasep.com.vn/gia-thuy-san/gia-trong-nuoc";
@@ -179,7 +180,7 @@ const PORT_ID = "port";
 export async function fetchLivePrices(): Promise<LivePriceResult> {
   try {
     const r = await fetch(apiUrl("/api/port-prices"), {
-      signal: AbortSignal.timeout(15000),
+      signal: timeoutSignal(15000),
     });
     if (r.ok) {
       const j = (await r.json()) as LivePriceResult;

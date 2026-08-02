@@ -31,9 +31,8 @@
 // OFFLINE: mọi nhánh ở đây là POST/PATCH/DELETE nên service worker BỎ QUA hẳn.
 // Client gọi kiểu bắn-rồi-quên, mất sóng thì thôi (xem lib/push-client.ts).
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeVnPhone } from "@/lib/phone";
 import {
   validatePushSubscription,
   type PushSubscriptionInput,
@@ -42,14 +41,15 @@ import {
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
 
-/** Tài khoản đang đăng nhập, ĐÃ CHUẨN HOÁ — null khi không đọc được phiên */
-async function currentAccount(): Promise<string | null> {
-  const supabase = await createClient();
-  if (!supabase) return null;
-  const { data } = await supabase.auth.getUser();
-  const email = data?.user?.email;
-  if (!email) return null;
-  return normalizeVnPhone(email.split("@")[0]);
+/** Tài khoản đang đăng nhập, ĐÃ CHUẨN HOÁ — null khi máy chưa gắn tài khoản.
+ *
+ *  `anonymous = true` vì đăng ký thông báo KHÔNG đòi tài khoản: máy chưa đăng
+ *  nhập vẫn nhận được tin chung (tin bão), đó là cả lý do tính năng này tồn tại.
+ *  Không tra được danh tính cũng trả `null` — đăng ký ẩn danh còn hơn không đăng
+ *  ký được, và ghi đè bằng null đã có lá chắn riêng bên dưới. */
+async function currentAccount(req: Request): Promise<string | null> {
+  const who = await identityFromRequest(req, true);
+  return who.ok && who.phone ? who.phone : null;
 }
 
 export async function POST(req: Request) {
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
   if (invalid) return err(400, "invalid_subscription");
   const sub = body!.subscription!;
 
-  const account = await currentAccount();
+  const account = await currentAccount(req);
   const nowIso = new Date().toISOString();
   const row: Record<string, string | null> = {
     endpoint: sub.endpoint,

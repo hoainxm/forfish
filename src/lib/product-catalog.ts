@@ -13,6 +13,7 @@
 // src/lib/__tests__/product-catalog.test.ts.
 
 import { createClient } from "@/lib/supabase/client";
+import { timeoutSignal } from "@/lib/abort";
 
 export type VendorKind = "sdvico" | "external";
 
@@ -121,7 +122,11 @@ export function rowToListing(r: Row): ProductListing {
 export async function fetchProductListings(): Promise<ProductListing[] | null> {
   const supabase = createClient();
   if (!supabase) return null;
-  const { data, error } = await supabase
+  // đồng hồ 12 giây (D-PH9) — hỏng thì rơi về danh mục tĩnh, nhưng không có
+  // trần là để lại kết nối treo suốt phiên ở sóng "sống mà chết".
+  // `.abortSignal()` không nhận `undefined` sạch ⇒ gắn có điều kiện.
+  const sig = timeoutSignal(12000);
+  let q = supabase
     .from(TABLE)
     .select(
       "id,vendor_kind,vendor_name,title,category,description,features,price_text,image_url,contact_phone,contact_note,line,visible,sort_order,created_at",
@@ -129,10 +134,9 @@ export async function fetchProductListings(): Promise<ProductListing[] | null> {
     .eq("visible", true)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false })
-    .limit(200)
-    // đồng hồ 12 giây (D-PH9) — hỏng thì rơi về danh mục tĩnh, nhưng không có
-    // trần là để lại kết nối treo suốt phiên ở sóng "sống mà chết"
-    .abortSignal(AbortSignal.timeout(12000));
+    .limit(200);
+  if (sig) q = q.abortSignal(sig);
+  const { data, error } = await q;
   if (error || !data) return null;
   return (data as Row[]).map(rowToListing);
 }

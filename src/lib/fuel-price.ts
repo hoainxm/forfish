@@ -5,6 +5,7 @@
 
 import { apiUrl } from "@/lib/api-base";
 import { loadForecast, saveForecast } from "@/lib/forecast-cache";
+import { timeoutSignal } from "@/lib/abort";
 
 export interface FuelPrice {
   /** đồng/lít, vùng 1 (gần kho) */
@@ -58,7 +59,7 @@ const FUEL_ID = "fuel";
 export async function fetchFuelPrice(): Promise<FuelPrice | null> {
   try {
     const r = await fetch(apiUrl("/api/fuel-price"), {
-      signal: AbortSignal.timeout(15000),
+      signal: timeoutSignal(15000),
     });
     if (r.ok) {
       const j = (await r.json()) as { ok: boolean; fuel?: FuelPrice };

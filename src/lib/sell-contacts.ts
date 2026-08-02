@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { WHOLESALERS } from "@/data/wholesalers";
 import { WHOLESALE_MARKETS } from "@/data/market-channels";
 import { SEAFOOD_BUYERS } from "@/data/seafood-buyers";
+import { timeoutSignal } from "@/lib/abort";
 
 /** Nhóm đầu mối: vựa (nậu vựa/vựa) · cho (chợ đầu mối) · nhamay (nhà máy/DN) */
 export type SellKind = "vua" | "cho" | "nhamay";
@@ -211,15 +212,18 @@ const COLS =
 export async function fetchPublicSellContacts(): Promise<SellContact[] | null> {
   const supabase = createClient();
   if (!supabase) return null;
-  const { data, error } = await supabase
+  // đồng hồ 12 giây (D-PH9) — hỏng thì rơi về danh bạ tĩnh, nhưng không có
+  // trần là để lại kết nối treo suốt phiên ở sóng "sống mà chết".
+  // `.abortSignal()` không nhận `undefined` sạch ⇒ gắn có điều kiện.
+  const sig = timeoutSignal(12000);
+  let q = supabase
     .from(TABLE)
     .select(COLS)
     .eq("visible", true)
     .order("sort_order", { ascending: true })
-    .limit(1000)
-    // đồng hồ 12 giây (D-PH9) — hỏng thì rơi về danh bạ tĩnh, nhưng không có
-    // trần là để lại kết nối treo suốt phiên ở sóng "sống mà chết"
-    .abortSignal(AbortSignal.timeout(12000));
+    .limit(1000);
+  if (sig) q = q.abortSignal(sig);
+  const { data, error } = await q;
   if (error || !data || data.length === 0) return null;
   return (data as Row[]).map(rowToSellContact);
 }

@@ -7,11 +7,17 @@
 // SNAPSHOT server (cron 2 lần/ngày) → route live /api/currents-depth → bản cũ
 // trong máy → snapshot cũ. Free 3 ngày, premium 10 (route + snapshot chặn thật).
 
-import { saveForecast, loadForecast, loadAll } from "@/lib/forecast-cache";
+import {
+  saveForecast,
+  loadForecast,
+  loadAll,
+  isDefinitelyOffline,
+} from "@/lib/forecast-cache";
 import { apiUrl } from "@/lib/api-base";
 import { isCacheCurrent } from "@/lib/source-cadence";
 import { curDepthSnapshotId, CUR_DEPTH_MAX_DAYS } from "@/lib/weather-snapshot-id";
 import type { ForecastGrid } from "@/lib/forecast-grid";
+import { timeoutSignal } from "@/lib/abort";
 
 export type CurDepthClientGrid = ForecastGrid & {
   tier?: number;
@@ -82,7 +88,7 @@ export function peekCurDepthGrid(
 
 async function fetchJson(url: string, timeoutMs: number): Promise<CurDepthClientGrid | null> {
   try {
-    const r = await fetch(apiUrl(url), { signal: AbortSignal.timeout(timeoutMs) });
+    const r = await fetch(apiUrl(url), { signal: timeoutSignal(timeoutMs) });
     if (!r.ok) return null;
     const j = (await r.json()) as CurDepthClientGrid & { ok?: boolean };
     return usable(j) ? j : null;
@@ -107,6 +113,15 @@ export async function fetchCurDepthGridClient(
   const fresh = loadForecast<CurDepthClientGrid>(CUR_DEPTH_NS, id);
   if (fresh && usable(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
     return remember(fresh.data);
+  }
+  /* MẤT SÓNG HẲN → ĐỌC BẢN ĐÃ LƯU TRƯỚC (K3, 2026-08-02 — cùng khuôn `sea.ts`).
+     Đường thường đốt ~55 giây (10 s snapshot + 45 s route live) rồi mới lấy ra
+     bản đã nằm sẵn trong máy — và bà con đổi qua lại 4 chip tầng (Mặt/50/150/
+     300) là mỗi chip một lần chờ. Chỉ đi tắt khi máy KHẲNG ĐỊNH mất sóng. */
+  if (isDefinitelyOffline()) {
+    const hit = loadForecast<CurDepthClientGrid>(CUR_DEPTH_NS, id);
+    if (hit && usable(hit.data))
+      return remember({ ...hit.data, stale: true, savedAt: hit.savedAt });
   }
   // SNAPSHOT trước (cron 2 lần/ngày, same-origin) — nguồn ngày, tươi là đủ
   const snap = await fetchJson(

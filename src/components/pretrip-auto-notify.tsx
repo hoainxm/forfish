@@ -37,7 +37,15 @@ import {
 } from "@/lib/pretrip-auto";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { savedAgoLabel } from "@/lib/forecast-cache";
-import { exportOfflineData, importOfflineData } from "@/lib/offline-backup";
+import {
+  exportOfflineData,
+  importOfflineData,
+  parseBackup,
+  summarizeBackup,
+  type BackupGroup,
+  type BackupMode,
+  type BackupSummary,
+} from "@/lib/offline-backup";
 import { isIOS, isStandalone } from "@/lib/storage-persist";
 import { isShellReady } from "@/lib/shell-ready";
 import { AlertIcon, CheckIcon } from "@/components/icons";
@@ -49,6 +57,15 @@ function fmtBytes(b: number): string {
     return `${(b / 1024 / 1024).toFixed(1).replace(".", ",")} MB`;
   return `${Math.max(1, Math.round(b / 1024))} KB`;
 }
+
+/**
+ * CÓ SÓNG KHÔNG — khuôn dùng lại y hệt `use-storm-check.ts:106` (không thêm
+ * request, không thêm khoá `forfish.*`, không thêm hẹn giờ). `navigator.onLine`
+ * chỉ chắc chắn ở chiều PHỦ ĐỊNH (false = chắc chắn mất sóng), mà đó đúng là
+ * chiều chip cần biết: mất sóng thì đừng mời bà con làm việc không làm được.
+ */
+const isOffline = () =>
+  typeof navigator !== "undefined" && navigator.onLine === false;
 
 /* Trạng thái tải sẵn dùng CHUNG cho dòng nổi tự tắt (PretripAutoNotify) và nhãn
    nhỏ thường trực trên box biển động (PretripSavedStatus). Store nhỏ ở mức
@@ -64,6 +81,16 @@ function subscribePhase(f: () => void) {
   phaseSubs.add(f);
   return () => {
     phaseSubs.delete(f);
+  };
+}
+
+/** Nghe hai sự kiện có sẵn của trình duyệt — KHÔNG hẹn giờ, KHÔNG request. */
+function subscribeOnline(f: () => void) {
+  window.addEventListener("online", f);
+  window.addEventListener("offline", f);
+  return () => {
+    window.removeEventListener("online", f);
+    window.removeEventListener("offline", f);
   };
 }
 
@@ -112,8 +139,7 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
 
   const tryRun = useCallback((force = false) => {
     if (running) return;
-    const online =
-      typeof navigator === "undefined" ? true : navigator.onLine !== false;
+    const online = !isOffline();
     // Bản còn mới / mất sóng / vừa thử xong → IM LẶNG hoàn toàn, không báo gì.
     // `force` = bà con CHẠM nhãn xin tải → bỏ cửa chặn, chạy luôn (mất sóng
     // thì runPretrip fail và báo thật "chưa có sóng" — vẫn là trả lời).
@@ -239,15 +265,26 @@ export function PretripSavedStatus({
     return subscribePhase(reread);
   }, [reread]);
 
+  /* CÓ SÓNG KHÔNG — R1 (2026-08-02). Chip trước đây không biết chuyện sóng nên
+     giữa biển nó đứng vàng suốt chuyến với lời mời "chạm tải mới", việc KHÔNG
+     LÀM ĐƯỢC ngoài khơi, mà lại nuốt mất dòng "tới ngày 18/8" — đúng thông tin
+     duy nhất còn giá trị lúc đó. Trạng thái lấy từ sự kiện online/offline có
+     sẵn: không request, không khoá mới, không hẹn giờ. */
+  const online = useSyncExternalStore(
+    subscribeOnline,
+    () => !isOffline(),
+    () => true,
+  );
+
   // Vỏ chưa đủ thì KHÔNG được nói "đã lưu đủ" dù dữ liệu đầy.
   const shellMissing = shellOk === false;
   const text = shellMissing
     ? "Vỏ app chưa tải đủ — mở lại lúc có sóng"
-    : coverageChipText(phase, cov);
+    : coverageChipText(phase, cov, undefined, online);
   // MÀU phải khớp CHỮ: đủ lớp + còn hạn + chưa quá chu kỳ (coverageChipOk),
   // chứ không chỉ "có bản trong máy" — chip xanh trên bản 10 ngày tuổi là lời
   // hứa dối ở đúng chỗ bà con liếc trước khi nhổ neo.
-  const allSaved = coverageChipOk(cov) && shellOk === true;
+  const allSaved = coverageChipOk(cov, undefined, online) && shellOk === true;
   const tone =
     phase === "loading" ? "text-navy" : allSaved ? "text-ok" : "text-warn";
 
@@ -351,6 +388,20 @@ function PretripSavedSheet({
   const [failed, setFailed] = useState<Set<SavedLayerId>>(new Set());
   const [backupBusy, setBackupBusy] = useState<"export" | "import" | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  /** tệp vừa chọn, ĐANG CHỜ bà con xác nhận trước khi ghi đè (không tự ghi) */
+  const [pending, setPending] = useState<{
+    json: string;
+    sum: BackupSummary;
+  } | null>(null);
+  /** tệp "chuyển sang máy mới" đã gói xong, ĐANG CHỜ đọc cảnh báo đỏ */
+  const [transfer, setTransfer] = useState<{
+    json: string;
+    sum: BackupSummary;
+  } | null>(null);
+  /** tệp chọn nhầm / hỏng — nói thật, đừng im ru như đã phục hồi xong */
+  const [badFile, setBadFile] = useState(false);
+  /** số mục MÁY KHÔNG GIỮ ĐƯỢC lúc phục hồi (hết chỗ) — phải báo đỏ, không nuốt */
+  const [importFailed, setImportFailed] = useState(0);
 
   const refresh = useCallback(() => {
     const c = savedCoverage({ fishLocked });
@@ -359,38 +410,84 @@ function PretripSavedSheet({
     onChanged();
   }, [fishLocked, onChanged]);
 
-  // SAO LƯU ra tệp .json (bà con cầm theo, phòng app/máy xoá cache)
-  const doExport = useCallback(async () => {
-    setBackupBusy("export");
+  /*  SAO LƯU RA TỆP — HAI NÚT, KHÔNG PHẢI MỘT (2026-08-02, audit vòng 2 T5).
+      Bản cũ chỉ có một nút "Lưu ra tệp" mà tệp lại gom SẠCH mọi khoá
+      `forfish.*`: tin nhắn riêng, CCCD 12 số của từng bạn thuyền, tủ giấy tờ,
+      điểm ghim luồng cá, mã máy, nhịp. Câu chữ thì nói "giữ bản dự phòng dự
+      báo" ⇒ bà con AirDrop/Zalo tệp cho nhau như chia bản tin thời tiết.
+      Nay tách rõ: nút mặc định chỉ mang DỰ BÁO (chia cho ai cũng vô hại), còn
+      chuyển đồ riêng của tàu phải đi qua nút thứ hai + cảnh báo đỏ. */
+  const download = useCallback((json: string, name: string) => {
     try {
-      const json = await exportOfflineData();
       const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "sdfish-du-bao-da-luu.json";
+      a.download = name;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
       /* trình duyệt chặn tải — bỏ qua, không làm app chết */
     }
+  }, []);
+
+  const doExport = useCallback(
+    async (mode: BackupMode) => {
+      setBackupBusy("export");
+      try {
+        const json = await exportOfflineData(mode);
+        if (mode === "forecast") {
+          download(json, "sdfish-du-bao-da-luu.json");
+        } else {
+          // gói xong nhưng CHƯA tải xuống: đếm ra được đúng bao nhiêu giấy tờ /
+          // điểm ghim đang nằm trong đó rồi mới cho bà con quyết.
+          const b = parseBackup(json);
+          if (b) setTransfer({ json, sum: summarizeBackup(b) });
+        }
+      } catch {
+        /* gói hỏng — bỏ qua, không làm app chết */
+      }
+      setBackupBusy(null);
+    },
+    [download],
+  );
+
+  /*  PHỤC HỒI = GHI ĐÈ KHÔNG HOÀN TÁC ĐƯỢC. Trước đây chọn tệp xong là ghi
+      thẳng, không hỏi, không đếm: một chạm nhầm vào tệp tháng trước là tủ giấy
+      tờ + danh sách tàu bị đè, mà thứ đó chỉ phát hiện được lúc biên phòng hỏi
+      giấy giữa biển. Nay ĐỌC + ĐẾM trước, ghi sau khi bà con bấm "Đè". */
+  const doPick = useCallback(async (file: File) => {
+    setBackupBusy("import");
+    setBadFile(false);
+    setImportFailed(0);
+    try {
+      const json = await file.text();
+      const b = parseBackup(json);
+      if (b) setPending({ json, sum: summarizeBackup(b) });
+      else setBadFile(true);
+    } catch {
+      setBadFile(true);
+    }
     setBackupBusy(null);
   }, []);
 
-  // PHỤC HỒI từ tệp đã sao lưu
-  const doImport = useCallback(
-    async (file: File) => {
-      setBackupBusy("import");
-      try {
-        await importOfflineData(await file.text());
-      } catch {
-        /* tệp hỏng — bỏ qua */
-      }
-      setBackupBusy(null);
-      refresh();
-    },
-    [refresh],
-  );
+  const doConfirmImport = useCallback(async () => {
+    if (!pending) return;
+    setBackupBusy("import");
+    try {
+      /* MÁY HẾT CHỖ KHÔNG ĐƯỢC IM (2026-08-02, vòng soát chéo): `importOfflineData`
+         nay đếm số khoá ghi hỏng. Nuốt con số đó là lặp lại đúng lỗi
+         `catch {}` rỗng mà `lib/user-store.ts` đã cấm — bà con đóng sheet,
+         tưởng tủ giấy tờ đã về, ra biển mới biết trống. */
+      const r = await importOfflineData(pending.json, { confirmed: true });
+      setImportFailed(r.failed);
+    } catch {
+      /* tệp hỏng giữa chừng — phần ghi được vẫn giữ */
+    }
+    setBackupBusy(null);
+    setPending(null);
+    refresh();
+  }, [pending, refresh]);
 
   const retry = useCallback(
     async (id: SavedLayerId) => {
@@ -586,22 +683,27 @@ function PretripSavedSheet({
           được dự báo >3 ngày nên chỉ premium mới thấy nút xuất/nhập tệp). */}
       {!fishLocked && (
         <>
+          {/* NHÃN CỤM NGANG HÀNG PHẢI CÙNG KHUÔN (luật peer-label-uniformity,
+              03-design-system): cặp cũ "Lưu dự báo ra tệp" (5 chữ) / "Phục hồi
+              dự báo từ tệp" (6 chữ) ở 0,9375rem trong cột nửa màn thì cái phải
+              tràn 2 dòng còn cái trái 1 dòng — hai nút ngang hàng cao lệch nhau.
+              Cặp mới cùng 2–3 chữ, cùng 1 dòng. */}
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={doExport}
+              onClick={() => doExport("forecast")}
               disabled={!!backupBusy || total <= 0}
-              className="min-h-[3rem] rounded-xl bg-field text-[0.9375rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
+              className="min-h-[3.5rem] rounded-xl bg-field px-2 text-[0.9375rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
             >
-              {backupBusy === "export" ? "Đang lưu…" : "Lưu ra tệp"}
+              {backupBusy === "export" ? "Đang lưu…" : "Lưu dự báo"}
             </button>
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={!!backupBusy}
-              className="min-h-[3rem] rounded-xl bg-field text-[0.9375rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
+              className="min-h-[3.5rem] rounded-xl bg-field px-2 text-[0.9375rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
             >
-              {backupBusy === "import" ? "Đang phục hồi…" : "Phục hồi từ tệp"}
+              {backupBusy === "import" ? "Đang đọc tệp…" : "Phục hồi dự báo"}
             </button>
             <input
               ref={fileRef}
@@ -610,15 +712,44 @@ function PretripSavedSheet({
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) doImport(f);
+                if (f) doPick(f);
                 e.target.value = "";
               }}
             />
           </div>
-          <p className="mt-3 text-[0.8125rem] leading-snug text-foreground/60">
-            <b>Lưu ra tệp</b> để giữ bản dự phòng phòng khi máy xoá — cầm theo
-            đi biển, cần thì phục hồi lại.
+          <p className="mt-3 text-[0.9375rem] leading-snug text-foreground/70">
+            Tệp này chỉ gồm <b>dự báo đã tải</b> — gửi cho ai cũng được. Giấy tờ,
+            đồ trên tàu và sổ mối quen nằm ở nút <b>Chuyển sang máy mới</b> bên
+            dưới. Riêng <b>sổ bạn thuyền</b> (CCCD) thì <b>không tệp nào mang đi
+            được</b>, sang máy mới phải nhập tay lại.
           </p>
+          {badFile && (
+            /* DÒNG MANG TIN CHÍNH ≥18px: đây là câu trả lời cho cú bấm vừa rồi,
+               không phải chú thích. */
+            <p className="mt-2 text-[1.125rem] font-bold leading-snug text-warn">
+              Tệp này không phải bản sao lưu của SDFish — chưa ghi gì vào máy.
+            </p>
+          )}
+          {importFailed > 0 && (
+            /* HẾT CHỖ THÌ NÓI THẬT (luật lib/user-store.ts) — trước đây `setItem`
+               ném trong `catch {}` rỗng nên sheet đóng như đã xong. */
+            <p className="mt-2 text-[1.125rem] font-bold leading-snug text-danger">
+              Máy không giữ được {importFailed} mục — hết chỗ. Xoá bớt ảnh/video
+              trong máy rồi phục hồi lại.
+            </p>
+          )}
+
+          {/* ĐỔI MÁY là việc HIẾM và NẶNG → để riêng, không nằm cạnh nút hằng
+              ngày cho khỏi bấm nhầm. Chữ NÓI THẲNG là sẽ hỏi thêm một bước —
+              dấu "…" là ngụ ý của dân làm phần mềm, bà con không đọc ra. */}
+          <button
+            type="button"
+            onClick={() => doExport("transfer")}
+            disabled={!!backupBusy}
+            className="mt-3 min-h-[3.5rem] w-full rounded-xl px-3 text-[0.9375rem] font-bold text-sea transition active:scale-[0.99] disabled:opacity-50"
+          >
+            Chuyển sang máy mới — xem trước rồi mới lưu
+          </button>
         </>
       )}
 
@@ -633,6 +764,205 @@ function PretripSavedSheet({
       >
         Đóng
       </button>
+
+      {pending && (
+        <ConfirmImportSheet
+          sum={pending.sum}
+          busy={backupBusy === "import"}
+          onCancel={() => setPending(null)}
+          onConfirm={doConfirmImport}
+        />
+      )}
+      {transfer && (
+        <TransferWarnSheet
+          sum={transfer.sum}
+          onCancel={() => setTransfer(null)}
+          onConfirm={() => {
+            download(transfer.json, "sdfish-chuyen-may-moi.json");
+            setTransfer(null);
+          }}
+        />
+      )}
+    </BottomSheet>
+  );
+}
+
+/** epoch ms → "02/08" (tệp sao lưu chỉ cần ngày/tháng để bà con nhận ra bản nào) */
+function dayMonth(ms: number): string {
+  if (!ms) return "không rõ ngày";
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}`;
+}
+
+/*  BẢNG KÊ SINH TỪ `summarizeBackup` — KHÔNG gõ tay danh sách nhóm ở đây.
+
+    VÌ SAO (2026-08-02, vòng soát chéo): bản trước có `backupGroups()` là một
+    danh sách gõ tay SONG SONG với `isBackupable` trong `lib/offline-backup.ts`,
+    và nó THIẾU `products.v1` (đồ trên tàu), `buyers.v1` (SỔ NẬU VỰA + số điện
+    thoại), `currentBoat`, `boat`, `sdvico-boat` cùng 5 khoá cài đặt. Sheet hứa
+    "Sẽ GHI ĐÈ: 12 lớp dự báo · 2 tàu", bà con bấm Đè, sổ mối quen bay không một
+    lời báo. Nay khoá nào ghi được là tự có mặt trong bảng; thêm khoá mới về sau
+    cũng tự lên (khai nhóm ở `PERSONAL_SPECS`, quên khai thì test ĐỎ). */
+
+/** "tủ giấy tờ" → "Tủ giấy tờ" (nhãn dựng từ tên nhóm, viết hoa đầu câu) */
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Một dòng đếm HAI VẾ: trong tệp bao nhiêu · trong máy đang có bao nhiêu. */
+function groupLine(g: BackupGroup): string {
+  const name = capital(g.name);
+  if (!g.countable)
+    return `${name}: tệp có · máy ${g.device > 0 ? "đang có" : "chưa có"}`;
+  return `${name}: tệp có ${g.file} ${g.unit} · máy đang có ${g.device} ${g.unit}`;
+}
+
+/**
+ * BƯỚC XÁC NHẬN TRƯỚC KHI ĐÈ (2026-08-02, audit vòng 2 C-C5 + vòng soát chéo).
+ * Phục hồi không hoàn tác được: phải nói ĐÚNG ngày của tệp, ĐÚNG số lượng CẢ
+ * HAI VẾ (trong tệp / trong máy / đè xong còn gì), và nói thẳng thứ nào trong
+ * tệp sẽ BỊ BỎ QUA — rồi mới cho bấm. Chỉ đếm phía tệp là mời bà con hiểu nhầm
+ * "được thêm 3 giấy" trong khi thật ra "mất 9 giấy".
+ */
+function ConfirmImportSheet({
+  sum,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  sum: BackupSummary;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const groups = sum.groups;
+  const perKey = groups.some((g) => g.kind === "forecast" || g.kind === "settings");
+  return (
+    <BottomSheet title="Phục hồi từ tệp" onClose={onCancel}>
+      <p className="text-[1.125rem] font-bold leading-snug text-navy">
+        {groups.length > 0
+          ? `Tệp lưu ngày ${dayMonth(sum.savedAt)}. Bấm Đè là GHI ĐÈ những thứ sau:`
+          : `Tệp lưu ngày ${dayMonth(sum.savedAt)} không có thứ gì phục hồi được.`}
+      </p>
+      {groups.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {groups.map((g) => (
+            <li key={g.id} className="rounded-xl bg-field px-3 py-2.5">
+              <p className="text-[1.125rem] font-bold leading-snug text-navy">
+                {groupLine(g)}
+              </p>
+              {g.lost > 0 && (
+                <p className="mt-0.5 text-[1.0625rem] font-bold leading-snug text-warn">
+                  Đè xong còn {g.file} {g.unit} — <b>mất {g.lost} {g.unit}</b>.
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {perKey && (
+        <p className="mt-2 text-[1rem] leading-snug text-foreground/70">
+          Lớp dự báo và cài đặt đè theo từng phần trùng tên; phần máy đang có mà
+          tệp không có thì giữ nguyên.
+        </p>
+      )}
+      {/*  CÂU NÀY PHẢI THEO TỆP ĐANG MỞ, KHÔNG PHẢI CÂU CỐ ĐỊNH (vòng soát chéo).
+          Bản trước in cứng "Sổ bạn thuyền và hộp thư KHÔNG nằm trong tệp" — SAI
+          với tệp đời cũ (tệp cũ CÓ `crew.v1` + `inbox.*`), nên người vừa bị xoá
+          máy tin là 8 bạn thuyền đã về, thực tế app bỏ im. */}
+      {sum.skipped.length > 0 ? (
+        <p className="mt-3 text-[1.125rem] font-bold leading-snug text-warn">
+          Tệp có {sum.skipped.join(" · ")} nhưng app <b>BỎ QUA</b> — những thứ đó{" "}
+          <b>không được phục hồi</b>, bản trong máy giữ nguyên, thiếu thì phải
+          nhập tay lại.
+        </p>
+      ) : (
+        <p className="mt-3 text-[1.125rem] font-semibold leading-snug text-foreground/75">
+          Tệp không có sổ bạn thuyền và hộp thư — hai thứ đó trong máy giữ
+          nguyên.
+        </p>
+      )}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+          className="min-h-[3.5rem] rounded-xl bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-50"
+        >
+          Thôi
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={busy || groups.length === 0}
+          className="min-h-[3.5rem] rounded-xl bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-50"
+        >
+          {busy ? "Đang ghi…" : "Đè"}
+        </button>
+      </div>
+    </BottomSheet>
+  );
+}
+
+/**
+ * CẢNH BÁO ĐỎ trước khi gói dữ liệu RIÊNG CỦA TÀU ra tệp. Tệp này không phải
+ * bản tin thời tiết — liệt kê thẳng nó gồm gì để không ai gửi Zalo cho nhau.
+ */
+function TransferWarnSheet({
+  sum,
+  onCancel,
+  onConfirm,
+}: {
+  sum: BackupSummary;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  /*  ĐỒ RIÊNG = mọi nhóm `personal` do `summarizeBackup` sinh ra. Bản trước lọc
+      bằng CHUỖI trên danh sách gõ tay ("bỏ dòng nào có chữ lớp dự báo") nên
+      người chỉ có mối quen + đồ trên tàu + hồ sơ SDVICO thì `priv` RỖNG ⇒ cảnh
+      báo đỏ tự phủ nhận chính nó: in "chưa có gì bà con tự nhập" ngay trên một
+      tệp chứa nguyên danh bạ thương lái. */
+  const priv = sum.groups.filter((g) => g.kind === "personal");
+  return (
+    <BottomSheet title="Chuyển sang máy mới" onClose={onCancel}>
+      <div
+        className="rounded-xl px-3.5 py-3"
+        style={{ backgroundColor: "var(--warn-bg)" }}
+      >
+        <p className="text-[1.125rem] font-bold leading-snug text-warn">
+          Tệp này gồm dữ liệu riêng của tàu
+        </p>
+        <p className="mt-1 text-[1.0625rem] font-semibold leading-snug text-warn/90">
+          {priv.length > 0
+            ? priv
+                .map((g) =>
+                  g.countable ? `${g.name} (${g.file} ${g.unit})` : g.name,
+                )
+                .join(" · ")
+            : "chưa có gì bà con tự nhập"}
+          . Chỉ đưa cho <b>máy của chính mình</b> — đừng gửi Zalo cho người khác.
+        </p>
+      </div>
+      <p className="mt-3 text-[1rem] leading-snug text-foreground/75">
+        Sổ bạn thuyền (CCCD), hộp thư, tài khoản và mã máy KHÔNG nằm trong tệp.
+        Hộp thư và tài khoản thì đăng nhập lại là có; riêng <b>sổ bạn thuyền
+        không có cách nào mang sang</b> — trên máy mới phải nhập tay lại.
+      </p>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="min-h-[3.5rem] rounded-xl bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.99]"
+        >
+          Thôi
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="min-h-[3.5rem] rounded-xl bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.99]"
+        >
+          Lưu tệp
+        </button>
+      </div>
     </BottomSheet>
   );
 }

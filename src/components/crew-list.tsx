@@ -38,6 +38,7 @@ import { apiUrl } from "@/lib/api-base";
 import { formatVnDate } from "@/lib/format";
 import { isValidVnPhone } from "@/lib/phone";
 import { saveUserJson } from "@/lib/user-store";
+import { timeoutSignal } from "@/lib/abort";
 
 /** Định danh một bạn thuyền để tra/báo cảnh báo — CCCD hoặc SĐT (1 trong 2). */
 type Identity = { cccd?: string; phone?: string };
@@ -644,7 +645,7 @@ async function fetchLookup(
     // catch sẵn có trả {ok:false} và UI tự nói "Không tra được".
     const r = await fetch(
       apiUrl(`/api/crew-reports/lookup?${identityQuery(id)}`),
-      { signal: AbortSignal.timeout(12000) },
+      { signal: timeoutSignal(12000) },
     );
     const j = (await r.json().catch(() => null)) as
       | { ok: true; count: number; reports: CrewLookupResult["reports"] }
@@ -913,7 +914,7 @@ function ReportForm({
       // ĐỒNG HỒ 20 GIÂY (D-PH6): gửi báo cáo không có trần thời gian thì nút
       // kẹt "Đang gửi…" và bà con không biết đã gửi được chưa. Hết giờ →
       // `.catch` sẵn có trả null → UI báo "Không gửi được, thử lại".
-      signal: AbortSignal.timeout(20000),
+      signal: timeoutSignal(20000),
     }).catch(() => null);
     setBusy(false);
     const j = (await r?.json().catch(() => null)) as

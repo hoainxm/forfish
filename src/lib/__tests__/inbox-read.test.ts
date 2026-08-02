@@ -22,6 +22,7 @@ const _ls = (() => {
 import {
   INBOX_KEY,
   INBOX_READ_KEY,
+  acceptRefresh,
   clearInbox,
   inboxBucket,
   loadInbox,
@@ -282,5 +283,65 @@ describe("sw.js notificationclick — cú báo 'đã đọc' phải sống tới
   it("nhánh push cũng giữ nguyên luật đó (đã đúng từ 0023, chống rơi lại)", () => {
     const push = sw.slice(sw.indexOf('addEventListener("push"'));
     expect(push).toMatch(/waitUntil\(\s*Promise\.all\(\[/);
+  });
+});
+
+/* ── C-1/R2: CÂU TRẢ LỜI CỦA NGĂN KHÁC KHÔNG ĐƯỢC VẼ LÊN MÀN HÌNH ──────────
+   Máy chủ trả `{ok:true, phone:null, messages:[chỉ tin chung]}` khi không đọc
+   được phiên (token Supabase sống ~1 giờ, chuyến biển dài hơn thế nhiều). Đó
+   là 200 HỢP LỆ nên mọi lá chắn kiểu `if (!ok) return` đều trượt. `saveInbox`
+   có lá chắn này rồi; `setMessages` ở inbox-section thì chưa ⇒ hai tin nhắm
+   riêng BIẾN KHỎI MÀN HÌNH dù vẫn nằm nguyên trong máy. */
+describe("acceptRefresh — chỉ vẽ câu trả lời của ĐÚNG ngăn đang xem", () => {
+  it("đang xem ngăn của một SĐT mà máy chủ trả ngăn khách → KHÔNG vẽ", () => {
+    expect(acceptRefresh("0912345678", null)).toBe(false);
+  });
+
+  it("khách xem ngăn khách → vẽ bình thường", () => {
+    expect(acceptRefresh(null, null)).toBe(true);
+  });
+
+  it("cùng SĐT → vẽ", () => {
+    expect(acceptRefresh("0912345678", "0912345678")).toBe(true);
+  });
+
+  it("cùng người viết khác kiểu (84…) → vẫn là một ngăn → vẽ", () => {
+    expect(acceptRefresh("0912345678", "84912345678")).toBe(true);
+  });
+
+  it("SĐT khác hẳn → KHÔNG vẽ (máy dùng chung trên tàu)", () => {
+    expect(acceptRefresh("0912345678", "0987654321")).toBe(false);
+  });
+
+  it("cùng luật với saveInbox — so NGĂN, không so chuỗi thô", () => {
+    expect(acceptRefresh("+84 912 345 678", "0912345678")).toBe(true);
+    // chuỗi không ra số nào = ngăn khách, cả hai bên đều vậy
+    expect(acceptRefresh("abc", undefined)).toBe(true);
+  });
+});
+
+/* Chốt cấu trúc: chỗ gọi phải THẬT SỰ đi qua acceptRefresh, và `refresh` phải
+   THẤY được `phone` (bản cũ `useCallback(…, [])` nên có muốn so cũng chỉ so
+   vào giá trị đầu tiên — hàm không hề thấy phone đổi). */
+describe("inbox-section — nối đúng dây (K7)", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src", "components", "inbox-section.tsx"),
+    "utf8",
+  );
+
+  it("gọi acceptRefresh trước khi setMessages", () => {
+    const block = src.slice(src.indexOf("const refresh = useCallback"));
+    const body = block.slice(0, block.indexOf("useEffect("));
+    expect(body).toContain("acceptRefresh(");
+    expect(body.indexOf("acceptRefresh(")).toBeLessThan(
+      body.indexOf("setMessages("),
+    );
+  });
+
+  it("useCallback của refresh có `phone` trong deps", () => {
+    const block = src.slice(src.indexOf("const refresh = useCallback"));
+    expect(block.slice(0, block.indexOf("useEffect("))).toMatch(
+      /\}, \[phone\]\);/,
+    );
   });
 });

@@ -51,10 +51,15 @@ export const STATE_GAP_MS = 30 * 60 * 1000;
 export const HEARTBEAT_MIN_GAP_MS = STATE_GAP_MS;
 
 /*  NHỊP SỰ KIỆN bám theo thang này cho tới khi máy chủ XÁC NHẬN: 30 giây → 3
-    phút → 5 phút, rồi GIỮ 5 phút (không lùi xa hơn, không bỏ cuộc).
+    phút → 5 phút, rồi GIỮ 5 phút (không lùi xa hơn).
     Vì sao không lùi tiếp như nhịp định kỳ: nhịp này chỉ chạy khi máy ĐANG
     ONLINE và đang có tin thật sự mới — bỏ cuộc là mất luôn tin đó. Chi phí tối
-    đa là một request nhỏ mỗi 5 phút, và chỉ tới khi gán xong. */
+    đa là một request nhỏ mỗi 5 phút, và chỉ tới khi gán xong.
+
+    ⚠️ "GIỮ 5 phút" nói về THANG, không phải lời hứa bám VÔ ĐIỀU KIỆN. Có đúng
+    MỘT ca thang này phải nhường: MÁY CHỦ NỔ 5xx LIÊN TIẾP — xem
+    `eventDegradedToState` ngay dưới. Bám 5 phút/lần vào một máy chủ đang chết
+    không cứu được tin nào, chỉ nhân lỗi lên toàn bộ máy đang chạy. */
 export const EVENT_RETRY_STEPS_MS = [30 * 1000, 3 * 60 * 1000, 5 * 60 * 1000];
 
 /** Hỏng lần thứ `failCount` thì chờ bao lâu trước khi bám lại (giữ nấc cuối) */
@@ -62,6 +67,37 @@ export function eventRetryMs(failCount: number): number {
   const steps = EVENT_RETRY_STEPS_MS;
   if (!Number.isFinite(failCount) || failCount < 1) return steps[0];
   return steps[Math.min(Math.round(failCount), steps.length) - 1];
+}
+
+/*  ═══ CẦU DAO KHI MÁY CHỦ NỔ (2026-08-02e) ═══
+
+    VÌ SAO CÓ — ca đã xảy ra thật, và bản vá 02c làm nó NẶNG HƠN: route heartbeat
+    trả 500 suốt gần một ngày (import nhầm module "use client"). Từ 02c, 5xx đi
+    chung đường với mất-sóng ⇒ chữ ký KHÔNG được ghi ⇒ `pending` mãi true ⇒ nhịp
+    mãi là "sự kiện" ⇒ thang sự kiện giữ nấc cuối 5 phút và bám VĨNH VIỄN. Cộng
+    thêm: mỗi lần đổi khuôn chữ ký (lần gần nhất là thêm `|deviceId`) thì NGAY
+    SAU DEPLOY mọi máy đang chạy đều có "sự kiện chờ" — nên máy chủ nổ lần nữa là
+    717 máy × 12 request/giờ đập vào đúng cái đang chết.
+
+    Cầu dao: đếm RIÊNG số lần 5xx LIÊN TIẾP (không trộn vào bộ đếm hỏng-vì-mạng —
+    thang định kỳ phải giữ nguyên nghĩa "không nghe được máy chủ"). Quá ngưỡng
+    thì HẠ nhịp sự kiện xuống nhịp ĐỊNH KỲ: trần 30 phút thay vì 5 phút.
+    TIN KHÔNG MẤT — `pending` vẫn true, chữ ký vẫn chưa ghi, chỉ CHẬM lại; máy
+    chủ trả lời được một lần (kể cả 4xx) là bộ đếm xoá và thang sự kiện trở lại.
+    Xấu nhất trong một chuyến 10 ngày: 864 → ~144 request. */
+
+/** Bao nhiêu lần 5xx LIÊN TIẾP thì hạ nhịp sự kiện về nhịp định kỳ */
+export const EVENT_5XX_GIVEUP = 5;
+
+/**
+ * Máy chủ nổ liên tiếp ⇒ hạ nhịp SỰ KIỆN về ĐỊNH KỲ — THUẦN, có test.
+ *
+ * Bám 5 phút/lần lúc máy chủ đang chết không cứu được tin nào, chỉ nhân lỗi lên
+ * toàn bộ máy đang chạy.
+ */
+export function eventDegradedToState(serverErrors: number): boolean {
+  if (!Number.isFinite(serverErrors)) return false;
+  return serverErrors >= EVENT_5XX_GIVEUP;
 }
 
 /*  NHỊP ĐỊNH KỲ mà không nghe được máy chủ → lùi dần rồi thôi: 1 phút → 5 phút

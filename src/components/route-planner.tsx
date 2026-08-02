@@ -32,6 +32,8 @@ import {
 import { planRouteAsync } from "@/lib/route-plan-async";
 import { fetchWeatherField } from "@/lib/route-weather";
 import { savedAgoLabel } from "@/lib/forecast-cache";
+import { readUserRecord } from "@/lib/user-list-store";
+import { saveUserJson } from "@/lib/user-store";
 import { routeStormConflict, STORM_SAFE_RADIUS_KM } from "@/lib/route-storm";
 import type { StormAlert } from "@/lib/storms";
 import { fetchDepthGrid } from "@/lib/depth-grid";
@@ -55,29 +57,30 @@ export type PlannedRoute = {
 
 const BOAT_KEY = "forfish.boat.v1";
 
+/* HỒ SƠ TÀU CŨNG LÀ DỮ LIỆU GÕ TAY (K4, 2026-08-02): tốc độ chạy + lít dầu/giờ
+   là con số chủ tàu tự đo, không tải lại được từ đâu. Cùng khuôn với sổ mối
+   quen / danh sách tàu: đọc KHÔNG ĐƯỢC thì KHÔNG mở cửa ghi (giữ nguyên bản
+   gốc), ghi thì đi qua `saveUserJson` để dự báo nhường chỗ khi máy chật.
+   Dùng `readUserRecord` vì khoá này giữ ĐỐI TƯỢNG, không phải mảng. */
+let boatReadFailed = false;
+
 function readBoat(): BoatProfile {
-  try {
-    const raw = window.localStorage.getItem(BOAT_KEY);
-    if (!raw) return DEFAULT_BOAT;
-    const b = JSON.parse(raw) as Partial<BoatProfile>;
-    return {
-      speedKn: typeof b.speedKn === "number" ? b.speedKn : DEFAULT_BOAT.speedKn,
-      litersPerHour:
-        typeof b.litersPerHour === "number"
-          ? b.litersPerHour
-          : DEFAULT_BOAT.litersPerHour,
-    };
-  } catch {
-    return DEFAULT_BOAT;
-  }
+  const r = readUserRecord<Partial<BoatProfile>>(BOAT_KEY);
+  boatReadFailed = !r.ok;
+  const b = r.value;
+  if (!b) return DEFAULT_BOAT;
+  return {
+    speedKn: typeof b.speedKn === "number" ? b.speedKn : DEFAULT_BOAT.speedKn,
+    litersPerHour:
+      typeof b.litersPerHour === "number"
+        ? b.litersPerHour
+        : DEFAULT_BOAT.litersPerHour,
+  };
 }
 
-function writeBoat(b: BoatProfile) {
-  try {
-    window.localStorage.setItem(BOAT_KEY, JSON.stringify(b));
-  } catch {
-    // storage đầy — bỏ qua, chỉ mất phần nhớ thông số tàu
-  }
+function writeBoat(b: BoatProfile): boolean {
+  if (boatReadFailed) return false; // đừng đè lên hồ sơ chưa đọc được
+  return saveUserJson(BOAT_KEY, b);
 }
 
 function clampNum(raw: string, min: number, max: number, fallback: number) {

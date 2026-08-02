@@ -133,3 +133,138 @@ export function usageCallPriority(stage: UsageStage): number {
       return 3; // yên tâm nhất
   }
 }
+
+/* ── CHIP "SẴN SÀNG ĐI BIỂN" ────────────────────────────────────────────────
+   (2026-08-02g — chủ dự án chốt: gộp "online lần cuối" + "dữ liệu tới ngày nào"
+   thành MỘT chip trong /quan-tri, và PHẢI phân biệt bản cài với bản web.)
+
+   TỐI ƯU ĐÁNG NÓI: **không cần cột `last_online_at`, không cần migration cho
+   nó.** "Lần cuối máy còn sóng" chính là mốc nhịp gần nhất — `pwa_last_open_at`
+   / `web_last_open_at` đã ghi đúng thứ đó từ 0021, vì nhịp CHỈ gửi được khi máy
+   có sóng. Thêm cột mới là chép lại dữ liệu đã có rồi phải giữ hai chỗ đồng bộ.
+
+   VÌ SAO GỘP MỘT CHIP: hai con số chỉ có nghĩa KHI ĐI VỚI NHAU. "Dữ liệu tới
+   18/08" nghe rất yên tâm, nhưng nếu máy lần cuối online là 9 ngày trước thì đó
+   là **lời khai cũ**. Ngược lại "online 5 phút trước" mà dữ liệu chỉ tới ngày
+   mai thì đó là người ĐÁNG GỌI NHẤT: còn sóng, còn kịp bảo họ bấm tải. Tách hai
+   chip là bắt người trực tổng đài tự ghép trong đầu, mỗi hàng một lần.
+
+   VÌ SAO PHẢI PHÂN BIỆT KHO (chủ dự án: *"user đã pass qua bước bản cài, đã có
+   dữ liệu, nhưng sau đó toàn dùng bản web?"*): trên iOS kho bản cài TÁCH RIÊNG
+   với Safari. Nhóm này nguy hiểm mà nhìn qua lại rất đẹp — họ mở app hằng ngày
+   (nên "online lần cuối" luôn tươi), đã từng đủ đồ (nên bậc thang vẫn xanh),
+   nhưng cái kho sẽ theo họ ra khơi thì đứng im từ lâu. Chip phải đo mốc của
+   ĐÚNG KHO ĐÓ, không đo mốc mới nhất. */
+
+/** Máy còn sóng lần cuối — TÁCH THEO KHO, vì hai kho có thể lệch nhau hẳn. */
+export function lastOnlineAt(a: {
+  pwaLastOpenAt: string | null;
+  webLastOpenAt: string | null;
+}): { sea: string | null; web: string | null; any: string | null } {
+  const sea = a.pwaLastOpenAt ?? null;
+  const web = a.webLastOpenAt ?? null;
+  const any = !sea ? web : !web ? sea : sea > web ? sea : web;
+  return { sea, web, any };
+}
+
+/** Còn bao nhiêu ngày dữ liệu phủ tới, tính từ hôm nay. null = không biết. */
+export function daysOfDataLeft(
+  dataUntil: string | null | undefined,
+  nowMs: number,
+): number | null {
+  if (!dataUntil) return null;
+  const t = Date.parse(`${dataUntil}T00:00:00+07:00`);
+  if (!Number.isFinite(t)) return null;
+  return Math.floor((t - nowMs) / 86_400_000);
+}
+
+export type ReadinessTone = "ok" | "warn" | "risk" | "unknown";
+
+/** Vì sao chip có màu đó — để /quan-tri nói ĐÚNG việc cần làm, không nói chung chung */
+export type ReadinessReason =
+  | "chua-ghi-nhan"
+  | "chua-cai"
+  | "ban-cai-cu"
+  | "het-du-lieu"
+  | "sap-can"
+  | "mat-song-lau"
+  | "chua-bao-ngay"
+  | "on";
+
+export interface Readiness {
+  tone: ReadinessTone;
+  reason: ReadinessReason;
+  /** mốc online của KHO SẼ RA KHƠI (bản cài) */
+  seaOnline: string | null;
+  /** mốc online của kho web */
+  webOnline: string | null;
+  /** số ngày dữ liệu kho bản cài còn phủ */
+  seaDays: number | null;
+  /** số ngày dữ liệu kho web còn phủ */
+  webDays: number | null;
+}
+
+/** Bao lâu không mở bản cài thì con số của nó thành "lời khai cũ" */
+export const SEA_STALE_DAYS = 3;
+/** Dưới bấy nhiêu ngày dữ liệu thì gọi nhắc là còn kịp */
+export const DATA_LOW_DAYS = 3;
+
+/**
+ * CHIP GỘP — THUẦN, có test. Luật màu ở đây là luật VẬN HÀNH, không phải thẩm mỹ.
+ */
+export function readinessChip(
+  a: {
+    pwaLastOpenAt: string | null;
+    webLastOpenAt: string | null;
+    /** ngày phủ của kho BẢN CÀI (customers.data_until) */
+    dataUntil: string | null;
+    /** ngày phủ của kho WEB (customers.data_until_web, migration 0027) */
+    dataUntilWeb?: string | null;
+  },
+  nowMs: number,
+): Readiness {
+  const on = lastOnlineAt(a);
+  const seaDays = daysOfDataLeft(a.dataUntil, nowMs);
+  const webDays = daysOfDataLeft(a.dataUntilWeb, nowMs);
+  const base = {
+    seaOnline: on.sea,
+    webOnline: on.web,
+    seaDays,
+    webDays,
+  };
+
+  // Chưa nhịp nào — KHÔNG tô đỏ: "chưa ghi nhận" không có nghĩa là chưa dùng app
+  // (nhịp chỉ gửi khi ĐÃ đăng nhập + còn sóng, và chỉ ghi từ 01/08/2026).
+  if (!on.any) return { tone: "unknown", reason: "chua-ghi-nhan", ...base };
+
+  /*  CHƯA BAO GIỜ MỞ BẢN CÀI. Kho web có đầy tới đâu cũng không theo họ ra khơi
+      được (iOS), nên đây là nhóm đáng gọi nhất — đúng `usageCallPriority` 0. */
+  if (!on.sea) return { tone: "risk", reason: "chua-cai", ...base };
+
+  // Kho sẽ ra khơi đã hết dữ liệu → gọi ngay.
+  if (seaDays != null && seaDays <= 0) {
+    return { tone: "risk", reason: "het-du-lieu", ...base };
+  }
+
+  const seaMs = Date.parse(on.sea);
+  const seaStale =
+    Number.isFinite(seaMs) &&
+    Math.floor((nowMs - seaMs) / 86_400_000) > SEA_STALE_DAYS;
+
+  /*  CA CHỦ DỰ ÁN CHỈ RA: đã cài, đã có dữ liệu, nhưng gần đây TOÀN DÙNG WEB.
+      Đặt TRƯỚC nhánh "mất sóng lâu" vì việc cần làm khác hẳn: không phải "gọi
+      lúc có sóng" mà là "bảo bà con mở ĐÚNG cái icon đã cài". */
+  if (seaStale && on.web && on.web > on.sea) {
+    return { tone: "warn", reason: "ban-cai-cu", ...base };
+  }
+  if (seaStale) return { tone: "warn", reason: "mat-song-lau", ...base };
+
+  // Có mở bản cài gần đây nhưng chưa báo được ngày phủ → không dám nói là ổn.
+  if (seaDays == null) {
+    return { tone: "warn", reason: "chua-bao-ngay", ...base };
+  }
+  if (seaDays < DATA_LOW_DAYS) {
+    return { tone: "warn", reason: "sap-can", ...base };
+  }
+  return { tone: "ok", reason: "on", ...base };
+}

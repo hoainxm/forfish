@@ -30,7 +30,11 @@ import {
   PRETRIP_MAX_MS,
   PRETRIP_SCALAR_DAYS,
 } from "../pretrip";
-import { coverageChipOk, coverageChipText } from "../pretrip-auto";
+import {
+  coverageChipOk,
+  coverageChipText,
+  PRETRIP_GRID_LONGEST_DAYS,
+} from "../pretrip-auto";
 
 /** Bản dự báo điểm rút gọn — chỉ cần mảng `days` để tính "giữ tới ngày nào" */
 const cond = (dates: string[]) => ({ days: dates.map((date) => ({ date })) });
@@ -52,8 +56,12 @@ describe("savedLayers / savedCoverage — độ phủ TỪNG lớp", () => {
   // seed đủ mọi lớp offline vào localStorage giả
   const seedAll = () => {
     saveForecast("point", "8.50_106.50", cond(["2026-08-10", "2026-08-13"]));
-    saveForecast("grid", "d3", { x: 1 });
-    saveForecast("grid", "d16", { x: 1 });
+    /* LƯỚI CÓ `times` THẬT như bản máy thật lưu: chip nói ngày CỐT LÕI (sớm
+       nhất giữa lưới và điểm ghim) nên lưới không có trục ngày thì app KHÔNG
+       dám nói ngày nào cả. Ở đây lưới phủ tới 18/8, điểm ghim tới 13/8 ⇒ câu
+       chữ phải lấy 13/8. */
+    saveForecast("grid", "d3", { times: ["2026-08-05T00:00"] });
+    saveForecast("grid", "d16", { times: ["2026-08-01T00:00", "2026-08-18T00:00"] });
     saveForecast("scalar", "cloud.d3", { x: 1 });
     saveForecast("scalar", "salinity.d4", { x: 1 });
     saveForecast("seascalar", "ssha", { ok: true });
@@ -154,10 +162,51 @@ describe("savedLayers / savedCoverage — độ phủ TỪNG lớp", () => {
       seedAll();
       seedFish(31 * 3600_000);
       const cov = savedCoverage({ fishLocked: false });
+      // đã cũ NHƯNG vẫn giữ ngày trong câu (R1) — ngày là thứ còn giá trị nhất
       expect(coverageChipText("idle", cov, "2026-08-02")).toBe(
-        "Dự báo trong máy đã cũ — chạm tải mới",
+        "Còn dùng tới ngày 13/8 — chạm tải mới",
       );
+      // …và mất sóng thì đừng giục tải: nói cái DÙNG ĐƯỢC, tô xanh
+      expect(coverageChipText("idle", cov, "2026-08-02", false)).toBe(
+        "Trong máy còn dự báo tới ngày 13/8",
+      );
+      expect(coverageChipOk(cov, "2026-08-02", false)).toBe(true);
     });
+  });
+
+  /*
+    C-5 ĐƯỜNG 2 — LỚP LƯỚI PHẢI ĐO BẰNG KHUNG DÀI NHẤT (2026-08-02).
+    `latestSavedAt("grid.")` gộp mọi khung: chỉ cần khung 3 ngày vừa tải là cả
+    lớp được gọi "còn mới", dù khung 16 ngày — thứ bà con dựa vào cho chuyến 10
+    ngày — đã cũ mấy chục giờ. Chip xanh trước lúc nhổ neo là lời hứa nặng nhất
+    trong app.
+  */
+  describe("lớp lưới gió/sóng — tuổi đo theo khung DÀI NHẤT", () => {
+    const gridLayer = () =>
+      savedLayers({ fishLocked: true }).find((l) => l.id === "grid")!;
+
+    it("d16 cũ 30 giờ + d3 vừa tải → lớp lưới là ĐÃ CŨ, không mượn tuổi của d3", () => {
+      saveForecast("grid", "d16", { x: 1 }, Date.now() - 30 * 3600_000);
+      saveForecast("grid", "d3", { x: 1 }, Date.now());
+      const g = gridLayer();
+      expect(g.saved).toBe(true);
+      expect(g.fresh).toBe(false);
+    });
+
+    it("khung dài nhất còn mới → lớp lưới còn mới", () => {
+      saveForecast("grid", "d3", { x: 1 }, Date.now() - 30 * 3600_000);
+      saveForecast("grid", "d16", { x: 1 }, Date.now());
+      expect(gridLayer().fresh).toBe(true);
+    });
+  });
+});
+
+/* Hai hằng số phải khớp nhau: `pretrip-auto` cố ý KHÔNG import `pretrip.ts` (kéo
+   theo cả chuỗi module gọi mạng) nên chỉ có test này giữ chúng lại với nhau. Để
+   rời nhau thì hoặc báo thiếu oan (đốt tiền sóng), hoặc khoá 6 giờ oan. */
+describe("PRETRIP_GRID_LONGEST_DAYS khớp PRETRIP_GRID_DAYS", () => {
+  it("bằng khung dài nhất mẻ tải sẵn nhắm tới", () => {
+    expect(PRETRIP_GRID_LONGEST_DAYS).toBe(Math.max(...PRETRIP_GRID_DAYS));
   });
 });
 

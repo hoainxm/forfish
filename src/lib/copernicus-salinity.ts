@@ -22,6 +22,7 @@ import {
   sliceToGrid,
   VN_BBOX,
 } from "@/lib/copernicus";
+import { timeoutSignal } from "@/lib/abort";
 
 const UA =
   "Mozilla/5.0 (compatible; SDFish/1.0; +https://github.com/Long-Forfun/ForFish)";
@@ -47,7 +48,7 @@ export interface SalinityPayload {
 
 async function getChunk(path: string): Promise<Float32Array> {
   const r = await fetch(`${BASE}/${path}`, {
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: timeoutSignal(TIMEOUT_MS),
     headers: { "User-Agent": UA },
     next: { revalidate: 21600 }, // 6h — độ mặn đổi chậm
   });
@@ -83,7 +84,7 @@ export async function fetchSalinityDaily(
   const nSteps = Math.max(1, Math.min(SALINITY_MAX_DAYS, Math.round(days)));
   try {
     const zres = await fetch(`${BASE}/.zmetadata`, {
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: timeoutSignal(TIMEOUT_MS),
       headers: { "User-Agent": UA },
       next: { revalidate: 21600 },
     });

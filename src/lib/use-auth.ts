@@ -8,9 +8,22 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { isNetworkAuthError } from "@/lib/auth-error";
-import { offlineIdentityPhone, rememberIdentity } from "@/lib/offline-identity";
+import {
+  applyIdentityAction,
+  offlineIdentityPhone,
+  subscribeIdentity,
+} from "@/lib/offline-identity";
 
-/** SĐT thô của user (Supabase lưu SĐT trong email ảo 0901234567@sdvico.local) */
+/** SĐT thô của user (Supabase lưu SĐT trong email ảo 0901234567@sdvico.local).
+ *
+ *  ⚠️ CẢNH BÁO CHO TƯƠNG LAI: `u.phone` hiện LUÔN rỗng ở repo này — mọi đường
+ *  tạo tài khoản đi qua `phoneToEmail` (lib/phone), Supabase phone-auth chưa
+ *  bật. Nếu SDWork bật phone-auth thì `u.phone` sẽ mang dạng E.164 KHÔNG có
+ *  dấu `+` (vd "84912345678") — `normalizeVnPhone` xử đúng dạng đó, nhưng
+ *  `identityKey` (offline-identity) sẽ thấy MỘT NGƯỜI thành HAI khoá khác nhau
+ *  ("0912345678" lúc đăng nhập bằng email ảo, "84912345678" lúc đăng nhập bằng
+ *  phone-auth) ⇒ máy tưởng đổi người ⇒ xoá oan dấu premium. Bật phone-auth thì
+ *  phải chuẩn hoá ở ĐÂY trước khi trả về. */
 function rawUserPhone(u: User): string | null {
   const raw = u.phone || (u.email ? u.email.split("@")[0] : "");
   return raw || null;
@@ -36,8 +49,23 @@ export function useAuthUser(): {
      lúc render) để bản dựng phía máy chủ và bản vẽ đầu ở máy khớp nhau. */
   const [identityPhone, setIdentityPhone] = useState<string | null>(null);
 
+  /* ĐỌC LẠI SỔ DANH TÍNH MỖI LẦN KHO ĐỔI (sửa 2026-08-02c, hồi quy CHẶN).
+     `use-tier` đã nghe sự kiện này từ trước, hook này thì chưa — nên nút Đăng
+     xuất (`applyIdentityAction("user-signed-out", …)` → xoá khoá) dọn sạch
+     localStorage mà `identityPhone` trong state VẪN là SĐT chủ tàu:
+     `router.refresh()` không reset state của client component. Hộp thư lấy
+     `phone` từ đây ⇒ `acceptRefresh("090…", null)` = false ⇒ câu trả lời "chỉ
+     tin chung" của máy chủ bị bỏ qua ⇒ danh sách tin nhắm riêng của chủ tàu Ở
+     LẠI MÀN HÌNH cho bạn thuyền đọc. Trái bất biến CÁCH LY TÀI KHOẢN (đầu
+     lib/inbox.ts). `subscribeIdentity` nghe cả sự kiện trong-tab lẫn `storage`
+     của tab khác. */
   useEffect(() => {
-    setIdentityPhone(offlineIdentityPhone());
+    const sync = () => setIdentityPhone(offlineIdentityPhone());
+    sync();
+    return subscribeIdentity(sync);
+  }, []);
+
+  useEffect(() => {
     const supabase = createClient();
     if (!supabase) {
       setReady(true);
@@ -48,16 +76,23 @@ export function useAuthUser(): {
     /* GẮN MÁY ↔ SĐT khi thấy user THẬT — chỉ nhánh có user, nhánh null KHÔNG
        đụng tới. Vì sao: `null` ở đây phần lớn là "chưa hỏi được máy chủ" chứ
        không phải "đã đăng xuất"; xoá danh tính theo nó là tự bắn vào chân
-       (C-1/C-7/C-8). Đổi SĐT thì rememberIdentity tự lo xoá dấu tier. */
-    const remember = (u: User | null) => {
-      if (!u) return;
-      const p = rememberIdentity(rawUserPhone(u));
-      /*  `p === null` = SĐT không chuẩn hoá được (tài khoản email thật, tài
-          khoản kỹ thuật). `rememberIdentity` lúc đó XOÁ sổ danh tính + dấu
-          quyền trong máy — "không biết là ai thì không giữ quyền của ai" — nên
-          state ở đây phải theo, không thì màn hình còn bám SĐT người trước
-          trong khi kho đã sạch (sửa 2026-08-02b). */
-      if (alive) setIdentityPhone(p);
+       (C-1/C-7/C-8). Đổi SĐT thì rememberIdentity tự lo xoá dấu tier.
+
+       LUẬT NẰM Ở HÀM THUẦN `identityAction`, KHÔNG nằm ở cái `if` bất đối xứng
+       này nữa (2026-08-02, K7): viết tay thì trông y hệt một chỗ thiếu vế
+       `else`, người sau "dọn dẹp" một nhát là ba lỗi CHẶN sống lại. Nay tên sự
+       kiện của auth-js đi thẳng vào cổng, và cổng có bảng chân trị được test —
+       kể cả ô dễ sai nhất: `SIGNED_OUT` + null vẫn là GIỮ, vì auth-js bắn đúng
+       sự kiện đó khi nó TỰ xoá phiên (C-7). */
+    const remember = (event: string, u: User | null) => {
+      const p = applyIdentityAction(event, !!u, u ? rawUserPhone(u) : null);
+      /*  `undefined` = cổng bảo GIỮ NGUYÊN, đừng đụng state.
+          `null` = SĐT không chuẩn hoá được (tài khoản email thật, tài khoản kỹ
+          thuật). `rememberIdentity` lúc đó XOÁ sổ danh tính + dấu quyền trong
+          máy — "không biết là ai thì không giữ quyền của ai" — nên state ở đây
+          phải theo, không thì màn hình còn bám SĐT người trước trong khi kho đã
+          sạch (sửa 2026-08-02b). */
+      if (p !== undefined && alive) setIdentityPhone(p);
     };
 
     // BẮT BUỘC RESOLVE: getUser() cần mạng. Ngoài khơi sóng CHẬP CHỜN (kết nối
@@ -90,7 +125,9 @@ export function useAuthUser(): {
           return; // GIỮ user cũ, đừng hạ xuống null
         }
         const u = data?.user ?? null;
-        remember(u);
+        // getUser() không phải sự kiện auth-js — tên riêng, cổng xử như mọi
+        // chuỗi lạ khác (có user → nhớ, không có → giữ nguyên)
+        remember("getUser", u);
         setUser(u);
       })
       .catch(() => {
@@ -102,10 +139,10 @@ export function useAuthUser(): {
         settle();
       });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!alive) return;
       const u = session?.user ?? null;
-      remember(u);
+      remember(String(event), u);
       setUser(u);
     });
     return () => {

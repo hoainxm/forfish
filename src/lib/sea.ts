@@ -8,6 +8,15 @@ import type { FishingPort } from "@/data/ports";
 import { apiUrl } from "@/lib/api-base";
 import { seaSnapshotId } from "@/lib/weather-snapshot-id";
 import { isCacheCurrent } from "@/lib/source-cadence";
+/* Đồng hồ chặn cho fetch — `AbortSignal.timeout` chưa có trên WebView/Safari
+   cũ (máy rẻ của bà con) và gọi thẳng sẽ ném TypeError ĐỒNG BỘ. Ở đây cái ném
+   nằm trong hàm async nên chỉ thành promise hỏng, nhưng hậu quả còn tệ hơn
+   sập: máy đó KHÔNG BAO GIỜ lấy nổi dự báo mới, cả chuyến biển chỉ xem được
+   bản cũ mà chẳng ai hiểu vì sao. Bản dùng chung ở `@/lib/abort` có ĐƯỜNG LÙI
+   THẬT (AbortController + setTimeout) nên máy cũ vẫn còn đồng hồ chặn —
+   bản riêng cũ ở đây chỉ trả `undefined`, tức là mất trần, đã xoá. */
+import { timeoutSignal } from "@/lib/abort";
+import { noteResponse, tokenHeader } from "@/lib/device-token-store";
 
 export interface SeaDay {
   date: string; // ISO yyyy-mm-dd
@@ -40,21 +49,6 @@ export function estimateWaveFromWind(windKmh: number): number {
  */
 export function allWavesEstimated(days: SeaDay[]): boolean {
   return days.length > 0 && days.every((d) => d.waveEstimated === true);
-}
-
-/**
- * Đồng hồ chặn cho fetch — `AbortSignal.timeout` chưa có trên WebView/Safari
- * cũ (máy rẻ của bà con) và gọi thẳng sẽ ném TypeError ĐỒNG BỘ. Ở đây cái ném
- * nằm trong hàm async nên chỉ thành promise hỏng, nhưng hậu quả còn tệ hơn
- * sập: máy đó KHÔNG BAO GIỜ lấy nổi dự báo mới, cả chuyến biển chỉ xem được
- * bản cũ mà chẳng ai hiểu vì sao. Thiếu API thì chạy KHÔNG có đồng hồ chặn —
- * chậm còn hơn không bao giờ có số.
- */
-function timeoutSignal(ms: number): AbortSignal | undefined {
-  return typeof AbortSignal !== "undefined" &&
-    typeof AbortSignal.timeout === "function"
-    ? AbortSignal.timeout(ms)
-    : undefined;
 }
 
 export type SeaLevel = "good" | "caution" | "bad";
@@ -268,8 +262,12 @@ async function loadSeaSnapshotClient(
 ): Promise<{ days: ScoredSeaDay[]; savedAt: number | null } | null> {
   try {
     const r = await fetch(apiUrl(`/api/weather-snapshot?id=${seaSnapshotId(portId)}`), {
+      headers: tokenHeader(),
       signal: timeoutSignal(8000),
     });
+    /* MỘT DÒNG NÀY = chỗ này cũng phát hiện được máy bị đá. Bộ não vẫn
+       nằm ở `noteResponse`; ở đây chỉ đưa phản hồi cho nó soi. */
+    void noteResponse(r);
     if (!r.ok) return null;
     const j = (await r.json()) as
       | ScoredSeaDay[]

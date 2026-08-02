@@ -19,6 +19,47 @@ export const TIER_CACHE_KEY = "forfish.tier.premium.v1";
     không phải dữ liệu dự báo, chia tệp không được kéo theo. */
 export const TIER_UNTIL_KEY = "forfish.tier.until.v1";
 
+/** Dấu hạng vừa được máy chủ xác nhận lại — `use-tier` nghe để vẽ lại ngay */
+export const TIER_EVENT = "forfish:tier";
+
+/**
+ * GHI DẤU HẠNG vừa nghe được từ máy chủ, rồi báo cho màn hình.
+ *
+ * VÌ SAO NẰM Ở ĐÂY (2026-08-02g): từ bản này, hạng KHÔNG còn nhịp đi hỏi riêng —
+ * nó đi nhờ phản hồi của nhịp "đã mở app" (`/api/me/heartbeat`). Chủ dự án chốt:
+ * *"token lúc đăng nhập đã biết hạng rồi, check riêng làm gì"* — đúng, thứ duy
+ * nhất còn cần máy chủ là **hạng ĐỔI SAU khi đăng nhập** (nhân viên gán premium
+ * ở /quan-tri), và nhịp 30 phút đã nói chuyện với máy chủ về đúng tài khoản đó
+ * rồi. Nhịp riêng chỉ là một lượt hỏi lại đúng câu vừa hỏi.
+ * Nên chỗ GHI phải nằm ở module thuần, để `lib/heartbeat.ts` dùng được mà không
+ * kéo theo React.
+ *
+ * ⚠️ CHỈ GỌI KHI MÁY CHỦ THẬT SỰ TRẢ LỜI. Mất sóng / 5xx / hết giờ thì tuyệt đối
+ * không gọi — ghi bừa ở đây là xoá quyền của người đã trả tiền, giữa biển.
+ * KHÔNG BAO GIỜ ném (chế độ riêng tư iOS / kho đầy).
+ */
+export function writePremiumMark(
+  /** ĐÚNG CỘT `tier` THÔ của DB — KHÔNG phải kết quả đã xét hạn (luật E4) */
+  marked: boolean,
+  until: string | null,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(TIER_CACHE_KEY, marked ? "1" : "0");
+    if (until) window.localStorage.setItem(TIER_UNTIL_KEY, until);
+    else window.localStorage.removeItem(TIER_UNTIL_KEY);
+  } catch {
+    /* hết chỗ / chế độ riêng tư — bỏ qua, nhịp sau ghi lại */
+  }
+  try {
+    window.dispatchEvent(
+      new CustomEvent(TIER_EVENT, { detail: { marked, until } }),
+    );
+  } catch {
+    /* CustomEvent không có (WebView rất cũ) — màn hình vẽ lại ở lần mở sau */
+  }
+}
+
 /**
  * BA trạng thái của dấu hạng — KHÔNG phải hai (sửa 2026-08-02, E5).
  *
@@ -106,6 +147,24 @@ export function premiumMarkWithinGrace(
 }
 
 /**
+ * DẤU CÓ HẠN THẬT KHÔNG (đọc ra được một mốc thời gian). THUẦN để test được.
+ *
+ * VÌ SAO CÓ (sửa 2026-08-02c): `premiumMarkWithinGrace` cố ý trả `true` khi
+ * không có hạn / hạn hỏng — đúng cho nhánh MẤT SÓNG (thà cho xem tiếp bản đã
+ * tải còn hơn khoá oan). Nhưng nhánh "quyền đã lưu" lúc CÒN SÓNG (C-7) thì
+ * khác: ở đó máy chủ vẫn tới được, chỉ là phiên đã rụng, và cửa mở bằng dấu
+ * KHÔNG HẠN thì KHÔNG BAO GIỜ đóng — tài khoản bị hạ hạng/xoá ở `/quan-tri`
+ * vẫn giữ cửa "open" cho tới khi bà con cài lại app. Nên nhánh đó đòi hạn thật.
+ */
+export function premiumMarkHasExpiry(
+  until: string | null | undefined,
+): boolean {
+  if (until == null || until === "") return false;
+  const t = Date.parse(until.length === 10 ? `${until}T00:00:00+07:00` : until);
+  return Number.isFinite(t);
+}
+
+/**
  * Dấu đã lưu + hạn đã lưu → dấu CÒN HIỆU LỰC để quyết định.
  *
  * Hết hạn (quá biên) thì thành `"basic"` chứ không phải `"unknown"`: mình BIẾT
@@ -137,10 +196,43 @@ export const TIER_RETRY_BASE_MS = 30_000;
 /** …nhân đôi dần, trần 10 phút (đừng quay pin của bà con giữa biển). */
 export const TIER_RETRY_MAX_MS = 600_000;
 
-/** Chờ bao lâu trước lần thử thứ `attempt` (0 = lần thử lại đầu tiên). */
-export function tierRetryDelayMs(attempt: number): number {
+/**
+ * Chờ bao lâu trước lần thử thứ `attempt` (0 = lần thử lại đầu tiên).
+ *
+ * `offline = true` (máy nói thẳng là mất mạng) → NHẢY LUÔN VỀ TRẦN, cùng khuôn
+ * với `stormRetryMs` (lib/storms). Vì sao: thang lùi bắt đầu từ 30 giây, mà một
+ * chuyến biển dài 10 ngày mất sóng thì cứ leo tới trần 10 phút là ~1.400 lượt
+ * tra — mỗi lượt còn dựng thêm một đồng hồ chặn và một lần đánh thức đài. Máy
+ * đã báo không có mạng thì hỏi cũng chỉ tốn pin.
+ *
+ * KHÔNG dừng hẳn nhịp: có máy (WebView đời cũ) không bắn sự kiện `online`, nên
+ * vẫn phải còn một nhịp đều đặn để sóng về là thấy quyền của mình.
+ */
+export function tierRetryDelayMs(attempt: number, offline = false): number {
+  if (offline) return TIER_RETRY_MAX_MS;
   const n = Number.isFinite(attempt) && attempt > 0 ? Math.floor(attempt) : 0;
   return Math.min(TIER_RETRY_BASE_MS * 2 ** Math.min(n, 20), TIER_RETRY_MAX_MS);
+}
+
+/** Sóng vừa về thì hỏi ngay — nhưng không dày hơn bấy nhiêu (chống dội). */
+export const TIER_ONLINE_DEBOUNCE_MS = 30_000;
+
+/**
+ * Sự kiện `online` vừa bắn — CÓ được tra lại ngay không? THUẦN để test được.
+ *
+ * VÌ SAO CÓ: `onBackOnline` trước đây gọi thẳng `runQuery()`, bỏ qua mọi độ
+ * trễ. Ven bờ / ở rìa vùng phủ sóng, trình duyệt bắn `online`/`offline` liên
+ * tục — mỗi cái nhấp là một truy vấn 12 giây kèm một đồng hồ chặn. Thang lùi
+ * dựng lên để chống đúng chuyện đó, mà cửa này lại mở toang.
+ *
+ * `lastTryAtMs <= 0` = chưa hỏi lần nào ⇒ cho hỏi ngay.
+ */
+export function shouldQueryOnBackOnline(
+  lastTryAtMs: number,
+  nowMs: number,
+): boolean {
+  if (!Number.isFinite(lastTryAtMs) || lastTryAtMs <= 0) return true;
+  return nowMs - lastTryAtMs >= TIER_ONLINE_DEBOUNCE_MS;
 }
 
 /**
@@ -293,6 +385,13 @@ export interface FeatureAccessInput {
   /** `premium === false` CHỈ VÌ HẠN: máy chủ vẫn ghi tier='premium', chỉ có
       đồng hồ MÁY nói là quá hạn. Khác hẳn tier='basic' (chưa từng trả tiền). */
   premiumExpiredOnly?: boolean;
+  /** máy còn nhớ SĐT lần đăng nhập gần nhất không (lib/offline-identity).
+      "Máy này từng có người đăng nhập và CHƯA AI BẤM ĐĂNG XUẤT" — khác hẳn
+      hasUser=false, thứ chỉ nói "lúc này không hỏi được phiên". */
+  hasOfflineIdentity?: boolean;
+  /** HẠN của dấu đã lưu (TIER_UNTIL_KEY). Chỉ nhánh "quyền đã lưu" lúc CÒN
+      SÓNG (C-7) dùng: cửa mở bằng dấu không hạn thì không bao giờ đóng. */
+  premiumMarkUntil?: string | null;
 }
 
 /**
@@ -346,8 +445,38 @@ export function featureAccessDecision(i: FeatureAccessInput): FeatureAccess {
     return i.hasUser ? "upgrade" : "login";
   }
   if (!i.authReady) return "checking";
-  // có sóng, tra ĐƯỢC mà không có ai → đăng xuất thật → mời đăng nhập
-  if (!i.hasUser) return "login";
+  if (!i.hasUser) {
+    /* QUYỀN ĐÃ LƯU TRÊN MÁY (chủ dự án chốt 2026-08-02, C-7).
+       Ca thật: auth-js gọi `_removeSession()` khi làm mới token gặp lỗi KHÔNG
+       phải mạng (400/401/500, hoặc thân HTML của cổng wifi ở cảng) —
+       GoTrueClient.js:3977. Sau đó tàu vẫn có wifi nội bộ ⇒ `online = true`,
+       `getUser()` trả AuthSessionMissingError nên `authErrored = false` ⇒ cả
+       hai nhánh offline bên trên đều không đỡ ⇒ người đã trả tiền tới 2027
+       rơi thẳng xuống "login" và mất quyền CẢ CHUYẾN BIỂN, vì đăng nhập lại
+       thì cần sóng thật.
+       Máy còn nhớ ai từng đăng nhập ở đây (chưa ai bấm Đăng xuất, chưa ai bấm
+       Gỡ khỏi máy) + dấu hạng đã lưu là premium ⇒ cho XEM TIẾP bản đã tải.
+       KHÔNG phải cửa sau: (a) chỉ mở cửa XEM, luật dự án là premium gác cửa
+       TẢI; (b) dấu vẫn có hạn qua effectivePremiumMark; (c) middleware/RLS vẫn
+       chốt mọi thứ đi qua mạng. Dấu "basic"/"unknown" thì VẪN mời đăng nhập —
+       không mở bừa cho người chưa từng được xác nhận premium.
+
+       ĐÒI HẠN THẬT (sửa 2026-08-02c): `premiumMarkWithinGrace(null) === true`,
+       nên dấu KHÔNG HẠN mở cửa này VĨNH VIỄN — tài khoản bị hạ hạng hay xoá ở
+       `/quan-tri` vẫn "open" mãi, vì `hasUser=false` cũng chặn luôn đường tra
+       lại. Nhánh MẤT SÓNG bên trên vẫn nhận dấu không hạn (ở đó thà cho xem
+       tiếp bản đã tải), nhánh CÒN SÓNG này thì không. */
+    if (
+      i.hasOfflineIdentity === true &&
+      i.cachedMark === "premium" &&
+      premiumMarkHasExpiry(i.premiumMarkUntil)
+    ) {
+      return "open";
+    }
+    // có sóng, tra ĐƯỢC mà không có ai, máy cũng đã quên người cũ → đăng xuất
+    // thật → mời đăng nhập
+    return "login";
+  }
   // có user, đang tra hạng → chưa kết luận (tránh nháy khoá↔mở)
   return "checking";
 }

@@ -11,6 +11,7 @@ import { parseErddapGrid, ERDDAP_UA, type ScalarGrid } from "@/lib/fish-predict"
 import { apiUrl } from "@/lib/api-base";
 import { saveForecast, loadForecast } from "@/lib/forecast-cache";
 import { seaScalarSnapshotId } from "@/lib/weather-snapshot-id";
+import { timeoutSignal } from "@/lib/abort";
 
 export type SeaScalarKind = "ssha" | "sss";
 
@@ -121,7 +122,7 @@ export async function loadSeaScalar(
       // UA bắt buộc: coastwatch chặn 403 nếu thiếu (xem ERDDAP_UA fish-predict)
       const r = await fetcher(def.url(t), {
         next: { revalidate: 21600 },
-        signal: AbortSignal.timeout(20000),
+        signal: timeoutSignal(20000),
         headers: { "User-Agent": ERDDAP_UA },
       });
       if (!r.ok) continue;
@@ -146,7 +147,7 @@ async function loadSeaScalarSnapshot(
   try {
     const r = await fetch(
       apiUrl(`/api/weather-snapshot?id=${seaScalarSnapshotId(kind)}`),
-      { signal: AbortSignal.timeout(10000) },
+      { signal: timeoutSignal(10000) },
     );
     if (!r.ok) return null;
     const j = (await r.json()) as SeaScalarResult;
@@ -173,7 +174,7 @@ export async function fetchSeaScalar(
   // 2) live
   try {
     const r = await fetch(apiUrl(`/api/sea-scalar?kind=${kind}`), {
-      signal: AbortSignal.timeout(25000),
+      signal: timeoutSignal(25000),
     });
     if (r.ok) {
       const j = (await r.json()) as SeaScalarResult;

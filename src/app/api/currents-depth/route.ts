@@ -4,9 +4,7 @@ import {
   CUR_DEPTH_MAX_DAYS,
   type CurDepthTier,
 } from "@/lib/weather-snapshot-id";
-import { createClient } from "@/lib/supabase/server";
-import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
-import { resolveTier } from "@/lib/tier";
+import { premiumDenied } from "@/lib/api-identity";
 
 /**
  * DÒNG CHẢY THEO TẦNG — đường LIVE khi snapshot chưa có (client đi snapshot
@@ -19,22 +17,9 @@ import { resolveTier } from "@/lib/tier";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-async function premiumDenied(): Promise<{ status: number; code: string } | null> {
-  const supabase = await createClient();
-  if (!supabase) return null; // demo mode — mở
-  const { data } = await supabase.auth.getUser();
-  const email = data?.user?.email;
-  if (!email) return { status: 401, code: "login_required" };
-  if (isAdminPhone(email, parseAdminPhones(process.env.ADMIN_PHONES))) return null;
-  const { data: cust, error } = await supabase
-    .from("customers")
-    .select("tier, premium_until")
-    .maybeSingle();
-  const tier = error
-    ? "basic"
-    : resolveTier(cust?.tier, cust?.premium_until, Date.now());
-  return tier === "premium" ? null : { status: 403, code: "premium_required" };
-}
+/*  Chốt premium dời sang `lib/api-identity.ts` (2026-08-02) — một bản dùng chung
+    với /api/weather-snapshot, và nhận diện bằng CHUỖI CỨNG thay vì phiên Supabase
+    (máy ngư dân không còn giữ phiên nào). Bản chép tay ở đây đã xoá. */
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -47,7 +32,7 @@ export async function GET(req: Request) {
     return Response.json({ ok: false, code: "bad_days" }, { status: 400 });
   }
   if (days > 3) {
-    const denied = await premiumDenied();
+    const denied = await premiumDenied(req);
     if (denied) {
       return Response.json(
         { ok: false, code: denied.code },

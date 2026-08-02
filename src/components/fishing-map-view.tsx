@@ -135,6 +135,7 @@ import {
 } from "@/lib/vms-zones";
 import { borderProximity, haversineKm, type BorderLevel } from "@/lib/geofence";
 import { fetchDepthGrid, depthClassAt, type DepthClass } from "@/lib/depth-grid";
+import { timeoutSignal } from "@/lib/abort";
 import { weatherFromCode } from "@/lib/weather-codes";
 import {
   useMapPrefs,
@@ -536,13 +537,27 @@ export default function FishingMapView() {
   // TRONG MÁY ĐÃ CÓ lưới dài thì vẫn xin đúng khung đó — lib tự lấy bản lưu ra.
   // Chỉ xin dài khi máy CÓ SẴN, không xin bừa: người chưa từng premium mà xin
   // d16 là hai request chắc chắn bị chặn, tốn sóng vô ích giữa biển.
+  /* KHUNG VỪA TỤT XUỐNG mấy ngày (null = không tụt) — để nói MỘT DÒNG nhỏ thay
+     vì đổi màn trong im lặng. Xem chú thích ở effect ngay dưới. */
+  const [gridShrunkTo, setGridShrunkTo] = useState<number | null>(null);
   useEffect(() => {
     const target = (
       premiumUnsure && !savedLongGrid ? FREE_FORECAST_DAYS : 16
     ) as GridDays;
     if (gridDays !== target) {
-      setPlaying(false);
-      setTimeIdx(0);
+      /* CHỈ RESET KHI MỞ RỘNG KHUNG (R8, 2026-08-02). Khi khung TỤT (16 → 3, vd
+         lưới dài bị dọn mất chỗ) mà cũng `setTimeIdx(0)` thì bà con đang xem gió
+         NGÀY 12 tự nhiên bị kéo về "Bây giờ", dải ngày rút còn 3, KHÔNG một dòng
+         báo — màn hình tự đổi mà không ai giải thích. Nay: mở rộng thì về đầu
+         (bản mới, tầm mới); tụt thì giữ nguyên chỗ đang xem, chỉ nói một dòng, và
+         nhánh tải lưới sẽ tự kẹp `timeIdx` vào trong tầm bản mới. */
+      if (target > gridDays) {
+        setPlaying(false);
+        setTimeIdx(0);
+        setGridShrunkTo(null);
+      } else {
+        setGridShrunkTo(target);
+      }
       setGridDays(target);
     }
   }, [premiumUnsure, savedLongGrid, gridDays]);
@@ -573,6 +588,10 @@ export default function FishingMapView() {
         if (jumpEndRef.current) {
           setTimeIdx(Math.max(0, g.times.length - 1)); // (B) xem luôn ngày cuối
           jumpEndRef.current = false;
+        } else {
+          // KẸP vào trong tầm bản vừa về: khung tụt (16 → 3) mà giữ nguyên chỗ
+          // đang xem thì mốc cũ có thể nằm ngoài `times[]` mới → thanh giờ trống.
+          setTimeIdx((i) => Math.min(i, Math.max(0, g.times.length - 1)));
         }
       })
       .catch(() => {
@@ -1168,11 +1187,10 @@ export default function FishingMapView() {
     if (coastData) return; // có rồi thì thôi — file tĩnh, không đổi
     let alive = true;
     // AbortSignal.timeout chưa có trên WebView/Safari cũ (máy rẻ của bà con) —
-    // gọi thẳng sẽ ném TypeError ĐỒNG BỘ và làm sập cả cây React.
-    const signal =
-      typeof AbortSignal.timeout === "function"
-        ? AbortSignal.timeout(15000)
-        : undefined;
+    // gọi thẳng sẽ ném TypeError ĐỒNG BỘ và làm sập cả cây React. `timeoutSignal`
+    // không bao giờ ném và còn có đường lùi AbortController nên máy cũ vẫn có
+    // trần thời gian (bản canh `typeof` cũ ở đây thì mất trần).
+    const signal = timeoutSignal(15000);
     fetch(COAST_DATA_URL, { signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => alive && j && setCoastData(j as GeoJSON.FeatureCollection))
@@ -2521,6 +2539,33 @@ export default function FishingMapView() {
                       legend={stripLegend}
                       todayIso={todayIso}
                     />
+                  )}
+                  {/*  KHUNG NGÀY VỪA TỤT — nói một dòng, đừng đổi dải ngày trong
+                       im lặng (R8). Chạm là tắt, không tự đeo bám.
+
+                       GIỮ LẠI (soát chéo 2026-08-02) dù có đề nghị bỏ: chip độ
+                       phủ nói "đã lưu tới ngày nào", còn dải ngày tự rút là
+                       CHUYỆN KHÁC — bà con đang kéo xem gió ngày 12 thì dải cụt
+                       còn 3 mà không ai giải thích, đó đúng là cú "màn hình tự
+                       đổi" mà R8 dựng ra để chặn. Nhưng câu cũ 14px và chỉ nói
+                       HIỆN TƯỢNG ("máy chỉ còn…"), nghe như máy hỏng/hết chỗ
+                       trong khi lý do thật là KHÔNG XÁC NHẬN ĐƯỢC HẠNG tài
+                       khoản (`premiumUnsure`) VÀ trong máy không còn bản dài
+                       (`!savedLongGrid`) — nay nói đủ hai vế, chữ ≥18px. */}
+                  {gridShrunkTo != null && (
+                    <button
+                      type="button"
+                      onClick={() => setGridShrunkTo(null)}
+                      className="mt-1 w-full rounded-xl bg-field/80 px-3 py-2.5 text-left"
+                    >
+                      <span className="block text-[1.125rem] font-bold leading-snug text-navy">
+                        Dải ngày rút còn {gridShrunkTo} ngày.
+                      </span>
+                      <span className="mt-0.5 block text-[1rem] font-semibold leading-snug text-foreground/75">
+                        Chưa xác nhận được tài khoản nâng cao, mà trong máy cũng
+                        không còn bản dài ngày. Chạm để tắt dòng này.
+                      </span>
+                    </button>
                   )}
                 </>
               ) : gridFailed ? (

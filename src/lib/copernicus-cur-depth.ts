@@ -27,6 +27,7 @@ import {
 } from "@/lib/copernicus";
 import { gridPoints, type ForecastGrid, type GridHour } from "@/lib/forecast-grid";
 import { CUR_DEPTH_MAX_DAYS } from "@/lib/weather-snapshot-id";
+import { timeoutSignal } from "@/lib/abort";
 
 const UA =
   "Mozilla/5.0 (compatible; SDFish/1.0; +https://github.com/Long-Forfun/ForFish)";
@@ -68,7 +69,7 @@ export function sliceCurDepthDays(grid: CurDepthGrid, days: number): CurDepthGri
 
 async function getBuf(path: string, revalidate: number): Promise<Uint8Array> {
   const r = await fetch(`${BASE}/${path}`, {
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: timeoutSignal(TIMEOUT_MS),
     headers: { "User-Agent": UA },
     next: { revalidate },
   });
@@ -102,7 +103,7 @@ export async function fetchCurDepthGrid(
 ): Promise<CurDepthGrid | null> {
   try {
     const zres = await fetch(`${BASE}/.zmetadata`, {
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: timeoutSignal(TIMEOUT_MS),
       headers: { "User-Agent": UA },
       next: { revalidate: 21600 },
     });

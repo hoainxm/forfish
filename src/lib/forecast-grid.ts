@@ -17,11 +17,14 @@ import {
   loadForecast,
   loadAll,
   noteForecastKept,
+  isDefinitelyOffline,
   type ForecastSaveOutcome,
 } from "@/lib/forecast-cache";
 import { apiUrl } from "@/lib/api-base";
 import { gridSnapshotId, SNAPSHOT_DAY_SET } from "@/lib/weather-snapshot-id";
 import { isCacheCurrent } from "@/lib/source-cadence";
+import { timeoutSignal } from "@/lib/abort";
+import { noteResponse, tokenHeader } from "@/lib/device-token-store";
 
 export type ForecastKind = "wind" | "wave" | "current";
 
@@ -350,6 +353,16 @@ export async function fetchForecastGrid(
   if (fresh && usable(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
     return fresh.data;
   }
+  /* MẤT SÓNG HẲN → ĐỌC BẢN ĐÃ LƯU TRƯỚC (K3, 2026-08-02 — cùng khuôn `sea.ts`).
+     Đường thường ở dưới đốt ~30 giây (10 s snapshot + 20 s live) rồi mới lấy ra
+     thứ đã nằm sẵn trong máy. Bà con nhìn màn hình quay 30 giây mỗi lần bật lớp
+     gió/sóng, mỗi lần đổi khung ngày. Chỉ đi tắt khi máy KHẲNG ĐỊNH mất sóng;
+     ca "sóng sống mà chết" vẫn đi đường thường (không mất bản mới). Giữ NGUYÊN
+     thứ tự nạn nhân của đường cũ: bản đúng khung trước, rồi khung ngắn hơn. */
+  if (isDefinitelyOffline()) {
+    const saved = savedGridFallback(id, days, usable);
+    if (saved) return saved;
+  }
   // ƯU TIÊN SNAPSHOT (user 2026-07-29: "luôn ưu tiên snapshot để hạn chế bị
   // lock do IP tải nhiều"): trước khi gọi Open-Meteo bằng IP của MÁY BÀ CON,
   // hỏi snapshot server do cron tính sẵn (same-origin, CDN + SW cache — không
@@ -417,14 +430,41 @@ export async function fetchForecastGrid(
   }
 }
 
+/**
+ * BẢN LƯỚI ĐÃ LƯU TRONG MÁY dùng được cho khung đang xin — bản ĐÚNG khung
+ * trước, hết thì mượn khung NGẮN HƠN (thanh ngày vẽ theo `times[]` thật nên
+ * không nói dối). Thuần đọc localStorage, KHÔNG gọi mạng: đây là nhánh cho lúc
+ * mất sóng hẳn. null = máy chưa có gì dùng được.
+ */
+function savedGridFallback(
+  id: string,
+  days: number,
+  usable: (g: ForecastGrid | null | undefined) => g is ForecastGrid,
+): ForecastGrid | null {
+  const hit = loadForecast<ForecastGrid>(GRID_NS, id);
+  if (hit && usable(hit.data))
+    return { ...hit.data, stale: true, savedAt: hit.savedAt };
+  const shorter = savedCurrentGridDays().filter((d) => d < days);
+  for (let i = shorter.length - 1; i >= 0; i--) {
+    const alt = loadForecast<ForecastGrid>(GRID_NS, gridCacheId(shorter[i]));
+    if (alt && usable(alt.data))
+      return { ...alt.data, stale: true, savedAt: alt.savedAt };
+  }
+  return null;
+}
+
 /** LƯỚI AN TOÀN: snapshot lưới do cron tính sẵn (same-origin) — null nếu chưa
     có / route chặn premium. Export cho marine-weather dùng làm nấc cuối của
     DỰ BÁO ĐIỂM (2026-07-29: bản web mở lần đầu máy trống trơn + live 429). */
 export async function loadGridSnapshotClient(days: number): Promise<ForecastGrid | null> {
   try {
     const r = await fetch(apiUrl(`/api/weather-snapshot?id=${gridSnapshotId(days)}`), {
-      signal: AbortSignal.timeout(10000),
+      headers: tokenHeader(),
+      signal: timeoutSignal(10000),
     });
+    /* MỘT DÒNG NÀY = chỗ này cũng phát hiện được máy bị đá. Bộ não vẫn
+       nằm ở `noteResponse`; ở đây chỉ đưa phản hồi cho nó soi. */
+    void noteResponse(r);
     if (!r.ok) return null;
     const g = (await r.json()) as ForecastGrid;
     return g && Array.isArray(g.times) && g.times.length > 0 ? g : null;
@@ -527,21 +567,21 @@ async function fetchGridCore(
   const [windRes, waveRes, curRes] = await Promise.all([
     fetch(
       `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=kmh${windModelQ}`,
-      { signal: AbortSignal.timeout(20000) },
+      { signal: timeoutSignal(20000) },
     ).then((r) => {
       if (!r.ok) throw new Error(`wind grid ${r.status}`);
       return r.json();
     }),
     fetch(
       `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction&models=${opts.waveModel ?? WAVE_MODEL}`,
-      { signal: AbortSignal.timeout(20000) },
+      { signal: timeoutSignal(20000) },
     )
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null),
     opts.withCurrent
       ? fetch(
           `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=ocean_current_velocity,ocean_current_direction`,
-          { signal: AbortSignal.timeout(20000) },
+          { signal: timeoutSignal(20000) },
         )
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null)

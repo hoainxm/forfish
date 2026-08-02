@@ -32,6 +32,7 @@ import { apiUrl } from "@/lib/api-base";
     cũ không phải đổi đường import. */
 import {
   clampServerGapMs,
+  eventDegradedToState,
   eventRetryMs,
   heartbeatKind,
   shouldKeepChasing,
@@ -44,6 +45,10 @@ import {
   nextHeartbeatDelayMs,
   shouldSendHeartbeat,
 } from "@/lib/heartbeat-policy";
+import { timeoutSignal } from "@/lib/abort";
+import { DEVICE_TOKEN_HEADER } from "@/lib/device-token";
+import { writePremiumMark } from "@/lib/tier";
+import { readToken } from "@/lib/device-token-store";
 
 export {
   HEARTBEAT_MIN_GAP_MS,
@@ -54,6 +59,12 @@ export {
   shouldSendHeartbeat,
 };
 import { countsAsOfflineReady, type DevicePlatform } from "@/lib/app-usage";
+import {
+  effectivePremiumMark,
+  readPremiumMark,
+  TIER_CACHE_KEY,
+  TIER_UNTIL_KEY,
+} from "@/lib/tier";
 
 /*  Mốc lần GHI ĐƯỢC gần nhất — quy ước key forfish.* (state-registry).
     v1 → v2 (2026-08-01g) VÌ ĐỔI NGHĨA: v1 là "đã GỬI ĐI" (ghi trước khi gửi),
@@ -69,6 +80,11 @@ export const HEARTBEAT_RETRY_KEY = "forfish.heartbeat.retry.v1";
 export const HEARTBEAT_SIG_KEY = "forfish.heartbeat.sig.v1";
 /** Số lần hỏng LIÊN TIẾP vì không nghe được máy chủ — chọn nấc trong thang lùi */
 export const HEARTBEAT_FAILS_KEY = "forfish.heartbeat.fails.v1";
+/*  Số lần MÁY CHỦ NỔ (5xx) LIÊN TIẾP — bộ đếm RIÊNG, cố ý KHÔNG trộn vào
+    `fails`: `fails` mang nghĩa "không nghe được máy chủ" và thang định kỳ đang
+    đọc nó, trộn vào là đổi nghĩa cả hai. Đây chỉ là cầu dao hạ nhịp SỰ KIỆN về
+    ĐỊNH KỲ khi máy chủ chết (xem eventDegradedToState). */
+export const HEARTBEAT_5XX_KEY = "forfish.heartbeat.5xx.v1";
 
 /** Đồng hồ chặn: chờ máy chủ 5 giây, không nghe thì bỏ (chủ dự án chốt) */
 const HEARTBEAT_TIMEOUT_MS = 5000;
@@ -169,6 +185,196 @@ function writeText(key: string, value: string): void {
   }
 }
 
+/*  ═══ CỔNG RẺ: CÓ ĐÁNG QUÉT KHO KHÔNG ═══ (2026-08-02e)
+
+    LỖI ĐÃ SỬA: chỗ gọi phải dựng ĐỦ `info` trước khi hỏi `sendHeartbeat`, mà
+    hai mảnh của `info` (vỏ app đã cài đủ chưa · mọi lớp dữ liệu đã tải chưa)
+    bắt buộc phải QUÉT SẠCH kho offline — hàng chục lượt `JSON.parse` trên vài
+    chục MB, chạy TRÊN LUỒNG CHÍNH. Trong khi đó mọi hàng rào lại nằm BÊN TRONG
+    `sendHeartbeat` và gần như luôn chặn (chưa tới hạn 30 phút) ⇒ quét sạch kho
+    rồi vứt đi, mỗi lần mở/quay lại app. Android rẻ: khoá màn 0,5–1,5 giây.
+
+    Ba trong bốn mảnh chữ ký đọc được KHÔNG cần quét: tài khoản · web/bản cài ·
+    mã máy. Chỉ mảnh "đủ đồ đi biển" là đắt. Nên hỏi trước bằng ba mảnh rẻ.
+
+    ⚠️ MẢNH ĐẮT KHÔNG ĐƯỢC RƠI MẤT (hồi quy do chính bản vá này đẻ ra, sửa
+    2026-08-02f). Bản đầu chỉ so ba mảnh rẻ rồi thả mảnh thứ tư xuống cửa 30
+    phút, và khai "trễ tối đa 30 phút". Con số đó CHỈ ĐÚNG nếu app còn mở và còn
+    sóng sau 30 phút. Nhịp thật của bà con thì ngược lại: mở app ở cảng → mẻ
+    pretrip chạy → `offlineReady` lật false→true → ĐÓNG APP, NHỔ NEO. Trong cả
+    30 phút đó cổng rẻ nói "khỏi quét" ở mọi lượt ⇒ `offline_ready_at` KHÔNG BAO
+    GIỜ được ghi ⇒ mất hẳn đường đo duy nhất của cột "máy này ra khơi được chưa".
+
+    Cách vá RẺ NHẤT mà vẫn chắc — hai điều kiện, cả hai đọc được KHÔNG cần quét:
+      · CHỈ khi đang chạy BẢN CÀI. Ở web, `countsAsOfflineReady` ép "đủ đồ" về
+        false bất kể kho có gì (thang một chiều web → bản cài → tải), nên mảnh
+        thứ tư KHÔNG THỂ đổi ⇒ cổng rẻ vốn đã chính xác tuyệt đối ở web.
+      · CHỈ khi chữ ký ĐÃ XÁC NHẬN còn ghi "chưa đủ đồ". Ghi rồi thì cú lật
+        false→true đã đi xong; chiều ngược (kho bị dọn) là tin xấu chứ không
+        phải tin gấp — nhịp định kỳ 30 phút lo là đủ.
+    Thoả cả hai thì hạ cửa từ 30 phút xuống 5 phút (`HEARTBEAT_SCAN_MIN_GAP_MS`).
+    Giá: nhiều nhất MỘT lượt quét mỗi 5 phút, và chỉ với máy bản-cài-chưa-đủ-đồ
+    (ở HEAD là quét MỌI lượt mở app, mọi máy). Máy đã đủ đồ và mọi máy chạy web
+    giữ nguyên cửa 30 phút.
+
+    ⛔ BẤT BIẾN KHÔNG ĐỔI: mất sóng vẫn là 0 request và 0 lượt quét kho — hàng
+    rào `navigator.onLine` đứng TRƯỚC toàn bộ chỗ này. */
+
+/** Cửa RÚT NGẮN cho riêng ca "bản cài mà chữ ký còn ghi chưa đủ đồ" — xem trên.
+ *  Đủ ngắn để bắt được cú lật ngay ở lượt mở app kế tiếp, đủ dài để không biến
+ *  việc chuyển qua lại giữa hai app thành một chuỗi quét kho. */
+export const HEARTBEAT_SCAN_MIN_GAP_MS = 5 * 60 * 1000;
+
+/** Phần RẺ của chữ ký (tài khoản · chế độ chạy · mã máy) — GIỮ ĐỒNG BỘ với
+ *  `beatSignature`: mảnh thứ tư (đủ đồ đi biển) cố ý bỏ ra ngoài vì nó đắt. */
+function cheapKey(c: {
+  account?: string | null;
+  standalone: boolean;
+  deviceId?: string | null;
+}): string {
+  return `${c.account ?? "-"}|${c.standalone ? "p" : "w"}|${c.deviceId ?? "-"}`;
+}
+
+/** Cắt phần rẻ ra khỏi một chữ ký ĐẦY ĐỦ đã lưu. Khuôn lạ (chữ ký đời cũ sau
+ *  một lần đổi khuôn, dữ liệu hỏng) → `null` = coi như KHÁC ⇒ cứ quét. Thà quét
+ *  thừa một lượt còn hơn bỏ rơi một tin. */
+function cheapKeyOfSig(sig: string): string | null {
+  const p = sig.split("|");
+  if (p.length !== 3 || p[1].length < 1) return null;
+  return `${p[0]}|${p[1].slice(0, 1)}|${p[2]}`;
+}
+
+/** Chữ ký ĐÃ ĐƯỢC MÁY CHỦ XÁC NHẬN có đang nói "đủ đồ đi biển" không (ký tự thứ
+ *  hai của mảnh giữa: `"pr"` = bản cài + đủ đồ). Khuôn lạ → trả `false` = coi
+ *  như CHƯA đủ, tức nghiêng về phía QUÉT THỪA một lượt; ngược lại là bỏ rơi
+ *  đúng cái sự kiện đắt nhất. */
+function sigSaysReady(sig: string): boolean {
+  const p = sig.split("|");
+  return p.length === 3 && p[1].length >= 2 && p[1][1] === "r";
+}
+
+/**
+ * CÓ ĐÁNG QUÉT KHO KHÔNG — `false` = chắc chắn `sendHeartbeat` sẽ không gửi,
+ * nên khỏi dựng `info` (khỏi quét). THUẦN về mặt hành vi (chỉ đọc localStorage
+ * + `navigator.onLine`), có test.
+ *
+ * MIRROR ĐÚNG THỨ TỰ HÀNG RÀO của `shouldSendHeartbeat`, chỉ khác ở chỗ dùng ba
+ * mảnh RẺ thay cho chữ ký đầy đủ:
+ *   1. mất sóng → false (im lặng tuyệt đối — bất biến số một)
+ *   2. đang hoãn (mạng/máy chủ) → false, kể cả khi ba mảnh rẻ vừa đổi
+ *   3. chưa có chữ ký nào được xác nhận → true
+ *   4. một trong ba mảnh rẻ đã đổi → true (sự kiện: đổi tài khoản/bản cài/máy)
+ *   4b. BẢN CÀI mà chữ ký còn ghi "chưa đủ đồ" → cửa rút ngắn còn 5 phút: mảnh
+ *       thứ tư có thể vừa lật mà không mảnh rẻ nào nhìn thấy (xem chú thích
+ *       khối trên — đây là chỗ hồi quy "offline_ready_at không bao giờ ghi")
+ *   5. còn lại → đã qua cửa 30 phút chưa
+ */
+export function heartbeatNeedsScan(
+  c: {
+    account?: string | null;
+    standalone: boolean;
+    deviceId?: string | null;
+  },
+  nowMs = Date.now(),
+): boolean {
+  const online =
+    typeof navigator === "undefined" ? false : navigator.onLine !== false;
+  if (!online) return false;
+  const retryAfter = readMark(HEARTBEAT_RETRY_KEY);
+  if (retryAfter != null && nowMs < retryAfter) return false;
+  const saved = readText(HEARTBEAT_SIG_KEY);
+  if (saved == null) return true;
+  if (cheapKeyOfSig(saved) !== cheapKey(c)) return true;
+  const lastAt = readMark(HEARTBEAT_KEY);
+  /* mốc tương lai (đồng hồ máy bị chỉnh lùi) cho `since` ÂM ⇒ cả cửa rút ngắn
+     lẫn cửa 30 phút đều ra false — đúng y `shouldSendHeartbeat`, đừng để hai
+     bên nói hai thứ khác nhau */
+  const since = lastAt == null ? Number.POSITIVE_INFINITY : nowMs - lastAt;
+  if (c.standalone && !sigSaysReady(saved) && since >= HEARTBEAT_SCAN_MIN_GAP_MS)
+    return true;
+  if (since < HEARTBEAT_MIN_GAP_MS) return false;
+  return true;
+}
+
+/**
+ * LỚP CÁ CÓ ĐANG KHOÁ KHÔNG — đọc DẤU HẠNG ĐÃ LƯU trong máy, TUYỆT ĐỐI không
+ * gọi mạng. Ở trong `lib/` (không nằm trong component) để có test — đây là một
+ * trong hai đầu vào quyết định cột "đủ đồ đi biển".
+ *
+ * VÌ SAO CÓ (2026-08-02e): nhịp gọi `savedCoverage({})` — không truyền
+ * `fishLocked` — nên lớp `fish` luôn `retriable: true`. Khách KHÔNG premium bị
+ * middleware chặn `/api/fish-forecast` nên lớp đó VĨNH VIỄN không có trong máy
+ * ⇒ `allSaved` mãi false ⇒ `offline_ready_at` không bao giờ được ghi cho NHÓM
+ * ĐÔNG NHẤT, tức cột an toàn đó chỉ đo được thiểu số premium.
+ *
+ * ⚠️ CHỈ `"basic"` MỚI LÀ KHOÁ (hồi quy do chính bản vá 02e đẻ ra, sửa
+ * 2026-08-02f). Bản đầu viết `mark !== "premium"`, nên `"unknown"` — khách
+ * premium MỞ APP LẦN ĐẦU, hoặc dấu vừa bị xoá / chưa tra xong — cũng bị coi là
+ * khoá ⇒ lớp `fish` rơi khỏi phép đếm ⇒ nhịp báo `offlineReady: true` DÙ BẢN ĐỒ
+ * CÁ CHƯA HỀ CÓ TRONG MÁY. Với cột "máy này ra khơi được chưa" thì BÁO THỪA mới
+ * là chiều nguy hiểm: người trực tổng đài không gọi nhắc, bà con nhổ neo với lớp
+ * cá trống. Báo THIẾU thì cùng lắm là một cú điện thoại thừa.
+ *
+ * Đọc kho ném (chế độ riêng tư / storage bị chặn) → cũng là "chưa biết" ⇒ KHÔNG
+ * khoá, tức vẫn đòi lớp cá.
+ */
+export function fishLockedFromMark(nowMs = Date.now()): boolean {
+  try {
+    const mark = effectivePremiumMark(
+      readPremiumMark(readText(TIER_CACHE_KEY)),
+      readText(TIER_UNTIL_KEY),
+      nowMs,
+    );
+    return mark === "basic";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * NGÀY PHỦ CỐT LÕI của kho offline — THUẦN, có test.
+ *
+ * VÌ SAO CÓ (2026-08-02e): nhịp trước đây báo lên `savedUntil = cov.untilIso`,
+ * mà `untilIso` chỉ đo ĐÚNG MỘT LỚP — gió sóng theo ĐIỂM GHIM. Sai cả hai chiều,
+ * và cả hai chiều đều sai về phía NGUY HIỂM:
+ *  · lưới CẢ VÙNG bị dọn mà điểm ghim còn ⇒ /quan-tri báo "tới 18/08" trong khi
+ *    thứ bà con thật sự mở ra giữa biển đã mất;
+ *  · lớp `point` là BẬC HY SINH ĐẦU khi máy hết chỗ ⇒ nó bị dọn trước ⇒
+ *    `untilIso = null` ⇒ máy chủ bỏ qua (`if (savedUntil)`) ⇒ cột giữ nguyên
+ *    con số CŨ đã lỗi thời.
+ * Đây là số liệu để quyết định có gọi nhắc bà con hay không, nên phải là ngày
+ * SỚM NHẤT giữa các lớp cốt lõi CÒN TRONG MÁY.
+ *
+ * ⚠️ THIẾU MỘT LỚP KHÔNG ĐƯỢC RA `null` (hồi quy do chính bản vá 02e đẻ ra, sửa
+ * 2026-08-02f). Bản đầu để `if (!gridUntil || !pointUntil) return null`, mà
+ * `point` chính là bậc hy sinh ĐẦU TIÊN — máy vừa bị dọn `point` là gửi lên
+ * `null`, và máy chủ đọc `null` thành "bỏ qua, giữ nguyên cột" (`if (savedUntil)`
+ * trong `app/api/me/heartbeat/route.ts`) ⇒ `data_until` ĐÓNG BĂNG ở một ngày cũ
+ * NẰM TRONG TƯƠNG LAI. Vẫn là lỗi "sai về phía nguy hiểm", chỉ đổi từ *sai số*
+ * sang *số chết* — mà số chết còn tệ hơn vì trông y như số đúng.
+ * Nay: ngày SỚM NHẤT trong các lớp CÒN LẠI. Mất `point` mà còn lưới ⇒ báo ngày
+ * của lưới (lưới mới là thứ bà con mở ra giữa biển) — con số vẫn ĐỘNG, vẫn tụt
+ * xuống theo đúng nhịp dữ liệu cũ đi, nên người trực tổng đài nhìn ra.
+ *
+ * `null` chỉ còn nghĩa DUY NHẤT: **không còn lớp cốt lõi nào** để nói. Ca đó máy
+ * chủ hiện vẫn giữ số cũ — cần một đường "xoá cột" ở route (ngoài phạm vi file
+ * này, đã báo cáo chủ dự án).
+ *
+ * KHÔNG đụng `cov.untilIso`: chip màn Ra khơi đang dùng nó với đúng nghĩa
+ * "điểm ghim", đổi nghĩa ở đó là hỏng một câu chữ khác.
+ */
+export function coreSavedUntil(
+  gridUntil: string | null | undefined,
+  pointUntil: string | null | undefined,
+): string | null {
+  // ISO `YYYY-MM-DD` so chuỗi là so ngày — không cần Date.parse
+  const present = [gridUntil, pointUntil].filter(
+    (d): d is string => typeof d === "string" && d.length > 0,
+  );
+  if (present.length === 0) return null;
+  return present.reduce((a, b) => (a < b ? a : b));
+}
+
 /** Kết quả một nhịp — chỗ gọi chỉ cần đọc `nextInMs` để hẹn lượt sau */
 export interface HeartbeatOutcome {
   /** có gửi thật không (false = bị hàng rào chặn, hoàn toàn bình thường) */
@@ -183,10 +389,18 @@ export interface HeartbeatOutcome {
  * Gửi một nhịp. KHÔNG BAO GIỜ ném, không bao giờ chặn.
  */
 export async function sendHeartbeat(info: {
-  /** TÀI KHOẢN đang đăng nhập — vào chữ ký để ĐỔI TÀI KHOẢN là gửi ngay, không
-   *  phải chờ hết cửa 12 giờ. KHÔNG gửi lên máy chủ (server tự đọc từ phiên,
-   *  client không được khai mình là ai). */
-  account?: string | null;
+  /*  TÀI KHOẢN đang đăng nhập — vào chữ ký để ĐỔI TÀI KHOẢN là gửi ngay, không
+      phải chờ hết cửa 30 phút. KHÔNG gửi lên máy chủ (server tự đọc từ phiên,
+      client không được khai mình là ai).
+
+      BẮT BUỘC, KHÔNG `?` (sửa 2026-08-02e — MÃ CHẾT): chỗ gọi duy nhất
+      (`components/usage-heartbeat.tsx`) quên không truyền trường này, mà kiểu cũ
+      để `?` nên TypeScript im lặng ⇒ chữ ký luôn dựng `"-|…"` ⇒ đổi tài khoản
+      trên cùng một máy cho ra chữ ký y hệt ⇒ `pending = false` ⇒ bị cửa 30 phút
+      chặn ⇒ TOÀN BỘ bản vá "đổi tài khoản = sự kiện" (sinh ra từ đúng ca chủ dự
+      án bắt được trên máy thật) chưa từng chạy một lần nào. Để `string | null`
+      thì trình biên dịch gác hộ, khỏi cần test runtime. */
+  account: string | null;
   standalone: boolean;
   offlineReady: boolean;
   /** loại máy THÔ để nhân viên gọi điện chỉ đúng bước cài (ios|android|khac).
@@ -222,7 +436,11 @@ export async function sendHeartbeat(info: {
         (thêm 2026-08-02d — "device id để biết nó vẫn còn giữ cái id đó, đổi thì
         báo ngay"). Khác một trong bốn = có tin mới chưa ai nhận. */
     const pending = readText(HEARTBEAT_SIG_KEY) !== sig;
-    const kind = heartbeatKind(pending);
+    /*  CẦU DAO 5xx: máy chủ nổ liên tiếp thì HẠ nhịp sự kiện về nhịp định kỳ
+        (trần 30 phút thay vì bám 5 phút). Tin KHÔNG mất — `pending` vẫn true,
+        chữ ký vẫn chưa ghi — chỉ chậm lại. Xem eventDegradedToState. */
+    const serverErrors = readMark(HEARTBEAT_5XX_KEY) ?? 0;
+    const kind = heartbeatKind(pending && !eventDegradedToState(serverErrors));
     if (
       !shouldSendHeartbeat({
         online,
@@ -247,13 +465,30 @@ export async function sendHeartbeat(info: {
       HEARTBEAT_RETRY_KEY,
       now + (kind === "event" ? eventRetryMs(fails) : stateBackoffMs(fails)),
     );
+    /*  GẮN CHUỖI CỨNG BẰNG TAY, KHÔNG QUA `authedFetch` (2026-08-02).
+        `authedFetch` có quyền kết luận "máy bị đá" và xoá chuỗi khi thấy 401 —
+        đúng cho các đường bà con vừa bấm, SAI cho một nhịp nền chạy 30 phút một
+        lần. Route heartbeat cố ý luôn trả HTTP 200, nhưng chỉ cần một proxy hay
+        một bản deploy lỡ trả 401 là cả đội tàu tự gỡ tài khoản trong im lặng.
+        Nhịp này chỉ được ĐỌC câu trả lời, không được rút ra kết luận nào về
+        quyền đăng nhập. */
+    const tokenHeaders: Record<string, string> = {
+      "content-type": "application/json",
+    };
+    const tok = readToken();
+    if (tok) tokenHeaders[DEVICE_TOKEN_HEADER] = tok;
     const res = await fetch(apiUrl("/api/me/heartbeat"), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: tokenHeaders,
       // `account` CHỈ dùng cho chữ ký phía máy — máy chủ tự đọc tài khoản từ
       // cookie phiên, client khai gì cũng không được tin.
       body: JSON.stringify({ ...info, account: undefined }),
-      signal: AbortSignal.timeout(HEARTBEAT_TIMEOUT_MS),
+      /*  KHÔNG gọi thẳng `AbortSignal.timeout` (sửa 2026-08-02e): hàm tĩnh đó
+          chỉ có từ Safari 16, máy cũ của bà con (iPhone còn Safari 15) ném
+          `TypeError` NGAY TRONG khối try này ⇒ nhịp chết câm, mà `fails` và mốc
+          hoãn thì đã ghi ở trên rồi ⇒ trả đủ giá quét kho mà chưa gửi được một
+          byte nào. `timeoutSignal` có đường lùi AbortController thật. */
+      signal: timeoutSignal(HEARTBEAT_TIMEOUT_MS),
       keepalive: true,
     });
     /*  MÁY CHỦ NỔ (5xx) KHÔNG PHẢI LÀ "ĐÃ TRẢ LỜI" (sửa 2026-08-02c).
@@ -265,9 +500,18 @@ export async function sendHeartbeat(info: {
         máy chỉ thử đúng một lần rồi im — /quan-tri đứng hình mà không ai biết.
         Nay 5xx đi chung đường với mất-sóng: giữ nguyên mốc bi quan đã ghi ở
         trên, để thang lùi và hẹn giờ trong phiên vẫn chạy. */
-    if (res.status >= 500) return outcome(true, false);
+    if (res.status >= 500) {
+      /*  ĐẾM RIÊNG 5xx (2026-08-02e) — nếu không, nhánh này thoát TRƯỚC dòng
+          `clearMark(HEARTBEAT_FAILS_KEY)` và chữ ký thì chỉ ghi khi ghi được ⇒
+          `pending` mãi true ⇒ `kind` mãi "event" ⇒ bám 5 phút/lần VĨNH VIỄN vào
+          một máy chủ đang chết. Quá ngưỡng thì nhịp tự hạ về định kỳ. */
+      writeMark(HEARTBEAT_5XX_KEY, serverErrors + 1);
+      return outcome(true, false);
+    }
     // CÓ PHẢN HỒI THẬT (2xx/4xx) = nghe được máy chủ ⇒ thang lùi-vì-mạng KHÔNG
-    // áp dụng nữa: xoá bộ đếm hỏng.
+    // áp dụng nữa: xoá bộ đếm hỏng. Máy chủ sống lại (kể cả trả 4xx) ⇒ nhả cầu
+    // dao 5xx, thang sự kiện được bám gắt trở lại.
+    clearMark(HEARTBEAT_5XX_KEY);
     clearMark(HEARTBEAT_FAILS_KEY);
     // ĐỌC CÂU TRẢ LỜI (2026-08-01g): trước đây không ai đọc `recorded`, nên
     // "gửi đi rồi" bị coi là "ghi được rồi".
@@ -276,6 +520,14 @@ export async function sendHeartbeat(info: {
       attached?: boolean;
       need?: HeartbeatNeed;
       nextInMs?: number;
+      /*  HẠNG ĐI NHỜ NHỊP NÀY (2026-08-02g) — thay hẳn nhịp tra hạng riêng của
+          `use-tier`. Chủ dự án: *"token lúc đăng nhập đã biết hạng rồi, check
+          riêng làm gì"*. Đúng — thứ duy nhất còn cần máy chủ là hạng ĐỔI SAU khi
+          đăng nhập (nhân viên gán premium ở /quan-tri), mà nhịp này đã nói
+          chuyện với máy chủ về đúng tài khoản đó, 30 phút/lần, và **im lặng
+          tuyệt đối khi mất sóng**. Nhịp riêng vừa thừa vừa còn gọi lúc offline. */
+      tier?: string;
+      premiumUntil?: string | null;
     } | null;
     /*  MÁY CHỦ NÓI MÁY PHẢI LÀM GÌ (2026-08-02d) — chỗ chặn VÒNG LẶP VÔ ÍCH.
         Chưa gán được mà cứ bám đuổi thì có ca gửi mãi mãi không bao giờ gán
@@ -303,6 +555,20 @@ export async function sendHeartbeat(info: {
       writeMark(HEARTBEAT_RETRY_KEY, now + gap);
     }
     if (!res.ok || body?.recorded !== true) return outcome(true, false);
+    /*  GHI DẤU HẠNG — chỉ khi máy chủ ĐÃ GHI ĐƯỢC (`recorded === true`), tức nó
+        thật sự tìm thấy hàng khách và đọc được cột `tier`. Mọi ca khác
+        (`no_customer_row`, `write_failed`, 5xx, mất sóng) đều không tới được
+        dòng này — ghi bừa ở đây là xoá quyền của người đã trả tiền, giữa biển.
+        `tier` chỉ nhận đúng hai giá trị máy chủ phát ra; chuỗi lạ → bỏ qua, giữ
+        nguyên dấu cũ (thà cũ còn hơn sai). */
+    if (typeof body.tier === "string") {
+      /*  `marked` = ĐÚNG CỘT THÔ, không xét hạn ở đây (luật E4). Hạn lưu riêng
+          và chỉ đem ra xét lúc ĐỌC, có biên 7 ngày — nhờ vậy hết hạn thật thì
+          dấu cũng hết, mà đồng hồ máy lệch vài ngày thì không mất quyền.
+          `until` chỉ giữ khi CÓ dấu premium, y như đường ghi cũ trong use-tier. */
+      const marked = body.tier === "premium";
+      writePremiumMark(marked, marked ? (body.premiumUntil ?? null) : null);
+    }
     // GHI ĐƯỢC → đóng cửa 12 giờ, nhớ CHỮ KÝ vừa báo, bỏ mọi mức hoãn.
     // Chữ ký chỉ ghi ở đây (sau khi máy chủ xác nhận) — gửi mà không ghi được
     // thì lần sau vẫn phải coi là tin mới.

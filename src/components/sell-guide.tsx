@@ -10,6 +10,9 @@ import {
 import { useHome, HomeBar, applyHome } from "@/components/ui/region-filter";
 import { type HomePref } from "@/lib/region";
 import { ChipRow } from "@/components/ui/chip-row";
+import { StatusBanner } from "@/components/ui/status-banner";
+import { readUserList } from "@/lib/user-list-store";
+import { saveUserJson } from "@/lib/user-store";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -343,36 +346,34 @@ const BUYER_TYPES: { value: SavedBuyer["type"]; label: string }[] = [
 const typeLabel = (t: SavedBuyer["type"]) =>
   BUYER_TYPES.find((x) => x.value === t)?.label ?? "Khác";
 
-function loadBuyers(): SavedBuyer[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as SavedBuyer[];
-  } catch {
-    /* ignore */
-  }
-  return [];
-}
-
+/* MỐI QUEN LÀ DỮ LIỆU BÀ CON GÕ TAY (tên nậu vựa + số điện thoại) — mất là mất
+   luôn, không tải lại được như dự báo. Hai lỗi đã sửa (K4, 2026-08-02):
+    · `JSON.parse` hỏng → `catch` → trả `[]` → `ready = true` → effect ghi `"[]"`
+      ĐÈ LÊN chuỗi gốc: cú "khôi phục" tự xoá sổ mối quen của bà con.
+    · `setItem` trần trong `try/catch` RỖNG: máy đầy là mất im lặng, mở lại app
+      mới biết. Nay ghi qua `saveUserJson` (dự báo nhường chỗ) + BÁO ĐỎ. */
 function MyBuyers() {
   const [buyers, setBuyers] = useState<SavedBuyer[]>([]);
   const [ready, setReady] = useState(false);
+  /** máy KHÔNG ĐỌC ĐƯỢC sổ đã lưu → không mở cửa ghi, và nói ra */
+  const [readFailed, setReadFailed] = useState(false);
+  /** máy không giữ được thứ vừa nhập → phải nói ra, không nuốt im */
+  const [saveFailed, setSaveFailed] = useState(false);
   const [editing, setEditing] = useState<SavedBuyer | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDel, setConfirmDel] = useState<SavedBuyer | null>(null);
 
   useEffect(() => {
-    setBuyers(loadBuyers());
+    const r = readUserList<SavedBuyer>(STORAGE_KEY);
+    if (!r.ok) {
+      setReadFailed(true); // `ready` GIỮ NGUYÊN false ⇒ effect ghi không chạy
+      return;
+    }
+    setBuyers(r.list ?? []);
     setReady(true);
   }, []);
   useEffect(() => {
-    if (ready) {
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(buyers));
-      } catch {
-        /* ignore */
-      }
-    }
+    if (ready) setSaveFailed(!saveUserJson(STORAGE_KEY, buyers));
   }, [buyers, ready]);
 
   function upsert(b: SavedBuyer) {
@@ -393,6 +394,26 @@ function MyBuyers() {
         Lưu mối quen của riêng bà con — nậu, vựa, nhà máy hay mua, kèm giá
         thường trả, có ứng tổn không. Chỉ máy bà con thấy.
       </RefNote>
+
+      {/* KHÔNG ĐỌC ĐƯỢC SỔ CŨ — nói ngay, và KHÔNG ghi đè lên nó (thêm mới lúc
+          này là xoá mất sổ gốc). */}
+      {readFailed && (
+        <div className="mt-3 overflow-hidden surface">
+          <StatusBanner level="danger">
+            Máy chưa đọc được sổ mối quen đã lưu. Đóng app rồi mở lại; đừng thêm
+            mối mới lúc này để khỏi mất sổ cũ.
+          </StatusBanner>
+        </div>
+      )}
+      {/* MÁY KHÔNG GIỮ ĐƯỢC — nói ngay, đừng để ra cảng mới biết mất số điện
+          thoại thương lái */}
+      {saveFailed && (
+        <div className="mt-3 overflow-hidden surface">
+          <StatusBanner level="danger">
+            Máy không giữ được — xoá bớt dữ liệu rồi thử lại.
+          </StatusBanner>
+        </div>
+      )}
 
       <div className="my-3">
         <PrimaryButton

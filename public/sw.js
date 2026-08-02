@@ -229,7 +229,7 @@ async function precacheOne(store, url) {
         API, `put` là MỘT thao tác lô: xoá mọi bản ghi khớp rồi NỐI VÀO CUỐI —
         đúng thứ đoạn này cần, mà không để khe "SW bị giết giữa hai lệnh" làm
         chunk BIẾN MẤT trong khi HTML vẫn gọi tên nó (iOS giết SW rất mạnh tay).*/
-    await store.put(url, forPut);
+    await putWithRoom(store, url, forPut, null);
     return body;
   }
   const net = await fetch(url);
@@ -237,7 +237,17 @@ async function precacheOne(store, url) {
   // Nhân bản TRƯỚC khi ai đó đọc thân — put() nuốt một bản, đọc chữ một bản.
   const forCache = net.clone();
   const body = isJs ? await net.clone().text() : null;
-  await store.put(url, forCache);
+  /*  QUA `putWithRoom`, KHÔNG `store.put` trần (2026-08-02c, soát chéo bắt).
+      Đây là đường CÀI ĐẶT TRÊN MÁY GẦN ĐẦY — chỗ dễ đụng hạn ngạch nhất trong
+      cả file, mà lại là chỗ DUY NHẤT còn giữ khuôn `put` trần sau khi bản vá
+      T1 dựng `putWithRoom`. `put` ném ở đây thì `precacheOne` reject ⇒ vòng
+      kiểm lại cuối `precacheShellAssets` thấy thiếu ⇒ install HỎNG, bà con
+      không cập nhật được vỏ chỉ vì máy đầy vài trăm KB.
+      KHÔNG truyền `max`/`trimFn`: `precacheShellAssets` đã gọi
+      `trimCache(store, STATIC_CACHE_MAX)` MỘT LẦN ở cuối; trim mỗi asset là
+      thêm ~120 lượt `cache.keys()` vào đúng mẻ install đang chạy đua với
+      PRECACHE_MAX_MS. */
+  await putWithRoom(store, url, forCache, null);
   return body;
 }
 
@@ -423,9 +433,45 @@ async function installShell() {
       chúng. Copy từng mục — không xoá kho cũ, chỉ đè đúng 7 khoá sống-còn, nên
       không có khe nào bà con mở app mà kho trống. */
   const c = await caches.open(SDFISH_CACHE_V);
+  /*  Có mục sống-còn nào đi qua CHUYỂN HƯỚNG không — xem ghi chú ngay dưới. */
+  let criticalRedirected = false;
   for (const u of CRITICAL_SHELL) {
     const hit = await stage.match(u);
-    if (hit) await c.put(u, hit);
+    /*  ĐỪNG CẤT BẢN ĐÃ ĐI QUA CHUYỂN HƯỚNG (2026-08-02, audit R11 — bẫy chờ).
+        `Cache.put` KHÔNG ném với response redirect (spec chỉ ném với 206 /
+        `Vary: *` / thân đã dùng), nên chỗ này im lặng nhận. Bẫy nằm ở LÚC PHỤC
+        VỤ: `navigationFirst` gọi `caches.match(req)` cho request điều hướng —
+        request đó có `redirect: "manual"`, mà trả về một Response
+        `redirected = true` thì trình duyệt coi là NETWORK ERROR ⇒ MÀN TRẮNG
+        OFFLINE, đúng lúc bà con mở app giữa biển.
+        Nhánh "từ mạng" đã gác `opaqueredirect` từ 2026-08-01 (xem
+        `navigationFirst`); đường "từ kho" thì tới nay chưa ai gác. Hiện chưa nổ
+        vì không route nào trong SHELL redirect — đóng lúc còn rẻ.
+        HAI CA, HAI CÁCH XỬ (tách 2026-08-02c, soát chéo bắt được — trước đây
+        gộp làm một cú `throw`):
+         · `!hit` — `stage.addAll` báo xong mà kho tạm KHÔNG có ⇒ máy đang hỏng
+           thật (hạn ngạch, kho bị dọn giữa chừng). NÉM: cài hỏng ở bờ thì thử
+           lại được, còn "cài xong" trên vỏ rỗng thì bà con chỉ biết khi đã ra
+           khơi.
+         · `hit.redirected` — KHÔNG ném. Ca này không phải máy hỏng mà là CẤU
+           HÌNH ĐỔI (thêm một cú redirect lên "/" hay "/ngu-truong", kể cả tạm ở
+           tầng hosting). Ném ở đây biến một dòng cấu hình thành: install hỏng
+           trên MỌI máy, MỌI lần — máy đã cài thì đứng lại ở vỏ cũ, máy mới cài
+           thì KHÔNG CÓ VỎ NÀO, và không một lời cảnh báo. Nay: không cất bản
+           redirect (bất biến R11 giữ nguyên — bản redirect nằm trong kho vỏ =
+           màn trắng lúc điều hướng offline), giữ nguyên bản cũ nếu kho đã có,
+           và HẠ CỜ `complete` ⇒ chip nói thật "vỏ chưa đủ" thay vì app sập câm.
+           KHÔNG dùng `continue` trần như đề xuất ban đầu: `dockInCache` chỉ đếm
+           bốn màn dock, KHÔNG đếm CRITICAL_SHELL, nên `continue` mà không hạ cờ
+           là chip XANH trên một cái vỏ thiếu "/" — đúng lời hứa dối phải diệt. */
+    if (!hit) {
+      throw new Error(`vỏ sống-còn không cất được: ${u}`);
+    }
+    if (hit.redirected) {
+      criticalRedirected = true;
+      continue;
+    }
+    await c.put(u, hit);
   }
   await caches.delete(SDFISH_STAGE_V);
 
@@ -469,7 +515,11 @@ async function installShell() {
           Nay chỉ nhường cho bản cũ khi bản cũ THẬT SỰ có trong kho. */
       if (!optRes.ok && isPage && (await c.match(u))) continue;
       const hit = await stage2.match(u);
-      if (hit) await c.put(u, hit);
+      // `redirected` → bỏ qua, KHÔNG ném (nhóm phụ không được kéo install hỏng).
+      // Lý do xem ghi chú R11 ở vòng vỏ sống-còn bên trên: bản redirect nằm
+      // trong kho = màn trắng lúc điều hướng offline. Thiếu thì `dockInCache`
+      // đếm hụt ⇒ chip báo vỏ CHƯA đủ, nói thật.
+      if (hit && !hit.redirected) await c.put(u, hit);
     }
   } catch {
     /* nhóm phụ hỏng thì thôi, không được kéo install hỏng theo */
@@ -488,7 +538,12 @@ async function installShell() {
   const dockInCache = [];
   for (const u of dockPages) if (await c.match(u)) dockInCache.push(u);
   return {
-    complete: !critical.capped && dockInCache.length === dockPages.length,
+    /*  `!criticalRedirected`: một mục sống-còn đi qua chuyển hướng thì nó KHÔNG
+        nằm trong kho vỏ (xem vòng copy bên trên) ⇒ vỏ chưa đủ, chip phải đỏ. */
+    complete:
+      !critical.capped &&
+      !criticalRedirected &&
+      dockInCache.length === dockPages.length,
     urls: [...CRITICAL_SHELL, ...critical.urls, ...dockInCache],
   };
 }
@@ -659,6 +714,32 @@ function keepAlive(event, promise) {
   return p;
 }
 
+/*  GIỮ SỐNG CHO MẺ TẢI VỀ MUỘN (2026-08-02, audit T2 — lỗi CHẶN).
+
+    SỰ KIỆN: bốn nhánh mạng đều đăng ký `keepAlive` BÊN TRONG `.then` của `net`
+    ("mạng về thì cất vào kho"). Nhưng từ 2026-08-02 mọi nhánh đều ĐUA ĐỒNG HỒ:
+    khi `raceTimeout` thắng, promise của `respondWith` settle NGAY, trong khi
+    `.then` của `net` còn chưa chạy. Lúc `net` về thật thì `event.waitUntil` ném
+    `InvalidStateError` (sự kiện đã xong, không còn promise nào treo) — và
+    `keepAlive` nuốt đúng lỗi đó ⇒ CÚ GHI KHO KHÔNG BAO GIỜ ĐƯỢC BẢO VỆ, trình
+    duyệt được phép giết service worker giữa chừng ⇒ BẢN MỚI KHÔNG VÀO KHO.
+    Nổ dày nhất ở điều hướng (`NAV_NETWORK_MS` chỉ 2500 ms): ngoài khơi gần như
+    lần nào mạng cũng về sau đồng hồ, tức là gần như KHÔNG BAO GIỜ cất được
+    trang mới — kho vỏ đứng yên ở bản của lần cài đặt.
+
+    Cách chữa: đăng ký giữ-sống NGAY khi tạo `net`, lúc `respondWith` chắc chắn
+    còn treo, nên `waitUntil` nhận đúng.
+
+    ⚠️ VÌ SAO PHẢI BỌC THÊM MỘT ĐỒNG HỒ (đừng gỡ): `raceTimeout` CỐ Ý không hủy
+    `fetch` (mẻ tải chạy nền để lần sau có sẵn). Ở đúng ca "sóng sống mà chết"
+    thì `net` có thể KHÔNG BAO GIỜ settle ⇒ `waitUntil` giữ service worker sống
+    vô hạn: ghim CPU + radio, đốt pin điện thoại của bà con giữa biển. Nên chặn
+    hai đầu: giữ sống đủ lâu cho mẻ về muộn (gấp đôi trần của nhánh, rộng rãi
+    cho sóng 3G thật), rồi buông. */
+function keepAliveLate(event, net, limitMs) {
+  return keepAlive(event, raceTimeout(net, limitMs * 2));
+}
+
 /** Giữ một kho trong trần: Cache API trả key theo thứ tự thêm vào → bỏ từ đầu. */
 async function trimCache(cache, max) {
   const keys = await cache.keys();
@@ -671,6 +752,127 @@ async function trimTileCache(cache) {
   const keys = await cache.keys();
   const over = keys.length - TILE_CACHE_MAX;
   for (let i = 0; i < over; i++) await cache.delete(keys[i]);
+}
+
+/*  GHI VÀO KHO KHI MÁY GẦN HẾT CHỖ (2026-08-02, audit T1).
+
+    SỰ KIỆN: cả ba nhánh cất (ô bản đồ · /api · asset) đều `await c.put(...)`
+    RỒI mới `await trim...(...)`, và cả cụm nằm trong `keepAlive` = `.catch(() =>
+    {})` ⇒ QuotaExceeded bị nuốt sạch, không ai biết bản mới KHÔNG nằm xuống.
+
+    VÌ SAO ĐẢO THỨ TỰ (trim trước, put sau) LÀ KHÔNG ĐỦ — đọc kỹ chỗ này trước
+    khi "đơn giản hoá": `trimCache` đếm theo SỐ ENTRY (trần 120 cho kho API).
+    Payload lưới gió/sóng 16 ngày là VÀI MB một bản, nên hạn ngạch của trình
+    duyệt cạn từ rất lâu TRƯỚC khi kho chạm 120 mục ⇒ gọi trim trước giải phóng
+    đúng 0 byte, rồi `put` vẫn ném y như cũ. Trần-theo-số-mục và hạn-ngạch-theo-
+    byte là hai đại lượng khác nhau.
+
+    Nên: bắt lỗi THẬT, dọn theo BYTE rồi THỬ LẠI một lần — cùng lối với
+    `saveForecast` bên localStorage (src/lib/forecast-cache.ts: tính `needBytes`
+    → dọn → ghi lại, và DỪNG khi dọn không ăn thua). Hỏng lần hai thì để
+    `keepAlive` nuốt: cất không được thì thôi, tuyệt đối không phá cú trả về
+    đang phục vụ màn hình.
+
+    ⚠️ CHỈ DÙNG CHO KHO CÓ TRẦN (ô bản đồ · API · chunk băm tên · RSC). TUYỆT
+    ĐỐI KHÔNG dùng cho kho vỏ `SDFISH_CACHE_V`: mục cũ nhất ở đó là "/",
+    "/ngu-truong", nền bản đồ, font — đuổi chúng để nhét một cái icon là tự tay
+    xoá vỏ sống-còn giữa biển. `res` phải là bản CLONE chưa ai đọc thân. */
+
+/*  BA HỒI QUY CỦA BẢN VÁ T1 ĐẦU TIÊN, vá ở đây (2026-08-02c, ba agent phản biện
+    bắt được) — đọc trước khi "đơn giản hoá" đoạn dưới:
+
+    (a) HẠN NGẠCH LÀ CỦA CẢ ORIGIN, KHÔNG PHẢI CỦA KHO NÀY. Bà con xem 12 MB ô
+        bản đồ ở cảng ⇒ hạn ngạch cạn ⇒ `/api/fish-forecast` 3 MB về ⇒ `put` ném
+        ⇒ bản cũ dọn 8 mục CỦA KHO API rồi thử lại, vẫn ném vì sức ép nằm ở kho
+        ô bản đồ. Ở HEAD: nuốt im, KHÔNG MẤT GÌ. Sau bản vá: MẤT 8 mục mà vẫn
+        không ghi được — và nạn nhân đầu tiên là bản `/api/fish-forecast` cũ
+        ĐANG DÙNG ĐƯỢC (payload bản đồ cá CHỈ tồn tại trong kho đó). Nay: đo
+        BYTE giải phóng được, dọn không ăn thua thì DỪNG, không dọn tiếp.
+    (b) SÀN CỨNG 8 GIẾT KHO ÍT MỤC: `Math.max(8, …)` ở một kho 3 mục là xoá sạch
+        cả 3. Nay không có sàn; trần là NỬA KHO và kho dưới `RECLAIM_MIN_KEYS`
+        mục thì không đuổi ai.
+    (c) `trimFn` KHÔNG BAO GIỜ CHẠY khi cú ghi lại ném — tức khuôn `trim`-sau-
+        `put` mà chính hàm này sinh ra để diệt vẫn còn nguyên ở đúng ca xấu
+        nhất. Nay cú ghi lại nằm trong `try` RIÊNG, trim chạy ở mọi đường ra. */
+
+/** Kho ít hơn bấy nhiêu mục thì đuổi ai cũng vô nghĩa (bỏ 3/3 để nhét 1). */
+const RECLAIM_MIN_KEYS = 4;
+
+/*  TRẦN CỠ THÂN ĐƯỢC GIỮ BẢN DỰ PHÒNG (2026-08-02c).
+    `res.clone()` TEE đôi dòng dữ liệu: nhánh không ai đọc giữ TRỌN THÂN TRONG
+    RAM cho tới khi nhánh kia đọc xong. Mà đường THÀNH CÔNG không bao giờ đụng
+    tới bản dự phòng ⇒ với lưới gió/sóng 1,6 MB và bản đồ cá 3 MB trên Android
+    rẻ, đó là chi phí RAM THẬT, trả MỌI LẦN GHI, cho một nhánh gần như không
+    dùng tới. Nay chỉ giữ bản dự phòng khi thân NHỎ (ô bản đồ ~20 KB, phần lớn
+    chunk JS/CSS, phản hồi RSC) — chỗ mà một lần dọn nhỏ đủ mua lại chỗ trống.
+    Thân LỚN thì ghi thẳng kiểu dòng chảy, hỏng thì THÔI: không có bản dự phòng
+    thì cũng KHÔNG ĐƯỢC XOÁ GÌ — mất mục cũ mà vẫn không ghi được là tệ hơn hẳn
+    nuốt im (xem (a) ở trên). */
+const SPARE_MAX_BYTES = 1024 * 1024;
+
+/** Cỡ thân một phản hồi (byte). `allowRead` = được phép đọc thân (chỉ dùng cho
+    entry SẮP BỊ XOÁ). Trả 0 nghĩa là "không đo được". */
+async function bodyBytes(res, allowRead) {
+  const len = Number(res.headers.get("content-length"));
+  if (Number.isFinite(len) && len > 0) return len;
+  if (!allowRead) return 0;
+  try {
+    return (await res.blob()).size;
+  } catch {
+    return 0;
+  }
+}
+
+/*  DỌN CHỖ THEO BYTE, CÓ CẦU DAO. Trả về SỐ BYTE ước đã giải phóng — chỗ gọi
+    thấy 0 thì biết dọn không ăn thua (sức ép nằm ở kho khác) và đừng dọn tiếp.
+    Cùng lối với `dropOldest`/`saveForecast` bên localStorage.
+    Hai trần, KHÔNG có sàn: (1) không bao giờ quá NỬA kho; (2) đủ số byte cần
+    thì dừng ngay. */
+async function reclaimRoom(c, needBytes) {
+  const keys = await c.keys();
+  if (keys.length < RECLAIM_MIN_KEYS) return 0;
+  const maxDrop = Math.max(8, keys.length >> 2);
+  let freed = 0;
+  // Cache API trả key theo thứ tự THÊM VÀO → bỏ từ đầu = bỏ bản cất sớm nhất.
+  for (let i = 0; i < maxDrop; i++) {
+    const hit = await c.match(keys[i]);
+    const size = hit ? await bodyBytes(hit, true) : 0;
+    if (await c.delete(keys[i])) freed += size;
+    if (freed >= needBytes) break;
+  }
+  return freed;
+}
+
+async function putWithRoom(c, req, res, max, trimFn) {
+  /*  ĐO TRƯỚC, KHÔNG ĐỌC THÂN (`allowRead: false`): đọc thân ở đây là hỏng luôn
+      cú `put` ngay dưới. Không có `content-length` → 0 → không giữ bản dự phòng,
+      cũng không dọn: thà nuốt im còn hơn xoá mù. */
+  const need = await bodyBytes(res, false);
+  const spare = need > 0 && need <= SPARE_MAX_BYTES ? res.clone() : null;
+  try {
+    await c.put(req, res);
+  } catch {
+    // QuotaExceeded — kho đầy theo BYTE, trần theo số mục không cứu được
+    if (spare) {
+      const freed = await reclaimRoom(c, need);
+      // freed === 0 ⇒ không đuổi được ai (kho quá ít mục) ⇒ đừng thử lại vô ích
+      if (freed > 0) {
+        try {
+          await c.put(req, spare);
+        } catch {
+          /*  DỌN RỒI VẪN NÉM ⇒ SỨC ÉP NẰM Ở KHO KHÁC (hạn ngạch là của cả
+              origin). DỪNG — dọn tiếp chỉ mất thêm bản bà con đang dùng được mà
+              vẫn không ghi nổi một byte. Để `keepAlive` nuốt. */
+        }
+      }
+    }
+  }
+  /*  TRIM CHẠY Ở MỌI ĐƯỜNG RA — đây là lý do cú ghi lại phải nằm trong `try`
+      RIÊNG. `max == null && !trimFn` (đường `precacheOne`) thì KHÔNG trim:
+      `trimCache(c, null)` sẽ tính `keys.length - null = keys.length` và xoá
+      SẠCH KHO. */
+  if (trimFn) await trimFn(c);
+  else if (max != null) await trimCache(c, max);
 }
 
 /*  Ô bản đồ chờ mạng bao lâu rồi lấy ô đã cất (2026-08-02, audit B3). Ô nhỏ
@@ -706,15 +908,15 @@ function tileFirst(event) {
         // khi mọi chỉ báo đều xanh vì bà con đã thấy dữ liệu trên màn rồi.
         keepAlive(
           event,
-          caches.open(SDFISH_TILE_V).then(async (c) => {
-            await c.put(req, copy);
-            await trimTileCache(c);
-          }),
+          caches
+            .open(SDFISH_TILE_V)
+            .then((c) => putWithRoom(c, req, copy, null, trimTileCache)),
         );
       }
       return res;
     })
     .catch(() => cached());
+  keepAliveLate(event, net, TILE_NETWORK_MS);
   // Hết giờ thì lấy ô trong máy; `net` vẫn chạy nền và vẫn cất cho lần sau.
   return raceTimeout(net, TILE_NETWORK_MS).then((winner) => winner || cached());
 }
@@ -734,6 +936,9 @@ function navigationFirst(event) {
   const net = fetch(req).then((res) => {
     if (res.ok) {
       const copy = res.clone();
+      /*  KHO VỎ KHÔNG DÙNG `putWithRoom`: mục cũ nhất ở đây là "/",
+          "/ngu-truong", nền bản đồ, font — đuổi chúng để nhét một trang mới là
+          tự tay xoá vỏ sống-còn. Máy hết chỗ thì thà không cất trang này. */
       keepAlive(
         event,
         caches.open(SDFISH_CACHE_V).then((c) => c.put(req, copy)),
@@ -742,6 +947,14 @@ function navigationFirst(event) {
     return res;
   });
   net.catch(() => {}); // đừng để promise lỗi lửng lơ
+  /*  NAV_GIVEUP_MS chứ không phải NAV_NETWORK_MS: trang chưa có trong kho thì
+      nhánh này còn một cuộc đua THỨ HAI, và nó chạy SAU cuộc đua thứ nhất —
+      trần thật của nhánh điều hướng là NAV_NETWORK_MS + NAV_GIVEUP_MS =
+      2,5 + 8 = 10,5 giây, không phải 8. `keepAliveLate` nhân đôi trần được
+      truyền vào (8 × 2 = 16 s) nên vẫn phủ trọn 10,5 s đó; truyền
+      NAV_NETWORK_MS vào đây thì mức giữ-sống chỉ còn 5 s, tức tự cắt mẻ tải về
+      muộn của chính mình. Xem ghi chú `keepAliveLate`. */
+  keepAliveLate(event, net, NAV_GIVEUP_MS);
   return raceTimeout(
     net.then(
       (r) => r,
@@ -856,10 +1069,9 @@ self.addEventListener("fetch", (event) => {
           // dữ liệu /api/* vào kho RIÊNG — không mất khi bump vỏ
           keepAlive(
             event,
-            caches.open(SDFISH_API_V).then(async (c) => {
-              await c.put(req, copy);
-              await trimCache(c, API_CACHE_MAX);
-            }),
+            caches
+              .open(SDFISH_API_V)
+              .then((c) => putWithRoom(c, req, copy, API_CACHE_MAX)),
           );
           return res;
         }
@@ -889,6 +1101,7 @@ self.addEventListener("fetch", (event) => {
             }),
         ),
       );
+    keepAliveLate(event, net, API_STALE_MS);
     /*  ĐỒNG HỒ "CÓ BẢN LƯU THÌ ĐỪNG BẮT CHỜ" (2026-08-02, audit B4).
         Trước đây nhánh này CỐ Ý không có đồng hồ, lập luận "client đã có
         AbortSignal riêng". Khúc bị sót: client hủy thì trình duyệt vứt LUÔN cả
@@ -915,6 +1128,11 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(req).then((hit) => {
       if (hit) return hit;
+      // ĐỒNG HỒ CHO MỌI NHÁNH (2026-08-02): trước đây chỉ RSC có, còn JS/CSS/
+      // font/ảnh trả thẳng `net` ⇒ ca sóng "sống mà chết" treo màn vô hạn (C-3).
+      // Thua đồng hồ thì thử kho một lần nữa (mẻ khác có thể vừa cất xong) rồi
+      // trả 504 gọn — `net` vẫn chạy nền và vẫn cất, lần sau là có sẵn.
+      const limitMs = isRsc ? RSC_NETWORK_MS : ASSET_NETWORK_MS;
       const net = fetch(req)
         .then((res) => {
           if (res.ok) {
@@ -925,21 +1143,27 @@ self.addEventListener("fetch", (event) => {
             // ⇒ trần FIFO chung sẽ đẩy chính CHUNK KHUNG SƯỜN (cất sớm nhất, và
             // không được làm mới vị trí khi trúng kho) ra trước ⇒ cold-start
             // offline nhận 504 cho chunk = trắng màn. Hai kho, hai trần.
+            const store = isRsc
+              ? SDFISH_RSC_V
+              : isHashed
+                ? SDFISH_STATIC_V
+                : SDFISH_CACHE_V;
+            const max = isRsc
+              ? RSC_CACHE_MAX
+              : isHashed
+                ? STATIC_CACHE_MAX
+                : null;
             keepAlive(
               event,
-              caches
-                .open(
-                  isRsc
-                    ? SDFISH_RSC_V
-                    : isHashed
-                      ? SDFISH_STATIC_V
-                      : SDFISH_CACHE_V,
-                )
-                .then(async (c) => {
-                  await c.put(req, copy);
-                  if (isRsc) await trimCache(c, RSC_CACHE_MAX);
-                  else if (isHashed) await trimCache(c, STATIC_CACHE_MAX);
-                }),
+              caches.open(store).then((c) =>
+                /*  KHO VỎ (asset không băm tên: icon, /data, /fonts) KHÔNG có
+                    trần và KHÔNG được đuổi ai — mục cũ nhất ở đó là "/",
+                    "/ngu-truong", nền bản đồ. Chỉ hai kho CÓ TRẦN mới được dọn
+                    chỗ khi máy đầy (xem putWithRoom). */
+                max == null
+                  ? c.put(req, copy)
+                  : putWithRoom(c, req, copy, max),
+              ),
             );
           }
           return res;
@@ -950,11 +1174,7 @@ self.addEventListener("fetch", (event) => {
         .catch(() =>
           caches.match(req).then((h) => h || new Response("", { status: 504 })),
         );
-      // ĐỒNG HỒ CHO MỌI NHÁNH (2026-08-02): trước đây chỉ RSC có, còn JS/CSS/
-      // font/ảnh trả thẳng `net` ⇒ ca sóng "sống mà chết" treo màn vô hạn (C-3).
-      // Thua đồng hồ thì thử kho một lần nữa (mẻ khác có thể vừa cất xong) rồi
-      // trả 504 gọn — `net` vẫn chạy nền và vẫn cất, lần sau là có sẵn.
-      const limitMs = isRsc ? RSC_NETWORK_MS : ASSET_NETWORK_MS;
+      keepAliveLate(event, net, limitMs);
       return raceTimeout(net, limitMs).then(
         (winner) =>
           winner ||
@@ -979,6 +1199,47 @@ const PUSH_FRESH_MS = 2 * 60 * 60 * 1000;
 
 /** Trần cho cú báo biên nhận — xem ghi chú tại chỗ dùng (audit F7) */
 const ACK_TIMEOUT_MS = 10000;
+
+/*  ĐỒNG HỒ CHẶN CHO fetch — bản NỘI BỘ của `src/lib/abort.ts` (2026-08-02c).
+    `sw.js` là script service worker thuần, KHÔNG import được `@/lib/abort`, nên
+    phải chép ý tưởng chứ không chia sẻ mã được.
+
+    VÌ SAO KHÔNG GỌI THẲNG `AbortSignal.timeout(...)`: hàm tĩnh đó chỉ có từ
+    Safari 16 / Chrome 103. Trên iPhone còn Safari 15 và WebView Android đời cũ
+    — đúng nhóm máy của bà con — nó ném `TypeError` NGAY TRONG `.then`, rồi
+    `.catch(() => {})` ở cuối chuỗi nuốt sạch ⇒ CÚ BÁO BIÊN NHẬN KHÔNG BAO GIỜ
+    ĐƯỢC GỬI: dựng lại đúng cảnh "đã gửi mà đọc 0" mà bản vá 0024 (1b1aeb4) vừa
+    dọn, riêng cho nhóm máy cũ, và im lặng tuyệt đối.
+
+    KHÔNG BAO GIỜ ném. Trả `undefined` khi môi trường không có cả
+    `AbortController` — `fetch(url, { signal: undefined })` hợp lệ, chỉ là
+    không có đồng hồ; thà gửi được biên nhận không đồng hồ còn hơn không gửi. */
+function timeoutSignal(ms) {
+  try {
+    if (
+      typeof AbortSignal !== "undefined" &&
+      typeof AbortSignal.timeout === "function"
+    ) {
+      return AbortSignal.timeout(ms);
+    }
+  } catch {
+    /* có tên mà gọi hỏng → rơi xuống đường lùi bên dưới */
+  }
+  try {
+    if (typeof AbortController === "undefined") return undefined;
+    const ctrl = new AbortController();
+    setTimeout(() => {
+      try {
+        ctrl.abort();
+      } catch {
+        /* bỏ qua */
+      }
+    }, ms);
+    return ctrl.signal;
+  } catch {
+    return undefined;
+  }
+}
 
 function formatSentAtVN(ms) {
   const d = new Date(ms + 7 * 3600 * 1000); // UTC+7
@@ -1037,7 +1298,7 @@ self.addEventListener("push", (event) => {
                   // ĐỒNG HỒ (2026-08-02, audit F7): biên nhận treo giữ service
                   // worker sống, tốn pin và sóng của bà con suốt chuyến. Hỏng
                   // thì thôi — lần mở app sau có sóng sẽ báo lại.
-                  signal: AbortSignal.timeout(ACK_TIMEOUT_MS),
+                  signal: timeoutSignal(ACK_TIMEOUT_MS),
                   body: JSON.stringify({
                     messageId: data.messageId,
                     endpoint: sub.endpoint,
@@ -1072,7 +1333,7 @@ self.addEventListener("notificationclick", (event) => {
             ? fetch("/api/push/ack", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                signal: AbortSignal.timeout(ACK_TIMEOUT_MS), // xem ghi chú ở nhánh push
+                signal: timeoutSignal(ACK_TIMEOUT_MS), // xem ghi chú ở nhánh push
                 body: JSON.stringify({
                   messageId,
                   endpoint: sub.endpoint,

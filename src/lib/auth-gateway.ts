@@ -6,6 +6,8 @@
 //         khoản ForFish → client đăng nhập bằng đường password chuẩn,
 //         KHÔNG cần magic-link/redirect, KHÔNG cần SUPABASE_SERVICE_ROLE_KEY.
 
+import { timeoutSignal } from "@/lib/abort";
+
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
@@ -35,7 +37,7 @@ export async function callAuthGateway(
         apikey: ANON,
       },
       body: JSON.stringify({ action, ...payload }),
-      signal: AbortSignal.timeout(20000),
+      signal: timeoutSignal(20000),
     });
     const j = (await r.json().catch(() => null)) as {
       ok?: boolean;

@@ -2,6 +2,9 @@
 // sản phẩm) gắn theo `boatId` của tàu đang chọn. Lưu local (chưa đăng nhập);
 // khi có auth + Supabase sẽ đồng bộ theo owner_id.
 
+import { readUserList } from "@/lib/user-list-store";
+import { saveUserJson } from "@/lib/user-store";
+
 export interface Boat {
   id: string;
   name: string;        // tên gọi tàu
@@ -18,26 +21,39 @@ export function demoBoats(): Boat[] {
   return [{ id: "boat-1", name: "Tàu của tôi", maTau: "" }];
 }
 
-export function loadBoats(): Boat[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(BOATS_KEY);
-    if (raw) {
-      const list = JSON.parse(raw) as Boat[];
-      if (Array.isArray(list) && list.length) return list;
-    }
-  } catch {
-    /* ignore */
-  }
-  return demoBoats();
+/**
+ * KHÔNG ĐỌC ĐƯỢC DANH SÁCH TÀU ⇒ KHOÁ CỬA GHI (K4, 2026-08-02).
+ *
+ * Đây đúng cảnh mà `lib/user-store.ts` gọi tên: "tủ giấy tờ rơi về SỔ MẪU". Một
+ * ký tự JSON hỏng là `loadBoats` cũ trả `demoBoats()` — tàu tên "Tàu của tôi",
+ * mã trống — rồi `boat-store` bật `ready`, và cú `addBoat`/`updateBoat` đầu tiên
+ * `saveBoats` ĐÈ danh sách mẫu lên sổ thật: mất cả đội tàu, mà MỌI dữ liệu khác
+ * (giấy tờ, thuyền viên, bảo dưỡng) đều gắn theo `boatId` nên mất tàu là mất
+ * đường về của hết thảy.
+ *
+ * Cờ đặt Ở TẦNG KHO vì `boat-store.ts` (chỗ gọi) không có ô hiện câu báo và
+ * cũng không thuộc mẻ sửa này. Đọc hỏng thì vẫn cho xem sổ mẫu để app còn dùng
+ * được, nhưng KHÔNG cho ghi đè — mở lại app là đọc lại sổ gốc.
+ */
+let readFailed = false;
+
+/** Lần đọc danh sách tàu gần nhất có hỏng không (chỗ gọi muốn báo thì đã có). */
+export function boatsReadFailed(): boolean {
+  return readFailed;
 }
 
-export function saveBoats(boats: Boat[]) {
-  try {
-    window.localStorage.setItem(BOATS_KEY, JSON.stringify(boats));
-  } catch {
-    /* ignore */
-  }
+export function loadBoats(): Boat[] {
+  if (typeof window === "undefined") return [];
+  const r = readUserList<Boat>(BOATS_KEY);
+  readFailed = !r.ok;
+  const list = r.list ?? [];
+  return list.length ? list : demoBoats();
+}
+
+/** Trả `false` khi máy KHÔNG giữ được (đọc hỏng → cấm đè; hoặc hết chỗ). */
+export function saveBoats(boats: Boat[]): boolean {
+  if (readFailed) return false;
+  return saveUserJson(BOATS_KEY, boats);
 }
 
 export function loadCurrentBoatId(): string | null {

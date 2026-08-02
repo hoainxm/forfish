@@ -11,6 +11,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { isValidVnPhone, normalizeVnPhone } from "@/lib/phone";
 import { isNetworkAuthError, withDeadline } from "@/lib/auth-error";
+import { timeoutSignal } from "@/lib/abort";
 
 const TABLE = "market_listings";
 
@@ -134,14 +135,18 @@ export async function fetchListings(): Promise<MarketListing[] | null> {
      mất cờ "tin của tôi", danh sách vẫn hiện. */
   const userRes = await withDeadline(supabase.auth.getUser(), 8000);
   const uid = userRes?.data?.user?.id ?? null;
-  const { data, error } = await supabase
+  /* `.abortSignal()` KHÔNG nhận `undefined` sạch nên phải gắn có điều kiện —
+     máy quá cũ thiếu cả AbortController thì chạy không trần, còn hơn ném. */
+  const sig = timeoutSignal(12000);
+  let q = supabase
     .from(TABLE)
     .select(
       "id,owner_id,side,poster_kind,poster_name,species,quantity,price_text,province,phone,note,status,created_at",
     )
     .order("created_at", { ascending: false })
-    .limit(100)
-    .abortSignal(AbortSignal.timeout(12000));
+    .limit(100);
+  if (sig) q = q.abortSignal(sig);
+  const { data, error } = await q;
   if (error || !data) return null;
   return (data as Row[]).map((r) => rowToListing(r, uid));
 }

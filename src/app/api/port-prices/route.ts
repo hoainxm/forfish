@@ -4,6 +4,7 @@ import {
   parseVasepBulletin,
   pickLatestBulletinUrl,
 } from "@/lib/port-price-source";
+import { timeoutSignal } from "@/lib/abort";
 
 /**
  * Giá cá LIVE — server kéo bản tin giá tuần VASEP (Khánh Hòa) rồi map về
@@ -24,7 +25,7 @@ export async function GET() {
     const opt = {
       next: { revalidate: REVALIDATE },
       headers: { "user-agent": "Mozilla/5.0 (SDFish price bot)" },
-      signal: AbortSignal.timeout(15000),
+      signal: timeoutSignal(15000),
     };
     const listing = await fetch(VASEP_LISTING_URL, opt).then((r) =>
       r.ok ? r.text() : null,

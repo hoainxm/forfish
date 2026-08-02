@@ -6,6 +6,8 @@
 
 import { apiUrl } from "@/lib/api-base";
 import type { PushSubscriptionInput } from "@/lib/push-subscriptions";
+import { timeoutSignal } from "@/lib/abort";
+import { tokenHeader } from "@/lib/device-token-store";
 
 /** VAPID public key trình duyệt cần dạng Uint8Array, server phát base64url. Thuần, có test. */
 export function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -25,7 +27,7 @@ export function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export async function fetchVapidPublicKey(): Promise<string | null> {
   try {
     const r = await fetch(apiUrl("/api/push/vapid-public-key"), {
-      signal: AbortSignal.timeout(8000),
+      signal: timeoutSignal(8000),
     });
     if (r.ok) {
       const j = (await r.json()) as { key?: string | null };
@@ -101,13 +103,13 @@ export async function subscribeToPush(
 
   const r = await fetch(apiUrl("/api/push/subscribe"), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...tokenHeader() },
     body: JSON.stringify({
       subscription: toInput(sub),
       phone: phone ?? undefined,
       userAgent: navigator.userAgent,
     }),
-    signal: AbortSignal.timeout(20000),
+    signal: timeoutSignal(20000),
   }).catch(() => null);
   if (!r?.ok) return { ok: false, error: "save_failed" };
   return { ok: true };
@@ -120,9 +122,9 @@ export async function unsubscribeFromPush(): Promise<boolean> {
   await sub.unsubscribe().catch(() => {});
   const r = await fetch(apiUrl("/api/push/subscribe"), {
     method: "DELETE",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...tokenHeader() },
     body: JSON.stringify({ endpoint }),
-    signal: AbortSignal.timeout(20000),
+    signal: timeoutSignal(20000),
   }).catch(() => null);
   return Boolean(r?.ok);
 }
@@ -163,12 +165,12 @@ export async function syncPushAccount(): Promise<SyncPushResult> {
     if (!sub) return "no-subscription";
     const r = await fetch(apiUrl("/api/push/subscribe"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...tokenHeader() },
       body: JSON.stringify({
         subscription: toInput(sub),
         userAgent: navigator.userAgent,
       }),
-      signal: AbortSignal.timeout(10000),
+      signal: timeoutSignal(10000),
       keepalive: true,
     });
     if (!r.ok) return "failed";
@@ -191,9 +193,9 @@ export async function detachPushAccount(): Promise<void> {
     if (!sub) return;
     await fetch(apiUrl("/api/push/subscribe"), {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ endpoint: sub.endpoint }),
-      signal: AbortSignal.timeout(10000),
+      signal: timeoutSignal(10000),
       keepalive: true,
     });
   } catch {

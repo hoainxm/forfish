@@ -4,30 +4,44 @@
 // client chỉ thấy hàng của mình. Chưa đăng nhập / bảng chưa có → ok:false,
 // UI lùi dữ liệu local. Shape {ok, assets} giữ nguyên (use-sdvico-assets không đổi).
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { identityFromRequest } from "@/lib/api-identity";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { OwnedAssets, SupportRequest } from "@/lib/owned-assets";
 
-export async function GET() {
-  const supabase = await createClient();
-  if (!supabase) {
-    return NextResponse.json({ ok: false, code: "not_configured" });
+export async function GET(req: Request) {
+  const who = await identityFromRequest(req);
+  if (!who.ok) {
+    /*  GIỮ SHAPE CŨ `{ok:false, code}` — `use-sdvico-assets` đọc `code` để lùi về
+        dữ liệu local, và nó KHÔNG được thấy 401 ném ra ngoài. Nhưng chuỗi bị thu
+        hồi thì phải để `identityFromRequest` trả 401 thật: đó là tín hiệu duy
+        nhất báo máy vừa bị đá. */
+    if (who.res.status === 503) {
+      return NextResponse.json({ ok: false, code: "not_configured" });
+    }
+    if (who.res.status === 401 && !req.headers.get("x-sdfish-token")) {
+      return NextResponse.json({ ok: false, code: "not_signed_in" });
+    }
+    return who.res;
   }
 
-  const { data } = await supabase.auth.getUser();
-  if (!data?.user) {
-    return NextResponse.json({ ok: false, code: "not_signed_in" });
-  }
+  const admin = createAdminClient();
+  if (!admin) return NextResponse.json({ ok: false, code: "not_configured" });
 
-  // RLS tự lọc theo current_phone() — không cần truyền SĐT từ client.
+  /*  TỰ LỌC THEO SĐT VỪA XÁC THỰC (đổi 2026-08-02). Trước đây RLS `current_phone()`
+      lọc hộ vì client mang phiên Supabase; nay không còn phiên nên route dùng
+      service key và PHẢI tự lọc. SĐT chỉ lấy từ cổng chuỗi — không nhận từ body,
+      query, hay bất cứ thứ gì máy khách nói ra. */
   const [{ data: customer }, { data: devices, error: devErr }, { data: reqs }] =
     await Promise.all([
-      supabase.from("customers").select("name").maybeSingle(),
-      supabase
+      admin.from("customers").select("name").eq("phone", who.phone).maybeSingle(),
+      admin
         .from("devices")
-        .select("id, name, serial, purchased_on, warranty_until, order_code"),
-      supabase
+        .select("id, name, serial, purchased_on, warranty_until, order_code")
+        .eq("customer_phone", who.phone),
+      admin
         .from("support_requests")
         .select("id, summary, status, created_at")
+        .eq("phone", who.phone)
         .order("created_at", { ascending: false }),
     ]);
 

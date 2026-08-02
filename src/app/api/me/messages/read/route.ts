@@ -19,9 +19,8 @@
 // Route này KHÔNG được nằm trong API_CACHE_ALLOW của sw.js (là POST, và gắn
 // danh tính).
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeVnPhone } from "@/lib/phone";
 
 /** Trần một lượt — hộp thư chỉ trả ≤50 tin, xin nhiều hơn là bất thường */
 const MAX_IDS = 50;
@@ -44,11 +43,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });
   }
 
-  // AI ĐỌC — lấy từ PHIÊN trước, endpoint chỉ là đường lùi cho khách vãng lai.
-  const supabase = await createClient();
-  const { data } = (await supabase?.auth.getUser()) ?? { data: null };
-  const email = data?.user?.email;
-  const phone = email ? normalizeVnPhone(email.split("@")[0]) : null;
+  /*  AI ĐỌC — lấy từ CHUỖI CỨNG trước, endpoint chỉ là đường lùi cho khách vãng
+      lai. `anonymous = true`: đây là đường ghi "đã đọc", không phải cửa quyền —
+      khách chưa đăng nhập vẫn phải ghi được (họ nhận thông báo chung qua push).
+      Chuỗi bị thu hồi thì vẫn 401 để máy biết mình vừa bị đá. */
+  const who = await identityFromRequest(req, true);
+  if (!who.ok) return who.res;
+  const phone = who.phone || null;
 
   let reader: string | null = phone ? `sdt:${phone}` : null;
   let accountPhone: string | null = phone;

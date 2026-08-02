@@ -18,6 +18,7 @@
 // monotonic: mất nguồn thì bớt thông tin, KHÔNG bịa thêm).
 
 import weightsRaw from "@/data/fish-blend-weights.json";
+import { timeoutSignal } from "@/lib/abort";
 
 /* ── bảng trọng số (sinh offline) ─────────────────────────────────────────── */
 
@@ -562,7 +563,7 @@ let cached: Promise<Climatology | null> | null = null;
 export function fetchClimatology(): Promise<Climatology | null> {
   if (!cached) {
     cached = fetch("/data/fish-climatology.v1.json", {
-      signal: AbortSignal.timeout(15000),
+      signal: timeoutSignal(15000),
     })
       .then((r) => {
         if (!r.ok) throw new Error(`climatology ${r.status}`);

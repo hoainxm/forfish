@@ -9,6 +9,7 @@ import {
   isTileProxySource,
   upstreamTileUrl,
 } from "@/lib/tile-proxy";
+import { timeoutSignal } from "@/lib/abort";
 
 type Ctx = {
   params: Promise<{ src: string; z: string; x: string; y: string }>;
@@ -40,7 +41,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   // đúng nguồn nhưng ngoài dải zoom / ô vô lý → ô trống, không phải lỗi
   if (!url) return empty();
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(12_000) });
+    const res = await fetch(url, { signal: timeoutSignal(12_000) });
     // 404 của nguồn = ô đó thật sự không có (biển sâu ngoài vùng phủ) → ô trống.
     // Mọi mã còn lại (429 quá tải, 5xx, bảo trì) = KHÔNG HỎI ĐƯỢC → nói thật.
     if (res.status === 404) return empty();

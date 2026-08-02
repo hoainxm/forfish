@@ -12,25 +12,26 @@
 // không được đọc thư của người trước. Bản offline nằm ở localStorage phía
 // client, có kèm SĐT chủ nhân và bị xoá khi đăng xuất (xem lib/inbox.ts).
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeVnPhone } from "@/lib/phone";
 
 /** Bao nhiêu tin gần nhất — đủ cho một chuyến biển dài, không phình vô hạn */
 const MAX_MESSAGES = 50;
 
-export async function GET() {
-  const supabase = await createClient();
-  if (!supabase) return NextResponse.json({ ok: false }, { status: 503 });
-  const { data } = await supabase.auth.getUser();
-  const email = data?.user?.email;
+export async function GET(req: Request) {
   /* CHƯA ĐĂNG NHẬP VẪN XEM ĐƯỢC TIN GỬI CHUNG (sửa 2026-08-01n).
      Bản đầu trả rỗng ⇒ trang chủ ẩn hẳn mục Thông báo. Nhưng máy CHƯA gắn tài
      khoản vẫn NHẬN được thông báo chung qua push — mà vuốt tắt là mất, đúng
      cái lỗ hộp thư sinh ra để bịt. Thực tế lúc này MỌI máy đăng ký đều đang ẩn
      danh, nên chặn khách vãng lai là tự vô hiệu hoá tính năng.
-     Tin nhắm riêng thì vẫn phải đăng nhập mới thấy. */
-  const phone = email ? normalizeVnPhone(email.split("@")[0]) : null;
+     Tin nhắm riêng thì vẫn phải đăng nhập mới thấy.
+
+     `anonymous = true` giữ đúng hành vi đó sau khi đổi sang chuỗi cứng: không có
+     chuỗi thì `phone` rỗng và chỉ thấy tin chung, KHÔNG bị 401. Còn chuỗi ĐÃ BỊ
+     THU HỒI thì vẫn 401 — máy đó phải biết nó vừa bị đá. */
+  const who = await identityFromRequest(req, true);
+  if (!who.ok) return who.res;
+  const phone = who.phone || null;
 
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ ok: false }, { status: 503 });

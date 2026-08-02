@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuthUser } from "@/lib/use-auth";
 import {
+  acceptRefresh,
   loadInbox,
   markRead,
   refreshInbox,
@@ -67,12 +68,21 @@ export function InboxSection() {
     setMessages(loadInbox(phone));
   }, [phone]);
 
-  // 2) rồi mới làm mới từ máy chủ — hỏng thì giữ nguyên bản đang hiện
+  /* 2) rồi mới làm mới từ máy chủ — hỏng thì giữ nguyên bản đang hiện.
+     SO NGĂN TRƯỚC KHI VẼ (sửa 2026-08-02, C-1/R2): máy chủ trả 200 kèm
+     `phone:null, messages:[chỉ tin chung]` khi không đọc được phiên (token hết
+     hạn giữa biển là chuyện thường), nên `!ok` không bắt được và hai tin nhắm
+     riêng BIẾN KHỎI MÀN HÌNH dù vẫn nằm nguyên trong máy — phải tắt hẳn app mới
+     thấy lại. `saveInbox` có lá chắn này rồi, `setMessages` thì chưa.
+     Deps phải có `phone`: bản cũ `useCallback(…, [])` nên hàm này KHÔNG HỀ THẤY
+     `phone`, có muốn so cũng so vào giá trị đầu tiên. */
   const refresh = useCallback(() => {
     void refreshInbox().then((r) => {
-      if (r?.messages) setMessages(r.messages);
+      if (!r) return; // mất sóng — giữ nguyên bản đang hiện
+      if (!acceptRefresh(phone, r.phone)) return; // câu trả lời của NGĂN KHÁC
+      setMessages(r.messages);
     });
-  }, []);
+  }, [phone]);
   useEffect(() => {
     if (!ready) return;
     refresh();

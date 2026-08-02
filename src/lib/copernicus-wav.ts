@@ -24,6 +24,7 @@ import {
   nearestIndex,
   cfTimeToMs,
 } from "@/lib/copernicus";
+import { timeoutSignal } from "@/lib/abort";
 
 const UA =
   "Mozilla/5.0 (compatible; SDFish/1.0; +https://github.com/Long-Forfun/ForFish)";
@@ -53,7 +54,7 @@ export interface WavBackup {
 
 async function getBuf(path: string): Promise<Uint8Array> {
   const r = await fetch(`${BASE}/${path}`, {
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: timeoutSignal(TIMEOUT_MS),
     headers: { "User-Agent": UA },
   });
   if (!r.ok) throw new Error(`wav chunk ${r.status} ${path}`);
@@ -84,7 +85,7 @@ export async function fetchWavBackup(
 ): Promise<WavBackup | null> {
   try {
     const zres = await fetch(`${BASE}/.zmetadata`, {
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: timeoutSignal(TIMEOUT_MS),
       headers: { "User-Agent": UA },
     });
     if (!zres.ok) return null;

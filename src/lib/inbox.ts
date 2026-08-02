@@ -16,6 +16,8 @@
 
 import { apiUrl } from "@/lib/api-base";
 import { normalizeVnPhone } from "@/lib/phone";
+import { timeoutSignal } from "@/lib/abort";
+import { noteResponse, tokenHeader } from "@/lib/device-token-store";
 
 export interface InboxMessage {
   id: string;
@@ -56,6 +58,26 @@ export function inboxBucket(phone: string | null | undefined): string {
   if (!phone) return GUEST;
   const n = normalizeVnPhone(phone);
   return n && n !== "0" ? n : GUEST;
+}
+
+/**
+ * CÓ ĐƯỢC VẼ câu trả lời vừa về lên màn hình không — THUẦN để test được
+ * (2026-08-02, C-1/R2).
+ *
+ * VÌ SAO CÓ: `saveInbox` CÓ lá chắn "nhánh khách không được đè ngăn của người
+ * đã đăng nhập", nhưng `setMessages` thì KHÔNG. Máy chủ trả
+ * `{ok:true, phone:null, messages:[chỉ tin chung]}` khi không đọc được phiên —
+ * 200 hợp lệ, `!j.ok` không bắt được ⇒ kho trong máy còn nguyên mà MÀN HÌNH thì
+ * mất sạch tin nhắm riêng, phải tắt hẳn app mới thấy lại.
+ *
+ * So NGĂN chứ không so chuỗi thô: `"0912345678"` và `"84912345678"` là một
+ * người, còn `null` (khách) và một SĐT thì không.
+ */
+export function acceptRefresh(
+  curPhone: string | null | undefined,
+  resPhone: string | null | undefined,
+): boolean {
+  return inboxBucket(curPhone) === inboxBucket(resPhone);
 }
 
 function readStored(): Stored | null {
@@ -219,10 +241,13 @@ export async function markRead(
     }
     const r = await fetch(apiUrl("/api/me/messages/read"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ ids, endpoint }),
-      signal: AbortSignal.timeout(8000),
+      signal: timeoutSignal(8000),
     });
+    /* MỘT DÒNG NÀY = chỗ này cũng phát hiện được máy bị đá. Bộ não vẫn
+       nằm ở `noteResponse`; ở đây chỉ đưa phản hồi cho nó soi. */
+    void noteResponse(r);
     if (!r.ok) return;
     const j = (await r.json().catch(() => null)) as { ok?: boolean } | null;
     if (!j?.ok) return;
@@ -250,8 +275,12 @@ export async function refreshInbox(): Promise<{
       return null;
     }
     const r = await fetch(apiUrl("/api/me/messages"), {
-      signal: AbortSignal.timeout(10000),
+      headers: tokenHeader(),
+      signal: timeoutSignal(10000),
     });
+    /* MỘT DÒNG NÀY = chỗ này cũng phát hiện được máy bị đá. Bộ não vẫn
+       nằm ở `noteResponse`; ở đây chỉ đưa phản hồi cho nó soi. */
+    void noteResponse(r);
     if (!r.ok) return null;
     const j = (await r.json()) as {
       ok?: boolean;

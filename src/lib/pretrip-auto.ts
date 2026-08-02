@@ -141,7 +141,61 @@ export function shouldAttemptAutoPretrip({
 export function shouldMarkPretripRun(r: PretripResult): boolean {
   if (r.full) return true;
   if (r.timedOut) return false;
+  if (pretripGridTooShort(r)) return false;
   return pretripKeptCore(r);
+}
+
+/**
+ * Khung ngày DÀI NHẤT mà mẻ tải sẵn nhắm tới. Phải khớp `max(PRETRIP_GRID_DAYS)`
+ * ở `lib/pretrip.ts` — có test khoá hai chỗ này lại với nhau. Để rời nhau thì
+ * hoặc báo thiếu oan (đốt tiền sóng), hoặc khoá 6 giờ oan (nguy hiểm hơn).
+ * KHÔNG import thẳng hằng số kia: `pretrip.ts` kéo theo cả chuỗi module gọi mạng,
+ * còn file này cố ý THUẦN.
+ */
+export const PRETRIP_GRID_LONGEST_DAYS = 16;
+
+/**
+ * MÃ BƯỚC tải lưới khung DÀI NHẤT trong mẻ tải sẵn. Phải khớp `gridStepId(d)` ở
+ * `lib/pretrip.ts` (có test khoá hai chỗ). KHÔNG dùng nhãn tiếng Việt làm mã:
+ * sửa câu chữ là cửa chặn hỏng trong im lặng.
+ */
+export const PRETRIP_GRID_LONGEST_STEP_ID = `grid.d${PRETRIP_GRID_LONGEST_DAYS}`;
+
+/**
+ * MÁY CHỈ CÒN LƯỚI GIÓ/SÓNG KHUNG NGẮN **VÀ KHUNG DÀI VỪA HỎNG VÌ MẠNG**
+ * (C-5 đường 2, 2026-08-02 — siết lại cùng ngày sau khi bản đầu đẻ hồi quy).
+ *
+ * Cảnh thật cần chặn: bước `grid.d3` ghi được, bước `d16` NÉM vì sóng ⇒
+ * `gained.grid = 1` ⇒ luật cũ ghi mốc, KHOÁ 6 GIỜ — trong khi máy chỉ có gió
+ * sóng 3 ngày mà tàu đi 10 ngày. Lưới cả vùng là lớp an toàn tính mạng và giữa
+ * biển KHÔNG tải lại được, nên "mới có khung ngắn" = VIỆC CHƯA XONG: cho mẻ sau
+ * chạy tiếp (cửa 2 phút), đừng đóng cửa 6 giờ.
+ *
+ * VÌ SAO PHẢI CÓ VẾ `failedSteps` (hồi quy bản vá đầu): bản đầu chỉ soi
+ * `saved.gridDays`, mà `d16` KHÔNG BAO GIỜ vào được máy ở ca rất thường:
+ *  · `SNAPSHOT_DAY_SET = [3, 16]` nhưng `/api/weather-snapshot` chặn 403 khung
+ *    16 với khách hạng thường;
+ *  · Open-Meteo 429 là chuyện thường ⇒ `d3` cứu được bằng snapshot miễn phí,
+ *    còn `d7`/`d16` rơi xuống nhánh "mượn khung ngắn hơn" — trả bản `stale`,
+ *    KHÔNG ném, KHÔNG ghi.
+ * ⇒ `gridDays = [3]` mãi mãi ⇒ mốc 6 giờ KHÔNG BAO GIỜ được ghi ⇒ cửa còn lại
+ * là 2 phút, bắn ở MỖI `visibilitychange`/`online`: ~180 request/giờ, mỗi mẻ
+ * ~3 MB tiền sóng, đập vào đúng IP đang bị 429. Cửa 6 giờ biến thành vòng 2
+ * phút VĨNH VIỄN — hỏng hơn hẳn cái nó định chữa.
+ *
+ * Nay chỉ chặn khi mẻ này THẬT SỰ thử khung dài và bước đó NÉM (`failedSteps`
+ * chứa `grid.d16`). "Mượn được khung ngắn hơn" = đã lấy hết mức nguồn cho, thử
+ * lại sau 2 phút cũng đúng chừng đó ⇒ ghi mốc, nghỉ 6 giờ, để dành tiền sóng.
+ *
+ * Đọc KHO (`saved.gridDays`) ở đây KHÔNG dựng lại lỗi C-5: C-5 là lấy kho làm cớ
+ * để KHOÁ; đây lấy kho làm cớ để KHÔNG KHOÁ. Kho chưa có lưới nào (`gridDays`
+ * rỗng) thì không phán gì thêm: luật cũ (`pretripKeptCore`) vẫn quyết.
+ */
+export function pretripGridTooShort(r: PretripResult): boolean {
+  const days = r.saved?.gridDays ?? [];
+  if (days.length === 0) return false;
+  if (Math.max(...days) >= PRETRIP_GRID_LONGEST_DAYS) return false;
+  return (r.failedSteps ?? []).includes(PRETRIP_GRID_LONGEST_STEP_ID);
 }
 
 /**
@@ -247,6 +301,15 @@ export function autoPretripLine(r: PretripResult): string {
      cạnh nói "Còn thiếu 6 lớp" — hai chỗ trên cùng màn hình nói ngược nhau, và
      chỗ nói dối lại là chỗ bà con tin nhất trước lúc nhổ neo. */
   if (r.timedOut) return "Mới tải được một phần — sóng chậm, còn thiếu vài lớp.";
+  /* ĐỔ ĐÚNG BỆNH: CHỖ NHỚ, KHÔNG PHẢI SÓNG (T4, 2026-08-02).
+     Máy đầy nhưng `dropOldest` dọn được chỗ nên cú `setItem` cuối THÀNH CÔNG ⇒
+     `r.full = false`; chỗ vừa dọn lại chính là bản mẻ này vừa ghi ⇒ `gained`
+     rỗng ⇒ câu cũ rơi vào "chưa có sóng" trong khi sóng đầy vạch. Bà con đi tìm
+     chỗ hứng sóng cả buổi, trong khi việc phải làm là xoá bớt ảnh video.
+     Đặt TRƯỚC nhánh "chưa có sóng" vì cả hai cùng ứng với "mẻ chẳng giữ được
+     gì" — cái nào biết chắc nguyên nhân thì nói trước. */
+  if (!pretripKeptCore(r) && (r.evicted ?? 0) > 0)
+    return "Máy hết chỗ — xoá bớt ảnh, video rồi tải lại.";
   // KHÔNG được khoe bản CŨ trong máy như thể vừa tải: hỏng sạch thì nói hỏng.
   // Soi MẺ (`gained`/`kept`), không soi KHO (`saved`) và cũng không soi `r.ok` —
   // `ok` không bao giờ bằng 0 vì ba bước "Nước dâng/xoáy", "Bản đồ mùa vụ",
@@ -312,24 +375,54 @@ function todayIsoLocal(nowMs: number = Date.now()): string {
  *    quá chu kỳ cập nhật (`fresh === false`) thì nói thẳng là đã cũ.
  *  · `untilIso` có thể là ngày ĐÃ QUA — "đã lưu đủ dự báo tới ngày 25/7" trong
  *    khi hôm nay là 2/8 nghĩa là trong máy KHÔNG CÒN NGÀY NÀO phía trước.
+ *
+ * MẤT SÓNG THÌ ĐỔI HẲN GIỌNG (R1, 2026-08-02) — tham số `online`:
+ * ra khơi quá 6 giờ là MỌI lớp hết "tươi" ⇒ luật cũ trả về chip VÀNG "Dự báo
+ * trong máy đã cũ — chạm tải mới" suốt cả chuyến, và DÒNG NGÀY biến mất hẳn —
+ * đúng thông tin duy nhất còn giá trị giữa biển. "Cũ so với nhịp phát hành" KHÁC
+ * HẲN "hết dùng được": bản 16 ngày tải ở bờ còn dùng tốt 15 ngày nữa. Giữa biển
+ * không tải mới được, giục là giục một việc bà con không làm nổi.
+ * `online` mặc định `true` để chỗ gọi cũ không phải sửa; chỗ gọi thật truyền
+ * `!isOffline()` (khuôn có sẵn ở use-storm-check) — KHÔNG thêm request, không
+ * thêm khoá `forfish.*`.
  */
 export function coverageChipText(
   phase: PretripSavedPhase,
   cov: SavedCoverage | null,
   todayIso: string = todayIsoLocal(),
+  online: boolean = true,
 ): string {
   if (phase === "loading") return "Đang tải dữ liệu dự báo";
   if (!cov || cov.layers.every((l) => !l.saved)) return "Chưa tải dữ liệu dự báo";
   if (!cov.allSaved) return `Còn thiếu ${cov.missing} lớp — chạm xem`;
-  // Dự báo đã lưu hết ngày → nói thẳng, đừng khoe ngày trong quá khứ.
-  if (cov.untilIso && cov.untilIso < todayIso) {
-    return "Dự báo đã lưu hết hạn — chạm tải lại";
+  /* NGÀY NÓI RA LÀ NGÀY CỐT LÕI, KHÔNG PHẢI NGÀY CỦA RIÊNG ĐIỂM GHIM
+     (2026-08-02). `cov.untilIso` chỉ đo lớp `point`; lớp "Gió sóng CẢ VÙNG"
+     tính là `saved` chỉ cần có MỘT khung bất kỳ. Máy còn mỗi `grid.d3` ⇒ chip
+     XANH "còn dự báo tới ngày 18/8" trong khi lưới tới ngày 5/8 — bà con nhổ
+     neo đi 10 ngày theo một con số không có thật. `coreUntilIso` là ngày SỚM
+     NHẤT giữa lưới và điểm ghim (null khi thiếu một lớp cốt lõi). */
+  const until = cov.coreUntilIso;
+  // Dự báo đã lưu HẾT NGÀY → nói thẳng, đừng khoe ngày trong quá khứ. Dùng chữ
+  // "hết ngày" chứ KHÔNG "hết hạn": "hết hạn" nghe như tài khoản bị cắt.
+  if (until && until < todayIso) {
+    return "Dự báo đã lưu hết ngày — chạm tải lại";
   }
-  // Đủ lớp nhưng có lớp quá chu kỳ cập nhật → chưa được nói "đủ".
+  // MẤT SÓNG mà còn ngày phía trước: nói cái DÙNG ĐƯỢC, không giục tải.
+  if (!online) {
+    return until
+      ? `Trong máy còn dự báo tới ngày ${formatDateVN(until)}`
+      : "Đã lưu đủ dự báo cho offline";
+  }
+  // Đủ lớp nhưng có lớp quá chu kỳ cập nhật → chưa được nói "đủ". VẪN GIỮ NGÀY
+  // trong câu: đó là thứ bà con cần biết, đừng vứt đi để lấy chỗ cho lời giục.
   const stale = cov.layers.filter((l) => l.retriable && l.saved && !l.fresh).length;
-  if (stale > 0) return "Dự báo trong máy đã cũ — chạm tải mới";
-  return cov.untilIso
-    ? `Đã lưu đủ dự báo — tới ngày ${formatDateVN(cov.untilIso)}`
+  if (stale > 0) {
+    return until
+      ? `Còn dùng tới ngày ${formatDateVN(until)} — chạm tải mới`
+      : "Dự báo trong máy đã cũ — chạm tải mới";
+  }
+  return until
+    ? `Đã lưu đủ dự báo — tới ngày ${formatDateVN(until)}`
     : "Đã lưu đủ dự báo cho offline";
 }
 
@@ -358,12 +451,22 @@ export function layerRetryFailed(
  * Chip có được TÔ XANH không — phải khớp CHÍNH XÁC với câu chữ ở trên (xanh mà
  * chữ nói "đã cũ" là lại nói dối bằng màu). Đủ lớp + chưa hết ngày + không lớp
  * nào quá chu kỳ.
+ *
+ * MẤT SÓNG (`online === false`) mà còn ngày phía trước thì XANH: máy đang có đúng
+ * thứ bà con cần cho những ngày tới, tô vàng chỉ để giục một việc không làm được
+ * giữa biển. Hết ngày thì vẫn KHÔNG xanh, dù mất sóng — lúc đó máy thật sự không
+ * còn gì để xem.
  */
 export function coverageChipOk(
   cov: SavedCoverage | null,
   todayIso: string = todayIsoLocal(),
+  online: boolean = true,
 ): boolean {
   if (!cov?.allSaved) return false;
-  if (cov.untilIso && cov.untilIso < todayIso) return false;
+  // NGÀY CỐT LÕI (lưới ∧ điểm ghim), không phải riêng điểm ghim — xem
+  // coverageChipText. Màu phải khớp CHÍNH XÁC câu chữ, nên hai hàm soi CÙNG một
+  // con số; lấy hai con số khác nhau là lại nói dối bằng màu.
+  if (cov.coreUntilIso && cov.coreUntilIso < todayIso) return false;
+  if (!online) return true;
   return cov.layers.every((l) => !l.retriable || !l.saved || l.fresh);
 }

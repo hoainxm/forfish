@@ -20,6 +20,7 @@ import {
   loadForecast,
   loadAll,
   noteForecastKept,
+  isDefinitelyOffline,
   type ForecastSaveOutcome,
 } from "@/lib/forecast-cache";
 import { apiUrl } from "@/lib/api-base";
@@ -35,6 +36,7 @@ import {
   GRID_N_LAT,
   GRID_N_LON,
 } from "@/lib/forecast-grid";
+import { timeoutSignal } from "@/lib/abort";
 
 // mây/mưa/nhiệt/dông/áp suất = Open-Meteo (lưới gió, theo GIỜ);
 // salinity = Copernicus (lưới 1/3° riêng, theo NGÀY) qua /api/salinity;
@@ -103,7 +105,7 @@ export async function fetchScalarFieldsLive(
     `&timezone=Asia%2FHo_Chi_Minh&forecast_days=${fd}&hourly=${hourly}` +
     (opts?.model ? `&models=${opts.model}` : "");
 
-  const res = await fetch(url, { signal: AbortSignal.timeout(20000) }).then(
+  const res = await fetch(url, { signal: timeoutSignal(20000) }).then(
     (r) => {
       if (!r.ok) throw new Error(`scalar grid ${r.status}`);
       return r.json();
@@ -273,7 +275,7 @@ async function fetchSalinityField(days: number): Promise<ScalarGrid> {
   }
   try {
     const r = await fetch(apiUrl(`/api/salinity?days=${Math.round(days)}`), {
-      signal: AbortSignal.timeout(35000),
+      signal: timeoutSignal(35000),
     });
     if (!r.ok) throw new Error(`salinity ${r.status}`);
     const j = (await r.json()) as {
@@ -314,7 +316,7 @@ async function loadSalinitySnapshotClient(days: number): Promise<ScalarGrid | nu
   try {
     const r = await fetch(
       apiUrl(`/api/weather-snapshot?id=${salinitySnapshotId(days)}`),
-      { signal: AbortSignal.timeout(10000) },
+      { signal: timeoutSignal(10000) },
     );
     if (!r.ok) return null;
     const g = (await r.json()) as ScalarGrid;
@@ -344,6 +346,15 @@ export async function fetchScalarField(
   const fresh = loadForecast<ScalarGrid>(SCALAR_NS, cacheId(kind, days));
   if (fresh && scalarGridUsable(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
     return fresh.data;
+  }
+  /* MẤT SÓNG HẲN → ĐỌC BẢN ĐÃ LƯU TRƯỚC (K3, 2026-08-02 — cùng khuôn `sea.ts`).
+     Đường thường đốt tới 30 giây MỖI LỚP (10 s snapshot + 20 s live), mà màn Ra
+     khơi bật lần lượt 5 lớp dải màu ⇒ ngồi giữa biển bấm lớp nào cũng quay nửa
+     phút rồi mới ra bản vốn đã nằm trong máy. Chỉ đi tắt khi máy KHẲNG ĐỊNH mất
+     sóng; ca "sóng sống mà chết" vẫn đi đường thường. */
+  if (isDefinitelyOffline()) {
+    const saved = savedScalarFallback(kind, days);
+    if (saved) return saved;
   }
   // ƯU TIÊN SNAPSHOT (user 2026-07-29: hạn chế bị khoá IP vì tải nhiều): hỏi
   // bản cron tính sẵn (same-origin, CDN + SW cache) TRƯỚC khi gọi Open-Meteo
@@ -401,6 +412,23 @@ export async function fetchScalarField(
   }
 }
 
+/**
+ * BẢN LỚP DẢI MÀU ĐÃ LƯU dùng được cho khung đang xin — bản ĐÚNG khung trước,
+ * hết thì mượn khung NGẮN HƠN (thanh ngày vẽ theo `times[]` thật nên không nói
+ * dối). Thuần đọc localStorage, KHÔNG gọi mạng: nhánh cho lúc mất sóng hẳn.
+ */
+function savedScalarFallback(kind: OMKind, days: number): ScalarGrid | null {
+  const hit = loadForecast<ScalarGrid>(SCALAR_NS, cacheId(kind, days));
+  if (hit && scalarGridUsable(hit.data))
+    return { ...hit.data, stale: true, savedAt: hit.savedAt };
+  for (const d of [...SCALAR_FALLBACK_DAYS].filter((x) => x < days).reverse()) {
+    const alt = loadForecast<ScalarGrid>(SCALAR_NS, cacheId(kind, d));
+    if (alt && scalarGridUsable(alt.data))
+      return { ...alt.data, stale: true, savedAt: alt.savedAt };
+  }
+  return null;
+}
+
 /** LƯỚI AN TOÀN: snapshot lớp dải màu d3 do cron tính sẵn — null nếu chưa có */
 async function loadScalarSnapshotClient(
   kind: OMKind,
@@ -409,7 +437,7 @@ async function loadScalarSnapshotClient(
   try {
     const r = await fetch(
       apiUrl(`/api/weather-snapshot?id=${scalarSnapshotId(kind, days)}`),
-      { signal: AbortSignal.timeout(10000) },
+      { signal: timeoutSignal(10000) },
     );
     if (!r.ok) return null;
     const g = (await r.json()) as ScalarGrid;

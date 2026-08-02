@@ -16,6 +16,8 @@ import { FISH_SEASONS, nearestRegionWithin, seasonPrior } from "@/data/fish-seas
 import { apiUrl } from "@/lib/api-base";
 import { saveForecast, loadForecast } from "@/lib/forecast-cache";
 import type { FieldProvenance } from "@/lib/source-registry";
+import { timeoutSignal } from "@/lib/abort";
+import { noteResponse, tokenHeader } from "@/lib/device-token-store";
 
 // Bán kính (độ) gán ô biển về vùng gần nhất — đủ phủ kín toàn EEZ + Hoàng Sa/
 // Trường Sa, vẫn loại nước ngoài xa hẳn (Hải Nam, Philippines). PFZ tính cho
@@ -1395,8 +1397,12 @@ export async function fetchFishForecast(): Promise<FishForecastResult> {
     // maxDuration 60) → cho 35s để nhận data thật; quá thì hủy → pill thử lại.
     // Sau lần đầu, ISR cache (revalidate 6h) trả tức thì.
     const r = await fetch(apiUrl("/api/fish-forecast"), {
-      signal: AbortSignal.timeout(35000),
+      headers: tokenHeader(),
+      signal: timeoutSignal(35000),
     });
+    /* MỘT DÒNG NÀY = chỗ này cũng phát hiện được máy bị đá. Bộ não vẫn
+       nằm ở `noteResponse`; ở đây chỉ đưa phản hồi cho nó soi. */
+    void noteResponse(r);
     if (r.status === 401 || r.status === 403) {
       const body = (await r.json().catch(() => null)) as {
         code?: string;
