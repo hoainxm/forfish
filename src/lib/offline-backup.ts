@@ -26,8 +26,62 @@
 // mới thêm sau này MẶC ĐỊNH KHÔNG LỌT — muốn vào tệp phải tự tay ghi vào đây và
 // tự trả lời "cái này chia cho máy khác có sao không".
 
+import {
+  FC_PREFIX,
+  fcGet,
+  fcKeys,
+  fcSet,
+  forecastStoreFlush,
+  forecastStoreReady,
+} from "@/lib/forecast-store";
+
+/*  ═══ DỰ BÁO KHÔNG CÒN NẰM Ở localStorage ═══ (2026-08-02k — CHẶN nếu quên)
+
+    Từ lúc lớp dự báo dời sang IndexedDB, mọi vòng `for (i < localStorage.length)`
+    trong file này KHÔNG CÒN THẤY một khoá `forfish.fc.*` nào. Bỏ qua chỗ này thì
+    nút "Lưu dự báo ra tệp" vẫn chạy, vẫn tải về một tệp .json trông bình thường
+    — mà bên trong RỖNG phần dự báo. Bà con cầm tệp đó ra khơi tin là mình có bản
+    dự phòng. Không có tiếng động nào báo hỏng: đó là lý do phải vá cùng lúc, chứ
+    không phải "để commit sau".
+
+    Nay mọi lượt đọc/ghi đi qua `kho*()` bên dưới: khoá `forfish.fc.*` hỏi
+    `forecast-store`, khoá còn lại hỏi localStorage như cũ. */
+
 /** Khoá localStorage của app đều bắt đầu forfish.* (quy ước dự án) */
 const LS_PREFIX = "forfish.";
+
+/** Khoá này thuộc kho dự báo (IndexedDB) hay kho thường (localStorage)? */
+const laKhoDuBao = (k: string) => k.startsWith(FC_PREFIX);
+
+/** Đọc một khoá bất kể nó nằm kho nào. */
+function khoDoc(k: string): string | null {
+  if (laKhoDuBao(k)) return fcGet(k);
+  try {
+    return window.localStorage.getItem(k);
+  } catch {
+    return null;
+  }
+}
+
+/** Ghi một khoá vào ĐÚNG kho của nó. Ném khi hết chỗ (chỗ gọi đếm `failed`). */
+function khoGhi(k: string, v: string): void {
+  if (laKhoDuBao(k)) fcSet(k, v);
+  else window.localStorage.setItem(k, v);
+}
+
+/** Mọi khoá `forfish.*` đang có trong máy, gộp CẢ HAI kho. */
+function khoKhoa(): string[] {
+  const out = new Set<string>(fcKeys());
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(LS_PREFIX)) out.add(k);
+    }
+  } catch {
+    /* SSR / chặn lưu — lấy được bao nhiêu thì lấy */
+  }
+  return [...out];
+}
 
 /**
  * HAI CHẾ ĐỘ, HAI NÚT KHÁC NHAU (chủ dự án chốt 2026-08-02):
@@ -107,6 +161,13 @@ export const NEVER_BACKUP_PREFIXES = [
   "forfish.device.",
   "forfish.heartbeat.",
   "forfish.token.",
+  /*  · `fcindex.` — SỔ MỤC LỤC kho dự báo (lib/forecast-store). Nó mô tả
+   *    "MÁY NÀY đang giữ bản nào, lưu lúc nào, nặng bao nhiêu" — payload thì
+   *    nằm ở IndexedDB, KHÔNG đi trong tệp. Chép sổ sang máy khác là máy đó
+   *    khai có 12 lớp dự báo trong khi kho rỗng: chip xanh, thẻ "đã đủ", rồi ra
+   *    khơi mở bản đồ ra trắng. Đúng khuôn "dấu nói dối" mà cả mạch offline đi
+   *    vá. Sổ tự dựng lại được từ chính kho lúc mở app nên không mất gì. */
+  "forfish.fcindex.",
 ];
 
 const hasPrefix = (k: string, list: readonly string[]) =>
@@ -124,6 +185,14 @@ export function isBackupable(k: string, mode: BackupMode): boolean {
 /** Kho /api/* của Service Worker — khớp SDFISH_API_V trong public/sw.js */
 const API_CACHE = "sdfish-api-v1";
 const FISH_URL = "/api/fish-forecast";
+
+/**
+ * Khoá kho BỀN của bản đồ cá — phải khớp `FISH_NS`/`FISH_ID` trong
+ * `lib/fish-predict.ts` (có test canh, `offline-backup.test.ts`). Cố ý KHÔNG
+ * import từ đó: `fish-predict` kéo theo cả cụm nguồn vệ tinh chạy phía máy chủ,
+ * mà file này nằm trong đường tải của màn hình.
+ */
+const FISH_STORE_KEY = `${FC_PREFIX}fish.latest`;
 
 export interface OfflineBackup {
   v: 1;
@@ -324,6 +393,7 @@ const NEVER_NAMES: Array<[string, string]> = [
   ["forfish.tier.", "dấu tài khoản nâng cao"],
   ["forfish.device.", "mã máy"],
   ["forfish.heartbeat.", "nhịp báo về"],
+  ["forfish.fcindex.", "sổ mục lục kho dự báo"],
 ];
 
 /** Một dòng trong bảng kê "sẽ ghi đè cái gì" — đếm CẢ HAI VẾ tệp/máy. */
@@ -348,11 +418,7 @@ export interface BackupGroup {
 }
 
 function readLs(k: string): string | null {
-  try {
-    return window.localStorage.getItem(k);
-  } catch {
-    return null;
-  }
+  return khoDoc(k);
 }
 
 /** Đếm một khoá: nhóm gộp → 1 khoá là 1; còn lại → số phần tử mảng, hoặc 1. */
@@ -365,13 +431,8 @@ function countOne(raw: string | null, spec: BackupGroupSpec): number {
 /** Đếm mọi khoá TRONG MÁY thuộc một nhóm GỘP (dự báo / cài đặt xem). */
 function deviceGroupCount(spec: BackupGroupSpec): number {
   let n = 0;
-  try {
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const k = window.localStorage.key(i);
-      if (k && backupGroupSpec(k).id === spec.id && k.startsWith(LS_PREFIX)) n++;
-    }
-  } catch {
-    /* SSR / storage bị chặn — đếm được bao nhiêu thì nói bấy nhiêu */
+  for (const k of khoKhoa()) {
+    if (backupGroupSpec(k).id === spec.id && k.startsWith(LS_PREFIX)) n++;
   }
   return n;
 }
@@ -487,19 +548,31 @@ export function summarizeBackup(b: OfflineBackup): BackupSummary {
 export async function exportOfflineData(
   mode: BackupMode = "forecast",
 ): Promise<string> {
+  /*  CHỜ KHO DỰ BÁO MỞ XONG rồi mới gom — nếu không, bấm "Lưu ra tệp" ngay giây
+      đầu mở app sẽ ra một tệp THIẾU HẲN phần dự báo mà chẳng có gì báo. */
+  await forecastStoreReady();
   const ls: Record<string, string> = {};
-  try {
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const k = window.localStorage.key(i);
-      if (k && isBackupable(k, mode))
-        ls[k] = window.localStorage.getItem(k) ?? "";
-    }
-  } catch {
-    /* SSR / chặn lưu — trả phần gom được */
+  for (const k of khoKhoa()) {
+    if (isBackupable(k, mode)) ls[k] = khoDoc(k) ?? "";
   }
+  /*  BẢN ĐỒ CÁ ĐI Ở TRƯỜNG `fish`, KHÔNG ĐI HAI LƯỢT (2026-08-02k). Từ khi
+      payload vào kho bền, nó vừa là khoá `forfish.fc.fish.latest` vừa là trường
+      `fish` của tệp ⇒ để nguyên là tệp bà con tải về NẶNG GẤP ĐÔI vì chép cùng
+      ~1 MB hai lần. Gỡ khỏi `ls`, lấy chính nó làm `fish` (kho SW chỉ còn là
+      đường lùi cho tệp/máy đời cũ). Định dạng tệp v1 không đổi. */
   let fish: unknown;
+  const rawFish = ls[FISH_STORE_KEY];
+  delete ls[FISH_STORE_KEY];
+  if (rawFish) {
+    try {
+      const j = JSON.parse(rawFish) as { data?: { ok?: boolean } };
+      if (j?.data?.ok === true) fish = j.data;
+    } catch {
+      /* bản hỏng — thử tiếp kho SW bên dưới */
+    }
+  }
   try {
-    if (typeof caches !== "undefined") {
+    if (fish == null && typeof caches !== "undefined") {
       const c = await caches.open(API_CACHE);
       const r = await c.match(FISH_URL);
       if (r) {
@@ -569,14 +642,24 @@ export async function importOfflineData(
     // cho đè mã máy, không cho đè nhịp, không cho rước CCCD người lạ vào máy.
     .filter(([k, v]) => typeof v === "string" && isBackupable(k, mode))
     .sort(([a], [c]) => writeRank(a) - writeRank(c));
+  await forecastStoreReady();
   for (const [k, v] of writable) {
     try {
-      window.localStorage.setItem(k, v as string);
+      khoGhi(k, v as string);
       keys++;
     } catch {
       // hết chỗ / bị chặn — ĐẾM rồi thử khoá kế, KHÔNG nuốt im
       failed++;
     }
+  }
+  /*  ĐỢI DỰ BÁO NẰM XUỐNG ĐĨA THẬT rồi mới báo "xong" (2026-08-02k). Kho dự báo
+      nhận ghi vào gương RAM trước, nên `khoGhi` không ném dù đĩa sắp từ chối.
+      Không chờ ở đây là màn hình báo "phục hồi 14 lớp" trong khi tắt app đi mở
+      lại chẳng còn lớp nào — đúng khuôn nói dối mà cả mạch này đi vá. */
+  if (!(await forecastStoreFlush())) {
+    const duBao = writable.filter(([k]) => laKhoDuBao(k)).length;
+    failed += duBao;
+    keys = Math.max(0, keys - duBao);
   }
   /*  ĐỐI XỨNG với lúc xuất: KHÔNG ghi bản `{ok:false}` đè lên kho (audit B7).
       Tệp đời cũ có thể mang rác từ thời route trả 200-kèm-lỗi; ghi vào đây là
@@ -584,6 +667,15 @@ export async function importOfflineData(
   const fishOk = b.fish != null && (b.fish as { ok?: boolean }).ok === true;
   let fishRestored = false;
   if (fishOk) {
+    /*  KHO BỀN TRƯỚC, KHO NHANH SAU (2026-08-02k). Kho SW là thứ WebKit dọn
+        trước nhất; phục hồi mà chỉ ghi vào đó thì bản đồ cá sống được tới lần
+        dọn kế tiếp. Ghi vào IndexedDB mới là phục hồi thật. */
+    try {
+      fcSet(FISH_STORE_KEY, JSON.stringify({ savedAt: Date.now(), data: b.fish }));
+      fishRestored = (await forecastStoreFlush()) || fishRestored;
+    } catch {
+      /* hết chỗ kho bền — vẫn thử kho SW bên dưới, có còn hơn không */
+    }
     try {
       if (typeof caches !== "undefined") {
         const c = await caches.open(API_CACHE);

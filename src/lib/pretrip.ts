@@ -11,7 +11,7 @@
 // chúng đã tự lưu vào máy. Chạy TUẦN TỰ cho khỏi dội nguồn miễn phí.
 
 import { fetchSeaPoint, POINT_NS, type SeaPointConditions } from "@/lib/marine-weather";
-import { fetchFishForecast, savedFishMark } from "@/lib/fish-predict";
+import { fetchFishForecast, savedFishMark, FISH_NS } from "@/lib/fish-predict";
 import { fetchClimatology } from "@/lib/fish-blend";
 import {
   fetchForecastGrid,
@@ -48,6 +48,7 @@ import {
   latestSavedAt,
   loadAll,
 } from "@/lib/forecast-cache";
+import { forecastStoreFlush } from "@/lib/forecast-store";
 import { formatDateVN } from "@/lib/ocean-map";
 import { fetchStormCheck, savedStormAt, STORM_NS } from "@/lib/storms";
 import {
@@ -381,7 +382,12 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
       // thì service worker trả lại bản cũ mà vẫn 200 ⇒ dấu được ghi lại mỗi
       // lần hỏi ⇒ dòng này báo "còn mới" cho số liệu mấy ngày tuổi.
       fish?.dataAt ?? null,
-      0, // payload ở kho ứng dụng (SW), không phải localStorage
+      /*  ĐẾM THẬT (2026-08-02k): payload bản đồ cá ~1 MB nay nằm ở kho bền
+          (`forfish.fc.fish.latest`), không còn chỉ ở kho service worker. Để
+          cứng `0` như trước thì tổng "trong máy nặng bao nhiêu" (bytesUnder(""))
+          KHÔNG bằng tổng các dòng cộng lại — đúng trong bảng mà bà con soi để
+          quyết có nhổ neo được không. */
+      bytesUnder(`${FISH_NS}.`),
       opts.fishLocked
         ? "cần premium — có gói sẽ tự tải"
         : fish
@@ -531,6 +537,11 @@ export async function runLayer(
   } finally {
     scope.end();
   }
+  /*  Nút "Tải lại" cũng phải đợi đĩa nhận thật rồi mới được coi là xong — cùng
+      lý do với mẻ tự động (xem chú thích ở `runPretrip`). Đĩa từ chối thì NÉM,
+      để dòng lớp đó ở lại trạng thái đỏ thay vì nhảy xanh rồi mất sau khi tắt. */
+  if (!(await forecastStoreFlush()))
+    throw new Error("máy hết chỗ, chưa lưu được");
 }
 
 async function runLayerInner(
@@ -802,9 +813,19 @@ export async function runPretrip(
     scope.end();
   }
   onProgress?.({ done: total, total, label: "Xong" });
-  // Tầng lưu báo HẾT CHỖ trong lúc chạy → nói thật, đừng để bà con tưởng máy đã
-  // giữ đủ rồi ra khơi mới biết trống.
-  const full = lastStorageFullAt() >= startedAt;
+  /*  ═══ ĐỢI ĐĨA NHẬN THẬT RỒI MỚI DÁM KẾT LUẬN ═══ (2026-08-02k)
+
+      Từ khi kho dự báo xuống IndexedDB, `saveForecast` ghi vào GƯƠNG RAM rồi
+      trả `true` ngay — gương thì gần như không bao giờ từ chối. Không chờ ở đây
+      thì mẻ tải sẵn kết luận "giữ được 14 lớp", ghi mốc, khoá 6 giờ, trong khi
+      giao dịch xuống đĩa hỏng (máy hết chỗ) và tắt app đi mở lại là TRẮNG.
+      Đúng khuôn nói dối mà cả mạch offline đi vá.
+
+      Đĩa từ chối ⇒ coi như `full`: nguyên nhân áp đảo của một giao dịch
+      IndexedDB hỏng là hết chỗ, và `full` đã có sẵn đường nói thật với bà con
+      ("Máy hết chỗ nhớ") lẫn luật khỏi bắn lại mẻ ~3 MB mỗi 2 phút. */
+  const daNamXuongDia = await forecastStoreFlush();
+  const full = lastStorageFullAt() >= startedAt || !daNamXuongDia;
   const gained = { ...scope.counts };
   const kept = { ...scope.kept };
   return {

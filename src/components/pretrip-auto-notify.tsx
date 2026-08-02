@@ -38,6 +38,10 @@ import {
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import {
+  forecastStoreState,
+  subscribeForecastStore,
+} from "@/lib/forecast-store";
+import {
   exportOfflineData,
   importOfflineData,
   parseBackup,
@@ -262,7 +266,17 @@ export function PretripSavedStatus({
   // đọc lại khi vào màn + mỗi lần phase đổi (tự tải xong → cập nhật)
   useEffect(() => {
     reread();
-    return subscribePhase(reread);
+    const boPhase = subscribePhase(reread);
+    /*  ĐỌC LẠI KHI KHO DỰ BÁO MỞ XONG (2026-08-02k — vá lỗi CHẶN).
+        `subscribePhase` chỉ nổ khi mẻ tải sẵn đổi trạng thái, mà ngoài biển mất
+        sóng thì mẻ KHÔNG BAO GIỜ chạy ⇒ không có lượt đọc lại nào. Kho nay nạp
+        bất đồng bộ, nên thiếu vế này là chip/thẻ đóng băng ở lượt đọc đầu tiên
+        suốt cả chuyến. */
+    const boKho = subscribeForecastStore(reread);
+    return () => {
+      boPhase();
+      boKho();
+    };
   }, [reread]);
 
   /* CÓ SÓNG KHÔNG — R1 (2026-08-02). Chip trước đây không biết chuyện sóng nên
@@ -280,7 +294,7 @@ export function PretripSavedStatus({
   const shellMissing = shellOk === false;
   const text = shellMissing
     ? "Vỏ app chưa tải đủ — mở lại lúc có sóng"
-    : coverageChipText(phase, cov, undefined, online);
+    : coverageChipText(phase, cov, undefined, online, forecastStoreState());
   // MÀU phải khớp CHỮ: đủ lớp + còn hạn + chưa quá chu kỳ (coverageChipOk),
   // chứ không chỉ "có bản trong máy" — chip xanh trên bản 10 ngày tuổi là lời
   // hứa dối ở đúng chỗ bà con liếc trước khi nhổ neo.
@@ -293,8 +307,16 @@ export function PretripSavedStatus({
      mới "Thêm vào Màn hình chính" — kho của bản cài TÁCH RIÊNG nên nó bắt đầu
      từ TRỐNG KHÔNG. Chip nhỏ ở góc dễ lướt qua; nhổ neo xong mới biết thì
      không quay lại bờ được nữa. */
+  /*  ⚠️ CHỈ KẾT LUẬN "CHƯA CÓ GÌ" KHI KHO ĐÃ MỞ XONG VÀ ĐỌC ĐƯỢC (2026-08-02k).
+      Kho dự báo nay nạp bất đồng bộ và có thể KHÔNG MỞ ĐƯỢC (IndexedDB chậm quá
+      trần chờ / hỏng). Hai trạng thái đó KHÔNG phải "trống": bung thẻ nhắc TO
+      giữa biển trong khi máy đang giữ đủ 16 ngày thì bà con quay tàu về bờ. */
   const emptyOnInstalled =
-    isStandalone() && phase !== "loading" && !!cov && cov.savedCount === 0;
+    isStandalone() &&
+    phase !== "loading" &&
+    forecastStoreState() === "san-sang" &&
+    !!cov &&
+    cov.savedCount === 0;
   if (emptyOnInstalled) {
     return (
       <>
@@ -401,6 +423,13 @@ function PretripSavedSheet({
   const [initial] = useState(() => savedCoverage({ fishLocked }));
   const [layers, setLayers] = useState(initial.layers);
   const [total, setTotal] = useState(initial.totalBytes);
+  /*  KHO CHƯA MỞ XONG THÌ POPUP CŨNG PHẢI IM (2026-08-02k — vòng đánh giá cuối).
+      Chip ngoài đã có cổng trạng thái, nhưng popup mở ra ngay sau cú chạm thì
+      chưa: nó liệt kê thẳng 12 dòng "chưa lưu" trong khi chip cạnh đó nói "Đang
+      mở kho dữ liệu…". Cùng một màn hình mà hai chỗ nói hai kiểu thì bà con tin
+      cái đáng sợ hơn, rồi quay tàu về bờ — đúng câu cảnh báo đã ghi ở
+      `coverageChipText`. Bản vá trước mới dời khuôn lỗi xuống sâu một tầng. */
+  const [khoState, setKhoState] = useState(forecastStoreState);
   const [busy, setBusy] = useState<SavedLayerId | "all" | null>(null);
   // lớp vừa TẢI LẠI mà vẫn không có dữ liệu → nói thật (mất sóng / nguồn bận),
   // đừng để nút bấm xong im ru như hỏng
@@ -426,8 +455,13 @@ function PretripSavedSheet({
     const c = savedCoverage({ fishLocked });
     setLayers(c.layers);
     setTotal(c.totalBytes);
+    setKhoState(forecastStoreState());
     onChanged();
   }, [fishLocked, onChanged]);
+
+  /*  ĐỌC LẠI KHI KHO MỞ XONG — popup mở đúng lúc kho còn đang nạp thì nó phải
+      TỰ cập nhật, chứ không bắt bà con đóng ra mở lại. */
+  useEffect(() => subscribeForecastStore(refresh), [refresh]);
 
   /*  SAO LƯU RA TỆP — HAI NÚT, KHÔNG PHẢI MỘT (2026-08-02, audit vòng 2 T5).
       Bản cũ chỉ có một nút "Lưu ra tệp" mà tệp lại gom SẠCH mọi khoá
@@ -600,6 +634,17 @@ function PretripSavedSheet({
         Mỗi lớp cần tải sẵn lúc còn sóng để xem được khi ra khơi mất sóng. Dòng
         nào <b>chưa lưu</b> thì chạm <b>Tải lại</b>.
       </p>
+      {/*  KHO CHƯA MỞ XONG ⇒ NÓI THẬT, ĐỪNG LIỆT KÊ "CHƯA LƯU" (2026-08-02k).
+           Danh sách bên dưới đọc kho ĐỒNG BỘ; kho nạp chưa xong thì mọi dòng ra
+           "chưa lưu" — 12 dòng đỏ trên một máy đang giữ đủ 16 ngày. Giữa biển đó
+           là lý do bà con quay tàu về bờ. */}
+      {khoState !== "san-sang" && (
+        <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[0.9375rem] font-bold leading-snug text-warn">
+          {khoState === "dang-mo"
+            ? "Đang mở kho dữ liệu trong máy…"
+            : "Chưa mở được kho dữ liệu — số dưới đây có thể chưa đủ. Thử đóng app rồi mở lại."}
+        </p>
+      )}
       <ul className="space-y-2">
         {layers.map((l) => {
           const rowBusy = busy === l.id || busy === "all";

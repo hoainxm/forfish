@@ -75,6 +75,99 @@ export async function requestPersistentStorage(): Promise<boolean> {
 
 
 /**
+ * BA KHO ĐANG CHIẾM BAO NHIÊU — tách riêng localStorage / IndexedDB / Cache API.
+ *
+ * VÌ SAO (chủ dự án chốt 2026-08-02k): *"Heartbeat đo được localStorage, cache,
+ * Index."* Số tổng của `estimate()` không đủ để quyết chỗ cất: nó gộp cả ba kho
+ * làm một, nên không trả lời được câu đang cần — *kho nào sắp chạm trần TRƯỚC*.
+ * Trên iOS, localStorage bị chặn cứng 5 MB riêng, còn IndexedDB thì co giãn theo
+ * đĩa; gộp lại thành một con số là mất đúng thông tin để xếp lại thứ tự.
+ *
+ * CÁCH ĐO, và giới hạn của từng con số (nói thẳng để người sau khỏi tin quá):
+ *  · `lsMb`    — CHÍNH XÁC. Cộng thẳng độ dài khoá + giá trị (UTF-16, ~2 byte/ký
+ *                tự). Rẻ, không ghi gì.
+ *  · `idbMb`   — CHÍNH XÁC PHẦN CỦA APP. Lấy từ gương của `forecast-store`, tức
+ *                chỉ tính dữ liệu app tự cất, không tính phần trình duyệt phụ trội.
+ *  · `cacheMb` — ƯỚC LƯỢNG bằng PHẦN CÒN LẠI (`tổng − ls − idb`). Đọc kích thước
+ *                thật của kho Cache API phải tải lại từng phản hồi — với hàng
+ *                nghìn ô bản đồ là vài chục MB đọc đĩa mỗi nhịp, đắt hơn giá trị
+ *                nó mang lại. Phần dư này còn gộp cả mã service worker và phần
+ *                phụ trội của trình duyệt, nên chỉ dùng để SO ĐỘ LỚN, đừng dùng
+ *                làm con số quyết định.
+ *
+ * ⚠️ KHÔNG BAO GIỜ đo bằng cách ghi thử (xem `storageEstimateMb`).
+ * KHÔNG BAO GIỜ ném — thiếu API thì trả `null` ở đúng ô đó.
+ */
+export async function storageBreakdownMb(): Promise<{
+  lsMb: number | null;
+  idbMb: number | null;
+  cacheMb: number | null;
+  quotaMb: number | null;
+  /** Còn ghi thêm được bao nhiêu — `quota − usage`, không âm. */
+  availableMb: number | null;
+  /** Máy CÓ THẬT SỰ cấp bộ nhớ bền không (`navigator.storage.persisted()`). */
+  persisted: boolean | null;
+} | null> {
+  const mb = (bytes: number) => Math.round((bytes / 1048576) * 10) / 10;
+  let lsMb: number | null = null;
+  try {
+    if (typeof window !== "undefined" && window.localStorage) {
+      let n = 0;
+      const s = window.localStorage;
+      for (let i = 0; i < s.length; i++) {
+        const k = s.key(i);
+        if (!k) continue;
+        n += (k.length + (s.getItem(k)?.length ?? 0)) * 2;
+      }
+      lsMb = mb(n);
+    }
+  } catch {
+    /* chặn lưu / SSR — để null, đừng đoán */
+  }
+  let idbMb: number | null = null;
+  try {
+    const { forecastStoreBytes } = await import("@/lib/forecast-store");
+    idbMb = mb(forecastStoreBytes());
+  } catch {
+    /* chưa nạp được module kho — để null */
+  }
+  const tong = await storageEstimateMb();
+  let cacheMb: number | null = null;
+  if (tong && lsMb != null && idbMb != null) {
+    cacheMb = Math.max(0, Math.round((tong.usedMb - lsMb - idbMb) * 10) / 10);
+  }
+  /*  ĐÃ ĐƯỢC CẤP BỘ NHỚ BỀN CHƯA — chỉ HỎI (`persisted()`), KHÔNG xin
+      (`persist()`): xin là việc của `requestPersistentStorage` lúc mở app, còn
+      đây là đường đo, không được đẻ tác dụng phụ.
+
+      ⚠️ VÌ SAO ĐÁNG ĐO (vòng phản biện 2026-08-02k): app CÓ gọi `persist()` ở
+      `sw-register.tsx` nhưng vứt kết quả đi, nên tới giờ **không ai biết máy bà
+      con có thật sự được cấp hay không** — trong khi đó chính là hàng rào duy
+      nhất chống vòng thu hồi LRU khi máy đầy. Một boolean đi nhờ nhịp 30 phút
+      đang chạy sẵn là trả lời được cho cả đội tàu, không tốn thêm request nào. */
+  let persisted: boolean | null = null;
+  try {
+    const st = navigator?.storage;
+    if (st && typeof st.persisted === "function") persisted = await st.persisted();
+  } catch {
+    /* thiếu API / ngữ cảnh không bảo mật — để null, đừng đoán */
+  }
+  if (lsMb == null && idbMb == null && tong == null && persisted == null) {
+    return null;
+  }
+  const quotaMb = tong?.quotaMb ?? null;
+  return {
+    lsMb,
+    idbMb,
+    cacheMb,
+    quotaMb,
+    availableMb:
+      tong == null ? null : Math.max(0, Math.round((tong.quotaMb - tong.usedMb) * 10) / 10),
+    persisted,
+  };
+}
+
+/**
  * KHO CỦA MÁY CÒN BAO NHIÊU — `{quotaMb, usedMb}`, `null` khi không hỏi được.
  *
  * VÌ SAO CẦN (chủ dự án chốt 2026-08-02j): quyết định "để dữ liệu đi biển ở kho

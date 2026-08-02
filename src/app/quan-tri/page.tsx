@@ -149,6 +149,13 @@ type Account = {
   dataUntilWeb?: string | null;
   storageQuotaMb?: number | null;
   storageUsedMb?: number | null;
+  /** tách theo kho (0030) — xem chip "kho" trong `UsageChip` */
+  storageLsMb?: number | null;
+  storageIdbMb?: number | null;
+  storageCacheMb?: number | null;
+  storageAvailableMb?: number | null;
+  storagePersisted?: boolean | null;
+  storageBackend?: string | null;
   devicePlatform: DevicePlatform | null;
   devices: {
     tag: string;
@@ -1272,6 +1279,24 @@ function AppUsage({ a }: { a: Account }) {
     a.storageQuotaMb != null
       ? `kho ${a.storageUsedMb ?? "?"}/${a.storageQuotaMb} MB`
       : null,
+    /*  ĐÃ LƯU Ở ĐÂU (0030) — bốn câu hỏi chủ dự án cần trả lời được từ trang này.
+        Trên WebKit các kho KHÔNG bình đẳng: localStorage có trần RIÊNG ~5 MB
+        (và iOS 16 chạm trần là XOÁ SẠCH nó, kéo theo chuỗi đăng nhập), còn
+        IndexedDB/Cache dùng chung hạn ngạch origin. Nên một con số tổng không
+        nói được kho nào sắp chật. */
+    a.storageLsMb != null || a.storageIdbMb != null
+      ? `ở đâu: ls ${a.storageLsMb ?? "?"} · idb ${a.storageIdbMb ?? "?"} · cache ${a.storageCacheMb ?? "?"} MB`
+      : null,
+    /*  CÒN CHỖ KHÔNG — gần 0 là máy sắp không giữ nổi gói đi biển, đáng gọi
+        nhắc dọn ảnh/video TRƯỚC khi nhổ neo. */
+    a.storageAvailableMb != null ? `còn trống ${a.storageAvailableMb} MB` : null,
+    /*  ⚠️ KHO DỰ BÁO CÒN KẸT Ở localStorage — máy không mở nổi IndexedDB nên
+        đang chở ~4 MB trong thùng 5 MB, tức chạy sát mép lỗi iOS 16. Chỉ nêu
+        khi ĐANG kẹt: trạng thái đúng thì không cần chiếm chỗ trên màn hình. */
+    a.storageBackend === "ls" ? "⚠️ kho dự báo còn ở localStorage" : null,
+    /*  BỘ NHỚ BỀN — hàng rào duy nhất chống vòng thu hồi LRU khi máy đầy. Chỉ
+        nêu khi CHƯA được cấp, vì đó mới là tin đáng hành động. */
+    a.storagePersisted === false ? "⚠️ chưa được cấp bộ nhớ bền" : null,
     a.offlineReadyAt ? `đủ đồ ${fmtDT(a.offlineReadyAt)}` : null,
     a.pwaLastOpenAt ? `bản cài mở ${fmtDT(a.pwaLastOpenAt)}` : null,
     a.webLastOpenAt ? `web mở ${fmtDT(a.webLastOpenAt)}` : null,

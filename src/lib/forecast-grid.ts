@@ -20,6 +20,7 @@ import {
   isDefinitelyOffline,
   type ForecastSaveOutcome,
 } from "@/lib/forecast-cache";
+import { forecastStoreReady } from "@/lib/forecast-store";
 import { apiUrl } from "@/lib/api-base";
 import { gridSnapshotId, SNAPSHOT_DAY_SET } from "@/lib/weather-snapshot-id";
 import { isCacheCurrent } from "@/lib/source-cadence";
@@ -499,6 +500,14 @@ export async function fetchForecastGrid(
      gió/sóng, mỗi lần đổi khung ngày. Chỉ đi tắt khi máy KHẲNG ĐỊNH mất sóng;
      ca "sóng sống mà chết" vẫn đi đường thường (không mất bản mới). Giữ NGUYÊN
      thứ tự nạn nhân của đường cũ: bản đúng khung trước, rồi khung ngắn hơn. */
+  /*  CHỜ KHO MỞ XONG RỒI MỚI ĐỌC (2026-08-02k — vá lỗi CHẶN).
+      Đường tắt này chạy khi máy KHẲNG ĐỊNH mất sóng, tức đúng lúc giữa biển.
+      Payload nay nằm ở IndexedDB (nạp bất đồng bộ lúc mở app), nên đọc trước khi
+      nạp xong là trượt ⇒ rơi xuống nhánh mạng ⇒ offline thì nhánh đó hỏng TỨC
+      THÌ (không có độ trễ mạng che cửa sổ đua) ⇒ màn hình báo "chưa có số nào
+      lưu trong máy" trong khi kho còn nguyên. Chờ ở đây là hợp lệ: hàm đã async,
+      và `forecastStoreReady()` có trần chờ nên không bao giờ treo. */
+  await forecastStoreReady();
   if (isDefinitelyOffline()) {
     const saved = savedGridFallback(id, days, usable);
     if (saved) return saved;

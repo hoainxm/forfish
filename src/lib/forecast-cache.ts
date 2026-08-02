@@ -8,8 +8,28 @@
 // Không TTL cứng cho bản offline: có mạng luôn lấy mới + ghi đè; chỉ khi fetch
 // hỏng (ngoài khơi) mới lùi về bản lưu. Prefix `forfish.*` giữ đúng quy ước.
 
-const PREFIX = "forfish.fc.";
-/** Trần số bản điểm-chạm giữ lại (đủ vài chuyến, không phình localStorage) */
+import {
+  FC_LOI_TRAN_RAM,
+  FC_PREFIX as PREFIX,
+  fcGet,
+  fcKeys,
+  fcMeta,
+  fcRemove,
+  fcSet,
+} from "@/lib/forecast-store";
+
+/*  ═══ KHO NẰM Ở ĐÂU THÌ HỎI `forecast-store` ═══ (2026-08-02k)
+
+    File này giữ LUẬT (giữ gì, bỏ gì, bỏ theo thứ tự nào); `forecast-store` giữ
+    CHỖ CẤT (IndexedDB, gương RAM, đường lùi localStorage). Trước đây hai việc
+    trộn làm một nên kho bị cột chặt vào trần 5 MB của localStorage trên iOS —
+    xem đầu `forecast-store.ts` để biết vì sao phải tách.
+
+    `fcSet` giữ nguyên giao kèo của `localStorage.setItem`: NÉM khi hết chỗ. Nhờ
+    vậy toàn bộ vòng "xoá một bản → thử ghi lại → không được thì hoàn tác" bên
+    dưới không phải sửa một dòng nào. */
+
+/** Trần số bản điểm-chạm giữ lại (đủ vài chuyến, không phình kho) */
 const MAX_ENTRIES = 40;
 
 export interface Cached<T> {
@@ -203,7 +223,7 @@ export function saveForecast<T>(
   const k = key(ns, id);
   try {
     // Ghi ĐÈ id cũ thì số bản không tăng; id mới thì phải chừa 1 chỗ.
-    const exists = window.localStorage.getItem(k) != null;
+    const exists = fcGet(k) != null;
     trim(ns, exists ? MAX_ENTRIES : MAX_ENTRIES - 1);
   } catch {
     return false; // SSR / không có window
@@ -248,14 +268,21 @@ export function saveForecast<T>(
   const daGo: DaGo[] = [];
   for (;;) {
     try {
-      window.localStorage.setItem(k, payload);
+      fcSet(k, payload);
       const s = activeScope();
       if (s) {
         s.counts[ns] = (s.counts[ns] ?? 0) + 1;
         s.written.add(k); // để `debitScopes` trừ đúng bản này, không trừ bản khác
       }
       return true;
-    } catch {
+    } catch (e) {
+      /*  ═══ HẾT CHỖ RAM ≠ HẾT CHỖ ĐĨA ═══ (2026-08-02k, vòng soát bắt)
+
+          Gương RAM có trần riêng. Chạm trần đó mà chạy đường dọn bên dưới thì
+          `dropOne` → `fcRemove` → **XOÁ THẬT trên IndexedDB**, tức đổi một ràng
+          buộc BỘ NHỚ thành mất mát ĐĨA trong khi đĩa còn rộng mênh mông — đúng
+          thứ cả kiến trúc mới dựng ra để thoát. Từ chối ghi và nói thật. */
+      if ((e as Error)?.message === FC_LOI_TRAN_RAM) break;
       /*  ═══ MẤT SÓNG THÌ KHÔNG XOÁ GÌ HẾT ═══ (chủ dự án chốt 2026-08-02i)
 
           "Đã lưu offline mà chưa online lại thì cứ dùng kho offline chứ xoá cái
@@ -319,7 +346,7 @@ export function saveForecast<T>(
 /** Đọc bản đã lưu (bất kể cũ) — null nếu chưa từng lưu / hỏng. */
 export function loadForecast<T>(ns: string, id: string): Cached<T> | null {
   try {
-    const raw = window.localStorage.getItem(key(ns, id));
+    const raw = fcGet(key(ns, id));
     if (!raw) return null;
     const c = JSON.parse(raw) as Cached<T>;
     if (typeof c?.savedAt !== "number" || c.data == null) return null;
@@ -357,18 +384,16 @@ export function isDefinitelyOffline(): boolean {
 
 /** Mọi key cache dự báo bắt đầu bằng `pre`, kèm mốc lưu (cũ nhất trước) */
 function entriesUnder(pre: string): { k: string; savedAt: number }[] {
+  /*  ĐỌC SỔ, KHÔNG PARSE KHO (2026-08-02k). Bản trước `JSON.parse` TOÀN BỘ
+      payload của mọi bản chỉ để lấy một con số `savedAt` — kể cả lưới d16 ~1,6
+      MB. Màn Chuẩn bị đi biển gọi hàm này hàng chục lượt mỗi lần dựng chip, nên
+      đó là gốc của mấy trăm ms tới hơn một giây đơ trên máy Android rẻ, đúng
+      lúc bà con đang sốt ruột trước chuyến. Sổ mục lục giữ sẵn `savedAt` nên
+      giờ là đọc thẳng. */
   const items: { k: string; savedAt: number }[] = [];
-  for (let i = 0; i < window.localStorage.length; i++) {
-    const k = window.localStorage.key(i);
-    if (!k || !k.startsWith(pre)) continue;
-    const raw = window.localStorage.getItem(k);
-    let savedAt = 0;
-    try {
-      savedAt = (JSON.parse(raw ?? "{}") as Cached<unknown>).savedAt ?? 0;
-    } catch {
-      savedAt = 0;
-    }
-    items.push({ k, savedAt });
+  for (const k of fcKeys()) {
+    if (!k.startsWith(pre)) continue;
+    items.push({ k, savedAt: fcMeta(k)?.savedAt ?? 0 });
   }
   items.sort((a, b) => a.savedAt - b.savedAt); // cũ nhất trước
   return items;
@@ -381,7 +406,7 @@ function trim(ns: string, max: number = MAX_ENTRIES): void {
     if (items.length <= max) return;
     for (const it of items.slice(0, items.length - max)) {
       debitScopes(it.k); // bản vừa ghi trong mẻ mà bị trim thì phải TRỪ công
-      window.localStorage.removeItem(it.k);
+      fcRemove(it.k);
     }
   } catch {
     // bỏ qua
@@ -468,11 +493,16 @@ function eligibleVictims(keep?: string): { k: string; savedAt: number }[] {
       if (coCungLop) {
         if (nsOf(it.k) !== nsKeep) continue;
       } else if (dropRank(it.k) >= tranBac || dropRank(it.k) >= SAN_LOI_CAI) {
-        /*  SÀN CỨNG: dù thiếu nạn nhân cùng lớp cũng KHÔNG BAO GIỜ được đụng
-            LƯỚI GIÓ/SÓNG, BẢN ĐỒ CÁ hay TIN BÃO — ba lớp cốt lõi của gói 16
-            ngày, giữa biển không tải lại được. Không có sàn thì một bản đồ cá
-            mới (bậc 5) ăn được lưới gió (bậc 4) — đổi thứ dính tính mạng lấy
-            thứ để tìm cá. */
+        /*  SÀN CỨNG = nhóm ② của chủ dự án (sóng · gió · dòng chảy) + tin bão:
+            không lớp nào được đụng tới, kể cả khi thiếu nạn nhân cùng lớp. Giữa
+            biển ba thứ đó không tải lại được, và chúng dính TÍNH MẠNG.
+
+            ⚠️ CHÚ THÍCH NÀY TỪNG NÓI NGƯỢC MÃ (sửa 2026-08-02k): nó liệt kê cả
+            BẢN ĐỒ CÁ vào nhóm không-được-đụng, nhưng sau khi xếp lại bậc theo
+            thứ tự chủ dự án chốt thì `fish`/`fishmark` xuống bậc 3 — DƯỚI sàn —
+            nên một lượt ghi lưới gió / dòng chảy ĐƯỢC PHÉP ăn bản đồ cá. Đó là
+            hành vi ĐÚNG (② trên ③); cái sai là câu chữ. Người sau sửa mã theo
+            chú thích cũ sẽ vô tình đảo lại thứ tự ưu tiên. */
         continue;
       }
     }
@@ -502,10 +532,10 @@ function dropOne(list: { k: string; savedAt: number }[]): DaGo | null {
   const it = list.shift();
   if (!it) return null;
   try {
-    const v = window.localStorage.getItem(it.k) ?? "";
+    const v = fcGet(it.k) ?? "";
     const daTru = debitScopes(it.k);
     noteEvicted();
-    window.localStorage.removeItem(it.k);
+    fcRemove(it.k);
     return {
       k: it.k,
       v,
@@ -522,7 +552,7 @@ function dropOne(list: { k: string; savedAt: number }[]): DaGo | null {
 function hoanTac(daGo: DaGo[]): void {
   for (const it of daGo) {
     try {
-      window.localStorage.setItem(it.k, it.v);
+      fcSet(it.k, it.v);
       // bản đã về kho ⇒ công phải về theo, và đừng để nó bị tính là "máy hết chỗ"
       creditScopes(it.k, it.daTru);
       if (it.daDemEvicted) {
@@ -540,36 +570,49 @@ function hoanTac(daGo: DaGo[]): void {
 
 
 /**
- * BẬC HY SINH khi phải bỏ bản dự báo (nhường chỗ cho dữ liệu bà con tự gõ, HOẶC
- * cho một bản dự báo quý hơn). Số NHỎ = bỏ TRƯỚC. Xếp theo "giữa biển mất thì
- * thiệt tới đâu":
- *   0 `price`    — bảng giá cá/dầu: vài KB, mất cũng chỉ là không biết giá lúc rời bờ
- *   1 `point`    — dự báo một toạ độ, vài KB, chạm lại là có
- *   2 `scalar`/`seascalar` — lớp dải màu (mây/mưa/nhiệt/độ mặn/nước dâng): xem cho biết
- *   3 `curdepth` — dòng chảy tầng sâu
- *   4 `grid`     — LƯỚI GIÓ/SÓNG cả vùng: an toàn tính mạng, giữa biển không tải lại được
- *   5 `fishmark` — bản đồ cá bà con chủ động ghim cho chuyến này
- *   6 `storm`    — TIN BÃO: an toàn TÍNH MẠNG và chỉ vài KB. Bỏ nó chẳng giải
- *                  phóng được chỗ nào đáng kể mà lại lấy mất đúng thứ cứu người
- *                  ⇒ bỏ SAU CÙNG (2026-08-02: trước đây `storm` và `price` không
- *                  có trong bảng nên rơi vào bậc mặc định, tin bão bị hy sinh
- *                  TRƯỚC cả lưới gió).
- * Namespace lạ (thêm sau) rơi vào bậc mặc định giữa bảng — không bao giờ bị bỏ
- * trước `point`, cũng không được ưu tiên hơn `grid`.
+ * BẬC HY SINH khi phải bỏ bản dự báo. Số NHỎ = bỏ TRƯỚC.
+ *
+ * ⚠️ KHỐI MÔ TẢ CHI TIẾT CŨ ĐÃ XOÁ (2026-08-02k): nó liệt kê bậc ĐỜI TRƯỚC
+ * (curdepth 3 · grid 4 · fishmark 5 · storm 6) nên nói NGƯỢC hẳn bảng ngay bên
+ * dưới sau khi xếp lại theo thứ tự chủ dự án chốt. Bảng là nguồn sự thật duy
+ * nhất; lý do từng bậc ghi ngay trong bảng, cạnh chính con số.
  */
+/*  ⚠️ THỨ TỰ NÀY LÀ DO CHỦ DỰ ÁN CHỐT (2026-08-02k), không phải suy đoán kỹ
+    thuật. Nguyên văn: *"ưu tiên các lớp sau vào các lớp lưu trữ theo thứ tự:
+    1- token liên quan user · 2- sóng + gió + dòng chảy · 3- cá · 4- các lớp
+    khác."* Ai sửa bảng này phải hỏi lại, đừng tự xếp theo cảm giác.
+
+    ① TOKEN — KHÔNG nằm trong bảng này, và đó mới là chỗ bảo đảm nó.
+      Chuỗi đăng nhập nằm ở localStorage (khoá riêng của `lib/device-token-store`,
+      cố ý KHÔNG chép tên khoá vào đây — có cổng cấm mọi file khác nhắc tới nó),
+      không đi qua kho dự báo nên KHÔNG có đường nào ở đây đụng tới nó. Cái từng đe doạ nó là chuyện
+      khác: nhét ~4 MB dự báo vào thùng localStorage ~5 MB, mà iOS 16 thì **chạm
+      hạn mức là xoá SẠCH localStorage** (WebKit #245479) — mất luôn chuỗi đăng
+      nhập, tức bà con bị đá ra giữa biển. Dời khối nặng sang IndexedDB chính là
+      cách thi hành ưu tiên ①: thùng nhỏ không bao giờ chạm mép nữa.
+    ② SÓNG + GIÓ + DÒNG CHẢY → `grid` + `curdepth`, bậc cao nhất trong bảng.
+    ③ CÁ → `fish` (bản đồ đầy đủ) + `fishmark` (dấu của nó), ngay dưới ②.
+    ④ CÁC LỚP KHÁC → giá, điểm chạm, lớp dải màu, nước dâng. */
 const DROP_RANK: Record<string, number> = {
+  // ④ các lớp khác — mất cũng chỉ là bất tiện, có sóng là lấy lại
   price: 0,
   point: 1,
   scalar: 2,
   seascalar: 2,
-  curdepth: 3,
+  // ③ cá
+  fishmark: 3,
+  fish: 3,
+  // ② sóng + gió + dòng chảy — an toàn tính mạng, giữa biển không tải lại được
+  curdepth: 4,
   grid: 4,
-  fishmark: 5,
-  storm: 6,
+  /*  TIN BÃO nằm trên cùng dù chủ dự án không nhắc: nó vài KB, nên bỏ nó KHÔNG
+      giải phóng được chỗ nào đáng kể mà lại lấy đúng thứ cứu người. Giữ nó
+      không tốn gì của ba nhóm trên. */
+  storm: 5,
 };
-const DROP_RANK_DEFAULT = 3;
+const DROP_RANK_DEFAULT = 2;
 
-/** Từ bậc này trở lên là LỚP CỐT LÕI của gói đi biển — không lớp nào được ăn */
+/** Từ bậc này trở lên là nhóm ② — không lớp nào được phép ăn (xem bảng trên) */
 const SAN_LOI_CAI = DROP_RANK.grid;
 
 
@@ -641,11 +684,9 @@ export function bytesUnder(sub: string): number {
   try {
     const full = `${PREFIX}${sub}`;
     let n = 0;
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const k = window.localStorage.key(i);
-      if (!k || !k.startsWith(full)) continue;
-      const v = window.localStorage.getItem(k) ?? "";
-      n += (k.length + v.length) * 2;
+    for (const k of fcKeys()) {
+      if (!k.startsWith(full)) continue;
+      n += fcMeta(k)?.bytes ?? 0; // sổ giữ sẵn cỡ — khỏi dựng lại cả chuỗi ~5 MB
     }
     return n;
   } catch {
@@ -659,15 +700,10 @@ export function latestSavedAt(sub: string): number | null {
   try {
     const full = `${PREFIX}${sub}`;
     let max: number | null = null;
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const k = window.localStorage.key(i);
-      if (!k || !k.startsWith(full)) continue;
-      try {
-        const s = (JSON.parse(window.localStorage.getItem(k) ?? "{}") as Cached<unknown>).savedAt;
-        if (typeof s === "number" && (max == null || s > max)) max = s;
-      } catch {
-        /* mục hỏng — bỏ qua */
-      }
+    for (const k of fcKeys()) {
+      if (!k.startsWith(full)) continue;
+      const s = fcMeta(k)?.savedAt; // sổ, không parse
+      if (typeof s === "number" && s > 0 && (max == null || s > max)) max = s;
     }
     return max;
   } catch {

@@ -10,6 +10,7 @@
 import { parseErddapGrid, ERDDAP_UA, type ScalarGrid } from "@/lib/fish-predict";
 import { apiUrl } from "@/lib/api-base";
 import { saveForecast, loadForecast } from "@/lib/forecast-cache";
+import { forecastStoreReady } from "@/lib/forecast-store";
 import { seaScalarSnapshotId } from "@/lib/weather-snapshot-id";
 import { timeoutSignal } from "@/lib/abort";
 
@@ -215,6 +216,13 @@ function saveSeaScalarChecked(kind: SeaScalarKind, next: SeaScalarResult): boole
 export async function fetchSeaScalar(
   kind: SeaScalarKind,
 ): Promise<SeaScalarResult> {
+  /*  CHỜ KHO MỞ XONG RỒI MỚI ĐỌC BẢN LƯU (2026-08-02k — vòng đánh giá cuối).
+      Mất sóng thì `fetch` hỏng TỨC THÌ (không có độ trễ mạng che cửa sổ đua),
+      nên nhánh lùi chạy khi gương còn rỗng ⇒ trả `null` ⇒ màn hình nói "chưa
+      có" trong khi kho còn nguyên. Từ phiên thứ hai localStorage đã bị dọn nên
+      không còn lớp chắn nào. Hàm đã async; `forecastStoreReady()` có trần chờ. */
+  await forecastStoreReady();
+
   // 1) snapshot cron (nguồn ERDDAP hay chết → đây là đường chính đáng tin)
   const snap = await loadSeaScalarSnapshot(kind);
   if (snap && snap.ok) {

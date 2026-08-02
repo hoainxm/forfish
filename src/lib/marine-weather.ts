@@ -17,6 +17,7 @@ import {
   coordId,
   isDefinitelyOffline,
 } from "@/lib/forecast-cache";
+import { forecastStoreReady } from "@/lib/forecast-store";
 import {
   loadGridSnapshotClient,
   loadLongestSavedGrid,
@@ -189,6 +190,14 @@ export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
      đã nằm sẵn trong máy từ giây 0. Chỉ đi đường tắt khi máy KHẲNG ĐỊNH mất sóng
      (`isDefinitelyOffline`) — ca "sóng sống mà chết" vẫn đi đường thường, không
      mất bản mới. Không có bản nào thì rơi xuống đường cũ (fetch sẽ hỏng ngay). */
+  /*  CHỜ KHO MỞ XONG RỒI MỚI ĐỌC (2026-08-02k — vá lỗi CHẶN).
+      Đường tắt này chạy khi máy KHẲNG ĐỊNH mất sóng, tức đúng lúc giữa biển.
+      Payload nay nằm ở IndexedDB (nạp bất đồng bộ lúc mở app), nên đọc trước khi
+      nạp xong là trượt ⇒ rơi xuống nhánh mạng ⇒ offline thì nhánh đó hỏng TỨC
+      THÌ (không có độ trễ mạng che cửa sổ đua) ⇒ màn hình báo "chưa có số nào
+      lưu trong máy" trong khi kho còn nguyên. Chờ ở đây là hợp lệ: hàm đã async,
+      và `forecastStoreReady()` có trần chờ nên không bao giờ treo. */
+  await forecastStoreReady();
   if (isDefinitelyOffline()) {
     const saved = savedSeaPoint(p, id);
     if (saved) return saved;

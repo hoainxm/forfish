@@ -15,11 +15,23 @@ let QUOTA_BYTES = Infinity;
    origin với Cache API — ô bản đồ 12 MB vừa tải làm `setItem` ném BẤT KỂ
    localStorage còn trống bao nhiêu. Cờ này dựng đúng cảnh đó. */
 let ALWAYS_FULL = false;
+/*  QUOTA ĐẾM BẢN DỰ BÁO, KHÔNG ĐẾM SỔ MỤC LỤC (2026-08-02k).
+    Từ khi payload sang IndexedDB, `lib/forecast-store` giữ thêm một khoá SỔ
+    (`forfish.fcindex.v1`, vài KB) trong localStorage. Trên máy thật nó không
+    đáng kể so với trần ~5 MB, nhưng ở đây `QUOTA` mô hình hoá "số BẢN DỰ BÁO
+    chứa được" — để sổ chiếm một suất là mọi ca dọn lệch đi đúng một bản, và
+    test đi kiểm sai thứ. */
+const laBanDuBao = (k: string) => k.startsWith("forfish.fc.");
 const _ls = (() => {
   const m = new Map<string, string>();
   const usedBytes = () => {
     let n = 0;
-    for (const [k, v] of m) n += (k.length + v.length) * 2;
+    for (const [k, v] of m) if (laBanDuBao(k)) n += (k.length + v.length) * 2;
+    return n;
+  };
+  const soBan = () => {
+    let n = 0;
+    for (const k of m.keys()) if (laBanDuBao(k)) n++;
     return n;
   };
   return {
@@ -30,13 +42,16 @@ const _ls = (() => {
         e.name = "QuotaExceededError";
         throw e;
       }
-      if (!m.has(k) && m.size >= QUOTA) {
+      if (!m.has(k) && laBanDuBao(k) && soBan() >= QUOTA) {
         const e = new Error("QuotaExceededError");
         e.name = "QuotaExceededError";
         throw e;
       }
       const cur = m.has(k) ? (k.length + m.get(k)!.length) * 2 : 0;
-      if (usedBytes() - cur + (k.length + String(v).length) * 2 > QUOTA_BYTES) {
+      if (
+        laBanDuBao(k) &&
+        usedBytes() - cur + (k.length + String(v).length) * 2 > QUOTA_BYTES
+      ) {
         const e = new Error("QuotaExceededError");
         e.name = "QuotaExceededError";
         throw e;
@@ -213,14 +228,31 @@ describe("máy hết chỗ (QuotaExceeded)", () => {
     expect(loadForecast("storm", "latest")).not.toBeNull();
   });
 
-  it("bản đồ cá mới KHÔNG được xoá tin bão / lưới gió — SÀN CỨNG", () => {
+  /*  ⚠️ THỨ TỰ ĐỔI 2026-08-02k — chủ dự án chốt: *"ưu tiên … 1- token · 2- sóng
+      + gió + dòng chảy · 3- cá · 4- các lớp khác."*
+      Trước đây `curdepth` (bậc 3) NẰM DƯỚI `fishmark` (bậc 5) nên bản đồ cá ăn
+      được dòng chảy. Nay dòng chảy lên nhóm ② cùng lưới gió/sóng, cá xuống nhóm
+      ③ ⇒ **cá không còn được đụng dòng chảy nữa**. Ca dưới khoá đúng chiều mới. */
+  it("bản đồ cá KHÔNG được xoá tin bão / lưới gió / DÒNG CHẢY (nhóm ②)", () => {
     QUOTA = 3;
     saveForecast("storm", "latest", { ok: true }, 0);
     saveForecast("grid", "d16", { i: 1 }, 100);
     saveForecast("curdepth", "t150", { i: 2 }, 200);
-    // bản đồ cá (bậc 5) ăn được `curdepth` (bậc 3, dưới sàn), KHÔNG đụng hai lớp trên
-    expect(saveForecast("fishmark", "m", { v: 1 }, 300)).toBe(true);
+    /*  Kho toàn nhóm ② + tin bão ⇒ bản đồ cá KHÔNG có nạn nhân hợp lệ nào ⇒
+        TỪ CHỐI GHI và nói thật, chứ không đổi dòng chảy lấy chỗ tìm cá. */
+    expect(saveForecast("fishmark", "m", { v: 1 }, 300)).toBe(false);
     expect(loadForecast("storm", "latest"), "TIN BÃO bị ăn").not.toBeNull();
+    expect(loadForecast("grid", "d16"), "LƯỚI GIÓ bị ăn").not.toBeNull();
+    expect(loadForecast("curdepth", "t150"), "DÒNG CHẢY bị ăn").not.toBeNull();
+  });
+
+  it("bản đồ cá VẪN ăn được nhóm ④ (giá, điểm chạm, lớp dải màu)", () => {
+    QUOTA = 3;
+    saveForecast("price", "port", { i: 0 }, 0);
+    saveForecast("point", "a", { i: 1 }, 100);
+    saveForecast("grid", "d16", { i: 2 }, 200);
+    expect(saveForecast("fish", "latest", { v: 1 }, 300)).toBe(true);
+    expect(loadForecast("price", "port"), "lớp rẻ nhất phải nhường").toBeNull();
     expect(loadForecast("grid", "d16"), "LƯỚI GIÓ bị ăn").not.toBeNull();
   });
 

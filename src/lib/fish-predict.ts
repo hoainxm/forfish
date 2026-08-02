@@ -15,6 +15,7 @@
 import { FISH_SEASONS, nearestRegionWithin, seasonPrior } from "@/data/fish-seasons";
 import { apiUrl } from "@/lib/api-base";
 import { saveForecast, loadForecast } from "@/lib/forecast-cache";
+import { forecastStoreReady } from "@/lib/forecast-store";
 import type { FieldProvenance } from "@/lib/source-registry";
 import { timeoutSignal } from "@/lib/abort";
 import { noteResponse, tokenHeader } from "@/lib/device-token-store";
@@ -1392,6 +1393,13 @@ export type FishForecastResult =
   | { ok: false; code?: string };
 
 export async function fetchFishForecast(): Promise<FishForecastResult> {
+  /*  CHỜ KHO MỞ XONG RỒI MỚI ĐỌC BẢN LƯU (2026-08-02k — vòng đánh giá cuối).
+      Mất sóng thì `fetch` hỏng TỨC THÌ (không có độ trễ mạng che cửa sổ đua),
+      nên nhánh lùi chạy khi gương còn rỗng ⇒ trả `null` ⇒ màn hình nói "chưa
+      có" trong khi kho còn nguyên. Từ phiên thứ hai localStorage đã bị dọn nên
+      không còn lớp chắn nào. Hàm đã async; `forecastStoreReady()` có trần chờ. */
+  await forecastStoreReady();
+
   try {
     // Timeout client (invariant 02 §5): route lần lạnh ~30s (lưới ERDDAP nặng,
     // maxDuration 60) → cho 35s để nhận data thật; quá thì hủy → pill thử lại.
@@ -1414,7 +1422,7 @@ export async function fetchFishForecast(): Promise<FishForecastResult> {
           (r.status === 401 ? "login_required" : "premium_required"),
       };
     }
-    if (!r.ok) return { ok: false };
+    if (!r.ok) return banDoCaDaLuu() ?? { ok: false };
     const data = (await r.json()) as FishForecastResult;
     // DẤU "bản đồ cá đã có offline" — payload thật do Service Worker cache
     // (/api/fish-forecast, same-origin), nhưng JS không đọc được kho SW đồng bộ.
@@ -1429,15 +1437,46 @@ export async function fetchFishForecast(): Promise<FishForecastResult> {
         // mấy ngày tuổi. `generatedAt` là tuổi THẬT của bản, không đổi.
         generatedAt: (data as FishForecast).generatedAt ?? null,
       });
+      /*  ═══ VÀ GIỮ LUÔN BẢN ĐỒ THẬT, KHÔNG CHỈ CÁI DẤU ═══ (2026-08-02k)
+
+          Chủ dự án chốt: *"Cache API bị xoá sau 7 ngày thì cái này chỉ nên dùng
+          dự phòng, còn phải lưu và lấy trực tiếp từ local và IndexedDB."*
+
+          Đúng, và trước bản vá này thì ngược hẳn: payload bản đồ cá (~1 MB) nằm
+          DUY NHẤT trong kho Service Worker, còn localStorage chỉ giữ một cái dấu
+          vài chục byte nói "đã tải rồi". Nên khi WebKit dọn kho SW — 7 ngày
+          không mở, hoặc máy đầy, hoặc chính `reclaimRoom` của `sw.js` — thì dấu
+          vẫn còn mà bản đồ thì bay. Bảng "trong máy có gì" đọc cái dấu và báo
+          XANH. Tàu ra khơi tin là có lớp cá, mở ra thì trắng.
+
+          Nay bản thật nằm ở IndexedDB (qua `forecast-store`), kho SW tụt xuống
+          làm lớp đọc nhanh. Mất kho SW cũng không mất bản đồ. */
+      saveForecast(FISH_NS, FISH_ID, data);
     }
     return data;
   } catch {
-    return { ok: false };
+    return banDoCaDaLuu() ?? { ok: false };
   }
 }
 
 const FISH_MARK_NS = "fishmark";
 const FISH_MARK_ID = "latest";
+/** Bản đồ cá ĐẦY ĐỦ trong kho bền — xem chú thích ở `fetchFishForecast`. */
+export const FISH_NS = "fish";
+export const FISH_ID = "latest";
+
+/**
+ * Bản đồ cá đã lưu trong máy (IndexedDB) — `null` nếu chưa từng tải được.
+ *
+ * Chỉ trả bản CÒN DÙNG ĐƯỢC (`ok === true`): kho có thể còn giữ một phản hồi
+ * hỏng từ thời route trả 200-kèm-lỗi, mà đây là bản DUY NHẤT của lớp cá nên đưa
+ * rác ra màn hình còn tệ hơn nói "chưa tải được".
+ */
+export function banDoCaDaLuu(): FishForecast | null {
+  const c = loadForecast<FishForecast>(FISH_NS, FISH_ID);
+  const d = c?.data;
+  return d && (d as FishForecast).ok === true ? d : null;
+}
 
 /** Dấu "bản đồ cá đã tải offline" (từ lần fetchFishForecast gần nhất nhận 200).
  *  null = chưa lần nào tải được. Thuần đọc — cho pretrip-status.

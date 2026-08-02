@@ -55,6 +55,12 @@ export async function POST(req: Request) {
     savedUntil?: unknown;
     storageQuotaMb?: unknown;
     storageUsedMb?: unknown;
+    storageLsMb?: unknown;
+    storageIdbMb?: unknown;
+    storageCacheMb?: unknown;
+    storageAvailableMb?: unknown;
+    storagePersisted?: unknown;
+    storageBackend?: unknown;
   } | null;
 
   const admin = createAdminClient();
@@ -102,6 +108,21 @@ export async function POST(req: Request) {
       khuôn lỗi cột 0022 đã dính). */
   const khoQuota = normalizeStorageMb(body?.storageQuotaMb);
   const khoUsed = normalizeStorageMb(body?.storageUsedMb);
+  /*  TÁCH THEO KHO (0030) — trả lời "ĐÃ LƯU Ở ĐÂU" chứ không chỉ "nặng bao
+      nhiêu". Cùng luật ép kiểu như trên: một giá trị lạ xuống cột `integer` là
+      CẢ LỆNH UPDATE HỎNG, mất luôn mấy mốc đang chạy tốt. */
+  const khoLs = normalizeStorageMb(body?.storageLsMb);
+  const khoIdb = normalizeStorageMb(body?.storageIdbMb);
+  const khoCache = normalizeStorageMb(body?.storageCacheMb);
+  const khoFree = normalizeStorageMb(body?.storageAvailableMb);
+  const khoBen =
+    typeof body?.storagePersisted === "boolean" ? body.storagePersisted : null;
+  /*  CHỈ NHẬN ĐÚNG HAI GIÁ TRỊ — cột này để nhân viên lọc "máy nào chưa dời được
+      kho"; nhận chuỗi tự do là mở cửa cho rác làm hỏng bộ lọc. */
+  const khoNoi =
+    body?.storageBackend === "idb" || body?.storageBackend === "ls"
+      ? body.storageBackend
+      : null;
   const platform = normalizePlatform(body?.platform);
   const dev = isValidDeviceId(body?.deviceId) ? body.deviceId : null;
   /*  `.select` LẤY LUÔN HẠNG (2026-08-02g) — KHÔNG tốn thêm một lượt truy vấn
@@ -113,7 +134,7 @@ export async function POST(req: Request) {
       ⚠️ `.select("phone")` vẫn phải giữ đúng vai trò cũ: BIẾT CÓ GHI ĐƯỢC KHÔNG
       (update không khớp hàng nào thì Supabase trả error=null y như ghi thành
       công). Thêm cột không đổi vai trò đó. */
-  const write = (p: Record<string, string | null>) =>
+  const write = (p: Record<string, string | boolean | null>) =>
     admin
       .from("customers")
       .update(p)
@@ -127,7 +148,8 @@ export async function POST(req: Request) {
   // đến từ mã máy KHÁC ⇒ xoá sạch rồi ghi lại theo máy mới.
   // `dev == null` (storage bị chặn) → KHÔNG reset: thà số liệu cũ còn hơn xoá
   // mốc mỗi lần mở app.
-  const extra: Record<string, string | null> = {};
+  /* `boolean` từ 0030 (`storage_persisted`) — trước chỉ có chuỗi/null */
+  const extra: Record<string, string | boolean | null> = {};
   /*  ⚠️ `data_until` CHỈ NHẬN TỪ NHỊP CỦA BẢN CÀI (sửa 2026-08-02g — chủ dự án
       chỉ ra: *"user đã pass qua bước bản cài, đã có dữ liệu, nhưng sau đó toàn
       dùng bản web?"*).
@@ -159,6 +181,12 @@ export async function POST(req: Request) {
   }
   if (khoQuota != null) extra.storage_quota_mb = String(khoQuota);
   if (khoUsed != null) extra.storage_used_mb = String(khoUsed);
+  if (khoLs != null) extra.storage_ls_mb = String(khoLs);
+  if (khoIdb != null) extra.storage_idb_mb = String(khoIdb);
+  if (khoCache != null) extra.storage_cache_mb = String(khoCache);
+  if (khoFree != null) extra.storage_available_mb = String(khoFree);
+  if (khoBen != null) extra.storage_persisted = khoBen;
+  if (khoNoi) extra.storage_backend = khoNoi;
   if (platform) extra.device_platform = platform;
   if (dev) {
     extra.device_id = dev;
@@ -246,6 +274,17 @@ export async function POST(req: Request) {
               không thì đổi điện thoại xong tra lại vẫn ra con số lẫn hai kho. */
           ...(khoQuota != null ? { storage_quota_mb: khoQuota } : {}),
           ...(khoUsed != null ? { storage_used_mb: khoUsed } : {}),
+          /*  SÁU CỘT TÁCH KHO CỦA 0030 — ghi CẢ Ở ĐÂY, không chỉ ở `customers`.
+              Thiếu vế này là lặp lại đúng lỗi vừa nêu ngay phía trên: migration
+              HỨA "đổi điện thoại vẫn tra được máy cũ" rồi để cột null vĩnh viễn.
+              Mà so iOS với Android — lý do chính khiến bảng theo-máy tồn tại —
+              thì phải có đúng mấy cột này mới so được. */
+          ...(khoLs != null ? { storage_ls_mb: khoLs } : {}),
+          ...(khoIdb != null ? { storage_idb_mb: khoIdb } : {}),
+          ...(khoCache != null ? { storage_cache_mb: khoCache } : {}),
+          ...(khoFree != null ? { storage_available_mb: khoFree } : {}),
+          ...(khoBen != null ? { storage_persisted: khoBen } : {}),
+          ...(khoNoi ? { storage_backend: khoNoi } : {}),
           ...(savedUntil
             ? body?.standalone
               ? { data_until: savedUntil }

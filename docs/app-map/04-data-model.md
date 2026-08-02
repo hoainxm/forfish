@@ -477,11 +477,18 @@ Không vá bằng cách viết code cẩn thận hơn — đây là **ràng bu�
 
 **Vì sao** (chủ dự án chốt): cả một ngày soát offline được xây trên con số *"localStorage 5 MB"* mà **không ai đo**. Đo thật trên Chromium: localStorage chạm trần **99,88 MB**, quota cả origin **1.425 MB** — sai hẳn về mức độ. Không thể quyết kiến trúc lưu trữ bằng phỏng đoán, mà cũng không đo được iOS từ máy dev.
 
-| Kho | iOS cho | Rủi ro |
+⚠️ **BẢNG DƯỚI ĐÂY ĐÃ ĐÍNH CHÍNH 2026-08-02k** (tài liệu WebKit chủ dự án đưa). Bản đầu viết sai hai chỗ, và cả hai đều dẫn người sau đi nhầm đường: (a) IndexedDB **không có** hạn mức riêng "15–60% đĩa trống" — nó dùng **chung hạn ngạch origin**, tính theo **tổng dung lượng THIẾT BỊ**; (b) luật ITP 7 ngày **không** chỉ quét Cache API mà quét **mọi kho JavaScript ghi được**, kể cả IndexedDB và cả **đăng ký service worker** — nên dời sang IndexedDB **không** thoát được luật đó.
+
+| Kho | Hạn mức trên iOS/WebKit | Rủi ro thật |
 |---|---|---|
-| localStorage | **5 MB cứng**/origin | chật thật |
-| Cache API (service worker) | 50 MB+ tuỳ máy | **xoá sau 7 ngày không mở app** |
-| IndexedDB | **15–60% đĩa trống** nếu đã cài về màn hình | bền nhất |
+| localStorage | **~5 MB/origin** — hạn mức RIÊNG, nhỏ hơn hẳn hạn ngạch origin, không co giãn theo máy (UTF-16 ⇒ ~2,5 triệu ký tự là chạm) | **iOS 16: chạm hạn mức là XOÁ SẠCH localStorage** (WebKit #245479) ⇒ mất luôn chuỗi đăng nhập, dấu hạng, tủ giấy tờ |
+| Cache Storage | chung hạn ngạch origin | bị chính `sw.js` (`reclaimRoom`, đổi tên kho lúc deploy) dọn |
+| IndexedDB | chung hạn ngạch origin | như trên |
+| **Hạn ngạch origin** | Safari/PWA màn hình chính: tối đa ~**60% tổng dung lượng thiết bị**/origin · tất cả origin cộng lại ~**80%** · WKWebView không phải trình duyệt mặc định: ~**15%** | mức TRẦN, không phải lời hứa |
+
+**Miễn luật 7 ngày**: chỉ **PWA đã thêm vào màn hình chính** (domain chính). Đó là hàng rào duy nhất, và app đã làm (`components/install-prompt.tsx`).
+
+⇒ Hệ quả cho mọi quyết định sau này: **dời dữ liệu giữa IndexedDB và Cache Storage KHÔNG làm origin nhẹ đi một byte nào** (cùng một túi), và **chép thêm bản "cho chắc" là ăn GẤP ĐÔI hạn ngạch** — đẩy origin tới gần vòng thu hồi LRU hơn, tức bản dự phòng đi gây ra đúng cái nó định phòng. Bản dự phòng THẬT phải nằm **ngoài** origin: tệp bà con tự xuất ra máy.
 
 | Cột (trên cả `customers` và `customer_devices`) | Nghĩa |
 |---|---|
@@ -493,6 +500,25 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 ⚠️ **KHÔNG đo bằng cách ghi thử.** Cách duy nhất biết trần chính xác là ghi tới lúc ném — trên máy bà con thì đó là đổ vài chục MB rác vào kho và có cửa đẩy chính dữ liệu đi biển ra. `estimate()` là số trình duyệt tự khai, không ghi một byte.
 
 ⚠️ Client khai sai chỉ hỏng thống kê của chính máy đó, KHÔNG mở được quyền gì — nhưng vẫn ép qua `normalizeStorageMb` (thuần, có test): một chuỗi lạ / số âm / `Infinity` xuống thẳng cột `integer` là **cả lệnh UPDATE hỏng**, mất luôn mấy mốc thời gian đang chạy tốt (đúng khuôn lỗi cột 0022 đã dính).
+
+### Đã lưu ở đâu · đủ chỗ không · chắc chạy offline chưa — migration [`0030_storage_breakdown.sql`](../../supabase/migrations/0030_storage_breakdown.sql) (2026-08-02) — ⏳ CHỜ APPLY prod
+
+**Vì sao** (chủ dự án chốt): *"heartbeat và web quản trị cần có các info này để nắm rõ đã lưu ở đâu, lưu bản dữ liệu tới ngày nào, dung lượng storage đủ không, có đảm bảo chạy tốt 100% offline chưa."*
+
+0029 chở về **một con số tổng**. Số đó không trả lời được câu đang cần, vì theo bảng đã đính chính ở trên các kho **không bình đẳng**: localStorage có trần riêng ~5 MB (và iOS 16 chạm trần là xoá sạch nó), còn IndexedDB/Cache dùng chung hạn ngạch origin. Gộp lại là mất đúng thông tin để biết **kho nào sắp chật**.
+
+| Câu hỏi | Cột trả lời |
+|---|---|
+| ① đã lưu ở đâu | `storage_backend` (`'idb'` = đã dời xong · `'ls'` = còn kẹt thùng 5 MB ⇒ **đáng gọi điện**) + `storage_ls_mb` / `storage_idb_mb` / `storage_cache_mb` |
+| ② dữ liệu tới ngày nào | `data_until` (bản cài) / `data_until_web` — đã có từ 0025/0027 |
+| ③ dung lượng đủ không | `storage_available_mb` (`quota − usage`); gần 0 = sắp không giữ nổi gói đi biển |
+| ④ chắc chạy offline chưa | `offline_ready_at` (đã có) + `storage_persisted` |
+
+`storage_persisted` = `navigator.storage.persisted()` — **hàng rào duy nhất** chống vòng thu hồi LRU khi máy đầy. App vẫn gọi `persist()` lúc mở app nhưng trước đây **vứt kết quả**, nên không ai biết máy bà con có được cấp hay không. Tổ hợp đáng lo nhất: `storage_available_mb` nhỏ **và** `storage_persisted = false`.
+
+⚠️ `storage_cache_mb` là **ƯỚC LƯỢNG** (`tổng − ls − idb`), gộp cả mã service worker và phụ trội trình duyệt — chỉ dùng SO ĐỘ LỚN. Đo thật phải tải lại từng ô bản đồ: vài chục MB đọc đĩa mỗi nhịp, đắt hơn giá trị nó mang lại. Hai cột kia thì chính xác.
+
+⚠️ Cột có thể CHƯA tồn tại (chủ dự án tự apply) ⇒ `/api/admin/accounts` thử **ba nấc** select rộng → hẹp; `/api/me/heartbeat` giữ nguyên khuôn "hỏng thì ghi lại bộ cũ". Một chip phụ không được làm mất trắng danh sách 700+ khách.
 
 
 <!-- re-verified: 2026-06-14 — schema 0001 boats/documents + §6 gateway khớp code -->

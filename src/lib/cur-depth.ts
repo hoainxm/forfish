@@ -13,6 +13,7 @@ import {
   loadAll,
   isDefinitelyOffline,
 } from "@/lib/forecast-cache";
+import { forecastStoreReady } from "@/lib/forecast-store";
 import { apiUrl } from "@/lib/api-base";
 import { isCacheCurrent } from "@/lib/source-cadence";
 import { curDepthSnapshotId, CUR_DEPTH_MAX_DAYS } from "@/lib/weather-snapshot-id";
@@ -118,6 +119,14 @@ export async function fetchCurDepthGridClient(
      Đường thường đốt ~55 giây (10 s snapshot + 45 s route live) rồi mới lấy ra
      bản đã nằm sẵn trong máy — và bà con đổi qua lại 4 chip tầng (Mặt/50/150/
      300) là mỗi chip một lần chờ. Chỉ đi tắt khi máy KHẲNG ĐỊNH mất sóng. */
+  /*  CHỜ KHO MỞ XONG RỒI MỚI ĐỌC (2026-08-02k — vá lỗi CHẶN).
+      Đường tắt này chạy khi máy KHẲNG ĐỊNH mất sóng, tức đúng lúc giữa biển.
+      Payload nay nằm ở IndexedDB (nạp bất đồng bộ lúc mở app), nên đọc trước khi
+      nạp xong là trượt ⇒ rơi xuống nhánh mạng ⇒ offline thì nhánh đó hỏng TỨC
+      THÌ (không có độ trễ mạng che cửa sổ đua) ⇒ màn hình báo "chưa có số nào
+      lưu trong máy" trong khi kho còn nguyên. Chờ ở đây là hợp lệ: hàm đã async,
+      và `forecastStoreReady()` có trần chờ nên không bao giờ treo. */
+  await forecastStoreReady();
   if (isDefinitelyOffline()) {
     const hit = loadForecast<CurDepthClientGrid>(CUR_DEPTH_NS, id);
     if (hit && usable(hit.data))

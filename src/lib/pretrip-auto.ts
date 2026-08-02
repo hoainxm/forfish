@@ -400,8 +400,19 @@ export function coverageChipText(
   cov: SavedCoverage | null,
   todayIso: string = todayIsoLocal(),
   online: boolean = true,
+  /*  Trạng thái kho dự báo. `null` = chỗ gọi không quan tâm (test cũ) — CỐ Ý
+      không mặc định "san-sang": file này thuần, không được tự đi hỏi kho. */
+  storeState: "dang-mo" | "san-sang" | "khong-mo-duoc" | null = null,
 ): string {
   if (phase === "loading") return "Đang tải dữ liệu dự báo";
+  /*  KHO CHƯA MỞ XONG ⇒ CHƯA ĐƯỢC KẾT LUẬN GÌ (2026-08-02k — vòng soát bắt).
+      Payload nay ở IndexedDB, nạp bất đồng bộ. Thẻ nhắc TO đã có cổng này, còn
+      chip ngay CẠNH nó thì chưa — nên giữa biển thẻ im mà chip vẫn đứng "Chưa
+      tải dữ liệu dự báo" trong khi máy đủ 16 ngày. Cùng một màn hình mà hai chỗ
+      nói hai kiểu thì bà con tin cái đáng sợ hơn, rồi quay tàu về bờ. */
+  if (storeState != null && storeState !== "san-sang") {
+    return "Đang mở kho dữ liệu…";
+  }
   if (!cov || cov.layers.every((l) => !l.saved)) return "Chưa tải dữ liệu dự báo";
   if (!cov.allSaved) return `Còn thiếu ${cov.missing} lớp — chạm xem`;
   /* NGÀY NÓI RA LÀ NGÀY CỐT LÕI, KHÔNG PHẢI NGÀY CỦA RIÊNG ĐIỂM GHIM

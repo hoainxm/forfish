@@ -42,9 +42,13 @@ import {
 import {
   devicePlatform,
   isStandalone,
-  storageEstimateMb,
+  storageBreakdownMb,
 } from "@/lib/storage-persist";
 import { deviceId } from "@/lib/device-id";
+import {
+  forecastStoreBackend,
+  forecastStoreReady,
+} from "@/lib/forecast-store";
 import { isShellReady } from "@/lib/shell-ready";
 import { savedCoverage } from "@/lib/pretrip";
 import { savedGridUntil } from "@/lib/forecast-grid";
@@ -144,7 +148,16 @@ export function UsageHeartbeat() {
         // thì khách hạng thường vĩnh viễn "chưa đủ đồ"; mà coi "chưa tra được
         // hạng" là khoá thì khách premium lại được báo THỪA. Luật + lý do ở
         // `fishLockedFromMark` (lib/heartbeat.ts, có test).
-        const kho = await storageEstimateMb();
+        /*  ⚠️ CHỜ KHO DỰ BÁO MỞ XONG RỒI MỚI ĐẾM (2026-08-02k — vòng soát bắt).
+            Payload nay ở IndexedDB, nạp bất đồng bộ lúc mở app. Đếm trước khi
+            nạp xong thì nhịp báo về máy chủ `offlineReady:false` +
+            `savedUntil:null` cho một máy ĐÃ TẢI ĐỦ ⇒ /quan-tri xếp bà con vào
+            danh sách đáng-gọi-điện, nhân viên gọi nhắc "máy chưa tải dữ liệu"
+            trong khi máy đủ 16 ngày. Sai số liệu thì còn sửa được; gọi nhầm là
+            mất niềm tin. `forecastStoreReady()` có trần chờ nên không treo. */
+        await forecastStoreReady();
+        if (!alive) return;
+        const kho = await storageBreakdownMb();
         const cov = savedCoverage({ fishLocked: fishLockedFromMark() });
         const r = await sendHeartbeat({
           // TÀI KHOẢN — chỉ dùng cho chữ ký PHÍA MÁY, `sendHeartbeat` cố ý
@@ -171,7 +184,33 @@ export function UsageHeartbeat() {
           /*  KHO CỦA MÁY (0029). `await` ở đây an toàn: cả khối này đã nằm trong
               `beat()` chạy trong effect, không phải đường vẽ màn; và
               `storageEstimateMb` không ghi một byte nào, hỏng thì trả null. */
-          ...(kho ? { storageQuotaMb: kho.quotaMb, storageUsedMb: kho.usedMb } : {}),
+          ...(kho
+            ? {
+                storageQuotaMb: kho.quotaMb,
+                /*  `usedMb` cũ = tổng cả origin. Nay tách ba kho để /quan-tri
+                    trả lời được câu "ĐÃ LƯU Ở ĐÂU" chứ không chỉ "nặng bao
+                    nhiêu" — trên iOS localStorage có trần RIÊNG ~5 MB nên gộp
+                    một số là mất đúng thông tin cần để biết kho nào sắp chật. */
+                storageUsedMb:
+                  kho.lsMb != null && kho.idbMb != null && kho.cacheMb != null
+                    ? Math.round((kho.lsMb + kho.idbMb + kho.cacheMb) * 10) / 10
+                    : null,
+                storageLsMb: kho.lsMb,
+                storageIdbMb: kho.idbMb,
+                storageCacheMb: kho.cacheMb,
+                storageAvailableMb: kho.availableMb,
+                /*  CÓ ĐƯỢC CẤP BỘ NHỚ BỀN KHÔNG — hàng rào duy nhất chống vòng
+                    thu hồi LRU khi máy đầy. App vẫn gọi `persist()` lúc mở app
+                    nhưng VỨT kết quả, nên tới giờ không ai biết máy bà con có
+                    được cấp hay không. Một boolean đi nhờ nhịp sẵn có. */
+                storagePersisted: kho.persisted,
+                /*  KHO DỰ BÁO ĐANG NẰM Ở ĐÂU THẬT: "idb" = đã vào IndexedDB;
+                    "ls" = còn kẹt ở localStorage (máy không mở nổi IndexedDB)
+                    — máy đó đang chở ~4 MB trong cái thùng 5 MB, tức sát mép
+                    lỗi iOS 16 xoá sạch localStorage. Đáng gọi điện. */
+                storageBackend: forecastStoreBackend(),
+              }
+            : {}),
         });
         if (!alive) return;
         /*  MỘT ĐƯỜNG HẸN GIỜ DUY NHẤT (2026-08-02d). `sendHeartbeat` mới là chỗ

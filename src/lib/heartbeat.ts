@@ -422,6 +422,21 @@ export async function sendHeartbeat(info: {
       lần là quá đủ cho một con số dung lượng. */
   storageQuotaMb?: number | null;
   storageUsedMb?: number | null;
+  /*  TÁCH THEO KHO (2026-08-02k, chủ dự án chốt: *"heartbeat và web quản trị cần
+      có các info này để nắm rõ đã lưu ở đâu, lưu bản dữ liệu tới ngày nào, dung
+      lượng storage đủ không, có đảm bảo chạy tốt 100% offline chưa"*).
+      Một con số tổng KHÔNG trả lời được câu "kho nào sắp chật": trên WebKit
+      localStorage có trần RIÊNG ~5 MB trong khi IndexedDB/Cache dùng chung hạn
+      ngạch origin (tới ~60% dung lượng máy). Gộp lại là mất đúng thông tin cần.
+      Cùng nhóm ĐỊNH KỲ, CỐ Ý KHÔNG vào chữ ký — xem chú thích ở trên. */
+  storageLsMb?: number | null;
+  storageIdbMb?: number | null;
+  storageCacheMb?: number | null;
+  storageAvailableMb?: number | null;
+  /** `navigator.storage.persisted()` — hàng rào duy nhất chống thu hồi LRU */
+  storagePersisted?: boolean | null;
+  /** kho dự báo NẰM Ở ĐÂU THẬT: `"idb"` đã dời xong · `"ls"` còn kẹt thùng 5 MB */
+  storageBackend?: "idb" | "ls" | null;
 }): Promise<HeartbeatOutcome> {
   /*  Trả về CẢ MỐC HẸN GIỜ, không chỉ true/false (2026-08-02d). Chỗ gọi từng
       phải tự đoán "bao lâu nữa gọi lại" — mà nó không biết nhịp này là SỰ KIỆN

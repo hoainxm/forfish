@@ -747,10 +747,44 @@ async function trimCache(cache, max) {
   for (let i = 0; i < over; i++) await cache.delete(keys[i]);
 }
 
-/** Giữ kho ô bản đồ trong trần. */
+/*  MÁY SẮP ĐẦY THÌ HY SINH Ô BẢN ĐỒ, ĐỪNG ĐỂ CHẠM VÀO DỰ BÁO (2026-08-02k).
+
+    Chủ dự án chốt thứ tự: *"1- token · 2- sóng + gió + dòng chảy · 3- cá · 4-
+    các lớp khác"*, và riêng về kho: *"khi dọn dung lượng, xóa tile cũ trước,
+    không xóa gói dự báo mới nhất."*
+
+    VÌ SAO TRẦN 600 Ô KHÔNG ĐỦ ĐỂ GIỮ LỜI HỨA ĐÓ: ô bản đồ và dự báo nay nằm hai
+    kho khác nhau (Cache Storage vs IndexedDB) NHƯNG **dùng chung một hạn ngạch
+    theo origin**. Nên 600 ô nặng vài chục MB vẫn có thể ăn hết chỗ mà lẽ ra
+    dành cho gói 16 ngày — rồi lượt ghi dự báo kế tiếp hỏng, trong khi trần ô
+    vẫn "chưa chạm". Trần theo SỐ Ô không nói gì về BYTE.
+
+    Nay hỏi thẳng máy còn bao nhiêu chỗ; sắp cạn thì siết trần ô xuống. Ô bản đồ
+    có sóng là tải lại được — dự báo giữa biển thì không. Hỏi hỏng / máy không có
+    Storage API ⇒ giữ nguyên trần cũ, không đoán.
+*/
+const TILE_CACHE_MIN = 120;
+/** Dưới ngần này MB trống thì coi là máy sắp cạn (đủ chỗ cho ~2 gói 16 ngày). */
+const KHO_CAN_MB = 60;
+
+async function tranOHienGio() {
+  try {
+    const st = self.navigator && self.navigator.storage;
+    if (!st || typeof st.estimate !== "function") return TILE_CACHE_MAX;
+    const e = await st.estimate();
+    if (!e || typeof e.quota !== "number") return TILE_CACHE_MAX;
+    const tuDoMb = (e.quota - (e.usage || 0)) / 1048576;
+    return tuDoMb < KHO_CAN_MB ? TILE_CACHE_MIN : TILE_CACHE_MAX;
+  } catch {
+    return TILE_CACHE_MAX;
+  }
+}
+
+/** Giữ kho ô bản đồ trong trần — trần SIẾT LẠI khi máy sắp cạn chỗ. */
 async function trimTileCache(cache) {
+  const max = await tranOHienGio();
   const keys = await cache.keys();
-  const over = keys.length - TILE_CACHE_MAX;
+  const over = keys.length - max;
   for (let i = 0; i < over; i++) await cache.delete(keys[i]);
 }
 

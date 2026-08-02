@@ -84,7 +84,15 @@ export async function GET() {
     };
   };
 
-  let { data: rows, error } = await read(`${BASE_COLS}, device_platform`);
+  /*  CỘT 0030 (tách kho) CŨNG DO CHỦ DỰ ÁN TỰ APPLY — cùng luật với 0022:
+      thử bộ ĐẦY ĐỦ trước, hỏng thì lùi dần, chứ không được để một chip phụ làm
+      mất trắng danh sách 700+ khách. Ba nấc, rộng → hẹp. */
+  const KHO_COLS =
+    "storage_ls_mb, storage_idb_mb, storage_cache_mb, storage_available_mb, storage_persisted, storage_backend";
+  let { data: rows, error } = await read(
+    `${BASE_COLS}, device_platform, ${KHO_COLS}`,
+  );
+  if (error) ({ data: rows, error } = await read(`${BASE_COLS}, device_platform`));
   if (error) ({ data: rows, error } = await read(BASE_COLS));
   if (error) return err(500, "query_failed");
 
@@ -172,6 +180,14 @@ export async function GET() {
     /* KHO CỦA MÁY (0029) — để biết iOS thật sự cho bao nhiêu, và để gọi nhắc
        bà con dọn bớt ảnh/video TRƯỚC khi ra khơi */
     storageQuotaMb: (r.storage_quota_mb as number) ?? null,
+    /*  TÁCH THEO KHO (0030) — trả lời "ĐÃ LƯU Ở ĐÂU". Cột có thể CHƯA tồn tại
+        (chủ dự án tự apply migration) ⇒ đọc `?? null`, không bao giờ ném. */
+    storageLsMb: (r.storage_ls_mb as number) ?? null,
+    storageIdbMb: (r.storage_idb_mb as number) ?? null,
+    storageCacheMb: (r.storage_cache_mb as number) ?? null,
+    storageAvailableMb: (r.storage_available_mb as number) ?? null,
+    storagePersisted: (r.storage_persisted as boolean) ?? null,
+    storageBackend: (r.storage_backend as string) ?? null,
     storageUsedMb: (r.storage_used_mb as number) ?? null,
     devicePlatform: normalizePlatform(r.device_platform),
     // lịch sử máy — mới nhất trước; rỗng nếu chưa máy nào báo

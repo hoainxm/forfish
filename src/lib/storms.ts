@@ -8,6 +8,7 @@
 
 import { apiUrl } from "@/lib/api-base";
 import { loadForecast, saveForecast } from "@/lib/forecast-cache";
+import { forecastStoreReady } from "@/lib/forecast-store";
 import { timeoutSignal } from "@/lib/abort";
 
 export type StormAlert = {
@@ -205,6 +206,13 @@ export const STORM_ID = "latest";
  * vàng "Chưa hỏi được tin bão", tuyệt đối không có câu "không có bão".
  */
 export async function fetchStormCheck(): Promise<StormCheck> {
+  /*  CHỜ KHO MỞ XONG RỒI MỚI ĐỌC BẢN LƯU (2026-08-02k — vòng đánh giá cuối).
+      Mất sóng thì `fetch` hỏng TỨC THÌ (không có độ trễ mạng che cửa sổ đua),
+      nên nhánh lùi chạy khi gương còn rỗng ⇒ trả `null` ⇒ màn hình nói "chưa
+      có" trong khi kho còn nguyên. Từ phiên thứ hai localStorage đã bị dọn nên
+      không còn lớp chắn nào. Hàm đã async; `forecastStoreReady()` có trần chờ. */
+  await forecastStoreReady();
+
   try {
     const r = await fetch(apiUrl("/api/storms"), {
       signal: timeoutSignal(20000),
