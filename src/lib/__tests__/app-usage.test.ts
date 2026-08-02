@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizePlatform } from "@/lib/app-usage";
+import { normalizePlatform, normalizeDataUntil } from "@/lib/app-usage";
 
 // LOẠI MÁY (0022) — giá trị này đi THẲNG vào cột có CHECK constraint, nên chỉ
 // được để lọt đúng 3 giá trị hợp lệ. "chưa biết" (null) KHÁC "hỏi rồi mà không
@@ -114,5 +114,42 @@ describe("usageCallPriority — ai gọi trước", () => {
       "chua-ghi-nhan",
       "du-do-di-bien",
     ]);
+  });
+});
+
+/*  NGÀY PHỦ DỮ LIỆU (0025) — client khai, máy chủ KHÔNG tin.
+    Giá trị này đi thẳng vào một cột `date`: một chuỗi rác lọt xuống là CẢ LỆNH
+    UPDATE HỎNG ⇒ mất luôn 3 mốc thời gian vốn đang chạy tốt. Đúng khuôn lỗi mà
+    cột 0022 đã dính một lần rồi.  */
+describe("normalizeDataUntil — chặn rác trước khi xuống cột date", () => {
+  it("nhận đúng dạng YYYY-MM-DD", () => {
+    expect(normalizeDataUntil("2026-08-10")).toBe("2026-08-10");
+  });
+
+  it("từ chối mọi thứ không phải chuỗi ngày", () => {
+    for (const v of [null, undefined, 42, {}, [], true, "", "hôm nay"]) {
+      expect(normalizeDataUntil(v)).toBeNull();
+    }
+  });
+
+  it("từ chối ngày SAI DẠNG (có giờ, thiếu số 0, ngăn cách khác)", () => {
+    expect(normalizeDataUntil("2026-08-10T00:00:00Z")).toBeNull();
+    expect(normalizeDataUntil("2026-8-10")).toBeNull();
+    expect(normalizeDataUntil("10/08/2026")).toBeNull();
+  });
+
+  it("từ chối ngày KHÔNG CÓ THẬT", () => {
+    expect(normalizeDataUntil("2026-02-31")).toBeNull();
+    expect(normalizeDataUntil("2026-13-01")).toBeNull();
+  });
+
+  it("từ chối ngày ngoài dải dùng được (đồng hồ máy hỏng nặng)", () => {
+    expect(normalizeDataUntil("1970-01-01")).toBeNull();
+    expect(normalizeDataUntil("2999-01-01")).toBeNull();
+  });
+
+  it("KHÔNG ném với chuỗi cố tình phá", () => {
+    expect(() => normalizeDataUntil("2026-08-10'; drop table")).not.toThrow();
+    expect(normalizeDataUntil("2026-08-10'; drop table")).toBeNull();
   });
 });

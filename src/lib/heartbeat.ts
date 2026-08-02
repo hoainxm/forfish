@@ -195,6 +195,13 @@ export async function sendHeartbeat(info: {
   /** mã máy (app tự sinh) — máy chủ nhận ra ĐỔI MÁY để reset mốc; null khi
    *  storage bị chặn, khi đó máy chủ giữ nguyên hành vi cũ */
   deviceId?: string | null;
+  /*  NGÀY XA NHẤT dữ liệu đi biển trong máy còn phủ tới (ISO `YYYY-MM-DD`).
+      Đây là thứ người trực tổng đài cần nhất: máy này ra khơi ngày mai thì
+      trong tay bà con có dự báo tới ngày nào.
+      CỐ Ý KHÔNG VÀO CHỮ KÝ: ngày này đổi sau MỖI lượt tải, đưa vào chữ ký là
+      biến mọi lượt tải thành một "sự kiện" và máy bắn nhịp liên tục. Nó thuộc
+      về NHỊP ĐỊNH KỲ — 30 phút báo một lần là quá đủ cho một con số ngày. */
+  savedUntil?: string | null;
 }): Promise<HeartbeatOutcome> {
   /*  Trả về CẢ MỐC HẸN GIỜ, không chỉ true/false (2026-08-02d). Chỗ gọi từng
       phải tự đoán "bao lâu nữa gọi lại" — mà nó không biết nhịp này là SỰ KIỆN

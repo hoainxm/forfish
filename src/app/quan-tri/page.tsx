@@ -140,6 +140,8 @@ type Account = {
   pwaLastOpenAt: string | null;
   webLastOpenAt: string | null;
   offlineReadyAt: string | null;
+  /** dữ liệu đi biển trong máy phủ tới ngày nào (0025) */
+  dataUntil?: string | null;
   devicePlatform: DevicePlatform | null;
   devices: {
     tag: string;
@@ -157,6 +159,15 @@ type SourceState =
   | { state: "loading" }
   | { state: "ok"; note: string }
   | { state: "down"; note: string };
+
+/*  Chỉ NGÀY, không giờ (0025) — `data_until` là ngày của bản dự báo, không phải
+    mốc thao tác. Ghim múi giờ VN và dựng từ phần ngày để không bị lệch một ngày
+    khi máy chủ/trình duyệt ở múi khác. */
+const fmtNgay = (d: string | null | undefined): string => {
+  if (!d) return "—";
+  const [y, m, day] = d.slice(0, 10).split("-");
+  return y && m && day ? `${day}/${m}/${y}` : "—";
+};
 
 const fmtDT = (iso: string | null | undefined): string =>
   iso
@@ -1193,6 +1204,10 @@ function AppUsage({ a }: { a: Account }) {
       "Máy đã báo: vỏ app đủ + mọi lớp dữ liệu đã tải, ĐO TRÊN ĐÚNG KHO sẽ dùng ngoài biển. Lưu ý: đây là mốc ĐÃ TỪNG đủ, không phải bây giờ còn đủ.",
   };
   const mocs = [
+    /*  DỮ LIỆU TỚI NGÀY NÀO (0025) — đứng ĐẦU vì đây là câu người trực tổng đài
+        cần nhất: máy này ra khơi ngày mai thì trong tay bà con có dự báo tới
+        đâu. Ba mốc còn lại chỉ nói "đã từng mở/đã từng đủ". */
+    a.dataUntil ? `dữ liệu tới ${fmtNgay(a.dataUntil)}` : null,
     a.offlineReadyAt ? `đủ đồ ${fmtDT(a.offlineReadyAt)}` : null,
     a.pwaLastOpenAt ? `bản cài ${fmtDT(a.pwaLastOpenAt)}` : null,
     a.webLastOpenAt ? `web ${fmtDT(a.webLastOpenAt)}` : null,

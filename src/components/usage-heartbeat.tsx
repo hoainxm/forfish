@@ -85,6 +85,10 @@ export function UsageHeartbeat() {
           platform: devicePlatform(),
           // mã máy — để máy chủ biết bà con vừa đổi điện thoại và dọn mốc cũ
           deviceId: deviceId(),
+          // dữ liệu trong máy phủ tới ngày nào — con số người trực tổng đài
+          // cần nhất. Đọc từ chính `savedCoverage` vừa tính ở trên, không quét
+          // lại localStorage lần nữa.
+          savedUntil: cov.untilIso,
         });
         if (!alive) return;
         /*  MỘT ĐƯỜNG HẸN GIỜ DUY NHẤT (2026-08-02d). `sendHeartbeat` mới là chỗ

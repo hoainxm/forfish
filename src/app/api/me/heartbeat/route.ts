@@ -19,6 +19,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeVnPhone } from "@/lib/phone";
 import { countsAsOfflineReady, normalizePlatform } from "@/lib/app-usage";
 import { isValidDeviceId } from "@/lib/device-id";
+import { normalizeDataUntil } from "@/lib/app-usage";
 import { needFromReason, serverNextInMs } from "@/lib/heartbeat-policy";
 
 export async function POST(req: Request) {
@@ -45,6 +46,7 @@ export async function POST(req: Request) {
     offlineReady?: boolean;
     platform?: unknown;
     deviceId?: unknown;
+    savedUntil?: unknown;
   } | null;
 
   const admin = createAdminClient();
@@ -79,6 +81,12 @@ export async function POST(req: Request) {
   // do chủ dự án tự apply, nên cột có thể CHƯA tồn tại trên prod. Nhét thẳng
   // vào patch mà cột chưa có là cả lệnh update HỎNG ⇒ mất luôn 3 mốc thời gian
   // vốn đang chạy tốt. Nên: thử kèm loại máy, hỏng thì ghi lại KHÔNG kèm.
+  /*  NGÀY PHỦ DỮ LIỆU (0025) — chỉ nhận đúng dạng `YYYY-MM-DD` và đúng dải
+      ngày dùng được. Client khai sai/rác thì BỎ QUA, không để một chuỗi lạ
+      xuống thẳng cột `date` làm hỏng cả lệnh ghi (mất luôn 3 mốc đang chạy tốt
+      — đúng khuôn lỗi 0022 đã dính). Đây là số liệu vận hành, khai sai chỉ hỏng
+      thống kê của chính máy đó, không mở được quyền gì. */
+  const savedUntil = normalizeDataUntil(body?.savedUntil);
   const platform = normalizePlatform(body?.platform);
   const dev = isValidDeviceId(body?.deviceId) ? body.deviceId : null;
   const write = (p: Record<string, string | null>) =>
@@ -92,6 +100,7 @@ export async function POST(req: Request) {
   // `dev == null` (storage bị chặn) → KHÔNG reset: thà số liệu cũ còn hơn xoá
   // mốc mỗi lần mở app.
   const extra: Record<string, string | null> = {};
+  if (savedUntil) extra.data_until = savedUntil;
   if (platform) extra.device_platform = platform;
   if (dev) {
     extra.device_id = dev;
@@ -103,10 +112,12 @@ export async function POST(req: Request) {
     const prev = (cur as { device_id?: string | null } | null)?.device_id;
     if (prev && prev !== dev) {
       // máy mới: bắt đầu lại từ số không, rồi `patch` bên dưới ghi đè mốc của
-      // chính nhịp này
+      // chính nhịp này. `data_until` cũng phải dọn — dữ liệu tải trên máy CŨ
+      // không nói được gì về cái máy đang cầm trong tay.
       extra.pwa_last_open_at = null;
       extra.web_last_open_at = null;
       extra.offline_ready_at = null;
+      extra.data_until = savedUntil; // null nếu máy mới chưa báo được
     }
   }
 

@@ -7,6 +7,10 @@ import {
   HEARTBEAT_MIN_GAP_MS,
   HEARTBEAT_NET_BACKOFF_STEPS_MS,
   HEARTBEAT_SOFT_RETRY_MS,
+  HEARTBEAT_KEY,
+  HEARTBEAT_RETRY_KEY,
+  HEARTBEAT_SIG_KEY,
+  HEARTBEAT_FAILS_KEY,
 } from "@/lib/heartbeat";
 import {
   clampServerGapMs,
@@ -463,5 +467,56 @@ describe("nextHeartbeatDelayMs — có sự kiện chờ thì KHÔNG chờ 30 ph
     expect(
       nextHeartbeatDelayMs({ lastAt: NOW - 60_000, pending: false, nowMs: NOW }),
     ).toBe(HEARTBEAT_MIN_GAP_MS - 60_000);
+  });
+});
+
+/*  ═══ OFFLINE LÀ LUỒNG RIÊNG — NHỊP KHÔNG ĐƯỢC CHẠM VÀO ═══
+    Chủ dự án yêu cầu xác nhận: offline chạy độc lập, KHÔNG cần heartbeat,
+    KHÔNG cần máy chủ; có sóng lại thì mới bắt đầu nhịp. Ba bất biến dưới đây
+    khoá lại điều đó bằng code chứ không bằng lời hứa.  */
+describe("nhịp KHÔNG được ảnh hưởng chế độ offline", () => {
+  it("MẤT SÓNG → không gửi, dù có tin mới, dù đã quá hạn từ lâu", () => {
+    expect(
+      shouldSendHeartbeat({
+        online: false,
+        lastAt: null,
+        retryAfter: NOW - 86_400_000, // hạn hoãn qua từ đời nào
+        sigChanged: true, // và đang có SỰ KIỆN chờ
+        nowMs: NOW,
+      }),
+    ).toBe(false);
+  });
+
+  it("mọi khoá nhịp dùng đều nằm trong `forfish.heartbeat.*` — không đụng kho dự báo/hộp thư/danh tính", () => {
+    for (const k of [
+      HEARTBEAT_KEY,
+      HEARTBEAT_RETRY_KEY,
+      HEARTBEAT_SIG_KEY,
+      HEARTBEAT_FAILS_KEY,
+    ]) {
+      expect(k.startsWith("forfish.heartbeat.")).toBe(true);
+    }
+  });
+
+  it("khoá nhịp KHÔNG trùng khoá của bất kỳ dữ liệu đi biển nào", () => {
+    // dữ liệu bà con cần ngoài biển: dự báo · hộp thư · danh tính · mã máy ·
+    // giấy tờ · thuyền viên. Nhịp chỉ được đọc, không được ghi vào đó.
+    const kho = [
+      "forfish.fc.",
+      "forfish.inbox.",
+      "forfish.identity.",
+      "forfish.tier.",
+      "forfish.documents.",
+      "forfish.crew.",
+      "forfish.device.",
+    ];
+    for (const k of [
+      HEARTBEAT_KEY,
+      HEARTBEAT_RETRY_KEY,
+      HEARTBEAT_SIG_KEY,
+      HEARTBEAT_FAILS_KEY,
+    ]) {
+      for (const p of kho) expect(k.startsWith(p)).toBe(false);
+    }
   });
 });

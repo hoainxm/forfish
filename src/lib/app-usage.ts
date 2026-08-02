@@ -36,6 +36,29 @@ export function normalizePlatform(v: unknown): DevicePlatform | null {
   return v === "ios" || v === "android" || v === "khac" ? v : null;
 }
 
+/**
+ * Ép "ngày phủ dữ liệu" client khai về đúng một ngày dùng được — THUẦN, có test.
+ *
+ * Vì sao cần (0025): giá trị này đi thẳng vào một cột `date`. Một chuỗi rác lọt
+ * xuống là **cả lệnh update hỏng** ⇒ mất luôn 3 mốc thời gian vốn đang chạy tốt
+ * — đúng khuôn lỗi mà cột 0022 đã dính một lần. Client khai gì cũng không được
+ * tin: đây là số liệu vận hành, sai thì chỉ hỏng thống kê của chính máy đó.
+ *
+ * Nhận: đúng dạng `YYYY-MM-DD`, là ngày CÓ THẬT, và nằm trong dải hợp lý
+ * (2020-01-01 … 2100-01-01 — dự báo xa nhất của app là 16 ngày, nhưng đừng gắt
+ * quá tới mức đồng hồ máy lệch vài ngày là mất số liệu).
+ */
+export function normalizeDataUntil(v: unknown): string | null {
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const t = Date.parse(`${v}T00:00:00Z`);
+  if (!Number.isFinite(t)) return null;
+  // ngày có thật (bắt 2026-02-31 kiểu này)
+  if (new Date(t).toISOString().slice(0, 10) !== v) return null;
+  if (t < Date.parse("2020-01-01T00:00:00Z")) return null;
+  if (t > Date.parse("2100-01-01T00:00:00Z")) return null;
+  return v;
+}
+
 export type UsageStage =
   | "chua-ghi-nhan"
   | "moi-vo-web"
