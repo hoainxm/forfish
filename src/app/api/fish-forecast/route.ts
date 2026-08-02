@@ -43,7 +43,7 @@ export async function GET() {
         fish-predict chỉ lưu DẤU vào localStorage chứ không lưu số liệu. Ra khơi
         là lớp cá trắng vĩnh viễn mà bảng "trong máy có gì" vẫn báo có.
         503 nằm trong `isRescuableStatus` ⇒ SW trả lại bản cũ trong kho; client
-        `fetchFishForecast` đã có nhánh `!r.ok → {ok:false}` nên màn hình không
+        `fetchFishForecast` nay lùi về BẢN ĐÃ LƯU khi `!r.ok` (2026-08-02k), trước đó là `{ok:false}` — cả hai đường đều KHÔNG để màn hình
         đổi. Cùng khuôn với storms/fuel-price/currents-depth. */
   /*  `s-maxage` cho NHÁNH LỖI (2026-08-02b): route này có `revalidate` cấp
       route, và Next có thể KHÔNG cất phản hồi khác 200 vào kho ISR ⇒ lúc nguồn

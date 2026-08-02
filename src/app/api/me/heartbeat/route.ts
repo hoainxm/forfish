@@ -258,8 +258,23 @@ export async function POST(req: Request) {
   // KHÔNG được làm hỏng nhịp (client sẽ tưởng chưa ghi được rồi thử lại mãi).
   if (dev) {
     try {
-      const { error: devErr } = await admin.from("customer_devices").upsert(
-        {
+      /*  ⚠️ ĐƯỜNG LÙI BỎ CỘT LẠ (vòng soát 5 bắt, mức NẶNG). Bảng `customers` có
+          sẵn khuôn "hỏng thì ghi lại bộ cũ" (xem `write(patch)` phía trên),
+          nhưng hàng theo-MÁY thì KHÔNG — nó nhét thẳng 6 cột của 0030 vào một
+          lệnh. Migration 0030 do chủ dự án tự apply, nên nếu commit này lên
+          TRƯỚC lúc apply thì cột chưa tồn tại ⇒ **cả hàng theo-máy hỏng**, mất
+          luôn `last_seen_at` · `data_until` · `data_until_web` · `platform` ·
+          `storage_*_mb` của 0027 vốn đang chạy tốt — im lặng, HTTP vẫn 200.
+          Nay thử bộ ĐẦY ĐỦ trước, hỏng thì ghi lại bộ CŨ. */
+      const khoMoi0030 = {
+        ...(khoLs != null ? { storage_ls_mb: khoLs } : {}),
+        ...(khoIdb != null ? { storage_idb_mb: khoIdb } : {}),
+        ...(khoCache != null ? { storage_cache_mb: khoCache } : {}),
+        ...(khoFree != null ? { storage_available_mb: khoFree } : {}),
+        ...(khoBen != null ? { storage_persisted: khoBen } : {}),
+        ...(khoNoi ? { storage_backend: khoNoi } : {}),
+      };
+      const hangMay = {
           customer_phone: phone,
           device_id: dev,
           ...(platform ? { platform } : {}),
@@ -279,21 +294,22 @@ export async function POST(req: Request) {
               HỨA "đổi điện thoại vẫn tra được máy cũ" rồi để cột null vĩnh viễn.
               Mà so iOS với Android — lý do chính khiến bảng theo-máy tồn tại —
               thì phải có đúng mấy cột này mới so được. */
-          ...(khoLs != null ? { storage_ls_mb: khoLs } : {}),
-          ...(khoIdb != null ? { storage_idb_mb: khoIdb } : {}),
-          ...(khoCache != null ? { storage_cache_mb: khoCache } : {}),
-          ...(khoFree != null ? { storage_available_mb: khoFree } : {}),
-          ...(khoBen != null ? { storage_persisted: khoBen } : {}),
-          ...(khoNoi ? { storage_backend: khoNoi } : {}),
           ...(savedUntil
             ? body?.standalone
               ? { data_until: savedUntil }
               : { data_until_web: savedUntil }
             : {}),
           ...patch,
-        },
-        { onConflict: "customer_phone,device_id" },
-      );
+      };
+      const ghiMay = (them: Record<string, unknown>) =>
+        admin.from("customer_devices").upsert(
+          { ...hangMay, ...them },
+          { onConflict: "customer_phone,device_id" },
+        );
+      let { error: devErr } = await ghiMay(khoMoi0030);
+      if (devErr && Object.keys(khoMoi0030).length > 0) {
+        ({ error: devErr } = await ghiMay({}));
+      }
       /*  supabase-js KHÔNG NÉM với lỗi Postgres/RLS — nó trả `{ error }`. Vứt
           giá trị trả về đi (như bản cũ) nghĩa là bảng chưa tồn tại / cột lạ /
           RLS chặn đều IM LẶNG TUYỆT ĐỐI. Đúng khuôn `logActivity nuốt lỗi` đã

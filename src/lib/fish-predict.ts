@@ -1422,6 +1422,12 @@ export async function fetchFishForecast(): Promise<FishForecastResult> {
           (r.status === 401 ? "login_required" : "premium_required"),
       };
     }
+    /*  ⚠️ ĐỔI HÀNH VI (2026-08-02k): trước đây `!r.ok` trả thẳng `{ok:false}`.
+        Nay lùi về bản đồ cá ĐÃ LƯU nếu có. Được: mất sóng / nguồn bận thì bà
+        con vẫn có lớp cá thay vì màn trắng. Phải biết: máy chủ 500 cũng đi
+        đường này, tức app sẽ hiện bản MẤY NGÀY TUỔI thay vì báo hỏng — chấp
+        nhận được vì payload mang `generatedAt` và màn hình in tuổi thật của
+        bản, nhưng ai đọc mã sau này phải biết là nó KHÔNG còn báo lỗi ở đây. */
     if (!r.ok) return banDoCaDaLuu() ?? { ok: false };
     const data = (await r.json()) as FishForecastResult;
     // DẤU "bản đồ cá đã có offline" — payload thật do Service Worker cache

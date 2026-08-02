@@ -523,9 +523,26 @@ function boGuong(k: string): void {
  * luôn kết luận `full` (khoá 6 giờ + in "Máy hết chỗ nhớ — xoá bớt điểm đã
  * lưu") và `runLayer` ném ở MỌI lớp, trong khi localStorage đang ghi tốt.
  */
+/**
+ * TRẦN CỠ MỘT MỤC ĐƯỢC XẢ NGƯỢC VỀ localStorage (ký tự).
+ *
+ * ⚠️ VÌ SAO PHẢI CÓ (vòng soát 5 bắt, mức NẶNG — chính bản vá V5 đẻ ra): xả
+ * KHÔNG TRẦN nghĩa là đổ ngược payload hàng MB vào **đúng cái thùng 5 MB mà cả
+ * commit này dựng ra để thoát**, rồi `flush()` trả `true` — app tuyên bố "chắc
+ * chắn còn sau khi tắt app" cho dữ liệu nằm trong cái thùng mà iOS 16 chạm mức
+ * là XOÁ SẠCH (mất luôn chuỗi đăng nhập + sổ mục lục).
+ * Tệ hơn, điều kiện kích hoạt TƯƠNG QUAN DƯƠNG: giao dịch IndexedDB hỏng chủ
+ * yếu vì máy đầy — đúng lúc localStorage cũng sát mép.
+ * Nên chỉ xả thứ NHỎ (tin bão · giá · điểm chạm — vài KB, chính là nhóm mà
+ * localStorage vốn hợp): lưới gió, lớp dải màu, bản đồ cá thì ở lại hàng chờ và
+ * `flush` trả `false` — đó mới là câu trả lời THẬT.
+ */
+const XA_NGUOC_TRAN_KY_TU = 64 * 1024;
+
 function xaHangChoXuongLs(): void {
   const s = ls();
   for (const [k, v] of [...hangCho.entries()]) {
+    if (v != null && k.length + v.length > XA_NGUOC_TRAN_KY_TU) continue;
     try {
       if (v == null) s?.removeItem(k);
       else s?.setItem(k, v);
@@ -645,6 +662,7 @@ async function nap(): Promise<void> {
   }
   mucLuc = hoaSo(soMoi);
   ghiSo();
+  dangNapLai = false;
   daNap = true;
 }
 
@@ -655,6 +673,12 @@ async function nap(): Promise<void> {
  * An toàn khi gọi nhiều lần / gọi song song: chỉ nạp một lượt.
  * KHÔNG BAO GIỜ TREO: mọi cửa IndexedDB bên trong đều có trần chờ.
  */
+/** Số lượt nạp HỎNG đã thử lại (có đáy — không thành vòng thử vô tận). */
+let soLanNapHong = 0;
+const TRAN_NAP_LAI = 2;
+/** đang ở lượt nạp LẠI (daNap vẫn true để trạng thái nói thật) */
+let dangNapLai = false;
+
 export function forecastStoreReady(): Promise<void> {
   napP ??= nap()
     .catch(() => {
@@ -664,7 +688,29 @@ export function forecastStoreReady(): Promise<void> {
     })
     /* BÁO CHO MÀN HÌNH ĐỌC LẠI — thiếu vế này thì chip/thẻ đóng băng ở lượt đọc
        đầu tiên suốt cả chuyến khi mất sóng (xem `subscribeForecastStore`). */
-    .then(baoDaNap);
+    .then(() => {
+      baoDaNap();
+      /*  ⚠️ HỎNG LƯỢT ĐẦU KHÔNG ĐƯỢC LÀ MÙ CẢ PHIÊN (vòng soát 5, mức NẶNG).
+          `nap()` vốn chạy đúng một lần, nên một cơn nghẽn 20 giây lúc mở app
+          (iOS vừa đánh thức tiến trình, máy đang đồng bộ ảnh) = app mù suốt
+          chuyến, dù đĩa lành ngay sau đó. Băng cảnh báo có bảo "đóng app rồi mở
+          lại", nhưng giữa biển bà con hiếm khi làm.
+          Nay mở khoá cho lượt gọi SAU nạp lại — có đáy 2 lượt để không thành
+          vòng thử vô tận, và chỉ mở khi thật sự CHƯA lấy được gì ra. */
+      /*  ⚠️ KHÔNG ĐƯỢC HẠ `daNap` XUỐNG (tự soát trong lúc vá): làm thế thì
+          trạng thái tụt về "dang-mo" ⇒ chip nói "Đang mở kho dữ liệu…" mà nếu
+          không ai gọi `forecastStoreReady()` nữa thì nó treo ở đó VĨNH VIỄN —
+          đúng cái lỗi "hứa một chuyện tạm thời mà không bao giờ kết thúc" mà V1
+          vừa diệt. Lượt nạp NÀY đã xong và đã thất bại: nói thật là
+          "khong-mo-duoc". Chỉ mở khoá để lượt gọi SAU được nạp lại. */
+      if (forecastStoreState() === "khong-mo-duoc" && soLanNapHong < TRAN_NAP_LAI) {
+        soLanNapHong += 1;
+        napP = null;
+        dbP = null;
+        docKhoHong = false;
+        dangNapLai = true; // để `ghiNhanSo` vẫn ghi nhận ghi-trong-lúc-nạp
+      }
+    });
   return napP;
 }
 
@@ -678,13 +724,41 @@ export function forecastStoreHydrated(): boolean {
  * có dữ liệu" thì BẮT BUỘC gọi cái này trước — hai trạng thái kia không cho
  * phép kết luận đó.
  */
+/** Mục này có LẤY RA ĐƯỢC không — thăm dò rẻ, không dựng lại chuỗi lớn. */
+function layDuocKhong(k: string): boolean {
+  if (guong.has(k)) return true;
+  try {
+    return ls()?.getItem(k) != null;
+  } catch {
+    return false;
+  }
+}
+
 export function forecastStoreState(): ForecastStoreState {
   if (!daNap) return "dang-mo";
   /*  Nạp xong mà vẫn ở nhánh localStorage TRONG KHI sổ nói có dữ liệu ⇒ dữ liệu
       nằm trên đĩa nhưng lượt này không lấy ra được. KHÔNG phải trống. */
-  /*  CHỈ ca ĐỌC KHO HỎNG mới là "không mở được" — và chỉ khi sổ nói CÓ dữ liệu
-      (sổ rỗng + đọc hỏng = máy mới tinh, đó là "sẵn sàng và trống"). */
-  if (docKhoHong && Object.keys(mucLuc).length > 0) return "khong-mo-duoc";
+  /*  ⚠️ HỎI ĐÚNG CÂU: "SỔ KHAI CÓ MÀ LẤY RA ĐƯỢC KHÔNG?" (vòng soát 5 bắt, mức
+      CHẶN, chứng minh bằng mã chạy).
+
+      Bản V1 hỏi cờ `docKhoHong` — chỉ bật khi `docHet()` hỏng. Nhưng có HAI cửa
+      hỏng, không phải một: cửa thứ hai là `db()` trả `null` (`indexedDB.open`
+      quá trần 4 giây · `onerror` · `onblocked` khi tab khác đang giữ kho — cửa
+      này sẽ dính MỌI máy có 2 tab ở lần bump `DB_VERSION` sau). Đường đó không
+      bật cờ ⇒ trả "san-sang" trong khi gương rỗng và sổ khai 1,6 MB ⇒ thẻ TO
+      "máy chưa có dữ liệu đi biển" bung ra giữa biển, popup liệt kê 9 dòng
+      "chưa lưu" mà tổng vẫn in 1,6 MB — một bảng tự mâu thuẫn. Điều kiện CŨ
+      (trước V1) lại phủ được ca này; V1 chữa ca Safari-riêng-tư nhưng ĐÁNH RƠI
+      ca kia. Đổi cửa, không lấp lỗ.
+
+      Nay không suy từ cờ nào nữa mà hỏi thẳng SỰ THẬT: sổ nói có mà không mục
+      nào lấy ra được ⇒ kho chưa mở được. Đúng cho CẢ HAI cửa, và vẫn trả
+      "san-sang" cho Safari riêng tư (ở đó payload nằm thật trong localStorage
+      nên lấy ra được). Sổ rỗng = máy mới tinh = "sẵn sàng và trống". */
+  const ks = Object.keys(mucLuc);
+  if (ks.length === 0) return "san-sang";
+  for (const k of ks) if (layDuocKhong(k)) return "san-sang";
+  return "khong-mo-duoc";
   return "san-sang";
 }
 
@@ -835,7 +909,7 @@ const xoaTrongLucNap = new Set<string>();
 
 function ghiNhanSo(k: string, v: string): void {
   mucLuc[k] = [savedAtCua(v), (k.length + v.length) * 2];
-  if (!daNap) {
+  if (!daNap || dangNapLai) {
     ghiTrongLucNap.add(k);
     xoaTrongLucNap.delete(k);
   }
@@ -858,7 +932,7 @@ function hoaSo(soMoi: MucLuc): MucLuc {
 export function fcRemove(k: string): void {
   boGuong(k);
   delete mucLuc[k];
-  if (!daNap) {
+  if (!daNap || dangNapLai) {
     xoaTrongLucNap.add(k);
     ghiTrongLucNap.delete(k);
   }
@@ -1055,5 +1129,7 @@ export function __resetForecastStore(): void {
   dangDay = null;
   dayOk = true;
   docKhoHong = false;
+  soLanNapHong = 0;
+  dangNapLai = false;
   docSo(); // dựng lại sổ từ localStorage hiện tại của ca test
 }

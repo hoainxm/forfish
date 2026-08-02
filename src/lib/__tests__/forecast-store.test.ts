@@ -349,6 +349,33 @@ describe("ba trạng thái phải MECE", () => {
     expect(forecastStoreState()).toBe("san-sang");
   });
 
+  /*  ⚠️ CỬA MÀ VÒNG 5 BẮT ĐƯỢC — 1632 test xanh KHÔNG hề chạm tới nó.
+      Bộ test có bơm được `docHong` (đọc kho hỏng) nhưng KHÔNG có ca nào bơm
+      `moTreo`/`moHong` KÈM SỔ MỤC LỤC CÒN DỮ LIỆU — tức đúng cửa thứ hai mà bản
+      vá V1 để hở. Đây là ca thật của MỌI máy từ phiên thứ hai trở đi. */
+  it("MỞ kho quá trần chờ + sổ khai có dữ liệu ⇒ 'khong-mo-duoc'", async () => {
+    vi.useFakeTimers();
+    // phiên 1: dựng sổ + đưa dữ liệu xuống đĩa
+    localStorage.setItem(K, JSON.stringify({ savedAt: 7, data: { a: 1 } }));
+    const p1 = forecastStoreReady();
+    await vi.advanceTimersByTimeAsync(100);
+    await p1;
+    await forecastStoreFlush();
+    expect(localStorage.getItem(K)).toBeNull(); // đã dọn, đúng thiết kế
+    expect(fcMeta(K)?.savedAt).toBe(7); // sổ vẫn khai có
+
+    // phiên 2: `indexedDB.open` IM LUÔN (iOS vừa đánh thức tiến trình)
+    __resetForecastStore();
+    moTreo = true;
+    const p2 = forecastStoreReady();
+    await vi.advanceTimersByTimeAsync(4100);
+    await p2;
+    /*  Sổ khai 1 mục mà không lấy ra được ⇒ PHẢI nói "chưa mở được kho".
+        Trả "san-sang" ở đây là màn Chuẩn bị đi biển bung thẻ TO "máy chưa có
+        dữ liệu đi biển" giữa biển, trong khi đĩa còn nguyên gói 16 ngày. */
+    expect(forecastStoreState()).toBe("khong-mo-duoc");
+  });
+
   it("máy mới tinh, kho rỗng ⇒ 'san-sang' (trống KHÁC hỏng)", async () => {
     await forecastStoreReady();
     expect(forecastStoreState()).toBe("san-sang");
