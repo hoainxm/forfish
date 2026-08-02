@@ -38,6 +38,7 @@ import {
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import {
+  forecastStoreHydrated,
   forecastStoreState,
   subscribeForecastStore,
 } from "@/lib/forecast-store";
@@ -272,7 +273,11 @@ export function PretripSavedStatus({
         sóng thì mẻ KHÔNG BAO GIỜ chạy ⇒ không có lượt đọc lại nào. Kho nay nạp
         bất đồng bộ, nên thiếu vế này là chip/thẻ đóng băng ở lượt đọc đầu tiên
         suốt cả chuyến. */
-    const boKho = subscribeForecastStore(reread);
+    /*  Cùng lý do với popup: `reread()` vừa chạy ngay trên, nên chỉ đăng ký khi
+        kho CHƯA mở xong — tránh quét kho hai lượt lúc vào màn. */
+    const boKho = forecastStoreHydrated()
+      ? () => undefined
+      : subscribeForecastStore(reread);
     return () => {
       boPhase();
       boKho();
@@ -460,8 +465,17 @@ function PretripSavedSheet({
   }, [fishLocked, onChanged]);
 
   /*  ĐỌC LẠI KHI KHO MỞ XONG — popup mở đúng lúc kho còn đang nạp thì nó phải
-      TỰ cập nhật, chứ không bắt bà con đóng ra mở lại. */
-  useEffect(() => subscribeForecastStore(refresh), [refresh]);
+      TỰ cập nhật, chứ không bắt bà con đóng ra mở lại.
+
+      ⚠️ CHỈ ĐĂNG KÝ KHI KHO CHƯA MỞ XONG. `subscribeForecastStore` bắn NGAY một
+      nhịp nếu kho đã sẵn sàng — mà `initial` ở trên vừa quét kho xong rồi, nên
+      đăng ký vô điều kiện là quét HAI LƯỢT mỗi lần mở popup. Chính file này đã
+      ghi: một cú chạm từng tốn "≥6 lượt quét kho liên tiếp", vài trăm ms tới
+      hơn một giây trên máy Android rẻ, đúng lúc bà con sốt ruột trước chuyến. */
+  useEffect(() => {
+    if (forecastStoreHydrated()) return;
+    return subscribeForecastStore(refresh);
+  }, [refresh]);
 
   /*  SAO LƯU RA TỆP — HAI NÚT, KHÔNG PHẢI MỘT (2026-08-02, audit vòng 2 T5).
       Bản cũ chỉ có một nút "Lưu ra tệp" mà tệp lại gom SẠCH mọi khoá

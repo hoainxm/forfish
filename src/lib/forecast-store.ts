@@ -995,7 +995,17 @@ export async function forecastStoreFlush(): Promise<boolean> {
         giây, trong lúc đó mọi `fcSet` vào gương + hàng chờ, rồi di trú hỏng nên
         lật về "ls". Trả `true` vô điều kiện lúc đó là phá đúng giao kèo của hàm
         ("true = chắc chắn còn sau khi tắt app"): mẻ tải sẵn ghi mốc, KHOÁ 6 GIỜ,
-        với mấy lớp chỉ nằm trong RAM. */
+        với mấy lớp chỉ nằm trong RAM.
+
+        XẢ Ở ĐÂY, KHÔNG CHỈ Ở CHỖ LẬT NHÁNH (tự soát vòng 5): bản vá đầu chỉ gọi
+        `xaHangChoXuongLs()` tại MỘT trong các đường lật `backend` về "ls" — còn
+        nhánh `.catch` của `forecastStoreReady` (nap ném SAU khi đã đặt "idb")
+        thì không, nên hàng chờ kẹt lại và hàm này trả `false` VĨNH VIỄN ⇒ mẻ
+        tải sẵn luôn kết luận "Máy hết chỗ nhớ" + khoá 6 giờ. Đặt ở cửa ra thì
+        phủ hết mọi đường, kể cả đường ai đó thêm sau này. Vét được bao nhiêu
+        hay bấy nhiêu; localStorage cũng đầy thì hàng chờ còn lại và `false`
+        chính là câu trả lời ĐÚNG. */
+    xaHangChoXuongLs();
     return hangCho.size === 0;
   }
   if (henDay != null) {
