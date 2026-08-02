@@ -867,6 +867,7 @@ export function fcSet(k: string, v: string): void {
         ghi trót lọt, mà dòng vẫn ĐỎ — bấm bao nhiêu lần cũng đỏ. Đúng khuôn
         "nút bấm không được gì" (c316cbd) dựng lại lần nữa. */
     hangCho.delete(k);
+    khongGhiDuoc.delete(k); // bản mới thay hẳn bản từng bị từ chối
     ghiNhanSo(k, v);
     return;
   }
@@ -885,6 +886,7 @@ export function fcSet(k: string, v: string): void {
   }
   themGuong(k, v);
   ghiNhanSo(k, v);
+  khongGhiDuoc.delete(k); // bản mới thay hẳn bản từng bị từ chối
   hangCho.set(k, v);
   xepLichDay();
 }
@@ -949,6 +951,7 @@ function hoaSo(soMoi: MucLuc): MucLuc {
 /** Xoá một bản khỏi CẢ HAI kho (localStorage có thể còn bản chưa dọn xong). */
 export function fcRemove(k: string): void {
   boGuong(k);
+  khongGhiDuoc.delete(k); // đã xoá thì đừng cứu nó sống lại trên đĩa
   delete mucLuc[k];
   if (!daNap || dangNapLai) {
     xoaTrongLucNap.add(k);
@@ -1073,7 +1076,7 @@ async function day(): Promise<boolean> {
           /*  MỘT MÌNH MÀ VẪN HỎNG ⇒ đĩa từ chối HẲN mục này. Tách ra khỏi hàng
               chờ để nó không đầu độc mọi giao dịch sau, nhưng ghi vào
               `khongGhiDuoc` để `flush` vẫn nói THẬT về nó. */
-          khongGhiDuoc.set(me[0][0], me[0][1]);
+          khongGhiDuoc.add(me[0][0]);
         } else {
           /*  Mẻ nhiều mục hỏng ⇒ CHƯA biết mục nào là thủ phạm. Trả về hàng chờ
               rồi lượt sau ghi TỪNG MỤC MỘT để cô lập — thà tốn mấy giao dịch
@@ -1119,10 +1122,37 @@ async function day(): Promise<boolean> {
  * để phần còn lại chạy tiếp — nhưng KHÔNG giả vờ là đã ghi được: nó vào danh
  * sách này và `conKetLai` vẫn trả `false` cho mẻ nào có nó.
  *
- * GIỮ NGUYÊN NỘI DUNG, không chỉ giữ tên khoá: đĩa lành lại (bà con xoá bớt
- * ảnh) thì phải cứu được mấy mục này, không thì "tách ra" hoá thành "vứt đi".
+ * ⚠️ CHỈ GIỮ TÊN KHOÁ, TUYỆT ĐỐI KHÔNG GIỮ NỘI DUNG (sửa vòng 8 — bản vòng 7
+ * giữ cả nội dung và đó là gốc của BA lỗi, một cái mức CHẶN).
+ *
+ * Bản chụp đông cứng KHÔNG được đồng bộ khi khoá đó bị ghi đè hoặc bị xoá sau
+ * đó, mà giữa hai lượt `flush` có thể là HÀNG GIỜ — trong khi 13 chỗ gọi
+ * `saveForecast` đời thường (tin bão, điểm chạm, giá dầu, lớp dải màu…) ghi
+ * xuống đĩa qua `xepLichDay` mà KHÔNG kèm flush. Ca đã dựng lại được: 08:00 đĩa
+ * nghẽn ⇒ giữ v1; 08:20 đĩa lành, thẻ tin bão tự làm mới ⇒ v2 nằm xuống đĩa;
+ * 10:00 mẻ tải sẵn gọi flush ⇒ **đổ v1 đè lên v2**. Bản tin bão LÙI lại mấy
+ * ngày, không một tiếng động — mà bão thì dính tính mạng, và giữa biển v2 đã
+ * mất là mất.
+ *
+ * Nay chỉ nhớ TÊN, còn nội dung lấy từ `guong` — nguồn sự thật sống. Khoá đã bị
+ * xoá thì `guong` không có, và ta bỏ luôn thay vì làm nó sống lại trên đĩa.
  */
-const khongGhiDuoc = new Map<string, string | null>();
+const khongGhiDuoc = new Set<string>();
+
+/**
+ * Cho mấy mục từng bị đĩa từ chối một cơ hội nữa — LẤY NỘI DUNG TỪ GƯƠNG, không
+ * lấy bản chụp cũ (xem `khongGhiDuoc`). Khoá đã bị xoá khỏi gương thì BỎ HẲN:
+ * làm nó sống lại trên đĩa là dựng lại đúng ca "mục đã xoá quay về".
+ */
+function cuuMucTungBiTuChoi(): void {
+  if (khongGhiDuoc.size === 0) return;
+  for (const k of khongGhiDuoc) {
+    if (hangCho.has(k)) continue; // đã có lượt ghi mới hơn đang chờ — đừng đụng
+    const v = guong.get(k);
+    if (v != null) hangCho.set(k, v);
+  }
+  khongGhiDuoc.clear();
+}
 
 /** Mẻ này còn mục nào CHƯA nằm xuống đĩa không (không truyền = hỏi cả kho). */
 function conKetLai(chiKhoa?: Iterable<string>): boolean {
@@ -1165,6 +1195,12 @@ export async function forecastStoreFlush(
         phủ hết mọi đường, kể cả đường ai đó thêm sau này. Vét được bao nhiêu
         hay bấy nhiêu; localStorage cũng đầy thì hàng chờ còn lại và `false`
         chính là câu trả lời ĐÚNG. */
+    /*  NHÁNH `ls` CŨNG PHẢI CỨU (vòng soát 8 — hồi quy của vòng 7). Thiếu vế
+        này thì mục rơi vào `khongGhiDuoc` trong cửa sổ di trú sẽ MẮC CẠN: nhánh
+        `ls` không bao giờ dọn nó ⇒ `conKetLai` trả `false` VĨNH VIỄN ⇒ dòng tin
+        bão đỏ mọi lượt bấm, và bản 600 byte đó không còn được xả xuống
+        localStorage nữa (trước vòng 7 thì có). */
+    cuuMucTungBiTuChoi();
     xaHangChoXuongLs();
     return conKetLai(chiKhoa);
   }
@@ -1183,10 +1219,7 @@ export async function forecastStoreFlush(
   /*  ĐĨA CÓ THỂ ĐÃ LÀNH (bà con xoá bớt ảnh/video) ⇒ CHO MẤY MỤC TỪNG BỊ TỪ
       CHỐI HẲN một cơ hội nữa trước khi phán quyết. Không có vế này thì "tách ra
       cho khỏi đầu độc hàng chờ" biến thành "vứt đi vĩnh viễn". */
-  if (khongGhiDuoc.size > 0) {
-    for (const [k, v] of khongGhiDuoc) if (!hangCho.has(k)) hangCho.set(k, v);
-    khongGhiDuoc.clear();
-  }
+  cuuMucTungBiTuChoi();
   await day();
   return conKetLai(chiKhoa);
 }

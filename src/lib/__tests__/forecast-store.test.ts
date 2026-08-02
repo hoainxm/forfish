@@ -515,6 +515,60 @@ describe("vòng 8 — cơ chế cô lập mục đĩa từ chối không đượ
   });
 });
 
+describe("vòng 8 — mục bị đĩa từ chối KHÔNG được đông cứng", () => {
+  /*  ⚠️ ĐIỂM MẤU CHỐT mà bộ test vòng 7 chưa bao giờ dựng: có MỘT LƯỢT GHI
+      THÀNH CÔNG XEN GIỮA lượt hỏng và lượt `flush` kế tiếp. Đường `fcSet` đời
+      thường (tin bão, giá, điểm chạm) ghi xuống đĩa qua `xepLichDay` mà KHÔNG
+      kèm flush, nên khoảng giữa đó là chuyện thường ngày. */
+  it("bản CŨ không được đè ngược lên bản MỚI đã nằm trên đĩa", async () => {
+    await forecastStoreReady();
+    const bao = `${FC_PREFIX}storm.latest`;
+    ghiHong = true;
+    fcSet(bao, JSON.stringify({ savedAt: 1, data: "tin-bao-cu" }));
+    expect(await forecastStoreFlush([bao])).toBe(false);
+
+    // đĩa lành, thẻ tin bão tự làm mới — KHÔNG kèm flush, đúng đường đời thường
+    ghiHong = false;
+    fcSet(bao, JSON.stringify({ savedAt: 2, data: "tin-bao-moi" }));
+    await new Promise((r) => setTimeout(r, 80)); // để `xepLichDay` đẩy xuống
+    expect(dia.get(bao)).toContain("tin-bao-moi");
+
+    // mẻ tải sẵn kế tiếp gọi flush — TUYỆT ĐỐI không được lôi bản v1 ra đè lại
+    expect(await forecastStoreFlush()).toBe(true);
+    expect(dia.get(bao)).toContain("tin-bao-moi");
+    expect(dia.get(bao)).not.toContain("tin-bao-cu");
+  });
+
+  it("mục ĐÃ XOÁ không được sống lại trên đĩa", async () => {
+    await forecastStoreReady();
+    ghiHong = true;
+    fcSet(K, JSON.stringify({ savedAt: 1, data: "luoi" }));
+    expect(await forecastStoreFlush([K])).toBe(false);
+    ghiHong = false;
+    fcRemove(K); // đường dọn chỗ khi máy đầy — chạy ĐÚNG lúc này
+    await forecastStoreFlush();
+    expect(dia.has(K)).toBe(false);
+    expect(fcGet(K)).toBeNull();
+  });
+
+  it("mục bị từ chối trong cửa sổ di trú KHÔNG mắc cạn trên nhánh ls", async () => {
+    localStorage.setItem(K, JSON.stringify({ savedAt: 1, data: {} }));
+    ghiHong = true;
+    ghiChamMs = 50;
+    const p = forecastStoreReady();
+    for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
+    const bao = `${FC_PREFIX}storm.latest`;
+    fcSet(bao, JSON.stringify({ savedAt: 9, data: {} }));
+    await forecastStoreFlush([bao]); // hỏng đơn-mục ⇒ vào diện "đĩa từ chối"
+    await p; // di trú hỏng ⇒ lật sang nhánh ls
+    expect(forecastStoreBackend()).toBe("ls");
+    /*  Nhánh `ls` phải CỨU nó xuống localStorage — không thì dòng tin bão đỏ
+        vĩnh viễn và bản 600 byte mất luôn. */
+    expect(await forecastStoreFlush([bao])).toBe(true);
+    expect(localStorage.getItem(bao)).toContain('"savedAt":9');
+  });
+});
+
 describe("cổng chặn khuôn", () => {
   it("khoá kho bền của bản đồ cá phải khớp FISH_NS/FISH_ID ở fish-predict", () => {
     const src = readFileSync(
