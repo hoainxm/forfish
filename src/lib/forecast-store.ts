@@ -155,6 +155,19 @@ const RAM_TRAN_KY_TU = 12 * 1024 * 1024;
  */
 const INDEX_KEY = "forfish.fcindex.v1";
 
+/**
+ * BIA MỘ — khoá đã XOÁ mà lệnh xoá CHƯA tới được IndexedDB.
+ *
+ * ⚠️ VÌ SAO CẦN (đánh giá tổng thể 2026-08-03; trước đó chỉ được GHI CHÚ là hố
+ * còn lại chứ chưa vá): nhánh `ls` không bao giờ chạm tới IndexedDB, nên phiên
+ * nào `backend` lật `idb→ls` thì lệnh xoá phát trong phiên đó chỉ xoá được bản
+ * localStorage. Phiên sau mở kho tốt, `nap()` đọc đĩa ("kho là sự thật") và
+ * dựng lại sổ ⇒ **mục đã xoá SỐNG LẠI**, chiếm đúng chỗ mà lượt dọn tưởng đã
+ * giải phóng — mà `fcRemove` chính là đường dọn chỗ KHI MÁY ĐẦY.
+ * Bia mộ nằm ở localStorage nên sống qua phiên; `nap()` thi hành rồi xoá bia.
+ */
+const BIA_MO_KEY = "forfish.fcbia.v1";
+
 /** `{khoá → [lưu lúc nào (epoch ms), nặng bao nhiêu (byte)]}` */
 type MucLuc = Record<string, [number, number]>;
 
@@ -324,6 +337,29 @@ function savedAtCua(raw: string): number {
   } catch {
     return 0;
   }
+}
+
+function docBiaMo(): string[] {
+  try {
+    const v = JSON.parse(ls()?.getItem(BIA_MO_KEY) || "[]") as unknown;
+    return Array.isArray(v) ? v.filter((k): k is string => typeof k === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function ghiBiaMo(ds: string[]): void {
+  try {
+    if (ds.length === 0) ls()?.removeItem(BIA_MO_KEY);
+    else ls()?.setItem(BIA_MO_KEY, JSON.stringify(ds));
+  } catch {
+    /* không ghi được bia thì thôi — cùng lắm mục cũ sống lại, không mất dữ liệu */
+  }
+}
+
+function themBiaMo(k: string): void {
+  const ds = docBiaMo();
+  if (!ds.includes(k)) ghiBiaMo([...ds, k]);
 }
 
 function lsKhoaCu(): string[] {
@@ -575,11 +611,26 @@ async function nap(): Promise<void> {
     return;
   }
   backend = "idb";
-  for (const [k, v] of tren) themGuong(k, v);
+  /*  THI HÀNH BIA MỘ TRƯỚC KHI NẠP GƯƠNG — nếu không thì mục đã xoá lọt vào
+      gương + sổ rồi mới bị xoá, tức có một nhịp nó "sống lại" trên màn hình. */
+  const bia = new Set(docBiaMo());
+  for (const [k, v] of tren) {
+    if (bia.has(k)) continue;
+    themGuong(k, v);
+  }
+  if (bia.size > 0) {
+    const ok = await ghiMe(d, [...bia].map((k) => [k, null] as [string, null]));
+    /*  Xoá bia CHỈ KHI đĩa xác nhận đã xoá — cùng luật "phải làm được rồi mới
+        dọn dấu" áp cho toàn kho. Hỏng thì giữ bia, phiên sau thi hành lại. */
+    if (ok) ghiBiaMo([]);
+  }
   /*  DỰNG LẠI SỔ TỪ CHÍNH KHO — kho là sự thật, sổ chỉ là bản chép nhanh. Sổ
       lệch (bị xoá, hỏng, hoặc sót từ phiên trước) thì tự lành ở đây. */
   const soMoi: MucLuc = {};
-  for (const [k, v] of tren) soMoi[k] = [savedAtCua(v), (k.length + v.length) * 2];
+  for (const [k, v] of tren) {
+    if (bia.has(k)) continue; // đã xoá — đừng dựng lại trong sổ
+    soMoi[k] = [savedAtCua(v), (k.length + v.length) * 2];
+  }
 
   /*  ═══ DỌN localStorage — CHỈ SAU KHI ĐĨA ĐÃ NHẬN ═══
       Luật của cả kho offline: "phải down được cái mới nó mới xoá cái cũ đi."
@@ -868,6 +919,7 @@ export function fcSet(k: string, v: string): void {
         "nút bấm không được gì" (c316cbd) dựng lại lần nữa. */
     hangCho.delete(k);
     khongGhiDuoc.delete(k); // bản mới thay hẳn bản từng bị từ chối
+    ghiBiaMo(docBiaMo().filter((x) => x !== k)); // ghi lại rồi thì gỡ bia
     ghiNhanSo(k, v);
     return;
   }
@@ -977,6 +1029,10 @@ export function fcRemove(k: string): void {
         (tombstone) trong sổ mục lục — chưa làm, vì ca này đòi ba điều kiện xảy
         ra liên tiếp và hậu quả là "thấy lại một lớp đã xoá", không mất dữ liệu. */
     hangCho.set(k, null);
+    /*  KHẮC BIA để phiên sau mở được kho thì thi hành nốt lệnh xoá trên đĩa —
+        xem `BIA_MO_KEY`. Đây là vế làm cho lệnh xoá KHÔNG bốc hơi khi nhánh
+        `ls` không bao giờ chạm tới IndexedDB. */
+    themBiaMo(k);
   }
   try {
     ls()?.removeItem(k);
@@ -1252,6 +1308,11 @@ export function forecastStorePersistOk(): boolean {
 
 /** CHỈ CHO TEST: xoá sạch trạng thái module giữa các ca. */
 export function __resetForecastStore(): void {
+  /*  CHỈ dọn trạng thái trong RAM. KHÔNG đụng `BIA_MO_KEY` (và `INDEX_KEY`):
+      chúng nằm ở localStorage đúng để SỐNG QUA PHIÊN — xoá ở đây thì không ca
+      test nào dựng lại được cảnh "phiên sau mở kho tốt thì thi hành nốt lệnh
+      xoá", tức cổng gác chính của bia mộ thành vô dụng. Test tự
+      `localStorage.clear()` khi cần ngăn cách. */
   guong.clear();
   guongKyTu = 0;
   hangCho.clear();

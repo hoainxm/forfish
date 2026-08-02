@@ -596,6 +596,48 @@ describe("vòng 8 — mục bị đĩa từ chối KHÔNG được đông cứng
   });
 });
 
+describe("bia mộ — lệnh xoá KHÔNG được bốc hơi khi kho lật về localStorage", () => {
+  it("xoá lúc nhánh ls ⇒ phiên sau mở kho tốt PHẢI xoá nốt trên đĩa", async () => {
+    // phiên 1: đưa dữ liệu xuống đĩa
+    await forecastStoreReady();
+    fcSet(K, JSON.stringify({ savedAt: 1, data: "luoi" }));
+    await forecastStoreFlush();
+    expect(dia.has(K)).toBe(true);
+
+    // phiên 2: kho KHÔNG mở được ⇒ nhánh ls; bà con/đường dọn xoá lớp đó
+    __resetForecastStore();
+    localStorage.setItem("forfish.fcindex.v1", JSON.stringify({ [K]: [1, 100] }));
+    moHong = true;
+    await forecastStoreReady();
+    expect(forecastStoreBackend()).toBe("ls");
+    fcRemove(K);
+    expect(dia.has(K)).toBe(true); // chưa tới được đĩa — đúng, nhưng phải NHỚ
+
+    // phiên 3: kho mở tốt trở lại ⇒ PHẢI thi hành nốt lệnh xoá
+    __resetForecastStore();
+    moHong = false;
+    await forecastStoreReady();
+    expect(dia.has(K)).toBe(false); // bản vá: đã xoá nốt trên đĩa
+    expect(fcGet(K)).toBeNull(); // và KHÔNG sống lại trong gương/sổ
+  });
+
+  it("ghi lại chính khoá đó thì GỠ BIA, không xoá oan bản mới", async () => {
+    await forecastStoreReady();
+    fcSet(K, JSON.stringify({ savedAt: 1, data: "cu" }));
+    await forecastStoreFlush();
+    __resetForecastStore();
+    moHong = true;
+    await forecastStoreReady();
+    fcRemove(K); // khắc bia
+    fcSet(K, JSON.stringify({ savedAt: 2, data: "moi" })); // rồi tải lại lớp đó
+    __resetForecastStore();
+    moHong = false;
+    await forecastStoreReady();
+    /*  Bia đã được gỡ lúc ghi lại, nên phiên sau KHÔNG được xoá bản mới. */
+    expect(fcGet(K)).toContain("moi");
+  });
+});
+
 describe("cổng chặn khuôn", () => {
   it("khoá kho bền của bản đồ cá phải khớp FISH_NS/FISH_ID ở fish-predict", () => {
     const src = readFileSync(
