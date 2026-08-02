@@ -1060,27 +1060,7 @@ async function day(): Promise<boolean> {
  * thì tàu ra khơi với một cái mốc xanh và một cái kho rỗng. Đúng khuôn nói dối
  * mà cả ngày hôm nay đi vá. Chỗ nào ghi mốc thì chỗ đó phải chờ ở đây.
  */
-/** Mẻ này còn mục nào kẹt trong hàng chờ không (không truyền = hỏi cả kho). */
-function conKetLai(chiKhoa?: Iterable<string>): boolean {
-  if (chiKhoa == null) return hangCho.size === 0;
-  for (const k of chiKhoa) if (hangCho.has(k)) return false;
-  return true;
-}
-
-export async function forecastStoreFlush(
-  /*  ⚠️ HỎI ĐÚNG CÂU: "MẺ CỦA TÔI ĐÃ NẰM XUỐNG CHƯA", KHÔNG PHẢI "HÀNG CHỜ CÓ
-      RỖNG KHÔNG" (tự soát vòng 6).
-      Từ khi `xaHangChoXuongLs()` có trần 64 KB, mục LỚN (lưới, lớp dải màu, bản
-      đồ cá) ở lại hàng chờ vĩnh viễn trên nhánh `ls` — đúng thiết kế, vì chúng
-      thật sự không nhét nổi vào thùng 5 MB. Nhưng `flush()` hỏi cả hàng chờ nên
-      trả `false` VĨNH VIỄN ⇒ bà con chạm "Tải lại" lớp TIN BÃO (600 byte, đã
-      ghi xuống localStorage trót lọt) vẫn bị `runLayer` NÉM ⇒ dòng đó đỏ, mà
-      bấm lại bao nhiêu lần cũng đỏ. Một lưới kẹt làm hỏng phán quyết của MỌI
-      lớp khác.
-      Truyền khoá của chính mẻ mình thì câu trả lời đúng cho từng mẻ. Không
-      truyền = hỏi cả kho (giữ nguyên hành vi cũ cho chỗ gọi chưa đổi). */
-  chiKhoa?: Iterable<string>,
-): Promise<boolean> {
+export async function forecastStoreFlush(): Promise<boolean> {
   await forecastStoreReady();
   if (backend === "ls") {
     /*  ⚠️ HÀNG CHỜ CÒN THÌ KHÔNG ĐƯỢC BÁO XONG (lỗi NẶNG vòng soát 2026-08-02k).
@@ -1100,14 +1080,14 @@ export async function forecastStoreFlush(
         hay bấy nhiêu; localStorage cũng đầy thì hàng chờ còn lại và `false`
         chính là câu trả lời ĐÚNG. */
     xaHangChoXuongLs();
-    return conKetLai(chiKhoa);
+    return hangCho.size === 0;
   }
   if (henDay != null) {
     clearTimeout(henDay);
     henDay = null;
   }
   const ok = await day();
-  return ok && conKetLai(chiKhoa);
+  return ok && hangCho.size === 0;
 }
 
 /**

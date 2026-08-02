@@ -31,6 +31,8 @@ let moTreo = false;
 let ghiHong = false;
 /** bơm lỗi ĐỌC — đúng nhánh đẻ ra lỗi CHẶN nặng nhất, bản đầu không bơm được */
 let docHong = false;
+/** giữ giao dịch GHI chậm lại — để dựng cửa sổ di trú mà test ghi chen vào */
+let ghiChamMs = 0;
 
 type Cb = (() => void) | null;
 
@@ -76,7 +78,7 @@ function taoDbThat() {
         for (const f of docs) f();
         for (const f of ghis) f();
         tx.oncomplete?.();
-      }, 0);
+      }, mode === "readwrite" ? ghiChamMs : 0);
       return tx;
     },
   };
@@ -137,6 +139,7 @@ beforeEach(() => {
   moTreo = false;
   ghiHong = false;
   docHong = false;
+  ghiChamMs = 0;
   gaKhoGia();
   __resetForecastStore();
 });
@@ -232,6 +235,42 @@ describe("gương RAM không được nói dối", () => {
     ghiHong = false;
     expect(await forecastStoreFlush()).toBe(true);
     expect(dia.get(K)).toBe("abc");
+  });
+});
+
+describe("flush hỏi ĐÚNG MẺ CỦA MÌNH", () => {
+  /*  ⚠️ Tự soát vòng 6. Từ khi `xaHangChoXuongLs()` có trần 64 KB, mục LỚN ở
+      lại hàng chờ vĩnh viễn trên nhánh `ls` — đúng thiết kế. Nhưng nếu `flush`
+      hỏi CẢ hàng chờ thì một lưới kẹt làm dòng TIN BÃO vừa tải trót lọt cũng
+      bị `runLayer` NÉM, bấm lại bao nhiêu lần cũng đỏ. */
+  it("một lưới kẹt KHÔNG được làm hỏng phán quyết của tin bão", async () => {
+    /*  Mục chỉ KẸT được nếu ghi trong CỬA SỔ DI TRÚ (lúc đó backend đã là
+        "idb" nên `fcSet` vào hàng chờ), rồi di trú hỏng và lật về "ls". Đây
+        đúng là phiên nâng cấp mà MỌI máy đi qua một lần. */
+    localStorage.setItem(K, JSON.stringify({ savedAt: 1, data: {} }));
+    ghiHong = true; // giao dịch di trú sẽ hỏng
+    ghiChamMs = 50; // giữ cửa sổ di trú mở đủ lâu để ghi chen vào
+    const p = forecastStoreReady();
+    for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
+    const bao = `${FC_PREFIX}storm.latest`;
+    const luoi = `${FC_PREFIX}grid.d7`; // KHÁC khoá cũ đã gieo ở trên
+    expect(forecastStoreBackend()).toBe("idb");
+    fcSet(bao, JSON.stringify({ savedAt: 9, data: {} })); // vài chục byte
+    fcSet(luoi, JSON.stringify({ savedAt: 9, data: "x".repeat(100_000) }));
+    await p; // di trú hỏng ⇒ lật "ls" ⇒ xả hàng chờ (có trần 64 KB)
+    expect(forecastStoreBackend()).toBe("ls");
+
+    // tin bão nhỏ ⇒ đã xuống localStorage thật
+    expect(localStorage.getItem(bao)).toContain('"savedAt":9');
+    // lưới quá trần ⇒ Ở LẠI hàng chờ, KHÔNG đổ ngược vào thùng 5 MB
+    expect(localStorage.getItem(luoi)).toBeNull();
+
+    // mẻ CHỈ CÓ tin bão ⇒ phải XONG, không bị lưới kẹt kéo theo
+    expect(await forecastStoreFlush([bao])).toBe(true);
+    // mẻ có lưới ⇒ nói THẬT là chưa bền
+    expect(await forecastStoreFlush([luoi])).toBe(false);
+    // hỏi cả kho ⇒ vẫn false (giữ nguyên nghĩa cũ)
+    expect(await forecastStoreFlush()).toBe(false);
   });
 });
 

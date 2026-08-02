@@ -532,15 +532,19 @@ export async function runLayer(
      con bấm tay tải được sẽ bị cộng vào `gained` của mẻ tự động đang chạy — mẻ
      hỏng sạch vẫn ra "xanh" rồi khoá 6 giờ. */
   const scope = beginForecastWrites();
+  let daGhi: string[] = [];
   try {
     await runLayerInner(id, points);
   } finally {
+    daGhi = [...scope.written]; // chụp TRƯỚC khi đóng phạm vi
     scope.end();
   }
   /*  Nút "Tải lại" cũng phải đợi đĩa nhận thật rồi mới được coi là xong — cùng
       lý do với mẻ tự động (xem chú thích ở `runPretrip`). Đĩa từ chối thì NÉM,
-      để dòng lớp đó ở lại trạng thái đỏ thay vì nhảy xanh rồi mất sau khi tắt. */
-  if (!(await forecastStoreFlush()))
+      để dòng lớp đó ở lại trạng thái đỏ thay vì nhảy xanh rồi mất sau khi tắt.
+      HỎI ĐÚNG MẺ CỦA MÌNH: hỏi cả kho thì một lưới kẹt lại (quá trần xả ngược)
+      làm dòng TIN BÃO vừa tải trót lọt cũng đỏ, bấm lại bao nhiêu lần cũng đỏ. */
+  if (!(await forecastStoreFlush(daGhi)))
     throw new Error("máy hết chỗ, chưa lưu được");
 }
 
@@ -824,7 +828,7 @@ export async function runPretrip(
       Đĩa từ chối ⇒ coi như `full`: nguyên nhân áp đảo của một giao dịch
       IndexedDB hỏng là hết chỗ, và `full` đã có sẵn đường nói thật với bà con
       ("Máy hết chỗ nhớ") lẫn luật khỏi bắn lại mẻ ~3 MB mỗi 2 phút. */
-  const daNamXuongDia = await forecastStoreFlush();
+  const daNamXuongDia = await forecastStoreFlush([...scope.written]);
   const full = lastStorageFullAt() >= startedAt || !daNamXuongDia;
   const gained = { ...scope.counts };
   const kept = { ...scope.kept };
