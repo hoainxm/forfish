@@ -410,9 +410,14 @@ export function coverageChipText(
       chip ngay CẠNH nó thì chưa — nên giữa biển thẻ im mà chip vẫn đứng "Chưa
       tải dữ liệu dự báo" trong khi máy đủ 16 ngày. Cùng một màn hình mà hai chỗ
       nói hai kiểu thì bà con tin cái đáng sợ hơn, rồi quay tàu về bờ. */
-  if (storeState != null && storeState !== "san-sang") {
-    return "Đang mở kho dữ liệu…";
-  }
+  /*  HAI TRẠNG THÁI, HAI CÂU (vòng soát 7). Gộp chúng làm một là hứa một
+      chuyện TẠM THỜI cho một tình trạng KHÔNG BAO GIỜ tự hết: hết trần nạp lại
+      thì kho không được mở lại nữa, chip đứng "Đang mở kho dữ liệu…" suốt
+      chuyến. Popup ngay dưới thì nói đúng ("Chưa mở được kho…") ⇒ hai chỗ trên
+      MỘT màn nói hai kiểu, mà chỗ bà con liếc trước lại là chỗ nói sai. */
+  if (storeState === "dang-mo") return "Đang mở kho dữ liệu…";
+  if (storeState === "khong-mo-duoc")
+    return "Chưa mở được kho — thử đóng app rồi mở lại";
   if (!cov || cov.layers.every((l) => !l.saved)) return "Chưa tải dữ liệu dự báo";
   if (!cov.allSaved) return `Còn thiếu ${cov.missing} lớp — chạm xem`;
   /* NGÀY NÓI RA LÀ NGÀY CỐT LÕI, KHÔNG PHẢI NGÀY CỦA RIÊNG ĐIỂM GHIM

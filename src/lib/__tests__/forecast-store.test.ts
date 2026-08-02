@@ -125,6 +125,7 @@ import {
   forecastStoreFlush,
   forecastStoreReady,
   forecastStoreState,
+  subscribeForecastStore,
   __resetForecastStore,
 } from "../forecast-store";
 import { readFileSync } from "node:fs";
@@ -438,6 +439,55 @@ describe("ba trạng thái phải MECE", () => {
         kết luận "Máy hết chỗ nhớ" + khoá 6 giờ, trong khi localStorage ghi tốt. */
     expect(await forecastStoreFlush()).toBe(true);
     expect(fcGet(`${FC_PREFIX}storm.latest`)).toContain('"savedAt":9');
+  });
+});
+
+describe("vòng 7 — khuôn 'nút bấm không được gì' ở tầng cuối", () => {
+  it("một mục đĩa từ chối KHÔNG được kéo cả kho xuống theo", async () => {
+    await forecastStoreReady();
+    expect(forecastStoreBackend()).toBe("idb");
+    const bao = `${FC_PREFIX}storm.latest`;
+    const luoi = `${FC_PREFIX}grid.d16`;
+    ghiHong = true;
+    fcSet(luoi, JSON.stringify({ savedAt: 1, data: "x".repeat(1000) }));
+    await forecastStoreFlush([luoi]); // hỏng — mục vào diện "đĩa từ chối hẳn"
+    ghiHong = false;
+    fcSet(bao, JSON.stringify({ savedAt: 2, data: {} }));
+    /*  Tin bão PHẢI xuống được, dù trước đó có một mục đĩa từ chối. Bản trước
+        `flush` gác bằng phán quyết TOÀN KHO nên dòng tin bão đỏ oan. */
+    expect(await forecastStoreFlush([bao])).toBe(true);
+    expect(dia.has(bao)).toBe(true);
+  });
+
+  it("đĩa lành lại thì mục từng bị từ chối được CỨU, không vứt đi", async () => {
+    await forecastStoreReady();
+    const luoi = `${FC_PREFIX}grid.d16`;
+    ghiHong = true;
+    fcSet(luoi, JSON.stringify({ savedAt: 1, data: "x".repeat(1000) }));
+    expect(await forecastStoreFlush([luoi])).toBe(false);
+    ghiHong = false;
+    expect(await forecastStoreFlush([luoi])).toBe(true);
+    expect(dia.has(luoi)).toBe(true);
+  });
+
+  it("kho lành lại bằng MỘT LƯỢT GHI thì màn hình được báo", async () => {
+    localStorage.setItem(K, JSON.stringify({ savedAt: 1, data: {} }));
+    await forecastStoreReady();
+    await forecastStoreFlush();
+    __resetForecastStore();
+    moTreo = true;
+    vi.useFakeTimers();
+    const p = forecastStoreReady();
+    await vi.advanceTimersByTimeAsync(4100);
+    await p;
+    vi.useRealTimers();
+    expect(forecastStoreState()).toBe("khong-mo-duoc");
+    let goi = 0;
+    subscribeForecastStore(() => (goi += 1));
+    expect(goi).toBe(0); // chưa mở được ⇒ ĐẬU LẠI chờ, không bắn rồi thôi
+    fcSet(K, JSON.stringify({ savedAt: 9, data: {} })); // một lớp vừa tải về
+    expect(forecastStoreState()).toBe("san-sang");
+    expect(goi).toBe(1); // và màn hình PHẢI được báo để đọc lại
   });
 });
 

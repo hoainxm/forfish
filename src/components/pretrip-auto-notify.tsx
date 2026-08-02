@@ -594,11 +594,22 @@ function PretripSavedSheet({
       if (busy || ids.length === 0) return;
       const before = new Map(layers.map((l) => [l.id, l]));
       setBusy("all");
+      /*  ⚠️ GIỮ TÍN HIỆU NÉM CỦA TỪNG LỚP (vòng soát 7 — khuôn NGƯỢC: "ghi hỏng
+          mà màn hình báo xong"). Bản trước `catch {}` rồi VỨT LUÔN `threw`, chỉ
+          soi `savedCoverage`. Mà `savedCoverage` đọc qua `fcGet` → GƯƠNG RAM:
+          bản vừa ghi vào gương là `saved:true`, `savedAt = now` ⇒ `fresh:true`.
+          Kết quả: đĩa từ chối, `runLayer` ném đủ 6 lớp, mà 6 dòng đều XANH ✓
+          "còn mới" và chip có thể xanh "Đã lưu đủ dự báo" — tàu nhổ neo, đóng
+          app một cái là trắng. Đúng "dấu xanh trên kho rỗng" mà cả mạch này đi
+          vá, và đây là NÚT TO bà con bấm nhiều nhất.
+          `retry()` một lớp vốn đã làm đúng (`threw || layerRetryFailed`); nút
+          gom phải theo cùng luật. */
+      const daNem = new Set<SavedLayerId>();
       for (const id of ids) {
         try {
           await runLayer(id, points);
         } catch {
-          /* bỏ qua lớp hỏng, chạy tiếp lớp khác */
+          daNem.add(id); // bỏ qua lớp hỏng, chạy tiếp lớp khác — nhưng NHỚ nó
         }
       }
       setBusy(null);
@@ -606,7 +617,10 @@ function PretripSavedSheet({
       setFailed((prev) => {
         const n = new Set(prev);
         for (const id of ids) {
-          if (layerRetryFailed(before.get(id), after.find((l) => l.id === id)))
+          if (
+            daNem.has(id) ||
+            layerRetryFailed(before.get(id), after.find((l) => l.id === id))
+          )
             n.add(id);
           else n.delete(id);
         }

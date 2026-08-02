@@ -184,6 +184,8 @@ const hangCho = new Map<string, string | null>();
 let dangDay: Promise<boolean> | null = null;
 /** Lượt đẩy gần nhất có xuống đĩa trót lọt không (false = đĩa đang từ chối). */
 let dayOk = true;
+/** đang ở chế độ ghi từng mục để cô lập mục đĩa từ chối */
+let ghiTungMuc = false;
 
 /* ══════════════════════════════════════════════════════════════════════════
    localStorage — vẫn dùng làm ĐƯỜNG LÙI và làm nơi ĐỌC bản chưa kịp dọn
@@ -909,12 +911,27 @@ const ghiTrongLucNap = new Set<string>();
 const xoaTrongLucNap = new Set<string>();
 
 function ghiNhanSo(k: string, v: string): void {
+  /*  ⚠️ KHO LÀNH LẠI BẰNG MỘT LƯỢT GHI CŨNG PHẢI BÁO (vòng soát 7, đã dựng lại
+      bằng mã). `forecastStoreState()` trả `san-sang` ngay khi MỘT khoá trong sổ
+      đọc được — mà một lớp vừa tải về là đủ. Nhưng `baoDaNap()` chỉ được gọi từ
+      `forecastStoreReady().then`, nên người nghe đậu trong `nguoiCho` KHÔNG AI
+      GỌI ⇒ chip đứng "Chưa mở được kho…" trong khi kho đọc được. Ở bờ thì
+      `subscribePhase` che được (mẻ tải sẵn đổi phase); GIỮA BIỂN không có mẻ nào
+      chạy — đúng ca file này sinh ra để chống. */
   mucLuc[k] = [savedAtCua(v), (k.length + v.length) * 2];
   if (!daNap || dangNapLai) {
     ghiTrongLucNap.add(k);
     xoaTrongLucNap.delete(k);
   }
   ghiSo();
+  /*  KHÔNG so trạng thái TRƯỚC/SAU — `fcSet` nhánh `ls` đã `setItem` xong rồi
+      mới gọi vào đây, nên "trước" đo được đã là "sau" (tự bắt trong lúc viết,
+      test cứu). Hỏi thẳng điều cần biết: CÓ AI ĐANG CHỜ mà kho nay đọc được
+      không. `nguoiCho` chỉ có người khi kho từng chưa sẵn sàng, nên không có
+      chuyện báo thừa. */
+  if (daNap && nguoiCho.size > 0 && forecastStoreState() === "san-sang") {
+    baoDaNap();
+  }
 }
 
 /** Hoà sổ vừa dựng từ đĩa với những gì đã ghi/xoá trong lúc nạp. */
@@ -942,7 +959,11 @@ export function fcRemove(k: string): void {
     hangCho.set(k, null);
     xepLichDay();
   } else {
-    hangCho.delete(k); // xoá thật rồi thì mục kẹt cùng khoá không còn nghĩa gì
+    /*  ⚠️ VẪN PHẢI XẾP LỆNH XOÁ XUỐNG ĐĨA (vòng soát 7, NHẸ nhưng thật): nhánh
+        `ls` chỉ xoá ở localStorage, nên nếu backend TỪNG lật idb→ls thì bản trên
+        IndexedDB còn nguyên và **sống lại ở phiên sau**. Đã dựng lại được bằng
+        mã. Xếp hàng thì lượt `day()` nào chạy được sẽ dọn nốt. */
+    hangCho.set(k, null);
   }
   try {
     ls()?.removeItem(k);
@@ -1026,8 +1047,10 @@ async function day(): Promise<boolean> {
         đang đẩy sẽ nằm ở mẻ sau, không bị nuốt. */
     let ok = true;
     while (hangCho.size > 0) {
-      const me = [...hangCho.entries()];
-      hangCho.clear();
+      /*  Sau một mẻ hỏng thì ghi TỪNG MỤC để cô lập thủ phạm (xem bên dưới). */
+      const tatCa = [...hangCho.entries()];
+      const me = ghiTungMuc ? tatCa.slice(0, 1) : tatCa;
+      for (const [k] of me) hangCho.delete(k);
       const r = await ghiMe(d, me);
       if (!r) {
         /*  ⚠️ TRẢ MẺ VỀ HÀNG CHỜ (sửa ngay trong lượt viết — bản đầu để mất).
@@ -1036,12 +1059,26 @@ async function day(): Promise<boolean> {
             gương RAM VĨNH VIỄN KHÔNG BAO GIỜ xuống đĩa — app trông như đã lưu
             đủ, tắt đi mở lại là trắng. Trả về để lượt `flush` sau thử lại.
             KHÔNG đè lượt ghi MỚI HƠN đã vào hàng trong lúc đang đẩy. */
-        for (const [k, v] of me) if (!hangCho.has(k)) hangCho.set(k, v);
+        if (me.length === 1) {
+          /*  MỘT MÌNH MÀ VẪN HỎNG ⇒ đĩa từ chối HẲN mục này. Tách ra khỏi hàng
+              chờ để nó không đầu độc mọi giao dịch sau, nhưng ghi vào
+              `khongGhiDuoc` để `flush` vẫn nói THẬT về nó. */
+          khongGhiDuoc.set(me[0][0], me[0][1]);
+        } else {
+          /*  Mẻ nhiều mục hỏng ⇒ CHƯA biết mục nào là thủ phạm. Trả về hàng chờ
+              rồi lượt sau ghi TỪNG MỤC MỘT để cô lập — thà tốn mấy giao dịch
+              nhỏ còn hơn để một mục xấu chặn cả kho. */
+          for (const [k, v] of me) if (!hangCho.has(k)) hangCho.set(k, v);
+          ghiTungMuc = true;
+        }
         ok = false;
         break; // đừng quay vòng vô tận — hẹn lượt thử lại có kiểm soát bên dưới
       }
     }
-    if (ok) soLanThuLai = 0;
+    if (ok) {
+      soLanThuLai = 0;
+      ghiTungMuc = false;
+    }
     else henThuLai();
     dayOk = ok;
     return ok;
@@ -1063,10 +1100,26 @@ async function day(): Promise<boolean> {
  * thì tàu ra khơi với một cái mốc xanh và một cái kho rỗng. Đúng khuôn nói dối
  * mà cả ngày hôm nay đi vá. Chỗ nào ghi mốc thì chỗ đó phải chờ ở đây.
  */
-/** Mẻ này còn mục nào kẹt trong hàng chờ không (không truyền = hỏi cả kho). */
+/**
+ * ĐĨA TỪ CHỐI HẲN — mục đã thử ghi RIÊNG một mình mà vẫn hỏng.
+ *
+ * ⚠️ VÌ SAO CẦN (vòng soát 7, "hàng chờ nhiễm độc"): một mục đĩa từ chối vĩnh
+ * viễn nằm lại `hangCho` thì MỌI lượt ghi sau đó đi CHUNG một giao dịch với nó
+ * ⇒ tin bão 600 byte cũng không vào nổi, mọi lớp đỏ suốt phiên. Nay tách nó ra
+ * để phần còn lại chạy tiếp — nhưng KHÔNG giả vờ là đã ghi được: nó vào danh
+ * sách này và `conKetLai` vẫn trả `false` cho mẻ nào có nó.
+ *
+ * GIỮ NGUYÊN NỘI DUNG, không chỉ giữ tên khoá: đĩa lành lại (bà con xoá bớt
+ * ảnh) thì phải cứu được mấy mục này, không thì "tách ra" hoá thành "vứt đi".
+ */
+const khongGhiDuoc = new Map<string, string | null>();
+
+/** Mẻ này còn mục nào CHƯA nằm xuống đĩa không (không truyền = hỏi cả kho). */
 function conKetLai(chiKhoa?: Iterable<string>): boolean {
-  if (chiKhoa == null) return hangCho.size === 0;
-  for (const k of chiKhoa) if (hangCho.has(k)) return false;
+  if (chiKhoa == null) return hangCho.size === 0 && khongGhiDuoc.size === 0;
+  for (const k of chiKhoa) {
+    if (hangCho.has(k) || khongGhiDuoc.has(k)) return false;
+  }
   return true;
 }
 
@@ -1109,8 +1162,23 @@ export async function forecastStoreFlush(
     clearTimeout(henDay);
     henDay = null;
   }
-  const ok = await day();
-  return ok && conKetLai(chiKhoa);
+  /*  ⚠️ KHÔNG GÁC BẰNG PHÁN QUYẾT TOÀN KHO (vòng soát 7 — khuôn "nút bấm không
+      được gì", TẦNG THỨ TƯ). Vòng 5–6 đã scope `conKetLai` theo mẻ, nhưng vẫn
+      để `ok && …`, mà `ok` là kết quả của CẢ hàng chờ — và nhánh này là nhánh
+      GẦN HẾT máy bà con chạy. Ca đã chứng minh bằng mã: tin bão 600 byte nằm
+      THẬT trên đĩa mà `flush([tin bão])` vẫn `false` ⇒ `runLayer` ném ⇒ dòng đỏ,
+      bấm bao nhiêu lần cũng đỏ.
+      Câu trả lời đúng chỉ phụ thuộc: khoá của MẺ NÀY còn kẹt hàng chờ không, và
+      có nằm trong danh sách "đĩa từ chối hẳn" không. */
+  /*  ĐĨA CÓ THỂ ĐÃ LÀNH (bà con xoá bớt ảnh/video) ⇒ CHO MẤY MỤC TỪNG BỊ TỪ
+      CHỐI HẲN một cơ hội nữa trước khi phán quyết. Không có vế này thì "tách ra
+      cho khỏi đầu độc hàng chờ" biến thành "vứt đi vĩnh viễn". */
+  if (khongGhiDuoc.size > 0) {
+    for (const [k, v] of khongGhiDuoc) if (!hangCho.has(k)) hangCho.set(k, v);
+    khongGhiDuoc.clear();
+  }
+  await day();
+  return conKetLai(chiKhoa);
 }
 
 /**
@@ -1140,6 +1208,8 @@ export function __resetForecastStore(): void {
     henLai = null;
   }
   mucLuc = {};
+  khongGhiDuoc.clear();
+  ghiTungMuc = false;
   soDaGhi = false;
   ghiTrongLucNap.clear();
   xoaTrongLucNap.clear();
