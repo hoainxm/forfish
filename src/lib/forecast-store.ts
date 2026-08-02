@@ -1076,7 +1076,7 @@ async function day(): Promise<boolean> {
           /*  MỘT MÌNH MÀ VẪN HỎNG ⇒ đĩa từ chối HẲN mục này. Tách ra khỏi hàng
               chờ để nó không đầu độc mọi giao dịch sau, nhưng ghi vào
               `khongGhiDuoc` để `flush` vẫn nói THẬT về nó. */
-          khongGhiDuoc.add(me[0][0]);
+          khongGhiDuoc.set(me[0][0], me[0][1] == null ? "xoa" : "ghi");
         } else {
           /*  Mẻ nhiều mục hỏng ⇒ CHƯA biết mục nào là thủ phạm. Trả về hàng chờ
               rồi lượt sau ghi TỪNG MỤC MỘT để cô lập — thà tốn mấy giao dịch
@@ -1134,10 +1134,19 @@ async function day(): Promise<boolean> {
  * ngày, không một tiếng động — mà bão thì dính tính mạng, và giữa biển v2 đã
  * mất là mất.
  *
- * Nay chỉ nhớ TÊN, còn nội dung lấy từ `guong` — nguồn sự thật sống. Khoá đã bị
- * xoá thì `guong` không có, và ta bỏ luôn thay vì làm nó sống lại trên đĩa.
+ * Nay chỉ nhớ TÊN + Ý ĐỊNH, còn nội dung lấy từ `guong` — nguồn sự thật sống.
+ *
+ * ⚠️ PHẢI NHỚ CẢ Ý ĐỊNH ("ghi" hay "xoa"), không chỉ tên (sửa vòng 9 — hồi quy
+ * do chính bản vá vòng 8). Bản vòng 8 dùng `Set<string>` nên đánh mất thông tin
+ * "đây là LỆNH XOÁ": lệnh xoá thì `guong` CỐ Ý không có (`fcRemove` gọi
+ * `boGuong`), nên nhánh cứu tưởng "khoá đã bị xoá rồi, bỏ hẳn" ⇒ lệnh xoá BỐC
+ * HƠI, `flush` trả `true` NÓI DỐI, và phiên sau `nap()` đọc kho thấy mục đó còn
+ * nguyên ⇒ **mục đã xoá quay về**, chiếm đúng chỗ mà lượt dọn vừa tưởng đã giải
+ * phóng. Mà `fcRemove` chính là đường dọn chỗ KHI MÁY ĐẦY — tức nó chạy đúng
+ * lúc giao dịch dễ hỏng nhất. Đúng lỗi vòng 8 tuyên bố đã diệt, vào bằng cửa
+ * khác: "chính LỆNH XOÁ bị từ chối".
  */
-const khongGhiDuoc = new Set<string>();
+const khongGhiDuoc = new Map<string, "ghi" | "xoa">();
 
 /**
  * Cho mấy mục từng bị đĩa từ chối một cơ hội nữa — LẤY NỘI DUNG TỪ GƯƠNG, không
@@ -1146,8 +1155,12 @@ const khongGhiDuoc = new Set<string>();
  */
 function cuuMucTungBiTuChoi(): void {
   if (khongGhiDuoc.size === 0) return;
-  for (const k of khongGhiDuoc) {
+  for (const [k, yDinh] of khongGhiDuoc) {
     if (hangCho.has(k)) continue; // đã có lượt ghi mới hơn đang chờ — đừng đụng
+    if (yDinh === "xoa") {
+      hangCho.set(k, null); // lệnh xoá phải được thử lại, không được bỏ
+      continue;
+    }
     const v = guong.get(k);
     if (v != null) hangCho.set(k, v);
   }

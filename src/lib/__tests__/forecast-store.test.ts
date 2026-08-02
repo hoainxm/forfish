@@ -539,6 +539,33 @@ describe("vòng 8 — mục bị đĩa từ chối KHÔNG được đông cứng
     expect(dia.get(bao)).not.toContain("tin-bao-cu");
   });
 
+  /*  ⚠️ ĐIỂM MÙ CỦA CỔNG VÒNG 8: ca dưới đặt `ghiHong = false` TRƯỚC `fcRemove`,
+      tức lệnh xoá luôn thành công ngay. Không ca nào để CHÍNH GIAO DỊCH XOÁ
+      hỏng — mà `fcRemove` là đường dọn chỗ KHI MÁY ĐẦY, tức chạy đúng lúc giao
+      dịch dễ hỏng nhất. Ca kế bên vá đúng điểm mù đó. */
+  it("CHÍNH LỆNH XOÁ bị đĩa từ chối vẫn phải được thử lại", async () => {
+    await forecastStoreReady();
+    fcSet(K, JSON.stringify({ savedAt: 1, data: "luoi" }));
+    await forecastStoreFlush();
+    expect(dia.has(K)).toBe(true);
+
+    ghiHong = true; // đĩa từ chối ĐÚNG lúc dọn chỗ
+    fcRemove(K);
+    expect(await forecastStoreFlush([K])).toBe(false); // nói thật: chưa xoá được
+
+    ghiHong = false; // đĩa lành lại
+    /*  Bản vòng 8 quên mất "đây là lệnh XOÁ" nên bỏ hẳn ⇒ flush trả TRUE nói
+        dối, và phiên sau `nap()` đọc kho thấy K còn nguyên ⇒ mục đã xoá quay
+        về, chiếm đúng chỗ mà lượt dọn tưởng đã giải phóng. */
+    expect(await forecastStoreFlush([K])).toBe(true);
+    expect(dia.has(K)).toBe(false);
+
+    // và phiên sau phải KHÔNG thấy nó nữa
+    __resetForecastStore();
+    await forecastStoreReady();
+    expect(fcGet(K)).toBeNull();
+  });
+
   it("mục ĐÃ XOÁ không được sống lại trên đĩa", async () => {
     await forecastStoreReady();
     ghiHong = true;
