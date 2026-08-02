@@ -72,3 +72,38 @@ export async function requestPersistentStorage(): Promise<boolean> {
     return false;
   }
 }
+
+
+/**
+ * KHO CỦA MÁY CÒN BAO NHIÊU — `{quotaMb, usedMb}`, `null` khi không hỏi được.
+ *
+ * VÌ SAO CẦN (chủ dự án chốt 2026-08-02j): quyết định "để dữ liệu đi biển ở kho
+ * nào" đang dựa trên phỏng đoán. Đo thật trên Chromium: localStorage chạm trần ở
+ * **99,88 MB**, quota cả origin **1.425 MB** — tức con số "5 MB" mà cả ngày soát
+ * dựa vào là SAI về mức độ. iOS/WKWebView thì chưa ai đo, mà đó mới là nền phần
+ * lớn bà con dùng. Để nhịp 30 phút báo lên, một ngày là có số thật của cả đội.
+ *
+ * ⚠️ KHÔNG BAO GIỜ ĐO BẰNG CÁCH GHI THỬ. Cách duy nhất biết trần chính xác là
+ * ghi tới lúc ném — trên máy bà con thì đó là đổ vài chục MB rác vào kho và có
+ * cửa đẩy chính dữ liệu đi biển ra. `estimate()` là số trình duyệt tự khai, rẻ,
+ * không ghi một byte nào.
+ * KHÔNG BAO GIỜ ném: API này thiếu trên WebView cũ và trên ngữ cảnh không bảo mật.
+ */
+export async function storageEstimateMb(): Promise<{
+  quotaMb: number;
+  usedMb: number;
+} | null> {
+  try {
+    if (typeof navigator === "undefined") return null;
+    const st = navigator.storage;
+    if (!st || typeof st.estimate !== "function") return null;
+    const e = await st.estimate();
+    if (!e || typeof e.quota !== "number") return null;
+    return {
+      quotaMb: Math.round(e.quota / 1048576),
+      usedMb: Math.round((e.usage ?? 0) / 1048576),
+    };
+  } catch {
+    return null;
+  }
+}

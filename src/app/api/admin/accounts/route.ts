@@ -69,7 +69,7 @@ export async function GET() {
   // một cột không tồn tại là HỎNG CẢ CÂU ⇒ mất trắng danh sách 700+ khách chỉ
   // vì một chip phụ. Nên: thử có cột, hỏng thì lấy lại bộ cũ.
   const BASE_COLS =
-    "phone, name, tier, premium_until, premium_activated_at, role, sdwork_ref, updated_at, staff_used, staff_guided, staff_note_by, staff_note_at, pwa_last_open_at, web_last_open_at, offline_ready_at, data_until, data_until_web";
+    "phone, name, tier, premium_until, premium_activated_at, role, sdwork_ref, updated_at, staff_used, staff_guided, staff_note_by, staff_note_at, pwa_last_open_at, web_last_open_at, offline_ready_at, data_until, data_until_web, storage_quota_mb, storage_used_mb";
   // `.select()` với chuỗi cột ĐỘNG thì Supabase không suy được kiểu hàng nữa
   // (trả union kèm GenericStringError) — ép về bản ghi thô, phía dưới vẫn bóc
   // từng cột bằng `as` y như trước.
@@ -169,6 +169,10 @@ export async function GET() {
     /* KHO WEB tách riêng kho bản cài (0027) — trên iOS hai kho KHÁC NHAU, và
        nhóm "đã cài rồi nhưng toàn dùng web" chỉ nhìn ra được khi có cả hai số. */
     dataUntilWeb: (r.data_until_web as string) ?? null,
+    /* KHO CỦA MÁY (0029) — để biết iOS thật sự cho bao nhiêu, và để gọi nhắc
+       bà con dọn bớt ảnh/video TRƯỚC khi ra khơi */
+    storageQuotaMb: (r.storage_quota_mb as number) ?? null,
+    storageUsedMb: (r.storage_used_mb as number) ?? null,
     devicePlatform: normalizePlatform(r.device_platform),
     // lịch sử máy — mới nhất trước; rỗng nếu chưa máy nào báo
     devices: devicesByPhone.get(r.phone as string) ?? [],

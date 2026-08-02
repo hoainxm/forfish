@@ -828,9 +828,50 @@ async function bodyBytes(res, allowRead) {
     Cùng lối với `dropOldest`/`saveForecast` bên localStorage.
     Hai trần, KHÔNG có sàn: (1) không bao giờ quá NỬA kho; (2) đủ số byte cần
     thì dừng ngay. */
-async function reclaimRoom(c, needBytes) {
-  const keys = await c.keys();
+/*  BẬC HY SINH CHO KHO /api — mirror của `DROP_RANK` bên localStorage.
+
+    ⚠️ VÌ SAO CẦN (chủ dự án hỏi "bản đồ cá sao không cho localStorage để dự
+    phòng"): bản đồ cá KHÔNG nhét vừa localStorage (~1,95 MB UTF-16, cộng lưới
+    gió 1,58 MB là đã 3,53/5 MB, chưa tính các lớp khác). Nó nằm đúng chỗ rồi —
+    Cache API, kho rộng hàng trăm MB. Nhưng ở đó nó **không được bảo vệ gì cả**:
+    `reclaimRoom` bỏ thuần FIFO, mà bản đồ cá được tải SỚM trong mẻ tải sẵn nên
+    nằm ngay đầu hàng ⇒ **một bản tin giá dầu 10 KB có thể đuổi nguyên bản đồ cá
+    1 MB**, và nếu cú ghi lại vẫn hỏng thì mất trắng.
+
+    Nay xếp bậc y như localStorage: thứ RẺ đi trước, và tuyệt đối không hy sinh
+    thứ QUÝ HƠN thứ đang ghi. Bản đồ cá + tin bão đứng cao nhất — giữa biển
+    không tải lại được, và tin bão thì dính tính mạng. */
+const API_DROP_RANK = [
+  "/api/port-prices",
+  "/api/fuel-price",
+  "/api/nautical",
+  "/api/sea-scalar",
+  "/api/salinity",
+  "/api/currents-depth",
+  "/api/weather-snapshot",
+  "/api/fish-forecast",
+  "/api/storms",
+];
+
+/** Bậc của một URL trong kho /api. Không nhận ra → coi như rẻ nhất. */
+function apiDropRank(url) {
+  const p = new URL(url).pathname;
+  const i = API_DROP_RANK.findIndex((a) => p === a || p.startsWith(a + "/"));
+  return i === -1 ? 0 : i;
+}
+
+async function reclaimRoom(c, needBytes, keepUrl) {
+  let keys = await c.keys();
   if (keys.length < RECLAIM_MIN_KEYS) return 0;
+  /*  Chỉ áp bậc cho kho /api (chỗ duy nhất trộn nhiều loại giá trị khác hẳn
+      nhau). Kho ô bản đồ / chunk thì mọi mục ngang hàng, FIFO là đúng. */
+  if (keepUrl && new URL(keepUrl).pathname.startsWith("/api/")) {
+    const tran = apiDropRank(keepUrl);
+    keys = keys
+      .filter((r) => apiDropRank(r.url) <= tran && r.url !== keepUrl)
+      .sort((a, b) => apiDropRank(a.url) - apiDropRank(b.url));
+    if (keys.length < 1) return 0;
+  }
   /*  TRẦN LÀ NỬA KHO, KHÔNG CÓ SÀN (sửa 2026-08-02h).
       LỖI ĐÃ SỬA: `Math.max(8, keys.length >> 2)` — cái SÀN 8 nuốt luôn cái trần.
       Kho 4–7 mục thì `maxDrop = 8 > keys.length` ⇒ vòng lặp xoá SẠCH kho, rồi
@@ -908,7 +949,7 @@ async function putWithRoom(c, req, res, max, trimFn, cacheName) {
   } catch {
     // QuotaExceeded — kho đầy theo BYTE, trần theo số mục không cứu được
     if (spare && evictable) {
-      const freed = await reclaimRoom(c, need);
+      const freed = await reclaimRoom(c, need, req.url);
       // freed === 0 ⇒ không đuổi được ai (kho quá ít mục) ⇒ đừng thử lại vô ích
       if (freed > 0) {
         try {

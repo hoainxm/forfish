@@ -130,11 +130,32 @@ function activeScope(): ForecastWriteScope | null {
  * ĐÚNG MỘT lần (xoá khỏi `written` luôn) — mẻ lồng nhau không còn bị trừ hai
  * lần cho một lần cộng.
  */
-function debitScopes(fullKey: string): void {
+function debitScopes(fullKey: string): ForecastWriteScope[] {
   const ns = nsOf(fullKey);
+  const daTru: ForecastWriteScope[] = [];
   for (const s of scopeStack) {
     if (!s.written.delete(fullKey)) continue;
     if ((s.counts[ns] ?? 0) > 0) s.counts[ns]! -= 1;
+    daTru.push(s);
+  }
+  return daTru;
+}
+
+/**
+ * CỘNG LẠI CÔNG khi một bản đã gỡ được TRẢ VỀ KHO (`hoanTac`).
+ *
+ * ⚠️ THIẾU VẾ NÀY LÀ ĐẺ RA VÒNG TẢI LẠI VÔ TẬN — đúng bài học đã ghi ở
+ * `debitScopes`: "đếm thiếu là lệch về phía an toàn" KHÔNG đúng, vì mẻ tải sẵn
+ * thấy mình chẳng giữ được gì thì không ghi mốc, rồi mỗi lần bà con liếc điện
+ * thoại lại bắn lại cả mẻ ~3 MB tiền sóng.
+ * Bản vừa gỡ đã bị trừ công lúc `dropOne`; trả nó về kho mà không cộng lại thì
+ * công đếm được NHỎ HƠN số bản thật đang nằm trong máy.
+ */
+function creditScopes(fullKey: string, daTru: ForecastWriteScope[]): void {
+  const ns = nsOf(fullKey);
+  for (const s of daTru) {
+    s.written.add(fullKey);
+    s.counts[ns] = (s.counts[ns] ?? 0) + 1;
   }
 }
 
@@ -294,6 +315,7 @@ export function saveForecast<T>(
   return false;
 }
 
+
 /** Đọc bản đã lưu (bất kể cũ) — null nếu chưa từng lưu / hỏng. */
 export function loadForecast<T>(ns: string, id: string): Cached<T> | null {
   try {
@@ -424,10 +446,36 @@ function eligibleVictims(keep?: string): { k: string; savedAt: number }[] {
       một lớp (`rankedVictims`). */
   const nsKeep = keep == null ? null : nsOf(keep);
   const keepGridDays = keep == null ? null : gridFrameDays(keep);
+  const victims = rankedVictims();
+  /*  ⚠️ LỚP CHỈ CÓ MỘT BẢN THÌ KHÔNG TỰ CỨU ĐƯỢC (sửa 2026-08-02j — vòng soát
+      chéo bắt, mức CHẶN).
+
+      `storm.latest`, `fishmark.latest`, `seascalar.ssha` mỗi lớp có ĐÚNG MỘT id,
+      mà chính nó là `keep` ⇒ danh sách nạn nhân cùng lớp LUÔN RỖNG ⇒ máy đầy là
+      **bản tin bão 600 byte ghi không được**, trong khi một lớp dải màu 20 KB
+      nằm nguyên. Đúng thứ `DROP_RANK` (storm bậc 6) tuyên bố đang bảo vệ.
+
+      Nên: lớp nào không có nạn nhân cùng lớp thì được ăn lớp **RẺ HƠN HẲN**
+      (bậc thấp hơn thật sự). Vẫn giữ tinh thần "đừng ăn vào gói 16 ngày": chỉ
+      thứ rẻ hơn mình mới bị đụng, không bao giờ ngang hàng hay quý hơn. */
+  const coCungLop =
+    nsKeep != null && victims.some((v) => v.k !== keep && nsOf(v.k) === nsKeep);
+  const tranBac = keep == null ? Infinity : dropRank(keep);
   const out: { k: string; savedAt: number }[] = [];
-  for (const it of rankedVictims()) {
+  for (const it of victims) {
     if (it.k === keep) continue;
-    if (nsKeep != null && nsOf(it.k) !== nsKeep) continue;
+    if (nsKeep != null) {
+      if (coCungLop) {
+        if (nsOf(it.k) !== nsKeep) continue;
+      } else if (dropRank(it.k) >= tranBac || dropRank(it.k) >= SAN_LOI_CAI) {
+        /*  SÀN CỨNG: dù thiếu nạn nhân cùng lớp cũng KHÔNG BAO GIỜ được đụng
+            LƯỚI GIÓ/SÓNG, BẢN ĐỒ CÁ hay TIN BÃO — ba lớp cốt lõi của gói 16
+            ngày, giữa biển không tải lại được. Không có sàn thì một bản đồ cá
+            mới (bậc 5) ăn được lưới gió (bậc 4) — đổi thứ dính tính mạng lấy
+            thứ để tìm cá. */
+        continue;
+      }
+    }
     if (keepGridDays != null) {
       const d = gridFrameDays(it.k);
       // khung DÀI HƠN thứ đang ghi → bỏ qua (khung ngắn không giết khung dài)
@@ -443,6 +491,10 @@ interface DaGo {
   k: string;
   v: string;
   bytes: number;
+  /** những phạm vi đã bị TRỪ công cho bản này — để `hoanTac` cộng lại đúng chỗ */
+  daTru: ForecastWriteScope[];
+  /** có đếm vào `evicted` không — hoàn tác thì phải trả lại luôn */
+  daDemEvicted: boolean;
 }
 
 /** Gỡ ĐÚNG MỘT bản trong danh sách đã tính sẵn. `null` = hết nạn nhân. */
@@ -451,10 +503,16 @@ function dropOne(list: { k: string; savedAt: number }[]): DaGo | null {
   if (!it) return null;
   try {
     const v = window.localStorage.getItem(it.k) ?? "";
-    debitScopes(it.k);
+    const daTru = debitScopes(it.k);
     noteEvicted();
     window.localStorage.removeItem(it.k);
-    return { k: it.k, v, bytes: (it.k.length + v.length) * 2 };
+    return {
+      k: it.k,
+      v,
+      bytes: (it.k.length + v.length) * 2,
+      daTru,
+      daDemEvicted: true,
+    };
   } catch {
     return null;
   }
@@ -465,8 +523,13 @@ function hoanTac(daGo: DaGo[]): void {
   for (const it of daGo) {
     try {
       window.localStorage.setItem(it.k, it.v);
+      // bản đã về kho ⇒ công phải về theo, và đừng để nó bị tính là "máy hết chỗ"
+      creditScopes(it.k, it.daTru);
+      if (it.daDemEvicted) {
+        for (const s of scopeStack) if (s.evicted > 0) s.evicted -= 1;
+      }
     } catch {
-      /* trả lại cũng không nổi thì thôi — đã cố hết sức */
+      /* trả lại cũng không nổi thì thôi — đã cố hết sức, giữ nguyên phần đã trừ */
     }
   }
 }
@@ -505,6 +568,9 @@ const DROP_RANK: Record<string, number> = {
   storm: 6,
 };
 const DROP_RANK_DEFAULT = 3;
+
+/** Từ bậc này trở lên là LỚP CỐT LÕI của gói đi biển — không lớp nào được ăn */
+const SAN_LOI_CAI = DROP_RANK.grid;
 
 
 /** Namespace của một key đầy đủ `forfish.fc.<ns>.<id>` */

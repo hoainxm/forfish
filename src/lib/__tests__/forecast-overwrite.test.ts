@@ -18,6 +18,8 @@ import {
   gridHasCurrent,
   mergeGridCurrent,
   shouldOverwriteGrid,
+  stepHourIndices,
+  truncateGrid,
   GRID_OVERWRITE_MAX_AGE_MS,
   type ForecastGrid,
   type GridHour,
@@ -268,7 +270,12 @@ describe("mergeGridCurrent — giữ dòng chảy cũ, thay gió/sóng mới", (
    biến (vd model không có CAPE) là lớp đó thành mảng null và đè bản đầy đủ. */
 const scalar = (hasValues: boolean): ScalarGrid => ({
   kind: "storm",
-  times: ["2026-08-02T00:00", "2026-08-02T03:00"],
+  /*  TRỤC THỜI GIAN PHẢI PHỦ TƯƠNG LAI — lớp thật luôn vậy (sửa 2026-08-02j).
+      Fixture cũ có hai mốc trong quá khứ, nên nó hợp lệ với cửa cũ (xét TUỔI BẢN
+      LƯU) mà vô hiệu với cửa mới (xét lớp còn NÓI VỀ TƯƠNG LAI không). */
+  times: Array.from({ length: 8 }, (_, d) =>
+    new Date(Date.parse("2026-08-02T03:00:00Z") + d * 86_400_000).toISOString(),
+  ),
   nLat: 2,
   nLon: 2,
   cells: [
@@ -295,12 +302,84 @@ describe("shouldOverwriteScalar — cùng khuôn cho lớp dải màu", () => {
     expect(shouldOverwriteScalar(full, scalar(true), NOW)).toBe(true);
   });
 
+  /*  ⚠️ ĐỔI LUẬT 2026-08-02j — cùng lỗi đã vá ở `shouldOverwriteGrid`, sót lại
+      đúng lớp anh em này. Cửa cũ "quá 24 giờ thì cho đè vô điều kiện" nổ đúng từ
+      NGÀY THỨ HAI của chuyến, khi mọi bản đều quá 24 giờ — trạng thái bình
+      thường. Một lượt sóng chập chờn trả lớp toàn null là đè mất lớp đã tải ở bờ. */
+  it("bản lưu 25 GIỜ nhưng còn phủ tương lai → TỪ CHỐI đè bằng bản rỗng", () => {
+    const cu = { data: scalar(true), savedAt: NOW - 25 * 3600_000 };
+    expect(
+      shouldOverwriteScalar(cu, scalar(false), NOW),
+      "tuổi bản lưu lại được lấy làm cớ xoá lớp của cả chuyến",
+    ).toBe(false);
+  });
+
+  it("trục thời gian đã TRÔI QUA HẾT → cho đè, đừng kẹt khi nguồn chết dài ngày", () => {
+    const hetHan = {
+      data: { ...scalar(true), times: ["2026-07-01T00:00:00Z"] },
+      savedAt: NOW - 40 * 24 * 3600_000,
+    };
+    expect(shouldOverwriteScalar(hetHan, scalar(false), NOW)).toBe(true);
+  });
+
   it("chưa có bản nào → cứ ghi", () => {
     expect(shouldOverwriteScalar(null, scalar(false), NOW)).toBe(true);
   });
 
-  it("bản cũ quá 24 giờ → cho đè (không kẹt khi nguồn chết dài ngày)", () => {
-    const old = { data: scalar(true), savedAt: NOW - SCALAR_OVERWRITE_MAX_AGE_MS };
-    expect(shouldOverwriteScalar(old, scalar(false), NOW)).toBe(true);
+});
+
+/*  ═══ MỘT LỚP MỘT BẢN ═══ (chủ dự án chốt 2026-08-02j)
+
+    "Nếu lấy được bản 18/8 thì bỏ bản 17/8 đi không đơn giản hơn à? Mỗi layer là
+    1 bản có tag thời gian, có được bản mới thì bỏ bản cũ đi, display theo bản
+    mới, lúc offline thì nó chỉ có 1 bản duy nhất."
+
+    Ba khung `d3`/`d7`/`d16` chỉ tồn tại vì THANG TẢI (sóng yếu thì vớt được 3
+    ngày còn hơn không có gì) — màn hình chưa bao giờ cần ba bản. Và chúng KHÔNG
+    phải ba bản khác nhau: `stepHourIndices` dùng cùng luật lấy mẫu bất kể xin
+    bao nhiêu ngày, cùng bộ 156 điểm ⇒ khung ngắn là TIỀN TỐ của khung dài. */
+describe("truncateGrid — khung ngắn là TIỀN TỐ của khung dài", () => {
+  /*  Fixture phải giống lưới THẬT: số mẫu đúng bằng `stepHourIndices(16, …)`
+      (3 giờ/mốc trong 3 ngày đầu, 6 giờ tới ngày 7, rồi 12 giờ) = 59 mốc, và
+      `hours` dài bằng `times`. Fixture 16 mốc/16 ngày là không có thật, và nó
+      làm cổng này mù — đúng bài học "bộ dò chết mà test vẫn xanh". */
+  const MAU_D16 = stepHourIndices(16, 16 * 24 + 1).length;
+  const MAU_D3 = stepHourIndices(3, 3 * 24 + 1).length;
+  const g0 = grid({ wave: true, current: true });
+  const dai: ForecastGrid = {
+    cells: g0.cells.map((c) => ({
+      ...c,
+      hours: Array.from({ length: MAU_D16 }, () => ({ ...c.hours[0] })),
+    })),
+    times: Array.from({ length: MAU_D16 }, (_, i) =>
+      new Date(Date.parse("2026-08-02T00:00:00Z") + i * 3 * 3600_000).toISOString(),
+    ),
+  };
+
+  it("cắt 3 ngày → giữ đúng phần đầu, số ô không đổi", () => {
+    const cat = truncateGrid(dai, 3);
+    expect(MAU_D3).toBe(25); // khoá con số thật của khung 3 ngày
+    expect(cat.times).toEqual(dai.times.slice(0, MAU_D3));
+    expect(cat.cells.length).toBe(dai.cells.length);
+    expect(cat.cells[0].hours.length).toBe(cat.times.length);
+    // nội dung phải y hệt bản dài, không được đổi giá trị
+    expect(cat.cells[0].hours[0]).toEqual(dai.cells[0].hours[0]);
+  });
+
+  it("xin dài hơn bản đang có → trả NGUYÊN, không cắt bừa", () => {
+    expect(truncateGrid(dai, 99)).toBe(dai);
+  });
+
+  it("times rỗng / mốc rác → trả NGUYÊN, không ném", () => {
+    const rac: ForecastGrid = { ...dai, times: ["hôm nọ"] };
+    expect(truncateGrid(rac, 3)).toBe(rac);
+    const rong: ForecastGrid = { ...dai, times: [] };
+    expect(truncateGrid(rong, 3)).toBe(rong);
+  });
+
+  it("giữ nguyên SÓNG và DÒNG CHẢY của bản dài", () => {
+    const cat = truncateGrid(dai, 7);
+    expect(gridHasWave(cat)).toBe(true);
+    expect(gridHasCurrent(cat)).toBe(true);
   });
 });

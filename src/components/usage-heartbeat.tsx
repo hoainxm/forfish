@@ -39,7 +39,11 @@ import {
   nextHeartbeatDelayNow,
   sendHeartbeat,
 } from "@/lib/heartbeat";
-import { devicePlatform, isStandalone } from "@/lib/storage-persist";
+import {
+  devicePlatform,
+  isStandalone,
+  storageEstimateMb,
+} from "@/lib/storage-persist";
 import { deviceId } from "@/lib/device-id";
 import { isShellReady } from "@/lib/shell-ready";
 import { savedCoverage } from "@/lib/pretrip";
@@ -140,6 +144,7 @@ export function UsageHeartbeat() {
         // thì khách hạng thường vĩnh viễn "chưa đủ đồ"; mà coi "chưa tra được
         // hạng" là khoá thì khách premium lại được báo THỪA. Luật + lý do ở
         // `fishLockedFromMark` (lib/heartbeat.ts, có test).
+        const kho = await storageEstimateMb();
         const cov = savedCoverage({ fishLocked: fishLockedFromMark() });
         const r = await sendHeartbeat({
           // TÀI KHOẢN — chỉ dùng cho chữ ký PHÍA MÁY, `sendHeartbeat` cố ý
@@ -163,6 +168,10 @@ export function UsageHeartbeat() {
               luồng chính. Vẫn chấp nhận được vì nó CHỈ chạy ở lượt THẬT SỰ GỬI,
               tức nhiều nhất 30 phút một lần — nhưng đừng ai tưởng nó rẻ. */
           savedUntil: coreSavedUntil(savedGridUntil(), cov.untilIso),
+          /*  KHO CỦA MÁY (0029). `await` ở đây an toàn: cả khối này đã nằm trong
+              `beat()` chạy trong effect, không phải đường vẽ màn; và
+              `storageEstimateMb` không ghi một byte nào, hỏng thì trả null. */
+          ...(kho ? { storageQuotaMb: kho.quotaMb, storageUsedMb: kho.usedMb } : {}),
         });
         if (!alive) return;
         /*  MỘT ĐƯỜNG HẸN GIỜ DUY NHẤT (2026-08-02d). `sendHeartbeat` mới là chỗ

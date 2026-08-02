@@ -268,3 +268,31 @@ export function readinessChip(
   }
   return { tone: "ok", reason: "on", ...base };
 }
+
+
+/* ── DUNG LƯỢNG KHO CỦA MÁY (0029) ─────────────────────────────────────────
+   Chủ dự án chốt 2026-08-02j: *"làm cái heartbeat để biết dung lượng storage bao
+   nhiêu thôi rồi phải ưu tiên localStorage rồi cache rồi… để đảm bảo offline
+   luôn chạy."*
+
+   Chuyện thật dẫn tới đây: cả một ngày soát offline xây trên con số "localStorage
+   5 MB" mà không ai đo. Đo thật thì Chromium cho **99,88 MB** và 1.425 MB cho cả
+   origin. iOS thì CHƯA AI ĐO — mà iPhone là phần lớn bà con. Không quyết kiến
+   trúc lưu trữ bằng phỏng đoán được; để đội tàu đo hộ. */
+
+/** Trần trên cho số MB báo lên — chặn số rác, và 4 TB là quá đủ cho điện thoại */
+export const STORAGE_MB_MAX = 4 * 1024 * 1024;
+
+/**
+ * Số MB hợp lệ để ghi xuống cột `integer`, hoặc `null`. THUẦN, có test.
+ *
+ * Client khai sai chỉ hỏng thống kê của chính máy đó, KHÔNG mở được quyền gì —
+ * nhưng vẫn phải chặn: một chuỗi lạ / số âm / Infinity xuống thẳng cột `integer`
+ * là CẢ LỆNH UPDATE HỎNG, mất luôn mấy mốc thời gian vốn đang chạy tốt (đúng
+ * khuôn lỗi cột 0022 đã dính).
+ */
+export function normalizeStorageMb(v: unknown): number | null {
+  const n = typeof v === "number" ? v : Number.NaN;
+  if (!Number.isFinite(n) || n < 0 || n > STORAGE_MB_MAX) return null;
+  return Math.round(n);
+}

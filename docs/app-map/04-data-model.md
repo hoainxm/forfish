@@ -472,6 +472,29 @@ A: revoke → B: revoke (no-op) → A: insert (sống) → B: insert (CŨNG số
 Không vá bằng cách viết code cẩn thận hơn — đây là **ràng buộc**, phải nằm chỗ không ai lách được. `create unique index … on device_tokens (customer_phone) where revoked_at is null` thay index thường của 0026. Lượt insert thua cuộc ném `23505`; route thu hồi lại rồi cấp lại **đúng một lần** → người đăng nhập SAU thắng. Fail-closed: xấu nhất là một lượt đăng nhập phải bấm lại.
 
 
+
+### Máy bà con còn bao nhiêu chỗ — migration [`0029_device_storage.sql`](../../supabase/migrations/0029_device_storage.sql) (2026-08-02) — ⏳ CHỜ APPLY prod
+
+**Vì sao** (chủ dự án chốt): cả một ngày soát offline được xây trên con số *"localStorage 5 MB"* mà **không ai đo**. Đo thật trên Chromium: localStorage chạm trần **99,88 MB**, quota cả origin **1.425 MB** — sai hẳn về mức độ. Không thể quyết kiến trúc lưu trữ bằng phỏng đoán, mà cũng không đo được iOS từ máy dev.
+
+| Kho | iOS cho | Rủi ro |
+|---|---|---|
+| localStorage | **5 MB cứng**/origin | chật thật |
+| Cache API (service worker) | 50 MB+ tuỳ máy | **xoá sau 7 ngày không mở app** |
+| IndexedDB | **15–60% đĩa trống** nếu đã cài về màn hình | bền nhất |
+
+| Cột (trên cả `customers` và `customer_devices`) | Nghĩa |
+|---|---|
+| `storage_quota_mb` | `navigator.storage.estimate().quota` — TRẦN kho của cả origin. NULL = trình duyệt cũ không có Storage API |
+| `storage_used_mb` | `.usage` — app đang chiếm bao nhiêu. Tiến sát quota = sắp không lưu thêm được ⇒ đáng gọi nhắc dọn bớt ảnh/video **trước khi ra khơi** |
+
+Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau một ngày là có số THẬT của cả đội tàu, **tách theo nền** (`device_platform`, 0022) — lúc đó mới quyết được có phải dời `forfish.fc.*` sang IndexedDB không.
+
+⚠️ **KHÔNG đo bằng cách ghi thử.** Cách duy nhất biết trần chính xác là ghi tới lúc ném — trên máy bà con thì đó là đổ vài chục MB rác vào kho và có cửa đẩy chính dữ liệu đi biển ra. `estimate()` là số trình duyệt tự khai, không ghi một byte.
+
+⚠️ Client khai sai chỉ hỏng thống kê của chính máy đó, KHÔNG mở được quyền gì — nhưng vẫn ép qua `normalizeStorageMb` (thuần, có test): một chuỗi lạ / số âm / `Infinity` xuống thẳng cột `integer` là **cả lệnh UPDATE hỏng**, mất luôn mấy mốc thời gian đang chạy tốt (đúng khuôn lỗi cột 0022 đã dính).
+
+
 <!-- re-verified: 2026-06-14 — schema 0001 boats/documents + §6 gateway khớp code -->
 <!-- re-verified earlier baseline -->
 

@@ -220,7 +220,10 @@ export function scalarHasValues(g: ScalarGrid | null | undefined): boolean {
   return !!g?.cells?.some((c) => c.values?.some((v) => v != null));
 }
 
-/** Trần tuổi cho luật "đừng đè bản đầy đủ bằng bản rỗng" — xem GRID_OVERWRITE_MAX_AGE_MS */
+/**
+ * ⚠️ ĐÃ BỎ KHỎI CỬA GHI ĐÈ (2026-08-02j). Giữ tên cho chỗ gọi/test cũ, KHÔNG
+ * được dùng lại làm cớ mở cửa — đọc `shouldOverwriteScalar`.
+ */
 export const SCALAR_OVERWRITE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -230,6 +233,20 @@ export const SCALAR_OVERWRITE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
  * mảng null và ĐÈ THẲNG lên bản đầy đủ đã tải sẵn ở bờ — ra biển bật lớp lên
  * thấy trắng trơn mà chip vẫn báo "đã lưu".
  */
+/**
+ * LỚP ĐÃ LƯU CÒN DÙNG ĐƯỢC KHÔNG — trục thời gian còn với tới hôm nay trở đi.
+ * THUẦN, có test. Cùng luật với `gridWaveStillUseful` bên lưới gió/sóng.
+ */
+export function scalarStillUseful(
+  g: ScalarGrid | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  const times = g?.times ?? [];
+  if (times.length === 0) return false;
+  const last = Date.parse(times[times.length - 1]);
+  return Number.isFinite(last) && last >= now;
+}
+
 export function shouldOverwriteScalar(
   prev: { data: ScalarGrid; savedAt: number } | null | undefined,
   next: ScalarGrid,
@@ -237,8 +254,22 @@ export function shouldOverwriteScalar(
 ): boolean {
   if (!prev?.data) return true;
   if (!scalarGridUsable(prev.data)) return true;
-  if (now - prev.savedAt >= SCALAR_OVERWRITE_MAX_AGE_MS) return true;
-  return !(scalarHasValues(prev.data) && !scalarHasValues(next));
+  /*  ⚠️ TUỔI KHÔNG PHẢI LÀ CỚ ĐỂ MẤT LỚP (sửa 2026-08-02j — cùng lỗi đã vá ở
+      `shouldOverwriteGrid`, sót lại đúng lớp anh em này).
+
+      Cửa cũ: "bản lưu quá 24 giờ → cho đè vô điều kiện". Sang NGÀY THỨ HAI của
+      chuyến biển thì MỌI bản đều quá 24 giờ — trạng thái BÌNH THƯỜNG, không phải
+      ca hiếm. Lúc đó một lượt sóng chập chờn trả lớp toàn null là **đè thẳng**
+      lên lớp mây/mưa/nhiệt/độ mặn đã tải ở bờ, và giữa biển không tải lại được.
+      Đúng thứ làm "hành vi ngày 2 khác ngày 9".
+
+      Câu hỏi đúng: lớp đã lưu còn NÓI VỀ TƯƠNG LAI không. Còn thì giữ; trục thời
+      gian đã trôi qua hết thì giữ cũng vô nghĩa, cho đè để bản mới vào được (đó
+      mới là ca "nguồn chết dài ngày" mà trần 24 giờ định chữa). */
+  if (scalarHasValues(prev.data) && !scalarHasValues(next)) {
+    return !scalarStillUseful(prev.data, now);
+  }
+  return true;
 }
 
 /** Ghi lớp dải màu QUA CỬA "bản mới có tốt bằng bản cũ không". Ba trạng thái —

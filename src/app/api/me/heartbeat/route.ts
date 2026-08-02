@@ -18,7 +18,7 @@ import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { countsAsOfflineReady, normalizePlatform } from "@/lib/app-usage";
 import { isValidDeviceId } from "@/lib/device-id";
-import { normalizeDataUntil } from "@/lib/app-usage";
+import { normalizeDataUntil, normalizeStorageMb } from "@/lib/app-usage";
 import { needFromReason, serverNextInMs } from "@/lib/heartbeat-policy";
 
 export async function POST(req: Request) {
@@ -53,6 +53,8 @@ export async function POST(req: Request) {
     platform?: unknown;
     deviceId?: unknown;
     savedUntil?: unknown;
+    storageQuotaMb?: unknown;
+    storageUsedMb?: unknown;
   } | null;
 
   const admin = createAdminClient();
@@ -93,6 +95,13 @@ export async function POST(req: Request) {
       — đúng khuôn lỗi 0022 đã dính). Đây là số liệu vận hành, khai sai chỉ hỏng
       thống kê của chính máy đó, không mở được quyền gì. */
   const savedUntil = normalizeDataUntil(body?.savedUntil);
+  /*  KHO CỦA MÁY (0029) — số để quyết "dữ liệu đi biển nên nằm kho nào", và để
+      gọi nhắc bà con dọn bớt ảnh/video TRƯỚC khi ra khơi. Ép qua
+      `normalizeStorageMb`: một chuỗi lạ / số âm / Infinity xuống thẳng cột
+      `integer` là CẢ LỆNH UPDATE HỎNG, mất luôn mấy mốc đang chạy tốt (đúng
+      khuôn lỗi cột 0022 đã dính). */
+  const khoQuota = normalizeStorageMb(body?.storageQuotaMb);
+  const khoUsed = normalizeStorageMb(body?.storageUsedMb);
   const platform = normalizePlatform(body?.platform);
   const dev = isValidDeviceId(body?.deviceId) ? body.deviceId : null;
   /*  `.select` LẤY LUÔN HẠNG (2026-08-02g) — KHÔNG tốn thêm một lượt truy vấn
@@ -148,6 +157,8 @@ export async function POST(req: Request) {
     if (body?.standalone) extra.data_until = savedUntil;
     else extra.data_until_web = savedUntil;
   }
+  if (khoQuota != null) extra.storage_quota_mb = String(khoQuota);
+  if (khoUsed != null) extra.storage_used_mb = String(khoUsed);
   if (platform) extra.device_platform = platform;
   if (dev) {
     extra.device_id = dev;
@@ -233,6 +244,8 @@ export async function POST(req: Request) {
               nói về hàng theo TÀI KHOẢN, vô nghĩa (và sai) với hàng theo MÁY. */
           /*  ĐÚNG KHO NÀO thì ghi cột đó (0027) — sổ theo máy cũng phải tách,
               không thì đổi điện thoại xong tra lại vẫn ra con số lẫn hai kho. */
+          ...(khoQuota != null ? { storage_quota_mb: khoQuota } : {}),
+          ...(khoUsed != null ? { storage_used_mb: khoUsed } : {}),
           ...(savedUntil
             ? body?.standalone
               ? { data_until: savedUntil }

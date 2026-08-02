@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   daysOfDataLeft,
   lastOnlineAt,
+  normalizeStorageMb,
   readinessChip,
 } from "@/lib/app-usage";
 
@@ -150,5 +151,38 @@ describe("readinessChip", () => {
       NOW,
     );
     expect(c.reason).toBe("chua-bao-ngay");
+  });
+});
+
+/*  ═══ SỐ ĐO KHO CỦA MÁY (0029) ═══ (chủ dự án chốt 2026-08-02j)
+
+    "Làm cái heartbeat để biết dung lượng storage bao nhiêu thôi rồi phải ưu tiên
+    localStorage rồi cache rồi… để đảm bảo offline luôn chạy."
+
+    Chuyện thật: cả một ngày soát offline xây trên con số "localStorage 5 MB" mà
+    không ai đo. Đo thật thì Chromium cho 99,88 MB. iOS thì chưa ai đo — để đội
+    tàu đo hộ qua nhịp 30 phút.
+
+    Cổng này canh đúng một chuyện: **số rác không được xuống cột `integer`**. Một
+    chuỗi lạ / số âm / Infinity làm CẢ LỆNH UPDATE HỎNG, mất luôn mấy mốc thời
+    gian vốn đang chạy tốt — đúng khuôn lỗi cột 0022 đã dính. */
+describe("normalizeStorageMb — số rác không được chạm cột integer", () => {
+  it("số hợp lệ → làm tròn", () => {
+    expect(normalizeStorageMb(1425)).toBe(1425);
+    expect(normalizeStorageMb(99.88)).toBe(100);
+    expect(normalizeStorageMb(0)).toBe(0);
+  });
+
+  it.each([
+    ["chuỗi", "1425"],
+    ["âm", -1],
+    ["Infinity", Number.POSITIVE_INFINITY],
+    ["NaN", Number.NaN],
+    ["null", null],
+    ["undefined", undefined],
+    ["object", { mb: 5 }],
+    ["quá lớn (vượt 4 TB)", 9e9],
+  ])("chặn %s → null, KHÔNG ném", (_ten, v) => {
+    expect(normalizeStorageMb(v)).toBe(null);
   });
 });

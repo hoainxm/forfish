@@ -416,6 +416,12 @@ export async function sendHeartbeat(info: {
       biến mọi lượt tải thành một "sự kiện" và máy bắn nhịp liên tục. Nó thuộc
       về NHỊP ĐỊNH KỲ — 30 phút báo một lần là quá đủ cho một con số ngày. */
   savedUntil?: string | null;
+  /*  KHO CỦA MÁY (0029) — `navigator.storage.estimate()`. Thuộc NHỊP ĐỊNH KỲ,
+      CỐ Ý KHÔNG vào chữ ký: số này nhúc nhích sau mỗi lượt tải, đưa vào chữ ký
+      là biến mọi lượt tải thành "sự kiện" và máy bắn nhịp liên tục. 30 phút một
+      lần là quá đủ cho một con số dung lượng. */
+  storageQuotaMb?: number | null;
+  storageUsedMb?: number | null;
 }): Promise<HeartbeatOutcome> {
   /*  Trả về CẢ MỐC HẸN GIỜ, không chỉ true/false (2026-08-02d). Chỗ gọi từng
       phải tự đoán "bao lâu nữa gọi lại" — mà nó không biết nhịp này là SỰ KIỆN

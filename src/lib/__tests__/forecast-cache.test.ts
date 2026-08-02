@@ -175,35 +175,53 @@ describe("máy hết chỗ (QuotaExceeded)", () => {
 
       Mấy ca dưới đây trước kia khoá chính sách xuyên lớp; nay khoá chính sách
       mới, và khoá luôn chiều ngược: **không lớp nào được đụng lớp khác.** */
-  it("lớp MỚI không được ăn lớp KHÁC — gói đã tải giữ nguyên vẹn", () => {
+  /*  ⚠️ SIẾT LẠI 2026-08-02j (vòng soát chéo bắt lỗi CHẶN): luật "chỉ ăn trong
+      chính lớp mình" làm các lớp CHỈ CÓ MỘT BẢN — `storm.latest`,
+      `fishmark.latest`, `seascalar.ssha` — **không bao giờ ghi được khi máy
+      đầy**, vì chính nó là `keep` nên danh sách nạn nhân luôn rỗng. Bản tin bão
+      600 byte trượt trong khi một lớp dải màu 20 KB nằm nguyên.
+      Nay: thiếu nạn nhân cùng lớp thì được ăn lớp RẺ HƠN HẲN, NHƯNG có SÀN CỨNG
+      — không bao giờ đụng lưới gió/sóng, bản đồ cá, tin bão. */
+  it("thiếu nạn nhân cùng lớp → ăn lớp RẺ HƠN, nhưng KHÔNG đụng lớp cốt lõi", () => {
     QUOTA = 4;
     saveForecast("grid", "d16", { i: 0 }, 0);
     saveForecast("point", "a", { i: 1 }, 100);
     saveForecast("price", "port", { i: 2 }, 200);
     saveForecast("storm", "latest", { i: 3 }, 300);
-    // kho đầy, lớp dải màu là lớp MỚI ⇒ không có nạn nhân cùng lớp ⇒ TỪ CHỐI
-    expect(saveForecast("scalar", "cloud", { v: 1 }, 400)).toBe(false);
-    // và KHÔNG một lớp nào của gói bị đụng
+    // lớp dải màu (bậc 2) ⇒ ăn được `price` (bậc 0), KHÔNG đụng cốt lõi
+    expect(saveForecast("scalar", "cloud", { v: 1 }, 400)).toBe(true);
+    expect(loadForecast("price", "port"), "lớp rẻ nhất phải nhường").toBeNull();
     for (const [ns, id] of [
       ["grid", "d16"],
-      ["point", "a"],
-      ["price", "port"],
       ["storm", "latest"],
     ] as const) {
-      expect(loadForecast(ns, id), `${ns} bị lớp khác ăn`).not.toBeNull();
+      expect(loadForecast(ns, id), `${ns} CỐT LÕI bị ăn`).not.toBeNull();
     }
-    expect(lastStorageFullAt()).toBeGreaterThan(0); // có báo "máy hết chỗ"
   });
 
-  it("bản đồ cá mới KHÔNG được xoá tin bão / lưới gió để lấy chỗ", () => {
+  /*  Ca sinh ra cả vế "thiếu nạn nhân cùng lớp": TIN BÃO chỉ có một id, mà nó là
+      thứ duy nhất trong kho dính TÍNH MẠNG — không ghi được là hỏng nặng nhất. */
+  it("TIN BÃO luôn ghi được: ăn lớp rẻ, không bao giờ trượt vì máy đầy", () => {
+    QUOTA = 3;
+    saveForecast("price", "port", { i: 0 }, 0);
+    saveForecast("point", "a", { i: 1 }, 100);
+    saveForecast("scalar", "cloud", { i: 2 }, 200);
+    expect(
+      saveForecast("storm", "latest", { ok: true }, 300),
+      "bản tin bão trượt vì máy đầy — hỏng nặng nhất có thể",
+    ).toBe(true);
+    expect(loadForecast("storm", "latest")).not.toBeNull();
+  });
+
+  it("bản đồ cá mới KHÔNG được xoá tin bão / lưới gió — SÀN CỨNG", () => {
     QUOTA = 3;
     saveForecast("storm", "latest", { ok: true }, 0);
     saveForecast("grid", "d16", { i: 1 }, 100);
     saveForecast("curdepth", "t150", { i: 2 }, 200);
-    expect(saveForecast("fishmark", "m", { v: 1 }, 300)).toBe(false);
-    expect(loadForecast("storm", "latest")).not.toBeNull();
-    expect(loadForecast("grid", "d16")).not.toBeNull();
-    expect(loadForecast("curdepth", "t150"), "lớp khác bị ăn").not.toBeNull();
+    // bản đồ cá (bậc 5) ăn được `curdepth` (bậc 3, dưới sàn), KHÔNG đụng hai lớp trên
+    expect(saveForecast("fishmark", "m", { v: 1 }, 300)).toBe(true);
+    expect(loadForecast("storm", "latest"), "TIN BÃO bị ăn").not.toBeNull();
+    expect(loadForecast("grid", "d16"), "LƯỚI GIÓ bị ăn").not.toBeNull();
   });
 
   it("TRONG cùng lớp thì bản mới vẫn thay được bản cũ — không kẹt vĩnh viễn", () => {
@@ -665,5 +683,42 @@ describe("dọn hết cũng không đủ → KHÔNG xoá một bản nào", () =
     saveForecast("grid", "d3", { blob: big(1200) }, 100);
     saveForecast("grid", "d7", { blob: big(1200) }, 200);
     expect(saveForecast("grid", "d16", { blob: big(1500) }, 300)).toBe(true);
+  });
+});
+
+/*  ═══ HOÀN TÁC PHẢI TRẢ LẠI CẢ CÔNG ĐẾM ═══ (2026-08-02j)
+
+    `dropOne` trừ công (`debitScopes`) và đếm `evicted` lúc gỡ bản ra. Nếu cú ghi
+    cuối vẫn hỏng thì `hoanTac` trả bản về kho — nhưng nếu không cộng lại công
+    thì `counts[ns]` NHỎ HƠN số bản thật đang nằm trong máy, và mẻ tải sẵn tưởng
+    mình chẳng giữ được gì ⇒ không ghi mốc ⇒ mỗi lần bà con liếc điện thoại lại
+    bắn lại cả mẻ ~3 MB tiền sóng. Đúng bài học đã ghi ở `debitScopes`. */
+describe("hoàn tác — kho VÀ công đếm đều phải về như cũ", () => {
+  const big = (n: number) => "x".repeat(n);
+
+  it("ghi hỏng → bản về kho, công đếm về theo, `evicted` không đếm oan", () => {
+    QUOTA_BYTES = 6000;
+    const s = beginForecastWrites();
+    expect(saveForecast("grid", "d3", { blob: big(300) }, 100)).toBe(true);
+    expect(saveForecast("grid", "d7", { blob: big(300) }, 200)).toBe(true);
+    expect(s.counts.grid).toBe(2);
+    // quá to ⇒ dọn hết cũng không đủ ⇒ hoàn tác
+    expect(saveForecast("grid", "d16", { blob: big(5000) }, 300)).toBe(false);
+    s.end();
+    expect(loadForecast("grid", "d3"), "d3 không được trả về").not.toBeNull();
+    expect(loadForecast("grid", "d7"), "d7 không được trả về").not.toBeNull();
+    expect(s.counts.grid, "công đếm bị trừ oan ⇒ vòng tải lại vô tận").toBe(2);
+    expect(s.evicted, "đếm 'máy hết chỗ' oan dù đã trả lại hết").toBe(0);
+  });
+
+  /* BẤT BIẾN chung: công đếm KHÔNG BAO GIỜ được lớn hơn số bản thật trong kho */
+  it("bất biến: counts[ns] ≤ số bản THẬT, kể cả sau hoàn tác", () => {
+    QUOTA_BYTES = 6000;
+    const s = beginForecastWrites();
+    saveForecast("grid", "d3", { blob: big(300) }, 100);
+    saveForecast("grid", "d7", { blob: big(300) }, 200);
+    saveForecast("grid", "d16", { blob: big(5000) }, 300);
+    s.end();
+    expect(s.counts.grid ?? 0).toBeLessThanOrEqual(countNs("grid"));
   });
 });

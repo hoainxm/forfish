@@ -147,6 +147,8 @@ type Account = {
   /** dữ liệu đi biển trong máy phủ tới ngày nào (0025) */
   dataUntil?: string | null;
   dataUntilWeb?: string | null;
+  storageQuotaMb?: number | null;
+  storageUsedMb?: number | null;
   devicePlatform: DevicePlatform | null;
   devices: {
     tag: string;
@@ -1263,6 +1265,13 @@ function AppUsage({ a }: { a: Account }) {
         sẽ ra khơi hay cái kho nằm lại bờ. */
     a.dataUntil ? `bản cài: dữ liệu tới ${fmtNgay(a.dataUntil)}` : null,
     a.dataUntilWeb ? `web: dữ liệu tới ${fmtNgay(a.dataUntilWeb)}` : null,
+    /*  KHO CỦA MÁY (0029) — con số quyết định "dữ liệu đi biển nên nằm kho nào",
+        và là chỗ duy nhất biết iOS thật sự cho bao nhiêu. Hiện cả hai để nhìn ra
+        máy nào sắp đầy (used tiến sát quota = gọi nhắc dọn bớt ảnh/video TRƯỚC
+        khi ra khơi, đừng để ra tới biển mới biết không lưu được). */
+    a.storageQuotaMb != null
+      ? `kho ${a.storageUsedMb ?? "?"}/${a.storageQuotaMb} MB`
+      : null,
     a.offlineReadyAt ? `đủ đồ ${fmtDT(a.offlineReadyAt)}` : null,
     a.pwaLastOpenAt ? `bản cài mở ${fmtDT(a.pwaLastOpenAt)}` : null,
     a.webLastOpenAt ? `web mở ${fmtDT(a.webLastOpenAt)}` : null,

@@ -116,11 +116,32 @@ describe("fetchForecastGrid offline — đúng khung ngày đã xin", () => {
     expect(near.times.length).toBe(25);
   });
 
-  it("KHÔNG mượn khung DÀI hơn cho khung ngắn (kẻo lộ tầm premium cho tài khoản thường)", async () => {
+  /*  ⚠️ ĐỔI LUẬT 2026-08-02j — MƯỢN KHUNG DÀI ĐƯỢC, NHƯNG PHẢI **CẮT**.
+
+      Luật cũ cấm hẳn, lý do ghi là "kẻo lộ tầm premium cho tài khoản thường".
+      Với `truncateGrid` thì lo đó không còn: người xin 3 ngày nhận đúng 3 ngày,
+      không thêm một mốc nào. Chốt quyền thật vẫn ở máy chủ (middleware chặn
+      `/api/fish-forecast`, snapshot khung 16 trả 403 cho hạng thường) — đây chỉ
+      là đường ĐỌC bản đã tải hợp lệ.
+
+      Vì sao BẮT BUỘC phải có: từ 2026-08-02j, ghi được `d16` là `d3`/`d7` bị dọn
+      ("một lớp một bản"). Mà khách PREMIUM lúc đang kiểm tra hạng
+      (`premiumUnsure`) vẫn xin `FREE_FORECAST_DAYS = 3` ⇒ không có đường cắt từ
+      `d16` xuống thì họ nhận màn trắng dù dữ liệu nằm ngay đó. */
+  it("mượn khung DÀI cho khung ngắn — nhưng CẮT đúng số ngày đã xin", async () => {
     globalThis.fetch = online(400);
-    await fetchForecastGrid(16);
+    const far = await fetchForecastGrid(16);
     globalThis.fetch = offline();
-    await expect(fetchForecastGrid(3)).rejects.toThrow();
+    const g = await fetchForecastGrid(3);
+    expect(g.stale, "phải nói thật là bản đã lưu").toBe(true);
+    expect(
+      g.times.length,
+      "trả nguyên khung 16 ⇒ lộ tầm premium cho hạng thường",
+    ).toBeLessThan(far.times.length);
+    // và đúng bằng khung 3 ngày thật
+    expect(g.times.length).toBe(25);
+    // nội dung phải là TIỀN TỐ của bản dài, không phải bản khác
+    expect(g.times).toEqual(far.times.slice(0, g.times.length));
   });
 
   it("bản lưu khung 3 ngày KHÔNG bị dùng cho khung 16 ngày dù lưu sau", async () => {

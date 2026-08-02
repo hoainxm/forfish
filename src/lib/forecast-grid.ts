@@ -180,6 +180,41 @@ const num = (v: unknown): number | null =>
 export const GRID_NS = "grid";
 
 /** id bản lưu theo khung ngày — "d3", "d16"… (một khung một bản) */
+/**
+ * CẮT MỘT LƯỚI DÀI THÀNH KHUNG NGẮN HƠN — THUẦN, có test.
+ *
+ * ⚠️ AN TOÀN TUYỆT ĐỐI vì `d16` CHỨA TRỌN `d3`/`d7`, không phải "bản khác".
+ * `stepHourIndices` dùng CÙNG một luật lấy mẫu bất kể xin bao nhiêu ngày (3 ngày
+ * đầu 3 giờ/mốc, ngày 3–7 là 6 giờ, sau đó 12 giờ) và cùng bộ 156 điểm lưới ⇒
+ * mảng `times` của khung ngắn là TIỀN TỐ khớp từng phần tử của khung dài. Cắt
+ * chỉ là bỏ phần đuôi.
+ *
+ * VÌ SAO CẦN (chủ dự án chốt 2026-08-02j): *"nếu lấy được bản 18/8 thì bỏ bản
+ * 17/8 đi không đơn giản hơn à? Mỗi layer là 1 bản có tag thời gian, có được bản
+ * mới thì bỏ bản cũ đi… lúc offline thì nó chỉ có 1 bản duy nhất."*
+ * Ba khung `d3`/`d7`/`d16` chỉ tồn tại vì THANG TẢI (sóng yếu thì vớt được 3
+ * ngày còn hơn không có gì) — không phải vì màn hình cần ba bản. Giữ cả ba là
+ * nhân ba chỗ cho cùng một dữ liệu, trong cái thùng localStorage ~5 MB.
+ */
+export function truncateGrid(g: ForecastGrid, days: number): ForecastGrid {
+  const times = g.times ?? [];
+  if (times.length === 0) return g;
+  /*  CẮT THEO **SỐ MẪU**, KHÔNG theo mốc thời gian (sửa lúc viết, 2026-08-02j).
+      Khung được định nghĩa bằng `stepHourIndices(days, …)` — 3 ngày đầu 3
+      giờ/mốc, ngày 3–7 là 6 giờ, sau đó 12 giờ. Nên số mẫu của một khung là
+      HẰNG SỐ suy ra được, và cắt bằng nó là khớp CHÍNH XÁC với bản mà nguồn sẽ
+      trả nếu ta xin đúng khung đó.
+      Cắt theo `Date.parse(times[i])` thì phụ thuộc mốc giờ trong dữ liệu — sai
+      trục, và gãy ngay với payload có mốc bất thường. */
+  const n = stepHourIndices(days, days * 24 + 1).length;
+  if (n === 0 || n >= times.length) return g;
+  return {
+    ...g,
+    times: times.slice(0, n),
+    cells: (g.cells ?? []).map((c) => ({ ...c, hours: c.hours.slice(0, n) })),
+  };
+}
+
 export function gridCacheId(days: number): string {
   return `d${Math.round(days)}`;
 }
@@ -411,10 +446,34 @@ function saveGridChecked(
     noteForecastKept(GRID_NS);
     return "kept";
   }
-  // giữ lại phần dòng chảy của bản cũ nếu bản mới thiếu (và trục giờ khớp)
+  // giữ lại phần dòng chảy + sóng của bản cũ nếu bản mới thiếu (trục giờ giao nhau)
   const merged = mergeGridCurrent(prev?.data, g);
   return saveForecast(GRID_NS, id, merged, dataAt) ? "written" : "failed";
 }
+
+/*  ═══ VÌ SAO **KHÔNG** XOÁ KHUNG NGẮN KHI GHI ĐƯỢC KHUNG DÀI ═══
+    (thử rồi GỠ, 2026-08-02j — vòng soát chéo bắt được ba chế độ hỏng.)
+
+    Ý tưởng đúng và hấp dẫn: `d16` chứa trọn `d3`/`d7` nên giữ cả ba là nhân ba
+    chỗ cho cùng một dữ liệu (~1,7 MB trong cái thùng localStorage ~5 MB). Nhưng
+    "chứa trọn" chỉ đúng trên TRỤC GIỜ, **không đúng trên BIẾN**:
+
+    · `d3` lấy được sóng, tới bước `d16` thì nguồn marine 429 (cú `d16` nặng nhất
+      nên dễ 429 nhất) ⇒ `d16` ghi được với `waveM` toàn null ⇒ xoá `d3` ĐANG CÓ
+      SÓNG. Máy còn đúng một lưới không có số sóng. `shouldOverwriteGrid` không
+      đỡ được vì nó chỉ so với `prev` của CHÍNH id `d16` (lần đầu = null).
+    · Cùng đường đó với dòng chảy: lớp Dòng chảy đòi `gridHasCurrent`, nên xoá
+      `d3` có dòng chảy là màn Dòng chảy NÉM ⇒ màn lỗi thay vì bản đã lưu.
+    · `PRETRIP_GRID_DAYS = [3,7,16]` chạy theo thứ tự ⇒ mỗi mẻ tải sẵn TỰ XOÁ
+      `d3` và `d7` mà chính nó vừa tải về, mẻ sau lại tải lại từ đầu: ~1,8 MB
+      tiền sóng đốt vô ích mỗi chu kỳ, sim bà con trả tiền theo dung lượng.
+
+    Vá cho đúng thì phải so nội dung (sóng ⊇ sóng, dòng chảy ⊇ dòng chảy, số mốc
+    ≥ số mốc) trước mỗi lần xoá — tức thêm một tầng luật nữa vào đúng chỗ vừa gỡ
+    ba tầng. Đổi 1,7 MB lấy chừng đó rủi ro trên một app dính an toàn tính mạng
+    là lỗ. Giữ nguyên ba khung; phần ĐỌC (`layKhungDaiHon` + `truncateGrid`) thì
+    GIỮ — nó chỉ thêm đường cứu, không xoá gì. */
+
 
 export async function fetchForecastGrid(
   days = 3,
@@ -493,6 +552,8 @@ export async function fetchForecastGrid(
     // chọn khung: thanh ngày vẽ THEO times[] thật nên xin 16 mà chỉ có 3 thì bà
     // con thấy đúng 3 ngày — không còn nhãn "16 ngày" nói dối như lúc chặn luật
     // này (2026-07-25). Thà 3 ngày thật còn hơn màn hình trắng khi nguồn 429.
+    const dai = layKhungDaiHon(days, usable);
+    if (dai) return dai;
     const shorter = savedCurrentGridDays().filter((d) => d < days);
     for (let i = shorter.length - 1; i >= 0; i--) {
       const alt = loadForecast<ForecastGrid>(GRID_NS, gridCacheId(shorter[i]));
@@ -525,11 +586,40 @@ function savedGridFallback(
   const hit = loadForecast<ForecastGrid>(GRID_NS, id);
   if (hit && usable(hit.data))
     return { ...hit.data, stale: true, savedAt: hit.savedAt };
+  const dai = layKhungDaiHon(days, usable);
+  if (dai) return dai;
   const shorter = savedCurrentGridDays().filter((d) => d < days);
   for (let i = shorter.length - 1; i >= 0; i--) {
     const alt = loadForecast<ForecastGrid>(GRID_NS, gridCacheId(shorter[i]));
     if (alt && usable(alt.data))
       return { ...alt.data, stale: true, savedAt: alt.savedAt };
+  }
+  return null;
+}
+
+/**
+ * LẤY KHUNG DÀI HƠN RỒI CẮT — vế bắt buộc đi kèm việc "một lớp một bản".
+ *
+ * Trước 2026-08-02j đường đọc CHỈ biết lùi xuống khung NGẮN hơn. Nên khi kho chỉ
+ * còn `d16` (vì `d3`/`d7` đã bị dọn cho đỡ chật), khách hạng thường xin `d3` sẽ
+ * nhận `null` — màn hình trắng dù dữ liệu đang nằm ngay đó.
+ *
+ * Cắt an toàn tuyệt đối: khung ngắn là TIỀN TỐ của khung dài (xem `truncateGrid`).
+ * Ưu tiên khung NGẮN NHẤT trong số các khung dài hơn — cắt ít nhất, rẻ nhất.
+ */
+function layKhungDaiHon(
+  days: number,
+  usable: (g: ForecastGrid | null | undefined) => g is ForecastGrid,
+): ForecastGrid | null {
+  const dai = savedCurrentGridDays()
+    .filter((d) => d > days)
+    .sort((a, b) => a - b);
+  for (const d of dai) {
+    const alt = loadForecast<ForecastGrid>(GRID_NS, gridCacheId(d));
+    if (alt && usable(alt.data)) {
+      const cat = truncateGrid(alt.data, days);
+      if (usable(cat)) return { ...cat, stale: true, savedAt: alt.savedAt };
+    }
   }
   return null;
 }
