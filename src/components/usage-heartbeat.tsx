@@ -3,14 +3,34 @@
 /**
  * Máy tự báo "vừa mở app" — KHÔNG vẽ gì ra màn hình.
  *
- * Đặt ở layout cạnh SwRegister. Chỉ gửi khi ĐÃ ĐĂNG NHẬP (chưa đăng nhập thì
- * không quy về ai được) và chỉ khi CÒN SÓNG; mọi hàng rào khác nằm ở
- * lib/heartbeat.ts. Không await gì ở đường vẽ màn, không state, không render.
+ * ══ MẤT SÓNG: KHÔNG CÓ NHỊP NÀO ══
+ *  Không request, không hẹn giờ, không đụng kho offline. Bất biến số một —
+ *  heartbeat là tính năng cho NGƯỜI QUẢN TRỊ, không được tranh sóng với tin bão.
+ *
+ * ══ CÓ SÓNG: HAI LOẠI NHỊP (chủ dự án chốt 2026-08-02d) ══
+ *  ① SỰ KIỆN — một điểm theo dõi vừa đổi (đổi tài khoản · web→bản cài · vừa đủ
+ *    đồ đi biển · ĐỔI MÁY): gửi NGAY, và **bám 30 giây → 3 phút → 5 phút cho
+ *    tới khi máy chủ xác nhận GÁN ĐƯỢC**. Tin này không được mất.
+ *  ② ĐỊNH KỲ — 30 phút một lần, báo trạng thái hiện giờ. Lỡ lượt thì lượt sau
+ *    bù, KHÔNG bám đuổi.
+ *  Cộng ba cú gửi ngay: mở app · quay lại app (`visibilitychange`) · vừa có
+ *  sóng lại (`online`).
+ *
+ * VÌ SAO PHẢI CÓ HẸN GIỜ (lỗi cũ): nhịp chỉ gửi lúc component mount, mà **bản
+ * cài PWA mở lại từ nền KHÔNG remount React** — một máy dùng cả ngày vẫn chỉ có
+ * đúng một nhịp lúc cold-start. Ghép với cửa 12 giờ cũ thì /quan-tri gần như
+ * đứng hình, nhân viên nhìn vào tưởng khách bỏ app.
+ *
+ * Luật + hợp đồng với máy chủ: `lib/heartbeat-policy.ts`. Chỗ này chỉ nối dây.
+ *
+ * Chỉ gửi khi ĐÃ ĐĂNG NHẬP (chưa đăng nhập thì không quy về ai được). Mọi hàng
+ * rào còn lại nằm ở lib/heartbeat.ts. Không await gì ở đường vẽ màn, không
+ * state, không render.
  */
 
 import { useEffect } from "react";
 import { useAuthUser } from "@/lib/use-auth";
-import { nextFastRetryDelayMs, sendHeartbeat } from "@/lib/heartbeat";
+import { sendHeartbeat } from "@/lib/heartbeat";
 import { devicePlatform, isStandalone } from "@/lib/storage-persist";
 import { deviceId } from "@/lib/device-id";
 import { isShellReady } from "@/lib/shell-ready";
@@ -35,13 +55,21 @@ export function UsageHeartbeat() {
   useEffect(() => {
     if (!ready || !user) return;
     let alive = true;
-    let timer: ReturnType<typeof setTimeout>;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
-    // Gửi một nhịp; hỏng vì KHÔNG NGHE ĐƯỢC MÁY CHỦ thì tự hẹn giờ thử lại
-    // theo thang 3 phút → 5 phút → thôi (nấc cuối 12 giờ để lần mở app sau lo).
-    // Mọi hàng rào (mất sóng · cửa 12 giờ · mức hoãn) nằm trong sendHeartbeat,
-    // ở đây chỉ đặt hẹn giờ — gọi sớm quá thì nó tự trả false, không gửi.
+    const isOffline = () =>
+      typeof navigator !== "undefined" && navigator.onLine === false;
+
+    const clear = () => {
+      if (timer != null) clearTimeout(timer);
+      timer = null;
+    };
+
+    // Gửi một nhịp rồi tự hẹn lượt kế. Mọi hàng rào (mất sóng · cửa 30 phút ·
+    // mức hoãn · chữ ký) nằm trong sendHeartbeat — gọi sớm quá thì nó tự trả
+    // false mà KHÔNG gửi gì, nên hẹn giờ ở đây luôn an toàn.
     const beat = async () => {
+      if (!alive || isOffline()) return;
       try {
         const shellOk = await isShellReady();
         if (!alive) return;
@@ -49,7 +77,7 @@ export function UsageHeartbeat() {
         // thêm: CHƯA MỞ BẢN CÀI thì không tính, mọi nền — thang một chiều
         // web → bản cài → tải (countsAsOfflineReady, lib/app-usage.ts).
         const cov = savedCoverage({});
-        const ok = await sendHeartbeat({
+        const r = await sendHeartbeat({
           standalone: isStandalone(),
           offlineReady: shellOk && cov.allSaved,
           // loại máy THÔ (ios|android|khac) — để nhân viên gọi điện chỉ đúng
@@ -58,21 +86,41 @@ export function UsageHeartbeat() {
           // mã máy — để máy chủ biết bà con vừa đổi điện thoại và dọn mốc cũ
           deviceId: deviceId(),
         });
-        if (!alive || ok) return;
-        const wait = nextFastRetryDelayMs();
-        if (wait == null) return;
-        timer = setTimeout(() => void beat(), wait);
+        if (!alive) return;
+        /*  MỘT ĐƯỜNG HẸN GIỜ DUY NHẤT (2026-08-02d). `sendHeartbeat` mới là chỗ
+            biết nhịp vừa rồi là SỰ KIỆN hay ĐỊNH KỲ, máy chủ có gán được không,
+            và máy chủ dặn chờ bao lâu — nên nó trả luôn `nextInMs`. Ở đây không
+            được tự đoán lại: đoán sai là hoặc bám quá gắt, hoặc bỏ rơi một tin
+            mới (đổi tài khoản / đổi máy) suốt cả phiên. */
+        clear();
+        if (!isOffline()) timer = setTimeout(() => void beat(), r.nextInMs);
       } catch {
         /* không bao giờ làm phiền app */
       }
     };
+
+    /*  QUAY LẠI APP / VỪA CÓ SÓNG LẠI → thử ngay, không chờ hết nhịp. Đây là
+        hai mốc mà /quan-tri cần nhất: bà con vừa mở lại app, và máy vừa ra khỏi
+        vùng mất sóng. `sendHeartbeat` tự chặn nếu chưa tới hạn. */
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void beat();
+    };
+    const onOnline = () => void beat();
+    const onOffline = () => clear(); // mất sóng: dừng hẳn hẹn giờ
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
 
     // Đợi một nhịp cho màn hình vẽ xong đã — heartbeat không được tranh chỗ
     // với việc dựng bản đồ lúc mở app.
     timer = setTimeout(() => void beat(), 3000);
     return () => {
       alive = false;
-      clearTimeout(timer);
+      clear();
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
     };
   }, [ready, user]);
 

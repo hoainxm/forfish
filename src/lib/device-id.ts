@@ -1,4 +1,21 @@
-"use client";
+/*  KHÔNG ĐƯỢC ĐẶT "use client" Ở FILE NÀY (sửa 2026-08-02c — lỗi CHẶN thật,
+    bắt được trên production).
+
+    LỖI: file này từng mở đầu bằng `"use client"`, mà `/api/me/heartbeat` lại
+    `import { isValidDeviceId }` từ đây. Next biến MỌI export của một module
+    "use client" thành `registerClientReference(() => { throw ... })` trong bản
+    dựng server ⇒ route gọi hàm đó là **ném ngay**, HTTP 500, trước cả dòng ghi
+    đầu tiên. Hậu quả đo được trên máy chủ thật: từ lúc bản đó lên (22:43
+    01/08/2026) tới khi phát hiện, **0/717 khách có `device_id`**, bảng
+    `customer_devices` TRỐNG HOÀN TOÀN, và những máy đang dùng app hằng ngày thì
+    /quan-tri đứng im ở mốc cũ — nhân viên nhìn vào tưởng khách bỏ app.
+
+    Vì sao không ai bắt được: `npm run build` XANH, `tsc` XANH, `lint` XANH —
+    đây là lỗi ranh giới client/server, chỉ nổ lúc CHẠY. Nay có cổng chặn cả
+    khuôn: `src/lib/__tests__/server-client-boundary.test.ts`.
+
+    File này an toàn cho cả hai phía: mọi hàm tự gác `typeof window`. Cùng khuôn
+    với `src/lib/phone.ts` (file đó đã ghi sẵn bài học này từ trước).  */
 
 // MÃ MÁY — để biết bà con ĐỔI ĐIỆN THOẠI (2026-08-01j, chủ dự án chốt).
 //

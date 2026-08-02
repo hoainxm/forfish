@@ -4,21 +4,55 @@
 //
 // ⚠️ RÀNG BUỘC SỐ MỘT: KHÔNG ĐƯỢC LÀM PHIỀN VIỆC ĐI BIỂN.
 // Đây là tính năng cho NGƯỜI QUẢN TRỊ, không phải cho ngư dân. Nó tuyệt đối
-// không được: chặn màn hình, ngốn sóng giữa biển, hay ném lỗi ra ngoài. Bốn
-// hàng rào, theo đúng thứ tự:
+// không được: chặn màn hình, ngốn sóng giữa biển, hay ném lỗi ra ngoài.
+//
+// HAI DÒNG CHẢY ĐỘC LẬP (chủ dự án chốt 2026-08-02c):
+//   · MẤT SÓNG  → IM LẶNG TUYỆT ĐỐI. Không request, không hẹn giờ, không đụng
+//                 gì tới kho dữ liệu offline.
+//   · CÓ SÓNG   → nhịp 30 phút chạy suốt phiên, cộng bốn cú gửi ngay: mở app ·
+//                 quay lại app · vừa có sóng lại · chữ ký đổi (đổi tài khoản /
+//                 web→bản cài / vừa đủ đồ).
+//
+// Hàng rào, theo đúng thứ tự (luật thuần ở lib/heartbeat-policy.ts):
 //   1. MẤT SÓNG → không gọi gì cả (kiểm `navigator.onLine` trước tiên).
-//   2. CỬA CHẶN 12 GIỜ/máy — mở app 20 lần/ngày cũng chỉ gửi một lần. Ngoài
-//      khơi sóng yếu, mỗi request thừa là một lần tranh băng thông với tin bão.
-//      NGOẠI LỆ: TIN CÓ THẬT SỰ MỚI thì đi ngay, không phải chờ đồng hồ — xem
-//      `beatSignature`.
-//   3. ĐỒNG HỒ 5 giây + `.catch()` nuốt sạch — sóng "sống mà chết" (bắt tay
+//   2. ĐANG HOÃN vì mạng/máy chủ → không gửi, kể cả khi có tin mới.
+//   3. TIN MỚI → đi ngay, không chờ hết nhịp (xem `beatSignature`).
+//   4. ĐỒNG HỒ 5 giây + `.catch()` nuốt sạch — sóng "sống mà chết" (bắt tay
 //      được, gói tin không về) không được để lại một promise treo.
-//   4. GỌI TRONG useEffect, KHÔNG await ở đường vẽ màn — màn hình không bao giờ
-//      phải đợi nó.
+//   5. GỌI TRONG useEffect, KHÔNG await ở đường vẽ màn.
 // Và nó là POST nên service worker bỏ qua hẳn: không cache, không cứu, không
 // đụng gì tới kho offline.
+//
+// HỢP ĐỒNG với máy chủ (ai khai gì, ai xác minh gì, chiều nào được phép) ghi
+// đầy đủ ở đầu `lib/heartbeat-policy.ts` — đọc ở đó trước khi sửa.
 
 import { apiUrl } from "@/lib/api-base";
+/*  LUẬT NHỊP nằm ở module THUẦN dùng chung với máy chủ — file này chỉ lo phần
+    CHẠY TRÊN MÁY (đọc/ghi localStorage, gọi mạng). Xuất lại để chỗ gọi và test
+    cũ không phải đổi đường import. */
+import {
+  clampServerGapMs,
+  eventRetryMs,
+  heartbeatKind,
+  shouldKeepChasing,
+  stateBackoffMs,
+  type HeartbeatNeed,
+  HEARTBEAT_MIN_GAP_MS,
+  HEARTBEAT_NET_BACKOFF_STEPS_MS,
+  HEARTBEAT_SOFT_RETRY_MS,
+  netBackoffMs,
+  nextHeartbeatDelayMs,
+  shouldSendHeartbeat,
+} from "@/lib/heartbeat-policy";
+
+export {
+  HEARTBEAT_MIN_GAP_MS,
+  HEARTBEAT_NET_BACKOFF_STEPS_MS,
+  HEARTBEAT_SOFT_RETRY_MS,
+  netBackoffMs,
+  nextHeartbeatDelayMs,
+  shouldSendHeartbeat,
+};
 import { countsAsOfflineReady, type DevicePlatform } from "@/lib/app-usage";
 
 /*  Mốc lần GHI ĐƯỢC gần nhất — quy ước key forfish.* (state-registry).
@@ -33,41 +67,8 @@ export const HEARTBEAT_KEY = "forfish.heartbeat.v2";
 export const HEARTBEAT_RETRY_KEY = "forfish.heartbeat.retry.v1";
 /*  CHỮ KÝ của nhịp GHI ĐƯỢC gần nhất — xem beatSignature. */
 export const HEARTBEAT_SIG_KEY = "forfish.heartbeat.sig.v1";
-
-/** GHI ĐƯỢC rồi thì im 12 giờ (mở app 20 lần/ngày cũng chỉ một nhịp) */
-export const HEARTBEAT_MIN_GAP_MS = 12 * 60 * 60 * 1000;
-/*  MÁY CHỦ TRẢ LỜI mà chưa ghi được (chưa có hàng khách / chưa đăng nhập) →
-    thử lại sau 30 phút. Đã có phản hồi tức là ĐƯỜNG TRUYỀN VẪN TỐT, nên thử
-    lại không tốn sóng của bà con. */
-export const HEARTBEAT_SOFT_RETRY_MS = 30 * 60 * 1000;
-/*  KHÔNG NHẬN ĐƯỢC PHẢN HỒI NÀO (hết giờ · sóng "sống mà chết" · mạng đứt
-    giữa chừng) → THANG LÙI DẦN, chủ dự án chốt: 30 giây → 3 phút → 5 phút →
-    12 giờ (nấc 30 giây thêm 2026-08-01i).
-    Vì sao không lùi thẳng 12 giờ: máy ĐANG ONLINE mà không nghe được máy chủ
-    thường là trục trặc NGẮN — route cold-start (Vercel ngủ dậy có khi quá 5
-    giây), wifi cảng chập chờn, vừa đổi 4G↔wifi. Nấc 30 giây bắt đúng ca
-    cold-start: lần đầu đánh thức route thì trượt, nửa phút sau route đã nóng.
-    Ba lần thử thưa trong ~8 phút gỡ được hầu hết, tổng chi phí 3 request nhỏ.
-    Hết thang thì im 12 giờ ĐÚNG BẰNG bản cũ: ngoài khơi mỗi lần thử là một lần
-    tranh băng thông với tin bão. */
-export const HEARTBEAT_NET_BACKOFF_STEPS_MS = [
-  30 * 1000,
-  3 * 60 * 1000,
-  5 * 60 * 1000,
-  12 * 60 * 60 * 1000,
-];
-/** Số lần hỏng LIÊN TIẾP (không phản hồi) — chọn nấc trong thang lùi */
+/** Số lần hỏng LIÊN TIẾP vì không nghe được máy chủ — chọn nấc trong thang lùi */
 export const HEARTBEAT_FAILS_KEY = "forfish.heartbeat.fails.v1";
-
-/**
- * Hỏng lần thứ `failCount` (tính cả lần vừa rồi) thì chờ bao lâu — THUẦN, có
- * test. Quá thang → nấc cuối (12 giờ). `failCount` lạ/âm → nấc đầu.
- */
-export function netBackoffMs(failCount: number): number {
-  const steps = HEARTBEAT_NET_BACKOFF_STEPS_MS;
-  if (!Number.isFinite(failCount) || failCount < 1) return steps[0];
-  return steps[Math.min(Math.round(failCount), steps.length) - 1];
-}
 
 /** Đồng hồ chặn: chờ máy chủ 5 giây, không nghe thì bỏ (chủ dự án chốt) */
 const HEARTBEAT_TIMEOUT_MS = 5000;
@@ -105,6 +106,12 @@ export function beatSignature(info: {
   account?: string | null;
   standalone: boolean;
   offlineReady: boolean;
+  /** MÃ MÁY — vào chữ ký từ 2026-08-02d: "device id để biết nó vẫn còn giữ cái
+   *  id đó; nếu đổi thì nó báo NGAY, còn không thì định kỳ báo" (chủ dự án).
+   *  Máy chủ dùng mã này để dọn 3 mốc khi bà con đổi điện thoại — mà nó chỉ dọn
+   *  đúng nếu biết mã đã đổi, nên đây phải là SỰ KIỆN, không phải chuyện chờ
+   *  nhịp định kỳ. */
+  deviceId?: string | null;
 }): string {
   const ready = countsAsOfflineReady({
     offlineReady: info.offlineReady,
@@ -117,42 +124,7 @@ export function beatSignature(info: {
      một máy là chữ ký y nguyên ⇒ cửa 12 giờ chặn ⇒ tài khoản MỚI không được ghi
      một mốc nào, /quan-tri đứng mãi ở "Chưa ghi nhận". Mà đổi tài khoản chính
      là TIN MỚI đáng gửi nhất: mốc đang nói về một người khác hẳn. */
-  return `${info.account ?? "-"}|${info.standalone ? "p" : "w"}${ready ? "r" : "-"}`;
-}
-
-/**
- * Có nên gửi lúc này không — THUẦN, có test.
- *
- * LỖI ĐÃ SỬA (2026-08-01g) — "MỘT LẦN HỎNG = IM 12 TIẾNG": bản trước ghi dấu
- * TRƯỚC khi gửi và chỉ có MỘT cửa 12 giờ, nên bất kỳ trục trặc nào ở cú gửi đầu
- * (route cold-start · 503 · SĐT chưa khớp hàng khách) đều tiêu mất suất của cả
- * nửa ngày. Mà cú ĐẦU TIÊN chính là cú dễ hỏng nhất — nó rơi đúng lúc vừa đăng
- * nhập xong, service worker đang cài. Triệu chứng ngoài đời: khách dùng app cả
- * buổi mà /quan-tri vẫn ghi "Chưa ghi nhận", không ai biết vì sao.
- *
- * Cửa mở lại NHANH HƠN **chỉ khi máy chủ có trả lời** — tức đường truyền đang
- * tốt. Mất sóng thì vẫn lùi 12 giờ như cũ (xem sendHeartbeat).
- */
-export function shouldSendHeartbeat(args: {
-  online: boolean;
-  /** mốc lần GHI ĐƯỢC gần nhất */
-  lastAt: number | null;
-  /** sớm nhất được thử lại (mốc tuyệt đối); null = không hoãn */
-  retryAfter?: number | null;
-  /** chữ ký nhịp này KHÁC lần ghi được gần nhất → tin mới, đi ngay */
-  sigChanged?: boolean;
-  nowMs: number;
-}): boolean {
-  if (!args.online) return false;
-  // MỨC HOÃN VÌ MẠNG gác TRƯỚC và không ai vượt được: tin có mới tới đâu thì
-  // đường truyền vẫn đang hỏng, gửi thêm chỉ tốn sóng.
-  if (args.retryAfter != null && args.nowMs < args.retryAfter) return false;
-  // TIN MỚI (đổi chế độ chạy / vừa đủ đồ đi biển) → không phải chờ đồng hồ.
-  if (args.sigChanged) return true;
-  if (args.lastAt != null && args.nowMs - args.lastAt < HEARTBEAT_MIN_GAP_MS) {
-    return false;
-  }
-  return true;
+  return `${info.account ?? "-"}|${info.standalone ? "p" : "w"}${ready ? "r" : "-"}|${info.deviceId ?? "-"}`;
 }
 
 function readMark(key: string): number | null {
@@ -197,9 +169,18 @@ function writeText(key: string, value: string): void {
   }
 }
 
+/** Kết quả một nhịp — chỗ gọi chỉ cần đọc `nextInMs` để hẹn lượt sau */
+export interface HeartbeatOutcome {
+  /** có gửi thật không (false = bị hàng rào chặn, hoàn toàn bình thường) */
+  sent: boolean;
+  /** máy chủ đã NHẬN **VÀ GÁN ĐƯỢC** — chỉ khi này mới thôi bám */
+  attached: boolean;
+  /** còn bao lâu nữa nên gọi lại (đã tính cả hai thang) */
+  nextInMs: number;
+}
+
 /**
- * Gửi một nhịp. KHÔNG BAO GIỜ ném, không bao giờ chặn. Trả về `true` nếu có
- * gửi thật (dùng cho test/gỡ lỗi, chỗ gọi không cần đọc).
+ * Gửi một nhịp. KHÔNG BAO GIỜ ném, không bao giờ chặn.
  */
 export async function sendHeartbeat(info: {
   /** TÀI KHOẢN đang đăng nhập — vào chữ ký để ĐỔI TÀI KHOẢN là gửi ngay, không
@@ -214,31 +195,51 @@ export async function sendHeartbeat(info: {
   /** mã máy (app tự sinh) — máy chủ nhận ra ĐỔI MÁY để reset mốc; null khi
    *  storage bị chặn, khi đó máy chủ giữ nguyên hành vi cũ */
   deviceId?: string | null;
-}): Promise<boolean> {
+}): Promise<HeartbeatOutcome> {
+  /*  Trả về CẢ MỐC HẸN GIỜ, không chỉ true/false (2026-08-02d). Chỗ gọi từng
+      phải tự đoán "bao lâu nữa gọi lại" — mà nó không biết nhịp này là SỰ KIỆN
+      hay ĐỊNH KỲ, nên đoán sai là hoặc bám quá gắt hoặc bỏ rơi một tin mới. Ai
+      biết thì người đó trả lời. */
+  const outcome = (sent: boolean, attached: boolean): HeartbeatOutcome => ({
+    sent,
+    attached,
+    nextInMs: nextHeartbeatDelayNow(beatSignature(info)),
+  });
   try {
     const online =
       typeof navigator === "undefined" ? false : navigator.onLine !== false;
     const now = Date.now();
     const sig = beatSignature(info);
+    /*  CÓ SỰ KIỆN CHỜ KHÔNG = chữ ký hiện tại có khác chữ ký MÁY CHỦ ĐÃ XÁC
+        NHẬN không. Chữ ký gồm: tài khoản · web/bản cài · đủ-đồ-đi-biển · MÃ MÁY
+        (thêm 2026-08-02d — "device id để biết nó vẫn còn giữ cái id đó, đổi thì
+        báo ngay"). Khác một trong bốn = có tin mới chưa ai nhận. */
+    const pending = readText(HEARTBEAT_SIG_KEY) !== sig;
+    const kind = heartbeatKind(pending);
     if (
       !shouldSendHeartbeat({
         online,
         lastAt: readMark(HEARTBEAT_KEY),
         retryAfter: readMark(HEARTBEAT_RETRY_KEY),
-        sigChanged: readText(HEARTBEAT_SIG_KEY) !== sig,
+        sigChanged: pending,
         nowMs: now,
       })
     ) {
-      return false;
+      return outcome(false, false);
     }
-    // HOÃN THEO KIỂU BI QUAN NGAY TRƯỚC KHI GỬI: coi như sẽ không nghe được
-    // máy chủ, lùi đúng nấc kế tiếp trong thang. Hai lý do: (1) chặn gửi dồn
-    // nếu component mount lại trong cùng phiên; (2) máy tắt/mất sóng giữa
-    // chừng thì mốc bi quan là mốc còn lại — an toàn cho đường truyền. Có
-    // phản hồi thì hạ xuống 30 phút ngay bên dưới.
+    /*  HOÃN THEO KIỂU BI QUAN NGAY TRƯỚC KHI GỬI: coi như sẽ không nghe được
+        máy chủ, lùi đúng nấc kế tiếp. Hai lý do: (1) chặn gửi dồn nếu component
+        mount lại trong cùng phiên; (2) máy tắt/mất sóng giữa chừng thì mốc bi
+        quan là mốc còn lại.
+        HAI THANG KHÁC HẲN NHAU: nhịp SỰ KIỆN bám 30 giây → 3 phút → 5 phút cho
+        tới khi được xác nhận (tin không được mất); nhịp ĐỊNH KỲ lùi 1 → 5 → 15
+        → 30 phút rồi thôi (lỡ lượt này thì lượt sau bù). */
     const fails = (readMark(HEARTBEAT_FAILS_KEY) ?? 0) + 1;
     writeMark(HEARTBEAT_FAILS_KEY, fails);
-    writeMark(HEARTBEAT_RETRY_KEY, now + netBackoffMs(fails));
+    writeMark(
+      HEARTBEAT_RETRY_KEY,
+      now + (kind === "event" ? eventRetryMs(fails) : stateBackoffMs(fails)),
+    );
     const res = await fetch(apiUrl("/api/me/heartbeat"), {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -248,29 +249,64 @@ export async function sendHeartbeat(info: {
       signal: AbortSignal.timeout(HEARTBEAT_TIMEOUT_MS),
       keepalive: true,
     });
-    // CÓ PHẢN HỒI = nghe được máy chủ ⇒ thang lùi-vì-mạng KHÔNG áp dụng nữa:
-    // xoá bộ đếm hỏng và hạ mức hoãn xuống 30 phút. Thử lại lúc này không tốn
-    // sóng của bà con, mà lại gỡ được đúng ca "máy chủ chưa ghi được" (chưa có
-    // hàng khách, chưa đăng nhập, cột chưa apply).
+    /*  MÁY CHỦ NỔ (5xx) KHÔNG PHẢI LÀ "ĐÃ TRẢ LỜI" (sửa 2026-08-02c).
+        LỖI ĐÃ SỬA — bắt được trên production: route heartbeat trả 500 suốt gần
+        một ngày (import nhầm module "use client"), mà client lại coi "có phản
+        hồi" = đường truyền tốt ⇒ XOÁ bộ đếm hỏng ⇒ `nextFastRetryDelayMs()`
+        trả `null` ⇒ **không hẹn giờ thử lại trong phiên**, chỉ đặt hoãn 30
+        phút. Bản cài PWA thì không remount khi mở lại từ nền, nên thực tế mỗi
+        máy chỉ thử đúng một lần rồi im — /quan-tri đứng hình mà không ai biết.
+        Nay 5xx đi chung đường với mất-sóng: giữ nguyên mốc bi quan đã ghi ở
+        trên, để thang lùi và hẹn giờ trong phiên vẫn chạy. */
+    if (res.status >= 500) return outcome(true, false);
+    // CÓ PHẢN HỒI THẬT (2xx/4xx) = nghe được máy chủ ⇒ thang lùi-vì-mạng KHÔNG
+    // áp dụng nữa: xoá bộ đếm hỏng.
     clearMark(HEARTBEAT_FAILS_KEY);
-    writeMark(HEARTBEAT_RETRY_KEY, now + HEARTBEAT_SOFT_RETRY_MS);
     // ĐỌC CÂU TRẢ LỜI (2026-08-01g): trước đây không ai đọc `recorded`, nên
     // "gửi đi rồi" bị coi là "ghi được rồi".
     const body = (await res.json().catch(() => null)) as {
       recorded?: boolean;
+      attached?: boolean;
+      need?: HeartbeatNeed;
+      nextInMs?: number;
     } | null;
-    if (!res.ok || body?.recorded !== true) return false;
+    /*  MÁY CHỦ NÓI MÁY PHẢI LÀM GÌ (2026-08-02d) — chỗ chặn VÒNG LẶP VÔ ÍCH.
+        Chưa gán được mà cứ bám đuổi thì có ca gửi mãi mãi không bao giờ gán
+        được: `login` (chưa có phiên) và `wait_admin` (không có hàng khách mang
+        SĐT này — việc của người ở bờ). Hai ca đó DỪNG bám, hạ về nhịp định kỳ;
+        riêng `login` thì lúc bà con đăng nhập lại chính là một SỰ KIỆN nên nhịp
+        tự đi, không cần vòng lặp nào ở đây. */
+    const need: HeartbeatNeed = body?.need ?? "none";
+    if (kind === "event" && !shouldKeepChasing(need)) {
+      clearMark(HEARTBEAT_FAILS_KEY);
+    }
+    /*  MÁY CHỦ ĐIỀU TIẾT NHỊP — chiều ngược DUY NHẤT được phép. Máy chủ biết
+        nhiều hơn máy khách nên để nó xếp lịch, khỏi deploy lại app mỗi lần muốn
+        đổi nhịp. NHƯNG máy KHÔNG giao trứng cho ác: `clampServerGapMs` kẹp về
+        [30 giây, 6 giờ] — lỡ trả 0 thì không biến máy bà con thành máy đốt
+        data, lỡ trả một tháng thì không làm /quan-tri mù.
+        Còn đang bám sự kiện thì thang sự kiện (đã ghi ở trên) được ưu tiên —
+        máy chủ không được kéo dài một tin chưa ai nhận. */
+    const chasing = kind === "event" && shouldKeepChasing(need);
+    if (!chasing) {
+      const gap =
+        body?.nextInMs === undefined
+          ? HEARTBEAT_SOFT_RETRY_MS
+          : clampServerGapMs(body.nextInMs);
+      writeMark(HEARTBEAT_RETRY_KEY, now + gap);
+    }
+    if (!res.ok || body?.recorded !== true) return outcome(true, false);
     // GHI ĐƯỢC → đóng cửa 12 giờ, nhớ CHỮ KÝ vừa báo, bỏ mọi mức hoãn.
     // Chữ ký chỉ ghi ở đây (sau khi máy chủ xác nhận) — gửi mà không ghi được
     // thì lần sau vẫn phải coi là tin mới.
     writeMark(HEARTBEAT_KEY, now);
     writeText(HEARTBEAT_SIG_KEY, sig);
     clearMark(HEARTBEAT_RETRY_KEY);
-    return true;
+    return outcome(true, true);
   } catch {
     // KHÔNG nghe được máy chủ (hết 5 giây / mạng đứt) → giữ nguyên mốc bi quan
-    // đã ghi ở trên (nấc kế tiếp trong thang 3 phút → 5 phút → 12 giờ).
-    return false;
+    // đã ghi ở trên (nấc kế tiếp trong thang của đúng loại nhịp).
+    return outcome(true, false);
   }
 }
 
@@ -283,6 +319,19 @@ export async function sendHeartbeat(info: {
  * MỞ APP RỒI ĐỂ ĐÓ. Không có hẹn giờ thì "3 phút sau gửi lại" chỉ đúng nếu họ
  * tình cờ mở lại app đúng lúc — tức gần như không bao giờ.
  */
+/** Bản đọc-thẳng-máy của `nextHeartbeatDelayMs` — cho chỗ đặt hẹn giờ.
+ *  `sig` = chữ ký của trạng thái HIỆN TẠI; khác chữ ký đã được máy chủ xác nhận
+ *  thì đang có sự kiện chờ, và lúc đó hẹn giờ phải theo thang sự kiện (nhanh)
+ *  chứ không phải 30 phút. */
+export function nextHeartbeatDelayNow(sig?: string): number {
+  return nextHeartbeatDelayMs({
+    lastAt: readMark(HEARTBEAT_KEY),
+    retryAfter: readMark(HEARTBEAT_RETRY_KEY),
+    pending: sig != null && readText(HEARTBEAT_SIG_KEY) !== sig,
+    nowMs: Date.now(),
+  });
+}
+
 export function nextFastRetryDelayMs(): number | null {
   const fails = readMark(HEARTBEAT_FAILS_KEY) ?? 0;
   if (fails < 1) return null;

@@ -3,10 +3,23 @@ import {
   beatSignature,
   shouldSendHeartbeat,
   netBackoffMs,
+  nextHeartbeatDelayMs,
   HEARTBEAT_MIN_GAP_MS,
   HEARTBEAT_NET_BACKOFF_STEPS_MS,
   HEARTBEAT_SOFT_RETRY_MS,
 } from "@/lib/heartbeat";
+import {
+  clampServerGapMs,
+  eventRetryMs,
+  needFromReason,
+  serverNextInMs,
+  shouldKeepChasing,
+  stateBackoffMs,
+  EVENT_RETRY_STEPS_MS,
+  STATE_BACKOFF_STEPS_MS,
+  SERVER_GAP_MIN_MS,
+  SERVER_GAP_MAX_MS,
+} from "@/lib/heartbeat-policy";
 
 const NOW = 1_700_000_000_000;
 
@@ -97,7 +110,7 @@ describe("shouldSendHeartbeat — mức hoãn sau lần thử hỏng", () => {
     ).toBe(false);
   });
 
-  it("ĐÃ GHI ĐƯỢC gần đây thì cửa 12 giờ vẫn chặn, kể cả hết hạn hoãn", () => {
+  it("ĐÃ GHI ĐƯỢC gần đây thì cửa nhịp vẫn chặn, kể cả hết hạn hoãn", () => {
     expect(
       shouldSendHeartbeat({
         online: true,
@@ -108,55 +121,94 @@ describe("shouldSendHeartbeat — mức hoãn sau lần thử hỏng", () => {
     ).toBe(false);
   });
 
-  it("nấc CUỐI của thang lùi bằng đúng cửa 12 giờ của bản cũ", () => {
-    const steps = HEARTBEAT_NET_BACKOFF_STEPS_MS;
-    expect(steps[steps.length - 1]).toBe(HEARTBEAT_MIN_GAP_MS);
-    // còn ca máy chủ CÓ trả lời thì mở lại sớm hơn hẳn
-    expect(HEARTBEAT_SOFT_RETRY_MS).toBeLessThan(steps[steps.length - 1]);
+  /*  HAI LOẠI NHỊP, HAI THANG (chủ dự án chốt 2026-08-02d):
+      ① SỰ KIỆN — bám tới khi máy chủ XÁC NHẬN GÁN ĐƯỢC, không bỏ cuộc
+      ② ĐỊNH KỲ — lỡ lượt thì lượt sau bù, không bao giờ thưa hơn nhịp khoẻ  */
+  it("thang ĐỊNH KỲ không bao giờ thưa hơn chính nhịp thường", () => {
+    for (const n of [1, 2, 3, 4, 99]) {
+      expect(stateBackoffMs(n)).toBeLessThanOrEqual(HEARTBEAT_MIN_GAP_MS);
+    }
+  });
+
+  it("nhịp thường là 30 phút — không phải nửa ngày như bản cũ", () => {
+    expect(HEARTBEAT_MIN_GAP_MS).toBe(30 * 60 * 1000);
   });
 });
 
-// THANG LÙI 30 giây → 3 phút → 5 phút → 12 giờ (chủ dự án chốt). Máy ĐANG
-// ONLINE mà không nghe được máy chủ thường là trục trặc NGẮN (route cold-start,
-// wifi cảng chập chờn) — ba lần thử thưa gỡ được hầu hết, hết thang mới im.
-describe("netBackoffMs — thang lùi khi không nghe được máy chủ", () => {
-  it("hỏng lần 1 → 30 giây; lần 2 → 3 phút; lần 3 → 5 phút; lần 4 → 12 giờ", () => {
-    expect(netBackoffMs(1)).toBe(30 * 1000);
-    expect(netBackoffMs(2)).toBe(3 * 60 * 1000);
-    expect(netBackoffMs(3)).toBe(5 * 60 * 1000);
-    expect(netBackoffMs(4)).toBe(HEARTBEAT_MIN_GAP_MS);
+describe("hai thang thử lại — sự kiện BÁM, định kỳ THÔI", () => {
+  it("thang SỰ KIỆN: 30 giây → 3 phút → 5 phút", () => {
+    expect(eventRetryMs(1)).toBe(30 * 1000);
+    expect(eventRetryMs(2)).toBe(3 * 60 * 1000);
+    expect(eventRetryMs(3)).toBe(5 * 60 * 1000);
   });
 
-  it("hỏng quá thang → giữ nấc cuối, KHÔNG quay lại nấc nhanh", () => {
-    expect(netBackoffMs(5)).toBe(HEARTBEAT_MIN_GAP_MS);
-    expect(netBackoffMs(99)).toBe(HEARTBEAT_MIN_GAP_MS);
+  it("thang SỰ KIỆN GIỮ nấc cuối — bám tới khi được xác nhận, KHÔNG bỏ cuộc", () => {
+    // đang online mà tin thì thật sự mới (đổi tài khoản / đổi máy) — bỏ cuộc là
+    // mất luôn tin đó, mà chi phí chỉ là một request nhỏ mỗi 5 phút
+    expect(eventRetryMs(4)).toBe(5 * 60 * 1000);
+    expect(eventRetryMs(99)).toBe(5 * 60 * 1000);
+    for (const n of [1, 2, 3, 4, 99]) {
+      expect(eventRetryMs(n)).toBeLessThanOrEqual(5 * 60 * 1000);
+    }
+  });
+
+  it("thang ĐỊNH KỲ: 1 phút → 5 phút → 15 phút → trần 30 phút", () => {
+    expect(stateBackoffMs(1)).toBe(60 * 1000);
+    expect(stateBackoffMs(2)).toBe(5 * 60 * 1000);
+    expect(stateBackoffMs(3)).toBe(15 * 60 * 1000);
+    expect(stateBackoffMs(4)).toBe(HEARTBEAT_MIN_GAP_MS);
+    expect(stateBackoffMs(99)).toBe(HEARTBEAT_MIN_GAP_MS);
+  });
+
+  it("SỰ KIỆN luôn bám gắt hơn ĐỊNH KỲ ở mọi nấc", () => {
+    for (const n of [1, 2, 3, 4]) {
+      expect(eventRetryMs(n)).toBeLessThanOrEqual(stateBackoffMs(n));
+    }
   });
 
   it("bộ đếm lạ (0 · âm · NaN) → nấc đầu, không bao giờ ném", () => {
-    expect(netBackoffMs(0)).toBe(30 * 1000);
-    expect(netBackoffMs(-5)).toBe(30 * 1000);
-    expect(netBackoffMs(Number.NaN)).toBe(30 * 1000);
+    expect(eventRetryMs(0)).toBe(30 * 1000);
+    expect(eventRetryMs(-5)).toBe(30 * 1000);
+    expect(stateBackoffMs(Number.NaN)).toBe(60 * 1000);
   });
 
-  it("ba nấc NHANH đều dưới 10 phút — hết thang mới im nửa ngày", () => {
-    expect(netBackoffMs(1)).toBeLessThan(10 * 60 * 1000);
-    expect(netBackoffMs(2)).toBeLessThan(10 * 60 * 1000);
-    expect(netBackoffMs(3)).toBeLessThan(10 * 60 * 1000);
-    expect(netBackoffMs(4)).toBe(HEARTBEAT_MIN_GAP_MS);
-  });
-
-  it("thang chỉ ĐI LÊN — không có nấc nào ngắn hơn nấc trước", () => {
-    const steps = HEARTBEAT_NET_BACKOFF_STEPS_MS;
-    for (let i = 1; i < steps.length; i++) {
-      expect(steps[i]).toBeGreaterThan(steps[i - 1]);
+  it("cả hai thang chỉ ĐI LÊN — không nấc nào ngắn hơn nấc trước", () => {
+    for (const steps of [EVENT_RETRY_STEPS_MS, STATE_BACKOFF_STEPS_MS]) {
+      for (let i = 1; i < steps.length; i++) {
+        expect(steps[i]).toBeGreaterThanOrEqual(steps[i - 1]);
+      }
     }
   });
 });
 
-// TIN MỚI ĐI NGAY (2026-08-01h) — gốc: cửa 12 giờ gác theo THỜI GIAN trong khi
-// thứ cần báo là TRẠNG THÁI ĐÃ ĐỔI. Ca chủ dự án chỉ ra: mở web rồi 5 giây sau
-// mở bản cài, trên Android (bản cài dùng CHUNG kho với Chrome) nhịp thứ hai bị
-// chặn ⇒ pwa_last_open_at mãi null.
+/*  CHẶN VÒNG LẶP VÔ ÍCH: máy chủ phải nói máy PHẢI LÀM GÌ, không chỉ "chưa ghi
+    được". Có ca gửi lại bao nhiêu lần cũng ra đúng câu trả lời đó.  */
+describe("needFromReason + shouldKeepChasing — đừng bám cái không bao giờ gán được", () => {
+  it("chưa có phiên → 'login', KHÔNG bám (đăng nhập lại vốn đã là một sự kiện)", () => {
+    expect(needFromReason("no_session")).toBe("login");
+    expect(shouldKeepChasing("login")).toBe(false);
+  });
+
+  it("không có hàng khách → 'wait_admin', KHÔNG bám (việc của người ở bờ)", () => {
+    expect(needFromReason("no_customer_row")).toBe("wait_admin");
+    expect(shouldKeepChasing("wait_admin")).toBe(false);
+  });
+
+  it("ghi hỏng → 'retry', BÁM tiếp (hạ tầng trục trặc thường ngắn)", () => {
+    expect(needFromReason("write_failed")).toBe("retry");
+    expect(shouldKeepChasing("retry")).toBe(true);
+  });
+
+  it("gán xong → 'none', thôi", () => {
+    expect(needFromReason(null)).toBe("none");
+    expect(shouldKeepChasing("none")).toBe(false);
+  });
+
+  it("KHÔNG NGHE ĐƯỢC gì (null) → vẫn bám: tin của mình chưa ai nhận", () => {
+    expect(shouldKeepChasing(null)).toBe(true);
+  });
+});
+
 describe("beatSignature — ĐỔI TÀI KHOẢN trên cùng máy là tin mới", () => {
   // Chủ dự án phát hiện trên máy thật 2026-08-01: đăng nhập 0938635689 lúc
   // 17:02, sau đó đổi sang 0123456154 → chữ ký cũ không có tài khoản nên y
@@ -273,5 +325,143 @@ describe("shouldSendHeartbeat — tin mới vượt cửa 12 giờ, nhưng khôn
         nowMs: NOW,
       }),
     ).toBe(false);
+  });
+});
+
+/*  HAI DÒNG CHẢY ĐỘC LẬP (chủ dự án chốt 2026-08-02c).
+    Mất sóng → im lặng tuyệt đối, không một request, không một hẹn giờ.
+    Có sóng  → nhịp 30 phút, chạy suốt phiên chứ không chỉ lúc mở app.  */
+describe("nextHeartbeatDelayMs — hẹn giờ cho nhịp kế tiếp", () => {
+  it("chưa gửi lần nào → gửi NGAY (0 ms)", () => {
+    expect(nextHeartbeatDelayMs({ lastAt: null, nowMs: NOW })).toBe(0);
+  });
+
+  it("vừa ghi được → đợi cho đủ 30 phút", () => {
+    expect(nextHeartbeatDelayMs({ lastAt: NOW - 60_000, nowMs: NOW })).toBe(
+      HEARTBEAT_MIN_GAP_MS - 60_000,
+    );
+  });
+
+  it("quá hạn rồi → 0, không trả số âm", () => {
+    expect(
+      nextHeartbeatDelayMs({ lastAt: NOW - 10 * HEARTBEAT_MIN_GAP_MS, nowMs: NOW }),
+    ).toBe(0);
+  });
+
+  it("mức hoãn vì mạng gác TRƯỚC — lấy mốc xa hơn trong hai mốc", () => {
+    expect(
+      nextHeartbeatDelayMs({
+        lastAt: NOW - HEARTBEAT_MIN_GAP_MS, // cửa nhịp đã mở
+        retryAfter: NOW + 5 * 60_000, // nhưng đang hoãn vì mạng
+        nowMs: NOW,
+      }),
+    ).toBe(5 * 60_000);
+  });
+
+  it("đồng hồ máy bị chỉnh LÙI (mốc nằm ở tương lai) → gửi ngay, không kẹt", () => {
+    expect(
+      nextHeartbeatDelayMs({ lastAt: NOW + 86_400_000, nowMs: NOW }),
+    ).toBe(0);
+  });
+
+  it("hẹn giờ KHÔNG BAO GIỜ thưa hơn nhịp thường khi máy khoẻ", () => {
+    for (const troi of [0, 1_000, 60_000, HEARTBEAT_MIN_GAP_MS - 1]) {
+      const d = nextHeartbeatDelayMs({ lastAt: NOW - troi, nowMs: NOW });
+      expect(d).toBeLessThanOrEqual(HEARTBEAT_MIN_GAP_MS);
+    }
+  });
+});
+
+/*  CHIỀU NGƯỢC DUY NHẤT: máy chủ điều tiết nhịp — nhưng máy KHÔNG giao trứng
+    cho ác. Kênh này là MỘT CHIỀU CÓ TRẢ LỜI, không phải kênh lệnh: máy chủ chỉ
+    được nói "bao lâu nữa gửi lại", và con số đó luôn bị kẹp trước khi nghe.  */
+describe("clampServerGapMs — máy chủ điều tiết nhịp, máy vẫn tự vệ", () => {
+  it("số hợp lệ thì nghe theo", () => {
+    expect(clampServerGapMs(45 * 60_000)).toBe(45 * 60_000);
+  });
+
+  it("máy chủ lỡ trả 0 / âm → KHÔNG được biến máy thành máy đốt data", () => {
+    expect(clampServerGapMs(0)).toBe(SERVER_GAP_MIN_MS);
+    expect(clampServerGapMs(-1)).toBe(SERVER_GAP_MIN_MS);
+    expect(clampServerGapMs(1000)).toBe(SERVER_GAP_MIN_MS);
+  });
+
+  it("máy chủ lỡ trả một tháng → KHÔNG được làm /quan-tri mù", () => {
+    expect(clampServerGapMs(30 * 24 * 3600_000)).toBe(SERVER_GAP_MAX_MS);
+  });
+
+  it("thiếu / rác / NaN → dùng nhịp mặc định của máy, không ném", () => {
+    expect(clampServerGapMs(undefined)).toBe(HEARTBEAT_MIN_GAP_MS);
+    expect(clampServerGapMs("30 phút")).toBe(HEARTBEAT_MIN_GAP_MS);
+    expect(clampServerGapMs(null)).toBe(HEARTBEAT_MIN_GAP_MS);
+    expect(clampServerGapMs(Number.NaN)).toBe(HEARTBEAT_MIN_GAP_MS);
+  });
+});
+
+describe("serverNextInMs — máy chủ xếp lịch theo tình huống", () => {
+  it("ghi được → nhịp thường", () => {
+    expect(serverNextInMs(null)).toBe(HEARTBEAT_MIN_GAP_MS);
+  });
+
+  it("chưa đăng nhập → thưa hẳn (gửi mấy cũng không quy về ai được)", () => {
+    expect(serverNextInMs("no_session")).toBeGreaterThan(HEARTBEAT_MIN_GAP_MS);
+  });
+
+  it("hạ tầng trục trặc → thử lại sớm (thường là trục trặc ngắn)", () => {
+    expect(serverNextInMs("write_failed")).toBeLessThan(HEARTBEAT_MIN_GAP_MS);
+  });
+
+  it("mọi con số máy chủ đưa ra đều SỐNG SÓT qua bộ kẹp của máy", () => {
+    // nếu một ngày ai đó chỉnh serverNextInMs ra ngoài dải, bộ kẹp sẽ âm thầm
+    // bóp lại — test này bắt ngay để hai bên không nói hai thứ khác nhau.
+    for (const r of [null, "no_session", "no_customer_row", "write_failed"] as const) {
+      expect(clampServerGapMs(serverNextInMs(r))).toBe(serverNextInMs(r));
+    }
+  });
+});
+
+/*  MÃ MÁY VÀO CHỮ KÝ (2026-08-02d, chủ dự án: "device id để biết nó vẫn còn giữ
+    cái id đó; nếu đổi thì nó báo NGAY, còn không thì định kỳ báo").
+    Máy chủ dùng mã này để dọn 3 mốc khi bà con đổi điện thoại — nó chỉ dọn đúng
+    nếu BIẾT mã đã đổi, nên đây phải là SỰ KIỆN chứ không phải chuyện chờ nhịp. */
+describe("beatSignature — đổi MÁY là tin mới, báo ngay", () => {
+  const base = { standalone: false, offlineReady: false, account: "0912345678" };
+
+  it("hai mã máy khác nhau → hai chữ ký khác nhau", () => {
+    expect(beatSignature({ ...base, deviceId: "may-cu" })).not.toBe(
+      beatSignature({ ...base, deviceId: "may-moi" }),
+    );
+  });
+
+  it("mất mã máy (storage bị chặn) cũng khác với đang có mã", () => {
+    expect(beatSignature({ ...base, deviceId: null })).not.toBe(
+      beatSignature({ ...base, deviceId: "may-cu" }),
+    );
+  });
+
+  it("cùng máy, cùng người, cùng trạng thái → chữ ký y nguyên (không gửi thừa)", () => {
+    expect(beatSignature({ ...base, deviceId: "may-cu" })).toBe(
+      beatSignature({ ...base, deviceId: "may-cu" }),
+    );
+  });
+});
+
+describe("nextHeartbeatDelayMs — có sự kiện chờ thì KHÔNG chờ 30 phút", () => {
+  it("đang bám sự kiện → theo mốc hoãn của thang sự kiện, không phải nhịp định kỳ", () => {
+    // vừa ghi được nhịp định kỳ 1 phút trước, nhưng có tin mới đang chờ xác nhận
+    expect(
+      nextHeartbeatDelayMs({
+        lastAt: NOW - 60_000,
+        retryAfter: NOW + 30_000, // nấc đầu thang sự kiện
+        pending: true,
+        nowMs: NOW,
+      }),
+    ).toBe(30_000);
+  });
+
+  it("KHÔNG có sự kiện chờ → vẫn là nhịp 30 phút", () => {
+    expect(
+      nextHeartbeatDelayMs({ lastAt: NOW - 60_000, pending: false, nowMs: NOW }),
+    ).toBe(HEARTBEAT_MIN_GAP_MS - 60_000);
   });
 });

@@ -19,6 +19,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeVnPhone } from "@/lib/phone";
 import { countsAsOfflineReady, normalizePlatform } from "@/lib/app-usage";
 import { isValidDeviceId } from "@/lib/device-id";
+import { needFromReason, serverNextInMs } from "@/lib/heartbeat-policy";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -27,7 +28,16 @@ export async function POST(req: Request) {
   const email = data?.user?.email;
   // chưa đăng nhập → không quy về ai được, im lặng bỏ qua (KHÔNG phải lỗi)
   if (!email)
-    return NextResponse.json({ ok: true, recorded: false, reason: "no_session" });
+    return NextResponse.json({
+      ok: true,
+      recorded: false,
+      reason: "no_session",
+      // gán được vào đâu chưa · máy phải làm gì tiếp (chặn vòng lặp vô ích:
+      // chưa có phiên thì gửi lại bao nhiêu lần cũng ra đúng câu này)
+      attached: false,
+      need: needFromReason("no_session"),
+      nextInMs: serverNextInMs("no_session"),
+    });
   const phone = normalizeVnPhone(email.split("@")[0]);
 
   const body = (await req.json().catch(() => null)) as {
@@ -107,12 +117,29 @@ export async function POST(req: Request) {
     ({ data: hit, error } = await write(patch));
   }
   // cột chưa có (0021 chưa apply) → nói thật cho client biết, nhưng KHÔNG lỗi
-  if (error) return NextResponse.json({ ok: true, recorded: false, reason: "write_failed" });
+  if (error)
+    return NextResponse.json({
+      ok: true,
+      recorded: false,
+      reason: "write_failed",
+      attached: false,
+      need: needFromReason("write_failed"), // "retry" — bám tiếp là có cửa
+      nextInMs: serverNextInMs("write_failed"),
+    });
   // KHÔNG có hàng khách nào mang SĐT này — client sẽ thử lại (30 phút/lần)
   // thay vì im 12 tiếng. `reason` để gỡ lỗi, KHÔNG kèm SĐT (đừng vọng lại
   // định danh trong phản hồi).
   if (!hit || hit.length === 0) {
-    return NextResponse.json({ ok: true, recorded: false, reason: "no_customer_row" });
+    return NextResponse.json({
+      ok: true,
+      recorded: false,
+      reason: "no_customer_row",
+      // nghe được, đọc được phiên, nhưng KHÔNG có hàng khách mang SĐT này —
+      // máy sửa không được, đừng để nó bám đuổi vô ích
+      attached: false,
+      need: needFromReason("no_customer_row"),
+      nextInMs: serverNextInMs("no_customer_row"),
+    });
   }
 
   // LỊCH SỬ MÁY (bảng customer_devices, 0022) — mỗi (khách × máy) một hàng, để
@@ -135,5 +162,16 @@ export async function POST(req: Request) {
       /* sổ phụ — hỏng thì thôi */
     }
   }
-  return NextResponse.json({ ok: true, recorded: true });
+  /*  `nextInMs` = MÁY CHỦ XẾP LỊCH cho lượt sau (2026-08-02c). Đây là chiều
+      ngược DUY NHẤT của kênh này: một con số điều tiết, KHÔNG phải kênh lệnh —
+      app đi biển không được nhận lệnh từ xa để tải/xoá/đổi bất cứ thứ gì. Máy
+      còn kẹp lại trong [5 phút, 6 giờ] trước khi nghe theo. */
+  return NextResponse.json({
+    ok: true,
+    recorded: true,
+    // ĐÃ NHẬN **VÀ ĐÃ GÁN** — máy nhớ chữ ký này rồi thôi, không gửi lại nữa
+    attached: true,
+    need: needFromReason(null),
+    nextInMs: serverNextInMs(null),
+  });
 }
