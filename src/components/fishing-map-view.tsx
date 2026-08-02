@@ -375,12 +375,27 @@ export default function FishingMapView() {
   const [scalarData, setScalarData] = useState<
     Partial<Record<SeaScalarKind, SeaScalarResult>>
   >({});
+  /*  ⚠️ LỚP NƯỚC DÂNG / XOÁY TỪNG KHÔNG CÓ TRẠNG THÁI LỖI NÀO (vá 2026-08-03,
+      đánh giá tổng thể bắt). `.then()` không có nhánh `!r.ok`, mà `activeScalar`
+      null ⇒ `scalarGeo` null ⇒ khối vẽ `{scalarGeo && …}` không vẽ gì VÀ không
+      nói gì. Bà con bật lớp giữa biển thấy biển trắng trơn, không phân biệt được
+      "chưa tải được" với "biển không có xoáy" — mà hai chuyện đó khác hẳn nhau.
+      Nay giữ cờ hỏng riêng cho lớp này, dùng lại đúng khuôn `gridFailed`. */
+  const [seaScalarFailed, setSeaScalarFailed] = useState<SeaScalarKind | null>(
+    null,
+  );
   useEffect(() => {
     if (!scalarKind || scalarData[scalarKind]) return;
     let alive = true;
-    fetchSeaScalar(scalarKind).then((r) => {
-      if (alive) setScalarData((m) => ({ ...m, [scalarKind]: r }));
-    });
+    fetchSeaScalar(scalarKind)
+      .then((r) => {
+        if (!alive) return;
+        setScalarData((m) => ({ ...m, [scalarKind]: r }));
+        setSeaScalarFailed(r.ok ? null : scalarKind);
+      })
+      .catch(() => {
+        if (alive) setSeaScalarFailed(scalarKind);
+      });
     return () => {
       alive = false;
     };
@@ -2572,6 +2587,41 @@ export default function FishingMapView() {
                        trong khi lý do thật là KHÔNG XÁC NHẬN ĐƯỢC HẠNG tài
                        khoản (`premiumUnsure`) VÀ trong máy không còn bản dài
                        (`!savedLongGrid`) — nay nói đủ hai vế, chữ ≥18px. */}
+                  {/*  LỚP NƯỚC DÂNG / XOÁY HỎNG — PHẢI NÓI (vá 2026-08-03).
+                       Trước đây lớp này im hoàn toàn khi không lấy được: biển
+                       trắng trơn, không phân biệt được "chưa tải" với "không có
+                       xoáy". Câu chữ nói ĐÚNG LỚP, không gộp vào dòng "dự báo cả
+                       vùng biển" như trước — dòng đó nói cho lưới gió/sóng. */}
+                  {scalarKind && seaScalarFailed === scalarKind && !scalarGeo && (
+                    <div className="mt-1 flex items-center justify-between gap-3 rounded-xl bg-danger-bg px-3 py-2.5">
+                      <p className="text-[0.9375rem] font-bold leading-snug text-danger">
+                        Chưa lấy được lớp này — máy chưa có bản nào và nguồn đang
+                        không cho tải. Biển trống ở đây KHÔNG có nghĩa là biển
+                        lặng.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          /*  ⚠️ PHẢI XOÁ CẢ KẾT QUẢ ĐÃ LƯU, không chỉ xoá cờ
+                              hỏng (tự bắt ngay khi vừa viết). Effect tải lớp
+                              này `return` sớm nếu `scalarData[scalarKind]` đã
+                              có — mà bản `{ok:false}` cũng tính là "đã có". Xoá
+                              mỗi cờ thì nút bấm KHÔNG TẢI LẠI GÌ, đúng khuôn
+                              "nút bấm không được gì" đã mọc lại sáu lần trong
+                              mạch này. */
+                          setScalarData((m) => {
+                            const n = { ...m };
+                            delete n[scalarKind];
+                            return n;
+                          });
+                          setSeaScalarFailed(null);
+                        }}
+                        className="shrink-0 rounded-xl bg-navy px-4 py-2.5 text-[0.9375rem] font-bold text-white"
+                      >
+                        Thử lại
+                      </button>
+                    </div>
+                  )}
                   {gridShrunkTo != null && (
                     <button
                       type="button"

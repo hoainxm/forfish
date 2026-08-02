@@ -30,6 +30,13 @@ export type CurDepthClientGrid = ForecastGrid & {
 export const CUR_DEPTH_NS = "curdepth";
 const cacheId = (tier: number, days: number) => `t${tier}.d${days}`;
 
+/**
+ * KHUNG NGÀY được phép MƯỢN khi khung đang xin chưa có bản lưu — phải khớp các
+ * khung mà `pretrip.ts` thật sự tải (`CUR_DEPTH_MAX_DAYS`, và nấc lùi 3 ngày).
+ * Ghi ở đây thay vì rải khắp nơi để lần sau đổi nấc lùi thì chỉ sửa một chỗ.
+ */
+const CUR_DEPTH_FALLBACK_DAYS = [3];
+
 /** Các TẦNG sâu (m) dòng chảy đang giữ trong máy (thuần đọc — cho pretrip-status). */
 export function savedCurDepthTiers(): number[] {
   const tiers = new Set<number>();
@@ -156,6 +163,21 @@ export async function fetchCurDepthGridClient(
   const hit = loadForecast<CurDepthClientGrid>(CUR_DEPTH_NS, id);
   if (hit && usable(hit.data))
     return remember({ ...hit.data, stale: true, savedAt: hit.savedAt });
+  /*  ⚠️ MƯỢN KHUNG NGẮN HƠN (thêm 2026-08-03, đánh giá tổng thể bắt).
+      Hai lớp anh em đều có nấc này — `forecast-grid.layKhungDaiHon` và
+      `scalar-field.savedScalarFallback` — riêng dòng chảy tầng sâu thì KHOÁ CỨNG
+      đúng `cacheId(tier, days)`. Mà mẻ tải sẵn lưu `d10`, hỏng thì lùi `d3`
+      (`pretrip.ts:626,633`), còn bản đồ thì LUÔN xin `d10`. Chặng d10 hỏng ở
+      cảng ⇒ máy chỉ có `t50.d3` ⇒ id lệch ⇒ ném ⇒ giữa biển in "máy chưa có bản
+      nào" TRONG KHI bản d3 nằm ngay đó. Đúng khuôn ĐỎ DỐI mà mười vòng vừa
+      diệt, vào bằng cửa thứ sáu.
+      Không nói dối được: thanh ngày vẽ theo `times[]` THẬT của bản mượn, nên bà
+      con thấy đúng nó phủ tới ngày nào. */
+  for (const d of CUR_DEPTH_FALLBACK_DAYS.filter((x) => x < days).reverse()) {
+    const alt = loadForecast<CurDepthClientGrid>(CUR_DEPTH_NS, cacheId(tier, d));
+    if (alt && usable(alt.data))
+      return remember({ ...alt.data, stale: true, savedAt: alt.savedAt });
+  }
   if (snap) {
     // LƯU snapshot khi live 429 (2026-07-29): trước chỉ trả stale mà không ghi
     // → "Tải lại" trong popup coi như hỏng (savedCurDepthTiers vẫn trống).
