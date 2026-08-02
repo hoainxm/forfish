@@ -1387,7 +1387,13 @@ export function currentGridUrl(comp: "u" | "v"): string {
    Client gọi route nội bộ
 ---------------------------------------------------------------------------- */
 export type FishForecastResult =
-  | FishForecast
+  /*  `tuKhoOffline` — bản này LẤY TỪ KHO, không phải vừa tải về (2026-08-02k,
+      vòng soát 6). Mẻ tải sẵn PHẢI phân biệt được: nó chỉ ném khi `!ok`, mà từ
+      khi `!r.ok` lùi về bản đã lưu thì máy chủ nổ 500 vẫn cho ra `ok:true` ⇒
+      không bước nào hỏng ⇒ mẻ ghi mốc và KHOÁ 6 GIỜ trong khi bà con còn ở bờ,
+      còn sóng, và chưa có bản mới nào. Chuyện 500 kéo dài gần một ngày đã xảy
+      ra thật (a7c3388). */
+  | (FishForecast & { tuKhoOffline?: true })
   // code "login_required"/"premium_required" = BỊ KHOÁ (middleware chặn,
   // tính năng premium) — client hiện lời mời, KHÔNG hiện "lỗi, thử lại".
   | { ok: false; code?: string };
@@ -1428,7 +1434,10 @@ export async function fetchFishForecast(): Promise<FishForecastResult> {
         đường này, tức app sẽ hiện bản MẤY NGÀY TUỔI thay vì báo hỏng — chấp
         nhận được vì payload mang `generatedAt` và màn hình in tuổi thật của
         bản, nhưng ai đọc mã sau này phải biết là nó KHÔNG còn báo lỗi ở đây. */
-    if (!r.ok) return banDoCaDaLuu() ?? { ok: false };
+    if (!r.ok) {
+      const luu = banDoCaDaLuu();
+      return luu ? { ...luu, tuKhoOffline: true as const } : { ok: false };
+    }
     const data = (await r.json()) as FishForecastResult;
     // DẤU "bản đồ cá đã có offline" — payload thật do Service Worker cache
     // (/api/fish-forecast, same-origin), nhưng JS không đọc được kho SW đồng bộ.
@@ -1461,7 +1470,8 @@ export async function fetchFishForecast(): Promise<FishForecastResult> {
     }
     return data;
   } catch {
-    return banDoCaDaLuu() ?? { ok: false };
+    const luu = banDoCaDaLuu();
+    return luu ? { ...luu, tuKhoOffline: true as const } : { ok: false };
   }
 }
 

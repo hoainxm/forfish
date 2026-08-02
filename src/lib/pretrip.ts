@@ -564,6 +564,11 @@ async function runLayerInner(
         !(r.code === "login_required" || r.code === "premium_required")
       )
         throw new Error("bản đồ cá chưa tải được");
+      /*  BẢN LẤY TỪ KHO KHÔNG TÍNH LÀ "ĐÃ TẢI" (vòng soát 6). `!r.ok` nay lùi
+          về bản đã lưu, nên máy chủ 500 vẫn cho `ok:true` ⇒ bước này không ném
+          ⇒ mẻ tự động ghi mốc và KHOÁ 6 GIỜ dù chẳng lấy được byte mới nào. */
+      if (r.ok && (r as { tuKhoOffline?: true }).tuKhoOffline)
+        throw new Error("bản đồ cá: nguồn đang lỗi, mới có bản cũ trong máy");
       return;
     }
     case "grid":
@@ -689,6 +694,10 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
       if (!r.ok && (r.code === "login_required" || r.code === "premium_required"))
         return;
       if (!r.ok) throw new Error("bản đồ cá chưa tải được");
+      /*  Cùng lý do với `runLayerInner`: bản LẤY TỪ KHO không phải "đã tải".
+          Thiếu vế này thì máy chủ 500 kéo dài vẫn cho mẻ ra "xanh" + khoá 6 giờ. */
+      if ((r as { tuKhoOffline?: true }).tuKhoOffline)
+        throw new Error("bản đồ cá: nguồn đang lỗi, mới có bản cũ trong máy");
     },
   });
   for (const d of PRETRIP_GRID_DAYS) {

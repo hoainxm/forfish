@@ -184,18 +184,6 @@ const hangCho = new Map<string, string | null>();
 let dangDay: Promise<boolean> | null = null;
 /** Lượt đẩy gần nhất có xuống đĩa trót lọt không (false = đĩa đang từ chối). */
 let dayOk = true;
-/*  ⚠️ KHÔNG SUY TRẠNG THÁI TỪ `backend` (lỗi CHẶN vòng đánh giá cuối 2026-08-02k,
-    chứng minh bằng mã chạy). Bản trước kết luận "không mở được kho" bằng
-    `backend === "ls" && guong.size === 0`. Nhưng `backend === "ls"` có HAI nghĩa
-    khác hẳn nhau: (a) đọc kho hỏng — dữ liệu có mà chưa lấy ra được; (b)
-    localStorage ĐANG LÀ KHO THẬT (Safari riêng tư / WebView cũ) — đọc ghi bình
-    thường. Ở ca (b), `fcSet` cố ý gọi `boGuong` chứ không `themGuong` nên
-    `guong.size` VĨNH VIỄN = 0 ⇒ ngay sau bản lưu đầu tiên, trạng thái kẹt
-    `khong-mo-duoc` SUỐT ĐỜI MÁY ⇒ chip màn Chuẩn bị đi biển đứng nguyên "Đang
-    mở kho dữ liệu…" mãi mãi, không bao giờ nói được "còn dự báo tới ngày X".
-    Chữ "đang mở" hứa một chuyện tạm thời mà không bao giờ kết thúc.
-    Nay ghi thẳng sự thật vào một cờ, không suy diễn. */
-let docKhoHong = false;
 
 /* ══════════════════════════════════════════════════════════════════════════
    localStorage — vẫn dùng làm ĐƯỜNG LÙI và làm nơi ĐỌC bản chưa kịp dọn
@@ -574,7 +562,6 @@ async function nap(): Promise<void> {
   }
   const tren = await docHet(d);
   if (tren == null) {
-    docKhoHong = true;
     /*  ĐỌC KHO HỎNG / QUÁ GIỜ ⇒ KHÔNG ĐƯỢC KẾT LUẬN GÌ VỀ NỘI DUNG KHO.
         Giữ nguyên sổ đang có (đừng đè), ở lại nhánh localStorage để
         `forecastStoreState()` trả `khong-mo-duoc` — màn hình sẽ nói "đang mở
@@ -707,7 +694,6 @@ export function forecastStoreReady(): Promise<void> {
         soLanNapHong += 1;
         napP = null;
         dbP = null;
-        docKhoHong = false;
         dangNapLai = true; // để `ghiNhanSo` vẫn ghi nhận ghi-trong-lúc-nạp
       }
     });
@@ -741,7 +727,7 @@ export function forecastStoreState(): ForecastStoreState {
   /*  ⚠️ HỎI ĐÚNG CÂU: "SỔ KHAI CÓ MÀ LẤY RA ĐƯỢC KHÔNG?" (vòng soát 5 bắt, mức
       CHẶN, chứng minh bằng mã chạy).
 
-      Bản V1 hỏi cờ `docKhoHong` — chỉ bật khi `docHet()` hỏng. Nhưng có HAI cửa
+      Bản V1 hỏi một cờ nội bộ, chỉ bật khi `docHet()` hỏng. Nhưng có HAI cửa
       hỏng, không phải một: cửa thứ hai là `db()` trả `null` (`indexedDB.open`
       quá trần 4 giây · `onerror` · `onblocked` khi tab khác đang giữ kho — cửa
       này sẽ dính MỌI máy có 2 tab ở lần bump `DB_VERSION` sau). Đường đó không
@@ -759,7 +745,6 @@ export function forecastStoreState(): ForecastStoreState {
   if (ks.length === 0) return "san-sang";
   for (const k of ks) if (layDuocKhong(k)) return "san-sang";
   return "khong-mo-duoc";
-  return "san-sang";
 }
 
 const nguoiCho = new Set<() => void>();
@@ -783,7 +768,9 @@ const nguoiCho = new Set<() => void>();
  * Gọi khi kho đã mở xong thì chạy LUÔN một nhịp (khỏi lỡ chuyến).
  */
 export function subscribeForecastStore(fn: () => void): () => void {
-  if (daNap) {
+  /*  "Đã nạp" CHƯA ĐỦ để bắn-rồi-thôi: nạp xong mà KHÔNG MỞ ĐƯỢC kho thì còn
+      lượt nạp lại phía sau, và màn hình phải nghe được lượt đó. */
+  if (daNap && forecastStoreState() !== "khong-mo-duoc") {
     fn();
     return () => undefined;
   }
@@ -792,6 +779,13 @@ export function subscribeForecastStore(fn: () => void): () => void {
 }
 
 function baoDaNap(): void {
+  /*  ⚠️ LƯỢT NẠP HỎNG THÌ GIỮ NGUYÊN DANH SÁCH NGƯỜI NGHE (vòng soát 6 bắt).
+      Bản trước `clear()` vô điều kiện. Nhưng sau một lượt nạp HỎNG, `daNap` đã
+      là true nên `subscribeForecastStore` chuyển sang "bắn ngay rồi trả noop" —
+      không ai vào danh sách nữa. Lượt NẠP LẠI thành công sau đó KHÔNG báo được
+      cho màn hình nào ⇒ chip đứng "Đang mở kho dữ liệu…" suốt chuyến trong khi
+      kho ĐÃ mở được. Đúng cái lỗi mà `subscribeForecastStore` sinh ra để diệt. */
+  if (forecastStoreState() === "khong-mo-duoc") return;
   const ds = [...nguoiCho];
   nguoiCho.clear();
   for (const fn of ds) {
@@ -864,6 +858,13 @@ export function fcSet(k: string, v: string): void {
         hơn chính cái kho nó soi). Vá ở `fcGet`: nhánh `ls` thì localStorage là
         KHO THẬT, phải hỏi nó TRƯỚC, gương chỉ là bản chụp đĩa để đọc thêm. */
     boGuong(k); // gương không được giữ bản CŨ hơn thứ vừa ghi
+    /*  ⚠️ DỌN LUÔN MỤC CŨ TRONG HÀNG CHỜ (vòng soát 6 bắt — bản vá vòng 6 CÒN
+        HỞ). Bản cũ cùng khoá có thể đang kẹt hàng chờ (quá trần xả ngược). Nay
+        bản MỚI đã nằm thật trong localStorage, mà mục kẹt vẫn còn thì
+        `conKetLai()` tiếp tục trả `false` ⇒ bà con chạm "Tải lại" đúng lớp đó,
+        ghi trót lọt, mà dòng vẫn ĐỎ — bấm bao nhiêu lần cũng đỏ. Đúng khuôn
+        "nút bấm không được gì" (c316cbd) dựng lại lần nữa. */
+    hangCho.delete(k);
     ghiNhanSo(k, v);
     return;
   }
@@ -940,6 +941,8 @@ export function fcRemove(k: string): void {
   if (backend === "idb") {
     hangCho.set(k, null);
     xepLichDay();
+  } else {
+    hangCho.delete(k); // xoá thật rồi thì mục kẹt cùng khoá không còn nghĩa gì
   }
   try {
     ls()?.removeItem(k);
@@ -1148,7 +1151,6 @@ export function __resetForecastStore(): void {
   dbP = null;
   dangDay = null;
   dayOk = true;
-  docKhoHong = false;
   soLanNapHong = 0;
   dangNapLai = false;
   docSo(); // dựng lại sổ từ localStorage hiện tại của ca test

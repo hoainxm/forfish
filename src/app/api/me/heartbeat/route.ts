@@ -264,7 +264,7 @@ export async function POST(req: Request) {
           lệnh. Migration 0030 do chủ dự án tự apply, nên nếu commit này lên
           TRƯỚC lúc apply thì cột chưa tồn tại ⇒ **cả hàng theo-máy hỏng**, mất
           luôn `last_seen_at` · `data_until` · `data_until_web` · `platform` ·
-          `storage_*_mb` của 0027 vốn đang chạy tốt — im lặng, HTTP vẫn 200.
+          `storage_*_mb` (0029) vốn đang chạy tốt — im lặng, HTTP vẫn 200.
           Nay thử bộ ĐẦY ĐỦ trước, hỏng thì ghi lại bộ CŨ. */
       const khoMoi0030 = {
         ...(khoLs != null ? { storage_ls_mb: khoLs } : {}),
@@ -308,6 +308,12 @@ export async function POST(req: Request) {
         );
       let { error: devErr } = await ghiMay(khoMoi0030);
       if (devErr && Object.keys(khoMoi0030).length > 0) {
+        /*  ĐỪNG NUỐT IM (vòng soát 6): lượt lùi thành công thì `devErr` về null
+            và không còn dòng log nào — tức "0030 chưa apply" trở thành IM LẶNG
+            TUYỆT ĐỐI, đúng khuôn `logActivity nuốt lỗi` mà route này vừa được
+            vá để thoát. Log nguyên nhân THẬT của lượt đầu, vì thông điệp của
+            lượt sau (nếu có) sẽ che mất nó. */
+        console.error("[heartbeat] customer_devices lùi bỏ cột 0030:", devErr.message);
         ({ error: devErr } = await ghiMay({}));
       }
       /*  supabase-js KHÔNG NÉM với lỗi Postgres/RLS — nó trả `{ error }`. Vứt

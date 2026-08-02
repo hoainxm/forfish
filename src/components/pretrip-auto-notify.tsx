@@ -38,7 +38,6 @@ import {
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import {
-  forecastStoreHydrated,
   forecastStoreState,
   subscribeForecastStore,
 } from "@/lib/forecast-store";
@@ -275,9 +274,13 @@ export function PretripSavedStatus({
         suốt cả chuyến. */
     /*  Cùng lý do với popup: `reread()` vừa chạy ngay trên, nên chỉ đăng ký khi
         kho CHƯA mở xong — tránh quét kho hai lượt lúc vào màn. */
-    const boKho = forecastStoreHydrated()
-      ? () => undefined
-      : subscribeForecastStore(reread);
+    /*  Gác bằng TRẠNG THÁI THẬT, không bằng "đã nạp xong" (vòng soát 6): nạp
+        xong mà KHÔNG MỞ ĐƯỢC kho thì còn lượt nạp lại phía sau — bỏ đăng ký ở
+        đây là chip đứng "Đang mở kho dữ liệu…" suốt chuyến dù kho đã mở được. */
+    const boKho =
+      forecastStoreState() === "san-sang"
+        ? () => undefined
+        : subscribeForecastStore(reread);
     return () => {
       boPhase();
       boKho();
@@ -473,7 +476,7 @@ function PretripSavedSheet({
       ghi: một cú chạm từng tốn "≥6 lượt quét kho liên tiếp", vài trăm ms tới
       hơn một giây trên máy Android rẻ, đúng lúc bà con sốt ruột trước chuyến. */
   useEffect(() => {
-    if (forecastStoreHydrated()) return;
+    if (forecastStoreState() === "san-sang") return;
     return subscribeForecastStore(refresh);
   }, [refresh]);
 

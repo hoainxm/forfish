@@ -271,6 +271,14 @@ describe("flush hỏi ĐÚNG MẺ CỦA MÌNH", () => {
     expect(await forecastStoreFlush([luoi])).toBe(false);
     // hỏi cả kho ⇒ vẫn false (giữ nguyên nghĩa cũ)
     expect(await forecastStoreFlush()).toBe(false);
+
+    /*  ⚠️ VÒNG 6 BẮT BẢN VÁ VÒNG 6 CÒN HỞ: bà con chạm "Tải lại" ĐÚNG lớp
+        lưới. Nhánh `ls` ghi 100 KB xuống localStorage trót lọt — nhưng nếu mục
+        cũ cùng khoá còn kẹt hàng chờ thì `conKetLai` vẫn false ⇒ dòng vẫn ĐỎ,
+        bấm bao nhiêu lần cũng đỏ. Đúng khuôn "nút bấm không được gì". */
+    fcSet(luoi, JSON.stringify({ savedAt: 20, data: "y".repeat(100_000) }));
+    expect(localStorage.getItem(luoi)).toContain('"savedAt":20');
+    expect(await forecastStoreFlush([luoi])).toBe(true);
   });
 });
 
