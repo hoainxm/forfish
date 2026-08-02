@@ -1223,6 +1223,14 @@ function AppUsage({ a }: { a: Account }) {
       Hai con số này tách ra thì người trực tổng đài phải tự ghép trong đầu mỗi
       hàng một lần — và sẽ bỏ sót đúng nhóm nguy hiểm nhất: đã cài, đã đủ đồ, mở
       app hằng ngày, nhưng toàn mở bằng Safari nên kho ra khơi đứng im. */
+  /*  ĐỒNG HỒ CHỤP LÚC MOUNT, KHÔNG GỌI TRONG THÂN RENDER (sửa 2026-08-03).
+      `Date.now()` là hàm KHÔNG THUẦN; gọi thẳng khi vẽ làm React không bảo đảm
+      được kết quả ổn định giữa hai lượt vẽ, và `react-hooks/purity` bắt lỗi —
+      cổng `npm run lint` của CI là cổng CỨNG nên chỗ này đang CHẶN MỌI PUSH vào
+      `main`. Chip chỉ đo tuổi theo NGÀY (mốc online lần cuối, dữ liệu tới ngày
+      nào), nên một mốc chụp lúc mount là quá đủ; trang tự vẽ lại khi tải lại
+      danh sách khách, lúc đó mốc cũng mới theo. */
+  const [bayGio] = useState(() => Date.now());
   const rd = readinessChip(
     {
       pwaLastOpenAt: a.pwaLastOpenAt ?? null,
@@ -1230,7 +1238,7 @@ function AppUsage({ a }: { a: Account }) {
       dataUntil: a.dataUntil ?? null,
       dataUntilWeb: a.dataUntilWeb ?? null,
     },
-    Date.now(),
+    bayGio,
   );
   const rdSkin: Record<ReadinessTone, string> = {
     ok: "bg-ok-bg text-ok",
