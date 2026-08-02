@@ -491,6 +491,30 @@ describe("vòng 7 — khuôn 'nút bấm không được gì' ở tầng cuối"
   });
 });
 
+describe("vòng 8 — cơ chế cô lập mục đĩa từ chối không được đẻ vòng lặp", () => {
+  it("đĩa từ chối VĨNH VIỄN: có đáy, không quay vô tận, không mất mục nào", async () => {
+    await forecastStoreReady();
+    expect(forecastStoreBackend()).toBe("idb");
+    ghiHong = true; // đĩa hỏng suốt
+    const a = `${FC_PREFIX}point.a`;
+    const b = `${FC_PREFIX}point.b`;
+    fcSet(a, JSON.stringify({ savedAt: 1, data: {} }));
+    fcSet(b, JSON.stringify({ savedAt: 2, data: {} }));
+    // gọi flush nhiều lượt như `runLayer` vẫn làm sau TỪNG lớp
+    for (let i = 0; i < 5; i++) expect(await forecastStoreFlush([a])).toBe(false);
+    /*  KHÔNG mục nào được phép biến mất: đĩa từ chối thì chúng phải còn ở hàng
+        chờ hoặc ở diện "đĩa từ chối hẳn", và đọc ra vẫn phải được (gương giữ). */
+    expect(fcGet(a)).toContain('"savedAt":1');
+    expect(fcGet(b)).toContain('"savedAt":2');
+
+    // đĩa lành lại ⇒ CẢ HAI phải xuống được, không sót
+    ghiHong = false;
+    expect(await forecastStoreFlush([a, b])).toBe(true);
+    expect(dia.has(a)).toBe(true);
+    expect(dia.has(b)).toBe(true);
+  });
+});
+
 describe("cổng chặn khuôn", () => {
   it("khoá kho bền của bản đồ cá phải khớp FISH_NS/FISH_ID ở fish-predict", () => {
     const src = readFileSync(

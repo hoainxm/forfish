@@ -959,10 +959,20 @@ export function fcRemove(k: string): void {
     hangCho.set(k, null);
     xepLichDay();
   } else {
-    /*  ⚠️ VẪN PHẢI XẾP LỆNH XOÁ XUỐNG ĐĨA (vòng soát 7, NHẸ nhưng thật): nhánh
-        `ls` chỉ xoá ở localStorage, nên nếu backend TỪNG lật idb→ls thì bản trên
-        IndexedDB còn nguyên và **sống lại ở phiên sau**. Đã dựng lại được bằng
-        mã. Xếp hàng thì lượt `day()` nào chạy được sẽ dọn nốt. */
+    /*  ⚠️ ĐỌC KỸ TRƯỚC KHI TIN: xếp lệnh xoá vào hàng chờ ở đây **CHƯA dọn được
+        bản trên IndexedDB** (tự soát vòng 8 — bản vá vòng 7 ở chỗ này là VÔ
+        HIỆU, và chú thích cũ của nó nói sai).
+        Lý do: trên nhánh `ls`, `forecastStoreFlush` thoát sớm và chỉ gọi
+        `xaHangChoXuongLs()`, mà hàm đó xử mục `null` bằng `localStorage.
+        removeItem` rồi **gỡ khỏi hàng chờ luôn** — lệnh xoá không bao giờ tới
+        IndexedDB. Cái nó ĐANG làm được: giữ đúng thứ tự (mục ghi kẹt cùng khoá
+        bị lệnh xoá thay thế, nên `xaHangChoXuongLs` không đổ ngược bản đã xoá
+        vào localStorage) và không làm `conKetLai` kẹt `false`.
+        HỐ CÒN LẠI, ghi ra để người sau khỏi tưởng đã kín: phiên nào backend lật
+        idb→ls, bản xoá trong phiên đó KHÔNG tới được đĩa; phiên sau mở kho tốt
+        thì bản cũ trên IndexedDB **sống lại**. Vá thật cần một dấu-mộ bền
+        (tombstone) trong sổ mục lục — chưa làm, vì ca này đòi ba điều kiện xảy
+        ra liên tiếp và hậu quả là "thấy lại một lớp đã xoá", không mất dữ liệu. */
     hangCho.set(k, null);
   }
   try {
