@@ -13,6 +13,7 @@ import {
   PasswordField,
 } from "@/components/auth-form";
 import { useAuthUser } from "@/lib/use-auth";
+import { withDeadline } from "@/lib/auth-error";
 
 /*
   Đổi mật khẩu — HAI ngả vào (2026-07-29):
@@ -106,10 +107,20 @@ export default function DoiMatKhauPage() {
     // 1) Tự nguyện đổi → xác thực lại mật khẩu hiện tại (ép lần đầu thì thôi —
     //    khách vừa gõ đúng nó ở màn đăng nhập).
     if (!mustChange && user!.email) {
-      const { error: verifyError } = await supabase!.auth.signInWithPassword({
-        email: user!.email,
-        password: current,
-      });
+      // đồng hồ chặn — xem ghi chú withDeadline: các cú auth này treo được
+      const verify = await withDeadline(
+        supabase!.auth.signInWithPassword({
+          email: user!.email,
+          password: current,
+        }),
+        25000,
+      );
+      if (!verify) {
+        setError("Mạng yếu quá, chưa kiểm được mật khẩu. Bà con thử lại nhé.");
+        setLoading(false);
+        return;
+      }
+      const { error: verifyError } = verify;
       if (verifyError) {
         setError("Mật khẩu hiện tại chưa đúng. Bạn kiểm tra lại giúp nhé.");
         setLoading(false);
@@ -118,9 +129,19 @@ export default function DoiMatKhauPage() {
     }
 
     // 2) Đổi mật khẩu + tắt cờ buộc đổi NGAY TRÊN user_metadata.
-    const { data: userData, error: updateError } = await supabase!.auth.updateUser(
-      { password, data: { must_change_password: false } },
+    const upd = await withDeadline(
+      supabase!.auth.updateUser({
+        password,
+        data: { must_change_password: false },
+      }),
+      25000,
     );
+    if (!upd) {
+      setError("Mạng yếu quá, chưa đổi được mật khẩu. Bà con thử lại nhé.");
+      setLoading(false);
+      return;
+    }
+    const { data: userData, error: updateError } = upd;
     if (updateError || !userData.user) {
       setError("Chưa đổi được mật khẩu. Bạn thử lại giúp nhé.");
       setLoading(false);
@@ -129,11 +150,10 @@ export default function DoiMatKhauPage() {
 
     // 3) 1 TÀI KHOẢN = 1 MÁY: thu hồi phiên các máy khác. Lỗi ở bước này
     //    KHÔNG chặn — mật khẩu đã đổi xong.
-    try {
-      await supabase!.auth.signOut({ scope: "others" });
-    } catch {
-      /* bỏ qua — máy khác sẽ rớt ở lần đăng nhập/refresh kế */
-    }
+    //    ĐỒNG HỒ 8 GIÂY LÀ BẮT BUỘC (soát 2026-08-02): mật khẩu ĐÃ đổi rồi mà
+    //    cú này treo thì màn hình kẹt "Đang lưu…" vĩnh viễn ⇒ bà con tưởng
+    //    chưa đổi, quay ra gõ lại mật khẩu CŨ và không vào được nữa.
+    await withDeadline(supabase!.auth.signOut({ scope: "others" }), 8000);
 
     // 4) Vào trang chính.
     router.replace("/");

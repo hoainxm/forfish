@@ -638,8 +638,13 @@ async function fetchLookup(
   { ok: true; result: CrewLookupResult } | { ok: false; code?: string }
 > {
   try {
+    // ĐỒNG HỒ 12 GIÂY (D-PH5, soát 2026-08-02): không có nó thì ở sóng "sống
+    // mà chết" fetch treo không resolve không reject ⇒ ô tra kẹt "đang tra…"
+    // vĩnh viễn, không báo lỗi, không có nút thử lại. Hết giờ → ném → nhánh
+    // catch sẵn có trả {ok:false} và UI tự nói "Không tra được".
     const r = await fetch(
       apiUrl(`/api/crew-reports/lookup?${identityQuery(id)}`),
+      { signal: AbortSignal.timeout(12000) },
     );
     const j = (await r.json().catch(() => null)) as
       | { ok: true; count: number; reports: CrewLookupResult["reports"] }
@@ -905,6 +910,10 @@ function ReportForm({
         detail: detail.trim() || undefined,
         reporterBoat: current?.name || undefined,
       }),
+      // ĐỒNG HỒ 20 GIÂY (D-PH6): gửi báo cáo không có trần thời gian thì nút
+      // kẹt "Đang gửi…" và bà con không biết đã gửi được chưa. Hết giờ →
+      // `.catch` sẵn có trả null → UI báo "Không gửi được, thử lại".
+      signal: AbortSignal.timeout(20000),
     }).catch(() => null);
     setBusy(false);
     const j = (await r?.json().catch(() => null)) as

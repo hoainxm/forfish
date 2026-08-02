@@ -569,7 +569,15 @@ export function fetchClimatology(): Promise<Climatology | null> {
         return r.json();
       })
       .then((j) => decodeClimatology(j as ClimatologyFile))
-      .catch(() => null);
+      .catch(() => {
+        /* XOÁ CACHE RỒI MỚI TRẢ null (D-PH12, soát 2026-08-02): trước đây
+           `.catch(() => null)` gán thẳng promise-null vào `cached`, nên MỘT
+           lần hỏng (mở app đúng lúc mất sóng) là CẢ PHIÊN trả null — sóng về
+           rồi, service worker đã có file rồi, lớp cá vẫn không bao giờ pha
+           trộn mùa vụ cho ngày xa. Khuôn đúng lấy từ lib/depth-grid. */
+        cached = null; // lần sau thử lại
+        return null;
+      });
   }
   return cached;
 }

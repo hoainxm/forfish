@@ -1,13 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
+  effectivePremiumMark,
   featureAccessDecision,
   formatPremiumUntil,
   FREE_FORECAST_DAYS,
   nextPremiumUntil,
+  premiumMarkWithinGrace,
   PREMIUM_TERM_DAYS,
   resolveTier,
+  shouldRetryTierQuery,
   tierBadge,
+  TIER_MARK_GRACE_DAYS,
+  TIER_RETRY_BASE_MS,
+  TIER_RETRY_MAX_MS,
+  tierRetryDelayMs,
+  type FeatureAccess,
   type FeatureAccessInput,
+  type PremiumMark,
 } from "@/lib/tier";
 
 // Hạng hiệu lực = tier + hạn. Nguyên tắc: mọi ca mờ ám → 'basic' (fail-closed).
@@ -87,7 +96,7 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
     hasUser: true,
     premium: null,
     online: true,
-    cachedPremium: false,
+    cachedMark: "basic",
   };
 
   it("demo mode (chưa cấu hình Supabase) → open, bất kể mọi thứ khác", () => {
@@ -116,7 +125,7 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
         online: false,
         hasUser: false,
         premium: null,
-        cachedPremium: true,
+        cachedMark: "premium",
       }),
     ).toBe("open");
   });
@@ -128,7 +137,7 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
         ...base,
         online: false,
         hasUser: false,
-        cachedPremium: false,
+        cachedMark: "basic",
       }),
     ).toBe("login");
   });
@@ -139,7 +148,7 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
         ...base,
         online: false,
         authReady: false,
-        cachedPremium: true,
+        cachedMark: "premium",
       }),
     ).toBe("open");
   });
@@ -154,7 +163,7 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
         online: true,
         hasUser: false,
         authErrored: true,
-        cachedPremium: true,
+        cachedMark: "premium",
       }),
     ).toBe("open");
   });
@@ -166,7 +175,7 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
         online: true,
         hasUser: false,
         authErrored: false,
-        cachedPremium: true,
+        cachedMark: "premium",
       }),
     ).toBe("login");
   });
@@ -178,9 +187,184 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
         online: true,
         hasUser: false,
         authErrored: true,
-        cachedPremium: false,
+        cachedMark: "basic",
       }),
     ).toBe("login");
+  });
+});
+
+describe("dấu premium PHẢI mang theo hạn (E4 — premium offline không vĩnh viễn)", () => {
+  const DAY = 24 * 3600 * 1000;
+
+  it("không hạn / hạn hỏng → dấu vẫn dùng được (không lấy cớ đó khoá)", () => {
+    expect(premiumMarkWithinGrace(null, NOW)).toBe(true);
+    expect(premiumMarkWithinGrace(undefined, NOW)).toBe(true);
+    expect(premiumMarkWithinGrace("", NOW)).toBe(true);
+    expect(premiumMarkWithinGrace("không-phải-ngày", NOW)).toBe(true);
+  });
+
+  it("còn hạn → dùng được; quá hạn TRONG biên → vẫn dùng được", () => {
+    const until = new Date(NOW + 10 * DAY).toISOString();
+    expect(premiumMarkWithinGrace(until, NOW)).toBe(true);
+    const justPast = new Date(NOW - (TIER_MARK_GRACE_DAYS - 1) * DAY).toISOString();
+    expect(premiumMarkWithinGrace(justPast, NOW)).toBe(true);
+  });
+
+  it("quá hạn QUÁ biên → hết, dù DB còn ghi tier='premium'", () => {
+    const longPast = new Date(NOW - (TIER_MARK_GRACE_DAYS + 1) * DAY).toISOString();
+    expect(premiumMarkWithinGrace(longPast, NOW)).toBe(false);
+    expect(effectivePremiumMark("premium", longPast, NOW)).toBe("basic");
+  });
+
+  it("biên rộng vài ngày — đồng hồ máy ngoài biển hay lệch", () => {
+    expect(TIER_MARK_GRACE_DAYS).toBeGreaterThanOrEqual(3);
+    // nhưng KHÔNG được rộng hơn tuổi thọ dữ liệu đã tải (≤16 ngày)
+    expect(TIER_MARK_GRACE_DAYS).toBeLessThanOrEqual(16);
+  });
+
+  it("dấu 'basic'/'unknown' không bị hạn đụng vào", () => {
+    const longPast = new Date(NOW - 999 * DAY).toISOString();
+    expect(effectivePremiumMark("basic", longPast, NOW)).toBe("basic");
+    expect(effectivePremiumMark("unknown", longPast, NOW)).toBe("unknown");
+    expect(effectivePremiumMark("unknown", null, NOW)).toBe("unknown");
+  });
+
+  it("MẤT SÓNG + dấu premium ĐÃ HẾT HẠN quá biên → KHÔNG còn open", () => {
+    // đây là ca hồi quy: dấu ghi theo cột `tier` thô, không xét hạn ⇒ khách hết
+    // hạn vẫn "open" offline mọi phiên, không bao giờ hết
+    const longPast = new Date(NOW - 60 * DAY).toISOString();
+    const mark = effectivePremiumMark("premium", longPast, NOW);
+    expect(
+      featureAccessDecision({
+        configured: true,
+        authReady: true,
+        hasUser: true,
+        premium: null,
+        online: false,
+        cachedMark: mark,
+      }),
+    ).not.toBe("open");
+  });
+});
+
+describe("hạ hạng CHỈ VÌ hạn — đừng tin đồng hồ máy hơn dấu đã lưu", () => {
+  const base: FeatureAccessInput = {
+    configured: true,
+    authReady: true,
+    hasUser: true,
+    premium: false,
+    online: true,
+    cachedMark: "premium",
+  };
+
+  it("máy lệch giờ (premium===false chỉ vì hạn) + dấu còn premium → open", () => {
+    expect(featureAccessDecision({ ...base, premiumExpiredOnly: true })).toBe(
+      "open",
+    );
+  });
+
+  it("hạng thường THẬT (tier='basic') → vẫn upgrade, không có cửa sau", () => {
+    expect(
+      featureAccessDecision({ ...base, premiumExpiredOnly: false }),
+    ).toBe("upgrade");
+    // không khai báo gì cũng phải là upgrade (mặc định fail-closed)
+    expect(featureAccessDecision(base)).toBe("upgrade");
+  });
+
+  it("hết hạn THẬT (quá biên nên dấu đã thành 'basic') → upgrade, mời gia hạn", () => {
+    expect(
+      featureAccessDecision({
+        ...base,
+        premiumExpiredOnly: true,
+        cachedMark: "basic",
+      }),
+    ).toBe("upgrade");
+  });
+});
+
+describe("KHÔNG ĐƯỢC KẸT 'đang kiểm tra' VĨNH VIỄN (hồi quy 2026-08-02)", () => {
+  it("ca báo lỗi: có user, chưa tra được hạng, chưa từng có dấu → còn phải hỏi lại", () => {
+    const stuck: FeatureAccessInput = {
+      configured: true,
+      authReady: true,
+      hasUser: true,
+      premium: null,
+      online: true,
+      cachedMark: "unknown",
+      authErrored: false,
+    };
+    // nấc UI đúng là "checking" (im lặng còn hơn nói nhầm hạng)…
+    expect(featureAccessDecision(stuck)).toBe("checking");
+    // …NHƯNG phải có đường ra: hook bắt buộc hẹn giờ hỏi lại
+    expect(
+      shouldRetryTierQuery({ authReady: true, hasUser: true, answered: false }),
+    ).toBe(true);
+    // mất sóng cũng vậy
+    expect(featureAccessDecision({ ...stuck, online: false })).toBe("checking");
+  });
+
+  it("MỌI trạng thái 'checking' khi đã biết là ai đều KÈM đường hỏi lại", () => {
+    // Quét cạn tổ hợp. Luật khoá lại: hễ nấc UI là "checking" mà đã kiểm xong
+    // phiên và biết là ai, thì (a) chắc chắn chưa có câu trả lời tươi
+    // (premium == null) và (b) shouldRetryTierQuery phải bật. Nhờ vậy không tồn
+    // tại trạng thái nào vừa im lặng vừa không tự thoát ra được.
+    const marks: PremiumMark[] = ["premium", "basic", "unknown"];
+    const premiums: (boolean | null)[] = [true, false, null];
+    let seen = 0;
+    for (const authReady of [true, false])
+      for (const hasUser of [true, false])
+        for (const premium of premiums)
+          for (const online of [true, false])
+            for (const cachedMark of marks)
+              for (const authErrored of [true, false])
+                for (const premiumExpiredOnly of [true, false]) {
+                  const i: FeatureAccessInput = {
+                    configured: true,
+                    authReady,
+                    hasUser,
+                    premium,
+                    online,
+                    cachedMark,
+                    authErrored,
+                    premiumExpiredOnly,
+                  };
+                  const access: FeatureAccess = featureAccessDecision(i);
+                  if (access !== "checking" || !authReady || !hasUser) continue;
+                  seen++;
+                  expect(premium).toBeNull();
+                  expect(
+                    shouldRetryTierQuery({
+                      authReady,
+                      hasUser,
+                      answered: premium != null,
+                    }),
+                  ).toBe(true);
+                }
+    expect(seen).toBeGreaterThan(0); // đừng để test rỗng mà vẫn xanh
+  });
+
+  it("tra ĐƯỢC rồi thì thôi hỏi lại (khỏi quay pin giữa biển)", () => {
+    expect(
+      shouldRetryTierQuery({ authReady: true, hasUser: true, answered: true }),
+    ).toBe(false);
+    // chưa biết là ai / chưa kiểm xong phiên → chưa tới lượt tra hạng
+    expect(
+      shouldRetryTierQuery({ authReady: true, hasUser: false, answered: false }),
+    ).toBe(false);
+    expect(
+      shouldRetryTierQuery({ authReady: false, hasUser: true, answered: false }),
+    ).toBe(false);
+  });
+
+  it("nhịp hỏi lại giãn dần, có trần, không bao giờ 0 hay vô hạn", () => {
+    expect(tierRetryDelayMs(0)).toBe(TIER_RETRY_BASE_MS);
+    expect(tierRetryDelayMs(1)).toBe(TIER_RETRY_BASE_MS * 2);
+    expect(tierRetryDelayMs(2)).toBeGreaterThan(tierRetryDelayMs(1));
+    for (const n of [0, 1, 5, 50, 1e6, -3, NaN]) {
+      const d = tierRetryDelayMs(n);
+      expect(d).toBeGreaterThanOrEqual(TIER_RETRY_BASE_MS);
+      expect(d).toBeLessThanOrEqual(TIER_RETRY_MAX_MS);
+    }
   });
 });
 

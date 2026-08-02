@@ -2,8 +2,10 @@
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
-last_verified: 2026-07-31
+last_verified: 2026-08-02
 ttl_days: 90
+
+<!-- re-verified: 2026-08-02 — soát offline MECE (`ops/audit-offline-2026-08-02.md`, mục D-PH5/D-PH6): `crew-list.tsx` chỉ THÊM ĐỒNG HỒ cho hai lời gọi mạng, KHÔNG đổi nghiệp vụ sổ thuyền viên, không đổi shape dữ liệu, không đụng khoá `forfish.crew.v1`. Lỗi cũ: tra cảnh báo CCCD và gửi báo cáo đều `fetch` không `AbortSignal` ⇒ ca "sóng sống mà chết" (bắt tay được, gói tin không về) làm promise không bao giờ settle ⇒ UI kẹt "Đang tra cảnh báo…" / nút kẹt "Đang gửi…" vĩnh viễn, không lỗi, không nút thử lại — bà con không biết đã gửi được hay chưa. Nay 12 s (tra) / 20 s (gửi); nhánh `catch` sẵn có tự lo phần hiển thị. -->
 
 > **Mục đích**: oracle HÀNH VI cho đa-tàu — định nghĩa hồ sơ nào gắn TÀU, hồ sơ nào gắn CHỦ, vòng đời thêm/xóa/đổi tàu chạy ra sao, đúng-sai đo bằng AC nào. KHÔNG mô tả giao diện (việc của [07-design-spec](07-design-spec.md)).
 

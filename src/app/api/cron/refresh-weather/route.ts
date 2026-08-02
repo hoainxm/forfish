@@ -74,7 +74,7 @@ interface RawRow<T> {
 }
 
 async function loadRaw<T>(id: string): Promise<RawRow<T> | null> {
-  const p = (await loadWeatherSnapshot(id)) as RawRow<T> | null;
+  const p = (await loadWeatherSnapshot(id)).payload as RawRow<T> | null;
   if (!p || p.data == null || !Number.isFinite(p.savedAt)) return null;
   return p;
 }
@@ -347,9 +347,13 @@ export async function GET(req: Request) {
       // refresh-currents-depth ghi sẵn — chỉ ĐỌC DB, không fetch nguồn. uv đứng
       // TRƯỚC trong extras nên hôm nay vẫn ưu tiên bản theo giờ (có triều).
       if (missCur.length > 0) {
-        const row = (await loadWeatherSnapshot(
-          curDepthSnapshotId(0, CUR_DEPTH_MAX_DAYS),
-        )) as { savedAt?: number; times?: string[]; cells?: ForecastGrid["cells"] } | null;
+        const row = (
+          await loadWeatherSnapshot(curDepthSnapshotId(0, CUR_DEPTH_MAX_DAYS))
+        ).payload as {
+          savedAt?: number;
+          times?: string[];
+          cells?: ForecastGrid["cells"];
+        } | null;
         if (
           row &&
           Number.isFinite(row.savedAt) &&

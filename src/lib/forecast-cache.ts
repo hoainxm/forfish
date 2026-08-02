@@ -11,8 +11,6 @@
 const PREFIX = "forfish.fc.";
 /** Trần số bản điểm-chạm giữ lại (đủ vài chuyến, không phình localStorage) */
 const MAX_ENTRIES = 40;
-/** Mỗi lần máy báo hết chỗ thì bỏ ÍT NHẤT bấy nhiêu bản CŨ NHẤT (mọi namespace) */
-const DROP_PER_RETRY = 4;
 /** Số lần dọn-rồi-ghi-lại trước khi chịu thua (thà báo thật còn hơn treo) */
 const MAX_RETRY = 3;
 
@@ -31,6 +29,76 @@ let lastFullAt = 0;
  */
 export function lastStorageFullAt(): number {
   return lastFullAt;
+}
+
+/**
+ * KẾT CỤC MỘT LẦN GHI DỰ BÁO — ba trạng thái, KHÔNG phải boolean (2026-08-02).
+ *
+ * Vì sao cần trạng thái thứ ba: cửa "đừng đè bản đầy đủ bằng bản thiếu"
+ * (shouldOverwriteGrid / shouldOverwriteScalar) trả false cho HAI chuyện khác
+ * hẳn nhau — "kho đang giữ bản TỐT HƠN, khỏi ghi" (mừng) và "máy hết chỗ" (lo).
+ * Gộp cả hai vào một chữ `false` là gốc của vòng đốt sóng 2 phút/lượt: mẻ tải
+ * sẵn tưởng mình chẳng giữ được gì nên không ghi mốc, rồi mỗi lần bà con liếc
+ * điện thoại lại bắn lại cả mẻ ~2,5–3 MB.
+ *  · `written` — đã nằm xuống máy
+ *  · `kept`    — KHÔNG ghi vì kho đang giữ bản tốt hơn/còn dùng được (coi như xong)
+ *  · `failed`  — không giữ được (máy hết chỗ / không có localStorage)
+ */
+export type ForecastSaveOutcome = "written" | "kept" | "failed";
+
+/**
+ * PHẠM VI ĐẾM GHI của MỘT mẻ (2026-08-02) — mẻ tải sẵn cần biết mình VỪA GIỮ
+ * ĐƯỢC GÌ THẬT, không phải "trong kho đang có gì".
+ *
+ * Vì sao: `shouldMarkPretripRun` từng soi KHO (`saved.places > 0`). Máy đã có
+ * bản 3 hôm trước + mẻ sáng nay hỏng sạch ⇒ vẫn ghi mốc, khoá 6 giờ, tàu đi biển
+ * 10 ngày với dự báo 3 ngày tuổi.
+ *
+ * Vì sao THEO PHẠM VI chứ không phải bộ đếm mức module như bản đầu: nút "Tải
+ * lại" từng lớp trong popup (`runLayer`) cũng ghi qua `saveForecast`, mà cờ
+ * `running` chỉ chặn hai mẻ TỰ ĐỘNG. Bà con chạm "Tải lại" trong lúc mẻ tự động
+ * đang chạy ⇒ bản do NÚT ghi được cộng vào `gained` của mẻ tự động ⇒ mẻ hỏng
+ * sạch vẫn ra "xanh" + khoá 6 giờ. Nay mỗi mẻ mở phạm vi riêng, một lần ghi chỉ
+ * ghi công cho phạm vi MỞ SAU CÙNG. Hai mẻ đan xen thì phạm vi ngoài bị đếm
+ * THIẾU — lệch về phía AN TOÀN (đếm thiếu thì cùng lắm thử lại; đếm thừa mới là
+ * khoá 6 giờ oan giữa lúc cần dự báo).
+ */
+export interface ForecastWriteScope {
+  /** số bản GHI ĐƯỢC theo namespace trong phạm vi này */
+  counts: Record<string, number>;
+  /** số lần TỪ CHỐI GHI VÌ KHO ĐANG GIỮ BẢN TỐT HƠN, theo namespace */
+  kept: Record<string, number>;
+  /** đóng phạm vi — gọi trong `finally`, gọi thừa cũng không sao */
+  end: () => void;
+}
+
+const scopeStack: ForecastWriteScope[] = [];
+
+/** Mở một phạm vi đếm ghi cho mẻ đang chạy. */
+export function beginForecastWrites(): ForecastWriteScope {
+  const s: ForecastWriteScope = {
+    counts: {},
+    kept: {},
+    end: () => {
+      const i = scopeStack.indexOf(s);
+      if (i >= 0) scopeStack.splice(i, 1);
+    },
+  };
+  scopeStack.push(s);
+  return s;
+}
+
+function activeScope(): ForecastWriteScope | null {
+  return scopeStack[scopeStack.length - 1] ?? null;
+}
+
+/**
+ * Ghi nhận "kho đang giữ bản TỐT HƠN nên khỏi ghi" — gọi từ cửa ghi đè của lưới
+ * gió/sóng và lớp dải màu. Không có phạm vi nào mở thì bỏ qua êm.
+ */
+export function noteForecastKept(ns: string): void {
+  const s = activeScope();
+  if (s) s.kept[ns] = (s.kept[ns] ?? 0) + 1;
 }
 
 function key(ns: string, id: string): string {
@@ -72,22 +140,31 @@ export function saveForecast<T>(
   for (let attempt = 0; attempt <= MAX_RETRY; attempt++) {
     try {
       window.localStorage.setItem(k, payload);
+      const s = activeScope();
+      if (s) s.counts[ns] = (s.counts[ns] ?? 0) + 1;
       return true;
     } catch {
-      // Hết chỗ: bỏ bản CŨ NHẤT (mọi namespace dự báo) rồi thử lại. Dọn theo
-      // BYTE chứ không theo số bản (sửa 2026-07-31): bỏ 4 bản điểm ghim ~3 KB
-      // không bao giờ đủ chỗ cho một lưới 16 ngày ~800 KB ⇒ các lớp chạy CUỐI
-      // (độ mặn, nước dâng, dòng chảy tầng sâu) không bao giờ lưu được.
-      // Nới DẦN (1/4 → 1/2 → cả bản): trình duyệt không cho hỏi còn trống bao
-      // nhiêu, nên thiếu một tí cũng đừng dọn sạch cả kho ngay lượt đầu.
+      // Hết chỗ: bỏ bản RẺ NHẤT trước (bậc hy sinh), rồi mới tới bản cũ trong
+      // cùng bậc. Dọn theo BYTE chứ không theo số bản (sửa 2026-07-31): bỏ 4
+      // bản điểm ghim ~3 KB không bao giờ đủ chỗ cho một lưới 16 ngày ~800 KB
+      // ⇒ các lớp chạy CUỐI (độ mặn, nước dâng, dòng chảy tầng sâu) không bao
+      // giờ lưu được.
+      // Nới DẦN (1/4 → 1/2 → 3/4): trình duyệt không cho hỏi còn trống bao
+      // nhiêu, nên thiếu một tí cũng đừng dọn sạch cả kho ngay lượt đầu. GIỮ
+      // vòng nới dần này — bỏ nó là dựng lại đúng lỗi "kẹt vĩnh viễn" 2026-07-25.
       const want = Math.ceil((needBytes * (attempt + 1)) / (MAX_RETRY + 1));
-      if (attempt === MAX_RETRY || dropOldest(DROP_PER_RETRY, want, k) === 0) {
-        lastFullAt = now;
+      if (attempt === MAX_RETRY || dropOldest(want, k) === 0) {
+        // MỐC SỰ CỐ, KHÔNG phải tuổi số liệu (sửa 2026-08-02): `now` là tuổi
+        // của SỐ LIỆU (giờ chạy cron của snapshot, thường mấy giờ TRƯỚC), ghi
+        // nó vào đây thì `lastStorageFullAt() >= startedAt` luôn sai ⇒ bà con
+        // KHÔNG bao giờ thấy dòng "Máy hết chỗ nhớ" dù lưới 16 ngày không lưu
+        // nổi; tệ hơn, mốc thật do bước khác đặt bị kéo LÙI, xoá luôn cảnh báo.
+        lastFullAt = Date.now();
         return false;
       }
     }
   }
-  lastFullAt = now;
+  lastFullAt = Date.now();
   return false;
 }
 
@@ -144,17 +221,47 @@ function trim(ns: string, max: number = MAX_ENTRIES): void {
 }
 
 /**
- * Máy hết chỗ: bỏ bản CŨ NHẤT của mọi namespace dự báo cho tới khi bỏ đủ `n`
- * bản VÀ giải phóng đủ `needBytes`. `keep` = khoá đang định ghi (bỏ nó thì ghi
- * lại ngay, chẳng dôi ra chỗ nào). Trả về SỐ BẢN đã bỏ.
+ * Máy hết chỗ: bỏ bản RẺ NHẤT (bậc hy sinh DROP_RANK) cho tới khi giải phóng đủ
+ * `needBytes`. `keep` = khoá đang định ghi (bỏ nó thì ghi lại ngay, chẳng dôi ra
+ * chỗ nào). Trả về SỐ BẢN đã bỏ.
+ *
+ * BA LỖI ĐÃ SỬA (2026-08-02):
+ *  1. Xếp nạn nhân theo `savedAt` — mà `savedAt` của lưới gió/sóng là GIỜ CHẠY
+ *     CRON (luôn trông "cũ"), còn lớp mây vừa tải mang giờ máy ⇒ lưới 16 ngày
+ *     ~1,6 MB bị xoá để nhường chỗ cho lớp "xem cho biết". Nay xếp theo BẬC
+ *     trước, trong cùng bậc mới xét cũ trước — cùng luật với reclaimForecastSpace.
+ *  2. Luôn bỏ TỐI THIỂU 4 bản dù chỉ cần vài KB. Nay đủ chỗ là dừng (vẫn phải bỏ
+ *     ít nhất 1 bản, không thì vòng nới dần ở saveForecast quay vòng vô ích).
+ *  3. THIẾU TRẦN BẬC: xếp đúng thứ tự nạn nhân nhưng không có luật DỪNG, nên vòng
+ *     lặp cứ đi tiếp lên các bậc quý hơn. Ghi một lớp độ mặn ~500 KB (bậc 2) lúc
+ *     máy đầy: dọn hết price + point + scalar vẫn thiếu ⇒ đi tiếp sang grid,
+ *     fishmark, rồi **storm** — BẢN TIN BÃO bị xoá để nhét một lớp dải màu "xem
+ *     cho biết". Đúng thứ mà DROP_RANK tuyên bố đang bảo vệ. Nay dừng ngay khi
+ *     nạn nhân kế tiếp QUÝ HƠN thứ đang ghi.
  */
-function dropOldest(n: number, needBytes = 0, keep?: string): number {
+function dropOldest(needBytes = 0, keep?: string): number {
   try {
+    /* TRẦN BẬC: chỉ được hy sinh thứ RẺ HƠN HOẶC NGANG HÀNG với thứ đang ghi.
+       `keep` không truyền (không biết đang ghi gì) → không đặt trần, giữ nguyên
+       hành vi cũ.
+
+       Vì sao `>` chứ không `>=` (đừng đổi mà không đọc chỗ này): NGANG HÀNG =
+       cùng một hạng giá trị, bỏ bản CŨ để nhận bản MỚI cùng loại là đúng việc —
+       `rankedVictims` trong cùng bậc đã xếp cũ trước. Đặt `>=` là cấm luôn cả
+       chuyện đó: 40 bản điểm-chạm lấp đầy máy thì KHÔNG bản điểm nào ghi được
+       nữa, tức dựng lại đúng lỗi "kẹt vĩnh viễn" 2026-07-25 mà vòng MAX_RETRY
+       nới dần sinh ra để chống. */
+    const ceiling = keep == null ? Infinity : dropRank(keep);
+    const victims = rankedVictims();
     let dropped = 0;
     let freed = 0;
-    for (const it of entriesUnder(PREFIX)) {
-      if (dropped >= n && freed >= needBytes) break;
+    for (const it of victims) {
+      if (dropped >= 1 && freed >= needBytes) break;
       if (it.k === keep) continue;
+      // nạn nhân kế tiếp quý hơn thứ đang ghi → THÀ KHÔNG GHI. Trả về số đã bỏ;
+      // saveForecast thấy 0 thì báo "máy hết chỗ" — nói thật còn hơn âm thầm
+      // xoá tin bão.
+      if (dropRank(it.k) > ceiling) break;
       const v = window.localStorage.getItem(it.k) ?? "";
       window.localStorage.removeItem(it.k);
       freed += (it.k.length + v.length) * 2;
@@ -167,30 +274,48 @@ function dropOldest(n: number, needBytes = 0, keep?: string): number {
 }
 
 /**
- * BẬC HY SINH khi phải bỏ bản dự báo để nhường chỗ cho dữ liệu bà con tự gõ.
- * Số NHỎ = bỏ TRƯỚC. Xếp theo "giữa biển mất thì thiệt tới đâu":
- *   0 `point`    — dự báo một toạ độ, vài KB, chạm lại là có
- *   1 `scalar`/`seascalar` — lớp dải màu (mây/mưa/nhiệt/độ mặn/nước dâng): xem cho biết
- *   2 `curdepth` — dòng chảy tầng sâu
- *   3 `grid`     — LƯỚI GIÓ/SÓNG cả vùng: an toàn tính mạng, giữa biển không tải lại được
- *   4 `fishmark` — bản đồ cá bà con chủ động ghim cho chuyến này
+ * BẬC HY SINH khi phải bỏ bản dự báo (nhường chỗ cho dữ liệu bà con tự gõ, HOẶC
+ * cho một bản dự báo quý hơn). Số NHỎ = bỏ TRƯỚC. Xếp theo "giữa biển mất thì
+ * thiệt tới đâu":
+ *   0 `price`    — bảng giá cá/dầu: vài KB, mất cũng chỉ là không biết giá lúc rời bờ
+ *   1 `point`    — dự báo một toạ độ, vài KB, chạm lại là có
+ *   2 `scalar`/`seascalar` — lớp dải màu (mây/mưa/nhiệt/độ mặn/nước dâng): xem cho biết
+ *   3 `curdepth` — dòng chảy tầng sâu
+ *   4 `grid`     — LƯỚI GIÓ/SÓNG cả vùng: an toàn tính mạng, giữa biển không tải lại được
+ *   5 `fishmark` — bản đồ cá bà con chủ động ghim cho chuyến này
+ *   6 `storm`    — TIN BÃO: an toàn TÍNH MẠNG và chỉ vài KB. Bỏ nó chẳng giải
+ *                  phóng được chỗ nào đáng kể mà lại lấy mất đúng thứ cứu người
+ *                  ⇒ bỏ SAU CÙNG (2026-08-02: trước đây `storm` và `price` không
+ *                  có trong bảng nên rơi vào bậc mặc định, tin bão bị hy sinh
+ *                  TRƯỚC cả lưới gió).
  * Namespace lạ (thêm sau) rơi vào bậc mặc định giữa bảng — không bao giờ bị bỏ
  * trước `point`, cũng không được ưu tiên hơn `grid`.
  */
 const DROP_RANK: Record<string, number> = {
-  point: 0,
-  scalar: 1,
-  seascalar: 1,
-  curdepth: 2,
-  grid: 3,
-  fishmark: 4,
+  price: 0,
+  point: 1,
+  scalar: 2,
+  seascalar: 2,
+  curdepth: 3,
+  grid: 4,
+  fishmark: 5,
+  storm: 6,
 };
-const DROP_RANK_DEFAULT = 2;
+const DROP_RANK_DEFAULT = 3;
 
 /** Bậc hy sinh của một key đầy đủ `forfish.fc.<ns>.<id>` */
 function dropRank(fullKey: string): number {
   const ns = fullKey.slice(PREFIX.length).split(".")[0] ?? "";
   return DROP_RANK[ns] ?? DROP_RANK_DEFAULT;
+}
+
+/** Mọi bản dự báo, XẾP THEO THỨ TỰ ĐEM BỎ: bậc rẻ trước, cùng bậc thì cũ trước.
+    MỘT nguồn sự thật cho cả hai đường dọn (máy đầy lúc ghi dự báo · nhường chỗ
+    cho dữ liệu bà con tự gõ) — trước đây hai đường xếp nạn nhân KHÁC NHAU. */
+function rankedVictims(): { k: string; savedAt: number }[] {
+  return entriesUnder(PREFIX).sort(
+    (a, b) => dropRank(a.k) - dropRank(b.k) || a.savedAt - b.savedAt,
+  );
 }
 
 /**
@@ -216,9 +341,7 @@ function dropRank(fullKey: string): number {
 export function reclaimForecastSpace(needBytes: number): number {
   const need = Math.max(0, needBytes);
   try {
-    const items = entriesUnder(PREFIX).sort(
-      (a, b) => dropRank(a.k) - dropRank(b.k) || a.savedAt - b.savedAt,
-    );
+    const items = rankedVictims();
     let dropped = 0;
     let freed = 0;
     for (const it of items) {

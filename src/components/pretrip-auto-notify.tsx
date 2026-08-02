@@ -25,6 +25,8 @@ import {
 } from "@/lib/pretrip";
 import {
   autoPretripLine,
+  autoPretripTone,
+  coverageChipOk,
   coverageChipText,
   lastAutoPretripAt,
   markAutoPretripRun,
@@ -86,6 +88,13 @@ export const NOTIFY_HIDE_MS = 5000;
  * PRETRIP_MIN_RETRY_MS lo phần không dội data.
  */
 let lastAttemptAt: number | null = null;
+/**
+ * Lần thử gần nhất có BỊ CẮT giữa chừng không (hết trần 240 giây). Mẻ bị cắt cố
+ * ý KHÔNG ghi mốc 6 giờ (còn 6–8 lớp chưa tải), nên nếu vẫn để cửa 2 phút thì
+ * mỗi lần bà con liếc điện thoại lại một mẻ nữa — cờ này giãn cửa ra 30 phút
+ * (PRETRIP_PARTIAL_RETRY_MS). Ở mức module như `lastAttemptAt`, cùng vòng đời.
+ */
+let lastAttemptPartial = false;
 /** đang chạy dở → không bắn chồng */
 let running = false;
 
@@ -112,6 +121,7 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
       !shouldAttemptAutoPretrip({
         lastRunAt: lastAutoPretripAt(),
         lastAttemptAt,
+        lastAttemptPartial,
         nowMs: Date.now(),
         online,
       })
@@ -129,10 +139,15 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
         // lại cũng vô ích). Ghi vô điều kiện là khoá 6 giờ ngay cả khi hỏng
         // sạch — xem shouldMarkPretripRun.
         if (shouldMarkPretripRun(r)) markAutoPretripRun();
-        const ok = !r.full && r.ok > 0 && r.saved.places > 0 && !!r.saved.untilIso;
-        setNote({ text: autoPretripLine(r), kind: ok ? "ok" : "warn" });
+        // Mẻ bị cắt giữa chừng → giãn cửa THỬ LẠI ra 30 phút (không ghi mốc 6
+        // giờ nhưng cũng không được bắn lại sau 2 phút).
+        lastAttemptPartial = r.timedOut;
+        // MÀU khớp CHỮ, dựng cùng một chỗ (autoPretripTone) để không bao giờ
+        // lệch: xanh mà chữ nói "còn thiếu vài lớp" là nói dối bằng màu.
+        setNote({ text: autoPretripLine(r), kind: autoPretripTone(r) });
       })
       .catch(() => {
+        lastAttemptPartial = false;
         setNote({ text: "Chưa tải được dự báo — chưa có sóng.", kind: "warn" });
       })
       .finally(() => {
@@ -228,7 +243,10 @@ export function PretripSavedStatus({
   const text = shellMissing
     ? "Vỏ app chưa tải đủ — mở lại lúc có sóng"
     : coverageChipText(phase, cov);
-  const allSaved = !!cov?.allSaved && shellOk === true;
+  // MÀU phải khớp CHỮ: đủ lớp + còn hạn + chưa quá chu kỳ (coverageChipOk),
+  // chứ không chỉ "có bản trong máy" — chip xanh trên bản 10 ngày tuổi là lời
+  // hứa dối ở đúng chỗ bà con liếc trước khi nhổ neo.
+  const allSaved = coverageChipOk(cov) && shellOk === true;
   const tone =
     phase === "loading" ? "text-navy" : allSaved ? "text-ok" : "text-warn";
 

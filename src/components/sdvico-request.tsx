@@ -6,6 +6,7 @@ import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { apiUrl } from "@/lib/api-base";
 import { CheckIcon, PhoneIcon } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
+import { withDeadline } from "@/lib/auth-error";
 import { sanitizePhoneInput } from "@/components/auth-form";
 import {
   SDVICO_HOTLINE,
@@ -96,19 +97,27 @@ function RequestForm({
       return;
     }
     let alive = true;
-    supabase.auth.getUser().then(({ data }) => {
-      if (!alive) return;
-      const u = data?.user;
-      if (u) {
+    /* LỖI ĐÃ SỬA (D-PH4, soát 2026-08-02): `getUser()` không có đồng hồ và
+       KHÔNG có nhánh hỏng — mất sóng là `checked` đứng mãi ở false ⇒ nút "Gửi
+       yêu cầu" DISABLED VĨNH VIỄN, đúng lúc bà con cần gọi hỗ trợ nhất.
+       Sửa đúng chỗ: `setChecked(true)` nằm ở `finally` — hỏi được hay không
+       thì form vẫn phải mở (không biết SĐT thì bà con tự gõ, đúng như khách
+       lạ). Đồng hồ 8 giây chỉ là lớp hai, cho ca treo không bao giờ settle. */
+    void withDeadline(supabase.auth.getUser(), 8000)
+      .then((res) => {
+        if (!alive) return;
+        const u = res?.data?.user;
+        if (!u) return;
         const p = u.phone || (u.email ? u.email.split("@")[0] : "");
         if (p) {
           setSignedPhone(p);
           setPhone(p);
         }
         setName((u.user_metadata?.full_name as string | undefined) ?? "");
-      }
-      setChecked(true);
-    });
+      })
+      .finally(() => {
+        if (alive) setChecked(true);
+      });
     return () => {
       alive = false;
     };

@@ -21,10 +21,13 @@ import { saveForecast } from "../forecast-cache";
 import {
   dedupePoints,
   pretripSteps,
+  pretripTimedOut,
   savedSummary,
   savedLayers,
   savedCoverage,
+  CURDEPTH_STEP_MAX_MS,
   PRETRIP_GRID_DAYS,
+  PRETRIP_MAX_MS,
   PRETRIP_SCALAR_DAYS,
 } from "../pretrip";
 
@@ -147,5 +150,32 @@ describe("savedSummary — 'trong máy đang có gì'", () => {
     expect(s.places).toBe(2);
     expect(s.untilIso).toBe("2026-08-09");
     expect(s.gridDays).toEqual([3, 16]);
+  });
+});
+
+/*
+  TRẦN THỜI GIAN CẢ MẺ (D-PH3, 2026-08-02). Chuỗi 12–14 bước chạy tuần tự, mỗi
+  bước ôm đồng hồ riêng 20–55 giây ⇒ ca sóng "sống mà chết" đo ra ~13 phút, suốt
+  thời gian đó cờ `running` khoá mọi lần thử khác và rời màn cũng không dừng.
+  ĐI KÈM shouldMarkPretripRun đọc `gained`: cắt sớm mà cửa chặn còn đọc KHO thì
+  mẻ bị cắt cũng khoá 6 giờ.
+*/
+describe("pretripTimedOut — trần thời gian cả mẻ", () => {
+  it("chưa tới trần → chạy tiếp", () => {
+    expect(pretripTimedOut(1000, 1000 + PRETRIP_MAX_MS - 1)).toBe(false);
+  });
+
+  it("đúng trần / quá trần → dừng, đừng vắt kiệt từng đồng hồ một", () => {
+    expect(pretripTimedOut(1000, 1000 + PRETRIP_MAX_MS)).toBe(true);
+    expect(pretripTimedOut(1000, 1000 + 13 * 60_000)).toBe(true);
+  });
+
+  it("đồng hồ máy chỉnh LÙI giữa mẻ → không cắt oan", () => {
+    expect(pretripTimedOut(1000, 500)).toBe(false);
+  });
+
+  it("trần cả mẻ 4 phút, riêng bước dòng chảy tầng 90 giây (đang chiếm 330s)", () => {
+    expect(PRETRIP_MAX_MS).toBe(240_000);
+    expect(CURDEPTH_STEP_MAX_MS).toBeLessThan(PRETRIP_MAX_MS / 2);
   });
 });

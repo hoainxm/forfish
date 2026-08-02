@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiUrl } from "@/lib/api-base";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { withDeadline } from "@/lib/auth-error";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -79,11 +80,19 @@ export default function DangKyPage() {
     }
 
     // Tài khoản đã sẵn sàng → vào luôn.
-    const { error: signInError } = await supabase!.auth.signInWithPassword({
-      email: phoneToEmail(phone),
-      password,
-    });
-    if (signInError) {
+    // ĐỒNG HỒ CHẶN (soát 2026-08-02): cú này chạy SAU khi tài khoản đã tạo
+    // THẬT trên máy chủ. Không có đồng hồ thì nút kẹt "Đang tạo…" vĩnh viễn ⇒
+    // bà con bấm tạo lần hai và nhận "Số điện thoại này đã có tài khoản" mà
+    // không hiểu vì sao. Treo/hỏng đều đẩy sang màn Đăng nhập — việc đã xong,
+    // chỉ còn thiếu bước vào.
+    const signIn = await withDeadline(
+      supabase!.auth.signInWithPassword({
+        email: phoneToEmail(phone),
+        password,
+      }),
+      25000,
+    );
+    if (!signIn || signIn.error) {
       // hiếm — tạo xong mà chưa vào được thì để bà con đăng nhập tay
       router.replace("/login");
       return;

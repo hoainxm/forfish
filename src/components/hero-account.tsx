@@ -12,6 +12,11 @@ import {
 } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { clearInbox } from "@/lib/inbox";
+import {
+  clearTierMark,
+  forgetIdentity,
+  offlineIdentityPhone,
+} from "@/lib/offline-identity";
 import { useAuthUser } from "@/lib/use-auth";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { tierBadge } from "@/lib/tier";
@@ -36,6 +41,10 @@ import {
 */
 
 const MODE_KEY = "forfish.displaymode.v1";
+
+/** Đăng xuất chờ tối đa bấy nhiêu rồi coi như KHÔNG đăng xuất được (cùng khuôn
+ *  đồng hồ với use-auth 8s / use-tier 12s — nút bấm thì phải ngắn hơn). */
+const SIGN_OUT_MS = 6000;
 
 type Mode = "auto" | "to" | "gon";
 
@@ -130,6 +139,81 @@ export function HeroAccount() {
         ? "Trình duyệt đang chặn quyền thông báo — vào cài đặt trình duyệt để bật lại."
         : "Chưa bật được — kiểm tra mạng rồi thử lại.",
     );
+  }
+
+  /* ĐĂNG XUẤT — có đồng hồ và có KIỂM KẾT QUẢ (sửa 2026-08-02, Extra-2).
+     Bản cũ xoá hộp thư + gỡ push TRƯỚC rồi mới `await signOut()` không đồng hồ.
+     Mất sóng thì signOut treo tới lúc trình duyệt bỏ cuộc: bà con VẪN đang đăng
+     nhập, mà thư trong máy thì đã mất VĨNH VIỄN, nút thì kẹt. Nay: đăng xuất
+     trước, chỉ khi máy chủ (hoặc auth-js) xác nhận xong mới dọn dữ liệu; hỏng
+     thì nói thật một câu và trả nút về cho bà con bấm lại lúc có sóng. */
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+  /* CÒN DẤU TÀI KHOẢN TRÊN MÁY NÀY KHÔNG — đọc trong effect (không đọc lúc
+     render) để bản dựng máy chủ và bản vẽ đầu ở máy khớp nhau. */
+  const [deviceBound, setDeviceBound] = useState(false);
+  useEffect(() => {
+    setDeviceBound(offlineIdentityPhone() !== null);
+  }, [user]);
+
+  async function doSignOut() {
+    if (signingOut) return;
+    setSignOutError(null);
+    setSigningOut(true);
+    const supabase = createClient();
+    let done = false;
+    if (!supabase) {
+      done = true; // demo mode (chưa cấu hình Supabase) — không có phiên để gỡ
+    } else {
+      done = await Promise.race([
+        supabase.auth
+          .signOut()
+          .then((r) => !r?.error)
+          .catch(() => false),
+        // đồng hồ: mất sóng thì signOut() có thể không bao giờ settle
+        new Promise<boolean>((res) => setTimeout(() => res(false), SIGN_OUT_MS)),
+      ]);
+    }
+    setSigningOut(false);
+    if (!done) {
+      setSignOutError("Chưa đăng xuất được — chưa có sóng. Thử lại lúc có sóng nhé.");
+      return;
+    }
+    // ĐÃ đăng xuất thật mới dọn máy. Gỡ tài khoản khỏi máy này để tin nhắm
+    // riêng của chủ tàu không chạy tới máy đang trong tay bạn thuyền (nhận
+    // diện bằng endpoint nên không cần phiên); xoá hộp thư vì tàu dùng chung
+    // điện thoại; quên danh tính VÀ xoá dấu hạng.
+    //
+    // XOÁ DẤU HẠNG GỌI THẲNG, KHÔNG QUA EFFECT (sửa 2026-08-02): auth-js bắn
+    // `SIGNED_OUT` NGAY TRONG `await signOut()` ở trên, nên `hasUser` đã đổi
+    // true→false lúc danh tính offline VẪN CÒN ⇒ effect canh
+    // `shouldClearPremiumMark` trong use-tier chạy đúng lúc điều kiện chưa
+    // thoả, rồi `forgetIdentity()` chạy sau lại không đổi dep nào ⇒ effect
+    // không chạy lại ⇒ dấu premium NẰM LẠI MÁY. Chủ tàu đăng xuất ở cảng, đưa
+    // máy cho bạn thuyền, ra khơi mất sóng là bạn thuyền dùng premium của chủ
+    // tàu. Việc xoá quyền không được phụ thuộc thứ tự lập lịch của React.
+    void detachPushAccount();
+    clearInbox();
+    forgetIdentity();
+    clearTierMark(); // thừa một nhịp (forgetIdentity đã gọi) — cố ý, đây là quyền
+    setDeviceBound(false);
+    setOpen(false);
+    router.refresh();
+  }
+
+  /* GỠ MÁY KHỎI TÀI KHOẢN KHI KHÔNG CÓ SÓNG (thêm 2026-08-02).
+     Phiên Supabase sống ~1 giờ. Hết phiên là sheet này hiện "Đăng nhập" và
+     GIẤU luôn nút Đăng xuất (`{user && …}`) — lúc đó máy vẫn còn danh tính,
+     hộp thư và dấu hạng của người trước mà KHÔNG còn đường nào gỡ ra, vì gỡ
+     kiểu tử tế thì cần sóng. Nút này dọn sạch phần nằm trong máy, không gọi
+     mạng một lần nào. */
+  function forgetThisDevice() {
+    clearInbox();
+    forgetIdentity();
+    clearTierMark();
+    setDeviceBound(false);
+    setOpen(false);
+    router.refresh();
   }
 
   useEffect(() => {
@@ -326,26 +410,41 @@ export function HeroAccount() {
           )}
 
           {user && (
-            <button
-              type="button"
-              onClick={async () => {
-                // GỠ tài khoản khỏi máy này TRƯỚC khi mất phiên: máy vẫn nhận
-                // thông báo chung, thôi nhận tin nhắm riêng. Tàu dùng chung
-                // điện thoại thì tin của chủ tàu không được chạy tới máy đang
-                // trong tay bạn thuyền. Bắn rồi quên — đăng xuất KHÔNG chờ nó.
-                void detachPushAccount();
-                // xoá hộp thư khỏi máy: tàu dùng chung điện thoại, thư của
-                // người trước không được nằm lại cho người sau đọc
-                clearInbox();
-                const supabase = createClient();
-                await supabase?.auth.signOut();
-                setOpen(false);
-                router.refresh();
-              }}
-              className="flex min-h-[3.25rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-trim transition active:scale-[0.98]"
-            >
-              Đăng xuất
-            </button>
+            <>
+              <button
+                type="button"
+                disabled={signingOut}
+                onClick={() => void doSignOut()}
+                className="flex min-h-[3.25rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-trim transition active:scale-[0.98] disabled:opacity-60"
+              >
+                {signingOut ? "Đang đăng xuất…" : "Đăng xuất"}
+              </button>
+              {signOutError && (
+                <p className="mt-2 px-1 text-center text-[0.875rem] font-semibold text-danger">
+                  {signOutError}
+                </p>
+              )}
+            </>
+          )}
+
+          {/* CHƯA đăng nhập được (phiên hết hạn / mất sóng) mà máy VẪN còn dấu
+              tài khoản người trước → phải có đường gỡ, và đường đó không được
+              cần sóng. Không có nó thì tàu dùng chung máy sẽ mang theo hộp thư
+              và quyền premium của chủ tàu ra khơi. */}
+          {!user && deviceBound && (
+            <>
+              <button
+                type="button"
+                onClick={forgetThisDevice}
+                className="flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field px-4 text-center text-[1.0625rem] font-bold text-trim transition active:scale-[0.98]"
+              >
+                Xoá dữ liệu tài khoản khỏi máy này
+              </button>
+              <p className="mt-2 px-1 text-center text-[0.875rem] leading-snug text-foreground/70">
+                Xoá thư cũ và số điện thoại đã lưu trong máy. Không cần sóng.
+                Dữ liệu trên máy chủ vẫn còn, đăng nhập lại là thấy.
+              </p>
+            </>
           )}
         </BottomSheet>
       )}

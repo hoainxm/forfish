@@ -4,11 +4,22 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-08-01
+last_verified: 2026-08-02
 ttl_days: 90
 gate: warn
 ```
 <!-- gate: warn vì UI churn src/app+src/components cao — cảnh báo thay vì chặn. KHÔNG để comment cùng dòng `gate:` (hook tr -d ' ' giữ lại # → phá so khớp = "warn" → chặn nhầm). -->
+
+<!-- re-verified: 2026-08-02 (soát chéo bản vá offline — nhóm HẠNG + DANH TÍNH, sheet Tài khoản):
+(a) **KHÔNG ĐƯỢC KẸT "đang kiểm tra" CẢ PHIÊN.** Bản vá cùng ngày đổi deps hook tra hạng sang `user.id` để hết nháy, nhưng đường tự thử lại DUY NHẤT trước đó lại chính là `user` đổi object mỗi lần TOKEN_REFRESHED. Hậu quả: một cú tra hỏng lúc mở app ở cảng sóng "sống mà chết" khoá bà con ở nấc "checking" tới lúc tắt hẳn app — lớp Cá im lặng, KHÔNG khoá, KHÔNG mời nâng cấp, KHÔNG nút thử lại, sóng về cũng không tra lại; chip hạng trong sheet Tài khoản cũng không bao giờ hiện. Nay hook tự hẹn giờ hỏi lại (30 s → gấp đôi dần → trần 10 phút) và hỏi NGAY khi máy báo có sóng lại; hỏi được rồi thì thôi. Màn hình KHÔNG đổi gì về mặt nhìn — đổi là ở chỗ trạng thái im lặng bây giờ luôn có đường thoát.
+(b) **HÀNG MỚI trong sheet Tài khoản: "Xoá dữ liệu tài khoản khỏi máy này"** — chỉ hiện khi CHƯA đăng nhập (`!user`) mà máy VẪN còn danh tính offline. Trước đây nút Đăng xuất nằm trong `{user && …}`, nên phiên hết hạn giữa biển là bà con mất luôn đường gỡ máy khỏi tài khoản người trước (gỡ tử tế thì cần sóng). Nút nền `bg-field`, chữ `text-trim`, cao 3.5rem, kèm câu giải thích "Xoá thư cũ và số điện thoại đã lưu trong máy. Không cần sóng. Dữ liệu trên máy chủ vẫn còn, đăng nhập lại là thấy." — KHÔNG gọi mạng một lần nào.
+(c) Chip hạng: hết hạn premium nay CÓ hiệu lực cả khi mất sóng (dấu trong máy mang theo hạn, biên rộng 7 ngày cho đồng hồ máy lệch) — trước đây dấu ghi theo cột `tier` thô nên khách hết hạn vẫn "Premium" offline vĩnh viễn. Ngược lại, máy lệch giờ mà máy chủ vẫn ghi premium thì KHÔNG bị hạ xuống "Tài khoản thường". -->
+
+<!-- re-verified: 2026-08-02 (soát chéo bản vá offline — nhóm BẢN ĐỒ + DỰ BÁO BIỂN, màn Ra khơi `/ngu-truong`):
+(a) **SÓNG ƯỚC PHẢI NÓI RA Ở CHỖ ĐỌC ĐẦU TIÊN.** Khi nguồn sóng thủng, app dựng ngày bằng sóng ước từ gió (`estimateWaveFromWind`) — trước đây dấu "(ước)" CHỈ có trong danh sách ngày của màn Dự báo biển, còn **dòng tóm tắt ở peek** ("Sóng tới 1,2 m …") và **ô "Cả ngày"** trong sheet điểm chạm thì im, đúng hai chỗ bà con đọc để quyết ra khơi. Nay cả hai gắn `(ước)` ngay sau con số. **Thêm MỘT dòng vàng** (chỉ hiện khi thật sự có sóng ước): *"Chưa lấy được số sóng thật — số sóng ở trên là máy ước theo gió, tình trạng biển cũng theo số ước đó. Nghe thêm đài duyên hải trước khi ra khơi."* — vì "Biển êm / Biển động" + điểm 1–100 chấm từ chính con số ước đó (`scoreDay` CỐ Ý không nhận cờ: hạ điểm sẽ đẻ ra con số thứ ba không giải thích được). Ngày dữ liệu bình thường: màn KHÔNG đổi gì, dòng vàng không hiện.
+(b) **HẾT NHẤP NHÁY "Mạng yếu — đang dùng bản đồ lưu trong máy."** Đồng hồ 9 giây (`BASEMAP_SILENT_MS`) trước đây bấm từ lúc MỞ MÀN; MapLibre lazy-load nên ở 3G cảng ngân sách tiêu gần hết trước khi có request ô nền nào ⇒ giây 9 bật hình bờ offline + câu SAI SỰ THẬT, giây 12 ô về thì tắt. Nay bấm từ lúc bản đồ **thật sự xin ô nền** (`sourcedataloading` của source `basemap`, chốt chặn `load`); ô nền về là dừng đồng hồ. Ý đồ vá C-6 giữ nguyên: ô nền im lặng quá lâu vẫn bật hình bờ trong máy.
+(c) Lớp bờ offline chỉ dựng khi mốc chèn `base-top` ĐÃ có trong style (đổi lớp bản đồ = `setStyle` có khoảnh khắc chưa có mốc; MapLibre `addLayer` gặp mốc lạ thì bỏ ngang, lớp không được thêm ⇒ hình bờ lặng lẽ mất đúng lúc mất sóng). `beforeId` giữ NGUYÊN một giá trị, không đổi động. Vẫn tuyệt đối KHÔNG hạ xuống dưới `sea-mask` (xoá Hoàng Sa/Trường Sa).
+(d) Tin bão: lần hỏi đầu tiên bị reject nay ra trạng thái **"chưa hỏi được"** thay vì kẹt vĩnh viễn ở "đang hỏi" — im lặng mập mờ với tin bão nguy hiểm ngang nói sai. Không đè lên bản tin bão đang hiện. -->
 
 <!-- re-verified: 2026-08-01j — /quan-tri tab Tài khoản, hàng "Máy khách" thêm CHIP LOẠI MÁY (`iPhone` / `Android` / `Máy khác`, nền `bg-field` trung tính) đứng NGAY SAU chip bậc dùng app và TRƯỚC dãy mốc thời gian; chỉ hiện khi máy đã báo (chưa biết thì không bày gì, đừng đoán). Tooltip mỗi loại ghi thẳng bước cần chỉ cho bà con: iPhone → "Chia sẻ → Thêm vào Màn hình chính" kèm cảnh báo bản cài iOS dùng kho RIÊNG (tải trong Safari không tính); Android → "bấm Cài ứng dụng", kho dùng chung với Chrome. Vì sao cần: nhân viên gọi điện nhắc mà không biết máy gì thì chỉ sai bước, bà con làm theo xong vẫn ra khơi tay trắng.
 ĐỔI NGHĨA BẬC "ĐỦ ĐỒ ĐI BIỂN" (chủ dự án chốt: "1 chiều thôi, web → PWA → tải; nếu không PWA thì nó cứ nằm ở Web để đảm bảo họ có PWA"): trước đây máy Android tải đủ dữ liệu TRONG TAB vẫn được lên chip xanh "Đủ đồ đi biển" và tụt khỏi danh sách đáng-gọi-điện dù chưa cài gì; nay chưa mở bản cài thì đứng lại ở "Chưa mở bản cài" (vàng) trên MỌI máy. Nhãn chip và khuôn chữ KHÔNG đổi — chỉ đổi điều kiện lên bậc.
@@ -118,6 +129,13 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 | Tàu | tab Sản phẩm/Dịch vụ: `guest` mời đăng nhập | "Chưa có … bấm nút cam" | `error` → Thử lại; `unlinked` → giải thích; **máy hết chỗ → banner ĐỎ "Máy hết chỗ — CHƯA lưu được …"** (giấy tờ · bảo dưỡng · bạn thuyền, 2026-07-31) | "Đang kiểm tra đồ SDVICO…" |
 | Bạn thuyền | public; sổ MẪU tự xưng "sổ mẫu" (tủ giấy tờ + lịch bảo dưỡng cũng vậy từ 2026-07-31); tra cảnh báo (inline khi gõ CCCD) + báo cáo: hạng thường/chưa login → hint nâng cấp / `PremiumLock`; demo mode → "cần máy chủ thật" | empty + nút cam | tra INLINE khi gõ đủ 12 số (✓ xanh / cảnh báo đỏ) | hydrate sau mount |
 | Đăng nhập | — | — | "Sai số điện thoại hoặc mật khẩu" | nút "Đang vào…" |
+| **MỌI màn — lỗi vẽ màn** (2026-08-02) | — | — | `src/app/error.tsx`: **"Màn hình này đang trục trặc"** + "Dữ liệu bà con đã lưu trong máy vẫn còn nguyên. Bấm Mở lại giúp nhé — không cần sóng." + nút **Mở lại** (`reset()`, KHÔNG tải lại trang) + **Về Trang chủ** | — |
+
+> **VÌ SAO CÓ HÀNG CUỐI (2026-08-02):** repo trước đây **không có `error.tsx`/`global-error.tsx` ở bất kỳ đâu** — mọi lỗi render phía máy rơi vào trang lỗi mặc định của Next: **tiếng Anh, không nút thử lại, không đường về**. Giữa biển đó là ngõ cụt: tắt app mở lại vẫn vào đúng màn đang lỗi. Đây là lưới an toàn RẺ NHẤT cho cả nhóm lỗi client (chunk lazy nạp hụt, `JSON.parse` bản lưu hỏng ném ngoài `catch`, `AbortSignal.timeout` thiếu trên WebView cũ).
+
+**TRẠNG THÁI PREMIUM KHI MẤT SÓNG — BA, KHÔNG PHẢI HAI** (2026-08-02, E5): dấu hạng lưu trong máy nay có `unknown` tách khỏi `basic`. Mất sóng mà **chưa bao giờ tra được hạng** thì app **IM LẶNG** (không chip, không lời mời nâng cấp) thay vì khẳng định "Tài khoản thường · Gọi SDVICO để mở dự báo cá" — nói câu đó với người vừa trả tiền mà máy chưa kịp tra là sai. Đúng luật đã ghi sẵn trong `tier.ts`: *thà không nói gì còn hơn nháy nhầm*. Ngoại lệ giữ tỉnh táo: đã kiểm xong phiên và rõ ràng KHÔNG có ai đăng nhập (máy mới tinh / vừa đăng xuất) thì mời đăng nhập, vì lúc đó im lặng thành vòng quay vô nghĩa.
+
+**NÚT ĐĂNG XUẤT KHI MẤT SÓNG** (2026-08-02): trước đây bấm là `clearInbox()` chạy TRƯỚC rồi mới gọi máy chủ ⇒ mất sóng thì **xoá sạch hộp thư mà KHÔNG đăng xuất được**, sheet vẫn đóng nên bà con tin là đã xong (và máy vẫn đang đăng nhập chủ tàu trong tay bạn thuyền). Nay: đồng hồ 6 giây + **kiểm kết quả**, chỉ khi máy chủ xác nhận mới xoá hộp thư/danh tính/gắn push; hỏng thì nói thật **"Chưa đăng xuất được — chưa có sóng."** và nút bật lại.
 
 ## 7. Action → Expectation (đã hiện thực)
 
@@ -282,15 +300,28 @@ Bỏ cả ba thứ cũ: nút "Chuẩn bị đi biển", thẻ xanh "Xong. Máy g
 | Xong | **"Đã lưu dự báo tới ngày D/M."** → tự ẩn sau **5 giây** | `bg-ok-bg` + ✓ |
 | Hỏng / mất sóng giữa chừng | **"Chưa tải được dự báo — chưa có sóng."** → tự ẩn | `bg-warn-bg` + ⚠ |
 | Máy hết chỗ nhớ | **"Máy hết chỗ nhớ — xoá bớt điểm đã lưu."** → tự ẩn | `bg-warn-bg` + ⚠ |
+| **Mẻ bị cắt vì quá 4 phút** (2026-08-02) | **"Mới tải được một phần — sóng chậm, còn thiếu vài lớp."** | `bg-warn-bg` + ⚠ |
+| **Không tải được gì mới nhưng bản trong máy CÒN DÙNG ĐƯỢC** (2026-08-02) | **"Dự báo trong máy vẫn còn dùng được."** | `bg-ok-bg` + ✓ |
+
+> **BA TRẠNG THÁI, KHÔNG PHẢI HAI (2026-08-02).** Trước đây dòng này chỉ có "xong" và "hỏng", mà "xong" lại đo bằng **ảnh chụp cả kho** ⇒ mẻ hỏng sạch trên một máy đã có bản 3 hôm trước vẫn khoe "Đã lưu dự báo tới ngày…". Nay tách rõ: **ghi được gì mới** (xanh, nói ngày) · **không ghi được gì mới nhưng bản trong máy còn tươi** (xanh, nói thật là dùng bản cũ — quan trọng: nguồn 429 mà máy đang giữ bản tốt thì đó KHÔNG phải thất bại, và cũng không được bắt máy tải lại mỗi 2 phút) · **hỏng thật / bị cắt** (vàng). Màu và chữ dựng cùng một chỗ (`autoPretripTone`) để không bao giờ lệch nhau.
+>
+> Kèm theo: mẻ bị cắt giữa chừng **không khoá 6 giờ** nữa mà chỉ hoãn **30 phút** (`PRETRIP_PARTIAL_RETRY_MS`) — cắt mà vẫn khoá 6 giờ là bỏ bà con ra khơi với 6–8 lớp chưa tải; nhưng thả về cửa 2 phút thì mỗi lần liếc điện thoại là một mẻ 3 MB tiền sóng.
 
 **Nhãn nhỏ THƯỜNG TRỰC "đã sẵn sàng ra khơi chưa"** (`PretripSavedStatus` trong `pretrip-auto-notify.tsx`, thêm 2026-07-26): khác dòng nổi tự tắt ở trên — đây là **chip nhỏ 13px căn phải, nằm ngay TRÊN box biển động** (slot `above` của `SnapSheet`, **chỉ ở nấc `peek`**), để bà con liếc là biết trong máy đã lưu ĐỦ dự báo cho offline chưa. **ĐỘ PHỦ TRUNG THỰC (2026-07-29, user)**: câu chữ ở `coverageChipText` (`lib/pretrip-auto.ts`, thuần, có test) đọc `savedCoverage()` — "Đã lưu đủ… tới ngày X" **CHỈ** nói khi MỌI lớp tự-tải-được đã có (điểm gió sóng · bản đồ cá · lưới gió sóng · lớp mây-mưa-nhiệt · độ mặn · dòng chảy tầng); thiếu thì nói thẳng số lớp. Trước đây "tới ngày X" đo mỗi gió-sóng-điểm nên **nói quá** (cá/lớp màu/dòng chảy chưa chắc có).
 
 | Trạng thái | Chip | Màu |
 |---|---|---|
 | Đang tải sẵn | **"Đang tải dữ liệu dự báo"** (+ chấm nhấp nháy) | chữ navy |
-| ĐỦ mọi lớp | **"Đã lưu đủ dự báo — tới ngày D/M"** | chữ `text-ok` |
+| ĐỦ mọi lớp **và còn tươi** | **"Đã lưu đủ dự báo — tới ngày D/M"** | chữ `text-ok` |
+| Đủ lớp nhưng **ngày xa nhất ĐÃ QUA** | **"Dự báo đã lưu hết hạn — chạm tải lại"** | chữ `text-warn` |
+| Đủ lớp nhưng **có lớp đã cũ** (`fresh === false`) | **"Dự báo trong máy đã cũ — chạm tải mới"** | chữ `text-warn` |
 | Còn thiếu lớp | **"Còn thiếu N lớp — chạm xem"** | chữ `text-warn` |
 | Chưa có gì | **"Chưa tải dữ liệu dự báo"** | chữ `text-warn` |
+| Vỏ app chưa đủ | **"Vỏ app chưa tải đủ — mở lại lúc có sóng"** | chữ `text-warn` |
+
+> **HAI TRẠNG THÁI GIỮA LÀ MỚI (2026-08-02, soát offline MECE).** Trước đây `allSaved` chỉ đếm `l.saved`, **không** đếm `l.fresh`, và `untilIso` in ra bất kể tuổi ⇒ máy có đủ 9 lớp từ 10 ngày trước vẫn hiện chip **xanh** "Đã lưu đủ dự báo — tới ngày &lt;ngày đã qua&gt;". Đúng khuôn "khoe xanh trên nền đã hỏng", mà lại ở chính cái chip bà con liếc trước khi nhổ neo. Kèm theo: thêm `coverageChipOk()` để **MÀU khớp với CHỮ** — component trước đây tô xanh chỉ dựa `cov.allSaved` nên có lúc chữ nói thiếu mà màu vẫn xanh.
+>
+> **Dòng nổi tự tắt** (`autoPretripLine`) cũng đổi theo: nay đọc `gained` (mẻ VỪA CHẠY ghi được gì) chứ không đọc ảnh chụp cả kho, nên mẻ hỏng sạch trên một máy đã có bản cũ không còn khoe **"Đã lưu dự báo tới ngày …"**; nó nói thật **"Chưa tải được dự báo — chưa có sóng."**
 
 **CHẠM → POPUP "Dữ liệu đã lưu để đi biển"** (`PretripSavedSheet`, BottomSheet dùng chung): liệt kê **7 lớp** (2026-07-29z2 thêm **Nước dâng/xoáy** SSHA), mỗi dòng ✓ xanh (đã lưu + chi tiết + "lưu X trước" + **~dung lượng**) hoặc ⚠ vàng (chưa lưu) + nút **"Tải lại"** (chạy `runLayer(id)` đúng lớp đó) / "Tải mới" cho lớp đã có; đáy có **"Tải lại N lớp còn thiếu"** + **"Tổng trong máy ~X MB"**. Bản đồ cá khoá premium → nhãn "khoá", không tính là thiếu. **Nhãn lớp NÓI RÕ phạm vi**: "Gió sóng CẢ VÙNG biển" (lưới toàn Biển Đông — xem ở bất kỳ đâu) vs "Gió sóng chi tiết theo điểm" (chỉ điểm ghim + đang xem); lớp màu ghi đủ 5 (mây, mưa, nhiệt, dông, áp suất). **SAO LƯU RA TỆP** (2026-07-29z2): 2 nút "Lưu ra tệp" (tải JSON gom localStorage + bản đồ cá SW) / "Phục hồi từ tệp" (`offline-backup.ts`) — phòng máy/trình duyệt xoá cache giữa chuyến dài. Đây là chỗ bà con thấy CHÍNH XÁC đã lưu gì + tải bù lớp còn trống (thay hành vi "chạm = tải cả mẻ" cũ).
 
@@ -340,7 +371,11 @@ Lỗ hổng cuối của mạch §10.1–10.2: số liệu đã nói thật, nh�
 | Gió/sóng, điểm nóng cá, tin bão | Bản đã lưu (§10.1–10.2) | — |
 | Hải đồ EMODnet, phao đèn, ảnh vệ tinh | Chỉ vùng **đã xem lúc còn sóng** (hải đồ/phao) · ảnh vệ tinh thì không | tile đi qua `/api/tiles/*` mới cache được; NASA/CARTO vẫn cross-origin |
 
-**B. Khi nào bật nền trong máy** — `shouldUseOfflineBasemap({online, fails})`: máy báo mất mạng → bật **ngay**; máy báo có mạng nhưng ô nền trượt ≥ **3 ô** (wifi cảng "có mà không ra") → cũng bật. Tải được một ô là đếm về 0 và tắt lại. **Có sóng thì KHÔNG vẽ** — nền thật đủ tốt, vẽ chồng chỉ rối. Lớp bờ đặt DƯỚI mọi lớp khác (ranh giới, cá, mũi tên gió vẫn nổi trên).
+**B. Khi nào bật nền trong máy** — `shouldUseOfflineBasemap({online, fails, silent})`: máy báo mất mạng → bật **ngay**; máy báo có mạng nhưng ô nền trượt ≥ **3 ô** (wifi cảng "có mà không ra") → cũng bật. Tải được một ô là đếm về 0 và tắt lại. **Có sóng thì KHÔNG vẽ** — nền thật đủ tốt, vẽ chồng chỉ rối. Lớp bờ đặt DƯỚI mọi lớp nội dung (ranh giới, cá, mũi tên gió vẫn nổi trên).
+
+> **VẾ THỨ BA `silent` — 2026-08-02, lỗi CHẶN C-6.** Hai vế cũ **không bắt được đúng ca tính năng này sinh ra để cứu**: ô nền Carto là cross-origin nên không đi qua service worker, MapLibre **không có đồng hồ**, và ở ca "sóng sống mà chết" (bắt tay được, gói tin không về) ô nền **treo** ⇒ MapLibre **không bắn sự kiện `error`** ⇒ `fails` đứng nguyên 0 ⇒ `shouldUseOfflineBasemap({online:true, fails:0})` trả `false` ⇒ hình bờ + đảo **đã nằm sẵn trong máy không bao giờ được vẽ**. Bà con nhìn một mặt xanh trơn, mũi tên gió và chấm tàu lơ lửng, không thấy bờ, không thấy đảo. Nay: ô nền **im lặng quá `BASEMAP_SILENT_MS` = 9 giây** cũng là một vế bật; ô nào về là tắt ngay. Kèm theo: dữ liệu bờ `vn-coast.v1.json` nay nạp **VÔ ĐIỀU KIỆN** lúc mở màn (trước bị chính cờ `offlineBase` gác, tức phải bật nền offline mới nạp — mà muốn bật thì lại cần dữ liệu; hỏng một lần là hỏng cả phiên vì `.catch(() => {})` nuốt im và deps không đổi nữa). File same-origin 220 KB, nằm sẵn trong kho service worker ⇒ **không tốn sóng**.
+>
+> ⚠️ **Nút Offline của DevTools KHÔNG tái hiện được ca này** (lúc đó `onLine=false` nên vế thứ nhất đã cứu). Phải test bằng **hotspot-không-internet** — xem `ops/qa-offline-acceptance.md §0`.
 
 **C. Chữ báo cho bà con — MỘT DÒNG, TỰ ẨN** (sửa 2026-07-25p)
 
@@ -503,7 +538,7 @@ Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔN
 
 ---
 
-**Last updated**: 2026-06-16
+**Last updated**: 2026-08-02
 <!-- re-verified: 2026-06-11 — screen map khớp routes; contrast AA pass home/nguoi/tau (eval) -->
 <!-- re-verified: 2026-06-15 — thêm /tien Báo cáo năm/Tính chuyến/Công nợ + /tau checklist xuất bến + hồ sơ/lặp lại chuyến; fix layout suppressHydrationWarning không đổi screen spec -->
 <!-- re-verified: 2026-06-15 — triage full-sweep; fixed demo-persist §8 (doc-vault/maint/products) + title grammar /tau; contrast/tabular re-confirmed 06-11 -->

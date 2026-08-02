@@ -50,7 +50,9 @@ import {
   loadForecast,
   loadAll,
   lastStorageFullAt,
+  beginForecastWrites,
   coordId,
+  noteForecastKept,
   reclaimForecastSpace,
   savedAgoLabel,
 } from "../forecast-cache";
@@ -143,26 +145,195 @@ describe("máy hết chỗ (QuotaExceeded)", () => {
     expect(saveForecast("point", "moi2", { i: 100 }, 10000)).toBe(true);
   });
 
-  it("dọn xuyên namespace: lưới gió cũ nhường chỗ cho dự báo điểm", () => {
-    QUOTA = 6;
-    for (let i = 0; i < 6; i++) saveForecast("grid", `d${i}`, { i }, i);
-    expect(saveForecast("point", "a", { v: 1 }, 100)).toBe(true);
-    expect(loadForecast("grid", "d0")).toBeNull();
+  /*
+    DỌN XUYÊN NAMESPACE THEO BẬC HY SINH (viết lại 2026-08-02). Bản cũ của test
+    này dựng kho CHỈ CÓ grid — kịch bản suy biến, không phân biệt được bậc nào
+    với bậc nào — mà TÊN test lại phát biểu chính sách NGƯỢC với DROP_RANK
+    ("lưới gió nhường chỗ cho dự báo điểm"). Luật thật: LƯỚI GIÓ/SÓNG là an toàn
+    tính mạng, giữa biển không tải lại được ⇒ bỏ SAU điểm-chạm.
+  */
+  it("dọn xuyên namespace: bỏ bản RẺ trước, lưới gió/sóng được chừa", () => {
+    QUOTA = 4;
+    saveForecast("grid", "d16", { i: 0 }, 0); // savedAt = giờ cron → trông "cũ nhất"
+    saveForecast("point", "a", { i: 1 }, 100);
+    saveForecast("point", "b", { i: 2 }, 200);
+    saveForecast("point", "c", { i: 3 }, 300);
+    expect(saveForecast("scalar", "cloud", { v: 1 }, 400)).toBe(true);
+    // nạn nhân là bản điểm CŨ NHẤT, KHÔNG phải lưới 16 ngày
+    expect(loadForecast("point", "a")).toBeNull();
+    expect(loadForecast("grid", "d16")).not.toBeNull();
+    expect(loadForecast("scalar", "cloud")).not.toBeNull();
+  });
+
+  it("TIN BÃO không bị hy sinh trước lưới gió (an toàn tính mạng, chỉ vài KB)", () => {
+    QUOTA = 3;
+    saveForecast("storm", "latest", { ok: true }, 0); // cũ nhất theo savedAt
+    saveForecast("grid", "d16", { i: 1 }, 100);
+    saveForecast("curdepth", "t150", { i: 2 }, 200);
+    // ghi bản đồ cá GHIM (bậc 5) — được phép hy sinh thứ rẻ hơn nó
+    expect(saveForecast("fishmark", "m", { v: 1 }, 300)).toBe(true);
+    expect(loadForecast("storm", "latest")).not.toBeNull(); // bậc cao nhất
+    expect(loadForecast("curdepth", "t150")).toBeNull(); // rẻ nhất → đi trước
+  });
+
+  /*
+    TRẦN BẬC (lỗi K4-b, 2026-08-02): vòng dọn xếp đúng thứ tự nạn nhân nhưng
+    KHÔNG có luật dừng, nên khi thứ rẻ không đủ chỗ nó cứ đi tiếp lên bậc quý
+    hơn. Ghi một lớp dải màu "xem cho biết" lúc máy đầy là ăn sạch price →
+    point → scalar → grid → fishmark → STORM: bản tin bão bị xoá để nhét một
+    lớp màu. Nay thà KHÔNG GHI được và báo "máy hết chỗ" — nói thật.
+  */
+  describe("trần bậc — đừng hy sinh thứ QUÝ HƠN thứ đang ghi", () => {
+    const big = (n: number) => "x".repeat(n);
+
+    it("lớp dải màu KHÔNG được xoá tin bão / lưới gió / bản đồ cá ghim", () => {
+      QUOTA_BYTES = 6000;
+      saveForecast("storm", "latest", { blob: big(300) }, 0);
+      saveForecast("grid", "d16", { blob: big(600) }, 100);
+      saveForecast("fishmark", "m", { blob: big(300) }, 200);
+      // lớp độ mặn to hơn phần trống còn lại → PHẢI trượt, không được ăn bậc trên
+      expect(saveForecast("scalar", "salinity", { blob: big(2000) }, 300)).toBe(
+        false,
+      );
+      expect(loadForecast("storm", "latest")).not.toBeNull();
+      expect(loadForecast("grid", "d16")).not.toBeNull();
+      expect(loadForecast("fishmark", "m")).not.toBeNull();
+      expect(lastStorageFullAt()).toBeGreaterThan(0); // có báo "máy hết chỗ"
+    });
+
+    it("lớp dải màu VẪN được hy sinh thứ RẺ HƠN (giá cá, điểm ghim)", () => {
+      QUOTA_BYTES = 6000;
+      saveForecast("price", "port", { blob: big(400) }, 0);
+      saveForecast("point", "a", { blob: big(400) }, 100);
+      saveForecast("storm", "latest", { blob: big(200) }, 200);
+      expect(saveForecast("scalar", "cloud", { blob: big(2000) }, 300)).toBe(true);
+      expect(loadForecast("price", "port")).toBeNull();
+      expect(loadForecast("storm", "latest")).not.toBeNull();
+    });
+
+    /* KHÔNG được dựng lại lỗi "kẹt vĩnh viễn" 2026-07-25: NGANG HÀNG là cùng
+       hạng giá trị, bỏ bản CŨ để nhận bản MỚI cùng loại vẫn phải chạy được. */
+    it("NGANG HÀNG vẫn nhường chỗ được — không kẹt vĩnh viễn", () => {
+      QUOTA = 5;
+      for (let i = 0; i < 5; i++) saveForecast("point", `p${i}`, { i }, i);
+      expect(saveForecast("point", "moi", { v: 1 }, 999)).toBe(true);
+      expect(loadForecast("point", "p0")).toBeNull();
+      expect(loadForecast("point", "moi")).not.toBeNull();
+    });
+  });
+
+  it("giá cá là thứ bỏ ĐẦU TIÊN (rẻ nhất trong bảng)", () => {
+    QUOTA = 2;
+    saveForecast("point", "a", { v: 1 }, 0); // cũ nhất theo savedAt
+    saveForecast("price", "port", { v: 2 }, 900);
+    expect(saveForecast("grid", "d3", { v: 3 }, 1000)).toBe(true);
+    expect(loadForecast("price", "port")).toBeNull();
     expect(loadForecast("point", "a")).not.toBeNull();
   });
 
-  it("hết chỗ thật (không dọn được gì) → trả false + ghi mốc để UI nói thật", () => {
+  it("chỉ cần vài KB thì CHỈ bỏ 1 bản, không bỏ tối thiểu 4 bản như trước", () => {
+    QUOTA = 5;
+    for (let i = 0; i < 5; i++) saveForecast("point", `p${i}`, { i }, i);
+    expect(saveForecast("point", "moi", { v: 1 }, 999)).toBe(true);
+    expect(loadForecast("point", "p0")).toBeNull(); // đúng 1 bản nhường chỗ
+    for (const id of ["p1", "p2", "p3", "p4"]) {
+      expect(loadForecast("point", id)).not.toBeNull();
+    }
+  });
+
+  /*
+    MỐC HẾT CHỖ LÀ MỐC SỰ CỐ, KHÔNG PHẢI TUỔI SỐ LIỆU (sửa 2026-08-02).
+    Bản cũ của test này khẳng định `lastStorageFullAt() === 4242` — tức khoá lại
+    hành vi SAI: `saveForecast(GRID_NS, id, snap, snap.savedAt)` truyền GIỜ CHẠY
+    CRON (mấy giờ trước) ⇒ `full = lastStorageFullAt() >= startedAt` luôn false
+    ⇒ bà con KHÔNG bao giờ thấy dòng "Máy hết chỗ nhớ" dù lưới 16 ngày không hề
+    lưu được.
+  */
+  it("hết chỗ thật → trả false + ghi mốc SỰ CỐ (giờ máy), không phải tuổi số liệu", () => {
     QUOTA = 0;
-    const before = lastStorageFullAt();
+    const t0 = Date.now();
+    // 4242 = tuổi số liệu (mốc cron 1970) — KHÔNG được lọt vào mốc sự cố
     expect(saveForecast("point", "a", { v: 1 }, 4242)).toBe(false);
-    expect(lastStorageFullAt()).toBe(4242);
-    expect(lastStorageFullAt()).not.toBe(before);
+    expect(lastStorageFullAt()).toBeGreaterThanOrEqual(t0);
+    expect(lastStorageFullAt()).not.toBe(4242);
+  });
+
+  it("mốc hết chỗ đủ để pretrip thấy 'máy hết chỗ' dù số liệu mang tuổi cũ", () => {
+    QUOTA = 0;
+    const startedAt = Date.now(); // như runPretrip
+    saveForecast("grid", "d16", { v: 1 }, startedAt - 5 * 60 * 60 * 1000);
+    expect(lastStorageFullAt() >= startedAt).toBe(true);
   });
 
   it("lưu được thì KHÔNG đánh dấu hết chỗ", () => {
     const before = lastStorageFullAt();
     expect(saveForecast("point", "a", { v: 1 }, 777777)).toBe(true);
     expect(lastStorageFullAt()).toBe(before);
+  });
+});
+
+/*
+  PHẠM VI ĐẾM GHI (2026-08-02) — mẻ tải sẵn phải biết mình VỪA giữ được gì THẬT,
+  không được đọc kho (kho có sẵn bản 3 hôm trước → khoá 6 giờ oan). Và phải đếm
+  THEO MẺ: nút "Tải lại" từng lớp trong popup không bị cờ `running` chặn, bản nó
+  ghi được mà lọt vào bộ đếm của mẻ tự động thì mẻ hỏng sạch vẫn ra "xanh".
+*/
+describe("beginForecastWrites — đếm việc GHI theo TỪNG MẺ", () => {
+  it("chỉ tăng khi ghi ĐƯỢC; máy đầy thì không tăng", () => {
+    const s = beginForecastWrites();
+    saveForecast("point", "a", { v: 1 }, 100);
+    saveForecast("point", "b", { v: 2 }, 200);
+    saveForecast("grid", "d3", { v: 3 }, 300);
+    expect(s.counts.point).toBe(2);
+    expect(s.counts.grid).toBe(1);
+
+    QUOTA = 0;
+    localStorage.clear();
+    expect(saveForecast("point", "c", { v: 4 }, 400)).toBe(false);
+    expect(s.counts.point).toBe(2); // ghi trượt thì không tính
+    s.end();
+  });
+
+  it("đóng phạm vi rồi thì bản ghi sau KHÔNG cộng vào nữa", () => {
+    const s = beginForecastWrites();
+    saveForecast("point", "a", { v: 1 }, 100);
+    s.end();
+    saveForecast("point", "b", { v: 2 }, 200);
+    expect(s.counts.point).toBe(1);
+  });
+
+  /* LỖI K5: hai mẻ chồng nhau — mẻ TỰ ĐỘNG đang chạy thì bà con chạm "Tải lại"
+     một lớp trong popup. Bản do NÚT ghi được không được tính cho mẻ tự động. */
+  it("mẻ lồng nhau: bản ghi trong mẻ TRONG không lọt sang mẻ NGOÀI", () => {
+    const auto = beginForecastWrites();
+    saveForecast("point", "a", { v: 1 }, 100); // của mẻ tự động
+    const tay = beginForecastWrites(); // bà con bấm "Tải lại"
+    saveForecast("grid", "d3", { v: 2 }, 200);
+    saveForecast("grid", "d16", { v: 3 }, 300);
+    tay.end();
+    saveForecast("point", "b", { v: 4 }, 400); // lại của mẻ tự động
+    auto.end();
+    expect(tay.counts).toEqual({ grid: 2 });
+    expect(auto.counts).toEqual({ point: 2 });
+    expect(auto.counts.grid).toBeUndefined(); // KHÔNG được ra "xanh" nhờ nút bấm
+  });
+
+  it("không có mẻ nào mở → ghi vẫn chạy, chỉ là không ai đếm", () => {
+    expect(saveForecast("point", "z", { v: 1 }, 100)).toBe(true);
+  });
+
+  /* "Kho đang giữ bản TỐT HƠN nên khỏi ghi" ≠ "hỏng vì sóng" — đếm riêng, nếu
+     không thì cửa 2 phút mở lại ở mỗi lần liếc điện thoại (~3 MB/lượt). */
+  it("kept đếm riêng khỏi counts", () => {
+    const s = beginForecastWrites();
+    noteForecastKept("grid");
+    noteForecastKept("grid");
+    noteForecastKept("scalar");
+    s.end();
+    expect(s.kept).toEqual({ grid: 2, scalar: 1 });
+    expect(s.counts).toEqual({});
+    noteForecastKept("grid"); // ngoài phạm vi → bỏ qua êm, không ném
+    expect(s.kept.grid).toBe(2);
   });
 });
 

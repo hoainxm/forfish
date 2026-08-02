@@ -35,6 +35,7 @@ import {
   SEA_SCALAR_NS,
 } from "@/lib/sea-scalars";
 import {
+  beginForecastWrites,
   bytesUnder,
   coordId,
   lastStorageFullAt,
@@ -95,6 +96,44 @@ export interface PretripResult {
   full: boolean;
   /** tóm tắt "trong máy đang có gì" sau khi tải */
   saved: SavedSummary;
+  /**
+   * MẺ NÀY GIỮ ĐƯỢC GÌ THẬT: số bản GHI ĐƯỢC theo namespace trong lúc chạy
+   * (`{ point: 3, grid: 2 }`). Khác hẳn `saved` — `saved` là ảnh chụp cả KHO,
+   * trong đó có cả bản 3 hôm trước. Cửa chặn 6 giờ và dòng báo phải soi trường
+   * này, không được soi `saved` (xem shouldMarkPretripRun / autoPretripLine).
+   */
+  gained: Record<string, number>;
+  /**
+   * SỐ LẦN "KHO ĐANG GIỮ BẢN TỐT HƠN NÊN KHỎI GHI" theo namespace (2026-08-02).
+   *
+   * Vì sao phải tách khỏi `gained`: cửa `shouldOverwriteGrid` từ chối ghi khi
+   * bản mới nghèo hơn bản đang giữ. Ca thật hay gặp — nguồn marine 429 (chuyện
+   * thường), máy đang giữ lưới đầy đủ lưu 7 giờ trước, bà con chưa ghim điểm nào
+   * ⇒ cả 3 khung [3,7,16] đều bị từ chối ⇒ `gained` rỗng ⇒ không ghi mốc ⇒ cửa 2
+   * PHÚT mở lại ở MỖI lần bà con liếc điện thoại, mỗi lần một mẻ 13 bước ~2,5–3
+   * MB. Sim của bà con trả tiền theo dung lượng. "Từ chối vì kho đang giữ bản
+   * tốt hơn" là ĐÃ GIỮ ĐƯỢC, không phải hỏng.
+   */
+  kept: Record<string, number>;
+  /**
+   * KHO ĐANG GIỮ LỚP CỐT LÕI CÒN TƯƠI (theo nhịp phát hành nguồn) sau mẻ này.
+   * Bọc nốt ca không có lần ghi nào: mọi bước đều thấy bản trong máy còn hiện
+   * hành nên trả thẳng từ kho, không gọi mạng, không ghi gì — `gained` và `kept`
+   * đều rỗng mà máy thật sự đã sẵn sàng đi biển.
+   *
+   * KHÔNG dựng lại lỗi C-5 ("kho có bản 3 hôm trước → khoá 6 giờ oan"): `fresh`
+   * đo bằng `isCacheCurrent`, bản quá nhịp phát hành / quá 12 giờ là false.
+   */
+  coreFresh: boolean;
+  /**
+   * MẺ BỊ CẮT GIỮA CHỪNG vì chạm trần `PRETRIP_MAX_MS` — CÒN VIỆC CHƯA CHẠY.
+   * Bắt buộc phải có (2026-08-02): điểm ghim chạy ĐẦU danh sách, nên ở cảng sóng
+   * chậm-mà-sống mẻ ăn hết 240 giây tại bước 6–7 vẫn có `gained.point > 0` ⇒ ghi
+   * mốc, KHOÁ 6 GIỜ với 6–8 lớp chưa tải, mà dòng báo lại xanh "Đã lưu dự báo
+   * tới ngày …" ngay cạnh chip vàng "Còn thiếu 6 lớp" — hai chỗ trên cùng màn
+   * hình nói ngược nhau.
+   */
+  timedOut: boolean;
 }
 
 export interface PretripPoint {
@@ -366,6 +405,22 @@ export async function runLayer(
   id: SavedLayerId,
   points: PretripPoint[],
 ): Promise<void> {
+  /* PHẠM VI ĐẾM RIÊNG (2026-08-02): nút này KHÔNG bị cờ `running` của mẻ tự động
+     chặn, mà cũng ghi qua `saveForecast`. Không có phạm vi riêng thì bản do bà
+     con bấm tay tải được sẽ bị cộng vào `gained` của mẻ tự động đang chạy — mẻ
+     hỏng sạch vẫn ra "xanh" rồi khoá 6 giờ. */
+  const scope = beginForecastWrites();
+  try {
+    await runLayerInner(id, points);
+  } finally {
+    scope.end();
+  }
+}
+
+async function runLayerInner(
+  id: SavedLayerId,
+  points: PretripPoint[],
+): Promise<void> {
   switch (id) {
     case "point":
       for (const p of dedupePoints(points))
@@ -408,23 +463,42 @@ export async function runLayer(
       if (!live.ok && fuel == null) throw new Error("giá chưa tải được");
       return;
     }
-    case "curdepth": {
-      let ok = 0;
-      for (const t of CUR_DEPTH_PRETRIP_TIERS) {
-        try {
-          await fetchCurDepthGridClient(t, CUR_DEPTH_MAX_DAYS);
-          ok++;
-          continue;
-        } catch {}
-        try {
-          await fetchCurDepthGridClient(t, 3);
-          ok++;
-        } catch {}
-      }
-      if (ok === 0) throw new Error("dòng chảy theo tầng chưa tải được");
+    case "curdepth":
+      await runCurDepthTiers();
       return;
-    }
   }
+}
+
+/**
+ * TRẦN THỜI GIAN cho riêng bước "Dòng chảy theo tầng".
+ *
+ * Vì sao: bước này là 3 tầng × 2 lần thử × 55 giây = 330 GIÂY — hơn nửa ngân
+ * sách của cả mẻ, chỉ cho MỘT lớp "xem cho biết". Ở ca sóng "sống mà chết"
+ * (bắt tay được nhưng không gói tin nào về) nó vắt kiệt từng đồng hồ một, đẩy
+ * các bước SAU (bản đồ mùa vụ) ra khỏi trần chung. 90 giây đủ cho 1–2 tầng khi
+ * sóng còn dùng được, và cắt sớm khi sóng đã chết.
+ */
+export const CURDEPTH_STEP_MAX_MS = 90_000;
+
+/** Tải 3 tầng dòng chảy sâu, có trần thời gian. Một tầng được là coi như xong. */
+async function runCurDepthTiers(maxMs: number = CURDEPTH_STEP_MAX_MS): Promise<void> {
+  const until = Date.now() + maxMs;
+  let ok = 0;
+  for (const t of CUR_DEPTH_PRETRIP_TIERS) {
+    if (Date.now() >= until) break;
+    try {
+      await fetchCurDepthGridClient(t, CUR_DEPTH_MAX_DAYS);
+      ok++;
+      continue;
+    } catch {}
+    // hết giờ thì đừng thử tiếp khung ngắn — mỗi lần thử là thêm 55 giây
+    if (Date.now() >= until) break;
+    try {
+      await fetchCurDepthGridClient(t, 3);
+      ok++;
+    } catch {}
+  }
+  if (ok === 0) throw new Error("dòng chảy theo tầng chưa tải được");
 }
 
 /* --------------------------------------------------------------------------
@@ -527,21 +601,7 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
   // biết hạng ở đây — route tự chặn). Một tầng tải được là coi như xong việc.
   steps.push({
     label: "Dòng chảy theo tầng",
-    run: async () => {
-      let ok = 0;
-      for (const t of CUR_DEPTH_PRETRIP_TIERS) {
-        try {
-          await fetchCurDepthGridClient(t, CUR_DEPTH_MAX_DAYS);
-          ok++;
-          continue;
-        } catch {}
-        try {
-          await fetchCurDepthGridClient(t, 3);
-          ok++;
-        } catch {}
-      }
-      if (ok === 0) throw new Error("dòng chảy theo tầng chưa tải được");
-    },
+    run: () => runCurDepthTiers(),
   });
   // BẢN ĐỒ MÙA VỤ — asset tĩnh cùng origin (~70 KB), lớp cá của chuyến dài pha
   // trộn với nó. Service worker đã pre-cache lúc cài app; gọi ở đây là lưới an
@@ -556,6 +616,29 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
 }
 
 /**
+ * TRẦN THỜI GIAN CẢ MẺ (2026-08-02).
+ *
+ * Vì sao: chuỗi 12–14 bước chạy TUẦN TỰ, mỗi bước ôm đồng hồ riêng (20–55 giây).
+ * Ở ca sóng "sống mà chết" nó vắt kiệt từng cái một — đo trên giấy ~740–810
+ * GIÂY (13 phút). Suốt thời gian đó cờ `running` khoá mọi lần thử khác, không có
+ * nút hủy, rời màn cũng không dừng (cờ nằm ở mức module). 4 phút là quá đủ cho
+ * một mẻ khi sóng còn dùng được; quá đó thì mạng đang chết, chờ thêm chỉ tốn pin.
+ *
+ * ĐI KÈM BẮT BUỘC với `gained`: cắt sớm mà cửa chặn vẫn soi KHO thì mẻ bị cắt
+ * cũng ghi mốc khoá 6 giờ — đúng lỗi C-5.
+ */
+export const PRETRIP_MAX_MS = 240_000;
+
+/** Hết giờ chưa (thuần, test được). Đồng hồ máy chỉnh lùi → chưa, không cắt oan. */
+export function pretripTimedOut(
+  startedAt: number,
+  now: number,
+  maxMs: number = PRETRIP_MAX_MS,
+): boolean {
+  return now - startedAt >= maxMs;
+}
+
+/**
  * Chạy tuần tự, báo tiến trình từng bước. Một việc hỏng KHÔNG dừng cả mẻ —
  * tải được gì giữ nấy, rồi nói thật còn thiếu bao nhiêu.
  */
@@ -566,20 +649,61 @@ export async function runPretrip(
   const steps = pretripSteps(points);
   const total = steps.length;
   const startedAt = Date.now();
+  // PHẠM VI ĐẾM RIÊNG CHO MẺ NÀY: chỉ bản do CHÍNH mẻ này ghi mới được tính.
+  // Bộ đếm mức module (bản cũ) đếm cả bản do nút "Tải lại" từng lớp trong popup
+  // ghi xuống — mẻ auto hỏng sạch vẫn ra "xanh" + khoá 6 giờ (xem
+  // beginForecastWrites / runLayer).
+  const scope = beginForecastWrites();
   let ok = 0;
   let failed = 0;
-  for (let i = 0; i < total; i++) {
-    onProgress?.({ done: i, total, label: steps[i].label });
-    try {
-      await steps[i].run();
-      ok++;
-    } catch {
-      failed++;
+  let timedOut = false;
+  try {
+    for (let i = 0; i < total; i++) {
+      // Kiểm TRƯỚC MỖI BƯỚC: bước vừa rồi có thể đã ngốn cả phút.
+      if (pretripTimedOut(startedAt, Date.now())) {
+        failed += total - i; // các việc chưa kịp làm = chưa tải được, nói thật
+        timedOut = true; // còn việc chưa chạy → KHÔNG được khoá 6 giờ
+        break;
+      }
+      onProgress?.({ done: i, total, label: steps[i].label });
+      try {
+        await steps[i].run();
+        ok++;
+      } catch {
+        failed++;
+      }
     }
+  } finally {
+    scope.end();
   }
   onProgress?.({ done: total, total, label: "Xong" });
   // Tầng lưu báo HẾT CHỖ trong lúc chạy → nói thật, đừng để bà con tưởng máy đã
   // giữ đủ rồi ra khơi mới biết trống.
   const full = lastStorageFullAt() >= startedAt;
-  return { ok, failed, full, saved: savedSummary() };
+  const gained = { ...scope.counts };
+  const kept = { ...scope.kept };
+  return {
+    ok,
+    failed,
+    full,
+    saved: savedSummary(),
+    gained,
+    kept,
+    coreFresh: coreLayersFresh(),
+    timedOut,
+  };
+}
+
+/**
+ * KHO CÓ ĐANG GIỮ LỚP CỐT LÕI CÒN TƯƠI KHÔNG (lưới cả vùng HOẶC gió sóng điểm
+ * ghim). "Tươi" = `isCacheCurrent` bên trong `savedLayers` — nguồn chưa ra bản
+ * mới, kéo lại cũng nhận đúng con số cũ. Thuần đọc, không gọi mạng.
+ *
+ * Chỉ soi HAI lớp cốt lõi: kho có mỗi bản tin bão vài KB còn tươi thì chưa phải
+ * là máy đã sẵn sàng đi biển.
+ */
+function coreLayersFresh(): boolean {
+  return savedLayers().some(
+    (l) => (l.id === "grid" || l.id === "point") && l.saved && l.fresh,
+  );
 }

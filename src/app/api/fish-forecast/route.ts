@@ -36,5 +36,22 @@ export async function GET() {
   // 3) Tính live cũng hỏng (nguồn sập): thà trả snapshot CŨ còn hơn {ok:false}
   //    trắng bản đồ — vẫn còn hơn không có gì.
   if (snap && snap.ok) return Response.json(snap);
-  return Response.json(live); // {ok:false} → client "chạm thử lại"
+  /* 4) KHÔNG CÒN GÌ ĐỂ TRẢ → 503, KHÔNG PHẢI 200 (sửa 2026-08-02, audit C-4).
+        Service worker chỉ cất phản hồi `res.ok`, mà `Response.json({ok:false})`
+        mặc định là 200 ⇒ Supabase snapshot hỏng + nguồn live sập cùng lúc là
+        ĐÈ MẤT bản đồ cá trong kho `sdfish-api-v1` — bản DUY NHẤT, vì
+        fish-predict chỉ lưu DẤU vào localStorage chứ không lưu số liệu. Ra khơi
+        là lớp cá trắng vĩnh viễn mà bảng "trong máy có gì" vẫn báo có.
+        503 nằm trong `isRescuableStatus` ⇒ SW trả lại bản cũ trong kho; client
+        `fetchFishForecast` đã có nhánh `!r.ok → {ok:false}` nên màn hình không
+        đổi. Cùng khuôn với storms/fuel-price/currents-depth. */
+  /*  `s-maxage` cho NHÁNH LỖI (2026-08-02b): route này có `revalidate` cấp
+      route, và Next có thể KHÔNG cất phản hồi khác 200 vào kho ISR ⇒ lúc nguồn
+      sập toàn phần thì MỌI request lại chạy `computeFishForecast()` (7 nguồn,
+      14–30 s) thay vì một lần mỗi 30 phút như hồi trả 200. Tự làm nghẽn đúng
+      lúc hạ tầng đang yếu. 60 giây đủ chặn dồn mà vẫn hồi phục nhanh. */
+  return Response.json(live, {
+    status: 503,
+    headers: { "Cache-Control": "public, s-maxage=60" },
+  });
 }

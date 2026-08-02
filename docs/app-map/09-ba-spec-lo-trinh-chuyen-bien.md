@@ -2,8 +2,10 @@
 
 > Load khi: task chạm đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (pha trộn dự báo × mùa vụ), nguồn dữ liệu cho tầm 16 ngày, hoặc so vị trí hiện tại với tuyến đã lưu.
 covers: src/lib/fish-blend.ts, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
-last_verified: 2026-07-28
+last_verified: 2026-08-02
 ttl_days: 90
+
+<!-- re-verified: 2026-08-02 — soát offline MECE (`ops/audit-offline-2026-08-02.md`, mục D-PH12): `fish-blend.ts` chỉ đổi CÁCH NHỚ LỖI, KHÔNG đổi một con số nào của bộ pha trộn. Lỗi cũ: nhánh tải bản đồ mùa vụ dùng `cached = fetch(...).catch(() => null)` — gán thẳng promise `null` vào biến nhớ ⇒ MỘT lần hỏng là **cả phiên** trả `null`, kể cả khi sóng đã về; lớp cá chuyến dài âm thầm thoái hoá về persistence mà không báo gì. Nay theo khuôn đúng đã có ở `depth-grid.ts`: đặt `cached = null` rồi trả `null`, để lần sau thử lại. Tỷ lệ w(d), thang phân vị, `blendFishCells`, `fishLeadDays` KHÔNG đổi — §5d/§5e/§5f còn đúng nguyên. -->
 
 <!-- re-verified: 2026-07-31 — fish-blend.ts THÊM `fishLeadDays(imageDateIso, viewDateIso, viewLead)` (thuần, có test): tầm ngày của lớp cá phải đếm từ NGÀY ẢNH, không phải từ hôm nay — mất sóng thì service worker trả lại bản đồ cá tải mấy ngày trước mà chip vẫn đứng "Hôm nay", tính theo hôm nay ra w=1 = tin trọn tấm ảnh cũ. Khớp định nghĩa của chính bộ số: scripts/fit-fish-blend-weights.mjs đo `target = addDays(T, d)` với T = ngày ẢNH. Tỷ lệ w(d), thang phân vị, blendFishCells KHÔNG đổi — §5d/§5e/§5f còn đúng nguyên. Chủ dự án 2026-07-31 chốt KHÔNG trừ độ trễ vệ tinh khỏi fishLead (giữ hành vi ngày thường). -->
 > **Mục đích**: oracle HÀNH VI cho tính năng đề xuất lộ trình — bài toán là gì, nguồn dữ liệu phải đạt gì, pha trộn lớp cá theo tỷ lệ nào (số ĐO ĐƯỢC), lưu/đối chiếu tuyến ra sao. KHÔNG mô tả giao diện (việc của [07-design-spec](07-design-spec.md)).

@@ -26,13 +26,16 @@ import {
   buildMapStyle,
   DEFAULT_VIEW,
   OCEAN_LAYERS,
+  OFFLINE_COAST_BEFORE_ID,
   SOVEREIGNTY_LABELS,
   type OceanLayerId,
 } from "@/lib/ocean-map";
 import {
+  BASEMAP_SILENT_MS,
   COAST_DATA_URL,
   OFFLINE_COAST_COLOR,
   OFFLINE_LAND_COLOR,
+  basemapIsSilent,
   nextFailCount,
   offlineBasemapNote,
   shouldUseOfflineBasemap,
@@ -104,6 +107,7 @@ import {
 import {
   fetchCurDepthGridClient,
   peekCurDepthGrid,
+  savedCurDepthDays,
   type CurDepthClientGrid,
 } from "@/lib/cur-depth";
 import { CUR_DEPTH_TIERS, CUR_DEPTH_MAX_DAYS } from "@/lib/weather-snapshot-id";
@@ -241,6 +245,17 @@ const DEPTH_NOTE: Partial<Record<DepthClass, { text: string; danger: boolean }>>
 };
 
 const MAP_LAYER_KEY = "forfish.maplayer.v1";
+
+/**
+ * Dấu cho SỐ SÓNG MÁY TỰ SUY TỪ GIÓ (lib/sea.ts `estimateWaveFromWind`), dùng
+ * khi nguồn sóng thủng. AN TOÀN TÍNH MẠNG — LỖI 2, soát chéo 2026-08-02:
+ * trước đây cờ `waveEstimated` chỉ được dùng ở danh sách ngày của màn Dự báo
+ * biển, còn dòng tóm tắt HÔM NAY và ô "Cả ngày" ngay chỗ bà con chạm bản đồ
+ * thì im — đúng hai chỗ được đọc đầu tiên để quyết ra khơi. Sóng ước chỉ biết
+ * gió tại chỗ, KHÔNG biết sóng lừng từ bão xa: thà nói "chưa có số sóng thật"
+ * còn hơn đưa một con số trông như thật.
+ */
+const WAVE_EST_MARK = " (ước)";
 
 // thanh giờ gió/sóng xổ ra mà 5s không thao tác → tự thu (user 2026-07-28)
 const STRIP_AUTO_HIDE_MS = 5000;
@@ -413,6 +428,13 @@ export default function FishingMapView() {
   const { access: premiumAccess } = useFeatureAccess();
   const premiumLocked =
     premiumAccess === "login" || premiumAccess === "upgrade";
+  /* CHƯA CHẮC LÀ PREMIUM — dùng cho MỌI quyết định "xin bao nhiêu ngày".
+     LỖI ĐÃ SỬA (2026-08-02): lúc mới mở màn `premiumAccess` là "checking" nên
+     `premiumLocked` = false ⇒ app xin thẳng khung 16 ngày, mà máy chủ chắc
+     chắn chặn nếu không phải premium — hai request phí toi đúng lúc sóng đắt
+     nhất giữa biển, trái hẳn chú thích ngay bên dưới. Chỉ "open" mới là BIẾT
+     CHẮC cửa mở; "checking" phải xử như khoá cho tới khi tra xong. */
+  const premiumUnsure = premiumAccess !== "open";
 
   const [fishCast, setFishCast] = useState<FishForecast | null>(null);
   // loài đang lọc trên bản đồ (null = loài tốt nhất mỗi ô)
@@ -516,14 +538,14 @@ export default function FishingMapView() {
   // d16 là hai request chắc chắn bị chặn, tốn sóng vô ích giữa biển.
   useEffect(() => {
     const target = (
-      premiumLocked && !savedLongGrid ? FREE_FORECAST_DAYS : 16
+      premiumUnsure && !savedLongGrid ? FREE_FORECAST_DAYS : 16
     ) as GridDays;
     if (gridDays !== target) {
       setPlaying(false);
       setTimeIdx(0);
       setGridDays(target);
     }
-  }, [premiumLocked, gridDays]);
+  }, [premiumUnsure, savedLongGrid, gridDays]);
 
   // Bấm khung ngày (3/5/7/10/16) → khi lưới MỚI về, nhảy thanh giờ tới NGÀY
   // CUỐI của khung (bấm "10 ngày" = xem luôn gió ~ngày 10, kéo lùi để về gần).
@@ -573,7 +595,14 @@ export default function FishingMapView() {
       return;
     }
     let alive = true;
-    const days = premiumLocked ? 3 : CUR_DEPTH_MAX_DAYS;
+    /* "ĐÃ TẢI THÌ CỨ DÙNG" cũng áp cho DÒNG CHẢY TẦNG SÂU (E6, soát
+       2026-08-02): trước đây chưa-chắc-premium là tụt thẳng về 3 ngày, dù
+       trong máy đang có sẵn bản 10 ngày tải hợp lệ lúc còn hạn. Lớp cá và lưới
+       gió/sóng đã có đường lùi này, đây là chỗ cuối cùng còn sót.
+       Chỉ xin dài khi máy CÓ SẴN — không xin bừa (xem premiumUnsure). */
+    const savedLongDepth = savedCurDepthDays() > FREE_FORECAST_DAYS;
+    const days =
+      premiumUnsure && !savedLongDepth ? FREE_FORECAST_DAYS : CUR_DEPTH_MAX_DAYS;
     // KHÔNG nháy trống nếu tầng này đã có sẵn (RAM/máy) — hiện ngay bản cũ rồi
     // làm mới nền (hết giật khi đổi qua lại Mặt/50/150/300).
     const warm = peekCurDepthGrid(curDepthTier, days);
@@ -589,7 +618,7 @@ export default function FishingMapView() {
     return () => {
       alive = false;
     };
-  }, [forecastKind, curDepthTier, gridFailed, premiumLocked, netEpoch]);
+  }, [forecastKind, curDepthTier, gridFailed, premiumUnsure, netEpoch]);
 
   // Lưới đang cấp số cho LỚP forecastKind: tầng sâu thì thay fGrid bằng lưới
   // ngày của tầng (fGrid vẫn tải để hạt gió nền + tra điểm dùng)
@@ -1015,6 +1044,70 @@ export default function FishingMapView() {
      máy báo mất mạng để bật hình bờ biển lưu trong máy (lib/offline-basemap). */
   const [netOnline, setNetOnline] = useState(true);
   const [basemapFails, setBasemapFails] = useState(0);
+  /* Ô NỀN IM LẶNG — vế thứ ba của shouldUseOfflineBasemap (lỗi C-6).
+     MapLibre không có đồng hồ cho ô: ở sóng "sống mà chết" ô nền treo, KHÔNG
+     bắn `error` nên `basemapFails` đứng 0 và hình bờ trong máy không bao giờ
+     được bật. Ta tự bấm giờ: quá BASEMAP_SILENT_MS mà chưa ô nền nào về thì
+     coi như nền không về; có một ô về là tắt cờ ngay (đường đã thông).
+
+     BẤM GIỜ TỪ LÚC BẢN ĐỒ XIN Ô NỀN, KHÔNG PHẢI TỪ LÚC MỞ MÀN (LỖI 1, soát
+     chéo 2026-08-02): MapLibre lazy-load, style + proxy ô còn nằm phía sau —
+     ở 3G cảng ngân sách 9 giây tiêu gần hết TRƯỚC KHI có request đầu tiên, nên
+     mốc cũ (mount) là dương tính giả: giây 9 bật hình bờ + câu "Mạng yếu",
+     giây 12 ô về thì tắt. Nhấp nháy, và câu vừa nói lại SAI SỰ THẬT.
+     Nay mốc là sự kiện `sourcedataloading` của source `basemap` (chốt chặn:
+     `load`) — xem `basemapIsSilent` trong lib/offline-basemap. */
+  const [basemapSilent, setBasemapSilent] = useState(false);
+  const basemapTileSeenRef = useRef(false);
+  /** mốc lượt xin ô nền đang chờ (ms) — null = chưa xin lần nào / đã có ô về */
+  const basemapAskedAtRef = useRef<number | null>(null);
+  const silentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearSilenceClock = useCallback(() => {
+    if (silentTimerRef.current) {
+      clearTimeout(silentTimerRef.current);
+      silentTimerRef.current = null;
+    }
+    basemapAskedAtRef.current = null;
+  }, []);
+  /** Bản đồ VỪA XIN một ô nền → bắt đầu bấm giờ (đang bấm dở thì để nguyên) */
+  const armSilenceClock = useCallback(() => {
+    if (silentTimerRef.current) return;
+    basemapAskedAtRef.current = Date.now();
+    basemapTileSeenRef.current = false;
+    silentTimerRef.current = setTimeout(() => {
+      silentTimerRef.current = null;
+      if (
+        basemapIsSilent(
+          basemapAskedAtRef.current,
+          basemapTileSeenRef.current,
+          Date.now(),
+        )
+      )
+        setBasemapSilent(true);
+    }, BASEMAP_SILENT_MS);
+  }, []);
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const onLoading = (e: { sourceId?: string }) => {
+      if (e?.sourceId === "basemap") armSilenceClock();
+    };
+    // bản đồ dựng xong trước khi effect kịp gắn tai → ô nền chắc chắn đã xin
+    if (map.isStyleLoaded()) armSilenceClock();
+    map.on("sourcedataloading", onLoading);
+    return () => {
+      map.off("sourcedataloading", onLoading);
+    };
+    // (chốt chặn `load` đi qua prop onLoad của MapGL — react-map-gl chắc chắn
+    // gắn được, không phụ thuộc lúc mapRef kịp có giá trị)
+  }, [armSilenceClock]);
+  useEffect(() => {
+    // netEpoch: có sóng lại → xoá cờ, cho nền thật một cơ hội mới. KHÔNG bấm
+    // giờ ngay tại đây — chờ lượt xin ô nền tiếp theo (đúng luật LỖI 1).
+    setBasemapSilent(false);
+    clearSilenceClock();
+  }, [netEpoch, clearSilenceClock]);
+  useEffect(() => clearSilenceClock, [clearSilenceClock]); // dọn lúc rời màn
   useEffect(() => {
     const sync = () => setNetOnline(navigator.onLine);
     sync();
@@ -1038,7 +1131,11 @@ export default function FishingMapView() {
       window.removeEventListener("offline", sync);
     };
   }, []);
-  const basemapHealth = { online: netOnline, fails: basemapFails };
+  const basemapHealth = {
+    online: netOnline,
+    fails: basemapFails,
+    silent: basemapSilent,
+  };
   const offlineBase = shouldUseOfflineBasemap(basemapHealth);
   const offlineNote = offlineBasemapNote(basemapHealth);
   /* Nhắc "mất sóng" HIỆN RỒI TỰ TẮT như dòng "Đã lưu dự báo tới ngày…" — thẻ
@@ -1055,21 +1152,56 @@ export default function FishingMapView() {
     const t = setTimeout(() => setOfflineNoteOn(false), NOTIFY_HIDE_MS);
     return () => clearTimeout(t);
   }, [offlineNote]);
-  /** Hình bờ + đảo: chỉ nạp khi CẦN (mất sóng), không tốn dữ liệu lúc bình thường */
+  /* Hình bờ + đảo — NẠP NGAY KHI MỞ MÀN, KHÔNG chờ tới lúc mất sóng.
+     LỖI ĐÃ SỬA (D-PH8, soát 2026-08-02): trước đây cổng `if (!offlineBase ||
+     coastData) return` chỉ mở khi ĐÃ mất sóng — đúng lúc không tải nổi nữa; và
+     `.catch(() => {})` nuốt im trong khi deps `[offlineBase, coastData]` không
+     bao giờ đổi lại ⇒ hỏng một lần là hỏng cả phiên, bà con mất hình bờ suốt
+     chuyến.
+     Nạp vô điều kiện KHÔNG TỐN SÓNG: /data/vn-coast.v1.json là file cùng origin
+     (~220 KB) đã nằm trong danh sách service worker giữ sẵn ⇒ đọc từ kho trong
+     máy. Có đồng hồ để không treo, và thử lại khi sóng về (netEpoch). */
   const [coastData, setCoastData] = useState<GeoJSON.FeatureCollection | null>(
     null,
   );
   useEffect(() => {
-    if (!offlineBase || coastData) return;
+    if (coastData) return; // có rồi thì thôi — file tĩnh, không đổi
     let alive = true;
-    fetch(COAST_DATA_URL)
+    // AbortSignal.timeout chưa có trên WebView/Safari cũ (máy rẻ của bà con) —
+    // gọi thẳng sẽ ném TypeError ĐỒNG BỘ và làm sập cả cây React.
+    const signal =
+      typeof AbortSignal.timeout === "function"
+        ? AbortSignal.timeout(15000)
+        : undefined;
+    fetch(COAST_DATA_URL, { signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => alive && j && setCoastData(j as GeoJSON.FeatureCollection))
-      .catch(() => {});
+      .catch(() => {
+        // im lặng có chủ ý: hỏng thì lần sóng về sau (netEpoch) tự thử lại
+      });
     return () => {
       alive = false;
     };
-  }, [offlineBase, coastData]);
+  }, [netEpoch, coastData]);
+
+  /* MỐC CHÈN `base-top` đã nằm trong style chưa — xem LỖI 3 ở chỗ vẽ lớp bờ.
+     Theo dõi qua 'styledata' vì đổi lớp bản đồ = setStyle = dựng lại cả style. */
+  const [baseTopReady, setBaseTopReady] = useState(false);
+  const syncBaseTopReady = useCallback(() => {
+    const map = mapRef.current?.getMap();
+    setBaseTopReady(!!map?.getLayer(OFFLINE_COAST_BEFORE_ID));
+  }, []);
+  // Nghe qua PROP onStyleData/onLoad của MapGL (react-map-gl chắc chắn gắn
+  // được) — hình bờ lúc mất sóng quá quan trọng để phụ thuộc vào việc mapRef
+  // đã kịp có giá trị hay chưa ở lần chạy effect đầu tiên.
+  // (deps = đúng ba thứ dựng nên mapStyle; KHÔNG dùng `mapStyle` vì nó khai
+  // báo phía dưới trong cùng thân hàm — đọc ở đây là chạm vùng chưa khởi tạo)
+  useEffect(syncBaseTopReady, [
+    syncBaseTopReady,
+    layerId,
+    seamarksOn,
+    anyExclusiveOverlay,
+  ]);
 
   /** Bay tới điểm, dồn tâm lên nửa trên màn hình để sheet không che */
   const flyToPoint = useCallback((lon: number, lat: number, zoom?: number) => {
@@ -1519,7 +1651,11 @@ export default function FishingMapView() {
       ? `Sóng ${cond.waveM != null ? `${formatNumberVN(cond.waveM)} m` : "—"} · Gió cấp ${beaufort(cond.windKmh)}${
           cond.windDirDeg != null ? ` ${windDirectionVN(cond.windDirDeg)}` : ""
         }`
-      : `Sóng tới ${sel.waveMaxM > 0 ? `${formatNumberVN(sel.waveMaxM)} m` : "—"} · Gió tới cấp ${beaufort(sel.windMaxKmh)}`
+      : `Sóng tới ${
+          sel.waveMaxM > 0
+            ? `${formatNumberVN(sel.waveMaxM)} m${sel.waveEstimated ? WAVE_EST_MARK : ""}`
+            : "—"
+        } · Gió tới cấp ${beaufort(sel.windMaxKmh)}`
     : "";
 
   // dòng "ở đâu" nói tiếng người: tên điểm đã ghim, hoặc cách cảng nhà bao xa
@@ -1587,6 +1723,15 @@ export default function FishingMapView() {
         // maxBounds). fitBounds ở effect ghim khung lúc bật lớp.
         minZoom={anyExclusiveOverlay ? 4 : 2}
         style={{ width: "100%", height: "100%" }}
+        // Bản đồ dựng xong = ô nền CHẮC CHẮN đã được xin → bấm giờ im lặng
+        // (chốt chặn cho `sourcedataloading`, xem LỖI 1); đồng thời tra lại
+        // mốc chèn `base-top` cho lớp bờ offline (LỖI 3).
+        onLoad={() => {
+          armSilenceClock();
+          syncBaseTopReady();
+        }}
+        // đổi lớp bản đồ = setStyle = dựng lại style ⇒ mốc chèn có/mất theo
+        onStyleData={syncBaseTopReady}
         // Ô nền không về (mất sóng / wifi cảng "có mà không ra") → đếm để bật
         // hình bờ biển lưu trong máy. Chỉ tính ô của lớp NỀN, không tính lớp
         // ảnh vệ tinh (ảnh thiếu ô là chuyện thường, mây che cũng trống).
@@ -1601,6 +1746,11 @@ export default function FishingMapView() {
           const d = e as unknown as { sourceId?: string; tile?: unknown };
           if (d.sourceId === "basemap" && d.tile) {
             setBasemapFails((n) => nextFailCount(n, true));
+            // ô nền VỀ THẬT → tắt cờ "im lặng" ngay (xem BASEMAP_SILENT_MS) và
+            // dừng đồng hồ của lượt này; lượt xin ô sau sẽ tự bấm lại
+            basemapTileSeenRef.current = true;
+            setBasemapSilent(false);
+            clearSilenceClock();
           }
         }}
         onClick={(e) => {
@@ -1626,19 +1776,35 @@ export default function FishingMapView() {
           flyToPoint(lon, lat);
         }}
       >
-        {/* NỀN TỐI GIẢN KHI MẤT SÓNG — hình bờ + đảo lưu trong máy. Đặt Ở ĐẦU
-            danh sách để nằm DƯỚI mọi lớp khác (ranh giới, cá, mũi tên gió).
-            Có mạng thì KHÔNG vẽ (nền thật đủ tốt, vẽ chồng chỉ gây rối). */}
-        {offlineBase && coastData && (
+        {/* NỀN TỐI GIẢN KHI MẤT SÓNG — hình bờ + đảo lưu trong máy.
+            `beforeId` là BẮT BUỘC: khai báo bằng JSX thì MapLibre chèn lên
+            TRÊN CÙNG, che cả ảnh vệ tinh và phao đèn — trái hẳn chú thích cũ
+            "nằm dưới mọi lớp khác". Mốc chèn nằm ngay trên nền + mask chủ
+            quyền (xem OFFLINE_COAST_BEFORE_ID trong lib/ocean-map).
+            Có mạng thì KHÔNG vẽ (nền thật đủ tốt, vẽ chồng chỉ gây rối).
+
+            CHỜ MỐC CHÈN CÓ THẬT (LỖI 3, soát chéo 2026-08-02): MapLibre
+            `addLayer` với `before` chưa tồn tại thì BỎ NGANG — bắn ErrorEvent
+            rồi return, lớp KHÔNG được thêm. Lúc đổi lớp bản đồ (setStyle) có
+            khoảnh khắc `base-top` chưa có ⇒ đúng lúc mất sóng thì hình bờ lặng
+            lẽ biến mất. Nay gác bằng `baseTopReady`: chỉ dựng lớp khi mốc đã
+            nằm trong style, và `beforeId` giữ NGUYÊN một giá trị (đổi beforeId
+            sẽ gọi `moveLayer`, mà `moveLayer` trượt mốc thì rút lớp khỏi thứ
+            tự vẽ và KHÔNG trả lại — hỏng nặng hơn).
+            ĐỪNG hạ mốc xuống dưới `sea-mask`: mask tô kín ô biển ở mức toàn
+            cảnh, chèn dưới là XOÁ Hoàng Sa + Trường Sa khỏi bản đồ. */}
+        {offlineBase && coastData && baseTopReady && (
           <Source id="offline-coast" type="geojson" data={coastData}>
             <Layer
               id="offline-coast-fill"
               type="fill"
+              beforeId={OFFLINE_COAST_BEFORE_ID}
               paint={{ "fill-color": OFFLINE_LAND_COLOR }}
             />
             <Layer
               id="offline-coast-line"
               type="line"
+              beforeId={OFFLINE_COAST_BEFORE_ID}
               paint={{
                 "line-color": OFFLINE_COAST_COLOR,
                 "line-width": 1,
@@ -2654,11 +2820,28 @@ export default function FishingMapView() {
               >
                 Cả ngày: sóng tới{" "}
                 {sel.waveMaxM > 0
-                  ? `${formatNumberVN(sel.waveMaxM)} m`
+                  ? `${formatNumberVN(sel.waveMaxM)} m${sel.waveEstimated ? WAVE_EST_MARK : ""}`
                   : "— (chưa có số)"}{" "}
                 · gió tới cấp {beaufort(sel.windMaxKmh)}
                 {sel.gustMaxKmh > 0 && `, giật cấp ${beaufort(sel.gustMaxKmh)}`}
               </p>
+
+              {/* SÓNG LÀ SỐ ƯỚC → NÓI THẲNG MỘT DÒNG (LỖI 2a+2c, soát chéo
+                  2026-08-02). Dấu "(ước)" ở trên là để không nói dối con số;
+                  dòng này là để không nói dối ĐIỂM ĐI BIỂN: điểm 1–100 và
+                  "Biển êm / Biển động" đều chấm từ chính con số ước đó
+                  (lib/sea.ts `scoreDay` cố ý không nhận cờ — lý do ghi ở đó).
+                  Chỉ hiện khi thật sự có sóng ước, nên ngày thường màn vẫn gọn. */}
+              {sel.waveEstimated && sel.waveMaxM > 0 && (
+                <p className="flex items-start gap-2 rounded-xl bg-warn-bg px-3 py-2.5 text-[0.9375rem] font-bold leading-snug text-warn">
+                  <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+                  <span>
+                    Chưa lấy được số sóng thật — số sóng ở trên là máy ước theo
+                    gió{sel.level ? ", tình trạng biển cũng theo số ước đó" : ""}
+                    . Nghe thêm đài duyên hải trước khi ra khơi.
+                  </span>
+                </p>
+              )}
 
               {/* số đo LÚC NÀY — để LIỀN với dải ngày + "cả ngày" cho khỏi
                   nói sóng/gió trên một khúc, dưới một khúc (user 2026-06-23).

@@ -6,6 +6,161 @@
 
 export type AccountTier = "basic" | "premium";
 
+/* ── DẤU HẠNG LƯU TRONG MÁY ────────────────────────────────────────────────
+   Khoá đặt ở đây (chứ không ở use-tier.ts) để module THUẦN — offline-identity —
+   dùng được mà không phải kéo theo React/Supabase. use-tier.ts xuất lại hai
+   hằng này nên chỗ gọi cũ không phải đổi. */
+
+/** Dấu "phiên gần nhất là premium" — quy ước key forfish.* */
+export const TIER_CACHE_KEY = "forfish.tier.premium.v1";
+/*  Hạn premium lần tra gần nhất — để sheet Tài khoản vẫn nói được "dùng tới
+    ngày nào" khi đang mất sóng. Cùng tiền tố `forfish.tier.` nên KHÔNG bị gom
+    vào tệp sao lưu (lib/offline-backup.ts SKIP_PREFIXES) — hạn là entitlement,
+    không phải dữ liệu dự báo, chia tệp không được kéo theo. */
+export const TIER_UNTIL_KEY = "forfish.tier.until.v1";
+
+/**
+ * BA trạng thái của dấu hạng — KHÔNG phải hai (sửa 2026-08-02, E5).
+ *
+ * VÌ SAO: bản cũ đọc dấu ra `boolean`, nên "đã tra được, đúng là hạng thường"
+ * và "CHƯA BAO GIỜ tra được" cùng ra `false`. Mất sóng mà chưa từng tra được
+ * thì app KHẲNG ĐỊNH "Tài khoản thường · Gọi SDVICO để mở dự báo cá" — nói với
+ * người vừa trả tiền rằng họ chưa trả tiền. Trái luật đã ghi ngay dưới đây
+ * (tierBadge): thà không nói gì còn hơn nháy nhầm.
+ */
+export type PremiumMark = "premium" | "basic" | "unknown";
+
+/**
+ * Giá trị thô trong localStorage → dấu hạng. THUẦN để test được.
+ *
+ * Khoá không tồn tại (`null`), giá trị lạ, hoặc localStorage ném (chỗ gọi bắt
+ * lỗi rồi truyền `null` vào đây) đều là `"unknown"` — KHÔNG phải `"basic"`.
+ */
+export function readPremiumMark(
+  raw: string | null | undefined,
+): PremiumMark {
+  if (raw === "1") return "premium";
+  if (raw === "0") return "basic";
+  return "unknown";
+}
+
+/**
+ * CÓ ĐƯỢC XOÁ DẤU PREMIUM KHÔNG — THUẦN để test được (2026-08-02, C-8).
+ *
+ * Trước đây điều kiện xoá có `navigator.onLine`, và đó là thứ DUY NHẤT chặn.
+ * Chính repo đã tuyên bố `onLine` không đáng tin (auth-error.ts): tàu có router
+ * wifi nội bộ, hay Android báo "đã kết nối 4G" mà gói tin không ra được — cả
+ * chuyến biển `onLine === true`. Tệ hơn: khi auth-js đã tự xoá phiên (C-7) thì
+ * lần mở app kế `getUser()` trả `AuthSessionMissingError` (400 — KHÔNG phải lỗi
+ * mạng) nên `authErrored` = false, và bốn vế của điều kiện cũ thoả hết ⇒ dấu
+ * premium bị xoá giữa biển. Nay `onLine` BỊ BỎ HẲN khỏi điều kiện.
+ *
+ * Chỉ còn MỘT ca được xoá: phiên đã kiểm xong, kiểm KHÔNG lỗi, không có user,
+ * VÀ máy cũng không còn nhớ ai từng đăng nhập ở đây (đã bấm Đăng xuất thật).
+ */
+export function shouldClearPremiumMark(a: {
+  /** useAuthUser().ready — đã kiểm xong phiên chưa */
+  authReady: boolean;
+  /** getUser() reject/timeout — không chắc là đăng xuất thật */
+  authErrored: boolean;
+  hasUser: boolean;
+  /** máy còn nhớ SĐT lần đăng nhập gần nhất không (lib/offline-identity) */
+  hasOfflineIdentity: boolean;
+}): boolean {
+  return a.authReady && !a.authErrored && !a.hasUser && !a.hasOfflineIdentity;
+}
+
+/* ── HẠN SỐNG CỦA DẤU PREMIUM ──────────────────────────────────────────────
+   Dấu trong máy phải MANG THEO HẠN (sửa 2026-08-02, hồi quy E4).
+
+   VÌ SAO: đường ghi dấu chỉ nhìn cột `tier` THÔ của DB (cố ý — đồng hồ máy lệch
+   thì không được lấy đó làm cớ xoá quyền đã trả tiền). Nhưng nếu KHI ĐỌC cũng
+   không xét hạn thì khách hết hạn mà DB còn `tier='premium'` sẽ ra "upgrade"
+   lúc có sóng (đúng) mà lại "open" VĨNH VIỄN lúc mất sóng — premium offline
+   không bao giờ hết.
+
+   BIÊN RỘNG chứ không cắt đúng ngày: đồng hồ điện thoại ngoài biển hay lệch
+   (máy hết pin sạch, không có sóng để đồng bộ giờ). Cắt đúng ngày thì một cái
+   đồng hồ chạy nhanh cũng đủ khoá người đang còn hạn. Biên 7 ngày mở thêm rất
+   ít mà đỡ được đúng ca đó — nhớ luật dự án: premium gác cửa TẢI, không gác cửa
+   XEM, còn dữ liệu đã tải thì tự hết giá trị sau ≤16 ngày. */
+
+/** Quá hạn bấy nhiêu ngày mới coi là hết (đệm cho đồng hồ máy lệch). */
+export const TIER_MARK_GRACE_DAYS = 7;
+
+/**
+ * Hạn của dấu premium còn dùng được không (đã cộng biên). THUẦN để test được.
+ *
+ * Không có hạn / hạn hỏng → `true`: dấu chỉ bật khi đã tra ĐƯỢC lúc còn sóng,
+ * nên "không biết hạn" phải là "cứ cho xem tiếp bản đã tải", không phải cớ để
+ * khoá. Chốt thật vẫn ở middleware/RLS khi có mạng.
+ */
+export function premiumMarkWithinGrace(
+  until: string | null | undefined,
+  nowMs: number,
+): boolean {
+  if (until == null || until === "") return true;
+  const t = Date.parse(until.length === 10 ? `${until}T00:00:00+07:00` : until);
+  if (!Number.isFinite(t)) return true;
+  return nowMs <= t + TIER_MARK_GRACE_DAYS * 24 * 3600 * 1000;
+}
+
+/**
+ * Dấu đã lưu + hạn đã lưu → dấu CÒN HIỆU LỰC để quyết định.
+ *
+ * Hết hạn (quá biên) thì thành `"basic"` chứ không phải `"unknown"`: mình BIẾT
+ * hạng đã lapse, nói thật "Tài khoản thường · gọi SDVICO" mới là câu bà con làm
+ * được gì đó với nó.
+ */
+export function effectivePremiumMark(
+  mark: PremiumMark,
+  until: string | null | undefined,
+  nowMs: number,
+): PremiumMark {
+  if (mark !== "premium") return mark;
+  return premiumMarkWithinGrace(until, nowMs) ? "premium" : "basic";
+}
+
+/* ── THỬ LẠI KHI TRA HẠNG CHƯA RA ──────────────────────────────────────────
+   VÌ SAO CÓ (sửa 2026-08-02, hồi quy do chính bản vá 2026-08-02 gây ra):
+   tổ hợp "đã kiểm xong phiên + có user + chưa tra được hạng + dấu chưa từng có"
+   cho ra "checking", và trước đây đường tự thoát DUY NHẤT là effect tra hạng
+   chạy lại mỗi lần auth-js bắn TOKEN_REFRESHED (object user mới). Bản vá đổi
+   deps sang `user.id` để hết nháy — đúng ý đồ, nhưng CẮT LUÔN đường thoát đó.
+   Bà con vừa được gán premium, mở app lần đầu ở cảng sóng "sống mà chết", truy
+   vấn hết 12 giây ⇒ kẹt "đang kiểm tra" tới lúc tắt hẳn app: lớp cá im lặng,
+   không khoá, không mời nâng cấp, không cả nút thử lại. Nay có đồng hồ thử lại
+   (và sóng vừa về là thử ngay) — chống nháy vẫn giữ, nhưng KHÔNG được kẹt. */
+
+/** Lần thử lại đầu cách 30 giây… */
+export const TIER_RETRY_BASE_MS = 30_000;
+/** …nhân đôi dần, trần 10 phút (đừng quay pin của bà con giữa biển). */
+export const TIER_RETRY_MAX_MS = 600_000;
+
+/** Chờ bao lâu trước lần thử thứ `attempt` (0 = lần thử lại đầu tiên). */
+export function tierRetryDelayMs(attempt: number): number {
+  const n = Number.isFinite(attempt) && attempt > 0 ? Math.floor(attempt) : 0;
+  return Math.min(TIER_RETRY_BASE_MS * 2 ** Math.min(n, 20), TIER_RETRY_MAX_MS);
+}
+
+/**
+ * CÒN PHẢI HỎI LẠI HẠNG KHÔNG — luật hẹn giờ của use-tier. THUẦN để test được.
+ *
+ * Đã biết là ai mà CHƯA có câu trả lời TƯƠI từ máy chủ trong phiên này thì còn
+ * phải hỏi lại — kể cả khi dấu cũ trong máy đã đủ trả lời tạm (bà con vừa được
+ * gán premium ở cảng cũng cần lần hỏi sau mới thấy quyền của mình). Mọi trạng
+ * thái `featureAccessDecision` trả "checking" khi đã có user đều nằm trong đây,
+ * nên "kẹt vĩnh viễn" là không thể — test khoá lại quan hệ đó.
+ */
+export function shouldRetryTierQuery(a: {
+  authReady: boolean;
+  hasUser: boolean;
+  /** đã tra ĐƯỢC hạng từ máy chủ trong phiên này chưa (không tính dấu đã lưu) */
+  answered: boolean;
+}): boolean {
+  return a.authReady && a.hasUser && !a.answered;
+}
+
 /** Nấc truy cập tính năng premium trên UI — mỗi nấc một lời mời khác nhau:
  *  · "checking": đang kiểm tra phiên/hạng — KHÔNG hiện khoá, KHÔNG hiện nội dung
  *    premium (tránh nháy khoá↔mở)
@@ -129,11 +284,15 @@ export interface FeatureAccessInput {
   premium: boolean | null;
   /** máy đang có sóng không (navigator.onLine) */
   online: boolean;
-  /** lần online gần nhất tra ĐƯỢC hạng có phải premium không (đọc từ máy) */
-  cachedPremium: boolean;
+  /** dấu hạng đã lưu trong máy — BA trạng thái, "unknown" = chưa bao giờ tra
+      được, khác hẳn "basic" = đã tra được và đúng là hạng thường */
+  cachedMark: PremiumMark;
   /** getUser() reject/timeout (mất sóng "sống mà chết" — onLine có thể lỡ=true).
       KHÁC hasUser=false do tra ĐƯỢC mà không có ai (đăng xuất thật). */
   authErrored?: boolean;
+  /** `premium === false` CHỈ VÌ HẠN: máy chủ vẫn ghi tier='premium', chỉ có
+      đồng hồ MÁY nói là quá hạn. Khác hẳn tier='basic' (chưa từng trả tiền). */
+  premiumExpiredOnly?: boolean;
 }
 
 /**
@@ -149,17 +308,46 @@ export interface FeatureAccessInput {
  */
 export function featureAccessDecision(i: FeatureAccessInput): FeatureAccess {
   if (!i.configured) return "open";
-  // đã từng xác nhận premium (dấu lưu máy) + đang MẤT SÓNG → cho xem bản đã tải,
-  // khỏi kẹt "checking" khi auth chưa tra xong.
-  if (!i.online && i.cachedPremium) return "open";
-  if (!i.authReady) return "checking";
-  // auth ĐÃ tra xong mà KHÔNG ra user: nếu vì mất sóng ("sống mà chết" khiến
-  // getUser hỏng dù onLine=true) + đã từng premium → vẫn cho xem bản tải sẵn
-  // (chốt thật vẫn ở middleware/RLS khi có mạng). Tra ĐƯỢC mà không có ai
-  // (đăng xuất thật, không errored) → mời đăng nhập.
-  if (!i.hasUser) {
-    return i.cachedPremium && (!i.online || i.authErrored) ? "open" : "login";
+  // 1) CÓ CÂU TRẢ LỜI TƯƠI (vừa tra được hạng của user đang đăng nhập) → dùng
+  //    luôn. Đặt trước mọi nhánh offline để một cú getUser() hết giờ lúc mở app
+  //    không kéo lùi kết quả đã tra xong về "checking".
+  if (i.authReady && i.hasUser && i.premium != null) {
+    if (i.premium) return "open";
+    // HẠ HẠNG CHỈ VÌ HẠN, mà dấu trong máy vẫn còn premium (tức hạn mới quá
+    // trong biên 7 ngày) → cho xem tiếp (sửa 2026-08-02, E4). Vì sao: `premium`
+    // được tính bằng ĐỒNG HỒ MÁY; máy hết pin sạch rồi mất đồng bộ giờ là nhảy
+    // vài ngày như chơi, và lúc đó máy chủ vẫn coi bà con là premium nên gọi
+    // tổng đài cũng không ai giải thích được. Quá biên thì `cachedMark` đã tự
+    // thành "basic" (effectivePremiumMark) nên nhánh này tắt — hết hạn thật vẫn
+    // ra lời mời gia hạn.
+    if (i.premiumExpiredOnly === true && i.cachedMark === "premium") {
+      return "open";
+    }
+    return "upgrade";
   }
-  if (i.premium == null) return "checking";
-  return i.premium ? "open" : "upgrade";
+  // 2) KHÔNG HỎI ĐƯỢC MÁY CHỦ: mất sóng thật, hoặc sóng "sống mà chết" làm
+  //    getUser() hỏng (onLine lỡ = true). Cả hai đều KHÔNG phải đăng xuất, nên
+  //    chỉ còn dấu đã lưu để trả lời.
+  if (!i.online || i.authErrored === true) {
+    // đã từng xác nhận premium → cho xem tiếp bản đã tải hợp lệ ở bờ. KHÔNG
+    // phải cửa sau: chốt thật vẫn ở middleware/RLS khi có mạng, còn offline thì
+    // SW chỉ trả đúng những gì đã tải lúc còn premium.
+    if (i.cachedMark === "premium") return "open";
+    // CHƯA BAO GIỜ tra được hạng → IM LẶNG (E5). Thà không nói gì còn hơn
+    // khẳng định "Tài khoản thường" với người vừa trả tiền mà máy chưa kịp tra.
+    // Ngoại lệ: đã kiểm xong phiên và rõ ràng KHÔNG có ai đăng nhập (máy mới
+    // tinh, hoặc vừa đăng xuất) — lúc đó im lặng thành vòng quay vô nghĩa, mời
+    // đăng nhập mới là việc làm được.
+    if (i.cachedMark === "unknown") {
+      return i.authReady && !i.hasUser ? "login" : "checking";
+    }
+    // "basic": đã tra ĐƯỢC lúc còn sóng, đúng là hạng thường → nói thật.
+    if (!i.authReady) return "checking";
+    return i.hasUser ? "upgrade" : "login";
+  }
+  if (!i.authReady) return "checking";
+  // có sóng, tra ĐƯỢC mà không có ai → đăng xuất thật → mời đăng nhập
+  if (!i.hasUser) return "login";
+  // có user, đang tra hạng → chưa kết luận (tránh nháy khoá↔mở)
+  return "checking";
 }

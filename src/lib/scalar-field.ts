@@ -15,7 +15,13 @@
 // ĐỘ MẶN (Copernicus): CHƯA nối — theo luật repo phải fetch thử thật kiểm
 // đơn vị/endpoint Zarr trước (external-services.md). Để đợt sau kèm probe.
 
-import { saveForecast, loadForecast, loadAll } from "@/lib/forecast-cache";
+import {
+  saveForecast,
+  loadForecast,
+  loadAll,
+  noteForecastKept,
+  type ForecastSaveOutcome,
+} from "@/lib/forecast-cache";
 import { apiUrl } from "@/lib/api-base";
 import { isCacheCurrent } from "@/lib/source-cadence";
 import {
@@ -206,6 +212,49 @@ function scalarGridUsable(g: ScalarGrid | null | undefined): boolean {
   return g.cells.length === nLat * nLon;
 }
 
+/** Lớp này có SỐ THẬT chưa — đủ ô đủ mốc mà mọi giá trị null thì vẽ ra một mặt
+    trống câm (model thiếu biến, vd CAPE ở nguồn dự phòng). */
+export function scalarHasValues(g: ScalarGrid | null | undefined): boolean {
+  return !!g?.cells?.some((c) => c.values?.some((v) => v != null));
+}
+
+/** Trần tuổi cho luật "đừng đè bản đầy đủ bằng bản rỗng" — xem GRID_OVERWRITE_MAX_AGE_MS */
+export const SCALAR_OVERWRITE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * CÓ ĐƯỢC GHI ĐÈ BẢN ĐANG CÓ KHÔNG (thuần, 2026-08-02) — cùng khuôn với
+ * `shouldOverwriteGrid`. Ca thật: `fetchScalarFieldsLive` ghi CẢ 5 lớp một
+ * lượt; nguồn trả thiếu một biến (model không có CAPE / mưa) là lớp đó thành
+ * mảng null và ĐÈ THẲNG lên bản đầy đủ đã tải sẵn ở bờ — ra biển bật lớp lên
+ * thấy trắng trơn mà chip vẫn báo "đã lưu".
+ */
+export function shouldOverwriteScalar(
+  prev: { data: ScalarGrid; savedAt: number } | null | undefined,
+  next: ScalarGrid,
+  now: number = Date.now(),
+): boolean {
+  if (!prev?.data) return true;
+  if (!scalarGridUsable(prev.data)) return true;
+  if (now - prev.savedAt >= SCALAR_OVERWRITE_MAX_AGE_MS) return true;
+  return !(scalarHasValues(prev.data) && !scalarHasValues(next));
+}
+
+/** Ghi lớp dải màu QUA CỬA "bản mới có tốt bằng bản cũ không". Ba trạng thái —
+    `kept` (kho đang giữ bản có số, khỏi ghi) KHÁC HẲN `failed` (máy hết chỗ);
+    gộp hai thứ đó vào một chữ `false` là gốc vòng đốt sóng, xem forecast-cache. */
+function saveScalarChecked(
+  id: string,
+  g: ScalarGrid,
+  dataAt?: number,
+): ForecastSaveOutcome {
+  const prev = loadForecast<ScalarGrid>(SCALAR_NS, id);
+  if (!shouldOverwriteScalar(prev, g)) {
+    noteForecastKept(SCALAR_NS);
+    return "kept";
+  }
+  return saveForecast(SCALAR_NS, id, g, dataAt) ? "written" : "failed";
+}
+
 /** Độ mặn (Copernicus, theo NGÀY) — qua /api/salinity (server fetch S3). Cache
     offline giống các lớp kia; mất mạng → bản lưu + stale. */
 async function fetchSalinityField(days: number): Promise<ScalarGrid> {
@@ -219,7 +268,7 @@ async function fetchSalinityField(days: number): Promise<ScalarGrid> {
   // 2026-07-29: độ mặn nay CÓ snapshot server như các lớp khác.
   const snap = await loadSalinitySnapshotClient(days);
   if (snap && scalarGridUsable(snap) && isCacheCurrent(snap.savedAt, Date.now())) {
-    saveForecast(SCALAR_NS, id, snap, snap.savedAt ?? undefined);
+    saveScalarChecked(id, snap, snap.savedAt ?? undefined);
     return snap;
   }
   try {
@@ -244,7 +293,7 @@ async function fetchSalinityField(days: number): Promise<ScalarGrid> {
       nLat: j.nLat,
       nLon: j.nLon,
     };
-    saveForecast(SCALAR_NS, id, g);
+    saveScalarChecked(id, g);
     return g;
   } catch (err) {
     // live lỗi (Copernicus S3 chậm/hỏng): bản trong máy trước, rồi SNAPSHOT cron
@@ -253,7 +302,7 @@ async function fetchSalinityField(days: number): Promise<ScalarGrid> {
     if (hit && scalarGridUsable(hit.data))
       return { ...hit.data, stale: true, savedAt: hit.savedAt };
     if (snap && scalarGridUsable(snap)) {
-      saveForecast(SCALAR_NS, id, snap, snap.savedAt ?? undefined);
+      saveScalarChecked(id, snap, snap.savedAt ?? undefined);
       return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
     }
     throw err;
@@ -305,14 +354,16 @@ export async function fetchScalarField(
     if (snap && scalarGridUsable(snap) && isCacheCurrent(snap.savedAt, Date.now())) {
       // lưu vào máy với ĐÚNG tuổi thật (pretrip/offline cần bản localStorage;
       // tuổi thật giữ isCacheCurrent lần sau không nhầm bản cũ là mới)
-      saveForecast(SCALAR_NS, cacheId(kind, days), snap, snap.savedAt ?? undefined);
+      saveScalarChecked(cacheId(kind, days), snap, snap.savedAt ?? undefined);
       return snap;
     }
   }
   try {
     const all = await fetchScalarFieldsLive(days);
+    // QUA CỬA từng lớp: nguồn thiếu MỘT biến (vd model không có CAPE) thì chỉ
+    // lớp đó rỗng — không được để nó đè bản đầy đủ, 4 lớp kia vẫn ghi bình thường.
     (Object.keys(all) as OMKind[]).forEach((k) =>
-      saveForecast(SCALAR_NS, cacheId(k, days), all[k]),
+      saveScalarChecked(cacheId(k, days), all[k]),
     );
     return all[kind];
   } catch (err) {
@@ -329,7 +380,7 @@ export async function fetchScalarField(
     if (SNAPSHOT_DAY_SET.includes(days)) {
       const snap = await loadScalarSnapshotClient(kind, days);
       if (snap && scalarGridUsable(snap)) {
-        saveForecast(SCALAR_NS, cacheId(kind, days), snap, snap.savedAt ?? undefined);
+        saveScalarChecked(cacheId(kind, days), snap, snap.savedAt ?? undefined);
         return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
       }
     }

@@ -20,11 +20,17 @@ const _ls = (() => {
 (globalThis as unknown as { localStorage: Storage }).localStorage = _ls;
 
 import {
+  INBOX_KEY,
   INBOX_READ_KEY,
   clearInbox,
+  inboxBucket,
+  loadInbox,
   markRead,
+  refreshInbox,
   unreportedIds,
 } from "@/lib/inbox";
+import { normalizeVnPhone } from "@/lib/phone";
+import { offlineIdentityPhone, rememberIdentity } from "@/lib/offline-identity";
 
 /* navigator của Node là getter (không gán đè được) và KHÔNG có onLine — đúng
    như trình duyệt chưa biết trạng thái mạng, tức nhánh "cứ thử gửi". */
@@ -137,6 +143,119 @@ describe("clearInbox — máy dùng chung trên tàu", () => {
 
   it("khoá theo quy ước forfish.* (state-registry)", () => {
     expect(INBOX_READ_KEY.startsWith("forfish.")).toBe(true);
+  });
+});
+
+/* ── NGĂN LƯU: client và server phải gọi CÙNG MỘT TÊN ──────────────────────
+   Máy chủ (src/app/api/me/messages/route.ts) ghi ngăn bằng
+   `normalizeVnPhone(email.split("@")[0])`. Client trước đây tra bằng localpart
+   THÔ ⇒ tài khoản có email không phải SĐT thì hộp thư offline rỗng vĩnh viễn
+   (biên bản audit-offline-2026-08-02, K6). */
+describe("inboxBucket — khớp từng ký tự với khoá máy chủ ghi", () => {
+  it("localpart của email ảo → cùng chuỗi máy chủ dùng", () => {
+    for (const local of ["0912345678", "84912345678", "duclong292", "0292"]) {
+      expect(inboxBucket(local)).toBe(normalizeVnPhone(local));
+    }
+  });
+
+  it("chưa đăng nhập → ngăn khách (không phải chuỗi rỗng, không phải '0')", () => {
+    expect(inboxBucket(null)).toBe(inboxBucket(undefined));
+    expect(inboxBucket("")).toBe(inboxBucket(null));
+    // 'abc' không có số nào → cũng về ngăn khách, không tạo ngăn rác "0"
+    expect(inboxBucket("abc")).toBe(inboxBucket(null));
+  });
+});
+
+const MSG = [
+  {
+    id: "m1",
+    title: "Bão số 3 vào Biển Đông",
+    body: "Gió giật cấp 12",
+    url: null,
+    sentAt: "2026-08-01T02:00:00Z",
+    mine: true,
+  },
+];
+
+/** Ghi thẳng một bản lưu v2 (như sau một lần làm mới lúc còn sóng ở bờ) */
+function seedV2(phone: string) {
+  localStorage.setItem(
+    INBOX_KEY,
+    JSON.stringify({ phone, savedAt: Date.now(), messages: MSG }),
+  );
+}
+
+describe("C-1 — hộp thư KHÔNG được biến mất sau 1 giờ mất sóng", () => {
+  it("có bản lưu + user=null nhưng CÒN danh tính offline → vẫn đọc đủ tin", () => {
+    seedV2("0912345678");
+    rememberIdentity("0912345678"); // gắn lúc còn đăng nhập được ở bờ
+    // giữa biển: token hết hạn, useAuthUser trả user=null ⇒ `phone` lùi về đây
+    const phone = offlineIdentityPhone();
+    expect(phone).toBe("0912345678");
+    expect(loadInbox(phone)).toHaveLength(1);
+  });
+
+  it("KHÔNG có danh tính (máy chưa ai đăng nhập) → không đọc được ngăn người khác", () => {
+    seedV2("0912345678");
+    expect(loadInbox(null)).toEqual([]);
+    expect(loadInbox("0987654321")).toEqual([]);
+  });
+});
+
+describe("migrate v1 → v2 — không được làm mất tin bà con đang có", () => {
+  it("bản v1 được dời sang v2 nguyên vẹn, khoá cũ dọn đi", () => {
+    localStorage.setItem(
+      "forfish.inbox.v1",
+      JSON.stringify({ phone: "0912345678", savedAt: 1, messages: MSG }),
+    );
+    expect(loadInbox("0912345678")).toEqual(MSG);
+    expect(localStorage.getItem("forfish.inbox.v1")).toBeNull();
+    expect(localStorage.getItem(INBOX_KEY)).not.toBeNull();
+    // đọc lại lần nữa (đã hết v1) vẫn còn đủ tin
+    expect(loadInbox("0912345678")).toEqual(MSG);
+  });
+
+  it("đã có v2 rồi → KHÔNG để bản v1 cũ đè lên", () => {
+    seedV2("0912345678");
+    localStorage.setItem(
+      "forfish.inbox.v1",
+      JSON.stringify({ phone: "0912345678", savedAt: 1, messages: [] }),
+    );
+    expect(loadInbox("0912345678")).toHaveLength(1);
+  });
+
+  it("v1 hỏng (JSON lỗi) → không ném, coi như chưa có gì", () => {
+    localStorage.setItem("forfish.inbox.v1", "{hỏng");
+    expect(() => loadInbox("0912345678")).not.toThrow();
+    expect(loadInbox("0912345678")).toEqual([]);
+  });
+});
+
+describe("K4/F2 — nhánh khách KHÔNG được đè ngăn của người đã đăng nhập", () => {
+  it("máy chủ trả ok:true + phone:null (không đọc được phiên) → giữ nguyên bản của SĐT", async () => {
+    seedV2("0912345678");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ ok: true, phone: null, messages: [] }),
+      })),
+    );
+    await refreshInbox();
+    // tin gửi riêng vẫn còn nguyên trong máy
+    expect(loadInbox("0912345678")).toHaveLength(1);
+  });
+
+  it("máy chưa đăng nhập bao giờ → nhánh khách vẫn ghi được bình thường", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ ok: true, phone: null, messages: MSG }),
+      })),
+    );
+    await refreshInbox();
+    expect(loadInbox(null)).toHaveLength(1);
   });
 });
 

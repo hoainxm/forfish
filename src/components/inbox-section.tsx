@@ -47,18 +47,25 @@ function fmt(iso: string): string {
 }
 
 export function InboxSection() {
-  // `user` chỉ để biết ĐANG là tài khoản nào (chọn đúng ngăn bản lưu trong
-  // máy) — KHÔNG dùng để chặn hiện mục này.
-  const { user, ready } = useAuthUser();
-  const phone = user?.email ? user.email.split("@")[0] : null;
+  /* `phone` chỉ để biết ĐANG là tài khoản nào (chọn đúng ngăn bản lưu trong
+     máy) — KHÔNG dùng để chặn hiện mục này.
+
+     LẤY TỪ useAuthUser, KHÔNG tự bóc `user.email` nữa (sửa 2026-08-02, C-1):
+     mất sóng quá 1 giờ thì `user` tụt về null (token hết hạn, refresh không
+     tới máy chủ) ⇒ tự bóc sẽ ra null ⇒ tra ngăn khách ⇒ hộp thư BIẾN MẤT giữa
+     biển dù tin bão vẫn nằm nguyên trong máy. `phone` của hook có đường lùi về
+     danh tính offline nên vẫn chỉ đúng ngăn. */
+  const { phone, ready } = useAuthUser();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [expanded, setExpanded] = useState(false);
 
-  // 1) bản trong máy hiện NGAY (kể cả đang mất sóng)
+  /* 1) bản trong máy hiện NGAY (kể cả đang mất sóng).
+     KHÔNG chờ `ready` (F3): đọc bản lưu chỉ cần biết chọn ngăn nào, nó không
+     cần auth "đã xong". Ở sóng "sống mà chết", `ready` mất tới 8 giây — tám
+     giây trắng đúng lúc bà con mở app tìm lại tin bão. */
   useEffect(() => {
-    if (!ready) return;
     setMessages(loadInbox(phone));
-  }, [ready, phone]);
+  }, [phone]);
 
   // 2) rồi mới làm mới từ máy chủ — hỏng thì giữ nguyên bản đang hiện
   const refresh = useCallback(() => {

@@ -77,3 +77,83 @@ describe("export → import round-trip (localStorage)", () => {
     expect(r.keys).toBe(0);
   });
 });
+
+/*  BẢN ĐỒ CÁ TRONG TỆP SAO LƯU — chỉ nhận bản CÒN DÙNG ĐƯỢC (audit B7).
+    Kho service worker có thể đang giữ một phản hồi `{ok:false}` (từ thời route
+    trả 200 kèm lỗi — nay đã sửa thành 503, nhưng máy bà con vẫn còn bản cũ).
+    Gói rác vào tệp rồi phục hồi = ghi rác đè lên bản DUY NHẤT của lớp cá.  */
+describe("phần bản đồ cá trong tệp", () => {
+  type FakeCache = {
+    match: (u: unknown) => Promise<Response | undefined>;
+    put: (u: unknown, r: Response) => Promise<void>;
+  };
+  function fakeCaches(initial: unknown): { store: { value: unknown } } {
+    const store = { value: initial };
+    const cache: FakeCache = {
+      match: async () =>
+        store.value === undefined
+          ? undefined
+          : new Response(JSON.stringify(store.value)),
+      put: async (_u, r) => {
+        store.value = await r.json();
+      },
+    };
+    (globalThis as unknown as { caches: unknown }).caches = {
+      open: async () => cache,
+    };
+    return { store };
+  }
+
+  it("XUẤT: bỏ qua bản {ok:false} trong kho", async () => {
+    fakeCaches({ ok: false });
+    const parsed = parseBackup(await exportOfflineData());
+    expect(parsed?.fish).toBeUndefined();
+    delete (globalThis as unknown as { caches?: unknown }).caches;
+  });
+
+  it("XUẤT: gói bản {ok:true}", async () => {
+    fakeCaches({ ok: true, cells: [1] });
+    const parsed = parseBackup(await exportOfflineData());
+    expect(parsed?.fish).toMatchObject({ ok: true });
+    delete (globalThis as unknown as { caches?: unknown }).caches;
+  });
+
+  it("NHẬP: tệp mang {ok:false} KHÔNG được đè lên bản tốt đang có", async () => {
+    const { store } = fakeCaches({ ok: true, cells: [1] });
+    const r = await importOfflineData(
+      JSON.stringify({ v: 1, savedAt: 1, ls: {}, fish: { ok: false } }),
+    );
+    expect(r.fishRestored).toBe(false);
+    expect(store.value).toMatchObject({ ok: true }); // bản tốt còn nguyên
+    delete (globalThis as unknown as { caches?: unknown }).caches;
+  });
+
+  it("NHẬP: tệp mang bản tốt thì ghi vào kho", async () => {
+    /*  `new Request("/api/…")` cần base URL: trình duyệt lấy từ document, còn
+        môi trường test node thì ném. Thay tạm bằng một lớp tối giản để test đo
+        đúng thứ cần đo (có ghi vào kho không), không đo chuyện base URL. */
+    const RealRequest = globalThis.Request;
+    (globalThis as unknown as { Request: unknown }).Request = class {
+      url: string;
+      constructor(u: string) {
+        this.url = u;
+      }
+    };
+    const { store } = fakeCaches({ ok: true, cells: [1] });
+    try {
+      const r = await importOfflineData(
+        JSON.stringify({
+          v: 1,
+          savedAt: 1,
+          ls: {},
+          fish: { ok: true, cells: [9] },
+        }),
+      );
+      expect(r.fishRestored).toBe(true);
+      expect(store.value).toMatchObject({ cells: [9] });
+    } finally {
+      (globalThis as unknown as { Request: unknown }).Request = RealRequest;
+      delete (globalThis as unknown as { caches?: unknown }).caches;
+    }
+  });
+});

@@ -58,7 +58,15 @@ export async function GET(req: Request) {
     }
   }
 
-  const payload = await loadWeatherSnapshot(id);
+  const { payload, unreachable } = await loadWeatherSnapshot(id);
+  /*  KHÔNG HỎI ĐƯỢC ≠ KHÔNG CÓ (2026-08-02, audit lô B).
+      404 cố ý KHÔNG nằm trong `isRescuableStatus` của service worker ("404 →
+      nói thật"), nên trả 404 lúc hạ tầng chập chờn là tự tay chặn đường cứu:
+      máy đang giữ lưới 16 ngày trong kho vẫn nhận 404. 503 thì SW trả lại bản
+      trong kho, còn client vẫn có nhánh `!r.ok` như cũ — màn hình không đổi. */
+  if (unreachable) {
+    return Response.json({ ok: false, code: "source_down" }, { status: 503 });
+  }
   if (payload == null) {
     return Response.json({ ok: false, code: "not_found" }, { status: 404 });
   }

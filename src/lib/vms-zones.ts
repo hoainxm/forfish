@@ -306,7 +306,12 @@ export async function fetchPublicVmsZones(): Promise<VmsZone[] | null> {
     .select("id,name,color,style,default_on,visible,geojson,sort_order,created_at")
     .eq("visible", true)
     .order("sort_order", { ascending: true })
-    .limit(200);
+    .limit(200)
+    // ĐỒNG HỒ 12 GIÂY (D-PH9, soát 2026-08-02): hỏng thì rơi về vùng tĩnh nên
+    // vô hại với màn hình, NHƯNG không có trần thì ở sóng "sống mà chết" nó để
+    // lại một promise + một kết nối treo suốt phiên, mỗi lần mở màn thêm một
+    // cái nữa.
+    .abortSignal(AbortSignal.timeout(12000));
   if (error || !data) return null;
   return (data as Row[]).map(rowToZone);
 }

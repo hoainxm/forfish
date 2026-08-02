@@ -30,6 +30,33 @@ export function estimateWaveFromWind(windKmh: number): number {
   return Math.round((0.3 + Math.max(0, windKmh) * 0.025) * 10) / 10;
 }
 
+/**
+ * CẢ MẺ đều là sóng ƯỚC (nguồn sóng thủng hẳn) hay không — THUẦN, có test.
+ *
+ * AN TOÀN TÍNH MẠNG: thà nói "chưa có số sóng thật" còn hơn đưa một con số
+ * trông như thật. Sóng ước chỉ suy từ gió, KHÔNG biết sóng lừng từ bão xa —
+ * đúng thứ lật tàu nhỏ lúc trời quang. Mẻ như vậy vẫn đáng hiện (gió/mưa/dông
+ * trong đó là số thật) nhưng KHÔNG được ngồi vào chỗ của bản có sóng đo thật.
+ */
+export function allWavesEstimated(days: SeaDay[]): boolean {
+  return days.length > 0 && days.every((d) => d.waveEstimated === true);
+}
+
+/**
+ * Đồng hồ chặn cho fetch — `AbortSignal.timeout` chưa có trên WebView/Safari
+ * cũ (máy rẻ của bà con) và gọi thẳng sẽ ném TypeError ĐỒNG BỘ. Ở đây cái ném
+ * nằm trong hàm async nên chỉ thành promise hỏng, nhưng hậu quả còn tệ hơn
+ * sập: máy đó KHÔNG BAO GIỜ lấy nổi dự báo mới, cả chuyến biển chỉ xem được
+ * bản cũ mà chẳng ai hiểu vì sao. Thiếu API thì chạy KHÔNG có đồng hồ chặn —
+ * chậm còn hơn không bao giờ có số.
+ */
+function timeoutSignal(ms: number): AbortSignal | undefined {
+  return typeof AbortSignal !== "undefined" &&
+    typeof AbortSignal.timeout === "function"
+    ? AbortSignal.timeout(ms)
+    : undefined;
+}
+
 export type SeaLevel = "good" | "caution" | "bad";
 
 export interface ScoredSeaDay extends SeaDay {
@@ -47,6 +74,15 @@ const FORECAST_DAYS = 16;
 const WAVE_MODEL = "ncep_gfswave025";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 giờ — dự báo ngày không đổi nhanh hơn
 
+/**
+ * Điểm đi biển 1–100.
+ *
+ * CỐ Ý KHÔNG NHẬN CỜ `waveEstimated` (soát chéo 2026-08-02): hạ điểm vì sóng
+ * ước sẽ đẻ ra một con số THỨ BA (không phải điểm của sóng thật, cũng không
+ * phải điểm của sóng ước) mà chẳng ai giải thích nổi cho bà con. Chỗ xử lý
+ * đúng là UI: nơi nào hiện sóng/điểm dựng từ sóng ước thì phải NÓI RA "(ước)"
+ * — xem components/fishing-map-view.tsx và components/sea-forecast.tsx.
+ */
 export function scoreDay(d: SeaDay): number {
   let score = 100;
   // Sóng là yếu tố nặng nhất với tàu cá nhỏ.
@@ -78,26 +114,33 @@ export const LEVEL_LABEL: Record<SeaLevel, string> = {
  */
 export async function fetchSeaLive(port: FishingPort): Promise<ScoredSeaDay[]> {
   const common = `latitude=${port.lat}&longitude=${port.lon}&timezone=Asia%2FHo_Chi_Minh&forecast_days=${FORECAST_DAYS}`;
+  /* HAI NGUỒN, MỘT TRỤC (D-PH11, soát 2026-08-02): trước đây cả hai nằm trong
+     `Promise.all` không có lưới, một nhánh hỏng (429 / hết giờ / nguồn sóng
+     bảo trì) là VỨT CẢ MẺ — kể cả phần đã tải xong. Nay:
+     · GIÓ/MƯA là TRỤC dựng lưới (danh sách ngày lấy từ đó) → hỏng thì đành ném;
+     · SÓNG là nguồn PHỤ → hỏng thì vẫn dựng được ngày, sóng ước từ gió và gắn
+       cờ `waveEstimated` để UI nói thật "ước", KHÔNG để 0 giả thành biển êm. */
   const [marineRes, weatherRes] = await Promise.all([
     fetch(
       `https://marine-api.open-meteo.com/v1/marine?${common}&daily=wave_height_max&models=${WAVE_MODEL}`,
-      { signal: AbortSignal.timeout(15000) },
-    ),
+      { signal: timeoutSignal(15000) },
+    ).catch(() => null),
     fetch(
       `https://api.open-meteo.com/v1/forecast?${common}&daily=wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,weather_code`,
-      { signal: AbortSignal.timeout(15000) },
+      { signal: timeoutSignal(15000) },
     ),
   ]);
-  if (!marineRes.ok || !weatherRes.ok) {
+  if (!weatherRes.ok) {
     throw new Error("Không lấy được dự báo");
   }
-  const marine = await marineRes.json();
+  const marine =
+    marineRes && marineRes.ok ? await marineRes.json().catch(() => null) : null;
   const weather = await weatherRes.json();
 
   const dates: string[] = weather.daily?.time ?? [];
   const days: ScoredSeaDay[] = dates.map((date, i) => {
     const windMaxKmh = weather.daily?.wind_speed_10m_max?.[i] ?? 0;
-    const rawWave = marine.daily?.wave_height_max?.[i];
+    const rawWave = marine?.daily?.wave_height_max?.[i];
     const waveMissing = rawWave == null || !Number.isFinite(rawWave);
     const d: SeaDay = {
       date,
@@ -127,11 +170,11 @@ export async function fetchSeaBackupLive(port: FishingPort): Promise<ScoredSeaDa
   const [marineRes, weatherRes] = await Promise.all([
     fetch(
       `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height&models=ecmwf_wam025`,
-      { signal: AbortSignal.timeout(15000) },
+      { signal: timeoutSignal(15000) },
     ),
     fetch(
       `https://api.open-meteo.com/v1/forecast?${common}&daily=wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,weather_code&models=ecmwf_ifs025`,
-      { signal: AbortSignal.timeout(15000) },
+      { signal: timeoutSignal(15000) },
     ),
   ]);
   if (!marineRes.ok || !weatherRes.ok) {
@@ -188,14 +231,25 @@ export async function fetchSeaForecast(
 ): Promise<ScoredSeaDay[]> {
   const cached = readCache(port.id);
   if (cached) return cached;
+  /* MẤT SÓNG HẲN → ĐỌC BẢN ĐÃ LƯU TRƯỚC (K3, soát 2026-08-02).
+     Trước đây bản lưu nằm SAU cùng: máy tự biết mình không có mạng mà vẫn vắt
+     kiệt 23 giây đồng hồ (8 s snapshot + 15 s live) rồi mới lấy ra thứ đã nằm
+     sẵn trong máy từ giây 0. Bà con nhìn màn hình quay 23 giây, mỗi lần mở lại
+     màn là 23 giây nữa.
+     Chỉ tin `onLine === false` (máy nói CHẮC là không có mạng); ca "sóng sống
+     mà chết" onLine vẫn true nên vẫn đi đường thường — không mất bản mới. */
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    const offlineStale = readCache(port.id, true);
+    if (offlineStale) return offlineStale;
+  }
   const snap = await loadSeaSnapshotClient(port.id);
   if (snap && isCacheCurrent(snap.savedAt, Date.now())) {
-    writeCache(port.id, snap.days); // giữ bản trong máy cho lúc mất sóng
+    writeCacheKeepRealWaves(port.id, snap.days); // giữ bản trong máy cho lúc mất sóng
     return snap.days;
   }
   try {
     const days = await fetchSeaLive(port);
-    writeCache(port.id, days);
+    writeCacheKeepRealWaves(port.id, days);
     return days;
   } catch (err) {
     // snapshot đã hỏi ở trên — cũ vẫn hơn không có (không hỏi lại cho đỡ 1 lượt)
@@ -214,7 +268,7 @@ async function loadSeaSnapshotClient(
 ): Promise<{ days: ScoredSeaDay[]; savedAt: number | null } | null> {
   try {
     const r = await fetch(apiUrl(`/api/weather-snapshot?id=${seaSnapshotId(portId)}`), {
-      signal: AbortSignal.timeout(8000),
+      signal: timeoutSignal(8000),
     });
     if (!r.ok) return null;
     const j = (await r.json()) as
@@ -264,4 +318,26 @@ function writeCache(portId: string, days: ScoredSeaDay[]) {
   } catch {
     // storage đầy — bỏ qua, lần sau gọi lại mạng
   }
+}
+
+/**
+ * Ghi vào máy, NHƯNG mẻ toàn sóng-ước KHÔNG được đè bản còn sóng ĐO THẬT.
+ *
+ * VÌ SAO (LỖI 2b, soát chéo 2026-08-02): từ lúc nhánh live thôi ném khi nguồn
+ * sóng hỏng, một mẻ "gió thật + sóng ước" cũng được lưu đè lên bản cũ có sóng
+ * thật. Ra biển mất sóng, thứ duy nhất còn trong máy là số sóng máy tự đoán từ
+ * gió — đúng lúc không còn cách nào kiểm chứng. Cái mới ĐANG hiện vẫn là cái
+ * vừa lấy về (gió/mưa/dông trong đó là số thật, UI đã gắn "(ước)" cho sóng);
+ * chỗ này chỉ lo phần bà con sẽ đọc lúc GIỮA BIỂN.
+ *
+ * Không có bản cũ, hoặc bản cũ cũng toàn sóng ước → cứ ghi: trống còn tệ hơn.
+ */
+function writeCacheKeepRealWaves(portId: string, days: ScoredSeaDay[]) {
+  if (!allWavesEstimated(days)) {
+    writeCache(portId, days);
+    return;
+  }
+  const prev = readCache(portId, true); // kể cả quá hạn — vẫn là sóng đo thật
+  if (prev && !allWavesEstimated(prev)) return;
+  writeCache(portId, days);
 }

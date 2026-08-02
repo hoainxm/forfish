@@ -15,8 +15,13 @@ const LS_PREFIX = "forfish.";
  * MỞ KHOÁ bản đồ cá premium offline (leo thang quyền). Tệp chỉ mang DỮ LIỆU dự
  * báo CÔNG KHAI, không mang entitlement. (Đăng nhập nằm ở cookie Supabase, không
  * ở localStorage, nên không lo giả mạo user.)
+ *
+ * `forfish.identity.` cùng lý do (thêm 2026-08-02): sổ danh tính offline nói
+ * "máy này là của SĐT nào". Nhập tệp của người khác mà kéo theo nó thì máy tự
+ * nhận mình là người ta — vừa mở nhầm ngăn hộp thư, vừa cản đường xoá dấu tier
+ * (shouldClearPremiumMark). Danh tính chỉ được đặt bằng một lần ĐĂNG NHẬP THẬT.
  */
-const SKIP_PREFIXES = ["forfish.tier."];
+const SKIP_PREFIXES = ["forfish.tier.", "forfish.identity."];
 const isBackupable = (k: string) =>
   k.startsWith(LS_PREFIX) && !SKIP_PREFIXES.some((p) => k.startsWith(p));
 /** Kho /api/* của Service Worker — khớp SDFISH_API_V trong public/sw.js */
@@ -68,7 +73,15 @@ export async function exportOfflineData(): Promise<string> {
     if (typeof caches !== "undefined") {
       const c = await caches.open(API_CACHE);
       const r = await c.match(FISH_URL);
-      if (r) fish = await r.json();
+      if (r) {
+        /*  CHỈ GÓI BẢN ĐỒ CÁ CÒN DÙNG ĐƯỢC (2026-08-02, audit B7). Kho SW có
+            thể đang giữ một phản hồi `{ok:false}` (bản trước route trả 200 kèm
+            lỗi — nay đã sửa thành 503, nhưng máy bà con vẫn còn bản cũ). Gói
+            rác vào tệp thì lúc phục hồi là ghi rác đè lên bản tốt, mà đây là
+            bản DUY NHẤT của lớp cá. */
+        const j = (await r.json()) as { ok?: boolean } | null;
+        if (j && j.ok === true) fish = j;
+      }
     }
   } catch {
     /* không có kho SW / khác origin — bỏ qua phần cá */
@@ -80,7 +93,7 @@ export async function exportOfflineData(): Promise<string> {
 /** Ghi bản sao lưu trở lại máy (localStorage + kho SW bản đồ cá). */
 export async function importOfflineData(
   json: string,
-): Promise<{ ok: boolean; keys: number }> {
+): Promise<{ ok: boolean; keys: number; fishRestored?: boolean }> {
   const b = parseBackup(json);
   if (!b) return { ok: false, keys: 0 };
   let keys = 0;
@@ -96,7 +109,13 @@ export async function importOfflineData(
       }
     }
   }
-  if (b.fish != null) {
+  /*  ĐỐI XỨNG với lúc xuất: KHÔNG ghi bản `{ok:false}` đè lên kho (audit B7).
+      Tệp đời cũ có thể mang rác từ thời route trả 200-kèm-lỗi; ghi vào đây là
+      ghi đè bản DUY NHẤT của lớp cá — thứ giữa biển không tải lại được. */
+  const fishOk =
+    b.fish != null && (b.fish as { ok?: boolean }).ok === true;
+  let fishRestored = false;
+  if (fishOk) {
     try {
       if (typeof caches !== "undefined") {
         const c = await caches.open(API_CACHE);
@@ -106,10 +125,11 @@ export async function importOfflineData(
             headers: { "content-type": "application/json" },
           }),
         );
+        fishRestored = true;
       }
     } catch {
       /* không ghi được kho SW — bản đồ cá sẽ tự tải lại khi có sóng */
     }
   }
-  return { ok: true, keys };
+  return { ok: true, keys, fishRestored };
 }

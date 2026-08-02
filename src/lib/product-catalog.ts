@@ -129,7 +129,10 @@ export async function fetchProductListings(): Promise<ProductListing[] | null> {
     .eq("visible", true)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false })
-    .limit(200);
+    .limit(200)
+    // đồng hồ 12 giây (D-PH9) — hỏng thì rơi về danh mục tĩnh, nhưng không có
+    // trần là để lại kết nối treo suốt phiên ở sóng "sống mà chết"
+    .abortSignal(AbortSignal.timeout(12000));
   if (error || !data) return null;
   return (data as Row[]).map(rowToListing);
 }

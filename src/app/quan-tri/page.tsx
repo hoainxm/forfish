@@ -41,6 +41,8 @@ import {
   type UsageStage,
 } from "@/lib/app-usage";
 import { createClient } from "@/lib/supabase/client";
+import { clearInbox } from "@/lib/inbox";
+import { forgetIdentity } from "@/lib/offline-identity";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCccd, isValidCccd } from "@/lib/crew";
 import { isValidVnPhone, phoneToEmail, sanitizePhoneInput } from "@/lib/phone";
@@ -209,6 +211,15 @@ export default function QuanTriPage() {
   async function logout() {
     const supabase = createClient();
     await supabase?.auth.signOut();
+    /* DỌN MÁY GIỐNG HỆT NÚT ĐĂNG XUẤT CỦA APP (sửa 2026-08-02). Trước đây chỗ
+       này gọi signOut() TRẦN: danh tính offline (`forfish.identity.v1`) ở lại
+       máy VĨNH VIỄN, kéo theo `shouldClearPremiumMark` không bao giờ đúng nữa —
+       tức dấu premium cũng không bao giờ được dọn trên máy đó. Staff SDVICO hay
+       dùng chung máy, và máy đó cũng chạy app khách. /quan-tri chạy ở bờ nên
+       không cần đồng hồ như hero-account: mất sóng thì cùng lắm phiên còn trên
+       máy chủ, phần trong máy vẫn phải sạch. */
+    clearInbox();
+    forgetIdentity(); // đã kèm xoá dấu hạng
     // Ở LẠI /quan-tri và hiện form đăng nhập quản trị ngay tại đây — KHÔNG đá
     // sang /login của app khách (user 2026-07-31).
     setHealth(null);

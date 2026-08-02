@@ -10,7 +10,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { isValidVnPhone, normalizeVnPhone } from "@/lib/phone";
-import { isNetworkAuthError } from "@/lib/auth-error";
+import { isNetworkAuthError, withDeadline } from "@/lib/auth-error";
 
 const TABLE = "market_listings";
 
@@ -127,15 +127,21 @@ export function rowToListing(r: Row, uid: string | null): MarketListing {
 export async function fetchListings(): Promise<MarketListing[] | null> {
   const supabase = createClient();
   if (!supabase) return null;
-  const { data: userData } = await supabase.auth.getUser();
-  const uid = userData?.user?.id ?? null;
+  /* ĐỒNG HỒ CHO CẢ HAI CÚ (D-PH9, soát 2026-08-02): không có trần thì ở sóng
+     "sống mà chết" chợ tin kẹt `loading = true` VĨNH VIỄN — không bao giờ hiện
+     "Chưa có tin nào", bà con ngồi nhìn tin mẫu tưởng chợ chỉ có bấy nhiêu.
+     `getUser()` không nhận AbortSignal nên phải bọc đồng hồ ngoài; hết giờ chỉ
+     mất cờ "tin của tôi", danh sách vẫn hiện. */
+  const userRes = await withDeadline(supabase.auth.getUser(), 8000);
+  const uid = userRes?.data?.user?.id ?? null;
   const { data, error } = await supabase
     .from(TABLE)
     .select(
       "id,owner_id,side,poster_kind,poster_name,species,quantity,price_text,province,phone,note,status,created_at",
     )
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(100)
+    .abortSignal(AbortSignal.timeout(12000));
   if (error || !data) return null;
   return (data as Row[]).map((r) => rowToListing(r, uid));
 }
@@ -152,7 +158,13 @@ export async function createListing(
   // getUser() RESOLVE kèm `error` khi mất sóng (không reject) — bỏ `error` thì
   // người ĐANG đăng nhập bị báo "cần đăng nhập" chỉ vì sóng chập chờn. Nói đúng
   // chuyện: chưa gửi được vì sóng, không phải vì tài khoản.
-  const { data: userData, error: authError } = await supabase.auth.getUser();
+  // Đồng hồ 8 giây: `getUser()` treo được (không nhận AbortSignal) ⇒ nút "Đăng
+  // tin" kẹt mãi. Hết giờ = cũng là chuyện SÓNG, nói đúng như vậy.
+  const authRes = await withDeadline(supabase.auth.getUser(), 8000);
+  if (!authRes) {
+    return { ok: false, error: "Chưa gửi được — máy chưa có sóng. Thử lại sau." };
+  }
+  const { data: userData, error: authError } = authRes;
   const user = userData?.user;
   if (!user && isNetworkAuthError(authError)) {
     return { ok: false, error: "Chưa gửi được — máy chưa có sóng. Thử lại sau." };

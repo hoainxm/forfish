@@ -4,6 +4,7 @@ import {
   formatDateVN,
   latestAvailableDate,
   OCEAN_LAYERS,
+  OFFLINE_COAST_BEFORE_ID,
   SEA_MASK_COLOR,
 } from "../ocean-map";
 
@@ -64,7 +65,22 @@ describe("buildMapStyle", () => {
       "sea-mask",
       "seamarks",
     ]);
-    expect(style.layers).toHaveLength(4);
+    // sea-bg · basemap · sea-mask · mốc chèn bờ offline · seamarks
+    expect(style.layers).toHaveLength(5);
+  });
+
+  it("mốc chèn bờ offline nằm SAU mask, TRƯỚC mọi lớp nội dung", () => {
+    // Chèn dưới sea-mask = xoá Hoàng Sa/Trường Sa lúc mất sóng (mask tô kín ô
+    // biển ở mức toàn cảnh) — mốc phải nằm ngay TRÊN mask.
+    const ids = (buildMapStyle("sst", now).layers as { id: string }[]).map(
+      (l) => l.id,
+    );
+    expect(ids.indexOf(OFFLINE_COAST_BEFORE_ID)).toBeGreaterThan(
+      ids.indexOf("sea-mask"),
+    );
+    expect(ids.indexOf(OFFLINE_COAST_BEFORE_ID)).toBeLessThan(
+      ids.indexOf("ocean-data"),
+    );
   });
 
   it("lớp NỀN NƯỚC vẽ đầu tiên — mất sóng không được ra màn hình trắng", () => {

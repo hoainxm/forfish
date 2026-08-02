@@ -12,7 +12,13 @@
 // OFFLINE: lấy được thì LƯU localStorage; ra biển mất mạng lùi về bản đã lưu
 // (lib/forecast-cache) — kéo thanh giờ vẫn xem được lưới đã tải trước lúc đi.
 
-import { saveForecast, loadForecast, loadAll } from "@/lib/forecast-cache";
+import {
+  saveForecast,
+  loadForecast,
+  loadAll,
+  noteForecastKept,
+  type ForecastSaveOutcome,
+} from "@/lib/forecast-cache";
 import { apiUrl } from "@/lib/api-base";
 import { gridSnapshotId, SNAPSHOT_DAY_SET } from "@/lib/weather-snapshot-id";
 import { isCacheCurrent } from "@/lib/source-cadence";
@@ -213,6 +219,119 @@ export function gridHasCurrent(g: ForecastGrid | null | undefined): boolean {
   return !!g?.cells?.some((c) => c.hours?.some((h) => h?.curKmh != null));
 }
 
+/** Lưới có SỐ SÓNG chưa — nhánh sóng `.catch(() => null)` nên lưới vẫn "hợp lệ"
+    (đủ ô, đủ times) mà mọi `waveM` là null: lớp Sóng vẽ 0 mũi tên, trống câm. */
+export function gridHasWave(g: ForecastGrid | null | undefined): boolean {
+  return !!g?.cells?.some((c) => c.hours?.some((h) => h?.waveM != null));
+}
+
+/**
+ * TRẦN TUỔI cho luật "đừng ghi đè bản đầy đủ bằng bản thiếu": bản cũ hơn ngần
+ * này thì CHO ghi đè dù nghèo hơn. Không có trần thì nguồn sóng chết dài ngày là
+ * lưới gió mới không bao giờ vào được máy — kẹt vĩnh viễn ở bản một tuần tuổi.
+ * 24 giờ: gió/sóng đổi theo ngày, số một ngày tuổi đã hết dùng để đi biển.
+ */
+export const GRID_OVERWRITE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * CÓ ĐƯỢC GHI ĐÈ BẢN ĐANG CÓ KHÔNG (thuần, 2026-08-02).
+ *
+ * Vì sao: nhánh sóng + dòng chảy trong `fetchGridCore` kết bằng `.catch(() =>
+ * null)` — nguồn marine 429/timeout thì lưới VẪN dựng xong với `waveM`/`curKmh`
+ * toàn null, rồi `saveForecast` ghi ĐÈ THẲNG lên bản đầy đủ đã tải ở bờ. Ra
+ * biển: lớp Sóng vẽ 0 mũi tên, không báo lỗi gì (times[] còn nguyên nên chip vẫn
+ * nói "Đã lưu đủ"). `gridHasCurrent` có sẵn từ 2026-07-29 nhưng CHỈ dùng ở
+ * đường ĐỌC — đường GHI không có cửa nào.
+ *
+ * Luật: bản mới phải KHÔNG NGHÈO HƠN bản đang giữ VỀ MẶT SÓNG. Nghèo hơn thì
+ * TỪ CHỐI ghi — giữ bản đầy đủ cho offline; phiên đang có sóng vẫn xem được bản
+ * live vừa lấy (hàm gọi vẫn trả nó ra).
+ *
+ * CHỈ XÉT SÓNG, KHÔNG XÉT DÒNG CHẢY (sửa 2026-08-02 — hồi quy do chính bản vá
+ * trên gây ra): bản đầu đặt `curKmh` NGANG HÀNG `waveM`. Nhưng sóng là AN TOÀN
+ * TÍNH MẠNG, còn dòng chảy mặt là lớp "xem cho biết" — và hai thứ đến từ HAI
+ * request khác nhau. Nguồn dòng chảy (SMOC) chết trong khi gió/sóng vẫn tươi là
+ * chuyện thường; luật cũ chặn luôn cả lưới GIÓ/SÓNG MỚI, máy ôm bản tới 23 giờ
+ * tuổi — đúng chỗ không được phép cũ. Phần dòng chảy cũ KHÔNG mất: `saveGridChecked`
+ * ghép lại từ bản cũ khi trục thời gian khớp (xem mergeGridCurrent).
+ */
+export function shouldOverwriteGrid(
+  prev: { data: ForecastGrid; savedAt: number } | null | undefined,
+  next: ForecastGrid,
+  now: number = Date.now(),
+): boolean {
+  if (!prev?.data) return true;
+  // bản đời cũ (vùng phủ nhỏ) coi như không có — đè thoải mái
+  if (!gridIsCurrent(prev.data)) return true;
+  if (now - prev.savedAt >= GRID_OVERWRITE_MAX_AGE_MS) return true;
+  // "nghèo hơn" = mất hẳn SÓNG, thứ giữa biển không tải lại được
+  return !(gridHasWave(prev.data) && !gridHasWave(next));
+}
+
+/**
+ * GHÉP DÒNG CHẢY CŨ VÀO LƯỚI MỚI (thuần, 2026-08-02).
+ *
+ * Ca thật: nguồn dòng chảy 429 nhưng gió/sóng vẫn về. Lưới mới đáng ghi (số gió
+ * sóng tươi hơn), nhưng ghi thẳng là XOÁ SẠCH lớp Dòng chảy đã tải sẵn ở bờ —
+ * `fetchForecastGrid(..., { needCurrent: true })` sau đó coi bản trong máy là
+ * không dùng được, giữa biển bật lớp lên là trống câm.
+ *
+ * Chỉ ghép khi CHẮC CHẮN cùng một trục thời gian và cùng bộ ô: `times[]` khớp
+ * TỪNG PHẦN TỬ + số ô bằng nhau + toạ độ từng ô trùng. Không khớp thì trả `next`
+ * NGUYÊN XI — thà mất lớp "xem cho biết" còn hơn dán số dòng chảy của giờ khác
+ * lên giờ đang xem (đúng lỗi "mượn số của toạ độ/khung khác" đã cấm).
+ *
+ * Số ghép vào là số THẬT của đúng mốc giờ đó, chỉ lấy từ lượt tải trước — không
+ * bịa, không nội suy.
+ */
+export function mergeGridCurrent(
+  prev: ForecastGrid | null | undefined,
+  next: ForecastGrid,
+): ForecastGrid {
+  if (!prev || !gridHasCurrent(prev) || gridHasCurrent(next)) return next;
+  const a = prev.cells ?? [];
+  const b = next.cells ?? [];
+  if (a.length === 0 || a.length !== b.length) return next;
+  const ta = prev.times ?? [];
+  const tb = next.times ?? [];
+  if (ta.length === 0 || ta.length !== tb.length) return next;
+  for (let i = 0; i < ta.length; i++) if (ta[i] !== tb[i]) return next;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].lat !== b[i].lat || a[i].lon !== b[i].lon) return next;
+  }
+  return {
+    ...next,
+    cells: b.map((c, i) => ({
+      ...c,
+      hours: c.hours.map((h, k) => {
+        const old = a[i].hours?.[k];
+        if (!old || old.curKmh == null) return h;
+        return { ...h, curKmh: old.curKmh, curDirDeg: old.curDirDeg ?? null };
+      }),
+    })),
+  };
+}
+
+/** Ghi lưới vào máy QUA CỬA "bản mới có tốt bằng bản cũ không". `dataAt` = tuổi
+    THẬT của số liệu (snapshot cron) — khác mốc sự cố, xem forecast-cache.
+    Trả về BA trạng thái: `kept` (kho đang giữ bản tốt hơn — coi như xong việc)
+    khác hẳn `failed` (máy hết chỗ). Gộp hai thứ này vào một chữ `false` là gốc
+    của vòng đốt sóng 2 phút/lượt — xem ForecastSaveOutcome. */
+function saveGridChecked(
+  id: string,
+  g: ForecastGrid,
+  dataAt?: number,
+): ForecastSaveOutcome {
+  const prev = loadForecast<ForecastGrid>(GRID_NS, id);
+  if (!shouldOverwriteGrid(prev, g)) {
+    noteForecastKept(GRID_NS);
+    return "kept";
+  }
+  // giữ lại phần dòng chảy của bản cũ nếu bản mới thiếu (và trục giờ khớp)
+  const merged = mergeGridCurrent(prev?.data, g);
+  return saveForecast(GRID_NS, id, merged, dataAt) ? "written" : "failed";
+}
+
 export async function fetchForecastGrid(
   days = 3,
   opts?: { needCurrent?: boolean },
@@ -243,13 +362,15 @@ export async function fetchForecastGrid(
       // LƯU vào máy với ĐÚNG TUỔI THẬT của snapshot (không phải Date.now()):
       // pretrip/offline trông cậy bản localStorage, còn tuổi thật giữ cho
       // isCacheCurrent lần sau không tưởng bản cũ là bản vừa tải.
-      saveForecast(GRID_NS, id, snap, snap.savedAt ?? undefined);
+      saveGridChecked(id, snap, snap.savedAt ?? undefined);
       return snap;
     }
   }
   try {
     const g = await fetchForecastGridLive(days);
-    saveForecast(GRID_NS, id, g);
+    // QUA CỬA: nguồn sóng/dòng chảy hỏng thì `g` thiếu hẳn một lớp — không được
+    // đè lên bản đầy đủ đã tải ở bờ (xem shouldOverwriteGrid).
+    saveGridChecked(id, g);
     return g;
   } catch (err) {
     // LƯỚI AN TOÀN khi live lỗi: bản trong máy trước; nếu chưa có mà là khung
@@ -270,7 +391,7 @@ export async function fetchForecastGrid(
         // LƯU khi live 429 (2026-07-29): trước chỉ trả stale mà không ghi →
         // "Tải lại" trong popup coi như hỏng (savedGridDays vẫn trống) dù đã
         // lấy được snapshot. Ghi để offline có bản + hàng đổi xanh.
-        saveForecast(GRID_NS, id, snap, snap.savedAt ?? undefined);
+        saveGridChecked(id, snap, snap.savedAt ?? undefined);
         return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
       }
     }

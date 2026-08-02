@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { withDeadline } from "@/lib/auth-error";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -54,9 +55,23 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
-    const { data, error: signInError } = await supabase!.auth.signInWithPassword(
-      { email: phoneToEmail(phone), password },
+    /* ĐỒNG HỒ CHẶN (soát 2026-08-02): signInWithPassword không nhận
+       AbortSignal. Sóng "sống mà chết" ở cảng/ngoài khơi làm nó treo — không
+       resolve, không reject — nên nút kẹt "Đang vào…" VĨNH VIỄN, bà con không
+       biết nên chờ hay bấm lại. 25 giây: rộng cho 3G cảng, vẫn có điểm dừng. */
+    const res = await withDeadline(
+      supabase!.auth.signInWithPassword({
+        email: phoneToEmail(phone),
+        password,
+      }),
+      25000,
     );
+    if (!res) {
+      setError("Mạng yếu quá, chưa vào được. Bà con thử lại giúp nhé.");
+      setLoading(false);
+      return;
+    }
+    const { data, error: signInError } = res;
     if (signInError || !data.user) {
       setError("Sai số điện thoại hoặc mật khẩu.");
       setLoading(false);
@@ -65,11 +80,9 @@ export default function LoginPage() {
     // 1 TÀI KHOẢN = 1 MÁY (2026-07-29): đăng nhập máy này thì thu hồi phiên
     // mọi máy khác — máy cũ tự thoát ở lần mở app/refresh kế. Lỗi thu hồi
     // KHÔNG chặn đăng nhập (mạng biển chập chờn).
-    try {
-      await supabase!.auth.signOut({ scope: "others" });
-    } catch {
-      /* bỏ qua — phiên máy này vẫn hợp lệ */
-    }
+    // Cú này nằm SAU khi đã đăng nhập XONG nên tuyệt đối không được giữ màn
+    // hình: 8 giây, treo thì bỏ qua, đi tiếp.
+    await withDeadline(supabase!.auth.signOut({ scope: "others" }), 8000);
     // lần đầu (webhook đặt must_change_password) → bắt đổi mật khẩu
     const mustChange = data.user.user_metadata?.must_change_password === true;
     router.replace(mustChange ? "/doi-mat-khau" : "/");

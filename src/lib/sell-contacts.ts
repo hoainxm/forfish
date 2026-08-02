@@ -216,7 +216,10 @@ export async function fetchPublicSellContacts(): Promise<SellContact[] | null> {
     .select(COLS)
     .eq("visible", true)
     .order("sort_order", { ascending: true })
-    .limit(1000);
+    .limit(1000)
+    // đồng hồ 12 giây (D-PH9) — hỏng thì rơi về danh bạ tĩnh, nhưng không có
+    // trần là để lại kết nối treo suốt phiên ở sóng "sống mà chết"
+    .abortSignal(AbortSignal.timeout(12000));
   if (error || !data || data.length === 0) return null;
   return (data as Row[]).map(rowToSellContact);
 }

@@ -15,6 +15,7 @@
 // mục Thông báo vẫn hiện đủ tin cũ, không quay vòng chờ.
 
 import { apiUrl } from "@/lib/api-base";
+import { normalizeVnPhone } from "@/lib/phone";
 
 export interface InboxMessage {
   id: string;
@@ -27,8 +28,14 @@ export interface InboxMessage {
   mine: boolean;
 }
 
-/** Quy ước key forfish.* (xem ops/state-registry.md) */
-export const INBOX_KEY = "forfish.inbox.v1";
+/* Quy ước key forfish.* (xem ops/state-registry.md).
+   v1 → v2 (2026-08-02): NGĂN nay khoá bằng SĐT ĐÃ CHUẨN HOÁ, khớp đúng thứ máy
+   chủ ghi. Bản v1 khoá bằng `email.split("@")[0]` thô ở phía đọc, nên tài khoản
+   có email không phải SĐT ("duclong292@gmail.com": máy chủ ghi ngăn "0292",
+   client tra ngăn "duclong292") thì hộp thư offline RỖNG VĨNH VIỄN (K6). */
+export const INBOX_KEY = "forfish.inbox.v2";
+/** Khoá đời cũ — chỉ để migrate sang v2 rồi bỏ, KHÔNG đọc/ghi ở đâu khác. */
+const INBOX_KEY_V1 = "forfish.inbox.v1";
 /** Tin đã BÁO VỀ được là "đã đọc" — để khỏi báo lại mỗi lần mở app (0024) */
 export const INBOX_READ_KEY = "forfish.inbox.read.v1";
 
@@ -38,28 +45,87 @@ type Stored = { phone: string; savedAt: number; messages: InboxMessage[] };
    nhau) nên để chung máy không lộ gì của ai. Đăng nhập thì ghi sang ngăn của
    SĐT đó, đăng xuất thì xoá sạch. */
 const GUEST = "__khach__";
-const bucket = (phone: string | null) => phone ?? GUEST;
+
+/**
+ * Tên ngăn của một SĐT — PHẢI khớp từng ký tự với máy chủ, nếu không thì ghi
+ * một đằng đọc một nẻo. Máy chủ (`src/app/api/me/messages/route.ts`) dùng
+ * `normalizeVnPhone(email.split("@")[0])`; ở đây dùng ĐÚNG hàm đó.
+ * Rỗng / không ra số nào → ngăn khách.
+ */
+export function inboxBucket(phone: string | null | undefined): string {
+  if (!phone) return GUEST;
+  const n = normalizeVnPhone(phone);
+  return n && n !== "0" ? n : GUEST;
+}
+
+function readStored(): Stored | null {
+  try {
+    const raw = window.localStorage.getItem(INBOX_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as Stored;
+    return s && typeof s.phone === "string" && Array.isArray(s.messages)
+      ? s
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Dời hộp thư v1 sang v2 — KHÔNG được làm mất tin bà con đang có (nhất là tin
+ * bão đã nhận ở bờ). Chạy một lần, im lặng, không bao giờ ném.
+ */
+function migrateV1(): void {
+  try {
+    if (window.localStorage.getItem(INBOX_KEY)) return; // đã có v2
+    const old = window.localStorage.getItem(INBOX_KEY_V1);
+    if (!old) return;
+    const s = JSON.parse(old) as Stored;
+    if (s && typeof s.phone === "string" && Array.isArray(s.messages)) {
+      window.localStorage.setItem(
+        INBOX_KEY,
+        JSON.stringify({
+          // v1 ghi `phone` lấy thẳng từ máy chủ (đã chuẩn hoá) — cho qua hàm
+          // chuẩn hoá lần nữa cho chắc, ngăn khách thì giữ nguyên.
+          phone: s.phone === GUEST ? GUEST : inboxBucket(s.phone),
+          savedAt: typeof s.savedAt === "number" ? s.savedAt : Date.now(),
+          messages: s.messages,
+        } satisfies Stored),
+      );
+    }
+    window.localStorage.removeItem(INBOX_KEY_V1);
+  } catch {
+    /* JSON hỏng / máy hết chỗ — thà giữ nguyên còn hơn xoá nhầm */
+  }
+}
 
 /** Bản lưu của ĐÚNG tài khoản này; SĐT lệch → coi như chưa có gì. */
 export function loadInbox(phone: string | null): InboxMessage[] {
   if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(INBOX_KEY);
-    if (!raw) return [];
-    const s = JSON.parse(raw) as Stored;
-    if (s?.phone !== bucket(phone) || !Array.isArray(s.messages)) return [];
-    return s.messages;
-  } catch {
-    return [];
-  }
+  migrateV1();
+  const s = readStored();
+  if (!s || s.phone !== inboxBucket(phone)) return [];
+  return s.messages;
 }
 
 function saveInbox(phone: string | null, messages: InboxMessage[]): void {
   try {
+    migrateV1();
+    const b = inboxBucket(phone);
+    /* NHÁNH KHÁCH KHÔNG ĐƯỢC ĐÈ NGĂN CỦA NGƯỜI ĐÃ ĐĂNG NHẬP (K4/F2).
+       Máy chủ trả `ok:true, phone:null, messages:[chỉ tin chung]` khi không đọc
+       được phiên — đó là câu trả lời HỢP LỆ, không phải lỗi, nên mọi lá chắn
+       kiểu `if (!ok) return` đều không bắt được. Ghi đè bằng nó là xoá sổ tin
+       gửi riêng khỏi máy, đúng lúc bà con sắp ra khơi. Đăng xuất thật thì
+       clearInbox() dọn, không cần đường này. */
+    if (b === GUEST) {
+      const cur = readStored();
+      if (cur && cur.phone !== GUEST) return;
+    }
     window.localStorage.setItem(
       INBOX_KEY,
       JSON.stringify({
-        phone: bucket(phone),
+        phone: b,
         savedAt: Date.now(),
         messages,
       } satisfies Stored),
@@ -73,6 +139,7 @@ function saveInbox(phone: string | null, messages: InboxMessage[]): void {
 export function clearInbox(): void {
   try {
     window.localStorage.removeItem(INBOX_KEY);
+    window.localStorage.removeItem(INBOX_KEY_V1);
     window.localStorage.removeItem(INBOX_READ_KEY);
   } catch {
     /* bỏ qua */
@@ -96,7 +163,7 @@ function loadReported(phone: string | null): Set<string> {
     const raw = window.localStorage.getItem(INBOX_READ_KEY);
     if (!raw) return new Set();
     const s = JSON.parse(raw) as ReadStore;
-    if (s?.phone !== bucket(phone) || !Array.isArray(s.ids)) return new Set();
+    if (s?.phone !== inboxBucket(phone) || !Array.isArray(s.ids)) return new Set();
     return new Set(s.ids);
   } catch {
     return new Set();
@@ -108,7 +175,10 @@ function saveReported(phone: string | null, ids: Set<string>): void {
     window.localStorage.setItem(
       INBOX_READ_KEY,
       // giữ trần bằng hộp thư (≤50 tin) — cắt từ đầu, tin cũ nhất rụng trước
-      JSON.stringify({ phone: bucket(phone), ids: [...ids].slice(-50) } satisfies ReadStore),
+      JSON.stringify({
+        phone: inboxBucket(phone),
+        ids: [...ids].slice(-50),
+      } satisfies ReadStore),
     );
   } catch {
     /* máy hết chỗ — thà báo trùng còn hơn chen chỗ của dự báo */
