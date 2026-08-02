@@ -27,6 +27,7 @@ import {
   savedCurDepthUntil,
 } from "@/lib/cur-depth";
 import { isCacheCurrent } from "@/lib/source-cadence";
+import { isSnapshotFreshAt } from "@/lib/fish-snapshot-policy";
 import { CUR_DEPTH_MAX_DAYS } from "@/lib/weather-snapshot-id";
 import {
   fetchSeaScalar,
@@ -251,6 +252,11 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
       .filter(Boolean)
       .join(" · ");
 
+  /**
+   * `extra.fresh` — luật "còn mới" RIÊNG của lớp (mặc định: nhịp Open-Meteo).
+   * Chỉ lớp nào có nhịp phát hành KHÁC mới được truyền, và phải truyền đúng nhịp
+   * mà nguồn của lớp đó thật sự ra bản mới — xem chú thích lớp "fish".
+   */
   const mk = (
     id: SavedLayerId,
     label: string,
@@ -258,7 +264,7 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
     savedAt: number | null,
     sizeBytes: number,
     detail: string,
-    retriable = true,
+    extra: { retriable?: boolean; fresh?: boolean } = {},
   ): SavedLayer => ({
     id,
     label,
@@ -266,8 +272,8 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
     detail,
     savedAt,
     sizeBytes,
-    fresh: saved && isCacheCurrent(savedAt, now),
-    retriable,
+    fresh: extra.fresh ?? (saved && isCacheCurrent(savedAt, now)),
+    retriable: extra.retriable ?? true,
   });
 
   const stormAt = savedStormAt();
@@ -317,7 +323,20 @@ export function savedLayers(opts: SavedLayersOpts = {}): SavedLayer[] {
         : fish
           ? "bản đồ mới nhất · vài ngày tới"
           : "chưa lưu",
-      !opts.fishLocked,
+      {
+        retriable: !opts.fishLocked,
+        /* NHỊP RIÊNG, KHÔNG DÙNG isCacheCurrent (sửa 2026-08-02).
+           Bản đồ cá do CRON tính ~6 giờ/lần rồi ghi snapshot; `/api/fish-forecast`
+           CHỈ đi tính bản mới khi snapshot quá `SNAPSHOT_MAX_AGE_MS` (30 giờ),
+           còn trong hạn thì trả nguyên bản đang có. Đo bằng nhịp Open-Meteo
+           (4 mốc/ngày, trần 12 giờ) là client khắt khe hơn máy chủ ⇒ mỗi bản
+           mới tính xong vài giờ đã bị gọi là "đã cũ", chip đỏ "Dự báo trong máy
+           đã cũ — chạm tải mới" hiện hoài, mà chạm "Tải mới" thì nhận lại ĐÚNG
+           bản cũ (route thấy snapshot còn tươi) ⇒ nút bấm không đổi gì. Nay
+           dùng CHUNG luật với route: cũ quá 30 giờ mới là cũ — và đúng lúc đó
+           chạm "Tải mới" là route tính live thật, nút có tác dụng. */
+        fresh: !opts.fishLocked && !!fish && isSnapshotFreshAt(fish.dataAt, now),
+      },
     ),
     mk(
       "scalar",

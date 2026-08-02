@@ -22,6 +22,7 @@ import {
   autoPretripLine,
   autoPretripTone,
   coverageChipOk,
+  layerRetryFailed,
   coverageChipText,
   lastAutoPretripAt,
   markAutoPretripRun,
@@ -601,5 +602,34 @@ describe("cửa thử lại sau mẻ BỊ CẮT", () => {
 
   it("cửa mẻ-bị-cắt phải RỘNG HƠN cửa thường (không thì vá bằng không)", () => {
     expect(PRETRIP_PARTIAL_RETRY_MS).toBeGreaterThan(PRETRIP_MIN_RETRY_MS);
+  });
+});
+
+/*
+  NÚT "TẢI MỚI" BẤM XONG IM RU (lỗi thật, sửa 2026-08-02). Popup chỉ soi `saved`
+  nên lớp VỐN ĐÃ CÓ mà tải hỏng vẫn `saved === true` ⇒ không đánh dấu lỗi, không
+  đổi chữ, không đổi màu — bà con bấm mấy lần cũng tưởng nút hỏng.
+*/
+describe("layerRetryFailed — nút hứa gì thì soi nấy", () => {
+  const L = (saved: boolean, fresh: boolean) => ({ saved, fresh });
+
+  it("lớp CHƯA CÓ, tải xong có rồi → đạt", () => {
+    expect(layerRetryFailed(L(false, false), L(true, true))).toBe(false);
+  });
+
+  it("lớp CHƯA CÓ, tải xong vẫn chưa có → hụt", () => {
+    expect(layerRetryFailed(L(false, false), L(false, false))).toBe(true);
+  });
+
+  it("lớp ĐÃ CÓ mà cũ ('Tải mới'), xong vẫn CŨ → hụt, phải nói thật", () => {
+    expect(layerRetryFailed(L(true, false), L(true, false))).toBe(true);
+  });
+
+  it("lớp ĐÃ CÓ mà cũ, xong đã mới → đạt", () => {
+    expect(layerRetryFailed(L(true, false), L(true, true))).toBe(false);
+  });
+
+  it("không đọc lại được lớp sau khi chạy → coi như hụt", () => {
+    expect(layerRetryFailed(L(true, false), undefined)).toBe(true);
   });
 });

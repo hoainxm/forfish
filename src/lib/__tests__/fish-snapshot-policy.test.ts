@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   shouldReplaceSnapshot,
   isSnapshotFresh,
+  isSnapshotFreshAt,
   SNAPSHOT_MAX_AGE_MS,
   SNAPSHOT_REVALIDATE,
 } from "@/lib/fish-snapshot-policy";
@@ -72,5 +73,33 @@ describe("isSnapshotFresh — bắt cron ĐỨNG để khỏi dọn số cũ nh�
 
   it("generated_at ở tương lai xa (đồng hồ lệch) → KHÔNG tin được", () => {
     expect(isSnapshotFresh(new Date(NOW + 3 * 3600_000).toISOString(), NOW)).toBe(false);
+  });
+});
+
+/* Bản SỐ của cùng luật — client dùng (savedFishMark().dataAt đã parse sẵn).
+   Phải KHỚP TỪNG LI với bản chuỗi: lệch nhau là bảng "trong máy có gì" lại nói
+   "đã cũ" ở lúc route vẫn phục vụ bản đó, tức nút "Tải mới" thành nút chết. */
+describe("isSnapshotFreshAt — cùng luật, nhận mốc dạng số (cho client)", () => {
+  const NOW = Date.parse("2026-07-26T12:00:00Z");
+
+  it("khớp bản chuỗi ở mọi mốc", () => {
+    for (const ageH of [0, 6, 13, 29, 30, 31, 72]) {
+      const t = NOW - ageH * 3600_000;
+      expect(isSnapshotFreshAt(t, NOW)).toBe(
+        isSnapshotFresh(new Date(t).toISOString(), NOW),
+      );
+    }
+  });
+
+  it("trong 30 giờ → tươi; quá 30 giờ → không", () => {
+    expect(isSnapshotFreshAt(NOW - SNAPSHOT_MAX_AGE_MS, NOW)).toBe(true);
+    expect(isSnapshotFreshAt(NOW - SNAPSHOT_MAX_AGE_MS - 60_000, NOW)).toBe(false);
+  });
+
+  it("thiếu mốc / không phải số / ở tương lai xa → KHÔNG tươi", () => {
+    expect(isSnapshotFreshAt(null, NOW)).toBe(false);
+    expect(isSnapshotFreshAt(undefined, NOW)).toBe(false);
+    expect(isSnapshotFreshAt(NaN, NOW)).toBe(false);
+    expect(isSnapshotFreshAt(NOW + 3 * 3600_000, NOW)).toBe(false);
   });
 });

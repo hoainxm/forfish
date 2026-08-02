@@ -30,6 +30,7 @@ import {
   PRETRIP_MAX_MS,
   PRETRIP_SCALAR_DAYS,
 } from "../pretrip";
+import { coverageChipOk, coverageChipText } from "../pretrip-auto";
 
 /** Bản dự báo điểm rút gọn — chỉ cần mảng `days` để tính "giữ tới ngày nào" */
 const cond = (dates: string[]) => ({ days: dates.map((date) => ({ date })) });
@@ -97,6 +98,66 @@ describe("savedLayers / savedCoverage — độ phủ TỪNG lớp", () => {
     const layers = savedLayers({ fishLocked: false });
     expect(layers.every((l) => !l.saved)).toBe(true);
     expect(savedCoverage({ fishLocked: false }).allSaved).toBe(false);
+  });
+
+  /* BANNER "ĐÃ CŨ" HIỆN HOÀI MÀ BẤM KHÔNG ĐƯỢC GÌ (lỗi thật, sửa 2026-08-02).
+     Bản đồ cá đo tuổi bằng `generatedAt` (lúc CRON tính) nhưng lại đem so với
+     nhịp Open-Meteo (4 mốc/ngày, trần 12 giờ) — trong khi `/api/fish-forecast`
+     CHỈ tính bản mới khi snapshot quá 30 giờ. Client khắt khe hơn máy chủ ⇒ cứ
+     vài giờ sau mỗi lần cron chạy là chip đỏ "Dự báo trong máy đã cũ — chạm tải
+     mới", mà chạm "Tải mới" thì route trả lại ĐÚNG bản đang có ⇒ bấm bao nhiêu
+     lần cũng không đổi. BẤT BIẾN: ngưỡng "còn mới" phía client KHÔNG được chặt
+     hơn ngưỡng route thật sự đi tính bản mới. */
+  describe("lớp bản đồ cá — 'còn mới' theo NHỊP SNAPSHOT, không theo nhịp Open-Meteo", () => {
+    const seedFish = (agoMs: number) => {
+      saveForecast("fishmark", "latest", {
+        targetDate: "2026-08-01",
+        generatedAt: new Date(Date.now() - agoMs).toISOString(),
+      });
+      return savedLayers({ fishLocked: false }).find((l) => l.id === "fish")!;
+    };
+
+    it("cron tính 8 giờ trước → CÒN MỚI (route chưa tính lại, chạm 'Tải mới' cũng chỉ nhận đúng bản này)", () => {
+      const fish = seedFish(8 * 3600_000);
+      expect(fish.saved).toBe(true);
+      expect(fish.fresh).toBe(true);
+    });
+
+    it("13 giờ — quá trần 12 giờ của nhịp Open-Meteo — vẫn CÒN MỚI", () => {
+      expect(seedFish(13 * 3600_000).fresh).toBe(true);
+    });
+
+    it("cron ĐỨNG hơn 30 giờ → ĐÃ CŨ (đúng lúc đó route tự tính live nên nút có tác dụng thật)", () => {
+      expect(seedFish(31 * 3600_000).fresh).toBe(false);
+    });
+
+    it("chưa lưu / đang khoá premium → không bao giờ nhận là 'còn mới'", () => {
+      expect(
+        savedLayers({ fishLocked: false }).find((l) => l.id === "fish")!.fresh,
+      ).toBe(false);
+      seedFish(1000);
+      expect(
+        savedLayers({ fishLocked: true }).find((l) => l.id === "fish")!.fresh,
+      ).toBe(false);
+    });
+
+    it("đủ lớp + bản cá 8 giờ trước → chip XANH, KHÔNG hiện banner 'đã cũ'", () => {
+      seedAll();
+      seedFish(8 * 3600_000);
+      const cov = savedCoverage({ fishLocked: false });
+      expect(cov.allSaved).toBe(true);
+      expect(coverageChipOk(cov, "2026-08-02")).toBe(true);
+      expect(coverageChipText("idle", cov, "2026-08-02")).not.toContain("đã cũ");
+    });
+
+    it("đủ lớp nhưng cron đứng 31 giờ → VẪN phải nói thật là đã cũ", () => {
+      seedAll();
+      seedFish(31 * 3600_000);
+      const cov = savedCoverage({ fishLocked: false });
+      expect(coverageChipText("idle", cov, "2026-08-02")).toBe(
+        "Dự báo trong máy đã cũ — chạm tải mới",
+      );
+    });
   });
 });
 

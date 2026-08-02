@@ -28,6 +28,7 @@ import {
   autoPretripTone,
   coverageChipOk,
   coverageChipText,
+  layerRetryFailed,
   lastAutoPretripAt,
   markAutoPretripRun,
   shouldMarkPretripRun,
@@ -394,6 +395,7 @@ function PretripSavedSheet({
   const retry = useCallback(
     async (id: SavedLayerId) => {
       if (busy) return;
+      const before = layers.find((l) => l.id === id);
       setBusy(id);
       let threw = false;
       try {
@@ -402,36 +404,63 @@ function PretripSavedSheet({
         threw = true;
       }
       setBusy(null);
-      // vẫn chưa lưu được sau khi thử → đánh dấu lỗi để nói thật với bà con
+      // vẫn chưa đạt sau khi thử → đánh dấu lỗi để nói thật với bà con
       const after = savedCoverage({ fishLocked }).layers.find((l) => l.id === id);
       setFailed((prev) => {
         const n = new Set(prev);
-        if (threw || (after && !after.saved)) n.add(id);
+        if (threw || layerRetryFailed(before, after)) n.add(id);
         else n.delete(id);
         return n;
       });
       refresh();
     },
-    [busy, points, refresh, fishLocked],
+    [busy, layers, points, refresh, fishLocked],
   );
 
-  const retryAll = useCallback(async () => {
-    if (busy) return;
-    setBusy("all");
-    for (const l of layers) {
-      if (l.retriable && !l.saved) {
+  /**
+   * Chạy tuần tự MỘT NHÓM lớp (thiếu hoặc đã cũ) — dùng chung cho hai nút đáy.
+   * Chạy xong soi lại từng lớp: lớp nào chưa đạt thì đánh dấu để dòng của nó nói
+   * thật, thay vì cả nhóm im lặng như đã xong.
+   */
+  const runMany = useCallback(
+    async (ids: SavedLayerId[]) => {
+      if (busy || ids.length === 0) return;
+      const before = new Map(layers.map((l) => [l.id, l]));
+      setBusy("all");
+      for (const id of ids) {
         try {
-          await runLayer(l.id, points);
+          await runLayer(id, points);
         } catch {
           /* bỏ qua lớp hỏng, chạy tiếp lớp khác */
         }
       }
-    }
-    setBusy(null);
-    refresh();
-  }, [busy, layers, points, refresh]);
+      setBusy(null);
+      const after = savedCoverage({ fishLocked }).layers;
+      setFailed((prev) => {
+        const n = new Set(prev);
+        for (const id of ids) {
+          if (layerRetryFailed(before.get(id), after.find((l) => l.id === id)))
+            n.add(id);
+          else n.delete(id);
+        }
+        return n;
+      });
+      refresh();
+    },
+    [busy, layers, points, refresh, fishLocked],
+  );
 
-  const missing = layers.filter((l) => l.retriable && !l.saved).length;
+  const missingIds = layers
+    .filter((l) => l.retriable && !l.saved)
+    .map((l) => l.id);
+  const missing = missingIds.length;
+  /* LỚP ĐÃ CÓ NHƯNG ĐÃ CŨ — phải có nút gom ở đáy (2026-08-02). Chip ngoài bản
+     đồ mời "chạm tải mới", chạm vào thì mở đúng popup này; đủ lớp nên nút "Tải
+     lại N lớp còn thiếu" không hiện, bà con phải tự dò từng dòng tìm nút nhỏ —
+     lời mời ngoài kia hoá ra không có chỗ bấm. */
+  const staleIds = layers
+    .filter((l) => l.retriable && l.saved && !l.fresh)
+    .map((l) => l.id);
 
   return (
     <BottomSheet title="Dữ liệu đã lưu để đi biển" onClose={onClose}>
@@ -479,9 +508,12 @@ function PretripSavedSheet({
                 <span className="block text-[1rem] font-bold leading-tight text-navy">
                   {l.label}
                 </span>
-                {!l.saved && failed.has(l.id) ? (
+                {failed.has(l.id) ? (
                   <span className="block text-[0.8125rem] font-semibold leading-snug text-warn">
-                    Chưa tải được — cần có sóng, hoặc nguồn đang bận. Thử lại sau.
+                    {l.saved
+                      ? // lớp vốn đã có: nói đúng cái vừa hụt — bản MỚI
+                        "Chưa có bản mới hơn — nguồn chưa ra bản khác, hoặc chưa có sóng."
+                      : "Chưa tải được — cần có sóng, hoặc nguồn đang bận. Thử lại sau."}
                   </span>
                 ) : (
                   <span className="block text-[0.8125rem] leading-snug text-foreground/65">
@@ -521,10 +553,10 @@ function PretripSavedSheet({
         })}
       </ul>
 
-      {missing > 0 && (
+      {missing > 0 ? (
         <button
           type="button"
-          onClick={retryAll}
+          onClick={() => runMany(missingIds)}
           disabled={!!busy}
           className="mt-4 min-h-[3.25rem] w-full rounded-xl bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-60"
         >
@@ -532,7 +564,18 @@ function PretripSavedSheet({
             ? "Đang tải các lớp còn thiếu…"
             : `Tải lại ${missing} lớp còn thiếu`}
         </button>
-      )}
+      ) : staleIds.length > 0 ? (
+        <button
+          type="button"
+          onClick={() => runMany(staleIds)}
+          disabled={!!busy}
+          className="mt-4 min-h-[3.25rem] w-full rounded-xl bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-60"
+        >
+          {busy === "all"
+            ? "Đang tải các lớp đã cũ…"
+            : `Tải mới ${staleIds.length} lớp đã cũ`}
+        </button>
+      ) : null}
       {total > 0 && (
         <p className="mt-3 text-[0.875rem] font-semibold text-foreground/70">
           Tổng trong máy: ~{fmtBytes(total)}

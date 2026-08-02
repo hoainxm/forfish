@@ -334,6 +334,27 @@ export function coverageChipText(
 }
 
 /**
+ * CÚ CHẠM "TẢI LẠI" / "TẢI MỚI" VỪA RỒI CÓ HỤT KHÔNG (thuần, 2026-08-02).
+ *
+ * LỖI ĐÃ SỬA: popup chỉ soi `saved` — lớp VỐN ĐÃ CÓ trong máy nhưng đã cũ (nút
+ * ghi "Tải mới") mà tải hỏng thì `saved` vẫn `true` ⇒ không đánh dấu lỗi, dòng
+ * không đổi chữ, nút không đổi màu. Bà con bấm ba bốn lần vẫn im ru y như nút
+ * hỏng — trong khi thứ họ đang cần là bản MỚI trước lúc nhổ neo.
+ *
+ * Luật: NÚT HỨA GÌ THÌ SOI NẤY.
+ *  · "Tải lại" (lớp chưa có) hứa CÓ  → xong mà vẫn `!saved` = hụt
+ *  · "Tải mới" (lớp đã có)    hứa MỚI → xong mà vẫn `!fresh` = hụt
+ */
+export function layerRetryFailed(
+  before: { saved: boolean } | undefined,
+  after: { saved: boolean; fresh: boolean } | undefined,
+): boolean {
+  if (!after) return true;
+  if (!after.saved) return true;
+  return before?.saved === true && !after.fresh;
+}
+
+/**
  * Chip có được TÔ XANH không — phải khớp CHÍNH XÁC với câu chữ ở trên (xanh mà
  * chữ nói "đã cũ" là lại nói dối bằng màu). Đủ lớp + chưa hết ngày + không lớp
  * nào quá chu kỳ.

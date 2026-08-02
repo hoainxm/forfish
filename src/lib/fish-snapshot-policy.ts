@@ -26,7 +26,30 @@ export function isSnapshotFresh(
   if (!generatedAt) return false;
   const t = Date.parse(generatedAt);
   if (!Number.isFinite(t)) return false;
-  const age = nowMs - t;
+  return isSnapshotFreshAt(t, nowMs);
+}
+
+/**
+ * Y HỆT `isSnapshotFresh` nhưng nhận mốc dạng SỐ (epoch ms) — cho phía CLIENT,
+ * chỗ đã parse sẵn `generatedAt` ra số (xem `savedFishMark().dataAt`).
+ *
+ * VÌ SAO PHẢI DÙNG CHUNG LUẬT NÀY (2026-08-02, sửa "banner đã cũ" nói dối):
+ * bảng "trong máy có gì" từng đo lớp bản đồ cá bằng `isCacheCurrent` — nhịp của
+ * Open-Meteo (4 mốc/ngày, trần 12 giờ). Nhưng bản đồ cá KHÔNG chạy theo nhịp đó:
+ * cron tính ~6 giờ/lần và ROUTE CHỈ TÍNH LẠI khi snapshot quá `SNAPSHOT_MAX_AGE_MS`.
+ * Client khắt khe hơn route ⇒ báo "đã cũ" trong khi chạm "Tải mới" chỉ nhận lại
+ * ĐÚNG bản cũ (route thấy snapshot còn tươi, trả nguyên) ⇒ nút bấm hoài không đổi
+ * gì, banner "Dự báo trong máy đã cũ — chạm tải mới" hiện vĩnh viễn.
+ *
+ * BẤT BIẾN: ngưỡng "còn mới" phía client KHÔNG ĐƯỢC chặt hơn ngưỡng route thật sự
+ * đi tính bản mới — chặt hơn là hứa một việc app không làm được.
+ */
+export function isSnapshotFreshAt(
+  generatedAtMs: number | null | undefined,
+  nowMs: number,
+): boolean {
+  if (generatedAtMs == null || !Number.isFinite(generatedAtMs)) return false;
+  const age = nowMs - generatedAtMs;
   if (age < -60 * 60 * 1000) return false;
   return age <= SNAPSHOT_MAX_AGE_MS;
 }
