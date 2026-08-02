@@ -937,6 +937,17 @@ export function fcSet(k: string, v: string): void {
     throw new Error(FC_LOI_TRAN_RAM);
   }
   themGuong(k, v);
+  /*  ⚠️ GỠ BIA Ở CẢ NHÁNH NÀY (sửa 2026-08-03b — bản vá bia mộ tự đẻ lỗ MẤT DỮ
+      LIỆU, đánh giá lại dựng được bằng mã). Bản đầu chỉ gỡ bia ở nhánh `ls`.
+      Nhưng bia chỉ tự tiêu khi `nap()` THI HÀNH ĐƯỢC nó — mà `ghiMe` trong
+      `nap()` có thể hỏng (máy đầy). Lúc đó bia sống sót, còn bà con thì tải lại
+      đúng lớp vừa biến mất (phản ứng tự nhiên) ⇒ bản MỚI nằm thật trên đĩa ⇒
+      phiên sau `nap()` thi hành bia CŨ và **XOÁ MẤT BẢN MỚI**.
+      Điều kiện tương quan dương: giao dịch hỏng chủ yếu vì máy đầy, mà
+      `fcRemove` chính là đường dọn chỗ khi máy đầy.
+      Ghi lại một khoá = tuyên bố "tôi muốn giữ nó" ⇒ mọi lệnh xoá cũ với khoá
+      đó hết hiệu lực, bất kể đang ở nhánh nào. */
+  ghiBiaMo(docBiaMo().filter((x) => x !== k));
   ghiNhanSo(k, v);
   khongGhiDuoc.delete(k); // bản mới thay hẳn bản từng bị từ chối
   hangCho.set(k, v);

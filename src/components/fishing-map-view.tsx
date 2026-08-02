@@ -2411,6 +2411,44 @@ export default function FishingMapView() {
             `above` của sheet, xếp NGAY TRÊN nhãn "đã lưu dự báo…" cho khỏi trôi
             nổi góc trái bản đồ (user 2026-07-26) */}
 
+        {/*  LỚP NƯỚC DÂNG / XOÁY HỎNG — PHẢI NÓI (vá 2026-08-03b).
+             ⚠️ ĐẶT Ở ĐÂY, KHÔNG ĐẶT TRONG KHỐI `overlayOn`: bản vá đầu nhét nó
+             vào đó và thành MÃ CHẾT, vì `overlayOn = !!forecastKind ||
+             !!overlayField` CỐ Ý loại trừ `scalarKind` (lớp này không có thanh
+             giờ), mà các handler thì loại trừ nhau — bật lớp này là
+             `forecastKind`/`overlayField` về null ⇒ `overlayOn` false ⇒ điều
+             kiện không bao giờ đúng. Bản vá trông như đã xong, có chú thích dài,
+             có nút Thử lại viết đúng — mà bà con vẫn thấy biển trắng trơn.
+             Vùng dòng nổi này luôn được vẽ nên không dính bẫy đó. */}
+        {scalarKind && seaScalarFailed === scalarKind && !scalarGeo && (
+          <div
+            role="status"
+            className="pointer-events-auto mx-auto flex w-fit max-w-[92%] items-center gap-2 rounded-full bg-danger-bg px-3 py-1.5 shadow-md"
+          >
+            <AlertIcon className="h-4 w-4 shrink-0 text-danger" />
+            <p className="text-[0.875rem] font-bold leading-snug text-danger">
+              Chưa lấy được lớp này — biển trống ở đây KHÔNG có nghĩa là biển lặng.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                /*  Xoá CẢ kết quả đã lưu, không chỉ xoá cờ: effect tải lớp này
+                    `return` sớm khi `scalarData[kind]` đã có — mà bản `{ok:false}`
+                    cũng tính là "đã có". Xoá mỗi cờ thì nút KHÔNG TẢI LẠI GÌ. */
+                setScalarData((m) => {
+                  const n = { ...m };
+                  delete n[scalarKind];
+                  return n;
+                });
+                setSeaScalarFailed(null);
+              }}
+              className="shrink-0 rounded-full bg-navy px-3 py-1 text-[0.875rem] font-bold text-white"
+            >
+              Thử lại
+            </button>
+          </div>
+        )}
+
         {/* SỐ BIỂN CŨ / THIẾU NGUỒN → một dòng rồi tự tắt (5s). Chỉ hiện trong
             ca xấu: ảnh SST/phù du quá tuổi, hoặc chất lượng dữ liệu < 0,5 —
             xem lib/source-registry.ts (lowQualityNote). */}
@@ -2587,41 +2625,6 @@ export default function FishingMapView() {
                        trong khi lý do thật là KHÔNG XÁC NHẬN ĐƯỢC HẠNG tài
                        khoản (`premiumUnsure`) VÀ trong máy không còn bản dài
                        (`!savedLongGrid`) — nay nói đủ hai vế, chữ ≥18px. */}
-                  {/*  LỚP NƯỚC DÂNG / XOÁY HỎNG — PHẢI NÓI (vá 2026-08-03).
-                       Trước đây lớp này im hoàn toàn khi không lấy được: biển
-                       trắng trơn, không phân biệt được "chưa tải" với "không có
-                       xoáy". Câu chữ nói ĐÚNG LỚP, không gộp vào dòng "dự báo cả
-                       vùng biển" như trước — dòng đó nói cho lưới gió/sóng. */}
-                  {scalarKind && seaScalarFailed === scalarKind && !scalarGeo && (
-                    <div className="mt-1 flex items-center justify-between gap-3 rounded-xl bg-danger-bg px-3 py-2.5">
-                      <p className="text-[0.9375rem] font-bold leading-snug text-danger">
-                        Chưa lấy được lớp này — máy chưa có bản nào và nguồn đang
-                        không cho tải. Biển trống ở đây KHÔNG có nghĩa là biển
-                        lặng.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          /*  ⚠️ PHẢI XOÁ CẢ KẾT QUẢ ĐÃ LƯU, không chỉ xoá cờ
-                              hỏng (tự bắt ngay khi vừa viết). Effect tải lớp
-                              này `return` sớm nếu `scalarData[scalarKind]` đã
-                              có — mà bản `{ok:false}` cũng tính là "đã có". Xoá
-                              mỗi cờ thì nút bấm KHÔNG TẢI LẠI GÌ, đúng khuôn
-                              "nút bấm không được gì" đã mọc lại sáu lần trong
-                              mạch này. */
-                          setScalarData((m) => {
-                            const n = { ...m };
-                            delete n[scalarKind];
-                            return n;
-                          });
-                          setSeaScalarFailed(null);
-                        }}
-                        className="shrink-0 rounded-xl bg-navy px-4 py-2.5 text-[0.9375rem] font-bold text-white"
-                      >
-                        Thử lại
-                      </button>
-                    </div>
-                  )}
                   {gridShrunkTo != null && (
                     <button
                       type="button"

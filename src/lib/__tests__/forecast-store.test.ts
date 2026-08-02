@@ -621,6 +621,29 @@ describe("bia mộ — lệnh xoá KHÔNG được bốc hơi khi kho lật về
     expect(fcGet(K)).toBeNull(); // và KHÔNG sống lại trong gương/sổ
   });
 
+  it("bia CŨ không được xoá bản tải lại ở phiên sau (nhánh idb)", async () => {
+    /*  Ca đánh giá lại dựng được: bia sống sót vì `nap()` thi hành KHÔNG ĐƯỢC
+        (máy đầy), rồi bà con tải lại đúng lớp vừa biến mất. Bản đầu của bia mộ
+        chỉ gỡ bia ở nhánh `ls` ⇒ phiên sau xoá mất bản MỚI. */
+    localStorage.setItem("forfish.fcbia.v1", JSON.stringify([K]));
+    dia.set(K, JSON.stringify({ savedAt: 1, data: "cu" }));
+    ghiHong = true; // nap() thi hành bia KHÔNG được
+    await forecastStoreReady();
+    ghiHong = false;
+    // bà con tải lại đúng lớp đó — đường idb
+    __resetForecastStore();
+    await forecastStoreReady();
+    fcSet(K, JSON.stringify({ savedAt: 2, data: "v2-MOI" }));
+    await forecastStoreFlush();
+    expect(dia.get(K)).toContain("v2-MOI");
+
+    // phiên sau: bia cũ TUYỆT ĐỐI không được xoá bản mới
+    __resetForecastStore();
+    await forecastStoreReady();
+    expect(fcGet(K)).toContain("v2-MOI");
+    expect(dia.has(K)).toBe(true);
+  });
+
   it("ghi lại chính khoá đó thì GỠ BIA, không xoá oan bản mới", async () => {
     await forecastStoreReady();
     fcSet(K, JSON.stringify({ savedAt: 1, data: "cu" }));
