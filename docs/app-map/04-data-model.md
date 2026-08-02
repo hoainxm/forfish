@@ -501,7 +501,7 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 
 ⚠️ Client khai sai chỉ hỏng thống kê của chính máy đó, KHÔNG mở được quyền gì — nhưng vẫn ép qua `normalizeStorageMb` (thuần, có test): một chuỗi lạ / số âm / `Infinity` xuống thẳng cột `integer` là **cả lệnh UPDATE hỏng**, mất luôn mấy mốc thời gian đang chạy tốt (đúng khuôn lỗi cột 0022 đã dính).
 
-### Đã lưu ở đâu · đủ chỗ không · chắc chạy offline chưa — migration [`0030_storage_breakdown.sql`](../../supabase/migrations/0030_storage_breakdown.sql) (2026-08-02) — ⏳ CHỜ APPLY prod
+### Đã lưu ở đâu · đủ chỗ không · chắc chạy offline chưa — migration [`0030_storage_breakdown.sql`](../../supabase/migrations/0030_storage_breakdown.sql) (2026-08-02) — ✅ ĐÃ APPLY prod 2026-08-03 (6 cột `customers` + 6 cột `customer_devices`, `storage_persisted` kiểu `boolean`)
 
 **Vì sao** (chủ dự án chốt): *"heartbeat và web quản trị cần có các info này để nắm rõ đã lưu ở đâu, lưu bản dữ liệu tới ngày nào, dung lượng storage đủ không, có đảm bảo chạy tốt 100% offline chưa."*
 
