@@ -662,6 +662,32 @@ describe("bia mộ — lệnh xoá KHÔNG được bốc hơi khi kho lật về
 });
 
 describe("cổng chặn khuôn", () => {
+  it("nấc lùi khung dòng chảy phải khớp nấc `pretrip` thật sự tải", () => {
+    /*  ⚠️ LUẬT GIỐNG NHAU VIẾT BA CHỖ (đánh giá lại nêu): `CUR_DEPTH_FALLBACK_DAYS`
+        ở `cur-depth.ts`, nấc lùi gõ tay ở `pretrip.ts`, và whitelist khung ở
+        route. Đổi nấc lùi ở `pretrip` mà quên hằng số kia thì dòng chảy âm thầm
+        HẾT MƯỢN ĐƯỢC — quay lại đúng khuôn ĐỎ DỐI vừa vá, mà không cổng nào kêu.
+        Khoá hai chỗ lại với nhau, cùng khuôn `PRETRIP_GRID_LONGEST_DAYS`. */
+    const cur = readFileSync(join(process.cwd(), "src/lib/cur-depth.ts"), "utf8");
+    const pre = readFileSync(join(process.cwd(), "src/lib/pretrip.ts"), "utf8");
+    const khai = /const CUR_DEPTH_FALLBACK_DAYS = \[([^\]]*)\]/.exec(cur)?.[1];
+    expect(khai, "không tìm thấy CUR_DEPTH_FALLBACK_DAYS").toBeTruthy();
+    const nacKhai = khai!
+      .split(",")
+      .map((x) => Number(x.trim()))
+      .filter((n) => Number.isFinite(n));
+    // nấc lùi mà `pretrip` thật sự gọi: `fetchCurDepthGridClient(t, <số>)`
+    const nacThat = [...pre.matchAll(/fetchCurDepthGridClient\(\s*\w+\s*,\s*(\d+)\s*\)/g)]
+      .map((m) => Number(m[1]));
+    expect(nacThat.length, "pretrip không còn gọi nấc lùi bằng số?").toBeGreaterThan(0);
+    for (const n of nacThat) {
+      expect(
+        nacKhai,
+        `pretrip tải khung d${n} nhưng CUR_DEPTH_FALLBACK_DAYS không khai — dòng chảy sẽ hết mượn được`,
+      ).toContain(n);
+    }
+  });
+
   it("khoá kho bền của bản đồ cá phải khớp FISH_NS/FISH_ID ở fish-predict", () => {
     const src = readFileSync(
       join(process.cwd(), "src/lib/fish-predict.ts"),

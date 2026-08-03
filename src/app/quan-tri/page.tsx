@@ -1278,7 +1278,22 @@ function AppUsage({ a }: { a: Account }) {
     /*  DÁN NHÃN KHO (0027): trên iOS kho bản cài tách riêng Safari, nên một con
         số trần "dữ liệu tới 17/08" là câu nói thiếu — không biết nó tả cái kho
         sẽ ra khơi hay cái kho nằm lại bờ. */
-    a.dataUntil ? `bản cài: dữ liệu tới ${fmtNgay(a.dataUntil)}` : null,
+    /*  ⚠️ CHỈ DÁM NÓI "bản cài" KHI MÁY ĐÃ TỪNG MỞ BẢN CÀI (sửa 2026-08-03b —
+        chủ dự án bắt được mâu thuẫn thật trên prod: Thu Hà chip ghi "Chưa mở
+        bản cài" mà dòng dưới ghi "bản cài: dữ liệu tới 17/08").
+        Nguồn gốc: TRƯỚC migration 0027, `data_until` được ghi cho MỌI nhịp kể cả
+        nhịp từ WEB. Sau khi tách cột, mấy giá trị cũ đó nằm lại trong cột "bản
+        cài" — đo trên prod có 3 tài khoản dính (`pwa_last_open_at` NULL mà
+        `data_until` có ngày). Mã hiện tại không đẻ thêm được ca này.
+        Vì sao phải sửa gấp: lỗi lệch về phía NGUY HIỂM — người trực thấy "bản
+        cài: tới 17/08" sẽ KHÔNG gọi đúng người cần gọi nhất, tức người có đủ dữ
+        liệu trong Safari nhưng ra khơi tay trắng. Đó chính là nhóm cả tính năng
+        này sinh ra để tìm. */
+    a.dataUntil
+      ? a.pwaLastOpenAt
+        ? `bản cài: dữ liệu tới ${fmtNgay(a.dataUntil)}`
+        : `số cũ (trước 08/2026, chưa rõ kho): dữ liệu tới ${fmtNgay(a.dataUntil)}`
+      : null,
     a.dataUntilWeb ? `web: dữ liệu tới ${fmtNgay(a.dataUntilWeb)}` : null,
     /*  KHO CỦA MÁY (0029) — con số quyết định "dữ liệu đi biển nên nằm kho nào",
         và là chỗ duy nhất biết iOS thật sự cho bao nhiêu. Hiện cả hai để nhìn ra
@@ -1311,9 +1326,18 @@ function AppUsage({ a }: { a: Account }) {
   ].filter(Boolean);
   return (
     <>
+      {/*  ⚠️ HAI CHIP TỪNG IN Y HỆT MỘT CÂU (sửa 2026-08-03b, chủ dự án bắt).
+           `USAGE_STAGE_LABEL["moi-vo-web"]` và `rdLabel["chua-cai"]` đều ra
+           "Chưa mở bản cài" — hai luật khác nhau tình cờ trùng câu, lại tô hai
+           MÀU khác nhau (vàng/đỏ) nên người trực tưởng chúng nói hai chuyện.
+           Thừa một chip, không thêm một chữ thông tin nào — đúng lỗi MECE chồng
+           lấn. Chip SẴN SÀNG nói đủ hơn (có kèm số ngày còn lại) nên giữ nó,
+           giấu chip thang KHI VÀ CHỈ KHI hai bên trùng câu. */}
       <span
         title={why[stage]}
-        className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${skin[stage]}`}
+        className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${skin[stage]} ${
+          USAGE_STAGE_LABEL[stage] === rdLabel[rd.reason] ? "hidden" : ""
+        }`}
       >
         {USAGE_STAGE_LABEL[stage]}
       </span>
@@ -1325,7 +1349,15 @@ function AppUsage({ a }: { a: Account }) {
         className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${rdSkin[rd.tone]}`}
       >
         {rdLabel[rd.reason]}
-        {rd.seaDays != null && rd.seaDays > 0 ? ` · còn ${rd.seaDays}n` : ""}
+        {/*  VIẾT ĐỦ CHỮ "ngày" (sửa 2026-08-03b, chủ dự án hỏi "13n là gì?").
+             Viết tắt bắt người đọc suy luận — trái luật của chính dự án cho
+             người dùng 40–60 tuổi, và trang này thì người trực đọc lướt hàng
+             trăm hàng. Con số là SỐ NGÀY TRỌN VẸN còn lại (cắt phần đã trôi của
+             hôm nay), nên nó nhỏ hơn hiệu hai ngày lịch đúng 1 — nói "trọn" để
+             không chỏi với dòng "dữ liệu tới 17/08" ngay bên cạnh. */}
+        {rd.seaDays != null && rd.seaDays > 0
+          ? ` · còn ${rd.seaDays} ngày trọn`
+          : ""}
       </span>
       {/* LOẠI MÁY (0022) — nhân viên gọi điện phải chỉ ĐÚNG bước của máy đó:
           iPhone thì Chia sẻ → Thêm vào Màn hình chính (và bản cài có kho RIÊNG
