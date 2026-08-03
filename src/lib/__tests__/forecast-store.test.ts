@@ -691,6 +691,27 @@ describe("cổng chặn khuôn", () => {
         `pretrip tải khung d${n} nhưng CUR_DEPTH_FALLBACK_DAYS không khai — dòng chảy sẽ hết mượn được`,
       ).toContain(n);
     }
+
+    /*  ⚠️ CHÂN THỨ BA (đánh giá cuối bắt: "khai ba chỗ, khoá hai"). Whitelist
+        khung ở route gõ tay số `3`. Đổi nấc lùi sang 5 ở CẢ hai file trên thì
+        cổng vẫn XANH, còn route trả 400 `bad_days` — tức mẻ tải sẵn hỏng chặng
+        lùi mà không ai kêu. Khoá nốt chân này thì luật mới thật sự có MỘT nguồn. */
+    const rt = readFileSync(
+      join(process.cwd(), "src/app/api/currents-depth/route.ts"),
+      "utf8",
+    );
+    const cho = /!\[([^\]]*)\]\.includes\(days\)/.exec(rt)?.[1];
+    expect(cho, "không tìm thấy whitelist khung ở route currents-depth").toBeTruthy();
+    const nacRoute = cho!
+      .split(",")
+      .map((x) => Number(x.trim()))
+      .filter((n) => Number.isFinite(n));
+    for (const n of nacKhai) {
+      expect(
+        nacRoute,
+        `CUR_DEPTH_FALLBACK_DAYS khai d${n} nhưng route KHÔNG nhận — mẻ tải sẵn sẽ ăn 400 bad_days`,
+      ).toContain(n);
+    }
   });
 
   it("khoá kho bền của bản đồ cá phải khớp FISH_NS/FISH_ID ở fish-predict", () => {

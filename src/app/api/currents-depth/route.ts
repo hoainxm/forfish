@@ -28,6 +28,10 @@ export async function GET(req: Request) {
   if (!CUR_DEPTH_TIERS.includes(tier as CurDepthTier)) {
     return Response.json({ ok: false, code: "bad_tier" }, { status: 400 });
   }
+  /*  KHUNG NGÀY ĐƯỢC NHẬN — phải phủ HẾT `CUR_DEPTH_FALLBACK_DAYS` ở
+      `lib/cur-depth.ts` và mọi nấc `pretrip` thật sự tải. Có cổng khoá ba chỗ
+      này lại (`forecast-store.test.ts`): thiếu một nấc là mẻ tải sẵn ăn 400
+      `bad_days` ở chặng lùi, rồi giữa biển dòng chảy tầng hết bản để mượn. */
   if (![3, CUR_DEPTH_MAX_DAYS].includes(days)) {
     return Response.json({ ok: false, code: "bad_days" }, { status: 400 });
   }
