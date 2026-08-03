@@ -627,12 +627,17 @@ describe("bia mộ — lệnh xoá KHÔNG được bốc hơi khi kho lật về
         chỉ gỡ bia ở nhánh `ls` ⇒ phiên sau xoá mất bản MỚI. */
     localStorage.setItem("forfish.fcbia.v1", JSON.stringify([K]));
     dia.set(K, JSON.stringify({ savedAt: 1, data: "cu" }));
-    ghiHong = true; // nap() thi hành bia KHÔNG được
+    /*  ⚠️ THỨ TỰ NÀY LÀ CẢ CA TEST (sửa 2026-08-03c — đánh giá cuối chứng minh
+        bản đầu KHÔNG CÓ RĂNG). Bản đầu đặt `ghiHong = false` TRƯỚC
+        `__resetForecastStore()`, nên phiên hai `nap()` thi hành bia trót lọt rồi
+        `ghiBiaMo([])` xoá sạch bia — lúc `fcSet` chạy thì KHÔNG CÒN bia nào để
+        gỡ, tức ca test không bao giờ chạm nhánh nó định khoá. Gỡ dòng vá đi mà
+        test vẫn xanh. Bia phải CÒN SỐNG lúc `fcSet` chạy thì mới kiểm được. */
+    ghiHong = true; // nap() thi hành bia KHÔNG được — bia sống sót
     await forecastStoreReady();
-    ghiHong = false;
-    // bà con tải lại đúng lớp đó — đường idb
     __resetForecastStore();
-    await forecastStoreReady();
+    await forecastStoreReady(); // phiên hai: bia VẪN còn (ghi vẫn hỏng)
+    ghiHong = false; // đĩa lành ĐÚNG LÚC bà con tải lại lớp đó
     fcSet(K, JSON.stringify({ savedAt: 2, data: "v2-MOI" }));
     await forecastStoreFlush();
     expect(dia.get(K)).toContain("v2-MOI");

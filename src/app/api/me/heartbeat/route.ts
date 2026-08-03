@@ -203,7 +203,25 @@ export async function POST(req: Request) {
       extra.pwa_last_open_at = null;
       extra.web_last_open_at = null;
       extra.offline_ready_at = null;
-      extra.data_until = savedUntil; // null nếu máy mới chưa báo được
+      /*  ⚠️ ĐỔI MÁY CŨNG PHẢI TÁCH KHO (sửa 2026-08-03c — đánh giá cuối bắt).
+          Bản trước ghi thẳng `extra.data_until = savedUntil` KHÔNG xét
+          `standalone`, ngay dưới `pwa_last_open_at = null` — trong khi nhánh
+          thường (vài chục dòng trên) thì tách đúng. Nên MỘT NHỊP WEB TỪ MÁY MỚI
+          ghi số của kho WEB vào cột `data_until` (cột "bản cài") rồi để
+          `pwa_last_open_at` null ⇒ /quan-tri in "bản cài: dữ liệu tới …" cho
+          người CHƯA BAO GIỜ mở bản cài. Đó chính là mâu thuẫn chủ dự án bắt
+          được trên màn hình thật — và tôi đã kết luận nhầm là "dữ liệu tồn từ
+          trước 0027, mã hiện tại không đẻ được nữa". SAI: mã hiện tại VẪN đẻ
+          được, qua đúng nhánh này.
+          Hỏng theo chiều nguy hiểm: người trực thấy có ngày dữ liệu nên KHÔNG
+          gọi, trong khi kho ra khơi của máy mới đang trống. Nay dọn CẢ HAI cột
+          rồi ghi vào ĐÚNG cột theo `standalone`, cùng luật với nhánh thường. */
+      extra.data_until = null;
+      extra.data_until_web = null;
+      if (savedUntil) {
+        if (body?.standalone) extra.data_until = savedUntil;
+        else extra.data_until_web = savedUntil;
+      }
     }
   }
 
