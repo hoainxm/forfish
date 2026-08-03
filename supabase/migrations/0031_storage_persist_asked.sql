@@ -30,7 +30,7 @@
 -- việc HỎI (`persist()`) là API cục bộ của trình duyệt, KHÔNG phải request mạng
 -- — chạy được cả giữa biển, không tốn tiền sóng, không có gì để timeout.
 --
--- ⚠️ KHÔNG tự apply lên prod — bước duyệt riêng (CLAUDE.md, ref znzgugvfhgmiszqgjulk).
+-- ✅ ĐÃ APPLY prod 2026-08-03 (chủ dự án ra lệnh trực tiếp: "migrate đi").
 -- App chạy được TRƯỚC khi apply: cả hai đường ghi đều có nhánh lùi bỏ cột lạ
 -- (`src/app/api/me/heartbeat/route.ts`).
 

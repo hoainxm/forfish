@@ -521,7 +521,7 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 ⚠️ Cột có thể CHƯA tồn tại (chủ dự án tự apply) ⇒ `/api/admin/accounts` thử **bốn nấc** select rộng → hẹp (0031 tách RIÊNG một nấc: máy đã apply 0030 mà chưa apply 0031 không được mất sáu chip tách kho đang chạy tốt); `/api/me/heartbeat` giữ nguyên khuôn "hỏng thì ghi lại bộ cũ". Một chip phụ không được làm mất trắng danh sách 700+ khách.
 
 
-### Đã HỎI xin bộ nhớ bền chưa, và bị từ chối hay được gật — migration [`0031_storage_persist_asked.sql`](../../supabase/migrations/0031_storage_persist_asked.sql) (2026-08-03) — ⏳ **CHƯA APPLY prod**
+### Đã HỎI xin bộ nhớ bền chưa, và bị từ chối hay được gật — migration [`0031_storage_persist_asked.sql`](../../supabase/migrations/0031_storage_persist_asked.sql) (2026-08-03) — ✅ **ĐÃ APPLY prod 2026-08-03** (1 cột `customers` + 1 cột `customer_devices`, kiểu `boolean`)
 
 **Vì sao** (chủ dự án hỏi 2026-08-03: *"đã có bản cài thì có bị từ chối không?"*): `storage_persisted` một mình **gộp hai ca cần hai cách xử lý khác hẳn nhau**.
 
