@@ -1357,18 +1357,16 @@ function AppUsage({ a }: { a: Account }) {
           {PLATFORM_LABEL[a.devicePlatform]}
         </span>
       )}
-      {/*  ⚠️ HAI CHIP TỪNG IN Y HỆT MỘT CÂU (sửa 2026-08-03b, chủ dự án bắt).
-           `USAGE_STAGE_LABEL["moi-vo-web"]` và `rdLabel["chua-cai"]` đều ra
-           "Chưa mở bản cài" — hai luật khác nhau tình cờ trùng câu, lại tô hai
-           MÀU khác nhau (vàng/đỏ) nên người trực tưởng chúng nói hai chuyện.
-           Thừa một chip, không thêm một chữ thông tin nào — đúng lỗi MECE chồng
-           lấn. Chip SẴN SÀNG nói đủ hơn (có kèm số ngày còn lại) nên giữ nó,
-           giấu chip thang KHI VÀ CHỈ KHI hai bên trùng câu. */}
+      {/*  Chip THANG — LUÔN hiện, không bao giờ giấu (sửa 2026-08-03j).
+           Bản trước giấu nó khi trùng câu với chip sẵn sàng. Luật đó đúng khi
+           bốn chip nằm CHUNG một hàng, nhưng từ khi tách hai hàng thì giấu =
+           hàng "đã đi tới đâu" TRỐNG RỖNG ở đúng hai bậc thấp nhất, trong đó có
+           `moi-vo-web` — nhóm đáng gọi điện NHẤT. Chuyện trùng câu nay xử tận
+           gốc ở `USAGE_STAGE_LABEL` (đổi sang "Mới vô web" / "Chưa có nhịp"),
+           nên không còn gì để giấu. */}
       <span
         title={why[stage]}
-        className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${skin[stage]} ${
-          USAGE_STAGE_LABEL[stage] === rdLabel[rd.reason] ? "hidden" : ""
-        }`}
+        className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${skin[stage]}`}
       >
         {USAGE_STAGE_LABEL[stage]}
       </span>

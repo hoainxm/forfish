@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { normalizePlatform, normalizeDataUntil } from "@/lib/app-usage";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  normalizePlatform,
+  normalizeDataUntil,
+  USAGE_STAGE_LABEL,
+} from "@/lib/app-usage";
 
 // LOẠI MÁY (0022) — giá trị này đi THẲNG vào cột có CHECK constraint, nên chỉ
 // được để lọt đúng 3 giá trị hợp lệ. "chưa biết" (null) KHÁC "hỏi rồi mà không
@@ -161,6 +167,36 @@ describe("usageStage — bậc 'tải dở dang' (2026-08-03)", () => {
   });
 });
 
+describe("nhãn thang KHÔNG được đụng nhãn chip sẵn sàng", () => {
+  /*  ⚠️ Vòng chấm cuối bắt: hai bảng nhãn viết riêng, tình cờ đụng câu ở HAI
+      bậc. Bản vá trước chống bằng cách GIẤU chip thang — nhưng từ khi /quan-tri
+      tách hai hàng thì giấu nghĩa là hàng "đã đi tới đâu" TRỐNG RỖNG ở đúng bậc
+      `moi-vo-web` (nhóm đáng gọi điện NHẤT) và `chua-ghi-nhan`.
+      Cổng này khoá tận gốc: hai bảng không được đụng câu, để hàng thang luôn in
+      được và không cần luật giấu nào. */
+  it("không nhãn bậc nào trùng nhãn lý do sẵn sàng", () => {
+    const src = readFileSync(join(process.cwd(), "src/app/quan-tri/page.tsx"), "utf8");
+    const i = src.indexOf("const rdLabel");
+    const rd = i < 0 ? null : src.slice(i, src.indexOf("};", i));
+    expect(rd, "không tìm thấy rdLabel ở /quan-tri").toBeTruthy();
+    const nhanRd = [...rd!.matchAll(/"([^"]+)",/g)].map((m) => m[1]);
+    expect(nhanRd.length).toBeGreaterThan(4);
+    for (const nhan of Object.values(USAGE_STAGE_LABEL)) {
+      expect(
+        nhanRd,
+        `nhãn bậc thang "${nhan}" trùng một nhãn chip sẵn sàng — hai hàng sẽ in y hệt nhau`,
+      ).not.toContain(nhan);
+    }
+  });
+
+  it("/quan-tri KHÔNG được giấu chip thang nữa", () => {
+    const src = readFileSync(join(process.cwd(), "src/app/quan-tri/page.tsx"), "utf8");
+    /*  Giấu chip thang = hàng "đã đi tới đâu" trống rỗng. Chống trùng câu phải
+        xử ở NHÃN (cổng trên), không phải bằng cách bỏ trống cả hàng. */
+    expect(src).not.toContain("USAGE_STAGE_LABEL[stage] === rdLabel");
+  });
+});
+
 describe("usageCallPriority — ai gọi trước", () => {
   it("mới-vô-web đứng ĐẦU: sẽ ra khơi với máy trắng tay mà không biết", () => {
     const order = (
@@ -211,5 +247,52 @@ describe("normalizeDataUntil — chặn rác trước khi xuống cột date", (
   it("KHÔNG ném với chuỗi cố tình phá", () => {
     expect(() => normalizeDataUntil("2026-08-10'; drop table")).not.toThrow();
     expect(normalizeDataUntil("2026-08-10'; drop table")).toBeNull();
+  });
+});
+
+describe("nhịp: nhánh ĐỔI MÁY không được ghi số kho WEB vào cột bản cài", () => {
+  /*  ⚠️ CỔNG CHO MỘT BẢN VÁ TỪNG KHÔNG ĐƯỢC CANH (vòng chấm cuối bắt: gỡ bản
+      vá ra mà 1651 test vẫn xanh).
+
+      Lỗi thật đã gặp trên prod: nhánh ĐỔI MÁY của `/api/me/heartbeat` ghi thẳng
+      `extra.data_until = savedUntil` KHÔNG xét `standalone`, ngay dưới
+      `pwa_last_open_at = null`. Một nhịp WEB từ máy MỚI ghi số của kho WEB vào
+      cột "bản cài" ⇒ /quan-tri in "bản cài: dữ liệu tới …" cho người CHƯA BAO
+      GIỜ mở bản cài ⇒ người trực KHÔNG gọi, trong khi kho ra khơi đang trống.
+      Và bậc `da-tai-mot-phan` đọc chính cột đó nên cũng khai sai theo.
+
+      Cổng quét MÃ NGUỒN vì route đụng Supabase, dựng test chạy thật thì phải
+      giả cả tầng DB — đắt hơn giá trị. Điều cần khoá rất hẹp: trong nhánh đổi
+      máy, mọi lượt gán `data_until` phải NẰM TRONG một nhánh xét `standalone`. */
+  it("gán data_until trong nhánh đổi máy phải đi kèm xét standalone", () => {
+    const src = readFileSync(
+      join(process.cwd(), "src/app/api/me/heartbeat/route.ts"),
+      "utf8",
+    );
+    const i = src.indexOf("prev && prev !== dev");
+    expect(i, "không tìm thấy nhánh ĐỔI MÁY").toBeGreaterThan(0);
+    const khoi = src.slice(i, src.indexOf("\n  }", i));
+    expect(khoi).toContain("extra.data_until = null");
+    expect(
+      khoi,
+      "nhánh đổi máy phải xét `standalone` trước khi ghi data_until",
+    ).toContain("standalone");
+    /*  Cấm ĐÚNG dòng cũ: gán thẳng `savedUntil` vào cột bản cài mà KHÔNG có
+        `standalone` gác trên cùng dòng. Dạng ĐÚNG hiện tại là
+        `if (body?.standalone) extra.data_until = savedUntil;` — có gác, hợp lệ. */
+    /*  BÓC CHÚ THÍCH TRƯỚC KHI SOI (tự bắt lúc dựng cổng): chú thích tại chỗ
+        có TRÍCH NGUYÊN dòng cũ để giải thích lỗi, nên cổng bắt luôn chính lời
+        giải thích. Cổng quét chữ mà không bóc chú thích thì cấm luôn việc ghi
+        lại bài học — đúng thứ repo này sống bằng. */
+    const ganKhongGac = khoi
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*/g, "")
+      .split("\n")
+      .filter((l) => l.includes("extra.data_until = savedUntil"))
+      .filter((l) => !l.includes("standalone"));
+    expect(
+      ganKhongGac,
+      "gán data_until = savedUntil KHÔNG có standalone gác — đúng lỗi đã vá ở 829abfa",
+    ).toEqual([]);
   });
 });

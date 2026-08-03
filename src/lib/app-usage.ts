@@ -72,8 +72,16 @@ export type UsageStage =
 
 /** Nhãn chip — cùng khuôn 3 chữ, một dòng (luật nhãn ngang hàng, 03) */
 export const USAGE_STAGE_LABEL: Record<UsageStage, string> = {
-  "chua-ghi-nhan": "Chưa ghi nhận",
-  "moi-vo-web": "Chưa mở bản cài",
+  /*  ⚠️ NHÃN THANG PHẢI KỂ HÀNH TRÌNH, KHÔNG KỂ TÌNH TRẠNG (sửa 2026-08-03j).
+      Hai nhãn cũ ("Chưa ghi nhận", "Chưa mở bản cài") TRÙNG Y HỆT hai nhãn của
+      chip sẵn sàng — hai luật khác nhau tình cờ đụng câu. Bản vá trước chống
+      trùng bằng cách GIẤU chip thang, nhưng từ khi tách hai hàng thì giấu nghĩa
+      là hàng "đã đi tới đâu" TRỐNG RỖNG ở đúng hai bậc thấp nhất — kể cả bậc
+      `moi-vo-web`, nhóm `usageCallPriority = 0`, nguy hiểm nhất.
+      Nay đổi câu để hai bảng KHÔNG CÒN ĐỤNG NHAU, và bỏ hẳn luật giấu. Chữ mới
+      cũng đúng việc hơn: thang kể ĐANG Ở NẤC NÀO, không kể thiếu gì. */
+  "chua-ghi-nhan": "Chưa có nhịp",
+  "moi-vo-web": "Mới vô web",
   "da-mo-ban-cai": "Bản cài trống",
   "da-tai-mot-phan": "Tải dở dang",
   "du-do-di-bien": "Đủ đồ đi biển",
