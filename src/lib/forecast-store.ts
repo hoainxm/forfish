@@ -156,7 +156,7 @@ const RAM_TRAN_KY_TU = 12 * 1024 * 1024;
 const INDEX_KEY = "forfish.fcindex.v1";
 
 /**
- * BIA MỘ — khoá đã XOÁ mà lệnh xoá CHƯA tới được IndexedDB.
+ * DẤU ĐÃ XOÁ — khoá đã XOÁ mà lệnh xoá CHƯA tới được IndexedDB.
  *
  * ⚠️ VÌ SAO CẦN (đánh giá tổng thể 2026-08-03; trước đó chỉ được GHI CHÚ là hố
  * còn lại chứ chưa vá): nhánh `ls` không bao giờ chạm tới IndexedDB, nên phiên
@@ -164,9 +164,11 @@ const INDEX_KEY = "forfish.fcindex.v1";
  * localStorage. Phiên sau mở kho tốt, `nap()` đọc đĩa ("kho là sự thật") và
  * dựng lại sổ ⇒ **mục đã xoá SỐNG LẠI**, chiếm đúng chỗ mà lượt dọn tưởng đã
  * giải phóng — mà `fcRemove` chính là đường dọn chỗ KHI MÁY ĐẦY.
- * Bia mộ nằm ở localStorage nên sống qua phiên; `nap()` thi hành rồi xoá bia.
+ * Dấu-đã-xoá nằm ở localStorage nên sống qua phiên; `nap()` thi hành rồi xoá dấu.
  */
-const BIA_MO_KEY = "forfish.fcbia.v1";
+/*  Tên khoá giữ nguyên `fcbia` — đổi tên khoá là mọi máy đã cập nhật mất dấu
+    đang chờ thi hành, tức mục đã xoá sống lại. Chỉ đổi CÁCH GỌI trong mã. */
+const DAU_XOA_KEY = "forfish.fcbia.v1";
 
 /** `{khoá → [lưu lúc nào (epoch ms), nặng bao nhiêu (byte)]}` */
 type MucLuc = Record<string, [number, number]>;
@@ -339,27 +341,27 @@ function savedAtCua(raw: string): number {
   }
 }
 
-function docBiaMo(): string[] {
+function docDauXoa(): string[] {
   try {
-    const v = JSON.parse(ls()?.getItem(BIA_MO_KEY) || "[]") as unknown;
+    const v = JSON.parse(ls()?.getItem(DAU_XOA_KEY) || "[]") as unknown;
     return Array.isArray(v) ? v.filter((k): k is string => typeof k === "string") : [];
   } catch {
     return [];
   }
 }
 
-function ghiBiaMo(ds: string[]): void {
+function ghiDauXoa(ds: string[]): void {
   try {
-    if (ds.length === 0) ls()?.removeItem(BIA_MO_KEY);
-    else ls()?.setItem(BIA_MO_KEY, JSON.stringify(ds));
+    if (ds.length === 0) ls()?.removeItem(DAU_XOA_KEY);
+    else ls()?.setItem(DAU_XOA_KEY, JSON.stringify(ds));
   } catch {
-    /* không ghi được bia thì thôi — cùng lắm mục cũ sống lại, không mất dữ liệu */
+    /* không ghi được dấu xoá thì thôi — cùng lắm mục cũ sống lại, không mất dữ liệu */
   }
 }
 
 function themBiaMo(k: string): void {
-  const ds = docBiaMo();
-  if (!ds.includes(k)) ghiBiaMo([...ds, k]);
+  const ds = docDauXoa();
+  if (!ds.includes(k)) ghiDauXoa([...ds, k]);
 }
 
 function lsKhoaCu(): string[] {
@@ -611,24 +613,24 @@ async function nap(): Promise<void> {
     return;
   }
   backend = "idb";
-  /*  THI HÀNH BIA MỘ TRƯỚC KHI NẠP GƯƠNG — nếu không thì mục đã xoá lọt vào
+  /*  THI HÀNH DẤU ĐÃ XOÁ TRƯỚC KHI NẠP GƯƠNG — nếu không thì mục đã xoá lọt vào
       gương + sổ rồi mới bị xoá, tức có một nhịp nó "sống lại" trên màn hình. */
-  const bia = new Set(docBiaMo());
+  const dauXoa = new Set(docDauXoa());
   for (const [k, v] of tren) {
-    if (bia.has(k)) continue;
+    if (dauXoa.has(k)) continue;
     themGuong(k, v);
   }
-  if (bia.size > 0) {
-    const ok = await ghiMe(d, [...bia].map((k) => [k, null] as [string, null]));
-    /*  Xoá bia CHỈ KHI đĩa xác nhận đã xoá — cùng luật "phải làm được rồi mới
-        dọn dấu" áp cho toàn kho. Hỏng thì giữ bia, phiên sau thi hành lại. */
-    if (ok) ghiBiaMo([]);
+  if (dauXoa.size > 0) {
+    const ok = await ghiMe(d, [...dauXoa].map((k) => [k, null] as [string, null]));
+    /*  Xoá dấu CHỈ KHI đĩa xác nhận đã xoá — cùng luật "phải làm được rồi mới
+        dọn dấu" áp cho toàn kho. Hỏng thì giữ dấu, phiên sau thi hành lại. */
+    if (ok) ghiDauXoa([]);
   }
   /*  DỰNG LẠI SỔ TỪ CHÍNH KHO — kho là sự thật, sổ chỉ là bản chép nhanh. Sổ
       lệch (bị xoá, hỏng, hoặc sót từ phiên trước) thì tự lành ở đây. */
   const soMoi: MucLuc = {};
   for (const [k, v] of tren) {
-    if (bia.has(k)) continue; // đã xoá — đừng dựng lại trong sổ
+    if (dauXoa.has(k)) continue; // đã xoá — đừng dựng lại trong sổ
     soMoi[k] = [savedAtCua(v), (k.length + v.length) * 2];
   }
 
@@ -919,7 +921,7 @@ export function fcSet(k: string, v: string): void {
         "nút bấm không được gì" (c316cbd) dựng lại lần nữa. */
     hangCho.delete(k);
     khongGhiDuoc.delete(k); // bản mới thay hẳn bản từng bị từ chối
-    ghiBiaMo(docBiaMo().filter((x) => x !== k)); // ghi lại rồi thì gỡ bia
+    ghiDauXoa(docDauXoa().filter((x) => x !== k)); // ghi lại rồi thì gỡ dấu xoá
     ghiNhanSo(k, v);
     return;
   }
@@ -937,17 +939,17 @@ export function fcSet(k: string, v: string): void {
     throw new Error(FC_LOI_TRAN_RAM);
   }
   themGuong(k, v);
-  /*  ⚠️ GỠ BIA Ở CẢ NHÁNH NÀY (sửa 2026-08-03b — bản vá bia mộ tự đẻ lỗ MẤT DỮ
-      LIỆU, đánh giá lại dựng được bằng mã). Bản đầu chỉ gỡ bia ở nhánh `ls`.
-      Nhưng bia chỉ tự tiêu khi `nap()` THI HÀNH ĐƯỢC nó — mà `ghiMe` trong
-      `nap()` có thể hỏng (máy đầy). Lúc đó bia sống sót, còn bà con thì tải lại
+  /*  ⚠️ GỠ DẤU XOÁ Ở CẢ NHÁNH NÀY (sửa 2026-08-03b — bản vá dấu đã xoá tự đẻ lỗ MẤT DỮ
+      LIỆU, đánh giá lại dựng được bằng mã). Bản đầu chỉ gỡ dấu xoá ở nhánh `ls`.
+      Nhưng dấu xoá chỉ tự tiêu khi `nap()` THI HÀNH ĐƯỢC nó — mà `ghiMe` trong
+      `nap()` có thể hỏng (máy đầy). Lúc đó dấu xoá sống sót, còn bà con thì tải lại
       đúng lớp vừa biến mất (phản ứng tự nhiên) ⇒ bản MỚI nằm thật trên đĩa ⇒
-      phiên sau `nap()` thi hành bia CŨ và **XOÁ MẤT BẢN MỚI**.
+      phiên sau `nap()` thi hành dấu xoá CŨ và **XOÁ MẤT BẢN MỚI**.
       Điều kiện tương quan dương: giao dịch hỏng chủ yếu vì máy đầy, mà
       `fcRemove` chính là đường dọn chỗ khi máy đầy.
       Ghi lại một khoá = tuyên bố "tôi muốn giữ nó" ⇒ mọi lệnh xoá cũ với khoá
       đó hết hiệu lực, bất kể đang ở nhánh nào. */
-  ghiBiaMo(docBiaMo().filter((x) => x !== k));
+  ghiDauXoa(docDauXoa().filter((x) => x !== k));
   ghiNhanSo(k, v);
   khongGhiDuoc.delete(k); // bản mới thay hẳn bản từng bị từ chối
   hangCho.set(k, v);
@@ -1041,7 +1043,7 @@ export function fcRemove(k: string): void {
         ra liên tiếp và hậu quả là "thấy lại một lớp đã xoá", không mất dữ liệu. */
     hangCho.set(k, null);
     /*  KHẮC BIA để phiên sau mở được kho thì thi hành nốt lệnh xoá trên đĩa —
-        xem `BIA_MO_KEY`. Đây là vế làm cho lệnh xoá KHÔNG bốc hơi khi nhánh
+        xem `DAU_XOA_KEY`. Đây là vế làm cho lệnh xoá KHÔNG bốc hơi khi nhánh
         `ls` không bao giờ chạm tới IndexedDB. */
     themBiaMo(k);
   }
@@ -1319,10 +1321,10 @@ export function forecastStorePersistOk(): boolean {
 
 /** CHỈ CHO TEST: xoá sạch trạng thái module giữa các ca. */
 export function __resetForecastStore(): void {
-  /*  CHỈ dọn trạng thái trong RAM. KHÔNG đụng `BIA_MO_KEY` (và `INDEX_KEY`):
+  /*  CHỈ dọn trạng thái trong RAM. KHÔNG đụng `DAU_XOA_KEY` (và `INDEX_KEY`):
       chúng nằm ở localStorage đúng để SỐNG QUA PHIÊN — xoá ở đây thì không ca
       test nào dựng lại được cảnh "phiên sau mở kho tốt thì thi hành nốt lệnh
-      xoá", tức cổng gác chính của bia mộ thành vô dụng. Test tự
+      xoá", tức cổng gác chính của dấu đã xoá thành vô dụng. Test tự
       `localStorage.clear()` khi cần ngăn cách. */
   guong.clear();
   guongKyTu = 0;

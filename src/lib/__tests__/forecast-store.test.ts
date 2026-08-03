@@ -596,7 +596,7 @@ describe("vòng 8 — mục bị đĩa từ chối KHÔNG được đông cứng
   });
 });
 
-describe("bia mộ — lệnh xoá KHÔNG được bốc hơi khi kho lật về localStorage", () => {
+describe("dấu đã xoá — lệnh xoá KHÔNG được bốc hơi khi kho lật về localStorage", () => {
   it("xoá lúc nhánh ls ⇒ phiên sau mở kho tốt PHẢI xoá nốt trên đĩa", async () => {
     // phiên 1: đưa dữ liệu xuống đĩa
     await forecastStoreReady();
@@ -621,19 +621,19 @@ describe("bia mộ — lệnh xoá KHÔNG được bốc hơi khi kho lật về
     expect(fcGet(K)).toBeNull(); // và KHÔNG sống lại trong gương/sổ
   });
 
-  it("bia CŨ không được xoá bản tải lại ở phiên sau (nhánh idb)", async () => {
-    /*  Ca đánh giá lại dựng được: bia sống sót vì `nap()` thi hành KHÔNG ĐƯỢC
-        (máy đầy), rồi bà con tải lại đúng lớp vừa biến mất. Bản đầu của bia mộ
-        chỉ gỡ bia ở nhánh `ls` ⇒ phiên sau xoá mất bản MỚI. */
+  it("dấu xoá CŨ không được xoá bản tải lại ở phiên sau (nhánh idb)", async () => {
+    /*  Ca đánh giá lại dựng được: dấu xoá sống sót vì `nap()` thi hành KHÔNG ĐƯỢC
+        (máy đầy), rồi bà con tải lại đúng lớp vừa biến mất. Bản đầu của dấu đã xoá
+        chỉ gỡ dấu xoá ở nhánh `ls` ⇒ phiên sau xoá mất bản MỚI. */
     localStorage.setItem("forfish.fcbia.v1", JSON.stringify([K]));
     dia.set(K, JSON.stringify({ savedAt: 1, data: "cu" }));
     /*  ⚠️ THỨ TỰ NÀY LÀ CẢ CA TEST (sửa 2026-08-03c — đánh giá cuối chứng minh
         bản đầu KHÔNG CÓ RĂNG). Bản đầu đặt `ghiHong = false` TRƯỚC
-        `__resetForecastStore()`, nên phiên hai `nap()` thi hành bia trót lọt rồi
-        `ghiBiaMo([])` xoá sạch bia — lúc `fcSet` chạy thì KHÔNG CÒN bia nào để
+        `__resetForecastStore()`, nên phiên hai `nap()` thi hành dấu xoá trót lọt rồi
+        `ghiDauXoa([])` xoá sạch bia — lúc `fcSet` chạy thì KHÔNG CÒN dấu xoá nào để
         gỡ, tức ca test không bao giờ chạm nhánh nó định khoá. Gỡ dòng vá đi mà
         test vẫn xanh. Bia phải CÒN SỐNG lúc `fcSet` chạy thì mới kiểm được. */
-    ghiHong = true; // nap() thi hành bia KHÔNG được — bia sống sót
+    ghiHong = true; // nap() thi hành dấu xoá KHÔNG được — dấu xoá sống sót
     await forecastStoreReady();
     __resetForecastStore();
     await forecastStoreReady(); // phiên hai: bia VẪN còn (ghi vẫn hỏng)
@@ -649,14 +649,14 @@ describe("bia mộ — lệnh xoá KHÔNG được bốc hơi khi kho lật về
     expect(dia.has(K)).toBe(true);
   });
 
-  it("ghi lại chính khoá đó thì GỠ BIA, không xoá oan bản mới", async () => {
+  it("ghi lại chính khoá đó thì GỠ DẤU XOÁ, không xoá oan bản mới", async () => {
     await forecastStoreReady();
     fcSet(K, JSON.stringify({ savedAt: 1, data: "cu" }));
     await forecastStoreFlush();
     __resetForecastStore();
     moHong = true;
     await forecastStoreReady();
-    fcRemove(K); // khắc bia
+    fcRemove(K); // ghi dấu đã xoá
     fcSet(K, JSON.stringify({ savedAt: 2, data: "moi" })); // rồi tải lại lớp đó
     __resetForecastStore();
     moHong = false;

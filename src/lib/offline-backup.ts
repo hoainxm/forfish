@@ -168,10 +168,10 @@ export const NEVER_BACKUP_PREFIXES = [
    *    khơi mở bản đồ ra trắng. Đúng khuôn "dấu nói dối" mà cả mạch offline đi
    *    vá. Sổ tự dựng lại được từ chính kho lúc mở app nên không mất gì. */
   "forfish.fcindex.",
-  /*  · `fcbia.` — BIA MỘ: khoá đã xoá mà lệnh xoá chưa tới được IndexedDB của
+  /*  · `fcbia.` — DẤU ĐÃ XOÁ: khoá đã xoá mà lệnh xoá chưa tới được IndexedDB của
    *    MÁY NÀY (lib/forecast-store). Chép sang máy khác là ra lệnh xoá những lớp
    *    mà máy đó đang giữ hợp lệ — tức tệp sao lưu biến thành lệnh phá kho.
-   *    Bia tự tiêu sau khi thi hành xong, không mất gì khi không sao lưu. */
+   *    Dấu tự tiêu sau khi thi hành xong, không mất gì khi không sao lưu. */
   "forfish.fcbia.",
 ];
 

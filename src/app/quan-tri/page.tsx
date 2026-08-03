@@ -1329,39 +1329,17 @@ function AppUsage({ a }: { a: Account }) {
   ].filter(Boolean);
   return (
     <>
-      {/*  ⚠️ HAI CHIP TỪNG IN Y HỆT MỘT CÂU (sửa 2026-08-03b, chủ dự án bắt).
-           `USAGE_STAGE_LABEL["moi-vo-web"]` và `rdLabel["chua-cai"]` đều ra
-           "Chưa mở bản cài" — hai luật khác nhau tình cờ trùng câu, lại tô hai
-           MÀU khác nhau (vàng/đỏ) nên người trực tưởng chúng nói hai chuyện.
-           Thừa một chip, không thêm một chữ thông tin nào — đúng lỗi MECE chồng
-           lấn. Chip SẴN SÀNG nói đủ hơn (có kèm số ngày còn lại) nên giữ nó,
-           giấu chip thang KHI VÀ CHỈ KHI hai bên trùng câu. */}
-      <span
-        title={why[stage]}
-        className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${skin[stage]} ${
-          USAGE_STAGE_LABEL[stage] === rdLabel[rd.reason] ? "hidden" : ""
-        }`}
-      >
-        {USAGE_STAGE_LABEL[stage]}
-      </span>
-      {/* CHIP SẴN SÀNG — gộp "online lần cuối" + "dữ liệu tới ngày nào", đo trên
-          ĐÚNG kho sẽ ra khơi. Đứng ngay sau bậc thang vì đây mới là chip trả lời
-          câu "có phải gọi người này không". */}
-      <span
-        title={rdWhy[rd.reason]}
-        className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${rdSkin[rd.tone]}`}
-      >
-        {rdLabel[rd.reason]}
-        {/*  VIẾT ĐỦ CHỮ "ngày" (sửa 2026-08-03b, chủ dự án hỏi "13n là gì?").
-             Viết tắt bắt người đọc suy luận — trái luật của chính dự án cho
-             người dùng 40–60 tuổi, và trang này thì người trực đọc lướt hàng
-             trăm hàng. Con số là SỐ NGÀY TRỌN VẸN còn lại (cắt phần đã trôi của
-             hôm nay), nên nó nhỏ hơn hiệu hai ngày lịch đúng 1 — nói "trọn" để
-             không chỏi với dòng "dữ liệu tới 17/08" ngay bên cạnh. */}
-        {rd.seaDays != null && rd.seaDays > 0
-          ? ` · còn ${rd.seaDays} ngày trọn`
-          : ""}
-      </span>
+      {/*  HAI HÀNG, HAI CÂU HỎI (chủ dự án chốt 2026-08-03: "tách 2 hàng để
+           phân biệt rõ user này đã đi qua đủ nấc thang web→pwa→dữ liệu; 1 hàng
+           là liên quan tới hiện trạng").
+           · HÀNG 1 — ĐÃ ĐI TỚI ĐÂU: thang MỘT CHIỀU, chỉ tiến. Loại máy nằm ở
+             đây (chủ dự án chốt) vì nó quyết định BƯỚC HƯỚNG DẪN của cả thang:
+             iPhone thì bản cài có kho RIÊNG nên nấc "bản cài" là ải thật;
+             Android dùng chung kho nên ải đó nhẹ hơn. Chip "đổi máy" cũng ở đây
+             vì đổi máy là ĐẶT LẠI cả thang.
+           · HÀNG 2 — BÂY GIỜ RA SAO: có LÙI được (dữ liệu hết hạn, lâu chưa lên
+             sóng). Đây mới là chip trả lời "có phải gọi người này không". */}
+      <div className="flex flex-wrap items-center gap-1.5">
       {/* LOẠI MÁY (0022) — nhân viên gọi điện phải chỉ ĐÚNG bước của máy đó:
           iPhone thì Chia sẻ → Thêm vào Màn hình chính (và bản cài có kho RIÊNG
           tách Safari), Android thì Cài ứng dụng. Chỉ hiện khi máy đã báo. */}
@@ -1379,6 +1357,21 @@ function AppUsage({ a }: { a: Account }) {
           {PLATFORM_LABEL[a.devicePlatform]}
         </span>
       )}
+      {/*  ⚠️ HAI CHIP TỪNG IN Y HỆT MỘT CÂU (sửa 2026-08-03b, chủ dự án bắt).
+           `USAGE_STAGE_LABEL["moi-vo-web"]` và `rdLabel["chua-cai"]` đều ra
+           "Chưa mở bản cài" — hai luật khác nhau tình cờ trùng câu, lại tô hai
+           MÀU khác nhau (vàng/đỏ) nên người trực tưởng chúng nói hai chuyện.
+           Thừa một chip, không thêm một chữ thông tin nào — đúng lỗi MECE chồng
+           lấn. Chip SẴN SÀNG nói đủ hơn (có kèm số ngày còn lại) nên giữ nó,
+           giấu chip thang KHI VÀ CHỈ KHI hai bên trùng câu. */}
+      <span
+        title={why[stage]}
+        className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${skin[stage]} ${
+          USAGE_STAGE_LABEL[stage] === rdLabel[rd.reason] ? "hidden" : ""
+        }`}
+      >
+        {USAGE_STAGE_LABEL[stage]}
+      </span>
       {/* ĐÃ ĐỔI MÁY (bảng customer_devices, 0022) — chỉ hiện khi TỪ 2 MÁY trở
           lên; một máy là chuyện thường, không cần chip. Danh sách nằm trong
           tooltip cho khỏi tốn chỗ: hàng khách vốn đã dày. Máy MỚI NHẤT đứng
@@ -1401,6 +1394,27 @@ function AppUsage({ a }: { a: Account }) {
           Đã đổi {a.devices.length} máy
         </span>
       )}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+      {/* CHIP SẴN SÀNG — gộp "online lần cuối" + "dữ liệu tới ngày nào", đo trên
+          ĐÚNG kho sẽ ra khơi. Đứng ngay sau bậc thang vì đây mới là chip trả lời
+          câu "có phải gọi người này không". */}
+      <span
+        title={rdWhy[rd.reason]}
+        className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${rdSkin[rd.tone]}`}
+      >
+        {rdLabel[rd.reason]}
+        {/*  VIẾT ĐỦ CHỮ "ngày" (sửa 2026-08-03b, chủ dự án hỏi "13n là gì?").
+             Viết tắt bắt người đọc suy luận — trái luật của chính dự án cho
+             người dùng 40–60 tuổi, và trang này thì người trực đọc lướt hàng
+             trăm hàng. Con số là SỐ NGÀY TRỌN VẸN còn lại (cắt phần đã trôi của
+             hôm nay), nên nó nhỏ hơn hiệu hai ngày lịch đúng 1 — nói "trọn" để
+             không chỏi với dòng "dữ liệu tới 17/08" ngay bên cạnh. */}
+        {rd.seaDays != null && rd.seaDays > 0
+          ? ` · còn ${rd.seaDays} ngày trọn`
+          : ""}
+      </span>
+      </div>
       {mocs.length > 0 && (
         <span className="text-[0.75rem] text-foreground/40">
           {mocs.join(" · ")}
