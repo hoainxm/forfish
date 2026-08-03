@@ -11,7 +11,11 @@
 //                       của bản cài vẫn trống.
 //   2 da-mo-ban-cai   — đã mở icon bản cài ít nhất một lần khi còn sóng. Đây là
 //                       bằng chứng đã qua ải "kho bản cài bắt đầu từ trống".
-//   3 du-do-di-bien   — vỏ app đủ + mọi lớp dữ liệu đã tải, ĐO TRÊN ĐÚNG CÁI
+//   3 da-tai-mot-phan — đã mở bản cài VÀ kho bản cài đã có ngày phủ, nhưng chưa
+//                       đủ mọi lớp. Tách khỏi bậc 2 vì hai bậc cần hai cuộc gọi
+//                       khác hẳn: bậc 2 phải hướng dẫn bấm tải TỪ ĐẦU, bậc 3
+//                       chỉ cần nhắc mở lại lúc có sóng (phần đã tải còn nguyên).
+//   4 du-do-di-bien   — vỏ app đủ + mọi lớp dữ liệu đã tải, ĐO TRÊN ĐÚNG CÁI
 //                       KHO sẽ dùng ngoài biển (xem countsAsOfflineReady).
 
 /** Loại máy thô — khớp check constraint của `customers.device_platform` (0022) */
@@ -63,13 +67,15 @@ export type UsageStage =
   | "chua-ghi-nhan"
   | "moi-vo-web"
   | "da-mo-ban-cai"
+  | "da-tai-mot-phan"
   | "du-do-di-bien";
 
 /** Nhãn chip — cùng khuôn 3 chữ, một dòng (luật nhãn ngang hàng, 03) */
 export const USAGE_STAGE_LABEL: Record<UsageStage, string> = {
   "chua-ghi-nhan": "Chưa ghi nhận",
   "moi-vo-web": "Chưa mở bản cài",
-  "da-mo-ban-cai": "Chưa đủ dữ liệu",
+  "da-mo-ban-cai": "Bản cài trống",
+  "da-tai-mot-phan": "Tải dở dang",
   "du-do-di-bien": "Đủ đồ đi biển",
 };
 
@@ -109,8 +115,21 @@ export function usageStage(a: {
   pwaLastOpenAt: string | null;
   webLastOpenAt: string | null;
   offlineReadyAt: string | null;
+  /** ngày phủ của kho BẢN CÀI — có số ở đây nghĩa là đã tải được PHẦN NÀO */
+  dataUntil?: string | null;
 }): UsageStage {
   if (a.offlineReadyAt) return "du-do-di-bien";
+  /*  ⚠️ BẬC "ĐÃ TẢI MỘT PHẦN" (thêm 2026-08-03, chủ dự án hỏi thẳng: *"trong
+      thang nấc… đã lưu dữ liệu qua các bậc chưa, hay vẫn ở web?"*).
+      Thang cũ nhảy thẳng từ "đã mở bản cài" sang "đủ đồ đi biển", nên gộp làm
+      MỘT hai người cần hai cuộc gọi khác hẳn nhau: người mở bản cài rồi ĐỂ ĐÓ
+      (kho trống trơn — phải hướng dẫn bấm tải từ đầu) và người đã tải được mấy
+      lớp nhưng mẻ đứt giữa chừng (chỉ cần nhắc mở lại lúc có sóng, phần đã tải
+      còn nguyên). Đây là lỗi MECE: một bậc ôm hai trạng thái.
+      Phân biệt bằng `data_until` — kho BẢN CÀI có ngày phủ nghĩa là đã tải được
+      phần nào. Dùng đúng cột đã sửa ở `829abfa` (trước đó nhịp web từ máy mới
+      ghi nhầm vào cột này). */
+  if (a.pwaLastOpenAt && a.dataUntil) return "da-tai-mot-phan";
   if (a.pwaLastOpenAt) return "da-mo-ban-cai";
   if (a.webLastOpenAt) return "moi-vo-web";
   return "chua-ghi-nhan";
@@ -126,11 +145,13 @@ export function usageCallPriority(stage: UsageStage): number {
     case "moi-vo-web":
       return 0; // nguy hiểm nhất: đã dùng app mà bản cài vẫn trống
     case "da-mo-ban-cai":
-      return 1; // chỉ cần nhắc bấm tải
+      return 1; // đã cài mà kho TRỐNG TRƠN — hướng dẫn bấm tải từ đầu
+    case "da-tai-mot-phan":
+      return 2; // mẻ đứt giữa chừng — chỉ nhắc mở lại lúc có sóng
     case "chua-ghi-nhan":
-      return 2; // chưa biết gì — phải hỏi trực tiếp
+      return 3; // chưa biết gì — phải hỏi trực tiếp
     case "du-do-di-bien":
-      return 3; // yên tâm nhất
+      return 4; // yên tâm nhất
   }
 }
 

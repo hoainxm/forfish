@@ -101,6 +101,66 @@ describe("usageStage — bậc CAO NHẤT đạt được", () => {
   });
 });
 
+describe("usageStage — bậc 'tải dở dang' (2026-08-03)", () => {
+  /*  Chủ dự án hỏi: "trong thang nấc… đã lưu dữ liệu qua các bậc chưa, hay vẫn
+      ở web?" Thang cũ nhảy thẳng từ "đã mở bản cài" sang "đủ đồ", gộp làm MỘT
+      hai người cần hai cuộc gọi khác hẳn nhau. */
+  it("mở bản cài mà kho TRỐNG ⇒ 'da-mo-ban-cai'", () => {
+    expect(
+      usageStage({
+        pwaLastOpenAt: "2026-08-02T10:00:00Z",
+        webLastOpenAt: null,
+        offlineReadyAt: null,
+        dataUntil: null,
+      }),
+    ).toBe("da-mo-ban-cai");
+  });
+
+  it("mở bản cài + kho ĐÃ CÓ ngày phủ ⇒ 'da-tai-mot-phan'", () => {
+    expect(
+      usageStage({
+        pwaLastOpenAt: "2026-08-02T10:00:00Z",
+        webLastOpenAt: null,
+        offlineReadyAt: null,
+        dataUntil: "2026-08-17",
+      }),
+    ).toBe("da-tai-mot-phan");
+  });
+
+  it("đủ đồ thì vẫn là bậc cao nhất, không bị bậc mới nuốt", () => {
+    expect(
+      usageStage({
+        pwaLastOpenAt: "2026-08-02T10:00:00Z",
+        webLastOpenAt: null,
+        offlineReadyAt: "2026-08-02T10:05:00Z",
+        dataUntil: "2026-08-17",
+      }),
+    ).toBe("du-do-di-bien");
+  });
+
+  it("CHƯA mở bản cài thì dù có ngày phủ cũng KHÔNG lên bậc mới", () => {
+    /*  Ca thật đã gặp trên prod: nhịp web từ máy mới ghi nhầm vào cột bản cài
+        (đã vá ở 829abfa). Thang phải đòi ĐỦ CẢ HAI, không tin mỗi ngày phủ. */
+    expect(
+      usageStage({
+        pwaLastOpenAt: null,
+        webLastOpenAt: "2026-08-02T10:00:00Z",
+        offlineReadyAt: null,
+        dataUntil: "2026-08-17",
+      }),
+    ).toBe("moi-vo-web");
+  });
+
+  it("bậc mới phải gọi SAU 'bản cài trống' và TRƯỚC 'đủ đồ'", () => {
+    expect(usageCallPriority("da-mo-ban-cai")).toBeLessThan(
+      usageCallPriority("da-tai-mot-phan"),
+    );
+    expect(usageCallPriority("da-tai-mot-phan")).toBeLessThan(
+      usageCallPriority("du-do-di-bien"),
+    );
+  });
+});
+
 describe("usageCallPriority — ai gọi trước", () => {
   it("mới-vô-web đứng ĐẦU: sẽ ra khơi với máy trắng tay mà không biết", () => {
     const order = (

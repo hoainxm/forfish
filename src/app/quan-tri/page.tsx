@@ -1201,11 +1201,12 @@ function RoleBadge({ account }: { account: Account }) {
  * tay. Đây là danh sách để GỌI ĐIỆN NHẮC.
  */
 function AppUsage({ a }: { a: Account }) {
-  const stage = usageStage(a);
+  const stage = usageStage({ ...a, dataUntil: a.dataUntil ?? null });
   const skin: Record<UsageStage, string> = {
     "chua-ghi-nhan": "bg-field text-foreground/50",
     "moi-vo-web": "bg-warn-bg text-warn",
-    "da-mo-ban-cai": "bg-t1-bg text-t1",
+    "da-mo-ban-cai": "bg-warn-bg text-warn",
+    "da-tai-mot-phan": "bg-t1-bg text-t1",
     "du-do-di-bien": "bg-ok-bg text-ok",
   };
   const why: Record<UsageStage, string> = {
@@ -1214,7 +1215,9 @@ function AppUsage({ a }: { a: Account }) {
     "moi-vo-web":
       "Đã mở app trong trình duyệt nhưng CHƯA lần nào mở bản cài. Trên iPhone, bản Thêm-vào-Màn-hình-chính có kho RIÊNG — ra khơi là trắng tay. Gọi nhắc: mở icon vừa cài ngay khi còn sóng.",
     "da-mo-ban-cai":
-      "Đã mở bản cài nhưng chưa lần nào tải xong đủ vỏ app + mọi lớp dữ liệu. Chỉ cần nhắc bấm tải lúc còn sóng.",
+      "Đã mở bản cài nhưng kho của nó còn TRỐNG TRƠN — chưa tải được lớp nào. Phải hướng dẫn bấm tải từ đầu, lúc còn sóng.",
+    "da-tai-mot-phan":
+      "Đã mở bản cài và tải được MỘT PHẦN (kho bản cài đã có ngày phủ) nhưng chưa đủ mọi lớp — mẻ tải đứt giữa chừng. Chỉ cần nhắc mở lại app lúc có sóng, phần đã tải còn nguyên.",
     "du-do-di-bien":
       "Máy đã báo: vỏ app đủ + mọi lớp dữ liệu đã tải, ĐO TRÊN ĐÚNG KHO sẽ dùng ngoài biển. Lưu ý: đây là mốc ĐÃ TỪNG đủ, không phải bây giờ còn đủ.",
   };
