@@ -5,6 +5,8 @@ import {
   isSnapshotFreshAt,
   SNAPSHOT_MAX_AGE_MS,
   SNAPSHOT_REVALIDATE,
+  isBuildPhase,
+  NEXT_BUILD_PHASE,
 } from "@/lib/fish-snapshot-policy";
 
 describe("shouldReplaceSnapshot — giữ bản tốt, không lùi ngày", () => {
@@ -101,5 +103,33 @@ describe("isSnapshotFreshAt — cùng luật, nhận mốc dạng số (cho clie
     expect(isSnapshotFreshAt(undefined, NOW)).toBe(false);
     expect(isSnapshotFreshAt(NaN, NOW)).toBe(false);
     expect(isSnapshotFreshAt(NOW + 3 * 3600_000, NOW)).toBe(false);
+  });
+});
+
+/*  ═══ ĐANG BUILD THÌ ĐỪNG KÉO BẢY NGUỒN ═══ (2026-08-03)
+
+    Lỗi thật: `npm run build` hỏng ở `/api/fish-forecast` — "took more than 60
+    seconds", thử ba lần rồi cả bản build ĐỎ. Next dựng sẵn route này lúc build
+    (có `revalidate`, không đụng API động); đọc snapshot hỏng ở đó là rơi thẳng
+    vào `computeFishForecast()` — bảy nguồn ngoài, 14–30 giây/lượt, trong ngân
+    sách 60 giây của Next.
+
+    BẤT BIẾN: **một nguồn thời tiết có ngày chậm KHÔNG được phép chặn việc ship
+    một bản vá.** Đường build không đi qua dịch vụ bên ngoài. */
+describe("isBuildPhase — cổng chặn tính live lúc build", () => {
+  it("đúng cờ Next đặt trong `next build` → true", () => {
+    expect(isBuildPhase({ NEXT_PHASE: NEXT_BUILD_PHASE })).toBe(true);
+    expect(NEXT_BUILD_PHASE).toBe("phase-production-build");
+  });
+
+  it("lúc CHẠY THẬT (không cờ / cờ khác) → false, đường lùi tính live giữ nguyên", () => {
+    expect(isBuildPhase({})).toBe(false);
+    expect(isBuildPhase({ NEXT_PHASE: "phase-production-server" })).toBe(false);
+    expect(isBuildPhase({ NEXT_PHASE: "phase-development-server" })).toBe(false);
+  });
+
+  it("cờ rỗng / lạ → false (đừng khoá nhầm đường live giữa biển)", () => {
+    expect(isBuildPhase({ NEXT_PHASE: "" })).toBe(false);
+    expect(isBuildPhase({ NEXT_PHASE: "build" })).toBe(false);
   });
 });

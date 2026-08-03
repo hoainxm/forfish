@@ -19,8 +19,13 @@ vi.mock("@/lib/fish-snapshot", () => ({
 vi.mock("@/lib/fish-forecast-run", () => ({
   computeFishForecast: async () => live.value,
 }));
+/*  ⚠️ MOCK PHẢI KHAI ĐỦ MỌI THỨ ROUTE DÙNG. Thiếu `isBuildPhase` là route gọi
+    `undefined()` ⇒ ném ⇒ ba ca dưới đỏ mà thông báo chẳng liên quan gì tới điều
+    đang test. Mặc định `false` = ĐANG CHẠY THẬT (không phải lúc build). */
+const buildPhase = vi.hoisted(() => ({ value: false }));
 vi.mock("@/lib/fish-snapshot-policy", () => ({
   isSnapshotFresh: (generatedAt: string | null) => generatedAt === "tuoi",
+  isBuildPhase: () => buildPhase.value,
 }));
 
 import { GET } from "@/app/api/fish-forecast/route";
@@ -28,6 +33,7 @@ import { GET } from "@/app/api/fish-forecast/route";
 beforeEach(() => {
   snapshot.value = null;
   live.value = { ok: false };
+  buildPhase.value = false;
 });
 
 describe("/api/fish-forecast — mã trạng thái", () => {
@@ -55,5 +61,36 @@ describe("/api/fish-forecast — mã trạng thái", () => {
     expect(res.status).toBe(503);
     // vẫn giữ thân {ok:false} để client hiện "chạm thử lại" như cũ
     expect(await res.json()).toMatchObject({ ok: false });
+  });
+});
+
+/*  ĐANG BUILD → KHÔNG KÉO BẢY NGUỒN (2026-08-03). Next dựng sẵn route này lúc
+    `next build`; đọc snapshot hỏng ở đó là rơi vào `computeFishForecast()` —
+    bảy nguồn ngoài, 14–30 giây/lượt, trong ngân sách 60 giây ⇒ BẢN BUILD ĐỎ
+    ("/api/fish-forecast took more than 60 seconds"). Một nguồn thời tiết chậm
+    KHÔNG được phép chặn việc ship bản vá. */
+describe("/api/fish-forecast — lúc BUILD", () => {
+  it("có snapshot (dù CŨ) → gieo kho bằng snapshot, KHÔNG tính live", async () => {
+    buildPhase.value = true;
+    snapshot.value = { ok: true, generatedAt: "cu" };
+    live.value = { ok: true, khongDuocGoi: true };
+    const res = await GET();
+    expect(res.status).toBe(200);
+    expect(await res.json()).not.toMatchObject({ khongDuocGoi: true });
+  });
+
+  it("KHÔNG có snapshot → 503 NGAY, không đụng nguồn ngoài", async () => {
+    buildPhase.value = true;
+    const res = await GET();
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ ok: false, reason: "build-phase" });
+  });
+
+  it("lúc CHẠY THẬT vẫn tính live như cũ — cổng build không được khoá nhầm", async () => {
+    snapshot.value = { ok: true, generatedAt: "cu" };
+    live.value = { ok: true, tuoi: true };
+    const res = await GET();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ tuoi: true });
   });
 });

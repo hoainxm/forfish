@@ -1,6 +1,6 @@
 import { computeFishForecast } from "@/lib/fish-forecast-run";
 import { loadFishSnapshot } from "@/lib/fish-snapshot";
-import { isSnapshotFresh } from "@/lib/fish-snapshot-policy";
+import { isBuildPhase, isSnapshotFresh } from "@/lib/fish-snapshot-policy";
 
 /**
  * Dự báo cá (PFZ) — nay ĐỌC SNAPSHOT do cron tính sẵn, KHÔNG tự kéo nguồn nữa
@@ -28,6 +28,22 @@ export async function GET() {
   // 1) Snapshot còn TƯƠI (cron chạy đều) → phục vụ ngay, nhanh.
   if (snap && snap.ok && isSnapshotFresh(snap.generatedAt, Date.now())) {
     return Response.json(snap);
+  }
+  /*  2b) ĐANG BUILD → KHÔNG kéo bảy nguồn (2026-08-03). Next dựng sẵn route này
+          lúc `next build` (có `revalidate`, không đụng API động); đọc snapshot
+          hỏng ở đó là rơi vào `computeFishForecast()` — 14–30 giây × bảy nguồn
+          ngoài, trong ngân sách 60 giây của Next ⇒ **bản build ĐỎ**, đúng lỗi
+          "/api/fish-forecast took more than 60 seconds" đang có.
+          Có snapshot (dù CŨ) thì gieo bằng snapshot; không có thì để 503 ở
+          nhánh cuối — request THẬT đầu tiên tự tính rồi lấp đầy kho ISR.
+          Xem `isBuildPhase` để biết vì sao một nguồn thời tiết chậm KHÔNG được
+          phép chặn việc ship bản vá. */
+  if (isBuildPhase()) {
+    if (snap && snap.ok) return Response.json(snap); // ok:200 — snapshot thật, có `ok:true`
+    return Response.json(
+      { ok: false, reason: "build-phase" },
+      { status: 503, headers: { "Cache-Control": "public, s-maxage=60" } },
+    );
   }
   // 2) Snapshot CŨ (cron đứng) / chưa có / bảng chưa tạo → tự tính LIVE cho tươi,
   //    KHÔNG âm thầm dọn số cũ như số mới.
