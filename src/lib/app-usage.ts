@@ -106,7 +106,7 @@ export const USAGE_STAGE_LABEL: Record<UsageStage, string> = {
  * thẳng lên bậc cao nhất, `usageCallPriority` = 3 ("yên tâm nhất"), rơi khỏi
  * danh sách nhắc cài — dù màn hình họ chưa có cái icon nào. Mà tab Chrome dễ
  * bị dọn hơn bản cài, `persist()` cũng khó được cấp hơn, và bà con phải nhớ
- * đường vào thay vì bấm icon. Nay chưa cài thì đứng lại ở "Chưa mở bản cài",
+ * đường vào thay vì bấm icon. Nay chưa cài thì đứng lại ở bậc "Mới vô web",
  * bậc "đủ đồ" KHÔNG có đường tắt.
  */
 export function countsAsOfflineReady(beat: {

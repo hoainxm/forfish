@@ -277,19 +277,29 @@ describe("nhịp: nhánh ĐỔI MÁY không được ghi số kho WEB vào cột
       khoi,
       "nhánh đổi máy phải xét `standalone` trước khi ghi data_until",
     ).toContain("standalone");
-    /*  Cấm ĐÚNG dòng cũ: gán thẳng `savedUntil` vào cột bản cài mà KHÔNG có
-        `standalone` gác trên cùng dòng. Dạng ĐÚNG hiện tại là
-        `if (body?.standalone) extra.data_until = savedUntil;` — có gác, hợp lệ. */
     /*  BÓC CHÚ THÍCH TRƯỚC KHI SOI (tự bắt lúc dựng cổng): chú thích tại chỗ
         có TRÍCH NGUYÊN dòng cũ để giải thích lỗi, nên cổng bắt luôn chính lời
         giải thích. Cổng quét chữ mà không bóc chú thích thì cấm luôn việc ghi
         lại bài học — đúng thứ repo này sống bằng. */
-    const ganKhongGac = khoi
+    /*  ⚠️ SOI THEO KHỐI, KHÔNG SOI THEO DÒNG (nới 2026-08-03k — vòng chấm chứng
+        minh bản trước BÁO OAN). Bản trước đòi `standalone` nằm CÙNG DÒNG với
+        lượt gán, nên dạng có ngoặc — đúng thứ prettier tự sinh khi thêm câu lệnh
+        thứ hai vào nhánh — bị chặn dù nghĩa hoàn toàn đúng:
+            if (body?.standalone) {
+              extra.data_until = savedUntil;
+            } else { … }
+        Cổng báo oan còn tệ hơn cổng thiếu: nó dạy người ta né cổng.
+        Nay chỉ đòi: mọi lượt gán phải nằm SAU một phép xét `standalone` trong
+        cùng khối. Vẫn bắt được ca thật — dòng gốc `extra.data_until =
+        savedUntil;` đứng một mình, không có `standalone` nào trước nó. */
+    const sach = khoi
       .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/\/\/.*/g, "")
-      .split("\n")
-      .filter((l) => l.includes("extra.data_until = savedUntil"))
-      .filter((l) => !l.includes("standalone"));
+      .replace(/\/\/.*/g, "");
+    const viTriGan = sach.indexOf("extra.data_until = savedUntil");
+    const ganKhongGac =
+      viTriGan >= 0 && !sach.slice(0, viTriGan).includes("standalone")
+        ? ["extra.data_until = savedUntil (không có standalone gác trước đó)"]
+        : [];
     expect(
       ganKhongGac,
       "gán data_until = savedUntil KHÔNG có standalone gác — đúng lỗi đã vá ở 829abfa",
