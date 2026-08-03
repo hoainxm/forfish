@@ -207,6 +207,46 @@ export function daysOfDataLeft(
   return Math.floor((t - nowMs) / 86_400_000);
 }
 
+/*  ═══ BỘ NHỚ BỀN: CHỈ NÓI KHI CÒN LÀM ĐƯỢC GÌ ═══ (2026-08-03)
+
+    Bản cũ in "⚠️ chưa được cấp bộ nhớ bền" cho MỌI máy có `storage_persisted =
+    false`. Chủ dự án bắt ngay trên màn hình: *"user đang dùng bản cài, đang lưu
+    ở home mà?"* — và đúng: máy đó ĐÃ cài ra màn hình chính, dữ liệu đủ tới
+    18/08, còn trống 39 GB. Cảnh báo đó không chỉ ra được việc gì để làm.
+
+    BA SỰ THẬT quyết định luật dưới đây:
+     · Bản cài (A2HS) VỐN ĐÃ được miễn vòng xoá 7 ngày của ITP — thứ `persist()`
+       cứu thêm là vòng thu hồi LRU khi MÁY ĐẦY. Máy còn 39 GB thì vòng đó còn xa.
+     · Safari/Chromium "tự gật hoặc tự từ chối theo lịch sử tương tác, KHÔNG hỏi
+       người dùng" ⇒ bị từ chối là giới hạn nền tảng, nhân viên gọi điện nhắc
+       cũng không đổi được.
+     · Chưa cài mới là chỗ THẬT SỰ hành động được — nhưng bậc thang đã nói rồi,
+       nhắc lại lần nữa ở hàng dưới chỉ thêm chữ.
+
+    Nên chỉ còn ĐÚNG MỘT ca đáng in: chưa được cấp **và** máy sắp hết chỗ. */
+
+/** Dưới ngần này MB thì vòng thu hồi LRU không còn là chuyện xa xôi. */
+export const KHO_SAP_DAY_MB = 2000;
+
+/**
+ * Dòng cảnh báo bộ nhớ bền cho /quan-tri — `null` = KHÔNG in gì.
+ * `asked`: kết quả lần hỏi gần nhất (0031) — `null` là chưa hỏi lần nào.
+ * THUẦN — test được.
+ */
+export function persistNote(a: {
+  persisted: boolean | null;
+  asked: boolean | null;
+  availableMb: number | null;
+}): string | null {
+  if (a.persisted !== false) return null;
+  if (a.availableMb == null || a.availableMb >= KHO_SAP_DAY_MB) return null;
+  /*  Nói ĐÚNG việc phải làm, khác nhau hẳn giữa hai ca — đó là toàn bộ lý do
+      cột `storage_persist_asked` tồn tại. */
+  return a.asked === false
+    ? "⚠️ máy sắp đầy · trình duyệt TỪ CHỐI giữ bền — nhắc dọn bớt ảnh/video"
+    : "⚠️ máy sắp đầy · chưa được cấp bộ nhớ bền";
+}
+
 export type ReadinessTone = "ok" | "warn" | "risk" | "unknown";
 
 /** Vì sao chip có màu đó — để /quan-tri nói ĐÚNG việc cần làm, không nói chung chung */

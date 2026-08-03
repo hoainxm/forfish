@@ -26,6 +26,20 @@ void main() {
   v_uv = a_uv;
 }`;
 
+/*  MÉP MỀM, KHÔNG CẮT VUÔNG (2026-08-03 — chủ dự án: "lớp dòng chảy cảm giác nó
+    render thiếu, bị ô ô").
+
+    Bản cũ: `if (val.g < 0.5) discard`. Cờ hợp lệ được GPU nội suy LINEAR rồi cắt
+    ở đúng 0,5 — tức cắt theo ĐƯỜNG GIỮA HAI TEXEL, nên mép vùng có số luôn là
+    cạnh chữ nhật thẳng băng, không bao giờ bám theo đường đáy biển thật. Trên
+    lưới thô (ô ≈190×230 km) với hơn nửa số ô là null ở tầng sâu, kết quả đúng
+    như ảnh chụp: bàn cờ ô vuông, ô lẻ đứng một mình mang một mũi tên.
+
+    Nay cờ hợp lệ làm ĐỘ ĐỤC: mờ dần trong khoảng một texel thay vì cắt phựt. Vẫn
+    giữ `discard` ở ngưỡng rất thấp cho vùng xa hẳn — nếu không thì vùng đất liền
+    ăn một lớp màu mỏng phủ lên, còn tệ hơn.
+    ⚠️ ĐỪNG hạ `discard` xuống 0,0: mất `discard` là mất luôn đường thoát cho
+    vùng KHÔNG có dữ liệu, cả bản đồ bị nhuộm. */
 const FRAG = `
 precision mediump float;
 uniform sampler2D u_value;  // R=giá trị chuẩn hoá, G=cờ hợp lệ
@@ -34,9 +48,10 @@ uniform float u_opacity;
 varying vec2 v_uv;
 void main() {
   vec4 val = texture2D(u_value, v_uv);
-  if (val.g < 0.5) discard;                 // ô null (đất/thiếu)
+  if (val.g < 0.12) discard;                // xa hẳn vùng có số (đất/thiếu)
+  float mep = smoothstep(0.12, 0.62, val.g); // mép mờ dần thay vì cắt vuông
   vec4 c = texture2D(u_ramp, vec2(val.r, 0.5));
-  gl_FragColor = vec4(c.rgb, c.a * u_opacity);
+  gl_FragColor = vec4(c.rgb, c.a * u_opacity * mep);
 }`;
 
 function compile(gl: WebGLRenderingContext, type: number, src: string) {

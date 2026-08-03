@@ -34,6 +34,7 @@ import {
 } from "@/lib/sell-contacts";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 import {
+  persistNote,
   readinessChip,
   usageStage,
   PLATFORM_LABEL,
@@ -155,6 +156,8 @@ type Account = {
   storageCacheMb?: number | null;
   storageAvailableMb?: number | null;
   storagePersisted?: boolean | null;
+  /** kết quả lần HỎI gần nhất (0031) — null = chưa hỏi lần nào */
+  storagePersistAsked?: boolean | null;
   storageBackend?: string | null;
   devicePlatform: DevicePlatform | null;
   devices: {
@@ -1320,9 +1323,16 @@ function AppUsage({ a }: { a: Account }) {
         đang chở ~4 MB trong thùng 5 MB, tức chạy sát mép lỗi iOS 16. Chỉ nêu
         khi ĐANG kẹt: trạng thái đúng thì không cần chiếm chỗ trên màn hình. */
     a.storageBackend === "ls" ? "⚠️ kho dự báo còn ở localStorage" : null,
-    /*  BỘ NHỚ BỀN — hàng rào duy nhất chống vòng thu hồi LRU khi máy đầy. Chỉ
-        nêu khi CHƯA được cấp, vì đó mới là tin đáng hành động. */
-    a.storagePersisted === false ? "⚠️ chưa được cấp bộ nhớ bền" : null,
+    /*  BỘ NHỚ BỀN — chống vòng thu hồi LRU khi máy đầy. Luật "chỉ nói khi CÒN
+        LÀM ĐƯỢC GÌ" nằm ở `persistNote` (lib/app-usage, có test): máy đã cài,
+        còn 39 GB trống mà vẫn hô "chưa được cấp bộ nhớ bền" là bắt nhân viên
+        gọi điện nhắc một việc không tồn tại — chủ dự án bắt được đúng ca đó
+        2026-08-03. */
+    persistNote({
+      persisted: a.storagePersisted ?? null,
+      asked: a.storagePersistAsked ?? null,
+      availableMb: a.storageAvailableMb ?? null,
+    }),
     a.offlineReadyAt ? `đủ đồ ${fmtDT(a.offlineReadyAt)}` : null,
     a.pwaLastOpenAt ? `bản cài mở ${fmtDT(a.pwaLastOpenAt)}` : null,
     a.webLastOpenAt ? `web mở ${fmtDT(a.webLastOpenAt)}` : null,

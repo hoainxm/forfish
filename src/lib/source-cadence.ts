@@ -71,3 +71,51 @@ export function isCacheCurrent(
   if (age < MIN_REFETCH_MS) return true; // vừa tải xong, khỏi tính mốc
   return nowMs < nextReleaseAfter(savedAt);
 }
+
+/* ══════════════ NGUỒN CHẠY THEO NGÀY (Copernicus) ══════════════
+   (2026-08-03, chủ dự án bắt được trên máy thật: "để ở DB đang load cực kỳ chậm")
+
+   VÌ SAO PHẢI TÁCH RA KHỎI `isCacheCurrent`: hàm trên đo độ tươi bằng lịch chạy
+   của GFS/Open-Meteo — 4 mốc một ngày. Nhưng DÒNG CHẢY THEO TẦNG và ĐỘ MẶN là
+   sản phẩm Copernicus trung bình NGÀY (`P1D`), một ngày ra ĐÚNG MỘT bản. Áp lịch
+   6 tiếng lên nguồn 24 tiếng nghĩa là ngày bốn lần tuyên bản trong máy "hết hiện
+   hành", vứt bản 10 KB đang có, rồi đi gọi route live — mà route live cho tầng
+   sâu là 10 giây snapshot + 45 giây tải Copernicus (server đọc 20 chunk × 1,37
+   MB tuần tự) để nhận về ĐÚNG CON SỐ CŨ. Bà con ngồi nhìn màn hình quay gần một
+   phút cho một lần đổi chip tầng, mỗi ngày bốn lượt, không đổi được gì.
+
+   Đo trên kho thật (2026-08-03): `curdepth:t50:d10` cron ghi 08:51 UTC, tới
+   10:00 UTC là bị `isCacheCurrent` xử "cũ" — trong khi nguồn không hề có bản mới. */
+
+/** Giờ UTC nguồn NGÀY ra bản mới. Cron của app chạy `50 5,17 * * *` UTC, nguồn
+    Copernicus phy-cur/độ mặn phát hành quanh trưa UTC — lấy 12h làm mốc AN TOÀN
+    (sau mốc này mới thật sự có số mới). */
+export const DAILY_RELEASE_HOUR_UTC = 12;
+
+/** Trần cho nguồn NGÀY: quá ngần này thì cứ thử lại dù tính mốc có sai (đồng hồ
+    máy lệch, nguồn đổi lịch). 26 giờ = một ngày + hai giờ dư. */
+export const MAX_DAILY_CACHE_MS = 26 * HOUR_MS;
+
+/** Mốc phát hành NGÀY kế tiếp sau `ms` (epoch ms, UTC) */
+export function nextDailyReleaseAfter(ms: number): number {
+  const d = new Date(ms);
+  const dayStart = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  const t = dayStart + DAILY_RELEASE_HOUR_UTC * HOUR_MS;
+  return t > ms ? t : t + DAY_MS;
+}
+
+/**
+ * Như `isCacheCurrent` nhưng cho NGUỒN CHẠY THEO NGÀY (dòng chảy tầng sâu, độ
+ * mặn). Cùng ba điều kiện, chỉ đổi lịch phát hành và trần tuổi.
+ */
+export function isDailyCacheCurrent(
+  savedAt: number | null | undefined,
+  nowMs: number,
+): boolean {
+  if (savedAt == null || !Number.isFinite(savedAt)) return false;
+  if (savedAt > nowMs) return false; // đồng hồ máy chỉnh lùi → coi như phải kéo
+  const age = nowMs - savedAt;
+  if (age > MAX_DAILY_CACHE_MS) return false;
+  if (age < MIN_REFETCH_MS) return true; // vừa tải xong, khỏi tính mốc
+  return nowMs < nextDailyReleaseAfter(savedAt);
+}

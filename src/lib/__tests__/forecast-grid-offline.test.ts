@@ -19,6 +19,7 @@ const _ls = (() => {
 
 import {
   fetchForecastGrid,
+  peekForecastGrid,
   savedGridDays,
   savedCurrentGridDays,
   gridIsCurrent,
@@ -308,5 +309,52 @@ describe("gridIsCurrent — loại bản lưu đời cũ (vùng phủ nhỏ)", (
     expect(savedCurrentGridDays()).toEqual([]);
     // …nhưng tra ĐIỂM/tuyến vẫn biết trong máy còn bản d16 (nearestGridCell tự chặn vùng)
     expect(savedGridDays()).toEqual([16]);
+  });
+});
+
+/*  ═══ HIỆN BẢN TRONG MÁY NGAY, KHÔNG CHỜ MẠNG ═══ (2026-08-03)
+
+    Cổng cho lỗi chủ dự án bắt trên máy thật ("load cực kỳ chậm, cache rồi local
+    storage đâu"): `fetchForecastGrid` chỉ đọc kho ở hai ca — bản còn hiện hành,
+    hoặc `navigator.onLine === false`. Ca GIỮA (sóng yếu mà sống) phải đốt hết
+    10 s snapshot + 20 s live rồi mới chạm tới bản đã nằm sẵn trong máy, mà màn
+    hình thì bị xoá trắng suốt thời gian đó. `peekForecastGrid` là đường đọc ĐỒNG
+    BỘ cho chỗ vẽ dùng trước, KHÔNG gọi mạng. */
+describe("peekForecastGrid — bản trong máy, đồng bộ, không gọi mạng", () => {
+  it("có bản đã lưu → trả về NGAY kèm cờ số cũ, KHÔNG gọi nguồn", async () => {
+    globalThis.fetch = online(96);
+    await fetchForecastGrid(3);
+    const spy = vi.fn().mockRejectedValue(new Error("không được gọi"));
+    globalThis.fetch = spy as unknown as typeof fetch;
+    const g = peekForecastGrid(3);
+    expect(spy).not.toHaveBeenCalled();
+    expect(g?.cells).toHaveLength(156);
+    expect(g?.stale).toBe(true); // nói thật: đây là bản đã lưu
+  });
+
+  it("bản lưu ĐÃ CŨ (qua mốc bản tin) vẫn hiện được — đó mới là điểm của nó", async () => {
+    globalThis.fetch = online(96);
+    const g0 = await fetchForecastGrid(3);
+    saveForecast(GRID_NS, "d3", g0, Date.now() - 20 * 60 * 60 * 1000);
+    expect(peekForecastGrid(3)?.stale).toBe(true);
+  });
+
+  it("máy trống → null (chỗ vẽ giữ nguyên dòng 'đang tải')", () => {
+    expect(peekForecastGrid(3)).toBeNull();
+  });
+
+  it("xin khung 16 mà máy chỉ có 3 → mượn khung ngắn, times[] nói thật", async () => {
+    globalThis.fetch = online(96);
+    await fetchForecastGrid(3);
+    const g = peekForecastGrid(16);
+    expect(g).not.toBeNull();
+    expect(g!.times.length).toBeLessThanOrEqual(25); // 3 ngày, không phải 16
+  });
+
+  it("lớp Dòng chảy: bản lưu THIẾU số dòng chảy → null, không hiện lớp câm", async () => {
+    globalThis.fetch = online(96); // nguồn giả không có ocean_current_*
+    await fetchForecastGrid(3);
+    expect(peekForecastGrid(3)).not.toBeNull();
+    expect(peekForecastGrid(3, { needCurrent: true })).toBeNull();
   });
 });

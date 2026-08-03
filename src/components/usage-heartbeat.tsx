@@ -41,7 +41,9 @@ import {
 } from "@/lib/heartbeat";
 import {
   devicePlatform,
+  ensurePersistentStorage,
   isStandalone,
+  persistAskResult,
   storageBreakdownMb,
 } from "@/lib/storage-persist";
 import { deviceId } from "@/lib/device-id";
@@ -204,6 +206,13 @@ export function UsageHeartbeat() {
                     nhưng VỨT kết quả, nên tới giờ không ai biết máy bà con có
                     được cấp hay không. Một boolean đi nhờ nhịp sẵn có. */
                 storagePersisted: kho.persisted,
+                /*  KẾT QUẢ LẦN HỎI GẦN NHẤT (2026-08-03) — `null` = chưa hỏi
+                    lần nào. Không có nó thì `storage_persisted = false` gộp hai
+                    ca khác hẳn nhau: "đã hỏi, trình duyệt TỪ CHỐI" (giới hạn
+                    nền tảng, gọi điện cũng vô ích) và "chưa hỏi lại lần nào"
+                    (lỗi của app, sửa được). Máy khách 0123456154 đã cài ra màn
+                    hình chính mà vẫn false — không phân biệt được thì mãi đoán. */
+                storagePersistAsked: persistAskResult(),
                 /*  KHO DỰ BÁO ĐANG NẰM Ở ĐÂU THẬT: "idb" = đã vào IndexedDB;
                     "ls" = còn kẹt ở localStorage (máy không mở nổi IndexedDB)
                     — máy đó đang chở ~4 MB trong cái thùng 5 MB, tức sát mép
@@ -235,7 +244,16 @@ export function UsageHeartbeat() {
         và bản cài PWA không remount, nên `visibilitychange` mới là đường vào
         PHỔ BIẾN NHẤT, tức đường vào hay tranh chỗ với việc dựng bản đồ nhất. */
     const onVisible = () => {
-      if (document.visibilityState === "visible") scheduleIn(BEAT_DEFER_MS);
+      if (document.visibilityState !== "visible") return;
+      /*  XIN LẠI BỘ NHỚ BỀN (2026-08-03) — đi nhờ đúng listener này vì nó là
+          đường vào PHỔ BIẾN NHẤT của bản cài (tài liệu không nạp lại thì
+          `sw-register` không chạy lại). KHÔNG PHẢI REQUEST MẠNG: `persist()`
+          hỏi bộ quản lý kho ngay trong máy, chạy được cả lúc mất sóng, nên CỐ Ý
+          đặt NGOÀI mọi cửa `onLine` và ngoài lịch nhịp. Cửa giãn cách (đã được
+          cấp / tối đa 1 lần mỗi ngày) nằm trong `ensurePersistentStorage`.
+          `void` + nuốt lỗi: không ai chờ nó, hỏng cũng không làm phiền app. */
+      void ensurePersistentStorage();
+      scheduleIn(BEAT_DEFER_MS);
     };
     const onOnline = () => scheduleIn(BEAT_DEFER_MS);
     /*  MẤT SÓNG: dừng hẳn hẹn giờ. CỐ Ý KHÔNG có đường tự hồi bằng đồng hồ —

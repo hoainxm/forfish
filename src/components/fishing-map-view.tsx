@@ -52,6 +52,7 @@ import {
 import {
   arrowFeatures,
   fetchForecastGrid,
+  peekForecastGrid,
   savedCurrentGridDays,
   timeLabelVN,
   WIND_COLOR_EXPR,
@@ -97,6 +98,7 @@ import {
 } from "@/components/route-planner";
 import {
   fetchScalarField,
+  peekScalarField,
   scalarFieldFeatures,
   scalarGradientCss,
   SCALAR_META,
@@ -121,6 +123,7 @@ import {
   createScalarFieldLayer,
   type ScalarFieldLayer,
 } from "@/components/scalar-gl-field";
+import { forecastStoreReady } from "@/lib/forecast-store";
 import { buildUVField } from "@/lib/particle-field";
 import { WindParticles } from "@/components/wind-particles";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
@@ -517,6 +520,12 @@ export default function FishingMapView() {
   const [forecastKind, setForecastKind] = useState<ForecastKind | null>(null);
   const [fGrid, setFGrid] = useState<ForecastGrid | null>(null);
   const [gridFailed, setGridFailed] = useState(false);
+  /*  ĐANG LÀM MỚI NỀN (2026-08-03) — bao nhiêu lượt tải đang chạy trong lúc màn
+      hình đã có bản CŨ hiện sẵn. Chỉ để nói một dòng nhỏ trên thanh ngày: bà con
+      thấy số cũ mà biết máy đang kéo số mới, khỏi tưởng app đứng hình. Đếm chứ
+      không phải cờ: ba lớp (lưới gió/sóng · dải màu · dòng chảy tầng) tải song
+      song, một cờ boolean sẽ tắt sớm ngay khi lớp NHANH NHẤT xong. */
+  const [dangLamMoi, setDangLamMoi] = useState(0);
   // DÒNG CHẢY THEO TẦNG (user 2026-07-29): 0 = mặt (lưới SMOC theo giờ),
   // 50/150/300 = lưới NGÀY Copernicus. Chip chọn tầng nằm dưới thanh ngày.
   const [curDepthTier, setCurDepthTier] = useState(0);
@@ -593,11 +602,43 @@ export default function FishingMapView() {
   useEffect(() => {
     if (forecastKind && gridFailed) return;
     let alive = true;
-    if (forecastKind) setFGrid(null); // "đang tải" cho strip gió/sóng
+    let banMoiVe = false;
+    const needCurrent = forecastKind === "current";
+    /*  ═══ HIỆN BẢN TRONG MÁY NGAY, LÀM MỚI PHÍA SAU ═══ (2026-08-03)
+
+        Bản cũ: `setFGrid(null)` xoá trắng rồi CHỜ MẠNG. `fetchForecastGrid` chỉ
+        đọc kho ở hai ca — bản còn hiện hành, hoặc máy KHẲNG ĐỊNH mất sóng
+        (`navigator.onLine === false`). Ca giữa, **sóng yếu mà sống**, là cảnh
+        thường trực trên tàu: phải đốt hết 10 giây snapshot + 20 giây live rồi
+        mới lấy ra thứ đã nằm sẵn trong máy, suốt thời gian đó màn hình trống và
+        chỉ có dòng "Đang tải dự báo cho cả vùng biển…".
+
+        Nay đi đúng khuôn mà lớp dòng chảy tầng sâu đã dùng từ 2026-07-29
+        (`peekCurDepthGrid`): hiện bản đã lưu TRƯỚC (có cờ `stale` nên không nói
+        dối), rồi để nhánh mạng đè lên khi bản mới về. Không có bản nào thì y như
+        cũ — `null`, dòng "đang tải".
+
+        `banMoiVe` chặn đúng một cửa đua: kho IndexedDB nạp bất đồng bộ, nên lượt
+        peek CHẬM (sau `forecastStoreReady`) có thể về SAU bản mạng — không có cờ
+        này thì bản mới vừa vẽ xong bị bản cũ đạp lại. */
+    const hienBanCu = () => {
+      if (!alive || banMoiVe) return;
+      const cu = peekForecastGrid(gridDays, { needCurrent });
+      if (cu) setFGrid((dangCo) => dangCo ?? cu);
+    };
+    if (forecastKind) setFGrid(peekForecastGrid(gridDays, { needCurrent }));
+    else hienBanCu();
+    void forecastStoreReady().then(hienBanCu);
+    setDangLamMoi((n) => n + 1);
+    const xongMotLuot = () => {
+      banMoiVe = true;
+      setDangLamMoi((n) => Math.max(0, n - 1));
+    };
     // lớp Dòng chảy cần lưới CÓ số dòng chảy — bản lưu/snapshot đời cũ thiếu
     // trường này thì lib tự bỏ qua nấc đó và kéo bản mới
-    fetchForecastGrid(gridDays, { needCurrent: forecastKind === "current" })
+    fetchForecastGrid(gridDays, { needCurrent })
       .then((g) => {
+        xongMotLuot();
         if (!alive) return;
         setFGrid(g);
         if (jumpEndRef.current) {
@@ -610,10 +651,20 @@ export default function FishingMapView() {
         }
       })
       .catch(() => {
+        xongMotLuot();
         if (alive && forecastKind) setGridFailed(true);
       });
     return () => {
       alive = false;
+      /*  RỜI HIỆU ỨNG KHI LƯỢT TẢI CÒN BAY: không trừ ở đây thì bộ đếm kẹt >0
+          vĩnh viễn (đổi khung ngày liên tục là mỗi lần một lượt bỏ dở) ⇒ dòng
+          "đang làm mới" đứng mãi trên thanh ngày — đúng kiểu nói dối nhỏ mà cả
+          mạch offline đang đi vá. Trừ hai lần cũng vô hại: `xongMotLuot` chỉ
+          chạy một lần cho mỗi lượt, và bộ đếm có sàn 0. */
+      if (!banMoiVe) {
+        banMoiVe = true;
+        setDangLamMoi((n) => Math.max(0, n - 1));
+      }
     };
   }, [forecastKind, gridFailed, gridDays, netEpoch]);
 
@@ -641,16 +692,36 @@ export default function FishingMapView() {
     // làm mới nền (hết giật khi đổi qua lại Mặt/50/150/300).
     const warm = peekCurDepthGrid(curDepthTier, days);
     setDepthGrid(warm);
+    /*  KHO NẠP BẤT ĐỒNG BỘ (2026-08-03): `peekCurDepthGrid` đọc gương RAM, mà
+        gương chỉ đầy sau khi IndexedDB nạp xong — chạm chip tầng ngay lúc vừa mở
+        app là trượt bản đang có. Thử lại một lần sau khi kho mở xong. */
+    let banMoiVe = false;
+    void forecastStoreReady().then(() => {
+      if (!alive || banMoiVe) return;
+      const cu = peekCurDepthGrid(curDepthTier, days);
+      if (cu) setDepthGrid((dangCo) => dangCo ?? cu);
+    });
+    setDangLamMoi((n) => n + 1);
+    const xongMotLuot = () => {
+      banMoiVe = true;
+      setDangLamMoi((n) => Math.max(0, n - 1));
+    };
     fetchCurDepthGridClient(curDepthTier, days)
       .then((g) => {
+        xongMotLuot();
         if (alive) setDepthGrid(g);
       })
       .catch(() => {
+        xongMotLuot();
         // đã có bản cũ hiện thì GIỮ (đừng nhảy sang lỗi); chưa có mới báo lỗi
         if (alive && !warm) setGridFailed(true);
       });
     return () => {
       alive = false;
+      if (!banMoiVe) {
+        banMoiVe = true;
+        setDangLamMoi((n) => Math.max(0, n - 1));
+      }
     };
   }, [forecastKind, curDepthTier, gridFailed, premiumUnsure, netEpoch]);
 
@@ -665,9 +736,25 @@ export default function FishingMapView() {
   useEffect(() => {
     if (!overlayField || gridFailed) return;
     let alive = true;
-    setSfGrid(null);
+    let banMoiVe = false;
+    /*  HIỆN BẢN TRONG MÁY NGAY (2026-08-03) — cùng lý do và cùng khuôn với lưới
+        gió/sóng ở trên. Nặng hơn ở chỗ màn Ra khơi bật LẦN LƯỢT 5 lớp dải màu,
+        mỗi lớp một lần chờ 30 giây trong ca sóng yếu mà sống. */
+    const hienBanCu = () => {
+      if (!alive || banMoiVe) return;
+      const cu = peekScalarField(overlayField, gridDays);
+      if (cu) setSfGrid((dangCo) => dangCo ?? cu);
+    };
+    setSfGrid(peekScalarField(overlayField, gridDays));
+    void forecastStoreReady().then(hienBanCu);
+    setDangLamMoi((n) => n + 1);
+    const xongMotLuot = () => {
+      banMoiVe = true;
+      setDangLamMoi((n) => Math.max(0, n - 1));
+    };
     fetchScalarField(overlayField, gridDays)
       .then((g) => {
+        xongMotLuot();
         if (!alive) return;
         setSfGrid(g);
         if (jumpEndRef.current) {
@@ -675,9 +762,16 @@ export default function FishingMapView() {
           jumpEndRef.current = false;
         }
       })
-      .catch(() => alive && setGridFailed(true));
+      .catch(() => {
+        xongMotLuot();
+        if (alive) setGridFailed(true);
+      });
     return () => {
       alive = false;
+      if (!banMoiVe) {
+        banMoiVe = true;
+        setDangLamMoi((n) => Math.max(0, n - 1));
+      }
     };
   }, [overlayField, gridFailed, gridDays, netEpoch]);
 
@@ -2585,7 +2679,18 @@ export default function FishingMapView() {
                       {/* mốc "Hôm nay" so NGÀY THẬT, không so ngày đầu bản lưu */}
                       {timeLabelVN(stripGrid.times[timeIdx] ?? "", todayIso)}
                       {/* bỏ dòng "Số cũ lưu trong máy" trên strip cho gọn (user
-                          2026-07-28) — trạng thái bản lưu vẫn hiện ở sheet điểm */}
+                          2026-07-28) — trạng thái bản lưu vẫn hiện ở sheet điểm.
+                          GIỮ NGUYÊN quyết định đó; chỉ thêm MỘT trạng thái TẠM,
+                          tự tắt: bản đang vẽ là bản CŨ trong máy VÀ máy đang kéo
+                          bản mới (2026-08-03, đi kèm luật hiện-bản-cũ-trước).
+                          Không có dòng này thì màn hình đổi số trong im lặng —
+                          bà con vừa nhìn xong lại thấy khác, không ai giải thích. */}
+                      {stripGrid.stale && dangLamMoi > 0 && (
+                        <span className="font-semibold text-foreground/60">
+                          {" "}
+                          · số cũ, đang tải bản mới…
+                        </span>
+                      )}
                     </span>
                     <button
                       type="button"

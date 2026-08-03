@@ -29,11 +29,19 @@ import { noteResponse, tokenHeader } from "@/lib/device-token-store";
 
 export type ForecastKind = "wind" | "wave" | "current";
 
+/*  BỐN TRƯỜNG GIÓ/SÓNG LÀ TUỲ CHỌN (2026-08-03) — cùng luật đã áp cho `curKmh`:
+    lưới nào không có lớp đó thì VẮNG khoá, đọc bằng `?? null`.
+
+    VÌ SAO ĐỔI: lưới DÒNG CHẢY THEO TẦNG chỉ mang hai số (`curKmh`/`curDirDeg`)
+    nhưng vẫn phải ghi kèm bốn khoá `null` của gió/sóng — ~55 byte thừa cho mỗi ô
+    mỗi ngày, tức ~60% payload. Kho của bà con nằm ở IndexedDB và lưu JSON THÔ
+    (không nén), nên chỗ thừa đó ăn thật vào hạn ngạch đi biển. Bỏ bốn khoá rỗng
+    đủ trả tiền cho việc làm lưới dày gấp 4 lần mà tổng byte gần như không đổi. */
 export interface GridHour {
-  windKmh: number | null;
-  windDirDeg: number | null; // hướng gió THỔI TỪ (chuẩn khí tượng)
-  waveM: number | null;
-  waveDirDeg: number | null; // hướng sóng TỚI TỪ
+  windKmh?: number | null;
+  windDirDeg?: number | null; // hướng gió THỔI TỪ (chuẩn khí tượng)
+  waveM?: number | null;
+  waveDirDeg?: number | null; // hướng sóng TỚI TỪ
   /** dòng chảy mặt (km/h) — nguồn MeteoFrance SMOC qua Open-Meteo, tới ~10 ngày;
       bản lưu đời cũ không có trường này → undefined, đọc bằng `?? null` */
   curKmh?: number | null;
@@ -109,6 +117,16 @@ export const GRID_STEP_LON_DEG = (LON_MAX - LON_MIN) / (N_LON - 1); // ≈ 2,11�
     (route-weather.ts lùi về lưới này khi mất sóng). Đổi khung ở trên là đủ. */
 export const GRID_N_LAT = N_LAT;
 export const GRID_N_LON = N_LON;
+
+/** KHUNG của mọi lưới vẽ động (độ). Lớp WebGL dựng quad theo bbox lưới, nên lưới
+    nào lấy mẫu riêng (vd dòng chảy tầng sâu, dày hơn) cũng PHẢI dùng đúng khung
+    này — lệch khung là lệch cả lớp màu trên bản đồ. */
+export const GRID_BOUNDS_DEG = {
+  lonMin: LON_MIN,
+  lonMax: LON_MAX,
+  latMin: LAT_MIN,
+  latMax: LAT_MAX,
+} as const;
 
 /**
  * TRẦN SNAP = NỬA BƯỚC LƯỚI, tính RIÊNG từng chiều. Xa hơn thì ô lưới KHÔNG CÒN
@@ -582,6 +600,30 @@ export async function fetchForecastGrid(
 }
 
 /**
+ * BẢN TRONG MÁY ĐỂ HIỆN NGAY, KHÔNG CHỜ MẠNG (2026-08-03) — đồng bộ, thuần đọc.
+ *
+ * VÌ SAO: `fetchForecastGrid` chỉ dám đọc kho ở hai ca — bản còn hiện hành, hoặc
+ * máy KHẲNG ĐỊNH mất sóng (`navigator.onLine === false`). Ca GIỮA — **sóng yếu
+ * mà sống**, đúng cảnh trên tàu — không lọt cửa nào: phải đốt hết 10 giây
+ * snapshot + 20 giây live rồi mới sờ tới thứ đã nằm sẵn trong máy, mà màn hình
+ * thì bị `setFGrid(null)` xoá trắng suốt thời gian đó. Bản đã lưu gắn cờ `stale`
+ * nên không nói dối: chỗ vẽ tự biết đó là số cũ.
+ *
+ * Dùng: hiện bản này TRƯỚC, rồi để `fetchForecastGrid` đè lên khi bản mới về.
+ * ⚠️ Kho nằm ở IndexedDB (nạp bất đồng bộ lúc mở app) nên gọi lúc vừa mount có
+ * thể trượt — chỗ gọi phải thử lại sau `forecastStoreReady()`.
+ */
+export function peekForecastGrid(
+  days = 3,
+  opts?: { needCurrent?: boolean },
+): ForecastGrid | null {
+  const needCur = !!opts?.needCurrent;
+  const usable = (g: ForecastGrid | null | undefined): g is ForecastGrid =>
+    gridIsCurrent(g) && (!needCur || gridHasCurrent(g));
+  return savedGridFallback(gridCacheId(days), days, usable);
+}
+
+/**
  * BẢN LƯỚI ĐÃ LƯU TRONG MÁY dùng được cho khung đang xin — bản ĐÚNG khung
  * trước, hết thì mượn khung NGẮN HƠN (thanh ngày vẽ theo `times[]` thật nên
  * không nói dối). Thuần đọc localStorage, KHÔNG gọi mạng: đây là nhánh cho lúc
@@ -843,6 +885,34 @@ function destPoint(
   ];
 }
 
+/** Mật độ mũi tên mong muốn — giữ đúng cảm giác của lưới chung 13×12. */
+const ARROW_TARGET_COLS = GRID_N_LON;
+const ARROW_TARGET_ROWS = GRID_N_LAT;
+
+/**
+ * BƯỚC BỎ BỚT MŨI TÊN cho lưới dày hơn lưới chung. Suy kích thước lưới từ chính
+ * `cells` (hàng row-major, cùng `lat` là một hàng) — bản lưu đời cũ / lưới lạ
+ * cũng chạy. Lưới không suy được thì bước 1 (vẽ hết, y như trước).
+ * THUẦN — test được.
+ */
+export function arrowStep(cells: GridCell[]): {
+  nLon: number;
+  lon: number;
+  lat: number;
+} {
+  let nLon = 1;
+  while (nLon < cells.length && cells[nLon]?.lat === cells[0]?.lat) nLon++;
+  const nLat = Math.floor(cells.length / nLon);
+  if (nLon < 2 || nLat < 2 || nLat * nLon !== cells.length) {
+    return { nLon: Math.max(1, cells.length), lon: 1, lat: 1 };
+  }
+  return {
+    nLon,
+    lon: Math.max(1, Math.round(nLon / ARROW_TARGET_COLS)),
+    lat: Math.max(1, Math.round(nLat / ARROW_TARGET_ROWS)),
+  };
+}
+
 /**
  * FeatureCollection mũi tên cho một mốc thời gian.
  * properties.v = độ lớn (km/h với gió/dòng chảy, mét với sóng) để tô màu.
@@ -857,16 +927,29 @@ export function arrowFeatures(
   kind: ForecastKind,
 ): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
-  for (const c of grid.cells) {
+  /*  THƯA MŨI TÊN THEO MẬT ĐỘ LƯỚI (2026-08-03). Lưới dòng chảy tầng sâu nay dày
+      gấp đôi mỗi chiều (575 ô) cho lớp MÀU mịn hơn — nhưng vẽ 575 mũi tên lên
+      màn hình điện thoại thì thành đám lông chông, không đọc được hướng nào ra
+      hướng nào. Mũi tên giữ đúng mật độ cũ (~13 cột × 12 hàng), màu và hạt bay
+      vẫn ăn trọn lưới dày. Lưới thường (13 cột) → bước 1, không đổi gì. */
+  const step = arrowStep(grid.cells);
+  for (let i = 0; i < grid.cells.length; i++) {
+    if (step.lon > 1 && (i % step.nLon) % step.lon !== 0) continue;
+    if (step.lat > 1 && Math.floor(i / step.nLon) % step.lat !== 0) continue;
+    const c = grid.cells[i];
     const h = c.hours[timeIdx];
     if (!h) continue;
     const mag =
-      kind === "wind" ? h.windKmh : kind === "wave" ? h.waveM : h.curKmh ?? null;
+      kind === "wind"
+        ? h.windKmh ?? null
+        : kind === "wave"
+          ? h.waveM ?? null
+          : h.curKmh ?? null;
     const dirDeg =
       kind === "wind"
-        ? h.windDirDeg
+        ? h.windDirDeg ?? null
         : kind === "wave"
-          ? h.waveDirDeg
+          ? h.waveDirDeg ?? null
           : h.curDirDeg ?? null;
     if (mag == null || dirDeg == null) continue;
 

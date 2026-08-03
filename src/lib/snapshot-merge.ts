@@ -105,8 +105,8 @@ const GRID_GROUPS: GridGroup[] = ["wind", "wave", "current"];
 
 /** trường "độ lớn" đại diện nhóm — có số nghĩa là nguồn CÓ dữ liệu nhóm đó */
 const GROUP_MAG: Record<GridGroup, (h: GridHour) => number | null> = {
-  wind: (h) => h.windKmh,
-  wave: (h) => h.waveM,
+  wind: (h) => h.windKmh ?? null,
+  wave: (h) => h.waveM ?? null,
   current: (h) => h.curKmh ?? null,
 };
 

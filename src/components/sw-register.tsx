@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { requestPersistentStorage } from "@/lib/storage-persist";
+import { ensurePersistentStorage } from "@/lib/storage-persist";
 
 /*
   Đăng ký service worker (public/sw.js) sau khi mount — CHỈ production
@@ -12,10 +12,17 @@ import { requestPersistentStorage } from "@/lib/storage-persist";
   XIN BỘ NHỚ BỀN (mọi env): cache SW + dự báo trong localStorage là "best-effort"
   — máy đầy thì trình duyệt tự xoá. persist() xin trình duyệt giữ lại, để ra khơi
   mất sóng vẫn còn dữ liệu. Best-effort, nuốt lỗi (xem lib/storage-persist.ts).
+
+  ⚠️ HIỆU ỨNG NÀY CHẠY MỘT LẦN MỖI LẦN NẠP TÀI LIỆU, không phải mỗi lần mở màn:
+  App Router không remount layout khi chuyển màn, còn bản cài PWA thì bấm Home
+  rồi quay lại cũng giữ nguyên tài liệu. Nên đây KHÔNG đủ làm đường xin duy nhất
+  — hai chỗ hỏi lại nằm ở `usage-heartbeat` (quay lại app) và
+  `pretrip-auto-notify` (ngay sau khi ghi được gói đi biển). Cửa giãn cách nằm
+  trong `ensurePersistentStorage`, gọi thừa cũng không sao.
 */
 export function SwRegister() {
   useEffect(() => {
-    void requestPersistentStorage();
+    void ensurePersistentStorage();
 
     if (process.env.NODE_ENV !== "production") return;
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator))

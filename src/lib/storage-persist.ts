@@ -73,6 +73,111 @@ export async function requestPersistentStorage(): Promise<boolean> {
   }
 }
 
+/* ══════════════ HỎI LẠI CHO ĐÚNG LÚC ══════════════ (2026-08-03)
+
+   VÌ SAO PHẢI CÓ: `requestPersistentStorage` được gọi ĐÚNG MỘT LẦN, trong
+   `useEffect([])` của `sw-register` — tức một lần mỗi lần TÀI LIỆU được nạp.
+   Chuyển màn trong app không remount layout; bản cài PWA thì bấm Home rồi quay
+   lại cũng KHÔNG nạp lại tài liệu (chính `usage-heartbeat` đã ghi nhận). Nên
+   trên máy bà con, app hỏi vài lần trong cả đời máy — mà lần hỏi ĐẦU rơi đúng
+   lúc app vừa cài, tức lúc trình duyệt dễ từ chối nhất: cả Safari lẫn Chromium
+   "tự gật hoặc tự từ chối theo LỊCH SỬ TƯƠNG TÁC với trang, không hỏi người
+   dùng". Đo trên máy thật 2026-08-03: khách đã cài ra màn hình chính, dùng từ
+   02/08, vẫn `persisted() === false` — cài KHÔNG phải giấy bảo đảm.
+
+   ⚠️ KHÔNG PHẢI REQUEST MẠNG. `persist()` hỏi bộ quản lý kho NGAY TRONG MÁY,
+   chạy bình thường ở chế độ máy bay: không tốn tiền sóng, không đẻ request lỗi
+   lúc mất sóng, không có gì để timeout. Vì vậy CỐ Ý không có cửa `navigator
+   .onLine` ở đây — giữa biển mới là lúc cần kho được giữ bền nhất.
+
+   HAI CỬA CHẶN, và vì sao cần cả hai:
+    · đã được cấp rồi → thôi (đọc `persisted()`, rẻ, không tác dụng phụ);
+    · mỗi máy tối đa MỘT LẦN HỎI/NGÀY — Firefox HIỆN POPUP xin phép (Safari và
+      Chromium thì im lặng). Bà con không dùng Firefox, nhưng máy nhân viên mở
+      /quan-tri thì có, và hỏi mỗi lần chuyển tab là quấy người ta. */
+
+/** Khoá nhớ lần hỏi gần nhất (xem `ops/state-registry.md`) */
+export const PERSIST_ASK_KEY = "forfish.persist.ask.v1";
+const ASK_GAP_MS = 24 * 60 * 60 * 1000;
+
+type AskMark = { at: number; ok: boolean };
+
+function readAsk(): AskMark | null {
+  try {
+    const raw = window.localStorage.getItem(PERSIST_ASK_KEY);
+    if (!raw) return null;
+    const j = JSON.parse(raw) as Partial<AskMark>;
+    return typeof j?.at === "number" && Number.isFinite(j.at)
+      ? { at: j.at, ok: j.ok === true }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeAsk(m: AskMark): void {
+  try {
+    window.localStorage.setItem(PERSIST_ASK_KEY, JSON.stringify(m));
+  } catch {
+    /* kho bị chặn → chịu, chỉ mất cửa giãn cách chứ không hỏng gì */
+  }
+}
+
+/**
+ * CÓ NÊN HỎI LẠI KHÔNG — thuần, test được.
+ *  · đã được cấp (`persisted`) → không (khỏi phiền)
+ *  · chưa hỏi lần nào → có
+ *  · hỏi trong vòng 24 giờ qua → không
+ * Mốc ở TƯƠNG LAI (đồng hồ máy chỉnh lùi) → coi như chưa hỏi, đừng kẹt vĩnh viễn.
+ */
+export function shouldAskPersist(
+  persisted: boolean | null,
+  lastAskAt: number | null,
+  nowMs: number,
+): boolean {
+  if (persisted === true) return false;
+  if (lastAskAt == null || !Number.isFinite(lastAskAt)) return true;
+  if (lastAskAt > nowMs) return true;
+  return nowMs - lastAskAt >= ASK_GAP_MS;
+}
+
+/**
+ * XIN BỘ NHỚ BỀN, CÓ HỎI LẠI. Gọi được ở mọi lúc, kể cả mất sóng — best-effort,
+ * nuốt mọi lỗi, KHÔNG bao giờ ném và KHÔNG đụng mạng. Trả trạng thái hiện tại.
+ *
+ * Gọi ở: mở app (`sw-register`) · quay lại app (`usage-heartbeat`) · NGAY SAU
+ * mẻ tải sẵn ghi được dữ liệu (`pretrip-auto-notify`) — chỗ cuối là chỗ đáng
+ * giá nhất mà trước đây bỏ trống: bà con vừa để app tải trọn gói đi biển ~3 MB
+ * chính là lúc "lịch sử tương tác" đẹp nhất để trình duyệt gật.
+ */
+export async function ensurePersistentStorage(): Promise<boolean> {
+  try {
+    const st = typeof navigator === "undefined" ? null : navigator.storage;
+    if (!st?.persist || typeof st.persisted !== "function") return false;
+    const dangCo = await st.persisted();
+    if (dangCo) return true;
+    const mark = readAsk();
+    if (!shouldAskPersist(dangCo, mark?.at ?? null, Date.now())) return false;
+    const ok = await st.persist();
+    writeAsk({ at: Date.now(), ok });
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * KẾT QUẢ LẦN HỎI GẦN NHẤT — `null` khi CHƯA HỎI LẦN NÀO.
+ *
+ * Vì sao đáng chở về /quan-tri: `persisted() === false` một mình KHÔNG phân biệt
+ * được "đã hỏi và bị trình duyệt từ chối" với "chưa bao giờ hỏi lại" — hai ca
+ * cần hai cách xử lý khác hẳn (một cái là giới hạn nền tảng, một cái là lỗi của
+ * app). Suốt thời gian chỉ có `persisted()`, không ai trả lời được câu đó.
+ */
+export function persistAskResult(): boolean | null {
+  return readAsk()?.ok ?? null;
+}
+
 
 /**
  * BA KHO ĐANG CHIẾM BAO NHIÊU — tách riêng localStorage / IndexedDB / Cache API.

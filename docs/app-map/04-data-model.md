@@ -518,7 +518,22 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 
 ⚠️ `storage_cache_mb` là **ƯỚC LƯỢNG** (`tổng − ls − idb`), gộp cả mã service worker và phụ trội trình duyệt — chỉ dùng SO ĐỘ LỚN. Đo thật phải tải lại từng ô bản đồ: vài chục MB đọc đĩa mỗi nhịp, đắt hơn giá trị nó mang lại. Hai cột kia thì chính xác.
 
-⚠️ Cột có thể CHƯA tồn tại (chủ dự án tự apply) ⇒ `/api/admin/accounts` thử **ba nấc** select rộng → hẹp; `/api/me/heartbeat` giữ nguyên khuôn "hỏng thì ghi lại bộ cũ". Một chip phụ không được làm mất trắng danh sách 700+ khách.
+⚠️ Cột có thể CHƯA tồn tại (chủ dự án tự apply) ⇒ `/api/admin/accounts` thử **bốn nấc** select rộng → hẹp (0031 tách RIÊNG một nấc: máy đã apply 0030 mà chưa apply 0031 không được mất sáu chip tách kho đang chạy tốt); `/api/me/heartbeat` giữ nguyên khuôn "hỏng thì ghi lại bộ cũ". Một chip phụ không được làm mất trắng danh sách 700+ khách.
+
+
+### Đã HỎI xin bộ nhớ bền chưa, và bị từ chối hay được gật — migration [`0031_storage_persist_asked.sql`](../../supabase/migrations/0031_storage_persist_asked.sql) (2026-08-03) — ⏳ **CHƯA APPLY prod**
+
+**Vì sao** (chủ dự án hỏi 2026-08-03: *"đã có bản cài thì có bị từ chối không?"*): `storage_persisted` một mình **gộp hai ca cần hai cách xử lý khác hẳn nhau**.
+
+| Tổ hợp | Nghĩa | Việc phải làm |
+|---|---|---|
+| `persisted=false` · `persist_asked=null` | app **chưa hỏi lại lần nào** | lỗi của app — sửa được (đã sửa: `ensurePersistentStorage`) |
+| `persisted=false` · `persist_asked=false` | đã hỏi, **trình duyệt TỪ CHỐI** | giới hạn nền tảng — gọi điện nhắc bà con cũng vô ích; việc làm được là nhắc **dọn bớt chỗ** |
+| `persisted=true` | được cấp | không phải làm gì |
+
+**Ca thật dẫn tới cột này**: khách `0123456154` (iOS, **đã cài** ra màn hình chính, dữ liệu đủ tới 18/08, còn trống 39 GB) vẫn báo `storage_persisted = false` — mà /quan-tri thì hô "⚠️ chưa được cấp bộ nhớ bền", bắt nhân viên gọi điện nhắc một việc không tồn tại. Luật hiển thị mới ở `persistNote` (`lib/app-usage.ts`, có test): **chỉ nói khi CÒN LÀM ĐƯỢC GÌ** — tức chưa được cấp **và** máy sắp hết chỗ (`< 2000 MB`); bản cài vốn đã được miễn vòng xoá 7 ngày của ITP, thứ `persist()` cứu thêm chỉ là vòng thu hồi LRU khi máy đầy.
+
+⚠️ App chạy được **trước khi apply**: cả hai đường ghi (`customers` và `customer_devices` trong `/api/me/heartbeat`) đều có nhánh lùi bỏ cột lạ, và `/api/admin/accounts` có nấc select riêng cho cột này.
 
 
 <!-- re-verified: 2026-06-14 — schema 0001 boats/documents + §6 gateway khớp code -->

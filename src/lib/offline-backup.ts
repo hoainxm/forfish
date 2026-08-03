@@ -173,6 +173,14 @@ export const NEVER_BACKUP_PREFIXES = [
    *    mà máy đó đang giữ hợp lệ — tức tệp sao lưu biến thành lệnh phá kho.
    *    Dấu tự tiêu sau khi thi hành xong, không mất gì khi không sao lưu. */
   "forfish.fcbia.",
+  /*  · `persist.ask.` — MỐC LẦN XIN BỘ NHỚ BỀN của MÁY NÀY (lib/storage-persist,
+   *    2026-08-03). Nó trả lời "máy NÀY đã hỏi lúc nào, trình duyệt gật hay
+   *    từ chối" — câu trả lời gắn chặt với trình duyệt + nền của đúng máy đó.
+   *    Chép sang máy khác là dán một câu trả lời sai vào máy chưa từng hỏi:
+   *    máy mới im lặng suốt 24 giờ vì tưởng vừa hỏi rồi, còn /quan-tri thì báo
+   *    "đã hỏi, bị từ chối" cho một máy chưa hỏi bao giờ. Mất khoá này không
+   *    mất gì: lần mở app kế tiếp hỏi lại. */
+  "forfish.persist.",
 ];
 
 const hasPrefix = (k: string, list: readonly string[]) =>

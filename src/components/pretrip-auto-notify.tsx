@@ -50,7 +50,11 @@ import {
   type BackupMode,
   type BackupSummary,
 } from "@/lib/offline-backup";
-import { isIOS, isStandalone } from "@/lib/storage-persist";
+import {
+  ensurePersistentStorage,
+  isIOS,
+  isStandalone,
+} from "@/lib/storage-persist";
 import { isShellReady } from "@/lib/shell-ready";
 import { AlertIcon, CheckIcon } from "@/components/icons";
 
@@ -170,6 +174,15 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
         // lại cũng vô ích). Ghi vô điều kiện là khoá 6 giờ ngay cả khi hỏng
         // sạch — xem shouldMarkPretripRun.
         if (shouldMarkPretripRun(r)) markAutoPretripRun();
+        /*  XIN BỘ NHỚ BỀN NGAY SAU KHI GHI ĐƯỢC (2026-08-03) — chỗ đáng giá
+            nhất mà trước đây bỏ trống. Cả Safari lẫn Chromium tự gật/tự từ chối
+            theo LỊCH SỬ TƯƠNG TÁC với trang, nên thời điểm bà con vừa để app
+            tải trọn gói đi biển (~3 MB) là lúc dễ được gật nhất — hơn hẳn lần
+            hỏi lúc app vừa cài xong, còn trắng trơn.
+            Đặt ở nhánh `then` (mẻ chạy xong) chứ không phải `finally`: mẻ ném
+            sạch nghĩa là chẳng ghi được gì, xin lúc đó chỉ tốn một cửa/ngày.
+            KHÔNG phải request mạng, không ai chờ nó — xem lib/storage-persist. */
+        void ensurePersistentStorage();
         // Mẻ bị cắt giữa chừng → giãn cửa THỬ LẠI ra 30 phút (không ghi mốc 6
         // giờ nhưng cũng không được bắn lại sau 2 phút).
         lastAttemptPartial = r.timedOut;

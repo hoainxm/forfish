@@ -435,6 +435,14 @@ export async function sendHeartbeat(info: {
   storageAvailableMb?: number | null;
   /** `navigator.storage.persisted()` — hàng rào duy nhất chống thu hồi LRU */
   storagePersisted?: boolean | null;
+  /*  KẾT QUẢ LẦN HỎI `persist()` gần nhất — `null` = CHƯA HỎI LẦN NÀO.
+      Đi cặp với `storagePersisted`: một mình cột kia không phân biệt được "đã
+      hỏi và bị từ chối" (giới hạn nền tảng — Safari/Chromium tự quyết theo lịch
+      sử tương tác, gọi điện nhắc bà con cũng không đổi được) với "chưa hỏi lại
+      lần nào" (lỗi của app, sửa được). Cùng nhóm ĐỊNH KỲ, CỐ Ý không vào chữ ký:
+      nó đổi theo từng lần hỏi, đưa vào chữ ký là biến mỗi lần hỏi thành một
+      "sự kiện" và máy bắn nhịp liên tục. */
+  storagePersistAsked?: boolean | null;
   /** kho dự báo NẰM Ở ĐÂU THẬT: `"idb"` đã dời xong · `"ls"` còn kẹt thùng 5 MB */
   storageBackend?: "idb" | "ls" | null;
 }): Promise<HeartbeatOutcome> {

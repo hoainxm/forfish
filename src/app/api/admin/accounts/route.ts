@@ -89,9 +89,17 @@ export async function GET() {
       mất trắng danh sách 700+ khách. Ba nấc, rộng → hẹp. */
   const KHO_COLS =
     "storage_ls_mb, storage_idb_mb, storage_cache_mb, storage_available_mb, storage_persisted, storage_backend";
+  /*  0031 (`storage_persist_asked`) TÁCH RIÊNG MỘT NẤC — cũng do chủ dự án tự
+      apply, và ra SAU 0030. Gộp chung một chuỗi thì máy đã apply 0030 mà chưa
+      apply 0031 sẽ tụt thẳng xuống nấc trần, mất hết SÁU chip tách kho đang chạy
+      tốt chỉ vì thiếu một cột phụ. Bốn nấc, rộng → hẹp. */
   let { data: rows, error } = await read(
-    `${BASE_COLS}, device_platform, ${KHO_COLS}`,
+    `${BASE_COLS}, device_platform, ${KHO_COLS}, storage_persist_asked`,
   );
+  if (error)
+    ({ data: rows, error } = await read(
+      `${BASE_COLS}, device_platform, ${KHO_COLS}`,
+    ));
   if (error) ({ data: rows, error } = await read(`${BASE_COLS}, device_platform`));
   if (error) ({ data: rows, error } = await read(BASE_COLS));
   if (error) return err(500, "query_failed");
@@ -187,6 +195,7 @@ export async function GET() {
     storageCacheMb: (r.storage_cache_mb as number) ?? null,
     storageAvailableMb: (r.storage_available_mb as number) ?? null,
     storagePersisted: (r.storage_persisted as boolean) ?? null,
+    storagePersistAsked: (r.storage_persist_asked as boolean) ?? null,
     storageBackend: (r.storage_backend as string) ?? null,
     storageUsedMb: (r.storage_used_mb as number) ?? null,
     devicePlatform: normalizePlatform(r.device_platform),

@@ -25,7 +25,7 @@ import {
 } from "@/lib/forecast-cache";
 import { forecastStoreReady } from "@/lib/forecast-store";
 import { apiUrl } from "@/lib/api-base";
-import { isCacheCurrent } from "@/lib/source-cadence";
+import { isCacheCurrent, isDailyCacheCurrent } from "@/lib/source-cadence";
 import {
   scalarSnapshotId,
   salinitySnapshotId,
@@ -293,15 +293,31 @@ function saveScalarChecked(
     offline giống các lớp kia; mất mạng → bản lưu + stale. */
 async function fetchSalinityField(days: number): Promise<ScalarGrid> {
   const id = cacheId("salinity", days);
-  // bản trong máy còn hiện hành → dùng luôn (khỏi đập nguồn)
+  /*  NHỊP NGÀY (2026-08-03): độ mặn là Copernicus theo NGÀY, không phải
+      Open-Meteo 4 mốc/ngày — xem `isDailyCacheCurrent`. Đường live ở dưới ôm
+      đồng hồ 35 giây, nên mỗi lần tuyên "hết hiện hành" oan là một lần bà con
+      chờ nửa phút để nhận lại đúng bản đang nằm trong máy. */
   const fresh = loadForecast<ScalarGrid>(SCALAR_NS, id);
-  if (fresh && scalarGridUsable(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
+  if (fresh && scalarGridUsable(fresh.data) && isDailyCacheCurrent(fresh.savedAt, Date.now())) {
     return fresh.data;
+  }
+  /*  MẤT SÓNG HẲN → ĐỌC BẢN ĐÃ LƯU TRƯỚC (2026-08-03 — lỗ hổng sót lại của
+      khuôn K3). Lớp gió/sóng, lớp dải màu Open-Meteo và dòng chảy tầng sâu đều
+      đã có nấc này từ 2026-08-02; ĐỘ MẶN thì không, vì `fetchScalarField` rẽ
+      sang đây NGAY DÒNG ĐẦU, trước cả `forecastStoreReady()`. Hệ quả giữa biển:
+      bật lớp độ mặn là 10 giây snapshot + 35 giây live cùng hỏng, rồi mới lấy ra
+      thứ vốn nằm sẵn trong máy — và vì kho IndexedDB nạp bất đồng bộ, đọc trước
+      lúc nạp xong còn trượt luôn cả bản đó. */
+  await forecastStoreReady();
+  if (isDefinitelyOffline()) {
+    const hit = loadForecast<ScalarGrid>(SCALAR_NS, id);
+    if (hit && scalarGridUsable(hit.data))
+      return { ...hit.data, stale: true, savedAt: hit.savedAt };
   }
   // ƯU TIÊN SNAPSHOT cron (same-origin, không đập Copernicus bằng IP máy) —
   // 2026-07-29: độ mặn nay CÓ snapshot server như các lớp khác.
   const snap = await loadSalinitySnapshotClient(days);
-  if (snap && scalarGridUsable(snap) && isCacheCurrent(snap.savedAt, Date.now())) {
+  if (snap && scalarGridUsable(snap) && isDailyCacheCurrent(snap.savedAt, Date.now())) {
     saveScalarChecked(id, snap, snap.savedAt ?? undefined);
     return snap;
   }
@@ -450,6 +466,28 @@ export async function fetchScalarField(
     }
     throw err;
   }
+}
+
+/**
+ * BẢN TRONG MÁY ĐỂ HIỆN NGAY, KHÔNG CHỜ MẠNG (2026-08-03) — đồng bộ, thuần đọc.
+ * Cùng lý do với `peekForecastGrid`: ca "sóng yếu mà sống" không lọt cửa nào của
+ * `fetchScalarField`, nên bà con nhìn màn trắng 30 giây mỗi lần bật một lớp màu
+ * trong khi bản cũ nằm ngay trong máy. Bản trả về có cờ `stale`.
+ */
+export function peekScalarField(
+  kind: FetchScalarKind,
+  days = 3,
+): ScalarGrid | null {
+  if (kind === "salinity") {
+    const hit = loadForecast<ScalarGrid>(
+      SCALAR_NS,
+      cacheId("salinity", SALINITY_DAYS),
+    );
+    return hit && scalarGridUsable(hit.data)
+      ? { ...hit.data, stale: true, savedAt: hit.savedAt }
+      : null;
+  }
+  return savedScalarFallback(kind, days);
 }
 
 /**

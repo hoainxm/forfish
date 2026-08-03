@@ -15,7 +15,7 @@ import {
 } from "@/lib/forecast-cache";
 import { forecastStoreReady } from "@/lib/forecast-store";
 import { apiUrl } from "@/lib/api-base";
-import { isCacheCurrent } from "@/lib/source-cadence";
+import { isDailyCacheCurrent } from "@/lib/source-cadence";
 import { curDepthSnapshotId, CUR_DEPTH_MAX_DAYS } from "@/lib/weather-snapshot-id";
 import type { ForecastGrid } from "@/lib/forecast-grid";
 import { timeoutSignal } from "@/lib/abort";
@@ -118,8 +118,12 @@ export async function fetchCurDepthGridClient(
     memCache.set(id, g);
     return g;
   };
+  /*  NHỊP NGÀY, KHÔNG PHẢI NHỊP GFS (2026-08-03). Nguồn là Copernicus `P1D` —
+      một ngày đúng một bản. Dùng `isCacheCurrent` (lịch 4 mốc/ngày của
+      Open-Meteo) ở đây là ngày bốn lần vứt bản đang có để đi đốt 55 giây lấy về
+      đúng con số cũ. Xem `isDailyCacheCurrent`. */
   const fresh = loadForecast<CurDepthClientGrid>(CUR_DEPTH_NS, id);
-  if (fresh && usable(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
+  if (fresh && usable(fresh.data) && isDailyCacheCurrent(fresh.savedAt, Date.now())) {
     return remember(fresh.data);
   }
   /* MẤT SÓNG HẲN → ĐỌC BẢN ĐÃ LƯU TRƯỚC (K3, 2026-08-02 — cùng khuôn `sea.ts`).
@@ -144,7 +148,7 @@ export async function fetchCurDepthGridClient(
     `/api/weather-snapshot?id=${curDepthSnapshotId(tier, days)}`,
     10000,
   );
-  if (snap && isCacheCurrent(snap.savedAt ?? null, Date.now())) {
+  if (snap && isDailyCacheCurrent(snap.savedAt ?? null, Date.now())) {
     saveForecast(CUR_DEPTH_NS, id, snap, snap.savedAt ?? undefined);
     return remember(snap);
   }

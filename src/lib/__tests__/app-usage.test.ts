@@ -4,6 +4,8 @@ import { join } from "node:path";
 import {
   normalizePlatform,
   normalizeDataUntil,
+  persistNote,
+  KHO_SAP_DAY_MB,
   USAGE_STAGE_LABEL,
 } from "@/lib/app-usage";
 
@@ -304,5 +306,60 @@ describe("nhịp: nhánh ĐỔI MÁY không được ghi số kho WEB vào cột
       ganKhongGac,
       "gán data_until = savedUntil KHÔNG có standalone gác — đúng lỗi đã vá ở 829abfa",
     ).toEqual([]);
+  });
+});
+
+/*  ═══ CHỈ CẢNH BÁO KHI CÒN LÀM ĐƯỢC GÌ ═══ (2026-08-03)
+
+    Bản cũ in "⚠️ chưa được cấp bộ nhớ bền" cho MỌI máy `storage_persisted =
+    false`. Chủ dự án bắt ngay trên màn hình thật: *"user đang dùng bản cài,
+    đang lưu ở home mà?"* — máy đó đã cài ra màn hình chính, dữ liệu đủ tới
+    18/08, còn trống 39 GB. Bản cài vốn đã được miễn vòng xoá 7 ngày của ITP;
+    thứ persist cứu thêm là vòng thu hồi LRU khi MÁY ĐẦY — mà máy này còn 39 GB.
+    Cảnh báo đó bắt nhân viên gọi điện nhắc một việc không tồn tại. */
+describe("persistNote — cảnh báo bộ nhớ bền", () => {
+  it("MÁY THẬT 0123456154: chưa cấp nhưng còn 39 GB → IM LẶNG", () => {
+    expect(
+      persistNote({ persisted: false, asked: null, availableMb: 39282 }),
+    ).toBeNull();
+  });
+
+  it("đã được cấp → im lặng dù máy sắp đầy", () => {
+    expect(persistNote({ persisted: true, asked: true, availableMb: 10 })).toBeNull();
+  });
+
+  it("chưa đo được (null) → im lặng, không đoán", () => {
+    expect(persistNote({ persisted: null, asked: null, availableMb: 10 })).toBeNull();
+    expect(
+      persistNote({ persisted: false, asked: null, availableMb: null }),
+    ).toBeNull();
+  });
+
+  it("máy sắp đầy + CHƯA HỎI lần nào → cảnh báo thường", () => {
+    const s = persistNote({ persisted: false, asked: null, availableMb: 500 });
+    expect(s).toContain("máy sắp đầy");
+    expect(s).toContain("chưa được cấp");
+  });
+
+  /*  HAI CA PHẢI NÓI HAI VIỆC KHÁC NHAU — đó là toàn bộ lý do cột
+      `storage_persist_asked` (0031) tồn tại. Bị trình duyệt từ chối thì gọi điện
+      nhắc bà con cài đặt gì cũng vô ích; việc làm được là nhắc dọn bớt chỗ. */
+  it("máy sắp đầy + ĐÃ HỎI, BỊ TỪ CHỐI → nói đúng việc phải làm", () => {
+    const s = persistNote({ persisted: false, asked: false, availableMb: 500 });
+    expect(s).toContain("TỪ CHỐI");
+    expect(s).toContain("dọn bớt");
+  });
+
+  it("ngưỡng: đúng KHO_SAP_DAY_MB thì chưa nói, dưới một chút mới nói", () => {
+    expect(
+      persistNote({ persisted: false, asked: null, availableMb: KHO_SAP_DAY_MB }),
+    ).toBeNull();
+    expect(
+      persistNote({
+        persisted: false,
+        asked: null,
+        availableMb: KHO_SAP_DAY_MB - 1,
+      }),
+    ).not.toBeNull();
   });
 });

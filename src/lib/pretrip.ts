@@ -781,8 +781,93 @@ export function pretripTimedOut(
   return now - startedAt >= maxMs;
 }
 
+/*  ═══ BAO NHIÊU VIỆC CHẠY CÙNG LÚC ═══ (2026-08-03)
+
+    Trước đây mẻ chạy XẾP HÀNG MỘT: 12–14 bước, mỗi bước ôm đồng hồ 20–55 giây,
+    cộng lại chạm trần 240 giây khi sóng yếu — nên các bước CUỐI (bản đồ mùa vụ,
+    nước dâng) gần như không bao giờ tới lượt. Cùng ngần ấy giây, chạy ba việc
+    một lúc thì phủ được nhiều lớp hơn hẳn.
+
+    VÌ SAO ĐÚNG **BA**, không phải sáu hay mười:
+     · Open-Meteo tính hạn ngạch theo IP, mà 429 thì CẢ APP mất dự báo (bài học
+       2026-07-29, cả kiến trúc snapshot dựng lên vì chuyện đó). Ba là bó hoa
+       nhỏ, không phải cơn lũ.
+     · Sóng yếu là con dao hai lưỡi THẬT: ba dòng tải chia nhau một đường truyền
+       hẹp thì mỗi dòng chậm đi, có khi cùng hết giờ trong khi chạy tuần tự thì
+       ít nhất xong được một. Ba là mức còn giữ được phần lớn cái lợi mà chưa
+       biến mỗi bước thành một phần ba băng thông.
+    Thứ tự ƯU TIÊN vẫn nguyên: pool lấy việc theo đúng thứ tự `pretripSteps`
+    (gió sóng điểm ghim → tin bão → giá → bản đồ cá → lưới → …), nên khi hết giờ
+    thì thứ bị bỏ vẫn là thứ ít quan trọng nhất. */
+export const PRETRIP_CONCURRENCY = 3;
+
+export interface PoolResult {
+  ok: number;
+  failed: number;
+  failedSteps: string[];
+  /** hết trần thời gian khi còn việc chưa chạy → KHÔNG được khoá 6 giờ */
+  timedOut: boolean;
+  /** số việc THẬT SỰ được nhặt ra chạy (phần còn lại là chưa hề thử) */
+  started: number;
+}
+
 /**
- * Chạy tuần tự, báo tiến trình từng bước. Một việc hỏng KHÔNG dừng cả mẻ —
+ * CHẠY DANH SÁCH VIỆC theo pool `PRETRIP_CONCURRENCY`, tôn trọng trần
+ * `PRETRIP_MAX_MS` tính từ `startedAt`. Tách khỏi `runPretrip` để test được mà
+ * không phải giả lập cả cụm nguồn dữ liệu.
+ *
+ * Bất biến phải giữ y như bản chạy tuần tự cũ:
+ *  · một việc hỏng KHÔNG dừng cả mẻ;
+ *  · việc CHƯA HỀ CHẠY (hết giờ) tính vào `failed` nhưng KHÔNG vào `failedSteps`
+ *    — `pretripGridTooShort` đọc `failedSteps` để kết luận "khung dài đã thử và
+ *    hỏng", nhét việc chưa thử vào đó là nói dối nó;
+ *  · thứ tự ƯU TIÊN của danh sách được giữ (luồng nào rảnh thì nhặt việc kế
+ *    tiếp), nên hết giờ thì thứ bị bỏ là thứ cuối danh sách.
+ */
+export async function runStepsPooled(
+  steps: PretripStep[],
+  startedAt: number,
+  onProgress?: (p: PretripProgress) => void,
+  concurrency: number = PRETRIP_CONCURRENCY,
+): Promise<PoolResult> {
+  const total = steps.length;
+  let next = 0;
+  let started = 0;
+  let ok = 0;
+  let failed = 0;
+  let timedOut = false;
+  const failedSteps: string[] = [];
+  const motLuong = async () => {
+    for (;;) {
+      const i = next;
+      if (i >= total) return;
+      // Kiểm TRƯỚC MỖI BƯỚC: bước vừa rồi có thể đã ngốn cả phút.
+      if (pretripTimedOut(startedAt, Date.now())) {
+        timedOut = true;
+        return;
+      }
+      next = i + 1;
+      started++;
+      onProgress?.({ done: started - 1, total, label: steps[i].label });
+      try {
+        await steps[i].run();
+        ok++;
+      } catch {
+        failed++;
+        const id = steps[i].id;
+        if (id) failedSteps.push(id);
+      }
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.max(1, Math.min(concurrency, total)) }, motLuong),
+  );
+  // việc không kịp chạy = chưa tải được, nói thật
+  return { ok, failed: failed + (total - started), failedSteps, timedOut, started };
+}
+
+/**
+ * Chạy song song CÓ GIỚI HẠN, báo tiến trình. Một việc hỏng KHÔNG dừng cả mẻ —
  * tải được gì giữ nấy, rồi nói thật còn thiếu bao nhiêu.
  */
 export async function runPretrip(
@@ -801,30 +886,16 @@ export async function runPretrip(
   let failed = 0;
   let timedOut = false;
   const failedSteps: string[] = [];
+  let mePool: PoolResult;
   try {
-    for (let i = 0; i < total; i++) {
-      // Kiểm TRƯỚC MỖI BƯỚC: bước vừa rồi có thể đã ngốn cả phút.
-      if (pretripTimedOut(startedAt, Date.now())) {
-        failed += total - i; // các việc chưa kịp làm = chưa tải được, nói thật
-        timedOut = true; // còn việc chưa chạy → KHÔNG được khoá 6 giờ
-        /* CÁC BƯỚC CHƯA CHẠY KHÔNG VÀO `failedSteps`: chúng không hề thử, nên
-           không được làm cửa `pretripGridTooShort` tưởng khung dài đã thử-và-
-           hỏng. Mẻ bị cắt vốn đã có đường riêng (`timedOut`). */
-        break;
-      }
-      onProgress?.({ done: i, total, label: steps[i].label });
-      try {
-        await steps[i].run();
-        ok++;
-      } catch {
-        failed++;
-        const id = steps[i].id;
-        if (id) failedSteps.push(id);
-      }
-    }
+    mePool = await runStepsPooled(steps, startedAt, onProgress);
   } finally {
     scope.end();
   }
+  ok = mePool.ok;
+  failed = mePool.failed;
+  timedOut = mePool.timedOut;
+  failedSteps.push(...mePool.failedSteps);
   onProgress?.({ done: total, total, label: "Xong" });
   /*  ═══ ĐỢI ĐĨA NHẬN THẬT RỒI MỚI DÁM KẾT LUẬN ═══ (2026-08-02k)
 

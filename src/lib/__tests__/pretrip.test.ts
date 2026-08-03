@@ -22,6 +22,8 @@ import {
   dedupePoints,
   pretripSteps,
   pretripTimedOut,
+  runStepsPooled,
+  PRETRIP_CONCURRENCY,
   savedSummary,
   savedLayers,
   savedCoverage,
@@ -287,5 +289,105 @@ describe("pretripTimedOut — trần thời gian cả mẻ", () => {
   it("trần cả mẻ 4 phút, riêng bước dòng chảy tầng 90 giây (đang chiếm 330s)", () => {
     expect(PRETRIP_MAX_MS).toBe(240_000);
     expect(CURDEPTH_STEP_MAX_MS).toBeLessThan(PRETRIP_MAX_MS / 2);
+  });
+});
+
+/*  ═══ MẺ TẢI SẴN CHẠY SONG SONG CÓ GIỚI HẠN ═══ (2026-08-03)
+
+    Trước: 12–14 bước XẾP HÀNG MỘT, mỗi bước ôm đồng hồ 20–55 giây ⇒ chạm trần
+    240 giây khi sóng yếu, các bước CUỐI gần như không bao giờ tới lượt. Nay ba
+    việc một lúc, nhưng phải giữ NGUYÊN mọi bất biến của bản cũ. */
+describe("runStepsPooled — song song mà không đánh mất bất biến nào", () => {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const buoc = (label: string, ms: number, hong = false, id?: string) => ({
+    label,
+    ...(id ? { id } : {}),
+    run: async () => {
+      await sleep(ms);
+      if (hong) throw new Error(label);
+    },
+  });
+
+  it("chạy ĐÚNG BA việc một lúc, không nhiều hơn", async () => {
+    let dangChay = 0;
+    let dinhCao = 0;
+    const steps = Array.from({ length: 9 }, (_, i) => ({
+      label: `v${i}`,
+      run: async () => {
+        dangChay++;
+        dinhCao = Math.max(dinhCao, dangChay);
+        await sleep(10);
+        dangChay--;
+      },
+    }));
+    const r = await runStepsPooled(steps, Date.now());
+    expect(dinhCao).toBe(PRETRIP_CONCURRENCY);
+    expect(r.ok).toBe(9);
+    expect(r.failed).toBe(0);
+  });
+
+  it("NHANH HƠN hẳn chạy tuần tự (cùng số việc, cùng độ trễ)", async () => {
+    const steps = Array.from({ length: 6 }, (_, i) => buoc(`v${i}`, 40));
+    const t0 = Date.now();
+    await runStepsPooled(steps, t0);
+    const song = Date.now() - t0;
+    const t1 = Date.now();
+    await runStepsPooled(
+      Array.from({ length: 6 }, (_, i) => buoc(`v${i}`, 40)),
+      t1,
+      undefined,
+      1, // tuần tự = pool 1 luồng
+    );
+    const tuanTu = Date.now() - t1;
+    expect(song).toBeLessThan(tuanTu);
+  });
+
+  it("một việc hỏng KHÔNG dừng cả mẻ", async () => {
+    const r = await runStepsPooled(
+      [buoc("a", 5), buoc("b", 5, true, "grid16"), buoc("c", 5), buoc("d", 5)],
+      Date.now(),
+    );
+    expect(r.ok).toBe(3);
+    expect(r.failed).toBe(1);
+    expect(r.failedSteps).toEqual(["grid16"]);
+  });
+
+  it("giữ THỨ TỰ ƯU TIÊN: ba việc đầu danh sách được nhặt trước", async () => {
+    const daNhat: string[] = [];
+    const steps = Array.from({ length: 6 }, (_, i) => ({
+      label: `v${i}`,
+      run: async () => {
+        daNhat.push(`v${i}`);
+        await sleep(5);
+      },
+    }));
+    await runStepsPooled(steps, Date.now());
+    expect(daNhat.slice(0, 3)).toEqual(["v0", "v1", "v2"]);
+  });
+
+  /*  BẤT BIẾN QUAN TRỌNG NHẤT — giữ nguyên từ bản tuần tự: việc CHƯA HỀ CHẠY
+      phải tính vào `failed` (nói thật là chưa tải được) nhưng KHÔNG được vào
+      `failedSteps`, vì `pretripGridTooShort` đọc danh sách đó để kết luận "khung
+      dài đã thử-và-hỏng vì mạng". Nhét việc chưa thử vào là nói dối nó. */
+  it("hết trần giờ → việc chưa chạy tính failed, KHÔNG vào failedSteps, có cờ timedOut", async () => {
+    const steps = [
+      buoc("a", 5, false, "grid3"),
+      buoc("b", 5, false, "grid7"),
+      buoc("c", 5, false, "grid16"),
+      buoc("d", 5, false, "grid10"),
+      buoc("e", 5, false, "grid5"),
+      buoc("f", 5, false, "grid1"),
+    ];
+    // mốc bắt đầu ở QUÁ KHỨ xa hơn trần → hết giờ ngay từ việc đầu
+    const r = await runStepsPooled(steps, Date.now() - PRETRIP_MAX_MS - 1000);
+    expect(r.timedOut).toBe(true);
+    expect(r.started).toBe(0);
+    expect(r.failed).toBe(6);
+    expect(r.failedSteps).toEqual([]);
+  });
+
+  it("danh sách RỖNG → không treo, không cờ hết giờ", async () => {
+    const r = await runStepsPooled([], Date.now());
+    expect(r).toMatchObject({ ok: 0, failed: 0, timedOut: false, started: 0 });
   });
 });

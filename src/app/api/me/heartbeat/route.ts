@@ -60,6 +60,7 @@ export async function POST(req: Request) {
     storageCacheMb?: unknown;
     storageAvailableMb?: unknown;
     storagePersisted?: unknown;
+    storagePersistAsked?: unknown;
     storageBackend?: unknown;
   } | null;
 
@@ -117,6 +118,14 @@ export async function POST(req: Request) {
   const khoFree = normalizeStorageMb(body?.storageAvailableMb);
   const khoBen =
     typeof body?.storagePersisted === "boolean" ? body.storagePersisted : null;
+  /*  ĐÃ HỎI CHƯA, HỎI RỒI THÌ ĐƯỢC GẬT KHÔNG (0031) — `null` = chưa hỏi lần nào.
+      Đi cặp với `storage_persisted`: cột kia một mình gộp "bị trình duyệt từ
+      chối" (giới hạn nền tảng, gọi điện vô ích) với "app chưa hỏi lại lần nào"
+      (lỗi sửa được). Cùng luật ép kiểu: chỉ nhận boolean, thứ khác thành null. */
+  const khoHoi =
+    typeof body?.storagePersistAsked === "boolean"
+      ? body.storagePersistAsked
+      : null;
   /*  CHỈ NHẬN ĐÚNG HAI GIÁ TRỊ — cột này để nhân viên lọc "máy nào chưa dời được
       kho"; nhận chuỗi tự do là mở cửa cho rác làm hỏng bộ lọc. */
   const khoNoi =
@@ -186,6 +195,7 @@ export async function POST(req: Request) {
   if (khoCache != null) extra.storage_cache_mb = String(khoCache);
   if (khoFree != null) extra.storage_available_mb = String(khoFree);
   if (khoBen != null) extra.storage_persisted = khoBen;
+  if (khoHoi != null) extra.storage_persist_asked = khoHoi;
   if (khoNoi) extra.storage_backend = khoNoi;
   if (platform) extra.device_platform = platform;
   if (dev) {
@@ -283,13 +293,16 @@ export async function POST(req: Request) {
           TRƯỚC lúc apply thì cột chưa tồn tại ⇒ **cả hàng theo-máy hỏng**, mất
           luôn `last_seen_at` · `data_until` · `data_until_web` · `platform` ·
           `storage_*_mb` (0029) vốn đang chạy tốt — im lặng, HTTP vẫn 200.
-          Nay thử bộ ĐẦY ĐỦ trước, hỏng thì ghi lại bộ CŨ. */
+          Nay thử bộ ĐẦY ĐỦ trước, hỏng thì ghi lại bộ CŨ.
+          2026-08-03: cột `storage_persist_asked` (0031) đi CHUNG bộ này — cùng
+          một lý do, và 0031 cũng do chủ dự án tự apply. */
       const khoMoi0030 = {
         ...(khoLs != null ? { storage_ls_mb: khoLs } : {}),
         ...(khoIdb != null ? { storage_idb_mb: khoIdb } : {}),
         ...(khoCache != null ? { storage_cache_mb: khoCache } : {}),
         ...(khoFree != null ? { storage_available_mb: khoFree } : {}),
         ...(khoBen != null ? { storage_persisted: khoBen } : {}),
+        ...(khoHoi != null ? { storage_persist_asked: khoHoi } : {}),
         ...(khoNoi ? { storage_backend: khoNoi } : {}),
       };
       const hangMay = {

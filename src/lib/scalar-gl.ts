@@ -65,21 +65,70 @@ export function buildValueTexture(
     return v != null && Number.isFinite(v) ? v : null;
   });
   const values = grid.noFill ? raw : fillCoastalGaps(raw, nLat, nLon);
+  /*  ═══ Ô NULL VẪN PHẢI MANG MỘT GIÁ TRỊ ĐỌC ĐƯỢC ═══ (2026-08-03)
+
+      GPU nội suy LINEAR **cả hai kênh**, không chỉ cờ hợp lệ. Bản cũ ghi `R = 0`
+      cho ô null, tức GIÁ TRỊ ĐẦU THANG MÀU — nên mọi điểm ảnh nằm giữa một ô có
+      số và một ô null bị kéo màu tụt về đầu thang. Trên lưới thô ~1,7°×2,1°
+      (≈190×230 km/ô) và tầng sâu 50 m có tới 83/156 ô null (đáy nông hơn tầng),
+      cái "kéo tụt" đó chiếm gần nửa vùng nhìn thấy: đúng mấy vệt nhợt nhạt viền
+      quanh các mảng màu mà chủ dự án chụp lại được.
+
+      Nay ô null mang giá trị của Ô CÓ SỐ GẦN NHẤT (lan theo vòng đồng tâm) —
+      chỉ để phép nội suy có số tử tế mà nhân; cờ hợp lệ VẪN = 0 nên chỗ đó không
+      được vẽ. Khác hẳn `fillCoastalGaps`: kia BỊA RA SỐ để vẽ thật, đây chỉ đệm
+      cho phép toán, không một điểm ảnh nào của vùng nông được tô. */
+  const filled = nearestValueFill(values, nLat, nLon);
   const data = new Uint8Array(nLat * nLon * 4);
   for (let i = 0; i < nLat * nLon; i++) {
-    const v = values[i];
+    const v = filled[i];
     const o = i * 4;
-    if (v == null) {
-      data[o] = 0;
-      data[o + 1] = 0; // cờ null (xa biển hẳn — 2 vòng lan không tới)
-    } else {
-      const n = Math.max(0, Math.min(1, (v - min) / span));
-      data[o] = Math.round(n * 255);
-      data[o + 1] = 255; // hợp lệ
-    }
+    const n = v == null ? 0 : Math.max(0, Math.min(1, (v - min) / span));
+    data[o] = Math.round(n * 255);
+    data[o + 1] = values[i] == null ? 0 : 255; // cờ hợp lệ theo lưới GỐC
     data[o + 3] = 255;
   }
   return { data, nLat, nLon };
+}
+
+/**
+ * ĐỆM GIÁ TRỊ cho ô null bằng ô CÓ SỐ gần nhất (khoảng cách ô, lan lần lượt từ
+ * mọi ô có số ra — BFS). KHÔNG đổi ô nào đang có số, KHÔNG dùng để vẽ: cờ hợp lệ
+ * mới quyết định vẽ hay không (xem `buildValueTexture`).
+ *
+ * Trả mảng MỚI; lưới không có ô nào có số thì trả nguyên bản.
+ * THUẦN — test được.
+ */
+export function nearestValueFill(
+  values: (number | null)[],
+  nLat: number,
+  nLon: number,
+): (number | null)[] {
+  const out = values.slice();
+  const queue: number[] = [];
+  for (let i = 0; i < out.length; i++) if (out[i] != null) queue.push(i);
+  if (queue.length === 0 || queue.length === out.length) return out;
+  for (let head = 0; head < queue.length; head++) {
+    const i = queue[head];
+    const r = Math.floor(i / nLon);
+    const c = i % nLon;
+    const v = out[i];
+    for (const [dr, dc] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const nr = r + dr;
+      const nc = c + dc;
+      if (nr < 0 || nr >= nLat || nc < 0 || nc >= nLon) continue;
+      const j = nr * nLon + nc;
+      if (out[j] != null) continue;
+      out[j] = v;
+      queue.push(j);
+    }
+  }
+  return out;
 }
 
 /** Ramp texture 1 chiều: 256×1 RGBA, nướng SCALAR_RAMP (đã có alpha) qua
