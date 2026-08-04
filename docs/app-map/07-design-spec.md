@@ -4,11 +4,12 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-08-01
+last_verified: 2026-08-04
 ttl_days: 90
 gate: warn
 ```
 <!-- gate: warn vì UI churn src/app+src/components cao — cảnh báo thay vì chặn. KHÔNG để comment cùng dòng `gate:` (hook tr -d ' ' giữ lại # → phá so khớp = "warn" → chặn nhầm). -->
+<!-- re-verified: 2026-08-04 — ƯU ĐÃI PREMIUM (copy /quan-tri): nút + hộp xác nhận kích hoạt/gia hạn premium "1 năm" → "1 năm 6 tháng" (4 chỗ: nút Gia hạn, tiêu đề+nhãn ConfirmDialog, checkbox "Kích hoạt premium … ngay khi tạo"). Chỉ đổi chữ số kỳ hạn, không đổi bố cục/luồng. -->
 <!-- re-verified: 2026-07-31f — VÁ TẦNG OFFLINE (phần MÀN HÌNH; chi tiết kỹ thuật ở 02 §f): (a) 3 màn dữ liệu tự nhập (tủ giấy tờ · bạn thuyền · lịch bảo dưỡng) thêm TRẠNG THÁI MỚI "máy hết chỗ" = banner ĐỎ "Máy hết chỗ — CHƯA lưu được …" (trước là catch rỗng: hiện đúng thứ vừa nhập nhưng máy không giữ gì); (b) tủ giấy tờ + lịch bảo dưỡng nay TỰ XƯNG LÀ MẪU như sổ bạn thuyền (banner neutral + nút "Xóa tủ mẫu, ghi giấy của tôi" / "Xóa lịch mẫu, ghi việc của tôi") — trước 4 giấy MẪU hiện y hệt giấy thật; (c) sheet điểm ở Ra khơi bỏ chữ "Hôm nay" trong 2 câu "chỗ này không nổi bật" → "trên ảnh mới nhất" (mất sóng thì bản đồ cá là bản service worker giữ lại, có thể mấy ngày tuổi — vẫn KHÔNG khoe tuổi ảnh ra màn hình theo quyết định 2026-07-25); (d) §10.8 thêm mục C: bản cài iOS là kho riêng, câu chữ InstallBanner tách theo máy. -->
 
 <!-- re-verified: 2026-08-01a — VÒNG 2 ĐỢT SOÁT OFFLINE (phần MÀN HÌNH; chi tiết kỹ thuật ở 02 §2026-08-01a): (a) BỐN MÀN /tau /nguoi /tien /cang HẾT "GIỐNG THẬT MÀ RỖNG" — bản 31b thêm chúng vào vỏ offline nhưng chỉ tải sẵn HTML, THIẾU chunk JS ⇒ giữa biển màn hiện đủ tiêu đề + 3 tab + nút "Thêm giấy tờ mới" nhưng KHÔNG hydrate: bấm tab không ăn, tủ giấy tờ VĨNH VIỄN RỖNG (đọc localStorage trong useEffect). Trông y như thật mà trống — dối hơn màn trắng, vì bà con tưởng mình chưa từng nhập giấy tờ. Nay precache lấy trang thẳng từ SHELL nên 4 màn có đủ mã. (b) /ngu-truong offline hết rơi vào MÀN LỖI MẶC ĐỊNH của Next: chunk MapLibre 1,03 MB nay được tải sẵn (trước dynamic import reject mà app không có error.tsx nào) — mất bản đồ giữa biển là mất màn quyết định quay mũi. (c) /quan-tri: đăng xuất rồi tải lại KHÔNG còn hiện lại bảng điều khiển + danh bạ khách từ bản cache cũ — form đăng nhập quản trị hiện đúng như thiết kế. (d) pretrip-auto-notify: mẻ tải sẵn hỏng sạch KHÔNG còn khoá cửa 6 giờ ⇒ ra tới cửa biển có sóng là dòng "Đang tải dự báo…" chạy lại, thay vì im lặng tới hết chuyến. Câu chữ chip/dòng báo KHÔNG đổi. (e) Chợ tin /tien: mất sóng lúc đăng tin nay báo "Chưa gửi được — máy chưa có sóng. Thử lại sau." thay vì đổ oan "Cần đăng nhập để đăng tin." cho người đang đăng nhập. -->

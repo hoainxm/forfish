@@ -18,12 +18,16 @@ export type FeatureAccess = "checking" | "login" | "upgrade" | "open";
 /** Thời tiết mở miễn phí đúng 3 ngày (hôm nay + 2 ngày kế) — quá 3 ngày là premium. */
 export const FREE_FORECAST_DAYS = 3;
 
-/** 1 lần kích hoạt premium = 1 NĂM (chốt 2026-07-26); hết hạn thì gia hạn. */
-export const PREMIUM_TERM_DAYS = 365;
+/** 1 lần kích hoạt premium = 1 NĂM 6 THÁNG (gói 500k, ưu đãi +6 tháng từ
+ *  2026-08-04; trước đó 365). 548 ≈ 365 + 183. Hết hạn thì gia hạn.
+ *  (Ngoại lệ 300k = 1 năm không nằm trong luật này — chỉ áp cho 2 SĐT cũ,
+ *  xử lý bằng migration 0032, không có luồng cấp 300k trong app.) */
+export const PREMIUM_TERM_DAYS = 548;
 
 /**
  * Hạn premium SAU một lần kích hoạt/gia hạn: còn hạn thì CỘNG NỐI vào hạn cũ
- * (gia hạn sớm không bị thiệt ngày), hết hạn/chưa có thì tính 1 năm từ bây giờ.
+ * (gia hạn sớm không bị thiệt ngày), hết hạn/chưa có thì tính 1 năm 6 tháng từ
+ * bây giờ.
  */
 export function nextPremiumUntil(
   currentUntil: string | null | undefined,

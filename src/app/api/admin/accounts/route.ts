@@ -286,7 +286,7 @@ export async function POST(req: Request) {
   const phone = normalizeVnPhone(body.phone);
   const now = new Date().toISOString();
 
-  // tạo kèm premium = một lần KÍCH HOẠT chuẩn (1 năm + log) — không nhập hạn tay
+  // tạo kèm premium = một lần KÍCH HOẠT chuẩn (1 năm 6 tháng + log) — không nhập hạn tay
   const activate = Boolean(body.activatePremium);
   const until = activate ? nextPremiumUntil(null, Date.now()) : null;
 
@@ -493,7 +493,7 @@ export async function PATCH(req: Request) {
         cur.premium_until as string | null,
         Date.now(),
       ) === "premium";
-    // còn hạn → cộng nối vào hạn cũ; hết hạn/chưa có → 1 năm từ bây giờ
+    // còn hạn → cộng nối vào hạn cũ; hết hạn/chưa có → 1 năm 6 tháng từ bây giờ
     const until = nextPremiumUntil(
       isActive ? (cur.premium_until as string | null) : null,
       Date.now(),

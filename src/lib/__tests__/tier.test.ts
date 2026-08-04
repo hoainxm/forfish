@@ -46,34 +46,34 @@ describe("resolveTier", () => {
   });
 });
 
-describe("nextPremiumUntil — 1 lần kích = 1 năm", () => {
-  const YEAR_MS = PREMIUM_TERM_DAYS * 24 * 3600 * 1000;
+describe("nextPremiumUntil — 1 lần kích = 1 năm 6 tháng", () => {
+  const TERM_MS = PREMIUM_TERM_DAYS * 24 * 3600 * 1000;
 
-  it("chưa có hạn / null → 1 năm từ bây giờ", () => {
-    expect(Date.parse(nextPremiumUntil(null, NOW))).toBe(NOW + YEAR_MS);
-    expect(Date.parse(nextPremiumUntil(undefined, NOW))).toBe(NOW + YEAR_MS);
+  it("chưa có hạn / null → 1 năm 6 tháng từ bây giờ", () => {
+    expect(Date.parse(nextPremiumUntil(null, NOW))).toBe(NOW + TERM_MS);
+    expect(Date.parse(nextPremiumUntil(undefined, NOW))).toBe(NOW + TERM_MS);
   });
 
-  it("ĐÃ hết hạn → 1 năm từ bây giờ (không cộng vào quá khứ)", () => {
+  it("ĐÃ hết hạn → 1 năm 6 tháng từ bây giờ (không cộng vào quá khứ)", () => {
     const past = new Date(NOW - 30 * 24 * 3600 * 1000).toISOString();
-    expect(Date.parse(nextPremiumUntil(past, NOW))).toBe(NOW + YEAR_MS);
+    expect(Date.parse(nextPremiumUntil(past, NOW))).toBe(NOW + TERM_MS);
   });
 
-  it("CÒN hạn → cộng nối 1 năm vào hạn cũ (gia hạn sớm không thiệt ngày)", () => {
+  it("CÒN hạn → cộng nối 1 năm 6 tháng vào hạn cũ (gia hạn sớm không thiệt ngày)", () => {
     const future = NOW + 100 * 24 * 3600 * 1000;
     expect(
       Date.parse(nextPremiumUntil(new Date(future).toISOString(), NOW)),
-    ).toBe(future + YEAR_MS);
+    ).toBe(future + TERM_MS);
   });
 
-  it("hạn hỏng (không parse được) → coi như chưa có, 1 năm từ bây giờ", () => {
+  it("hạn hỏng (không parse được) → coi như chưa có, 1 năm 6 tháng từ bây giờ", () => {
     expect(Date.parse(nextPremiumUntil("không-phải-ngày", NOW))).toBe(
-      NOW + YEAR_MS,
+      NOW + TERM_MS,
     );
   });
 
-  it("kỳ hạn đúng 365 ngày", () => {
-    expect(PREMIUM_TERM_DAYS).toBe(365);
+  it("kỳ hạn đúng 548 ngày (1 năm 6 tháng)", () => {
+    expect(PREMIUM_TERM_DAYS).toBe(548);
   });
 });
 

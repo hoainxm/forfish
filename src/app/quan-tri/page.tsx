@@ -613,7 +613,7 @@ function AccountsTab({ me }: { me: Me }) {
     [matched, roleFilter, isStaff],
   );
 
-  /** grant = kích hoạt/gia hạn 1 năm (server tự tính hạn + ghi log);
+  /** grant = kích hoạt/gia hạn 1 năm 6 tháng (server tự tính hạn + ghi log);
    *  downgrade = hạ về thường (admin) */
   async function patchAction(a: Account, action: "grant" | "downgrade") {
     setBusyPhone(a.phone);
@@ -1127,7 +1127,7 @@ function AccountsTab({ me }: { me: Me }) {
                         className="min-h-[2.5rem] rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
                       >
                         {effTier(a) === "premium"
-                          ? "Gia hạn +1 năm"
+                          ? "Gia hạn +1 năm 6 tháng"
                           : "Kích hoạt premium"}
                       </button>
                     )}
@@ -1216,11 +1216,11 @@ function AccountsTab({ me }: { me: Me }) {
         <ConfirmDialog
           title={
             toGrant.active
-              ? `Gia hạn premium +1 năm cho ${toGrant.a.phone}?`
-              : `Kích hoạt premium 1 năm cho ${toGrant.a.phone}?`
+              ? `Gia hạn premium +1 năm 6 tháng cho ${toGrant.a.phone}?`
+              : `Kích hoạt premium 1 năm 6 tháng cho ${toGrant.a.phone}?`
           }
           message={`${toGrant.a.name ?? "Khách"} sẽ có premium đến ${fmtD(toGrant.until)}. Lần cấp này được ghi log dưới tên bạn.`}
-          confirmLabel={toGrant.active ? "Gia hạn +1 năm" : "Kích hoạt 1 năm"}
+          confirmLabel={toGrant.active ? "Gia hạn +1 năm 6 tháng" : "Kích hoạt 1 năm 6 tháng"}
           cancelLabel="Không"
           danger={false}
           onCancel={() => setToGrant(null)}
@@ -1458,7 +1458,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      // premium khi tạo = một lần KÍCH HOẠT chuẩn (1 năm, server tính hạn + log)
+      // premium khi tạo = một lần KÍCH HOẠT chuẩn (1 năm 6 tháng, server tính hạn + log)
       body: JSON.stringify({
         phone,
         name,
@@ -1543,7 +1543,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
               onChange={(e) => setActivatePremium(e.target.checked)}
               className="h-5 w-5 accent-[var(--ok)]"
             />
-            Kích hoạt premium 1 năm ngay khi tạo
+            Kích hoạt premium 1 năm 6 tháng ngay khi tạo
           </label>
           <button
             type="submit"
