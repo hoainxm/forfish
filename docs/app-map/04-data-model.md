@@ -232,7 +232,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - **Đọc**: `GET /api/admin/activity` (**`requireAdmin`** — chỉ quản trị viên) trả tối đa 300 dòng mới nhất, lọc `?actor=` (khớp SĐT) & `?action=`; đọc hỏng → rỗng + `migrationNeeded` + `error{code,message,hint}` THẬT. **`POST`** (requireAdmin) = GHI THỬ một dòng `system.log-probe` rồi đếm lại → nút "Kiểm tra ghi nhật ký" ở tab Nhật ký (biết log câm hay không mà không phải đợi thao tác thật). UI: tab **Nhật ký** (admin-only) — tìm theo SĐT/tên thao tác + chọn loại + nút "Chỉ xóa/nhạy cảm".
 - ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`).
 
-### Hộp thư + biên nhận thông báo — migration [`0034_push_messages_receipts.sql`](../../supabase/migrations/0034_push_messages_receipts.sql) (2026-08-01) — ⚠️ CHƯA APPLY prod
+### Hộp thư + biên nhận thông báo — migration [`0034_push_messages_receipts.sql`](../../supabase/migrations/0034_push_messages_receipts.sql) (2026-08-01) — ✅ ĐÃ APPLY prod (soi prod 2026-08-04)
 
 | Bảng | Nghĩa |
 |---|---|
@@ -245,7 +245,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - **UI**: trang chủ mục **Thông báo** ngay dưới "Bốn việc chính" — 3 tin gần nhất, bấm mở tin cũ hơn; tự ẩn khi chưa đăng nhập/chưa có tin. `/quan-tri` tab Thông báo có **10 tin gần nhất + cột máy · đẩy · nhận · đọc**.
 - ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`).
 
-### Đọc trong app cũng là đọc — migration [`0035_push_reads.sql`](../../supabase/migrations/0035_push_reads.sql) (2026-08-01) — ⚠️ CHƯA APPLY prod
+### Đọc trong app cũng là đọc — migration [`0035_push_reads.sql`](../../supabase/migrations/0035_push_reads.sql) (2026-08-01) — ✅ ĐÃ APPLY prod (soi prod 2026-08-04)
 
 | Bảng | Nghĩa |
 |---|---|
@@ -266,7 +266,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 | `pwa_last_open_at` | Lần cuối mở ở **chế độ đã cài** (standalone). **NULL = chưa bao giờ mở bản cài** — đây là con số đáng nhìn nhất |
 | `web_last_open_at` | Lần cuối mở trong tab trình duyệt thường |
 | `offline_ready_at` | Lần cuối máy tự báo ĐỦ ĐỒ ĐI BIỂN = vỏ app cài đủ (`shell-ready`) **và** mọi lớp dữ liệu đã tải (`savedCoverage.allSaved`) |
-| `data_until` (migration [`0036_customer_data_until.sql`](../../supabase/migrations/0036_customer_data_until.sql), 2026-08-02 — ⚠️ CHƯA APPLY prod (base — chưa apply sdvico)) | **Dữ liệu đi biển trong máy phủ tới NGÀY NÀO** (`date`). Ba cột trên chỉ nói "đã từng mở / đã từng đủ"; cột này trả lời câu người trực tổng đài cần nhất: *máy này ra khơi ngày mai thì trong tay bà con có dự báo tới đâu*. NULL = chưa bao giờ báo được |
+| `data_until` (migration [`0036_customer_data_until.sql`](../../supabase/migrations/0036_customer_data_until.sql), 2026-08-02 — ✅ ĐÃ APPLY prod (soi prod 2026-08-04)) | **Dữ liệu đi biển trong máy phủ tới NGÀY NÀO** (`date`). Ba cột trên chỉ nói "đã từng mở / đã từng đủ"; cột này trả lời câu người trực tổng đài cần nhất: *máy này ra khơi ngày mai thì trong tay bà con có dự báo tới đâu*. NULL = chưa bao giờ báo được |
 
 - **Vì sao**: chip "đã/chưa sử dụng" (0029) là nhân viên TỰ TICK — niềm tin, không phải số đo. Thứ cần biết là **ai đã cài mà chưa bao giờ mở BẢN CÀI**: trên iPhone kho của bản A2HS tách riêng với Safari, nhóm đó ra khơi với máy trắng tay (ca TC-13 trong [ops/qa-offline-acceptance.md](ops/qa-offline-acceptance.md)). Danh sách để GỌI ĐIỆN NHẮC.
 - **Ghi**: `POST /api/me/heartbeat` (đăng nhập mới ghi; chưa đăng nhập → `recorded:false`, KHÔNG lỗi). Chỉ ghi MỐC + CHẾ ĐỘ — **không vị trí, không thao tác**. KHÔNG đụng `updated_at` (cột đó là mốc dữ liệu khách đổi; heartbeat ghi vào là mọi tài khoản trông như vừa sửa mỗi lần mở app).
@@ -285,7 +285,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - **Đọc thành BẬC THANG**: `usageStage()` → `chua-ghi-nhan` (chưa gửi nhịp — KHÔNG có nghĩa chưa dùng app) → `moi-vo-web` (mở web, chưa mở bản cài — **nhóm gọi điện trước tiên**) → `da-mo-ban-cai` → `du-do-di-bien`. `usageCallPriority()` xếp ai gọi trước. Cột `staff_used` (0029) vẫn còn trong DB nhưng ĐÃ GỠ khỏi màn — máy đo thật thay cho nhân viên tự tick.
 - ✅ **ĐÃ APPLY prod** (ref `znzgugvfhgmiszqgjulk`).
 
-### Máy của khách + lịch sử đổi máy — migration [`0033_customer_device_platform.sql`](../../supabase/migrations/0033_customer_device_platform.sql) (2026-08-01) — ⚠️ CHƯA APPLY prod (ref `znzgugvfhgmiszqgjulk`; advisor: `customer_devices` báo `rls_enabled_no_policy` mức INFO — ĐÚNG THIẾT KẾ, sổ nội bộ chỉ service-role, y như `premium_grants`/`admin_activity_log`)
+### Máy của khách + lịch sử đổi máy — migration [`0033_customer_device_platform.sql`](../../supabase/migrations/0033_customer_device_platform.sql) (2026-08-01) — ✅ ĐÃ APPLY prod (soi prod 2026-08-04) (advisor: `customer_devices` báo `rls_enabled_no_policy` mức INFO — ĐÚNG THIẾT KẾ, sổ nội bộ chỉ service-role, y như `premium_grants`/`admin_activity_log`)
 
 | Cột/bảng | Nghĩa |
 |---|---|
@@ -423,7 +423,7 @@ Quy ước: tính năng khóa MỚI → bọc `components/login-gate.tsx` (UI) *
 <!-- re-verified: 2026-06-18 — 0002 supplies +unit; webhook route trả results[] per-event (ref/ok/code/provisioned) — khớp khảo sát SDWork -->
 <!-- re-verified: 2026-06-16 — bảng customers/devices/supplies/support_requests (0002) + auth SĐT+mật khẩu (webhook provision, KHÔNG email/OTP) + webhook ingest (§5b); §6 gateway live-read chuyển tiếp -->
 
-### Chuỗi cứng theo máy — migration [`0037_device_tokens.sql`](../../supabase/migrations/0037_device_tokens.sql) (2026-08-02) — ⚠️ CHƯA APPLY prod (base — chưa apply sdvico)
+### Chuỗi cứng theo máy — migration [`0037_device_tokens.sql`](../../supabase/migrations/0037_device_tokens.sql) (2026-08-02) — ✅ ĐÃ APPLY prod (soi prod 2026-08-04)
 
 Thay phiên Supabase làm danh tính của **app ngư dân** (`/quan-tri` giữ nguyên Supabase Auth — nhân viên ngồi ở bờ, sóng tốt, không có lý do kéo vào cùng rủi ro).
 
@@ -447,7 +447,7 @@ Thay phiên Supabase làm danh tính của **app ngư dân** (`/quan-tri` giữ 
 
 
 
-### Dữ liệu tới ngày nào — TÁCH KHO BẢN CÀI / KHO WEB — migration [`0038_data_until_web.sql`](../../supabase/migrations/0038_data_until_web.sql) (2026-08-02) — ⚠️ CHƯA APPLY prod (base — chưa apply sdvico)
+### Dữ liệu tới ngày nào — TÁCH KHO BẢN CÀI / KHO WEB — migration [`0038_data_until_web.sql`](../../supabase/migrations/0038_data_until_web.sql) (2026-08-02) — ✅ ĐÃ APPLY prod (soi prod 2026-08-04)
 
 **Lỗi đã sửa — /quan-tri đang mô tả NHẦM KHO.** Cột `data_until` (0025) được ghi từ MỌI nhịp. Trên iOS kho của bản Thêm-vào-Màn-hình-chính **tách riêng** với Safari, nên ca này có thật và hoàn toàn im lặng: bà con tải đủ trong bản cài (data_until = 17/08), mấy hôm sau mở app bằng Safari → nhịp web **ghi đè** bằng con số của kho Safari → bảng báo về cái kho sẽ KHÔNG ra khơi. Chiều ngược lại sai y hệt.
 
@@ -465,7 +465,7 @@ Android dùng chung kho nên hai cột trùng nhau — vô hại. iOS thì lệc
 
 
 
-### Một tài khoản một chuỗi sống — migration [`0039_device_tokens_one_live.sql`](../../supabase/migrations/0039_device_tokens_one_live.sql) (2026-08-02) — ⚠️ CHƯA APPLY prod (base — chưa apply sdvico)
+### Một tài khoản một chuỗi sống — migration [`0039_device_tokens_one_live.sql`](../../supabase/migrations/0039_device_tokens_one_live.sql) (2026-08-02) — ✅ ĐÃ APPLY prod (soi prod 2026-08-04)
 
 `POST /api/auth/token` thu hồi chuỗi cũ rồi cấp chuỗi mới bằng **hai truy vấn rời**. Hai lượt đăng nhập chạy sát nhau xen kẽ được:
 
@@ -479,7 +479,7 @@ Không vá bằng cách viết code cẩn thận hơn — đây là **ràng bu�
 
 
 
-### Máy bà con còn bao nhiêu chỗ — migration [`0040_device_storage.sql`](../../supabase/migrations/0040_device_storage.sql) (2026-08-02) — ⚠️ CHƯA APPLY prod (base — chưa apply sdvico)
+### Máy bà con còn bao nhiêu chỗ — migration [`0040_device_storage.sql`](../../supabase/migrations/0040_device_storage.sql) (2026-08-02) — ✅ ĐÃ APPLY prod (soi prod 2026-08-04)
 
 **Vì sao** (chủ dự án chốt): cả một ngày soát offline được xây trên con số *"localStorage 5 MB"* mà **không ai đo**. Đo thật trên Chromium: localStorage chạm trần **99,88 MB**, quota cả origin **1.425 MB** — sai hẳn về mức độ. Không thể quyết kiến trúc lưu trữ bằng phỏng đoán, mà cũng không đo được iOS từ máy dev.
 
@@ -507,7 +507,7 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 
 ⚠️ Client khai sai chỉ hỏng thống kê của chính máy đó, KHÔNG mở được quyền gì — nhưng vẫn ép qua `normalizeStorageMb` (thuần, có test): một chuỗi lạ / số âm / `Infinity` xuống thẳng cột `integer` là **cả lệnh UPDATE hỏng**, mất luôn mấy mốc thời gian đang chạy tốt (đúng khuôn lỗi cột 0022 đã dính).
 
-### Đã lưu ở đâu · đủ chỗ không · chắc chạy offline chưa — migration [`0041_storage_breakdown.sql`](../../supabase/migrations/0041_storage_breakdown.sql) (2026-08-02) — ⚠️ CHƯA APPLY prod (base — chưa apply sdvico) (6 cột `customers` + 6 cột `customer_devices`, `storage_persisted` kiểu `boolean`)
+### Đã lưu ở đâu · đủ chỗ không · chắc chạy offline chưa — migration [`0041_storage_breakdown.sql`](../../supabase/migrations/0041_storage_breakdown.sql) (2026-08-02) — ✅ ĐÃ APPLY prod (soi prod 2026-08-04) (6 cột `customers` + 6 cột `customer_devices`, `storage_persisted` kiểu `boolean`)
 
 **Vì sao** (chủ dự án chốt): *"heartbeat và web quản trị cần có các info này để nắm rõ đã lưu ở đâu, lưu bản dữ liệu tới ngày nào, dung lượng storage đủ không, có đảm bảo chạy tốt 100% offline chưa."*
 
@@ -527,7 +527,7 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 ⚠️ Cột có thể CHƯA tồn tại (chủ dự án tự apply) ⇒ `/api/admin/accounts` thử **bốn nấc** select rộng → hẹp (0031 tách RIÊNG một nấc: máy đã apply 0030 mà chưa apply 0031 không được mất sáu chip tách kho đang chạy tốt); `/api/me/heartbeat` giữ nguyên khuôn "hỏng thì ghi lại bộ cũ". Một chip phụ không được làm mất trắng danh sách 700+ khách.
 
 
-### Đã HỎI xin bộ nhớ bền chưa, và bị từ chối hay được gật — migration [`0042_storage_persist_asked.sql`](../../supabase/migrations/0042_storage_persist_asked.sql) (2026-08-03) — ⚠️ **CHƯA APPLY prod (base — chưa apply sdvico)** (1 cột `customers` + 1 cột `customer_devices`, kiểu `boolean`)
+### Đã HỎI xin bộ nhớ bền chưa, và bị từ chối hay được gật — migration [`0042_storage_persist_asked.sql`](../../supabase/migrations/0042_storage_persist_asked.sql) (2026-08-03) — ✅ **ĐÃ APPLY prod (soi prod 2026-08-04)** (1 cột `customers` + 1 cột `customer_devices`, kiểu `boolean`)
 
 **Vì sao** (chủ dự án hỏi 2026-08-03: *"đã có bản cài thì có bị từ chối không?"*): `storage_persisted` một mình **gộp hai ca cần hai cách xử lý khác hẳn nhau**.
 

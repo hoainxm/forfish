@@ -92,8 +92,9 @@ export async function GET() {
   // Chọn một cột không tồn tại là HỎNG CẢ CÂU ⇒ mất trắng danh sách 700+ khách
   // chỉ vì một chip phụ. Nên thử ĐẦY ĐỦ trước, hỏng thì lùi từng nhóm cột về nấc
   // CORE (8 cột chắc chắn có). SYNC BASE 2026-08-04: nhóm base (data_until/storage/
-  // device_platform) tách khỏi CORE vì migration base CHƯA apply prod sdvico —
-  // gộp vào CORE thì nấc cuối cũng 500, mất trắng danh sách.
+  // device_platform) tách khỏi CORE để DEGRADE AN TOÀN phòng prod lệch migration
+  // (0033-0042 đã apply prod 2026-08-04, nhưng gộp vào CORE thì lỡ một prod lag là
+  // nấc cuối cũng 500, mất trắng danh sách 700+ khách — giữ tách là bảo hiểm rẻ).
   const CORE =
     "phone, name, tier, premium_until, premium_activated_at, role, sdwork_ref, updated_at";
   const CARE = "premium_used, contacted"; // NV2/NV3 sdvico (0025 care-flags)
