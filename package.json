@@ -31,8 +31,8 @@
   "devDependencies": {
     "@capacitor/android": "^8.4.1",
     "@capacitor/app": "^8.1.0",
-    "@capacitor/cli": "^8.4.0",
-    "@capacitor/core": "^8.4.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
     "@capacitor/keyboard": "^8.0.5",
     "@capacitor/status-bar": "^8.0.2",
     "@playwright/test": "^1.62.0",
