@@ -1,6 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { mustForcePasswordChange } from "@/lib/auth-guard";
 import { resolveTier } from "@/lib/tier";
 import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
 import { createAdminClient } from "@/lib/supabase/admin";

@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- mock Supabase admin
+   client bắt-lời-gọi: row/args/params là payload tuỳ biến của từng bảng/RPC,
+   gõ chặt không thêm giá trị cho test mà chỉ làm nhiễu. `any` giới hạn trong
+   khung mock của file test này. */
 // Integration test cho route /api/sdwork/webhook — CHỨNG MINH luồng thật:
 // verify HMAC, upsert đúng bảng, provision (tạo) vs reset (đặt lại) auth user,
 // idempotent delete. Mock Supabase admin client để bắt lời gọi.

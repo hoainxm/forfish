@@ -22,6 +22,10 @@ const eslintConfig = defineConfig([
     // ~1000 "lỗi" trong mã đã biên dịch.
     "**/.next/**",
     ".claude/**",
+    // docs/ = tài liệu + MÃ THAM CHIẾU (vd Edge Function Deno copy sang repo CRM,
+    // dùng @ts-nocheck vì globals Deno) — KHÔNG bundle vào Next, không phải app
+    // code. Lint nó theo luật app là sai loại: báo lỗi @ts-nocheck cho thứ cố ý.
+    "docs/**",
   ]),
   {
     rules: {
