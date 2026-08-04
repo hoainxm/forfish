@@ -17,7 +17,74 @@ const _ls = (() => {
 (globalThis as unknown as { window: unknown }).window = { localStorage: _ls };
 (globalThis as unknown as { localStorage: Storage }).localStorage = _ls;
 
+/*  ═══ IndexedDB GIẢ — ĐỂ TEST TỰ CHỨA, KHÔNG MƯỢN MOCK RÒ ═══
+    cur-depth cất/đọc qua `forecast-store` = IndexedDB + gương RAM + đường lùi
+    localStorage. Node không có IndexedDB. Trước đây file này chỉ mock localStorage
+    nên nó ĐẬU/RỚT theo THỨ TỰ chạy — nhờ hoặc thiếu mock `globalThis.indexedDB`
+    RÒ từ `forecast-store.test.ts`. Dựng một kho giả TỐI THIỂU (đủ ghi/đọc, không
+    bơm lỗi) ngay tại đây để nó tự đứng một mình. */
+const _dia = new Map<string, string>();
+type _Cb = (() => void) | null;
+function _taoDb() {
+  return {
+    objectStoreNames: { contains: () => true },
+    createObjectStore: () => undefined,
+    transaction(_n: string, _mode: string) {
+      const jobs: Array<() => void> = [];
+      const tx = {
+        oncomplete: null as _Cb,
+        onerror: null as _Cb,
+        onabort: null as _Cb,
+        objectStore: () => ({
+          getAllKeys() {
+            const r: { result?: unknown } = {};
+            jobs.push(() => (r.result = [..._dia.keys()]));
+            return r;
+          },
+          getAll() {
+            const r: { result?: unknown } = {};
+            jobs.push(() => (r.result = [..._dia.values()]));
+            return r;
+          },
+          put(v: string, k: string) {
+            jobs.push(() => _dia.set(k, v));
+          },
+          delete(k: string) {
+            jobs.push(() => _dia.delete(k));
+          },
+        }),
+      };
+      setTimeout(() => {
+        for (const f of jobs) f();
+        tx.oncomplete?.();
+      }, 0);
+      return tx;
+    },
+  };
+}
+function _gaKhoGia() {
+  (globalThis as unknown as { indexedDB: unknown }).indexedDB = {
+    open() {
+      const req: {
+        result?: unknown;
+        onsuccess: _Cb;
+        onerror: _Cb;
+        onupgradeneeded: _Cb;
+        onblocked: _Cb;
+      } = { onsuccess: null, onerror: null, onupgradeneeded: null, onblocked: null };
+      setTimeout(() => {
+        req.result = _taoDb();
+        req.onupgradeneeded?.();
+        req.onsuccess?.();
+      }, 0);
+      return req;
+    },
+  };
+}
+_gaKhoGia(); // set TRƯỚC import để lượt mở kho lúc nạp module cũng thấy kho giả
+
 import { fetchCurDepthGridClient } from "../cur-depth";
+import { __resetForecastStore, forecastStoreReady } from "../forecast-store";
 import {
   pickElevationIndex,
   sliceCurDepthDays,
@@ -49,8 +116,14 @@ function fakeGrid(nDays: number, savedAt?: number) {
 }
 
 describe("fetchCurDepthGridClient — snapshot trước, live sau", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
+    _dia.clear();
+    _gaKhoGia();
+    __resetForecastStore();
+    // nạp gương RAM xong (backend về "idb") RỒI mới chạy test, để nhánh đọc
+    // `fcGet` trả đúng bản `saveForecast` vừa ghi — không còn cửa sổ gương rỗng.
+    await forecastStoreReady();
     vi.restoreAllMocks();
   });
 
@@ -83,9 +156,12 @@ describe("fetchCurDepthGridClient — snapshot trước, live sau", () => {
     expect(live.cells[0].hours[0].curKmh).toBe(0.4);
 
     // giờ mọi nguồn chết → bản vừa lưu quay lại với cờ stale (bản cache đã quá
-    // trần isCacheCurrent thì mới rơi nấc này — giả lập bằng savedAt cũ)
+    // trần isDailyCacheCurrent thì mới rơi nấc này — giả lập bằng savedAt cũ).
+    // PHẢI vượt hẳn MAX_DAILY_CACHE_MS (26h) để "quá trần" không phụ thuộc giờ
+    // trong ngày: 20h cũ chỉ "quá trần" SAU mốc phát hành 12h UTC, nên test cũ
+    // rớt theo cả giờ chạy lẫn thứ tự file. 48h thì luôn là "bản cũ".
     const { saveForecast } = await import("../forecast-cache");
-    saveForecast("curdepth", "t150.d10", live, Date.now() - 20 * 60 * 60 * 1000);
+    saveForecast("curdepth", "t150.d10", live, Date.now() - 48 * 60 * 60 * 1000);
     globalThis.fetch = vi
       .fn()
       .mockRejectedValue(new Error("mất sóng")) as unknown as typeof fetch;
