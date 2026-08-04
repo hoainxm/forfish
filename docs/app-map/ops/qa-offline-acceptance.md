@@ -3,9 +3,20 @@
 > **Load khi**: chuẩn bị phát hành bản có đụng service worker / PWA / dữ liệu tải sẵn, hoặc khi cần chứng minh "app chạy được ngoài biển".
 
 covers: public/sw.js
-last_verified: 2026-08-01
+last_verified: 2026-08-02
 ttl_days: 120
 gate: warn
+
+<!-- re-verified: 2026-08-02k — sw.js CÓ ĐỔI, chỉ ở HÀM DỌN Ô BẢN ĐỒ; KHÔNG chạm `SHELL`, `CRITICAL_SHELL`, tên kho, danh sách cache hay khoá `forfish.*` ⇒ bộ ca offline dưới đây KHÔNG đổi. `trimTileCache` nay hỏi `self.navigator.storage.estimate()`: còn dưới 60 MB trống thì siết trần ô từ 600 xuống 120 (`tranOHienGio`). VÌ SAO: từ bản này payload dự báo nằm ở **IndexedDB** còn ô bản đồ ở Cache Storage — HAI KHO KHÁC NHAU nhưng **dùng chung một hạn ngạch theo origin**, nên trần-theo-SỐ-Ô không nói gì về BYTE: 600 ô nặng vài chục MB vẫn ăn hết chỗ lẽ ra dành cho gói 16 ngày, rồi lượt ghi dự báo kế tiếp hỏng trong khi trần ô "chưa chạm". Ô bản đồ có sóng là tải lại được, dự báo giữa biển thì không — nên khi chật thì hy sinh ô, đúng thứ tự chủ dự án chốt (*"xóa tile cũ trước, không xóa gói dự báo mới nhất"*). Hỏi hỏng / máy không có Storage API ⇒ giữ nguyên trần 600, KHÔNG đoán. CA CẦN THÊM cho đợt nghiệm thu tới: (a) máy còn <60 MB trống, kéo bản đồ nhiều vùng rồi mất sóng — ô cũ bị dọn là ĐÚNG, nhưng **gói dự báo phải còn nguyên** và popup "trong máy có gì" vẫn đủ lớp; (b) máy rộng chỗ — trần vẫn 600, không siết oan. -->
+
+<!-- re-verified: 2026-08-02h — sw.js CÓ ĐỔI, nhưng chỉ ở HÀM DỌN KHI HẾT QUOTA; KHÔNG chạm `SHELL`, `CRITICAL_SHELL`, danh sách cache, tên kho, hay khoá `forfish.*` ⇒ bộ ca offline dưới đây KHÔNG đổi.
+(1) `reclaimRoom`: `Math.max(8, keys.length >> 2)` → `keys.length >> 1`. Cái SÀN 8 nuốt luôn cái trần — kho 4–7 mục thì `maxDrop > keys.length` ⇒ vòng lặp **xoá sạch kho** rồi còn chạy tiếp với `keys[i] === undefined`. Ca kích hoạt: máy gần đầy ở cảng, một lượt làm tươi bất kỳ là bay bản dự báo/chunk cuối cùng.
+(2) `putWithRoom` thêm cổng `evictable = max != null || trimFn != null`. Kho KHÔNG trần KHÔNG trim = `precacheOne` = **lớp cố định** (vỏ app, nền bản đồ, đường bờ, độ sâu, font) ⇒ từ nay không đường dọn nào chạm tới. Đường dọn hợp lệ duy nhất của lớp này vẫn là đổi tên kho lúc deploy + `activate` xoá nguyên khối — nhánh đó không đổi.
+THÊM CA CHO ĐỢT NGHIỆM THU TỚI: dựng máy gần đầy hạn ngạch (tải nhiều ô bản đồ) rồi mở app — phải KHÔNG mất vỏ app và KHÔNG mất bản dự báo đã tải; app hết chỗ thì báo thật, không im lặng xoá. Hai cổng test đọc thẳng `sw.js` khoá cả hai điều trên (`sw-timeouts.test.ts`). -->
+
+<!-- re-verified: 2026-08-02 — sw.js ĐỔI NHIỀU (soát MECE offline, biên bản `audit-offline-2026-08-02.md`): kho tạm lúc cài `sdfish-stage-v1`, đồng hồ cho asset/ô bản đồ/api/điều hướng-nấc-hai/ack, `keepAlive` đưa mọi cú ghi kho vào `waitUntil`, `CRITICAL_SHELL` thêm font Bold, dấu "vỏ đã đủ" ghi kèm danh sách URL để client kiểm lại. ĐỤNG cả `SHELL` lẫn danh sách cache lẫn khoá `forfish.*` (khoá mới `identity.v1`, `inbox.v1`→`v2` có migrate) ⇒ chạy TRỌN bộ bắt buộc ở §2 + 6 ca mới ở §3b. Năm trong sáu ca mới CHỈ tái hiện được bằng hotspot-không-internet. -->
+
+<!-- re-verified: 2026-08-01q — sw.js CÓ đổi (nhánh `notificationclick`): cú báo "đã đọc" trước đây đứng NGOÀI `event.waitUntil` nên trình duyệt được phép giết service worker ngay khi mở xong cửa sổ, cắt request đang bay; nay `waitUntil(Promise.all([focus, ack]))`. KHÔNG chạm `SHELL`, danh sách cache, hay khoá `forfish.*` cũ ⇒ bộ ca offline dưới đây KHÔNG đổi. THÊM một ca cho đợt nghiệm thu tới (xem §1, ca N-4). -->
 
 > **Mục đích**: cho người TEST (không phải lập trình viên) một danh sách bấm-theo-là-làm-được, và cho người duyệt phát hành một tiêu chí ĐẠT/KHÔNG rõ ràng.
 >
@@ -272,12 +283,25 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 
 ## 3. Đã biết, đang xếp hàng sửa — đừng báo trùng
 
-1. Chạm điểm trên bản đồ khi sóng yếu có thể chờ 15–45 giây mới ra số, dù số đó đã có trong máy (luật "mạng trước, máy sau" ở tầng dữ liệu — đang xếp hàng đảo lại).
+1. Chạm điểm trên bản đồ khi sóng yếu có thể chờ 15–45 giây mới ra số, dù số đó đã có trong máy (luật "mạng trước, máy sau" ở tầng dữ liệu — đang xếp hàng đảo lại). **Đã đảo cho dự báo theo CẢNG (2026-08-02); 5 lớp còn lại vẫn vậy.**
 2. Sau 12 giờ ngoài biển, các lớp dữ liệu không dùng đường tắt trong máy nữa, mỗi lần bật lớp là một lần chờ mạng.
-3. Khi nguồn tin bão hỏng, nhịp hỏi lại của app giãn từ 60 giây thành 30 phút.
+3. ~~Khi nguồn tin bão hỏng, nhịp hỏi lại của app giãn từ 60 giây thành 30 phút.~~ **ĐÃ SỬA 2026-08-02**: thang lùi 1 phút → 3 → 10 → 30, có TRẦN đúng bằng nhịp lúc khoẻ, và hết hỏng là về nấc đầu ngay.
 4. Màn **dẫn đường** chưa nói "chưa kiểm được tin bão" — nếu không hỏi được, nó vẽ tuyến như trời quang.
-5. Các trang **ngoài** 6 màn dock (đăng nhập, quản trị) có thể treo lâu khi sóng "sống mà chết".
+5. ~~Các trang **ngoài** 6 màn dock (đăng nhập, quản trị) có thể treo lâu khi sóng "sống mà chết".~~ **ĐÃ SỬA 2026-08-02**: điều hướng có trần thứ hai 8 giây rồi lùi về vỏ app; các nút "Đang đăng nhập…"/"Đang lưu…" đều có đồng hồ.
 6. Khu **quản trị** (`/quan-tri`) cố ý **không chạy offline** — luôn phải có mạng.
+
+### 3b. Đợt vá 2026-08-02 — kiểm THÊM những gì (soát MECE, biên bản `audit-offline-2026-08-02.md`)
+
+Đợt này đụng `sw.js` + `SHELL` + danh sách cache + khoá `forfish.*` ⇒ **chạy trọn bộ bắt buộc ở §2**, và thêm 6 điểm dưới đây. Năm điểm đầu **chỉ tái hiện được bằng hotspot-không-internet** (§0) — nút Offline của DevTools không dựng lại được ca "sóng sống mà chết".
+
+| # | Kiểm gì | ĐẠT khi |
+|---|---|---|
+| N-5 | **Hộp thư sau hơn 1 giờ mất sóng.** Đăng nhập ở bờ, nhận vài tin, tắt sóng, để máy nghỉ >1 giờ (hoặc qua đêm), mở lại app | Mục Thông báo **vẫn hiện đủ tin cũ**. Trước đây tin biến mất sạch vì app coi bà con như đã đăng xuất |
+| N-6 | **Dấu premium sau nhiều ngày.** Máy premium đã tải đủ, tắt sóng 3 ngày, mở app mỗi ngày | Lớp cá + dự báo >3 ngày **vẫn xem được**; sheet Tài khoản KHÔNG tụt về "Đăng nhập" |
+| N-7 | **Bản đồ ở hotspot-không-internet.** Mở `/ngu-truong` khi máy nối wifi không ra được mạng | Trong ~9 giây **hiện hình bờ + đảo trong máy** (không phải mặt xanh trơn). Còn thấy Hoàng Sa, Trường Sa |
+| N-8 | **Cài bản mới lúc sóng chập chờn** (bóp băng thông rồi mở app để nó tự cập nhật) | Cài hỏng cũng **KHÔNG làm hỏng bản đang chạy** — ra khơi vẫn mở được app như trước khi cập nhật |
+| N-9 | **Lưới toạ độ offline.** Bật lớp lưới toạ độ khi mất sóng | Vẫn thấy **số độ vĩ/kinh** (trước đây mất hết số, im lặng) |
+| N-10 | **Chip "đã lưu" nói thật.** Để máy có đủ dữ liệu rồi chờ qua ngày xa nhất của bản dự báo | Chip đổi sang **"Dự báo đã lưu hết hạn — chạm tải lại"**, KHÔNG còn xanh "Đã lưu đủ — tới ngày &lt;ngày đã qua&gt;" |
 
 ---
 
@@ -291,4 +315,20 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 
 ---
 
-**Người soạn**: đội phát triển · **Bản**: 2026-08-01 · Có ca nào mô tả không khớp app thật thì báo lại để sửa tài liệu — tài liệu sai cũng là lỗi.
+**Người soạn**: đội phát triển · **Bản**: 2026-08-02 · Có ca nào mô tả không khớp app thật thì báo lại để sửa tài liệu — tài liệu sai cũng là lỗi.
+
+### N-4 · Bấm vào thông báo giữa biển thì trang quản trị có ghi nhận không (mới 2026-08-01q)
+
+> **Vì sao có ca này**: cột "đọc" ở `/quan-tri` từng đứng yên ở 0 vĩnh viễn vì cú báo bị trình duyệt cắt giữa chừng. Lỗi chỉ lộ trên MÁY THẬT — chạy trên máy tính không bắt được, vì máy tính không giết service worker như iOS.
+
+| Bước | Làm gì | ĐẠT khi |
+|---|---|---|
+| 1 | Máy **B** (iPhone đã Thêm vào Màn hình chính) và **D** (Android đã cài): đăng nhập, bật thông báo. **Đóng hẳn app** | |
+| 2 | Quản trị viên gửi một tin thử tới đúng tài khoản đó | `/quan-tri` → tab Thông báo hiện dòng tin, cột **nhận** lên trong vài giây |
+| 3 | Trên máy, **bấm vào banner thông báo** (đừng vuốt tắt) | App mở ra; sau ~5 giây tải lại `/quan-tri` thì cột **đọc** tăng |
+| 4 | Vẫn máy đó, mở app, kéo tới mục **Thông báo** ở trang chủ, để tin hiện trên màn ~2 giây | Cột **đọc** **KHÔNG tăng thêm** — cùng một người, tính một lần |
+| 5 | Máy **khác** của cùng người đó làm bước 4 | Cột **đọc** vẫn **KHÔNG tăng** (đếm theo NGƯỜI, không theo máy) |
+| 6 | Bật **Chế độ máy bay**, mở app, để tin hiện trên màn | App không quay vòng, tin cũ vẫn đọc được. Cột **đọc** không đổi (chưa báo được) |
+| 7 | Tắt chế độ máy bay, **mở lại app**, để tin hiện trên màn | Cột **đọc** lên — biên nhận hụt lúc mất sóng phải báo lại được, không mất luôn |
+
+> **HỎNG** nếu: bước 3 bấm xong mà cột "đọc" không bao giờ lên (⇒ cú báo lại bị cắt — kiểm `waitUntil` trong `notificationclick`), hoặc bước 7 không bao giờ lên (⇒ bản lưu đã đánh dấu nhầm là "đã báo" dù máy chủ chưa xác nhận).

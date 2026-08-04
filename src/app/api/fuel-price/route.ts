@@ -1,4 +1,5 @@
 import { parseDieselDo } from "@/lib/fuel-price";
+import { timeoutSignal } from "@/lib/abort";
 
 /**
  * Giá dầu DO 0,05S hôm nay (giaxanghomnay.com → Petrolimex). Cache 6h. Giá
@@ -18,7 +19,7 @@ export async function GET() {
     const r = await fetch(`https://giaxanghomnay.com/api/pvdate/${today}`, {
       next: { revalidate: 21600 },
       headers: { "user-agent": "Mozilla/5.0 (SDFish fuel bot)" },
-      signal: AbortSignal.timeout(12000),
+      signal: timeoutSignal(12000),
     });
     if (!r.ok) return Response.json({ ok: false }, { status: 503 });
     const fuel = parseDieselDo(await r.json());

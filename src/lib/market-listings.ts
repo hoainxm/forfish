@@ -11,7 +11,8 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { isValidVnPhone, normalizeVnPhone } from "@/lib/phone";
-import { isNetworkAuthError } from "@/lib/auth-error";
+import { isNetworkAuthError, withDeadline } from "@/lib/auth-error";
+import { timeoutSignal } from "@/lib/abort";
 
 const TABLE = "market_listings";
 
@@ -119,6 +120,23 @@ export function rowToListing(r: Row, uid: string | null): MarketListing {
 
 // ── CRUD Supabase ──────────────────────────────────────────────────────────
 
+
+/*  ĐỒNG HỒ CHO BA ĐƯỜNG GHI (thêm 2026-08-02h). Vòng soát trước chỉ gắn cho
+    đường ĐỌC. Ca "sóng sống mà chết" ở cảng (bắt tay TCP được, gói tin không
+    về): `createListing` không settle ⇒ `setSaving(false)` không chạy ⇒ nút kẹt
+    "Đang đăng…" VĨNH VIỄN, không lỗi, không nút thử lại — bà con tưởng tin đã
+    đăng, thật ra chưa, và mất chuyến bán.
+    `timeoutSignal` trả `undefined` trên máy quá cũ (không có AbortController),
+    mà `.abortSignal()` không nhận `undefined` — nên phải gắn có điều kiện, cùng
+    khuôn với đường đọc ở trên. */
+function withSignal<T extends { abortSignal(s: AbortSignal): T }>(q: T): T {
+  const sig = timeoutSignal(WRITE_TIMEOUT_MS);
+  return sig ? q.abortSignal(sig) : q;
+}
+
+/** Ghi chợ tin chờ tối đa bấy nhiêu rồi coi như hỏng (nút phải trả về cho bà con) */
+const WRITE_TIMEOUT_MS = 20000;
+
 /**
  * Tin thật (đang mở + tin của mình). null = Supabase chưa cấu hình hoặc lỗi →
  * caller hiện empty state. Mảng rỗng = đã cấu hình nhưng chưa có tin nào.
@@ -126,15 +144,25 @@ export function rowToListing(r: Row, uid: string | null): MarketListing {
 export async function fetchListings(): Promise<MarketListing[] | null> {
   const supabase = createClient();
   if (!supabase) return null;
-  const { data: userData } = await supabase.auth.getUser();
-  const uid = userData?.user?.id ?? null;
-  const { data, error } = await supabase
+  /* ĐỒNG HỒ CHO CẢ HAI CÚ (D-PH9, soát 2026-08-02): không có trần thì ở sóng
+     "sống mà chết" chợ tin kẹt `loading = true` VĨNH VIỄN — không bao giờ hiện
+     "Chưa có tin nào", bà con ngồi nhìn tin mẫu tưởng chợ chỉ có bấy nhiêu.
+     `getUser()` không nhận AbortSignal nên phải bọc đồng hồ ngoài; hết giờ chỉ
+     mất cờ "tin của tôi", danh sách vẫn hiện. */
+  const userRes = await withDeadline(supabase.auth.getUser(), 8000);
+  const uid = userRes?.data?.user?.id ?? null;
+  /* `.abortSignal()` KHÔNG nhận `undefined` sạch nên phải gắn có điều kiện —
+     máy quá cũ thiếu cả AbortController thì chạy không trần, còn hơn ném. */
+  const sig = timeoutSignal(12000);
+  let q = supabase
     .from(TABLE)
     .select(
       "id,owner_id,side,poster_kind,poster_name,species,quantity,price_text,province,phone,note,status,created_at",
     )
     .order("created_at", { ascending: false })
     .limit(100);
+  if (sig) q = q.abortSignal(sig);
+  const { data, error } = await q;
   if (error || !data) return null;
   return (data as Row[]).map((r) => rowToListing(r, uid));
 }
@@ -151,7 +179,13 @@ export async function createListing(
   // getUser() RESOLVE kèm `error` khi mất sóng (không reject) — bỏ `error` thì
   // người ĐANG đăng nhập bị báo "cần đăng nhập" chỉ vì sóng chập chờn. Nói đúng
   // chuyện: chưa gửi được vì sóng, không phải vì tài khoản.
-  const { data: userData, error: authError } = await supabase.auth.getUser();
+  // Đồng hồ 8 giây: `getUser()` treo được (không nhận AbortSignal) ⇒ nút "Đăng
+  // tin" kẹt mãi. Hết giờ = cũng là chuyện SÓNG, nói đúng như vậy.
+  const authRes = await withDeadline(supabase.auth.getUser(), 8000);
+  if (!authRes) {
+    return { ok: false, error: "Chưa gửi được — máy chưa có sóng. Thử lại sau." };
+  }
+  const { data: userData, error: authError } = authRes;
   const user = userData?.user;
   if (!user && isNetworkAuthError(authError)) {
     return { ok: false, error: "Chưa gửi được — máy chưa có sóng. Thử lại sau." };
@@ -163,18 +197,20 @@ export async function createListing(
       ? normalizeVnPhone(d.phone)
       : (user.email?.split("@")[0] ?? null);
 
-  const { error } = await supabase.from(TABLE).insert({
-    owner_id: user.id,
-    side: d.side,
-    poster_kind: d.posterKind,
-    poster_name: d.posterName.trim(),
-    species: d.species.trim(),
-    quantity: d.quantity?.trim() || null,
-    price_text: d.priceText?.trim() || null,
-    province: d.province?.trim() || null,
-    phone,
-    note: d.note?.trim() || null,
-  });
+  const { error } = await withSignal(
+    supabase.from(TABLE).insert({
+      owner_id: user.id,
+      side: d.side,
+      poster_kind: d.posterKind,
+      poster_name: d.posterName.trim(),
+      species: d.species.trim(),
+      quantity: d.quantity?.trim() || null,
+      price_text: d.priceText?.trim() || null,
+      province: d.province?.trim() || null,
+      phone,
+      note: d.note?.trim() || null,
+    }),
+  );
   if (error) return { ok: false, error: "Đăng chưa được, thử lại." };
   return { ok: true };
 }
@@ -185,16 +221,20 @@ export async function setListingStatus(
 ): Promise<boolean> {
   const supabase = createClient();
   if (!supabase) return false;
-  const { error } = await supabase
-    .from(TABLE)
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq("id", id);
+  const { error } = await withSignal(
+    supabase
+      .from(TABLE)
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id),
+  );
   return !error;
 }
 
 export async function deleteListing(id: string): Promise<boolean> {
   const supabase = createClient();
   if (!supabase) return false;
-  const { error } = await supabase.from(TABLE).delete().eq("id", id);
+  const { error } = await withSignal(
+    supabase.from(TABLE).delete().eq("id", id),
+  );
   return !error;
 }

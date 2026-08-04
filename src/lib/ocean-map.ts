@@ -178,6 +178,20 @@ export const SOVEREIGNTY_LABELS: SovereigntyLabel[] = [
   },
 ];
 
+/**
+ * MỐC CHÈN cho lớp bờ offline (`beforeId`) — lớp trống, không vẽ gì.
+ *
+ * VÌ SAO CÓ (soát 2026-08-02): lớp bờ + đảo lưu trong máy được khai báo bằng
+ * JSX nên MapLibre chèn nó LÊN TRÊN CÙNG, dù chú thích ngay cạnh nói nó "nằm
+ * dưới mọi lớp khác" — nói một đằng làm một nẻo, ai sửa sau cũng dính bẫy.
+ * Nay chỉ đích danh: bờ offline nằm NGAY TRÊN nền + mask, DƯỚI mọi lớp nội
+ * dung (ảnh vệ tinh, đẳng sâu, phao đèn, ranh giới, cá, mũi tên gió).
+ *
+ * ĐỪNG chèn nó xuống dưới `sea-mask`: mask tô kín ô biển 109.6–116.8°E ở mức
+ * toàn cảnh, chèn dưới là XOÁ HOÀNG SA + TRƯỜNG SA khỏi bản đồ lúc mất sóng.
+ */
+export const OFFLINE_COAST_BEFORE_ID = "base-top";
+
 /** Khung nhìn mặc định: thấy trọn bờ biển VN + Hoàng Sa + Trường Sa */
 export const DEFAULT_VIEW = { longitude: 110.8, latitude: 12.8, zoom: 4.6 };
 
@@ -253,6 +267,14 @@ export function buildMapStyle(
         // KHÔNG che luồng lạch / cảng / chi tiết ven bờ của basemap.
         "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6, 1, 8, 0],
       },
+    },
+    // MỐC CHÈN — lớp trống (opacity 0, MapLibre bỏ qua lúc vẽ). Xem
+    // OFFLINE_COAST_BEFORE_ID ở trên: nó là ranh giới giữa "nhóm nền" và
+    // "nhóm nội dung", để lớp bờ offline có chỗ đứng CHẮC CHẮN.
+    {
+      id: OFFLINE_COAST_BEFORE_ID,
+      type: "background",
+      paint: { "background-opacity": 0 },
     },
   ];
 

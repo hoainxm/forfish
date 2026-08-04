@@ -31,6 +31,7 @@
 // mạng/giải mã đều nuốt, KHÔNG treo route.
 
 import type { ScalarGrid } from "./fish-predict";
+import { timeoutSignal } from "@/lib/abort";
 
 /* ---------------------------------------------------------------------------
    Hằng số nguồn
@@ -604,7 +605,7 @@ async function getBuf(
     // Chunk vài trăm KB–1 MB/lần — cache lại 1 giờ (dữ liệu bước 1 giờ, không
     // tươi hơn được)
     next: { revalidate },
-    signal: AbortSignal.timeout(timeoutMs),
+    signal: timeoutSignal(timeoutMs),
     headers: { "User-Agent": COPERNICUS_UA },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${url}`);
@@ -670,7 +671,7 @@ export async function fetchCopernicusCurrents(opts?: {
   try {
     const metaBuf = await fetch(`${base}/.zmetadata`, {
       next: { revalidate: 3600 },
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: timeoutSignal(timeoutMs),
       headers: { "User-Agent": COPERNICUS_UA },
     });
     if (!metaBuf.ok) return null;

@@ -1,4 +1,5 @@
 import { parseStorms } from "@/lib/storms";
+import { timeoutSignal } from "@/lib/abort";
 
 /**
  * Proxy cảnh báo bão: server gọi GDACS (tránh CORS phía trình duyệt),
@@ -21,7 +22,7 @@ export async function GET() {
     const r = await fetch(GDACS_TC_URL, {
       next: { revalidate: 1800 },
       headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(15000),
+      signal: timeoutSignal(15000),
     });
     if (!r.ok) return Response.json({ ok: false }, { status: 503 });
     const json = await r.json();

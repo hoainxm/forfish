@@ -18,6 +18,7 @@ import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
 import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
 import { TEMP_RESET_PASSWORD } from "@/lib/temp-password";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
+import { normalizePlatform } from "@/lib/app-usage";
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -87,29 +88,57 @@ export async function GET() {
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
 
-  const BASE_COLS =
+  // CỘT OPTIONAL CÓ THỂ CHƯA APPLY trên prod (chủ dự án tự apply từng migration).
+  // Chọn một cột không tồn tại là HỎNG CẢ CÂU ⇒ mất trắng danh sách 700+ khách
+  // chỉ vì một chip phụ. Nên thử ĐẦY ĐỦ trước, hỏng thì lùi từng nhóm cột về nấc
+  // CORE (8 cột chắc chắn có). SYNC BASE 2026-08-04: nhóm base (data_until/storage/
+  // device_platform) tách khỏi CORE vì migration base CHƯA apply prod sdvico —
+  // gộp vào CORE thì nấc cuối cũng 500, mất trắng danh sách.
+  const CORE =
     "phone, name, tier, premium_until, premium_activated_at, role, sdwork_ref, updated_at";
-  // Cờ chăm khách (0025) — SELECT kèm; cột chưa có (migration chưa apply) thì
-  // DEGRADE về select cũ (cờ = false) thay vì 500 vỡ cả danh sách. Kiểu hoá
-  // Record để tránh Supabase infer union hỏng khi 2 select khác cột.
-  let rows: Record<string, unknown>[] | null = null;
-  const first = await admin
-    .from("customers")
-    .select(
-      BASE_COLS +
-        ", premium_used, contacted, staff_used, staff_guided, staff_note_by, staff_note_at, pwa_last_open_at, web_last_open_at, offline_ready_at",
-    )
-    .order("updated_at", { ascending: false });
-  if (first.error) {
-    const fallback = await admin
+  const CARE = "premium_used, contacted"; // NV2/NV3 sdvico (0025 care-flags)
+  const ONBOARD =
+    "staff_used, staff_guided, staff_note_by, staff_note_at, pwa_last_open_at, web_last_open_at, offline_ready_at";
+  const DATA = "data_until, data_until_web"; // base (data_until)
+  const STOREQ = "storage_quota_mb, storage_used_mb"; // base (storage)
+  const KHO_COLS =
+    "storage_ls_mb, storage_idb_mb, storage_cache_mb, storage_available_mb, storage_persisted, storage_backend"; // base (tách kho)
+  // `.select()` với chuỗi cột ĐỘNG thì Supabase không suy được kiểu hàng nữa
+  // (trả union kèm GenericStringError) — ép về bản ghi thô, phía dưới vẫn bóc
+  // từng cột bằng `as` y như trước.
+  const read = async (cols: string) => {
+    const r = await admin
       .from("customers")
-      .select(BASE_COLS)
+      .select(cols)
       .order("updated_at", { ascending: false });
-    if (fallback.error) return err(500, "query_failed");
-    rows = fallback.data as unknown as Record<string, unknown>[];
-  } else {
-    rows = first.data as unknown as Record<string, unknown>[];
-  }
+    return {
+      data: r.data as unknown as Record<string, unknown>[] | null,
+      error: r.error,
+    };
+  };
+
+  // Rộng → hẹp: bỏ dần nhóm dễ-thiếu-nhất (cột base chưa apply) trước, rồi
+  // onboarding/care của sdvico, cuối cùng CORE. Nấc nào chạy được thì dừng.
+  let { data: rows, error } = await read(
+    `${CORE}, ${CARE}, ${ONBOARD}, ${DATA}, ${STOREQ}, device_platform, ${KHO_COLS}, storage_persist_asked`,
+  );
+  if (error)
+    ({ data: rows, error } = await read(
+      `${CORE}, ${CARE}, ${ONBOARD}, ${DATA}, ${STOREQ}, device_platform, ${KHO_COLS}`,
+    ));
+  if (error)
+    ({ data: rows, error } = await read(
+      `${CORE}, ${CARE}, ${ONBOARD}, ${DATA}, ${STOREQ}, device_platform`,
+    ));
+  if (error)
+    ({ data: rows, error } = await read(
+      `${CORE}, ${CARE}, ${ONBOARD}, ${DATA}, ${STOREQ}`,
+    ));
+  if (error)
+    ({ data: rows, error } = await read(`${CORE}, ${CARE}, ${ONBOARD}`));
+  if (error) ({ data: rows, error } = await read(`${CORE}, ${CARE}`));
+  if (error) ({ data: rows, error } = await read(CORE));
+  if (error) return err(500, "query_failed");
 
   // đối chiếu auth: SĐT nào đăng nhập được (đã provision)
   const provisioned = new Set<string>();
@@ -157,6 +186,37 @@ export async function GET() {
   // quản lý.
   const adminPhones = parseAdminPhones(process.env.ADMIN_PHONES);
 
+  /*  LỊCH SỬ MÁY (customer_devices, 0033) — MỘT câu cho cả danh sách rồi gom
+      trong JS, KHÔNG hỏi từng khách (716 khách = 716 câu). Bảng nhỏ (mỗi khách
+      1–2 máy) nên lấy hết rẻ hơn nhiều lần hỏi lẻ.
+      KHÔNG trả `device_id` nguyên vẹn ra ngoài — chỉ 6 ký tự cuối làm NHÃN
+      PHÂN BIỆT hai máy cùng loại. Mã đầy đủ không giúp gì cho việc gọi điện,
+      mà vọng một định danh ra API là chuyện không cần thiết.
+      Hỏng (bảng chưa có / lỗi) → danh sách vẫn về, chỉ thiếu chip lịch sử. */
+  const devicesByPhone = new Map<
+    string,
+    { tag: string; platform: string | null; firstSeenAt: string | null; lastSeenAt: string | null }[]
+  >();
+  try {
+    const { data: devs } = await admin
+      .from("customer_devices")
+      .select("customer_phone, device_id, platform, first_seen_at, last_seen_at")
+      .order("last_seen_at", { ascending: false });
+    for (const d of (devs ?? []) as Record<string, unknown>[]) {
+      const key = d.customer_phone as string;
+      const list = devicesByPhone.get(key) ?? [];
+      list.push({
+        tag: String(d.device_id ?? "").slice(-6),
+        platform: normalizePlatform(d.platform),
+        firstSeenAt: (d.first_seen_at as string) ?? null,
+        lastSeenAt: (d.last_seen_at as string) ?? null,
+      });
+      devicesByPhone.set(key, list);
+    }
+  } catch {
+    /* sổ phụ — không có thì thôi, danh sách chính vẫn phải về */
+  }
+
   const accounts = (rows ?? []).map((r) => ({
     phone: r.phone as string,
     name: (r.name as string) ?? null,
@@ -182,6 +242,27 @@ export async function GET() {
     pwaLastOpenAt: (r.pwa_last_open_at as string) ?? null,
     webLastOpenAt: (r.web_last_open_at as string) ?? null,
     offlineReadyAt: (r.offline_ready_at as string) ?? null,
+    // 0025 — dữ liệu đi biển trong máy phủ tới ngày nào (nhịp định kỳ báo lên)
+    dataUntil: (r.data_until as string) ?? null,
+    /* KHO WEB tách riêng kho bản cài (0027) — trên iOS hai kho KHÁC NHAU, và
+       nhóm "đã cài rồi nhưng toàn dùng web" chỉ nhìn ra được khi có cả hai số. */
+    dataUntilWeb: (r.data_until_web as string) ?? null,
+    /* KHO CỦA MÁY (0029) — để biết iOS thật sự cho bao nhiêu, và để gọi nhắc
+       bà con dọn bớt ảnh/video TRƯỚC khi ra khơi */
+    storageQuotaMb: (r.storage_quota_mb as number) ?? null,
+    /*  TÁCH THEO KHO (0030) — trả lời "ĐÃ LƯU Ở ĐÂU". Cột có thể CHƯA tồn tại
+        (chủ dự án tự apply migration) ⇒ đọc `?? null`, không bao giờ ném. */
+    storageLsMb: (r.storage_ls_mb as number) ?? null,
+    storageIdbMb: (r.storage_idb_mb as number) ?? null,
+    storageCacheMb: (r.storage_cache_mb as number) ?? null,
+    storageAvailableMb: (r.storage_available_mb as number) ?? null,
+    storagePersisted: (r.storage_persisted as boolean) ?? null,
+    storagePersistAsked: (r.storage_persist_asked as boolean) ?? null,
+    storageBackend: (r.storage_backend as string) ?? null,
+    storageUsedMb: (r.storage_used_mb as number) ?? null,
+    devicePlatform: normalizePlatform(r.device_platform),
+    // lịch sử máy — mới nhất trước; rỗng nếu chưa máy nào báo
+    devices: devicesByPhone.get(r.phone as string) ?? [],
   }));
 
   // R3/AC-8 — ĐẠI LÝ (manager) CHỈ thấy khách MÌNH cấp premium (granted_by).

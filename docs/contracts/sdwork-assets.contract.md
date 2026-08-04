@@ -71,3 +71,4 @@ Tài khoản phía CRM suy từ **session ForFish** (`profiles.sdwork_customer_r
 | Ngày | Version | Thay đổi | Consumers đã update |
 |---|---|---|---|
 | 2026-06-11 | v1 | Khởi tạo contract (gateway v4: warranty_cards + vw_imported_serials) | ForFish (toàn bộ) |
+| 2026-08-02 | v1 (**KHÔNG bump**) | **Shape KHÔNG đổi một field nào.** Adapter `src/lib/sdwork-assets.ts` chỉ đổi đúng một dòng ở tầng vận chuyển: `AbortSignal.timeout(15000)` → `timeoutSignal(15000)` (`src/lib/abort.ts`). Lý do: `AbortSignal.timeout` chỉ có từ Safari 16 / Chrome 103, iPhone kẹt iOS 15.8 ném `TypeError` ngay tại lời gọi ⇒ nhóm máy đó gọi gateway hỏng vì lý do KHÔNG phải mạng nhưng lại đội lốt "mất sóng", và `useSdvicoAssets` rơi nhầm về nấc `error`. Trần 15 s giữ nguyên; `undefined` chỉ xảy ra khi môi trường thiếu cả `AbortController`. Không cần đổi gì phía producer. | ForFish — không consumer nào phải sửa |

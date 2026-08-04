@@ -14,6 +14,8 @@ import { formatVnd } from "@/lib/format";
 import { loadBoats } from "@/lib/boats";
 import { loadAssignments } from "@/lib/sdvico-assign";
 import { AlertIcon, ClockIcon, ChevronRightIcon } from "@/components/icons";
+import { timeoutSignal } from "@/lib/abort";
+import { tokenHeader } from "@/lib/device-token-store";
 
 /*
   Việc cần làm ngay — one urgent strip spanning ALL pillars, not just giấy tờ.
@@ -276,7 +278,10 @@ export function UrgentStrip() {
   // Nhắc từ đồ SDVICO (đăng nhập rồi mới có) — đến sau cũng không sao.
   useEffect(() => {
     let alive = true;
-    fetch(apiUrl("/api/me/sdvico"), { signal: AbortSignal.timeout(20000) })
+    fetch(apiUrl("/api/me/sdvico"), {
+      headers: tokenHeader(),
+      signal: timeoutSignal(20000),
+    })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (alive && j?.ok && j.assets) {

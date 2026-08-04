@@ -6,6 +6,7 @@ import {
   pickBulletinUrls,
   type WeekPrice,
 } from "@/lib/port-price-history";
+import { timeoutSignal } from "@/lib/abort";
 
 /*
   Gom KHO bản tin giá tuần VASEP (Khánh Hòa) → chuỗi tuần THẬT. Dùng CHUNG bởi:
@@ -25,7 +26,7 @@ export async function gatherArchiveWeeks(): Promise<WeekPrice[]> {
   const opt = {
     next: { revalidate: REVALIDATE },
     headers: { "user-agent": "Mozilla/5.0 (SDFish price bot)" },
-    signal: AbortSignal.timeout(15000),
+    signal: timeoutSignal(15000),
   };
 
   // 1) Gom URL bản tin từ vài trang danh sách (mới → cũ)

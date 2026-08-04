@@ -32,12 +32,26 @@ export async function saveWeatherSnapshot(
   return !error;
 }
 
-/** ĐỌC 1 khoá — fetch REST + next.revalidate (route đọc giữ được CDN cache).
-    null nếu chưa có / lỗi / chưa cấu hình. */
-export async function loadWeatherSnapshot(id: string): Promise<unknown | null> {
+/*  ĐỌC 1 khoá — fetch REST + next.revalidate (route đọc giữ được CDN cache).
+    PHÂN BIỆT HAI CA (2026-08-02, audit lô B):
+     · `{ found: false }` — hỏi được máy chủ, đúng là CHƯA CÓ bản này.
+     · `{ found: false, unreachable: true }` — KHÔNG HỎI ĐƯỢC (thiếu env, mạng
+       Vercel↔Supabase chập chờn, 5xx).
+    Trước đây cả năm nguyên nhân đều gộp thành `null` ⇒ route trả 404 ⇒ mà 404
+    KHÔNG nằm trong `isRescuableStatus` của service worker (cố ý: "404 → nói
+    thật") ⇒ máy ĐANG CÓ lưới 16 ngày trong kho vẫn nhận 404 thẳng vào mặt khi
+    hạ tầng chập chờn. Đây là route duy nhất trong allowlist tự chặn đường cứu
+    của chính mình. */
+export async function loadWeatherSnapshot(
+  id: string,
+): Promise<{ payload: unknown | null; unreachable: boolean }> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
+  /*  THIẾU CẤU HÌNH ≠ NGUỒN SẬP (2026-08-02b): demo mode / preview không có env
+      thì đúng là KHÔNG CÓ bản nào, chứ không phải "không hỏi được". Trả
+      `unreachable` ở đây làm route hoá 503 vĩnh viễn và mở đường cho service
+      worker "cứu" bằng bản cũ ở môi trường lẽ ra chẳng có gì. */
+  if (!url || !key) return { payload: null, unreachable: false };
   try {
     const r = await fetch(
       `${url}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(id)}&select=payload`,
@@ -46,10 +60,10 @@ export async function loadWeatherSnapshot(id: string): Promise<unknown | null> {
         next: { revalidate: SNAPSHOT_REVALIDATE },
       },
     );
-    if (!r.ok) return null;
+    if (!r.ok) return { payload: null, unreachable: true };
     const rows = (await r.json()) as { payload?: unknown }[];
-    return rows?.[0]?.payload ?? null;
+    return { payload: rows?.[0]?.payload ?? null, unreachable: false };
   } catch {
-    return null;
+    return { payload: null, unreachable: true };
   }
 }

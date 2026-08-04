@@ -28,16 +28,19 @@ export { useBoats };
 export function BoatSwitcher() {
   const { boats, current, ready, setCurrent, addBoat, updateBoat, removeBoat } =
     useBoats();
-  const { user, ready: authReady } = useAuthUser();
+  const { signedIn, ready: authReady } = useAuthUser();
   const [pick, setPick] = useState(false);
   const [form, setForm] = useState<Boat | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Boat | null>(null);
+  /*  Ghi hồ sơ tàu HỎNG (máy hết chỗ) — phải nói, không thì tàu hiện đúng trên
+      màn hình rồi mở lại app là mất (2026-08-02h). */
+  const [saveFailed, setSaveFailed] = useState(false);
 
   // Đang kiểm tra → đừng nháy UI.
   if (!ready || !authReady) return null;
   // Chưa đăng nhập → KHÔNG hiện quản lý tàu (data cá nhân). Ở /tau, các tab tự
   // hiện thẻ mời đăng nhập; ở đây ẩn hẳn để logged-out không thêm/sửa được tàu.
-  if (!user) return null;
+  if (!signedIn) return null;
 
   // Đã đăng nhập nhưng chưa có tàu → mời thêm tàu đầu tiên (không seed tàu mẫu).
   if (!current) {
@@ -93,6 +96,15 @@ export function BoatSwitcher() {
 
       {pick && (
         <BottomSheet title="Chọn tàu" onClose={() => setPick(false)}>
+          {saveFailed && (
+            <div
+              role="alert"
+              className="mb-3 rounded-2xl bg-danger-bg px-4 py-3 text-[1rem] font-bold leading-snug text-danger"
+            >
+              Máy hết chỗ nên CHƯA lưu được hồ sơ tàu. Bà con xoá bớt ảnh/video
+              rồi làm lại giúp nhé.
+            </div>
+          )}
           <ul className="space-y-2">
             {boats.map((b) => (
               <li key={b.id}>
@@ -161,8 +173,12 @@ export function BoatSwitcher() {
           }
           onCancel={() => setForm(null)}
           onSave={(b) => {
-            if (boats.some((x) => x.id === b.id)) updateBoat(b);
-            else addBoat(b);
+            /*  NÓI THẬT KHI MÁY HẾT CHỖ (2026-08-02h): trước đây bỏ kết quả
+                nên tàu hiện đúng trên màn, mở lại app là mất. */
+            const luuDuoc = boats.some((x) => x.id === b.id)
+              ? updateBoat(b)
+              : addBoat(b);
+            setSaveFailed(!luuDuoc);
             setForm(null);
           }}
         />

@@ -34,11 +34,19 @@ import {
 } from "@/lib/sell-contacts";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 import {
+  persistNote,
+  readinessChip,
   usageStage,
+  PLATFORM_LABEL,
+  type DevicePlatform,
   USAGE_STAGE_LABEL,
+  type ReadinessReason,
+  type ReadinessTone,
   type UsageStage,
 } from "@/lib/app-usage";
 import { createClient } from "@/lib/supabase/client";
+import { clearInbox } from "@/lib/inbox";
+import { applyIdentityAction } from "@/lib/offline-identity";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCccd, isValidCccd } from "@/lib/crew";
 import { isValidVnPhone, phoneToEmail, sanitizePhoneInput } from "@/lib/phone";
@@ -63,6 +71,7 @@ import {
   actionLabel,
   isDangerAction,
 } from "@/lib/admin-activity";
+import { timeoutSignal } from "@/lib/abort";
 
 type Tab =
   | "tai-khoan"
@@ -140,6 +149,27 @@ type Account = {
   pwaLastOpenAt: string | null;
   webLastOpenAt: string | null;
   offlineReadyAt: string | null;
+  /** dữ liệu đi biển trong máy phủ tới ngày nào (0025) */
+  dataUntil?: string | null;
+  dataUntilWeb?: string | null;
+  storageQuotaMb?: number | null;
+  storageUsedMb?: number | null;
+  /** tách theo kho (0030) — xem chip "kho" trong `UsageChip` */
+  storageLsMb?: number | null;
+  storageIdbMb?: number | null;
+  storageCacheMb?: number | null;
+  storageAvailableMb?: number | null;
+  storagePersisted?: boolean | null;
+  /** kết quả lần HỎI gần nhất (0031) — null = chưa hỏi lần nào */
+  storagePersistAsked?: boolean | null;
+  storageBackend?: string | null;
+  devicePlatform: DevicePlatform | null;
+  devices: {
+    tag: string;
+    platform: DevicePlatform | null;
+    firstSeenAt: string | null;
+    lastSeenAt: string | null;
+  }[];
 };
 
 /** Thống kê theo người cấp premium (log premium_grants) */
@@ -150,6 +180,15 @@ type SourceState =
   | { state: "loading" }
   | { state: "ok"; note: string }
   | { state: "down"; note: string };
+
+/*  Chỉ NGÀY, không giờ (0036) — `data_until` là ngày của bản dự báo, không phải
+    mốc thao tác. Ghim múi giờ VN và dựng từ phần ngày để không bị lệch một ngày
+    khi máy chủ/trình duyệt ở múi khác. */
+const fmtNgay = (d: string | null | undefined): string => {
+  if (!d) return "—";
+  const [y, m, day] = d.slice(0, 10).split("-");
+  return y && m && day ? `${day}/${m}/${y}` : "—";
+};
 
 const fmtDT = (iso: string | null | undefined): string =>
   iso
@@ -204,6 +243,16 @@ export default function QuanTriPage() {
   async function logout() {
     const supabase = createClient();
     await supabase?.auth.signOut();
+    /* DỌN MÁY GIỐNG HỆT NÚT ĐĂNG XUẤT CỦA APP (sửa 2026-08-02). Trước đây chỗ
+       này gọi signOut() TRẦN: danh tính offline (`forfish.identity.v1`) ở lại
+       máy VĨNH VIỄN, kéo theo `shouldClearPremiumMark` không bao giờ đúng nữa —
+       tức dấu premium cũng không bao giờ được dọn trên máy đó. Staff SDVICO hay
+       dùng chung máy, và máy đó cũng chạy app khách. /quan-tri chạy ở bờ nên
+       không cần đồng hồ như hero-account: mất sóng thì cùng lắm phiên còn trên
+       máy chủ, phần trong máy vẫn phải sạch. */
+    clearInbox();
+    // đi qua CỔNG DUY NHẤT (K7) — quên = xoá luôn dấu hạng
+    applyIdentityAction("user-signed-out", false);
     // Ở LẠI /quan-tri và hiện form đăng nhập quản trị ngay tại đây — KHÔNG đá
     // sang /login của app khách (user 2026-07-31).
     setHealth(null);
@@ -1362,11 +1411,12 @@ function RoleBadge({ account }: { account: Account }) {
  * tay. Đây là danh sách để GỌI ĐIỆN NHẮC.
  */
 function AppUsage({ a }: { a: Account }) {
-  const stage = usageStage(a);
+  const stage = usageStage({ ...a, dataUntil: a.dataUntil ?? null });
   const skin: Record<UsageStage, string> = {
     "chua-ghi-nhan": "bg-field text-foreground/50",
     "moi-vo-web": "bg-warn-bg text-warn",
-    "da-mo-ban-cai": "bg-t1-bg text-t1",
+    "da-mo-ban-cai": "bg-warn-bg text-warn",
+    "da-tai-mot-phan": "bg-t1-bg text-t1",
     "du-do-di-bien": "bg-ok-bg text-ok",
   };
   const why: Record<UsageStage, string> = {
@@ -1375,23 +1425,211 @@ function AppUsage({ a }: { a: Account }) {
     "moi-vo-web":
       "Đã mở app trong trình duyệt nhưng CHƯA lần nào mở bản cài. Trên iPhone, bản Thêm-vào-Màn-hình-chính có kho RIÊNG — ra khơi là trắng tay. Gọi nhắc: mở icon vừa cài ngay khi còn sóng.",
     "da-mo-ban-cai":
-      "Đã mở bản cài nhưng chưa lần nào tải xong đủ vỏ app + mọi lớp dữ liệu. Chỉ cần nhắc bấm tải lúc còn sóng.",
+      "Đã mở bản cài nhưng kho của nó còn TRỐNG TRƠN — chưa tải được lớp nào. Phải hướng dẫn bấm tải từ đầu, lúc còn sóng.",
+    "da-tai-mot-phan":
+      "Đã mở bản cài và tải được MỘT PHẦN (kho bản cài đã có ngày phủ) nhưng chưa đủ mọi lớp — mẻ tải đứt giữa chừng. Chỉ cần nhắc mở lại app lúc có sóng, phần đã tải còn nguyên.",
     "du-do-di-bien":
       "Máy đã báo: vỏ app đủ + mọi lớp dữ liệu đã tải, ĐO TRÊN ĐÚNG KHO sẽ dùng ngoài biển. Lưu ý: đây là mốc ĐÃ TỪNG đủ, không phải bây giờ còn đủ.",
   };
+  /*  CHIP SẴN SÀNG (2026-08-02g) — gộp "online lần cuối" + "dữ liệu tới ngày
+      nào", và ĐO TRÊN ĐÚNG KHO SẼ RA KHƠI. Luật thuần + test ở lib/app-usage.ts.
+      Hai con số này tách ra thì người trực tổng đài phải tự ghép trong đầu mỗi
+      hàng một lần — và sẽ bỏ sót đúng nhóm nguy hiểm nhất: đã cài, đã đủ đồ, mở
+      app hằng ngày, nhưng toàn mở bằng Safari nên kho ra khơi đứng im. */
+  /*  ĐỒNG HỒ CHỤP LÚC MOUNT, KHÔNG GỌI TRONG THÂN RENDER (sửa 2026-08-03).
+      `Date.now()` là hàm KHÔNG THUẦN; gọi thẳng khi vẽ làm React không bảo đảm
+      được kết quả ổn định giữa hai lượt vẽ, và `react-hooks/purity` bắt lỗi —
+      cổng `npm run lint` của CI là cổng CỨNG nên chỗ này đang CHẶN MỌI PUSH vào
+      `main`. Chip chỉ đo tuổi theo NGÀY (mốc online lần cuối, dữ liệu tới ngày
+      nào), nên một mốc chụp lúc mount là quá đủ; trang tự vẽ lại khi tải lại
+      danh sách khách, lúc đó mốc cũng mới theo. */
+  const [bayGio] = useState(() => Date.now());
+  const rd = readinessChip(
+    {
+      pwaLastOpenAt: a.pwaLastOpenAt ?? null,
+      webLastOpenAt: a.webLastOpenAt ?? null,
+      dataUntil: a.dataUntil ?? null,
+      dataUntilWeb: a.dataUntilWeb ?? null,
+    },
+    bayGio,
+  );
+  const rdSkin: Record<ReadinessTone, string> = {
+    ok: "bg-ok-bg text-ok",
+    warn: "bg-warn-bg text-warn",
+    risk: "bg-danger-bg text-danger",
+    unknown: "bg-field text-foreground/50",
+  };
+  const rdLabel: Record<ReadinessReason, string> = {
+    "chua-ghi-nhan": "Chưa ghi nhận",
+    "chua-cai": "Chưa mở bản cài",
+    "ban-cai-cu": "Bản cài lâu chưa mở",
+    "het-du-lieu": "Hết dữ liệu",
+    "sap-can": "Dữ liệu sắp cạn",
+    "mat-song-lau": "Lâu chưa lên sóng",
+    "chua-bao-ngay": "Chưa rõ dữ liệu",
+    on: "Sẵn sàng",
+  };
+  /* VIỆC CẦN LÀM, không phải mô tả trạng thái — nhân viên đọc là gọi được luôn */
+  const rdWhy: Record<ReadinessReason, string> = {
+    "chua-ghi-nhan":
+      "Máy chưa gửi nhịp nào. KHÔNG có nghĩa chưa dùng app: nhịp chỉ gửi khi ĐÃ ĐĂNG NHẬP + còn sóng, và chỉ ghi từ 01/08/2026.",
+    "chua-cai":
+      "Chỉ mới mở app trong trình duyệt. Trên iPhone bản Thêm-vào-Màn-hình-chính có kho RIÊNG — dữ liệu tải trong Safari KHÔNG theo ra khơi được. Gọi nhắc: mở icon vừa cài, rồi bấm tải.",
+    "ban-cai-cu":
+      "Đã cài và đã tải, NHƯNG gần đây toàn mở bằng trình duyệt. Kho của bản cài (thứ sẽ theo ra khơi) đứng im từ lâu. Gọi nhắc: mở ĐÚNG cái icon đã cài khi còn sóng.",
+    "het-du-lieu":
+      "Dữ liệu trong bản cài đã hết hạn phủ. Ra khơi bây giờ là không có dự báo. Gọi ngay.",
+    "sap-can":
+      "Dữ liệu trong bản cài chỉ còn vài ngày. Còn sóng thì còn kịp — gọi nhắc bấm tải.",
+    "mat-song-lau":
+      "Máy lâu chưa lên sóng, nên con số dữ liệu là lời khai cũ. Có thể bà con đang ngoài khơi.",
+    "chua-bao-ngay":
+      "Có mở bản cài gần đây nhưng máy chưa báo được dữ liệu phủ tới ngày nào.",
+    on: "Bản cài mở gần đây và dữ liệu còn dài. Không cần gọi.",
+  };
   const mocs = [
+    /*  DÁN NHÃN KHO (0027): trên iOS kho bản cài tách riêng Safari, nên một con
+        số trần "dữ liệu tới 17/08" là câu nói thiếu — không biết nó tả cái kho
+        sẽ ra khơi hay cái kho nằm lại bờ. */
+    /*  ⚠️ CHỈ DÁM NÓI "bản cài" KHI MÁY ĐÃ TỪNG MỞ BẢN CÀI (sửa 2026-08-03b —
+        chủ dự án bắt được mâu thuẫn thật trên prod: Thu Hà chip ghi "Chưa mở
+        bản cài" mà dòng dưới ghi "bản cài: dữ liệu tới 17/08").
+        Nguồn gốc: TRƯỚC migration 0038, `data_until` được ghi cho MỌI nhịp kể cả
+        nhịp từ WEB. Sau khi tách cột, mấy giá trị cũ đó nằm lại trong cột "bản
+        cài" — đo trên prod có 3 tài khoản dính (`pwa_last_open_at` NULL mà
+        `data_until` có ngày). Mã hiện tại không đẻ thêm được ca này.
+        Vì sao phải sửa gấp: lỗi lệch về phía NGUY HIỂM — người trực thấy "bản
+        cài: tới 17/08" sẽ KHÔNG gọi đúng người cần gọi nhất, tức người có đủ dữ
+        liệu trong Safari nhưng ra khơi tay trắng. Đó chính là nhóm cả tính năng
+        này sinh ra để tìm. */
+    a.dataUntil
+      ? a.pwaLastOpenAt
+        ? `bản cài: dữ liệu tới ${fmtNgay(a.dataUntil)}`
+        : `số cũ (trước 08/2026, chưa rõ kho): dữ liệu tới ${fmtNgay(a.dataUntil)}`
+      : null,
+    a.dataUntilWeb ? `web: dữ liệu tới ${fmtNgay(a.dataUntilWeb)}` : null,
+    /*  KHO CỦA MÁY (0029) — con số quyết định "dữ liệu đi biển nên nằm kho nào",
+        và là chỗ duy nhất biết iOS thật sự cho bao nhiêu. Hiện cả hai để nhìn ra
+        máy nào sắp đầy (used tiến sát quota = gọi nhắc dọn bớt ảnh/video TRƯỚC
+        khi ra khơi, đừng để ra tới biển mới biết không lưu được). */
+    a.storageQuotaMb != null
+      ? `kho ${a.storageUsedMb ?? "?"}/${a.storageQuotaMb} MB`
+      : null,
+    /*  ĐÃ LƯU Ở ĐÂU (0030) — bốn câu hỏi chủ dự án cần trả lời được từ trang này.
+        Trên WebKit các kho KHÔNG bình đẳng: localStorage có trần RIÊNG ~5 MB
+        (và iOS 16 chạm trần là XOÁ SẠCH nó, kéo theo chuỗi đăng nhập), còn
+        IndexedDB/Cache dùng chung hạn ngạch origin. Nên một con số tổng không
+        nói được kho nào sắp chật. */
+    a.storageLsMb != null || a.storageIdbMb != null
+      ? `ở đâu: ls ${a.storageLsMb ?? "?"} · idb ${a.storageIdbMb ?? "?"} · cache ${a.storageCacheMb ?? "?"} MB`
+      : null,
+    /*  CÒN CHỖ KHÔNG — gần 0 là máy sắp không giữ nổi gói đi biển, đáng gọi
+        nhắc dọn ảnh/video TRƯỚC khi nhổ neo. */
+    a.storageAvailableMb != null ? `còn trống ${a.storageAvailableMb} MB` : null,
+    /*  ⚠️ KHO DỰ BÁO CÒN KẸT Ở localStorage — máy không mở nổi IndexedDB nên
+        đang chở ~4 MB trong thùng 5 MB, tức chạy sát mép lỗi iOS 16. Chỉ nêu
+        khi ĐANG kẹt: trạng thái đúng thì không cần chiếm chỗ trên màn hình. */
+    a.storageBackend === "ls" ? "⚠️ kho dự báo còn ở localStorage" : null,
+    /*  BỘ NHỚ BỀN — chống vòng thu hồi LRU khi máy đầy. Luật "chỉ nói khi CÒN
+        LÀM ĐƯỢC GÌ" nằm ở `persistNote` (lib/app-usage, có test): máy đã cài,
+        còn 39 GB trống mà vẫn hô "chưa được cấp bộ nhớ bền" là bắt nhân viên
+        gọi điện nhắc một việc không tồn tại — chủ dự án bắt được đúng ca đó
+        2026-08-03. */
+    persistNote({
+      persisted: a.storagePersisted ?? null,
+      asked: a.storagePersistAsked ?? null,
+      availableMb: a.storageAvailableMb ?? null,
+    }),
     a.offlineReadyAt ? `đủ đồ ${fmtDT(a.offlineReadyAt)}` : null,
-    a.pwaLastOpenAt ? `bản cài ${fmtDT(a.pwaLastOpenAt)}` : null,
-    a.webLastOpenAt ? `web ${fmtDT(a.webLastOpenAt)}` : null,
+    a.pwaLastOpenAt ? `bản cài mở ${fmtDT(a.pwaLastOpenAt)}` : null,
+    a.webLastOpenAt ? `web mở ${fmtDT(a.webLastOpenAt)}` : null,
   ].filter(Boolean);
   return (
     <>
+      {/*  HAI HÀNG, HAI CÂU HỎI (chủ dự án chốt 2026-08-03: "tách 2 hàng để
+           phân biệt rõ user này đã đi qua đủ nấc thang web→pwa→dữ liệu; 1 hàng
+           là liên quan tới hiện trạng").
+           · HÀNG 1 — ĐÃ ĐI TỚI ĐÂU: thang MỘT CHIỀU, chỉ tiến. Loại máy nằm ở
+             đây (chủ dự án chốt) vì nó quyết định BƯỚC HƯỚNG DẪN của cả thang:
+             iPhone thì bản cài có kho RIÊNG nên nấc "bản cài" là ải thật;
+             Android dùng chung kho nên ải đó nhẹ hơn. Chip "đổi máy" cũng ở đây
+             vì đổi máy là ĐẶT LẠI cả thang.
+           · HÀNG 2 — BÂY GIỜ RA SAO: có LÙI được (dữ liệu hết hạn, lâu chưa lên
+             sóng). Đây mới là chip trả lời "có phải gọi người này không". */}
+      <div className="flex flex-wrap items-center gap-1.5">
+      {/* LOẠI MÁY (0022) — nhân viên gọi điện phải chỉ ĐÚNG bước của máy đó:
+          iPhone thì Chia sẻ → Thêm vào Màn hình chính (và bản cài có kho RIÊNG
+          tách Safari), Android thì Cài ứng dụng. Chỉ hiện khi máy đã báo. */}
+      {a.devicePlatform && (
+        <span
+          title={
+            a.devicePlatform === "ios"
+              ? "Máy iPhone/iPad — hướng dẫn: Chia sẻ → Thêm vào Màn hình chính. LƯU Ý: bản cài trên iOS dùng kho RIÊNG, tải dữ liệu trong Safari không tính cho bản cài."
+              : a.devicePlatform === "android"
+                ? "Máy Android — hướng dẫn: bấm Cài ứng dụng. Bản cài dùng chung kho với Chrome nên tải ở đâu cũng như nhau."
+                : "Không nhận ra iPhone hay Android (máy tính, hoặc trình duyệt lạ)."
+          }
+          className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-semibold text-foreground/70"
+        >
+          {PLATFORM_LABEL[a.devicePlatform]}
+        </span>
+      )}
+      {/*  Chip THANG — LUÔN hiện, không bao giờ giấu (sửa 2026-08-03j).
+           Bản trước giấu nó khi trùng câu với chip sẵn sàng. Luật đó đúng khi
+           bốn chip nằm CHUNG một hàng, nhưng từ khi tách hai hàng thì giấu =
+           hàng "đã đi tới đâu" TRỐNG RỖNG ở đúng hai bậc thấp nhất, trong đó có
+           `moi-vo-web` — nhóm đáng gọi điện NHẤT. Chuyện trùng câu nay xử tận
+           gốc ở `USAGE_STAGE_LABEL` (đổi sang "Mới vô web" / "Chưa có nhịp"),
+           nên không còn gì để giấu. */}
       <span
         title={why[stage]}
         className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${skin[stage]}`}
       >
         {USAGE_STAGE_LABEL[stage]}
       </span>
+      {/* ĐÃ ĐỔI MÁY (bảng customer_devices, 0033) — chỉ hiện khi TỪ 2 MÁY trở
+          lên; một máy là chuyện thường, không cần chip. Danh sách nằm trong
+          tooltip cho khỏi tốn chỗ: hàng khách vốn đã dày. Máy MỚI NHẤT đứng
+          đầu (API trả theo last_seen_at giảm dần). */}
+      {a.devices.length > 1 && (
+        <span
+          title={[
+            `Tài khoản này đã dùng ${a.devices.length} máy (mới nhất trước):`,
+            ...a.devices.map(
+              (d, i) =>
+                `${i === 0 ? "▸ đang dùng" : "·"} ${
+                  d.platform ? PLATFORM_LABEL[d.platform] : "Không rõ máy"
+                } …${d.tag} — lần đầu ${fmtD(d.firstSeenAt)}, gần nhất ${fmtDT(d.lastSeenAt)}`,
+            ),
+            "",
+            "Mốc ở dòng này là của MÁY ĐANG DÙNG — đổi máy là đếm lại từ đầu.",
+          ].join("\n")}
+          className="rounded-full bg-warn-bg px-2 py-0.5 text-[0.75rem] font-bold text-warn"
+        >
+          Đã đổi {a.devices.length} máy
+        </span>
+      )}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+      {/* CHIP SẴN SÀNG — gộp "online lần cuối" + "dữ liệu tới ngày nào", đo trên
+          ĐÚNG kho sẽ ra khơi. Đứng ngay sau bậc thang vì đây mới là chip trả lời
+          câu "có phải gọi người này không". */}
+      <span
+        title={rdWhy[rd.reason]}
+        className={`rounded-full px-2 py-0.5 text-[0.75rem] font-bold ${rdSkin[rd.tone]}`}
+      >
+        {rdLabel[rd.reason]}
+        {/*  VIẾT ĐỦ CHỮ "ngày" (sửa 2026-08-03b, chủ dự án hỏi "13n là gì?").
+             Viết tắt bắt người đọc suy luận — trái luật của chính dự án cho
+             người dùng 40–60 tuổi, và trang này thì người trực đọc lướt hàng
+             trăm hàng. Con số là SỐ NGÀY TRỌN VẸN còn lại (cắt phần đã trôi của
+             hôm nay), nên nó nhỏ hơn hiệu hai ngày lịch đúng 1 — nói "trọn" để
+             không chỏi với dòng "dữ liệu tới 17/08" ngay bên cạnh. */}
+        {rd.seaDays != null && rd.seaDays > 0
+          ? ` · còn ${rd.seaDays} ngày trọn`
+          : ""}
+      </span>
+      </div>
       {mocs.length > 0 && (
         <span className="text-[0.75rem] text-foreground/40">
           {mocs.join(" · ")}
@@ -3540,6 +3778,20 @@ type PushStats = {
   total: number;
   named: number;
   anonymous: number;
+  /** TÀI KHOẢN đã gắn máy — để CHỌN, không gõ tay số (2026-08-01) */
+  accounts: { phone: string; name: string | null; devices: number }[];
+  /** 10 tin gần nhất + biên nhận thật từ máy bà con (0023) */
+  recent: {
+    id: string;
+    title: string;
+    target: string;
+    targetPhone: string | null;
+    devices: number;
+    sent: number;
+    delivered: number;
+    opened: number;
+    createdAt: string;
+  }[];
 };
 
 function PushNotificationsTab({ perms }: { perms: TabPerms }) {
@@ -3565,6 +3817,8 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
           total: j.total ?? 0,
           named: j.named ?? 0,
           anonymous: j.anonymous ?? 0,
+          accounts: j.accounts ?? [],
+          recent: j.recent ?? [],
         });
       })
       .catch((e: Error) =>
@@ -3595,6 +3849,7 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
     const j = (await r?.json().catch(() => null)) as {
       ok?: boolean;
       code?: string;
+      found?: number;
       sent?: number;
       failed?: number;
       cleaned?: number;
@@ -3611,8 +3866,18 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
       );
       return;
     }
+    // GỬI HỤT PHẢI NÓI THẬT (2026-08-01): trước đây `sent: 0` cũng hiện câu
+    // "Đã gửi 0 máy" trông như đã xong — người gửi tưởng khách đã nhận.
+    if (!j.found) {
+      setResult(
+        target === "phone"
+          ? "KHÔNG có máy nào gắn tài khoản này — chưa ai nhận được. Bà con phải mở app, đăng nhập rồi bật Thông báo thì mới nhận được tin nhắm riêng."
+          : "KHÔNG có máy nào đăng ký nhận thông báo — chưa ai nhận được.",
+      );
+      return;
+    }
     setResult(
-      `Đã gửi ${j.sent} máy${j.failed ? ` · lỗi ${j.failed}` : ""}${j.cleaned ? ` · dọn ${j.cleaned} đăng ký chết` : ""}.`,
+      `Đã gửi ${j.sent}/${j.found} máy${j.failed ? ` · lỗi ${j.failed}` : ""}${j.cleaned ? ` · dọn ${j.cleaned} đăng ký chết` : ""}.`,
     );
     setTitle("");
     setBody("");
@@ -3650,9 +3915,11 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
         <div className="grid grid-cols-3 gap-2.5">
           {(
             [
-              ["Tổng đã đăng ký", stats.total],
-              ["Có SĐT", stats.named],
-              ["Ẩn danh", stats.anonymous],
+              // "Có SĐT / Ẩn danh" nói sai bản chất: cột đó là CON TRỎ TỚI
+              // TÀI KHOẢN, không phải số liên lạc (2026-08-01).
+              ["Máy đã đăng ký", stats.total],
+              ["Đã gắn tài khoản", stats.named],
+              ["Chưa gắn tài khoản", stats.anonymous],
             ] as [string, number][]
           ).map(([label, v]) => (
             <div key={label} className="surface px-3 py-3 text-center">
@@ -3685,7 +3952,7 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
           {(
             [
               ["all", "Toàn bộ"],
-              ["phone", "Một người (SĐT)"],
+              ["phone", "Một tài khoản"],
             ] as ["all" | "phone", string][]
           ).map(([id, label]) => (
             <button
@@ -3703,14 +3970,45 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
             </button>
           ))}
         </div>
+        {/* CHỌN TÀI KHOẢN, KHÔNG GÕ SỐ (2026-08-01). Việc thật là "gửi cho một
+            TÀI KHOẢN" — SĐT chỉ tình cờ là id của tài khoản trong app này. Gõ
+            tay sai một ký tự là bắn vào hư không mà không ai biết; và chỉ tài
+            khoản ĐÃ GẮN MÁY mới gửi tới được, nên liệt kê đúng những tài khoản
+            đó, kèm số máy sẽ nhận. */}
         {target === "phone" && (
-          <input
-            inputMode="tel"
-            placeholder="SĐT người nhận (0901234567)"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
-          />
+          <div className="space-y-1.5">
+            {(stats?.accounts.length ?? 0) === 0 ? (
+              <p className="rounded-xl bg-warn-bg px-3.5 py-3 text-[0.875rem] font-semibold leading-snug text-warn">
+                Chưa tài khoản nào gắn máy — gửi nhắm riêng sẽ không tới được
+                ai. Bà con phải mở app, ĐĂNG NHẬP rồi bật Thông báo trong sheet
+                Tài khoản.
+              </p>
+            ) : (
+              <>
+                <select
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  aria-label="Chọn tài khoản nhận thông báo"
+                  className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+                >
+                  <option value="">— Chọn tài khoản nhận —</option>
+                  {stats?.accounts.map((a) => (
+                    <option key={a.phone} value={a.phone}>
+                      {a.phone}
+                      {a.name ? ` · ${a.name}` : ""} — {a.devices} máy
+                    </option>
+                  ))}
+                </select>
+                {phone && (
+                  <p className="px-1 text-[0.8125rem] font-semibold text-t1">
+                    Sẽ gửi tới{" "}
+                    {stats?.accounts.find((a) => a.phone === phone)?.devices ?? 0}{" "}
+                    máy của tài khoản này.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         )}
         <input
           placeholder="Tiêu đề"
@@ -3750,6 +4048,53 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
           Bạn chỉ có quyền xem thống kê thông báo. Cần quyền gửi thì báo quản trị
           viên bật thêm.
         </p>
+      )}
+
+      {/* LỊCH SỬ + BIÊN NHẬN THẬT (0023). "Đã đẩy" là biên nhận của Apple/
+          Google, KHÁC HẲN "máy bà con đã nhận" — cột Nhận/Đọc do chính service
+          worker trên máy báo về. Tin nằm trong hộp thư ở trang chủ nên kể cả
+          đẩy hụt bà con vẫn đọc được khi mở app. */}
+      {(stats?.recent.length ?? 0) > 0 && (
+        <div className="surface px-4 py-3.5">
+          <p className="text-[0.9375rem] font-bold text-navy">
+            10 tin gần nhất
+          </p>
+          <ul className="mt-2 space-y-2">
+            {stats?.recent.map((m) => (
+              <li
+                key={m.id}
+                className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b border-line pb-2 text-[0.875rem] last:border-b-0 last:pb-0"
+              >
+                <span className="font-bold text-navy">{m.title}</span>
+                <span className="text-foreground/55">
+                  {m.target === "account"
+                    ? `→ ${m.targetPhone ?? "?"}`
+                    : "→ toàn bộ"}
+                </span>
+                <span className="text-foreground/45">{fmtDT(m.createdAt)}</span>
+                <span className="ml-auto tabular-nums">
+                  <b className="text-navy">{m.devices}</b> máy · đẩy{" "}
+                  <b className={m.sent > 0 ? "text-ok" : "text-danger"}>
+                    {m.sent}
+                  </b>{" "}
+                  · nhận <b className="text-ok">{m.delivered}</b> · đọc{" "}
+                  <b className="text-t1">{m.opened}</b>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/55">
+            <b>Đẩy</b> = máy chủ giao được cho Apple/Google. <b>Nhận</b> = máy bà
+            con báo về đã nhận thật (đếm theo <b>máy</b>). <b>Đọc</b> = đếm theo{" "}
+            <b>người</b>: bấm vào thông báo, hoặc mở app xem tin ở mục Thông báo
+            trang chủ — một người hai máy vẫn tính một. Tin luôn nằm trong mục
+            Thông báo ở trang chủ, nên đẩy hụt thì mở app vẫn đọc được.
+          </p>
+          <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/45">
+            Đọc thấp hơn Nhận là <b>bình thường</b>: bà con hay liếc thông báo
+            trên màn khoá rồi vuốt tắt — đường đó không máy nào đo được.
+          </p>
+        </div>
       )}
 
       {confirmSend && (
@@ -3987,7 +4332,7 @@ function DataTab() {
     ) => {
       try {
         const r = await fetch(apiUrl(path), {
-          signal: AbortSignal.timeout(timeoutMs),
+          signal: timeoutSignal(timeoutMs),
         });
         const j = (await r.json()) as Record<string, unknown>;
         if (!r.ok || j.ok === false) {

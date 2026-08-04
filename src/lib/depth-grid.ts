@@ -4,6 +4,8 @@
 // (2 bit/ô, bước 0,05° ≈ 5,5 km). Đáy biển không đổi → asset tĩnh, runtime
 // không gọi API ngoài. Đổi nguồn độ sâu chỉ sửa script + file này.
 
+import { timeoutSignal } from "@/lib/abort";
+
 export type DepthClass =
   | 0 // đất liền (z > -2 m)
   | 1 // rất cạn (z > -4 m) — tuyến không đi qua (rạn, bãi nổi)
@@ -47,11 +49,20 @@ export function depthClassAt(
 
 let cached: Promise<DepthGrid> | null = null;
 
-/** Tải lưới độ sâu (≈30 KB, cùng origin) — cache cho cả phiên */
-export function fetchDepthGrid(): Promise<DepthGrid> {
+/**
+ * Tải lưới độ sâu (≈30 KB, cùng origin) — cache cho cả phiên.
+ *
+ * `async` LÀ LÁ CHẮN THỨ HAI (soát 2026-08-02). Trước đây hàm này KHÔNG async
+ * mà vẫn trả `Promise`: mọi thứ ném ĐỒNG BỘ trong thân hàm (máy cũ thiếu
+ * `AbortSignal.timeout` ném `TypeError` ngay tại chỗ) bay thẳng ra ngoài trước
+ * khi promise kịp tồn tại ⇒ `.catch` của chỗ gọi KHÔNG với tới ⇒ cây React sập,
+ * bản đồ trắng cả chuyến. Lá chắn thứ nhất là `timeoutSignal` (không bao giờ
+ * ném); `async` bọc mọi cú ném còn lại thành promise hỏng để chỗ gọi bắt được.
+ */
+export async function fetchDepthGrid(): Promise<DepthGrid> {
   if (!cached) {
     cached = fetch("/data/depth-grid.v1.bin", {
-      signal: AbortSignal.timeout(15000),
+      signal: timeoutSignal(15000),
     })
       .then((r) => {
         if (!r.ok) throw new Error(`depth grid ${r.status}`);

@@ -30,6 +30,7 @@ import type {
   SupportRequest,
 } from "@/lib/owned-assets";
 import type { CatalogProduct } from "@/lib/sdvico-catalog";
+import { timeoutSignal } from "@/lib/abort";
 
 const CRM_URL = process.env.SDWORK_SUPABASE_URL ?? "";
 const CRM_ANON = process.env.SDWORK_SUPABASE_ANON_KEY ?? "";
@@ -50,7 +51,7 @@ async function callGateway<T>(payload: Record<string, unknown>): Promise<T | nul
         apikey: CRM_ANON,
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(15000),
+      signal: timeoutSignal(15000),
     });
     if (!r.ok) return null;
     const j = (await r.json()) as { ok?: boolean } & T;

@@ -2,12 +2,20 @@
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
-last_verified: 2026-07-31
+last_verified: 2026-08-02
 ttl_days: 90
 <!-- re-verified: 2026-07-25 - boat-switcher/crew-list/urgent-strip chỉ thêm anchor data-tour (chon-tau, them-thuyen-vien, nhac-viec) cho coach-tour hướng dẫn; KHÔNG đổi hành vi đa-tàu — NV1–NV5, handoff H1, vòng đời thêm/xóa/đổi tàu, AC §8 giữ nguyên. -->
 <!-- re-verified: 2026-07-29 — GỠ seed mẫu (app lên thật): crew-list bỏ demoCrew/isDemo/startRealCrew, maintenance-reminders bỏ demoEntries/isDemo, boat-products bỏ filter demo-sp-. User mới thấy màn RỖNG + empty state, tự nhập. KHÔNG đụng hành vi đa-tàu: thuyền viên vẫn động-theo-chủ R2 (không boatId), lịch bảo dưỡng/sản phẩm vẫn gắn tàu + cascade R3 khi xóa tàu giữ nguyên. AC §8 không đổi. -->
 <!-- re-verify note: covers=maintenance-reminders.tsx, crew-list.tsx, boat-products.tsx (seed removal, behavior đa-tàu bất biến). -->
 
+
+<!-- re-verified: 2026-08-02 — soát offline MECE (`ops/audit-offline-2026-08-02.md`, mục D-PH5/D-PH6): `crew-list.tsx` chỉ THÊM ĐỒNG HỒ cho hai lời gọi mạng, KHÔNG đổi nghiệp vụ sổ thuyền viên, không đổi shape dữ liệu, không đụng khoá `forfish.crew.v1`. Lỗi cũ: tra cảnh báo CCCD và gửi báo cáo đều `fetch` không `AbortSignal` ⇒ ca "sóng sống mà chết" (bắt tay được, gói tin không về) làm promise không bao giờ settle ⇒ UI kẹt "Đang tra cảnh báo…" / nút kẹt "Đang gửi…" vĩnh viễn, không lỗi, không nút thử lại — bà con không biết đã gửi được hay chưa. Nay 12 s (tra) / 20 s (gửi); nhánh `catch` sẵn có tự lo phần hiển thị. -->
+
+<!-- re-verified: 2026-08-02g — HAI MẠCH ĐỔI, KHÔNG mạch nào chạm hành vi đa-tàu.
+(1) CHUỖI CỨNG ĐĂNG NHẬP (0026): `urgent-strip.tsx` chỉ gắn thêm header chuỗi vào lời gọi `/api/me/sdvico` và đổi `AbortSignal.timeout` → `timeoutSignal` (hàm tĩnh kia không có trên Safari 15, ném ngay trong `try`); `crew-list.tsx` đổi đúng hai chỗ đồng hồ y vậy. KHÔNG đổi shape dữ liệu, không đụng `boatId`, không đụng khoá `forfish.boats.*`. Thuyền viên VẪN động-theo-chủ (R2), cascade R3 và guard R7 nguyên vẹn.
+(2) "ĐỌC ĐƯỢC ≠ CHƯA CÓ GÌ" (K4): `lib/boats.ts` + `boat-products.tsx` nay KHOÁ CỬA GHI khi không đọc nổi kho, thay vì lặng lẽ trả sổ mẫu. Đây là mạch BẢO VỆ chính R3/R7 chứ không sửa chúng: bản cũ, một ký tự JSON hỏng là `loadBoats` trả `demoBoats()` ("Tàu của tôi", mã trống), `boat-store` bật `ready`, rồi cú `addBoat`/`updateBoat` đầu tiên ĐÈ danh sách mẫu lên sổ thật — mất cả đội tàu, mà giấy tờ/thuyền viên/bảo dưỡng đều gắn theo `boatId` nên mất tàu là mất đường về của hết thảy. AC đa-tàu không đổi một dòng; thứ đổi là app thôi tự huỷ dữ liệu khi kho hỏng. -->
+
+<!-- re-verified: 2026-08-02i — `boat-store.ts` + `boat-switcher.tsx` CÓ đổi, nhưng KHÔNG đụng một dòng AC đa-tàu nào. `addBoat`/`updateBoat` đổi kiểu trả về `void → boolean` (THÊM, không phá chỗ gọi — tsc sạch), và `boat-switcher` hiện banner đỏ "máy hết chỗ nên CHƯA lưu được hồ sơ tàu" khi ghi hỏng. Vì sao cần: bản cũ vứt kết quả `saveBoats` rồi vẫn `emit()` ⇒ thêm/sửa/xoá tàu HIỆN ĐÚNG trên màn hình, mở lại app là quay về cũ — bà con tưởng đã lưu. Ca này nay phổ biến hơn hẳn vì đường ghi không còn xoá dự báo để lấy chỗ (luật "hết chỗ thì từ chối ghi", 2026-08-02h). Phân loại cố-định-theo-tàu vs động-theo-chủ (R1/R2), cascade R3, guard R7 "luôn còn ≥1 tàu" giữ nguyên; `removeBoat` không đổi chữ ký. `urgent-strip.tsx` chỉ gắn thêm header chuỗi cứng vào lời gọi `/api/me/sdvico`. -->
 
 > **Mục đích**: oracle HÀNH VI cho đa-tàu — định nghĩa hồ sơ nào gắn TÀU, hồ sơ nào gắn CHỦ, vòng đời thêm/xóa/đổi tàu chạy ra sao, đúng-sai đo bằng AC nào. KHÔNG mô tả giao diện (việc của [07-design-spec](07-design-spec.md)).
 

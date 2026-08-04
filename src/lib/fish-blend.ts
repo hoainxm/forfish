@@ -18,6 +18,7 @@
 // monotonic: mất nguồn thì bớt thông tin, KHÔNG bịa thêm).
 
 import weightsRaw from "@/data/fish-blend-weights.json";
+import { timeoutSignal } from "@/lib/abort";
 
 /* ── bảng trọng số (sinh offline) ─────────────────────────────────────────── */
 
@@ -562,14 +563,22 @@ let cached: Promise<Climatology | null> | null = null;
 export function fetchClimatology(): Promise<Climatology | null> {
   if (!cached) {
     cached = fetch("/data/fish-climatology.v1.json", {
-      signal: AbortSignal.timeout(15000),
+      signal: timeoutSignal(15000),
     })
       .then((r) => {
         if (!r.ok) throw new Error(`climatology ${r.status}`);
         return r.json();
       })
       .then((j) => decodeClimatology(j as ClimatologyFile))
-      .catch(() => null);
+      .catch(() => {
+        /* XOÁ CACHE RỒI MỚI TRẢ null (D-PH12, soát 2026-08-02): trước đây
+           `.catch(() => null)` gán thẳng promise-null vào `cached`, nên MỘT
+           lần hỏng (mở app đúng lúc mất sóng) là CẢ PHIÊN trả null — sóng về
+           rồi, service worker đã có file rồi, lớp cá vẫn không bao giờ pha
+           trộn mùa vụ cho ngày xa. Khuôn đúng lấy từ lib/depth-grid. */
+        cached = null; // lần sau thử lại
+        return null;
+      });
   }
   return cached;
 }

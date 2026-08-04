@@ -25,21 +25,67 @@ export const OFFLINE_COAST_COLOR = "#9c8f74";
  */
 export const BASEMAP_FAIL_LIMIT = 3;
 
+/**
+ * IM LẶNG bao lâu thì coi là "nền không về" (mili giây).
+ *
+ * VÌ SAO CÓ VẾ NÀY (lỗi C-6, soát 2026-08-02): ca "sóng sống mà chết" ngoài
+ * khơi 40–60 hải lý — máy vẫn báo có mạng, bắt tay được với máy chủ, nhưng gói
+ * tin KHÔNG BAO GIỜ về. Ô nền Carto là host ngoài, MapLibre KHÔNG có đồng hồ
+ * chặn cho ô: ô treo thì nó KHÔNG bắn sự kiện `error` ⇒ số ô trượt đứng ở 0 ⇒
+ * hai vế cũ (`!online`, `fails >= 3`) đều không đúng ⇒ hình bờ + đảo ĐÃ NẰM
+ * SẴN TRONG MÁY không bao giờ được vẽ. Bà con nhìn một mặt xanh trơn, mũi tên
+ * gió và chấm tàu lơ lửng, không thấy bờ, không thấy đảo.
+ *
+ * 9 giây: dài hơn mọi lần tải ô bình thường (kể cả 3G cảng ~2–4 s) để không
+ * bật nhầm lúc mạng chỉ chậm, nhưng vẫn ngắn hơn sức chờ của người đang cần
+ * biết mình ở đâu.
+ *
+ * ĐỒNG HỒ BẤM TỪ LÚC NÀO — đọc kỹ (LỖI 1, soát chéo 2026-08-02): phải bấm từ
+ * lúc bản đồ THẬT SỰ XIN ô nền, KHÔNG phải từ lúc mở màn. MapLibre là hàng
+ * lazy-load: tải thư viện + dựng style + qua proxy ô còn nằm phía sau, ở 3G
+ * cảng ngốn gần hết 9 giây trước khi có request đầu tiên ⇒ bấm từ lúc mở màn
+ * là DƯƠNG TÍNH GIẢ: giây thứ 9 bật hình bờ trong máy kèm câu "Mạng yếu",
+ * giây 12 ô về thì tắt — bản đồ nhấp nháy, mà câu vừa nói lại SAI SỰ THẬT.
+ * Luật ở `basemapIsSilent` bên dưới, chỗ gọi chỉ việc đưa đúng mốc.
+ */
+export const BASEMAP_SILENT_MS = 9000;
+
+/**
+ * Đã đủ căn cứ để nói "ô nền im lặng" chưa — THUẦN, có test.
+ *
+ * @param askedAt mốc bản đồ BẮT ĐẦU XIN ô nền (ms). `null` = CHƯA xin lần nào
+ *   ⇒ chưa được tính giờ (mở màn ≠ xin ô — xem BASEMAP_SILENT_MS).
+ * @param tileSeen đã có ít nhất MỘT ô nền về trong lượt này chưa.
+ */
+export function basemapIsSilent(
+  askedAt: number | null,
+  tileSeen: boolean,
+  nowMs: number,
+): boolean {
+  if (askedAt == null || tileSeen) return false;
+  return nowMs - askedAt >= BASEMAP_SILENT_MS;
+}
+
 export type BasemapHealth = {
   /** navigator.onLine — máy có nghĩ là đang có mạng không */
   online: boolean;
   /** số ô nền tải trượt tính từ lần tải được gần nhất */
   fails: number;
+  /** không MỘT ô nền nào về trong `BASEMAP_SILENT_MS` (ô treo, không báo lỗi) */
+  silent?: boolean;
 };
 
 /**
- * Có bật nền tối giản trong máy hay không.
- * Máy báo mất mạng → bật ngay (không cần chờ đủ 3 ô lỗi).
- * Máy báo có mạng nhưng ô nền vẫn trượt (wifi cảng "có mà không ra") → bật khi
- * trượt đủ ngưỡng.
+ * Có bật nền tối giản trong máy hay không. BA vế, vế nào đúng cũng bật:
+ * 1. Máy báo mất mạng → bật ngay (không cần chờ đủ 3 ô lỗi).
+ * 2. Máy báo có mạng nhưng ô nền TRƯỢT (wifi cảng "có mà không ra") → bật khi
+ *    trượt đủ ngưỡng.
+ * 3. Ô nền IM LẶNG quá lâu — không về, cũng không báo lỗi (sóng "sống mà
+ *    chết"). Đây là ca duy nhất hai vế trên không bắt được, và cũng là ca hay
+ *    gặp nhất ngoài khơi.
  */
 export function shouldUseOfflineBasemap(h: BasemapHealth): boolean {
-  return !h.online || h.fails >= BASEMAP_FAIL_LIMIT;
+  return !h.online || h.fails >= BASEMAP_FAIL_LIMIT || h.silent === true;
 }
 
 /**

@@ -6,6 +6,8 @@
 
 import { apiUrl } from "@/lib/api-base";
 import type { PushSubscriptionInput } from "@/lib/push-subscriptions";
+import { timeoutSignal } from "@/lib/abort";
+import { tokenHeader } from "@/lib/device-token-store";
 
 /** VAPID public key trình duyệt cần dạng Uint8Array, server phát base64url. Thuần, có test. */
 export function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -25,7 +27,7 @@ export function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export async function fetchVapidPublicKey(): Promise<string | null> {
   try {
     const r = await fetch(apiUrl("/api/push/vapid-public-key"), {
-      signal: AbortSignal.timeout(8000),
+      signal: timeoutSignal(8000),
     });
     if (r.ok) {
       const j = (await r.json()) as { key?: string | null };
@@ -101,13 +103,13 @@ export async function subscribeToPush(
 
   const r = await fetch(apiUrl("/api/push/subscribe"), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...tokenHeader() },
     body: JSON.stringify({
       subscription: toInput(sub),
       phone: phone ?? undefined,
       userAgent: navigator.userAgent,
     }),
-    signal: AbortSignal.timeout(20000),
+    signal: timeoutSignal(20000),
   }).catch(() => null);
   if (!r?.ok) return { ok: false, error: "save_failed" };
   return { ok: true };
@@ -120,9 +122,83 @@ export async function unsubscribeFromPush(): Promise<boolean> {
   await sub.unsubscribe().catch(() => {});
   const r = await fetch(apiUrl("/api/push/subscribe"), {
     method: "DELETE",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...tokenHeader() },
     body: JSON.stringify({ endpoint }),
-    signal: AbortSignal.timeout(20000),
+    signal: timeoutSignal(20000),
   }).catch(() => null);
   return Boolean(r?.ok);
+}
+
+/* --------------------------------------------------------------------------
+   ĐỒNG BỘ TÀI KHOẢN ↔ MÁY (2026-08-01)
+-------------------------------------------------------------------------- */
+
+/**
+ * Gắn lại máy này vào TÀI KHOẢN đang đăng nhập. Gọi mỗi lần mở app (ghép vào
+ * nhịp heartbeat) — KHÔNG phải chỉ lúc bấm nút bật thông báo.
+ *
+ * Vì sao cần: (a) ai bật thông báo TRƯỚC khi đăng nhập thì máy ẩn danh vĩnh
+ * viễn, đăng nhập sau cũng không có gì gắn lại; (b) Apple/Google XOAY endpoint
+ * định kỳ — endpoint mới mà không báo lên là mất liên lạc lặng lẽ.
+ *
+ * ⚠️ KHÔNG ĐƯỢC LÀM PHIỀN VIỆC ĐI BIỂN: máy chưa đăng ký thông báo thì thoát
+ * ngay, không gọi mạng; có đăng ký thì bắn một POST rồi QUÊN — hết giờ 10 giây,
+ * nuốt sạch lỗi, không ai đợi kết quả. App không cần cái "OK" của server để
+ * chạy: hỏng thì lần mở sau tự thử lại.
+ */
+export type SyncPushResult =
+  /** đã gắn máy này vào tài khoản đang đăng nhập */
+  | "attached"
+  /** máy chưa bật thông báo → không có gì để gắn */
+  | "no-subscription"
+  /** máy chủ nhận được nhưng KHÔNG đọc được phiên (chưa đăng nhập / cookie hỏng) */
+  | "no-session"
+  /** mất sóng / hết giờ / máy chủ lỗi */
+  | "failed";
+
+export async function syncPushAccount(): Promise<SyncPushResult> {
+  try {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      return "failed";
+    }
+    const sub = await getExistingPushSubscription();
+    if (!sub) return "no-subscription";
+    const r = await fetch(apiUrl("/api/push/subscribe"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...tokenHeader() },
+      body: JSON.stringify({
+        subscription: toInput(sub),
+        userAgent: navigator.userAgent,
+      }),
+      signal: timeoutSignal(10000),
+      keepalive: true,
+    });
+    if (!r.ok) return "failed";
+    const j = (await r.json().catch(() => null)) as { attached?: boolean } | null;
+    return j?.attached ? "attached" : "no-session";
+  } catch {
+    /* mất sóng / hết giờ — kệ, lần mở app sau tự gắn lại */
+    return "failed";
+  }
+}
+
+/**
+ * GỠ tài khoản khỏi máy này (gọi lúc ĐĂNG XUẤT) nhưng GIỮ đăng ký thông báo.
+ * Máy vẫn nhận tin chung, thôi nhận tin nhắm riêng — tàu dùng chung điện thoại
+ * thì tin của chủ tàu không được chạy tới máy đang trong tay bạn thuyền.
+ */
+export async function detachPushAccount(): Promise<void> {
+  try {
+    const sub = await getExistingPushSubscription();
+    if (!sub) return;
+    await fetch(apiUrl("/api/push/subscribe"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...tokenHeader() },
+      body: JSON.stringify({ endpoint: sub.endpoint }),
+      signal: timeoutSignal(10000),
+      keepalive: true,
+    });
+  } catch {
+    /* đăng xuất KHÔNG được chờ việc này — hỏng thì thôi */
+  }
 }

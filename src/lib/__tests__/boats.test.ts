@@ -20,7 +20,12 @@ function makeStore() {
 const store = makeStore();
 vi.stubGlobal("window", { localStorage: store });
 
-beforeEach(() => store.clear());
+// clear + reset cờ readFailed (module-level, sticky theo thiết kế K4): đọc kho
+// rỗng cho readFailed=false để mỗi ca bắt đầu sạch, không dính lỗi ca trước.
+beforeEach(() => {
+  store.clear();
+  loadBoats();
+});
 
 describe("loadBoats — KHÔNG seed tàu mẫu (fix data 'dùng chung' 2026-07-02)", () => {
   it("chưa có gì → rỗng (không tạo 'Tàu của tôi' mặc định)", () => {

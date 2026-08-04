@@ -11,6 +11,7 @@
 
 import { parseVasepBulletin } from "@/lib/port-price-source";
 import { apiUrl } from "@/lib/api-base";
+import { timeoutSignal } from "@/lib/abort";
 
 /** Giá 1 loài trong 1 tuần (đồng/kg). */
 export interface WeekSpeciesPrice {
@@ -152,7 +153,7 @@ export function seriesForSpecies(
 export async function fetchPriceHistory(): Promise<PriceHistoryResult> {
   try {
     const r = await fetch(apiUrl("/api/port-prices/history"), {
-      signal: AbortSignal.timeout(20000),
+      signal: timeoutSignal(20000),
     });
     if (r.ok) {
       const j = (await r.json()) as PriceHistoryResult;

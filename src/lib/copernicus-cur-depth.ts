@@ -25,8 +25,9 @@ import {
   nearestIndex,
   isFill,
 } from "@/lib/copernicus";
-import { gridPoints, type ForecastGrid, type GridHour } from "@/lib/forecast-grid";
+import { GRID_BOUNDS_DEG, type ForecastGrid, type GridHour } from "@/lib/forecast-grid";
 import { CUR_DEPTH_MAX_DAYS } from "@/lib/weather-snapshot-id";
+import { timeoutSignal } from "@/lib/abort";
 
 const UA =
   "Mozilla/5.0 (compatible; SDFish/1.0; +https://github.com/Long-Forfun/ForFish)";
@@ -42,6 +43,48 @@ export interface CurDepthGrid extends ForecastGrid {
   tier: number;
   /** độ sâu THẬT của tầng dữ liệu (m) — vd 47,4 khi xin 50 */
   depthM: number;
+}
+
+/*  ═══ LƯỚI RIÊNG, DÀY GẤP ĐÔI MỖI CHIỀU ═══ (2026-08-03)
+
+    VÌ SAO: lưới chung `gridPoints()` là 13×12 = 156 điểm cho cả Biển Đông, tức
+    mỗi ô ≈190×230 km. Với gió/sóng thì chấp nhận được (trường liên tục, ô nào
+    cũng có số). Với DÒNG CHẢY THEO TẦNG thì không: ô nào có đáy nông hơn tầng là
+    ô đó KHÔNG CÓ SỐ — đo trên kho thật 2026-08-03: tầng 50 m có 83/156 ô null,
+    150 m là 108, 300 m là 112. Hơn nửa lưới là lỗ, mà mỗi lỗ to bằng cả ngư
+    trường ⇒ màn hình ra bàn cờ ô vuông (chủ dự án: "render thiếu, bị ô ô"), và
+    chỗ bị khoét đúng là VEN BỜ + THỀM NÔNG — nơi phần lớn bà con đánh bắt.
+
+    GIÁ PHẢI TRẢ ≈ 0 VỀ ĐƯỜNG TRUYỀN: server đã tải NGUYÊN chunk toàn cầu cho mỗi
+    (ngày × tầng) rồi mới lấy mẫu, nên lấy 575 điểm hay 156 điểm cũng là ĐÚNG
+    NGẦN ẤY byte từ Copernicus. Chỉ payload trả về máy bà con là to lên — và phần
+    đó đã trả tiền trước bằng việc bỏ bốn khoá gió/sóng rỗng (xem `GridHour`).
+
+    KHUNG GIỮ NGUYÊN: cùng bbox với lưới chung (98–123°Đ, 1–24°B) — lớp WebGL
+    dựng quad theo bbox của lưới nên lệch khung là lệch cả lớp màu. */
+const CUR_DEPTH_N_LON = 25;
+const CUR_DEPTH_N_LAT = 23;
+
+/** 25×23 = 575 điểm, bước ~1,04° (≈115 km) — dày gấp đôi lưới chung mỗi chiều.
+    THUẦN — test được. */
+export function curDepthPoints(): { lat: number; lon: number }[] {
+  const b = GRID_BOUNDS_DEG;
+  const pts: { lat: number; lon: number }[] = [];
+  for (let i = 0; i < CUR_DEPTH_N_LAT; i++) {
+    for (let j = 0; j < CUR_DEPTH_N_LON; j++) {
+      pts.push({
+        lat:
+          Math.round(
+            (b.latMin + (i * (b.latMax - b.latMin)) / (CUR_DEPTH_N_LAT - 1)) * 100,
+          ) / 100,
+        lon:
+          Math.round(
+            (b.lonMin + (j * (b.lonMax - b.lonMin)) / (CUR_DEPTH_N_LON - 1)) * 100,
+          ) / 100,
+      });
+    }
+  }
+  return pts;
 }
 
 /** Chỉ số tầng theo độ sâu danh nghĩa: |elevation| gần `tierM` nhất (tier 0 =
@@ -68,7 +111,7 @@ export function sliceCurDepthDays(grid: CurDepthGrid, days: number): CurDepthGri
 
 async function getBuf(path: string, revalidate: number): Promise<Uint8Array> {
   const r = await fetch(`${BASE}/${path}`, {
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: timeoutSignal(TIMEOUT_MS),
     headers: { "User-Agent": UA },
     next: { revalidate },
   });
@@ -102,7 +145,7 @@ export async function fetchCurDepthGrid(
 ): Promise<CurDepthGrid | null> {
   try {
     const zres = await fetch(`${BASE}/.zmetadata`, {
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: timeoutSignal(TIMEOUT_MS),
       headers: { "User-Agent": UA },
       next: { revalidate: 21600 },
     });
@@ -140,7 +183,7 @@ export async function fetchCurDepthGrid(
     const base = Math.floor(nowMs / DAY_MS) * DAY_MS + 12 * 60 * 60 * 1000;
     const nSteps = Math.max(1, Math.min(CUR_DEPTH_MAX_DAYS, Math.round(days)));
 
-    const pts = gridPoints();
+    const pts = curDepthPoints();
     // chỉ số ô nguồn cho từng điểm lưới (tính MỘT lần)
     const srcIdx = pts.map((p) => {
       let bi = 0;
@@ -192,19 +235,18 @@ export async function fetchCurDepthGrid(
     }
     if (timesOut.length === 0) return null;
 
+    /*  CHỈ GHI HAI TRƯỜNG DÒNG CHẢY (2026-08-03) — bốn khoá gió/sóng trước đây
+        luôn là `null`, tức ~55 byte rác mỗi ô mỗi ngày, chiếm quá nửa payload.
+        Kho trong máy bà con giữ JSON THÔ nên chỗ rác đó ăn thật vào hạn ngạch đi
+        biển. Ô KHÔNG CÓ SỐ thành `{}` — mọi chỗ đọc đều dùng `?? null` (xem
+        `GridHour`), nên vắng khoá và khoá-bằng-null là một. */
     const cells = pts.map((p, pi) => ({
       lat: p.lat,
       lon: p.lon,
-      hours: dayVals.map(
-        (dv): GridHour => ({
-          windKmh: null,
-          windDirDeg: null,
-          waveM: null,
-          waveDirDeg: null,
-          curKmh: dv[pi].curKmh,
-          curDirDeg: dv[pi].curDirDeg,
-        }),
-      ),
+      hours: dayVals.map((dv): GridHour => {
+        const { curKmh, curDirDeg } = dv[pi];
+        return curKmh == null ? {} : { curKmh, curDirDeg };
+      }),
     }));
 
     return { cells, times: timesOut, tier: tierM, depthM };

@@ -15,9 +15,17 @@
 // ĐỘ MẶN (Copernicus): CHƯA nối — theo luật repo phải fetch thử thật kiểm
 // đơn vị/endpoint Zarr trước (external-services.md). Để đợt sau kèm probe.
 
-import { saveForecast, loadForecast, loadAll } from "@/lib/forecast-cache";
+import {
+  saveForecast,
+  loadForecast,
+  loadAll,
+  noteForecastKept,
+  isDefinitelyOffline,
+  type ForecastSaveOutcome,
+} from "@/lib/forecast-cache";
+import { forecastStoreReady } from "@/lib/forecast-store";
 import { apiUrl } from "@/lib/api-base";
-import { isCacheCurrent } from "@/lib/source-cadence";
+import { isCacheCurrent, isDailyCacheCurrent } from "@/lib/source-cadence";
 import {
   scalarSnapshotId,
   salinitySnapshotId,
@@ -29,6 +37,7 @@ import {
   GRID_N_LAT,
   GRID_N_LON,
 } from "@/lib/forecast-grid";
+import { timeoutSignal } from "@/lib/abort";
 
 // mây/mưa/nhiệt/dông/áp suất = Open-Meteo (lưới gió, theo GIỜ);
 // salinity = Copernicus (lưới 1/3° riêng, theo NGÀY) qua /api/salinity;
@@ -97,7 +106,7 @@ export async function fetchScalarFieldsLive(
     `&timezone=Asia%2FHo_Chi_Minh&forecast_days=${fd}&hourly=${hourly}` +
     (opts?.model ? `&models=${opts.model}` : "");
 
-  const res = await fetch(url, { signal: AbortSignal.timeout(20000) }).then(
+  const res = await fetch(url, { signal: timeoutSignal(20000) }).then(
     (r) => {
       if (!r.ok) throw new Error(`scalar grid ${r.status}`);
       return r.json();
@@ -206,25 +215,115 @@ function scalarGridUsable(g: ScalarGrid | null | undefined): boolean {
   return g.cells.length === nLat * nLon;
 }
 
+/** Lớp này có SỐ THẬT chưa — đủ ô đủ mốc mà mọi giá trị null thì vẽ ra một mặt
+    trống câm (model thiếu biến, vd CAPE ở nguồn dự phòng). */
+export function scalarHasValues(g: ScalarGrid | null | undefined): boolean {
+  return !!g?.cells?.some((c) => c.values?.some((v) => v != null));
+}
+
+/**
+ * ⚠️ ĐÃ BỎ KHỎI CỬA GHI ĐÈ (2026-08-02j). Giữ tên cho chỗ gọi/test cũ, KHÔNG
+ * được dùng lại làm cớ mở cửa — đọc `shouldOverwriteScalar`.
+ */
+export const SCALAR_OVERWRITE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * CÓ ĐƯỢC GHI ĐÈ BẢN ĐANG CÓ KHÔNG (thuần, 2026-08-02) — cùng khuôn với
+ * `shouldOverwriteGrid`. Ca thật: `fetchScalarFieldsLive` ghi CẢ 5 lớp một
+ * lượt; nguồn trả thiếu một biến (model không có CAPE / mưa) là lớp đó thành
+ * mảng null và ĐÈ THẲNG lên bản đầy đủ đã tải sẵn ở bờ — ra biển bật lớp lên
+ * thấy trắng trơn mà chip vẫn báo "đã lưu".
+ */
+/**
+ * LỚP ĐÃ LƯU CÒN DÙNG ĐƯỢC KHÔNG — trục thời gian còn với tới hôm nay trở đi.
+ * THUẦN, có test. Cùng luật với `gridWaveStillUseful` bên lưới gió/sóng.
+ */
+export function scalarStillUseful(
+  g: ScalarGrid | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  const times = g?.times ?? [];
+  if (times.length === 0) return false;
+  const last = Date.parse(times[times.length - 1]);
+  return Number.isFinite(last) && last >= now;
+}
+
+export function shouldOverwriteScalar(
+  prev: { data: ScalarGrid; savedAt: number } | null | undefined,
+  next: ScalarGrid,
+  now: number = Date.now(),
+): boolean {
+  if (!prev?.data) return true;
+  if (!scalarGridUsable(prev.data)) return true;
+  /*  ⚠️ TUỔI KHÔNG PHẢI LÀ CỚ ĐỂ MẤT LỚP (sửa 2026-08-02j — cùng lỗi đã vá ở
+      `shouldOverwriteGrid`, sót lại đúng lớp anh em này).
+
+      Cửa cũ: "bản lưu quá 24 giờ → cho đè vô điều kiện". Sang NGÀY THỨ HAI của
+      chuyến biển thì MỌI bản đều quá 24 giờ — trạng thái BÌNH THƯỜNG, không phải
+      ca hiếm. Lúc đó một lượt sóng chập chờn trả lớp toàn null là **đè thẳng**
+      lên lớp mây/mưa/nhiệt/độ mặn đã tải ở bờ, và giữa biển không tải lại được.
+      Đúng thứ làm "hành vi ngày 2 khác ngày 9".
+
+      Câu hỏi đúng: lớp đã lưu còn NÓI VỀ TƯƠNG LAI không. Còn thì giữ; trục thời
+      gian đã trôi qua hết thì giữ cũng vô nghĩa, cho đè để bản mới vào được (đó
+      mới là ca "nguồn chết dài ngày" mà trần 24 giờ định chữa). */
+  if (scalarHasValues(prev.data) && !scalarHasValues(next)) {
+    return !scalarStillUseful(prev.data, now);
+  }
+  return true;
+}
+
+/** Ghi lớp dải màu QUA CỬA "bản mới có tốt bằng bản cũ không". Ba trạng thái —
+    `kept` (kho đang giữ bản có số, khỏi ghi) KHÁC HẲN `failed` (máy hết chỗ);
+    gộp hai thứ đó vào một chữ `false` là gốc vòng đốt sóng, xem forecast-cache. */
+function saveScalarChecked(
+  id: string,
+  g: ScalarGrid,
+  dataAt?: number,
+): ForecastSaveOutcome {
+  const prev = loadForecast<ScalarGrid>(SCALAR_NS, id);
+  if (!shouldOverwriteScalar(prev, g)) {
+    noteForecastKept(SCALAR_NS);
+    return "kept";
+  }
+  return saveForecast(SCALAR_NS, id, g, dataAt) ? "written" : "failed";
+}
+
 /** Độ mặn (Copernicus, theo NGÀY) — qua /api/salinity (server fetch S3). Cache
     offline giống các lớp kia; mất mạng → bản lưu + stale. */
 async function fetchSalinityField(days: number): Promise<ScalarGrid> {
   const id = cacheId("salinity", days);
-  // bản trong máy còn hiện hành → dùng luôn (khỏi đập nguồn)
+  /*  NHỊP NGÀY (2026-08-03): độ mặn là Copernicus theo NGÀY, không phải
+      Open-Meteo 4 mốc/ngày — xem `isDailyCacheCurrent`. Đường live ở dưới ôm
+      đồng hồ 35 giây, nên mỗi lần tuyên "hết hiện hành" oan là một lần bà con
+      chờ nửa phút để nhận lại đúng bản đang nằm trong máy. */
   const fresh = loadForecast<ScalarGrid>(SCALAR_NS, id);
-  if (fresh && scalarGridUsable(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
+  if (fresh && scalarGridUsable(fresh.data) && isDailyCacheCurrent(fresh.savedAt, Date.now())) {
     return fresh.data;
+  }
+  /*  MẤT SÓNG HẲN → ĐỌC BẢN ĐÃ LƯU TRƯỚC (2026-08-03 — lỗ hổng sót lại của
+      khuôn K3). Lớp gió/sóng, lớp dải màu Open-Meteo và dòng chảy tầng sâu đều
+      đã có nấc này từ 2026-08-02; ĐỘ MẶN thì không, vì `fetchScalarField` rẽ
+      sang đây NGAY DÒNG ĐẦU, trước cả `forecastStoreReady()`. Hệ quả giữa biển:
+      bật lớp độ mặn là 10 giây snapshot + 35 giây live cùng hỏng, rồi mới lấy ra
+      thứ vốn nằm sẵn trong máy — và vì kho IndexedDB nạp bất đồng bộ, đọc trước
+      lúc nạp xong còn trượt luôn cả bản đó. */
+  await forecastStoreReady();
+  if (isDefinitelyOffline()) {
+    const hit = loadForecast<ScalarGrid>(SCALAR_NS, id);
+    if (hit && scalarGridUsable(hit.data))
+      return { ...hit.data, stale: true, savedAt: hit.savedAt };
   }
   // ƯU TIÊN SNAPSHOT cron (same-origin, không đập Copernicus bằng IP máy) —
   // 2026-07-29: độ mặn nay CÓ snapshot server như các lớp khác.
   const snap = await loadSalinitySnapshotClient(days);
-  if (snap && scalarGridUsable(snap) && isCacheCurrent(snap.savedAt, Date.now())) {
-    saveForecast(SCALAR_NS, id, snap, snap.savedAt ?? undefined);
+  if (snap && scalarGridUsable(snap) && isDailyCacheCurrent(snap.savedAt, Date.now())) {
+    saveScalarChecked(id, snap, snap.savedAt ?? undefined);
     return snap;
   }
   try {
     const r = await fetch(apiUrl(`/api/salinity?days=${Math.round(days)}`), {
-      signal: AbortSignal.timeout(35000),
+      signal: timeoutSignal(35000),
     });
     if (!r.ok) throw new Error(`salinity ${r.status}`);
     const j = (await r.json()) as {
@@ -244,7 +343,7 @@ async function fetchSalinityField(days: number): Promise<ScalarGrid> {
       nLat: j.nLat,
       nLon: j.nLon,
     };
-    saveForecast(SCALAR_NS, id, g);
+    saveScalarChecked(id, g);
     return g;
   } catch (err) {
     // live lỗi (Copernicus S3 chậm/hỏng): bản trong máy trước, rồi SNAPSHOT cron
@@ -253,7 +352,7 @@ async function fetchSalinityField(days: number): Promise<ScalarGrid> {
     if (hit && scalarGridUsable(hit.data))
       return { ...hit.data, stale: true, savedAt: hit.savedAt };
     if (snap && scalarGridUsable(snap)) {
-      saveForecast(SCALAR_NS, id, snap, snap.savedAt ?? undefined);
+      saveScalarChecked(id, snap, snap.savedAt ?? undefined);
       return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
     }
     throw err;
@@ -265,7 +364,7 @@ async function loadSalinitySnapshotClient(days: number): Promise<ScalarGrid | nu
   try {
     const r = await fetch(
       apiUrl(`/api/weather-snapshot?id=${salinitySnapshotId(days)}`),
-      { signal: AbortSignal.timeout(10000) },
+      { signal: timeoutSignal(10000) },
     );
     if (!r.ok) return null;
     const g = (await r.json()) as ScalarGrid;
@@ -296,6 +395,23 @@ export async function fetchScalarField(
   if (fresh && scalarGridUsable(fresh.data) && isCacheCurrent(fresh.savedAt, Date.now())) {
     return fresh.data;
   }
+  /* MẤT SÓNG HẲN → ĐỌC BẢN ĐÃ LƯU TRƯỚC (K3, 2026-08-02 — cùng khuôn `sea.ts`).
+     Đường thường đốt tới 30 giây MỖI LỚP (10 s snapshot + 20 s live), mà màn Ra
+     khơi bật lần lượt 5 lớp dải màu ⇒ ngồi giữa biển bấm lớp nào cũng quay nửa
+     phút rồi mới ra bản vốn đã nằm trong máy. Chỉ đi tắt khi máy KHẲNG ĐỊNH mất
+     sóng; ca "sóng sống mà chết" vẫn đi đường thường. */
+  /*  CHỜ KHO MỞ XONG RỒI MỚI ĐỌC (2026-08-02k — vá lỗi CHẶN).
+      Đường tắt này chạy khi máy KHẲNG ĐỊNH mất sóng, tức đúng lúc giữa biển.
+      Payload nay nằm ở IndexedDB (nạp bất đồng bộ lúc mở app), nên đọc trước khi
+      nạp xong là trượt ⇒ rơi xuống nhánh mạng ⇒ offline thì nhánh đó hỏng TỨC
+      THÌ (không có độ trễ mạng che cửa sổ đua) ⇒ màn hình báo "chưa có số nào
+      lưu trong máy" trong khi kho còn nguyên. Chờ ở đây là hợp lệ: hàm đã async,
+      và `forecastStoreReady()` có trần chờ nên không bao giờ treo. */
+  await forecastStoreReady();
+  if (isDefinitelyOffline()) {
+    const saved = savedScalarFallback(kind, days);
+    if (saved) return saved;
+  }
   // ƯU TIÊN SNAPSHOT (user 2026-07-29: hạn chế bị khoá IP vì tải nhiều): hỏi
   // bản cron tính sẵn (same-origin, CDN + SW cache) TRƯỚC khi gọi Open-Meteo
   // bằng IP máy bà con. Chỉ nhận khi bản còn HIỆN HÀNH theo nhịp phát hành
@@ -305,14 +421,16 @@ export async function fetchScalarField(
     if (snap && scalarGridUsable(snap) && isCacheCurrent(snap.savedAt, Date.now())) {
       // lưu vào máy với ĐÚNG tuổi thật (pretrip/offline cần bản localStorage;
       // tuổi thật giữ isCacheCurrent lần sau không nhầm bản cũ là mới)
-      saveForecast(SCALAR_NS, cacheId(kind, days), snap, snap.savedAt ?? undefined);
+      saveScalarChecked(cacheId(kind, days), snap, snap.savedAt ?? undefined);
       return snap;
     }
   }
   try {
     const all = await fetchScalarFieldsLive(days);
+    // QUA CỬA từng lớp: nguồn thiếu MỘT biến (vd model không có CAPE) thì chỉ
+    // lớp đó rỗng — không được để nó đè bản đầy đủ, 4 lớp kia vẫn ghi bình thường.
     (Object.keys(all) as OMKind[]).forEach((k) =>
-      saveForecast(SCALAR_NS, cacheId(k, days), all[k]),
+      saveScalarChecked(cacheId(k, days), all[k]),
     );
     return all[kind];
   } catch (err) {
@@ -329,7 +447,7 @@ export async function fetchScalarField(
     if (SNAPSHOT_DAY_SET.includes(days)) {
       const snap = await loadScalarSnapshotClient(kind, days);
       if (snap && scalarGridUsable(snap)) {
-        saveForecast(SCALAR_NS, cacheId(kind, days), snap, snap.savedAt ?? undefined);
+        saveScalarChecked(cacheId(kind, days), snap, snap.savedAt ?? undefined);
         return { ...snap, stale: true, savedAt: snap.savedAt ?? null };
       }
     }
@@ -350,6 +468,45 @@ export async function fetchScalarField(
   }
 }
 
+/**
+ * BẢN TRONG MÁY ĐỂ HIỆN NGAY, KHÔNG CHỜ MẠNG (2026-08-03) — đồng bộ, thuần đọc.
+ * Cùng lý do với `peekForecastGrid`: ca "sóng yếu mà sống" không lọt cửa nào của
+ * `fetchScalarField`, nên bà con nhìn màn trắng 30 giây mỗi lần bật một lớp màu
+ * trong khi bản cũ nằm ngay trong máy. Bản trả về có cờ `stale`.
+ */
+export function peekScalarField(
+  kind: FetchScalarKind,
+  days = 3,
+): ScalarGrid | null {
+  if (kind === "salinity") {
+    const hit = loadForecast<ScalarGrid>(
+      SCALAR_NS,
+      cacheId("salinity", SALINITY_DAYS),
+    );
+    return hit && scalarGridUsable(hit.data)
+      ? { ...hit.data, stale: true, savedAt: hit.savedAt }
+      : null;
+  }
+  return savedScalarFallback(kind, days);
+}
+
+/**
+ * BẢN LỚP DẢI MÀU ĐÃ LƯU dùng được cho khung đang xin — bản ĐÚNG khung trước,
+ * hết thì mượn khung NGẮN HƠN (thanh ngày vẽ theo `times[]` thật nên không nói
+ * dối). Thuần đọc localStorage, KHÔNG gọi mạng: nhánh cho lúc mất sóng hẳn.
+ */
+function savedScalarFallback(kind: OMKind, days: number): ScalarGrid | null {
+  const hit = loadForecast<ScalarGrid>(SCALAR_NS, cacheId(kind, days));
+  if (hit && scalarGridUsable(hit.data))
+    return { ...hit.data, stale: true, savedAt: hit.savedAt };
+  for (const d of [...SCALAR_FALLBACK_DAYS].filter((x) => x < days).reverse()) {
+    const alt = loadForecast<ScalarGrid>(SCALAR_NS, cacheId(kind, d));
+    if (alt && scalarGridUsable(alt.data))
+      return { ...alt.data, stale: true, savedAt: alt.savedAt };
+  }
+  return null;
+}
+
 /** LƯỚI AN TOÀN: snapshot lớp dải màu d3 do cron tính sẵn — null nếu chưa có */
 async function loadScalarSnapshotClient(
   kind: OMKind,
@@ -358,7 +515,7 @@ async function loadScalarSnapshotClient(
   try {
     const r = await fetch(
       apiUrl(`/api/weather-snapshot?id=${scalarSnapshotId(kind, days)}`),
-      { signal: AbortSignal.timeout(10000) },
+      { signal: timeoutSignal(10000) },
     );
     if (!r.ok) return null;
     const g = (await r.json()) as ScalarGrid;

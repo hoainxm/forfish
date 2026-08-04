@@ -18,6 +18,7 @@ import {
   loadLongestSavedGrid,
   type ForecastGrid,
 } from "@/lib/forecast-grid";
+import { timeoutSignal } from "@/lib/abort";
 
 // 72 giờ — đủ cho chuyến dài quanh mũi đất; route-plan giữ giờ cuối khi hơn
 const FORECAST_DAYS = 3;
@@ -123,6 +124,10 @@ export function parseWeatherField(
 // Open-Meteo cập nhật ~mỗi giờ). Pattern promise-cache + xoá-khi-lỗi giống
 // fetchDepthGrid.
 const CACHE_TTL_MS = 45 * 60 * 1000;
+/** Trần số lưới thời tiết giữ trong RAM — mỗi bản ~0,7–1,5 MB. 6 bản ≈ 3 lần
+    thử điểm đến gần nhất, đủ cho thao tác dò mà không phình heap. */
+const FIELD_CACHE_MAX = 6;
+
 const fieldCache = new Map<string, { at: number; field: Promise<WeatherField> }>();
 
 /**
@@ -152,6 +157,21 @@ export function fetchWeatherField(
   // dọn bản hết hạn — phiên dài chạm nhiều nơi cũng chỉ giữ vài khung sống
   for (const [k, v] of fieldCache) {
     if (now.getTime() - v.at >= CACHE_TTL_MS) fieldCache.delete(k);
+  }
+  /*  ⚠️ TRẦN THEO SỐ BẢN, KHÔNG CHỈ THEO THỜI GIAN (thêm 2026-08-02h).
+
+      LỖI ĐÃ SỬA: khoá sinh theo TOẠ ĐỘ (bbox làm tròn 0,001° + ngày) và cửa dọn
+      duy nhất là "quá 45 phút". Mỗi lần bà con thử một điểm đến mới, vòng
+      `margins` dựng **2 khoá mới**, mỗi payload ~0,7–1,5 MB. Dò 8–10 điểm trong
+      nửa tiếng = 16–20 bản (~20 MB) nằm lại RAM, không bản nào bị dọn vì chưa
+      tới hạn. Trên điện thoại 2–3 GB đang chạy MapLibre + canvas hạt gió thì đó
+      là cửa để hệ điều hành giết tab — mở lại app giữa biển là mất hết state.
+
+      Bỏ bản CŨ NHẤT (Map giữ đúng thứ tự chèn) cho tới khi về trần. */
+  while (fieldCache.size > FIELD_CACHE_MAX) {
+    const oldest = fieldCache.keys().next();
+    if (oldest.done) break;
+    fieldCache.delete(oldest.value);
   }
   const field = fetchWeatherFieldFresh(bbox).catch((e) => {
     fieldCache.delete(key); // lỗi/offline không được găm 45 phút
@@ -306,11 +326,11 @@ async function fetchWeatherFieldFresh(bbox: BBox): Promise<WeatherField> {
   const [windRes, waveRes] = await Promise.all([
     fetch(
       `https://api.open-meteo.com/v1/forecast?${common}&hourly=wind_speed_10m,wind_direction_10m`,
-      { signal: AbortSignal.timeout(15000) },
+      { signal: timeoutSignal(15000) },
     ),
     fetch(
       `https://marine-api.open-meteo.com/v1/marine?${common}&hourly=wave_height,wave_direction,wave_period,ocean_current_velocity,ocean_current_direction`,
-      { signal: AbortSignal.timeout(15000) },
+      { signal: timeoutSignal(15000) },
     ),
   ]);
   if (!windRes.ok || !waveRes.ok) {

@@ -13,6 +13,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import vmsZonesJson from "@/data/vms-zones.json";
+import { timeoutSignal } from "@/lib/abort";
 
 /** Cách vẽ vùng lên bản đồ: nền mờ, viền liền, hay viền nét đứt */
 export type VmsZoneStyle = "fill" | "line" | "line-dashed";
@@ -301,12 +302,19 @@ export function rowToZone(r: Row): VmsZone {
 export async function fetchPublicVmsZones(): Promise<VmsZone[] | null> {
   const supabase = createClient();
   if (!supabase) return null;
-  const { data, error } = await supabase
+  // ĐỒNG HỒ 12 GIÂY (D-PH9, soát 2026-08-02): hỏng thì rơi về vùng tĩnh nên
+  // vô hại với màn hình, NHƯNG không có trần thì ở sóng "sống mà chết" nó để
+  // lại một promise + một kết nối treo suốt phiên, mỗi lần mở màn thêm một
+  // cái nữa. `.abortSignal()` không nhận `undefined` sạch ⇒ gắn có điều kiện.
+  const sig = timeoutSignal(12000);
+  let q = supabase
     .from(TABLE)
     .select("id,name,color,style,default_on,visible,geojson,sort_order,created_at")
     .eq("visible", true)
     .order("sort_order", { ascending: true })
     .limit(200);
+  if (sig) q = q.abortSignal(sig);
+  const { data, error } = await q;
   if (error || !data) return null;
   return (data as Row[]).map(rowToZone);
 }

@@ -8,6 +8,8 @@
 
 import { apiUrl } from "@/lib/api-base";
 import { loadForecast, saveForecast } from "@/lib/forecast-cache";
+import { forecastStoreReady } from "@/lib/forecast-store";
+import { timeoutSignal } from "@/lib/abort";
 
 export type StormAlert = {
   id: string;
@@ -187,7 +189,7 @@ export function parseStorms(json: unknown, now: Date): StormAlert[] {
 
 /** Kho bản tin bão trong máy — `forfish.fc.storm.latest` */
 export const STORM_NS = "storm";
-const STORM_ID = "latest";
+export const STORM_ID = "latest";
 
 /**
  * Client gọi route nội bộ; hỏi được thì LƯU VÀO MÁY, hỏi không được thì lấy
@@ -204,14 +206,56 @@ const STORM_ID = "latest";
  * vàng "Chưa hỏi được tin bão", tuyệt đối không có câu "không có bão".
  */
 export async function fetchStormCheck(): Promise<StormCheck> {
+  /*  CHỜ KHO MỞ XONG RỒI MỚI ĐỌC BẢN LƯU (2026-08-02k — vòng đánh giá cuối).
+      Mất sóng thì `fetch` hỏng TỨC THÌ (không có độ trễ mạng che cửa sổ đua),
+      nên nhánh lùi chạy khi gương còn rỗng ⇒ trả `null` ⇒ màn hình nói "chưa
+      có" trong khi kho còn nguyên. Từ phiên thứ hai localStorage đã bị dọn nên
+      không còn lớp chắn nào. Hàm đã async; `forecastStoreReady()` có trần chờ. */
+  await forecastStoreReady();
+
   try {
     const r = await fetch(apiUrl("/api/storms"), {
-      signal: AbortSignal.timeout(20000),
+      signal: timeoutSignal(20000),
     });
     if (r.ok) {
       const j = (await r.json()) as StormCheck;
       if (j.ok) {
-        saveForecast(STORM_NS, STORM_ID, j);
+        /*  MỐC LƯU = GIỜ BẢN TIN, KHÔNG PHẢI GIỜ MÁY (2026-08-02, audit R3).
+            `r.ok` KHÔNG có nghĩa là "vừa hỏi được nguồn": service worker trả
+            bản trong kho với status 200 theo BA đường — mất sóng (`.catch` →
+            `caches.match`), nguồn 5xx (isRescuableStatus cứu bằng bản kho), và
+            hết `API_STALE_MS` (đua đồng hồ, có bản lưu thì trả ngay). Cả ba đều
+            xuống tới đây với `j.ok === true`.
+            Đóng `Date.now()` cho một bản có thể 6 giờ tuổi là NÓI DỐI hai chỗ:
+            popup "đã lưu gì" khoe "Tin bão · vừa xong", và `savedStormAt()` làm
+            lớp bão trong pretrip báo xanh. Với thứ dính TÍNH MẠNG thì mốc phải
+            là tuổi THẬT của bản tin. Cùng khuôn với `generatedAt` của bản đồ cá
+            (fish-predict.ts). `checkedAt` rác/thiếu → đành lấy giờ máy. */
+        const at = Date.parse(j.checkedAt ?? "");
+        /*  KẸP VỀ HIỆN TẠI (sửa 2026-08-02h): nhánh lùi `Date.now()` trộn GIỜ
+            MÁY vào cùng trục với giờ máy chủ. Một máy có đồng hồ chạy trước mà
+            gặp payload thiếu `checkedAt` (bản đời cũ còn nằm trong kho service
+            worker) sẽ ghim `savedAt` ở TƯƠNG LAI và cửa chống-lùi ngay dưới khoá
+            vĩnh viễn mọi bản tin thật sau đó — tin bão đông cứng ở bản trước bão. */
+        const mocMoi = Math.min(
+          Date.now(),
+          Number.isFinite(at) ? at : Date.now(),
+        );
+        /*  ⚠️ TIN BÃO KHÔNG ĐƯỢC PHÉP ĐI LÙI (sửa 2026-08-02h — an toàn tính mạng).
+
+            Chú thích ngay trên đã liệt kê BA đường service worker trả bản CŨ kèm
+            `200 + ok:true`. Thiếu cửa này thì ca sau xảy ra được: kho service
+            worker kẹt ở bản tin 08:00 (một cú `put` bị nuốt vì hết chỗ) trong
+            khi localStorage đã có bản 12:00 lấy thẳng từ mạng ⇒ lần gọi sau mất
+            sóng, SW trả bản 08:00 ⇒ **bản tin TRƯỚC lúc bão hình thành ghi đè
+            lên bản CÓ bão**, và `savedStormAt()` cũng lùi theo nên lớp bão trong
+            mẻ tải sẵn báo xanh.
+
+            Luật: chỉ ghi khi bản mới KHÔNG CŨ HƠN bản đang giữ. Bằng mốc thì vẫn
+            ghi (nội dung có thể đã cập nhật trong cùng một mốc bản tin). */
+        const dangGiu = loadForecast<StormCheck>(STORM_NS, STORM_ID);
+        if (dangGiu && mocMoi < dangGiu.savedAt) return j;
+        saveForecast(STORM_NS, STORM_ID, j, mocMoi);
         return j;
       }
     }

@@ -43,13 +43,48 @@ function ensureWorker(): Worker | null {
   return worker;
 }
 
+/** Worker im quá lâu thì thôi, tính bằng bản đồng bộ. Dijkstra nặng nhất đo
+    được ~3–4 giây trên máy yếu; 20 giây là đã hỏng thật chứ không phải chậm. */
+const PLAN_WORKER_GIVEUP_MS = 20_000;
+
 /** planRoute chạy nền — cùng tham số/kết quả, không block main thread */
 export function planRouteAsync(args: PlanArgs): Promise<RoutePlan | null> {
   const w = ensureWorker();
   if (!w) return Promise.resolve(planRoute(args));
   return new Promise((resolve) => {
     const id = nextId++;
-    pending.set(id, { args, resolve });
-    w.postMessage({ id, args } satisfies PlanRequest);
+    /*  ⚠️ PHẢI CÓ CỬA SETTLE THỨ BA (sửa 2026-08-02h).
+
+        LỖI ĐÃ SỬA: promise này chỉ settle qua `worker.onmessage` hoặc
+        `worker.onerror`. Worker bị hệ điều hành GIẾT vì sức ép bộ nhớ —
+        Dijkstra ~120k lượt `legCost` + lưới thời tiết 0,7–1,5 MB clone sang
+        worker, trên máy 2–3 GB RAM — **không bắn `onerror`**. Promise treo ⇒
+        `finally { setBusy(false) }` ở `route-planner.tsx` không chạy ⇒ nút kẹt
+        "Đang tính…" và `if (busy) return` chặn luôn mọi lần bấm sau. Bà con mất
+        hẳn tính năng dẫn đường tiết kiệm dầu cho tới khi tắt mở lại app.
+
+        Hết giờ thì tính BẰNG BẢN ĐỒNG BỘ ngay tại luồng chính — chậm hơn nhưng
+        có kết quả, đúng như nhánh `onerror` vẫn làm. */
+    const timer = setTimeout(() => {
+      if (!pending.delete(id)) return; // worker đã trả lời kịp
+      resolve(planRoute(args));
+    }, PLAN_WORKER_GIVEUP_MS);
+    pending.set(id, {
+      args,
+      resolve: (r) => {
+        clearTimeout(timer);
+        resolve(r);
+      },
+    });
+    try {
+      w.postMessage({ id, args } satisfies PlanRequest);
+    } catch {
+      /*  `postMessage` ném (structured-clone hỏng) SAU khi đã `pending.set` ⇒
+          mục nằm lại vĩnh viễn kèm `args` (~1 MB `field` + `depth`). Dọn tay rồi
+          trả bản đồng bộ. */
+      clearTimeout(timer);
+      pending.delete(id);
+      resolve(planRoute(args));
+    }
   });
 }

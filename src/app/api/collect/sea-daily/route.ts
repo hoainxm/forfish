@@ -17,6 +17,7 @@ import {
   toStormRows,
   vnToday,
 } from "@/lib/sea-history";
+import { timeoutSignal } from "@/lib/abort";
 
 export const maxDuration = 300; // NOAA + 10 cảng Open-Meteo — thong thả
 
@@ -32,8 +33,8 @@ async function fetchPortDays(lat: number, lon: number): Promise<ScoredSeaDay[]> 
   const waveUrl =
     `https://marine-api.open-meteo.com/v1/marine?${common}&daily=wave_height_max`;
   const [windRes, waveRes] = await Promise.all([
-    fetch(windUrl, { signal: AbortSignal.timeout(15000) }),
-    fetch(waveUrl, { signal: AbortSignal.timeout(15000) }).catch(() => null),
+    fetch(windUrl, { signal: timeoutSignal(15000) }),
+    fetch(waveUrl, { signal: timeoutSignal(15000) }).catch(() => null),
   ]);
   if (!windRes.ok) throw new Error("wind_source_failed");
   const wind = (await windRes.json()) as {
@@ -140,7 +141,7 @@ export async function GET(req: Request) {
   try {
     const r = await fetch(GDACS_TC_URL, {
       headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(15000),
+      signal: timeoutSignal(15000),
     });
     if (!r.ok) throw new Error("gdacs_failed");
     const storms = parseStorms(await r.json(), now);

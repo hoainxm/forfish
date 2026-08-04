@@ -10,6 +10,7 @@
 // Style fragments để Lead ghép vào buildMapStyle() trong ocean-map.ts.
 // Lý do tách file: tránh đụng ocean-map.ts đang được session khác sửa.
 
+import { timeoutSignal } from "@/lib/abort";
 
 export const OPENSEAMAP_DEPTH_ATTRIB =
   "Contour: OpenSeaMap depth WMS (ODbL, dựa GEBCO)";
@@ -84,7 +85,7 @@ export async function fetchNautical(
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: "data=" + encodeURIComponent(query),
-    signal: AbortSignal.timeout(25_000),
+    signal: timeoutSignal(25_000),
   });
   if (!res.ok) throw new Error(`Overpass ${res.status}`);
   const json = (await res.json()) as {

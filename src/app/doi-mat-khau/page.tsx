@@ -13,6 +13,9 @@ import {
   PasswordField,
 } from "@/components/auth-form";
 import { useAuthUser } from "@/lib/use-auth";
+import { withDeadline } from "@/lib/auth-error";
+import { readToken } from "@/lib/device-token-store";
+import { phoneToEmail } from "@/components/auth-form";
 
 /*
   Đổi mật khẩu — HAI ngả vào (2026-07-29):
@@ -32,7 +35,7 @@ const HOTLINE_HIEN = "1900 23 23 49";
 export default function DoiMatKhauPage() {
   const router = useRouter();
   const supabase = createClient();
-  const { user, ready } = useAuthUser();
+  const { user, ready, signedIn, phone } = useAuthUser();
 
   // Lối thoát khi bị ÉP đổi (must_change) mà chưa đổi được: đăng xuất về trang
   // chủ để KH không kẹt cứng phải gỡ app (mất khách thật 02/07).
@@ -81,7 +84,15 @@ export default function DoiMatKhauPage() {
     );
   }
 
-  if (!user) {
+  /*  ⚠️ ĐÒI `user` Ở ĐÂY LÀ NGÕ CỤT VÒNG TRÒN (sửa 2026-08-02h — vòng soát chéo).
+      Ngư dân bình thường đăng nhập qua `/login` thì phiên Supabase đã bị bỏ ngay
+      sau khi cấp chuỗi ⇒ `user === null` với 100% người dùng. Trước đây nút này
+      bị GIẤU nên không ai thấy; từ khi sheet Tài khoản đổi sang `signedIn` thì
+      nút HIỆN, bấm vào ra màn "cần đăng nhập" → `/login` → đăng nhập → về trang
+      chủ → bấm lại → y hệt. Không lối ra, mọi lần.
+      Nay chỉ đòi `signedIn` + biết SĐT; phiên tạm được dựng bằng CHÍNH mật khẩu
+      hiện tại bà con gõ ở dưới (màn này vốn đã hỏi nó). */
+  if (!signedIn || !phone) {
     return (
       <div>
         {header}
@@ -98,7 +109,7 @@ export default function DoiMatKhauPage() {
     );
   }
 
-  const mustChange = user.user_metadata?.must_change_password === true;
+  const mustChange = user?.user_metadata?.must_change_password === true;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -117,11 +128,26 @@ export default function DoiMatKhauPage() {
 
     // 1) Tự nguyện đổi → xác thực lại mật khẩu hiện tại (ép lần đầu thì thôi —
     //    khách vừa gõ đúng nó ở màn đăng nhập).
-    if (!mustChange && user!.email) {
-      const { error: verifyError } = await supabase!.auth.signInWithPassword({
-        email: user!.email,
-        password: current,
-      });
+    /*  XÁC THỰC LẠI LÀ BẮT BUỘC KHI CHƯA CÓ PHIÊN (sửa 2026-08-02h).
+        `auth.updateUser` cần phiên thật. Máy ngư dân không còn phiên nào, nên
+        cú `signInWithPassword` này vừa là bước kiểm mật khẩu cũ, vừa là bước
+        DỰNG phiên tạm cho `updateUser` ngay dưới. Bỏ qua nó khi `mustChange`
+        chỉ đúng ở đường `/login` (chỗ đó cố ý giữ phiên tạm lại). */
+    if (!user || !mustChange) {
+      // đồng hồ chặn — xem ghi chú withDeadline: các cú auth này treo được
+      const verify = await withDeadline(
+        supabase!.auth.signInWithPassword({
+          email: user?.email ?? phoneToEmail(phone!),
+          password: current,
+        }),
+        25000,
+      );
+      if (!verify) {
+        setError("Mạng yếu quá, chưa kiểm được mật khẩu. Bà con thử lại nhé.");
+        setLoading(false);
+        return;
+      }
+      const { error: verifyError } = verify;
       if (verifyError) {
         setError("Mật khẩu hiện tại chưa đúng. Bạn kiểm tra lại giúp nhé.");
         setLoading(false);
@@ -130,22 +156,44 @@ export default function DoiMatKhauPage() {
     }
 
     // 2) Đổi mật khẩu + tắt cờ buộc đổi NGAY TRÊN user_metadata.
-    const { data: userData, error: updateError } = await supabase!.auth.updateUser(
-      { password, data: { must_change_password: false } },
+    const upd = await withDeadline(
+      supabase!.auth.updateUser({
+        password,
+        data: { must_change_password: false },
+      }),
+      25000,
     );
+    if (!upd) {
+      setError("Mạng yếu quá, chưa đổi được mật khẩu. Bà con thử lại nhé.");
+      setLoading(false);
+      return;
+    }
+    const { data: userData, error: updateError } = upd;
     if (updateError || !userData.user) {
       setError("Chưa đổi được mật khẩu. Bạn thử lại giúp nhé.");
       setLoading(false);
       return;
     }
 
-    // 3) 1 TÀI KHOẢN = 1 MÁY: thu hồi phiên các máy khác. Lỗi ở bước này
-    //    KHÔNG chặn — mật khẩu đã đổi xong.
-    try {
-      await supabase!.auth.signOut({ scope: "others" });
-    } catch {
-      /* bỏ qua — máy khác sẽ rớt ở lần đăng nhập/refresh kế */
-    }
+    /*  3) BỎ PHIÊN SUPABASE TẠM (đổi 2026-08-02h).
+        Phiên này được `/login` cố ý GIỮ LẠI chỉ để màn hiện tại gọi được
+        `auth.updateUser`; xong việc thì nó hết vai trò. Từ đây máy chỉ còn chuỗi
+        cứng — thứ không hạn, không xoay, không có gì tự hết.
+        KHÔNG còn `scope:'others'`: việc đá máy cũ đã do `POST /api/auth/token`
+        làm ở bước đăng nhập, và làm dứt điểm hơn (thu hồi trong DB, không phụ
+        thuộc máy cũ có chịu refresh hay không).
+        ⚠️ ĐỔI MẬT KHẨU KHÔNG ĐÁ CHÍNH MÁY NÀY: chuỗi cứng độc lập với mật khẩu,
+        nên bà con đổi xong vẫn ở nguyên trong phiên — đúng bất biến "đăng nhập
+        là dùng vĩnh viễn, chỉ mất khi đăng nhập ở máy khác".
+        ĐỒNG HỒ 8 GIÂY LÀ BẮT BUỘC (soát 2026-08-02): mật khẩu ĐÃ đổi rồi mà cú
+        này treo thì màn hình kẹt "Đang lưu…" vĩnh viễn ⇒ bà con tưởng chưa đổi,
+        quay ra gõ lại mật khẩu CŨ và không vào được nữa. */
+    /*  ⚠️ CHỈ BỎ PHIÊN KHI MÁY THẬT SỰ CÓ CHUỖI (sửa 2026-08-02h — vòng soát
+        chéo bắt). Bỏ vô điều kiện thì người có phiên mà CHƯA có chuỗi (đăng ký
+        mới lúc cấp chuỗi hỏng, hoặc máy đời trước 0026) bị đăng xuất SẠCH ngay
+        sau khi vừa đổi mật khẩu xong — không phiên, không chuỗi, không một lời
+        báo nào. */
+    if (readToken()) await withDeadline(supabase!.auth.signOut(), 8000);
 
     // 4) Vào trang chính.
     router.replace("/");

@@ -13,6 +13,27 @@ import {
   syncAuthScope,
 } from "@/lib/auth-scope";
 import { isNetworkAuthError } from "@/lib/auth-error";
+import { readToken, TOKEN_STORE_EVENT } from "@/lib/device-token-store";
+import {
+  applyIdentityAction,
+  offlineIdentityPhone,
+  subscribeIdentity,
+} from "@/lib/offline-identity";
+
+/** SĐT thô của user (Supabase lưu SĐT trong email ảo 0901234567@sdvico.local).
+ *
+ *  ⚠️ CẢNH BÁO CHO TƯƠNG LAI: `u.phone` hiện LUÔN rỗng ở repo này — mọi đường
+ *  tạo tài khoản đi qua `phoneToEmail` (lib/phone), Supabase phone-auth chưa
+ *  bật. Nếu SDWork bật phone-auth thì `u.phone` sẽ mang dạng E.164 KHÔNG có
+ *  dấu `+` (vd "84912345678") — `normalizeVnPhone` xử đúng dạng đó, nhưng
+ *  `identityKey` (offline-identity) sẽ thấy MỘT NGƯỜI thành HAI khoá khác nhau
+ *  ("0912345678" lúc đăng nhập bằng email ảo, "84912345678" lúc đăng nhập bằng
+ *  phone-auth) ⇒ máy tưởng đổi người ⇒ xoá oan dấu premium. Bật phone-auth thì
+ *  phải chuẩn hoá ở ĐÂY trước khi trả về. */
+function rawUserPhone(u: User): string | null {
+  const raw = u.phone || (u.email ? u.email.split("@")[0] : "");
+  return raw || null;
+}
 
 function deriveBoatPhone(u: User | null): string | null {
   return u?.phone || (u?.email ? u.email.split("@")[0] : null) || null;
@@ -45,17 +66,70 @@ function syncScopeAndResetRam(phone: string | null) {
 
 export function useAuthUser(): {
   user: User | null;
-  /** SĐT (suy từ email ảo) — null khi chưa đăng nhập */
+  /** SĐT (suy từ email ảo) — null khi chưa đăng nhập. Mất sóng làm `user` tụt
+   *  về null thì lùi về DANH TÍNH OFFLINE (lib/offline-identity): access token
+   *  chỉ sống ~1 giờ, mà chuyến biển thì dài hơn thế rất nhiều — không có đường
+   *  lùi này thì hộp thư của bà con biến mất giữa biển (C-1). */
   phone: string | null;
   ready: boolean;
   /** getUser() KHÔNG tra được (reject/timeout — mất sóng "sống mà chết"), khác
    *  với tra ĐƯỢC mà không có user (đăng xuất thật). Để tier còn cho premium đã
    *  tải sẵn xem tiếp thay vì bắt đăng nhập lại. */
   errored: boolean;
+  /**
+   * MÁY NÀY CÓ TÀI KHOẢN CHƯA — **câu hỏi mà giao diện phải hỏi**, thay cho
+   * `!!user` (2026-08-02h).
+   *
+   * ⚠️ ĐỌC KỸ TRƯỚC KHI DÙNG LẠI `user`. Sau khi app bỏ phiên Supabase (0026),
+   * `user` là `null` VĨNH VIỄN trên mọi máy ngư dân — `/login` cấp chuỗi cứng
+   * rồi `signOut()` ngay. Mọi chỗ còn rẽ nhánh theo `user` sẽ đối xử với người
+   * ĐANG đăng nhập như khách vãng lai. Đã dính thật, cùng một gốc, ở bốn chỗ:
+   *   · sheet Tài khoản giấu mất nút Đăng xuất và Đổi mật khẩu — tức xoá luôn
+   *     đường ra HỢP LỆ duy nhất của bà con;
+   *   · nhịp "đã mở app" không chạy ⇒ hạng không bao giờ về ⇒ màn dự báo cá kẹt
+   *     "đang kiểm tra" vĩnh viễn, khách trả tiền chỉ tải được 3 ngày;
+   *   · `/tien` khoá nút đăng tin;
+   *   · thông báo nhắm riêng không gắn được vào tài khoản.
+   *
+   * `user` GIỮ LẠI cho đúng hai việc còn cần phiên thật: `/quan-tri` và màn đổi
+   * mật khẩu lần đầu. Ngoài hai chỗ đó, hỏi `signedIn`.
+   */
+  signedIn: boolean;
 } {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [errored, setErrored] = useState(false);
+  /* SĐT lần đăng nhập gần nhất, đọc từ máy. Đọc trong effect (không đọc thẳng
+     lúc render) để bản dựng phía máy chủ và bản vẽ đầu ở máy khớp nhau. */
+  const [identityPhone, setIdentityPhone] = useState<string | null>(null);
+
+  /* ĐỌC LẠI SỔ DANH TÍNH MỖI LẦN KHO ĐỔI (sửa 2026-08-02c, hồi quy CHẶN).
+     `use-tier` đã nghe sự kiện này từ trước, hook này thì chưa — nên nút Đăng
+     xuất (`applyIdentityAction("user-signed-out", …)` → xoá khoá) dọn sạch
+     localStorage mà `identityPhone` trong state VẪN là SĐT chủ tàu:
+     `router.refresh()` không reset state của client component. Hộp thư lấy
+     `phone` từ đây ⇒ `acceptRefresh("090…", null)` = false ⇒ câu trả lời "chỉ
+     tin chung" của máy chủ bị bỏ qua ⇒ danh sách tin nhắm riêng của chủ tàu Ở
+     LẠI MÀN HÌNH cho bạn thuyền đọc. Trái bất biến CÁCH LY TÀI KHOẢN (đầu
+     lib/inbox.ts). `subscribeIdentity` nghe cả sự kiện trong-tab lẫn `storage`
+     của tab khác. */
+  useEffect(() => {
+    const sync = () => setIdentityPhone(offlineIdentityPhone());
+    sync();
+    return subscribeIdentity(sync);
+  }, []);
+
+  /*  CHUỖI CỨNG CÓ TRONG MÁY KHÔNG — đọc trong effect (không đọc lúc render) để
+      bản dựng máy chủ và bản vẽ đầu ở máy khớp nhau. Nghe `TOKEN_STORE_EVENT` để
+      đăng nhập/đăng xuất xong là màn vẽ lại NGAY: bản cài PWA mở lại từ nền
+      KHÔNG remount React, nên trông vào lần mount sau là trông vào may. */
+  const [hasToken, setHasToken] = useState(false);
+  useEffect(() => {
+    const sync = () => setHasToken(readToken() !== null);
+    sync();
+    window.addEventListener(TOKEN_STORE_EVENT, sync);
+    return () => window.removeEventListener(TOKEN_STORE_EVENT, sync);
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -64,6 +138,28 @@ export function useAuthUser(): {
       return;
     }
     let alive = true;
+
+    /* GẮN MÁY ↔ SĐT khi thấy user THẬT — chỉ nhánh có user, nhánh null KHÔNG
+       đụng tới. Vì sao: `null` ở đây phần lớn là "chưa hỏi được máy chủ" chứ
+       không phải "đã đăng xuất"; xoá danh tính theo nó là tự bắn vào chân
+       (C-1/C-7/C-8). Đổi SĐT thì rememberIdentity tự lo xoá dấu tier.
+
+       LUẬT NẰM Ở HÀM THUẦN `identityAction`, KHÔNG nằm ở cái `if` bất đối xứng
+       này nữa (2026-08-02, K7): viết tay thì trông y hệt một chỗ thiếu vế
+       `else`, người sau "dọn dẹp" một nhát là ba lỗi CHẶN sống lại. Nay tên sự
+       kiện của auth-js đi thẳng vào cổng, và cổng có bảng chân trị được test —
+       kể cả ô dễ sai nhất: `SIGNED_OUT` + null vẫn là GIỮ, vì auth-js bắn đúng
+       sự kiện đó khi nó TỰ xoá phiên (C-7). */
+    const remember = (event: string, u: User | null) => {
+      const p = applyIdentityAction(event, !!u, u ? rawUserPhone(u) : null);
+      /*  `undefined` = cổng bảo GIỮ NGUYÊN, đừng đụng state.
+          `null` = SĐT không chuẩn hoá được (tài khoản email thật, tài khoản kỹ
+          thuật). `rememberIdentity` lúc đó XOÁ sổ danh tính + dấu quyền trong
+          máy — "không biết là ai thì không giữ quyền của ai" — nên state ở đây
+          phải theo, không thì màn hình còn bám SĐT người trước trong khi kho đã
+          sạch (sửa 2026-08-02b). */
+      if (p !== undefined && alive) setIdentityPhone(p);
+    };
 
     // BẮT BUỘC RESOLVE: getUser() cần mạng. Ngoài khơi sóng CHẬP CHỜN (kết nối
     // "sống mà chết" — navigator.onLine vẫn true) thì lời hứa này có thể TREO
@@ -95,6 +191,10 @@ export function useAuthUser(): {
           return; // GIỮ user cũ, đừng hạ xuống null
         }
         const u = data?.user ?? null;
+        // getUser() không phải sự kiện auth-js — tên riêng, cổng xử như mọi
+        // chuỗi lạ khác (có user → nhớ, không có → giữ nguyên). Nhớ danh tính
+        // TRƯỚC khi reset-scope (có thể reload trang).
+        remember("getUser", u);
         // GIỮ chống-rò chéo user (origin): reset scope + RAM khi đổi user/logout
         syncScopeAndResetRam(deriveBoatPhone(u));
         setUser(u);
@@ -108,9 +208,10 @@ export function useAuthUser(): {
         settle();
       });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!alive) return;
       const u = session?.user ?? null;
+      remember(String(event), u);
       syncScopeAndResetRam(deriveBoatPhone(u));
       setUser(u);
     });
@@ -121,7 +222,12 @@ export function useAuthUser(): {
     };
   }, []);
 
-  const phone = deriveBoatPhone(user);
+  // Mất sóng làm `user` tụt về null thì lùi về DANH TÍNH OFFLINE (identityPhone).
+  const phone =
+    (user ? rawUserPhone(user) : null) || identityPhone || null;
 
-  return { user, phone, ready, errored };
+  /*  `signedIn` = có phiên Supabase (đường lùi một nhịp phát hành + /quan-tri)
+      HOẶC có chuỗi cứng. Đây là câu trả lời cho "máy này có tài khoản chưa";
+      `user` chỉ còn trả lời "có phiên Supabase không". */
+  return { user, phone, ready, errored, signedIn: !!user || hasToken };
 }

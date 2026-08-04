@@ -10,6 +10,9 @@
 
 import { useSyncExternalStore } from "react";
 
+import { readUserRecord } from "@/lib/user-list-store";
+import { saveUserJson } from "@/lib/user-store";
+
 const KEY = "forfish.sdvico-boat.v1";
 
 /** Giá trị gán nghĩa "của chung mọi tàu" — đã chọn nên KHÔNG hỏi lại. */
@@ -42,23 +45,36 @@ function emit() {
   for (const l of listeners) l();
 }
 
-export function loadAssignments(): AssignMap {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw) as AssignMap;
-  } catch {
-    /* hỏng storage → rỗng */
-  }
-  return {};
+/**
+ * KHÔNG ĐỌC ĐƯỢC BẢNG GÁN ⇒ KHOÁ CỬA GHI (K4, 2026-08-02).
+ *
+ * Bảng gán là thứ bà con TỰ CHỌN (món này của tàu nào) — không tải lại được từ
+ * đâu cả: API SDVICO chỉ trả danh sách món, phần "của tàu nào" chỉ nằm trong
+ * máy. Luật cũ nuốt lỗi rồi trả `{}` ⇒ prompt hỏi lại TỪ ĐẦU mọi món, và cú
+ * chọn đầu tiên `save({một món})` ĐÈ lên bảng gốc: bao nhiêu lần gán trước đó
+ * mất sạch.
+ *
+ * Dùng `readUserRecord` chứ không `readUserList`: khoá này giữ ĐỐI TƯỢNG
+ * (id-món → boatId), không phải mảng — ép về mảng là bẻ dữ liệu cho vừa hàm.
+ */
+let readFailed = false;
+
+/** Lần đọc bảng gán gần nhất có hỏng không. */
+export function assignReadFailed(): boolean {
+  return readFailed;
 }
 
-function save(map: AssignMap) {
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(map));
-  } catch {
-    /* storage đầy/tắt → bỏ qua */
-  }
+export function loadAssignments(): AssignMap {
+  if (typeof window === "undefined") return {};
+  const r = readUserRecord<AssignMap>(KEY);
+  readFailed = !r.ok;
+  return r.value ?? {};
+}
+
+/** Trả `false` khi máy KHÔNG giữ được (đọc hỏng → cấm đè; hoặc hết chỗ). */
+function save(map: AssignMap): boolean {
+  if (readFailed) return false;
+  return saveUserJson(KEY, map);
 }
 
 function hydrate() {
@@ -98,5 +114,6 @@ export function useAssignments(): AssignMap {
 export function _resetAssignForTest() {
   snapshot = EMPTY;
   hydrated = false;
+  readFailed = false;
   listeners.clear();
 }

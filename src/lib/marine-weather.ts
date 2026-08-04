@@ -11,7 +11,13 @@ import {
   type SeaDay,
   type SeaLevel,
 } from "@/lib/sea";
-import { saveForecast, loadForecast, coordId } from "@/lib/forecast-cache";
+import {
+  saveForecast,
+  loadForecast,
+  coordId,
+  isDefinitelyOffline,
+} from "@/lib/forecast-cache";
+import { forecastStoreReady } from "@/lib/forecast-store";
 import {
   loadGridSnapshotClient,
   loadLongestSavedGrid,
@@ -19,6 +25,7 @@ import {
   type ForecastGrid,
 } from "@/lib/forecast-grid";
 import { SNAPSHOT_DAY_SET } from "@/lib/weather-snapshot-id";
+import { timeoutSignal } from "@/lib/abort";
 
 export type SeaPoint = { lat: number; lon: number };
 
@@ -178,6 +185,23 @@ const num = (v: unknown): number | null =>
  */
 export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
   const id = coordId(p.lat, p.lon);
+  /* MẤT SÓNG HẲN → ĐỌC BẢN ĐÃ LƯU TRƯỚC (K3, 2026-08-02 — cùng khuôn `sea.ts`).
+     Ba request Open-Meteo × 15 giây đồng hồ chặn, trong khi bản của ĐÚNG chỗ này
+     đã nằm sẵn trong máy từ giây 0. Chỉ đi đường tắt khi máy KHẲNG ĐỊNH mất sóng
+     (`isDefinitelyOffline`) — ca "sóng sống mà chết" vẫn đi đường thường, không
+     mất bản mới. Không có bản nào thì rơi xuống đường cũ (fetch sẽ hỏng ngay). */
+  /*  CHỜ KHO MỞ XONG RỒI MỚI ĐỌC (2026-08-02k — vá lỗi CHẶN).
+      Đường tắt này chạy khi máy KHẲNG ĐỊNH mất sóng, tức đúng lúc giữa biển.
+      Payload nay nằm ở IndexedDB (nạp bất đồng bộ lúc mở app), nên đọc trước khi
+      nạp xong là trượt ⇒ rơi xuống nhánh mạng ⇒ offline thì nhánh đó hỏng TỨC
+      THÌ (không có độ trễ mạng che cửa sổ đua) ⇒ màn hình báo "chưa có số nào
+      lưu trong máy" trong khi kho còn nguyên. Chờ ở đây là hợp lệ: hàm đã async,
+      và `forecastStoreReady()` có trần chờ nên không bao giờ treo. */
+  await forecastStoreReady();
+  if (isDefinitelyOffline()) {
+    const saved = savedSeaPoint(p, id);
+    if (saved) return saved;
+  }
   try {
     const cond = await fetchSeaPointLive(p);
     // LƯU bản mới nhất để ra biển mất mạng vẫn coi được 16 ngày
@@ -187,20 +211,8 @@ export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
     // Mất mạng / nguồn treo → lùi về bản đã lưu ĐÚNG CHỖ NÀY (cùng ô lưới
     // ~0,25°). TUYỆT ĐỐI không mượn bản của chỗ khác: dán số của chỗ cách hàng
     // trăm km vào chỗ bà con vừa chạm còn nguy hiểm hơn là không có số.
-    const hit = loadForecast<SeaPointConditions>(POINT_NS, id);
-    if (hit)
-      return {
-        ...hit.data,
-        point: p,
-        stale: true,
-        savedAt: hit.savedAt,
-        source: "saved-point",
-      };
-    // Chưa từng mở xem chỗ này, NHƯNG lưới gió/sóng đã lưu phủ cả vùng biển và
-    // ĐÚNG vị trí đó (mũi tên đang vẽ ngay chỗ bà con vừa chạm). Lấy ô lưới PHỦ
-    // chỗ chạm — vẫn là số của chính chỗ đó, không phải mượn của toạ độ khác.
-    const fromGrid = seaPointFromSavedGrid(p);
-    if (fromGrid) return fromGrid;
+    const saved = savedSeaPoint(p, id);
+    if (saved) return saved;
     // NẤC CUỐI (2026-07-29, ảnh user bản web iOS "chưa có số nào lưu trong
     // máy"): máy TRỐNG TRƠN (bản web Safari mở lần đầu — kho localStorage TÁCH
     // RIÊNG với PWA đã cài) + live lỗi/429 → còn lưới SNAPSHOT server cron
@@ -214,6 +226,29 @@ export async function fetchSeaPoint(p: SeaPoint): Promise<SeaPointConditions> {
     }
     throw err; // ngoài vùng lưới / máy chưa lưu gì → UI nói thật là chưa có số
   }
+}
+
+/**
+ * BẢN ĐÃ LƯU CHO ĐÚNG CHỖ NÀY — dùng chung cho hai đường (mất sóng hẳn: đọc
+ * TRƯỚC khi gọi mạng · live hỏng: lùi về SAU khi gọi). Một hàm cho cả hai để
+ * hai đường không bao giờ trả khác nhau.
+ *
+ * Thứ tự: bản của CHÍNH toạ độ đó → ô lưới PHỦ chỗ chạm (vẫn là số của chỗ đó,
+ * không phải mượn của toạ độ khác). null = máy chưa có gì để nói.
+ */
+function savedSeaPoint(p: SeaPoint, id: string): SeaPointConditions | null {
+  const hit = loadForecast<SeaPointConditions>(POINT_NS, id);
+  if (hit)
+    return {
+      ...hit.data,
+      point: p,
+      stale: true,
+      savedAt: hit.savedAt,
+      source: "saved-point",
+    };
+  // Chưa từng mở xem chỗ này, NHƯNG lưới gió/sóng đã lưu phủ cả vùng biển và
+  // ĐÚNG vị trí đó (mũi tên đang vẽ ngay chỗ bà con vừa chạm).
+  return seaPointFromSavedGrid(p);
 }
 
 /* ---------------------------------------------------------------------------
@@ -377,14 +412,14 @@ async function fetchSeaPointLive(p: SeaPoint): Promise<SeaPointConditions> {
     `&hourly=ocean_current_velocity,ocean_current_direction`;
 
   const [wind, wave, cur] = await Promise.all([
-    fetch(windUrl, { signal: AbortSignal.timeout(15000) }).then((r) => {
+    fetch(windUrl, { signal: timeoutSignal(15000) }).then((r) => {
       if (!r.ok) throw new Error(`wind ${r.status}`);
       return r.json();
     }),
-    fetch(waveUrl, { signal: AbortSignal.timeout(15000) })
+    fetch(waveUrl, { signal: timeoutSignal(15000) })
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null),
-    fetch(curUrl, { signal: AbortSignal.timeout(15000) })
+    fetch(curUrl, { signal: timeoutSignal(15000) })
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null),
   ]);

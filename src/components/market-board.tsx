@@ -45,7 +45,10 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 export function MarketBoard() {
-  const { user, ready } = useAuthUser();
+  /*  `signedIn`, KHÔNG phải `user`: phiên Supabase đã bỏ sau khi cấp chuỗi cứng
+      nên `user` null vĩnh viễn — hỏi nó là khoá nút đăng tin của ĐÚNG những
+      người đang đăng nhập (sửa 2026-08-02h). */
+  const { signedIn, ready } = useAuthUser();
   const [filter, setFilter] = useState<Filter>("all");
   const [real, setReal] = useState<MarketListing[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +63,7 @@ export function MarketBoard() {
 
   useEffect(() => {
     void refresh();
-  }, [refresh, user?.id]);
+  }, [refresh, signedIn]);
 
   // App đã lên thật (2026-07-29): KHÔNG còn TIN MẪU — chợ rỗng thì hiện empty
   // state, tin thật hiện khi bà con đăng. real=null (chưa cấu hình/ lỗi) coi rỗng.
@@ -79,7 +82,7 @@ export function MarketBoard() {
       </RefNote>
 
       <div className="my-3">
-        {ready && user ? (
+        {ready && signedIn ? (
           <PrimaryButton onClick={() => setShowForm(true)}>
             <PlusIcon className="h-6 w-6" />
             Đăng tin mua/bán

@@ -5,7 +5,8 @@
 // SĐT hợp lệ. Đăng nhập rồi thì route tự điền tên/SĐT từ hồ sơ nếu thiếu.
 
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { identityFromRequest } from "@/lib/api-identity";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createConsultationRequest, isAssetSyncConfigured } from "@/lib/sdwork-assets";
 import { topicLabel } from "@/lib/sdvico-catalog";
 
@@ -41,20 +42,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });
   }
 
-  // Đăng nhập rồi → lấy tên/SĐT từ hồ sơ làm mặc định
+  /*  Đăng nhập rồi → lấy tên/SĐT làm mặc định. `anonymous = true`: đây là đường
+      GỬI YÊU CẦU HỖ TRỢ, khách vãng lai phải gửi được (họ tự điền tên/SĐT). Danh
+      tính chỉ để điền hộ, không mở thêm quyền gì.
+      Đổi 2026-08-02: tra `customers` theo SĐT của chuỗi thay vì `profiles` theo
+      `user.id` — máy ngư dân không còn phiên Supabase nên không còn `user.id`. */
   let profileName: string | null = null;
   let profilePhone: string | null = null;
-  const supabase = await createClient();
-  if (supabase) {
-    const { data } = await supabase.auth.getUser();
-    if (data?.user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, phone")
-        .eq("id", data.user.id)
+  const who = await identityFromRequest(req, true);
+  if (who.ok && who.phone) {
+    profilePhone = who.phone;
+    const admin = createAdminClient();
+    if (admin) {
+      const { data: cust } = await admin
+        .from("customers")
+        .select("name")
+        .eq("phone", who.phone)
         .maybeSingle();
-      profileName = profile?.full_name ?? null;
-      profilePhone = profile?.phone ?? data.user.email?.split("@")[0] ?? null;
+      profileName = (cust?.name as string | null) ?? null;
     }
   }
 

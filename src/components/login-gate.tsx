@@ -27,10 +27,12 @@ export function LoginGate({
   accent?: "t1" | "t2" | "t3" | "t4";
   children: React.ReactNode;
 }) {
-  const { user, ready } = useAuthUser();
+  /*  `signedIn` — xem chú thích ở `use-auth.ts`. Component này hiện chưa route
+      nào dùng, nhưng để nguyên `user` là để sẵn một khẩu súng đã lên đạn. */
+  const { signedIn, ready } = useAuthUser();
 
   if (!ready) return null; // đang kiểm tra — đừng nhá khóa rồi mở
-  if (user) return <>{children}</>;
+  if (signedIn) return <>{children}</>;
 
   return (
     <div className="surface px-5 py-8 text-center">

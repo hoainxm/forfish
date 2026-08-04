@@ -19,6 +19,7 @@ const _ls = (() => {
 
 import {
   fetchForecastGrid,
+  peekForecastGrid,
   savedGridDays,
   savedCurrentGridDays,
   gridIsCurrent,
@@ -116,11 +117,32 @@ describe("fetchForecastGrid offline — đúng khung ngày đã xin", () => {
     expect(near.times.length).toBe(25);
   });
 
-  it("KHÔNG mượn khung DÀI hơn cho khung ngắn (kẻo lộ tầm premium cho tài khoản thường)", async () => {
+  /*  ⚠️ ĐỔI LUẬT 2026-08-02j — MƯỢN KHUNG DÀI ĐƯỢC, NHƯNG PHẢI **CẮT**.
+
+      Luật cũ cấm hẳn, lý do ghi là "kẻo lộ tầm premium cho tài khoản thường".
+      Với `truncateGrid` thì lo đó không còn: người xin 3 ngày nhận đúng 3 ngày,
+      không thêm một mốc nào. Chốt quyền thật vẫn ở máy chủ (middleware chặn
+      `/api/fish-forecast`, snapshot khung 16 trả 403 cho hạng thường) — đây chỉ
+      là đường ĐỌC bản đã tải hợp lệ.
+
+      Vì sao BẮT BUỘC phải có: từ 2026-08-02j, ghi được `d16` là `d3`/`d7` bị dọn
+      ("một lớp một bản"). Mà khách PREMIUM lúc đang kiểm tra hạng
+      (`premiumUnsure`) vẫn xin `FREE_FORECAST_DAYS = 3` ⇒ không có đường cắt từ
+      `d16` xuống thì họ nhận màn trắng dù dữ liệu nằm ngay đó. */
+  it("mượn khung DÀI cho khung ngắn — nhưng CẮT đúng số ngày đã xin", async () => {
     globalThis.fetch = online(400);
-    await fetchForecastGrid(16);
+    const far = await fetchForecastGrid(16);
     globalThis.fetch = offline();
-    await expect(fetchForecastGrid(3)).rejects.toThrow();
+    const g = await fetchForecastGrid(3);
+    expect(g.stale, "phải nói thật là bản đã lưu").toBe(true);
+    expect(
+      g.times.length,
+      "trả nguyên khung 16 ⇒ lộ tầm premium cho hạng thường",
+    ).toBeLessThan(far.times.length);
+    // và đúng bằng khung 3 ngày thật
+    expect(g.times.length).toBe(25);
+    // nội dung phải là TIỀN TỐ của bản dài, không phải bản khác
+    expect(g.times).toEqual(far.times.slice(0, g.times.length));
   });
 
   it("bản lưu khung 3 ngày KHÔNG bị dùng cho khung 16 ngày dù lưu sau", async () => {
@@ -287,5 +309,52 @@ describe("gridIsCurrent — loại bản lưu đời cũ (vùng phủ nhỏ)", (
     expect(savedCurrentGridDays()).toEqual([]);
     // …nhưng tra ĐIỂM/tuyến vẫn biết trong máy còn bản d16 (nearestGridCell tự chặn vùng)
     expect(savedGridDays()).toEqual([16]);
+  });
+});
+
+/*  ═══ HIỆN BẢN TRONG MÁY NGAY, KHÔNG CHỜ MẠNG ═══ (2026-08-03)
+
+    Cổng cho lỗi chủ dự án bắt trên máy thật ("load cực kỳ chậm, cache rồi local
+    storage đâu"): `fetchForecastGrid` chỉ đọc kho ở hai ca — bản còn hiện hành,
+    hoặc `navigator.onLine === false`. Ca GIỮA (sóng yếu mà sống) phải đốt hết
+    10 s snapshot + 20 s live rồi mới chạm tới bản đã nằm sẵn trong máy, mà màn
+    hình thì bị xoá trắng suốt thời gian đó. `peekForecastGrid` là đường đọc ĐỒNG
+    BỘ cho chỗ vẽ dùng trước, KHÔNG gọi mạng. */
+describe("peekForecastGrid — bản trong máy, đồng bộ, không gọi mạng", () => {
+  it("có bản đã lưu → trả về NGAY kèm cờ số cũ, KHÔNG gọi nguồn", async () => {
+    globalThis.fetch = online(96);
+    await fetchForecastGrid(3);
+    const spy = vi.fn().mockRejectedValue(new Error("không được gọi"));
+    globalThis.fetch = spy as unknown as typeof fetch;
+    const g = peekForecastGrid(3);
+    expect(spy).not.toHaveBeenCalled();
+    expect(g?.cells).toHaveLength(156);
+    expect(g?.stale).toBe(true); // nói thật: đây là bản đã lưu
+  });
+
+  it("bản lưu ĐÃ CŨ (qua mốc bản tin) vẫn hiện được — đó mới là điểm của nó", async () => {
+    globalThis.fetch = online(96);
+    const g0 = await fetchForecastGrid(3);
+    saveForecast(GRID_NS, "d3", g0, Date.now() - 20 * 60 * 60 * 1000);
+    expect(peekForecastGrid(3)?.stale).toBe(true);
+  });
+
+  it("máy trống → null (chỗ vẽ giữ nguyên dòng 'đang tải')", () => {
+    expect(peekForecastGrid(3)).toBeNull();
+  });
+
+  it("xin khung 16 mà máy chỉ có 3 → mượn khung ngắn, times[] nói thật", async () => {
+    globalThis.fetch = online(96);
+    await fetchForecastGrid(3);
+    const g = peekForecastGrid(16);
+    expect(g).not.toBeNull();
+    expect(g!.times.length).toBeLessThanOrEqual(25); // 3 ngày, không phải 16
+  });
+
+  it("lớp Dòng chảy: bản lưu THIẾU số dòng chảy → null, không hiện lớp câm", async () => {
+    globalThis.fetch = online(96); // nguồn giả không có ocean_current_*
+    await fetchForecastGrid(3);
+    expect(peekForecastGrid(3)).not.toBeNull();
+    expect(peekForecastGrid(3, { needCurrent: true })).toBeNull();
   });
 });

@@ -5,6 +5,8 @@
 
 import { apiUrl } from "@/lib/api-base";
 import { loadForecast, saveForecast } from "@/lib/forecast-cache";
+import { forecastStoreReady } from "@/lib/forecast-store";
+import { timeoutSignal } from "@/lib/abort";
 
 export interface FuelPrice {
   /** đồng/lít, vùng 1 (gần kho) */
@@ -56,9 +58,16 @@ const FUEL_ID = "fuel";
  * giá chỉ sống trong kho service worker, không vào tệp sao lưu, không ai kiểm.
  */
 export async function fetchFuelPrice(): Promise<FuelPrice | null> {
+  /*  CHỜ KHO MỞ XONG RỒI MỚI ĐỌC BẢN LƯU (2026-08-02k — vòng đánh giá cuối).
+      Mất sóng thì `fetch` hỏng TỨC THÌ (không có độ trễ mạng che cửa sổ đua),
+      nên nhánh lùi chạy khi gương còn rỗng ⇒ trả `null` ⇒ màn hình nói "chưa
+      có" trong khi kho còn nguyên. Từ phiên thứ hai localStorage đã bị dọn nên
+      không còn lớp chắn nào. Hàm đã async; `forecastStoreReady()` có trần chờ. */
+  await forecastStoreReady();
+
   try {
     const r = await fetch(apiUrl("/api/fuel-price"), {
-      signal: AbortSignal.timeout(15000),
+      signal: timeoutSignal(15000),
     });
     if (r.ok) {
       const j = (await r.json()) as { ok: boolean; fuel?: FuelPrice };

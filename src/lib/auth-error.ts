@@ -111,3 +111,45 @@ export function isNetworkAuthError(error: unknown): boolean {
   // KHÔNG kết luận được là đăng xuất.
   return typeof e.status === "number" && e.status >= 500;
 }
+
+/**
+ * ĐỒNG HỒ CHẶN cho một promise không có nút hủy — hết giờ thì trả `null`.
+ *
+ * VÌ SAO CẦN (soát offline 2026-08-02, khuôn lỗi K1): các lời gọi auth của
+ * Supabase (`signInWithPassword`, `signOut`, `getUser`) KHÔNG nhận
+ * `AbortSignal`. Ở sóng "sống mà chết" chúng bắt tay xong rồi treo — không
+ * resolve, không reject — nên `await` đứng mãi và màn hình kẹt ở "Đang vào…"
+ * VĨNH VIỄN. Nặng nhất là các cú gọi nằm SAU khi việc chính đã xong (thu hồi
+ * phiên máy khác sau khi đã đổi mật khẩu): bà con tưởng chưa đổi được, đi gõ
+ * lại mật khẩu cũ.
+ *
+ * Hết giờ KHÔNG hủy việc đang chạy (không hủy được) — chỉ thôi chờ. Promise
+ * gốc được nuốt lỗi để không thành "unhandled rejection" khi nó về muộn.
+ *
+ * Trả `null` = "chưa biết kết quả", KHÔNG phải "thất bại" — chỗ gọi tự quyết.
+ */
+export function withDeadline<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise<T | null>((resolve) => {
+    let done = false;
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      resolve(null);
+    }, ms);
+    p.then(
+      (v) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(v);
+      },
+      () => {
+        // Lỗi cũng là "xong" — chỗ gọi chỉ cần biết "không có kết quả".
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(null);
+      },
+    );
+  });
+}

@@ -17,6 +17,8 @@
 //   hourly.wind_speed_10m_member30  → thành viên nhiễu 30   (tổng 31 cột gió)
 // Đơn vị: km/h.
 
+import { timeoutSignal } from "@/lib/abort";
+
 export type DayUncertainty = {
   /** ISO yyyy-mm-dd */
   date: string;
@@ -131,7 +133,7 @@ export async function fetchEnsembleUncertainty(
     const res = await fetch(url, {
       // Một số nguồn Open-Meteo chặn request không có User-Agent → gửi kèm cho chắc.
       headers: { "User-Agent": "SDFish/1.0 (+forfish)" },
-      signal: AbortSignal.timeout(15000),
+      signal: timeoutSignal(15000),
     });
     if (!res.ok) return null;
 

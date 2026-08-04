@@ -3,9 +3,7 @@ import {
   isValidSnapshotId,
   snapshotNeedsPremium,
 } from "@/lib/weather-snapshot-id";
-import { createClient } from "@/lib/supabase/server";
-import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
-import { resolveTier } from "@/lib/tier";
+import { premiumDenied } from "@/lib/api-identity";
 
 /**
  * ĐỌC snapshot thời tiết (LƯỚI AN TOÀN) — client gọi khi live Open-Meteo lỗi.
@@ -23,23 +21,9 @@ import { resolveTier } from "@/lib/tier";
 export const dynamic = "force-dynamic";
 export const maxDuration = 15;
 
-async function premiumDenied(): Promise<{ status: number; code: string } | null> {
-  const supabase = await createClient();
-  if (!supabase) return null; // demo mode — mở
-  const { data } = await supabase.auth.getUser();
-  const email = data?.user?.email;
-  if (!email) return { status: 401, code: "login_required" };
-  if (isAdminPhone(email, parseAdminPhones(process.env.ADMIN_PHONES))) return null;
-  // Hạng của CHÍNH MÌNH (RLS own-phone); lỗi/chưa migrate → basic (fail-closed)
-  const { data: cust, error } = await supabase
-    .from("customers")
-    .select("tier, premium_until")
-    .maybeSingle();
-  const tier = error
-    ? "basic"
-    : resolveTier(cust?.tier, cust?.premium_until, Date.now());
-  return tier === "premium" ? null : { status: 403, code: "premium_required" };
-}
+/*  Chốt premium dời sang `lib/api-identity.ts` (2026-08-02) — một bản dùng chung
+    với /api/currents-depth, và nhận diện bằng CHUỖI CỨNG thay vì phiên Supabase
+    (máy ngư dân không còn giữ phiên nào). Bản chép tay ở đây đã xoá. */
 
 export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id") ?? "";
@@ -49,7 +33,7 @@ export async function GET(req: Request) {
 
   const needsPremium = snapshotNeedsPremium(id);
   if (needsPremium) {
-    const denied = await premiumDenied();
+    const denied = await premiumDenied(req);
     if (denied) {
       return Response.json(
         { ok: false, code: denied.code },
@@ -58,7 +42,15 @@ export async function GET(req: Request) {
     }
   }
 
-  const payload = await loadWeatherSnapshot(id);
+  const { payload, unreachable } = await loadWeatherSnapshot(id);
+  /*  KHÔNG HỎI ĐƯỢC ≠ KHÔNG CÓ (2026-08-02, audit lô B).
+      404 cố ý KHÔNG nằm trong `isRescuableStatus` của service worker ("404 →
+      nói thật"), nên trả 404 lúc hạ tầng chập chờn là tự tay chặn đường cứu:
+      máy đang giữ lưới 16 ngày trong kho vẫn nhận 404. 503 thì SW trả lại bản
+      trong kho, còn client vẫn có nhánh `!r.ok` như cũ — màn hình không đổi. */
+  if (unreachable) {
+    return Response.json({ ok: false, code: "source_down" }, { status: 503 });
+  }
   if (payload == null) {
     return Response.json({ ok: false, code: "not_found" }, { status: 404 });
   }

@@ -21,12 +21,22 @@ import { saveForecast } from "../forecast-cache";
 import {
   dedupePoints,
   pretripSteps,
+  pretripTimedOut,
+  runStepsPooled,
+  PRETRIP_CONCURRENCY,
   savedSummary,
   savedLayers,
   savedCoverage,
+  CURDEPTH_STEP_MAX_MS,
   PRETRIP_GRID_DAYS,
+  PRETRIP_MAX_MS,
   PRETRIP_SCALAR_DAYS,
 } from "../pretrip";
+import {
+  coverageChipOk,
+  coverageChipText,
+  PRETRIP_GRID_LONGEST_DAYS,
+} from "../pretrip-auto";
 
 /** Bản dự báo điểm rút gọn — chỉ cần mảng `days` để tính "giữ tới ngày nào" */
 const cond = (dates: string[]) => ({ days: dates.map((date) => ({ date })) });
@@ -48,8 +58,12 @@ describe("savedLayers / savedCoverage — độ phủ TỪNG lớp", () => {
   // seed đủ mọi lớp offline vào localStorage giả
   const seedAll = () => {
     saveForecast("point", "8.50_106.50", cond(["2026-08-10", "2026-08-13"]));
-    saveForecast("grid", "d3", { x: 1 });
-    saveForecast("grid", "d16", { x: 1 });
+    /* LƯỚI CÓ `times` THẬT như bản máy thật lưu: chip nói ngày CỐT LÕI (sớm
+       nhất giữa lưới và điểm ghim) nên lưới không có trục ngày thì app KHÔNG
+       dám nói ngày nào cả. Ở đây lưới phủ tới 18/8, điểm ghim tới 13/8 ⇒ câu
+       chữ phải lấy 13/8. */
+    saveForecast("grid", "d3", { times: ["2026-08-05T00:00"] });
+    saveForecast("grid", "d16", { times: ["2026-08-01T00:00", "2026-08-18T00:00"] });
     saveForecast("scalar", "cloud.d3", { x: 1 });
     saveForecast("scalar", "salinity.d4", { x: 1 });
     saveForecast("seascalar", "ssha", { ok: true });
@@ -94,6 +108,107 @@ describe("savedLayers / savedCoverage — độ phủ TỪNG lớp", () => {
     const layers = savedLayers({ fishLocked: false });
     expect(layers.every((l) => !l.saved)).toBe(true);
     expect(savedCoverage({ fishLocked: false }).allSaved).toBe(false);
+  });
+
+  /* BANNER "ĐÃ CŨ" HIỆN HOÀI MÀ BẤM KHÔNG ĐƯỢC GÌ (lỗi thật, sửa 2026-08-02).
+     Bản đồ cá đo tuổi bằng `generatedAt` (lúc CRON tính) nhưng lại đem so với
+     nhịp Open-Meteo (4 mốc/ngày, trần 12 giờ) — trong khi `/api/fish-forecast`
+     CHỈ tính bản mới khi snapshot quá 30 giờ. Client khắt khe hơn máy chủ ⇒ cứ
+     vài giờ sau mỗi lần cron chạy là chip đỏ "Dự báo trong máy đã cũ — chạm tải
+     mới", mà chạm "Tải mới" thì route trả lại ĐÚNG bản đang có ⇒ bấm bao nhiêu
+     lần cũng không đổi. BẤT BIẾN: ngưỡng "còn mới" phía client KHÔNG được chặt
+     hơn ngưỡng route thật sự đi tính bản mới. */
+  describe("lớp bản đồ cá — 'còn mới' theo NHỊP SNAPSHOT, không theo nhịp Open-Meteo", () => {
+    const seedFish = (agoMs: number) => {
+      saveForecast("fishmark", "latest", {
+        targetDate: "2026-08-01",
+        generatedAt: new Date(Date.now() - agoMs).toISOString(),
+      });
+      return savedLayers({ fishLocked: false }).find((l) => l.id === "fish")!;
+    };
+
+    it("cron tính 8 giờ trước → CÒN MỚI (route chưa tính lại, chạm 'Tải mới' cũng chỉ nhận đúng bản này)", () => {
+      const fish = seedFish(8 * 3600_000);
+      expect(fish.saved).toBe(true);
+      expect(fish.fresh).toBe(true);
+    });
+
+    it("13 giờ — quá trần 12 giờ của nhịp Open-Meteo — vẫn CÒN MỚI", () => {
+      expect(seedFish(13 * 3600_000).fresh).toBe(true);
+    });
+
+    it("cron ĐỨNG hơn 30 giờ → ĐÃ CŨ (đúng lúc đó route tự tính live nên nút có tác dụng thật)", () => {
+      expect(seedFish(31 * 3600_000).fresh).toBe(false);
+    });
+
+    it("chưa lưu / đang khoá premium → không bao giờ nhận là 'còn mới'", () => {
+      expect(
+        savedLayers({ fishLocked: false }).find((l) => l.id === "fish")!.fresh,
+      ).toBe(false);
+      seedFish(1000);
+      expect(
+        savedLayers({ fishLocked: true }).find((l) => l.id === "fish")!.fresh,
+      ).toBe(false);
+    });
+
+    it("đủ lớp + bản cá 8 giờ trước → chip XANH, KHÔNG hiện banner 'đã cũ'", () => {
+      seedAll();
+      seedFish(8 * 3600_000);
+      const cov = savedCoverage({ fishLocked: false });
+      expect(cov.allSaved).toBe(true);
+      expect(coverageChipOk(cov, "2026-08-02")).toBe(true);
+      expect(coverageChipText("idle", cov, "2026-08-02")).not.toContain("đã cũ");
+    });
+
+    it("đủ lớp nhưng cron đứng 31 giờ → VẪN phải nói thật là đã cũ", () => {
+      seedAll();
+      seedFish(31 * 3600_000);
+      const cov = savedCoverage({ fishLocked: false });
+      // đã cũ NHƯNG vẫn giữ ngày trong câu (R1) — ngày là thứ còn giá trị nhất
+      expect(coverageChipText("idle", cov, "2026-08-02")).toBe(
+        "Còn dùng tới ngày 13/8 — chạm tải mới",
+      );
+      // …và mất sóng thì đừng giục tải: nói cái DÙNG ĐƯỢC, tô xanh
+      expect(coverageChipText("idle", cov, "2026-08-02", false)).toBe(
+        "Trong máy còn dự báo tới ngày 13/8",
+      );
+      expect(coverageChipOk(cov, "2026-08-02", false)).toBe(true);
+    });
+  });
+
+  /*
+    C-5 ĐƯỜNG 2 — LỚP LƯỚI PHẢI ĐO BẰNG KHUNG DÀI NHẤT (2026-08-02).
+    `latestSavedAt("grid.")` gộp mọi khung: chỉ cần khung 3 ngày vừa tải là cả
+    lớp được gọi "còn mới", dù khung 16 ngày — thứ bà con dựa vào cho chuyến 10
+    ngày — đã cũ mấy chục giờ. Chip xanh trước lúc nhổ neo là lời hứa nặng nhất
+    trong app.
+  */
+  describe("lớp lưới gió/sóng — tuổi đo theo khung DÀI NHẤT", () => {
+    const gridLayer = () =>
+      savedLayers({ fishLocked: true }).find((l) => l.id === "grid")!;
+
+    it("d16 cũ 30 giờ + d3 vừa tải → lớp lưới là ĐÃ CŨ, không mượn tuổi của d3", () => {
+      saveForecast("grid", "d16", { x: 1 }, Date.now() - 30 * 3600_000);
+      saveForecast("grid", "d3", { x: 1 }, Date.now());
+      const g = gridLayer();
+      expect(g.saved).toBe(true);
+      expect(g.fresh).toBe(false);
+    });
+
+    it("khung dài nhất còn mới → lớp lưới còn mới", () => {
+      saveForecast("grid", "d3", { x: 1 }, Date.now() - 30 * 3600_000);
+      saveForecast("grid", "d16", { x: 1 }, Date.now());
+      expect(gridLayer().fresh).toBe(true);
+    });
+  });
+});
+
+/* Hai hằng số phải khớp nhau: `pretrip-auto` cố ý KHÔNG import `pretrip.ts` (kéo
+   theo cả chuỗi module gọi mạng) nên chỉ có test này giữ chúng lại với nhau. Để
+   rời nhau thì hoặc báo thiếu oan (đốt tiền sóng), hoặc khoá 6 giờ oan. */
+describe("PRETRIP_GRID_LONGEST_DAYS khớp PRETRIP_GRID_DAYS", () => {
+  it("bằng khung dài nhất mẻ tải sẵn nhắm tới", () => {
+    expect(PRETRIP_GRID_LONGEST_DAYS).toBe(Math.max(...PRETRIP_GRID_DAYS));
   });
 });
 
@@ -147,5 +262,132 @@ describe("savedSummary — 'trong máy đang có gì'", () => {
     expect(s.places).toBe(2);
     expect(s.untilIso).toBe("2026-08-09");
     expect(s.gridDays).toEqual([3, 16]);
+  });
+});
+
+/*
+  TRẦN THỜI GIAN CẢ MẺ (D-PH3, 2026-08-02). Chuỗi 12–14 bước chạy tuần tự, mỗi
+  bước ôm đồng hồ riêng 20–55 giây ⇒ ca sóng "sống mà chết" đo ra ~13 phút, suốt
+  thời gian đó cờ `running` khoá mọi lần thử khác và rời màn cũng không dừng.
+  ĐI KÈM shouldMarkPretripRun đọc `gained`: cắt sớm mà cửa chặn còn đọc KHO thì
+  mẻ bị cắt cũng khoá 6 giờ.
+*/
+describe("pretripTimedOut — trần thời gian cả mẻ", () => {
+  it("chưa tới trần → chạy tiếp", () => {
+    expect(pretripTimedOut(1000, 1000 + PRETRIP_MAX_MS - 1)).toBe(false);
+  });
+
+  it("đúng trần / quá trần → dừng, đừng vắt kiệt từng đồng hồ một", () => {
+    expect(pretripTimedOut(1000, 1000 + PRETRIP_MAX_MS)).toBe(true);
+    expect(pretripTimedOut(1000, 1000 + 13 * 60_000)).toBe(true);
+  });
+
+  it("đồng hồ máy chỉnh LÙI giữa mẻ → không cắt oan", () => {
+    expect(pretripTimedOut(1000, 500)).toBe(false);
+  });
+
+  it("trần cả mẻ 4 phút, riêng bước dòng chảy tầng 90 giây (đang chiếm 330s)", () => {
+    expect(PRETRIP_MAX_MS).toBe(240_000);
+    expect(CURDEPTH_STEP_MAX_MS).toBeLessThan(PRETRIP_MAX_MS / 2);
+  });
+});
+
+/*  ═══ MẺ TẢI SẴN CHẠY SONG SONG CÓ GIỚI HẠN ═══ (2026-08-03)
+
+    Trước: 12–14 bước XẾP HÀNG MỘT, mỗi bước ôm đồng hồ 20–55 giây ⇒ chạm trần
+    240 giây khi sóng yếu, các bước CUỐI gần như không bao giờ tới lượt. Nay ba
+    việc một lúc, nhưng phải giữ NGUYÊN mọi bất biến của bản cũ. */
+describe("runStepsPooled — song song mà không đánh mất bất biến nào", () => {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const buoc = (label: string, ms: number, hong = false, id?: string) => ({
+    label,
+    ...(id ? { id } : {}),
+    run: async () => {
+      await sleep(ms);
+      if (hong) throw new Error(label);
+    },
+  });
+
+  it("chạy ĐÚNG BA việc một lúc, không nhiều hơn", async () => {
+    let dangChay = 0;
+    let dinhCao = 0;
+    const steps = Array.from({ length: 9 }, (_, i) => ({
+      label: `v${i}`,
+      run: async () => {
+        dangChay++;
+        dinhCao = Math.max(dinhCao, dangChay);
+        await sleep(10);
+        dangChay--;
+      },
+    }));
+    const r = await runStepsPooled(steps, Date.now());
+    expect(dinhCao).toBe(PRETRIP_CONCURRENCY);
+    expect(r.ok).toBe(9);
+    expect(r.failed).toBe(0);
+  });
+
+  it("NHANH HƠN hẳn chạy tuần tự (cùng số việc, cùng độ trễ)", async () => {
+    const steps = Array.from({ length: 6 }, (_, i) => buoc(`v${i}`, 40));
+    const t0 = Date.now();
+    await runStepsPooled(steps, t0);
+    const song = Date.now() - t0;
+    const t1 = Date.now();
+    await runStepsPooled(
+      Array.from({ length: 6 }, (_, i) => buoc(`v${i}`, 40)),
+      t1,
+      undefined,
+      1, // tuần tự = pool 1 luồng
+    );
+    const tuanTu = Date.now() - t1;
+    expect(song).toBeLessThan(tuanTu);
+  });
+
+  it("một việc hỏng KHÔNG dừng cả mẻ", async () => {
+    const r = await runStepsPooled(
+      [buoc("a", 5), buoc("b", 5, true, "grid16"), buoc("c", 5), buoc("d", 5)],
+      Date.now(),
+    );
+    expect(r.ok).toBe(3);
+    expect(r.failed).toBe(1);
+    expect(r.failedSteps).toEqual(["grid16"]);
+  });
+
+  it("giữ THỨ TỰ ƯU TIÊN: ba việc đầu danh sách được nhặt trước", async () => {
+    const daNhat: string[] = [];
+    const steps = Array.from({ length: 6 }, (_, i) => ({
+      label: `v${i}`,
+      run: async () => {
+        daNhat.push(`v${i}`);
+        await sleep(5);
+      },
+    }));
+    await runStepsPooled(steps, Date.now());
+    expect(daNhat.slice(0, 3)).toEqual(["v0", "v1", "v2"]);
+  });
+
+  /*  BẤT BIẾN QUAN TRỌNG NHẤT — giữ nguyên từ bản tuần tự: việc CHƯA HỀ CHẠY
+      phải tính vào `failed` (nói thật là chưa tải được) nhưng KHÔNG được vào
+      `failedSteps`, vì `pretripGridTooShort` đọc danh sách đó để kết luận "khung
+      dài đã thử-và-hỏng vì mạng". Nhét việc chưa thử vào là nói dối nó. */
+  it("hết trần giờ → việc chưa chạy tính failed, KHÔNG vào failedSteps, có cờ timedOut", async () => {
+    const steps = [
+      buoc("a", 5, false, "grid3"),
+      buoc("b", 5, false, "grid7"),
+      buoc("c", 5, false, "grid16"),
+      buoc("d", 5, false, "grid10"),
+      buoc("e", 5, false, "grid5"),
+      buoc("f", 5, false, "grid1"),
+    ];
+    // mốc bắt đầu ở QUÁ KHỨ xa hơn trần → hết giờ ngay từ việc đầu
+    const r = await runStepsPooled(steps, Date.now() - PRETRIP_MAX_MS - 1000);
+    expect(r.timedOut).toBe(true);
+    expect(r.started).toBe(0);
+    expect(r.failed).toBe(6);
+    expect(r.failedSteps).toEqual([]);
+  });
+
+  it("danh sách RỖNG → không treo, không cờ hết giờ", async () => {
+    const r = await runStepsPooled([], Date.now());
+    expect(r).toMatchObject({ ok: 0, failed: 0, timedOut: false, started: 0 });
   });
 });

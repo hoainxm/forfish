@@ -15,6 +15,7 @@ import {
   SDVICO_HOTLINE_DISPLAY,
   SDVICO_SHOWCASE,
 } from "@/data/sdvico-showcase";
+import { timeoutSignal } from "@/lib/abort";
 
 /*
   KHUYẾN NGHỊ — kiểu app shop (user chốt 2026-06-11): CHỈ sản phẩm CHÍNH,
@@ -75,7 +76,7 @@ export function SdvicoCatalog({
   useEffect(() => {
     if (ownedProductNames.length === 0) return; // khách chưa có đồ → khỏi tải
     let alive = true;
-    fetch(apiUrl("/api/sdvico/catalog"), { signal: AbortSignal.timeout(20000) })
+    fetch(apiUrl("/api/sdvico/catalog"), { signal: timeoutSignal(20000) })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (alive && j?.ok && Array.isArray(j.groups)) setGroups(j.groups);

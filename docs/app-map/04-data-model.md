@@ -232,6 +232,33 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - **Đọc**: `GET /api/admin/activity` (**`requireAdmin`** — chỉ quản trị viên) trả tối đa 300 dòng mới nhất, lọc `?actor=` (khớp SĐT) & `?action=`; đọc hỏng → rỗng + `migrationNeeded` + `error{code,message,hint}` THẬT. **`POST`** (requireAdmin) = GHI THỬ một dòng `system.log-probe` rồi đếm lại → nút "Kiểm tra ghi nhật ký" ở tab Nhật ký (biết log câm hay không mà không phải đợi thao tác thật). UI: tab **Nhật ký** (admin-only) — tìm theo SĐT/tên thao tác + chọn loại + nút "Chỉ xóa/nhạy cảm".
 - ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`).
 
+### Hộp thư + biên nhận thông báo — migration [`0034_push_messages_receipts.sql`](../../supabase/migrations/0034_push_messages_receipts.sql) (2026-08-01) — ⚠️ CHƯA APPLY prod
+
+| Bảng | Nghĩa |
+|---|---|
+| `push_messages` (`id` · `title` · `body` · `url` · `target` `all\|account` · `target_phone` · `sent_by` · `devices` · `sent` · `created_at`) | MỘT DÒNG mỗi lần gửi. Ghi **TRƯỚC khi đẩy** nên tin vẫn còn kể cả đẩy hụt |
+| `push_receipts` (`message_id` × `endpoint` · `account_phone` · `delivered_at` · `opened_at`) | Biên nhận THẬT từ máy bà con |
+
+- **Vì sao**: (a) thông báo vuốt tắt là MẤT — ngư dân tay ướt dễ vuốt nhầm, tin bão biến mất không dấu vết; (b) trước chỉ biết "đã đẩy tới Apple/Google", không biết máy có nhận không.
+- **Biên nhận đo bằng gì**: service worker CHẠY THẬT trên máy — nhánh `push` gọi `POST /api/push/ack` (`delivered`), `notificationclick` gọi (`opened`, ghi cả hai mốc vì bấm được nghĩa là đã nhận). Không đòi đăng nhập (tin tới lúc app đóng, không chắc có phiên); khoá là cặp `(messageId, endpoint)`, biết endpoint máy khác cũng chỉ đánh dấu hộ, không đọc được nội dung.
+- **Hộp thư**: `GET /api/me/messages` (lọc phía SERVER theo phiên) trả tin `target='all'` + tin nhắm đúng tài khoản, ≤50 tin mới nhất. **KHÔNG cho SW cache** (route gắn danh tính, không nằm trong `API_CACHE_ALLOW`); bản offline ở `localStorage forfish.inbox.v1` **mang theo SĐT chủ nhân**, SĐT lệch → coi như trống, và **xoá khi đăng xuất** — máy dùng chung trên tàu.
+- **UI**: trang chủ mục **Thông báo** ngay dưới "Bốn việc chính" — 3 tin gần nhất, bấm mở tin cũ hơn; tự ẩn khi chưa đăng nhập/chưa có tin. `/quan-tri` tab Thông báo có **10 tin gần nhất + cột máy · đẩy · nhận · đọc**.
+- ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`).
+
+### Đọc trong app cũng là đọc — migration [`0035_push_reads.sql`](../../supabase/migrations/0035_push_reads.sql) (2026-08-01) — ⚠️ CHƯA APPLY prod
+
+| Bảng | Nghĩa |
+|---|---|
+| `push_reads` (`message_id` × `reader` · `account_phone` · `read_at`) | Bà con đã ĐỌC tin, đếm theo **người** |
+
+- **Vì sao**: 0023 chỉ ghi `opened_at` ở nhánh `notificationclick` ⇒ **chỉ** đếm khi bấm vào banner. Nhưng đường đọc phổ biến nhất là liếc trên màn khoá rồi vuốt tắt, hoặc mở app xem mục Thông báo — cả hai không ghi gì, nên `/quan-tri` hiện **"đọc 0" vĩnh viễn** dù tin đã tới mắt. Số dối hại hơn không có số: người gửi tin bão sẽ tưởng tin không tới mà gửi lại, hoặc kết luận sai là bà con không quan tâm.
+- **Đơn vị đếm — cố ý khác nhau**: `push_receipts` đếm theo **MÁY** (đo việc *giao tin*), `push_reads` đếm theo **NGƯỜI** (đo việc *đọc*) — một người hai máy đọc một tin vẫn là một người đọc. Khoá `reader` = `sdt:<SĐT>` khi đã đăng nhập (máy chủ tự lấy từ phiên), `may:<endpoint>` khi chưa (hộp thư mở cho cả khách). `/api/admin/push` **GỘP** hai nguồn về cùng dạng khoá rồi đếm số khoá khác nhau, nên bấm banner xong lại mở app đọc chỉ tính một.
+- **Mốc đọc đo ở đâu**: `POST /api/me/messages/read` — `InboxSection` quan sát bằng `IntersectionObserver`, thẻ tin lọt ≥50% vào màn hình thì tính là tới mắt (thẻ hiện sẵn cả nội dung, không có gì để "mở ra"; tin sau nút "Xem N tin cũ hơn" chưa vẽ nên không bị tính). Gom 1,2 s một cú. Ghi bằng `upsert ignoreDuplicates` — **lần đầu** đọc mới là mốc có nghĩa.
+- **Lỗi kèm theo đã sửa**: `notificationclick` trong `public/sw.js` bắn ack **ngoài** `event.waitUntil` ⇒ trình duyệt được phép giết service worker ngay khi mở xong cửa sổ, cắt request đang bay (iOS giết SW rất mạnh lúc PWA lên foreground) — bà con CÓ bấm mà cột "đọc" vẫn không lên. Nay `waitUntil(Promise.all([focus, ack]))`, test đọc thẳng `sw.js` chống tái phát.
+- **⚠️ ẢNH HƯỞNG OFFLINE**: biên nhận là **thống kê**, không phải dữ liệu bà con cần. Client bỏ qua hẳn khi `navigator.onLine === false`, timeout 8 s, nuốt mọi lỗi, và **chỉ ghi vào bản lưu khi máy chủ đã xác nhận** ⇒ hỏng thì lần mở app sau có sóng báo lại, không mất luôn. Không đụng `SHELL`/danh sách cache; route là POST nên SW vốn bỏ qua. Khoá mới `forfish.inbox.read.v1` mang theo SĐT chủ nhân và bị `clearInbox()` xoá lúc đăng xuất — cùng luật cách ly tài khoản với `forfish.inbox.v1`.
+- **Đường lùi nếu bảng chưa có**: supabase-js **trả** `error` chứ không ném ⇒ `reads` về rỗng, cột "đọc" tụt về đúng nguồn bấm-banner như cũ; app phía bà con không hỏng gì (route read trả 500, client nuốt lỗi và báo lại lần sau).
+- ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`) — kiểm lại sau khi chạy: bảng có · `rls=true` · **0 policy** (chỉ service-role) · 0 dòng.
+
 ### Đo thật việc dùng app — migration [`0031_customer_app_usage.sql`](../../supabase/migrations/0031_customer_app_usage.sql) (2026-08-01) — ✅ ĐÃ APPLY prod 2026-08-01
 
 | Cột mới trên `customers` | Nghĩa |
@@ -239,14 +266,39 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 | `pwa_last_open_at` | Lần cuối mở ở **chế độ đã cài** (standalone). **NULL = chưa bao giờ mở bản cài** — đây là con số đáng nhìn nhất |
 | `web_last_open_at` | Lần cuối mở trong tab trình duyệt thường |
 | `offline_ready_at` | Lần cuối máy tự báo ĐỦ ĐỒ ĐI BIỂN = vỏ app cài đủ (`shell-ready`) **và** mọi lớp dữ liệu đã tải (`savedCoverage.allSaved`) |
+| `data_until` (migration [`0036_customer_data_until.sql`](../../supabase/migrations/0036_customer_data_until.sql), 2026-08-02 — ⚠️ CHƯA APPLY prod (base — chưa apply sdvico)) | **Dữ liệu đi biển trong máy phủ tới NGÀY NÀO** (`date`). Ba cột trên chỉ nói "đã từng mở / đã từng đủ"; cột này trả lời câu người trực tổng đài cần nhất: *máy này ra khơi ngày mai thì trong tay bà con có dự báo tới đâu*. NULL = chưa bao giờ báo được |
 
 - **Vì sao**: chip "đã/chưa sử dụng" (0029) là nhân viên TỰ TICK — niềm tin, không phải số đo. Thứ cần biết là **ai đã cài mà chưa bao giờ mở BẢN CÀI**: trên iPhone kho của bản A2HS tách riêng với Safari, nhóm đó ra khơi với máy trắng tay (ca TC-13 trong [ops/qa-offline-acceptance.md](ops/qa-offline-acceptance.md)). Danh sách để GỌI ĐIỆN NHẮC.
 - **Ghi**: `POST /api/me/heartbeat` (đăng nhập mới ghi; chưa đăng nhập → `recorded:false`, KHÔNG lỗi). Chỉ ghi MỐC + CHẾ ĐỘ — **không vị trí, không thao tác**. KHÔNG đụng `updated_at` (cột đó là mốc dữ liệu khách đổi; heartbeat ghi vào là mọi tài khoản trông như vừa sửa mỗi lần mở app).
-- **Client** `src/lib/heartbeat.ts` — bốn hàng rào offline: mất sóng thì KHÔNG gọi · cửa chặn **12 giờ/máy** (`forfish.heartbeat.v1`) · `AbortSignal.timeout` 8s + `.catch` nuốt sạch · gọi trong `useEffect` sau 3s, không `await` ở đường vẽ màn. Là POST nên service worker bỏ qua hẳn. Luật thuần `shouldSendHeartbeat` có test.
+- **Client** `src/lib/heartbeat.ts` + luật thuần dùng chung hai phía `src/lib/heartbeat-policy.ts` — hàng rào offline: mất sóng thì KHÔNG gọi · đồng hồ chặn 5 giây qua `timeoutSignal` (`lib/abort.ts` — **không** gọi thẳng `AbortSignal.timeout`: Safari 15 ném `TypeError` ngay trong `try`, nhịp chết câm mà vẫn trả đủ giá quét kho) + `.catch` nuốt sạch · gọi trong `useEffect` sau 3s, không `await` ở đường vẽ màn. Là POST nên service worker bỏ qua hẳn.
+- ⚠️ **CỔNG RẺ TRƯỚC, QUÉT KHO SAU** (sửa 2026-08-02e): chỗ gọi phải dựng đủ payload trước khi hỏi `sendHeartbeat`, mà hai mảnh của payload (`isShellReady()` = 34 lượt `caches.match`; `savedCoverage()` = 11 lượt `loadAll` + 9 lượt `bytesUnder`, riêng `bytesUnder("")` dựng lại toàn bộ chuỗi) đều **quét sạch kho offline trên LUỒNG CHÍNH** — trong khi mọi hàng rào lại nằm BÊN TRONG `sendHeartbeat` và gần như luôn chặn. Kết quả: mỗi lần mở/quay lại app là ~33 MB `JSON.parse` rồi vứt đi, Android rẻ khoá màn 0,5–1,5 giây. Nay `heartbeatNeedsScan` (thuần, có test) trả lời trước bằng **ba mảnh RẺ của chữ ký** (tài khoản · web/bản cài · mã máy), `false` thì hẹn lại rồi thôi. **Đánh đổi chủ dự án chấp nhận**: sự kiện *"vừa đủ đồ đi biển"* (mảnh đắt) trễ tối đa 30 phút; ba sự kiện còn lại vẫn đi ngay. Cùng lúc: `visibilitychange`/`online` cũng đi qua độ trễ 3 giây (trước gọi thẳng, bỏ qua chính độ trễ file đó đặt ra — mà bản cài PWA không remount nên đó là đường vào phổ biến nhất), và có cờ `inFlight` chống hai lượt quét chạy chồng.
+- ⚠️ **CẦU DAO KHI MÁY CHỦ NỔ 5xx** (thêm 2026-08-02e): 5xx không ghi chữ ký ⇒ `pending` mãi true ⇒ nhịp mãi là "sự kiện" ⇒ bám 5 phút/lần **vĩnh viễn**; và mỗi lần đổi khuôn chữ ký (gần nhất: thêm `|deviceId`) là TOÀN BỘ máy đang chạy vào trạng thái "có sự kiện chờ" ngay sau deploy ⇒ máy chủ nổ lần nữa = 717 máy × 12 request/giờ. Nay đếm riêng 5xx liên tiếp (`forfish.heartbeat.5xx.v1`); quá `EVENT_5XX_GIVEUP` = 5 thì `eventDegradedToState` hạ nhịp sự kiện về **nhịp định kỳ** (trần 30 phút). **Tin không mất** — chữ ký vẫn chưa ghi, chỉ chậm lại; máy chủ trả lời được một lần là nhả cầu dao.
+- ⚠️ **ROUTE KHÔNG ĐƯỢC NUỐT LỖI CÂM** (sửa 2026-08-02e): route này từng có **0 dòng `console`** — `write_failed` trả HTTP 200, và `upsert` vào `customer_devices` vứt luôn `error` (supabase-js **không ném** với lỗi Postgres/RLS, nó *trả về* `{ error }`) ⇒ bảng chưa tồn tại / cột lạ / RLS chặn đều im lặng tuyệt đối, đường phát hiện duy nhất là chủ dự án tình cờ mở /quan-tri. Nay cả hai chỗ `console.error`. **Vẫn giữ HTTP 200** cho `write_failed`: client đọc `recorded`/`need` chứ không đọc status, đổi sang 5xx là đẩy chính client vào nhánh cầu dao ở trên. Cổng chặn khuôn: `src/lib/__tests__/api-silent-catch.test.ts` (cấm `catch {}` không có `console` trong mọi route).
+- ⚠️ **HAI LOẠI NHỊP, KHÔNG PHẢI MỘT CỬA THỜI GIAN** (chủ dự án chốt 2026-08-02d). **Mất sóng → không có nhịp nào**: đây là luồng RIÊNG, chạy độc lập, KHÔNG cần heartbeat, KHÔNG cần máy chủ; có sóng lại thì nhịp mới bắt đầu. **Có sóng** thì tách đôi theo BẢN CHẤT: ① **nhịp SỰ KIỆN** (đổi tài khoản · web→bản cài · vừa đủ đồ đi biển · **đổi mã máy**) gửi NGAY rồi **bám 30 giây → 3 phút → 5 phút cho tới khi máy chủ xác nhận GÁN ĐƯỢC**; ② **nhịp ĐỊNH KỲ** 30 phút báo trạng thái hiện giờ (gồm `data_until`), lỡ lượt thì lượt sau bù, thang lùi 1→5→15→30 phút và không bao giờ thưa hơn nhịp khoẻ. Cửa 12 giờ cũ bỏ hẳn — nó sinh ra từ nỗi lo tốn sóng ngoài biển, mà nỗi lo đó nay do luồng offline gánh (*"4G 5G khắp nơi rồi, heartbeat thì nhẹ"*).
+- ⚠️ **MÁY CHỦ PHẢI TRẢ LỜI CÓ THỂ HÀNH ĐỘNG ĐƯỢC** — chặn vòng lặp vô ích: `attached` (đã gán vào hàng khách chưa) + `need` (`retry` bám tiếp · `login` chưa có phiên nên DỪNG bám · `wait_admin` không có hàng khách mang SĐT này, việc của người ở bờ nên DỪNG bám · `none` xong) + `nextInMs` (máy chủ xếp lịch, máy **kẹp về [30 giây, 6 giờ]** trước khi nghe). `nextInMs` là chiều ngược DUY NHẤT của kênh này — một con số điều tiết, KHÔNG phải kênh lệnh.
+- ⚠️ **`data_until` chỉ đi theo nhịp ĐỊNH KỲ, cố ý KHÔNG vào chữ ký sự kiện**: ngày này đổi sau mỗi lượt tải, đưa vào chữ ký là biến mọi lượt tải thành một "sự kiện" và máy bắn nhịp liên tục. Client khai gì máy chủ cũng ép qua `normalizeDataUntil` (thuần, có test) — chuỗi rác lọt xuống cột `date` là **cả lệnh update hỏng**, mất luôn 3 mốc đang chạy tốt (đúng khuôn lỗi cột 0022 đã dính một lần).
+- ⚠️ **`data_until` đo HAI LỚP CỐT LÕI, không phải một** (sửa 2026-08-02e): client trước đây gửi lên `savedCoverage().untilIso`, mà trường đó chỉ duyệt lớp **điểm ghim**. Sai cả hai chiều và cả hai chiều đều sai về phía NGUY HIỂM — (a) lưới CẢ VÙNG bị dọn mà điểm ghim còn ⇒ /quan-tri báo "tới 18/08" trong khi thứ bà con mở ra giữa biển đã mất; (b) lớp `point` là **bậc hy sinh đầu tiên** khi máy hết chỗ nên nó bị dọn trước ⇒ `untilIso = null` ⇒ route bỏ qua (`if (savedUntil)`) ⇒ cột **giữ nguyên con số cũ đã lỗi thời**. Nay client gửi `coreSavedUntil(savedGridUntil(), cov.untilIso)` (`lib/heartbeat.ts`, thuần, có test): ngày **SỚM NHẤT** giữa lưới cả vùng và điểm ghim, `null` khi thiếu một trong hai. `cov.untilIso` KHÔNG đổi nghĩa — chip màn Ra khơi vẫn dùng nó đúng nghĩa "điểm ghim".
+- ⚠️ **CỬA 12 GIỜ CHỈ ĐÓNG KHI GHI ĐƯỢC THẬT** (sửa 2026-08-01g): bản đầu ghi dấu TRƯỚC khi gửi và không ai đọc `recorded` ⇒ một lần hỏng là im nửa ngày, và hỏng vĩnh viễn cũng im lặng. Hai lỗi ghép lại: (a) client coi "gửi đi" = "ghi được"; (b) route coi `update().eq()` **khớp 0 hàng** = thành công (Supabase trả `error = null`) nên SĐT không khớp `customers.phone` là hỏng mãi mà vẫn báo ổn. Nay route `.select("phone")` để đếm hàng thật và trả `reason` (`no_session` · `no_customer_row` · `write_failed`, KHÔNG kèm SĐT); client chỉ ghi mốc thành công khi `recorded === true`. Mức hoãn tách sang `forfish.heartbeat.retry.v1` + bộ đếm `forfish.heartbeat.fails.v1`: mất sóng thì vẫn KHÔNG gửi gì; máy đang online mà không nghe được máy chủ trong **5 giây** → thang lùi **30 giây → 3 phút → 5 phút → 12 giờ** (`netBackoffMs`, thuần, có test) và `UsageHeartbeat` tự hẹn giờ thử lại theo thang; máy chủ có trả lời mà chưa ghi được → 30 phút.
+- ⚠️ **TIN MỚI ĐI NGAY, KHÔNG CHỜ CỬA 12 GIỜ** (sửa 2026-08-01h): cửa 12 giờ gác theo *thời gian* nhưng thứ cần báo là *trạng thái đã đổi*, nên nó chặn nhầm đúng hai chuyển biến quan trọng — **web → bản cài** (trên Android bản cài dùng chung kho với Chrome ⇒ mở web rồi mở bản cài ngay sau đó thì `pwa_last_open_at` mãi `null`) và **chưa đủ đồ → đủ đồ đi biển** (tải xong lúc 15:00 thì `offline_ready_at` trống tới 03:00 sáng hôm sau — cột an toàn). Nay `beatSignature` (thuần, có test) rút nhịp thành `w-`/`wr`/`p-`/`pr`; khác chữ ký lần ghi được gần nhất thì gửi ngay. Mất sóng và mức hoãn-vì-mạng vẫn chặn trước — tin mới KHÔNG vượt được hai hàng rào đó.
 - **Đọc**: `/quan-tri` tab Tài khoản, chip `AppUsage` cạnh chip staff: **"Bản cài · <giờ>"** (xanh) hoặc **"CHƯA mở bản cài"** (vàng, tooltip giải thích kho A2HS tách riêng), + **"Đủ đồ đi biển · <giờ>"**.
-- ⚠️ **`offline_ready_at` chỉ ghi khi ĐO ĐƯỢC TRÊN ĐÚNG KHO** (sửa 2026-08-01f): iOS cho bản A2HS kho RIÊNG tách Safari ⇒ tải đủ trong Safari KHÔNG chứng minh gì cho bản cài; luật ở `src/lib/app-usage.ts` `countsAsOfflineReady` (iOS đòi `standalone`; Android tính cả hai vì dùng chung kho). Client gửi kèm cờ `ios`.
+- ⚠️ **THANG MỘT CHIỀU: web → bản cài → tải đủ** (siết 2026-08-01j, chủ dự án chốt: *"1 chiều thôi… nếu không PWA thì nó cứ nằm ở Web để đảm bảo họ có PWA"*). `offline_ready_at` **chỉ ghi khi nhịp gửi TỪ BẢN CÀI, mọi nền** — luật ở `src/lib/app-usage.ts` `countsAsOfflineReady` (thuần, có test). Gốc: iOS cho bản A2HS kho RIÊNG tách Safari nên tải đủ trong Safari không chứng minh gì cho bản cài (2026-08-01f). Bản đó **miễn cho Android** vì bản cài ở Android dùng chung kho với Chrome — xét về DỮ LIỆU thì đúng, nhưng thang này là **danh sách GỌI ĐIỆN**: người Android tải đủ trong tab nhảy thẳng lên bậc cao nhất (`usageCallPriority` 3 "yên tâm nhất") và rơi khỏi danh sách nhắc cài, dù màn hình chưa có icon nào — mà tab Chrome dễ bị dọn hơn bản cài và `persist()` cũng khó được cấp hơn. Nay bậc "đủ đồ" **không có đường tắt**. Cờ `ios` đã BỎ khỏi payload (thừa — `platform` mang thông tin đó).
 - **Đọc thành BẬC THANG**: `usageStage()` → `chua-ghi-nhan` (chưa gửi nhịp — KHÔNG có nghĩa chưa dùng app) → `moi-vo-web` (mở web, chưa mở bản cài — **nhóm gọi điện trước tiên**) → `da-mo-ban-cai` → `du-do-di-bien`. `usageCallPriority()` xếp ai gọi trước. Cột `staff_used` (0029) vẫn còn trong DB nhưng ĐÃ GỠ khỏi màn — máy đo thật thay cho nhân viên tự tick.
-- ✅ **ĐÃ APPLY prod 2026-08-01** (ref `znzgugvfhgmiszqgjulk`).
+- ✅ **ĐÃ APPLY prod** (ref `znzgugvfhgmiszqgjulk`).
+
+### Máy của khách + lịch sử đổi máy — migration [`0033_customer_device_platform.sql`](../../supabase/migrations/0033_customer_device_platform.sql) (2026-08-01) — ⚠️ CHƯA APPLY prod (ref `znzgugvfhgmiszqgjulk`; advisor: `customer_devices` báo `rls_enabled_no_policy` mức INFO — ĐÚNG THIẾT KẾ, sổ nội bộ chỉ service-role, y như `premium_grants`/`admin_activity_log`)
+
+| Cột/bảng | Nghĩa |
+|---|---|
+| `customers.device_platform` | Loại máy ĐANG dùng: `ios` \| `android` \| `khac`. Chip ở /quan-tri để nhân viên gọi điện chỉ ĐÚNG bước cài (iPhone: Chia sẻ → Thêm vào Màn hình chính; Android: Cài ứng dụng) |
+| `customers.device_id` | Mã máy ĐANG dùng (app tự sinh, `forfish.device.v1`). Nhịp đến từ mã KHÁC ⇒ server **xoá `pwa/web/offline_ready`** rồi ghi lại theo máy mới |
+| bảng `customer_devices` | **LỊCH SỬ**: mỗi `(customer_phone × device_id)` một hàng — `platform` · `first_seen_at` · `last_seen_at` + 3 mốc RIÊNG của máy đó. RLS bật, **KHÔNG policy** = chỉ service-role (y như `premium_grants` 0004) |
+| `customer_devices.data_until` (0025) | Ngày phủ dữ liệu của **riêng máy đó**. ⚠️ **NÓI THẬT: cột này ĐƯỢC GHI (từ 2026-08-02e) nhưng CHƯA CÓ MÀN NÀO ĐỌC** — `GET /api/admin/accounts` chưa join `customer_devices`, nên lời hứa của migration 0025 (*"đổi điện thoại vẫn tra được máy cũ tải tới đâu"*) mới xong một nửa. Trước 2026-08-02e thì cột này **không ai ghi và cũng không ai đọc**: upsert trong route heartbeat quên hẳn trường đó, `grep data_until src/` chỉ ra 6 chỗ và đều đọc trên `customers`. Đừng để doc hứa một tính năng chưa có |
+
+- **Vì sao `device_id`**: 3 cột mốc của 0031 nằm trên `customers` nên tích luỹ theo **TÀI KHOẢN, không theo MÁY**. Đổi từ iPhone (đã mở bản cài) sang Android (chỉ mở web) thì `pwa_last_open_at` cũ vẫn nằm đó ⇒ /quan-tri báo "Đã mở bản cài" cho cái máy **chưa bao giờ** mở bản cài.
+- **KHÔNG phải dấu vân tay**: `device_id` do app sinh NGẪU NHIÊN rồi cất trong máy — không phải IMEI/serial, không suy từ user-agent/màn hình/phần cứng; xoá dữ liệu web là mất, và không nhận ra được máy đó ở trang nào khác. `device_platform` chỉ 3 giá trị thô — **không** user-agent, model, độ phân giải, RAM (ghép lại là nhận diện được từng máy). Vẫn không vị trí, không thao tác.
+- **Đường lùi khi cột chưa có** (giữ lại, vẫn cần cho bản deploy cũ đang chạy dở và cho môi trường chưa migrate): route heartbeat thử ghi kèm cột mới, lỗi thì ghi lại **bộ cũ** (nhét cột chưa tồn tại vào là hỏng CẢ lệnh ⇒ mất luôn 3 mốc đang chạy tốt); `GET /api/admin/accounts` cũng thử `device_platform` rồi lùi về bộ cột cũ (hỏng câu select là mất trắng danh sách 700+ khách vì một chip phụ); ghi `customer_devices` bọc `try/catch` — sổ phụ hỏng KHÔNG được làm hỏng nhịp.
+- `deviceId` rỗng (storage bị chặn / chế độ riêng tư) → **KHÔNG reset gì**: thà số liệu cũ còn hơn xoá mốc mỗi lần mở app. Kiểm hình dạng bằng `isValidDeviceId` (thuần, có test) trước khi cho xuống DB.
+- ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`).
 
 ## 3. Domain logic — `src/lib/documents.ts`
 
@@ -370,6 +422,126 @@ Quy ước: tính năng khóa MỚI → bọc `components/login-gate.tsx` (UI) *
 <!-- re-verified: 2026-07-28 — bảng `product_listings` (0010, 🔴 chưa apply prod) — danh mục sản phẩm/dịch vụ admin quản lý cho tab Sản phẩm /tau, đọc công khai (RLS visible=true), ghi chỉ qua /api/admin/products (requireStaff). Kế hoạch tiếp: product_inquiries riêng + push_subscriptions (Web Push) — chưa có migration. -->
 <!-- re-verified: 2026-06-18 — 0002 supplies +unit; webhook route trả results[] per-event (ref/ok/code/provisioned) — khớp khảo sát SDWork -->
 <!-- re-verified: 2026-06-16 — bảng customers/devices/supplies/support_requests (0002) + auth SĐT+mật khẩu (webhook provision, KHÔNG email/OTP) + webhook ingest (§5b); §6 gateway live-read chuyển tiếp -->
+
+### Chuỗi cứng theo máy — migration [`0037_device_tokens.sql`](../../supabase/migrations/0037_device_tokens.sql) (2026-08-02) — ⚠️ CHƯA APPLY prod (base — chưa apply sdvico)
+
+Thay phiên Supabase làm danh tính của **app ngư dân** (`/quan-tri` giữ nguyên Supabase Auth — nhân viên ngồi ở bờ, sóng tốt, không có lý do kéo vào cùng rủi ro).
+
+**Vì sao**: phiên Supabase = JWT ngắn hạn + refresh token tự xoay. Ngoài biển, một lượt xoay mà phản hồi không về là máy giữ token cũ; dùng lại quá `reuse interval` (10 giây) bị GoTrue coi là token bị lộ ⇒ **thu hồi cả phiên**. Bà con văng khỏi tài khoản mà không ai đăng nhập ở đâu. Đo trên prod trước khi sửa: 48/63 hàng `auth.refresh_tokens` đã revoked, mỗi phiên là chuỗi 5–12 token.
+
+| Cột | Nghĩa |
+|---|---|
+| `token_hash` (PK) | SHA-256 hex của chuỗi thô. **KHÔNG lưu chuỗi thô** — bảng rò ra ngoài thì kẻ đọc được vẫn không đăng nhập thay bà con được |
+| `customer_phone` | SĐT đã chuẩn hoá. Không có khoá ngoại (tài khoản có thể chưa về qua webhook) |
+| `device_id` / `platform` | mã máy (0022) + loại máy, để `/quan-tri` tra cứu |
+| `created_at` / `last_used_at` | `last_used_at` ghi THƯA (≥1 giờ/lượt) — ghi mỗi request là biến bảng chuỗi thành bảng log |
+| `revoked_at` / `revoked_reason` | **NULL = đang hiệu lực**. `new_login` \| `user_signout` \| `admin` |
+
+**RLS: bật, KHÔNG policy nào** ⇒ chỉ service key đụng được. Kèm `revoke all ... from anon, authenticated` làm lớp khoá thứ hai: Supabase cấp sẵn quyền bảng cho hai role đó khi tạo bảng trong `public`, nên nếu sau này ai lỡ tắt RLS thì bảng hở ngay. Máy khách không có đường đọc bảng chuỗi của bất kỳ ai, kể cả của chính mình.
+
+**Luật 1 tài khoản 1 máy** nằm gọn ở một chỗ: `revokeTokensOfPhone(phone, 'new_login')` chạy **TRƯỚC** khi cấp chuỗi mới trong `POST /api/auth/token`. Đảo thứ tự là có khoảnh khắc hai chuỗi cùng hiệu lực; thu hồi hỏng thì **không cấp** chuỗi mới (503) chứ không đi tiếp.
+
+⚠️ **MẤT RLS THÌ ROUTE PHẢI TỰ LỌC.** Trước đây `current_phone()` của Postgres chặn hộ kể cả khi route viết ẩu. Nay các route của app ngư dân dùng service key và tự lọc bằng ĐÚNG SĐT vừa xác thực từ chuỗi — không nhận SĐT từ body, query, hay bất cứ thứ gì máy khách nói ra. Cổng chung: [`src/lib/api-identity.ts`](../../src/lib/api-identity.ts).
+
+⚠️ **OFFLINE**: bảng này không có đường nào chạy ngược về máy để tải/xoá/đổi dữ liệu. Máy bị thu hồi chỉ mất TÀI KHOẢN, giữ nguyên dự báo/bản đồ đã tải (chủ dự án chốt: *"máy nào tải rồi thì cứ dùng thôi"*).
+
+
+
+### Dữ liệu tới ngày nào — TÁCH KHO BẢN CÀI / KHO WEB — migration [`0038_data_until_web.sql`](../../supabase/migrations/0038_data_until_web.sql) (2026-08-02) — ⚠️ CHƯA APPLY prod (base — chưa apply sdvico)
+
+**Lỗi đã sửa — /quan-tri đang mô tả NHẦM KHO.** Cột `data_until` (0025) được ghi từ MỌI nhịp. Trên iOS kho của bản Thêm-vào-Màn-hình-chính **tách riêng** với Safari, nên ca này có thật và hoàn toàn im lặng: bà con tải đủ trong bản cài (data_until = 17/08), mấy hôm sau mở app bằng Safari → nhịp web **ghi đè** bằng con số của kho Safari → bảng báo về cái kho sẽ KHÔNG ra khơi. Chiều ngược lại sai y hệt.
+
+| Cột | Nghĩa |
+|---|---|
+| `customers.data_until` | kho **BẢN CÀI** — kho sẽ ra khơi. Giữ tên của 0036, nhưng từ 0038 **chỉ nhịp bản cài mới ghi** |
+| `customers.data_until_web` | kho **WEB** |
+| `customer_devices.data_until_web` | như trên, theo từng máy |
+
+Android dùng chung kho nên hai cột trùng nhau — vô hại. iOS thì lệch, và chỗ lệch đó chính là thứ người trực tổng đài cần thấy.
+
+**KHÔNG backfill**: giá trị `data_until` đang có là hỗn hợp hai kho, không tách ngược được. Để nguyên rồi nhịp sau ghi đúng.
+
+**KHÔNG có cột `last_online_at`** — cố ý. "Lần cuối máy còn sóng" chính là `pwa_last_open_at` / `web_last_open_at`: nhịp chỉ gửi được khi có sóng. Thêm cột mới là chép lại dữ liệu đã có rồi phải giữ hai chỗ đồng bộ. Luật gộp chip ở [`src/lib/app-usage.ts`](../../src/lib/app-usage.ts) (`readinessChip`, thuần, có test).
+
+
+
+### Một tài khoản một chuỗi sống — migration [`0039_device_tokens_one_live.sql`](../../supabase/migrations/0039_device_tokens_one_live.sql) (2026-08-02) — ⚠️ CHƯA APPLY prod (base — chưa apply sdvico)
+
+`POST /api/auth/token` thu hồi chuỗi cũ rồi cấp chuỗi mới bằng **hai truy vấn rời**. Hai lượt đăng nhập chạy sát nhau xen kẽ được:
+
+```
+A: revoke → B: revoke (no-op) → A: insert (sống) → B: insert (CŨNG sống)
+```
+
+⇒ hai máy cùng hiệu lực, tức luật "1 tài khoản 1 máy" thủng đúng ở ca nó sinh ra để chặn. Không hiếm: bà con bấm Đăng nhập hai lần vì mạng chậm.
+
+Không vá bằng cách viết code cẩn thận hơn — đây là **ràng buộc**, phải nằm chỗ không ai lách được. `create unique index … on device_tokens (customer_phone) where revoked_at is null` thay index thường của 0037. Lượt insert thua cuộc ném `23505`; route thu hồi lại rồi cấp lại **đúng một lần** → người đăng nhập SAU thắng. Fail-closed: xấu nhất là một lượt đăng nhập phải bấm lại.
+
+
+
+### Máy bà con còn bao nhiêu chỗ — migration [`0040_device_storage.sql`](../../supabase/migrations/0040_device_storage.sql) (2026-08-02) — ⚠️ CHƯA APPLY prod (base — chưa apply sdvico)
+
+**Vì sao** (chủ dự án chốt): cả một ngày soát offline được xây trên con số *"localStorage 5 MB"* mà **không ai đo**. Đo thật trên Chromium: localStorage chạm trần **99,88 MB**, quota cả origin **1.425 MB** — sai hẳn về mức độ. Không thể quyết kiến trúc lưu trữ bằng phỏng đoán, mà cũng không đo được iOS từ máy dev.
+
+⚠️ **BẢNG DƯỚI ĐÂY ĐÃ ĐÍNH CHÍNH 2026-08-02k** (tài liệu WebKit chủ dự án đưa). Bản đầu viết sai hai chỗ, và cả hai đều dẫn người sau đi nhầm đường: (a) IndexedDB **không có** hạn mức riêng "15–60% đĩa trống" — nó dùng **chung hạn ngạch origin**, tính theo **tổng dung lượng THIẾT BỊ**; (b) luật ITP 7 ngày **không** chỉ quét Cache API mà quét **mọi kho JavaScript ghi được**, kể cả IndexedDB và cả **đăng ký service worker** — nên dời sang IndexedDB **không** thoát được luật đó.
+
+| Kho | Hạn mức trên iOS/WebKit | Rủi ro thật |
+|---|---|---|
+| localStorage | **~5 MB/origin** — hạn mức RIÊNG, nhỏ hơn hẳn hạn ngạch origin, không co giãn theo máy (UTF-16 ⇒ ~2,5 triệu ký tự là chạm) | **iOS 16: chạm hạn mức là XOÁ SẠCH localStorage** (WebKit #245479) ⇒ mất luôn chuỗi đăng nhập, dấu hạng, tủ giấy tờ |
+| Cache Storage | chung hạn ngạch origin | bị chính `sw.js` (`reclaimRoom`, đổi tên kho lúc deploy) dọn |
+| IndexedDB | chung hạn ngạch origin | như trên |
+| **Hạn ngạch origin** | Safari/PWA màn hình chính: tối đa ~**60% tổng dung lượng thiết bị**/origin · tất cả origin cộng lại ~**80%** · WKWebView không phải trình duyệt mặc định: ~**15%** | mức TRẦN, không phải lời hứa |
+
+**Miễn luật 7 ngày**: chỉ **PWA đã thêm vào màn hình chính** (domain chính). Đó là hàng rào duy nhất, và app đã làm (`components/install-prompt.tsx`).
+
+⇒ Hệ quả cho mọi quyết định sau này: **dời dữ liệu giữa IndexedDB và Cache Storage KHÔNG làm origin nhẹ đi một byte nào** (cùng một túi), và **chép thêm bản "cho chắc" là ăn GẤP ĐÔI hạn ngạch** — đẩy origin tới gần vòng thu hồi LRU hơn, tức bản dự phòng đi gây ra đúng cái nó định phòng. Bản dự phòng THẬT phải nằm **ngoài** origin: tệp bà con tự xuất ra máy.
+
+| Cột (trên cả `customers` và `customer_devices`) | Nghĩa |
+|---|---|
+| `storage_quota_mb` | `navigator.storage.estimate().quota` — TRẦN kho của cả origin. NULL = trình duyệt cũ không có Storage API |
+| `storage_used_mb` | `.usage` — app đang chiếm bao nhiêu. Tiến sát quota = sắp không lưu thêm được ⇒ đáng gọi nhắc dọn bớt ảnh/video **trước khi ra khơi** |
+
+Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau một ngày là có số THẬT của cả đội tàu, **tách theo nền** (`device_platform`, 0022) — lúc đó mới quyết được có phải dời `forfish.fc.*` sang IndexedDB không.
+
+⚠️ **KHÔNG đo bằng cách ghi thử.** Cách duy nhất biết trần chính xác là ghi tới lúc ném — trên máy bà con thì đó là đổ vài chục MB rác vào kho và có cửa đẩy chính dữ liệu đi biển ra. `estimate()` là số trình duyệt tự khai, không ghi một byte.
+
+⚠️ Client khai sai chỉ hỏng thống kê của chính máy đó, KHÔNG mở được quyền gì — nhưng vẫn ép qua `normalizeStorageMb` (thuần, có test): một chuỗi lạ / số âm / `Infinity` xuống thẳng cột `integer` là **cả lệnh UPDATE hỏng**, mất luôn mấy mốc thời gian đang chạy tốt (đúng khuôn lỗi cột 0022 đã dính).
+
+### Đã lưu ở đâu · đủ chỗ không · chắc chạy offline chưa — migration [`0041_storage_breakdown.sql`](../../supabase/migrations/0041_storage_breakdown.sql) (2026-08-02) — ⚠️ CHƯA APPLY prod (base — chưa apply sdvico) (6 cột `customers` + 6 cột `customer_devices`, `storage_persisted` kiểu `boolean`)
+
+**Vì sao** (chủ dự án chốt): *"heartbeat và web quản trị cần có các info này để nắm rõ đã lưu ở đâu, lưu bản dữ liệu tới ngày nào, dung lượng storage đủ không, có đảm bảo chạy tốt 100% offline chưa."*
+
+0029 chở về **một con số tổng**. Số đó không trả lời được câu đang cần, vì theo bảng đã đính chính ở trên các kho **không bình đẳng**: localStorage có trần riêng ~5 MB (và iOS 16 chạm trần là xoá sạch nó), còn IndexedDB/Cache dùng chung hạn ngạch origin. Gộp lại là mất đúng thông tin để biết **kho nào sắp chật**.
+
+| Câu hỏi | Cột trả lời |
+|---|---|
+| ① đã lưu ở đâu | `storage_backend` (`'idb'` = đã dời xong · `'ls'` = còn kẹt thùng 5 MB ⇒ **đáng gọi điện**) + `storage_ls_mb` / `storage_idb_mb` / `storage_cache_mb` |
+| ② dữ liệu tới ngày nào | `data_until` (bản cài) / `data_until_web` — đã có từ 0036/0038 |
+| ③ dung lượng đủ không | `storage_available_mb` (`quota − usage`); gần 0 = sắp không giữ nổi gói đi biển |
+| ④ chắc chạy offline chưa | `offline_ready_at` (đã có) + `storage_persisted` |
+
+`storage_persisted` = `navigator.storage.persisted()` — **hàng rào duy nhất** chống vòng thu hồi LRU khi máy đầy. App vẫn gọi `persist()` lúc mở app nhưng trước đây **vứt kết quả**, nên không ai biết máy bà con có được cấp hay không. Tổ hợp đáng lo nhất: `storage_available_mb` nhỏ **và** `storage_persisted = false`.
+
+⚠️ `storage_cache_mb` là **ƯỚC LƯỢNG** (`tổng − ls − idb`), gộp cả mã service worker và phụ trội trình duyệt — chỉ dùng SO ĐỘ LỚN. Đo thật phải tải lại từng ô bản đồ: vài chục MB đọc đĩa mỗi nhịp, đắt hơn giá trị nó mang lại. Hai cột kia thì chính xác.
+
+⚠️ Cột có thể CHƯA tồn tại (chủ dự án tự apply) ⇒ `/api/admin/accounts` thử **bốn nấc** select rộng → hẹp (0031 tách RIÊNG một nấc: máy đã apply 0030 mà chưa apply 0031 không được mất sáu chip tách kho đang chạy tốt); `/api/me/heartbeat` giữ nguyên khuôn "hỏng thì ghi lại bộ cũ". Một chip phụ không được làm mất trắng danh sách 700+ khách.
+
+
+### Đã HỎI xin bộ nhớ bền chưa, và bị từ chối hay được gật — migration [`0042_storage_persist_asked.sql`](../../supabase/migrations/0042_storage_persist_asked.sql) (2026-08-03) — ⚠️ **CHƯA APPLY prod (base — chưa apply sdvico)** (1 cột `customers` + 1 cột `customer_devices`, kiểu `boolean`)
+
+**Vì sao** (chủ dự án hỏi 2026-08-03: *"đã có bản cài thì có bị từ chối không?"*): `storage_persisted` một mình **gộp hai ca cần hai cách xử lý khác hẳn nhau**.
+
+| Tổ hợp | Nghĩa | Việc phải làm |
+|---|---|---|
+| `persisted=false` · `persist_asked=null` | app **chưa hỏi lại lần nào** | lỗi của app — sửa được (đã sửa: `ensurePersistentStorage`) |
+| `persisted=false` · `persist_asked=false` | đã hỏi, **trình duyệt TỪ CHỐI** | giới hạn nền tảng — gọi điện nhắc bà con cũng vô ích; việc làm được là nhắc **dọn bớt chỗ** |
+| `persisted=true` | được cấp | không phải làm gì |
+
+**Ca thật dẫn tới cột này**: khách `0123456154` (iOS, **đã cài** ra màn hình chính, dữ liệu đủ tới 18/08, còn trống 39 GB) vẫn báo `storage_persisted = false` — mà /quan-tri thì hô "⚠️ chưa được cấp bộ nhớ bền", bắt nhân viên gọi điện nhắc một việc không tồn tại. Luật hiển thị mới ở `persistNote` (`lib/app-usage.ts`, có test): **chỉ nói khi CÒN LÀM ĐƯỢC GÌ** — tức chưa được cấp **và** máy sắp hết chỗ (`< 2000 MB`); bản cài vốn đã được miễn vòng xoá 7 ngày của ITP, thứ `persist()` cứu thêm chỉ là vòng thu hồi LRU khi máy đầy.
+
+⚠️ App chạy được **trước khi apply**: cả hai đường ghi (`customers` và `customer_devices` trong `/api/me/heartbeat`) đều có nhánh lùi bỏ cột lạ, và `/api/admin/accounts` có nấc select riêng cho cột này.
+
+
 <!-- re-verified: 2026-06-14 — schema 0001 boats/documents + §6 gateway khớp code -->
 <!-- re-verified earlier baseline -->
 

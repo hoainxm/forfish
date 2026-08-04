@@ -24,6 +24,8 @@ import { useBoats } from "@/components/boat-switcher";
 import { SdvicoCatalog } from "@/components/sdvico-catalog";
 import { SdvicoRequestButton } from "@/components/sdvico-request";
 import { formatVnDate } from "@/lib/format";
+import { readUserList, type UserListRead } from "@/lib/user-list-store";
+import { saveUserJson } from "@/lib/user-store";
 import {
   BoatProduct,
   byWarrantyUrgency,
@@ -53,23 +55,20 @@ const STORAGE_KEY = "forfish.products.v1";
 
 // ── storage ──────────────────────────────────────────────────
 
-function loadProducts(): BoatProduct[] | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as BoatProduct[];
-  } catch {
-    // corrupt storage — caller falls back to demo seed
-  }
-  return null;
+/* ĐỌC ĐƯỢC ≠ CHƯA CÓ GÌ (K4, 2026-08-02). Bản cũ `catch` rồi trả `null` y như
+   khi máy trắng ⇒ JSON hỏng một ký tự là màn dựng SỔ MẪU, `ready` bật, rồi
+   effect ghi đè hàng mẫu lên đúng chỗ đang giữ đồ thật của bà con (hạn bảo hành,
+   ngày mua — gõ tay, không tải lại được). Nay: không đọc được thì KHÔNG mở cửa
+   ghi và nói ra. Xem lib/user-list-store.ts. */
+function loadProducts(): UserListRead<BoatProduct> {
+  return readUserList<BoatProduct>(STORAGE_KEY);
 }
 
-function saveProducts(products: BoatProduct[]) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
-  } catch {
-    // storage full / disabled — keep working in-memory
-  }
+/* Trả `false` khi máy KHÔNG giữ được (hết chỗ / trình duyệt chặn) — trước đây
+   nuốt im trong `catch {}`. Ghi qua `saveUserJson` để dự báo tải sẵn nhường chỗ
+   (lib/user-store.ts); nhường vẫn không đủ thì màn BÁO ĐỎ. */
+function saveProducts(products: BoatProduct[]): boolean {
+  return saveUserJson(STORAGE_KEY, products);
 }
 
 // ── component ────────────────────────────────────────────────
@@ -79,6 +78,10 @@ export function BoatProducts() {
   const { current, boats } = useBoats();
   const [products, setProducts] = useState<BoatProduct[]>([]);
   const [ready, setReady] = useState(false);
+  /** máy KHÔNG ĐỌC ĐƯỢC danh sách đã lưu → không mở cửa ghi, và nói ra */
+  const [readFailed, setReadFailed] = useState(false);
+  /** máy không giữ được thứ vừa nhập → phải nói ra, không nuốt im */
+  const [saveFailed, setSaveFailed] = useState(false);
   const [editing, setEditing] = useState<BoatProduct | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<BoatProduct | null>(null);
@@ -92,12 +95,17 @@ export function BoatProducts() {
   // KHÔNG seed demo — chỉ đồ THẬT user thêm hoặc đồng bộ từ SDVICO.
   useEffect(() => {
     const stored = loadProducts();
-    setProducts(stored ?? []);
+    if (!stored.ok) {
+      setReadFailed(true); // `ready` GIỮ NGUYÊN false ⇒ effect ghi không chạy
+      return;
+    }
+    // sdvico: KHÔNG seed demo — đọc được nhưng trống thì để danh sách rỗng
+    setProducts(stored.list ?? []);
     setReady(true);
   }, [today]);
 
   useEffect(() => {
-    if (ready) saveProducts(products);
+    if (ready) setSaveFailed(!saveProducts(products));
   }, [products, ready]);
 
   // Xóa tàu → hàng gán tàu đó đã được nhả về "của chung" (ba-spec 08 R3);
@@ -105,7 +113,13 @@ export function BoatProducts() {
   useEffect(() => {
     if (!ready) return;
     const stored = loadProducts();
-    setProducts(stored ?? []);
+    if (!stored.ok) {
+      // đọc lại không được → GIỮ NGUYÊN thứ đang hiện, đừng dựng sổ mẫu đè lên
+      setReadFailed(true);
+      return;
+    }
+    // sdvico: KHÔNG seed demo
+    setProducts(stored.list ?? []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boats.length]);
 
@@ -153,6 +167,24 @@ export function BoatProducts() {
 
       {/* Hỏi gán hàng SDVICO cho tàu khi có >1 tàu (ba-spec 08 AC-6) */}
       <SdvicoAssignPrompt assets={synced} />
+
+      {/* MÁY KHÔNG ĐỌC / KHÔNG GIỮ ĐƯỢC đồ tự ghi — nói ngay, đừng nuốt im rồi
+          để bà con phát hiện lúc hết bảo hành (K4) */}
+      {readFailed && (
+        <div className="mx-4 mt-3 overflow-hidden surface">
+          <StatusBanner level="danger">
+            Máy chưa đọc được danh sách đồ đã lưu. Đóng app rồi mở lại; đừng thêm
+            đồ mới lúc này để khỏi mất danh sách cũ.
+          </StatusBanner>
+        </div>
+      )}
+      {saveFailed && (
+        <div className="mx-4 mt-3 overflow-hidden surface">
+          <StatusBanner level="danger">
+            Máy không giữ được — xoá bớt dữ liệu rồi thử lại.
+          </StatusBanner>
+        </div>
+      )}
 
       {/* ════ MỤC 2: CỦA SDVICO — cửa hàng gọn, giới thiệu + upsale ═══ */}
       {section === "sdvico" && (
