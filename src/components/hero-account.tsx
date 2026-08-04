@@ -102,13 +102,18 @@ export function HeroAccount() {
   const [vapidKey, setVapidKey] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
-    // chưa đăng nhập → chắc chắn không phải staff, khỏi gọi API
-    if (!user) {
+    /*  ⚠️ `signedIn`, KHÔNG `user` (sửa sau sync base 2026-08-04): app bỏ phiên
+        Supabase (chuỗi cứng device-token), `user` null VĨNH VIỄN trên máy ngư
+        dân ⇒ gate theo `user` thì nút "Trang quản trị" KHÔNG BAO GIỜ hiện cho
+        admin đã đăng nhập (hoặc chỉ hiện chớp nhoáng lúc phiên tạm chưa bỏ).
+        Và /api/admin/health xác thực bằng CHUỖI CỨNG nên PHẢI gửi tokenHeader()
+        — fetch trần không kèm chuỗi thì luôn 401 ⇒ isStaff false. */
+    if (!signedIn) {
       setIsStaff(false);
       return;
     }
     let alive = true;
-    fetch(apiUrl("/api/admin/health"))
+    fetch(apiUrl("/api/admin/health"), { headers: tokenHeader() })
       .then((r) => {
         if (alive) setIsStaff(r.ok);
       })
@@ -118,7 +123,7 @@ export function HeroAccount() {
     return () => {
       alive = false;
     };
-  }, [user]);
+  }, [signedIn]);
 
   useEffect(() => {
     if (!isPushSupported()) {

@@ -1,6 +1,8 @@
 import "server-only";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { tokenIdentity } from "@/lib/device-token-server";
 import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
 import {
   can,
@@ -33,10 +35,29 @@ export type StaffContext =
 export async function requireStaff(): Promise<StaffContext> {
   const supabase = await createClient();
   if (!supabase) return { ok: false, status: 503, code: "not_configured" };
-  const { data } = await supabase.auth.getUser();
-  const email = data?.user?.email;
-  if (!email) return { ok: false, status: 401, code: "login_required" };
-  const phone = email.split("@")[0];
+
+  /*  AI ĐANG GỌI — CHUỖI CỨNG TRƯỚC, rồi mới phiên Supabase cũ (sửa sau sync base
+      2026-08-04). App bỏ phiên Supabase (device-token): admin đăng nhập qua
+      /login xong là signOut ⇒ chỉ còn chuỗi cứng trong header, KHÔNG còn cookie
+      phiên. Đọc mỗi getUser() thì mọi staff token-only bị 401 ⇒ /quan-tri +
+      nút "Trang quản trị" chết. `headers()` (next/headers) đọc header request
+      ambient trong route handler — khỏi đổi chữ ký requireStaff/các caller.
+      KHÔNG tra được sổ chuỗi (DB nghẹt) → 503, KHÔNG 401 (đừng đá staff oan). */
+  let phone: string | null = null;
+  const tok = await tokenIdentity({
+    headers: await headers(),
+  } as unknown as Request);
+  if (tok.ok) {
+    phone = tok.phone;
+  } else if (tok.unavailable) {
+    return { ok: false, status: 503, code: "unavailable" };
+  } else {
+    // chưa gửi chuỗi / chuỗi bị thu hồi → thử phiên Supabase cũ (đường lùi)
+    const { data } = await supabase.auth.getUser();
+    const email = data?.user?.email;
+    if (email) phone = email.split("@")[0];
+  }
+  if (!phone) return { ok: false, status: 401, code: "login_required" };
 
   if (isAdminPhone(phone, parseAdminPhones(process.env.ADMIN_PHONES))) {
     return { ok: true, phone, role: "admin", permissions: null };

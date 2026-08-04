@@ -7,11 +7,6 @@
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import {
-  clearUserScopedData,
-  shouldReloadForScope,
-  syncAuthScope,
-} from "@/lib/auth-scope";
 import { isNetworkAuthError } from "@/lib/auth-error";
 import { readToken, TOKEN_STORE_EVENT } from "@/lib/device-token-store";
 import {
@@ -33,35 +28,6 @@ import {
 function rawUserPhone(u: User): string | null {
   const raw = u.phone || (u.email ? u.email.split("@")[0] : "");
   return raw || null;
-}
-
-function deriveBoatPhone(u: User | null): string | null {
-  return u?.phone || (u?.email ? u.email.split("@")[0] : null) || null;
-}
-
-/**
- * Đồng bộ scope + RESET RAM. syncAuthScope chỉ xoá localStorage — state React
- * đang mount (useBoats, useCrew, sổ nợ...) vẫn cầm data của user cũ, user sửa
- * tiếp là effect ghi NGƯỢC data cũ vào máy (báo lỗi: đăng xuất xong vẫn sửa
- * được thông tin tàu của tài khoản cũ). Cách chắc chắn duy nhất reset MỌI
- * state trong RAM là reload trang. Chỉ chạy khi có xoá thật (đổi user/logout)
- * — token refresh, đổi mật khẩu cùng user trả false → không reload, không loop.
- *
- * pagehide xoá LẦN CUỐI: giữa lúc clear và lúc reload thật sự, save-effect
- * của hook đang mount kịp ghi data cũ trở lại (React commit lần 2 sau hydrate
- * — bắt được bằng preview khi vá). Xoá lại ngay trước unload thì trang mới
- * luôn mở với storage sạch.
- */
-function syncScopeAndResetRam(phone: string | null) {
-  if (!syncAuthScope(phone)) return;
-  // syncAuthScope đã xoá data KH (chống rò rỉ). Reset RAM = reload, nhưng qua
-  // circuit-breaker: nếu auth state đang đảo qua lại (user ↔ null) thì KHÔNG
-  // reload lại trong tích tắc → chặn vòng lặp nhấp nháy tải trang vô hạn.
-  if (!shouldReloadForScope(Date.now())) return;
-  window.addEventListener("pagehide", () => clearUserScopedData(), {
-    once: true,
-  });
-  window.location.reload();
 }
 
 export function useAuthUser(): {
@@ -192,11 +158,8 @@ export function useAuthUser(): {
         }
         const u = data?.user ?? null;
         // getUser() không phải sự kiện auth-js — tên riêng, cổng xử như mọi
-        // chuỗi lạ khác (có user → nhớ, không có → giữ nguyên). Nhớ danh tính
-        // TRƯỚC khi reset-scope (có thể reload trang).
+        // chuỗi lạ khác (có user → nhớ, không có → giữ nguyên)
         remember("getUser", u);
-        // GIỮ chống-rò chéo user (origin): reset scope + RAM khi đổi user/logout
-        syncScopeAndResetRam(deriveBoatPhone(u));
         setUser(u);
       })
       .catch(() => {
@@ -212,7 +175,6 @@ export function useAuthUser(): {
       if (!alive) return;
       const u = session?.user ?? null;
       remember(String(event), u);
-      syncScopeAndResetRam(deriveBoatPhone(u));
       setUser(u);
     });
     return () => {

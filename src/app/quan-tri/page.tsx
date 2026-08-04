@@ -72,6 +72,7 @@ import {
   isDangerAction,
 } from "@/lib/admin-activity";
 import { timeoutSignal } from "@/lib/abort";
+import { tokenHeader } from "@/lib/device-token-store";
 
 type Tab =
   | "tai-khoan"
@@ -228,7 +229,7 @@ export default function QuanTriPage() {
   const loadHealth = useCallback(() => {
     setHealth(null);
     setHealthErr(null);
-    fetch(apiUrl("/api/admin/health"))
+    fetch(apiUrl("/api/admin/health"), { headers: tokenHeader() })
       .then(async (r) => {
         if (!r.ok) {
           setHealthErr(r.status);
@@ -584,7 +585,7 @@ function AccountsTab({ me }: { me: Me }) {
 
   const load = useCallback(() => {
     setError(null);
-    fetch(apiUrl("/api/admin/accounts"))
+    fetch(apiUrl("/api/admin/accounts"), { headers: tokenHeader() })
       .then(async (r) => {
         const j = (await r.json()) as {
           ok: boolean;
@@ -669,7 +670,7 @@ function AccountsTab({ me }: { me: Me }) {
     setNotice(null);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ phone: a.phone, action }),
     }).catch(() => null);
     const j = (await r?.json().catch(() => null)) as {
@@ -708,7 +709,7 @@ function AccountsTab({ me }: { me: Me }) {
     flip(next);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ phone: a.phone, action: "set_flag", flag, value: next }),
     }).catch(() => null);
     if (!r?.ok) {
@@ -725,7 +726,7 @@ function AccountsTab({ me }: { me: Me }) {
     setNotice(null);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ phone: a.phone, action: "record_payment", code }),
     }).catch(() => null);
     const j = (await r?.json().catch(() => null)) as {
@@ -757,7 +758,7 @@ function AccountsTab({ me }: { me: Me }) {
     setNotice(null);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ phone: a.phone, action: "reconcile_payment" }),
     }).catch(() => null);
     const j = (await r?.json().catch(() => null)) as {
@@ -784,7 +785,7 @@ function AccountsTab({ me }: { me: Me }) {
     setNotice(null);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ phone: a.phone, action: "reset-password" }),
     }).catch(() => null);
     const j = (await r?.json().catch(() => null)) as {
@@ -810,7 +811,7 @@ function AccountsTab({ me }: { me: Me }) {
     setBusyPhone(a.phone);
     const r = await fetch(
       apiUrl(`/api/admin/accounts?phone=${encodeURIComponent(a.phone)}`),
-      { method: "DELETE" },
+      { method: "DELETE", headers: tokenHeader() },
     ).catch(() => null);
     setBusyPhone(null);
     if (!r?.ok) {
@@ -839,7 +840,7 @@ function AccountsTab({ me }: { me: Me }) {
     );
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ phone: a.phone, action: "set-flags", ...patch }),
     }).catch(() => null);
     const j = (await r?.json().catch(() => null)) as { ok?: boolean } | null;
@@ -1695,7 +1696,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
     setMsg(null);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       // premium khi tạo = một lần KÍCH HOẠT chuẩn (1 năm 6 tháng, server tính hạn + log)
       body: JSON.stringify({
         phone,
@@ -1844,7 +1845,9 @@ function CrewReportsTab({ perms }: { perms: TabPerms }) {
   const load = useCallback(() => {
     setError(null);
     setRows(null);
-    fetch(apiUrl(`/api/admin/crew-reports?status=${status}`))
+    fetch(apiUrl(`/api/admin/crew-reports?status=${status}`), {
+      headers: tokenHeader(),
+    })
       .then(async (r) => {
         const j = (await r.json()) as {
           ok: boolean;
@@ -1872,7 +1875,7 @@ function CrewReportsTab({ perms }: { perms: TabPerms }) {
     setBusyId(row.id);
     const r = await fetch(apiUrl("/api/admin/crew-reports"), {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ id: row.id, action, subjectResponse }),
     }).catch(() => null);
     setBusyId(null);
@@ -1887,7 +1890,7 @@ function CrewReportsTab({ perms }: { perms: TabPerms }) {
     setBusyId(row.id);
     const r = await fetch(
       apiUrl(`/api/admin/crew-reports?id=${encodeURIComponent(row.id)}`),
-      { method: "DELETE" },
+      { method: "DELETE", headers: tokenHeader() },
     ).catch(() => null);
     setBusyId(null);
     if (!r?.ok) {
@@ -2196,7 +2199,7 @@ function AddCrewReportForm({ onAdded }: { onAdded: () => void }) {
     setBusy(true);
     const r = await fetch(apiUrl("/api/admin/crew-reports"), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({
         cccd: cccdOk ? cccd : undefined,
         phone: phoneOk ? phone : undefined,
@@ -2347,7 +2350,7 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
 
   const load = useCallback(() => {
     setError(null);
-    fetch(apiUrl("/api/admin/products"))
+    fetch(apiUrl("/api/admin/products"), { headers: tokenHeader() })
       .then(async (r) => {
         const j = (await r.json()) as {
           ok: boolean;
@@ -2371,7 +2374,7 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
     setBusyId(row.id);
     const r = await fetch(apiUrl("/api/admin/products"), {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ id: row.id, visible: !row.visible }),
     }).catch(() => null);
     setBusyId(null);
@@ -2386,7 +2389,7 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
     setBusyId(row.id);
     const r = await fetch(
       apiUrl(`/api/admin/products?id=${encodeURIComponent(row.id)}`),
-      { method: "DELETE" },
+      { method: "DELETE", headers: tokenHeader() },
     ).catch(() => null);
     setBusyId(null);
     if (!r?.ok) {
@@ -2587,7 +2590,7 @@ function ProductForm({
     };
     const r = await fetch(apiUrl("/api/admin/products"), {
       method: initial ? "PATCH" : "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify(body),
     }).catch(() => null);
     setBusy(false);
@@ -2822,7 +2825,7 @@ function VmsZonesTab() {
   const load = useCallback(() => {
     setError(null);
     setZones(null);
-    fetch(apiUrl("/api/admin/vms-zones"))
+    fetch(apiUrl("/api/admin/vms-zones"), { headers: tokenHeader() })
       .then(async (r) => {
         const j = (await r.json()) as {
           ok: boolean;
@@ -2848,7 +2851,7 @@ function VmsZonesTab() {
       try {
         const r = await fetch(apiUrl("/api/admin/vms-zones"), {
           method: "PATCH",
-          headers: { "content-type": "application/json" },
+          headers: { "content-type": "application/json", ...tokenHeader() },
           body: JSON.stringify({ id, ...body }),
         });
         const j = (await r.json()) as { ok: boolean };
@@ -2869,6 +2872,7 @@ function VmsZonesTab() {
       try {
         const r = await fetch(apiUrl(`/api/admin/vms-zones?id=${id}`), {
           method: "DELETE",
+          headers: tokenHeader(),
         });
         const j = (await r.json()) as { ok: boolean };
         if (!j.ok) throw new Error();
@@ -2914,7 +2918,7 @@ function VmsZonesTab() {
     try {
       const r = await fetch(apiUrl("/api/admin/vms-zones"), {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...tokenHeader() },
         body: JSON.stringify({ ...draft, sortOrder: (zones?.length ?? 0) + 10 }),
       });
       const j = (await r.json()) as { ok: boolean; code?: string };
@@ -3172,7 +3176,7 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
   const load = useCallback(() => {
     setError(null);
     setContacts(null);
-    fetch(apiUrl("/api/admin/sell-contacts"))
+    fetch(apiUrl("/api/admin/sell-contacts"), { headers: tokenHeader() })
       .then(async (r) => {
         const j = (await r.json()) as {
           ok: boolean;
@@ -3198,7 +3202,7 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
       try {
         const r = await fetch(apiUrl("/api/admin/sell-contacts"), {
           method: "PATCH",
-          headers: { "content-type": "application/json" },
+          headers: { "content-type": "application/json", ...tokenHeader() },
           body: JSON.stringify({ id, ...body }),
         });
         if (!((await r.json()) as { ok: boolean }).ok) throw new Error();
@@ -3218,6 +3222,7 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
       try {
         const r = await fetch(apiUrl(`/api/admin/sell-contacts?id=${id}`), {
           method: "DELETE",
+          headers: tokenHeader(),
         });
         if (!((await r.json()) as { ok: boolean }).ok) throw new Error();
         load();
@@ -3236,7 +3241,7 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
     try {
       const r = await fetch(apiUrl("/api/admin/sell-contacts"), {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...tokenHeader() },
         body: JSON.stringify({ action: "seed" }),
       });
       const j = (await r.json()) as { ok: boolean; code?: string };
@@ -3458,7 +3463,7 @@ function SellContactForm({
     try {
       const r = await fetch(apiUrl("/api/admin/sell-contacts"), {
         method: initial ? "PATCH" : "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...tokenHeader() },
         body: JSON.stringify(initial ? { id: initial.id, ...draft } : draft),
       });
       if (!((await r.json()) as { ok: boolean }).ok) throw new Error();
@@ -3581,7 +3586,9 @@ function InquiriesTab() {
   const load = useCallback(() => {
     setError(null);
     setRows(null);
-    fetch(apiUrl(`/api/admin/product-inquiries?status=${status}`))
+    fetch(apiUrl(`/api/admin/product-inquiries?status=${status}`), {
+      headers: tokenHeader(),
+    })
       .then(async (r) => {
         const j = (await r.json()) as {
           ok: boolean;
@@ -3605,7 +3612,7 @@ function InquiriesTab() {
     setBusyId(row.id);
     const r = await fetch(apiUrl("/api/admin/product-inquiries"), {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ id: row.id, status: next }),
     }).catch(() => null);
     setBusyId(null);
@@ -3620,7 +3627,7 @@ function InquiriesTab() {
     setBusyId(row.id);
     const r = await fetch(
       apiUrl(`/api/admin/product-inquiries?id=${encodeURIComponent(row.id)}`),
-      { method: "DELETE" },
+      { method: "DELETE", headers: tokenHeader() },
     ).catch(() => null);
     setBusyId(null);
     if (!r?.ok) {
@@ -3808,7 +3815,7 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
 
   const load = useCallback(() => {
     setError(null);
-    fetch(apiUrl("/api/admin/push"))
+    fetch(apiUrl("/api/admin/push"), { headers: tokenHeader() })
       .then(async (r) => {
         const j = (await r.json()) as { ok: boolean; code?: string } & Partial<PushStats>;
         if (!j.ok) throw new Error(j.code ?? "load");
@@ -3836,7 +3843,7 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
     setResult(null);
     const r = await fetch(apiUrl("/api/admin/push"), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({
         target,
         phone: target === "phone" ? phone.trim() : undefined,
@@ -4193,7 +4200,7 @@ function CronsPanel() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    fetch(apiUrl("/api/admin/crons"))
+    fetch(apiUrl("/api/admin/crons"), { headers: tokenHeader() })
       .then(async (r) => {
         if (!r.ok) throw new Error(String(r.status));
         setReport((await r.json()) as CronsReport);
@@ -4506,7 +4513,7 @@ function AppConfigCard() {
 
   const load = useCallback(() => {
     setError(null);
-    fetch(apiUrl("/api/admin/app-config"))
+    fetch(apiUrl("/api/admin/app-config"), { headers: tokenHeader() })
       .then(async (r) => {
         const j = (await r.json()) as {
           ok: boolean;
@@ -4534,7 +4541,7 @@ function AppConfigCard() {
     try {
       const r = await fetch(apiUrl("/api/admin/app-config"), {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...tokenHeader() },
         body: JSON.stringify({ key, value }),
       });
       const j = (await r.json()) as { ok: boolean };
@@ -4759,7 +4766,7 @@ function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
     setMsg(null);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ phone, name, password, role }),
     }).catch(() => null);
     setBusy(false);
@@ -4917,7 +4924,7 @@ function PermissionsTab() {
   const load = useCallback(() => {
     setError(null);
     setManagers(null);
-    fetch(apiUrl("/api/admin/staff"))
+    fetch(apiUrl("/api/admin/staff"), { headers: tokenHeader() })
       .then(async (r) => {
         const j = (await r.json()) as {
           ok: boolean;
@@ -4950,7 +4957,7 @@ function PermissionsTab() {
     setRoleMsg(null);
     const r = await fetch(apiUrl("/api/admin/staff"), {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ action: "set-role", phone, role }),
     }).catch(() => null);
     const j = (await r?.json().catch(() => null)) as {
@@ -5181,7 +5188,7 @@ function ManagerPermCard({
     setMsg(null);
     const r = await fetch(apiUrl("/api/admin/staff"), {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ phone: manager.phone, permissions: draft }),
     }).catch(() => null);
     setBusy(false);
@@ -5328,7 +5335,7 @@ function ActivityLogTab() {
   const load = useCallback(() => {
     setError(null);
     setEvents(null);
-    fetch(apiUrl("/api/admin/activity"))
+    fetch(apiUrl("/api/admin/activity"), { headers: tokenHeader() })
       .then(async (r) => {
         const j = (await r.json()) as {
           ok: boolean;
@@ -5404,6 +5411,7 @@ function ActivityLogTab() {
             setProbe(null);
             const r = await fetch(apiUrl("/api/admin/activity"), {
               method: "POST",
+              headers: tokenHeader(),
             }).catch(() => null);
             const j = (await r?.json().catch(() => null)) as {
               ok?: boolean;
