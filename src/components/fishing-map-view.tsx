@@ -1656,21 +1656,32 @@ export default function FishingMapView() {
   }, [fishOn, fishView, fishSpecies, fishGridStep, anyExclusiveOverlay]);
 
   // điểm NÓNG (hồng tâm chạm-là-tới): ô điểm cao, cách nhau ≥0.7° cho khỏi
-  // chùm, tối đa 8. ƯU TIÊN KHU VỰC GẦN MÌNH: cộng điểm thưởng cho ô gần chỗ
-  // đang xem / cảng nhà / điểm ghim (chỗ bà con hay đánh) — không bịa điểm cá,
-  // chỉ xếp chỗ gần lên trước khi điểm xấp xỉ nhau.
+  // chùm, tối đa 8. ƯU TIÊN KHU VỰC GẦN MÌNH: cộng điểm thưởng cho ô gần cảng
+  // nhà / điểm ghim (chỗ bà con hay đánh) — không bịa điểm cá, chỉ xếp chỗ gần
+  // lên trước khi điểm xấp xỉ nhau.
+  //
+  // ⚠️ KHÔNG neo theo `point` (chỗ VỪA CHẠM). Lỗi đã sửa 2026-08-05: `point`
+  // vào cả anchor lẫn deps ⇒ mỗi lần bà con chạm bản đồ xem thời tiết, `bonus`
+  // đổi → thứ tự `priority` đổi → greedy pick chọn CỤM Ô KHÁC → hồng tâm cá
+  // NHẢY sang chỗ cách xa hàng trăm km ngay dưới ngón tay. Điểm nóng cá là dự
+  // báo THEO CHỖ, không theo chỗ đang xem — neo ổn định (cảng nhà + điểm ghim)
+  // thì chạm đâu hồng tâm cũng đứng yên. `near` (màu viền) cũng đo theo neo
+  // này, không theo `point`.
   const fishHotspots = useMemo<
     { lat: number; lon: number; v: number; top: string[]; near: boolean }[]
   >(() => {
     // ẩn hồng tâm cá khi có lớp động (cùng luật với lưới cá)
     if (!fishOn || !fishView || anyExclusiveOverlay) return [];
-    // các "mỏ neo gần mình": điểm đang xem + cảng nhà + điểm ghim
-    const anchors: { lat: number; lon: number }[] = [
-      { lat: point.lat, lon: point.lon },
-      ...places.map((p) => ({ lat: p.lat, lon: p.lon })),
-    ];
+    // các "mỏ neo gần mình": cảng nhà + điểm ghim (KHÔNG có điểm vừa chạm — xem
+    // ghi chú trên). Chưa ghim gì → không có neo, xếp thuần theo điểm cá.
+    const anchors: { lat: number; lon: number }[] = places.map((p) => ({
+      lat: p.lat,
+      lon: p.lon,
+    }));
     const nearestKm = (lat: number, lon: number) =>
-      Math.min(...anchors.map((a) => haversineKm(a.lat, a.lon, lat, lon)));
+      anchors.length
+        ? Math.min(...anchors.map((a) => haversineKm(a.lat, a.lon, lat, lon)))
+        : Infinity;
     const scored = fishView.cells
       .map((c) => {
         const v = fishSpecies ? (c.sp?.[fishSpecies] ?? 0) : c.s;
@@ -1713,7 +1724,7 @@ export default function FishingMapView() {
       top,
       near,
     }));
-  }, [fishOn, fishView, fishSpecies, point, places, fishLead, anyExclusiveOverlay]);
+  }, [fishOn, fishView, fishSpecies, places, fishLead, anyExclusiveOverlay]);
 
   // điểm cá gần chỗ đang xem nhất — câu gợi ý "đi hướng nào" trong thẻ cá
   const nearestHotspot = useMemo(() => {
