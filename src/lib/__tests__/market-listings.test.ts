@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rowToListing, validateDraft, type ListingDraft } from "@/lib/market-listings";
+import { rowToListing, validateDraft, type ListingDraft } from "@/lib/market-listings-core";
 
 function draft(over: Partial<ListingDraft> = {}): ListingDraft {
   return {
@@ -34,7 +34,7 @@ describe("validateDraft", () => {
 describe("rowToListing", () => {
   const baseRow = {
     id: "row-1",
-    owner_id: "user-1",
+    owner_phone: "0901234567",
     side: "ban",
     poster_kind: "ngu-dan",
     poster_name: "Tàu ông Bảy",
@@ -49,7 +49,7 @@ describe("rowToListing", () => {
   };
 
   it("map cột snake_case → camelCase + cắt ngày ISO", () => {
-    const l = rowToListing(baseRow, "user-1");
+    const l = rowToListing(baseRow, "0901234567");
     expect(l.side).toBe("ban");
     expect(l.posterName).toBe("Tàu ông Bảy");
     expect(l.postedOn).toBe("2026-07-27");
@@ -57,9 +57,10 @@ describe("rowToListing", () => {
     expect(l.status).toBe("open");
   });
 
-  it("owner khác → mine=false", () => {
-    expect(rowToListing(baseRow, "user-2").mine).toBe(false);
+  it("SĐT khác → mine=false", () => {
+    expect(rowToListing(baseRow, "0909999999").mine).toBe(false);
     expect(rowToListing(baseRow, null).mine).toBe(false);
+    expect(rowToListing({ ...baseRow, owner_phone: null }, "0901234567").mine).toBe(false);
   });
 
   it("giá trị lạ được khoan dung (side/kind/status về mặc định an toàn)", () => {

@@ -1,240 +1,102 @@
+"use client";
+
 // CHỢ TIN MUA/BÁN (trục GIAO DỊCH, user chốt 2026-07-27) — chủ tàu tự ĐĂNG
-// tin bán / tin mua, cả làng cùng xem để gọi thẳng. Ghi/đọc bảng Supabase
-// `market_listings` (migration 0008, RLS owner-write / signed-in-read).
+// tin bán / tin mua, cả làng cùng xem để gọi thẳng.
 //
-// Chưa cấu hình Supabase hoặc chưa đăng nhập → fetch trả null/[]; UI hiện empty
-// state ("chưa có tin nào — đăng tin đầu tiên đi"). App đã lên thật (2026-07-29):
-// KHÔNG còn TIN MẪU minh họa, KHÔNG bao giờ bịa tin.
+// ⚠️ ĐỔI 2026-08-05: KHÔNG còn client-direct Supabase. App bỏ phiên Supabase
+// sau bản chuỗi-cứng (0037) nên `auth.uid()` NULL vĩnh viễn → RLS `auth.uid()`
+// chết cả đọc lẫn ghi, người ĐANG đăng nhập vẫn bị "Cần đăng nhập để đăng tin".
+// Nay đọc/ghi qua ROUTE server /api/market-listings bằng chuỗi cứng
+// (authedFetch → identityFromRequest), định danh theo SĐT. Helper THUẦN (types,
+// validateDraft, rowToListing) nằm ở market-listings-core.ts để route dùng lại.
 //
-// Helper thuần (validateDraft, rowToListing) tách riêng để test ở
-// src/lib/__tests__/market-listings.test.ts.
+// Chưa cấu hình Supabase / mất sóng → fetch trả null; UI hiện empty state. App
+// đã lên thật (2026-07-29): KHÔNG bịa tin mẫu.
 
-import { createClient } from "@/lib/supabase/client";
-import { isValidVnPhone, normalizeVnPhone } from "@/lib/phone";
-import { isNetworkAuthError, withDeadline } from "@/lib/auth-error";
-import { timeoutSignal } from "@/lib/abort";
+import { authedFetch } from "@/lib/device-token-store";
+import type { ListingDraft, MarketListing } from "@/lib/market-listings-core";
 
-const TABLE = "market_listings";
+export {
+  SIDE_LABEL,
+  POSTER_KIND_LABEL,
+  validateDraft,
+  rowToListing,
+} from "@/lib/market-listings-core";
+export type {
+  ListingSide,
+  PosterKind,
+  MarketListing,
+  ListingDraft,
+} from "@/lib/market-listings-core";
 
-/** ban = chủ tàu có cá cần bán · mua = ai đó cần mua (chủ tàu hoặc đầu nậu). */
-export type ListingSide = "mua" | "ban";
-export type PosterKind = "ngu-dan" | "nau" | "vua" | "nha-may" | "cho";
-
-export const SIDE_LABEL: Record<ListingSide, string> = {
-  ban: "Cần bán",
-  mua: "Cần mua",
-};
-
-export const POSTER_KIND_LABEL: Record<PosterKind, string> = {
-  "ngu-dan": "Ngư dân",
-  nau: "Nậu",
-  vua: "Vựa / đại lý",
-  "nha-may": "Nhà máy",
-  cho: "Chợ đầu mối",
-};
-
-export interface MarketListing {
-  id: string;
-  side: ListingSide;
-  posterKind: PosterKind;
-  /** Tên hiển thị (tàu / vựa …) */
-  posterName: string;
-  species: string;
-  quantity?: string;
-  priceText?: string;
-  province?: string;
-  phone?: string;
-  note?: string;
-  status: "open" | "closed";
-  /** ISO date ngày đăng */
-  postedOn: string;
-  /** true = tin của chính user đang đăng nhập (cho sửa/đóng/xóa) */
-  mine?: boolean;
-}
-
-/** Phần chủ tàu nhập khi đăng tin. */
-export interface ListingDraft {
-  side: ListingSide;
-  posterKind: PosterKind;
-  posterName: string;
-  species: string;
-  quantity?: string;
-  priceText?: string;
-  province?: string;
-  phone?: string;
-  note?: string;
-}
-
-// ── Helper THUẦN (test được) ───────────────────────────────────────────────
-
-/** Trả câu lỗi tiếng Việt nếu draft chưa hợp lệ, null nếu OK. */
-export function validateDraft(d: ListingDraft): string | null {
-  if (!d.posterName.trim()) return "Nhập tên (tàu hoặc cơ sở).";
-  if (!d.species.trim()) return "Nhập loài cá.";
-  if (d.side !== "mua" && d.side !== "ban") return "Chọn tin bán hay tin mua.";
-  if (d.phone && d.phone.trim() && !isValidVnPhone(d.phone))
-    return "Số điện thoại chưa đúng.";
-  return null;
-}
-
-type Row = {
-  id: string;
-  owner_id: string | null;
-  side: string;
-  poster_kind: string;
-  poster_name: string;
-  species: string;
-  quantity: string | null;
-  price_text: string | null;
-  province: string | null;
-  phone: string | null;
-  note: string | null;
-  status: string | null;
-  created_at: string;
-};
-
-const KINDS: PosterKind[] = ["ngu-dan", "nau", "vua", "nha-may", "cho"];
-
-/** Dòng DB → MarketListing (khoan dung với giá trị lạ, không ném lỗi). */
-export function rowToListing(r: Row, uid: string | null): MarketListing {
-  const side: ListingSide = r.side === "mua" ? "mua" : "ban";
-  const posterKind = (KINDS as string[]).includes(r.poster_kind)
-    ? (r.poster_kind as PosterKind)
-    : "ngu-dan";
-  return {
-    id: r.id,
-    side,
-    posterKind,
-    posterName: r.poster_name,
-    species: r.species,
-    quantity: r.quantity ?? undefined,
-    priceText: r.price_text ?? undefined,
-    province: r.province ?? undefined,
-    phone: r.phone ?? undefined,
-    note: r.note ?? undefined,
-    status: r.status === "closed" ? "closed" : "open",
-    postedOn: (r.created_at ?? "").slice(0, 10),
-    mine: Boolean(uid && r.owner_id === uid),
-  };
-}
-
-// ── CRUD Supabase ──────────────────────────────────────────────────────────
-
-
-/*  ĐỒNG HỒ CHO BA ĐƯỜNG GHI (thêm 2026-08-02h). Vòng soát trước chỉ gắn cho
-    đường ĐỌC. Ca "sóng sống mà chết" ở cảng (bắt tay TCP được, gói tin không
-    về): `createListing` không settle ⇒ `setSaving(false)` không chạy ⇒ nút kẹt
-    "Đang đăng…" VĨNH VIỄN, không lỗi, không nút thử lại — bà con tưởng tin đã
-    đăng, thật ra chưa, và mất chuyến bán.
-    `timeoutSignal` trả `undefined` trên máy quá cũ (không có AbortController),
-    mà `.abortSignal()` không nhận `undefined` — nên phải gắn có điều kiện, cùng
-    khuôn với đường đọc ở trên. */
-function withSignal<T extends { abortSignal(s: AbortSignal): T }>(q: T): T {
-  const sig = timeoutSignal(WRITE_TIMEOUT_MS);
-  return sig ? q.abortSignal(sig) : q;
-}
-
-/** Ghi chợ tin chờ tối đa bấy nhiêu rồi coi như hỏng (nút phải trả về cho bà con) */
+/** Ghi chờ tối đa bấy nhiêu rồi coi như hỏng (nút phải trả về cho bà con). */
 const WRITE_TIMEOUT_MS = 20000;
+const READ_TIMEOUT_MS = 12000;
 
 /**
- * Tin thật (đang mở + tin của mình). null = Supabase chưa cấu hình hoặc lỗi →
+ * Tin thật (đang mở + tin của mình). null = chưa cấu hình / mất sóng / lỗi →
  * caller hiện empty state. Mảng rỗng = đã cấu hình nhưng chưa có tin nào.
+ *
+ * OFFLINE-AN TOÀN: authedFetch tự có timeout + nuốt lỗi mạng (res=null); mọi
+ * nhánh hỏng đều trả null, KHÔNG ném, KHÔNG treo quay vòng.
  */
 export async function fetchListings(): Promise<MarketListing[] | null> {
-  const supabase = createClient();
-  if (!supabase) return null;
-  /* ĐỒNG HỒ CHO CẢ HAI CÚ (D-PH9, soát 2026-08-02): không có trần thì ở sóng
-     "sống mà chết" chợ tin kẹt `loading = true` VĨNH VIỄN — không bao giờ hiện
-     "Chưa có tin nào", bà con ngồi nhìn tin mẫu tưởng chợ chỉ có bấy nhiêu.
-     `getUser()` không nhận AbortSignal nên phải bọc đồng hồ ngoài; hết giờ chỉ
-     mất cờ "tin của tôi", danh sách vẫn hiện. */
-  const userRes = await withDeadline(supabase.auth.getUser(), 8000);
-  const uid = userRes?.data?.user?.id ?? null;
-  /* `.abortSignal()` KHÔNG nhận `undefined` sạch nên phải gắn có điều kiện —
-     máy quá cũ thiếu cả AbortController thì chạy không trần, còn hơn ném. */
-  const sig = timeoutSignal(12000);
-  let q = supabase
-    .from(TABLE)
-    .select(
-      "id,owner_id,side,poster_kind,poster_name,species,quantity,price_text,province,phone,note,status,created_at",
-    )
-    .order("created_at", { ascending: false })
-    .limit(100);
-  if (sig) q = q.abortSignal(sig);
-  const { data, error } = await q;
-  if (error || !data) return null;
-  return (data as Row[]).map((r) => rowToListing(r, uid));
+  const { res } = await authedFetch(
+    "/api/market-listings",
+    { method: "GET" },
+    READ_TIMEOUT_MS,
+  );
+  if (!res || !res.ok) return null;
+  const j = (await res.json().catch(() => null)) as
+    | { ok?: boolean; listings?: MarketListing[] }
+    | null;
+  if (!j?.ok || !Array.isArray(j.listings)) return null;
+  return j.listings;
 }
 
 export async function createListing(
   d: ListingDraft,
 ): Promise<{ ok: boolean; error?: string }> {
-  const err = validateDraft(d);
-  if (err) return { ok: false, error: err };
-
-  const supabase = createClient();
-  if (!supabase) return { ok: false, error: "Chưa kết nối máy chủ." };
-
-  // getUser() RESOLVE kèm `error` khi mất sóng (không reject) — bỏ `error` thì
-  // người ĐANG đăng nhập bị báo "cần đăng nhập" chỉ vì sóng chập chờn. Nói đúng
-  // chuyện: chưa gửi được vì sóng, không phải vì tài khoản.
-  // Đồng hồ 8 giây: `getUser()` treo được (không nhận AbortSignal) ⇒ nút "Đăng
-  // tin" kẹt mãi. Hết giờ = cũng là chuyện SÓNG, nói đúng như vậy.
-  const authRes = await withDeadline(supabase.auth.getUser(), 8000);
-  if (!authRes) {
-    return { ok: false, error: "Chưa gửi được — máy chưa có sóng. Thử lại sau." };
-  }
-  const { data: userData, error: authError } = authRes;
-  const user = userData?.user;
-  if (!user && isNetworkAuthError(authError)) {
-    return { ok: false, error: "Chưa gửi được — máy chưa có sóng. Thử lại sau." };
-  }
-  if (!user) return { ok: false, error: "Cần đăng nhập để đăng tin." };
-
-  const phone =
-    d.phone && d.phone.trim()
-      ? normalizeVnPhone(d.phone)
-      : (user.email?.split("@")[0] ?? null);
-
-  const { error } = await withSignal(
-    supabase.from(TABLE).insert({
-      owner_id: user.id,
-      side: d.side,
-      poster_kind: d.posterKind,
-      poster_name: d.posterName.trim(),
-      species: d.species.trim(),
-      quantity: d.quantity?.trim() || null,
-      price_text: d.priceText?.trim() || null,
-      province: d.province?.trim() || null,
-      phone,
-      note: d.note?.trim() || null,
-    }),
+  const { res } = await authedFetch(
+    "/api/market-listings",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(d),
+    },
+    WRITE_TIMEOUT_MS,
   );
-  if (error) return { ok: false, error: "Đăng chưa được, thử lại." };
-  return { ok: true };
+  if (!res) return { ok: false, error: "Chưa gửi được — máy chưa có sóng. Thử lại sau." };
+  if (res.ok) return { ok: true };
+
+  const code = ((await res.json().catch(() => null)) as { code?: string } | null)?.code;
+  if (res.status === 401) return { ok: false, error: "Cần đăng nhập để đăng tin." };
+  if (res.status === 503) return { ok: false, error: "Chưa gửi được — thử lại sau." };
+  if (code === "invalid") return { ok: false, error: "Kiểm tra lại thông tin tin đăng." };
+  return { ok: false, error: "Đăng chưa được, thử lại." };
 }
 
 export async function setListingStatus(
   id: string,
   status: "open" | "closed",
 ): Promise<boolean> {
-  const supabase = createClient();
-  if (!supabase) return false;
-  const { error } = await withSignal(
-    supabase
-      .from(TABLE)
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq("id", id),
+  const { res } = await authedFetch(
+    `/api/market-listings/${id}`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status }),
+    },
+    WRITE_TIMEOUT_MS,
   );
-  return !error;
+  return Boolean(res?.ok);
 }
 
 export async function deleteListing(id: string): Promise<boolean> {
-  const supabase = createClient();
-  if (!supabase) return false;
-  const { error } = await withSignal(
-    supabase.from(TABLE).delete().eq("id", id),
+  const { res } = await authedFetch(
+    `/api/market-listings/${id}`,
+    { method: "DELETE" },
+    WRITE_TIMEOUT_MS,
   );
-  return !error;
+  return Boolean(res?.ok);
 }
