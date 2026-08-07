@@ -81,6 +81,8 @@ const DOT: Record<string, string> = {
 export function RaKhoiControls({
   layerId,
   onLayer,
+  lanesOn,
+  onLanes,
   scalarKind,
   onScalar,
   forecastKind,
@@ -121,6 +123,9 @@ export function RaKhoiControls({
   geoError: boolean;
   layerId: OceanLayerId;
   onLayer: (id: OceanLayerId) => void;
+  /** Tuyến hàng hải + luồng/phân luồng trên hải đồ (bật/tắt) */
+  lanesOn: boolean;
+  onLanes: (on: boolean) => void;
   scalarKind: SeaScalarKind | null;
   onScalar: (k: SeaScalarKind | null) => void;
   forecastKind: ForecastKind | null;
@@ -255,6 +260,8 @@ export function RaKhoiControls({
                     onScalar(null);
                     onLayer(id);
                   }}
+                  lanesOn={lanesOn}
+                  onLanes={onLanes}
                 />
               )}
               {open === "ngu-truong" && (
@@ -480,10 +487,15 @@ function HaiDoPanel({
   layerId,
   scalarKind,
   onLayer,
+  lanesOn,
+  onLanes,
 }: {
   layerId: OceanLayerId;
   scalarKind: SeaScalarKind | null;
   onLayer: (id: OceanLayerId) => void;
+  /** Tuyến hàng hải + luồng/phân luồng — nét mảnh tham khảo trên hải đồ */
+  lanesOn: boolean;
+  onLanes: (on: boolean) => void;
 }) {
   return (
     <div>
@@ -537,6 +549,21 @@ function HaiDoPanel({
         Ảnh vệ tinh, không phải thời gian thực. Phao báo hiệu chỉ hiện khi phóng
         to gần bờ.
       </p>
+      {/* NHÃN ĐẢO tiếng Việt LUÔN hiện trên hải đồ (chi tiết chủ quyền, không
+          tắt được). TUYẾN TÀU thì cho tắt vì có bà con thích bản đồ thoáng. */}
+      <div className="mt-2 border-t border-line pt-2">
+        <Toggle
+          label="Tuyến tàu, luồng lạch"
+          sub="Gồm cáp ngầm, giàn khoan, vùng cấm — tham khảo, không thay hải đồ chính thức"
+          on={lanesOn}
+          onToggle={() => onLanes(!lanesOn)}
+          icon={
+            <span style={{ color: "var(--t1)" }}>
+              <AnchorIcon className="h-5 w-5" />
+            </span>
+          }
+        />
+      </div>
     </div>
   );
 }

@@ -150,6 +150,29 @@ export const SEA_MASK_COLOR = "#d5e8eb";
 export const ROUTE_LINE_COLOR = "#1a73e8";
 export const ROUTE_CASING_COLOR = "#ffffff";
 
+/* ---------------------------------------------------------------------------
+   NHÃN ĐẢO + TUYẾN HÀNG HẢI — chi tiết "đúng chất hải đồ" (2026-08-07).
+   Cả hai là asset TĨNH cùng-origin (service worker giữ sẵn → chạy khi mất
+   sóng), sinh bởi scripts/generate-islands.mjs + generate-sea-lanes.mjs.
+   Render bằng lớp symbol/line của MapLibre (tự giãn theo zoom + tránh chồng
+   chữ) chứ KHÔNG phải hàng trăm HTML marker.
+--------------------------------------------------------------------------- */
+
+/** ~103 đảo có tên tiếng Việt (ven bờ + Hoàng Sa + Trường Sa). */
+export const ISLANDS_DATA_URL = "/data/vn-islands.v1.json";
+/** Tuyến hàng hải lớn (vẽ tay, tham khảo) + luồng/phân luồng (OSM, bỏ tên). */
+export const SEA_LANES_DATA_URL = "/data/vn-sea-lanes.v1.json";
+
+// Màu NỘI DUNG BẢN ĐỒ (không phải token UI). Nhãn đảo dùng navy như nhãn chủ
+// quyền. Tuyến tàu dùng xám-lam trầm — KHÔNG đụng cam-đỏ ranh giới (cấm vượt)
+// hay xanh dương ROUTE_LINE_COLOR (tuyến dầu của chính bà con).
+export const ISLAND_LABEL_COLOR = "#0f2f4d";
+export const ISLAND_DOT_COLOR = "#0f2f4d";
+export const SEA_LANE_COLOR = "#4a5a70"; // tuyến/luồng/phân luồng — xám-lam
+export const SEA_CABLE_COLOR = "#7c3aed"; // cáp/ống ngầm — tím, tách khỏi tuyến
+export const SEA_RESTRICTED_COLOR = "#c2620c"; // vùng cấm + giàn khoan — cam đất
+// (KHÔNG đụng cam-đỏ #b42318 của ranh giới, không đụng xanh ROUTE_LINE_COLOR)
+
 export type SovereigntyLabel = {
   name: string;
   sub?: string;

@@ -3,10 +3,11 @@
 > **Load khi**: chuẩn bị phát hành bản có đụng service worker / PWA / dữ liệu tải sẵn, hoặc khi cần chứng minh "app chạy được ngoài biển".
 
 covers: public/sw.js
-last_verified: 2026-08-02
+last_verified: 2026-08-07
 ttl_days: 120
 gate: warn
 
+<!-- re-verified: 2026-08-07 — sw.js CÓ ĐỔI Ở `CRITICAL_SHELL` (đụng danh sách cache ⇒ theo luật phải soi): THÊM 2 asset tĩnh `/data/vn-islands.v1.json` + `/data/vn-sea-lanes.v1.json` và 4 dải font (`Noto Sans Regular` + `Bold` × `256-511`, `7680-7935` — dấu tiếng Việt cho nhãn đảo/tuyến). KHÔNG bỏ URL nào, KHÔNG đổi tên kho, KHÔNG đổi hình dạng entry, KHÔNG đụng khoá `forfish.*` ⇒ **THÊM url, không cần bump** `SDFISH_CACHE_V` (giữ `sdfish-v6`); `c.add` lúc install tự nhét vào kho đang dùng. Bốn câu soi offline: (a) KHÔNG request runtime mới — hai asset cùng-origin, MapLibre nạp qua kho SW; (b) đụng SHELL nhưng chỉ THÊM (an toàn); (c) KHÔNG đè/xoá dữ liệu đã tải; (d) file tĩnh nằm sẵn trong máy như isobaths/coast, không cần nhánh đọc-bản-lưu riêng. **Ca cần chạy đợt tới**: TC-04 (đã thêm bước 5) — mất sóng, zoom Hoàng Sa/Trường Sa/ven bờ, tên đảo tiếng Việt phải hiện ĐỦ DẤU (không ô vuông); toggle "Tuyến tàu" bật/tắt được. Còn lại bộ bắt buộc §2 KHÔNG đổi hành vi. -->
 <!-- re-verified: 2026-08-02k — sw.js CÓ ĐỔI, chỉ ở HÀM DỌN Ô BẢN ĐỒ; KHÔNG chạm `SHELL`, `CRITICAL_SHELL`, tên kho, danh sách cache hay khoá `forfish.*` ⇒ bộ ca offline dưới đây KHÔNG đổi. `trimTileCache` nay hỏi `self.navigator.storage.estimate()`: còn dưới 60 MB trống thì siết trần ô từ 600 xuống 120 (`tranOHienGio`). VÌ SAO: từ bản này payload dự báo nằm ở **IndexedDB** còn ô bản đồ ở Cache Storage — HAI KHO KHÁC NHAU nhưng **dùng chung một hạn ngạch theo origin**, nên trần-theo-SỐ-Ô không nói gì về BYTE: 600 ô nặng vài chục MB vẫn ăn hết chỗ lẽ ra dành cho gói 16 ngày, rồi lượt ghi dự báo kế tiếp hỏng trong khi trần ô "chưa chạm". Ô bản đồ có sóng là tải lại được, dự báo giữa biển thì không — nên khi chật thì hy sinh ô, đúng thứ tự chủ dự án chốt (*"xóa tile cũ trước, không xóa gói dự báo mới nhất"*). Hỏi hỏng / máy không có Storage API ⇒ giữ nguyên trần 600, KHÔNG đoán. CA CẦN THÊM cho đợt nghiệm thu tới: (a) máy còn <60 MB trống, kéo bản đồ nhiều vùng rồi mất sóng — ô cũ bị dọn là ĐÚNG, nhưng **gói dự báo phải còn nguyên** và popup "trong máy có gì" vẫn đủ lớp; (b) máy rộng chỗ — trần vẫn 600, không siết oan. -->
 
 <!-- re-verified: 2026-08-02h — sw.js CÓ ĐỔI, nhưng chỉ ở HÀM DỌN KHI HẾT QUOTA; KHÔNG chạm `SHELL`, `CRITICAL_SHELL`, danh sách cache, tên kho, hay khoá `forfish.*` ⇒ bộ ca offline dưới đây KHÔNG đổi.
@@ -118,9 +119,10 @@ Mỗi ca ghi: **mã ca · mã máy · ĐẠT/HỎNG · ảnh chụp màn hình �
 2. Phóng to/thu nhỏ, kéo bản đồ.
 3. Chạm một điểm bất kỳ trên biển → xem sheet số liệu.
 4. Kéo thanh ngày sang ngày 2, ngày 3.
+5. 🆕 Zoom vào vùng Hoàng Sa / Trường Sa và ven bờ → đọc **tên đảo tiếng Việt** (vd đảo Phú Lâm, đảo Song Tử Tây, Lý Sơn). Bật/tắt "Tuyến tàu, luồng lạch" trong panel Hải đồ.
 
-**ĐẠT**: thấy đường bờ, đảo, đường đẳng sâu **có số mét**; chạm điểm ra được số gió/sóng (có thể ghi "số liệu đã lưu"); kéo ngày đổi được.
-**HỎNG (chặn)**: bản đồ xám/trắng hoàn toàn, hoặc mất hết chữ số trên đường đẳng sâu.
+**ĐẠT**: thấy đường bờ, đảo, đường đẳng sâu **có số mét**; **tên đảo tiếng Việt hiện ĐỦ DẤU** (không ô vuông, không mất dấu — nhãn đảo dùng dải font 256-511 + 7680-7935 đã nằm trong CRITICAL_SHELL); chạm điểm ra được số gió/sóng (có thể ghi "số liệu đã lưu"); kéo ngày đổi được; tuyến tàu bật/tắt được.
+**HỎNG (chặn)**: bản đồ xám/trắng hoàn toàn, mất hết chữ số trên đường đẳng sâu, hoặc **tên đảo ra ô vuông / rớt dấu tiếng Việt** khi mất sóng.
 
 ---
 

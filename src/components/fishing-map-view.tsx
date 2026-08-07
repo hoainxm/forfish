@@ -19,7 +19,7 @@ import MapGL, {
   Layer,
   type MapRef,
 } from "react-map-gl/maplibre";
-import type { StyleSpecification } from "maplibre-gl";
+import type { StyleSpecification, FilterSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import {
@@ -28,6 +28,13 @@ import {
   OCEAN_LAYERS,
   OFFLINE_COAST_BEFORE_ID,
   SOVEREIGNTY_LABELS,
+  ISLANDS_DATA_URL,
+  SEA_LANES_DATA_URL,
+  ISLAND_LABEL_COLOR,
+  ISLAND_DOT_COLOR,
+  SEA_LANE_COLOR,
+  SEA_CABLE_COLOR,
+  SEA_RESTRICTED_COLOR,
   type OceanLayerId,
 } from "@/lib/ocean-map";
 import {
@@ -360,6 +367,10 @@ export default function FishingMapView() {
   }, []);
   const [seamarksOn, setSeamarksOn] = useState(true);
   const [fishOn, setFishOn] = useState(true);
+  // Tuyến hàng hải (tàu hàng hay đi) + luồng/phân luồng — nhãn "tham khảo".
+  // Mặc định BẬT: chủ dự án 2026-08-07 muốn hải đồ có đủ tuyến; là nét mảnh
+  // xám-lam nên không lấn. Ẩn tự động khi bật lớp động (như nhãn đảo).
+  const [lanesOn, setLanesOn] = useState(true);
   // Ranh giới vùng lộng bật/tắt qua map-prefs. VÙNG BIỂN VMS nay do admin quản
   // lý (bảng vms_zones): đọc từ DB, chưa cấu hình/lỗi → 3 vùng mặc định tĩnh.
   const [vmsZones, setVmsZones] = useState<VmsZone[]>(STATIC_VMS_ZONES);
@@ -2181,6 +2192,146 @@ export default function FishingMapView() {
           </Source>
         )}
 
+        {/* TUYẾN HÀNG HẢI (tàu hàng hay đi) + luồng/phân luồng — asset tĩnh
+            /data/vn-sea-lanes.v1.json (SW giữ sẵn → mất sóng vẫn có). Tuyến lớn
+            VẼ TAY, gắn nhãn THAM KHẢO (né va chạm, KHÔNG phải để lái); luồng/
+            phân luồng là hình học OSM đã BỎ TÊN. Chỉ hiện trên nền hải đồ, ẩn
+            khi bật lớp động (như nhãn đảo). Vẽ trước nhãn đảo để chữ đảo nổi
+            trên đường. */}
+        {!anyExclusiveOverlay && lanesOn && (
+          <Source id="sea-lanes" type="geojson" data={SEA_LANES_DATA_URL}>
+            {/* CÁP/ỐNG NGẦM — tím chấm; vẽ dưới cùng (hạ tầng nền) */}
+            <Layer
+              id="sea-lane-cap"
+              type="line"
+              filter={["==", ["get", "kind"], "cap"] as unknown as FilterSpecification}
+              layout={{ "line-join": "round", "line-cap": "round" }}
+              paint={{
+                "line-color": SEA_CABLE_COLOR,
+                "line-width": 1,
+                "line-dasharray": [0.5, 2.5],
+                "line-opacity": 0.6,
+              }}
+            />
+            {/* VÙNG CẤM / KHU HẠN CHẾ — ranh cam đất, nét đứt (không tô nền) */}
+            <Layer
+              id="sea-lane-vungcam"
+              type="line"
+              filter={["==", ["get", "kind"], "vungcam"] as unknown as FilterSpecification}
+              layout={{ "line-join": "round" }}
+              paint={{
+                "line-color": SEA_RESTRICTED_COLOR,
+                "line-width": 1.4,
+                "line-dasharray": [2, 2],
+                "line-opacity": 0.75,
+              }}
+            />
+            {/* LUỒNG CẢNG + PHÂN LUỒNG — nét mảnh xám-lam, đứt ngắn */}
+            <Layer
+              id="sea-lane-osm"
+              type="line"
+              filter={["match", ["get", "kind"], ["luong", "phanluong"], true, false] as unknown as FilterSpecification}
+              layout={{ "line-join": "round", "line-cap": "round" }}
+              paint={{
+                "line-color": SEA_LANE_COLOR,
+                "line-width": 1.4,
+                "line-dasharray": [1.5, 1.5],
+                "line-opacity": 0.7,
+              }}
+            />
+            {/* tuyến lớn vẽ tay — nét dày hơn, đứt dài */}
+            <Layer
+              id="sea-lane-tuyen"
+              type="line"
+              filter={["==", ["get", "kind"], "tuyen"] as unknown as FilterSpecification}
+              layout={{ "line-join": "round", "line-cap": "round" }}
+              paint={{
+                "line-color": SEA_LANE_COLOR,
+                "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.6, 9, 2.6] as unknown as number,
+                "line-dasharray": [3, 2],
+                "line-opacity": 0.8,
+              }}
+            />
+            {/* GIÀN KHOAN / công trình biển — điểm cam đất (hiện khi zoom vừa) */}
+            <Layer
+              id="sea-lane-gian"
+              type="circle"
+              minzoom={6}
+              filter={["==", ["get", "kind"], "giankhoan"] as unknown as FilterSpecification}
+              paint={{
+                "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2, 10, 4] as unknown as number,
+                "circle-color": SEA_RESTRICTED_COLOR,
+                "circle-stroke-color": "#ffffff",
+                "circle-stroke-width": 1,
+                "circle-opacity": 0.9,
+              }}
+            />
+            {/* nhãn tuyến lớn dọc đường (chỉ feature có `ten`) */}
+            <Layer
+              id="sea-lane-label"
+              type="symbol"
+              minzoom={4.5}
+              filter={["==", ["get", "kind"], "tuyen"] as unknown as FilterSpecification}
+              layout={{
+                "symbol-placement": "line",
+                "text-field": ["get", "ten"] as unknown as string,
+                "text-font": ["Noto Sans Regular"],
+                "text-size": 11,
+                "symbol-spacing": 500,
+                "text-allow-overlap": false,
+              }}
+              paint={{
+                "text-color": SEA_LANE_COLOR,
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 1.4,
+              }}
+            />
+          </Source>
+        )}
+
+        {/* NHÃN ĐẢO CÓ TÊN — ~103 đảo tiếng Việt (ven bờ + Hoàng Sa + Trường
+            Sa), asset tĩnh /data/vn-islands.v1.json (SW giữ sẵn). Lớp symbol tự
+            giãn theo zoom + tránh chồng chữ: `symbol-sort-key` = rank nên đảo
+            lớn (rank 1) thắng va chạm, hiện sớm ở toàn cảnh; đá/bãi nhỏ (rank 3)
+            chỉ ló khi zoom sâu — đúng cách hải đồ tăng chi tiết theo mức phóng.
+            Chỉ trên nền hải đồ, ẩn khi bật lớp động. Dấu tiếng Việt cần dải font
+            256-511 + 7680-7935 (đã thêm vào SHELL service worker cho offline). */}
+        {!anyExclusiveOverlay && (
+          <Source id="islands" type="geojson" data={ISLANDS_DATA_URL}>
+            <Layer
+              id="island-dot"
+              type="circle"
+              paint={{
+                "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 1.4, 9, 3.4] as unknown as number,
+                "circle-color": ISLAND_DOT_COLOR,
+                "circle-stroke-color": "#ffffff",
+                "circle-stroke-width": 1,
+                "circle-opacity": 0.9,
+              }}
+            />
+            <Layer
+              id="island-label"
+              type="symbol"
+              layout={{
+                "text-field": ["get", "name"] as unknown as string,
+                "text-font": ["Noto Sans Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 4.5, 10, 7, 12.5, 10, 15] as unknown as number,
+                "text-anchor": "top",
+                "text-offset": [0, 0.55],
+                "text-padding": 2,
+                "symbol-sort-key": ["get", "rank"] as unknown as number,
+                "text-allow-overlap": false,
+                "text-optional": true,
+              }}
+              paint={{
+                "text-color": ISLAND_LABEL_COLOR,
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 1.5,
+              }}
+            />
+          </Source>
+        )}
+
         {/* nhãn chủ quyền — luôn nằm trên mọi lớp ảnh; chữ to cho mắt 40-60,
             halo trắng đọc được trên mọi nền (audit lớp #9) */}
         {SOVEREIGNTY_LABELS.map((s) => (
@@ -2429,6 +2580,8 @@ export default function FishingMapView() {
             setPlaying(false);
             setLayerId(id);
           }}
+          lanesOn={lanesOn}
+          onLanes={setLanesOn}
           scalarKind={scalarKind}
           onScalar={(k) => {
             setScalarKind(k);
