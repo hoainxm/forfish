@@ -1970,22 +1970,23 @@ export default function FishingMapView() {
         )}
 
         {/* ranh giới VÙNG LỘNG (NĐ 26/2019, cho tàu 12–<15m) — THAM KHẢO, dữ
-            liệu SDVico. Màu teal + nét đứt, tách hẳn cam-đỏ ranh giới ngoài. */}
+            liệu SDVico. Màu cam + nét đứt cho NỔI trên nền biển xanh (teal cũ bị
+            chìm; ranh giới ngoài cam-đỏ đã bỏ khỏi bản đồ nên không còn đụng màu). */}
         {prefs.vungLong && (
           <Source id="vung-long" type="geojson" data={VUNG_LONG_DATA}>
             <Layer
               id="vung-long-fill"
               type="fill"
-              paint={{ "fill-color": "#0d9488", "fill-opacity": 0.06 }}
+              paint={{ "fill-color": "#ea580c", "fill-opacity": 0.06 }}
             />
             <Layer
               id="vung-long-line"
               type="line"
               paint={{
-                "line-color": "#0d9488",
-                "line-width": 1.75,
+                "line-color": "#ea580c",
+                "line-width": 2,
                 "line-dasharray": [3, 2],
-                "line-opacity": 0.9,
+                "line-opacity": 0.95,
               }}
             />
           </Source>

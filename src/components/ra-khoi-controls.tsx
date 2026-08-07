@@ -1034,7 +1034,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
         sub="NĐ 26/2019 · tàu 12–<15m · tham khảo"
         on={prefs.vungLong}
         onToggle={() => setMapPrefs({ vungLong: !prefs.vungLong })}
-        icon={<DepthIcon className="h-5 w-5 text-[#0d9488]" />}
+        icon={<DepthIcon className="h-5 w-5 text-[#ea580c]" />}
       />
 
       {vmsZones.length > 0 && (
