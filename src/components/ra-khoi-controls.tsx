@@ -49,11 +49,13 @@ import {
   LayersIcon,
   EddyIcon,
   FishIcon,
+  PinIcon,
   RulerIcon,
   SettingsIcon,
   StarIcon,
   WindIcon,
 } from "@/components/icons";
+import { parseCoordPair } from "@/lib/parse-coord";
 
 const FISH_COLOR = "#2d8659"; // xanh lá — cá/ngư trường (design Phương án A)
 
@@ -105,11 +107,14 @@ export function RaKhoiControls({
   measureResult,
   onClearMeasure,
   onLocateMe,
+  onGoCoord,
   locating,
   geoError,
 }: {
   /** Bấm "Vị trí" → lấy GPS rồi bay tới chỗ mình (fishing-map-view lo phần đó) */
   onLocateMe: () => void;
+  /** Gõ tay toạ độ (nút "Đến điểm") → bay tới điểm đó, đặt điểm đang xem */
+  onGoCoord: (lat: number, lon: number) => void;
   /** đang xin GPS — nút phải nói đang chạy, đừng để bà con bấm hoài */
   locating: boolean;
   /** máy từ chối / không có GPS — PHẢI nói, không được câm (nguyên tắc trung thực) */
@@ -157,6 +162,8 @@ export function RaKhoiControls({
   // MẶC ĐỊNH THU GỌN (user 2026-07-28): map sạch, chạm "Lớp" mới xổ rail ra;
   // xổ rồi mà 5s không chạm gì (trong rail/panel) thì TỰ thu lại.
   const [collapsed, setCollapsed] = useState(true);
+  // Ô GÕ TAY TOẠ ĐỘ (nút "Đến điểm") — luôn bấm được kể cả khi thu bảng lớp.
+  const [coordOpen, setCoordOpen] = useState(false);
 
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const armAutoHide = useCallback(() => {
@@ -297,6 +304,16 @@ export function RaKhoiControls({
         </div>
       )}
 
+      {/* Ô GÕ TAY TOẠ ĐỘ — nổi cạnh nút "Đến điểm", độc lập với panel rail */}
+      {coordOpen && (
+        <div className="pointer-events-auto absolute right-[4.5rem] top-0 w-[19rem] max-w-[calc(100vw-5rem)] rounded-2xl bg-card/97 p-3 shadow-xl">
+          <GoToPointPopup
+            onGoCoord={onGoCoord}
+            onClose={() => setCoordOpen(false)}
+          />
+        </div>
+      )}
+
       {/* RAIL dọc mép phải — ẩn/hiện được như menu lớp các app bản đồ */}
       <div className="pointer-events-auto flex flex-col items-end gap-2">
         <button
@@ -334,6 +351,26 @@ export function RaKhoiControls({
           <CrosshairIcon className={`h-6 w-6 ${locating ? "animate-pulse" : ""}`} />
           <span className="text-[0.6875rem] font-bold leading-tight">
             {locating ? "Đang tìm" : geoError ? "Bật GPS" : "Vị trí"}
+          </span>
+        </button>
+
+        {/* ĐẾN ĐIỂM — gõ tay toạ độ để nhảy tới điểm cần xem (không cần GPS,
+            chạy cả khi mất sóng). Đặt NGAY DƯỚI nút "Vị trí", luôn hiện. */}
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(null); // đóng panel rail (nếu đang mở) cho khỏi chồng
+            setCoordOpen((v) => !v);
+          }}
+          aria-label="Đến điểm — gõ toạ độ"
+          aria-expanded={coordOpen}
+          className={`flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 shadow-md transition active:scale-95 ${
+            coordOpen ? "bg-t1 text-white" : "bg-navy text-white"
+          }`}
+        >
+          <PinIcon className="h-6 w-6" />
+          <span className="text-[0.6875rem] font-bold leading-tight">
+            Đến điểm
           </span>
         </button>
         {!collapsed &&
@@ -779,6 +816,97 @@ function DiemPanel({
           compact
         />
       </div>
+    </div>
+  );
+}
+
+// Ô GÕ TAY TOẠ ĐỘ — hai ô (vĩ · kinh), bỏ trống hướng thì mặc định Bắc/Đông.
+// Nhận độ thập phân (8,5), độ-phút (8 30) hay độ-phút-giây (8 30 15). Không cần
+// mạng — thuần đọc chuỗi rồi bay tới điểm.
+function GoToPointPopup({
+  onGoCoord,
+  onClose,
+}: {
+  onGoCoord: (lat: number, lon: number) => void;
+  onClose: () => void;
+}) {
+  const prefs = useMapPrefs();
+  const [latText, setLatText] = useState("");
+  const [lonText, setLonText] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  // ví dụ gõ theo hệ toạ độ đang chọn (khớp cách máy định vị bà con hiển thị)
+  const eg =
+    prefs.coordFormat === "dms"
+      ? { lat: "8 30", lon: "109 18" }
+      : { lat: "8,5", lon: "109,3" };
+
+  const submit = () => {
+    const pair = parseCoordPair(latText, lonText);
+    if (!pair) {
+      setErr("Chưa đọc được toạ độ. Xem lại ví dụ bên dưới.");
+      return;
+    }
+    onGoCoord(pair.lat, pair.lon);
+    onClose();
+  };
+
+  return (
+    <div>
+      <PanelHeader title="Đến điểm — gõ toạ độ" onClose={onClose} />
+      <label className="mb-2 block">
+        <span className="mb-1 block text-[0.8125rem] font-bold text-navy">
+          Vĩ độ (Bắc)
+        </span>
+        <input
+          type="text"
+          inputMode="text"
+          value={latText}
+          onChange={(e) => {
+            setLatText(e.target.value);
+            setErr(null);
+          }}
+          placeholder={`vd ${eg.lat}`}
+          aria-label="Vĩ độ"
+          className="min-h-[3rem] w-full rounded-xl bg-field px-3 text-[1rem] font-semibold tabular-nums text-navy outline-none focus:ring-2 focus:ring-t1"
+        />
+      </label>
+      <label className="mb-2 block">
+        <span className="mb-1 block text-[0.8125rem] font-bold text-navy">
+          Kinh độ (Đông)
+        </span>
+        <input
+          type="text"
+          inputMode="text"
+          value={lonText}
+          onChange={(e) => {
+            setLonText(e.target.value);
+            setErr(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submit();
+          }}
+          placeholder={`vd ${eg.lon}`}
+          aria-label="Kinh độ"
+          className="min-h-[3rem] w-full rounded-xl bg-field px-3 text-[1rem] font-semibold tabular-nums text-navy outline-none focus:ring-2 focus:ring-t1"
+        />
+      </label>
+      {err && (
+        <p className="mb-2 flex items-start gap-1.5 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.8125rem] font-bold leading-snug text-warn">
+          <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{err}</span>
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={submit}
+        className="min-h-[3.25rem] w-full rounded-xl bg-navy text-[1rem] font-bold text-white transition active:scale-[0.99]"
+      >
+        Đến điểm
+      </button>
+      <p className="mt-2 text-[0.75rem] leading-snug text-foreground/65">
+        Gõ độ-phút (vd 8 30) hoặc độ thập phân (vd 8,5). Vùng biển mình mặc định
+        Bắc/Đông — gõ Nam/Tây thì thêm chữ S/W hoặc dấu trừ.
+      </p>
     </div>
   );
 }

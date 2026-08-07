@@ -2490,6 +2490,12 @@ export default function FishingMapView() {
             setSize("peek");
             goToCoord(lat, lon);
           }}
+          onGoCoord={(lat, lon) => {
+            // gõ tay toạ độ → bay tới, đặt điểm đang xem (như chọn điểm đã lưu)
+            setPinning(false);
+            setSize("peek");
+            goToCoord(lat, lon);
+          }}
           measureMode={measureMode}
           onMeasureMode={toggleMeasure}
           measureCount={measurePts.length}
