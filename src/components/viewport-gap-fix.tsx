@@ -49,6 +49,14 @@ export function ViewportGapFix() {
         try {
           saved = Number(localStorage.getItem(key)) || 0;
         } catch {}
+        // TRẦN VẬT LÝ: vùng nhìn thấy KHÔNG thể cao hơn màn hình thật. Mốc đã
+        // lưu mà > screen.height là số đo LỖI kẹt lại (bug iOS đo vọt 1 lần) →
+        // BỎ, coi như chưa có mốc để đo lại tươi. Đây là nguyên nhân dock chui
+        // khỏi đáy màn: khung cao hơn màn → dock trôi xuống dưới mép (user
+        // 2026-08-07: "dính wh max 1 lần, quá khung màn hình"; trước đây phải
+        // xoá app mới thoát vì mốc chỉ-tăng, giờ tự bỏ).
+        const ceil = screen.height || saved;
+        if (saved > ceil) saved = 0;
         stableBottom = saved;
         if (saved > 0) de.style.setProperty("--app-vh", `${saved}px`);
       }
@@ -70,11 +78,21 @@ export function ViewportGapFix() {
         const key = syncKey();
         // KÍCH THƯỚC viewport (vv.height, không offsetTop — offset cuộn làm vọt)
         const measured = Math.round(vv.height);
-        // CHỈ đụng DOM khi LỚN LÊN: tab đo nhỏ hơn → return, KHÔNG set lại
-        // --app-vh → không reflow → chuyển tab MƯỢT (user báo giật vì trước đây
-        // set mỗi lần). Đã ổn định thì mọi tab dùng cùng mốc, không giật.
-        if (measured <= stableBottom) return;
-        stableBottom = measured;
+        // TRẦN VẬT LÝ: bỏ số đo vọt quá màn hình thật (glitch iOS) — không cho
+        // latch mốc quá to (dock sẽ chui khỏi đáy màn, phải xoá app mới thoát).
+        const ceil = screen.height || measured;
+        if (measured > ceil) return;
+        if (measured > stableBottom) {
+          // LỚN LÊN: nhận ngay (tab cuộn được cho viewport đầy đủ hơn tab tĩnh).
+          stableBottom = measured;
+        } else if (stableBottom - measured > 32) {
+          // NHỎ hơn NHIỀU (>32px, quá mức jitter giữa các tab): mốc cũ SAI/kẹt
+          // quá to → TỰ HẠ về số đo thật (tự chữa, khỏi xoá app). Chênh nhỏ thì
+          // rơi xuống nhánh dưới, GIỮ nguyên → không reflow → chuyển tab MƯỢT.
+          stableBottom = measured;
+        } else {
+          return; // chênh nhỏ: giữ mốc, tránh giật giữa các tab
+        }
         try {
           localStorage.setItem(key, String(stableBottom));
         } catch {}
