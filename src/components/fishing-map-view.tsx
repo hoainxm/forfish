@@ -169,6 +169,7 @@ import {
   forecastConfidence,
   formatNumberVN,
   windDirectionVN,
+  windDescribeVN,
   type SeaPoint,
   type SeaPointConditions,
 } from "@/lib/marine-weather";
@@ -3210,10 +3211,11 @@ export default function FishingMapView() {
                 {/* Hướng gió CHỦ ĐẠO cả ngày — hôm nay đã có hướng (tức thời)
                     trong thẻ "Gió lúc này" nên KHÔNG lặp ở đây; các ngày sau
                     trước đây trống hướng (VĐ báo 2026-08-10) → bù đúng chỗ này.
-                    Bản dựng từ lưới không có `windDirDeg` → tự ẩn. */}
+                    Gọi tên gió theo GỐC + "thổi về" cho khớp vệt bản đồ (VĐ báo
+                    2026-08-10 lần 2). Bản dựng từ lưới không có `windDirDeg` → tự ẩn. */}
                 {!isToday &&
                   sel.windDirDeg != null &&
-                  ` · gió hướng ${windDirectionVN(sel.windDirDeg)}`}
+                  ` · ${windDescribeVN(sel.windDirDeg)}`}
               </p>
 
               {/* SÓNG LÀ SỐ ƯỚC → NÓI THẲNG MỘT DÒNG (LỖI 2a+2c, soát chéo
@@ -3257,7 +3259,7 @@ export default function FishingMapView() {
                     <p className="mt-1 text-[0.875rem] leading-snug text-foreground/65">
                       {Math.round(cond.windKmh)} km/giờ
                       {cond.windDirDeg != null &&
-                        ` · hướng ${windDirectionVN(cond.windDirDeg)}`}
+                        ` · ${windDescribeVN(cond.windDirDeg)}`}
                     </p>
                   </div>
                   <div className="surface p-4">

@@ -174,6 +174,19 @@ export function windDirectionVN(deg: number): string {
   return names[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 }
 
+/**
+ * Mô tả gió cho bà con: GỌI THEO GỐC (như đài duyên hải/Biên phòng — "gió Tây
+ * Nam") + nói rõ THỔI VỀ đâu. Vệt gió trên bản đồ bay theo chiều gió *thổi tới*
+ * (from + 180°); chữ gọi tên gió theo chiều *tới từ*. Không ghi cả hai thì hai
+ * chỗ đá nhau (VĐ báo 2026-08-10: map bay Đông Bắc, chữ ghi Tây Nam). `fromDeg`
+ * là hướng gió TỚI TỪ (chuẩn khí tượng, như Open-Meteo `wind_direction_*`).
+ */
+export function windDescribeVN(fromDeg: number): string {
+  const from = windDirectionVN(fromDeg);
+  const to = windDirectionVN((fromDeg + 180) % 360);
+  return `gió ${from} (thổi về ${to})`;
+}
+
 /** Số kiểu Việt: 1.2 → "1,2" */
 export function formatNumberVN(n: number, digits = 1): string {
   return n.toFixed(digits).replace(".", ",");

@@ -490,7 +490,7 @@ Thứ tự khi `fetchSeaPoint` mất mạng: (1) bản ĐẦY ĐỦ đã lưu c�
 | Thẻ "Gió lúc này" / "Sóng lúc này" | có | **ẩn hẳn** (`windKmh` = null — lưới không có số đo hiện tại) |
 | Mưa / dông | có | **ẩn** (`wmoCode` null) |
 | Dải chọn ngày + "Cả ngày: sóng tới … · gió tới cấp …" | có | **có** |
-| "· gió hướng …" cuối dòng "Cả ngày" (hướng gió CHỦ ĐẠO cả ngày, `windDirDeg`) | **ngày sau** có; **hôm nay** không (đã có hướng tức thời ở thẻ "Gió lúc này") | **ẩn** — lưới không có `windDirDeg` |
+| Hướng gió (`windDescribeVN`): "gió **Tây Nam** (thổi về **Đông Bắc**)" — gọi tên gió theo GỐC (như đài/Biên phòng) + "thổi về" cho khớp vệt bản đồ (vệt bay theo chiều gió *thổi tới* = from+180°). Ngày sau ở dòng "Cả ngày"; hôm nay ở thẻ "Gió lúc này". | có | **ẩn** — lưới không có `windDirDeg` |
 | Độ tin theo tầm ngày | có | **có** |
 
 **C. Chữ trong sheet** — thẻ "số cũ" là **chip nhỏ TỰ ẨN** (13px, nền warn, có `AlertIcon`, `staleNoteOn` tắt sau `NOTIFY_HIDE_MS` như chip mất-sóng/chất-lượng-cá) — trước là hộp vàng 17px nằm lì che bản đồ, bà con than "không tự ẩn, mất view" (2026-07-27). Vẫn nói thật MỘT lần rồi trả lại tầm nhìn (an toàn nhưng không cản). Signal tự ẩn = `source:savedAt` nên vẫn stale thì không nhấp nháy báo lại.
