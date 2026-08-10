@@ -53,6 +53,9 @@ export type SeaPointDay = Omit<SeaDay, "precipMm"> & {
   curKmh?: number | null;
   /** hướng dòng CHẢY VỀ (0° = lên Bắc) — Open-Meteo ghi sẵn hướng đi của nước */
   curDirDeg?: number | null;
+  /** hướng gió CHỦ ĐẠO cả ngày (0° = TỚI TỪ Bắc, quy ước khí tượng) — chỉ có ở
+      bản LIVE điểm-chạm; bản dựng từ lưới / bản lưu đời cũ = undefined → UI ẩn */
+  windDirDeg?: number | null;
 };
 
 export type SeaPointConditions = {
@@ -400,7 +403,7 @@ async function fetchSeaPointLive(p: SeaPoint): Promise<SeaPointConditions> {
   const windUrl =
     `https://api.open-meteo.com/v1/forecast?${common}` +
     `&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m` +
-    `&daily=wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,weather_code`;
+    `&daily=wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,precipitation_sum,weather_code`;
   const waveUrl =
     `https://marine-api.open-meteo.com/v1/marine?${common}` +
     `&current=wave_height,wave_period&daily=wave_height_max&models=${WAVE_MODEL}`;
@@ -430,7 +433,8 @@ async function fetchSeaPointLive(p: SeaPoint): Promise<SeaPointConditions> {
     cur?.hourly?.ocean_current_direction ?? [],
   );
 
-  const days: (ScoredSeaDay & Pick<SeaPointDay, "curKmh" | "curDirDeg">)[] = (
+  const days: (ScoredSeaDay &
+    Pick<SeaPointDay, "curKmh" | "curDirDeg" | "windDirDeg">)[] = (
     wind.daily?.time ?? []
   ).map((date: string, i: number) => {
       const windMaxKmh = num(wind.daily?.wind_speed_10m_max?.[i]) ?? 0;
@@ -453,6 +457,7 @@ async function fetchSeaPointLive(p: SeaPoint): Promise<SeaPointConditions> {
         level: levelOf(score),
         curKmh: dc?.curKmh ?? null,
         curDirDeg: dc?.curDirDeg ?? null,
+        windDirDeg: num(wind.daily?.wind_direction_10m_dominant?.[i]) ?? null,
       };
     },
   );

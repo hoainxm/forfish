@@ -7,6 +7,8 @@ last_verified: 2026-08-02
 ttl_days: 180
 gate: warn
 <!-- re-verified: 2026-06-17 - auth-gateway.ts = SĐT+mật khẩu (signup/sso), bỏ OTP/magic-link/service-key; timeout 20s -->
+<!-- re-verified: 2026-08-10 — ĐIỂM CHẠM HIỆN HƯỚNG GIÓ CẢ NGÀY (VĐ báo: hôm nay có hướng, ngày sau trống). Request GIÓ của fetchSeaPointLive (marine-weather.ts) thêm biến daily `wind_direction_10m_dominant` vào chuỗi `&daily=` ĐÃ CÓ — KHÔNG request mới, KHÔNG endpoint/timeout mới, cùng 1 lời gọi Open-Meteo forecast. SeaPointDay thêm `windDirDeg?` optional (cùng khuôn `curDirDeg`) → bản lưu / bản dựng-từ-lưới đời cũ đọc vẫn chạy, thiếu thì UI ẩn mềm. Tải trọng lên Open-Meteo KHÔNG đổi (thêm 1 biến vào request sẵn có). -->
+
 <!-- re-verified: 2026-08-03p — **ĐƯỜNG BUILD KHÔNG ĐI QUA NGUỒN NGOÀI** (bất biến mới). `/api/fish-forecast` được Next dựng sẵn lúc `next build` (có `revalidate`); khi đọc snapshot Supabase hỏng thì nó rơi vào `computeFishForecast()` = BẢY nguồn (ERDDAP + HYCOM OPeNDAP + Copernicus Zarr) trong ngân sách 60 giây của Next ⇒ bản build ĐỎ, deploy không đi được. Nay `isBuildPhase()` chặn nhánh live lúc build: có snapshot thì gieo bằng snapshot, không thì 503 `s-maxage=60` để request thật đầu tiên tính. Đo thật lượt lạnh của nhánh live: 16,8 giây (và đó là khi mọi nguồn còn khoẻ). Không đổi hành vi lúc chạy: `NEXT_PHASE` chỉ mang giá trị đó trong lượt build. -->
 
 <!-- re-verified: 2026-08-03m — NHỊP NGUỒN THEO NGÀY + LƯỚI DÒNG CHẢY TẦNG DÀY GẤP ĐÔI.

@@ -3207,6 +3207,13 @@ export default function FishingMapView() {
                   : "— (chưa có số)"}{" "}
                 · gió tới cấp {beaufort(sel.windMaxKmh)}
                 {sel.gustMaxKmh > 0 && `, giật cấp ${beaufort(sel.gustMaxKmh)}`}
+                {/* Hướng gió CHỦ ĐẠO cả ngày — hôm nay đã có hướng (tức thời)
+                    trong thẻ "Gió lúc này" nên KHÔNG lặp ở đây; các ngày sau
+                    trước đây trống hướng (VĐ báo 2026-08-10) → bù đúng chỗ này.
+                    Bản dựng từ lưới không có `windDirDeg` → tự ẩn. */}
+                {!isToday &&
+                  sel.windDirDeg != null &&
+                  ` · gió hướng ${windDirectionVN(sel.windDirDeg)}`}
               </p>
 
               {/* SÓNG LÀ SỐ ƯỚC → NÓI THẲNG MỘT DÒNG (LỖI 2a+2c, soát chéo
