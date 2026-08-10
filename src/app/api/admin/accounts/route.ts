@@ -3,7 +3,9 @@
 // · GET                     → view   (admin + quản lý có cờ view)
 // · POST tạo KHÁCH          → create; tạo TÀI KHOẢN QUẢN LÝ (role='manager')
 //                             vẫn ADMIN-ONLY CỨNG dù có cờ create
-// · PATCH action='grant'    → edit   (kích hoạt/gia hạn premium 1 năm + log)
+// · PATCH action='grant'    → edit   (kích hoạt/gia hạn premium theo kỳ hạn
+//                             admin chọn — body.termMonths, mặc định 1 năm 6
+//                             tháng; server tự clamp + ghi log)
 // · PATCH action='downgrade'→ ADMIN-ONLY CỨNG (hạ hạng — thao tác nhạy cảm)
 // · PATCH action='reset-password' → ADMIN-ONLY CỨNG (đặt lại mật khẩu tạm)
 // · DELETE                  → delete (admin + quản lý có cờ delete)
@@ -347,6 +349,8 @@ export async function POST(req: Request) {
     password?: string;
     role?: string;
     activatePremium?: boolean;
+    /** kỳ hạn premium khi tạo kèm (số tháng); server tự clamp về khoảng hợp lệ */
+    termMonths?: number;
   } | null;
   const role =
     body?.role === "manager"
@@ -368,9 +372,11 @@ export async function POST(req: Request) {
   const phone = normalizeVnPhone(body.phone);
   const now = new Date().toISOString();
 
-  // tạo kèm premium = một lần KÍCH HOẠT chuẩn (1 năm 6 tháng + log) — không nhập hạn tay
+  // tạo kèm premium = một lần KÍCH HOẠT chuẩn (kỳ hạn admin chọn + log)
   const activate = Boolean(body.activatePremium);
-  const until = activate ? nextPremiumUntil(null, Date.now()) : null;
+  const until = activate
+    ? nextPremiumUntil(null, Date.now(), body.termMonths)
+    : null;
 
   const { error: upErr } = await admin.from("customers").upsert(
     {
@@ -428,6 +434,8 @@ export async function PATCH(req: Request) {
     action?: string;
     used?: boolean;
     guided?: boolean;
+    /** grant: kỳ hạn (số tháng) admin chọn; server tự clamp */
+    termMonths?: number;
   } | null;
   if (!body?.phone) return err(400, "bad_phone");
   const phone = normalizeVnPhone(body.phone);
@@ -555,7 +563,7 @@ export async function PATCH(req: Request) {
   }
 
   if (body.action === "grant") {
-    // KÍCH HOẠT / GIA HẠN premium (1 năm/lần) — cần cờ tai-khoan:edit
+    // KÍCH HOẠT / GIA HẠN premium (kỳ hạn admin chọn) — cần cờ tai-khoan:edit
     const who = await requirePermission("tai-khoan", "edit");
     if (!who.ok) return err(who.status, who.code);
     const admin = createAdminClient();
@@ -575,10 +583,12 @@ export async function PATCH(req: Request) {
         cur.premium_until as string | null,
         Date.now(),
       ) === "premium";
-    // còn hạn → cộng nối vào hạn cũ; hết hạn/chưa có → 1 năm 6 tháng từ bây giờ
+    // còn hạn → cộng nối vào hạn cũ; hết hạn/chưa có → tính từ bây giờ.
+    // kỳ hạn theo lựa chọn admin (mặc định 1 năm 6 tháng nếu không truyền)
     const until = nextPremiumUntil(
       isActive ? (cur.premium_until as string | null) : null,
       Date.now(),
+      body.termMonths,
     );
     const action = isActive ? ("renew" as const) : ("activate" as const);
 

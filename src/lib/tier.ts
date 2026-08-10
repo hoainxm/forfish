@@ -265,24 +265,80 @@ export type FeatureAccess = "checking" | "login" | "upgrade" | "open";
 /** Thời tiết mở miễn phí đúng 3 ngày (hôm nay + 2 ngày kế) — quá 3 ngày là premium. */
 export const FREE_FORECAST_DAYS = 3;
 
-/** 1 lần kích hoạt premium = 1 NĂM 6 THÁNG (gói 500k, ưu đãi +6 tháng từ
- *  2026-08-04; trước đó 365). 548 ≈ 365 + 183. Hết hạn thì gia hạn.
- *  (Ngoại lệ 300k = 1 năm không nằm trong luật này — chỉ áp cho 2 SĐT cũ,
- *  xử lý bằng migration 0032, không có luồng cấp 300k trong app.) */
-export const PREMIUM_TERM_DAYS = 548;
+/** SỐ THÁNG mặc định 1 lần kích hoạt/gia hạn premium (gói 500k = 1 năm 6 tháng,
+ *  ưu đãi +6 tháng từ 2026-08-04; trước đó 12 tháng). KHÔNG hardcode một mốc cứng
+ *  nữa: admin chọn gói dựng sẵn (PREMIUM_TERM_PRESETS) hoặc nhập số tháng tuỳ ý
+ *  (clampTermMonths) khi cấp. Đây chỉ là giá trị MẶC ĐỊNH khi không truyền.
+ *  (Ngoại lệ 300k = 1 năm chỉ áp cho 2 SĐT cũ qua migration 0032 — không có
+ *  luồng cấp 300k trong app.) */
+export const PREMIUM_TERM_MONTHS = 18;
+
+/** Các gói kỳ hạn dựng sẵn cho admin bấm nhanh khi cấp premium. Thêm/bớt gói ở
+ *  đây là đủ — UI /quan-tri render tự động từ mảng này. Ngoài các gói này admin
+ *  còn nhập được số tháng tuỳ ý ("Khác"). */
+export const PREMIUM_TERM_PRESETS: { months: number; label: string }[] = [
+  { months: 12, label: "1 năm" },
+  { months: 18, label: "1 năm 6 tháng" },
+];
+
+/** Biên số tháng hợp lệ khi nhập tay (chặn 0/âm/quá lớn = gõ nhầm). */
+export const PREMIUM_TERM_MIN_MONTHS = 1;
+export const PREMIUM_TERM_MAX_MONTHS = 120;
+
+/**
+ * Ép số tháng về khoảng hợp lệ + số nguyên. Giá trị lạ (undefined/NaN/chữ) →
+ * mặc định PREMIUM_TERM_MONTHS. THUẦN để test được — dùng chung client + server
+ * nên không tin được đầu vào từ body request.
+ */
+export function clampTermMonths(months: unknown): number {
+  // null/undefined/"" = "không truyền" → mặc định (Number(null)=0, Number("")=0
+  // sẽ lọt xuống min=1 nếu không chặn ở đây)
+  if (months == null || months === "") return PREMIUM_TERM_MONTHS;
+  const n = typeof months === "number" ? months : Number(months);
+  if (!Number.isFinite(n)) return PREMIUM_TERM_MONTHS;
+  return Math.min(
+    PREMIUM_TERM_MAX_MONTHS,
+    Math.max(PREMIUM_TERM_MIN_MONTHS, Math.round(n)),
+  );
+}
+
+/** Số tháng → nhãn tiếng Việt ("1 năm", "1 năm 6 tháng", "8 tháng"). Ưu tiên
+ *  nhãn gói dựng sẵn để chữ khớp nút bấm. */
+export function premiumTermLabel(months: number): string {
+  const m = clampTermMonths(months);
+  const preset = PREMIUM_TERM_PRESETS.find((p) => p.months === m);
+  if (preset) return preset.label;
+  const years = Math.floor(m / 12);
+  const rem = m % 12;
+  if (years > 0 && rem > 0) return `${years} năm ${rem} tháng`;
+  if (years > 0) return `${years} năm`;
+  return `${m} tháng`;
+}
+
+/** Cộng `months` THÁNG LỊCH vào mốc ms. Ngày trong tháng giữ nguyên; tháng đích
+ *  ngắn hơn (31→cuối tháng) lùi theo nếp Date chuẩn. Tính theo tháng lịch (thay
+ *  vì ×30 ngày) để "1 năm 6 tháng" rơi đúng ngày kỷ niệm, số tháng lạ vẫn đúng. */
+function addCalendarMonths(baseMs: number, months: number): number {
+  const d = new Date(baseMs);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.getTime();
+}
 
 /**
  * Hạn premium SAU một lần kích hoạt/gia hạn: còn hạn thì CỘNG NỐI vào hạn cũ
- * (gia hạn sớm không bị thiệt ngày), hết hạn/chưa có thì tính 1 năm 6 tháng từ
- * bây giờ.
+ * (gia hạn sớm không bị thiệt ngày), hết hạn/chưa có thì tính từ bây giờ.
+ *
+ * `months` = kỳ hạn admin chọn (mặc định PREMIUM_TERM_MONTHS). Luôn qua
+ * clampTermMonths nên body request bịa số cũng không phá được.
  */
 export function nextPremiumUntil(
   currentUntil: string | null | undefined,
   nowMs: number,
+  months: number = PREMIUM_TERM_MONTHS,
 ): string {
   const cur = currentUntil ? Date.parse(currentUntil) : NaN;
   const base = Number.isFinite(cur) && cur > nowMs ? cur : nowMs;
-  return new Date(base + PREMIUM_TERM_DAYS * 24 * 3600 * 1000).toISOString();
+  return new Date(addCalendarMonths(base, clampTermMonths(months))).toISOString();
 }
 
 /**

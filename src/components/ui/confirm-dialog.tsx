@@ -14,6 +14,7 @@ export function ConfirmDialog({
   icon,
   title,
   message,
+  children,
   cancelLabel = "Không",
   confirmLabel = "Xóa luôn",
   danger = true,
@@ -23,6 +24,8 @@ export function ConfirmDialog({
   icon?: React.ReactNode;
   title: string;
   message?: string;
+  /** nội dung phụ (vd: chọn kỳ hạn) chèn giữa lời nhắn và hai nút */
+  children?: React.ReactNode;
   cancelLabel?: string;
   confirmLabel?: string;
   danger?: boolean;
@@ -74,6 +77,7 @@ export function ConfirmDialog({
         {message && (
           <p className="mt-1 text-[1rem] text-foreground/70">{message}</p>
         )}
+        {children}
         <div className="mt-4 grid grid-cols-2 gap-3">
           <button
             ref={cancelRef}

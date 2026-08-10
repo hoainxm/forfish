@@ -4,10 +4,14 @@ import {
   featureAccessDecision,
   formatPremiumUntil,
   FREE_FORECAST_DAYS,
+  clampTermMonths,
   nextPremiumUntil,
   premiumMarkHasExpiry,
   premiumMarkWithinGrace,
-  PREMIUM_TERM_DAYS,
+  premiumTermLabel,
+  PREMIUM_TERM_MAX_MONTHS,
+  PREMIUM_TERM_MIN_MONTHS,
+  PREMIUM_TERM_MONTHS,
   resolveTier,
   shouldQueryOnBackOnline,
   shouldRetryTierQuery,
@@ -60,34 +64,92 @@ describe("resolveTier", () => {
   });
 });
 
-describe("nextPremiumUntil — 1 lần kích = 1 năm 6 tháng", () => {
-  const TERM_MS = PREMIUM_TERM_DAYS * 24 * 3600 * 1000;
+// Kỳ hạn tính theo THÁNG LỊCH (khớp addCalendarMonths trong lib/tier: cộng
+// tháng qua setUTCMonth). Helper dựng lại đúng phép cộng đó để so.
+function addMonthsUTC(ms: number, months: number): number {
+  const d = new Date(ms);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.getTime();
+}
+const until = (
+  cur: string | null | undefined,
+  now: number,
+  months?: number,
+) => Date.parse(nextPremiumUntil(cur, now, months));
 
-  it("chưa có hạn / null → 1 năm 6 tháng từ bây giờ", () => {
-    expect(Date.parse(nextPremiumUntil(null, NOW))).toBe(NOW + TERM_MS);
-    expect(Date.parse(nextPremiumUntil(undefined, NOW))).toBe(NOW + TERM_MS);
+describe("nextPremiumUntil — kỳ hạn theo tháng lịch, mặc định 1 năm 6 tháng", () => {
+  it("chưa có hạn / null → +mặc định (18 tháng) từ bây giờ", () => {
+    expect(until(null, NOW)).toBe(addMonthsUTC(NOW, PREMIUM_TERM_MONTHS));
+    expect(until(undefined, NOW)).toBe(addMonthsUTC(NOW, PREMIUM_TERM_MONTHS));
   });
 
-  it("ĐÃ hết hạn → 1 năm 6 tháng từ bây giờ (không cộng vào quá khứ)", () => {
+  it("ĐÃ hết hạn → +18 tháng từ bây giờ (không cộng vào quá khứ)", () => {
     const past = new Date(NOW - 30 * 24 * 3600 * 1000).toISOString();
-    expect(Date.parse(nextPremiumUntil(past, NOW))).toBe(NOW + TERM_MS);
+    expect(until(past, NOW)).toBe(addMonthsUTC(NOW, PREMIUM_TERM_MONTHS));
   });
 
-  it("CÒN hạn → cộng nối 1 năm 6 tháng vào hạn cũ (gia hạn sớm không thiệt ngày)", () => {
+  it("CÒN hạn → cộng nối vào hạn cũ (gia hạn sớm không thiệt ngày)", () => {
     const future = NOW + 100 * 24 * 3600 * 1000;
-    expect(
-      Date.parse(nextPremiumUntil(new Date(future).toISOString(), NOW)),
-    ).toBe(future + TERM_MS);
-  });
-
-  it("hạn hỏng (không parse được) → coi như chưa có, 1 năm 6 tháng từ bây giờ", () => {
-    expect(Date.parse(nextPremiumUntil("không-phải-ngày", NOW))).toBe(
-      NOW + TERM_MS,
+    expect(until(new Date(future).toISOString(), NOW)).toBe(
+      addMonthsUTC(future, PREMIUM_TERM_MONTHS),
     );
   });
 
-  it("kỳ hạn đúng 548 ngày (1 năm 6 tháng)", () => {
-    expect(PREMIUM_TERM_DAYS).toBe(548);
+  it("hạn hỏng (không parse được) → coi như chưa có, +18 tháng từ bây giờ", () => {
+    expect(until("không-phải-ngày", NOW)).toBe(
+      addMonthsUTC(NOW, PREMIUM_TERM_MONTHS),
+    );
+  });
+
+  it("kỳ hạn tuỳ chọn: 12 tháng = +1 năm lịch (fix lỗi chỉ có 1 mốc 18 tháng)", () => {
+    expect(until(null, NOW, 12)).toBe(addMonthsUTC(NOW, 12));
+    expect(until(null, NOW, 18)).toBe(addMonthsUTC(NOW, 18));
+    expect(until(null, NOW, 12)).not.toBe(until(null, NOW, 18));
+  });
+
+  it("số tháng lạ từ body request → clamp (không phá được hạn)", () => {
+    // NaN/chữ → mặc định; 0/âm → tối thiểu; quá lớn → tối đa
+    expect(until(null, NOW, Number.NaN)).toBe(
+      addMonthsUTC(NOW, PREMIUM_TERM_MONTHS),
+    );
+    expect(until(null, NOW, 0)).toBe(
+      addMonthsUTC(NOW, PREMIUM_TERM_MIN_MONTHS),
+    );
+    expect(until(null, NOW, 9999)).toBe(
+      addMonthsUTC(NOW, PREMIUM_TERM_MAX_MONTHS),
+    );
+  });
+});
+
+describe("clampTermMonths — chặn số tháng lạ", () => {
+  it("số hợp lệ giữ nguyên (làm tròn)", () => {
+    expect(clampTermMonths(12)).toBe(12);
+    expect(clampTermMonths(18)).toBe(18);
+    expect(clampTermMonths(7.6)).toBe(8);
+    expect(clampTermMonths("24")).toBe(24);
+  });
+  it("dưới min → min, trên max → max", () => {
+    expect(clampTermMonths(0)).toBe(PREMIUM_TERM_MIN_MONTHS);
+    expect(clampTermMonths(-5)).toBe(PREMIUM_TERM_MIN_MONTHS);
+    expect(clampTermMonths(9999)).toBe(PREMIUM_TERM_MAX_MONTHS);
+  });
+  it("không phải số → mặc định", () => {
+    expect(clampTermMonths(Number.NaN)).toBe(PREMIUM_TERM_MONTHS);
+    expect(clampTermMonths("abc")).toBe(PREMIUM_TERM_MONTHS);
+    expect(clampTermMonths(undefined)).toBe(PREMIUM_TERM_MONTHS);
+    expect(clampTermMonths(null)).toBe(PREMIUM_TERM_MONTHS);
+  });
+});
+
+describe("premiumTermLabel — nhãn tiếng Việt", () => {
+  it("khớp nhãn gói dựng sẵn", () => {
+    expect(premiumTermLabel(12)).toBe("1 năm");
+    expect(premiumTermLabel(18)).toBe("1 năm 6 tháng");
+  });
+  it("số tháng ngoài gói → năm/tháng suy ra", () => {
+    expect(premiumTermLabel(6)).toBe("6 tháng");
+    expect(premiumTermLabel(24)).toBe("2 năm");
+    expect(premiumTermLabel(20)).toBe("1 năm 8 tháng");
   });
 });
 

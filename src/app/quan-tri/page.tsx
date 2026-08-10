@@ -32,7 +32,16 @@ import {
   type SellKind,
   type SellContactDraft,
 } from "@/lib/sell-contacts";
-import { nextPremiumUntil, resolveTier } from "@/lib/tier";
+import {
+  clampTermMonths,
+  nextPremiumUntil,
+  PREMIUM_TERM_MAX_MONTHS,
+  PREMIUM_TERM_MIN_MONTHS,
+  PREMIUM_TERM_MONTHS,
+  PREMIUM_TERM_PRESETS,
+  premiumTermLabel,
+  resolveTier,
+} from "@/lib/tier";
 import {
   persistNote,
   readinessChip,
@@ -572,7 +581,11 @@ function AccountsTab({ me }: { me: Me }) {
   const [toGrant, setToGrant] = useState<{
     a: Account;
     active: boolean;
-    until: string;
+    /** kỳ hạn (số tháng) admin đang chọn cho lần cấp/gia hạn này */
+    months: number;
+    /** mốc lúc mở dialog — ghim để xem trước hạn không gọi Date.now() khi render
+        (render phải thuần); server vẫn tự tính lại theo giờ thật lúc cấp */
+    nowMs: number;
   } | null>(null);
   const [toDowngrade, setToDowngrade] = useState<Account | null>(null);
   const [toDelete, setToDelete] = useState<Account | null>(null);
@@ -663,15 +676,24 @@ function AccountsTab({ me }: { me: Me }) {
     [matched, roleFilter, isStaff],
   );
 
-  /** grant = kích hoạt/gia hạn 1 năm 6 tháng (server tự tính hạn + ghi log);
-   *  downgrade = hạ về thường (admin) */
-  async function patchAction(a: Account, action: "grant" | "downgrade") {
+  /** grant = kích hoạt/gia hạn premium theo kỳ hạn admin chọn (server tự tính
+   *  hạn + ghi log); downgrade = hạ về thường (admin). `termMonths` chỉ dùng cho
+   *  grant — server bỏ qua khi downgrade. */
+  async function patchAction(
+    a: Account,
+    action: "grant" | "downgrade",
+    termMonths?: number,
+  ) {
     setBusyPhone(a.phone);
     setNotice(null);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "PATCH",
       headers: { "content-type": "application/json", ...tokenHeader() },
-      body: JSON.stringify({ phone: a.phone, action }),
+      body: JSON.stringify({
+        phone: a.phone,
+        action,
+        ...(action === "grant" && termMonths != null ? { termMonths } : {}),
+      }),
     }).catch(() => null);
     const j = (await r?.json().catch(() => null)) as {
       ok?: boolean;
@@ -1164,20 +1186,18 @@ function AccountsTab({ me }: { me: Me }) {
                         disabled={busyPhone === a.phone}
                         onClick={() => {
                           const active = effTier(a) === "premium";
+                          // mở dialog với kỳ hạn mặc định; admin đổi trong dialog
                           setToGrant({
                             a,
                             active,
-                            // xem trước hạn mới bằng ĐÚNG luật server
-                            until: nextPremiumUntil(
-                              active ? a.premiumUntil : null,
-                              Date.now(),
-                            ),
+                            months: PREMIUM_TERM_MONTHS,
+                            nowMs: Date.now(),
                           });
                         }}
                         className="min-h-[2.5rem] rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
                       >
                         {effTier(a) === "premium"
-                          ? "Gia hạn +1 năm 6 tháng"
+                          ? "Gia hạn premium"
                           : "Kích hoạt premium"}
                       </button>
                     )}
@@ -1262,25 +1282,41 @@ function AccountsTab({ me }: { me: Me }) {
       )}
 
       {/* ── DIALOG xác nhận (không dùng prompt/confirm trình duyệt) ───────── */}
-      {toGrant && (
-        <ConfirmDialog
-          title={
-            toGrant.active
-              ? `Gia hạn premium +1 năm 6 tháng cho ${toGrant.a.phone}?`
-              : `Kích hoạt premium 1 năm 6 tháng cho ${toGrant.a.phone}?`
-          }
-          message={`${toGrant.a.name ?? "Khách"} sẽ có premium đến ${fmtD(toGrant.until)}. Lần cấp này được ghi log dưới tên bạn.`}
-          confirmLabel={toGrant.active ? "Gia hạn +1 năm 6 tháng" : "Kích hoạt 1 năm 6 tháng"}
-          cancelLabel="Không"
-          danger={false}
-          onCancel={() => setToGrant(null)}
-          onConfirm={() => {
-            const a = toGrant.a;
-            setToGrant(null);
-            patchAction(a, "grant");
-          }}
-        />
-      )}
+      {toGrant &&
+        (() => {
+          // xem trước hạn mới theo ĐÚNG luật server + kỳ hạn admin đang chọn
+          const term = premiumTermLabel(toGrant.months);
+          const until = nextPremiumUntil(
+            toGrant.active ? toGrant.a.premiumUntil : null,
+            toGrant.nowMs,
+            toGrant.months,
+          );
+          return (
+            <ConfirmDialog
+              title={
+                toGrant.active
+                  ? `Gia hạn premium cho ${toGrant.a.phone}?`
+                  : `Kích hoạt premium cho ${toGrant.a.phone}?`
+              }
+              message={`${toGrant.a.name ?? "Khách"} sẽ có premium ${term}, đến ${fmtD(until)}. Lần cấp này được ghi log dưới tên bạn.`}
+              confirmLabel={toGrant.active ? "Gia hạn" : "Kích hoạt"}
+              cancelLabel="Không"
+              danger={false}
+              onCancel={() => setToGrant(null)}
+              onConfirm={() => {
+                const a = toGrant.a;
+                const months = toGrant.months;
+                setToGrant(null);
+                patchAction(a, "grant", months);
+              }}
+            >
+              <PremiumTermPicker
+                months={toGrant.months}
+                onChange={(m) => setToGrant({ ...toGrant, months: m })}
+              />
+            </ConfirmDialog>
+          );
+        })()}
       {toDowngrade && (
         <ConfirmDialog
           title={`Hạ ${toDowngrade.phone} về tài khoản thường?`}
@@ -1679,6 +1715,69 @@ function FlagToggle({
   );
 }
 
+/** Chọn kỳ hạn premium: các gói dựng sẵn (PREMIUM_TERM_PRESETS) + ô "Khác" nhập
+ *  số tháng tuỳ ý. Dùng chung dialog cấp/gia hạn và form tạo tài khoản — thêm
+ *  gói mới chỉ cần sửa PREMIUM_TERM_PRESETS ở lib/tier. `onChange` trả số đã
+ *  clamp về khoảng hợp lệ. */
+function PremiumTermPicker({
+  months,
+  onChange,
+}: {
+  months: number;
+  onChange: (m: number) => void;
+}) {
+  const isPreset = PREMIUM_TERM_PRESETS.some((p) => p.months === months);
+  const [customText, setCustomText] = useState(isPreset ? "" : String(months));
+
+  // preset được chọn từ nơi khác (mở dialog với mặc định) → xoá ô Khác cho khớp
+  useEffect(() => {
+    if (isPreset) setCustomText("");
+  }, [isPreset]);
+
+  return (
+    <div className="mt-3 text-left">
+      <p className="text-[0.875rem] font-bold text-foreground/70">Kỳ hạn</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {PREMIUM_TERM_PRESETS.map((p) => (
+          <button
+            key={p.months}
+            type="button"
+            onClick={() => onChange(p.months)}
+            className={`min-h-[2.5rem] rounded-lg px-3 text-[0.875rem] font-bold ${
+              months === p.months
+                ? "bg-navy text-white"
+                : "bg-card text-foreground/70"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+        <label
+          className={`flex min-h-[2.5rem] items-center gap-1.5 rounded-lg px-3 text-[0.875rem] font-bold ${
+            !isPreset ? "bg-navy text-white" : "bg-card text-foreground/70"
+          }`}
+        >
+          Khác
+          <input
+            type="number"
+            inputMode="numeric"
+            min={PREMIUM_TERM_MIN_MONTHS}
+            max={PREMIUM_TERM_MAX_MONTHS}
+            value={customText}
+            placeholder="tháng"
+            onChange={(e) => {
+              const v = e.target.value;
+              setCustomText(v);
+              if (v.trim() !== "") onChange(clampTermMonths(v));
+            }}
+            className="w-16 rounded bg-card px-2 py-1 text-center text-foreground"
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
 /** Tạo tài khoản KHÁCH (người dùng app: thường hoặc premium). Nhân sự
  *  (quản lý / quản trị viên) tạo ở tab Phân quyền — xem CreateStaffForm. */
 function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
@@ -1687,6 +1786,8 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [activatePremium, setActivatePremium] = useState(false);
+  // kỳ hạn premium khi tạo kèm — chỉ gửi khi có tick activatePremium
+  const [premiumMonths, setPremiumMonths] = useState(PREMIUM_TERM_MONTHS);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -1697,13 +1798,14 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
     const r = await fetch(apiUrl("/api/admin/accounts"), {
       method: "POST",
       headers: { "content-type": "application/json", ...tokenHeader() },
-      // premium khi tạo = một lần KÍCH HOẠT chuẩn (1 năm 6 tháng, server tính hạn + log)
+      // premium khi tạo = một lần KÍCH HOẠT chuẩn (kỳ hạn admin chọn, server tính hạn + log)
       body: JSON.stringify({
         phone,
         name,
         password,
         role: "customer",
         activatePremium,
+        ...(activatePremium ? { termMonths: premiumMonths } : {}),
       }),
     }).catch(() => null);
     setBusy(false);
@@ -1731,6 +1833,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
     setName("");
     setPassword("");
     setActivatePremium(false);
+    setPremiumMonths(PREMIUM_TERM_MONTHS);
     onCreated();
   }
 
@@ -1775,15 +1878,25 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
             onChange={(e) => setPassword(e.target.value)}
             className={field}
           />
-          <label className="flex min-h-[2.75rem] cursor-pointer items-center gap-2.5 rounded-xl bg-field px-3.5 text-[0.875rem] font-bold text-foreground/80 sm:col-span-2 lg:col-span-2">
-            <input
-              type="checkbox"
-              checked={activatePremium}
-              onChange={(e) => setActivatePremium(e.target.checked)}
-              className="h-5 w-5 accent-[var(--ok)]"
-            />
-            Kích hoạt premium 1 năm 6 tháng ngay khi tạo
-          </label>
+          <div className="grid gap-2 sm:col-span-2 lg:col-span-2">
+            <label className="flex min-h-[2.75rem] cursor-pointer items-center gap-2.5 rounded-xl bg-field px-3.5 text-[0.875rem] font-bold text-foreground/80">
+              <input
+                type="checkbox"
+                checked={activatePremium}
+                onChange={(e) => setActivatePremium(e.target.checked)}
+                className="h-5 w-5 accent-[var(--ok)]"
+              />
+              Kích hoạt premium {premiumTermLabel(premiumMonths)} ngay khi tạo
+            </label>
+            {activatePremium && (
+              <div className="rounded-xl bg-field px-3.5 py-2.5">
+                <PremiumTermPicker
+                  months={premiumMonths}
+                  onChange={setPremiumMonths}
+                />
+              </div>
+            )}
+          </div>
           <button
             type="submit"
             disabled={busy}
