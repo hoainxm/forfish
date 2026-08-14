@@ -2,7 +2,9 @@
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
-last_verified: 2026-08-02
+last_verified: 2026-08-14
+<!-- re-verified: 2026-08-14 — boat-products.tsx (+tab "Đơn của tôi" render MyOrders, section state độc lập): KHÔNG chạm boat-switcher/boats.ts/logic đa-tàu; các claim đa-tàu (chuyển tàu, dữ liệu per-tàu, urgent-strip) giữ nguyên. Bóng nút cam lift vào globals (.shadow-trim-cta) — HOW-nhìn, không đổi hành vi -->
+
 ttl_days: 90
 
 <!-- re-verified: 2026-08-02 — soát offline MECE (`ops/audit-offline-2026-08-02.md`, mục D-PH5/D-PH6): `crew-list.tsx` chỉ THÊM ĐỒNG HỒ cho hai lời gọi mạng, KHÔNG đổi nghiệp vụ sổ thuyền viên, không đổi shape dữ liệu, không đụng khoá `forfish.crew.v1`. Lỗi cũ: tra cảnh báo CCCD và gửi báo cáo đều `fetch` không `AbortSignal` ⇒ ca "sóng sống mà chết" (bắt tay được, gói tin không về) làm promise không bao giờ settle ⇒ UI kẹt "Đang tra cảnh báo…" / nút kẹt "Đang gửi…" vĩnh viễn, không lỗi, không nút thử lại — bà con không biết đã gửi được hay chưa. Nay 12 s (tra) / 20 s (gửi); nhánh `catch` sẵn có tự lo phần hiển thị. -->

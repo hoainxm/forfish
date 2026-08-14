@@ -535,6 +535,24 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 
 ⚠️ App chạy được **trước khi apply**: cả hai đường ghi (`customers` và `customer_devices` trong `/api/me/heartbeat`) đều có nhánh lùi bỏ cột lạ, và `/api/admin/accounts` có nấc select riêng cho cột này.
 
+### Danh mục ĐẶT HÀNG ĐƯỢC — migration [`0032_catalog_orderable.sql`](../../supabase/migrations/0032_catalog_orderable.sql) (2026-08-11) — 🔴 CHƯA apply prod
+
+| Thay đổi | Nghĩa |
+|---|---|
+| MỞ RỘNG `product_listings` (0010) | Nâng khu "Cửa hàng" tab Sản phẩm `/tau` từ "hỏi mua/gọi lại" thành **CHỢ ĐẶT HÀNG THẬT** (1 nhà cung cấp — MVP; chủ tàu chọn số lượng → đặt → NCC giao). Thêm cột: `group` (check `dien_tu`\|`co_dien`\|`nhu_yeu_pham`, **nullable** — dòng cũ chưa gán nhóm vẫn hiện, gom "Khác") · `price_vnd int` (GIÁ SỐ để tính tổng; NULL = chưa niêm yết → không đặt được, giữ luồng hỏi mua) · `unit text` (đơn vị bán, bắt buộc khi orderable) · `orderable boolean default false` (có nút "Thêm vào giỏ"). **DEFAULT false ⇒ mọi dòng cũ GIỮ NGUYÊN hành vi** (backward-safe) |
+| RLS | **KHÔNG đổi** — vẫn đọc công khai `visible=true`, ghi service-role qua `/api/admin/products` (`requirePermission("san-pham", …)`). Cột mới lộ ra client qua `fetchProductListings()`; admin nhập ở `/quan-tri` tab "Sản phẩm" (nhóm/giá/đơn vị/cho-đặt) |
+
+- 🔴 **CHƯA apply prod** — chủ dự án duyệt & apply. Trước khi apply: `orderable` mặc định false ⇒ Cửa hàng chạy y như cũ (không món nào đặt được), không lỗi. Seed giá số gợi ý lấy từ `src/data/supplies.ts` (nhập tay qua /quan-tri).
+
+### Đơn đặt hàng — migration [`0033_catalog_orders.sql`](../../supabase/migrations/0033_catalog_orders.sql) (2026-08-11) — 🔴 CHƯA apply prod
+
+| Thay đổi | Nghĩa |
+|---|---|
+| bảng `catalog_orders` | Đơn chủ tàu đặt từ Cửa hàng. Cột: `customer_phone` (chủ tàu, từ device token — KHÔNG `auth.uid`, xem 0026/0028) · `boat_name`/`boat_ref` (gắn tàu, tuỳ chọn) · `items jsonb` (**SNAPSHOT** dòng hàng `[{listingId,title,unit,priceVnd,qty,lineTotalVnd}]` — giá đóng băng lúc đặt) · `total_vnd int` (**server tính lại** từ `product_listings`, không tin client) · `delivery_location`/`contact_name`/`contact_phone`/`note` · `status` (`moi`→`da_nhan`→`dang_giao`→`da_giao`, hoặc `da_huy` — một chiều, xem `canTransition` trong `lib/catalog-orders.ts`) · `handled_by`/`handled_at`/`dealer_note` |
+| RLS | **KHÔNG có policy nào** (giống `product_inquiries`/`premium_grants`). Chủ tàu đọc/đặt/huỷ qua `/api/me/orders*` (`identityFromRequest` tự lọc theo SĐT device token); NCC/admin xem & chuyển trạng thái qua `/api/admin/orders*` (`requirePermission("don-hang", …)` — migration 0017 + tab mới). Đổi trạng thái → báo chủ tàu (push + hộp thư, `lib/account-notify.ts`, best-effort) |
+
+- 🔴 **CHƯA apply prod** — chủ dự án duyệt & apply. **Không thanh toán trong app** (chốt tiền lúc giao/COD — nhất quán "KHÔNG có luồng thanh toán"). **Online-only** (SW bỏ qua POST, không outbox; client báo trung thực khi mất mạng). Quyền mới `don-hang` thêm vào `lib/staff-permissions.ts` (6 tab manager).
+
 
 <!-- re-verified: 2026-06-14 — schema 0001 boats/documents + §6 gateway khớp code -->
 <!-- re-verified earlier baseline -->

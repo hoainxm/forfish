@@ -15,6 +15,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
 import { validateProductDraft, type ProductDraft } from "@/lib/product-catalog";
+import { isCatalogGroup } from "@/lib/catalog-groups";
 
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
@@ -32,9 +33,31 @@ function draftToRow(d: ProductDraft, who: string) {
     contact_phone: d.contactPhone?.trim() || null,
     contact_note: d.contactNote?.trim() || null,
     line: d.line?.trim() || null,
+    group: isCatalogGroup(d.group) ? d.group : null,
+    price_vnd: d.orderable && d.priceVnd != null ? Math.round(d.priceVnd) : null,
+    unit: d.orderable ? d.unit?.trim() || null : null,
+    orderable: d.orderable === true,
     visible: d.visible,
     created_by: who,
     updated_at: new Date().toISOString(),
+  };
+}
+
+/** Bóc các trường đặt-hàng từ body (chung cho POST/PATCH). */
+function orderableFromBody(body: {
+  group?: unknown;
+  priceVnd?: unknown;
+  unit?: unknown;
+  orderable?: unknown;
+}): Pick<ProductDraft, "group" | "priceVnd" | "unit" | "orderable"> {
+  return {
+    group: isCatalogGroup(body.group) ? body.group : undefined,
+    priceVnd:
+      typeof body.priceVnd === "number" && Number.isFinite(body.priceVnd)
+        ? body.priceVnd
+        : undefined,
+    unit: typeof body.unit === "string" ? body.unit : undefined,
+    orderable: body.orderable === true,
   };
 }
 
@@ -47,7 +70,7 @@ export async function GET() {
   const { data, error } = await admin
     .from("product_listings")
     .select(
-      "id,vendor_kind,vendor_name,title,category,description,features,price_text,image_url,contact_phone,contact_note,line,visible,sort_order,created_by,created_at,updated_at",
+      "id,vendor_kind,vendor_name,title,category,description,features,price_text,image_url,contact_phone,contact_note,line,group,price_vnd,unit,orderable,visible,sort_order,created_by,created_at,updated_at",
     )
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false })
@@ -69,6 +92,10 @@ export async function GET() {
     contactPhone: (r.contact_phone as string) ?? null,
     contactNote: (r.contact_note as string) ?? null,
     line: (r.line as string) ?? null,
+    group: (r.group as string) ?? null,
+    priceVnd: typeof r.price_vnd === "number" ? (r.price_vnd as number) : null,
+    unit: (r.unit as string) ?? null,
+    orderable: r.orderable === true,
     visible: r.visible as boolean,
     sortOrder: r.sort_order as number,
     createdBy: (r.created_by as string) ?? null,
@@ -101,6 +128,7 @@ export async function POST(req: Request) {
     contactPhone: body.contactPhone,
     contactNote: body.contactNote,
     line: body.line,
+    ...orderableFromBody(body),
     visible: body.visible ?? true,
   };
   const invalid = validateProductDraft(draft);
@@ -148,6 +176,7 @@ export async function PATCH(req: Request) {
       contactPhone: body.contactPhone,
       contactNote: body.contactNote,
       line: body.line,
+      ...orderableFromBody(body),
       visible: body.visible ?? true,
     };
     const invalid = validateProductDraft(draft);

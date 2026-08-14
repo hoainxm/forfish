@@ -8,8 +8,9 @@
 // · manager — customers.role='manager' (0004) + customers.staff_permissions
 //   (0017): quyền theo TAB × HÀNH ĐỘNG, admin cấu hình trong /quan-tri.
 //
-// 5 TAB được phép cho quản lý (chốt user 2026-07-30). 4 tab còn lại
-// (yeu-cau · vung-bien · du-lieu · he-thong) ADMIN-ONLY CỨNG — không nằm ở đây.
+// 6 TAB được phép cho quản lý (chốt user 2026-07-30; thêm don-hang 2026-08-11).
+// 4 tab còn lại (yeu-cau · vung-bien · du-lieu · he-thong) ADMIN-ONLY CỨNG —
+// không nằm ở đây.
 
 export type PermAction = "view" | "create" | "edit" | "delete";
 export const PERM_ACTIONS: readonly PermAction[] = [
@@ -22,12 +23,14 @@ export const PERM_ACTIONS: readonly PermAction[] = [
 export type ManagerTab =
   | "tai-khoan"
   | "san-pham"
+  | "don-hang"
   | "canh-bao"
   | "thong-bao"
   | "cho-ban";
 export const MANAGER_TABS: readonly ManagerTab[] = [
   "tai-khoan",
   "san-pham",
+  "don-hang",
   "canh-bao",
   "thong-bao",
   "cho-ban",
@@ -37,6 +40,7 @@ export const MANAGER_TABS: readonly ManagerTab[] = [
 export const TAB_LABEL: Record<ManagerTab, string> = {
   "tai-khoan": "Tài khoản",
   "san-pham": "Sản phẩm",
+  "don-hang": "Đơn hàng",
   "canh-bao": "Thuyền viên",
   "thong-bao": "Thông báo",
   "cho-ban": "Chỗ bán",
@@ -66,11 +70,12 @@ const VIEW_CREATE_EDIT: TabPerms = {
   delete: false,
 };
 
-/** Bảng quyền của quản lý MỚI (chưa được admin chỉnh tay): xem+tạo+sửa cả 5
+/** Bảng quyền của quản lý MỚI (chưa được admin chỉnh tay): xem+tạo+sửa cả 6
  *  tab, KHÔNG xóa (chốt user 2026-07-30 — an toàn nhất, admin bật Xóa khi cần). */
 export const DEFAULT_MANAGER_PERMISSIONS: StaffPermissions = Object.freeze({
   "tai-khoan": { ...VIEW_CREATE_EDIT },
   "san-pham": { ...VIEW_CREATE_EDIT },
+  "don-hang": { ...VIEW_CREATE_EDIT },
   "canh-bao": { ...VIEW_CREATE_EDIT },
   "thong-bao": { ...VIEW_CREATE_EDIT },
   "cho-ban": { ...VIEW_CREATE_EDIT },

@@ -181,6 +181,11 @@ export const NEVER_BACKUP_PREFIXES = [
    *    "đã hỏi, bị từ chối" cho một máy chưa hỏi bao giờ. Mất khoá này không
    *    mất gì: lần mở app kế tiếp hỏi lại. */
   "forfish.persist.",
+  /*  · `cart.` — GIỎ HÀNG đang soạn của MÁY NÀY (lib/cart, 2026-08-11). Trạng
+   *    thái tạm trước khi đặt đơn, keyed theo SĐT để cách ly máy dùng chung, và
+   *    tự xoá sau khi đặt xong. Chép sang máy khác chẳng để làm gì (đơn đặt rồi
+   *    nằm ở server, xem qua "Đơn của tôi"); mất khoá này không mất gì. */
+  "forfish.cart.",
 ];
 
 const hasPrefix = (k: string, list: readonly string[]) =>

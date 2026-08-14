@@ -120,9 +120,10 @@ describe("visibleTabs — theo cờ view, giữ thứ tự", () => {
 });
 
 describe("helpers", () => {
-  it("isManagerTab chỉ nhận 5 tab được phép", () => {
+  it("isManagerTab chỉ nhận 6 tab được phép", () => {
     expect(isManagerTab("tai-khoan")).toBe(true);
     expect(isManagerTab("cho-ban")).toBe(true);
+    expect(isManagerTab("don-hang")).toBe(true); // thêm 2026-08-11
     expect(isManagerTab("vung-bien")).toBe(false); // admin-only cứng
     expect(isManagerTab("he-thong")).toBe(false);
   });

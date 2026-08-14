@@ -14,6 +14,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { timeoutSignal } from "@/lib/abort";
+import { isCatalogGroup, type CatalogGroupId } from "@/lib/catalog-groups";
 
 export type VendorKind = "sdvico" | "external";
 
@@ -32,6 +33,14 @@ export interface ProductListing {
   contactNote?: string;
   /** Nối nhóm SKU CRM để nhận diện "đang dùng" — chỉ áp dụng sdvico */
   line?: string;
+  /** Nhóm Cửa hàng: điện tử / cơ điện / nhu yếu phẩm (0032). null = chưa gán. */
+  group?: CatalogGroupId;
+  /** Giá số VND — cần để đặt hàng. undefined = chưa niêm yết (chỉ hỏi mua). */
+  priceVnd?: number;
+  /** Đơn vị bán (kg, lít, thùng, cái…) — bắt buộc khi orderable. */
+  unit?: string;
+  /** Có nút "Thêm vào giỏ" hay không (0032). Mặc định false cho dòng cũ. */
+  orderable: boolean;
   visible: boolean;
   sortOrder: number;
   createdAt: string;
@@ -50,6 +59,10 @@ export interface ProductDraft {
   contactPhone?: string;
   contactNote?: string;
   line?: string;
+  group?: CatalogGroupId;
+  priceVnd?: number;
+  unit?: string;
+  orderable: boolean;
   visible: boolean;
 }
 
@@ -64,6 +77,14 @@ export function validateProductDraft(d: ProductDraft): string | null {
     if (!d.vendorName?.trim()) return "Nhập tên đơn vị (sản phẩm ngoài SDWork).";
     if (!d.contactPhone?.trim() && !d.contactNote?.trim())
       return "Nhập SĐT hoặc ghi chú liên hệ để bà con biết hỏi ai.";
+  }
+  // Cho đặt hàng ⇒ phải có giá số > 0 + đơn vị + nhóm (server tính tổng, gom nhóm).
+  if (d.orderable) {
+    if (d.priceVnd == null || !Number.isFinite(d.priceVnd) || d.priceVnd <= 0)
+      return "Cho đặt hàng thì phải nhập giá (VND) lớn hơn 0.";
+    if (!d.unit?.trim()) return "Nhập đơn vị bán (kg, lít, thùng, cái…).";
+    if (!isCatalogGroup(d.group))
+      return "Chọn nhóm hàng (điện tử / cơ điện / nhu yếu phẩm).";
   }
   return null;
 }
@@ -81,6 +102,10 @@ type Row = {
   contact_phone: string | null;
   contact_note: string | null;
   line: string | null;
+  group: string | null;
+  price_vnd: number | null;
+  unit: string | null;
+  orderable: boolean | null;
   visible: boolean;
   sort_order: number;
   created_at: string;
@@ -106,6 +131,10 @@ export function rowToListing(r: Row): ProductListing {
     contactPhone: r.contact_phone ?? undefined,
     contactNote: r.contact_note ?? undefined,
     line: r.line ?? undefined,
+    group: isCatalogGroup(r.group) ? r.group : undefined,
+    priceVnd: typeof r.price_vnd === "number" ? r.price_vnd : undefined,
+    unit: r.unit ?? undefined,
+    orderable: r.orderable === true,
     visible: r.visible,
     sortOrder: r.sort_order,
     createdAt: r.created_at,
@@ -129,7 +158,7 @@ export async function fetchProductListings(): Promise<ProductListing[] | null> {
   let q = supabase
     .from(TABLE)
     .select(
-      "id,vendor_kind,vendor_name,title,category,description,features,price_text,image_url,contact_phone,contact_note,line,visible,sort_order,created_at",
+      "id,vendor_kind,vendor_name,title,category,description,features,price_text,image_url,contact_phone,contact_note,line,group,price_vnd,unit,orderable,visible,sort_order,created_at",
     )
     .eq("visible", true)
     .order("sort_order", { ascending: true })

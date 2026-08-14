@@ -22,6 +22,7 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { ChipRow } from "@/components/ui/chip-row";
 import { useBoats } from "@/components/boat-switcher";
 import { SdvicoCatalog } from "@/components/sdvico-catalog";
+import { MyOrders } from "@/components/my-orders";
 import { SdvicoRequestButton } from "@/components/sdvico-request";
 import { formatVnDate } from "@/lib/format";
 import { readUserList, type UserListRead } from "@/lib/user-list-store";
@@ -44,12 +45,14 @@ import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
   thêm/sửa trong bottom sheet; dữ liệu gắn theo tàu đang chọn (boatId).
 */
 
-type Section = "dang-dung" | "sdvico";
+type Section = "dang-dung" | "sdvico" | "don-hang";
 
-// "Khuyến nghị" mơ hồ — "Cửa hàng" nói thẳng đây là chỗ xem đồ SDVICO bán
+// "Khuyến nghị" mơ hồ — "Cửa hàng" nói thẳng đây là chỗ xem đồ SDVICO bán.
+// "Đơn của tôi" = chỗ theo dõi đơn đặt hàng từ Cửa hàng.
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "dang-dung", label: "Đang dùng" },
   { id: "sdvico", label: "Cửa hàng" },
+  { id: "don-hang", label: "Đơn của tôi" },
 ];
 
 const STORAGE_KEY = "forfish.products.v1";
@@ -212,6 +215,9 @@ export function BoatProducts() {
         </div>
       )}
 
+      {/* ════ MỤC 3: ĐƠN CỦA TÔI — theo dõi + huỷ đơn đặt từ Cửa hàng ═══ */}
+      {section === "don-hang" && <MyOrders />}
+
       {/* ════ MỤC 1: ĐANG DÙNG — đồ đã mua + đồ tự ghi ════════════════ */}
       {section === "dang-dung" && (
     <div className="px-4">
@@ -328,7 +334,7 @@ export function BoatProducts() {
           setEditing(null);
           setShowForm(true);
         }}
-        className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+        className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
       >
         <PlusIcon className="h-6 w-6" />
         Thêm sản phẩm
