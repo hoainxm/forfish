@@ -306,6 +306,10 @@ textarea,
 .shadow-trim-fab { box-shadow: 0 12px 28px -8px rgb(228 87 46 / 0.7); }
 .shadow-trim-btn { box-shadow: 0 8px 20px -8px rgb(228 87 46 / 0.6); }
 .shadow-trim-cta { box-shadow: 0 10px 24px -8px rgb(228 87 46 / 0.55); }
+/* Bóng khác lift từ component (2026-08-14, dọn nốt 11 rgba arbitrary còn lại — cùng đợt) */
+.drop-shadow-pin { filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.45)); }
+.shadow-sheet-up { box-shadow: 0 -6px 20px rgb(20 50 79 / 0.25); }
+.shadow-navy-tab { box-shadow: 0 4px 12px -4px rgb(13 35 54 / 0.4); }
 /* Máy không hỗ trợ blur → nền đặc hơn cho chữ khỏi chìm vào bản đồ */
 @supports not (backdrop-filter: blur(1px)) {
   .glass {

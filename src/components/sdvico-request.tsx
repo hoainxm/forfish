@@ -45,7 +45,7 @@ export function SdvicoRequestButton({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="display flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+          className="display flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
         >
           <PhoneIcon className="h-6 w-6" />
           {label}

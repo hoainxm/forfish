@@ -2509,7 +2509,7 @@ export default function FishingMapView() {
         {/* điểm đang xem dự báo (ẩn nếu trùng một điểm đã ghim — đã có sao) */}
         {!currentPlace && (
           <Marker longitude={point.lon} latitude={point.lat} anchor="bottom">
-            <PinIcon className="h-9 w-9 text-trim drop-shadow-[0_2px_3px_rgba(0,0,0,0.45)]" />
+            <PinIcon className="h-9 w-9 text-trim drop-shadow-pin" />
           </Marker>
         )}
       </MapGL>
@@ -3541,7 +3541,7 @@ export default function FishingMapView() {
                     onChange={(e) => setPinName(e.target.value)}
                     autoFocus
                     placeholder="Vd: Rạn ông Tư, chỗ câu mực…"
-                    className="min-h-[3.25rem] w-full rounded-lg bg-field px-4 text-[1rem] font-semibold focus:outline-none"
+                    className="min-h-[3.25rem] w-full rounded-lg bg-field px-4 text-[1rem] font-semibold"
                   />
                   <div className="mt-2 flex gap-2">
                     <button

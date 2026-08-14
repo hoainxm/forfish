@@ -87,7 +87,7 @@ export function Tabs({
                   segmented ? "flex-1" : "shrink-0"
                 } ${
                   on
-                    ? "bg-navy text-white shadow-[0_4px_12px_-4px_rgba(13,35,54,0.4)]"
+                    ? "bg-navy text-white shadow-navy-tab"
                     : "text-navy/70 active:bg-card"
                 }`}
               >

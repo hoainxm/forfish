@@ -69,7 +69,7 @@ export function SnapSheet({
     <section
       role="region"
       aria-label={label}
-      className="absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-[1.75rem] bg-background shadow-[0_-6px_20px_rgba(20,50,79,0.25)]"
+      className="absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-[1.75rem] bg-background shadow-sheet-up"
       style={{
         height:
           size === "peek"

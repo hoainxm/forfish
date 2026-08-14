@@ -176,7 +176,7 @@ export function MyPlacesContent({
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
                       autoFocus
-                      className="min-h-[3rem] flex-1 rounded-lg bg-field px-3 text-[1rem] font-semibold focus:outline-none"
+                      className="min-h-[3rem] flex-1 rounded-lg bg-field px-3 text-[1rem] font-semibold"
                     />
                     <button
                       type="button"
@@ -314,7 +314,7 @@ export function MyPlacesContent({
                 onChange={(e) => setPortQuery(e.target.value)}
                 autoFocus
                 placeholder="Gõ tên cảng hoặc tỉnh…"
-                className="min-h-[3.25rem] flex-1 bg-transparent text-[1rem] font-semibold focus:outline-none"
+                className="min-h-[3.25rem] flex-1 bg-transparent text-[1rem] font-semibold"
               />
             </div>
             {portResults.length > 0 && (

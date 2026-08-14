@@ -3,6 +3,7 @@
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
 last_verified: 2026-08-14
+<!-- re-verified: 2026-08-14b — crew-list/document-vault/maintenance-reminders: CHỈ đổi class bóng `shadow-[...rgba]` → `.shadow-trim-cta` (cùng giá trị, lift vào globals theo gate 3b2) — 0 đổi hành vi/JSX/logic; claims đa-tàu giữ nguyên -->
 <!-- re-verified: 2026-08-14 — boat-products.tsx (+tab "Đơn của tôi" render MyOrders, section state độc lập): KHÔNG chạm boat-switcher/boats.ts/logic đa-tàu; các claim đa-tàu (chuyển tàu, dữ liệu per-tàu, urgent-strip) giữ nguyên. Bóng nút cam lift vào globals (.shadow-trim-cta) — HOW-nhìn, không đổi hành vi -->
 
 ttl_days: 90
