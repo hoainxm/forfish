@@ -121,12 +121,13 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 | Bạn thuyền | sổ thuyền viên | báo cáo CCCD/SĐT (sheet, premium) | drawer (tra cảnh báo INLINE khi gõ CCCD hoặc SĐT) | /nguoi |
 | Giấy tờ tàu | list | — | drawer | /tau tab Giấy tờ |
 | Sản phẩm/Dịch vụ SDVICO | list (sync read-only + tự ghi) | — | drawer (đồ tự ghi) | /tau tab Sản phẩm/Dịch vụ |
+| **Đơn đặt hàng (2026-08-11)** | Cửa hàng gom 3 nhóm (điện tử/cơ điện/nhu yếu phẩm) + "Đơn của tôi" (list trạng thái) | thẻ đơn (dòng hàng + tổng + trạng thái) | **bottom-sheet giỏ + form đặt** (`cart-sheet.tsx`, chọn tàu/điểm giao/SĐT/ghi chú) | /tau tab Sản phẩm — 3 mục chip (Đang dùng · Cửa hàng · Đơn của tôi); quản trị nhận đơn ở /quan-tri tab Đơn hàng |
 | Điểm ngư trường / của tôi | map + sheet | peek sheet | sheet | /ngu-truong |
 | Giá cá | list (mỗi dòng CHẠM được) | — | **bottom-sheet biểu đồ giá lịch sử** (`PriceHistorySheet`, 2026-07-29) | /tien mục Giá cá |
 | ~~Mức phạt~~ | ~~searchable list~~ | — | — | **gỡ khỏi /tau 2026-07-27 (user: không cần); giữ `fines-lookup.tsx` + `data/fines.ts`** |
 | ~~Công nợ (chủ nợ)~~ | — | — | — | **XÓA HẲN 2026-07-27** (user chốt — bỏ sổ công nợ) |
 
-→ 8 object. Tạo/sửa đa số ≤5 field nên dùng **drawer/bottom-sheet**, KHÔNG đẻ page riêng (quyết định đã chốt); form đăng tin mua/bán ≤8 field vẫn ở bottom-sheet.
+→ 9 object. Tạo/sửa đa số ≤5 field nên dùng **drawer/bottom-sheet**, KHÔNG đẻ page riêng (quyết định đã chốt); form đăng tin mua/bán ≤8 field vẫn ở bottom-sheet; form đặt hàng (giỏ + giao) cũng ở bottom-sheet.
 
 ## 4. Nav model
 
@@ -192,7 +193,7 @@ Mobile M = ≤3 khối/viewport. Home: dải khẩn + lưới 4 trục + tagline
 - Demo/sổ mẫu KHÔNG ghi xuống máy, KHÔNG lọt vào dải nhắc khẩn, và **PHẢI TỰ XƯNG LÀ MẪU** — banner neutral "Đây là tủ/sổ/lịch mẫu … chưa lưu vào máy" + nút xoá mẫu (`crew-list` là mẫu chuẩn; `document-vault` + `maintenance-reminders` bổ sung 2026-07-31 — trước đó 4 giấy tờ MẪU hiện y như giấy thật, kèm cả banner đỏ quá hạn).
 - **Ghi dữ liệu bà con tự nhập KHÔNG được nuốt lỗi** (2026-07-31): `saveUserJson` (lib/user-store.ts) trả boolean; hỏng thì banner ĐỎ "Máy hết chỗ — CHƯA lưu được …". Trước đây catch rỗng: màn hình hiện đúng thứ vừa nhập (trong bộ nhớ) mà máy chẳng giữ gì, mở lại app là rơi về sổ mẫu.
 - **ĐỌC KHÔNG ĐƯỢC THÌ KHÔNG MỞ CỬA GHI** (2026-08-02c, mở rộng luật trên cho **"Mối quen"** `/tien` và **"Đồ đang dùng"** `/tau`): `readUserList` (lib/user-list-store.ts, thuần, có test) phân biệt **chưa có gì** (`ok:true, list:null`) · **rỗng thật** (`ok:true, list:[]`) · **KHÔNG đọc được** (`ok:false` — JSON hỏng / `getItem` ném). Trước đây cả ba gộp thành `[]`/`null` ⇒ cờ `ready` bật ⇒ effect ghi `"[]"` **đè lên chuỗi gốc**: cú "khôi phục" tự xoá sổ mối quen (tên nậu vựa + SĐT bà con gõ tay, mất là mất luôn). Nay không đọc được ⇒ `ready` giữ `false` + banner ĐỎ "Máy chưa đọc được … đừng thêm … lúc này"; và cả hai màn ghi qua `saveUserJson` (dự báo nhường chỗ) + banner ĐỎ "Máy không giữ được — xoá bớt dữ liệu rồi thử lại." khi vẫn không giữ nổi.
-- Visual "international" (font Plus Jakarta Sans + Archivo) nhưng COPY tiếng Việt đời thường.
+- Visual "international" — font theo [03-design-system.md §3](03-design-system.md) (nguồn duy nhất, không nêu tên font ở đây) nhưng COPY tiếng Việt đời thường.
 
 ## 9. Trạng thái audit ui-design-logic (2026-06-11)
 
@@ -217,7 +218,7 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 > **Nguồn thiết kế chính: [design-review/07-ra-khoi-A-design.md](../design-review/07-ra-khoi-A-design.md)** (design doc đầy đủ user duyệt). Diệt "phản khoa học" ở [05](../design-review/05-ra-khoi-current-state.md). Data: [06](../design-review/06-ra-khoi-data-inventory.md).
 
 **Delta so với bản trích đầu (theo design doc đầy đủ) — build phải theo:**
-- **Màu cá = hồng tím `oklch(0.64 0.19 350)`** (hiện app xanh lá → ĐỔI). Font **Be Vietnam Pro**. Primary xanh `oklch(0.52 0.13 235)`.
+- **Màu cá + primary**: giá trị theo [03-design-system.md §2 "Token chờ lift — Ra khơi A"](03-design-system.md) (lift 2026-08-13 — spec này không giữ giá trị token, đúng luật "Không trộn" bên dưới). Font: theo [03 §3] — design doc gốc ghi "Be Vietnam Pro" là bản TRƯỚC 2026-06-11, đã thay Plus Jakarta Sans; đọc design-review/07 thì tự thay thế bằng font hiện hành (drift này do hội đồng 2026-08-13 phát hiện).
 - **Thanh dự báo NGANG ở đáy** (không nằm trong sheet): Gió&sóng = tab mặc định luôn có; bật lớp → thêm tab; **click ngày → cả bản đồ đổi theo ngày** + badge "Bản đồ: [ngày]".
 - **Bỏ toggle "Tàu tôi" (GPS)** — increment 1 đang còn, sẽ gỡ. **Bỏ OceanByte**.
 - Điểm đã lưu: thêm **"Thêm điểm theo toạ độ"** (tên + vĩ độ + kinh độ).
@@ -259,7 +260,7 @@ Sweep mobile-first (375×812) cả 7 màn + redirect. Oracle = file này. Kết 
 
 **Delta biểu đồ giá lịch sử 2026-07-29 (`price-history-sheet.tsx`, Trục 2):**
 - **Entry**: mỗi dòng ở Bảng giá thành **nút** (`aria-label="Xem biểu đồ giá {loài}"`, min tap cao ≥3.5rem), có affordance "Xem biểu đồ giá ›" màu `sea`. Chạm → mở `PriceHistorySheet` (BottomSheet dùng chung, đủ a11y). Lịch sử tải **LƯỜI 1 lần** cho cả bảng khi chạm thẻ đầu (`fetchPriceHistory`), các thẻ sau mở tức thì.
-- **Mật độ**: 1 biểu đồ/loài — trên cùng là **số tuần mới nhất IN TO** (`1.375rem`, khoảng thấp–cao) + mũi tên xu hướng so đầu kỳ (`đang lên`/`đang xuống`/`đi ngang`, ngưỡng ±3%). Dưới là SVG **DẢI giá thấp–cao** (fill `sea` 16%) + **đường giữa** đậm, trục X ngày/tháng (≤4 nhãn), trục Y nghìn đồng/kg (3 mốc). Nhãn trục 12px (ngoại lệ data-viz cho font ≥18px — số quan trọng vẫn to ở HTML).
+- **Mật độ**: 1 biểu đồ/loài — trên cùng là **số tuần mới nhất IN TO** (`1.375rem`, khoảng thấp–cao) + mũi tên xu hướng so đầu kỳ (`đang lên`/`đang xuống`/`đi ngang`, ngưỡng ±3%). Dưới là SVG **DẢI giá thấp–cao** (fill `sea` 16%) + **đường giữa** đậm, trục X ngày/tháng (≤4 nhãn), trục Y nghìn đồng/kg (3 mốc). Nhãn trục 12px — theo **ngoại lệ data-viz** khai ở [03-design-system.md §3](03-design-system.md) (luật hệ thống sống bên đó, spec này chỉ áp dụng).
 - **4 trạng thái**: (1) **đang tải** → "Đang tải lịch sử giá…"; (2) **có ≥2 điểm** → biểu đồ; (3) **<2 điểm / loài tuần nào cũng vắng** → banner vàng "Chưa lấy được lịch sử giá cho loại này" (KHÔNG vẽ đường ma); (4) **nguồn fail** → route `{ok:false}` → rơi về (3). Luôn có dòng nguồn "Nguồn: VASEP (Khánh Hòa) · giá tham khảo".
 - **TRUNG THỰC (trục "bán được đắt hơn")**: mỗi điểm = 1 tuần VASEP THẬT, không nội suy/bịa — tuần thiếu loài thành **khoảng trống** (điểm bị bỏ), không nối giả.
 - **"Chọn loài cá" + "Điểm đã lưu" = PANEL RAIL, không bottom-sheet modal** (user: 2 popup này "ko đồng bộ các kiểu popup trước" → cho khớp panel rail): 

@@ -46,3 +46,6 @@ test-reports/
 
 # Kho dữ liệu tạm cho nghiên cứu lớp cá (scripts/fish-corpus-build.mjs) — tải lại được
 .cache/
+
+# Junction skill per-machine (`ai-simple init`) — cam commit: git recurse junction = copy = drift
+.claude/skills/

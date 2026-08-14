@@ -53,6 +53,10 @@ Hướng mới: **modern edge-to-edge mobile** — nền sáng lạnh, hero bi�
 - **Cool mist** (`--background` #f3f6f8) — nền sáng lạnh
 - **Field** (`--field` #eaeff3) — nền ô nhập kiểu filled + chip tonal chưa chọn
 
+### Token chờ lift — redesign "Ra khơi A" (nguồn giá trị: lift từ 07-design-spec, 2026-08-13)
+- **Màu cá = hồng tím `oklch(0.64 0.19 350)`** (design doc Ra khơi A — thay xanh lá hiện tại khi build phương án A); **primary xanh `oklch(0.52 0.13 235)`**. CHƯA vào `globals.css @theme` — khi build increment tương ứng thì lift vào globals cùng commit rồi xoá chữ "chờ" ở đây. 07-design-spec chỉ TRỎ về mục này, không giữ giá trị (luật "không trộn token" của chính nó §"Không trộn").
+- Màu THEO LOÀI cá trên bản đồ vẫn là NỘI DUNG (khai trong `fish-predict.ts` — ngoại lệ §5, không phải token UI).
+
 ### Hình khối hiện đại (thay quy tắc bo 12px cũ)
 - **Thẻ = `.surface`** (globals.css): trắng KHÔNG viền, bo 20px, bóng mềm 2 lớp. KHÔNG dùng `ring-1 ring-line` làm viền thẻ nữa — `--line` chỉ còn cho divider trong thẻ (`border-t/b/l border-line`).
 - **Panel nổi trên bản đồ = `.glass`** (globals.css, 2026-07-29): liquid glass — nền trắng 62% + `backdrop-filter: blur(14px) saturate(1.5)`, viền sáng inset 1px, bo 20px; có fallback nền 92% cho máy không hỗ trợ blur. CHỈ dùng cho panel đè lên bản đồ (thanh giờ Windy, HUD dẫn đường) — thẻ nội dung thường vẫn `.surface`.
@@ -117,11 +121,27 @@ Mọi trạng thái trên thẻ (giấy tờ, bảo dưỡng, sản phẩm/bảo
 - KHÔNG tự chế kiểu trạng thái mới (viền trái màu, icon màu trơ trọi…) — các bản chép tay cũ ở fines-lookup/crew-list/document-vault/maintenance-reminders đã gom hết về StatusBanner.
 - Mức phạt không bao giờ "tốt": phạt nhẹ dùng `neutral` (xám bình tĩnh), không dùng xanh.
 
+### Đặt hàng — bộ đếm số lượng + chip trạng thái đơn (2026-08-11)
+
+- **Bộ đếm số lượng** (`QtyStepper`, export từ `cart-sheet.tsx`): 2 nút − / + tap ≥3.5rem + ô số ở giữa, dùng cho thẻ hàng orderable ở Cửa hàng và trong giỏ. Clamp 1..999. KHÔNG tự chế stepper khác.
+- **Chip trạng thái đơn**: `moi` = field/navy (neutral), `da_nhan` = warn, `dang_giao` = sea (xanh biển đặc), `da_giao` = ok (xanh lá), `da_huy` = danger. Nhãn từ `ORDER_STATUS_LABELS` (`lib/catalog-orders.ts`) — GIỮ đồng bộ nhãn ở app chủ tàu và /quan-tri.
+- **Giỏ + đặt hàng** ở **bottom-sheet** (`cart-sheet.tsx`) như mọi form tạo/sửa; nút giỏ nổi hiện `cartCount`. Đặt đơn nêu rõ "không thanh toán trong app"; mất mạng báo trung thực "cần có mạng" (online-only).
+
 ## 3. Typography
 
 - **Archivo** — display/heading: đậm chắc, đáng tin, kiểu "thiết bị hàng hải" (đã thay Baloo 2 ngày 2026-06-10 — feedback: tròn trịa quá thành trẻ con)
-- **Plus Jakarta Sans** — body (thay Be Vietnam Pro 2026-06-11, user: "dùng loại international hơn"): geometric-humanist kiểu app toàn cầu, subset `vietnamese` đầy đủ dấu, nét đậm chắc hợp UI chữ to
+- **Plus Jakarta Sans** — body (thay Be Vietnam Pro 2026-06-11, user: "dùng loại international hơn"): geometric-humanist kiểu app toàn cầu, subset `vietnamese` đầy đủ dấu, nét đậm chắc hợp UI chữ to.
+  **Đây là ngoại lệ [DEF] hợp lệ theo ui-design-logic** (SKILL.md rule FONT — cơ chế `## Ngoại lệ đã duyệt`): lý do AUDIENCE (ngư dân 40–60 tuổi, UI chữ to ≥18px ngoài nắng, cần subset tiếng Việt đủ dấu nét đậm) + user chỉ đích danh 2026-06-11 — không phải "trendy". Font này nằm trong danh sách chê của skill ở project KHÁC; ở đây nó là quyết định audience có căn cứ (hội đồng 2026-08-13).
 - Base ≥ 18px; heading to rõ; không dùng font-weight mảnh (light/thin)
+
+### Type ramp — nguồn duy nhất của cỡ chữ arbitrary (chốt 2026-08-13, hội đồng)
+
+type-ramp: 0.75rem 0.8125rem 0.875rem 0.9375rem 1rem 1.125rem
+
+- 6 bậc trên phủ 800/919 (87%) lượt `text-[…rem]` đo thực tế toàn app (`grep -rhoE 'text-\[[0-9.]+rem\]' src | sort | uniq -c`). Hook 3b2 WARN mọi cỡ ngoài ramp trên file staged — dùng bậc ramp, hoặc thêm bậc vào ĐÂY kèm lý do (thêm bậc = sửa dòng `type-ramp:` cùng commit).
+- **Nợ đuôi ~119 chỗ / 11 giá trị** (1.0625 / 0.6875 / 1.1875 / 1.25 / 1.5 / 1.375 / 1.75 / 0.625 / 4.5 / 1.625 / 1.3125): dọn dần khi chạm file (WARN nay → BLOCK sau 1 sprint). **CẤM nới ramp để im cổng** — nới >2 bậc trong sprint đầu = cổng thành no-op, rút lui theo tiêu chí hội đồng.
+- Ngoại lệ đã biết: `text-[4.5rem]` (1 chỗ, hero display) — khi chạm file đó, chuyển thành cỡ display có tên; nhãn trục data-viz 12px xem ngoại lệ data-viz dưới.
+- **Ngoại lệ data-viz** (lift từ 07-design-spec §Trục 2 — luật hệ thống sống ở đây): nhãn trục/chú thích trong SVG chart được 12–13px dù sàn body ≥18px — SỐ QUAN TRỌNG vẫn phải to ở tầng HTML (vd số tuần mới nhất in to trên biểu đồ giá); chỉ nhãn phụ trợ trong chart được nhỏ.
 - **Sàn 18px cho body/input (2026-06-10)**: đã quét sạch `text-[17px]` → `text-[18px]` toàn app (kể cả `inputClass` trong `ui/primitives.tsx`). Chữ phụ (nhãn mục, ghi chú nguồn) được phép 13–16px nhưng KHÔNG dùng cho nội dung chính cần đọc ngoài nắng. Thẻ 4 trục ở Home: tiêu đề 19px display, mô tả 14px, thẻ dọc icon-trên-chữ-dưới.
 
 ## 4. Motif & tone

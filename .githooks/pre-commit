@@ -1,5 +1,6 @@
 #!/bin/sh
-# ai-simple-version: 1.1.0 (ForFish)
+# ai-simple-version: 1.9.0 (ForFish)
+# BUILD_CHECKS + gate 1f-a/1f-c/1f-d (NT15) song trong muc 3b4 ben duoi — ban custom giu cau truc rieng
 # pre-commit — Automated enforcement (nguyên tắc 08 / principle 08)
 #
 # Cài: git config core.hooksPath .githooks   (máy clone mới chạy lại 1 dòng này)
@@ -35,6 +36,14 @@ if [ "$1" = "--self-test" ]; then
     && echo "PASS: spacing-px detector bat p-[7px]" || { echo "FAIL: spacing-px detector miss"; RC=1; }
   echo 'x className="max-w-[480px] w-[52px]"' | grep -qE '[" ](p|m|px|py|pt|pb|pl|pr|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y|space-x|space-y)-\[[0-9.]+px\]' \
     && { echo "FAIL: spacing-px detector overmatch width"; RC=1; } || echo "PASS: spacing-px KHONG bat max-w/w (width hop le)"
+  # 3b2 (v1.8.0): rgba/hsla arbitrary detector + ramp membership + khong dinh min-h
+  echo 'x className="shadow-[0_10px_24px_-8px_rgba(16,42,67,0.28)]"' | grep -qE '\-\[[^]]*(rgba?|hsla?)\(' \
+    && echo "PASS: rgba-arbitrary detector bat shadow-[...rgba(...)]" || { echo "FAIL: rgba-arbitrary detector miss"; RC=1; }
+  echo 'x className="min-h-[2.75rem] text-[1rem]"' | grep -qE '\-\[[^]]*(rgba?|hsla?)\(' \
+    && { echo "FAIL: rgba detector overmatch class thuong"; RC=1; } || echo "PASS: rgba detector KHONG dinh class thuong"
+  RAMP_T="0.875rem 1rem 1.125rem"
+  echo " $RAMP_T " | grep -qF " 1rem " && ! echo " $RAMP_T " | grep -qF " 1.3rem " \
+    && echo "PASS: ramp membership — 1rem trong, 1.3rem ngoai" || { echo "FAIL: ramp membership sai"; RC=1; }
   # Fixture gate: warn — chạy flow thật trong temp repo
   HOOK_SELF="$0"; case "$HOOK_SELF" in /*) ;; *) HOOK_SELF="$(pwd)/$HOOK_SELF";; esac
   TW=$(mktemp -d); OPW=$(pwd)
@@ -70,9 +79,12 @@ fi
 # ── 1b. Covers-sync — CỔNG GHI nguyên tắc 12 ──────────────────────────
 for doc in $(git ls-files 'docs/app-map/*.md' 'docs/app-map/**/*.md' 2>/dev/null | grep -v '_generated/' | sort -u); do
   [ -f "$doc" ] || continue
-  CLINE=$(head -12 "$doc" | grep -i '^covers:' | head -1)
+  # v1.8.0: frontmatter = tới heading `## ` đầu (cap 400 dòng), KHÔNG head -12 — chính repo này
+  # có 02-architecture.md với `gate: warn` sau các comment re-verified dài (~dòng 248) bị nuốt.
+  FM=$(awk 'NR>400{exit} /^## /{exit} {print}' "$doc")
+  CLINE=$(echo "$FM" | grep -i '^covers:' | head -1)
   [ -n "$CLINE" ] || continue
-  GATE=$(head -12 "$doc" | grep -i '^gate:' | head -1 | sed 's/^[^:]*:[[:space:]]*//' | tr -d ' ')
+  GATE=$(echo "$FM" | grep -i '^gate:' | head -1 | sed 's/^[^:]*:[[:space:]]*//' | tr -d ' ')
   HIT=0
   for p in $(echo "$CLINE" | sed 's/^[Cc]overs:[[:space:]]*//' | tr ',' '\n' | sed 's/^ *//; s/ *$//'); do
     [ -n "$p" ] || continue
@@ -115,16 +127,103 @@ check_contract() {
 }
 check_contract 'src/lib/(owned-assets|sdwork-assets)\.ts' 'docs/contracts/sdwork-assets\.contract\.md'
 
-# ── 3b. Spacing arbitrary-px (ui-design-logic §5): chặn p/m/gap/space-[Npx] ──
-# CHỈ prefix spacing — width/max-w/inset px hop le (kien truc rem co dat px width).
-for f in $(echo "$CHANGED" | grep -E '\.(tsx|jsx)$' || true); do
+# ── 3b + 3b2 + 3b4-UI — MỘT vòng lặp / MỘT lần git show mỗi file (đo 2026-08-14:
+# 3 vòng riêng + loop-per-ramp-value đẩy hook 8s→13s trên Windows; gộp lại còn +2,3s) ──
+# nợ: hook tổng ~10s/commit Windows (8,1s là covers-sync 19 doc CÓ TRƯỚC đợt này, spawn subshell
+#     per-doc per-path), awk-hoá covers-sync khi có thêm 1 phàn nàn chậm hook hoặc doc >25 file
+RAMP=""
+for dsd in $(git ls-files 'docs/app-map/*design-system*.md' 'docs/app-map/*design-spec*.md' 2>/dev/null); do
+  R=$(grep -i '^type-ramp:' "$dsd" 2>/dev/null | head -1 | sed 's/^[^:]*:[[:space:]]*//' | tr ',' ' ')
+  [ -n "$R" ] && { RAMP="$R"; break; }
+done
+for f in $(echo "$CHANGED" | grep -E '\.(tsx|jsx|css)$' || true); do
   git cat-file -e ":$f" 2>/dev/null || continue
-  if git show ":$f" | grep -qE '[" ](p|m|px|py|pt|pb|pl|pr|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y|space-x|space-y)-\[[0-9.]+px\]'; then
-    echo "BLOCK: $f dung spacing arbitrary px (vi pham thang 4/8/12... — ui-design-logic)."
-    echo "  -> Dung utility thang Tailwind (p-4, gap-2) hoac rem. Width/inset px van OK."
+  UC=$(git show ":$f" 2>/dev/null) || continue
+  # 3b spacing-px (chỉ prefix spacing)
+  if echo "$UC" | grep -qE '[" ](p|m|px|py|pt|pb|pl|pr|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y|space-x|space-y)-\[[0-9.]+px\]'; then
+    echo "BLOCK: $f dung spacing arbitrary px (vi pham thang 4/8/12... — ui-design-logic §5; width/inset px van OK)."
     FAIL=1
   fi
+  # 3b2 màu hex + rgba/hsla
+  if echo "$UC" | grep -qE '(text|bg|border|from|to|via|shadow|ring)-\[#[0-9a-fA-F]'; then
+    echo "BLOCK: mau hex hard-code ngoai token trong $f — lift vao globals.css @theme truoc (03-design-system §5)."
+    FAIL=1
+  fi
+  if echo "$UC" | grep -qE '\-\[[^]]*(rgba?|hsla?)\('; then
+    echo "BLOCK: mau ham (rgba/hsla) hard-code trong arbitrary class o $f — lift vao token/globals.css (do 2026-08-13: 14 hit)."
+    FAIL=1
+  fi
+  # 3b2 ramp — MỘT awk thay loop-per-value
+  if [ -n "$RAMP" ]; then
+    echo "$UC" | awk -v ramp=" $RAMP " '
+      { while (match($0, /text-\[[0-9.]+(rem|px)\]/)) {
+          v = substr($0, RSTART+6, RLENGTH-7);
+          if (index(ramp, " " v " ") == 0 && !(v in seen)) { seen[v]=1;
+            printf "WARN: co chu '\''text-[%s]'\'' ngoai type-ramp trong FILE — dung bac ramp hoac them bac vao 03-design-system.md §3 kem ly do.\n", v }
+          $0 = substr($0, RSTART+RLENGTH) } }' | sed "s|FILE|$f|"
+  fi
+  # 3b4 — 5 BLOCK nội hoá v1.9.0 (NOTICE.md repo ai-simple)
+  BADFOCUS=$(echo "$UC" | grep -nE 'outline-none|outline:[[:space:]]*none' | grep -vE 'ring-|focus-visible|outline-offset|outline:[[:space:]]*[1-9]' || true)
+  if [ -n "$BADFOCUS" ]; then
+    echo "BLOCK: huy focus ring khong co vong thay the trong $f — dung focus-visible:ring-2 (1d-e):"
+    echo "$BADFOCUS" | head -3 | sed 's/^/    /'
+    FAIL=1
+  fi
+  if echo "$UC" | grep -E '<(div|span|li|td|tr)[^>]*onClick' | grep -qv 'role='; then
+    echo "BLOCK: onClick tren div/span/li/td khong role trong $f — doi sang <button type=\"button\"> (1d-f)."; FAIL=1
+  fi
+  if echo "$UC" | grep -q 'bg-clip-text' && echo "$UC" | grep -q 'text-transparent'; then
+    echo "BLOCK: gradient to len chu trong $f — khong do duoc contrast (1d-g)."; FAIL=1
+  fi
+  if echo "$UC" | grep -qE '(shadow|drop-shadow)-\[0(px|rem)?_0(px|rem)?_'; then
+    echo "BLOCK: glow (shadow offset 0) trong $f (1d-h)."; FAIL=1
+  fi
+  if echo "$UC" | grep -qE 'tracking-\[-0\.0[4-9]|tracking-\[-0\.[1-9]'; then
+    echo "BLOCK: letter-spacing am vuot san -0.03em trong $f (1d-i)."; FAIL=1
+  fi
+  # P2 WARN gộp 1 alternation (1d-j..1d-o)
+  P2=$(echo "$UC" | grep -nE 'transition-all|transition-\[[^]]*(width|height|top|left|margin|padding)|hover:scale-|text-\[clamp\(|uppercase[^"]*leading-none|leading-none[^"]*uppercase|[" ]border[" ][^"]*shadow-(lg|xl|2xl)|shadow-(lg|xl|2xl)[^"]*[" ]border[" ]' || true)
+  if [ -n "$P2" ]; then
+    echo "WARN: pattern P2 trong $f (transition-all/animate-layout/hover:scale/clamp-font/CAPS+leading-none/border+shadow-lg — 04 §3 §4 §6, 1d-j..o):"
+    echo "$P2" | head -3 | sed 's/^/    /'
+  fi
 done
+
+# ── 3b3. Design-spec lint — design-verify.sh qua junction .claude/skills ──
+DV=".claude/skills/ui-design-logic/design-verify.sh"
+if [ -f "$DV" ]; then
+  if ! sh "$DV" --staged; then FAIL=1; fi
+fi
+# NT15: no-marker 2 ve + page fetch thieu state + page moi khong spec + diff-size-vs-lane
+BD_FILES=$(echo "$CHANGED" | grep -vE '^\.githooks/|\.template$' || true)
+ADDED15=$(git diff --cached -U0 -- $BD_FILES 2>/dev/null | grep '^+' | grep -vE '^\+\+\+' || true)
+BADNO=$(echo "$ADDED15" | grep -E '(//|#|--|<!--) *(nợ|debt):' | grep -vE '(nợ|debt):[^,]+,' || true)
+[ -n "$BADNO" ] && { echo "WARN: marker no/debt thieu ve 2 — '// nợ: <tran>, <dieu kien nang cap>' (NT15 §7):"; echo "$BADNO" | head -3 | sed 's/^/    /'; }
+for f in $(echo "$CHANGED" | grep -E '(page|screen)\.(tsx|jsx)$' || true); do
+  PC=$(git show ":$f" 2>/dev/null) || continue
+  echo "$PC" | grep -qE 'fetch\(|useEffect|useQuery|useSWR|supabase|axios' || continue
+  D=$(dirname "$f")
+  HASL=0; echo "$PC" | grep -qiE 'loading|skeleton|suspense|isPending|spinner|đang tải|dang tai' && HASL=1
+  [ "$HASL" -eq 0 ] && { [ -f "$D/loading.tsx" ] || [ -f "$D/loading.jsx" ]; } && HASL=1
+  HASE=0; echo "$PC" | grep -qiE 'error|catch|onError|thất bại|that bai|lỗi' && HASE=1
+  [ "$HASE" -eq 0 ] && { [ -f "$D/error.tsx" ] || [ -f "$D/error.jsx" ]; } && HASE=1
+  if [ "$HASL" -eq 0 ] || [ "$HASE" -eq 0 ]; then
+    echo "WARN: $f co fetch nhung thieu nhanh $([ "$HASL" -eq 0 ] && printf 'loading ')$([ "$HASE" -eq 0 ] && printf 'error') trong code — ma tran trang thai phai SONG TRONG CODE (NT15 §4)."
+  fi
+done
+NS15=$(git diff --cached --name-status 2>/dev/null)
+NEWPAGE=$(printf '%s\n' "$NS15" | awk '$1=="A"{print $2}' | grep -E '(^|/)(page|layout|route)\.(tsx|jsx)$' || true)
+if [ -n "$NEWPAGE" ] && ! printf '%s\n' "$NS15" | awk '{print $2}' | grep -qiE 'design-spec.*\.md$'; then
+  echo "BLOCK: man hinh moi ($NEWPAGE) ma design-spec khong duoc cap nhat cung commit — screen map co dong TRUOC khi code (01 §8, NT15 §2)."
+  FAIL=1
+fi
+UL15=".claude/skills/ui-design-logic/ui-lane.sh"
+if [ -f "$UL15" ]; then
+  LANE15=$(printf '%s\n' "$NS15" | sh "$UL15" --stdin 2>/dev/null | tail -1)
+  DL15=$(git diff --cached --numstat 2>/dev/null | awk '{a+=$1+$2} END{print a+0}')
+  { [ "$LANE15" = "LANE1" ] && [ "$DL15" -gt 200 ]; } && echo "WARN: lane LANE1 nhung diff $DL15 dong (>200) — refactor 'tien tay' ngoai pham vi? (NT15 §1)"
+  { [ "$LANE15" = "LANE2" ] && [ "$DL15" -gt 800 ]; } && echo "WARN: lane LANE2 nhung diff $DL15 dong (>800) — can nhac tach (NT15 §1)"
+fi
 
 # ── 3c. Encoding guard: BOM / mojibake trong .md|.template đã stage ───────
 M1=$(printf '\303\241\302\272'); M2=$(printf '\303\241\302\273')
