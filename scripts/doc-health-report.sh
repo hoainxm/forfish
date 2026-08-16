@@ -1,5 +1,5 @@
 #!/bin/sh
-# ai-simple-version: 1.9.0
+# ai-simple-version: 1.18.0
 # doc-health-report — đo lường nguyên tắc 12 v2 (event-first). 3 chế độ:
 #   sh doc-health-report.sh              -> report đầy đủ ra stdout (exit 0 kể cả khi có vấn đề)
 #   sh doc-health-report.sh --ci         -> exit 1 khi: doc-lag quá ngưỡng / _generated stale /
