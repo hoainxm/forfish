@@ -245,6 +245,7 @@ Test 979 pass (+14), tsc sạch, lint 0 lỗi, build PASS. -->
 <!-- re-verified: 2026-06-16 — §5 bổ sung ERDDAP/HYCOM vào timeout invariant (fix dự báo cá treo); fish-forecast route + hycom + client đã có AbortSignal.timeout -->
 <!-- re-verified: 2026-06-15 — §5 isDemo invariant áp đủ doc-vault/maint/products/crew (seed-mẫu không ghi localStorage) -->
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-08-16) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 
 ---

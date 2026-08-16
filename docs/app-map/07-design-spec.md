@@ -6,6 +6,7 @@
 covers: src/app, src/components
 last_verified: 2026-08-02
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-08-16) — code 'src/components' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 ```
 <!-- gate: warn vì UI churn src/app+src/components cao — cảnh báo thay vì chặn. KHÔNG để comment cùng dòng `gate:` (hook tr -d ' ' giữ lại # → phá so khớp = "warn" → chặn nhầm). -->
