@@ -24,6 +24,42 @@ export interface BorderProximity {
 const VERY_NEAR_NM = 6;
 const NEAR_NM = 15;
 
+/**
+ * MỐC NÓI LẠI khi đang DẪN ĐƯỜNG theo GPS (2026-08-18, audit M3): vào 15 hải
+ * lý nói một lần, rồi CHỈ nói lại khi vượt sang mốc gần hơn (10 → 6 → 3), không
+ * lặp mỗi giây theo nhịp GPS. Từ 6 hải lý trở vào (VERY_NEAR_NM) dòng cảnh báo
+ * không thu được.
+ */
+export const BORDER_STEPS_NM = [NEAR_NM, 10, VERY_NEAR_NM, 3] as const;
+
+/**
+ * Mốc hiện tại theo khoảng cách: mốc NHỎ NHẤT mà distance ≤ mốc; null khi còn
+ * xa hơn 15 hải lý. THUẦN, có test.
+ */
+export function borderStepFor(distanceNm: number): number | null {
+  if (!Number.isFinite(distanceNm)) return null;
+  let step: number | null = null;
+  for (const s of BORDER_STEPS_NM) if (distanceNm <= s) step = s;
+  return step;
+}
+
+/**
+ * Có phải vừa VƯỢT SANG MỐC GẦN HƠN không — chỗ duy nhất quyết "nói lại".
+ * `prev` = mốc đã nói lần trước (null = chưa nói / đang ở ngoài 15 hải lý).
+ * Trả về mốc mới nếu đáng nói, null nếu im (đứng yên trong mốc, hoặc đang đi
+ * ra xa — đi ra xa thì caller cập nhật prev = borderStepFor(d) trong im lặng để
+ * lần quay lại gần vẫn được nhắc).
+ */
+export function borderStepCrossed(
+  distanceNm: number,
+  prev: number | null,
+): number | null {
+  const step = borderStepFor(distanceNm);
+  if (step == null) return null;
+  if (prev == null || step < prev) return step;
+  return null;
+}
+
 /** Haversine — km giữa hai điểm (lat,lng độ). */
 export function haversineKm(
   lat1: number,

@@ -4,6 +4,7 @@
   "crons": [
     { "path": "/api/cron/refresh-fish", "schedule": "0 2 * * *" },
     { "path": "/api/cron/refresh-weather", "schedule": "30 2 * * *" },
-    { "path": "/api/cron/snapshot-prices", "schedule": "0 3 * * 6" }
+    { "path": "/api/cron/snapshot-prices", "schedule": "0 3 * * 6" },
+    { "path": "/api/cron/notify-storms", "schedule": "*/30 * * * *" }
   ]
 }

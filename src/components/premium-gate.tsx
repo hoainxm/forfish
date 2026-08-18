@@ -7,6 +7,7 @@ import {
   SDVICO_HOTLINE_DISPLAY,
 } from "@/data/sdvico-showcase";
 import type { FeatureAccess } from "@/lib/tier";
+import { useOnline } from "@/lib/use-online";
 
 /*
   PremiumLock — thẻ khoá tính năng PREMIUM (dự báo cá, thời tiết quá 3 ngày),
@@ -17,7 +18,18 @@ import type { FeatureAccess } from "@/lib/tier";
   access "open"/"checking" thì component KHÔNG render gì — caller cứ đặt cạnh
   nội dung, không cần if bên ngoài.
   Khoá UI chỉ là lớp vỏ — /api/fish-forecast bị chặn thật ở middleware.
+
+  2026-08-18 (audit G7/M8, chính sách thông báo tầng 5): MỘT tên "Premium"
+  (bỏ "tài khoản nâng cao"), câu chuẩn "… là tính năng Premium — gọi SDVICO để
+  mở"; ẨN HOÀN TOÀN khi máy báo mất sóng — `tel:` / `/login` giữa biển là ngõ
+  cụt, mời chỉ thêm bực.
 */
+
+/** Câu chuẩn cho mọi lời mời Premium — dùng cả ngoài PremiumLock (chip ngày,
+    peek) để cả app chỉ có một cách gọi tên. */
+export function premiumLine(feature: string): string {
+  return `${cap(feature)} là tính năng Premium — gọi SDVICO để mở.`;
+}
 
 export function PremiumLock({
   access,
@@ -36,18 +48,19 @@ export function PremiumLock({
   /** Bản gọn cho panel hẹp (không icon tròn to) */
   compact?: boolean;
 }) {
+  const online = useOnline();
   if (access !== "login" && access !== "upgrade") return null;
+  if (!online) return null; // mất sóng: không mời việc không làm được
 
   const title =
     access === "login"
       ? `Đăng nhập để xem ${feature}`
-      : `${cap(feature)} là tính năng của tài khoản nâng cao`;
+      : `${cap(feature)} là tính năng Premium`;
   const sub =
     access === "login"
       ? (blurb ??
         "Tài khoản dùng chung với lúc mua hàng SDVICO — số điện thoại là vào được.")
-      : (blurb ??
-        "Tài khoản hiện thời không hỗ trợ — gọi SDVICO để nâng cấp là xem được ngay.");
+      : (blurb ?? "Gọi SDVICO để mở là xem được ngay.");
   const cta =
     access === "login" ? (
       <Link

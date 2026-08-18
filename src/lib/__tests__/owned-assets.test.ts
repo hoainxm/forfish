@@ -42,9 +42,10 @@ describe("getServiceDueStatus", () => {
     expect(r.label).toContain("Quá kỳ 9 ngày");
   });
 
-  it("đến kỳ hôm nay → soon", () => {
+  it("đến kỳ hôm nay → overdue (đỏ — chốt 2026-08-18)", () => {
     const r = getServiceDueStatus(svc({ nextDueOn: "2026-06-10" }), TODAY);
-    expect(r.level).toBe("soon");
+    expect(r.level).toBe("overdue");
+    expect(r.days).toBe(0);
     expect(r.label).toBe("Đến kỳ hôm nay");
   });
 
@@ -185,16 +186,16 @@ describe("mapCrmAssets", () => {
 });
 
 describe("requestStatusVN", () => {
-  it("pending/new → chờ gọi lại (vàng); done/resolved → xong (xanh); lạ → đang xử lý", () => {
+  it("pending/new → chờ gọi lại (neutral, không vàng); done/resolved → xong (xanh); lạ → đang xử lý", () => {
     expect(requestStatusVN("pending")).toEqual({
       label: "Đã nhận — chờ gọi lại",
-      level: "warn",
+      level: "neutral",
     });
     expect(requestStatusVN("DONE").level).toBe("ok");
     expect(requestStatusVN("resolved").level).toBe("ok");
     expect(requestStatusVN("dang-goi")).toEqual({
       label: "Đang xử lý",
-      level: "warn",
+      level: "neutral",
     });
   });
 });

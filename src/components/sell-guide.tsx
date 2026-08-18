@@ -13,6 +13,7 @@ import { ChipRow } from "@/components/ui/chip-row";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { readUserList } from "@/lib/user-list-store";
 import { saveUserJson } from "@/lib/user-store";
+import { createClient } from "@/lib/supabase/client";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -63,13 +64,30 @@ export function SellGuide() {
   // Danh bạ nay do admin quản lý (bảng sell_contacts): đọc DB, chưa cấu
   // hình/lỗi/rỗng → gộp tĩnh (STATIC_SELL_CONTACTS) — giữ nguyên hành vi cũ.
   const [contacts, setContacts] = useState<SellContact[]>(STATIC_SELL_CONTACTS);
+  /** đang hiện bản TĨNH vì không hỏi được bản admin (mất sóng / lỗi) — nói một
+   *  dòng nhỏ, không đội lốt bản mới (audit 2026-08-18 G10). Chỉ tính khi máy
+   *  chủ CÓ cấu hình; demo mode thì bản tĩnh là bản chính, khỏi nói. */
+  const [staticFallback, setStaticFallback] = useState(false);
   useEffect(() => {
     let alive = true;
-    fetchPublicSellContacts().then((c) => {
-      if (alive && c) setContacts(c);
-    });
+    const configured = createClient() !== null;
+    const tai = () =>
+      fetchPublicSellContacts().then((c) => {
+        if (!alive) return;
+        if (c) {
+          setContacts(c);
+          setStaticFallback(false);
+        } else if (configured) {
+          setStaticFallback(true);
+        }
+      });
+    void tai();
+    // có sóng lại thì tự hỏi bản mới (đồng hồ 12s trong lib, hỏng thì giữ bản tĩnh)
+    const onOnline = () => void tai();
+    window.addEventListener("online", onOnline);
     return () => {
       alive = false;
+      window.removeEventListener("online", onOnline);
     };
   }, []);
 
@@ -86,6 +104,12 @@ export function SellGuide() {
           ariaLabel="Chỗ bán"
         />
       </div>
+
+      {geo && staticFallback && (
+        <p className="mb-2 px-1 text-[0.9375rem] font-semibold text-foreground/65">
+          Danh bạ tham khảo lưu sẵn — chưa hỏi được bản mới.
+        </p>
+      )}
 
       {geo && (
         <HomeBar home={home} near={near} setNear={setNear} />

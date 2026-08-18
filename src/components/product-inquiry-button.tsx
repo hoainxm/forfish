@@ -7,6 +7,12 @@ import { apiUrl } from "@/lib/api-base";
 import { CheckIcon, PhoneIcon } from "@/components/icons";
 import { sanitizePhoneInput } from "@/components/auth-form";
 import { timeoutSignal } from "@/lib/abort";
+import {
+  classifySendFailure,
+  sendFailureText,
+  type SendFailure,
+} from "@/lib/send-error";
+import { SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
 
 /*
   "Để lại yêu cầu" — hỏi mua/tư vấn cho sản phẩm của ĐƠN VỊ NGOÀI SDWork
@@ -20,10 +26,13 @@ export function ProductInquiryButton({
   listingId,
   listingTitle,
   vendorKind = "external",
+  vendorName,
 }: {
   listingId: string;
   listingTitle: string;
   vendorKind?: "sdvico" | "external";
+  /** tên đơn vị ngoài — để câu lỗi/câu xong gọi ĐÚNG TÊN, không đổ hết cho SDVICO */
+  vendorName?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -41,6 +50,7 @@ export function ProductInquiryButton({
           listingId={listingId}
           listingTitle={listingTitle}
           vendorKind={vendorKind}
+          vendorName={vendorName}
           onClose={() => setOpen(false)}
         />
       )}
@@ -52,11 +62,13 @@ function InquiryForm({
   listingId,
   listingTitle,
   vendorKind,
+  vendorName,
   onClose,
 }: {
   listingId: string;
   listingTitle: string;
   vendorKind: "sdvico" | "external";
+  vendorName?: string;
   onClose: () => void;
 }) {
   const [name, setName] = useState("");
@@ -65,14 +77,34 @@ function InquiryForm({
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">(
     "idle",
   );
+  /** vì sao chưa gửi được — TÁCH NHÁNH (audit 2026-08-18 G2), không đổ hết cho SĐT */
+  const [failure, setFailure] = useState<SendFailure | null>(null);
+
+  // Đơn vị nhận yêu cầu: SDVICO thì kèm hotline; đơn vị ngoài gọi đúng tên
+  // (yêu cầu vào /quan-tri, admin chuyển tiếp — nhưng bà con cần biết ai bán).
+  const unit =
+    vendorKind === "external" && vendorName?.trim()
+      ? vendorName.trim()
+      : `SDVICO ${SDVICO_HOTLINE_DISPLAY}`;
+
+  function fail(kind: SendFailure) {
+    setFailure(kind);
+    setState("error");
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (phone.replace(/\D/g, "").length < 9) {
-      setState("error");
-      return;
-    }
+    const sdt = classifySendFailure({
+      phoneDigits: phone,
+      threw: false,
+      offline: false,
+      ok: true,
+    });
+    if (sdt) return fail(sdt);
+    setFailure(null);
     setState("sending");
+    let threw = false;
+    let ok = false;
     try {
       const r = await fetch(apiUrl("/api/product-inquiries"), {
         method: "POST",
@@ -88,10 +120,18 @@ function InquiryForm({
         signal: timeoutSignal(20000),
       });
       const j = await r.json().catch(() => null);
-      setState(j?.ok ? "done" : "error");
+      ok = j?.ok === true;
     } catch {
-      setState("error");
+      threw = true; // mất sóng / hết giờ chờ
     }
+    const kind = classifySendFailure({
+      phoneDigits: phone,
+      threw,
+      offline: typeof navigator !== "undefined" && navigator.onLine === false,
+      ok,
+    });
+    if (kind) return fail(kind);
+    setState("done");
   }
 
   if (state === "done") {
@@ -104,7 +144,9 @@ function InquiryForm({
           <CheckIcon className="mx-auto h-10 w-10" />
           <p className="mt-3 text-[1.125rem] font-bold">Đã ghi nhận yêu cầu</p>
           <p className="mt-1 text-[1rem] text-foreground/70">
-            SDVICO sẽ xem và liên hệ lại sớm nhất có thể.
+            {vendorKind === "external" && vendorName?.trim()
+              ? `Yêu cầu về hàng của ${vendorName.trim()} đã ghi nhận — sẽ có người gọi lại sớm nhất có thể.`
+              : "SDVICO sẽ xem và liên hệ lại sớm nhất có thể."}
           </p>
         </div>
         <div className="mt-4">
@@ -148,13 +190,13 @@ function InquiryForm({
           />
         </Field>
 
-        {state === "error" && (
+        {state === "error" && failure && (
           <p
             role="alert"
             className="mb-3 rounded-2xl px-3.5 py-3 text-[1rem] font-semibold"
             style={{ color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
           >
-            Nhập đúng số điện thoại rồi thử lại.
+            {sendFailureText(failure, unit)}
           </p>
         )}
 

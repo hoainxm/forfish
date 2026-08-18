@@ -56,6 +56,8 @@ import {
   isStandalone,
 } from "@/lib/storage-persist";
 import { isShellReady } from "@/lib/shell-ready";
+import { isOffline, subscribeOnline } from "@/lib/use-online";
+import { NOTIFY_HIDE_MS } from "@/lib/notify";
 import { AlertIcon, CheckIcon } from "@/components/icons";
 
 /** byte → "~1,2 MB" / "~340 KB" (rỗng nếu 0 — lớp nằm kho khác) */
@@ -66,14 +68,8 @@ function fmtBytes(b: number): string {
   return `${Math.max(1, Math.round(b / 1024))} KB`;
 }
 
-/**
- * CÓ SÓNG KHÔNG — khuôn dùng lại y hệt `use-storm-check.ts:106` (không thêm
- * request, không thêm khoá `forfish.*`, không thêm hẹn giờ). `navigator.onLine`
- * chỉ chắc chắn ở chiều PHỦ ĐỊNH (false = chắc chắn mất sóng), mà đó đúng là
- * chiều chip cần biết: mất sóng thì đừng mời bà con làm việc không làm được.
- */
-const isOffline = () =>
-  typeof navigator !== "undefined" && navigator.onLine === false;
+/* CÓ SÓNG KHÔNG — `isOffline` / `subscribeOnline` nay ở lib/use-online.ts (gom
+   một chỗ 2026-08-18): không request, không khoá `forfish.*`, không hẹn giờ. */
 
 /* Trạng thái tải sẵn dùng CHUNG cho dòng nổi tự tắt (PretripAutoNotify) và nhãn
    nhỏ thường trực trên box biển động (PretripSavedStatus). Store nhỏ ở mức
@@ -92,26 +88,12 @@ function subscribePhase(f: () => void) {
   };
 }
 
-/** Nghe hai sự kiện có sẵn của trình duyệt — KHÔNG hẹn giờ, KHÔNG request. */
-function subscribeOnline(f: () => void) {
-  window.addEventListener("online", f);
-  window.addEventListener("offline", f);
-  return () => {
-    window.removeEventListener("online", f);
-    window.removeEventListener("offline", f);
-  };
-}
-
 /* CHẠM NHÃN = MỞ POPUP "đã lưu những gì" (2026-07-29): thay vì bắn tải cả mẻ,
    chip mở bảng per-layer để bà con thấy lớp nào đã lưu / còn thiếu và chạm "Tải
    lại" đúng lớp cần. Bộ máy tự tải (PretripAutoNotify) vẫn chạy nền như cũ. */
 
-/**
- * Nói xong thì tắt sau ngần này — đủ đọc một dòng, rồi trả lại bản đồ.
- * Xuất ra để MỌI dòng báo nổi trên bản đồ tắt cùng một nhịp (vd nhắc "mất
- * sóng — đang dùng bản đồ lưu trong máy" ở fishing-map-view).
- */
-export const NOTIFY_HIDE_MS = 5000;
+/* Nhịp tự tắt: NOTIFY_HIDE_MS (1 dòng, 5s) nay ở lib/notify.ts — dùng chung
+   với mọi dòng báo nổi trên bản đồ + banner bão. */
 
 /**
  * Mốc lần THỬ tải gần nhất trong PHIÊN này (không phải lần tải xong — cái đó

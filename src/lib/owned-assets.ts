@@ -5,6 +5,8 @@
 //
 // Logic trạng thái thuần, test tại __tests__/owned-assets.test.ts.
 
+import { SOON_DAYS_SERVICE, daysUntil } from "@/lib/days";
+
 /** Sản phẩm đã mua (kèm bảo hành) — đồng bộ từ hệ thống bán hàng. */
 export interface OwnedProduct {
   id: string;
@@ -73,19 +75,8 @@ export interface ServiceDueStatus {
   label: string;
 }
 
-const SOON_DAYS = 14;
-
-function daysUntil(isoDate: string, today: Date): number {
-  const target = new Date(isoDate + "T00:00:00Z");
-  const base = Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate(),
-  );
-  return Math.round((target.getTime() - base) / 86_400_000);
-}
-
-/** Nhãn kỳ tới của dịch vụ: đến hạn bảo trì / đóng cước. */
+/** Nhãn kỳ tới của dịch vụ: đến hạn bảo trì / đóng cước. Ngày theo lịch VN
+ *  (lib/days.ts); đến kỳ HÔM NAY = đã tới kỳ (đỏ), ngưỡng SOON_DAYS_SERVICE. */
 export function getServiceDueStatus(
   service: OwnedService,
   today: Date,
@@ -104,26 +95,28 @@ export function getServiceDueStatus(
       label: `Quá kỳ ${Math.abs(days)} ngày`,
     };
   }
-  if (days === 0) return { level: "soon", days, label: "Đến kỳ hôm nay" };
-  if (days <= SOON_DAYS) {
+  if (days === 0) return { level: "overdue", days, label: "Đến kỳ hôm nay" };
+  if (days <= SOON_DAYS_SERVICE) {
     return { level: "soon", days, label: `Còn ${days} ngày tới kỳ` };
   }
   return { level: "ok", days, label: `Còn ${days} ngày tới kỳ` };
 }
 
-/** Trạng thái yêu cầu hỗ trợ → lời đời thường + mức màu. */
+/** Trạng thái yêu cầu hỗ trợ → lời đời thường + mức màu. Trạng thái bình
+ *  thường ("đã nhận", "đang xử lý") là NEUTRAL, không vàng — màu = chữ, vàng
+ *  chỉ dành cho việc bà con phải làm (07-design-spec, chốt 2026-08-18). */
 export function requestStatusVN(status: string): {
   label: string;
-  level: "ok" | "warn";
+  level: "ok" | "neutral";
 } {
   const s = status.toLowerCase();
   if (["done", "completed", "resolved", "processed", "closed"].includes(s)) {
     return { label: "Đã xử lý xong", level: "ok" };
   }
   if (s === "pending" || s === "new") {
-    return { label: "Đã nhận — chờ gọi lại", level: "warn" };
+    return { label: "Đã nhận — chờ gọi lại", level: "neutral" };
   }
-  return { label: "Đang xử lý", level: "warn" };
+  return { label: "Đang xử lý", level: "neutral" };
 }
 
 /** Nhãn tiếng đời thường cho loại dịch vụ. */

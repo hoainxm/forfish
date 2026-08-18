@@ -22,8 +22,9 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
-import { saveUserJson } from "@/lib/user-store";
+import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { readUserList } from "@/lib/user-list-store";
+import { useTodayVN } from "@/lib/use-today";
 import { useBoats } from "@/components/boat-switcher";
 
 // BoatDocument lives in @/lib/documents (shared, not edited). We attach a boat
@@ -97,7 +98,7 @@ function saveDocs(docs: StoredDocument[]): boolean {
 }
 
 export function DocumentVault() {
-  const today = useMemo(() => new Date(), []);
+  const { today } = useTodayVN();
   const { current, boats, ready: boatReady } = useBoats();
   const [docs, setDocs] = useState<StoredDocument[]>([]);
   const [isDemo, setIsDemo] = useState(false);
@@ -119,14 +120,21 @@ export function DocumentVault() {
     setIsDemo(loaded.isDemo);
     setReadFailed(loaded.readFailed);
     setReady(true);
-  }, [today]);
+    // đọc một lần lúc mở; đổi ngày không cần đọc lại kho
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Tủ mẫu sống trong bộ nhớ thôi — chỉ giấy THẬT mới được ghi xuống máy.
-  // ĐỌC HỎNG THÌ KHÔNG GHI (2026-08-16): chuỗi gốc còn cứu được, đè lên là mất
-  // hẳn. Cùng luật với `saveBoats` khi `boatsReadFailed()`.
-  useEffect(() => {
-    if (ready && !isDemo && !readFailed) setSaveFailed(!saveDocs(docs));
-  }, [docs, ready, isDemo, readFailed]);
+  /*  Tủ mẫu sống trong bộ nhớ thôi — chỉ giấy THẬT mới được ghi xuống máy.
+      ĐỌC HỎNG THÌ KHÔNG GHI (2026-08-16): chuỗi gốc còn cứu được, đè lên là mất
+      hẳn. Cùng luật với `saveBoats` khi `boatsReadFailed()`.
+      GHI KHI BÀ CON THAO TÁC, KHÔNG GHI SAU HYDRATE (N5, audit 2026-08-18 —
+      cùng khuôn crew-list/maintenance): effect cũ chạy ngay khi mở màn ⇒ máy
+      đầy thì băng đỏ "CHƯA lưu được" bật dù chưa nhập gì. */
+  function commit(next: StoredDocument[]) {
+    setDocs(next);
+    if (readFailed) return;
+    setSaveFailed(!saveDocs(next));
+  }
 
   // Xóa tàu → giấy tờ tàu đó đã bị purge khỏi máy (ba-spec 08 R3); đọc lại để
   // list đang mở bỏ theo, không tự ghi lại bản cũ.
@@ -156,24 +164,24 @@ export function DocumentVault() {
     // Thêm/sửa giấy THẬT đầu tiên = tủ mẫu nhường chỗ luôn, không lẫn lộn.
     if (isDemo) {
       setIsDemo(false);
-      setDocs([withBoat]);
+      commit([withBoat]);
       setShowForm(false);
       setEditing(null);
       return;
     }
-    setDocs((prev) => {
-      const idx = prev.findIndex((d) => d.id === withBoat.id);
-      if (idx === -1) return [...prev, withBoat];
-      const next = [...prev];
-      next[idx] = withBoat;
-      return next;
-    });
+    const idx = docs.findIndex((d) => d.id === withBoat.id);
+    const next = [...docs];
+    if (idx === -1) next.push(withBoat);
+    else next[idx] = withBoat;
+    commit(next);
     setShowForm(false);
     setEditing(null);
   }
 
   function remove(id: string) {
-    setDocs((prev) => prev.filter((d) => d.id !== id));
+    const next = docs.filter((d) => d.id !== id);
+    if (isDemo) setDocs(next); // xoá giấy mẫu = chỉ bỏ khỏi bộ nhớ
+    else commit(next);
     setConfirmDelete(null);
   }
 
@@ -206,8 +214,7 @@ export function DocumentVault() {
       {saveFailed && (
         <div className="mb-4 overflow-hidden surface">
           <StatusBanner level="danger" icon={<AlertIcon className="h-5 w-5" />}>
-            Máy hết chỗ — CHƯA lưu được giấy tờ vừa nhập. Xoá bớt ảnh/ứng dụng
-            trong máy rồi sửa lại giấy này để lưu.
+            {storageFullCopy("giấy tờ vừa nhập")}
           </StatusBanner>
         </div>
       )}
@@ -222,7 +229,7 @@ export function DocumentVault() {
           <button
             onClick={() => {
               setIsDemo(false);
-              setDocs([]);
+              commit([]);
             }}
             className="flex min-h-[3.25rem] w-full items-center justify-center border-t border-line text-[1.0625rem] font-bold text-sea active:bg-background"
           >
@@ -258,8 +265,11 @@ export function DocumentVault() {
       <ul className="space-y-3">
         {sorted.map((doc) => {
           const status = getExpiryStatus(doc, today);
-          const level =
-            status.level === "expired"
+          // thẻ MẪU không đeo băng đỏ/vàng — banner "đây là tủ mẫu" ở trên đã
+          // nói rồi (T3, 2026-08-18)
+          const level = isDemo
+            ? ("neutral" as const)
+            : status.level === "expired"
               ? ("danger" as const)
               : status.level === "soon"
                 ? ("warn" as const)
@@ -278,7 +288,7 @@ export function DocumentVault() {
                   level === "neutral" ? <DocIcon className="h-5 w-5" /> : undefined
                 }
               >
-                {status.label}
+                {isDemo ? `Ví dụ: ${status.label}` : status.label}
               </StatusBanner>
 
               <div className="px-4 py-3">

@@ -8,6 +8,8 @@
 // màn Bạn thuyền chỉ còn ĐỊNH DANH + GIẤY TỜ + CẢNH BÁO, không dính tiền
 // (chốt với chủ dự án). Máy chia tiền chuyến cũng gỡ khỏi app cùng đợt.
 
+import { SOON_DAYS_DOCS, addDaysIso, daysUntil, todayIsoVN } from "@/lib/days";
+
 export type CrewRole = "thuyen_truong" | "may_truong" | "thuyen_vien";
 
 export const ROLE_LABELS: Record<CrewRole, string> = {
@@ -51,32 +53,26 @@ export function formatCccd(raw: string): string {
   return `${n.slice(0, 4)} ${n.slice(4, 8)} ${n.slice(8, 12)}`;
 }
 
-export type CrewIssueLevel = "danger" | "warn" | "ok";
+/** neutral = có bảo hiểm nhưng CHƯA GHI hạn — không dám nói "ổn" (T2, 2026-08-18) */
+export type CrewIssueLevel = "danger" | "warn" | "neutral" | "ok";
 
 export interface CrewIssue {
   level: CrewIssueLevel;
   label: string;
-}
-
-const SOON_DAYS = 30;
-
-function daysUntil(isoDate: string, today: Date): number {
-  const target = new Date(isoDate + "T00:00:00Z");
-  const base = Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate(),
-  );
-  return Math.round((target.getTime() - base) / 86_400_000);
+  /** số ngày (có dấu) tới hạn gần nhất — để dải khẩn xếp theo ngày THẬT (S3);
+   *  "chưa có bảo hiểm" = -1 (đứng trên mọi thứ sắp hết, dưới thứ đã quá hạn
+   *  lâu); neutral/ok = null */
+  days: number | null;
 }
 
 /**
  * Vấn đề cần để ý nhất của một thuyền viên, ưu tiên:
- * không bảo hiểm > giấy tờ quá hạn > sắp hết hạn > ổn.
+ * không bảo hiểm > giấy tờ quá hạn (kể cả HÔM NAY) > sắp hết hạn > chưa ghi hạn > ổn.
+ * Ngày tính theo lịch VN qua lib/days.ts (không UTC).
  */
 export function crewIssue(m: CrewMember, today: Date): CrewIssue {
   if (!m.hasInsurance) {
-    return { level: "danger", label: "Chưa có bảo hiểm" };
+    return { level: "danger", label: "Chưa có bảo hiểm", days: -1 };
   }
   const expiries: { what: string; date: string }[] = [];
   if (m.insuranceExpiry)
@@ -94,20 +90,33 @@ export function crewIssue(m: CrewMember, today: Date): CrewIssue {
       return {
         level: "danger",
         label: `${worst.what} quá hạn ${Math.abs(worst.days)} ngày`,
+        days: worst.days,
       };
-    if (worst.days <= SOON_DAYS)
-      return { level: "warn", label: `${worst.what} còn ${worst.days} ngày` };
+    if (worst.days === 0)
+      return {
+        level: "danger",
+        label: `${worst.what} hết hạn hôm nay`,
+        days: 0,
+      };
+    if (worst.days <= SOON_DAYS_DOCS)
+      return {
+        level: "warn",
+        label: `${worst.what} còn ${worst.days} ngày`,
+        days: worst.days,
+      };
   }
-  return { level: "ok", label: "Giấy tờ ổn" };
+  // Có bảo hiểm mà không ghi ngày hết hạn: KHÔNG được xanh "Giấy tờ ổn" — app
+  // không biết còn hạn hay không, phải nói là chưa ghi (T2, 2026-08-18).
+  if (!m.insuranceExpiry) {
+    return { level: "neutral", label: "Chưa ghi hạn bảo hiểm", days: null };
+  }
+  return { level: "ok", label: "Giấy tờ ổn", days: null };
 }
 
 /** Demo seed — màn hình tự giải thích chính nó khi chưa có dữ liệu. */
 export function demoCrew(today: Date): CrewMember[] {
-  const d = (offsetDays: number) => {
-    const t = new Date(today);
-    t.setUTCDate(t.getUTCDate() + offsetDays);
-    return t.toISOString().slice(0, 10);
-  };
+  const base = todayIsoVN(today);
+  const d = (offsetDays: number) => addDaysIso(base, offsetDays);
   return [
     {
       id: "demo-c1",

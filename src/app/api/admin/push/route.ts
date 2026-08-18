@@ -7,7 +7,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
-import { isPushConfigured, sendPush } from "@/lib/push-send";
+import { isPushConfigured, sendPushMany } from "@/lib/push-send";
+import { isQuietHoursVN } from "@/lib/storm-push";
 import { normalizeVnPhone } from "@/lib/phone";
 
 const err = (status: number, code: string) =>
@@ -62,7 +63,7 @@ export async function GET() {
      đã nhận". Service worker báo về nên đếm được thật. */
   const { data: msgs } = await admin
     .from("push_messages")
-    .select("id, title, target, target_phone, devices, sent, created_at")
+    .select("id, title, target, target_phone, sent_by, devices, sent, created_at")
     .order("created_at", { ascending: false })
     .limit(10);
   const ids = (msgs ?? []).map((m) => (m as { id: string }).id);
@@ -113,6 +114,7 @@ export async function GET() {
       title: string;
       target: string;
       target_phone: string | null;
+      sent_by: string;
       devices: number;
       sent: number;
       created_at: string;
@@ -122,6 +124,8 @@ export async function GET() {
       title: r.title,
       target: r.target,
       targetPhone: r.target_phone,
+      /** SĐT admin (tin tay) hoặc `system:storm` / `system:order` (máy tự gửi) */
+      sentBy: r.sent_by,
       devices: r.devices,
       sent: r.sent,
       delivered: delivered.get(r.id) ?? 0,
@@ -219,29 +223,27 @@ export async function POST(req: Request) {
 
   // sentAt đi kèm để service worker TỰ TÍNH tin trễ bao lâu lúc nó tới máy —
   // TTL 4 tuần nên tin hoàn toàn có thể nổ nhiều ngày sau (xem sw.js pushBodyVN)
-  const payload = {
-    title,
-    body: message,
-    url: body?.url || "/",
-    sentAt: new Date().toISOString(),
-    // để máy báo về đã nhận/đã đọc (/api/push/ack)
-    messageId,
-  };
-  const results = await Promise.all(
-    rows.map((r) =>
-      sendPush(
-        { endpoint: r.endpoint, p256dh: r.p256dh, authKey: r.auth_key },
-        payload,
-      ).then((res) => ({ id: r.id as string, ...res })),
-    ),
+  // TIN TAY KHÔNG CÓ `tag` (audit P2): mỗi tin admin gửi là một việc riêng,
+  // không được đè lên nhau; chỉ bão/đơn hàng mới gom theo mã sự kiện.
+  const { sent, goneIds, failed } = await sendPushMany(
+    rows.map((r) => ({
+      id: r.id as string,
+      endpoint: r.endpoint,
+      p256dh: r.p256dh,
+      authKey: r.auth_key,
+    })),
+    {
+      title,
+      body: message,
+      url: body?.url || "/",
+      sentAt: new Date().toISOString(),
+      // để máy báo về đã nhận/đã đọc (/api/push/ack)
+      messageId,
+    },
   );
 
-  const sent = results.filter((r) => r.ok).length;
-  const gone = results.filter((r) => !r.ok && r.gone).map((r) => r.id);
-  const failed = results.length - sent - gone.length;
-
-  if (gone.length > 0) {
-    await admin.from("push_subscriptions").delete().in("id", gone);
+  if (goneIds.length > 0) {
+    await admin.from("push_subscriptions").delete().in("id", goneIds);
   }
   if (messageId) {
     await admin.from("push_messages").update({ sent }).eq("id", messageId);
@@ -259,6 +261,10 @@ export async function POST(req: Request) {
     found: rows.length,
     sent,
     failed,
-    cleaned: gone.length,
+    cleaned: goneIds.length,
+    // GIỜ KHUYA (22h–5h VN) KHÔNG CHẶN tin tay — admin tự quyết — nhưng báo để
+    // màn /quan-tri nhắc "tin này sẽ đánh thức bà con". Bão tự động mới có luật
+    // chặn (lib/storm-push.ts).
+    ...(isQuietHoursVN(Date.now()) ? { warn: "gio-khuya" as const } : {}),
   });
 }

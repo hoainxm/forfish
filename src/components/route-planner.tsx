@@ -551,24 +551,13 @@ export function RoutePlanner({
 
       {plan && result && (
         <>
-          {/* BÃO ĐỨNG TRƯỚC MỌI THỨ — đây là dòng dính tính mạng, không phải
-              dòng "thông tin thêm". Chỉ hiện khi CHƯA đối chiếu được tin bão;
-              tuyến cắt vùng bão thật thì đã bị chặn ở trên, không vẽ tới đây. */}
-          {stormWarn && (
-            <p className="flex items-start gap-2 rounded-xl bg-[var(--danger-bg)] p-3 text-[0.9375rem] font-bold leading-snug text-danger">
-              <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
-              {stormWarn}
-            </p>
-          )}
-          {offlineSavedAt !== undefined && (
-            <p className="flex items-start gap-2 rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
-              <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
-              Đang mất sóng — tuyến tính từ lưới gió sóng ĐÃ LƯU trong máy
-              {offlineSavedAt != null ? ` (${savedAgoLabel(offlineSavedAt)})` : ""}.
-              Lưới này thô hơn dự báo tuyến và CHƯA tính dòng chảy — chỉ để tham
-              khảo hướng đi; nghe đài duyên hải, dò hải đồ trước khi chạy.
-            </p>
-          )}
+          {/* ── GOM CẢNH BÁO THÀNH TỐI ĐA 3 KHỐI (2026-08-18, audit M7) ─────
+              Trước đây tới ~10 thẻ nối đuôi trước nút dẫn đường; nay:
+              (1) NGUY HIỂM trên tuyến — sóng dữ, sóng đuôi, cạn/bờ (chỉ khi có)
+              (2) TUYẾN CHƯA ĐỐI CHIẾU — bão, lưới cũ, ngoài dự báo, độ sâu
+              (3) so với chạy thẳng + một câu dặn dò.
+              Không bỏ thông tin nào, chỉ gộp. Bão vẫn là gạch đầu dòng ĐẦU
+              TIÊN của khối 2 và kéo cả khối lên màu đỏ. */}
           <p className="text-[0.9375rem] font-semibold text-foreground/70">
             {result.startLabel} →{" "}
             {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)} — tuyến đã vẽ
@@ -605,105 +594,136 @@ export function RoutePlanner({
             </div>
           </div>
 
-          {/* Nói thật tuyến này so với chạy thẳng ra sao — không có nhánh
-              nào được phép nói "chạy thẳng" khi tuyến vẽ là đường vòng */}
-          {plan.cappedToDirect ? (
-            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
-              Không có đường vòng nào đáng tiền để né sóng — tuyến vẽ là ĐƯỜNG
-              THẲNG, trên đường có đoạn sóng tới{" "}
-              {formatNumberVN(plan.maxWaveM)} m. Cân nhắc hoãn hoặc đợi biển
-              êm hơn.
-            </p>
-          ) : plan.direct === null ? (
-            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
-              Đường chim bay đang vướng đất liền, bãi cạn hoặc sóng quá dữ —
-              tuyến này đi vòng qua chỗ đó.
-            </p>
-          ) : plan.fuelDeltaL != null &&
-            -plan.fuelDeltaL > Math.max(3, plan.direct.fuelL * 0.03) &&
-            plan.distKm > plan.direct.distKm * 1.02 ? (
-            <p className="rounded-xl bg-[var(--ok-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--ok)]">
-              Đi hơi vòng nhưng êm hơn — đỡ chừng{" "}
-              {Math.round(-plan.fuelDeltaL)} lít dầu so với chạy thẳng.
-            </p>
-          ) : plan.distKm <= plan.direct.distKm * 1.05 ? (
-            <p className="rounded-xl bg-[var(--ok-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--ok)]">
-              Hôm nay chạy thẳng là hợp lý nhất — tuyến vẽ theo đường đó.
-            </p>
-          ) : (
-            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
-              Tuyến vòng nhẹ để né đoạn sóng ~
-              {formatNumberVN(plan.direct.maxWaveM)} m trên đường thẳng — tốn
-              thêm chừng {Math.max(1, Math.round(plan.fuelDeltaL ?? 0))} lít.
-              Êm hơn nhưng không rẻ hơn, bà con tự cân nhắc.
-            </p>
-          )}
+          {/* (1) NGUY HIỂM TRÊN TUYẾN — chỉ khi có */}
+          {(() => {
+            const items: { text: string; danger: boolean }[] = [];
+            if (plan.hasRoughLeg)
+              items.push({
+                danger: true,
+                text: `Có đoạn sóng tới ${formatNumberVN(plan.maxWaveM)} m, gió cấp ${beaufort(plan.maxWindKmh)} — mức KHÔNG NÊN ĐI với tàu nhỏ. Cân nhắc hoãn chuyến, nghe đài trước khi quyết.`,
+              });
+            if (plan.hasFollowingSeaRisk && !plan.hasRoughLeg)
+              items.push({
+                danger: false,
+                text: "Có đoạn sóng dồn từ phía đuôi (≥2 m, sóng ngắn) — dễ trượt sóng: tới đoạn đó giảm ga, đừng để sóng vỗ thẳng đuôi tàu.",
+              });
+            if (plan.hasVeryShallowLeg)
+              items.push({
+                danger: true,
+                text: "Có đoạn đè lên vùng RẤT CẠN / bãi nổi (dưới 4 m) gần nơi xuất phát hoặc điểm đến — chỉ vào theo con nước lên, đi chậm, hỏi người rành luồng lạch chỗ đó.",
+              });
+            if (plan.hasNearLandLeg)
+              items.push({
+                danger: true,
+                text: "Đoạn đầu (hoặc cuối) tuyến đè lên phần BỜ theo bản đồ độ sâu của máy — chỗ vào cảng máy không vẽ chính xác được; đoạn đó đi theo luồng quen và hải đồ, đừng bám vạch trên màn hình.",
+              });
+            if (plan.hasShallowLeg)
+              items.push({
+                danger: false,
+                text: "Tuyến có đoạn nước nông (cỡ 4–12 m) — để ý con nước, hải đồ đoạn đó.",
+              });
+            if (items.length === 0) return null;
+            const anyDanger = items.some((i) => i.danger);
+            return (
+              <div
+                role="alert"
+                className={`rounded-xl p-3 ${
+                  anyDanger ? "bg-danger-bg text-danger" : "bg-warn-bg text-warn"
+                }`}
+              >
+                <p className="flex items-center gap-2 text-[1rem] font-bold leading-snug">
+                  <AlertIcon className="h-5 w-5 shrink-0" />
+                  Trên tuyến có chỗ nguy hiểm
+                </p>
+                <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[0.9375rem] font-semibold leading-snug">
+                  {items.map((i) => (
+                    <li key={i.text}>{i.text}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
-          {plan.hasRoughLeg && (
-            <p className="flex items-start gap-2 rounded-xl bg-[var(--danger-bg)] p-3 text-[0.9375rem] font-bold leading-snug text-danger">
-              <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
-              Trên đường có đoạn sóng tới {formatNumberVN(plan.maxWaveM)} m,
-              gió cấp {beaufort(plan.maxWindKmh)} — mức KHÔNG NÊN ĐI với tàu
-              nhỏ. Cân nhắc hoãn chuyến, nghe đài trước khi quyết.
-            </p>
-          )}
+          {/* (2) TUYẾN CHƯA ĐỐI CHIẾU — bão đứng đầu, kéo cả khối lên đỏ */}
+          {(() => {
+            const items: string[] = [];
+            if (stormWarn) items.push(stormWarn);
+            if (offlineSavedAt !== undefined)
+              items.push(
+                `Đang mất sóng — tuyến tính từ lưới gió sóng ĐÃ LƯU trong máy${
+                  offlineSavedAt != null ? ` (${savedAgoLabel(offlineSavedAt)})` : ""
+                }; lưới này thô hơn và CHƯA tính dòng chảy.`,
+              );
+            if (plan.beyondForecastH > 0)
+              items.push(
+                `Chuyến chạy dài hơn dự báo đang có: chừng ${formatHoursVN(plan.beyondForecastH)} cuối máy phải tính bằng dự báo của giờ cuối cùng — đoạn đó CHƯA chắc đúng.`,
+              );
+            if (!plan.depthChecked)
+              items.push(
+                "Chưa kiểm tra được độ sâu — tuyến chưa né bãi cạn, bà con tự dò hải đồ.",
+              );
+            if (items.length === 0) return null;
+            return (
+              <div
+                role={stormWarn ? "alert" : "status"}
+                className={`rounded-xl p-3 ${
+                  stormWarn ? "bg-danger-bg text-danger" : "bg-warn-bg text-warn"
+                }`}
+              >
+                <p className="flex items-center gap-2 text-[1rem] font-bold leading-snug">
+                  <AlertIcon className="h-5 w-5 shrink-0" />
+                  Tuyến này chưa đối chiếu đủ
+                </p>
+                <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[0.9375rem] font-semibold leading-snug">
+                  {items.map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
-          {plan.hasFollowingSeaRisk && !plan.hasRoughLeg && (
-            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
-              Có đoạn sóng dồn từ phía đuôi (≥2 m, sóng ngắn) — dễ trượt sóng:
-              tới đoạn đó giảm ga, đừng để sóng vỗ thẳng đuôi tàu.
+          {/* (3) So với chạy thẳng — không có nhánh nào được phép nói "chạy
+              thẳng" khi tuyến vẽ là đường vòng — + MỘT câu dặn dò */}
+          <div className="space-y-1.5">
+            {plan.cappedToDirect ? (
+              <p className="rounded-xl bg-warn-bg p-3 text-[0.9375rem] font-semibold leading-snug text-warn">
+                Không có đường vòng nào đáng tiền để né sóng — tuyến vẽ là ĐƯỜNG
+                THẲNG, trên đường có đoạn sóng tới{" "}
+                {formatNumberVN(plan.maxWaveM)} m. Cân nhắc hoãn hoặc đợi biển
+                êm hơn.
+              </p>
+            ) : plan.direct === null ? (
+              <p className="rounded-xl bg-warn-bg p-3 text-[0.9375rem] font-semibold leading-snug text-warn">
+                Đường chim bay đang vướng đất liền, bãi cạn hoặc sóng quá dữ —
+                tuyến này đi vòng qua chỗ đó.
+              </p>
+            ) : plan.fuelDeltaL != null &&
+              -plan.fuelDeltaL > Math.max(3, plan.direct.fuelL * 0.03) &&
+              plan.distKm > plan.direct.distKm * 1.02 ? (
+              <p className="rounded-xl bg-ok-bg p-3 text-[0.9375rem] font-semibold leading-snug text-ok">
+                Đi hơi vòng nhưng êm hơn — đỡ chừng{" "}
+                {Math.round(-plan.fuelDeltaL)} lít dầu so với chạy thẳng.
+              </p>
+            ) : plan.distKm <= plan.direct.distKm * 1.05 ? (
+              <p className="rounded-xl bg-ok-bg p-3 text-[0.9375rem] font-semibold leading-snug text-ok">
+                Hôm nay chạy thẳng là hợp lý nhất — tuyến vẽ theo đường đó.
+              </p>
+            ) : (
+              <p className="rounded-xl bg-warn-bg p-3 text-[0.9375rem] font-semibold leading-snug text-warn">
+                Tuyến vòng nhẹ để né đoạn sóng ~
+                {formatNumberVN(plan.direct.maxWaveM)} m trên đường thẳng — tốn
+                thêm chừng {Math.max(1, Math.round(plan.fuelDeltaL ?? 0))} lít.
+                Êm hơn nhưng không rẻ hơn, bà con tự cân nhắc.
+              </p>
+            )}
+            <p className="text-[0.875rem] leading-snug text-foreground/65">
+              Đoạn xấu nhất: sóng ~{formatNumberVN(plan.maxWaveM)} m, gió cấp{" "}
+              {beaufort(plan.maxWindKmh)}. Tuyến tính từ dự báo từng giờ và bản đồ
+              độ sâu ô ~5,5 km (rạn nhỏ, đá ngầm lẻ, luồng lạch máy KHÔNG thấy) —
+              chỉ tham khảo; dò hải đồ, nghe đài duyên hải trước khi chạy.
             </p>
-          )}
-
-          {plan.hasVeryShallowLeg && (
-            <p className="flex items-start gap-2 rounded-xl bg-[var(--danger-bg)] p-3 text-[0.9375rem] font-bold leading-snug text-danger">
-              <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
-              Có đoạn đè lên vùng RẤT CẠN / bãi nổi (dưới 4 m) gần nơi xuất
-              phát hoặc điểm đến — chỉ vào theo con nước lên, đi chậm, hỏi
-              người rành luồng lạch chỗ đó.
-            </p>
-          )}
-
-          {plan.hasNearLandLeg && (
-            <p className="flex items-start gap-2 rounded-xl bg-[var(--danger-bg)] p-3 text-[0.9375rem] font-bold leading-snug text-danger">
-              <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
-              Đoạn đầu (hoặc cuối) tuyến đè lên phần BỜ theo bản đồ độ sâu của
-              máy — chỗ vào cảng máy không vẽ chính xác được. Đoạn đó bà con đi
-              theo luồng quen và hải đồ, đừng bám theo vạch trên màn hình.
-            </p>
-          )}
-
-          {plan.hasShallowLeg && (
-            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
-              Tuyến có đoạn nước nông (cỡ 4–12 m) — để ý con nước, hải đồ
-              đoạn đó.
-            </p>
-          )}
-
-          {plan.beyondForecastH > 0 && (
-            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
-              Chuyến chạy dài hơn dự báo đang có: chừng{" "}
-              {formatHoursVN(plan.beyondForecastH)} cuối máy phải tính bằng dự
-              báo của giờ cuối cùng — đoạn đó CHƯA chắc đúng. Nghe đài duyên
-              hải trước và trong chuyến.
-            </p>
-          )}
-
-          {!plan.depthChecked && (
-            <p className="rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
-              Chuyến này chưa kiểm tra được độ sâu — tuyến chưa né bãi cạn, bà
-              con tự dò hải đồ.
-            </p>
-          )}
-
-          <p className="text-[0.875rem] leading-snug text-foreground/65">
-            Đoạn xấu nhất trên tuyến: sóng ~{formatNumberVN(plan.maxWaveM)} m,
-            gió cấp {beaufort(plan.maxWindKmh)}. Tuyến tính từ dự báo gió,
-            sóng, dòng nước chảy từng giờ và bản đồ độ sâu ô ~5,5 km (né bờ
-            và bãi cạn lớn; rạn nhỏ hơn ô lưới, đá ngầm lẻ, luồng lạch, đăng
-            đáy máy KHÔNG thấy được) — chỉ để tham khảo; con nước sát bờ có
-            thể lệch. Bà con dò hải đồ và nghe đài duyên hải trước khi chạy.
-          </p>
+          </div>
 
           {/* DẪN ĐƯỜNG LIVE: bám tuyến, theo dõi GPS. Chỉ hiện khi cha nối
               onStart (màn bản đồ) và tuyến đã tính xong (result). */}

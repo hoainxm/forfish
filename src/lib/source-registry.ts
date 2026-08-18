@@ -283,3 +283,34 @@ export function lowQualityNote(cast: {
   }
   return null;
 }
+
+/**
+ * CÂU NÓI khi lớp cá KHÔNG tải được — phân biệt LỖI TẢI với KHOÁ QUYỀN.
+ * `null` = ĐỪNG hiện nút "chạm để thử lại" (bấm bao nhiêu lần cũng vô ích).
+ *
+ * ⚠️ VÌ SAO CÓ (2026-08-18, chủ dự án gửi ảnh màn hình thật): màn Ra khơi gộp
+ * MỌI ca `!ok` thành một câu *"Dự báo cá chưa tải được — chạm để thử lại"*,
+ * kể cả khi máy chủ đã trả lời rất rõ là **chưa đăng nhập** (401 `login_required`
+ * / `no_token`) hay **chưa premium** (403 `premium_required`). Bà con bấm mãi
+ * không được gì — đúng hai khuôn mà cả mạch này đang diệt: "nói sai lý do" và
+ * "nút bấm không được gì". Hai ca đó đã có thẻ khoá riêng (`PremiumLock`) lo,
+ * nên ở đây trả `null` để không chồng hai thông điệp lên nhau.
+ *
+ * Đo cùng ngày: snapshot cá trên máy chủ khoẻ (0,5 giờ tuổi, chất lượng 1,
+ * 2187 ô) — tức câu "chưa tải được" hôm đó gần như chắc chắn là chuyện QUYỀN,
+ * không phải nguồn.
+ */
+export function fishFailNote(code?: string | null): string | null {
+  switch (code) {
+    case "login_required":
+    case "no_token":
+    case "unknown_token":
+    case "token_revoked":
+    case "premium_required":
+      return null; // thẻ khoá quyền lo phần này
+    case "unavailable":
+      return "Máy chủ đang bận — chạm thử lại sau ít phút";
+    default:
+      return "Dự báo cá chưa tải được — chạm để thử lại";
+  }
+}

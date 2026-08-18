@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { beaufort } from "@/lib/marine-weather";
 import {
   capGioSangKmh,
+  catThanBanTin,
   htmlToText,
   parseCapGio,
   parseGioPhatTin,
@@ -131,6 +132,47 @@ describe("parseNchmfBulletin — bản tin thật 18/8/2026", () => {
 
   it("KHÔNG bịa vùng ảnh hưởng: bản tin VN cho khung toạ độ, không phải polygon", () => {
     expect(s.areas).toEqual([]);
+  });
+});
+
+/*  MENU TRANG KHÔNG ĐƯỢC LÀM ĐỔI NGHĨA BẢN TIN.
+ *
+ *  Lỗi thật, bắt được 2026-08-18 khi soi bản tin trực tiếp: `htmlToText` bóc cả
+ *  thanh điều hướng của nchmf.gov.vn, và thanh đó LUÔN có mục "Bão - Áp thấp
+ *  nhiệt đới". Phép `có "bão" && không có "áp thấp nhiệt đới"` vì thế luôn ra
+ *  false ⇒ giữa cơn bão cấp 12, màn hình bà con vẫn ghi "Áp thấp nhiệt đới".
+ *  Im lặng tuyệt đối: không sập, không log — chỉ nói nhẹ đi một cấp thiên tai. */
+const MENU_TRANG =
+  "Trang chủ Dự báo Thời tiết nguy hiểm Bão - Áp thấp nhiệt đới " +
+  "Rủi ro thiên tai Mưa lớn Rủi ro thiên tai khác Kiến thức KTTV " +
+  "Bão & Áp thấp nhiệt đới Hải văn Nước dâng Sóng Dòng chảy ";
+
+describe("catThanBanTin — menu trang không được đội lốt nội dung bản tin", () => {
+  const TIN_BAO =
+    "TIN BÃO KHẨN CẤP (CƠN BÃO SỐ 5) Hồi 13 giờ, vị trí tâm bão số 5 ở khoảng " +
+    "16,2°N; 110,5°E. Cường độ: cấp 12, giật cấp 15. Tin phát lúc: 14h00 ngày 18/8";
+
+  it("TIN BÃO có menu ở đầu vẫn là BÃO, không tụt xuống áp thấp", () => {
+    const s = parseNchmfBulletin(MENU_TRANG + TIN_BAO, NOW)!;
+    expect(s.kindLabel).toBe("Bão mạnh");
+    expect(s.name).toBe("số 5");
+  });
+
+  it("bản tin ATNĐ có menu vẫn là ATNĐ (không lật ngược sang bão)", () => {
+    const s = parseNchmfBulletin(MENU_TRANG + BAN_TIN_THAT, NOW)!;
+    expect(s.kindLabel).toBe("Áp thấp nhiệt đới");
+    expect(s.lat).toBe(19.8);
+  });
+
+  it("giữ TIÊU ĐỀ bản tin (chỗ ghi 'bão số N'), chỉ bỏ phần trước nó", () => {
+    const than = catThanBanTin(MENU_TRANG + TIN_BAO);
+    expect(than.startsWith("TIN BÃO KHẨN CẤP")).toBe(true);
+    expect(than).not.toContain("Trang chủ");
+  });
+
+  it("không tìm thấy mốc thân → trả NGUYÊN VĂN, thà đọc thừa còn hơn cắt mất tin", () => {
+    const t = "Chuỗi không có mốc giờ nào cả";
+    expect(catThanBanTin(t)).toBe(t);
   });
 });
 

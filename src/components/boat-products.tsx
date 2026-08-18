@@ -26,7 +26,8 @@ import { MyOrders } from "@/components/my-orders";
 import { SdvicoRequestButton } from "@/components/sdvico-request";
 import { formatVnDate } from "@/lib/format";
 import { readUserList, type UserListRead } from "@/lib/user-list-store";
-import { saveUserJson } from "@/lib/user-store";
+import { saveUserJson, storageFullCopy } from "@/lib/user-store";
+import { useTodayVN } from "@/lib/use-today";
 import {
   BoatProduct,
   byWarrantyUrgency,
@@ -78,7 +79,7 @@ function saveProducts(products: BoatProduct[]): boolean {
 // ── component ────────────────────────────────────────────────
 
 export function BoatProducts() {
-  const today = useMemo(() => new Date(), []);
+  const { today } = useTodayVN();
   const { current, boats } = useBoats();
   const [products, setProducts] = useState<BoatProduct[]>([]);
   const [isDemo, setIsDemo] = useState(false);
@@ -106,16 +107,22 @@ export function BoatProducts() {
     setProducts(stored.list ?? demoProducts(today, current?.id));
     setIsDemo(stored.list === null); // chưa có đồ thật → đang xem hàng mẫu
     setReady(true);
-    // current?.id intentionally read once on mount for the demo seed;
+    // current?.id / today intentionally read once on mount for the demo seed;
     // stored data already carries its own boatId per item.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [today]);
+  }, []);
 
-  // Hàng mẫu sống trong bộ nhớ thôi — chỉ đồ THẬT mới được ghi xuống máy
-  // (mirror crew-list 2026-06-11: demo không lọt vào dải nhắc/lưu trữ).
-  useEffect(() => {
-    if (ready && !isDemo) setSaveFailed(!saveProducts(products));
-  }, [products, ready, isDemo]);
+  /*  GHI KHI BÀ CON THAO TÁC, KHÔNG GHI SAU HYDRATE (N5/N2, audit 2026-08-18):
+      effect cũ `if (ready && !isDemo) save(products)` chạy ngay khi mở màn ⇒ máy
+      đầy thì băng đỏ bật dù chưa nhập gì; và nhánh đọc-lại-khi-đổi-tàu set
+      `readFailed` mà `ready` vẫn true ⇒ effect ghi có thể đè lên chuỗi đang
+      không đọc được. Nay chỉ `commit()` từ thêm/sửa/xoá; đọc hỏng thì KHÔNG ghi.
+      Hàng mẫu sống trong bộ nhớ thôi — chỉ đồ THẬT mới được ghi xuống máy. */
+  function commit(next: BoatProduct[]) {
+    setProducts(next);
+    if (readFailed) return;
+    setSaveFailed(!saveProducts(next));
+  }
 
   // Xóa tàu → hàng gán tàu đó đã được nhả về "của chung" (ba-spec 08 R3);
   // đọc lại để boatId trong state khớp máy, không tự ghi đè bản cũ.
@@ -129,6 +136,7 @@ export function BoatProducts() {
     }
     setProducts(stored.list ?? demoProducts(today, current?.id));
     setIsDemo(stored.list === null);
+    setReadFailed(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boats.length]);
 
@@ -153,24 +161,24 @@ export function BoatProducts() {
     // Ghi/sửa đồ THẬT đầu tiên = hàng mẫu nhường chỗ luôn, không lẫn lộn.
     if (isDemo) {
       setIsDemo(false);
-      setProducts([product]);
+      commit([product]);
       setShowForm(false);
       setEditing(null);
       return;
     }
-    setProducts((prev) => {
-      const idx = prev.findIndex((p) => p.id === product.id);
-      if (idx === -1) return [...prev, product];
-      const next = [...prev];
-      next[idx] = product;
-      return next;
-    });
+    const idx = products.findIndex((p) => p.id === product.id);
+    const next = [...products];
+    if (idx === -1) next.push(product);
+    else next[idx] = product;
+    commit(next);
     setShowForm(false);
     setEditing(null);
   }
 
   function remove(id: string) {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+    const next = products.filter((p) => p.id !== id);
+    if (isDemo) setProducts(next); // xoá hàng mẫu = chỉ bỏ khỏi bộ nhớ
+    else commit(next);
     setConfirmDelete(null);
   }
 
@@ -193,15 +201,16 @@ export function BoatProducts() {
       {readFailed && (
         <div className="mx-4 mt-3 overflow-hidden surface">
           <StatusBanner level="danger">
-            Máy chưa đọc được danh sách đồ đã lưu. Đóng app rồi mở lại; đừng thêm
-            đồ mới lúc này để khỏi mất danh sách cũ.
+            Danh sách đồ trong máy đang ĐỌC KHÔNG ĐƯỢC — đồ cũ vẫn nằm trong máy
+            nhưng app chưa mở ra được. Nút thêm đã tạm khoá để khỏi đè mất bản
+            cũ; thử tắt hẳn app mở lại, hoặc phục hồi từ tệp sao lưu.
           </StatusBanner>
         </div>
       )}
       {saveFailed && (
         <div className="mx-4 mt-3 overflow-hidden surface">
           <StatusBanner level="danger">
-            Máy không giữ được — xoá bớt dữ liệu rồi thử lại.
+            {storageFullCopy("sản phẩm vừa ghi")}
           </StatusBanner>
         </div>
       )}
@@ -314,14 +323,18 @@ export function BoatProducts() {
                       <strong>{formatVnDate(p.warrantyUntil)}</strong>
                     </p>
                   )}
-                  <div className="mt-2 flex justify-end">
-                    <SdvicoRequestButton
-                      variant="chip"
-                      topic="sua-chua"
-                      productName={`${p.name}${p.serial ? ` (serial ${p.serial})` : ""}`}
-                      label="Gọi bảo hành món này"
-                    />
-                  </div>
+                  {/* chip gọi bảo hành chỉ khi SẮP HẾT / ĐÃ HẾT (T15) — món còn
+                      dài hạn không cần nút thúc */}
+                  {(status.level === "soon" || status.level === "expired") && (
+                    <div className="mt-2 flex justify-end">
+                      <SdvicoRequestButton
+                        variant="chip"
+                        topic="sua-chua"
+                        productName={`${p.name}${p.serial ? ` (serial ${p.serial})` : ""}`}
+                        label="Gọi bảo hành món này"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -329,34 +342,59 @@ export function BoatProducts() {
         </div>
       )}
 
-      <button
-        onClick={() => {
-          setEditing(null);
-          setShowForm(true);
-        }}
-        className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
-      >
-        <PlusIcon className="h-6 w-6" />
-        Thêm sản phẩm
-      </button>
+      {/* ĐỌC KHÔNG ĐƯỢC ⇒ ẩn nút Thêm (T13) — banner đỏ ở trên đã nói vì sao */}
+      {!readFailed && (
+        <button
+          onClick={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+          className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
+        >
+          <PlusIcon className="h-6 w-6" />
+          Thêm sản phẩm
+        </button>
+      )}
+
+      {/* Hàng mẫu tự xưng là mẫu — banner đứng TRÊN thẻ, thẻ mẫu không đeo băng
+          đỏ/vàng (T3, 2026-08-18) */}
+      {ready && isDemo && sorted.length > 0 && (
+        <div className="mb-4 overflow-hidden surface">
+          <StatusBanner level="neutral" icon={<DocIcon className="h-5 w-5" />}>
+            Đây là hàng mẫu cho bà con xem thử — chưa lưu vào máy.
+          </StatusBanner>
+        </div>
+      )}
 
       {/* chỉ nói "chưa có gì" khi THẬT SỰ chưa có gì — kể cả đồ đồng bộ
-          (roadmap hội đồng UX: empty state mâu thuẫn danh sách ngay trên) */}
-      {ready &&
+          (roadmap hội đồng UX: empty state mâu thuẫn danh sách ngay trên);
+          ca đọc-hỏng nói khác vì nút cam đã ẩn */}
+      {(ready || readFailed) &&
         sorted.length === 0 &&
         !(synced && synced.products.length > 0) && (
           <EmptyState icon={<DocIcon className="h-10 w-10" />}>
-            Chưa có sản phẩm SDVICO nào cho tàu này.
-            <br />
-            Bấm nút cam ở trên để thêm.
+            {readFailed ? (
+              <>
+                Chưa mở được danh sách đồ trong máy.
+                <br />
+                Đồ cũ chưa mất — xem dải đỏ ở trên.
+              </>
+            ) : (
+              <>
+                Chưa có sản phẩm SDVICO nào cho tàu này.
+                <br />
+                Bấm nút cam ở trên để thêm.
+              </>
+            )}
           </EmptyState>
         )}
 
       <ul className="space-y-3">
         {sorted.map((product) => {
           const status = getWarrantyStatus(product, today);
-          const level =
-            status.level === "expired"
+          const level = isDemo
+            ? "neutral"
+            : status.level === "expired"
               ? "danger"
               : status.level === "soon"
                 ? "warn"
@@ -375,7 +413,7 @@ export function BoatProducts() {
                   level === "neutral" ? <ClockIcon className="h-5 w-5" /> : undefined
                 }
               >
-                {status.label}
+                {isDemo ? `Ví dụ: ${status.label}` : status.label}
               </StatusBanner>
 
               <div className="px-4 py-3">

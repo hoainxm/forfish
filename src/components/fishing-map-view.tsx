@@ -86,7 +86,7 @@ import {
   BLEND_USABLE,
   type Climatology,
 } from "@/lib/fish-blend";
-import { lowQualityNote } from "@/lib/source-registry";
+import { fishFailNote, lowQualityNote } from "@/lib/source-registry";
 import { moonPhase } from "@/lib/moon";
 import { FREE_FORECAST_DAYS } from "@/lib/tier";
 import { useFeatureAccess } from "@/lib/use-tier";
@@ -143,7 +143,13 @@ import {
   STATIC_VMS_ZONES,
   type VmsZone,
 } from "@/lib/vms-zones";
-import { borderProximity, haversineKm, type BorderLevel } from "@/lib/geofence";
+import {
+  borderProximity,
+  borderStepCrossed,
+  borderStepFor,
+  haversineKm,
+  type BorderLevel,
+} from "@/lib/geofence";
 import { fetchDepthGrid, depthClassAt, type DepthClass } from "@/lib/depth-grid";
 import { timeoutSignal } from "@/lib/abort";
 import { weatherFromCode } from "@/lib/weather-codes";
@@ -154,6 +160,7 @@ import {
   isVmsZoneOn,
 } from "@/lib/map-prefs";
 import { stormStatus } from "@/lib/storms";
+import { tracksToGeoJSON } from "@/lib/storm-track";
 import { useStormCheck } from "@/lib/use-storm-check";
 import {
   chipLabel,
@@ -181,10 +188,11 @@ import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
 import { RaKhoiControls } from "@/components/ra-khoi-controls";
 import { StormBanner } from "@/components/storm-banner";
 import {
-  NOTIFY_HIDE_MS,
   PretripAutoNotify,
   PretripSavedStatus,
 } from "@/components/pretrip-auto-notify";
+import { NOTIFY_HIDE_LONG_MS } from "@/lib/notify";
+import { premiumLine } from "@/components/premium-gate";
 import {
   AlertIcon,
   FishIcon,
@@ -472,27 +480,34 @@ export default function FishingMapView() {
   const [fishSpecies, setFishSpecies] = useState<string | null>(null);
   // lỗi tải dự báo cá phải LÊN TIẾNG — không để nút Cá lặng lẽ biến mất
   // còn người dùng tưởng "hôm nay không có cá"
-  const [fishFailed, setFishFailed] = useState(false);
+  /** câu báo lỗi lớp cá — null = không có gì để nói (xem `fishFailNote`) */
+  const [fishFailMsg, setFishFailNote] = useState<string | null>(null);
   /* Bản đồ cá dựng từ ảnh CŨ thì phải nói MỘT DÒNG rồi tự tắt — không badge
      thường trực (màn hình phải gọn), nhưng cũng không im lặng hứa "hôm nay" khi
      ảnh đã cũ. CHỈ chuyện ảnh cũ: cảnh báo "thiếu vài nguồn" đã bỏ (chủ dự án
      2026-07-27, bà con không cần biết). Luật + chữ ở lib/source-registry.ts. */
   const [fishQualityNote, setFishQualityNote] = useState<string | null>(null);
+  /*  CÂU BÁO LỖI PHẢI NÓI ĐÚNG VIỆC (sửa 2026-08-18, chủ dự án gửi ảnh màn
+      thật). Bản cũ gộp MỌI `!r.ok` thành "Dự báo cá chưa tải được — chạm để
+      thử lại", kể cả khi máy chủ nói rõ là chưa đăng nhập (401) hay chưa
+      premium (403): bà con bấm mãi không được gì, mà thẻ khoá quyền lại đang
+      hiện ngay bên cạnh. `fishFailNote` (thuần, có test) trả `null` cho hai ca
+      đó để khỏi chồng hai thông điệp. */
   const loadFish = useCallback(() => {
-    setFishFailed(false);
+    setFishFailNote(null);
     fetchFishForecast()
       .then((r) => {
         if (r.ok) {
           setFishCast(r);
           setFishQualityNote(lowQualityNote(r));
-        } else setFishFailed(true);
+        } else setFishFailNote(fishFailNote(r.code));
       })
-      .catch(() => setFishFailed(true));
+      .catch(() => setFishFailNote(fishFailNote()));
   }, []);
   // nói xong thì tắt, cùng nhịp với các dòng nổi khác trên bản đồ
   useEffect(() => {
     if (!fishQualityNote) return;
-    const t = setTimeout(() => setFishQualityNote(null), NOTIFY_HIDE_MS);
+    const t = setTimeout(() => setFishQualityNote(null), NOTIFY_HIDE_LONG_MS);
     return () => clearTimeout(t);
   }, [fishQualityNote]);
   // LUÔN THỬ TẢI, để MÁY CHỦ quyết (2026-08-01, luật gọn ở đầu khối premium):
@@ -1191,6 +1206,19 @@ export default function FishingMapView() {
     }
     return features.length ? { type: "FeatureCollection", features } : null;
   }, [storms]);
+
+  /*  ĐƯỜNG ĐI TỪ KHO BẢN TIN VN (0036) — thứ GDACS không cho được: các web bão
+      chuyên nghiệp vẽ đoạn ĐÃ ĐI liền nét + đoạn SẮP TỚI gạch đứt kèm vùng nguy
+      hiểm từng mốc. Đọc thẳng từ `stormCheck` (không phải `stormInfo`) vì đường
+      đi vẫn đáng vẽ cả khi tin đã cũ — nó là LỊCH SỬ, không phải kết luận an
+      toàn; mọi câu kết luận vẫn đi qua `stormGateForRoute`. */
+  const trackGeo = useMemo<GeoJSON.FeatureCollection | null>(
+    () =>
+      stormCheck?.ok && stormCheck.tracks?.length
+        ? tracksToGeoJSON(stormCheck.tracks)
+        : null,
+    [stormCheck],
+  );
   // ngày đang xem dự báo: 0 = hôm nay … tới FORECAST_MAX_DAYS-1
   const [dayIdx, setDayIdx] = useState(0);
   // tuyến dẫn đường tiết kiệm dầu (route-planner.tsx) — vẽ đè lên bản đồ
@@ -1307,11 +1335,17 @@ export default function FishingMapView() {
     silent: basemapSilent,
   };
   const offlineBase = shouldUseOfflineBasemap(basemapHealth);
-  const offlineNote = offlineBasemapNote(basemapHealth);
+  // hình bờ + đảo trong máy (nạp ở effect bên dưới) — khai báo ở đây vì câu
+  // nhắc mất sóng phải biết đã CÓ hình bờ chưa mới được nói "đang dùng bản đồ
+  // lưu trong máy" (audit M6)
+  const [coastData, setCoastData] = useState<GeoJSON.FeatureCollection | null>(
+    null,
+  );
+  const offlineNote = offlineBasemapNote(basemapHealth, coastData != null);
   /* Nhắc "mất sóng" HIỆN RỒI TỰ TẮT như dòng "Đã lưu dự báo tới ngày…" — thẻ
      vàng 2 dòng nằm lì trước đây làm rối bản đồ. Effect chỉ chạy lại khi CÂU
      ĐỔI, nên vẫn đang mất sóng thì không báo đi báo lại; có sóng lại rồi mất
-     tiếp thì câu quay về từ null → báo một lần nữa. */
+     tiếp thì câu quay về từ null → báo một lần nữa (câu 2 dòng → 8s). */
   const [offlineNoteOn, setOfflineNoteOn] = useState(false);
   useEffect(() => {
     if (!offlineNote) {
@@ -1319,7 +1353,7 @@ export default function FishingMapView() {
       return;
     }
     setOfflineNoteOn(true);
-    const t = setTimeout(() => setOfflineNoteOn(false), NOTIFY_HIDE_MS);
+    const t = setTimeout(() => setOfflineNoteOn(false), NOTIFY_HIDE_LONG_MS);
     return () => clearTimeout(t);
   }, [offlineNote]);
   /* Hình bờ + đảo — NẠP NGAY KHI MỞ MÀN, KHÔNG chờ tới lúc mất sóng.
@@ -1331,9 +1365,6 @@ export default function FishingMapView() {
      Nạp vô điều kiện KHÔNG TỐN SÓNG: /data/vn-coast.v1.json là file cùng origin
      (~220 KB) đã nằm trong danh sách service worker giữ sẵn ⇒ đọc từ kho trong
      máy. Có đồng hồ để không treo, và thử lại khi sóng về (netEpoch). */
-  const [coastData, setCoastData] = useState<GeoJSON.FeatureCollection | null>(
-    null,
-  );
   useEffect(() => {
     if (coastData) return; // có rồi thì thôi — file tĩnh, không đổi
     let alive = true;
@@ -1446,6 +1477,64 @@ export default function FishingMapView() {
     [navMode, tracking.pos, tracking.headingDeg, tracking.speedKmh],
   );
 
+  /* RANH GIỚI THEO GPS KHI DẪN ĐƯỜNG (2026-08-18, audit M3 — tính mạng/IUU).
+     Trước đây cảnh báo ranh giới chỉ tính theo ĐIỂM ĐANG XEM trên bản đồ (prox
+     bên dưới) — đang chạy tàu mà nhìn chỗ khác thì im. Nay bám `tracking.pos`:
+     vào 15 hải lý nói một lần, nói lại CHỈ khi vượt sang mốc gần hơn (10 → 6
+     → 3, lib/geofence borderStepCrossed), không lặp mỗi nhịp GPS; ≤6 hải lý
+     không thu được (NavHud). Đi ra xa thì mốc lùi trong im lặng để lần quay
+     lại gần vẫn được nhắc. */
+  const navOn = navMode != null;
+  const navPos = tracking.pos;
+  // memo theo fix GPS — effect dưới lệ thuộc reference này, không được đổi
+  // mỗi lần vẽ lại (sẽ set state vòng lặp)
+  const navProx = useMemo(
+    () => (navOn && navPos ? borderProximity(navPos.lat, navPos.lon) : null),
+    [navOn, navPos],
+  );
+  const navBorderStepRef = useRef<number | null>(null);
+  const [navBorder, setNavBorder] = useState<{
+    step: number;
+    distanceNm: number;
+    level: BorderLevel;
+    /** bà con đã chạm thu dòng này (chỉ được khi >6 hải lý) */
+    dismissed: boolean;
+  } | null>(null);
+  useEffect(() => {
+    if (!navProx) {
+      navBorderStepRef.current = null;
+      setNavBorder(null);
+      return;
+    }
+    const crossed = borderStepCrossed(navProx.distanceNm, navBorderStepRef.current);
+    const step = borderStepFor(navProx.distanceNm);
+    navBorderStepRef.current = step;
+    if (step == null) {
+      setNavBorder(null); // đã ra ngoài 15 hải lý → thôi
+      return;
+    }
+    if (crossed != null) {
+      // mốc mới → nói lại (mở lại dù trước đó đã thu)
+      setNavBorder({
+        step: crossed,
+        distanceNm: navProx.distanceNm,
+        level: navProx.level,
+        dismissed: false,
+      });
+    } else {
+      // vẫn trong mốc cũ: cập nhật số/mức trong im lặng, giữ trạng thái thu
+      setNavBorder((b) =>
+        b
+          ? { ...b, step, distanceNm: navProx.distanceNm, level: navProx.level }
+          : { step, distanceNm: navProx.distanceNm, level: navProx.level, dismissed: false },
+      );
+    }
+  }, [navProx]);
+  const dismissNavBorder = useCallback(
+    () => setNavBorder((b) => (b ? { ...b, dismissed: true } : b)),
+    [],
+  );
+
   // camera bám vị trí tàu mỗi khi có fix mới (chỉ khi định vị còn tốt — mất
   // định vị thì GIỮ NGUYÊN khung, không giật camera theo vị trí cũ)
   useEffect(() => {
@@ -1529,7 +1618,7 @@ export default function FishingMapView() {
     };
   }, [staleNow]);
 
-  // Thẻ "số cũ trong máy" (mất mạng → dùng bản đã lưu) TỰ ẨN sau NOTIFY_HIDE_MS
+  // Thẻ "số cũ trong máy" (mất mạng → dùng bản đã lưu) TỰ ẨN sau NOTIFY_HIDE_LONG_MS (2 dòng → 8s)
   // như mấy chip khác — trước là hộp vàng nằm lì che bản đồ. Effect chạy lại
   // khi CHỖ/tuổi bản lưu đổi, nên vẫn stale thì không nhấp nháy báo lại.
   const staleSig = cond?.stale ? `${cond.source ?? ""}:${cond.savedAt ?? ""}` : null;
@@ -1540,7 +1629,7 @@ export default function FishingMapView() {
       return;
     }
     setStaleNoteOn(true);
-    const t = setTimeout(() => setStaleNoteOn(false), NOTIFY_HIDE_MS);
+    const t = setTimeout(() => setStaleNoteOn(false), NOTIFY_HIDE_LONG_MS);
     return () => clearTimeout(t);
   }, [staleSig]);
 
@@ -2216,6 +2305,96 @@ export default function FishingMapView() {
           </Source>
         )}
 
+        {/* ĐƯỜNG ĐI CƠN BÃO theo bản tin VN (kho 0036) — cách các web bão dựng
+            hình: vùng nguy hiểm từng mốc (khung toạ độ NCHMF PHÁT, không phải
+            vòng tròn tự chế), đoạn ĐÃ ĐI liền nét, đoạn SẮP TỚI gạch đứt, mỗi
+            mốc một chấm kèm giờ. Vẽ SAU stormGeo để nằm trên polygon GDACS. */}
+        {trackGeo && (
+          <Source id="storm-track" type="geojson" data={trackGeo}>
+            <Layer
+              id="storm-danger-fill"
+              type="fill"
+              filter={["==", ["get", "kind"], "vung-nguy-hiem"]}
+              paint={{ "fill-color": "#e4572e", "fill-opacity": 0.1 }}
+            />
+            <Layer
+              id="storm-danger-line"
+              type="line"
+              filter={["==", ["get", "kind"], "vung-nguy-hiem"]}
+              paint={{
+                "line-color": "#e4572e",
+                "line-width": 1,
+                "line-opacity": 0.5,
+                "line-dasharray": [3, 2],
+              }}
+            />
+            <Layer
+              id="storm-past-line"
+              type="line"
+              filter={["==", ["get", "kind"], "qua-khu"]}
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{ "line-color": "#7a1f14", "line-width": 3 }}
+            />
+            <Layer
+              id="storm-future-line"
+              type="line"
+              filter={["==", ["get", "kind"], "sap-toi"]}
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{
+                "line-color": "#b42318",
+                "line-width": 3,
+                "line-dasharray": [2, 1.4],
+              }}
+            />
+            {/* mốc ĐÃ QUA đặc ruột, mốc SẮP TỚI rỗng — hai lớp thay vì một biểu
+                thức `case`: cùng kết quả, đọc thẳng ra được nghĩa */}
+            <Layer
+              id="storm-moc-qua"
+              type="circle"
+              filter={
+                ["all", ["==", ["get", "kind"], "moc"], ["!", ["get", "tuongLai"]]] as unknown as FilterSpecification
+              }
+              paint={{
+                "circle-radius": 5,
+                "circle-color": "#7a1f14",
+                "circle-stroke-width": 2,
+                "circle-stroke-color": "#ffffff",
+              }}
+            />
+            <Layer
+              id="storm-moc-toi"
+              type="circle"
+              filter={
+                ["all", ["==", ["get", "kind"], "moc"], ["get", "tuongLai"]] as unknown as FilterSpecification
+              }
+              paint={{
+                "circle-radius": 5,
+                "circle-color": "#ffffff",
+                "circle-stroke-width": 2,
+                "circle-stroke-color": "#b42318",
+              }}
+            />
+            <Layer
+              id="storm-moc-label"
+              type="symbol"
+              filter={["==", ["get", "kind"], "moc"]}
+              layout={{
+                "text-field": ["get", "nhan"],
+                // chữ to cho mắt 40–60 tuổi dưới nắng chói (cùng cỡ nhãn đảo)
+                "text-size": 13,
+                "text-offset": [0, 1.1],
+                "text-anchor": "top",
+                "text-allow-overlap": false,
+              }}
+              paint={{
+                "text-color": "#7a1f14",
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 1.6,
+              }}
+            />
+          </Source>
+        )}
+
         {/* TUYẾN HÀNG HẢI (tàu hàng hay đi) + luồng/phân luồng — asset tĩnh
             /data/vn-sea-lanes.v1.json (SW giữ sẵn → mất sóng vẫn có). Tuyến lớn
             VẼ TAY, gắn nhãn THAM KHẢO (né va chạm, KHÔNG phải để lái); luồng/
@@ -2572,6 +2751,8 @@ export default function FishingMapView() {
             progress={navProgress}
             status={tracking.status}
             onStop={stopNav}
+            border={navBorder}
+            onDismissBorder={dismissNavBorder}
           />
         )}
         {/* TẢI SẴN DỰ BÁO: tự chạy khi vào trang (không còn nút bấm), báo một
@@ -2794,7 +2975,7 @@ export default function FishingMapView() {
                   cá (nếu có) xếp NGAY TRÊN nhãn này. */}
               {size === "peek" && (
                 <div className="flex flex-col items-end gap-2">
-                  {!overlayOn && fishOn && !fishCast && fishFailed && (
+                  {!overlayOn && fishOn && !fishCast && fishFailMsg && (
                     <button
                       type="button"
                       onClick={loadFish}
@@ -2805,7 +2986,7 @@ export default function FishingMapView() {
                         aria-hidden
                       />
                       <span className="text-[0.875rem] font-bold text-danger">
-                        Dự báo cá chưa tải được — chạm để thử lại
+                        {fishFailMsg}
                       </span>
                     </button>
                   )}
@@ -2923,8 +3104,9 @@ export default function FishingMapView() {
                         Dải ngày rút còn {gridShrunkTo} ngày.
                       </span>
                       <span className="mt-0.5 block text-[1rem] font-semibold leading-snug text-foreground/75">
-                        Chưa xác nhận được tài khoản nâng cao, mà trong máy cũng
-                        không còn bản dài ngày. Chạm để tắt dòng này.
+                        {netOnline
+                          ? "Chưa xác nhận được Premium, mà trong máy cũng không còn bản dài ngày. Chạm để tắt dòng này."
+                          : "Trong máy không còn bản dài ngày. Chạm để tắt dòng này."}
                       </span>
                     </button>
                   )}
@@ -3064,30 +3246,29 @@ export default function FishingMapView() {
                   Chạm vào chỗ nào trên biển để xem gió sóng chỗ đó.
                 </p>
               )}
-              {prox.level !== "ok" && (
-                <p className="mt-1 text-[0.875rem] font-bold text-danger">
-                  {prox.label} — coi chừng vượt ranh giới.
+              {/* RANH GIỚI ở peek (audit M3, gộp D7+E1): câu đầy đủ nằm ở thân
+                  sheet; peek chỉ chấm màu + một câu ngắn khi RẤT GẦN — không
+                  nói hai lần cùng ý trong một màn. */}
+              {prox.level === "very_near" && (
+                <p className="mt-1 flex items-center gap-1.5 text-[0.875rem] font-bold text-danger">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-danger" aria-hidden />
+                  Rất gần ranh giới — còn ~{prox.distanceNm.toFixed(1)} hải lý.
                 </p>
               )}
-              {/* LỜI MỜI ngay ở peek: lớp cá giờ khoá hẳn (không còn teaser
-                  heatmap) nên không có "dấu hiệu cá" để chỉ — nói thẳng dự báo
-                  cá mở bằng gì, theo đúng nấc của người đang xem */}
-              {fishLocked && fishOn && (
-                premiumAccess === "login" ? (
-                  <Link
-                    href="/login"
-                    className="mt-1 inline-flex min-h-[2.5rem] items-center gap-1 text-[0.9375rem] font-bold text-trim"
-                  >
-                    Dự báo cá cần tài khoản nâng cao — Đăng nhập →
-                  </Link>
-                ) : (
-                  <a
-                    href={`tel:${SDVICO_HOTLINE}`}
-                    className="mt-1 inline-flex min-h-[2.5rem] items-center gap-1 text-[0.9375rem] font-bold text-trim"
-                  >
-                    Dự báo cá là tính năng nâng cao — Gọi SDVICO →
-                  </a>
-                )
+              {prox.level === "near" && (
+                <p className="mt-1 flex items-center gap-1.5 text-[0.875rem] font-bold text-warn">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-warn" aria-hidden />
+                  Gần ranh giới biển
+                </p>
+              )}
+              {/* LỜI MỜI ở peek: MỘT dòng ngắn, không nút (audit M8 — nudge
+                  chính là PremiumLock trong thân sheet); ẩn khi mất sóng. */}
+              {fishLocked && fishOn && netOnline && (
+                <p className="mt-1 text-[0.9375rem] font-semibold text-foreground/70">
+                  {premiumAccess === "login"
+                    ? "Dự báo cá cần đăng nhập — xem bên dưới."
+                    : premiumLine("dự báo cá")}
+                </p>
               )}
               {/* THANH NGÀY hiện luôn ở peek (mặc định), không đợi nở sheet —
                   chọn xem trước ngày nào, gió/sóng dự báo tới 16 ngày (dải cuộn
@@ -3149,21 +3330,27 @@ export default function FishingMapView() {
                       );
                     })}
                   </div>
-                  {dayLockNote && premiumLocked && (
+                  {/* chạm chip ngày khoá: MỘT câu chuẩn (premiumLine), ẩn khi
+                      mất sóng — chip khoá vẫn chỉ mang icon khoá, không chữ */}
+                  {dayLockNote && premiumLocked && netOnline && (
                     <p className="mt-1 rounded-xl bg-field/80 px-3 py-2.5 text-[0.875rem] font-semibold leading-snug text-foreground/75">
-                      Xem quá {FREE_FORECAST_DAYS} ngày là tính năng của tài khoản
-                      nâng cao —{" "}
                       {premiumAccess === "login" ? (
-                        <Link href="/login" className="font-bold text-trim">
-                          Đăng nhập →
-                        </Link>
+                        <>
+                          Xem quá {FREE_FORECAST_DAYS} ngày cần đăng nhập —{" "}
+                          <Link href="/login" className="font-bold text-trim">
+                            Đăng nhập →
+                          </Link>
+                        </>
                       ) : (
-                        <a
-                          href={`tel:${SDVICO_HOTLINE}`}
-                          className="font-bold text-trim"
-                        >
-                          gọi SDVICO nâng cấp →
-                        </a>
+                        <>
+                          {premiumLine(`xem quá ${FREE_FORECAST_DAYS} ngày`)}{" "}
+                          <a
+                            href={`tel:${SDVICO_HOTLINE}`}
+                            className="font-bold text-trim"
+                          >
+                            Gọi →
+                          </a>
+                        </>
                       )}
                     </p>
                   )}
@@ -3360,8 +3547,8 @@ export default function FishingMapView() {
                   feature="dự báo cá"
                   blurb={
                     premiumAccess === "login"
-                      ? "Bản đồ chỗ có khả năng nhiều cá: loài gì, khả năng bao nhiêu, đi hướng nào — đăng nhập bằng tài khoản nâng cao là xem được."
-                      : "Bản đồ chỗ có khả năng nhiều cá: loài gì, khả năng bao nhiêu, đi hướng nào. Tài khoản hiện thời không hỗ trợ — gọi SDVICO để nâng cấp."
+                      ? "Bản đồ chỗ có khả năng nhiều cá: loài gì, khả năng bao nhiêu, đi hướng nào — đăng nhập tài khoản Premium là xem được."
+                      : "Bản đồ chỗ có khả năng nhiều cá: loài gì, khả năng bao nhiêu, đi hướng nào — gọi SDVICO để mở."
                   }
                 />
               ) : fishCast && fishAtPoint ? (

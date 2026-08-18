@@ -79,6 +79,32 @@ export function htmlToText(html: string): string {
     .trim();
 }
 
+/**
+ * CẮT BỎ MENU TRANG, chỉ giữ THÂN BẢN TIN.
+ *
+ * ⚠️ LỖI THẬT ĐÃ SỬA (2026-08-18, bắt được khi soi bản tin trực tiếp): trang
+ * NCHMF có thanh điều hướng với các mục *"Thời tiết nguy hiểm · **Bão - Áp thấp
+ * nhiệt đới** · Rủi ro thiên tai…"*, và `htmlToText` bóc cả menu đó vào chữ.
+ * Nghĩa là **mọi** bản tin — kể cả TIN BÃO KHẨN CẤP — đều chứa chuỗi "áp thấp
+ * nhiệt đới", nên phép `có "bão" && không có "áp thấp nhiệt đới"` LUÔN ra
+ * `laBao = false`: giữa cơn bão cấp 12, màn hình bà con vẫn ghi *"Áp thấp nhiệt
+ * đới"*. Lỗi im lặng — không sập, không log, chỉ nói nhẹ đi một cấp thiên tai.
+ *
+ * Cắt từ TIÊU ĐỀ bản tin gần thân nhất ("TIN ÁP THẤP NHIỆT ĐỚI TRÊN BIỂN ĐÔNG",
+ * "TIN BÃO KHẨN CẤP") — giữ tiêu đề vì "bão số N" nằm ở đó. Không tìm thấy tiêu
+ * đề thì cắt ngay tại mốc thân ("Hồi 07 giờ"); không có cả mốc đó thì trả
+ * nguyên văn (thà đọc thừa còn hơn cắt mất bản tin).
+ */
+export function catThanBanTin(text: string): string {
+  const than = text.search(/hồi\s+\d{1,2}\s*giờ/iu);
+  if (than < 0) return text;
+  const tieuDe = [
+    ...text.slice(0, than).matchAll(/tin\s+(?:áp\s+thấp\s+nhiệt\s+đới|bão)/giu),
+  ];
+  const bd = tieuDe.length ? (tieuDe[tieuDe.length - 1].index ?? than) : than;
+  return text.slice(bd);
+}
+
 /** "19,8" → 19.8 (bản tin VN dùng dấu PHẨY thập phân) */
 const soVn = (s: string) => Number(s.replace(",", "."));
 
@@ -175,10 +201,12 @@ export function parseGioPhatTin(text: string, now: Date): number | null {
  * nó thành polygon là tự vẽ thêm thứ nguồn không nói.
  */
 export function parseNchmfBulletin(
-  text: string,
+  thoText: string,
   now: Date,
   url?: string,
 ): StormAlert | null {
+  // BỎ MENU TRANG TRƯỚC MỌI PHÉP ĐỌC — xem `catThanBanTin`
+  const text = catThanBanTin(thoText);
   const diems = parseToaDo(text);
   if (diems.length === 0) return null;
 

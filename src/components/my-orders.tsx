@@ -18,6 +18,7 @@ import {
   type OrderStatus,
 } from "@/lib/catalog-orders";
 import { savedAgoLabel } from "@/lib/forecast-cache";
+import { useOnline } from "@/lib/use-online";
 
 /*
   ĐƠN CỦA TÔI (2026-08-11) — chủ tàu xem đơn đã đặt + huỷ đơn còn "Mới".
@@ -58,6 +59,15 @@ export function MyOrders() {
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState<CatalogOrder | null>(null);
   const [cancelErr, setCancelErr] = useState("");
+  /** vừa huỷ xong — nói một câu 8 giây rồi tự tắt (audit 2026-08-18 G4;
+   *  2 dòng = 8s theo chính sách thông báo) */
+  const [cancelOk, setCancelOk] = useState("");
+  const online = useOnline();
+  useEffect(() => {
+    if (!cancelOk) return;
+    const t = window.setTimeout(() => setCancelOk(""), 8000);
+    return () => window.clearTimeout(t);
+  }, [cancelOk]);
 
   /*  BẢN TRONG MÁY LÀ ĐƯỜNG LÙI, KHÔNG PHẢI MÀN LỖI (2026-08-18, chủ dự án:
       "cửa hàng nó ít đổi món và đơn, nên cứ xem bình thường, online lại thì tự
@@ -89,6 +99,8 @@ export function MyOrders() {
     if (j?.ok && Array.isArray(j.orders)) {
       saveCachedOrders(phone, j.orders);
       setLoad({ kind: "ok", orders: j.orders });
+      // tải được bản mới = câu lỗi huỷ cũ hết hiệu lực (audit G8)
+      setCancelErr("");
     } else {
       luiVeBanLuu();
     }
@@ -133,6 +145,7 @@ export function MyOrders() {
       | { ok?: boolean; code?: string }
       | null;
     if (res.ok && j?.ok) {
+      setCancelOk(`Đã huỷ đơn “${summarizeItems(order) || "này"}”.`);
       fetchOrders();
       return;
     }
@@ -144,19 +157,24 @@ export function MyOrders() {
     }
   }
 
-  // ── Chưa đăng nhập ──────────────────────────────────────────────────
+  // ── Chưa đăng nhập — MỘT khối mời (O1); ẨN lời mời khi mất sóng vì /login
+  //    cần sóng (tầng 5, chính sách thông báo 2026-08-18) ────────────────────
   if (ready && !signedIn) {
     return (
       <div className="px-4 pt-1">
-        <RefNote>
-          Đăng nhập bằng SĐT để đặt hàng và theo dõi đơn của mình.
-        </RefNote>
-        <Link
-          href="/login"
-          className="mt-2.5 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.98]"
-        >
-          Đăng nhập để xem đơn của mình
-        </Link>
+        {online ? (
+          <Link
+            href="/login"
+            className="flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field px-4 text-center text-[1.0625rem] font-bold text-navy transition active:scale-[0.98]"
+          >
+            Đăng nhập bằng SĐT để xem đơn của mình
+          </Link>
+        ) : (
+          <RefNote>
+            Đơn của mình chỉ xem được khi đã đăng nhập — việc đó cần sóng, máy
+            đang không có sóng.
+          </RefNote>
+        )}
       </div>
     );
   }
@@ -170,6 +188,15 @@ export function MyOrders() {
           style={{ color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
         >
           {cancelErr}
+        </p>
+      )}
+      {cancelOk && (
+        <p
+          role="status"
+          className="mb-3 rounded-2xl px-3.5 py-3 text-[1rem] font-semibold"
+          style={{ color: "var(--ok)", backgroundColor: "var(--ok-bg)" }}
+        >
+          {cancelOk}
         </p>
       )}
 

@@ -58,15 +58,17 @@ export function HomeBar({
   if (!home.province) {
     return (
       <div className="mb-3 surface p-3">
-        <p className="text-[0.875rem] text-foreground/65 leading-snug">
-          Khai báo <strong>tỉnh cảng nhà</strong> trong thẻ &quot;Tàu của
-          tôi&quot; ở trên để app chỉ hiện nơi gần.
+        {/* "ở trên" là sai chỗ — thẻ tàu nằm ở khu Tàu cá, không phải màn này
+            (audit 2026-08-18 G10). Chữ ≥1rem cho người lớn tuổi. */}
+        <p className="text-[1rem] leading-snug text-foreground/70">
+          Khai báo <strong>tỉnh cảng nhà</strong> trong mục Tàu cá để app chỉ
+          hiện nơi gần bà con.
         </p>
         <Link
           href="/tau"
-          className="mt-1.5 inline-block text-[0.875rem] font-bold text-sea"
+          className="mt-1.5 inline-flex min-h-[2.75rem] items-center text-[1rem] font-bold text-sea"
         >
-          Đi tới tàu của tôi →
+          Mở Tàu cá →
         </Link>
       </div>
     );

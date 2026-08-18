@@ -25,7 +25,8 @@ import { type SeaScalarKind } from "@/lib/sea-scalars";
 import { SPECIES_META } from "@/lib/fish-predict";
 import type { FeatureAccess } from "@/lib/tier";
 import { PremiumLock } from "@/components/premium-gate";
-import type { StormStatus } from "@/lib/storms";
+import { stormNoticeText, type StormStatus } from "@/lib/storms";
+import { useOnline } from "@/lib/use-online";
 import { clockVN } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
 import {
@@ -689,6 +690,10 @@ function ThoiTietPanel({
   scalarKind: SeaScalarKind | null;
   onScalar: (k: SeaScalarKind | null) => void;
 }) {
+  const online = useOnline();
+  // mốc lúc mở panel — panel chỉ sống khi bà con tự mở và tự thu sau 5s, đủ
+  // tươi để tính tuổi tin bão (không gọi Date.now() trong lúc vẽ)
+  const [openedAt] = useState(() => Date.now());
   return (
     <div>
       <p className="mb-1 flex items-center justify-between text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
@@ -730,10 +735,10 @@ function ThoiTietPanel({
       {stormInfo.kind === "khong-hoi-duoc" && (
         <p className="mb-2 flex items-start gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-[0.875rem] font-bold leading-snug text-warn">
           <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
-          <span>
-            Chưa hỏi được tin bão — máy không có sóng. Nghe thêm đài duyên hải /
-            Icom.
-          </span>
+          {/* CÙNG MỘT CÂU với banner bão (lib/storms.ts stormNoticeText) — nói
+              bằng tuổi tin, không đổ cho máy khi nguồn lỗi (audit S13/M5).
+              Giờ lấy lúc mở panel (openedAt). */}
+          <span>{stormNoticeText(stormInfo, openedAt, online)}</span>
         </p>
       )}
       {stormInfo.kind === "dang-hoi" && (
@@ -1034,7 +1039,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
         sub="NĐ 26/2019 · tàu 12–<15m · tham khảo"
         on={prefs.vungLong}
         onToggle={() => setMapPrefs({ vungLong: !prefs.vungLong })}
-        icon={<DepthIcon className="h-5 w-5 text-[#ea580c]" />}
+        icon={<DepthIcon className="h-5 w-5 text-trim" />}
       />
 
       {vmsZones.length > 0 && (

@@ -126,4 +126,55 @@ describe("loadCart/saveCart — keyed theo SĐT (stub window)", () => {
     clearCart("0901234567");
     expect(loadCart("0901234567")).toEqual([]);
   });
+
+  /*  Audit 2026-08-18 G5: `saveCart` phải TRẢ TRẠNG THÁI — máy hết chỗ mà nuốt
+      im là bấm "Đặt hàng" xong mới thấy giỏ trống. */
+  it("ghi được → true và bắn CART_EVENT", () => {
+    const store = new Map<string, string>();
+    const fired: string[] = [];
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+      },
+      dispatchEvent: (e: Event) => {
+        fired.push(e.type);
+        return true;
+      },
+    });
+    expect(saveCart("0901234567", [{ listingId: "p1", qty: 1 }])).toBe(true);
+    expect(fired).toEqual(["forfish-cart-changed"]);
+  });
+
+  it("máy hết chỗ (setItem ném) → false, KHÔNG bắn CART_EVENT (đừng đè bản trong tay)", () => {
+    const fired: string[] = [];
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: () => null,
+        setItem: () => {
+          throw new DOMException("quota", "QuotaExceededError");
+        },
+        removeItem: () => undefined,
+      },
+      dispatchEvent: (e: Event) => {
+        fired.push(e.type);
+        return true;
+      },
+    });
+    expect(saveCart("0901234567", [{ listingId: "p1", qty: 1 }])).toBe(false);
+    expect(fired).toEqual([]);
+  });
+
+  it("Safari riêng tư đời cũ: setItem im lặng mà không giữ → false", () => {
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: () => null, // nhận rồi vứt
+        setItem: () => undefined,
+        removeItem: () => undefined,
+      },
+      dispatchEvent: () => true,
+    });
+    expect(saveCart("0901234567", [{ listingId: "p1", qty: 1 }])).toBe(false);
+  });
 });

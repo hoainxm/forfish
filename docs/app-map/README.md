@@ -19,6 +19,7 @@
 | Thêm page / route / component, sửa nav | Root + [02-architecture.md](02-architecture.md) |
 | Sửa UI, màu, font, copy cho ngư dân | Root + [03-design-system.md](03-design-system.md) |
 | Thêm/sửa màn hình, flow, density, trạng thái, audit UI | Root + [07-design-spec.md](07-design-spec.md) (+ 03 cho token) |
+| Thêm/sửa thông báo, banner, chip, badge, push, nhắc việc, ngưỡng "sắp hết hạn" | Root + [07-design-spec.md §12](07-design-spec.md) + [04-data-model.md §3](04-data-model.md) (bảng ngưỡng chung) |
 | Hành vi đa-tàu, hồ sơ cố định/động, vòng đời thêm/xóa/đổi tàu, nhắc theo tàu | Root + [08-ba-spec-da-tau.md](08-ba-spec-da-tau.md) |
 | Đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (dự báo × mùa vụ), nguồn cho tầm 16 ngày | Root + [09-ba-spec-lo-trinh-chuyen-bien.md](09-ba-spec-lo-trinh-chuyen-bien.md) |
 | Đụng DB, migration, RLS, logic giấy tờ / hạn | Root + [04-data-model.md](04-data-model.md) |
@@ -36,7 +37,7 @@
 | 04 | [04-data-model.md](04-data-model.md) | Tables, RLS, migration, domain logic giấy tờ (expiry status) |
 | 05 | [05-agents-team.md](05-agents-team.md) | Team-agent architecture: lead + teammates, partition rule, context routing |
 | 06 | [06-jtbd-quan-ly-tau.md](06-jtbd-quan-ly-tau.md) | JTBD hợp nhất từ nghiên cứu, chân dung người dùng, mốc pháp lý eCDT, map nhóm việc → module |
-| 07 | [07-design-spec.md](07-design-spec.md) | DESIGN-SPEC: thang user, object model, screen map + density budget, ma trận trạng thái, action→expectation (chốt chặn pipeline ui-design-logic) |
+| 07 | [07-design-spec.md](07-design-spec.md) | DESIGN-SPEC: thang user, object model, screen map + density budget, ma trận trạng thái, action→expectation, **§12 chính sách thông báo & cảnh báo 5 tầng (2026-08-18)** (chốt chặn pipeline ui-design-logic) |
 | 08 | [08-ba-spec-da-tau.md](08-ba-spec-da-tau.md) | ba-spec ĐA TÀU: hồ sơ cố-định-theo-tàu vs động-theo-chủ, vòng đời thêm/xóa/đổi tàu, gán hàng SDVICO theo tàu, nhắc đa-tàu (oracle hành vi, chốt chặn pipeline BA) |
 | 09 | [09-ba-spec-lo-trinh-chuyen-bien.md](09-ba-spec-lo-trinh-chuyen-bien.md) | ba-spec LỘ TRÌNH CHUYẾN BIỂN: bài toán orienteering có điểm bắt buộc, nguồn dữ liệu cho tầm 16 ngày, lớp cá pha trộn dự-báo × mùa-vụ (§5d — ĐÃ LÀM, có số đo), lưu tuyến + so vị trí offline |
 | ops | [ops/external-services.md](ops/external-services.md) | Registry nguồn dữ liệu ngoài (Open-Meteo, GDACS, VASEP, Supabase ×2, CRM gateway…) + "khi nó chết thì sao" |

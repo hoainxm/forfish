@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { StatusBanner } from "@/components/ui/status-banner";
 import {
@@ -22,6 +23,7 @@ import { authedFetch } from "@/lib/device-token-store";
 import { timeoutSignal } from "@/lib/abort";
 import { formatVnd } from "@/lib/format";
 import { isValidVnPhone, sanitizePhoneInput } from "@/lib/phone";
+import { useOnline } from "@/lib/use-online";
 import {
   cartTotalVnd,
   removeItem,
@@ -62,6 +64,7 @@ export function CartSheet({
   signedIn,
   items,
   catalog,
+  saveFailed = false,
   onClose,
   onItemsChange,
   onOrdered,
@@ -70,6 +73,8 @@ export function CartSheet({
   signedIn: boolean;
   items: CartLine[];
   catalog: ProductListing[];
+  /** máy không giữ được giỏ (cha biết qua `saveCart`) — băng đỏ trong sheet (G5) */
+  saveFailed?: boolean;
   onClose: () => void;
   /** Cập nhật giỏ ở component cha (cha lo lưu localStorage). */
   onItemsChange: (next: CartLine[]) => void;
@@ -77,6 +82,8 @@ export function CartSheet({
   onOrdered: () => void;
 }) {
   const { boats, current } = useBoats();
+  const router = useRouter();
+  const online = useOnline();
   const resolved = useResolvedLines(items, catalog);
   const total = cartTotalVnd(items, catalog);
   const hasUnavailable = resolved.some((r) => !r.available);
@@ -90,10 +97,30 @@ export function CartSheet({
     "idle",
   );
   const [errMsg, setErrMsg] = useState("");
+  /** đơn vừa đặt xong — mã + tổng + SĐT nhận để bà con đối chiếu (audit G4/G6) */
+  const [placed, setPlaced] = useState<{
+    id: string | null;
+    totalVnd: number;
+    contactPhone: string;
+  } | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (items.length === 0) return;
+    /*  CHƯA ĐĂNG NHẬP → MỞ THẲNG /login, không đợi máy chủ trả `login_required`
+        (audit 2026-08-18 G7: một nudge/màn — RefNote ở trên đã nói, bấm là đi
+        luôn, đỡ một vòng lỗi). Giỏ giữ nguyên trong máy, quay lại đặt tiếp. */
+    if (!signedIn) {
+      if (!online) {
+        setState("error");
+        setErrMsg(
+          "Đặt hàng cần đăng nhập, mà đăng nhập thì cần sóng — máy đang không có sóng. Giỏ vẫn giữ nguyên.",
+        );
+        return;
+      }
+      router.push("/login");
+      return;
+    }
     if (!isValidVnPhone(contactPhone)) {
       setState("error");
       setErrMsg("Nhập đúng số điện thoại nhận hàng rồi thử lại.");
@@ -141,9 +168,14 @@ export function CartSheet({
       return;
     }
     const j = (await res.json().catch(() => null)) as
-      | { ok?: boolean; code?: string }
+      | { ok?: boolean; code?: string; id?: string; totalVnd?: number }
       | null;
     if (res.ok && j?.ok) {
+      setPlaced({
+        id: typeof j.id === "string" ? j.id : null,
+        totalVnd: typeof j.totalVnd === "number" ? j.totalVnd : total,
+        contactPhone: draft.contactPhone,
+      });
       onOrdered();
       setState("done");
       return;
@@ -173,6 +205,15 @@ export function CartSheet({
         >
           <CheckIcon className="mx-auto h-11 w-11" />
           <p className="mt-3 text-[1.1875rem] font-bold">Đã gửi đơn đặt hàng</p>
+          {/* xác nhận CÓ SỐ: mã đơn (nếu máy chủ trả) + tổng + SĐT nhận —
+              để bà con đối chiếu lúc nhà cung cấp gọi (audit G4/G6) */}
+          {placed && (
+            <p className="mt-2 text-[1.0625rem] font-bold tabular-nums text-navy">
+              {placed.id ? `Mã đơn ${placed.id.slice(0, 8).toUpperCase()} · ` : ""}
+              Tổng {formatVnd(placed.totalVnd)} · Gọi số{" "}
+              {placed.contactPhone}
+            </p>
+          )}
           <p className="mt-1 text-[1rem] text-foreground/70">
             Nhà cung cấp sẽ nhận và liên hệ giao hàng. Xem tình trạng đơn ở mục
             “Đơn của tôi”.
@@ -277,6 +318,16 @@ export function CartSheet({
         </div>
       )}
 
+      {/* MÁY KHÔNG GIỮ ĐƯỢC GIỎ (G5) — giỏ trong tay vẫn đặt được ngay */}
+      {saveFailed && (
+        <div className="mt-3 overflow-hidden rounded-2xl">
+          <StatusBanner level="danger">
+            Máy hết chỗ — CHƯA lưu được giỏ. Đóng app là mất; bà con đặt ngay
+            hoặc xoá bớt ảnh/ứng dụng rồi chọn lại.
+          </StatusBanner>
+        </div>
+      )}
+
       {/* ── Tổng tiền ───────────────────────────────────────────────── */}
       <div className="mt-3 flex items-center justify-between rounded-2xl bg-navy px-4 py-3 text-white">
         <span className="text-[1.0625rem] font-bold">Tổng cộng</span>
@@ -348,11 +399,13 @@ export function CartSheet({
           />
         </Field>
 
-        {!signedIn && (
+        {/* MỘT lời mời đăng nhập/màn (G7); ẨN khi mất sóng — /login cần sóng
+            (tầng 5, 2026-08-18). Bấm "Đặt hàng" lúc chưa đăng nhập = mở /login. */}
+        {!signedIn && online && (
           <div className="mb-3">
             <RefNote>
-              Cần đăng nhập bằng SĐT để đặt hàng và theo dõi đơn. Bấm đặt sẽ báo
-              nếu chưa đăng nhập.
+              Cần đăng nhập bằng SĐT để đặt hàng và theo dõi đơn — bấm “Đặt
+              hàng” là sang màn đăng nhập, giỏ vẫn giữ nguyên.
             </RefNote>
           </div>
         )}

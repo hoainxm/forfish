@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BoatDocument, getExpiryStatus } from "@/lib/documents";
-import { apiUrl } from "@/lib/api-base";
 import { CrewMember, crewIssue } from "@/lib/crew";
 import {
   getServiceDueStatus,
@@ -13,15 +12,29 @@ import { getWarrantyStatus } from "@/lib/products";
 import { formatVnd } from "@/lib/format";
 import { loadBoats } from "@/lib/boats";
 import { loadAssignments } from "@/lib/sdvico-assign";
+import { readUserList } from "@/lib/user-list-store";
+import {
+  SOON_DAYS_SERVICE,
+  addDaysIso,
+  daysUntil,
+  todayIsoVN,
+} from "@/lib/days";
+import { useTodayVN } from "@/lib/use-today";
+import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
+import { readToken } from "@/lib/device-token-store";
+import { useOnline } from "@/lib/use-online";
 import { AlertIcon, ClockIcon, ChevronRightIcon } from "@/components/icons";
-import { timeoutSignal } from "@/lib/abort";
-import { tokenHeader } from "@/lib/device-token-store";
 
 /*
   Việc cần làm ngay — one urgent strip spanning ALL pillars, not just giấy tờ.
   Reads the SAME localStorage the feature screens write, hydrates after mount
   (no read during render → no SSR mismatch), and renders nothing when there is
   nothing urgent so the home screen stays calm.
+
+  2026-08-18 (audit thông báo): ngày theo lịch VN + ngưỡng chung (lib/days.ts),
+  "hôm nay" tính lại khi app được đưa ra trước (S1), xếp theo NGÀY THẬT cho mọi
+  loại (S3), đồ SDVICO qua hook cache dùng chung (S2), kho đọc hỏng coi như
+  rỗng chứ không sập (T1).
 */
 
 // ── pillar storage keys (mirror the feature screens) ─────────────
@@ -29,7 +42,10 @@ const DOC_KEY = "forfish.documents.v1";
 const MAINT_KEY = "forfish.maintenance.v1";
 const CREW_KEY = "forfish.crew.v1";
 
-// ── maintenance shape + status (replicated from maintenance-reminders.tsx) ──
+// ── maintenance shape + status ────────────────────────────────────
+// nợ: trần = 4 dòng phân nhánh chép từ maintenance-reminders.tsx (getDueStatus),
+// nâng cấp = tách logic thuần sang src/lib/maintenance.ts rồi import ở cả 2 nơi
+// (không import component tab Dịch vụ vào Trang chủ để khỏi kéo cả tab vào bundle).
 interface MaintenanceEntry {
   id: string;
   item: string;
@@ -38,48 +54,24 @@ interface MaintenanceEntry {
   note?: string;
 }
 
-const MAINT_SOON_DAYS = 7;
-
-function daysUntil(isoDate: string, today: Date): number {
-  const target = new Date(isoDate + "T00:00:00Z");
-  const base = Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate(),
-  );
-  return Math.round((target.getTime() - base) / 86_400_000);
-}
-
-function maintDueDate(entry: MaintenanceEntry): string {
-  const d = new Date(entry.lastDone + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + entry.intervalDays);
-  return d.toISOString().slice(0, 10);
-}
-
 type MaintLevel = "overdue" | "soon" | "ok";
 function maintStatus(
   entry: MaintenanceEntry,
   today: Date,
 ): { level: MaintLevel; days: number; label: string } {
-  const days = daysUntil(maintDueDate(entry), today);
+  const days = daysUntil(addDaysIso(entry.lastDone, entry.intervalDays), today);
   if (days < 0)
     return { level: "overdue", days, label: `Quá hạn ${Math.abs(days)} ngày` };
-  if (days === 0) return { level: "soon", days, label: "Đến hạn hôm nay" };
-  if (days <= MAINT_SOON_DAYS)
+  if (days === 0) return { level: "overdue", days, label: "Đến hạn hôm nay" };
+  if (days <= SOON_DAYS_SERVICE)
     return { level: "soon", days, label: `Còn ${days} ngày` };
   return { level: "ok", days, label: `Còn ${days} ngày` };
 }
 
-// ── generic localStorage loader (mirrors each screen's loadX) ────
-function loadStored<T>(key: string, seed: T[]): T[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (raw) return JSON.parse(raw) as T[];
-  } catch {
-    // corrupt storage — fall through to demo seed
-  }
-  return seed;
+// ── localStorage loader — KHÔNG seed demo, đọc hỏng / không phải mảng = rỗng ──
+function loadStored<T>(key: string): T[] {
+  const r = readUserList<T>(key);
+  return r.ok && Array.isArray(r.list) ? r.list : [];
 }
 
 // ── unified urgent item ──────────────────────────────────────────
@@ -118,28 +110,30 @@ const PILLAR_TAG: Record<Pillar, { tag: string; href: string }> = {
   sdvico: { tag: "SDVICO", href: "/tau?tab=dich-vu" },
 };
 
-/** Nhắc từ đồ SDVICO đồng bộ: nợ/cước chờ đóng, bảo hành sắp hết, kỳ dịch vụ. */
-function sdvicoUrgent(
+/** Nhắc từ đồ SDVICO đồng bộ: nợ QUÁ HẠN, bảo hành sắp hết, kỳ dịch vụ.
+ *  Nợ chưa tới hạn KHÔNG vào dải khẩn (chính sách 2026-08-18: không băng màu,
+ *  chỉ hiện ở thẻ tab Dịch vụ). Export cho test. */
+export function sdvicoUrgent(
   assets: OwnedAssets,
   today: Date,
   boat: BoatCtx,
 ): UrgentItem[] {
   const items: UrgentItem[] = [];
-  const todayIso = today.toISOString().slice(0, 10);
+  const todayIso = todayIsoVN(today);
   // nhãn tàu cho 1 món SDVICO theo gán; chưa gán = của chung (không nhãn)
   const labelFor = (assetId: string) =>
     boat.multi ? boat.nameOf(boat.assign[assetId]) : undefined;
 
   for (const p of assets.payments) {
-    const overdue = p.dueOn != null && p.dueOn < todayIso;
+    if (p.dueOn == null || p.dueOn >= todayIso) continue;
     items.push({
       id: `sdv-pay-${p.orderCode}`,
       label: `Khoản ${formatVnd(p.amountVnd)} — đơn ${p.orderCode}`,
-      status: overdue ? "Nợ quá hạn, đóng sớm" : "Chờ thanh toán",
-      tone: overdue ? "danger" : "warn",
+      status: "Nợ quá hạn, đóng sớm",
+      tone: "danger",
       pillar: "sdvico",
       href: PILLAR_TAG.sdvico.href,
-      days: p.dueOn ? daysUntil(p.dueOn, today) : 0,
+      days: daysUntil(p.dueOn, today),
     });
   }
 
@@ -186,7 +180,7 @@ function computeUrgent(today: Date, boat: BoatCtx): UrgentItem[] {
   // 1. Giấy tờ — KHÔNG seed demo (hội đồng UX 2026-06-11): dải nhắc chỉ nói
   // việc THẬT người dùng tự ghi; cảnh báo đỏ giả ở màn hình đầu = mất tin.
   // Gom MỌI tàu, gắn nhãn tàu (ba-spec 08 R6 — nhắc đúng tàu nào).
-  const docs = loadStored<BoatDocument & { boatId?: string }>(DOC_KEY, []);
+  const docs = loadStored<BoatDocument & { boatId?: string }>(DOC_KEY);
   for (const doc of docs) {
     const s = getExpiryStatus(doc, today);
     if (s.level === "expired" || s.level === "soon") {
@@ -204,7 +198,7 @@ function computeUrgent(today: Date, boat: BoatCtx): UrgentItem[] {
   }
 
   // 2. Bảo dưỡng
-  const maint = loadStored<MaintenanceEntry & { boatId?: string }>(MAINT_KEY, []);
+  const maint = loadStored<MaintenanceEntry & { boatId?: string }>(MAINT_KEY);
   for (const entry of maint) {
     const s = maintStatus(entry, today);
     if (s.level === "overdue" || s.level === "soon") {
@@ -221,8 +215,9 @@ function computeUrgent(today: Date, boat: BoatCtx): UrgentItem[] {
     }
   }
 
-  // 3. Bạn thuyền — không seed demo (như trên)
-  const crew = loadStored<CrewMember>(CREW_KEY, []);
+  // 3. Bạn thuyền — không seed demo (như trên); days = hạn gần nhất thật
+  // ("chưa có bảo hiểm" = -1 theo crewIssue) — không còn -9999 (S3)
+  const crew = loadStored<CrewMember>(CREW_KEY);
   for (const m of crew) {
     const s = crewIssue(m, today);
     if (s.level === "danger" || s.level === "warn") {
@@ -233,7 +228,7 @@ function computeUrgent(today: Date, boat: BoatCtx): UrgentItem[] {
         tone: s.level === "danger" ? "danger" : "warn",
         pillar: "ban_thuyen",
         href: PILLAR_TAG.ban_thuyen.href,
-        days: s.level === "danger" ? -9999 : 0,
+        days: s.days ?? 0,
       });
     }
   }
@@ -241,8 +236,9 @@ function computeUrgent(today: Date, boat: BoatCtx): UrgentItem[] {
   return items;
 }
 
-// sort: đỏ (danger) first, then vàng (warn); within tone soonest first.
-function byUrgencyOrder(a: UrgentItem, b: UrgentItem): number {
+/** sort: đỏ (danger) trước vàng (warn); trong cùng màu, ngày gần nhất trước.
+ *  Export cho test. */
+export function byUrgencyOrder(a: UrgentItem, b: UrgentItem): number {
   const toneRank = (t: Tone) => (t === "danger" ? 0 : 1);
   if (a.tone !== b.tone) return toneRank(a.tone) - toneRank(b.tone);
   return a.days - b.days;
@@ -251,12 +247,16 @@ function byUrgencyOrder(a: UrgentItem, b: UrgentItem): number {
 const MAX_ROWS = 4;
 
 export function UrgentStrip() {
-  const today = useMemo(() => new Date(), []);
+  const { today } = useTodayVN();
   const [mounted, setMounted] = useState(false);
   const [items, setItems] = useState<UrgentItem[]>([]);
-  const [sdvicoItems, setSdvicoItems] = useState<UrgentItem[]>([]);
   // "Còn N việc nữa" bấm là xòe đủ — không phải dòng chữ chết
   const [expanded, setExpanded] = useState(false);
+  // đồ SDVICO qua cache module dùng chung với /tau (S2) — không fetch riêng,
+  // và `noteResponse` bên trong hook soi được máy bị đá.
+  const { status: sdvStatus, assets } = useSdvicoAssets();
+  const [signedIn, setSignedIn] = useState(false);
+  const online = useOnline();
 
   // Bối cảnh tàu để gắn nhãn "việc của tàu nào" (R6) — đọc sau mount.
   function buildBoatCtx(): BoatCtx {
@@ -270,40 +270,38 @@ export function UrgentStrip() {
   }
 
   // Hydrate from localStorage after mount only (avoids SSR/CSR mismatch).
+  // `today` đổi (qua nửa đêm, app đưa ra trước) → tính lại.
   useEffect(() => {
     setItems(computeUrgent(today, buildBoatCtx()));
+    setSignedIn(readToken() != null);
     setMounted(true);
   }, [today]);
 
-  // Nhắc từ đồ SDVICO (đăng nhập rồi mới có) — đến sau cũng không sao.
-  useEffect(() => {
-    let alive = true;
-    fetch(apiUrl("/api/me/sdvico"), {
-      headers: tokenHeader(),
-      signal: timeoutSignal(20000),
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (alive && j?.ok && j.assets) {
-          setSdvicoItems(
-            sdvicoUrgent(j.assets as OwnedAssets, today, buildBoatCtx()),
-          );
-        }
-      })
-      .catch(() => {
-        // chưa đăng nhập / chưa cấu hình → chỉ nhắc đồ trên máy
-      });
-    return () => {
-      alive = false;
-    };
-  }, [today]);
+  const sdvicoItems = useMemo(
+    () => (assets ? sdvicoUrgent(assets, today, buildBoatCtx()) : []),
+    [assets, today],
+  );
 
   const all = useMemo(
     () => [...items, ...sdvicoItems].sort(byUrgencyOrder),
     [items, sdvicoItems],
   );
 
-  if (!mounted || all.length === 0) return null;
+  if (!mounted) return null;
+
+  /*  Không hỏi được đồ SDVICO (S2): chỉ nói khi ĐÃ đăng nhập và máy đang CÓ
+      sóng mà vẫn hỏng — mất sóng thì bà con biết rồi, nhắc là "nhắc như cái
+      máy" (chính sách 2026-08-18: mất sóng không phải tin). */
+  const sdvicoNote = signedIn && sdvStatus === "error" && online;
+
+  if (all.length === 0) {
+    if (!sdvicoNote) return null;
+    return (
+      <p className="px-2 text-[0.875rem] text-foreground/65">
+        Chưa hỏi được nợ/bảo hành bên SDVICO — sóng đang yếu, app sẽ thử lại.
+      </p>
+    );
+  }
 
   const shown = expanded ? all : all.slice(0, MAX_ROWS);
   const rest = all.length - shown.length;
@@ -369,6 +367,11 @@ export function UrgentStrip() {
             Còn {rest} việc nữa — xem hết
             <ChevronRightIcon className="h-5 w-5 rotate-90" />
           </button>
+        )}
+        {sdvicoNote && (
+          <p className="border-t border-line px-4 py-2 text-[0.875rem] text-foreground/65">
+            Chưa hỏi được nợ/bảo hành bên SDVICO — sóng đang yếu, app sẽ thử lại.
+          </p>
         )}
       </div>
     </section>

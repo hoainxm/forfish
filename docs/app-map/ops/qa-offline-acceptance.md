@@ -4,6 +4,7 @@
 
 covers: public/sw.js
 last_verified: 2026-08-18
+<!-- re-verified: 2026-08-18b — `public/sw.js` CÓ ĐỔI (gói F push server): CHỈ ở options của `showNotification` trong nhánh `push` — thêm `{tag: data.tag, renotify: true}` khi payload có `tag` (bão `bao-<khoá>`, đơn `don-<id>`; tin tay không tag → như cũ). KHÔNG chạm `SHELL`/`CRITICAL_SHELL`/tên kho/danh sách cache/allowlist `/api/*`/khoá `forfish.*` ⇒ bộ ca §1–§2 KHÔNG đổi. THÊM ca **N-8** (gom thông báo cùng `tag`) và ghi chú CHẠY LẠI **N-4** vì `/api/push/ack` + `/api/me/messages/read` nay BỎ QUA endpoint không có trong `push_subscriptions` (`counted:0`) — máy đã huỷ đăng ký/endpoint bịa không được đếm nữa. Delta gọi ca mới là "N-6" nhưng N-6/N-7 đã có (đặt hàng / chợ tin) → đánh số N-8. -->
 <!-- re-verified: 2026-08-18 - doi chieu bo ca QA voi `public/sw.js` hien tai (ban doi lan cuoi 2026-08-07, mach nay KHONG dung sw.js): 5 kho + ten kho (`sdfish-v6`/`static-v1`/`rsc-v1`/`api-v1`/`tiles-v1`), `SHELL`/`CRITICAL_SHELL`, dau `/__sdfish-shell-ready`, allowlist 9 route `/api/*` va luat cuu 401/403 - tat ca van khop cau chu trong TC-01..TC-13. Them ba ca N-5 (ve tuyen khi chua hoi duoc tin bao) - N-6 (dat hang khi song chap chon, khong duoc ra hai don) - N-7 (cho tin khi mat song), va mot ghi chu dau N-7 tro ve ADR 0004 de lan sau khong ai mo rong ca nay thanh 'kiem co cache chua'. -->
 ttl_days: 120
 gate: warn
@@ -336,6 +337,8 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 
 > **HỎNG** nếu: bước 3 bấm xong mà cột "đọc" không bao giờ lên (⇒ cú báo lại bị cắt — kiểm `waitUntil` trong `notificationclick`), hoặc bước 7 không bao giờ lên (⇒ bản lưu đã đánh dấu nhầm là "đã báo" dù máy chủ chưa xác nhận).
 
+> ⚠️ **CHẠY LẠI N-4 sau 2026-08-18 (gói F)**: `/api/push/ack` và `/api/me/messages/read` nay chỉ đếm khi `endpoint` CÓ trong `push_subscriptions` (không có → `ok:true, counted:0`, client thôi hỏi lại). Kịch bản trên KHÔNG đổi bước nào — máy B/D đang đăng ký thật nên vẫn phải lên. Thêm một kiểm: **tắt thông báo** trên máy D (huỷ đăng ký) rồi bấm banner cũ còn trên màn khoá → cột nhận/đọc **KHÔNG** lên (đúng luật mới), app vẫn mở bình thường.
+
 ---
 
 ### N-5 · Vẽ tuyến khi CHƯA hỏi được tin bão (mới 2026-08-16, thẩm định P0)
@@ -377,3 +380,18 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 | 4 | Có mạng lại, làm lại hai thao tác đó | Ăn thật, danh sách cập nhật |
 
 > **HỎNG**: bước 3 bấm xong im lặng không đổi gì (khuôn "nút bấm không được gì"), hoặc bước 2 màn hình đổi sang tin mẫu (bà con tưởng tin mình vừa mất).
+
+### N-8 · Thông báo cùng một chuyện phải GOM, không xếp chồng (mới 2026-08-18, gói F)
+
+> **Vì sao có ca này**: trước đây mỗi lần bão lên cấp hoặc đơn hàng đổi trạng thái là thêm một banner mới trên màn khoá — 4–5 dòng chồng nhau, dòng mới nhất (nguy hiểm nhất) lẫn giữa dòng cũ. Nay server gửi `tag` (`bao-<khoá>` cho bão, `don-<mã đơn>` cho đơn) và `public/sw.js` gọi `showNotification` với `{tag, renotify:true}` → tin mới cùng cơn/cùng đơn ĐÈ tin cũ, vẫn rung/kêu lần đè (bão lên cấp phải đánh thức được). Tin tay của quản trị viên KHÔNG có `tag` → mỗi tin một banner như cũ. Chỉ kiểm được trên MÁY THẬT (Android/iOS đã bật thông báo, app ĐÓNG).
+
+| Bước | Làm gì | ĐẠT khi |
+|---|---|---|
+| 1 | Máy **B** (iPhone A2HS) và **D** (Android PWA): đăng nhập, bật thông báo, **đóng hẳn app** | |
+| 2 | Quản trị viên đổi trạng thái MỘT đơn của tài khoản đó 2 lần liền: `dang_giao` → `da_giao` (tab Đơn hàng /quan-tri) | Màn khoá chỉ còn **1 banner** cho đơn đó — nội dung là bản MỚI ("đã giao"), máy có **rung/kêu lần 2** |
+| 3 | Đổi thêm trạng thái `da_nhan` cho một đơn khác | **KHÔNG** có banner nào (đã-nhận chỉ vào hộp thư, không rung máy); mở app → mục Thông báo có tin |
+| 4 | Quản trị viên gửi 2 tin TAY liên tiếp (tab Thông báo, "Tất cả") | **2 banner riêng** trên màn khoá (tin tay không gom) |
+| 5 | (Nếu đang có bão thật hoặc dựng được tin bão thử) chờ cron `notify-storms` chạy 2 nhịp mà cơn bão lên cấp | Vẫn **1 banner** cho cơn đó, chữ là cấp mới, có rung lại; cơn KHÔNG đổi cấp → không thêm banner (khử trùng 48h) |
+| 6 | Bấm banner đơn ở bước 2 | Mở đúng `/tau?tab=san-pham`; bấm banner bão → mở `/ngu-truong` (⚠️ chưa mở đúng thẻ bão theo `?bao=` — nợ đã ghi, không tính hỏng) |
+
+> **HỎNG**: bước 2 ra 2 banner chồng nhau cho cùng một đơn (⇒ `tag` không tới sw.js hoặc `renotify` thiếu), hoặc bước 4 hai tin tay bị gom mất một (⇒ tin tay bị gắn tag nhầm), hoặc bước 3 máy rung cho `da_nhan`.

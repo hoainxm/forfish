@@ -116,4 +116,21 @@ describe("offlineBasemapNote", () => {
       }
     }
   });
+
+  it("CHƯA có hình bờ trong máy thì KHÔNG được khoe 'đang dùng bản đồ lưu trong máy' (M6)", () => {
+    const off = offlineBasemapNote({ online: false, fails: 0 }, false)!;
+    const weak = offlineBasemapNote({ online: true, fails: 9 }, false)!;
+    for (const s of [off, weak]) {
+      expect(s).not.toContain("lưu trong máy");
+      expect(s).toContain("Chưa tải được nền bản đồ");
+    }
+    expect(off).toContain("không có sóng");
+    expect(weak).not.toContain("sóng"); // online mà đổ cho sóng là phán bừa
+    // có bờ rồi thì câu cũ giữ nguyên
+    expect(offlineBasemapNote({ online: false, fails: 0 }, true)).toContain(
+      "lưu trong máy",
+    );
+    // bình thường vẫn im dù chưa có bờ
+    expect(offlineBasemapNote({ online: true, fails: 0 }, false)).toBeNull();
+  });
 });

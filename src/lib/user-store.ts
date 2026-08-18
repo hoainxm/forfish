@@ -8,7 +8,15 @@
 // Giấy tờ bà con gõ tay mất là mất luôn, còn dự báo có sóng là tải lại được ⇒
 // khi chật chỗ thì DỰ BÁO NHƯỜNG, và nhường vẫn không đủ thì phải BÁO ĐỎ.
 
-
+/**
+ * MỘT câu chuẩn khi máy hết chỗ (audit thông báo 2026-08-18, T14 — trước đó 5
+ * bản khác nhau: "xoá bớt ảnh/ứng dụng", "xoá bớt dữ liệu", "xoá bớt ảnh/video"…).
+ * `what` = thứ vừa không lưu được, lời thường: "giấy tờ vừa nhập", "người vừa
+ * thêm", "việc vừa ghi", "sản phẩm vừa ghi", "hồ sơ tàu".
+ */
+export function storageFullCopy(what: string): string {
+  return `Máy hết chỗ — CHƯA lưu được ${what}. Xoá bớt ảnh/video rồi làm lại giúp nhé.`;
+}
 
 /**
  * Ghi JSON dữ liệu tự nhập. Trả `false` khi máy KHÔNG giữ được — nơi gọi PHẢI

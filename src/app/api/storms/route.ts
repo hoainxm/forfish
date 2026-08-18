@@ -6,6 +6,14 @@ import {
   pickLatestNchmfBulletin,
 } from "@/lib/storms-vn";
 import { timeoutSignal } from "@/lib/abort";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  rowsToTracks,
+  TRACK_SONG_GIO,
+  type BulletinRow,
+  type ForecastRow,
+  type StormTrack,
+} from "@/lib/storm-track";
 
 /**
  * Proxy cảnh báo bão: server gọi nguồn (tránh CORS phía trình duyệt), cache 30
@@ -140,9 +148,61 @@ export function gopNguon(vn: StormAlert[], gdacs: StormAlert[]): StormAlert[] {
   return [...vn, ...ngoai];
 }
 
+/**
+ * Đường đi các cơn còn sống, dựng từ kho bản tin (`/api/cron/refresh-storms`
+ * ghi vào, migration 0036). ĐỘC LẬP với hai nguồn trên: kho hỏng thì trả `[]`
+ * và tin bão vẫn đi — thêm phần vẽ đẹp KHÔNG được phép làm mất phần cảnh báo.
+ */
+async function layDuongDi(now: Date): Promise<StormTrack[]> {
+  const admin = createAdminClient();
+  if (!admin) return []; // demo mode / chưa cấu hình — không phải lỗi
+  try {
+    const tuMs = new Date(now.getTime() - TRACK_SONG_GIO * 3600_000).toISOString();
+    /*  Lấy KHOÁ của các cơn còn ra tin trong 48 giờ, rồi lấy TOÀN BỘ bản tin của
+        những khoá đó — nếu chỉ lấy bản tin trong 48 giờ thì đoạn đường cơn đã đi
+        từ mấy hôm trước biến mất, đúng thứ chủ dự án muốn thấy. */
+    const { data: gan, error: eGan } = await admin
+      .from("storm_bulletins")
+      .select("storm_key")
+      .gte("issued_at", tuMs);
+    if (eGan) throw eGan;
+    const khoa = [...new Set((gan ?? []).map((r) => r.storm_key as string))];
+    if (khoa.length === 0) return [];
+
+    const { data: rows, error: eRows } = await admin
+      .from("storm_bulletins")
+      .select("id,storm_key,issued_at,observed_at,la_bao,so_bao,lat,lon,cap,giat")
+      .in("storm_key", khoa)
+      .order("issued_at", { ascending: true })
+      .limit(500);
+    if (eRows) throw eRows;
+
+    /*  Mốc dự báo CHỈ của bản tin mới nhất mỗi cơn — phần "sắp tới" được hiệu
+        chỉnh mỗi lần có tin, các bản dự báo cũ nằm lại trong kho để soi sau chứ
+        không vẽ (vẽ hết thì bản đồ thành mớ chỉ rối). */
+    const moiNhat = new Map<string, string>();
+    for (const r of (rows ?? []) as BulletinRow[]) moiNhat.set(r.storm_key, r.id);
+    const ids = [...moiNhat.values()];
+    const { data: pts, error: ePts } = await admin
+      .from("storm_forecast_points")
+      .select("bulletin_id,valid_at,lat,lon,cap,giat,danger_box,seq")
+      .in("bulletin_id", ids);
+    if (ePts) throw ePts;
+
+    return rowsToTracks((rows ?? []) as BulletinRow[], (pts ?? []) as ForecastRow[]);
+  } catch (e) {
+    console.error("[storms] đọc kho đường đi HỎNG:", (e as Error)?.message);
+    return [];
+  }
+}
+
 export async function GET() {
   const now = new Date();
-  const [vn, gdacs] = await Promise.all([layNchmf(now), layGdacs(now)]);
+  const [vn, gdacs, tracks] = await Promise.all([
+    layNchmf(now),
+    layGdacs(now),
+    layDuongDi(now),
+  ]);
 
   // CẢ HAI nguồn không hỏi được → 503 (xem ghi chú đầu file). Một bên rỗng
   // (`[]`) vẫn là câu trả lời hợp lệ.
@@ -154,6 +214,9 @@ export async function GET() {
     ok: true,
     storms: gopNguon(vn ?? [], gdacs ?? []),
     checkedAt: now.toISOString(),
+    /*  Đường đi đã qua + dự báo sắp tới (kho 0036). Client cũ KHÔNG đọc trường
+        này và vẫn chạy đúng — thêm trường là thêm, không phá hợp đồng. */
+    tracks,
     /*  Nguồn nào trả lời được lượt này — để /quan-tri và người soát sau biết
         app đang sống bằng nguồn nào, thay vì đoán. Client hiện KHÔNG đọc trường
         này; thêm trường mới không phá `stormStatus` (nó chỉ đọc ok/storms/checkedAt). */

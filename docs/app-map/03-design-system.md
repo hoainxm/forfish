@@ -5,10 +5,10 @@
 **Load khi / Load when**: sửa UI, màu sắc, typography, copy, trạng thái (status), hoặc thêm component mới.
 
 covers: src/app/globals.css
-last_verified: 2026-06-16
+last_verified: 2026-08-18
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-08-18) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
+<!-- re-verified: 2026-08-18 — ĐỐI CHIẾU `globals.css` (bản 2026-08-14 b0bd111) với doc: (1) 51 biến `--*` trong `:root`/`@theme` — bảng màu theo trục có 4 hex LỆCH từ đợt chỉnh AA (t1 #18648b · t2 #2e7d4f · t3 #8f6010 · t4 #7a4d9e) → sửa bảng theo mã, ghi kèm `--tN-bg` + bộ trạng thái ok/warn/danger (+ `-bg`); bổ sung tên token nền tảng `--navy/--sea/--trim/--sun/--foreground/--card/--line` mà doc chỉ gọi bằng tên chữ. (2) `.surface` · `.glass` · `.range-big` · `.range-dual` · `.display` · `.anim-*` · `.dock-frame`/`.bottom-dock`/`--app-vh`/`--dock-*` đều còn trong mã, khớp mục 2/3/6. (3) giá trị oklch ở mục "Token chờ lift" là GIÁ TRỊ MÀU chưa lift, không phải symbol mã — bỏ backtick để doc-health khỏi báo dead-symbol oan; nội dung không đổi. (4) Mục 6 "Lớp Dự báo cá" còn tả heatmap theo loài + hàm `fishHeatColor` (đã xoá) → đính chính theo mã hiện tại (lưới ô 3 mức `FISH_LEVEL_BANDS`, từ 2026-07-27 — 07 đã ghi, 03 chưa). (5) Gói C 2026-08-18: thêm bullet `neutral` cho `CrewIssueLevel`/`requestStatusVN` ở mục "Ngôn ngữ trạng thái" — không token mới. -->
 <!-- re-verified: 2026-06-16 — +.range-dual (globals.css): dual-range kéo-thả 2 đầu, tái dùng thumb kiểu .range-big (input pointer-events:none, thumb auto). Dùng ở legend lọc khả năng có cá. Token màu/font KHÔNG đổi -->
 
 > ⚠️ Một đợt redesign theo hướng này đang chạy song song — file này mô tả **direction + tokens conceptually**, không trích line number cụ thể của file src. Token thực tế nằm trong `src/app/globals.css` (`@theme`), luôn coi file đó là nguồn giá trị hiện hành.
@@ -49,13 +49,14 @@ Hướng mới: **modern edge-to-edge mobile** — nền sáng lạnh, hero bi�
 - **Một logo DUY NHẤT cho cả sản phẩm**: bộ icon PWA sinh từ `image/logo sdfish.png` (`npm run icons` → `public/icons/icon-192.png`, `icon-512.png`, `apple-touch-icon.png`, maskable). App ngư dân dùng qua manifest/PWA; **web quản trị `/quan-tri` dùng CHUNG chính icon đó** (`/icons/icon-192.png`) trong header (44px, bo góc `rounded-xl` + `border-line`) — KHÔNG tạo logo riêng cho khu quản trị (chốt user 2026-07-30 "logo chung với logo app"). Đổi logo = thay `image/logo sdfish.png` rồi chạy lại `npm run icons`; cả hai khu tự cập nhật.
 
 ### Màu nền tảng
-- **Deep sea navy** — màu chủ đạo, hero/brand/dock
-- **Sunrise orange-red** — accent, call-to-action (nút pill + bóng màu)
-- **Cool mist** (`--background` #f3f6f8) — nền sáng lạnh
+- **Deep sea navy** (`--navy` #14324f "hull blue" + `--sea` #18648b "mid sea") — màu chủ đạo, hero/brand/dock (đối chiếu `globals.css` 2026-08-18)
+- **Sunrise orange-red** (`--trim` #e4572e "boat-trim"; `--sun` #f2a01f "sun yellow" phụ) — accent, call-to-action (nút pill + bóng màu)
+- **Cool mist** (`--background` #f3f6f8) — nền sáng lạnh; chữ `--foreground` #16283a "sea ink"; `--card` #ffffff; `--line` #e2e9ef hairline (KHÔNG dùng làm viền thẻ)
 - **Field** (`--field` #eaeff3) — nền ô nhập kiểu filled + chip tonal chưa chọn
+- Mọi token trên đều có bản `--color-*` trong `@theme` (Tailwind v4) + `--font-sans`/`--font-display`; dock: `--dock-safe` / `--dock-row` / `--dock-total` (chiều cao pill + safe-area, xem ghi chú PWA)
 
 ### Token chờ lift — redesign "Ra khơi A" (nguồn giá trị: lift từ 07-design-spec, 2026-08-13)
-- **Màu cá = hồng tím `oklch(0.64 0.19 350)`** (design doc Ra khơi A — thay xanh lá hiện tại khi build phương án A); **primary xanh `oklch(0.52 0.13 235)`**. CHƯA vào `globals.css @theme` — khi build increment tương ứng thì lift vào globals cùng commit rồi xoá chữ "chờ" ở đây. 07-design-spec chỉ TRỎ về mục này, không giữ giá trị (luật "không trộn token" của chính nó §"Không trộn").
+- **Màu cá = hồng tím oklch(0.64 0.19 350)** (design doc Ra khơi A — thay xanh lá hiện tại khi build phương án A); **primary xanh oklch(0.52 0.13 235)** (viết không backtick — `doc-health-report` coi `tên(` trong backtick là symbol mã và báo SUSPECT oan). CHƯA vào `globals.css @theme` — khi build increment tương ứng thì lift vào globals cùng commit rồi xoá chữ "chờ" ở đây. 07-design-spec chỉ TRỎ về mục này, không giữ giá trị (luật "không trộn token" của chính nó §"Không trộn").
 - Màu THEO LOÀI cá trên bản đồ vẫn là NỘI DUNG (khai trong `fish-predict.ts` — ngoại lệ §5, không phải token UI).
 
 ### Hình khối hiện đại (thay quy tắc bo 12px cũ)
@@ -95,14 +96,14 @@ Luật này áp cho CHỮ trong nhãn, không chỉ CSS: viết copy cho tab/nú
 
 ### Màu theo trục (per-trục accents) — đã có trong `globals.css`
 
-| Trục | Tên | Hex |
-|---|---|---|
-| 1 — Đánh bắt | steel blue | `#2e6b8a` |
-| 2 — Bán | green | `#2f6b43` |
-| 3 — Vận hành | amber | `#8a6516` |
-| 4 — Tuân thủ | purple | `#7a3b9a` |
+| Trục | Tên | Hex (`globals.css`, đối chiếu 2026-08-18) | Nền nhạt |
+|---|---|---|---|
+| 1 — Đánh bắt | steel blue (`--t1`) | ~~`#2e6b8a`~~ **`#18648b`** (= `--sea`) | `--t1-bg` #e3f0f7 |
+| 2 — Bán | green (`--t2`) | ~~`#2f6b43`~~ **`#2e7d4f`** | `--t2-bg` #e4f3e9 |
+| 3 — Vận hành | amber (`--t3`) | ~~`#8a6516`~~ **`#8f6010`** (đậm để `text-t3` + white-on-t3 đạt AA 4.5, audit 2026-06-11) | `--t3-bg` #fcf1d8 |
+| 4 — Tuân thủ | purple (`--t4`) | ~~`#7a3b9a`~~ **`#7a4d9e`** | `--t4-bg` #f1eaf8 |
 
-Mỗi trục có thêm biến nền nhạt tương ứng (`--tN-bg`). Mọi UI thuộc một trục phải dùng đúng accent của trục đó — giúp người dùng nhận diện "khu" bằng màu.
+Trạng thái: `--ok` #15663a / `--ok-bg` #d9f0e2 · `--warn` #7a4e00 / `--warn-bg` #ffeec2 · `--danger` #a82218 / `--danger-bg` #fde0db. Hex trong bảng cũ là giá trị lúc reverse-engineer 2026-06-11, đã lệch với `globals.css` từ đợt chỉnh AA — sửa doc theo mã 2026-08-18. Mỗi trục có thêm biến nền nhạt tương ứng (`--tN-bg`). Mọi UI thuộc một trục phải dùng đúng accent của trục đó — giúp người dùng nhận diện "khu" bằng màu.
 
 ### Màu trạng thái (semantic status) — KHÔNG đổi nghĩa
 
@@ -116,11 +117,12 @@ Mapping với expiry logic (`expired`/`soon`/`ok`): xem [04-data-model.md](04-da
 
 ### Ngôn ngữ trạng thái: MỘT component duy nhất (đồng bộ 2026-06-10)
 
-Mọi trạng thái trên thẻ (giấy tờ, bảo dưỡng, sản phẩm/bảo hành, thuyền viên, mức phạt) dùng **`ui/status-banner.tsx` (`StatusBanner`)** — băng màu + icon + chữ ở ĐẦU thẻ. Màu không bao giờ đứng một mình (an toàn mù màu + nắng chói).
+Mọi trạng thái trên thẻ (giấy tờ, bảo dưỡng, sản phẩm/bảo hành, thuyền viên, ~~mức phạt~~ giỏ/đơn) dùng **`ui/status-banner.tsx` (`StatusBanner`)** — băng màu + icon + chữ ở ĐẦU thẻ. Màu không bao giờ đứng một mình (an toàn mù màu + nắng chói). **Phạm vi chốt 2026-08-18** (khớp [07 §8 + §12](07-design-spec.md)): `StatusBanner` = **thẻ dữ liệu + banner tĩnh trong luồng**; **chip nổi trên bản đồ / kết quả tuyến** dùng khuôn `<p role="status">` với **cùng token** warn/danger (`bg-warn-bg text-warn` …), không bọc StatusBanner. **Xanh (ok) KHÔNG đeo băng**; `days === 0` = đỏ; chưa tới hạn = neutral (không băng).
 
 - Mức: `danger` / `warn` / `ok` / `neutral`. Icon mặc định theo mức (chuông/đồng hồ/tick), truyền `icon` khi cần khác, `icon={null}` để bỏ.
 - KHÔNG tự chế kiểu trạng thái mới (viền trái màu, icon màu trơ trọi…) — các bản chép tay cũ ở fines-lookup/crew-list/document-vault/maintenance-reminders đã gom hết về StatusBanner.
 - Mức phạt không bao giờ "tốt": phạt nhẹ dùng `neutral` (xám bình tĩnh), không dùng xanh.
+- **`neutral` cho "chưa biết / chưa tới việc" (chốt 2026-08-18, gói C — 07 §12 "màu = chữ")**: `CrewIssueLevel` (`lib/crew.ts`) = `danger | warn | neutral | ok` — `neutral` = "Chưa ghi hạn bảo hiểm" (có bảo hiểm nhưng chưa ghi hạn, không dám nói "ổn", không doạ đỏ); `requestStatusVN` (`lib/owned-assets.ts`) chỉ còn `ok | neutral` — "Đã nhận — chờ gọi lại" / "Đang xử lý" là neutral, KHÔNG vàng; nợ SDVICO chưa tới hạn = neutral "Chờ thanh toán — hạn dd/mm/yyyy"; thẻ MẪU đeo băng neutral "Ví dụ: …". Vàng chỉ dành cho việc bà con phải làm; đỏ khi chậm là mất tiền/phạt/nguy hiểm (`days === 0` = đỏ).
 
 ### Đặt hàng — bộ đếm số lượng + chip trạng thái đơn (2026-08-11)
 
@@ -167,7 +169,7 @@ type-ramp: 0.75rem 0.8125rem 0.875rem 0.9375rem 1rem 1.125rem
 - **Trung thực dữ liệu**: luôn hiện "Ảnh ngày X — ảnh vệ tinh luôn chậm vài ngày" đè góc bản đồ; chú giải nói rõ "chỗ trống là mây che".
 - **Hải đồ có số (2026-06-10, user: "hải đồ không thấy được, toàn màu xanh")**: nền hải đồ kèm **đường đẳng sâu + nhãn số mét** (20/50/100/200/500/1000/2000 m) tự sinh từ ETOPO (`scripts/generate-isobaths.mjs` → `public/data/isobaths.v1.json`, ~200 KB) vì EMODnet WMS chỉ phủ châu Âu. Style cần `glyphs` (fonts.openmaptiles.org) cho nhãn. Chỉ vẽ trên nền hải đồ, không vẽ đè nền vệ tinh.
 - **Legend tại chỗ (kiểu Google Maps)**: badge góc trái = tên lớp + ngày + **thanh gradient mini + 2 đầu thang** của nền đang xem; lớp Dự báo cá có legend riêng ở cuối hàng chip loài ("khả năng có cá" xanh lá nhạt→đậm). KHÔNG bắt người dùng mở sheet mới biết màu nghĩa là gì.
-- **Lớp Dự báo cá = heatmap MỖI LOÀI MỘT MÀU + hồng tâm (2026-06-10, tham khảo cách thể hiện PFZ của OceanFishMap)**: ô điểm → lớp `heatmap` maplibre (radius theo zoom phủ kín lưới 0.25°, weight theo điểm 35→100). **Màu theo loài đang chọn** (`SPECIES_PROFILES.color` → ramp 1 sắc qua `fishHeatColor()`); "Mọi loài" = xanh lá nhiều tông `#95d5b2→#1b4b2c`. ≤8 điểm nóng nhất (≥75 điểm, cách nhau ≥0.7°) vẽ marker **hồng tâm** `TargetIcon` tô màu loài đang chọn — chạm là bay tới; điểm nóng GẦN MÌNH (≤~40 hải lý) viền cam. Thẻ cá kèm số môi trường ("Nước 28°C · mồi vừa") + **tuần trăng** (`lib/moon.ts`); loài ĐÁY/RẠN (`surfaceSignal` low) hiện cảnh báo vàng "đoán theo mùa + độ sâu, ảnh vệ tinh ít chính xác". Màu loài là NỘI DUNG bản đồ (khai trong `fish-predict.ts`, ngoại lệ §5). Phân màu CHUNG: cá = màu theo loài; cam-đỏ = riêng ranh giới; xanh dương = tuyến đi.
+- **Lớp Dự báo cá** — ~~heatmap MỖI LOÀI MỘT MÀU + hồng tâm (2026-06-10, tham khảo PFZ của OceanFishMap): ô điểm → lớp `heatmap` maplibre, màu theo loài (`SPECIES_PROFILES.color` → ramp 1 sắc qua hàm `fishHeatColor`), "Mọi loài" = xanh lá `#95d5b2→#1b4b2c`~~ → **từ 2026-07-27 (đính chính doc 2026-08-18, khớp `fishing-map-view.tsx` + `FISH_LEVEL_BANDS` trong `fish-predict.ts`): LƯỚI Ô kiểu bản tin ngư trường, 3 MỨC CỐ ĐỊNH không đổi theo loài** — Thấp ≥40 xanh lá `#22c55e` · Trung bình ≥60 vàng `#eab308` · Cao ≥75 đỏ `#ef4444` (`fill-opacity` 0.6, chỉ màu không in số; chọn loài chỉ đổi điểm từng ô). `SPECIES_PROFILES.color` vẫn còn (marker/thẻ loài), hàm `fishHeatColor` ĐÃ XOÁ. ≤8 điểm nóng nhất (≥75 điểm, cách nhau ≥0.7°) vẽ marker **hồng tâm** `TargetIcon` tô màu loài đang chọn — chạm là bay tới; điểm nóng GẦN MÌNH (≤~40 hải lý) viền cam. Thẻ cá kèm số môi trường ("Nước 28°C · mồi vừa") + **tuần trăng** (`lib/moon.ts`); loài ĐÁY/RẠN (`surfaceSignal` low) hiện cảnh báo vàng "đoán theo mùa + độ sâu, ảnh vệ tinh ít chính xác". Màu loài là NỘI DUNG bản đồ (khai trong `fish-predict.ts`, ngoại lệ §5). Phân màu CHUNG: cá = màu theo loài; cam-đỏ = riêng ranh giới; xanh dương = tuyến đi.
 - **Chọn loài cá = nút GỌN + bảng modal (sửa 2026-06-11, user: "hàng chip ngang chắn map, không ẩn hiện gọn")**: BỎ hàng chip cuộn ngang full-width (chắn nhãn chủ quyền, 40 loài cuộn mệt). Thay bằng **một nút "Cá" nhỏ** (`inline-flex max-w-[80%] self-start`, chỉ rộng bằng nội dung) hiện loài đang chọn + chấm màu + chevron; chạm mở **`fish-species-sheet.tsx`** (modal `ui/bottom-sheet`): "Mọi loài" trên cùng + loài đang vụ **gom theo nhóm** (`CATEGORY_LABEL`), mỗi loài chấm màu + tên đầy đủ, **loài vùng đang xem viền cam + xếp đầu nhóm**; chọn xong đóng luôn. Map chỉ còn nút gọn — không vật gì chắn ngang. Chọn loài thì heatmap + hồng tâm tô CHỈ theo màu loài đó. **Ưu tiên gần mình**: điểm nóng cộng thưởng theo khoảng cách tới chỗ xem / cảng nhà / điểm ghim (không bịa cá, chỉ xếp gần lên trước); thẻ cá có dòng "Điểm cá gần bạn nhất ~N hải lý hướng X".
 - **Lớp che ↔ chi tiết gần bờ (sửa 2026-06-10)**: sea-mask (che nhãn quốc tế Biển Đông) chỉ ĐẶC ở mức toàn cảnh (z≤6), mờ dần và TẮT ở z8 — không che luồng lạch/cảng khi zoom gần bờ. Lớp ảnh/độ sâu (`ocean-data`) có `maxzoom 12` → zoom sâu hơn thì nhả ra cho basemap (bờ, cảng, sông lạch) + phao đèn hiện. Phao đèn/luồng lạch (OpenSeaMap) `minzoom 8`. Nguyên tắc: sovereignty ở mức vùng, hải đồ chi tiết ở mức gần bờ — không đánh nhau.
 - **Chọn ngày dự báo**: dãy chip ngang cuộn được (mỗi chip ≥60px cao, nhãn ngày + điểm số tô màu mức), chip đang chọn nền navy. Dự báo càng xa càng kém tin → bắt buộc kèm dòng độ tin (`forecastConfidence`) dưới số liệu, tông `--warn` từ ngày thứ 4 trở đi — KHÔNG để mọi ngày trông chắc chắn như nhau.
@@ -184,4 +186,4 @@ type-ramp: 0.75rem 0.8125rem 0.875rem 0.9375rem 1rem 1.125rem
 
 ---
 
-**Last updated**: 2026-06-10
+**Last updated**: 2026-08-18

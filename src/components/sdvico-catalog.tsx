@@ -94,6 +94,9 @@ export function SdvicoCatalog({
   // ── Giỏ hàng (local, keyed theo SĐT) ─────────────────────────────────
   const [cart, setCart] = useState<CartLine[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
+  /** máy KHÔNG giữ được giỏ (hết chỗ / bị chặn) — băng đỏ, không nuốt im
+   *  (audit 2026-08-18 G5). Giỏ trong tay vẫn dùng để đặt ngay được. */
+  const [cartSaveFailed, setCartSaveFailed] = useState(false);
 
   useEffect(() => {
     setCart(loadCart(phone));
@@ -109,7 +112,7 @@ export function SdvicoCatalog({
   const updateCart = useCallback(
     (next: CartLine[]) => {
       setCart(next);
-      saveCart(phone, next); // saveCart tự bắn CART_EVENT
+      setCartSaveFailed(!saveCart(phone, next)); // ghi được thì tự bắn CART_EVENT
     },
     [phone],
   );
@@ -263,6 +266,19 @@ export function SdvicoCatalog({
         </p>
       )}
 
+      {/* MÁY KHÔNG GIỮ ĐƯỢC GIỎ — nói ngay tại chỗ vừa thêm (G5). Câu chuẩn
+          "máy hết chỗ" dùng chung với document-vault/crew-list. */}
+      {cartSaveFailed && (
+        <p
+          role="alert"
+          className="mb-3 rounded-2xl px-3.5 py-3 text-[1rem] font-semibold"
+          style={{ color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
+        >
+          Máy hết chỗ — CHƯA lưu được giỏ vừa chọn. Đóng app là mất giỏ; bà con
+          đặt hàng ngay, hoặc xoá bớt ảnh/ứng dụng trong máy rồi chọn lại.
+        </p>
+      )}
+
       {/* Lọc nhóm — cần điện tử bấm Điện tử, cần nhu yếu phẩm bấm Nhu yếu phẩm */}
       {filterOptions.length > 2 && (
         <ChipRow
@@ -343,6 +359,7 @@ export function SdvicoCatalog({
           signedIn={signedIn}
           items={cart}
           catalog={listings}
+          saveFailed={cartSaveFailed}
           onClose={() => setCartOpen(false)}
           onItemsChange={updateCart}
           onOrdered={() => updateCart([])}
@@ -364,6 +381,13 @@ function OrderableCard({
   onAdd: (qty: number) => void;
 }) {
   const [qty, setQty] = useState(1);
+  /*  THÊM XONG → BỘ ĐẾM VỀ 1 (audit 2026-08-18 G6). Bản cũ giữ nguyên số vừa
+      chọn: bấm "Thêm" lần hai là cộng dồn gấp đôi mà không ai để ý. Nút vẫn nói
+      "Đã thêm (n)" — n là số ĐANG trong giỏ, đó là xác nhận. */
+  function add() {
+    onAdd(qty);
+    setQty(1);
+  }
   return (
     <li className="overflow-hidden surface">
       <div className="flex gap-3 p-3.5">
@@ -411,7 +435,7 @@ function OrderableCard({
         />
         <button
           type="button"
-          onClick={() => onAdd(qty)}
+          onClick={add}
           className="flex min-h-[3.5rem] flex-1 items-center justify-center gap-2 rounded-full bg-trim px-4 text-[1.0625rem] font-bold text-white shadow-trim-btn transition active:scale-[0.97]"
         >
           <CartIcon className="h-5 w-5" />
@@ -492,6 +516,7 @@ function InquiryCard({ p, owned }: { p: ProductListing; owned: boolean }) {
               listingId={p.id}
               listingTitle={p.title}
               vendorKind="external"
+              vendorName={p.vendorName}
             />
             {p.contactNote && (
               <p className="w-full text-[0.8125rem] text-foreground/65">

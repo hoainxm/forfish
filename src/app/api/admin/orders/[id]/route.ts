@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
-import { notifyAccount } from "@/lib/account-notify";
+import { notifyAccount, ORDER_PUSH_SENT_BY } from "@/lib/account-notify";
 import {
   canTransition,
   isOrderStatus,
@@ -15,6 +15,9 @@ import {
 } from "@/lib/catalog-orders";
 
 type Ctx = { params: Promise<{ id: string }> };
+
+/** Trạng thái được ĐẨY LÊN MÁY (OS push); còn lại chỉ ghi hộp thư (audit P6). */
+const ORDER_PUSH_OS_STATUSES = new Set<OrderStatus>(["dang_giao", "da_giao", "da_huy"]);
 
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
@@ -117,10 +120,21 @@ export async function PATCH(req: Request, { params }: Ctx) {
   });
 
   // Báo cho chủ tàu khi trạng thái đổi (best-effort, không chặn).
+  // AUDIT P6 (2026-08-18): đơn hàng là chuyện ở bờ — chỉ ĐẨY LÊN MÁY khi hàng
+  // đang đi / đã tới / bị huỷ; "đã nhận đơn" chỉ nằm hộp thư. `sent_by` =
+  // 'system:order' để /quan-tri lọc tin máy tự gửi khỏi tin tay; `tag` theo mã
+  // đơn để các lần đổi trạng thái của cùng một đơn đè nhau trên màn khoá.
   if (statusChanged) {
     const phone = (cur as { customer_phone: string }).customer_phone;
-    const m = statusMessage(wantStatus as OrderStatus);
-    await notifyAccount(admin, phone, { ...m, url: "/tau?tab=san-pham", sentBy: who.phone });
+    const st = wantStatus as OrderStatus;
+    const m = statusMessage(st);
+    await notifyAccount(admin, phone, {
+      ...m,
+      url: "/tau?tab=san-pham",
+      sentBy: ORDER_PUSH_SENT_BY,
+      pushOs: ORDER_PUSH_OS_STATUSES.has(st),
+      tag: `don-${id}`,
+    });
   }
 
   return NextResponse.json({ ok: true });

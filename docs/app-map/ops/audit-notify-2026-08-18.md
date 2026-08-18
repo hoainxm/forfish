@@ -1,5 +1,7 @@
 # Audit thông báo & cảnh báo toàn app — 2026-08-18
 
+> **Load khi**: sắp thêm/sửa bất kỳ banner, chip, toast, badge, push hay ngưỡng cảnh báo nào — đọc mục 6 (chính sách 5 tầng, đã đưa vào 07 §12) và mục 8 (top 10). Đây là **biên bản audit tại một thời điểm**, không đặt `covers:`; các việc trong Top 10 đã được triển khai cùng ngày (commit "feat(notify)").
+>
 > Yêu cầu chủ dự án: rà toàn bộ các loại cảnh báo/notify (vị trí, nguyên lý, logic ẩn), đánh giá **đồng bộ · đúng đắn · phù hợp · cần thiết**, không "nhắc như cái máy" (ngoài khơi mất sóng thì bà con đã biết). Có phản biện.
 > Cách làm: 6 agent kiểm kê song song (shell/Trang chủ · push/inbox/server · Trục 1 · Trục 2+auth · Trục 3+4 · hồ sơ app-map) → 3 critic độc lập (kiểm chứng kỹ thuật từng claim mở đúng file:line · góc BA + thuyền trưởng 52 tuổi · spec-vs-code). Kết luận dưới đây **đã qua kiểm chứng**; mức nặng theo critic kỹ thuật (P0 tính mạng/mất dữ liệu · P1 nói sai với người dùng · P2 nhiễu/lệch · P3 cosmetic).
 

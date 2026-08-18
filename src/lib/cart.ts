@@ -124,19 +124,29 @@ export function loadCart(phone: string | null | undefined): CartLine[] {
   }
 }
 
-/** Ghi giỏ cho SĐT hiện tại. Nuốt lỗi (giỏ không phải dữ liệu sống-còn). */
+/**
+ * Ghi giỏ cho SĐT hiện tại. Trả `false` khi máy KHÔNG giữ được (hết chỗ / bị
+ * chặn) — màn hình PHẢI nói ra (audit 2026-08-18 G5): giỏ là thứ bà con vừa
+ * TỰ CHỌN, nuốt im là bấm "Đặt hàng" xong mới thấy giỏ trống. `CART_EVENT`
+ * chỉ bắn khi ĐÃ ghi được — người nghe đọc lại từ đĩa, bắn lúc ghi hỏng là
+ * đè bản trong tay bằng bản cũ.
+ */
 export function saveCart(
   phone: string | null | undefined,
   items: CartLine[],
-): void {
-  if (typeof window === "undefined") return;
+): boolean {
+  if (typeof window === "undefined") return false;
+  let ok = false;
   try {
     const payload: Stored = { phone: cartBucket(phone), items };
     window.localStorage.setItem(CART_KEY, JSON.stringify(payload));
-    window.dispatchEvent(new Event(CART_EVENT));
+    // đọc lại: Safari riêng tư đời cũ nhận setItem rồi vứt, không ném gì
+    ok = window.localStorage.getItem(CART_KEY) === JSON.stringify(payload);
   } catch {
-    // hết chỗ / bị chặn — giỏ chỉ là tiện ích, không báo đỏ
+    ok = false; // hết chỗ / bị chặn
   }
+  if (ok) window.dispatchEvent(new Event(CART_EVENT));
+  return ok;
 }
 
 /** Xoá sạch giỏ (sau khi đặt xong / đăng xuất). */

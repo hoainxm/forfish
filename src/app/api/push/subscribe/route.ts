@@ -27,11 +27,13 @@
 // PATCH = GỠ TÀI KHOẢN khỏi máy (đăng xuất) mà GIỮ đăng ký: máy vẫn nhận thông
 // báo chung, nhưng thôi nhận thông báo nhắm riêng — tàu dùng chung điện thoại,
 // không để tin của chủ tàu chạy tới máy đang trong tay bạn thuyền.
+// PATCH/DELETE ĐÒI CHỨNG THỰC từ 2026-08-18 (audit P3) — xem `actorFor` bên dưới.
 //
 // OFFLINE: mọi nhánh ở đây là POST/PATCH/DELETE nên service worker BỎ QUA hẳn.
 // Client gọi kiểu bắn-rồi-quên, mất sóng thì thôi (xem lib/push-client.ts).
 import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
+import { hashDeviceToken, readTokenHeader } from "@/lib/device-token";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   validatePushSubscription,
@@ -86,11 +88,68 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, attached: !!account });
 }
 
+/*  AI ĐƯỢC ĐỤNG HÀNG NÀO (audit P3, 2026-08-18) — chung cho PATCH và DELETE:
+      · có chuỗi máy hợp lệ → chỉ hàng của CHÍNH SĐT mình, hoặc hàng chưa gắn ai;
+      · không chuỗi (máy khách) → chỉ hàng `customer_phone IS NULL`.
+    Trước đây ai biết endpoint là gỡ/xoá được của người khác — endpoint khó đoán
+    nhưng "khó đoán" không phải là quyền.
+
+    RIÊNG PATCH (gỡ tài khoản lúc ĐĂNG XUẤT): hero-account gọi `detachPushAccount`
+    SAU khi đã thu hồi chuỗi (DELETE /api/auth/token) ⇒ lúc tới đây chuỗi đã
+    `token_revoked`. Nếu chặn thẳng thì đúng ca cần gỡ nhất — chủ tàu đăng xuất
+    trao máy cho bạn thuyền — lại là ca KHÔNG gỡ được, và tin nhắm riêng của chủ
+    tàu tiếp tục nhảy lên máy bạn thuyền. Nên với PATCH, chuỗi VỪA BỊ THU HỒI
+    vẫn được tính là "của SĐT đó" (tra thẳng device_tokens kể cả revoked_at) —
+    thu hồi là bằng chứng máy này TỪNG là máy của tài khoản, và việc gỡ chỉ BỚT
+    quyền nhận. DELETE (tắt thông báo, gọi khi còn đăng nhập) không có ngoại lệ. */
+type Actor = { phone: string | null } | { res: NextResponse };
+
+async function actorFor(
+  req: Request,
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  allowRevoked: boolean,
+): Promise<Actor> {
+  const who = await identityFromRequest(req, true);
+  if (who.ok) return { phone: who.phone || null };
+  // KHÔNG TRA ĐƯỢC → 503, không bao giờ coi là "không có quyền"
+  if (who.res.status === 503) return { res: who.res };
+  if (allowRevoked) {
+    const raw = readTokenHeader(req.headers);
+    if (raw) {
+      const { data, error } = await admin
+        .from("device_tokens")
+        .select("customer_phone")
+        .eq("token_hash", await hashDeviceToken(raw))
+        .maybeSingle();
+      if (error) return { res: err(503, "unavailable") };
+      const p = (data as { customer_phone: string } | null)?.customer_phone;
+      if (p) return { phone: p }; // cùng dạng tokenIdentity trả về (đã chuẩn hoá lúc cấp)
+    }
+  }
+  // chuỗi lạ / đã thu hồi mà không được ngoại lệ → xem như máy khách
+  return { phone: null };
+}
+
+/** Hàng có tồn tại và người gọi có được đụng không. `null` = không có hàng (idempotent, trả ok). */
+async function ownedRow(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  endpoint: string,
+  actorPhone: string | null,
+): Promise<{ allowed: boolean; exists: boolean } | { res: NextResponse }> {
+  const { data, error } = await admin
+    .from("push_subscriptions")
+    .select("customer_phone")
+    .eq("endpoint", endpoint)
+    .maybeSingle();
+  if (error) return { res: err(500, "query_failed") };
+  if (!data) return { allowed: true, exists: false };
+  const owner = (data as { customer_phone: string | null }).customer_phone;
+  return { allowed: !owner || owner === actorPhone, exists: true };
+}
+
 /**
  * GỠ TÀI KHOẢN khỏi một máy (gọi lúc ĐĂNG XUẤT) — giữ đăng ký để máy vẫn nhận
- * thông báo chung. Không đòi phiên: người vừa đăng xuất thì cookie đã mất, mà
- * việc này chỉ BỚT quyền nhận nên không có gì để lạm dụng (biết endpoint của
- * máy khác cũng chỉ gỡ được tin nhắm riêng của chính máy đó).
+ * thông báo chung. Chỉ gỡ được hàng của mình / hàng chưa gắn (xem ghi chú trên).
  */
 export async function PATCH(req: Request) {
   const admin = createAdminClient();
@@ -99,6 +158,13 @@ export async function PATCH(req: Request) {
     endpoint?: string;
   } | null;
   if (!body?.endpoint) return err(400, "bad_endpoint");
+
+  const actor = await actorFor(req, admin, true);
+  if ("res" in actor) return actor.res;
+  const own = await ownedRow(admin, body.endpoint, actor.phone);
+  if ("res" in own) return own.res;
+  if (!own.exists) return NextResponse.json({ ok: true });
+  if (!own.allowed) return err(403, "forbidden");
 
   const { error } = await admin
     .from("push_subscriptions")
@@ -116,6 +182,13 @@ export async function DELETE(req: Request) {
     endpoint?: string;
   } | null;
   if (!body?.endpoint) return err(400, "bad_endpoint");
+
+  const actor = await actorFor(req, admin, false);
+  if ("res" in actor) return actor.res;
+  const own = await ownedRow(admin, body.endpoint, actor.phone);
+  if ("res" in own) return own.res;
+  if (!own.exists) return NextResponse.json({ ok: true });
+  if (!own.allowed) return err(403, "forbidden");
 
   const { error } = await admin
     .from("push_subscriptions")

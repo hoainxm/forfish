@@ -8,6 +8,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, PrimaryButton, inputClass } from "@/components/ui/primitives";
 import { COASTAL_PROVINCES, REGION_LABEL } from "@/lib/region";
+import { storageFullCopy } from "@/lib/user-store";
 import {
   AnchorIcon,
   ChevronRightIcon,
@@ -60,17 +61,22 @@ export function BoatSwitcher() {
         <ChevronRightIcon className="h-5 w-5 shrink-0 rotate-90 text-foreground/65" />
       </button>
 
+      {/*  MÁY HẾT CHỖ — vẽ NGOÀI sheet (S14, audit 2026-08-18): `saveFailed`
+          được set lúc form đã đóng (`pick=false`), bản cũ chỉ vẽ trong
+          `{pick && …}` nên lưu hỏng mà màn hình im, mở lại "Chọn tàu" mới thấy.
+          Nay nằm ngay dưới chip tàu; lưu lại thành công là tự tắt. */}
+      {saveFailed && (
+        <div
+          role="alert"
+          className="mt-2 rounded-2xl bg-danger-bg px-4 py-3 text-[1rem] font-bold leading-snug text-danger"
+        >
+          {storageFullCopy("hồ sơ tàu")} Danh sách tàu và giấy tờ giữ NGUYÊN
+          như cũ.
+        </div>
+      )}
+
       {pick && (
         <BottomSheet title="Chọn tàu" onClose={() => setPick(false)}>
-          {saveFailed && (
-            <div
-              role="alert"
-              className="mb-3 rounded-2xl bg-danger-bg px-4 py-3 text-[1rem] font-bold leading-snug text-danger"
-            >
-              Máy hết chỗ nên CHƯA lưu được hồ sơ tàu — danh sách tàu và giấy tờ
-              giữ NGUYÊN như cũ. Bà con xoá bớt ảnh/video rồi làm lại giúp nhé.
-            </div>
-          )}
           <ul className="space-y-2">
             {boats.map((b) => (
               <li key={b.id}>

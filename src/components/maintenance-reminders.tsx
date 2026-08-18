@@ -14,7 +14,15 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
-import { saveUserJson } from "@/lib/user-store";
+import { saveUserJson, storageFullCopy } from "@/lib/user-store";
+import { readUserList } from "@/lib/user-list-store";
+import {
+  SOON_DAYS_SERVICE,
+  addDaysIso,
+  daysUntil,
+  todayIsoVN,
+} from "@/lib/days";
+import { useTodayVN } from "@/lib/use-today";
 import { useBoats } from "@/components/boat-switcher";
 
 /*
@@ -25,9 +33,10 @@ import { useBoats } from "@/components/boat-switcher";
   · add/edit happens in a bottom sheet with big inputs and two big buttons
 */
 
-const STORAGE_KEY = "forfish.maintenance.v1";
+export const MAINTENANCE_STORAGE_KEY = "forfish.maintenance.v1";
+const STORAGE_KEY = MAINTENANCE_STORAGE_KEY;
 
-interface MaintenanceEntry {
+export interface MaintenanceEntry {
   id: string;
   item: string;
   lastDone: string; // ISO date
@@ -36,7 +45,7 @@ interface MaintenanceEntry {
   boatId?: string; // tàu sở hữu việc này (legacy entries: undefined)
 }
 
-// ── due-date logic (mirrors src/lib/documents.ts style, kept local) ──
+// ── due-date logic — ngày + ngưỡng dùng chung lib/days.ts (2026-08-18) ──
 
 type DueLevel = "overdue" | "soon" | "ok";
 
@@ -47,33 +56,20 @@ interface DueStatus {
   label: string;
 }
 
-const SOON_DAYS = 7;
-
-/** Days between today and an ISO date, computed in UTC to avoid TZ drift. */
-function daysUntil(isoDate: string, today: Date): number {
-  const target = new Date(isoDate + "T00:00:00Z");
-  const base = Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate(),
-  );
-  return Math.round((target.getTime() - base) / 86_400_000);
-}
-
 /** ISO date that is `lastDone + intervalDays`. */
-function dueDateOf(entry: MaintenanceEntry): string {
-  const d = new Date(entry.lastDone + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + entry.intervalDays);
-  return d.toISOString().slice(0, 10);
+export function dueDateOf(entry: MaintenanceEntry): string {
+  return addDaysIso(entry.lastDone, entry.intervalDays);
 }
 
-function getDueStatus(entry: MaintenanceEntry, today: Date): DueStatus {
+/** Bảo dưỡng: ngưỡng SOON_DAYS_SERVICE (14 — cần hẹn thợ trước, 7 là báo
+ *  muộn nhất app); đến hạn HÔM NAY = quá hạn (đỏ). Export cho badge tab /tau. */
+export function getDueStatus(entry: MaintenanceEntry, today: Date): DueStatus {
   const days = daysUntil(dueDateOf(entry), today);
   if (days < 0) {
     return { level: "overdue", days, label: `Quá hạn ${Math.abs(days)} ngày` };
   }
-  if (days === 0) return { level: "soon", days, label: "Đến hạn hôm nay" };
-  if (days <= SOON_DAYS) {
+  if (days === 0) return { level: "overdue", days, label: "Đến hạn hôm nay" };
+  if (days <= SOON_DAYS_SERVICE) {
     return { level: "soon", days, label: `Còn ${days} ngày` };
   }
   return { level: "ok", days, label: `Còn ${days} ngày` };
@@ -81,32 +77,28 @@ function getDueStatus(entry: MaintenanceEntry, today: Date): DueStatus {
 
 // ── storage ──────────────────────────────────────────────────
 
-function isoDaysAgo(today: Date, days: number): string {
-  const d = new Date(today);
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-
 /** Demo seed so the screen demonstrates itself before first use. */
 function demoEntries(today: Date): MaintenanceEntry[] {
+  const base = todayIsoVN(today);
+  const ago = (days: number) => addDaysIso(base, -days);
   return [
     {
       id: "demo-bd-1",
       item: "Thay lọc dầu",
-      lastDone: isoDaysAgo(today, 100),
+      lastDone: ago(100),
       intervalDays: 90,
       note: "Mua lọc đúng mã máy, xem bảng giá bên dưới.",
     },
     {
       id: "demo-bd-2",
       item: "Thay dầu máy",
-      lastDone: isoDaysAgo(today, 54),
+      lastDone: ago(54),
       intervalDays: 60,
     },
     {
       id: "demo-bd-3",
       item: "Bơm mỡ trục láp",
-      lastDone: isoDaysAgo(today, 5),
+      lastDone: ago(5),
       intervalDays: 30,
     },
   ];
@@ -117,20 +109,26 @@ function demoEntries(today: Date): MaintenanceEntry[] {
   dụ cho dễ hình dung, nhưng (1) app biết rõ đây là demo, (2) KHÔNG ghi demo
   xuống localStorage — dải "việc cần làm ngay" ngoài trang chủ không bao giờ báo
   đỏ vì việc mẫu, (3) ghi việc thật đầu tiên là lịch mẫu tự biến mất.
+
+  BA TRẠNG THÁI qua `readUserList` (T1, audit 2026-08-18 — cùng khuôn
+  document-vault): JSON hỏng / khoá giữ thứ không phải mảng ⇒ `readFailed`,
+  KHÔNG dựng lịch mẫu (trông y như thật) và KHÔNG mở cửa ghi — ghi đè là mất
+  chuỗi gốc còn cứu được. Mảng (kể cả rỗng) = lịch THẬT; chưa có khoá = mẫu.
+  Export cho badge tab /tau (tau-tabs.tsx).
 */
-function loadEntries(today: Date): {
+export function loadEntries(today: Date): {
   entries: MaintenanceEntry[];
   isDemo: boolean;
+  /** true = khoá đang giữ thứ ĐỌC KHÔNG ĐƯỢC ⇒ CẤM ghi đè, phải báo */
+  readFailed: boolean;
 } {
-  if (typeof window === "undefined") return { entries: [], isDemo: false };
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw)
-      return { entries: JSON.parse(raw) as MaintenanceEntry[], isDemo: false };
-  } catch {
-    // corrupt storage — fall through to demo seed
-  }
-  return { entries: demoEntries(today), isDemo: true };
+  if (typeof window === "undefined")
+    return { entries: [], isDemo: false, readFailed: false };
+  const r = readUserList<MaintenanceEntry>(STORAGE_KEY);
+  if (!r.ok) return { entries: [], isDemo: false, readFailed: true };
+  if (Array.isArray(r.list))
+    return { entries: r.list, isDemo: false, readFailed: false };
+  return { entries: demoEntries(today), isDemo: true, readFailed: false };
 }
 
 /* Trả `false` khi máy KHÔNG giữ được (hết chỗ / trình duyệt chặn) — trước đây
@@ -143,13 +141,15 @@ function saveEntries(entries: MaintenanceEntry[]): boolean {
 // ── component ────────────────────────────────────────────────
 
 export function MaintenanceReminders() {
-  const today = useMemo(() => new Date(), []);
+  const { today } = useTodayVN();
   const { current, boats, ready: boatReady } = useBoats();
   const [entries, setEntries] = useState<MaintenanceEntry[]>([]);
   const [isDemo, setIsDemo] = useState(false);
   const [ready, setReady] = useState(false);
   /** máy không giữ được việc vừa ghi → phải nói ra, không im */
   const [saveFailed, setSaveFailed] = useState(false);
+  /** lịch trong máy ĐỌC KHÔNG ĐƯỢC → cấm mọi đường ghi đè, báo đỏ */
+  const [readFailed, setReadFailed] = useState(false);
   const [editing, setEditing] = useState<MaintenanceEntry | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<MaintenanceEntry | null>(
@@ -161,20 +161,34 @@ export function MaintenanceReminders() {
     const loaded = loadEntries(today);
     setEntries(loaded.entries);
     setIsDemo(loaded.isDemo);
+    setReadFailed(loaded.readFailed);
     setReady(true);
-  }, [today]);
+    // đọc một lần lúc mở; đổi ngày không cần đọc lại kho
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Lịch mẫu sống trong bộ nhớ thôi — chỉ việc THẬT mới được ghi xuống máy.
-  useEffect(() => {
-    if (ready && !isDemo) setSaveFailed(!saveEntries(entries));
-  }, [entries, ready, isDemo]);
+  /*  GHI KHI BÀ CON THAO TÁC, KHÔNG GHI SAU HYDRATE (N5, audit 2026-08-18):
+      effect cũ `if (ready && !isDemo) save(entries)` chạy ngay khi mở màn ⇒ máy
+      đầy thì băng đỏ "CHƯA lưu được" bật dù chưa nhập gì. Nay chỉ `commit()`
+      từ upsert / vừa làm xong / xoá / bỏ lịch mẫu. Đọc hỏng thì KHÔNG ghi. */
+  function commit(next: MaintenanceEntry[]) {
+    setEntries(next);
+    if (readFailed) return;
+    setSaveFailed(!saveEntries(next));
+  }
 
   // Xóa tàu → lịch bảo dưỡng tàu đó đã bị purge (ba-spec 08 R3); đọc lại.
+  // Đọc lại không được → GIỮ NGUYÊN thứ đang hiện, khoá cửa ghi.
   useEffect(() => {
     if (!ready) return;
     const loaded = loadEntries(today);
+    if (loaded.readFailed) {
+      setReadFailed(true);
+      return;
+    }
     setEntries(loaded.entries);
     setIsDemo(loaded.isDemo);
+    setReadFailed(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boats.length]);
 
@@ -198,59 +212,77 @@ export function MaintenanceReminders() {
     // Ghi/sửa việc THẬT đầu tiên = lịch mẫu nhường chỗ luôn, không lẫn lộn.
     if (isDemo) {
       setIsDemo(false);
-      setEntries([withBoat]);
+      commit([withBoat]);
       setShowForm(false);
       setEditing(null);
       return;
     }
-    setEntries((prev) => {
-      const idx = prev.findIndex((e) => e.id === withBoat.id);
-      if (idx === -1) return [...prev, withBoat];
-      const next = [...prev];
-      next[idx] = withBoat;
-      return next;
-    });
+    const idx = entries.findIndex((e) => e.id === withBoat.id);
+    const next = [...entries];
+    if (idx === -1) next.push(withBoat);
+    else next[idx] = withBoat;
+    commit(next);
     setShowForm(false);
     setEditing(null);
   }
 
   function markDoneToday(id: string) {
-    const todayIso = new Date().toISOString().slice(0, 10);
-    setEntries((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, lastDone: todayIso } : e)),
+    const todayIso = todayIsoVN();
+    const next = entries.map((e) =>
+      e.id === id ? { ...e, lastDone: todayIso } : e,
     );
+    if (isDemo) {
+      // bấm "vừa làm xong" trên việc mẫu = giữ mẫu trong bộ nhớ, không ghi
+      setEntries(next);
+      return;
+    }
+    commit(next);
   }
 
   function remove(id: string) {
-    setEntries((prev) => prev.filter((e) => e.id !== id));
+    const next = entries.filter((e) => e.id !== id);
+    if (isDemo) setEntries(next);
+    else commit(next);
     setConfirmDelete(null);
   }
 
   return (
     <div className="px-4 pt-1">
-      <button
-        onClick={() => {
-          setEditing(null);
-          setShowForm(true);
-        }}
-        className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
-      >
-        <PlusIcon className="h-6 w-6" />
-        Thêm việc bảo dưỡng
-      </button>
+      {/* ĐỌC KHÔNG ĐƯỢC — nói thẳng và KHOÁ cửa ghi (T1): thêm việc lúc này là
+          ghi đè lên chuỗi gốc còn cứu được, mất cả lịch. */}
+      {readFailed ? (
+        <div className="mb-4 overflow-hidden surface">
+          <StatusBanner level="danger" icon={<AlertIcon className="h-5 w-5" />}>
+            Lịch bảo dưỡng trong máy đang ĐỌC KHÔNG ĐƯỢC — việc cũ vẫn nằm trong
+            máy nhưng app chưa mở ra được. Bà con ĐỪNG ghi việc mới ở đây (ghi là
+            đè mất bản cũ); thử tắt hẳn app mở lại, hoặc phục hồi từ tệp sao lưu.
+          </StatusBanner>
+        </div>
+      ) : (
+        <button
+          onClick={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+          className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
+        >
+          <PlusIcon className="h-6 w-6" />
+          Thêm việc bảo dưỡng
+        </button>
+      )}
 
       {/* MÁY KHÔNG GIỮ ĐƯỢC — nói ngay, đừng để tưởng đã ghi rồi quên luôn việc */}
       {saveFailed && (
         <div className="mb-4 overflow-hidden surface">
           <StatusBanner level="danger" icon={<AlertIcon className="h-5 w-5" />}>
-            Máy hết chỗ — CHƯA lưu được việc vừa ghi. Xoá bớt ảnh/ứng dụng trong
-            máy rồi ghi lại việc này.
+            {storageFullCopy("việc vừa ghi")}
           </StatusBanner>
         </div>
       )}
 
       {/* Lịch mẫu phải TỰ XƯNG là mẫu (mirror crew-list) — việc mẫu trông y như
-          việc thật thì bà con tưởng đã có lịch bảo dưỡng */}
+          việc thật thì bà con tưởng đã có lịch bảo dưỡng. Banner đứng TRÊN thẻ,
+          thẻ mẫu không đeo băng đỏ/vàng (T3). */}
       {ready && isDemo && (
         <div className="mb-4 overflow-hidden surface">
           <StatusBanner level="neutral" icon={<WrenchIcon className="h-5 w-5" />}>
@@ -259,7 +291,7 @@ export function MaintenanceReminders() {
           <button
             onClick={() => {
               setIsDemo(false);
-              setEntries([]);
+              commit([]);
             }}
             className="flex min-h-[3.25rem] w-full items-center justify-center border-t border-line text-[1.0625rem] font-bold text-sea active:bg-background"
           >
@@ -272,9 +304,19 @@ export function MaintenanceReminders() {
         <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
           <WrenchIcon className="mx-auto h-10 w-10 text-foreground/30" />
           <p className="mt-3 text-[1.125rem] text-foreground/70">
-            Chưa có việc bảo dưỡng nào.
-            <br />
-            Bấm nút cam ở trên để thêm.
+            {readFailed ? (
+              <>
+                Chưa mở được lịch bảo dưỡng trong máy.
+                <br />
+                Việc cũ chưa mất — xem dải đỏ ở trên.
+              </>
+            ) : (
+              <>
+                Chưa có việc bảo dưỡng nào.
+                <br />
+                Bấm nút cam ở trên để thêm.
+              </>
+            )}
           </p>
         </div>
       )}
@@ -282,8 +324,9 @@ export function MaintenanceReminders() {
       <ul className="space-y-3">
         {sorted.map((entry) => {
           const status = getDueStatus(entry, today);
-          const level =
-            status.level === "overdue"
+          const level = isDemo
+            ? ("neutral" as const)
+            : status.level === "overdue"
               ? ("danger" as const)
               : status.level === "soon"
                 ? ("warn" as const)
@@ -294,7 +337,12 @@ export function MaintenanceReminders() {
               className="overflow-hidden surface"
             >
               {/* status banner — the first thing the eye lands on */}
-              <StatusBanner level={level}>{status.label}</StatusBanner>
+              <StatusBanner
+                level={level}
+                icon={isDemo ? <WrenchIcon className="h-5 w-5" /> : undefined}
+              >
+                {isDemo ? `Ví dụ: ${status.label}` : status.label}
+              </StatusBanner>
 
               <div className="px-4 py-3">
                 <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
@@ -402,7 +450,7 @@ function MaintenanceForm({
   onCancel: () => void;
   onSave: (entry: MaintenanceEntry) => void;
 }) {
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = todayIsoVN();
   const initialIsSuggestion =
     initial !== null && TASK_SUGGESTIONS.includes(initial.item);
 

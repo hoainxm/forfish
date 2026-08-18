@@ -1424,6 +1424,11 @@ self.addEventListener("push", (event) => {
     badge: "/icons/icon-192.png",
     // giờ hệ điều hành hiện cạnh thông báo = GIỜ GỬI THẬT, không phải giờ tới
     ...(Number.isFinite(sentAtMs) ? { timestamp: sentAtMs } : {}),
+    // GOM THEO SỰ KIỆN (2026-08-18, audit P2): server gửi `tag` cho bão
+    // (`bao-<khoá>`) và đơn hàng (`don-<id>`) ⇒ tin mới cùng cơn/cùng đơn ĐÈ
+    // tin cũ trên màn khoá thay vì xếp chồng 4–5 dòng; `renotify` để lần đè vẫn
+    // rung/kêu (bão lên cấp phải đánh thức được). Tin tay không tag → như cũ.
+    ...(data.tag ? { tag: String(data.tag), renotify: true } : {}),
     data: { url: data.url || "/", messageId: data.messageId || null },
   };
   /* BÁO VỀ "ĐÃ NHẬN" (0023): gửi xong chỉ biết đã đẩy tới Apple/Google, không

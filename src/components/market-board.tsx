@@ -24,6 +24,7 @@ import {
 import { CheckIcon, PlusIcon, TrashIcon, UsersIcon } from "@/components/icons";
 import { useAuthUser } from "@/lib/use-auth";
 import { formatVnDate } from "@/lib/format";
+import { useOnline } from "@/lib/use-online";
 import {
   DEMO_LISTINGS,
   POSTER_KIND_LABEL,
@@ -51,6 +52,7 @@ export function MarketBoard() {
       nên `user` null vĩnh viễn — hỏi nó là khoá nút đăng tin của ĐÚNG những
       người đang đăng nhập (sửa 2026-08-02h). */
   const { signedIn, ready } = useAuthUser();
+  const online = useOnline();
   const [filter, setFilter] = useState<Filter>("all");
   const [real, setReal] = useState<MarketListing[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,6 +62,8 @@ export function MarketBoard() {
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDel, setConfirmDel] = useState<MarketListing | null>(null);
+  /** tin đang xoá — thẻ đó khoá nút + "Đang xoá…" (audit G8) */
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -147,7 +151,8 @@ export function MarketBoard() {
             <PlusIcon className="h-6 w-6" />
             Đăng tin mua/bán
           </PrimaryButton>
-        ) : ready ? (
+        ) : ready && online ? (
+          /* lời mời đăng nhập ẨN khi mất sóng — /login cần sóng (tầng 5, 2026-08-18) */
           <Link
             href="/login"
             className="display flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
@@ -169,7 +174,9 @@ export function MarketBoard() {
         />
       </div>
 
-      {!loading && listings.length === 0 && (
+      {/* MẤT SÓNG mà chưa có bản nào → CHỈ băng vàng ở trên, KHÔNG mời "đăng tin
+          đầu tiên" (audit 2026-08-18 G8: hai câu trái nhau cùng màn) */}
+      {!loading && listings.length === 0 && !netFailed && (
         <EmptyState icon={<UsersIcon className="h-9 w-9" />}>
           Chưa có tin nào ở mục này. Bà con đăng tin đầu tiên đi.
         </EmptyState>
@@ -180,6 +187,7 @@ export function MarketBoard() {
           <li key={l.id}>
             <ListingCard
               listing={l}
+              deleting={deletingId === l.id}
               onDelete={() => setConfirmDel(l)}
               onChanged={refresh}
               onFailed={setActionErr}
@@ -208,11 +216,14 @@ export function MarketBoard() {
             /*  ĐỌC KẾT QUẢ (2026-08-16): bản cũ `await deleteListing(...)` rồi
                 vứt boolean — mất sóng thì hộp thoại đóng, tin còn nguyên, không
                 một câu nào. Đúng khuôn "nút bấm không được gì". */
-            const xong = await deleteListing(confirmDel.id);
+            const id = confirmDel.id;
+            setConfirmDel(null); // hộp thoại đã tự đóng — thẻ tin nói "Đang xoá…"
+            setDeletingId(id);
+            const xong = await deleteListing(id);
+            setDeletingId(null);
             setActionErr(
               xong ? null : "Chưa xoá được tin — cần có mạng, thử lại khi có sóng.",
             );
-            setConfirmDel(null);
             if (xong) void refresh();
           }}
         />
@@ -223,17 +234,24 @@ export function MarketBoard() {
 
 function ListingCard({
   listing: l,
+  deleting,
   onDelete,
   onChanged,
   onFailed,
 }: {
   listing: MarketListing;
+  /** đang xoá tin này (cha giữ, vì hộp xác nhận đóng trước khi máy chủ trả lời) */
+  deleting: boolean;
   onDelete: () => void;
   onChanged: () => void;
   /** đổi trạng thái không ăn → đưa câu báo lên khối chung của màn */
   onFailed: (msg: string | null) => void;
 }) {
   const sell = l.side === "ban";
+  /** đang gửi đổi trạng thái — khoá nút, nói "Đang gửi…" (audit G8: trước đây
+   *  bấm được liên tiếp suốt 20 giây chờ) */
+  const [pending, setPending] = useState(false);
+  const busy = pending || deleting;
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-2">
@@ -292,22 +310,26 @@ function ListingCard({
         </p>
         {l.phone ? (
           <CallButton phone={l.phone} label={sell ? "Gọi hỏi mua" : "Gọi chào bán"} />
-        ) : (
+        ) : l.demo ? (
           <span className="shrink-0 text-[0.8125rem] font-semibold text-foreground/65">
             Tin thật sẽ có nút gọi thẳng
           </span>
-        )}
+        ) : null}
       </div>
 
       {l.mine && (
         <div className="mt-2 flex gap-4 border-t border-line pt-2">
           <button
+            type="button"
+            disabled={busy}
             onClick={async () => {
               // ĐỌC KẾT QUẢ (2026-08-16) — xem ghi chú ở nút Xoá.
+              setPending(true);
               const xong = await setListingStatus(
                 l.id,
                 l.status === "open" ? "closed" : "open",
               );
+              setPending(false);
               onFailed(
                 xong
                   ? null
@@ -315,16 +337,22 @@ function ListingCard({
               );
               if (xong) onChanged();
             }}
-            className="flex items-center gap-1.5 text-[0.9375rem] font-bold text-sea"
+            className="flex min-h-[2.75rem] items-center gap-1.5 text-[0.9375rem] font-bold text-sea disabled:opacity-50"
           >
             <CheckIcon className="h-4 w-4" />
-            {l.status === "open" ? "Đánh dấu đã xong" : "Mở lại tin"}
+            {pending
+              ? "Đang gửi…"
+              : l.status === "open"
+                ? "Đánh dấu đã xong"
+                : "Mở lại tin"}
           </button>
           <button
+            type="button"
+            disabled={busy}
             onClick={onDelete}
-            className="flex items-center gap-1.5 text-[0.9375rem] font-bold text-danger"
+            className="flex min-h-[2.75rem] items-center gap-1.5 text-[0.9375rem] font-bold text-danger disabled:opacity-50"
           >
-            <TrashIcon className="h-4 w-4" /> Xóa
+            <TrashIcon className="h-4 w-4" /> {deleting ? "Đang xoá…" : "Xóa"}
           </button>
         </div>
       )}

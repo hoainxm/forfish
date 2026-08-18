@@ -3,6 +3,8 @@
 // nhà nước (khai báo eCDT/NKKT thuộc hệ thống nhà nước / sản phẩm NKKT riêng —
 // quyết định phạm vi 2026-06-10). Mốc lấy từ TT 81/2025 (06-jtbd §4).
 
+import { daysUntil } from "@/lib/days";
+
 export interface ComplianceMilestone {
   id: string;
   label: string;
@@ -13,16 +15,6 @@ export interface ComplianceMilestone {
   /** số ngày tới mốc; âm = đã qua */
   daysUntil: number;
   note: string;
-}
-
-function daysBetween(isoDate: string, today: Date): number {
-  const target = new Date(isoDate + "T00:00:00Z");
-  const base = Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate(),
-  );
-  return Math.round((target.getTime() - base) / 86_400_000);
 }
 
 /** Mốc NKKT điện tử bắt buộc theo chiều dài (TT 81/2025). null = chưa bắt buộc. */
@@ -40,7 +32,7 @@ export function complianceMilestones(
   const out: ComplianceMilestone[] = [];
 
   // eCDT — khai báo ra/vào cảng, áp dụng MỌI tàu (hiệu lực 01/3/2026)
-  const ecdtDays = daysBetween("2026-03-01", today);
+  const ecdtDays = daysUntil("2026-03-01", today);
   out.push({
     id: "ecdt",
     label: "Khai báo ra/vào cảng điện tử (eCDT)",
@@ -53,7 +45,7 @@ export function complianceMilestones(
   // NKKT điện tử theo cỡ tàu
   const nkkt = nkktDate(lengthM);
   if (nkkt) {
-    const d = daysBetween(nkkt, today);
+    const d = daysUntil(nkkt, today);
     out.push({
       id: "nkkt",
       label: "Nhật ký khai thác điện tử (NKKT)",

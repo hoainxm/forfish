@@ -37,12 +37,16 @@ export default function DoiMatKhauPage() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /** Đổi xong — nói "Đã đổi mật khẩu" ngay tại chỗ ~1,5 giây rồi mới về Trang
+   *  chủ (audit 2026-08-18 G4: trước đây replace im lặng, bà con không chắc
+   *  mật khẩu nào đang có hiệu lực). Không chờ mạng. */
+  const [done, setDone] = useState(false);
 
   const header = (
     <PageHeader
       kicker="Tài khoản"
       title="Đổi mật khẩu"
-      sub="Đặt mật khẩu riêng để giữ sổ tàu của bạn an toàn."
+      sub="Đặt mật khẩu riêng để giữ sổ tàu của bà con an toàn."
       toColor="var(--sea)"
     />
   );
@@ -85,7 +89,7 @@ export default function DoiMatKhauPage() {
       <div>
         {header}
         <AuthCard>
-          <AuthNote>Bạn cần đăng nhập trước rồi mới đổi được mật khẩu.</AuthNote>
+          <AuthNote>Bà con cần đăng nhập trước rồi mới đổi được mật khẩu.</AuthNote>
           <Link
             href="/login"
             className="display flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white transition active:scale-[0.98]"
@@ -108,7 +112,7 @@ export default function DoiMatKhauPage() {
       return;
     }
     if (password !== confirm) {
-      setError("Hai ô mật khẩu chưa giống nhau. Bạn nhập lại giúp nhé.");
+      setError("Hai ô mật khẩu chưa giống nhau. Bà con nhập lại giúp nhé.");
       return;
     }
 
@@ -137,7 +141,7 @@ export default function DoiMatKhauPage() {
       }
       const { error: verifyError } = verify;
       if (verifyError) {
-        setError("Mật khẩu hiện tại chưa đúng. Bạn kiểm tra lại giúp nhé.");
+        setError("Mật khẩu hiện tại chưa đúng. Bà con kiểm tra lại giúp nhé.");
         setLoading(false);
         return;
       }
@@ -158,7 +162,7 @@ export default function DoiMatKhauPage() {
     }
     const { data: userData, error: updateError } = upd;
     if (updateError || !userData.user) {
-      setError("Chưa đổi được mật khẩu. Bạn thử lại giúp nhé.");
+      setError("Chưa đổi được mật khẩu. Bà con thử lại giúp nhé.");
       setLoading(false);
       return;
     }
@@ -183,27 +187,40 @@ export default function DoiMatKhauPage() {
         báo nào. */
     if (readToken()) await withDeadline(supabase!.auth.signOut(), 8000);
 
-    // 4) Vào trang chính.
-    router.replace("/");
+    // 4) Báo "Đã đổi mật khẩu" rồi mới vào trang chính.
+    setLoading(false);
+    setDone(true);
+    window.setTimeout(() => router.replace("/"), 1500);
   }
 
   return (
     <div>
       {header}
       <AuthCard>
-        <AuthNote>
-          {mustChange ? (
-            <>
-              Lần đầu đăng nhập, hãy đổi mật khẩu nhân viên báo thành mật khẩu
-              của riêng bạn.
-            </>
-          ) : (
-            <>
-              Đổi xong, bạn dùng mật khẩu mới từ lần đăng nhập sau. Tài khoản
-              premium hỗ trợ đăng nhập trên một máy.
-            </>
-          )}
-        </AuthNote>
+        {/* xưng "bà con" thống nhất với /login (audit 2026-08-18 G10) */}
+        {done ? (
+          <p
+            role="status"
+            className="mb-4 rounded-xl px-3.5 py-3 text-[1rem] font-semibold leading-snug"
+            style={{ color: "var(--ok)", backgroundColor: "var(--ok-bg)" }}
+          >
+            Đã đổi mật khẩu. Đang về trang chính…
+          </p>
+        ) : (
+          <AuthNote>
+            {mustChange ? (
+              <>
+                Lần đầu đăng nhập, bà con đổi mật khẩu nhân viên báo thành mật
+                khẩu của riêng mình.
+              </>
+            ) : (
+              <>
+                Đổi xong, bà con dùng mật khẩu mới từ lần đăng nhập sau. Máy này
+                vẫn đang đăng nhập, không phải vào lại.
+              </>
+            )}
+          </AuthNote>
+        )}
         {error && <AuthError>{error}</AuthError>}
         <form onSubmit={handleSubmit}>
           {!mustChange && (
@@ -237,8 +254,8 @@ export default function DoiMatKhauPage() {
               required
             />
           </Field>
-          <PrimaryButton type="submit" disabled={loading}>
-            {loading ? "Đang lưu…" : "Lưu mật khẩu mới"}
+          <PrimaryButton type="submit" disabled={loading || done}>
+            {loading ? "Đang lưu…" : done ? "Đã đổi" : "Lưu mật khẩu mới"}
           </PrimaryButton>
         </form>
       </AuthCard>

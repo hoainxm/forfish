@@ -41,7 +41,7 @@ Hợp nhất + khử trùng lặp từ 4 bảng JTBD của nghiên cứu 01–04
 |---|---|---|---|---|
 | Quyết định đi/nằm bờ bằng cảm tính + tin đồn; một quyết định sai mất 50–200 triệu | Ước được tổn và điểm hòa vốn TRƯỚC khi đổ dầu | Giá dầu DO + lịch điều hành 2 tuần/lần; dự báo thời tiết biển 7–10 ngày; mức hỗ trợ dầu QĐ 48 đủ điều kiện | **Máy tính chuyến biển**: nhập số ngày + nghề + mức tiêu hao dầu → tổn dự kiến + "cần đánh tối thiểu X tấn giá Y mới hòa vốn" | 01 |
 | Kinh nghiệm ngư trường nằm trong trí nhớ thuyền trưởng | Quay lại đúng tọa độ trúng cá mùa trước; truyền nghề cho con | Bản đồ riêng tư các điểm đánh bắt cũ kèm sản lượng/mùa; lớp dự báo ngư trường công khai | Nhật ký mẻ lưới offline: 1 nút "đánh dấu điểm này" + voice note, tự gắn GPS/giờ, đồng bộ khi về bờ | 04 |
-| Chạy tàu theo kinh nghiệm, không nhìn thấy ranh giới ven bờ/lộng/khơi hay ranh giới nước ngoài | Biết tàu sắp ra khỏi vùng được phép TRƯỚC khi vượt | Bản đồ phân vùng NĐ 26/2019 Đ.42–43 theo đúng cỡ tàu/giấy phép | **Geofence cảnh báo sớm** (còn X hải lý tới ranh); còi báo vùng cấm/chồng lấn; log hành trình làm bằng chứng khi bị xác minh oan | 03 |
+| Chạy tàu theo kinh nghiệm, không nhìn thấy ranh giới ven bờ/lộng/khơi hay ranh giới nước ngoài | Biết tàu sắp ra khỏi vùng được phép TRƯỚC khi vượt | Bản đồ phân vùng NĐ 26/2019 Đ.42–43 theo đúng cỡ tàu/giấy phép | **Geofence cảnh báo sớm** (còn X hải lý tới ranh) — **✅ ĐÃ LÀM 2026-08-18** theo GPS khi đang dẫn đường (`lib/geofence.ts` mốc 15/10/6/3 hải lý, "Còn ~X hải lý tới ranh giới — giữ khoảng cách", ≤6 hl đỏ không tắt được — [07 §10.7 F](07-design-spec.md); ngưỡng chờ BA chốt); còi báo vùng cấm/chồng lấn (CẦN XÂY); log hành trình làm bằng chứng khi bị xác minh oan (CẦN XÂY — VMS/ghi hành trình vẫn ngoài phạm vi) | 03 |
 | Icom + smartphone nhưng ngoài khơi không sóng | Tin thời tiết/áp thấp kịp thời; người nhà biết tàu ở đâu | Bản tin thời tiết biển tải sẵn trước khi đi; vị trí tàu (từ VMS) hiển thị cho người nhà trên bờ | Chế độ offline toàn phần; gói "trước giờ ra khơi" 1 chạm: tải dự báo 7 ngày + checklist an toàn | 04 |
 
 ### Nhóm B — BÁN CÁ
@@ -140,4 +140,4 @@ Thứ tự ưu tiên build các mục CẦN XÂY: xem [01-product.md §7 — L�
 
 ---
 
-**Last updated**: 2026-06-10
+**Last updated**: 2026-08-18

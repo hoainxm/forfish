@@ -10,6 +10,7 @@ import { apiUrl } from "@/lib/api-base";
 import { loadForecast, saveForecast } from "@/lib/forecast-cache";
 import { forecastStoreReady } from "@/lib/forecast-store";
 import { timeoutSignal } from "@/lib/abort";
+import type { StormTrack } from "@/lib/storm-track";
 
 export type StormAlert = {
   id: string;
@@ -30,7 +31,15 @@ export type StormAlert = {
 };
 
 export type StormCheck =
-  | { ok: true; storms: StormAlert[]; checkedAt: string }
+  | {
+      ok: true;
+      storms: StormAlert[];
+      checkedAt: string;
+      /** Đường đi đã qua + dự báo sắp tới, từ kho bản tin NCHMF (0036). Optional
+          vì bản tin ĐÃ LƯU trong máy từ trước bản này không có trường đó — đọc
+          cache cũ phải chạy bình thường, không được ném. */
+      tracks?: StormTrack[];
+    }
   | { ok: false };
 
 /**
@@ -122,16 +131,77 @@ export function stormGateForRoute(
   if (status.kind === "dang-hoi") {
     return { known: false, warnText: `Đang hỏi tin bão. ${base}` };
   }
-  const at = status.checkedAt;
-  if (at == null || !Number.isFinite(at) || at > now) {
+  const tuoi = stormAgeLabel(status.checkedAt, now);
+  if (tuoi == null) {
     return { known: false, warnText: `Máy chưa có tin bão nào. ${base}` };
   }
-  const gio = Math.max(1, Math.round((now - at) / 3_600_000));
-  const tuoi = gio < 48 ? `${gio} giờ` : `${Math.round(gio / 24)} ngày`;
   return {
     known: false,
     warnText: `Tin bão trong máy đã cũ ${tuoi} (mất sóng nên chưa hỏi lại được). ${base}`,
   };
+}
+
+/**
+ * Tuổi bản tin cuối, lời thường: "3 giờ" / "2 ngày". null = chưa từng có bản
+ * nào (hoặc mốc rác/tương lai — không tin được). Dùng chung cho cổng tuyến,
+ * banner bão, panel Thời tiết — một cách đếm tuổi cho cả app.
+ */
+export function stormAgeLabel(at: number | null, now: number): string | null {
+  if (at == null || !Number.isFinite(at) || at > now) return null;
+  const gio = Math.max(1, Math.round((now - at) / 3_600_000));
+  return gio < 48 ? `${gio} giờ` : `${Math.round(gio / 24)} ngày`;
+}
+
+/**
+ * CÂU CHO NHÁNH "CHƯA HỎI ĐƯỢC" — chỗ DUY NHẤT phát biểu (2026-08-18, audit
+ * S11/S13/M5). Trước đây banner bão + panel Thời tiết chép cứng "Chưa hỏi được
+ * tin bão — máy không có sóng", sai hai chỗ: (1) bỏ qua TUỔI tin — thứ duy
+ * nhất còn là tin mới với người đã ở biển ngày thứ ba; (2) đổ cho máy cả khi
+ * máy có sóng mà NGUỒN lỗi (5xx / hết giờ).
+ *
+ * Luật: mất sóng không phải tin, tuổi dữ liệu mới là tin. `online` = máy KHÔNG
+ * báo mất sóng (navigator.onLine !== false) → hỏng là do nguồn, nói đúng vậy.
+ * Trả null cho mọi nhánh khác `khong-hoi-duoc` (không có gì để nhắc).
+ */
+export function stormNoticeText(
+  status: StormStatus,
+  now: number,
+  online: boolean,
+): string | null {
+  if (status.kind !== "khong-hoi-duoc") return null;
+  const tuoi = stormAgeLabel(status.checkedAt, now);
+  const nghe = "nghe đài duyên hải / Icom.";
+  if (online) {
+    return tuoi == null
+      ? `Nguồn tin bão đang lỗi, máy chưa có tin nào — ${nghe}`
+      : `Nguồn tin bão đang lỗi, tin trong máy đã cũ ${tuoi} — ${nghe}`;
+  }
+  return tuoi == null
+    ? `Chưa hỏi được tin bão lần nào — ${nghe}`
+    : `Tin bão trong máy đã cũ ${tuoi} — ${nghe}`;
+}
+
+/** Bản MỘT DÒNG cho chip thu gọn trên bản đồ (chạm mở câu đầy đủ). */
+export function stormNoticeShort(status: StormStatus, now: number): string | null {
+  if (status.kind !== "khong-hoi-duoc") return null;
+  const tuoi = stormAgeLabel(status.checkedAt, now);
+  return tuoi == null ? "Chưa hỏi được tin bão" : `Tin bão cũ ${tuoi}`;
+}
+
+/**
+ * Trang chủ có nên hiện banner bão không (2026-08-18, audit S10). Trang chủ là
+ * màn yên: chỉ nói khi CÓ BÃO, hoặc khi tin bão trong máy đã QUÁ CŨ (>24h) /
+ * chưa từng có tin nào — lúc đó "không biết" là chuyện đáng nói. "Không có bão"
+ * và "chưa hỏi được nhưng tin còn dưới 1 ngày" thì IM (bản đồ vẫn có chip).
+ */
+export const STORM_HOME_STALE_MS = 24 * 60 * 60 * 1000;
+
+export function shouldShowStormOnHome(status: StormStatus, now: number): boolean {
+  if (status.kind === "co-bao") return true;
+  if (status.kind !== "khong-hoi-duoc") return false;
+  const at = status.checkedAt;
+  if (at == null || !Number.isFinite(at) || at > now) return true;
+  return now - at > STORM_HOME_STALE_MS;
 }
 
 /** Vùng quan tâm: Biển Đông + dải tiếp cận ngoài Philippines (cảnh báo sớm) */

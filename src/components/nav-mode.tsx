@@ -16,6 +16,7 @@ import type { LatLon } from "@/lib/route-plan";
 import { formatHoursVN } from "@/lib/route-plan";
 import type { NavProgress } from "@/lib/nav-progress";
 import type { NavStatus } from "@/lib/use-nav-tracking";
+import type { BorderLevel } from "@/lib/geofence";
 import { useMapPrefs, fmtDist } from "@/lib/map-prefs";
 import {
   AlertIcon,
@@ -66,18 +67,46 @@ export function NavBoatMarker({
  * đầu để DI CHUYỂN cho khỏi che bản đồ, nút trừ để ẨN thành chip nhỏ
  * (user 2026-07-29).
  */
+/** Ranh giới theo GPS — cha (fishing-map-view) tính từ lib/geofence, HUD chỉ vẽ */
+export type NavBorderNotice = {
+  /** mốc đang trong (15/10/6/3 hải lý) */
+  step: number;
+  distanceNm: number;
+  level: BorderLevel;
+  /** bà con đã chạm thu (chỉ được khi >6 hải lý) */
+  dismissed: boolean;
+};
+
 export function NavHud({
   progress,
   status,
   onStop,
+  border,
+  onDismissBorder,
 }: {
   progress: NavProgress | null;
   status: NavStatus;
   onStop: () => void;
+  border?: NavBorderNotice | null;
+  onDismissBorder?: () => void;
 }) {
   const prefs = useMapPrefs();
   const lost = status === "lost";
   const denied = status === "denied";
+  /* RANH GIỚI (2026-08-18, audit M3): dòng warn/danger theo GPS; ≤6 hải lý
+     (very_near) KHÔNG thu được — cả khi HUD đã ẩn thành chip vẫn phải hiện. */
+  const borderLocked = border != null && border.level === "very_near";
+  const borderShow = border != null && (borderLocked || !border.dismissed);
+  const borderLine = border
+    ? `Còn ~${
+        border.level === "very_near"
+          ? border.distanceNm.toFixed(1)
+          : Math.round(border.distanceNm)
+      } hải lý tới ranh giới — giữ khoảng cách`
+    : null;
+  const borderTone = borderLocked
+    ? "bg-danger-bg text-danger"
+    : "bg-warn-bg text-warn";
 
   const [hidden, setHidden] = useState(false);
   // kéo-thả: offset so với chỗ gốc (đầu màn hình) — chip ẩn cũng giữ chỗ này
@@ -113,7 +142,7 @@ export function NavHud({
   // ẨN → chỉ còn chip nhỏ (vẫn thấy quãng còn lại), chạm để mở lại
   if (hidden) {
     return (
-      <div style={floatStyle} className="self-start">
+      <div style={floatStyle} className="space-y-1.5 self-start">
         <button
           type="button"
           onClick={() => setHidden(false)}
@@ -125,6 +154,16 @@ export function NavHud({
             ? `Còn ${fmtDist(progress.remainingKm, prefs.distUnit)}`
             : "Đang dẫn đường"}
         </button>
+        {/* rất gần ranh giới thì HUD ẩn vẫn phải nói — không thu được */}
+        {borderLocked && borderLine && (
+          <p
+            role="alert"
+            className={`pointer-events-auto flex items-center gap-2 rounded-xl px-3 py-2 text-[0.9375rem] font-bold leading-snug shadow-md ${borderTone}`}
+          >
+            <AlertIcon className="h-5 w-5 shrink-0" />
+            {borderLine}
+          </p>
+        )}
       </div>
     );
   }
@@ -163,6 +202,25 @@ export function NavHud({
           <MinusIcon className="h-5 w-5" />
         </button>
       </div>
+
+      {/* RANH GIỚI theo GPS — trên mọi thứ khác trong HUD; chạm để thu khi còn
+          >6 hải lý, nói lại khi vượt mốc mới (cha lo), ≤6 hải lý nằm đó. */}
+      {borderShow && borderLine && (
+        <button
+          type="button"
+          role="alert"
+          disabled={borderLocked}
+          onClick={onDismissBorder}
+          aria-label={
+            borderLocked ? undefined : "Thu dòng cảnh báo ranh giới"
+          }
+          className={`flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[0.9375rem] font-bold leading-snug ${borderTone}`}
+        >
+          <AlertIcon className="h-5 w-5 shrink-0" />
+          <span className="min-w-0 flex-1">{borderLine}</span>
+          {!borderLocked && <MinusIcon className="h-4 w-4 shrink-0" />}
+        </button>
+      )}
 
       {denied ? (
         <p className="flex items-start gap-2 rounded-xl bg-[var(--warn-bg)] p-2.5 text-[0.9375rem] font-bold leading-snug text-[var(--warn)]">

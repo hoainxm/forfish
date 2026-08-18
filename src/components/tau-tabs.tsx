@@ -1,45 +1,82 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Tabs } from "@/components/ui/tabs";
-import { StatusBanner } from "@/components/ui/status-banner";
-import { DocumentVault } from "@/components/document-vault";
+import { DocumentVault, loadDocs } from "@/components/document-vault";
 import { BoatServices } from "@/components/boat-services";
 import { BoatProducts } from "@/components/boat-products";
+import {
+  getDueStatus,
+  loadEntries,
+} from "@/components/maintenance-reminders";
+import { getExpiryStatus } from "@/lib/documents";
+import { getServiceDueStatus } from "@/lib/owned-assets";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
-import { formatVnd } from "@/lib/format";
+import { useBoats } from "@/lib/boat-store";
+import { useTodayVN } from "@/lib/use-today";
 
 /*
-  Cụm tab trang /tau — client wrapper để tiền nong KHÔNG nấp sau 2 chạm
-  (roadmap hội đồng UX 2026-06-11): có nợ quá hạn bên SDVICO là banner đỏ
-  hiện ngay dưới BoatSwitcher (chạm là nhảy vào tab Dịch vụ) + chấm đỏ trên
-  tab. Tabs nhận deep-link ?tab= (nhắc việc từ trang chủ rơi đúng tab).
+  Cụm tab trang /tau. Tabs nhận deep-link ?tab= (nhắc việc từ trang chủ rơi
+  đúng tab).
+
+  BADGE TAB (T6/T7, audit thông báo 2026-08-18): một khoản nợ từng hiện 4 chỗ
+  (dải khẩn · banner đỏ đầu /tau · chấm đỏ tab · thẻ trong tab). Nay còn 2:
+  dải khẩn Trang chủ (khi quá hạn) + thẻ trong tab Dịch vụ. Banner đỏ đầu /tau
+  đã bỏ; chấm đỏ tab chuyển thành:
+  · Giấy tờ  — giấy QUÁ HẠN / SẮP HẾT của tàu đang chọn (trục 4 là lý do app
+    tồn tại, trước đây tab này không có badge)
+  · Dịch vụ  — nợ SDVICO quá hạn HOẶC bảo dưỡng tự ghi / kỳ dịch vụ SDVICO quá hạn
+  Dữ liệu MẪU không đếm (T3). Đọc lại mỗi lần đổi tab / đổi tàu / đổi ngày.
 */
 export function TauTabs() {
   const { assets } = useSdvicoAssets();
+  const { current, ready: boatReady } = useBoats();
+  const { today, todayIso } = useTodayVN();
   const [tab, setTab] = useState("giay-to");
+  const [docsBadge, setDocsBadge] = useState(false);
+  const [maintOverdue, setMaintOverdue] = useState(false);
 
-  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const overdue = useMemo(
-    () =>
-      (assets?.payments ?? []).filter((p) => p.dueOn != null && p.dueOn < todayIso),
-    [assets, todayIso],
-  );
-  const overdueTotal = overdue.reduce((s, p) => s + p.amountVnd, 0);
+  // Kho trên máy: giấy tờ + bảo dưỡng của tàu đang chọn (item chưa gắn tàu =
+  // của tàu đang chọn, cùng luật với DocumentVault/MaintenanceReminders).
+  useEffect(() => {
+    if (!boatReady) return;
+    const ofBoat = <T extends { boatId?: string }>(x: T) =>
+      x.boatId === current?.id || x.boatId == null;
+
+    const d = loadDocs(today);
+    setDocsBadge(
+      !d.isDemo &&
+        !d.readFailed &&
+        d.docs.some((doc) => {
+          if (!ofBoat(doc)) return false;
+          const lv = getExpiryStatus(doc, today).level;
+          return lv === "expired" || lv === "soon";
+        }),
+    );
+
+    const m = loadEntries(today);
+    setMaintOverdue(
+      !m.isDemo &&
+        !m.readFailed &&
+        m.entries.some(
+          (e) => ofBoat(e) && getDueStatus(e, today).level === "overdue",
+        ),
+    );
+    // đọc lại khi đổi tab (vừa sửa xong trong tab), đổi tàu, đổi ngày
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, current?.id, todayIso, boatReady]);
+
+  const sdvicoOverdue = useMemo(() => {
+    if (!assets) return false;
+    if (assets.payments.some((p) => p.dueOn != null && p.dueOn < todayIso))
+      return true;
+    return assets.services.some(
+      (s) => getServiceDueStatus(s, today).level === "overdue",
+    );
+  }, [assets, today, todayIso]);
 
   return (
     <div>
-      {overdue.length > 0 && tab !== "dich-vu" && (
-        <button
-          type="button"
-          onClick={() => setTab("dich-vu")}
-          className="mx-4 mb-1 block w-[calc(100%-2rem)] overflow-hidden rounded-[1.25rem] text-left transition active:scale-[0.99]"
-        >
-          <StatusBanner level="danger">
-            Có khoản nợ quá hạn {formatVnd(overdueTotal)} — chạm để xem
-          </StatusBanner>
-        </button>
-      )}
       <Tabs
         ariaLabel="Mục quản lý tàu"
         paramKey="tab"
@@ -49,12 +86,13 @@ export function TauTabs() {
           {
             id: "giay-to",
             label: "Giấy tờ",
+            badge: docsBadge,
             content: <DocumentVault />,
           },
           {
             id: "dich-vu",
             label: "Dịch vụ",
-            badge: overdue.length > 0,
+            badge: sdvicoOverdue || maintOverdue,
             content: <BoatServices />,
           },
           { id: "san-pham", label: "Sản phẩm", content: <BoatProducts /> },
