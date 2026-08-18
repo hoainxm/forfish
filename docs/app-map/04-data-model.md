@@ -125,14 +125,14 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - ✅ **ĐÃ APPLY lên prod** (ref znzgugvfhgmiszqgjulk) qua Supabase MCP 2026-07-27, RLS + 4 policy đã kiểm (advisor không cảnh báo bảng này). Trên máy chưa cấu hình env → `fetchListings` trả `{ok:false, reason:'chua-cau-hinh'}` → UI hiện TIN MẪU, đăng tin báo lỗi mềm.
 - **Lộ trình**: app riêng cho bên thu mua sẽ đăng tin cần mua đổ về bảng này qua webhook (`sdwork_ref`, `owner_id` NULL) — khi làm cần bổ sung [contract SDWork](../contracts/sdwork-assets.contract.md).
 
-### Chợ tin đổi CHỦ TIN sang SĐT — migration [`0035_market_listings_owner_phone.sql`](../../supabase/migrations/0035_market_listings_owner_phone.sql) (2026-08-16) — 🔴 CHƯA apply prod
+### Chợ tin đổi CHỦ TIN sang SĐT — migration [`0035_market_listings_owner_phone.sql`](../../supabase/migrations/0035_market_listings_owner_phone.sql) (2026-08-18) — ✅ ĐÃ APPLY prod
 
 | Thay đổi | Nghĩa |
 |---|---|
 | cột `owner_phone text` + index | Chủ tin định danh bằng **SĐT từ device token**, không còn `auth.uid()`. Backfill tin cũ từ `auth.users.email` (email ảo `090…@sdvico.local`). `owner_id` giữ lại cho tin cũ + đường lùi phiên |
 | RLS | **KHÔNG đổi** — policy 0008 giữ nguyên. App đi qua route server `/api/me/market-listings` (+ `[id]`) bằng **service-role** (bypass RLS), client KHÔNG chạm bảng nữa |
 
-- 🟡 **CỘT ĐÃ CÓ TRÊN PROD, index thì chưa** — đo read-only 2026-08-17 (đối chứng cột bịa → 400/42703, `owner_phone` → 200). Nên migration này trên prod thực chất chỉ còn INDEX + comment; vẫn giữ file cho môi trường dựng mới. Chủ dự án apply khi thuận tiện, **không chặn** đường chợ tin (đã kiểm: `GET /api/me/market-listings` → 200 `{ok:true,listings:[]}`, POST không token → 401 `no_token`).
+- ✅ **ĐÃ APPLY prod 2026-08-18** — index `market_listings_owner_phone_idx` đã có (đọc lại `pg_indexes` xác nhận). Ghi chú lịch sử: cột `owner_phone` **vốn đã tồn tại từ trước** khi migration chạy (đo read-only 2026-08-17, đối chứng cột bịa → 400/42703 còn `owner_phone` → 200), nên phần `add column` là no-op; thứ migration thật sự thêm là INDEX + comment + câu backfill (không có hàng nào để chạy — bảng rỗng). Đã kiểm đường thật: `GET /api/me/market-listings` → 200 `{ok:true,listings:[]}`, POST không token → 401 `no_token`.
 - 🔴 **BẰNG CHỨNG THỰC ĐỊA cho P0**: bảng `market_listings` trên prod **RỖNG, 0 hàng**. Tức từ 0026 tới nay **chưa một tin nào đăng được** — khớp đúng chẩn đoán: `auth.uid()` luôn NULL nên policy insert (`auth.uid()=owner_id`) chặn hết, còn policy ĐỌC (`auth.uid() is not null`) làm mọi người dùng thật chỉ thấy TIN MẪU. Trục 2 câm mà không một câu báo lỗi. Câu backfill trong 0035 vì thế không có hàng nào để chạy trên prod.
 
 ### Danh mục sản phẩm ADMIN quản lý — migration [`0010_product_catalog.sql`](../../supabase/migrations/0010_product_catalog.sql) (2026-07-28) — ✅ ĐÃ APPLY prod
@@ -545,23 +545,23 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 
 ⚠️ App chạy được **trước khi apply**: cả hai đường ghi (`customers` và `customer_devices` trong `/api/me/heartbeat`) đều có nhánh lùi bỏ cột lạ, và `/api/admin/accounts` có nấc select riêng cho cột này.
 
-### Danh mục ĐẶT HÀNG ĐƯỢC — migration [`0032_catalog_orderable.sql`](../../supabase/migrations/0032_catalog_orderable.sql) (2026-08-11) — 🔴 CHƯA apply prod
+### Danh mục ĐẶT HÀNG ĐƯỢC — migration [`0032_catalog_orderable.sql`](../../supabase/migrations/0032_catalog_orderable.sql) (2026-08-11) — ✅ ĐÃ APPLY prod
 
 | Thay đổi | Nghĩa |
 |---|---|
 | MỞ RỘNG `product_listings` (0010) | Nâng khu "Cửa hàng" tab Sản phẩm `/tau` từ "hỏi mua/gọi lại" thành **CHỢ ĐẶT HÀNG THẬT** (1 nhà cung cấp — MVP; chủ tàu chọn số lượng → đặt → NCC giao). Thêm cột: `group` (check `dien_tu`\|`co_dien`\|`nhu_yeu_pham`, **nullable** — dòng cũ chưa gán nhóm vẫn hiện, gom "Khác") · `price_vnd int` (GIÁ SỐ để tính tổng; NULL = chưa niêm yết → không đặt được, giữ luồng hỏi mua) · `unit text` (đơn vị bán, bắt buộc khi orderable) · `orderable boolean default false` (có nút "Thêm vào giỏ"). **DEFAULT false ⇒ mọi dòng cũ GIỮ NGUYÊN hành vi** (backward-safe) |
 | RLS | **KHÔNG đổi** — vẫn đọc công khai `visible=true`, ghi service-role qua `/api/admin/products` (`requirePermission("san-pham", …)`). Cột mới lộ ra client qua `fetchProductListings()`; admin nhập ở `/quan-tri` tab "Sản phẩm" (nhóm/giá/đơn vị/cho-đặt) |
 
-- 🔴 **CHƯA apply prod** — chủ dự án duyệt & apply. Trước khi apply: `orderable` mặc định false ⇒ Cửa hàng chạy y như cũ (không món nào đặt được), không lỗi. Seed giá số gợi ý lấy từ `src/data/supplies.ts` (nhập tay qua /quan-tri).
+- ✅ **ĐÃ APPLY prod** (xác nhận 2026-08-18 qua `list_migrations`: `20260811045204 0032_catalog_orderable`). Seed giá số gợi ý lấy từ `src/data/supplies.ts` (nhập tay qua /quan-tri).
 
-### Đơn đặt hàng — migration [`0033_catalog_orders.sql`](../../supabase/migrations/0033_catalog_orders.sql) (2026-08-11) — 🔴 CHƯA apply prod
+### Đơn đặt hàng — migration [`0033_catalog_orders.sql`](../../supabase/migrations/0033_catalog_orders.sql) (2026-08-11) — ✅ ĐÃ APPLY prod
 
 | Thay đổi | Nghĩa |
 |---|---|
 | bảng `catalog_orders` | Đơn chủ tàu đặt từ Cửa hàng. Cột: `customer_phone` (chủ tàu, từ device token — KHÔNG `auth.uid`, xem 0026/0028) · `boat_name`/`boat_ref` (gắn tàu, tuỳ chọn) · `items jsonb` (**SNAPSHOT** dòng hàng `[{listingId,title,unit,priceVnd,qty,lineTotalVnd}]` — giá đóng băng lúc đặt) · `total_vnd int` (**server tính lại** từ `product_listings`, không tin client) · `delivery_location`/`contact_name`/`contact_phone`/`note` · `status` (`moi`→`da_nhan`→`dang_giao`→`da_giao`, hoặc `da_huy` — một chiều, xem `canTransition` trong `lib/catalog-orders.ts`) · `handled_by`/`handled_at`/`dealer_note` |
 | RLS | **KHÔNG có policy nào** (giống `product_inquiries`/`premium_grants`). Chủ tàu đọc/đặt/huỷ qua `/api/me/orders*` (`identityFromRequest` tự lọc theo SĐT device token); NCC/admin xem & chuyển trạng thái qua `/api/admin/orders*` (`requirePermission("don-hang", …)` — migration 0017 + tab mới). Đổi trạng thái → báo chủ tàu (push + hộp thư, `lib/account-notify.ts`, best-effort) |
 
-- 🔴 **CHƯA apply prod** — chủ dự án duyệt & apply. **Không thanh toán trong app** (chốt tiền lúc giao/COD — nhất quán "KHÔNG có luồng thanh toán"). **Online-only** (SW bỏ qua POST, không outbox; client báo trung thực khi mất mạng). Quyền mới `don-hang` thêm vào `lib/staff-permissions.ts` (6 tab manager).
+- ✅ **ĐÃ APPLY prod** (xác nhận 2026-08-18: `20260811045214 0033_catalog_orders`). **Không thanh toán trong app** (chốt tiền lúc giao/COD — nhất quán "KHÔNG có luồng thanh toán"). **Online-only** (SW bỏ qua POST, không outbox; client báo trung thực khi mất mạng). Quyền mới `don-hang` thêm vào `lib/staff-permissions.ts` (6 tab manager).
 
 ### Chống ĐƠN TRÙNG — migration [`0034_catalog_orders_client_ref.sql`](../../supabase/migrations/0034_catalog_orders_client_ref.sql) (2026-08-16) — 🔴 CHƯA apply prod
 
@@ -570,7 +570,7 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 | cột `client_ref text` (nullable) | **Dấu vân tay của NỘI DUNG đơn** do máy khách tính (`orderClientRef` trong `lib/catalog-orders.ts`: món+số lượng đã sắp thứ tự, tàu, điểm giao, người nhận, SĐT, ghi chú → FNV-1a 64-bit). Gửi kèm `POST /api/me/orders`. ⚠️ **KHÔNG gắn với giỏ** (sửa 2026-08-18): bản đầu giữ mã trong `forfish.cart.v1` và giữ nguyên khi bà con sửa giỏ ⇒ đặt hụt → sửa giỏ → bấm lại bị nuốt thành "trùng", trả đơn cũ, **mất thay đổi**. Mã theo nội dung thì cùng nội dung = cùng mã, khác nội dung = đơn mới — không cần 409 "cùng mã khác thân" |
 | unique index có điều kiện | `(customer_phone, client_ref) where client_ref is not null` — trọng tài ở tầng DB, không phải "đọc trước rồi ghi" (hai cú bấm sát nhau chạy trên hai instance vẫn lọt) |
 
-- 🔴 **CHƯA apply prod** — chủ dự án duyệt & apply. **VÌ SAO** (thẩm định 2026-08-16, P1): ở cảng 3G, POST ghi được đơn nhưng phản hồi rơi mất ⇒ client hết 20 giây báo "chưa gửi được" ⇒ bà con bấm lại ⇒ **hai đơn thật, giao hai lần, thu tiền hai lần**. Nay trùng `client_ref` ⇒ route đọc lại đơn cũ và trả `ok:true, duplicate:true`. Trước khi apply: route bắt lỗi `42703/PGRST204` và ghi lại KHÔNG kèm cột ⇒ hành vi y hệt hôm nay (vẫn có thể trùng), không ai bị chặn đặt hàng.
+- ✅ **ĐÃ APPLY prod 2026-08-18** (`catalog_orders_client_ref_uniq` = `UNIQUE (customer_phone, client_ref) WHERE client_ref IS NOT NULL`, đã đọc lại `pg_indexes` để xác nhận). **VÌ SAO** (thẩm định 2026-08-16, P1): ở cảng 3G, POST ghi được đơn nhưng phản hồi rơi mất ⇒ client hết 20 giây báo "chưa gửi được" ⇒ bà con bấm lại ⇒ **hai đơn thật, giao hai lần, thu tiền hai lần**. Nay trùng `client_ref` ⇒ route đọc lại đơn cũ và trả `ok:true, duplicate:true`. Trước khi apply: route bắt lỗi `42703/PGRST204` và ghi lại KHÔNG kèm cột ⇒ hành vi y hệt hôm nay (vẫn có thể trùng), không ai bị chặn đặt hàng.
 
 
 <!-- re-verified: 2026-06-14 — schema 0001 boats/documents + §6 gateway khớp code -->
