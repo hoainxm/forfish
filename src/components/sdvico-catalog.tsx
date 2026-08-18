@@ -10,6 +10,7 @@ import { apiUrl } from "@/lib/api-base";
 import { type CatalogGroup } from "@/lib/sdvico-catalog";
 import {
   fetchProductListings,
+  loadCachedCatalog,
   type ProductListing,
 } from "@/lib/product-catalog";
 import {
@@ -26,6 +27,7 @@ import {
   type CartLine,
 } from "@/lib/cart";
 import { useAuthUser } from "@/lib/use-auth";
+import { savedAgoLabel } from "@/lib/forecast-cache";
 import { formatVnd } from "@/lib/format";
 import {
   SDVICO_HOTLINE,
@@ -86,6 +88,8 @@ export function SdvicoCatalog({
   const [listings, setListings] = useState<ProductListing[]>(
     fromStaticShowcase(),
   );
+  /** mốc lưu của BẢN TRONG MÁY đang hiện (null = đang xem bản vừa tải/tĩnh) */
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
 
   // ── Giỏ hàng (local, keyed theo SĐT) ─────────────────────────────────
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -110,14 +114,48 @@ export function SdvicoCatalog({
     [phone],
   );
 
+  /*  DANH MỤC: tải lúc mở màn VÀ TẢI LẠI KHI SÓNG VỀ (2026-08-17, ADR 0004 bất
+      biến 6 — chủ dự án: "có mạng thì tự chạy tự đồng bộ lại chứ yêu cầu gì").
+
+      LỖI ĐÃ SỬA: hàm này gọi ĐÚNG MỘT LẦN lúc mount (`[]`) và mất sóng thì
+      `rows === null` ⇒ giữ `SDVICO_SHOWCASE` tĩnh — mọi món `orderable: false`
+      ⇒ nút giỏ ẩn, không xem được giá. Vào màn đúng lúc mất sóng là **kẹt bản
+      tĩnh suốt phiên**, kể cả khi sóng đã về từ lâu, mà màn này không có nút
+      Thử lại nào. Nay sóng về là tự lấy danh mục thật.
+      Danh mục KHÔNG cache xuống máy (đúng phạm vi offline: đây là chuyện ở bờ). */
   useEffect(() => {
     let alive = true;
-    fetchProductListings().then((rows) => {
-      if (alive && rows !== null) setListings(rows);
-      // rows === null (chưa cấu hình/lỗi mạng) → giữ SDVICO_SHOWCASE tĩnh
-    });
+    let dangTai = false;
+    /*  BẢN TRONG MÁY HIỆN NGAY (2026-08-18, chủ dự án: "cửa hàng nó ít đổi món
+        và đơn, nên cứ xem bình thường, online lại thì tự động tải mới"): danh
+        mục đổi vài lần một tháng nên bản đã tải vẫn dùng được — hiện luôn, đừng
+        bắt bà con nhìn danh mục tĩnh không giá, không nút giỏ. */
+    const luu = loadCachedCatalog();
+    if (luu) {
+      setListings(luu.items);
+      setCachedAt(luu.savedAt);
+    }
+    const tai = () => {
+      if (dangTai) return; // chống chạy chồng lúc sóng nhấp nháy ven bờ
+      dangTai = true;
+      fetchProductListings()
+        .then((rows) => {
+          // rows === null (chưa cấu hình/lỗi mạng) → GIỮ bản đang hiện
+          // (bản trong máy, hoặc SDVICO_SHOWCASE tĩnh nếu máy chưa từng tải)
+          if (alive && rows !== null) {
+            setListings(rows);
+            setCachedAt(null); // vừa tải xong = bản mới, không phải bản lưu
+          }
+        })
+        .finally(() => {
+          dangTai = false;
+        });
+    };
+    tai();
+    window.addEventListener("online", tai);
     return () => {
       alive = false;
+      window.removeEventListener("online", tai);
     };
   }, []);
 
@@ -214,6 +252,16 @@ export function SdvicoCatalog({
         Chọn hàng, thêm vào giỏ rồi đặt — nhà cung cấp giao tận nơi. Không thanh
         toán trong app.
       </p>
+
+      {/* ĐANG XEM BẢN TRONG MÁY — nói thật mà KHÔNG cản việc xem (2026-08-18).
+          Danh mục ít đổi nên bản lưu vẫn dùng được; chỉ cần bà con biết giá có
+          thể đã đổi, và biết là máy sẽ tự lấy bản mới khi có sóng. */}
+      {cachedAt != null && (
+        <p className="mb-3 px-1 text-[0.9375rem] font-semibold text-[var(--warn)]">
+          Đang xem danh mục đã lưu trong máy ({savedAgoLabel(cachedAt)}) — giá và
+          món có thể đã đổi. Có sóng lại là máy tự tải bản mới.
+        </p>
+      )}
 
       {/* Lọc nhóm — cần điện tử bấm Điện tử, cần nhu yếu phẩm bấm Nhu yếu phẩm */}
       {filterOptions.length > 2 && (

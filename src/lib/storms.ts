@@ -51,7 +51,10 @@ const CLOCK_SKEW_MS = 60 * 60 * 1000;
  */
 export type StormStatus =
   | { kind: "dang-hoi" }
-  | { kind: "khong-hoi-duoc" }
+  /** `checkedAt` = giờ của bản tin CUỐI CÙNG đọc được (null = chưa từng có bản
+      nào). Mang theo để màn hình nói được "tin cuối cách đây mấy giờ" thay vì
+      chỉ "không hỏi được" — xem `stormGateForRoute`. */
+  | { kind: "khong-hoi-duoc"; checkedAt: number | null }
   | { kind: "khong-co"; checkedAt: number }
   | { kind: "co-bao"; storms: StormAlert[]; checkedAt: number | null; cu: boolean };
 
@@ -64,7 +67,7 @@ export function stormStatus(
   now: number = Date.now(),
 ): StormStatus {
   if (!check) return { kind: "dang-hoi" };
-  if (!check.ok) return { kind: "khong-hoi-duoc" };
+  if (!check.ok) return { kind: "khong-hoi-duoc", checkedAt: null };
 
   const parsed = Date.parse(check.checkedAt ?? "");
   const checkedAt = Number.isFinite(parsed) ? parsed : null;
@@ -77,7 +80,58 @@ export function stormStatus(
     return { kind: "co-bao", storms: check.storms, checkedAt, cu };
   }
   // KHÔNG có bão trong bản tin: chỉ được nói khi bản tin còn mới.
-  return cu ? { kind: "khong-hoi-duoc" } : { kind: "khong-co", checkedAt: checkedAt as number };
+  return cu
+    ? { kind: "khong-hoi-duoc", checkedAt }
+    : { kind: "khong-co", checkedAt: checkedAt as number };
+}
+
+/**
+ * CỔNG BÃO CHO MÀN VẼ TUYẾN — chỗ DUY NHẤT phát biểu luật "tin bão có đáng tin
+ * để đối chiếu tuyến không".
+ *
+ * ⚠️ VÌ SAO CÓ (2026-08-16, thẩm định P0): màn bản đồ nén mọi trạng thái khác
+ * `co-bao` thành `storms = []`, rồi `route-planner` đọc mảng rỗng là "tuyến
+ * không cắt vùng bão nào". Tức **"chưa hỏi được tin bão" và "trời quang" trông
+ * y hệt nhau** ở đúng cái màn bà con dùng để quyết định có nhổ neo hay không.
+ * `routeStormConflict([])` không sai — nó chỉ trả lời đúng câu được hỏi; chỗ
+ * hỏng là không ai hỏi câu thứ hai: "danh sách rỗng này CÓ NGHĨA gì".
+ *
+ * Luật (chủ dự án chốt 2026-08-16): KHÔNG chặn vẽ tuyến khi thiếu tin bão —
+ * giữa biển mất sóng là trạng thái thường xuyên, mà dẫn đường né sóng gió lại
+ * đúng là thứ cần nhất lúc đó. Vẫn tính, nhưng **phải nói thẳng ra** là tuyến
+ * này chưa đối chiếu bão. Chặn cứng vẫn giữ nguyên cho ca `co-bao` thật.
+ *
+ * `now` truyền vào để test được (không gọi `Date.now()` trong thân hàm).
+ */
+export type StormRouteGate = {
+  /** Tin bão có đủ tin cậy để nói "tuyến này đã đối chiếu bão" không */
+  known: boolean;
+  /** Câu phải hiện kèm tuyến khi `known === false`; null khi không cần nói gì */
+  warnText: string | null;
+};
+
+export function stormGateForRoute(
+  status: StormStatus,
+  now: number = Date.now(),
+): StormRouteGate {
+  if (status.kind === "co-bao" || status.kind === "khong-co") {
+    return { known: true, warnText: null };
+  }
+  const base =
+    "CHƯA kiểm được tin bão — tuyến này KHÔNG đối chiếu bão. Nghe đài duyên hải trước khi đi.";
+  if (status.kind === "dang-hoi") {
+    return { known: false, warnText: `Đang hỏi tin bão. ${base}` };
+  }
+  const at = status.checkedAt;
+  if (at == null || !Number.isFinite(at) || at > now) {
+    return { known: false, warnText: `Máy chưa có tin bão nào. ${base}` };
+  }
+  const gio = Math.max(1, Math.round((now - at) / 3_600_000));
+  const tuoi = gio < 48 ? `${gio} giờ` : `${Math.round(gio / 24)} ngày`;
+  return {
+    known: false,
+    warnText: `Tin bão trong máy đã cũ ${tuoi} (mất sóng nên chưa hỏi lại được). ${base}`,
+  };
 }
 
 /** Vùng quan tâm: Biển Đông + dải tiếp cận ngoài Philippines (cảnh báo sớm) */

@@ -52,6 +52,11 @@ function subscribe(listener: () => void) {
   };
 }
 
+/*  Cùng một hàm `subscribe` mà `useSyncExternalStore` dùng — xuất ra để cổng
+    test đăng ký được ngoài React (nạp sổ tàu từ kho rồi mới thao tác). Không
+    có bản sao thứ hai của đường hydrate: test phải đi đúng đường app đi. */
+export const subscribeBoats = subscribe;
+
 const getSnapshot = () => snapshot;
 const getServerSnapshot = () => EMPTY;
 
@@ -75,21 +80,27 @@ export function setCurrentBoat(id: string) {
     Bản cũ vứt giá trị `saveBoats` rồi vẫn `emit()`: thêm/sửa/xoá tàu HIỆN ĐÚNG
     trên màn hình, mở lại app là quay về cũ. Ca này nay phổ biến hơn hẳn vì
     đường ghi không còn xoá dự báo để lấy chỗ (luật "hết chỗ thì từ chối ghi"). */
+/*  ⚠️ GHI HỎNG THÌ KHÔNG ĐỔI MÀN HÌNH (thêm 2026-08-16, thẩm định P1).
+    Bản trước trả `ok` ra ngoài nhưng VẪN đổi `snapshot` + `emit()`: tàu mới
+    hiện trong danh sách, bà con gắn giấy tờ/thuyền viên/bảo dưỡng vào `boatId`
+    đó, mở lại app thì tàu biến mất — còn lại một đống hồ sơ trỏ vào tàu không
+    tồn tại. Nay màn hình luôn khớp với thứ máy GIỮ ĐƯỢC; chỗ gọi đọc `false`
+    để hiện câu báo (`saveUserJson` là nơi duy nhất biết vì sao hỏng). */
 export function addBoat(b: Boat): boolean {
   const boats = [...snapshot.boats, b];
-  const ok = saveBoats(boats);
+  if (!saveBoats(boats)) return false;
   saveCurrentBoatId(b.id);
   snapshot = { ...snapshot, boats, currentId: b.id };
   emit();
-  return ok;
+  return true;
 }
 
 export function updateBoat(b: Boat): boolean {
   const boats = snapshot.boats.map((x) => (x.id === b.id ? b : x));
-  const ok = saveBoats(boats);
+  if (!saveBoats(boats)) return false;
   snapshot = { ...snapshot, boats };
   emit();
-  return ok;
+  return true;
 }
 
 /**
@@ -101,9 +112,17 @@ export function removeBoat(
   cascade?: (boatId: string) => void,
 ): boolean {
   if (snapshot.boats.length <= 1) return false; // R7: luôn còn ≥1 tàu
-  cascade?.(id); // xóa hồ sơ cố định của tàu này (gọi trước khi list co lại)
+  /*  XOÁ CHA TRƯỚC, RỒI MỚI XOÁ CON (đảo thứ tự 2026-08-16, thẩm định P1).
+      LỖI ĐÃ SỬA: `cascade` chạy TRƯỚC và kết quả `saveBoats` bị vứt. Máy không
+      giữ được danh sách tàu (kho hỏng/đầy — chính ca `saveBoats` trả false) thì
+      giấy tờ, sổ bảo dưỡng, gán SDVICO của tàu đó ĐÃ BỊ XOÁ THẬT, trong khi
+      tàu vẫn còn nguyên sau khi mở lại app. Bà con thấy tàu đủ, mở ra thì tủ
+      giấy tờ trống — mất dữ liệu mà không một dấu hiệu nào.
+      Nay: ghi được danh sách mới thì mới đụng tới hồ sơ con. Ghi hỏng ⇒ trả
+      false, không xoá gì cả, màn hình giữ nguyên. */
   const boats = snapshot.boats.filter((b) => b.id !== id);
-  saveBoats(boats);
+  if (!saveBoats(boats)) return false;
+  cascade?.(id); // xóa hồ sơ cố định của tàu này
   let currentId = snapshot.currentId;
   if (currentId === id) {
     currentId = boats[0]?.id ?? "";

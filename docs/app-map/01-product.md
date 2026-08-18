@@ -16,6 +16,24 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
 
 **Nguyên tắc số 1**: sản phẩm cấu trúc quanh **BỐN LỜI HỨA (bốn trục)** — KHÔNG phải quanh feature, KHÔNG phải quanh nguồn dữ liệu. Vendor có thể thay, lời hứa thì không.
 
+> ## ⚓ PHẠM VI OFFLINE — chủ dự án chốt 2026-08-17
+>
+> **"Offline ra khơi rồi thì cần gì các tin chợ, đơn, cửa hàng… chỉ cái gì đã lưu trong memory thôi, đừng để nó truy vấn internet làm treo lỗi app là được."**
+>
+> Lời hứa offline chỉ phủ **thứ dùng ngoài biển**: dự báo/bản đồ đã tải, tin bão, tủ giấy tờ, sổ thuyền viên, tàu, bảo dưỡng, điểm ghim, hộp thư đã tải, dẫn đường bằng GPS.
+>
+> **XEM ĐƯỢC BẢN ĐÃ TẢI** (bổ sung 2026-08-18 — *"cửa hàng nó ít đổi món và đơn, nên cứ xem bình thường, online lại thì tự động tải mới"*): **danh mục Cửa hàng** + **đơn của tôi**. Hai thứ này ít đổi và nhỏ (vài chục KB) nên lưu bản đã tải, mất sóng xem bình thường kèm dòng "đang xem bản lưu lúc …"; **đặt/huỷ vẫn cần sóng**.
+>
+> **KHÔNG nằm trong lời hứa offline** (khu "chuyện ở bờ", không lưu bản nào): chợ tin mua/bán · bảng giá live · hỏi mua · cảnh báo thuyền viên chéo. Mất sóng thì các mục này **chỉ cần hai điều**:
+> 1. **KHÔNG treo, KHÔNG làm sập app** — mọi lời gọi mạng phải có **đồng hồ + `.catch` + nhánh nói thật**. Ca chết người là `fetch` không đồng hồ ở sóng "sống mà chết" (bắt tay được, gói tin không về): promise không settle, màn đứng vĩnh viễn.
+> 2. **Nói đúng lý do** — "chưa tải được, máy đang không có sóng", KHÔNG được đội lốt "chưa có gì" / tin mẫu / dữ liệu giả.
+>
+> 3. **Có sóng lại thì TỰ đồng bộ** — màn đang mở nghe `online` rồi tự tải lại, không bắt bà con bấm "Thử lại".
+>
+> ⛔ **KHÔNG làm**: cache tin chợ (tin đổi từng ngày, lưu là dễ nói dối về tin còn hiệu lực) · outbox/hàng đợi gửi lại cho đặt hàng – đăng tin – báo cáo. Luật chung khi cân nhắc lưu thêm: **chỉ lưu thứ NHỎ và ÍT ĐỔI**; thứ nặng hoặc đổi từng giờ thì không, vì mọi kho dùng CHUNG một hạn ngạch theo origin (WebKit) — lấy chỗ của gói dự báo là lấy chỗ của thứ giữa biển không tải lại được.
+>
+> Chi tiết bất biến + trần thời gian từng đường: [ADR 0004](../adr/0004-pham-vi-offline-chi-du-lieu-di-bien.md).
+
 ## 2. Bốn trục / The four promises
 
 > **Lời hứa ≠ route** (cập nhật 2026-06-15): nav đã đổi sang **hướng đối tượng** (dock: Trang chủ · Ra khơi · Tàu cá · Bạn thuyền · Giao dịch — nhãn 2026-07-28), KHÔNG còn 1 route/trục. Bản đồ lời-hứa → nơi ở thật: **Trục 1** `/ngu-truong` · **Trục 2** `/tien` (tab Giao dịch) · **Trục 3** `/tau` (tab Dịch vụ/Sản phẩm) · **Trục 4** `/tau` (tab Giấy tờ) + `/nguoi` (thuyền viên). Route cũ `/gia-ca` `/van-hanh` `/giay-to` `/thuyen-vien` = **redirect**. Nguồn đúng về nav: [07-design-spec §4](07-design-spec.md). Lời hứa thì không đổi — đó mới là trục.

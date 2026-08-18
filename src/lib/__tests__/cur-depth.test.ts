@@ -83,9 +83,17 @@ describe("fetchCurDepthGridClient — snapshot trước, live sau", () => {
     expect(live.cells[0].hours[0].curKmh).toBe(0.4);
 
     // giờ mọi nguồn chết → bản vừa lưu quay lại với cờ stale (bản cache đã quá
-    // trần isCacheCurrent thì mới rơi nấc này — giả lập bằng savedAt cũ)
+    // trần thì mới rơi nấc này — giả lập bằng savedAt cũ)
+    /*  30 GIỜ, KHÔNG PHẢI 20 (sửa 2026-08-16). Dòng chảy tầng sâu đo độ tươi
+        bằng NHỊP NGÀY (`isDailyCacheCurrent`, lib/source-cadence.ts): trần 26
+        giờ VÀ mốc phát hành 12:00 UTC. Bản 20 giờ tuổi rơi vào khoảng "chưa qua
+        mốc phát hành kế tiếp" ⇒ vẫn HIỆN HÀNH ⇒ hàm trả thẳng bản tươi không
+        gắn `stale`, và ca này ĐỎ — nhưng chỉ khi chạy trong 08:00–11:59 UTC
+        (15–19h giờ VN), xanh ngoài khung đó. Một cổng báo oan 4 tiếng mỗi ngày
+        còn tệ hơn cổng thiếu. 30 giờ vượt trần 26 giờ nên KHÔNG phụ thuộc giờ
+        chạy test, mà vẫn dựng đúng cảnh cần dựng: bản quá cũ + mọi nguồn chết. */
     const { saveForecast } = await import("../forecast-cache");
-    saveForecast("curdepth", "t150.d10", live, Date.now() - 20 * 60 * 60 * 1000);
+    saveForecast("curdepth", "t150.d10", live, Date.now() - 30 * 60 * 60 * 1000);
     globalThis.fetch = vi
       .fn()
       .mockRejectedValue(new Error("mất sóng")) as unknown as typeof fetch;

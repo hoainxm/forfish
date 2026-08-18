@@ -92,11 +92,21 @@ export async function PATCH(req: Request, { params }: Ctx) {
   }
   if (wantNote !== undefined) patch.dealer_note = wantNote.trim() || null;
 
-  const { error: updErr } = await admin
+  /*  GHI CÓ ĐIỀU KIỆN TRẠNG THÁI CŨ (2026-08-16, thẩm định P1).
+      LỖI ĐÃ SỬA: đọc `status` ở trên rồi ghi chỉ theo `id` — giữa hai lượt đó
+      chủ tàu bấm Huỷ (`/api/me/orders/[id]/cancel` ghi `da_huy`) thì cú ghi
+      này ĐÈ LÊN, đơn khách vừa huỷ SỐNG LẠI thành "đã nhận / đang giao" và
+      hàng vẫn đi. Nay điều kiện `status = fromStatus` nằm ngay trong câu lệnh
+      ghi: ai chen vào giữa thì 0 hàng khớp ⇒ 409, màn quản trị tải lại và
+      thấy trạng thái thật. Cùng khuôn với đường huỷ của khách. */
+  const { data: updated, error: updErr } = await admin
     .from("catalog_orders")
     .update(patch)
-    .eq("id", id);
+    .eq("id", id)
+    .eq("status", fromStatus)
+    .select("id");
   if (updErr) return err(500, "update_failed");
+  if (!updated || updated.length === 0) return err(409, "bad_transition");
 
   await logActivity(admin, {
     actorPhone: who.phone,

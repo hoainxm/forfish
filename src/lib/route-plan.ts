@@ -402,6 +402,15 @@ export type RoutePlan = {
    * PHẢI cảnh báo — trước đây đi qua im lặng trong khi copy nói "đã né rạn".
    */
   hasVeryShallowLeg: boolean;
+  /**
+   * có đoạn ĐÈ LÊN ĐẤT theo lưới độ sâu, đi qua được chỉ vì nằm trong bán kính
+   * nới `VICINITY_LAND_KM` quanh nơi xuất phát/điểm đến (2026-08-16, thẩm định
+   * P0). Nới là ĐÚNG — cảng nằm trong đất liền theo lưới thô, không nới thì
+   * không tuyến nào xuất phát nổi. Nhưng trước đây ca này đi qua HOÀN TOÀN im
+   * lặng: không cờ, không câu chữ, trong khi `hasVeryShallowLeg` (nhẹ hơn) thì
+   * có. Bà con phải biết đoạn đầu/cuối tuyến máy KHÔNG bảo đảm được.
+   */
+  hasNearLandLeg: boolean;
   /** có đoạn sóng đuôi ngắn ≥2 m (nguy cơ trượt sóng — giảm ga, đổi hướng nhẹ) */
   hasFollowingSeaRisk: boolean;
   /** false = thiếu dữ liệu độ sâu, tuyến CHƯA né vùng cạn */
@@ -444,6 +453,8 @@ type LegInfo = {
   rough: boolean;
   shallow: boolean;
   veryShallow: boolean;
+  /** chặng đè lên ĐẤT nhưng được nới vì sát nơi xuất phát/điểm đến */
+  nearLand: boolean;
   following: boolean;
 };
 
@@ -452,7 +463,7 @@ type LegInfo = {
 const INFEASIBLE_LEG: LegInfo = Object.freeze({
   feasible: false, distKm: 0, hours: 0, fuelL: 0, cost: 0,
   waveM: 0, windKmh: 0, rough: false, shallow: false,
-  veryShallow: false, following: false,
+  veryShallow: false, nearLand: false, following: false,
 });
 
 // export cho route-plan.worker.ts (structured clone nguyên args qua worker)
@@ -555,7 +566,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
    * (trước đây một mẫu trung điểm — chặng dài xuyên được mép vùng ≥4 m; team
    * review 2026-07-26): chặn cứng/cờ lấy theo MẪU XẤU NHẤT, giờ/dầu cộng dồn
    * từng đoạn con. Giờ của mẫu ước lượng bằng tốc độ êm — đủ tốt. Độ sâu kiểm
-   * mẫu mỗi ≤5 km dọc chặng để rạn/đảo không lọt khe giữa hai đầu cạnh.
+   * mẫu mỗi ≤2 km dọc chặng để rạn/đảo không lọt khe giữa hai đầu cạnh.
    * relaxed=true (chỉ dùng khi TÍNH LẠI số liệu tuyến đã chọn): không chặn
    * nữa nhưng vẫn đo đủ cờ/maxWave — tổng hiển thị luôn là CẢ tuyến.
    */
@@ -572,8 +583,20 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     // ràng buộc tĩnh: độ sâu/bờ (VISIR static constraint) — mẫu dày dọc chặng
     let shallow = false;
     let veryShallow = false;
+    let nearLand = false;
     if (depth) {
-      const nSamples = Math.max(2, Math.ceil(distKm / 5));
+      /*  BƯỚC MẪU 2 KM, TRƯỚC LÀ 5 (2026-08-16, thẩm định P0). Lưới độ sâu có
+          bước 0,05° ≈ 5,5 km, nên mẫu mỗi 5 km vẫn để lọt: một chấm đảo/đá
+          ngầm nhỏ hơn khoảng cách hai mẫu nằm gọn giữa chúng thì không ai
+          thấy. Nó cũng làm cờ `nearLand` không đáng tin ở cạnh dài: chord kéo
+          dây tới ~30 km chỉ lấy mẫu từ km thứ 5 trở đi ⇒ dải bờ 0–4 km quanh
+          nơi xuất phát đi qua im lặng.
+          Giá phải trả: ~2,5 lần số lượt `depthClassAt` trong vòng nóng của
+          Dijkstra. `depthClassAt` là vài phép dịch bit trên `Uint8Array`, rẻ
+          hơn hẳn `sampleField` (nội suy thời tiết) chạy ngay dưới, và cả lượt
+          tính nằm trong Web Worker. Đo lại nếu có ngày thấy "Đang tính đường…"
+          lâu hơn trước. */
+      const nSamples = Math.max(2, Math.ceil(distKm / 2));
       for (let s = 1; s <= nSamples; s++) {
         const t = s / nSamples;
         const pLat = from.lat + dLatLeg * t;
@@ -583,6 +606,11 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
           // đất liền: chỉ nới trong bán kính nhỏ sát cảng
           if (!relaxed && !nearEndpoints({ lat: pLat, lon: pLon }, VICINITY_LAND_KM))
             return INFEASIBLE_LEG;
+          /*  ĐI QUA ĐƯỢC THÌ PHẢI CẮM CỜ (2026-08-16). Cùng lý lẽ với
+              `veryShallow` ngay dưới: nới là nới cho đi, không phải nới cho im.
+              Ở nhánh `relaxed` (tính lại số liệu) cũng cắm — tổng hiển thị luôn
+              là của CẢ tuyến, kể cả đoạn chỉ đi được nhờ nới. */
+          nearLand = true;
         } else if (cls === 1) {
           if (!relaxed && !nearEndpoints({ lat: pLat, lon: pLon }, VICINITY_SHALLOW_KM))
             return INFEASIBLE_LEG;
@@ -681,7 +709,8 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
 
     return {
       feasible: true, distKm, hours, fuelL, cost,
-      waveM: maxWave, windKmh: maxWind, rough, shallow, veryShallow, following,
+      waveM: maxWave, windKmh: maxWind, rough, shallow, veryShallow, nearLand,
+      following,
     };
   };
 
@@ -783,6 +812,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     let rough = false,
       shallowFlag = false,
       veryShallowFlag = false,
+      nearLandFlag = false,
       following = false,
       ok = true;
     for (let k = 1; k < pts.length; k++) {
@@ -799,14 +829,40 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       rough = rough || leg.rough;
       shallowFlag = shallowFlag || leg.shallow;
       veryShallowFlag = veryShallowFlag || leg.veryShallow;
+      nearLandFlag = nearLandFlag || leg.nearLand;
       following = following || leg.following;
     }
     return {
       ok, hoursSum, fuelSum, distSum, maxWave, maxWind,
-      rough, shallowFlag, veryShallowFlag, following,
+      rough, shallowFlag, veryShallowFlag, nearLandFlag, following,
     };
   };
 
+  /*  ═══ MỌI CẠNH TRẢ VỀ PHẢI QUA KIỂM NGHIÊM ═══ (2026-08-16, thẩm định P0)
+
+      LỖI ĐÃ SỬA: Dijkstra chỉ chứng minh đi được giữa các NÚT LƯỚI đã snap,
+      rồi hai đầu bị thay bằng toạ độ THẬT của bà con (`waypoints` dựng ở trên).
+      Cạnh `start → nút thứ hai` và `nút kế cuối → dest` chưa ai kiểm. Vòng kéo
+      dây có gọi `legCost(..., false)` nhưng khi cạnh gốc `!feasible` nó vẫn
+      giữ nguyên `bestJ = i + 1` — tức GIỮ LẠI cạnh không đi được. Và bước cuối
+      `walk(waypoints, true)` chạy **relaxed** (không chặn gì) mà `ok` thì
+      KHÔNG AI ĐỌC ⇒ tuyến cắt đất/bãi cạn/vùng sóng cấm vẫn được trả về, kèm
+      số liệu đẹp và câu chữ "đã né rạn".
+
+      Nay: đi lại trọn tuyến ở chế độ NGHIÊM. Hỏng thì lùi về đường Dijkstra
+      chưa kéo dây (nó đi theo nút lưới nên an toàn hơn, chỉ xấu hơn về hình
+      dáng); vẫn hỏng thì `null` — chỗ gọi đã có đường xử đúng: nới bbox thử
+      lại, hết margin thì nói thẳng "chưa tìm được đường an toàn". Thà không có
+      tuyến còn hơn một tuyến cắt qua đảo.  */
+  if (!walk(waypoints, false).ok) {
+    const raw: LatLon[] = [start, ...nodePath.slice(1, -1).map(pointOf), dest];
+    if (!walk(raw, false).ok) return null;
+    waypoints = raw;
+  }
+
+  /*  `relaxed: true` ở đây CHỈ để gom số liệu hiển thị của tuyến VỪA ĐƯỢC KIỂM
+      ở trên — không bao giờ cụt giữa chừng nên tổng luôn là của cả tuyến. Nó
+      KHÔNG còn là chỗ quyết định tuyến có hợp lệ hay không. */
   const chosen = walk(waypoints, true);
 
   // cửa sổ dự báo thật sự có số liệu — quá mốc này hourAt đóng băng giờ cuối,
@@ -847,6 +903,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       hasRoughLeg: directWalk.rough,
       hasShallowLeg: directWalk.shallowFlag,
       hasVeryShallowLeg: directWalk.veryShallowFlag,
+      hasNearLandLeg: directWalk.nearLandFlag,
       hasFollowingSeaRisk: directWalk.following,
       depthChecked: depth != null,
       cappedToDirect: true,
@@ -866,6 +923,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     hasRoughLeg: chosen.rough,
     hasShallowLeg: chosen.shallowFlag,
     hasVeryShallowLeg: chosen.veryShallowFlag,
+    hasNearLandLeg: chosen.nearLandFlag,
     hasFollowingSeaRisk: chosen.following,
     depthChecked: depth != null,
     cappedToDirect: false,

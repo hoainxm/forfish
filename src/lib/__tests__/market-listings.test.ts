@@ -32,9 +32,12 @@ describe("validateDraft", () => {
 });
 
 describe("rowToListing", () => {
+  /*  CHỦ TIN LÀ SĐT, KHÔNG PHẢI uuid (2026-08-16, thẩm định P0): app bỏ phiên
+      Supabase từ 0026 nên `auth.uid()` luôn null — cờ "tin của tôi" nay so
+      `owner_phone` với SĐT từ chuỗi cứng của máy. Xem migration 0035. */
   const baseRow = {
     id: "row-1",
-    owner_id: "user-1",
+    owner_phone: "0901234567",
     side: "ban",
     poster_kind: "ngu-dan",
     poster_name: "Tàu ông Bảy",
@@ -49,7 +52,7 @@ describe("rowToListing", () => {
   };
 
   it("map cột snake_case → camelCase + cắt ngày ISO", () => {
-    const l = rowToListing(baseRow, "user-1");
+    const l = rowToListing(baseRow, "0901234567");
     expect(l.side).toBe("ban");
     expect(l.posterName).toBe("Tàu ông Bảy");
     expect(l.postedOn).toBe("2026-07-27");
@@ -58,8 +61,11 @@ describe("rowToListing", () => {
   });
 
   it("owner khác → mine=false", () => {
-    expect(rowToListing(baseRow, "user-2").mine).toBe(false);
+    expect(rowToListing(baseRow, "0909999999").mine).toBe(false);
     expect(rowToListing(baseRow, null).mine).toBe(false);
+    // khách chưa đăng nhập (phone rỗng) KHÔNG được nhận vơ tin của người khác
+    expect(rowToListing(baseRow, "").mine).toBe(false);
+    expect(rowToListing({ ...baseRow, owner_phone: null }, "").mine).toBe(false);
   });
 
   it("giá trị lạ được khoan dung (side/kind/status về mặc định an toàn)", () => {

@@ -112,11 +112,22 @@ export function clonePermissions(p: StaffPermissions): StaffPermissions {
 }
 
 /**
- * JSON thô từ DB (customers.staff_permissions) → shape AN TOÀN, đủ 5 tab × 4 cờ.
- * · null/undefined  → preset mặc định (quản lý mới chưa cấu hình)
+ * JSON thô từ DB (customers.staff_permissions) → shape AN TOÀN, đủ 6 tab × 4 cờ.
+ * · null/undefined  → preset mặc định (quản lý mới chưa cấu hình — giữ để tài
+ *                     khoản cũ và ca "0017 chưa apply" vẫn làm việc được)
  * · object thiếu tab/cờ → tab/cờ đó = false (FAIL-CLOSED: khóa nhầm hơn mở nhầm)
- * · rác (string JSON hỏng, số, mảng) → preset mặc định
+ * · **RÁC** (JSON hỏng, số, chuỗi, mảng) → **KHOÁ HẾT**, không phải preset
  * Luôn trả object MỚI (không giữ tham chiếu tới hằng đông cứng).
+ *
+ * ⚠️ ĐỔI 2026-08-18 (thẩm định P1 — fail-open còn sót). Bản trước quy MỌI thứ
+ * không đọc được về `DEFAULT_MANAGER_PERMISSIONS`, mà preset đó cấp
+ * **xem + tạo + sửa trên cả 6 tab**. Nghĩa là một ô `staff_permissions` bị ghi
+ * hỏng — migration lỡ tay, ghi dở lúc mất kết nối, ai đó nhét chuỗi vào cột
+ * jsonb — sẽ **NỚI quyền** cho đúng người mà máy chủ vừa không đọc nổi bảng
+ * quyền của họ. `null` khác hẳn: đó là câu trả lời HỢP LỆ ("chưa cấu hình"),
+ * còn rác là "không biết" — và không biết thì phải khoá.
+ * Vòng vá trước mới siết nhánh LỖI TRUY VẤN ở `admin-auth.ts`; đây là nhánh
+ * DỮ LIỆU HỎNG, cùng một khuôn nhưng khác cửa.
  */
 export function normalizePermissions(raw: unknown): StaffPermissions {
   if (raw == null) return clonePermissions(DEFAULT_MANAGER_PERMISSIONS);
@@ -125,16 +136,37 @@ export function normalizePermissions(raw: unknown): StaffPermissions {
     try {
       obj = JSON.parse(obj);
     } catch {
-      return clonePermissions(DEFAULT_MANAGER_PERMISSIONS);
+      return emptyPermissions(false); // chuỗi không phải JSON = rác ⇒ khoá hết
     }
   }
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
-    return clonePermissions(DEFAULT_MANAGER_PERMISSIONS);
+    return emptyPermissions(false); // số / mảng / "null" / true ⇒ khoá hết
   }
   const r = obj as Record<string, unknown>;
   const out = {} as StaffPermissions;
   for (const tab of MANAGER_TABS) out[tab] = coerceTab(r[tab]);
   return out;
+}
+
+/**
+ * CỘT CHƯA CÓ (migration chưa apply) hay TRUY VẤN HỎNG — hai chuyện khác hẳn
+ * nhau mà `try/catch` gộp làm một (2026-08-16, thẩm định P1).
+ *
+ * `normalizePermissions(null)` trả PRESET có `view+create+edit` trên cả 6 tab.
+ * Đó là câu trả lời ĐÚNG cho ca "0017 chưa apply" — quản lý phải làm việc được
+ * trước khi cột tồn tại. Nhưng nó là câu trả lời SAI cho ca "Postgres nghẹt /
+ * schema cache lỗi": lúc đó máy chủ không biết người này được phép gì, mà lại
+ * cấp cho họ bộ quyền rộng. Cấp quyền vì hạ tầng hỏng là fail-open.
+ *
+ * Chỉ hai mã dưới đây mới là "cột chưa có":
+ *  · `42703` — undefined_column (Postgres)
+ *  · `PGRST204` — PostgREST không thấy cột trong schema cache
+ * Mọi mã khác ⇒ chưa biết ⇒ chỗ gọi phải trả 503, đừng đoán.
+ */
+export function isMissingColumnError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = (err as { code?: unknown }).code;
+  return code === "42703" || code === "PGRST204";
 }
 
 /**

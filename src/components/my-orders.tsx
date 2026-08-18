@@ -12,9 +12,12 @@ import { timeoutSignal } from "@/lib/abort";
 import { formatVnd, formatVnDate } from "@/lib/format";
 import {
   ORDER_STATUS_LABELS,
+  loadCachedOrders,
+  saveCachedOrders,
   type CatalogOrder,
   type OrderStatus,
 } from "@/lib/catalog-orders";
+import { savedAgoLabel } from "@/lib/forecast-cache";
 
 /*
   ĐƠN CỦA TÔI (2026-08-11) — chủ tàu xem đơn đã đặt + huỷ đơn còn "Mới".
@@ -45,15 +48,22 @@ function summarizeItems(o: CatalogOrder): string {
 type Load =
   | { kind: "loading" }
   | { kind: "ok"; orders: CatalogOrder[] }
+  /** đang hiện BẢN ĐÃ LƯU trong máy (mất sóng) — kèm mốc lưu để nói thật */
+  | { kind: "saved"; orders: CatalogOrder[]; savedAt: number }
   | { kind: "error" };
 
 export function MyOrders() {
-  const { signedIn, ready } = useAuthUser();
+  const { signedIn, ready, phone } = useAuthUser();
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState<CatalogOrder | null>(null);
   const [cancelErr, setCancelErr] = useState("");
 
+  /*  BẢN TRONG MÁY LÀ ĐƯỜNG LÙI, KHÔNG PHẢI MÀN LỖI (2026-08-18, chủ dự án:
+      "cửa hàng nó ít đổi món và đơn, nên cứ xem bình thường, online lại thì tự
+      động tải mới"). Đơn đổi trạng thái vài lần trong đời nó, nên bản đã tải ở
+      cảng vẫn trả lời đúng câu bà con cần giữa biển: mình đặt gì, giao ở đâu,
+      gọi ai. Chỉ khi máy CHƯA TỪNG tải được đơn nào mới hiện màn lỗi. */
   const fetchOrders = useCallback(async () => {
     setLoad({ kind: "loading" });
     const { res } = await authedFetch(
@@ -61,25 +71,47 @@ export function MyOrders() {
       { signal: timeoutSignal(15000) },
       15000,
     );
+    const luiVeBanLuu = () => {
+      const luu = loadCachedOrders(phone);
+      setLoad(
+        luu
+          ? { kind: "saved", orders: luu.orders, savedAt: luu.savedAt }
+          : { kind: "error" },
+      );
+    };
     if (!res || !res.ok) {
-      setLoad({ kind: "error" });
+      luiVeBanLuu();
       return;
     }
     const j = (await res.json().catch(() => null)) as
       | { ok?: boolean; orders?: CatalogOrder[] }
       | null;
     if (j?.ok && Array.isArray(j.orders)) {
+      saveCachedOrders(phone, j.orders);
       setLoad({ kind: "ok", orders: j.orders });
     } else {
-      setLoad({ kind: "error" });
+      luiVeBanLuu();
     }
-  }, []);
+  }, [phone]);
 
   useEffect(() => {
     if (!ready) return;
     if (!signedIn) return; // khách → không gọi API
     fetchOrders();
   }, [ready, signedIn, fetchOrders]);
+
+  /*  CÓ SÓNG LẠI THÌ TỰ TẢI LẠI (2026-08-17, ADR 0004 bất biến 6). Đơn hàng là
+      khu ở-bờ, KHÔNG cache — nhưng cũng không được bắt bà con bấm "Thử lại"
+      mỗi lần sóng chập chờn ở cảng. Chỉ khi đã đăng nhập (khách không gọi API)
+      và không đang tải. */
+  useEffect(() => {
+    if (!ready || !signedIn) return;
+    const onOnline = () => {
+      if (load.kind !== "loading") fetchOrders();
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [ready, signedIn, fetchOrders, load.kind]);
 
   async function doCancel(order: CatalogOrder) {
     setCancelErr("");
@@ -92,7 +124,9 @@ export function MyOrders() {
     setCancelling(null);
     setConfirmCancel(null);
     if (!res) {
-      setCancelErr("Chưa huỷ được — cần có mạng, thử lại khi có sóng.");
+      setCancelErr(
+        "Chưa huỷ được — việc này cần có mạng. Có sóng lại bà con bấm huỷ lần nữa giúp; danh sách đơn thì máy tự cập nhật.",
+      );
       return;
     }
     const j = (await res.json().catch(() => null)) as
@@ -145,6 +179,7 @@ export function MyOrders() {
         </p>
       )}
 
+      {/* MÀN LỖI chỉ còn cho ca máy CHƯA TỪNG tải được đơn nào */}
       {load.kind === "error" && (
         <div className="overflow-hidden surface">
           <StatusBanner level="danger">
@@ -162,13 +197,25 @@ export function MyOrders() {
         </div>
       )}
 
-      {load.kind === "ok" && load.orders.length === 0 && (
-        <EmptyState icon={<CartIcon className="h-10 w-10" />}>
-          Chưa đặt đơn nào. Vào mục “Cửa hàng” chọn hàng rồi đặt.
-        </EmptyState>
+      {/* ĐANG XEM BẢN ĐÃ LƯU — xem bình thường, chỉ nói thật là bản lúc nào */}
+      {load.kind === "saved" && (
+        <div className="mb-3 overflow-hidden rounded-2xl">
+          <StatusBanner level="warn">
+            Đang xem đơn đã lưu trong máy ({savedAgoLabel(load.savedAt)}) — chưa
+            hỏi được máy chủ. Trạng thái đơn có thể đã đổi; có sóng lại là máy tự
+            tải bản mới.
+          </StatusBanner>
+        </div>
       )}
 
-      {load.kind === "ok" && load.orders.length > 0 && (
+      {(load.kind === "ok" || load.kind === "saved") &&
+        load.orders.length === 0 && (
+          <EmptyState icon={<CartIcon className="h-10 w-10" />}>
+            Chưa đặt đơn nào. Vào mục “Cửa hàng” chọn hàng rồi đặt.
+          </EmptyState>
+        )}
+
+      {(load.kind === "ok" || load.kind === "saved") && load.orders.length > 0 && (
         <ul className="space-y-3">
           {load.orders.map((o) => {
             const chip = statusChip(o.status);

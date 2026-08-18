@@ -34,11 +34,10 @@ import { PremiumLock } from "@/components/premium-gate";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { useBoats } from "@/components/boat-switcher";
-import { apiUrl } from "@/lib/api-base";
+import { authedFetch } from "@/lib/device-token-store";
 import { formatVnDate } from "@/lib/format";
 import { isValidVnPhone } from "@/lib/phone";
 import { saveUserJson } from "@/lib/user-store";
-import { timeoutSignal } from "@/lib/abort";
 
 /** Định danh một bạn thuyền để tra/báo cảnh báo — CCCD hoặc SĐT (1 trong 2). */
 type Identity = { cccd?: string; phone?: string };
@@ -639,14 +638,19 @@ async function fetchLookup(
   { ok: true; result: CrewLookupResult } | { ok: false; code?: string }
 > {
   try {
-    // ĐỒNG HỒ 12 GIÂY (D-PH5, soát 2026-08-02): không có nó thì ở sóng "sống
-    // mà chết" fetch treo không resolve không reject ⇒ ô tra kẹt "đang tra…"
-    // vĩnh viễn, không báo lỗi, không có nút thử lại. Hết giờ → ném → nhánh
-    // catch sẵn có trả {ok:false} và UI tự nói "Không tra được".
-    const r = await fetch(
-      apiUrl(`/api/crew-reports/lookup?${identityQuery(id)}`),
-      { signal: timeoutSignal(12000) },
+    /*  QUA `authedFetch` (2026-08-16, thẩm định P0 — danh tính tách não). Bản
+        cũ `fetch` trần, KHÔNG gắn chuỗi cứng của máy, trong khi route đã bỏ
+        phiên Supabase từ 0026 ⇒ mọi lượt tra đều 401 và ô tra nói "Cần đăng
+        nhập" với đúng người đang đăng nhập. `authedFetch` gắn header chuỗi, tự
+        có đồng hồ 12 giây (giữ nguyên ý D-PH5: sóng "sống mà chết" không được
+        làm ô tra kẹt "đang tra…" vĩnh viễn) và tự soi phản hồi xem máy có vừa
+        bị đá không (`noteResponse`). */
+    const { res: r } = await authedFetch(
+      `/api/crew-reports/lookup?${identityQuery(id)}`,
+      {},
+      12000,
     );
+    if (!r) return { ok: false };
     const j = (await r.json().catch(() => null)) as
       | { ok: true; count: number; reports: CrewLookupResult["reports"] }
       | { ok: false; code?: string }
@@ -900,22 +904,24 @@ function ReportForm({
     }
     setBusy(true);
     setMsg(null);
-    const r = await fetch(apiUrl("/api/crew-reports"), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        cccd: cccd || undefined,
-        phone: phone || undefined,
-        subjectName: name.trim() || undefined,
-        category,
-        detail: detail.trim() || undefined,
-        reporterBoat: current?.name || undefined,
-      }),
-      // ĐỒNG HỒ 20 GIÂY (D-PH6): gửi báo cáo không có trần thời gian thì nút
-      // kẹt "Đang gửi…" và bà con không biết đã gửi được chưa. Hết giờ →
-      // `.catch` sẵn có trả null → UI báo "Không gửi được, thử lại".
-      signal: timeoutSignal(20000),
-    }).catch(() => null);
+    // QUA `authedFetch` — xem ghi chú ở `fetchLookup`. Đồng hồ 20 giây (D-PH6)
+    // giữ nguyên, nay do `authedFetch` cắm; hết giờ → `res: null` → UI báo thật.
+    const { res: r } = await authedFetch(
+      "/api/crew-reports",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          cccd: cccd || undefined,
+          phone: phone || undefined,
+          subjectName: name.trim() || undefined,
+          category,
+          detail: detail.trim() || undefined,
+          reporterBoat: current?.name || undefined,
+        }),
+      },
+      20000,
+    );
     setBusy(false);
     const j = (await r?.json().catch(() => null)) as
       | { ok: true }

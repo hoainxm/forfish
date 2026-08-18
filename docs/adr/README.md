@@ -19,6 +19,9 @@ KHÔNG viết ADR cho: feature thường, UI tweak, fix bug — những thứ đ
 | # | Quyết định | Status | Ngày |
 |---|---|---|---|
 | [0001](0001-rename-sdfish-keep-infra.md) | Đổi tên hiển thị SDFish, GIỮ infra `forfish.*` | Accepted | 2026-06-16 |
+| [0002](0002-sw-cuu-401-403-bang-ban-trong-kho.md) | Service worker VẪN cứu 401/403 bằng bản trong kho | Accepted | 2026-08-16 |
+| [0003](0003-tuyen-dijkstra-mot-nhan.md) | Tuyến biển là heuristic một-nhãn, không phải tối ưu toàn cục | Accepted | 2026-08-16 |
+| [0004](0004-pham-vi-offline-chi-du-lieu-di-bien.md) | Offline chỉ phủ dữ liệu đi biển; khu ở-bờ chỉ cần KHÔNG TREO | Accepted | 2026-08-17 |
 
 ## Cách thêm
 

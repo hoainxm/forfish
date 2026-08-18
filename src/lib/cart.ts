@@ -25,6 +25,17 @@ export interface CartLine {
 
 type Stored = { phone: string; items: CartLine[] };
 
+/*  ═══ KHÔNG CÒN "MÃ GIỎ" Ở ĐÂY ═══ (gỡ 2026-08-18, thẩm định P1)
+
+    Bản 2026-08-16 giữ một mã chống-đơn-trùng trong chính khoá giỏ, sinh khi giỏ
+    từ rỗng có món và GIỮ NGUYÊN qua mọi lần thêm/bớt. Đó là lỗi: đặt hụt (máy
+    chủ đã ghi, phản hồi rơi mất) → sửa giỏ → bấm lại ⇒ máy chủ thấy trùng mã và
+    trả ĐƠN CŨ ⇒ màn báo "đã gửi" rồi xoá giỏ ⇒ **mất thay đổi bà con vừa sửa**.
+
+    Nay mã tính từ CHÍNH NỘI DUNG đơn lúc bấm gửi — `orderClientRef` trong
+    `lib/catalog-orders.ts`. Giỏ quay lại đúng vai trò của nó: một danh sách
+    món. ĐỪNG thêm mã nào vào đây nữa. */
+
 /** Ngăn của một SĐT — khớp inboxBucket để nhất quán cách ly tài khoản. */
 export function cartBucket(phone: string | null | undefined): string {
   if (!phone) return GUEST;

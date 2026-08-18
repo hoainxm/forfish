@@ -28,7 +28,7 @@ import {
   setQty,
   type CartLine,
 } from "@/lib/cart";
-import { type OrderDraft } from "@/lib/catalog-orders";
+import { orderClientRef, type OrderDraft } from "@/lib/catalog-orders";
 import { type ProductListing } from "@/lib/product-catalog";
 
 /*
@@ -112,21 +112,32 @@ export function CartSheet({
 
     setState("sending");
     setErrMsg("");
+    /*  MÃ CHỐNG TRÙNG ĐI KÈM (2026-08-16, siết lại 2026-08-18): cú POST có thể
+        ghi được đơn rồi phản hồi mới rơi mất ở sóng cảng — bà con bấm lại là
+        hai đơn thật, giao hai lần. Mã tính từ CHÍNH NỘI DUNG đơn đang gửi
+        (`orderClientRef`), nên bấm lại y nguyên = cùng một lần đặt (máy chủ trả
+        đơn cũ), còn sửa giỏ rồi bấm lại = đơn MỚI. Bản trước gắn mã với GIỎ nên
+        sửa giỏ xong gửi lại bị nuốt thành "trùng" — mất luôn thay đổi. */
     const { res } = await authedFetch(
       "/api/me/orders",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
+        body: JSON.stringify({ ...draft, clientRef: orderClientRef(draft) }),
         signal: timeoutSignal(20000),
       },
       20000,
     );
 
     if (!res) {
-      // mất sóng / hết giờ chờ — online-only, nói thật, không giả lập
+      /*  Mất sóng / hết giờ chờ — đặt hàng là việc CẦN MẠNG, nói thật và KHÔNG
+          hứa suông. Cố ý không viết "máy sẽ tự gửi lại": app không giữ hàng đợi
+          gửi (ADR 0004), nên hứa thế là nói dối chuyện tiền hàng. Giỏ vẫn còn
+          nguyên nên bấm lại là gửi đúng đơn đó, không đẻ đơn thứ hai. */
       setState("error");
-      setErrMsg("Chưa gửi được — cần có mạng, thử lại khi có sóng.");
+      setErrMsg(
+        "Chưa gửi được — đặt hàng cần có mạng. Giỏ vẫn còn nguyên; có sóng lại bà con bấm “Đặt hàng” lần nữa giúp.",
+      );
       return;
     }
     const j = (await res.json().catch(() => null)) as

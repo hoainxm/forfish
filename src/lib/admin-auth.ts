@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
 import {
   can,
+  isMissingColumnError,
   normalizePermissions,
   type ManagerTab,
   type PermAction,
@@ -57,20 +58,35 @@ export async function requireStaff(): Promise<StaffContext> {
       return { ok: true, phone, role: "admin", permissions: null };
     }
     if (!error && row?.role === "manager") {
-      // Bảng quyền tra RIÊNG + có try/catch: 0017 chưa apply (cột chưa có) thì
-      // KHÔNG được coi quản lý là "không phải staff" — vẫn cho vào với preset
-      // mặc định (normalizePermissions(null)).
+      /*  Bảng quyền tra RIÊNG: 0017 chưa apply (cột chưa có) thì KHÔNG được coi
+          quản lý là "không phải staff" — vẫn cho vào với preset mặc định.
+
+          ⚠️ NHƯNG CHỈ CA ĐÓ (sửa 2026-08-16, thẩm định P1). Bản cũ nuốt MỌI
+          lỗi vào cùng một nhánh preset, nên Postgres nghẹt / schema cache hỏng
+          cũng cấp `view+create+edit` trên cả 6 tab cho một người mà máy chủ
+          vừa không tra nổi quyền. Cấp quyền vì hạ tầng hỏng là fail-open —
+          đúng thứ `can()` được viết ra để chặn. Nay: cột chưa có → preset (chủ
+          ý cũ, giữ nguyên); lỗi khác → 503, để màn quản trị báo "chưa tra được"
+          và người ta thử lại, thay vì lặng lẽ làm việc với quyền không ai cấp. */
       let permissions: StaffPermissions;
       try {
-        const { data: p } = await admin
+        const { data: p, error: pErr } = await admin
           .from("customers")
           .select("staff_permissions")
           .eq("phone", phone)
           .maybeSingle();
+        if (pErr && !isMissingColumnError(pErr)) {
+          console.error("[admin-auth] tra bảng quyền HỎNG:", pErr.code, pErr.message);
+          return { ok: false, status: 503, code: "unavailable" };
+        }
         permissions = normalizePermissions(
           (p as { staff_permissions?: unknown } | null)?.staff_permissions,
         );
-      } catch {
+      } catch (e) {
+        // Ném thật (mạng/driver) — cũng là "chưa biết", không phải "cột chưa có"
+        if (!isMissingColumnError(e)) {
+          return { ok: false, status: 503, code: "unavailable" };
+        }
         permissions = normalizePermissions(null);
       }
       return { ok: true, phone, role: "manager", permissions };

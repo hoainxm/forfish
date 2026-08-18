@@ -67,8 +67,8 @@ export function BoatSwitcher() {
               role="alert"
               className="mb-3 rounded-2xl bg-danger-bg px-4 py-3 text-[1rem] font-bold leading-snug text-danger"
             >
-              Máy hết chỗ nên CHƯA lưu được hồ sơ tàu. Bà con xoá bớt ảnh/video
-              rồi làm lại giúp nhé.
+              Máy hết chỗ nên CHƯA lưu được hồ sơ tàu — danh sách tàu và giấy tờ
+              giữ NGUYÊN như cũ. Bà con xoá bớt ảnh/video rồi làm lại giúp nhé.
             </div>
           )}
           <ul className="space-y-2">
@@ -159,7 +159,10 @@ export function BoatSwitcher() {
           confirmLabel="Xóa tàu"
           onCancel={() => setConfirmDelete(null)}
           onConfirm={() => {
-            removeBoat(confirmDelete.id, purgeBoatData);
+            /*  Xoá hỏng cũng phải nói (2026-08-16): `removeBoat` nay ghi danh
+                sách tàu TRƯỚC rồi mới xoá hồ sơ con, nên `false` = chưa xoá gì
+                cả — màn hình giữ nguyên và bà con thấy đúng câu vì sao. */
+            setSaveFailed(!removeBoat(confirmDelete.id, purgeBoatData));
             setConfirmDelete(null);
           }}
         />

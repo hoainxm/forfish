@@ -36,7 +36,9 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
 
-  const body = (await req.json().catch(() => null)) as OrderDraft | null;
+  const body = (await req.json().catch(() => null)) as
+    | (OrderDraft & { clientRef?: unknown })
+    | null;
   if (!body) return err(400, "bad_body");
   const draft: OrderDraft = {
     items: Array.isArray(body.items) ? body.items : [],
@@ -65,22 +67,75 @@ export async function POST(req: Request) {
   if (lines.length === 0) return err(409, "items_unavailable");
   const total = computeOrderTotal(lines);
 
-  const { data, error } = await admin
-    .from("catalog_orders")
-    .insert({
-      customer_phone: who.phone,
-      boat_name: draft.boatName?.trim() || null,
-      boat_ref: draft.boatRef?.trim() || null,
-      items: lines,
-      total_vnd: total,
-      delivery_location: draft.deliveryLocation?.trim() || null,
-      contact_name: draft.contactName?.trim() || null,
-      contact_phone: normalizeVnPhone(draft.contactPhone),
-      note: draft.note?.trim() || null,
-      status: "moi",
-    })
-    .select("id")
-    .maybeSingle();
+  /*  ═══ CHỐNG ĐƠN TRÙNG ═══ (2026-08-16, thẩm định P1)
+
+      Ca thật ở cảng 3G: đơn GHI ĐƯỢC nhưng phản hồi rơi mất, client hết 20 giây
+      và báo "chưa gửi được", bà con bấm lại ⇒ hai đơn, giao hai lần, thu tiền
+      hai lần. `clientRef` là mã của GIỎ (lib/cart.ts), giữ nguyên qua mọi lần
+      bấm, nên `(customer_phone, client_ref)` nhận ra "vẫn là lần đặt đó".
+
+      Trọng tài đặt ở DB (unique index, migration 0034) chứ không phải "đọc
+      trước rồi ghi": hai cú bấm sát nhau chạy trên hai instance khác nhau thì
+      đọc-rồi-ghi vẫn lọt cả hai.
+
+      ĐƯỜNG LÙI KHI 0034 CHƯA APPLY: cột `client_ref` chưa có ⇒ insert kèm
+      trường lạ sẽ hỏng ⇒ thử lại KHÔNG kèm trường đó. App chạy y như hôm nay
+      (vẫn có thể trùng), không ai bị chặn đặt hàng vì một migration chưa duyệt. */
+  const clientRef =
+    typeof body.clientRef === "string" && body.clientRef.trim()
+      ? body.clientRef.trim().slice(0, 64)
+      : null;
+
+  const coBan = {
+    customer_phone: who.phone,
+    boat_name: draft.boatName?.trim() || null,
+    boat_ref: draft.boatRef?.trim() || null,
+    items: lines,
+    total_vnd: total,
+    delivery_location: draft.deliveryLocation?.trim() || null,
+    contact_name: draft.contactName?.trim() || null,
+    contact_phone: normalizeVnPhone(draft.contactPhone),
+    note: draft.note?.trim() || null,
+    status: "moi",
+  };
+
+  /*  Cùng khuôn "ghi kèm cột có thể chưa apply" của `/api/me/heartbeat`: tách
+      hàm nhận phần THÊM để kiểu của lời gọi không đổi theo nhánh. */
+  const ghiDon = (them: Record<string, unknown>) =>
+    admin
+      .from("catalog_orders")
+      .insert({ ...coBan, ...them })
+      .select("id")
+      .maybeSingle();
+
+  let { data, error } = await ghiDon(
+    clientRef ? { client_ref: clientRef } : {},
+  );
+
+  if (error && clientRef) {
+    // 23505 = unique_violation ⇒ đơn của CHÍNH lần đặt này đã nằm trong kho.
+    if (error.code === "23505") {
+      const { data: cu } = await admin
+        .from("catalog_orders")
+        .select("id,total_vnd")
+        .eq("customer_phone", who.phone)
+        .eq("client_ref", clientRef)
+        .maybeSingle();
+      if (cu?.id) {
+        return NextResponse.json({
+          ok: true,
+          id: cu.id,
+          totalVnd: (cu as { total_vnd?: number }).total_vnd ?? total,
+          duplicate: true,
+        });
+      }
+    }
+    // Cột chưa có (0034 chưa apply) → ghi lại không kèm mã giỏ.
+    if (error.code === "42703" || error.code === "PGRST204") {
+      console.error("[orders] client_ref chưa apply, ghi lại không kèm:", error.message);
+      ({ data, error } = await ghiDon({}));
+    }
+  }
   if (error) return err(500, "insert_failed");
 
   return NextResponse.json({ ok: true, id: data?.id, totalVnd: total });

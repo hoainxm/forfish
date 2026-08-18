@@ -2,9 +2,15 @@
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
-last_verified: 2026-08-14
+last_verified: 2026-08-18
 <!-- re-verified: 2026-08-14b — crew-list/document-vault/maintenance-reminders: CHỈ đổi class bóng `shadow-[...rgba]` → `.shadow-trim-cta` (cùng giá trị, lift vào globals theo gate 3b2) — 0 đổi hành vi/JSX/logic; claims đa-tàu giữ nguyên -->
 <!-- re-verified: 2026-08-14 — boat-products.tsx (+tab "Đơn của tôi" render MyOrders, section state độc lập): KHÔNG chạm boat-switcher/boats.ts/logic đa-tàu; các claim đa-tàu (chuyển tàu, dữ liệu per-tàu, urgent-strip) giữ nguyên. Bóng nút cam lift vào globals (.shadow-trim-cta) — HOW-nhìn, không đổi hành vi -->
+
+<!-- re-verified: 2026-08-18 - R3 (cascade xoa tau) DOI THU TU GHI, va tu giay to doc RONG khong con thanh so mau. Hai cho, deu la BAO VE AC san co chu khong sua AC:
+(1) `boat-store.removeBoat`: truoc day chay `cascade(id)` (purgeBoatData - xoa giay to, bao duong, nha gan SDVICO cua tau do) RUI moi `saveBoats(boats)` va VUT ket qua ghi. Kho tu choi ghi (may day / doc hong -> `boatsReadFailed`) thi ho so CON da bi xoa THAT trong khi tau CHA van con nguyen sau khi mo lai app: ba con thay du tau, mo ra thi tu giay to trong - mat du lieu ma khong mot dau hieu nao. Nay GHI DANH SACH TAU TRUOC, ghi duoc moi cascade; ghi hong thi tra `false`, KHONG xoa gi, man hinh giu nguyen va `boat-switcher` hien bang do (them mot cau: "danh sach tau va giay to giu NGUYEN nhu cu"). R3 phat bieu KHONG doi - chi bao dam no chay tron ven hoac khong chay.
+(2) `addBoat`/`updateBoat`: ghi hong thi KHONG doi snapshot + KHONG `emit()` nua (truoc van doi man hinh roi tra `false`), de man hinh luon khop thu may GIU DUOC.
+(3) `document-vault.loadDocs`: mang RONG `[]` nay la du lieu THAT, khong con roi xuong nhanh seed tu mau. Ba con xoa to giay cuoi cung -> lan mo sau van "Chua co giay to nao", thay vi tu mau hien lai nhu giay that (truc 4 la tuan thu). Chi ca CHUA TUNG co khoa moi dung tu mau; ca doc-hong van khoa cua ghi nhu ban 2026-08-02.
+Phan loai co-dinh-theo-tau vs dong-theo-chu (R1/R2) va guard R7 "luon con >=1 tau" giu nguyen; `removeBoat` khong doi chu ky. Cong test moi: `src/lib/__tests__/local-write-atomic.test.ts` (kho day -> cascade KHONG chay, danh sach tau giu nguyen). -->
 
 ttl_days: 90
 

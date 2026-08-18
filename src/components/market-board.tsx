@@ -2,14 +2,16 @@
 
 // TIN MUA/BÁN (nhánh 2 khu GIAO DỊCH, user chốt 2026-07-27) — chủ tàu tự ĐĂNG
 // tin bán (có cá cần bán) và tin mua (cần mua gì), cả làng cùng xem để gọi
-// thẳng nhau. Ghi thật vào Supabase `market_listings` (RLS owner-write). Chưa
-// đăng nhập / chưa cấu hình máy chủ → chỉ xem TIN MẪU, muốn đăng thì đăng nhập.
+// thẳng nhau. Đi qua route server `/api/me/market-listings` (device token, xem
+// lib/market-listings.ts). Chưa cấu hình máy chủ → xem TIN MẪU; MẤT SÓNG thì
+// nói thật "chưa tải được", KHÔNG đội lốt tin mẫu (2026-08-16, thẩm định P0).
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ChipRow } from "@/components/ui/chip-row";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { StatusBanner } from "@/components/ui/status-banner";
 import {
   CallButton,
   Card,
@@ -52,12 +54,29 @@ export function MarketBoard() {
   const [filter, setFilter] = useState<Filter>("all");
   const [real, setReal] = useState<MarketListing[] | null>(null);
   const [loading, setLoading] = useState(true);
+  /** chưa tải được vì SÓNG (khác hẳn "chợ chưa có tin nào") */
+  const [netFailed, setNetFailed] = useState(false);
+  /** nút vừa bấm không ăn — phải nói, không im (2026-08-16) */
+  const [actionErr, setActionErr] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDel, setConfirmDel] = useState<MarketListing | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    setReal(await fetchListings());
+    const r = await fetchListings();
+    if (r.ok) {
+      setReal(r.listings);
+      setNetFailed(false);
+    } else {
+      /*  GIỮ NGUYÊN DANH SÁCH ĐANG HIỆN khi mất sóng (2026-08-16). Bản cũ
+          `setReal(null)` ⇒ rơi về `useDemo` ⇒ tin thật của bà con BIẾN MẤT khỏi
+          màn hình, thay bằng tin mẫu — sau một cú bấm "Đã xong" hụt thì trông
+          y như app vừa xoá mất tin của mình. */
+      setNetFailed(r.reason === "mang");
+      // chưa đăng nhập / chưa nối máy chủ → xem TIN MẪU (đúng hành vi cũ);
+      // KHÔNG phải lỗi mạng nên không hiện dải "đang mất sóng".
+      if (r.reason !== "mang") setReal(null);
+    }
     setLoading(false);
   }, []);
 
@@ -65,8 +84,25 @@ export function MarketBoard() {
     void refresh();
   }, [refresh, signedIn]);
 
-  const useDemo = !real || real.length === 0;
-  const source = useDemo ? DEMO_LISTINGS : real;
+  /*  CÓ SÓNG LẠI THÌ TỰ TẢI LẠI (2026-08-17, chủ dự án: "có mạng thì tự chạy
+      tự đồng bộ lại chứ yêu cầu gì"). Trước đây mất sóng là màn đứng ở câu lỗi
+      cho tới khi bà con TỰ bấm Thử lại — mà tay ướt, nắng chói, ai ngồi bấm
+      lại. Khuôn lấy từ `inbox-section.tsx`. Chỉ chạy khi màn này đang mở
+      (effect gắn theo component) và bỏ qua nếu đang tải (chống chạy chồng lúc
+      sóng nhấp nháy ven bờ). ADR 0004 bất biến 6. */
+  useEffect(() => {
+    const onOnline = () => {
+      if (!loading) void refresh();
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [refresh, loading]);
+
+  /*  TIN MẪU CHỈ CHO CA THẬT SỰ TRỐNG: chưa nối máy chủ, hoặc chợ chưa ai đăng.
+      Mất sóng KHÔNG được rơi vào đây — xem `netFailed`. */
+  const useDemo = (real === null || real.length === 0) && !netFailed;
+  const source = useDemo ? DEMO_LISTINGS : (real ?? []);
+  // server đã lọc "đang mở + tin của mình"; ở đây chỉ còn lọc theo chip
   const listings = source.filter(
     (l) =>
       (filter === "all" || l.side === filter) &&
@@ -80,6 +116,30 @@ export function MarketBoard() {
         đỡ bị ép giá. Đầu nậu, vựa, nhà máy cũng đăng tin cần mua ở đây.
         {useDemo && " Bên dưới là TIN MẪU, tin thật sẽ tự hiện khi bà con đăng."}
       </RefNote>
+
+      {/* MẤT SÓNG NÓI THẬT — trước đây ca này im lặng đổi sang tin mẫu, bà con
+          tưởng chợ vắng hoặc tưởng tin mình vừa biến mất. */}
+      {netFailed && (
+        <div className="mt-3 overflow-hidden rounded-2xl">
+          <StatusBanner level="warn">
+            Chưa tải được tin mới — máy đang không có sóng.{" "}
+            {real && real.length > 0
+              ? "Bên dưới là danh sách lần tải gần nhất."
+              : "Bà con thử lại lúc có sóng nhé."}
+          </StatusBanner>
+        </div>
+      )}
+
+      {/* Nút vừa bấm không ăn (mất sóng / hết quyền) — nói ngay tại chỗ */}
+      {actionErr && (
+        <p
+          role="alert"
+          className="mt-3 rounded-2xl px-3.5 py-3 text-[1rem] font-semibold"
+          style={{ color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
+        >
+          {actionErr}
+        </p>
+      )}
 
       <div className="my-3">
         {ready && signedIn ? (
@@ -118,7 +178,12 @@ export function MarketBoard() {
       <ul className="space-y-3">
         {listings.map((l) => (
           <li key={l.id}>
-            <ListingCard listing={l} onDelete={() => setConfirmDel(l)} onChanged={refresh} />
+            <ListingCard
+              listing={l}
+              onDelete={() => setConfirmDel(l)}
+              onChanged={refresh}
+              onFailed={setActionErr}
+            />
           </li>
         ))}
       </ul>
@@ -140,9 +205,15 @@ export function MarketBoard() {
           message={`Tin “${confirmDel.species}” sẽ bị gỡ khỏi chợ.`}
           onCancel={() => setConfirmDel(null)}
           onConfirm={async () => {
-            await deleteListing(confirmDel.id);
+            /*  ĐỌC KẾT QUẢ (2026-08-16): bản cũ `await deleteListing(...)` rồi
+                vứt boolean — mất sóng thì hộp thoại đóng, tin còn nguyên, không
+                một câu nào. Đúng khuôn "nút bấm không được gì". */
+            const xong = await deleteListing(confirmDel.id);
+            setActionErr(
+              xong ? null : "Chưa xoá được tin — cần có mạng, thử lại khi có sóng.",
+            );
             setConfirmDel(null);
-            void refresh();
+            if (xong) void refresh();
           }}
         />
       )}
@@ -154,10 +225,13 @@ function ListingCard({
   listing: l,
   onDelete,
   onChanged,
+  onFailed,
 }: {
   listing: MarketListing;
   onDelete: () => void;
   onChanged: () => void;
+  /** đổi trạng thái không ăn → đưa câu báo lên khối chung của màn */
+  onFailed: (msg: string | null) => void;
 }) {
   const sell = l.side === "ban";
   return (
@@ -229,8 +303,17 @@ function ListingCard({
         <div className="mt-2 flex gap-4 border-t border-line pt-2">
           <button
             onClick={async () => {
-              await setListingStatus(l.id, l.status === "open" ? "closed" : "open");
-              onChanged();
+              // ĐỌC KẾT QUẢ (2026-08-16) — xem ghi chú ở nút Xoá.
+              const xong = await setListingStatus(
+                l.id,
+                l.status === "open" ? "closed" : "open",
+              );
+              onFailed(
+                xong
+                  ? null
+                  : "Chưa đổi được trạng thái tin — cần có mạng, thử lại khi có sóng.",
+              );
+              if (xong) onChanged();
             }}
             className="flex items-center gap-1.5 text-[0.9375rem] font-bold text-sea"
           >

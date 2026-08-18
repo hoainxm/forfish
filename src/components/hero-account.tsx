@@ -12,6 +12,7 @@ import {
 } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { clearInbox } from "@/lib/inbox";
+import { clearCachedOrders } from "@/lib/catalog-orders";
 import {
   applyIdentityAction,
   offlineIdentityPhone,
@@ -264,6 +265,9 @@ export function HeroAccount() {
     // tàu. Việc xoá quyền không được phụ thuộc thứ tự lập lịch của React.
     void detachPushAccount();
     clearInbox();
+    // Đơn hàng đã lưu cũng là dữ liệu CỦA NGƯỜI TRƯỚC (SĐT nhận hàng, điểm
+    // giao) — máy dùng chung trên tàu thì phải đi cùng hộp thư (2026-08-18).
+    clearCachedOrders();
     // qua CỔNG DUY NHẤT (K7): "user-signed-out" = bà con TỰ BẤM và máy chủ đã
     // xác nhận — khác hẳn `SIGNED_OUT` auth-js tự bắn khi nó tự xoá phiên (C-7)
     // (cổng đã xoá luôn dấu hạng — `forgetIdentity` gọi `clearTierMark`, quan
@@ -292,6 +296,7 @@ export function HeroAccount() {
      hoàn tác, mà thứ nó xoá lại chính là dấu premium vừa được mở lại. */
   function forgetThisDevice() {
     clearInbox();
+    clearCachedOrders(); // xem ghi chú ở doSignOut
     /* GỠ TÀI KHOẢN KHỎI ĐĂNG KÝ THÔNG BÁO — thiếu chỗ này (bản trước quên,
        R7) thì endpoint push VĨNH VIỄN còn trỏ về chủ tàu: `syncPushAccount`
        chỉ chạy khi đã đăng nhập lại, nên không có đường bù nào. Tin nhắm riêng

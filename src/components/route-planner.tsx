@@ -35,7 +35,7 @@ import { savedAgoLabel } from "@/lib/forecast-cache";
 import { readUserRecord } from "@/lib/user-list-store";
 import { saveUserJson } from "@/lib/user-store";
 import { routeStormConflict, STORM_SAFE_RADIUS_KM } from "@/lib/route-storm";
-import type { StormAlert } from "@/lib/storms";
+import { stormGateForRoute, type StormAlert, type StormStatus } from "@/lib/storms";
 import { fetchDepthGrid } from "@/lib/depth-grid";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
 import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
@@ -173,6 +173,7 @@ export function RoutePlanner({
   activeRoute,
   places = [],
   storms = [],
+  stormInfo,
   onRoute,
   onStart,
 }: {
@@ -183,9 +184,15 @@ export function RoutePlanner({
       lít dầu tính từ đây mới đúng (roadmap hội đồng UX 2026-06-11) */
   places?: SavedPlace[];
   /** Tin bão đang hoạt động (từ useStormCheck của màn bản đồ, gồm cả tin cũ
-      — thà báo thừa). Tuyến cắt vùng bão → CHẶN HẲN, không vẽ. Mất sóng /
-      chưa hỏi được → mảng rỗng → không chặn (không có dữ liệu để nói). */
+      — thà báo thừa). Tuyến cắt vùng bão → CHẶN HẲN, không vẽ. */
   storms?: StormAlert[];
+  /*  TRẠNG THÁI tin bão — BẮT BUỘC, và cố ý KHÔNG có giá trị mặc định
+      (2026-08-16, thẩm định P0). Mảng `storms` rỗng KHÔNG phân biệt được "hỏi
+      được, trời quang" với "chưa hỏi được": trước đây cả hai đều đi qua
+      `routeStormConflict` im lặng, tuyến vẽ ra y hệt nhau. Bắt buộc để chỗ gọi
+      mới không thể quên — thiếu nó là ĐỎ lúc biên dịch, không phải im lặng
+      lúc chạy giữa biển. Luật đọc trạng thái nằm ở `stormGateForRoute`. */
+  stormInfo: StormStatus;
   onRoute: (r: PlannedRoute | null) => void;
   /** Bắt đầu DẪN ĐƯỜNG LIVE theo tuyến vừa tính (bám tuyến, theo dõi GPS) */
   onStart?: (r: PlannedRoute) => void;
@@ -207,6 +214,11 @@ export function RoutePlanner({
   const [offlineSavedAt, setOfflineSavedAt] = useState<number | null | undefined>(
     undefined,
   );
+  /*  Câu cảnh báo "tuyến này CHƯA đối chiếu bão" — chốt lại tại LÚC TÍNH, không
+      đọc trạng thái live khi vẽ: tin bão về giữa chừng thì câu chữ dưới tuyến
+      đổi trong khi tuyến trên bản đồ vẫn là tuyến tính lúc chưa có tin. Bà con
+      phải đọc được đúng thứ đã dùng để tính. */
+  const [stormWarn, setStormWarn] = useState<string | null>(null);
 
   /*
     Đổi ĐÍCH (chạm chỗ khác trên bản đồ) — hội đồng UX 2026-06-11: KHÔNG
@@ -218,6 +230,7 @@ export function RoutePlanner({
     setResult(null);
     setError(null);
     setOfflineSavedAt(undefined);
+    setStormWarn(null);
   }, [dest.lat, dest.lon]);
 
   // tuyến trên bản đồ đang trỏ tới điểm KHÁC chỗ đang xem?
@@ -346,6 +359,12 @@ export function RoutePlanner({
       // ĐỐI CHIẾU TIN BÃO (team review 2026-07-26): GFS lưới thô ước non
       // cường độ bão — sóng/gió trên tuyến có thể dưới ngưỡng chặn số dù bão
       // đang vào. Tuyến đi vào vùng bão → CHẶN HẲN, không vẽ.
+      /*  CÓ ĐỐI CHIẾU ĐƯỢC KHÔNG ĐÃ (2026-08-16, thẩm định P0). `storms` rỗng
+          có hai nghĩa khác hẳn nhau — "hỏi được, không có bão" và "chưa hỏi
+          được" — mà nhánh dưới đối xử y hệt. Không chặn (chủ dự án chốt: giữa
+          biển mất sóng vẫn phải tính được tuyến), nhưng phải NÓI RA. */
+      const gate = stormGateForRoute(stormInfo);
+      setStormWarn(gate.warnText);
       const conflict = routeStormConflict(plan.waypoints, storms);
       if (conflict) {
         const s = conflict.storm;
@@ -532,6 +551,15 @@ export function RoutePlanner({
 
       {plan && result && (
         <>
+          {/* BÃO ĐỨNG TRƯỚC MỌI THỨ — đây là dòng dính tính mạng, không phải
+              dòng "thông tin thêm". Chỉ hiện khi CHƯA đối chiếu được tin bão;
+              tuyến cắt vùng bão thật thì đã bị chặn ở trên, không vẽ tới đây. */}
+          {stormWarn && (
+            <p className="flex items-start gap-2 rounded-xl bg-[var(--danger-bg)] p-3 text-[0.9375rem] font-bold leading-snug text-danger">
+              <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+              {stormWarn}
+            </p>
+          )}
           {offlineSavedAt !== undefined && (
             <p className="flex items-start gap-2 rounded-xl bg-[var(--warn-bg)] p-3 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
               <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
@@ -633,6 +661,15 @@ export function RoutePlanner({
               Có đoạn đè lên vùng RẤT CẠN / bãi nổi (dưới 4 m) gần nơi xuất
               phát hoặc điểm đến — chỉ vào theo con nước lên, đi chậm, hỏi
               người rành luồng lạch chỗ đó.
+            </p>
+          )}
+
+          {plan.hasNearLandLeg && (
+            <p className="flex items-start gap-2 rounded-xl bg-[var(--danger-bg)] p-3 text-[0.9375rem] font-bold leading-snug text-danger">
+              <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
+              Đoạn đầu (hoặc cuối) tuyến đè lên phần BỜ theo bản đồ độ sâu của
+              máy — chỗ vào cảng máy không vẽ chính xác được. Đoạn đó bà con đi
+              theo luồng quen và hải đồ, đừng bám theo vạch trên màn hình.
             </p>
           )}
 

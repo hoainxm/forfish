@@ -122,8 +122,18 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 | bảng `market_listings` | Chủ tàu tự đăng **tin bán** (`side='ban'`) / **tin mua** (`side='mua'`) trong `/tien` mục Tin mua/bán. Cột: `owner_id`→auth.users (NULL = tin từ webhook thu mua) · `side` · `poster_kind` (ngu-dan/nau/vua/nha-may/cho) · `poster_name` · `species` · `quantity`/`price_text`/`province`/`phone`/`note` (chữ tự do) · `status` (open/closed) · `sdwork_ref` (unique, idempotent upsert từ app thu mua sau này). Ghi/đọc client qua `lib/market-listings.ts` (helper `validateDraft`/`rowToListing` thuần, có test) |
 | RLS | **ĐỌC**: user đã đăng nhập xem mọi tin `open` + tin của mình (`status='open' and auth.uid() is not null` **or** `auth.uid()=owner_id`) — chưa đăng nhập KHÔNG thấy tin thật, client rơi về `DEMO_LISTINGS` TIN MẪU. **GHI/SỬA/XÓA**: chỉ chủ tin (`auth.uid()=owner_id`). Webhook bên thu mua ghi tin cần mua qua **service-role** (bypass RLS) như customers/devices |
 
-- ✅ **ĐÃ APPLY lên prod** (ref znzgugvfhgmiszqgjulk) qua Supabase MCP 2026-07-27, RLS + 4 policy đã kiểm (advisor không cảnh báo bảng này). Trên máy chưa cấu hình env → `fetchListings` trả null → UI hiện TIN MẪU, đăng tin báo lỗi mềm.
+- ✅ **ĐÃ APPLY lên prod** (ref znzgugvfhgmiszqgjulk) qua Supabase MCP 2026-07-27, RLS + 4 policy đã kiểm (advisor không cảnh báo bảng này). Trên máy chưa cấu hình env → `fetchListings` trả `{ok:false, reason:'chua-cau-hinh'}` → UI hiện TIN MẪU, đăng tin báo lỗi mềm.
 - **Lộ trình**: app riêng cho bên thu mua sẽ đăng tin cần mua đổ về bảng này qua webhook (`sdwork_ref`, `owner_id` NULL) — khi làm cần bổ sung [contract SDWork](../contracts/sdwork-assets.contract.md).
+
+### Chợ tin đổi CHỦ TIN sang SĐT — migration [`0035_market_listings_owner_phone.sql`](../../supabase/migrations/0035_market_listings_owner_phone.sql) (2026-08-16) — 🔴 CHƯA apply prod
+
+| Thay đổi | Nghĩa |
+|---|---|
+| cột `owner_phone text` + index | Chủ tin định danh bằng **SĐT từ device token**, không còn `auth.uid()`. Backfill tin cũ từ `auth.users.email` (email ảo `090…@sdvico.local`). `owner_id` giữ lại cho tin cũ + đường lùi phiên |
+| RLS | **KHÔNG đổi** — policy 0008 giữ nguyên. App đi qua route server `/api/me/market-listings` (+ `[id]`) bằng **service-role** (bypass RLS), client KHÔNG chạm bảng nữa |
+
+- 🟡 **CỘT ĐÃ CÓ TRÊN PROD, index thì chưa** — đo read-only 2026-08-17 (đối chứng cột bịa → 400/42703, `owner_phone` → 200). Nên migration này trên prod thực chất chỉ còn INDEX + comment; vẫn giữ file cho môi trường dựng mới. Chủ dự án apply khi thuận tiện, **không chặn** đường chợ tin (đã kiểm: `GET /api/me/market-listings` → 200 `{ok:true,listings:[]}`, POST không token → 401 `no_token`).
+- 🔴 **BẰNG CHỨNG THỰC ĐỊA cho P0**: bảng `market_listings` trên prod **RỖNG, 0 hàng**. Tức từ 0026 tới nay **chưa một tin nào đăng được** — khớp đúng chẩn đoán: `auth.uid()` luôn NULL nên policy insert (`auth.uid()=owner_id`) chặn hết, còn policy ĐỌC (`auth.uid() is not null`) làm mọi người dùng thật chỉ thấy TIN MẪU. Trục 2 câm mà không một câu báo lỗi. Câu backfill trong 0035 vì thế không có hàng nào để chạy trên prod.
 
 ### Danh mục sản phẩm ADMIN quản lý — migration [`0010_product_catalog.sql`](../../supabase/migrations/0010_product_catalog.sql) (2026-07-28) — ✅ ĐÃ APPLY prod
 
@@ -397,10 +407,10 @@ App yêu cầu đăng nhập (tài khoản đồng bộ SDWork) cho tính năng 
 | Tính năng | Quyền | Chặn ở đâu |
 |---|---|---|
 | **Dự báo cá (PFZ)** | 🟢 teaser → 🔒 chi tiết | **TEASER (user chốt 2026-06-11)**: `GET /api/fish-forecast` CÔNG KHAI (bỏ gate 401) → lớp cá heatmap + điểm nóng HIỆN cho mọi người (thu hút). Xem CHI TIẾT một điểm (loài gì, khả năng bao nhiêu, đi hướng nào) mới khoá: `fishing-map-view` dùng `useAuthUser`+`isSupabaseConfigured` → `fishLocked` (đã cấu hình Supabase + chưa login) → thẻ cá trong sheet thành nút "Đăng nhập để xem chi tiết dự báo cá" (→/login) thay readout. Heatmap/chọn loài vẫn xem được (làm mồi). Demo mode = mở hết. (Lý do đổi từ "khoá API" cũ: lớp cá biến mất hẳn → không hấp dẫn được khách đăng ký) |
-| **Tin mua/bán (đăng + xem tin thật)** | 🟢 xem TIN MẪU công khai → 🔒 đăng tin & xem tin thật | `market-board.tsx`: chưa đăng nhập XEM được `DEMO_LISTINGS` (mồi) nhưng nút đăng tin → /login. Tin THẬT (`market_listings`) chỉ user đã đăng nhập đọc (RLS `auth.uid() is not null`), chỉ chủ tin ghi/sửa/xóa — chặn thật ở RLS, không lách được |
+| **Tin mua/bán (đăng + xem tin thật)** | 🟢 xem tin thật công khai → 🔒 đăng/sửa/xoá | **ĐỔI 2026-08-16 (thẩm định P0)**: chốt quyền chuyển từ RLS `auth.uid()` sang route server `/api/me/market-listings` (+`[id]`) dùng `identityFromRequest` + service-role, chủ tin = `owner_phone` (0035). Lý do: sau 0026 app không giữ phiên nên `auth.uid()` luôn NULL ⇒ RLS chặn cả chiều ĐỌC ⇒ mọi người dùng thật chỉ thấy TIN MẪU và không ai đăng được. Nay: GET mở cho cả khách (`anonymous: true`, server lọc "đang mở + tin của mình"); POST/PATCH/DELETE đòi SĐT, và điều kiện chủ tin nằm TRONG câu lệnh ghi (`.eq("owner_phone", …).select()`) |
 | **Đồ SDVICO của tôi / dịch vụ / cước / yêu cầu đã gửi** | 🔒 (bản chất) | `/api/me/sdvico` suy khách từ session — chưa đăng nhập tự ok:false. **Nguồn thiết bị (2026-06-11)**: gateway `forfish-gateway` v4 (CRM) gộp `warranty_cards` (theo account) + `vw_imported_serials` (import Excel, chủ yếu giám sát hành trình Viettel) khớp theo **SĐT chuẩn hoá 9 số cuối** (0xxx/84xxx/+84 — trước lệch định dạng nên thiết bị import không hiện) qua RPC CRM-side `forfish_imported_serials` (xem [contract](../contracts/sdwork-assets.contract.md)). Khách chỉ có serial import (chưa account) VẪN thấy đồ. Thiết bị import không có hạn BH → hiện tên+serial, không bịa bảo hành |
 | Bản đồ + gió sóng + bão + hải đồ + cá MÙA VỤ · giá cá · bán ở đâu · catalog SDVICO + nút Gọi SDVICO · sổ tự ghi (giấy tờ/bảo dưỡng/thuyền viên) · mức phạt | 🌐 public | không chặn — gửi yêu cầu khi chưa đăng nhập = mối bán hàng mới |
-| **Cảnh báo thuyền viên chéo** (tra/báo cáo theo CCCD) | 🔒 **premium** | chốt server `lib/premium-guard.ts` (route /api/crew-reports*) + khoá UI ở `crew-list.tsx` |
+| **Cảnh báo thuyền viên chéo** (tra/báo cáo theo CCCD) | 🔒 **premium** | chốt server `lib/premium-guard.ts` (route /api/crew-reports*) + khoá UI ở `crew-list.tsx`. **ĐỔI 2026-08-16 (thẩm định P0)**: guard nay nhận `req` và dựng trên `identityFromRequest` + `premiumDenied` (device token) thay cho `auth.getUser()` — bản cũ trả 401 cho MỌI người dùng thật vì app đã bỏ phiên từ 0026; client `crew-list.tsx` gửi chuỗi cứng qua `authedFetch` |
 
 Quy ước: tính năng khóa MỚI → bọc `components/login-gate.tsx` (UI) **và** kiểm session ở API (thật). Hook trạng thái: `lib/use-auth.ts`. Khi Supabase chưa cấu hình (demo mode dev) thì KHÔNG khóa — giữ invariant demo mode §"Demo mode".
 
@@ -552,6 +562,15 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 | RLS | **KHÔNG có policy nào** (giống `product_inquiries`/`premium_grants`). Chủ tàu đọc/đặt/huỷ qua `/api/me/orders*` (`identityFromRequest` tự lọc theo SĐT device token); NCC/admin xem & chuyển trạng thái qua `/api/admin/orders*` (`requirePermission("don-hang", …)` — migration 0017 + tab mới). Đổi trạng thái → báo chủ tàu (push + hộp thư, `lib/account-notify.ts`, best-effort) |
 
 - 🔴 **CHƯA apply prod** — chủ dự án duyệt & apply. **Không thanh toán trong app** (chốt tiền lúc giao/COD — nhất quán "KHÔNG có luồng thanh toán"). **Online-only** (SW bỏ qua POST, không outbox; client báo trung thực khi mất mạng). Quyền mới `don-hang` thêm vào `lib/staff-permissions.ts` (6 tab manager).
+
+### Chống ĐƠN TRÙNG — migration [`0034_catalog_orders_client_ref.sql`](../../supabase/migrations/0034_catalog_orders_client_ref.sql) (2026-08-16) — 🔴 CHƯA apply prod
+
+| Thay đổi | Nghĩa |
+|---|---|
+| cột `client_ref text` (nullable) | **Dấu vân tay của NỘI DUNG đơn** do máy khách tính (`orderClientRef` trong `lib/catalog-orders.ts`: món+số lượng đã sắp thứ tự, tàu, điểm giao, người nhận, SĐT, ghi chú → FNV-1a 64-bit). Gửi kèm `POST /api/me/orders`. ⚠️ **KHÔNG gắn với giỏ** (sửa 2026-08-18): bản đầu giữ mã trong `forfish.cart.v1` và giữ nguyên khi bà con sửa giỏ ⇒ đặt hụt → sửa giỏ → bấm lại bị nuốt thành "trùng", trả đơn cũ, **mất thay đổi**. Mã theo nội dung thì cùng nội dung = cùng mã, khác nội dung = đơn mới — không cần 409 "cùng mã khác thân" |
+| unique index có điều kiện | `(customer_phone, client_ref) where client_ref is not null` — trọng tài ở tầng DB, không phải "đọc trước rồi ghi" (hai cú bấm sát nhau chạy trên hai instance vẫn lọt) |
+
+- 🔴 **CHƯA apply prod** — chủ dự án duyệt & apply. **VÌ SAO** (thẩm định 2026-08-16, P1): ở cảng 3G, POST ghi được đơn nhưng phản hồi rơi mất ⇒ client hết 20 giây báo "chưa gửi được" ⇒ bà con bấm lại ⇒ **hai đơn thật, giao hai lần, thu tiền hai lần**. Nay trùng `client_ref` ⇒ route đọc lại đơn cũ và trả `ok:true, duplicate:true`. Trước khi apply: route bắt lỗi `42703/PGRST204` và ghi lại KHÔNG kèm cột ⇒ hành vi y hệt hôm nay (vẫn có thể trùng), không ai bị chặn đặt hàng.
 
 
 <!-- re-verified: 2026-06-14 — schema 0001 boats/documents + §6 gateway khớp code -->

@@ -334,3 +334,45 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 | 7 | Tắt chế độ máy bay, **mở lại app**, để tin hiện trên màn | Cột **đọc** lên — biên nhận hụt lúc mất sóng phải báo lại được, không mất luôn |
 
 > **HỎNG** nếu: bước 3 bấm xong mà cột "đọc" không bao giờ lên (⇒ cú báo lại bị cắt — kiểm `waitUntil` trong `notificationclick`), hoặc bước 7 không bao giờ lên (⇒ bản lưu đã đánh dấu nhầm là "đã báo" dù máy chủ chưa xác nhận).
+
+---
+
+### N-5 · Vẽ tuyến khi CHƯA hỏi được tin bão (mới 2026-08-16, thẩm định P0)
+
+> **Vì sao có ca này**: `stormStatus` giữ đúng bốn trạng thái, nhưng màn bản đồ nén mọi thứ ≠ `co-bao` thành mảng rỗng và planner đọc mảng rỗng là "tuyến không cắt vùng bão nào" ⇒ **mất sóng và trời quang cho ra màn hình y hệt nhau**, ngay tại chỗ bà con quyết định có nhổ neo hay không. Chủ dự án chốt: VẪN vẽ tuyến (giữa biển mất sóng là thường xuyên), nhưng phải nói ra.
+
+| Bước | Làm gì | ĐẠT khi |
+|---|---|---|
+| 1 | Máy có sóng thật: mở Ra khơi, chạm một điểm ngoài biển, tính tuyến | Khối kết quả **KHÔNG** có dải đỏ tin bão (máy hỏi được thật) |
+| 2 | Nối **hotspot không internet** (đừng dùng nút Offline của DevTools — xem §0). Mở lại app, chạm điểm, tính tuyến | Tuyến **vẫn vẽ**; dải **ĐỎ ĐẦU TIÊN** trong khối kết quả nói "…CHƯA kiểm được tin bão… tuyến này KHÔNG đối chiếu bão. Nghe đài duyên hải trước khi đi." Có nêu tuổi bản tin cuối nếu máy từng tải được |
+| 3 | Bật máy bay hẳn, xoá dữ liệu web rồi mở app (máy chưa từng có tin bão nào), tính tuyến | Dải đỏ nói "Máy chưa có tin bão nào…", KHÔNG bịa tuổi |
+| 4 | Có mạng lại, tính tuyến mới | Dải đỏ biến mất |
+
+> **HỎNG (chặn ngay)**: bước 2 hoặc 3 mà tuyến vẽ ra **không có** dải cảnh báo nào — nghĩa là app đang ngầm nói "đã đối chiếu bão" trong khi chưa hỏi được.
+
+### N-6 · Đặt hàng khi sóng chập chờn — KHÔNG được ra hai đơn (mới 2026-08-16)
+
+> **Vì sao có ca này**: POST đơn có thể ghi được ở máy chủ rồi phản hồi mới rơi mất; client hết 20 giây báo "chưa gửi được", bà con bấm lại ⇒ hai đơn thật, giao hai lần, thu tiền hai lần. Chỉ kiểm được đầy đủ **sau khi apply migration 0034**.
+
+| Bước | Làm gì | ĐẠT khi |
+|---|---|---|
+| 1 | Thêm vài món vào giỏ ở tab Sản phẩm → Cửa hàng, mở giỏ, điền SĐT nhận hàng | |
+| 2 | Bóp mạng (DevTools → Network → Slow 3G, hoặc hotspot yếu), bấm **Đặt hàng**, chờ tới khi hiện lỗi "Chưa gửi được…" | Nút trả về được, KHÔNG kẹt "Đang gửi…" |
+| 3 | Có mạng lại, bấm **Đặt hàng** lần nữa | Hiện "Đã gửi đơn đặt hàng" |
+| 4 | Mở "Đơn của tôi" và `/quan-tri` tab Đơn hàng | **ĐÚNG MỘT đơn** cho lần đặt đó |
+| 5 | Đặt tiếp một đơn khác (giỏ mới) | Đơn thứ hai vào bình thường — mã giỏ mới, không bị coi là bản trùng |
+
+> **HỎNG**: bước 4 ra hai đơn (⇒ `clientRef` không tới máy chủ hoặc unique index chưa apply), hoặc bước 5 không đặt được (⇒ mã giỏ không được làm mới sau khi giỏ xoá).
+
+### N-7 · Chợ tin mua/bán khi mất sóng (mới 2026-08-16)
+
+> ⚓ **ĐỌC [ADR 0004](../../adr/0004-pham-vi-offline-chi-du-lieu-di-bien.md) TRƯỚC KHI MỞ RỘNG CA NÀY** (chủ dự án chốt 2026-08-17): chợ tin · đơn hàng · cửa hàng **KHÔNG nằm trong lời hứa offline**. Ca này KHÔNG kiểm "có cache hay chưa" — nó chỉ kiểm hai thứ: app **không treo/không sập**, và **nói đúng lý do**. Bước 2 dưới đây đòi "giữ nguyên danh sách" nghĩa là giữ bản **đang có trên màn**, không phải yêu cầu lưu thêm gì xuống máy.
+
+| Bước | Làm gì | ĐẠT khi |
+|---|---|---|
+| 1 | Có mạng: vào Giao dịch → chợ tin, đăng một tin thử | Tin hiện trong danh sách, có nút "Đánh dấu đã xong" và "Xóa" |
+| 2 | Hotspot không internet, mở lại mục chợ tin | Danh sách **giữ nguyên** bản vừa tải + dải vàng "Chưa tải được tin mới — máy đang không có sóng…". **KHÔNG** được nhảy sang TIN MẪU |
+| 3 | Vẫn mất sóng: bấm "Đánh dấu đã xong" rồi bấm "Xóa" | Mỗi lần đều hiện câu đỏ "Chưa đổi được…/Chưa xoá được… cần có mạng". Tin **không** biến mất khỏi màn |
+| 4 | Có mạng lại, làm lại hai thao tác đó | Ăn thật, danh sách cập nhật |
+
+> **HỎNG**: bước 3 bấm xong im lặng không đổi gì (khuôn "nút bấm không được gì"), hoặc bước 2 màn hình đổi sang tin mẫu (bà con tưởng tin mình vừa mất).

@@ -181,6 +181,17 @@ export const NEVER_BACKUP_PREFIXES = [
    *    "đã hỏi, bị từ chối" cho một máy chưa hỏi bao giờ. Mất khoá này không
    *    mất gì: lần mở app kế tiếp hỏi lại. */
   "forfish.persist.",
+  /*  · `orders.` — ĐƠN ĐÃ ĐẶT của người đang đăng nhập (lib/catalog-orders,
+   *    2026-08-18). Mang SĐT nhận hàng, tên người nhận, điểm giao — dữ liệu cá
+   *    nhân, và CÓ SÓNG LÀ TẢI LẠI ĐƯỢC. Không có lý do gì để nó đi theo tệp
+   *    sang máy khác; ngăn đã keyed theo SĐT nhưng tệp thì bà con AirDrop/Zalo
+   *    cho nhau. Cùng luật với `inbox.`. */
+  "forfish.orders.",
+  /*  · `catalog.` — BẢN LƯU DANH MỤC CỬA HÀNG (lib/product-catalog,
+   *    2026-08-18). Không PII, nhưng là bản chụp giá tại một thời điểm: chép
+   *    sang máy khác là dán một bảng giá CŨ vào máy chưa từng tải, và máy đó
+   *    hiện nó như bản của chính nó. Có sóng là tải lại được — bỏ ra ngoài tệp. */
+  "forfish.catalog.",
   /*  · `cart.` — GIỎ HÀNG đang soạn của MÁY NÀY (lib/cart, 2026-08-11). Trạng
    *    thái tạm trước khi đặt đơn, keyed theo SĐT để cách ly máy dùng chung, và
    *    tự xoá sau khi đặt xong. Chép sang máy khác chẳng để làm gì (đơn đặt rồi

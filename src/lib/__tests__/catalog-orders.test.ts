@@ -4,6 +4,7 @@ import {
   canTransition,
   computeOrderTotal,
   isValidQty,
+  orderClientRef,
   rowToOrder,
   validateOrderDraft,
   type OrderDraft,
@@ -153,5 +154,88 @@ describe("rowToOrder", () => {
     expect(order.totalVnd).toBe(60000);
     expect(order.status).toBe("moi");
     expect(order.boatName).toBe("Tàu A");
+  });
+});
+
+/*  MÃ CHỐNG ĐƠN TRÙNG — GẮN VỚI NỘI DUNG ĐƠN (2026-08-18, thẩm định P1).
+
+    Hai ca hỏng phải chặn CÙNG LÚC, và chúng kéo ngược nhau:
+     · ĐƠN TRÙNG — máy chủ ghi được đơn nhưng phản hồi rơi mất ở sóng cảng, bà
+       con bấm lại ⇒ không được đẻ đơn thứ hai;
+     · MẤT THAY ĐỔI — bấm hụt rồi SỬA GIỎ rồi bấm lại ⇒ không được nuốt thành
+       "trùng" và trả đơn cũ (bản 2026-08-16 gắn mã với GIỎ nên dính đúng lỗi
+       này: màn báo "đã gửi" rồi xoá giỏ mới).
+    Mã tính từ chính nội dung đơn nên cả hai đều đúng: cùng nội dung = cùng mã,
+    khác nội dung = khác mã. */
+describe("orderClientRef — trọng tài chống trùng", () => {
+  const base: OrderDraft = {
+    items: [
+      { listingId: "p1", qty: 2 },
+      { listingId: "p2", qty: 1 },
+    ],
+    contactPhone: "0901234567",
+    deliveryLocation: "Cảng Hòn Rớ",
+  };
+
+  it("cùng nội dung → CÙNG mã (bấm lại sau khi hụt = cùng một lần đặt)", () => {
+    expect(orderClientRef(base)).toBe(orderClientRef({ ...base }));
+  });
+
+  it("thứ tự món không đổi mã (thêm rồi bớt lại vẫn là đơn đó)", () => {
+    const daoThuTu: OrderDraft = {
+      ...base,
+      items: [
+        { listingId: "p2", qty: 1 },
+        { listingId: "p1", qty: 2 },
+      ],
+    };
+    expect(orderClientRef(daoThuTu)).toBe(orderClientRef(base));
+  });
+
+  it("ĐỔI SỐ LƯỢNG → mã KHÁC (đây là đơn khác, đừng nuốt thành trùng)", () => {
+    const sua: OrderDraft = {
+      ...base,
+      items: [
+        { listingId: "p1", qty: 5 },
+        { listingId: "p2", qty: 1 },
+      ],
+    };
+    expect(orderClientRef(sua)).not.toBe(orderClientRef(base));
+  });
+
+  it("thêm/bớt món → mã KHÁC", () => {
+    expect(
+      orderClientRef({ ...base, items: [{ listingId: "p1", qty: 2 }] }),
+    ).not.toBe(orderClientRef(base));
+    expect(
+      orderClientRef({
+        ...base,
+        items: [...base.items, { listingId: "p3", qty: 1 }],
+      }),
+    ).not.toBe(orderClientRef(base));
+  });
+
+  it("đổi SĐT nhận / điểm giao / ghi chú → mã KHÁC", () => {
+    expect(orderClientRef({ ...base, contactPhone: "0912999888" })).not.toBe(
+      orderClientRef(base),
+    );
+    expect(orderClientRef({ ...base, deliveryLocation: "Cảng Cát Lở" })).not.toBe(
+      orderClientRef(base),
+    );
+    expect(orderClientRef({ ...base, note: "giao trước 6h" })).not.toBe(
+      orderClientRef(base),
+    );
+  });
+
+  it("khoảng trắng thừa không đẻ mã mới (bà con gõ dư dấu cách)", () => {
+    expect(orderClientRef({ ...base, deliveryLocation: " Cảng Hòn Rớ " })).toBe(
+      orderClientRef(base),
+    );
+  });
+
+  it("mã ổn định giữa các lần chạy, không phụ thuộc đồng hồ/ngẫu nhiên", () => {
+    const a = orderClientRef(base);
+    expect(a).toMatch(/^v1-[0-9a-f]{16}$/);
+    expect(orderClientRef(base)).toBe(a);
   });
 });

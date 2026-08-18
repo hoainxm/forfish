@@ -1147,6 +1147,11 @@ export default function FishingMapView() {
     () => stormStatus(stormCheck, nowMs),
     [stormCheck, nowMs],
   );
+  /*  ⚠️ MẢNG NÀY CHỈ DÙNG ĐỂ VẼ, KHÔNG ĐỂ KẾT LUẬN (làm rõ 2026-08-16, thẩm
+      định P0). Rỗng ở đây nghĩa là "không có gì để vẽ lên bản đồ" — nó KHÔNG
+      phân biệt được "hỏi được, trời quang" với "mất sóng, chưa hỏi được". Chỗ
+      nào cần KẾT LUẬN (vẽ tuyến, chốt an toàn) phải nhận `stormInfo` và hỏi
+      `stormGateForRoute`, đừng đọc độ dài mảng này. */
   const storms = useMemo(
     () => (stormInfo.kind === "co-bao" ? stormInfo.storms : []),
     [stormInfo],
@@ -3505,6 +3510,7 @@ export default function FishingMapView() {
                 activeRoute={route}
                 places={places}
                 storms={storms}
+                stormInfo={stormInfo}
                 onRoute={handleRoute}
                 onStart={startNav}
               />
