@@ -45,3 +45,23 @@ describe("nguồn tin bão — hợp đồng tham số GDACS", () => {
     expect(routeSrc).toMatch(/console\.error\(\s*"\[storms\]/);
   });
 });
+
+/*  HAI NGUỒN, KHÔNG ĐƯỢC TỤT VỀ MỘT (2026-08-18). GDACS bỏ sót áp thấp nhiệt
+    đới — thứ NCHMF ra tin và bà con nghe trên đài. Cổng dưới đây canh cấu trúc
+    route: còn gọi NCHMF, còn gộp hai nguồn, và chỉ 503 khi CẢ HAI hỏng. */
+describe("nguồn tin bão Việt Nam phải còn trong đường đi", () => {
+  it("route gọi NCHMF và gộp với GDACS", () => {
+    expect(routeSrc).toContain("layNchmf");
+    expect(routeSrc).toContain("layGdacs");
+    expect(routeSrc).toContain("gopNguon");
+  });
+
+  it("một nguồn hỏng vẫn trả tin của nguồn kia — chỉ CẢ HAI hỏng mới 503", () => {
+    expect(routeSrc).toMatch(/vn === null && gdacs === null/);
+  });
+
+  it("payload khai nguồn nào trả lời được lượt này", () => {
+    expect(routeSrc).toContain("sources");
+    expect(routeSrc).toContain("nchmf");
+  });
+});
