@@ -64,9 +64,24 @@ export function pickLatestNchmfBulletin(indexHtml: string): string | null {
   return best?.url ?? null;
 }
 
-/** HTML → chữ thuần một dòng (bỏ script/style, giải mã thực thể cơ bản). */
+/**
+ * HTML → chữ thuần một dòng (bỏ script/style, giải mã thực thể cơ bản).
+ *
+ * ⚠️ CHUẨN HOÁ NFC LÀ BẮT BUỘC, KHÔNG PHẢI CHO ĐẸP (lỗi thật, 2026-08-18d).
+ * Trang NCHMF **trộn hai kiểu mã Unicode ngay trong một từ**. Đo trên bản tin
+ * 14h00 ngày 18/8: chữ "hướng" là `h ư ơ U+0301 n g` — tức "ơ" cộng DẤU SẮC RỜI,
+ * không phải "ớ" dựng sẵn (U+1EDB) như mọi chuỗi trong mã nguồn này; nhưng
+ * "Tây" ngay cạnh lại dựng sẵn. Hệ quả: `parseHuongTocDo` trả `dir: null` cho
+ * một bản tin ghi rõ "Di chuyển theo hướng Tây" — và cùng lỗi đó rình MỌI regex
+ * tiếng Việt ở đây (`cấp`, `độ Vĩ Bắc`, `Tin phát lúc`, `Hồi … giờ`, `bán kính`,
+ * `rủi ro`). Trượt chỗ nào là tuỳ bản tin, nên nó không bao giờ đỏ đều — đúng
+ * kiểu lỗi im lặng tệ nhất.
+ * Một dòng `normalize("NFC")` ở CỬA DUY NHẤT mọi parser đi qua là đủ, và phải
+ * nằm ở đây chứ không phải rải ở từng hàm.
+ */
 export function htmlToText(html: string): string {
   return html
+    .normalize("NFC")
     .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
@@ -172,14 +187,52 @@ export function parseCapGio(text: string): number | null {
   return max;
 }
 
-/** "Tin phát lúc: 08h00 ngày 18/8" → epoch ms (giờ VN, UTC+7). */
+/**
+ * Ngày/tháng của bản tin, lấy từ mốc quan trắc "Hồi 13 giờ ngày 18/8".
+ * Dùng khi câu "Tin phát lúc" KHÔNG ghi ngày (xem `parseGioPhatTin`).
+ */
+function ngayThangTuThan(text: string): { ngay: number; thang: number } | null {
+  const m = /hồi\s*\d{1,2}\s*giờ\s*ngày\s*(\d{1,2})\s*[\/.-]\s*(\d{1,2})/iu.exec(text);
+  if (!m) return null;
+  const ngay = Number(m[1]);
+  const thang = Number(m[2]);
+  return ngay > 31 || thang > 12 ? null : { ngay, thang };
+}
+
+/**
+ * "Tin phát lúc: 08h00 ngày 18/8" → epoch ms (giờ VN, UTC+7).
+ *
+ * ⚠️ NGÀY LÀ TUỲ CHỌN (lỗi thật, 2026-08-18d): cùng một cơn, cùng một trang,
+ * bản 08h00 ghi *"Tin phát lúc: 08h00 ngày 18/8"* còn bản 14h00 chỉ ghi
+ * *"Tin phát lúc: 14h00"*. Bản đầu đòi phải có ngày ⇒ trả `null` ⇒ cron ghi kho
+ * trả 503 và **không bao giờ ghi được bản tin nào nữa** — im lặng, vì 503 trông
+ * y hệt "nguồn đang bảo trì".
+ * Thiếu ngày thì lấy ngày của mốc QUAN TRẮC trong chính bản tin ("Hồi 13 giờ
+ * ngày 18/8"); không có nốt thì lấy ngày VN hôm nay và lùi một ngày nếu mốc
+ * dựng ra rơi quá 2 giờ về tương lai (bản tin phát sát nửa đêm, đọc sau đó).
+ */
 export function parseGioPhatTin(text: string, now: Date): number | null {
   const m =
-    /tin\s+phát\s+lúc\s*:?\s*(\d{1,2})\s*[h:]\s*(\d{2})\s*ngày\s*(\d{1,2})\s*[\/.-]\s*(\d{1,2})/iu.exec(
+    /tin\s+phát\s+lúc\s*:?\s*(\d{1,2})\s*[h:]\s*(\d{2})(?:\s*ngày\s*(\d{1,2})\s*[\/.-]\s*(\d{1,2}))?/iu.exec(
       text,
     );
   if (!m) return null;
-  const [gio, phut, ngay, thang] = m.slice(1, 5).map(Number);
+  const gio = Number(m[1]);
+  const phut = Number(m[2]);
+  let ngay = m[3] ? Number(m[3]) : NaN;
+  let thang = m[4] ? Number(m[4]) : NaN;
+  if (!Number.isFinite(ngay) || !Number.isFinite(thang)) {
+    const tuThan = ngayThangTuThan(text);
+    if (tuThan) {
+      ngay = tuThan.ngay;
+      thang = tuThan.thang;
+    } else {
+      // ngày VN hôm nay
+      const vn = new Date(now.getTime() + 7 * 3600_000);
+      ngay = vn.getUTCDate();
+      thang = vn.getUTCMonth() + 1;
+    }
+  }
   if (gio > 23 || phut > 59 || ngay > 31 || thang > 12) return null;
   /*  Bản tin KHÔNG ghi năm. Lấy năm hiện tại, và nếu mốc dựng ra lại ở TƯƠNG LAI
       quá 2 ngày thì đó là bản tin cuối tháng 12 đọc vào đầu tháng 1 ⇒ lùi 1 năm.
@@ -188,6 +241,10 @@ export function parseGioPhatTin(text: string, now: Date): number | null {
   const dung = (y: number) => Date.UTC(y, thang - 1, ngay, gio - 7, phut);
   let ms = dung(nam);
   if (ms - now.getTime() > 2 * 86400_000) ms = dung(nam - 1);
+  // ngày suy ra từ đồng hồ máy mà rơi quá 2 giờ về tương lai ⇒ là bản tin hôm qua
+  if (!m[3] && !ngayThangTuThan(text) && ms - now.getTime() > 2 * 3600_000) {
+    ms -= 86400_000;
+  }
   return ms;
 }
 
@@ -212,20 +269,28 @@ export function parseGioBanTinTiepTheo(
   now: Date,
 ): number | null {
   const m =
-    /bản\s+tin\s+tiếp\s+theo\s*:?\s*(\d{1,2})\s*[h:]\s*(\d{2})\s*ngày\s*(\d{1,2})\s*[\/.-]\s*(\d{1,2})/iu.exec(
+    /bản\s+tin\s+tiếp\s+theo[^0-9]{0,24}?(\d{1,2})\s*[h:]\s*(\d{2})(?:\s*ngày\s*(\d{1,2})\s*[\/.-]\s*(\d{1,2}))?/iu.exec(
       text,
     );
   if (!m) return null;
-  const [gio, phut, ngay, thang] = m.slice(1, 5).map(Number);
-  if (gio > 23 || phut > 59 || ngay > 31 || thang > 12) return null;
+  const gio = Number(m[1]);
+  const phut = Number(m[2]);
   const neo = phatLucMs ?? now.getTime();
+  /*  Thiếu ngày ⇒ lấy ngày của GIỜ PHÁT, và nếu mốc rơi trước giờ phát thì đó
+      là tin của ngày hôm sau (bản tin 20h00 hẹn tin kế 02h00). */
+  const dNeo = new Date(neo);
+  const ngay = m[3] ? Number(m[3]) : dNeo.getUTCDate();
+  const thang = m[4] ? Number(m[4]) : dNeo.getUTCMonth() + 1;
+  if (gio > 23 || phut > 59 || ngay > 31 || thang > 12) return null;
   const nam = new Date(neo).getUTCFullYear();
   const dung = (y: number) => Date.UTC(y, thang - 1, ngay, gio - 7, phut);
   let ms = dung(nam);
   // bản tin 31/12 hẹn tin kế 01/01: mốc tính ra lùi gần một năm ⇒ cộng một năm
   if (neo - ms > 300 * 86400_000) ms = dung(nam + 1);
-  /*  Mốc kế mà rơi TRƯỚC giờ phát thì bản tin ghi lạ (hoặc mình đọc trượt) —
-      trả null để chỗ gọi dùng đường lùi, thay vì cầm một mốc đã quá hạn rồi
+  // ngày suy ra từ giờ phát mà mốc rơi trước đó ⇒ tin kế thuộc ngày hôm sau
+  if (!m[3] && ms <= neo) ms += 86400_000;
+  /*  Mốc kế mà vẫn rơi TRƯỚC giờ phát thì bản tin ghi lạ (hoặc mình đọc trượt)
+      — trả null để chỗ gọi dùng đường lùi, thay vì cầm một mốc đã quá hạn rồi
       quét liên tục vì "tới giờ rồi". */
   return ms <= neo ? null : ms;
 }

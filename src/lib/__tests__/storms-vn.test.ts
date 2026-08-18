@@ -217,6 +217,91 @@ describe("catThanBanTin — menu trang không được đội lốt nội dung b
   });
 });
 
+/*  MỘT NGUỒN, HAI CÁCH VIẾT, CÁCH NHAU 6 TIẾNG (đo thật 18/8/2026).
+ *  Bản 08h00 và bản 14h00 của CÙNG cơn, CÙNG trang, viết khác nhau ở đúng hai
+ *  chỗ parser bám vào. Bản đầu chỉ đọc được kiểu 08h00 ⇒ tới 14h00 là
+ *  `parseGioPhatTin` trả null ⇒ cron ghi kho trả 503 và KHÔNG BAO GIỜ ghi được
+ *  bản tin nào nữa — im lặng, vì 503 trông y hệt "nguồn đang bảo trì". */
+const BAN_TIN_14H =
+  "TIN ÁP THẤP NHIỆT ĐỚI TRÊN BIỂN ĐÔNG Hồi 13 giờ ngày 18/8 , vị trí tâm áp thấp " +
+  "nhiệt đới ở vào khoảng 19,5 độ Vĩ Bắc; 116,3 độ Kinh Đông, trên vùng biển phía " +
+  "Đông khu vực Bắc Biển Đông. Sức gió mạnh nhất vùng gần tâm áp thấp nhiệt đới " +
+  "mạnh cấp 6 (39-49km/h), giật cấp 8 . Di chuyển theo hướng Tây với tốc độ khoảng " +
+  "20km/h. 📍 Bản tin tiếp theo được phát lúc 20h00 ngày 18/8. 📍 Tin phát lúc: 14h00";
+
+describe("hai cách viết của cùng một nguồn (bản 08h00 vs bản 14h00)", () => {
+  it("'Tin phát lúc: 14h00' KHÔNG ghi ngày → lấy ngày của mốc quan trắc", () => {
+    const ms = parseGioPhatTin(BAN_TIN_14H, NOW)!;
+    expect(new Date(ms).toISOString()).toBe("2026-08-18T07:00:00.000Z"); // 14h VN
+  });
+
+  it("không có ngày ở đâu cả → lấy ngày VN hôm nay", () => {
+    const ms = parseGioPhatTin("Tin phát lúc: 09h00", NOW)!;
+    expect(new Date(ms).toISOString()).toBe("2026-08-18T02:00:00.000Z");
+  });
+
+  it("giờ phát suy từ đồng hồ mà rơi vào TƯƠNG LAI → là bản tin hôm qua", () => {
+    // now = 10h VN 18/8; "22h00" không thể là tin sắp phát ⇒ 22h VN 17/8
+    const ms = parseGioPhatTin("Tin phát lúc: 22h00", NOW)!;
+    expect(new Date(ms).toISOString()).toBe("2026-08-17T15:00:00.000Z");
+  });
+
+  it("'Bản tin tiếp theo ĐƯỢC PHÁT LÚC 20h00' — chữ chèn giữa vẫn đọc được", () => {
+    const phat = Date.UTC(2026, 7, 18, 7);
+    const ms = parseGioBanTinTiepTheo(BAN_TIN_14H, phat, NOW)!;
+    expect(new Date(ms).toISOString()).toBe("2026-08-18T13:00:00.000Z"); // 20h VN
+  });
+
+  it("mốc kế không ghi ngày và rơi trước giờ phát → hiểu là ngày hôm sau", () => {
+    const phat = Date.UTC(2026, 7, 18, 13); // 20h VN 18/8
+    const ms = parseGioBanTinTiepTheo("Bản tin tiếp theo được phát lúc 02h00", phat, NOW)!;
+    expect(new Date(ms).toISOString()).toBe("2026-08-18T19:00:00.000Z"); // 02h VN 19/8
+  });
+
+  it("bản 14h00 đọc ra đủ tâm/cấp/hướng (cách viết 'Di chuyển theo hướng Tây')", () => {
+    const s = parseNchmfBulletin(BAN_TIN_14H, NOW)!;
+    expect(s.lat).toBe(19.5);
+    expect(s.lon).toBe(116.3);
+    expect(s.windKmh).toBe(43);
+  });
+});
+
+/*  ⚠️ NGUỒN TRỘN HAI KIỂU MÃ UNICODE NGAY TRONG MỘT TỪ (đo thật 18/8/2026).
+ *  Chữ "hướng" trên trang là `h ư ơ U+0301 n g` — "ơ" cộng DẤU SẮC RỜI, không
+ *  phải "ớ" dựng sẵn (U+1EDB) như mọi chuỗi trong mã nguồn; mà "Tây" ngay cạnh
+ *  lại dựng sẵn. Mọi regex tiếng Việt ở đây đều dính, và dính chỗ nào là tuỳ
+ *  bản tin — nên nó không bao giờ đỏ đều. `htmlToText` chuẩn hoá NFC ở cửa duy
+ *  nhất mọi parser đi qua. */
+describe("htmlToText — chuẩn hoá NFC, không để dấu rời làm trượt regex", () => {
+  /*  Dung tu MA KY TU, khong go thang: dau roi la thu VO HINH tren man hinh —
+      trinh soan thao hay hook co the tu chuan hoa NFC va bien hai ca duoi
+      thanh ca rong ma van xanh. Viet the nay thi khong ai lam hong duoc. */
+  const roi = (...cp: number[]) => String.fromCodePoint(...cp);
+
+
+  const HUONG_ROI = roi(0x68, 0x1b0, 0x1a1, 0x301, 0x6e, 0x67); // "huong", dau sac ROI
+  const CAP_ROI = roi(0x63, 0x61, 0x302, 0x301, 0x70); // "cap", dau mu + sac ROI
+
+  it("chuỗi dấu rời KHÔNG khớp regex dựng sẵn (đây là cái bẫy)", () => {
+    expect(/hướng/u.test(HUONG_ROI)).toBe(false);
+  });
+
+  it("qua htmlToText thì khớp", () => {
+    expect(/hướng/u.test(htmlToText(`<p>${HUONG_ROI} Tây</p>`))).toBe(true);
+  });
+
+  it("bản tin có dấu rời vẫn đọc ra hướng + cấp gió", () => {
+    const tho =
+      `<div>TIN ÁP THẤP NHIỆT ĐỚI Hồi 13 giờ ngày 18/8, vị trí tâm ở khoảng ` +
+      `19,5 độ Vĩ Bắc; 116,3 độ Kinh Đông. Sức gió mạnh nhất ${CAP_ROI} 6 (39-49km/h), ` +
+      `giật ${CAP_ROI} 8. Di chuyển theo ${HUONG_ROI} Tây với tốc độ khoảng 20km/h. ` +
+      `Tin phát lúc: 14h00</div>`;
+    const s = parseNchmfBulletin(htmlToText(tho), NOW)!;
+    expect(s).not.toBeNull();
+    expect(s.windKmh).toBe(43); // đọc được cấp 6 dù "cấp" viết dấu rời
+  });
+});
+
 describe("pickLatestNchmfBulletin", () => {
   const html = `
     <a href="https://www.nchmf.gov.vn/kttv/vi-VN/1/ban-tin-du-bao-song-post53098.html">sóng</a>
