@@ -3,7 +3,8 @@
 > **Load khi**: chuẩn bị phát hành bản có đụng service worker / PWA / dữ liệu tải sẵn, hoặc khi cần chứng minh "app chạy được ngoài biển".
 
 covers: public/sw.js
-last_verified: 2026-08-07
+last_verified: 2026-08-18
+<!-- re-verified: 2026-08-18 - doi chieu bo ca QA voi `public/sw.js` hien tai (ban doi lan cuoi 2026-08-07, mach nay KHONG dung sw.js): 5 kho + ten kho (`sdfish-v6`/`static-v1`/`rsc-v1`/`api-v1`/`tiles-v1`), `SHELL`/`CRITICAL_SHELL`, dau `/__sdfish-shell-ready`, allowlist 9 route `/api/*` va luat cuu 401/403 - tat ca van khop cau chu trong TC-01..TC-13. Them ba ca N-5 (ve tuyen khi chua hoi duoc tin bao) - N-6 (dat hang khi song chap chon, khong duoc ra hai don) - N-7 (cho tin khi mat song), va mot ghi chu dau N-7 tro ve ADR 0004 de lan sau khong ai mo rong ca nay thanh 'kiem co cache chua'. -->
 ttl_days: 120
 gate: warn
 

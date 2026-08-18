@@ -10,7 +10,6 @@ import {
   MAX_DAILY_CACHE_MS,
 } from "../source-cadence";
 
-const H = 60 * 60 * 1000;
 const utc = (d: number, h: number, m = 0) => Date.UTC(2026, 6, d, h, m, 0, 0);
 
 describe("nextReleaseAfter — mốc bản tin kế tiếp (GFS + độ trễ phát hành)", () => {

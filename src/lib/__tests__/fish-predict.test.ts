@@ -796,7 +796,7 @@ describe("cổng độ sâu: cá xa bờ KHÔNG hiện ở nước cạn sát b�
     tlats,
     tlons,
   );
-  const clear = grid(
+  const _clear = grid(
     [
       [0.1, 0.1, 0.1],
       [0.1, 0.1, 0.1],

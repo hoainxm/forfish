@@ -7,7 +7,7 @@
 covers: src/app/globals.css
 last_verified: 2026-06-16
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-08-16) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-08-18) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-16 — +.range-dual (globals.css): dual-range kéo-thả 2 đầu, tái dùng thumb kiểu .range-big (input pointer-events:none, thumb auto). Dùng ở legend lọc khả năng có cá. Token màu/font KHÔNG đổi -->
 

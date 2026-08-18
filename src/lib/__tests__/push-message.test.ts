@@ -66,7 +66,6 @@ describe("public/sw.js giữ ĐÚNG bản sao ngưỡng", () => {
     const sw = readFileSync(join(process.cwd(), "public", "sw.js"), "utf8");
     const m = sw.match(/const PUSH_FRESH_MS = ([^;]+);/);
     expect(m, "sw.js phải có const PUSH_FRESH_MS").toBeTruthy();
-    // eslint-disable-next-line no-eval
     expect(eval(m![1])).toBe(PUSH_FRESH_MS);
   });
 });

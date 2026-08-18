@@ -17,7 +17,7 @@ import { identityFromRequest } from "@/lib/api-identity";
 import { normalizeVnPhone } from "@/lib/phone";
 import {
   LISTING_COLS,
-  rowToListing,
+  rowToMarketListing,
   validateDraft,
   type ListingDraft,
   type ListingRow,
@@ -57,7 +57,7 @@ export async function GET(req: Request) {
       rời khỏi máy chủ. Client cũ lọc `status==='open' || mine` sau khi đã nhận
       hết — nay cắt ngay từ đây. */
   const listings = (data ?? [])
-    .map((r) => rowToListing(r as ListingRow, who.phone))
+    .map((r) => rowToMarketListing(r as ListingRow, who.phone))
     .filter((l) => l.status === "open" || l.mine);
 
   return NextResponse.json({ ok: true, listings });

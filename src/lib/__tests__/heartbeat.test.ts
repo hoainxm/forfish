@@ -28,11 +28,8 @@ Object.defineProperty(globalThis, "navigator", {
 import {
   beatSignature,
   shouldSendHeartbeat,
-  netBackoffMs,
   nextHeartbeatDelayMs,
   HEARTBEAT_MIN_GAP_MS,
-  HEARTBEAT_NET_BACKOFF_STEPS_MS,
-  HEARTBEAT_SOFT_RETRY_MS,
   HEARTBEAT_KEY,
   HEARTBEAT_RETRY_KEY,
   HEARTBEAT_SIG_KEY,

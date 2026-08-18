@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { rowToListing, validateDraft, type ListingDraft } from "@/lib/market-listings";
+import {
+  rowToMarketListing,
+  validateDraft,
+  type ListingDraft,
+} from "@/lib/market-listings";
 
 function draft(over: Partial<ListingDraft> = {}): ListingDraft {
   return {
@@ -31,7 +35,7 @@ describe("validateDraft", () => {
   });
 });
 
-describe("rowToListing", () => {
+describe("rowToMarketListing", () => {
   /*  CHỦ TIN LÀ SĐT, KHÔNG PHẢI uuid (2026-08-16, thẩm định P0): app bỏ phiên
       Supabase từ 0026 nên `auth.uid()` luôn null — cờ "tin của tôi" nay so
       `owner_phone` với SĐT từ chuỗi cứng của máy. Xem migration 0035. */
@@ -52,7 +56,7 @@ describe("rowToListing", () => {
   };
 
   it("map cột snake_case → camelCase + cắt ngày ISO", () => {
-    const l = rowToListing(baseRow, "0901234567");
+    const l = rowToMarketListing(baseRow, "0901234567");
     expect(l.side).toBe("ban");
     expect(l.posterName).toBe("Tàu ông Bảy");
     expect(l.postedOn).toBe("2026-07-27");
@@ -61,16 +65,16 @@ describe("rowToListing", () => {
   });
 
   it("owner khác → mine=false", () => {
-    expect(rowToListing(baseRow, "0909999999").mine).toBe(false);
-    expect(rowToListing(baseRow, null).mine).toBe(false);
+    expect(rowToMarketListing(baseRow, "0909999999").mine).toBe(false);
+    expect(rowToMarketListing(baseRow, null).mine).toBe(false);
     // khách chưa đăng nhập (phone rỗng) KHÔNG được nhận vơ tin của người khác
-    expect(rowToListing(baseRow, "").mine).toBe(false);
-    expect(rowToListing({ ...baseRow, owner_phone: null }, "").mine).toBe(false);
+    expect(rowToMarketListing(baseRow, "").mine).toBe(false);
+    expect(rowToMarketListing({ ...baseRow, owner_phone: null }, "").mine).toBe(false);
   });
 
   it("giá trị lạ được khoan dung (side/kind/status về mặc định an toàn)", () => {
     const weird = { ...baseRow, side: "??", poster_kind: "alien", status: "??" };
-    const l = rowToListing(weird, null);
+    const l = rowToMarketListing(weird, null);
     expect(l.side).toBe("ban");
     expect(l.posterKind).toBe("ngu-dan");
     expect(l.status).toBe("open");

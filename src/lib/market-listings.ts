@@ -12,7 +12,7 @@
 // + service-role, chủ tin = `owner_phone`, migration 0035). File này chỉ còn
 // hình dạng dữ liệu + helper thuần + lời gọi `authedFetch`.
 //
-// Helper thuần (validateDraft, rowToListing) tách riêng để test ở
+// Helper thuần (validateDraft, rowToMarketListing) tách riêng để test ở
 // src/lib/__tests__/market-listings.test.ts.
 
 import { authedFetch } from "@/lib/device-token-store";
@@ -107,7 +107,7 @@ const KINDS: PosterKind[] = ["ngu-dan", "nau", "vua", "nha-may", "cho"];
 /** Dòng DB → MarketListing (khoan dung với giá trị lạ, không ném lỗi).
  *  `phone` = SĐT của NGƯỜI ĐANG GỌI (chuẩn hoá) để tính cờ `mine`; null/"" =
  *  khách chưa đăng nhập ⇒ không tin nào là của mình. */
-export function rowToListing(
+export function rowToMarketListing(
   r: ListingRow,
   viewerPhone: string | null,
 ): MarketListing {
