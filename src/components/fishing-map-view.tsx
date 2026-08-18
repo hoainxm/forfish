@@ -1156,10 +1156,19 @@ export default function FishingMapView() {
     () => (stormInfo.kind === "co-bao" ? stormInfo.storms : []),
     [stormInfo],
   );
-  const stormTimeLabel =
-    stormInfo.kind === "co-bao" && stormInfo.checkedAt != null
+  /*  GIỜ PHÁT BẢN TIN, KHÔNG PHẢI GIỜ APP HỎI (sửa 2026-08-18, thấy trên màn
+      thật). `checkedAt` là lúc app gọi nguồn: bản tin NCHMF phát 08h00 mà app
+      hỏi 09h21 thì badge ghi "Tin lúc 09:21" — lệch hẳn thứ bà con vừa nghe
+      trên đài, và nghe như bản tin mới hơn thực tế. `updated` của cơn mang giờ
+      PHÁT TIN; không có thì mới lùi về giờ hỏi. Cùng luật với `storm-banner`. */
+  const stormTimeLabel = (() => {
+    if (stormInfo.kind !== "co-bao") return "Chưa rõ tin lúc nào";
+    const phat = Date.parse(stormInfo.storms[0]?.updated ?? "");
+    if (Number.isFinite(phat)) return `Bản tin ${clockVN(phat)}`;
+    return stormInfo.checkedAt != null
       ? `Tin lúc ${clockVN(stormInfo.checkedAt)}`
       : "Chưa rõ tin lúc nào";
+  })();
   // Geometry bão → GeoJSON: vùng ảnh hưởng (polygon) + đường đi (track) để vẽ
   // đè bản đồ kiểu app thời tiết chuyên nghiệp (nguồn GDACS đã có sẵn).
   const stormGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
@@ -1245,8 +1254,16 @@ export default function FishingMapView() {
     const onLoading = (e: { sourceId?: string }) => {
       if (e?.sourceId === "basemap") armSilenceClock();
     };
-    // bản đồ dựng xong trước khi effect kịp gắn tai → ô nền chắc chắn đã xin
-    if (map.isStyleLoaded()) armSilenceClock();
+    /*  ⚠️ KHÔNG arm khi CHỈ BIẾT "style đã dựng xong" (bỏ 2026-08-18).
+        Chú thích LỖI 1 ở `offline-basemap.ts` nói phải bấm giờ từ lúc bản đồ
+        THẬT SỰ XIN ô nền — nhưng chính dòng cũ ở đây (`isStyleLoaded()`) lại
+        arm vô điều kiện, tức bấm từ "mở màn", đúng thứ nó cấm. Hệ quả: lượt nào
+        KHÔNG phát sinh ô nền mới (ô đã nằm trong cache, tab chạy nền không vẽ,
+        lớp phủ kín) thì `tileSeen` không bao giờ bật ⇒ giây thứ 9 app tự kết
+        luận "nền im lặng" và hiện câu cảnh báo — trong khi mạng vẫn tốt. Chủ dự
+        án bắt được đúng ca này trên máy thật ("t vào internet ầm ầm").
+        Nay chỉ `sourcedataloading` của source `basemap` mới được arm: có xin ô
+        thì mới có quyền nói ô không về. */
     map.on("sourcedataloading", onLoading);
     return () => {
       map.off("sourcedataloading", onLoading);
@@ -1878,10 +1895,10 @@ export default function FishingMapView() {
         // Bản đồ dựng xong = ô nền CHẮC CHẮN đã được xin → bấm giờ im lặng
         // (chốt chặn cho `sourcedataloading`, xem LỖI 1); đồng thời tra lại
         // mốc chèn `base-top` cho lớp bờ offline (LỖI 3).
-        onLoad={() => {
-          armSilenceClock();
-          syncBaseTopReady();
-        }}
+        // KHÔNG arm đồng hồ "nền im lặng" ở đây (bỏ 2026-08-18): `load` chỉ nói
+        // style đã dựng, KHÔNG nói bản đồ đã xin ô nền — arm ở đây là dương
+        // tính giả, xem ghi chú trong effect `sourcedataloading` bên trên.
+        onLoad={syncBaseTopReady}
         // đổi lớp bản đồ = setStyle = dựng lại style ⇒ mốc chèn có/mất theo
         onStyleData={syncBaseTopReady}
         // Ô nền không về (mất sóng / wifi cảng "có mà không ra") → đếm để bật

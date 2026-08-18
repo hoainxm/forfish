@@ -105,14 +105,35 @@ export function parseToaDo(text: string): ToaDo[] {
   return out;
 }
 
-/*  CẤP GIÓ → KM/H. Bản tin viết "cấp 6 (39–49km/h)" — có sẵn dải, nhưng KHÔNG
-    phải bản tin nào cũng kèm. Nên đọc CẤP (Beaufort) rồi quy ra cận TRÊN của
-    cấp đó: thà nói mạnh hơn thực tế một chút còn hơn ru ngủ.
-    Bảng chuẩn KTTV VN (cùng thang dùng ở `marine-weather.ts`). */
-const CAP_KMH_TRAN: Record<number, number> = {
-  6: 49, 7: 61, 8: 74, 9: 88, 10: 102, 11: 117, 12: 133,
-  13: 149, 14: 166, 15: 183, 16: 201, 17: 220,
+/*  CẤP GIÓ → KM/H. Bản tin viết "cấp 6 (39–49km/h)"; app lại hiện gió bằng km/h
+    rồi TỰ QUY NGƯỢC ra cấp bằng `beaufort()` (marine-weather.ts) ở nhiều chỗ.
+
+    ⚠️ PHẢI KHỚP HAI CHIỀU — LỖI ĐÃ SỬA NGAY TRONG NGÀY (2026-08-18): bản đầu
+    lấy cận TRÊN của cấp ("thà nói mạnh hơn"), tức cấp 6 → 49 km/h. Nhưng thang
+    của app cắt cấp 7 tại **≥49**, nên banner in ra *"49 km/giờ (cấp 7)"* trong
+    khi đài đọc **cấp 6**. Sai một cấp ở bản tin bão là bà con hết tin app —
+    và đó đúng là thứ tính năng này sinh ra để tránh.
+
+    Nay lấy GIỮA dải của chính thang `beaufort()`: quy ngược luôn ra đúng cấp
+    bản tin nói. Cổng test khoá bất biến hai chiều (`beaufort(capKmh(c)) === c`)
+    cho mọi cấp 6..17 — thang có đổi thì test đỏ, không ai đổi lén được. */
+const BEAUFORT_LIMITS = [1, 5, 11, 19, 28, 38, 49, 61, 74, 88, 102, 117];
+
+/*  Thang `beaufort()` của app dừng ở cấp 12 (mọi giá trị ≥117 đều là 12), nhưng
+    bản tin VN có cấp 13–17. Dải KTTV cho các cấp đó ghi ở đây để lấy giá trị
+    ĐẠI DIỆN — vẫn phải nằm TRÊN 118 km/h, vì đó là ngưỡng `stormKindLabel` gọi
+    "Bão mạnh" (cấp 12 mà trả đúng 117 thì app in "Bão" trong khi đài đọc cấp 12). */
+const CAP_KMH_TREN_12: Record<number, number> = {
+  12: 125, 13: 141, 14: 158, 15: 175, 16: 192, 17: 211,
 };
+
+export function capGioSangKmh(cap: number): number | null {
+  if (!Number.isFinite(cap) || cap < 6 || cap > 17) return null;
+  if (cap >= 12) return CAP_KMH_TREN_12[cap] ?? null;
+  const duoi = BEAUFORT_LIMITS[cap - 1];
+  const tren = BEAUFORT_LIMITS[cap];
+  return Math.round((duoi + tren - 1) / 2);
+}
 
 /** Cấp gió mạnh nhất nêu trong bản tin (bỏ "giật cấp N" — giật không phải cấp bão). */
 export function parseCapGio(text: string): number | null {
@@ -162,7 +183,7 @@ export function parseNchmfBulletin(
   if (diems.length === 0) return null;
 
   const cap = parseCapGio(text);
-  const windKmh = cap != null ? (CAP_KMH_TRAN[cap] ?? null) : null;
+  const windKmh = cap != null ? capGioSangKmh(cap) : null;
   const phatLuc = parseGioPhatTin(text, now);
 
   const laBao = /\bbão\b/iu.test(text) && !/áp\s+thấp\s+nhiệt\s+đới/iu.test(text);
@@ -171,11 +192,12 @@ export function parseNchmfBulletin(
   /*  TÊN HIỂN THỊ: bản tin ATNĐ không có tên quốc tế; bão thì có "bão số N" —
       lấy đúng chữ bà con nghe trên đài, không bịa tên tiếng Anh. */
   const soBao = /bão\s+số\s+(\d{1,2})/iu.exec(text)?.[1];
-  const name = soBao
-    ? `số ${soBao}`
-    : laBao
-      ? "trên Biển Đông"
-      : "trên Biển Đông";
+  /*  TÊN RỖNG KHI BẢN TIN KHÔNG ĐẶT TÊN (sửa 2026-08-18, thấy trên màn thật).
+      Bản đầu trả "trên Biển Đông" làm tên ⇒ banner ghép thành *"Áp thấp nhiệt
+      đới trên Biển Đông đang trên vùng Biển Đông"* — lặp, đọc như máy nói. Bản
+      tin ATNĐ của NCHMF vốn KHÔNG có tên riêng (chỉ bão mới có "số N"), nên
+      chỗ đó phải để trống và giao diện tự lo phần còn lại của câu. */
+  const name = soBao ? `số ${soBao}` : "";
 
   return {
     /*  Id ổn định theo BẢN TIN, không theo giờ đọc: cùng một bản tin đọc lại

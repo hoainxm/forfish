@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { beaufort } from "@/lib/marine-weather";
 import {
+  capGioSangKmh,
   htmlToText,
   parseCapGio,
   parseGioPhatTin,
@@ -92,7 +94,7 @@ describe("parseNchmfBulletin — bản tin thật 18/8/2026", () => {
     expect(s.lat).toBe(19.8);
     expect(s.lon).toBe(117.6);
     expect(s.kindLabel).toBe("Áp thấp nhiệt đới");
-    expect(s.windKmh).toBe(49); // trần cấp 6 — thà nói mạnh hơn
+    expect(s.windKmh).toBe(43); // GIỮA dải cấp 6 — quy ngược lại đúng cấp 6
     expect(s.updated).toBe("2026-08-18T01:00:00.000Z");
   });
 
@@ -117,6 +119,8 @@ describe("parseNchmfBulletin — bản tin thật 18/8/2026", () => {
     expect(bao.alert).toBe("danger");
     expect(bao.kindLabel).toBe("Bão mạnh");
     expect(bao.name).toBe("số 5");
+    // ATNĐ không có tên riêng → để RỖNG, giao diện tự lo câu chữ
+    expect(s.name).toBe("");
   });
 
   it("thiếu toạ độ → null (thà không có tin còn hơn tin sai chỗ)", () => {
@@ -161,5 +165,29 @@ describe("htmlToText", () => {
     );
     expect(t).toBe("Hồi 07 giờ 19,8°N; 117,6°E");
     expect(t).not.toContain("var x");
+  });
+});
+
+/*  KHỚP HAI CHIỀU VỚI THANG CỦA APP — lỗi thật, thấy ngay trên màn 18/8:
+    bản đầu lấy cận TRÊN của cấp (cấp 6 → 49 km/h) nhưng `beaufort()` cắt cấp 7
+    tại ≥49, nên banner in "49 km/giờ (cấp 7)" trong khi đài đọc CẤP 6. Sai một
+    cấp ở bản tin bão là bà con hết tin app. */
+describe("capGioSangKmh — quy ngược phải ra ĐÚNG cấp bản tin nói", () => {
+  it("mọi cấp 6..12: beaufort(capGioSangKmh(c)) === c", () => {
+    for (let c = 6; c <= 12; c++) {
+      const kmh = capGioSangKmh(c)!;
+      expect(kmh).toBeGreaterThan(0);
+      expect(beaufort(kmh)).toBe(c);
+    }
+  });
+
+  it("cấp 6 KHÔNG được ra 49 (ranh giới cấp 7 của app)", () => {
+    expect(capGioSangKmh(6)).toBeLessThan(49);
+  });
+
+  it("ngoài dải 6..17 → null, không đoán", () => {
+    expect(capGioSangKmh(5)).toBeNull();
+    expect(capGioSangKmh(18)).toBeNull();
+    expect(capGioSangKmh(NaN)).toBeNull();
   });
 });

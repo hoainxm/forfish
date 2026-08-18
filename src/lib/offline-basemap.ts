@@ -98,8 +98,22 @@ export function shouldUseOfflineBasemap(h: BasemapHealth): boolean {
  */
 export function offlineBasemapNote(h: BasemapHealth): string | null {
   if (!shouldUseOfflineBasemap(h)) return null;
+  /*  ⚠️ ĐỪNG PHÁN VỀ MẠNG CỦA BÀ CON (sửa 2026-08-18, chủ dự án bắt trên máy
+      thật: *"t vào internet ầm ầm mà mạng yếu gì?"*).
+
+      Câu cũ "Mạng yếu" nói một điều app KHÔNG BIẾT. Thứ app thật sự quan sát
+      được chỉ là: ô nền không về. Mà ô nền lấy thẳng từ host NGOÀI
+      (`*.basemaps.cartocdn.com`, xem `buildMapStyle`) — CDN chậm, ISP lọc, hay
+      DNS trục trặc đều cho ra đúng triệu chứng này TRONG KHI mạng của bà con
+      vẫn nhanh. Nói sai nguyên nhân thì bà con đi sửa nhầm chỗ (tắt/bật 4G,
+      đổi wifi) và mất lòng tin vào các cảnh báo khác của app — kể cả cảnh báo
+      bão.
+
+      Nay: nói ĐÚNG THỨ THẤY ĐƯỢC ("chưa tải được nền bản đồ") và ĐÚNG HỆ QUẢ
+      ("đang dùng hình bờ lưu trong máy"). Nhánh mất sóng thì `navigator.onLine`
+      là bằng chứng thật, được phép nói thẳng. */
   return h.online
-    ? "Mạng yếu — đang dùng bản đồ lưu trong máy."
+    ? "Chưa tải được nền bản đồ — đang dùng hình bờ lưu trong máy."
     : "Mất sóng — đang dùng bản đồ lưu trong máy.";
 }
 

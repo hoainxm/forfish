@@ -96,11 +96,20 @@ describe("offlineBasemapNote", () => {
     expect(offlineBasemapNote({ online: true, fails: 0 })).toBeNull();
   });
 
-  it("nói việc, KHÔNG dùng từ kỹ thuật", () => {
+  it("nói việc, KHÔNG dùng từ kỹ thuật, và KHÔNG phán về mạng của bà con", () => {
     const off = offlineBasemapNote({ online: false, fails: 0 })!;
     const weak = offlineBasemapNote({ online: true, fails: 9 })!;
     expect(off).toContain("Mất sóng");
-    expect(weak).toContain("Mạng yếu");
+    /*  ĐỔI CHIỀU 2026-08-18 (chủ dự án bắt trên máy thật: "t vào internet ầm ầm
+        mà mạng yếu gì?"). Bản cũ khoá lại chữ "Mạng yếu" — một điều app KHÔNG
+        BIẾT: thứ nó quan sát được chỉ là ô nền không về, mà ô nền lấy từ host
+        NGOÀI (cartocdn) nên CDN chậm/ISP lọc cũng ra đúng triệu chứng đó trong
+        khi mạng bà con vẫn nhanh. Nói sai nguyên nhân thì bà con đi sửa nhầm
+        chỗ và mất lòng tin vào mọi cảnh báo khác của app, kể cả cảnh báo bão.
+        Nay câu chữ chỉ nói THỨ THẤY ĐƯỢC + HỆ QUẢ. */
+    expect(weak).not.toContain("Mạng yếu");
+    expect(weak).toContain("nền bản đồ");
+    expect(weak).toContain("lưu trong máy");
     for (const s of [off, weak]) {
       for (const jargon of ["tile", "offline", "cache", "basemap", "GeoJSON"]) {
         expect(s.toLowerCase()).not.toContain(jargon.toLowerCase());

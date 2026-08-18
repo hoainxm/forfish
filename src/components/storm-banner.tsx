@@ -146,7 +146,12 @@ export function StormBanner({
                   danger ? "text-danger" : "text-warn"
                 }`}
               >
-                {s.kindLabel} {s.name} đang trên vùng Biển Đông
+                {/* TÊN CÓ THÌ GHÉP, KHÔNG CÓ THÌ THÔI (sửa 2026-08-18): bản tin
+                    ATNĐ của NCHMF không đặt tên riêng (chỉ bão mới có "số N"),
+                    ghép chuỗi rỗng cũ ra câu lặp "…trên Biển Đông đang trên
+                    vùng Biển Đông". */}
+                {s.kindLabel}
+                {s.name ? ` ${s.name}` : ""} đang trên vùng Biển Đông
               </p>
               <p className="mt-0.5 text-[1rem] leading-snug text-foreground/80">
                 {s.windKmh != null &&
@@ -155,15 +160,27 @@ export function StormBanner({
                 đồn biên phòng.
               </p>
               {/* GIỜ THẬT của bản tin — bão đi rất nhanh, tin mấy hôm trước
-                  không được để trông như tin vừa xong */}
+                  không được để trông như tin vừa xong.
+
+                  ⚠️ ƯU TIÊN GIỜ PHÁT BẢN TIN, KHÔNG PHẢI GIỜ APP HỎI (sửa
+                  2026-08-18, thấy trên máy thật): `checkedAt` là lúc app gọi
+                  nguồn — bản tin NCHMF phát 08h00 mà app hỏi lúc 09h12 thì
+                  banner ghi "Tin lúc 09:12", lệch hẳn với thứ bà con vừa nghe
+                  trên đài. Bản tin VN mang `updated` = GIỜ PHÁT TIN, dùng nó
+                  thì hai bên khớp nhau. Không có `updated` (nguồn cũ) thì mới
+                  lùi về `checkedAt`. */}
               <p
                 className={`mt-1 text-[0.9375rem] font-bold leading-snug ${
                   status.cu ? "text-warn" : "text-foreground/65"
                 }`}
               >
-                {status.checkedAt != null
-                  ? `Tin lúc ${clockVN(status.checkedAt)}`
-                  : "Chưa rõ tin lúc nào"}
+                {(() => {
+                  const phat = Date.parse(s.updated ?? "");
+                  if (Number.isFinite(phat)) return `Bản tin ${clockVN(phat)}`;
+                  return status.checkedAt != null
+                    ? `Tin lúc ${clockVN(status.checkedAt)}`
+                    : "Chưa rõ tin lúc nào";
+                })()}
                 {status.cu && " — tin cũ trong máy, nghe lại đài duyên hải"}
               </p>
             </div>
