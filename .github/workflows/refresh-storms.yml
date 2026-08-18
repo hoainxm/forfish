@@ -2,17 +2,25 @@
 # mới nhất và thêm một hàng vào `storm_bulletins` (+ các mốc dự báo). Kho đó là
 # nền để bản đồ vẽ đoạn cơn ĐÃ ĐI và đoạn SẮP TỚI (migration 0036).
 #
-# VÌ SAO CHẠY Ở ĐÂY CHỨ KHÔNG PHẢI VERCEL CRON: gói Hobby chỉ cho 2 cron/ngày,
-# mà 4 chỗ trong vercel.json đã dùng hết suất — trong đó `notify-storms` (đẩy
-# thông báo bão) là thứ KHÔNG được nhường chỗ. GitHub Actions chạy nhịp dày
-# miễn phí, và nếu Actions chết thì hậu quả là bản đồ thiếu một khúc đường, chứ
-# KHÔNG mất cảnh báo bão — cảnh báo đi đường riêng.
+# ⚠️ NHỊP THẬT KHÔNG NẰM Ở ĐÂY. Lịch dưới là NHỊP GÕ CỬA (1 giờ/lần); route tự
+# quyết có hỏi nguồn hay không bằng `nhipQuet()` (src/lib/storm-scan.ts, 0037):
+#   · trời yên            → 1 lần/ngày
+#   · bão còn xa bà con   → theo mốc NGUỒN tự hẹn ("Bản tin tiếp theo: …"),
+#                           thường 6 giờ/lần
+#   · bão vào ≤500 km cảng, hoặc từ cấp 10 → 1 giờ/lần
+# Lượt bị cổng chặn KHÔNG chạm mạng ngoài — chỉ một câu đọc kho rồi trả
+# `{"ok":true,"scanned":false,...}`. Số request thật ra NCHMF khi trời yên vì
+# thế là 1/ngày thay vì 48/ngày như bản đầu.
 #
-# NHỊP 30 PHÚT: NCHMF phát 3–6 giờ/lần (bão khẩn cấp 1 giờ/lần). Phần lớn lượt
-# sẽ trả `{"ok":true,"saved":0,"reason":"da-co"}` — đúng như thiết kế, unique
-# (storm_key, issued_at) ở DB làm trọng tài chứ không phải nhịp gọi.
-# ⚠️ Lịch cron của GitHub hay TRỄ vài phút khi hạ tầng bận; 30 phút là mức nhịp
-# chịu được trễ đó mà vẫn không bỏ sót bản tin nào.
+# Vì sao gõ cửa 1 giờ/lần chứ không thưa hơn: đó là NHỊP DÀY NHẤT mà mức "gần"
+# cần. Cron của GitHub không tự đổi lịch theo tình hình, nên phải gõ ở nhịp dày
+# nhất rồi để cổng lọc — chứ không phải để lịch thưa rồi lỡ mất diễn biến đúng
+# lúc bão áp bờ.
+#
+# VÌ SAO CHẠY Ở ĐÂY CHỨ KHÔNG PHẢI VERCEL CRON: gói Hobby chỉ cho 2 cron, mà 4
+# chỗ trong vercel.json đã dùng hết suất — trong đó `notify-storms` (đẩy thông
+# báo bão) là thứ KHÔNG được nhường chỗ. Actions chết thì hậu quả là bản đồ
+# thiếu một khúc đường, chứ KHÔNG mất cảnh báo bão — cảnh báo đi đường riêng.
 #
 # CẦN CẤU HÌNH (dùng chung với các workflow cron khác):
 #   · Variable  APP_BASE_URL  = URL production
@@ -21,8 +29,13 @@ name: refresh-storms
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
-  workflow_dispatch: {}
+    - cron: "5 * * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Bỏ qua cổng nhịp, quét ngay (dựng lại khúc đường vừa hụt)"
+        type: boolean
+        default: false
 
 concurrency:
   group: refresh-storms
@@ -36,16 +49,19 @@ jobs:
         env:
           BASE_URL: ${{ vars.APP_BASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          FORCE: ${{ inputs.force }}
         run: |
           if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
             echo "Thiếu vars.APP_BASE_URL hoặc secrets.CRON_SECRET"; exit 1
           fi
           BASE_URL="${BASE_URL%/}"
+          Q=""
+          if [ "$FORCE" = "true" ]; then Q="?force=1"; fi
           code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
             -H "Authorization: Bearer $CRON_SECRET" \
-            "$BASE_URL/api/cron/refresh-storms")
+            "$BASE_URL/api/cron/refresh-storms$Q")
           echo "HTTP $code"; cat resp.json; echo
           # 503 = NGUỒN đang hỏng (NCHMF bảo trì / đọc không nổi bản tin), KHÔNG
           # phải lỗi của mình — để job đỏ ở ca đó là dạy nhau bỏ qua màu đỏ.
-          # Lượt 30 phút sau tự thử lại; chỉ 200 và 503 là chấp nhận được.
+          # Lượt sau tự thử lại; chỉ 200 và 503 là chấp nhận được.
           test "$code" = "200" || test "$code" = "503"

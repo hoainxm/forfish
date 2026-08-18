@@ -6,7 +6,7 @@
 | docs/app-map/01-product.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/02-architecture.md | VERIFIED | ok |
 | docs/app-map/03-design-system.md | VERIFIED | ok |
-| docs/app-map/04-data-model.md | VERIFIED | ok |
+| docs/app-map/04-data-model.md | SUSPECT | code 'src/lib/owned-assets.ts' doi sau last_verified |
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/06-jtbd-quan-ly-tau.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/07-design-spec.md | VERIFIED | ok |
@@ -17,7 +17,7 @@
 | docs/app-map/ops/audit-offline-2026-08-02.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-offline-vong2-2026-08-02.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/dot1-setup.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/external-services.md | VERIFIED | ok |
+| docs/app-map/ops/external-services.md | SUSPECT | code 'src/lib/port-price-source.ts' doi sau last_verified |
 | docs/app-map/ops/forecast-accuracy.md | VERIFIED | ok |
 | docs/app-map/ops/native-deploy.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/qa-offline-acceptance.md | VERIFIED | ok |

@@ -192,6 +192,45 @@ export function parseGioPhatTin(text: string, now: Date): number | null {
 }
 
 /**
+ * "Bản tin tiếp theo: 14h00 ngày 18/8" → epoch ms.
+ *
+ * ⚠️ ĐÂY LÀ MỎ VÀNG CHO NHỊP QUÉT (2026-08-18): **nguồn tự khai khi nào có bản
+ * tin kế tiếp**, ngay trong mỗi bản tin. Nghĩa là app KHÔNG cần chép cứng bảng
+ * tần suất của QĐ 18/2021 (6 giờ/lần khi bão còn trên Biển Đông, 3 giờ/lần khi
+ * gần bờ, 1 giờ/lần khi khẩn cấp) — chép cứng thì sai ngay lúc cơ quan dự báo
+ * đổi nhịp, mà đó đúng là lúc nguy hiểm nhất. Đọc con số nguồn tự ghi thì mọi
+ * nấc leo thang đều tự khớp.
+ *
+ * Neo theo GIỜ PHÁT (`phatLucMs`), không theo đồng hồ máy: bản tin không ghi
+ * năm, và mốc kế tiếp LUÔN ở sau giờ phát trong vòng ~1 ngày. Trả `null` khi
+ * bản tin không ghi (có bản tin cuối cùng không ghi mốc kế) — chỗ gọi phải có
+ * đường lùi, đừng coi `null` là "không bao giờ có tin nữa".
+ */
+export function parseGioBanTinTiepTheo(
+  text: string,
+  phatLucMs: number | null,
+  now: Date,
+): number | null {
+  const m =
+    /bản\s+tin\s+tiếp\s+theo\s*:?\s*(\d{1,2})\s*[h:]\s*(\d{2})\s*ngày\s*(\d{1,2})\s*[\/.-]\s*(\d{1,2})/iu.exec(
+      text,
+    );
+  if (!m) return null;
+  const [gio, phut, ngay, thang] = m.slice(1, 5).map(Number);
+  if (gio > 23 || phut > 59 || ngay > 31 || thang > 12) return null;
+  const neo = phatLucMs ?? now.getTime();
+  const nam = new Date(neo).getUTCFullYear();
+  const dung = (y: number) => Date.UTC(y, thang - 1, ngay, gio - 7, phut);
+  let ms = dung(nam);
+  // bản tin 31/12 hẹn tin kế 01/01: mốc tính ra lùi gần một năm ⇒ cộng một năm
+  if (neo - ms > 300 * 86400_000) ms = dung(nam + 1);
+  /*  Mốc kế mà rơi TRƯỚC giờ phát thì bản tin ghi lạ (hoặc mình đọc trượt) —
+      trả null để chỗ gọi dùng đường lùi, thay vì cầm một mốc đã quá hạn rồi
+      quét liên tục vì "tới giờ rồi". */
+  return ms <= neo ? null : ms;
+}
+
+/**
  * Bản tin NCHMF (chữ thuần) → một `StormAlert`, hoặc `null` khi bản tin không
  * đủ dữ kiện (thiếu toạ độ tâm) — thà không có tin còn hơn tin sai chỗ.
  *

@@ -57,6 +57,7 @@ describe("stormKeyOf — cùng khuôn với kho bản tin (stormKeyFor)", () => 
     const b: NchmfBulletin = {
       issuedAt: T0,
       observedAt: T0,
+      nextAt: null,
       laBao: true,
       soBao: "5",
       lat: 15,

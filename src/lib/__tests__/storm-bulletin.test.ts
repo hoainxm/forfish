@@ -199,6 +199,7 @@ describe("stormKeyFor — gom bản tin về cùng một cơn", () => {
   const b = (over: Partial<NchmfBulletin> = {}): NchmfBulletin => ({
     issuedAt: Date.parse("2026-08-18T01:00:00Z"),
     observedAt: null,
+    nextAt: null,
     laBao: false,
     soBao: null,
     lat: 19.8,

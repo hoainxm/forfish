@@ -5,6 +5,7 @@ import {
   catThanBanTin,
   htmlToText,
   parseCapGio,
+  parseGioBanTinTiepTheo,
   parseGioPhatTin,
   parseNchmfBulletin,
   parseToaDo,
@@ -84,6 +85,46 @@ describe("parseGioPhatTin", () => {
     const ms = parseGioPhatTin("Tin phát lúc: 22h00 ngày 31/12", now)!;
     expect(ms).toBeLessThan(now.getTime());
     expect(new Date(ms).getUTCFullYear()).toBe(2026);
+  });
+});
+
+/*  MỐC "BẢN TIN TIẾP THEO" LÀ NHỊP QUÉT CỦA APP (2026-08-18).
+ *  Nguồn tự khai khi nào có tin kế, nên app không phải chép cứng bảng tần suất
+ *  của QĐ 18/2021 — chép cứng thì sai đúng lúc cơ quan dự báo leo thang nhịp,
+ *  mà đó là lúc nguy hiểm nhất. Đọc trượt mốc này ⇒ app quét sai nhịp: hoặc
+ *  liên tục (đập nguồn), hoặc thưa quá (đường đi đứt quãng). */
+describe("parseGioBanTinTiepTheo — nhịp do nguồn tự khai", () => {
+  const PHAT = Date.UTC(2026, 7, 18, 1); // 08h00 giờ VN 18/8
+
+  it("bản tin thật: hẹn 14h00 ngày 18/8 = 07:00 UTC", () => {
+    const ms = parseGioBanTinTiepTheo(BAN_TIN_THAT, PHAT, NOW)!;
+    expect(new Date(ms).toISOString()).toBe("2026-08-18T07:00:00.000Z");
+    // đúng 6 giờ sau giờ phát — nhịp bão còn trên Biển Đông
+    expect((ms - PHAT) / 3600_000).toBe(6);
+  });
+
+  it("bản tin không ghi mốc kế → null (chỗ gọi dùng đường lùi)", () => {
+    expect(parseGioBanTinTiepTheo("Tin phát lúc: 08h00 ngày 18/8", PHAT, NOW)).toBeNull();
+  });
+
+  it("bản tin 31/12 hẹn tin kế 01/01 → sang NĂM SAU, không lùi một năm", () => {
+    const phat = Date.UTC(2026, 11, 31, 15); // 22h00 VN 31/12
+    const ms = parseGioBanTinTiepTheo(
+      "Bản tin tiếp theo: 04h00 ngày 1/1",
+      phat,
+      new Date(phat),
+    )!;
+    /*  04h00 giờ VN ngày 1/1/2027 = 21:00 UTC ngày 31/12/2026 — mốc ĐÚNG nằm ở
+        năm UTC 2026, nên phải soi theo giờ VN chứ không theo `getUTCFullYear`. */
+    expect(new Date(ms + 7 * 3600_000).toISOString()).toBe("2027-01-01T04:00:00.000Z");
+    expect(ms).toBeGreaterThan(phat);
+  });
+
+  it("mốc rơi TRƯỚC giờ phát → null, không trả một mốc đã quá hạn", () => {
+    // trả mốc quá khứ thì cổng nhịp thấy "tới giờ rồi" ở MỌI lượt ⇒ quét liên tục
+    expect(
+      parseGioBanTinTiepTheo("Bản tin tiếp theo: 02h00 ngày 18/8", PHAT, NOW),
+    ).toBeNull();
   });
 });
 

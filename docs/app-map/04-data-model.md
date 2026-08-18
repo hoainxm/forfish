@@ -7,7 +7,6 @@
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/phone.ts
 last_verified: 2026-08-18
 ttl_days: 180
-<!-- DOC-STATUS: SUSPECT (2026-08-18) — code 'supabase/migrations' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-08-18 — ĐỐI CHIẾU 5 vùng covers sau gói C/E/F: (1) `documents.ts` `getExpiryStatus` nay import `SOON_DAYS_DOCS/daysUntil/todayIsoVN/addDaysIso` từ `lib/days.ts`, `days===0` → level `expired` "Hết hạn hôm nay" (khớp bảng §3); (2) `owned-assets.ts` `getServiceDueStatus` dùng `SOON_DAYS_SERVICE=14` + `daysUntil` giờ VN, `requestStatusVN` trả `ok|neutral`; (3) `phone.ts` KHÔNG đổi từ 2026-06-16 (4 export `normalizeVnPhone/phoneToEmail/sanitizePhoneInput/isValidVnPhone` + `PHONE_EMAIL_DOMAIN`, đúng như §5b tả "helper SĐT thuần"; report báo SUSPECT chỉ vì commit tạo file trùng ngày last_verified cũ); (4) `sdwork-webhook.ts` + `supabase/migrations` không có thay đổi mới hôm nay ngoài 0034/0035 đã ghi (commit f078783); (5) `push_messages` không migration mới — chỉ THÊM quy ước `sent_by` `system:storm`/`system:order` + `tag` (ghi ở mục 0023). -->
 
 ---
@@ -151,6 +150,20 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - **Khoá cơn** (`stormKeyFor`, `src/lib/storm-bulletin.ts`): bão có số → `bao-so-5-2026`. Áp thấp **không có tên/số nào** — gom theo LIÊN TỤC (cách bản tin trước ≤12 giờ **và** tâm cách ≤600 km) → giữ khoá cũ; không khớp thì cơn MỚI `atnd-20260818`. **ATNĐ mạnh lên thành bão**: cron `khoaCanDoiTen` đổi NHÃN các hàng cũ sang khoá bão (lần DUY NHẤT hàng cũ bị sửa, và chỉ sửa cột `storm_key`) — không làm thì đường đi đứt làm đôi đúng lúc cơn nguy hiểm nhất.
 - ✅ **ĐÃ APPLY prod 2026-08-18** (ref `znzgugvfhgmiszqgjulk`, qua Supabase MCP). `get_advisors(security)` không thêm cảnh báo. Kho rỗng lúc apply — đường đi dày dần theo mỗi bản tin cron ghi được.
 - **Chưa cấu hình Supabase → không lỗi**: `/api/storms` trả `tracks: []` và tin bão vẫn đi như cũ. Phần vẽ đẹp KHÔNG được phép làm mất phần cảnh báo.
+
+### QUÉT TIN BÃO THEO MỨC ƯU TIÊN — migration [`0037_storm_scan_priority.sql`](../../supabase/migrations/0037_storm_scan_priority.sql) (2026-08-18) — ✅ ĐÃ APPLY prod
+
+**Vì sao** (chủ dự án): *"quét theo mức độ ưu tiên, chứ không phải cứ quét 30 phút 1 lần mãi; thường 1 ngày 1 lần định kỳ là ok, rồi khi có bão thì theo dõi diễn biến mới tăng tần suất lên 1h/lần … tránh quét liên tục rồi bị treo lỗi và làm tốn tài nguyên"*. Bản 0036 quét 48 lượt/ngày × 2 lượt tải HTML = **96 request/ngày** vào trang cơ quan nhà nước, phần lớn để nhận lại đúng bản tin đã có. Luật nhịp: [ADR 0005](../adr/0005-nhip-quet-tin-bao-theo-muc-uu-tien.md), mã thuần + test ở `src/lib/storm-scan.ts`.
+
+| Thay đổi | Nghĩa |
+|---|---|
+| `storm_bulletins.next_at timestamptz` | Giờ **NGUỒN TỰ HẸN** bản tin kế (*"Bản tin tiếp theo: 14h00 ngày 18/8"*, `parseGioBanTinTiepTheo`). Đây là nhịp THẬT do cơ quan phát tin công bố và nó **tự đổi theo mọi nấc leo thang** của QĐ 18/2021 (6 giờ/lần ngoài Biển Đông → 3 giờ/lần gần bờ → 1 giờ/lần khẩn cấp). Chép cứng bảng tần suất vào code thì sai đúng lúc nguy hiểm nhất. NULL = bản tin không ghi ⇒ đường lùi 6 giờ |
+| bảng `storm_scan_log` | **Một hàng = một lượt THẬT SỰ hỏi nguồn.** Cổng nhịp cần biết "lần cuối hỏi lúc nào", mà `storm_bulletins` không trả lời được: ngày trời yên không có bản tin nào để ghi ⇒ kho đứng im ⇒ cổng tưởng chưa bao giờ quét ⇒ quét lại mỗi lượt. Cột: `scanned_at` · `muc` (`ngu`\|`xa`\|`gan`) · `ket_qua` (`saved`\|`da-co`\|`no-bulletin`\|`parse-failed`\|…) · `storm_key` · `vi` (câu lý do nguyên văn). Giữ CẢ lượt hỏng — đây cũng là **bằng chứng nhịp thật**, nghi app đập nguồn thì mở bảng ra đếm |
+| RLS | Bật, KHÔNG policy — cùng khuôn 0036. Chỉ route server (service-role) đọc/ghi |
+
+- **Ghi sổ TRƯỚC khi hỏi nguồn**, không phải sau: nguồn treo / route bị cắt giữa chừng mà chưa kịp ghi thì lượt sau lại thấy "chưa quét" và lao vào hỏi tiếp — đúng cảnh quét liên tục cần tránh.
+- Kết quả đo: **96 → 2 request/ngày khi trời yên** (một lượt = index + bản tin). Bão còn xa → theo mốc nguồn hẹn (thường 6 giờ). Bão ≤500 km tới cảng hoặc từ cấp 10 → 1 giờ/lần.
+- ✅ **ĐÃ APPLY prod 2026-08-18** (ref `znzgugvfhgmiszqgjulk`, qua Supabase MCP).
 
 ### Danh mục sản phẩm ADMIN quản lý — migration [`0010_product_catalog.sql`](../../supabase/migrations/0010_product_catalog.sql) (2026-07-28) — ✅ ĐÃ APPLY prod
 

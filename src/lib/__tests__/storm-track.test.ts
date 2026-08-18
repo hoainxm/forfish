@@ -36,6 +36,7 @@ function tin(p: Partial<NchmfBulletin> = {}): NchmfBulletin {
   return {
     issuedAt: Date.UTC(2026, 7, 18, 1),
     observedAt: null,
+    nextAt: null,
     laBao: false,
     soBao: null,
     lat: 19.8,

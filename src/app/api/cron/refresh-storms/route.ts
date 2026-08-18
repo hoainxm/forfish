@@ -1,13 +1,29 @@
 // CRON GHI BẢN TIN BÃO vào kho (2026-08-18) — nền của đường đi trên bản đồ.
 //
 // Vì sao là CRON chứ không ghi lúc có người mở app (chủ dự án chốt): đêm không
-// ai mở app thì chuỗi bản tin đứt đúng lúc bão thường mạnh lên. NCHMF phát
-// 3–6 giờ/lần (bão khẩn cấp 1 giờ/lần), nhịp 30 phút là dư an toàn mà vẫn rẻ —
-// mỗi lượt chỉ 2 request HTML và gần như luôn kết thúc bằng "đã có, bỏ qua".
+// ai mở app thì chuỗi bản tin đứt đúng lúc bão thường mạnh lên.
+//
+// ═══ QUÉT THEO MỨC ƯU TIÊN, KHÔNG QUÉT ĐỀU ĐỀU (chủ dự án, cùng ngày) ═══
+//
+//   *"quét theo mức độ ưu tiên … thường 1 ngày 1 lần định kỳ là ok, rồi khi có
+//   bão thì theo dõi diễn biến mới tăng tần suất lên 1h/lần … tránh quét liên
+//   tục rồi bị treo lỗi và làm tốn tài nguyên."*
+//
+// Lịch cron ngoài (GitHub Actions) KHÔNG tự đổi nhịp được, nên nhịp thật quyết
+// định Ở ĐÂY: mỗi giờ một lượt gọi, nhưng lượt nào cũng hỏi `nhipQuet()` trước —
+// nói "không" thì lượt đó KHÔNG chạm mạng ngoài, chỉ tốn một câu đọc kho. Nhờ
+// vậy số request THẬT ra NCHMF là:
+//   · trời yên  → **1 lần/ngày**   (48 → 1: bớt ~98%)
+//   · bão còn xa→ theo mốc nguồn tự hẹn (thường 6 giờ/lần)
+//   · bão vào gần bà con hoặc từ cấp 10 → **1 giờ/lần**
+// Luật thuần + test: `src/lib/storm-scan.ts`. Trần cứng 55 phút cho MỌI mức.
+//
+// ⚠️ ĐÂY KHÔNG PHẢI CHỖ PHÁT HIỆN BÃO MỚI — đừng siết nhịp vì lo sót. Phát hiện
+// nằm ở `/api/cron/notify-storms` (30 phút/lần, gọi `/api/storms` = NCHMF+GDACS)
+// và ở mỗi lần bà con mở app. Cron này chỉ GHI LẠI ĐƯỜNG ĐI để vẽ.
 //
 // GHI ĐÚNG MỘT LẦN MỖI BẢN TIN: `unique (storm_key, issued_at)` ở DB làm trọng
-// tài (migration 0036). Không đọc-trước-rồi-ghi — hai lượt cron chồng nhau vẫn
-// an toàn.
+// tài (0036). Không đọc-trước-rồi-ghi — hai lượt cron chồng nhau vẫn an toàn.
 //
 // KHÔNG BAO GIỜ XOÁ/SỬA hàng cũ: đường đã đi là lịch sử, tin mới chỉ THÊM hàng.
 import { NextResponse } from "next/server";
@@ -24,6 +40,7 @@ import {
   type StormKeyRef,
 } from "@/lib/storm-bulletin";
 import { timeoutSignal } from "@/lib/abort";
+import { nhipQuet, type BanTinCuoi, type QuyetDinhQuet } from "@/lib/storm-scan";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -56,17 +73,94 @@ export async function GET(req: Request) {
   if (!admin) return NextResponse.json({ ok: false, reason: "not-configured" }, { status: 503 });
 
   const now = new Date();
+  const nowMs = now.getTime();
+
+  /*  `?force=1` — chỉ cho chạy tay (workflow_dispatch) khi cần dựng lại khúc
+      đường vừa hụt. Vẫn phải qua CRON_SECRET ở trên, nên không ai ngoài gọi được. */
+  const ep = (() => {
+    try {
+      return new URL(req.url).searchParams.get("force") === "1";
+    } catch {
+      return false;
+    }
+  })();
+
+  // ── CỔNG NHỊP: đọc kho (rẻ) rồi mới quyết có chạm mạng ngoài hay không
+  const [{ data: btRows }, { data: scanRows }] = await Promise.all([
+    admin
+      .from("storm_bulletins")
+      .select("issued_at, next_at, lat, lon, cap")
+      .order("issued_at", { ascending: false })
+      .limit(1),
+    admin
+      .from("storm_scan_log")
+      .select("scanned_at")
+      .order("scanned_at", { ascending: false })
+      .limit(1),
+  ]);
+  const bt = btRows?.[0] as
+    | { issued_at: string; next_at: string | null; lat: number; lon: number; cap: number | null }
+    | undefined;
+  const banTinCuoi: BanTinCuoi | null = bt
+    ? {
+        issuedAt: Date.parse(bt.issued_at),
+        nextAt: bt.next_at ? Date.parse(bt.next_at) : null,
+        lat: Number(bt.lat),
+        lon: Number(bt.lon),
+        cap: bt.cap,
+      }
+    : null;
+  const quetCuoi = scanRows?.[0]?.scanned_at as string | undefined;
+  const quyet: QuyetDinhQuet = nhipQuet(
+    { quetLucNao: quetCuoi ? Date.parse(quetCuoi) : null, banTinCuoi },
+    nowMs,
+  );
+
+  /*  Đọc kho HỎNG (`btRows`/`scanRows` undefined vì lỗi truy vấn) thì `nhipQuet`
+      thấy "chưa quét lần nào" ⇒ trả `quet:true`. Đó là chiều AN TOÀN đúng: mất
+      trí nhớ thì quét một lượt còn hơn im lặng mãi. Trần 55 phút không giữ được
+      trong ca đó, nhưng ca đó là DB hỏng — lúc ấy ghi cũng hỏng nốt. */
+  if (!quyet.quet && !ep) {
+    return NextResponse.json({
+      ok: true,
+      scanned: false,
+      muc: quyet.muc,
+      vi: quyet.vi,
+      cachCangKm: quyet.cachCangKm,
+    });
+  }
+
+  /*  GHI SỔ QUÉT TRƯỚC KHI HỎI NGUỒN, không phải sau: nguồn treo/route bị cắt
+      giữa chừng mà chưa kịp ghi thì lượt sau lại thấy "chưa quét" và lao vào
+      hỏi tiếp — đúng cảnh quét liên tục cần tránh. Ghi trước thì trần 55 phút
+      giữ được cả trong ca hỏng. */
+  const { data: scanRow } = await admin
+    .from("storm_scan_log")
+    .insert({ muc: quyet.muc, vi: quyet.vi, ket_qua: "dang-quet" })
+    .select("id")
+    .maybeSingle();
+  const scanId = (scanRow as { id: string } | null)?.id ?? null;
+  const ghiSo = async (ket_qua: string, storm_key?: string) => {
+    if (!scanId) return;
+    await admin.from("storm_scan_log").update({ ket_qua, storm_key }).eq("id", scanId);
+  };
+
   const indexHtml = await layHtml(NCHMF_INDEX_URL);
   if (indexHtml == null) {
+    await ghiSo("index-failed");
     return NextResponse.json({ ok: false, reason: "index-failed" }, { status: 503 });
   }
 
   const url = pickLatestNchmfBulletin(indexHtml);
   // Trời yên: trang không có bản tin bão nào. KHÔNG phải lỗi.
-  if (!url) return NextResponse.json({ ok: true, saved: 0, reason: "no-bulletin" });
+  if (!url) {
+    await ghiSo("no-bulletin");
+    return NextResponse.json({ ok: true, scanned: true, saved: 0, muc: quyet.muc, reason: "no-bulletin" });
+  }
 
   const html = await layHtml(url);
   if (html == null) {
+    await ghiSo("bulletin-failed");
     return NextResponse.json({ ok: false, reason: "bulletin-failed" }, { status: 503 });
   }
 
@@ -77,6 +171,7 @@ export async function GET(req: Request) {
         vết. Tuyệt đối không ghi hàng rỗng: một hàng sai trong kho là một khúc
         đường vẽ sai trên bản đồ, và nó nằm lại vĩnh viễn. */
     console.error("[cron-storms] parse không ra bản tin:", url);
+    await ghiSo("parse-failed");
     return NextResponse.json({ ok: false, reason: "parse-failed", url }, { status: 503 });
   }
 
@@ -123,6 +218,8 @@ export async function GET(req: Request) {
       storm_key: stormKey,
       issued_at: new Date(b.issuedAt).toISOString(),
       observed_at: b.observedAt ? new Date(b.observedAt).toISOString() : null,
+      // mốc nguồn tự hẹn tin kế — nhịp quét lượt sau đọc chính cột này
+      next_at: b.nextAt ? new Date(b.nextAt).toISOString() : null,
       la_bao: b.laBao,
       so_bao: b.soBao,
       lat: b.lat,
@@ -144,10 +241,12 @@ export async function GET(req: Request) {
 
   // 23505 = đã có bản tin này (cron chạy dày hơn nhịp phát tin) — chuyện THƯỜNG
   if (error?.code === "23505") {
-    return NextResponse.json({ ok: true, saved: 0, stormKey, reason: "da-co" });
+    await ghiSo("da-co", stormKey);
+    return NextResponse.json({ ok: true, scanned: true, saved: 0, muc: quyet.muc, stormKey, reason: "da-co" });
   }
   if (error) {
     console.error("[cron-storms] ghi bản tin HỎNG:", error.code, error.message);
+    await ghiSo("insert-failed", stormKey);
     return NextResponse.json({ ok: false, reason: "insert-failed" }, { status: 500 });
   }
 
@@ -173,9 +272,15 @@ export async function GET(req: Request) {
     else diem = b.forecast.length;
   }
 
+  await ghiSo("saved", stormKey);
   return NextResponse.json({
     ok: true,
+    scanned: true,
     saved: 1,
+    muc: quyet.muc,
+    vi: quyet.vi,
+    cachCangKm: quyet.cachCangKm,
+    nextAt: b.nextAt ? new Date(b.nextAt).toISOString() : null,
     stormKey,
     issuedAt: new Date(b.issuedAt).toISOString(),
     forecastPoints: diem,

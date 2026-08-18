@@ -32,6 +32,7 @@
 import {
   catThanBanTin,
   parseCapGio,
+  parseGioBanTinTiepTheo,
   parseGioPhatTin,
   parseToaDo,
 } from "@/lib/storms-vn";
@@ -66,6 +67,9 @@ export type NchmfBulletin = {
   issuedAt: number | null;
   /** giờ QUAN TRẮC tâm ("Hồi 07 giờ") — khác giờ phát, thường sớm hơn ~1 giờ */
   observedAt: number | null;
+  /** giờ nguồn HẸN bản tin kế ("Bản tin tiếp theo: 14h00 ngày 18/8"); null =
+      bản tin không ghi. Đây là thứ quyết định NHỊP QUÉT — xem `lib/storm-scan.ts` */
+  nextAt: number | null;
   laBao: boolean;
   /** "5" khi bản tin ghi "bão số 5"; null với áp thấp nhiệt đới */
   soBao: string | null;
@@ -262,6 +266,8 @@ export function parseNchmfFull(
   return {
     issuedAt,
     observedAt: parseGioNgay(hienTrang, issuedAt, now),
+    // đọc trên TOÀN bản tin: mốc hẹn nằm ở cuối, sau bảng dự báo
+    nextAt: parseGioBanTinTiepTheo(text, issuedAt, now),
     laBao: /\bbão\b/iu.test(text) && !/áp\s+thấp\s+nhiệt\s+đới/iu.test(text),
     soBao: /bão\s+số\s+(\d{1,2})/iu.exec(text)?.[1] ?? null,
     lat: diem[0].lat,
