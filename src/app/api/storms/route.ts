@@ -160,7 +160,7 @@ async function layDuongDi(now: Date): Promise<StormTrack[]> {
 
     const { data: rows, error: eRows } = await admin
       .from("storm_bulletins")
-      .select("id,storm_key,issued_at,observed_at,la_bao,so_bao,lat,lon,cap,giat")
+      .select("id,storm_key,issued_at,observed_at,la_bao,so_bao,lat,lon,cap,giat,radius_km")
       .in("storm_key", khoa)
       .order("issued_at", { ascending: true })
       .limit(500);

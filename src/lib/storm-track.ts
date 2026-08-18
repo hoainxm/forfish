@@ -33,6 +33,9 @@ export type TrackForecast = {
 
 export type StormTrack = {
   key: string;
+  /** BÁN KÍNH GIÓ MẠNH CẤP 6 quanh tâm hiện tại (km), do bản tin GHI THẲNG.
+      null với áp thấp nhiệt đới — NCHMF không phát con số đó cho ATNĐ. */
+  radiusKm: number | null;
   /** "Bão số 5" / "Áp thấp nhiệt đới" — để in nhãn, không phải tên riêng */
   name: string;
   laBao: boolean;
@@ -54,6 +57,7 @@ export type BulletinRow = {
   lon: number | string;
   cap: number | null;
   giat: number | null;
+  radius_km: number | null;
 };
 
 /** Hàng thô của `storm_forecast_points` */
@@ -131,6 +135,10 @@ export function rowsToTracks(
 
     out.push({
       key,
+      radiusKm:
+        moiNhat.radius_km != null && Number.isFinite(Number(moiNhat.radius_km))
+          ? Number(moiNhat.radius_km)
+          : null,
       name: tenCon(!!moiNhat.la_bao, moiNhat.so_bao),
       laBao: !!moiNhat.la_bao,
       issuedAt,
@@ -142,6 +150,55 @@ export function rowsToTracks(
   // cơn có tin mới nhất đứng trước — bà con nhìn cơn đang sống trước tiên
   out.sort((a, b) => b.issuedAt - a.issuedAt);
   return out;
+}
+
+/**
+ * Vòng tròn bán kính `km` quanh một điểm → vòng toạ độ ĐÓNG để vẽ Polygon.
+ *
+ * ⚠️ CHỈ dùng cho con số bản tin GHI THẲNG ("Bán kính gió mạnh cấp 6 khoảng
+ * 250km tính từ tâm bão"). TUYỆT ĐỐI KHÔNG dựng vòng tròn từ khung vùng nguy
+ * hiểm: nội tiếp thì BỎ MẤT bốn góc cơ quan đã tuyên là nguy hiểm, ngoại tiếp
+ * thì phình ra vùng họ không hề nói. Đổi hình cho quen mắt mà làm sai nghĩa
+ * "vùng nguy hiểm" thì cái giá rơi vào người đi biển.
+ *
+ * Dựng bằng CÔNG THỨC ĐIỂM ĐÍCH trên mặt cầu (cùng bán kính Trái Đất với
+ * `khoangCachKm`), không phải cộng độ theo mặt phẳng. Phép mặt phẳng — lấy
+ * `km/111,32` cho vĩ và chia `cos(lat)` cho kinh — đo lại ra 249,4 km thay vì
+ * 250 ở 20°N, vì `cos` chỉ đúng tại tâm chứ không đúng dọc theo vòng. Lệch
+ * 0,25% thì mắt không thấy, nhưng đây là vòng NGUY HIỂM: đã vẽ thì vẽ đúng số
+ * bản tin nói, và cổng test khoá bất biến "mọi đỉnh cách tâm đúng N km".
+ */
+export const VONG_DINH = 64;
+
+const BAN_KINH_TRAI_DAT_KM = 6371;
+
+export function vongTron(
+  lat: number,
+  lon: number,
+  km: number,
+  dinh = VONG_DINH,
+): number[][] {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const deg = (r: number) => (r * 180) / Math.PI;
+  const p1 = rad(lat);
+  const l1 = rad(lon);
+  const d = km / BAN_KINH_TRAI_DAT_KM; // góc ở tâm Trái Đất
+  const ring: number[][] = [];
+  for (let i = 0; i < dinh; i++) {
+    const huong = (2 * Math.PI * i) / dinh; // phương vị, 0 = hướng Bắc
+    const p2 = Math.asin(
+      Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(huong),
+    );
+    const l2 =
+      l1 +
+      Math.atan2(
+        Math.sin(huong) * Math.sin(d) * Math.cos(p1),
+        Math.cos(d) - Math.sin(p1) * Math.sin(p2),
+      );
+    ring.push([deg(l2), deg(p2)]);
+  }
+  ring.push(ring[0]);
+  return ring;
 }
 
 /** Cơn im quá ngần này giờ thì không vẽ nữa (đã tan hoặc ra khỏi vùng ra tin) */
@@ -199,6 +256,19 @@ export function tracksToGeoJSON(
     }
 
     const tam = qua[qua.length - 1];
+    /*  BÁN KÍNH GIÓ MẠNH quanh tâm HIỆN TẠI — chỉ khi bản tin ghi thẳng con số.
+        Bản tin BÃO có ("Bán kính gió mạnh cấp 6 khoảng 250km"); bản tin ÁP THẤP
+        NHIỆT ĐỚI KHÔNG có, và lúc đó KHÔNG vẽ vòng nào cả thay vì bịa một số. */
+    if (tam && t.radiusKm != null && t.radiusKm > 0) {
+      features.push({
+        type: "Feature",
+        properties: { kind: "ban-kinh", km: t.radiusKm, ten: t.name },
+        geometry: {
+          type: "Polygon",
+          coordinates: [vongTron(tam[1], tam[0], t.radiusKm)],
+        },
+      });
+    }
     const toi = t.forecast.map((p) => [p.lon, p.lat]);
     if (toi.length > 0) {
       const noi = tam ? [tam, ...toi] : toi;

@@ -2311,6 +2311,23 @@ export default function FishingMapView() {
             mốc một chấm kèm giờ. Vẽ SAU stormGeo để nằm trên polygon GDACS. */}
         {trackGeo && (
           <Source id="storm-track" type="geojson" data={trackGeo}>
+            {/* BÁN KÍNH GIÓ MẠNH CẤP 6 quanh tâm — con số bản tin BÃO ghi thẳng
+                ("Bán kính gió mạnh cấp 6 khoảng 250km tính từ tâm bão"). Bản tin
+                ÁP THẤP NHIỆT ĐỚI không phát số này nên KHÔNG có vòng nào — cố ý,
+                thà thiếu một vòng còn hơn vẽ một bán kính không ai chịu trách
+                nhiệm. Vẽ DƯỚI cùng để đường đi và nhãn giờ nổi lên trên. */}
+            <Layer
+              id="storm-radius-fill"
+              type="fill"
+              filter={["==", ["get", "kind"], "ban-kinh"]}
+              paint={{ "fill-color": "#b42318", "fill-opacity": 0.12 }}
+            />
+            <Layer
+              id="storm-radius-line"
+              type="line"
+              filter={["==", ["get", "kind"], "ban-kinh"]}
+              paint={{ "line-color": "#b42318", "line-width": 1.5, "line-opacity": 0.6 }}
+            />
             <Layer
               id="storm-danger-fill"
               type="fill"

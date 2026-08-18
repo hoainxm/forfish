@@ -5,14 +5,17 @@
 // vẫn "có vẻ đúng". Bà con nhìn đường đó để đoán bão có quét qua chỗ mình không.
 import { describe, expect, it } from "vitest";
 import {
+  VONG_DINH,
   nhanMoc,
   rowsToTracks,
   tracksToGeoJSON,
+  vongTron,
   type BulletinRow,
   type ForecastRow,
 } from "@/lib/storm-track";
 import {
   khoaCanDoiTen,
+  khoangCachKm,
   noiTiep,
   stormKeyFor,
   type NchmfBulletin,
@@ -28,6 +31,7 @@ function hang(p: Partial<BulletinRow> & { id: string; issued_at: string }): Bull
     lon: 117.6,
     cap: 6,
     giat: 8,
+    radius_km: null,
     ...p,
   };
 }
@@ -183,6 +187,69 @@ describe("tracksToGeoJSON — hình để vẽ", () => {
 
   it("không có gì để vẽ → null (chỗ gọi bỏ hẳn Source)", () => {
     expect(tracksToGeoJSON([])).toBeNull();
+  });
+});
+
+/*  VÒNG TRÒN BÁN KÍNH GIÓ MẠNH — chỉ vẽ khi bản tin GHI THẲNG con số.
+ *
+ *  Chủ dự án hỏi "sao không phải vòng tròn tương tự các dự báo bão khác": vòng
+ *  tròn trên web bão quốc tế là NÓN BẤT ĐỊNH, dựng từ bảng sai số dự báo mà
+ *  chính cơ quan đó công bố (JMA/NHC có). NCHMF KHÔNG công bố bảng ấy — nên
+ *  vòng tròn duy nhất app được phép vẽ là BÁN KÍNH GIÓ MẠNH mà bản tin BÃO ghi
+ *  ra bằng chữ. Bản tin ÁP THẤP NHIỆT ĐỚI không có ⇒ không vẽ vòng nào. */
+describe("vòng tròn bán kính gió mạnh", () => {
+  const rowBao = (radius: number | null) =>
+    hang({
+      id: "b",
+      issued_at: "2026-08-18T07:00:00Z",
+      la_bao: true,
+      so_bao: "5",
+      lat: 20,
+      lon: 113,
+      radius_km: radius,
+    });
+
+  it("bản tin BÃO có bán kính → vẽ vòng tròn quanh tâm hiện tại", () => {
+    const gj = tracksToGeoJSON(rowsToTracks([rowBao(250)], []))!;
+    const v = gj.features.find((f) => f.properties?.kind === "ban-kinh");
+    expect(v).toBeDefined();
+    expect(v!.properties?.km).toBe(250);
+  });
+
+  it("bản tin ÁP THẤP (không có bán kính) → KHÔNG vẽ vòng nào", () => {
+    const gj = tracksToGeoJSON(rowsToTracks([rowBao(null)], []))!;
+    expect(gj.features.some((f) => f.properties?.kind === "ban-kinh")).toBe(false);
+  });
+
+  it("vòng ĐÓNG và đúng số đỉnh", () => {
+    const ring = vongTron(20, 113, 250);
+    expect(ring).toHaveLength(VONG_DINH + 1);
+    expect(ring[0]).toEqual(ring[ring.length - 1]);
+  });
+
+  it("MỌI đỉnh cách tâm ĐÚNG bán kính — không dẹt thành hình trứng", () => {
+    /*  Phép cộng-độ theo mặt phẳng (km/111,32 cho vĩ, chia cos(lat) cho kinh)
+        đo lại ra 249,4 km ở 20°N vì cos chỉ đúng tại tâm. Ca này khoá việc
+        dùng công thức điểm đích trên mặt cầu, sai số dưới 0,5 km. */
+    const [lat, lon, km] = [20, 113, 250];
+    for (const p of vongTron(lat, lon, km)) {
+      expect(khoangCachKm(lat, lon, p[1], p[0])).toBeCloseTo(km, 0);
+    }
+  });
+
+  it("vẽ quanh tâm MỚI NHẤT, không phải tâm đầu tiên", () => {
+    const cu = hang({ id: "a", issued_at: "2026-08-18T01:00:00Z", lat: 19, lon: 118, radius_km: 250 });
+    const gj = tracksToGeoJSON(rowsToTracks([cu, rowBao(250)], []))!;
+    const ring = (gj.features.find((f) => f.properties?.kind === "ban-kinh")!
+      .geometry as GeoJSON.Polygon).coordinates[0];
+    // tâm vòng = trung bình đỉnh; phải bám tâm mới (20N, 113E)
+    const cLat = ring.reduce((a, p) => a + p[1], 0) / ring.length;
+    expect(cLat).toBeCloseTo(20, 1);
+  });
+
+  it("bán kính 0 hoặc âm → không vẽ (số rác, không phải vòng bán kính 0)", () => {
+    const gj = tracksToGeoJSON(rowsToTracks([rowBao(0)], []))!;
+    expect(gj.features.some((f) => f.properties?.kind === "ban-kinh")).toBe(false);
   });
 });
 
