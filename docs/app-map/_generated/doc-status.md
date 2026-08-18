@@ -21,4 +21,4 @@
 | docs/app-map/ops/native-deploy.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/qa-offline-acceptance.md | VERIFIED | ok |
 | docs/app-map/ops/runbook.md | SUSPECT | code 'scripts/e2e-video-export.mjs' doi sau last_verified |
-| docs/app-map/ops/state-registry.md | VERIFIED | ok |
+| docs/app-map/ops/state-registry.md | SUSPECT | code 'src/lib/offline-backup.ts' doi sau last_verified |
