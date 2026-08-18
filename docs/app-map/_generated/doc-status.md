@@ -9,7 +9,7 @@
 | docs/app-map/04-data-model.md | VERIFIED | ok |
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/06-jtbd-quan-ly-tau.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/07-design-spec.md | VERIFIED | ok |
+| docs/app-map/07-design-spec.md | SUSPECT | code 'src/app' doi sau last_verified |
 | docs/app-map/08-ba-spec-da-tau.md | VERIFIED | ok |
 | docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md | VERIFIED | ok |
 | docs/app-map/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |

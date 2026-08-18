@@ -5,7 +5,7 @@ import {
   parseGioPhatTin,
   parseNchmfBulletin,
   parseToaDo,
-  pickLatestBulletinUrl,
+  pickLatestNchmfBulletin,
 } from "@/lib/storms-vn";
 
 /*  NGUỒN TIN BÃO VIỆT NAM (NCHMF) — parse bản tin CHỮ.
@@ -130,26 +130,26 @@ describe("parseNchmfBulletin — bản tin thật 18/8/2026", () => {
   });
 });
 
-describe("pickLatestBulletinUrl", () => {
+describe("pickLatestNchmfBulletin", () => {
   const html = `
     <a href="https://www.nchmf.gov.vn/kttv/vi-VN/1/ban-tin-du-bao-song-post53098.html">sóng</a>
     <a href="https://www.nchmf.gov.vn/kttv/vi-VN/1/tin-ap-thap-nhiet-doi-tren-bien-dong-post53205.html">ATNĐ</a>
     <a href="https://www.nchmf.gov.vn/kttv/vi-VN/1/tin-ap-thap-nhiet-doi-tren-bien-dong-post53100.html">ATNĐ cũ</a>`;
 
   it("lấy bản tin bão/ATNĐ có số post LỚN NHẤT, bỏ bản tin không liên quan", () => {
-    expect(pickLatestBulletinUrl(html)).toContain("post53205");
+    expect(pickLatestNchmfBulletin(html)).toContain("post53205");
   });
 
   it("bỏ qua 'tin cuối cùng' (bản tin KẾT THÚC, không phải bão đang có)", () => {
     const h =
       html +
       `<a href="https://www.nchmf.gov.vn/kttv/vi-VN/1/tin-cuoi-cung-ve-ap-thap-nhiet-doi-post53999.html">cuối</a>`;
-    expect(pickLatestBulletinUrl(h)).toContain("post53205");
+    expect(pickLatestNchmfBulletin(h)).toContain("post53205");
   });
 
   it("trang không có bản tin bão nào → null (trời yên, nói được)", () => {
     expect(
-      pickLatestBulletinUrl(`<a href="https://x/kttv/vi-VN/1/ban-tin-thuy-van-post1.html">x</a>`),
+      pickLatestNchmfBulletin(`<a href="https://x/kttv/vi-VN/1/ban-tin-thuy-van-post1.html">x</a>`),
     ).toBeNull();
   });
 });

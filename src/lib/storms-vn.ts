@@ -39,14 +39,20 @@ const SLUG_RE =
   /https?:\/\/[^"']*\/(?:kttv|kttvsite)\/vi-VN\/1\/(tin-(?:ap-thap-nhiet-doi|bao|con-bao)[^"']*?)-post(\d+)\.html/gi;
 
 /**
- * URL bản tin bão/ATNĐ MỚI NHẤT trong trang liệt kê. `null` = trang không có
+ * URL bản tin bão/ATNĐ MỚI NHẤT trong trang liệt kê của NCHMF.
+ *
+ * ⚠️ TÊN CÓ HẬU TỐ `Nchmf` là CỐ Ý: `port-price-source.ts` đã có
+ * `pickLatestBulletinUrl` cho bản tin giá VASEP. Cùng một việc ("lấy bản tin mới
+ * nhất từ trang liệt kê") nhưng LUẬT CHỌN khác hẳn — VASEP theo thứ tự trong
+ * listing, NCHMF theo số `postNNNNN` lớn nhất — nên không gộp được, và để trùng
+ * tên là mời người sau import nhầm (hook NT15 §3 bắt được ngay lần đầu). `null` = trang không có
  * bản tin nào (trời yên — đúng và phải nói được, khác hẳn "không đọc được").
  *
  * "Mới nhất" = số `post` LỚN NHẤT: NCHMF đánh số tăng dần, tin cuối trong ngày
  * luôn có số lớn hơn. KHÔNG dựa vào thứ tự xuất hiện trong HTML (trang xáo theo
  * khối "tin nổi bật" / "tin mới").
  */
-export function pickLatestBulletinUrl(indexHtml: string): string | null {
+export function pickLatestNchmfBulletin(indexHtml: string): string | null {
   let best: { url: string; id: number } | null = null;
   for (const m of indexHtml.matchAll(SLUG_RE)) {
     const slug = m[1].toLowerCase();

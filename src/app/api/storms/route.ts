@@ -3,7 +3,7 @@ import {
   NCHMF_INDEX_URL,
   htmlToText,
   parseNchmfBulletin,
-  pickLatestBulletinUrl,
+  pickLatestNchmfBulletin,
 } from "@/lib/storms-vn";
 import { timeoutSignal } from "@/lib/abort";
 
@@ -86,7 +86,7 @@ async function layNchmf(now: Date): Promise<StormAlert[] | null> {
       console.error("[storms] NCHMF index trả", rIndex.status);
       return null;
     }
-    const url = pickLatestBulletinUrl(await rIndex.text());
+    const url = pickLatestNchmfBulletin(await rIndex.text());
     if (!url) return []; // trang liệt kê không có bản tin bão/ATNĐ nào
 
     const rTin = await fetch(url, {
