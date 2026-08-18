@@ -9,6 +9,7 @@ import {
   nhanMoc,
   rowsToTracks,
   tracksToGeoJSON,
+  vongNgoaiTiep,
   vongTron,
   type BulletinRow,
   type ForecastRow,
@@ -164,12 +165,50 @@ describe("tracksToGeoJSON — hình để vẽ", () => {
     expect(c[1]).toEqual([110.0, 20.5]);
   });
 
-  it("vùng nguy hiểm là khung ĐÓNG (5 đỉnh, đỉnh cuối trùng đỉnh đầu)", () => {
+  it("vùng nguy hiểm vẽ thành VÒNG TRÒN ngoại tiếp, vòng đóng", () => {
     const gj = tracksToGeoJSON(rowsToTracks(rows, pts))!;
     const v = gj.features.find((f) => f.properties?.kind === "vung-nguy-hiem")!;
     const ring = (v.geometry as GeoJSON.Polygon).coordinates[0];
-    expect(ring).toHaveLength(5);
-    expect(ring[0]).toEqual(ring[4]);
+    expect(ring).toHaveLength(VONG_DINH + 1);
+    expect(ring[0]).toEqual(ring[ring.length - 1]);
+  });
+
+  /*  BẤT BIẾN AN TOÀN — ca này là lý do duy nhất lối vẽ vòng được chấp nhận.
+      Vòng phải BAO TRỌN khung: hụt một góc là báo SÓT một vùng cơ quan đã tuyên
+      là nguy hiểm. Nội tiếp sẽ làm ca này đỏ, và đó là chủ ý. */
+  it("vòng BAO TRỌN cả bốn góc khung — không bỏ sót góc nào", () => {
+    const box = { latMin: 18.5, latMax: 21, lonMin: 113.5, lonMax: 117 };
+    const v = vongNgoaiTiep(box);
+    for (const [a, b] of [
+      [box.latMin, box.lonMin],
+      [box.latMin, box.lonMax],
+      [box.latMax, box.lonMin],
+      [box.latMax, box.lonMax],
+    ]) {
+      expect(khoangCachKm(v.lat, v.lon, a, b)).toBeLessThanOrEqual(v.km + 1e-6);
+    }
+  });
+
+  /*  BỐN GÓC KHÔNG CÁCH ĐỀU TÂM trên mặt cầu — bắt được khi ca này đỏ lần đầu:
+      góc phía NAM xa hơn góc phía BẮC vì một độ kinh trải rộng hơn ở vĩ độ thấp
+      (khung 19–21N/111–115E: góc Bắc 236,1 km, góc Nam 237,3 km). Nên bán kính
+      phải là MAX của cả bốn góc; lấy "nửa đường chéo" theo trực giác hình học
+      phẳng là hụt hơn 1 km ở hai góc dưới. */
+  it("tâm vòng ở GIỮA khung, bán kính là góc XA NHẤT (góc Nam, không phải Bắc)", () => {
+    const box = { latMin: 19, latMax: 21, lonMin: 111, lonMax: 115 };
+    const v = vongNgoaiTiep(box);
+    expect(v.lat).toBeCloseTo(20, 6);
+    expect(v.lon).toBeCloseTo(113, 6);
+
+    const bac = khoangCachKm(20, 113, 21, 115);
+    const nam = khoangCachKm(20, 113, 19, 115);
+    expect(nam).toBeGreaterThan(bac);
+    expect(v.km).toBeCloseTo(nam, 6);
+  });
+
+  it("khung vuông tuyệt đối (một điểm) → bán kính 0, không ném", () => {
+    const v = vongNgoaiTiep({ latMin: 20, latMax: 20, lonMin: 113, lonMax: 113 });
+    expect(v.km).toBe(0);
   });
 
   it("mốc đã qua và mốc sắp tới phân biệt được bằng cờ tuongLai", () => {

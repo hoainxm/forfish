@@ -9,7 +9,7 @@
 // Không có "vòng tròn bán kính" tự chế. Thứ vẽ được vùng nguy hiểm là `danger`
 // — KHUNG TOẠ ĐỘ do NCHMF phát cho từng mốc. Bịa một con số sai số quanh tâm là
 // tự nhận trách nhiệm mình không có, ở chỗ dính tính mạng (xem migration 0036).
-import type { DangerBox } from "@/lib/storm-bulletin";
+import { khoangCachKm, type DangerBox } from "@/lib/storm-bulletin";
 
 /** Một điểm tâm bão ĐÃ QUAN TRẮC (một bản tin = một điểm) */
 export type TrackPoint = {
@@ -201,6 +201,40 @@ export function vongTron(
   return ring;
 }
 
+/**
+ * VÒNG TRÒN NGOẠI TIẾP khung vùng nguy hiểm: tâm ở giữa khung, bán kính vươn
+ * tới GÓC XA NHẤT — tức vòng **bao trọn** khung.
+ *
+ * ⚠️ ĐÂY LÀ QUYẾT ĐỊNH SẢN PHẨM, KHÔNG PHẢI PHÉP TÍNH TỰ NGHĨ RA (chủ dự án
+ * chốt 2026-08-18h: *"dùng các bản tin cũ vẽ vòng tròn ngoại tiếp, dư thừa
+ * không sao"*). Tôi từng bác cả hai lối vẽ vòng từ khung; chốt lại thì **ngoại
+ * tiếp khác hẳn nội tiếp**:
+ *   · nội tiếp  → BỎ MẤT bốn góc cơ quan đã tuyên là nguy hiểm ⇒ báo SÓT. Cấm.
+ *   · ngoại tiếp → phình ra vùng nguồn không nói ⇒ báo THỪA. Chấp nhận được,
+ *     vì với tin bão thì thà bà con tránh rộng hơn còn hơn tránh hụt.
+ * Vòng là bao lồi nhỏ nhất chứa khung, nên phần thừa cũng nhỏ nhất có thể.
+ *
+ * Bán kính đo bằng `khoangCachKm` tới cả bốn góc rồi lấy max — không quy đổi độ
+ * sang km bằng tay, để phần co của kinh tuyến theo vĩ độ tự đúng.
+ */
+export function vongNgoaiTiep(box: DangerBox): {
+  lat: number;
+  lon: number;
+  km: number;
+} {
+  const lat = (box.latMin + box.latMax) / 2;
+  const lon = (box.lonMin + box.lonMax) / 2;
+  const goc: [number, number][] = [
+    [box.latMin, box.lonMin],
+    [box.latMin, box.lonMax],
+    [box.latMax, box.lonMin],
+    [box.latMax, box.lonMax],
+  ];
+  let km = 0;
+  for (const [a, b] of goc) km = Math.max(km, khoangCachKm(lat, lon, a, b));
+  return { lat, lon, km };
+}
+
 /** Cơn im quá ngần này giờ thì không vẽ nữa (đã tan hoặc ra khỏi vùng ra tin) */
 export const TRACK_SONG_GIO = 48;
 
@@ -222,7 +256,9 @@ export function nhanMoc(at: number | null): string {
  *   · `qua-khu`   — LineString liền, đoạn cơn ĐÃ ĐI
  *   · `sap-toi`   — LineString gạch đứt, nối tâm hiện tại qua các mốc dự báo
  *   · `moc`       — Point từng mốc (có `nhan`, `tuong-lai`) để chấm + ghi giờ
- *   · `vung-nguy-hiem` — Polygon khung toạ độ NCHMF phát cho mốc đó
+ *   · `vung-nguy-hiem` — Polygon VÒNG TRÒN ngoại tiếp khung toạ độ NCHMF phát
+ *     cho mốc đó (bao trọn khung: báo thừa, không báo sót — xem `vongNgoaiTiep`)
+ *   · `ban-kinh`  — vòng BÁN KÍNH GIÓ MẠNH quanh tâm, chỉ khi bản tin BÃO ghi số
  *
  * ⚠️ Đoạn "sắp tới" LUÔN bắt đầu từ TÂM HIỆN TẠI (điểm cuối của `past`), không
  * phải từ mốc dự báo đầu tiên — thiếu đoạn nối đó thì đường đứt một khúc đúng
@@ -293,22 +329,16 @@ export function tracksToGeoJSON(
         geometry: { type: "Point", coordinates: [p.lon, p.lat] },
       });
       if (p.danger) {
-        const { latMin, latMax, lonMin, lonMax } = p.danger;
+        /*  VẼ VÒNG NGOẠI TIẾP thay cho khung chữ nhật (chủ dự án chốt
+            2026-08-18h). Vòng BAO TRỌN khung nên không bỏ sót mét nào của vùng
+            nguồn đã tuyên; phần dư là báo thừa, và với tin bão thì thà tránh
+            rộng hơn tránh hụt. Khung gốc vẫn nằm nguyên trong payload
+            (`forecast[].danger`) — đổi lại lối vẽ chỉ là sửa chỗ này. */
+        const v = vongNgoaiTiep(p.danger);
         features.push({
           type: "Feature",
-          properties: { kind: "vung-nguy-hiem", nhan: nhanMoc(p.at) },
-          geometry: {
-            type: "Polygon",
-            coordinates: [
-              [
-                [lonMin, latMin],
-                [lonMax, latMin],
-                [lonMax, latMax],
-                [lonMin, latMax],
-                [lonMin, latMin],
-              ],
-            ],
-          },
+          properties: { kind: "vung-nguy-hiem", nhan: nhanMoc(p.at), km: Math.round(v.km) },
+          geometry: { type: "Polygon", coordinates: [vongTron(v.lat, v.lon, v.km)] },
         });
       }
     }
