@@ -66,3 +66,28 @@ Vì sao ngưỡng là **khoảng cách tới cảng cá**, không phải "trong 
 - **Giữ 30 phút/lần cho chắc** — bác: 11/12 lượt thừa, và "cho chắc" ở đây không mua thêm thông tin nào vì nguồn chưa phát tin mới.
 - **Hạ lịch Actions xuống 3 giờ/lần cho rẻ** — bác: mức `gan` cần 1 giờ; để lịch thưa là lỡ diễn biến đúng lúc bão áp bờ, đổi lấy một khoản tiết kiệm không đáng.
 - **Ghi kho ngay trong `/api/storms`** (đường đã fetch sẵn) — bác lần này: `/api/storms` là đường ĐỌC, mỗi lần bà con mở app đều chạy; gắn đường ghi vào đó là mở một đường ghi DB không kiểm soát được nhịp, đúng thứ ADR này đang đi dọn.
+
+---
+
+## Cập nhật 2026-08-18f — thiếu sót của ADR này: KHÔNG đếm phút Actions
+
+ADR trên đếm rất kỹ **request ra NCHMF** (96 → 2/ngày) rồi kết luận "24 lượt
+Actions/ngày là chấp nhận được". Đếm sót một thứ: **GitHub tính tiền Actions
+theo JOB, làm tròn LÊN 1 phút** — job chạy 10 giây vẫn tính đủ 1 phút. Cộng với
+`notify-storms` 30 phút/lần, thành 72 lượt/ngày ≈ 2.160 phút/tháng ≈ **19
+USD/tháng cho riêng repo này**, trong khi cả tháng 8 trước đó ForFish mới tiêu
+**0,78 USD**. Lỗi lộ ra khi GitHub chặn job vì hạn mức chi đang để 0.
+
+Đã sửa: gộp hai workflow thành một (`storms.yml`, lệnh thứ hai tốn thêm 0 phút)
+và hạ nhịp gõ cửa 30 phút → **1 giờ** — NCHMF phát dày nhất 1 bản tin/giờ nên
+30 phút vốn đã lấy mẫu gấp đôi mức nguồn có thể cho. Còn 24 lượt/ngày ≈ 1.020
+phút/tháng ≈ 8 USD. Đánh đổi đã chấp nhận: push bão chậm nhất 1 giờ thay vì 30
+phút; bù lại mỗi lần bà con mở app là app hỏi tin ngay lúc đó.
+
+⚠️ Nhịp gõ cửa **phải lớn hơn** `TOI_THIEU_PHUT` (55 phút) của cổng nhịp, không
+thì mức `gan` (bão áp bờ, cần 1 giờ/lần) bị chính trần đó chặn thành 2 giờ/lần.
+Đổi một trong hai số thì phải xem số kia.
+
+**Bài học**: một quyết định nhịp có HAI hoá đơn — lượt gọi ra nguồn ngoài, và
+lượt chạy của chính hạ tầng cron. Tối ưu hoá đơn thứ nhất mà quên hoá đơn thứ
+hai thì chưa gọi là tối ưu.
