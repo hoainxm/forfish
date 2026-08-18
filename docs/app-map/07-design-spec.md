@@ -4,8 +4,10 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-08-16
+last_verified: 2026-08-18
+<!-- re-verified: 2026-08-18d - doi chieu voi cac thay doi trong `src/app` cua ngay hom nay: `/api/storms` (them nguon NCHMF, gop hai nguon) va `/api/me/market-listings` (GET doi dang nhap) deu la tang DU LIEU/QUYEN, KHONG doi mot man hinh nao. Cac man co lien quan da duoc ta o hai ghi chu 2026-08-16 va 2026-08-18 ngay tren: canh bao thieu tin bao tren khoi ket qua tuyen (nay se HIEN THUC khi co ATND vi nguon VN da phu), cho tin doi dang nhap thi hien TIN MAU + nut Dang nhap (dung hanh vi truoc 2026-08-16), Cua hang/Don cua toi hien ban luu kem moc. Khong them man, khong doi token mau, khong doi co chu/tap target. -->
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-08-18) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 ```
 <!-- gate: warn vì UI churn src/app+src/components cao — cảnh báo thay vì chặn. KHÔNG để comment cùng dòng `gate:` (hook tr -d ' ' giữ lại # → phá so khớp = "warn" → chặn nhầm). -->
