@@ -5,7 +5,8 @@
 **Load khi / Load when**: thêm/sửa page, route, navigation, component; cần hiểu app chạy thế nào khi env trống.
 
 covers: src/app
-last_verified: 2026-08-16
+last_verified: 2026-08-18
+<!-- re-verified: 2026-08-18e - doi chieu `src/app` sau mach hom nay: hai route doi la `/api/storms` (them nguon NCHMF + gop hai nguon, da ta o ghi chu 2026-08-18b ngay tren) va `/api/me/market-listings` (+`[id]`, GET nay DOI DANG NHAP - tra lai ranh gioi RLS 0008 vi bang co cot `phone` la SDT that). Bang route o muc 3 da co ca hai dong va dung voi ma hien tai; khong route nao khac them/bo/doi duong dan. -->
 
 <!-- re-verified: 2026-08-03p — `/api/fish-forecast`: **ĐANG BUILD THÌ KHÔNG KÉO BẢY NGUỒN** (`isBuildPhase`, lib/fish-snapshot-policy, có test). LỖI THẬT đang có: `npm run build` chết ở route này — *"took more than 60 seconds"*, thử ba lần rồi cả bản build ĐỎ. Vì sao: route có `export const revalidate` và không đụng API động ⇒ Next **dựng sẵn nó ngay lúc build**; nhánh đầu đọc snapshot Supabase, mà đọc KHÔNG ĐƯỢC (thiếu `SUPABASE_SERVICE_ROLE_KEY` như máy chủ dự án, key vừa xoay, hay Supabase chập chờn) thì `loadFishSnapshot()` trả `null` và route rơi thẳng vào `computeFishForecast()` — BẢY nguồn ngoài (ERDDAP + HYCOM OPeNDAP + Copernicus Zarr), đo thật 16,8 giây lượt lạnh, chạy trong ngân sách 60 giây của Next lại tranh chỗ với 7 worker build. Nay lúc build: có snapshot (dù CŨ) thì gieo bằng snapshot, không có thì 503 NGAY (`s-maxage=60`) — request THẬT đầu tiên tự tính rồi lấp đầy kho ISR. **Bất biến mới: đường build KHÔNG đi qua dịch vụ bên ngoài** — một nguồn thời tiết có ngày chậm không được phép chặn việc ship bản vá. ⚠️ HÀNH VI PROD KHÔNG ĐỔI, đã chứng minh bằng thí nghiệm: cho nhánh build trả 200 thì bảng build in `○ /api/fish-forecast 30m 1y` (vẫn prerender + ISR 30 phút y như cũ); chữ `ƒ` chỉ xuất hiện ở máy THIẾU key, nơi nhánh build trả 503. Lúc chạy thật `NEXT_PHASE` không mang giá trị đó nên đường lùi "cron đứng → tự tính live" giữ nguyên (có test canh cả hai chiều). Build sau bản vá: 55/55 trang tĩnh trong 1,55 giây. -->
 
@@ -247,6 +248,7 @@ Test 979 pass (+14), tsc sạch, lint 0 lỗi, build PASS. -->
 <!-- re-verified: 2026-08-18b — `/api/storms` NAY HỎI HAI NGUỒN. File mới `src/lib/storms-vn.ts` (parser THUẦN cho bản tin NCHMF: `pickLatestBulletinUrl` · `htmlToText` · `parseToaDo` · `parseCapGio` · `parseGioPhatTin` · `parseNchmfBulletin`); route gọi song song NCHMF + GDACS rồi `gopNguon` (tin VN đứng trước, GDACS chỉ thêm cơn cách tâm VN >350 km). Một nguồn hỏng vẫn `ok:true`; CẢ HAI hỏng mới 503 — client `stormStatus` không đổi một dòng (vẫn đọc `ok`/`storms`/`checkedAt`), payload chỉ THÊM `sources:{nchmf,gdacs}`. Vì sao: GDACS bỏ sót áp thấp nhiệt đới — lỗi bắt được từ hiện trường 18/8. NCHMF là TRANG HTML nên phải coi là nguồn dễ vỡ: parse trượt ⇒ `null` ("chưa hỏi được", không phải "không có bão") + log `[storms] NCHMF …`. Cổng: `storms-vn.test.ts` (19 ca, dựng từ bản tin thật) + `storms-source.test.ts` (canh tham số GDACS số ít, hai nguồn còn trong đường đi, chỉ 503 khi cả hai hỏng). -->
 
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-08-18) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 
 ---
