@@ -4,21 +4,22 @@
 | Doc | Trang thai | Ly do |
 |---|---|---|
 | docs/app-map/01-product.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/02-architecture.md | VERIFIED | ok |
-| docs/app-map/03-design-system.md | SUSPECT | code 'src/app/globals.css' doi sau last_verified |
-| docs/app-map/04-data-model.md | SUSPECT | code 'src/lib/phone.ts' doi sau last_verified |
+| docs/app-map/02-architecture.md | SUSPECT | code 'src/app' doi sau last_verified |
+| docs/app-map/03-design-system.md | VERIFIED | ok |
+| docs/app-map/04-data-model.md | SUSPECT | code 'supabase/migrations' doi sau last_verified |
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/06-jtbd-quan-ly-tau.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/07-design-spec.md | VERIFIED | ok |
 | docs/app-map/08-ba-spec-da-tau.md | VERIFIED | ok |
 | docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md | VERIFIED | ok |
 | docs/app-map/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/audit-notify-2026-08-18.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-offline-2026-08-02.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-offline-vong2-2026-08-02.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/dot1-setup.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/external-services.md | VERIFIED | ok |
+| docs/app-map/ops/external-services.md | SUSPECT | code 'src/lib/offline-basemap.ts' doi sau last_verified |
 | docs/app-map/ops/forecast-accuracy.md | VERIFIED | ok |
 | docs/app-map/ops/native-deploy.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/qa-offline-acceptance.md | VERIFIED | ok |
 | docs/app-map/ops/runbook.md | SUSPECT | code 'scripts/e2e-video-export.mjs' doi sau last_verified |
-| docs/app-map/ops/state-registry.md | VERIFIED | ok |
+| docs/app-map/ops/state-registry.md | SUSPECT | code 'src/lib/offline-backup.ts' doi sau last_verified |
