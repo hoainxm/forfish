@@ -8,7 +8,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
 import { isPushConfigured, sendPushMany } from "@/lib/push-send";
-import { isQuietHoursVN } from "@/lib/storm-push";
 import { normalizeVnPhone } from "@/lib/phone";
 
 const err = (status: number, code: string) =>
@@ -265,6 +264,5 @@ export async function POST(req: Request) {
     // GIỜ KHUYA (22h–5h VN) KHÔNG CHẶN tin tay — admin tự quyết — nhưng báo để
     // màn /quan-tri nhắc "tin này sẽ đánh thức bà con". Bão tự động mới có luật
     // chặn (lib/storm-push.ts).
-    ...(isQuietHoursVN(Date.now()) ? { warn: "gio-khuya" as const } : {}),
   });
 }

@@ -11,11 +11,19 @@
 //
 // KHOÁ CƠN BÃO ≠ `id` NGUỒN: NCHMF đánh id theo BẢN TIN (`nchmf-<postNNNN>`),
 // mỗi bản tin 3–6 giờ một số mới ⇒ lấy id làm khoá thì mỗi bản tin là một
-// "bão MỚI" và bà con bị đẩy 4–8 lần/ngày. Với nguồn VN, khoá = tên bà con nghe
-// trên đài ("số 3", hoặc "atnd" khi áp thấp không tên). GDACS id ổn định theo
-// cơn nên giữ nguyên.
+// "bão MỚI" và bà con bị đẩy 4–8 lần/ngày. Khoá + luật "cùng cơn" nằm ở
+// `lib/storm-identity.ts` (2026-08-18b) — DÙNG CHUNG với /api/storms và cùng
+// khuôn với kho bản tin: `bao-so-N-YYYY`, `atnd-YYYYMMDD-lat-lon`, `gdacs-<tên>`.
+// Sổ đã gửi ghi kèm TÂM + GIỜ TIN trong URL, nên lượt sau nối cơn bằng vị trí/
+// thời gian (`cungCon`) chứ không tin vào tên: NCHMF "số 3" hôm nay và GDACS
+// "WUTIP" (nếu tin VN lỡ hỏng một lượt) là MỘT cơn; hai áp thấp không tên cách
+// nhau 1.000 km là HAI cơn.
+//
+// KHÔNG CÓ GIỜ KHUYA (chủ dự án 2026-08-18b: "giờ khuya làm cái gì???"): bão là
+// tính mạng, có tin là đẩy, giờ nào cũng vậy. Máy bà con tự lo im lặng ban đêm.
 
 import type { StormAlert } from "@/lib/storms";
+import { cungCon, stormKeyOf } from "@/lib/storm-identity";
 
 export const STORM_PUSH_SENT_BY = "system:storm";
 /** Vẫn `danger` mà lâu hơn ngần này chưa nhắc → nhắc lại */
@@ -41,32 +49,32 @@ export function stormSeverity(s: Pick<StormAlert, "alert" | "kindLabel">): Storm
   };
 }
 
-function slug(v: string): string {
-  return v
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+/** Khoá ổn định theo CƠN — xem lib/storm-identity.ts. Giữ tên cũ cho chỗ gọi. */
+export function stormKey(
+  s: Pick<StormAlert, "id" | "name" | "lat" | "lon" | "updated">,
+  nowMs: number,
+): string {
+  return stormKeyOf(s, nowMs);
 }
 
-/** Khoá ổn định theo CƠN, không theo bản tin (xem ghi chú đầu file). */
-export function stormKey(s: Pick<StormAlert, "id" | "name">): string {
-  if (s.id.startsWith("nchmf-")) {
-    const ten = slug(s.name);
-    return `nchmf-${ten || "atnd"}`;
-  }
-  return slug(s.id) || "khong-ro";
-}
-
-export function stormPushUrl(key: string, sev: StormSeverity): string {
+export function stormPushUrl(
+  key: string,
+  sev: StormSeverity,
+  tam?: { lat: number; lon: number; tMs: number },
+): string {
   const cap = sev.alert === 1 ? "danger" : "watch";
-  return `/ngu-truong?bao=${encodeURIComponent(key)}&cap=${cap}&muc=${sev.kind}`;
+  const goc = `/ngu-truong?bao=${encodeURIComponent(key)}&cap=${cap}&muc=${sev.kind}`;
+  if (!tam) return goc;
+  // tâm + giờ tin để lượt sau NỐI CƠN theo vị trí (storm-identity.cungCon)
+  return `${goc}&lat=${tam.lat.toFixed(2)}&lon=${tam.lon.toFixed(2)}&t=${Math.round(tam.tMs / 1000)}`;
 }
 
-export type SentStormMark = { key: string; sev: StormSeverity };
+export type SentStormMark = {
+  key: string;
+  sev: StormSeverity;
+  /** tâm + giờ tin lúc gửi (null với bản ghi cũ chưa có) */
+  tam: { lat: number; lon: number; tMs: number } | null;
+};
 
 /** Đọc ngược URL đã ghi trong push_messages. Không phải URL bão → null. */
 export function parseStormPushUrl(url: string | null | undefined): SentStormMark | null {
@@ -78,19 +86,21 @@ export function parseStormPushUrl(url: string | null | undefined): SentStormMark
   if (!key) return null;
   const cap = p.get("cap");
   const muc = Number(p.get("muc"));
+  const lat = Number(p.get("lat"));
+  const lon = Number(p.get("lon"));
+  const t = Number(p.get("t"));
+  const tam =
+    Number.isFinite(lat) && Number.isFinite(lon) && p.get("lat") != null && p.get("lon") != null
+      ? { lat, lon, tMs: Number.isFinite(t) && t > 0 ? t * 1000 : 0 }
+      : null;
   return {
     key,
     sev: {
       alert: cap === "danger" ? 1 : 0,
       kind: Number.isFinite(muc) && muc > 0 ? muc : 2,
     },
+    tam,
   };
-}
-
-/** Giờ khuya 22h–5h giờ Việt Nam: chỉ tin `danger` mới được đánh thức bà con. */
-export function isQuietHoursVN(nowMs: number): boolean {
-  const h = (new Date(nowMs).getUTCHours() + 7) % 24;
-  return h >= 22 || h < 5;
 }
 
 /*  KM/H → CẤP GIÓ (6–17) — cận DƯỚI mỗi cấp. Cấp 6–12 lấy từ cùng thang
@@ -153,56 +163,75 @@ export type SentStormRecord = { url: string | null; created_at: string };
 
 /**
  * Quyết định đẩy gì lượt này.
- *  · MỚI: khoá chưa có trong 48h đã gửi
+ *  · MỚI: không nối được với cơn nào trong sổ 48h đã gửi (theo KHOÁ, hoặc theo
+ *    VỊ TRÍ/THỜI GIAN — `cungCon` — để đổi tên/đổi nguồn không thành cơn mới)
  *  · LÊN CẤP: alert watch→danger hoặc nhãn loại tăng bậc so với lần gửi cuối
  *  · NHẮC LẠI: vẫn `danger` và lần gửi cuối đã quá 12h
- * Giờ khuya (22h–5h VN): chỉ `danger` đi; `watch` chờ cron sau 5h tự xét lại
- * (lúc đó vẫn là "MỚI" vì chưa từng ghi ⇒ tự đi).
+ * Đẩy giờ nào cũng đẩy — không có giờ khuya.
  */
 export function decideStormPushes(
   storms: StormAlert[],
   recentSent: SentStormRecord[],
   nowMs: number,
 ): StormPushPlan[] {
-  // lần gửi CUỐI theo khoá
-  const last = new Map<string, { sev: StormSeverity; atMs: number }>();
+  // lần gửi CUỐI theo khoá (kèm tâm để nối cơn)
+  type Last = { key: string; sev: StormSeverity; atMs: number; tam: SentStormMark["tam"] };
+  const last = new Map<string, Last>();
   for (const r of recentSent) {
     const m = parseStormPushUrl(r.url);
     if (!m) continue;
     const at = Date.parse(r.created_at);
     if (!Number.isFinite(at)) continue;
     const prev = last.get(m.key);
-    if (!prev || at > prev.atMs) last.set(m.key, { sev: m.sev, atMs: at });
+    if (!prev || at > prev.atMs) last.set(m.key, { key: m.key, sev: m.sev, atMs: at, tam: m.tam });
   }
 
-  const quiet = isQuietHoursVN(nowMs);
+  /* Nối cơn: đúng khoá thì lấy; không thì tìm bản ghi nào có tâm "cùng cơn"
+     với tin này (vị trí + thời gian) — tin đổi tên (ATNĐ → bão số N), đổi nguồn
+     (VN hỏng một lượt, GDACS lên thay) đều KHÔNG được coi là bão mới. */
+  const noiCon = (s: StormAlert, key: string): Last | undefined => {
+    const thang = last.get(key);
+    if (thang) return thang;
+    const phat = Date.parse(s.updated ?? "");
+    const tMs = Number.isFinite(phat) ? phat : nowMs;
+    let gan: Last | undefined;
+    for (const l of last.values()) {
+      if (!l.tam) continue;
+      if (!cungCon({ lat: s.lat, lon: s.lon, tMs }, { lat: l.tam.lat, lon: l.tam.lon, tMs: l.tam.tMs || l.atMs })) continue;
+      if (!gan || l.atMs > gan.atMs) gan = l;
+    }
+    return gan;
+  };
+
   const seen = new Set<string>();
   const out: StormPushPlan[] = [];
   for (const s of storms) {
-    const key = stormKey(s);
+    const phat = Date.parse(s.updated ?? "");
+    const tMs = Number.isFinite(phat) && phat <= nowMs ? phat : nowMs;
+    let key = stormKey(s, tMs);
+    const prev = noiCon(s, key);
+    // nối được với cơn đã gửi dưới khoá khác ⇒ GIỮ khoá cũ (tag OS đè đúng tin cũ)
+    if (prev && prev.key !== key) key = prev.key;
     if (seen.has(key)) continue;
     seen.add(key);
     const sev = stormSeverity(s);
-    const prev = last.get(key);
 
     let reason: StormPushReason | null = null;
     if (!prev) reason = "moi";
     else if (sev.alert > prev.sev.alert || sev.kind > prev.sev.kind) reason = "len-cap";
     else if (sev.alert === 1 && nowMs - prev.atMs >= STORM_REMIND_MS) reason = "nhac-lai";
     if (!reason) continue;
-    if (quiet && sev.alert !== 1) continue;
 
     const { title, body } = stormPushCopy(s);
-    const phat = Date.parse(s.updated ?? "");
     out.push({
       storm: s,
       key,
       reason,
       title,
       body,
-      url: stormPushUrl(key, sev),
+      url: stormPushUrl(key, sev, { lat: s.lat, lon: s.lon, tMs }),
       tag: `bao-${key}`,
-      sentAtMs: Number.isFinite(phat) && phat <= nowMs ? phat : nowMs,
+      sentAtMs: tMs,
     });
   }
   return out;

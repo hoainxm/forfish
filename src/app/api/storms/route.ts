@@ -6,6 +6,7 @@ import {
   pickLatestNchmfBulletin,
 } from "@/lib/storms-vn";
 import { timeoutSignal } from "@/lib/abort";
+import { gopNguonBao } from "@/lib/storm-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   rowsToTracks,
@@ -120,23 +121,12 @@ async function layNchmf(now: Date): Promise<StormAlert[] | null> {
   }
 }
 
-/** Hai cơn cùng một cơn? (tâm cách nhau dưới ngần này km) */
-const TRUNG_KM = 350;
-
-function cachKm(a: StormAlert, b: StormAlert): number {
-  const R = 6371;
-  const rad = (d: number) => (d * Math.PI) / 180;
-  const dLat = rad(b.lat - a.lat);
-  const dLon = rad(b.lon - a.lon);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
-}
-
 /**
  * Gộp hai nguồn: **tin VN đứng trước**, rồi thêm cơn GDACS nào KHÔNG phải bản
- * trùng của tin VN. Trùng = tâm cách dưới `TRUNG_KM`.
+ * trùng của tin VN. Luật "cùng cơn" (tâm + thời gian, không nhìn tên) và việc
+ * VN MƯỢN polygon/track của GDACS khi cùng cơn nằm ở `lib/storm-identity.ts`
+ * (2026-08-18b) — DÙNG CHUNG với push bão và cùng khuôn khoá với kho bản tin,
+ * để ba chỗ không mỗi nơi một ngưỡng.
  *
  * Vì sao ưu tiên VN: bà con đối chiếu với đài duyên hải; hai bản tin cùng một
  * cơn mà lệch tên/cấp thì phải theo bản tin trong nước. Vì sao vẫn giữ GDACS:
@@ -144,8 +134,7 @@ function cachKm(a: StormAlert, b: StormAlert): number {
  * đang ra tin.
  */
 export function gopNguon(vn: StormAlert[], gdacs: StormAlert[]): StormAlert[] {
-  const ngoai = gdacs.filter((g) => !vn.some((v) => cachKm(v, g) < TRUNG_KM));
-  return [...vn, ...ngoai];
+  return gopNguonBao(vn, gdacs);
 }
 
 /**

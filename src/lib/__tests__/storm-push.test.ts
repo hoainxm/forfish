@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   capGioTuKmh,
   decideStormPushes,
-  isQuietHoursVN,
   parseStormPushUrl,
   stormKey,
   stormPushCopy,
@@ -14,9 +13,9 @@ import {
 import { capGioSangKmh } from "@/lib/storms-vn";
 import type { StormAlert } from "@/lib/storms";
 
-// 10:00 giờ VN 18/08/2026 = 03:00 UTC — ban ngày, ngoài giờ khuya
+// 10:00 giờ VN 18/08/2026 = 03:00 UTC
 const NGAY = Date.UTC(2026, 7, 18, 3, 0);
-// 23:30 giờ VN = 16:30 UTC — giờ khuya
+// 23:30 giờ VN — bão đẩy giờ nào cũng đẩy, KHÔNG có giờ khuya (chủ dự án 2026-08-18b)
 const KHUYA = Date.UTC(2026, 7, 18, 16, 30);
 
 function bao(over: Partial<StormAlert> = {}): StormAlert {
@@ -36,49 +35,53 @@ function bao(over: Partial<StormAlert> = {}): StormAlert {
 }
 
 function daGui(s: StormAlert, atMs: number): SentStormRecord {
+  const tMs = Date.parse(s.updated);
   return {
-    url: stormPushUrl(stormKey(s), stormSeverity(s)),
+    url: stormPushUrl(stormKey(s, tMs), stormSeverity(s), { lat: s.lat, lon: s.lon, tMs }),
     created_at: new Date(atMs).toISOString(),
   };
 }
 
-describe("stormKey — khoá theo CƠN, không theo bản tin", () => {
-  it("GDACS: giữ id nguồn", () => {
-    expect(stormKey(bao())).toBe("1001234");
+describe("stormKey — khoá theo CƠN, cùng khuôn với kho bản tin", () => {
+  it("GDACS: gdacs-<tên>", () => {
+    expect(stormKey(bao(), NGAY)).toBe("gdacs-wutip");
   });
-  it("NCHMF: hai bản tin (post khác nhau) cùng 'bão số 3' → cùng khoá", () => {
+  it("NCHMF: hai bản tin (post khác nhau) cùng 'bão số 3' → cùng khoá bao-so-3-YYYY", () => {
     const a = bao({ id: "nchmf-12345", name: "số 3" });
     const b = bao({ id: "nchmf-12399", name: "số 3" });
-    expect(stormKey(a)).toBe("nchmf-so-3");
-    expect(stormKey(b)).toBe(stormKey(a));
+    expect(stormKey(a, NGAY)).toBe("bao-so-3-2026");
+    expect(stormKey(b, NGAY)).toBe(stormKey(a, NGAY));
   });
-  it("NCHMF áp thấp không tên → 'atnd'", () => {
-    expect(stormKey(bao({ id: "nchmf-555", name: "" }))).toBe("nchmf-atnd");
+  it("NCHMF áp thấp không tên → atnd-YYYYMMDD-lat-lon; hai áp thấp khác chỗ = hai khoá", () => {
+    const a = bao({ id: "nchmf-555", name: "", lat: 15, lon: 112 });
+    const b = bao({ id: "nchmf-556", name: "", lat: 8, lon: 105 });
+    expect(stormKey(a, NGAY)).toBe("atnd-20260818-15.0-112.0");
+    expect(stormKey(b, NGAY)).not.toBe(stormKey(a, NGAY));
   });
 });
 
 describe("URL vừa là đường mở app vừa là sổ đã gửi", () => {
-  it("ghi rồi đọc lại ra đúng khoá + cấp", () => {
+  it("ghi rồi đọc lại ra đúng khoá + cấp + tâm", () => {
     const s = bao({ alert: "danger", kindLabel: "Bão mạnh" });
-    const url = stormPushUrl(stormKey(s), stormSeverity(s));
-    expect(url.startsWith("/ngu-truong?bao=1001234&cap=danger")).toBe(true);
-    expect(parseStormPushUrl(url)).toEqual({ key: "1001234", sev: { alert: 1, kind: 3 } });
+    const tMs = Date.parse(s.updated);
+    const url = stormPushUrl(stormKey(s, tMs), stormSeverity(s), { lat: s.lat, lon: s.lon, tMs });
+    expect(url.startsWith("/ngu-truong?bao=gdacs-wutip&cap=danger")).toBe(true);
+    expect(parseStormPushUrl(url)).toEqual({
+      key: "gdacs-wutip",
+      sev: { alert: 1, kind: 3 },
+      tam: { lat: 15, lon: 112, tMs: Math.round(tMs / 1000) * 1000 },
+    });
+  });
+  it("URL đời cũ không có tâm → tam null, vẫn đọc được khoá", () => {
+    expect(parseStormPushUrl("/ngu-truong?bao=x&cap=watch&muc=2")).toEqual({
+      key: "x",
+      sev: { alert: 0, kind: 2 },
+      tam: null,
+    });
   });
   it("URL không phải bão → null", () => {
     expect(parseStormPushUrl("/tau?tab=san-pham")).toBeNull();
     expect(parseStormPushUrl(null)).toBeNull();
-  });
-});
-
-describe("isQuietHoursVN — 22h–5h giờ Việt Nam", () => {
-  it("23:30 VN là khuya, 10:00 VN không", () => {
-    expect(isQuietHoursVN(KHUYA)).toBe(true);
-    expect(isQuietHoursVN(NGAY)).toBe(false);
-  });
-  it("biên: 22:00 khuya, 05:00 hết khuya, 21:59 chưa", () => {
-    expect(isQuietHoursVN(Date.UTC(2026, 7, 18, 15, 0))).toBe(true); // 22:00 VN
-    expect(isQuietHoursVN(Date.UTC(2026, 7, 18, 22, 0))).toBe(false); // 05:00 VN
-    expect(isQuietHoursVN(Date.UTC(2026, 7, 18, 14, 59))).toBe(false); // 21:59 VN
   });
 });
 
@@ -120,9 +123,9 @@ describe("decideStormPushes", () => {
     const out = decideStormPushes([s], [], NGAY);
     expect(out).toHaveLength(1);
     expect(out[0].reason).toBe("moi");
-    expect(out[0].tag).toBe("bao-1001234");
+    expect(out[0].tag).toBe("bao-gdacs-wutip");
     expect(out[0].sentAtMs).toBe(Date.parse(s.updated));
-    expect(out[0].url).toBe("/ngu-truong?bao=1001234&cap=watch&muc=2");
+    expect(out[0].url.startsWith("/ngu-truong?bao=gdacs-wutip&cap=watch&muc=2&lat=15.00&lon=112.00&t=")).toBe(true);
   });
   it("đã gửi rồi, không đổi gì → im", () => {
     const s = bao();
@@ -161,14 +164,32 @@ describe("decideStormPushes", () => {
     const so = [daGui(w, NGAY - 20 * 3600_000), daGui(d, NGAY - 3600_000)];
     expect(decideStormPushes([d], so, NGAY)).toEqual([]);
   });
-  it("GIỜ KHUYA: watch chờ, danger vẫn đi", () => {
-    const w = bao({ id: "1", alert: "watch" });
-    const d = bao({ id: "2", alert: "danger" });
+  it("KHÔNG CÓ GIỜ KHUYA: 23:30 watch lẫn danger đều đi", () => {
+    const w = bao({ id: "1", name: "A", alert: "watch", lat: 8, lon: 105 });
+    const d = bao({ id: "2", name: "B", alert: "danger", lat: 18, lon: 118 });
     const out = decideStormPushes([w, d], [], KHUYA);
-    expect(out.map((p) => p.key)).toEqual(["2"]);
-    // sáng ra (5h) watch chưa từng ghi ⇒ vẫn là MỚI ⇒ tự đi
-    const sang = Date.UTC(2026, 7, 18, 22, 5); // 05:05 VN
-    expect(decideStormPushes([w], [], sang).map((p) => p.key)).toEqual(["1"]);
+    expect(out.map((p) => p.key).sort()).toEqual(["gdacs-a", "gdacs-b"]);
+  });
+  it("NỐI CƠN theo vị trí: ATNĐ không tên đã gửi → 6h sau thành 'bão số 3' cách 120 km = LÊN CẤP, giữ khoá cũ", () => {
+    const atnd = bao({ id: "nchmf-1", name: "", kindLabel: "Áp thấp nhiệt đới", lat: 15, lon: 112,
+      updated: new Date(NGAY - 6 * 3600_000).toISOString() });
+    const bao3 = bao({ id: "nchmf-2", name: "số 3", kindLabel: "Bão", lat: 15.8, lon: 111.2 });
+    const out = decideStormPushes([bao3], [daGui(atnd, NGAY - 6 * 3600_000)], NGAY);
+    expect(out.map((p) => p.reason)).toEqual(["len-cap"]);
+    expect(out[0].key).toBe(stormKey(atnd, Date.parse(atnd.updated)));
+    expect(out[0].tag).toBe(`bao-${out[0].key}`);
+  });
+  it("NỐI CƠN đổi nguồn: tin VN đã gửi, lượt sau VN hỏng chỉ còn GDACS cùng chỗ → KHÔNG phải bão mới", () => {
+    const vn = bao({ id: "nchmf-1", name: "số 3", lat: 15, lon: 112 });
+    const gd = bao({ id: "1001234", name: "WUTIP", lat: 15.3, lon: 112.4 });
+    expect(decideStormPushes([gd], [daGui(vn, NGAY - 3600_000)], NGAY)).toEqual([]);
+  });
+  it("hai áp thấp không tên cách 1.000 km trong cùng ngày = HAI cơn, hai push", () => {
+    const a = bao({ id: "nchmf-1", name: "", lat: 18, lon: 118 });
+    const b = bao({ id: "nchmf-2", name: "", lat: 8, lon: 106 });
+    expect(decideStormPushes([a, b], [], NGAY)).toHaveLength(2);
+    // đã gửi a; b xuất hiện sau — vẫn là mới
+    expect(decideStormPushes([b], [daGui(a, NGAY - 3600_000)], NGAY).map((p) => p.reason)).toEqual(["moi"]);
   });
   it("hai bản tin NCHMF cùng cơn trong một lượt → chỉ một push", () => {
     const a = bao({ id: "nchmf-100", name: "số 3" });
@@ -180,7 +201,7 @@ describe("decideStormPushes", () => {
     const so: SentStormRecord[] = [
       { url: null, created_at: "x" },
       { url: "/tau", created_at: new Date(NGAY).toISOString() },
-      { url: stormPushUrl("1001234", { alert: 0, kind: 2 }), created_at: "không phải giờ" },
+      { url: stormPushUrl("gdacs-wutip", { alert: 0, kind: 2 }), created_at: "không phải giờ" },
     ];
     expect(decideStormPushes([s], so, NGAY).map((p) => p.reason)).toEqual(["moi"]);
   });
