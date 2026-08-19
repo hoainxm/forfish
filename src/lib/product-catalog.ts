@@ -14,6 +14,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { timeoutSignal } from "@/lib/abort";
+import { isCatalogGroup, type CatalogGroupId } from "@/lib/catalog-groups";
 
 export type VendorKind = "sdvico" | "external";
 
@@ -32,6 +33,14 @@ export interface ProductListing {
   contactNote?: string;
   /** Nối nhóm SKU CRM để nhận diện "đang dùng" — chỉ áp dụng sdvico */
   line?: string;
+  /** Nhóm Cửa hàng: điện tử / cơ điện / nhu yếu phẩm (0032). null = chưa gán. */
+  group?: CatalogGroupId;
+  /** Giá số VND — cần để đặt hàng. undefined = chưa niêm yết (chỉ hỏi mua). */
+  priceVnd?: number;
+  /** Đơn vị bán (kg, lít, thùng, cái…) — bắt buộc khi orderable. */
+  unit?: string;
+  /** Có nút "Thêm vào giỏ" hay không (0032). Mặc định false cho dòng cũ. */
+  orderable: boolean;
   visible: boolean;
   sortOrder: number;
   createdAt: string;
@@ -50,6 +59,10 @@ export interface ProductDraft {
   contactPhone?: string;
   contactNote?: string;
   line?: string;
+  group?: CatalogGroupId;
+  priceVnd?: number;
+  unit?: string;
+  orderable: boolean;
   visible: boolean;
 }
 
@@ -64,6 +77,14 @@ export function validateProductDraft(d: ProductDraft): string | null {
     if (!d.vendorName?.trim()) return "Nhập tên đơn vị (sản phẩm ngoài SDWork).";
     if (!d.contactPhone?.trim() && !d.contactNote?.trim())
       return "Nhập SĐT hoặc ghi chú liên hệ để bà con biết hỏi ai.";
+  }
+  // Cho đặt hàng ⇒ phải có giá số > 0 + đơn vị + nhóm (server tính tổng, gom nhóm).
+  if (d.orderable) {
+    if (d.priceVnd == null || !Number.isFinite(d.priceVnd) || d.priceVnd <= 0)
+      return "Cho đặt hàng thì phải nhập giá (VND) lớn hơn 0.";
+    if (!d.unit?.trim()) return "Nhập đơn vị bán (kg, lít, thùng, cái…).";
+    if (!isCatalogGroup(d.group))
+      return "Chọn nhóm hàng (điện tử / cơ điện / nhu yếu phẩm).";
   }
   return null;
 }
@@ -81,6 +102,10 @@ type Row = {
   contact_phone: string | null;
   contact_note: string | null;
   line: string | null;
+  group: string | null;
+  price_vnd: number | null;
+  unit: string | null;
+  orderable: boolean | null;
   visible: boolean;
   sort_order: number;
   created_at: string;
@@ -106,6 +131,10 @@ export function rowToListing(r: Row): ProductListing {
     contactPhone: r.contact_phone ?? undefined,
     contactNote: r.contact_note ?? undefined,
     line: r.line ?? undefined,
+    group: isCatalogGroup(r.group) ? r.group : undefined,
+    priceVnd: typeof r.price_vnd === "number" ? r.price_vnd : undefined,
+    unit: r.unit ?? undefined,
+    orderable: r.orderable === true,
     visible: r.visible,
     sortOrder: r.sort_order,
     createdAt: r.created_at,
@@ -129,7 +158,7 @@ export async function fetchProductListings(): Promise<ProductListing[] | null> {
   let q = supabase
     .from(TABLE)
     .select(
-      "id,vendor_kind,vendor_name,title,category,description,features,price_text,image_url,contact_phone,contact_note,line,visible,sort_order,created_at",
+      "id,vendor_kind,vendor_name,title,category,description,features,price_text,image_url,contact_phone,contact_note,line,group,price_vnd,unit,orderable,visible,sort_order,created_at",
     )
     .eq("visible", true)
     .order("sort_order", { ascending: true })
@@ -138,5 +167,64 @@ export async function fetchProductListings(): Promise<ProductListing[] | null> {
   if (sig) q = q.abortSignal(sig);
   const { data, error } = await q;
   if (error || !data) return null;
-  return (data as Row[]).map(rowToListing);
+  const listings = (data as Row[]).map(rowToListing);
+  saveCachedCatalog(listings);
+  return listings;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BẢN LƯU DANH MỤC TRONG MÁY (2026-08-18, chủ dự án chốt)
+   ══════════════════════════════════════════════════════════════════════════
+
+   *"Cửa hàng nó ít đổi món và đơn, nên cứ xem bình thường, online lại thì tự
+   động tải mới."*
+
+   Đúng: danh mục đổi khi admin thêm/ẩn món — vài lần một tháng, không phải vài
+   phút. Trước bản này mất sóng là `fetchProductListings` trả `null` ⇒ màn rơi
+   về `SDVICO_SHOWCASE` tĩnh (mọi món `orderable: false`) ⇒ **nút giỏ ẩn, không
+   thấy giá, giỏ đã soạn thành vô hình**. Nay giữ bản đã tải và xem bình thường;
+   sóng về thì `fetchProductListings` tự ghi bản mới lên (nghe `online` ở
+   `sdvico-catalog.tsx`).
+
+   ⚠️ VÌ SAO ĐƯỢC LƯU Ở ĐÂY dù ADR 0004 nói khu ở-bờ không cache: cỡ dữ liệu.
+   Danh mục ~200 món ≈ vài chục KB — không đáng kể so với hạn ngạch dùng chung
+   theo origin (gói dự báo 16 ngày ~4 MB). Luật vẫn giữ nguyên tinh thần: KHÔNG
+   lưu thứ NẶNG và KHÔNG lưu thứ đổi từng giờ.
+
+   Ghi kiểu "hết chỗ thì thôi" (KHÔNG qua `saveUserJson`): dữ liệu này tải lại
+   được, không được phép đẩy dự báo ra để lấy chỗ. Không có PII nên không cần
+   ngăn theo SĐT — giá và tên món ai xem cũng như nhau. */
+
+export const CATALOG_CACHE_KEY = "forfish.catalog.v1";
+
+type CatalogCache = { savedAt: number; items: ProductListing[] };
+
+/** Bản danh mục đã tải gần nhất + mốc lưu. `null` = chưa có/đọc không được. */
+export function loadCachedCatalog(): CatalogCache | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(CATALOG_CACHE_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as CatalogCache;
+    if (!v || typeof v.savedAt !== "number" || !Array.isArray(v.items)) return null;
+    // lọc tối thiểu: món phải còn hình dạng dùng được (id + title)
+    const items = v.items.filter(
+      (p): p is ProductListing =>
+        !!p && typeof p.id === "string" && typeof p.title === "string",
+    );
+    return items.length > 0 ? { savedAt: v.savedAt, items } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ghi bản danh mục vừa tải. Nuốt lỗi — hết chỗ thì thôi, không báo đỏ. */
+export function saveCachedCatalog(items: ProductListing[]): void {
+  if (typeof window === "undefined" || items.length === 0) return;
+  try {
+    const payload: CatalogCache = { savedAt: Date.now(), items };
+    window.localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    /* máy hết chỗ / bị chặn — danh mục tải lại được, không phải dữ liệu sống-còn */
+  }
 }

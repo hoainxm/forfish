@@ -2,15 +2,18 @@
 
 // TIN MUA/BÁN (nhánh 2 khu GIAO DỊCH, user chốt 2026-07-27) — chủ tàu tự ĐĂNG
 // tin bán (có cá cần bán) và tin mua (cần mua gì), cả làng cùng xem để gọi
-// thẳng nhau. Ghi thật vào Supabase `market_listings` (RLS owner-write). Chưa
-// có tin thật / chưa cấu hình máy chủ → hiện EMPTY STATE (2026-07-29: bỏ TIN
-// MẪU, app đã lên thật); muốn đăng thì đăng nhập.
+// thẳng nhau. Đi qua route server `/api/market-listings` (chuỗi cứng, xem
+// lib/market-listings.ts). Chưa có tin thật / chưa cấu hình máy chủ → hiện
+// EMPTY STATE (2026-07-29: bỏ TIN MẪU, app đã lên thật); muốn đăng thì đăng
+// nhập. MẤT SÓNG thì nói thật "chưa tải được" và GIỮ danh sách đang hiện,
+// KHÔNG đội lốt "chợ chưa ai đăng" (2026-08-16, thẩm định P0).
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ChipRow } from "@/components/ui/chip-row";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { StatusBanner } from "@/components/ui/status-banner";
 import {
   CallButton,
   Card,
@@ -23,6 +26,7 @@ import {
 import { CheckIcon, PlusIcon, TrashIcon, UsersIcon } from "@/components/icons";
 import { useAuthUser } from "@/lib/use-auth";
 import { formatVnDate } from "@/lib/format";
+import { useOnline } from "@/lib/use-online";
 import {
   POSTER_KIND_LABEL,
   SIDE_LABEL,
@@ -49,15 +53,35 @@ export function MarketBoard() {
       nên `user` null vĩnh viễn — hỏi nó là khoá nút đăng tin của ĐÚNG những
       người đang đăng nhập (sửa 2026-08-02h). */
   const { signedIn, ready } = useAuthUser();
+  const online = useOnline();
   const [filter, setFilter] = useState<Filter>("all");
   const [real, setReal] = useState<MarketListing[] | null>(null);
   const [loading, setLoading] = useState(true);
+  /** chưa tải được vì SÓNG (khác hẳn "chợ chưa có tin nào") */
+  const [netFailed, setNetFailed] = useState(false);
+  /** nút vừa bấm không ăn — phải nói, không im (2026-08-16) */
+  const [actionErr, setActionErr] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDel, setConfirmDel] = useState<MarketListing | null>(null);
+  /** tin đang xoá — thẻ đó khoá nút + "Đang xoá…" (audit G8) */
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    setReal(await fetchListings());
+    const r = await fetchListings();
+    if (r.ok) {
+      setReal(r.listings);
+      setNetFailed(false);
+    } else {
+      /*  GIỮ NGUYÊN DANH SÁCH ĐANG HIỆN khi mất sóng (2026-08-16). Bản cũ
+          `setReal(null)` ⇒ rơi về `useDemo` ⇒ tin thật của bà con BIẾN MẤT khỏi
+          màn hình, thay bằng tin mẫu — sau một cú bấm "Đã xong" hụt thì trông
+          y như app vừa xoá mất tin của mình. */
+      setNetFailed(r.reason === "mang");
+      // chưa đăng nhập / chưa nối máy chủ → xem TIN MẪU (đúng hành vi cũ);
+      // KHÔNG phải lỗi mạng nên không hiện dải "đang mất sóng".
+      if (r.reason !== "mang") setReal(null);
+    }
     setLoading(false);
   }, []);
 
@@ -65,9 +89,25 @@ export function MarketBoard() {
     void refresh();
   }, [refresh, signedIn]);
 
+  /*  CÓ SÓNG LẠI THÌ TỰ TẢI LẠI (2026-08-17, chủ dự án: "có mạng thì tự chạy
+      tự đồng bộ lại chứ yêu cầu gì"). Trước đây mất sóng là màn đứng ở câu lỗi
+      cho tới khi bà con TỰ bấm Thử lại — mà tay ướt, nắng chói, ai ngồi bấm
+      lại. Khuôn lấy từ `inbox-section.tsx`. Chỉ chạy khi màn này đang mở
+      (effect gắn theo component) và bỏ qua nếu đang tải (chống chạy chồng lúc
+      sóng nhấp nháy ven bờ). ADR 0004 bất biến 6. */
+  useEffect(() => {
+    const onOnline = () => {
+      if (!loading) void refresh();
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [refresh, loading]);
+
   // App đã lên thật (2026-07-29): KHÔNG còn TIN MẪU — chợ rỗng thì hiện empty
-  // state, tin thật hiện khi bà con đăng. real=null (chưa cấu hình/ lỗi) coi rỗng.
+  // state, tin thật hiện khi bà con đăng. real=null (chưa cấu hình / lỗi) coi
+  // như rỗng; mất sóng thì `netFailed` lo phần báo, danh sách cũ giữ nguyên.
   const source = real ?? [];
+  // server đã lọc "đang mở + tin của mình"; ở đây chỉ còn lọc theo chip
   const listings = source.filter(
     (l) =>
       (filter === "all" || l.side === filter) &&
@@ -81,16 +121,41 @@ export function MarketBoard() {
         đỡ bị ép giá. Đầu nậu, vựa, nhà máy cũng đăng tin cần mua ở đây.
       </RefNote>
 
+      {/* MẤT SÓNG NÓI THẬT — trước đây ca này im lặng đổi sang tin mẫu, bà con
+          tưởng chợ vắng hoặc tưởng tin mình vừa biến mất. */}
+      {netFailed && (
+        <div className="mt-3 overflow-hidden rounded-2xl">
+          <StatusBanner level="warn">
+            Chưa tải được tin mới — máy đang không có sóng.{" "}
+            {real && real.length > 0
+              ? "Bên dưới là danh sách lần tải gần nhất."
+              : "Bà con thử lại lúc có sóng nhé."}
+          </StatusBanner>
+        </div>
+      )}
+
+      {/* Nút vừa bấm không ăn (mất sóng / hết quyền) — nói ngay tại chỗ */}
+      {actionErr && (
+        <p
+          role="alert"
+          className="mt-3 rounded-2xl px-3.5 py-3 text-[1rem] font-semibold"
+          style={{ color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
+        >
+          {actionErr}
+        </p>
+      )}
+
       <div className="my-3">
         {ready && signedIn ? (
           <PrimaryButton onClick={() => setShowForm(true)}>
             <PlusIcon className="h-6 w-6" />
             Đăng tin mua/bán
           </PrimaryButton>
-        ) : ready ? (
+        ) : ready && online ? (
+          /* lời mời đăng nhập ẨN khi mất sóng — /login cần sóng (tầng 5, 2026-08-18) */
           <Link
             href="/login"
-            className="display flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+            className="display flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
           >
             <PlusIcon className="h-6 w-6" />
             Đăng nhập để đăng tin
@@ -109,7 +174,9 @@ export function MarketBoard() {
         />
       </div>
 
-      {!loading && listings.length === 0 && (
+      {/* MẤT SÓNG mà chưa có bản nào → CHỈ băng vàng ở trên, KHÔNG mời "đăng tin
+          đầu tiên" (audit 2026-08-18 G8: hai câu trái nhau cùng màn) */}
+      {!loading && listings.length === 0 && !netFailed && (
         <EmptyState icon={<UsersIcon className="h-9 w-9" />}>
           Chưa có tin nào ở mục này. Bà con đăng tin đầu tiên đi.
         </EmptyState>
@@ -118,7 +185,13 @@ export function MarketBoard() {
       <ul className="space-y-3">
         {listings.map((l) => (
           <li key={l.id}>
-            <ListingCard listing={l} onDelete={() => setConfirmDel(l)} onChanged={refresh} />
+            <ListingCard
+              listing={l}
+              deleting={deletingId === l.id}
+              onDelete={() => setConfirmDel(l)}
+              onChanged={refresh}
+              onFailed={setActionErr}
+            />
           </li>
         ))}
       </ul>
@@ -140,9 +213,18 @@ export function MarketBoard() {
           message={`Tin “${confirmDel.species}” sẽ bị gỡ khỏi chợ.`}
           onCancel={() => setConfirmDel(null)}
           onConfirm={async () => {
-            await deleteListing(confirmDel.id);
-            setConfirmDel(null);
-            void refresh();
+            /*  ĐỌC KẾT QUẢ (2026-08-16): bản cũ `await deleteListing(...)` rồi
+                vứt boolean — mất sóng thì hộp thoại đóng, tin còn nguyên, không
+                một câu nào. Đúng khuôn "nút bấm không được gì". */
+            const id = confirmDel.id;
+            setConfirmDel(null); // hộp thoại đã tự đóng — thẻ tin nói "Đang xoá…"
+            setDeletingId(id);
+            const xong = await deleteListing(id);
+            setDeletingId(null);
+            setActionErr(
+              xong ? null : "Chưa xoá được tin — cần có mạng, thử lại khi có sóng.",
+            );
+            if (xong) void refresh();
           }}
         />
       )}
@@ -152,14 +234,24 @@ export function MarketBoard() {
 
 function ListingCard({
   listing: l,
+  deleting,
   onDelete,
   onChanged,
+  onFailed,
 }: {
   listing: MarketListing;
+  /** đang xoá tin này (cha giữ, vì hộp xác nhận đóng trước khi máy chủ trả lời) */
+  deleting: boolean;
   onDelete: () => void;
   onChanged: () => void;
+  /** đổi trạng thái không ăn → đưa câu báo lên khối chung của màn */
+  onFailed: (msg: string | null) => void;
 }) {
   const sell = l.side === "ban";
+  /** đang gửi đổi trạng thái — khoá nút, nói "Đang gửi…" (audit G8: trước đây
+   *  bấm được liên tiếp suốt 20 giây chờ) */
+  const [pending, setPending] = useState(false);
+  const busy = pending || deleting;
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-2">
@@ -213,30 +305,45 @@ function ListingCard({
         </p>
         {l.phone ? (
           <CallButton phone={l.phone} label={sell ? "Gọi hỏi mua" : "Gọi chào bán"} />
-        ) : (
-          <span className="shrink-0 text-[0.8125rem] font-semibold text-foreground/65">
-            Tin thật sẽ có nút gọi thẳng
-          </span>
-        )}
+        ) : null}
       </div>
 
       {l.mine && (
         <div className="mt-2 flex gap-4 border-t border-line pt-2">
           <button
+            type="button"
+            disabled={busy}
             onClick={async () => {
-              await setListingStatus(l.id, l.status === "open" ? "closed" : "open");
-              onChanged();
+              // ĐỌC KẾT QUẢ (2026-08-16) — xem ghi chú ở nút Xoá.
+              setPending(true);
+              const xong = await setListingStatus(
+                l.id,
+                l.status === "open" ? "closed" : "open",
+              );
+              setPending(false);
+              onFailed(
+                xong
+                  ? null
+                  : "Chưa đổi được trạng thái tin — cần có mạng, thử lại khi có sóng.",
+              );
+              if (xong) onChanged();
             }}
-            className="flex items-center gap-1.5 text-[0.9375rem] font-bold text-sea"
+            className="flex min-h-[2.75rem] items-center gap-1.5 text-[0.9375rem] font-bold text-sea disabled:opacity-50"
           >
             <CheckIcon className="h-4 w-4" />
-            {l.status === "open" ? "Đánh dấu đã xong" : "Mở lại tin"}
+            {pending
+              ? "Đang gửi…"
+              : l.status === "open"
+                ? "Đánh dấu đã xong"
+                : "Mở lại tin"}
           </button>
           <button
+            type="button"
+            disabled={busy}
             onClick={onDelete}
-            className="flex items-center gap-1.5 text-[0.9375rem] font-bold text-danger"
+            className="flex min-h-[2.75rem] items-center gap-1.5 text-[0.9375rem] font-bold text-danger disabled:opacity-50"
           >
-            <TrashIcon className="h-4 w-4" /> Xóa
+            <TrashIcon className="h-4 w-4" /> {deleting ? "Đang xoá…" : "Xóa"}
           </button>
         </div>
       )}

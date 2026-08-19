@@ -82,11 +82,25 @@ import {
 } from "@/lib/admin-activity";
 import { timeoutSignal } from "@/lib/abort";
 import { tokenHeader } from "@/lib/device-token-store";
+import { formatVnd, formatVnDate } from "@/lib/format";
+import {
+  canTransition,
+  ORDER_STATUS_LABELS,
+  type CatalogOrder,
+  type OrderStatus,
+} from "@/lib/catalog-orders";
+import {
+  CATALOG_GROUPS,
+  GROUP_LABELS,
+  groupLabel,
+  type CatalogGroupId,
+} from "@/lib/catalog-groups";
 
 type Tab =
   | "tai-khoan"
   | "canh-bao"
   | "san-pham"
+  | "don-hang"
   | "yeu-cau"
   | "vung-bien"
   | "cho-ban"
@@ -323,6 +337,7 @@ export default function QuanTriPage() {
         ["tai-khoan", "Tài khoản"],
         ["canh-bao", "Thuyền viên"],
         ["san-pham", "Sản phẩm"],
+        ["don-hang", "Đơn hàng"],
         ["yeu-cau", "Yêu cầu"],
         ["vung-bien", "Vùng biển"],
         ["cho-ban", "Chỗ bán"],
@@ -402,6 +417,9 @@ export default function QuanTriPage() {
       )}
       {activeTab === "san-pham" && (
         <ProductsTab perms={permsFor(me, "san-pham")} />
+      )}
+      {activeTab === "don-hang" && (
+        <OrdersTab perms={permsFor(me, "don-hang")} />
       )}
       {activeTab === "yeu-cau" && isAdmin && <InquiriesTab />}
       {activeTab === "vung-bien" && isAdmin && <VmsZonesTab />}
@@ -2447,6 +2465,10 @@ type ProductRow = {
   contactPhone: string | null;
   contactNote: string | null;
   line: string | null;
+  group: string | null;
+  priceVnd: number | null;
+  unit: string | null;
+  orderable: boolean;
   visible: boolean;
   sortOrder: number;
   createdBy: string | null;
@@ -2573,6 +2595,11 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
                 <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
                   {row.category ?? "Chưa gắn loại"} ·{" "}
                   {row.visible ? "đang hiện" : "ĐANG ẨN"}
+                  {row.orderable &&
+                    row.priceVnd != null &&
+                    ` · cho đặt ${groupLabel(row.group)} · ${formatVnd(row.priceVnd)}${
+                      row.unit ? `/${row.unit}` : ""
+                    }`}
                   {row.createdBy && ` · sửa gần nhất bởi ${row.createdBy}`}
                 </p>
               </div>
@@ -2677,11 +2704,38 @@ function ProductForm({
     initial?.contactPhone ?? "",
   );
   const [contactNote, setContactNote] = useState(initial?.contactNote ?? "");
+  // ── ĐẶT HÀNG (0032) — cho đặt / nhóm / giá số / đơn vị ─────────────────────
+  const [orderable, setOrderable] = useState(initial?.orderable ?? false);
+  const [group, setGroup] = useState<CatalogGroupId | "">(
+    initial?.group && (CATALOG_GROUPS as readonly string[]).includes(initial.group)
+      ? (initial.group as CatalogGroupId)
+      : "",
+  );
+  const [priceVnd, setPriceVnd] = useState(
+    initial?.priceVnd != null ? String(initial.priceVnd) : "",
+  );
+  const [unit, setUnit] = useState(initial?.unit ?? "");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    // Kiểm nhẹ phía UI khi bật "Cho đặt hàng" (server còn chốt lại lần nữa).
+    const priceNum = parseInt(priceVnd.replace(/\D/g, ""), 10) || 0;
+    if (orderable) {
+      if (priceNum <= 0) {
+        setMsg("Cho đặt hàng thì phải nhập giá (VND) lớn hơn 0.");
+        return;
+      }
+      if (!unit.trim()) {
+        setMsg("Nhập đơn vị bán (kg, lít, thùng, cái…).");
+        return;
+      }
+      if (!group) {
+        setMsg("Chọn nhóm hàng (điện tử / cơ điện / nhu yếu phẩm).");
+        return;
+      }
+    }
     setBusy(true);
     setMsg(null);
     const body = {
@@ -2699,6 +2753,10 @@ function ProductForm({
       imageUrl: imageUrl.trim() || undefined,
       contactPhone: contactPhone.trim() || undefined,
       contactNote: contactNote.trim() || undefined,
+      orderable,
+      group: group || undefined,
+      priceVnd: orderable ? priceNum : undefined,
+      unit: orderable ? unit.trim() || undefined : undefined,
       visible: initial?.visible ?? true,
     };
     const r = await fetch(apiUrl("/api/admin/products"), {
@@ -2826,6 +2884,80 @@ function ProductForm({
           </div>
         )}
 
+        {/* ── CHO ĐẶT HÀNG (0032) ─────────────────────────────────────────── */}
+        <div className="rounded-xl bg-field/60 px-3 py-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={orderable}
+            onClick={() => setOrderable((v) => !v)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <span className="min-w-0">
+              <span className="block text-[0.9375rem] font-bold text-navy">
+                Cho đặt hàng
+              </span>
+              <span className="block text-[0.8125rem] leading-snug text-foreground/60">
+                Hiện nút &ldquo;Thêm vào giỏ&rdquo; cho bà con — cần nhóm, giá số và đơn vị.
+              </span>
+            </span>
+            <span
+              className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition ${
+                orderable ? "bg-trim" : "bg-line"
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                  orderable ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </span>
+          </button>
+
+          {orderable && (
+            <div className="mt-3 space-y-2.5">
+              <div
+                className="grid grid-cols-3 gap-1.5"
+                role="group"
+                aria-label="Nhóm hàng"
+              >
+                {CATALOG_GROUPS.map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setGroup(g)}
+                    aria-pressed={group === g}
+                    className={`min-h-[2.75rem] rounded-xl px-2 text-[0.8125rem] font-bold transition ${
+                      group === g
+                        ? "bg-navy text-white shadow-sm"
+                        : "bg-field text-foreground/70"
+                    }`}
+                  >
+                    {GROUP_LABELS[g]}
+                  </button>
+                ))}
+              </div>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <input
+                  inputMode="numeric"
+                  placeholder="Giá (VND) — VD: 250000"
+                  value={priceVnd}
+                  onChange={(e) =>
+                    setPriceVnd(e.target.value.replace(/\D/g, "").slice(0, 12))
+                  }
+                  className={field}
+                />
+                <input
+                  placeholder="Đơn vị (kg, lít, thùng, cái…)"
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                  className={field}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-2.5">
           <button
             type="button"
@@ -2849,6 +2981,335 @@ function ProductForm({
         )}
       </form>
     </div>
+  );
+}
+
+/* ── ĐƠN HÀNG (NCC/ADMIN xử lý đơn đặt của chủ tàu) ───────────────────────
+   Danh sách đơn từ bảng catalog_orders (API /api/admin/orders). Lọc theo trạng
+   thái, đổi trạng thái theo bảng chuyển hợp lệ (canTransition — server chốt
+   lại), ghi chú NCC. Đổi trạng thái tự báo push cho chủ tàu (ở route). Khuôn
+   theo InquiriesTab: danh sách + đổi trạng thái + ghi chú xử lý. */
+
+type OrderStatusFilter = OrderStatus | "all";
+
+const ORDER_BADGE: Record<OrderStatus, string> = {
+  moi: "bg-warn-bg text-warn",
+  da_nhan: "bg-sea/15 text-sea",
+  dang_giao: "bg-t3/15 text-t3",
+  da_giao: "bg-ok-bg text-ok",
+  da_huy: "bg-danger-bg text-danger",
+};
+
+/** Các bước chuyển tiến (không tính Huỷ) kèm nhãn nút cho từng đích. */
+const ORDER_STEP_ACTIONS: { to: OrderStatus; label: string }[] = [
+  { to: "da_nhan", label: "Nhận đơn" },
+  { to: "dang_giao", label: "Bắt đầu giao" },
+  { to: "da_giao", label: "Đã giao xong" },
+];
+
+/** Mã ngắn dễ đọc cho NCC (6 ký tự cuối id, viết hoa). */
+const shortCode = (id: string): string =>
+  id.replace(/-/g, "").slice(-6).toUpperCase();
+
+function OrdersTab({ perms }: { perms: TabPerms }) {
+  const [status, setStatus] = useState<OrderStatusFilter>("moi");
+  const [orders, setOrders] = useState<CatalogOrder[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [toCancel, setToCancel] = useState<CatalogOrder | null>(null);
+
+  const load = useCallback(() => {
+    setError(null);
+    setOrders(null);
+    const qs = status === "all" ? "" : `?status=${status}`;
+    fetch(apiUrl(`/api/admin/orders${qs}`))
+      .then(async (r) => {
+        const j = (await r.json()) as {
+          ok: boolean;
+          code?: string;
+          orders?: CatalogOrder[];
+        };
+        if (!j.ok) throw new Error(j.code ?? "load");
+        setOrders(j.orders ?? []);
+      })
+      .catch((e: Error) =>
+        setError(
+          e.message === "not_configured"
+            ? "Chưa cấu hình Supabase/service-role — đơn hàng cần DB thật."
+            : "Chưa tải được đơn hàng — thử lại.",
+        ),
+      );
+  }, [status]);
+  useEffect(load, [load]);
+
+  async function changeStatus(order: CatalogOrder, next: OrderStatus) {
+    setBusyId(order.id);
+    const r = await fetch(apiUrl(`/api/admin/orders/${encodeURIComponent(order.id)}`), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: next }),
+    }).catch(() => null);
+    const j = (await r?.json().catch(() => null)) as {
+      ok?: boolean;
+      code?: string;
+    } | null;
+    setBusyId(null);
+    if (!r?.ok || !j?.ok) {
+      setError(
+        j?.code === "bad_transition"
+          ? "Bước chuyển không hợp lệ — tải lại để xem trạng thái mới nhất."
+          : "Đổi trạng thái chưa được — thử lại.",
+      );
+      return;
+    }
+    load();
+  }
+
+  async function saveNote(order: CatalogOrder, note: string) {
+    setBusyId(order.id);
+    const r = await fetch(apiUrl(`/api/admin/orders/${encodeURIComponent(order.id)}`), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ dealerNote: note }),
+    }).catch(() => null);
+    const j = (await r?.json().catch(() => null)) as { ok?: boolean } | null;
+    setBusyId(null);
+    if (!r?.ok || !j?.ok) {
+      setError("Lưu ghi chú chưa được — thử lại.");
+      return;
+    }
+    load();
+  }
+
+  const chip = (id: OrderStatusFilter, label: string) => (
+    <button
+      key={id}
+      type="button"
+      onClick={() => setStatus(id)}
+      aria-pressed={status === id}
+      className={`min-h-[2.5rem] shrink-0 rounded-full px-4 text-[0.875rem] font-bold transition ${
+        status === id ? "bg-navy text-white" : "bg-field text-foreground/70"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="mt-4 space-y-4">
+      <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
+        Đơn đặt hàng bà con gửi từ <b>Cửa hàng</b> trong app. Nhận đơn → chuẩn bị
+        → giao. Mỗi lần đổi trạng thái, app sẽ <b>tự báo cho chủ tàu</b>. Giá và
+        dòng hàng đã chốt lúc đặt, không đổi ở đây.
+      </p>
+
+      <div className="flex flex-wrap gap-1.5">
+        {chip("all", "Tất cả")}
+        {chip("moi", "Mới")}
+        {chip("da_nhan", "Đã nhận")}
+        {chip("dang_giao", "Đang giao")}
+        {chip("da_giao", "Đã giao")}
+        {chip("da_huy", "Đã huỷ")}
+      </div>
+
+      {error && (
+        <div className="surface px-4 py-6 text-center">
+          <p className="text-[1rem] text-danger">{error}</p>
+          <button
+            type="button"
+            onClick={load}
+            className="mt-3 min-h-[2.75rem] rounded-xl bg-navy px-6 text-[0.9375rem] font-bold text-white"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+      {!orders && !error && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Đang tải đơn hàng…
+        </p>
+      )}
+      {orders && orders.length === 0 && (
+        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
+          Không có đơn nào ở mục này.
+        </p>
+      )}
+
+      {orders && orders.length > 0 && (
+        <ul className="space-y-3">
+          {orders.map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              perms={perms}
+              busy={busyId === order.id}
+              onChangeStatus={changeStatus}
+              onSaveNote={saveNote}
+              onRequestCancel={() => setToCancel(order)}
+            />
+          ))}
+        </ul>
+      )}
+
+      {toCancel && (
+        <ConfirmDialog
+          title={`Huỷ đơn ${shortCode(toCancel.id)}?`}
+          message="Đơn sẽ chuyển sang Đã huỷ và app báo cho chủ tàu. Không quay lại được."
+          confirmLabel="Huỷ đơn"
+          cancelLabel="Không"
+          danger
+          onCancel={() => setToCancel(null)}
+          onConfirm={() => {
+            const o = toCancel;
+            setToCancel(null);
+            changeStatus(o, "da_huy");
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function OrderCard({
+  order,
+  perms,
+  busy,
+  onChangeStatus,
+  onSaveNote,
+  onRequestCancel,
+}: {
+  order: CatalogOrder;
+  perms: TabPerms;
+  busy: boolean;
+  onChangeStatus: (o: CatalogOrder, next: OrderStatus) => void;
+  onSaveNote: (o: CatalogOrder, note: string) => void;
+  onRequestCancel: () => void;
+}) {
+  const [note, setNote] = useState(order.dealerNote ?? "");
+  const steps = ORDER_STEP_ACTIONS.filter((a) =>
+    canTransition(order.status, a.to),
+  );
+  const canCancel = perms.edit && canTransition(order.status, "da_huy");
+  const noteDirty = note.trim() !== (order.dealerNote ?? "").trim();
+
+  return (
+    <li className="surface overflow-hidden">
+      <div className="flex items-start justify-between gap-3 px-4 pt-3">
+        <div className="min-w-0">
+          <p className="text-[1rem] font-bold text-navy">
+            Đơn {shortCode(order.id)}
+            {order.boatName ? ` · ${order.boatName}` : ""}
+          </p>
+          <p className="mt-0.5 text-[0.8125rem] tabular-nums text-foreground/70">
+            SĐT {order.contactPhone}
+            {order.contactName ? ` · ${order.contactName}` : ""}
+          </p>
+        </div>
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-1 text-[0.75rem] font-bold ${
+            ORDER_BADGE[order.status]
+          }`}
+        >
+          {ORDER_STATUS_LABELS[order.status]}
+        </span>
+      </div>
+
+      <p className="px-4 pt-1 text-[0.8125rem] text-foreground/55">
+        đặt {formatVnDate(order.createdAt.slice(0, 10))}
+        {order.deliveryLocation ? ` · giao tại ${order.deliveryLocation}` : ""}
+      </p>
+
+      <ul className="mt-2 border-t border-line">
+        {order.items.map((line, i) => (
+          <li
+            key={`${line.listingId}-${i}`}
+            className="flex items-baseline justify-between gap-3 px-4 py-1.5 text-[0.875rem]"
+          >
+            <span className="min-w-0 text-foreground/85">
+              {line.title}{" "}
+              <span className="text-foreground/55">
+                ×{line.qty} {line.unit} @ {formatVnd(line.priceVnd)}
+              </span>
+            </span>
+            <span className="shrink-0 font-semibold tabular-nums text-navy">
+              {formatVnd(line.lineTotalVnd)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className="flex items-baseline justify-between gap-3 border-t border-line px-4 py-2">
+        <span className="text-[0.875rem] font-bold text-foreground/70">Tổng</span>
+        <span className="text-[1.0625rem] font-bold tabular-nums text-navy">
+          {formatVnd(order.totalVnd)}
+        </span>
+      </div>
+
+      {order.note && (
+        <p className="border-t border-line px-4 py-2 text-[0.875rem] leading-snug text-foreground/80">
+          <span className="font-semibold text-foreground/60">Ghi chú chủ tàu: </span>
+          {order.note}
+        </p>
+      )}
+
+      {order.handledBy && (
+        <p className="px-4 pt-2 text-[0.8125rem] text-foreground/55">
+          xử lý bởi {order.handledBy}
+          {order.handledAt ? ` · ${fmtDT(order.handledAt)}` : ""}
+        </p>
+      )}
+
+      {perms.edit ? (
+        <div className="border-t border-line px-4 py-2.5">
+          <textarea
+            placeholder="Ghi chú NCC (nội bộ / gửi kèm) — tuỳ chọn"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            className="min-h-[3rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+          />
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {noteDirty && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onSaveNote(order, note.trim())}
+                className="min-h-[2.5rem] shrink-0 rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-navy disabled:opacity-50"
+              >
+                Lưu ghi chú
+              </button>
+            )}
+            {steps.map((a) => (
+              <button
+                key={a.to}
+                type="button"
+                disabled={busy}
+                onClick={() => onChangeStatus(order, a.to)}
+                className="min-h-[2.5rem] flex-1 rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
+              >
+                {a.label}
+              </button>
+            ))}
+            {canCancel && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onRequestCancel}
+                className="min-h-[2.5rem] shrink-0 rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
+              >
+                Huỷ
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        order.dealerNote && (
+          <p className="border-t border-line px-4 py-2 text-[0.875rem] leading-snug text-foreground/80">
+            <span className="font-semibold text-foreground/60">Ghi chú NCC: </span>
+            {order.dealerNote}
+          </p>
+        )
+      )}
+    </li>
   );
 }
 

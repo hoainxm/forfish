@@ -12,7 +12,7 @@ import { isValidVnPhone, normalizeVnPhone } from "@/lib/phone";
 
   ⚠️ User enumeration: ai cũng hỏi được "SĐT X có tài khoản không". User chốt
   chấp nhận 2026-07-21 (username = SĐT vốn đoán được); route này là chokepoint
-  để gắn rate-limit sau (docs/adr/0002). SĐT đi trong BODY, không nằm trên URL.
+  để gắn rate-limit sau (docs/adr/0007). SĐT đi trong BODY, không nằm trên URL.
 */
 export async function POST(req: Request) {
   let phoneRaw = "";

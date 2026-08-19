@@ -28,6 +28,8 @@ export const ADMIN_ACTIONS = [
   // Yêu cầu
   "inquiry.update",
   "inquiry.delete",
+  // Đơn hàng
+  "order.update",
   // Vùng biển
   "zone.create",
   "zone.update",
@@ -61,6 +63,7 @@ export const ACTION_LABEL: Record<AdminActionKey, string> = {
   "push.send": "Gửi thông báo",
   "inquiry.update": "Đổi trạng thái yêu cầu",
   "inquiry.delete": "Xóa yêu cầu",
+  "order.update": "Cập nhật đơn hàng",
   "zone.create": "Thêm vùng biển",
   "zone.update": "Sửa vùng biển",
   "zone.delete": "Xóa vùng biển",

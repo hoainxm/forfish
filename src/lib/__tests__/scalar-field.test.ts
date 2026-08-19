@@ -45,7 +45,7 @@ describe("scalarColor", () => {
 
   it("mây TRUNG TÍNH — không ánh lam (b−r nhỏ để khỏi tô đậm biển lam)", () => {
     for (const v of [25, 50, 70, 85, 100]) {
-      const [r, g, b] = scalarColor("cloud", v)
+      const [r, , b] = scalarColor("cloud", v)
         .match(/rgba?\(([^)]+)\)/)![1]
         .split(",")
         .map(Number);

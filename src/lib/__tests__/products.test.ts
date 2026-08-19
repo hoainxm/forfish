@@ -36,9 +36,9 @@ describe("getWarrantyStatus", () => {
     expect(s.label).toBe("Hết bảo hành 5 ngày");
   });
 
-  it("hết hạn hôm nay → soon", () => {
+  it("hết hạn hôm nay → expired (đỏ — chốt 2026-08-18)", () => {
     const s = getWarrantyStatus(product({ warrantyUntil: iso(0) }), TODAY);
-    expect(s.level).toBe("soon");
+    expect(s.level).toBe("expired");
     expect(s.days).toBe(0);
     expect(s.label).toBe("Hết bảo hành hôm nay");
   });

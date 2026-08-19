@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuthUser } from "@/lib/use-auth";
+import { staleWarningVN } from "@/lib/push-message";
 import {
   acceptRefresh,
   loadInbox,
@@ -59,6 +60,31 @@ export function InboxSection() {
   const { phone, ready } = useAuthUser();
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [expanded, setExpanded] = useState(false);
+  /*  TIN CHƯA ĐỌC = chưa nằm trong `forfish.inbox.read.v1` (đã báo về được theo
+      IO) — chấm + viền đậm (audit 2026-08-18 P4). Tính trong effect (đọc kho),
+      tính lại khi hộp thư đổi hoặc khi vừa báo về xong. Không badge dock. */
+  const [unread, setUnread] = useState<Set<string>>(new Set());
+  const recomputeUnread = useCallback(
+    (list: InboxMessage[]) =>
+      setUnread(
+        new Set(
+          unreportedIds(
+            phone,
+            list.map((m) => m.id),
+          ),
+        ),
+      ),
+    [phone],
+  );
+  /*  "TIN CŨ N NGÀY —" tính từ giờ GỬI tới lúc VẼ (audit P5): tin bão đọc muộn
+      2 tuần phải tự khai tuổi, cùng luật với thông báo hệ điều hành (sw.js).
+      `now` chốt trong effect mỗi khi hộp thư đổi — đủ cho hộp thư, không cần
+      đồng hồ chạy (và không gọi Date.now() lúc vẽ). */
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    setNow(Date.now());
+    recomputeUnread(messages);
+  }, [messages, recomputeUnread]);
 
   /* 1) bản trong máy hiện NGAY (kể cả đang mất sóng).
      KHÔNG chờ `ready` (F3): đọc bản lưu chỉ cần biết chọn ngăn nào, nó không
@@ -123,7 +149,8 @@ export function InboxSection() {
       pendingRef.current.clear();
       if (ids.length === 0) return;
       for (const id of ids) sentRef.current.add(id);
-      void markRead(phone, ids);
+      // báo về xong (máy chủ xác nhận, kho đã ghi) → chấm "chưa đọc" tự tắt
+      void markRead(phone, ids).then(() => recomputeUnread(messages));
     };
     const io = new IntersectionObserver(
       (entries) => {
@@ -160,7 +187,7 @@ export function InboxSection() {
       }
       flush(); // rời trang giữa chừng vẫn báo nốt phần đã thấy
     };
-  }, [messages, expanded, phone]);
+  }, [messages, expanded, phone, recomputeUnread]);
 
   /* Chưa có tin nào → ẩn hẳn, không để khối trống. KHÔNG chặn theo đăng nhập:
      máy chưa gắn tài khoản vẫn nhận được tin gửi chung qua push, mà vuốt tắt là
@@ -178,17 +205,35 @@ export function InboxSection() {
       </h2>
       <ul ref={listRef} className="space-y-2">
         {shown.map((m) => {
+          const isUnread = unread.has(m.id);
+          const sentMs = Date.parse(m.sentAt);
+          const stale =
+            now > 0 && Number.isFinite(sentMs)
+              ? staleWarningVN(sentMs, now)
+              : null;
+          const cardClass = isUnread
+            ? "block rounded-[1.125rem] bg-card px-4 py-3 shadow-sm ring-2 ring-navy/60"
+            : "block rounded-[1.125rem] bg-card px-4 py-3 shadow-sm ring-1 ring-line";
           const inner = (
             <>
               <span className="flex items-baseline justify-between gap-2">
-                <span className="display text-[1.0625rem] font-bold leading-snug text-navy">
-                  {m.title}
+                <span className="display flex min-w-0 items-baseline gap-2 text-[1.0625rem] font-bold leading-snug text-navy">
+                  {isUnread && (
+                    <span
+                      className="inline-block h-2.5 w-2.5 shrink-0 self-center rounded-full bg-trim"
+                      aria-label="Chưa đọc"
+                    />
+                  )}
+                  <span className="min-w-0">{m.title}</span>
                 </span>
                 <span className="shrink-0 text-[0.8125rem] tabular-nums text-foreground/50">
                   {fmt(m.sentAt)}
                 </span>
               </span>
               <span className="mt-0.5 block text-[1rem] leading-snug text-foreground/75">
+                {stale && (
+                  <span className="font-bold text-warn">{stale} </span>
+                )}
                 {m.body}
               </span>
               {m.mine && (
@@ -203,14 +248,12 @@ export function InboxSection() {
               {m.url ? (
                 <Link
                   href={m.url}
-                  className="block rounded-[1.125rem] bg-card px-4 py-3 shadow-sm ring-1 ring-line transition active:scale-[0.99]"
+                  className={`${cardClass} transition active:scale-[0.99]`}
                 >
                   {inner}
                 </Link>
               ) : (
-                <div className="rounded-[1.125rem] bg-card px-4 py-3 shadow-sm ring-1 ring-line">
-                  {inner}
-                </div>
+                <div className={cardClass}>{inner}</div>
               )}
             </li>
           );

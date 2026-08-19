@@ -10,6 +10,7 @@ function draft(over: Partial<ProductDraft> = {}): ProductDraft {
     vendorKind: "sdvico",
     title: "Máy lọc nước biển SEA-40",
     features: [],
+    orderable: false,
     visible: true,
     ...over,
   };
@@ -56,6 +57,43 @@ describe("validateProductDraft", () => {
       ),
     ).toBeNull();
   });
+
+  it("cho đặt hàng nhưng thiếu giá → báo lỗi giá", () => {
+    expect(
+      validateProductDraft(
+        draft({ orderable: true, unit: "thùng", group: "nhu_yeu_pham" }),
+      ),
+    ).toMatch(/giá/i);
+    expect(
+      validateProductDraft(
+        draft({ orderable: true, priceVnd: 0, unit: "thùng", group: "nhu_yeu_pham" }),
+      ),
+    ).toMatch(/giá/i);
+  });
+  it("cho đặt hàng nhưng thiếu đơn vị → báo lỗi đơn vị", () => {
+    expect(
+      validateProductDraft(
+        draft({ orderable: true, priceVnd: 50000, group: "nhu_yeu_pham" }),
+      ),
+    ).toMatch(/đơn vị/i);
+  });
+  it("cho đặt hàng nhưng thiếu nhóm → báo lỗi nhóm", () => {
+    expect(
+      validateProductDraft(draft({ orderable: true, priceVnd: 50000, unit: "thùng" })),
+    ).toMatch(/nhóm/i);
+  });
+  it("cho đặt hàng đủ giá + đơn vị + nhóm → hợp lệ", () => {
+    expect(
+      validateProductDraft(
+        draft({
+          orderable: true,
+          priceVnd: 50000,
+          unit: "thùng",
+          group: "nhu_yeu_pham",
+        }),
+      ),
+    ).toBeNull();
+  });
 });
 
 describe("rowToListing", () => {
@@ -72,6 +110,10 @@ describe("rowToListing", () => {
     contact_phone: null,
     contact_note: null,
     line: "loc-nuoc",
+    group: null,
+    price_vnd: null,
+    unit: null,
+    orderable: false,
     visible: true,
     sort_order: 0,
     created_at: "2026-07-28T00:00:00Z",
@@ -83,6 +125,27 @@ describe("rowToListing", () => {
     expect(listing.title).toBe("Máy lọc nước biển SEA-40");
     expect(listing.features).toEqual(["Công nghệ RO"]);
     expect(listing.visible).toBe(true);
+    expect(listing.orderable).toBe(false);
+  });
+
+  it("map trường đặt hàng: group/price_vnd/unit/orderable", () => {
+    const listing = rowToListing({
+      ...baseRow,
+      group: "nhu_yeu_pham",
+      price_vnd: 120000,
+      unit: "thùng",
+      orderable: true,
+    });
+    expect(listing.group).toBe("nhu_yeu_pham");
+    expect(listing.priceVnd).toBe(120000);
+    expect(listing.unit).toBe("thùng");
+    expect(listing.orderable).toBe(true);
+  });
+
+  it("group lạ → undefined; orderable không phải true → false", () => {
+    const listing = rowToListing({ ...baseRow, group: "xyz", orderable: 1 as unknown as boolean });
+    expect(listing.group).toBeUndefined();
+    expect(listing.orderable).toBe(false);
   });
 
   it("vendor_kind lạ → về sdvico; features không phải mảng → rỗng", () => {

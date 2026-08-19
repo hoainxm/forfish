@@ -23,6 +23,37 @@ export const DEVICE_TOKEN_KEY = "forfish.token.v1";
 /** Máy vừa bị đá — màn hình nghe sự kiện này để nói thật với bà con */
 export const TOKEN_KICKED_EVENT = "forfish:kicked";
 
+/**
+ * MỐC BỊ ĐÁ GẦN NHẤT (ISO) — `forfish.kicked.v1` (2026-08-18, audit G1).
+ *
+ * VÌ SAO CẦN thêm khoá ngoài sự kiện: sự kiện chỉ tới tai component ĐANG mount.
+ * Cú 401 `token_revoked` hay về ở lượt gọi nền (heartbeat, hộp thư) lúc bà con
+ * đang ở màn khác, hoặc lúc app mở lại từ nền — Trang chủ mount SAU, không nghe
+ * được gì ⇒ premium biến mất không một lời. Khoá này để Trang chủ đọc lại lúc
+ * mount. XOÁ khi cất chuỗi mới (đăng nhập lại) — thẻ đỏ tự tắt.
+ */
+export const KICKED_AT_KEY = "forfish.kicked.v1";
+
+/** Xoá mốc bị đá — gọi khi đăng nhập lại (tự động trong `saveToken`), khi bà
+ *  con tự đăng xuất, hoặc "Gỡ tài khoản khỏi máy này" (thẻ đỏ hết lý do). */
+export function clearKickedMark(): void {
+  try {
+    window.localStorage.removeItem(KICKED_AT_KEY);
+  } catch {
+    /* bỏ qua */
+  }
+}
+
+/** ISO lúc máy bị đá gần nhất, null nếu chưa/đã đăng nhập lại. */
+export function readKickedAt(): string | null {
+  try {
+    const v = window.localStorage.getItem(KICKED_AT_KEY);
+    return v && Number.isFinite(Date.parse(v)) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 /**  KHO CHUỖI VỪA ĐỔI (cất mới / xoá đi) — màn hình nghe để vẽ lại NGAY.
  *
  *   VÌ SAO CẦN (2026-08-02h): `saveToken` trước đây ghi im lặng, không báo ai.
@@ -68,7 +99,10 @@ export function saveToken(token: string): boolean {
   try {
     window.localStorage.setItem(DEVICE_TOKEN_KEY, token);
     const ok = window.localStorage.getItem(DEVICE_TOKEN_KEY) === token;
-    if (ok) announceToken();
+    if (ok) {
+      clearKickedMark(); // đăng nhập lại = hết "bị đá" — thẻ đỏ ở Trang chủ tự tắt
+      announceToken();
+    }
     return ok;
   } catch {
     return false;
@@ -105,8 +139,19 @@ export function signOutLocal(reason: "user" | "kicked"): void {
       sổ danh tính chỉ có MỘT người ghi. Cổng `identity-gate.test.ts` bắt được
       đúng chỗ này lúc tôi viết tắt, và nó bắt đúng: mỗi đường ghi thứ hai là một
       đường để người sau đi lệch. */
-  if (reason === "user") applyIdentityAction("user-signed-out", false);
+  if (reason === "user") {
+    clearKickedMark(); // tự đăng xuất thì không còn gì để nói về "bị đá"
+    applyIdentityAction("user-signed-out", false);
+  }
   if (reason === "kicked") {
+    /*  GHI MỐC TRƯỚC, BẮN SỰ KIỆN SAU: component chưa mount đọc mốc lúc mount,
+        component đang mount nghe sự kiện — cả hai đều thấy (audit G1). Ghi hỏng
+        (máy hết chỗ) thì vẫn bắn sự kiện: có còn hơn không. */
+    try {
+      window.localStorage.setItem(KICKED_AT_KEY, new Date().toISOString());
+    } catch {
+      /* bỏ qua */
+    }
     window.dispatchEvent(new CustomEvent(TOKEN_KICKED_EVENT));
   }
 }

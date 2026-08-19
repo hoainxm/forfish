@@ -1,38 +1,44 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
-import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
-import { resolveTier } from "@/lib/tier";
+import { identityFromRequest, premiumDenied } from "@/lib/api-identity";
 
-// Chốt THẬT ở server cho tính năng PREMIUM ngoài /api/fish-forecast (chặn ở
-// middleware). Cảnh báo thuyền viên chỉ mở cho premium — dùng guard này trong
-// route. Admin (env ADMIN_PHONES) xem như premium (khỏi tự gán hạng cho mình).
-// Chưa cấu hình Supabase (demo mode) → 503: kho cảnh báo cần DB thật.
+/*
+  CHỐT PREMIUM ở SERVER cho tính năng ngoài `/api/fish-forecast` (cái đó chặn ở
+  middleware). Hiện dùng cho sổ cảnh báo thuyền viên.
 
-export async function requirePremiumUser(): Promise<
-  | { ok: true; phone: string }
-  | { ok: false; status: number; code: string }
+  ⚠️ VIẾT LẠI 2026-08-16 (thẩm định P0 — DANH TÍNH TÁCH NÃO).
+
+  Bản cũ hỏi `supabase.auth.getUser()`, tức đọc PHIÊN trong cookie. Từ 0026 app
+  ngư dân KHÔNG CÒN GIỮ PHIÊN: `/login` cấp chuỗi cứng (device token) rồi
+  `signOut()` ngay trong cùng một lượt (`src/app/login/page.tsx`). Nên `getUser()`
+  trả rỗng trên MỌI máy bà con ⇒ guard này trả **401 login_required cho đúng
+  những người đang đăng nhập**. Màn Bạn thuyền mở ô tra cảnh báo, gõ xong thì
+  nhận "Cần đăng nhập" — trong khi họ đăng nhập rồi, và premium thì đã trả tiền.
+
+  Chín route khác của app đã đi qua `identityFromRequest` từ 0026/0028; hai route
+  crew-reports là chỗ bị bỏ quên. Nay dùng chung đúng hai hàm đó:
+   · `identityFromRequest(req)` — ai đang gọi (chuỗi cứng, có đường lùi phiên cũ
+     một nhịp phát hành, và KHÔNG BAO GIỜ trả 401 vì sự cố hạ tầng).
+   · `premiumDenied(req)`       — hạng của người đó (admin env vẫn qua; tra hạng
+     hỏng ⇒ 503 chứ không 403, đúng luật "không tra được ≠ chưa premium").
+
+  KHÔNG viết lại logic hạng ở đây: một bản luật, một chỗ sửa.
+*/
+
+export async function requirePremiumUser(
+  req: Request,
+): Promise<
+  { ok: true; phone: string } | { ok: false; status: number; code: string }
 > {
-  const supabase = await createClient();
-  if (!supabase) return { ok: false, status: 503, code: "not_configured" };
+  const denied = await premiumDenied(req);
+  if (denied) return { ok: false, ...denied };
 
-  const { data } = await supabase.auth.getUser();
-  const email = data?.user?.email;
-  if (!email) return { ok: false, status: 401, code: "login_required" };
-  const phone = email.split("@")[0];
-
-  if (isAdminPhone(email, parseAdminPhones(process.env.ADMIN_PHONES))) {
-    return { ok: true, phone };
+  /*  `premiumDenied` trả `null` ở hai ca: cho qua vì premium, và cho qua vì
+      demo mode (chưa cấu hình Supabase). Route crew-reports cần SĐT người báo
+      để ghi vào kho nên vẫn phải hỏi danh tính; demo mode không có DB thật thì
+      `identityFromRequest` tự trả 401/503 đúng nghĩa. */
+  const who = await identityFromRequest(req);
+  if (!who.ok) {
+    return { ok: false, status: who.res.status, code: "login_required" };
   }
-
-  // Hạng của CHÍNH MÌNH — RLS own-phone (0002) + cột tier/premium_until (0003).
-  // Lỗi/chưa apply → 'basic' (fail-closed, khớp resolveTier).
-  const { data: cust, error } = await supabase
-    .from("customers")
-    .select("tier, premium_until")
-    .maybeSingle();
-  const tier = error
-    ? "basic"
-    : resolveTier(cust?.tier, cust?.premium_until, Date.now());
-  if (tier !== "premium") return { ok: false, status: 403, code: "premium_required" };
-  return { ok: true, phone };
+  return { ok: true, phone: who.phone };
 }

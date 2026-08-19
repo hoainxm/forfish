@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { borderProximity, haversineKm } from "../geofence";
+import {
+  borderProximity,
+  borderStepCrossed,
+  borderStepFor,
+  haversineKm,
+} from "../geofence";
 import type { LngLat } from "@/data/vn-maritime-border";
 
 describe("haversineKm", () => {
@@ -68,5 +73,42 @@ describe("borderProximity với ranh giới VN thật", () => {
     const r = borderProximity(6.249944, 111.02425);
     expect(r.distanceNm).toBeLessThan(1);
     expect(r.level).toBe("very_near");
+  });
+});
+
+describe("mốc nói lại ranh giới khi dẫn đường (M3, 2026-08-18)", () => {
+  it("borderStepFor: mốc nhỏ nhất mà d ≤ mốc; ngoài 15 hải lý → null", () => {
+    expect(borderStepFor(20)).toBeNull();
+    expect(borderStepFor(15)).toBe(15);
+    expect(borderStepFor(12)).toBe(15);
+    expect(borderStepFor(10)).toBe(10);
+    expect(borderStepFor(8)).toBe(10);
+    expect(borderStepFor(6)).toBe(6);
+    expect(borderStepFor(4)).toBe(6);
+    expect(borderStepFor(3)).toBe(3);
+    expect(borderStepFor(0.5)).toBe(3);
+    expect(borderStepFor(NaN)).toBeNull();
+  });
+
+  it("vào 15 nói một lần, đứng yên trong mốc thì im, vượt mốc gần hơn mới nói lại", () => {
+    expect(borderStepCrossed(20, null)).toBeNull(); // còn xa
+    expect(borderStepCrossed(14, null)).toBe(15); // vào 15 → nói
+    expect(borderStepCrossed(13, 15)).toBeNull(); // vẫn 15 → im (không lặp mỗi giây)
+    expect(borderStepCrossed(9.9, 15)).toBe(10); // 15→10 → nói
+    expect(borderStepCrossed(7, 10)).toBeNull();
+    expect(borderStepCrossed(5.5, 10)).toBe(6); // →6 nói
+    expect(borderStepCrossed(2.9, 6)).toBe(3); // →3 nói
+    expect(borderStepCrossed(1, 3)).toBeNull();
+  });
+
+  it("đi ra xa thì im; caller lùi mốc, quay lại gần được nhắc lại", () => {
+    expect(borderStepCrossed(12, 6)).toBeNull(); // 6 → ra 15: im
+    // caller đặt prev = borderStepFor(12) = 15, rồi tàu quay lại 8 hải lý
+    expect(borderStepCrossed(8, borderStepFor(12))).toBe(10);
+  });
+
+  it("nhảy thẳng từ xa vào rất gần (GPS thưa) → nói ngay mốc gần nhất", () => {
+    expect(borderStepCrossed(2, null)).toBe(3);
+    expect(borderStepCrossed(2, 15)).toBe(3);
   });
 });

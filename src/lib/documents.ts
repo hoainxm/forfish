@@ -1,5 +1,7 @@
 // Trục 4 — Tuân thủ dễ hơn. Domain logic for the document vault.
 
+import { SOON_DAYS_DOCS, daysUntil } from "@/lib/days";
+
 export type DocumentKind =
   | "dang_kiem"
   | "giay_phep_khai_thac"
@@ -40,19 +42,8 @@ export interface ExpiryStatus {
   label: string;
 }
 
-const SOON_DAYS = 30;
-
-/** Days between today and an ISO date, computed in UTC to avoid TZ drift. */
-function daysUntil(isoDate: string, today: Date): number {
-  const target = new Date(isoDate + "T00:00:00Z");
-  const base = Date.UTC(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate(),
-  );
-  return Math.round((target.getTime() - base) / 86_400_000);
-}
-
+// Ngày + ngưỡng dùng chung (lib/days.ts) — tính theo lịch VN, không UTC.
+// `days === 0` = hết hạn HÔM NAY = đã hết hạn (đỏ) — chốt 2026-08-18.
 export function getExpiryStatus(doc: BoatDocument, today: Date): ExpiryStatus {
   if (!doc.expiresOn) {
     return { level: "none", days: null, label: "Không có hạn" };
@@ -65,8 +56,8 @@ export function getExpiryStatus(doc: BoatDocument, today: Date): ExpiryStatus {
       label: `Đã quá hạn ${Math.abs(days)} ngày`,
     };
   }
-  if (days === 0) return { level: "soon", days, label: "Hết hạn hôm nay" };
-  if (days <= SOON_DAYS) {
+  if (days === 0) return { level: "expired", days, label: "Hết hạn hôm nay" };
+  if (days <= SOON_DAYS_DOCS) {
     return { level: "soon", days, label: `Còn ${days} ngày` };
   }
   return { level: "ok", days, label: `Còn ${days} ngày` };

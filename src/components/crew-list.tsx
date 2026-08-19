@@ -33,11 +33,12 @@ import { PremiumLock } from "@/components/premium-gate";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { useBoats } from "@/components/boat-switcher";
-import { apiUrl } from "@/lib/api-base";
+import { authedFetch } from "@/lib/device-token-store";
 import { formatVnDate } from "@/lib/format";
 import { isValidVnPhone } from "@/lib/phone";
-import { saveUserJson } from "@/lib/user-store";
-import { timeoutSignal } from "@/lib/abort";
+import { saveUserJson, storageFullCopy } from "@/lib/user-store";
+import { readUserList } from "@/lib/user-list-store";
+import { useTodayVN } from "@/lib/use-today";
 
 /** Định danh một bạn thuyền để tra/báo cảnh báo — CCCD hoặc SĐT (1 trong 2). */
 type Identity = { cccd?: string; phone?: string };
@@ -71,16 +72,21 @@ const STORAGE_KEY = "forfish.crew.v1";
   App đã đưa vào sử dụng (chủ dự án 2026-07-29): KHÔNG seed sổ mẫu nữa. User mới
   mở thấy màn RỖNG "chưa có ai trong sổ — bấm thêm", tự điền người thật. (Trước
   đây có "sổ mẫu tự xưng là mẫu" theo hội đồng UX 2026-06-11 — bỏ khi lên thật.)
+
+  HAI TRẠNG THÁI qua `readUserList` (T1, audit 2026-08-18 — cùng khuôn
+  document-vault): JSON hỏng / khoá giữ thứ không phải mảng ⇒ `readFailed`,
+  KHÔNG dựng sổ rỗng trông y như thật (thêm người thật là ghi đè chuỗi gốc còn
+  cứu được) và KHÔNG mở cửa ghi. Mảng (kể cả rỗng) hoặc chưa có khoá = sổ THẬT.
 */
-function loadCrew(): StoredCrew[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as StoredCrew[];
-  } catch {
-    // hỏng storage — coi như chưa có sổ
-  }
-  return [];
+function loadCrew(): {
+  crew: StoredCrew[];
+  /** true = khoá đang giữ thứ ĐỌC KHÔNG ĐƯỢC ⇒ CẤM ghi đè, phải báo */
+  readFailed: boolean;
+} {
+  if (typeof window === "undefined") return { crew: [], readFailed: false };
+  const r = readUserList<StoredCrew>(STORAGE_KEY);
+  if (!r.ok) return { crew: [], readFailed: true };
+  return { crew: Array.isArray(r.list) ? r.list : [], readFailed: false };
 }
 
 /* Trả `false` khi máy KHÔNG giữ được (hết chỗ / trình duyệt chặn) — trước đây
@@ -91,27 +97,45 @@ function saveCrew(crew: StoredCrew[]): boolean {
 }
 
 export function useCrew() {
-  const today = useMemo(() => new Date(), []);
+  const { today } = useTodayVN();
   const [crew, setCrew] = useState<StoredCrew[]>([]);
   const [ready, setReady] = useState(false);
   /** máy không giữ được người vừa thêm → phải nói ra, không im */
   const [saveFailed, setSaveFailed] = useState(false);
+  /** sổ trong máy ĐỌC KHÔNG ĐƯỢC → cấm mọi đường ghi đè, báo đỏ */
+  const [readFailed, setReadFailed] = useState(false);
 
   useEffect(() => {
-    setCrew(loadCrew());
+    const loaded = loadCrew();
+    setCrew(loaded.crew);
+    setReadFailed(loaded.readFailed);
     setReady(true);
   }, []);
 
-  useEffect(() => {
-    // GIỮ báo máy-hết-chỗ của base; sdvico đã bỏ sổ mẫu (không còn isDemo).
-    if (ready) setSaveFailed(!saveCrew(crew));
-  }, [crew, ready]);
+  /*  GHI KHI BÀ CON THAO TÁC, KHÔNG GHI SAU HYDRATE (N5, audit 2026-08-18):
+      effect cũ `if (ready) save(crew)` chạy ngay khi mở màn ⇒ máy đầy thì băng
+      đỏ "CHƯA lưu được" bật dù chưa nhập gì. Nay chỉ `commitCrew()` từ
+      thêm/sửa/xoá. Đọc hỏng thì KHÔNG ghi. */
+  function commitCrew(next: StoredCrew[]) {
+    setCrew(next);
+    if (readFailed) return;
+    setSaveFailed(!saveCrew(next));
+  }
 
-  return { today, crew, setCrew, ready, saveFailed };
+  return {
+    today,
+    crew,
+    setCrew,
+    commitCrew,
+    ready,
+    saveFailed,
+    readFailed,
+  };
 }
 
 export function CrewList() {
-  const { today, crew, setCrew, ready, saveFailed } = useCrew();
+  const { today, crew, setCrew, commitCrew, ready, saveFailed, readFailed } =
+    useCrew();
   const [editing, setEditing] = useState<StoredCrew | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<StoredCrew | null>(null);
@@ -132,14 +156,10 @@ export function CrewList() {
   const issueCount = boatCrew.filter(
     (m) => crewIssue(m, today).level === "danger",
   ).length;
-  // chưa có ĐỊNH DANH nào (cả CCCD lẫn SĐT) → không tra/báo cảnh báo được
-  const missingId = boatCrew.filter(
-    (m) => !hasIdentity({ cccd: m.cccd, phone: m.phone }),
-  ).length;
 
-  // người có chuyện xếp lên đầu: đỏ → vàng → ổn
+  // người có chuyện xếp lên đầu: đỏ → vàng → chưa ghi hạn → ổn
   const sortedCrew = useMemo(() => {
-    const rank = { danger: 0, warn: 1, ok: 2 } as const;
+    const rank = { danger: 0, warn: 1, neutral: 2, ok: 3 } as const;
     return [...boatCrew].sort(
       (a, b) => rank[crewIssue(a, today).level] - rank[crewIssue(b, today).level],
     );
@@ -147,13 +167,11 @@ export function CrewList() {
 
   function upsert(m: StoredCrew) {
     const withBoat: StoredCrew = { ...m }; // không gắn boatId — theo chủ (R2)
-    setCrew((prev) => {
-      const idx = prev.findIndex((x) => x.id === withBoat.id);
-      if (idx === -1) return [...prev, withBoat];
-      const next = [...prev];
-      next[idx] = withBoat;
-      return next;
-    });
+    const idx = crew.findIndex((x) => x.id === withBoat.id);
+    const next = [...crew];
+    if (idx === -1) next.push(withBoat);
+    else next[idx] = withBoat;
+    commitCrew(next);
     setShowForm(false);
     setEditing(null);
   }
@@ -189,42 +207,58 @@ export function CrewList() {
         </div>
       </div>
 
-      <button
-        onClick={() => {
-          setEditing(null);
-          setShowForm(true);
-        }}
-        className="display mb-3 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
-      >
-        <PlusIcon className="h-6 w-6" />
-        Thêm bạn thuyền
-      </button>
+      {/* ĐỌC KHÔNG ĐƯỢC — nói thẳng và KHOÁ cửa ghi (T1): thêm người lúc này
+          là ghi đè lên chuỗi gốc còn cứu được, mất cả sổ. */}
+      {readFailed ? (
+        <div className="mb-4 overflow-hidden surface">
+          <StatusBanner level="danger" icon={<AlertIcon className="h-5 w-5" />}>
+            Sổ thuyền viên trong máy đang ĐỌC KHÔNG ĐƯỢC — sổ cũ vẫn nằm trong
+            máy nhưng app chưa mở ra được. Bà con ĐỪNG thêm người mới ở đây (thêm
+            là đè mất bản cũ); thử tắt hẳn app mở lại, hoặc phục hồi từ tệp sao lưu.
+          </StatusBanner>
+        </div>
+      ) : (
+        <button
+          onClick={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+          className="display mb-3 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
+        >
+          <PlusIcon className="h-6 w-6" />
+          Thêm bạn thuyền
+        </button>
+      )}
 
       {/* MÁY KHÔNG GIỮ ĐƯỢC — nói ngay, đừng để mở lại app mới thấy sổ trống */}
       {saveFailed && (
         <div className="mb-4 overflow-hidden surface">
           <StatusBanner level="danger" icon={<AlertIcon className="h-5 w-5" />}>
-            Máy hết chỗ — CHƯA lưu được người vừa thêm. Xoá bớt ảnh/ứng dụng
-            trong máy rồi sửa lại người này để lưu.
+            {storageFullCopy("người vừa thêm")}
           </StatusBanner>
         </div>
       )}
 
-      {ready && missingId > 0 && (
-        <div className="mb-4 overflow-hidden surface">
-          <StatusBanner level="warn" icon={<AlertIcon className="h-5 w-5" />}>
-            {missingId} người chưa có CCCD/SĐT — bổ sung để tra cảnh báo & báo cáo.
-          </StatusBanner>
-        </div>
-      )}
+      {/* "Chưa có CCCD/SĐT": chỉ nói MỘT lần, ngay trên thẻ người đó (T8,
+          2026-08-18) — banner đếm số người ở đầu trang đã bỏ, cùng ý cùng màn. */}
 
       {ready && boatCrew.length === 0 && (
         <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
           <UsersIcon className="mx-auto h-10 w-10 text-foreground/30" />
           <p className="mt-3 text-[1.125rem] text-foreground/70">
-            Chưa có ai trong sổ.
-            <br />
-            Bấm nút cam ở trên để thêm bạn thuyền.
+            {readFailed ? (
+              <>
+                Chưa mở được sổ thuyền viên trong máy.
+                <br />
+                Sổ cũ chưa mất — xem dải đỏ ở trên.
+              </>
+            ) : (
+              <>
+                Chưa có ai trong sổ.
+                <br />
+                Bấm nút cam ở trên để thêm bạn thuyền.
+              </>
+            )}
           </p>
         </div>
       )}
@@ -236,7 +270,16 @@ export function CrewList() {
           const canWarn = hasIdentity({ cccd: m.cccd, phone: m.phone });
           return (
             <li key={m.id} className="overflow-hidden surface">
-              <StatusBanner level={issue.level}>{issue.label}</StatusBanner>
+              <StatusBanner
+                level={issue.level}
+                icon={
+                  issue.level === "neutral" ? (
+                    <UsersIcon className="h-5 w-5" />
+                  ) : undefined
+                }
+              >
+                {issue.label}
+              </StatusBanner>
 
               <div className="px-4 py-3">
                 <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
@@ -310,8 +353,8 @@ export function CrewList() {
       </ul>
 
       <p className="py-4 text-center text-[0.875rem] text-foreground/65">
-        Hồ sơ thuyền viên lưu trên máy bà con. Cảnh báo chéo do SDVICO kiểm
-        duyệt trước khi hiện.
+        Hồ sơ thuyền viên lưu trên máy bà con. Cảnh báo giữa các chủ tàu được
+        SDVICO xem trước rồi mới hiện.
       </p>
 
       {showForm && (
@@ -348,7 +391,8 @@ export function CrewList() {
           confirmLabel="Xóa luôn"
           onCancel={() => setConfirmDelete(null)}
           onConfirm={() => {
-            setCrew((prev) => prev.filter((x) => x.id !== confirmDelete.id));
+            const next = crew.filter((x) => x.id !== confirmDelete.id);
+            commitCrew(next);
             setConfirmDelete(null);
           }}
         />
@@ -408,7 +452,7 @@ function CrewForm({
       return;
     }
     if (!isValidCccd(cccd) && !isValidVnPhone(phone)) {
-      setErr("Cần CCCD (12 số) hoặc số điện thoại để định danh bạn thuyền.");
+      setErr("Cần CCCD (12 số) hoặc số điện thoại để nhận ra đúng người.");
       return;
     }
     const cccdNorm = isValidCccd(cccd) ? normalizeCccd(cccd) : "";
@@ -475,7 +519,7 @@ function CrewForm({
           </select>
         </Field>
 
-        <Field label="Số điện thoại (định danh nếu không có CCCD)">
+        <Field label="Số điện thoại (dùng thay CCCD nếu chưa có)">
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -583,14 +627,20 @@ type LookupState =
   | { kind: "done"; result: CrewLookupResult }
   | { kind: "error"; message: string };
 
+/** Bản trên máy chưa nối với SDVICO (chưa có Supabase) — một câu, dùng 3 chỗ. */
+const NOT_CONNECTED_COPY =
+  "Bản trên máy này chưa nối với SDVICO nên chưa tra được cảnh báo.";
+
+// Copy đời thường (T10, 2026-08-18): không "máy chủ / cấu hình / khoá bảo mật /
+// định danh / kiểm duyệt"; một tên duy nhất "Premium".
 function codeMessage(code: string | undefined): string {
   switch (code) {
     case "not_configured":
-      return "Tính năng cảnh báo cần máy chủ thật — bản demo chưa dùng được.";
+      return NOT_CONNECTED_COPY;
     case "cccd_pepper_missing":
-      return "Máy chủ chưa cấu hình khoá bảo mật CCCD — báo SDVICO.";
+      return "Bên SDVICO chưa bật được phần tra cảnh báo — báo SDVICO giúp.";
     case "premium_required":
-      return "Cảnh báo thuyền viên là tính năng nâng cao — gọi SDVICO để mở.";
+      return "Cảnh báo thuyền viên là tính năng Premium — gọi SDVICO để mở.";
     case "login_required":
       return "Cần đăng nhập để dùng cảnh báo thuyền viên.";
     case "bad_cccd":
@@ -608,14 +658,19 @@ async function fetchLookup(
   { ok: true; result: CrewLookupResult } | { ok: false; code?: string }
 > {
   try {
-    // ĐỒNG HỒ 12 GIÂY (D-PH5, soát 2026-08-02): không có nó thì ở sóng "sống
-    // mà chết" fetch treo không resolve không reject ⇒ ô tra kẹt "đang tra…"
-    // vĩnh viễn, không báo lỗi, không có nút thử lại. Hết giờ → ném → nhánh
-    // catch sẵn có trả {ok:false} và UI tự nói "Không tra được".
-    const r = await fetch(
-      apiUrl(`/api/crew-reports/lookup?${identityQuery(id)}`),
-      { signal: timeoutSignal(12000) },
+    /*  QUA `authedFetch` (2026-08-16, thẩm định P0 — danh tính tách não). Bản
+        cũ `fetch` trần, KHÔNG gắn chuỗi cứng của máy, trong khi route đã bỏ
+        phiên Supabase từ 0026 ⇒ mọi lượt tra đều 401 và ô tra nói "Cần đăng
+        nhập" với đúng người đang đăng nhập. `authedFetch` gắn header chuỗi, tự
+        có đồng hồ 12 giây (giữ nguyên ý D-PH5: sóng "sống mà chết" không được
+        làm ô tra kẹt "đang tra…" vĩnh viễn) và tự soi phản hồi xem máy có vừa
+        bị đá không (`noteResponse`). */
+    const { res: r } = await authedFetch(
+      `/api/crew-reports/lookup?${identityQuery(id)}`,
+      {},
+      12000,
     );
+    if (!r) return { ok: false };
     const j = (await r.json().catch(() => null)) as
       | { ok: true; count: number; reports: CrewLookupResult["reports"] }
       | { ok: false; code?: string }
@@ -637,7 +692,7 @@ function WarningsList({ result }: { result: CrewLookupResult }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-danger/40">
       <div className="bg-danger-bg px-4 py-2.5 text-[1rem] font-bold text-danger">
-        {result.count} cảnh báo đã kiểm duyệt
+        {result.count} cảnh báo SDVICO đã xem
       </div>
       <ul>
         {result.reports.map((rp) => (
@@ -656,7 +711,7 @@ function WarningsList({ result }: { result: CrewLookupResult }) {
             </p>
             {rp.subjectResponse && (
               <p className="mt-1.5 rounded-lg bg-field px-3 py-2 text-[0.875rem] text-foreground/75">
-                <span className="font-bold text-navy">Người bị ghi phản hồi: </span>
+                <span className="font-bold text-navy">Người này trả lời: </span>
                 {rp.subjectResponse}
               </p>
             )}
@@ -712,14 +767,31 @@ function IdentityCheck({
   }, [key, valid, canCheck]);
 
   if (!valid) return null;
-  if (access === "login" || access === "upgrade")
+  // Tầng mời gọi (T9, chính sách 2026-08-18): 1 khối gọn tại điểm bị khoá, có
+  // nút đăng nhập / gọi SDVICO (PremiumLock compact — tự ẨN khi mất sóng:
+  // `tel:`/đăng nhập ngoài khơi là ngõ cụt).
+  if (access === "login" || access === "upgrade") {
+    return (
+      <PremiumLock
+        compact
+        access={access}
+        feature="tra cảnh báo bạn thuyền"
+        blurb={
+          access === "login"
+            ? "Đăng nhập là app tự tra cảnh báo về người này ngay khi gõ xong CCCD/SĐT."
+            : "Gọi SDVICO mở Premium là app tự tra cảnh báo về người này khi thêm."
+        }
+        accent="t4"
+      />
+    );
+  }
+  // Bản trên máy chưa nối SDVICO — nói ra thay vì im (T9)
+  if (!configured)
     return (
       <p className="mt-1.5 text-[0.875rem] text-foreground/60">
-        {access === "login" ? "Đăng nhập" : "Nâng cấp"} để tra cảnh báo bạn
-        thuyền khi thêm.
+        {NOT_CONNECTED_COPY}
       </p>
     );
-  if (!configured) return null; // demo mode — không có kho cảnh báo
 
   if (state.kind === "loading")
     return (
@@ -802,12 +874,12 @@ function ReportSheet({
         <PremiumLock
           access={access}
           feature="cảnh báo thuyền viên"
-          blurb="Báo cáo & tra cảnh báo bạn thuyền là tính năng của tài khoản nâng cao."
+          blurb="Báo cáo & tra cảnh báo bạn thuyền là tính năng Premium."
           accent="t4"
         />
       ) : !configured ? (
         <p className="rounded-2xl bg-field/70 px-4 py-8 text-center text-[1rem] text-foreground/70">
-          Tính năng cảnh báo cần máy chủ thật — bản demo trên máy chưa dùng được.
+          {NOT_CONNECTED_COPY}
         </p>
       ) : (
         <>
@@ -869,22 +941,24 @@ function ReportForm({
     }
     setBusy(true);
     setMsg(null);
-    const r = await fetch(apiUrl("/api/crew-reports"), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        cccd: cccd || undefined,
-        phone: phone || undefined,
-        subjectName: name.trim() || undefined,
-        category,
-        detail: detail.trim() || undefined,
-        reporterBoat: current?.name || undefined,
-      }),
-      // ĐỒNG HỒ 20 GIÂY (D-PH6): gửi báo cáo không có trần thời gian thì nút
-      // kẹt "Đang gửi…" và bà con không biết đã gửi được chưa. Hết giờ →
-      // `.catch` sẵn có trả null → UI báo "Không gửi được, thử lại".
-      signal: timeoutSignal(20000),
-    }).catch(() => null);
+    // QUA `authedFetch` — xem ghi chú ở `fetchLookup`. Đồng hồ 20 giây (D-PH6)
+    // giữ nguyên, nay do `authedFetch` cắm; hết giờ → `res: null` → UI báo thật.
+    const { res: r } = await authedFetch(
+      "/api/crew-reports",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          cccd: cccd || undefined,
+          phone: phone || undefined,
+          subjectName: name.trim() || undefined,
+          category,
+          detail: detail.trim() || undefined,
+          reporterBoat: current?.name || undefined,
+        }),
+      },
+      20000,
+    );
     setBusy(false);
     const j = (await r?.json().catch(() => null)) as
       | { ok: true }
@@ -902,7 +976,7 @@ function ReportForm({
       <div className="rounded-2xl bg-ok-bg px-4 py-8 text-center">
         <p className="text-[1.0625rem] font-bold text-ok">Đã gửi báo cáo.</p>
         <p className="mt-1 text-[0.9375rem] text-foreground/70">
-          SDVICO sẽ kiểm duyệt trước khi cảnh báo hiện cho chủ tàu khác.
+          SDVICO xem trước rồi cảnh báo mới hiện cho chủ tàu khác.
         </p>
         <button
           type="button"
@@ -918,7 +992,7 @@ function ReportForm({
   return (
     <form onSubmit={submit} className="mt-1">
       <p className="mb-3 text-[0.9375rem] leading-snug text-foreground/70">
-        Báo cáo được SDVICO kiểm duyệt trước khi hiện. Người bị ghi có quyền
+        SDVICO xem trước rồi mới hiện báo cáo. Người bị ghi có quyền
         phản hồi — vui lòng ghi đúng sự thật.
       </p>
 

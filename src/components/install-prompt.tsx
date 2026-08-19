@@ -9,32 +9,92 @@
  * cả hai. Đây là cách DUY NHẤT vượt giới hạn 7 ngày của iOS (không có API).
  *
  * Ẩn khi: đã cài (standalone) · đã tắt nhắc · trình duyệt không cho cài
- * (desktop không có beforeinstallprompt, không phải iOS). Không nài — tắt là nhớ.
+ * (desktop không có beforeinstallprompt, không phải iOS) · MẤT SÓNG (tầng mời
+ * gọi ẩn hẳn khi offline — cài app cần mạng) · đã nhắc đủ 3 lần cách ≥1 ngày
+ * (lib/install-nudge.ts) · dải "Việc cần làm ngay" đang ≥3 dòng (Trục 4 là lý
+ * do app tồn tại — nhắc cài nhường chỗ, audit S8). Không nài — tắt là nhớ.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { isStandalone, isIOS } from "@/lib/storage-persist";
+import { useOnline } from "@/lib/use-online";
+import {
+  INSTALL_NUDGE_KEY,
+  INSTALL_NUDGE_LEGACY_KEY,
+  markInstallNudgeDismissed,
+  markInstallNudgeShown,
+  parseInstallNudge,
+  shouldShowInstallNudge,
+  type InstallNudgeState,
+} from "@/lib/install-nudge";
 import { AnchorIcon, CloseIcon } from "@/components/icons";
 
-const DISMISS_KEY = "forfish.installNudge.dismissed.v1";
+/** Dải khẩn từ ngần này dòng trở lên thì nhắc cài nhường chỗ. */
+const URGENT_ROWS_HIDE_INSTALL = 3;
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+function readNudge(): InstallNudgeState {
+  try {
+    return parseInstallNudge(
+      localStorage.getItem(INSTALL_NUDGE_KEY),
+      localStorage.getItem(INSTALL_NUDGE_LEGACY_KEY),
+    );
+  } catch {
+    // không đọc được localStorage — coi như chưa nhắc lần nào
+    return parseInstallNudge(null, null);
+  }
+}
+
+function writeNudge(s: InstallNudgeState) {
+  try {
+    localStorage.setItem(INSTALL_NUDGE_KEY, JSON.stringify(s));
+  } catch {
+    // storage đầy/chặn — vẫn áp dụng cho phiên này
+  }
+}
+
+/**
+ * Bọc dải khẩn + nhắc cài (Trang chủ): đếm số dòng `li` của dải khẩn ngay
+ * trong cây con của mình để ẩn nhắc cài khi dải ≥3 dòng. Không đụng
+ * urgent-strip; không đọc lại localStorage lần hai. `children` = UrgentStrip.
+ */
+export function UrgentWithInstall({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [rows, setRows] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const count = () => setRows(el.querySelectorAll("li").length);
+    count();
+    const mo = new MutationObserver(count);
+    mo.observe(el, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, []);
+  return (
+    // empty:hidden — cả hai đều không vẽ gì thì khối này biến mất, không để lại
+    // khoảng trống trong space-y của trang
+    <div ref={ref} className="space-y-4 empty:hidden">
+      {children}
+      {rows < URGENT_ROWS_HIDE_INSTALL && <InstallBanner />}
+    </div>
+  );
+}
+
 export function InstallBanner() {
   const [mode, setMode] = useState<"android" | "ios" | null>(null);
   const deferred = useRef<BeforeInstallPromptEvent | null>(null);
+  const online = useOnline();
+  /* mỗi lần thẻ THẬT SỰ hiện mới tính một lượt — chỉ ghi khi mode được đặt */
+  const marked = useRef(false);
 
   useEffect(() => {
     if (isStandalone()) return; // đã cài rồi → thôi
-    try {
-      if (localStorage.getItem(DISMISS_KEY) === "1") return; // đã tắt nhắc
-    } catch {
-      // không đọc được localStorage — cứ để nhắc
-    }
+    if (!shouldShowInstallNudge(readNudge(), Date.now())) return;
 
     // iOS Safari: KHÔNG có beforeinstallprompt → hướng dẫn tay
     if (isIOS()) {
@@ -57,28 +117,35 @@ export function InstallBanner() {
     };
   }, []);
 
-  if (!mode) return null;
+  // ghi "đã hiện 1 lượt" đúng lúc thẻ ra màn (không tính lúc đang chờ BIP)
+  useEffect(() => {
+    if (!mode || marked.current) return;
+    marked.current = true;
+    writeNudge(markInstallNudgeShown(readNudge(), Date.now()));
+  }, [mode]);
+
+  // MẤT SÓNG → ẩn (không huỷ state; sóng về thì hiện lại)
+  if (!mode || !online) return null;
 
   const dismiss = () => {
-    try {
-      localStorage.setItem(DISMISS_KEY, "1");
-    } catch {
-      // storage đầy/chặn — vẫn ẩn phiên này
-    }
+    writeNudge(markInstallNudgeDismissed(readNudge()));
     setMode(null);
   };
 
   const install = async () => {
     const d = deferred.current;
     if (!d) return;
+    let outcome: "accepted" | "dismissed" = "dismissed";
     try {
       await d.prompt();
-      await d.userChoice;
+      outcome = (await d.userChoice).outcome;
     } catch {
       // bà con huỷ / lỗi — không sao
     }
     deferred.current = null;
-    setMode(null); // cài hay không, phiên này không nhắc lại
+    // bấm Cài rồi HUỶ = đã trả lời rồi, ghi như đã tắt (audit S7)
+    if (outcome === "dismissed") writeNudge(markInstallNudgeDismissed(readNudge()));
+    setMode(null);
   };
 
   return (

@@ -27,16 +27,41 @@ describe("normalizePermissions — fail-closed + preset mặc định", () => {
     }
   });
 
-  it("rác (số/mảng/JSON hỏng) → preset mặc định", () => {
-    for (const raw of [42, [], "{bad json", "null-ish"]) {
+  /*  ĐỔI CHIỀU 2026-08-18 (thẩm định P1). Bản cũ khoá lại hành vi "rác → preset
+      quản lý", tức một ô `staff_permissions` ghi hỏng sẽ NỚI quyền (xem+tạo+sửa
+      cả 6 tab) cho đúng người mà máy chủ vừa không đọc nổi bảng quyền. `null`
+      là câu trả lời HỢP LỆ ("chưa cấu hình") nên giữ preset; rác là "không
+      biết" ⇒ phải khoá. Test này nay chứng minh dữ liệu quyền hỏng KHÔNG thể
+      cấp thêm quyền nào. */
+  it("rác (số/mảng/JSON hỏng/chuỗi lạ) → KHOÁ HẾT, không phải preset", () => {
+    for (const raw of [42, [], "{bad json", "null-ish", true, 0]) {
       const p = normalizePermissions(raw);
-      expect(p["tai-khoan"]).toEqual({
+      for (const tab of MANAGER_TABS) {
+        expect(p[tab]).toEqual({
+          view: false,
+          create: false,
+          edit: false,
+          delete: false,
+        });
+      }
+    }
+  });
+
+  it("null/undefined vẫn là preset (tài khoản cũ + 0017 chưa apply)", () => {
+    for (const raw of [null, undefined]) {
+      expect(normalizePermissions(raw)["tai-khoan"]).toEqual({
         view: true,
         create: true,
         edit: true,
         delete: false,
       });
     }
+  });
+
+  it("chuỗi JSON HỢP LỆ vẫn đọc được (cột jsonb trả string ở vài driver)", () => {
+    const p = normalizePermissions('{"tai-khoan":{"view":true}}');
+    expect(p["tai-khoan"].view).toBe(true);
+    expect(p["tai-khoan"].edit).toBe(false);
   });
 
   it("object thiếu tab → tab đó tất cả false (fail-closed), không rơi về preset", () => {
@@ -120,9 +145,10 @@ describe("visibleTabs — theo cờ view, giữ thứ tự", () => {
 });
 
 describe("helpers", () => {
-  it("isManagerTab chỉ nhận 5 tab được phép", () => {
+  it("isManagerTab chỉ nhận 6 tab được phép", () => {
     expect(isManagerTab("tai-khoan")).toBe(true);
     expect(isManagerTab("cho-ban")).toBe(true);
+    expect(isManagerTab("don-hang")).toBe(true); // thêm 2026-08-11
     expect(isManagerTab("vung-bien")).toBe(false); // admin-only cứng
     expect(isManagerTab("he-thong")).toBe(false);
   });

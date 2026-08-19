@@ -2,7 +2,7 @@
 
 > Load khi: task chạm đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (pha trộn dự báo × mùa vụ), nguồn dữ liệu cho tầm 16 ngày, hoặc so vị trí hiện tại với tuyến đã lưu.
 covers: src/lib/fish-blend.ts, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
-last_verified: 2026-08-02
+last_verified: 2026-08-16
 ttl_days: 90
 
 <!-- re-verified: 2026-08-02h — soát offline VÒNG 2 (`ops/audit-offline-vong2-2026-08-02.md`, chất vấn #3 "biết khuôn, viết ra khuôn, không áp khuôn"): `fish-blend.ts` CHỈ đổi đúng một dòng — `AbortSignal.timeout(15000)` → `timeoutSignal(15000)` từ `lib/abort.ts`. KHÔNG đổi một con số nào của bộ pha trộn. Lý do: `AbortSignal.timeout` là hàm tĩnh chỉ có từ Safari 16 / Chrome 103; iPhone kẹt iOS 15.8 (Safari 15) ném `TypeError` NGAY TẠI lời gọi ⇒ trên nhóm máy đó nhánh tải bản đồ mùa vụ hỏng vì một lý do KHÔNG PHẢI mạng, mà lại đội lốt "mất sóng". `timeoutSignal` có đường lùi thật bằng `AbortController + setTimeout`, nên máy cũ lần đầu tiên CÓ trần thời gian thật (trước đây `sea.ts`/`fishing-map-view.tsx` canh bằng `typeof` rồi trả `undefined` = chạy KHÔNG trần). Tỷ lệ w(d), thang phân vị, `blendFishCells`, `fishLeadDays` KHÔNG đổi — §5d/§5e/§5f còn đúng nguyên. Cổng chặn tái phát: `src/lib/__tests__/no-bare-abort-timeout.test.ts`. -->
@@ -647,3 +647,15 @@ trơn tới mức nào" chứ không đo "dự báo được bao nhiêu". Trần
 ---
 *Nguồn chi tiết (file:line của kiểm kê repo, URL của mọi số liệu): transcript 3 agent nghiên cứu
 phiên 2026-07-28. Doc này là ĐỀ XUẤT — chưa nằm trong invariant doc-sync cho tới khi được duyệt.*
+
+---
+
+## Bất biến an toàn của `planRoute` (2026-08-16, thẩm định P0 — ÁP DỤNG NGAY, không chờ duyệt phần đề xuất trên)
+
+Phần dưới đây KHÁC tính chất với cả doc: nó không phải đề xuất, mà là luật đang chạy trong `lib/route-plan.ts`, có cổng test (`__tests__/route-plan-strict.test.ts`).
+
+1. **Mọi cạnh của tuyến TRẢ VỀ đã qua kiểm NGHIÊM.** Dijkstra chỉ chứng minh đi được giữa các nút lưới đã snap, rồi hai đầu bị thay bằng toạ độ THẬT; vòng kéo dây có thể giữ lại cạnh không đi được. Nên sau khi kéo dây, đi lại trọn tuyến ở chế độ nghiêm; hỏng thì lùi về đường Dijkstra chưa kéo dây; vẫn hỏng thì **trả `null`** — thà không có tuyến còn hơn một tuyến cắt qua đảo. (Lỗi đã sửa: bước tính số liệu cuối chạy `relaxed` và cờ `ok` của nó không ai đọc.)
+2. **Nới là nới cho ĐI, không phải nới cho IM.** Cạnh đè lên đất/bãi cạn nhưng đi được nhờ bán kính nới quanh nơi xuất phát/điểm đến phải cắm cờ (`hasNearLandLeg`, `hasVeryShallowLeg`) và giao diện phải nói ra.
+3. **Mẫu độ sâu dọc cạnh ≤2 km** (trước là 5 km — lưới độ sâu bước ~5,5 km nên mẫu 5 km vẫn để lọt đảo nhỏ giữa hai mẫu).
+4. **Thiếu tin bão thì vẫn tính tuyến nhưng phải nói** — luật ở `stormGateForRoute` (`lib/storms.ts`), xem [07-design-spec](07-design-spec.md).
+5. Tuyến là **heuristic có kiểm chứng**, không phải tối ưu toàn cục — lý do và điều kiện xét lại ở [ADR 0003](../adr/0003-tuyen-dijkstra-mot-nhan.md).

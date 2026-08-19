@@ -5,9 +5,11 @@
 **Load khi / Load when**: đụng DB/migration/RLS, sửa `src/lib/documents.ts`, nối vault với Supabase, hoặc thêm bảng mới.
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
-last_verified: 2026-07-29
+last_verified: 2026-08-19
 ttl_days: 180
 <!-- re-verified: 2026-07-29 — documents.ts GỠ demoDocuments (dead seed, prod không dùng — app đã lên thật, user mới thấy tủ giấy tờ RỖNG). KHÔNG đổi schema/RLS/shape BoatDocument, không đụng migration/webhook/owned-assets. Xem 02 §4 + 07 §8.1. -->
+<!-- re-verified: 2026-08-18 — ĐỐI CHIẾU 5 vùng covers sau gói C/E/F: (1) `documents.ts` `getExpiryStatus` nay import `SOON_DAYS_DOCS/daysUntil/todayIsoVN/addDaysIso` từ `lib/days.ts`, `days===0` → level `expired` "Hết hạn hôm nay" (khớp bảng §3); (2) `owned-assets.ts` `getServiceDueStatus` dùng `SOON_DAYS_SERVICE=14` + `daysUntil` giờ VN, `requestStatusVN` trả `ok|neutral`; (3) `phone.ts` KHÔNG đổi từ 2026-06-16 (4 export `normalizeVnPhone/phoneToEmail/sanitizePhoneInput/isValidVnPhone` + `PHONE_EMAIL_DOMAIN`, đúng như §5b tả "helper SĐT thuần"; report báo SUSPECT chỉ vì commit tạo file trùng ngày last_verified cũ); (4) `sdwork-webhook.ts` + `supabase/migrations` không có thay đổi mới hôm nay ngoài 0034/0035 đã ghi (commit f078783); (5) `push_messages` không migration mới — chỉ THÊM quy ước `sent_by` `system:storm`/`system:order` + `tag` (ghi ở mục 0023). -->
+<!-- re-verified: 2026-08-19 — GỘP BASE (sync base): migration base 0032/0033/0034/0036/0037 đánh lại số thành 0045/0046/0047/0048/0049 cho khỏi đụng số sdvico; base 0035_market_listings_owner_phone BỎ vì trùng logic 0043 của sdvico. Mọi mục dưới đây dùng SỐ MỚI và trạng thái apply tính theo prod SDVICO (⚠️ CHƯA APPLY), KHÔNG phải prod base. -->
 
 ---
 
@@ -130,6 +132,35 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - ✅ **0014 ĐÃ APPLY prod** (2026-07-27). ⚠️ **0043 CHƯA apply prod** — cần chạy để cột `owner_phone` tồn tại thì đăng/xem tin mới chạy thật (ref znzgugvfhgmiszqgjulk, KHÔNG tự apply). Máy chưa cấu hình env → `fetchListings` trả null → empty state, đăng tin báo lỗi mềm.
 - **Lộ trình**: app riêng bên thu mua đăng tin cần mua đổ về qua webhook (`sdwork_ref`, `owner_phone`/`owner_id` NULL) — khi làm cần bổ sung [contract SDWork](../contracts/sdwork-assets.contract.md).
 
+### KHO BẢN TIN BÃO (vẽ đường đi) — migration [`0048_storm_bulletins.sql`](../../supabase/migrations/0048_storm_bulletins.sql) (2026-08-18, đánh lại số 2026-08-19) — ⚠️ **CHƯA APPLY prod SDVICO**
+
+**Vì sao** (chủ dự án): *"nên có DB lưu các bản tin để vẽ cho chuẩn — bão A có tin lúc nào, tâm bão thời gian nào, bán kính bao nhiêu, hướng di chuyển nào; lúc update thì update phần mới"* và *"cái bão đã đi qua và sắp tới, cứ mỗi lần update thì hiệu chỉnh phần sắp tới thôi"*. Trước bản này app chỉ giữ **bản tin mới nhất** (bộ nhớ + cache SW): mỗi lượt hỏi là ghi đè ⇒ **không bao giờ vẽ được đoạn cơn ĐÃ ĐI**.
+
+| Bảng | Nghĩa |
+|---|---|
+| `storm_bulletins` | **MỘT HÀNG = MỘT BẢN TIN, BẤT BIẾN** (chỉ insert). Cột: `storm_key` (gom bản tin về cùng một cơn) · `issued_at` (giờ PHÁT) · `observed_at` (giờ QUAN TRẮC tâm, sớm hơn ~1h) · `la_bao`/`so_bao` · `lat`/`lon` · `cap`/`giat` · `dir`/`speed_kmh` · `radius_km` · `danger_box` jsonb · `risk` · `source`/`url`/`raw_text`. **`unique (storm_key, issued_at)`** là trọng tài chống ghi trùng — cron chạy 30 phút/lần trong khi nguồn phát 3–6 giờ/lần, nên phần lớn lượt trúng unique và trả `saved:0`. Đường **ĐÃ ĐI** = nối `lat/lon` các hàng cùng `storm_key` theo thời gian |
+| `storm_forecast_points` | Các mốc dự báo **CỦA MỘT bản tin** (`bulletin_id` FK cascade, `seq` giữ thứ tự trong bảng 24/48/72 giờ). Đường **SẮP TỚI** = mốc của bản tin MỚI NHẤT ⇒ tin mới chỉ đụng phần này, phần đã đi giữ nguyên — đúng ý "hiệu chỉnh phần sắp tới thôi" |
+| RLS | **Bật, KHÔNG policy** — client không đọc thẳng. Ghi qua `/api/cron/refresh-storms`, đọc qua `/api/storms` (cả hai service-role). Cùng khuôn `fish_forecast_snapshot`/`weather_snapshot` |
+
+- ⚠️ **`radius_km` NULLABLE và thường NULL — có chủ ý.** Bản tin **áp thấp nhiệt đới** của NCHMF **không phát bán kính gió mạnh** (đã đo trên bản tin thật 18/8); chỉ bản tin **bão** mới ghi thẳng *"Bán kính gió mạnh cấp 6 khoảng 250km"*. Thứ nguồn LUÔN phát là **vùng nguy hiểm dạng khung toạ độ** (`danger_box`) — bản đồ vẽ cái đó. **Không mượn sai số dự báo của JMA/NHC vẽ vòng tròn quanh tâm**: đó là tự nhận một trách nhiệm mình không có, ở chỗ dính tính mạng.
+- **Khoá cơn** (`stormKeyFor`, `src/lib/storm-bulletin.ts`): bão có số → `bao-so-5-2026`. Áp thấp **không có tên/số nào** — gom theo LIÊN TỤC (cách bản tin trước ≤12 giờ **và** tâm cách ≤600 km) → giữ khoá cũ; không khớp thì cơn MỚI `atnd-20260818`. **ATNĐ mạnh lên thành bão**: cron `khoaCanDoiTen` đổi NHÃN các hàng cũ sang khoá bão (lần DUY NHẤT hàng cũ bị sửa, và chỉ sửa cột `storm_key`) — không làm thì đường đi đứt làm đôi đúng lúc cơn nguy hiểm nhất.
+- ⚠️ **CHƯA APPLY prod SDVICO** (ref `znzgugvfhgmiszqgjulk`, KHÔNG tự apply) — dòng "đã apply" của base là prod BASE. Chưa apply thì `/api/storms` chỉ thiếu phần vẽ đường đi, tin bão vẫn chạy.
+- **Chưa cấu hình Supabase → không lỗi**: `/api/storms` trả `tracks: []` và tin bão vẫn đi như cũ. Phần vẽ đẹp KHÔNG được phép làm mất phần cảnh báo.
+
+### QUÉT TIN BÃO THEO MỨC ƯU TIÊN — migration [`0049_storm_scan_priority.sql`](../../supabase/migrations/0049_storm_scan_priority.sql) (2026-08-18, đánh lại số 2026-08-19) — ⚠️ **CHƯA APPLY prod SDVICO**
+
+**Vì sao** (chủ dự án): *"quét theo mức độ ưu tiên, chứ không phải cứ quét 30 phút 1 lần mãi; thường 1 ngày 1 lần định kỳ là ok, rồi khi có bão thì theo dõi diễn biến mới tăng tần suất lên 1h/lần … tránh quét liên tục rồi bị treo lỗi và làm tốn tài nguyên"*. Bản 0036 quét 48 lượt/ngày × 2 lượt tải HTML = **96 request/ngày** vào trang cơ quan nhà nước, phần lớn để nhận lại đúng bản tin đã có. Luật nhịp: [ADR 0005](../adr/0005-nhip-quet-tin-bao-theo-muc-uu-tien.md), mã thuần + test ở `src/lib/storm-scan.ts`.
+
+| Thay đổi | Nghĩa |
+|---|---|
+| `storm_bulletins.next_at timestamptz` | Giờ **NGUỒN TỰ HẸN** bản tin kế (*"Bản tin tiếp theo: 14h00 ngày 18/8"*, `parseGioBanTinTiepTheo`). Đây là nhịp THẬT do cơ quan phát tin công bố và nó **tự đổi theo mọi nấc leo thang** của QĐ 18/2021 (6 giờ/lần ngoài Biển Đông → 3 giờ/lần gần bờ → 1 giờ/lần khẩn cấp). Chép cứng bảng tần suất vào code thì sai đúng lúc nguy hiểm nhất. NULL = bản tin không ghi ⇒ đường lùi 6 giờ |
+| bảng `storm_scan_log` | **Một hàng = một lượt THẬT SỰ hỏi nguồn.** Cổng nhịp cần biết "lần cuối hỏi lúc nào", mà `storm_bulletins` không trả lời được: ngày trời yên không có bản tin nào để ghi ⇒ kho đứng im ⇒ cổng tưởng chưa bao giờ quét ⇒ quét lại mỗi lượt. Cột: `scanned_at` · `muc` (`ngu`\|`xa`\|`gan`) · `ket_qua` (`saved`\|`da-co`\|`no-bulletin`\|`parse-failed`\|…) · `storm_key` · `vi` (câu lý do nguyên văn). Giữ CẢ lượt hỏng — đây cũng là **bằng chứng nhịp thật**, nghi app đập nguồn thì mở bảng ra đếm |
+| RLS | Bật, KHÔNG policy — cùng khuôn 0036. Chỉ route server (service-role) đọc/ghi |
+
+- **Ghi sổ TRƯỚC khi hỏi nguồn**, không phải sau: nguồn treo / route bị cắt giữa chừng mà chưa kịp ghi thì lượt sau lại thấy "chưa quét" và lao vào hỏi tiếp — đúng cảnh quét liên tục cần tránh.
+- Kết quả đo: **96 → 2 request/ngày khi trời yên** (một lượt = index + bản tin). Bão còn xa → theo mốc nguồn hẹn (thường 6 giờ). Bão ≤500 km tới cảng hoặc từ cấp 10 → 1 giờ/lần.
+- ⚠️ **CHƯA APPLY prod SDVICO** (ref `znzgugvfhgmiszqgjulk`, KHÔNG tự apply).
+
 ### Danh mục sản phẩm ADMIN quản lý — migration [`0016_product_catalog.sql`](../../supabase/migrations/0016_product_catalog.sql) (2026-07-28) — ✅ ĐÃ APPLY prod
 
 | Thay đổi | Nghĩa |
@@ -241,11 +272,12 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 | `push_messages` (`id` · `title` · `body` · `url` · `target` `all\|account` · `target_phone` · `sent_by` · `devices` · `sent` · `created_at`) | MỘT DÒNG mỗi lần gửi. Ghi **TRƯỚC khi đẩy** nên tin vẫn còn kể cả đẩy hụt |
 | `push_receipts` (`message_id` × `endpoint` · `account_phone` · `delivered_at` · `opened_at`) | Biên nhận THẬT từ máy bà con |
 
+- **Quy ước `sent_by` (chốt 2026-08-18, gói F — KHÔNG migration, cột sẵn có)**: SĐT admin = tin TAY (`/api/admin/push`) · **`system:order`** = đơn hàng (`/api/admin/orders/[id]`, url `/tau?tab=san-pham`; `da_nhan` CHỈ ghi hộp thư — `devices=0`, `pushOs:false`; `dang_giao`/`da_giao`/`da_huy` mới đẩy OS) · **`system:storm`** = bão (cron `/api/cron/notify-storms`, url `/ngu-truong?bao=<khoá>&cap=<watch|danger>&muc=<1..4>&lat=&lon=&t=<epoch s>` (2026-08-18b: thêm TÂM + giờ tin để lượt sau NỐI CƠN theo vị trí qua `lib/storm-identity.ts cungCon`; khoá cùng khuôn kho bản tin `bao-so-N-YYYY` / `atnd-YYYYMMDD-lat-lon` / `gdacs-<tên>`) — **URL chính là SỔ KHỬ TRÙNG 48h** (`STORM_RECENT_WINDOW_MS` + `parseStormPushUrl` trong `lib/storm-push.ts` đọc lại `url` của tin `system:storm` 48h gần nhất): đổi khuôn URL là phải sửa `storm-push.ts` cùng commit). Payload push thêm **`tag`** (`bao-<khoá>` / `don-<orderId>`; tin tay không tag) → `public/sw.js` `showNotification` `{tag, renotify:true}` để tin mới cùng cơn/cùng đơn ĐÈ tin cũ trên màn khoá thay vì xếp chồng.
 - **Vì sao**: (a) thông báo vuốt tắt là MẤT — ngư dân tay ướt dễ vuốt nhầm, tin bão biến mất không dấu vết; (b) trước chỉ biết "đã đẩy tới Apple/Google", không biết máy có nhận không.
 - **Biên nhận đo bằng gì**: service worker CHẠY THẬT trên máy — nhánh `push` gọi `POST /api/push/ack` (`delivered`), `notificationclick` gọi (`opened`, ghi cả hai mốc vì bấm được nghĩa là đã nhận). Không đòi đăng nhập (tin tới lúc app đóng, không chắc có phiên); khoá là cặp `(messageId, endpoint)`, biết endpoint máy khác cũng chỉ đánh dấu hộ, không đọc được nội dung.
 - **Hộp thư**: `GET /api/me/messages` (lọc phía SERVER theo phiên) trả tin `target='all'` + tin nhắm đúng tài khoản, ≤50 tin mới nhất. **KHÔNG cho SW cache** (route gắn danh tính, không nằm trong `API_CACHE_ALLOW`); bản offline ở `localStorage forfish.inbox.v1` **mang theo SĐT chủ nhân**, SĐT lệch → coi như trống, và **xoá khi đăng xuất** — máy dùng chung trên tàu.
-- **UI**: trang chủ mục **Thông báo** ngay dưới "Bốn việc chính" — 3 tin gần nhất, bấm mở tin cũ hơn; tự ẩn khi chưa đăng nhập/chưa có tin. `/quan-tri` tab Thông báo có **10 tin gần nhất + cột máy · đẩy · nhận · đọc**.
-- ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`).
+- **UI**: trang chủ mục **Thông báo** ngay dưới "Bốn việc chính" — 3 tin gần nhất, bấm mở tin cũ hơn; tự ẩn ~~khi chưa đăng nhập/~~ **chỉ khi không có tin** (đính chính 2026-08-18: từ 01n hiện cả khi chưa đăng nhập — tin gửi chung; không chặn theo đăng nhập). `/quan-tri` tab Thông báo có **10 tin gần nhất + cột máy · đẩy · nhận · đọc**.
+- ✅ **ĐÃ APPLY prod 2026-08-01** (ref `znzgugvfhgmiszqgjulk`).
 
 ### Đọc trong app cũng là đọc — migration [`0035_push_reads.sql`](../../supabase/migrations/0035_push_reads.sql) (2026-08-01) — ✅ ĐÃ APPLY prod (soi prod 2026-08-04)
 
@@ -280,7 +312,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - ⚠️ **MÁY CHỦ PHẢI TRẢ LỜI CÓ THỂ HÀNH ĐỘNG ĐƯỢC** — chặn vòng lặp vô ích: `attached` (đã gán vào hàng khách chưa) + `need` (`retry` bám tiếp · `login` chưa có phiên nên DỪNG bám · `wait_admin` không có hàng khách mang SĐT này, việc của người ở bờ nên DỪNG bám · `none` xong) + `nextInMs` (máy chủ xếp lịch, máy **kẹp về [30 giây, 6 giờ]** trước khi nghe). `nextInMs` là chiều ngược DUY NHẤT của kênh này — một con số điều tiết, KHÔNG phải kênh lệnh.
 - ⚠️ **`data_until` chỉ đi theo nhịp ĐỊNH KỲ, cố ý KHÔNG vào chữ ký sự kiện**: ngày này đổi sau mỗi lượt tải, đưa vào chữ ký là biến mọi lượt tải thành một "sự kiện" và máy bắn nhịp liên tục. Client khai gì máy chủ cũng ép qua `normalizeDataUntil` (thuần, có test) — chuỗi rác lọt xuống cột `date` là **cả lệnh update hỏng**, mất luôn 3 mốc đang chạy tốt (đúng khuôn lỗi cột 0022 đã dính một lần).
 - ⚠️ **`data_until` đo HAI LỚP CỐT LÕI, không phải một** (sửa 2026-08-02e): client trước đây gửi lên `savedCoverage().untilIso`, mà trường đó chỉ duyệt lớp **điểm ghim**. Sai cả hai chiều và cả hai chiều đều sai về phía NGUY HIỂM — (a) lưới CẢ VÙNG bị dọn mà điểm ghim còn ⇒ /quan-tri báo "tới 18/08" trong khi thứ bà con mở ra giữa biển đã mất; (b) lớp `point` là **bậc hy sinh đầu tiên** khi máy hết chỗ nên nó bị dọn trước ⇒ `untilIso = null` ⇒ route bỏ qua (`if (savedUntil)`) ⇒ cột **giữ nguyên con số cũ đã lỗi thời**. Nay client gửi `coreSavedUntil(savedGridUntil(), cov.untilIso)` (`lib/heartbeat.ts`, thuần, có test): ngày **SỚM NHẤT** giữa lưới cả vùng và điểm ghim, `null` khi thiếu một trong hai. `cov.untilIso` KHÔNG đổi nghĩa — chip màn Ra khơi vẫn dùng nó đúng nghĩa "điểm ghim".
-- ⚠️ **CỬA 12 GIỜ CHỈ ĐÓNG KHI GHI ĐƯỢC THẬT** (sửa 2026-08-01g): bản đầu ghi dấu TRƯỚC khi gửi và không ai đọc `recorded` ⇒ một lần hỏng là im nửa ngày, và hỏng vĩnh viễn cũng im lặng. Hai lỗi ghép lại: (a) client coi "gửi đi" = "ghi được"; (b) route coi `update().eq()` **khớp 0 hàng** = thành công (Supabase trả `error = null`) nên SĐT không khớp `customers.phone` là hỏng mãi mà vẫn báo ổn. Nay route `.select("phone")` để đếm hàng thật và trả `reason` (`no_session` · `no_customer_row` · `write_failed`, KHÔNG kèm SĐT); client chỉ ghi mốc thành công khi `recorded === true`. Mức hoãn tách sang `forfish.heartbeat.retry.v1` + bộ đếm `forfish.heartbeat.fails.v1`: mất sóng thì vẫn KHÔNG gửi gì; máy đang online mà không nghe được máy chủ trong **5 giây** → thang lùi **30 giây → 3 phút → 5 phút → 12 giờ** (`netBackoffMs`, thuần, có test) và `UsageHeartbeat` tự hẹn giờ thử lại theo thang; máy chủ có trả lời mà chưa ghi được → 30 phút.
+- ⚠️ **CỬA 12 GIỜ CHỈ ĐÓNG KHI GHI ĐƯỢC THẬT** (sửa 2026-08-01g): bản đầu ghi dấu TRƯỚC khi gửi và không ai đọc `recorded` ⇒ một lần hỏng là im nửa ngày, và hỏng vĩnh viễn cũng im lặng. Hai lỗi ghép lại: (a) client coi "gửi đi" = "ghi được"; (b) route coi `update().eq()` **khớp 0 hàng** = thành công (Supabase trả `error = null`) nên SĐT không khớp `customers.phone` là hỏng mãi mà vẫn báo ổn. Nay route `.select("phone")` để đếm hàng thật và trả `reason` (`no_session` · `no_customer_row` · `write_failed`, KHÔNG kèm SĐT); client chỉ ghi mốc thành công khi `recorded === true`. Mức hoãn tách sang `forfish.heartbeat.retry.v1` + bộ đếm `forfish.heartbeat.fails.v1`: mất sóng thì vẫn KHÔNG gửi gì; máy đang online mà không nghe được máy chủ trong **5 giây** → ~~thang lùi **30 giây → 3 phút → 5 phút → 12 giờ**~~ **HAI THANG** (đính chính 2026-08-18, khớp [state-registry §heartbeat.retry](ops/state-registry.md) + `lib/heartbeat-policy.ts`): nhịp SỰ KIỆN 30 giây → 3 phút → giữ 5 phút (`EVENT_RETRY_STEPS_MS`) · nhịp ĐỊNH KỲ 1 → 5 → 15 phút → trần **30 phút** (`STATE_BACKOFF_STEPS_MS`; cửa định kỳ `STATE_GAP_MS` = 30 phút thay cửa 12 giờ cũ) và `UsageHeartbeat` tự hẹn giờ thử lại theo thang; máy chủ có trả lời mà chưa ghi được → 30 phút.
 - ⚠️ **TIN MỚI ĐI NGAY, KHÔNG CHỜ CỬA 12 GIỜ** (sửa 2026-08-01h): cửa 12 giờ gác theo *thời gian* nhưng thứ cần báo là *trạng thái đã đổi*, nên nó chặn nhầm đúng hai chuyển biến quan trọng — **web → bản cài** (trên Android bản cài dùng chung kho với Chrome ⇒ mở web rồi mở bản cài ngay sau đó thì `pwa_last_open_at` mãi `null`) và **chưa đủ đồ → đủ đồ đi biển** (tải xong lúc 15:00 thì `offline_ready_at` trống tới 03:00 sáng hôm sau — cột an toàn). Nay `beatSignature` (thuần, có test) rút nhịp thành `w-`/`wr`/`p-`/`pr`; khác chữ ký lần ghi được gần nhất thì gửi ngay. Mất sóng và mức hoãn-vì-mạng vẫn chặn trước — tin mới KHÔNG vượt được hai hàng rào đó.
 - **Đọc**: `/quan-tri` tab Tài khoản, chip `AppUsage` cạnh chip staff: **"Bản cài · <giờ>"** (xanh) hoặc **"CHƯA mở bản cài"** (vàng, tooltip giải thích kho A2HS tách riêng), + **"Đủ đồ đi biển · <giờ>"**.
 - ⚠️ **THANG MỘT CHIỀU: web → bản cài → tải đủ** (siết 2026-08-01j, chủ dự án chốt: *"1 chiều thôi… nếu không PWA thì nó cứ nằm ở Web để đảm bảo họ có PWA"*). `offline_ready_at` **chỉ ghi khi nhịp gửi TỪ BẢN CÀI, mọi nền** — luật ở `src/lib/app-usage.ts` `countsAsOfflineReady` (thuần, có test). Gốc: iOS cho bản A2HS kho RIÊNG tách Safari nên tải đủ trong Safari không chứng minh gì cho bản cài (2026-08-01f). Bản đó **miễn cho Android** vì bản cài ở Android dùng chung kho với Chrome — xét về DỮ LIỆU thì đúng, nhưng thang này là **danh sách GỌI ĐIỆN**: người Android tải đủ trong tab nhảy thẳng lên bậc cao nhất (`usageCallPriority` 3 "yên tâm nhất") và rơi khỏi danh sách nhắc cài, dù màn hình chưa có icon nào — mà tab Chrome dễ bị dọn hơn bản cài và `persist()` cũng khó được cấp hơn. Nay bậc "đủ đồ" **không có đường tắt**. Cờ `ios` đã BỎ khỏi payload (thừa — `platform` mang thông tin đó).
@@ -308,16 +340,28 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 `dang_kiem` · `giay_phep_khai_thac` · `an_toan_thuc_pham` · `bao_hiem` · `chung_chi_thuyen_truong` · `khac` — label tiếng Việt trong `DOCUMENT_KINDS`.
 
 ### Expiry status — `getExpiryStatus(doc, today)`
-- **`SOON_DAYS = 30`** — ngưỡng "sắp hết hạn"
-- Tính ngày theo **UTC** (`daysUntil`) để tránh lệch timezone
+- ~~**`SOON_DAYS = 30`** — ngưỡng "sắp hết hạn"~~ → **`SOON_DAYS_DOCS = 30`** (bảng ngưỡng chung bên dưới, 2026-08-18)
+- ~~Tính ngày theo **UTC** (`daysUntil`) để tránh lệch timezone~~ **Đính chính 2026-08-18** (audit N1): ngày UTC làm 00h–07h sáng VN "hôm nay" thành hôm qua (giấy hết hạn hôm nay hiện "Còn 1 ngày"); nay tính theo **giờ VN** (`Asia/Ho_Chi_Minh`) bằng **1 hàm `daysUntil` dùng chung** — **CHỐT 2026-08-18 (gói C)**: `src/lib/days.ts` (`daysUntil(isoDate, today)` · `todayIsoVN()` · `addDaysIso()` · `SOON_DAYS_DOCS` · `SOON_DAYS_SERVICE`; ngày VN **+07 cố định** qua `isoDateVN` của `day-labels.ts`, KHÔNG theo múi giờ máy — máy đặt sai giờ thì hạn giấy vẫn đúng lịch bà con nhìn; ngày hỏng → `NaN`, không giả vờ 0). 6 bản chép ở documents/crew/products/owned-assets/compliance/maintenance-reminders + urgent-strip ĐÃ gọi về đây; hook `src/lib/use-today.ts` `useTodayVN()` tính lại ngày khi `visibilitychange`/`focus` (app treo qua đêm không kẹt ngày cũ). Test `days.test.ts`
 - Levels → màu UI (xem [03-design-system.md](03-design-system.md)):
 
 | Level | Điều kiện | Màu | Label mẫu |
 |---|---|---|---|
 | `expired` | days < 0 | 🔴 đỏ | "Đã quá hạn N ngày" |
-| `soon` | 0 ≤ days ≤ 30 | 🟡 vàng | "Còn N ngày" / "Hết hạn hôm nay" |
-| `ok` | days > 30 | 🟢 xanh | "Còn N ngày" |
+| `soon` | ~~0 ≤ days ≤ 30~~ **1 ≤ days ≤ SOON_DAYS** | 🟡 vàng | "Còn N ngày" |
+| `expired` (KHÔNG level riêng — chốt 2026-08-18 theo code `getExpiryStatus`) | **days === 0 → ĐỎ** ("Hết hạn hôm nay" — chậm là bị phạt/không ra khơi được, xem 07 §12 màu = chữ; trước đây vàng) | 🔴 đỏ | "Hết hạn hôm nay" |
+| `ok` | days > SOON_DAYS | 🟢 xanh (KHÔNG đeo băng — 07 §12) | "Còn N ngày" |
 | `none` | không có `expiresOn` | — | "Không có hạn" |
+
+**Bảng ngưỡng chung toàn app (2026-08-18, chủ dự án chốt theo audit `ops/audit-notify-2026-08-18.md`)** — thay cho 5 ngưỡng rời 30/30/30/14/7 chép ở từng module:
+
+| Hằng | Giá trị | Áp cho | Ghi chú |
+|---|---|---|---|
+| `SOON_DAYS_DOCS` | **30** ngày | giấy tờ tàu · bảo hiểm · chứng chỉ thuyền viên · bảo hành đồ SDVICO | thay `SOON_DAYS` (documents.ts) + bản chép ở crew.ts/products.ts/owned-assets.ts |
+| `SOON_DAYS_SERVICE` | **14** ngày | bảo dưỡng định kỳ + kỳ dịch vụ SDVICO | bảo dưỡng trước dùng 7 (báo muộn nhất dù cần đặt thợ) → nâng lên 14 |
+| `daysUntil(dateISO, now)` | 1 hàm, **giờ VN** | mọi nơi tính "còn N ngày" (kể cả nợ, eCDT, badge tab) | **`src/lib/days.ts` (chốt 2026-08-18)**, test `days.test.ts`; cấm chép lại. Áp thật: `SOON_DAYS_DOCS` ← documents.ts · crew.ts (bảo hiểm/chứng chỉ) · products.ts (bảo hành); `SOON_DAYS_SERVICE` ← owned-assets.ts `getServiceDueStatus` · maintenance-reminders `getDueStatus`. `crewIssue` (crew.ts) thêm level **`neutral`** "Chưa ghi hạn bảo hiểm" + trường `days` (không BH = -1; neutral/ok = null); `requestStatusVN` (owned-assets.ts) chỉ còn `ok\|neutral` |
+| `days === 0` | **ĐỎ** | mọi loại hạn | "hôm nay hết hạn" = đã chậm |
+| nợ / việc chưa tới hạn | **neutral**, không băng màu | nợ SDVICO, kỳ dịch vụ còn xa | chỉ quá hạn mới đỏ, sắp tới hạn (≤ SOON_DAYS_SERVICE) mới vàng |
+| mẫu (demo/sổ mẫu) | không sinh cảnh báo, không đếm badge | tủ/sổ/lịch mẫu | 07 §8 + §12 |
 
 - `byUrgency(today)` — sort gấp nhất lên đầu (expired trước, rồi gần hạn nhất; không hạn xuống cuối)
 - Seed mẫu tủ giấy tờ **đã gỡ HẲN** (2026-07-29): `loadDocs()` trả rỗng khi chưa có data thật → màn "chưa có, bấm thêm". Hàm `demoDocuments` (từng seed rồi thành dead code) nay xoá khỏi `documents.ts`. Xem 02 §4.
@@ -405,12 +449,12 @@ App yêu cầu đăng nhập (tài khoản đồng bộ SDWork) cho tính năng 
 | Tính năng | Quyền | Chặn ở đâu |
 |---|---|---|
 | **Dự báo cá (PFZ)** | 🟢 teaser → 🔒 chi tiết | **TEASER (user chốt 2026-06-11)**: `GET /api/fish-forecast` CÔNG KHAI (bỏ gate 401) → lớp cá heatmap + điểm nóng HIỆN cho mọi người (thu hút). Xem CHI TIẾT một điểm (loài gì, khả năng bao nhiêu, đi hướng nào) mới khoá: `fishing-map-view` dùng `useAuthUser`+`isSupabaseConfigured` → `fishLocked` (đã cấu hình Supabase + chưa login) → thẻ cá trong sheet thành nút "Đăng nhập để xem chi tiết dự báo cá" (→/login) thay readout. Heatmap/chọn loài vẫn xem được (làm mồi). Demo mode = mở hết. (Lý do đổi từ "khoá API" cũ: lớp cá biến mất hẳn → không hấp dẫn được khách đăng ký) |
-| **Tin mua/bán (đăng + xem tin thật)** | 🟢 xem TIN MẪU công khai → 🔒 đăng tin & xem tin thật | `market-board.tsx`: chưa đăng nhập XEM được `DEMO_LISTINGS` (mồi) nhưng nút đăng tin → /login. Tin THẬT (`market_listings`) chỉ user đã đăng nhập đọc (RLS `auth.uid() is not null`), chỉ chủ tin ghi/sửa/xóa — chặn thật ở RLS, không lách được |
+| **Tin mua/bán (đăng + xem tin thật)** | 🟢 xem tin thật công khai → 🔒 đăng/sửa/xoá | **ĐỔI 2026-08-16 (thẩm định P0)**: chốt quyền chuyển từ RLS `auth.uid()` sang route server `/api/market-listings` (+`[id]`) dùng `identityFromRequest` + service-role, chủ tin = `owner_phone` (0043). Lý do: sau 0026 app không giữ phiên nên `auth.uid()` luôn NULL ⇒ RLS chặn cả chiều ĐỌC ⇒ mọi người dùng thật chỉ thấy TIN MẪU và không ai đăng được. Nay: GET mở cho cả khách (`anonymous: true`, server lọc "đang mở + tin của mình"); POST/PATCH/DELETE đòi SĐT, và điều kiện chủ tin nằm TRONG câu lệnh ghi (`.eq("owner_phone", …).select()`) |
 | **Đồ SDVICO của tôi / dịch vụ / cước / yêu cầu đã gửi** | 🔒 (bản chất) | `/api/me/sdvico` suy khách từ session — chưa đăng nhập tự ok:false. **Nguồn thiết bị (2026-06-11)**: gateway `forfish-gateway` v4 (CRM) gộp `warranty_cards` (theo account) + `vw_imported_serials` (import Excel, chủ yếu giám sát hành trình Viettel) khớp theo **SĐT chuẩn hoá 9 số cuối** (0xxx/84xxx/+84 — trước lệch định dạng nên thiết bị import không hiện) qua RPC CRM-side `forfish_imported_serials` (xem [contract](../contracts/sdwork-assets.contract.md)). Khách chỉ có serial import (chưa account) VẪN thấy đồ. Thiết bị import không có hạn BH → hiện tên+serial, không bịa bảo hành |
 | Bản đồ + gió sóng + bão + hải đồ + cá MÙA VỤ · giá cá · bán ở đâu · catalog SDVICO + nút Gọi SDVICO · sổ tự ghi (giấy tờ/bảo dưỡng/thuyền viên) · mức phạt | 🌐 public | không chặn — gửi yêu cầu khi chưa đăng nhập = mối bán hàng mới |
-| **Cảnh báo thuyền viên chéo** (tra/báo cáo theo CCCD) | 🔒 **premium** | chốt server `lib/premium-guard.ts` (route /api/crew-reports*) + khoá UI ở `crew-list.tsx` |
+| **Cảnh báo thuyền viên chéo** (tra/báo cáo theo CCCD) | 🔒 **premium** | chốt server `lib/premium-guard.ts` (route /api/crew-reports*) + khoá UI ở `crew-list.tsx`. **ĐỔI 2026-08-16 (thẩm định P0)**: guard nay nhận `req` và dựng trên `identityFromRequest` + `premiumDenied` (device token) thay cho `auth.getUser()` — bản cũ trả 401 cho MỌI người dùng thật vì app đã bỏ phiên từ 0026; client `crew-list.tsx` gửi chuỗi cứng qua `authedFetch` |
 
-Quy ước: tính năng khóa MỚI → bọc `components/login-gate.tsx` (UI) **và** kiểm session ở API (thật). Hook trạng thái: `lib/use-auth.ts`. Khi Supabase chưa cấu hình (demo mode dev) thì KHÔNG khóa — giữ invariant demo mode §"Demo mode". Ngưỡng phân loại: data CÁ NHÂN (gắn tàu/user) → khóa; tham khảo dùng chung (giá, thời tiết, mức phạt) → public.
+Quy ước: tính năng khóa MỚI → bọc `components/login-gate.tsx` (UI — sdvico VẪN DÙNG: `/nguoi` + tab Dịch vụ/Sản phẩm của `/tau`; base đã xoá file này 2026-08-18 nhưng ở sdvico nó còn importer nên GIỮ) hoặc `PremiumLock`/`premium-gate.tsx` tại điểm chạm khi cổng là hạng premium (07 §12 tầng 5; `PremiumLock` tự trả `null` khi `navigator.onLine === false`) **và** kiểm session ở API (thật). Hook trạng thái: `lib/use-auth.ts`. Khi Supabase chưa cấu hình (demo mode dev) thì KHÔNG khóa — giữ invariant demo mode §"Demo mode". Ngưỡng phân loại: data CÁ NHÂN (gắn tàu/user) → khóa; tham khảo dùng chung (giá, thời tiết, mức phạt) → public.
 
 ## 8. Cross-references
 
@@ -420,7 +464,7 @@ Quy ước: tính năng khóa MỚI → bọc `components/login-gate.tsx` (UI) *
 
 ---
 
-**Last updated**: 2026-07-28
+**Last updated**: 2026-08-18
 <!-- re-verified: 2026-07-28 — bảng `product_listings` (0010, 🔴 chưa apply prod) — danh mục sản phẩm/dịch vụ admin quản lý cho tab Sản phẩm /tau, đọc công khai (RLS visible=true), ghi chỉ qua /api/admin/products (requireStaff). Kế hoạch tiếp: product_inquiries riêng + push_subscriptions (Web Push) — chưa có migration. -->
 <!-- re-verified: 2026-06-18 — 0002 supplies +unit; webhook route trả results[] per-event (ref/ok/code/provisioned) — khớp khảo sát SDWork -->
 <!-- re-verified: 2026-06-16 — bảng customers/devices/supplies/support_requests (0002) + auth SĐT+mật khẩu (webhook provision, KHÔNG email/OTP) + webhook ingest (§5b); §6 gateway live-read chuyển tiếp -->
@@ -542,6 +586,33 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 **Ca thật dẫn tới cột này**: khách `0123456154` (iOS, **đã cài** ra màn hình chính, dữ liệu đủ tới 18/08, còn trống 39 GB) vẫn báo `storage_persisted = false` — mà /quan-tri thì hô "⚠️ chưa được cấp bộ nhớ bền", bắt nhân viên gọi điện nhắc một việc không tồn tại. Luật hiển thị mới ở `persistNote` (`lib/app-usage.ts`, có test): **chỉ nói khi CÒN LÀM ĐƯỢC GÌ** — tức chưa được cấp **và** máy sắp hết chỗ (`< 2000 MB`); bản cài vốn đã được miễn vòng xoá 7 ngày của ITP, thứ `persist()` cứu thêm chỉ là vòng thu hồi LRU khi máy đầy.
 
 ⚠️ App chạy được **trước khi apply**: cả hai đường ghi (`customers` và `customer_devices` trong `/api/me/heartbeat`) đều có nhánh lùi bỏ cột lạ, và `/api/admin/accounts` có nấc select riêng cho cột này.
+
+### Danh mục ĐẶT HÀNG ĐƯỢC — migration [`0045_catalog_orderable.sql`](../../supabase/migrations/0045_catalog_orderable.sql) (2026-08-11, đánh lại số 2026-08-19) — ⚠️ **CHƯA APPLY prod SDVICO**
+
+| Thay đổi | Nghĩa |
+|---|---|
+| MỞ RỘNG `product_listings` (0010) | Nâng khu "Cửa hàng" tab Sản phẩm `/tau` từ "hỏi mua/gọi lại" thành **CHỢ ĐẶT HÀNG THẬT** (1 nhà cung cấp — MVP; chủ tàu chọn số lượng → đặt → NCC giao). Thêm cột: `group` (check `dien_tu`\|`co_dien`\|`nhu_yeu_pham`, **nullable** — dòng cũ chưa gán nhóm vẫn hiện, gom "Khác") · `price_vnd int` (GIÁ SỐ để tính tổng; NULL = chưa niêm yết → không đặt được, giữ luồng hỏi mua) · `unit text` (đơn vị bán, bắt buộc khi orderable) · `orderable boolean default false` (có nút "Thêm vào giỏ"). **DEFAULT false ⇒ mọi dòng cũ GIỮ NGUYÊN hành vi** (backward-safe) |
+| RLS | **KHÔNG đổi** — vẫn đọc công khai `visible=true`, ghi service-role qua `/api/admin/products` (`requirePermission("san-pham", …)`). Cột mới lộ ra client qua `fetchProductListings()`; admin nhập ở `/quan-tri` tab "Sản phẩm" (nhóm/giá/đơn vị/cho-đặt) |
+
+- ⚠️ **CHƯA APPLY prod SDVICO** — dòng `20260811045204 0032_catalog_orderable` là prod BASE. Seed giá số gợi ý lấy từ `src/data/supplies.ts` (nhập tay qua /quan-tri).
+
+### Đơn đặt hàng — migration [`0046_catalog_orders.sql`](../../supabase/migrations/0046_catalog_orders.sql) (2026-08-11, đánh lại số 2026-08-19) — ⚠️ **CHƯA APPLY prod SDVICO**
+
+| Thay đổi | Nghĩa |
+|---|---|
+| bảng `catalog_orders` | Đơn chủ tàu đặt từ Cửa hàng. Cột: `customer_phone` (chủ tàu, từ device token — KHÔNG `auth.uid`, xem 0026/0028) · `boat_name`/`boat_ref` (gắn tàu, tuỳ chọn) · `items jsonb` (**SNAPSHOT** dòng hàng `[{listingId,title,unit,priceVnd,qty,lineTotalVnd}]` — giá đóng băng lúc đặt) · `total_vnd int` (**server tính lại** từ `product_listings`, không tin client) · `delivery_location`/`contact_name`/`contact_phone`/`note` · `status` (`moi`→`da_nhan`→`dang_giao`→`da_giao`, hoặc `da_huy` — một chiều, xem `canTransition` trong `lib/catalog-orders.ts`) · `handled_by`/`handled_at`/`dealer_note` |
+| RLS | **KHÔNG có policy nào** (giống `product_inquiries`/`premium_grants`). Chủ tàu đọc/đặt/huỷ qua `/api/me/orders*` (`identityFromRequest` tự lọc theo SĐT device token); NCC/admin xem & chuyển trạng thái qua `/api/admin/orders*` (`requirePermission("don-hang", …)` — migration 0017 + tab mới). Đổi trạng thái → báo chủ tàu (push + hộp thư, `lib/account-notify.ts`, best-effort) |
+
+- ⚠️ **CHƯA APPLY prod SDVICO** (dòng `20260811045214 0033_catalog_orders` là prod BASE). **Không thanh toán trong app** (chốt tiền lúc giao/COD — nhất quán "KHÔNG có luồng thanh toán"). **Online-only** (SW bỏ qua POST, không outbox; client báo trung thực khi mất mạng). Quyền mới `don-hang` thêm vào `lib/staff-permissions.ts` (6 tab manager).
+
+### Chống ĐƠN TRÙNG — migration [`0047_catalog_orders_client_ref.sql`](../../supabase/migrations/0047_catalog_orders_client_ref.sql) (2026-08-16, đánh lại số 2026-08-19) — 🔴 CHƯA apply prod
+
+| Thay đổi | Nghĩa |
+|---|---|
+| cột `client_ref text` (nullable) | **Dấu vân tay của NỘI DUNG đơn** do máy khách tính (`orderClientRef` trong `lib/catalog-orders.ts`: món+số lượng đã sắp thứ tự, tàu, điểm giao, người nhận, SĐT, ghi chú → FNV-1a 64-bit). Gửi kèm `POST /api/me/orders`. ⚠️ **KHÔNG gắn với giỏ** (sửa 2026-08-18): bản đầu giữ mã trong `forfish.cart.v1` và giữ nguyên khi bà con sửa giỏ ⇒ đặt hụt → sửa giỏ → bấm lại bị nuốt thành "trùng", trả đơn cũ, **mất thay đổi**. Mã theo nội dung thì cùng nội dung = cùng mã, khác nội dung = đơn mới — không cần 409 "cùng mã khác thân" |
+| unique index có điều kiện | `(customer_phone, client_ref) where client_ref is not null` — trọng tài ở tầng DB, không phải "đọc trước rồi ghi" (hai cú bấm sát nhau chạy trên hai instance vẫn lọt) |
+
+- ✅ **ĐÃ APPLY prod 2026-08-18** (`catalog_orders_client_ref_uniq` = `UNIQUE (customer_phone, client_ref) WHERE client_ref IS NOT NULL`, đã đọc lại `pg_indexes` để xác nhận). **VÌ SAO** (thẩm định 2026-08-16, P1): ở cảng 3G, POST ghi được đơn nhưng phản hồi rơi mất ⇒ client hết 20 giây báo "chưa gửi được" ⇒ bà con bấm lại ⇒ **hai đơn thật, giao hai lần, thu tiền hai lần**. Nay trùng `client_ref` ⇒ route đọc lại đơn cũ và trả `ok:true, duplicate:true`. Trước khi apply: route bắt lỗi `42703/PGRST204` và ghi lại KHÔNG kèm cột ⇒ hành vi y hệt hôm nay (vẫn có thể trùng), không ai bị chặn đặt hàng.
 
 
 <!-- re-verified: 2026-06-14 — schema 0001 boats/documents + §6 gateway khớp code -->

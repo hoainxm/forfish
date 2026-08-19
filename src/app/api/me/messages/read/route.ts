@@ -54,15 +54,21 @@ export async function POST(req: Request) {
   let reader: string | null = phone ? `sdt:${phone}` : null;
   let accountPhone: string | null = phone;
   if (!reader && body?.endpoint) {
-    reader = `may:${body.endpoint}`;
     // Máy đã gắn tài khoản thì vẫn quy được về người, dù phiên hết hạn
-    const { data: sub } = await admin
+    const { data: sub, error: subErr } = await admin
       .from("push_subscriptions")
       .select("customer_phone")
       .eq("endpoint", body.endpoint)
       .maybeSingle();
-    accountPhone =
-      (sub as { customer_phone: string | null } | null)?.customer_phone ?? null;
+    if (subErr) return NextResponse.json({ ok: false }, { status: 503 });
+    /*  CHỈ NHẬN ENDPOINT CÓ TRONG SỔ (audit P3, 2026-08-18): "đã đọc" là số
+        /quan-tri dựa vào; endpoint bịa thì không được đếm. Không có hàng → như
+        khách chưa bật thông báo: trả ok, counted 0, client thôi hỏi lại. */
+    if (sub) {
+      reader = `may:${body.endpoint}`;
+      accountPhone =
+        (sub as { customer_phone: string | null }).customer_phone ?? null;
+    }
   }
   /* Khách chưa đăng nhập VÀ chưa bật thông báo → không có danh tính nào để ghi.
      Trả ok (không phải lỗi của bà con), client coi như xong và thôi hỏi lại. */

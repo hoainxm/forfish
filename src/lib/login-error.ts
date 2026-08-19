@@ -12,7 +12,7 @@
 // ⚠️ Đánh đổi user enumeration (dò SĐT nào có tài khoản) + lộ mật khẩu mặc định
 // cho SĐT ĐÃ đăng ký: user chốt chấp nhận 2026-07-21 — username là SĐT ai cũng
 // đoán được, ưu tiên kích hoạt 380 KH thật; lộ trình siết lại ở
-// docs/adr/0002-siet-bao-mat-sau-sd123456.md.
+// docs/adr/0007-siet-bao-mat-sau-sd123456.md.
 
 const HOTLINE_HIEN = "1900 23 23 49";
 

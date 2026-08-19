@@ -5,6 +5,7 @@ import {
   forecastConfidence,
   formatNumberVN,
   windDirectionVN,
+  windDescribeVN,
   FORECAST_MAX_DAYS,
 } from "../marine-weather";
 import { levelOf, scoreDay, estimateWaveFromWind } from "../sea";
@@ -34,6 +35,15 @@ describe("windDirectionVN", () => {
     expect(windDirectionVN(350)).toBe("Bắc");
     expect(windDirectionVN(211)).toBe("Tây Nam");
     expect(windDirectionVN(360)).toBe("Bắc");
+  });
+});
+
+describe("windDescribeVN", () => {
+  it("gọi theo GỐC + thổi về (khớp vệt bản đồ = from + 180°)", () => {
+    // gió Tây Nam (từ 225°) thổi về Đông Bắc — đúng chiều vệt gió trên bản đồ
+    expect(windDescribeVN(225)).toBe("gió Tây Nam (thổi về Đông Bắc)");
+    expect(windDescribeVN(270)).toBe("gió Tây (thổi về Đông)");
+    expect(windDescribeVN(0)).toBe("gió Bắc (thổi về Nam)");
   });
 });
 

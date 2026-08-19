@@ -472,3 +472,13 @@ export function HelpIcon(p: IconProps) {
     </svg>
   );
 }
+
+export function CartIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M3 4h2l2.2 11a1.5 1.5 0 0 0 1.5 1.2h8.1a1.5 1.5 0 0 0 1.5-1.2L20.5 8H6" />
+      <circle cx="9.5" cy="20" r="1.4" />
+      <circle cx="17.5" cy="20" r="1.4" />
+    </svg>
+  );
+}

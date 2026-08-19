@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import Link from "next/link";
 import { CheckIcon, ClockIcon } from "@/components/icons";
 import { StatusBanner } from "@/components/ui/status-banner";
@@ -14,6 +13,7 @@ import {
   serviceKindLabel,
 } from "@/lib/owned-assets";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
+import { useTodayVN } from "@/lib/use-today";
 
 /*
   Tab DỊCH VỤ (thay tab Bảo dưỡng cũ) — ForFish là kênh CSKH của SDVICO:
@@ -26,11 +26,11 @@ import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
 */
 
 export function BoatServices() {
-  const today = useMemo(() => new Date(), []);
+  // "hôm nay" theo lịch VN, tính lại khi app đưa ra trước (lib/use-today)
+  const { today, todayIso } = useTodayVN();
   // hook dùng chung với tab Sản phẩm — một lần fetch, 4 nấc trạng thái
   const { status: syncStatus, assets: synced, retry } = useSdvicoAssets();
 
-  const todayIso = today.toISOString().slice(0, 10);
   const activeServices = synced?.services.filter((s) => s.active) ?? [];
 
   return (
@@ -87,11 +87,12 @@ export function BoatServices() {
                     <p className="text-[1rem] font-semibold leading-snug text-foreground/85">
                       {r.summary}
                     </p>
+                    {/* trạng thái bình thường = màu chữ thường, không vàng
+                        (chốt 2026-08-18: màu = chữ) */}
                     <p
-                      className="mt-0.5 flex items-center gap-1.5 text-[0.875rem] font-bold"
-                      style={{
-                        color: st.level === "ok" ? "var(--ok)" : "var(--warn)",
-                      }}
+                      className={`mt-0.5 flex items-center gap-1.5 text-[0.875rem] font-bold ${
+                        st.level === "ok" ? "text-ok" : "text-foreground/70"
+                      }`}
                     >
                       {st.level === "ok" ? (
                         <CheckIcon className="h-4 w-4" />
@@ -115,13 +116,21 @@ export function BoatServices() {
 
       {synced && (
         <div className="mb-5 space-y-3">
-          {/* cước / công nợ chờ đóng — tiền nong lên đầu */}
+          {/* cước / công nợ chờ đóng — tiền nong lên đầu. Chưa tới hạn = KHÔNG
+              băng màu (neutral) — chỉ quá hạn mới đỏ (chốt 2026-08-18) */}
           {synced.payments.map((p) => {
             const overdue = p.dueOn != null && p.dueOn < todayIso;
             return (
               <div key={p.orderCode} className="overflow-hidden surface">
-                <StatusBanner level={overdue ? "danger" : "warn"}>
-                  {overdue ? "Khoản nợ quá hạn" : "Khoản chờ thanh toán"}
+                <StatusBanner
+                  level={overdue ? "danger" : "neutral"}
+                  icon={overdue ? undefined : <ClockIcon className="h-5 w-5" />}
+                >
+                  {overdue
+                    ? "Khoản nợ quá hạn"
+                    : p.dueOn
+                      ? `Chờ thanh toán — hạn ${formatVnDate(p.dueOn)}`
+                      : "Chờ thanh toán"}
                 </StatusBanner>
                 <div className="px-4 py-3">
                   <p className="display text-[1.1875rem] font-bold leading-snug text-navy">

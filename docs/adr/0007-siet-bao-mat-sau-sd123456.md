@@ -1,4 +1,4 @@
-# ADR 0002 — Lộ trình siết bảo mật sau chiến dịch mật khẩu chung sd123456
+# ADR 0007 — Lộ trình siết bảo mật sau chiến dịch mật khẩu chung sd123456
 
 **Status**: Proposed
 **Date**: 2026-07-21

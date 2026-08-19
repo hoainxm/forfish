@@ -15,6 +15,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { fetchStormCheck, type StormCheck } from "@/lib/storms";
+import { isOffline } from "@/lib/use-online";
 
 /** Hỏi lại định kỳ khi đang có tin tốt — khớp cache 30 phút của /api/storms */
 export const STORM_REFRESH_MS = 30 * 60 * 1000;
@@ -103,9 +104,6 @@ export function useStormCheck(): StormCheckState {
       if (timer) clearTimeout(timer);
       timer = setTimeout(ask, ms);
     };
-    const isOffline = () =>
-      typeof navigator !== "undefined" && navigator.onLine === false;
-
     // khai báo hàm (hoisted) để tự hẹn lại chính nó mà không vướng TDZ
     function ask() {
       if (timer) {

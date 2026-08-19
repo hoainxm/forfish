@@ -173,6 +173,11 @@ const CRITICAL_SHELL = [
   "/data/vn-coast.v1.json",
   "/data/isobaths.v1.json",
   "/data/depth-grid.v1.bin",
+  // NHÃN ĐẢO tiếng Việt (ven bờ + Hoàng Sa + Trường Sa) + TUYẾN HÀNG HẢI —
+  // chi tiết hải đồ, nhãn chủ quyền. Thiếu là giữa biển mất hết tên đảo, mất
+  // định hướng. Asset tĩnh nhỏ (~18 KB + ~3 KB).
+  "/data/vn-islands.v1.json",
+  "/data/vn-sea-lanes.v1.json",
   // font chữ trên bản đồ (số mét đường đẳng sâu) — thiếu là mất hết CHỮ/SỐ
   "/fonts/Noto%20Sans%20Regular/0-255.pbf",
   /*  FONTSTACK THỨ HAI (2026-08-02, audit A9). Bản đồ dùng HAI fontstack:
@@ -182,6 +187,16 @@ const CRITICAL_SHELL = [
       đối chiếu với máy định vị và hải đồ giấy, mà mất im lặng nên không ai
       biết. Rẻ nhất cả đợt soát: một dòng. */
   "/fonts/Noto%20Sans%20Bold/0-255.pbf",
+  /*  DẤU TIẾNG VIỆT cho NHÃN ĐẢO + TUYẾN TÀU (2026-08-07). Nhãn đảo dùng
+      fontstack Bold, nhãn tuyến dùng Regular; tên đảo tiếng Việt (đá Chữ Thập,
+      Cù Lao Chàm, đảo Song Tử Tây…) rải trên BA dải Unicode: 0-255 (đã có),
+      256-511 (ă ơ ư đ Đ) và 7680-7935 (ạ ả ấ ầ ộ ợ ữ…). Thiếu hai dải sau thì
+      offline nhãn đảo hiện thiếu chữ / thành ô vuông — đúng nhãn chủ quyền mà
+      bà con cần đọc giữa biển. */
+  "/fonts/Noto%20Sans%20Bold/256-511.pbf",
+  "/fonts/Noto%20Sans%20Bold/7680-7935.pbf",
+  "/fonts/Noto%20Sans%20Regular/256-511.pbf",
+  "/fonts/Noto%20Sans%20Regular/7680-7935.pbf",
 ];
 
 const SHELL = [
@@ -1436,6 +1451,11 @@ self.addEventListener("push", (event) => {
     badge: "/icons/icon-192.png",
     // giờ hệ điều hành hiện cạnh thông báo = GIỜ GỬI THẬT, không phải giờ tới
     ...(Number.isFinite(sentAtMs) ? { timestamp: sentAtMs } : {}),
+    // GOM THEO SỰ KIỆN (2026-08-18, audit P2): server gửi `tag` cho bão
+    // (`bao-<khoá>`) và đơn hàng (`don-<id>`) ⇒ tin mới cùng cơn/cùng đơn ĐÈ
+    // tin cũ trên màn khoá thay vì xếp chồng 4–5 dòng; `renotify` để lần đè vẫn
+    // rung/kêu (bão lên cấp phải đánh thức được). Tin tay không tag → như cũ.
+    ...(data.tag ? { tag: String(data.tag), renotify: true } : {}),
     data: { url: data.url || "/", messageId: data.messageId || null },
   };
   /* BÁO VỀ "ĐÃ NHẬN" (0023): gửi xong chỉ biết đã đẩy tới Apple/Google, không

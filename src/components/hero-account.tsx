@@ -12,6 +12,7 @@ import {
 } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { clearInbox } from "@/lib/inbox";
+import { clearCachedOrders } from "@/lib/catalog-orders";
 import {
   applyIdentityAction,
   offlineIdentityPhone,
@@ -19,7 +20,16 @@ import {
 import { useAuthUser } from "@/lib/use-auth";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { tierBadge } from "@/lib/tier";
-import { readToken, signOutLocal, tokenHeader } from "@/lib/device-token-store";
+import {
+  clearKickedMark,
+  readKickedAt,
+  readToken,
+  signOutLocal,
+  tokenHeader,
+  TOKEN_KICKED_EVENT,
+  TOKEN_STORE_EVENT,
+} from "@/lib/device-token-store";
+import { useOnline } from "@/lib/use-online";
 import { apiUrl } from "@/lib/api-base";
 import { timeoutSignal } from "@/lib/abort";
 import {
@@ -72,7 +82,59 @@ type PushUiState =
   | "unsupported"
   | "unconfigured";
 
+/**
+ * BỊ MÁY KHÁC ĐĂNG NHẬP CÙNG SỐ — nói thật, inline, không hộp thoại (audit
+ * 2026-08-18 G1: trước đây cả app im, premium biến mất không một lời).
+ *
+ * Nghe `TOKEN_KICKED_EVENT` (bị đá lúc đang mở Trang chủ) VÀ đọc mốc
+ * `forfish.kicked.v1` lúc mount (bị đá lúc ở màn khác / app ở nền). Tắt khi máy
+ * cất chuỗi mới (`TOKEN_STORE_EVENT` → `readKickedAt()` null). Nút Đăng nhập
+ * ẨN khi mất sóng — đăng nhập cần sóng, mời vào ngõ cụt là vô ích (tầng 5).
+ * Dữ liệu đã tải VẪN dùng được (luật `signOutLocal("kicked")` chỉ xoá chuỗi).
+ */
+function KickedNotice() {
+  const [kickedAt, setKickedAt] = useState<string | null>(null);
+  const online = useOnline();
+  useEffect(() => {
+    const sync = () => setKickedAt(readKickedAt());
+    sync();
+    window.addEventListener(TOKEN_KICKED_EVENT, sync);
+    window.addEventListener(TOKEN_STORE_EVENT, sync);
+    return () => {
+      window.removeEventListener(TOKEN_KICKED_EVENT, sync);
+      window.removeEventListener(TOKEN_STORE_EVENT, sync);
+    };
+  }, []);
+  if (!kickedAt) return null;
+  return (
+    <div
+      role="alert"
+      className="mt-3 surface border-l-4 border-danger px-4 py-3 text-left"
+    >
+      <p className="display text-[1.0625rem] font-bold leading-snug text-danger">
+        Số này vừa được đăng nhập ở máy khác
+      </p>
+      <p className="mt-1 text-[1rem] leading-snug text-foreground/80">
+        Máy này thôi nhận tin mới. Dự báo và sổ sách đã tải vẫn dùng bình
+        thường.{" "}
+        {online
+          ? "Muốn dùng lại: đăng nhập."
+          : "Muốn dùng lại: đăng nhập khi có sóng."}
+      </p>
+      {online && (
+        <Link
+          href="/login"
+          className="mt-2 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.98]"
+        >
+          Đăng nhập
+        </Link>
+      )}
+    </div>
+  );
+}
+
 export function HeroAccount() {
+  const online = useOnline();
   const router = useRouter();
   /*  ⚠️ `signedIn`, KHÔNG PHẢI `user` (sửa 2026-08-02h — lỗi CHẶN).
       `user` là phiên Supabase, mà `/login` cấp chuỗi cứng xong là `signOut()`
@@ -292,6 +354,9 @@ export function HeroAccount() {
     // tàu. Việc xoá quyền không được phụ thuộc thứ tự lập lịch của React.
     void detachPushAccount();
     clearInbox();
+    // Đơn hàng đã lưu cũng là dữ liệu CỦA NGƯỜI TRƯỚC (SĐT nhận hàng, điểm
+    // giao) — máy dùng chung trên tàu thì phải đi cùng hộp thư (2026-08-18).
+    clearCachedOrders();
     // qua CỔNG DUY NHẤT (K7): "user-signed-out" = bà con TỰ BẤM và máy chủ đã
     // xác nhận — khác hẳn `SIGNED_OUT` auth-js tự bắn khi nó tự xoá phiên (C-7)
     // (cổng đã xoá luôn dấu hạng — `forgetIdentity` gọi `clearTierMark`, quan
@@ -320,6 +385,7 @@ export function HeroAccount() {
      hoàn tác, mà thứ nó xoá lại chính là dấu premium vừa được mở lại. */
   function forgetThisDevice() {
     clearInbox();
+    clearCachedOrders(); // xem ghi chú ở doSignOut
     /* GỠ TÀI KHOẢN KHỎI ĐĂNG KÝ THÔNG BÁO — thiếu chỗ này (bản trước quên,
        R7) thì endpoint push VĨNH VIỄN còn trỏ về chủ tàu: `syncPushAccount`
        chỉ chạy khi đã đăng nhập lại, nên không có đường bù nào. Tin nhắm riêng
@@ -328,6 +394,7 @@ export function HeroAccount() {
     void detachPushAccount();
     // cổng duy nhất (K7) — đã kèm xoá dấu hạng, đừng gọi thêm đường thứ hai
     applyIdentityAction("device-forget", false);
+    clearKickedMark(); // máy đã quên tài khoản — thẻ "bị đá" hết lý do
     setDeviceBound(false);
     setConfirmForget(false);
     setOpen(false);
@@ -382,6 +449,9 @@ export function HeroAccount() {
         <ChevronRightIcon className="h-4 w-4 shrink-0 rotate-90 text-white/60" />
       </button>
 
+      {/* bị đá tài khoản — thẻ đỏ inline ngay dưới chip (tầng 2, luôn nói) */}
+      <KickedNotice />
+
       {open && (
         <BottomSheet title="Tài khoản" onClose={() => setOpen(false)}>
           {/* danh tính / đăng nhập */}
@@ -434,12 +504,22 @@ export function HeroAccount() {
                   </p>
                 </div>
               )}
-              <Link
-                href="/login"
-                className="display mb-4 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
-              >
-                Đăng nhập / Đăng ký
-              </Link>
+              {/* Lời mời đăng nhập ẨN khi máy khẳng định mất sóng (tầng 5,
+                  2026-08-18): /login cần sóng, mời vào là ngõ cụt. Thay bằng
+                  một dòng nói thật, không nút. */}
+              {online ? (
+                <Link
+                  href="/login"
+                  className="display mb-4 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
+                >
+                  Đăng nhập / Đăng ký
+                </Link>
+              ) : (
+                <p className="mb-4 rounded-2xl bg-field px-4 py-3 text-[1rem] leading-snug text-foreground/75">
+                  Đăng nhập cần sóng — máy đang không có sóng. Có sóng lại bà con
+                  mở lại chỗ này.
+                </p>
+              )}
             </>
           )}
 
@@ -519,7 +599,7 @@ export function HeroAccount() {
             </button>
           )}
           {pushError && (
-            <p className="-mt-2.5 mb-4 px-1 text-[0.8125rem] font-semibold text-danger">
+            <p className="-mt-2.5 mb-4 px-1 text-[1rem] font-semibold leading-snug text-danger">
               {pushError}
             </p>
           )}
@@ -589,7 +669,7 @@ export function HeroAccount() {
                 {signingOut ? "Đang đăng xuất…" : "Đăng xuất"}
               </button>
               {signOutError && (
-                <p className="mt-2 px-1 text-center text-[0.875rem] font-semibold text-danger">
+                <p className="mt-2 px-1 text-center text-[1rem] font-semibold leading-snug text-danger">
                   {signOutError}
                 </p>
               )}

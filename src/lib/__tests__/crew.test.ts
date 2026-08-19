@@ -26,6 +26,7 @@ describe("crewIssue", () => {
     expect(crewIssue(m, TODAY)).toEqual({
       level: "danger",
       label: "Chưa có bảo hiểm",
+      days: -1,
     });
   });
 
@@ -34,7 +35,25 @@ describe("crewIssue", () => {
     expect(crewIssue(m, TODAY)).toEqual({
       level: "danger",
       label: "Máy trưởng hạng II quá hạn 9 ngày",
+      days: -9,
     });
+  });
+
+  it("hết hạn HÔM NAY = đã hết hạn (đỏ), không vàng (T5, 2026-08-18)", () => {
+    const m = member({ insuranceExpiry: "2026-06-10" });
+    expect(crewIssue(m, TODAY)).toEqual({
+      level: "danger",
+      label: "Bảo hiểm hết hạn hôm nay",
+      days: 0,
+    });
+  });
+
+  it("1h sáng giờ VN: hạn hôm nay vẫn là hôm nay (N1 — không lệch UTC)", () => {
+    // 2026-06-09T18:00Z = 01:00 sáng 10/6 giờ VN
+    const oneAm = new Date("2026-06-09T18:00:00Z");
+    expect(crewIssue(member({ insuranceExpiry: "2026-06-10" }), oneAm).level).toBe(
+      "danger",
+    );
   });
 
   it("sắp hết hạn trong 30 ngày → warn", () => {
@@ -42,6 +61,7 @@ describe("crewIssue", () => {
     expect(crewIssue(m, TODAY)).toEqual({
       level: "warn",
       label: "Bảo hiểm còn 15 ngày",
+      days: 15,
     });
   });
 
@@ -56,7 +76,29 @@ describe("crewIssue", () => {
 
   it("đủ và còn xa hạn → ok", () => {
     const m = member({ insuranceExpiry: "2027-01-01" });
-    expect(crewIssue(m, TODAY)).toEqual({ level: "ok", label: "Giấy tờ ổn" });
+    expect(crewIssue(m, TODAY)).toEqual({
+      level: "ok",
+      label: "Giấy tờ ổn",
+      days: null,
+    });
+  });
+
+  it("có bảo hiểm nhưng KHÔNG ghi hạn → neutral 'Chưa ghi hạn bảo hiểm', không xanh (T2)", () => {
+    expect(crewIssue(member({}), TODAY)).toEqual({
+      level: "neutral",
+      label: "Chưa ghi hạn bảo hiểm",
+      days: null,
+    });
+    // chứng chỉ sắp hết vẫn thắng (ưu tiên vàng trước neutral)
+    expect(
+      crewIssue(member({ certLabel: "TT hạng II", certExpiry: "2026-06-20" }), TODAY)
+        .level,
+    ).toBe("warn");
+    // chứng chỉ còn xa nhưng bảo hiểm chưa ghi hạn → vẫn neutral
+    expect(
+      crewIssue(member({ certLabel: "TT hạng II", certExpiry: "2027-06-20" }), TODAY)
+        .level,
+    ).toBe("neutral");
   });
 });
 

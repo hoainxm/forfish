@@ -22,10 +22,12 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { ChipRow } from "@/components/ui/chip-row";
 import { useBoats } from "@/components/boat-switcher";
 import { SdvicoCatalog } from "@/components/sdvico-catalog";
+import { MyOrders } from "@/components/my-orders";
 import { SdvicoRequestButton } from "@/components/sdvico-request";
 import { formatVnDate } from "@/lib/format";
 import { readUserList, type UserListRead } from "@/lib/user-list-store";
-import { saveUserJson } from "@/lib/user-store";
+import { saveUserJson, storageFullCopy } from "@/lib/user-store";
+import { useTodayVN } from "@/lib/use-today";
 import {
   BoatProduct,
   byWarrantyUrgency,
@@ -43,12 +45,14 @@ import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
   thêm/sửa trong bottom sheet; dữ liệu gắn theo tàu đang chọn (boatId).
 */
 
-type Section = "dang-dung" | "sdvico";
+type Section = "dang-dung" | "sdvico" | "don-hang";
 
-// "Khuyến nghị" mơ hồ — "Cửa hàng" nói thẳng đây là chỗ xem đồ SDVICO bán
+// "Khuyến nghị" mơ hồ — "Cửa hàng" nói thẳng đây là chỗ xem đồ SDVICO bán.
+// "Đơn của tôi" = chỗ theo dõi đơn đặt hàng từ Cửa hàng.
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "dang-dung", label: "Đang dùng" },
   { id: "sdvico", label: "Cửa hàng" },
+  { id: "don-hang", label: "Đơn của tôi" },
 ];
 
 const STORAGE_KEY = "forfish.products.v1";
@@ -74,7 +78,7 @@ function saveProducts(products: BoatProduct[]): boolean {
 // ── component ────────────────────────────────────────────────
 
 export function BoatProducts() {
-  const today = useMemo(() => new Date(), []);
+  const { today } = useTodayVN();
   const { current, boats } = useBoats();
   const [products, setProducts] = useState<BoatProduct[]>([]);
   const [ready, setReady] = useState(false);
@@ -102,11 +106,19 @@ export function BoatProducts() {
     // sdvico: KHÔNG seed demo — đọc được nhưng trống thì để danh sách rỗng
     setProducts(stored.list ?? []);
     setReady(true);
-  }, [today]);
+    // đọc một lần lúc mở; dữ liệu đã lưu tự mang boatId của từng món.
+  }, []);
 
-  useEffect(() => {
-    if (ready) setSaveFailed(!saveProducts(products));
-  }, [products, ready]);
+  /*  GHI KHI BÀ CON THAO TÁC, KHÔNG GHI SAU HYDRATE (N5/N2, audit 2026-08-18):
+      effect cũ `if (ready) save(products)` chạy ngay khi mở màn ⇒ máy đầy thì
+      băng đỏ bật dù chưa nhập gì; và nhánh đọc-lại-khi-đổi-tàu set `readFailed`
+      mà `ready` vẫn true ⇒ effect ghi có thể đè lên chuỗi đang không đọc được.
+      Nay chỉ `commit()` từ thêm/sửa/xoá; đọc hỏng thì KHÔNG ghi. */
+  function commit(next: BoatProduct[]) {
+    setProducts(next);
+    if (readFailed) return;
+    setSaveFailed(!saveProducts(next));
+  }
 
   // Xóa tàu → hàng gán tàu đó đã được nhả về "của chung" (ba-spec 08 R3);
   // đọc lại để boatId trong state khớp máy, không tự ghi đè bản cũ.
@@ -120,6 +132,7 @@ export function BoatProducts() {
     }
     // sdvico: KHÔNG seed demo
     setProducts(stored.list ?? []);
+    setReadFailed(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boats.length]);
 
@@ -138,19 +151,18 @@ export function BoatProducts() {
   );
 
   function upsert(product: BoatProduct) {
-    setProducts((prev) => {
-      const idx = prev.findIndex((p) => p.id === product.id);
-      if (idx === -1) return [...prev, product];
-      const next = [...prev];
-      next[idx] = product;
-      return next;
-    });
+    const idx = products.findIndex((p) => p.id === product.id);
+    const next = [...products];
+    if (idx === -1) next.push(product);
+    else next[idx] = product;
+    commit(next);
     setShowForm(false);
     setEditing(null);
   }
 
   function remove(id: string) {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+    const next = products.filter((p) => p.id !== id);
+    commit(next);
     setConfirmDelete(null);
   }
 
@@ -173,15 +185,16 @@ export function BoatProducts() {
       {readFailed && (
         <div className="mx-4 mt-3 overflow-hidden surface">
           <StatusBanner level="danger">
-            Máy chưa đọc được danh sách đồ đã lưu. Đóng app rồi mở lại; đừng thêm
-            đồ mới lúc này để khỏi mất danh sách cũ.
+            Danh sách đồ trong máy đang ĐỌC KHÔNG ĐƯỢC — đồ cũ vẫn nằm trong máy
+            nhưng app chưa mở ra được. Nút thêm đã tạm khoá để khỏi đè mất bản
+            cũ; thử tắt hẳn app mở lại, hoặc phục hồi từ tệp sao lưu.
           </StatusBanner>
         </div>
       )}
       {saveFailed && (
         <div className="mx-4 mt-3 overflow-hidden surface">
           <StatusBanner level="danger">
-            Máy không giữ được — xoá bớt dữ liệu rồi thử lại.
+            {storageFullCopy("sản phẩm vừa ghi")}
           </StatusBanner>
         </div>
       )}
@@ -194,6 +207,9 @@ export function BoatProducts() {
           />
         </div>
       )}
+
+      {/* ════ MỤC 3: ĐƠN CỦA TÔI — theo dõi + huỷ đơn đặt từ Cửa hàng ═══ */}
+      {section === "don-hang" && <MyOrders />}
 
       {/* ════ MỤC 1: ĐANG DÙNG — đồ đã mua + đồ tự ghi ════════════════ */}
       {section === "dang-dung" && (
@@ -291,14 +307,18 @@ export function BoatProducts() {
                       <strong>{formatVnDate(p.warrantyUntil)}</strong>
                     </p>
                   )}
-                  <div className="mt-2 flex justify-end">
-                    <SdvicoRequestButton
-                      variant="chip"
-                      topic="sua-chua"
-                      productName={`${p.name}${p.serial ? ` (serial ${p.serial})` : ""}`}
-                      label="Gọi bảo hành món này"
-                    />
-                  </div>
+                  {/* chip gọi bảo hành chỉ khi SẮP HẾT / ĐÃ HẾT (T15) — món còn
+                      dài hạn không cần nút thúc */}
+                  {(status.level === "soon" || status.level === "expired") && (
+                    <div className="mt-2 flex justify-end">
+                      <SdvicoRequestButton
+                        variant="chip"
+                        topic="sua-chua"
+                        productName={`${p.name}${p.serial ? ` (serial ${p.serial})` : ""}`}
+                        label="Gọi bảo hành món này"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -306,26 +326,40 @@ export function BoatProducts() {
         </div>
       )}
 
-      <button
-        onClick={() => {
-          setEditing(null);
-          setShowForm(true);
-        }}
-        className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
-      >
-        <PlusIcon className="h-6 w-6" />
-        Thêm sản phẩm
-      </button>
+      {/* ĐỌC KHÔNG ĐƯỢC ⇒ ẩn nút Thêm (T13) — banner đỏ ở trên đã nói vì sao */}
+      {!readFailed && (
+        <button
+          onClick={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+          className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
+        >
+          <PlusIcon className="h-6 w-6" />
+          Thêm sản phẩm
+        </button>
+      )}
 
       {/* chỉ nói "chưa có gì" khi THẬT SỰ chưa có gì — kể cả đồ đồng bộ
-          (roadmap hội đồng UX: empty state mâu thuẫn danh sách ngay trên) */}
-      {ready &&
+          (roadmap hội đồng UX: empty state mâu thuẫn danh sách ngay trên);
+          ca đọc-hỏng nói khác vì nút cam đã ẩn */}
+      {(ready || readFailed) &&
         sorted.length === 0 &&
         !(synced && synced.products.length > 0) && (
           <EmptyState icon={<DocIcon className="h-10 w-10" />}>
-            Chưa có sản phẩm SDVICO nào cho tàu này.
-            <br />
-            Bấm nút cam ở trên để thêm.
+            {readFailed ? (
+              <>
+                Chưa mở được danh sách đồ trong máy.
+                <br />
+                Đồ cũ chưa mất — xem dải đỏ ở trên.
+              </>
+            ) : (
+              <>
+                Chưa có sản phẩm SDVICO nào cho tàu này.
+                <br />
+                Bấm nút cam ở trên để thêm.
+              </>
+            )}
           </EmptyState>
         )}
 

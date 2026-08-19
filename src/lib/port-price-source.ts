@@ -31,6 +31,11 @@ export interface LivePriceResult {
   /** khoảng tuần, vd "30/5 – 05/6/2026" */
   week?: string;
   prices: LivePortPrice[];
+  /** CHỈ PHÍA MÁY (2026-08-18, audit G3): đang trả BẢN LƯU trong máy — mốc lưu (ms) */
+  savedAt?: number;
+  /** CHỈ PHÍA MÁY: không hỏi được máy chủ (mất sóng / hết giờ / 5xx) — khác
+   *  với route trả `ok:false` khi VASEP đổi trang lúc đang có sóng */
+  netFailed?: boolean;
 }
 
 /** Khớp tên mặt hàng VASEP → id loài trong app. `not` để loại hàng khác chất
@@ -186,6 +191,10 @@ export async function fetchLivePrices(): Promise<LivePriceResult> {
       không còn lớp chắn nào. Hàm đã async; `forecastStoreReady()` có trần chờ. */
   await forecastStoreReady();
 
+  /*  `netFailed` phân biệt "KHÔNG HỎI ĐƯỢC máy chủ" với "máy chủ trả ok:false
+      vì VASEP đổi trang" (audit 2026-08-18 G3) — màn hình chỉ được nói "máy
+      đang không có sóng" ở ca đầu; ca sau bà con đang có sóng, nói thế là sai. */
+  let netFailed = false;
   try {
     const r = await fetch(apiUrl("/api/port-prices"), {
       signal: timeoutSignal(15000),
@@ -196,16 +205,19 @@ export async function fetchLivePrices(): Promise<LivePriceResult> {
         saveForecast(PRICE_NS, PORT_ID, j);
         return j;
       }
+    } else {
+      netFailed = true;
     }
   } catch {
-    // mạng lỗi → xuống nhánh bản lưu
+    netFailed = true; // mạng lỗi → xuống nhánh bản lưu
   }
   const hit = loadForecast<LivePriceResult>(PRICE_NS, PORT_ID);
-  if (hit?.data?.ok) return hit.data;
+  if (hit?.data?.ok) return { ...hit.data, savedAt: hit.savedAt, netFailed };
   return {
     ok: false,
     source: "static",
     prices: PORT_PRICES.map((p) => ({ ...p, live: false })),
+    netFailed,
   };
 }
 

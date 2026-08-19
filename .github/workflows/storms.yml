@@ -1,0 +1,94 @@
+# BÃO — MỘT JOB LO CẢ HAI VIỆC, 1 GIỜ/LẦN.
+#
+#   1. `/api/cron/refresh-storms` — ghi bản tin NCHMF vào kho (vẽ đường đi, 0036)
+#   2. `/api/cron/notify-storms`  — đẩy thông báo bão tới máy bà con
+#
+# ═══ VÌ SAO GỘP VÀ VÌ SAO HẠ NHỊP (2026-08-18f, chủ dự án chốt) ═══
+#
+# GitHub tính tiền Actions **theo JOB, làm tròn LÊN 1 phút** — job chạy 10 giây
+# vẫn tính đủ 1 phút. Hai workflow riêng ở nhịp 30 phút + 1 giờ = 72 lượt/ngày
+# ≈ 2.160 phút/tháng ≈ 19 USD/tháng cho riêng repo này, trong khi cả tháng 8
+# trước đó ForFish mới tiêu 0,78 USD. Bản đầu tính rất kỹ số request ra NCHMF
+# nhưng KHÔNG tính số phút Actions — thiếu sót đã sửa ở đây.
+#
+# Gộp hai lệnh vào MỘT job thì lệnh thứ hai tốn thêm **0 phút**. Hạ 30 phút →
+# 1 giờ vì NCHMF phát dày nhất là **1 bản tin/giờ** (bão khẩn cấp), nên gõ 30
+# phút vốn đã lấy mẫu gấp đôi mức nguồn có thể cho. Còn 24 lượt/ngày.
+#
+# Đánh đổi đã chấp nhận: push bão chậm nhất 1 giờ thay vì 30 phút. Bù lại, mỗi
+# lần bà con MỞ APP là app hỏi tin ngay lúc đó (`useStormCheck`), nên đường
+# cảnh báo không chỉ có mỗi cron này.
+#
+# ⚠️ ĐỪNG ĐƯA HAI CRON NÀY VỀ `vercel.json`: tài khoản Vercel là Hobby, chỉ cho
+# cron tối đa 1 lần/ngày, và một dòng `*/30` ở đó đã từng **chặn đứng mọi deploy
+# 7 tiếng** mà bảng Deployments không hiện lỗi nào — xem ADR 0006.
+#
+# ⚠️ Nhịp gõ cửa 1 giờ phải LỚN HƠN trần `TOI_THIEU_PHUT` (55 phút) của cổng
+# nhịp trong `lib/storm-scan.ts`, không thì mức "gần" (bão áp bờ, cần 1 giờ/lần)
+# bị chính trần đó chặn lại thành 2 giờ/lần. Đổi bên nào cũng phải xem bên kia.
+#
+# CẦN CẤU HÌNH (dùng chung với các workflow cron khác):
+#   · Variable  APP_BASE_URL  = URL production
+#   · Secret    CRON_SECRET   = TRÙNG env CRON_SECRET trên Vercel
+name: storms
+
+on:
+  schedule:
+    - cron: "5 * * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Bỏ qua cổng nhịp, quét kho ngay (dựng lại khúc đường vừa hụt)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: storms
+  cancel-in-progress: false
+
+jobs:
+  storms:
+    runs-on: ubuntu-latest
+    steps:
+      # ── 1. GHI KHO. Nhịp THẬT do `nhipQuet()` trong route quyết (ADR 0005):
+      #    trời yên 1 lần/ngày · bão còn xa theo mốc nguồn tự hẹn · bão vào gần
+      #    thì mỗi lượt. Lượt bị cổng chặn KHÔNG chạm NCHMF, chỉ đọc kho.
+      - name: Ghi bản tin bão vào kho
+        env:
+          BASE_URL: ${{ vars.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Thiếu vars.APP_BASE_URL hoặc secrets.CRON_SECRET"; exit 1
+          fi
+          BASE_URL="${BASE_URL%/}"
+          Q=""
+          if [ "$FORCE" = "true" ]; then Q="?force=1"; fi
+          code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$BASE_URL/api/cron/refresh-storms$Q")
+          echo "HTTP $code"; cat resp.json; echo
+          # 503 = NGUỒN hỏng (NCHMF bảo trì / đọc không nổi bản tin), không phải
+          # lỗi của mình — để job đỏ ở ca đó là dạy nhau bỏ qua màu đỏ.
+          test "$code" = "200" || test "$code" = "503"
+
+      # ── 2. ĐẨY THÔNG BÁO. `if: always()` là CỐ Ý: ghi kho hỏng thì cùng lắm
+      #    bản đồ thiếu một khúc đường, còn không đẩy được cảnh báo là bà con
+      #    không biết có bão. Việc quan trọng hơn không được chết theo việc phụ.
+      - name: Đẩy thông báo bão
+        if: always()
+        env:
+          BASE_URL: ${{ vars.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Thiếu vars.APP_BASE_URL hoặc secrets.CRON_SECRET"; exit 1
+          fi
+          BASE_URL="${BASE_URL%/}"
+          code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$BASE_URL/api/cron/notify-storms")
+          echo "HTTP $code"; cat resp.json; echo
+          # 503 = cả hai nguồn bão hỏng; route CỐ Ý không gửi bừa lúc đó.
+          test "$code" = "200" || test "$code" = "503"

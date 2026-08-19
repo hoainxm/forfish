@@ -150,16 +150,22 @@ export function PriceHistorySheet({
   unit,
   points,
   loading,
+  failed = false,
   onClose,
 }: {
   species: string;
   unit: string;
   points: PricePoint[];
   loading: boolean;
+  /** không HỎI ĐƯỢC lịch sử (mất sóng / máy chủ) — khác hẳn "VASEP không đăng
+   *  loại này" (audit 2026-08-18 G3: hai ca này trước đây chung một câu) */
+  failed?: boolean;
   onClose: () => void;
 }) {
   const n = points.length;
   const hasChart = !loading && n >= 2;
+  const offline =
+    typeof navigator !== "undefined" && navigator.onLine === false;
 
   // tóm tắt xu hướng: giữa kỳ mới so đầu kỳ
   let trend: { Icon: typeof MinusIcon; word: string; color: string } | null =
@@ -196,10 +202,25 @@ export function PriceHistorySheet({
         </div>
       )}
 
-      {!loading && n < 2 && (
+      {/* KHÔNG HỎI ĐƯỢC (mất sóng / máy chủ) — mở lại sheet là hỏi lại */}
+      {!loading && failed && (
         <div className="rounded-2xl bg-warn-bg px-4 py-8 text-center">
           <p className="text-[1.125rem] font-semibold text-warn">
-            Chưa lấy được lịch sử giá cho loại này.
+            {offline
+              ? "Chưa tải được lịch sử giá — máy đang không có sóng."
+              : "Chưa hỏi được lịch sử giá lúc này."}
+          </p>
+          <p className="mt-1 text-[1rem] text-foreground/70">
+            Bảng giá tuần vẫn xem được. Có sóng lại bà con mở lại biểu đồ nhé.
+          </p>
+        </div>
+      )}
+
+      {/* HỎI ĐƯỢC nhưng VASEP không đăng loại này đủ tuần */}
+      {!loading && !failed && n < 2 && (
+        <div className="rounded-2xl bg-warn-bg px-4 py-8 text-center">
+          <p className="text-[1.125rem] font-semibold text-warn">
+            Chưa có lịch sử giá cho loại này.
           </p>
           <p className="mt-1 text-[1rem] text-foreground/70">
             VASEP có tuần không đăng giá loại này. Bà con xem lại sau nhé.

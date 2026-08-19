@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   dataQuality,
+  fishFailNote,
   LOW_QUALITY_THRESHOLD,
   lowQualityNote,
   monthOfIsoDate,
@@ -276,5 +277,34 @@ describe("oldestIsoDate", () => {
 
   it("không ngày nào hợp lệ → chuỗi rỗng", () => {
     expect(oldestIsoDate([null, "", "last"])).toBe("");
+  });
+});
+
+/*  CÂU BÁO LỖI LỚP CÁ — nói đúng việc, và đừng mời bấm cái nút vô ích.
+    Ảnh màn hình thật 18/8: "Dự báo cá chưa tải được — chạm để thử lại" hiện
+    trong khi snapshot trên máy chủ khoẻ (0,5 giờ tuổi, chất lượng 1, 2187 ô) —
+    tức lỗi là chuyện QUYỀN chứ không phải nguồn, mà câu chữ lại đổ cho việc
+    tải. Bà con bấm mãi không được gì. */
+describe("fishFailNote", () => {
+  it("chưa đăng nhập / chưa premium → KHÔNG hiện nút thử lại (thẻ khoá lo)", () => {
+    for (const code of [
+      "login_required",
+      "no_token",
+      "unknown_token",
+      "token_revoked",
+      "premium_required",
+    ]) {
+      expect(fishFailNote(code)).toBeNull();
+    }
+  });
+
+  it("hạ tầng bận (503) → nói đúng là bận, mời thử lại SAU", () => {
+    expect(fishFailNote("unavailable")).toContain("bận");
+  });
+
+  it("lỗi tải thật / không rõ mã → câu cũ, có mời thử lại", () => {
+    expect(fishFailNote()).toContain("chưa tải được");
+    expect(fishFailNote(undefined)).toContain("chưa tải được");
+    expect(fishFailNote("nguon_hong")).toContain("chưa tải được");
   });
 });

@@ -589,6 +589,10 @@ const EXCLUDED: Array<[string, string]> = [
     "forfish.installNudge.dismissed.v1",
     "máy MỚI chưa cài mà đã tắt lời nhắc cài",
   ],
+  [
+    "forfish.installNudge.v2",
+    "đếm số lần nhắc cài + đã tắt (2026-08-18 S7) — cùng lý do với khoá cũ: chuyện của MÁY NÀY, chép sang máy mới là im lời nhắc cài đúng máy cần nhắc",
+  ],
   ["forfish.pwa-frame.", "số đo màn hình MÁY KHÁC — đè vào là lệch khung"],
   [
     "forfish.pretrip.lastRunAt.v1",
@@ -613,6 +617,10 @@ const EXCLUDED: Array<[string, string]> = [
   [
     "forfish.tour.enabled.v1",
     "bật/tắt hướng dẫn — tuỳ chọn xem của TỪNG máy, không nói gì về người dùng",
+  ],
+  [
+    "forfish.kicked.v1",
+    "mốc MÁY NÀY bị máy khác đăng nhập đá (2026-08-18 G1) — chép sang máy khác là bật thẻ đỏ 'bị đá' cho máy chưa từng bị; đăng nhập lại là tự xoá",
   ],
 ];
 

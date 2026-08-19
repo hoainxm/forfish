@@ -61,12 +61,22 @@ describe("pushBodyVN — nội dung cuối cùng hiện trên máy", () => {
   });
 });
 
+describe("hộp thư dùng CÙNG luật tuổi tin (audit 2026-08-18 P5)", () => {
+  it("inbox-section.tsx import staleWarningVN từ lib/push-message (không còn mã chết)", () => {
+    const src = readFileSync(
+      join(process.cwd(), "src", "components", "inbox-section.tsx"),
+      "utf8",
+    );
+    expect(src).toMatch(/staleWarningVN[\s\S]*from "@\/lib\/push-message"/);
+    expect(src).toContain("staleWarningVN(");
+  });
+});
+
 describe("public/sw.js giữ ĐÚNG bản sao ngưỡng", () => {
   it("PUSH_FRESH_MS trong sw.js khớp bản canonical", () => {
     const sw = readFileSync(join(process.cwd(), "public", "sw.js"), "utf8");
     const m = sw.match(/const PUSH_FRESH_MS = ([^;]+);/);
     expect(m, "sw.js phải có const PUSH_FRESH_MS").toBeTruthy();
-    // eslint-disable-next-line no-eval
     expect(eval(m![1])).toBe(PUSH_FRESH_MS);
   });
 });

@@ -32,6 +32,9 @@ describe("validateDraft", () => {
 });
 
 describe("rowToListing", () => {
+  /*  CHỦ TIN LÀ SĐT, KHÔNG PHẢI uuid (2026-08-16, thẩm định P0): app bỏ phiên
+      Supabase từ 0026 nên `auth.uid()` luôn null — cờ "tin của tôi" nay so
+      `owner_phone` với SĐT từ chuỗi cứng của máy. Xem migration 0035. */
   const baseRow = {
     id: "row-1",
     owner_phone: "0901234567",
@@ -61,6 +64,9 @@ describe("rowToListing", () => {
     expect(rowToListing(baseRow, "0909999999").mine).toBe(false);
     expect(rowToListing(baseRow, null).mine).toBe(false);
     expect(rowToListing({ ...baseRow, owner_phone: null }, "0901234567").mine).toBe(false);
+    // khách chưa đăng nhập (phone rỗng) KHÔNG được nhận vơ tin của người khác
+    expect(rowToListing(baseRow, "").mine).toBe(false);
+    expect(rowToListing({ ...baseRow, owner_phone: null }, "").mine).toBe(false);
   });
 
   it("giá trị lạ được khoan dung (side/kind/status về mặc định an toàn)", () => {

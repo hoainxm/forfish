@@ -3,8 +3,9 @@ import { PageHeader } from "@/components/page-header";
 import { UrgentStrip } from "@/components/urgent-strip";
 import { HeroAccount } from "@/components/hero-account";
 import { BoatSwitcher } from "@/components/boat-switcher";
-import { InstallBanner } from "@/components/install-prompt";
+import { UrgentWithInstall } from "@/components/install-prompt";
 import { InboxSection } from "@/components/inbox-section";
+import { StormBanner } from "@/components/storm-banner";
 import {
   AnchorIcon,
   FishIcon,
@@ -66,11 +67,19 @@ export default function Home() {
       <BoatSwitcher />
 
       <div className="space-y-4 px-4 pt-3">
-        <UrgentStrip />
+        {/* TIN BÃO Ở TRANG CHỦ (2026-08-18, audit S10) — tầng 1 tính mạng, đứng
+            TRÊN dải khẩn. Ở đây chỉ lên tiếng khi CÓ BÃO hoặc tin bão trong máy
+            đã quá cũ >24h / chưa từng có; "không có bão" thì im cho màn chính
+            yên (luật ở lib/storms.ts shouldShowStormOnHome). Cùng hook hỏi +
+            tự thử lại với bản đồ Ra khơi. */}
+        <StormBanner variant="page" />
 
-        {/* Nhắc cài về máy để offline chạy đáng tin trên web (tự ẩn khi đã cài
-            / đã tắt / trình duyệt không cho cài) — xem 07-design-spec §10.8 */}
-        <InstallBanner />
+        {/* Dải khẩn + nhắc cài về máy: nhắc cài tự ẩn khi đã cài / đã tắt /
+            trình duyệt không cho cài / mất sóng / dải khẩn ≥3 dòng — xem
+            07-design-spec §10.8 + lib/install-nudge.ts */}
+        <UrgentWithInstall>
+          <UrgentStrip />
+        </UrgentWithInstall>
 
         <section aria-label="Bốn nhóm việc">
           {/* "Quản lý tàu" bán sai app (trùng tiêu đề /tau) — app là 4 việc */}
@@ -109,8 +118,9 @@ export default function Home() {
         </section>
 
         {/* THÔNG BÁO — ngay dưới bốn việc chính (chủ dự án 2026-08-01). Đây là
-            chỗ DUY NHẤT đọc lại được tin đã vuốt tắt. Tự ẩn khi chưa đăng nhập
-            hoặc chưa có tin nào: màn hình chính không được có khối trống. */}
+            chỗ DUY NHẤT đọc lại được tin đã vuốt tắt. Hiện CẢ KHI CHƯA ĐĂNG
+            NHẬP (tin gửi chung, 2026-08-01n); chỉ tự ẩn khi chưa có tin nào:
+            màn hình chính không được có khối trống. */}
         <InboxSection />
 
         <p className="pb-2 text-center text-[0.875rem] text-foreground/65">

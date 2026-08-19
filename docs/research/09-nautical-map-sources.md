@@ -379,6 +379,44 @@ EMODnet 5xx liên tiếp.
 - GMTDS (apply for access): https://globalmaritimetraffic.org/
 - VinaMarine portal (không có open data): https://www.vinamarine.gov.vn/
 
+## 6b. ĐÃ TRIỂN KHAI 2026-08-07 — TÊN ĐẢO + TUYẾN HÀNG HẢI
+
+Nghiên cứu gốc (2026-06-10) chỉ tra độ sâu/đẳng sâu/phao đèn — **bỏ trống** hai
+thứ bà con hỏi: **tên đảo đầy đủ** và **tuyến hàng hải**. Hai mũi tra bổ sung
+(2026-08-07) chốt:
+
+**TÊN ĐẢO — không có nguồn mở nào dùng thô được (chủ quyền).**
+- Overpass THẬT vùng Hoàng Sa trả **1 node tên chữ Hán 高尖石**, không `name:vi`.
+- Overpass THẬT vùng Trường Sa trả tên **Anh/Philippines** (Subi Reef, Zamora
+  Reef), không tên Việt.
+- GeoNames: cần username (trái "no key") + nhãn GNS Mỹ (Spratly/Paracel).
+- GADM: license non-commercial → không dùng cho SP thương mại.
+- **→ Chốt: curated static dataset** từ **Wikipedia tiếng Việt** (toạ độ + tên
+  là DỮ KIỆN, không vướng bản quyền). Ship: `public/data/vn-islands.v1.json`
+  (~103 đảo: ven bờ 42 + Hoàng Sa 36 + Trường Sa 25), sinh bởi
+  `scripts/generate-islands.mjs`. Đơn vị hành chính GÁN CỨNG (HS→TP Đà Nẵng,
+  TS→tỉnh Khánh Hòa). Cổng test `src/lib/islands.ts` chặn ký tự Hán/CJK.
+
+**TUYẾN HÀNG HẢI:**
+- **Tuyến lớn**: Global Shipping Lanes GeoJSON dính **xung đột license
+  BY-SA/BY-NC** (Zenodo vs GitHub) → không nhúng cho SP thương mại. Chốt **vẽ
+  tay** 5 tuyến (trục Bắc–Nam + nhánh vào Vũng Tàu/Hải Phòng/Đà Nẵng/Quy Nhơn),
+  nhãn "tham khảo — né va chạm, không phải để lái".
+- **Luồng cảng / phân luồng / hạ tầng**: EMODnet Human Activities **KHÔNG phủ
+  VN** (biên đông ~97,6°E). OSM Overpass THẬT trên **trọn khung biển VN**
+  (4–24N, 102–118E) — số đo 2026-08-07: **25 luồng cảng (fairway) · 108 phân
+  luồng (TSS) · 103 cáp/ống ngầm · 41 giàn khoan · 8 vùng cấm** = 285 phần tử
+  (khớp nghiên cứu gốc: 152 = 8+103+41). Xuất **lúc build**
+  (`scripts/generate-sea-lanes.mjs`), **BỎ HẾT tag `name`** — chỉ giữ hình học,
+  tránh lọt nhãn nước ngoài. Đã kiểm: 0 tên lọt, 0 ký tự CJK; vùng cấm + giàn
+  khoan đều nằm NGOÀI khu tranh chấp (giàn khoan = mỏ dầu VN), chỉ 2 đoạn cáp
+  quốc tế đi ngang Trường Sa (hạ tầng, không nhãn). Ban đầu (bản 1) thu hẹp
+  đông ≤111,5° chỉ được 8 TSS — đã mở khung đủ.
+- **Mật độ tàu (AIS heatmap)**: World Bank density (CC-BY, toàn cầu) ~500 MB →
+  ROADMAP/premium (clip VN + tile). GMTDS cần xin quota.
+- **EEZ / ranh giới trên biển**: chủ dự án chốt **KHÔNG vẽ** (mọi nguồn dính
+  đường tranh chấp; app đã có ranh giới biển VN + vùng lộng).
+
 ## 7. Test commands (đã chạy trước khi viết)
 
 ```bash

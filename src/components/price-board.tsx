@@ -16,6 +16,7 @@ import {
   TrendUpIcon,
 } from "@/components/icons";
 import { formatVnDate } from "@/lib/format";
+import { savedAgoLabel } from "@/lib/forecast-cache";
 import { PriceHistorySheet } from "@/components/price-history-sheet";
 import {
   fetchPriceHistory,
@@ -57,32 +58,59 @@ export function PriceBoard() {
   const [query, setQuery] = useState("");
   // mặc định bảng tĩnh; thay bằng giá tuần khi tải xong (async → không lint effect)
   const [result, setResult] = useState<LivePriceResult>(STATIC_RESULT);
-  const [fuel, setFuel] = useState<FuelPrice | null>(null);
+  /** giá dầu: `undefined` = đang hỏi, `null` = không lấy được (nói ra, đừng biến mất) */
+  const [fuel, setFuel] = useState<FuelPrice | null | undefined>(undefined);
   // biểu đồ lịch sử: mở theo id loài; lịch sử tải LƯỜI (1 lần, khi chạm thẻ đầu)
   const [openId, setOpenId] = useState<string | null>(null);
   const [history, setHistory] = useState<PriceHistoryResult | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  /** lần tải lịch sử gần nhất hỏng (mất sóng / máy chủ) — KHÔNG kẹt cả phiên,
+   *  mở sheet lần sau là hỏi lại (audit 2026-08-18 G3) */
+  const [historyFailed, setHistoryFailed] = useState(false);
 
   function openChart(id: string) {
     setOpenId(id);
     if (!history && !historyLoading) {
       setHistoryLoading(true);
+      setHistoryFailed(false);
       fetchPriceHistory()
-        .then((h) => setHistory(h))
+        .then((h) => {
+          /*  CHỈ GIỮ KẾT QUẢ TỐT (audit G3): bản cũ `setHistory(h)` kể cả
+              `ok:false` ⇒ mở sheet lần sau `!history` sai ⇒ không hỏi lại ⇒ mất
+              sóng lúc chạm thẻ đầu là biểu đồ "chưa có" suốt phiên dù sóng đã về. */
+          if (h.ok) setHistory(h);
+          else setHistoryFailed(true);
+        })
         .finally(() => setHistoryLoading(false));
     }
   }
 
+  /*  TẢI LÚC MỞ + TẢI LẠI KHI SÓNG VỀ (audit 2026-08-18 G3 — khuôn từ
+      market-board.tsx). Trước đây fetch đúng một lần lúc mount: vào màn lúc mất
+      sóng là đứng ở bảng tĩnh ngày build suốt phiên, không một câu nào. Cả hai
+      hàm đều có đồng hồ 15s + catch; mất sóng trả bản lưu / tĩnh, không treo. */
   useEffect(() => {
     let alive = true;
-    fetchLivePrices().then((r) => {
-      if (alive) setResult(r);
-    });
-    fetchFuelPrice().then((f) => {
-      if (alive) setFuel(f);
-    });
+    let dangTai = false;
+    const tai = () => {
+      if (dangTai) return; // chống chạy chồng lúc sóng nhấp nháy ven bờ
+      dangTai = true;
+      Promise.all([
+        fetchLivePrices().then((r) => {
+          if (alive) setResult(r);
+        }),
+        fetchFuelPrice().then((f) => {
+          if (alive) setFuel(f);
+        }),
+      ]).finally(() => {
+        dangTai = false;
+      });
+    };
+    tai();
+    window.addEventListener("online", tai);
     return () => {
       alive = false;
+      window.removeEventListener("online", tai);
     };
   }, []);
 
@@ -96,7 +124,13 @@ export function PriceBoard() {
 
   return (
     <div>
-      {/* giá dầu DO hôm nay — chi phí lớn nhất chuyến biển */}
+      {/* giá dầu DO hôm nay — chi phí lớn nhất chuyến biển. Không lấy được thì
+          NÓI một dòng nhỏ chứ không biến mất im (audit 2026-08-18 G3). */}
+      {fuel === null && (
+        <p className="mb-3 px-1 text-[0.9375rem] font-semibold text-foreground/65">
+          Chưa lấy được giá dầu hôm nay.
+        </p>
+      )}
       {fuel && (
         <div className="mb-3 surface px-4 py-3">
           <p className="text-[0.875rem] font-semibold text-foreground/70">
@@ -115,12 +149,24 @@ export function PriceBoard() {
         </div>
       )}
 
-      {/* nguồn + tuần — trung thực: live thì ghi VASEP, không thì bảng tĩnh */}
+      {/* nguồn + tuần — trung thực: live thì ghi VASEP (kèm "bản lưu" nếu đang
+          đọc từ máy), không thì bảng tĩnh; MẤT SÓNG mà chưa có bản lưu → nói
+          thẳng là chưa tải được, đừng để bảng tĩnh đội lốt giá tuần (audit G3). */}
       {isLive ? (
         <p className="mb-3 rounded-xl bg-field px-3 py-2 text-[0.875rem] font-semibold text-foreground/70">
           Giá nguyên liệu tại bến <b>{result.province}</b>, tuần{" "}
-          <b>{result.week}</b> · Nguồn: VASEP. Loài chưa có giá tuần này là giá
-          tham khảo. Giá thật tại cảng có thể khác.
+          <b>{result.week}</b> · Nguồn: VASEP
+          {result.savedAt != null
+            ? ` · bản lưu trong máy (${savedAgoLabel(result.savedAt)})`
+            : ""}
+          . Loài chưa có giá tuần này là giá tham khảo. Giá thật tại cảng có thể
+          khác.
+        </p>
+      ) : result.netFailed ? (
+        <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[0.9375rem] font-semibold text-warn">
+          Chưa tải được giá tuần này — máy đang không có sóng. Bên dưới là giá
+          tham khảo tổng hợp ngày {formatVnDate(PRICE_DATE)}; có sóng lại là máy
+          tự tải bản mới.
         </p>
       ) : (
         <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[0.875rem] font-semibold text-warn">
@@ -210,6 +256,7 @@ export function PriceBoard() {
           unit={result.prices.find((p) => p.id === openId)?.unit ?? "đ/kg"}
           points={history ? seriesForSpecies(history.weeks, openId) : []}
           loading={historyLoading && !history}
+          failed={!history && !historyLoading && historyFailed}
           onClose={() => setOpenId(null)}
         />
       )}

@@ -31,11 +31,17 @@ export async function POST(req: Request) {
 
   const now = new Date().toISOString();
   // Ai gửi tin cho máy này thì tra ra từ bảng đăng ký — client không khai.
-  const { data: sub } = await admin
+  const { data: sub, error: subErr } = await admin
     .from("push_subscriptions")
     .select("customer_phone")
     .eq("endpoint", body.endpoint)
     .maybeSingle();
+  if (subErr) return NextResponse.json({ ok: false }, { status: 503 });
+  /*  ENDPOINT PHẢI CÓ TRONG SỔ ĐĂNG KÝ (audit P3, 2026-08-18): biên nhận là số
+      liệu /quan-tri nhìn để kết luận "tin có tới không" — ai cũng ghi được với
+      endpoint bịa thì con số đó vô nghĩa. Máy đã huỷ đăng ký (hàng bị dọn) mà
+      còn báo về thì bỏ qua, trả ok để service worker thôi thử. */
+  if (!sub) return NextResponse.json({ ok: true, counted: 0 });
 
   const row: Record<string, string | null> = {
     message_id: body.messageId,

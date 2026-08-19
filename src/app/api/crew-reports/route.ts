@@ -2,7 +2,8 @@
 // viên (định danh CCCD HOẶC SĐT, 1 trong 2). Vào kho với status 'pending' — im
 // lặng tới khi admin duyệt (/api/admin/crew-reports). Ghi bằng service-role
 // (bảng RLS không policy client, migration 0007 + 0009). Người báo lấy từ
-// PHIÊN — không tin SĐT client gửi.
+// CHUỖI CỨNG của máy (device token, qua `requirePremiumUser` →
+// `identityFromRequest`) — không tin SĐT client gửi.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePremiumUser } from "@/lib/premium-guard";
@@ -13,7 +14,7 @@ const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
 
 export async function POST(req: Request) {
-  const who = await requirePremiumUser();
+  const who = await requirePremiumUser(req);
   if (!who.ok) return err(who.status, who.code);
 
   const body = (await req.json().catch(() => null)) as {

@@ -13,7 +13,7 @@ description: >-
 # ai-simple-product-dev — methodology skill
 
 > Nguồn gốc: github.com/Long-Forfun/ai-simple--skill-product-dev.
-> ForFish ĐÃ áp dụng phương pháp này (CLAUDE.md ghi "nguyên tắc 8/12"). Skill
+> ForFish ĐÃ áp dụng phương pháp này (AGENTS.md ghi "nguyên tắc 8/12"). Skill
 > này = bản tham chiếu + checklist khi bootstrap repo mới hoặc audit độ trôi doc.
 
 ## Triết lý 1 câu
@@ -26,13 +26,13 @@ không dựa kỷ luật tay: *invariant tự giác = invariant sẽ chết*.
 
 | # | Nguyên tắc | Tóm tắt | ForFish hiện thực |
 |---|---|---|---|
-| 1 | Hierarchical context | Root doc < 6k token; chi tiết xuống module | `CLAUDE.md` (~1k tok) + `docs/app-map/` |
+| 1 | Hierarchical context | Root doc < 6k token; chi tiết xuống module | `AGENTS.md` (~1k tok) + `docs/app-map/` |
 | 2 | App-map pattern | Mỗi file 1 chủ đề canonical, đánh số | `docs/app-map/01–07` + `README.md` index |
 | 3 | Context routing | Slash command + sub-agent ra danh sách file cần đọc | `/fl` + agent `context-router` |
-| 4 | Doc + Test sync | Code đổi → doc + test cùng commit | Bảng invariant trong `CLAUDE.md` + hook chặn |
-| 5 | LOGIC vs REQUEST | Phân loại câu hỏi (đọc) vs lệnh (sửa code) | Mục trong `CLAUDE.md` |
-| 6 | Pre-flight risk tiers | 🟢 reversible / 🟡 cẩn thận / 🔴 irreversible | Flags 🔴🟡 trong `CLAUDE.md` |
-| 7 | Memory as feedback | Lưu sở thích user qua các phiên | `.claude/.../memory/` |
+| 4 | Doc + Test sync | Code đổi → doc + test cùng commit | Bảng invariant trong `AGENTS.md` + hook chặn |
+| 5 | LOGIC vs REQUEST | Phân loại câu hỏi (đọc) vs lệnh (sửa code) | Mục trong `AGENTS.md` |
+| 6 | Pre-flight risk tiers | 🟢 reversible / 🟡 cẩn thận / 🔴 irreversible | Flags 🔴🟡 trong `AGENTS.md` |
+| 7 | Memory as feedback | Lưu sở thích user qua các phiên | `.Codex/.../memory/` |
 | 8 | Automated enforcement | Pre-commit hook + CI là "răng" | `.githooks/pre-commit` (covers-gate, contract, spacing, BOM) |
 | 9 | Generated vs authored | Máy sinh schema/route; người viết lý do | `docs/app-map/_generated/doc-status.md` |
 | 10 | Cross-repo contract | File contract versioned giữa repo | `docs/contracts/sdwork-assets.contract.md` |
@@ -49,7 +49,7 @@ không dựa kỷ luật tay: *invariant tự giác = invariant sẽ chết*.
 ## Khi bootstrap repo MỚI (workflow)
 
 1. Đọc 12 nguyên tắc (bảng trên).
-2. Copy template vào root: `CLAUDE.md`, `docs/app-map/README.md`, `.claude/commands/fl.md`, `.claude/agents/context-router.md`.
+2. Copy template vào root: `AGENTS.md`, `docs/app-map/README.md`, `.Codex/commands/fl.md`, `.Codex/agents/context-router.md`.
 3. Cài hook NGAY: `mkdir .githooks` → copy `pre-commit` → `git config core.hooksPath .githooks` → verify `sh .githooks/pre-commit --self-test`.
 4. Kiểm tra: phiên AI mới đọc root có đủ context không.
 5. Enforce doc+test sync từ commit đầu.

@@ -21,7 +21,9 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
-import { saveUserJson } from "@/lib/user-store";
+import { saveUserJson, storageFullCopy } from "@/lib/user-store";
+import { readUserList } from "@/lib/user-list-store";
+import { useTodayVN } from "@/lib/use-today";
 import { useBoats } from "@/components/boat-switcher";
 
 // BoatDocument lives in @/lib/documents (shared, not edited). We attach a boat
@@ -40,18 +42,33 @@ type StoredDocument = BoatDocument & { boatId?: string };
 export const DOCS_STORAGE_KEY = "forfish.documents.v1";
 const STORAGE_KEY = DOCS_STORAGE_KEY;
 
-// Đọc tủ giấy tờ THẬT của user — export để checklist xuất bến dùng chung MỘT
-// nguồn, không tự đọc localStorage rời rạc. KHÔNG seed demo (data giả dùng
-// chung gây hiểu nhầm); rỗng → màn hình "chưa có, bấm thêm".
-export function loadDocs(): StoredDocument[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as StoredDocument[];
-  } catch {
-    // corrupt storage — coi như rỗng
-  }
-  return [];
+/*
+  Đọc tủ giấy tờ THẬT của user — export để checklist xuất bến dùng chung MỘT
+  nguồn, không tự đọc localStorage rời rạc. KHÔNG seed demo (data giả dùng chung
+  gây hiểu nhầm); rỗng → màn hình "chưa có, bấm thêm".
+
+  HAI TRẠNG THÁI, KHÔNG PHẢI MỘT (2026-08-16, thẩm định P1).
+
+  LỖI ĐÃ SỬA: `JSON.parse` ném (ghi dở lúc máy đầy / pin sập) rơi thẳng về tủ
+  RỖNG, và `JSON.parse("null")` hay `{}` thì KHÔNG ném — trả thứ không phải mảng
+  mà vẫn coi như đọc được. Cả hai đường đều dẫn tới cùng một chỗ: giấy thật đầu
+  tiên bà con nhập sau đó sẽ GHI ĐÈ lên chuỗi gốc còn cứu được. Trục 4 là tuân
+  thủ — mất tủ giấy tờ là ra cảng biên phòng hỏi không có gì trình.
+
+  Khuôn ba nhánh đã có sẵn ở `lib/user-list-store.ts` (dựng cho danh bạ nậu vựa
+  và danh sách tàu, K4 2026-08-02) — tủ giấy tờ là chỗ bị bỏ quên. Dùng lại,
+  không viết bản thứ hai.
+*/
+export function loadDocs(): {
+  docs: StoredDocument[];
+  /** true = khoá đang giữ thứ ĐỌC KHÔNG ĐƯỢC ⇒ CẤM ghi đè, phải báo cho bà con */
+  readFailed: boolean;
+} {
+  if (typeof window === "undefined") return { docs: [], readFailed: false };
+  const r = readUserList<StoredDocument>(STORAGE_KEY);
+  // Đọc hỏng: KHÔNG dựng tủ rỗng (trông y như "chưa có gì") và KHÔNG mở cửa ghi.
+  if (!r.ok) return { docs: [], readFailed: true };
+  return { docs: Array.isArray(r.list) ? r.list : [], readFailed: false };
 }
 
 /* Trả `false` khi máy KHÔNG giữ được (hết chỗ / trình duyệt chặn) — trước đây
@@ -63,12 +80,14 @@ function saveDocs(docs: StoredDocument[]): boolean {
 }
 
 export function DocumentVault() {
-  const today = useMemo(() => new Date(), []);
+  const { today } = useTodayVN();
   const { current, boats, ready: boatReady } = useBoats();
   const [docs, setDocs] = useState<StoredDocument[]>([]);
   const [ready, setReady] = useState(false);
   /** máy không giữ được giấy vừa nhập → phải nói ra, không im */
   const [saveFailed, setSaveFailed] = useState(false);
+  /** tủ trong máy ĐỌC KHÔNG ĐƯỢC → cấm mọi đường ghi đè, báo đỏ */
+  const [readFailed, setReadFailed] = useState(false);
   const [editing, setEditing] = useState<StoredDocument | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<StoredDocument | null>(
@@ -77,20 +96,30 @@ export function DocumentVault() {
 
   // Hydrate from localStorage on mount (avoids SSR/CSR mismatch).
   useEffect(() => {
-    setDocs(loadDocs());
+    const loaded = loadDocs();
+    setDocs(loaded.docs);
+    setReadFailed(loaded.readFailed);
     setReady(true);
   }, []);
 
-  useEffect(() => {
-    // GIỮ báo máy-hết-chỗ của base; sdvico đã bỏ tủ mẫu (không còn isDemo).
-    if (ready) setSaveFailed(!saveDocs(docs));
-  }, [docs, ready]);
+  /*  ĐỌC HỎNG THÌ KHÔNG GHI (2026-08-16): chuỗi gốc còn cứu được, đè lên là mất
+      hẳn. Cùng luật với `saveBoats` khi `boatsReadFailed()`.
+      GHI KHI BÀ CON THAO TÁC, KHÔNG GHI SAU HYDRATE (N5, audit 2026-08-18 —
+      cùng khuôn crew-list/maintenance): effect cũ chạy ngay khi mở màn ⇒ máy
+      đầy thì băng đỏ "CHƯA lưu được" bật dù chưa nhập gì. */
+  function commit(next: StoredDocument[]) {
+    setDocs(next);
+    if (readFailed) return;
+    setSaveFailed(!saveDocs(next));
+  }
 
   // Xóa tàu → giấy tờ tàu đó đã bị purge khỏi máy (ba-spec 08 R3); đọc lại để
   // list đang mở bỏ theo, không tự ghi lại bản cũ.
   useEffect(() => {
     if (!ready) return;
-    setDocs(loadDocs());
+    const loaded = loadDocs();
+    setDocs(loaded.docs);
+    setReadFailed(loaded.readFailed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boats.length]);
 
@@ -108,52 +137,75 @@ export function DocumentVault() {
 
   function upsert(doc: StoredDocument) {
     const withBoat: StoredDocument = { ...doc, boatId: current?.id };
-    setDocs((prev) => {
-      const idx = prev.findIndex((d) => d.id === withBoat.id);
-      if (idx === -1) return [...prev, withBoat];
-      const next = [...prev];
-      next[idx] = withBoat;
-      return next;
-    });
+    const idx = docs.findIndex((d) => d.id === withBoat.id);
+    const next = [...docs];
+    if (idx === -1) next.push(withBoat);
+    else next[idx] = withBoat;
+    commit(next);
     setShowForm(false);
     setEditing(null);
   }
 
   function remove(id: string) {
-    setDocs((prev) => prev.filter((d) => d.id !== id));
+    const next = docs.filter((d) => d.id !== id);
+    commit(next);
     setConfirmDelete(null);
   }
 
   return (
     <div className="px-4 pt-1">
-      <button
-        onClick={() => {
-          setEditing(null);
-          setShowForm(true);
-        }}
-        className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
-      >
-        <PlusIcon className="h-6 w-6" />
-        Thêm giấy tờ mới
-      </button>
+      {/* ĐỌC KHÔNG ĐƯỢC — nói thẳng và KHOÁ cửa ghi. Thêm giấy mới lúc này là
+          ghi đè lên chuỗi gốc còn cứu được, mất cả tủ. */}
+      {readFailed ? (
+        <div className="mb-4 overflow-hidden surface">
+          <StatusBanner level="danger" icon={<AlertIcon className="h-5 w-5" />}>
+            Tủ giấy tờ trong máy đang ĐỌC KHÔNG ĐƯỢC — giấy cũ vẫn nằm trong máy
+            nhưng app chưa mở ra được. Bà con ĐỪNG nhập giấy mới ở đây (nhập là
+            đè mất bản cũ); thử tắt hẳn app mở lại, hoặc phục hồi từ tệp sao lưu.
+          </StatusBanner>
+        </div>
+      ) : (
+        <button
+          onClick={() => {
+            setEditing(null);
+            setShowForm(true);
+          }}
+          className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
+        >
+          <PlusIcon className="h-6 w-6" />
+          Thêm giấy tờ mới
+        </button>
+      )}
 
       {/* MÁY KHÔNG GIỮ ĐƯỢC — nói ngay, đừng để ra cảng biên phòng kiểm mới biết */}
       {saveFailed && (
         <div className="mb-4 overflow-hidden surface">
           <StatusBanner level="danger" icon={<AlertIcon className="h-5 w-5" />}>
-            Máy hết chỗ — CHƯA lưu được giấy tờ vừa nhập. Xoá bớt ảnh/ứng dụng
-            trong máy rồi sửa lại giấy này để lưu.
+            {storageFullCopy("giấy tờ vừa nhập")}
           </StatusBanner>
         </div>
       )}
 
+      {/* KHỐI TRỐNG chỉ nói "bấm nút cam" khi NÚT ĐÓ CÒN Ở ĐÓ (2026-08-16, bắt
+          được lúc kiểm trên trình duyệt thật): ca đọc-hỏng đã ẩn nút, mà câu cũ
+          vẫn chỉ vào nó — bà con tìm một nút không tồn tại. Ca đó nói khác. */}
       {ready && boatReady && sorted.length === 0 && (
         <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
           <DocIcon className="mx-auto h-10 w-10 text-foreground/30" />
           <p className="mt-3 text-[1.125rem] text-foreground/70">
-            Chưa có giấy tờ nào.
-            <br />
-            Bấm nút cam ở trên để thêm.
+            {readFailed ? (
+              <>
+                Chưa mở được tủ giấy tờ trong máy.
+                <br />
+                Giấy cũ chưa mất — xem dải đỏ ở trên.
+              </>
+            ) : (
+              <>
+                Chưa có giấy tờ nào.
+                <br />
+                Bấm nút cam ở trên để thêm.
+              </>
+            )}
           </p>
         </div>
       )}

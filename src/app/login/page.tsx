@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -55,6 +55,22 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /** Vừa đăng nhập xong và máy TRƯỚC đã bị đăng xuất — nói một dòng rồi mới vào
+   *  (audit 2026-08-18 G1: route đã trả `kicked:true` từ lâu mà màn này không
+   *  đọc). Hiện inline ~1.5 giây rồi `router.replace` — không có gì chờ mạng. */
+  const [kickedNote, setKickedNote] = useState(false);
+  /** Từ /dang-ky sang: tài khoản đã tạo nhưng bước vào bị hụt (audit G4). Đọc
+   *  `window.location.search` trong effect thay vì `useSearchParams` (Next đòi
+   *  Suspense bọc trang) — rẻ, không treo. */
+  const [createdNote, setCreatedNote] = useState(false);
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      if (q.get("tao") === "xong") setCreatedNote(true);
+    } catch {
+      /* bỏ qua */
+    }
+  }, []);
 
   if (!supabase) {
     return (
@@ -137,7 +153,12 @@ export default function LoginPage() {
         thì bà con thấy mình "đã đăng nhập" trong khi mọi cửa server đều đóng —
         tệ hơn hẳn một câu báo lỗi thật thà. */
     if (!issued?.ok || !isValidTokenShape(issued.token)) {
-      setError("Mạng yếu quá, chưa vào được. Bà con thử lại giúp nhé.");
+      /*  KHÁC câu "Mạng yếu" ở bước 1 (audit G9/A5): tới đây mật khẩu ĐÃ đúng,
+          phiên tạm còn — bà con chỉ cần bấm lại, không phải gõ lại gì. Cùng một
+          câu cho hai bước là bà con tưởng sai mật khẩu, gõ lại từ đầu. */
+      setError(
+        "Mật khẩu đúng rồi nhưng mạng yếu, chưa giữ được phiên — bà con bấm Đăng nhập lần nữa giúp.",
+      );
       setLoading(false);
       return;
     }
@@ -172,6 +193,14 @@ export default function LoginPage() {
         làm rồi. Hỏng thì thôi, không chặn: chuỗi đã nằm trong máy, mà cái phiên
         bỏ lại cũng chỉ tự chết chứ không mở được cửa nào. */
     await withDeadline(supabase!.auth.signOut(), 8000);
+    /*  MÁY TRƯỚC VỪA BỊ ĐĂNG XUẤT → nói một dòng cho minh bạch rồi mới vào.
+        Không chờ mạng: chỉ là 1,5 giây để mắt kịp đọc. */
+    if (issued.kicked === true) {
+      setKickedNote(true);
+      setLoading(false);
+      window.setTimeout(() => router.replace("/"), 1500);
+      return;
+    }
     router.replace("/");
   }
 
@@ -184,6 +213,17 @@ export default function LoginPage() {
         toColor="var(--sea)"
       />
       <AuthCard>
+        {createdNote && !error && (
+          <AuthNote>
+            Tài khoản đã tạo — mạng yếu nên chưa vào được, bà con đăng nhập lại
+            giúp.
+          </AuthNote>
+        )}
+        {kickedNote && (
+          <AuthNote>
+            Đã vào. Máy trước đã được đăng xuất — số này chỉ dùng trên một máy.
+          </AuthNote>
+        )}
         {error && <AuthError>{error}</AuthError>}
         <form onSubmit={handleSubmit}>
           <Field label="Số điện thoại">
@@ -208,6 +248,9 @@ export default function LoginPage() {
             {loading ? "Đang vào…" : "Đăng nhập"}
           </PrimaryButton>
         </form>
+        {/*  4 đoạn chú thích gộp còn 2 dòng (audit 2026-08-18 G10). Ý iOS "cài
+             app về màn hình để máy nhớ đăng nhập" giữ trong dòng 1 — luật của
+             máy, phải nói trước; giọng hỗ trợ, không doạ (03-design-system). */}
         <p className="mt-4 text-[1rem] leading-snug text-foreground/70">
           Khách đã mua hàng SDVICO: dùng số điện thoại + mật khẩu nhân viên báo
           khi mua.

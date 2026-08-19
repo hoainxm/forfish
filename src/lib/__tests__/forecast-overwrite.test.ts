@@ -20,14 +20,12 @@ import {
   shouldOverwriteGrid,
   stepHourIndices,
   truncateGrid,
-  GRID_OVERWRITE_MAX_AGE_MS,
   type ForecastGrid,
   type GridHour,
 } from "../forecast-grid";
 import {
   scalarHasValues,
   shouldOverwriteScalar,
-  SCALAR_OVERWRITE_MAX_AGE_MS,
   type ScalarGrid,
 } from "../scalar-field";
 

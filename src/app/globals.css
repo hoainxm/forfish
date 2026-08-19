@@ -300,6 +300,16 @@ textarea,
     0 1px 2px rgb(13 35 54 / 0.08),
     0 8px 24px -12px rgb(13 35 54 / 0.22);
 }
+/* Bóng màu cho nút cam (03-design-system §2 "nút cam có bóng màu") — giá trị sống Ở ĐÂY,
+   không rgba arbitrary trong component (hook 3b2 BLOCK; lift 2026-08-14 từ sdvico-catalog + boat-products) */
+/* nợ: 3 biến thể bóng cam gần trùng nhau (blur 20/24/28, alpha .55/.6/.7), gộp về 1-2 khi chạy screenshot QA loop lần tới */
+.shadow-trim-fab { box-shadow: 0 12px 28px -8px rgb(228 87 46 / 0.7); }
+.shadow-trim-btn { box-shadow: 0 8px 20px -8px rgb(228 87 46 / 0.6); }
+.shadow-trim-cta { box-shadow: 0 10px 24px -8px rgb(228 87 46 / 0.55); }
+/* Bóng khác lift từ component (2026-08-14, dọn nốt 11 rgba arbitrary còn lại — cùng đợt) */
+.drop-shadow-pin { filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.45)); }
+.shadow-sheet-up { box-shadow: 0 -6px 20px rgb(20 50 79 / 0.25); }
+.shadow-navy-tab { box-shadow: 0 4px 12px -4px rgb(13 35 54 / 0.4); }
 /* Máy không hỗ trợ blur → nền đặc hơn cho chữ khỏi chìm vào bản đồ */
 @supports not (backdrop-filter: blur(1px)) {
   .glass {

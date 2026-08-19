@@ -101,8 +101,10 @@ export default function DangKyPage() {
       25000,
     );
     if (!signIn || signIn.error) {
-      // hiếm — tạo xong mà chưa vào được thì để bà con đăng nhập tay
-      router.replace("/login");
+      // hiếm — tạo xong mà chưa vào được thì để bà con đăng nhập tay. `?tao=xong`
+      // để /login NÓI RA việc đã xong (audit 2026-08-18 G4: trước đây chuyển
+      // màn im lặng, bà con tưởng đăng ký hỏng, bấm tạo lại → "đã có tài khoản").
+      router.replace("/login?tao=xong");
       return;
     }
 

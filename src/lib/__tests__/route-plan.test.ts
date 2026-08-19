@@ -389,7 +389,7 @@ describe("ràng buộc độ sâu", () => {
     expect(Math.max(...p.waypoints.map((w) => w.lat))).toBeGreaterThan(12.5);
   });
 
-  it("rạn hẹp giữa chặng dài không lọt khe (mẫu mỗi ≤5 km dọc cạnh)", () => {
+  it("rạn hẹp giữa chặng dài không lọt khe (mẫu mỗi ≤2 km dọc cạnh)", () => {
     const f = makeField(BB, 9, calm);
     // chấm đảo nhỏ ~6 km ngay trên đường thẳng, giữa hai mắt lưới tìm đường
     const g = makeDepth((la, lo) =>

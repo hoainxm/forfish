@@ -15,7 +15,7 @@ const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
 
 export async function GET(req: Request) {
-  const who = await requirePremiumUser();
+  const who = await requirePremiumUser(req);
   if (!who.ok) return err(who.status, who.code);
 
   const url = new URL(req.url);
