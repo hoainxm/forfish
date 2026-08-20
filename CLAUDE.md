@@ -17,7 +17,7 @@ Thứ tự build: **4 + 3 trước → 1 → 2**. Trục 4 làm trước vì kh�
 
 ## Tech stack
 
-- **Next.js 16** App Router + TypeScript, **Tailwind v4** (tokens trong `src/app/globals.css` qua `@theme`)
+- **Next.js 16** App Router + TypeScript (**Node ≥ 20**), **Tailwind v4** (tokens trong `src/app/globals.css` qua `@theme`)
 - **Supabase** (Postgres + Auth, RLS owner-only) — app fallback về **demo mode** (localStorage) khi env chưa cấu hình
 - **MapLibre GL** (bắt buộc lazy-load) — bản đồ ngư trường Trục 1 · **Vitest** — test logic `src/lib/`
 - Deploy: **Vercel** (web) · **PWA cài được** (manifest/SW/icons) · **Capacitor-ready** (`lib/api-base` + `NEXT_PUBLIC_API_BASE`) — xem [docs/app-map/ops/native-deploy.md](docs/app-map/ops/native-deploy.md) · Repo: github.com/Long-Forfun/ForFish
@@ -54,7 +54,7 @@ Mọi thay đổi `src/` phải update doc app-map tương ứng **TRONG CÙNG C
 
 **Enforcement (nguyên tắc 8/12)**: pre-commit hook ở `.githooks/` (bật bằng `git config core.hooksPath .githooks`) chặn migration↔04 lệch, covers-gate, budget root, contract SDWork, spacing-px, BOM/mojibake. Verify: `sh .githooks/pre-commit --self-test`. Sức khoẻ doc: `sh scripts/doc-health-report.sh`. Audit định kỳ: `/audit`.
 
-Test: **Vitest** (`npm test`, test tại `src/lib/__tests__/`) — thêm logic mới vào `src/lib/` thì viết test kèm cùng commit. Skip chỉ cho phép với pure UI tweak / config-only / doc-only, note rõ trong commit message.
+Test: **Vitest** (`npm test`, test tại `src/lib/__tests__/`) — thêm logic mới vào `src/lib/` thì viết test kèm cùng commit. **Node ≥ 20** (CI pin 20); script `test` kèm `NODE_OPTIONS=--no-experimental-webstorage` để tắt localStorage native của Node ≥22 (không che localStorage của jsdom) → `npm test` xanh cả Node 20 lẫn 26. Skip chỉ cho phép với pure UI tweak / config-only / doc-only, note rõ trong commit message.
 
 ## Pre-flight risk flags — dừng lại hỏi user khi
 
