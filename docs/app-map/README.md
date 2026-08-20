@@ -46,6 +46,7 @@
 | ops | [ops/external-services.md](ops/external-services.md) | Registry nguồn dữ liệu ngoài (Open-Meteo, GDACS, VASEP, Supabase ×2, CRM gateway…) + "khi nó chết thì sao" |
 | ops | [ops/native-deploy.md](ops/native-deploy.md) | Deploy iOS/Android: PWA (manifest/SW/icons) + Capacitor (api-base, 2 chế độ wrap) + việc còn thiếu (Mac/store account/hosting) + lịch sử reject App Store |
 | ops | [ops/build-publish-store.md](ops/build-publish-store.md) | RUNBOOK build & phát hành CH Play + App Store: chốt version → AAB/Archive → store, xử lý reject 5.1.2 Privacy, chuyển domain sang sdfish.sdvico.vn |
+| ops | [ops/runbook-phat-hanh-store.md](ops/runbook-phat-hanh-store.md) | **THẺ THAO TÁC** (macOS + Android Studio + Xcode): mở ra làm theo từng bước code mới → build → nộp CH Play + App Store, không cần nhớ. Trỏ về build-publish-store cho "vì sao"/reject |
 | ops | [ops/dot1-setup.md](ops/dot1-setup.md) | **Hướng dẫn THỦ CÔNG bật Đợt 1**: apply migration, email provider, env Vercel, dựng webhook với SDWork (+ test curl HMAC), cắm OTP provider (Zalo/SMS), kiểm RLS |
 | ops | [ops/state-registry.md](ops/state-registry.md) | Registry CANONICAL state client — mọi key `forfish.*` localStorage (writer/reader/reset), governance single-writer + versioned key |
 | ops | [ops/qa-offline-acceptance.md](ops/qa-offline-acceptance.md) | **Kịch bản nghiệm thu OFFLINE cho đội tester**: 14 ca test theo từng loại máy (iPhone Safari/A2HS · Android Chrome/PWA), cách giả lập sóng "sống mà chết", tiêu chí chặn phát hành |

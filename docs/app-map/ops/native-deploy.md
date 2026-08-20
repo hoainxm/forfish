@@ -48,6 +48,7 @@ npm run cap:open:ios   # / cap:open:android
 - Splash screen Android (adaptive icon đã sinh qua `npm run icons` — 2026-07-14).
 
 > **RUNBOOK build & phát hành chi tiết (Android + iOS từ chốt code → store)**: [build-publish-store.md](build-publish-store.md). File này chỉ giữ hiện trạng + lịch sử reject.
+> **THẺ THAO TÁC gọn (mở ra làm theo từng bước, macOS + Android Studio + Xcode)**: [runbook-phat-hanh-store.md](runbook-phat-hanh-store.md).
 
 - **CI auto Android (2026-07-28)**: `.github/workflows/android-release.yml` — build AAB đã ký + upload CH Play qua Gradle Play Publisher. Trigger tay hoặc tag `vX.Y.Z`; `versionCode` tự tăng (`10000 + run_number`). Cần secrets keystore + `PLAY_SERVICE_ACCOUNT_JSON`. Chi tiết [build-publish-store.md §3b](build-publish-store.md). iOS chưa auto (cần Mac/Xcode).
 

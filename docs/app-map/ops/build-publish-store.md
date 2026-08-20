@@ -3,7 +3,7 @@
 > **Mục đích**: cầm tay từng bước từ **chốt code** → **build binary** → **đẩy lên CH Play và App Store** cho lần cập nhật này, kèm cách **xử lý rejection 5.1.2 (Privacy)** và **chuyển domain về `sdfish.sdvico.vn`**.
 >
 > **Load khi**: chuẩn bị nộp/cập nhật app store, đụng version/signing/Capacitor, xử lý App Review.
-> **Anh em ruột**: [native-deploy.md](native-deploy.md) (hiện trạng + PWA). File này là RUNBOOK thao tác.
+> **Anh em ruột**: [native-deploy.md](native-deploy.md) (hiện trạng + PWA) · [runbook-phat-hanh-store.md](runbook-phat-hanh-store.md) (THẺ THAO TÁC gọn — mở ra làm theo từng bước). File này giữ phần "vì sao" + xử lý reject chi tiết.
 
 ---
 
