@@ -47,7 +47,7 @@ Bên dưới là runbook đầy đủ; các bước 🤖/👤 ở trên tương 
 
 | Thứ | Giá trị |
 |---|---|
-| Repo (đẩy + chạy Actions) | `github.com/hoainxm/forfish` |
+| Repo (đẩy + chạy Actions) | `github.com/sdvico/forfish` |
 | Web deploy app native tải (chế độ (a)) | **`https://forfish-alpha.vercel.app`** — KHÔNG phải `forfish.vercel.app` |
 | Trang chính sách (bắt buộc cho store) | `https://forfish-alpha.vercel.app/quyen-rieng-tu` |
 | Bundle iOS | `vn.sdvico.sdfish` |
@@ -100,7 +100,7 @@ npm run icons                 # BẮT BUỘC sau cap add — đè icon "X" mặc
 ```
 
 ### 1e. Backend cron (một lần — để dữ liệu cá/thời tiết/bão tự tươi)
-Ở **`hoainxm/forfish` → Settings → Secrets and variables → Actions**:
+Ở **`sdvico/forfish` → Settings → Secrets and variables → Actions**:
 - **Variable** `APP_BASE_URL` = `https://forfish-alpha.vercel.app` (tab *Variables*).
 - **Secret** `CRON_SECRET` = *(chuỗi bí mật, TRÙNG env `CRON_SECRET` trên Vercel)* (tab *Secrets*).
 - Trên **Vercel** (Project → Settings → Environment Variables): đặt `CRON_SECRET` cùng giá trị.
@@ -125,7 +125,7 @@ npm run lint                  # 0 error (warning không chặn)
 ```
 
 **3) Deploy WEB (đây mới là thứ app native thực sự tải):**
-- Đẩy code lên `hoainxm/forfish` → Vercel tự build. Đợi xong, **kiểm**:
+- Đẩy code lên `sdvico/forfish` → Vercel tự build. Đợi xong, **kiểm**:
 ```bash
 curl -I https://forfish-alpha.vercel.app                       # 200
 curl -s https://forfish-alpha.vercel.app/quyen-rieng-tu | grep "quyền riêng tư"
@@ -146,7 +146,7 @@ curl -s https://forfish-alpha.vercel.app/quyen-rieng-tu | grep "quyền riêng t
 Chọn **1 trong 2 cách**. Khuyến nghị **Cách A (CI)** cho các bản sau; **Cách B (local)** khi muốn tự tay.
 
 ### Cách A — Tự động bằng GitHub Actions (khuyến nghị)
-1. GitHub → repo `hoainxm/forfish` → **Actions** → **"Android release (build + publish CH Play)"** → **Run workflow**.
+1. GitHub → repo `sdvico/forfish` → **Actions** → **"Android release (build + publish CH Play)"** → **Run workflow**.
 2. Điền: `versionName` (vd `1.0.4`) · `track` (`internal` để thử, `production` để phát hành) · `publish` (tick = đẩy luôn lên Play).
    - Hoặc: `git tag v1.0.4 && git push origin v1.0.4` → workflow tự chạy.
 3. Xong: AAB nằm ở artifact `app-release-aab`; nếu tick publish thì đã lên Play track đã chọn.
