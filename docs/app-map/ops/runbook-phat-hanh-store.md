@@ -27,12 +27,13 @@ Studio, mật khẩu keystore, tài khoản Apple/Google, thao tác store consol
 chọn keystore → upload Play. **HOẶC** Actions → *Android release* → Run workflow (CI tự build + ký).
 
 **"build ios" → 🤖 Claude chạy:**
-1–3. như trên. 4. Tạo `out/` stub → `npx cap sync ios` → `npm run icons`
-   *(nếu `ios/` chưa có → Claude dừng, nhắc bạn chạy one-time `npm i -D @capacitor/ios && npx cap add ios` — cần Xcode + CocoaPods)*
-5. Báo "prep xong" + trạng thái.
+1–3. như trên. 4. `out/` stub → `npx cap sync ios` → `npm run icons` (sinh AppIcon iOS).
+5. Claude còn tự lo trong `ios/`: thêm `NSLocationWhenInUseUsageDescription` vào Info.plist,
+   đặt **Build** ≥2, kiểm config trỏ `forfish-alpha`. Báo "prep xong" + trạng thái.
+   *(`ios/` đã tồn tại từ lần `cap add ios` đầu — chỉ lần đầu mới cần Xcode + CocoaPods.)*
 
-→ 👤 **Bạn làm tiếp**: `npm run cap:open:ios` → Xcode: ký + `NSLocationWhenInUseUsageDescription`
-→ bump **Build** → **Product → Archive** → **Distribute → App Store Connect → Upload**.
+→ 👤 **Bạn làm tiếp** (chỉ còn thao tác GUI): `npm run cap:open:ios` → Xcode: **chọn Team để ký**
+→ **Product → Archive** → **Distribute → App Store Connect → Upload**. Chi tiết từng bấm ở **§4**.
 
 > **🤖 Claude KHÔNG làm được (chắc chắn cần bạn)**: thao tác GUI Xcode/Android Studio, nhập mật
 > khẩu keystore, ký binary, trigger CI (cần `gh` CLI đăng nhập — máy chưa cài), và MỌI thao tác
@@ -96,7 +97,7 @@ pod --version
 npm i -D @capacitor/ios
 mkdir -p out && echo '<!doctype html><meta charset="utf-8"><title>SDFish</title><body>Đang tải SDFish…' > out/index.html
 npx cap add ios               # sinh thư mục ios/ (cần Xcode + CocoaPods ở 1a)
-npm run icons                 # BẮT BUỘC sau cap add — đè icon "X" mặc định của Capacitor
+npm run icons                 # BẮT BUỘC sau cap add — sinh AppIcon iOS + Android, đè icon "X" mặc định Capacitor
 ```
 
 ### 1e. Backend cron (một lần — để dữ liệu cá/thời tiết/bão tự tươi)
@@ -179,34 +180,51 @@ Upload lên [play.google.com/console](https://play.google.com/console) → app S
 
 ---
 
-## 4. iOS → App Store (Xcode)
+## 4. iOS → App Store (Xcode) — CHI TIẾT
 
-> Lần đầu đã `cap add ios` ở §1d. Các lần sau bắt đầu từ đây.
+> Khi Claude chạy xong "build ios", các thứ sau **đã sẵn trong `ios/`**, khỏi làm lại:
+> Info.plist có `NSLocationWhenInUseUsageDescription` ✅ · **Build = 2, Version = 1.0** ✅ ·
+> **AppIcon = logo SDFish** (`npm run icons` nay sinh cả iOS) ✅ · `capacitor.config.json` trỏ
+> `forfish-alpha.vercel.app` ✅. Nếu cần dựng lại thủ công từ đầu:
+>
+> ```bash
+> mkdir -p out && echo '<!doctype html><title>SDFish</title>Đang tải…' > out/index.html
+> npx cap sync ios              # copy web(stub) + đồng bộ plugin (Capacitor 8 dùng SPM)
+> npm run icons                 # sinh AppIcon iOS + PWA + Android launcher
+> npm run cap:open:ios          # mở ios/App/App.xcodeproj trong Xcode
+> ```
 
-```bash
-mkdir -p out && echo '<!doctype html><meta charset="utf-8"><title>SDFish</title><body>Đang tải SDFish…' > out/index.html
-npx cap sync ios              # copy web(stub) + plugin + pod install
-npm run icons
-npm run cap:open:ios          # mở Xcode
-```
+### 4.1 Ký ứng dụng (Signing)
+1. Xcode mở project. Cột trái (Project navigator) → bấm mục xanh **App** trên cùng → chọn TARGET **App** → tab **Signing & Capabilities**.
+2. **Team**: chọn team Apple Developer. *(Chưa có: Xcode → Settings → Accounts → **+** đăng nhập Apple ID.)*
+3. **Bundle Identifier**: `vn.sdvico.sdfish` (đã đặt sẵn — **đừng đổi**, phải khớp app trên App Store Connect).
+4. Tick **Automatically manage signing** → Xcode tự tạo provisioning profile. Báo đỏ "failed to register bundle ID" thì bấm **Try Again** (hoặc chọn lại Team).
 
-**Trong Xcode:**
-1. Target **App → Signing & Capabilities**: chọn **Team** (Apple Developer), bundle `vn.sdvico.sdfish`, bật **Automatically manage signing**.
-2. **General**: **Build** tăng (≥2), **Version** giữ `1.0`.
-3. **Info.plist** — thêm (thiếu là app crash khi xin vị trí + bị reject 5.1.2):
-   - `NSLocationWhenInUseUsageDescription` =
-     *"SDFish dùng vị trí để canh bản đồ và xem gió sóng đúng chỗ bạn đang ở. Vị trí không được lưu lại hay gắn với tài khoản."*
-4. Chọn thiết bị **Any iOS Device (arm64)** → **Product → Archive**.
-5. **Organizer** hiện ra → **Distribute App → App Store Connect → Upload**.
+### 4.2 Xác nhận version/build
+- Tab **General → Identity**: **Version** = `1.0`, **Build** = `2`.
+- ⚠️ Build phải **lớn hơn** mọi lần đã upload cho version 1.0. Nếu lúc upload ASC báo *"build 2 đã tồn tại"* → tăng Build lên 3, archive lại.
 
-**Trong App Store Connect** ([appstoreconnect.apple.com](https://appstoreconnect.apple.com)):
-1. Chọn build vừa upload (đợi ~15–30′ "processing").
-2. **App Privacy** → khai đúng bảng §5.1 build-publish-store, **BỎ HẾT** mục "Used to Track You".
-3. **App Information → Privacy Policy URL** = `https://forfish-alpha.vercel.app/quyen-rieng-tu`.
-4. **App Review Information** → tài khoản demo + Notes (§5 dưới).
-5. **Add for Review → Submit**.
+### 4.3 Chọn đích rồi Archive
+1. Thanh trên cùng, ô chọn thiết bị (cạnh nút ▶ Run) → chọn **Any iOS Device (arm64)**. **KHÔNG** chọn Simulator (không archive lên store được).
+2. Menu **Product → Archive**. Lần đầu Xcode "Resolving Packages" (tải Swift Package của Capacitor plugin) — đợi vài phút.
+3. Build xong → cửa sổ **Organizer** tự mở, hiện bản archive vừa tạo. *(Lỗi build thì đọc dòng đỏ; thường do Signing chưa xong ở 4.1.)*
 
-> iOS **chưa có CI tự động** (cần Mac/Xcode) — luôn làm tay ở đây.
+### 4.4 Đẩy lên App Store Connect
+1. Trong **Organizer** chọn archive → **Distribute App**.
+2. Chọn **App Store Connect** → **Upload** → Next qua các bước (để **mặc định**: tự quản signing, upload symbols) → **Upload**.
+3. Đợi upload xong; build hiện ở ASC sau ~15–30′ trạng thái **Processing**.
+
+### 4.5 Hoàn tất trên App Store Connect ([appstoreconnect.apple.com](https://appstoreconnect.apple.com))
+1. **My Apps → SDFish**. *(Chưa có app: **+** → New App → nền tảng iOS, bundle `vn.sdvico.sdfish`.)*
+2. Vào version **1.0** → mục **Build** → chọn build `2` vừa upload (chờ hết "Processing").
+3. **App Privacy** → khai đúng bảng §5.1 [build-publish-store.md](build-publish-store.md), **BỎ HẾT** "Used to Track You".
+4. **App Information → Privacy Policy URL** = `https://forfish-alpha.vercel.app/quyen-rieng-tu`.
+5. **App Review Information** → tài khoản demo + Notes (§5 dưới).
+6. Điền **Screenshot** (§6), mô tả, phân loại tuổi → **Add for Review → Submit**.
+
+> iOS **chưa có CI tự động** (cần Mac/Xcode) — luôn làm tay mục này. Sau lần đầu, mỗi bản mới chỉ
+> cần **sửa web + deploy Vercel** (app ăn ngay do chế độ (a)); chỉ archive lại binary khi đóng
+> rejection hoặc đổi vỏ native/icon/version.
 
 ---
 

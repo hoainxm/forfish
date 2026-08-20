@@ -16,7 +16,7 @@
 // Đổi sang nền navy: set BG = NAVY. Đổi tỉ lệ mark trong khung: chỉnh SCALE.
 
 import sharp from "sharp";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 const SRC = "brand/logo-sdfish.png";
@@ -72,6 +72,35 @@ await makeIcon(512, path.join(OUT, "icon-maskable-512.png"), MASKABLE_SCALE);
 // Tab nhỏ → bo nhẹ (10%) cho icon 32px khỏi cong quá; apple-icon = full 22%.
 await makeIcon(32, path.join(APP_DIR, "icon.png"), 0.92, false);
 await makeIcon(180, path.join(APP_DIR, "apple-icon.png"));
+
+// ── iOS App Store icon (Capacitor Assets.xcassets) ────────────────────────
+// AppIcon.appiconset dùng 1 ảnh 1024×1024. YÊU CẦU App Store: KHÔNG kênh alpha,
+// KHÔNG bo góc (iOS tự bo mask), nền đục. Trước đây script chỉ lo PWA+Android →
+// icon iOS còn là mặc định Capacitor (khác store listing = rủi ro reject). Chỉ
+// ghi khi ĐÃ `cap add ios` (thư mục appiconset tồn tại) để CI/máy chưa add iOS
+// không nổ.
+const IOS_APPICON =
+  "ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png";
+try {
+  await stat(path.dirname(IOS_APPICON));
+  const inner = Math.round(1024 * SCALE);
+  const innerMark = await sharp(mark)
+    .resize(inner, inner, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
+    .png()
+    .toBuffer();
+  const bgSvg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><rect width="1024" height="1024" fill="${BG}"/></svg>`
+  );
+  await sharp(bgSvg)
+    .composite([{ input: innerMark, gravity: "center" }])
+    .flatten({ background: BG }) // bệt trong suốt lên nền trắng
+    .removeAlpha() // App Store từ chối icon còn kênh alpha → xuất RGB 3 kênh
+    .png()
+    .toFile(IOS_APPICON);
+  console.log("Đã sinh AppIcon iOS", IOS_APPICON);
+} catch {
+  console.log("Bỏ qua AppIcon iOS (chưa `cap add ios`).");
+}
 
 // ── Android launcher icons (Capacitor native) ─────────────────────────────
 // Trước đây mipmap-*/ic_launcher* là icon Capacitor mặc định (chữ X) → app cài
