@@ -5,7 +5,7 @@
 > hiện trạng + PWA ở [native-deploy.md](native-deploy.md).
 >
 > **Môi trường giả định**: **macOS** + **Android Studio** + **Xcode** (build được CẢ hai nền
-> tảng ngay trên máy). Node **20** (không dùng 26 — vỡ test jsdom).
+> tảng ngay trên máy). Node **≥ 20** (CI dùng 20; `npm test` chạy tốt cả Node 26 nhờ cờ `--no-experimental-webstorage` trong script test).
 
 ---
 
@@ -18,7 +18,7 @@ Studio, mật khẩu keystore, tài khoản Apple/Google, thao tác store consol
 **"build android" → 🤖 Claude chạy:**
 1. `git fetch` + `git pull --ff-only` (đồng bộ nền)
 2. `npm ci`
-3. `npm run build` + `npm run lint` (+ `npm test` — báo rõ nếu Node 26 local làm vỡ test jsdom, không phải hồi quy)
+3. `npm run build` + `npm run lint` + `npm test`
 4. Tạo `out/` stub → `npx cap sync android` → `npm run icons`
 5. *(nếu build tay)* bump `versionCode`/`versionName` trong `android/app/build.gradle`
 6. Báo "prep xong" + trạng thái build/test/lint.
@@ -68,7 +68,7 @@ Làm một lần, sau này bỏ qua mục này.
 
 ### 1a. Công cụ trên máy
 ```bash
-# Node 20 (khuyến nghị dùng nvm; Node 26 làm vỡ 11 test jsdom local)
+# Node >= 20 (CI dùng 20; test chạy được cả Node 26)
 nvm install 20 && nvm use 20
 node -v                       # v20.x
 
@@ -121,7 +121,7 @@ git pull --ff-only            # nếu nhánh sau remote
 # 2) Cài + kiểm code sạch
 npm ci
 npm run build                 # phải exit 0
-npm test                      # dùng Node 20 (Node 26 làm vỡ test localStorage/jsdom)
+npm test                      # xanh trên Node 20 lẫn 26 (script kèm --no-experimental-webstorage)
 npm run lint                  # 0 error (warning không chặn)
 ```
 
