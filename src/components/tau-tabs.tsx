@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Tabs } from "@/components/ui/tabs";
 import { DocumentVault, loadDocs } from "@/components/document-vault";
+import { VmsRenewal } from "@/components/vms-renewal";
 import { BoatServices } from "@/components/boat-services";
 import { BoatProducts } from "@/components/boat-products";
 import { LoginGate } from "@/components/login-gate";
@@ -99,6 +100,8 @@ export function TauTabs() {
                 accent="t3"
               >
                 <BoatServices />
+                {/* Gia hạn VMS đặt NGAY SAU sổ nhắc bảo dưỡng (mục cuối của BoatServices) */}
+                <VmsRenewal />
               </LoginGate>
             ),
           },

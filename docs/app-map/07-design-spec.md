@@ -220,12 +220,21 @@ Mobile M = ≤3 khối/viewport. ~~Home: dải khẩn + lưới 4 trục + tagli
 | Đổi điểm xem trên map khi đang có tuyến | tuyến CŨ giữ nguyên + dải nhắc "tới chỗ chạm trước" + Xóa tuyến |
 | Đổi tàu (chip BoatSwitcher) | mọi màn đang mở đổi theo tàu đó NGAY, không reload (ba-spec [08](08-ba-spec-da-tau.md) AC-4) |
 | Xóa tàu (form Sửa tàu → Xóa tàu này) | ConfirmDialog nêu rõ; giấy tờ/bảo dưỡng của tàu bị xóa, thuyền viên + đồ SDVICO giữ; nhảy sang tàu còn lại. Còn 1 tàu → KHÔNG hiện nút xóa (08 R7) |
+| Bấm "Yêu cầu gia hạn" (khối VMS) khi chưa đủ điều kiện (2026-08-21) | mở modal "Chưa thể gia hạn": chưa có tàu → nút "Thêm tàu của bạn" (→ BoatForm thêm tàu); có tàu thiếu mã → nút "Thêm mã tàu" (→ BoatForm sửa). KHÔNG mở wizard tới khi tàu đang chọn có mã |
+| Tạo yêu cầu gia hạn VMS (2026-08-21) | wizard hiện **QR VietQR** + số tiền + nội dung CK + StatusBanner "Yêu cầu đã tạo · mã GH-…"; lỗi/mất sóng → câu thật "Chưa gửi được… kiểm tra sóng" + nút gọi SDVICO; xong → mở "Yêu cầu gia hạn của tôi" (trạng thái Chờ chuyển khoản/Đã nhận tiền/Đã gia hạn) |
 | Đổi mật khẩu (`/doi-mat-khau`) — 2026-08-18 | dòng inline "Đã đổi mật khẩu. Đang về trang chính…" 1,5s rồi về `/` (không toast) |
 | Huỷ đơn (Đơn của tôi) — 2026-08-18 | dòng inline "Đã huỷ đơn …" 8s; lỗi `cancelErr` tự xoá khi tải lại được danh sách |
 | Đặt hàng (giỏ) — 2026-08-18 | thẻ xác nhận: **mã đơn** (8 ký tự đầu id) + tổng tiền + SĐT nhận; chưa đăng nhập → mở /login (offline → câu nói thật, không mời); máy hết chỗ khi lưu giỏ → băng đỏ "Máy hết chỗ — CHƯA lưu được giỏ…" |
 | Thêm vào giỏ — 2026-08-18 | QtyStepper reset về 1, nút đổi "Đã thêm (n)"; `CART_EVENT` chỉ bắn khi ghi được |
 | Gửi yêu cầu/hỏi mua (product-inquiry) — 2026-08-18 | lỗi phân 3 nhánh đúng nguyên nhân (`lib/send-error.ts`): SĐT sai / mất sóng / máy chủ — KHÔNG "Nhập đúng SĐT" cho lỗi mạng; nêu đúng tên đơn vị (`vendorName`) |
 | Bị máy khác đăng nhập đá — 2026-08-18 | máy bị đá: thẻ đỏ inline dưới chip tài khoản (Trang chủ), dự báo/sổ sách đã tải vẫn dùng, nút Đăng nhập (ẩn offline); máy mới ở `/login`: "Máy trước đã được đăng xuất — số này chỉ dùng trên một máy." 1,5s rồi vào |
+
+> **KHỐI GIA HẠN GIÁM SÁT HÀNH TRÌNH — VMS (2026-08-21, `vms-renewal.tsx`, `/tau` tab Dịch vụ — NGAY SAU sổ nhắc bảo dưỡng, accent t3 khớp tab; phục vụ lời hứa Trục 4 Tuân thủ)**. **FORMAT KHỚP "Sổ nhắc bảo dưỡng"** (2026-08-21, user chốt): KHÔNG bọc Card/icon riêng — chỉ **tiêu đề phẳng "Giám sát hành trình"** + phụ đề "Gia hạn thiết bị để tàu đủ điều kiện ra khơi" + **1 nút cam "Yêu cầu gia hạn"** (PrimaryButton, cùng khuôn nút "Gọi SDVICO…" / "Thêm việc bảo dưỡng") + link "Yêu cầu gia hạn của tôi". Bỏ nút "Thêm tàu" khỏi khối chính. Trạng thái:
+> - **Chưa đăng nhập** → tab Dịch vụ đã có `LoginGate` bọc ngoài (một lời mời đăng nhập cho cả tab); gate nội bộ component là dự phòng khi dùng lẻ.
+> - **Bấm "Yêu cầu gia hạn" khi CHƯA đủ điều kiện** → mở **modal "Chưa thể gia hạn"**: nếu chưa có tàu → câu nhắc + nút cam **"Thêm tàu của bạn"** (mở BoatForm thêm tàu có sẵn); nếu có tàu nhưng thiếu mã đăng ký → nút cam **"Thêm mã tàu"** (mở BoatForm sửa tàu đó). Có nút "Đóng".
+> - **Bấm "Yêu cầu gia hạn" khi ĐỦ điều kiện** (tàu đang chọn có mã) → mở thẳng wizard.
+> - **Wizard**: ChipRow **3 tháng / 6 tháng / 1 năm** (chỉ 3 mốc), dòng "Đơn giá …/tháng × N = Tổng …" (đang lấy giá / lấy được / lỗi-giá vẫn tạo được), RefNote cảnh báo "tàu tự khai — SDVICO xác minh; app không tự trừ tiền". Tạo xong → sheet QR VietQR + số TK/nội dung CK (mất sóng ảnh QR không tải thì vẫn CK tay được từ số bên dưới).
+> - **Màn "Yêu cầu của tôi"**: loading / empty ("Chưa có yêu cầu…") / error (nút Thử lại) / list (badge trạng thái + tổng tiền + "Gia hạn tới …" khi extended). **Online-only** — mọi call có `timeoutSignal` + `.catch`, KHÔNG treo; picker tàu chạy offline (đọc local), TẠO thì cần sóng.
 
 ## 8. Quyết định đã chốt (không hỏi lại)
 

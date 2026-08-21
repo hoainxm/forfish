@@ -211,7 +211,7 @@ export function BoatSwitcher() {
   );
 }
 
-function BoatForm({
+export function BoatForm({
   initial,
   isNew,
   onCancel,

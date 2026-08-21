@@ -5,6 +5,7 @@
 covers: scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
 last_verified: 2026-07-30
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-08-21) — code 'scripts/doc-health-report.sh' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-17 - lệnh regenerate asset (icons/depth-grid/isobaths) + deploy/health-check khớp scripts/ hiện tại -->
 <!-- re-verified: 2026-06-29 - generate-icons.mjs đổi nguồn icon.svg→logo-src.png; lệnh `node scripts/generate-icons.mjs` không đổi, vẫn xuất public/icons -->
