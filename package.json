@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
+    "test": "node scripts/run-vitest.mjs",
     "e2e:build": "node scripts/e2e-build.mjs",
     "e2e:videos": "playwright test",
     "e2e:export": "node scripts/e2e-video-export.mjs",
