@@ -520,11 +520,29 @@ function RenewalStatusSheet({ onClose }: { onClose: () => void }) {
                   </StatusBanner>
                 )}
 
-                {r.status === "pending_payment" && r.transferNote && (
-                  <p className="mt-1.5 text-[0.9375rem] text-foreground/70">
-                    Nội dung CK:{" "}
-                    <strong className="text-navy">{r.transferNote}</strong>
-                  </p>
+                {r.status === "pending_payment" && (
+                  <div className="mt-2">
+                    {/* Xem LẠI mã QR (bấm nhầm tắt sheet tạo vẫn quét lại được) */}
+                    {r.qrUrl && (
+                      <div className="overflow-hidden rounded-2xl bg-card py-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={r.qrUrl}
+                          alt={`Mã QR chuyển khoản ${r.requestCode}`}
+                          className="mx-auto block w-full max-w-[220px]"
+                        />
+                      </div>
+                    )}
+                    {r.transferNote && (
+                      <p className="mt-1.5 text-[0.9375rem] text-foreground/70">
+                        Nội dung CK:{" "}
+                        <strong className="text-navy">{r.transferNote}</strong>
+                      </p>
+                    )}
+                    <p className="mt-1 text-[0.875rem] text-foreground/60">
+                      Quét mã QR bằng app ngân hàng để chuyển đúng số tiền và nội dung.
+                    </p>
+                  </div>
                 )}
               </li>
             );

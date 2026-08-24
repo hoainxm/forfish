@@ -234,7 +234,7 @@ Mobile M = ≤3 khối/viewport. ~~Home: dải khẩn + lưới 4 trục + tagli
 > - **Bấm "Yêu cầu gia hạn" khi CHƯA đủ điều kiện** → mở **modal "Chưa thể gia hạn"**: nếu chưa có tàu → câu nhắc + nút cam **"Thêm tàu của bạn"** (mở BoatForm thêm tàu có sẵn); nếu có tàu nhưng thiếu mã đăng ký → nút cam **"Thêm mã tàu"** (mở BoatForm sửa tàu đó). Có nút "Đóng".
 > - **Bấm "Yêu cầu gia hạn" khi ĐỦ điều kiện** (tàu đang chọn có mã) → mở thẳng wizard.
 > - **Wizard**: ChipRow **3 tháng / 6 tháng / 1 năm** (chỉ 3 mốc), dòng "Đơn giá …/tháng × N = Tổng …" **LUÔN hiện** (đang lấy giá → "Đang lấy giá…"; lấy được → giá server; lấy giá lỗi → giá THAM KHẢO `RENEWAL_FALLBACK_MONTHLY_PRICE`=385.000 kèm "(tham khảo)" — tiền THẬT vẫn do server tính lúc tạo yêu cầu, hằng chỉ để hiển thị), RefNote cảnh báo "tàu tự khai — SDVICO xác minh; app không tự trừ tiền". Tạo xong → sheet QR VietQR + số TK/nội dung CK (mất sóng ảnh QR không tải thì vẫn CK tay được từ số bên dưới).
-> - **Màn "Yêu cầu của tôi"**: loading / empty ("Chưa có yêu cầu…") / error (nút Thử lại) / list (badge trạng thái + tổng tiền + "Gia hạn tới …" khi extended). **Online-only** — mọi call có `timeoutSignal` + `.catch`, KHÔNG treo; picker tàu chạy offline (đọc local), TẠO thì cần sóng.
+> - **Màn "Yêu cầu của tôi"**: loading / empty ("Chưa có yêu cầu…") / error (nút Thử lại) / list (badge trạng thái + tổng tiền + "Gia hạn tới …" khi extended). Item **"Chờ chuyển khoản" hiện LẠI mã QR + nội dung CK** (bấm nhầm tắt sheet tạo vẫn quét lại được — dùng `qrUrl` từ action `list`). **Online-only** — mọi call có `timeoutSignal` + `.catch`, KHÔNG treo; picker tàu chạy offline (đọc local), TẠO thì cần sóng.
 
 ## 8. Quyết định đã chốt (không hỏi lại)
 
