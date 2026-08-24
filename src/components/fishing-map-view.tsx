@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import MapGL, {
+  AttributionControl,
   Marker,
   Source,
   Layer,
@@ -277,8 +278,20 @@ const MAP_LAYER_KEY = "forfish.maplayer.v1";
  */
 const WAVE_EST_MARK = " (ước)";
 
-// thanh giờ gió/sóng xổ ra mà 5s không thao tác → tự thu (user 2026-07-28)
-const STRIP_AUTO_HIDE_MS = 5000;
+// thanh giờ gió/sóng xổ ra mà 3s không thao tác → tự thu (user 2026-07-28, hạ 5s→3s 2026-08-24)
+const STRIP_AUTO_HIDE_MS = 3000; // 5s → 3s (user 2026-08-24: đỡ rối mắt)
+
+/*
+  SHEET ĐIỀU KIỆN BIỂN — 3 GIÂY KHÔNG CHẠM LÀ TRƯỢT SÁT ĐÁY (user 2026-08-24:
+  "vô hiện 3s rồi ẩn xuống"; user lần 2: "click lên rồi thấy ở đó hoài").
+  Áp cho MỌI nấc peek/half/full → về `hidden` (chỉ còn thanh kéo, xem
+  ui/snap-sheet.tsx). Bản đầu chỉ đếm ở `peek` (nghĩ half/full = đang đọc thì
+  đừng sập) — user bác: kéo lên là nó nằm lì.
+  CÒN CHẠM LÀ CÒN Ở LẠI: mọi pointerdown/gõ phím TRONG sheet + cuộn thân sheet
+  đều nạp lại 3s (`onInteract`), nên đang đọc/cuộn thì không bị giật khỏi tay;
+  buông tay 3s mới trượt xuống.
+*/
+const SHEET_AUTO_HIDE_MS = 3000;
 
 /**
  * Số ngày mà "chỗ cá ít đổi" là câu ĐÃ ĐO ĐƯỢC, không phải câu nói cho vui.
@@ -542,6 +555,20 @@ export default function FishingMapView() {
      cũng không có gì thì mới hiện lời mời đăng nhập/nâng cấp. */
   const fishLocked = premiumLocked && !fishCast;
   const [size, setSize] = useState<SheetSize>("peek");
+  // đồng hồ tự-ẩn của sheet (SHEET_AUTO_HIDE_MS) — nạp lại mỗi lần bà con chạm
+  const sheetHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearSheetHide = useCallback(() => {
+    if (sheetHideTimer.current) clearTimeout(sheetHideTimer.current);
+    sheetHideTimer.current = null;
+  }, []);
+  const armSheetHide = useCallback(() => {
+    clearSheetHide();
+    if (size === "hidden") return; // đã ở đáy rồi, không đếm nữa
+    sheetHideTimer.current = setTimeout(
+      () => setSize("hidden"),
+      SHEET_AUTO_HIDE_MS,
+    );
+  }, [clearSheetHide, size]);
 
   // ── dự báo vẽ động kiểu Windy: lớp gió/sóng + thanh thời gian ───────────
   const [forecastKind, setForecastKind] = useState<ForecastKind | null>(null);
@@ -1094,7 +1121,7 @@ export default function FishingMapView() {
   const [showPlaces, setShowPlaces] = useState(true);
   // thanh giờ Windy (gió/sóng) cho thu/mở — đỡ chiếm mép sheet (user 2026-06-23).
   // MẶC ĐỊNH THU GỌN (user 2026-07-28): chạm dòng "chạm để chọn giờ" mới xổ;
-  // xổ rồi mà 5s không thao tác (và không đang chạy ▶) thì TỰ thu lại.
+  // xổ rồi mà 3s không thao tác (và không đang chạy ▶) thì TỰ thu lại.
   const [gridStripOpen, setGridStripOpen] = useState(false);
   const stripHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const armStripHide = useCallback(() => {
@@ -1390,6 +1417,22 @@ export default function FishingMapView() {
   const syncBaseTopReady = useCallback(() => {
     const map = mapRef.current?.getMap();
     setBaseTopReady(!!map?.getLayer(OFFLINE_COAST_BEFORE_ID));
+  }, []);
+  /*  Ô NGUỒN BẢN ĐỒ — THU VỀ NÚT ⓘ NGAY TỪ ĐẦU (user 2026-08-24: "nó đang chồng
+      vào cái nút nên nó xấu").
+      MapLibre `_updateCompact` với khung hẹp (≤640px — cột app 480px luôn rơi
+      vào ca này) gắn CẢ HAI lớp `maplibregl-compact` + `maplibregl-compact-show`
+      ⇒ dựng ra ở trạng thái ĐANG BUNG: một dải chữ dài hai dòng nằm đè lên
+      thanh kéo sheet. Gỡ `-show` = đúng thao tác MapLibre làm khi bà con chạm ⓘ
+      (xem `_toggleAttribution`), KHÔNG phải hack: dòng nguồn vẫn còn nguyên sau
+      nút ⓘ — điều khoản CARTO/OSM đòi TRUY CẬP ĐƯỢC, không đòi bung sẵn.
+      CẤM đổi thành `attributionControl={false}` mà không vẽ lại dòng nguồn: đó
+      là vi phạm điều khoản dùng ô nền. */
+  const thuONguon = useCallback(() => {
+    mapRef.current
+      ?.getContainer()
+      .querySelector(".maplibregl-ctrl-attrib")
+      ?.classList.remove("maplibregl-compact-show");
   }, []);
   // Nghe qua PROP onStyleData/onLoad của MapGL (react-map-gl chắc chắn gắn
   // được) — hình bờ lúc mất sóng quá quan trọng để phụ thuộc vào việc mapRef
@@ -1861,6 +1904,26 @@ export default function FishingMapView() {
   /** Số đo "lúc này" trong bản lưu là số ĐÔNG CỨNG lúc lưu — chỉ nói thật giờ đo */
   const isToday = sel?.date === todayIso;
   const prox = borderProximity(point.lat, point.lon);
+  /*  ĐẾM 3 GIÂY RỒI TRƯỢT SHEET SÁT ĐÁY (SHEET_AUTO_HIDE_MS) — MỌI NẤC.
+      Chạy lại khi ĐỔI ĐIỂM ĐANG XEM nữa, không chỉ khi đổi nấc: chạm điểm mới
+      lúc sheet ĐANG ở `peek` thì `size` không đổi ⇒ chỉ nghe `size` là đồng hồ
+      cũ đếm tiếp, panel số mới vừa hiện đã biến mất.
+      NGOẠI LỆ AN TOÀN (mặc định an toàn nhất, nguyên tắc 5): RẤT GẦN RANH GIỚI
+      (≤6 hải lý) thì KHÔNG tự ẩn — cùng luật với NavHud (§10.7 F: ≤6 hl không
+      thu được). Vượt ranh giới bị bắt/phạt rất nặng, không đánh đổi lấy gọn mắt. */
+  const borderLocked = prox.level === "very_near";
+  /** sheet đang THU (peek hoặc đã trượt sát đáy) — banner bão, rail và chú giải
+      chỉ tự mờ khi bà con KÉO SHEET LÊN đọc (half/full), không phải khi sheet
+      tự ẩn xuống (lúc đó bản đồ đang lộ nhiều nhất, càng cần rail để thao tác) */
+  const sheetThu = size === "peek" || size === "hidden";
+  useEffect(() => {
+    if (size === "hidden" || borderLocked) {
+      clearSheetHide();
+      return;
+    }
+    armSheetHide();
+    return clearSheetHide;
+  }, [size, point.lat, point.lon, borderLocked, armSheetHide, clearSheetHide]);
   const depthNote = depth != null ? DEPTH_NOTE[depth] : undefined;
   // tuần trăng đêm nay — quyết với nghề đèn (mực, cá cơm); tính offline
   const moon = moonPhase(new Date());
@@ -1981,15 +2044,24 @@ export default function FishingMapView() {
         // maxBounds). fitBounds ở effect ghim khung lúc bật lớp.
         minZoom={anyExclusiveOverlay ? 4 : 2}
         style={{ width: "100%", height: "100%" }}
+        // Ô nguồn: bỏ control mặc định (góc PHẢI, chỗ đó là rail nút) — tự đặt
+        // ở góc TRÁI đáy, bên trái thanh kéo giữa (user 2026-08-24).
+        attributionControl={false}
         // Bản đồ dựng xong = ô nền CHẮC CHẮN đã được xin → bấm giờ im lặng
         // (chốt chặn cho `sourcedataloading`, xem LỖI 1); đồng thời tra lại
         // mốc chèn `base-top` cho lớp bờ offline (LỖI 3).
         // KHÔNG arm đồng hồ "nền im lặng" ở đây (bỏ 2026-08-18): `load` chỉ nói
         // style đã dựng, KHÔNG nói bản đồ đã xin ô nền — arm ở đây là dương
         // tính giả, xem ghi chú trong effect `sourcedataloading` bên trên.
-        onLoad={syncBaseTopReady}
+        onLoad={() => {
+          syncBaseTopReady();
+          thuONguon();
+        }}
         // đổi lớp bản đồ = setStyle = dựng lại style ⇒ mốc chèn có/mất theo
-        onStyleData={syncBaseTopReady}
+        onStyleData={() => {
+          syncBaseTopReady();
+          thuONguon(); // style mới = dòng nguồn mới, MapLibre bung lại
+        }}
         // Ô nền không về (mất sóng / wifi cảng "có mà không ra") → đếm để bật
         // hình bờ biển lưu trong máy. Chỉ tính ô của lớp NỀN, không tính lớp
         // ảnh vệ tinh (ảnh thiếu ô là chuyện thường, mây che cũng trống).
@@ -2051,6 +2123,10 @@ export default function FishingMapView() {
             tự vẽ và KHÔNG trả lại — hỏng nặng hơn).
             ĐỪNG hạ mốc xuống dưới `sea-mask`: mask tô kín ô biển ở mức toàn
             cảnh, chèn dưới là XOÁ Hoàng Sa + Trường Sa khỏi bản đồ. */}
+        {/* nguồn bản đồ (bắt buộc theo điều khoản CARTO/OSM) — nút ⓘ nhỏ góc
+            TRÁI đáy; cỡ + trần bề rộng lúc bung nằm ở globals.css */}
+        <AttributionControl compact position="bottom-left" />
+
         {offlineBase && coastData && baseTopReady && (
           <Source id="offline-coast" type="geojson" data={coastData}>
             <Layer
@@ -2754,11 +2830,11 @@ export default function FishingMapView() {
           Về peek thì hiện lại. */}
       <div
         className={`safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2 transition-opacity duration-200 ${
-          size === "peek" || navMode
+          sheetThu || navMode
             ? "opacity-100"
             : "opacity-0 [&_*]:pointer-events-none"
         }`}
-        aria-hidden={size !== "peek" && !navMode}
+        aria-hidden={!sheetThu && !navMode}
       >
         <StormBanner variant="overlay" />
         {/* DẪN ĐƯỜNG LIVE: thẻ HUD LUÔN hiện khi đang dẫn đường (kể cả kéo sheet
@@ -2958,9 +3034,9 @@ export default function FishingMapView() {
       {fishGridGeo && (
         <div
           className={`pointer-events-none absolute left-2 top-1/2 z-20 -translate-y-1/2 transition-opacity duration-200 ${
-            size === "peek" ? "opacity-100" : "opacity-0"
+            sheetThu ? "opacity-100" : "opacity-0"
           }`}
-          aria-hidden={size !== "peek"}
+          aria-hidden={!sheetThu}
         >
           <div className="flex flex-col gap-1.5 rounded-xl bg-card/90 px-2.5 py-2 shadow-md">
             {FISH_LEVEL_BANDS.map((b) => (
@@ -2983,14 +3059,21 @@ export default function FishingMapView() {
       <SnapSheet
         size={size}
         onSizeChange={setSize}
+        onInteract={armSheetHide}
         above={
-          overlayOn || size === "peek" ? (
+          /*  CÒN Ở NẤC `hidden` NỮA (user 2026-08-24: "cái chip tải cái gì đủ
+              hay chưa đâu rồi?"): chip độ phủ `PretripSavedStatus` là nhãn
+              THƯỜNG TRỰC — liếc là biết trong máy đã lưu đủ dự báo để ra khơi
+              chưa. Trước đó slot này chỉ dựng ở `peek`, nên sheet tự ẩn xuống
+              là chip mất theo. Nay dùng `sheetThu` (peek + hidden) — chip nổi
+              ngay trên thanh kéo, chỉ nhường chỗ khi bà con kéo sheet lên đọc. */
+          overlayOn || sheetThu ? (
             <div className="flex flex-col gap-2">
               {/* Nhãn nhỏ "trong máy đã có dự báo tới đâu" — liếc là biết đã sẵn
-                  sàng ra khơi chưa. Chỉ ở nấc peek để khỏi rối lúc mở sheet đọc
-                  chi tiết; căn phải, nằm ngay trên box biển động. Dòng lỗi dự báo
-                  cá (nếu có) xếp NGAY TRÊN nhãn này. */}
-              {size === "peek" && (
+                  sàng ra khơi chưa. Có ở nấc peek VÀ hidden (`sheetThu`), chỉ ẩn
+                  khi kéo sheet lên đọc chi tiết cho khỏi rối; căn phải, nằm ngay
+                  trên mép sheet. Dòng lỗi dự báo cá (nếu có) xếp NGAY TRÊN nhãn. */}
+              {sheetThu && (
                 <div className="flex flex-col items-end gap-2">
                   {!overlayOn && fishOn && !fishCast && fishFailMsg && (
                     <button
