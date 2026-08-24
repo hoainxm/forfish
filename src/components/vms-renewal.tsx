@@ -25,6 +25,7 @@ import {
 } from "@/data/sdvico-showcase";
 import {
   RENEWAL_MONTH_OPTIONS,
+  RENEWAL_FALLBACK_MONTHLY_PRICE,
   renewalMonthsLabel,
   renewalTotal,
   renewalStatusView,
@@ -347,24 +348,26 @@ function RenewalWizard({
       />
 
       <div className="rounded-2xl bg-field px-4 py-3 text-[1rem]">
-        {priceState === "loading" && (
+        {priceState === "loading" ? (
           <span className="text-foreground/70">Đang lấy giá…</span>
-        )}
-        {priceState === "ready" && monthlyPrice != null && (
-          <div className="flex items-center justify-between">
-            <span className="text-foreground/70">
-              {formatVnd(monthlyPrice)}/tháng × {months}
-            </span>
-            <span className="text-[1.1875rem] font-bold text-navy">
-              {formatVnd(renewalTotal(months, monthlyPrice))}
-            </span>
-          </div>
-        )}
-        {priceState === "error" && (
-          <span className="text-foreground/70">
-            Chưa lấy được giá — vẫn tạo được yêu cầu, xem tổng tiền ở bước chuyển
-            khoản.
-          </span>
+        ) : (
+          // LUÔN hiện giá + tổng: lấy được thì dùng giá server; lỗi thì dùng giá
+          // tham khảo (server vẫn là nơi tính tiền THẬT lúc tạo yêu cầu).
+          (() => {
+            const unit = monthlyPrice ?? RENEWAL_FALLBACK_MONTHLY_PRICE;
+            const isRef = monthlyPrice == null;
+            return (
+              <div className="flex items-center justify-between">
+                <span className="text-foreground/70">
+                  {formatVnd(unit)}/tháng × {months}
+                  {isRef ? " (tham khảo)" : ""}
+                </span>
+                <span className="text-[1.1875rem] font-bold text-navy">
+                  {formatVnd(renewalTotal(months, unit))}
+                </span>
+              </div>
+            );
+          })()
         )}
       </div>
 

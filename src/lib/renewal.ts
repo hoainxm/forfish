@@ -20,6 +20,13 @@ export function isRenewalConfigured(): boolean {
 export const RENEWAL_MONTH_OPTIONS = [3, 6, 12] as const;
 export type RenewalMonths = (typeof RENEWAL_MONTH_OPTIONS)[number];
 
+/** Giá THAM KHẢO/tháng — CHỈ để HIỂN THỊ khi lấy giá live lỗi (bà con vẫn thấy
+ *  con số thay vì "chưa lấy được giá"). Giá tính tiền THẬT luôn lấy từ server
+ *  (bảng stracking_pricing_rules) lúc tạo yêu cầu — không dùng hằng này.
+ *  nợ: khớp với đơn giá S-Tracking bên crm; nâng cấp khi giá đổi hoặc khi có
+ *  cách đọc giá offline đáng tin. */
+export const RENEWAL_FALLBACK_MONTHLY_PRICE = 385000;
+
 /** THUẦN — chặn số tháng lạ từ body/UI (chỉ 3/6/12). */
 export function isValidRenewalMonths(n: unknown): n is RenewalMonths {
   return (
