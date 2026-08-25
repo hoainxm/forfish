@@ -26,7 +26,15 @@ import {
   RouteIcon,
 } from "@/components/icons";
 
-/** Chấm tàu + mũi tên hướng trên bản đồ (đặt trong <MapGL>). */
+/**
+ * VỊ TRÍ TÀU trên bản đồ (đặt trong <MapGL>) — **CHẤM NHỎ NHẤP NHÁY**, không
+ * phải mũi tên (user 2026-08-25c: *"cái vị trí hiện tại của mình thì nên là 1
+ * chấm nhỏ (nhấp nháy), cái vị trí trỏ đến thì nên là cái dấu mũi tên"* —
+ * bản trước làm NGƯỢC: tàu là mũi tên, con trỏ là vòng ngắm). Chấm nhỏ đúng
+ * quy ước "chỗ tôi đang đứng" của mọi app bản đồ; chỗ TRỎ TỚI thì là cái ghim
+ * (`PinIcon`, kiểu Google Maps — chốt 2026-08-25d, xem 07 §10.9).
+ * Vòng 44px cũ cũng bị chê to — nay 0.875rem, hướng tàu chỉ là pip nhỏ.
+ */
 export function NavBoatMarker({
   pos,
   headingDeg,
@@ -34,28 +42,33 @@ export function NavBoatMarker({
 }: {
   pos: LatLon | null;
   headingDeg: number | null;
-  /** mất định vị → làm mờ để bà con biết đây là vị trí CŨ */
+  /** mất định vị → làm mờ + TẮT nhấp nháy: số cũ thì đừng giả vờ đang sống */
   stale?: boolean;
 }) {
   if (!pos) return null;
   return (
     <Marker longitude={pos.lon} latitude={pos.lat} anchor="center">
       <span
-        className={`flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-md ring-2 ring-t1 transition-opacity ${
-          stale ? "opacity-40" : "opacity-100"
+        className={`relative flex h-3.5 w-3.5 items-center justify-center transition-opacity ${
+          stale ? "opacity-45" : "opacity-100"
         }`}
+        style={headingDeg != null ? { transform: `rotate(${headingDeg}deg)` } : undefined}
       >
-        {headingDeg != null ? (
-          // mũi tên chỉ thẳng lên (Bắc) → xoay theo heading; MapLibre bắc-lên
+        {/* quầng nhấp nháy — chỉ khi đang có tín hiệu sống */}
+        {!stale && (
           <span
-            className="flex"
-            style={{ transform: `rotate(${headingDeg}deg)` }}
-          >
-            <NavArrowIcon className="h-6 w-6 text-t1" />
-          </span>
-        ) : (
-          <span className="h-3.5 w-3.5 rounded-full bg-t1" aria-hidden />
+            className="absolute inline-flex h-full w-full animate-ping rounded-full bg-t1/60"
+            aria-hidden
+          />
         )}
+        {/* pip hướng tàu: tam giác nhỏ phía trước chấm (khung đã xoay theo heading) */}
+        {headingDeg != null && (
+          <span
+            className="absolute -top-1.5 h-0 w-0 border-x-[0.1875rem] border-b-[0.25rem] border-x-transparent border-b-t1"
+            aria-hidden
+          />
+        )}
+        <span className="relative h-2.5 w-2.5 rounded-full border-2 border-white bg-t1 shadow-md" />
       </span>
     </Marker>
   );

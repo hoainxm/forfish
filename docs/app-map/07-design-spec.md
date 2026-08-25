@@ -4,7 +4,7 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-08-18
+last_verified: 2026-08-25
 <!-- re-verified: 2026-08-18g — DOC DELTA của BỐN GÓI CODE C·D·E·F theo audit thông báo (`ops/audit-notify-2026-08-18.md`, luật ở §12). Đối chiếu từng mục với mã trước khi ghi; chỗ delta nói khác mã thì ghi theo mã.
   GÓI C (ngày/ngưỡng + Trục 3/4): (1) Thẻ dữ liệu MẪU đeo băng neutral "Ví dụ: …", banner "đây là mẫu" đứng trên; ô đếm/badge KHÔNG đếm mẫu (`boat-products` nay cũng có banner mẫu). (2) `/nguoi`: BỎ banner đếm "chưa có CCCD/SĐT" đầu trang, giữ dòng trên thẻ; `IdentityCheck` dùng `PremiumLock` compact (ẩn offline); demo mode nói "Bản trên máy này chưa nối với SDVICO nên chưa tra được cảnh báo."; copy: "SDVICO xem trước" thay "kiểm duyệt", "Người này trả lời:" thay "Người bị ghi phản hồi:", KHÔNG "định danh/khoá bảo mật/máy chủ"; `crewIssue` thêm level `neutral` "Chưa ghi hạn bảo hiểm". (3) `/tau` Dịch vụ: nợ CHƯA tới hạn = neutral "Chờ thanh toán — hạn dd/mm/yyyy"; trạng thái yêu cầu "Đã nhận/Đang xử lý" = neutral (`requestStatusVN` chỉ `ok|neutral`); `tau-tabs` bỏ banner đỏ nợ đầu /tau, badge tab Giấy tờ (giấy quá hạn/sắp hết của tàu đang chọn) + Dịch vụ (nợ quá hạn HOẶC bảo dưỡng/kỳ dịch vụ quá hạn), mẫu không đếm. (4) Sản phẩm: chip "Gọi bảo hành món này" CHỈ khi sắp hết/đã hết. (5) `BoatSwitcher`: alert máy hết chỗ nằm DƯỚI chip tàu (ngoài sheet), `role=alert`, tự ẩn khi lưu lại OK. (6) Giấy tờ/thuyền viên/bảo dưỡng/sản phẩm: đọc qua `readUserList` 3 nhánh; ĐỌC HỎNG → banner đỏ + ẨN nút Thêm + KHÔNG ghi; ghi CHỈ khi thao tác, không ghi sau hydrate. (7) `getExpiryStatus` `days===0` → `expired` "Hết hạn hôm nay" (đỏ); ngày mọi nơi = lịch VN qua `lib/days.ts` + `useTodayVN` (tính lại khi `visibilitychange`/`focus`); câu máy hết chỗ chuẩn `storageFullCopy(what)`. (8) `UrgentStrip`: nợ SDVICO chỉ vào dải khi QUÁ HẠN; sort đỏ→vàng rồi theo ngày thật; dòng neutral "Chưa hỏi được nợ/bảo hành bên SDVICO — sóng đang yếu, app sẽ thử lại." chỉ khi đã đăng nhập + online.
   GÓI D (bão + Trục 1 + Trang chủ + nhắc cài): (1) Banner bão overlay BỐN trạng thái — có bão: thẻ đầy đủ **3s** (`NOTIFY_HIDE_MS`; 3s → 5s bản S12 → về lại 3s 2026-08-24) rồi tự thu về chip; KHÔNG tự thu khi có cơn `alert==="danger"`; chỉ bung lại khi danh sách cơn đổi (`stormKey`), không phải mỗi nhịp hỏi 30 phút. Chưa hỏi được: chip vàng 1 dòng "Tin bão cũ N giờ — chạm xem" (hoặc "Chưa hỏi được tin bão"), bung câu đầy đủ **8s** (`NOTIFY_HIDE_LONG_MS`) mỗi khi CÂU đổi. Câu chuẩn `lib/storms.ts stormNoticeText(status, now, online)`/`stormNoticeShort`/`stormAgeLabel`: mất sóng → "Tin bão trong máy đã cũ N giờ/ngày — nghe đài duyên hải / Icom" / "Chưa hỏi được tin bão lần nào — …"; máy CÓ sóng mà hỏng → "Nguồn tin bão đang lỗi, tin trong máy đã cũ N giờ — …" (không đổ cho máy). Panel Thời tiết (`ra-khoi-controls`) dùng CÙNG câu, bỏ câu cứng nhân bản. (2) Nhịp tự tắt dòng nổi (`lib/notify.ts`): **3s** (1 dòng, hạ từ 5s 2026-08-24) / 8s (2 dòng: mất sóng nền · chất lượng cá · số cũ trong máy · bão chưa hỏi được); nói lại chỉ khi câu đổi. Nền mất sóng (`offlineBasemapNote(h, hasCoast)`): chỉ nói "đang dùng hình bờ lưu trong máy" khi hình bờ ĐÃ nạp; chưa nạp → "Chưa tải được nền bản đồ — máy đang không có sóng." (offline) / "…— bờ và đảo tạm chưa vẽ được." (online); KHÔNG còn câu "Mạng yếu" (app không biết mạng bà con thế nào). (3) Ranh giới ở Ra khơi GỘP 1: thân sheet giữ thẻ đầy đủ (E1); peek chỉ chấm màu + "Gần ranh giới biển" (near) / "Rất gần ranh giới — còn ~X hải lý" (very_near). (4) Tuyến (`RoutePlanner`): TỐI ĐA 3 khối cảnh báo — ① "Trên tuyến có chỗ nguy hiểm" (sóng dữ / sóng đuôi / rất cạn / bờ / nước nông — chỉ khi có; đỏ nếu có ý đỏ) · ② "Tuyến này chưa đối chiếu đủ" (bão đứng đầu → cả khối đỏ; lưới offline; ngoài dự báo; độ sâu) gạch đầu dòng · ③ so với chạy thẳng + 1 câu dặn dò. KHÔNG mất thông tin. (5) Premium/đăng nhập Trục 1: MỘT tên "Premium"; câu chuẩn `premiumLine(feature)` (`premium-gate.tsx`): "… là tính năng Premium — gọi SDVICO để mở." + sub "Gọi SDVICO để mở là xem được ngay."; `PremiumLock` trong thân sheet là nudge chính; peek 1 dòng chữ thường không nút; chip ngày khoá chỉ icon; C2 "Dải ngày rút…" bỏ "tài khoản nâng cao"; MỌI lời mời ẩn khi `navigator.onLine === false` (`PremiumLock` tự trả null). (6) NavHud (§10.7 F): ranh giới theo GPS — `lib/geofence.ts` `BORDER_STEPS_NM=[15,10,6,3]`; vào 15 hl hiện "Còn ~X hải lý tới ranh giới — giữ khoảng cách" (vàng); nói lại CHỈ khi vượt mốc gần hơn 10→6→3 (`borderStepCrossed`, không lặp mỗi giây); chạm thu được khi >6 hl; ≤6 hl ĐỎ, không thu được, hiện cả khi HUD đã ẩn thành chip; đi ra xa >15 hl thì thôi, quay lại nhắc lại. `fishing-map-view` tính, NavHud vẽ. Ngưỡng 15/10/6/3 CHƯA có nguồn nghiệp vụ — BA chốt sau. (7) Trang chủ (§5): PageHeader/HeroAccount (+`KickedNotice`) · BoatSwitcher · `StormBanner page` (chỉ khi có bão / tin >24h / chưa từng có — `shouldShowStormOnHome`; "không có bão" IM) · `UrgentWithInstall` = UrgentStrip + InstallBanner · Bốn việc · InboxSection. (8) Nhắc cài (§10.8 B): iOS/Android ≤3 lần, cách ≥1 ngày (`lib/install-nudge.ts`, khoá `forfish.installNudge.v2`), X hoặc Cài-rồi-huỷ (`userChoice.outcome==="dismissed"`) = tắt hẳn; khoá cũ `dismissed.v1` vẫn đọc = đã tắt; ẩn khi offline / đã cài / không cho cài / dải khẩn ≥3 dòng.
@@ -19,7 +19,7 @@ last_verified: 2026-08-18
 <!-- re-verified: 2026-08-18f - doi chieu `src/components` sau mach hom nay. Muoi file doi, tat ca deu da duoc ta o hai ghi chu 2026-08-16 va 2026-08-18 ngay tren, khong man nao them/bo: route-planner (dai do thieu tin bao + dai doan sat bo), fishing-map-view (truyen stormInfo), market-board (tach mat song khoi chua-co-tin + hai nut bao that + tu tai lai khi co song), my-orders (trang thai `saved` + tu tai lai), sdvico-catalog (ban luu danh muc + nhan 'ban luu luc'), cart-sheet (cau loi noi ro gio con nguyen), document-vault (doc-hong khoa cua ghi; mang rong la du lieu THAT), boat-switcher (cau bang do them 've giu NGUYEN'), crew-list (doi sang authedFetch - khong doi giao dien), hero-account (xoa ban luu don khi dang xuat). Khong doi token mau, khong doi co chu/tap target, khong them man hinh. -->
 <!-- re-verified: 2026-08-18d - doi chieu voi cac thay doi trong `src/app` cua ngay hom nay: `/api/storms` (them nguon NCHMF, gop hai nguon) va `/api/me/market-listings` (GET doi dang nhap) deu la tang DU LIEU/QUYEN, KHONG doi mot man hinh nao. Cac man co lien quan da duoc ta o hai ghi chu 2026-08-16 va 2026-08-18 ngay tren: canh bao thieu tin bao tren khoi ket qua tuyen (nay se HIEN THUC khi co ATND vi nguon VN da phu), cho tin doi dang nhap thi hien TIN MAU + nut Dang nhap (dung hanh vi truoc 2026-08-16), Cua hang/Don cua toi hien ban luu kem moc. Khong them man, khong doi token mau, khong doi co chu/tap target. -->
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-08-18) — code 'src/components' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-08-24) — code 'src/components' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 ```
 <!-- gate: warn vì UI churn src/app+src/components cao — cảnh báo thay vì chặn. KHÔNG để comment cùng dòng `gate:` (hook tr -d ' ' giữ lại # → phá so khớp = "warn" → chặn nhầm). -->
@@ -614,6 +614,72 @@ Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔN
 **C. iPhone: bản cài là KHO RIÊNG** (sửa câu chữ 2026-07-31): webclip iOS không dùng chung storage với Safari — dự báo/cache/phiên đã có trong Safari KHÔNG theo sang, và lần mở ĐẦU TIÊN của bản cài bắt buộc phải có sóng (chưa có service worker thì không có gì để trả). Vậy câu "cài xong là ra khơi mất sóng vẫn mở được" chỉ đúng trên Android/Chrome (dùng chung kho). `InstallBanner` nay tách câu theo máy, và nhánh iOS thêm dòng ĐỎ "Cài xong mở app vừa cài NGAY khi còn sóng: bản cài bắt đầu từ kho trống, phải tải lại dự báo một lần". Bản cài trống vẫn được chip Ra khơi nhắc "Chưa tải dữ liệu dự báo" (`pretrip-auto.ts`) và `PretripAutoNotify` tự tải lại khi có sóng.
 
 **KHÔNG làm** (user chốt 2026-07-28): KHÔNG nhét câu "nên cài về máy" vào chip trạng thái tải-sẵn ở Ra khơi (`PretripSavedStatus`) — chip đó chỉ để liếc "đã lưu tới ngày nào", thêm câu cài đặt vào là rối + trùng với banner trang chủ. ~~Việc nhắc cài chỉ nằm ở `InstallBanner`.~~ **Đính chính 2026-08-18** (audit `ops/audit-notify-2026-08-18.md` mục 7): nhắc cài thực tế nằm ở **3 chỗ** — `InstallBanner` trang chủ (chỗ chính) · băng iOS trong sheet tải-sẵn (`PretripSavedSheet`, chỉ khi máy iPhone chưa cài — vì bản cài iOS là kho RIÊNG, mục C) · 1 dòng ở màn `/login`. Cả ba theo tầng 5 của §12 (≤3 lần cách ≥1 ngày, tắt là nhớ, ẩn khi offline); chip `PretripSavedStatus` vẫn KHÔNG nhắc cài.
+
+### 10.9 Ô TOẠ ĐỘ KIỂU MÁY ĐỊNH VỊ — "toạ độ tôi đang đứng" + "con trỏ" (2026-08-25)
+
+> **Nguồn**: bà con qua VSS Quân Bình Định — *"nên làm theo kiểu hiển thị trên định vị thì hay hơn, ngư dân quen dùng"*, hỏi rõ thì trả lời *"1 cái hiển thị toạ độ mình đang đứng, 1 cái con trỏ trỏ tới vị trí nào mình muốn xem"*. Chủ dự án chốt "ok luôn". Đây KHÔNG phải yêu cầu trang trí: máy định vị (chartplotter) trên tàu nào cũng bày đúng hai số đó cạnh nhau, bà con đọc quen tay — app bắt học kiểu khác là bắt bỏ thói quen đang an toàn.
+
+**Ở đâu**: dải `.glass` GÓC TRÊN TRÁI bản đồ, cùng hàng với rail nút bên phải (`components/plotter-readout.tsx`, mount trong vùng overlay top của `fishing-map-view` — ẩn/hiện theo cùng luật với rail: sheet kéo lên `half` thì mờ đi).
+
+**HÌNH DÁNG — DẢI SỐ MỎNG, MỖI SỐ MỘT DÒNG** (sửa 2026-08-25b theo user: *"thấy chiếm chỗ"*, *"xem cách thể hiện ở các app bản đồ khác để làm cho chuẩn"*). Bản đầu là thẻ 3 dòng/hàng (nhãn · số · chú) cao ~100px, đè mất một mảng bản đồ. Nay đo được **56px** khi đang chạy bình thường:
+
+| Hàng | Hình | Nói gì | Là nút? |
+|---|---|---|---|
+| **TÀU** | **chấm nhỏ nhấp nháy** | `12°14′44″N · 109°11′55″E` (+ đuôi `· số lúc 09:49` khi mất tín hiệu, `· ±120 m` khi sai số >100 m) | **KHÔNG** — dòng chữ để ĐỌC, đúng cách các app bản đồ bày toạ độ. Nút "my location" là nút **Vị trí** ở rail phải (chuẩn sẵn có, ≥3.25rem) |
+| **TRỎ** | **mũi tên trỏ** | `14°29′24″N · 113°11′31″E · 269 hải lý · 60°` | KHÔNG |
+
+**HÌNH: CHẤM = TÔI, MŨI TÊN = CHỖ TRỎ TỚI** (sửa 2026-08-25c, user: *"nó đang bị ngược — cái vị trí hiện tại của mình thì nên là 1 chấm nhỏ (nhấp nháy), cái vị trí trỏ đến thì nên là cái dấu mũi tên"*). Bản trước làm ngược (tàu = mũi tên, con trỏ = vòng ngắm) nên đọc bị lộn.
+- **Vị trí tàu** (`NavBoatMarker`, nav-mode.tsx — dùng CHUNG cho cả lúc dẫn đường): chấm `0.875rem` viền trắng + quầng `animate-ping`. **Mất tín hiệu → TẮT nhấp nháy + mờ đi**: số cũ không được giả vờ đang sống. Biết hướng thì thêm pip tam giác nhỏ phía trước chấm (khung xoay theo `headingDeg`). Vòng trắng 44px + mũi tên to của bản cũ ĐÃ BỎ (user: *"đang làm to quá"*).
+- **Con trỏ**: **CÁI GHIM** (`PinIcon` sẵn có) `1.75rem`, `anchor="bottom"` → CHÂN ghim rơi đúng toạ độ (lệch vài pixel ngoài khơi là lệch vài hải lý). Chốt 2026-08-25d sau khi thử hai hình đều bị chê: vòng ngắm (lạ mắt) → mũi tên (*"cái mũi tên ko đúng"*) → **ghim kiểu Google Maps lúc chọn vị trí** — hình bà con gặp hằng ngày. KHÔNG đẻ icon ghim thứ hai: `PinIcon` cũ đã đúng nghĩa.
+- Hình trong ô toạ độ **y hệt** hình trên bản đồ — hai chỗ khác hình thì bà con không nối được đâu với đâu.
+
+**Cỡ đo được**: dải toạ độ **42px** cao (bản thẻ đầu ~100px → một-dòng-mỗi-số 56px → 42px). Đuôi hướng chỉ in `· 269 hải lý · 60°`, KHÔNG kèm tên hướng bằng chữ — tên hướng đã có ở dòng "ở đâu" trong sheet, in hai lần là phí chỗ.
+
+**NGOẠI LỆ — chưa có vị trí thì hàng TÀU là NÚT THẬT** cao `3.5rem`: lúc đó nó KHÔNG phải chỗ đọc số mà là **chỗ xin quyền định vị** (user: *"click vào có request quyền"*), nên phải đủ tap target. Có toạ độ rồi thì thôi làm nút — hết cớ đòi 3.5rem cho một dòng chữ.
+
+**NÚT "VỊ TRÍ" (rail phải) = ĐƯA BẢN ĐỒ VỀ CHỖ MÌNH ĐANG ĐỨNG** — đúng nghĩa nút "my location" của mọi app bản đồ (chốt 2026-08-25c, user: *"click vô là trỏ về vị trí hiện tại của mình, chứ ko phải là click vô mới mở gps; nếu có quyền gps rồi thì chỉ move về đúng cái vị trí hiện thời"*):
+
+| Lúc bấm | Làm gì |
+|---|---|
+| đang có fix GPS | CHỈ bay camera tới chấm tàu. Không hỏi lại quyền, không chờ |
+| chưa có fix nào | đây mới là lượt xin quyền + lấy vị trí lần đầu, xong thì bay tới |
+| máy không có GPS / bị chặn | bật cờ `geoError` → nút thành "Bật GPS", hàng TÀU nói lý do |
+
+⚠️ **BỎ so với bản đầu: nút này KHÔNG còn dời CON TRỎ về chỗ tàu** (`setPoint`) và không kéo ngày về hôm nay. Dời con trỏ làm hai số trong ô toạ độ dính làm một — mất đúng thứ bà con cần ("tôi ở đây, tôi đang xem chỗ kia"), mà đó là cả lý do làm ô này. Muốn xem gió sóng chỗ mình đứng thì chạm vào chấm tàu (sau khi bấm Vị trí thì nó đang ở giữa màn).
+
+**Con trỏ trên bản đồ** đổi từ cái ghim (`PinIcon`, neo chân) sang **vòng ngắm** (`CrosshairIcon`, neo TÂM) — vừa đúng hình bà con quen trên máy, vừa hết lệch: chân ghim không nằm ở toạ độ đang đọc. **Chấm tàu** (`NavBoatMarker`) nay hiện bất cứ khi nào biết tàu ở đâu, không còn chỉ lúc dẫn đường.
+
+**Ma trận trạng thái hàng TÀU TÔI** (KHÔNG được có ô câm):
+
+| Trạng thái | Chữ trên hàng | Ghi chú phụ |
+|---|---|---|
+| chưa bật định vị (`idle`) | "Chạm để bật định vị" | — |
+| máy từ chối (`denied`) | "Máy chưa cho định vị" | "Cài đặt máy → SDFish → Vị trí" (vàng) — dòng thứ hai DUY NHẤT được phép |
+| đang tìm, chưa có fix | "Đang tìm định vị…" | — |
+| có fix | toạ độ theo hệ đang chọn (`prefs.coordFormat`) | sai số >100 m → đuôi `· ±N m` (cùng dòng) |
+| MẤT tín hiệu mà đã từng có fix (`lost`) | toạ độ CŨ, chữ xám + mũi tên mờ | đuôi **`· số lúc HH:MM`** (vàng, cùng dòng) |
+
+Ô cuối là bất biến §10.1 áp cho chính vị trí tàu: giữa biển mà đọc nhầm một toạ độ cũ tưởng đang chạy là chuyện an toàn, không phải chuyện đẹp xấu.
+
+**Quyền định vị — KHÔNG tự bung hộp xin quyền lúc mở màn**, nhưng ĐỌC trạng thái quyền để nói ngay (`navigator.permissions.query({name:'geolocation'})`): `granted` → lặng lẽ theo dõi lại · `denied` → hàng TÀU nói "Máy chưa cho định vị" NGAY, không bắt bà con chạm rồi mới biết (nút rail cũng đổi thành "Bật GPS") · `prompt` → "Chạm để bật định vị". Nghe cả sự kiện `change` của `PermissionStatus`: bật quyền trong Cài đặt máy xong quay lại app là chạy liền, không phải mở lại app. Máy không có Permissions API → coi như chưa cho, đợi chạm.
+
+⚠️ **Máy chặn rồi thì chạm KHÔNG bung được hộp xin quyền nữa** (luật trình duyệt/OS, không phải lỗi app) — nên trạng thái `denied` là trạng thái DUY NHẤT được thêm dòng thứ hai: `Cài đặt máy → SDFish → Vị trí`. Bà con phải biết đi đâu mà bật; các trạng thái khác giữ đúng một dòng.
+
+**Pin**: `useNavTracking(active, { keepAwake })` — ô toạ độ truyền `keepAwake: false`, chỉ DẪN ĐƯỜNG mới giữ màn hình sáng. Xem bản đồ cả buổi mà giữ sáng là hết pin giữa biển.
+
+**CỘT PHẢI CỦA PEEK SHEET — chốt 2026-08-25d**: giữ **dòng toạ độ** (user: *"hiển thị toạ độ như cũ"*), và **BỎ HẲN** dòng "cách <chỗ nào> bao xa" (user: *"bỏ chỗ đang xem cách cái gì đi"*). `whereLine` nay CHỈ còn nhánh điểm đã ghim ("Cảng nhà — …" / "Chỗ ghim — …"); không ghim thì không in gì.
+
+Hai lần sai trước đó, ghi lại để đừng lặp:
+1. **Gỡ toạ độ khỏi sheet** với lý do "không in số hai nơi" — SAI: ô góc là chỗ **liếc** lúc đang lái, sheet là chỗ **đọc kỹ** lúc dừng xem dự báo. Hai việc khác nhau, không phải một câu nói hai lần.
+2. **Thay bằng "Cách <cảng gần nhất> ~X hải lý hướng Y"** cho dòng khỏi đứng im — SAI nguy hiểm hơn: câu đó đo từ **con trỏ**, nhưng đọc lên y như đang nói về **tàu mình** (user hỏi thẳng: *"chưa có vị trí thì cái thông tin này là ở đâu ra?"*). Thêm chủ ngữ "Chỗ xem cách…" chỉ dài dòng chứ không hết mơ hồ. Khoảng cách/hướng THẬT (tàu → con trỏ, đo từ GPS) đã có ở ô toạ độ góc trên rồi — dựng thêm một cái mốc nữa chỉ tổ rối.
+
+> **Bài học**: trên màn hình đi biển, một con số không có chủ ngữ rõ ràng thì thà đừng in. Bà con không có thời gian đoán "cái này đo từ đâu tới đâu".
+
+**Con trỏ nằm ngay trên tàu** (vừa bấm "Vị trí") → hàng TRỎ in "· ngay tại tàu", KHÔNG in `0,0 hải lý · 0° Bắc` (`AT_BOAT_KM = 0.18`, trong tầm sai số GPS điện thoại).
+
+**Ô NGUỒN BẢN ĐỒ (ⓘ góc trái đáy) — VÁ 2026-08-25b** (user: *"cái ở góc lỗi gì mà nó tròn vo thế"*): `globals.css` thu nút còn `1.375rem` và ảnh nền còn `1rem`, nhưng MapLibre KHÔNG khai `background-repeat` cho `.maplibregl-ctrl-attrib-button` (mặc định ảnh 24px vừa khít nút 24px nên không ai thấy). Ảnh nhỏ hơn nút ⇒ **lát lại**, hiện thêm một ⓘ cắt dở bên cạnh — nhìn thành "hai chấm tròn". Bắt buộc đi kèm `background-repeat: no-repeat` + `background-position: center` mỗi khi đụng `background-size` của control MapLibre.
+
+---
 
 ## 12. Chính sách thông báo & cảnh báo (2026-08-18)
 

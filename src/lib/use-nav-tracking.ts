@@ -46,8 +46,16 @@ interface WakeLockSentinelLike {
 /**
  * Theo dõi GPS khi `active`. Trả vị trí/hướng/tốc độ + trạng thái trung thực.
  * Ngưng theo dõi + nhả wake lock khi `active=false` hoặc unmount.
+ *
+ * `keepAwake` (mặc định true = như dẫn đường): giữ màn hình sáng. Ô toạ độ tàu
+ * ở màn Ra khơi cũng theo dõi GPS nhưng KHÔNG được giữ sáng — bà con mở bản đồ
+ * cả buổi, khoá màn hình rồi mà máy vẫn sáng là hết pin giữa biển.
  */
-export function useNavTracking(active: boolean): NavTracking {
+export function useNavTracking(
+  active: boolean,
+  opts?: { keepAwake?: boolean },
+): NavTracking {
+  const keepAwake = opts?.keepAwake !== false;
   const [state, setState] = useState<NavTracking>({
     pos: null,
     headingDeg: null,
@@ -144,6 +152,7 @@ export function useNavTracking(active: boolean): NavTracking {
     };
 
     const requestWake = async () => {
+      if (!keepAwake) return;
       try {
         const wl = (navigator as unknown as {
           wakeLock?: { request: (t: "screen") => Promise<WakeLockSentinelLike> };
@@ -192,7 +201,7 @@ export function useNavTracking(active: boolean): NavTracking {
       prevFix.current = null;
       headingRef.current = null;
     };
-  }, [active]);
+  }, [active, keepAwake]);
 
   return state;
 }

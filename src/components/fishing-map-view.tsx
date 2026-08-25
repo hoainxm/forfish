@@ -135,6 +135,7 @@ import { forecastStoreReady } from "@/lib/forecast-store";
 import { buildUVField } from "@/lib/particle-field";
 import { WindParticles } from "@/components/wind-particles";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
+import { PlotterReadout } from "@/components/plotter-readout";
 import { useNavTracking } from "@/lib/use-nav-tracking";
 import { computeNavProgress } from "@/lib/nav-progress";
 import { borderGeoJSON } from "@/data/vn-maritime-border";
@@ -156,8 +157,8 @@ import { timeoutSignal } from "@/lib/abort";
 import { weatherFromCode } from "@/lib/weather-codes";
 import {
   useMapPrefs,
-  fmtDist,
   fmtCoordPair,
+  fmtDist,
   isVmsZoneOn,
 } from "@/lib/map-prefs";
 import { stormStatus } from "@/lib/storms";
@@ -1170,6 +1171,48 @@ export default function FishingMapView() {
   const [retry, setRetry] = useState(0);
   const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState(false);
+  /*  Ô TOẠ ĐỘ KIỂU MÁY ĐỊNH VỊ (góp ý VSS Quân Bình Định 2026-08-25): toạ độ
+      tàu phải CHẠY LIÊN TỤC, không phải bấm mới ra. Nhưng KHÔNG tự bật hộp xin
+      quyền ngay khi vào màn — đã từng cho phép thì lặng lẽ chạy lại, chưa cho
+      thì đợi bà con chạm nút "Vị trí" / chạm ô mới hỏi. GPS là máy đo tại chỗ,
+      không tốn sóng ⇒ ngoài biển mất mạng vẫn chạy. */
+  const [gpsOn, setGpsOn] = useState(false);
+  useEffect(() => {
+    const perms = (
+      navigator as unknown as {
+        permissions?: {
+          query?: (d: { name: string }) => Promise<PermissionStatus>;
+        };
+      }
+    ).permissions;
+    if (!perms?.query) return;
+    let alive = true;
+    let st: PermissionStatus | null = null;
+    /*  Đọc trạng thái quyền → nói NGAY, không bắt bà con chạm rồi mới biết máy
+        đang chặn (user 2026-08-25b: "click vào có request quyền"). Nghe cả
+        `change` để bà con bật quyền trong Cài đặt xong quay lại là chạy liền,
+        không phải mở lại app. */
+    const apply = () => {
+      if (!alive || !st) return;
+      setGpsOn(st.state === "granted");
+      setGeoError(st.state === "denied");
+    };
+    perms
+      .query({ name: "geolocation" })
+      .then((res) => {
+        if (!alive) return;
+        st = res;
+        apply();
+        res.addEventListener?.("change", apply);
+      })
+      .catch(() => {
+        /* máy không hỗ trợ hỏi trước — cứ đợi bà con chạm, không tự xin */
+      });
+    return () => {
+      alive = false;
+      st?.removeEventListener?.("change", apply);
+    };
+  }, []);
   // ĐỒNG HỒ của màn hình — nhích 5 phút một lần. Chuyến biển dài, app mở suốt:
   // không có nhịp này thì "Hôm nay" và tuổi tin bão đứng yên ở lúc mở app.
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -1506,7 +1549,19 @@ export default function FishingMapView() {
 
   // ── DẪN ĐƯỜNG LIVE ────────────────────────────────────────────────────
   // Theo dõi GPS khi đang dẫn đường; tính tiến trình bám tuyến; camera bám tàu.
-  const tracking = useNavTracking(navMode != null);
+  /*  Dẫn đường HOẶC ô toạ độ tàu đều cần theo dõi GPS — dùng CHUNG một watch.
+      `keepAwake` chỉ bật khi đang dẫn đường: xem toạ độ mà giữ màn hình sáng
+      cả buổi là ăn hết pin giữa biển. */
+  const tracking = useNavTracking(navMode != null || gpsOn, {
+    keepAwake: navMode != null,
+  });
+  /*  Vị trí mới nhất giữ trong ref: `goToMyBoat` cần đọc nó mà KHÔNG được nhận
+      `tracking.pos` làm dep — fix về mỗi 1–2 giây, dựng lại callback từng nhịp
+      thì rail nút + ô toạ độ re-render theo nhịp GPS cho không việc gì. */
+  const trackingPosRef = useRef<SeaPoint | null>(null);
+  useEffect(() => {
+    trackingPosRef.current = tracking.pos;
+  }, [tracking.pos]);
   const navProgress = useMemo(
     () =>
       navMode && tracking.pos
@@ -1676,19 +1731,38 @@ export default function FishingMapView() {
     return () => clearTimeout(t);
   }, [staleSig]);
 
+  /*  NÚT "VỊ TRÍ" = ĐƯA BẢN ĐỒ VỀ CHỖ MÌNH ĐANG ĐỨNG — đúng nghĩa nút
+      "my location" của mọi app bản đồ (user 2026-08-25c: *"click vô là trỏ về
+      vị trí hiện tại của mình, chứ ko phải là click vô mới mở gps; nếu có quyền
+      gps rồi thì chỉ move về đúng cái vị trí hiện thời"*).
+      ĐÃ BỎ so với bản cũ: KHÔNG dời CON TRỎ về chỗ tàu (`setPoint`) và không
+      kéo ngày về hôm nay. Dời con trỏ làm hai số trong ô toạ độ dính làm một —
+      mất đúng cái bà con cần: "tôi ở đây, tôi đang xem chỗ kia". Muốn xem gió
+      sóng chỗ mình đứng thì chạm vào chấm tàu trên bản đồ (giờ đang ở giữa màn). */
   const goToMyBoat = useCallback(() => {
-    if (!navigator.geolocation || locating) return;
+    if (locating) return;
+    // Đã có vị trí đang chạy (đã cấp quyền) → CHỈ bay tới, không hỏi lại gì.
+    const live = trackingPosRef.current;
+    if (live) {
+      setSize("peek"); // để chấm tàu không bị sheet che
+      flyToPoint(live.lon, live.lat, 7);
+      return;
+    }
+    // Máy không có GPS (hoặc vỏ app không xin quyền vị trí) → NÓI RA, đừng
+    // nuốt cú chạm: hàng "Tàu" + nút Vị trí cùng đọc cờ này.
+    if (!navigator.geolocation) {
+      setGeoError(true);
+      return;
+    }
+    // Chưa có fix nào: đây mới là lượt XIN QUYỀN + lấy vị trí lần đầu.
     setLocating(true);
     setGeoError(false);
+    setGpsOn(true); // từ đây toạ độ tàu chạy liên tục trong ô toạ độ
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const p = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        // KHÔNG xoá tuyến — xem mình đang ở đâu không làm tuyến sai
-        setDayIdx(0);
-        setPinning(false);
-        setPoint(p);
-        setSize("peek"); // để còn nhìn thấy vị trí trên map
-        flyToPoint(p.lon, p.lat, 7);
+        // KHÔNG xoá tuyến, KHÔNG dời con trỏ — chỉ đưa bản đồ về chỗ mình đứng
+        setSize("peek");
+        flyToPoint(pos.coords.longitude, pos.coords.latitude, 7);
         setLocating(false);
       },
       () => {
@@ -1697,16 +1771,7 @@ export default function FishingMapView() {
       },
       { enableHighAccuracy: true, timeout: 12000 },
     );
-  }, [
-    locating,
-    flyToPoint,
-    setPinning,
-    setLocating,
-    setGeoError,
-    setDayIdx,
-    setPoint,
-    setSize,
-  ]);
+  }, [locating, flyToPoint, setLocating, setGeoError, setGpsOn, setSize]);
 
   const today = cond?.days[0] ?? null;
   // Bản lưu trong máy giữ nguyên dãy ngày CŨ → có ngày đã trôi qua. Bỏ qua các
@@ -1979,20 +2044,18 @@ export default function FishingMapView() {
         } · Gió tới cấp ${beaufort(sel.windMaxKmh)}`
     : "";
 
-  // dòng "ở đâu" nói tiếng người: tên điểm đã ghim, hoặc cách cảng nhà bao xa
+  /*  Dòng "ở đâu" CHỈ nói TÊN chỗ khi con trỏ đang đứng trên một điểm đã ghim.
+      Không ghim thì KHÔNG nói gì — cột phải của peek để trống cho dòng toạ độ.
+      Bỏ 2026-08-25d (user: *"bỏ chỗ đang xem cách cái gì đi"*): câu "cách <cảng>
+      ~X hải lý hướng Y" đo từ CON TRỎ chứ không từ tàu, mà đọc lên thì y như
+      đang nói về tàu mình — thêm chủ ngữ vào cũng chỉ dài dòng chứ không hết
+      mơ hồ. Khoảng cách/hướng thật (từ TÀU tới con trỏ) đã có ở ô toạ độ góc
+      trên, đo từ GPS thật; ở đây bịa thêm một cái mốc nữa chỉ tổ rối. */
   const whereLine = currentPlace
     ? currentPlace.kind === "home"
       ? `Cảng nhà — ${currentPlace.name}`
       : `Chỗ ghim — ${currentPlace.name}`
-    : home
-      ? (() => {
-          const km = haversineKm(home.lat, home.lon, point.lat, point.lon);
-          const dir = windDirectionVN(
-            bearingDeg(home.lat, home.lon, point.lat, point.lon),
-          );
-          return `Cách ${home.name} ~${fmtDist(km, prefs.distUnit)} hướng ${dir}`;
-        })()
-      : "Chỗ đang xem trên biển";
+    : null;
 
   // TẢI SẴN TRƯỚC KHI RỜI BỜ: các chỗ tải sẵn = chỗ đang xem + mọi điểm đã ghim
   // (cảng nhà nằm trong đó). Không tự bịa thêm chỗ — chỉ nơi bà con đã đánh dấu.
@@ -2741,14 +2804,16 @@ export default function FishingMapView() {
         {/* tuyến dẫn đường tiết kiệm dầu + điểm xuất phát */}
         <RouteMapLayers route={route} />
 
-        {/* DẪN ĐƯỜNG LIVE: chấm tàu + mũi tên hướng (mờ khi mất định vị) */}
-        {navMode && (
-          <NavBoatMarker
-            pos={tracking.pos}
-            headingDeg={tracking.headingDeg}
-            stale={tracking.status === "lost"}
-          />
-        )}
+        {/* CHẤM TÀU nhấp nháy + pip hướng (mờ + tắt nháy khi mất định vị).
+            Trước chỉ hiện lúc
+            dẫn đường; từ 2026-08-25 hiện BẤT CỨ KHI NÀO biết tàu ở đâu — máy
+            định vị trên tàu lúc nào cũng có chấm tàu, ô toạ độ ở góc chỉ số
+            còn bản đồ chỉ chỗ (góp ý VSS Quân Bình Định). */}
+        <NavBoatMarker
+          pos={tracking.pos}
+          headingDeg={tracking.headingDeg}
+          stale={tracking.status === "lost"}
+        />
 
         {/* công cụ ĐO: đường nối 2 điểm + mốc số thứ tự */}
         {measurePts.length === 2 && (
@@ -2800,10 +2865,15 @@ export default function FishingMapView() {
           </Marker>
         )}
 
-        {/* điểm đang xem dự báo (ẩn nếu trùng một điểm đã ghim — đã có sao) */}
+        {/* CON TRỎ — chỗ đang xem dự báo: CÁI GHIM, kiểu Google Maps lúc chọn
+            vị trí (user 2026-08-25d: *"cái mũi tên ko đúng"*). Đã thử vòng ngắm
+            rồi mũi tên, cả hai đều lạ mắt; cái ghim là hình bà con gặp hằng ngày
+            trên app bản đồ. `anchor="bottom"` = CHÂN ghim rơi đúng toạ độ.
+            Cỡ 1.75rem (bản gốc 2.25rem — user chê to).
+            Ẩn nếu trùng một điểm đã ghim — chỗ đó đã có sao vàng. */}
         {!currentPlace && (
           <Marker longitude={point.lon} latitude={point.lat} anchor="bottom">
-            <PinIcon className="h-9 w-9 text-trim drop-shadow-pin" />
+            <PinIcon className="h-7 w-7 text-trim drop-shadow-pin" />
           </Marker>
         )}
       </MapGL>
@@ -2863,96 +2933,110 @@ export default function FishingMapView() {
             rồi ghim lại giúp nhé.
           </div>
         )}
-        {/* ĐIỀU KHIỂN LỚP — rail phải + 4 panel (Phương án A); trong luồng dưới
-            banner bão nên không đè/lệch */}
-        <RaKhoiControls
-          onLocateMe={goToMyBoat}
-          locating={locating}
-          geoError={geoError}
-          layerId={layerId}
-          onLayer={(id) => {
-            // chọn hải đồ nền = về nhóm "hải đồ + cá" → tắt mọi lớp động
-            setForecastKind(null);
-            setOverlayField(null);
-            setScalarKind(null);
-            setPlaying(false);
-            setLayerId(id);
-          }}
-          lanesOn={lanesOn}
-          onLanes={setLanesOn}
-          scalarKind={scalarKind}
-          onScalar={(k) => {
-            setScalarKind(k);
-            if (k != null) {
-              // SSHA là lớp động → loại trừ gió/sóng/dải màu (cá ẩn theo luật render)
-              setForecastKind(null);
-              setOverlayField(null);
-              setPlaying(false);
-              setLayerId("bathymetry");
-            }
-          }}
-          forecastKind={forecastKind}
-          onForecast={(k) => {
-            setForecastKind(k);
-            if (k == null) setPlaying(false);
-            else {
-              // một lớp động mỗi lần: tắt dải màu + SSHA
-              setOverlayField(null);
-              setScalarKind(null);
-              setGridFailed(false);
-              setTimeIdx(0);
-            }
-          }}
-          overlayField={overlayField}
-          onOverlayField={(k) => {
-            setOverlayField(k);
-            if (k == null) setPlaying(false);
-            else {
-              setForecastKind(null); // tắt gió/sóng + SSHA
-              setScalarKind(null);
-              setGridFailed(false);
-              setTimeIdx(0);
-            }
-          }}
-          vmsZones={vmsZones}
-          fishOn={fishOn}
-          onFish={(on) => {
-            // bật cá = về nhóm "hải đồ + cá" → tắt mọi lớp động cho cá hiện ra
-            if (on) {
+        {/* HÀNG ĐIỀU KHIỂN: ô toạ độ kiểu máy định vị (TRÁI) + rail lớp (PHẢI).
+            Xếp cùng một hàng để ô toạ độ không đẩy rail tụt xuống mất chỗ. */}
+        <div className="flex items-start justify-between gap-2">
+          {/* Ô TOẠ ĐỘ — hai số bà con quen đọc trên máy định vị: chỗ TÀU đang
+              đứng + chỗ CON TRỎ đang trỏ tới (kèm cách tàu bao xa, hướng nào).
+              Góp ý VSS Quân Bình Định 2026-08-25. */}
+          <PlotterReadout
+            myPos={tracking.pos}
+            status={tracking.status}
+            blocked={geoError}
+            lastFixAt={tracking.lastFixAt}
+            accuracyM={tracking.accuracyM}
+            cursor={point}
+            onGoMyPos={goToMyBoat}
+          />
+          <RaKhoiControls
+            onLocateMe={goToMyBoat}
+            locating={locating}
+            geoError={geoError}
+            layerId={layerId}
+            onLayer={(id) => {
+              // chọn hải đồ nền = về nhóm "hải đồ + cá" → tắt mọi lớp động
               setForecastKind(null);
               setOverlayField(null);
               setScalarKind(null);
               setPlaying(false);
-            }
-            setFishOn(on);
-          }}
-          fishSpecies={fishSpecies}
-          fishAccess={premiumAccess}
-          species={fishCast?.species ?? []}
-          regionShorts={regionShorts}
-          onPickSpecies={setFishSpecies}
-          stormInfo={stormInfo}
-          showPlaces={showPlaces}
-          onShowPlaces={setShowPlaces}
-          places={places}
-          onPlaces={setPlaces}
-          onGoPlace={(lat, lon) => {
-            setPinning(false);
-            setSize("peek");
-            goToCoord(lat, lon);
-          }}
-          onGoCoord={(lat, lon) => {
-            // gõ tay toạ độ → bay tới, đặt điểm đang xem (như chọn điểm đã lưu)
-            setPinning(false);
-            setSize("peek");
-            goToCoord(lat, lon);
-          }}
-          measureMode={measureMode}
-          onMeasureMode={toggleMeasure}
-          measureCount={measurePts.length}
-          measureResult={measureResult}
-          onClearMeasure={() => setMeasurePts([])}
-        />
+              setLayerId(id);
+            }}
+            lanesOn={lanesOn}
+            onLanes={setLanesOn}
+            scalarKind={scalarKind}
+            onScalar={(k) => {
+              setScalarKind(k);
+              if (k != null) {
+                // SSHA là lớp động → loại trừ gió/sóng/dải màu (cá ẩn theo luật render)
+                setForecastKind(null);
+                setOverlayField(null);
+                setPlaying(false);
+                setLayerId("bathymetry");
+              }
+            }}
+            forecastKind={forecastKind}
+            onForecast={(k) => {
+              setForecastKind(k);
+              if (k == null) setPlaying(false);
+              else {
+                // một lớp động mỗi lần: tắt dải màu + SSHA
+                setOverlayField(null);
+                setScalarKind(null);
+                setGridFailed(false);
+                setTimeIdx(0);
+              }
+            }}
+            overlayField={overlayField}
+            onOverlayField={(k) => {
+              setOverlayField(k);
+              if (k == null) setPlaying(false);
+              else {
+                setForecastKind(null); // tắt gió/sóng + SSHA
+                setScalarKind(null);
+                setGridFailed(false);
+                setTimeIdx(0);
+              }
+            }}
+            vmsZones={vmsZones}
+            fishOn={fishOn}
+            onFish={(on) => {
+              // bật cá = về nhóm "hải đồ + cá" → tắt mọi lớp động cho cá hiện ra
+              if (on) {
+                setForecastKind(null);
+                setOverlayField(null);
+                setScalarKind(null);
+                setPlaying(false);
+              }
+              setFishOn(on);
+            }}
+            fishSpecies={fishSpecies}
+            fishAccess={premiumAccess}
+            species={fishCast?.species ?? []}
+            regionShorts={regionShorts}
+            onPickSpecies={setFishSpecies}
+            stormInfo={stormInfo}
+            showPlaces={showPlaces}
+            onShowPlaces={setShowPlaces}
+            places={places}
+            onPlaces={setPlaces}
+            onGoPlace={(lat, lon) => {
+              setPinning(false);
+              setSize("peek");
+              goToCoord(lat, lon);
+            }}
+            onGoCoord={(lat, lon) => {
+              // gõ tay toạ độ → bay tới, đặt điểm đang xem (như chọn điểm đã lưu)
+              setPinning(false);
+              setSize("peek");
+              goToCoord(lat, lon);
+            }}
+            measureMode={measureMode}
+            onMeasureMode={toggleMeasure}
+            measureCount={measurePts.length}
+            measureResult={measureResult}
+            onClearMeasure={() => setMeasurePts([])}
+          />
+        </div>
 
         {/* KHÔNG có badge tuổi lớp cá (bỏ 2026-07-25 theo quyết định sản phẩm:
             màn hình bị rối vì quá nhiều chữ thường trực). Bản đồ cá vẫn tự lấy
@@ -3330,12 +3414,19 @@ export default function FishingMapView() {
                     {condSummary}
                   </p>
                 </div>
-                {/* nơi đang xem + toạ độ XẾP CHỒNG ở góc phải — gộp hai dòng vào
-                    một góc, bớt một hàng cho panel gọn (user 2026-07-28) */}
+                {/*  Cột phải: TÊN chỗ (chỉ khi đang đứng trên điểm đã ghim) +
+                     TOẠ ĐỘ, xếp chồng cho panel gọn (user 2026-07-28).
+                     TOẠ ĐỘ Ở LẠI ĐÂY (user 2026-08-25d: *"hiển thị toạ độ như
+                     cũ"*) — bản 2026-08-25 gỡ đi với lý do "không in số hai
+                     nơi" là SAI: ô góc là chỗ LIẾC lúc đang lái, sheet là chỗ
+                     ĐỌC KỸ lúc dừng xem dự báo. Hai việc, không phải một câu
+                     nói hai lần. */}
                 <div className="flex shrink-0 flex-col items-end text-right">
-                  <span className="text-[0.8125rem] leading-snug text-foreground/70">
-                    {whereLine}
-                  </span>
+                  {whereLine && (
+                    <span className="text-[0.8125rem] leading-snug text-foreground/70">
+                      {whereLine}
+                    </span>
+                  )}
                   <span className="whitespace-nowrap text-[0.75rem] font-semibold tabular-nums leading-snug text-foreground/55">
                     {fmtCoordPair(point.lat, point.lon, prefs.coordFormat)}
                   </span>

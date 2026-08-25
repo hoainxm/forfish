@@ -324,6 +324,13 @@ textarea,
   width: 1.375rem;
   height: 1.375rem;
   background-size: 1rem 1rem;
+  /*  BẮT BUỘC đi kèm background-size (vá 2026-08-25, user: "cái ở góc lỗi gì
+      mà nó tròn vo thế"): MapLibre KHÔNG khai `background-repeat` cho nút này
+      — mặc định 24px ảnh vừa khít 24px nút nên không ai thấy. Ta thu nút còn
+      1.375rem mà ảnh còn 1rem ⇒ ảnh LÁT LẠI, hiện ra ⓘ thứ hai cắt dở bên
+      cạnh, nhìn thành "hai chấm tròn". */
+  background-repeat: no-repeat;
+  background-position: center;
 }
 .maplibregl-ctrl.maplibregl-ctrl-attrib {
   background-color: rgb(255 255 255 / 0.72);
