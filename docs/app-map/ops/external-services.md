@@ -5,7 +5,7 @@
 covers: src/lib/abort.ts, src/lib/tile-proxy.ts, src/lib/offline-basemap.ts, src/lib/sea.ts, src/lib/marine-weather.ts, src/lib/route-weather.ts, src/lib/forecast-grid.ts, src/lib/scalar-field.ts, src/lib/copernicus-salinity.ts, src/lib/copernicus-wav.ts, src/lib/copernicus-cur-depth.ts, src/lib/cur-depth.ts, src/lib/snapshot-merge.ts, src/lib/pretrip.ts, src/lib/forecast-ensemble.ts, src/lib/forecast-quality.ts, src/lib/sdwork-assets.ts, src/lib/auth-gateway.ts, src/lib/fish-predict.ts, src/lib/fish-forecast-run.ts, src/lib/fish-snapshot.ts, src/lib/fish-snapshot-policy.ts, src/lib/weather-snapshot.ts, src/lib/weather-snapshot-id.ts, src/lib/hycom.ts, src/lib/copernicus.ts, src/lib/source-registry.ts, src/lib/sst-tendency.ts, src/lib/sea-scalars.ts, src/lib/fuel-price.ts, src/lib/port-price-source.ts
 last_verified: 2026-08-18
 ttl_days: 180
-<!-- DOC-STATUS: SUSPECT (2026-08-24) — code 'src/lib/port-price-source.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-08-25) — code 'src/lib/port-price-source.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-07-30 — dọn drift: fuel-price.ts đổi sau lần verify trước NHƯNG chỉ theo đợt cắt mô tả UI 2026-07-27 (commit 2f63c93) — contract NGUỒN không đổi: vẫn scrape giaxanghomnay.com (Petrolimex, JSON không key), cache 6h, fail→null ẩn dòng giá dầu. Bảng "service ngoài" hàng Petrolimex/giaxanghomnay giữ nguyên. -->
 

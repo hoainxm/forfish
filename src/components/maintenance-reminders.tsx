@@ -229,23 +229,16 @@ export function MaintenanceReminders() {
         </div>
       )}
 
-      {ready && boatReady && sorted.length === 0 && (
+      {/* Bỏ ô empty-state "Chưa có việc bảo dưỡng nào" (user chốt 2026-08-25) —
+          nút cam ở trên đã mời thêm. GIỮ cảnh báo ĐỌC-HỎNG (đọc được ≠ chưa có
+          gì): mất nó là mất lá chắn chống-mất-dữ-liệu (nguyên tắc 4). */}
+      {ready && boatReady && sorted.length === 0 && readFailed && (
         <div className="rounded-[1.25rem] bg-field/70 px-4 py-12 text-center">
           <WrenchIcon className="mx-auto h-10 w-10 text-foreground/30" />
           <p className="mt-3 text-[1.125rem] text-foreground/70">
-            {readFailed ? (
-              <>
-                Chưa mở được lịch bảo dưỡng trong máy.
-                <br />
-                Việc cũ chưa mất — xem dải đỏ ở trên.
-              </>
-            ) : (
-              <>
-                Chưa có việc bảo dưỡng nào.
-                <br />
-                Bấm nút cam ở trên để thêm.
-              </>
-            )}
+            Chưa mở được lịch bảo dưỡng trong máy.
+            <br />
+            Việc cũ chưa mất — xem dải đỏ ở trên.
           </p>
         </div>
       )}
