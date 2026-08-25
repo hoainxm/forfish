@@ -33,7 +33,11 @@ import {
  * bản trước làm NGƯỢC: tàu là mũi tên, con trỏ là vòng ngắm). Chấm nhỏ đúng
  * quy ước "chỗ tôi đang đứng" của mọi app bản đồ; chỗ TRỎ TỚI thì là cái ghim
  * (`PinIcon`, kiểu Google Maps — chốt 2026-08-25d, xem 07 §10.9).
- * Vòng 44px cũ cũng bị chê to — nay 0.875rem, hướng tàu chỉ là pip nhỏ.
+ * CỠ: đã thu về 0.875rem thì bị chê ngược lại là quá nhỏ, user 2026-08-25e
+ * *"cái vị trí hiện thời của mình đang dấu . nhỏ quá x3 nó lên đi"* → nhân ba:
+ * khung 2.625rem, chấm 1.875rem, viền trắng 4px, pip hướng cũng ×3. Chấm tàu
+ * là thứ mắt phải bắt được NGAY giữa bản đồ đầy màu — khác cái ghim con trỏ
+ * (đứng yên, tìm lúc nào cũng được).
  */
 export function NavBoatMarker({
   pos,
@@ -49,7 +53,7 @@ export function NavBoatMarker({
   return (
     <Marker longitude={pos.lon} latitude={pos.lat} anchor="center">
       <span
-        className={`relative flex h-3.5 w-3.5 items-center justify-center transition-opacity ${
+        className={`relative flex h-[2.625rem] w-[2.625rem] items-center justify-center transition-opacity ${
           stale ? "opacity-45" : "opacity-100"
         }`}
         style={headingDeg != null ? { transform: `rotate(${headingDeg}deg)` } : undefined}
@@ -64,11 +68,11 @@ export function NavBoatMarker({
         {/* pip hướng tàu: tam giác nhỏ phía trước chấm (khung đã xoay theo heading) */}
         {headingDeg != null && (
           <span
-            className="absolute -top-1.5 h-0 w-0 border-x-[0.1875rem] border-b-[0.25rem] border-x-transparent border-b-t1"
+            className="absolute -top-2 h-0 w-0 border-x-[0.5625rem] border-b-[0.75rem] border-x-transparent border-b-t1"
             aria-hidden
           />
         )}
-        <span className="relative h-2.5 w-2.5 rounded-full border-2 border-white bg-t1 shadow-md" />
+        <span className="relative h-[1.875rem] w-[1.875rem] rounded-full border-4 border-white bg-t1 shadow-md" />
       </span>
     </Marker>
   );
