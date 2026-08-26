@@ -16,6 +16,7 @@ import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
 import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { readUserList } from "@/lib/user-list-store";
+import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
 import {
   SOON_DAYS_SERVICE,
   addDaysIso,
@@ -103,7 +104,9 @@ export function loadEntries(): {
    nuốt im, mốc bảo dưỡng vừa ghi biến mất lúc mở lại app. Dự báo tải sẵn nhường
    chỗ cho việc bà con tự ghi (lib/user-store.ts); nhường vẫn không đủ thì BÁO. */
 function saveEntries(entries: MaintenanceEntry[]): boolean {
-  return saveUserJson(STORAGE_KEY, entries);
+  const ok = saveUserJson(STORAGE_KEY, entries);
+  if (ok) markLocalWrite("maintenance"); // đồng bộ lên server (lib/user-sync)
+  return ok;
 }
 
 // ── component ────────────────────────────────────────────────
@@ -129,6 +132,19 @@ export function MaintenanceReminders() {
     setEntries(loaded.entries);
     setReadFailed(loaded.readFailed);
     setReady(true);
+  }, []);
+
+  // Máy khác kéo về (lib/user-sync) → đọc lại sổ bảo dưỡng từ localStorage.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onSync = (e: Event) => {
+      if ((e as CustomEvent<{ kind?: string }>).detail?.kind !== "maintenance") return;
+      const loaded = loadEntries();
+      setEntries(loaded.entries);
+      setReadFailed(loaded.readFailed);
+    };
+    window.addEventListener(USER_SYNC_EVENT, onSync);
+    return () => window.removeEventListener(USER_SYNC_EVENT, onSync);
   }, []);
 
   /*  GHI KHI BÀ CON THAO TÁC, KHÔNG GHI SAU HYDRATE (N5, audit 2026-08-18):

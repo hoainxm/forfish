@@ -774,6 +774,10 @@ export async function DELETE(req: Request) {
   }
   const { error } = await admin.from("customers").delete().eq("phone", phone);
   if (error) return err(500, "delete_failed");
+  // Cascade riêng tư: xoá sổ đồng bộ của SĐT này (hồ sơ tàu/bảo dưỡng/vật tư —
+  // và sau này CCCD/giấy tờ ở P2/P3). Best-effort: tài khoản đã xoá, không chặn
+  // vì bước dọn. Ảnh giấy tờ trong Storage sẽ dọn cùng khi P3 làm.
+  await admin.from("user_docs").delete().eq("owner_phone", phone);
   await logActivity(admin, {
     actorPhone: who.phone,
     actorRole: who.role,

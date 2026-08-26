@@ -161,6 +161,11 @@ export const NEVER_BACKUP_PREFIXES = [
   "forfish.device.",
   "forfish.heartbeat.",
   "forfish.token.",
+  /*  · `sync.` — SỔ BOOKKEEPING đồng bộ per-máy (lib/user-sync): mỗi kind đã ghi
+   *    lúc nào (mốc client) + còn dirty không. Của RIÊNG máy này. Chép sang máy
+   *    khác là dán mốc/dirty sai → máy nhận tưởng đã đẩy/đã mới, bỏ qua sổ thật
+   *    hoặc đè nhầm. Trạng thái đồng bộ tự dựng lại từ server, không mất gì. */
+  "forfish.sync.",
   /*  · `auth.lastPhone.` — SĐT của người ĐĂNG NHẬP GẦN NHẤT trên MÁY NÀY
    *    (lib/auth-scope). Nó trả lời "máy này vừa là của ai" — cùng loại "là ai"
    *    với `identity.*`. Chép sang máy khác là dán SĐT người lạ vào bộ dò đổi

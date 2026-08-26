@@ -27,6 +27,7 @@ import { SdvicoRequestButton } from "@/components/sdvico-request";
 import { formatVnDate } from "@/lib/format";
 import { readUserList, type UserListRead } from "@/lib/user-list-store";
 import { saveUserJson, storageFullCopy } from "@/lib/user-store";
+import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
 import { useTodayVN } from "@/lib/use-today";
 import {
   BoatProduct,
@@ -72,7 +73,9 @@ function loadProducts(): UserListRead<BoatProduct> {
    nuốt im trong `catch {}`. Ghi qua `saveUserJson` để dự báo tải sẵn nhường chỗ
    (lib/user-store.ts); nhường vẫn không đủ thì màn BÁO ĐỎ. */
 function saveProducts(products: BoatProduct[]): boolean {
-  return saveUserJson(STORAGE_KEY, products);
+  const ok = saveUserJson(STORAGE_KEY, products);
+  if (ok) markLocalWrite("materials"); // đồng bộ lên server (lib/user-sync)
+  return ok;
 }
 
 // ── component ────────────────────────────────────────────────
@@ -107,6 +110,18 @@ export function BoatProducts() {
     setProducts(stored.list ?? []);
     setReady(true);
     // đọc một lần lúc mở; dữ liệu đã lưu tự mang boatId của từng món.
+  }, []);
+
+  // Máy khác kéo về (lib/user-sync) → đọc lại danh sách vật tư từ localStorage.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onSync = (e: Event) => {
+      if ((e as CustomEvent<{ kind?: string }>).detail?.kind !== "materials") return;
+      const stored = loadProducts();
+      if (stored.ok) setProducts(stored.list ?? []);
+    };
+    window.addEventListener(USER_SYNC_EVENT, onSync);
+    return () => window.removeEventListener(USER_SYNC_EVENT, onSync);
   }, []);
 
   /*  GHI KHI BÀ CON THAO TÁC, KHÔNG GHI SAU HYDRATE (N5/N2, audit 2026-08-18):

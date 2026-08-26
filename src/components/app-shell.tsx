@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { BottomNav } from "@/components/bottom-nav";
 import { NativeGpsPrime } from "@/components/native-gps-prime";
+import { UserSyncInit } from "@/components/user-sync-init";
 
 /*
   Khung app theo KHU (chủ dự án chốt 2026-07-26):
@@ -29,6 +30,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="app-content flex-1">{children}</main>
       <BottomNav />
       <NativeGpsPrime />
+      <UserSyncInit />
     </div>
   );
 }

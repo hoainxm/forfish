@@ -161,6 +161,20 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - Kết quả đo: **96 → 2 request/ngày khi trời yên** (một lượt = index + bản tin). Bão còn xa → theo mốc nguồn hẹn (thường 6 giờ). Bão ≤500 km tới cảng hoặc từ cấp 10 → 1 giờ/lần.
 - ⚠️ **CHƯA APPLY prod SDVICO** (ref `znzgugvfhgmiszqgjulk`, KHÔNG tự apply).
 
+### ĐỒNG BỘ SỔ per-máy (cross-device) — migration [`0050_user_docs.sql`](../../supabase/migrations/0050_user_docs.sql) (2026-08-26, P1) — ⚠️ **CHƯA APPLY prod SDVICO**
+
+Nguồn + thiết kế đầy đủ: [docs/specs/dong-bo-so-per-may.md](../specs/dong-bo-so-per-may.md). Trước nay hồ sơ tàu / bảo dưỡng / vật tư / sổ thuyền viên / tủ giấy tờ CHỈ nằm localStorage per-máy → nhập ở điện thoại không thấy trên PC. P1 đấu 3 sổ KHÔNG nhạy cảm; crew/documents (CCCD/giấy tờ) ở P2/P3.
+
+| Mục | Chi tiết |
+|---|---|
+| bảng `user_docs` | "Gương" mỗi khoá `forfish.<kind>.v1` thành 1 dòng server. Cột: `owner_phone` (SĐT chủ, ĐỊNH DANH) · `kind` (`boats`/`crew`/`documents`/`maintenance`/`materials`, có `check`) · `data` (jsonb — giữ NGUYÊN shape localStorage) · `client_updated_at` (bigint ms — last-write-wins mức kind) · `updated_at`. PK `(owner_phone, kind)`. |
+| Đọc/ghi | ROUTE server `GET/PUT /api/me/sync` (service-role + `identityFromRequest`, lọc `owner_phone`), client `lib/user-sync.ts` (`authedFetch`); helper thuần `lib/user-sync-core.ts` (`isSyncKind`/`invalidPut`, có test) dùng chung client↔route. |
+| RLS | **ĐÓNG HẲN** — enable RLS, **0 policy** cho anon/authenticated (dữ liệu riêng tư, sẽ chứa CCCD/giấy tờ). Chỉ service-role (route đã kiểm owner) đụng được. Client ẩn danh không đọc được của ai. |
+| Offline-first | localStorage vẫn là nguồn đọc chính; server chỉ để máy khác kéo. Ghi local → đẩy (dirty nếu mất sóng); kéo lúc mở app/online → bản mới hơn thắng. Bookkeeping ở khoá `forfish.sync.v1` (NEVER_BACKUP). |
+| Cascade | Xoá tài khoản (`/api/admin/accounts` DELETE) xoá luôn `user_docs` theo SĐT (riêng tư). |
+
+- ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`, KHÔNG tự apply). Chưa apply → route trả 503/500, client giữ localStorage như cũ (không mất dữ liệu, chỉ chưa đồng bộ).
+
 ### Danh mục sản phẩm ADMIN quản lý — migration [`0016_product_catalog.sql`](../../supabase/migrations/0016_product_catalog.sql) (2026-07-28) — ✅ ĐÃ APPLY prod
 
 | Thay đổi | Nghĩa |

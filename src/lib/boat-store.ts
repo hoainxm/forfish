@@ -16,6 +16,7 @@ import {
   loadCurrentBoatId,
   saveCurrentBoatId,
 } from "./boats";
+import { markLocalWrite, USER_SYNC_EVENT } from "./user-sync";
 
 interface BoatsSnapshot {
   boats: Boat[];
@@ -34,14 +35,28 @@ function emit() {
   for (const l of listeners) l();
 }
 
-function hydrate() {
-  if (hydrated || typeof window === "undefined") return;
-  hydrated = true;
+function refreshFromStorage() {
   const boats = loadBoats();
   const saved = loadCurrentBoatId();
   const cur = boats.find((b) => b.id === saved) ?? boats[0];
   snapshot = { boats, currentId: cur?.id ?? "", ready: true };
   emit();
+}
+
+// Đồng bộ máy khác kéo về (lib/user-sync) → đọc lại sổ tàu từ localStorage rồi
+// re-render mọi subscriber, không cần reload.
+function onUserSync(e: Event) {
+  const kind = (e as CustomEvent<{ kind?: string }>).detail?.kind;
+  if (kind === "boats") refreshFromStorage();
+}
+
+function hydrate() {
+  if (hydrated || typeof window === "undefined") return;
+  hydrated = true;
+  if (typeof window.addEventListener === "function") {
+    window.addEventListener(USER_SYNC_EVENT, onUserSync);
+  }
+  refreshFromStorage();
 }
 
 function subscribe(listener: () => void) {
@@ -62,6 +77,9 @@ const getServerSnapshot = () => EMPTY;
 
 /** Chỉ dùng trong test — reset singleton về trạng thái sạch. */
 export function _resetBoatsForTest() {
+  if (typeof window !== "undefined" && typeof window.removeEventListener === "function") {
+    window.removeEventListener(USER_SYNC_EVENT, onUserSync);
+  }
   snapshot = EMPTY;
   hydrated = false;
   listeners.clear();
@@ -89,6 +107,7 @@ export function setCurrentBoat(id: string) {
 export function addBoat(b: Boat): boolean {
   const boats = [...snapshot.boats, b];
   if (!saveBoats(boats)) return false;
+  markLocalWrite("boats");
   saveCurrentBoatId(b.id);
   snapshot = { ...snapshot, boats, currentId: b.id };
   emit();
@@ -98,6 +117,7 @@ export function addBoat(b: Boat): boolean {
 export function updateBoat(b: Boat): boolean {
   const boats = snapshot.boats.map((x) => (x.id === b.id ? b : x));
   if (!saveBoats(boats)) return false;
+  markLocalWrite("boats");
   snapshot = { ...snapshot, boats };
   emit();
   return true;
@@ -122,6 +142,7 @@ export function removeBoat(
       false, không xoá gì cả, màn hình giữ nguyên. */
   const boats = snapshot.boats.filter((b) => b.id !== id);
   if (!saveBoats(boats)) return false;
+  markLocalWrite("boats");
   cascade?.(id); // xóa hồ sơ cố định của tàu này
   let currentId = snapshot.currentId;
   if (currentId === id) {
