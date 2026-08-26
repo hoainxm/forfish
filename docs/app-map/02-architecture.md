@@ -441,6 +441,7 @@ src/
     haptics.ts          # tapFeedback() rung nhẹ (navigator.vibrate có guard) — Android PWA; iOS no-op; Capacitor-ready. Dùng tiết chế ở ConfirmDialog confirm
     region.ts           # Phân vùng Bắc/Trung/Nam: Region, COASTAL_PROVINCES, provinceKey/regionOf — nền cho lọc theo tỉnh ⇒ ĐÒI HỎI tên tỉnh thống nhất giữa các dataset
     geofence.ts         # Trục 1: cảnh báo vượt ranh giới biển (← vn-maritime-border.ts) — `borderProximity` (near/very_near cho điểm đang xem) + **2026-08-18 (gói D) ranh giới theo GPS khi dẫn đường**: `BORDER_STEPS_NM=[15,10,6,3]`, `borderStepFor(distanceNm)`, `borderStepCrossed` (chỉ nói lại khi VƯỢT mốc gần hơn, không lặp mỗi giây); `fishing-map-view.tsx` tính, `nav-mode.tsx` NavHud vẽ. Ngưỡng 15/10/6/3 CHƯA có nguồn nghiệp vụ — BA chốt sau. Có test
+    warning-sound.ts    # Trục 1 (2026-08-26): CHUÔNG cảnh báo ranh giới — Web Audio tổng hợp tại chỗ (motif SDVICO "v1" D5→A5→D6, KHÔNG file asset → kêu offline, không đụng sw.js). `warningVoices()` thuần (có test) + `playBorderWarning()`/`armWarningSound()`. Gọi ở fishing-map-view khi borderStepCrossed. Nuốt lỗi, không throw. Nền/khoá màn (push) là Phase 2
     crew.ts             # Trục NGƯỜI: hồ sơ + định danh CCCD + giấy tờ (có test)
     crew-report.ts      # Cảnh báo thuyền viên chéo: loại/nhãn/shape (thuần, có test)
     crew-report-hash.ts # server: HASH(CCCD) khoá tra (pepper env)

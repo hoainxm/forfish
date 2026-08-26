@@ -152,6 +152,7 @@ import {
   haversineKm,
   type BorderLevel,
 } from "@/lib/geofence";
+import { playBorderWarning, armWarningSound } from "@/lib/warning-sound";
 import { fetchDepthGrid, depthClassAt, type DepthClass } from "@/lib/depth-grid";
 import { timeoutSignal } from "@/lib/abort";
 import { weatherFromCode } from "@/lib/weather-codes";
@@ -1616,7 +1617,11 @@ export default function FishingMapView() {
       return;
     }
     if (crossed != null) {
-      // mốc mới → nói lại (mở lại dù trước đó đã thu)
+      // mốc mới → nói lại (mở lại dù trước đó đã thu) + KÊU CHUÔNG cảnh báo
+      // (SDVICO, lib/warning-sound). Chỉ nổ khi tiến SANG mốc gần hơn (15→10→6
+      // →3 hải lý), không lặp mỗi nhịp GPS; đi ra xa thì im. Tiếng nuốt lỗi,
+      // không throw — cảnh báo hình vẫn là đường chính.
+      playBorderWarning();
       setNavBorder({
         step: crossed,
         distanceNm: navProx.distanceNm,
@@ -1636,6 +1641,11 @@ export default function FishingMapView() {
     () => setNavBorder((b) => (b ? { ...b, dismissed: true } : b)),
     [],
   );
+  // Mở khoá tiếng theo chính sách autoplay khi bà con bật Dẫn đường (thao tác
+  // thật) — để lúc vượt mốc ranh giới chuông cảnh báo kêu được.
+  useEffect(() => {
+    if (navOn) armWarningSound();
+  }, [navOn]);
 
   // camera bám vị trí tàu mỗi khi có fix mới (chỉ khi định vị còn tốt — mất
   // định vị thì GIỮ NGUYÊN khung, không giật camera theo vị trí cũ)
