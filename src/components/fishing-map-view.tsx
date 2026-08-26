@@ -2912,7 +2912,18 @@ export default function FishingMapView() {
              Ẩn nếu trùng một điểm đã ghim — chỗ đó đã có sao vàng. */}
         {!currentPlace && (
           <Marker longitude={point.lon} latitude={point.lat} anchor="center">
-            <FishIcon className="h-[2.625rem] w-[2.625rem] text-trim drop-shadow-pin" />
+            {/*  NHẤP NHÁY như dấu vị trí của các app bản đồ (user 2026-08-25h:
+                 *"cả 2 làm hiệu ứng nhấp nháy tương tự các app khác"*) — con trỏ
+                 nay cũng có quầng `animate-ping` giống chấm tàu, chỉ khác màu:
+                 tàu `--t1`, con trỏ `--trim`. Quầng nằm SAU con cá và
+                 `pointer-events-none` để không nuốt cú chạm vào bản đồ. */}
+            <span className="relative flex h-[3.75rem] w-[3.75rem] items-center justify-center">
+              <span
+                className="pointer-events-none absolute inline-flex h-full w-full animate-ping rounded-full bg-trim/45"
+                aria-hidden
+              />
+              <FishIcon className="relative h-[2.625rem] w-[2.625rem] text-trim drop-shadow-pin" />
+            </span>
           </Marker>
         )}
       </MapGL>
