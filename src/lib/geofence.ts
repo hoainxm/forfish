@@ -5,13 +5,42 @@
 // Ta KHÔNG khẳng định "đã vượt" (cần đa giác kín + bên chính xác); chỉ báo
 // KHOẢNG CÁCH tới ranh giới + cảnh báo khi tới gần. Trung thực hơn, an toàn hơn.
 
-import { VN_MARITIME_BORDER, type LngLat } from "@/data/vn-maritime-border";
+import { type LngLat } from "@/data/vn-maritime-border";
+import vmsZonesJson from "@/data/vms-zones.json";
+
+/*  BIÊN THẬT = MÉP NGOÀI CỦA VÙNG VMS (chủ dự án chốt 2026-08-25: *"mép ngoài
+    của 3 vùng"*).
+    ÁN LỆ — vì sao phải đổi: 2026-07-28 đường 75 điểm `VN_MARITIME_BORDER` bị GỠ
+    KHỎI BẢN ĐỒ (biên mới = 3 vùng VMS), nhưng `borderProximity` vẫn đo theo nó.
+    Chú thích lúc đó ghi "cảnh báo khoảng cách tới ranh giới không bị ảnh hưởng"
+    — SAI. Suốt gần một tháng app đo tới một đường KHÔNG CÒN VẼ Ở ĐÂU, nên số
+    hải lý không khớp đường bà con nhìn thấy. Bà con bắt được ngay khi đường đo
+    được vẽ ra: *"cái tính khoảng cách đang ko gắn vào đường ranh nè"*.
+    Bài học: gỡ phần VẼ của một dữ liệu thì phải soi lại MỌI phép tính đang dùng
+    dữ liệu đó — không được kết luận "không ảnh hưởng" bằng cảm giác.
+
+    · `VN_OUTER_BORDER`  — cung ngoài khơi (200 điểm) ĐANG ĐƯỢC VẼ đỏ nét đứt
+      (`allowedOffshore`, zone `default-allowed-offshore`). Đây là thứ bà con
+      NHÌN THẤY, nên là thứ phải đo tới.
+    · `VN_ALLOWED_POLYS` — đa giác vùng được phép (`allowed`), dùng để biết điểm
+      nằm TRONG hay NGOÀI biên. Có đa giác kín rồi thì mới dám nói "đã ra ngoài";
+      trước đây cố ý không nói vì chỉ có một đường hở. */
+export const VN_OUTER_BORDER: LngLat[] = (
+  vmsZonesJson.allowedOffshore.features[0].geometry.coordinates as number[][]
+).map((c) => [c[0], c[1]] as LngLat);
+
+/** Các vòng (ring) của vùng được phép — gộp mọi polygon, kể cả lỗ đảo. */
+export const VN_ALLOWED_RINGS: LngLat[][] = (
+  vmsZonesJson.allowed.features[0].geometry.coordinates as number[][][][]
+).flatMap((poly) => poly.map((ring) => ring.map((c) => [c[0], c[1]] as LngLat)));
 
 const NM_PER_KM = 1 / 1.852;
 
 export type BorderLevel = "ok" | "near" | "very_near";
 
 export interface BorderProximity {
+  /** điểm này nằm NGOÀI vùng được phép chưa (true = đã qua biên) */
+  outside: boolean;
   /** khoảng cách ngắn nhất tới ranh giới, hải lý */
   distanceNm: number;
   level: BorderLevel;
@@ -102,6 +131,39 @@ function pointToSegmentKm(p: LngLat, a: LngLat, b: LngLat): number {
   return Math.hypot(px - cx, py - cy);
 }
 
+/**
+ * Điểm có nằm trong một vòng kín không — ray casting chẵn-lẻ trên mặt phẳng
+ * lng/lat. Ở quy mô vùng biển VN sai số chiếu không đổi được kết quả trong/ngoài
+ * (chỉ mấp mé đúng trên đường biên, mà sát biên thì đằng nào cũng đang cảnh báo).
+ */
+function pointInRing(p: LngLat, ring: LngLat[]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    const crosses =
+      yi > p[1] !== yj > p[1] &&
+      p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi || Number.EPSILON) + xi;
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * TRONG vùng được phép hay chưa. Chẵn-lẻ trên TẤT CẢ các vòng: vòng ngoài đưa
+ * vào, lỗ đảo lật ngược ra — đúng quy ước GeoJZON polygon-có-lỗ mà không cần
+ * phân biệt vòng nào là lỗ.
+ */
+export function insideAllowed(
+  lat: number,
+  lng: number,
+  rings: LngLat[][] = VN_ALLOWED_RINGS,
+): boolean {
+  let inside = false;
+  for (const ring of rings) if (pointInRing([lng, lat], ring)) inside = !inside;
+  return inside;
+}
+
 /** Nội suy điểm trên đoạn [a,b] theo tham số t∈[0,1]. */
 function lerp(a: LngLat, b: LngLat, t: number): LngLat {
   return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
@@ -114,7 +176,7 @@ function lerp(a: LngLat, b: LngLat, t: number): LngLat {
 export function borderProximity(
   lat: number,
   lng: number,
-  border: LngLat[] = VN_MARITIME_BORDER,
+  border: LngLat[] = VN_OUTER_BORDER,
 ): BorderProximity {
   const p: LngLat = [lng, lat];
   let bestKm = Infinity;
@@ -147,9 +209,22 @@ export function borderProximity(
   }
 
   const distanceNm = bestKm * NM_PER_KM;
+  const outside = !insideAllowed(lat, lng);
+
+  /*  ĐÃ RA NGOÀI thì nói thẳng là RA NGOÀI, đừng nói "cách biên bao xa" (bà con
+      qua VSS Quân 2026-08-25: *"trỏ qua biên thì báo vượt biên, chứ sao báo cách
+      biên"*). Nói "cách ranh giới 30 hải lý" cho một chỗ NGOÀI vùng được phép là
+      câu đúng-số nhưng sai-nghĩa: bà con đọc ra "còn 30 hải lý nữa mới tới biên".
+      Nay có đa giác kín (`VN_ALLOWED_RINGS`) nên khẳng định được bên nào.
+      Câu chữ nói về CHỖ ĐANG XEM, không phải về tàu — app không kết tội ai. */
   let level: BorderLevel = "ok";
   let label = `Cách ranh giới biển khoảng ${Math.round(distanceNm)} hải lý`;
-  if (distanceNm <= VERY_NEAR_NM) {
+  if (outside) {
+    level = "very_near";
+    label = `Chỗ này ĐÃ NGOÀI ranh giới — vào trong ~${
+      distanceNm < 10 ? distanceNm.toFixed(1) : Math.round(distanceNm)
+    } hải lý`;
+  } else if (distanceNm <= VERY_NEAR_NM) {
     level = "very_near";
     label = `Rất gần ranh giới — còn ~${distanceNm.toFixed(1)} hải lý`;
   } else if (distanceNm <= NEAR_NM) {
@@ -157,5 +232,5 @@ export function borderProximity(
     label = `Gần ranh giới — còn ~${Math.round(distanceNm)} hải lý`;
   }
 
-  return { distanceNm, level, label, nearest: bestNearest };
+  return { distanceNm, level, label, nearest: bestNearest, outside };
 }

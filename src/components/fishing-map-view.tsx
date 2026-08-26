@@ -138,7 +138,6 @@ import { NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { PlotterReadout } from "@/components/plotter-readout";
 import { useNavTracking } from "@/lib/use-nav-tracking";
 import { computeNavProgress } from "@/lib/nav-progress";
-import { borderGeoJSON } from "@/data/vn-maritime-border";
 import { vungLongGeoJSON } from "@/data/vn-fishing-zones";
 import {
   fetchPublicVmsZones,
@@ -248,7 +247,6 @@ const SEA_STATE: Record<SeaLevel, string> = {
 const THIS_MONTH = new Date().getMonth() + 1;
 
 // Ranh giới biển VN không đổi → tạo GeoJSON một lần ở cấp module.
-const BORDER_DATA = borderGeoJSON();
 // Ranh giới vùng lộng (NĐ 26/2019) — tĩnh, tạo một lần.
 const VUNG_LONG_DATA = vungLongGeoJSON();
 
@@ -2243,11 +2241,16 @@ export default function FishingMapView() {
           </Source>
         )}
 
-        {/* Đường ranh giới 75 điểm cũ (cam-đỏ nét đứt) ĐÃ XÓA khỏi bản đồ
-            (user chốt 2026-07-28: "biên giới mới = đường 1+2+3" = hợp 3 vùng
-            VMS ở trên). LƯU Ý: dữ liệu VN_MARITIME_BORDER + geofence cảnh báo
-            IUU (borderProximity) VẪN CÒN trong code — chỉ bỏ phần VẼ, cảnh báo
-            khoảng cách tới ranh giới không bị ảnh hưởng. */}
+        {/*  Đường ranh giới 75 điểm cũ (cam-đỏ nét đứt) ĐÃ XÓA khỏi bản đồ
+             (user chốt 2026-07-28: "biên giới mới = đường 1+2+3" = hợp 3 vùng
+             VMS ở trên).
+             ⚠️ ĐÍNH CHÍNH 2026-08-25 — chú thích cũ ở đây ghi "cảnh báo khoảng
+             cách tới ranh giới KHÔNG BỊ ẢNH HƯỞNG". SAI, và sai suốt gần một
+             tháng: `borderProximity` vẫn đo tới đường 75 điểm đã gỡ, nên số hải
+             lý không dính gì đường bà con nhìn thấy. Đo thật tại một điểm bà con
+             gửi: báo 14,4 hải lý trong khi thực tế cách mép ngoài 0,2 hải lý.
+             Nay `lib/geofence` đo tới `VN_OUTER_BORDER` (chính cung ngoài khơi
+             đang vẽ) và biết TRONG/NGOÀI bằng `VN_ALLOWED_RINGS`. */}
 
         {/* (đã bỏ viền 7 vùng khoanh sẵn — dự báo cá nay tính TOÀN BỘ vùng
             biển VN, không còn giới hạn trong các đa giác; viền cũ gây hiểu lầm
@@ -2910,12 +2913,13 @@ export default function FishingMapView() {
                tương phản sẵn. Hex chỉ được phép nằm trong `paint` của MapLibre,
                không phải trong className. */}
           <span className="whitespace-nowrap rounded-full border border-white/80 bg-danger px-2 py-0.5 text-[0.6875rem] font-bold text-white shadow-md">
+            {prox.outside ? "ngoài biên " : ""}
             {fmtDist(
               prox.distanceNm * 1.852,
               prefs.distUnit,
               prox.distanceNm < 10 ? 1 : 0,
-            )}{" "}
-            tới biên
+            )}
+            {prox.outside ? " vào trong" : " tới biên"}
           </span>
         </Marker>
 
@@ -3610,10 +3614,16 @@ export default function FishingMapView() {
               {/* RANH GIỚI ở peek (audit M3, gộp D7+E1): câu đầy đủ nằm ở thân
                   sheet; peek chỉ chấm màu + một câu ngắn khi RẤT GẦN — không
                   nói hai lần cùng ý trong một màn. */}
+              {/*  CÂU CHUẨN lấy từ lib/geofence (`prox.label`) chứ KHÔNG viết
+                   cứng ở đây nữa: `very_near` giờ gồm CẢ ca "đã ra ngoài biên",
+                   mà câu cứng "Rất gần ranh giới — còn ~X hải lý" đọc lên thành
+                   "chưa tới biên, còn X nữa" — ngược hẳn sự thật. Một câu, một
+                   nguồn (bà con qua VSS Quân 2026-08-25: *"trỏ qua biên thì báo
+                   vượt biên, chứ sao báo cách biên"*). */}
               {prox.level === "very_near" && (
                 <p className="mt-1 flex items-center gap-1.5 text-[0.875rem] font-bold text-danger">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-danger" aria-hidden />
-                  Rất gần ranh giới — còn ~{prox.distanceNm.toFixed(1)} hải lý.
+                  {prox.label}.
                 </p>
               )}
               {/*  Dòng "Gần ranh giới biển" (không kèm số) BỎ 2026-08-25: con số

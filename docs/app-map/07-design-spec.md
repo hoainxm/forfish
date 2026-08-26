@@ -672,6 +672,15 @@ Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔN
 
 > Màu CÙNG HỌ cam-đỏ với đường ranh giới (03 §6: cam-đỏ là màu độc quyền của ranh giới — đường này nói về ranh giới nên thuộc về họ đó), nhưng **mảnh hơn + nét đứt khác** để không ai nhầm nó LÀ đường ranh giới.
 
+**⚠️ BIÊN ĐO = MÉP NGOÀI VÙNG VMS (sửa lỗi 2026-08-25j)** — chủ dự án chốt *"mép ngoài của 3 vùng"*.
+
+> **Án lệ, đọc trước khi đụng vào cảnh báo ranh giới.** 2026-07-28 đường 75 điểm `VN_MARITIME_BORDER` bị gỡ khỏi bản đồ (biên mới = 3 vùng VMS), nhưng `borderProximity` vẫn đo theo nó. Chú thích lúc đó khẳng định *"cảnh báo khoảng cách tới ranh giới không bị ảnh hưởng"* — sai. Gần một tháng app đo tới một đường **không còn vẽ ở đâu**. Không ai thấy vì con số chỉ là một dòng chữ trong sheet; vẽ nó thành đường kẻ trên bản đồ là bà con bắt được ngay (*"cái tính khoảng cách đang ko gắn vào đường ranh nè"*). Đo thật tại điểm bà con gửi: **báo 14,4 hải lý trong khi thực tế cách mép ngoài 0,2 hải lý**. Bài học: gỡ phần VẼ của một dữ liệu thì phải soi lại MỌI phép tính đang dùng dữ liệu đó — không kết luận "không ảnh hưởng" bằng cảm giác.
+
+- `VN_OUTER_BORDER` (`lib/geofence`) = cung ngoài khơi 200 điểm `allowedOffshore` — CHÍNH đường đỏ nét đứt đang vẽ. Đo tới cái bà con NHÌN THẤY.
+- `VN_ALLOWED_RINGS` = các vòng của vùng `allowed` (kể cả lỗ đảo) → `insideAllowed()` biết điểm nằm TRONG hay NGOÀI. Có đa giác kín rồi mới dám khẳng định bên nào; trước đây cố ý không nói vì chỉ có một đường hở.
+
+**TRỎ QUA BIÊN THÌ NÓI "ĐÃ NGOÀI", KHÔNG NÓI "CÁCH BIÊN"** (bà con qua VSS Quân: *"trỏ qua biên thì báo vượt biên, chứ sao báo cách biên"*). "Cách ranh giới 30 hải lý" cho một chỗ NGOÀI vùng được phép là câu **đúng số nhưng sai nghĩa** — đọc lên thành "còn 30 hải lý nữa mới tới biên". `prox.outside === true` ⇒ `level = "very_near"` + câu `"Chỗ này ĐÃ NGOÀI ranh giới — vào trong ~N hải lý"`. Câu nói về **chỗ đang xem**, không phải về tàu: app không kết tội ai. Dòng đỏ ở peek nay in thẳng `prox.label` chứ không viết cứng, để ca này không bị đọc thành "sắp tới biên".
+
 **CÁCH RANH GIỚI BAO XA — LUÔN HIỆN, ngay dưới toạ độ ở cột phải peek (2026-08-25g)**, bà con qua VSS Quân: *"hiện dưới mục toạ độ là cách ranh giới bn hải lý cho tiện"*.
 
 > ⚠️ **ĐÂY LÀ ĐỔI Ý so với luật cũ** ghi ở 03 §6 (audit 2026-06-10 mục 5): *"khoảng cách ranh giới chỉ nói khi gần (cảnh báo), xa hàng trăm hải lý thì im"*. Chính người dùng đòi con số thường trực — biết còn cách ranh giới bao xa là việc bà con tự nhẩm suốt chuyến, không phải chỉ lúc sắp vượt. Bất biến GIỮ NGUYÊN: app **không khẳng định "đã vượt"** (`lib/geofence` chỉ đo khoảng cách tới đường ranh giới, xem 01 §product).
