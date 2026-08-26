@@ -164,6 +164,11 @@ const CRITICAL_SHELL = [
   // định hướng. Asset tĩnh nhỏ (~18 KB + ~3 KB).
   "/data/vn-islands.v1.json",
   "/data/vn-sea-lanes.v1.json",
+  //  DẤU TÀU trên bản đồ (ảnh ghim tàu cá). Thiếu nó thì giữa biển mất sóng bà
+  //  con KHÔNG THẤY TÀU MÌNH ĐÂU trên bản đồ — mất đúng thứ màn này sinh ra để
+  //  trả lời. Nhỏ (5,5 KB + 13,8 KB bản @2x) nên ghim cả hai.
+  "/icons/boat-marker.png",
+  "/icons/boat-marker@2x.png",
   // font chữ trên bản đồ (số mét đường đẳng sâu) — thiếu là mất hết CHỮ/SỐ
   "/fonts/Noto%20Sans%20Regular/0-255.pbf",
   /*  FONTSTACK THỨ HAI (2026-08-02, audit A9). Bản đồ dùng HAI fontstack:

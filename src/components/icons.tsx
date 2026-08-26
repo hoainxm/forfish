@@ -323,36 +323,6 @@ export function PinIcon(p: IconProps) {
 
 // Mũi tên điều hướng — CHỈ THẲNG LÊN (12h) để xoay theo heading bằng CSS
 // transform:rotate(headingDeg). Dùng cho marker tàu lúc dẫn đường live.
-/**
- * TÀU nhìn từ trên xuống — MŨI BÊN PHẢI, thân NẰM NGANG (user 2026-08-25k:
- * *"xoay ngang lại"*). Bản đầu vẽ mũi hướng LÊN; lúc máy chưa biết hướng đi thì
- * con tàu dựng đứng, nhìn như tàu chổng mũi lên trời.
- *
- * Hướng gốc = 90° (đông) nên chỗ dùng phải xoay `headingDeg - 90`, KHÔNG phải
- * `headingDeg` — đổi hình mà quên trừ 90 là mũi tàu lệch một góc vuông.
- *
- * TÔ ĐẶC + viền trắng + khoang ca-bin trắng: nét-rỗng cỡ nhỏ trên ảnh vệ tinh
- * hay hải đồ nhiều màu là chìm mất.
- */
-export function BoatIcon(p: IconProps) {
-  return (
-    <svg
-      className={p.className}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden
-    >
-      <path
-        d="M3.6 6.9c6.6.5 13.6 2.1 18.4 5.1-4.8 3-11.8 4.6-18.4 5.1-1.2-3.2-1.2-7.1 0-10.2Z"
-        stroke="#fff"
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-      />
-      <path d="M7.4 10.1h4.3v3.8H7.4z" fill="#fff" />
-    </svg>
-  );
-}
-
 export function NavArrowIcon(p: IconProps) {
   return (
     <svg {...base(p)}>

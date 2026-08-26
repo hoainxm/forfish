@@ -24,19 +24,26 @@ import {
   MinusIcon,
   NavArrowIcon,
   RouteIcon,
-  BoatIcon,
 } from "@/components/icons";
 
+/** Ảnh dấu tàu — sinh từ `Workops/assets/sdfish/sdfish-fishing-vessel-map-marker.png`
+    (653 KB → 5,5 KB) bằng `sharp`: trim viền trong suốt rồi hạ còn 72×100 (+ bản
+    @2x cho màn retina). Đã ghim vào CRITICAL_SHELL của service worker: thiếu nó
+    thì giữa biển mất sóng, bà con không thấy tàu mình đâu. */
+const BOAT_MARKER_SRC = "/icons/boat-marker.png";
+
 /**
- * VỊ TRÍ TÀU trên bản đồ (đặt trong <MapGL>) — **ICON TÀU** trên quầng nhấp
- * nháy (user 2026-08-25f: *"vị trí hiện tại theo máy thì dùng icon tàu, kích
- * thước tăng thêm 50%"*). Chỗ TRỎ TỚI dùng **icon con cá** (xem
- * fishing-map-view). Trước lần lượt là: mũi tên → chấm tròn → icon tàu.
- * CỠ — chốt sau BỐN nhịp (ghi lại để đừng chỉnh vòng vo nữa): vòng trắng 44px
- * chê TO → 0.875rem chê NHỎ → ×3 chê to → ×2 → **+50% nữa** (2026-08-25f):
- * icon tàu 2.625rem (nhỏ lại 30%, 2026-08-25k) trên quầng 3.675rem. Dấu tàu
- * là thứ mắt phải bắt được NGAY giữa bản đồ đầy màu — khác cái ghim con trỏ
- * (đứng yên, tìm lúc nào cũng được).
+ * VỊ TRÍ TÀU trên bản đồ (đặt trong <MapGL>) — **ẢNH GHIM TÀU CÁ** do chủ dự án
+ * cấp (2026-08-25l), đặt trên quầng nhấp nháy.
+ *
+ * ⚠️ ẢNH LÀ CÁI GHIM (mũi nhọn chỉ xuống), KHÔNG phải hình tàu nhìn từ trên.
+ * Ba hệ quả bắt buộc, đừng sửa lẻ một cái:
+ *  1. `anchor="bottom"` — MŨI GHIM mới là toạ độ thật, không phải tâm ảnh.
+ *  2. **KHÔNG xoay theo `headingDeg`.** Ghim mà xoay là nằm nghiêng/chổng ngược,
+ *     và mũi ghim rời khỏi chỗ nó đang chỉ. Nghĩa là bản này KHÔNG còn chỉ hướng
+ *     tàu đang chạy — mất một thông tin so với hình tàu-nhìn-từ-trên trước đó.
+ *  3. Quầng nhấp nháy phải neo vào MŨI GHIM (`-bottom` + `left-1/2`), không neo
+ *     giữa ảnh — neo sai là vòng nháy lệch lên nửa thân ghim.
  */
 export function NavBoatMarker({
   pos,
@@ -44,43 +51,35 @@ export function NavBoatMarker({
   stale,
 }: {
   pos: LatLon | null;
-  headingDeg: number | null;
+  /*  CÒN TRONG PROPS nhưng KHÔNG DÙNG: ảnh ghim không xoay được (xem trên).
+      Giữ lại để nơi gọi không phải sửa và để lần sau ai muốn thêm mũi tên chỉ
+      hướng thì đã có sẵn số. */
+  headingDeg?: number | null;
   /** mất định vị → làm mờ + TẮT nhấp nháy: số cũ thì đừng giả vờ đang sống */
   stale?: boolean;
 }) {
   if (!pos) return null;
   return (
-    <Marker longitude={pos.lon} latitude={pos.lat} anchor="center">
+    <Marker longitude={pos.lon} latitude={pos.lat} anchor="bottom">
       <span
-        className={`relative flex h-[3.675rem] w-[3.675rem] items-center justify-center transition-opacity ${
+        className={`relative flex flex-col items-center transition-opacity ${
           stale ? "opacity-45" : "opacity-100"
         }`}
       >
-        {/* quầng nhấp nháy — chỉ khi đang có tín hiệu sống. KHÔNG xoay theo
-            heading (vòng tròn xoay cũng thế), nên nằm ngoài khung xoay. */}
         {!stale && (
           <span
-            className="absolute inline-flex h-full w-full animate-ping rounded-full bg-t1/55"
+            className="pointer-events-none absolute -bottom-[1.3125rem] left-1/2 h-[2.625rem] w-[2.625rem] -translate-x-1/2 animate-ping rounded-full bg-t1/55"
             aria-hidden
           />
         )}
-        {/*  MŨI TÀU CHỈ HƯỚNG khi biết heading; KHÔNG biết thì để mũi hướng Bắc
-             — hình con tàu tự nó có mũi nên không tránh được việc "chỉ" đâu đó;
-             bù lại đã bỏ pip tam giác cũ (hết nói hướng hai lần). */}
-        <span
-          className="relative flex"
-          /*  TRỪ 90: `BoatIcon` vẽ mũi hướng ĐÔNG (90°), còn `headingDeg` là
-              góc so với hướng BẮC. Quên trừ là mũi tàu lệch đúng một góc vuông.
-              Không biết hướng thì để tàu NẰM NGANG (hướng gốc của hình) chứ
-              không dựng đứng — user 2026-08-25k. */
-          style={
-            headingDeg != null
-              ? { transform: `rotate(${headingDeg - 90}deg)` }
-              : undefined
-          }
-        >
-          <BoatIcon className="h-[2.625rem] w-[2.625rem] text-t1 drop-shadow-pin" />
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={BOAT_MARKER_SRC}
+          srcSet={`${BOAT_MARKER_SRC} 1x, /icons/boat-marker@2x.png 2x`}
+          alt=""
+          aria-hidden
+          className="relative h-[3rem] w-auto drop-shadow-pin"
+        />
       </span>
     </Marker>
   );
