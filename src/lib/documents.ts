@@ -18,6 +18,10 @@ export interface BoatDocument {
   issuedOn?: string; // ISO date
   expiresOn?: string; // ISO date, undefined = no expiry
   note?: string;
+  /** Ảnh chụp giấy tờ — ĐƯỜNG DẪN Supabase Storage (P3, 2026-08-26). Bytes ở
+   *  bucket private `user-docs`, đọc/ghi qua /api/me/docs/photo; path đồng bộ
+   *  nhẹ qua user_docs. Rỗng/undefined = chưa có ảnh. */
+  photos?: string[];
 }
 
 export const DOCUMENT_KINDS: { value: DocumentKind; label: string }[] = [

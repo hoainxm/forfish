@@ -24,6 +24,8 @@ import { formatVnDate } from "@/lib/format";
 import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { readUserList } from "@/lib/user-list-store";
 import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
+import { DocPhotoStrip } from "@/components/document-photos";
+import { deleteDocPhoto } from "@/lib/doc-photos";
 import { useTodayVN } from "@/lib/use-today";
 import { useBoats } from "@/components/boat-switcher";
 
@@ -96,6 +98,20 @@ export function DocumentVault() {
   const [confirmDelete, setConfirmDelete] = useState<StoredDocument | null>(
     null,
   );
+  // Có sóng không — ảnh giấy tờ (P3) cần mạng để thêm/xem (signed URL). Mặc
+  // định true cho SSR (khớp hydrate), client cập nhật khi mount + online/offline.
+  const [online, setOnline] = useState(true);
+  useEffect(() => {
+    const upd = () =>
+      setOnline(typeof navigator === "undefined" || navigator.onLine);
+    upd();
+    window.addEventListener("online", upd);
+    window.addEventListener("offline", upd);
+    return () => {
+      window.removeEventListener("online", upd);
+      window.removeEventListener("offline", upd);
+    };
+  }, []);
 
   // Hydrate from localStorage on mount (avoids SSR/CSR mismatch).
   useEffect(() => {
@@ -163,6 +179,8 @@ export function DocumentVault() {
   }
 
   function remove(id: string) {
+    // Dọn ảnh giấy tờ ở Storage (best-effort, nền) trước khi bỏ giấy tờ.
+    docs.find((d) => d.id === id)?.photos?.forEach((p) => void deleteDocPhoto(p));
     const next = docs.filter((d) => d.id !== id);
     commit(next);
     setConfirmDelete(null);
@@ -274,6 +292,13 @@ export function DocumentVault() {
                     {doc.note}
                   </p>
                 )}
+                {/* Ảnh chụp giấy tờ (P3) — thêm/xem cần có sóng */}
+                <DocPhotoStrip
+                  docId={doc.id}
+                  photos={doc.photos ?? []}
+                  online={online}
+                  onChange={(photos) => upsert({ ...doc, photos })}
+                />
               </div>
 
               <div className="grid grid-cols-2 border-t border-line">

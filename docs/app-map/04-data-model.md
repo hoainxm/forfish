@@ -171,9 +171,10 @@ Nguồn + thiết kế đầy đủ: [docs/specs/dong-bo-so-per-may.md](../specs
 | Đọc/ghi | ROUTE server `GET/PUT /api/me/sync` (service-role + `identityFromRequest`, lọc `owner_phone`), client `lib/user-sync.ts` (`authedFetch`); helper thuần `lib/user-sync-core.ts` (`isSyncKind`/`invalidPut`, có test) dùng chung client↔route. |
 | RLS | **ĐÓNG HẲN** — enable RLS, **0 policy** cho anon/authenticated (dữ liệu riêng tư, sẽ chứa CCCD/giấy tờ). Chỉ service-role (route đã kiểm owner) đụng được. Client ẩn danh không đọc được của ai. |
 | Offline-first | localStorage vẫn là nguồn đọc chính; server chỉ để máy khác kéo. Ghi local → đẩy (dirty nếu mất sóng); kéo lúc mở app/online → bản mới hơn thắng. Bookkeeping ở khoá `forfish.sync.v1` (NEVER_BACKUP). |
-| Cascade | Xoá tài khoản (`/api/admin/accounts` DELETE) xoá luôn `user_docs` theo SĐT (riêng tư). |
+| Cascade | Xoá tài khoản (`/api/admin/accounts` DELETE) xoá luôn `user_docs` theo SĐT (riêng tư). Xoá 1 giấy tờ → dọn ảnh Storage của nó. |
+| ẢNH giấy tờ (P3) | migration [`0051_user_docs_photos.sql`](../../supabase/migrations/0051_user_docs_photos.sql): bucket Storage **private** `user-docs` (public=false, KHÔNG policy → chỉ service-role). `BoatDocument.photos[]` giữ ĐƯỜNG DẪN (`<owner_phone>/<docId>/<uuid>.jpg`) — đồng bộ nhẹ qua user_docs (kind=documents); bytes đọc/ghi qua route `/api/me/docs/photo` (POST/GET signed-url/DELETE, owner theo tiền tố path=SĐT). Client nén ≤1600px/~1.8MB (`lib/doc-photos.ts`) + `DocPhotoStrip` (`components/document-photos.tsx`). **v1**: thêm/xem ảnh cần có sóng (nợ: hàng đợi offline). |
 
-- ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`, KHÔNG tự apply). Chưa apply → route trả 503/500, client giữ localStorage như cũ (không mất dữ liệu, chỉ chưa đồng bộ).
+- ⚠️ **CHƯA APPLY prod** (0050 + 0051, ref `znzgugvfhgmiszqgjulk`, KHÔNG tự apply). Chưa apply → route trả 503/500, client giữ localStorage như cũ (không mất dữ liệu, chỉ chưa đồng bộ). Bucket `user-docs` có thể tạo tay ở tab Storage (Private) thay migration.
 
 ### Danh mục sản phẩm ADMIN quản lý — migration [`0016_product_catalog.sql`](../../supabase/migrations/0016_product_catalog.sql) (2026-07-28) — ✅ ĐÃ APPLY prod
 

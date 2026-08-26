@@ -107,11 +107,12 @@ export default function QuyenRiengTuPage() {
               phân biệt tài khoản này với tài khoản khác.
             </li>
             <li>
-              <b>Nội dung bà con tự nhập</b> — hồ sơ tàu, giấy tờ (số giấy, hạn),
-              thuyền viên (gồm <b>số CCCD</b>), nhắc bảo dưỡng, vật tư. Những thứ
-              này <b>lưu trong máy</b> và <b>đồng bộ lên máy chủ gắn với tài
-              khoản</b> để đổi/mất máy vẫn còn — chỉ bà con (đăng nhập đúng số
-              điện thoại) xem được, không chia cho ai khác.
+              <b>Nội dung bà con tự nhập</b> — hồ sơ tàu, giấy tờ (số giấy, hạn,
+              và <b>ảnh chụp giấy tờ</b> nếu bà con tự thêm), thuyền viên (gồm{" "}
+              <b>số CCCD</b>), nhắc bảo dưỡng, vật tư. Những thứ này <b>lưu trong
+              máy</b> và <b>đồng bộ lên máy chủ gắn với tài khoản</b> để đổi/mất
+              máy vẫn còn — chỉ bà con (đăng nhập đúng số điện thoại) xem được,
+              không chia cho ai khác.
             </li>
             <li>
               <b>Vị trí GPS</b> — chỉ khi bà con mở tính năng bản đồ hoặc dẫn
@@ -121,8 +122,10 @@ export default function QuyenRiengTuPage() {
             </li>
           </ul>
           <p>
-            App <b>không</b> thu thập: danh bạ, ảnh, tin nhắn, lịch sử duyệt web,
-            hay mã quảng cáo (IDFA/AAID).
+            App <b>không</b> đọc kho ảnh, danh bạ, tin nhắn hay lịch sử duyệt web
+            của bà con, và <b>không</b> có mã quảng cáo (IDFA/AAID). Ảnh duy nhất
+            app giữ là <b>ảnh giấy tờ bà con tự chọn</b> thêm vào tủ giấy tờ (nêu
+            ở trên).
           </p>
         </Section>
 
