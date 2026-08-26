@@ -610,6 +610,23 @@ Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔN
 
 **B. Nhắc cài về máy** (`components/install-prompt.tsx` → `InstallBanner`, đặt ở trang chủ dưới `UrgentStrip`): thẻ `.surface` calm — Android/Chrome bắt `beforeinstallprompt` → nút "Cài về máy" bung hộp cài; iOS Safari (không có sự kiện đó) → hướng dẫn tay "bấm Chia sẻ → Thêm vào Màn hình chính". **Cài về máy là cách DUY NHẤT vượt giới hạn 7 ngày của iOS** (không có API). Tự ẩn khi đã cài (`isStandalone`) / đã tắt ~~(`forfish.installNudge.dismissed.v1`)~~ / trình duyệt không cho cài (desktop không iOS). Không nài — tắt là nhớ. **Cập nhật 2026-08-18 (gói D, §12 tầng 5)**: nhịp nhắc do `lib/install-nudge.ts` quyết (thuần, có test) — khoá **`forfish.installNudge.v2`** `{count, lastAt, dismissed}`: hiện **≤3 lần, cách ≥1 ngày** (`INSTALL_NUDGE_MAX`/`INSTALL_NUDGE_GAP_MS`); bấm X **hoặc** bấm Cài rồi huỷ hộp cài (`userChoice.outcome === "dismissed"`) = tắt hẳn; khoá cũ `installNudge.dismissed.v1` = "1" vẫn được đọc là đã tắt (không migrate, không xoá); **ẩn khi offline**; ẩn khi dải khẩn ≥3 dòng (`UrgentWithInstall` bọc cả hai). Đặt ở trang chủ trong `UrgentWithInstall`, ngay dưới UrgentStrip.
 
+**CHẠY SONG SONG VỚI BẢN CH PLAY (2026-08-26)** — chủ dự án: *"cho chạy song song đi, tức là cài chrome hay pwa trên web đều được"*.
+
+> **Vì sao thẻ nhắc cài biến mất trên máy đã có bản CH Play**: bản đó là TWA, xác thực Digital Asset Links về cùng origin ⇒ **Chrome coi origin này "đã cài" và KHÔNG BAO GIỜ bắn `beforeinstallprompt` nữa**. Bản cũ chỉ `setMode("android")` bên trong handler của sự kiện đó, nên không có sự kiện = không có thẻ, im lặng, không ai biết vì sao. Code web **không ép được** Chrome bắn sự kiện — nên phải bỏ chỗ phụ thuộc, không phải đi sửa sự kiện.
+
+| Máy | Chrome có hỏi? | Thẻ hiện gì |
+|---|---|---|
+| Android | có (`beforeinstallprompt`) | nút **"Cài về máy"** bung hộp cài thật |
+| Android | không, sau `BIP_WAIT_MS` = 2,5s | **hướng dẫn tay**: bấm ⋮ → "Thêm vào Màn hình chính" (có máy ghi "Cài ứng dụng") |
+| iPhone | — | hướng dẫn tay qua nút Chia sẻ (như cũ) |
+| Desktop | — | **không mời** — mời hão vì máy không cài được |
+
+Sự kiện tới MUỘN vẫn được nhận và **nâng cấp** thẻ từ hướng-dẫn-tay lên nút bấm; không mất đường cài tử tế. Chờ 2,5s chứ không lâu hơn: Chrome bắn gần như tức thì khi máy đủ điều kiện, chờ lâu là thẻ nhấp nháy đổi hình trước mắt bà con.
+
+Câu chữ nhánh hướng-dẫn-tay **không nói lý do kỹ thuật** ("máy bạn đã có bản CH Play nên Chrome không hỏi") — bà con chỉ cần biết **bấm vào đâu**.
+
+Đo thật trên trình duyệt (UA Android, dev không có service worker nên `beforeinstallprompt` không bắn): thẻ hiện đúng nhánh hướng dẫn tay; đổi sang UA desktop thì **không** hiện.
+
 **C. iPhone: bản cài là KHO RIÊNG** (sửa câu chữ 2026-07-31): webclip iOS không dùng chung storage với Safari — dự báo/cache/phiên đã có trong Safari KHÔNG theo sang, và lần mở ĐẦU TIÊN của bản cài bắt buộc phải có sóng (chưa có service worker thì không có gì để trả). Vậy câu "cài xong là ra khơi mất sóng vẫn mở được" chỉ đúng trên Android/Chrome (dùng chung kho). `InstallBanner` nay tách câu theo máy, và nhánh iOS thêm dòng ĐỎ "Cài xong mở app vừa cài NGAY khi còn sóng: bản cài bắt đầu từ kho trống, phải tải lại dự báo một lần". Bản cài trống vẫn được chip Ra khơi nhắc "Chưa tải dữ liệu dự báo" (`pretrip-auto.ts`) và `PretripAutoNotify` tự tải lại khi có sóng.
 
 **KHÔNG làm** (user chốt 2026-07-28): KHÔNG nhét câu "nên cài về máy" vào chip trạng thái tải-sẵn ở Ra khơi (`PretripSavedStatus`) — chip đó chỉ để liếc "đã lưu tới ngày nào", thêm câu cài đặt vào là rối + trùng với banner trang chủ. ~~Việc nhắc cài chỉ nằm ở `InstallBanner`.~~ **Đính chính 2026-08-18** (audit `ops/audit-notify-2026-08-18.md` mục 7): nhắc cài thực tế nằm ở **3 chỗ** — `InstallBanner` trang chủ (chỗ chính) · băng iOS trong sheet tải-sẵn (`PretripSavedSheet`, chỉ khi máy iPhone chưa cài — vì bản cài iOS là kho RIÊNG, mục C) · 1 dòng ở màn `/login`. Cả ba theo tầng 5 của §12 (≤3 lần cách ≥1 ngày, tắt là nhớ, ẩn khi offline); chip `PretripSavedStatus` vẫn KHÔNG nhắc cài.
