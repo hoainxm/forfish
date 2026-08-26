@@ -202,7 +202,6 @@ import {
   LockIcon,
   MoonIcon,
   PauseIcon,
-  PinIcon,
   PlayIcon,
   StarIcon,
   TargetIcon,
@@ -2865,15 +2864,17 @@ export default function FishingMapView() {
           </Marker>
         )}
 
-        {/* CON TRỎ — chỗ đang xem dự báo: CÁI GHIM, kiểu Google Maps lúc chọn
-            vị trí (user 2026-08-25d: *"cái mũi tên ko đúng"*). Đã thử vòng ngắm
-            rồi mũi tên, cả hai đều lạ mắt; cái ghim là hình bà con gặp hằng ngày
-            trên app bản đồ. `anchor="bottom"` = CHÂN ghim rơi đúng toạ độ.
-            Cỡ 1.75rem (bản gốc 2.25rem — user chê to).
-            Ẩn nếu trùng một điểm đã ghim — chỗ đó đã có sao vàng. */}
+        {/*  CON TRỎ — chỗ đang xem dự báo: CON CÁ (user 2026-08-25f: *"vị trí
+             trỏ trên bản đồ thì dùng biểu tượng con cá, tăng thêm 50% kích
+             thước hiện tại"*). Lần lượt đã thử: vòng ngắm → mũi tên → cái ghim
+             → con cá. Cỡ 2.625rem (= 1.75rem +50%).
+             `anchor="center"`: con cá không có "chân" như cái ghim, TÂM hình
+             mới là chỗ trỏ tới — đổi anchor cùng lúc đổi hình, không thì con trỏ
+             lệch xuống nửa thân cá (ngoài khơi là lệch mấy hải lý).
+             Ẩn nếu trùng một điểm đã ghim — chỗ đó đã có sao vàng. */}
         {!currentPlace && (
-          <Marker longitude={point.lon} latitude={point.lat} anchor="bottom">
-            <PinIcon className="h-7 w-7 text-trim drop-shadow-pin" />
+          <Marker longitude={point.lon} latitude={point.lat} anchor="center">
+            <FishIcon className="h-[2.625rem] w-[2.625rem] text-trim drop-shadow-pin" />
           </Marker>
         )}
       </MapGL>

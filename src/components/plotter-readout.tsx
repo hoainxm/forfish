@@ -14,10 +14,11 @@
  * số, như thanh dữ liệu của máy định vị / Windy, không phải khối thẻ 3 dòng.
  *
  * HÌNH PHẢI KHỚP BẢN ĐỒ (user 2026-08-25c: *"nó đang bị ngược"*):
- *  · vị trí TÀU  = CHẤM NHỎ nhấp nháy (quy ước "chỗ tôi đang đứng")
- *  · vị trí TRỎ  = CÁI GHIM (`PinIcon`, y hệt marker trên bản đồ) — kiểu
- *    Google Maps lúc chọn vị trí; đã thử vòng ngắm rồi mũi tên, user chê cả hai.
- * Bản trước làm ngược (tàu mũi tên, trỏ vòng ngắm) nên đọc bị lộn.
+ *  · vị trí TÀU  = ICON TÀU (`BoatIcon`, y hệt marker trên bản đồ)
+ *  · vị trí TRỎ  = CON CÁ  (`FishIcon`, y hệt marker trên bản đồ)
+ * Chốt 2026-08-25f. Hai hình đi qua nhiều nhịp (mũi tên → chấm → tàu; vòng ngắm
+ * → mũi tên → ghim → cá) — hễ đổi hình trên bản đồ thì PHẢI đổi ở đây cùng lúc,
+ * hai chỗ khác hình là bà con không nối được đâu với đâu.
  *  · Đang chạy bình thường  → hai dòng chữ, KHÔNG phải nút (đọc, không bấm) —
  *    đúng cách các app bản đồ bày toạ độ; nút "Vị trí" ở rail phải mới là nút.
  *  · CHƯA có vị trí          → dòng TÀU TÔI thành NÚT THẬT cao 3.5rem, chạm là
@@ -30,7 +31,7 @@
 import { haversineKm, bearingDeg, type LatLon } from "@/lib/route-plan";
 import { useMapPrefs, fmtCoordPair, fmtDist } from "@/lib/map-prefs";
 import type { NavStatus } from "@/lib/use-nav-tracking";
-import { PinIcon, AlertIcon } from "@/components/icons";
+import { BoatIcon, FishIcon, AlertIcon } from "@/components/icons";
 
 /*  Dưới ngưỡng này coi như con trỏ trùng tàu (≈180 m — trong tầm sai số GPS
     thường của điện thoại trên tàu), không tính hướng nữa. */
@@ -46,22 +47,14 @@ function clockVN(ms: number): string {
   });
 }
 
-/** CHẤM VỊ TRÍ TÀU — cùng hình với marker trên bản đồ (nav-mode NavBoatMarker) */
-function BoatDot({ stale, off }: { stale?: boolean; off?: boolean }) {
+/** ICON TÀU nhỏ — cùng hình với marker trên bản đồ (nav-mode NavBoatMarker) */
+function BoatMark({ stale, off }: { stale?: boolean; off?: boolean }) {
   return (
-    <span className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-      {!stale && !off && (
-        <span
-          className="absolute inline-flex h-full w-full animate-ping rounded-full bg-t1/60"
-          aria-hidden
-        />
-      )}
-      <span
-        className={`relative h-2.5 w-2.5 rounded-full border-2 border-white ${
-          off ? "bg-foreground/35" : stale ? "bg-t1/45" : "bg-t1"
-        }`}
-      />
-    </span>
+    <BoatIcon
+      className={`h-4 w-4 shrink-0 ${
+        off ? "text-foreground/35" : stale ? "text-t1/50" : "text-t1"
+      }`}
+    />
   );
 }
 
@@ -129,7 +122,7 @@ export function PlotterReadout({
           Chưa có = NÚT THẬT cao 3.5rem: chạm là xin quyền định vị. */}
       {myPos != null ? (
         <p className="flex min-h-[1.375rem] items-center gap-1.5">
-          <BoatDot stale={stale} />
+          <BoatMark stale={stale} />
           <RowLabel text="Tàu" />
           <span
             className={`truncate text-[0.75rem] font-bold tabular-nums leading-snug ${
@@ -158,7 +151,7 @@ export function PlotterReadout({
           {denied ? (
             <AlertIcon className="h-3.5 w-3.5 shrink-0 text-warn" />
           ) : (
-            <BoatDot off />
+            <BoatMark off />
           )}
           <RowLabel text="Tàu" />
           <span className="min-w-0 flex-1">
@@ -182,7 +175,7 @@ export function PlotterReadout({
 
       {/* ── CON TRỎ (chỗ đang xem dự báo) — luôn là DÒNG CHỮ, một dòng ──── */}
       <p className="flex min-h-[1.375rem] items-center gap-1.5">
-        <PinIcon className="h-3.5 w-3.5 shrink-0 text-trim" />
+        <FishIcon className="h-4 w-4 shrink-0 text-trim" />
         <RowLabel text="Trỏ" />
         <span className="truncate text-[0.75rem] font-bold tabular-nums leading-snug text-navy">
           {fmtCoordPair(cursor.lat, cursor.lon, prefs.coordFormat)}
