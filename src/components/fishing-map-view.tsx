@@ -2956,6 +2956,48 @@ export default function FishingMapView() {
             />
           </Source>
         )}
+        {/*  NHÃN GIỮA ĐƯỜNG KẺ — bà con nhìn đường mà không biết nó là gì
+             (VSS Quân 2026-08-25i: *"đường kéo dài ra biên là đường gì vậy a"*).
+             Trên màn có HAI đường cùng lúc (tàu→con trỏ và điểm xem→ranh giới);
+             đường tới biên đã có nhãn, đường này thì chưa ⇒ đường không nhãn bị
+             hiểu nhầm thành đường kia. Nay cả hai đều tự xưng tên.
+             Ẩn khi con trỏ gần như trùng tàu — nhãn sẽ chồng lên dấu tàu. */}
+        {tracking.pos &&
+          haversineKm(
+            tracking.pos.lat,
+            tracking.pos.lon,
+            point.lat,
+            point.lon,
+          ) >= 0.5 && (
+            <Marker
+              longitude={(tracking.pos.lon + point.lon) / 2}
+              latitude={(tracking.pos.lat + point.lat) / 2}
+              anchor="center"
+            >
+              <span className="whitespace-nowrap rounded-full border border-white/80 bg-t1 px-2 py-0.5 text-[0.6875rem] font-bold text-white shadow-md">
+                {fmtDist(
+                  haversineKm(
+                    tracking.pos.lat,
+                    tracking.pos.lon,
+                    point.lat,
+                    point.lon,
+                  ),
+                  prefs.distUnit,
+                  0,
+                )}{" "}
+                &middot;{" "}
+                {Math.round(
+                  bearingDeg(
+                    tracking.pos.lat,
+                    tracking.pos.lon,
+                    point.lat,
+                    point.lon,
+                  ),
+                )}
+                &deg;
+              </span>
+            </Marker>
+          )}
 
         {/*  CON TRỎ — chỗ đang xem dự báo: CON CÁ (user 2026-08-25f: *"vị trí
              trỏ trên bản đồ thì dùng biểu tượng con cá, tăng thêm 50% kích
