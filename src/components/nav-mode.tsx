@@ -24,9 +24,20 @@ import {
   MinusIcon,
   NavArrowIcon,
   RouteIcon,
+  BoatIcon,
 } from "@/components/icons";
 
-/** Chấm tàu + mũi tên hướng trên bản đồ (đặt trong <MapGL>). */
+/**
+ * VỊ TRÍ TÀU trên bản đồ (đặt trong <MapGL>) — **ICON TÀU** trên quầng nhấp
+ * nháy (user 2026-08-25f: *"vị trí hiện tại theo máy thì dùng icon tàu, kích
+ * thước tăng thêm 50%"*). Chỗ TRỎ TỚI dùng **icon con cá** (xem
+ * fishing-map-view). Trước lần lượt là: mũi tên → chấm tròn → icon tàu.
+ * CỠ — chốt sau BỐN nhịp (ghi lại để đừng chỉnh vòng vo nữa): vòng trắng 44px
+ * chê TO → 0.875rem chê NHỎ → ×3 chê to → ×2 → **+50% nữa** (2026-08-25f):
+ * icon tàu 3.75rem trên quầng 5.25rem (2026-08-25h). Dấu tàu
+ * là thứ mắt phải bắt được NGAY giữa bản đồ đầy màu — khác cái ghim con trỏ
+ * (đứng yên, tìm lúc nào cũng được).
+ */
 export function NavBoatMarker({
   pos,
   headingDeg,
@@ -34,28 +45,38 @@ export function NavBoatMarker({
 }: {
   pos: LatLon | null;
   headingDeg: number | null;
-  /** mất định vị → làm mờ để bà con biết đây là vị trí CŨ */
+  /** mất định vị → làm mờ + TẮT nhấp nháy: số cũ thì đừng giả vờ đang sống */
   stale?: boolean;
 }) {
   if (!pos) return null;
   return (
     <Marker longitude={pos.lon} latitude={pos.lat} anchor="center">
       <span
-        className={`flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-md ring-2 ring-t1 transition-opacity ${
-          stale ? "opacity-40" : "opacity-100"
+        className={`relative flex h-[5.25rem] w-[5.25rem] items-center justify-center transition-opacity ${
+          stale ? "opacity-45" : "opacity-100"
         }`}
       >
-        {headingDeg != null ? (
-          // mũi tên chỉ thẳng lên (Bắc) → xoay theo heading; MapLibre bắc-lên
+        {/* quầng nhấp nháy — chỉ khi đang có tín hiệu sống. KHÔNG xoay theo
+            heading (vòng tròn xoay cũng thế), nên nằm ngoài khung xoay. */}
+        {!stale && (
           <span
-            className="flex"
-            style={{ transform: `rotate(${headingDeg}deg)` }}
-          >
-            <NavArrowIcon className="h-6 w-6 text-t1" />
-          </span>
-        ) : (
-          <span className="h-3.5 w-3.5 rounded-full bg-t1" aria-hidden />
+            className="absolute inline-flex h-full w-full animate-ping rounded-full bg-t1/55"
+            aria-hidden
+          />
         )}
+        {/*  MŨI TÀU CHỈ HƯỚNG khi biết heading; KHÔNG biết thì để mũi hướng Bắc
+             — hình con tàu tự nó có mũi nên không tránh được việc "chỉ" đâu đó;
+             bù lại đã bỏ pip tam giác cũ (hết nói hướng hai lần). */}
+        <span
+          className="relative flex"
+          style={
+            headingDeg != null
+              ? { transform: `rotate(${headingDeg}deg)` }
+              : undefined
+          }
+        >
+          <BoatIcon className="h-[3.75rem] w-[3.75rem] text-t1 drop-shadow-pin" />
+        </span>
       </span>
     </Marker>
   );

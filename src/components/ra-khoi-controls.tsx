@@ -60,8 +60,8 @@ import { parseCoordPair } from "@/lib/parse-coord";
 
 const FISH_COLOR = "#2d8659"; // xanh lá — cá/ngư trường (design Phương án A)
 
-// rail xổ ra mà bà con không chạm gì 5s → tự thu (user 2026-07-28)
-const AUTO_HIDE_MS = 5000;
+// rail xổ ra mà bà con không chạm gì 3s → tự thu (user 2026-07-28, hạ 5s→3s 2026-08-24)
+const AUTO_HIDE_MS = 3000; // 5s → 3s (user 2026-08-24: đỡ rối mắt)
 
 type PanelId =
   | "hai-do"

@@ -323,6 +323,29 @@ export function PinIcon(p: IconProps) {
 
 // Mũi tên điều hướng — CHỈ THẲNG LÊN (12h) để xoay theo heading bằng CSS
 // transform:rotate(headingDeg). Dùng cho marker tàu lúc dẫn đường live.
+/**
+ * TÀU nhìn từ trên xuống — MŨI Ở TRÊN (hướng Bắc khi không xoay), dùng làm dấu
+ * "chỗ tôi đang đứng" trên bản đồ (user 2026-08-25f: *"vị trí hiện tại theo máy
+ * thì dùng icon tàu"*). Xoay theo `headingDeg` là ra hướng tàu đang chạy.
+ * TÔ ĐẶC + viền trắng (khác `base()` nét-rỗng): nét rỗng cỡ nhỏ trên ảnh vệ
+ * tinh / hải đồ nhiều màu là chìm mất.
+ */
+export function BoatIcon(p: IconProps) {
+  return (
+    <svg
+      className={p.className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      stroke="#fff"
+      strokeWidth={1.6}
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 1.8c2.8 2.9 4.3 6.2 4.3 9.7V19a2 2 0 0 1-2 2H9.7a2 2 0 0 1-2-2v-7.5c0-3.5 1.5-6.8 4.3-9.7Z" />
+    </svg>
+  );
+}
+
 export function NavArrowIcon(p: IconProps) {
   return (
     <svg {...base(p)}>
