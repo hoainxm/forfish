@@ -15,9 +15,9 @@
  *
  * HÌNH PHẢI KHỚP BẢN ĐỒ (user 2026-08-25c: *"nó đang bị ngược"*):
  *  · vị trí TÀU  = ICON TÀU (`BoatIcon`, y hệt marker trên bản đồ)
- *  · vị trí TRỎ  = CON CÁ  (`FishIcon`, y hệt marker trên bản đồ)
+ *  · vị trí TRỎ  = CÁI GHIM (`PinIcon`, y hệt marker trên bản đồ)
  * Chốt 2026-08-25f. Hai hình đi qua nhiều nhịp (mũi tên → chấm → tàu; vòng ngắm
- * → mũi tên → ghim → cá) — hễ đổi hình trên bản đồ thì PHẢI đổi ở đây cùng lúc,
+ * → mũi tên → ghim → cá → GHIM) — hễ đổi hình trên bản đồ thì PHẢI đổi ở đây cùng lúc,
  * hai chỗ khác hình là bà con không nối được đâu với đâu.
  *  · Đang chạy bình thường  → hai dòng chữ, KHÔNG phải nút (đọc, không bấm) —
  *    đúng cách các app bản đồ bày toạ độ; nút "Vị trí" ở rail phải mới là nút.
@@ -31,7 +31,7 @@
 import { haversineKm, bearingDeg, type LatLon } from "@/lib/route-plan";
 import { useMapPrefs, fmtCoordPair, fmtDist } from "@/lib/map-prefs";
 import type { NavStatus } from "@/lib/use-nav-tracking";
-import { BoatIcon, FishIcon, AlertIcon } from "@/components/icons";
+import { BoatIcon, PinIcon, AlertIcon } from "@/components/icons";
 
 /*  Dưới ngưỡng này coi như con trỏ trùng tàu (≈180 m — trong tầm sai số GPS
     thường của điện thoại trên tàu), không tính hướng nữa. */
@@ -175,7 +175,7 @@ export function PlotterReadout({
 
       {/* ── CON TRỎ (chỗ đang xem dự báo) — luôn là DÒNG CHỮ, một dòng ──── */}
       <p className="flex min-h-[1.375rem] items-center gap-1.5">
-        <FishIcon className="h-4 w-4 shrink-0 text-trim" />
+        <PinIcon className="h-4 w-4 shrink-0 text-trim" />
         <RowLabel text="Trỏ" />
         <span className="truncate text-[0.75rem] font-bold tabular-nums leading-snug text-navy">
           {fmtCoordPair(cursor.lat, cursor.lon, prefs.coordFormat)}

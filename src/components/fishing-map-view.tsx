@@ -202,6 +202,7 @@ import {
   LockIcon,
   MoonIcon,
   PauseIcon,
+  PinIcon,
   PlayIcon,
   StarIcon,
   TargetIcon,
@@ -2879,6 +2880,60 @@ export default function FishingMapView() {
           </Marker>
         )}
 
+        {/*  ĐƯỜNG ĐO TỚI BIÊN — nối chỗ đang xem với ĐIỂM GẦN NHẤT trên ranh
+             giới biển (user 2026-08-25i: *"vẽ thêm cái tính tới biên để biết là
+             vị trí đó cách biên bao nhiêu"*). `prox.nearest` do lib/geofence trả
+             sẵn cùng lúc với khoảng cách — không tính lại, không đoán.
+             Màu cam-đỏ `#b42318` CÙNG HỌ với đường ranh giới (03 §6: cam-đỏ là
+             màu độc quyền của ranh giới) nhưng MẢNH HƠN + nét đứt khác để không
+             ai nhầm nó LÀ đường ranh giới. */}
+        <Source
+          id="border-line"
+          type="geojson"
+          data={{
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [point.lon, point.lat],
+                [prox.nearest[0], prox.nearest[1]],
+              ],
+            },
+          }}
+        >
+          <Layer
+            id="border-line-l"
+            type="line"
+            paint={{
+              "line-color": "#b42318",
+              "line-width": 1.5,
+              "line-opacity": 0.75,
+              "line-dasharray": [3, 2],
+            }}
+          />
+        </Source>
+        {/* nhãn số hải lý NGAY GIỮA đường đo — đọc được mà không phải mở sheet */}
+        <Marker
+          longitude={(point.lon + prox.nearest[0]) / 2}
+          latitude={(point.lat + prox.nearest[1]) / 2}
+          anchor="center"
+        >
+          {/*  Nhãn tô bằng TOKEN `--danger`, KHÔNG hard-code hex vào class
+               Tailwind — hook chặn (nguyên tắc 8). Màu ranh giới của lớp bản đồ
+               lệch không đáng kể so với `--danger`, mà token thì đã được đo
+               tương phản sẵn. Hex chỉ được phép nằm trong `paint` của MapLibre,
+               không phải trong className. */}
+          <span className="whitespace-nowrap rounded-full border border-white/80 bg-danger px-2 py-0.5 text-[0.6875rem] font-bold text-white shadow-md">
+            {fmtDist(
+              prox.distanceNm * 1.852,
+              prefs.distUnit,
+              prox.distanceNm < 10 ? 1 : 0,
+            )}{" "}
+            tới biên
+          </span>
+        </Marker>
+
         {/*  ĐƯỜNG KẺ TÀU → CON TRỎ (bà con qua VSS Quân 2026-08-25: *"khi trỏ
              tới đâu thì nên làm đường kẻ từ vị trí mình có tới còn trỏ luôn"*).
              Đúng kiểu máy định vị: nhìn một cái là biết mình đang ngắm hướng nào,
@@ -2926,18 +2981,20 @@ export default function FishingMapView() {
              lệch xuống nửa thân cá (ngoài khơi là lệch mấy hải lý).
              Ẩn nếu trùng một điểm đã ghim — chỗ đó đã có sao vàng. */}
         {!currentPlace && (
-          <Marker longitude={point.lon} latitude={point.lat} anchor="center">
-            {/*  NHẤP NHÁY như dấu vị trí của các app bản đồ (user 2026-08-25h:
-                 *"cả 2 làm hiệu ứng nhấp nháy tương tự các app khác"*) — con trỏ
-                 nay cũng có quầng `animate-ping` giống chấm tàu, chỉ khác màu:
-                 tàu `--t1`, con trỏ `--trim`. Quầng nằm SAU con cá và
-                 `pointer-events-none` để không nuốt cú chạm vào bản đồ. */}
-            <span className="relative flex h-[3.75rem] w-[3.75rem] items-center justify-center">
+          <Marker longitude={point.lon} latitude={point.lat} anchor="bottom">
+            {/*  CÁI GHIM — biểu tượng ai cũng quen trên app bản đồ (user
+                 2026-08-25i: *"cho về biểu tượng thường dùng đi, thay cho con
+                 cá"*). Đã đi một vòng: vòng ngắm -> mũi tên -> ghim -> cá ->
+                 GHIM. Giữ nguyên cỡ 2.625rem và quầng nhấp nháy vừa thêm.
+                 `anchor="bottom"` = CHÂN ghim rơi đúng toạ độ, nên quầng phải
+                 neo vào CHÂN chứ không phải giữa hình — không thì vòng nháy
+                 lệch lên nửa thân ghim, trỏ sai chỗ. */}
+            <span className="relative flex flex-col items-center">
               <span
-                className="pointer-events-none absolute inline-flex h-full w-full animate-ping rounded-full bg-trim/45"
+                className="pointer-events-none absolute -bottom-[1.875rem] left-1/2 h-[3.75rem] w-[3.75rem] -translate-x-1/2 animate-ping rounded-full bg-trim/45"
                 aria-hidden
               />
-              <FishIcon className="relative h-[2.625rem] w-[2.625rem] text-trim drop-shadow-pin" />
+              <PinIcon className="relative h-[2.625rem] w-[2.625rem] text-trim drop-shadow-pin" />
             </span>
           </Marker>
         )}
