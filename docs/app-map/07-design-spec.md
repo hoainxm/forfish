@@ -666,6 +666,18 @@ Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔN
 
 **Pin**: `useNavTracking(active, { keepAwake })` — ô toạ độ truyền `keepAwake: false`, chỉ DẪN ĐƯỜNG mới giữ màn hình sáng. Xem bản đồ cả buổi mà giữ sáng là hết pin giữa biển.
 
+**ĐƯỜNG KẺ TÀU → CON TRỎ (2026-08-25g)**, bà con qua VSS Quân: *"khi trỏ tới đâu thì nên làm đường kẻ từ vị trí mình có tới còn trỏ luôn"*. Nét ĐỨT MẢNH (`line-width` 2, dash `[1.5,1.5]`) màu `--t1` `#18648b` nối chấm tàu với con cá. **CHỈ vẽ khi BIẾT tàu ở đâu** — không có GPS thì không có đầu để kẻ, tuyệt đối không lấy cảng nhà hay tâm màn hình thay thế. Màu: KHÔNG được xanh `ROUTE_LINE_COLOR` (dễ tưởng là tuyến dẫn đường đã tính xong) và KHÔNG được cam/đỏ (màu độc quyền của ranh giới biển, 03 §6). Số hải lý/độ vẫn đọc ở dải toạ độ — đường kẻ là phần HÌNH, không kèm nhãn.
+
+**CÁCH RANH GIỚI BAO XA — LUÔN HIỆN, ngay dưới toạ độ ở cột phải peek (2026-08-25g)**, bà con qua VSS Quân: *"hiện dưới mục toạ độ là cách ranh giới bn hải lý cho tiện"*.
+
+> ⚠️ **ĐÂY LÀ ĐỔI Ý so với luật cũ** ghi ở 03 §6 (audit 2026-06-10 mục 5): *"khoảng cách ranh giới chỉ nói khi gần (cảnh báo), xa hàng trăm hải lý thì im"*. Chính người dùng đòi con số thường trực — biết còn cách ranh giới bao xa là việc bà con tự nhẩm suốt chuyến, không phải chỉ lúc sắp vượt. Bất biến GIỮ NGUYÊN: app **không khẳng định "đã vượt"** (`lib/geofence` chỉ đo khoảng cách tới đường ranh giới, xem 01 §product).
+
+| `prox.level` | Dòng dưới toạ độ | Dòng cảnh báo to |
+|---|---|---|
+| `ok` | "Cách ranh giới 208 hải lý" (xám) | không |
+| `near` (≤15 hl) | cùng câu, tô `--warn` | **BỎ** dòng "Gần ranh giới biển" (không kèm số ⇒ thừa khi số đã nằm ngay trên) |
+| `very_near` (≤6 hl) | **ẩn** — dòng đỏ dưới đã in đúng con số này | GIỮ dòng đỏ "Rất gần ranh giới — còn ~X hải lý", to, không thu được |
+
 **CỘT PHẢI CỦA PEEK SHEET — chốt 2026-08-25d**: giữ **dòng toạ độ** (user: *"hiển thị toạ độ như cũ"*), và **BỎ HẲN** dòng "cách <chỗ nào> bao xa" (user: *"bỏ chỗ đang xem cách cái gì đi"*). `whereLine` nay CHỈ còn nhánh điểm đã ghim ("Cảng nhà — …" / "Chỗ ghim — …"); không ghim thì không in gì.
 
 Hai lần sai trước đó, ghi lại để đừng lặp:

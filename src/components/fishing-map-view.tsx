@@ -2864,6 +2864,44 @@ export default function FishingMapView() {
           </Marker>
         )}
 
+        {/*  ĐƯỜNG KẺ TÀU → CON TRỎ (bà con qua VSS Quân 2026-08-25: *"khi trỏ
+             tới đâu thì nên làm đường kẻ từ vị trí mình có tới còn trỏ luôn"*).
+             Đúng kiểu máy định vị: nhìn một cái là biết mình đang ngắm hướng nào,
+             xa cỡ nào — số hải lý/độ thì đã có ở dải toạ độ, đây là phần HÌNH.
+             · CHỈ vẽ khi BIẾT tàu ở đâu — không có GPS thì không có đầu để kẻ,
+               tuyệt đối không lấy cảng nhà hay tâm màn hình thay thế.
+             · Nét ĐỨT MẢNH màu t1: KHÔNG được xanh `ROUTE_LINE_COLOR` (dễ tưởng
+               là tuyến dẫn đường đã tính) và KHÔNG được cam/đỏ (màu độc quyền
+               của ranh giới biển — 03 §6). */}
+        {tracking.pos && (
+          <Source
+            id="cursor-line"
+            type="geojson"
+            data={{
+              type: "Feature",
+              properties: {},
+              geometry: {
+                type: "LineString",
+                coordinates: [
+                  [tracking.pos.lon, tracking.pos.lat],
+                  [point.lon, point.lat],
+                ],
+              },
+            }}
+          >
+            <Layer
+              id="cursor-line-l"
+              type="line"
+              paint={{
+                "line-color": "#18648b",
+                "line-width": 2,
+                "line-opacity": 0.85,
+                "line-dasharray": [1.5, 1.5],
+              }}
+            />
+          </Source>
+        )}
+
         {/*  CON TRỎ — chỗ đang xem dự báo: CON CÁ (user 2026-08-25f: *"vị trí
              trỏ trên bản đồ thì dùng biểu tượng con cá, tăng thêm 50% kích
              thước hiện tại"*). Lần lượt đã thử: vòng ngắm → mũi tên → cái ghim
@@ -3431,6 +3469,27 @@ export default function FishingMapView() {
                   <span className="whitespace-nowrap text-[0.75rem] font-semibold tabular-nums leading-snug text-foreground/55">
                     {fmtCoordPair(point.lat, point.lon, prefs.coordFormat)}
                   </span>
+                  {/*  CÁCH RANH GIỚI — LUÔN hiện, ngay dưới toạ độ (bà con qua
+                       VSS Quân 2026-08-25: *"hiện dưới mục toạ độ là cách ranh
+                       giới bn hải lý cho tiện"*).
+                       ĐÂY LÀ ĐỔI Ý so với luật cũ "khoảng cách ranh giới chỉ nói
+                       khi gần, xa hàng trăm hải lý thì im" (audit 2026-06-10 mục
+                       5) — chính người dùng đòi con số thường trực, và biết mình
+                       còn cách ranh giới bao xa là việc bà con tự tính suốt
+                       chuyến. Vẫn KHÔNG khẳng định "đã vượt" (lib/geofence chỉ
+                       đo khoảng cách tới đường ranh giới).
+                       ẨN khi very_near: lúc đó dòng ĐỎ to phía dưới đã in đúng
+                       con số này rồi, in hai lần là thừa. */}
+                  {prox.level !== "very_near" && (
+                    <span
+                      className={`whitespace-nowrap text-[0.75rem] font-semibold tabular-nums leading-snug ${
+                        prox.level === "near" ? "text-warn" : "text-foreground/55"
+                      }`}
+                    >
+                      Cách ranh giới{" "}
+                      {fmtDist(prox.distanceNm * 1.852, prefs.distUnit, prox.distanceNm < 10 ? 1 : 0)}
+                    </span>
+                  )}
                 </div>
               </div>
               {atHome && (
@@ -3447,12 +3506,10 @@ export default function FishingMapView() {
                   Rất gần ranh giới — còn ~{prox.distanceNm.toFixed(1)} hải lý.
                 </p>
               )}
-              {prox.level === "near" && (
-                <p className="mt-1 flex items-center gap-1.5 text-[0.875rem] font-bold text-warn">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-warn" aria-hidden />
-                  Gần ranh giới biển
-                </p>
-              )}
+              {/*  Dòng "Gần ranh giới biển" (không kèm số) BỎ 2026-08-25: con số
+                   nay LUÔN nằm ngay dưới toạ độ và đã tô màu warn khi `near`, nói
+                   thêm một dòng trống nghĩa là thừa. Dòng ĐỎ `very_near` bên trên
+                   thì GIỮ — ≤6 hải lý là mức phải to và không thu được. */}
               {/* LỜI MỜI ở peek: MỘT dòng ngắn, không nút (audit M8 — nudge
                   chính là PremiumLock trong thân sheet); ẩn khi mất sóng. */}
               {fishLocked && fishOn && netOnline && (
