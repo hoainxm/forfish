@@ -679,6 +679,18 @@ Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔN
 - `VN_OUTER_BORDER` (`lib/geofence`) = cung ngoài khơi 200 điểm `allowedOffshore` — CHÍNH đường đỏ nét đứt đang vẽ. Đo tới cái bà con NHÌN THẤY.
 - `VN_ALLOWED_RINGS` = các vòng của vùng `allowed` (kể cả lỗ đảo) → `insideAllowed()` biết điểm nằm TRONG hay NGOÀI. Có đa giác kín rồi mới dám khẳng định bên nào; trước đây cố ý không nói vì chỉ có một đường hở.
 
+**BIÊN CHỈ ÁP DỤNG VỚI ĐƯỜNG BIỂN — KHÔNG BAO GIỜ ĐO TỚI ĐOẠN BỜ** (bà con qua VSS Quân 2026-08-25: *"tuy đường kín nhưng đừng bao giờ tính biên tới cái biên trên bờ"*).
+
+> **Hai lỗi bắt được khi chạy thử luật này trên 10 cảng cá — đọc trước khi đụng vào `insideAllowed`.**
+> 1. **Trộn phẳng MultiPolygon**: bản đầu `flatMap` mọi vòng của mọi polygon rồi chạy chẵn-lẻ chung. Điểm nằm trong hai polygon bị đếm hai lần ⇒ chẵn ⇒ hoá "ở ngoài". Hậu quả đo được: **Vũng Tàu bị báo "ĐÃ NGOÀI ranh giới"**. Chẵn-lẻ chỉ đúng TRONG một polygon (để lỗ đảo lật ngược); giữa các polygon phải là HOẶC.
+> 2. **Ra phía bờ cũng bị tính là vượt biên**: đoạn bờ của vòng kín là đường bờ ĐÃ GIẢN LƯỢC, nó cắt ngang các vịnh. **Thọ Quang (Đà Nẵng)** nằm sâu sau bán đảo Sơn Trà nên rơi ra phía "đất liền" ⇒ lại bị báo đã ra ngoài. Sát bờ thì trong/ngoài là câu hỏi vô nghĩa; trả lời bừa là báo động giả, mà báo động giả vài lần là bà con tắt cảnh báo, tới lúc vượt thật thì không ai nghe.
+>
+> **Luật hiện tại**: `outside = true` chỉ khi (a) có vùng kín để biết trong/ngoài, (b) điểm nằm ngoài vùng kín, và (c) **ra bằng đường biển** — điểm gần nhất trên biên nằm trên đường biển, chênh không quá 1 hải lý so với điểm gần nhất trên toàn viền. Ra phía bờ ⇒ im, chỉ nói khoảng cách.
+>
+> **Cổng chống tái phát** (`__tests__/sea-border.test.ts`): cả 10 cảng cá phải `outside === false`; đường biên phải cách MỌI cảng >30 hải lý; nguồn biên không có vùng kín thì `outside` luôn `false` (không biết thì im, không đoán).
+
+**ADMIN ĐỔI ĐƯỢC BIÊN** (migration 0038 `vms_zones.is_border`, xem 04): `/quan-tri` → tab Vùng biển có nút **"Là ranh giới cảnh báo"** trên từng vùng + ô tick trong form thêm vùng, kèm dòng dặn *nên nạp dạng vùng kín*. `borderFromZones` (lib/geofence) gom hình từ các vùng được đánh dấu; **hai nửa lùi độc lập** — không có đường biển nào được đánh dấu thì đường lấy từ dữ liệu tĩnh, không có vùng kín nào thì vùng kín lấy từ dữ liệu tĩnh. Admin đánh dấu nửa vời cũng không làm cảnh báo im hay hoá dại.
+
 **TRỎ QUA BIÊN THÌ NÓI "ĐÃ NGOÀI", KHÔNG NÓI "CÁCH BIÊN"** (bà con qua VSS Quân: *"trỏ qua biên thì báo vượt biên, chứ sao báo cách biên"*). "Cách ranh giới 30 hải lý" cho một chỗ NGOÀI vùng được phép là câu **đúng số nhưng sai nghĩa** — đọc lên thành "còn 30 hải lý nữa mới tới biên". `prox.outside === true` ⇒ `level = "very_near"` + câu `"Chỗ này ĐÃ NGOÀI ranh giới — vào trong ~N hải lý"`. Câu nói về **chỗ đang xem**, không phải về tàu: app không kết tội ai. Dòng đỏ ở peek nay in thẳng `prox.label` chứ không viết cứng, để ca này không bị đọc thành "sắp tới biên".
 
 **CÁCH RANH GIỚI BAO XA — LUÔN HIỆN, ngay dưới toạ độ ở cột phải peek (2026-08-25g)**, bà con qua VSS Quân: *"hiện dưới mục toạ độ là cách ranh giới bn hải lý cho tiện"*.

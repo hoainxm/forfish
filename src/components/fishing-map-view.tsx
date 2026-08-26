@@ -145,6 +145,7 @@ import {
   type VmsZone,
 } from "@/lib/vms-zones";
 import {
+  borderFromZones,
   borderProximity,
   borderStepCrossed,
   borderStepFor,
@@ -395,6 +396,16 @@ export default function FishingMapView() {
   // Ranh giới vùng lộng bật/tắt qua map-prefs. VÙNG BIỂN VMS nay do admin quản
   // lý (bảng vms_zones): đọc từ DB, chưa cấu hình/lỗi → 3 vùng mặc định tĩnh.
   const [vmsZones, setVmsZones] = useState<VmsZone[]>(STATIC_VMS_ZONES);
+  /*  NGUỒN BIÊN cho cảnh báo ranh giới, dựng từ vùng ADMIN đã đánh dấu
+      `isBorder` (migration 0038); chưa đánh dấu vùng nào thì `borderFromZones`
+      trả dữ liệu tĩnh ⇒ hành vi y như cũ. Memo vì mỗi lần dựng là duyệt lại
+      vài nghìn toạ độ.
+      ⚠️ PHẢI KHAI Ở ĐÂY, ngay sau `vmsZones`: nhánh DẪN ĐƯỜNG dùng nó sớm hơn
+      ~380 dòng. Bản đầu tôi khai cạnh `prox` ở cuối thân hàm — lint React
+      Compiler chặn, mà thật ra là TDZ: vào chế độ dẫn đường là nổ "Cannot
+      access before initialization". Cùng loại bẫy đã ghi ở chú thích
+      `syncBaseTopReady` phía trên. */
+  const borderSrc = useMemo(() => borderFromZones(vmsZones), [vmsZones]);
   useEffect(() => {
     let alive = true;
     fetchPublicVmsZones().then((z) => {
@@ -1585,7 +1596,7 @@ export default function FishingMapView() {
   // memo theo fix GPS — effect dưới lệ thuộc reference này, không được đổi
   // mỗi lần vẽ lại (sẽ set state vòng lặp)
   const navProx = useMemo(
-    () => (navOn && navPos ? borderProximity(navPos.lat, navPos.lon) : null),
+    () => (navOn && navPos ? borderProximity(navPos.lat, navPos.lon, borderSrc) : null),
     [navOn, navPos],
   );
   const navBorderStepRef = useRef<number | null>(null);
@@ -1966,7 +1977,7 @@ export default function FishingMapView() {
   const confidence = forecastConfidence(daysAhead, skillConf);
   /** Số đo "lúc này" trong bản lưu là số ĐÔNG CỨNG lúc lưu — chỉ nói thật giờ đo */
   const isToday = sel?.date === todayIso;
-  const prox = borderProximity(point.lat, point.lon);
+  const prox = borderProximity(point.lat, point.lon, borderSrc);
   /*  ĐẾM 3 GIÂY RỒI TRƯỢT SHEET SÁT ĐÁY (SHEET_AUTO_HIDE_MS) — MỌI NẤC.
       Chạy lại khi ĐỔI ĐIỂM ĐANG XEM nữa, không chỉ khi đổi nấc: chạm điểm mới
       lúc sheet ĐANG ở `peek` thì `size` không đổi ⇒ chỉ nghe `size` là đồng hồ

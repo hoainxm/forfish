@@ -29,6 +29,12 @@ export interface VmsZone {
   defaultOn: boolean;
   /** admin bật/tắt vùng — false = ẩn hẳn, app không thấy */
   visible: boolean;
+  /**  Hình vùng này ĐỊNH NGHĨA ranh giới dùng cho cảnh báo IUU (migration
+       0038). Nên là vùng KÍN: một hình lo cả hai việc — đo khoảng cách tới
+       viền, và biết điểm nằm trong hay ngoài. Chỉ là ĐƯỜNG thì app vẫn đo
+       khoảng cách nhưng KHÔNG khẳng định trong/ngoài (đường hở không có
+       'bên trong'). Không vùng nào bật ⇒ app dùng dữ liệu tĩnh như cũ. */
+  isBorder: boolean;
   geojson: GeoJSON.FeatureCollection;
   sortOrder: number;
   createdAt?: string;
@@ -41,6 +47,7 @@ export interface VmsZoneDraft {
   style: VmsZoneStyle;
   defaultOn: boolean;
   visible: boolean;
+  isBorder: boolean;
   geojson: GeoJSON.FeatureCollection;
 }
 
@@ -53,12 +60,14 @@ const TABLE = "vms_zones";
 export const STATIC_VMS_ZONES: VmsZone[] = [
   {
     id: "default-allowed-offshore",
+    // vùng duy nhất mang nghĩa "ranh giới" trong bộ mặc định SDVico gửi
     name: "Ranh giới ngoài khơi (được phép)",
     color: "#dc2626",
     style: "line-dashed",
     defaultOn: true,
     visible: true,
     geojson: vmsZonesJson.allowedOffshore as unknown as GeoJSON.FeatureCollection,
+    isBorder: true,
     sortOrder: 0,
   },
   {
@@ -69,6 +78,7 @@ export const STATIC_VMS_ZONES: VmsZone[] = [
     defaultOn: true,
     visible: true,
     geojson: vmsZonesJson.caution as unknown as GeoJSON.FeatureCollection,
+    isBorder: false,
     sortOrder: 1,
   },
   {
@@ -79,6 +89,7 @@ export const STATIC_VMS_ZONES: VmsZone[] = [
     defaultOn: true,
     visible: true,
     geojson: vmsZonesJson.bottomOnly as unknown as GeoJSON.FeatureCollection,
+    isBorder: false,
     sortOrder: 2,
   },
 ];
@@ -268,6 +279,8 @@ type Row = {
   geojson: unknown;
   sort_order: number;
   created_at: string;
+  /** có thể VẮNG khi migration 0038 chưa apply */
+  is_border?: boolean | null;
 };
 
 function toStyle(s: string): VmsZoneStyle {
@@ -289,6 +302,7 @@ export function rowToZone(r: Row): VmsZone {
       gj && Array.isArray(gj.features)
         ? gj
         : { type: "FeatureCollection", features: [] },
+    isBorder: r.is_border === true,
     sortOrder: r.sort_order,
     createdAt: r.created_at,
   };
@@ -306,15 +320,26 @@ export async function fetchPublicVmsZones(): Promise<VmsZone[] | null> {
   // vô hại với màn hình, NHƯNG không có trần thì ở sóng "sống mà chết" nó để
   // lại một promise + một kết nối treo suốt phiên, mỗi lần mở màn thêm một
   // cái nữa. `.abortSignal()` không nhận `undefined` sạch ⇒ gắn có điều kiện.
-  const sig = timeoutSignal(12000);
-  let q = supabase
-    .from(TABLE)
-    .select("id,name,color,style,default_on,visible,geojson,sort_order,created_at")
-    .eq("visible", true)
-    .order("sort_order", { ascending: true })
-    .limit(200);
-  if (sig) q = q.abortSignal(sig);
-  const { data, error } = await q;
+  /*  NHÁNH LÙI BỎ CỘT LẠ (khuôn đã dùng ở migration 0031): `is_border` chỉ có
+      sau khi 0038 được apply. Deploy code mới trước khi chạy migration là
+      chuyện bình thường, mà `select` một cột chưa tồn tại thì Supabase trả LỖI
+      CẢ CÂU ⇒ app tưởng mất mạng và rơi hết về vùng tĩnh. Nên: thử có cột
+      trước, lỗi thì hỏi lại không cột. Một request thừa CHỈ trong giai đoạn
+      chưa apply, apply xong là hết. */
+  const base = "id,name,color,style,default_on,visible,geojson,sort_order,created_at";
+  const run = async (cols: string) => {
+    const sig = timeoutSignal(12000);
+    let q = supabase
+      .from(TABLE)
+      .select(cols)
+      .eq("visible", true)
+      .order("sort_order", { ascending: true })
+      .limit(200);
+    if (sig) q = q.abortSignal(sig);
+    return q;
+  };
+  let { data, error } = await run(`${base},is_border`);
+  if (error) ({ data, error } = await run(base));
   if (error || !data) return null;
-  return (data as Row[]).map(rowToZone);
+  return (data as unknown as Row[]).map(rowToZone);
 }

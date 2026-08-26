@@ -4,7 +4,7 @@ import {
   borderProximity,
   haversineKm,
   insideAllowed,
-  VN_ALLOWED_RINGS,
+  VN_ALLOWED_POLYS,
   VN_OUTER_BORDER,
 } from "@/lib/geofence";
 
@@ -27,8 +27,8 @@ describe("nguồn dữ liệu biên", () => {
   });
 
   it("vùng được phép có vòng ngoài kín (điểm đầu trùng điểm cuối)", () => {
-    expect(VN_ALLOWED_RINGS.length).toBeGreaterThan(0);
-    const outer = VN_ALLOWED_RINGS[0];
+    expect(VN_ALLOWED_POLYS.length).toBeGreaterThan(0);
+    const outer = VN_ALLOWED_POLYS[VN_ALLOWED_POLYS.length - 1][0];
     expect(outer.length).toBeGreaterThan(3);
     const [first, last] = [outer[0], outer[outer.length - 1]];
     expect(first[0]).toBeCloseTo(last[0], 6);
@@ -103,6 +103,58 @@ describe("borderProximity — đo tới cung ngoài khơi ĐANG VẼ trên bản
     ]) {
       const p = borderProximity(lat, lon);
       if (p.outside) expect(p.label).not.toMatch(/còn ~/);
+    }
+  });
+});
+
+/*  CỔNG CHỐNG TÁI PHÁT — hai bất biến bắt được nhờ chạy thử theo đúng lời bà
+    con dặn: "biên chỉ áp dụng với đường biển thôi". */
+describe("bất biến: cảng cá VN không bao giờ ở ngoài vùng biển VN", () => {
+  it("cả 10 cảng đều TRONG biên và KHÔNG bị báo 'đã ngoài'", async () => {
+    const { PORTS } = await import("@/data/ports");
+    for (const p of PORTS) {
+      const prox = borderProximity(p.lat, p.lon);
+      expect({ cang: p.id, outside: prox.outside }).toEqual({
+        cang: p.id,
+        outside: false,
+      });
+      expect(prox.label).not.toContain("ĐÃ NGOÀI");
+    }
+  });
+
+  /*  BIÊN CHỈ LÀ ĐƯỜNG BIỂN — không bao giờ đo tới đoạn bờ của vòng kín (bà con
+      qua VSS Quân 2026-08-25). Nếu đường biên lỡ đi sát bờ thì tàu đang neo ở
+      cảng nhà cũng bị hét "rất gần ranh giới", báo động giả kiểu đó vài lần là
+      bà con tắt cảnh báo, tới lúc vượt thật thì không ai nghe. */
+  it("đường biên giữ khoảng cách với MỌI cảng cá — không có đoạn nào bám bờ", async () => {
+    const { PORTS } = await import("@/data/ports");
+    for (const p of PORTS) {
+      const nm =
+        Math.min(
+          ...VN_OUTER_BORDER.map((c) => haversineKm(p.lat, p.lon, c[1], c[0])),
+        ) / 1.852;
+      expect({ cang: p.id, xa: nm > 30 }).toEqual({ cang: p.id, xa: true });
+    }
+  });
+});
+
+describe("không có vùng kín thì KHÔNG được đoán trong/ngoài", () => {
+  it("chỉ có đường biên (admin đánh dấu vùng dạng ĐƯỜNG) → outside luôn false", () => {
+    const src = {
+      line: [
+        [110, 9],
+        [110, 11],
+      ] as [number, number][],
+      polys: [] as [number, number][][][],
+    };
+    for (const [lat, lon] of [
+      [10, 111],
+      [10, 109],
+      [10, 110],
+    ]) {
+      const p = borderProximity(lat, lon, src);
+      expect(p.outside).toBe(false);
+      expect(p.label).not.toContain("ĐÃ NGOÀI");
     }
   });
 });

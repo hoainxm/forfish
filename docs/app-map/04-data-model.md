@@ -11,6 +11,27 @@ ttl_days: 180
 
 ---
 
+<!-- 0038 (2026-08-25) — `vms_zones.is_border` -->
+### 0038 — `vms_zones.is_border` · ⚠️ CHƯA APPLY prod
+
+```sql
+alter table public.vms_zones
+  add column if not exists is_border boolean not null default false;
+create index if not exists vms_zones_is_border_idx
+  on public.vms_zones (is_border) where is_border = true;
+```
+
+**Vì sao**: từ 2026-07-28 biên trên bản đồ = 3 vùng VMS do admin quản lý, nhưng cảnh báo IUU (`lib/geofence`) vẫn đo theo dữ liệu tĩnh kèm app. Muốn admin đổi được biên thì app phải biết **vùng nào là ranh giới** — hai vùng còn lại (Cần chú ý / Chỉ cá đáy) là lớp lưu ý; lấy hợp cả ba ra một vùng vô nghĩa và app sẽ báo "đã ngoài ranh giới" trên gần hết vùng biển VN.
+
+**Ngữ nghĩa**: `is_border = true` ⇒ hình vùng này định nghĩa ranh giới cảnh báo.
+- Vùng **KÍN** (Polygon/MultiPolygon) → dùng cho câu hỏi TRONG/NGOÀI.
+- **ĐƯỜNG** (LineString) → dùng để ĐO khoảng cách. Chỉ có đường thì app **không** khẳng định trong/ngoài (đường hở không có "bên trong") — xem `bietTrongNgoai` trong `lib/geofence`.
+- Không vùng nào bật ⇒ app dùng `src/data/vms-zones.json` như cũ. Đây là **đường lùi an toàn, không phải trạng thái lỗi**.
+
+**Đọc/ghi đều có nhánh lùi bỏ cột lạ** (khuôn migration 0031): `fetchPublicVmsZones` thử `select` kèm `is_border`, lỗi thì hỏi lại không kèm; `/api/admin/vms-zones` tương tự. Nhờ vậy **deploy code mới trước khi apply migration vẫn chạy bình thường**.
+
+⚠️ **Agent KHÔNG tự apply** (luật pre-flight 🔴). Chủ dự án chạy trên project `znzgugvfhgmiszqgjulk` khi tiện.
+
 ## 1. Supabase project
 
 - Project ref: **`znzgugvfhgmiszqgjulk`** · Region: **ap-northeast-2**
