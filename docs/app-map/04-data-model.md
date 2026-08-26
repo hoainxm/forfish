@@ -12,7 +12,7 @@ ttl_days: 180
 ---
 
 <!-- 0038 (2026-08-25) — `vms_zones.is_border` -->
-### 0038 — `vms_zones.is_border` · ⚠️ CHƯA APPLY prod
+### 0038 — `vms_zones.is_border` · ✅ ĐÃ APPLY prod 2026-08-25
 
 ```sql
 alter table public.vms_zones
@@ -30,7 +30,13 @@ create index if not exists vms_zones_is_border_idx
 
 **Đọc/ghi đều có nhánh lùi bỏ cột lạ** (khuôn migration 0031): `fetchPublicVmsZones` thử `select` kèm `is_border`, lỗi thì hỏi lại không kèm; `/api/admin/vms-zones` tương tự. Nhờ vậy **deploy code mới trước khi apply migration vẫn chạy bình thường**.
 
-⚠️ **Agent KHÔNG tự apply** (luật pre-flight 🔴). Chủ dự án chạy trên project `znzgugvfhgmiszqgjulk` khi tiện.
+**Đã apply** lên `znzgugvfhgmiszqgjulk` 2026-08-25 sau khi chủ dự án chốt ("migrate đi") — luật pre-flight 🔴 là *hỏi trước*, không phải cấm tuyệt đối. Kiểm chứng lại bằng truy vấn read-only:
+- `information_schema.columns` → `is_border`, `boolean`, `NOT NULL`, default `false` ✓
+- 3 vùng hiện có đều `is_border = false` ⇒ app vẫn dùng ranh giới tĩnh, **hành vi không đổi** cho tới khi admin bấm nút.
+- Hình vùng "Ranh giới ngoài khơi (được phép)" trong DB **trùng khít** file tĩnh: LineString 200 điểm, đầu `[108.0873, 21.4843]`, cuối `[103.7918, 10.5054]` ⇒ bật cờ cho vùng đó sẽ không làm lệch cảnh báo.
+- `get_advisors(security)` sau khi apply: **không phát sinh cảnh báo mới**; `vms_zones` không nằm trong nhóm "RLS enabled no policy" nên policy còn nguyên.
+
+**CHƯA làm (cố ý)**: không tự `update` cờ `is_border` cho vùng nào. Sửa DỮ LIỆU bằng công cụ DDL, khoá theo id seed cứng, là đúng thứ tài liệu công cụ dặn tránh — và bật cờ là đổi nguồn hình của một cảnh báo IUU. Để admin bấm nút trong `/quan-tri`, cũng là phép thử nút vừa làm.
 
 ## 1. Supabase project
 
