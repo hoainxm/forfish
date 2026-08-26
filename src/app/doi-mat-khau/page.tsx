@@ -29,8 +29,8 @@ import { phoneToEmail } from "@/components/auth-form";
 */
 
 /** Hotline SDVICO — lối thoát cuối khi KH kẹt ở màn ép đổi mật khẩu. */
-const HOTLINE = "1900232349";
-const HOTLINE_HIEN = "1900 23 23 49";
+const HOTLINE = "0939243222";
+const HOTLINE_HIEN = "0939 243 222";
 
 export default function DoiMatKhauPage() {
   const router = useRouter();

@@ -14,7 +14,7 @@
 // đoán được, ưu tiên kích hoạt 380 KH thật; lộ trình siết lại ở
 // docs/adr/0007-siet-bao-mat-sau-sd123456.md.
 
-const HOTLINE_HIEN = "1900 23 23 49";
+const HOTLINE_HIEN = "0939 243 222";
 
 /** Mã lỗi Supabase Auth (`AuthError.code`), kèm dò message cho bản chưa có `code`. */
 type RawAuthError = { code?: string; message?: string; status?: number } | null;

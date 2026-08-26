@@ -47,7 +47,7 @@ describe("sendFailureText — câu nói đúng tên đơn vị", () => {
     expect(sendFailureText("mang", "Vựa cô Ba")).not.toContain("SDVICO");
   });
   it("mất sóng nói rõ 'chưa có sóng', không nói 'nhập đúng số'", () => {
-    const t = sendFailureText("mang", "SDVICO 1900 23 23 49");
+    const t = sendFailureText("mang", "SDVICO 0939 243 222");
     expect(t).toContain("chưa có sóng");
     expect(t).not.toContain("Nhập đúng số");
   });

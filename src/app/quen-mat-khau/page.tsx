@@ -31,8 +31,8 @@ import {
   5 yêu cầu/giờ theo IP, đi qua máy chủ thì mọi KH chung 1 IP và khoá lẫn nhau.
 */
 
-const HOTLINE = "1900232349";
-const HOTLINE_HIEN = "1900 23 23 49";
+const HOTLINE = "0939243222";
+const HOTLINE_HIEN = "0939 243 222";
 
 export default function QuenMatKhauPage() {
   const endpoint = resetEndpoint(

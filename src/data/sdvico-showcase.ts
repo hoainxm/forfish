@@ -6,8 +6,8 @@
 // không đổ phụ kiện/vật tư lẻ cho rối. `line` nối về nhóm SKU CRM
 // (sdvico-catalog.ts) để biết khách đang dùng dòng nào.
 
-export const SDVICO_HOTLINE = "1900232349";
-export const SDVICO_HOTLINE_DISPLAY = "1900 23 23 49";
+export const SDVICO_HOTLINE = "0939243222";
+export const SDVICO_HOTLINE_DISPLAY = "0939 243 222";
 
 export interface ShowcaseProduct {
   id: string;

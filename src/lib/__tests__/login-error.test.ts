@@ -15,7 +15,7 @@ describe("loginErrorMessage — tách lỗi đăng nhập (2026-07-21)", () => {
   it("SĐT chưa có tài khoản → chỉ đường gọi SDVICO cấp tài khoản", () => {
     const msg = loginErrorMessage(invalidCreds, false);
     expect(msg).toContain("chưa có tài khoản");
-    expect(msg).toContain("1900 23 23 49");
+    expect(msg).toContain("0939 243 222");
     // KHÔNG gợi ý mật khẩu cho số chưa đăng ký.
     expect(msg).not.toContain("sd123456");
   });
@@ -36,7 +36,7 @@ describe("loginErrorMessage — tách lỗi đăng nhập (2026-07-21)", () => {
     // Ưu tiên câu bị khóa kể cả khi exists=true.
     const msg = loginErrorMessage(banned, true);
     expect(msg).toContain("bị khóa");
-    expect(msg).toContain("1900 23 23 49");
+    expect(msg).toContain("0939 243 222");
     expect(msg).not.toContain("sd123456");
   });
 
