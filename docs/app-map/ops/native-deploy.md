@@ -39,6 +39,16 @@ npm run cap:sync
 npm run cap:open:ios   # / cap:open:android
 ```
 
+## 3a. Vị trí / GPS — quyền + TỰ XIN lần đầu (chỉ native, 2026-08-26)
+
+Chủ dự án chốt qua Zalo: *"cài app tự động bật GPS luôn"* (làm cho ngư dân thì tối giản). Web KHÔNG tự bung hộp xin quyền được (trình duyệt cấm khi không có thao tác), nên **chỉ áp bản native**; web giữ hành vi cũ (bấm nút Vị trí mới xin).
+
+- **Khai quyền native** (bắt buộc, không khai thì webview xin câm):
+  - iOS: `ios/App/App/Info.plist` → `NSLocationWhenInUseUsageDescription` (đã có, mô tả tiếng Việt).
+  - Android: `android/app/src/main/AndroidManifest.xml` → `ACCESS_FINE_LOCATION` + `ACCESS_COARSE_LOCATION` (thêm 2026-08-26).
+- **Tự xin lần đầu**: `src/components/native-gps-prime.tsx` (mount ở `app-shell.tsx`, nhánh app ngư dân). `Capacitor.isNativePlatform()` gác → chỉ native. CHỈ khi quyền `state === "prompt"` (chưa quyết) mới bung hộp; đã cho/đã từ chối thì thôi (permission-state là bộ nhớ, KHÔNG đẻ khoá `forfish.*` mới). `getCurrentPosition` có callback lỗi → từ chối/không GPS không treo, không throw; cảm biến tại chỗ nên KHÔNG request mạng, an toàn offline.
+- KHÔNG cài `@capacitor/geolocation` — dùng thẳng `navigator.geolocation` web trong webview (đủ dùng, khỏi thêm dep).
+
 ## 4. Còn thiếu (cần user / môi trường)
 
 - **Mac + Xcode** (build iOS) · **Android Studio/SDK** (build Android).
