@@ -1620,8 +1620,9 @@ export default function FishingMapView() {
       // mốc mới → nói lại (mở lại dù trước đó đã thu) + KÊU CHUÔNG cảnh báo
       // (SDVICO, lib/warning-sound). Chỉ nổ khi tiến SANG mốc gần hơn (15→10→6
       // →3 hải lý), không lặp mỗi nhịp GPS; đi ra xa thì im. Tiếng nuốt lỗi,
-      // không throw — cảnh báo hình vẫn là đường chính.
-      playBorderWarning();
+      // không throw — cảnh báo hình vẫn là đường chính. ≤6 hl (very_near) = mức
+      // GẤP: cùng chuông nhưng lặp 2 lần + to hơn.
+      playBorderWarning({ urgent: navProx.level === "very_near" });
       setNavBorder({
         step: crossed,
         distanceNm: navProx.distanceNm,

@@ -114,40 +114,52 @@ export function armWarningSound(): void {
   }
 }
 
+/** Mức GẤP (≤6 hl) lặp thêm lần 2 sau ngần này giây — cùng chuông, đọc ra "gần rồi". */
+const URGENT_REPEAT_GAP = 0.9;
+
+/** Lên lịch MỘT lượt chuông (mọi giọng) bắt đầu từ mốc t0 trên timeline ctx. */
+function scheduleChime(c: AudioContext, dest: AudioNode, t0: number): void {
+  for (const v of warningVoices()) {
+    const osc = c.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = v.freq;
+    const g = c.createGain();
+    const start = t0 + v.startOffset;
+    const end = start + v.decay;
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.exponentialRampToValueAtTime(Math.max(v.peakGain, 0.0002), start + v.attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, end);
+    osc.connect(g);
+    g.connect(dest);
+    osc.start(start);
+    osc.stop(end + 0.05);
+  }
+}
+
 /**
- * Phát chuông cảnh báo ranh giới. Nuốt MỌI lỗi (thiếu Web Audio, ngữ cảnh bị
- * chặn…) — cảnh báo hình vẫn là đường chính, tiếng chỉ là phần thêm; không bao
- * giờ để tiếng làm treo/ném lỗi ra màn đang chạy giữa biển.
+ * Phát chuông cảnh báo ranh giới. `urgent` (≤6 hải lý, level "very_near") = CÙNG
+ * chuông SDVICO nhưng **lặp 2 lần + nhỉnh to hơn** → đọc ra "sắp vượt biên" mà
+ * vẫn KHÔNG thành còi hú; mức êm (>6 hl) chỉ 1 lượt. Nuốt MỌI lỗi (thiếu Web
+ * Audio, ngữ cảnh bị chặn…) — cảnh báo HÌNH vẫn là đường chính, tiếng chỉ là
+ * phần thêm; không bao giờ để tiếng làm treo / ném lỗi ra màn giữa biển.
  */
-export function playBorderWarning(): void {
+export function playBorderWarning(opts?: { urgent?: boolean }): void {
   const c = getCtx();
   if (!c) return;
   try {
     if (c.state === "suspended") c.resume().catch(() => {});
+    const urgent = opts?.urgent ?? false;
 
-    // limiter chống méo khi các giọng chồng lên nhau
+    // limiter chống méo khi các giọng (và 2 lượt lúc gấp) chồng lên nhau
     const master = c.createGain();
-    master.gain.value = 0.6;
+    master.gain.value = urgent ? 0.72 : 0.6;
     const limiter = c.createDynamicsCompressor();
     master.connect(limiter);
     limiter.connect(c.destination);
 
-    const t0 = c.currentTime + 0.02;
-    for (const v of warningVoices()) {
-      const osc = c.createOscillator();
-      osc.type = "sine";
-      osc.frequency.value = v.freq;
-      const g = c.createGain();
-      const start = t0 + v.startOffset;
-      const end = start + v.decay;
-      g.gain.setValueAtTime(0.0001, start);
-      g.gain.exponentialRampToValueAtTime(Math.max(v.peakGain, 0.0002), start + v.attack);
-      g.gain.exponentialRampToValueAtTime(0.0001, end);
-      osc.connect(g);
-      g.connect(master);
-      osc.start(start);
-      osc.stop(end + 0.05);
-    }
+    const base = c.currentTime + 0.02;
+    scheduleChime(c, master, base);
+    if (urgent) scheduleChime(c, master, base + URGENT_REPEAT_GAP);
   } catch {
     /* offline / audio bị chặn → im lặng, KHÔNG throw */
   }
