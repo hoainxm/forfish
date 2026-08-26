@@ -21,11 +21,12 @@ MB=$(git merge-base origin/main base/main)
 git log --oneline origin/main..base/main      # commit base cần lấy
 git merge-tree --write-tree --name-only origin/main base/main   # preview conflict THẬT
 
-# B0.5 — an toàn: tag backup + nhánh riêng (KHÔNG merge thẳng main)
+# B0.5 — an toàn: tag backup. LÀM THẲNG TRÊN main, KHÔNG tách branch
+#         (chủ dự án chốt 2026-08-26 — tag backup đủ lưới an toàn; nhánh riêng
+#          chỉ tổ dọn. Hỏng thì `git reset --hard backup/main-before-sync-<date>`.)
 git tag backup/main-before-sync-<date> main
-git switch -c feat/sync-base-<date> main
 
-# B1 — merge, gỡ conflict theo §2
+# B1 — merge THẲNG trên main, gỡ conflict theo §2
 git merge base/main --no-commit --no-ff
 
 # B2 — migration reconcile theo §3 (git mv renumber, git rm bản trùng)
@@ -36,9 +37,8 @@ npm test                  # all pass
 npm run build             # success
 sh .githooks/pre-commit --self-test
 
-# B4 — commit (hook chạy; covers-gate §4) → chờ user duyệt PUSH
+# B4 — commit THẲNG trên main (hook chạy nếu bật; covers-gate §4) → chờ user duyệt PUSH
 git add -u && git commit -F <msg>
-git switch main && git merge --ff-only feat/sync-base-<date>
 git push origin main      # ⚠️ irreversible, ra 2 repo công khai — CHỈ khi user duyệt
 ```
 
@@ -73,8 +73,27 @@ origin là ĐÍCH → mọi hành vi sdvico phải còn; tính năng base chồn
 
 ## 5. Chốt an toàn (không thoả hiệp)
 
-- KHÔNG `git merge` thẳng main — luôn nhánh riêng + tag backup.
+- Merge **THẲNG trên main** + tag backup (chủ dự án chốt 2026-08-26, bỏ nhánh riêng). Tag `backup/main-before-sync-<date>` là lưới: hỏng thì `git reset --hard <tag>`.
 - KHÔNG `--force` lên remote chung.
 - KHÔNG tự apply migration lên Supabase prod.
 - Push ra 2 repo công khai = **irreversible** → chỉ khi user duyệt rõ.
 - Base thường tiếp tục chạy trước origin — mỗi lần sync là 1 mạch mới từ B0.
+
+## 6. Ghi chú vận hành máy sdvico (cập nhật 2026-08-26 — mạch sync thật)
+
+**Topology trong clone sdvico thường THIẾU sẵn** (doc §0 tả bản đã cấu hình đủ; clone thật có thể chỉ có `origin`=sdvico, không có `base`, không có hoainxm):
+- Chưa có remote `base` → `git remote add base https://github.com/Long-Forfun/ForFish` rồi `git fetch base --prune`.
+- `origin` chỉ push sdvico → thêm push URL hoainxm cho dual-push (1 `git push origin` ra CẢ 2 repo):
+
+```bash
+git remote set-url --add --push origin https://github.com/sdvico/forfish
+git remote set-url --add --push origin https://github.com/hoainxm/forfish
+```
+
+  ⚠️ Phải thêm CẢ dòng sdvico: khi set push URL tường minh ĐẦU TIÊN, fetch-URL thôi làm đích push — thiếu dòng sdvico thì push chỉ ra hoainxm.
+
+**macOS — 2 script vấp shell cổ, ĐỪNG tin kết quả trên máy Mac:**
+- `.githooks/pre-commit --self-test`: macOS bó `bash 3.2` → syntax error ở `case` inline trong `$(while …)`. Chạy bằng `zsh` (hoặc bash≥4 / CI) mới đúng. Hook cũng chỉ chạy khi `git config core.hooksPath .githooks` — clone mặc định KHÔNG bật, nên commit không tự chặn.
+- `scripts/doc-health-report.sh --status`: viết cho GNU sed; BSD sed (macOS) làm **NÁT** bảng `doc-status.md`. ĐỪNG regenerate trên Mac — để CI/Linux làm, hoặc khi merge cứ gỡ tay lấy giá trị base (mạch này đã làm vậy).
+
+**Mạch 2026-08-26**: lấy 10 commit "ra khơi" (plotter-readout — ô toạ độ GPS + sheet 2 nấc), 7 conflict (1 source `snap-sheet.tsx` + 6 doc frontmatter), **0 migration**. Verify tsc/test(2179)/build xanh. Merge commit = `dbbd27d`.
