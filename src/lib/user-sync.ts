@@ -24,8 +24,16 @@ const KEY: Record<SyncKind, string> = {
   documents: "forfish.documents.v1", // P3 — chưa đấu
 };
 
-/** P1 CHỈ đồng bộ 3 sổ KHÔNG nhạy cảm. crew/documents (CCCD/giấy tờ) chờ P2/P3. */
-const ACTIVE: readonly SyncKind[] = ["boats", "maintenance", "materials"];
+/** Sổ đang đồng bộ. P1: boats/maintenance/materials (không nhạy cảm). P2 (2026-08-26):
+ *  THÊM crew (CCCD) + documents (metadata giấy tờ) — chủ dự án chốt đồng bộ HẾT,
+ *  privacy policy /quyen-rieng-tu đã cập nhật khai lưu server. Ảnh giấy tờ = P3. */
+const ACTIVE: readonly SyncKind[] = [
+  "boats",
+  "maintenance",
+  "materials",
+  "crew",
+  "documents",
+];
 
 /** Bookkeeping đồng bộ, DEVICE-LOCAL (không sao lưu, không chia máy — xem offline-backup). */
 const META_KEY = "forfish.sync.v1";

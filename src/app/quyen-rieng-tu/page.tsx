@@ -17,8 +17,10 @@ export const metadata = {
   Nội dung PHẢI khớp thực tế (đối chiếu ops/native-deploy.md §5a + code):
    · Không SDK quảng cáo/analytics/attribution (AdMob/Firebase/FB/AppsFlyer/
      Adjust/Sentry/GA đều KHÔNG có) → không tracking theo định nghĩa Apple.
-   · Sổ (chuyến/giấy tờ/thuyền viên) phần lớn nằm localStorage forfish.* TRÊN
-     MÁY; Supabase chỉ giữ tài khoản (SĐT/tên/uid).
+   · Sổ (hồ sơ tàu/giấy tờ/thuyền viên gồm CCCD/bảo dưỡng/vật tư) nằm localStorage
+     forfish.* TRÊN MÁY VÀ ĐỒNG BỘ lên Supabase `user_docs` theo SĐT (2026-08-26,
+     P2 — bảng RLS đóng hẳn, chỉ chủ SĐT đọc qua route service-role) để đổi/mất
+     máy vẫn còn. Ngoài ra Supabase giữ tài khoản (SĐT/tên/uid).
    · Vị trí (getCurrentPosition ở route-planner + fishing-map-view) chỉ để canh
      bản đồ và hỏi gió sóng theo toạ độ — KHÔNG lưu DB, KHÔNG gắn tài khoản.
    · Nguồn thời tiết/hải văn ngoài nhận TOẠ ĐỘ TRẦN, không định danh.
@@ -71,8 +73,10 @@ export default function QuyenRiengTuPage() {
         <Section id="tom-tat" title="Tóm tắt nhanh">
           <ul className="list-disc space-y-1.5 pl-5">
             <li>
-              Phần lớn sổ sách của bà con (hồ sơ tàu, giấy tờ, thuyền viên,
-              nhắc bảo dưỡng) nằm <b>ngay trong máy điện thoại</b>, không đẩy lên mạng.
+              Sổ sách của bà con (hồ sơ tàu, giấy tờ, thuyền viên, bảo dưỡng,
+              vật tư) lưu <b>trong máy</b> và <b>đồng bộ lên máy chủ theo tài
+              khoản</b> — chỉ bà con (đăng nhập đúng số điện thoại của mình) xem
+              được, đổi/mất máy vẫn còn.
             </li>
             <li>
               App <b>không có quảng cáo</b>, <b>không theo dõi</b> bà con, không
@@ -103,9 +107,11 @@ export default function QuyenRiengTuPage() {
               phân biệt tài khoản này với tài khoản khác.
             </li>
             <li>
-              <b>Nội dung bà con tự nhập</b> — hồ sơ tàu, giấy tờ, thuyền viên,
-              nhắc bảo dưỡng. Những thứ này <b>lưu trong máy</b> (bộ nhớ
-              trình duyệt/ứng dụng), không tự động gửi lên máy chủ.
+              <b>Nội dung bà con tự nhập</b> — hồ sơ tàu, giấy tờ (số giấy, hạn),
+              thuyền viên (gồm <b>số CCCD</b>), nhắc bảo dưỡng, vật tư. Những thứ
+              này <b>lưu trong máy</b> và <b>đồng bộ lên máy chủ gắn với tài
+              khoản</b> để đổi/mất máy vẫn còn — chỉ bà con (đăng nhập đúng số
+              điện thoại) xem được, không chia cho ai khác.
             </li>
             <li>
               <b>Vị trí GPS</b> — chỉ khi bà con mở tính năng bản đồ hoặc dẫn

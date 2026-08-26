@@ -38,6 +38,7 @@ import { formatVnDate } from "@/lib/format";
 import { isValidVnPhone } from "@/lib/phone";
 import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { readUserList } from "@/lib/user-list-store";
+import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
 import { useTodayVN } from "@/lib/use-today";
 
 /** Định danh một bạn thuyền để tra/báo cảnh báo — CCCD hoặc SĐT (1 trong 2). */
@@ -93,7 +94,9 @@ function loadCrew(): {
    nuốt im: sổ vẫn hiện người vừa thêm mà máy chẳng lưu, mở lại app là về SỔ MẪU.
    Dự báo tải sẵn nhường chỗ cho sổ (lib/user-store.ts); không đủ thì BÁO. */
 function saveCrew(crew: StoredCrew[]): boolean {
-  return saveUserJson(STORAGE_KEY, crew);
+  const ok = saveUserJson(STORAGE_KEY, crew);
+  if (ok) markLocalWrite("crew"); // đồng bộ lên server (P2, riêng tư CCCD)
+  return ok;
 }
 
 export function useCrew() {
@@ -110,6 +113,19 @@ export function useCrew() {
     setCrew(loaded.crew);
     setReadFailed(loaded.readFailed);
     setReady(true);
+  }, []);
+
+  // Máy khác kéo về (lib/user-sync) → đọc lại sổ thuyền viên từ localStorage.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onSync = (e: Event) => {
+      if ((e as CustomEvent<{ kind?: string }>).detail?.kind !== "crew") return;
+      const loaded = loadCrew();
+      setCrew(loaded.crew);
+      setReadFailed(loaded.readFailed);
+    };
+    window.addEventListener(USER_SYNC_EVENT, onSync);
+    return () => window.removeEventListener(USER_SYNC_EVENT, onSync);
   }, []);
 
   /*  GHI KHI BÀ CON THAO TÁC, KHÔNG GHI SAU HYDRATE (N5, audit 2026-08-18):

@@ -1,6 +1,6 @@
 # SPEC — Đồng bộ sổ per-máy lên server (cross-device) + ảnh giấy tờ
 
-> **Trạng thái**: **P1 ĐÃ CODE** (2026-08-26) — chờ apply migration `0050` lên prod. P2 (crew/documents text) + P3 (ảnh) chưa làm. Nguồn: user báo "nhập ở ĐT, đăng nhập PC không thấy". Điều tra kết luận KHÔNG phải bug — là thiết kế per-máy. User chốt: **đồng bộ HẾT (cả CCCD + ảnh giấy tờ)**, **giấy tờ có ảnh**, **viết plan trước**.
+> **Trạng thái**: **P1 + P2 ĐÃ CODE** (2026-08-26) — chờ apply migration `0050` lên prod. P1: boats/maintenance/materials. P2: crew (CCCD) + documents metadata + privacy policy (`/quyen-rieng-tu`) cập nhật khai lưu server. P3 (ảnh giấy tờ) đang làm. Nguồn: user báo "nhập ở ĐT, đăng nhập PC không thấy". Điều tra kết luận KHÔNG phải bug — là thiết kế per-máy. User chốt: **đồng bộ HẾT (cả CCCD + ảnh giấy tờ)**, **giấy tờ có ảnh**, **viết plan trước**.
 
 ## 1. Mục tiêu
 

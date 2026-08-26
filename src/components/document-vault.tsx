@@ -23,6 +23,7 @@ import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
 import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { readUserList } from "@/lib/user-list-store";
+import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
 import { useTodayVN } from "@/lib/use-today";
 import { useBoats } from "@/components/boat-switcher";
 
@@ -76,7 +77,9 @@ export function loadDocs(): {
    gì, mở lại app là mất, tệ hơn là rơi về TỦ MẪU trông y như thật. Dự báo tải
    sẵn nhường chỗ cho giấy tờ (lib/user-store.ts), nhường vẫn không đủ thì BÁO. */
 function saveDocs(docs: StoredDocument[]): boolean {
-  return saveUserJson(STORAGE_KEY, docs);
+  const ok = saveUserJson(STORAGE_KEY, docs);
+  if (ok) markLocalWrite("documents"); // đồng bộ lên server (P2 metadata, P3 ảnh)
+  return ok;
 }
 
 export function DocumentVault() {
@@ -100,6 +103,19 @@ export function DocumentVault() {
     setDocs(loaded.docs);
     setReadFailed(loaded.readFailed);
     setReady(true);
+  }, []);
+
+  // Máy khác kéo về (lib/user-sync) → đọc lại tủ giấy tờ từ localStorage.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onSync = (e: Event) => {
+      if ((e as CustomEvent<{ kind?: string }>).detail?.kind !== "documents") return;
+      const loaded = loadDocs();
+      setDocs(loaded.docs);
+      setReadFailed(loaded.readFailed);
+    };
+    window.addEventListener(USER_SYNC_EVENT, onSync);
+    return () => window.removeEventListener(USER_SYNC_EVENT, onSync);
   }, []);
 
   /*  ĐỌC HỎNG THÌ KHÔNG GHI (2026-08-16): chuỗi gốc còn cứu được, đè lên là mất
