@@ -2985,16 +2985,18 @@ export default function FishingMapView() {
             {/*  CÁI GHIM — biểu tượng ai cũng quen trên app bản đồ (user
                  2026-08-25i: *"cho về biểu tượng thường dùng đi, thay cho con
                  cá"*). Đã đi một vòng: vòng ngắm -> mũi tên -> ghim -> cá ->
-                 GHIM. Giữ nguyên cỡ 2.625rem và quầng nhấp nháy vừa thêm.
-                 `anchor="bottom"` = CHÂN ghim rơi đúng toạ độ, nên quầng phải
-                 neo vào CHÂN chứ không phải giữa hình — không thì vòng nháy
-                 lệch lên nửa thân ghim, trỏ sai chỗ. */}
+                 GHIM. PHÓNG TO 2.625 -> 3.25rem (user 2026-08-26: *"biểu tượng
+                 vị trí con trỏ to lên tý, nhìn bé quá"*), quầng nhấp nháy theo
+                 tỉ lệ 3.75 -> 4.5rem. `anchor="bottom"` = CHÂN ghim rơi đúng
+                 toạ độ, nên quầng phải neo `-bottom` = nửa quầng (2.25rem) vào
+                 CHÂN chứ không phải giữa hình — không thì vòng nháy lệch lên
+                 nửa thân ghim, trỏ sai chỗ. */}
             <span className="relative flex flex-col items-center">
               <span
-                className="pointer-events-none absolute -bottom-[1.875rem] left-1/2 h-[3.75rem] w-[3.75rem] -translate-x-1/2 animate-ping rounded-full bg-trim/45"
+                className="pointer-events-none absolute -bottom-[2.25rem] left-1/2 h-[4.5rem] w-[4.5rem] -translate-x-1/2 animate-ping rounded-full bg-trim/45"
                 aria-hidden
               />
-              <PinIcon className="relative h-[2.625rem] w-[2.625rem] text-trim drop-shadow-pin" />
+              <PinIcon className="relative h-[3.25rem] w-[3.25rem] text-trim drop-shadow-pin" />
             </span>
           </Marker>
         )}
