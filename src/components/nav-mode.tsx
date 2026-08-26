@@ -34,7 +34,7 @@ import {
  * fishing-map-view). Trước lần lượt là: mũi tên → chấm tròn → icon tàu.
  * CỠ — chốt sau BỐN nhịp (ghi lại để đừng chỉnh vòng vo nữa): vòng trắng 44px
  * chê TO → 0.875rem chê NHỎ → ×3 chê to → ×2 → **+50% nữa** (2026-08-25f):
- * icon tàu 3.75rem trên quầng 5.25rem (2026-08-25h). Dấu tàu
+ * icon tàu 2.625rem (nhỏ lại 30%, 2026-08-25k) trên quầng 3.675rem. Dấu tàu
  * là thứ mắt phải bắt được NGAY giữa bản đồ đầy màu — khác cái ghim con trỏ
  * (đứng yên, tìm lúc nào cũng được).
  */
@@ -52,7 +52,7 @@ export function NavBoatMarker({
   return (
     <Marker longitude={pos.lon} latitude={pos.lat} anchor="center">
       <span
-        className={`relative flex h-[5.25rem] w-[5.25rem] items-center justify-center transition-opacity ${
+        className={`relative flex h-[3.675rem] w-[3.675rem] items-center justify-center transition-opacity ${
           stale ? "opacity-45" : "opacity-100"
         }`}
       >
@@ -69,13 +69,17 @@ export function NavBoatMarker({
              bù lại đã bỏ pip tam giác cũ (hết nói hướng hai lần). */}
         <span
           className="relative flex"
+          /*  TRỪ 90: `BoatIcon` vẽ mũi hướng ĐÔNG (90°), còn `headingDeg` là
+              góc so với hướng BẮC. Quên trừ là mũi tàu lệch đúng một góc vuông.
+              Không biết hướng thì để tàu NẰM NGANG (hướng gốc của hình) chứ
+              không dựng đứng — user 2026-08-25k. */
           style={
             headingDeg != null
-              ? { transform: `rotate(${headingDeg}deg)` }
+              ? { transform: `rotate(${headingDeg - 90}deg)` }
               : undefined
           }
         >
-          <BoatIcon className="h-[3.75rem] w-[3.75rem] text-t1 drop-shadow-pin" />
+          <BoatIcon className="h-[2.625rem] w-[2.625rem] text-t1 drop-shadow-pin" />
         </span>
       </span>
     </Marker>
