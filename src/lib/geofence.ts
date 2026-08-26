@@ -49,6 +49,13 @@ const NM_PER_KM = 1 / 1.852;
 export type BorderLevel = "ok" | "near" | "very_near";
 
 export interface BorderProximity {
+  /**  CÓ NÊN NÓI GÌ VỀ RANH GIỚI Ở ĐIỂM NÀY KHÔNG.
+   *   false = điểm không nằm trên mặt biển thuộc phạm vi biên (trong bờ, trong
+   *   vịnh kín, hay đất liền) ⇒ mọi thứ liên quan ranh giới phải ẨN: dòng chữ,
+   *   đường đo, nhãn. Xem `applies` trong thân hàm để biết luật.
+   *   Khi false thì `level` luôn `"ok"` và `label` rỗng — caller nào quên kiểm
+   *   `applies` cũng chỉ im lặng, KHÔNG bao giờ hét cảnh báo sai. */
+  applies: boolean;
   /** điểm này nằm NGOÀI vùng được phép chưa (true = đã qua biên) */
   outside: boolean;
   /** khoảng cách ngắn nhất tới ranh giới, hải lý */
@@ -318,8 +325,29 @@ export function borderProximity(
     ),
   );
   const raBangDuongBien = kmToSea <= kmToAnyEdge + 1 / NM_PER_KM;
-  const outside =
-    bietTrongNgoai && !insideAllowed(lat, lng, polys) && raBangDuongBien;
+  const trongVungBien = bietTrongNgoai && insideAllowed(lat, lng, polys);
+  const outside = bietTrongNgoai && !trongVungBien && raBangDuongBien;
+
+  /*  ─── LÚC NÀO MỚI NÓI CHUYỆN RANH GIỚI ───────────────────────────────────
+      Chủ dự án 2026-08-25: *"các điểm ở trên bờ phía trong của VN thì đừng hiển
+      thị cái tính khoảng cách tới biên"*.
+
+      Chìa khoá: vùng `allowed` CHỈ PHỦ MẶT BIỂN — mép trong của nó chính là
+      đường bờ, các đảo là lỗ. Nên chỉ cần đọc vị trí so với vùng đó là biết
+      điểm đang ở biển hay trên cạn, KHÔNG cần thêm dữ liệu đất liền nào.
+
+      Ba nhánh:
+       · TRONG vùng biển                     → NÓI (đang ở biển, còn cách biên N)
+       · NGOÀI + ra bằng ĐƯỜNG BIỂN          → NÓI (đã vượt biên)
+       · NGOÀI + phía BỜ (đất liền, vịnh kín,
+         hồ, sông, hay bờ bị giản lược cắt)  → IM
+      Nhánh ba là thứ vừa thêm. Trước đây nó vẫn in "cách ranh giới 73 hải lý"
+      cho một điểm giữa thành phố — số đúng về hình học, vô nghĩa với bà con, và
+      là thứ làm người ta hết tin những con số còn lại.
+
+      Không biết trong/ngoài (nguồn biên chỉ có đường hở) ⇒ vẫn NÓI khoảng cách,
+      vì lúc đó ta không có cơ sở để bảo điểm nào trên cạn. */
+  const applies = trongVungBien || raBangDuongBien || !bietTrongNgoai;
 
   /*  ĐÃ RA NGOÀI thì nói thẳng là RA NGOÀI, đừng nói "cách biên bao xa" (bà con
       qua VSS Quân 2026-08-25: *"trỏ qua biên thì báo vượt biên, chứ sao báo cách
@@ -329,7 +357,10 @@ export function borderProximity(
       Câu chữ nói về CHỖ ĐANG XEM, không phải về tàu — app không kết tội ai. */
   let level: BorderLevel = "ok";
   let label = `Cách ranh giới biển khoảng ${Math.round(distanceNm)} hải lý`;
-  if (outside) {
+  if (!applies) {
+    // im lặng, và im theo cách an toàn: caller quên kiểm cờ cũng không hét bậy
+    label = "";
+  } else if (outside) {
     level = "very_near";
     label = `Chỗ này ĐÃ NGOÀI ranh giới — vào trong ~${
       distanceNm < 10 ? distanceNm.toFixed(1) : Math.round(distanceNm)
@@ -342,5 +373,5 @@ export function borderProximity(
     label = `Gần ranh giới — còn ~${Math.round(distanceNm)} hải lý`;
   }
 
-  return { distanceNm, level, label, nearest: bestNearest, outside };
+  return { distanceNm, level, label, nearest: bestNearest, outside, applies };
 }

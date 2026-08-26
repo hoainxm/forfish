@@ -1608,7 +1608,10 @@ export default function FishingMapView() {
     dismissed: boolean;
   } | null>(null);
   useEffect(() => {
-    if (!navProx) {
+    /*  `!navProx.applies` = tàu đang trong bờ/vịnh kín ⇒ chuyện ranh giới không
+        có nghĩa ở đó, ĐỪNG nhắc (chủ dự án 2026-08-25). Trước đây tàu nằm trong
+        cảng vẫn có thể bị HUD nhắc "còn ~N hải lý tới ranh giới". */
+    if (!navProx || !navProx.applies) {
       navBorderStepRef.current = null;
       setNavBorder(null);
       return;
@@ -1985,7 +1988,7 @@ export default function FishingMapView() {
       NGOẠI LỆ AN TOÀN (mặc định an toàn nhất, nguyên tắc 5): RẤT GẦN RANH GIỚI
       (≤6 hải lý) thì KHÔNG tự ẩn — cùng luật với NavHud (§10.7 F: ≤6 hl không
       thu được). Vượt ranh giới bị bắt/phạt rất nặng, không đánh đổi lấy gọn mắt. */
-  const borderLocked = prox.level === "very_near";
+  const borderLocked = prox.applies && prox.level === "very_near";
   /** sheet đang THU (peek hoặc đã trượt sát đáy) — banner bão, rail và chú giải
       chỉ tự mờ khi bà con KÉO SHEET LÊN đọc (half/full), không phải khi sheet
       tự ẩn xuống (lúc đó bản đồ đang lộ nhiều nhất, càng cần rail để thao tác) */
@@ -2886,8 +2889,9 @@ export default function FishingMapView() {
              Màu cam-đỏ `#b42318` CÙNG HỌ với đường ranh giới (03 §6: cam-đỏ là
              màu độc quyền của ranh giới) nhưng MẢNH HƠN + nét đứt khác để không
              ai nhầm nó LÀ đường ranh giới. */}
-        <Source
-          id="border-line"
+        {prox.applies && (
+          <Source
+            id="border-line"
           type="geojson"
           data={{
             type: "Feature",
@@ -2898,21 +2902,23 @@ export default function FishingMapView() {
                 [point.lon, point.lat],
                 [prox.nearest[0], prox.nearest[1]],
               ],
-            },
-          }}
-        >
-          <Layer
-            id="border-line-l"
-            type="line"
-            paint={{
-              "line-color": "#b42318",
-              "line-width": 1.5,
-              "line-opacity": 0.75,
-              "line-dasharray": [3, 2],
+              },
             }}
-          />
-        </Source>
+          >
+            <Layer
+              id="border-line-l"
+              type="line"
+              paint={{
+                "line-color": "#b42318",
+                "line-width": 1.5,
+                "line-opacity": 0.75,
+                "line-dasharray": [3, 2],
+              }}
+            />
+          </Source>
+        )}
         {/* nhãn số hải lý NGAY GIỮA đường đo — đọc được mà không phải mở sheet */}
+        {prox.applies && (
         <Marker
           longitude={(point.lon + prox.nearest[0]) / 2}
           latitude={(point.lat + prox.nearest[1]) / 2}
@@ -2933,6 +2939,7 @@ export default function FishingMapView() {
             {prox.outside ? " vào trong" : " tới biên"}
           </span>
         </Marker>
+        )}
 
         {/*  ĐƯỜNG KẺ TÀU → CON TRỎ (bà con qua VSS Quân 2026-08-25: *"khi trỏ
              tới đâu thì nên làm đường kẻ từ vị trí mình có tới còn trỏ luôn"*).
@@ -3605,7 +3612,7 @@ export default function FishingMapView() {
                        đo khoảng cách tới đường ranh giới).
                        ẨN khi very_near: lúc đó dòng ĐỎ to phía dưới đã in đúng
                        con số này rồi, in hai lần là thừa. */}
-                  {prox.level !== "very_near" && (
+                  {prox.applies && prox.level !== "very_near" && (
                     <span
                       className={`whitespace-nowrap text-[0.75rem] font-semibold tabular-nums leading-snug ${
                         prox.level === "near" ? "text-warn" : "text-foreground/55"
@@ -3631,7 +3638,7 @@ export default function FishingMapView() {
                    "chưa tới biên, còn X nữa" — ngược hẳn sự thật. Một câu, một
                    nguồn (bà con qua VSS Quân 2026-08-25: *"trỏ qua biên thì báo
                    vượt biên, chứ sao báo cách biên"*). */}
-              {prox.level === "very_near" && (
+              {prox.applies && prox.level === "very_near" && (
                 <p className="mt-1 flex items-center gap-1.5 text-[0.875rem] font-bold text-danger">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-danger" aria-hidden />
                   {prox.label}.

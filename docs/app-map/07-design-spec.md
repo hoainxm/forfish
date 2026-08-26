@@ -679,6 +679,25 @@ Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔN
 - `VN_OUTER_BORDER` (`lib/geofence`) = cung ngoài khơi 200 điểm `allowedOffshore` — CHÍNH đường đỏ nét đứt đang vẽ. Đo tới cái bà con NHÌN THẤY.
 - `VN_ALLOWED_RINGS` = các vòng của vùng `allowed` (kể cả lỗ đảo) → `insideAllowed()` biết điểm nằm TRONG hay NGOÀI. Có đa giác kín rồi mới dám khẳng định bên nào; trước đây cố ý không nói vì chỉ có một đường hở.
 
+**LÚC NÀO MỚI NÓI CHUYỆN RANH GIỚI — cờ `prox.applies` (2026-08-25n)**, chủ dự án: *"các điểm ở trên bờ phía trong của VN thì đừng hiển thị cái tính khoảng cách tới biên… đưa ra logic lúc nào nên hiển thị"*.
+
+Chìa khoá: vùng `allowed` **chỉ phủ MẶT BIỂN** — mép trong của nó chính là đường bờ, các đảo là lỗ. Nên chỉ cần đọc vị trí điểm so với vùng đó là biết nó ở biển hay trên cạn, **không cần nạp thêm bất kỳ dữ liệu đất liền nào**.
+
+| Điểm đang xem | `applies` | Màn hình |
+|---|---|---|
+| TRONG vùng biển VN | ✅ | "Cách ranh giới N hải lý" (vàng khi ≤15 hl, đỏ khi ≤6 hl) |
+| NGOÀI, ra bằng **đường biển** | ✅ | "Chỗ này ĐÃ NGOÀI ranh giới — vào trong ~N hải lý" |
+| NGOÀI, phía **BỜ** — đất liền, vịnh kín, hoặc bờ bị giản lược cắt | ❌ | **IM HOÀN TOÀN**: ẩn dòng chữ, ẩn đường đo, ẩn nhãn, HUD dẫn đường cũng không nhắc |
+| Nguồn biên chỉ có đường hở (không biết trong/ngoài) | ✅ | vẫn nói khoảng cách — lúc đó không có cơ sở để bảo điểm nào trên cạn |
+
+**Ẩn ở ĐỦ 5 chỗ** (thiếu một chỗ là lộ số vô nghĩa): dòng nhỏ dưới toạ độ · dòng đỏ ở peek · đường đo trên bản đồ · nhãn giữa đường đo · `borderLocked` (khoá không cho sheet tự thu) · `navBorder` của HUD dẫn đường.
+
+**Im theo cách AN TOÀN**: khi `applies === false` thì `level` luôn `"ok"` và `label` rỗng. Caller nào quên kiểm cờ cũng chỉ im lặng, **không bao giờ hét cảnh báo sai** — mặc định phải nghiêng về phía không báo động giả.
+
+Đo thật sau khi làm: Hà Nội / Buôn Ma Thuột / TP.HCM / Lào Cai → im. **Thọ Quang (sâu sau bán đảo Sơn Trà) và Vũng Tàu → im**, thay vì bị báo "ĐÃ NGOÀI ranh giới" như trước. Cát Bà 66 · Quy Nhơn 152 · Rạch Giá 73 hải lý → nói bình thường. Xa về đông → "đã ngoài", 171 hải lý.
+
+> Vì sao đáng làm: bản trước in "cách ranh giới 73 hải lý" cho một điểm giữa thành phố. Số đúng về hình học, vô nghĩa với bà con — và một con số vô nghĩa đứng cạnh những con số thật thì nó kéo cả cụm xuống, bà con hết tin luôn phần còn lại.
+
 **BIÊN CHỈ ÁP DỤNG VỚI ĐƯỜNG BIỂN — KHÔNG BAO GIỜ ĐO TỚI ĐOẠN BỜ** (bà con qua VSS Quân 2026-08-25: *"tuy đường kín nhưng đừng bao giờ tính biên tới cái biên trên bờ"*).
 
 > **Hai lỗi bắt được khi chạy thử luật này trên 10 cảng cá — đọc trước khi đụng vào `insideAllowed`.**

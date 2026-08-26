@@ -158,3 +158,53 @@ describe("không có vùng kín thì KHÔNG được đoán trong/ngoài", () =>
     }
   });
 });
+
+/*  LÚC NÀO MỚI NÓI CHUYỆN RANH GIỚI (chủ dự án 2026-08-25: "các điểm ở trên bờ
+    phía trong của VN thì đừng hiển thị cái tính khoảng cách tới biên").
+    Vùng `allowed` chỉ phủ MẶT BIỂN nên chỉ cần đọc vị trí so với nó là biết
+    điểm ở biển hay trên cạn — không cần thêm dữ liệu đất liền nào. */
+describe("applies — chỉ nói chuyện ranh giới khi điểm ở trên biển", () => {
+  const trongDatLien: [number, number, string][] = [
+    [21.028, 105.852, "Hà Nội"],
+    [12.68, 108.05, "Buôn Ma Thuột"],
+    [10.776, 106.7, "TP.HCM"],
+    [22.33, 103.84, "Lào Cai"],
+  ];
+  it("điểm trong đất liền: applies=false, label rỗng, level ok", () => {
+    for (const [lat, lon, ten] of trongDatLien) {
+      const p = borderProximity(lat, lon);
+      expect({ ten, applies: p.applies }).toEqual({ ten, applies: false });
+      expect({ ten, label: p.label }).toEqual({ ten, label: "" });
+      expect({ ten, level: p.level }).toEqual({ ten, level: "ok" });
+      expect({ ten, outside: p.outside }).toEqual({ ten, outside: false });
+    }
+  });
+
+  it("điểm ngoài khơi trong vùng biển VN: applies=true, có câu chữ", () => {
+    for (const [lat, lon] of [
+      [13.7, 109.5],
+      [16.0, 111.0],
+      [19.5, 107.0],
+    ]) {
+      const p = borderProximity(lat, lon);
+      expect(p.applies).toBe(true);
+      expect(p.label.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("điểm đã vượt biên ngoài khơi: applies=true để còn kịp cảnh báo", () => {
+    const p = borderProximity(14.0, 119.5);
+    expect(p.applies).toBe(true);
+    expect(p.outside).toBe(true);
+  });
+
+  /*  BẤT BIẾN AN TOÀN: không áp dụng thì phải IM HOÀN TOÀN. Caller nào quên
+      kiểm `applies` cũng chỉ im, không bao giờ hét cảnh báo sai. */
+  it("applies=false thì KHÔNG BAO GIỜ kèm level cảnh báo hay câu chữ", () => {
+    for (const [lat, lon] of trongDatLien.map(([a, b]) => [a, b])) {
+      const p = borderProximity(lat, lon);
+      expect(p.level).toBe("ok");
+      expect(p.label).toBe("");
+    }
+  });
+});
