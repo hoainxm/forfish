@@ -324,7 +324,6 @@ export function RaKhoiControls({
 
       {/* RAIL dọc mép phải — ẩn/hiện được như menu lớp các app bản đồ */}
       <div
-        data-tour="rail"
         className="pointer-events-auto flex flex-col items-end gap-2"
       >
         <button

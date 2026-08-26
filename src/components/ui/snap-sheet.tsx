@@ -88,8 +88,6 @@ export function SnapSheet({
     <section
       role="region"
       aria-label={label}
-      // neo cho hướng dẫn trên màn (lib/tour.ts, bước "Bảng dưới đáy")
-      data-tour="sheet-day"
       onPointerDownCapture={onInteract}
       onKeyDownCapture={onInteract}
       className={`absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-[1.75rem] ${

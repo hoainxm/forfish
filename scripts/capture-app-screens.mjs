@@ -77,14 +77,6 @@ async function cleanChrome(page) {
 
 const browser = await puppeteer.launch({ executablePath: CHROME, args: ["--no-sandbox"] });
 const page = await browser.newPage();
-// TẮT tour onboarding (coach-mark "BƯỚC 1/2") trước khi app JS chạy — profile
-// puppeteer mới toanh nên tour bung ra che màn + làm tối nền = ảnh store hỏng.
-// forfish.tour.enabled.v1 = "off" ⇒ isTourEnabled() false (src/lib/tour.ts).
-await page.evaluateOnNewDocument(() => {
-  try {
-    localStorage.setItem("forfish.tour.enabled.v1", "off");
-  } catch {}
-});
 await page.setViewport({ width: 414, height: 896, deviceScaleFactor: 3 });
 
 // ── đăng nhập 1 lần (session giữ trong localStorage, dùng lại cho mọi viewport).

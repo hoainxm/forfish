@@ -48,7 +48,6 @@ export function BoatSwitcher() {
     return (
       <div className="relative z-10 -mt-6 px-4">
         <button
-          data-tour="chon-tau"
           onClick={() => setForm({ id: `boat-${Date.now()}`, name: "" })}
           className="flex min-h-[3.25rem] w-full items-center justify-center gap-2 surface px-3.5 py-3 text-[1rem] font-bold text-navy active:scale-[0.99]"
         >
@@ -74,7 +73,6 @@ export function BoatSwitcher() {
     // chip tàu NỔI đè lên mép hero (tràn viền hiện đại) — mọi trang dùng chung
     <div className="relative z-10 -mt-6 px-4">
       <button
-        data-tour="chon-tau"
         onClick={() => setPick(true)}
         className="flex w-full items-center gap-2.5 surface px-3.5 py-2.5 active:scale-[0.99]"
       >

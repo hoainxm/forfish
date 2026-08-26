@@ -611,14 +611,6 @@ const EXCLUDED: Array<[string, string]> = [
     "mốc CHỐNG DỘI reload khi đổi tài khoản (lib/auth-scope) — coi máy khác thì lệch nhịp, không dữ liệu gì",
   ],
   [
-    "forfish.tour.v1",
-    "dấu ĐÃ XEM hướng dẫn: máy MỚI (đích chuyển) nên được xem, đừng đánh dấu đã xem hộ",
-  ],
-  [
-    "forfish.tour.enabled.v1",
-    "bật/tắt hướng dẫn — tuỳ chọn xem của TỪNG máy, không nói gì về người dùng",
-  ],
-  [
     "forfish.kicked.v1",
     "mốc MÁY NÀY bị máy khác đăng nhập đá (2026-08-18 G1) — chép sang máy khác là bật thẻ đỏ 'bị đá' cho máy chưa từng bị; đăng nhập lại là tự xoá",
   ],

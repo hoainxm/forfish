@@ -81,8 +81,6 @@ export function Tabs({
               <button
                 key={t.id}
                 role="tab"
-                // neo cho hướng dẫn trên màn (lib/tour.ts trỏ tới "tab-<id>")
-                data-tour={`tab-${t.id}`}
                 aria-selected={on}
                 onClick={() => setActive(t.id)}
                 className={`relative min-h-[3.5rem] rounded-full px-3 text-[1rem] font-bold leading-tight transition ${

@@ -31,7 +31,6 @@ export function BottomNav() {
     <div className="dock-frame">
       <nav aria-label="Điều hướng chính" className="bottom-dock backdrop-blur-md">
         <ul
-          data-tour="dock"
           className="grid h-full grid-cols-5 items-stretch gap-1 px-1.5 py-1.5"
         >
           {items.map(({ href, label, icon: Icon }) => {

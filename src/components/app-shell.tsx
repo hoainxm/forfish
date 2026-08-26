@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import { BottomNav } from "@/components/bottom-nav";
-import { TourLauncher } from "@/components/tour-launcher";
 
 /*
   Khung app theo KHU (chủ dự án chốt 2026-07-26):
@@ -28,7 +27,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="app-shell mx-auto flex min-h-dvh max-w-[480px] flex-col bg-background shadow-sm">
       <main className="app-content flex-1">{children}</main>
       <BottomNav />
-      <TourLauncher />
     </div>
   );
 }
