@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   LOGIN_FALLBACK_MESSAGE,
   loginErrorMessage,
+  tokenIssueErrorMessage,
 } from "../login-error";
 
 // Lỗi invalid_credentials chuẩn Supabase trả khi sai SĐT hoặc mật khẩu.
@@ -59,5 +60,47 @@ describe("loginErrorMessage — tách lỗi đăng nhập (2026-07-21)", () => {
   it("lỗi lạ không nhận diện được → câu gộp có lối đi, không rỗng", () => {
     expect(loginErrorMessage({ message: "weird" }, null)).toBe(LOGIN_FALLBACK_MESSAGE);
     expect(loginErrorMessage(null, null)).toBe(LOGIN_FALLBACK_MESSAGE);
+  });
+});
+
+describe("tokenIssueErrorMessage — máy chủ trả lỗi cấp chuỗi (2026-08-27)", () => {
+  // KHÔNG mã nào được nói "mạng yếu": tới đây máy ĐÃ với tới máy chủ.
+  const codes = [
+    "login_required",
+    "http_401",
+    "revoke_failed",
+    "issue_failed",
+    "not_configured",
+    "bad_account",
+    "http_500",
+  ];
+
+  it("KHÔNG bao giờ nói 'mạng yếu' (khuôn lỗi hạ tầng đội lốt mạng)", () => {
+    for (const c of codes) {
+      const msg = tokenIssueErrorMessage(c);
+      expect(msg.toLowerCase()).not.toContain("mạng yếu");
+      expect(msg).not.toBe("");
+    }
+  });
+
+  it("phiên chưa tới máy chủ (login_required/401) → cho bấm lại MỘT lần + lối gọi SDVICO", () => {
+    for (const c of ["login_required", "http_401"]) {
+      const msg = tokenIssueErrorMessage(c);
+      expect(msg).toContain("Đăng nhập");
+      expect(msg).toContain("0939 243 222");
+    }
+  });
+
+  it("lỗi phía máy chủ (thiếu cấu hình / thu hồi / ghi sổ) → nói THẬT là lỗi hệ thống, KHÔNG bảo bấm lại vô tận", () => {
+    for (const c of ["revoke_failed", "issue_failed", "not_configured", "http_500"]) {
+      const msg = tokenIssueErrorMessage(c);
+      expect(msg).toContain("lỗi máy chủ");
+      expect(msg).toContain("0939 243 222");
+    }
+  });
+
+  it("mã rỗng / lạ → vẫn có câu lỗi hệ thống có lối đi, không rỗng", () => {
+    expect(tokenIssueErrorMessage("")).toContain("0939 243 222");
+    expect(tokenIssueErrorMessage("something_new")).toContain("lỗi máy chủ");
   });
 });
