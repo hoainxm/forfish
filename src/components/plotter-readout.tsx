@@ -14,7 +14,8 @@
  * số, như thanh dữ liệu của máy định vị / Windy, không phải khối thẻ 3 dòng.
  *
  * HÌNH PHẢI KHỚP BẢN ĐỒ (user 2026-08-25c: *"nó đang bị ngược"*):
- *  · vị trí TÀU  = ICON TÀU (`BoatIcon`, y hệt marker trên bản đồ)
+ *  · vị trí TÀU  = ẢNH GHIM TÀU CÁ (`/icons/boat-marker.png`, y hệt marker
+ *    trên bản đồ — ảnh do chủ dự án cấp 2026-08-25l)
  *  · vị trí TRỎ  = CÁI GHIM (`PinIcon`, y hệt marker trên bản đồ)
  * Chốt 2026-08-25f. Hai hình đi qua nhiều nhịp (mũi tên → chấm → tàu; vòng ngắm
  * → mũi tên → ghim → cá → GHIM) — hễ đổi hình trên bản đồ thì PHẢI đổi ở đây cùng lúc,
@@ -31,7 +32,7 @@
 import { haversineKm, bearingDeg, type LatLon } from "@/lib/route-plan";
 import { useMapPrefs, fmtCoordPair, fmtDist } from "@/lib/map-prefs";
 import type { NavStatus } from "@/lib/use-nav-tracking";
-import { BoatIcon, PinIcon, AlertIcon } from "@/components/icons";
+import { PinIcon, AlertIcon } from "@/components/icons";
 
 /*  Dưới ngưỡng này coi như con trỏ trùng tàu (≈180 m — trong tầm sai số GPS
     thường của điện thoại trên tàu), không tính hướng nữa. */
@@ -47,13 +48,16 @@ function clockVN(ms: number): string {
   });
 }
 
-/** ICON TÀU nhỏ — cùng hình với marker trên bản đồ (nav-mode NavBoatMarker) */
+/** DẤU TÀU nhỏ — cùng ẢNH với marker trên bản đồ (nav-mode NavBoatMarker) */
 function BoatMark({ stale, off }: { stale?: boolean; off?: boolean }) {
   return (
-    <BoatIcon
-      className={`h-4 w-4 shrink-0 ${
-        off ? "text-foreground/35" : stale ? "text-t1/50" : "text-t1"
-      }`}
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src="/icons/boat-marker.png"
+      srcSet="/icons/boat-marker.png 1x, /icons/boat-marker@2x.png 2x"
+      alt=""
+      aria-hidden
+      className={`h-4 w-auto shrink-0 ${off ? "opacity-40" : stale ? "opacity-55" : ""}`}
     />
   );
 }

@@ -138,7 +138,6 @@ import { NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { PlotterReadout } from "@/components/plotter-readout";
 import { useNavTracking } from "@/lib/use-nav-tracking";
 import { computeNavProgress } from "@/lib/nav-progress";
-import { borderGeoJSON } from "@/data/vn-maritime-border";
 import { vungLongGeoJSON } from "@/data/vn-fishing-zones";
 import {
   fetchPublicVmsZones,
@@ -146,6 +145,7 @@ import {
   type VmsZone,
 } from "@/lib/vms-zones";
 import {
+  borderFromZones,
   borderProximity,
   borderStepCrossed,
   borderStepFor,
@@ -249,7 +249,6 @@ const SEA_STATE: Record<SeaLevel, string> = {
 const THIS_MONTH = new Date().getMonth() + 1;
 
 // Ranh giới biển VN không đổi → tạo GeoJSON một lần ở cấp module.
-const BORDER_DATA = borderGeoJSON();
 // Ranh giới vùng lộng (NĐ 26/2019) — tĩnh, tạo một lần.
 const VUNG_LONG_DATA = vungLongGeoJSON();
 
@@ -398,6 +397,16 @@ export default function FishingMapView() {
   // Ranh giới vùng lộng bật/tắt qua map-prefs. VÙNG BIỂN VMS nay do admin quản
   // lý (bảng vms_zones): đọc từ DB, chưa cấu hình/lỗi → 3 vùng mặc định tĩnh.
   const [vmsZones, setVmsZones] = useState<VmsZone[]>(STATIC_VMS_ZONES);
+  /*  NGUỒN BIÊN cho cảnh báo ranh giới, dựng từ vùng ADMIN đã đánh dấu
+      `isBorder` (migration 0038); chưa đánh dấu vùng nào thì `borderFromZones`
+      trả dữ liệu tĩnh ⇒ hành vi y như cũ. Memo vì mỗi lần dựng là duyệt lại
+      vài nghìn toạ độ.
+      ⚠️ PHẢI KHAI Ở ĐÂY, ngay sau `vmsZones`: nhánh DẪN ĐƯỜNG dùng nó sớm hơn
+      ~380 dòng. Bản đầu tôi khai cạnh `prox` ở cuối thân hàm — lint React
+      Compiler chặn, mà thật ra là TDZ: vào chế độ dẫn đường là nổ "Cannot
+      access before initialization". Cùng loại bẫy đã ghi ở chú thích
+      `syncBaseTopReady` phía trên. */
+  const borderSrc = useMemo(() => borderFromZones(vmsZones), [vmsZones]);
   useEffect(() => {
     let alive = true;
     fetchPublicVmsZones().then((z) => {
@@ -1592,7 +1601,7 @@ export default function FishingMapView() {
   // memo theo fix GPS — effect dưới lệ thuộc reference này, không được đổi
   // mỗi lần vẽ lại (sẽ set state vòng lặp)
   const navProx = useMemo(
-    () => (navOn && navPos ? borderProximity(navPos.lat, navPos.lon) : null),
+    () => (navOn && navPos ? borderProximity(navPos.lat, navPos.lon, borderSrc) : null),
     [navOn, navPos],
   );
   const navBorderStepRef = useRef<number | null>(null);
@@ -1604,7 +1613,10 @@ export default function FishingMapView() {
     dismissed: boolean;
   } | null>(null);
   useEffect(() => {
-    if (!navProx) {
+    /*  `!navProx.applies` = tàu đang trong bờ/vịnh kín ⇒ chuyện ranh giới không
+        có nghĩa ở đó, ĐỪNG nhắc (chủ dự án 2026-08-25). Trước đây tàu nằm trong
+        cảng vẫn có thể bị HUD nhắc "còn ~N hải lý tới ranh giới". */
+    if (!navProx || !navProx.applies) {
       navBorderStepRef.current = null;
       setNavBorder(null);
       return;
@@ -1994,7 +2006,7 @@ export default function FishingMapView() {
   const confidence = forecastConfidence(daysAhead, skillConf);
   /** Số đo "lúc này" trong bản lưu là số ĐÔNG CỨNG lúc lưu — chỉ nói thật giờ đo */
   const isToday = sel?.date === todayIso;
-  const prox = borderProximity(point.lat, point.lon);
+  const prox = borderProximity(point.lat, point.lon, borderSrc);
   /*  ĐẾM 3 GIÂY RỒI TRƯỢT SHEET SÁT ĐÁY (SHEET_AUTO_HIDE_MS) — MỌI NẤC.
       Chạy lại khi ĐỔI ĐIỂM ĐANG XEM nữa, không chỉ khi đổi nấc: chạm điểm mới
       lúc sheet ĐANG ở `peek` thì `size` không đổi ⇒ chỉ nghe `size` là đồng hồ
@@ -2002,7 +2014,7 @@ export default function FishingMapView() {
       NGOẠI LỆ AN TOÀN (mặc định an toàn nhất, nguyên tắc 5): RẤT GẦN RANH GIỚI
       (≤6 hải lý) thì KHÔNG tự ẩn — cùng luật với NavHud (§10.7 F: ≤6 hl không
       thu được). Vượt ranh giới bị bắt/phạt rất nặng, không đánh đổi lấy gọn mắt. */
-  const borderLocked = prox.level === "very_near";
+  const borderLocked = prox.applies && prox.level === "very_near";
   /** sheet đang THU (peek hoặc đã trượt sát đáy) — banner bão, rail và chú giải
       chỉ tự mờ khi bà con KÉO SHEET LÊN đọc (half/full), không phải khi sheet
       tự ẩn xuống (lúc đó bản đồ đang lộ nhiều nhất, càng cần rail để thao tác) */
@@ -2269,11 +2281,16 @@ export default function FishingMapView() {
           </Source>
         )}
 
-        {/* Đường ranh giới 75 điểm cũ (cam-đỏ nét đứt) ĐÃ XÓA khỏi bản đồ
-            (user chốt 2026-07-28: "biên giới mới = đường 1+2+3" = hợp 3 vùng
-            VMS ở trên). LƯU Ý: dữ liệu VN_MARITIME_BORDER + geofence cảnh báo
-            IUU (borderProximity) VẪN CÒN trong code — chỉ bỏ phần VẼ, cảnh báo
-            khoảng cách tới ranh giới không bị ảnh hưởng. */}
+        {/*  Đường ranh giới 75 điểm cũ (cam-đỏ nét đứt) ĐÃ XÓA khỏi bản đồ
+             (user chốt 2026-07-28: "biên giới mới = đường 1+2+3" = hợp 3 vùng
+             VMS ở trên).
+             ⚠️ ĐÍNH CHÍNH 2026-08-25 — chú thích cũ ở đây ghi "cảnh báo khoảng
+             cách tới ranh giới KHÔNG BỊ ẢNH HƯỞNG". SAI, và sai suốt gần một
+             tháng: `borderProximity` vẫn đo tới đường 75 điểm đã gỡ, nên số hải
+             lý không dính gì đường bà con nhìn thấy. Đo thật tại một điểm bà con
+             gửi: báo 14,4 hải lý trong khi thực tế cách mép ngoài 0,2 hải lý.
+             Nay `lib/geofence` đo tới `VN_OUTER_BORDER` (chính cung ngoài khơi
+             đang vẽ) và biết TRONG/NGOÀI bằng `VN_ALLOWED_RINGS`. */}
 
         {/* (đã bỏ viền 7 vùng khoanh sẵn — dự báo cá nay tính TOÀN BỘ vùng
             biển VN, không còn giới hạn trong các đa giác; viền cũ gây hiểu lầm
@@ -2898,8 +2915,9 @@ export default function FishingMapView() {
              Màu cam-đỏ `#b42318` CÙNG HỌ với đường ranh giới (03 §6: cam-đỏ là
              màu độc quyền của ranh giới) nhưng MẢNH HƠN + nét đứt khác để không
              ai nhầm nó LÀ đường ranh giới. */}
-        <Source
-          id="border-line"
+        {prox.applies && (
+          <Source
+            id="border-line"
           type="geojson"
           data={{
             type: "Feature",
@@ -2910,21 +2928,23 @@ export default function FishingMapView() {
                 [point.lon, point.lat],
                 [prox.nearest[0], prox.nearest[1]],
               ],
-            },
-          }}
-        >
-          <Layer
-            id="border-line-l"
-            type="line"
-            paint={{
-              "line-color": "#b42318",
-              "line-width": 1.5,
-              "line-opacity": 0.75,
-              "line-dasharray": [3, 2],
+              },
             }}
-          />
-        </Source>
+          >
+            <Layer
+              id="border-line-l"
+              type="line"
+              paint={{
+                "line-color": "#b42318",
+                "line-width": 1.5,
+                "line-opacity": 0.75,
+                "line-dasharray": [3, 2],
+              }}
+            />
+          </Source>
+        )}
         {/* nhãn số hải lý NGAY GIỮA đường đo — đọc được mà không phải mở sheet */}
+        {prox.applies && (
         <Marker
           longitude={(point.lon + prox.nearest[0]) / 2}
           latitude={(point.lat + prox.nearest[1]) / 2}
@@ -2936,14 +2956,16 @@ export default function FishingMapView() {
                tương phản sẵn. Hex chỉ được phép nằm trong `paint` của MapLibre,
                không phải trong className. */}
           <span className="whitespace-nowrap rounded-full border border-white/80 bg-danger px-2 py-0.5 text-[0.6875rem] font-bold text-white shadow-md">
+            {prox.outside ? "ngoài biên " : ""}
             {fmtDist(
               prox.distanceNm * 1.852,
               prefs.distUnit,
               prox.distanceNm < 10 ? 1 : 0,
-            )}{" "}
-            tới biên
+            )}
+            {prox.outside ? " vào trong" : " tới biên"}
           </span>
         </Marker>
+        )}
 
         {/*  ĐƯỜNG KẺ TÀU → CON TRỎ (bà con qua VSS Quân 2026-08-25: *"khi trỏ
              tới đâu thì nên làm đường kẻ từ vị trí mình có tới còn trỏ luôn"*).
@@ -2982,6 +3004,48 @@ export default function FishingMapView() {
             />
           </Source>
         )}
+        {/*  NHÃN GIỮA ĐƯỜNG KẺ — bà con nhìn đường mà không biết nó là gì
+             (VSS Quân 2026-08-25i: *"đường kéo dài ra biên là đường gì vậy a"*).
+             Trên màn có HAI đường cùng lúc (tàu→con trỏ và điểm xem→ranh giới);
+             đường tới biên đã có nhãn, đường này thì chưa ⇒ đường không nhãn bị
+             hiểu nhầm thành đường kia. Nay cả hai đều tự xưng tên.
+             Ẩn khi con trỏ gần như trùng tàu — nhãn sẽ chồng lên dấu tàu. */}
+        {tracking.pos &&
+          haversineKm(
+            tracking.pos.lat,
+            tracking.pos.lon,
+            point.lat,
+            point.lon,
+          ) >= 0.5 && (
+            <Marker
+              longitude={(tracking.pos.lon + point.lon) / 2}
+              latitude={(tracking.pos.lat + point.lat) / 2}
+              anchor="center"
+            >
+              <span className="whitespace-nowrap rounded-full border border-white/80 bg-t1 px-2 py-0.5 text-[0.6875rem] font-bold text-white shadow-md">
+                {fmtDist(
+                  haversineKm(
+                    tracking.pos.lat,
+                    tracking.pos.lon,
+                    point.lat,
+                    point.lon,
+                  ),
+                  prefs.distUnit,
+                  0,
+                )}{" "}
+                &middot;{" "}
+                {Math.round(
+                  bearingDeg(
+                    tracking.pos.lat,
+                    tracking.pos.lon,
+                    point.lat,
+                    point.lon,
+                  ),
+                )}
+                &deg;
+              </span>
+            </Marker>
+          )}
 
         {/*  CON TRỎ — chỗ đang xem dự báo: CON CÁ (user 2026-08-25f: *"vị trí
              trỏ trên bản đồ thì dùng biểu tượng con cá, tăng thêm 50% kích
@@ -3576,7 +3640,7 @@ export default function FishingMapView() {
                        đo khoảng cách tới đường ranh giới).
                        ẨN khi very_near: lúc đó dòng ĐỎ to phía dưới đã in đúng
                        con số này rồi, in hai lần là thừa. */}
-                  {prox.level !== "very_near" && (
+                  {prox.applies && prox.level !== "very_near" && (
                     <span
                       className={`whitespace-nowrap text-[0.75rem] font-semibold tabular-nums leading-snug ${
                         prox.level === "near" ? "text-warn" : "text-foreground/55"
@@ -3596,10 +3660,16 @@ export default function FishingMapView() {
               {/* RANH GIỚI ở peek (audit M3, gộp D7+E1): câu đầy đủ nằm ở thân
                   sheet; peek chỉ chấm màu + một câu ngắn khi RẤT GẦN — không
                   nói hai lần cùng ý trong một màn. */}
-              {prox.level === "very_near" && (
+              {/*  CÂU CHUẨN lấy từ lib/geofence (`prox.label`) chứ KHÔNG viết
+                   cứng ở đây nữa: `very_near` giờ gồm CẢ ca "đã ra ngoài biên",
+                   mà câu cứng "Rất gần ranh giới — còn ~X hải lý" đọc lên thành
+                   "chưa tới biên, còn X nữa" — ngược hẳn sự thật. Một câu, một
+                   nguồn (bà con qua VSS Quân 2026-08-25: *"trỏ qua biên thì báo
+                   vượt biên, chứ sao báo cách biên"*). */}
+              {prox.applies && prox.level === "very_near" && (
                 <p className="mt-1 flex items-center gap-1.5 text-[0.875rem] font-bold text-danger">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-danger" aria-hidden />
-                  Rất gần ranh giới — còn ~{prox.distanceNm.toFixed(1)} hải lý.
+                  {prox.label}.
                 </p>
               )}
               {/*  Dòng "Gần ranh giới biển" (không kèm số) BỎ 2026-08-25: con số

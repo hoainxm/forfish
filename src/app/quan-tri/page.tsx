@@ -3351,6 +3351,7 @@ type AdminVmsZone = {
   color: string;
   style: string;
   defaultOn: boolean;
+  isBorder: boolean;
   visible: boolean;
   geojson: GeoJSON.FeatureCollection;
   sortOrder: number;
@@ -3390,6 +3391,7 @@ function VmsZonesTab() {
   const [color, setColor] = useState("#0d9488");
   const [style, setStyle] = useState<VmsZoneStyle>("line");
   const [defaultOn, setDefaultOn] = useState(true);
+  const [isBorder, setIsBorder] = useState(false);
   const [geojson, setGeojson] = useState<GeoJSON.FeatureCollection | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileErr, setFileErr] = useState<string | null>(null);
@@ -3482,7 +3484,7 @@ function VmsZonesTab() {
       setFileErr("Chọn tệp GeoJSON trước.");
       return;
     }
-    const draft = { name, color, style, defaultOn, visible: true, geojson };
+    const draft = { name, color, style, defaultOn, visible: true, isBorder, geojson };
     const invalid = validateZoneDraft(draft);
     if (invalid) {
       setFormMsg(invalid);
@@ -3537,6 +3539,7 @@ function VmsZonesTab() {
               id: z.id,
               color: z.color,
               style: z.style,
+              isBorder: z.isBorder,
               visible: z.visible,
               geojson: z.geojson,
             }))}
@@ -3622,6 +3625,26 @@ function VmsZonesTab() {
           />
           Bật sẵn trên app ngư dân (bà con vẫn tắt được)
         </label>
+        {/*  RANH GIỚI DÙNG ĐỂ CẢNH BÁO — không phải toggle hiển thị. Bật cái này
+             là đổi HÌNH mà app dùng để tính "cách ranh giới bao xa" và "đã ra
+             ngoài chưa" cho toàn bộ bà con, nên có dòng dặn ngay dưới. */}
+        <label className="mt-3 flex items-start gap-2 text-[0.9375rem]">
+          <input
+            type="checkbox"
+            checked={isBorder}
+            onChange={(e) => setIsBorder(e.target.checked)}
+            className="mt-0.5 h-5 w-5"
+          />
+          <span>
+            Vùng này là <b>ranh giới</b> dùng để cảnh báo
+            <span className="mt-0.5 block text-[0.8125rem] leading-snug text-foreground/60">
+              App sẽ đo &quot;cách ranh giới bao xa&quot; theo hình này. Nên nạp
+              dạng <b>vùng kín</b> — chỉ là đường thì app đo được khoảng cách
+              nhưng không biết trong hay ngoài, sẽ không báo &quot;đã ra
+              ngoài&quot;. Không đánh dấu vùng nào thì app giữ ranh giới sẵn có.
+            </span>
+          </span>
+        </label>
         {formMsg && (
           <p className="mt-2 text-[0.875rem] font-semibold text-danger">{formMsg}</p>
         )}
@@ -3679,6 +3702,16 @@ function VmsZonesTab() {
                 }`}
               >
                 {z.defaultOn ? "✓ Bật sẵn trên app" : "Tắt sẵn trên app"}
+              </button>
+              <button
+                type="button"
+                disabled={busyId === z.id}
+                onClick={() => patch(z.id, { isBorder: !z.isBorder })}
+                className={`rounded-lg px-3 py-1.5 text-[0.8125rem] font-semibold ${
+                  z.isBorder ? "bg-danger-bg text-danger" : "bg-field text-foreground/60"
+                }`}
+              >
+                {z.isBorder ? "✓ Là ranh giới cảnh báo" : "Không phải ranh giới"}
               </button>
               <button
                 type="button"

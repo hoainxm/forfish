@@ -665,6 +665,23 @@ Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔN
 
 **B. Nhắc cài về máy** (`components/install-prompt.tsx` → `InstallBanner`, đặt ở trang chủ dưới `UrgentStrip`): thẻ `.surface` calm — Android/Chrome bắt `beforeinstallprompt` → nút "Cài về máy" bung hộp cài; iOS Safari (không có sự kiện đó) → hướng dẫn tay "bấm Chia sẻ → Thêm vào Màn hình chính". **Cài về máy là cách DUY NHẤT vượt giới hạn 7 ngày của iOS** (không có API). Tự ẩn khi đã cài (`isStandalone`) / đã tắt ~~(`forfish.installNudge.dismissed.v1`)~~ / trình duyệt không cho cài (desktop không iOS). Không nài — tắt là nhớ. **Cập nhật 2026-08-18 (gói D, §12 tầng 5)**: nhịp nhắc do `lib/install-nudge.ts` quyết (thuần, có test) — khoá **`forfish.installNudge.v2`** `{count, lastAt, dismissed}`: hiện **≤3 lần, cách ≥1 ngày** (`INSTALL_NUDGE_MAX`/`INSTALL_NUDGE_GAP_MS`); bấm X **hoặc** bấm Cài rồi huỷ hộp cài (`userChoice.outcome === "dismissed"`) = tắt hẳn; khoá cũ `installNudge.dismissed.v1` = "1" vẫn được đọc là đã tắt (không migrate, không xoá); **ẩn khi offline**; ẩn khi dải khẩn ≥3 dòng (`UrgentWithInstall` bọc cả hai). Đặt ở trang chủ trong `UrgentWithInstall`, ngay dưới UrgentStrip.
 
+**CHẠY SONG SONG VỚI BẢN CH PLAY (2026-08-26)** — chủ dự án: *"cho chạy song song đi, tức là cài chrome hay pwa trên web đều được"*.
+
+> **Vì sao thẻ nhắc cài biến mất trên máy đã có bản CH Play**: bản đó là TWA, xác thực Digital Asset Links về cùng origin ⇒ **Chrome coi origin này "đã cài" và KHÔNG BAO GIỜ bắn `beforeinstallprompt` nữa**. Bản cũ chỉ `setMode("android")` bên trong handler của sự kiện đó, nên không có sự kiện = không có thẻ, im lặng, không ai biết vì sao. Code web **không ép được** Chrome bắn sự kiện — nên phải bỏ chỗ phụ thuộc, không phải đi sửa sự kiện.
+
+| Máy | Chrome có hỏi? | Thẻ hiện gì |
+|---|---|---|
+| Android | có (`beforeinstallprompt`) | nút **"Cài về máy"** bung hộp cài thật |
+| Android | không, sau `BIP_WAIT_MS` = 2,5s | **hướng dẫn tay**: bấm ⋮ → "Thêm vào Màn hình chính" (có máy ghi "Cài ứng dụng") |
+| iPhone | — | hướng dẫn tay qua nút Chia sẻ (như cũ) |
+| Desktop | — | **không mời** — mời hão vì máy không cài được |
+
+Sự kiện tới MUỘN vẫn được nhận và **nâng cấp** thẻ từ hướng-dẫn-tay lên nút bấm; không mất đường cài tử tế. Chờ 2,5s chứ không lâu hơn: Chrome bắn gần như tức thì khi máy đủ điều kiện, chờ lâu là thẻ nhấp nháy đổi hình trước mắt bà con.
+
+Câu chữ nhánh hướng-dẫn-tay **không nói lý do kỹ thuật** ("máy bạn đã có bản CH Play nên Chrome không hỏi") — bà con chỉ cần biết **bấm vào đâu**.
+
+Đo thật trên trình duyệt (UA Android, dev không có service worker nên `beforeinstallprompt` không bắn): thẻ hiện đúng nhánh hướng dẫn tay; đổi sang UA desktop thì **không** hiện.
+
 **C. iPhone: bản cài là KHO RIÊNG** (sửa câu chữ 2026-07-31): webclip iOS không dùng chung storage với Safari — dự báo/cache/phiên đã có trong Safari KHÔNG theo sang, và lần mở ĐẦU TIÊN của bản cài bắt buộc phải có sóng (chưa có service worker thì không có gì để trả). Vậy câu "cài xong là ra khơi mất sóng vẫn mở được" chỉ đúng trên Android/Chrome (dùng chung kho). `InstallBanner` nay tách câu theo máy, và nhánh iOS thêm dòng ĐỎ "Cài xong mở app vừa cài NGAY khi còn sóng: bản cài bắt đầu từ kho trống, phải tải lại dự báo một lần". Bản cài trống vẫn được chip Ra khơi nhắc "Chưa tải dữ liệu dự báo" (`pretrip-auto.ts`) và `PretripAutoNotify` tự tải lại khi có sóng.
 
 **KHÔNG làm** (user chốt 2026-07-28): KHÔNG nhét câu "nên cài về máy" vào chip trạng thái tải-sẵn ở Ra khơi (`PretripSavedStatus`) — chip đó chỉ để liếc "đã lưu tới ngày nào", thêm câu cài đặt vào là rối + trùng với banner trang chủ. ~~Việc nhắc cài chỉ nằm ở `InstallBanner`.~~ **Đính chính 2026-08-18** (audit `ops/audit-notify-2026-08-18.md` mục 7): nhắc cài thực tế nằm ở **3 chỗ** — `InstallBanner` trang chủ (chỗ chính) · băng iOS trong sheet tải-sẵn (`PretripSavedSheet`, chỉ khi máy iPhone chưa cài — vì bản cài iOS là kho RIÊNG, mục C) · 1 dòng ở màn `/login`. Cả ba theo tầng 5 của §12 (≤3 lần cách ≥1 ngày, tắt là nhớ, ẩn khi offline); chip `PretripSavedStatus` vẫn KHÔNG nhắc cài.
@@ -683,8 +700,13 @@ Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔN
 | **TRỎ** | **con cá** | `14°29′24″N · 113°11′31″E · 269 hải lý · 60°` | KHÔNG |
 
 **HÌNH: CHẤM = TÔI, MŨI TÊN = CHỖ TRỎ TỚI** (sửa 2026-08-25c, user: *"nó đang bị ngược — cái vị trí hiện tại của mình thì nên là 1 chấm nhỏ (nhấp nháy), cái vị trí trỏ đến thì nên là cái dấu mũi tên"*). Bản trước làm ngược (tàu = mũi tên, con trỏ = vòng ngắm) nên đọc bị lộn.
-- **Vị trí tàu** (`NavBoatMarker`, nav-mode.tsx — dùng CHUNG cho cả lúc dẫn đường): **`BoatIcon`** `3.75rem` (tàu nhìn từ trên xuống, tô đặc + viền trắng) đặt trên quầng `animate-ping` `5.25rem` màu `--t1`. **Xoay theo `headingDeg`** khi biết hướng — hình con tàu tự nó có mũi nên đã BỎ pip tam giác cũ (giữ cả hai là nói hướng hai lần); không biết hướng thì mũi để hướng Bắc. **Mất tín hiệu → TẮT nhấp nháy + mờ đi**: số cũ không được giả vờ đang sống. **Cỡ đã qua NĂM nhịp** — ghi lại để đừng chỉnh vòng vo nữa: vòng trắng 44px chê TO → `0.875rem` chê NHỎ (*"đang dấu . nhỏ quá x3 nó lên đi"*) → ×3 chê to (*"x2 thôi x3 to quá"*) → ×2 → +50% cùng lúc đổi sang icon tàu → **×2 lần nữa** (*"cái kích thước tàu x2"*, 2026-08-25h).
-- **Con trỏ**: **CÁI GHIM** (`PinIcon` sẵn có) `3.25rem` (**phóng to từ `2.625rem`**, user 2026-08-26: *"biểu tượng vị trí con trỏ to lên tý, nhìn bé quá"*) **trên quầng `animate-ping` `4.5rem` màu `--trim`** (theo tỉ lệ), **`anchor="bottom"`** — CHÂN ghim rơi đúng toạ độ, nên quầng phải neo vào CHÂN (`-bottom-[2.25rem]` = nửa quầng + `left-1/2 -translate-x-1/2`) chứ không phải giữa hình; neo sai là vòng nháy lệch lên nửa thân ghim, trỏ sai chỗ. Quầng để `pointer-events-none` cho khỏi nuốt cú chạm vào bản đồ. **Đã đi một vòng năm hình**: vòng ngắm → mũi tên (*"cái mũi tên ko đúng"*) → ghim → cá (*"dùng biểu tượng con cá"*) → **GHIM** (*"cho về biểu tượng thường dùng đi, thay cho con cá"*, 2026-08-25i). Bài học: hình lạ mắt thua hình quen tay, kể cả khi hình lạ hợp chủ đề hơn. **CẢ HAI dấu đều nhấp nháy**, phân biệt bằng MÀU: tàu `--t1`, con trỏ `--trim`.
+- **Vị trí tàu** (`NavBoatMarker`, nav-mode.tsx — dùng CHUNG cho cả lúc dẫn đường): **ẢNH GHIM TÀU CÁ** `/icons/boat-marker.png` cao `3rem` (chủ dự án cấp 2026-08-25l; sinh bằng `sharp` từ file gốc 653 KB → **5,5 KB** + bản `@2x` 13,8 KB), đặt trên quầng `animate-ping` `2.625rem` neo vào MŨI GHIM. Đo thật: render 30×42px, `anchor="bottom"`, ảnh gốc 72×100.
+
+> ⚠️ **Ảnh là CÁI GHIM (mũi nhọn chỉ xuống), không phải hình tàu nhìn từ trên** — ba hệ quả đi liền, đừng sửa lẻ một cái: (1) `anchor="bottom"` vì MŨI GHIM mới là toạ độ; (2) **KHÔNG xoay theo `headingDeg`** — ghim mà xoay là nằm nghiêng/chổng ngược và mũi rời khỏi chỗ nó đang chỉ; (3) quầng nhấp nháy neo vào mũi ghim, không neo giữa ảnh.
+>
+> **MẤT MỘT THÔNG TIN so với bản trước**: dấu tàu KHÔNG còn chỉ hướng đang chạy. Muốn có lại thì phải thêm một mũi tên nhỏ cạnh ghim (chưa làm — `headingDeg` vẫn còn trong props để sẵn).
+>
+> Ảnh đã ghim vào `CRITICAL_SHELL` của service worker: thiếu là giữa biển mất sóng bà con không thấy tàu mình đâu. Lịch sử hình/cỡ dấu tàu (ghi lại để đừng đi vòng): mũi tên → vòng trắng 44px → chấm nhỏ → to gấp ba → gấp đôi → icon tàu SVG +50% → nhỏ 30% + nằm ngang → **ảnh ghim tàu cá do chủ dự án cấp**.- **Con trỏ**: **CÁI GHIM** (`PinIcon` sẵn có) `3.25rem` (**phóng to từ `2.625rem`**, user 2026-08-26: *"biểu tượng vị trí con trỏ to lên tý, nhìn bé quá"*) **trên quầng `animate-ping` `4.5rem` màu `--trim`** (theo tỉ lệ), **`anchor="bottom"`** — CHÂN ghim rơi đúng toạ độ, nên quầng phải neo vào CHÂN (`-bottom-[2.25rem]` = nửa quầng + `left-1/2 -translate-x-1/2`) chứ không phải giữa hình; neo sai là vòng nháy lệch lên nửa thân ghim, trỏ sai chỗ. Quầng để `pointer-events-none` cho khỏi nuốt cú chạm vào bản đồ. **Đã đi một vòng năm hình**: vòng ngắm → mũi tên (*"cái mũi tên ko đúng"*) → ghim → cá (*"dùng biểu tượng con cá"*) → **GHIM** (*"cho về biểu tượng thường dùng đi, thay cho con cá"*, 2026-08-25i). Bài học: hình lạ mắt thua hình quen tay, kể cả khi hình lạ hợp chủ đề hơn. **CẢ HAI dấu đều nhấp nháy**, phân biệt bằng MÀU: tàu `--t1`, con trỏ `--trim`.
 - Hình trong ô toạ độ **y hệt** hình trên bản đồ — hai chỗ khác hình thì bà con không nối được đâu với đâu.
 
 **Cỡ đo được**: dải toạ độ **42px** cao (bản thẻ đầu ~100px → một-dòng-mỗi-số 56px → 42px). Đuôi hướng chỉ in `· 269 hải lý · 60°`, KHÔNG kèm tên hướng bằng chữ — tên hướng đã có ở dòng "ở đâu" trong sheet, in hai lần là phí chỗ.
@@ -726,6 +748,46 @@ Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔN
 **ĐƯỜNG ĐO TỚI BIÊN (2026-08-25i)**, user: *"vẽ thêm cái tính tới biên để biết là vị trí đó cách biên bao nhiêu"*. Nối chỗ đang xem với **điểm gần nhất trên ranh giới** — `prox.nearest` do `lib/geofence` trả sẵn cùng lúc với khoảng cách, KHÔNG tính lại và không đoán. Nét đứt mảnh `#b42318` (`line-width` 1.5, dash `[3,2]`, opacity .75) + **nhãn tròn "N hải lý tới biên" ngay giữa đường** để đọc được mà không phải mở sheet.
 
 > Màu CÙNG HỌ cam-đỏ với đường ranh giới (03 §6: cam-đỏ là màu độc quyền của ranh giới — đường này nói về ranh giới nên thuộc về họ đó), nhưng **mảnh hơn + nét đứt khác** để không ai nhầm nó LÀ đường ranh giới.
+
+**⚠️ BIÊN ĐO = MÉP NGOÀI VÙNG VMS (sửa lỗi 2026-08-25j)** — chủ dự án chốt *"mép ngoài của 3 vùng"*.
+
+> **Án lệ, đọc trước khi đụng vào cảnh báo ranh giới.** 2026-07-28 đường 75 điểm `VN_MARITIME_BORDER` bị gỡ khỏi bản đồ (biên mới = 3 vùng VMS), nhưng `borderProximity` vẫn đo theo nó. Chú thích lúc đó khẳng định *"cảnh báo khoảng cách tới ranh giới không bị ảnh hưởng"* — sai. Gần một tháng app đo tới một đường **không còn vẽ ở đâu**. Không ai thấy vì con số chỉ là một dòng chữ trong sheet; vẽ nó thành đường kẻ trên bản đồ là bà con bắt được ngay (*"cái tính khoảng cách đang ko gắn vào đường ranh nè"*). Đo thật tại điểm bà con gửi: **báo 14,4 hải lý trong khi thực tế cách mép ngoài 0,2 hải lý**. Bài học: gỡ phần VẼ của một dữ liệu thì phải soi lại MỌI phép tính đang dùng dữ liệu đó — không kết luận "không ảnh hưởng" bằng cảm giác.
+
+- `VN_OUTER_BORDER` (`lib/geofence`) = cung ngoài khơi 200 điểm `allowedOffshore` — CHÍNH đường đỏ nét đứt đang vẽ. Đo tới cái bà con NHÌN THẤY.
+- `VN_ALLOWED_RINGS` = các vòng của vùng `allowed` (kể cả lỗ đảo) → `insideAllowed()` biết điểm nằm TRONG hay NGOÀI. Có đa giác kín rồi mới dám khẳng định bên nào; trước đây cố ý không nói vì chỉ có một đường hở.
+
+**LÚC NÀO MỚI NÓI CHUYỆN RANH GIỚI — cờ `prox.applies` (2026-08-25n)**, chủ dự án: *"các điểm ở trên bờ phía trong của VN thì đừng hiển thị cái tính khoảng cách tới biên… đưa ra logic lúc nào nên hiển thị"*.
+
+Chìa khoá: vùng `allowed` **chỉ phủ MẶT BIỂN** — mép trong của nó chính là đường bờ, các đảo là lỗ. Nên chỉ cần đọc vị trí điểm so với vùng đó là biết nó ở biển hay trên cạn, **không cần nạp thêm bất kỳ dữ liệu đất liền nào**.
+
+| Điểm đang xem | `applies` | Màn hình |
+|---|---|---|
+| TRONG vùng biển VN | ✅ | "Cách ranh giới N hải lý" (vàng khi ≤15 hl, đỏ khi ≤6 hl) |
+| NGOÀI, ra bằng **đường biển** | ✅ | "Chỗ này ĐÃ NGOÀI ranh giới — vào trong ~N hải lý" |
+| NGOÀI, phía **BỜ** — đất liền, vịnh kín, hoặc bờ bị giản lược cắt | ❌ | **IM HOÀN TOÀN**: ẩn dòng chữ, ẩn đường đo, ẩn nhãn, HUD dẫn đường cũng không nhắc |
+| Nguồn biên chỉ có đường hở (không biết trong/ngoài) | ✅ | vẫn nói khoảng cách — lúc đó không có cơ sở để bảo điểm nào trên cạn |
+
+**Ẩn ở ĐỦ 5 chỗ** (thiếu một chỗ là lộ số vô nghĩa): dòng nhỏ dưới toạ độ · dòng đỏ ở peek · đường đo trên bản đồ · nhãn giữa đường đo · `borderLocked` (khoá không cho sheet tự thu) · `navBorder` của HUD dẫn đường.
+
+**Im theo cách AN TOÀN**: khi `applies === false` thì `level` luôn `"ok"` và `label` rỗng. Caller nào quên kiểm cờ cũng chỉ im lặng, **không bao giờ hét cảnh báo sai** — mặc định phải nghiêng về phía không báo động giả.
+
+Đo thật sau khi làm: Hà Nội / Buôn Ma Thuột / TP.HCM / Lào Cai → im. **Thọ Quang (sâu sau bán đảo Sơn Trà) và Vũng Tàu → im**, thay vì bị báo "ĐÃ NGOÀI ranh giới" như trước. Cát Bà 66 · Quy Nhơn 152 · Rạch Giá 73 hải lý → nói bình thường. Xa về đông → "đã ngoài", 171 hải lý.
+
+> Vì sao đáng làm: bản trước in "cách ranh giới 73 hải lý" cho một điểm giữa thành phố. Số đúng về hình học, vô nghĩa với bà con — và một con số vô nghĩa đứng cạnh những con số thật thì nó kéo cả cụm xuống, bà con hết tin luôn phần còn lại.
+
+**BIÊN CHỈ ÁP DỤNG VỚI ĐƯỜNG BIỂN — KHÔNG BAO GIỜ ĐO TỚI ĐOẠN BỜ** (bà con qua VSS Quân 2026-08-25: *"tuy đường kín nhưng đừng bao giờ tính biên tới cái biên trên bờ"*).
+
+> **Hai lỗi bắt được khi chạy thử luật này trên 10 cảng cá — đọc trước khi đụng vào `insideAllowed`.**
+> 1. **Trộn phẳng MultiPolygon**: bản đầu `flatMap` mọi vòng của mọi polygon rồi chạy chẵn-lẻ chung. Điểm nằm trong hai polygon bị đếm hai lần ⇒ chẵn ⇒ hoá "ở ngoài". Hậu quả đo được: **Vũng Tàu bị báo "ĐÃ NGOÀI ranh giới"**. Chẵn-lẻ chỉ đúng TRONG một polygon (để lỗ đảo lật ngược); giữa các polygon phải là HOẶC.
+> 2. **Ra phía bờ cũng bị tính là vượt biên**: đoạn bờ của vòng kín là đường bờ ĐÃ GIẢN LƯỢC, nó cắt ngang các vịnh. **Thọ Quang (Đà Nẵng)** nằm sâu sau bán đảo Sơn Trà nên rơi ra phía "đất liền" ⇒ lại bị báo đã ra ngoài. Sát bờ thì trong/ngoài là câu hỏi vô nghĩa; trả lời bừa là báo động giả, mà báo động giả vài lần là bà con tắt cảnh báo, tới lúc vượt thật thì không ai nghe.
+>
+> **Luật hiện tại**: `outside = true` chỉ khi (a) có vùng kín để biết trong/ngoài, (b) điểm nằm ngoài vùng kín, và (c) **ra bằng đường biển** — điểm gần nhất trên biên nằm trên đường biển, chênh không quá 1 hải lý so với điểm gần nhất trên toàn viền. Ra phía bờ ⇒ im, chỉ nói khoảng cách.
+>
+> **Cổng chống tái phát** (`__tests__/sea-border.test.ts`): cả 10 cảng cá phải `outside === false`; đường biên phải cách MỌI cảng >30 hải lý; nguồn biên không có vùng kín thì `outside` luôn `false` (không biết thì im, không đoán).
+
+**ADMIN ĐỔI ĐƯỢC BIÊN** (migration 0052 `vms_zones.is_border` — đổi số từ 0038 base, xem 04): `/quan-tri` → tab Vùng biển có nút **"Là ranh giới cảnh báo"** trên từng vùng + ô tick trong form thêm vùng, kèm dòng dặn *nên nạp dạng vùng kín*. `borderFromZones` (lib/geofence) gom hình từ các vùng được đánh dấu; **hai nửa lùi độc lập** — không có đường biển nào được đánh dấu thì đường lấy từ dữ liệu tĩnh, không có vùng kín nào thì vùng kín lấy từ dữ liệu tĩnh. Admin đánh dấu nửa vời cũng không làm cảnh báo im hay hoá dại.
+
+**TRỎ QUA BIÊN THÌ NÓI "ĐÃ NGOÀI", KHÔNG NÓI "CÁCH BIÊN"** (bà con qua VSS Quân: *"trỏ qua biên thì báo vượt biên, chứ sao báo cách biên"*). "Cách ranh giới 30 hải lý" cho một chỗ NGOÀI vùng được phép là câu **đúng số nhưng sai nghĩa** — đọc lên thành "còn 30 hải lý nữa mới tới biên". `prox.outside === true` ⇒ `level = "very_near"` + câu `"Chỗ này ĐÃ NGOÀI ranh giới — vào trong ~N hải lý"`. Câu nói về **chỗ đang xem**, không phải về tàu: app không kết tội ai. Dòng đỏ ở peek nay in thẳng `prox.label` chứ không viết cứng, để ca này không bị đọc thành "sắp tới biên".
 
 **CÁCH RANH GIỚI BAO XA — LUÔN HIỆN, ngay dưới toạ độ ở cột phải peek (2026-08-25g)**, bà con qua VSS Quân: *"hiện dưới mục toạ độ là cách ranh giới bn hải lý cho tiện"*.
 

@@ -18,6 +18,7 @@ const okDraft = (over: Partial<VmsZoneDraft> = {}): VmsZoneDraft => ({
   style: "line",
   defaultOn: true,
   visible: true,
+  isBorder: false,
   geojson: {
     type: "FeatureCollection",
     features: [

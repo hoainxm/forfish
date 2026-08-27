@@ -42,6 +42,8 @@ function readDraft(body: Record<string, unknown>): VmsZoneDraft {
     style: coerceStyle(body.style),
     defaultOn: body.defaultOn !== false,
     visible: body.visible !== false,
+    // mặc định KHÔNG phải ranh giới — đánh dấu nhầm là đổi cảnh báo IUU
+    isBorder: body.isBorder === true,
     geojson:
       gj && Array.isArray(gj.features)
         ? gj
@@ -58,7 +60,8 @@ export async function GET() {
   const { data, error } = await admin
     .from(TABLE)
     .select(
-      "id,name,color,style,default_on,visible,geojson,sort_order,created_by,created_at,updated_at",
+      // `is_border` để CUỐI: migration 0038 có thể chưa apply, xem nhánh lùi dưới
+      "id,name,color,style,default_on,visible,geojson,sort_order,created_by,created_at,updated_at,is_border",
     )
     .order("sort_order", { ascending: true })
     .limit(500);
@@ -70,6 +73,7 @@ export async function GET() {
     color: r.color as string,
     style: r.style as string,
     defaultOn: r.default_on as boolean,
+    isBorder: r.is_border === true,
     visible: r.visible as boolean,
     geojson: r.geojson as GeoJSON.FeatureCollection,
     sortOrder: r.sort_order as number,
@@ -109,6 +113,7 @@ export async function POST(req: Request) {
       style: draft.style,
       default_on: draft.defaultOn,
       visible: draft.visible,
+      is_border: draft.isBorder,
       geojson: simplified,
       sort_order: typeof body.sortOrder === "number" ? body.sortOrder : 0,
       created_by: who.phone,
@@ -146,6 +151,7 @@ export async function PATCH(req: Request) {
   if (body!.style !== undefined) patch.style = coerceStyle(body!.style);
   if (typeof body!.defaultOn === "boolean") patch.default_on = body!.defaultOn;
   if (typeof body!.visible === "boolean") patch.visible = body!.visible;
+  if (typeof body!.isBorder === "boolean") patch.is_border = body!.isBorder;
   if (typeof body!.sortOrder === "number") patch.sort_order = body!.sortOrder;
   if (Object.keys(patch).length <= 1) return err(400, "nothing_to_update");
   patch.created_by = who.phone;

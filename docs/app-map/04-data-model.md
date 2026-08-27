@@ -13,6 +13,33 @@ ttl_days: 180
 
 ---
 
+<!-- 0052 (đổi số từ 0038 base khi sync — 0038 đã là data_until_web ở sdvico) — `vms_zones.is_border` -->
+### 0052 — `vms_zones.is_border` · ⚠️ **CHƯA APPLY prod SDVICO** (đổi số từ 0038 base; "đã apply" trong log base là prod BASE)
+
+```sql
+alter table public.vms_zones
+  add column if not exists is_border boolean not null default false;
+create index if not exists vms_zones_is_border_idx
+  on public.vms_zones (is_border) where is_border = true;
+```
+
+**Vì sao**: từ 2026-07-28 biên trên bản đồ = 3 vùng VMS do admin quản lý, nhưng cảnh báo IUU (`lib/geofence`) vẫn đo theo dữ liệu tĩnh kèm app. Muốn admin đổi được biên thì app phải biết **vùng nào là ranh giới** — hai vùng còn lại (Cần chú ý / Chỉ cá đáy) là lớp lưu ý; lấy hợp cả ba ra một vùng vô nghĩa và app sẽ báo "đã ngoài ranh giới" trên gần hết vùng biển VN.
+
+**Ngữ nghĩa**: `is_border = true` ⇒ hình vùng này định nghĩa ranh giới cảnh báo.
+- Vùng **KÍN** (Polygon/MultiPolygon) → dùng cho câu hỏi TRONG/NGOÀI.
+- **ĐƯỜNG** (LineString) → dùng để ĐO khoảng cách. Chỉ có đường thì app **không** khẳng định trong/ngoài (đường hở không có "bên trong") — xem `bietTrongNgoai` trong `lib/geofence`.
+- Không vùng nào bật ⇒ app dùng `src/data/vms-zones.json` như cũ. Đây là **đường lùi an toàn, không phải trạng thái lỗi**.
+
+**Đọc/ghi đều có nhánh lùi bỏ cột lạ** (khuôn migration 0031): `fetchPublicVmsZones` thử `select` kèm `is_border`, lỗi thì hỏi lại không kèm; `/api/admin/vms-zones` tương tự. Nhờ vậy **deploy code mới trước khi apply migration vẫn chạy bình thường**.
+
+**Đã apply** lên `znzgugvfhgmiszqgjulk` 2026-08-25 sau khi chủ dự án chốt ("migrate đi") — luật pre-flight 🔴 là *hỏi trước*, không phải cấm tuyệt đối. Kiểm chứng lại bằng truy vấn read-only:
+- `information_schema.columns` → `is_border`, `boolean`, `NOT NULL`, default `false` ✓
+- 3 vùng hiện có đều `is_border = false` ⇒ app vẫn dùng ranh giới tĩnh, **hành vi không đổi** cho tới khi admin bấm nút.
+- Hình vùng "Ranh giới ngoài khơi (được phép)" trong DB **trùng khít** file tĩnh: LineString 200 điểm, đầu `[108.0873, 21.4843]`, cuối `[103.7918, 10.5054]` ⇒ bật cờ cho vùng đó sẽ không làm lệch cảnh báo.
+- `get_advisors(security)` sau khi apply: **không phát sinh cảnh báo mới**; `vms_zones` không nằm trong nhóm "RLS enabled no policy" nên policy còn nguyên.
+
+**CHƯA làm (cố ý)**: không tự `update` cờ `is_border` cho vùng nào. Sửa DỮ LIỆU bằng công cụ DDL, khoá theo id seed cứng, là đúng thứ tài liệu công cụ dặn tránh — và bật cờ là đổi nguồn hình của một cảnh báo IUU. Để admin bấm nút trong `/quan-tri`, cũng là phép thử nút vừa làm.
+
 ## 1. Supabase project
 
 - Project ref: **`znzgugvfhgmiszqgjulk`** · Region: **ap-northeast-2**
