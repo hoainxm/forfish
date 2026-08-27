@@ -68,3 +68,36 @@ export function loginErrorMessage(err: RawAuthError, exists: AccountExists): str
   // Không kiểm được tài khoản → câu gộp cũ, vẫn có lối đi.
   return LOGIN_FALLBACK_MESSAGE;
 }
+
+/**
+ * Mật khẩu ĐÃ đúng (signInWithPassword qua), nhưng bước ĐỔI PHIÊN LẤY CHUỖI CỨNG
+ * (`POST /api/auth/token`) trả lời DỨT KHOÁT là KHÔNG cấp được — câu tiếng Việt
+ * theo `code`. THUẦN, có test.
+ *
+ * ⚠️ KHÁC HẲN "mạng yếu" (2026-08-27). Chỉ gọi hàm này khi máy ĐÃ VỚI TỚI máy
+ * chủ và nhận được một phản hồi có mã lỗi. Mất sóng / hết giờ / máy chủ không
+ * trả lời thì KHÔNG vào đây — chỗ đó vẫn giữ câu "mạng yếu, bấm lại" (bấm lại là
+ * đúng việc). Đây đúng khuôn lỗi repo cảnh báo nhiều lần (auth-error.ts,
+ * device-token-server.ts, tier.ts): **hạ tầng trục trặc đội lốt "mạng yếu"** —
+ * nói "bấm lại" cho một lỗi cấu hình/DB là bắt bà con bấm vô tận, hỏng y hệt.
+ *
+ * Hai nhánh, hai HÀNH ĐỘNG khác nhau:
+ *   · phiên chưa tới máy chủ (401 / login_required) — có thể do cookie/timing,
+ *     bấm lại MỘT lần còn có lý; lặp lại thì gọi SDVICO.
+ *   · thiếu cấu hình / thu hồi hỏng / ghi sổ hỏng (503, revoke_failed,
+ *     issue_failed, not_configured…) — lỗi phía máy chủ, bấm lại vô ích → gọi
+ *     SDVICO để được mở.
+ */
+export function tokenIssueErrorMessage(code: string): string {
+  const c = (code ?? "").toLowerCase();
+
+  // Phiên vừa đăng nhập chưa tới được máy chủ (cookie chưa kịp / proxy). Bấm lại
+  // một lần còn có lý — nhưng vẫn cho lối gọi SDVICO nếu lặp lại.
+  if (c === "login_required" || c === "http_401") {
+    return `Đăng nhập đúng rồi nhưng máy chủ chưa nhận được phiên. Bà con bấm Đăng nhập thêm một lần; nếu vẫn vậy, gọi SDVICO ${HOTLINE_HIEN} giúp nhé.`;
+  }
+
+  // Mọi mã còn lại = lỗi phía máy chủ (thiếu cấu hình, thu hồi/ghi sổ hỏng, 5xx).
+  // Bấm lại y hệt sẽ hỏng y hệt → nói thật là lỗi hệ thống, chỉ đường gọi SDVICO.
+  return `Đăng nhập đúng rồi nhưng hệ thống chưa giữ được phiên (lỗi máy chủ, không phải sóng yếu). Bà con gọi SDVICO ${HOTLINE_HIEN} để được mở giúp nhé.`;
+}

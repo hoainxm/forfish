@@ -23,7 +23,11 @@ import {
   sanitizePhoneInput,
 } from "@/components/auth-form";
 import { normalizePassword } from "@/lib/password";
-import { loginErrorMessage, type AccountExists } from "@/lib/login-error";
+import {
+  loginErrorMessage,
+  tokenIssueErrorMessage,
+  type AccountExists,
+} from "@/lib/login-error";
 
 /*
   Đăng nhập SDFish — app khách hàng. Hướng TÀI KHOẢN: SĐT + MẬT KHẨU (KHÔNG
@@ -129,6 +133,12 @@ export default function LoginPage() {
 
         Đây cũng là chỗ cưỡng chế 1-tài-khoản-1-máy: route thu hồi chuỗi của mọi
         máy cũ TRƯỚC khi cấp chuỗi mới (thay cho `signOut({scope:'others'})`). */
+    /*  GIỮ CẢ MÃ HTTP LẪN THÂN JSON (sửa 2026-08-27). Trước đây `.then(r =>
+        r.json())` VỨT `r.status`/`r.ok`, nên client không phân biệt được "máy
+        chủ trả lỗi dứt khoát" với "thật sự chưa với tới máy chủ" — cả hai đội
+        chung câu "mạng yếu, bấm lại". Nếu gốc là thiếu cấu hình / lỗi DB thì bà
+        con bấm lại VÔ TẬN, hỏng y hệt (khuôn lỗi repo cảnh báo nhiều lần:
+        hạ tầng trục trặc đội lốt "mạng yếu"). Nay giữ lại để nói thật. */
     const issued = await withDeadline(
       fetch(apiUrl("/api/auth/token"), {
         method: "POST",
@@ -145,20 +155,43 @@ export default function LoginPage() {
             `401 token_revoked` ⇒ màn hình nói dối "máy khác vừa đăng nhập".
             Cắt thật thì lượt A chết hẳn, không còn ai đi thu hồi. */
         signal: timeoutSignal(20000),
-      }).then((r) => r.json().catch(() => null)),
+      }).then(async (r) => ({
+        status: r.status,
+        body: (await r.json().catch(() => null)) as {
+          ok?: boolean;
+          token?: unknown;
+          code?: string;
+          kicked?: boolean;
+          mustChangePassword?: boolean;
+        } | null,
+      })),
       20000,
     );
-    /*  KHÔNG cấp được chuỗi ⇒ DỪNG LẠI, đừng cho vào app. Phiên Supabase tạm vẫn
-        còn nên bấm lại là chạy, khỏi nhập lại mật khẩu. Cho vào mà không có chuỗi
-        thì bà con thấy mình "đã đăng nhập" trong khi mọi cửa server đều đóng —
-        tệ hơn hẳn một câu báo lỗi thật thà. */
-    if (!issued?.ok || !isValidTokenShape(issued.token)) {
-      /*  KHÁC câu "Mạng yếu" ở bước 1 (audit G9/A5): tới đây mật khẩu ĐÃ đúng,
-          phiên tạm còn — bà con chỉ cần bấm lại, không phải gõ lại gì. Cùng một
-          câu cho hai bước là bà con tưởng sai mật khẩu, gõ lại từ đầu. */
+    /*  issued === null ⇒ THẬT SỰ chưa với tới máy chủ (mất sóng / hết giờ / fetch
+        ném). CHỈ ở đây "mạng yếu, bấm lại" mới đúng: phiên Supabase tạm còn nên
+        bấm lại là chạy, khỏi gõ lại mật khẩu. */
+    if (!issued) {
       setError(
         "Mật khẩu đúng rồi nhưng mạng yếu, chưa giữ được phiên — bà con bấm Đăng nhập lần nữa giúp.",
       );
+      setLoading(false);
+      return;
+    }
+    const body = issued.body;
+    /*  MÁY CHỦ ĐÃ TRẢ LỜI nhưng KHÔNG cấp được chuỗi ⇒ DỪNG LẠI, đừng cho vào
+        app (cho vào mà không có chuỗi thì mọi cửa server đều đóng, tệ hơn một câu
+        báo thật). KHÁC "mạng yếu": đây là lỗi phía máy chủ, bấm lại có thể vô ích
+        → nói đúng nguyên nhân + ghi mã để lần sau thấy ngay gốc. */
+    if (!body?.ok || !isValidTokenShape(body.token)) {
+      const code =
+        typeof body?.code === "string" ? body.code : `http_${issued.status}`;
+      console.error(
+        "[login] cấp chuỗi KHÔNG thành:",
+        code,
+        "· status",
+        issued.status,
+      );
+      setError(tokenIssueErrorMessage(code));
       setLoading(false);
       return;
     }
@@ -168,7 +201,7 @@ export default function LoginPage() {
         tài khoản KHÔNG CÒN credential nào: máy mới không giữ được chuỗi, máy cũ
         thì vừa bị đá. Mất cả hai đầu.
         Cất không được ⇒ GIỮ NGUYÊN phiên tạm, báo thật, để bà con bấm lại. */
-    if (!saveToken(issued.token)) {
+    if (!saveToken(body.token)) {
       setError(
         "Máy đang không cho app lưu dữ liệu nên chưa giữ được đăng nhập. Bà con tắt chế độ duyệt web riêng tư (ẩn danh) rồi thử lại giúp.",
       );
@@ -176,7 +209,7 @@ export default function LoginPage() {
       return;
     }
     // lần đầu (webhook đặt must_change_password) → bắt đổi mật khẩu
-    const mustChange = issued.mustChangePassword === true;
+    const mustChange = body.mustChangePassword === true;
     /*  ĐỔI MẬT KHẨU LẦN ĐẦU THÌ GIỮ PHIÊN TẠM (sửa 2026-08-02h, Codex bắt).
         `/doi-mat-khau` đổi mật khẩu bằng `supabase.auth.updateUser`, tức nó CẦN
         phiên. Bỏ phiên ngay ở đây rồi mới chuyển sang là màn đó chỉ báo "phải
@@ -195,7 +228,7 @@ export default function LoginPage() {
     await withDeadline(supabase!.auth.signOut(), 8000);
     /*  MÁY TRƯỚC VỪA BỊ ĐĂNG XUẤT → nói một dòng cho minh bạch rồi mới vào.
         Không chờ mạng: chỉ là 1,5 giây để mắt kịp đọc. */
-    if (issued.kicked === true) {
+    if (body.kicked === true) {
       setKickedNote(true);
       setLoading(false);
       window.setTimeout(() => router.replace("/"), 1500);
