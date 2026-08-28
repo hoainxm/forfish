@@ -3655,7 +3655,11 @@ export default function FishingMapView() {
               onClick của bản đồ: không có mép thật thì phải đoán hằng số, mà
               đoán sai là đổi một lỗi lấy một lỗi. */
           ref={routeCardRef}
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
+          /*  HẠ SÁT ĐÁY (user 2026-08-29): đệm dưới cũ đẩy khung lên, cộng
+              thêm thanh kéo sheet 3.5rem bên dưới ⇒ khung nổi lửng giữa màn,
+              che bản đồ mà khoảng trống bên dưới không dùng vào việc gì.
+              Nay dán sát mép dưới vùng bản đồ; safe-area đã nằm trong dock. */
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end px-2 pb-1"
         >
           <RouteMode
             dest={point}
@@ -3674,6 +3678,12 @@ export default function FishingMapView() {
         </div>
       )}
 
+      {/*  ĐANG DẪN ĐƯỜNG THÌ KHÔNG DỰNG SHEET GIÓ SÓNG (user 2026-08-29: "lúc
+           vào dẫn đường thì cái nút để mở cái sheet ẩn đi"). Thanh kéo của nó
+           chiếm 3.5rem sát đáy — đúng chỗ khung dẫn đường cần, mà lúc này nó
+           cũng vô dụng: mở sheet ra thì khung dẫn đường đè lên ngay. Thoát chế
+           độ là sheet trở lại như cũ. */}
+      {!routeMode && (
       <SnapSheet
         size={size}
         onSizeChange={setSize}
@@ -4533,6 +4543,7 @@ export default function FishingMapView() {
           )}
         </div>
       </SnapSheet>
+      )}
 
       {/* Chọn loài + Điểm đã lưu nay là PANEL RAIL (RaKhoiControls), không còn
           bottom-sheet modal — đồng bộ kiểu popup với các lớp khác. */}
