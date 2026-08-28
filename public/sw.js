@@ -173,11 +173,12 @@ const CRITICAL_SHELL = [
   "/data/vn-coast.v1.json",
   "/data/isobaths.v1.json",
   "/data/depth-grid.v1.bin",
-  // NHÃN ĐẢO tiếng Việt (ven bờ + Hoàng Sa + Trường Sa) + TUYẾN HÀNG HẢI —
-  // chi tiết hải đồ, nhãn chủ quyền. Thiếu là giữa biển mất hết tên đảo, mất
-  // định hướng. Asset tĩnh nhỏ (~18 KB + ~3 KB).
+  // NHÃN ĐẢO tiếng Việt (ven bờ + Hoàng Sa + Trường Sa) + TUYẾN HÀNG HẢI +
+  // RẠN/ĐÁ NGẦM/BÃI CẠN — chi tiết hải đồ, nhãn chủ quyền. Thiếu là giữa biển
+  // mất hết tên đảo/đá ngầm, mất định hướng. Asset tĩnh nhỏ (~18 + ~3 + ~2 KB).
   "/data/vn-islands.v1.json",
   "/data/vn-sea-lanes.v1.json",
+  "/data/coral-reefs.v1.json",
   //  DẤU TÀU trên bản đồ (ảnh ghim tàu cá). Thiếu nó thì giữa biển mất sóng bà
   //  con KHÔNG THẤY TÀU MÌNH ĐÂU trên bản đồ — mất đúng thứ màn này sinh ra để
   //  trả lời. Nhỏ (5,5 KB + 13,8 KB bản @2x) nên ghim cả hai.
@@ -222,6 +223,10 @@ const SHELL = [
   // lớp cá của chuyến DÀI pha trộn bản này với dự báo. Nằm sẵn trong máy thì
   // giữa biển mất sóng vẫn tính được lộ trình 16 ngày.
   "/data/fish-climatology.v1.json",
+  // HÌNH DẠNG rạn/bãi ngầm (OSM natural=reef/shoal, ~307 KB). Ở tier BEST-EFFORT
+  // (không CRITICAL): lớp phụ trợ — nhãn TÊN rạn đã nằm ở CRITICAL, thiếu hình
+  // thì vẫn còn tên. Nặng nên không để nó chặn install lúc sóng chập chờn.
+  "/data/reef-shapes.v1.json",
 ];
 
 /** Rút các đường dẫn /_next/static/... mà một trang HTML cần (JS · CSS · font) */

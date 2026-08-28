@@ -31,8 +31,14 @@ import {
   SOVEREIGNTY_LABELS,
   ISLANDS_DATA_URL,
   SEA_LANES_DATA_URL,
+  REEFS_DATA_URL,
+  REEF_SHAPES_DATA_URL,
   ISLAND_LABEL_COLOR,
   ISLAND_DOT_COLOR,
+  REEF_LABEL_COLOR,
+  REEF_DOT_COLOR,
+  REEF_SHAPE_FILL,
+  REEF_SHAPE_LINE,
   SEA_LANE_COLOR,
   SEA_CABLE_COLOR,
   SEA_RESTRICTED_COLOR,
@@ -394,6 +400,10 @@ export default function FishingMapView() {
   // Mặc định BẬT: chủ dự án 2026-08-07 muốn hải đồ có đủ tuyến; là nét mảnh
   // xám-lam nên không lấn. Ẩn tự động khi bật lớp động (như nhãn đảo).
   const [lanesOn, setLanesOn] = useState(true);
+  // Rạn / đá ngầm / bãi cạn có tên tiếng Việt — lớp bật–tắt riêng. Mặc định BẬT
+  // vì đây đúng thứ bà con hỏi "sao không thấy đá ngầm"; nhãn nhỏ (rank 2–3) nên
+  // không lấn. Ẩn tự động khi bật lớp động (như nhãn đảo).
+  const [reefsOn, setReefsOn] = useState(true);
   // Ranh giới vùng lộng bật/tắt qua map-prefs. VÙNG BIỂN VMS nay do admin quản
   // lý (bảng vms_zones): đọc từ DB, chưa cấu hình/lỗi → 3 vùng mặc định tĩnh.
   const [vmsZones, setVmsZones] = useState<VmsZone[]>(STATIC_VMS_ZONES);
@@ -2734,6 +2744,73 @@ export default function FishingMapView() {
           </Source>
         )}
 
+        {/* HÌNH DẠNG rạn/bãi ngầm (OSM natural=reef/shoal, ĐÃ BỎ TÊN) — tô teal
+            nhạt trong suốt để thấy PHẠM VI rạn + viền teal. Nằm DƯỚI nhãn tên rạn
+            (nhãn nổi trên). Cùng toggle "Đá ngầm, rạn"; asset tĩnh SW giữ sẵn. */}
+        {!anyExclusiveOverlay && reefsOn && (
+          <Source id="reef-shapes" type="geojson" data={REEF_SHAPES_DATA_URL}>
+            <Layer
+              id="reef-fill"
+              type="fill"
+              paint={{
+                "fill-color": REEF_SHAPE_FILL,
+                "fill-opacity": 0.18,
+              }}
+            />
+            <Layer
+              id="reef-outline"
+              type="line"
+              paint={{
+                "line-color": REEF_SHAPE_LINE,
+                "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.4, 11, 1.2] as unknown as number,
+                "line-opacity": 0.5,
+              }}
+            />
+          </Source>
+        )}
+
+        {/* RẠN / ĐÁ NGẦM / BÃI CẠN có tên tiếng Việt — asset tĩnh
+            /data/coral-reefs.v1.json (SW giữ sẵn → mất sóng vẫn có). Lớp bật–tắt
+            riêng "Đá ngầm · Rạn". Chấm + nhãn TEAL để bà con phân biệt đá CHÌM
+            dưới nước với đảo nổi (navy). Cùng khuôn symbol nhãn đảo: rank nhỏ chỉ
+            ló khi zoom sâu. Hình dạng rạn (polygon) từ Allen Coral Atlas sẽ thêm
+            sau vào cùng nguồn. Ẩn khi bật lớp động (như nhãn đảo). */}
+        {!anyExclusiveOverlay && reefsOn && (
+          <Source id="reefs" type="geojson" data={REEFS_DATA_URL}>
+            <Layer
+              id="reef-dot"
+              type="circle"
+              paint={{
+                "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 1.6, 9, 3.6] as unknown as number,
+                "circle-color": REEF_DOT_COLOR,
+                "circle-stroke-color": "#ffffff",
+                "circle-stroke-width": 1,
+                "circle-opacity": 0.9,
+              }}
+            />
+            <Layer
+              id="reef-label"
+              type="symbol"
+              layout={{
+                "text-field": ["get", "name"] as unknown as string,
+                "text-font": ["Noto Sans Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 4.5, 10, 7, 12.5, 10, 15] as unknown as number,
+                "text-anchor": "top",
+                "text-offset": [0, 0.55],
+                "text-padding": 2,
+                "symbol-sort-key": ["get", "rank"] as unknown as number,
+                "text-allow-overlap": false,
+                "text-optional": true,
+              }}
+              paint={{
+                "text-color": REEF_LABEL_COLOR,
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 1.5,
+              }}
+            />
+          </Source>
+        )}
+
         {/* nhãn chủ quyền — luôn nằm trên mọi lớp ảnh; chữ to cho mắt 40-60,
             halo trắng đọc được trên mọi nền (audit lớp #9) */}
         {SOVEREIGNTY_LABELS.map((s) => (
@@ -3162,6 +3239,8 @@ export default function FishingMapView() {
             }}
             lanesOn={lanesOn}
             onLanes={setLanesOn}
+            reefsOn={reefsOn}
+            onReefs={setReefsOn}
             scalarKind={scalarKind}
             onScalar={(k) => {
               setScalarKind(k);

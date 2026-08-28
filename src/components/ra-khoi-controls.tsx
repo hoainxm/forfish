@@ -84,6 +84,8 @@ export function RaKhoiControls({
   onLayer,
   lanesOn,
   onLanes,
+  reefsOn,
+  onReefs,
   scalarKind,
   onScalar,
   forecastKind,
@@ -127,6 +129,9 @@ export function RaKhoiControls({
   /** Tuyến hàng hải + luồng/phân luồng trên hải đồ (bật/tắt) */
   lanesOn: boolean;
   onLanes: (on: boolean) => void;
+  /** Rạn / đá ngầm / bãi cạn có tên tiếng Việt (bật/tắt) */
+  reefsOn: boolean;
+  onReefs: (on: boolean) => void;
   scalarKind: SeaScalarKind | null;
   onScalar: (k: SeaScalarKind | null) => void;
   forecastKind: ForecastKind | null;
@@ -263,6 +268,8 @@ export function RaKhoiControls({
                   }}
                   lanesOn={lanesOn}
                   onLanes={onLanes}
+                  reefsOn={reefsOn}
+                  onReefs={onReefs}
                 />
               )}
               {open === "ngu-truong" && (
@@ -492,6 +499,8 @@ function HaiDoPanel({
   onLayer,
   lanesOn,
   onLanes,
+  reefsOn,
+  onReefs,
 }: {
   layerId: OceanLayerId;
   scalarKind: SeaScalarKind | null;
@@ -499,6 +508,9 @@ function HaiDoPanel({
   /** Tuyến hàng hải + luồng/phân luồng — nét mảnh tham khảo trên hải đồ */
   lanesOn: boolean;
   onLanes: (on: boolean) => void;
+  /** Rạn / đá ngầm / bãi cạn có tên tiếng Việt — bật/tắt */
+  reefsOn: boolean;
+  onReefs: (on: boolean) => void;
 }) {
   return (
     <div>
@@ -563,6 +575,19 @@ function HaiDoPanel({
           icon={
             <span style={{ color: "var(--t1)" }}>
               <AnchorIcon className="h-5 w-5" />
+            </span>
+          }
+        />
+        {/* Đá ngầm / rạn / bãi cạn có tên tiếng Việt — lớp riêng, mặc định bật:
+            đúng thứ bà con hỏi "sao không thấy đá ngầm". Teal cho đá chìm. */}
+        <Toggle
+          label="Đá ngầm, rạn"
+          sub="Đá ngầm, bãi cạn có tên tiếng Việt — tham khảo, không thay hải đồ chính thức"
+          on={reefsOn}
+          onToggle={() => onReefs(!reefsOn)}
+          icon={
+            <span style={{ color: "var(--t1)" }}>
+              <DepthIcon className="h-5 w-5" />
             </span>
           }
         />

@@ -162,12 +162,24 @@ export const ROUTE_CASING_COLOR = "#ffffff";
 export const ISLANDS_DATA_URL = "/data/vn-islands.v1.json";
 /** Tuyến hàng hải lớn (vẽ tay, tham khảo) + luồng/phân luồng (OSM, bỏ tên). */
 export const SEA_LANES_DATA_URL = "/data/vn-sea-lanes.v1.json";
+/** Rạn / đá ngầm / bãi cạn có tên tiếng Việt (lớp bật–tắt "Đá ngầm · Rạn"). */
+export const REEFS_DATA_URL = "/data/coral-reefs.v1.json";
+/** HÌNH DẠNG rạn/bãi ngầm (polygon/line từ OSM natural=reef/shoal, đã bỏ tên). */
+export const REEF_SHAPES_DATA_URL = "/data/reef-shapes.v1.json";
 
 // Màu NỘI DUNG BẢN ĐỒ (không phải token UI). Nhãn đảo dùng navy như nhãn chủ
 // quyền. Tuyến tàu dùng xám-lam trầm — KHÔNG đụng cam-đỏ ranh giới (cấm vượt)
 // hay xanh dương ROUTE_LINE_COLOR (tuyến dầu của chính bà con).
 export const ISLAND_LABEL_COLOR = "#0f2f4d";
 export const ISLAND_DOT_COLOR = "#0f2f4d";
+// Rạn/đá ngầm/bãi cạn — teal biển, TÁCH khỏi navy đảo nổi (để bà con phân biệt
+// "đá chìm dưới nước" với đảo có thể lên được) và tách khỏi cam-đỏ ranh giới.
+export const REEF_LABEL_COLOR = "#0b5e66";
+export const REEF_DOT_COLOR = "#0e7c86";
+// Hình dạng rạn: tô teal nhạt trong suốt (thấy phạm vi rạn mà không che hải đồ),
+// viền teal đậm hơn. Nội dung bản đồ, không phải token UI.
+export const REEF_SHAPE_FILL = "#4bbdc7";
+export const REEF_SHAPE_LINE = "#0e7c86";
 export const SEA_LANE_COLOR = "#4a5a70"; // tuyến/luồng/phân luồng — xám-lam
 export const SEA_CABLE_COLOR = "#7c3aed"; // cáp/ống ngầm — tím, tách khỏi tuyến
 export const SEA_RESTRICTED_COLOR = "#c2620c"; // vùng cấm + giàn khoan — cam đất
