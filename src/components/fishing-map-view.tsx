@@ -115,6 +115,7 @@ import {
 import {
   loadStops,
   persistStops,
+  routeMatchesStops,
   type RouteStop,
 } from "@/lib/route-stops";
 import {
@@ -1415,6 +1416,9 @@ export default function FishingMapView() {
   const [navMode, setNavMode] = useState<PlannedRoute | null>(null);
   // hạng độ sâu tại điểm đang xem (null = chưa biết/không cảnh báo)
   const [depth, setDepth] = useState<DepthClass | null>(null);
+  /*  Thẻ dẫn đường ở đáy — đo mép trên thật lúc chạm bản đồ để biết điểm vừa
+      chấm có bị thẻ che hay không (xem onClick của bản đồ). */
+  const routeCardRef = useRef<HTMLDivElement>(null);
 
   /* ── MẤT SÓNG: nền tối giản trong máy ───────────────────────────────────
      Ô bản đồ nền lấy từ host ngoài nên mất sóng là nền trắng — bà con có số
@@ -2368,10 +2372,36 @@ export default function FishingMapView() {
           /*  ĐANG DẪN ĐƯỜNG: chạm bản đồ CHỈ DỜI CON TRỎ, không tự thêm chỗ
               ghé (user 2026-08-28d). Chạm-là-thêm nhanh thật nhưng chạm trượt
               hay kéo bản đồ hụt tay là dính một chỗ oan mà không ai báo. Muốn
-              thêm thì bấm chip xác nhận nổi ngay trên thẻ dưới. Vẫn KHÔNG mở
+              thêm thì bấm hàng "Thêm điểm" trong thẻ dẫn đường — hàng đó hiện
+              luôn toạ độ con trỏ nên chấm bản đồ vẫn có phản hồi ngay chỗ mắt
+              đang nhìn (chip nổi 3 giây của bản trước đã gỡ). Vẫn KHÔNG mở
               sheet gió sóng — đang ở màn dẫn đường. */
           if (routeMode) {
-            flyToPoint(lon, lat);
+            /*  CHỈ DỜI BẢN ĐỒ KHI ĐIỂM VỪA CHẤM THẬT SỰ BỊ THẺ CHE.
+                `flyToPoint` chạy 650ms: chấm hai chỗ liền nhau — chuyện thường
+                khi dựng tuyến nhiều điểm — thì cú thứ hai rơi vào lúc khung
+                hình đang trôi, toạ độ nhận được là chỗ dưới ngón tay TẠI khung
+                đang trôi chứ không phải chỗ bà con nhắm, mà không có gì báo là
+                đã lệch. Gần bãi cạn thì đó là chuyện an toàn, không chỉ phiền.
+                KHÔNG sinh thao tác câm: `setPoint` đã chạy ở trên nên con trỏ
+                vẫn nhảy tới và dòng toạ độ trong thẻ vẫn đổi ngay.
+                Lề an toàn 3.5rem đọc theo gốc chữ THẬT (chế độ hiển thị đổi
+                gốc 14/16px) — không viết 56 cứng. Thiếu ref/map thì rơi về
+                nhánh cũ: thà dời thừa còn hơn để điểm nằm khuất sau thẻ. */
+            const map = mapRef.current?.getMap();
+            const card = routeCardRef.current;
+            let biChe = true;
+            if (map && card) {
+              const mapTop = map.getContainer().getBoundingClientRect().top;
+              const rootPx =
+                parseFloat(
+                  getComputedStyle(document.documentElement).fontSize,
+                ) || 16;
+              biChe =
+                mapTop + map.project([lon, lat]).y >
+                card.getBoundingClientRect().top - rootPx * 3.5;
+            }
+            if (biChe) flyToPoint(lon, lat);
             return;
           }
           // kiểu Windy: chạm là sheet nằm GỌN ở đáy (peek) — bản đồ vẫn
@@ -3102,9 +3132,17 @@ export default function FishingMapView() {
         {/* tuyến dẫn đường tiết kiệm dầu + điểm xuất phát */}
         <RouteMapLayers route={route} />
         {/* Chỗ ghé đã chấm nhưng CHƯA tính tuyến — nét đứt + số, để bà con
-            thấy ngay mình đang chấm cái gì. Có tuyến rồi thì ẩn (không vẽ hai
-            đường chồng nhau). */}
-        <RouteStopsLayers stops={stops} hidden={route != null} />
+            thấy ngay mình đang chấm cái gì.
+            ẨN CHỈ KHI tuyến đã tính CÒN KHỚP cả chuỗi điểm (lúc đó hai đường
+            trùng nhau, vẽ chồng chỉ gây rối). Chuỗi lệch — vd bỏ một điểm GIỮA,
+            điểm cuối không đổi — thì vẽ CẢ HAI: nét liền là tuyến CŨ đã tính,
+            nét đứt là danh sách HIỆN TẠI, để bà con thấy tận mắt chỗ lệch. Bản
+            trước ẩn ngay khi có tuyến nên bản đồ chỉ còn tuyến cũ, không gì vẽ
+            chuỗi mới — thứ bà con thật sự nhìn giữa biển là bản đồ. */}
+        <RouteStopsLayers
+          stops={stops}
+          hidden={route != null && routeMatchesStops(route.stops, stops, point)}
+        />
 
         {/* CHẤM TÀU nhấp nháy + pip hướng (mờ + tắt nháy khi mất định vị).
             Trước chỉ hiện lúc
@@ -3611,9 +3649,17 @@ export default function FishingMapView() {
            này thôi phủ cả màn — hết đè lên rail. z-30: trên rail và sheet, dưới
            HUD dẫn đường LIVE. Đang dẫn LIVE thì ẩn hẳn — lúc đó HUD phải đọc. */}
       {routeMode && !navMode && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+        <div
+          /*  Ref để lúc CHẠM BẢN ĐỒ biết mép trên THẬT của thẻ (38dvh + safe
+              area, đổi theo trạng thái thẻ) — xem nhánh `routeMode` trong
+              onClick của bản đồ: không có mép thật thì phải đoán hằng số, mà
+              đoán sai là đổi một lỗi lấy một lỗi. */
+          ref={routeCardRef}
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
+        >
           <RouteMode
             dest={point}
+            destDepth={depth}
             activeRoute={route}
             stops={stops}
             onStops={setStops}

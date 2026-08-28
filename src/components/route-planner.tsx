@@ -35,6 +35,8 @@ import {
   MAX_STOPS,
   addStop,
   removeStop,
+  routeMatchesStops,
+  routeStartMatches,
   stopAt,
   clearStops,
   type RouteStop,
@@ -45,7 +47,7 @@ import { readUserRecord } from "@/lib/user-list-store";
 import { saveUserJson } from "@/lib/user-store";
 import { routeStormConflict, STORM_SAFE_RADIUS_KM } from "@/lib/route-storm";
 import { stormGateForRoute, type StormAlert, type StormStatus } from "@/lib/storms";
-import { fetchDepthGrid } from "@/lib/depth-grid";
+import { fetchDepthGrid, type DepthClass } from "@/lib/depth-grid";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
 import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
 import {
@@ -215,7 +217,11 @@ export function RouteMapLayers({ route }: { route: PlannedRoute | null }) {
  * ĐƯỜNG NHÁP — các chỗ đã chấm nhưng CHƯA tính tuyến: nét đứt nối thẳng + số
  * mờ. Bà con thấy ngay mình đang chấm cái gì trước khi bấm tính. Xanh nét đứt
  * = "chưa phải tuyến đã tính" (tuyến thật là nét liền, cùng màu). Đặt BÊN
- * TRONG <MapGL>. Ẩn khi đã có tuyến để không có hai đường chồng nhau.
+ * TRONG <MapGL>.
+ *
+ * `hidden` CHỈ nên bật khi tuyến đã tính còn khớp CẢ CHUỖI điểm
+ * (`routeMatchesStops`) — lúc đó hai đường trùng nhau, vẽ chồng chỉ gây rối.
+ * Tuyến lệch thì phải vẽ CẢ HAI để bà con thấy tận mắt chỗ lệch.
  */
 export function RouteStopsLayers({
   stops,
@@ -258,20 +264,19 @@ export function RouteStopsLayers({
       )}
       {stops.map((s, i) => (
         <Marker key={s.id} longitude={s.lon} latitude={s.lat} anchor="center">
-          {/*  VUNG CHAM >=3.5rem (56px): danh sach cho ghe trong the da bo, nen
-               cham lai dau so tren ban do la CACH DUY NHAT bo mot cho. Vong tron
-               VE van 2.5rem cho do roi mat; lop boc trong suot chi de lay tam
-               tay (san tap target, 03-design-system). */}
-          <span className="flex h-14 w-14 items-center justify-center">
-            <span
-              className="display flex h-10 w-10 items-center justify-center rounded-full bg-white/85 text-[1rem] font-bold shadow-md"
-              style={{
-                color: ROUTE_LINE_COLOR,
-                boxShadow: `0 0 0 0.1875rem ${ROUTE_LINE_COLOR}`,
-              }}
-            >
-              {i + 1}
-            </span>
+          {/*  GHIM SỐ CHỈ ĐỂ NHÌN, KHÔNG BẤM ĐƯỢC — bỏ một chỗ là bấm nút trong
+               danh sách của thẻ dưới. Lớp bọc "vùng chạm" của bản trước đã gỡ:
+               nó là tap target giả cho một hành vi không tồn tại (Marker này
+               chưa từng có onClick), mà comment cũ còn dạy sai rằng đây là cách
+               DUY NHẤT bỏ một chỗ. */}
+          <span
+            className="display flex h-10 w-10 items-center justify-center rounded-full bg-white/85 text-[1rem] font-bold shadow-md"
+            style={{
+              color: ROUTE_LINE_COLOR,
+              boxShadow: `0 0 0 0.1875rem ${ROUTE_LINE_COLOR}`,
+            }}
+          >
+            {i + 1}
           </span>
         </Marker>
       ))}
@@ -290,12 +295,31 @@ export function RouteStopsLayers({
  * chống chế bằng ngoại lệ tự-ẩn, mà bà con vẫn phải vuốt → cuộn → tìm.
  *
  * Hình hài kiểu Google Maps: THANH TRÊN gọn (đi từ đâu · mấy chỗ · Xoá tuyến ·
- * Đóng) — bản đồ ở giữa vẫn thấy — THẺ DƯỚI là chỗ nhập và đọc kết quả. Trong
- * chế độ này CHẠM BẢN ĐỒ = THÊM CHỖ GHÉ luôn (một chạm một chỗ), không phải
- * bấm nút "Thêm chỗ này" nữa; cha (fishing-map-view) lo phần đó.
+ * Đóng) — bản đồ ở giữa vẫn thấy — THẺ DƯỚI là chỗ nhập và đọc kết quả.
+ *
+ * CHẠM BẢN ĐỒ CHỈ DỜI CON TRỎ (đảo lại từ 2026-08-28d: chạm-là-thêm dính chỗ
+ * oan khi trượt tay). Muốn thêm một chỗ thì bấm hàng "Thêm điểm" trong thẻ;
+ * hàng đó hiện luôn toạ độ con trỏ nên chấm bản đồ vẫn thấy phản hồi ngay.
  */
+/*  CHỖ CON TRỎ ĐANG ĐỨNG CÓ ĐI ĐƯỢC KHÔNG — chỉ NÓI hai lớp thật sự đáng nói.
+    Trước đây chấm nhầm lên bờ thì thẻ không có một chữ nào phản hồi; máy chỉ
+    báo SAU khi bấm Tính, tức sau 2-3 cú chạm thừa và một lượt chờ ~9 giây.
+    CỐ Ý KHÔNG dùng chung `DEPTH_NOTE` của màn bản đồ: bảng đó đang phục vụ
+    sheet gió sóng ở chế độ THƯỜNG và không có khoá 0 (trên bờ); thêm khoá vào
+    đó là đổi hành vi một màn khác trong cùng một commit.
+    Giọng "theo bản đồ độ sâu của máy" là mức chắc chắn ĐÚNG với lưới bước
+    0,05° ≈ 5,5 km — điểm sát bờ có thể bị phân loại lệch, không được nói chắc
+    hơn thế. Lớp 2 (nước nông) và ngoài lưới (null) thì IM: chỗ này bà con chạy
+    hằng ngày, nói ra thành nhiễu. KHÔNG khoá, KHÔNG disable nút — bà con có
+    thể cố ý chấm sát bờ theo luồng lạch quen. */
+const DEST_DEPTH_WARN: Partial<Record<DepthClass, string>> = {
+  0: "Chỗ này trên bờ — theo bản đồ độ sâu của máy",
+  1: "Chỗ này rất cạn, bãi nổi — theo bản đồ độ sâu của máy",
+};
+
 export function RouteMode({
   dest,
+  destDepth = null,
   activeRoute,
   places = [],
   stops = [],
@@ -308,6 +332,9 @@ export function RouteMode({
   onClose,
 }: {
   dest: LatLon;
+  /** Hạng độ sâu tại `dest` (lưới tĩnh depth-grid, màn bản đồ đã tải sẵn cho
+      việc khác — KHÔNG thêm request nào). null = ngoài lưới / chưa biết ⇒ im. */
+  destDepth?: DepthClass | null;
   /** tuyến đang vẽ trên bản đồ (có thể tới điểm CŨ — xem ghi chú dưới) */
   activeRoute?: PlannedRoute | null;
   /** Điểm của tôi (cảng nhà + chỗ ghim) — nơi xuất phát THẬT của bà con,
@@ -346,7 +373,18 @@ export function RouteMode({
   const [panel, setPanel] = useState<"idle" | "start" | "boat" | "dest">(
     "idle",
   );
+  /*  Không có bộ chọn nào đang xổ ⇒ hiện ĐỦ các hàng của biểu mẫu. Đang xổ một
+      bộ chọn thì chỉ giữ hàng vừa bấm — đây là cách DUY NHẤT trong lượt này
+      thật sự giảm chiều cao thẻ, và cũng là thi hành đúng luật "một lúc chỉ xổ
+      một thứ" mà chú thích trên đã tuyên bố. */
+  const compactRows = panel === "idle" || panel === "boat";
   const boxRef = useRef<HTMLDivElement>(null);
+  /*  BA MỎ NEO CHO BA CÚ CUỘN TỰ ĐỘNG (xem ba useEffect dưới). Nội dung thẻ
+      luôn tràn trần 38dvh, mà trình duyệt neo vị trí cuộn cũ khi nội dung nở
+      ra ⇒ bấm xong màn hình "không đổi gì" dưới mắt bà con — người ít rành
+      công nghệ sẽ bấm loạn. */
+  const formRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   // "gps" | "place:<id>" | "port:<id>"; mặc định Cảng nhà nếu có
   const [startId, setStartId] = useState<string>("");
   // đọc thẳng localStorage lúc render đầu được vì cả cây bản đồ đã
@@ -367,6 +405,16 @@ export function RouteMode({
       đổi trong khi tuyến trên bản đồ vẫn là tuyến tính lúc chưa có tin. Bà con
       phải đọc được đúng thứ đã dùng để tính. */
   const [stormWarn, setStormWarn] = useState<string | null>(null);
+  /*  MỞ LẠI DANH SÁCH ĐIỂM KHI ĐÃ CÓ KẾT QUẢ. Trước đây cả biểu mẫu nằm trong
+      `{!plan && …}` nên tính xong là danh sách biến mất, không nút nào quay
+      lại: bà con hoặc chịu tuyến sai, hoặc bấm Xoá mất sạch công 9-11 chạm.
+      Mở KHÔNG unmount và KHÔNG tính lại ⇒ tuyến vẫn vẽ, kết quả vẫn còn cho
+      tới khi danh sách THẬT SỰ đổi (lúc đó useEffect [chainSig] tự dọn). */
+  const [editing, setEditing] = useState(false);
+  /*  XOÁ HAI NHỊP. `clearAll` dọn cả tuyến lẫn toàn bộ chỗ ghé, không hoàn tác
+      được, mà nút lại nằm sát nút X trong đúng vùng ngón cái — một cú trượt
+      tay ướt trên tàu lắc là bay công dựng tuyến giữa biển. */
+  const [confirmClear, setConfirmClear] = useState(false);
 
   /*  CHUỖI ĐIỂM PHẢI ĐI. Rỗng ⇒ đúng hành vi cũ: đích = chỗ đang xem. */
   const chainStops: LatLon[] = stops.length
@@ -389,15 +437,36 @@ export function RouteMode({
     setError(null);
     setOfflineSavedAt(undefined);
     setStormWarn(null);
+    // danh sách đổi ⇒ ý định "xoá sạch" của nhịp trước không còn đáng tin
+    setConfirmClear(false);
   }, [chainSig]);
 
-  // tuyến trên bản đồ đang trỏ tới điểm KHÁC chỗ đang xem?
-  const staleRoute =
-    activeRoute != null &&
-    (Math.abs(activeRoute.dest.lat - finalDest.lat) > 1e-6 ||
-      Math.abs(activeRoute.dest.lon - finalDest.lon) > 1e-6)
-      ? activeRoute
-      : null;
+  /*  ─── BA CÚ CUỘN, GẮN VỚI BA CHUYỂN TRẠNG THÁI (không cuộn mỗi render) ───
+      Tất cả `behavior: "auto"` (TỨC THỜI) chứ không "smooth": tàu lắc, tay
+      ướt — trang đang trôi là ngón tay bấm trượt; đây cũng là hành vi đúng
+      với prefers-reduced-motion. */
+
+  /*  Tính xong (result về từ null): ba con số + khối cảnh báo nằm ở ĐẦU phần
+      kết quả, mà bà con vừa chờ 10 giây với vị trí cuộn ở tận đáy biểu mẫu. */
+  useEffect(() => {
+    if (!result) return;
+    boxRef.current?.scrollTo({ top: 0, behavior: "auto" });
+  }, [result]);
+
+  /*  Mở lại biểu mẫu bằng cách chạm TIÊU ĐỀ: nội dung nở ra nhưng khung nhìn
+      neo chỗ cũ ⇒ bấm mà màn không đổi, nhìn như máy hỏng. */
+  useEffect(() => {
+    if (!editing) return;
+    formRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
+  }, [editing]);
+
+  /*  Xổ một bộ chọn (xuất phát / điểm đến / thông số tàu): khối vừa xổ có thể
+      nằm dưới mép thẻ, trước đây phải vuốt dò mới thấy. Không cuộn khi thu về
+      `idle` — lúc đó không có gì mới để nhìn. */
+  useEffect(() => {
+    if (panel === "idle") return;
+    panelRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
+  }, [panel]);
 
   const nearestPort = PORTS.reduce((a, b) =>
     haversineKm(b, finalDest) < haversineKm(a, finalDest) ? b : a,
@@ -437,6 +506,28 @@ export function RouteMode({
       ? `place:${myPlaces.find((p) => p.kind === "home")!.id}`
       : `port:${nearestPort.id}`;
   const effectiveStartId = startId || defaultStartId;
+  /** toạ độ nơi xuất phát ĐANG CHỌN — null với lựa chọn "định vị" (chưa biết) */
+  const startCoord =
+    startOptions.find((o) => o.id === effectiveStartId)?.coord ?? null;
+
+  /*  TUYẾN TRÊN BẢN ĐỒ CÒN KHỚP KHÔNG — so CẢ CHUỖI điểm đến qua
+      `routeMatchesStops` (bỏ một điểm GIỮA thì điểm cuối không đổi ⇒ phép so
+      điểm cuối im, trong khi bản đồ vẫn vẽ vạch xuyên qua chỗ vừa loại) VÀ so
+      cả NƠI XUẤT PHÁT qua `routeStartMatches` (đổi "Điểm xuất phát" sau khi
+      tính thì trước đây không có gì reset: ba con số giữ nguyên, vạch xanh vẫn
+      chạy từ cảng cũ, không băng nào bật). Băng bật thường hơn — thà báo thừa
+      còn hơn im, đây là cảnh báo an toàn. */
+  const chainStale =
+    activeRoute != null && !routeMatchesStops(activeRoute.stops, stops, dest);
+  const startStale =
+    activeRoute != null && !routeStartMatches(activeRoute.start, startCoord);
+  const staleRoute = chainStale || startStale ? activeRoute : null;
+  /*  Điểm CUỐI có đổi không — CHỈ dùng để CHỌN CÂU cho băng cảnh báo, KHÔNG
+      dùng để quyết định có cảnh báo hay không (đó là việc của staleRoute). */
+  const staleDestMoved =
+    staleRoute != null &&
+    (Math.abs(staleRoute.dest.lat - finalDest.lat) > 1e-6 ||
+      Math.abs(staleRoute.dest.lon - finalDest.lon) > 1e-6);
 
   async function compute() {
     if (busy) return;
@@ -616,6 +707,8 @@ export function RouteMode({
       };
       setResult(r);
       onRoute(r);
+      // tính xong thì thẻ về dạng đọc kết quả gọn, không để biểu mẫu đè lên
+      setEditing(false);
     } catch {
       setError(
         "Chưa lấy được dự báo cho tuyến và trong máy chưa có lưới đã lưu. " +
@@ -637,15 +730,25 @@ export function RouteMode({
   const staleBar = staleRoute ? (
     <div className="flex items-center justify-between gap-2 rounded-xl bg-[var(--warn-bg)] px-3 py-2">
       <p className="min-w-0 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
-        Tuyến trên bản đồ đang dẫn tới chỗ chạm trước — tính lại bên dưới để
-        dẫn tới chỗ mới.
+        {!chainStale && startStale
+          ? /*  Danh sách điểm y nguyên, chỉ nơi xuất phát đổi: nhìn điểm đến
+                thấy đúng hết nên phải chỉ thẳng vào cái đã lệch. */
+            "Vạch xanh trên bản đồ vẫn đi từ nơi xuất phát CŨ — tính lại trước khi chạy."
+          : staleDestMoved
+            ? "Tuyến trên bản đồ đang dẫn tới chỗ chạm trước — tính lại bên dưới để dẫn tới chỗ mới."
+            : /*  Điểm cuối vẫn thế mà chuỗi đã lệch (thêm/bỏ điểm GIỮA): phải nói
+                  thẳng vạch xanh là đường CŨ, vì nhìn điểm đến thì thấy y như cũ. */
+              "Vạch xanh trên bản đồ là đường đi CŨ — không còn khớp danh sách điểm bên dưới. Tính lại trước khi chạy."}
       </p>
+      {/*  NÓI RÕ NÓ XOÁ GÌ: nút này CHỈ bỏ vạch cũ trên bản đồ, danh sách điểm
+           GIỮ NGUYÊN — khác hẳn "Xoá hết" ở header (dọn cả danh sách). Hai nhãn
+           gần giống nhau thì bấm nhầm là mất trắng công dựng tuyến. */}
       <button
         type="button"
         onClick={() => onRoute(null)}
-        className="min-h-[3.25rem] shrink-0 rounded-full bg-white px-4 text-[0.9375rem] font-bold text-[var(--warn)]"
+        className="min-h-[3.5rem] shrink-0 rounded-full bg-white px-4 text-[0.9375rem] font-bold text-[var(--warn)]"
       >
-        Xóa tuyến
+        Xoá vạch cũ
       </button>
     </div>
   ) : null;
@@ -665,11 +768,51 @@ export function RouteMode({
     ) : null;
 
   const plan = result?.plan ?? null;
+
+  /*  Ý CẢNH BÁO NGUY HIỂM — dựng MỘT LẦN, MỘT CHỖ, vì có HAI nơi đọc: khối đỏ
+      đầy đủ trong thân thẻ và dải một dòng trong thanh ghim đáy. Hai chỗ tự
+      dựng lấy chữ là hai luật cảnh báo an toàn sớm muộn cũng lệch nhau.
+      Thứ tự các ý GIỮ NGUYÊN như bản cũ (07 §12(4)). */
+  const dangerItems = useMemo<{ text: string; danger: boolean }[]>(() => {
+    if (!plan) return [];
+    const items: { text: string; danger: boolean }[] = [];
+    if (plan.hasRoughLeg)
+      items.push({
+        danger: true,
+        text: `Có đoạn sóng tới ${formatNumberVN(plan.maxWaveM)} m, gió cấp ${beaufort(plan.maxWindKmh)} — mức KHÔNG NÊN ĐI với tàu nhỏ. Cân nhắc hoãn chuyến, nghe đài trước khi quyết.`,
+      });
+    if (plan.hasFollowingSeaRisk && !plan.hasRoughLeg)
+      items.push({
+        danger: false,
+        text: "Có đoạn sóng dồn từ phía đuôi (≥2 m, sóng ngắn) — dễ trượt sóng: tới đoạn đó giảm ga, đừng để sóng vỗ thẳng đuôi tàu.",
+      });
+    if (plan.hasVeryShallowLeg)
+      items.push({
+        danger: true,
+        text: "Có đoạn đè lên vùng RẤT CẠN / bãi nổi (dưới 4 m) gần nơi xuất phát hoặc điểm đến — chỉ vào theo con nước lên, đi chậm, hỏi người rành luồng lạch chỗ đó.",
+      });
+    if (plan.hasNearLandLeg)
+      items.push({
+        danger: true,
+        text: "Đoạn đầu (hoặc cuối) tuyến đè lên phần BỜ theo bản đồ độ sâu của máy — chỗ vào cảng máy không vẽ chính xác được; đoạn đó đi theo luồng quen và hải đồ, đừng bám vạch trên màn hình.",
+      });
+    if (plan.hasShallowLeg)
+      items.push({
+        danger: false,
+        text: "Tuyến có đoạn nước nông (cỡ 4–12 m) — để ý con nước, hải đồ đoạn đó.",
+      });
+    return items;
+  }, [plan]);
+  const anyDanger = dangerItems.some((i) => i.danger);
+
   /*  Có gì để dọn không: tuyến ĐÃ TÍNH **hoặc** chỗ ghé đã chấm. Bản đầu chỉ
       xét tuyến ⇒ chấm 3 chỗ rồi mà chưa bấm tính thì không có nút nào dọn, phải
       chạm lại từng chỗ để bỏ (đo thật 2026-08-28, bắt được). */
   const currentStop = stopAt(stops, dest.lat, dest.lon);
   const stopsFull = stops.length >= MAX_STOPS;
+  /** câu cảnh báo cho chỗ con trỏ đang đứng — null là im (xem DEST_DEPTH_WARN) */
+  const destDepthWarn =
+    destDepth != null ? (DEST_DEPTH_WARN[destDepth] ?? null) : null;
   const coGiDeXoa = activeRoute != null || result != null || stops.length > 0;
 
   /*  XOÁ HẲN: tuyến trên bản đồ + chuỗi chỗ ghé + kết quả. Chủ dự án đòi
@@ -691,27 +834,109 @@ export function RouteMode({
            trên, nút Tính nằm thẻ dưới — mắt phải chạy hai đầu màn cho MỘT việc,
            lại tốn hai lớp khung. Nay tất cả trong một thẻ ở đáy, tầm ngón cái;
            bản đồ phía trên sạch hẳn, không còn thanh nào đè lên rail. */}
+      {/*  NHỊP CHỜ XÁC NHẬN XOÁ HUỶ KHI BÀ CON ĐỤNG VÀO VIỆC KHÁC — thay cho
+           timer 4 giây của bản trước. Timer là THAO TÁC CÂM: nút lặng lẽ đổi
+           chữ dưới mắt bà con, cú bấm thứ hai rơi vào một nút đã reset (tưởng
+           đã xoá mà chưa xoá, hoặc bấm lần ba thành xoá lúc không định).
+           Luật nay nói ra được thành lời: "đang hỏi mà đi làm việc khác thì
+           thôi không hỏi nữa". `Capture` để chạy trước onClick của nút con. */}
+      {/*  `scroll-pt` / `scroll-pb` — CHỪA CHỖ CHO HAI THANH GHIM KHI MÁY TỰ
+           CUỘN. Hai thanh đó nền đục và nằm ĐÈ lên vùng cuộn, nhưng
+           `scrollIntoView({block:"nearest"})` chỉ tính theo mép khung cuộn ⇒
+           khối vừa xổ ra dừng đúng chỗ bị che (đã dính: ô "Chọn một cảng…" nằm
+           dưới nút "Tính đường đỡ tốn dầu", hàng "Bỏ điểm 2" bị header nuốt).
+           Số đo THẬT trên máy (375×812, gốc chữ 14px của chế độ "gọn"):
+             trên = thanh ghim đo được 49px, cộng khoảng cách 7 + băng
+                    "vạch xanh là đường cũ" 63 (py-2 14 + nút 49) ≈ 119px ở
+                    trạng thái CAO NHẤT → lấy dư 9rem (126px);
+             dưới = thanh ghim của BIỂU MẪU, đo được 66,5px → lấy dư 5rem.
+                    CỐ Ý không lấy theo thanh ghim dày hơn của màn ĐỌC KẾT
+                    QUẢ: ở đó cú cuộn duy nhất là scrollTo({top:0}) — tuyệt
+                    đối, không ăn scroll-padding. Lấy dư thêm nữa thì ô cửa
+                    còn lại (296px trừ hai lề) hẹp tới mức phản tác dụng.
+           TRẦN PHẢI NÓI RA: cái này CHỈ chữa các cú cuộn TỰ ĐỘNG. Khối xổ ra
+           cao hơn cả khung nhìn (bộ chọn điểm đến liệt kê TOÀN BỘ điểm đã lưu)
+           thì phần đuôi vẫn phải vuốt tay, và lúc vuốt tay vẫn có thể dừng ở
+           chỗ bị thanh ghim đè. */}
       <div
         ref={boxRef}
-        className="pointer-events-auto max-h-[38dvh] space-y-2 overflow-y-auto surface p-3"
+        onPointerDownCapture={(e) => {
+          if (
+            confirmClear &&
+            !(e.target as HTMLElement).closest("[data-clear-btn]")
+          )
+            setConfirmClear(false);
+        }}
+        /*  TRẦN 31dvh (~252px trên màn 812) chứ không phải 38dvh: sàn "bản đồ
+            >=60%" của 07 §5 phải giữ ở MỌI trạng thái, không chỉ lúc thẻ trống.
+            Đo thật 2026-08-28j: trần 38dvh cho bản đồ 62% khi trống nhưng tụt
+            về 53% ngay khi có 2 chỗ ghé (thẻ chạm trần 309px). Đổi lại thẻ phải
+            cuộn trong khung khi mở danh sách — nợ: cuộn trên tàu lắc là thao tác
+            khó, nâng cấp khi cắt được thêm hàng nào đó khỏi thẻ. */
+        className="pointer-events-auto max-h-[31dvh] scroll-pb-[5rem] scroll-pt-[9rem] space-y-2 overflow-y-auto surface p-3"
       >
-        <div className="flex items-center gap-2">
+        {/*  HÀNG TRÊN GHIM LẠI (sticky): thẻ luôn tràn khung 38dvh nên cuộn là
+             chuyện thường trực — không ghim thì nút X trôi mất khỏi tầm mắt.
+             Nền `bg-card` (đúng nền .surface) + margin âm để phủ kín phần p-3
+             phía trên; nền trong suốt là chữ chồng chữ, nắng chói đọc không ra. */}
+        {/*  BĂNG "VẠCH XANH LÀ ĐƯỜNG CŨ" NẰM TRONG CHÍNH THANH GHIM TRÊN.
+             Trước đây nó là con ĐẦU TIÊN của luồng cuộn thường: header ghim
+             nền `bg-card` đục nên chỉ cần cuộn xuống một chút là băng chui
+             xuống dưới header và biến mất — đúng lúc bản đồ đang vẽ vạch
+             xuyên qua chỗ vừa bị loại. CLAUDE.md cấm giấu cảnh báo an toàn;
+             theo đúng tiền lệ đã chốt cho dải cảnh báo trong khối ghim đáy.
+             `stopsSaveBar` CỐ Ý ở lại luồng cuộn: nó là trạng thái dai dẳng
+             (máy hỏng kho), ghim thêm là header phình thường trực. */}
+        <div className="sticky top-0 z-10 -mx-3 -mt-3 space-y-2 bg-card px-3 pt-3">
+          <div className="flex items-center gap-2">
+          {/*  HEADER GÁNH LUÔN "TUỲ CHỌN" (2026-08-28j): thẻ phải cắt 42px nữa
+               mới đạt sàn bản đồ ≥60% của 07 §5 — đo thật: thẻ 296px ⇒ bản đồ
+               55%. Hàng "Tuỳ chọn — tàu N hl/giờ" chiếm trọn một hàng 56px cho
+               thứ chủ tàu nhập MỘT LẦN dùng cả đời; kéo nó lên header thành
+               nút biểu tượng là đủ chỗ, mà vẫn cách một chạm như cũ. Số liệu
+               tốc độ/dầu vẫn đọc được ngay khi mở nó ra. */}
           <button
             type="button"
             onClick={onClose}
             aria-label="Đóng dẫn đường"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy transition active:scale-95"
+            className="-my-1.5 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy transition active:scale-95"
           >
             <CloseIcon className="h-5 w-5" />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[1rem] font-bold leading-tight text-navy">
-              {stops.length > 1
-                ? `Đường đi qua ${stops.length} chỗ`
-                : stops.length === 1
-                  ? "Đường đi tới chỗ đã đánh dấu"
-                  : "Dẫn đường tới chỗ đang xem"}
-            </p>
+            {/*  Có kết quả rồi thì TIÊU ĐỀ LÀ NÚT mở lại danh sách điểm — có
+                 chevron để không thành nút bí ẩn. Chưa tính thì biểu mẫu đang
+                 mở sẵn, tiêu đề chỉ là chữ. */}
+            {plan ? (
+              <button
+                type="button"
+                onClick={() => setEditing((v) => !v)}
+                aria-expanded={editing}
+                className="flex min-h-[3.5rem] w-full items-center gap-1.5 text-left"
+              >
+                <span className="min-w-0 flex-1 truncate text-[1rem] font-bold leading-tight text-navy">
+                  {stops.length > 1
+                    ? `Đường đi qua ${stops.length} chỗ`
+                    : stops.length === 1
+                      ? "Đường đi tới chỗ đã đánh dấu"
+                      : "Dẫn đường tới chỗ đang xem"}
+                </span>
+                <ChevronRightIcon
+                  className={`h-5 w-5 shrink-0 text-foreground/40 transition-transform ${
+                    editing ? "rotate-90" : ""
+                  }`}
+                  aria-hidden
+                />
+              </button>
+            ) : (
+              <p className="truncate text-[1rem] font-bold leading-tight text-navy">
+                {stops.length > 1
+                  ? `Đường đi qua ${stops.length} chỗ`
+                  : stops.length === 1
+                    ? "Đường đi tới chỗ đã đánh dấu"
+                    : "Dẫn đường tới chỗ đang xem"}
+              </p>
+            )}
             {/*  ĐỦ TRẦN PHẢI NÓI RA: hết chỗ thì `addStop` trả nguyên danh sách,
                  bấm chip sẽ IM LẶNG không làm gì — bà con tưởng máy đơ. */}
             {/*  CHỈ nói khi ĐỦ TRẦN — lúc đó hàng "Thêm điểm" biến mất, không
@@ -723,21 +948,51 @@ export function RouteMode({
               </p>
             )}
           </div>
+          <button
+            type="button"
+            onClick={() => setPanel(panel === "boat" ? "idle" : "boat")}
+            aria-expanded={panel === "boat"}
+            aria-label={`Tuỳ chọn — tàu chạy ${speedKn} hải lý/giờ, ăn ${lph} lít dầu/giờ`}
+            className={`-my-1.5 flex h-14 w-14 shrink-0 items-center justify-center rounded-full transition active:scale-95 ${
+              panel === "boat" ? "bg-t1 text-white" : "bg-navy/10 text-t1"
+            }`}
+          >
+            <FuelIcon className="h-5 w-5" />
+          </button>
           {coGiDeXoa && (
+            /*  `min-w` + `justify-center`: hộp chạm KHÔNG ĐƯỢC dịch giữa hai
+                nhịp của cùng một thao tác — bản trước nút phình và nở về bên
+                trái, cú bấm thứ hai rơi ra ngoài. Nhãn xác nhận NÓI RÕ sắp mất
+                gì: "Xoá thật?" không nói ra là mất công 10-11 chạm không hoàn
+                tác. `data-clear-btn` để nhịp chờ không tự huỷ khi chạm vào
+                chính nó (xem onPointerDownCapture của thẻ). */
             <button
               type="button"
-              onClick={clearAll}
-              className="flex min-h-[2.75rem] shrink-0 items-center gap-1 rounded-xl bg-background px-2.5 text-[0.875rem] font-bold text-danger transition active:scale-95"
+              data-clear-btn
+              onClick={() => {
+                if (confirmClear) {
+                  clearAll();
+                  setConfirmClear(false);
+                } else setConfirmClear(true);
+              }}
+              className={`-my-1.5 flex min-h-[3.5rem] min-w-[8rem] shrink-0 items-center justify-center gap-1 rounded-xl px-2.5 text-center text-[0.875rem] font-bold leading-tight text-danger transition active:scale-95 ${
+                confirmClear ? "bg-danger-bg" : "bg-background"
+              }`}
             >
-              <TrashIcon className="h-5 w-5" />
-              Xoá
+              <TrashIcon className="h-5 w-5 shrink-0" />
+              {confirmClear
+                ? stops.length > 0
+                  ? `Xoá cả ${stops.length} chỗ + tuyến?`
+                  : "Xoá tuyến?"
+                : "Xoá hết"}
             </button>
           )}
+          </div>
+          {staleBar}
         </div>
-      {staleBar}
       {stopsSaveBar}
 
-      {!plan && (
+      {(!plan || editing) && (
         <>
           {/*  DANH SÁCH ĐIỂM KIỂU GOOGLE MAPS (user 2026-08-28g, kèm ảnh mẫu):
                hàng "Đi từ" xổ ra chọn cảng/vị trí · các điểm đã chọn xếp dưới,
@@ -746,11 +1001,18 @@ export function RouteMode({
                Bỏ chip nổi 3 giây của bản trước: có hàng "Thêm điểm" đứng sẵn
                trong danh sách thì chip là đường thứ hai làm cùng một việc — mà
                hai đường cho một việc chính là chỗ bà con thấy rối. */}
+          {/*  MỘT LÚC CHỈ XỔ MỘT THỨ — nay THI HÀNH thật: bộ chọn nào đang mở
+               thì các hàng không liên quan ẩn đi, chỉ giữ lại chính hàng vừa
+               bấm làm mỏ neo (bà con biết mình đang ở đâu). Trước đây mở bộ
+               chọn điểm đến mà phía trên còn header + Điểm xuất phát + N hàng
+               điểm đã chọn ⇒ hàng điểm đã lưu bị cắt ngay lần xổ đầu. */}
+          {(compactRows || panel === "start") && (
           <button
+            ref={formRef}
             type="button"
             onClick={() => setPanel(panel === "start" ? "idle" : "start")}
             aria-expanded={panel === "start"}
-            className="flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
+            className="flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
           >
             <span
               className="h-3 w-3 shrink-0 rounded-full border-[3px] border-navy/60"
@@ -772,9 +1034,10 @@ export function RouteMode({
               aria-hidden
             />
           </button>
+          )}
 
           {panel === "start" && (
-            <div className="space-y-1.5 rounded-xl bg-background/60 p-2">
+            <div ref={panelRef} className="space-y-1.5 rounded-xl bg-background/60 p-2">
               <div role="radiogroup" aria-label="Nơi xuất phát" className="space-y-1.5">
                 {startOptions.map((o) => {
                   const on = o.id === effectiveStartId;
@@ -788,7 +1051,7 @@ export function RouteMode({
                         setStartId(o.id);
                         setPanel("idle");
                       }}
-                      className={`flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold transition ${
+                      className={`flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold transition ${
                         on
                           ? "bg-navy text-white"
                           : "bg-card text-foreground/75 active:bg-field"
@@ -817,7 +1080,7 @@ export function RouteMode({
                   setPanel("idle");
                 }}
                 aria-label="Hoặc chọn cảng khác"
-                className="block min-h-[3.25rem] w-full rounded-xl bg-card px-3 text-[1rem] font-semibold text-foreground/70"
+                className="block min-h-[3.5rem] w-full rounded-xl bg-card px-3 text-[1rem] font-semibold text-foreground/70"
               >
                 <option value="">Cảng khác…</option>
                 {PORTS.map((p) => (
@@ -830,7 +1093,8 @@ export function RouteMode({
           )}
 
           {/* các điểm đã chọn */}
-          {stops.map((s, i) => (
+          {compactRows &&
+            stops.map((s, i) => (
             <div
               key={s.id}
               className="flex items-center gap-2.5 rounded-xl bg-background px-3 py-1.5"
@@ -849,34 +1113,62 @@ export function RouteMode({
                 <span className="block text-[0.8125rem] font-bold text-foreground/60">
                   {i === stops.length - 1 ? "Điểm đến" : `Điểm dừng ${i + 1}`}
                 </span>
+                {/*  CÓ TÊN THÌ ĐỌC TÊN: bà con đặt tên "Rạn ông Tư" chính là
+                     để khỏi phải dịch toạ độ trong đầu; toạ độ xuống dòng phụ.
+                     Không tên thì giữ nguyên như cũ (toạ độ ở dòng chính). */}
                 <span className="block truncate text-[1rem] font-semibold text-navy">
-                  {fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
+                  {s.name ?? fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
                 </span>
+                {s.name && (
+                  <span className="block truncate text-[0.8125rem] text-foreground/60">
+                    {fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
+                  </span>
+                )}
               </span>
               <button
                 type="button"
                 onClick={() => onStops?.(removeStop(stops, s.id))}
                 aria-label={"Bỏ điểm " + (i + 1)}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-danger transition active:scale-95"
+                className="-my-1.5 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-danger transition active:scale-95"
               >
                 <CloseIcon className="h-5 w-5" />
               </button>
             </div>
-          ))}
+            ))}
 
           {/*  THÊM ĐIỂM — MỘT hàng mở CÙNG bộ chọn với "Đi từ" (chỗ đang xem ·
                điểm đã lưu · cảng). Trước đây là hai hàng rời ("Thêm điểm đang
                xem" + "Thêm từ điểm đã lưu") — cùng một việc mà hai chỗ bấm. */}
-          {!stopsFull && (
+          {!stopsFull && (compactRows || panel === "dest") && (
             <button
               type="button"
               onClick={() => setPanel(panel === "dest" ? "idle" : "dest")}
               aria-expanded={panel === "dest"}
-              className="flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
+              className="flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
             >
               <PlusIcon className="h-6 w-6 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">
-                {stops.length === 0 ? "Chọn điểm đến" : "Thêm điểm dừng"}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">
+                  {stops.length === 0 ? "Chọn điểm đến" : "Thêm điểm dừng"}
+                </span>
+                {/*  DÒNG TOẠ ĐỘ SỐNG THEO CON TRỎ — chạm bản đồ trong chế độ
+                     dẫn đường chỉ dời con trỏ, trước đây KHÔNG đổi một chữ nào
+                     trong thẻ (phản hồi duy nhất là chip toạ độ 0,75rem tận
+                     đỉnh màn — mắt 50 tuổi dưới nắng coi như không có). Đổi chữ
+                     ngay chỗ ngón tay đang thao tác là cách rẻ nhất bỏ thao tác
+                     câm mà KHÔNG đẻ ra lối thứ hai: chạm cả hàng vẫn mở bộ chọn
+                     như cũ. */}
+                <span className="block truncate text-[0.8125rem] font-bold text-foreground/60">
+                  {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}
+                </span>
+                {/*  DÒNG RIÊNG, KHÔNG nối vào dòng toạ độ: dòng đó có
+                     `truncate`, nối thêm là câu cảnh báo bị cắt mất đuôi trên
+                     máy hẹp — mất đúng phần nói rõ nguy hiểm. */}
+                {destDepthWarn && (
+                  <span className="block text-[0.8125rem] font-bold leading-tight text-[var(--warn)]">
+                    {destDepthWarn}
+                  </span>
+                )}
               </span>
               <ChevronRightIcon
                 className={`h-5 w-5 shrink-0 text-foreground/40 transition-transform ${
@@ -888,7 +1180,7 @@ export function RouteMode({
           )}
 
           {panel === "dest" && (
-            <div className="space-y-1.5 rounded-xl bg-background/60 p-2">
+            <div ref={panelRef} className="space-y-1.5 rounded-xl bg-background/60 p-2">
               <button
                 type="button"
                 disabled={currentStop != null}
@@ -896,7 +1188,7 @@ export function RouteMode({
                   onStops?.(addStop(stops, dest.lat, dest.lon));
                   setPanel("idle");
                 }}
-                className="flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl bg-card px-3 text-left transition active:scale-[0.99] disabled:opacity-50"
+                className="flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl bg-card px-3 text-left transition active:scale-[0.99] disabled:opacity-50"
               >
                 <PinIcon className="h-6 w-6 shrink-0 text-t1" aria-hidden />
                 <span className="min-w-0 flex-1">
@@ -906,6 +1198,12 @@ export function RouteMode({
                   <span className="block truncate text-[1rem] font-bold text-navy">
                     {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}
                   </span>
+                  {/* dòng riêng — lý do y như hàng "Thêm điểm dừng" ở trên */}
+                  {destDepthWarn && (
+                    <span className="block text-[0.8125rem] font-bold leading-tight text-[var(--warn)]">
+                      {destDepthWarn}
+                    </span>
+                  )}
                 </span>
                 {currentStop && (
                   <span className="shrink-0 text-[0.8125rem] font-bold text-foreground/60">
@@ -922,10 +1220,12 @@ export function RouteMode({
                     type="button"
                     disabled={da}
                     onClick={() => {
-                      onStops?.(addStop(stops, pl.lat, pl.lon));
+                      // giữ TÊN chỗ đã lưu — hàng trong danh sách đọc được
+                      // "Rạn ông Tư" thay vì một dãy toạ độ
+                      onStops?.(addStop(stops, pl.lat, pl.lon, pl.name));
                       setPanel("idle");
                     }}
-                    className="flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl bg-card px-3 text-left transition active:scale-[0.99] disabled:opacity-50"
+                    className="flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl bg-card px-3 text-left transition active:scale-[0.99] disabled:opacity-50"
                   >
                     <span
                       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white ${
@@ -952,11 +1252,11 @@ export function RouteMode({
                 onChange={(e) => {
                   const port = PORTS.find((x) => x.id === e.target.value);
                   if (!port) return;
-                  onStops?.(addStop(stops, port.lat, port.lon));
+                  onStops?.(addStop(stops, port.lat, port.lon, `Cảng ${port.name}`));
                   setPanel("idle");
                 }}
                 aria-label="Thêm một cảng làm điểm đến"
-                className="block min-h-[3.25rem] w-full rounded-xl bg-card px-3 text-[1rem] font-semibold text-foreground/70"
+                className="block min-h-[3.5rem] w-full rounded-xl bg-card px-3 text-[1rem] font-semibold text-foreground/70"
               >
                 <option value="">Chọn một cảng…</option>
                 {PORTS.map((p) => (
@@ -968,27 +1268,8 @@ export function RouteMode({
             </div>
           )}
 
-          {/* TUỲ CHỌN ẩn/hiện — tốc độ + dầu, chủ tàu nhập một lần dùng cả đời */}
-          <button
-            type="button"
-            onClick={() => setPanel(panel === "boat" ? "idle" : "boat")}
-            aria-expanded={panel === "boat"}
-            className="flex min-h-[3rem] w-full items-center gap-2 rounded-xl px-3 text-left text-[0.9375rem] font-bold text-foreground/70 transition active:scale-[0.99]"
-          >
-            <FuelIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
-            <span className="min-w-0 flex-1 truncate">
-              Tuỳ chọn — tàu {speedKn} hl/giờ · {lph} lít/giờ
-            </span>
-            <ChevronRightIcon
-              className={`h-5 w-5 shrink-0 text-foreground/40 transition-transform ${
-                panel === "boat" ? "rotate-90" : ""
-              }`}
-              aria-hidden
-            />
-          </button>
-
           {panel === "boat" && (
-            <div className="grid grid-cols-2 gap-3 rounded-xl bg-background/60 p-2">
+            <div ref={panelRef} className="grid grid-cols-2 gap-3 rounded-xl bg-background/60 p-2">
               <label className="block">
                 <span className="text-[0.875rem] font-bold text-foreground/75">
                   Tàu chạy (hải lý/giờ)
@@ -1000,7 +1281,7 @@ export function RouteMode({
                   max={30}
                   value={speedKn}
                   onChange={(e) => setSpeedKn(e.target.value)}
-                  className="mt-1 block min-h-[3.25rem] w-full rounded-xl bg-card px-3 text-[1.125rem] font-semibold"
+                  className="block min-h-[3.5rem] w-full rounded-xl bg-card px-3 text-[1.125rem] font-semibold"
                 />
               </label>
               <label className="block">
@@ -1014,22 +1295,33 @@ export function RouteMode({
                   max={300}
                   value={lph}
                   onChange={(e) => setLph(e.target.value)}
-                  className="mt-1 block min-h-[3.25rem] w-full rounded-xl bg-card px-3 text-[1.125rem] font-semibold"
+                  className="block min-h-[3.5rem] w-full rounded-xl bg-card px-3 text-[1.125rem] font-semibold"
                 />
               </label>
             </div>
           )}
 
-          {(
-          <button
-            type="button"
-            onClick={compute}
-            disabled={busy}
-            className="flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-60"
-          >
-            {busy ? "Đang tính đường…" : "Tính đường đỡ tốn dầu"}
+          {/*  NÚT GHIM ĐÁY THEO ĐÚNG VIỆC ĐANG LÀM. Khối này chỉ tồn tại khi
+               biểu mẫu đang mở (`!plan || editing`) nên nút ghim của màn ĐANG
+               SỬA luôn là Tính/Tính lại. Bản trước điều kiện là `{!plan && …}`:
+               mở lại danh sách khi ĐÃ có tuyến thì nút ghim đáy lại là "Bắt đầu
+               dẫn đường" — một chạm là chạy dẫn đường LIVE theo tuyến TRƯỚC khi
+               sửa. Vừa là bẫy an toàn vừa sai kỳ vọng (nguyên tắc 4).
+               Nền `bg-card` + margin âm phủ kín phần p-3 dưới. */}
+          <div className="sticky bottom-0 z-10 -mx-3 -mb-3 bg-card px-3 pb-3 pt-2">
+            <button
+              type="button"
+              onClick={compute}
+              disabled={busy}
+              className="flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-60"
+            >
+              {busy
+                ? "Đang tính…"
+                : plan
+                  ? "Tính lại đường"
+                  : "Tính đường đỡ tốn dầu"}
             </button>
-          )}
+          </div>
         </>
       )}
 
@@ -1067,6 +1359,32 @@ export function RouteMode({
             )}
           </p>
 
+          {/*  (1) NGUY HIỂM TRÊN TUYẾN — chỉ khi có. ĐỨNG TRƯỚC lưới 3 con
+               số (đổi chỗ 2026-08-28k): khối ghim đáy là con CUỐI của khung
+               cuộn, nền đục, nên mọi thứ đứng trước nó chui xuống dưới nó khi
+               chưa cuộn tới đáy. Bà con thấy 3 con số đẹp rồi bấm thẳng nút to
+               nhất ngay dưới ngón tay ⇒ cảnh báo bãi cạn / đè bờ không bao giờ
+               được đọc. Đưa lên đây tốn 0 px và, sau cú cuộn-về-đầu lúc tính
+               xong, nó là thứ ĐẦU TIÊN trong khung nhìn. */}
+          {dangerItems.length > 0 && (
+            <div
+              role="alert"
+              className={`rounded-xl p-3 ${
+                anyDanger ? "bg-danger-bg text-danger" : "bg-warn-bg text-warn"
+              }`}
+            >
+              <p className="flex items-center gap-2 text-[1rem] font-bold leading-snug">
+                <AlertIcon className="h-5 w-5 shrink-0" />
+                Trên tuyến có chỗ nguy hiểm
+              </p>
+              <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[0.9375rem] font-semibold leading-snug">
+                {dangerItems.map((i) => (
+                  <li key={i.text}>{i.text}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="rounded-xl bg-background p-3">
               <RouteIcon className="mx-auto h-5 w-5 text-t1" />
@@ -1096,56 +1414,6 @@ export function RouteMode({
               </p>
             </div>
           </div>
-
-          {/* (1) NGUY HIỂM TRÊN TUYẾN — chỉ khi có */}
-          {(() => {
-            const items: { text: string; danger: boolean }[] = [];
-            if (plan.hasRoughLeg)
-              items.push({
-                danger: true,
-                text: `Có đoạn sóng tới ${formatNumberVN(plan.maxWaveM)} m, gió cấp ${beaufort(plan.maxWindKmh)} — mức KHÔNG NÊN ĐI với tàu nhỏ. Cân nhắc hoãn chuyến, nghe đài trước khi quyết.`,
-              });
-            if (plan.hasFollowingSeaRisk && !plan.hasRoughLeg)
-              items.push({
-                danger: false,
-                text: "Có đoạn sóng dồn từ phía đuôi (≥2 m, sóng ngắn) — dễ trượt sóng: tới đoạn đó giảm ga, đừng để sóng vỗ thẳng đuôi tàu.",
-              });
-            if (plan.hasVeryShallowLeg)
-              items.push({
-                danger: true,
-                text: "Có đoạn đè lên vùng RẤT CẠN / bãi nổi (dưới 4 m) gần nơi xuất phát hoặc điểm đến — chỉ vào theo con nước lên, đi chậm, hỏi người rành luồng lạch chỗ đó.",
-              });
-            if (plan.hasNearLandLeg)
-              items.push({
-                danger: true,
-                text: "Đoạn đầu (hoặc cuối) tuyến đè lên phần BỜ theo bản đồ độ sâu của máy — chỗ vào cảng máy không vẽ chính xác được; đoạn đó đi theo luồng quen và hải đồ, đừng bám vạch trên màn hình.",
-              });
-            if (plan.hasShallowLeg)
-              items.push({
-                danger: false,
-                text: "Tuyến có đoạn nước nông (cỡ 4–12 m) — để ý con nước, hải đồ đoạn đó.",
-              });
-            if (items.length === 0) return null;
-            const anyDanger = items.some((i) => i.danger);
-            return (
-              <div
-                role="alert"
-                className={`rounded-xl p-3 ${
-                  anyDanger ? "bg-danger-bg text-danger" : "bg-warn-bg text-warn"
-                }`}
-              >
-                <p className="flex items-center gap-2 text-[1rem] font-bold leading-snug">
-                  <AlertIcon className="h-5 w-5 shrink-0" />
-                  Trên tuyến có chỗ nguy hiểm
-                </p>
-                <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[0.9375rem] font-semibold leading-snug">
-                  {items.map((i) => (
-                    <li key={i.text}>{i.text}</li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })()}
 
           {/* (2) TUYẾN CHƯA ĐỐI CHIẾU — bão đứng đầu, kéo cả khối lên đỏ */}
           {(() => {
@@ -1228,29 +1496,84 @@ export function RouteMode({
             </p>
           </div>
 
-          {/* DẪN ĐƯỜNG LIVE: bám tuyến, theo dõi GPS. Chỉ hiện khi cha nối
-              onStart (màn bản đồ) và tuyến đã tính xong (result). */}
-          {onStart && result && (
+          {/*  "Xoá hết" đã nằm THƯỜNG TRỰC ở header — ở đây chỉ còn "Tính lại"
+               (đổi thông số tàu / thêm bớt chỗ rồi tính lại). ĐỨNG TRƯỚC khối
+               ghim đáy: nó là việc phụ nên để nó cuộn cùng nội dung; đặt sau
+               nút ghim thì bị nút đè, chỉ thấy khi cuộn tới đáy.
+               CHỈ cho trạng thái ĐANG ĐỌC: đang sửa danh sách thì nút ghim đáy
+               đã là "Tính lại đường" rồi, hai nút cùng việc là rối. */}
+          {!editing && (
             <button
               type="button"
-              onClick={() => onStart(result)}
-              className="flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
+              onClick={compute}
+              disabled={busy}
+              className="min-h-[3.5rem] w-full rounded-xl bg-background text-[1rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-60"
             >
-              <PlayIcon className="h-6 w-6" />
-              Bắt đầu dẫn đường
+              {busy ? "Đang tính lại…" : "Tính lại đường"}
             </button>
           )}
 
-          {/*  "Xoá tuyến" đã nằm THƯỜNG TRỰC ở thanh trên — ở đây chỉ còn
-               "Tính lại" (đổi thông số tàu / thêm bớt chỗ rồi tính lại). */}
-          <button
-            type="button"
-            onClick={compute}
-            disabled={busy}
-            className="min-h-[3.5rem] w-full rounded-xl bg-background text-[1rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-60"
-          >
-            {busy ? "Đang tính lại…" : "Tính lại đường"}
-          </button>
+          {/* DẪN ĐƯỜNG LIVE: bám tuyến, theo dõi GPS. Chỉ hiện khi cha nối
+              onStart (màn bản đồ), tuyến đã tính xong (result) và bà con ĐANG
+              ĐỌC kết quả — đang sửa danh sách mà bấm là chạy theo tuyến TRƯỚC
+              khi sửa. GHIM ĐÁY — đo thật: nút này từng nằm dưới mép thẻ. */}
+          {onStart && result && !editing && (
+            <div className="sticky bottom-0 z-10 -mx-3 -mb-3 bg-card">
+              {/*  BA CON SỐ GHIM THEO NÚT — thứ bà con chờ 9-10 giây để đọc.
+                   Đo thật: khung ĐỌC ĐƯỢC của thẻ (38dvh trừ hai thanh ghim)
+                   chỉ còn hơn trăm px, mà thân thẻ xếp đoạn "đi từ → tới" rồi
+                   khối đỏ nguy hiểm rồi mới tới lưới 3 ô ⇒ lưới nằm NGOÀI khung
+                   nhìn ngay sau cú cuộn-về-đầu. Không thể vừa hiện trọn khối đỏ
+                   vừa hiện lưới trong một ô cửa đó, nên GHIM một dòng số thay
+                   vì đảo thứ tự (đảo chỗ chỉ đổi nạn nhân — lần đó nạn nhân là
+                   cảnh báo an toàn).
+                   Đây là NHÃN CỦA NÚT, không phải khối cảnh báo thứ tư: không
+                   role="status" (lưới 3 ô bên trên đã là bản đầy đủ, đọc màn
+                   hình không cần nghe hai lần), không bo tròn, không bấm được.
+                   Lưới 3 ô trong thân thẻ GIỮ NGUYÊN — nó mang quy đổi ≈km/hải
+                   lý theo đơn vị bà con chọn và nhãn phụ, dòng một hàng này
+                   không chứa hết.
+                   Khi `editing` bật thì khối này không tồn tại (thanh ghim lúc
+                   đó là của biểu mẫu, nút "Tính lại đường") — CỐ Ý: đang sửa
+                   danh sách thì ba con số là của tuyến TRƯỚC khi sửa. */}
+              <p className="display px-3 pt-2 text-[1rem] font-bold leading-snug text-navy">
+                {fmtDist(plan.distKm, prefs.distUnit)} ·{" "}
+                {formatHoursVN(plan.hours)} chạy máy · ~
+                {Math.round(plan.fuelL)} lít dầu
+              </p>
+              {/*  DẢI CẢNH BÁO NẰM TRONG CHÍNH THANH GHIM. Khối đỏ đầy đủ ở
+                   trên có thể chưa cuộn tới (thanh ghim là con cuối của khung
+                   cuộn, nền đục ⇒ nội dung trước nó chui xuống dưới nó), mà
+                   CLAUDE.md cấm giấu cảnh báo an toàn. Dải này không cuộn mất,
+                   không bị nút đè, dính sát mép trên thanh ghim nên đọc như
+                   NHÃN CỦA NÚT chứ không phải khối cảnh báo thứ tư — vuông góc,
+                   không bo tròn, không `active:`, không bấm được.
+                   CỐ Ý KHÔNG role="alert": khối đầy đủ đã là alert, hai alert
+                   cùng nội dung là trình đọc màn hình đọc hai lần. */}
+              {dangerItems.length > 0 && (
+                <p
+                  className={`flex items-center gap-2 px-3 py-2 text-[0.9375rem] font-bold leading-snug ${
+                    anyDanger
+                      ? "bg-danger-bg text-danger"
+                      : "bg-warn-bg text-warn"
+                  }`}
+                >
+                  <AlertIcon className="h-5 w-5 shrink-0" />
+                  Trên tuyến có chỗ nguy hiểm — đọc kỹ bên trên trước khi chạy
+                </p>
+              )}
+              <div className="px-3 pb-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => onStart(result)}
+                  className="flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
+                >
+                  <PlayIcon className="h-6 w-6" />
+                  {anyDanger ? "Vẫn bắt đầu dẫn đường" : "Bắt đầu dẫn đường"}
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
       </div>

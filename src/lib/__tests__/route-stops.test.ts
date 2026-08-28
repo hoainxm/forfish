@@ -23,6 +23,8 @@ import {
   addStop,
   clearStops,
   removeStop,
+  routeMatchesStops,
+  routeStartMatches,
   stopAt,
   type RouteStop,
 } from "../route-stops";
@@ -138,5 +140,111 @@ describe("loadStops / persistStops — án lệ K4 (đọc hỏng ⇒ KHOÁ CỬ
     const out = m.loadStops();
     expect(out).toHaveLength(MAX_STOPS);
     expect(out.every((s) => Number.isFinite(s.lat))).toBe(true);
+  });
+});
+
+describe("routeMatchesStops — tuyến đã tính còn khớp danh sách không (CẢ CHUỖI)", () => {
+  const A = { lat: 13, lon: 110.5 };
+  const B = { lat: 14, lon: 111.5 };
+  const C = { lat: 15, lon: 112.5 };
+  const chain = (...pts: { lat: number; lon: number }[]) =>
+    pts.reduce<RouteStop[]>((l, p) => addStop(l, p.lat, p.lon), []);
+
+  it("chuỗi y hệt ⇒ khớp", () => {
+    expect(routeMatchesStops([A, B, C], chain(A, B, C), C)).toBe(true);
+  });
+
+  it("HỒI QUY: bỏ một điểm GIỮA, điểm cuối giữ nguyên ⇒ KHÔNG khớp", () => {
+    // lỗi thật: phép so cũ chỉ nhìn điểm cuối nên băng cảnh báo im, bản đồ
+    // vẫn vẽ vạch xuyên qua đúng chỗ vừa loại
+    expect(routeMatchesStops([A, B, C], chain(A, C), C)).toBe(false);
+  });
+
+  it("đổi THỨ TỰ hai điểm (cùng tập hợp) ⇒ KHÔNG khớp", () => {
+    // thứ tự là kinh nghiệm thuyền trưởng — đổi thứ tự là đổi tuyến
+    expect(routeMatchesStops([A, B, C], chain(A, C, B), B)).toBe(false);
+  });
+
+  it("thêm một điểm vào cuối ⇒ KHÔNG khớp", () => {
+    expect(routeMatchesStops([A, B], chain(A, B, C), C)).toBe(false);
+  });
+
+  it("stops rỗng + dest đúng chỗ tuyến đã tính ⇒ khớp (hành vi cũ)", () => {
+    expect(routeMatchesStops([C], [], C)).toBe(true);
+  });
+
+  it("stops rỗng + dest dời sang chỗ khác ⇒ KHÔNG khớp", () => {
+    expect(routeMatchesStops([C], [], A)).toBe(false);
+  });
+
+  it("chấm lệch dưới ~100 m (cùng ô placeId) ⇒ vẫn khớp — đúng khuôn addStop", () => {
+    expect(
+      routeMatchesStops(
+        [{ lat: 13.0004, lon: 110.4996 }, B],
+        chain(A, B),
+        B,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("routeStartMatches — nơi XUẤT PHÁT còn khớp không", () => {
+  const A = { lat: 13, lon: 110.5 };
+  const B = { lat: 14, lon: 111.5 };
+
+  it("cùng chỗ ⇒ khớp", () => {
+    expect(routeStartMatches(A, { lat: 13, lon: 110.5 })).toBe(true);
+  });
+
+  it("HỒI QUY: đổi nơi xuất phát sau khi đã tính ⇒ KHÔNG khớp", () => {
+    // lỗi thật: trước đây không có gì reset — ba con số giữ nguyên, bản đồ
+    // vẫn vẽ vạch chạy từ cảng CŨ, không băng cảnh báo nào bật
+    expect(routeStartMatches(A, B)).toBe(false);
+  });
+
+  it("chưa biết toạ độ (chọn định vị) ⇒ coi như khớp, không đoán bừa", () => {
+    expect(routeStartMatches(A, null)).toBe(true);
+  });
+
+  it("lệch dưới ~100 m (cùng ô placeId) ⇒ vẫn khớp", () => {
+    expect(routeStartMatches(A, { lat: 13.0004, lon: 110.4996 })).toBe(true);
+  });
+});
+
+describe("RouteStop.name — thêm trường TUỲ CHỌN, bản ghi cũ vẫn đọc được", () => {
+  beforeEach(() => _ls.clear());
+
+  it("addStop không tên chạy y như cũ (không đẻ ra khoá name)", () => {
+    const l = addStop([], 13, 110.5);
+    expect(l[0]).toEqual({ id: "13.000,110.500", lat: 13, lon: 110.5 });
+    expect("name" in l[0]).toBe(false);
+  });
+
+  it("addStop có tên thì giữ tên", () => {
+    const l = addStop([], 13, 110.5, "Rạn ông Tư");
+    expect(l[0].name).toBe("Rạn ông Tư");
+  });
+
+  it("bản ghi CŨ (không có name) vẫn hợp lệ — loadStops trả đủ, không bị loại", async () => {
+    _ls.setItem(
+      KEY,
+      JSON.stringify([
+        { id: "a", lat: 13, lon: 110.5 },
+        { id: "b", lat: 14, lon: 111.5 },
+      ]),
+    );
+    const m = await freshModule();
+    const out = m.loadStops();
+    expect(out.map((s) => s.id)).toEqual(["a", "b"]);
+    expect(out[0].name).toBeUndefined();
+  });
+
+  it("bản ghi mới có name đọc lại giữ nguyên tên", async () => {
+    _ls.setItem(
+      KEY,
+      JSON.stringify([{ id: "a", lat: 13, lon: 110.5, name: "Cảng nhà" }]),
+    );
+    const m = await freshModule();
+    expect(m.loadStops()[0].name).toBe("Cảng nhà");
   });
 });

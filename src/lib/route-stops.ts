@@ -20,6 +20,12 @@ export interface RouteStop {
   id: string;
   lat: number;
   lon: number;
+  /*  TÊN CHỖ (tuỳ chọn) — bà con đặt tên "Rạn ông Tư" chính là để KHỎI phải
+      đọc toạ độ; có 3 điểm mà hàng nào cũng là dãy số thì không phân biệt được.
+      CỐ Ý để tuỳ chọn: bản ghi cũ trong `forfish.routestops.v1` (chấm từ bản
+      đồ, không có tên) vẫn hợp lệ — `isValid` KHÔNG được đòi trường này, mất
+      danh sách là mất thứ gõ tay không tải lại được (án lệ K4). */
+  name?: string;
 }
 
 const KEY = "forfish.routestops.v1";
@@ -78,11 +84,13 @@ export function addStop(
   list: RouteStop[],
   lat: number,
   lon: number,
+  name?: string,
 ): RouteStop[] {
   const id = placeId(lat, lon);
   if (list.some((s) => s.id === id)) return list;
   if (list.length >= MAX_STOPS) return list;
-  return [...list, { id, lat, lon }];
+  // không tên thì KHÔNG ghi khoá `name` rỗng — bản ghi giữ đúng hình cũ
+  return [...list, { id, lat, lon, ...(name ? { name } : {}) }];
 }
 
 /** Chỗ này đã nằm trong đường đi chưa (để nút đổi chữ Thêm/Bỏ) */
@@ -93,6 +101,60 @@ export function stopAt(
 ): RouteStop | null {
   const id = placeId(lat, lon);
   return list.find((s) => s.id === id) ?? null;
+}
+
+/**
+ * Tuyến ĐÃ TÍNH có còn khớp danh sách chỗ ghé hiện tại không — so CẢ CHUỖI,
+ * không chỉ điểm cuối.
+ *
+ * VÌ SAO CẢ CHUỖI: bỏ một điểm GIỮA thì điểm cuối không đổi, phép so điểm cuối
+ * im lặng, trong khi bản đồ vẫn vẽ vạch xuyên qua đúng chỗ vừa loại. Giữa biển
+ * bà con tin vạch trên màn chứ không đọc lại chữ — giấu chuyện đó là giấu cảnh
+ * báo an toàn. Đặt ở lib để thẻ dẫn đường và lớp vẽ bản đồ dùng CHUNG một luật.
+ *
+ * Dung sai = dung sai của `placeId` (~100 m, làm tròn 3 số lẻ), ĐÚNG bằng độ
+ * làm tròn của onClick bản đồ — với chạm bản đồ nó chặt hơn phép so 1e-6 cũ.
+ * `stops` rỗng ⇒ chuỗi đúng là `[dest]` (hành vi cũ: đích = chỗ đang xem).
+ *
+ * Nhận `{lat;lon}` theo cấu trúc chứ không import `LatLon` từ `route-plan` —
+ * giữ file kho này không kéo theo cả module tính tuyến.
+ */
+export function routeMatchesStops(
+  routeStops: { lat: number; lon: number }[],
+  stops: RouteStop[],
+  dest: { lat: number; lon: number },
+): boolean {
+  const want = stops.length
+    ? stops.map((s) => s.id)
+    : [placeId(dest.lat, dest.lon)];
+  if (routeStops.length !== want.length) return false;
+  return routeStops.every((p, i) => placeId(p.lat, p.lon) === want[i]);
+}
+
+/**
+ * Nơi XUẤT PHÁT của tuyến đã tính có còn khớp lựa chọn hiện tại không.
+ *
+ * VÌ SAO CẦN RIÊNG MỘT HÀM: `routeMatchesStops` chỉ so CHUỖI ĐIỂM ĐẾN. Đổi
+ * "Điểm xuất phát" sau khi đã tính thì trước đây KHÔNG có gì reset — ba con số
+ * giữ nguyên, bản đồ vẫn vẽ vạch chạy từ cảng CŨ, và không băng cảnh báo nào
+ * bật. Cùng một lớp lỗi với "bỏ điểm giữa", và cùng lý do: giữa biển bà con
+ * tin vạch trên màn chứ không đọc lại chữ.
+ *
+ * `startCoord == null` = lựa chọn "chỗ tàu tôi đang đứng (định vị)" — chưa
+ * biết toạ độ trước khi bấm tính, nên KHÔNG đoán bừa: coi như còn khớp, thà
+ * im còn hơn báo sai mỗi lần mở thẻ.
+ *
+ * Dung sai = dung sai của `placeId` (~100 m), đúng bằng hàm anh em ở trên.
+ */
+export function routeStartMatches(
+  routeStart: { lat: number; lon: number },
+  startCoord: { lat: number; lon: number } | null,
+): boolean {
+  if (startCoord == null) return true;
+  return (
+    placeId(routeStart.lat, routeStart.lon) ===
+    placeId(startCoord.lat, startCoord.lon)
+  );
 }
 
 export function removeStop(list: RouteStop[], id: string): RouteStop[] {
