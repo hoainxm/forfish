@@ -82,6 +82,24 @@ const SDFISH_STAGE_V = "sdfish-stage-v1";
 /** Trần entry RSC (đủ vài vòng dock × vài build) */
 const RSC_CACHE_MAX = 60;
 
+/*  KHO NỀN BẢN ĐỒ VECTOR — RIÊNG cho ĐÚNG MỘT file:
+    public/data/vn-basemap.pmtiles (~16,9 MB · Protomaps dựng từ OpenStreetMap ·
+    không key, không host ngoài — thay nền CARTO nay đòi API key).
+
+    VÌ SAO KHO RIÊNG, KHÔNG NHÉT VÀO SHELL:
+     (a) 16,9 MB KHÔNG được phép ngồi trong ngân sách install. Cài ở cảng sóng
+         chập chờn mà mẻ này hết giờ là hỏng CẢ vỏ (xem `installShell`).
+     (b) Kho vỏ bị `activate` xoá mỗi lần bump SDFISH_CACHE_V ⇒ để chung thì mỗi
+         bản deploy bắt bà con tải lại 16,9 MB qua sóng 3G ngoài cảng.
+    Kho riêng nằm NGOÀI phiên bản vỏ ⇒ tải MỘT LẦN, giữ mãi qua mọi deploy.
+
+    BUMP SDFISH_BASEMAP_V khi nào: CHỈ khi sinh lại chính file .pmtiles (cập
+    nhật dữ liệu OSM, đổi khung, đổi mức zoom). Bump = `activate` xoá kho cũ =
+    mọi máy tải lại 16,9 MB — đừng bump vì lý do khác. */
+const SDFISH_BASEMAP_V = "sdfish-basemap-v1";
+/** Đường file nền vector — ĐỒNG BỘ với `pmtiles:///data/...` trong ocean-map.ts */
+const BASEMAP_ARCHIVE = "/data/vn-basemap.pmtiles";
+
 /*  DANH SÁCH /api ĐƯỢC CACHE — GIỮ ĐỒNG BỘ với src/lib/sw-cache-policy.ts
     (test `sw-cache-policy.test.ts` đọc file này và bắt lệch).
     Vì sao có: SW từng cache MỌI /api/* GET, mà từ 2026-08-01 còn cứu cả 401/403
@@ -649,7 +667,9 @@ self.addEventListener("activate", (event) => {
                 k !== SDFISH_TILE_V &&
                 k !== SDFISH_API_V &&
                 k !== SDFISH_STATIC_V &&
-                k !== SDFISH_RSC_V,
+                k !== SDFISH_RSC_V &&
+                // kho nền bản đồ (16,9 MB, tải một lần) — bump vỏ KHÔNG xoá nó
+                k !== SDFISH_BASEMAP_V,
             )
             .map((k) => caches.delete(k)),
         ),
@@ -1043,6 +1063,155 @@ async function putWithRoom(c, req, res, max, trimFn, cacheName) {
   else if (max != null) await trimCache(c, max);
 }
 
+/*
+  NỀN BẢN ĐỒ VECTOR ĐỌC BẰNG RANGE (2026-08-28) — vì sao BẮT BUỘC có nhánh riêng.
+
+  Thư viện `pmtiles` KHÔNG tải cả file: mỗi ô bản đồ là một request kèm
+  `Range: bytes=a-b`. Nhánh asset tĩnh bên dưới trả lời bằng `caches.match(req)`,
+  mà Cache API BỎ QUA header Range ⇒ nó trả nguyên bản 200 dài 16,9 MB cho một
+  yêu cầu xin 16 KB. Và `pmtiles` bắt đúng ca đó rồi NÉM:
+
+      if (status === 200 && (!contentLength || +contentLength > length)) throw
+
+  ⇒ mất sóng giữa biển là MẤT NỀN BẢN ĐỒ, mà lỗi nằm trong thư viện nên không ai
+  đọc ra. Nên: cất NGUYÊN file (200) trong kho, còn lúc phục vụ thì TỰ CẮT LÁT và
+  trả 206 đúng chuẩn byte serving.
+
+  (Cache API cũng KHÔNG cho `put` một response 206 — thêm một lý do phải giữ bản
+  đầy đủ rồi cắt, chứ không cất từng lát.)
+*/
+
+/*  Bản đầy đủ giữ trong RAM của service worker — KHÔNG phải tối ưu vặt.
+    Một khung hình bản đồ xin vài chục ô = vài chục lượt cắt lát; gọi
+    `hit.arrayBuffer()` mỗi lượt là dựng lại 16,9 MB mỗi lượt ⇒ giật máy yếu.
+    Đọc MỘT lần, các lượt sau dùng chung. Trình duyệt dọn SW thì biến này mất
+    theo — lượt sau đọc lại từ kho, không mất mát gì. */
+let basemapBufPromise = null;
+/** Lượt kéo NGUYÊN file về kho — một lượt cho cả vòng đời SW */
+let basemapFillPromise = null;
+
+/** ArrayBuffer bản đầy đủ trong kho, hoặc null nếu CHƯA tải về. */
+function basemapBuffer() {
+  if (!basemapBufPromise) {
+    basemapBufPromise = caches
+      .open(SDFISH_BASEMAP_V)
+      .then((c) => c.match(BASEMAP_ARCHIVE))
+      .then((hit) => (hit ? hit.arrayBuffer() : null))
+      .catch(() => null)
+      .then((buf) => {
+        /*  CHƯA CÓ thì ĐỪNG NHỚ "không có": ngay sau đây `fillBasemapArchive`
+            sẽ kéo file về, lượt xin ô kế tiếp phải được hỏi lại kho — nhớ kết
+            quả rỗng là bản đồ đứng ở nhánh mạng cho tới khi SW chết. */
+        if (!buf) basemapBufPromise = null;
+        return buf;
+      });
+  }
+  return basemapBufPromise;
+}
+
+/*  Kéo NGUYÊN file .pmtiles về kho (200, KHÔNG Range).
+    `cache: "reload"` để không nhận lại bản cũ trong kho HTTP của trình duyệt:
+    bump SDFISH_BASEMAP_V nghĩa là file đã SINH LẠI mà tên đường dẫn giữ nguyên.
+    Hỏng thì xoá dấu để lượt sau thử lại — KHÔNG cất bản thiếu. */
+function fillBasemapArchive() {
+  if (!basemapFillPromise) {
+    basemapFillPromise = (async () => {
+      const c = await caches.open(SDFISH_BASEMAP_V);
+      if (await c.match(BASEMAP_ARCHIVE)) return;
+      // `fetch` phát TỪ service worker nên KHÔNG quay lại handler này (không đệ quy)
+      const res = await fetch(BASEMAP_ARCHIVE, { cache: "reload" });
+      if (!res.ok || res.status !== 200) throw new Error("nền bản đồ tải thiếu");
+      await c.put(BASEMAP_ARCHIVE, res);
+    })().catch(() => {
+      basemapFillPromise = null;
+    });
+  }
+  return basemapFillPromise;
+}
+
+/**
+ * "bytes=a-b" → [đầu, cuối] (cuối TÍNH CẢ), null nếu không hiểu hoặc vô lý.
+ * THUẦN — có test (`sw-basemap-range.test.ts` đọc thẳng hàm này từ sw.js).
+ */
+function parseByteRange(header, size) {
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(header || "").trim());
+  if (!m) return null;
+  const rawStart = m[1];
+  const rawEnd = m[2];
+  let start;
+  let end;
+  if (rawStart === "") {
+    // dạng hậu tố `bytes=-500` = 500 byte CUỐI file
+    const n = Number(rawEnd);
+    if (rawEnd === "" || !Number.isFinite(n) || n <= 0) return null;
+    start = Math.max(0, size - n);
+    end = size - 1;
+  } else {
+    start = Number(rawStart);
+    end = rawEnd === "" ? size - 1 : Number(rawEnd);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+    if (end > size - 1) end = size - 1; // xin quá đuôi → cắt về đuôi (đúng RFC)
+  }
+  if (start < 0 || start >= size || start > end) return null;
+  return [start, end];
+}
+
+/** Header chung cho mọi lát cắt — thiếu `accept-ranges` là client tưởng không cắt được */
+function basemapHeaders(length, contentRange) {
+  const h = {
+    "content-type": "application/octet-stream",
+    "content-length": String(length),
+    "accept-ranges": "bytes",
+  };
+  if (contentRange) h["content-range"] = contentRange;
+  return h;
+}
+
+/*  Phục vụ file nền: CÓ bản đầy đủ trong kho → tự cắt lát, trả 206 (mất sóng vẫn
+    có nền thật). CHƯA có → lượt này đi mạng, ĐỒNG THỜI kéo nguyên file về nền để
+    chuyến sau ngoài biển đã có sẵn. */
+/*  Chờ mạng bao lâu rồi bỏ cuộc, cho LƯỢT ĐẦU chưa có file trong kho (khuôn K1
+    — "sóng sống mà chết" thì `fetch` treo, không reject, `.catch` không bao giờ
+    chạy). Rộng hơn ô bản đồ (8 s) vì đây là lát của một file 16,9 MB trên CDN,
+    nhưng vẫn phải có trần: nhánh này KHÔNG có bản lưu để lùi về, treo là bản đồ
+    đứng câm. Hết giờ → 504 gọn, lớp bờ trong máy (vn-coast) đỡ lấy màn hình. */
+const BASEMAP_NETWORK_MS = 12000;
+
+function basemapFirst(event) {
+  const req = event.request;
+  const range = req.headers.get("range");
+  return basemapBuffer().then((buf) => {
+    if (!buf) {
+      keepAlive(event, fillBasemapArchive());
+      const net = fetch(req).catch(() => null);
+      return raceTimeout(net, BASEMAP_NETWORK_MS).then(
+        (res) => res || new Response(null, { status: 504 }),
+      );
+    }
+    if (!range) {
+      return new Response(buf.slice(0), {
+        headers: basemapHeaders(buf.byteLength, null),
+      });
+    }
+    const span = parseByteRange(range, buf.byteLength);
+    if (!span) {
+      return new Response(null, {
+        status: 416,
+        headers: { "content-range": "bytes */" + buf.byteLength },
+      });
+    }
+    const start = span[0];
+    const end = span[1];
+    return new Response(buf.slice(start, end + 1), {
+      status: 206,
+      headers: basemapHeaders(
+        end - start + 1,
+        "bytes " + start + "-" + end + "/" + buf.byteLength,
+      ),
+    });
+  });
+}
+
 /*  Ô bản đồ chờ mạng bao lâu rồi lấy ô đã cất (2026-08-02, audit B3). Ô nhỏ
     (~20 KB) nên 8 giây là rộng rãi cho 3G thật; quá đó gần như chắc chắn là ca
     "sóng sống mà chết" — mà nhánh này trước KHÔNG có đồng hồ nên ô đã nằm sẵn
@@ -1202,6 +1371,14 @@ self.addEventListener("fetch", (event) => {
 
   if (url.pathname.startsWith("/api/tiles/")) {
     event.respondWith(tileFirst(event));
+    return;
+  }
+
+  /*  NỀN BẢN ĐỒ VECTOR (.pmtiles) — nhánh RIÊNG, phải đứng TRƯỚC nhánh asset
+      tĩnh. Lý do đầy đủ ở `basemapFirst`: nhánh tĩnh trả nguyên 16,9 MB cho một
+      yêu cầu Range xin 16 KB, và thư viện pmtiles ném lỗi ⇒ mất nền bản đồ. */
+  if (url.pathname === BASEMAP_ARCHIVE) {
+    event.respondWith(basemapFirst(event));
     return;
   }
 

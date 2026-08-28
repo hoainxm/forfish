@@ -124,6 +124,11 @@ Mỗi ca ghi: **mã ca · mã máy · ĐẠT/HỎNG · ảnh chụp màn hình �
 5. 🆕 Zoom vào vùng Hoàng Sa / Trường Sa và ven bờ → đọc **tên đảo tiếng Việt** (vd đảo Phú Lâm, đảo Song Tử Tây, Lý Sơn). Bật/tắt "Tuyến tàu, luồng lạch" **và "Đá ngầm, rạn"** trong panel Hải đồ.
 6. 🆕 Zoom vùng Trường Sa + thềm lục địa phía Nam → đọc **tên rạn/đá ngầm tiếng Việt** (vd Đá Chữ Thập, Bãi Cỏ Mây, Bãi Tư Chính, Bãi Vũng Mây) — chữ TEAL, tách với đảo navy.
 
+7. 🆕 **NỀN BẢN ĐỒ VECTOR (2026-08-28)** — làm TRƯỚC khi bật máy bay: mở **Ra khơi** ở nơi sóng TỐT, chờ ~30 giây (SW kéo `vn-basemap.pmtiles` 16,9 MB về nền — chỉ MỘT lần cho cả đời máy). Kiểm bằng DevTools → Application → Cache Storage → phải thấy kho **`sdfish-basemap-v1`** có đúng một mục. RỒI mới bật máy bay, đóng hẳn app, mở lại → **Ra khơi**.
+
+**ĐẠT (nền vector)**: thấy **hình đất liền + bờ biển vẽ nét thật** (không phải chỉ khối bờ tối giản màu cát của `vn-coast`), kéo/zoom mượt, KHÔNG có câu "Chưa tải được nền bản đồ".
+**HỎNG (chặn)**: mất sóng ra nền trắng/xanh trơn, hoặc console có lỗi `content-length exceeding request` / `Bad response code` từ pmtiles — nghĩa là nhánh `basemapFirst` trong `sw.js` không cắt lát đúng (xem 02-architecture, ghi chú 2026-08-28). ⚠️ Máy CHƯA kịp tải xong 16,9 MB mà đã ra khơi thì rơi về lớp bờ tối giản — ĐÚNG THIẾT KẾ, không phải lỗi; phân biệt bằng kho `sdfish-basemap-v1` có mục hay không.
+
 **ĐẠT**: thấy đường bờ, đảo, đường đẳng sâu **có số mét**; **tên đảo + tên rạn/đá ngầm tiếng Việt hiện ĐỦ DẤU** (không ô vuông, không mất dấu — dùng dải font 256-511 + 7680-7935 đã nằm trong CRITICAL_SHELL); **KHÔNG một nhãn tiếng Trung/Anh nào** (không "Fiery Cross", "Vanguard Bank"…); chạm điểm ra được số gió/sóng (có thể ghi "số liệu đã lưu"); kéo ngày đổi được; tuyến tàu **và đá ngầm/rạn** bật/tắt được.
 **HỎNG (chặn ngay, báo gấp)**: bất kỳ nhãn rạn/đá ngầm nào ra **tên nước ngoài hoặc ký tự Trung** — đây là lỗi chủ quyền.
 **HỎNG (chặn)**: bản đồ xám/trắng hoàn toàn, mất hết chữ số trên đường đẳng sâu, hoặc **tên đảo ra ô vuông / rớt dấu tiếng Việt** khi mất sóng.

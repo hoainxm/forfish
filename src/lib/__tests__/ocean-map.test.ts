@@ -58,15 +58,38 @@ describe("OCEAN_LAYERS", () => {
 describe("buildMapStyle", () => {
   const now = new Date("2026-06-10T12:00:00Z");
 
-  it("không có lớp dữ liệu → nền nước + basemap + mask chủ quyền + phao đèn", () => {
+  it("không có lớp dữ liệu → nền VECTOR pmtiles + mask chủ quyền + phao đèn", () => {
     const style = buildMapStyle(null, now);
     expect(Object.keys(style.sources)).toEqual([
       "basemap",
       "sea-mask",
       "seamarks",
     ]);
-    // sea-bg · basemap · sea-mask · mốc chèn bờ offline · seamarks
-    expect(style.layers).toHaveLength(5);
+    // nền nay là VECTOR pmtiles same-origin (không key CARTO, không host ngoài)
+    const bm = style.sources.basemap as { type: string; url?: string };
+    expect(bm.type).toBe("vector");
+    expect(bm.url).toContain("pmtiles://");
+    expect(JSON.stringify(style.sources)).not.toContain("cartocdn");
+    // khung sườn giữ nguyên + nền Protomaps thêm nhiều lớp HÌNH HỌC
+    const ids = (style.layers as { id: string }[]).map((l) => l.id);
+    expect(ids[0]).toBe("sea-bg");
+    expect(ids).toContain("sea-mask");
+    expect(ids).toContain(OFFLINE_COAST_BEFORE_ID);
+    expect(ids).toContain("seamarks");
+    expect(style.layers.length).toBeGreaterThan(20);
+  });
+
+  it("CHỐT CHỦ QUYỀN: nền KHÔNG lớp symbol nào (không nhãn OSM → KHÔNG THỂ lọt chữ Trung)", () => {
+    for (const l of ["bathymetry", "sst", null] as const) {
+      const layers = buildMapStyle(l, now).layers as {
+        type: string;
+        source?: string;
+      }[];
+      const basemapSymbols = layers.filter(
+        (x) => x.source === "basemap" && x.type === "symbol",
+      );
+      expect(basemapSymbols).toEqual([]);
+    }
   });
 
   it("mốc chèn bờ offline nằm SAU mask, TRƯỚC mọi lớp nội dung", () => {

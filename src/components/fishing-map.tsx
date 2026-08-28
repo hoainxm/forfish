@@ -5,6 +5,10 @@
  * tải khi người dùng vào trang này; các trục khác không gánh thêm bundle.
  */
 import dynamic from "next/dynamic";
+import { registerPmtilesProtocol } from "@/lib/pmtiles-protocol";
+
+// Đăng ký protocol pmtiles:// NGAY khi vỏ client này nạp — trước khi map dựng.
+registerPmtilesProtocol();
 
 const FishingMapView = dynamic(() => import("@/components/fishing-map-view"), {
   ssr: false,

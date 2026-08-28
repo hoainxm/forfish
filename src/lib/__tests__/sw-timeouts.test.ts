@@ -169,8 +169,8 @@ describe("cổng tự soi — bộ dò còn nhìn thấy mã không", () => {
 
   it("đếm được các nhánh respondWith (không phải 0 nhánh rồi kêu xanh)", () => {
     expect(BRANCHES.length).toBeGreaterThan(0);
-    // bốn nhánh: ô bản đồ · điều hướng · /api · asset tĩnh
-    expect(BRANCHES.length, "số nhánh respondWith đổi — soát lại cổng").toBe(4);
+    // năm nhánh: ô bản đồ · nền .pmtiles · điều hướng · /api · asset tĩnh
+    expect(BRANCHES.length, "số nhánh respondWith đổi — soát lại cổng").toBe(5);
     for (const b of BRANCHES) expect(b.trim().length).toBeGreaterThan(0);
   });
 });
@@ -183,6 +183,7 @@ describe("service worker — mọi nhánh mạng phải có trần thời gian",
     ["ASSET_NETWORK_MS", "asset tĩnh (JS · CSS · font · /data)"],
     ["API_STALE_MS", "/api/* — có bản lưu thì đừng bắt chờ"],
     ["TILE_NETWORK_MS", "ô bản đồ"],
+    ["BASEMAP_NETWORK_MS", "nền bản đồ vector (.pmtiles) lượt đầu"],
     ["ACK_TIMEOUT_MS", "biên nhận thông báo"],
   ] as const;
 
@@ -210,6 +211,7 @@ describe("service worker — mọi nhánh mạng phải có trần thời gian",
     "NAV_GIVEUP_MS",
     "API_STALE_MS",
     "TILE_NETWORK_MS",
+    "BASEMAP_NETWORK_MS",
     "ACK_TIMEOUT_MS",
   ]) {
     it(`${name} được TRUYỀN THẬT vào một lời gọi đồng hồ`, () => {
@@ -252,7 +254,7 @@ describe("service worker — mọi nhánh mạng phải có trần thời gian",
       thì NÂNG con số này lên. */
   it("ratchet: số cuộc đua đồng hồ không được giảm", () => {
     const races = CODE.split("raceTimeout(").length - 1;
-    expect(races, "một cuộc đua đồng hồ vừa bị gỡ").toBeGreaterThanOrEqual(7);
+    expect(races, "một cuộc đua đồng hồ vừa bị gỡ").toBeGreaterThanOrEqual(8);
   });
 
   it("trần asset phải RỘNG hơn trần điều hướng — chunk 1 MB trên 3G là chính đáng", () => {

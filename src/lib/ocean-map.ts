@@ -11,6 +11,7 @@
  */
 
 import { proxyTileTemplate } from "@/lib/tile-proxy";
+import { layers as protomapsLayers, namedFlavor } from "@protomaps/basemaps";
 
 // "truecolor" (Ảnh mây trời) ĐÃ GỘP về lớp DỰ BÁO "Mây" (panel Thời tiết,
 // scalar-field) — user 2026-07-28: một chỗ cho mây, coi ảnh đã-qua là hôm nay
@@ -248,16 +249,34 @@ export function buildMapStyle(
   opts: { seamarks?: boolean } = {},
 ) {
   const { seamarks = true } = opts;
+
+  // NỀN VECTOR từ PMTiles (Protomaps) thay CARTO raster (nay đòi API key +
+  // watermark). CHỈ LẤY HÌNH HỌC (đất/nước/bờ/đường/landcover), BỎ:
+  //  · lớp `symbol` — mọi NHÃN OSM (nơi lọt tên Hải Nam/đảo tranh chấp bằng chữ
+  //    Trung); không nhãn OSM = KHÔNG THỂ dính chữ Trung.
+  //  · `background` — đã có sea-bg riêng (nền nước offline).
+  //  · `boundaries*` — RANH GIỚI QUỐC GIA Protomaps có thể lọt đường tranh chấp
+  //    Biển Đông; app tự vẽ ranh giới biển VN (border-line) + nhãn chủ quyền.
+  // Nhãn tiếng Việt do app tự vẽ (đảo/chủ quyền/rạn). Không key, same-origin →
+  // SW giữ được (offline).
+  const basemapGeom = (
+    protomapsLayers("basemap", namedFlavor("light")) as Array<{
+      id: string;
+      type: string;
+    }>
+  ).filter(
+    (l) =>
+      l.type !== "symbol" &&
+      l.id !== "background" &&
+      !l.id.startsWith("boundaries"),
+  ) as object[];
+
   const sources: Record<string, object> = {
     basemap: {
-      type: "raster",
-      tiles: ["a", "b", "c", "d"].map(
-        (s) =>
-          `https://${s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png`,
-      ),
-      tileSize: 256,
+      type: "vector",
+      url: "pmtiles:///data/vn-basemap.pmtiles",
       attribution:
-        "Ảnh: NASA · Độ sâu: EMODnet/GEBCO · Phao đèn: OpenSeaMap · Nền: © OpenStreetMap © CARTO · Dự báo: Open-Meteo",
+        "Ảnh: NASA · Độ sâu: EMODnet/GEBCO · Phao đèn: OpenSeaMap · Nền: © OpenStreetMap © Protomaps · Dự báo: Open-Meteo",
     },
     "sea-mask": {
       type: "geojson",
@@ -292,7 +311,8 @@ export function buildMapStyle(
     // cũng thấy "biển" đúng màu, rồi lớp bờ trong máy vẽ hình đất lên (xem
     // lib/offline-basemap.ts).
     { id: "sea-bg", type: "background", paint: { "background-color": SEA_MASK_COLOR } },
-    { id: "basemap", type: "raster", source: "basemap" },
+    // Hình học nền Protomaps (đất/nước/bờ/đường — KHÔNG nhãn) nằm trên nền nước.
+    ...basemapGeom,
     {
       id: "sea-mask",
       type: "fill",
