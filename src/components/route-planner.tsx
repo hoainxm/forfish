@@ -55,6 +55,7 @@ import {
   ClockIcon,
   CloseIcon,
   FuelIcon,
+  PinIcon,
   PlayIcon,
   PlusIcon,
   RouteIcon,
@@ -342,7 +343,7 @@ export function RouteMode({
       chỗ"). `idle` = dòng tóm tắt + nút Tính; `start` = CHỈ danh sách nơi xuất
       phát; `boat` = CHỈ hai ô thông số tàu. Trước đó bấm một cái xổ ra cả hai,
       thẻ cao gấp đôi mà bà con chỉ cần đổi một thứ. */
-  const [panel, setPanel] = useState<"idle" | "start" | "boat" | "places">(
+  const [panel, setPanel] = useState<"idle" | "start" | "boat" | "dest">(
     "idle",
   );
   const boxRef = useRef<HTMLDivElement>(null);
@@ -409,7 +410,16 @@ export function RouteMode({
     gần đích nhất. Mặc định = Cảng nhà (nếu đặt rồi) — KHÔNG đoán theo đích.
   */
   const myPlaces = sortedPlaces(places).slice(0, 4); // cảng nhà đứng đầu
+  /*  ĐI TỪ và ĐIỂM ĐẾN dùng CÙNG MỘT BỘ NGUỒN (user 2026-08-28i: "đi từ và
+      điểm đến đều có thêm điểm tương tự nhau"): chỗ đang xem trên bản đồ ·
+      điểm đã lưu · cảng · vị trí tàu. Trước đây "đi từ" thiếu hẳn "chỗ đang
+      xem" — muốn xuất phát từ một chỗ ngoài biển là không có đường nào. */
   const startOptions: { id: string; label: string; coord: LatLon | null }[] = [
+    {
+      id: "cursor",
+      label: `Chỗ đang xem — ${fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}`,
+      coord: dest,
+    },
     ...myPlaces.map((p) => ({
       id: `place:${p.id}`,
       label: p.kind === "home" ? `Cảng nhà — ${p.name}` : `Chỗ ghim — ${p.name}`,
@@ -435,7 +445,10 @@ export function RouteMode({
     try {
       let start: LatLon;
       let startLabel: string;
-      if (effectiveStartId === "gps") {
+      if (effectiveStartId === "cursor") {
+        start = { lat: dest.lat, lon: dest.lon };
+        startLabel = "Chỗ đang xem";
+      } else if (effectiveStartId === "gps") {
         try {
           start = await myPosition();
         } catch {
@@ -745,7 +758,7 @@ export function RouteMode({
             />
             <span className="min-w-0 flex-1">
               <span className="block text-[0.8125rem] font-bold text-foreground/60">
-                Đi từ
+                Điểm xuất phát
               </span>
               <span className="block truncate text-[1rem] font-bold text-navy">
                 {startOptions.find((o) => o.id === effectiveStartId)?.label ??
@@ -829,8 +842,16 @@ export function RouteMode({
               >
                 {i + 1}
               </span>
-              <span className="min-w-0 flex-1 truncate text-[1rem] font-semibold text-navy">
-                {fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
+              <span className="min-w-0 flex-1">
+                {/*  NÓI RÕ VAI: chỗ CUỐI là ĐIỂM ĐẾN, các chỗ trước là điểm
+                     dừng dọc đường. Chỉ đánh số 1-2-3 thì bà con không biết
+                     đâu là nơi mình định tới. */}
+                <span className="block text-[0.8125rem] font-bold text-foreground/60">
+                  {i === stops.length - 1 ? "Điểm đến" : `Điểm dừng ${i + 1}`}
+                </span>
+                <span className="block truncate text-[1rem] font-semibold text-navy">
+                  {fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
+                </span>
               </span>
               <button
                 type="button"
@@ -843,45 +864,56 @@ export function RouteMode({
             </div>
           ))}
 
-          {/*  THÊM ĐIỂM — đúng vai "Add destination" của Google Maps. HAI ĐƯỜNG
-               (user 2026-08-28h): điểm MỚI đang xem trên bản đồ, hoặc lấy từ
-               ĐIỂM ĐÃ LƯU (rạn quen, chỗ trúng cá — thứ chủ tàu đo bằng cả
-               chuyến biển, bắt gõ lại toạ độ là vô lý). */}
-          {!currentStop && !stopsFull && (
+          {/*  THÊM ĐIỂM — MỘT hàng mở CÙNG bộ chọn với "Đi từ" (chỗ đang xem ·
+               điểm đã lưu · cảng). Trước đây là hai hàng rời ("Thêm điểm đang
+               xem" + "Thêm từ điểm đã lưu") — cùng một việc mà hai chỗ bấm. */}
+          {!stopsFull && (
             <button
               type="button"
-              onClick={() => onStops?.(addStop(stops, dest.lat, dest.lon))}
+              onClick={() => setPanel(panel === "dest" ? "idle" : "dest")}
+              aria-expanded={panel === "dest"}
               className="flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
             >
               <PlusIcon className="h-6 w-6 shrink-0" />
               <span className="min-w-0 flex-1 truncate">
-                Thêm điểm đang xem ({fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)})
-              </span>
-            </button>
-          )}
-
-          {!stopsFull && places.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setPanel(panel === "places" ? "idle" : "places")}
-              aria-expanded={panel === "places"}
-              className="flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
-            >
-              <StarIcon className="h-6 w-6 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">
-                Thêm từ điểm đã lưu ({places.length})
+                {stops.length === 0 ? "Chọn điểm đến" : "Thêm điểm dừng"}
               </span>
               <ChevronRightIcon
                 className={`h-5 w-5 shrink-0 text-foreground/40 transition-transform ${
-                  panel === "places" ? "rotate-90" : ""
+                  panel === "dest" ? "rotate-90" : ""
                 }`}
                 aria-hidden
               />
             </button>
           )}
 
-          {panel === "places" && (
+          {panel === "dest" && (
             <div className="space-y-1.5 rounded-xl bg-background/60 p-2">
+              <button
+                type="button"
+                disabled={currentStop != null}
+                onClick={() => {
+                  onStops?.(addStop(stops, dest.lat, dest.lon));
+                  setPanel("idle");
+                }}
+                className="flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl bg-card px-3 text-left transition active:scale-[0.99] disabled:opacity-50"
+              >
+                <PinIcon className="h-6 w-6 shrink-0 text-t1" aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[0.8125rem] font-bold text-foreground/60">
+                    Chỗ đang xem trên bản đồ
+                  </span>
+                  <span className="block truncate text-[1rem] font-bold text-navy">
+                    {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}
+                  </span>
+                </span>
+                {currentStop && (
+                  <span className="shrink-0 text-[0.8125rem] font-bold text-foreground/60">
+                    đã có
+                  </span>
+                )}
+              </button>
+
               {sortedPlaces(places).map((pl) => {
                 const da = stopAt(stops, pl.lat, pl.lon) != null;
                 return (
@@ -914,6 +946,25 @@ export function RouteMode({
                   </button>
                 );
               })}
+
+              <select
+                value=""
+                onChange={(e) => {
+                  const port = PORTS.find((x) => x.id === e.target.value);
+                  if (!port) return;
+                  onStops?.(addStop(stops, port.lat, port.lon));
+                  setPanel("idle");
+                }}
+                aria-label="Thêm một cảng làm điểm đến"
+                className="block min-h-[3.25rem] w-full rounded-xl bg-card px-3 text-[1rem] font-semibold text-foreground/70"
+              >
+                <option value="">Chọn một cảng…</option>
+                {PORTS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    Cảng {p.name}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 
