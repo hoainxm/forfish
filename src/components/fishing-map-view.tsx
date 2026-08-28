@@ -113,11 +113,8 @@ import {
   type PlannedRoute,
 } from "@/components/route-planner";
 import {
-  addStop,
   loadStops,
   persistStops,
-  removeStop,
-  stopAt,
   type RouteStop,
 } from "@/lib/route-stops";
 import {
@@ -2364,17 +2361,14 @@ export default function FishingMapView() {
           setGeoError(false);
           setPinning(false);
           setPoint({ lat, lon });
-          /*  ĐANG DẪN ĐƯỜNG: chạm bản đồ = THÊM CHỖ GHÉ luôn (2026-08-28,
-              "thao tác tối ưu"). Trước phải: chạm biển → vuốt sheet → cuộn →
-              bấm "Thêm chỗ này" = 4 thao tác cho MỘT chỗ; nay 1 chạm 1 chỗ.
-              Chấm lại đúng chỗ cũ thì BỎ chỗ đó — cùng một cử chỉ, thêm/bớt
-              không phải học hai cách. Đủ trần thì `addStop` trả nguyên danh
-              sách, thanh trên đã nói "đã đủ N chỗ". */
+          /*  ĐANG DẪN ĐƯỜNG: chạm bản đồ CHỈ DỜI CON TRỎ, không tự thêm chỗ
+              ghé (user 2026-08-28d). Chạm-là-thêm nhanh thật nhưng chạm trượt
+              hay kéo bản đồ hụt tay là dính một chỗ oan mà không ai báo. Muốn
+              thêm thì bấm chip xác nhận nổi ngay trên thẻ dưới. Vẫn KHÔNG mở
+              sheet gió sóng — đang ở màn dẫn đường. */
           if (routeMode) {
-            const cur = stopAt(stops, lat, lon);
-            setStops(cur ? removeStop(stops, cur.id) : addStop(stops, lat, lon));
             flyToPoint(lon, lat);
-            return; // KHÔNG mở sheet gió sóng — đang ở màn dẫn đường
+            return;
           }
           // kiểu Windy: chạm là sheet nằm GỌN ở đáy (peek) — bản đồ vẫn
           // thấy nguyên, số liệu tóm tắt hiện ngay, chi tiết bấm "Xem thêm"
