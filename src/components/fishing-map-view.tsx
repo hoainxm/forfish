@@ -597,9 +597,23 @@ export default function FishingMapView() {
     if (sheetHideTimer.current) clearTimeout(sheetHideTimer.current);
     sheetHideTimer.current = null;
   }, []);
+  /*  CẤM TỰ ẨN — cờ dùng chung cho mọi ngoại lệ (rất gần ranh giới · panel dẫn
+      đường đang mở/đang tính). Để trong ref chứ không đọc state thẳng vì hai
+      nguồn của nó (`borderLocked`, `routeActive`) khai MÃI phía dưới thân hàm —
+      đọc lên đây là TDZ, React Compiler chặn build (cùng bẫy đã ghi ở 02 §14).
+      Effect dưới cập nhật ref này.
+
+      ⚠️ GUARD PHẢI NẰM Ở ĐÂY, KHÔNG CHỈ Ở EFFECT (lỗi bắt được khi chạy thật
+      2026-08-28): `armSheetHide` được gọi THẲNG từ `onInteract` mỗi cú chạm
+      trong sheet. Guard chỉ đặt ở effect thì effect không chạy lại (không state
+      nào đổi) ⇒ cú chạm kế tiếp vẫn lên lịch ẩn, sheet vẫn biến mất. Đây cũng
+      là lỗ có sẵn của ngoại lệ ranh giới ≤6 hl: chạm vào sheet là nó tự ẩn dù
+      đang cấm. Một chỗ chặn cho cả hai đường. */
+  const noAutoHideRef = useRef(false);
   const armSheetHide = useCallback(() => {
     clearSheetHide();
     if (size === "hidden") return; // đã ở đáy rồi, không đếm nữa
+    if (noAutoHideRef.current) return; // đang cấm tự ẩn
     sheetHideTimer.current = setTimeout(
       () => setSize("hidden"),
       SHEET_AUTO_HIDE_MS,
@@ -1121,6 +1135,8 @@ export default function FishingMapView() {
   /*  ĐƯỜNG ĐI NHIỀU ĐIỂM (2026-08-28) — chuỗi chỗ ghé bà con tự chấm, theo
       đúng khuôn `places` ở trên: MỘT cửa ghi duy nhất, ghi hỏng là phải nói ra
       (danh sách này cũng là thứ gõ tay, tải lại không được từ đâu). */
+  /** panel dẫn đường đang mở / đang tính → sheet không tự ẩn (xem đồng hồ dưới) */
+  const [routeActive, setRouteActive] = useState(false);
   const [stops, setStopsState] = useState<RouteStop[]>(() => loadStops());
   const [stopsSaveFailed, setStopsSaveFailed] = useState(false);
   const setStops = useCallback((next: RouteStop[]) => {
@@ -1220,10 +1236,21 @@ export default function FishingMapView() {
   const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState(false);
   /*  Ô TOẠ ĐỘ KIỂU MÁY ĐỊNH VỊ (góp ý VSS Quân Bình Định 2026-08-25): toạ độ
-      tàu phải CHẠY LIÊN TỤC, không phải bấm mới ra. Nhưng KHÔNG tự bật hộp xin
-      quyền ngay khi vào màn — đã từng cho phép thì lặng lẽ chạy lại, chưa cho
-      thì đợi bà con chạm nút "Vị trí" / chạm ô mới hỏi. GPS là máy đo tại chỗ,
-      không tốn sóng ⇒ ngoài biển mất mạng vẫn chạy. */
+      tàu phải CHẠY LIÊN TỤC, không phải bấm mới ra. GPS là máy đo tại chỗ,
+      không tốn sóng ⇒ ngoài biển mất mạng vẫn chạy.
+
+      XIN QUYỀN NGAY KHI VÀO MÀN (chủ dự án chốt 2026-08-28: *"vị trí xin ngay,
+      click vào thì xin lại thêm lần nữa"*) — ĐẢO lại quyết định 2026-08-25 vốn
+      đợi bà con chạm mới hỏi. Bà con vào Ra khơi là để coi bản đồ; hỏi ngay ở
+      đây đúng lúc và đỡ một thao tác, giống mọi app bản đồ khác.
+        · CHỈ hỏi khi quyền CHƯA quyết (`prompt`) hoặc máy không tra được trạng
+          thái. Đã cho / đã từ chối thì THÔI — không nag lại mỗi lần vào màn.
+        · Đã từ chối rồi thì KHÔNG code nào bung lại được hộp hỏi (trình duyệt
+          nhớ); lúc đó hàng "Tàu" chỉ còn đường nói thật "Cài đặt máy → SDFish
+          → Vị trí". Chạm nút "Vị trí" vẫn thử lại (`goToMyBoat`) — bà con bấm
+          nhầm "để sau" thì lần chạm sau vẫn hiện hộp hỏi.
+        · Bản NATIVE đã xin từ lúc mở app (`native-gps-prime.tsx`); cùng cổng
+          `state === "prompt"` nên hai chỗ không hỏi chồng nhau. */
   const [gpsOn, setGpsOn] = useState(false);
   useEffect(() => {
     const perms = (
@@ -1233,7 +1260,6 @@ export default function FishingMapView() {
         };
       }
     ).permissions;
-    if (!perms?.query) return;
     let alive = true;
     let st: PermissionStatus | null = null;
     /*  Đọc trạng thái quyền → nói NGAY, không bắt bà con chạm rồi mới biết máy
@@ -1245,6 +1271,35 @@ export default function FishingMapView() {
       setGpsOn(st.state === "granted");
       setGeoError(st.state === "denied");
     };
+    /*  Bung hộp xin quyền MỘT lần cho cả lượt vào màn. `primed` chặn gọi đôi
+        (StrictMode chạy effect hai lượt lúc dev). Cảm biến tại chỗ: KHÔNG
+        request mạng, KHÔNG ghi kho ⇒ an toàn offline. `enableHighAccuracy:
+        false` cho rẻ pin — chỉ cần cái hộp hỏi; cho phép xong thì
+        `useNavTracking` tự bật watch độ chính xác cao. Nuốt lỗi, không throw. */
+    let primed = false;
+    const askNow = () => {
+      if (primed || !alive || !navigator.geolocation) return;
+      primed = true;
+      navigator.geolocation.getCurrentPosition(
+        () => {
+          if (alive) setGpsOn(true);
+        },
+        (err) => {
+          // chỉ TỪ CHỐI mới là "máy chặn"; hết giờ / không bắt được sóng vệ
+          // tinh KHÔNG được đội lốt bị chặn (câu hướng dẫn sẽ sai)
+          if (alive && err?.code === err?.PERMISSION_DENIED) setGeoError(true);
+        },
+        { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 },
+      );
+    };
+    /*  Máy KHÔNG có Permissions API (Safari đời cũ) — không tra được trạng
+        thái thì vẫn phải hỏi, đó là cả điểm của lượt này. */
+    if (!perms?.query) {
+      askNow();
+      return () => {
+        alive = false;
+      };
+    }
     perms
       .query({ name: "geolocation" })
       .then((res) => {
@@ -1252,9 +1307,12 @@ export default function FishingMapView() {
         st = res;
         apply();
         res.addEventListener?.("change", apply);
+        if (res.state === "prompt") askNow();
       })
       .catch(() => {
-        /* máy không hỗ trợ hỏi trước — cứ đợi bà con chạm, không tự xin */
+        // máy không tra được trạng thái quyền → cứ hỏi, trình duyệt tự khử
+        // trùng lặp (đã cho/đã chặn thì nó không bung hộp nữa)
+        askNow();
       });
     return () => {
       alive = false;
@@ -2097,14 +2155,31 @@ export default function FishingMapView() {
       chỉ tự mờ khi bà con KÉO SHEET LÊN đọc (half/full), không phải khi sheet
       tự ẩn xuống (lúc đó bản đồ đang lộ nhiều nhất, càng cần rail để thao tác) */
   const sheetThu = size === "peek" || size === "hidden";
+  /*  NGOẠI LỆ 2 (2026-08-28): ĐANG DÙNG PANEL DẪN ĐƯỜNG thì KHÔNG đếm giờ.
+      Sheet ẩn = thân sheet UNMOUNT ⇒ mất luôn tuyến vừa tính (`result` của
+      RoutePlanner), bà con quay lại thấy panel đóng và nút "Bắt đầu dẫn đường"
+      biến mất — phải tính lại từ đầu. 3 giây không đủ để đọc xong 3 con số +
+      khối cảnh báo, càng không đủ cho đường đi nhiều chỗ (mỗi chặng một lượt
+      Dijkstra). Panel dẫn đường là BIỂU MẪU đang điền, không phải thẻ liếc mắt
+      như phần gió sóng mà đồng hồ 3 giây được thiết kế cho. */
   useEffect(() => {
-    if (size === "hidden" || borderLocked) {
+    // nạp cờ cấm TRƯỚC khi quyết — `armSheetHide` (và mọi cú chạm gọi nó) đọc ref này
+    noAutoHideRef.current = borderLocked || routeActive;
+    if (size === "hidden" || noAutoHideRef.current) {
       clearSheetHide();
       return;
     }
     armSheetHide();
     return clearSheetHide;
-  }, [size, point.lat, point.lon, borderLocked, armSheetHide, clearSheetHide]);
+  }, [
+    size,
+    point.lat,
+    point.lon,
+    borderLocked,
+    routeActive,
+    armSheetHide,
+    clearSheetHide,
+  ]);
   const depthNote = depth != null ? DEPTH_NOTE[depth] : undefined;
   // tuần trăng đêm nay — quyết với nghề đèn (mực, cá cơm); tính offline
   const moon = moonPhase(new Date());
@@ -4303,6 +4378,7 @@ export default function FishingMapView() {
                 stormInfo={stormInfo}
                 onRoute={handleRoute}
                 onStart={startNav}
+                onActive={setRouteActive}
               />
 
 

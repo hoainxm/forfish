@@ -279,6 +279,7 @@ export function RoutePlanner({
   stormInfo,
   onRoute,
   onStart,
+  onActive,
 }: {
   dest: LatLon;
   /** tuyến đang vẽ trên bản đồ (có thể tới điểm CŨ — xem ghi chú dưới) */
@@ -305,6 +306,13 @@ export function RoutePlanner({
       lúc chạy giữa biển. Luật đọc trạng thái nằm ở `stormGateForRoute`. */
   stormInfo: StormStatus;
   onRoute: (r: PlannedRoute | null) => void;
+  /*  "Bà con ĐANG DÙNG panel dẫn đường" — panel mở HOẶC đang tính. Màn bản đồ
+      đọc cờ này để KHÔNG đếm giờ tự-ẩn sheet (fishing-map-view SHEET_AUTO_HIDE_MS).
+      Sheet ẩn là THÂN SHEET UNMOUNT ⇒ mất luôn `result` đã tính: bà con quay lại
+      thấy panel đóng, nút "Bắt đầu dẫn đường" biến mất, phải tính lại từ đầu.
+      Đường đi nhiều chỗ tính lâu hơn hẳn (mỗi chặng một lượt Dijkstra) nên 3 giây
+      gần như chắc chắn cắt ngang. */
+  onActive?: (active: boolean) => void;
   /** Bắt đầu DẪN ĐƯỜNG LIVE theo tuyến vừa tính (bám tuyến, theo dõi GPS) */
   onStart?: (r: PlannedRoute) => void;
 }) {
@@ -353,6 +361,15 @@ export function RoutePlanner({
     setOfflineSavedAt(undefined);
     setStormWarn(null);
   }, [chainSig]);
+
+  /*  Báo cha lúc panel đang được dùng (mở hoặc đang tính) để sheet ĐỪNG tự ẩn.
+      Nhả cờ khi rời panel — kể cả bị unmount giữa chừng (cleanup), không thì
+      sheet không bao giờ tự ẩn lại được nữa. */
+  const active = open || busy;
+  useEffect(() => {
+    onActive?.(active);
+    return () => onActive?.(false);
+  }, [active, onActive]);
 
   // tuyến trên bản đồ đang trỏ tới điểm KHÁC chỗ đang xem?
   const staleRoute =
