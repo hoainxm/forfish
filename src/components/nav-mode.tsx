@@ -101,18 +101,37 @@ export type NavBorderNotice = {
   dismissed: boolean;
 };
 
+/**
+ * Lệch tuyến — cha (fishing-map-view) tính mốc từ lib/nav-progress, HUD chỉ vẽ.
+ * KHÁC ranh giới ở hai chỗ, cố ý: (1) màu VÀNG, không bao giờ đỏ — đỏ giữ riêng
+ * cho ranh giới IUU; (2) LUÔN thu được, kể cả lệch rất xa — lái khác đường đã
+ * vẽ là quyền của thuyền trưởng (né tàu bạn, thả lưới, đổi ý), app là người
+ * phụ việc chứ không phải người chấm đúng-sai (09-ba-spec §5c).
+ */
+export type NavOffRouteNotice = {
+  /** mốc đang ở (km — 2/5/10/20) */
+  step: number;
+  km: number;
+  /** bà con đã chạm thu dòng này */
+  dismissed: boolean;
+};
+
 export function NavHud({
   progress,
   status,
   onStop,
   border,
   onDismissBorder,
+  offRoute,
+  onDismissOffRoute,
 }: {
   progress: NavProgress | null;
   status: NavStatus;
   onStop: () => void;
   border?: NavBorderNotice | null;
   onDismissBorder?: () => void;
+  offRoute?: NavOffRouteNotice | null;
+  onDismissOffRoute?: () => void;
 }) {
   const prefs = useMapPrefs();
   const lost = status === "lost";
@@ -292,11 +311,23 @@ export function NavHud({
                   : "tàu chưa chạy"}
               </p>
 
-              {progress.offRoute && !progress.arrived && (
-                <p className="mt-1.5 rounded-xl bg-[var(--warn-bg)] p-2 text-[0.875rem] font-bold leading-snug text-[var(--warn)]">
-                  Lệch tuyến ~{fmtDist(progress.offRouteKm, prefs.distUnit)} —
-                  lái về đường xanh đã vẽ.
-                </p>
+              {/* LỆCH TUYẾN — chỉ nói khi cha bảo (vượt sang mốc xa hơn), thu
+                  được, giọng trung tính. Trước đây dòng này in lại MỖI NHỊP GPS
+                  suốt thời gian còn lệch và không thu được. */}
+              {offRoute && !offRoute.dismissed && !progress.arrived && (
+                <button
+                  type="button"
+                  onClick={onDismissOffRoute}
+                  aria-label="Thu dòng nhắc lệch tuyến"
+                  className="mt-1.5 flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl bg-[var(--warn-bg)] px-2.5 py-2 text-left text-[0.875rem] font-bold leading-snug text-[var(--warn)]"
+                >
+                  <span className="min-w-0 flex-1">
+                    Đang đi khác đường đã vẽ ~
+                    {fmtDist(offRoute.km, prefs.distUnit)} — lái về vạch xanh
+                    nếu muốn.
+                  </span>
+                  <MinusIcon className="h-4 w-4 shrink-0" />
+                </button>
               )}
               {progress.arrived && (
                 <p className="mt-1.5 rounded-xl bg-[var(--ok-bg)] p-2 text-[0.875rem] font-bold leading-snug text-[var(--ok)]">

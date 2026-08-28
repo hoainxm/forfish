@@ -39,6 +39,7 @@ import {
   REEF_DOT_COLOR,
   REEF_SHAPE_FILL,
   REEF_SHAPE_LINE,
+  REEF_HAZARD_COLOR,
   SEA_LANE_COLOR,
   SEA_CABLE_COLOR,
   SEA_RESTRICTED_COLOR,
@@ -108,8 +109,14 @@ import {
 import {
   RouteMapLayers,
   RoutePlanner,
+  RouteStopsLayers,
   type PlannedRoute,
 } from "@/components/route-planner";
+import {
+  loadStops,
+  persistStops,
+  type RouteStop,
+} from "@/lib/route-stops";
 import {
   fetchScalarField,
   peekScalarField,
@@ -143,7 +150,11 @@ import { WindParticles } from "@/components/wind-particles";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { PlotterReadout } from "@/components/plotter-readout";
 import { useNavTracking } from "@/lib/use-nav-tracking";
-import { computeNavProgress } from "@/lib/nav-progress";
+import {
+  computeNavProgress,
+  offRouteStepCrossed,
+  offRouteStepFor,
+} from "@/lib/nav-progress";
 import { vungLongGeoJSON } from "@/data/vn-fishing-zones";
 import {
   fetchPublicVmsZones,
@@ -158,7 +169,11 @@ import {
   haversineKm,
   type BorderLevel,
 } from "@/lib/geofence";
-import { playBorderWarning, armWarningSound } from "@/lib/warning-sound";
+import {
+  playBorderWarning,
+  playOffRouteChime,
+  armWarningSound,
+} from "@/lib/warning-sound";
 import { fetchDepthGrid, depthClassAt, type DepthClass } from "@/lib/depth-grid";
 import { timeoutSignal } from "@/lib/abort";
 import { weatherFromCode } from "@/lib/weather-codes";
@@ -1103,6 +1118,15 @@ export default function FishingMapView() {
     setPlacesState(next);
     setPlacesSaveFailed(!persistPlaces(next));
   }, []);
+  /*  ĐƯỜNG ĐI NHIỀU ĐIỂM (2026-08-28) — chuỗi chỗ ghé bà con tự chấm, theo
+      đúng khuôn `places` ở trên: MỘT cửa ghi duy nhất, ghi hỏng là phải nói ra
+      (danh sách này cũng là thứ gõ tay, tải lại không được từ đâu). */
+  const [stops, setStopsState] = useState<RouteStop[]>(() => loadStops());
+  const [stopsSaveFailed, setStopsSaveFailed] = useState(false);
+  const setStops = useCallback((next: RouteStop[]) => {
+    setStopsState(next);
+    setStopsSaveFailed(!persistStops(next));
+  }, []);
   const home = homeOf(places);
   // đơn vị khoảng cách + hệ toạ độ (panel Cài đặt) — đổi thì mọi chỗ đổi theo
   const prefs = useMapPrefs();
@@ -1664,6 +1688,50 @@ export default function FishingMapView() {
     () => setNavBorder((b) => (b ? { ...b, dismissed: true } : b)),
     [],
   );
+
+  /*  LỆCH TUYẾN THEO MỐC (2026-08-28) — cùng khuôn với ranh giới ngay trên,
+      nhưng ẢNH GƯƠNG: ranh giới đếm khi tàu LẠI GẦN, lệch tuyến đếm khi tàu RA
+      XA đường đã vẽ (2 → 5 → 10 → 20 km). Vượt sang mốc xa hơn mới nói lại +
+      kêu chuông; đứng yên trong mốc thì chỉ cập nhật số trong IM LẶNG; lái về
+      gần thì mốc lùi im lặng để lần lệch ra sau vẫn được nhắc.
+
+      Chuông là motif RIÊNG (`playOffRouteChime`), êm hơn và ngược chiều chuông
+      ranh giới: lệch tuyến là chuyện thường ngày, kêu cùng tiếng với cảnh báo
+      vượt biên là dạy tai bà con coi thường tiếng đó. */
+  const offRouteKm = navProgress?.offRouteKm ?? null;
+  const offRouteStepRef = useRef<number | null>(null);
+  const [navOffRoute, setNavOffRoute] = useState<{
+    step: number;
+    km: number;
+    dismissed: boolean;
+  } | null>(null);
+  useEffect(() => {
+    if (!navOn || offRouteKm == null) {
+      offRouteStepRef.current = null;
+      setNavOffRoute(null);
+      return;
+    }
+    const crossed = offRouteStepCrossed(offRouteKm, offRouteStepRef.current);
+    const step = offRouteStepFor(offRouteKm);
+    offRouteStepRef.current = step;
+    if (step == null) {
+      setNavOffRoute(null); // đã về bám tuyến → thôi
+      return;
+    }
+    if (crossed != null) {
+      playOffRouteChime();
+      setNavOffRoute({ step: crossed, km: offRouteKm, dismissed: false });
+    } else {
+      setNavOffRoute((o) =>
+        o ? { ...o, step, km: offRouteKm } : { step, km: offRouteKm, dismissed: false },
+      );
+    }
+  }, [navOn, offRouteKm]);
+  const dismissNavOffRoute = useCallback(
+    () => setNavOffRoute((o) => (o ? { ...o, dismissed: true } : o)),
+    [],
+  );
+
   // Mở khoá tiếng theo chính sách autoplay khi bà con bật Dẫn đường (thao tác
   // thật) — để lúc vượt mốc ranh giới chuông cảnh báo kêu được.
   useEffect(() => {
@@ -2766,6 +2834,21 @@ export default function FishingMapView() {
                 "line-opacity": 0.5,
               }}
             />
+            {/* ĐIỂM HIỂM HOẠ: đá ngầm/chướng ngại/xác tàu (seamark, thường gần
+                bờ nơi natural=reef thưa). Chấm hổ phách viền trắng = "coi chừng".
+                Lớp circle chỉ vẽ Point (rạn Polygon/Line bỏ qua); lọc kind cho chắc. */}
+            <Layer
+              id="reef-hazard"
+              type="circle"
+              filter={["match", ["get", "kind"], ["rock", "wreck"], true, false] as unknown as FilterSpecification}
+              paint={{
+                "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2, 11, 4.5] as unknown as number,
+                "circle-color": REEF_HAZARD_COLOR,
+                "circle-stroke-color": "#ffffff",
+                "circle-stroke-width": 1.2,
+                "circle-opacity": 0.92,
+              }}
+            />
           </Source>
         )}
 
@@ -2923,6 +3006,10 @@ export default function FishingMapView() {
 
         {/* tuyến dẫn đường tiết kiệm dầu + điểm xuất phát */}
         <RouteMapLayers route={route} />
+        {/* Chỗ ghé đã chấm nhưng CHƯA tính tuyến — nét đứt + số, để bà con
+            thấy ngay mình đang chấm cái gì. Có tuyến rồi thì ẩn (không vẽ hai
+            đường chồng nhau). */}
+        <RouteStopsLayers stops={stops} hidden={route != null} />
 
         {/* CHẤM TÀU nhấp nháy + pip hướng (mờ + tắt nháy khi mất định vị).
             Trước chỉ hiện lúc
@@ -3192,6 +3279,8 @@ export default function FishingMapView() {
             onStop={stopNav}
             border={navBorder}
             onDismissBorder={dismissNavBorder}
+            offRoute={navOffRoute}
+            onDismissOffRoute={dismissNavOffRoute}
           />
         )}
         {/* TẢI SẴN DỰ BÁO: tự chạy khi vào trang (không còn nút bấm), báo một
@@ -4206,6 +4295,9 @@ export default function FishingMapView() {
               <RoutePlanner
                 dest={cond.point}
                 activeRoute={route}
+                stops={stops}
+                onStops={setStops}
+                stopsSaveFailed={stopsSaveFailed}
                 places={places}
                 storms={storms}
                 stormInfo={stormInfo}

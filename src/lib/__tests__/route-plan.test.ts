@@ -5,6 +5,7 @@ import {
   MAX_DETOUR_RATIO,
   angleDiffDeg,
   bboxFor,
+  bboxOfPoints,
   bearingDeg,
   followingSeaRisk,
   formatHoursVN,
@@ -674,5 +675,37 @@ describe("helpers hiển thị", () => {
   it("vnHourIndex: 03:30 UTC = 10 giờ sáng VN", () => {
     expect(vnHourIndex(new Date("2026-06-10T03:30:00Z"))).toBe(10);
     expect(vnHourIndex(new Date("2026-06-10T17:00:00Z"))).toBe(0);
+  });
+});
+
+describe("bboxOfPoints — khung bao trọn chuỗi điểm (đường đi nhiều chỗ ghé)", () => {
+  const P = [
+    { lat: 13, lon: 110 },
+    { lat: 16, lon: 112 },
+    { lat: 11, lon: 114 },
+  ];
+
+  it("bao đủ MỌI điểm, không bỏ sót điểm ở giữa chuỗi", () => {
+    const bb = bboxOfPoints(P, 0);
+    for (const p of P) {
+      expect(p.lat).toBeGreaterThanOrEqual(bb.latMin);
+      expect(p.lat).toBeLessThanOrEqual(bb.latMax);
+      expect(p.lon).toBeGreaterThanOrEqual(bb.lonMin);
+      expect(p.lon).toBeLessThanOrEqual(bb.lonMax);
+    }
+    expect(bb.latMin).toBeCloseTo(11, 6);
+    expect(bb.latMax).toBeCloseTo(16, 6);
+  });
+
+  it("nở đúng marginKm mỗi phía", () => {
+    const bb = bboxOfPoints(P, 111.32);
+    expect(bb.latMin).toBeCloseTo(10, 3); // 11 − 1°
+    expect(bb.latMax).toBeCloseTo(17, 3); // 16 + 1°
+  });
+
+  it("bboxFor cũ = bboxOfPoints hai điểm (không đổi hành vi đang chạy)", () => {
+    const a = { lat: 13, lon: 110 };
+    const b = { lat: 16, lon: 112 };
+    expect(bboxFor(a, b, 120)).toEqual(bboxOfPoints([a, b], 120));
   });
 });

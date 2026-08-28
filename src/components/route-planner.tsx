@@ -19,7 +19,7 @@ import { sortedPlaces, type SavedPlace } from "@/lib/places";
 import { ROUTE_CASING_COLOR, ROUTE_LINE_COLOR } from "@/lib/ocean-map";
 import {
   DEFAULT_BOAT,
-  bboxFor,
+  bboxOfPoints,
   formatHoursVN,
   haversineKm,
   vnHourIndex,
@@ -30,6 +30,15 @@ import {
   type WeatherField,
 } from "@/lib/route-plan";
 import { planRouteAsync } from "@/lib/route-plan-async";
+import { mergeLegPlans } from "@/lib/route-multi";
+import {
+  MAX_STOPS,
+  addStop,
+  clearStops,
+  removeStop,
+  stopAt,
+  type RouteStop,
+} from "@/lib/route-stops";
 import { fetchWeatherField } from "@/lib/route-weather";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { readUserRecord } from "@/lib/user-list-store";
@@ -44,15 +53,23 @@ import {
   AnchorIcon,
   ClockIcon,
   FuelIcon,
+  MinusIcon,
   PlayIcon,
+  PlusIcon,
   RouteIcon,
+  TrashIcon,
 } from "@/components/icons";
 
 export type PlannedRoute = {
   plan: RoutePlan;
   start: LatLon;
   startLabel: string;
+  /** điểm CUỐI của đường đi — giữ tên cũ để nav/fitBounds/staleRoute không phải sửa */
   dest: LatLon;
+  /** các chỗ phải ghé, theo đúng thứ tự bà con chấm; phần tử cuối = `dest` */
+  stops: LatLon[];
+  /** chỉ số của từng chỗ ghé trong `plan.waypoints` — để vẽ số 1-2-3 */
+  stopWpIdx: number[];
 };
 
 const BOAT_KEY = "forfish.boat.v1";
@@ -164,6 +181,89 @@ export function RouteMapLayers({ route }: { route: PlannedRoute | null }) {
           <AnchorIcon className="h-5 w-5" />
         </span>
       </Marker>
+      {/* SỐ CHỖ GHÉ — chỉ vẽ khi đường đi có từ 2 chỗ trở lên; đi một chỗ thì
+          con số "1" là thừa (ghim con trỏ đã nói rồi). */}
+      {route.stops.length > 1 &&
+        route.stops.map((s, i) => (
+          <Marker
+            key={`${s.lat},${s.lon}`}
+            longitude={s.lon}
+            latitude={s.lat}
+            anchor="center"
+          >
+            <span
+              className="display flex h-10 w-10 items-center justify-center rounded-full bg-white text-[1rem] font-bold shadow-md"
+              style={{
+                color: ROUTE_LINE_COLOR,
+                boxShadow: `0 0 0 0.1875rem ${ROUTE_LINE_COLOR}`,
+              }}
+            >
+              {i + 1}
+            </span>
+          </Marker>
+        ))}
+    </>
+  );
+}
+
+/**
+ * ĐƯỜNG NHÁP — các chỗ đã chấm nhưng CHƯA tính tuyến: nét đứt nối thẳng + số
+ * mờ. Bà con thấy ngay mình đang chấm cái gì trước khi bấm tính. Xanh nét đứt
+ * = "chưa phải tuyến đã tính" (tuyến thật là nét liền, cùng màu). Đặt BÊN
+ * TRONG <MapGL>. Ẩn khi đã có tuyến để không có hai đường chồng nhau.
+ */
+export function RouteStopsLayers({
+  stops,
+  hidden,
+}: {
+  stops: RouteStop[];
+  hidden?: boolean;
+}) {
+  const line = useMemo(
+    () =>
+      stops.length >= 2
+        ? {
+            type: "Feature" as const,
+            properties: {},
+            geometry: {
+              type: "LineString" as const,
+              coordinates: stops.map((s) => [s.lon, s.lat]),
+            },
+          }
+        : null,
+    [stops],
+  );
+  if (hidden || stops.length === 0) return null;
+  return (
+    <>
+      {line && (
+        <Source id="route-draft" type="geojson" data={line}>
+          <Layer
+            id="route-draft-line"
+            type="line"
+            layout={{ "line-cap": "round", "line-join": "round" }}
+            paint={{
+              "line-color": ROUTE_LINE_COLOR,
+              "line-width": 2.5,
+              "line-opacity": 0.7,
+              "line-dasharray": [2, 1.6],
+            }}
+          />
+        </Source>
+      )}
+      {stops.map((s, i) => (
+        <Marker key={s.id} longitude={s.lon} latitude={s.lat} anchor="center">
+          <span
+            className="display flex h-10 w-10 items-center justify-center rounded-full bg-white/85 text-[1rem] font-bold shadow-md"
+            style={{
+              color: ROUTE_LINE_COLOR,
+              boxShadow: `0 0 0 0.1875rem ${ROUTE_LINE_COLOR}`,
+            }}
+          >
+            {i + 1}
+          </span>
+        </Marker>
+      ))}
     </>
   );
 }
@@ -172,6 +272,9 @@ export function RoutePlanner({
   dest,
   activeRoute,
   places = [],
+  stops = [],
+  onStops,
+  stopsSaveFailed = false,
   storms = [],
   stormInfo,
   onRoute,
@@ -183,6 +286,14 @@ export function RoutePlanner({
   /** Điểm của tôi (cảng nhà + chỗ ghim) — nơi xuất phát THẬT của bà con,
       lít dầu tính từ đây mới đúng (roadmap hội đồng UX 2026-06-11) */
   places?: SavedPlace[];
+  /*  ĐƯỜNG ĐI NHIỀU ĐIỂM (2026-08-28). Danh sách rỗng = hành vi CŨ y nguyên
+      (đích = điểm đang xem). Có điểm thì tuyến chạy start → ghé 1 → ghé 2 →…
+      THEO ĐÚNG THỨ TỰ bà con chấm — app KHÔNG tự sắp xếp lại (chủ dự án chốt:
+      thứ tự là kinh nghiệm thuyền trưởng). Kho ở lib/route-stops.ts. */
+  stops?: RouteStop[];
+  onStops?: (list: RouteStop[]) => void;
+  /** máy KHÔNG giữ được danh sách — phải nói ra, đừng để bà con tưởng đã lưu */
+  stopsSaveFailed?: boolean;
   /** Tin bão đang hoạt động (từ useStormCheck của màn bản đồ, gồm cả tin cũ
       — thà báo thừa). Tuyến cắt vùng bão → CHẶN HẲN, không vẽ. */
   storms?: StormAlert[];
@@ -220,30 +331,44 @@ export function RoutePlanner({
       phải đọc được đúng thứ đã dùng để tính. */
   const [stormWarn, setStormWarn] = useState<string | null>(null);
 
+  /*  CHUỖI ĐIỂM PHẢI ĐI. Rỗng ⇒ đúng hành vi cũ: đích = chỗ đang xem. */
+  const chainStops: LatLon[] = stops.length
+    ? stops.map((s) => ({ lat: s.lat, lon: s.lon }))
+    : [dest];
+  const finalDest = chainStops[chainStops.length - 1];
+  // chữ ký để biết "đích đã đổi" — với nhiều điểm là cả danh sách, không chỉ điểm cuối
+  const chainSig = stops.length
+    ? stops.map((s) => s.id).join("|")
+    : `${dest.lat},${dest.lon}`;
+
   /*
-    Đổi ĐÍCH (chạm chỗ khác trên bản đồ) — hội đồng UX 2026-06-11: KHÔNG
-    remount cả panel (mất luôn tuyến vừa tính 10s không lời giải thích).
-    Chỉ dọn kết quả/lỗi của đích cũ; thông số tàu + nơi xuất phát giữ nguyên;
-    tuyến cũ vẫn vẽ trên bản đồ cho tới khi bà con tự quyết (dải nhắc dưới).
+    Đổi ĐÍCH (chạm chỗ khác trên bản đồ, thêm/bớt chỗ ghé) — hội đồng UX
+    2026-06-11: KHÔNG remount cả panel (mất luôn tuyến vừa tính 10s không lời
+    giải thích). Chỉ dọn kết quả/lỗi của đích cũ; thông số tàu + nơi xuất phát
+    giữ nguyên; tuyến cũ vẫn vẽ trên bản đồ cho tới khi bà con tự quyết.
   */
   useEffect(() => {
     setResult(null);
     setError(null);
     setOfflineSavedAt(undefined);
     setStormWarn(null);
-  }, [dest.lat, dest.lon]);
+  }, [chainSig]);
 
   // tuyến trên bản đồ đang trỏ tới điểm KHÁC chỗ đang xem?
   const staleRoute =
     activeRoute != null &&
-    (Math.abs(activeRoute.dest.lat - dest.lat) > 1e-6 ||
-      Math.abs(activeRoute.dest.lon - dest.lon) > 1e-6)
+    (Math.abs(activeRoute.dest.lat - finalDest.lat) > 1e-6 ||
+      Math.abs(activeRoute.dest.lon - finalDest.lon) > 1e-6)
       ? activeRoute
       : null;
 
   const nearestPort = PORTS.reduce((a, b) =>
-    haversineKm(b, dest) < haversineKm(a, dest) ? b : a,
+    haversineKm(b, finalDest) < haversineKm(a, finalDest) ? b : a,
   );
+
+  // chỗ đang xem đã nằm trong đường đi chưa (nút đổi chữ Thêm ↔ Bỏ)
+  const currentStop = stopAt(stops, dest.lat, dest.lon);
+  const stopsFull = stops.length >= MAX_STOPS;
 
   /*
     Lựa chọn nơi xuất phát — app đã dạy tư duy "Điểm của tôi" thì dẫn đường
@@ -305,9 +430,21 @@ export function RoutePlanner({
         startLabel = `Cảng ${port.name}`;
       }
 
-      if (haversineKm(start, dest) < 5) {
-        setError("Điểm đến đang quá gần nơi xuất phát — chạm chỗ xa hơn trên biển.");
-        return;
+      /*  Mỗi CHẶNG phải đủ dài: lưới tìm đường bước tối thiểu 4 km, hai điểm
+          sát nhau hơn thế thì Dijkstra không có chỗ mà đi. Nói rõ chặng nào
+          để bà con biết sửa chỗ nào, đừng bắt đoán. */
+      const legPts = [start, ...chainStops];
+      for (let i = 1; i < legPts.length; i++) {
+        if (haversineKm(legPts[i - 1], legPts[i]) < 5) {
+          setError(
+            stops.length
+              ? i === 1
+                ? "Chỗ ghé 1 đang quá gần nơi xuất phát — chấm chỗ xa hơn trên biển."
+                : `Chỗ ghé ${i} và chỗ ghé ${i - 1} đang quá sát nhau — chấm cách nhau xa hơn.`
+              : "Điểm đến đang quá gần nơi xuất phát — chạm chỗ xa hơn trên biển.",
+          );
+          return;
+        }
       }
 
       const boat: BoatProfile = {
@@ -323,7 +460,12 @@ export function RoutePlanner({
       // chờ); promise await lại trong vòng nở khung vẫn chỉ fetch một lần
       const depthPromise = fetchDepthGrid().catch(() => null);
       const departHourIdx = vnHourIndex(new Date());
-      const dist = haversineKm(start, dest);
+      // tổng chiều dài chuỗi điểm (không phải chỉ đầu–cuối): đường đi vòng qua
+      // mấy chỗ ghé cần khung rộng theo QUÃNG THẬT, không theo đường chim bay
+      let dist = 0;
+      for (let i = 1; i < legPts.length; i++) {
+        dist += haversineKm(legPts[i - 1], legPts[i]);
+      }
       // khung nhỏ trước cho nhanh; chưa có lối (vd phải vòng qua mũi đất)
       // thì nở khung rộng gấp mấy lần quãng đường rồi tìm lại
       const margins = [
@@ -331,26 +473,62 @@ export function RoutePlanner({
         Math.min(420, Math.max(200, dist * 1.1)),
       ];
       let plan: RoutePlan | null = null;
+      let stopWpIdx: number[] = [];
       // lưới đã dùng cho tuyến CHỌN: 'grid' = lùi về bản lưu offline → báo thật
       let chosenField: WeatherField | null = null;
+      // chặng nào chặn đường — để câu lỗi chỉ đúng chỗ thay vì nói chung chung
+      let failedLeg = 0;
       for (const m of margins) {
-        const bbox = clampBBox(bboxFor(start, dest, m));
+        /*  MỘT trường thời tiết cho CẢ chuỗi điểm, dùng lại cho mọi chặng.
+            Hỏi mạng từng chặng thì đường đi 6 chỗ = 6 lượt gọi giữa biển —
+            mỗi lượt là một lượt có thể treo. Đổi lại lưới thô hơn chút (adapter
+            kẹp ≤120 điểm cho mọi khung), thuật toán vẫn nội suy như cũ. */
+        const bbox = clampBBox(bboxOfPoints(legPts, m));
         const [field, depth] = await Promise.all([
           fetchWeatherField(bbox),
           depthPromise,
         ]);
         // Dijkstra chạy trong Web Worker — màn không đơ lúc "Đang tính…"
-        plan = await planRouteAsync({
-          start, dest, boat, departHourIdx, field, depth, bbox,
-        });
-        if (plan) {
-          chosenField = field;
-          break;
+        const legs: RoutePlan[] = [];
+        let hoursSoFar = 0;
+        for (let i = 1; i < legPts.length; i++) {
+          const leg = await planRouteAsync({
+            start: legPts[i - 1],
+            dest: legPts[i],
+            boat,
+            // giờ xuất phát CỦA CHẶNG NÀY = giờ rời bến + giờ đã chạy các chặng
+            // trước ⇒ sóng/gió tra đúng thời điểm tàu thật sự tới đó
+            departHourIdx: departHourIdx + Math.round(hoursSoFar),
+            field,
+            depth,
+            bbox,
+          });
+          if (!leg) {
+            failedLeg = i;
+            break;
+          }
+          legs.push(leg);
+          hoursSoFar += leg.hours;
+        }
+        if (legs.length === legPts.length - 1) {
+          const merged = mergeLegPlans(legs);
+          if (merged) {
+            plan = merged.plan;
+            stopWpIdx = merged.stopWpIdx;
+            chosenField = field;
+            break;
+          }
         }
       }
       if (!plan) {
+        const where =
+          stops.length > 1 && failedLeg > 0
+            ? failedLeg === 1
+              ? " ở chặng từ nơi xuất phát tới chỗ ghé 1"
+              : ` ở chặng từ chỗ ghé ${failedLeg - 1} tới chỗ ghé ${failedLeg}`
+            : "";
         setError(
-          "Chưa tìm được đường an toàn — giữa đường vướng đất liền, bãi cạn hoặc sóng quá dữ (trên 4 m).",
+          `Chưa tìm được đường an toàn${where} — giữa đường vướng đất liền, bãi cạn hoặc sóng quá dữ (trên 4 m).`,
         );
         setResult(null);
         onRoute(null);
@@ -382,7 +560,14 @@ export function RoutePlanner({
       setOfflineSavedAt(
         chosenField?.source === "grid" ? chosenField.savedAt ?? null : undefined,
       );
-      const r: PlannedRoute = { plan, start, startLabel, dest };
+      const r: PlannedRoute = {
+        plan,
+        start,
+        startLabel,
+        dest: finalDest,
+        stops: chainStops,
+        stopWpIdx,
+      };
       setResult(r);
       onRoute(r);
     } catch {
@@ -419,18 +604,69 @@ export function RoutePlanner({
     </div>
   ) : null;
 
+  /*  ĐƯỜNG ĐI NHIỀU ĐIỂM — nút PHỤ (nền field), không phải primary: 07 §5 chốt
+      màn Ra khơi chỉ có MỘT primary là "Dẫn đường tới chỗ này". */
+  const addStopBtn = onStops ? (
+    currentStop ? (
+      <button
+        type="button"
+        onClick={() => onStops(removeStop(stops, currentStop.id))}
+        className="flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-xl bg-field text-[1rem] font-bold text-navy transition active:scale-[0.99]"
+      >
+        <MinusIcon className="h-5 w-5" />
+        Bỏ chỗ này khỏi đường đi
+      </button>
+    ) : stopsFull ? (
+      <p className="rounded-xl bg-[var(--warn-bg)] px-3 py-2.5 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
+        Đường đi đã đủ {MAX_STOPS} chỗ — bỏ bớt một chỗ rồi mới thêm được.
+      </p>
+    ) : (
+      <button
+        type="button"
+        onClick={() => onStops(addStop(stops, dest.lat, dest.lon))}
+        className="flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-xl bg-field text-[1rem] font-bold text-navy transition active:scale-[0.99]"
+      >
+        <PlusIcon className="h-5 w-5" />
+        {stops.length
+          ? `Thêm chỗ này thành chỗ ghé ${stops.length + 1}`
+          : "Thêm chỗ này vào đường đi"}
+      </button>
+    )
+  ) : null;
+
+  const goLabel =
+    stops.length > 1
+      ? `Dẫn đường qua ${stops.length} chỗ`
+      : stops.length === 1
+        ? "Dẫn đường tới chỗ đã đánh dấu"
+        : staleRoute
+          ? "Dẫn đường tới chỗ mới này"
+          : "Dẫn đường tới chỗ này";
+
+  /*  MÁY KHÔNG GIỮ ĐƯỢC DANH SÁCH (K4) — nói ngay, đừng để bà con chấm 5 chỗ
+      rồi tắt app mới biết mất. */
+  const stopsSaveBar =
+    stopsSaveFailed && stops.length ? (
+      <p className="rounded-xl bg-[var(--warn-bg)] px-3 py-2.5 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
+        Máy không giữ được danh sách chỗ ghé — tắt app là mất. Ghi ra giấy giúp,
+        hoặc dọn bớt ảnh/dữ liệu trong máy rồi thử lại.
+      </p>
+    ) : null;
+
   if (!open) {
     return (
       <div className="space-y-2">
         {staleBar}
+        {stopsSaveBar}
         <button
           type="button"
           onClick={() => setOpen(true)}
           className="flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
         >
           <RouteIcon className="h-6 w-6" />
-          {staleRoute ? "Dẫn đường tới chỗ mới này" : "Dẫn đường tới chỗ này"}
+          {goLabel}
         </button>
+        {addStopBtn}
       </div>
     );
   }
@@ -442,14 +678,74 @@ export function RoutePlanner({
       <div className="flex items-center gap-2 text-t1">
         <RouteIcon className="h-6 w-6" />
         <h3 className="text-[1.125rem] font-bold text-navy">
-          Dẫn đường tới chỗ này
+          {stops.length > 1 ? "Dẫn đường qua nhiều chỗ" : "Dẫn đường tới chỗ này"}
         </h3>
       </div>
 
       {staleBar}
+      {stopsSaveBar}
 
       {!plan && (
         <>
+          {/* ĐƯỜNG ĐI NHIỀU ĐIỂM — danh sách chỗ ghé theo đúng thứ tự đã chấm */}
+          {onStops && (
+            <div>
+              <span className="text-[0.9375rem] font-bold text-foreground/75">
+                {stops.length ? "Đường đi qua những chỗ nào?" : "Đi tới đâu?"}
+              </span>
+              {stops.length === 0 ? (
+                <p className="mt-1 text-[0.9375rem] leading-snug text-foreground/70">
+                  Đang dẫn tới chỗ vừa chạm trên bản đồ. Muốn ghé nhiều chỗ thì
+                  chạm từng chỗ rồi bấm <b>Thêm chỗ này vào đường đi</b> — tàu
+                  sẽ đi đúng thứ tự bà con chấm.
+                </p>
+              ) : (
+                <>
+                  <ol className="mt-1 space-y-1.5">
+                    {stops.map((s, i) => (
+                      <li
+                        key={s.id}
+                        className="flex items-center gap-2.5 rounded-xl bg-background px-3 py-1.5"
+                      >
+                        <span
+                          className="display flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[1rem] font-bold text-white"
+                          style={{ background: ROUTE_LINE_COLOR }}
+                          aria-hidden
+                        >
+                          {i + 1}
+                        </span>
+                        <span className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">
+                          {fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onStops(removeStop(stops, s.id))}
+                          aria-label={`Bỏ chỗ ghé ${i + 1}`}
+                          className="flex min-h-[3.5rem] shrink-0 items-center gap-1.5 rounded-xl px-3 text-[0.9375rem] font-bold text-danger transition active:scale-95"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                          Bỏ
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                  <p className="mt-1.5 text-[0.875rem] leading-snug text-foreground/65">
+                    Tàu đi đúng thứ tự này — máy KHÔNG tự sắp xếp lại. Chạm chỗ
+                    khác trên bản đồ rồi bấm Thêm để nối tiếp.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onStops(clearStops())}
+                    className="mt-1.5 min-h-[3.25rem] w-full rounded-xl bg-background text-[0.9375rem] font-bold text-danger transition active:scale-[0.99]"
+                  >
+                    Bỏ hết chỗ ghé, quay về đi một chỗ
+                  </button>
+                </>
+              )}
+              <div className="mt-1.5">{addStopBtn}</div>
+            </div>
+          )}
+
           <div>
             <span className="text-[0.9375rem] font-bold text-foreground/75">
               Đi từ đâu?
@@ -559,9 +855,22 @@ export function RoutePlanner({
               Không bỏ thông tin nào, chỉ gộp. Bão vẫn là gạch đầu dòng ĐẦU
               TIÊN của khối 2 và kéo cả khối lên màu đỏ. */}
           <p className="text-[0.9375rem] font-semibold text-foreground/70">
-            {result.startLabel} →{" "}
-            {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)} — tuyến đã vẽ
-            trên bản đồ.
+            {result.startLabel}
+            {result.stops.length > 1
+              ? ` → qua ${result.stops.length} chỗ → `
+              : " → "}
+            {fmtCoordPair(
+              result.dest.lat,
+              result.dest.lon,
+              prefs.coordFormat,
+            )}{" "}
+            — tuyến đã vẽ trên bản đồ.
+            {result.stops.length > 1 && (
+              <>
+                {" "}
+                Ba con số dưới là <b>cả đường đi</b>, đã cộng hết các chặng.
+              </>
+            )}
           </p>
 
           <div className="grid grid-cols-3 gap-2 text-center">

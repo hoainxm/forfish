@@ -103,17 +103,31 @@ export type BBox = {
   lonMax: number;
 };
 
-/** Khung chữ nhật quanh start–dest nở thêm marginKm mỗi phía */
-export function bboxFor(start: LatLon, dest: LatLon, marginKm: number): BBox {
+/**
+ * Khung chữ nhật bao TRỌN một chuỗi điểm, nở thêm marginKm mỗi phía. Đường đi
+ * nhiều điểm (start → ghé 1 → ghé 2 → …) cần MỘT khung phủ cả chuỗi để chỉ
+ * phải hỏi dự báo một lần cho cả tuyến — mất sóng giữa biển thì mỗi lượt gọi
+ * mạng là một lượt có thể treo.
+ */
+export function bboxOfPoints(points: LatLon[], marginKm: number): BBox {
+  const lats = points.map((p) => p.lat);
+  const lons = points.map((p) => p.lon);
+  const latMin = Math.min(...lats);
+  const latMax = Math.max(...lats);
+  const midLat = (latMin + latMax) / 2;
   const dLat = marginKm / 111.32;
-  const midLat = (start.lat + dest.lat) / 2;
   const dLon = marginKm / (111.32 * Math.cos(rad(midLat)));
   return {
-    latMin: Math.min(start.lat, dest.lat) - dLat,
-    latMax: Math.max(start.lat, dest.lat) + dLat,
-    lonMin: Math.min(start.lon, dest.lon) - dLon,
-    lonMax: Math.max(start.lon, dest.lon) + dLon,
+    latMin: latMin - dLat,
+    latMax: latMax + dLat,
+    lonMin: Math.min(...lons) - dLon,
+    lonMax: Math.max(...lons) + dLon,
   };
+}
+
+/** Khung chữ nhật quanh start–dest nở thêm marginKm mỗi phía */
+export function bboxFor(start: LatLon, dest: LatLon, marginKm: number): BBox {
+  return bboxOfPoints([start, dest], marginKm);
 }
 
 // ── trường thời tiết: lưới thô + nội suy song tuyến ─────────────────────

@@ -23,6 +23,47 @@ export const OFF_ROUTE_WARN_KM = 2;
 /** Dưới tốc độ này coi như tàu CHƯA chạy → không tính giờ tới (km/h ≈ 0,5 hải lý) */
 export const MIN_MOVING_KMH = 0.9;
 
+/**
+ * MỐC NÓI LẠI khi LỆCH TUYẾN (km) — mốc đầu chính là `OFF_ROUTE_WARN_KM`.
+ *
+ * Là ẢNH GƯƠNG của `BORDER_STEPS_NM` + `borderStepFor`/`borderStepCrossed`
+ * (lib/geofence.ts), KHÔNG phải bản trùng: ranh giới đếm khi tàu LẠI GẦN một
+ * đường (mốc nhỏ dần), lệch tuyến đếm khi tàu RA XA đường đã vẽ (mốc lớn dần).
+ * Sửa một bên thì soi lại bên kia.
+ *
+ * ⚠️ Ba mốc 5/10/20 km CHƯA có nguồn nghiệp vụ — đặt theo khuôn mốc ranh giới,
+ * BA chốt sau (cùng dạng ghi chú với 15/10/6/3 hải lý ở 07-design-spec §10.7 F).
+ */
+export const OFF_ROUTE_STEPS_KM = [OFF_ROUTE_WARN_KM, 5, 10, 20] as const;
+
+/**
+ * Mốc lệch hiện tại: mốc LỚN NHẤT mà offRouteKm ≥ mốc; null khi còn bám tuyến
+ * (dưới ngưỡng cảnh báo). THUẦN, có test.
+ */
+export function offRouteStepFor(offRouteKm: number): number | null {
+  if (!Number.isFinite(offRouteKm)) return null;
+  let step: number | null = null;
+  for (const s of OFF_ROUTE_STEPS_KM) if (offRouteKm >= s) step = s;
+  return step;
+}
+
+/**
+ * Có phải vừa VƯỢT SANG MỐC XA HƠN không — chỗ duy nhất quyết "nói lại + kêu
+ * chuông". `prev` = mốc đã nói lần trước (null = đang bám tuyến / chưa nói).
+ * Trả mốc mới nếu đáng nói, null nếu im (đứng yên trong mốc, hoặc đang lái về
+ * gần tuyến — lúc đó nơi gọi cập nhật prev = offRouteStepFor(km) TRONG IM LẶNG
+ * để lần lệch ra lại vẫn được nhắc).
+ */
+export function offRouteStepCrossed(
+  offRouteKm: number,
+  prev: number | null,
+): number | null {
+  const step = offRouteStepFor(offRouteKm);
+  if (step == null) return null;
+  if (prev == null || step > prev) return step;
+  return null;
+}
+
 /** Góc lệch ≤ ngưỡng này = "đi thẳng"; ≤ ngưỡng sau = "chếch"; hơn = "rẽ" */
 const STRAIGHT_DEG = 12;
 const SLIGHT_DEG = 45;

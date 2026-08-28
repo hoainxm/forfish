@@ -130,6 +130,7 @@ export const TRANSFER_KEYS = [
   "forfish.currentBoat.v1",
   "forfish.boat.v1",
   "forfish.places.v1",
+  "forfish.routestops.v1",
   "forfish.maintenance.v1",
   "forfish.products.v1",
   "forfish.buyers.v1",
@@ -386,6 +387,15 @@ const PERSONAL_SPECS: Record<string, BackupGroupSpec> = {
     id: "places",
     name: "điểm ghim",
     unit: "điểm",
+    kind: "personal",
+  },
+  /*  Chuỗi chỗ ghé của đường đi (lib/route-stops.ts) — cùng loại với điểm ghim:
+      toạ độ bà con tự chấm, không nguồn nào tải lại được, và là chuyện riêng
+      của tàu ⇒ chỉ đi cùng chế độ `transfer`, kèm cảnh báo đỏ. */
+  "forfish.routestops.v1": {
+    id: "routestops",
+    name: "chỗ ghé của đường đi",
+    unit: "chỗ",
     kind: "personal",
   },
   "forfish.maintenance.v1": {

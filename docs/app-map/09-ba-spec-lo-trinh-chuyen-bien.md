@@ -78,8 +78,14 @@ vẽ liền tối ưu từng hải lý.
 2. **Dự báo theo tuyến chỉ 72 giờ** (`route-weather.ts FORECAST_DAYS=3`) — quá 72h mô hình
    đóng băng giờ cuối; lối thoát hiện có là lưới Windy 16 ngày (thô 1,7°×2,1°, thiếu chu kỳ
    sóng + dòng chảy) qua `gridToWeatherField`.
-3. **Chưa có multi-waypoint** — `PlanArgs` chỉ start→dest; không có chuỗi chặng, giờ dừng đánh,
-   vòng về cảng.
+3. ~~**Chưa có multi-waypoint**~~ → **ĐÃ CÓ MỘT NỬA (2026-08-28)**: dẫn đường thường nay nối được
+   chuỗi chặng — `lib/route-stops.ts` (chuỗi chỗ ghé, tối đa 6, `forfish.routestops.v1`) +
+   `lib/route-multi.ts` (`mergeLegPlans` — ghép chặng, OR mọi cờ nguy hiểm, AND `depthChecked`) +
+   `bboxOfPoints` (một `fetchWeatherField` cho cả chuỗi), `departHourIdx` cộng dồn giờ chạy từng chặng.
+   `PlanArgs` **vẫn chỉ start→dest** (cố ý: mỗi chặng là một lời gọi, worker không đổi).
+   **CÒN THIẾU cho lộ trình nhiều ngày**: giờ dừng đánh, vòng về cảng, và tối ưu thứ tự (mục 4 dưới).
+   Thứ tự chỗ ghé hiện do bà con quyết — chủ dự án chốt 2026-08-28. Xem
+   [07-design-spec §10.7 H](07-design-spec.md).
 4. **Chưa có code tối ưu thứ tự** (grep TSP/multi-waypoint = 0 kết quả) — phải viết mới
    (n≤10 → Held-Karp/greedy+2-opt là đủ).
 5. **`MAX_DETOUR_RATIO=1,3` sẽ phản tác dụng** — tuyến đi TÌM CÁ bản chất là cố ý đi vòng;
