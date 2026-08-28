@@ -1141,8 +1141,12 @@ export default function FishingMapView() {
       cũng hết luôn cái cớ phải chống chế đồng hồ tự-ẩn cho panel dẫn đường. */
   const [routeMode, setRouteMode] = useState(false);
   const openRoutePanel = useCallback(() => {
-    setRouteMode(true);
-    setSize("hidden"); // sheet gió sóng nhường chỗ — dẫn đường là màn riêng
+    // CÔNG TẮC: nút rail vừa mở vừa đóng — bật rồi bấm lại là thoát, khỏi phải
+    // đi tìm nút X. Nút tự đổi hình + nhấp nháy khi đang bật (ra-khoi-controls).
+    setRouteMode((on) => {
+      if (!on) setSize("hidden"); // sheet gió sóng nhường chỗ
+      return !on;
+    });
   }, [setSize]);
   const closeRouteMode = useCallback(() => setRouteMode(false), []);
   const [stops, setStopsState] = useState<RouteStop[]>(() => loadStops());
@@ -3407,6 +3411,7 @@ export default function FishingMapView() {
           <RaKhoiControls
             onLocateMe={goToMyBoat}
             onRoutePanel={openRoutePanel}
+            routeOn={routeMode}
             locating={locating}
             geoError={geoError}
             layerId={layerId}
@@ -3601,12 +3606,12 @@ export default function FishingMapView() {
       {/* ── SHEET ĐÁY 3 NẤC — một chế độ duy nhất ────────────────────────── */}
       {/*  CHẾ ĐỘ DẪN ĐƯỜNG — LỚP RIÊNG trên bản đồ, KHÔNG nằm trong sheet
            (2026-08-28). Thanh trên bám mép trên, thẻ dưới bám trên dock; ở giữa
-           `pointer-events-none` để bà con vẫn CHẠM ĐƯỢC BẢN ĐỒ mà thêm chỗ ghé
-           — cả điểm của "một chạm một chỗ". z-30: trên rail và sheet, dưới HUD
-           dẫn đường LIVE (không đè cảnh báo ranh giới). Đang dẫn đường LIVE thì
-           ẩn hẳn — lúc đó HUD là thứ phải đọc. */}
+           `pointer-events-none` để bà con vẫn CHẠM ĐƯỢC BẢN ĐỒ mà chọn chỗ.
+           2026-08-28f: chỉ còn MỘT thẻ neo ở ĐÁY (không còn thanh trên) nên lớp
+           này thôi phủ cả màn — hết đè lên rail. z-30: trên rail và sheet, dưới
+           HUD dẫn đường LIVE. Đang dẫn LIVE thì ẩn hẳn — lúc đó HUD phải đọc. */}
       {routeMode && !navMode && (
-        <div className="safe-pt pointer-events-none absolute inset-x-0 top-0 bottom-0 z-30 flex flex-col justify-between gap-2 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
           <RouteMode
             dest={point}
             activeRoute={route}

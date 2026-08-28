@@ -58,6 +58,7 @@ import {
   PlayIcon,
   PlusIcon,
   RouteIcon,
+  StarIcon,
   TrashIcon,
 } from "@/components/icons";
 
@@ -341,7 +342,9 @@ export function RouteMode({
       chỗ"). `idle` = dòng tóm tắt + nút Tính; `start` = CHỈ danh sách nơi xuất
       phát; `boat` = CHỈ hai ô thông số tàu. Trước đó bấm một cái xổ ra cả hai,
       thẻ cao gấp đôi mà bà con chỉ cần đổi một thứ. */
-  const [panel, setPanel] = useState<"idle" | "start" | "boat">("idle");
+  const [panel, setPanel] = useState<"idle" | "start" | "boat" | "places">(
+    "idle",
+  );
   const boxRef = useRef<HTMLDivElement>(null);
   // "gps" | "place:<id>" | "port:<id>"; mặc định Cảng nhà nếu có
   const [startId, setStartId] = useState<string>("");
@@ -669,127 +672,97 @@ export function RouteMode({
     <>
       {/*  THANH TRÊN kiểu Google Maps — luôn thấy, không cuộn mất: đang đi từ
            đâu · qua mấy chỗ · Xoá tuyến · Đóng. Bản đồ ở giữa vẫn lộ. */}
-      <div className="pointer-events-auto glass flex items-center gap-2 px-2.5 py-2">
-        <RouteIcon className="h-6 w-6 shrink-0 text-t1" aria-hidden />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[1rem] font-bold leading-tight text-navy">
-            {stops.length > 1
-              ? `Đường đi qua ${stops.length} chỗ`
-              : stops.length === 1
-                ? "Đường đi tới chỗ đã đánh dấu"
-                : "Dẫn đường tới chỗ đang xem"}
-          </p>
-          {/*  ĐỦ TRẦN PHẢI NÓI RA: hết chỗ thì `addStop` trả nguyên danh sách,
-               chạm bản đồ sẽ IM LẶNG không làm gì — bà con tưởng máy đơ. */}
-          <p
-            className={`truncate text-[0.875rem] font-semibold leading-tight ${
-              stopsFull ? "text-[var(--warn)]" : "text-foreground/70"
-            }`}
-          >
-            {stopsFull
-              ? `Đã đủ ${MAX_STOPS} chỗ — bỏ bớt rồi mới thêm được`
-              : stops.length
-                ? "Chạm bản đồ để thêm chỗ ghé"
-                : "Chạm bản đồ để chọn chỗ muốn tới"}
-          </p>
-        </div>
-        {coGiDeXoa && (
-          <button
-            type="button"
-            onClick={clearAll}
-            className="flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-xl bg-white/70 px-3 text-[0.9375rem] font-bold text-danger transition active:scale-95"
-          >
-            <TrashIcon className="h-5 w-5" />
-            Xoá tuyến
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Đóng dẫn đường"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy transition active:scale-95"
-        >
-          <CloseIcon className="h-5 w-5" />
-        </button>
-      </div>
-
-      {/*  CHIP XÁC NHẬN — chạm bản đồ CHỈ CHỌN điểm, phải bấm đây mới vào
-           đường đi (user 2026-08-28d: "ko phải cứ click là vô điểm, đến điểm
-           hoặc chọn điểm rồi mới chọn thêm vô"). Bản trước chạm-là-thêm: nhanh
-           nhưng chạm trượt / kéo bản đồ hụt tay là dính một chỗ ghé oan, mà bà
-           con không biết mình vừa thêm gì.
-           Chip nhỏ, `w-fit`, nổi giữa — KHÔNG nhét vào thẻ dưới để thẻ giữ
-           nguyên chiều cao (đừng che thêm bản đồ). */}
-      <div className="pointer-events-none flex justify-center">
-        {stopsFull && !currentStop ? null : (
-          <button
-            type="button"
-            onClick={() =>
-              currentStop
-                ? onStops?.(removeStop(stops, currentStop.id))
-                : onStops?.(addStop(stops, dest.lat, dest.lon))
-            }
-            className={`pointer-events-auto flex min-h-[3.25rem] max-w-[92%] items-center gap-2 rounded-full px-4 text-[1rem] font-bold shadow-md transition active:scale-95 ${
-              currentStop ? "bg-white text-danger" : "bg-t1 text-white"
-            }`}
-          >
-            {currentStop ? (
-              <TrashIcon className="h-5 w-5 shrink-0" />
-            ) : (
-              <PlusIcon className="h-5 w-5 shrink-0" />
-            )}
-            <span className="truncate">
-              {currentStop
-                ? `Bỏ chỗ ghé ${stops.indexOf(currentStop) + 1}`
-                : stops.length
-                  ? `Thêm thành chỗ ghé ${stops.length + 1}`
-                  : "Thêm chỗ này vào đường đi"}
-            </span>
-          </button>
-        )}
-      </div>
-
-      {/*  THẺ DƯỚI — chỗ nhập và chỗ đọc kết quả. Trần chiều cao + cuộn trong
-           thẻ để bản đồ luôn còn một khoảng nhìn được (map ≥60%, 07 §5). */}
+      {/*  MỘT THẺ DUY NHẤT (user 2026-08-28f: "gộp cái dẫn đường tới chỗ đang
+           xem và cái tính đường đỡ tốn dầu vào cùng 1 chỗ, đừng tách cái ở trên
+           cái ở dưới nó rối"). Trước đó tên chuyến + Xoá tuyến + X nằm ở thanh
+           trên, nút Tính nằm thẻ dưới — mắt phải chạy hai đầu màn cho MỘT việc,
+           lại tốn hai lớp khung. Nay tất cả trong một thẻ ở đáy, tầm ngón cái;
+           bản đồ phía trên sạch hẳn, không còn thanh nào đè lên rail. */}
       <div
         ref={boxRef}
-        className="pointer-events-auto max-h-[46dvh] space-y-3 overflow-y-auto surface p-4"
+        className="pointer-events-auto max-h-[38dvh] space-y-2 overflow-y-auto surface p-3"
       >
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Đóng dẫn đường"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy transition active:scale-95"
+          >
+            <CloseIcon className="h-5 w-5" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[1rem] font-bold leading-tight text-navy">
+              {stops.length > 1
+                ? `Đường đi qua ${stops.length} chỗ`
+                : stops.length === 1
+                  ? "Đường đi tới chỗ đã đánh dấu"
+                  : "Dẫn đường tới chỗ đang xem"}
+            </p>
+            {/*  ĐỦ TRẦN PHẢI NÓI RA: hết chỗ thì `addStop` trả nguyên danh sách,
+                 bấm chip sẽ IM LẶNG không làm gì — bà con tưởng máy đơ. */}
+            {/*  CHỈ nói khi ĐỦ TRẦN — lúc đó hàng "Thêm điểm" biến mất, không
+                 nói ra thì bà con tưởng máy nuốt mất nút. Còn lại thì im: hàng
+                 "Thêm điểm đang xem" ngay dưới đã tự nói nó làm gì. */}
+            {stopsFull && (
+              <p className="truncate text-[0.875rem] font-semibold leading-tight text-[var(--warn)]">
+                Đã đủ {MAX_STOPS} điểm — bỏ bớt rồi mới thêm được
+              </p>
+            )}
+          </div>
+          {coGiDeXoa && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="flex min-h-[2.75rem] shrink-0 items-center gap-1 rounded-xl bg-background px-2.5 text-[0.875rem] font-bold text-danger transition active:scale-95"
+            >
+              <TrashIcon className="h-5 w-5" />
+              Xoá
+            </button>
+          )}
+        </div>
       {staleBar}
       {stopsSaveBar}
 
       {!plan && (
         <>
-          {/*  MỘT DÒNG tóm tắt — chạm mới xổ, và mỗi lúc chỉ xổ MỘT thứ. */}
-          {panel === "idle" && (
-            <button
-              type="button"
-              onClick={() => setPanel("start")}
-              className="flex min-h-[3.25rem] w-full items-center gap-2 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
-            >
-              <AnchorIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
-              <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold text-foreground/80">
-                {startOptions.find((o) => o.id === effectiveStartId)?.label ??
-                  "Chọn nơi xuất phát"}{" "}
-                · tàu {speedKn} hl/giờ
+          {/*  DANH SÁCH ĐIỂM KIỂU GOOGLE MAPS (user 2026-08-28g, kèm ảnh mẫu):
+               hàng "Đi từ" xổ ra chọn cảng/vị trí · các điểm đã chọn xếp dưới,
+               mỗi hàng một nút bỏ · dưới cùng là "Thêm điểm" (đúng vai "Add
+               destination") · tốc độ + dầu nằm trong "Tuỳ chọn" ẩn/hiện.
+               Bỏ chip nổi 3 giây của bản trước: có hàng "Thêm điểm" đứng sẵn
+               trong danh sách thì chip là đường thứ hai làm cùng một việc — mà
+               hai đường cho một việc chính là chỗ bà con thấy rối. */}
+          <button
+            type="button"
+            onClick={() => setPanel(panel === "start" ? "idle" : "start")}
+            aria-expanded={panel === "start"}
+            className="flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
+          >
+            <span
+              className="h-3 w-3 shrink-0 rounded-full border-[3px] border-navy/60"
+              aria-hidden
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[0.8125rem] font-bold text-foreground/60">
+                Đi từ
               </span>
-              <ChevronRightIcon
-                className="h-5 w-5 shrink-0 text-foreground/40"
-                aria-hidden
-              />
-            </button>
-          )}
+              <span className="block truncate text-[1rem] font-bold text-navy">
+                {startOptions.find((o) => o.id === effectiveStartId)?.label ??
+                  "Chọn nơi xuất phát"}
+              </span>
+            </span>
+            <ChevronRightIcon
+              className={`h-5 w-5 shrink-0 text-foreground/40 transition-transform ${
+                panel === "start" ? "rotate-90" : ""
+              }`}
+              aria-hidden
+            />
+          </button>
 
           {panel === "start" && (
-            <div>
-              <span className="text-[0.9375rem] font-bold text-foreground/75">
-                Đi từ đâu?
-              </span>
-              <div
-                className="mt-1 space-y-1.5"
-                role="radiogroup"
-                aria-label="Nơi xuất phát"
-              >
+            <div className="space-y-1.5 rounded-xl bg-background/60 p-2">
+              <div role="radiogroup" aria-label="Nơi xuất phát" className="space-y-1.5">
                 {startOptions.map((o) => {
                   const on = o.id === effectiveStartId;
                   return (
@@ -802,10 +775,10 @@ export function RouteMode({
                         setStartId(o.id);
                         setPanel("idle");
                       }}
-                      className={`flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold transition ${
+                      className={`flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold transition ${
                         on
                           ? "bg-navy text-white"
-                          : "bg-background text-foreground/75 active:bg-field"
+                          : "bg-card text-foreground/75 active:bg-field"
                       }`}
                     >
                       <span
@@ -831,77 +804,172 @@ export function RouteMode({
                   setPanel("idle");
                 }}
                 aria-label="Hoặc chọn cảng khác"
-                className="mt-1.5 block min-h-[3.25rem] w-full rounded-xl bg-background px-3 text-[1rem] font-semibold text-foreground/70"
+                className="block min-h-[3.25rem] w-full rounded-xl bg-card px-3 text-[1rem] font-semibold text-foreground/70"
               >
-                <option value="">Hoặc đi từ cảng khác…</option>
+                <option value="">Cảng khác…</option>
                 {PORTS.map((p) => (
                   <option key={p.id} value={p.id}>
                     Cảng {p.name}
                   </option>
                 ))}
               </select>
-              {/*  Thông số tàu nằm SÂU HƠN một bậc: chủ tàu nhập một lần dùng
-                   cả đời, không đáng chiếm chỗ ngang hàng nơi xuất phát. */}
-              <button
-                type="button"
-                onClick={() => setPanel("boat")}
-                className="mt-1.5 flex min-h-[3.25rem] w-full items-center gap-2 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
-              >
-                <FuelIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
-                <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold text-foreground/80">
-                  Tàu chạy {speedKn} hl/giờ · ăn {lph} lít/giờ
-                </span>
-                <ChevronRightIcon
-                  className="h-5 w-5 shrink-0 text-foreground/40"
-                  aria-hidden
-                />
-              </button>
             </div>
           )}
+
+          {/* các điểm đã chọn */}
+          {stops.map((s, i) => (
+            <div
+              key={s.id}
+              className="flex items-center gap-2.5 rounded-xl bg-background px-3 py-1.5"
+            >
+              <span
+                className="display flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.875rem] font-bold text-white"
+                style={{ background: ROUTE_LINE_COLOR }}
+                aria-hidden
+              >
+                {i + 1}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[1rem] font-semibold text-navy">
+                {fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
+              </span>
+              <button
+                type="button"
+                onClick={() => onStops?.(removeStop(stops, s.id))}
+                aria-label={"Bỏ điểm " + (i + 1)}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-danger transition active:scale-95"
+              >
+                <CloseIcon className="h-5 w-5" />
+              </button>
+            </div>
+          ))}
+
+          {/*  THÊM ĐIỂM — đúng vai "Add destination" của Google Maps. HAI ĐƯỜNG
+               (user 2026-08-28h): điểm MỚI đang xem trên bản đồ, hoặc lấy từ
+               ĐIỂM ĐÃ LƯU (rạn quen, chỗ trúng cá — thứ chủ tàu đo bằng cả
+               chuyến biển, bắt gõ lại toạ độ là vô lý). */}
+          {!currentStop && !stopsFull && (
+            <button
+              type="button"
+              onClick={() => onStops?.(addStop(stops, dest.lat, dest.lon))}
+              className="flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
+            >
+              <PlusIcon className="h-6 w-6 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">
+                Thêm điểm đang xem ({fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)})
+              </span>
+            </button>
+          )}
+
+          {!stopsFull && places.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setPanel(panel === "places" ? "idle" : "places")}
+              aria-expanded={panel === "places"}
+              className="flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
+            >
+              <StarIcon className="h-6 w-6 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">
+                Thêm từ điểm đã lưu ({places.length})
+              </span>
+              <ChevronRightIcon
+                className={`h-5 w-5 shrink-0 text-foreground/40 transition-transform ${
+                  panel === "places" ? "rotate-90" : ""
+                }`}
+                aria-hidden
+              />
+            </button>
+          )}
+
+          {panel === "places" && (
+            <div className="space-y-1.5 rounded-xl bg-background/60 p-2">
+              {sortedPlaces(places).map((pl) => {
+                const da = stopAt(stops, pl.lat, pl.lon) != null;
+                return (
+                  <button
+                    key={pl.id}
+                    type="button"
+                    disabled={da}
+                    onClick={() => {
+                      onStops?.(addStop(stops, pl.lat, pl.lon));
+                      setPanel("idle");
+                    }}
+                    className="flex min-h-[3.25rem] w-full items-center gap-2.5 rounded-xl bg-card px-3 text-left transition active:scale-[0.99] disabled:opacity-50"
+                  >
+                    <span
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white ${
+                        pl.kind === "home" ? "bg-t1" : "bg-sun"
+                      }`}
+                      aria-hidden
+                    >
+                      <StarIcon className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[1rem] font-bold text-navy">
+                      {pl.name}
+                    </span>
+                    {da && (
+                      <span className="shrink-0 text-[0.8125rem] font-bold text-foreground/60">
+                        đã có
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* TUỲ CHỌN ẩn/hiện — tốc độ + dầu, chủ tàu nhập một lần dùng cả đời */}
+          <button
+            type="button"
+            onClick={() => setPanel(panel === "boat" ? "idle" : "boat")}
+            aria-expanded={panel === "boat"}
+            className="flex min-h-[3rem] w-full items-center gap-2 rounded-xl px-3 text-left text-[0.9375rem] font-bold text-foreground/70 transition active:scale-[0.99]"
+          >
+            <FuelIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
+            <span className="min-w-0 flex-1 truncate">
+              Tuỳ chọn — tàu {speedKn} hl/giờ · {lph} lít/giờ
+            </span>
+            <ChevronRightIcon
+              className={`h-5 w-5 shrink-0 text-foreground/40 transition-transform ${
+                panel === "boat" ? "rotate-90" : ""
+              }`}
+              aria-hidden
+            />
+          </button>
 
           {panel === "boat" && (
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="text-[0.9375rem] font-bold text-foreground/75">
-                    Tàu chạy (hải lý/giờ)
-                  </span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={2}
-                    max={30}
-                    value={speedKn}
-                    onChange={(e) => setSpeedKn(e.target.value)}
-                    className="mt-1 block min-h-[3.5rem] w-full rounded-xl bg-background px-3 text-[1.125rem] font-semibold"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-[0.9375rem] font-bold text-foreground/75">
-                    Máy ăn dầu (lít/giờ)
-                  </span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={1}
-                    max={300}
-                    value={lph}
-                    onChange={(e) => setLph(e.target.value)}
-                    className="mt-1 block min-h-[3.5rem] w-full rounded-xl bg-background px-3 text-[1.125rem] font-semibold"
-                  />
-                </label>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPanel("idle")}
-                className="min-h-[3.25rem] w-full rounded-xl bg-field text-[1rem] font-bold text-navy transition active:scale-[0.99]"
-              >
-                Xong
-              </button>
+            <div className="grid grid-cols-2 gap-3 rounded-xl bg-background/60 p-2">
+              <label className="block">
+                <span className="text-[0.875rem] font-bold text-foreground/75">
+                  Tàu chạy (hải lý/giờ)
+                </span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={2}
+                  max={30}
+                  value={speedKn}
+                  onChange={(e) => setSpeedKn(e.target.value)}
+                  className="mt-1 block min-h-[3.25rem] w-full rounded-xl bg-card px-3 text-[1.125rem] font-semibold"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[0.875rem] font-bold text-foreground/75">
+                  Máy ăn dầu (lít/giờ)
+                </span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={1}
+                  max={300}
+                  value={lph}
+                  onChange={(e) => setLph(e.target.value)}
+                  className="mt-1 block min-h-[3.25rem] w-full rounded-xl bg-card px-3 text-[1.125rem] font-semibold"
+                />
+              </label>
             </div>
           )}
 
-          {panel === "idle" && (
+          {(
           <button
             type="button"
             onClick={compute}

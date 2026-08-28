@@ -115,6 +115,7 @@ export function RaKhoiControls({
   onLocateMe,
   onGoCoord,
   onRoutePanel,
+  routeOn = false,
   locating,
   geoError,
 }: {
@@ -125,6 +126,11 @@ export function RaKhoiControls({
   /*  Bấm "Dẫn đường" → LỐI TẮT: mở sheet ở nấc cao + mở sẵn panel dẫn đường +
       cuộn tới nơi (fishing-map-view lo). Không truyền = không hiện nút. */
   onRoutePanel?: () => void;
+  /*  ĐANG Ở TRONG chế độ dẫn đường — nút phải TRÔNG KHÁC HẲN (user
+      2026-08-28e: "hiện thời ko khác gì nhau"). Cùng khuôn nút "Đến điểm":
+      bật thì nền `t1` + vòng trắng, tắt thì nền `navy`; kèm `aria-pressed`
+      để trình đọc màn hình cũng biết. */
+  routeOn?: boolean;
   /** đang xin GPS — nút phải nói đang chạy, đừng để bà con bấm hoài */
   locating: boolean;
   /** máy từ chối / không có GPS — PHẢI nói, không được câm (nguyên tắc trung thực) */
@@ -180,6 +186,11 @@ export function RaKhoiControls({
   const [collapsed, setCollapsed] = useState(true);
   // Ô GÕ TAY TOẠ ĐỘ (nút "Đến điểm") — luôn bấm được kể cả khi thu bảng lớp.
   const [coordOpen, setCoordOpen] = useState(false);
+  /*  ĐIỂM ĐÃ LƯU tách khỏi danh sách panel rail thành NÚT RIÊNG dưới "Đến
+      điểm" (user 2026-08-28h). Nó là chỗ bà con MỞ NHANH chỗ quen — cùng
+      loại việc với "Vị trí"/"Đến điểm" (đi tới một toạ độ), không phải
+      loại việc "bật/tắt lớp bản đồ" như 5 panel còn lại. */
+  const [placesOpen, setPlacesOpen] = useState(false);
 
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const armAutoHide = useCallback(() => {
@@ -224,7 +235,6 @@ export function RaKhoiControls({
         !!overlayField ||
         !!scalarKind,
     },
-    { id: "diem", label: "Điểm đã lưu", icon: StarIcon, color: "var(--navy)" },
     {
       id: "cong-cu",
       label: "Công cụ",
@@ -324,6 +334,20 @@ export function RaKhoiControls({
         </div>
       )}
 
+      {/* ĐIỂM ĐÃ LƯU — nổi cạnh nút, cùng khuôn ô toạ độ */}
+      {placesOpen && (
+        <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[70dvh] w-[19rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl">
+          <DiemPanel
+            showPlaces={showPlaces}
+            onShowPlaces={onShowPlaces}
+            places={places}
+            onPlaces={onPlaces}
+            onGoPlace={onGoPlace}
+            onClose={() => setPlacesOpen(false)}
+          />
+        </div>
+      )}
+
       {/* Ô GÕ TAY TOẠ ĐỘ — nổi cạnh nút "Đến điểm", độc lập với panel rail */}
       {coordOpen && (
         <div className="pointer-events-auto absolute right-[4.5rem] top-0 w-[19rem] max-w-[calc(100vw-5rem)] rounded-2xl bg-card/97 p-3 shadow-xl">
@@ -382,6 +406,7 @@ export function RaKhoiControls({
           type="button"
           onClick={() => {
             setOpen(null); // đóng panel rail (nếu đang mở) cho khỏi chồng
+            setPlacesOpen(false);
             setCoordOpen((v) => !v);
           }}
           aria-label="Đến điểm — gõ toạ độ"
@@ -405,20 +430,64 @@ export function RaKhoiControls({
             xuất phát + 2 ô số + thẻ kết quả 3 con số + khối cảnh báo — rail rộng
             16,5rem không chứa nổi mà vẫn giữ được cỡ chữ ≥18px cho bà con. Rail
             giữ đúng vai "chỗ bấm", sheet giữ đúng vai "chỗ đọc" (07 §11). */}
+        {/* ĐIỂM ĐÃ LƯU — chỗ quen của chủ tàu, mở nhanh một chạm */}
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(null);
+            setCoordOpen(false);
+            setPlacesOpen((v) => !v);
+          }}
+          aria-label="Điểm đã lưu"
+          aria-expanded={placesOpen}
+          className={`flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-white shadow-md transition active:scale-95 ${
+            placesOpen ? "bg-t1" : "bg-navy"
+          }`}
+        >
+          <StarIcon className="h-6 w-6" />
+          <span className="text-[0.6875rem] font-bold leading-tight">
+            Điểm đã lưu
+          </span>
+        </button>
+
         {onRoutePanel && (
           <button
             type="button"
             onClick={() => {
               setOpen(null); // đóng panel rail cho khỏi chồng lên sheet
               setCoordOpen(false);
+              setPlacesOpen(false);
               onRoutePanel();
             }}
-            aria-label="Dẫn đường — mở bảng tính đường đi"
-            className="flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl bg-navy py-2 text-white shadow-md transition active:scale-95"
+            aria-label={
+              routeOn
+                ? "Đang dẫn đường — chạm để đóng"
+                : "Dẫn đường — mở bảng tính đường đi"
+            }
+            aria-pressed={routeOn}
+            /*  BA tín hiệu BẬT, không chỉ đổi màu: nền `t1` (cùng khuôn nút
+                "Đến điểm" ngay trên), chữ đổi "Dẫn đường" → "Đang dẫn", và một
+                CHẤM TRẮNG NHẤP NHÁY. Ngoài nắng chói trên tàu, đổi mỗi màu là
+                gần như không phân biệt được — phải có dấu ĐỘNG và chữ đổi. */
+            className={`relative flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-white shadow-md transition active:scale-95 ${
+              routeOn ? "bg-t1" : "bg-navy"
+            }`}
           >
+            {/*  CHẤM SÁNG NHẤP NHÁY khi đang bật — màu nền đổi thôi thì ngoài
+                 nắng chói trên tàu nhìn gần như nhau; thêm một dấu ĐỘNG mới
+                 đọc được ngay là "đang ở trong chế độ này". */}
+            {routeOn && (
+              <span
+                className="absolute right-1.5 top-1.5 flex h-2.5 w-2.5"
+                aria-hidden
+              >
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+              </span>
+            )}
             <RouteIcon className="h-6 w-6" />
             <span className="text-[0.6875rem] font-bold leading-tight">
-              Dẫn đường
+              {routeOn ? "Đang dẫn" : "Dẫn đường"}
             </span>
           </button>
         )}
