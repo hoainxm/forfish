@@ -51,6 +51,7 @@ import {
   EddyIcon,
   FishIcon,
   PinIcon,
+  RouteIcon,
   RulerIcon,
   SettingsIcon,
   StarIcon,
@@ -113,6 +114,7 @@ export function RaKhoiControls({
   onClearMeasure,
   onLocateMe,
   onGoCoord,
+  onRoutePanel,
   locating,
   geoError,
 }: {
@@ -120,6 +122,9 @@ export function RaKhoiControls({
   onLocateMe: () => void;
   /** Gõ tay toạ độ (nút "Đến điểm") → bay tới điểm đó, đặt điểm đang xem */
   onGoCoord: (lat: number, lon: number) => void;
+  /*  Bấm "Dẫn đường" → LỐI TẮT: mở sheet ở nấc cao + mở sẵn panel dẫn đường +
+      cuộn tới nơi (fishing-map-view lo). Không truyền = không hiện nút. */
+  onRoutePanel?: () => void;
   /** đang xin GPS — nút phải nói đang chạy, đừng để bà con bấm hoài */
   locating: boolean;
   /** máy từ chối / không có GPS — PHẢI nói, không được câm (nguyên tắc trung thực) */
@@ -390,6 +395,33 @@ export function RaKhoiControls({
             Đến điểm
           </span>
         </button>
+
+        {/* DẪN ĐƯỜNG — LỐI TẮT tới panel dẫn đường trong sheet (user 2026-08-28:
+            "tách cái dẫn đường ở sheet ra thành 1 button, đơn giản hoá thao
+            tác"). Trước đây muốn dẫn đường phải: chạm biển → vuốt sheet lên nấc
+            cao → cuộn tìm khối Dẫn đường → bấm mở panel. Nay MỘT chạm: sheet mở
+            sẵn ở nấc cao, panel mở sẵn, cuộn sẵn tới nơi.
+            Form dẫn đường vẫn Ở TRONG SHEET, không bê vào rail: nó có chọn nơi
+            xuất phát + 2 ô số + thẻ kết quả 3 con số + khối cảnh báo — rail rộng
+            16,5rem không chứa nổi mà vẫn giữ được cỡ chữ ≥18px cho bà con. Rail
+            giữ đúng vai "chỗ bấm", sheet giữ đúng vai "chỗ đọc" (07 §11). */}
+        {onRoutePanel && (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(null); // đóng panel rail cho khỏi chồng lên sheet
+              setCoordOpen(false);
+              onRoutePanel();
+            }}
+            aria-label="Dẫn đường — mở bảng tính đường đi"
+            className="flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl bg-navy py-2 text-white shadow-md transition active:scale-95"
+          >
+            <RouteIcon className="h-6 w-6" />
+            <span className="text-[0.6875rem] font-bold leading-tight">
+              Dẫn đường
+            </span>
+          </button>
+        )}
         {!collapsed &&
           RAIL.map((r) => {
           const active = open === r.id;

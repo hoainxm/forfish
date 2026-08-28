@@ -11,7 +11,7 @@
  * Trung thực dữ liệu: chỉ là GỢI Ý từ dự báo — máy không biết đảo, đá ngầm,
  * luồng lạch; copy luôn dặn dò hải đồ + nghe đài duyên hải.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Layer, Marker, Source } from "react-map-gl/maplibre";
 
 import { PORTS } from "@/data/ports";
@@ -280,6 +280,8 @@ export function RoutePlanner({
   onRoute,
   onStart,
   onActive,
+  openRequest,
+  onOpenHandled,
 }: {
   dest: LatLon;
   /** tuyến đang vẽ trên bản đồ (có thể tới điểm CŨ — xem ghi chú dưới) */
@@ -313,11 +315,19 @@ export function RoutePlanner({
       Đường đi nhiều chỗ tính lâu hơn hẳn (mỗi chặng một lượt Dijkstra) nên 3 giây
       gần như chắc chắn cắt ngang. */
   onActive?: (active: boolean) => void;
+  /*  LỐI TẮT TỪ RAIL (nút "Dẫn đường", 2026-08-28): cha bật cờ này là panel
+      MỞ SẴN + tự cuộn tới nơi, xong thì gọi `onOpenHandled` để cha tắt cờ.
+      Cờ-rồi-tắt chứ KHÔNG dùng số đếm: sheet ẩn là RoutePlanner UNMOUNT, mount
+      lại thì mọi số đếm đều "mới" với nó ⇒ panel sẽ tự bung cả khi bà con chỉ
+      vuốt sheet lên xem gió sóng (đo thật 2026-08-28, bắt được lỗi này). */
+  openRequest?: boolean;
+  onOpenHandled?: () => void;
   /** Bắt đầu DẪN ĐƯỜNG LIVE theo tuyến vừa tính (bám tuyến, theo dõi GPS) */
   onStart?: (r: PlannedRoute) => void;
 }) {
   const prefs = useMapPrefs();
   const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
   // "gps" | "place:<id>" | "port:<id>"; mặc định Cảng nhà nếu có
   const [startId, setStartId] = useState<string>("");
   // đọc thẳng localStorage lúc render đầu được vì cả cây bản đồ đã
@@ -365,6 +375,27 @@ export function RoutePlanner({
   /*  Báo cha lúc panel đang được dùng (mở hoặc đang tính) để sheet ĐỪNG tự ẩn.
       Nhả cờ khi rời panel — kể cả bị unmount giữa chừng (cleanup), không thì
       sheet không bao giờ tự ẩn lại được nữa. */
+  /*  Nhận lệnh mở từ rail. `scrollIntoView` để bà con thấy ngay khối dẫn đường
+      chứ không phải cuộn tìm — cả điểm của lối tắt này. Bọc rAF: lúc effect
+      chạy, panel vừa mới dựng, chưa có chiều cao thật để cuộn tới. */
+  useEffect(() => {
+    if (!openRequest) return;
+    setOpen(true);
+    /*  Cuộn sau khi SHEET TRƯỢT MỞ XONG. rAF không đủ (đo thật 2026-08-28: hai
+        nhịp rAF vẫn để khối nằm dưới màn) — lúc đó sheet còn đang chạy
+        transition đổi nấc, cuộn vào giữa chừng bị nuốt. `behavior` mặc định
+        (nhảy thẳng) chứ không "smooth": mượt mà mà bị transition của sheet cắt
+        ngang thì thà nhảy cái cho chắc. */
+    /*  TẮT CỜ SAU KHI CUỘN, không phải trước (lỗi tự tạo, đo thật bắt được):
+        tắt ngay thì `openRequest` đổi true→false ⇒ cleanup của chính effect này
+        chạy và `clearTimeout` huỷ luôn cú cuộn chưa kịp nổ. */
+    const t = setTimeout(() => {
+      boxRef.current?.scrollIntoView({ block: "start" });
+      onOpenHandled?.();
+    }, 380);
+    return () => clearTimeout(t);
+  }, [openRequest, onOpenHandled]);
+
   const active = open || busy;
   useEffect(() => {
     onActive?.(active);
@@ -691,7 +722,7 @@ export function RoutePlanner({
   const plan = result?.plan ?? null;
 
   return (
-    <div className="space-y-3 surface p-4">
+    <div ref={boxRef} className="space-y-3 surface p-4">
       <div className="flex items-center gap-2 text-t1">
         <RouteIcon className="h-6 w-6" />
         <h3 className="text-[1.125rem] font-bold text-navy">

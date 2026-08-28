@@ -1137,6 +1137,18 @@ export default function FishingMapView() {
       (danh sách này cũng là thứ gõ tay, tải lại không được từ đâu). */
   /** panel dẫn đường đang mở / đang tính → sheet không tự ẩn (xem đồng hồ dưới) */
   const [routeActive, setRouteActive] = useState(false);
+  /*  LỐI TẮT "Dẫn đường" trên rail (user 2026-08-28) — MỘT chạm thay cho
+      chạm biển → vuốt sheet → cuộn tìm → bấm mở. Tăng số đếm là RoutePlanner
+      mở panel + tự cuộn tới nơi; dùng số chứ không dùng boolean để bấm lần
+      thứ hai (sau khi bà con tự thu) vẫn kích được. */
+  const [routeOpenReq, setRouteOpenReq] = useState(false);
+  const openRoutePanel = useCallback(() => {
+    setSize("half"); // panel là biểu mẫu — phải ở nấc đọc được, không phải peek
+    setRouteOpenReq(true);
+  }, [setSize]);
+  // RoutePlanner xử lý xong thì TẮT cờ — không để cờ nằm lại, kẻo lần sau bà
+  // con chỉ vuốt sheet lên xem gió sóng mà panel cũng tự bung.
+  const clearRouteOpenReq = useCallback(() => setRouteOpenReq(false), []);
   const [stops, setStopsState] = useState<RouteStop[]>(() => loadStops());
   const [stopsSaveFailed, setStopsSaveFailed] = useState(false);
   const setStops = useCallback((next: RouteStop[]) => {
@@ -3390,6 +3402,7 @@ export default function FishingMapView() {
           />
           <RaKhoiControls
             onLocateMe={goToMyBoat}
+            onRoutePanel={openRoutePanel}
             locating={locating}
             geoError={geoError}
             layerId={layerId}
@@ -4379,6 +4392,8 @@ export default function FishingMapView() {
                 onRoute={handleRoute}
                 onStart={startNav}
                 onActive={setRouteActive}
+                openRequest={routeOpenReq}
+                onOpenHandled={clearRouteOpenReq}
               />
 
 
