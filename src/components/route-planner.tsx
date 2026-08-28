@@ -34,7 +34,6 @@ import { mergeLegPlans } from "@/lib/route-multi";
 import {
   MAX_STOPS,
   clearStops,
-  removeStop,
   type RouteStop,
 } from "@/lib/route-stops";
 import { fetchWeatherField } from "@/lib/route-weather";
@@ -189,14 +188,16 @@ export function RouteMapLayers({ route }: { route: PlannedRoute | null }) {
             latitude={s.lat}
             anchor="center"
           >
-            <span
-              className="display flex h-10 w-10 items-center justify-center rounded-full bg-white text-[1rem] font-bold shadow-md"
-              style={{
-                color: ROUTE_LINE_COLOR,
-                boxShadow: `0 0 0 0.1875rem ${ROUTE_LINE_COLOR}`,
-              }}
-            >
-              {i + 1}
+            <span className="flex h-14 w-14 items-center justify-center">
+              <span
+                className="display flex h-10 w-10 items-center justify-center rounded-full bg-white text-[1rem] font-bold shadow-md"
+                style={{
+                  color: ROUTE_LINE_COLOR,
+                  boxShadow: `0 0 0 0.1875rem ${ROUTE_LINE_COLOR}`,
+                }}
+              >
+                {i + 1}
+              </span>
             </span>
           </Marker>
         ))}
@@ -251,14 +252,20 @@ export function RouteStopsLayers({
       )}
       {stops.map((s, i) => (
         <Marker key={s.id} longitude={s.lon} latitude={s.lat} anchor="center">
-          <span
-            className="display flex h-10 w-10 items-center justify-center rounded-full bg-white/85 text-[1rem] font-bold shadow-md"
-            style={{
-              color: ROUTE_LINE_COLOR,
-              boxShadow: `0 0 0 0.1875rem ${ROUTE_LINE_COLOR}`,
-            }}
-          >
-            {i + 1}
+          {/*  VUNG CHAM >=3.5rem (56px): danh sach cho ghe trong the da bo, nen
+               cham lai dau so tren ban do la CACH DUY NHAT bo mot cho. Vong tron
+               VE van 2.5rem cho do roi mat; lop boc trong suot chi de lay tam
+               tay (san tap target, 03-design-system). */}
+          <span className="flex h-14 w-14 items-center justify-center">
+            <span
+              className="display flex h-10 w-10 items-center justify-center rounded-full bg-white/85 text-[1rem] font-bold shadow-md"
+              style={{
+                color: ROUTE_LINE_COLOR,
+                boxShadow: `0 0 0 0.1875rem ${ROUTE_LINE_COLOR}`,
+              }}
+            >
+              {i + 1}
+            </span>
           </span>
         </Marker>
       ))}
@@ -710,61 +717,22 @@ export function RouteMode({
 
       {!plan && (
         <>
-          {/*  DANH SACH CHO GHE - chi hien khi CO. Khong tieu de, khong cau dan:
-               thanh tren da noi "Cham ban do de them cho ghe", va cham lai dung
-               cho cu la bo. Ban truoc con nut "Them cho nay" + cau dan 3 dong +
-               nut "Bo het cho ghe" - thua het sau khi co mot-cham-mot-cho va nut
-               "Xoa tuyen" o thanh tren (do that: the nay tung 20 dong chu / 7 o
-               dieu khien / cao 418px TRUOC khi tinh). */}
-          {stops.length > 0 && (
-            <ol className="space-y-1.5">
-              {stops.map((s, i) => (
-                <li
-                  key={s.id}
-                  className="flex items-center gap-2.5 rounded-xl bg-background px-3 py-1.5"
-                >
-                  <span
-                    className="display flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[1rem] font-bold text-white"
-                    style={{ background: ROUTE_LINE_COLOR }}
-                    aria-hidden
-                  >
-                    {i + 1}
-                  </span>
-                  <span className="min-w-0 flex-1 text-[1rem] font-semibold text-navy">
-                    {fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onStops?.(removeStop(stops, s.id))}
-                    aria-label={"Bo cho ghe " + (i + 1)}
-                    className="flex min-h-[3.5rem] shrink-0 items-center gap-1.5 rounded-xl px-3 text-[0.9375rem] font-bold text-danger transition active:scale-95"
-                  >
-                    <TrashIcon className="h-5 w-5" />
-                    Bỏ
-                  </button>
-                </li>
-              ))}
-            </ol>
-          )}
-
-          {/*  NOI XUAT PHAT - MOT DONG tom tat, cham moi xo danh sach. Chu tau
-               gan nhu luon di tu cang nha; bay san 6 lua chon + o chon 10 cang
-               la bat doc mot danh muc cho mot viec khong doi. */}
-          {!editStart ? (
+          {/*  MOT DONG "chuyen di" — che do dan duong la de CHAM BAN DO, khong
+               phai de doc bang nhap. Nen chi bay dung thu phai bam (Tinh duong)
+               + mot dong tom tat nho; noi xuat phat & thong so tau nam trong do,
+               cham moi mo. User 2026-08-28c: "cua dan duong dang kho thao tac,
+               che ban do". */}
+          {!editStart && !editBoat ? (
             <button
               type="button"
               onClick={() => setEditStart(true)}
-              className="flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
+              className="flex min-h-[3.25rem] w-full items-center gap-2 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
             >
               <AnchorIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[0.8125rem] font-bold text-foreground/60">
-                  Đi từ
-                </span>
-                <span className="block truncate text-[1rem] font-bold text-navy">
-                  {startOptions.find((o) => o.id === effectiveStartId)?.label ??
-                    "Chọn nơi xuất phát"}
-                </span>
+              <span className="min-w-0 flex-1 truncate text-[0.9375rem] font-semibold text-foreground/80">
+                {startOptions.find((o) => o.id === effectiveStartId)?.label ??
+                  "Chọn nơi xuất phát"}{" "}
+                · tàu {speedKn} hl/giờ
               </span>
               <ChevronRightIcon
                 className="h-5 w-5 shrink-0 text-foreground/40"
@@ -772,123 +740,104 @@ export function RouteMode({
               />
             </button>
           ) : (
-            <div>
-              <span className="text-[0.9375rem] font-bold text-foreground/75">
-                Đi từ đâu?
-              </span>
-              <div
-                className="mt-1 space-y-1.5"
-                role="radiogroup"
-                aria-label="Nơi xuất phát"
-              >
-                {startOptions.map((o) => {
-                  const on = o.id === effectiveStartId;
-                  return (
-                    <button
-                      key={o.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={on}
-                      onClick={() => {
-                        setStartId(o.id);
-                        setEditStart(false);
-                      }}
-                      className={`flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold transition ${
-                        on
-                          ? "bg-navy text-white"
-                          : "bg-background text-foreground/75 active:bg-field"
-                      }`}
-                    >
-                      <span
-                        className={`h-4 w-4 shrink-0 rounded-full border-2 ${
-                          on ? "border-white bg-white" : "border-foreground/35"
+            <div className="space-y-2">
+              <div>
+                <span className="text-[0.9375rem] font-bold text-foreground/75">
+                  Đi từ đâu?
+                </span>
+                <div
+                  className="mt-1 space-y-1.5"
+                  role="radiogroup"
+                  aria-label="Nơi xuất phát"
+                >
+                  {startOptions.map((o) => {
+                    const on = o.id === effectiveStartId;
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        onClick={() => setStartId(o.id)}
+                        className={`flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold transition ${
+                          on
+                            ? "bg-navy text-white"
+                            : "bg-background text-foreground/75 active:bg-field"
                         }`}
-                        aria-hidden
-                      />
-                      {o.label}
-                    </button>
-                  );
-                })}
+                      >
+                        <span
+                          className={`h-4 w-4 shrink-0 rounded-full border-2 ${
+                            on ? "border-white bg-white" : "border-foreground/35"
+                          }`}
+                          aria-hidden
+                        />
+                        {o.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <select
+                  value={
+                    effectiveStartId.startsWith("port:")
+                      ? effectiveStartId.replace(/^port:/, "")
+                      : ""
+                  }
+                  onChange={(e) =>
+                    e.target.value && setStartId(`port:${e.target.value}`)
+                  }
+                  aria-label="Hoặc chọn cảng khác"
+                  className="mt-1.5 block min-h-[3.25rem] w-full rounded-xl bg-background px-3 text-[1rem] font-semibold text-foreground/70"
+                >
+                  <option value="">Hoặc đi từ cảng khác…</option>
+                  {PORTS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      Cảng {p.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <select
-                value={
-                  effectiveStartId.startsWith("port:")
-                    ? effectiveStartId.replace(/^port:/, "")
-                    : ""
-                }
-                onChange={(e) => {
-                  if (!e.target.value) return;
-                  setStartId(`port:${e.target.value}`);
-                  setEditStart(false);
-                }}
-                aria-label="Hoặc chọn cảng khác"
-                className="mt-1.5 block min-h-[3.25rem] w-full rounded-xl bg-background px-3 text-[1rem] font-semibold text-foreground/70"
-              >
-                <option value="">Hoặc đi từ cảng khác…</option>
-                {PORTS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    Cảng {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
 
-          {/*  THONG SO TAU - MOT DONG, cham moi sua. Chu tau nhap mot lan roi
-               dung ca doi (luu forfish.boat.v1); bay san 2 o so moi lan mo la
-               bat nhin thu khong can dung toi. */}
-          {!editBoat ? (
-            <button
-              type="button"
-              onClick={() => setEditBoat(true)}
-              className="flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
-            >
-              <FuelIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[0.8125rem] font-bold text-foreground/60">
-                  Tàu của tôi
-                </span>
-                <span className="block truncate text-[1rem] font-bold text-navy">
-                  Chạy {speedKn} hải lý/giờ · ăn {lph} lít/giờ
-                </span>
-              </span>
-              <ChevronRightIcon
-                className="h-5 w-5 shrink-0 text-foreground/40"
-                aria-hidden
-              />
-            </button>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block">
-                <span className="text-[0.9375rem] font-bold text-foreground/75">
-                  Tàu chạy (hải lý/giờ)
-                </span>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min={2}
-                  max={30}
-                  value={speedKn}
-                  onChange={(e) => setSpeedKn(e.target.value)}
-                  onBlur={() => setEditBoat(false)}
-                  className="mt-1 block min-h-[3.5rem] w-full rounded-xl bg-background px-3 text-[1.125rem] font-semibold"
-                />
-              </label>
-              <label className="block">
-                <span className="text-[0.9375rem] font-bold text-foreground/75">
-                  Máy ăn dầu (lít/giờ)
-                </span>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min={1}
-                  max={300}
-                  value={lph}
-                  onChange={(e) => setLph(e.target.value)}
-                  onBlur={() => setEditBoat(false)}
-                  className="mt-1 block min-h-[3.5rem] w-full rounded-xl bg-background px-3 text-[1.125rem] font-semibold"
-                />
-              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-[0.9375rem] font-bold text-foreground/75">
+                    Tàu chạy (hải lý/giờ)
+                  </span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={2}
+                    max={30}
+                    value={speedKn}
+                    onChange={(e) => setSpeedKn(e.target.value)}
+                    className="mt-1 block min-h-[3.5rem] w-full rounded-xl bg-background px-3 text-[1.125rem] font-semibold"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[0.9375rem] font-bold text-foreground/75">
+                    Máy ăn dầu (lít/giờ)
+                  </span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={1}
+                    max={300}
+                    value={lph}
+                    onChange={(e) => setLph(e.target.value)}
+                    className="mt-1 block min-h-[3.5rem] w-full rounded-xl bg-background px-3 text-[1.125rem] font-semibold"
+                  />
+                </label>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEditStart(false);
+                  setEditBoat(false);
+                }}
+                className="min-h-[3.25rem] w-full rounded-xl bg-field text-[1rem] font-bold text-navy transition active:scale-[0.99]"
+              >
+                Xong
+              </button>
             </div>
           )}
 
