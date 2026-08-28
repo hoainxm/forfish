@@ -1,24 +1,41 @@
 "use client";
 
 /*
-  DOCK iOS 26 STANDALONE — GHIM VÀO SHELL cao đúng màn NHÌN THẤY.
+  DOCK iOS STANDALONE — GHIM VÀO SHELL cao đúng màn NHÌN THẤY.
 
-  Bug WebKit (Apple sửa Safari 26.1, số 158055568): ở bản cài, layout viewport
-  kẹt ngắn → position:fixed bottom:0 (dock/map/sheet) bám đáy viewport ngắn,
-  lòi khối trống. Mọi cách "đo phần hụt rồi bù" đều lệch vì iOS báo chiều cao
-  KHÁC nhau giữa trang có scroll và không.
+  Bug WebKit (số 158055568): ở bản cài, layout viewport kẹt ngắn → position:fixed
+  bottom:0 (dock/map/sheet) bám đáy viewport ngắn, lòi khối trống. iOS báo chiều
+  cao KHÁC nhau giữa tab có scroll và không.
 
-  Cách chắc: CHỈ bản cài iOS → class `pwa-frame` trên <html> + --app-vh = ĐÁY
-  LỚN NHẤT của viewport (vv.height, chỉ cho lớn lên). CSS cho DockFrame + khung
-  app (app-shell min-height) cao đúng --app-vh → tab viewport nhỏ tự nở bằng
-  tab dài, dock khớp (globals.css). Ngoài standalone: KHÔNG chạy → y hệt cũ.
+  ⚠️ APPLE ĐÃ SỬA bug này ở SAFARI 26.1. Trên iOS ≥ 26.1, workaround dưới đây trở
+  thành THỦ PHẠM: --app-vh latch theo ĐÁY LỚN NHẤT (tab cuộn được) rồi dùng chung
+  cho MỌI tab; tab thấp hơn (vd Ra khơi — map fixed, không cuộn) bị khung cao quá
+  màn → dock tụt xuống dưới mép, CỤT; và giá trị nhảy qua lại giữa 2 tab ("không
+  lưu"). Máy iOS 26.6 dính đúng ca này (user 2026-08-29).
 
-  localStorage theo screen.w×h: giữ mốc qua các lần mở app (khỏi học lại). Đặt
-  --app-vh NGAY từ localStorage lúc init + chỉ ghi lại khi số LỚN LÊN → chuyển
-  tab không reflow, MƯỢT. KHÔNG cập nhật lúc input focus (bàn phím mở).
+  NÊN: iOS ≥ 26.1 → KHÔNG chạy workaround, KHÔNG gắn `pwa-frame` → CSS về nhánh
+  GỐC (dock fixed bottom:0 + 100dvh) mà native nay xử lý ĐÚNG per-tab. Chỉ iOS
+  standalone < 26.1 (còn dính bug) mới chạy workaround `--app-vh` bên dưới.
+
+  Workaround (iOS < 26.1): --app-vh = đáy lớn nhất của viewport (vv.height, chỉ
+  cho lớn lên), lưu localStorage theo screen.w×h. KHÔNG cập nhật lúc input focus.
 */
 
 import { useEffect } from "react";
+
+/**
+ * Bug viewport standalone ĐÃ ĐƯỢC SỬA chưa (Apple: Safari 26.1)?
+ * Đọc phiên bản iOS/Safari từ UA. KHÔNG rõ → coi như CHƯA sửa (giữ workaround,
+ * an toàn cho máy cũ). true = đã sửa → dùng native, khỏi workaround.
+ */
+function viewportBugFixed(): boolean {
+  const ua = navigator.userAgent;
+  const m = ua.match(/ OS (\d+)_(\d+)/) || ua.match(/Version\/(\d+)\.(\d+)/);
+  if (!m) return false;
+  const major = Number(m[1]);
+  const minor = Number(m[2]);
+  return major > 26 || (major === 26 && minor >= 1);
+}
 
 export function ViewportGapFix() {
   useEffect(() => {
@@ -28,6 +45,10 @@ export function ViewportGapFix() {
       window.matchMedia?.("(display-mode: standalone)").matches === true ||
       (navigator as { standalone?: boolean }).standalone === true;
     if (!standalone) return; // ngoài standalone: không đụng gì
+    // iOS ≥ 26.1 đã sửa bug: chạy workaround chỉ tổ gây cụt dock (xem đầu file).
+    // Bỏ chạy → không gắn `pwa-frame` → CSS về nhánh gốc (dock fixed bottom +
+    // 100dvh) mà native xử lý đúng per-tab.
+    if (viewportBugFixed()) return;
 
     const de = document.documentElement;
     de.classList.add("pwa-frame");

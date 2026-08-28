@@ -19,6 +19,8 @@ import {
   type SavedPlace,
 } from "@/lib/places";
 import { FISHING_PORTS } from "@/data/fishing-ports";
+import { parseCoordPair } from "@/lib/parse-coord";
+import { useMapPrefs } from "@/lib/map-prefs";
 import {
   AnchorIcon,
   EditIcon,
@@ -51,22 +53,30 @@ export function MyPlacesContent({
   const [portQuery, setPortQuery] = useState("");
   const [portOpen, setPortOpen] = useState(false);
   // thêm điểm theo toạ độ — gõ tên + vĩ độ + kinh độ
+  const prefs = useMapPrefs();
+  // ví dụ gõ theo hệ toạ độ đang chọn — khớp ô "Đến điểm" của rail
+  const eg =
+    prefs.coordFormat === "dms"
+      ? { lat: "8 30", lon: "109 18" }
+      : { lat: "8,5", lon: "109,3" };
   const [addOpen, setAddOpen] = useState(false);
   const [addName, setAddName] = useState("");
   const [addLat, setAddLat] = useState("");
   const [addLon, setAddLon] = useState("");
-  const addLatN = parseFloat(addLat.replace(",", "."));
-  const addLonN = parseFloat(addLon.replace(",", "."));
-  const addValid =
-    Number.isFinite(addLatN) &&
-    addLatN >= -90 &&
-    addLatN <= 90 &&
-    Number.isFinite(addLonN) &&
-    addLonN >= -180 &&
-    addLonN <= 180;
+  /*  ĐỌC TOẠ ĐỘ QUA `parseCoordPair` — ĐÚNG HỆ BÀ CON ĐANG ĐẶT (2026-08-29).
+      Lỗi cũ: chỗ này tự `parseFloat` nên CHỈ hiểu số thập phân, trong khi hệ
+      mặc định của app là ĐỘ-PHÚT-GIÂY (07 §11) và ô "Đến điểm" trên rail thì
+      đọc được cả hai. Bà con đọc toạ độ trên máy định vị ra "8 30" rồi gõ vào
+      đây thì máy báo sai — mà cùng chuỗi đó gõ ở ô "Đến điểm" lại chạy. Một
+      app không được có hai luật đọc toạ độ. Dùng lại đúng hàm đã có, không
+      viết luật thứ hai. */
+  const addPair = parseCoordPair(addLat, addLon);
+  const addValid = addPair != null;
   function submitAdd() {
-    if (!addValid) return;
-    onPlaces(upsertPlace(places, { name: addName, lat: addLatN, lon: addLonN }));
+    if (!addPair) return;
+    onPlaces(
+      upsertPlace(places, { name: addName, lat: addPair.lat, lon: addPair.lon }),
+    );
     setAddName("");
     setAddLat("");
     setAddLon("");
@@ -126,21 +136,21 @@ export function MyPlacesContent({
             <input
               value={addLat}
               onChange={(e) => setAddLat(e.target.value)}
-              inputMode="decimal"
-              placeholder="Vĩ độ (12.5)"
+              inputMode="text"
+              placeholder={`Vĩ độ (vd ${eg.lat})`}
               className="min-h-[3rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
             />
             <input
               value={addLon}
               onChange={(e) => setAddLon(e.target.value)}
-              inputMode="decimal"
-              placeholder="Kinh độ (109.3)"
+              inputMode="text"
+              placeholder={`Kinh độ (vd ${eg.lon})`}
               className="min-h-[3rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
             />
           </div>
           {!addValid && (addLat || addLon) && (
             <p className="mb-2 text-[0.8125rem] font-semibold text-danger">
-              Vĩ độ −90…90, kinh độ −180…180.
+              Chưa đọc được toạ độ. Gõ như ví dụ: {eg.lat} / {eg.lon}.
             </p>
           )}
           <div className="grid grid-cols-2 gap-2">

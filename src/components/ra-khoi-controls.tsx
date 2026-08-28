@@ -191,6 +191,19 @@ export function RaKhoiControls({
       loại việc với "Vị trí"/"Đến điểm" (đi tới một toạ độ), không phải
       loại việc "bật/tắt lớp bản đồ" như 5 panel còn lại. */
   const [placesOpen, setPlacesOpen] = useState(false);
+  /*  LUẬT HIỂN THỊ — MỘT LỚP NỔI MỘT LÚC (chủ dự án 2026-08-29: "2 chế độ lúc
+      lưu và lúc dẫn đường đang hiển thị 1 lúc nó bị chồng chéo và rối nhau").
+      Vào chế độ dẫn đường là ĐÓNG SẠCH panel lớp + ô toạ độ + ô điểm đã lưu.
+      Vì sao đóng chứ không xếp chồng cho khéo: xem bảng "hiện đồng thời được /
+      không được" ở 07 §10.7 I — cả ba thứ này đều là LỚP NỔI ĐÈ BẢN ĐỒ, mà
+      màn chỉ có một chỗ cho lớp nổi. Ghép đôi nào cũng dưới 50% số lượt dùng
+      nên không đáng đánh đổi sự rối. */
+  useEffect(() => {
+    if (!routeOn) return;
+    setOpen(null);
+    setCoordOpen(false);
+    setPlacesOpen(false);
+  }, [routeOn]);
 
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const armAutoHide = useCallback(() => {
@@ -405,6 +418,7 @@ export function RaKhoiControls({
         <button
           type="button"
           onClick={() => {
+            if (routeOn) onRoutePanel?.(); // thoát dẫn đường trước, không đè
             setOpen(null); // đóng panel rail (nếu đang mở) cho khỏi chồng
             setPlacesOpen(false);
             setCoordOpen((v) => !v);
@@ -434,6 +448,8 @@ export function RaKhoiControls({
         <button
           type="button"
           onClick={() => {
+            // đang dẫn đường mà mở lớp nổi khác ⇒ THOÁT chế độ trước, không đè
+            if (routeOn) onRoutePanel?.();
             setOpen(null);
             setCoordOpen(false);
             setPlacesOpen((v) => !v);

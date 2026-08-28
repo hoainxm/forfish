@@ -718,6 +718,29 @@ Ba chỗ **cố ý KHÁC** ranh giới (F), đừng "đồng bộ" cho gọn:
   🟡 **OFFLINE (4 câu soi của CLAUDE.md, cho cả năm việc)**: (a) **không thêm request mạng nào** — `destDepth` đọc state đã có từ lưới tĩnh cùng origin, `flyToPoint` là camera cục bộ; (b) **không đụng `public/sw.js`, `SHELL`, danh sách cache, hay khoá `forfish.*`**; (c) **không nhánh nào mất/đè dữ liệu đã tải** (không xoá cache, không bump phiên bản kho, `forfish.routestops.v1` không đổi shape); (d) không màn mới nào được thêm — mọi thay đổi là CSS/JSX trong màn đã có, nhánh mất sóng của thẻ (`offlineSavedAt`) giữ nguyên. ⚠️ **CHƯA ĐO**: nhánh MẤT SÓNG của chế độ dẫn đường vẫn chưa lần nào được dựng và soi tận mắt (ba vòng liền) — còn nợ, phải chạy `ops/qa-offline-acceptance.md` trước khi coi chế độ này là xong.
   ❌ **KHÔNG tự làm trong vòng này** (đã cân nhắc và bác, cần chủ dự án chốt): hạ trần `max-h-[38dvh]` hay cắt header để bản đồ đạt sàn ≥60% (§5) — đánh đổi cross-trục đã ghi ở trên; đổi "bấm thân hàng Thêm điểm dừng = thêm luôn chỗ đang xem" (trái quyết định 28d, biến một hàng thành hai đích chạm); nâng sàn tap/cỡ chữ bằng cách sửa `html[data-mode="gon"]` (token cross-trục ảnh hưởng TOÀN app, không được sửa lén trong một commit về dẫn đường).
 
+**I. LUẬT HIỂN THỊ LỚP NỔI — CÁI NÀO ĐƯỢC HIỆN CÙNG LÚC (2026-08-29)**
+
+Chủ dự án: *"2 chế độ lúc lưu và lúc dẫn đường đang hiển thị 1 lúc nó bị chồng chéo và rối nhau… tổ chức 1 logic hiển thị các layer, các menu… khi cân nhắc thì xác định tỷ lệ user sử dụng theo cách đó bao nhiêu, chỉ hỗ trợ cho cái từ 50% trở lên."*
+
+**Tiêu chí quyết định**: một cặp chỉ được phép hiện ĐỒNG THỜI khi (a) chúng phục vụ CÙNG một mục tiêu của bà con, và (b) ước lượng ≥50% số lượt dùng thực sự cần chúng cùng lúc. Dưới 50% ⇒ **loại trừ nhau**, và nếu nhu cầu đó có thật thì phải phục vụ nó BÊN TRONG chế độ đang mở, chứ không mở chồng.
+
+| Nhóm | Gồm | Luật |
+|---|---|---|
+| **Tầng 1 — không ai được che** | banner bão · HUD dẫn đường LIVE · cảnh báo ranh giới ≤6 hl | Luôn hiện, đè lên mọi thứ (§12) |
+| **Rail 5 nút hành động** | Lớp · Vị trí · Đến điểm · Điểm đã lưu · Dẫn đường | Hiện ĐỒNG THỜI với mọi thứ — nó là **chỗ bấm**, không phải chỗ đọc, và không chiếm vùng giữa màn |
+| **Lớp nổi đè bản đồ — MỘT LÚC MỘT CÁI** | panel lớp của rail · ô "Đến điểm" · ô "Điểm đã lưu" · khung **Dẫn đường** · sheet gió sóng | **Loại trừ nhau.** Mở cái này là đóng cái kia. Vào dẫn đường ⇒ đóng sạch popup rail **và không dựng `<SnapSheet>`** |
+| **Vẽ trên bản đồ** | ghim điểm đã lưu · số chỗ ghé · tuyến · lớp gió/sóng/cá | Hiện đồng thời — cùng mục tiêu "chọn nơi tới", và chúng nằm TRÊN bản đồ chứ không chiếm khung |
+
+**Áp dụng — ba cặp đã cân nhắc:**
+
+| Cặp | Ước lượng dùng cùng lúc | Quyết |
+|---|---|---|
+| Điểm đã lưu + Dẫn đường | **<50%** — muốn lấy điểm quen vào tuyến thì khung dẫn đường ĐÃ có hàng "Thêm từ điểm đã lưu" | Loại trừ |
+| Đến điểm (gõ toạ độ) + Dẫn đường | **≥50%** — đọc toạ độ từ máy định vị/bộ đàm rồi gõ vào là việc thường ngày | Vẫn loại trừ hai lớp nổi, **nhưng đưa ô gõ toạ độ vào THẲNG trong picker "Thêm điểm"** của khung dẫn đường. Không phải thoát ra → gõ → mở lại (3 thao tác thừa) |
+| Sheet gió sóng + Dẫn đường | **<50%** — đang dựng tuyến thì không đọc gió sóng điểm chạm; mà mở ra cũng bị khung dẫn đường đè ngay | Không dựng sheet trong `routeMode` |
+
+**Một luật đọc toạ độ cho cả app**: mọi ô nhập toạ độ đi qua `parseCoordPair` (`lib/parse-coord.ts`) và lấy ví dụ gõ theo `prefs.coordFormat`. Lỗi đã sửa 2026-08-29: ô "Thêm điểm theo toạ độ" trong `my-places-sheet.tsx` tự `parseFloat` nên CHỈ hiểu số thập phân, trong khi hệ mặc định của app là **độ-phút-giây** — bà con đọc "8 30" trên máy định vị gõ vào thì báo sai, mà cùng chuỗi đó gõ ở ô "Đến điểm" lại chạy. Một app không được có hai luật đọc toạ độ.
+
 ### 10.8 OFFLINE TRÊN WEB — giữ cache khỏi bị trình duyệt dọn (2026-07-28)
 
 Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔNG chỉ PWA đã cài — miễn mở khi còn sóng ít nhất 1 lần (SW cài + pretrip tải) trên HTTPS. Nhưng bộ nhớ tab là "best-effort": máy đầy thì trình duyệt tự xoá; riêng **iOS Safari xoá SẠCH storage sau ~7 ngày không dùng nếu CHƯA cài về màn hình chính** — chuyến 5–16 ngày mất dữ liệu giữa chuyến. Hai việc để web offline đáng tin:

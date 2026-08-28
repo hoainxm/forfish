@@ -50,6 +50,7 @@ import { stormGateForRoute, type StormAlert, type StormStatus } from "@/lib/stor
 import { fetchDepthGrid, type DepthClass } from "@/lib/depth-grid";
 import { beaufort, formatNumberVN } from "@/lib/marine-weather";
 import { useMapPrefs, fmtDist, fmtCoordPair } from "@/lib/map-prefs";
+import { parseCoordPair } from "@/lib/parse-coord";
 import {
   AlertIcon,
   AnchorIcon,
@@ -373,6 +374,15 @@ export function RouteMode({
   const [panel, setPanel] = useState<"idle" | "start" | "boat" | "dest">(
     "idle",
   );
+  /*  GÕ TOẠ ĐỘ NGAY TRONG DẪN ĐƯỜNG (2026-08-29). Áp luật "chỉ hỗ trợ cách
+      dùng >=50%" của chủ dự án: đọc toạ độ từ máy định vị / bộ đàm rồi gõ vào
+      là việc THƯỜNG XUYÊN của bà con, nên nó phải làm được TRONG chế độ dẫn
+      đường. Cách cũ là mở ô "Đến điểm" trên rail — nhưng hai lớp nổi không
+      được hiện cùng lúc (§10.7 I), thành ra phải thoát dẫn đường → gõ → mở
+      lại = 3 thao tác thừa. Đưa vào đây thì hết cần mở chồng. */
+  const [coordLat, setCoordLat] = useState("");
+  const [coordLon, setCoordLon] = useState("");
+  const [coordErr, setCoordErr] = useState(false);
   /*  Không có bộ chọn nào đang xổ ⇒ hiện ĐỦ các hàng của biểu mẫu. Đang xổ một
       bộ chọn thì chỉ giữ hàng vừa bấm — đây là cách DUY NHẤT trong lượt này
       thật sự giảm chiều cao thẻ, và cũng là thi hành đúng luật "một lúc chỉ xổ
@@ -809,6 +819,11 @@ export function RouteMode({
       xét tuyến ⇒ chấm 3 chỗ rồi mà chưa bấm tính thì không có nút nào dọn, phải
       chạm lại từng chỗ để bỏ (đo thật 2026-08-28, bắt được). */
   const currentStop = stopAt(stops, dest.lat, dest.lon);
+  // ví dụ gõ khớp hệ toạ độ đang đặt — cùng câu với ô "Đến điểm" của rail
+  const egCoord =
+    prefs.coordFormat === "dms"
+      ? { lat: "8 30", lon: "109 18" }
+      : { lat: "8,5", lon: "109,3" };
   const stopsFull = stops.length >= MAX_STOPS;
   /** câu cảnh báo cho chỗ con trỏ đang đứng — null là im (xem DEST_DEPTH_WARN) */
   const destDepthWarn =
@@ -1246,6 +1261,56 @@ export function RouteMode({
                   </button>
                 );
               })}
+
+              {/* GÕ TOẠ ĐỘ — nguồn thứ ba, cùng luật đọc với ô "Đến điểm" */}
+              <div className="rounded-xl bg-card p-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    value={coordLat}
+                    onChange={(e) => {
+                      setCoordLat(e.target.value);
+                      setCoordErr(false);
+                    }}
+                    placeholder={`Vĩ độ (vd ${egCoord.lat})`}
+                    aria-label="Vĩ độ điểm muốn thêm"
+                    className="min-h-[3.25rem] w-full rounded-xl bg-background px-3 text-[1rem] font-semibold text-navy"
+                  />
+                  <input
+                    value={coordLon}
+                    onChange={(e) => {
+                      setCoordLon(e.target.value);
+                      setCoordErr(false);
+                    }}
+                    placeholder={`Kinh độ (vd ${egCoord.lon})`}
+                    aria-label="Kinh độ điểm muốn thêm"
+                    className="min-h-[3.25rem] w-full rounded-xl bg-background px-3 text-[1rem] font-semibold text-navy"
+                  />
+                </div>
+                {coordErr && (
+                  <p className="mt-1 text-[0.8125rem] font-bold leading-snug text-danger">
+                    Chưa đọc được toạ độ. Gõ như ví dụ: {egCoord.lat} /{" "}
+                    {egCoord.lon}.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const pair = parseCoordPair(coordLat, coordLon);
+                    if (!pair) {
+                      setCoordErr(true);
+                      return;
+                    }
+                    onStops?.(addStop(stops, pair.lat, pair.lon));
+                    setCoordLat("");
+                    setCoordLon("");
+                    setPanel("idle");
+                  }}
+                  disabled={!coordLat && !coordLon}
+                  className="mt-2 min-h-[3.25rem] w-full rounded-xl bg-background text-[1rem] font-bold text-t1 transition active:scale-[0.99] disabled:opacity-50"
+                >
+                  Thêm điểm theo toạ độ vừa gõ
+                </button>
+              </div>
 
               <select
                 value=""
