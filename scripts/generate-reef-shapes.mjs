@@ -1,8 +1,10 @@
 // Sinh HÌNH DẠNG RẠN / BÃI ĐÁ NGẦM cho Trục 1 — chạy MỘT LẦN (khi có mạng):
 //   node scripts/generate-reef-shapes.mjs
 //
-// Đầu ra: public/data/reef-shapes.v1.json — FeatureCollection<Polygon|LineString>
-//   properties.kind: "reef" (rạn san hô) | "shoal" (bãi cạn/bãi ngầm)
+// Đầu ra: public/data/reef-shapes.v1.json — FeatureCollection, properties.kind:
+//   "reef"  (rạn san hô, Polygon/LineString)   | "shoal" (bãi cạn/ngầm, Polygon/Line)
+//   "rock"  (đá ngầm/chướng ngại hàng hải, Point) | "wreck" (xác tàu, Point)
+//   rock/wreck = ĐIỂM HIỂM HOẠ gần bờ (seamark:type) — nơi natural=reef thưa.
 //   KHÔNG có tên — chỉ hình học (nhãn tên Việt lấy từ coral-reefs.v1.json).
 //
 // ── NGUỒN ──────────────────────────────────────────────────────────────────
@@ -39,6 +41,9 @@ function overpassQL() {
   way["natural"="shoal"]${b};
   relation["natural"="reef"]${b};
   relation["natural"="shoal"]${b};
+  node["seamark:type"="rock"]${b};
+  node["seamark:type"="obstruction"]${b};
+  node["seamark:type"="wreck"]${b};
 );
 out geom;`;
 }
@@ -129,12 +134,26 @@ const kindOf = (t) => (t === "shoal" ? "shoal" : "reef");
 
 const ovp = await fetchOverpass();
 const features = [];
-const tally = { reef: 0, shoal: 0 };
+const tally = { reef: 0, shoal: 0, rock: 0, wreck: 0 };
 let rawVerts = 0;
 let keptVerts = 0;
 
 if (ovp?.elements) {
   for (const el of ovp.elements) {
+    // ĐIỂM HIỂM HOẠ hàng hải: seamark rock/obstruction/wreck (đá ngầm / chướng
+    // ngại / xác tàu) — thường ở GẦN BỜ, nơi natural=reef thưa. Render dạng điểm.
+    if (el.type === "node") {
+      if (!Number.isFinite(el.lon) || !Number.isFinite(el.lat)) continue;
+      const st = el.tags?.["seamark:type"];
+      const hk = st === "wreck" ? "wreck" : "rock"; // rock + obstruction → "rock"
+      features.push({
+        type: "Feature",
+        properties: { kind: hk },
+        geometry: { type: "Point", coordinates: [r(el.lon), r(el.lat)] },
+      });
+      tally[hk]++;
+      continue;
+    }
     const kind = kindOf(el.tags?.natural);
     if (el.type === "way" && Array.isArray(el.geometry)) {
       const coords = toCoords(el.geometry);

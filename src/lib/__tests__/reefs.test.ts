@@ -70,7 +70,9 @@ describe("dataset reef-shapes.v1.json — hình dạng rạn (OSM, bỏ tên)", 
     for (const f of fc.features) {
       const keys = Object.keys(f.properties);
       expect(keys).toEqual(["kind"]);
-      expect(["reef", "shoal"]).toContain(f.properties.kind as string);
+      expect(["reef", "shoal", "rock", "wreck"]).toContain(
+        f.properties.kind as string,
+      );
       // không thuộc tính chuỗi nào chứa CJK (canh lại nếu ai sửa tay)
       for (const v of Object.values(f.properties)) {
         if (typeof v === "string") expect(hasForbiddenChars(v)).toBe(false);
@@ -78,10 +80,22 @@ describe("dataset reef-shapes.v1.json — hình dạng rạn (OSM, bỏ tên)", 
     }
   });
 
-  it("geometry là Polygon hoặc LineString hợp lệ, đủ nhiều hình", () => {
+  it("rạn/bãi = Polygon/LineString; đá ngầm/xác tàu (rock/wreck) = Point", () => {
     for (const f of fc.features) {
-      expect(["Polygon", "LineString"]).toContain(f.geometry.type);
+      const k = f.properties.kind as string;
+      if (k === "rock" || k === "wreck") {
+        expect(f.geometry.type).toBe("Point");
+      } else {
+        expect(["Polygon", "LineString"]).toContain(f.geometry.type);
+      }
     }
     expect(fc.features.length).toBeGreaterThanOrEqual(200);
+  });
+
+  it("có điểm hiểm hoạ gần bờ (rock/wreck) — lấp lỗ hổng natural=reef thưa ven bờ", () => {
+    const hazards = fc.features.filter((f) =>
+      ["rock", "wreck"].includes(f.properties.kind as string),
+    );
+    expect(hazards.length).toBeGreaterThanOrEqual(30);
   });
 });

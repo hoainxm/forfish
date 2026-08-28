@@ -180,6 +180,9 @@ export const REEF_DOT_COLOR = "#0e7c86";
 // viền teal đậm hơn. Nội dung bản đồ, không phải token UI.
 export const REEF_SHAPE_FILL = "#4bbdc7";
 export const REEF_SHAPE_LINE = "#0e7c86";
+// Điểm HIỂM HOẠ hàng hải (đá ngầm/chướng ngại/xác tàu — seamark, thường gần bờ):
+// hổ phách đậm = "coi chừng", tách khỏi teal rạn + cam-đỏ ranh giới.
+export const REEF_HAZARD_COLOR = "#b45309";
 export const SEA_LANE_COLOR = "#4a5a70"; // tuyến/luồng/phân luồng — xám-lam
 export const SEA_CABLE_COLOR = "#7c3aed"; // cáp/ống ngầm — tím, tách khỏi tuyến
 export const SEA_RESTRICTED_COLOR = "#c2620c"; // vùng cấm + giàn khoan — cam đất
