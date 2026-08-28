@@ -52,6 +52,7 @@ import {
   AlertIcon,
   AnchorIcon,
   ClockIcon,
+  CloseIcon,
   FuelIcon,
   MinusIcon,
   PlayIcon,
@@ -268,7 +269,22 @@ export function RouteStopsLayers({
   );
 }
 
-export function RoutePlanner({
+/**
+ * CHẾ ĐỘ DẪN ĐƯỜNG — MÀN RIÊNG, KHÔNG còn nằm trong sheet gió sóng
+ * (chủ dự án 2026-08-28: "bóc cái dẫn đường ra khỏi sheet, làm như gmap ấy,
+ * độc lập, thao tác tối ưu bao gồm cả xoá route").
+ *
+ * Vì sao bóc ra: trước đây nó là MỘT KHỐI trong sheet "gió sóng chỗ đang xem" —
+ * sai vai. Sheet đó để LIẾC số liệu rồi trả bản đồ lại (tự thu sau 3 giây);
+ * dẫn đường là BIỂU MẪU nhiều bước + kết quả phải đọc kỹ. Nhét chung nên phải
+ * chống chế bằng ngoại lệ tự-ẩn, mà bà con vẫn phải vuốt → cuộn → tìm.
+ *
+ * Hình hài kiểu Google Maps: THANH TRÊN gọn (đi từ đâu · mấy chỗ · Xoá tuyến ·
+ * Đóng) — bản đồ ở giữa vẫn thấy — THẺ DƯỚI là chỗ nhập và đọc kết quả. Trong
+ * chế độ này CHẠM BẢN ĐỒ = THÊM CHỖ GHÉ luôn (một chạm một chỗ), không phải
+ * bấm nút "Thêm chỗ này" nữa; cha (fishing-map-view) lo phần đó.
+ */
+export function RouteMode({
   dest,
   activeRoute,
   places = [],
@@ -279,9 +295,7 @@ export function RoutePlanner({
   stormInfo,
   onRoute,
   onStart,
-  onActive,
-  openRequest,
-  onOpenHandled,
+  onClose,
 }: {
   dest: LatLon;
   /** tuyến đang vẽ trên bản đồ (có thể tới điểm CŨ — xem ghi chú dưới) */
@@ -308,25 +322,13 @@ export function RoutePlanner({
       lúc chạy giữa biển. Luật đọc trạng thái nằm ở `stormGateForRoute`. */
   stormInfo: StormStatus;
   onRoute: (r: PlannedRoute | null) => void;
-  /*  "Bà con ĐANG DÙNG panel dẫn đường" — panel mở HOẶC đang tính. Màn bản đồ
-      đọc cờ này để KHÔNG đếm giờ tự-ẩn sheet (fishing-map-view SHEET_AUTO_HIDE_MS).
-      Sheet ẩn là THÂN SHEET UNMOUNT ⇒ mất luôn `result` đã tính: bà con quay lại
-      thấy panel đóng, nút "Bắt đầu dẫn đường" biến mất, phải tính lại từ đầu.
-      Đường đi nhiều chỗ tính lâu hơn hẳn (mỗi chặng một lượt Dijkstra) nên 3 giây
-      gần như chắc chắn cắt ngang. */
-  onActive?: (active: boolean) => void;
-  /*  LỐI TẮT TỪ RAIL (nút "Dẫn đường", 2026-08-28): cha bật cờ này là panel
-      MỞ SẴN + tự cuộn tới nơi, xong thì gọi `onOpenHandled` để cha tắt cờ.
-      Cờ-rồi-tắt chứ KHÔNG dùng số đếm: sheet ẩn là RoutePlanner UNMOUNT, mount
-      lại thì mọi số đếm đều "mới" với nó ⇒ panel sẽ tự bung cả khi bà con chỉ
-      vuốt sheet lên xem gió sóng (đo thật 2026-08-28, bắt được lỗi này). */
-  openRequest?: boolean;
-  onOpenHandled?: () => void;
+  /** Thoát chế độ dẫn đường (nút X) — tuyến đã vẽ GIỮ NGUYÊN trên bản đồ */
+  onClose: () => void;
   /** Bắt đầu DẪN ĐƯỜNG LIVE theo tuyến vừa tính (bám tuyến, theo dõi GPS) */
   onStart?: (r: PlannedRoute) => void;
 }) {
   const prefs = useMapPrefs();
-  const [open, setOpen] = useState(false);
+  // KHÔNG còn state `open`: chế độ dẫn đường TỰ NÓ là trạng thái mở.
   const boxRef = useRef<HTMLDivElement>(null);
   // "gps" | "place:<id>" | "port:<id>"; mặc định Cảng nhà nếu có
   const [startId, setStartId] = useState<string>("");
@@ -371,36 +373,6 @@ export function RoutePlanner({
     setOfflineSavedAt(undefined);
     setStormWarn(null);
   }, [chainSig]);
-
-  /*  Báo cha lúc panel đang được dùng (mở hoặc đang tính) để sheet ĐỪNG tự ẩn.
-      Nhả cờ khi rời panel — kể cả bị unmount giữa chừng (cleanup), không thì
-      sheet không bao giờ tự ẩn lại được nữa. */
-  /*  Nhận lệnh mở từ rail. `scrollIntoView` để bà con thấy ngay khối dẫn đường
-      chứ không phải cuộn tìm — cả điểm của lối tắt này. Bọc rAF: lúc effect
-      chạy, panel vừa mới dựng, chưa có chiều cao thật để cuộn tới. */
-  useEffect(() => {
-    if (!openRequest) return;
-    setOpen(true);
-    /*  Cuộn sau khi SHEET TRƯỢT MỞ XONG. rAF không đủ (đo thật 2026-08-28: hai
-        nhịp rAF vẫn để khối nằm dưới màn) — lúc đó sheet còn đang chạy
-        transition đổi nấc, cuộn vào giữa chừng bị nuốt. `behavior` mặc định
-        (nhảy thẳng) chứ không "smooth": mượt mà mà bị transition của sheet cắt
-        ngang thì thà nhảy cái cho chắc. */
-    /*  TẮT CỜ SAU KHI CUỘN, không phải trước (lỗi tự tạo, đo thật bắt được):
-        tắt ngay thì `openRequest` đổi true→false ⇒ cleanup của chính effect này
-        chạy và `clearTimeout` huỷ luôn cú cuộn chưa kịp nổ. */
-    const t = setTimeout(() => {
-      boxRef.current?.scrollIntoView({ block: "start" });
-      onOpenHandled?.();
-    }, 380);
-    return () => clearTimeout(t);
-  }, [openRequest, onOpenHandled]);
-
-  const active = open || busy;
-  useEffect(() => {
-    onActive?.(active);
-    return () => onActive?.(false);
-  }, [active, onActive]);
 
   // tuyến trên bản đồ đang trỏ tới điểm KHÁC chỗ đang xem?
   const staleRoute =
@@ -682,14 +654,6 @@ export function RoutePlanner({
     )
   ) : null;
 
-  const goLabel =
-    stops.length > 1
-      ? `Dẫn đường qua ${stops.length} chỗ`
-      : stops.length === 1
-        ? "Dẫn đường tới chỗ đã đánh dấu"
-        : staleRoute
-          ? "Dẫn đường tới chỗ mới này"
-          : "Dẫn đường tới chỗ này";
 
   /*  MÁY KHÔNG GIỮ ĐƯỢC DANH SÁCH (K4) — nói ngay, đừng để bà con chấm 5 chỗ
       rồi tắt app mới biết mất. */
@@ -701,35 +665,67 @@ export function RoutePlanner({
       </p>
     ) : null;
 
-  if (!open) {
-    return (
-      <div className="space-y-2">
-        {staleBar}
-        {stopsSaveBar}
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
-        >
-          <RouteIcon className="h-6 w-6" />
-          {goLabel}
-        </button>
-        {addStopBtn}
-      </div>
-    );
-  }
-
   const plan = result?.plan ?? null;
+  /*  Có gì để dọn không: tuyến ĐÃ TÍNH **hoặc** chỗ ghé đã chấm. Bản đầu chỉ
+      xét tuyến ⇒ chấm 3 chỗ rồi mà chưa bấm tính thì không có nút nào dọn, phải
+      chạm lại từng chỗ để bỏ (đo thật 2026-08-28, bắt được). */
+  const coGiDeXoa = activeRoute != null || result != null || stops.length > 0;
+
+  /*  XOÁ HẲN: tuyến trên bản đồ + chuỗi chỗ ghé + kết quả. Chủ dự án đòi
+      "bao gồm cả xoá route" — trước đây chỉ có nút "Xoá đường" nằm lọt trong
+      thẻ kết quả, mà chỗ ghé thì vẫn nằm lại nên bấm xong tuyến cũ vẫn "còn
+      sống" một nửa. Nay một nút dọn sạch cả hai, luôn nhìn thấy ở thanh trên. */
+  const clearAll = () => {
+    clearRoute();
+    if (stops.length) onStops?.(clearStops());
+  };
 
   return (
-    <div ref={boxRef} className="space-y-3 surface p-4">
-      <div className="flex items-center gap-2 text-t1">
-        <RouteIcon className="h-6 w-6" />
-        <h3 className="text-[1.125rem] font-bold text-navy">
-          {stops.length > 1 ? "Dẫn đường qua nhiều chỗ" : "Dẫn đường tới chỗ này"}
-        </h3>
+    <>
+      {/*  THANH TRÊN kiểu Google Maps — luôn thấy, không cuộn mất: đang đi từ
+           đâu · qua mấy chỗ · Xoá tuyến · Đóng. Bản đồ ở giữa vẫn lộ. */}
+      <div className="pointer-events-auto glass flex items-center gap-2 px-2.5 py-2">
+        <RouteIcon className="h-6 w-6 shrink-0 text-t1" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[1rem] font-bold leading-tight text-navy">
+            {stops.length > 1
+              ? `Đường đi qua ${stops.length} chỗ`
+              : stops.length === 1
+                ? "Đường đi tới chỗ đã đánh dấu"
+                : "Dẫn đường tới chỗ đang xem"}
+          </p>
+          <p className="truncate text-[0.875rem] font-semibold leading-tight text-foreground/70">
+            {stops.length
+              ? "Chạm bản đồ để thêm chỗ ghé"
+              : "Chạm bản đồ để chọn chỗ muốn tới"}
+          </p>
+        </div>
+        {coGiDeXoa && (
+          <button
+            type="button"
+            onClick={clearAll}
+            className="flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-xl bg-white/70 px-3 text-[0.9375rem] font-bold text-danger transition active:scale-95"
+          >
+            <TrashIcon className="h-5 w-5" />
+            Xoá tuyến
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Đóng dẫn đường"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy transition active:scale-95"
+        >
+          <CloseIcon className="h-5 w-5" />
+        </button>
       </div>
 
+      {/*  THẺ DƯỚI — chỗ nhập và chỗ đọc kết quả. Trần chiều cao + cuộn trong
+           thẻ để bản đồ luôn còn một khoảng nhìn được (map ≥60%, 07 §5). */}
+      <div
+        ref={boxRef}
+        className="pointer-events-auto max-h-[58dvh] space-y-3 overflow-y-auto surface p-4"
+      >
       {staleBar}
       {stopsSaveBar}
 
@@ -1095,25 +1091,19 @@ export function RoutePlanner({
             </button>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={clearRoute}
-              className="min-h-[3.5rem] rounded-xl bg-background text-[1rem] font-bold text-navy transition active:scale-[0.99]"
-            >
-              Xoá đường
-            </button>
-            <button
-              type="button"
-              onClick={compute}
-              disabled={busy}
-              className="min-h-[3.5rem] rounded-xl bg-t1 text-[1rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-60"
-            >
-              {busy ? "Đang tính lại…" : "Tính lại"}
-            </button>
-          </div>
+          {/*  "Xoá tuyến" đã nằm THƯỜNG TRỰC ở thanh trên — ở đây chỉ còn
+               "Tính lại" (đổi thông số tàu / thêm bớt chỗ rồi tính lại). */}
+          <button
+            type="button"
+            onClick={compute}
+            disabled={busy}
+            className="min-h-[3.5rem] w-full rounded-xl bg-background text-[1rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-60"
+          >
+            {busy ? "Đang tính lại…" : "Tính lại đường"}
+          </button>
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }

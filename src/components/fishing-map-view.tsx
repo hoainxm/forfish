@@ -108,13 +108,16 @@ import {
 } from "@/lib/sea-scalars";
 import {
   RouteMapLayers,
-  RoutePlanner,
+  RouteMode,
   RouteStopsLayers,
   type PlannedRoute,
 } from "@/components/route-planner";
 import {
+  addStop,
   loadStops,
   persistStops,
+  removeStop,
+  stopAt,
   type RouteStop,
 } from "@/lib/route-stops";
 import {
@@ -1135,20 +1138,16 @@ export default function FishingMapView() {
   /*  ĐƯỜNG ĐI NHIỀU ĐIỂM (2026-08-28) — chuỗi chỗ ghé bà con tự chấm, theo
       đúng khuôn `places` ở trên: MỘT cửa ghi duy nhất, ghi hỏng là phải nói ra
       (danh sách này cũng là thứ gõ tay, tải lại không được từ đâu). */
-  /** panel dẫn đường đang mở / đang tính → sheet không tự ẩn (xem đồng hồ dưới) */
-  const [routeActive, setRouteActive] = useState(false);
-  /*  LỐI TẮT "Dẫn đường" trên rail (user 2026-08-28) — MỘT chạm thay cho
-      chạm biển → vuốt sheet → cuộn tìm → bấm mở. Tăng số đếm là RoutePlanner
-      mở panel + tự cuộn tới nơi; dùng số chứ không dùng boolean để bấm lần
-      thứ hai (sau khi bà con tự thu) vẫn kích được. */
-  const [routeOpenReq, setRouteOpenReq] = useState(false);
+  /*  CHẾ ĐỘ DẪN ĐƯỜNG — MÀN RIÊNG (2026-08-28, chủ dự án: "bóc cái dẫn đường ra
+      khỏi sheet, làm như gmap ấy, độc lập"). Bật từ nút "Dẫn đường" trên rail.
+      Bật là sheet gió sóng thu hẳn xuống: hai thứ không tranh chỗ nhau nữa, và
+      cũng hết luôn cái cớ phải chống chế đồng hồ tự-ẩn cho panel dẫn đường. */
+  const [routeMode, setRouteMode] = useState(false);
   const openRoutePanel = useCallback(() => {
-    setSize("half"); // panel là biểu mẫu — phải ở nấc đọc được, không phải peek
-    setRouteOpenReq(true);
+    setRouteMode(true);
+    setSize("hidden"); // sheet gió sóng nhường chỗ — dẫn đường là màn riêng
   }, [setSize]);
-  // RoutePlanner xử lý xong thì TẮT cờ — không để cờ nằm lại, kẻo lần sau bà
-  // con chỉ vuốt sheet lên xem gió sóng mà panel cũng tự bung.
-  const clearRouteOpenReq = useCallback(() => setRouteOpenReq(false), []);
+  const closeRouteMode = useCallback(() => setRouteMode(false), []);
   const [stops, setStopsState] = useState<RouteStop[]>(() => loadStops());
   const [stopsSaveFailed, setStopsSaveFailed] = useState(false);
   const setStops = useCallback((next: RouteStop[]) => {
@@ -2176,7 +2175,7 @@ export default function FishingMapView() {
       như phần gió sóng mà đồng hồ 3 giây được thiết kế cho. */
   useEffect(() => {
     // nạp cờ cấm TRƯỚC khi quyết — `armSheetHide` (và mọi cú chạm gọi nó) đọc ref này
-    noAutoHideRef.current = borderLocked || routeActive;
+    noAutoHideRef.current = borderLocked;
     if (size === "hidden" || noAutoHideRef.current) {
       clearSheetHide();
       return;
@@ -2188,7 +2187,6 @@ export default function FishingMapView() {
     point.lat,
     point.lon,
     borderLocked,
-    routeActive,
     armSheetHide,
     clearSheetHide,
   ]);
@@ -2366,6 +2364,18 @@ export default function FishingMapView() {
           setGeoError(false);
           setPinning(false);
           setPoint({ lat, lon });
+          /*  ĐANG DẪN ĐƯỜNG: chạm bản đồ = THÊM CHỖ GHÉ luôn (2026-08-28,
+              "thao tác tối ưu"). Trước phải: chạm biển → vuốt sheet → cuộn →
+              bấm "Thêm chỗ này" = 4 thao tác cho MỘT chỗ; nay 1 chạm 1 chỗ.
+              Chấm lại đúng chỗ cũ thì BỎ chỗ đó — cùng một cử chỉ, thêm/bớt
+              không phải học hai cách. Đủ trần thì `addStop` trả nguyên danh
+              sách, thanh trên đã nói "đã đủ N chỗ". */
+          if (routeMode) {
+            const cur = stopAt(stops, lat, lon);
+            setStops(cur ? removeStop(stops, cur.id) : addStop(stops, lat, lon));
+            flyToPoint(lon, lat);
+            return; // KHÔNG mở sheet gió sóng — đang ở màn dẫn đường
+          }
           // kiểu Windy: chạm là sheet nằm GỌN ở đáy (peek) — bản đồ vẫn
           // thấy nguyên, số liệu tóm tắt hiện ngay, chi tiết bấm "Xem thêm"
           setSize("peek");
@@ -3595,6 +3605,30 @@ export default function FishingMapView() {
       )}
 
       {/* ── SHEET ĐÁY 3 NẤC — một chế độ duy nhất ────────────────────────── */}
+      {/*  CHẾ ĐỘ DẪN ĐƯỜNG — LỚP RIÊNG trên bản đồ, KHÔNG nằm trong sheet
+           (2026-08-28). Thanh trên bám mép trên, thẻ dưới bám trên dock; ở giữa
+           `pointer-events-none` để bà con vẫn CHẠM ĐƯỢC BẢN ĐỒ mà thêm chỗ ghé
+           — cả điểm của "một chạm một chỗ". z-30: trên rail và sheet, dưới HUD
+           dẫn đường LIVE (không đè cảnh báo ranh giới). Đang dẫn đường LIVE thì
+           ẩn hẳn — lúc đó HUD là thứ phải đọc. */}
+      {routeMode && !navMode && (
+        <div className="safe-pt pointer-events-none absolute inset-x-0 top-0 bottom-0 z-30 flex flex-col justify-between gap-2 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+          <RouteMode
+            dest={point}
+            activeRoute={route}
+            stops={stops}
+            onStops={setStops}
+            stopsSaveFailed={stopsSaveFailed}
+            places={places}
+            storms={storms}
+            stormInfo={stormInfo}
+            onRoute={handleRoute}
+            onStart={startNav}
+            onClose={closeRouteMode}
+          />
+        </div>
+      )}
+
       <SnapSheet
         size={size}
         onSizeChange={setSize}
@@ -4377,24 +4411,10 @@ export default function FishingMapView() {
                 </p>
               )}
 
-              {/* dẫn đường tiết kiệm dầu — hành động chính, để cao cho khỏi
-                  cuộn mới thấy (audit flow #10); đổi đích KHÔNG remount —
-                  panel tự dọn kết quả cũ, giữ thông số tàu */}
-              <RoutePlanner
-                dest={cond.point}
-                activeRoute={route}
-                stops={stops}
-                onStops={setStops}
-                stopsSaveFailed={stopsSaveFailed}
-                places={places}
-                storms={storms}
-                stormInfo={stormInfo}
-                onRoute={handleRoute}
-                onStart={startNav}
-                onActive={setRouteActive}
-                openRequest={routeOpenReq}
-                onOpenHandled={clearRouteOpenReq}
-              />
+              {/*  DẪN ĐƯỜNG ĐÃ RỜI KHỎI SHEET (2026-08-28) — nay là MÀN RIÊNG
+                   (<RouteMode/>, lớp nổi trên bản đồ), mở bằng nút "Dẫn đường"
+                   trên rail phải. Sheet này trở lại đúng một việc: liếc gió
+                   sóng chỗ đang xem. Xem 07 §10.7 H. */}
 
 
               {/* ghim chỗ này thành "Điểm của tôi" */}
