@@ -241,7 +241,7 @@ export function InstallBanner() {
         type="button"
         onClick={dismiss}
         aria-label="Ẩn nhắc cài về máy"
-        className={`${SQ_BTN} self-center text-foreground/50 active:bg-background`}
+        className={`${SQ_BTN} self-center text-foreground/70 active:bg-background`}
       >
         <CloseIcon className="h-6 w-6" />
         Ẩn

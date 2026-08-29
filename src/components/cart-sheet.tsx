@@ -279,9 +279,10 @@ export function CartSheet({
                       onItemsChange(removeItem(items, line.listingId))
                     }
                     aria-label={`Bỏ ${product.title} khỏi giỏ`}
-                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-danger active:bg-danger-bg"
+                    className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full text-danger active:bg-danger-bg"
                   >
                     <TrashIcon className="h-6 w-6" />
+                    <span className="text-[0.6875rem] font-bold leading-none">Bỏ</span>
                   </button>
                 </div>
                 <p className="mt-0.5 text-[0.9375rem] text-foreground/70">
@@ -312,9 +313,10 @@ export function CartSheet({
                     onItemsChange(removeItem(items, line.listingId))
                   }
                   aria-label="Bỏ món ngừng bán khỏi giỏ"
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-danger active:bg-danger-bg"
+                  className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full text-danger active:bg-danger-bg"
                 >
                   <TrashIcon className="h-6 w-6" />
+                  <span className="text-[0.6875rem] font-bold leading-none">Bỏ</span>
                 </button>
               </div>
             )}

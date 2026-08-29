@@ -4351,12 +4351,12 @@ export default function FishingMapView() {
                       type="button"
                       onClick={() => setPlaying((p) => !p)}
                       aria-label={playing ? "Dừng chạy" : "Chạy thử"}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy text-white active:scale-95"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-navy text-white active:scale-95"
                     >
                       {playing ? (
-                        <PauseIcon className="h-4 w-4" />
+                        <PauseIcon className="h-5 w-5" />
                       ) : (
-                        <PlayIcon className="h-4 w-4" />
+                        <PlayIcon className="h-5 w-5" />
                       )}
                     </button>
                   </div>

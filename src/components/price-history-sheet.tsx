@@ -188,7 +188,7 @@ export function PriceHistorySheet({
       trend = {
         Icon: MinusIcon,
         word: "gần như đi ngang",
-        color: "rgba(28,43,54,0.55)",
+        color: "var(--foreground)",
       };
   }
 

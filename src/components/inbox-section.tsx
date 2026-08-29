@@ -264,7 +264,7 @@ export function InboxSection() {
                   )}
                   <span className="min-w-0">{m.title}</span>
                 </span>
-                <span className="shrink-0 text-[0.8125rem] tabular-nums text-foreground/50">
+                <span className="shrink-0 text-[0.8125rem] tabular-nums text-foreground/70">
                   {fmt(m.sentAt)}
                 </span>
               </span>

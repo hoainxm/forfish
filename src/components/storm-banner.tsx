@@ -239,7 +239,7 @@ export function StormBanner({
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Thu gọn tin bão"
-                className={`-mr-1 -mt-1 ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                className={`-mr-1 -mt-1 ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
                   danger ? "text-danger" : "text-warn"
                 }`}
               >

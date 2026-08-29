@@ -191,7 +191,7 @@ export function SeaForecast() {
             <div className="grid grid-cols-2 border-t border-black/5 bg-card">
               <p className="flex min-h-[3.5rem] items-center justify-center gap-2 text-[1rem]">
                 <WavesIcon className="h-5 w-5 text-sea" />
-                Sóng <strong>{today.waveMaxM.toFixed(1)} m</strong>
+                Sóng <strong>{today.waveMaxM.toFixed(1).replace(".", ",")} m</strong>
               </p>
               <p className="flex min-h-[3.5rem] items-center justify-center gap-2 border-l border-line text-[1rem]">
                 <WindIcon className="h-5 w-5 text-sea" />
@@ -225,11 +225,11 @@ export function SeaForecast() {
                     >
                       ●
                     </span>
-                    <span className="w-[80px] shrink-0 text-[1rem] font-semibold capitalize">
+                    <span className="w-[5rem] shrink-0 text-[1rem] font-semibold capitalize">
                       {formatDay(d.date)}
                     </span>
                     <span
-                      className="display w-[52px] shrink-0 rounded-xl py-1 text-center text-[1.125rem] font-bold tabular-nums"
+                      className="display w-[3.25rem] shrink-0 rounded-xl py-1 text-center text-[1.125rem] font-bold tabular-nums"
                       style={{
                         color: levelColor[d.level].fg,
                         backgroundColor: levelColor[d.level].bg,
@@ -238,7 +238,7 @@ export function SeaForecast() {
                       {d.score}
                     </span>
                     <span className="flex-1 text-right text-[0.9375rem] leading-snug text-foreground/70 tabular-nums">
-                      sóng {d.waveMaxM.toFixed(1)} m
+                      sóng {d.waveMaxM.toFixed(1).replace(".", ",")} m
                       {d.waveEstimated && (
                         <span className="text-foreground/45"> (ước)</span>
                       )}{" "}
