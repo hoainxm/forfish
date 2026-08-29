@@ -418,7 +418,11 @@ export default function FishingMapView() {
     }
   }, []);
   const [seamarksOn, setSeamarksOn] = useState(true);
-  const [fishOn, setFishOn] = useState(true);
+  // Lớp ngư trường (dự báo cá) MẶC ĐỊNH ẨN (user chốt 2026-08-29): mở app không
+  // tự phủ lớp cá lên bản đồ — kể cả tài khoản premium; muốn xem thì tự bật lớp
+  // "Ngư trường" ở panel. Trước đây mặc định hiện, phủ sẵn gây rối cho người chỉ
+  // xem gió/sóng/hải đồ. State in-memory (không lưu) — mỗi lần mở đều bắt đầu ẩn.
+  const [fishOn, setFishOn] = useState(false);
   // Tuyến hàng hải (tàu hàng hay đi) + luồng/phân luồng — nhãn "tham khảo".
   // Mặc định BẬT: chủ dự án 2026-08-07 muốn hải đồ có đủ tuyến; là nét mảnh
   // xám-lam nên không lấn. Ẩn tự động khi bật lớp động (như nhãn đảo).
