@@ -324,6 +324,13 @@ export function RaKhoiControls({
     { id: "cai-dat", label: "Cài đặt", icon: SettingsIcon, color: "var(--navy)" },
   ];
 
+  // ĐẾN ĐIỂM · ĐIỂM ĐÃ LƯU · DẪN ĐƯỜNG = TÍNH NĂNG PREMIUM (user chốt 2026-08-29):
+  // ẨN HẲN khỏi acc thường (chưa đăng nhập "login" / hạng thường "upgrade"). Chỉ
+  // hiện ở nấc "open" (fishAccess = access tài khoản, dùng chung nấc với lớp cá).
+  // "checking" cũng ẩn — thà premium thấy nút hiện chậm một nhịp còn hơn nháy
+  // tính năng premium cho người thường rồi rút đi. Lớp + Vị trí vẫn cho mọi người.
+  const premiumTools = fishAccess === "open";
+
   return (
     <div
       className="pointer-events-none relative flex justify-end gap-2"
@@ -413,8 +420,8 @@ export function RaKhoiControls({
         </div>
       )}
 
-      {/* ĐIỂM ĐÃ LƯU — nổi cạnh nút, cùng khuôn ô toạ độ */}
-      {placesOpen && (
+      {/* ĐIỂM ĐÃ LƯU — nổi cạnh nút, cùng khuôn ô toạ độ (premium) */}
+      {premiumTools && placesOpen && (
         <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[70dvh] w-[19rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl">
           <DiemPanel
             cursor={cursor}
@@ -431,8 +438,8 @@ export function RaKhoiControls({
         </div>
       )}
 
-      {/* Ô GÕ TAY TOẠ ĐỘ — nổi cạnh nút "Đến điểm", độc lập với panel rail */}
-      {coordOpen && (
+      {/* Ô GÕ TAY TOẠ ĐỘ — nổi cạnh nút "Đến điểm", độc lập với panel rail (premium) */}
+      {premiumTools && coordOpen && (
         <div className="pointer-events-auto absolute right-[4.5rem] top-0 w-[19rem] max-w-[calc(100vw-5rem)] rounded-2xl bg-card/97 p-3 shadow-xl">
           <GoToPointPopup
             onGoCoord={onGoCoord}
@@ -483,8 +490,9 @@ export function RaKhoiControls({
           </span>
         </button>
 
-        {/* ĐẾN ĐIỂM — gõ tay toạ độ để nhảy tới điểm cần xem (không cần GPS,
-            chạy cả khi mất sóng). Đặt NGAY DƯỚI nút "Vị trí", luôn hiện. */}
+        {/* ĐẾN ĐIỂM (premium) — gõ tay toạ độ để nhảy tới điểm cần xem (không
+            cần GPS, chạy cả khi mất sóng). Đặt NGAY DƯỚI nút "Vị trí". */}
+        {premiumTools && (
         <button
           type="button"
           onClick={() => {
@@ -504,6 +512,7 @@ export function RaKhoiControls({
             Đến điểm
           </span>
         </button>
+        )}
 
         {/* DẪN ĐƯỜNG — LỐI TẮT tới panel dẫn đường trong sheet (user 2026-08-28:
             "tách cái dẫn đường ở sheet ra thành 1 button, đơn giản hoá thao
@@ -514,7 +523,8 @@ export function RaKhoiControls({
             xuất phát + 2 ô số + thẻ kết quả 3 con số + khối cảnh báo — rail rộng
             16,5rem không chứa nổi mà vẫn giữ được cỡ chữ ≥18px cho bà con. Rail
             giữ đúng vai "chỗ bấm", sheet giữ đúng vai "chỗ đọc" (07 §11). */}
-        {/* ĐIỂM ĐÃ LƯU — chỗ quen của chủ tàu, mở nhanh một chạm */}
+        {/* ĐIỂM ĐÃ LƯU (premium) — chỗ quen của chủ tàu, mở nhanh một chạm */}
+        {premiumTools && (
         <button
           type="button"
           onClick={() => {
@@ -535,8 +545,9 @@ export function RaKhoiControls({
             Điểm đã lưu
           </span>
         </button>
+        )}
 
-        {onRoutePanel && (
+        {premiumTools && onRoutePanel && (
           <button
             type="button"
             onClick={() => {

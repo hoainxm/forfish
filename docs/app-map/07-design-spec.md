@@ -22,7 +22,6 @@ last_verified: 2026-08-26
 <!-- re-verified: 2026-08-18d - doi chieu voi cac thay doi trong `src/app` cua ngay hom nay: `/api/storms` (them nguon NCHMF, gop hai nguon) va `/api/me/market-listings` (GET doi dang nhap) deu la tang DU LIEU/QUYEN, KHONG doi mot man hinh nao. Cac man co lien quan da duoc ta o hai ghi chu 2026-08-16 va 2026-08-18 ngay tren: canh bao thieu tin bao tren khoi ket qua tuyen (nay se HIEN THUC khi co ATND vi nguon VN da phu), cho tin doi dang nhap thi hien TIN MAU + nut Dang nhap (dung hanh vi truoc 2026-08-16), Cua hang/Don cua toi hien ban luu kem moc. Khong them man, khong doi token mau, khong doi co chu/tap target. -->
 <!-- re-verified: 2026-08-19 — GỘP BASE (sync base): các ghi chú 2026-08-18 ở trên nói app CÒN sổ/tủ/lịch MẪU — ở sdvico KHÔNG CÒN (bỏ demo 2026-07-29). Bốn màn kho-trên-máy (Bạn thuyền · tủ giấy tờ · nhắc bảo dưỡng · sản phẩm tàu) mở ra RỖNG kèm empty state; chợ tin cũng không có tin mẫu, mất sóng thì nói "chưa tải được" và GIỮ danh sách đang hiện. Giữ nguyên phần base về `readUserList`/băng đỏ đọc-hỏng, `StatusBanner` chốt phạm vi, và `login-gate.tsx` thì sdvico VẪN DÙNG. -->
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-08-29) — code 'src/components' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 ```
 <!-- gate: warn vì UI churn src/app+src/components cao — cảnh báo thay vì chặn. KHÔNG để comment cùng dòng `gate:` (hook tr -d ' ' giữ lại # → phá so khớp = "warn" → chặn nhầm). -->
@@ -775,9 +774,11 @@ Chủ dự án: *"2 chế độ lúc lưu và lúc dẫn đường đang hiển 
 | Nhóm | Gồm | Luật |
 |---|---|---|
 | **Tầng 1 — không ai được che** | banner bão · HUD dẫn đường LIVE · cảnh báo ranh giới ≤6 hl | Luôn hiện, đè lên mọi thứ (§12) |
-| **Rail 5 nút hành động** | Lớp · Vị trí · Đến điểm · Điểm đã lưu · Dẫn đường | Hiện ĐỒNG THỜI với mọi thứ — nó là **chỗ bấm**, không phải chỗ đọc, và không chiếm vùng giữa màn |
+| **Rail — 2 nút chung + 3 nút PREMIUM** | Lớp · Vị trí *(mọi người)* · Đến điểm · Điểm đã lưu · Dẫn đường *(chỉ premium — ghi chú dưới)* | Hiện ĐỒNG THỜI với mọi thứ — nó là **chỗ bấm**, không phải chỗ đọc, và không chiếm vùng giữa màn |
 | **Lớp nổi đè bản đồ — MỘT LÚC MỘT CÁI** | panel lớp của rail · ô "Đến điểm" · ô "Điểm đã lưu" · khung **Dẫn đường** · sheet gió sóng | **Loại trừ nhau.** Mở cái này là đóng cái kia. Vào dẫn đường ⇒ đóng sạch popup rail **và không dựng `<SnapSheet>`** |
 | **Vẽ trên bản đồ** | ghim điểm đã lưu · số chỗ ghé · tuyến · lớp gió/sóng/cá | Hiện đồng thời — cùng mục tiêu "chọn nơi tới", và chúng nằm TRÊN bản đồ chứ không chiếm khung |
+
+**ĐẾN ĐIỂM · ĐIỂM ĐÃ LƯU · DẪN ĐƯỜNG = PREMIUM, ẨN khỏi acc thường (user chốt 2026-08-29)**: ba nút này chỉ hiện khi nấc `fishAccess === "open"` (premium — dùng chung nấc với lớp cá qua `useFeatureAccess`). Acc thường (`"login"` chưa đăng nhập · `"upgrade"` hạng thường) và cả lúc `"checking"` đều **KHÔNG thấy nút** — ẩn hẳn, không phải khoá-có-nhãn (khác lớp cá: đây là công cụ, ẩn cho gọn rail thay vì bày ổ khoá). Popup của chúng (ô "Đến điểm", panel "Điểm đã lưu") cũng gate theo `premiumTools` để không sót cửa. `const premiumTools = fishAccess === "open"` trong `ra-khoi-controls.tsx`. **Lớp + Vị trí giữ cho mọi người.** Offline: premium đã lưu dấu (`cachedMark==="premium"`) vẫn ra `"open"` → giữ đủ 3 nút giữa biển.
 
 **Áp dụng — ba cặp đã cân nhắc:**
 
