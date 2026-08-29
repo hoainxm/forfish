@@ -818,6 +818,19 @@ export function RouteMode({
   /*  Có gì để dọn không: tuyến ĐÃ TÍNH **hoặc** chỗ ghé đã chấm. Bản đầu chỉ
       xét tuyến ⇒ chấm 3 chỗ rồi mà chưa bấm tính thì không có nút nào dọn, phải
       chạm lại từng chỗ để bỏ (đo thật 2026-08-28, bắt được). */
+  /*  KHOẢNG CÁCH TỪNG CHẶNG ngay lúc chấm điểm (2026-08-29, chủ dự án: "lúc
+      thêm các điểm thì tính luôn khoảng cách giữa các điểm liên tiếp").
+      Đây là CHIM BAY, không phải quãng tuyến đã né sóng/cạn — hai số khác nhau
+      nên chữ phải ghi rõ "thẳng", đừng để đọc nhầm thành quãng chạy thật.
+      Tính ngay, KHÔNG chờ bấm Tính: bà con cần biết chặng có quá dài không
+      TRƯỚC khi bỏ mươi giây chờ máy tính tuyến.
+      Chặng đầu đo từ nơi xuất phát; chọn "định vị" thì chưa biết toạ độ ⇒ trả
+      null và không hiện dòng nào — thà im còn hơn bịa số. */
+  const legKm = (i: number): number | null => {
+    const prev = i === 0 ? startCoord : stops[i - 1];
+    if (!prev) return null;
+    return haversineKm(prev, stops[i]);
+  };
   const currentStop = stopAt(stops, dest.lat, dest.lon);
   // ví dụ gõ khớp hệ toạ độ đang đặt — cùng câu với ô "Đến điểm" của rail
   const egCoord =
@@ -1110,10 +1123,14 @@ export function RouteMode({
           {/* các điểm đã chọn */}
           {compactRows &&
             stops.map((s, i) => (
-            <div
-              key={s.id}
-              className="flex items-center gap-2.5 rounded-xl bg-background px-3 py-1.5"
-            >
+            <div key={s.id}>
+            {legKm(i) != null && (
+              <p className="flex items-center gap-1.5 px-3 py-0.5 text-[0.8125rem] font-semibold text-foreground/60">
+                <span aria-hidden>↓</span>
+                {fmtDist(legKm(i)!, prefs.distUnit)} thẳng
+              </p>
+            )}
+            <div className="flex items-center gap-2.5 rounded-xl bg-background px-3 py-1.5">
               <span
                 className="display flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.875rem] font-bold text-white"
                 style={{ background: ROUTE_LINE_COLOR }}
@@ -1148,6 +1165,7 @@ export function RouteMode({
               >
                 <CloseIcon className="h-5 w-5" />
               </button>
+            </div>
             </div>
             ))}
 
@@ -1405,24 +1423,13 @@ export function RouteMode({
               (3) so với chạy thẳng + một câu dặn dò.
               Không bỏ thông tin nào, chỉ gộp. Bão vẫn là gạch đầu dòng ĐẦU
               TIÊN của khối 2 và kéo cả khối lên màu đỏ. */}
-          <p className="text-[0.9375rem] font-semibold text-foreground/70">
-            {result.startLabel}
-            {result.stops.length > 1
-              ? ` → qua ${result.stops.length} chỗ → `
-              : " → "}
-            {fmtCoordPair(
-              result.dest.lat,
-              result.dest.lon,
-              prefs.coordFormat,
-            )}{" "}
-            — tuyến đã vẽ trên bản đồ.
-            {result.stops.length > 1 && (
-              <>
-                {" "}
-                Ba con số dưới là <b>cả đường đi</b>, đã cộng hết các chặng.
-              </>
-            )}
-          </p>
+          {/*  ĐÃ BỎ đoạn "{startLabel} → {toạ độ} — tuyến đã vẽ trên bản đồ. Ba
+               con số dưới là cả đường đi…" (chủ dự án 2026-08-29: "các loại giải
+               thích vớ vẩn ko phải là cái cấp data hay info thì bỏ hết đi").
+               Nó KHÔNG cấp dữ liệu: nơi đi/nơi đến đã nằm ngay trong biểu mẫu
+               phía trên, "tuyến đã vẽ trên bản đồ" thì nhìn bản đồ là thấy, còn
+               "ba con số là cả đường đi" là giải thích cách đọc chứ không phải
+               con số. Ba dòng chữ đổi lấy ba dòng chỗ trong một khung đã chật. */}
 
           {/*  (1) NGUY HIỂM TRÊN TUYẾN — chỉ khi có. ĐỨNG TRƯỚC lưới 3 con
                số (đổi chỗ 2026-08-28k): khối ghim đáy là con CUỐI của khung
@@ -1519,45 +1526,46 @@ export function RouteMode({
             );
           })()}
 
-          {/* (3) So với chạy thẳng — không có nhánh nào được phép nói "chạy
-              thẳng" khi tuyến vẽ là đường vòng — + MỘT câu dặn dò */}
-          <div className="space-y-1.5">
+          {/*  (3) SO VỚI CHẠY THẲNG — RÚT VỀ MỘT DÒNG CHỮ (2026-08-29, chủ dự
+               án: "các loại giải thích vớ vẩn ko phải là cái cấp data hay info
+               thì bỏ hết đi"). Trước là 5 nhánh, mỗi nhánh một KHỐI BO TRÒN CÓ
+               NỀN 3 dòng — chiếm chỗ như một cảnh báo trong khi phần lớn chỉ là
+               lời bình. Nay: nhánh nào KHÔNG cấp con số thì IM (bỏ hẳn nhánh
+               "Hôm nay chạy thẳng là hợp lý nhất" — nó không nói thêm gì mà 3
+               con số chưa nói); nhánh còn lại rút một câu, bỏ nền, để màu chữ
+               gánh mức độ. */}
+          <div className="space-y-1">
             {plan.cappedToDirect ? (
-              <p className="rounded-xl bg-warn-bg p-3 text-[0.9375rem] font-semibold leading-snug text-warn">
-                Không có đường vòng nào đáng tiền để né sóng — tuyến vẽ là ĐƯỜNG
-                THẲNG, trên đường có đoạn sóng tới{" "}
-                {formatNumberVN(plan.maxWaveM)} m. Cân nhắc hoãn hoặc đợi biển
-                êm hơn.
+              <p className="text-[0.9375rem] font-semibold leading-snug text-warn">
+                Không có đường vòng nào đáng tiền — tuyến vẽ là đường THẲNG, có
+                đoạn sóng tới {formatNumberVN(plan.maxWaveM)} m.
               </p>
             ) : plan.direct === null ? (
-              <p className="rounded-xl bg-warn-bg p-3 text-[0.9375rem] font-semibold leading-snug text-warn">
-                Đường chim bay đang vướng đất liền, bãi cạn hoặc sóng quá dữ —
-                tuyến này đi vòng qua chỗ đó.
+              <p className="text-[0.9375rem] font-semibold leading-snug text-warn">
+                Đường chim bay vướng đất liền / bãi cạn / sóng quá dữ — tuyến
+                này đi vòng qua.
               </p>
             ) : plan.fuelDeltaL != null &&
               -plan.fuelDeltaL > Math.max(3, plan.direct.fuelL * 0.03) &&
               plan.distKm > plan.direct.distKm * 1.02 ? (
-              <p className="rounded-xl bg-ok-bg p-3 text-[0.9375rem] font-semibold leading-snug text-ok">
-                Đi hơi vòng nhưng êm hơn — đỡ chừng{" "}
-                {Math.round(-plan.fuelDeltaL)} lít dầu so với chạy thẳng.
+              <p className="text-[0.9375rem] font-semibold leading-snug text-ok">
+                Đi vòng nhưng đỡ ~{Math.round(-plan.fuelDeltaL)} lít so với chạy
+                thẳng.
               </p>
-            ) : plan.distKm <= plan.direct.distKm * 1.05 ? (
-              <p className="rounded-xl bg-ok-bg p-3 text-[0.9375rem] font-semibold leading-snug text-ok">
-                Hôm nay chạy thẳng là hợp lý nhất — tuyến vẽ theo đường đó.
-              </p>
-            ) : (
-              <p className="rounded-xl bg-warn-bg p-3 text-[0.9375rem] font-semibold leading-snug text-warn">
-                Tuyến vòng nhẹ để né đoạn sóng ~
-                {formatNumberVN(plan.direct.maxWaveM)} m trên đường thẳng — tốn
-                thêm chừng {Math.max(1, Math.round(plan.fuelDeltaL ?? 0))} lít.
-                Êm hơn nhưng không rẻ hơn, bà con tự cân nhắc.
+            ) : plan.distKm <= plan.direct.distKm * 1.05 ? null : (
+              <p className="text-[0.9375rem] font-semibold leading-snug text-warn">
+                Vòng né sóng ~{formatNumberVN(plan.direct.maxWaveM)} m — tốn
+                thêm ~{Math.max(1, Math.round(plan.fuelDeltaL ?? 0))} lít.
               </p>
             )}
+            {/*  Dòng cuối GIỮ LẠI hai thứ, không được cắt: con số đoạn xấu nhất
+                 (data) và câu dặn hải đồ + đài duyên hải (01-product bắt buộc,
+                 app không thay máy định vị của tàu). Phần diễn giải lưới độ sâu
+                 rút còn một vế. */}
             <p className="text-[0.875rem] leading-snug text-foreground/65">
               Đoạn xấu nhất: sóng ~{formatNumberVN(plan.maxWaveM)} m, gió cấp{" "}
-              {beaufort(plan.maxWindKmh)}. Tuyến tính từ dự báo từng giờ và bản đồ
-              độ sâu ô ~5,5 km (rạn nhỏ, đá ngầm lẻ, luồng lạch máy KHÔNG thấy) —
-              chỉ tham khảo; dò hải đồ, nghe đài duyên hải trước khi chạy.
+              {beaufort(plan.maxWindKmh)}. Lưới độ sâu ô ~5,5 km — dò hải đồ,
+              nghe đài duyên hải trước khi chạy.
             </p>
           </div>
 
@@ -1601,40 +1609,35 @@ export function RouteMode({
                    Khi `editing` bật thì khối này không tồn tại (thanh ghim lúc
                    đó là của biểu mẫu, nút "Tính lại đường") — CỐ Ý: đang sửa
                    danh sách thì ba con số là của tuyến TRƯỚC khi sửa. */}
-              <p className="display px-3 pt-2 text-[1rem] font-bold leading-snug text-navy">
-                {fmtDist(plan.distKm, prefs.distUnit)} ·{" "}
-                {formatHoursVN(plan.hours)} chạy máy · ~
-                {Math.round(plan.fuelL)} lít dầu
-              </p>
-              {/*  DẢI CẢNH BÁO NẰM TRONG CHÍNH THANH GHIM. Khối đỏ đầy đủ ở
-                   trên có thể chưa cuộn tới (thanh ghim là con cuối của khung
-                   cuộn, nền đục ⇒ nội dung trước nó chui xuống dưới nó), mà
-                   CLAUDE.md cấm giấu cảnh báo an toàn. Dải này không cuộn mất,
-                   không bị nút đè, dính sát mép trên thanh ghim nên đọc như
-                   NHÃN CỦA NÚT chứ không phải khối cảnh báo thứ tư — vuông góc,
-                   không bo tròn, không `active:`, không bấm được.
-                   CỐ Ý KHÔNG role="alert": khối đầy đủ đã là alert, hai alert
-                   cùng nội dung là trình đọc màn hình đọc hai lần. */}
-              {dangerItems.length > 0 && (
-                <p
-                  className={`flex items-center gap-2 px-3 py-2 text-[0.9375rem] font-bold leading-snug ${
-                    anyDanger
-                      ? "bg-danger-bg text-danger"
-                      : "bg-warn-bg text-warn"
-                  }`}
-                >
-                  <AlertIcon className="h-5 w-5 shrink-0" />
-                  Trên tuyến có chỗ nguy hiểm — đọc kỹ bên trên trước khi chạy
+              {/*  MỘT HÀNG: số liệu bên trái + nút NHỎ bên phải (chủ dự án
+                   2026-08-29: "thiết kế cái nút dẫn đường nhỏ lại, thành 1 ô nhỏ
+                   thôi đỡ chiếm chỗ"). Trước đây chân thẻ ba tầng — dòng số ·
+                   dải cảnh báo · nút full-width — ăn hết khung đọc, chữ trong
+                   thân bị kẹp giữa hai thanh ghim, cuộn cũng không đọc nổi.
+                   Dải cảnh báo riêng đã bỏ: nó là CHỈ DẪN trùng ("đọc kỹ bên
+                   trên"), không cấp dữ liệu. Thay bằng CON SỐ thật ghép vào
+                   chính dòng số liệu — sóng cao bao nhiêu mới là thứ quyết định
+                   đi hay không, và nó không cuộn mất. */}
+              <div className="flex items-center gap-2 px-3 py-2">
+                <p className="display min-w-0 flex-1 text-[0.9375rem] font-bold leading-snug text-navy">
+                  {fmtDist(plan.distKm, prefs.distUnit)} ·{" "}
+                  {formatHoursVN(plan.hours)} · ~{Math.round(plan.fuelL)} lít
+                  {dangerItems.length > 0 && (
+                    <span
+                      className={anyDanger ? "text-danger" : "text-warn"}
+                    >
+                      {" "}
+                      · sóng tới {formatNumberVN(plan.maxWaveM)} m
+                    </span>
+                  )}
                 </p>
-              )}
-              <div className="px-3 pb-3 pt-2">
                 <button
                   type="button"
                   onClick={() => onStart(result)}
-                  className="flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99]"
+                  className="flex min-h-[3.5rem] shrink-0 items-center gap-1.5 rounded-full bg-t1 px-4 text-[1rem] font-bold text-white transition active:scale-95"
                 >
-                  <PlayIcon className="h-6 w-6" />
-                  {anyDanger ? "Vẫn bắt đầu dẫn đường" : "Bắt đầu dẫn đường"}
+                  <PlayIcon className="h-5 w-5" />
+                  Dẫn đường
                 </button>
               </div>
             </div>

@@ -114,6 +114,7 @@ export function RaKhoiControls({
   onClearMeasure,
   onLocateMe,
   onGoCoord,
+  cursor,
   onRoutePanel,
   routeOn = false,
   locating,
@@ -125,6 +126,8 @@ export function RaKhoiControls({
   onGoCoord: (lat: number, lon: number) => void;
   /*  Bấm "Dẫn đường" → LỐI TẮT: mở sheet ở nấc cao + mở sẵn panel dẫn đường +
       cuộn tới nơi (fishing-map-view lo). Không truyền = không hiện nút. */
+  /** chỗ đang trỏ trên bản đồ — form lưu điểm dùng để "lấy chỗ đang trỏ" */
+  cursor?: { lat: number; lon: number } | null;
   onRoutePanel?: () => void;
   /*  ĐANG Ở TRONG chế độ dẫn đường — nút phải TRÔNG KHÁC HẲN (user
       2026-08-28e: "hiện thời ko khác gì nhau"). Cùng khuôn nút "Đến điểm":
@@ -351,6 +354,7 @@ export function RaKhoiControls({
       {placesOpen && (
         <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[70dvh] w-[19rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl">
           <DiemPanel
+            cursor={cursor}
             showPlaces={showPlaces}
             onShowPlaces={onShowPlaces}
             places={places}
@@ -594,9 +598,10 @@ function PanelHeader({
           ✕
         </button>
       </div>
-      <p className="mt-1 text-[0.75rem] leading-snug text-foreground/65">
-        Chọn dữ liệu nào hiện trên bản đồ · số liệu điểm nằm ở sheet dưới
-      </p>
+      {/*  ĐÃ BỎ dòng "Chọn dữ liệu nào hiện trên bản đồ · số liệu điểm nằm ở
+           sheet dưới" (2026-08-29). Nó là lời DẪN GIẢI, không cấp dữ liệu — và
+           `PanelHeader` dùng chung nên nó lọt sang cả ô "Đến điểm — gõ toạ độ",
+           nơi câu đó còn SAI (ô ấy không chọn lớp nào cả). */}
     </div>
   );
 }
@@ -959,6 +964,7 @@ function ThoiTietPanel({
 }
 
 function DiemPanel({
+  cursor,
   showPlaces,
   onShowPlaces,
   places,
@@ -966,6 +972,7 @@ function DiemPanel({
   onGoPlace,
   onClose,
 }: {
+  cursor?: { lat: number; lon: number } | null;
   showPlaces: boolean;
   onShowPlaces: (on: boolean) => void;
   places: SavedPlace[];
@@ -976,8 +983,7 @@ function DiemPanel({
   return (
     <div>
       <Toggle
-        label="Hiện trên bản đồ"
-        sub="Đánh dấu các điểm đã lưu"
+        label="Hiện điểm trên bản đồ"
         on={showPlaces}
         onToggle={() => onShowPlaces(!showPlaces)}
         icon={<StarIcon className="h-5 w-5 text-navy" />}
@@ -985,6 +991,7 @@ function DiemPanel({
       <div className="mt-3">
         {/* quản lý điểm NGAY trong panel — compact cho rail hẹp */}
         <MyPlacesContent
+          cursor={cursor}
           places={places}
           onPlaces={onPlaces}
           onGo={onGoPlace}
@@ -1030,9 +1037,6 @@ function GoToPointPopup({
     <div>
       <PanelHeader title="Đến điểm — gõ toạ độ" onClose={onClose} />
       <label className="mb-2 block">
-        <span className="mb-1 block text-[0.8125rem] font-bold text-navy">
-          Vĩ độ (Bắc)
-        </span>
         <input
           type="text"
           inputMode="text"
@@ -1047,9 +1051,6 @@ function GoToPointPopup({
         />
       </label>
       <label className="mb-2 block">
-        <span className="mb-1 block text-[0.8125rem] font-bold text-navy">
-          Kinh độ (Đông)
-        </span>
         <input
           type="text"
           inputMode="text"
@@ -1079,10 +1080,11 @@ function GoToPointPopup({
       >
         Đến điểm
       </button>
-      <p className="mt-2 text-[0.75rem] leading-snug text-foreground/65">
-        Gõ độ-phút (vd 8 30) hoặc độ thập phân (vd 8,5). Vùng biển mình mặc định
-        Bắc/Đông — gõ Nam/Tây thì thêm chữ S/W hoặc dấu trừ.
-      </p>
+      {/*  ĐÃ BỎ đoạn "Gõ độ-phút (vd 8 30) hoặc độ thập phân… thêm chữ S/W
+           hoặc dấu trừ" (2026-08-29). Ví dụ gõ đã nằm ngay trong placeholder
+           của chính ô, theo đúng hệ đang cài — nhắc lại ở dưới là dạy lại thứ
+           vừa chỉ. Phần S/W là ca hiếm (biển mình Bắc/Đông); ai gõ vào vẫn đọc
+           được, và gõ sai thì câu lỗi nói đúng cách gõ. */}
     </div>
   );
 }
@@ -1299,7 +1301,10 @@ function Toggle({
   icon,
 }: {
   label: string;
-  sub: string;
+  /*  Dòng phụ TUỲ CHỌN (2026-08-29): chủ dự án yêu cầu bỏ các câu giải thích
+      không cấp dữ liệu. Toggle nào mà nhãn đã tự nói hết thì không truyền
+      `sub` — đỡ một dòng chữ trong panel vốn đã chật. */
+  sub?: string;
   on: boolean;
   onToggle: () => void;
   icon: React.ReactNode;
@@ -1317,7 +1322,9 @@ function Toggle({
         <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
           {label}
         </span>
-        <span className="block text-[0.6875rem] text-foreground/65">{sub}</span>
+        {sub && (
+          <span className="block text-[0.6875rem] text-foreground/65">{sub}</span>
+        )}
       </span>
       <span
         className={`flex h-7 w-12 shrink-0 items-center rounded-full px-0.5 transition ${on ? "justify-end bg-ok" : "justify-start bg-line"}`}

@@ -20,11 +20,12 @@ import {
 } from "@/lib/places";
 import { FISHING_PORTS } from "@/data/fishing-ports";
 import { parseCoordPair } from "@/lib/parse-coord";
-import { useMapPrefs } from "@/lib/map-prefs";
+import { useMapPrefs, fmtLat, fmtLon, fmtCoordPair } from "@/lib/map-prefs";
 import {
   AnchorIcon,
   EditIcon,
   HomeIcon,
+  PinIcon,
   PlusIcon,
   SearchIcon,
   StarIcon,
@@ -35,6 +36,7 @@ export function MyPlacesContent({
   places,
   onPlaces,
   onGo,
+  cursor,
   onClose,
   compact = false,
 }: {
@@ -42,6 +44,10 @@ export function MyPlacesContent({
   onPlaces: (next: SavedPlace[]) => void;
   /** mở một điểm đã lưu (bay tới + xem dự báo) */
   onGo: (lat: number, lon: number) => void;
+  /*  Chỗ đang trỏ trên bản đồ. Có nó thì form lưu điểm mới có đường
+      "lấy chỗ đang trỏ" — không có thì bà con phải tự đọc toạ độ ở ô trên
+      màn rồi gõ lại vào đây, chép tay một dãy số 15 ký tự trên tàu lắc. */
+  cursor?: { lat: number; lon: number } | null;
   onClose: () => void;
   /** compact = panel rail hẹp: nút thao tác icon nhỏ, không trải rộng */
   compact?: boolean;
@@ -117,10 +123,7 @@ export function MyPlacesContent({
           </span>
           <span className="flex-1">
             <span className="block text-[1rem] font-bold text-navy">
-              Thêm điểm theo toạ độ
-            </span>
-            <span className="block text-[0.8125rem] text-foreground/65">
-              Gõ vĩ độ / kinh độ &amp; đặt tên
+              Thêm điểm
             </span>
           </span>
         </button>
@@ -132,6 +135,26 @@ export function MyPlacesContent({
             placeholder="Tên điểm (vd: Bãi cá ngừ)"
             className="mb-2 min-h-[3rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
           />
+          {/*  LẤY CHỖ ĐANG TRỎ (2026-08-29, chủ dự án: "cho chọn điểm đang trỏ
+               trên bản đồ hoặc gõ toạ độ"). Điền vào hai ô theo ĐÚNG hệ toạ độ
+               đang cài trong app — điền xong bà con vẫn sửa được, và chuỗi điền
+               ra đọc lại được bằng chính `parseCoordPair` (có test round-trip). */}
+          {cursor && (
+            <button
+              type="button"
+              onClick={() => {
+                setAddLat(fmtLat(cursor.lat, prefs.coordFormat));
+                setAddLon(fmtLon(cursor.lon, prefs.coordFormat));
+              }}
+              className="mb-2 flex min-h-[3rem] w-full items-center gap-2 rounded-xl bg-field px-3 text-left text-[0.9375rem] font-bold text-t1 transition active:scale-[0.99]"
+            >
+              <PinIcon className="h-5 w-5 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">
+                Lấy chỗ đang trỏ —{" "}
+                {fmtCoordPair(cursor.lat, cursor.lon, prefs.coordFormat)}
+              </span>
+            </button>
+          )}
           <div className="mb-2 grid grid-cols-2 gap-2">
             <input
               value={addLat}

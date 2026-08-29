@@ -3448,6 +3448,7 @@ export default function FishingMapView() {
           />
           <RaKhoiControls
             onLocateMe={goToMyBoat}
+            cursor={point}
             onRoutePanel={openRoutePanel}
             routeOn={routeMode}
             locating={locating}

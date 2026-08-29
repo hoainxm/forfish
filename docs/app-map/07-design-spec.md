@@ -718,6 +718,20 @@ Ba chỗ **cố ý KHÁC** ranh giới (F), đừng "đồng bộ" cho gọn:
   🟡 **OFFLINE (4 câu soi của CLAUDE.md, cho cả năm việc)**: (a) **không thêm request mạng nào** — `destDepth` đọc state đã có từ lưới tĩnh cùng origin, `flyToPoint` là camera cục bộ; (b) **không đụng `public/sw.js`, `SHELL`, danh sách cache, hay khoá `forfish.*`**; (c) **không nhánh nào mất/đè dữ liệu đã tải** (không xoá cache, không bump phiên bản kho, `forfish.routestops.v1` không đổi shape); (d) không màn mới nào được thêm — mọi thay đổi là CSS/JSX trong màn đã có, nhánh mất sóng của thẻ (`offlineSavedAt`) giữ nguyên. ⚠️ **CHƯA ĐO**: nhánh MẤT SÓNG của chế độ dẫn đường vẫn chưa lần nào được dựng và soi tận mắt (ba vòng liền) — còn nợ, phải chạy `ops/qa-offline-acceptance.md` trước khi coi chế độ này là xong.
   ❌ **KHÔNG tự làm trong vòng này** (đã cân nhắc và bác, cần chủ dự án chốt): hạ trần `max-h-[38dvh]` hay cắt header để bản đồ đạt sàn ≥60% (§5) — đánh đổi cross-trục đã ghi ở trên; đổi "bấm thân hàng Thêm điểm dừng = thêm luôn chỗ đang xem" (trái quyết định 28d, biến một hàng thành hai đích chạm); nâng sàn tap/cỡ chữ bằng cách sửa `html[data-mode="gon"]` (token cross-trục ảnh hưởng TOÀN app, không được sửa lén trong một commit về dẫn đường).
 
+**J. CẮT CHỮ KHÔNG CẤP DỮ LIỆU + KHOẢNG CÁCH TỪNG CHẶNG (2026-08-29)**
+
+Chủ dự án: *"các loại giải thích vớ vẩn ko phải là cái cấp data hay info thì bỏ hết đi"* · *"thiết kế cái nút dẫn đường nhỏ lại, thành 1 ô nhỏ thôi"* · *"lúc thêm các điểm thì tính luôn khoảng cách giữa các điểm liên tiếp"*.
+
+**Luật cắt copy**: một dòng chữ chỉ được ở lại nếu nó **cấp dữ liệu** (con số, trạng thái, giới hạn nguồn) hoặc là **dặn dò bắt buộc** theo [01-product](01-product.md) (hải đồ + đài duyên hải). Dòng chỉ giải thích cách đọc, hoặc nhắc lại thứ vừa hiện, thì bỏ.
+
+Đã cắt: "…— tuyến đã vẽ trên bản đồ. Ba con số dưới là cả đường đi, đã cộng hết các chặng" · dải "Trên tuyến có chỗ nguy hiểm — đọc kỹ bên trên trước khi chạy" (chỉ dẫn trùng) · nhánh "Hôm nay chạy thẳng là hợp lý nhất" (không nói thêm gì so với 3 con số) · 4 khối bo tròn của mục "so với chạy thẳng" → còn **một dòng chữ màu** · "Gõ độ-phút (vd 8 30) hoặc độ thập phân…" ở ô Đến điểm (placeholder đã nêu ví dụ đúng hệ) · hai nhãn "Vĩ độ (Bắc)" / "Kinh độ (Đông)" · sub "Đánh dấu các điểm đã lưu" · sub "Gõ vĩ độ / kinh độ & đặt tên" · dòng dẫn giải của `PanelHeader` ("Chọn dữ liệu nào hiện trên bản đồ…") — nó dùng chung nên lọt sang cả ô "Đến điểm", nơi câu đó còn SAI.
+
+**Chân thẻ kết quả gộp MỘT hàng**: số liệu bên trái + **nút nhỏ** "▶ Dẫn đường" bên phải (pill, không full-width). Trước là ba tầng ghim đáy (dòng số · dải cảnh báo · nút full-width) ăn hết khung đọc, chữ trong thân bị kẹp giữa hai thanh ghim. Cảnh báo nay đi bằng **con số** ghép vào chính dòng số liệu ("· sóng tới 4,2 m", tô đỏ) — dữ liệu chứ không phải lời nhắc, và không cuộn mất.
+
+**Khoảng cách từng chặng** hiện ngay lúc chấm điểm, KHÔNG chờ bấm Tính: giữa các hàng có dòng "↓ 193 hải lý thẳng". Ghi rõ **"thẳng"** vì đây là chim bay, khác quãng tuyến đã né sóng/cạn. Chặng đầu đo từ nơi xuất phát; chọn "định vị" thì chưa biết toạ độ ⇒ **không hiện dòng nào**, thà im còn hơn bịa số.
+
+**Thêm điểm có hai đường, ở mọi form toạ độ**: chọn *chỗ đang trỏ trên bản đồ* hoặc *gõ toạ độ*. Form lưu điểm ("Điểm đã lưu → Thêm điểm") có nút **"Lấy chỗ đang trỏ — <toạ độ>"** điền sẵn theo `prefs.coordFormat`; chuỗi điền ra đọc lại được bằng chính `parseCoordPair` (có test round-trip `fmtLat/fmtLon → parseOneCoord` ở cả `dd` lẫn `dms`).
+
 **I. LUẬT HIỂN THỊ LỚP NỔI — CÁI NÀO ĐƯỢC HIỆN CÙNG LÚC (2026-08-29)**
 
 Chủ dự án: *"2 chế độ lúc lưu và lúc dẫn đường đang hiển thị 1 lúc nó bị chồng chéo và rối nhau… tổ chức 1 logic hiển thị các layer, các menu… khi cân nhắc thì xác định tỷ lệ user sử dụng theo cách đó bao nhiêu, chỉ hỗ trợ cho cái từ 50% trở lên."*
