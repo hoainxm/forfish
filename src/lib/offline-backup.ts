@@ -131,6 +131,7 @@ export const TRANSFER_KEYS = [
   "forfish.boat.v1",
   "forfish.places.v1",
   "forfish.routestops.v1",
+  "forfish.savedroutes.v1",
   "forfish.maintenance.v1",
   "forfish.products.v1",
   "forfish.buyers.v1",
@@ -396,6 +397,12 @@ const PERSONAL_SPECS: Record<string, BackupGroupSpec> = {
     id: "routestops",
     name: "chỗ ghé của đường đi",
     unit: "chỗ",
+    kind: "personal",
+  },
+  "forfish.savedroutes.v1": {
+    id: "savedroutes",
+    name: "đường đi đã lưu",
+    unit: "đường",
     kind: "personal",
   },
   "forfish.maintenance.v1": {

@@ -874,6 +874,19 @@ Chủ dự án: *"click vào giữ 3s thì nó xổ ra lựa chọn là lưu hay
 
 > **CÒN TREO (không sửa vòng này, đã ghi để BA/design chốt)**: hai thanh ghim ăn 60–65% chiều cao thẻ 252px (cửa đọc thật 87–92px), riêng thanh ghim TRÊN gánh 4 ô điều khiển (Đóng · tiêu đề · Tuỳ chọn · Xoá hết) cho một thân thẻ chỉ 2 hàng; và bản đồ còn **59,5% màn** khi mở thẻ — hụt sàn 60% ngay ở trạng thái nhẹ nhất (xem câu hỏi treo ở J2 về cách đo mốc). Cắt ngân sách thanh ghim trên lãi hơn cả bốn miếng vá cộng lại, nhưng đó là quyết định bố cục, không phải việc lẻ.
 
+**M. CHẠM BẢN ĐỒ = TOGGLE CHỌN ↔ TRẢ VỀ TRỐNG (2026-08-29g)**
+
+Chủ dự án: *"thao tác trên bản đồ, 1 click là chọn điểm (hiển thị thông tin), 1 click tiếp theo là trả bản đồ về trống, rồi 1 click tiếp theo lại chọn, để tránh khi nào cũng là click chọn rồi tính vị trí nhìn rối mắt"*.
+
+**Luồng xem THƯỜNG** (không dẫn đường, không đang đo, không mở lớp rail) đổi từ "cứ chạm là chọn điểm mới" sang **toggle 3 trạng thái** (state `pick` trong `fishing-map-view.tsx`):
+- `idle` — mở app, đang bày cảng nhà mặc định. Chạm lần đầu → **chọn** đúng điểm vừa chạm (không phải xoá cảng nhà) → `picked`.
+- `picked` — đang có điểm chọn: bày con trỏ (ghim cá) + đường tàu→trỏ + đường/nhãn tới ranh giới + sheet gió sóng + hàng "Trỏ" trong ô toạ độ. Chạm lần nữa → **trả bản đồ về trống** (ẩn hết các overlay theo con trỏ + ẩn sheet), **KHÔNG dời con trỏ** → `cleared`.
+- `cleared` — bản đồ trống (chỉ còn nền + ghim tàu + sao vàng các điểm đã lưu — những thứ KHÔNG theo con trỏ). Chạm lần nữa → chọn lại → `picked`.
+
+**Không áp cho luồng có chủ đích**: dẫn đường (`routeMode`) / đo (`measureMode`) / mở lớp rail (`railLayerOpen`) — ở đó chạm = dời con trỏ như cũ. Luồng KHÁC mở lại sheet (chọn điểm đã lưu, về vị trí tàu) tự đưa `cleared→picked` (con trỏ bày lại) để cú chạm thường sau vẫn trả về trống được.
+
+**OFFLINE**: cú chạm-xoá `return` TRƯỚC `setPoint` nên **không sinh request mạng nào** (không đổi `point` → không kích effect tải dự báo), mất sóng ngoài biển chạm thoải mái. Overlay ẩn khi `pick === "cleared"`: ghim con trỏ, đường tàu→trỏ (`cursor-line`), đường + nhãn tới biên (`border-line`), hàng "Trỏ" của `PlotterReadout` (prop `cursor` nhận `null`).
+
 ### 10.8 OFFLINE TRÊN WEB — giữ cache khỏi bị trình duyệt dọn (2026-07-28)
 
 Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔNG chỉ PWA đã cài — miễn mở khi còn sóng ít nhất 1 lần (SW cài + pretrip tải) trên HTTPS. Nhưng bộ nhớ tab là "best-effort": máy đầy thì trình duyệt tự xoá; riêng **iOS Safari xoá SẠCH storage sau ~7 ngày không dùng nếu CHƯA cài về màn hình chính** — chuyến 5–16 ngày mất dữ liệu giữa chuyến. Hai việc để web offline đáng tin:

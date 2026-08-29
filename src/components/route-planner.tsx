@@ -36,6 +36,12 @@ import {
   type WeatherField,
 } from "@/lib/route-plan";
 import { planRouteAsync } from "@/lib/route-plan-async";
+import {
+  addSavedRoute,
+  removeSavedRoute,
+  suggestName,
+  type SavedRoute,
+} from "@/lib/saved-routes";
 import { mergeLegPlans } from "@/lib/route-multi";
 import {
   cumulativeKmAt,
@@ -519,6 +525,9 @@ export function RouteMode({
   stops = [],
   onStops,
   stopsSaveFailed = false,
+  savedRoutes = [],
+  onSavedRoutes,
+  savedRoutesSaveFailed = false,
   onStartCoord,
   storms = [],
   stormInfo,
@@ -543,6 +552,11 @@ export function RouteMode({
   onStops?: (list: RouteStop[]) => void;
   /** máy KHÔNG giữ được danh sách — phải nói ra, đừng để bà con tưởng đã lưu */
   stopsSaveFailed?: boolean;
+  /*  ĐƯỜNG ĐÃ LƯU — cha giữ kho và cửa ghi (án lệ K4), thẻ này chỉ đọc và gọi
+      `onSavedRoutes` với danh sách MỚI. */
+  savedRoutes?: SavedRoute[];
+  onSavedRoutes?: (l: SavedRoute[]) => void;
+  savedRoutesSaveFailed?: boolean;
   /** báo nơi xuất phát đang chọn ra màn cha để vẽ nhãn đoạn đầu trên bản đồ */
   onStartCoord?: (c: LatLon | null) => void;
   /** Tin bão đang hoạt động (từ useStormCheck của màn bản đồ, gồm cả tin cũ
@@ -567,7 +581,7 @@ export function RouteMode({
       chỗ"). `idle` = dòng tóm tắt + nút Tính; `start` = CHỈ danh sách nơi xuất
       phát; `boat` = CHỈ hai ô thông số tàu. Trước đó bấm một cái xổ ra cả hai,
       thẻ cao gấp đôi mà bà con chỉ cần đổi một thứ. */
-  const [panel, setPanel] = useState<"idle" | "start" | "boat" | "dest">(
+  const [panel, setPanel] = useState<"idle" | "start" | "boat" | "dest" | "saved">(
     "idle",
   );
   /*  GÕ TOẠ ĐỘ NGAY TRONG DẪN ĐƯỜNG (2026-08-29). Áp luật "chỉ hỗ trợ cách
@@ -627,6 +641,8 @@ export function RouteMode({
       được, mà nút lại nằm sát nút X trong đúng vùng ngón cái — một cú trượt
       tay ướt trên tàu lắc là bay công dựng tuyến giữa biển. */
   const [confirmClear, setConfirmClear] = useState(false);
+  /** tên đang gõ cho đường sắp lưu — điền sẵn theo điểm đến, xem `suggestName` */
+  const [saveName, setSaveName] = useState("");
 
   /*  CHUỖI ĐIỂM PHẢI ĐI. Rỗng ⇒ đúng hành vi cũ: đích = chỗ đang xem. */
   const chainStops: LatLon[] = stops.length
@@ -1245,8 +1261,13 @@ export function RouteMode({
           <div className="min-w-0 flex-1">
             {/*  Có kết quả rồi thì TIÊU ĐỀ LÀ NÚT mở lại danh sách điểm — có
                  chevron để không thành nút bí ẩn. Chưa tính thì biểu mẫu đang
-                 mở sẵn, tiêu đề chỉ là chữ. */}
-            {plan ? (
+                 mở sẵn, tiêu đề chỉ là chữ.
+                 ĐANG XỔ MỘT PANEL thì tiêu đề panel THẮNG (nhánh dưới) — kể cả
+                 khi đã có tuyến. Bản trước nhánh `plan` đứng trước nên mở
+                 "Đường đã lưu" mà tiêu đề vẫn ghi "Đường đi qua 2 chỗ": bà con
+                 không biết mình đang ở đâu, mà nút "Quay lại" thì đã đổi chữ —
+                 hai tín hiệu đá nhau. */}
+            {plan && panel === "idle" ? (
               <button
                 type="button"
                 onClick={() => setEditing((v) => !v)}
@@ -1301,7 +1322,9 @@ export function RouteMode({
                   ? "Đi từ đâu"
                   : panel === "dest"
                     ? "Thêm một chỗ"
-                    : "Tuỳ chọn tàu"}
+                    : panel === "saved"
+                      ? "Đường đã lưu"
+                      : "Tuỳ chọn tàu"}
               </p>
             ) : (
               <>
@@ -1312,13 +1335,11 @@ export function RouteMode({
                       ? "Đường đi tới chỗ đã đánh dấu"
                       : "Dẫn đường tới chỗ đang xem"}
                 </p>
-                {/*  Dòng tóm tắt cũ của DẢI GHIM ĐÁY (đã bỏ) về đây: quãng chim
-                     bay là DỮ LIỆU, không phải chữ trang trí. */}
-                {!plan && stops.length > 0 && (
-                  <p className="truncate text-[0.875rem] font-semibold leading-tight text-foreground/65">
-                    {ghimTomTat}
-                  </p>
-                )}
+                {/*  KHÔNG in `ghimTomTat` ở đây nữa (2026-08-29h): hàng "Xoá
+                     hết" ngay dưới đã mang đúng câu đó làm thân hàng, in cả
+                     hai chỗ là đọc hai lần cùng một con số trên một màn 375px.
+                     Chỗ đúng của nó là hàng dưới — ở đó nó vừa cấp dữ liệu vừa
+                     nói rõ cái sắp bị xoá là gì. */}
               </>
             )}
             {/*  ĐỦ TRẦN PHẢI NÓI RA: hết chỗ thì `addStop` trả nguyên danh sách,
@@ -1386,7 +1407,74 @@ export function RouteMode({
         </div>
       {stopsSaveBar}
 
-      {(!plan || editing) && (
+        {/*  XOÁ HẾT NẰM NGAY TRONG THẺ DẪN ĐƯỜNG, KHÔNG CHÔN TRONG PANEL
+             (chủ dự án 2026-08-29h: *"xoá hết phải thực hiện trong cái chỗ
+             dẫn đường nếu ko muốn hiện cái tuyến đang tính"*).
+
+             Lượt trước tôi dời nó vào panel "Tuỳ chọn" với lý do "việc hiếm
+             thì chôn sâu một chạm". Sai — bằng chứng là chính chủ dự án phải
+             hỏi *"nút nào thì clear cái đường dẫn thế?"* trong lúc màn đang
+             hiện băng "Vạch xanh còn dẫn tới chỗ chạm trước". App tự báo có
+             vạch thừa rồi bắt đi tìm nút xoá ở phòng khác.
+
+             ĐẶT NGOÀI KHỐI BIỂU MẪU (sửa tiếp 2026-08-29h, bắt được lúc đo):
+             bản đầu tôi để nó trong khối `{(!plan || editing) && …}` nên ở màn
+             KẾT QUẢ — đúng cảnh chủ dự án mô tả, tuyến đang hiện trên bản đồ —
+             nút lại biến mất. Nay là hàng ĐẦU của thân thẻ ở CẢ HAI trạng
+             thái, chỉ ẩn khi đang xổ một bộ chọn (lúc đó thẻ là của việc khác).
+
+             Nay là HÀNG ĐẦU của danh sách, hiện ngay ở `scrollTop=0`: thân
+             hàng nói ĐANG CÓ GÌ (số chỗ + quãng chim bay — dữ liệu, không
+             phải chữ trang trí), ô vuông cuối hàng là việc. Nhịp xác nhận
+             hai lần giữ NGUYÊN: không có lịch sử đường đi thì xoá là mất
+             hẳn, phải hỏi lại. */}
+        {panel === "idle" && coGiDeXoa && (
+          <div className="flex items-center gap-2">
+            <p className="min-w-0 flex-1 rounded-xl bg-background px-3 py-2 text-[0.9375rem] font-semibold leading-snug text-foreground/70">
+              {stops.length > 0 ? ghimTomTat : "Đang có một tuyến đã tính"}
+            </p>
+            <button
+              type="button"
+              data-clear-btn
+              onClick={() => {
+                if (confirmClear) {
+                  clearAll();
+                  setConfirmClear(false);
+                } else setConfirmClear(true);
+              }}
+              /*  Chờ xác nhận thì NỞ SANG PHẢI bằng `min-w` + căn giữa: hộp
+                  chạm không được dịch giữa hai nhịp của CÙNG một thao tác
+                  (bản trước nở về trái, cú bấm thứ hai rơi ra ngoài). */
+              className={`${SQ_BTN} shrink-0 text-danger ${
+                confirmClear ? "w-auto min-w-[8rem] flex-row gap-1 px-2.5" : ""
+              } ${confirmClear ? "bg-danger-bg" : "bg-background"}`}
+            >
+              <TrashIcon className="h-5 w-5 shrink-0" />
+              {confirmClear
+                ? stops.length > 0
+                  ? `Xoá cả ${stops.length} chỗ + tuyến?`
+                  : "Xoá tuyến?"
+                : "Xoá hết"}
+            </button>
+          </div>
+        )}
+
+
+      {/*  MỌI PANEL ĐỀU NẰM TRONG KHỐI NÀY, nên cổng phải mở cho MỌI panel —
+           không phải kể tên từng cái (chủ dự án 2026-08-29h: *"cái tuỳ chọn…
+           ở đoạn tính rồi click vô nó có tác dụng đâu… click ko có tác dụng
+           thì ẩn"*).
+
+           LỖI ĐÃ XẢY RA: cổng từng viết là `(!plan || editing)`, rồi vá thành
+           `|| panel === "saved"` cho riêng đường-đã-lưu. Ở màn KẾT QUẢ bấm
+           "Tuỳ chọn" thì `panel = "boat"` — khối này KHÔNG đủ điều kiện hiện,
+           mà khối kết quả bên dưới lại ẩn vì `panel !== "idle"` ⇒ **thẻ rỗng**,
+           nút "Quay lại" hiện ra để lùi khỏi một thứ chưa từng mở.
+
+           LUẬT: không được có nút bấm-không-ra-gì. Cổng nay là `panel !==
+           "idle"` — thêm panel mới sau này tự chạy, không phải nhớ vá chỗ
+           thứ hai. Các hàng danh sách vẫn tự ẩn nhờ `compactRows`. */}
+      {(!plan || editing || panel !== "idle") && (
         <>
           {/*  DANH SÁCH ĐIỂM KIỂU GOOGLE MAPS (user 2026-08-28g, kèm ảnh mẫu):
                hàng "Đi từ" xổ ra chọn cảng/vị trí · các điểm đã chọn xếp dưới,
@@ -1408,6 +1496,25 @@ export function RouteMode({
                thẳng nhau, và mọi nút vuông nằm đúng MỘT cột. Trước đây hàng có
                nút thì thân bị co lại, hàng không nút thì thân kéo hết bề ngang
                — nhìn ra đúng cái "thụt vào thụt ra". */}
+          {/*  LỐI VÀO ĐƯỜNG ĐÃ LƯU — chỉ hiện khi ĐÃ CÓ đường lưu. Chưa lưu cái
+               nào mà bày hàng rỗng là dạy tính năng giữa lúc bà con đang làm
+               việc khác; lối lưu nằm ở màn kết quả, đúng lúc có cái để lưu. */}
+          {compactRows && savedRoutes.length > 0 && (
+            <div className="flex items-center gap-2">
+              <p className="min-w-0 flex-1 rounded-xl bg-background px-3 py-2 text-[0.9375rem] font-semibold leading-snug text-navy">
+                Đường đã lưu · {savedRoutes.length} đường
+              </p>
+              <button
+                type="button"
+                onClick={() => setPanel("saved")}
+                className={`${SQ_BTN} bg-background text-t1`}
+              >
+                <StarIcon className="h-6 w-6" />
+                Mở
+              </button>
+            </div>
+          )}
+
           {/*  HÀNG MỎ NEO BỎ HẲN KHI PANEL CỦA NÓ ĐANG MỞ (2026-08-29g):
                tiêu đề thẻ đã nói "Đi từ đâu" rồi, giữ thêm hàng mỏ neo là nói
                hai lần và ăn 56px của cửa đọc 252px. */}
@@ -1745,6 +1852,119 @@ export function RouteMode({
             </div>
           )}
 
+          {/*  PANEL ĐƯỜNG ĐÃ LƯU — MỘT chỗ làm CẢ HAI việc: cất đường đang có
+               và mở lại đường cũ. Tách hai panel là dựng lại đúng cái "xổ ra
+               mấy phần khác nhau" vừa dẹp; mà hai việc này luôn đi cùng một
+               dòng suy nghĩ ("đường này để dành" / "lấy lại đường tuần trước").
+
+               CHỈ LƯU ĐIỂM, KHÔNG LƯU KẾT QUẢ (xem `lib/saved-routes.ts`): ba
+               con số là dự báo CỦA HÔM ẤY, bày lại tuần sau là app tự nói dối
+               và bà con tính dầu theo số cũ. Mở ra ⇒ khôi phục điểm, bấm Tính
+               đường để máy tính lại bằng dự báo hôm nay. */}
+          {panel === "saved" && (
+            <div ref={panelRef} className="space-y-1.5">
+              {savedRoutesSaveFailed && (
+                <p className="rounded-xl bg-[var(--warn-bg)] px-3 py-2.5 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
+                  Máy không giữ được đường đã lưu — tắt app là mất. Dọn bớt
+                  ảnh/dữ liệu trong máy rồi thử lại.
+                </p>
+              )}
+
+              {/*  HÀNG LƯU — CHỈ BÀY CÁI KEY (03-design-system): thứ duy nhất
+                   máy chưa biết là CÁI TÊN, mà cái tên cũng đã điền sẵn theo
+                   điểm đến. Nơi xuất phát và chuỗi điểm máy đang cầm sẵn, hỏi
+                   lại là hỏi thứ mình vừa tự trả lời. */}
+              {stops.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <input
+                    value={saveName}
+                    onChange={(e) => setSaveName(e.target.value)}
+                    placeholder={suggestName(stops)}
+                    aria-label="Tên đường đi muốn lưu"
+                    className="min-h-[3.5rem] min-w-0 flex-1 rounded-xl bg-background px-3 text-[1rem] font-semibold text-navy"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSavedRoutes?.(
+                        addSavedRoute(
+                          savedRoutes,
+                          {
+                            name: saveName,
+                            start: startCoord
+                              ? {
+                                  ...startCoord,
+                                  label:
+                                    startOptions.find(
+                                      (o) => o.id === effectiveStartId,
+                                    )?.label ?? "",
+                                }
+                              : null,
+                            startId: effectiveStartId,
+                            stops,
+                          },
+                          Date.now(),
+                        ),
+                      );
+                      setSaveName("");
+                    }}
+                    className={`${SQ_BTN} bg-t1 text-white`}
+                  >
+                    <StarIcon className="h-6 w-6" />
+                    Lưu
+                  </button>
+                </div>
+              )}
+
+              {savedRoutes.length === 0 ? (
+                <p className="px-1 text-[0.9375rem] font-semibold text-foreground/65">
+                  Chưa lưu đường nào.
+                </p>
+              ) : (
+                savedRoutes.map((r) => (
+                  <div key={r.id} className="flex items-center gap-2">
+                    {/*  CẢ THÂN HÀNG LÀ NÚT MỞ — cùng khuôn hàng chọn của bộ
+                         chọn điểm đến, không đẻ kiểu thao tác thứ hai. */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onStops?.(r.stops);
+                        if (r.startId) setStartId(r.startId);
+                        setPanel("idle");
+                        /*  KHÔNG tự bấm Tính: tuyến phải tính lại bằng dự báo
+                            HÔM NAY, mà việc đó tốn ~10 giây và có thể cần sóng.
+                            Bà con tự bấm khi sẵn sàng — app không được tự tiêu
+                            pin/sóng của người ta. */
+                      }}
+                      className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[1rem] font-bold text-navy">
+                          {r.name}
+                        </span>
+                        <span className="block truncate text-[0.8125rem] font-semibold text-foreground/60">
+                          {r.stops.length} chỗ
+                          {r.start?.label ? ` · từ ${r.start.label}` : ""}
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onSavedRoutes?.(removeSavedRoute(savedRoutes, r.id))
+                      }
+                      aria-label={`Bỏ đường đã lưu ${r.name}`}
+                      className={`${SQ_BTN} bg-background text-danger`}
+                    >
+                      <CloseIcon className="h-6 w-6" />
+                      Bỏ
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
           {panel === "boat" && (
             <div ref={panelRef} className="grid grid-cols-2 gap-3 rounded-xl bg-background/60 p-2">
               <label className="block">
@@ -1777,46 +1997,6 @@ export function RouteMode({
               </label>
             </div>
           )}
-          {/*  "XOÁ HẾT" DỜI TỪ HÀNG TRÊN VÀO ĐÂY (2026-08-29g). Hàng trên nay
-               gánh bốn ô (Thoát/Quay lại · Tuỳ chọn · Tính đường) cộng tiêu đề;
-               ô thứ năm là hết chỗ cho tiêu đề. Chỗ đúng của nó là panel Tuỳ
-               chọn: đây là việc HIẾM và PHÁ HUỶ, không phải việc mỗi chuyến.
-               Đường lùi giữ NGUYÊN (bấm lần một hỏi lại, lần hai mới xoá) —
-               chôn sâu hơn một chạm thì được, bỏ xác nhận thì không. */}
-          {panel === "boat" && coGiDeXoa && (
-            <div className="flex items-center gap-2">
-              <p className="min-w-0 flex-1 rounded-xl bg-background px-3 py-2 text-[0.9375rem] font-semibold text-foreground/70">
-                {stops.length > 0
-                  ? `Đường đi đang có ${stops.length} chỗ`
-                  : "Đang có một tuyến đã tính"}
-              </p>
-              <button
-                type="button"
-                data-clear-btn
-                onClick={() => {
-                  if (confirmClear) {
-                    clearAll();
-                    setConfirmClear(false);
-                    setPanel("idle");
-                  } else setConfirmClear(true);
-                }}
-                /*  Lúc chờ xác nhận thì NỞ SANG PHẢI bằng `min-w` + căn giữa:
-                    hộp chạm không được dịch giữa hai nhịp của CÙNG một thao tác
-                    (bản trước nở về trái, cú bấm thứ hai rơi ra ngoài).
-                    `data-clear-btn` để nhịp chờ không tự huỷ khi chạm chính nó. */
-                className={`${SQ_BTN} text-danger ${
-                  confirmClear ? "w-auto min-w-[8rem] flex-row gap-1 px-2.5" : ""
-                } ${confirmClear ? "bg-danger-bg" : "bg-background"}`}
-              >
-                <TrashIcon className="h-5 w-5 shrink-0" />
-                {confirmClear
-                  ? stops.length > 0
-                    ? `Xoá cả ${stops.length} chỗ + tuyến?`
-                    : "Xoá tuyến?"
-                  : "Xoá hết"}
-              </button>
-            </div>
-          )}
 
         </>
       )}
@@ -1827,7 +2007,7 @@ export function RouteMode({
         </p>
       )}
 
-      {plan && result && (
+      {plan && result && panel === "idle" && (
         <>
           {/*  BA CON SỐ LÀ THỨ ĐẦU TIÊN ĐỌC ĐƯỢC, KHÔNG CÒN GHIM ĐÁY
                (chủ dự án 2026-08-29h: *"tại sao lại cấu trúc freeze 2 cái trên
@@ -1845,7 +2025,8 @@ export function RouteMode({
                chỗ với thanh nào nữa. Nút "Dẫn đường" KHÔNG cuộn theo — nó dời
                lên hàng trên (xem chú thích ô hành động ở header), nên cuộn sâu
                tới đâu vẫn bấm được. */}
-          <div className="rounded-xl bg-background px-3 py-2">
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1 rounded-xl bg-background px-3 py-2">
               <p className="display min-w-0 flex-1 text-[0.9375rem] font-bold leading-snug text-navy">
                 {/*  Bản ĐỌC BẰNG TAI — đánh vần đủ vai của từng con số. Mắt
                      đọc bản ngắn bên dưới; không nhân đôi cho tai vì bản mắt
@@ -1891,6 +2072,22 @@ export function RouteMode({
                   )}
                 </span>
               </p>
+            </div>
+            {/*  LỐI LƯU ĐƯỜNG ĐẶT ĐÚNG LÚC CÓ CÁI ĐỂ LƯU (2026-08-29h) — inline
+                 cuối hàng ba con số, không ăn riêng hàng nào. Chưa tính xong
+                 thì không có nút này: lưu một đường chưa biết đi được hay không
+                 là cất sẵn một cái bẫy. */}
+            <button
+              type="button"
+              onClick={() => {
+                setSaveName("");
+                setPanel("saved");
+              }}
+              className={`${SQ_BTN} bg-background text-t1`}
+            >
+              <StarIcon className="h-6 w-6" />
+              Lưu đường
+            </button>
           </div>
 
           {/* ── GOM CẢNH BÁO THÀNH TỐI ĐA 3 KHỐI (2026-08-18, audit M7) ─────
@@ -2035,7 +2232,17 @@ export function RouteMode({
                 {beaufort(plan.maxWindKmh)}. Lưới độ sâu ô ~5,5 km — dò hải đồ,
                 nghe đài duyên hải trước khi chạy.
               </p>
-              {!editing ? (
+              {/*  HAI NÚT "TÍNH LẠI" CÙNG LÚC — LỖI ĐÃ TỪNG LỌT RA BẢN CHẠY
+                   (chủ dự án 2026-08-29h: *"sao lại có 2 nút tính lại?"*).
+                   Nguyên do: kéo nút tính lên hàng trên mà KHÔNG gỡ nút cũ ở
+                   đây. Sau đó nó hết trùng nhờ hàng trên đổi sang "Dẫn đường"
+                   khi có tuyến — tức hết trùng do MAY, không do thiết kế.
+                   Nay điều kiện viết đúng là PHẦN BÙ của điều kiện hàng trên:
+                   hàng trên hiện "Dẫn đường" khi `plan && result && !editing &&
+                   onStart`, nên ô này chỉ hiện đúng lúc đó. Thiếu `onStart`
+                   (thẻ dùng ở chỗ khác) thì hàng trên là "Tính lại" và ô này
+                   biến mất — không thể trùng nữa dù ai đổi gì. */}
+              {!editing && onStart ? (
                 <button
                   type="button"
                   onClick={compute}

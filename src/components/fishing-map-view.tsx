@@ -121,6 +121,11 @@ import { NOTIFY_HIDE_MS } from "@/lib/notify";
     mỗi lần vẽ lại là react-map-gl gỡ/gắn lại bộ bắt sự kiện theo nhịp GPS. */
 const ROUTE_HIT_LAYERS = [ROUTE_HIT_LAYER];
 import {
+  loadSavedRoutes,
+  persistSavedRoutes,
+  type SavedRoute,
+} from "@/lib/saved-routes";
+import {
   addStop,
   clearStops,
   loadStops,
@@ -611,6 +616,16 @@ export default function FishingMapView() {
      cũng không có gì thì mới hiện lời mời đăng nhập/nâng cấp. */
   const fishLocked = premiumLocked && !fishCast;
   const [size, setSize] = useState<SheetSize>("peek");
+  /*  TOGGLE CHẠM BẢN ĐỒ (user 2026-08-29): *"1 click là chọn điểm, 1 click tiếp
+      theo trả bản đồ về trống, rồi 1 click nữa lại chọn — tránh khi nào cũng là
+      click chọn rồi tính vị trí nhìn rối mắt"*.
+        · "idle"    = chưa chạm lần nào (đang bày cảng nhà mặc định lúc mở app)
+        · "picked"  = đang có điểm chọn (bày con trỏ + đường tàu→trỏ + nhãn biên
+                      + sheet gió sóng)
+        · "cleared" = đã trả bản đồ về trống (ẩn hết overlay theo con trỏ)
+      CHỈ áp cho luồng xem THƯỜNG. Dẫn đường / đo / mở lớp rail: chạm = dời con
+      trỏ có chủ đích, KHÔNG toggle (xem nhánh trong onClick của MapGL). */
+  const [pick, setPick] = useState<"idle" | "picked" | "cleared">("idle");
   /** xem chú thích ở `hideSheetForOverlay` — true = bị lớp nổi khác ép ẩn */
   const [sheetHiddenByOverlay, setSheetHiddenByOverlay] = useState(false);
   // đồng hồ tự-ẩn của sheet (SHEET_AUTO_HIDE_MS) — nạp lại mỗi lần bà con chạm
@@ -1266,7 +1281,12 @@ export default function FishingMapView() {
       vừa dẹp. Tự xoá khi sheet rời nấc `hidden` (một chỗ, khỏi phải sửa 8 chỗ
       gọi `setSize("peek")`). */
   useEffect(() => {
-    if (size !== "hidden") setSheetHiddenByOverlay(false);
+    if (size !== "hidden") {
+      setSheetHiddenByOverlay(false);
+      // Luồng KHÁC mở lại sheet (chọn điểm đã lưu, về vị trí tàu…) ⇒ thôi trạng
+      // thái "trống", bày lại con trỏ để cú chạm THƯỜNG sau lại trả về trống.
+      setPick((p) => (p === "cleared" ? "picked" : p));
+    }
   }, [size]);
   /*  CỬA THỨ BA: RAIL VỪA MỞ MỘT LỚP NỔI ⇒ SHEET NHƯỜNG CHỖ.
       `railLayerOpen` bao cả panel "Lớp", ô "Đến điểm" và ô "Điểm đã lưu", nên
@@ -1299,6 +1319,19 @@ export default function FishingMapView() {
   const setStops = useCallback((next: RouteStop[]) => {
     setStopsState(next);
     setStopsSaveFailed(!persistStops(next));
+  }, []);
+  /*  ĐƯỜNG ĐÃ LƯU — cùng khuôn một-cửa-ghi của `stops` (án lệ K4): mọi lối
+      ghi đi qua đúng `setSavedRoutes`, ghi hỏng thì màn PHẢI nói ra chứ không
+      nuốt. Chủ dự án 2026-08-29h: *"làm đường đã lưu hoặc cho lưu đường đã
+      tính"* — trước đây máy chỉ giữ MỘT chuỗi điểm, "Xoá hết" là mất hẳn, mà
+      chuyến lặp hằng tuần phải chấm lại và chờ tính ~10 giây mỗi lần. */
+  const [savedRoutes, setSavedRoutesState] = useState<SavedRoute[]>(() =>
+    loadSavedRoutes(),
+  );
+  const [savedRoutesSaveFailed, setSavedRoutesSaveFailed] = useState(false);
+  const setSavedRoutes = useCallback((next: SavedRoute[]) => {
+    setSavedRoutesState(next);
+    setSavedRoutesSaveFailed(!persistSavedRoutes(next));
   }, []);
   const home = homeOf(places);
   // đơn vị khoảng cách + hệ toạ độ (panel Cài đặt) — đổi thì mọi chỗ đổi theo
@@ -2702,6 +2735,16 @@ export default function FishingMapView() {
             );
             return; // không đổi điểm xem khi đang đo
           }
+          /*  TRẢ BẢN ĐỒ VỀ TRỐNG (user 2026-08-29, xem khối state `pick`): đang
+              có điểm chọn ở luồng xem THƯỜNG → cú chạm này XOÁ điểm xem (ẩn con
+              trỏ + đường + nhãn biên + sheet), KHÔNG dời con trỏ. Đặt TRƯỚC
+              setPoint để cú chạm-xoá không kéo toạ độ đi. Không áp cho dẫn đường
+              / rail (các luồng đó chạm = dời con trỏ có chủ đích). */
+          if (!routeMode && !railLayerOpen && pick === "picked") {
+            setPick("cleared");
+            setSize("hidden");
+            return;
+          }
           setDayIdx(0);
           setGeoError(false);
           setPinning(false);
@@ -2759,6 +2802,7 @@ export default function FishingMapView() {
           }
           // kiểu Windy: chạm là sheet nằm GỌN ở đáy (peek) — bản đồ vẫn
           // thấy nguyên, số liệu tóm tắt hiện ngay, chi tiết bấm "Xem thêm"
+          setPick("picked"); // có điểm chọn → cú chạm sau sẽ trả về trống
           setSize("peek");
           flyToPoint(lon, lat);
         }}
@@ -3577,7 +3621,7 @@ export default function FishingMapView() {
              Màu cam-đỏ `#b42318` CÙNG HỌ với đường ranh giới (03 §6: cam-đỏ là
              màu độc quyền của ranh giới) nhưng MẢNH HƠN + nét đứt khác để không
              ai nhầm nó LÀ đường ranh giới. */}
-        {prox.applies && (
+        {prox.applies && pick !== "cleared" && (
           <Source
             id="border-line"
           type="geojson"
@@ -3606,7 +3650,7 @@ export default function FishingMapView() {
           </Source>
         )}
         {/* nhãn số hải lý NGAY GIỮA đường đo — đọc được mà không phải mở sheet */}
-        {prox.applies && (
+        {prox.applies && pick !== "cleared" && (
         <Marker
           longitude={(point.lon + prox.nearest[0]) / 2}
           latitude={(point.lat + prox.nearest[1]) / 2}
@@ -3638,7 +3682,7 @@ export default function FishingMapView() {
              · Nét ĐỨT MẢNH màu t1: KHÔNG được xanh `ROUTE_LINE_COLOR` (dễ tưởng
                là tuyến dẫn đường đã tính) và KHÔNG được cam/đỏ (màu độc quyền
                của ranh giới biển — 03 §6). */}
-        {tracking.pos && (
+        {tracking.pos && pick !== "cleared" && (
           <Source
             id="cursor-line"
             type="geojson"
@@ -3717,7 +3761,7 @@ export default function FishingMapView() {
              mới là chỗ trỏ tới — đổi anchor cùng lúc đổi hình, không thì con trỏ
              lệch xuống nửa thân cá (ngoài khơi là lệch mấy hải lý).
              Ẩn nếu trùng một điểm đã ghim — chỗ đó đã có sao vàng. */}
-        {!currentPlace && (
+        {!currentPlace && pick !== "cleared" && (
           <Marker longitude={point.lon} latitude={point.lat} anchor="bottom">
             {/*  CÁI GHIM — biểu tượng ai cũng quen trên app bản đồ (user
                  2026-08-25i: *"cho về biểu tượng thường dùng đi, thay cho con
@@ -3912,7 +3956,7 @@ export default function FishingMapView() {
             blocked={geoError}
             lastFixAt={tracking.lastFixAt}
             accuracyM={tracking.accuracyM}
-            cursor={point}
+            cursor={pick === "cleared" ? null : point}
             onGoMyPos={goToMyBoat}
           />
           <RaKhoiControls
@@ -4142,6 +4186,9 @@ export default function FishingMapView() {
             onStops={setStops}
             onStartCoord={setStartCoord}
             stopsSaveFailed={stopsSaveFailed}
+            savedRoutes={savedRoutes}
+            onSavedRoutes={setSavedRoutes}
+            savedRoutesSaveFailed={savedRoutesSaveFailed}
             places={places}
             storms={storms}
             stormInfo={stormInfo}

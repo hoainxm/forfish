@@ -298,6 +298,28 @@ Dòng `// nợ:` ở 5b(b) ghi điều kiện nâng cấp là *"khi hàng điể
 
 **5e. ĐỆM CUỘN CỦA THẺ DẪN ĐƯỜNG PHẢI BẰNG ĐÚNG HAI THANH GHIM (2026-08-29d).** `scroll-pt`/`scroll-pb` của khung `max-h-[31dvh]` còn giữ trị số của bố cục CŨ (9rem + 5rem = 224px) trong khi hai thanh ghim thật chỉ chiếm 72px + 88px. Hệ quả đo được: cửa cuộn "hợp lệ" chỉ 28px — **thấp hơn một hàng 56px** — nên MỌI cú `scrollIntoView({block:"nearest"})` rơi vào nhánh "phần tử cao hơn cửa" và neo mép trên vào 144px, tức đẩy hàng vừa cuộn tới xuống **dưới thanh ghim đáy**, đúng cái nó định tránh. Nay `scroll-pt-[4.5rem]` / `scroll-pb-[5.5rem]` ⇒ cửa 92px, một hàng 56px lọt trọn. Còn `// nợ:` tại chỗ: thanh ghim trên CAO HƠN khi có câu cảnh báo tuyến-cũ, nâng cấp khi chiều cao hai thanh ghim được đo/đưa vào CSS var thay vì hằng số.
 
+### Nút X đóng · Huỷ · vuốt-đóng — QUY ƯỚC DÙNG CHUNG (chuẩn hoá 2026-08-29g)
+
+Chủ dự án 2026-08-29: *"kích thước cái x đóng làm cho đồng bộ… bao nhiêu cái design quy ước đâu?"*. Trước đó mỗi panel tự chế nút X → cỡ lệch (chỗ chạm 56px + icon 24px, chỗ 32px + **ký tự `✕` thô**). Khảo sát design system hàng đầu (Apple HIG · Material 3 · Polaris · Carbon · Ant Design · WCAG 2.5.x) → chốt một chuẩn, KHÔNG chế lại.
+
+**Đồng thuận từ các hệ**: icon "X" là glyph vẽ nét **~24px** đặt trong vùng chạm lớn (Material **48dp**, WCAG AAA **44px**), **luôn góc trên-phải**. Chỉ Apple cho dùng nút-chữ (Cancel/Done) thay X trong sheet có nhập liệu. Thứ tự nút: primary **bên PHẢI** (Apple/Material/Carbon/Polaris/Atlassian — chỉ Ant Design ngược, KHÔNG theo). Ký tự `✕`/`×` thô **không hệ nào dùng** (lệch baseline, scale xấu) → dùng icon nét.
+
+1. **Nút X đóng = MỘT component duy nhất `CloseButton`** ([src/components/ui/close-button.tsx](../../src/components/ui/close-button.tsx)). Vùng chạm **56×56px** (`h-14 w-14`, = sàn tap dự án, nhỉnh hơn Material 48dp vì tay găng/tàu lắc/nắng), glyph `CloseIcon` **24px** (`h-6 w-6`), `rounded-full`, nền TRONG SUỐT lúc nghỉ + `active:bg-field` (không "boxy"), `-m-1` để không phình header. Góc **trên-phải**. **CẤM tự chế nút X, CẤM ký tự `✕`/`×` thô** (hook cảnh báo). Chỉ dùng cho panel ĐỌC-XEM / auto-apply (đóng không mất dữ liệu). Áp: `ra-khoi-controls` PanelHeader, `fishing-map-view` thông tin chặng.
+
+2. **KHÔNG bao giờ để cả X lẫn Huỷ trên cùng màn** (điểm gây rối nhất). Chọn MỘT mô hình: panel đọc-xem/auto-apply → chỉ **X + vuốt/chạm-ngoài** (không Huỷ, không Lưu); form có dữ liệu nhập → **cặp Huỷ/Lưu ở đáy, BỎ X**.
+
+3. **Cặp Huỷ/Lưu (chủ dự án chốt 2026-08-29g: NẰM NGANG, Lưu bên phải)** — `grid grid-cols-2`, Huỷ (secondary, `bg-field`) trái · Lưu/Xác nhận (primary, `bg-sea`/danger `bg-danger`) phải, mỗi nút `min-h-[3.5rem]` `rounded-2xl`. Đây đúng khuôn `ConfirmDialog` dùng chung ([ui/confirm-dialog.tsx](../../src/components/ui/confirm-dialog.tsx)) — mọi xác nhận phá huỷ đi qua nó. Nút Huỷ trong ô `SQ_BTN` (khuôn ô-vuông đã chốt) giữ icon 24px như mọi nút vuông khác — nhất quán trong khuôn vuông, KHÔNG phải nút X-đóng.
+
+4. **Sheet: vuốt-xuống-đóng + chạm-ngoài-đóng** — `BottomSheet` chung đã có grabber + scrim-đóng + Esc. Sheet đọc-xem cho vuốt/chạm-ngoài thoải mái. Form có dữ liệu chưa lưu → nếu cho vuốt phải hỏi "Bỏ thay đổi?" (nguyên tắc 4 CLAUDE.md: chống mất dữ liệu bà con).
+
+5. **Tap tối thiểu**: sàn tuyệt đối **56px** (mọi thứ bấm được) · X đóng/icon-only **56px** · nút chính/Huỷ/phá huỷ **cao ≥56px** · khoảng cách 2 control kề **≥12px**. `// nợ:` còn 2 nút thu-gọn dưới sàn (storm-banner `h-9`=36px, nav-mode `h-11`=44px — là nút Chevron thu gọn, không phải X; nâng khi rà HUD vòng sau).
+
+6. **Cấp bậc nút** (màu qua token `@theme`, cấm hex): Primary = filled `--navy`/`--sea` chữ trắng (Lưu/Xong/Gọi) · Secondary = `bg-field` viền nhẹ (hành động phụ) · Text = chữ `--muted` không nền (Huỷ/Bỏ qua) · Destructive = `bg-danger` **luôn kèm ConfirmDialog** (Xoá/gỡ không đảo được).
+
+7. **Thao tác thông minh (tự-hiểu, chống rối)**: toggle/bộ lọc/chọn lớp **auto-apply ngay** (không nút Lưu) · **không hỏi xác nhận cho hành động ĐẢO ĐƯỢC** (bật/tắt lớp, đổi cảng) — chỉ hỏi cho phá huỷ · form autofill từ `forfish.*`. Xem thêm luật dữ liệu-KHÔNG-CẮT (§6 mục toạ độ) + [07-design-spec](07-design-spec.md).
+
+**Nguồn khảo sát**: Material 3 Dialogs (48dp/24dp) · Apple HIG Sheets (Cancel trái/Done phải, 44pt, `interactiveDismissDisabled` khi có thay đổi) · Shopify Polaris Modal (X/Cancel/Esc/chạm-ngoài, primary phải) · IBM Carbon Modal (Cancel ngoài-trái, primary ngoài-phải, X đóng không gửi) · WCAG 2.5.5 (44px AAA) / 2.5.8 (24px AA).
+
 ## 7. Cross-references
 
 - Vì sao audience là vậy: [01-product.md](01-product.md)
