@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { hasForbiddenChars } from "../islands";
+import {
+  hasForbiddenChars,
+  coordInVNSea,
+  FORBIDDEN_NAME_RE,
+} from "../islands";
 import {
   validateReefFeatures,
   EXPECTED_REEF_ADMIN,
@@ -96,6 +100,54 @@ describe("dataset reef-shapes.v1.json — hình dạng rạn (OSM, bỏ tên)", 
     const hazards = fc.features.filter((f) =>
       ["rock", "wreck"].includes(f.properties.kind as string),
     );
-    expect(hazards.length).toBeGreaterThanOrEqual(30);
+    // 87 = 71 node + 16 way seamark (truy vấn cũ bỏ sót way, vá 2026-08-29)
+    expect(hazards.length).toBeGreaterThanOrEqual(80);
+  });
+
+  // ── BẤT BIẾN CHỦ QUYỀN + NGÂN SÁCH OFFLINE (đọc file THẬT đang ship) ──────
+  // File này sinh từ OSM — vùng tranh chấp gắn tên nước ngoài/chữ Hán (đo
+  // 2026-08-29: 160 tên chứa ký tự Hán trong khung). Bốn ca dưới canh cả file
+  // thô, không chỉ những field mình nhớ tới.
+  const rawText = readFileSync(join(DATA, "reef-shapes.v1.json"), "utf8");
+
+  it("KHÔNG một ký tự Hán/CJK nào trong TOÀN BỘ file (quét chuỗi thô)", () => {
+    const hit = rawText.match(FORBIDDEN_NAME_RE);
+    expect(
+      hasForbiddenChars(rawText),
+      hit ? `ký tự "${hit[0]}" ở vị trí ${hit.index}` : "",
+    ).toBe(false);
+  });
+
+  it("KHÔNG feature nào còn thuộc tính `name` (tag OSM phải bị bỏ lúc sinh)", () => {
+    expect(rawText).not.toContain('"name"');
+    for (const f of fc.features) {
+      expect(f.properties).not.toHaveProperty("name");
+    }
+  });
+
+  it("MỌI toạ độ nằm trong khung biển VN (relation OSM trả cả phần tràn bbox)", () => {
+    for (const f of fc.features) {
+      const flat = (f.geometry.coordinates as unknown as number[]).flat(
+        Infinity,
+      ) as number[];
+      for (let i = 0; i < flat.length; i += 2) {
+        expect(
+          coordInVNSea(flat[i], flat[i + 1]),
+          `toạ độ ngoài khung VN [${flat[i]},${flat[i + 1]}]`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("cỡ file trong ngân sách offline 1,2 MB (SHELL service worker, tier best-effort)", () => {
+    const bytes = Buffer.byteLength(rawText);
+    expect(
+      bytes,
+      `${Math.round(bytes / 1024)} KB — vượt trần thì HỎI LEAD, đừng tự nâng`,
+    ).toBeLessThanOrEqual(1.2 * 1024 * 1024);
+  });
+
+  it("số hình KHÔNG giảm so với bản trước (1.274) — sinh lại không được làm rơi rạn", () => {
+    expect(fc.features.length).toBeGreaterThanOrEqual(1274);
   });
 });

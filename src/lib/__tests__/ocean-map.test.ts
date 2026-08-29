@@ -186,3 +186,50 @@ describe("buildMapStyle", () => {
     expect(src.minzoom).toBe(8);
   });
 });
+
+/*
+  CỔNG STYLE HỢP LỆ — chạy CHÍNH bộ kiểm của MapLibre trên style app dựng ra.
+
+  Vì sao cần (2026-08-29): lớp đẳng sâu nay lọc bằng biểu thức có `["zoom"]`
+  ĐẶT TRONG `filter`. Đó là chỗ MapLibre có luật riêng (chỉ tính lại ở mức zoom
+  NGUYÊN, và không phải ngữ cảnh nào cũng cho phép) — viết sai thì style KHÔNG
+  ném lỗi ồn ào, nó chỉ lặng lẽ BỎ QUA cả lớp: bản đồ mất sạch đường đẳng sâu
+  giữa biển mà không một dòng lỗi nào. Test bằng mắt không bắt được vì ở zoom
+  thấp lớp vốn đã ẩn theo thiết kế.
+
+  `validateStyleMin` là bộ kiểm của chính thư viện, nên nó biết luật thật —
+  không phải bản chép tay của mình đoán lại.
+*/
+describe("style dựng ra phải HỢP LỆ với chính MapLibre", () => {
+  it("không lỗi ở mọi tổ hợp lớp", async () => {
+    const { validateStyleMin } = await import(
+      "@maplibre/maplibre-gl-style-spec"
+    );
+    const now = new Date("2026-06-10T12:00:00Z");
+    for (const layerId of ["bathymetry", "sst", "chlorophyll", null] as const) {
+      for (const seamarks of [true, false]) {
+        const style = buildMapStyle(layerId, now, { seamarks });
+        const errs = validateStyleMin(
+          style as Parameters<typeof validateStyleMin>[0],
+        );
+        expect(
+          errs.map((e) => `${e.message}`),
+          `style lỗi ở layerId=${layerId} seamarks=${seamarks}`,
+        ).toEqual([]);
+      }
+    }
+  });
+
+  it("ĐẲNG SÂU: mức càng nông càng đòi zoom gần — số mét hiện sau đường", () => {
+    const style = buildMapStyle("bathymetry", new Date("2026-06-10T12:00:00Z"));
+    const layers = style.layers as { id: string; filter?: unknown }[];
+    const line = layers.find((l) => l.id === "isobath-lines");
+    const label = layers.find((l) => l.id === "isobath-labels");
+    // đường và nhãn phải CÙNG luật, chỉ lệch một nấc — lệch luật là nhãn
+    // treo lơ lửng ở mức không còn đường
+    const zooms = (f: unknown) =>
+      JSON.stringify(f).match(/\d+(?=[,\]])/g)?.map(Number) ?? [];
+    expect(zooms(line?.filter)).toEqual([10, 10, 20, 9, 100, 7, 5]);
+    expect(zooms(label?.filter)).toEqual([10, 11, 20, 10, 100, 8, 6]);
+  });
+});

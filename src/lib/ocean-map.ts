@@ -189,6 +189,44 @@ export const REEFS_DATA_URL = "/data/coral-reefs.v1.json";
 /** HÌNH DẠNG rạn/bãi ngầm (polygon/line từ OSM natural=reef/shoal, đã bỏ tên). */
 export const REEF_SHAPES_DATA_URL = "/data/reef-shapes.v1.json";
 
+/*
+  NẤC ZOOM CHO TỪNG MỨC ĐẲNG SÂU (2026-08-29).
+
+  Vì sao có: `isobaths.v1.json` nay sinh ở bước 1/48° và có CHÍN mức, thêm 5 m
+  và 10 m (trước chỉ 20 m trở lên). Vẽ hết từ z5 thì ven bờ — nơi chín mức nằm
+  sát nhau nhất — thành búi chỉ, đúng chỗ bà con cần đọc rõ nhất và đang nhìn
+  dưới nắng chói. Hải đồ giấy cũng phân cấp y vậy: xa chỉ vài đường cái, gần
+  mới thêm đường phụ.
+
+  Ngưỡng chọn theo VIỆC bà con làm ở mức zoom đó, không phải theo con số đẹp:
+   · 5 · 10 m  → chỉ khi áp bờ, vào luồng, tránh bãi cạn (z10)
+   · 20 m      → ngư trường ven bờ, lưới kéo (z9)
+   · 50 · 100 m→ thềm lục địa (z7)
+   · ≥200 m    → mốc định hướng vùng, thấy từ toàn cảnh (z5)
+
+  `["zoom"]` trong `filter` được MapLibre tính lại ở MỖI MỨC ZOOM NGUYÊN — đủ
+  cho việc bật/tắt theo nấc; đừng dùng kiểu này cho thứ cần đổi mượt theo zoom.
+*/
+const isobathZoomGate = (offset: number) => [
+  ">=",
+  ["zoom"],
+  [
+    "case",
+    ["<=", ["get", "d"], 10],
+    10 + offset,
+    ["<=", ["get", "d"], 20],
+    9 + offset,
+    ["<=", ["get", "d"], 100],
+    7 + offset,
+    5 + offset,
+  ],
+];
+
+/** Nấc hiện ĐƯỜNG đẳng sâu */
+export const ISOBATH_ZOOM_FILTER = isobathZoomGate(0);
+/** Nấc hiện SỐ MÉT — muộn hơn đường một nấc (thấy đường trước, đọc số sau) */
+export const ISOBATH_LABEL_ZOOM_FILTER = isobathZoomGate(1);
+
 // Màu NỘI DUNG BẢN ĐỒ (không phải token UI). Nhãn đảo dùng navy như nhãn chủ
 // quyền. Tuyến tàu dùng xám-lam trầm — KHÔNG đụng cam-đỏ ranh giới (cấm vượt)
 // hay xanh dương ROUTE_LINE_COLOR (tuyến dầu của chính bà con).
@@ -205,6 +243,14 @@ export const REEF_SHAPE_LINE = "#0e7c86";
 // Điểm HIỂM HOẠ hàng hải (đá ngầm/chướng ngại/xác tàu — seamark, thường gần bờ):
 // hổ phách đậm = "coi chừng", tách khỏi teal rạn + cam-đỏ ranh giới.
 export const REEF_HAZARD_COLOR = "#b45309";
+/*  BÁO HIỆU HÀNG HẢI (phao · đèn · tiêu · vùng neo — `seamarks.v1.json`).
+    HAI màu, và sự khác nhau MANG THÔNG TIN chứ không phải cho đẹp: cái CÓ ĐÈN
+    thì ban đêm nhìn thấy được, cái KHÔNG có đèn thì tối là mất — đúng thứ bà
+    con cần phân biệt lúc vào luồng. Magenta theo đúng quy ước hải đồ giấy
+    (magenta = báo hiệu có ánh sáng); loại không đèn dùng xanh thép trầm hơn để
+    lùi lại phía sau. Nội dung bản đồ, không phải token UI. */
+export const SEAMARK_LIT_COLOR = "#b4267a";
+export const SEAMARK_UNLIT_COLOR = "#3f6b85";
 export const SEA_LANE_COLOR = "#4a5a70"; // tuyến/luồng/phân luồng — xám-lam
 export const SEA_CABLE_COLOR = "#7c3aed"; // cáp/ống ngầm — tím, tách khỏi tuyến
 export const SEA_RESTRICTED_COLOR = "#c2620c"; // vùng cấm + giàn khoan — cam đất
@@ -393,10 +439,27 @@ export function buildMapStyle(
       type: "line",
       source: "isobaths",
       minzoom: 5,
+      // MỖI MỨC SÂU MỘT NẤC ZOOM (2026-08-29). Từ khi thêm mức 5 m và 10 m
+      // (generate-isobaths.mjs ở bước 1/48°), vẽ TẤT CẢ mức từ z5 là ven bờ
+      // thành búi chỉ rối — chín mức đẳng sâu chồng nhau trong một khoảng
+      // hẹp, mà bà con nhìn dưới nắng chói trên tàu lắc. Hải đồ giấy cũng
+      // không làm vậy: xa thì chỉ vài đường cái, gần mới thêm đường phụ.
+      // Luật: đường CÀNG NÔNG thì đòi zoom CÀNG GẦN mới hiện.
+      filter: ISOBATH_ZOOM_FILTER,
       paint: {
         // màu nội dung bản đồ — xanh thép chìm dưới nhãn
         "line-color": "#3d6e96",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 9, 1.1],
+        // mức nông vẽ MẢNH hơn: chúng đông hơn hẳn, để cùng độ dày là át
+        // mất đường 200/1000 m vốn là mốc định hướng vùng
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          5,
+          0.5,
+          9,
+          ["case", ["<=", ["get", "d"], 20], 0.8, 1.1],
+        ],
         "line-opacity": 0.55,
       },
     });
@@ -405,6 +468,9 @@ export function buildMapStyle(
       type: "symbol",
       source: "isobaths",
       minzoom: 6,
+      // nhãn hiện MUỘN HƠN đường một nấc: đường vừa xuất hiện mà đã dán số
+      // ngay thì z9–z10 ven bờ đặc chữ. Thấy đường trước, đọc số sau.
+      filter: ISOBATH_LABEL_ZOOM_FILTER,
       layout: {
         "symbol-placement": "line",
         "text-field": ["concat", ["to-string", ["get", "d"]], " m"],

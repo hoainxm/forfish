@@ -33,6 +33,8 @@ import {
   SEA_LANES_DATA_URL,
   REEFS_DATA_URL,
   REEF_SHAPES_DATA_URL,
+  SEAMARK_LIT_COLOR,
+  SEAMARK_UNLIT_COLOR,
   ISLAND_LABEL_COLOR,
   ISLAND_DOT_COLOR,
   REEF_LABEL_COLOR,
@@ -116,10 +118,48 @@ import {
 import { formatHoursVN } from "@/lib/route-plan";
 import { legProgressAt } from "@/lib/route-legs";
 import { NOTIFY_HIDE_MS } from "@/lib/notify";
+import {
+  describeSeamark,
+  fetchSeamarks,
+  seamarkLabel,
+  type Seamark,
+} from "@/lib/seamarks";
 
 /*  Mảng hằng, KHÔNG dựng inline trong JSX: `interactiveLayerIds` đổi reference
     mỗi lần vẽ lại là react-map-gl gỡ/gắn lại bộ bắt sự kiện theo nhịp GPS. */
 const ROUTE_HIT_LAYERS = [ROUTE_HIT_LAYER];
+
+/*  BÁO HIỆU HÀNG HẢI — id lớp bắt chạm, và NẤC ZOOM cho từng loại.
+
+    Vì sao phải phân nấc: bộ dữ liệu có 5.851 báo hiệu. Đổ hết ra từ zoom vùng
+    là bôi đen màn hình, mà bà con lại đang cần thấy đúng vài cái quanh mình.
+    Luật chia theo GIÁ TRỊ Ở KHOẢNG CÁCH ĐÓ, không phải theo loại cho gọn:
+     · z≥9  — thứ nhìn thấy từ xa ngoài khơi: đèn biển lớn, tàu đèn, phao ảo,
+              giàn khoan, mốc bờ có đèn (~580 cái, thưa)
+     · z≥11 — thứ có nghĩa khi đã áp bờ: đèn nhỏ, phao báo hướng, phao báo chỗ
+              nguy hiểm, lồng bè, vùng neo, cảng
+     · z≥13 — thứ chỉ dùng lúc vào luồng: phao luồng, phao chuyên dùng, tiêu,
+              trụ buộc tàu, cửa âu
+    Ngoài khơi mất sóng thì lớp này VẪN CÒN — nó là asset tĩnh trong máy, khác
+    hẳn lớp ảnh OpenSeaMap trước đây. */
+const SEAMARK_HIT_LAYERS = ["seamark-far", "seamark-mid", "seamark-near"];
+const SEAMARK_FAR = [
+  "light_major",
+  "light_vessel",
+  "virtual_aton",
+  "platform",
+  "landmark",
+];
+const SEAMARK_MID = [
+  "light_minor",
+  "light_float",
+  "buoy_cardinal",
+  "buoy_isolated_danger",
+  "buoy_safe_water",
+  "marine_farm",
+  "anchorage",
+  "harbour",
+];
 import {
   loadSavedRoutes,
   persistSavedRoutes,
@@ -1208,6 +1248,21 @@ export default function FishingMapView() {
     const t = setTimeout(() => setLegInfo(null), NOTIFY_HIDE_LONG_MS);
     return () => clearTimeout(t);
   }, [legInfo]);
+
+  /*  CHẠM VÀO MỘT BÁO HIỆU → thẻ nói nó là cái gì (2026-08-29). Đây là thứ lớp
+      ảnh raster cũ KHÔNG làm được: ảnh thì chỉ là chấm, app không biết chấm đó
+      là phao gì. Cùng nhịp tự tắt với thẻ chặng đường (thẻ nhiều dòng ⇒ dùng
+      NOTIFY_HIDE_LONG_MS, không phải nhịp 3 giây của menu chạm-giữ). */
+  const [markInfo, setMarkInfo] = useState<{
+    mark: Seamark;
+    x: number;
+    y: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!markInfo) return;
+    const t = setTimeout(() => setMarkInfo(null), NOTIFY_HIDE_LONG_MS);
+    return () => clearTimeout(t);
+  }, [markInfo]);
   const [pressMenu, setPressMenu] = useState<{
     lat: number;
     lon: number;
@@ -1725,6 +1780,48 @@ export default function FishingMapView() {
   const [coastData, setCoastData] = useState<GeoJSON.FeatureCollection | null>(
     null,
   );
+
+  /*  BÁO HIỆU HÀNG HẢI (2026-08-29) — phao, đèn biển, tiêu, vùng neo.
+
+      Trước đây lớp này là ẢNH raster kéo từ OpenSeaMap qua mạng: không tra
+      được (app không biết chấm đó là phao gì), và ngoài khơi mất sóng là mất
+      sạch. Nay là asset tĩnh cùng origin, service worker giữ sẵn từ lúc cài.
+
+      Nạp NGAY KHI MỞ MÀN, không chờ tới lúc mất sóng — cùng bài học với hình
+      bờ ở effect bên trên (lỗi D-PH8): cổng "chỉ nạp khi cần" luôn mở đúng vào
+      lúc không tải nổi nữa. `fetchSeamarks` tự có đồng hồ chặn và tự dọn cache
+      khi hỏng, nên lần sóng về sau (`netEpoch`) thử lại được. */
+  const [seamarkList, setSeamarkList] = useState<Seamark[] | null>(null);
+  useEffect(() => {
+    if (seamarkList) return;
+    let alive = true;
+    fetchSeamarks()
+      .then((m) => {
+        if (alive && m.length) setSeamarkList(m);
+      })
+      .catch(() => {
+        // im lặng có chủ ý: hỏng thì lần sóng về sau tự thử lại. Thiếu lớp báo
+        // hiệu thì bản đồ vẫn dùng được — KHÔNG được để nó làm hỏng cả màn.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [netEpoch, seamarkList]);
+
+  /*  Dựng GeoJSON MỘT LẦN cho 5.851 điểm. `i` là chỉ số trong mảng gốc để lúc
+      chạm còn tra ngược ra đặc tính đèn — nhét cả object vào `properties` thì
+      MapLibre phải chuỗi-hoá lại toàn bộ mỗi lần vẽ. */
+  const seamarkGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!seamarkList) return null;
+    return {
+      type: "FeatureCollection",
+      features: seamarkList.map((m, i) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [m.lon, m.lat] },
+        properties: { i, t: m.type, lit: m.light ? 1 : 0 },
+      })),
+    };
+  }, [seamarkList]);
   const offlineNote = offlineBasemapNote(basemapHealth, coastData != null);
   /* Nhắc "mất sóng" HIỆN RỒI TỰ TẮT như dòng "Đã lưu dự báo tới ngày…" — thẻ
      vàng 2 dòng nằm lì trước đây làm rối bản đồ. Effect chỉ chạy lại khi CÂU
@@ -2056,10 +2153,33 @@ export default function FishingMapView() {
       // (SST/phù du) đang chọn: lớp dự báo chỉ phủ vùng VN, phần NGOÀI vùng phủ
       // để hải đồ che cho đẹp (không trống), mà không chồng 2 lớp màu rối mắt.
       buildMapStyle(anyExclusiveOverlay ? "bathymetry" : layerId, new Date(), {
-        seamarks: seamarksOn,
+        /*  LỚP ẢNH BÁO HIỆU TẮT HẲN (2026-08-29) — công tắc `seamarksOn` nay
+            điều khiển lớp VECTOR trong máy (xem `seamarkGeo` phía dưới).
+
+            VÌ SAO KHÔNG BẬT CẢ HAI: cùng một cái phao sẽ ra HAI chấm chồng
+            nhau, bà con không biết tin cái nào. Và ảnh raster là host ngoài
+            qua `/api/tiles/seamark` nên ngoài khơi mất sóng là mất — đúng ca
+            đau nhất, trong khi vector nằm sẵn trong máy.
+            Đường raster GIỮ NGUYÊN trong `tile-proxy.ts` + `buildMapStyle`
+            (vẫn có test): nó còn topmark/sector mà vector chưa có, nếu sau này
+            muốn dựng lớp phụ zoom sâu quanh cảng thì bật lại một cờ là xong. */
+        seamarks: false,
       }) as unknown as StyleSpecification,
-    [layerId, seamarksOn, anyExclusiveOverlay],
+    [layerId, anyExclusiveOverlay],
   );
+
+  /*  LỚP BẮT CHẠM — gom một chỗ, và CHỈ khai lớp ĐANG TỒN TẠI trong style:
+      `queryRenderedFeatures` của MapLibre ném lỗi nếu nhận id lớp chưa dựng.
+      Dựng qua `useMemo` vì `interactiveLayerIds` đổi reference mỗi lần vẽ lại
+      là react-map-gl gỡ/gắn lại bộ bắt sự kiện theo nhịp GPS (xem ghi chú ở
+      ROUTE_HIT_LAYERS đầu file). */
+  const hitLayers = useMemo(() => {
+    const ids: string[] = [];
+    if (route) ids.push(...ROUTE_HIT_LAYERS);
+    if (!anyExclusiveOverlay && seamarksOn && seamarkGeo)
+      ids.push(...SEAMARK_HIT_LAYERS);
+    return ids.length ? ids : undefined;
+  }, [route, anyExclusiveOverlay, seamarksOn, seamarkGeo]);
 
   const reqKey = `${point.lat},${point.lon}:${retry}`;
   useEffect(() => {
@@ -2707,7 +2827,7 @@ export default function FishingMapView() {
         }}
         /*  Chỉ khai lớp bắt chạm KHI CÓ TUYẾN: MapLibre ném lỗi nếu
              `queryRenderedFeatures` nhận id lớp chưa tồn tại. */
-        interactiveLayerIds={route ? ROUTE_HIT_LAYERS : undefined}
+        interactiveLayerIds={hitLayers}
         onClick={(e) => {
           /*  CHẠM TRÚNG MỘT CHẶNG ⇒ mở thẻ thông tin chặng đó và DỪNG: không
               dời con trỏ, không đổi điểm xem. Bà con đang hỏi "khúc đỏ này bị
@@ -2720,6 +2840,22 @@ export default function FishingMapView() {
             const idx = Number(hitLeg.properties?.legIdx ?? -1);
             if (idx >= 0 && idx < (route.legs?.length ?? 0)) {
               setLegInfo({ idx, x: e.point.x, y: e.point.y });
+              return;
+            }
+          }
+          /*  CHẠM TRÚNG BÁO HIỆU ⇒ nói nó là cái gì rồi DỪNG, không dời con trỏ
+              (cùng luật với chặng đường ngay trên). Xếp SAU chặng vì khi có
+              tuyến thì câu hỏi "khúc đỏ này bị gì" gấp hơn. */
+          const hitMark = measureMode
+            ? undefined
+            : e.features?.find((f) =>
+                SEAMARK_HIT_LAYERS.includes(f.layer?.id ?? ""),
+              );
+          if (hitMark) {
+            const i = Number(hitMark.properties?.i ?? -1);
+            const mark = i >= 0 ? seamarkList?.[i] : undefined;
+            if (mark) {
+              setMarkInfo({ mark, x: e.point.x, y: e.point.y });
               return;
             }
           }
@@ -3374,6 +3510,65 @@ export default function FishingMapView() {
           </Source>
         )}
 
+        {/*  BÁO HIỆU HÀNG HẢI (2026-08-29) — phao · đèn biển · tiêu · vùng neo,
+             5.851 cái từ asset tĩnh /data/seamarks.v1.json (SW giữ sẵn ⇒ NGOÀI
+             KHƠI MẤT SÓNG VẪN CÒN — khác hẳn lớp ảnh OpenSeaMap trước đây).
+             Chạm vào ra tên tiếng Việt + đặc tính đèn. Ba nấc zoom, xem
+             SEAMARK_FAR / SEAMARK_MID ở đầu file. Ẩn khi bật lớp động. */}
+        {!anyExclusiveOverlay && seamarksOn && seamarkGeo && (
+          <Source id="seamarks-v" type="geojson" data={seamarkGeo}>
+            {(
+              [
+                ["seamark-far", 9, ["match", ["get", "t"], SEAMARK_FAR, true, false]],
+                ["seamark-mid", 11, ["match", ["get", "t"], SEAMARK_MID, true, false]],
+                [
+                  "seamark-near",
+                  13,
+                  [
+                    "all",
+                    ["!", ["match", ["get", "t"], SEAMARK_FAR, true, false]],
+                    ["!", ["match", ["get", "t"], SEAMARK_MID, true, false]],
+                  ],
+                ],
+              ] as const
+            ).map(([id, minzoom, filter]) => (
+              <Layer
+                key={id}
+                id={id}
+                type="circle"
+                minzoom={minzoom}
+                filter={filter as unknown as FilterSpecification}
+                paint={{
+                  // CÓ ĐÈN vẽ magenta (quy ước hải đồ giấy), KHÔNG đèn vẽ xanh
+                  // thép — khác nhau này mang thông tin: ban đêm cái nào còn
+                  // nhìn thấy được.
+                  "circle-color": [
+                    "case",
+                    ["==", ["get", "lit"], 1],
+                    SEAMARK_LIT_COLOR,
+                    SEAMARK_UNLIT_COLOR,
+                  ] as unknown as string,
+                  // to dần theo zoom; vùng chạm nới bằng circle-stroke trong
+                  // suốt phía dưới thì phức tạp — ở đây tăng bán kính là đủ vì
+                  // báo hiệu chỉ hiện khi đã zoom gần.
+                  "circle-radius": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    9,
+                    3,
+                    14,
+                    6.5,
+                  ] as unknown as number,
+                  "circle-stroke-color": "#ffffff",
+                  "circle-stroke-width": 1.4,
+                  "circle-opacity": 0.95,
+                }}
+              />
+            ))}
+          </Source>
+        )}
+
         {/* RẠN / ĐÁ NGẦM / BÃI CẠN có tên tiếng Việt — asset tĩnh
             /data/coral-reefs.v1.json (SW giữ sẵn → mất sóng vẫn có). Lớp bật–tắt
             riêng "Đá ngầm · Rạn". Chấm + nhãn TEAL để bà con phân biệt đá CHÌM
@@ -3851,6 +4046,50 @@ export default function FishingMapView() {
               </p>
             </div>
             <CloseButton onClose={() => setLegInfo(null)} label="Đóng thông tin chặng" />
+          </div>
+        </div>
+      )}
+
+      {/*  THẺ BÁO HIỆU (2026-08-29) — chạm vào phao/đèn thì nói nó là cái gì.
+           Cùng khuôn đặt chỗ với thẻ chặng ngay trên: kẹp trong màn hình để
+           chạm gần mép không đẩy thẻ ra ngoài. */}
+      {markInfo && (
+        <div
+          className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
+          style={{
+            left: Math.min(
+              Math.max(8, markInfo.x - 120),
+              window.innerWidth - 248,
+            ),
+            top: Math.min(markInfo.y + 12, window.innerHeight - 180),
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-[1rem] font-bold leading-tight text-navy">
+                {seamarkLabel(markInfo.mark.type)}
+              </p>
+              {/*  Câu mô tả gộp màu thân + đặc tính đèn thành tiếng Việt đọc
+                   được ("Chớp 2 nhịp, ánh trắng, 10 giây một vòng, xa 14 hải
+                   lý") — KHÔNG bày mã hải đồ Fl(2)W.10s14M, bà con không phải
+                   sĩ quan hàng hải. Không có gì để nói thì im, đừng bịa. */}
+              {describeSeamark(markInfo.mark) && (
+                <p className="mt-0.5 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
+                  {describeSeamark(markInfo.mark)}
+                </p>
+              )}
+              <p className="mt-1 text-[0.875rem] font-semibold text-foreground/55">
+                {fmtCoordPair(
+                  markInfo.mark.lat,
+                  markInfo.mark.lon,
+                  prefs.coordFormat,
+                )}
+              </p>
+            </div>
+            <CloseButton
+              onClose={() => setMarkInfo(null)}
+              label="Đóng thông tin báo hiệu"
+            />
           </div>
         </div>
       )}

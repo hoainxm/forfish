@@ -197,6 +197,16 @@ const CRITICAL_SHELL = [
   "/data/vn-islands.v1.json",
   "/data/vn-sea-lanes.v1.json",
   "/data/coral-reefs.v1.json",
+  /*  BÁO HIỆU HÀNG HẢI — phao, đèn biển, tiêu, vùng neo (5.851 cái, 184 KB thô
+      / ~47 KB qua sóng vì Vercel nén Brotli).
+
+      VÌ SAO VÀO NHÓM SỐNG-CÒN chứ không phải "có thì tốt" (2026-08-29): trước
+      đây lớp này là ẢNH raster kéo từ OpenSeaMap qua mạng, nên ngoài khơi mất
+      sóng là mất sạch báo hiệu — chỉ còn những ô bà con tình cờ đã mở qua. Vào
+      luồng ban đêm mà không thấy phao là chuyện tính mạng, không phải chuyện
+      tiện. Nay là dữ liệu tĩnh cùng origin nên giữ được; và vì nó rẻ hơn cả
+      đường đẳng sâu đang nằm sẵn ở nhóm này, không có lý do để xuống nhóm dưới. */
+  "/data/seamarks.v1.json",
   //  DẤU TÀU trên bản đồ (ảnh ghim tàu cá). Thiếu nó thì giữa biển mất sóng bà
   //  con KHÔNG THẤY TÀU MÌNH ĐÂU trên bản đồ — mất đúng thứ màn này sinh ra để
   //  trả lời. Nhỏ (5,5 KB + 13,8 KB bản @2x) nên ghim cả hai.

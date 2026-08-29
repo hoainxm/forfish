@@ -1,8 +1,10 @@
 // Trục 1 — lưới độ sâu tĩnh cho dẫn đường (ràng buộc tĩnh kiểu VISIR:
 // bathymetry/shoreline). Nguồn: ETOPO 2022 (NOAA, public domain), đóng gói
 // sẵn bằng scripts/generate-depth-grid.mjs → public/data/depth-grid.v1.bin
-// (2 bit/ô, bước 0,05° ≈ 5,5 km). Đáy biển không đổi → asset tĩnh, runtime
-// không gọi API ngoài. Đổi nguồn độ sâu chỉ sửa script + file này.
+// (2 bit/ô, bước 15" = 1/240° ≈ 450 m — ĐÚNG bước gốc của ETOPO 15"; trước
+// 2026-08-29 là 0,05° ≈ 5,5 km, tức thô hơn nguồn 12 lần và bỏ lọt rạn hẹp).
+// Đáy biển không đổi → asset tĩnh, runtime không gọi API ngoài. Đổi nguồn độ
+// sâu chỉ sửa script + file này.
 
 import { timeoutSignal } from "@/lib/abort";
 
@@ -13,13 +15,17 @@ export type DepthClass =
   //   chạy vùng 5–8 m hằng ngày; ETOPO ~mực nước trung bình, triều ±2 m)
   | 3; // đủ sâu
 
-// PHẢI khớp scripts/generate-depth-grid.mjs
+// PHẢI khớp scripts/generate-depth-grid.mjs (test depth-grid.test.ts đọc file
+// .bin thật và bắt lệch — sửa một bên mà quên bên kia là đỏ ngay).
+// Ô ETOPO 15" là ô TÂM: tâm ô ở (k + 0,5)/240 độ, nên lat0/lon0 lệch nửa bước
+// so với mốc 5°B/102°Đ để mọi toạ độ nguồn rơi trúng chỉ số nguyên.
+const STEP_15S = 1 / 240;
 export const DEPTH_META = {
-  lat0: 5.0,
-  lon0: 102.0,
-  step: 0.05,
-  nLat: 371,
-  nLon: 321,
+  lat0: 5 + STEP_15S / 2,
+  lon0: 102 + STEP_15S / 2,
+  step: STEP_15S,
+  nLat: 4441,
+  nLon: 3841,
 } as const;
 
 export type DepthGrid = { data: Uint8Array };
@@ -49,8 +55,17 @@ export function depthClassAt(
 
 let cached: Promise<DepthGrid> | null = null;
 
+/*  Trần chờ mạng cho lưới độ sâu. 60 s CHỨ KHÔNG 15 s NHƯ TRƯỚC (2026-08-29):
+    file nở từ ~30 KB lên ~4,1 MB khi lên độ phân giải gốc 15", mà 15 s là cắt
+    ngang giữa mẻ tải trên sóng 3G ở cảng (~200 KB/s ⇒ cần ~20 s) — bà con mất
+    luôn ràng buộc cạn/rạn của tuyến đường một cách IM LẶNG. Cùng tinh thần với
+    `ASSET_NETWORK_MS` 20 s của service worker: đừng cắt oan sóng chậm thật, chỉ
+    cắt ca treo vĩnh viễn. */
+const DEPTH_NETWORK_MS = 60000;
+
 /**
- * Tải lưới độ sâu (≈30 KB, cùng origin) — cache cho cả phiên.
+ * Tải lưới độ sâu (≈4,1 MB, cùng origin, service worker ghim sẵn trong vỏ
+ * sống-còn nên ngoài biển đọc từ kho) — cache cho cả phiên.
  *
  * `async` LÀ LÁ CHẮN THỨ HAI (soát 2026-08-02). Trước đây hàm này KHÔNG async
  * mà vẫn trả `Promise`: mọi thứ ném ĐỒNG BỘ trong thân hàm (máy cũ thiếu
@@ -62,7 +77,7 @@ let cached: Promise<DepthGrid> | null = null;
 export async function fetchDepthGrid(): Promise<DepthGrid> {
   if (!cached) {
     cached = fetch("/data/depth-grid.v1.bin", {
-      signal: timeoutSignal(15000),
+      signal: timeoutSignal(DEPTH_NETWORK_MS),
     })
       .then((r) => {
         if (!r.ok) throw new Error(`depth grid ${r.status}`);
