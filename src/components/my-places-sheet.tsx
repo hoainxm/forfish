@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import {
   makeHome,
+  placeId,
   removePlace,
   renamePlace,
   sortedPlaces,
@@ -101,6 +102,28 @@ export function MyPlacesContent({
       viết luật thứ hai. */
   const addPair = parseCoordPair(addLat, addLon);
   const addValid = addPair != null;
+  /*  TOẠ ĐỘ TRONG FORM ĐÃ LỆCH CON TRỎ CHƯA (2026-08-29h — chủ dự án hỏi
+      *"rồi cho lấy vị trí đang hiện trên bản đồ?"*).
+
+      Form điền sẵn toạ độ MỘT LẦN lúc mở (`handledPrefill` chốt để không ghi
+      đè thứ bà con gõ tay). Đúng, nhưng hệ quả: mở form xong mới kéo bản đồ
+      tới đúng chỗ thì toạ độ trong form vẫn là chỗ CŨ, mà không còn đường nào
+      lấy lại — nút "Lấy chỗ đang trỏ" đã bỏ hồi 2026-08-29 với lý do "toạ độ
+      vào form đã là chỗ đang trỏ" (chỉ đúng tại thời điểm mở).
+
+      Nay có lại, nhưng CHỈ HIỆN KHI THẬT SỰ LỆCH — so bằng `placeId` (~100 m,
+      cùng thước với mọi chỗ khác trong app). Trùng chỗ thì nút không mọc ra:
+      không bày một nút bấm-không-đổi-gì (03-design-system §"không nút bấm-
+      không-ra-gì"). */
+  const conTroLech =
+    cursor != null &&
+    (addPair == null ||
+      placeId(cursor.lat, cursor.lon) !== placeId(addPair.lat, addPair.lon));
+  const layChoDangXem = () => {
+    if (!cursor) return;
+    setAddLat(fmtLat(cursor.lat, prefs.coordFormat));
+    setAddLon(fmtLon(cursor.lon, prefs.coordFormat));
+  };
   /*  ĐIỀN SẴN THEO CON TRỎ khi form mở từ menu chạm-giữ (07 §10.7 K). Bà con
       vừa chỉ đúng chỗ mình muốn bằng ngón tay xong thì không phải bấm thêm một
       nút để máy lấy chính chỗ vừa chỉ.
@@ -250,11 +273,25 @@ export function MyPlacesContent({
                   ? fmtCoordPair(addPair.lat, addPair.lon, prefs.coordFormat)
                   : "Chưa có toạ độ — bấm Sửa để gõ"}
               </span>
+              {/*  HAI NÚT NÀY TRƯỚC LÀ CHỮ TRẦN ~26px — dưới sàn chạm rất xa
+                   (chủ dự án 2026-08-29h). Nay theo khuôn `sq-btn` nên tự ăn
+                   theo `--row-h`: 56px chế độ "Nút to", 37px chế độ "Gọn". */}
+              {conTroLech && (
+                <button
+                  type="button"
+                  onClick={layChoDangXem}
+                  className={`${SQ_BTN} bg-card text-t1`}
+                >
+                  <PinIcon className="h-6 w-6" />
+                  Lấy chỗ đang xem
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setEditCoord(true)}
-                className="shrink-0 rounded-lg px-2.5 py-1 text-[0.875rem] font-bold text-t1 active:scale-95"
+                className={`${SQ_BTN} bg-card text-t1`}
               >
+                <EditIcon className="h-6 w-6" />
                 Sửa
               </button>
             </div>
@@ -278,22 +315,31 @@ export function MyPlacesContent({
                   className="min-h-[3.25rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
                 />
               </div>
-              {!addValid && (addLat || addLon) && (
-                <p className="text-[0.8125rem] font-semibold text-danger">
-                  Chưa đọc được toạ độ. Gõ như: {eg.lat} / {eg.lon}.
-                </p>
-              )}
-              {/*  "Xong" = nút CHỮ inline nhỏ căn phải (thu ô nhập về dòng đọc),
-                   KHÔNG phải dải w-full đứng lẻ — cùng khuôn "Sửa" (03 §Nút A4b). */}
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setEditCoord(false)}
-                  className="rounded-lg px-3 py-1.5 text-[0.9375rem] font-bold text-t1 active:scale-95"
-                >
-                  Xong
-                </button>
-              </div>
+              {/*  BỎ HẲN NÚT "XONG" (chủ dự án 2026-08-29h: *"nút Xong và lưu
+                   điểm? nếu thao tác liên tiếp nhau thì gộp vào chứ làm nút
+                   Xong vào làm gì"*).
+
+                   "Xong" chỉ đóng ô nhập lại thành dòng đọc — một bước phục vụ
+                   MÁY (đưa `editCoord` về false) chứ không phục vụ người: gõ
+                   xong toạ độ thì việc kế tiếp luôn là LƯU, và "Lưu điểm" ngay
+                   dưới đọc thẳng `addPair` từ hai ô này, không cần thu lại
+                   trước. Muốn bỏ giữa chừng đã có "Huỷ". Cắt một chạm khỏi mọi
+                   lượt gõ toạ độ.
+
+                   Dòng dưới GIỮ LẠI vì nó cấp dữ liệu: mẫu gõ đúng theo HỆ TOẠ
+                   ĐỘ ĐANG ĐẶT (`eg` lấy từ `prefs.coordFormat`), và đổi sang
+                   câu lỗi khi gõ sai. Không có nút nên kéo hết bề ngang. */}
+              <p
+                className={`text-[0.8125rem] font-semibold leading-snug ${
+                  !addValid && (addLat || addLon)
+                    ? "text-danger"
+                    : "text-foreground/60"
+                }`}
+              >
+                {!addValid && (addLat || addLon)
+                  ? `Chưa đọc được toạ độ. Gõ như: ${eg.lat} / ${eg.lon}.`
+                  : `Gõ như: ${eg.lat} / ${eg.lon}`}
+              </p>
             </div>
           )}
 

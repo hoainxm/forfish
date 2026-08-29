@@ -1252,7 +1252,30 @@ export function RouteMode({
              theo đúng tiền lệ đã chốt cho dải cảnh báo trong khối ghim đáy.
              `stopsSaveBar` CỐ Ý ở lại luồng cuộn: nó là trạng thái dai dẳng
              (máy hỏng kho), ghim thêm là header phình thường trực. */}
-        <div className="sticky top-0 z-10 -mx-3 -mt-3 space-y-2 bg-card px-3 pt-3">
+        {/*  BỎ `-my-1` KHỎI CÁC NÚT HÀNG TRÊN (2026-08-29h — chủ dự án: *"lỗi
+             chồng lấn"*, kèm ảnh chữ "Điểm xuất phát" bị nền header cắt ngang).
+             Đo thật ở chế độ gọn: thanh ghim cao 41px nhưng nút bên trong chạm
+             đáy ở 540 — THÒ 4px xuống dưới nền `bg-card`, còn hàng đầu bị kéo
+             lên chồng 8px. Nguyên do: `-my-1` (−4px trên/dưới) trừ 8px vào
+             chiều cao LAYOUT của thanh ghim trong khi nút vẫn VẼ đủ chiều cao
+             — nền đục ngắn hơn thứ nó phải che.
+             Lỗi này có ở CẢ HAI chế độ (to cũng thò 8px), chỉ là nút cao 56px
+             che bớt nên không ai thấy; chế độ gọn phơi nó ra. `-my-1` sinh ra
+             hồi nút cao hơn hàng tiêu đề; nay nút và hàng chung `--row-h` nên
+             nó chỉ còn hại.
+
+             LỖI THỨ HAI, GỐC RỄ HƠN — `-mt-3` ĂN MẤT CHỖ TRONG DÒNG CHẢY.
+             `-mt-3` có mặt để dải nền `bg-card` tràn lên phủ kín phần `p-3`
+             phía trên thẻ. Nhưng margin âm không chỉ DỜI phần tử lên 12px, nó
+             còn TRỪ 12px khỏi chỗ phần tử chiếm trong dòng chảy ⇒ hàng ngay
+             sau bị kéo lên 12px và chui xuống dưới dải nền đục. Đo thật ở
+             `scrollTop = 0`: nền kết thúc ở 548 mà hàng đầu bắt đầu ở 540 —
+             chồng 8px, đúng cái ảnh chủ dự án gửi.
+             `mb-4` trả lại đúng 12px đã bị trừ, cộng 4px cho bằng khoảng cách
+             giữa các hàng. Lỗi này CÓ TỪ LÚC có thanh ghim, ở CẢ HAI chế độ —
+             chế độ gọn chỉ làm nó lộ ra vì nút thấp đi thì phần chữ bị cắt
+             chiếm tỉ lệ lớn hơn. */}
+        <div className="sticky top-0 z-10 -mx-3 -mt-3 mb-4 space-y-1 bg-card px-3 pb-1 pt-3">
           <div className="flex items-center gap-2">
           {/*  HEADER GÁNH LUÔN "TUỲ CHỌN" (2026-08-28j): thẻ phải cắt 42px nữa
                mới đạt sàn bản đồ ≥60% của 07 §5 — đo thật: thẻ 296px ⇒ bản đồ
@@ -1279,7 +1302,7 @@ export function RouteMode({
             aria-label={
               panel === "idle" ? "Thoát dẫn đường" : "Quay lại danh sách điểm"
             }
-            className={`${SQ_BTN} -my-1 bg-navy/10 text-navy`}
+            className={`${SQ_BTN} bg-navy/10 text-navy`}
           >
             <ChevronLeftIcon className="h-6 w-6" />
             {panel === "idle" ? "Thoát" : "Quay lại"}
@@ -1384,7 +1407,7 @@ export function RouteMode({
             onClick={() => setPanel(panel === "boat" ? "idle" : "boat")}
             aria-expanded={panel === "boat"}
             aria-label={`Tuỳ chọn — tàu chạy ${speedKn} hải lý/giờ, ăn ${lph} lít dầu/giờ`}
-            className={`${SQ_BTN} -my-1 ${
+            className={`${SQ_BTN} ${
               panel === "boat" ? "bg-t1 text-white" : "bg-navy/10 text-t1"
             }`}
           >
@@ -1413,7 +1436,7 @@ export function RouteMode({
             <button
               type="button"
               onClick={() => onStart(result)}
-              className={`${SQ_BTN} -my-1 bg-t1 text-white`}
+              className={`${SQ_BTN} bg-t1 text-white`}
             >
               <PlayIcon className="h-6 w-6" />
               Dẫn đường
@@ -1423,7 +1446,7 @@ export function RouteMode({
               type="button"
               onClick={compute}
               disabled={busy}
-              className={`${SQ_BTN} -my-1 bg-t1 text-white disabled:opacity-60`}
+              className={`${SQ_BTN} bg-t1 text-white disabled:opacity-60`}
             >
               <RouteIcon className="h-6 w-6" />
               {busy ? "Đang tính" : plan ? "Tính lại" : "Tính đường"}
