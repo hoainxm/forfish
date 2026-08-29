@@ -109,7 +109,26 @@ export function MyPlacesContent({
       mới là đẻ ra luật đọc toạ độ thứ hai — đúng lỗi đã sửa ở trên.
       `handledPrefill` chốt mỗi lượt tín hiệu chỉ điền MỘT lần: sau đó bà con
       sửa tay hay chạm bản đồ dời con trỏ đều không bị máy ghi đè. */
+  /** hai ô toạ độ chỉ hiện khi bấm "Sửa" — mặc định là một dòng đọc */
+  const [editCoord, setEditCoord] = useState(false);
   const handledPrefill = useRef(0);
+  /*  MỞ FORM LÀ CÓ SẴN TOẠ ĐỘ, dù mở từ nút "Thêm điểm" hay từ menu chạm-giữ
+      (2026-08-29). Trước đây chỉ nhánh chạm-giữ mới điền, nên mở từ nút thì
+      form nói "Chưa có toạ độ — bấm Sửa để gõ" trong khi con trỏ đang chỉ đúng
+      một chỗ ngay trên bản đồ. Bà con vẫn sửa được bằng nút "Sửa"; điền sẵn chỉ
+      là đoán CÁI HAY ĐÚNG NHẤT, không khoá tay ai. */
+  const openedRef = useRef(false);
+  useEffect(() => {
+    if (!addOpen) {
+      openedRef.current = false;
+      return;
+    }
+    if (openedRef.current) return;
+    openedRef.current = true;
+    if (!cursor || addLat || addLon) return;
+    setAddLat(fmtLat(cursor.lat, prefs.coordFormat));
+    setAddLon(fmtLon(cursor.lon, prefs.coordFormat));
+  }, [addOpen, cursor, prefs.coordFormat, addLat, addLon]);
   useEffect(() => {
     if (!prefillTick || prefillTick === handledPrefill.current) return;
     handledPrefill.current = prefillTick;
@@ -192,76 +211,121 @@ export function MyPlacesContent({
              "Hủy"/"Lưu điểm" đứng riêng một hàng `grid-cols-2` nên cho hẳn
              3.5rem; bốn ô còn lại 3.25rem cho khỏi đội chiều cao panel rail.
              Chỉ đổi token chiều cao, KHÔNG đụng bố cục ⇒ không có rủi ro tràn. */
-        <div className="surface p-3">
-          <input
-            value={addName}
-            onChange={(e) => setAddName(e.target.value)}
-            placeholder="Tên điểm (vd: Bãi cá ngừ)"
-            className="mb-2 min-h-[3.25rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
-          />
-          {/*  LẤY CHỖ ĐANG TRỎ (2026-08-29, chủ dự án: "cho chọn điểm đang trỏ
-               trên bản đồ hoặc gõ toạ độ"). Điền vào hai ô theo ĐÚNG hệ toạ độ
-               đang cài trong app — điền xong bà con vẫn sửa được, và chuỗi điền
-               ra đọc lại được bằng chính `parseCoordPair` (có test round-trip). */}
-          {cursor && (
-            <button
-              type="button"
-              onClick={() => {
-                setAddLat(fmtLat(cursor.lat, prefs.coordFormat));
-                setAddLon(fmtLon(cursor.lon, prefs.coordFormat));
-              }}
-              className="mb-2 flex min-h-[3.25rem] w-full items-center gap-2 rounded-xl bg-field px-3 text-left text-[0.9375rem] font-bold text-t1 transition active:scale-[0.99]"
-            >
-              <PinIcon className="h-5 w-5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">
-                Lấy chỗ đang trỏ —{" "}
-                {fmtCoordPair(cursor.lat, cursor.lon, prefs.coordFormat)}
-              </span>
-            </button>
-          )}
-          <div className="mb-2 grid grid-cols-2 gap-2">
+        /*  FORM CHỈ BÀY CÁI KEY, PHẦN CÒN LẠI THU LẠI (chủ dự án 2026-08-29:
+             *"ở từng thao tác xác định rõ key cần là gì, cái nào có thể ẩn đi
+             (collapse/expand), đừng để chiếm màn hình quá nhiều"*).
+
+             KEY của việc "lưu một chỗ" chỉ có MỘT: **cái tên**. Toạ độ đã biết
+             rồi — nó là chỗ con trỏ đang chỉ, và lối vào chính của form này là
+             menu chạm-giữ, tức bà con VỪA chỉ đúng chỗ bằng ngón tay.
+
+             Bản trước bày cùng lúc: ô tên · nút "Lấy chỗ đang trỏ" · hai ô vĩ
+             độ/kinh độ · hai nút Hủy/Lưu = 6 ô, cao gần hết panel. Trong đó nút
+             "Lấy chỗ đang trỏ" và hai ô toạ độ là HAI ĐƯỜNG cho cùng một việc,
+             mà toạ độ thì đã điền sẵn — bày ra chỉ để nhìn. Placeholder cũng bị
+             cắt cụt ("Vĩ độ (vd 8 3") vì ô hẹp mà chữ dài.
+
+             Nay: hàng tên + ô nút Lưu inline · một DÒNG toạ độ đọc-được kèm nút
+             "Sửa" · hai ô nhập chỉ hiện khi bấm Sửa. Bỏ hẳn nút "Lấy chỗ đang
+             trỏ": toạ độ vào form đã là chỗ đang trỏ. */
+        <div className="surface space-y-2 p-3">
+          <div className="flex items-center gap-2">
             <input
-              value={addLat}
-              onChange={(e) => setAddLat(e.target.value)}
-              inputMode="text"
-              placeholder={`Vĩ độ (vd ${eg.lat})`}
-              className="min-h-[3.25rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
+              value={addName}
+              onChange={(e) => setAddName(e.target.value)}
+              placeholder="Tên điểm (vd: Bãi cá ngừ)"
+              className="min-h-[3.5rem] min-w-0 flex-1 rounded-xl bg-field px-3 text-[1rem] text-navy"
             />
-            <input
-              value={addLon}
-              onChange={(e) => setAddLon(e.target.value)}
-              inputMode="text"
-              placeholder={`Kinh độ (vd ${eg.lon})`}
-              className="min-h-[3.25rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
-            />
-          </div>
-          {!addValid && (addLat || addLon) && (
-            <p className="mb-2 text-[0.8125rem] font-semibold text-danger">
-              Chưa đọc được toạ độ. Gõ như ví dụ: {eg.lat} / {eg.lon}.
-            </p>
-          )}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setAddOpen(false)}
-              className="min-h-[3.5rem] rounded-xl bg-field text-[1rem] font-bold text-foreground/70"
-            >
-              Hủy
-            </button>
             <button
               type="button"
               onClick={submitAdd}
               disabled={!addValid}
-              className="min-h-[3.5rem] rounded-xl bg-t1 text-[1rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-50"
+              className={`${SQ_BTN} bg-t1 text-white disabled:opacity-50`}
             >
-              Lưu điểm
+              <StarIcon className="h-6 w-6" />
+              Lưu
+            </button>
+          </div>
+
+          {/*  Toạ độ: DÒNG ĐỌC, không phải ô nhập — trừ khi bà con bấm Sửa.
+               Đây là thứ đúng 1 trong 20 lần cần đụng tới (gõ tay từ máy định
+               vị); bày sẵn hai ô cho ca hiếm là bắt 19 lần kia nhìn thừa. */}
+          {!editCoord ? (
+            <div className="flex items-center gap-2">
+              <p className="min-w-0 flex-1 truncate rounded-xl bg-field px-3 py-2 text-[0.9375rem] font-semibold text-navy">
+                <PinIcon className="mr-1.5 inline h-4 w-4 text-t1" aria-hidden />
+                {addPair
+                  ? fmtCoordPair(addPair.lat, addPair.lon, prefs.coordFormat)
+                  : "Chưa có toạ độ — bấm Sửa để gõ"}
+              </p>
+              <button
+                type="button"
+                onClick={() => setEditCoord(true)}
+                className={`${SQ_BTN} bg-field text-navy`}
+              >
+                <EditIcon className="h-6 w-6" />
+                Sửa
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  value={addLat}
+                  onChange={(e) => setAddLat(e.target.value)}
+                  inputMode="text"
+                  aria-label="Vĩ độ"
+                  placeholder={`Vĩ độ ${eg.lat}`}
+                  className="min-h-[3.25rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
+                />
+                <input
+                  value={addLon}
+                  onChange={(e) => setAddLon(e.target.value)}
+                  inputMode="text"
+                  aria-label="Kinh độ"
+                  placeholder={`Kinh độ ${eg.lon}`}
+                  className="min-h-[3.25rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
+                />
+              </div>
+              {!addValid && (addLat || addLon) && (
+                <p className="text-[0.8125rem] font-semibold text-danger">
+                  Chưa đọc được toạ độ. Gõ như: {eg.lat} / {eg.lon}.
+                </p>
+              )}
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setEditCoord(false)}
+                  className={`${SQ_BTN} bg-field text-navy`}
+                >
+                  <CheckIcon className="h-6 w-6" />
+                  Xong
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setAddOpen(false);
+                setEditCoord(false);
+              }}
+              className={`${SQ_BTN} bg-field text-foreground/70`}
+            >
+              <CloseIcon className="h-6 w-6" />
+              Huỷ
             </button>
           </div>
         </div>
       )}
 
-      {/* các điểm đã ghim */}
-      {sorted.length > 0 && (
+      {/*  ĐANG NHẬP THÌ THU DANH SÁCH (2026-08-29): lúc bà con đang gõ tên
+           cho một điểm MỚI, danh sách điểm cũ và hàng "Chọn cảng nhà" không
+           giúp gì cho việc đang làm — chúng chỉ đẩy form lên và ăn 2/3 màn.
+           Xong việc (Lưu hoặc Huỷ) là danh sách trở lại ngay. */}
+      {!addOpen && sorted.length > 0 && (
         <ul className="mt-3 space-y-2">
           {sorted.map((p) => {
             const isHome = p.kind === "home";
@@ -455,7 +519,9 @@ export function MyPlacesContent({
         </p>
       )}
 
-      {/* đặt cảng nhà bằng cách tìm trong danh mục cảng */}
+      {/*  đặt cảng nhà — cũng THU khi đang nhập điểm mới (cùng lý do với
+           danh sách ở trên: không giúp gì cho việc đang làm) */}
+      {!addOpen && (
       <div className="mt-4">
         {!portOpen ? (
           /*  KHUÔN HÀNG CHUẨN [thân bg-background flex-1] + [ô nút w-16]
@@ -542,6 +608,7 @@ export function MyPlacesContent({
           </div>
         )}
       </div>
+      )}
     </>
   );
 }

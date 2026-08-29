@@ -7,6 +7,7 @@
 covers: src/app/globals.css
 last_verified: 2026-08-25
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-08-29) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-30 - safe-area pb env(sab), edge-to-edge mobile native, motion điềm đạm khớp globals.css hiện tại (4 commit UI tween đã review) -->
 <!-- re-verified: 2026-08-18 — ĐỐI CHIẾU `globals.css` (bản 2026-08-14 b0bd111) với doc: (1) 51 biến `--*` trong `:root`/`@theme` — bảng màu theo trục có 4 hex LỆCH từ đợt chỉnh AA (t1 #18648b · t2 #2e7d4f · t3 #8f6010 · t4 #7a4d9e) → sửa bảng theo mã, ghi kèm `--tN-bg` + bộ trạng thái ok/warn/danger (+ `-bg`); bổ sung tên token nền tảng `--navy/--sea/--trim/--sun/--foreground/--card/--line` mà doc chỉ gọi bằng tên chữ. (2) `.surface` · `.glass` · `.range-big` · `.range-dual` · `.display` · `.anim-*` · `.dock-frame`/`.bottom-dock`/`--app-vh`/`--dock-*` đều còn trong mã, khớp mục 2/3/6. (3) giá trị oklch ở mục "Token chờ lift" là GIÁ TRỊ MÀU chưa lift, không phải symbol mã — bỏ backtick để doc-health khỏi báo dead-symbol oan; nội dung không đổi. (4) Mục 6 "Lớp Dự báo cá" còn tả heatmap theo loài + hàm `fishHeatColor` (đã xoá) → đính chính theo mã hiện tại (lưới ô 3 mức `FISH_LEVEL_BANDS`, từ 2026-07-27 — 07 đã ghi, 03 chưa). (5) Gói C 2026-08-18: thêm bullet `neutral` cho `CrewIssueLevel`/`requestStatusVN` ở mục "Ngôn ngữ trạng thái" — không token mới. -->
@@ -180,6 +181,23 @@ type-ramp: 0.75rem 0.8125rem 0.875rem 0.9375rem 1rem 1.125rem
 - **"Điểm của tôi" thay "chọn cảng" (user chốt 2026-06-10)**: ngư dân nghĩ theo CHỖ CỦA MÌNH (bãi hay đánh, rạn quen), không theo danh mục cảng. Bỏ `<select>` cảng. Thay bằng: ghim chỗ đang xem (đặt tên) → sao vàng trên bản đồ + mở 1 chạm; FAB "Điểm tôi" mở sheet quản lý (GPS + ghim + cảng nhà). Cảng nhà chọn 1 lần qua Ô TÌM KIẾM 173 cảng (gõ lọc tên/tỉnh/huyện, KHÔNG đổ list dài). "Về cảng nhà" chỉ hiện khi đã đặt cảng nhà và đang xem chỗ khác — quay về vùng biển nhà (trước đây vô nghĩa vì luôn nhảy về 1 cảng seed cứng).
 - **KHÔNG PHÁN "đi hay không đi" (user chốt 2026-06-10)**: bản đồ mô tả ĐIỀU KIỆN bằng tình trạng biển ("Biển êm/Biển động nhẹ/Biển động mạnh") + con số (sóng m, gió cấp Beaufort, giật cấp) — không hiện điểm số /100, không lời khuyên ra khơi. Ngư dân có lịch chuyến riêng; quyết là việc của thuyền trưởng.
 - **Dự báo kiểu Windy**: thanh thời gian nổi trên map (chỉ hiện khi bật lớp Gió/Sóng) — nhãn giờ tiếng Việt ("Hôm nay · 13h"), slider to + nút chạy ▶; mũi tên chỉ HƯỚNG ĐI của gió/sóng, màu xanh→đỏ theo độ dữ (ngưỡng khớp mức cảnh báo: gió 39 km/h ~ cấp 6, sóng 2,5 m). Lớp "Cá mùa này": polygon viền đứt mảnh + chip nhãn loài rút gọn; tên đầy đủ + chữ "tham khảo" nằm trong sheet.
+### Khung nhập / panel nổi — CHỈ BÀY CÁI KEY (2026-08-29)
+
+Chủ dự án: *"ở từng thao tác xác định rõ key cần là gì, cái nào có thể ẩn đi (collapse/expand) hiển thị thông minh, đừng để chiếm màn hình quá nhiều"*.
+
+**Luật**: mỗi thao tác chỉ có MỘT–HAI thứ người dùng thật sự phải nhập. Bày đúng thứ đó; mọi thứ khác thu lại sau một nút, hoặc **đoán sẵn giá trị hay đúng nhất** rồi cho sửa.
+
+Ba câu hỏi trước khi thêm một ô vào khung:
+1. **Key là gì?** — bỏ ô này thì việc còn làm xong không? Không ⇒ giữ. Còn ⇒ thu.
+2. **Máy đã biết chưa?** — biết rồi thì ĐIỀN SẴN, đừng hỏi. Điền sẵn là đoán cái hay đúng nhất, không khoá tay ai: luôn kèm đường sửa.
+3. **Có đang giúp việc ĐANG LÀM không?** — không thì thu trong lúc làm việc đó, xong thì trả lại.
+
+**Ca mẫu — form "Thêm điểm"** (`my-places-sheet.tsx`): key là **cái tên**; toạ độ máy đã biết (chỗ con trỏ đang chỉ, và lối vào chính là menu chạm-giữ nên bà con VỪA chỉ bằng ngón tay). Trước: 6 ô cùng lúc — ô tên · nút "Lấy chỗ đang trỏ" · 2 ô vĩ/kinh độ · Hủy · Lưu, trong đó nút và 2 ô là **hai đường cho cùng một việc** mà toạ độ đã điền sẵn; placeholder còn bị cắt cụt (`"Vĩ độ (vd 8 3"`). Nay: [ô tên + ô nút **Lưu** inline] · **một dòng toạ độ đọc-được** + ô nút **Sửa** · [ô nút **Huỷ**]; hai ô nhập chỉ hiện khi bấm Sửa; danh sách điểm và hàng "Chọn cảng nhà" **thu trong lúc đang nhập** (chúng không giúp gì cho việc đang làm).
+
+**Đo thật (375×812)**: popup lúc mở form **563px (69% màn) → 296px (36%)**; số ô nhập bày sẵn **6 → 1**; toạ độ điền sẵn thay vì báo "Chưa có toạ độ".
+
+**Trần khung nổi**: mọi panel/popup của rail giữ ≤ ~40% màn ở trạng thái mặc định. Đo hiện tại: Lớp 36% · Đến điểm 31% · Điểm đã lưu 36%.
+
 ### Nút hành động trên màn bản đồ — LUẬT VỊ TRÍ & KÍCH THƯỚC (2026-08-29)
 
 Chủ dự án: *"cái nút nó là ô vuông kích thước đồng bộ"* · *"nó là 1 nút thì đừng để nó chiếm cả 1 hàng… 1 ô chiếm 1 hàng thì lại mất cân đối trong khi vẫn chiếm chỗ màn hình"* · *"có logic về tối ưu vị trí và hiển thị chưa?"*.
