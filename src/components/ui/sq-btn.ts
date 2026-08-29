@@ -26,5 +26,4 @@
     của đúng chuỗi này (route-planner + my-places-sheet) — hai bản là hai lần
     lệch nhau khi ai đó chỉnh một chỗ (đúng bài học `haversineKm`, nguyên tắc
     3). Luật đầy đủ: 03-design-system §"Nút hành động". */
-export const SQ_BTN =
-  "flex min-h-[3.5rem] w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-[0.6875rem] font-bold leading-tight transition active:scale-95";
+export const SQ_BTN = "sq-btn";

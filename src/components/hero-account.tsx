@@ -66,8 +66,12 @@ type Mode = "auto" | "to" | "gon";
 // "Theo máy" (auto) không bày thành lựa chọn (góp ý user 2026-06-11) — chỉ
 // 2 tùy chọn; bấm lại cái đang chọn = về auto. MẶC ĐỊNH là "gon" (2026-07-28).
 const MODES: { id: Exclude<Mode, "auto">; label: string; sub: string }[] = [
-  { id: "to", label: "Chữ to", sub: "Luôn to rõ, dễ đọc ngoài nắng" },
-  { id: "gon", label: "Gọn", sub: "Mật độ như các app thường dùng" },
+  /*  NHÃN PHẢI NÓI ĐÚNG THỨ CÔNG TẮC LÀM (sửa 2026-08-29h). Từ khi gốc chữ
+      của cả hai chế độ cùng là 16px (chống iOS tự phóng to), "Chữ to" KHÔNG
+      còn đổi cỡ chữ một điểm nào — nhãn hứa một việc nó không làm. Thứ thật
+      sự đổi là chiều cao hàng và nút: 56px (to) so với 37px (gọn). */
+  { id: "to", label: "Nút to", sub: "Nút và hàng cao 56px — dễ bấm tay ướt" },
+  { id: "gon", label: "Gọn", sub: "Nút thấp 37px — thấy được nhiều hàng hơn" },
 ];
 
 function prettyPhone(p: string): string {

@@ -1306,7 +1306,7 @@ export function RouteMode({
                     ? `${staleMsg}. Chạm để mở danh sách điểm.`
                     : undefined
                 }
-                className="flex min-h-[3.5rem] w-full items-center gap-1.5 text-left"
+                className="flex min-h-[var(--row-h)] w-full items-center gap-1.5 text-left"
               >
                 {staleMsg ? (
                   /*  KHÔNG `truncate`: câu cảnh báo bị cắt cụt là mất đúng vế
@@ -1456,7 +1456,7 @@ export function RouteMode({
              hẳn, phải hỏi lại. */}
         {panel === "idle" && coGiDeXoa && (
           <div className="flex items-center gap-2">
-            <p className="flex min-h-[3.5rem] min-w-0 flex-1 items-center rounded-xl bg-background px-3 text-[0.9375rem] font-semibold leading-snug text-foreground/70">
+            <p className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center rounded-xl bg-background px-3 text-[0.9375rem] font-semibold leading-snug text-foreground/70">
               {stops.length > 0 ? ghimTomTat : "Đang có một tuyến đã tính"}
             </p>
             <button
@@ -1527,7 +1527,7 @@ export function RouteMode({
                việc khác; lối lưu nằm ở màn kết quả, đúng lúc có cái để lưu. */}
           {compactRows && savedRoutes.length > 0 && (
             <div className="flex items-center gap-2">
-              <p className="flex min-h-[3.5rem] min-w-0 flex-1 items-center rounded-xl bg-background px-3 text-[0.9375rem] font-semibold leading-snug text-navy">
+              <p className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center rounded-xl bg-background px-3 text-[0.9375rem] font-semibold leading-snug text-navy">
                 Đường đã lưu · {savedRoutes.length} đường
               </p>
               <button
@@ -1551,7 +1551,7 @@ export function RouteMode({
             type="button"
             onClick={() => setPanel("start")}
             aria-expanded={false}
-            className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
+            className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
           >
             <span
               className="h-3 w-3 shrink-0 rounded-full border-[3px] border-navy/60"
@@ -1598,7 +1598,7 @@ export function RouteMode({
                         setStartId(o.id);
                         setPanel("idle");
                       }}
-                      className={`flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold transition ${
+                      className={`flex min-h-[var(--row-h)] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold transition ${
                         on
                           ? "bg-navy text-white"
                           : "bg-card text-foreground/75 active:bg-field"
@@ -1627,7 +1627,7 @@ export function RouteMode({
                   setPanel("idle");
                 }}
                 aria-label="Hoặc chọn cảng khác"
-                className="block min-h-[3.5rem] w-full rounded-xl bg-card px-3 text-[1rem] font-semibold text-foreground/70"
+                className="block min-h-[var(--row-h)] w-full rounded-xl bg-card px-3 text-[1rem] font-semibold text-foreground/70"
               >
                 <option value="">Cảng khác…</option>
                 {PORTS.map((p) => (
@@ -1650,7 +1650,7 @@ export function RouteMode({
               </p>
             )}
             <div className="flex items-center gap-2">
-            <div className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 py-1.5">
+            <div className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 py-1.5">
               <span
                 className="display flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.875rem] font-bold text-white"
                 style={{ background: ROUTE_LINE_COLOR }}
@@ -1726,7 +1726,7 @@ export function RouteMode({
               type="button"
               onClick={() => setPanel("dest")}
               aria-expanded={false}
-              className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
+              className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
             >
               <PlusIcon className="h-6 w-6 shrink-0" />
               <span className="min-w-0 flex-1">
@@ -1790,7 +1790,7 @@ export function RouteMode({
                     thứ duy nhất trên thẻ đang động, mắt bắt trước cả khi đọc
                     chữ. Cùng khuôn tín hiệu "đang bật" của nút rail (chấm nháy
                     trắng), không đẻ quy ước mới. */
-                className="relative flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl bg-t1-bg px-3 text-left ring-2 ring-t1 transition active:scale-[0.99] disabled:opacity-50"
+                className="relative flex min-h-[var(--row-h)] w-full items-center gap-2.5 rounded-xl bg-t1-bg px-3 text-left ring-2 ring-t1 transition active:scale-[0.99] disabled:opacity-50"
               >
                 <span className="relative flex shrink-0">
                   <PinIcon className="h-6 w-6 text-t1" aria-hidden />
@@ -1841,7 +1841,7 @@ export function RouteMode({
                       onStops?.(addStop(stops, pl.lat, pl.lon, pl.name));
                       setPanel("idle");
                     }}
-                    className="flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl bg-card px-3 text-left transition active:scale-[0.99] disabled:opacity-50"
+                    className="flex min-h-[var(--row-h)] w-full items-center gap-2.5 rounded-xl bg-card px-3 text-left transition active:scale-[0.99] disabled:opacity-50"
                   >
                     <span
                       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white ${
@@ -1922,7 +1922,7 @@ export function RouteMode({
                   setPanel("idle");
                 }}
                 aria-label="Thêm một cảng làm điểm đến"
-                className="block min-h-[3.5rem] w-full rounded-xl bg-card px-3 text-[1rem] font-semibold text-foreground/70"
+                className="block min-h-[var(--row-h)] w-full rounded-xl bg-card px-3 text-[1rem] font-semibold text-foreground/70"
               >
                 <option value="">Chọn một cảng…</option>
                 {PORTS.map((p) => (
@@ -1963,7 +1963,7 @@ export function RouteMode({
                     onChange={(e) => setSaveName(e.target.value)}
                     placeholder={suggestName(stops)}
                     aria-label="Tên đường đi muốn lưu"
-                    className="min-h-[3.5rem] min-w-0 flex-1 rounded-xl bg-background px-3 text-[1rem] font-semibold text-navy"
+                    className="min-h-[var(--row-h)] min-w-0 flex-1 rounded-xl bg-background px-3 text-[1rem] font-semibold text-navy"
                   />
                   <button
                     type="button"
@@ -2018,7 +2018,7 @@ export function RouteMode({
                             Bà con tự bấm khi sẵn sàng — app không được tự tiêu
                             pin/sóng của người ta. */
                       }}
-                      className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
+                      className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
                     >
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[1rem] font-bold text-navy">
@@ -2060,7 +2060,7 @@ export function RouteMode({
                   max={30}
                   value={speedKn}
                   onChange={(e) => setSpeedKn(e.target.value)}
-                  className="block min-h-[3.5rem] w-full rounded-xl bg-card px-3 text-[1.125rem] font-semibold"
+                  className="block min-h-[var(--row-h)] w-full rounded-xl bg-card px-3 text-[1.125rem] font-semibold"
                 />
               </label>
               <label className="block">
@@ -2074,7 +2074,7 @@ export function RouteMode({
                   max={300}
                   value={lph}
                   onChange={(e) => setLph(e.target.value)}
-                  className="block min-h-[3.5rem] w-full rounded-xl bg-card px-3 text-[1.125rem] font-semibold"
+                  className="block min-h-[var(--row-h)] w-full rounded-xl bg-card px-3 text-[1.125rem] font-semibold"
                 />
               </label>
             </div>
@@ -2108,7 +2108,7 @@ export function RouteMode({
                lên hàng trên (xem chú thích ô hành động ở header), nên cuộn sâu
                tới đâu vẫn bấm được. */}
           <div className="flex items-center gap-2">
-            <div className="flex min-h-[3.5rem] min-w-0 flex-1 items-center rounded-xl bg-background px-3">
+            <div className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center rounded-xl bg-background px-3">
               <p className="display min-w-0 flex-1 text-[0.9375rem] font-bold leading-snug text-navy">
                 {/*  Bản ĐỌC BẰNG TAI — đánh vần đủ vai của từng con số. Mắt
                      đọc bản ngắn bên dưới; không nhân đôi cho tai vì bản mắt
