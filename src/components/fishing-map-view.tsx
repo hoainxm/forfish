@@ -3530,7 +3530,25 @@ export default function FishingMapView() {
         {/*  `alongKm` = quãng đã chạy dọc tuyến ⇒ chặng nào ở sau lưng thì tô
              xám (chủ dự án 2026-08-29g). Chỉ có khi ĐANG dẫn đường thật; xem
              tuyến lúc chưa đi thì mọi chặng giữ nguyên màu cảnh báo. */}
-        <RouteMapLayers route={route} alongKm={navProgress?.alongKm ?? null} />
+        {/*  ĐƯỜNG ĐI SỐNG THEO CÔNG TẮC "DẪN ĐƯỜNG" (chủ dự án 2026-08-29h:
+             *"lúc ẩn cái dẫn đường thì ẩn luôn cái đường đi đi, cùng trạng
+             thái với cái on off cái dẫn đường ấy"*).
+
+             Trước đây vạch và ghim số nằm lại trên bản đồ kể cả khi đã thoát
+             chế độ dẫn đường: bà con quay về xem gió sóng mà màn vẫn đầy vạch
+             của việc khác, không có cách nào cất đi ngoài việc vào lại rồi
+             bấm "Xoá hết" — tức phải XOÁ THẬT chỉ để ĐỠ NHÌN THẤY. Nay tắt
+             công tắc là cất, bật lại là còn nguyên: cất ≠ xoá, không mất dữ
+             liệu, không phải hỏi lại.
+
+             `navOn` LÀ ĐIỀU KIỆN AN TOÀN, KHÔNG PHẢI TIỆN NGHI: đang dẫn
+             đường LIVE thì vạch dưới chân chuyến đang chạy phải hiện dù thẻ đã
+             đóng — cùng luật với `if (!navMode) setRoute(null)` ở menu
+             chạm-giữ. */}
+        <RouteMapLayers
+          route={routeMode || navOn ? route : null}
+          alongKm={navProgress?.alongKm ?? null}
+        />
         {/* Chỗ ghé đã chấm nhưng CHƯA tính tuyến — nét đứt + số, để bà con
             thấy ngay mình đang chấm cái gì.
             ẨN CHỈ KHI tuyến đã tính CÒN KHỚP cả chuỗi điểm (lúc đó hai đường
@@ -3541,7 +3559,12 @@ export default function FishingMapView() {
             chuỗi mới — thứ bà con thật sự nhìn giữa biển là bản đồ. */}
         <RouteStopsLayers
           stops={stops}
-          hidden={route != null && routeMatchesStops(route.stops, stops, point)}
+          /*  Cùng luật với vạch đã tính ở trên: thoát dẫn đường ⇒ cất luôn
+               đường nháp + ghim số, bật lại là còn nguyên. */
+          hidden={
+            !(routeMode || navOn) ||
+            (route != null && routeMatchesStops(route.stops, stops, point))
+          }
           /*  `from` = NƠI XUẤT PHÁT ĐANG CHỌN trong thẻ (cảng nhà / chỗ ghim /
                chỗ đang xem), lùi về vị trí GPS khi bà con chọn "Chỗ tàu tôi"
                (lựa chọn đó không mang sẵn toạ độ). Phải đúng thứ tự này: thẻ in

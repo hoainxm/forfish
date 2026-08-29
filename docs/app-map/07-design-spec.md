@@ -840,6 +840,24 @@ Ba con số thành **phần tử ĐẦU của luồng cuộn** (không còn ghim
 
 *Đo thật 375×812, tuyến 2 chỗ đã tính*: thanh đông cứng **2 → 1**; cửa đọc **~104px → 184px** (+77%); thẻ vẫn 252px, bản đồ vẫn 69%; hàng trên = Thoát · "Đường đi qua 2 chỗ" · Tuỳ chọn · Dẫn đường.
 
+**M. ĐƯỜNG ĐÃ LƯU · XOÁ HẾT Ở ĐÚNG CHỖ · KHÔNG NÚT CHẾT · KHÔNG Ô TRỐNG (2026-08-29h)**
+
+**M1. ĐƯỜNG ĐÃ LƯU.** Trước đây máy chỉ giữ MỘT chuỗi điểm đang dùng, sửa tới đâu đè tới đó, "Xoá hết" là mất hẳn — chuyến lặp hằng tuần phải chấm lại 2–3 chỗ và chờ tính ~10 giây MỖI LẦN. Nay `lib/saved-routes.ts` cất cả một đường (nơi xuất phát + `startId` + chuỗi chỗ ghé) dưới một tên, trần 12.
+
+**CỐ Ý KHÔNG CẤT KẾT QUẢ ĐÃ TÍNH.** Quãng · giờ · dầu · sóng là dự báo CỦA HÔM ẤY; bày lại tuần sau là app tự nói dối — bà con đọc "1662 lít, sóng 2,6 m" tưởng là bây giờ, tính dầu theo đó có thể thiếu dầu giữa biển. Mở một đường đã lưu ⇒ khôi phục ĐIỂM rồi thôi; **KHÔNG tự bấm Tính** (tốn ~10 giây và có thể cần sóng — app không tiêu pin/sóng của người ta thay họ).
+
+Một panel làm CẢ HAI việc (cất + mở lại): tách hai là dựng lại đúng cái "xổ ra mấy phần khác nhau" đã dẹp ở §L6. Hàng lưu chỉ bày CÁI KEY — cái tên, và cái tên cũng điền sẵn theo điểm đến (`suggestName`); nơi xuất phát và chuỗi điểm máy đang cầm sẵn, hỏi lại là hỏi thứ mình vừa tự trả lời. Lối vào: hàng `Đường đã lưu · N đường` + ô `Mở` (chỉ hiện khi ĐÃ có đường lưu), và ô `Lưu đường` inline cuối hàng ba con số ở màn kết quả — đặt đúng lúc có cái để lưu.
+
+**M2. "XOÁ HẾT" PHẢI Ở TRONG THẺ DẪN ĐƯỜNG.** Chủ dự án: *"xoá hết phải thực hiện trong cái chỗ dẫn đường"*. §L6 từng chôn nó vào panel "Tuỳ chọn" với lý do "việc hiếm thì chôn sâu một chạm" — sai, và bằng chứng là chính chủ dự án phải hỏi *"nút nào thì clear cái đường dẫn thế?"* trong lúc màn đang hiện băng "Vạch xanh còn dẫn tới chỗ chạm trước". App tự báo có vạch thừa rồi bắt đi tìm nút xoá ở phòng khác. Nay là hàng ĐẦU của thân thẻ, ở CẢ hai trạng thái (biểu mẫu và kết quả), chỉ ẩn khi đang xổ một bộ chọn. Nhịp xác nhận hai lần giữ nguyên.
+
+**M3. BỎ CHỖ CUỐI CÙNG ⇒ DỌN LUÔN VẠCH.** Chủ dự án: *"bỏ các điểm đi rồi sao cái tuyến vẫn hiển thị?"*. Luật cũ (2026-06-11) "đổi đích thì KHÔNG vứt tuyến vừa tính 10 giây" đúng cho MỘT cú chạm nhầm, nhưng bỏ SẠCH danh sách là N lần bấm Bỏ có chủ ý. Giữ vạch lúc đó là rác NGUY HIỂM — nó chạy qua đúng những chỗ vừa bị loại, mà giữa biển bà con tin vạch trên màn chứ không đọc lại chữ. Còn ≥1 chỗ thì giữ nguyên luật cũ.
+
+**M4. VẠCH SỐNG THEO CÔNG TẮC "DẪN ĐƯỜNG".** Chủ dự án: *"lúc ẩn cái dẫn đường thì ẩn luôn cái đường đi, cùng trạng thái với cái on off"*. Trước đây thoát dẫn đường rồi mà vạch + ghim số vẫn nằm trên bản đồ, muốn cất phải vào lại bấm "Xoá hết" — tức **XOÁ THẬT chỉ để ĐỠ NHÌN THẤY**. Nay `RouteMapLayers` và `RouteStopsLayers` chỉ vẽ khi `routeMode || navOn`: **cất ≠ xoá**, bật lại là còn nguyên, không mất dữ liệu, không phải hỏi lại. `navOn` là điều kiện AN TOÀN chứ không phải tiện nghi — đang dẫn đường LIVE thì vạch dưới chân chuyến đang chạy phải hiện dù thẻ đã đóng (cùng luật `if (!navMode) setRoute(null)` ở menu chạm-giữ). *Đo thật*: bật = 2 ghim + 2 nhãn khoảng cách; tắt = bản đồ sạch; kho vẫn giữ đủ 2 chỗ.
+
+**M5. KHÔNG ĐƯỢC CÓ NÚT BẤM-KHÔNG-RA-GÌ.** Chủ dự án: *"click ko có tác dụng thì ẩn"*. Lỗi thật đã xảy ra: cổng render của khối biểu mẫu viết là `(!plan || editing)` rồi vá riêng cho một panel (`|| panel === "saved"`), nên ở màn KẾT QUẢ bấm "Tuỳ chọn" thì khối biểu mẫu không đủ điều kiện hiện, khối kết quả lại ẩn vì `panel !== "idle"` ⇒ **thẻ rỗng**, và nút "Quay lại" mọc ra để lùi khỏi một thứ chưa từng mở. Luật: cổng phải viết theo **trạng thái**, không kể tên từng panel — nay là `panel !== "idle"`, thêm panel mới sau này tự chạy.
+
+**M6. Ô TRỐNG GIỮ CHỖ — BỎ.** Chủ dự án: *"khoảng trắng ở kế bên này? nếu ko có nút nào thì kéo ra cho kín"*. **Sửa luật B1**: hàng KHÔNG có nút thì kéo hết bề ngang, KHÔNG chừa ô `w-16` rỗng. Đây là lần thứ hai cùng một lỗi — hộp thư trang chủ cũng từng mất 21% bề ngang chữ vì chừa một cột không hàng nào dùng. Mép phải thẳng là thứ tốt, nhưng không đổi bằng 72px trống trong khi chính dòng chữ bên cạnh đang bị cắt cụt ("Cảng Quy Nhơn — gần điểm đến nhất"). *Đo lại*: hai hàng `Điểm xuất phát` và `Chọn điểm đến` từ 263px → **335px**, kín mép thẻ.
+
 **CHƯA KIỂM ĐƯỢC TRÊN MÁY**: đường chạm-một-khúc-màu (L5). Ô Browser của phiên làm việc không hiển thị nên không chụp/chạm thật được, mà MapLibre bỏ qua sự kiện chuột tổng hợp — cần một lượt chạm tay thật để xác nhận.
 
 **K. CHẠM GIỮ TRÊN BẢN ĐỒ → MENU NGỮ CẢNH (2026-08-29)**

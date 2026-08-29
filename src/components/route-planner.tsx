@@ -1545,8 +1545,15 @@ export function RouteMode({
               aria-hidden
             />
           </button>
-          {/* giữ chỗ cột nút — hàng này không có nút, nhưng mép phải phải thẳng */}
-          <span className="w-16 shrink-0" aria-hidden />
+          {/*  KHÔNG CÒN CHỪA Ô TRỐNG (chủ dự án 2026-08-29h: *"khoảng trắng ở
+               kế bên này? nếu ko có nút nào thì kéo ra cho kín"*).
+               Luật B1 cũ bắt MỌI hàng chừa một ô `w-16` để mép phải thẳng —
+               nhưng hàng này không có nút, nên ô đó là 72px trống tuyệt đối
+               trong khi chính dòng chữ bên trái đang bị cắt cụt ("Cảng Quy
+               Nhơn — gần điểm đến nhất"). Đây là lần THỨ HAI cùng một lỗi:
+               hộp thư trên trang chủ cũng từng mất 21% bề ngang chữ vì chừa
+               một cột không hàng nào dùng. Luật đã sửa: chừa ô CHỈ KHI hàng đó
+               có nút — hàng không nút kéo hết bề ngang. */}
           </div>
           )}
 
@@ -1647,7 +1654,26 @@ export function RouteMode({
             </div>
             <button
               type="button"
-              onClick={() => onStops?.(removeStop(stops, s.id))}
+              onClick={() => {
+                const con = removeStop(stops, s.id);
+                onStops?.(con);
+                /*  BỎ CHỖ CUỐI CÙNG ⇒ DỌN LUÔN VẠCH TRÊN BẢN ĐỒ (chủ dự án
+                    2026-08-29h: *"bỏ các điểm đi rồi sao cái tuyến vẫn hiển
+                    thị?"*).
+
+                    Luật cũ (hội đồng UX 2026-06-11) là "đổi đích thì KHÔNG
+                    vứt tuyến vừa tính 10 giây" — đúng cho một cú chạm nhầm.
+                    Nhưng bỏ SẠCH danh sách không phải chạm nhầm: đó là N lần
+                    bấm Bỏ có chủ ý. Giữ lại vạch lúc đó chỉ còn là rác, mà là
+                    rác NGUY HIỂM — vạch chạy qua đúng những chỗ vừa bị loại,
+                    giữa biển bà con tin vạch trên màn chứ không đọc lại chữ.
+                    Băng "Vạch xanh là đường CŨ" có báo, nhưng báo rồi bắt người
+                    ta tự đi dọn thì app đang đùn việc do chính nó tạo ra.
+
+                    Còn ≥1 chỗ thì GIỮ NGUYÊN luật cũ: chưa chắc bà con đã xong
+                    ý, và băng cảnh báo đủ nói. */
+                if (con.length === 0) clearRoute();
+              }}
               aria-label={"Bỏ điểm " + (i + 1)}
               className={`${SQ_BTN} bg-background text-danger`}
             >
@@ -1704,12 +1730,10 @@ export function RouteMode({
                 aria-hidden
               />
             </button>
-            {/*  NÚT TÍNH ĐÃ DỜI XUỐNG THANH GHIM ĐÁY (2026-08-29). Bản trước
-                 để nút ở đây: đo trên 375×812 ca MỘT ĐIỂM ĐẾN — ca phổ biến
-                 nhất, cũng là chỗ lối tắt chạm-giữ đổ vào — nội dung 307px
-                 trong cửa 252px, nút chính của cả màn chỉ lộ 29/56px, bị mép
-                 thẻ cắt đôi. Hàng vẫn CHỪA Ô để mép phải thẳng một khuôn. */}
-            <span className="w-16 shrink-0" aria-hidden />
+            {/*  Nút tính nằm ở hàng trên (xem chú thích ô hành động ở header).
+                 Hàng này KHÔNG chừa ô trống — xem lý do ở hàng "Điểm xuất
+                 phát": chừa chỗ cho một cột không có nút là ăn mất bề ngang
+                 của chính dòng chữ đang bị cắt. */}
             </div>
           )}
 
@@ -2252,9 +2276,7 @@ export function RouteMode({
                   <RouteIcon className="h-6 w-6" />
                   {busy ? "Đang tính" : "Tính lại"}
                 </button>
-              ) : (
-                <span className="w-16 shrink-0" aria-hidden />
-              )}
+              ) : null}
             </div>
           </div>
 

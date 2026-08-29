@@ -192,6 +192,19 @@ if [ "$1" = "--self-test" ]; then
   OUTU12=$(git commit -m f6p 2>&1); RCU12=$?
   if [ "$RCU12" -eq 0 ] && echo "$OUTU12" | grep -q "thieu be mat trinh duyet"; then echo "PASS: 1d-p WARN globals thieu ::selection/caret, khong chan"
   else echo "FAIL: 1d-p sai (exit=$RCU12): $OUTU12"; RC=1; fi
+  # 1d-q: ky tu X tho (✕, tao bang hex de chinh hook khong chua truc tiep) -> WARN, khong chan;
+  # dau nhan × (U+00D7) KHONG bi bat.
+  XR=$(printf '\xe2\x9c\x95'); MULT=$(printf '\xc3\x97')
+  printf 'export const X = () => <button aria-label="Dong">%s</button>\n' "$XR" > src/ui/Xr.tsx
+  git add src/ui/Xr.tsx
+  OUTU13=$(git commit -m f7q 2>&1); RCU13=$?
+  if [ "$RCU13" -eq 0 ] && echo "$OUTU13" | grep -q "ky tu X tho"; then echo "PASS: 1d-q WARN ky tu X tho, khong chan"
+  else echo "FAIL: 1d-q sai (exit=$RCU13): $OUTU13"; RC=1; fi
+  printf 'export const M = () => <span>Da cay %s2</span>\n' "$MULT" > src/ui/Mu.tsx
+  git add src/ui/Mu.tsx
+  OUTU14=$(git commit -m f7q2 2>&1); RCU14=$?
+  if [ "$RCU14" -eq 0 ] && ! echo "$OUTU14" | grep -q "ky tu X tho"; then echo "PASS: 1d-q KHONG bat dau nhan × (U+00D7)"
+  else echo "FAIL: 1d-q bat oan dau nhan × (exit=$RCU14): $OUTU14"; RC=1; fi
   cd "$OPW" && rm -rf "$TU2" ) > "$PJ/10.log" 2>&1 || echo "FAIL: khoi 10 thoat som" >> "$PJ/10.log" &
   # 1f (NT15): no-marker 2 ve, export trung, page thieu state, lane-vs-spec — moi WARN khong duoc keo FAIL
   ( TB=$(mktemp -d) && cd "$TB" && git init -q . && git config user.email t@t.t && git config user.name t || exit 1
@@ -605,6 +618,17 @@ if [ "$UI_CHECKS" != "off" ]; then
         echo "BLOCK: letter-spacing am vuot san -0.03em trong $f — chu dinh nhau, khong doc duoc (04 §3, hook 1d-i)."
         FAIL=1
       fi
+      # 1d-q (ForFish 2026-08-29g — chu du an chot "nut X dong lam cho dong bo"):
+      # ky tu X tho (✕ U+2715 / ✖ U+2716) lam nut dong = tu che, lech baseline + scale xau,
+      # khong design system nao dung (Apple HIG/Material 3/Polaris/Carbon). Dung <CloseButton>.
+      # Chi ✕/✖ — KHONG bat × (U+00D7) vi la dau nhan hop le ("Da cay ×2"). WARN, khong chan.
+      case "$f" in
+        *.tsx|*.jsx)
+          if printf '%s' "$UC" | grep -qF -e '✕' -e '✖'; then
+            echo "WARN: ky tu X tho (✕/✖) trong $f — nut dong dung <CloseButton> (src/components/ui/close-button.tsx): glyph icon 24px + cham 56px + goc tren-phai (03-design-system §Nut X dong · Huy · vuot-dong, hook 1d-q)."
+          fi
+          ;;
+      esac
       # P2 (WARN — GOP 1 alternation theo ngan sach thoi gian methodology/08). Tung id:
       # 1d-j transition-all · 1d-k animate layout-prop (width/height/top/left/margin/padding)
       # · 1d-l hover:scale · 1d-m uppercase+leading-none · 1d-n text-[clamp(] · 1d-o border+shadow-lg
