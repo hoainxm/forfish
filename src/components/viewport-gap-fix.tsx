@@ -77,11 +77,17 @@ export function ViewportGapFix() {
         const key = syncKey();
         // vv.height = KÍCH THƯỚC viewport (không offsetTop — offset cuộn làm vọt).
         const measured = Math.round(vv.height);
-        // CHỈ LỚN LÊN + KHOÁ. Nhỏ hơn (tab tĩnh) → GIỮ mốc lớn, KHÔNG tự hạ (tự
-        // hạ = dao động 2 tab). Vọt quá màn thật → bỏ (glitch iOS).
+        // TRẦN CỨNG = KÍCH THƯỚC MÀN HÌNH THẬT của máy: `screen.height` (CSS px)
+        // do iOS cấp — KHÔNG cần biết tên/đời máy, đây CHÍNH LÀ size màn của đúng
+        // máy đó. --app-vh KHÔNG BAO GIỜ được vượt quá nó.
+        const ceil = screen.height || measured;
+        // Đo VỌT quá màn thật = glitch iOS → BỎ (không cho latch mốc quá to →
+        // dock chui khỏi đáy).
+        if (measured > ceil) return;
+        // CHỈ LỚN LÊN rồi KHOÁ. Nhỏ hơn (tab tĩnh) → GIỮ mốc lớn, KHÔNG tự hạ
+        // (tự hạ = dao động 2 tab).
         if (measured <= stableBottom) return;
-        if (measured > (screen.height || measured)) return;
-        stableBottom = measured;
+        stableBottom = Math.min(measured, ceil); // KHOÁ TRẦN màn hình, tuyệt đối
         try {
           localStorage.setItem(key, String(stableBottom));
         } catch {}
