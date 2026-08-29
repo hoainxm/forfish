@@ -29,6 +29,7 @@ import { stormNoticeText, type StormStatus } from "@/lib/storms";
 import { useOnline } from "@/lib/use-online";
 import { clockVN } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 import {
   useMapPrefs,
   setMapPrefs,
@@ -223,8 +224,25 @@ export function RaKhoiControls({
     setAddPlaceOpen(true);
     setPrefillTick(addPlaceSignal);
   }, [addPlaceSignal]);
+  /*  ĐÓNG PANEL LÀ DỌN LUÔN TRẠNG THÁI FORM (2026-08-29h — chủ dự án: *"điểm
+      đã lưu ko thấy điểm cũ? t lưu điểm gà mà ko thấy"*).
+
+      LỖI: `addPlaceOpen` bật lên khi mở form từ menu chạm-giữ, và chỉ tắt khi
+      bà con bấm Lưu/Huỷ. Đóng panel bằng nút X lúc form đang mở thì cờ NẰM
+      LẠI — lần sau bấm "Điểm đã lưu" ở rail, form bung ra ngay, mà form mở thì
+      danh sách điểm cũ bị thu (xem `!addOpen` trong my-places-sheet). Kết quả:
+      bà con vừa lưu một điểm xong, mở ra lại thấy form trống và KHÔNG thấy
+      điểm nào — tưởng máy nuốt mất điểm của mình. Điểm vẫn còn (ghim vẫn hiện
+      trên bản đồ), chỉ là danh sách bị giấu.
+
+      Đây là lớp lỗi "trạng thái sống dai hơn lần dùng": mở panel bằng nút rail
+      phải luôn về màn MẶC ĐỊNH — danh sách điểm — chứ không kế thừa việc dở
+      của lượt trước. */
   useEffect(() => {
-    if (!placesOpen) setPrefillTick(0);
+    if (!placesOpen) {
+      setPrefillTick(0);
+      setAddPlaceOpen(false);
+    }
   }, [placesOpen]);
   /*  BÁO CHA: rail đang có lớp nổi nào mở không. Cha (fishing-map-view) dùng để
       chạm bản đồ chỉ dời con trỏ, khỏi bung sheet gió sóng đè lên panel. */
@@ -1058,14 +1076,16 @@ function DiemPanel({
             type="button"
             onClick={() => setAddOpen(true)}
             aria-label="Thêm điểm mới"
-            className="flex min-h-[3.25rem] w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl bg-t1 py-2 text-[0.6875rem] font-bold leading-tight text-white transition active:scale-95"
+            /*  DÙNG KHUÔN CHUNG, KHÔNG CHÉP TAY (2026-08-29h): chuỗi cũ là
+                bản chép của `SQ_BTN` nên nó KHÔNG ăn theo `--row-h` — chế độ
+                "Gọn" hạ mọi nút xuống 37px thì riêng nút này vẫn 52px. Đúng
+                bài học hai-bản-chép-tay đã ghi ngay trong file sq-btn.ts. */
+            className={`${SQ_BTN} bg-t1 text-white`}
           >
             <PlusIcon className="h-6 w-6" />
             Thêm điểm
           </button>
-        ) : (
-          <span className="w-16 shrink-0" aria-hidden />
-        )}
+        ) : null}
       </div>
       <div className="mt-3">
         {/* quản lý điểm NGAY trong panel — compact cho rail hẹp */}

@@ -22,6 +22,7 @@ last_verified: 2026-08-26
 <!-- re-verified: 2026-08-18d - doi chieu voi cac thay doi trong `src/app` cua ngay hom nay: `/api/storms` (them nguon NCHMF, gop hai nguon) va `/api/me/market-listings` (GET doi dang nhap) deu la tang DU LIEU/QUYEN, KHONG doi mot man hinh nao. Cac man co lien quan da duoc ta o hai ghi chu 2026-08-16 va 2026-08-18 ngay tren: canh bao thieu tin bao tren khoi ket qua tuyen (nay se HIEN THUC khi co ATND vi nguon VN da phu), cho tin doi dang nhap thi hien TIN MAU + nut Dang nhap (dung hanh vi truoc 2026-08-16), Cua hang/Don cua toi hien ban luu kem moc. Khong them man, khong doi token mau, khong doi co chu/tap target. -->
 <!-- re-verified: 2026-08-19 — GỘP BASE (sync base): các ghi chú 2026-08-18 ở trên nói app CÒN sổ/tủ/lịch MẪU — ở sdvico KHÔNG CÒN (bỏ demo 2026-07-29). Bốn màn kho-trên-máy (Bạn thuyền · tủ giấy tờ · nhắc bảo dưỡng · sản phẩm tàu) mở ra RỖNG kèm empty state; chợ tin cũng không có tin mẫu, mất sóng thì nói "chưa tải được" và GIỮ danh sách đang hiện. Giữ nguyên phần base về `readUserList`/băng đỏ đọc-hỏng, `StatusBanner` chốt phạm vi, và `login-gate.tsx` thì sdvico VẪN DÙNG. -->
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-08-29) — code 'src/components' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 ```
 <!-- gate: warn vì UI churn src/app+src/components cao — cảnh báo thay vì chặn. KHÔNG để comment cùng dòng `gate:` (hook tr -d ' ' giữ lại # → phá so khớp = "warn" → chặn nhầm). -->
@@ -853,6 +854,16 @@ Một panel làm CẢ HAI việc (cất + mở lại): tách hai là dựng lạ
 **M3. BỎ CHỖ CUỐI CÙNG ⇒ DỌN LUÔN VẠCH.** Chủ dự án: *"bỏ các điểm đi rồi sao cái tuyến vẫn hiển thị?"*. Luật cũ (2026-06-11) "đổi đích thì KHÔNG vứt tuyến vừa tính 10 giây" đúng cho MỘT cú chạm nhầm, nhưng bỏ SẠCH danh sách là N lần bấm Bỏ có chủ ý. Giữ vạch lúc đó là rác NGUY HIỂM — nó chạy qua đúng những chỗ vừa bị loại, mà giữa biển bà con tin vạch trên màn chứ không đọc lại chữ. Còn ≥1 chỗ thì giữ nguyên luật cũ.
 
 **M4. VẠCH SỐNG THEO CÔNG TẮC "DẪN ĐƯỜNG".** Chủ dự án: *"lúc ẩn cái dẫn đường thì ẩn luôn cái đường đi, cùng trạng thái với cái on off"*. Trước đây thoát dẫn đường rồi mà vạch + ghim số vẫn nằm trên bản đồ, muốn cất phải vào lại bấm "Xoá hết" — tức **XOÁ THẬT chỉ để ĐỠ NHÌN THẤY**. Nay `RouteMapLayers` và `RouteStopsLayers` chỉ vẽ khi `routeMode || navOn`: **cất ≠ xoá**, bật lại là còn nguyên, không mất dữ liệu, không phải hỏi lại. `navOn` là điều kiện AN TOÀN chứ không phải tiện nghi — đang dẫn đường LIVE thì vạch dưới chân chuyến đang chạy phải hiện dù thẻ đã đóng (cùng luật `if (!navMode) setRoute(null)` ở menu chạm-giữ). *Đo thật*: bật = 2 ghim + 2 nhãn khoảng cách; tắt = bản đồ sạch; kho vẫn giữ đủ 2 chỗ.
+
+**M13. "ĐIỂM ĐÃ LƯU" MỞ RA KHÔNG THẤY ĐIỂM CŨ — TRẠNG THÁI SỐNG DAI HƠN LẦN DÙNG.** Chủ dự án: *"điểm đã lưu ko thấy điểm cũ? t lưu điểm gà mà ko thấy"* (ảnh: ghim "gà" VẪN hiện trên bản đồ — điểm không mất, chỉ bị giấu).
+
+`addPlaceOpen` bật lên khi mở form từ menu chạm-giữ và chỉ tắt khi bấm Lưu/Huỷ. **Đóng panel bằng nút X lúc form đang mở thì cờ nằm lại** — lần sau bấm "Điểm đã lưu" ở rail, form bung ra ngay, mà form mở thì danh sách điểm cũ bị thu (`!addOpen` trong `my-places-sheet`). Kết quả: vừa lưu một điểm xong, mở ra lại thấy form trống và KHÔNG thấy điểm nào — tưởng máy nuốt mất. Nay đóng panel là dọn cờ.
+
+**Luật rút ra**: mở một lớp nổi bằng nút của nó phải luôn về màn MẶC ĐỊNH, không kế thừa việc dở của lượt trước. Cùng lớp lỗi với `openSignal`/`confirmClear` — trạng thái phụ phải chết cùng lớp nổi.
+
+**M14. Ô TRỐNG GIỮ CHỖ — LẦN THỨ BA.** Chủ dự án: *"hiện điểm bản đồ sao nằm lệch mà ko kéo dài hết box"*. Hàng toggle "Hiện điểm trên bản đồ" chừa `<span className="w-16 shrink-0">` cho nút "Thêm điểm"; form mở thì nút ẩn nhưng **ô rỗng 64px vẫn ở lại** ⇒ toggle chỉ 199/271px. Đúng lỗi đã sửa ở hộp thư (M6 của 2026-08-29g) và ở thẻ dẫn đường (M6), nay tái diễn lần ba ở rail. Bỏ ô; hàng không nút kéo hết bề ngang. *Đo lại*: form mở → toggle **271px** = trọn bề ngang nội dung panel.
+
+Tiện thể: nút "Thêm điểm" trong rail đang là **bản chép tay của `SQ_BTN`** nên không ăn theo `--row-h` — chế độ "Gọn" hạ mọi nút xuống 37px thì riêng nó vẫn 52px. Đổi về dùng chung hằng, đúng bài học hai-bản-chép-tay ghi ngay trong `sq-btn.ts`.
 
 **M11. THANH GHIM ĐÈ LÊN HÀNG ĐẦU — `-mt-3` ĂN MẤT CHỖ TRONG DÒNG CHẢY.** Chủ dự án: *"lỗi chồng lấn"* (ảnh: chữ "Điểm xuất phát" bị nền header cắt ngang). Hai nguyên nhân chồng nhau, đều có từ trước chứ không phải do chế độ gọn — gọn chỉ phơi ra:
 - `-my-1` trên các nút hàng trên trừ 8px vào chiều cao LAYOUT của thanh ghim trong khi nút vẫn VẼ đủ ⇒ nút thò 4px xuống dưới dải nền đục. Bỏ; `-my-1` sinh ra hồi nút cao hơn hàng tiêu đề, nay nút và hàng chung `--row-h` nên nó chỉ còn hại.
