@@ -64,10 +64,12 @@ export function Tabs({
 
   return (
     <div>
-      {/* dính top-0; +safe-area-top để khi dính KHÔNG chui dưới notch/status bar
-          (edge-to-edge viewportFit cover) — hero cuộn mất thì thanh tab vẫn
-          nằm trọn dưới vùng an toàn, không đè chữ với status bar. */}
-      <div className="sticky top-0 z-10 bg-background/90 px-4 pb-2.5 pt-[calc(0.625rem+env(safe-area-inset-top))] backdrop-blur-md">
+      {/* Dính DƯỚI vùng an toàn (`top: safe-area-top`) thay vì top-0-rồi-đệm:
+          pills vẫn nằm trọn dưới notch/status bar khi hero cuộn mất, NHƯNG lúc
+          NGHỈ (ngay dưới hero) không còn cộng ~47px safe-area vào `pt` → hết
+          khoảng trắng thừa giữa hero và tab (user 2026-08-30: "nhiều khoảng
+          trắng quá"). Desktop safe-area=0 nên y như cũ. */}
+      <div className="sticky top-[env(safe-area-inset-top)] z-10 bg-background/90 px-4 pb-2.5 pt-2.5 backdrop-blur-md">
         <div
           role="tablist"
           aria-label={ariaLabel}
