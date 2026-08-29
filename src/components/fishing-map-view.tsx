@@ -112,7 +112,10 @@ import {
   RouteStopsLayers,
   type PlannedRoute,
 } from "@/components/route-planner";
+import { NOTIFY_HIDE_MS } from "@/lib/notify";
 import {
+  addStop,
+  clearStops,
   loadStops,
   persistStops,
   routeMatchesStops,
@@ -227,6 +230,7 @@ import {
   PauseIcon,
   PinIcon,
   PlayIcon,
+  RouteIcon,
   StarIcon,
   TargetIcon,
   WavesIcon,
@@ -315,6 +319,9 @@ const STRIP_AUTO_HIDE_MS = 3000; // 5s → 3s (user 2026-08-24: đỡ rối mắ
   buông tay 3s mới trượt xuống.
 */
 const SHEET_AUTO_HIDE_MS = 3000;
+/*  Ngưỡng CHẠM GIỮ để mở menu ngữ cảnh trên bản đồ. 0,6s — đúng nhịp của
+    Google Maps / Zalo / iOS, thứ bà con dùng hằng ngày. Xem 07 §10.7 K. */
+const LONG_PRESS_MS = 600;
 
 /**
  * Số ngày mà "chỗ cá ít đổi" là câu ĐÃ ĐO ĐƯỢC, không phải câu nói cho vui.
@@ -1140,6 +1147,42 @@ export default function FishingMapView() {
       khỏi sheet, làm như gmap ấy, độc lập"). Bật từ nút "Dẫn đường" trên rail.
       Bật là sheet gió sóng thu hẳn xuống: hai thứ không tranh chỗ nhau nữa, và
       cũng hết luôn cái cớ phải chống chế đồng hồ tự-ẩn cho panel dẫn đường. */
+  /*  CHẠM GIỮ TRÊN BẢN ĐỒ → MENU NGỮ CẢNH (chủ dự án 2026-08-29: *"click vào
+      giữ 3s thì nó xổ ra lựa chọn là lưu hay dẫn đường tới vị trí này (thao tác
+      như chuột phải)"*).
+
+      NGƯỠNG 0,6 GIÂY chứ không phải 3 giây (chủ dự án duyệt): Google Maps /
+      Zalo / iOS đều dùng 0,5–0,6s, mà bà con đang dùng đúng mấy app đó hằng
+      ngày. Giữ 3 giây thì tay đã nhấc ra từ lâu vì tưởng máy đơ — cử chỉ chỉ
+      hữu ích khi nó khớp cái tay đã quen.
+
+      LUẬT ẨN (chủ dự án: *"quy tắc ẩn hiện cái chỗ đó nếu user ko chọn nữa"*):
+      menu tự tắt sau `NOTIFY_HIDE_MS` nếu không chọn gì — cùng nhịp với mọi
+      dòng nổi khác của màn, không đẻ nhịp riêng. Tắt ngay khi: chạm chỗ khác,
+      kéo/zoom bản đồ, hoặc mở một lớp nổi khác. */
+  const [pressMenu, setPressMenu] = useState<{
+    lat: number;
+    lon: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressFrom = useRef<{ x: number; y: number } | null>(null);
+  const closePressMenu = useCallback(() => setPressMenu(null), []);
+  const cancelPress = useCallback(() => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+    pressFrom.current = null;
+  }, []);
+  // đồng hồ tự tắt — nạp lại mỗi lần menu mở ra chỗ mới
+  useEffect(() => {
+    if (!pressMenu) return;
+    const t = setTimeout(() => setPressMenu(null), NOTIFY_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [pressMenu]);
+  /** yêu cầu rail mở ô "Điểm đã lưu" + form thêm điểm (đếm để bấm lại vẫn kích) */
+  const [addPlaceSignal, setAddPlaceSignal] = useState(0);
+
   const [routeMode, setRouteMode] = useState(false);
   const openRoutePanel = useCallback(() => {
     // CÔNG TẮC: nút rail vừa mở vừa đóng — bật rồi bấm lại là thoát, khỏi phải
@@ -2304,9 +2347,39 @@ export default function FishingMapView() {
   return (
     <div className="relative h-full w-full overflow-hidden bg-t1-bg">
       {/* ── BẢN ĐỒ — cả màn hình ─────────────────────────────────────────── */}
+      {/*  Bắt CHẠM GIỮ ở lớp bọc, pha bubble: MapLibre vẫn nhận đủ cử chỉ
+           kéo/zoom như thường; ta chỉ đếm giờ và huỷ ngay khi ngón tay xê dịch
+           quá 10px (đang kéo bản đồ, không phải giữ). */}
+      <div
+        className="absolute inset-0"
+        onPointerDown={(e) => {
+          if (e.pointerType === "mouse" && e.button !== 0) return;
+          closePressMenu();
+          pressFrom.current = { x: e.clientX, y: e.clientY };
+          cancelPress();
+          const { clientX: px, clientY: py } = e;
+          pressTimer.current = setTimeout(() => {
+            const m = mapRef.current;
+            if (!m) return;
+            const rect = m.getContainer().getBoundingClientRect();
+            const ll = m.unproject([px - rect.left, py - rect.top]);
+            setPressMenu({ lat: ll.lat, lon: ll.lng, x: px, y: py });
+          }, LONG_PRESS_MS);
+        }}
+        onPointerMove={(e) => {
+          const f = pressFrom.current;
+          if (!f) return;
+          if (Math.hypot(e.clientX - f.x, e.clientY - f.y) > 10) cancelPress();
+        }}
+        onPointerUp={cancelPress}
+        onPointerCancel={cancelPress}
+      >
       <MapGL
         ref={mapRef}
         initialViewState={DEFAULT_VIEW}
+        onDragStart={cancelPress}
+        onZoomStart={cancelPress}
+        onMoveStart={closePressMenu}
         mapStyle={mapStyle}
         // KHUNG khi có lớp dự báo (user 2026-07-28): VẪN cho zoom IN + move
         // TRONG khung, chỉ CHẶN zoom-out/pan VƯỢT khung phủ data (minZoom +
@@ -3373,6 +3446,54 @@ export default function FishingMapView() {
           </Marker>
         )}
       </MapGL>
+      </div>
+
+      {/*  MENU NGỮ CẢNH của chạm-giữ — nổi ngay chỗ ngón tay, không phải chạy
+           mắt xuống thẻ. Hai việc bà con thực sự muốn làm với MỘT chỗ trên
+           biển: ghi nhớ nó, hoặc đi tới nó. Kẹp trong màn để không tràn mép. */}
+      {pressMenu && (
+        <div
+          className="pointer-events-auto absolute z-40 w-56 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 shadow-xl"
+          style={{
+            left: Math.min(Math.max(8, pressMenu.x - 112), window.innerWidth - 232),
+            top: Math.min(pressMenu.y + 12, window.innerHeight - 190),
+          }}
+        >
+          <p className="truncate px-3 pt-2.5 text-[0.8125rem] font-bold text-foreground/60">
+            {fmtCoordPair(pressMenu.lat, pressMenu.lon, prefs.coordFormat)}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const { lat, lon } = pressMenu;
+              setPoint({ lat, lon });
+              closePressMenu();
+              if (routeMode) setStops(addStop(stops, lat, lon));
+              else {
+                setRouteMode(true);
+                setSize("hidden");
+                setStops(addStop(clearStops(), lat, lon));
+              }
+            }}
+            className="flex min-h-[3.5rem] w-full items-center gap-2.5 px-3 text-left text-[1rem] font-bold text-t1 transition active:bg-field"
+          >
+            <RouteIcon className="h-6 w-6 shrink-0" />
+            {routeMode ? "Thêm vào đường đi" : "Dẫn đường tới đây"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPoint({ lat: pressMenu.lat, lon: pressMenu.lon });
+              closePressMenu();
+              setAddPlaceSignal((n) => n + 1);
+            }}
+            className="flex min-h-[3.5rem] w-full items-center gap-2.5 px-3 text-left text-[1rem] font-bold text-navy transition active:bg-field"
+          >
+            <StarIcon className="h-6 w-6 shrink-0 text-sun" />
+            Lưu thành điểm
+          </button>
+        </div>
+      )}
 
       {/* HẠT BAY animated kiểu Windy — canvas overlay TRÊN bản đồ + lớp màu
           (z-10, dưới UI z-20), hạt trắng không bị nền màu che (user 2026-07-29).
@@ -3449,6 +3570,7 @@ export default function FishingMapView() {
           <RaKhoiControls
             onLocateMe={goToMyBoat}
             cursor={point}
+            addPlaceSignal={addPlaceSignal}
             onRoutePanel={openRoutePanel}
             routeOn={routeMode}
             locating={locating}

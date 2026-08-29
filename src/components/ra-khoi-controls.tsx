@@ -116,6 +116,7 @@ export function RaKhoiControls({
   onLocateMe,
   onGoCoord,
   cursor,
+  addPlaceSignal,
   onRoutePanel,
   routeOn = false,
   locating,
@@ -129,6 +130,10 @@ export function RaKhoiControls({
       cuộn tới nơi (fishing-map-view lo). Không truyền = không hiện nút. */
   /** chỗ đang trỏ trên bản đồ — form lưu điểm dùng để "lấy chỗ đang trỏ" */
   cursor?: { lat: number; lon: number } | null;
+  /*  Menu chạm-giữ trên bản đồ chọn "Lưu thành điểm" → cha tăng số này lên,
+      rail mở ô "Điểm đã lưu" kèm form thêm điểm, toạ độ đã điền sẵn theo con
+      trỏ. Đếm chứ không dùng boolean: lưu chỗ thứ hai vẫn phải kích được. */
+  addPlaceSignal?: number;
   onRoutePanel?: () => void;
   /*  ĐANG Ở TRONG chế độ dẫn đường — nút phải TRÔNG KHÁC HẲN (user
       2026-08-28e: "hiện thời ko khác gì nhau"). Cùng khuôn nút "Đến điểm":
@@ -195,6 +200,14 @@ export function RaKhoiControls({
       loại việc với "Vị trí"/"Đến điểm" (đi tới một toạ độ), không phải
       loại việc "bật/tắt lớp bản đồ" như 5 panel còn lại. */
   const [placesOpen, setPlacesOpen] = useState(false);
+  const [addPlaceOpen, setAddPlaceOpen] = useState(false);
+  useEffect(() => {
+    if (!addPlaceSignal) return;
+    setOpen(null);
+    setCoordOpen(false);
+    setPlacesOpen(true);
+    setAddPlaceOpen(true);
+  }, [addPlaceSignal]);
   /*  LUẬT HIỂN THỊ — MỘT LỚP NỔI MỘT LÚC (chủ dự án 2026-08-29: "2 chế độ lúc
       lưu và lúc dẫn đường đang hiển thị 1 lúc nó bị chồng chéo và rối nhau").
       Vào chế độ dẫn đường là ĐÓNG SẠCH panel lớp + ô toạ độ + ô điểm đã lưu.
@@ -356,6 +369,8 @@ export function RaKhoiControls({
         <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[70dvh] w-[19rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl">
           <DiemPanel
             cursor={cursor}
+            addOpen={addPlaceOpen}
+            onAddOpenChange={setAddPlaceOpen}
             showPlaces={showPlaces}
             onShowPlaces={onShowPlaces}
             places={places}
@@ -966,6 +981,8 @@ function ThoiTietPanel({
 
 function DiemPanel({
   cursor,
+  addOpen: addOpenProp,
+  onAddOpenChange,
   showPlaces,
   onShowPlaces,
   places,
@@ -974,6 +991,8 @@ function DiemPanel({
   onClose,
 }: {
   cursor?: { lat: number; lon: number } | null;
+  addOpen?: boolean;
+  onAddOpenChange?: (v: boolean) => void;
   showPlaces: boolean;
   onShowPlaces: (on: boolean) => void;
   places: SavedPlace[];
@@ -981,7 +1000,12 @@ function DiemPanel({
   onGoPlace: (lat: number, lon: number) => void;
   onClose: () => void;
 }) {
-  const [addOpen, setAddOpen] = useState(false);
+  const [addOpenLocal, setAddOpenLocal] = useState(false);
+  const addOpen = addOpenProp ?? addOpenLocal;
+  const setAddOpen = (v: boolean) => {
+    setAddOpenLocal(v);
+    onAddOpenChange?.(v);
+  };
   return (
     <div>
       {/*  NÚT KHÔNG ĂN RIÊNG MỘT HÀNG (03-design-system §Nút hành động): trước

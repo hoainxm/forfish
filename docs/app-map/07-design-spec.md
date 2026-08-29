@@ -756,6 +756,20 @@ Chủ dự án: *"2 chế độ lúc lưu và lúc dẫn đường đang hiển 
 
 **Một luật đọc toạ độ cho cả app**: mọi ô nhập toạ độ đi qua `parseCoordPair` (`lib/parse-coord.ts`) và lấy ví dụ gõ theo `prefs.coordFormat`. Lỗi đã sửa 2026-08-29: ô "Thêm điểm theo toạ độ" trong `my-places-sheet.tsx` tự `parseFloat` nên CHỈ hiểu số thập phân, trong khi hệ mặc định của app là **độ-phút-giây** — bà con đọc "8 30" trên máy định vị gõ vào thì báo sai, mà cùng chuỗi đó gõ ở ô "Đến điểm" lại chạy. Một app không được có hai luật đọc toạ độ.
 
+**K. CHẠM GIỮ TRÊN BẢN ĐỒ → MENU NGỮ CẢNH (2026-08-29)**
+
+Chủ dự án: *"click vào giữ 3s thì nó xổ ra lựa chọn là lưu hay dẫn đường tới vị trí này (thao tác như chuột phải)"* · *"quy tắc ẩn hiện cái chỗ đó nếu user ko chọn nữa"*.
+
+**Ngưỡng 0,6 giây** (`LONG_PRESS_MS`), KHÔNG phải 3 giây — chủ dự án duyệt đổi. Google Maps / Zalo / iOS đều dùng 0,5–0,6s, mà bà con dùng đúng mấy app đó hằng ngày; giữ 3 giây thì tay đã nhấc ra vì tưởng máy đơ. Cử chỉ chỉ hữu ích khi khớp cái tay đã quen.
+
+**Huỷ khi ngón tay xê dịch > 10px** (đang kéo bản đồ, không phải giữ) và khi bắt đầu zoom. Bắt ở lớp bọc `<MapGL>` pha bubble nên MapLibre vẫn nhận đủ cử chỉ như thường.
+
+**Hai việc, đúng thứ bà con muốn làm với một chỗ trên biển**: *Dẫn đường tới đây* (đang ở chế độ dẫn đường thì thành *Thêm vào đường đi*) và *Lưu thành điểm* (mở ô "Điểm đã lưu" + form thêm, toạ độ điền sẵn theo con trỏ). Menu nổi **ngay chỗ ngón tay**, kẹp trong màn để không tràn mép.
+
+**Luật ẩn**: tự tắt sau `NOTIFY_HIDE_MS` (3s) nếu không chọn — cùng nhịp mọi dòng nổi khác của màn, không đẻ nhịp riêng. Tắt ngay khi chạm chỗ khác, kéo/zoom bản đồ, hoặc chọn một mục.
+
+**Đo thật (375×812)**: giữ 0,6s → menu hiện · để yên 3s → tự ẩn · bấm "Dẫn đường tới đây" → vào chế độ dẫn đường với đúng 1 điểm, menu tắt.
+
 ### 10.8 OFFLINE TRÊN WEB — giữ cache khỏi bị trình duyệt dọn (2026-07-28)
 
 Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔNG chỉ PWA đã cài — miễn mở khi còn sóng ít nhất 1 lần (SW cài + pretrip tải) trên HTTPS. Nhưng bộ nhớ tab là "best-effort": máy đầy thì trình duyệt tự xoá; riêng **iOS Safari xoá SẠCH storage sau ~7 ngày không dùng nếu CHƯA cài về màn hình chính** — chuyến 5–16 ngày mất dữ liệu giữa chuyến. Hai việc để web offline đáng tin:
