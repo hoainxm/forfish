@@ -281,6 +281,7 @@ Test 979 pass (+14), tsc sạch, lint 0 lỗi, build PASS. -->
 <!-- re-verified: 2026-08-18b — `/api/storms` NAY HỎI HAI NGUỒN. File mới `src/lib/storms-vn.ts` (parser THUẦN cho bản tin NCHMF: `pickLatestBulletinUrl` · `htmlToText` · `parseToaDo` · `parseCapGio` · `parseGioPhatTin` · `parseNchmfBulletin`); route gọi song song NCHMF + GDACS rồi `gopNguon` (tin VN đứng trước, GDACS chỉ thêm cơn cách tâm VN >350 km). Một nguồn hỏng vẫn `ok:true`; CẢ HAI hỏng mới 503 — client `stormStatus` không đổi một dòng (vẫn đọc `ok`/`storms`/`checkedAt`), payload chỉ THÊM `sources:{nchmf,gdacs}`. Vì sao: GDACS bỏ sót áp thấp nhiệt đới — lỗi bắt được từ hiện trường 18/8. NCHMF là TRANG HTML nên phải coi là nguồn dễ vỡ: parse trượt ⇒ `null` ("chưa hỏi được", không phải "không có bão") + log `[storms] NCHMF …`. Cổng: `storms-vn.test.ts` (19 ca, dựng từ bản tin thật) + `storms-source.test.ts` (canh tham số GDACS số ít, hai nguồn còn trong đường đi, chỉ 503 khi cả hai hỏng). -->
 
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-08-29) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-29 - logo brand đổi sang public/logo-src.png (cá ngừ+la bàn), PWA metadata manifest/icons/sw-register + api-base + capacitor khớp src/app hiện tại -->
 <!-- re-verified: 2026-06-30 - vá QA: normalizePassword áp ở login/dang-ky/doi-mat-khau + 2 API route auth; CHỈ là logic trim, KHÔNG đổi route/page/nav/component → bản đồ kiến trúc giữ nguyên -->
