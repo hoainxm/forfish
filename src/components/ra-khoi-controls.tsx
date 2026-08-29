@@ -51,6 +51,7 @@ import {
   EddyIcon,
   FishIcon,
   PinIcon,
+  PlusIcon,
   RouteIcon,
   RulerIcon,
   SettingsIcon,
@@ -980,18 +981,41 @@ function DiemPanel({
   onGoPlace: (lat: number, lon: number) => void;
   onClose: () => void;
 }) {
+  const [addOpen, setAddOpen] = useState(false);
   return (
     <div>
-      <Toggle
-        label="Hiện điểm trên bản đồ"
-        on={showPlaces}
-        onToggle={() => onShowPlaces(!showPlaces)}
-        icon={<StarIcon className="h-5 w-5 text-navy" />}
-      />
+      {/*  NÚT KHÔNG ĂN RIÊNG MỘT HÀNG (03-design-system §Nút hành động): trước
+           đây "Thêm điểm" là một dải viền đứt chiếm trọn một hàng của panel —
+           đúng thứ chủ dự án chê. Nay nó là ô vuông cùng khuôn rail, nằm INLINE
+           cuối hàng toggle. */}
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <Toggle
+            label="Hiện điểm trên bản đồ"
+            on={showPlaces}
+            onToggle={() => onShowPlaces(!showPlaces)}
+            icon={<StarIcon className="h-5 w-5 text-navy" />}
+          />
+        </div>
+        {!addOpen && (
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            aria-label="Thêm điểm mới"
+            className="flex min-h-[3.25rem] w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl bg-t1 py-2 text-[0.6875rem] font-bold leading-tight text-white transition active:scale-95"
+          >
+            <PlusIcon className="h-6 w-6" />
+            Thêm điểm
+          </button>
+        )}
+      </div>
       <div className="mt-3">
         {/* quản lý điểm NGAY trong panel — compact cho rail hẹp */}
         <MyPlacesContent
           cursor={cursor}
+          addOpen={addOpen}
+          onAddOpenChange={setAddOpen}
+          hideAddButton
           places={places}
           onPlaces={onPlaces}
           onGo={onGoPlace}

@@ -37,6 +37,9 @@ export function MyPlacesContent({
   onPlaces,
   onGo,
   cursor,
+  addOpen: addOpenProp,
+  onAddOpenChange,
+  hideAddButton,
   onClose,
   compact = false,
 }: {
@@ -48,6 +51,13 @@ export function MyPlacesContent({
       "lấy chỗ đang trỏ" — không có thì bà con phải tự đọc toạ độ ở ô trên
       màn rồi gõ lại vào đây, chép tay một dãy số 15 ký tự trên tàu lắc. */
   cursor?: { lat: number; lon: number } | null;
+  /*  Nút "Thêm điểm" ĐƯỢC PHÉP nằm ngoài component này (2026-08-29): theo
+      luật nút ở 03-design-system, nút không được ăn riêng một hàng — ở panel
+      "Điểm đã lưu" nó phải nằm INLINE cuối hàng toggle "Hiện điểm trên bản
+      đồ". Cha dựng nút, con vẫn giữ form; ba prop này nối hai bên. */
+  addOpen?: boolean;
+  onAddOpenChange?: (open: boolean) => void;
+  hideAddButton?: boolean;
   onClose: () => void;
   /** compact = panel rail hẹp: nút thao tác icon nhỏ, không trải rộng */
   compact?: boolean;
@@ -65,7 +75,12 @@ export function MyPlacesContent({
     prefs.coordFormat === "dms"
       ? { lat: "8 30", lon: "109 18" }
       : { lat: "8,5", lon: "109,3" };
-  const [addOpen, setAddOpen] = useState(false);
+  const [addOpenLocal, setAddOpenLocal] = useState(false);
+  const addOpen = addOpenProp ?? addOpenLocal;
+  const setAddOpen = (v: boolean) => {
+    setAddOpenLocal(v);
+    onAddOpenChange?.(v);
+  };
   const [addName, setAddName] = useState("");
   const [addLat, setAddLat] = useState("");
   const [addLon, setAddLon] = useState("");
@@ -113,6 +128,7 @@ export function MyPlacesContent({
     <>
       {/* Thêm điểm theo toạ độ */}
       {!addOpen ? (
+        hideAddButton ? null : (
         <button
           type="button"
           onClick={() => setAddOpen(true)}
@@ -127,6 +143,7 @@ export function MyPlacesContent({
             </span>
           </span>
         </button>
+        )
       ) : (
         <div className="surface p-3">
           <input

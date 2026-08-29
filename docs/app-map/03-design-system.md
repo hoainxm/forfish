@@ -197,10 +197,13 @@ Chủ dự án: *"cái nút nó là ô vuông kích thước đồng bộ"* · *
 | **Tính đường / Tính lại** | cuối hàng **"Chọn điểm đến"** | chọn xong đích thì bấm tính ngay cạnh |
 | **Dẫn đường** | cuối hàng **3 con số kết quả** | đọc số xong thì đi |
 | Bỏ điểm N | cuối chính hàng điểm đó | thao tác lên đúng điểm ấy |
+| **Thêm điểm** (panel Điểm đã lưu) | cuối hàng toggle **"Hiện điểm trên bản đồ"** | trước đây là dải viền đứt ăn trọn một hàng |
 
 Ca ngoại lệ (hàng chủ bị ẩn, vd đủ 6 điểm nên hàng "Chọn điểm đến" biến mất): nút chuyển sang inline với **dòng nhắc** thay thế, KHÔNG bao giờ đứng một mình.
 
-**4. Vùng chạm không được co.** Rút là rút NHÃN và BỀ NGANG, không rút vùng chạm: `w-16` × `min-h-[3.25rem]` là sàn.
+**4. Ô NHẬP PHẢI ≥16px THỰC TẾ — ngưỡng của hệ điều hành, không phải bậc type-ramp.** iOS Safari **tự phóng to cả trang** khi focus vào `<input>/<select>/<textarea>` có cỡ chữ dưới 16px. Chế độ "gọn" đặt gốc 14px nên MỌI ô nhập đều dưới ngưỡng ⇒ chạm vào ô gõ toạ độ là màn bung ra: rail tràn khỏi mép phải, dock cắt mất "Giao dịch", bản đồ lệch (chủ dự án báo 2026-08-29: *"cái bản đồ thao tác nó bể ra hết, các rail các menu nó bung ra nó kéo đi tùm lum"*). Ghim trong `globals.css`: `input,select,textarea { font-size: max(16px, 1em) !important }` — `!important` vì class Tailwind (`text-[1rem]`) thắng selector thẻ; `max()` giữ nguyên cỡ lớn hơn ở chế độ "to". **KHÔNG** chặn zoom bằng `maximum-scale=1` — chặn zoom là cắt đường phóng to của người mắt kém, hại đúng nhóm người dùng này.
+
+**5. Vùng chạm không được co.** Rút là rút NHÃN và BỀ NGANG, không rút vùng chạm: `w-16` × `min-h-[3.25rem]` là sàn.
 
 **Đo thật (375×812)** sau khi áp luật: thẻ dẫn đường 296px → 243px → **209px**; bản đồ 55% → 62% → **66%**; không còn hàng nào chỉ chứa một nút.
 
