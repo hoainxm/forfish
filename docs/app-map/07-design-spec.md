@@ -22,6 +22,7 @@ last_verified: 2026-08-26
 <!-- re-verified: 2026-08-18d - doi chieu voi cac thay doi trong `src/app` cua ngay hom nay: `/api/storms` (them nguon NCHMF, gop hai nguon) va `/api/me/market-listings` (GET doi dang nhap) deu la tang DU LIEU/QUYEN, KHONG doi mot man hinh nao. Cac man co lien quan da duoc ta o hai ghi chu 2026-08-16 va 2026-08-18 ngay tren: canh bao thieu tin bao tren khoi ket qua tuyen (nay se HIEN THUC khi co ATND vi nguon VN da phu), cho tin doi dang nhap thi hien TIN MAU + nut Dang nhap (dung hanh vi truoc 2026-08-16), Cua hang/Don cua toi hien ban luu kem moc. Khong them man, khong doi token mau, khong doi co chu/tap target. -->
 <!-- re-verified: 2026-08-19 — GỘP BASE (sync base): các ghi chú 2026-08-18 ở trên nói app CÒN sổ/tủ/lịch MẪU — ở sdvico KHÔNG CÒN (bỏ demo 2026-07-29). Bốn màn kho-trên-máy (Bạn thuyền · tủ giấy tờ · nhắc bảo dưỡng · sản phẩm tàu) mở ra RỖNG kèm empty state; chợ tin cũng không có tin mẫu, mất sóng thì nói "chưa tải được" và GIỮ danh sách đang hiện. Giữ nguyên phần base về `readUserList`/băng đỏ đọc-hỏng, `StatusBanner` chốt phạm vi, và `login-gate.tsx` thì sdvico VẪN DÙNG. -->
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-08-29) — code 'src/components' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 ```
 <!-- gate: warn vì UI churn src/app+src/components cao — cảnh báo thay vì chặn. KHÔNG để comment cùng dòng `gate:` (hook tr -d ' ' giữ lại # → phá so khớp = "warn" → chặn nhầm). -->

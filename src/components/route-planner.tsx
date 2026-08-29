@@ -1057,13 +1057,22 @@ export function RouteMode({
                bấm làm mỏ neo (bà con biết mình đang ở đâu). Trước đây mở bộ
                chọn điểm đến mà phía trên còn header + Điểm xuất phát + N hàng
                điểm đã chọn ⇒ hàng điểm đã lưu bị cắt ngay lần xổ đầu. */}
+          {/*  MỌI HÀNG MỘT KHUÔN, CỘT NÚT THẲNG (chủ dự án 2026-08-29: *"hàng thì
+               thụt vào thụt ra, rồi icon button thì bố trí tùm lum trên dưới"*).
+               Khuôn: `<div flex gap-2>` = [thân hàng nền `bg-background`, flex-1]
+               + [ô nút vuông w-16]. Hàng nào KHÔNG có nút vẫn chừa đúng ô đó
+               bằng một khối rỗng cùng bề ngang ⇒ mép phải của mọi thân hàng
+               thẳng nhau, và mọi nút vuông nằm đúng MỘT cột. Trước đây hàng có
+               nút thì thân bị co lại, hàng không nút thì thân kéo hết bề ngang
+               — nhìn ra đúng cái "thụt vào thụt ra". */}
           {(compactRows || panel === "start") && (
+          <div className="flex items-center gap-2">
           <button
             ref={formRef}
             type="button"
             onClick={() => setPanel(panel === "start" ? "idle" : "start")}
             aria-expanded={panel === "start"}
-            className="flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
+            className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left transition active:scale-[0.99]"
           >
             <span
               className="h-3 w-3 shrink-0 rounded-full border-[3px] border-navy/60"
@@ -1085,6 +1094,9 @@ export function RouteMode({
               aria-hidden
             />
           </button>
+          {/* giữ chỗ cột nút — hàng này không có nút, nhưng mép phải phải thẳng */}
+          <span className="w-16 shrink-0" aria-hidden />
+          </div>
           )}
 
           {panel === "start" && (
@@ -1153,7 +1165,8 @@ export function RouteMode({
                 {fmtDist(legKm(i)!, prefs.distUnit)} thẳng
               </p>
             )}
-            <div className="flex items-center gap-2.5 rounded-xl bg-background px-3 py-1.5">
+            <div className="flex items-center gap-2">
+            <div className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 py-1.5">
               <span
                 className="display flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.875rem] font-bold text-white"
                 style={{ background: ROUTE_LINE_COLOR }}
@@ -1180,14 +1193,16 @@ export function RouteMode({
                   </span>
                 )}
               </span>
-              <button
-                type="button"
-                onClick={() => onStops?.(removeStop(stops, s.id))}
-                aria-label={"Bỏ điểm " + (i + 1)}
-                className="-my-1.5 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-danger transition active:scale-95"
-              >
-                <CloseIcon className="h-5 w-5" />
-              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => onStops?.(removeStop(stops, s.id))}
+              aria-label={"Bỏ điểm " + (i + 1)}
+              className={`${SQ_BTN} bg-background text-danger`}
+            >
+              <CloseIcon className="h-6 w-6" />
+              Bỏ
+            </button>
             </div>
             </div>
             ))}
@@ -1207,7 +1222,7 @@ export function RouteMode({
               type="button"
               onClick={() => setPanel(panel === "dest" ? "idle" : "dest")}
               aria-expanded={panel === "dest"}
-              className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
+              className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
             >
               <PlusIcon className="h-6 w-6 shrink-0" />
               <span className="min-w-0 flex-1">
@@ -1240,7 +1255,7 @@ export function RouteMode({
                 aria-hidden
               />
             </button>
-            {compactRows && (
+            {compactRows ? (
               <button
                 type="button"
                 onClick={compute}
@@ -1250,6 +1265,8 @@ export function RouteMode({
                 <RouteIcon className="h-6 w-6" />
                 {busy ? "Đang tính" : plan ? "Tính lại" : "Tính đường"}
               </button>
+            ) : (
+              <span className="w-16 shrink-0" aria-hidden />
             )}
             </div>
           )}

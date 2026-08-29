@@ -168,29 +168,32 @@ html {
 html[data-mode="to"] {
   font-size: 16px;
 }
-/*  ═══ Ô NHẬP PHẢI >=16px, KHÔNG ĐƯỢC NHỎ HƠN ═══ (2026-08-29)
-    iOS Safari TỰ PHÓNG TO CẢ TRANG khi focus vào <input>/<select>/<textarea>
-    có cỡ chữ dưới 16px. Ở chế độ "gọn" gốc là 14px nên MỌI ô nhập đều dưới
-    ngưỡng ⇒ bà con chạm vào ô gõ toạ độ là cả màn bung ra: rail tràn khỏi mép
-    phải, dock cắt mất "Giao dịch", bản đồ lệch — rồi phải tự pinch thu lại mới
-    dùng tiếp được (chủ dự án báo 2026-08-29: "cái bản đồ thao tác nó bể ra
-    hết, các rail các menu nó bung ra nó kéo đi tùm lum").
-
-    16px ở đây là NGƯỠNG CỦA HỆ ĐIỀU HÀNH, không phải một bậc trong type-ramp —
-    nên ghim tuyệt đối bằng px và đặt `!important` để thắng class Tailwind
-    (`text-[1rem]` có độ ưu tiên cao hơn selector thẻ). `max()` giữ nguyên cỡ
-    lớn hơn ở chế độ "to", chỉ nâng khi bị tụt dưới ngưỡng.
-
-    KHÔNG dùng `maximum-scale=1` để chặn zoom — chặn zoom là cắt đường phóng to
-    của người mắt kém, hại đúng nhóm người dùng của app này. */
+/*  Ô NHẬP vẫn giữ sàn 16px như một CẦU DAO: chế độ "Theo máy" (auto) ăn theo
+    cỡ chữ của điện thoại, máy nào đặt nhỏ là lại rơi xuống dưới ngưỡng iOS.
+    Không `!important` nữa vì không còn phải thắng ai — gốc đã 16px. */
 input,
 select,
 textarea {
-  font-size: max(16px, 1em) !important;
+  font-size: max(16px, 1em);
 }
 
+/*  "GỌN" NAY LÀ 16px, KHÔNG CÒN 14px (chủ dự án 2026-08-29: *"đừng để nó phóng
+    to nữa, đưa kích thước lên cho đủ"*).
+
+    VÌ SAO: 14px làm MỌI ô nhập rơi xuống dưới ngưỡng 16px của iOS ⇒ chạm vào ô
+    là hệ điều hành tự phóng to cả trang; trên bản CÀI (standalone) không có
+    thanh địa chỉ để thu lại, app kẹt luôn ở trạng thái phóng — rail tràn khỏi
+    mép phải, dock cụt, "ko view được cái gì". Vá riêng ô nhập bằng `!important`
+    chỉ chữa triệu chứng và còn làm ô nhập to lệch khỏi phần chữ quanh nó.
+
+    Nâng gốc lên 16px chữa luôn một lỗ thứ hai đã đo được: sàn tap 3.5rem ở
+    gốc 14 chỉ ra 49px — DƯỚI sàn 56px của chính design-system này. Ở gốc 16px
+    thì 3.5rem = đúng 56px.
+
+    Đổi lại mật độ thưa hơn ~14%: mọi thẻ cao thêm, nên phải soi lại sàn "bản đồ
+    ≥60%" sau khi đổi (xem 03-design-system §Nút hành động). */
 html[data-mode="gon"] {
-  font-size: 14px;
+  font-size: 16px;
 }
 
 body {
