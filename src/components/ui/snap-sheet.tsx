@@ -34,6 +34,7 @@ export function SnapSheet({
   onInteract,
   above,
   label,
+  hiddenLabel,
   peek,
   children,
 }: {
@@ -52,6 +53,15 @@ export function SnapSheet({
       với tới, đi theo sheet khi nở/thu (roadmap hội đồng UX 2026-06-11) */
   above?: ReactNode;
   label: string;
+  /*  MỘT DÒNG SỐ CÒN LẠI Ở NẤC `hidden` — chi phí 0px (2026-08-29).
+      Viên kính của nấc `hidden` vốn RỖNG, nằm trong ô chạm 3.5rem sẵn có, nên
+      nhét chữ vào KHÔNG tốn thêm một px chiều cao nào.
+      Vì sao cần: sheet tự ẩn sau 3 giây, mà muốn đọc lại thì phải chấm bản đồ
+      lần nữa — chấm lại là DỜI CON TRỎ, số đọc được không còn là số vừa xem.
+      Giữ đúng MỘT dòng ở đây thì số chạm để xem lại số vừa xem còn 0.
+      CHA dựng sẵn chuỗi, con chỉ render — và cha chỉ truyền khi nấc `hidden`
+      đến từ ĐỒNG HỒ TỰ-ẨN, không truyền khi bị lớp nổi khác ép ẩn. */
+  hiddenLabel?: string;
   /** Phần luôn thấy ở mọi nấc */
   peek: React.ReactNode;
   /** Phần chi tiết — chỉ thấy ở half/full, cuộn bên trong sheet */
@@ -126,9 +136,22 @@ export function SnapSheet({
         }
       >
         {hidden ? (
-          <span className="glass flex h-8 w-28 items-center justify-center rounded-full">
-            <span className="h-1.5 w-12 rounded-full bg-navy/40" aria-hidden />
-          </span>
+          hiddenLabel ? (
+            /* Có chữ thì viên kính nở NGANG (vẫn h-8, không cao thêm): vạch kéo
+               ngắn lại giữ nguyên tín hiệu "vuốt được", chữ `truncate` để máy
+               hẹp không đẩy viên kính tràn mép. KHÔNG kèm toạ độ — toạ độ đã có
+               ở ô góc trên, đó là chỗ LIẾC, sheet là chỗ ĐỌC KỸ. */
+            <span className="glass flex h-8 max-w-full items-center gap-2 rounded-full px-3">
+              <span className="h-1.5 w-6 shrink-0 rounded-full bg-navy/40" aria-hidden />
+              <span className="truncate text-[0.875rem] font-bold text-navy">
+                {hiddenLabel}
+              </span>
+            </span>
+          ) : (
+            <span className="glass flex h-8 w-28 items-center justify-center rounded-full">
+              <span className="h-1.5 w-12 rounded-full bg-navy/40" aria-hidden />
+            </span>
+          )
         ) : (
           <>
             <div className="flex w-full justify-center pb-2 pt-2.5">

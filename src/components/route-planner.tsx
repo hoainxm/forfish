@@ -55,7 +55,6 @@ import {
   AlertIcon,
   AnchorIcon,
   ChevronRightIcon,
-  ClockIcon,
   CloseIcon,
   FuelIcon,
   PinIcon,
@@ -65,6 +64,7 @@ import {
   StarIcon,
   TrashIcon,
 } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 
 export type PlannedRoute = {
   plan: RoutePlan;
@@ -77,21 +77,6 @@ export type PlannedRoute = {
   /** chỉ số của từng chỗ ghé trong `plan.waypoints` — để vẽ số 1-2-3 */
   stopWpIdx: number[];
 };
-
-/*  Ô NÚT CHUẨN — MỌI nút hành động trong màn bản đồ dùng CHUNG một khuôn
-    (chủ dự án 2026-08-29: *"cái nút nó là ô vuông kích thước đồng bộ"*, *"các
-    loại nút dài này bỏ đi"*).
-
-    Vì sao bỏ nút full-width: một dải ngang chiếm trọn bề ngang thẻ cho MỘT
-    việc, trong khi thẻ đang phải tranh từng chục px với bản đồ. Ô vuông xếp
-    hàng thì ba nút chỉ tốn bằng một dải cũ, và mắt quét theo hàng nhanh hơn
-    đọc từng dải.
-
-    Khuôn lấy ĐÚNG của rail phải (Lớp · Vị trí · Đến điểm…) — bà con đã quen
-    hình đó ở ngay cạnh, không phải học thêm kiểu nút thứ hai. Vùng chạm giữ
-    nguyên sàn: w-16 (4rem) × min-h-[3.25rem]. */
-const SQ_BTN =
-  "flex min-h-[3.25rem] w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-[0.6875rem] font-bold leading-tight transition active:scale-95";
 
 const BOAT_KEY = "forfish.boat.v1";
 
@@ -410,6 +395,8 @@ export function RouteMode({
       công nghệ sẽ bấm loạn. */
   const formRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  /*  MỎ NEO THỨ TƯ: hàng "Thêm điểm dừng" — xem cú cuộn thứ tư dưới. */
+  const addStopRef = useRef<HTMLDivElement>(null);
   // "gps" | "place:<id>" | "port:<id>"; mặc định Cảng nhà nếu có
   const [startId, setStartId] = useState<string>("");
   // đọc thẳng localStorage lúc render đầu được vì cả cây bản đồ đã
@@ -492,6 +479,26 @@ export function RouteMode({
     if (panel === "idle") return;
     panelRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
   }, [panel]);
+
+  /*  CÚ CUỘN THỨ TƯ — VỪA THÊM MỘT ĐIỂM (2026-08-29). Cú thứ ba ở trên
+      `return` sớm khi `panel === "idle"`, mà chọn xong một điểm là bộ chọn
+      luôn thu về đúng `idle` ⇒ không cú nào chạy. Danh sách dài thêm một hàng
+      đẩy hàng "Thêm điểm dừng" xuống dưới cả thanh ghim đáy: nó là hành động
+      kế tiếp BẮT BUỘC của mọi tuyến nhiều điểm, nên mỗi điểm thêm vào là một
+      cú vuốt câm — tuyến 3 điểm mất 3 cú.
+      Nghe `stops.length` chứ không nghe `stops`: đổi tên/dời một điểm không
+      phải lý do để giật khung nhìn.
+      Bỏ qua lần render đầu bằng cách so với số đếm nhịp trước (mở lại thẻ với
+      danh sách cũ mà tự cuộn là giật vô cớ). Ca đủ 6 điểm thì hàng unmount ⇒
+      ref null, optional chaining tự im — lúc đó mỏ neo đúng là thanh ghim
+      đáy, vốn luôn thấy. Khung đã có sẵn `scroll-pt`/`scroll-pb` nên hàng tự
+      dừng giữa hai thanh ghim, không cần trị số mới. */
+  const prevStopCount = useRef(stops.length);
+  useEffect(() => {
+    if (prevStopCount.current === stops.length) return;
+    prevStopCount.current = stops.length;
+    addStopRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
+  }, [stops.length]);
 
   const nearestPort = PORTS.reduce((a, b) =>
     haversineKm(b, finalDest) < haversineKm(a, finalDest) ? b : a,
@@ -751,32 +758,36 @@ export function RouteMode({
     onRoute(null);
   }
 
-  // tuyến cũ còn trên bản đồ — nói rõ + cho xóa một chạm, không tự ý vứt
-  const staleBar = staleRoute ? (
-    <div className="flex items-center justify-between gap-2 rounded-xl bg-[var(--warn-bg)] px-3 py-2">
-      <p className="min-w-0 text-[0.9375rem] font-semibold leading-snug text-[var(--warn)]">
-        {!chainStale && startStale
-          ? /*  Danh sách điểm y nguyên, chỉ nơi xuất phát đổi: nhìn điểm đến
-                thấy đúng hết nên phải chỉ thẳng vào cái đã lệch. */
-            "Vạch xanh trên bản đồ vẫn đi từ nơi xuất phát CŨ — tính lại trước khi chạy."
-          : staleDestMoved
-            ? "Tuyến trên bản đồ đang dẫn tới chỗ chạm trước — tính lại bên dưới để dẫn tới chỗ mới."
-            : /*  Điểm cuối vẫn thế mà chuỗi đã lệch (thêm/bỏ điểm GIỮA): phải nói
-                  thẳng vạch xanh là đường CŨ, vì nhìn điểm đến thì thấy y như cũ. */
-              "Vạch xanh trên bản đồ là đường đi CŨ — không còn khớp danh sách điểm bên dưới. Tính lại trước khi chạy."}
-      </p>
-      {/*  NÓI RÕ NÓ XOÁ GÌ: nút này CHỈ bỏ vạch cũ trên bản đồ, danh sách điểm
-           GIỮ NGUYÊN — khác hẳn "Xoá hết" ở header (dọn cả danh sách). Hai nhãn
-           gần giống nhau thì bấm nhầm là mất trắng công dựng tuyến. */}
-      <button
-        type="button"
-        onClick={() => onRoute(null)}
-        className="min-h-[3.5rem] shrink-0 rounded-full bg-white px-4 text-[0.9375rem] font-bold text-[var(--warn)]"
-      >
-        Xoá vạch cũ
-      </button>
-    </div>
-  ) : null;
+  /*  TUYẾN CŨ CÒN TRÊN BẢN ĐỒ — nay là MỘT CÂU THAY CHO DÒNG TIÊU ĐỀ trong
+      thanh ghim trên, KHÔNG còn là một băng riêng (2026-08-29, đo rồi mới
+      chốt).
+      Bản băng riêng (3 câu dài + pill "Xoá vạch cũ") cao ~104px; rút xuống
+      [câu ≤2 dòng] + [ô SQ_BTN] vẫn còn ~72px vì cột chữ chỉ rộng ~183px. Đo
+      thật 375×812 với 2 chỗ ghé: thanh ghim trên phình 60 → 140px, thanh ghim
+      đáy đứng ở 647 ⇒ CỬA ĐỌC CÒN 12px. Biểu mẫu (Điểm xuất phát · Bỏ · Thêm
+      điểm dừng) coi như không với tới được — đúng bế tắc cần gỡ.
+      Vì sao THAY tiêu đề chứ không thêm dòng: tiêu đề "Đường đi qua N chỗ"
+      SUY RA ĐƯỢC từ chính danh sách ngay dưới, câu cảnh báo thì không. Thay
+      thì slot tiêu đề (rộng ~119px) chứa 3 dòng chữ 0.875rem ≈ 53px < 56px
+      của hàng ⇒ thanh ghim KHÔNG cao thêm một px, cửa đọc về đúng 92px.
+      Vì sao BỎ nút "Xoá vạch cũ": sau khi lối chạm-giữ tự dọn vạch cũ
+      (fishing-map-view), cảnh này chỉ còn xảy ra khi CHÍNH bà con sửa danh
+      sách sau khi đã tính — mà lối thoát đúng của ca đó là "Tính đường/Tính
+      lại", vốn đã ghim sẵn dưới ngón cái. Một nút chỉ-xoá-vạch là đường thứ
+      ba cho cùng một việc, mà nó ngốn đúng khoảng trống đang thiếu. Muốn dọn
+      sạch vẫn còn "Xoá hết" ở header (có nhịp xác nhận). Cảnh báo KHÔNG bị
+      giấu: nó nằm trong thanh ghim, thấy ở mọi vị trí cuộn, tô màu cảnh báo. */
+  const staleMsg = staleRoute
+    ? !chainStale && startStale
+      ? /*  Danh sách điểm y nguyên, chỉ nơi xuất phát đổi: nhìn điểm đến
+            thấy đúng hết nên phải chỉ thẳng vào cái đã lệch. */
+        "Vạch xanh còn đi từ nơi xuất phát CŨ"
+      : staleDestMoved
+        ? "Vạch xanh còn dẫn tới chỗ chạm trước"
+        : /*  Điểm cuối vẫn thế mà chuỗi đã lệch (thêm/bỏ điểm GIỮA): phải nói
+              thẳng vạch xanh là đường CŨ, vì nhìn điểm đến thì thấy y như cũ. */
+          "Vạch xanh là đường CŨ, lệch danh sách dưới"
+    : null;
 
   /*  ĐƯỜNG ĐI NHIỀU ĐIỂM — nút PHỤ (nền field), không phải primary: 07 §5 chốt
       màn Ra khơi chỉ có MỘT primary là "Dẫn đường tới chỗ này". */
@@ -798,37 +809,58 @@ export function RouteMode({
       đầy đủ trong thân thẻ và dải một dòng trong thanh ghim đáy. Hai chỗ tự
       dựng lấy chữ là hai luật cảnh báo an toàn sớm muộn cũng lệch nhau.
       Thứ tự các ý GIỮ NGUYÊN như bản cũ (07 §12(4)). */
-  const dangerItems = useMemo<{ text: string; danger: boolean }[]>(() => {
+  /*  `label` = NHÃN 2–3 CHỮ cho dải ghim đáy (2026-08-29). Dải ghim trước đây
+      chỉ thêm mảnh "· sóng tới X m" — một CON SỐ, không nói mối nguy LÀ GÌ;
+      chữ "nguy hiểm" và bản chất nằm duy nhất trong khối đỏ phải vuốt hai lần
+      mới tới, trong khi nút "Dẫn đường" thì ghim sẵn dưới ngón cái. Đó là
+      đường ít trở lực dẫn thẳng tới chỗ bấm chạy mà chưa đọc cảnh báo.
+      Vì sao nhãn ngắn chứ KHÔNG bê nguyên `text`: các câu này dài 110–200 ký
+      tự, nhét vào cột ~271px của dải ghim là 5–8 dòng ⇒ ghim phình 76→150px,
+      cửa đọc 88px còn ~15px — lôi cảnh báo lên mà lại chôn nó sâu hơn. */
+  const dangerItems = useMemo<
+    { text: string; label: string; danger: boolean }[]
+  >(() => {
     if (!plan) return [];
-    const items: { text: string; danger: boolean }[] = [];
+    const items: { text: string; label: string; danger: boolean }[] = [];
     if (plan.hasRoughLeg)
       items.push({
         danger: true,
+        label: "Sóng quá lớn",
         text: `Có đoạn sóng tới ${formatNumberVN(plan.maxWaveM)} m, gió cấp ${beaufort(plan.maxWindKmh)} — mức KHÔNG NÊN ĐI với tàu nhỏ. Cân nhắc hoãn chuyến, nghe đài trước khi quyết.`,
       });
     if (plan.hasFollowingSeaRisk && !plan.hasRoughLeg)
       items.push({
         danger: false,
+        label: "Sóng dồn đuôi",
         text: "Có đoạn sóng dồn từ phía đuôi (≥2 m, sóng ngắn) — dễ trượt sóng: tới đoạn đó giảm ga, đừng để sóng vỗ thẳng đuôi tàu.",
       });
     if (plan.hasVeryShallowLeg)
       items.push({
         danger: true,
+        label: "Bãi rất cạn",
         text: "Có đoạn đè lên vùng RẤT CẠN / bãi nổi (dưới 4 m) gần nơi xuất phát hoặc điểm đến — chỉ vào theo con nước lên, đi chậm, hỏi người rành luồng lạch chỗ đó.",
       });
     if (plan.hasNearLandLeg)
       items.push({
         danger: true,
+        label: "Đè lên bờ",
         text: "Đoạn đầu (hoặc cuối) tuyến đè lên phần BỜ theo bản đồ độ sâu của máy — chỗ vào cảng máy không vẽ chính xác được; đoạn đó đi theo luồng quen và hải đồ, đừng bám vạch trên màn hình.",
       });
     if (plan.hasShallowLeg)
       items.push({
         danger: false,
+        label: "Nước nông",
         text: "Tuyến có đoạn nước nông (cỡ 4–12 m) — để ý con nước, hải đồ đoạn đó.",
       });
     return items;
   }, [plan]);
   const anyDanger = dangerItems.some((i) => i.danger);
+  /*  Ý ĐƯỢC LÊN DẢI GHIM: ưu tiên ý ĐỎ, mới tới ý vàng. Dùng `find`, TUYỆT
+      ĐỐI KHÔNG `dangerItems[0]`: ca (không sóng dữ) + (sóng dồn đuôi) + (bãi
+      rất cạn) cho items[0].danger === false trong khi `anyDanger` === true ⇒
+      lấy [0] là tô ĐỎ một câu vốn chỉ ở mức nhắc. */
+  const topDanger =
+    dangerItems.find((i) => i.danger) ?? dangerItems[0] ?? null;
 
   /*  Có gì để dọn không: tuyến ĐÃ TÍNH **hoặc** chỗ ghé đã chấm. Bản đầu chỉ
       xét tuyến ⇒ chấm 3 chỗ rồi mà chưa bấm tính thì không có nút nào dọn, phải
@@ -853,6 +885,27 @@ export function RouteMode({
       ? { lat: "8 30", lon: "109 18" }
       : { lat: "8,5", lon: "109,3" };
   const stopsFull = stops.length >= MAX_STOPS;
+  /*  DÒNG CHỮ CỦA THANH GHIM ĐÁY — CHỈ CẤP DỮ LIỆU, không dạy cách đọc.
+      Tổng đường CHẠY THẲNG cộng từ chính `legKm` (không đẻ phép đo thứ hai) —
+      nó là con số bà con cần để biết chuyến có đáng đi không, TRƯỚC khi bỏ mươi
+      giây chờ máy tính tuyến né sóng gió.
+      Một chặng chưa biết (xuất phát bằng "định vị", chưa có toạ độ) là KHÔNG
+      cộng ra tổng: thà nói số chỗ thôi còn hơn bịa một con số thiếu chặng đầu. */
+  let thangKm: number | null = 0;
+  for (let i = 0; i < stops.length; i++) {
+    const d = legKm(i);
+    if (d == null) {
+      thangKm = null;
+      break;
+    }
+    thangKm += d;
+  }
+  const ghimTomTat =
+    stops.length === 0
+      ? "Chưa chọn điểm đến"
+      : `${stops.length} chỗ${
+          thangKm != null ? ` · ~${fmtDist(thangKm, prefs.distUnit)} thẳng` : ""
+        }`;
   /** câu cảnh báo cho chỗ con trỏ đang đứng — null là im (xem DEST_DEPTH_WARN) */
   const destDepthWarn =
     destDepth != null ? (DEST_DEPTH_WARN[destDepth] ?? null) : null;
@@ -916,7 +969,22 @@ export function RouteMode({
             về 53% ngay khi có 2 chỗ ghé (thẻ chạm trần 309px). Đổi lại thẻ phải
             cuộn trong khung khi mở danh sách — nợ: cuộn trên tàu lắc là thao tác
             khó, nâng cấp khi cắt được thêm hàng nào đó khỏi thẻ. */
-        className="pointer-events-auto max-h-[31dvh] scroll-pb-[5rem] scroll-pt-[9rem] space-y-2 overflow-y-auto surface p-3"
+        /*  ĐỆM CUỘN PHẢI BẰNG ĐÚNG HAI THANH GHIM (đo lại 2026-08-29).
+            Trị số cũ 9rem/5rem (144+80=224px) là của bố cục CŨ, khi thanh ghim
+            trên còn gánh tiêu đề riêng. Nay đo thật trên 375×812: ghim trên
+            60px (mép dưới cách mép khung 72px), ghim đáy 76px (mép trên cách
+            mép khung 88px) ⇒ cửa cuộn "hợp lệ" theo trị số cũ chỉ còn 28px,
+            THẤP HƠN một hàng 56px. Hệ quả: MỌI cú cuộn tự động đều rơi vào
+            nhánh "phần tử cao hơn cửa" và neo mép trên vào 144px — tức đẩy
+            hàng vừa cuộn tới xuống ngay dưới thanh ghim đáy, đúng cái nó định
+            tránh (bắt được khi đo cú cuộn "Thêm điểm dừng").
+            4.5rem/5.5rem = đúng hai mép ghim ⇒ cửa 92px, một hàng 56px lọt
+            trọn.
+            // nợ: hai trị số cứng, trong khi ghim trên CAO HƠN khi có băng
+            // cảnh báo tuyến-cũ (~120px) — lúc đó hàng vẫn có thể nằm dưới
+            // ghim. Nâng cấp khi chiều cao hai thanh ghim được đo/đưa vào
+            // CSS var thay vì hằng số. */
+        className="pointer-events-auto max-h-[31dvh] scroll-pb-[5.5rem] scroll-pt-[4.5rem] space-y-2 overflow-y-auto surface p-3"
       >
         {/*  HÀNG TRÊN GHIM LẠI (sticky): thẻ luôn tràn khung 38dvh nên cuộn là
              chuyện thường trực — không ghim thì nút X trôi mất khỏi tầm mắt.
@@ -956,15 +1024,32 @@ export function RouteMode({
                 type="button"
                 onClick={() => setEditing((v) => !v)}
                 aria-expanded={editing}
+                /*  Khi có cảnh báo, chữ hiện ra LÀ câu cảnh báo — đặt
+                    `aria-label` để tai nghe được cả cảnh báo lẫn việc nút này
+                    làm, thay vì nghe mỗi câu cảnh báo rồi không biết bấm ra gì. */
+                aria-label={
+                  staleMsg
+                    ? `${staleMsg}. Chạm để mở danh sách điểm.`
+                    : undefined
+                }
                 className="flex min-h-[3.5rem] w-full items-center gap-1.5 text-left"
               >
-                <span className="min-w-0 flex-1 truncate text-[1rem] font-bold leading-tight text-navy">
-                  {stops.length > 1
-                    ? `Đường đi qua ${stops.length} chỗ`
-                    : stops.length === 1
-                      ? "Đường đi tới chỗ đã đánh dấu"
-                      : "Dẫn đường tới chỗ đang xem"}
-                </span>
+                {staleMsg ? (
+                  /*  KHÔNG `truncate`: câu cảnh báo bị cắt cụt là mất đúng vế
+                      nói rõ cái gì đang lệch. Ba dòng 0.875rem vẫn thấp hơn
+                      hàng 3.5rem nên không đội chiều cao thanh ghim. */
+                  <span className="min-w-0 flex-1 text-[0.875rem] font-bold leading-tight text-[var(--warn)]">
+                    {staleMsg}
+                  </span>
+                ) : (
+                  <span className="min-w-0 flex-1 truncate text-[1rem] font-bold leading-tight text-navy">
+                    {stops.length > 1
+                      ? `Đường đi qua ${stops.length} chỗ`
+                      : stops.length === 1
+                        ? "Đường đi tới chỗ đã đánh dấu"
+                        : "Dẫn đường tới chỗ đang xem"}
+                  </span>
+                )}
                 <ChevronRightIcon
                   className={`h-5 w-5 shrink-0 text-foreground/40 transition-transform ${
                     editing ? "rotate-90" : ""
@@ -972,6 +1057,10 @@ export function RouteMode({
                   aria-hidden
                 />
               </button>
+            ) : staleMsg ? (
+              <p className="text-[0.875rem] font-bold leading-tight text-[var(--warn)]">
+                {staleMsg}
+              </p>
             ) : (
               <p className="truncate text-[1rem] font-bold leading-tight text-navy">
                 {stops.length > 1
@@ -1039,7 +1128,6 @@ export function RouteMode({
             </button>
           )}
           </div>
-          {staleBar}
         </div>
       {stopsSaveBar}
 
@@ -1217,7 +1305,7 @@ export function RouteMode({
                và hàng đó vốn đã tồn tại nên nút không tốn thêm chiều cao nào.
                Luật đầy đủ ở 03-design-system §Nút hành động trên bản đồ. */}
           {!stopsFull && (compactRows || panel === "dest") && (
-            <div className="flex items-center gap-2">
+            <div ref={addStopRef} className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setPanel(panel === "dest" ? "idle" : "dest")}
@@ -1255,19 +1343,12 @@ export function RouteMode({
                 aria-hidden
               />
             </button>
-            {compactRows ? (
-              <button
-                type="button"
-                onClick={compute}
-                disabled={busy}
-                className={`${SQ_BTN} bg-t1 text-white disabled:opacity-60`}
-              >
-                <RouteIcon className="h-6 w-6" />
-                {busy ? "Đang tính" : plan ? "Tính lại" : "Tính đường"}
-              </button>
-            ) : (
-              <span className="w-16 shrink-0" aria-hidden />
-            )}
+            {/*  NÚT TÍNH ĐÃ DỜI XUỐNG THANH GHIM ĐÁY (2026-08-29). Bản trước
+                 để nút ở đây: đo trên 375×812 ca MỘT ĐIỂM ĐẾN — ca phổ biến
+                 nhất, cũng là chỗ lối tắt chạm-giữ đổ vào — nội dung 307px
+                 trong cửa 252px, nút chính của cả màn chỉ lộ 29/56px, bị mép
+                 thẻ cắt đôi. Hàng vẫn CHỪA Ô để mép phải thẳng một khuôn. */}
+            <span className="w-16 shrink-0" aria-hidden />
             </div>
           )}
 
@@ -1450,27 +1531,54 @@ export function RouteMode({
                dẫn đường" — một chạm là chạy dẫn đường LIVE theo tuyến TRƯỚC khi
                sửa. Vừa là bẫy an toàn vừa sai kỳ vọng (nguyên tắc 4).
                Nền `bg-card` + margin âm phủ kín phần p-3 dưới. */}
+          {/*  ĐANG XỔ BỘ CHỌN NGUỒN ĐIỂM ĐẾN ⇒ GIẤU LUÔN DẢI GHIM (2026-08-29).
+               Lúc bà con đang chọn chỗ thì tấm thẻ là của việc CHỌN — chưa có
+               gì để "Tính". Đo thật 375×812: bộ chọn xổ ra, cửa đọc của thẻ
+               252px bị thanh ghim trên ~56px + dải ghim đáy ~66px ăn còn ~130px
+               ⇒ chỉ thấy 1,5 trên 6 dòng nguồn, lượt chọn nào cũng phải vuốt.
+               Bỏ dải ghim lúc này đưa cửa lên ~196px = 3,5 dòng: "Cảng nhà" và
+               "Rạn ông Tư" lọt vào tầm mắt ngay, cắt 2 trong 3 cú vuốt.
+               Dùng lại `compactRows` chứ KHÔNG đẻ state mới — chính nó đang ẩn
+               danh sách điểm và hàng "Đi từ" khi bộ chọn mở.
+               `|| stopsFull` là BẮT BUỘC: nhánh đó in cảnh báo "Đã đủ 6 điểm —
+               bỏ bớt rồi mới thêm được"; ẩn nó đi là GIẤU CẢNH BÁO (CLAUDE.md).
+               Đánh đổi đã biết: ai đã chọn xong điểm mà lỡ mở bộ chọn thì phải
+               chạm chevron thu lại mới thấy nút Tính (thêm 1 chạm, ca hiếm). */}
+          {(compactRows || stopsFull) && (
           <div className="sticky bottom-0 z-10 -mx-3 -mb-3 bg-card px-3 pb-3 pt-2">
-            {/*  KHÔNG còn hàng riêng cho "Tính đường" — nút đã nằm inline ở
-                 cuối hàng "Chọn điểm đến". Ca `stopsFull` (đủ 6 điểm, hàng đó
-                 biến mất) thì nút hiện ở đây, vẫn inline với dòng nhắc. */}
-            {stopsFull && (
-              <div className="flex items-center gap-2">
+            {/*  NÚT GHÉP VỚI DÒNG SỐ, KHÔNG PHẢI HÀNG RIÊNG (2026-08-29).
+                 Dải ghim này VỐN ĐÃ TỒN TẠI và vốn chiếm chỗ, nhưng render
+                 RỖNG trừ ca `stopsFull` — một dải ăn chỗ mà không làm gì. Nay
+                 nó luôn mang đúng MỘT hàng chuẩn: [dòng chữ cấp dữ liệu flex-1]
+                 + [SQ_BTN Tính/Tính lại].
+                 KHÔNG trái luật "cấm nút ăn riêng một hàng" (chủ dự án
+                 2026-08-29): nút vẫn INLINE cuối một hàng CÓ NỘI DUNG, chỉ khác
+                 là hàng đó nằm trong thanh ghim thay vì luồng cuộn — đúng cách
+                 Maps/Grab ghim nút "Bắt đầu". Không đẻ khuôn mới, không thêm
+                 chiều cao. Đổi lại: nút lộ đủ 56/56px ở MỌI trạng thái 1/2/3
+                 điểm, thay vì 29/56px và phải cuộn mới thấy. */}
+            <div className="flex items-center gap-2">
+              {stopsFull ? (
                 <p className="min-w-0 flex-1 text-[0.875rem] font-semibold leading-snug text-[var(--warn)]">
                   Đã đủ {MAX_STOPS} điểm — bỏ bớt rồi mới thêm được
                 </p>
-                <button
-                  type="button"
-                  onClick={compute}
-                  disabled={busy}
-                  className={`${SQ_BTN} bg-t1 text-white disabled:opacity-60`}
-                >
-                  <RouteIcon className="h-6 w-6" />
-                  {busy ? "Đang tính" : plan ? "Tính lại" : "Tính đường"}
-                </button>
-              </div>
-            )}
+              ) : (
+                <p className="min-w-0 flex-1 truncate text-[0.875rem] font-semibold leading-snug text-foreground/70">
+                  {ghimTomTat}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={compute}
+                disabled={busy}
+                className={`${SQ_BTN} bg-t1 text-white disabled:opacity-60`}
+              >
+                <RouteIcon className="h-6 w-6" />
+                {busy ? "Đang tính" : plan ? "Tính lại" : "Tính đường"}
+              </button>
+            </div>
           </div>
+          )}
         </>
       )}
 
@@ -1523,35 +1631,15 @@ export function RouteMode({
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-xl bg-background p-3">
-              <RouteIcon className="mx-auto h-5 w-5 text-t1" />
-              <p className="display mt-1 text-[1.25rem] font-bold leading-none text-navy">
-                {fmtDist(plan.distKm, prefs.distUnit)}
-              </p>
-              <p className="mt-1 text-[0.8125rem] font-semibold text-foreground/70">
-                ≈ {fmtDist(plan.distKm, prefs.distUnit === "km" ? "nm" : "km")}
-              </p>
-            </div>
-            <div className="rounded-xl bg-background p-3">
-              <ClockIcon className="mx-auto h-5 w-5 text-t1" />
-              <p className="display mt-1 text-[1.25rem] font-bold leading-none text-navy">
-                {formatHoursVN(plan.hours)}
-              </p>
-              <p className="mt-1 text-[0.8125rem] font-semibold text-foreground/70">
-                giờ chạy máy
-              </p>
-            </div>
-            <div className="rounded-xl bg-background p-3">
-              <FuelIcon className="mx-auto h-5 w-5 text-t1" />
-              <p className="display mt-1 text-[1.25rem] font-bold leading-none text-navy">
-                ~{Math.round(plan.fuelL)} lít
-              </p>
-              <p className="mt-1 text-[0.8125rem] font-semibold text-foreground/70">
-                dầu ước tính
-              </p>
-            </div>
-          </div>
+          {/*  ĐÃ BỎ LƯỚI 3 Ô (2026-08-29). Nó in LẠI đúng ba con số mà
+               dải ghim đáy đã in, mà tốn ~92px trong một thẻ chỉ có ~130px cửa
+               đọc. Thứ DUY NHẤT nó mang thêm — quy đổi ≈km/hải lý — nay ghép
+               vào chính con số đầu của dòng ghim, nên không mất dữ liệu nào.
+               Lãi thật là CUỘN NGẮN ĐI (thẻ bị trần 31dvh nên cắt nội dung
+               không làm cửa đọc to ra): hai khối cảnh báo cuối từ chỗ phải
+               vuốt hai lần còn một lần. Nhãn vai của ba con số ("giờ chạy máy",
+               "dầu ước tính") được bù bằng một dòng chỉ-đọc-màn-hình ở dải ghim
+               — không bù thì còn lại một chuỗi số không rõ nghĩa là gì. */}
 
           {/* (2) TUYẾN CHƯA ĐỐI CHIẾU — bão đứng đầu, kéo cả khối lên đỏ */}
           {(() => {
@@ -1628,29 +1716,37 @@ export function RouteMode({
                  (data) và câu dặn hải đồ + đài duyên hải (01-product bắt buộc,
                  app không thay máy định vị của tàu). Phần diễn giải lưới độ sâu
                  rút còn một vế. */}
-            <p className="text-[0.875rem] leading-snug text-foreground/65">
-              Đoạn xấu nhất: sóng ~{formatNumberVN(plan.maxWaveM)} m, gió cấp{" "}
-              {beaufort(plan.maxWindKmh)}. Lưới độ sâu ô ~5,5 km — dò hải đồ,
-              nghe đài duyên hải trước khi chạy.
-            </p>
+            {/*  MỘT KHUÔN NHƯ MỌI HÀNG (2026-08-29): [thân chữ cấp dữ liệu
+                 flex-1] + [ô nút w-16]. Nút "Tính lại" trước đây là một dải
+                 full-width ăn RIÊNG một hàng (đo thật 335×56 trong thẻ 359) —
+                 trái đúng hai câu luật đã chốt ở 03 §Nút hành động trên bản đồ.
+                 Dời vào cuối chính hàng nó thao tác lên thì cắt ~68px khỏi
+                 chiều cao màn kết quả mà không mất chức năng nào.
+                 Câu dặn hải đồ + đài duyên hải GIỮ NGUYÊN CHỮ, không rút cho
+                 vừa hàng (01-product bắt buộc — app không thay máy định vị).
+                 Đang SỬA danh sách thì dải ghim đáy đã là "Tính lại" rồi, hai nút
+                 cùng việc là rối — hàng vẫn CHỪA Ô để mép phải thẳng một khuôn. */}
+            <div className="flex items-center gap-2">
+              <p className="min-w-0 flex-1 text-[0.875rem] leading-snug text-foreground/65">
+                Đoạn xấu nhất: sóng ~{formatNumberVN(plan.maxWaveM)} m, gió cấp{" "}
+                {beaufort(plan.maxWindKmh)}. Lưới độ sâu ô ~5,5 km — dò hải đồ,
+                nghe đài duyên hải trước khi chạy.
+              </p>
+              {!editing ? (
+                <button
+                  type="button"
+                  onClick={compute}
+                  disabled={busy}
+                  className={`${SQ_BTN} bg-background text-navy disabled:opacity-60`}
+                >
+                  <RouteIcon className="h-6 w-6" />
+                  {busy ? "Đang tính" : "Tính lại"}
+                </button>
+              ) : (
+                <span className="w-16 shrink-0" aria-hidden />
+              )}
+            </div>
           </div>
-
-          {/*  "Xoá hết" đã nằm THƯỜNG TRỰC ở header — ở đây chỉ còn "Tính lại"
-               (đổi thông số tàu / thêm bớt chỗ rồi tính lại). ĐỨNG TRƯỚC khối
-               ghim đáy: nó là việc phụ nên để nó cuộn cùng nội dung; đặt sau
-               nút ghim thì bị nút đè, chỉ thấy khi cuộn tới đáy.
-               CHỈ cho trạng thái ĐANG ĐỌC: đang sửa danh sách thì nút ghim đáy
-               đã là "Tính lại đường" rồi, hai nút cùng việc là rối. */}
-          {!editing && (
-            <button
-              type="button"
-              onClick={compute}
-              disabled={busy}
-              className="min-h-[3.5rem] w-full rounded-xl bg-background text-[1rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-60"
-            >
-              {busy ? "Đang tính…" : "Tính lại"}
-            </button>
-          )}
 
           {/* DẪN ĐƯỜNG LIVE: bám tuyến, theo dõi GPS. Chỉ hiện khi cha nối
               onStart (màn bản đồ), tuyến đã tính xong (result) và bà con ĐANG
@@ -1667,11 +1763,13 @@ export function RouteMode({
                    vì đảo thứ tự (đảo chỗ chỉ đổi nạn nhân — lần đó nạn nhân là
                    cảnh báo an toàn).
                    Đây là NHÃN CỦA NÚT, không phải khối cảnh báo thứ tư: không
-                   role="status" (lưới 3 ô bên trên đã là bản đầy đủ, đọc màn
-                   hình không cần nghe hai lần), không bo tròn, không bấm được.
-                   Lưới 3 ô trong thân thẻ GIỮ NGUYÊN — nó mang quy đổi ≈km/hải
-                   lý theo đơn vị bà con chọn và nhãn phụ, dòng một hàng này
-                   không chứa hết.
+                   bo tròn, không bấm được, và TUYỆT ĐỐI không role="status" —
+                   mỗi lần tính lại là trình đọc màn hình đọc oang oang.
+                   TỪ 2026-08-29 nó là BẢN DUY NHẤT của ba con số (lưới 3 ô
+                   trong thân thẻ đã bỏ): quy đổi ≈km/hải lý dời vào đây, còn
+                   nhãn vai của từng số ("giờ chạy máy", "dầu ước tính") bù bằng
+                   dòng `sr-only` ngay dưới — bỏ lưới mà không bù nhãn thì tai
+                   nghe chỉ còn một chuỗi số không biết là số gì.
                    Khi `editing` bật thì khối này không tồn tại (thanh ghim lúc
                    đó là của biểu mẫu, nút "Tính lại đường") — CỐ Ý: đang sửa
                    danh sách thì ba con số là của tuyến TRƯỚC khi sửa. */}
@@ -1686,16 +1784,49 @@ export function RouteMode({
                    đi hay không, và nó không cuộn mất. */}
               <div className="flex items-center gap-2 px-3 py-2">
                 <p className="display min-w-0 flex-1 text-[0.9375rem] font-bold leading-snug text-navy">
-                  {fmtDist(plan.distKm, prefs.distUnit)} ·{" "}
-                  {formatHoursVN(plan.hours)} · ~{Math.round(plan.fuelL)} lít
-                  {dangerItems.length > 0 && (
-                    <span
-                      className={anyDanger ? "text-danger" : "text-warn"}
-                    >
-                      {" "}
-                      · sóng tới {formatNumberVN(plan.maxWaveM)} m
-                    </span>
-                  )}
+                  {/*  Bản ĐỌC BẰNG TAI — đánh vần đủ vai của từng con số. Mắt
+                       đọc bản ngắn bên dưới; không nhân đôi cho tai vì bản mắt
+                       đã `aria-hidden`. KHÔNG cắt chữ ở bản này để cho gọn:
+                       nó không chiếm một px nào trên màn. */}
+                  <span className="sr-only">
+                    Cả đường đi {fmtDist(plan.distKm, prefs.distUnit)}, tức{" "}
+                    {fmtDist(plan.distKm, prefs.distUnit === "km" ? "nm" : "km")}
+                    . Chạy máy {formatHoursVN(plan.hours)}. Dầu ước tính khoảng{" "}
+                    {Math.round(plan.fuelL)} lít.
+                    {topDanger &&
+                      ` ${topDanger.label}. Sóng tới ${formatNumberVN(plan.maxWaveM)} mét.`}
+                  </span>
+                  {/*  KHÔNG `truncate`/`line-clamp`: dòng này mang con số sóng —
+                       thứ quyết định đi hay ở — nên thà xuống dòng còn hơn cắt
+                       cụt. Hai dòng vẫn thấp hơn ô nút 3.25rem nên KHÔNG tốn
+                       thêm một px chiều cao nào.
+                       CÓ CẢNH BÁO thì BỎ quy đổi ≈ hải lý (2026-08-29): nhãn
+                       mối nguy dài hơn mảnh "· sóng tới X m" cũ, mà dòng này
+                       không được phép phình sang dòng thứ ba (ghim đáy cao lên
+                       là cửa đọc của thân thẻ hụt đi bấy nhiêu). Quy đổi là
+                       cùng một quãng đường nói bằng đơn vị khác — thứ đầu tiên
+                       đáng nhường chỗ cho mối nguy; bản đọc-bằng-tai vẫn giữ
+                       đủ cả hai. */}
+                  <span aria-hidden>
+                    {fmtDist(plan.distKm, prefs.distUnit)}
+                    {!topDanger && (
+                      <>
+                        {" ≈ "}
+                        {fmtDist(
+                          plan.distKm,
+                          prefs.distUnit === "km" ? "nm" : "km",
+                        )}
+                      </>
+                    )}{" "}
+                    · {formatHoursVN(plan.hours)} · ~{Math.round(plan.fuelL)} lít
+                    {topDanger && (
+                      <span className={anyDanger ? "text-danger" : "text-warn"}>
+                        {" "}
+                        · {topDanger.label} · sóng {formatNumberVN(plan.maxWaveM)}{" "}
+                        m
+                      </span>
+                    )}
+                  </span>
                 </p>
                 <button
                   type="button"

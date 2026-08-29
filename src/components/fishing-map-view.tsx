@@ -603,6 +603,8 @@ export default function FishingMapView() {
      cũng không có gì thì mới hiện lời mời đăng nhập/nâng cấp. */
   const fishLocked = premiumLocked && !fishCast;
   const [size, setSize] = useState<SheetSize>("peek");
+  /** xem chú thích ở `hideSheetForOverlay` — true = bị lớp nổi khác ép ẩn */
+  const [sheetHiddenByOverlay, setSheetHiddenByOverlay] = useState(false);
   // đồng hồ tự-ẩn của sheet (SHEET_AUTO_HIDE_MS) — nạp lại mỗi lần bà con chạm
   const sheetHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearSheetHide = useCallback(() => {
@@ -1178,24 +1180,92 @@ export default function FishingMapView() {
     pressTimer.current = null;
     pressFrom.current = null;
   }, []);
-  // đồng hồ tự tắt — nạp lại mỗi lần menu mở ra chỗ mới
+  /*  NGÓN TAY CÒN ĐANG ĐÈ THÌ CHƯA BẤM GIỜ (2026-08-29). Menu bung ở giây 0,6
+      trong khi tay vẫn giữ — chuyện thường trên tàu lắc, tay ướt. Đếm từ lúc
+      menu bung thì giữ thêm 1 giây là chỉ còn 2 giây để đọc, giữ quá 3 giây thì
+      menu TẮT NGAY DƯỚI NGÓN TAY đang đè: bà con đọc ra là "máy lỗi", và đó là
+      app tự thao tác thay người. Nên mốc là lúc NHẤC TAY.
+      Vì sao cần `pointerUpTick` chứ không "thêm pointerup vào deps": pointerup
+      là SỰ KIỆN, không phải state — effect không có gì để nghe. Ref nói ngón còn
+      đè hay không, state đếm chỉ để đá cho effect chạy lại sau khi nhấc. */
+  const pressHoldRef = useRef(false);
+  const [pointerUpTick, setPointerUpTick] = useState(0);
+  const releasePress = useCallback(() => {
+    if (!pressHoldRef.current) return;
+    pressHoldRef.current = false;
+    setPointerUpTick((n) => n + 1);
+  }, []);
+  // đồng hồ tự tắt — nạp lại mỗi lần menu mở ra chỗ mới / mỗi lần nhấc tay
   useEffect(() => {
     if (!pressMenu) return;
+    if (pressHoldRef.current) return; // còn đè: chờ nhấc rồi mới đếm
     const t = setTimeout(() => setPressMenu(null), NOTIFY_HIDE_MS);
     return () => clearTimeout(t);
-  }, [pressMenu]);
+  }, [pressMenu, pointerUpTick]);
   /** yêu cầu rail mở ô "Điểm đã lưu" + form thêm điểm (đếm để bấm lại vẫn kích) */
   const [addPlaceSignal, setAddPlaceSignal] = useState(0);
+  /*  MỘT LÚC MỘT LỚP NỔI (07 §10.7 I) — SHEET GIÓ SÓNG NHƯỜNG PANEL RAIL.
+      Rail báo lên đây khi đang mở panel lớp / ô "Đến điểm" / ô "Điểm đã lưu";
+      lúc đó chạm bản đồ CHỈ dời con trỏ, không bung sheet nữa. Trước đây hai
+      thứ chồng nhau 45px và bản đồ ở cột trái chỉ còn ~7% màn — mà đây đúng là
+      luồng CHÍNH của việc ghim điểm (mở panel → chạm biển chỉ chỗ).
+      KHÔNG chọn chiều ngược (chạm bản đồ ĐÓNG panel): form thêm điểm trong
+      panel lấy toạ độ từ con trỏ, đóng nó là mất trắng cái tên bà con đang gõ
+      dở — thao tác phá huỷ không đường lùi. */
+  const [railLayerOpen, setRailLayerOpen] = useState(false);
+  /** đếm — bảo rail đóng sạch lớp nổi (chỉ dùng cho ngoại lệ ranh giới ≤6 hl) */
+  const [closeRailSignal, setCloseRailSignal] = useState(0);
+  /*  MỘT CỬA DUY NHẤT ĐỂ ÉP ẨN SHEET GIÓ SÓNG (nguyên tắc 3 — 2026-08-29).
+      Mọi lớp nổi khác (khung Dẫn đường · panel Lớp · ô "Đến điểm" · ô "Điểm đã
+      lưu" · menu chạm-giữ) gọi CHUNG hàm này thay vì tự `setSize("hidden")`,
+      để chốt an toàn dưới đây chỉ phải viết MỘT lần, khỏi đẻ ba bản guard rồi
+      lệch nhau.
+
+      ⚠️ CHỐT KHÔNG ĐƯỢC BỎ — RẤT GẦN RANH GIỚI (≤6 hl): `setSize("hidden")` là
+      lệnh CƯỠNG BỨC, nó đi vòng qua `noAutoHideRef` vốn chỉ chặn ĐỒNG HỒ tự-ẩn.
+      Dòng đỏ "cách ranh giới…" render TRONG thân sheet, ép ẩn lúc đang đứng sát
+      ranh giới là GIẤU CẢNH BÁO AN TOÀN (CLAUDE.md cấm) và trái luôn ngoại lệ
+      đã dựng ở nhánh chạm bản đồ. Đọc qua ref chứ không đọc `borderLocked`
+      thẳng: state đó khai mãi phía dưới thân hàm, đọc lên đây là TDZ (02 §14);
+      effect đồng hồ tự-ẩn nạp ref này mỗi lượt render nên hai bên luôn khớp. */
+  const hideSheetForOverlay = useCallback(() => {
+    if (noAutoHideRef.current) return;
+    setSize("hidden");
+    setSheetHiddenByOverlay(true);
+  }, []);
+  /*  Sheet đang ở nấc `hidden` VÌ BỊ LỚP KHÁC ÉP, chứ không phải vì đồng hồ
+      tự-ẩn. Dùng để KHÔNG dán dòng gió sóng lên thanh kéo lúc đó — dán vào là
+      mở "Điểm đã lưu" lại kèm một dải số ở đáy, dựng lại đúng cảnh hai lớp nổi
+      vừa dẹp. Tự xoá khi sheet rời nấc `hidden` (một chỗ, khỏi phải sửa 8 chỗ
+      gọi `setSize("peek")`). */
+  useEffect(() => {
+    if (size !== "hidden") setSheetHiddenByOverlay(false);
+  }, [size]);
+  /*  CỬA THỨ BA: RAIL VỪA MỞ MỘT LỚP NỔI ⇒ SHEET NHƯỜNG CHỖ.
+      `railLayerOpen` bao cả panel "Lớp", ô "Đến điểm" và ô "Điểm đã lưu", nên
+      một effect này bịt BỐN cửa vào chứ không phải hai. Trước đó chỉ nút Dẫn
+      đường biết nhường: mở "Điểm đã lưu" thì panel 271×421px (che 56% khung
+      bản đồ) chồng lên sheet 169px — ba nút cùng một rail mà cư xử khác nhau,
+      bà con quen Maps/Zalo đọc ra là máy lỗi.
+      CHỈ bắt chiều false→true. Chiều true→false TUYỆT ĐỐI không tự bung sheet
+      lại: ca ranh giới ≤6 hl (chạm bản đồ → `setCloseRailSignal` rồi
+      `setSize("peek")`) sẽ chạy hai lần. */
+  const railLayerWasOpen = useRef(false);
+  useEffect(() => {
+    const was = railLayerWasOpen.current;
+    railLayerWasOpen.current = railLayerOpen;
+    if (railLayerOpen && !was) hideSheetForOverlay();
+  }, [railLayerOpen, hideSheetForOverlay]);
 
   const [routeMode, setRouteMode] = useState(false);
   const openRoutePanel = useCallback(() => {
     // CÔNG TẮC: nút rail vừa mở vừa đóng — bật rồi bấm lại là thoát, khỏi phải
     // đi tìm nút X. Nút tự đổi hình + nhấp nháy khi đang bật (ra-khoi-controls).
     setRouteMode((on) => {
-      if (!on) setSize("hidden"); // sheet gió sóng nhường chỗ
+      if (!on) hideSheetForOverlay(); // sheet gió sóng nhường chỗ
       return !on;
     });
-  }, [setSize]);
+  }, [hideSheetForOverlay]);
   const closeRouteMode = useCallback(() => setRouteMode(false), []);
   const [stops, setStopsState] = useState<RouteStop[]>(() => loadStops());
   const [stopsSaveFailed, setStopsSaveFailed] = useState(false);
@@ -2225,10 +2295,23 @@ export default function FishingMapView() {
       khối cảnh báo, càng không đủ cho đường đi nhiều chỗ (mỗi chặng một lượt
       Dijkstra). Panel dẫn đường là BIỂU MẪU đang điền, không phải thẻ liếc mắt
       như phần gió sóng mà đồng hồ 3 giây được thiết kế cho. */
+  /*  MỐC BẤM GIỜ = LÚC LƯỢT TẢI ĐÃ NGÃ NGŨ, KHÔNG PHẢI LÚC CHẠM (2026-08-29).
+      Trước đây đồng hồ đếm ngay từ cú chạm, nên phần "Đang lấy dự báo sóng
+      gió…" ăn mất một phần của 3 giây đọc: bà con chạm chỗ mới, số vừa hiện ra
+      là sheet đã trượt xuống — phải kéo lên lại, hai chạm thành ba bốn chạm.
+      NGÃ NGŨ chứ không phải "số đã về": `loading` tắt khi lượt tải kết thúc dù
+      xong, lỗi, hết giờ hay mất sóng (`fetchSeaPoint` luôn settle, nhánh
+      `.catch` ghi `cond: null`). Nếu chỉ chờ số về thì ngoài biển mất sóng sheet
+      sẽ KHÔNG BAO GIỜ tự ẩn — che bản đồ đúng lúc cần nhất. */
   useEffect(() => {
     // nạp cờ cấm TRƯỚC khi quyết — `armSheetHide` (và mọi cú chạm gọi nó) đọc ref này
     noAutoHideRef.current = borderLocked;
     if (size === "hidden" || noAutoHideRef.current) {
+      clearSheetHide();
+      return;
+    }
+    if (loading) {
+      // chưa ngã ngũ: dừng đồng hồ, effect sẽ chạy lại khi `loading` tắt
       clearSheetHide();
       return;
     }
@@ -2239,6 +2322,7 @@ export default function FishingMapView() {
     point.lat,
     point.lon,
     borderLocked,
+    loading,
     armSheetHide,
     clearSheetHide,
   ]);
@@ -2285,17 +2369,110 @@ export default function FishingMapView() {
   // tóm tắt điều kiện — con số nói chuyện, không phán đi/ở
   // Số "lúc này" chỉ được nói khi đúng là hôm nay VÀ là số vừa lấy về; bản lưu
   // trong máy thì phải nói theo cả ngày (số "lúc này" đã đông cứng từ lúc lưu).
+  /*  XEM NGÀY KHÁC HÔM NAY THÌ PHẢI NÓI LÀ NGÀY NÀO (2026-08-29). Chuỗi này
+      đi thẳng vào viên kính ở nấc `hidden`; trước đây nhánh không-phải-hôm-nay
+      chỉ in "Sóng tới X m · Gió tới cấp N" — con số KHÔNG CÓ CHỦ NGỮ THỜI
+      GIAN, mà quyết định ra khơi hay ở nhà treo trên đúng con số đó.
+      Nhãn lấy nguyên `chipLabel` — đúng chữ hàng chip ngày đang hiện, không
+      đẻ bộ định dạng thứ hai.
+      Đổi lại chiều ngang: viên kính `truncate` trong ô h-8, thêm tiền tố là
+      đuôi "Gió cấp 6" rơi khỏi mép máy 375px. Mua lại chỗ bằng cách BỎ chữ
+      "tới" ở đúng nhánh này (số sóng đứng trước, nó mới là số quyết định).
+      Nhánh hôm-nay-nhưng-số-cũ GIỮ "tới": ở đó không có tiền tố nào chen vào,
+      mà "tới" là phần nói rõ đây là mức CAO NHẤT trong ngày. */
   const condSummary = sel
     ? isToday && cond && !cond.stale && cond.windKmh != null
       ? `Sóng ${cond.waveM != null ? `${formatNumberVN(cond.waveM)} m` : "—"} · Gió cấp ${beaufort(cond.windKmh)}${
           cond.windDirDeg != null ? ` ${windDirectionVN(cond.windDirDeg)}` : ""
         }`
-      : `Sóng tới ${
-          sel.waveMaxM > 0
-            ? `${formatNumberVN(sel.waveMaxM)} m${sel.waveEstimated ? WAVE_EST_MARK : ""}`
-            : "—"
-        } · Gió tới cấp ${beaufort(sel.windMaxKmh)}`
+      : isToday
+        ? `Sóng tới ${
+            sel.waveMaxM > 0
+              ? `${formatNumberVN(sel.waveMaxM)} m${sel.waveEstimated ? WAVE_EST_MARK : ""}`
+              : "—"
+          } · Gió tới cấp ${beaufort(sel.windMaxKmh)}`
+        : `${chipLabel(sel.date, todayIso)} · Sóng ${
+            sel.waveMaxM > 0
+              ? `${formatNumberVN(sel.waveMaxM)} m${sel.waveEstimated ? WAVE_EST_MARK : ""}`
+              : "—"
+          } · Gió cấp ${beaufort(sel.windMaxKmh)}`
     : "";
+
+  /*  DẢI CHIP NGÀY — DỰNG MỘT LẦN, DÙNG Ở HAI NẤC (2026-08-29). Trước đây nó
+      chỉ nằm trong slot `peek`, nên đồng hồ tự-ẩn 3 giây hạ sheet về `hidden`
+      là nuốt luôn cả đường đổi ngày: đọc 4 dòng dưới nắng lâu hơn 3 giây thì
+      phải chạm gọi sheet lên lại chỉ để với tới hàng chip. Đổi ngày chính là
+      việc màn này tồn tại để làm, nên nó phải sống qua nấc `hidden` — y hệt
+      lý do chip `PretripSavedStatus` đã được đưa vào slot `above`.
+      Dựng thành BIẾN chứ không sao chép JSX: hai bản chip là hai luật khoá
+      premium sớm muộn cũng lệch nhau. */
+  const dayChipsRow =
+    cond && today ? (
+      <div
+        className="-mx-1 mt-1.5 flex gap-2 overflow-x-auto px-1 pb-1"
+        role="group"
+        aria-label="Chọn ngày xem dự báo"
+        // trong vùng vuốt của SnapSheet (touch-action:none) — mở lại
+        // cuộn ngang cho dải ngày và chặn cử chỉ nở/thu sheet
+        style={{ touchAction: "pan-x" }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {cond.days.map((d, i) => {
+          const active = i === selIdx;
+          // ngày đã qua (bản lưu trong máy) — mờ đi, không cho chọn
+          const past = isPastDay(d.date, todayIso);
+          // ngày 4+ là premium: chip vẫn hiện (biết còn dự báo xa để
+          // muốn) nhưng KHÔNG hiện số — chạm ra một dòng mời
+          const locked = dayChipLocked(d.date);
+          /*  SÀN TAP 3.5rem (2026-08-29): chip ngày là ô bị chạm
+              nhiều thứ hai của cả màn; ở 2.75rem thì tay ướt trên
+              tàu lắc chạm hụt rất dễ thành VUỐT DỌC, thu luôn
+              sheet. Ô nhỏ hơn sàn, không nằm trong diện miễn. */
+          return (
+            <button
+              key={d.date}
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => {
+                if (locked) {
+                  setDayLockNote(true);
+                  return;
+                }
+                setDayLockNote(false);
+                setDayIdx(i);
+                /*  Nạp lại đồng hồ tự-ẩn: `onPointerDownCapture` của
+                    SnapSheet đã gọi, nhưng chip này `stopPropagation`
+                    ở pha bubble và ở nấc `hidden` thì cú chạm không
+                    được tính là "đang đọc" — gọi thẳng cho chắc. */
+                armSheetHide();
+              }}
+              disabled={past}
+              aria-pressed={active}
+              aria-disabled={locked || undefined}
+              className={`flex min-h-[3.5rem] min-w-[4.5rem] shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl px-3 transition active:scale-[0.97] ${
+                active ? "bg-navy text-white shadow-sm" : "bg-field"
+              } ${past ? "opacity-40" : ""}`}
+            >
+              {/* CHỈ NGÀY — bỏ số sóng/gió cho gọn (user 2026-07-28);
+                  số chi tiết xem ở thân sheet cho ngày đang chọn */}
+              <span
+                className={`text-[0.9375rem] font-bold leading-tight ${
+                  active ? "text-white" : "text-navy"
+                }`}
+              >
+                {chipLabel(d.date, todayIso)}
+              </span>
+              {locked && (
+                <LockIcon
+                  className="h-3.5 w-3.5 text-foreground/45"
+                  aria-hidden
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    ) : null;
 
   /*  Dòng "ở đâu" CHỈ nói TÊN chỗ khi con trỏ đang đứng trên một điểm đã ghim.
       Không ghim thì KHÔNG nói gì — cột phải của peek để trống cho dòng toạ độ.
@@ -2360,6 +2537,7 @@ export default function FishingMapView() {
           if (e.pointerType === "mouse" && e.button !== 0) return;
           closePressMenu();
           pressFrom.current = { x: e.clientX, y: e.clientY };
+          pressHoldRef.current = true; // ngón đang đè → chưa bấm giờ tự tắt
           cancelPress();
           const { clientX: px, clientY: py } = e;
           pressTimer.current = setTimeout(() => {
@@ -2375,8 +2553,14 @@ export default function FishingMapView() {
           if (!f) return;
           if (Math.hypot(e.clientX - f.x, e.clientY - f.y) > 10) cancelPress();
         }}
-        onPointerUp={cancelPress}
-        onPointerCancel={cancelPress}
+        onPointerUp={() => {
+          cancelPress();
+          releasePress();
+        }}
+        onPointerCancel={() => {
+          cancelPress();
+          releasePress();
+        }}
       >
       <MapGL
         ref={mapRef}
@@ -2480,6 +2664,22 @@ export default function FishingMapView() {
             }
             if (biChe) flyToPoint(lon, lat);
             return;
+          }
+          /*  ĐANG MỞ MỘT LỚP NỔI CỦA RAIL: chạm bản đồ CHỈ dời con trỏ
+              (`setPoint` đã chạy ở trên) — KHÔNG bung thêm sheet gió sóng, vì
+              màn chỉ có chỗ cho một lớp nổi (07 §10.7 I).
+              NGOẠI LỆ BẮT BUỘC — RẤT GẦN RANH GIỚI (≤6 hl): sheet VẪN bung và
+              rail đóng lại. Cảnh báo ranh giới là Tầng 1 "không ai được che";
+              vượt ranh giới bị bắt/phạt rất nặng, không đánh đổi lấy gọn mắt.
+              Đo ngay tại toạ độ VỪA CHẠM chứ không đọc `borderLocked` (nó tính
+              theo `point` của lượt render TRƯỚC, còn đang là điểm cũ). */
+          if (railLayerOpen) {
+            const proxHere = borderProximity(lat, lon, borderSrc);
+            if (!(proxHere.applies && proxHere.level === "very_near")) {
+              flyToPoint(lon, lat);
+              return;
+            }
+            setCloseRailSignal((n) => n + 1);
           }
           // kiểu Windy: chạm là sheet nằm GỌN ở đáy (peek) — bản đồ vẫn
           // thấy nguyên, số liệu tóm tắt hiện ngay, chi tiết bấm "Xem thêm"
@@ -3475,8 +3675,18 @@ export default function FishingMapView() {
               if (routeMode) setStops(addStop(stops, lat, lon));
               else {
                 setRouteMode(true);
-                setSize("hidden");
+                hideSheetForOverlay();
                 setStops(addStop(clearStops(), lat, lon));
+                /*  DỌN LUÔN VẠCH CŨ (2026-08-29). Nhánh này DỌN SẠCH chuỗi
+                    điểm (`clearStops`) nhưng trước đây không đụng `route` ⇒
+                    bản đồ còn vẽ vạch xanh của tuyến TRƯỚC, lệch hẳn danh
+                    sách vừa dựng lại. Thẻ Dẫn đường thấy lệch thì bật băng
+                    cảnh báo, và băng đó đẩy biểu mẫu ra khỏi cửa đọc — bà con
+                    hết đường đổi xuất phát / bỏ điểm. App KHÔNG được bắt người
+                    dùng dọn hậu quả do chính app tạo ra (nguyên tắc 3).
+                    GUARD `!navMode` là bắt buộc: đang dẫn đường thật thì vạch
+                    dưới chân chuyến đang chạy TUYỆT ĐỐI không được xoá. */
+                if (!navMode) setRoute(null);
               }
             }}
             className="flex min-h-[3.5rem] w-full items-center gap-2.5 px-3 text-left text-[1rem] font-bold text-t1 transition active:bg-field"
@@ -3575,6 +3785,8 @@ export default function FishingMapView() {
             onLocateMe={goToMyBoat}
             cursor={point}
             addPlaceSignal={addPlaceSignal}
+            onLayerOpenChange={setRailLayerOpen}
+            closeLayersSignal={closeRailSignal}
             onRoutePanel={openRoutePanel}
             routeOn={routeMode}
             locating={locating}
@@ -3815,6 +4027,13 @@ export default function FishingMapView() {
         size={size}
         onSizeChange={setSize}
         onInteract={armSheetHide}
+        /*  Sheet tự ẩn rồi thì GIỮ LẠI ĐÚNG MỘT DÒNG SỐ trên viên kính — chi
+            phí 0px, xem chú thích `hiddenLabel` trong snap-sheet.tsx. CHỈ khi
+            nấc `hidden` đến từ đồng hồ tự-ẩn: bị lớp nổi khác ép ẩn mà vẫn dán
+            dòng số là dựng lại đúng cảnh hai lớp nổi vừa dẹp. */
+        hiddenLabel={
+          !sheetHiddenByOverlay && condSummary ? condSummary : undefined
+        }
         above={
           /*  CÒN Ở NẤC `hidden` NỮA (user 2026-08-24: "cái chip tải cái gì đủ
               hay chưa đâu rồi?"): chip độ phủ `PretripSavedStatus` là nhãn
@@ -3850,6 +4069,18 @@ export default function FishingMapView() {
                     fishLocked={fishLocked}
                   />
                 </div>
+              )}
+              {/*  DẢI CHIP NGÀY SỐNG QUA NẤC `hidden` (2026-08-29). CHỈ dựng ở
+                   `hidden`: ở nấc `peek` dải này đã nằm trong thân sheet, dựng
+                   thêm ở đây là in hai lần cùng một hàng.
+                   Guard `!sheetHiddenByOverlay` (đúng guard `hiddenLabel` đang
+                   dùng) + `!overlayOn`: bị lớp nổi khác ép ẩn, hoặc đang mở
+                   thanh giờ dự báo, mà vẫn dán dải chip lên là dựng lại đúng
+                   cảnh HAI LỚP NỔI cùng lúc mà luật đã cấm.
+                   `pointer-events-auto` là bắt buộc — khung `above` của
+                   SnapSheet đặt `pointer-events-none` cho cả slot. */}
+              {size === "hidden" && !sheetHiddenByOverlay && !overlayOn && (
+                <div className="pointer-events-auto">{dayChipsRow}</div>
               )}
               {/* thanh giờ gió/sóng/mây/mưa/nhiệt XUỐNG ĐÁY kiểu Windy — tay với
                   tới, không chồng 4 tầng trên đầu bản đồ (roadmap UX 2026-06-11) */}
@@ -4162,61 +4393,7 @@ export default function FishingMapView() {
                   ngang; độ tin theo tầm ngày + skill đo hiện khi nở) */}
               {cond && today && (
                 <>
-                  <div
-                    className="-mx-1 mt-1.5 flex gap-2 overflow-x-auto px-1 pb-1"
-                    role="group"
-                    aria-label="Chọn ngày xem dự báo"
-                    // trong vùng vuốt của SnapSheet (touch-action:none) — mở lại
-                    // cuộn ngang cho dải ngày và chặn cử chỉ nở/thu sheet
-                    style={{ touchAction: "pan-x" }}
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    {cond.days.map((d, i) => {
-                      const active = i === selIdx;
-                      // ngày đã qua (bản lưu trong máy) — mờ đi, không cho chọn
-                      const past = isPastDay(d.date, todayIso);
-                      // ngày 4+ là premium: chip vẫn hiện (biết còn dự báo xa để
-                      // muốn) nhưng KHÔNG hiện số — chạm ra một dòng mời
-                      const locked = dayChipLocked(d.date);
-                      return (
-                        <button
-                          key={d.date}
-                          type="button"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onClick={() => {
-                            if (locked) {
-                              setDayLockNote(true);
-                              return;
-                            }
-                            setDayLockNote(false);
-                            setDayIdx(i);
-                          }}
-                          disabled={past}
-                          aria-pressed={active}
-                          aria-disabled={locked || undefined}
-                          className={`flex min-h-[2.75rem] min-w-[4.5rem] shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl px-3 transition active:scale-[0.97] ${
-                            active ? "bg-navy text-white shadow-sm" : "bg-field"
-                          } ${past ? "opacity-40" : ""}`}
-                        >
-                          {/* CHỈ NGÀY — bỏ số sóng/gió cho gọn (user 2026-07-28);
-                              số chi tiết xem ở thân sheet cho ngày đang chọn */}
-                          <span
-                            className={`text-[0.9375rem] font-bold leading-tight ${
-                              active ? "text-white" : "text-navy"
-                            }`}
-                          >
-                            {chipLabel(d.date, todayIso)}
-                          </span>
-                          {locked && (
-                            <LockIcon
-                              className="h-3.5 w-3.5 text-foreground/45"
-                              aria-hidden
-                            />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {dayChipsRow}
                   {/* chạm chip ngày khoá: MỘT câu chuẩn (premiumLine), ẩn khi
                       mất sóng — chip khoá vẫn chỉ mang icon khoá, không chữ */}
                   {dayLockNote && premiumLocked && netOnline && (

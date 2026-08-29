@@ -117,6 +117,8 @@ export function RaKhoiControls({
   onGoCoord,
   cursor,
   addPlaceSignal,
+  onLayerOpenChange,
+  closeLayersSignal,
   onRoutePanel,
   routeOn = false,
   locating,
@@ -134,6 +136,13 @@ export function RaKhoiControls({
       rail mở ô "Điểm đã lưu" kèm form thêm điểm, toạ độ đã điền sẵn theo con
       trỏ. Đếm chứ không dùng boolean: lưu chỗ thứ hai vẫn phải kích được. */
   addPlaceSignal?: number;
+  /*  BÁO LÊN CHA khi rail đang mở một LỚP NỔI (panel lớp · ô "Đến điểm" · ô
+      "Điểm đã lưu"). Cha dùng để không bung sheet gió sóng đè lên — luật một
+      lúc một lớp nổi ở 07 §10.7 I. */
+  onLayerOpenChange?: (open: boolean) => void;
+  /*  Cha yêu cầu ĐÓNG SẠCH lớp nổi (đếm để lần sau vẫn kích được). Chỉ dùng
+      cho ngoại lệ ranh giới ≤6 hl: cảnh báo đó không ai được che. */
+  closeLayersSignal?: number;
   onRoutePanel?: () => void;
   /*  ĐANG Ở TRONG chế độ dẫn đường — nút phải TRÔNG KHÁC HẲN (user
       2026-08-28e: "hiện thời ko khác gì nhau"). Cùng khuôn nút "Đến điểm":
@@ -201,13 +210,34 @@ export function RaKhoiControls({
       loại việc "bật/tắt lớp bản đồ" như 5 panel còn lại. */
   const [placesOpen, setPlacesOpen] = useState(false);
   const [addPlaceOpen, setAddPlaceOpen] = useState(false);
+  /*  ĐIỀN SẴN TOẠ ĐỘ CON TRỎ — CHỈ khi form mở do menu chạm-giữ (07 §10.7 K).
+      Mở panel bằng nút rail thì KHÔNG điền: app không được tự khai một toạ độ
+      bà con chưa hề chỉ. Đặt bằng số của lượt tín hiệu, xoá khi panel đóng. */
+  const [prefillTick, setPrefillTick] = useState(0);
   useEffect(() => {
     if (!addPlaceSignal) return;
     setOpen(null);
     setCoordOpen(false);
     setPlacesOpen(true);
     setAddPlaceOpen(true);
+    setPrefillTick(addPlaceSignal);
   }, [addPlaceSignal]);
+  useEffect(() => {
+    if (!placesOpen) setPrefillTick(0);
+  }, [placesOpen]);
+  /*  BÁO CHA: rail đang có lớp nổi nào mở không. Cha (fishing-map-view) dùng để
+      chạm bản đồ chỉ dời con trỏ, khỏi bung sheet gió sóng đè lên panel. */
+  const anyLayerOpen = open !== null || placesOpen || coordOpen;
+  useEffect(() => {
+    onLayerOpenChange?.(anyLayerOpen);
+  }, [anyLayerOpen, onLayerOpenChange]);
+  /*  Cha đòi nhường chỗ cho cảnh báo ranh giới ≤6 hl → đóng sạch lớp nổi. */
+  useEffect(() => {
+    if (!closeLayersSignal) return;
+    setOpen(null);
+    setCoordOpen(false);
+    setPlacesOpen(false);
+  }, [closeLayersSignal]);
   /*  LUẬT HIỂN THỊ — MỘT LỚP NỔI MỘT LÚC (chủ dự án 2026-08-29: "2 chế độ lúc
       lưu và lúc dẫn đường đang hiển thị 1 lúc nó bị chồng chéo và rối nhau").
       Vào chế độ dẫn đường là ĐÓNG SẠCH panel lớp + ô toạ độ + ô điểm đã lưu.
@@ -369,6 +399,7 @@ export function RaKhoiControls({
         <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[70dvh] w-[19rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl">
           <DiemPanel
             cursor={cursor}
+            prefillTick={prefillTick}
             addOpen={addPlaceOpen}
             onAddOpenChange={setAddPlaceOpen}
             showPlaces={showPlaces}
@@ -981,6 +1012,7 @@ function ThoiTietPanel({
 
 function DiemPanel({
   cursor,
+  prefillTick,
   addOpen: addOpenProp,
   onAddOpenChange,
   showPlaces,
@@ -991,6 +1023,8 @@ function DiemPanel({
   onClose,
 }: {
   cursor?: { lat: number; lon: number } | null;
+  /** >0 = form vừa mở do menu chạm-giữ → điền sẵn toạ độ con trỏ */
+  prefillTick?: number;
   addOpen?: boolean;
   onAddOpenChange?: (v: boolean) => void;
   showPlaces: boolean;
@@ -1021,7 +1055,11 @@ function DiemPanel({
             icon={<StarIcon className="h-5 w-5 text-navy" />}
           />
         </div>
-        {!addOpen && (
+        {/*  HÀNG KHÔNG CÓ NÚT VẪN CHỪA Ô (03-design-system §Nút hành động):
+             trước đây form mở là nút biến mất HẲN, toggle nở từ 199px ra 271px
+             — cùng một hàng mà đổi khuôn giữa hai trạng thái, mép phải nhảy.
+             Ô trống giữ mép phải thẳng, đúng khuôn đã có ở route-planner. */}
+        {!addOpen ? (
           <button
             type="button"
             onClick={() => setAddOpen(true)}
@@ -1031,12 +1069,15 @@ function DiemPanel({
             <PlusIcon className="h-6 w-6" />
             Thêm điểm
           </button>
+        ) : (
+          <span className="w-16 shrink-0" aria-hidden />
         )}
       </div>
       <div className="mt-3">
         {/* quản lý điểm NGAY trong panel — compact cho rail hẹp */}
         <MyPlacesContent
           cursor={cursor}
+          prefillTick={prefillTick}
           addOpen={addOpen}
           onAddOpenChange={setAddOpen}
           hideAddButton
@@ -1044,7 +1085,6 @@ function DiemPanel({
           onPlaces={onPlaces}
           onGo={onGoPlace}
           onClose={onClose}
-          compact
         />
       </div>
     </div>
