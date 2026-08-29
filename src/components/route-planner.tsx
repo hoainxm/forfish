@@ -78,6 +78,21 @@ export type PlannedRoute = {
   stopWpIdx: number[];
 };
 
+/*  Ô NÚT CHUẨN — MỌI nút hành động trong màn bản đồ dùng CHUNG một khuôn
+    (chủ dự án 2026-08-29: *"cái nút nó là ô vuông kích thước đồng bộ"*, *"các
+    loại nút dài này bỏ đi"*).
+
+    Vì sao bỏ nút full-width: một dải ngang chiếm trọn bề ngang thẻ cho MỘT
+    việc, trong khi thẻ đang phải tranh từng chục px với bản đồ. Ô vuông xếp
+    hàng thì ba nút chỉ tốn bằng một dải cũ, và mắt quét theo hàng nhanh hơn
+    đọc từng dải.
+
+    Khuôn lấy ĐÚNG của rail phải (Lớp · Vị trí · Đến điểm…) — bà con đã quen
+    hình đó ở ngay cạnh, không phải học thêm kiểu nút thứ hai. Vùng chạm giữ
+    nguyên sàn: w-16 (4rem) × min-h-[3.25rem]. */
+const SQ_BTN =
+  "flex min-h-[3.25rem] w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-[0.6875rem] font-bold leading-tight transition active:scale-95";
+
 const BOAT_KEY = "forfish.boat.v1";
 
 /* HỒ SƠ TÀU CŨNG LÀ DỮ LIỆU GÕ TAY (K4, 2026-08-02): tốc độ chạy + lít dầu/giờ
@@ -927,9 +942,10 @@ export function RouteMode({
             type="button"
             onClick={onClose}
             aria-label="Đóng dẫn đường"
-            className="-my-1.5 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-navy/10 text-navy transition active:scale-95"
+            className={`${SQ_BTN} -my-1 bg-navy/10 text-navy`}
           >
-            <CloseIcon className="h-5 w-5" />
+            <CloseIcon className="h-6 w-6" />
+            Đóng
           </button>
           <div className="min-w-0 flex-1">
             {/*  Có kết quả rồi thì TIÊU ĐỀ LÀ NÚT mở lại danh sách điểm — có
@@ -981,11 +997,12 @@ export function RouteMode({
             onClick={() => setPanel(panel === "boat" ? "idle" : "boat")}
             aria-expanded={panel === "boat"}
             aria-label={`Tuỳ chọn — tàu chạy ${speedKn} hải lý/giờ, ăn ${lph} lít dầu/giờ`}
-            className={`-my-1.5 flex h-14 w-14 shrink-0 items-center justify-center rounded-full transition active:scale-95 ${
+            className={`${SQ_BTN} -my-1 ${
               panel === "boat" ? "bg-t1 text-white" : "bg-navy/10 text-t1"
             }`}
           >
-            <FuelIcon className="h-5 w-5" />
+            <FuelIcon className="h-6 w-6" />
+            Tuỳ chọn
           </button>
           {coGiDeXoa && (
             /*  `min-w` + `justify-center`: hộp chạm KHÔNG ĐƯỢC dịch giữa hai
@@ -1003,7 +1020,13 @@ export function RouteMode({
                   setConfirmClear(false);
                 } else setConfirmClear(true);
               }}
-              className={`-my-1.5 flex min-h-[3.5rem] min-w-[8rem] shrink-0 items-center justify-center gap-1 rounded-xl px-2.5 text-center text-[0.875rem] font-bold leading-tight text-danger transition active:scale-95 ${
+              /*  Ô VUÔNG như mọi nút hành động khác. Lúc chờ xác nhận thì NỞ
+                  NGANG để chứa câu "Xoá cả N chỗ + tuyến?" — nở sang PHẢI bằng
+                  `min-w` + căn giữa, hộp chạm không dịch giữa hai nhịp của cùng
+                  một thao tác (bản trước nở về trái, cú bấm thứ hai rơi ra ngoài). */
+              className={`${SQ_BTN} -my-1 text-danger ${
+                confirmClear ? "w-auto min-w-[8rem] flex-row gap-1 px-2.5" : ""
+              } ${
                 confirmClear ? "bg-danger-bg" : "bg-background"
               }`}
             >
@@ -1172,12 +1195,19 @@ export function RouteMode({
           {/*  THÊM ĐIỂM — MỘT hàng mở CÙNG bộ chọn với "Đi từ" (chỗ đang xem ·
                điểm đã lưu · cảng). Trước đây là hai hàng rời ("Thêm điểm đang
                xem" + "Thêm từ điểm đã lưu") — cùng một việc mà hai chỗ bấm. */}
+          {/*  NÚT KHÔNG BAO GIỜ ĂN RIÊNG MỘT HÀNG (chủ dự án 2026-08-29: *"nó là
+               1 nút thì đừng để nó chiếm cả 1 hàng… 1 ô chiếm 1 hàng thì lại mất
+               cân đối trong khi vẫn chiếm chỗ màn hình"*). "Tính đường" nằm
+               INLINE ở cuối hàng "Chọn điểm đến" — đúng hàng nó thao tác lên,
+               và hàng đó vốn đã tồn tại nên nút không tốn thêm chiều cao nào.
+               Luật đầy đủ ở 03-design-system §Nút hành động trên bản đồ. */}
           {!stopsFull && (compactRows || panel === "dest") && (
+            <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setPanel(panel === "dest" ? "idle" : "dest")}
               aria-expanded={panel === "dest"}
-              className="flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
+              className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 text-left text-[1rem] font-bold text-t1 transition active:scale-[0.99]"
             >
               <PlusIcon className="h-6 w-6 shrink-0" />
               <span className="min-w-0 flex-1">
@@ -1210,6 +1240,18 @@ export function RouteMode({
                 aria-hidden
               />
             </button>
+            {compactRows && (
+              <button
+                type="button"
+                onClick={compute}
+                disabled={busy}
+                className={`${SQ_BTN} bg-t1 text-white disabled:opacity-60`}
+              >
+                <RouteIcon className="h-6 w-6" />
+                {busy ? "Đang tính" : plan ? "Tính lại" : "Tính đường"}
+              </button>
+            )}
+            </div>
           )}
 
           {panel === "dest" && (
@@ -1392,18 +1434,25 @@ export function RouteMode({
                sửa. Vừa là bẫy an toàn vừa sai kỳ vọng (nguyên tắc 4).
                Nền `bg-card` + margin âm phủ kín phần p-3 dưới. */}
           <div className="sticky bottom-0 z-10 -mx-3 -mb-3 bg-card px-3 pb-3 pt-2">
-            <button
-              type="button"
-              onClick={compute}
-              disabled={busy}
-              className="flex min-h-[3.5rem] w-full items-center justify-center gap-2.5 rounded-xl bg-t1 text-[1.125rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-60"
-            >
-              {busy
-                ? "Đang tính…"
-                : plan
-                  ? "Tính lại"
-                  : "Tính đường"}
-            </button>
+            {/*  KHÔNG còn hàng riêng cho "Tính đường" — nút đã nằm inline ở
+                 cuối hàng "Chọn điểm đến". Ca `stopsFull` (đủ 6 điểm, hàng đó
+                 biến mất) thì nút hiện ở đây, vẫn inline với dòng nhắc. */}
+            {stopsFull && (
+              <div className="flex items-center gap-2">
+                <p className="min-w-0 flex-1 text-[0.875rem] font-semibold leading-snug text-[var(--warn)]">
+                  Đã đủ {MAX_STOPS} điểm — bỏ bớt rồi mới thêm được
+                </p>
+                <button
+                  type="button"
+                  onClick={compute}
+                  disabled={busy}
+                  className={`${SQ_BTN} bg-t1 text-white disabled:opacity-60`}
+                >
+                  <RouteIcon className="h-6 w-6" />
+                  {busy ? "Đang tính" : plan ? "Tính lại" : "Tính đường"}
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -1634,9 +1683,9 @@ export function RouteMode({
                 <button
                   type="button"
                   onClick={() => onStart(result)}
-                  className="flex min-h-[3.5rem] shrink-0 items-center gap-1.5 rounded-full bg-t1 px-4 text-[1rem] font-bold text-white transition active:scale-95"
+                  className={`${SQ_BTN} bg-t1 text-white`}
                 >
-                  <PlayIcon className="h-5 w-5" />
+                  <PlayIcon className="h-6 w-6" />
                   Dẫn đường
                 </button>
               </div>
