@@ -3,19 +3,22 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  CheckIcon,
   ClockIcon,
+  CloseIcon,
   DocIcon,
   EditIcon,
+  LockIcon,
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   EmptyState,
   Field,
   inputClass,
-  PrimaryButton,
   RefNote,
 } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
@@ -261,12 +264,15 @@ export function BoatProducts() {
               Sản phẩm mua của SDVICO — app nhắc trước khi hết bảo hành. Đăng
               nhập bằng SĐT lúc mua hàng là đồ đã mua tự hiện ở đây.
             </RefNote>
-            <Link
-              href="/login"
-              className="mt-2.5 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.98]"
-            >
-              Đăng nhập để thấy đồ của mình
-            </Link>
+            {/*  Nhãn gọi TÊN VIỆC, không hứa kết quả (luật A4): "Đăng nhập để
+                thấy đồ của mình" (29 ký tự) → "Đăng nhập". Ô nút inline cuối
+                hàng RefNote đang giải thích tình trạng, không ăn riêng hàng. */}
+            <div className="mt-2.5 flex justify-end">
+              <Link href="/login" className={`${SQ_BTN} bg-field text-navy`}>
+                <LockIcon className="h-6 w-6" />
+                Đăng nhập
+              </Link>
+            </div>
           </>
         ) : (
           <RefNote>Đang kiểm tra đồ SDVICO của bà con…</RefNote>
@@ -303,7 +309,7 @@ export function BoatProducts() {
                   <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
                     Mua của SDVICO{p.orderCode ? ` · đơn ${p.orderCode}` : ""}
                   </p>
-                  <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
+                  <p className="display text-[1.125rem] font-bold leading-snug text-navy">
                     {p.name}
                   </p>
                   {p.serial && (
@@ -327,8 +333,7 @@ export function BoatProducts() {
                   {(status.level === "soon" || status.level === "expired") && (
                     <div className="mt-2 flex justify-end">
                       <SdvicoRequestButton
-                        variant="chip"
-                        topic="sua-chua"
+                          topic="sua-chua"
                         productName={`${p.name}${p.serial ? ` (serial ${p.serial})` : ""}`}
                         label="Gọi bảo hành món này"
                       />
@@ -341,19 +346,32 @@ export function BoatProducts() {
         </div>
       )}
 
-      {/* ĐỌC KHÔNG ĐƯỢC ⇒ ẩn nút Thêm (T13) — banner đỏ ở trên đã nói vì sao */}
-      {!readFailed && (
-        <button
-          onClick={() => {
-            setEditing(null);
-            setShowForm(true);
-          }}
-          className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
-        >
-          <PlusIcon className="h-6 w-6" />
-          Thêm sản phẩm
-        </button>
-      )}
+      {/*  HÀNG TIÊU ĐỀ của khối "đồ tự ghi" (2026-08-29, luật A2/A3/B1): trước
+          là dải cam full-width đặt GIỮA hai danh sách, cắt đôi mạch đọc giữa đồ
+          đồng bộ SDVICO và đồ bà con tự ghi. Nay nó vừa là tiêu đề khối vừa mang
+          ô nút. ĐỌC KHÔNG ĐƯỢC ⇒ chừa ô trống (T13, luật 3b) — banner đỏ ở trên
+          đã nói vì sao. */}
+      <div className="mb-4 flex items-stretch gap-2">
+        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
+          <p className="text-[1rem] font-bold text-navy">
+            Đồ tự ghi · {sorted.length} món
+          </p>
+        </div>
+        {readFailed ? (
+          <span className="w-16 shrink-0" aria-hidden />
+        ) : (
+          <button
+            onClick={() => {
+              setEditing(null);
+              setShowForm(true);
+            }}
+            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+          >
+            <PlusIcon className="h-6 w-6" />
+            Thêm
+          </button>
+        )}
+      </div>
 
       {/* chỉ nói "chưa có gì" khi THẬT SỰ chưa có gì — kể cả đồ đồng bộ
           (roadmap hội đồng UX: empty state mâu thuẫn danh sách ngay trên);
@@ -404,62 +422,78 @@ export function BoatProducts() {
                 {status.label}
               </StatusBanner>
 
-              <div className="px-4 py-3">
-                <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
-                  {product.name}
-                </p>
-                {product.serial && (
-                  <p className="text-[1rem] text-foreground/70">
-                    Số serial: <strong>{product.serial}</strong>
-                  </p>
-                )}
-                {product.purchasedOn && (
-                  <p className="text-[1rem] text-foreground/70">
-                    Mua: <strong>{formatVnDate(product.purchasedOn)}</strong>
-                  </p>
-                )}
+              {/*  THÂN THẺ theo khuôn hàng chung (luật B1): [thân flex-1
+                  min-w-0] + [ô nút w-16]; hàng không mang nút vẫn chừa ô. Trước:
+                  hàng grid-cols-2 chỉ để chứa hai nút, không nội dung nào khác. */}
+              <div className="space-y-1.5 p-2">
+                <div className="flex items-stretch gap-2">
+                  <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                    <p className="display break-words text-[1.125rem] font-bold leading-snug text-navy">
+                      {product.name}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditing(product);
+                      setShowForm(true);
+                    }}
+                    className={`${SQ_BTN} bg-background text-sea`}
+                  >
+                    <EditIcon className="h-6 w-6" />
+                    Sửa
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(product)}
+                    className={`${SQ_BTN} bg-background text-danger`}
+                  >
+                    <TrashIcon className="h-6 w-6" />
+                    Xóa
+                  </button>
+                </div>
+
                 {product.warrantyUntil && (
-                  <p className="text-[1rem] text-foreground/70">
-                    Bảo hành tới:{" "}
-                    <strong>{formatVnDate(product.warrantyUntil)}</strong>
-                  </p>
+                  <div className="flex items-stretch gap-2">
+                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                      <p className="text-[1rem] text-foreground/70">
+                        Bảo hành tới:{" "}
+                        <strong>{formatVnDate(product.warrantyUntil)}</strong>
+                      </p>
+                    </div>
+                    <span className="w-16 shrink-0" aria-hidden />
+                  </div>
+                )}
+                {(product.serial || product.purchasedOn) && (
+                  <div className="flex items-stretch gap-2">
+                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                      <p className="text-[1rem] text-foreground/70">
+                        {product.serial ? `Serial ${product.serial}` : ""}
+                        {product.serial && product.purchasedOn ? " · " : ""}
+                        {product.purchasedOn
+                          ? `mua ${formatVnDate(product.purchasedOn)}`
+                          : ""}
+                      </p>
+                    </div>
+                    <span className="w-16 shrink-0" aria-hidden />
+                  </div>
                 )}
                 {product.note && (
-                  <p className="mt-1.5 rounded-xl bg-background px-3 py-1.5 text-[0.9375rem] text-foreground/70">
-                    {product.note}
-                  </p>
+                  <div className="flex items-stretch gap-2">
+                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                      <p className="text-[0.9375rem] text-foreground/70">
+                        {product.note}
+                      </p>
+                    </div>
+                    <span className="w-16 shrink-0" aria-hidden />
+                  </div>
                 )}
-              </div>
-
-              <div className="grid grid-cols-2 border-t border-line">
-                <button
-                  onClick={() => {
-                    setEditing(product);
-                    setShowForm(true);
-                  }}
-                  className="flex min-h-[3.5rem] items-center justify-center gap-2 text-[1.125rem] font-bold text-sea active:bg-background"
-                >
-                  <EditIcon className="h-5 w-5" />
-                  Sửa
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(product)}
-                  className="flex min-h-[3.5rem] items-center justify-center gap-2 border-l border-line text-[1.125rem] font-bold text-danger active:bg-background"
-                >
-                  <TrashIcon className="h-5 w-5" />
-                  Xóa
-                </button>
               </div>
             </li>
           );
         })}
       </ul>
 
-      <p className="py-4 text-center text-[0.875rem] text-foreground/65">
-        {synced
-          ? "Đồ tự đồng bộ lấy từ SDVICO. Sản phẩm tự thêm lưu trên máy."
-          : "Sản phẩm SDVICO lưu ngay trên máy của bà con."}
-      </p>
+      {/*  Bỏ dòng chân trang "lưu ngay trên máy" (D1) — chỉ giải thích app hoạt
+          động thế nào, không cấp dữ liệu, không dặn dò an toàn. */}
     </div>
       )}
 
@@ -532,6 +566,11 @@ function ProductForm({
     initial?.warrantyUntil ?? "",
   );
   const [note, setNote] = useState(initial?.note ?? "");
+  /*  Nhóm tuỳ chọn THU LẠI mặc định (luật C1); mở sẵn khi SỬA món đã có dữ
+      liệu trong nhóm — không giấu thứ bà con đã nhập. */
+  const [showMore, setShowMore] = useState(
+    Boolean(initial?.serial || initial?.purchasedOn || initial?.note),
+  );
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -580,24 +619,6 @@ function ProductForm({
           </Field>
         )}
 
-        <Field label="Số serial (nếu có)">
-          <input
-            value={serial}
-            onChange={(e) => setSerial(e.target.value)}
-            className={inputClass}
-            placeholder="VD: ICOM-M324-77310"
-          />
-        </Field>
-
-        <Field label="Ngày mua">
-          <input
-            type="date"
-            value={purchasedOn}
-            onChange={(e) => setPurchasedOn(e.target.value)}
-            className={inputClass}
-          />
-        </Field>
-
         <Field label="Hết hạn bảo hành">
           <input
             type="date"
@@ -607,25 +628,84 @@ function ProductForm({
           />
         </Field>
 
-        <Field label="Ghi chú thêm">
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            className={inputClass}
-            placeholder="VD: Mua tại đại lý SDVICO Vũng Tàu"
-          />
-        </Field>
+        {/*  Cả màn này tồn tại để NHẮC BẢO HÀNH ⇒ KEY chỉ là tên + hết hạn bảo
+            hành. Serial và ghi chú tự nhãn đã nhận là tuỳ chọn; ngày mua để
+            trống không ảnh hưởng việc nhắc ⇒ thu sau một nút (luật C1). */}
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="truncate text-[1rem] text-foreground/80">
+              Serial:{" "}
+              <span className="font-bold text-navy">
+                {serial.trim() || "chưa ghi"}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowMore((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <PlusIcon className="h-6 w-6" />
+            {showMore ? "Thu" : "Chi tiết"}
+          </button>
+        </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-3">
+        {showMore && (
+          <>
+            <Field label="Số serial (nếu có)">
+              <input
+                value={serial}
+                onChange={(e) => setSerial(e.target.value)}
+                className={inputClass}
+                placeholder="VD: ICOM-M324-77310"
+              />
+            </Field>
+
+            <Field label="Ngày mua">
+              <input
+                type="date"
+                value={purchasedOn}
+                onChange={(e) => setPurchasedOn(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Ghi chú thêm">
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                className={inputClass}
+                placeholder="VD: Mua tại đại lý SDVICO Vũng Tàu"
+              />
+            </Field>
+          </>
+        )}
+
+        {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
+        <div className="mt-3 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="text-[0.9375rem] text-foreground/70">
+              {warrantyUntil
+                ? "Đủ để app nhắc bảo hành."
+                : "Chưa có hạn bảo hành — app sẽ không nhắc được."}
+            </p>
+          </div>
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            className={`${SQ_BTN} bg-background text-foreground/70`}
           >
+            <CloseIcon className="h-6 w-6" />
             Hủy
           </button>
-          <PrimaryButton type="submit">Lưu lại</PrimaryButton>
+          <button
+            type="submit"
+            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+          >
+            <CheckIcon className="h-6 w-6" />
+            Lưu
+          </button>
         </div>
       </form>
     </BottomSheet>

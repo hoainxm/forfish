@@ -4,15 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertIcon,
   CheckIcon,
+  CloseIcon,
   EditIcon,
   PlusIcon,
   TrashIcon,
   WrenchIcon,
 } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+import { Field, inputClass } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
 import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { readUserList } from "@/lib/user-list-store";
@@ -215,7 +217,35 @@ export function MaintenanceReminders() {
     <div className="px-4 pt-1">
       {/* ĐỌC KHÔNG ĐƯỢC — nói thẳng và KHOÁ cửa ghi (T1): thêm việc lúc này là
           ghi đè lên chuỗi gốc còn cứu được, mất cả lịch. */}
-      {readFailed ? (
+      {/*  MỘT HÀNG CHUẨN thay nút cam full-width (2026-08-29, luật A2/A3/B1).
+          Chuỗi class cam full-width này từng có 4 bản chép tay (document-vault,
+          maintenance-reminders, boat-products, sdvico-request) — sửa một chỗ là
+          lệch, nay gom về SQ_BTN dùng chung (nguyên tắc 3). */}
+      <div className="mb-4 flex items-stretch gap-2">
+        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
+          <p className="text-[1rem] font-bold text-navy">
+            Sổ nhắc bảo dưỡng · {sorted.length} việc
+          </p>
+        </div>
+        {/* ĐỌC KHÔNG ĐƯỢC thì KHOÁ cửa ghi (T1): ghi việc lúc này là đè lên
+            chuỗi gốc còn cứu được, mất cả lịch. */}
+        {readFailed ? (
+          <span className="w-16 shrink-0" aria-hidden />
+        ) : (
+          <button
+            onClick={() => {
+              setEditing(null);
+              setShowForm(true);
+            }}
+            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+          >
+            <PlusIcon className="h-6 w-6" />
+            Thêm
+          </button>
+        )}
+      </div>
+
+      {readFailed && (
         <div className="mb-4 overflow-hidden surface">
           <StatusBanner level="danger" icon={<AlertIcon className="h-5 w-5" />}>
             Lịch bảo dưỡng trong máy đang ĐỌC KHÔNG ĐƯỢC — việc cũ vẫn nằm trong
@@ -223,17 +253,6 @@ export function MaintenanceReminders() {
             đè mất bản cũ); thử tắt hẳn app mở lại, hoặc phục hồi từ tệp sao lưu.
           </StatusBanner>
         </div>
-      ) : (
-        <button
-          onClick={() => {
-            setEditing(null);
-            setShowForm(true);
-          }}
-          className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
-        >
-          <PlusIcon className="h-6 w-6" />
-          Thêm việc bảo dưỡng
-        </button>
       )}
 
       {/* MÁY KHÔNG GIỮ ĐƯỢC — nói ngay, đừng để tưởng đã ghi rồi quên luôn việc */}
@@ -276,63 +295,76 @@ export function MaintenanceReminders() {
               {/* status banner — the first thing the eye lands on */}
               <StatusBanner level={level}>{status.label}</StatusBanner>
 
-              <div className="px-4 py-3">
-                <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
-                  {entry.item}
-                </p>
-                <p className="text-[1rem] text-foreground/70">
-                  Làm gần nhất:{" "}
-                  <strong>{formatVnDate(entry.lastDone)}</strong>
-                </p>
-                <p className="text-[1rem] text-foreground/70">
-                  Chu kỳ: mỗi {entry.intervalDays} ngày
-                </p>
+              {/*  THÂN THẺ theo khuôn hàng chung (luật B1): mỗi dòng là
+                  [thân flex-1 min-w-0] + [ô nút w-16]. Nút "Xong" (trước là
+                  "Vừa làm xong hôm nay" full-width, bấm nhiều nhất màn nên trả
+                  giá chiều cao trên MỌI thẻ) nay inline cuối chính hàng "Chu kỳ"
+                  mà nó thao tác lên. */}
+              <div className="space-y-1.5 p-2">
+                <div className="flex items-stretch gap-2">
+                  <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                    <p className="display break-words text-[1.125rem] font-bold leading-snug text-navy">
+                      {entry.item}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditing(entry);
+                      setShowForm(true);
+                    }}
+                    className={`${SQ_BTN} bg-background text-sea`}
+                  >
+                    <EditIcon className="h-6 w-6" />
+                    Sửa
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(entry)}
+                    className={`${SQ_BTN} bg-background text-danger`}
+                  >
+                    <TrashIcon className="h-6 w-6" />
+                    Xóa
+                  </button>
+                </div>
+
+                <div className="flex items-stretch gap-2">
+                  <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                    <p className="text-[1rem] text-foreground/70">
+                      Chu kỳ: mỗi {entry.intervalDays} ngày · làm gần nhất{" "}
+                      <strong>{formatVnDate(entry.lastDone)}</strong>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => markDoneToday(entry.id)}
+                    className={SQ_BTN}
+                    style={{
+                      backgroundColor: "var(--ok-bg)",
+                      color: "var(--ok)",
+                    }}
+                  >
+                    <CheckIcon className="h-6 w-6" />
+                    Xong
+                  </button>
+                </div>
+
                 {entry.note && (
-                  <p className="mt-1.5 rounded-xl bg-background px-3 py-1.5 text-[0.9375rem] text-foreground/70">
-                    {entry.note}
-                  </p>
+                  <div className="flex items-stretch gap-2">
+                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                      <p className="text-[0.9375rem] text-foreground/70">
+                        {entry.note}
+                      </p>
+                    </div>
+                    <span className="w-16 shrink-0" aria-hidden />
+                  </div>
                 )}
-
-                <button
-                  onClick={() => markDoneToday(entry.id)}
-                  className="mt-3 flex min-h-[3rem] w-full items-center justify-center gap-2 rounded-xl text-[1rem] font-bold transition active:scale-[0.98]"
-                  style={{
-                    backgroundColor: "var(--ok-bg)",
-                    color: "var(--ok)",
-                  }}
-                >
-                  <CheckIcon className="h-5 w-5" />
-                  Vừa làm xong hôm nay
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 border-t border-line">
-                <button
-                  onClick={() => {
-                    setEditing(entry);
-                    setShowForm(true);
-                  }}
-                  className="flex min-h-[3.25rem] items-center justify-center gap-2 text-[1.125rem] font-bold text-sea active:bg-background"
-                >
-                  <EditIcon className="h-5 w-5" />
-                  Sửa
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(entry)}
-                  className="flex min-h-[3.25rem] items-center justify-center gap-2 border-l border-line text-[1.125rem] font-bold text-danger active:bg-background"
-                >
-                  <TrashIcon className="h-5 w-5" />
-                  Xóa
-                </button>
               </div>
             </li>
           );
         })}
       </ul>
 
-      <p className="py-4 text-center text-[0.875rem] text-foreground/65">
-        Lịch bảo dưỡng lưu ngay trên máy của bà con.
-      </p>
+      {/*  Bỏ dòng chân trang "lưu ngay trên máy" (D1) — không cấp dữ liệu,
+          không dặn dò an toàn, chỉ giải thích app hoạt động thế nào; chỗ đúng
+          của nó là màn cài đặt/sao lưu. */}
 
       {showForm && (
         <MaintenanceForm
@@ -401,6 +433,14 @@ function MaintenanceForm({
     String(initial?.intervalDays ?? 60),
   );
   const [note, setNote] = useState(initial?.note ?? "");
+  /*  Ba thứ THU LẠI mặc định (luật C1): KEY chỉ là "việc gì" + "chu kỳ".
+      Chu kỳ ngoài 4 chip thì mở ô số qua chip "Khác" — một đường cho một
+      giá trị, không phải hai. */
+  const [customInterval, setCustomInterval] = useState(
+    !INTERVAL_CHIPS.includes(Number(initial?.intervalDays ?? 60)),
+  );
+  const [showLastDone, setShowLastDone] = useState(false);
+  const [showNote, setShowNote] = useState(Boolean(initial?.note));
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -448,33 +488,22 @@ function MaintenanceForm({
           </Field>
         )}
 
-        <Field label="Làm gần nhất ngày nào?">
-          <input
-            type="date"
-            value={lastDone}
-            max={todayIso}
-            onChange={(e) => setLastDone(e.target.value)}
-            className={inputClass}
-          />
-        </Field>
-
-        <Field label="Bao lâu làm một lần? (số ngày)">
-          <input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            value={intervalDays}
-            onChange={(e) => setIntervalDays(e.target.value)}
-            className={inputClass}
-          />
-          <div className="mt-2 grid grid-cols-4 gap-2">
+        {/*  CHU KỲ: bỏ ô số bày sẵn — 4 chip + "Khác" đã phủ 99% ca. Trước đây
+            ô số và 4 chip là HAI ĐƯỜNG CHO CÙNG MỘT giá trị, đúng lỗi mà
+            03-design-system đã chỉ mặt ở ca my-places-sheet. Chip nâng lên sàn
+            chạm 3.25rem (trước 2.75rem = 44px, dưới sàn). */}
+        <Field label="Bao lâu làm một lần?">
+          <div className="grid grid-cols-5 gap-2">
             {INTERVAL_CHIPS.map((d) => (
               <button
                 key={d}
                 type="button"
-                onClick={() => setIntervalDays(String(d))}
-                className={`min-h-[2.75rem] rounded-xl text-[1rem] font-bold transition active:scale-[0.97] ${
-                  Number(intervalDays) === d
+                onClick={() => {
+                  setIntervalDays(String(d));
+                  setCustomInterval(false);
+                }}
+                className={`min-h-[3.25rem] rounded-xl text-[1rem] font-bold transition active:scale-[0.97] ${
+                  !customInterval && Number(intervalDays) === d
                     ? "bg-navy text-white"
                     : "bg-field text-foreground/70"
                 }`}
@@ -482,28 +511,115 @@ function MaintenanceForm({
                 {d}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setCustomInterval((v) => !v)}
+              className={`min-h-[3.25rem] rounded-xl text-[1rem] font-bold transition active:scale-[0.97] ${
+                customInterval
+                  ? "bg-navy text-white"
+                  : "bg-field text-foreground/70"
+              }`}
+            >
+              Khác
+            </button>
           </div>
+          {customInterval && (
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              value={intervalDays}
+              onChange={(e) => setIntervalDays(e.target.value)}
+              className={`${inputClass} mt-2`}
+              aria-label="Số ngày giữa hai lần làm"
+            />
+          )}
         </Field>
 
-        <Field label="Ghi chú thêm">
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            className={inputClass}
-            placeholder="VD: Dùng dầu 15W-40, can 18 lít"
-          />
-        </Field>
+        {/*  "Làm gần nhất" MÁY ĐÃ ĐIỀN SẴN hôm nay ⇒ dòng đọc-được + ô "Sửa";
+            "Ghi chú thêm" là tuỳ chọn ⇒ thu sau ô "Mở" (luật C1). */}
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="text-[1rem] text-foreground/80">
+              Làm gần nhất:{" "}
+              <span className="font-bold text-navy">
+                {formatVnDate(lastDone || todayIso)}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowLastDone((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <EditIcon className="h-6 w-6" />
+            {showLastDone ? "Thu" : "Sửa"}
+          </button>
+        </div>
+        {showLastDone && (
+          <Field label="Làm gần nhất ngày nào?">
+            <input
+              type="date"
+              value={lastDone}
+              max={todayIso}
+              onChange={(e) => setLastDone(e.target.value)}
+              className={inputClass}
+            />
+          </Field>
+        )}
 
-        <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="truncate text-[1rem] text-foreground/80">
+              Ghi chú:{" "}
+              <span className="font-bold text-navy">
+                {note.trim() || "chưa ghi"}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowNote((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <PlusIcon className="h-6 w-6" />
+            {showNote ? "Thu" : "Mở"}
+          </button>
+        </div>
+        {showNote && (
+          <Field label="Ghi chú thêm">
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              className={inputClass}
+              placeholder="VD: Dùng dầu 15W-40, can 18 lít"
+            />
+          </Field>
+        )}
+
+        {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
+        <div className="mt-3 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="text-[0.9375rem] text-foreground/70">
+              Nhắc lại sau mỗi {Math.max(1, Number(intervalDays) || 60)} ngày.
+            </p>
+          </div>
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            className={`${SQ_BTN} bg-background text-foreground/70`}
           >
+            <CloseIcon className="h-6 w-6" />
             Hủy
           </button>
-          <PrimaryButton type="submit">Lưu lại</PrimaryButton>
+          <button
+            type="submit"
+            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+          >
+            <CheckIcon className="h-6 w-6" />
+            Lưu
+          </button>
         </div>
       </form>
     </BottomSheet>

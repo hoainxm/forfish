@@ -281,31 +281,26 @@ export default function LoginPage() {
             {loading ? "Đang vào…" : "Đăng nhập"}
           </PrimaryButton>
         </form>
-        {/*  4 đoạn chú thích gộp còn 2 dòng (audit 2026-08-18 G10). Ý iOS "cài
-             app về màn hình để máy nhớ đăng nhập" giữ trong dòng 1 — luật của
-             máy, phải nói trước; giọng hỗ trợ, không doạ (03-design-system). */}
-        <p className="mt-4 text-[1rem] leading-snug text-foreground/70">
-          Khách đã mua hàng SDVICO: dùng số điện thoại + mật khẩu nhân viên báo
-          khi mua.
-        </p>
-        <p className="mt-2 text-[1rem] leading-snug text-foreground/70">
-          Tài khoản premium hỗ trợ đăng nhập trên một máy. Vào rồi thì máy nhớ
-          luôn, không phải đăng nhập lại — trừ khi bà con đăng nhập ở máy khác.
-        </p>
-        {/*  iOS Safari xoá sạch dữ liệu trang web sau 7 ngày không mở, kể cả chỗ
-             lưu đăng nhập — bản cài về màn hình thì không dính. Đây là luật của
-             máy, không phải lựa chọn của app, nên phải nói trước. Giọng "hỗ trợ",
-             không doạ (xem 03-design-system). */}
-        <p className="mt-2 text-[1rem] leading-snug text-foreground/70">
-          Cài app về màn hình chính giúp máy nhớ đăng nhập lâu dài, kể cả khi đi
-          biển nhiều ngày.
-        </p>
-        {/* Quên mật khẩu: gửi yêu cầu sang CRM để nhân viên duyệt (thêm
+        {/*  Quên mật khẩu: gửi yêu cầu sang CRM để nhân viên duyệt (thêm
             2026-07-21) — trước đây chỉ có số hotline, KH ngoài giờ làm việc
-            không biết bấu víu vào đâu. */}
+            không biết bấu víu vào đâu.
+
+            ĐƯA LÊN NGAY DƯỚI NÚT ĐĂNG NHẬP (2026-08-29): đo thật 375×812 ở
+            scrollY=0, ba đoạn văn 220px đẩy hàng này xuống y=747-807 trong khi
+            dock bắt đầu y=739 ⇒ `document.elementFromPoint` đúng tâm nút trả về
+            svg của dock. Đường LẤY LẠI MẬT KHẨU DUY NHẤT của app bị bịt kín ở
+            trạng thái nghỉ — đó là lỗi chặn, không phải chuyện đẹp xấu.
+
+            Ba đoạn văn đã BỎ (luật D1 — chữ không cấp dữ liệu thì bỏ):
+            (a) "dùng SĐT + mật khẩu nhân viên báo khi mua" nhắc lại đúng
+                placeholder của ô mật khẩu ngay trên;
+            (b) luật một-máy dạy trước khi gặp — lúc bị đá đã có câu riêng
+                (`kickedNote`) nói đúng lúc;
+            (c) mẹo cài PWA không liên quan việc đang gõ mật khẩu — `InstallPrompt`
+                ở trang chủ mới là chỗ của nó. */}
         <Link
           href="/quen-mat-khau"
-          className="mt-4 flex min-h-[3.75rem] w-full items-center justify-center rounded-full border-2 border-line text-[1.0625rem] font-bold text-foreground/80 transition active:scale-[0.98]"
+          className="mt-4 flex min-h-[3.75rem] w-full items-center justify-center rounded-full border-2 border-line text-[1rem] font-bold text-foreground/80 transition active:scale-[0.98]"
         >
           Quên mật khẩu?
         </Link>

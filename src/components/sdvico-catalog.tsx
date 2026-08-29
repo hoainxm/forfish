@@ -526,7 +526,6 @@ function InquiryCard({ p, owned }: { p: ProductListing; owned: boolean }) {
           </div>
         ) : (
           <SdvicoRequestButton
-            variant="chip"
             topic="mua"
             productName={p.title}
             label={owned ? "Mua thêm / vật tư thay" : "Hỏi mua / tư vấn"}

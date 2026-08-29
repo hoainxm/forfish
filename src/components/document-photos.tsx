@@ -7,7 +7,8 @@ import {
   docPhotoUrl,
   deleteDocPhoto,
 } from "@/lib/doc-photos";
-import { CloseIcon } from "@/components/icons";
+import { CloseIcon, PlusIcon, TrashIcon } from "@/components/icons";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Dải ẢNH GIẤY TỜ của một giấy tờ (P3). Xem lib/doc-photos + /api/me/docs/photo.
 // v1: cần CÓ SÓNG để thêm/xem ảnh (signed URL). Offline → chặn thêm + báo rõ.
@@ -54,9 +55,11 @@ function Thumb({
           type="button"
           onClick={onDelete}
           aria-label="Xoá ảnh này"
-          className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center rounded-full bg-navy/70 text-white active:scale-95"
+          /*  56px chứ không 44px (luật A5): nút này nằm ĐÈ lên ảnh 96px, tay
+              ướt trượt một cái là mất ảnh giấy tờ thật. */
+          className="absolute right-1 top-1 flex h-14 w-14 items-center justify-center rounded-full bg-navy/70 text-white active:scale-95"
         >
-          <CloseIcon className="h-5 w-5" />
+          <CloseIcon className="h-6 w-6" />
         </button>
       )}
     </div>
@@ -77,6 +80,12 @@ export function DocPhotoStrip({
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  /*  Ảnh giấy tờ THẬT: gỡ khỏi sổ là `deleteDocPhoto` xoá luôn trên Storage,
+      không hoàn tác được — mất là phải lôi giấy ra chụp lại, mà chụp lại còn
+      cần có sóng. Mọi hành động phá huỷ khác của /tau đều qua ConfirmDialog
+      (document-vault, maintenance-reminders, boat-products, boat-switcher);
+      hai hàng kề nhau không được chạy hai luật (2026-08-29, luật D2). */
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -108,7 +117,12 @@ export function DocPhotoStrip({
     <div className="mt-2.5">
       <div className="flex gap-2 overflow-x-auto pb-1">
         {photos.map((p) => (
-          <Thumb key={p} path={p} onDelete={() => onDel(p)} canDelete={online} />
+          <Thumb
+            key={p}
+            path={p}
+            onDelete={() => setConfirmDel(p)}
+            canDelete={online}
+          />
         ))}
         {online && photos.length < MAX_PHOTOS && (
           <button
@@ -121,7 +135,9 @@ export function DocPhotoStrip({
               "Đang tải…"
             ) : (
               <>
-                <span className="text-[1.5rem] leading-none">+</span>
+                {/* icon stroke như mọi nút khác — không dùng ký tự "+" cỡ
+                    ngoài type-ramp (03-design-system §Type ramp) */}
+                <PlusIcon className="h-6 w-6" />
                 Thêm ảnh
               </>
             )}
@@ -142,6 +158,20 @@ export function DocPhotoStrip({
         onChange={onPick}
         className="hidden"
       />
+      {confirmDel && (
+        <ConfirmDialog
+          icon={<TrashIcon className="h-8 w-8 text-danger" />}
+          title="Xoá ảnh này?"
+          message="Xoá rồi là mất hẳn — muốn có lại phải lôi giấy ra chụp lại, và cần có sóng."
+          cancelLabel="Không xoá"
+          confirmLabel="Xoá luôn"
+          onCancel={() => setConfirmDel(null)}
+          onConfirm={() => {
+            onDel(confirmDel);
+            setConfirmDel(null);
+          }}
+        />
+      )}
     </div>
   );
 }

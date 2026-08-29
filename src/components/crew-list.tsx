@@ -20,15 +20,20 @@ import {
 import {
   AlertIcon,
   CheckIcon,
+  ChevronDownIcon,
+  CloseIcon,
+  DocIcon,
   EditIcon,
+  PhoneIcon,
   PlusIcon,
   TrashIcon,
   UsersIcon,
 } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+import { Field, inputClass } from "@/components/ui/primitives";
 import { PremiumLock } from "@/components/premium-gate";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
@@ -205,27 +210,40 @@ export function CrewList() {
 
   return (
     <div className="px-4 pt-1">
-      {/* tổng quan — 2 ô (bỏ ô tiền "Đang ứng") */}
-      <div className="mb-4 grid grid-cols-2 gap-2">
-        <div className="surface py-3 text-center">
-          <p className="display text-[1.5rem] font-bold text-navy tabular-nums">
-            {boatCrew.length}
+      {/*  MỘT HÀNG CHUẨN thay cho 2 ô thống kê + nút cam full-width (2026-08-29,
+          luật A1/A2/A3/B1 của 03-design-system): [thân cấp dữ liệu flex-1] +
+          [ô nút w-16]. Đo trước: thẻ người ĐẦU TIÊN bắt đầu ở y=380 (47% màn bị
+          ăn hết trước khi thấy một người nào) vì hai ô đếm chỉ nhắc lại thứ đang
+          hiện ngay dưới (đếm thẻ + đếm banner đỏ) rồi một dải cam 343×60 nữa. */}
+      <div className="mb-3 flex items-stretch gap-2">
+        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
+          <p className="text-[1rem] font-bold text-navy">
+            {boatCrew.length} bạn thuyền
+            {issueCount > 0 && (
+              <span className="text-danger"> · {issueCount} kẹt giấy tờ</span>
+            )}
           </p>
-          <p className="text-[0.8125rem] text-foreground/70">Bạn thuyền</p>
         </div>
-        <div className="surface py-3 text-center">
-          <p
-            className={`display text-[1.5rem] font-bold tabular-nums ${issueCount > 0 ? "text-danger" : "text-ok"}`}
+        {/* ĐỌC KHÔNG ĐƯỢC thì KHOÁ cửa ghi (T1): thêm người lúc này là ghi đè
+            lên chuỗi gốc còn cứu được, mất cả sổ. Hàng vẫn chừa đúng ô nút để
+            mép phải không nhảy giữa hai trạng thái (luật 3b). */}
+        {readFailed ? (
+          <span className="w-16 shrink-0" aria-hidden />
+        ) : (
+          <button
+            onClick={() => {
+              setEditing(null);
+              setShowForm(true);
+            }}
+            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
           >
-            {issueCount}
-          </p>
-          <p className="text-[0.8125rem] text-foreground/70">Kẹt giấy tờ</p>
-        </div>
+            <PlusIcon className="h-6 w-6" />
+            Thêm
+          </button>
+        )}
       </div>
 
-      {/* ĐỌC KHÔNG ĐƯỢC — nói thẳng và KHOÁ cửa ghi (T1): thêm người lúc này
-          là ghi đè lên chuỗi gốc còn cứu được, mất cả sổ. */}
-      {readFailed ? (
+      {readFailed && (
         <div className="mb-4 overflow-hidden surface">
           <StatusBanner level="danger" icon={<AlertIcon className="h-5 w-5" />}>
             Sổ thuyền viên trong máy đang ĐỌC KHÔNG ĐƯỢC — sổ cũ vẫn nằm trong
@@ -233,17 +251,6 @@ export function CrewList() {
             là đè mất bản cũ); thử tắt hẳn app mở lại, hoặc phục hồi từ tệp sao lưu.
           </StatusBanner>
         </div>
-      ) : (
-        <button
-          onClick={() => {
-            setEditing(null);
-            setShowForm(true);
-          }}
-          className="display mb-3 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
-        >
-          <PlusIcon className="h-6 w-6" />
-          Thêm bạn thuyền
-        </button>
       )}
 
       {/* MÁY KHÔNG GIỮ ĐƯỢC — nói ngay, đừng để mở lại app mới thấy sổ trống */}
@@ -297,80 +304,123 @@ export function CrewList() {
                 {issue.label}
               </StatusBanner>
 
-              <div className="px-4 py-3">
-                <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
-                  {ROLE_LABELS[m.role]}
-                </p>
-                <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
-                  {m.name}
-                </p>
-                {hasCccd ? (
-                  <p className="text-[0.9375rem] tabular-nums text-foreground/70">
-                    CCCD: {formatCccd(m.cccd)}
-                  </p>
-                ) : !canWarn ? (
-                  <p className="text-[0.9375rem] font-semibold text-warn">
-                    Chưa có CCCD/SĐT — bấm Sửa để bổ sung
-                  </p>
-                ) : null}
-                {m.phone && (
-                  <a
-                    href={`tel:${m.phone}`}
-                    className="inline-flex min-h-[3rem] items-center text-[1rem] font-bold text-sea"
+              {/*  THÂN THẺ theo khuôn hàng chung (2026-08-29, luật B1): mỗi dòng
+                  dữ liệu là [thân bg-background flex-1 min-w-0] + [ô nút w-16];
+                  dòng không mang nút vẫn chừa đúng ô đó để mép phải thẳng.
+                  Trước: dải grid-cols-3 "Cảnh báo/Sửa/Xóa" ăn riêng 52px cuối
+                  thẻ (24% chiều cao thẻ) và không nút nào nằm ở hàng nó thao
+                  tác lên. */}
+              <div className="space-y-1.5 p-2">
+                {/* Hàng danh tính — Sửa/Xóa thao tác lên CẢ THẺ nên nằm ở đây */}
+                <div className="flex items-stretch gap-2">
+                  <div className="min-w-0 flex-1 rounded-2xl bg-background px-3 py-2">
+                    <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
+                      {ROLE_LABELS[m.role]}
+                    </p>
+                    <p className="display break-words text-[1.125rem] font-bold leading-snug text-navy">
+                      {m.name}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditing(m);
+                      setShowForm(true);
+                    }}
+                    className={`${SQ_BTN} bg-background text-sea`}
                   >
-                    Gọi: {m.phone}
-                  </a>
-                )}
-                {m.certLabel && (
-                  <p className="text-[0.9375rem] text-foreground/70">
-                    {m.certLabel}
-                    {m.certExpiry && ` — hạn ${formatVnDate(m.certExpiry)}`}
-                  </p>
-                )}
-              </div>
+                    <EditIcon className="h-6 w-6" />
+                    Sửa
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(m)}
+                    className={`${SQ_BTN} bg-background text-danger`}
+                  >
+                    <TrashIcon className="h-6 w-6" />
+                    Xóa
+                  </button>
+                </div>
 
-              <div className="grid grid-cols-3 border-t border-line">
-                <button
-                  onClick={() =>
-                    canWarn
-                      ? setWarningFor({
-                          cccd: m.cccd,
-                          phone: m.phone ?? "",
-                          name: m.name,
-                        })
-                      : (setEditing(m), setShowForm(true))
-                  }
-                  className="flex min-h-[3.25rem] items-center justify-center gap-1.5 text-[1rem] font-bold text-t4 active:bg-background"
-                >
-                  <AlertIcon className="h-5 w-5" />
-                  Cảnh báo
-                </button>
-                <button
-                  onClick={() => {
-                    setEditing(m);
-                    setShowForm(true);
-                  }}
-                  className="flex min-h-[3.25rem] items-center justify-center gap-1.5 border-l border-line text-[1rem] font-bold text-sea active:bg-background"
-                >
-                  <EditIcon className="h-5 w-5" />
-                  Sửa
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(m)}
-                  className="flex min-h-[3.25rem] items-center justify-center gap-1.5 border-l border-line text-[1rem] font-bold text-danger active:bg-background"
-                >
-                  <TrashIcon className="h-5 w-5" />
-                  Xóa
-                </button>
+                {/*  Hàng CCCD/SĐT — ô "Cảnh báo" nằm đúng hàng định danh mà nó
+                    tra. THIẾU định danh thì VÔ HIỆU nút chứ không đổi việc:
+                    trước đây bấm "Cảnh báo" trên người chưa có CCCD lại mở sheet
+                    "Sửa thông tin bạn thuyền" — một nút hai việc, nhãn hứa việc
+                    nó không làm (thao tác câm). Lý do đã nằm sẵn trong thân hàng. */}
+                <div className="flex items-stretch gap-2">
+                  <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                    {hasCccd ? (
+                      <p className="text-[0.9375rem] tabular-nums text-foreground/70">
+                        CCCD: {formatCccd(m.cccd)}
+                      </p>
+                    ) : canWarn ? (
+                      <p className="text-[0.9375rem] text-foreground/70">
+                        Chưa có CCCD — tra cảnh báo theo số điện thoại
+                      </p>
+                    ) : (
+                      <p className="text-[0.9375rem] font-semibold text-warn">
+                        Chưa có CCCD/SĐT — bấm Sửa để bổ sung, rồi mới tra cảnh
+                        báo được
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    disabled={!canWarn}
+                    onClick={() =>
+                      setWarningFor({
+                        cccd: m.cccd,
+                        phone: m.phone ?? "",
+                        name: m.name,
+                      })
+                    }
+                    className={`${SQ_BTN} bg-background text-t4 disabled:opacity-40`}
+                  >
+                    <AlertIcon className="h-6 w-6" />
+                    Cảnh báo
+                  </button>
+                </div>
+
+                {/*  Số điện thoại là DỮ LIỆU (đọc được, chép được) — việc GỌI
+                    tách thành ô nút riêng. Trước là link "Gọi: 090…" 133×48px,
+                    dưới sàn chạm; chạm hụt thì không mở được cuộc gọi. */}
+                {m.phone && (
+                  <div className="flex items-stretch gap-2">
+                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                      <p className="text-[1rem] font-bold tabular-nums text-navy">
+                        {m.phone}
+                      </p>
+                    </div>
+                    <a
+                      href={`tel:${m.phone}`}
+                      className={`${SQ_BTN} bg-background text-sea`}
+                    >
+                      <PhoneIcon className="h-6 w-6" />
+                      Gọi
+                    </a>
+                  </div>
+                )}
+
+                {m.certLabel && (
+                  <div className="flex items-stretch gap-2">
+                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                      <p className="text-[0.9375rem] text-foreground/70">
+                        {m.certLabel}
+                        {m.certExpiry && ` — hạn ${formatVnDate(m.certExpiry)}`}
+                      </p>
+                    </div>
+                    <span className="w-16 shrink-0" aria-hidden />
+                  </div>
+                )}
               </div>
             </li>
           );
         })}
       </ul>
 
+      {/*  Bỏ vế "Cảnh báo … SDVICO xem trước rồi mới hiện" ở chân trang (D1):
+          câu đó nói BA LẦN trong cùng một mảng màn; giữ đúng MỘT chỗ là ngay
+          trước nút Gửi trong form báo cáo — lúc bà con sắp ghi tên người khác
+          vào sổ chung, đó mới là lúc câu ấy có việc. */}
       <p className="py-4 text-center text-[0.875rem] text-foreground/65">
-        Hồ sơ thuyền viên lưu trên máy bà con. Cảnh báo giữa các chủ tàu được
-        SDVICO xem trước rồi mới hiện.
+        Hồ sơ thuyền viên lưu trên máy bà con.
       </p>
 
       {showForm && (
@@ -445,6 +495,12 @@ function CrewForm({
   const [certLabel, setCertLabel] = useState(initial?.certLabel ?? "");
   const [certExpiry, setCertExpiry] = useState(initial?.certExpiry ?? "");
   const [err, setErr] = useState<string | null>(null);
+  /*  Hai nhóm THU LẠI mặc định (luật C1). Mở sẵn khi SỬA một người đã có sẵn
+      dữ liệu trong nhóm đó — không giấu thứ bà con đã nhập. */
+  const [showRole, setShowRole] = useState(false);
+  const [showPapers, setShowPapers] = useState(
+    Boolean(initial?.hasInsurance || initial?.certLabel || initial?.certExpiry),
+  );
 
   const needsCert = role !== "thuyen_vien";
   const initialCccdNorm = initial ? normalizeCccd(initial.cccd) : "";
@@ -519,22 +575,6 @@ function CrewForm({
           />
         </Field>
 
-        <Field label="Làm việc gì trên tàu?">
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as CrewRole)}
-            className={inputClass}
-          >
-            {(Object.entries(ROLE_LABELS) as [CrewRole, string][]).map(
-              ([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
-                </option>
-              ),
-            )}
-          </select>
-        </Field>
-
         <Field label="Số điện thoại (dùng thay CCCD nếu chưa có)">
           <input
             value={phone}
@@ -553,82 +593,157 @@ function CrewForm({
           />
         </Field>
 
-        <Field label="Bảo hiểm thuyền viên">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setHasInsurance(true)}
-              className={`min-h-[3.25rem] rounded-xl text-[1.125rem] font-bold ${
-                hasInsurance ? "bg-ok text-white" : "bg-field text-foreground/70"
-              }`}
-            >
-              Có rồi
-            </button>
-            <button
-              type="button"
-              onClick={() => setHasInsurance(false)}
-              className={`min-h-[3.25rem] rounded-xl text-[1.125rem] font-bold ${
-                !hasInsurance
-                  ? "bg-danger text-white"
-                  : "bg-field text-foreground/70"
-              }`}
-            >
-              Chưa có
-            </button>
+        {/*  VAI TRÒ: máy đã đoán sẵn "Bạn thuyền" và validate KHÔNG đòi nó ⇒
+            hạ xuống một DÒNG ĐỌC-ĐƯỢC + ô nút "Đổi" (luật C1 câu hỏi 2: máy
+            biết rồi thì điền sẵn, đừng hỏi — nhưng luôn kèm đường sửa). */}
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="text-[1rem] text-foreground/80">
+              Làm việc:{" "}
+              <span className="font-bold text-navy">{ROLE_LABELS[role]}</span>
+            </p>
           </div>
-        </Field>
-
-        {hasInsurance && (
-          <Field label="Bảo hiểm hết hạn ngày nào?">
-            <input
-              type="date"
-              value={insuranceExpiry}
-              onChange={(e) => setInsuranceExpiry(e.target.value)}
+          <button
+            type="button"
+            onClick={() => setShowRole((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <EditIcon className="h-6 w-6" />
+            {showRole ? "Thu" : "Đổi"}
+          </button>
+        </div>
+        {showRole && (
+          <Field label="Làm việc gì trên tàu?">
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as CrewRole)}
               className={inputClass}
-            />
+            >
+              {(Object.entries(ROLE_LABELS) as [CrewRole, string][]).map(
+                ([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ),
+              )}
+            </select>
           </Field>
         )}
 
-        {needsCert && (
+        {/*  GIẤY TỜ + BẢO HIỂM thu lại (luật C1 câu hỏi 1 + 3): không ô nào
+            trong nhóm này chặn Lưu, bỏ đi việc vẫn xong ⇒ không phải KEY.
+            Trước: 6 thứ bày cùng lúc kéo sheet lên 690px = 85% màn. */}
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="text-[1rem] text-foreground/80">
+              Giấy tờ, bảo hiểm:{" "}
+              <span className="font-bold text-navy">
+                {hasInsurance ? "có bảo hiểm" : "chưa có bảo hiểm"}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPapers((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <DocIcon className="h-6 w-6" />
+            {showPapers ? "Thu" : "Mở"}
+          </button>
+        </div>
+
+        {showPapers && (
           <>
-            <Field label="Văn bằng / chứng chỉ">
-              <input
-                value={certLabel}
-                onChange={(e) => setCertLabel(e.target.value)}
-                className={inputClass}
-                placeholder={
-                  role === "thuyen_truong"
-                    ? "VD: Thuyền trưởng hạng II"
-                    : "VD: Máy trưởng hạng II"
-                }
-              />
+            <Field label="Bảo hiểm thuyền viên">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setHasInsurance(true)}
+                  className={`min-h-[3.5rem] rounded-xl text-[1.125rem] font-bold ${
+                    hasInsurance
+                      ? "bg-ok text-white"
+                      : "bg-field text-foreground/70"
+                  }`}
+                >
+                  Có rồi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHasInsurance(false)}
+                  className={`min-h-[3.5rem] rounded-xl text-[1.125rem] font-bold ${
+                    !hasInsurance
+                      ? "bg-danger text-white"
+                      : "bg-field text-foreground/70"
+                  }`}
+                >
+                  Chưa có
+                </button>
+              </div>
             </Field>
-            <Field label="Chứng chỉ hết hạn ngày nào?">
-              <input
-                type="date"
-                value={certExpiry}
-                onChange={(e) => setCertExpiry(e.target.value)}
-                className={inputClass}
-              />
-            </Field>
+
+            {hasInsurance && (
+              <Field label="Bảo hiểm hết hạn ngày nào?">
+                <input
+                  type="date"
+                  value={insuranceExpiry}
+                  onChange={(e) => setInsuranceExpiry(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+            )}
+
+            {needsCert && (
+              <>
+                <Field label="Văn bằng / chứng chỉ">
+                  <input
+                    value={certLabel}
+                    onChange={(e) => setCertLabel(e.target.value)}
+                    className={inputClass}
+                    placeholder={
+                      role === "thuyen_truong"
+                        ? "VD: Thuyền trưởng hạng II"
+                        : "VD: Máy trưởng hạng II"
+                    }
+                  />
+                </Field>
+                <Field label="Chứng chỉ hết hạn ngày nào?">
+                  <input
+                    type="date"
+                    value={certExpiry}
+                    onChange={(e) => setCertExpiry(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+              </>
+            )}
           </>
         )}
 
-        {err && (
-          <p className="mb-2 text-[0.9375rem] font-semibold text-danger">
-            {err}
-          </p>
-        )}
-
-        <div className="mt-3 grid grid-cols-2 gap-3">
+        {/*  Hàng cuối theo khuôn B1: [thân nói việc còn thiếu / lỗi] + hai ô nút
+            w-16. Trước là cặp Hủy/Lưu 162×60 ăn riêng một hàng (luật A2/A3). */}
+        <div className="mt-3 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p
+              className={`text-[0.9375rem] ${err ? "font-semibold text-danger" : "text-foreground/70"}`}
+            >
+              {err ?? "Cần tên + CCCD hoặc số điện thoại."}
+            </p>
+          </div>
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            className={`${SQ_BTN} bg-background text-foreground/70`}
           >
+            <CloseIcon className="h-6 w-6" />
             Hủy
           </button>
-          <PrimaryButton type="submit">Lưu lại</PrimaryButton>
+          <button
+            type="submit"
+            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+          >
+            <CheckIcon className="h-6 w-6" />
+            Lưu
+          </button>
         </div>
       </form>
     </BottomSheet>
@@ -861,6 +976,10 @@ function ReportSheet({
   onClose: () => void;
 }) {
   const [ctx, setCtx] = useState<LookupState>({ kind: "idle" });
+  /* Tên gửi kèm báo cáo giữ Ở ĐÂY (không phải trong form) để dòng danh tính là
+     nguồn duy nhất — sửa ở một chỗ, hiện ở một chỗ. */
+  const [subjName, setSubjName] = useState(name);
+  const [editName, setEditName] = useState(false);
   const locked = access === "login" || access === "upgrade";
   const idValidCccd = isValidCccd(cccd);
   const idValidPhone = isValidVnPhone(phone);
@@ -899,12 +1018,40 @@ function ReportSheet({
         </p>
       ) : (
         <>
-          <p className="mb-3 -mt-1 text-[0.9375rem] tabular-nums text-foreground/70">
-            {name ? <strong className="text-navy">{name} · </strong> : null}
-            {idValidCccd ? `CCCD ${formatCccd(cccd)}` : ""}
-            {idValidCccd && idValidPhone ? " · " : ""}
-            {idValidPhone ? `SĐT ${phone}` : ""}
-          </p>
+          {/*  MỘT giá trị chỉ hiện MỘT lần (luật C1/D1): trước đây dòng này in
+              "Lê Minh Tuấn · CCCD … · SĐT …" rồi form ngay dưới lại điền chính
+              cái tên đó vào một ô nhập 61px. Nay tên nằm ở đây, muốn sửa thì bấm
+              ô "Sửa" ngay cuối chính hàng nó. */}
+          <div className="mb-3 -mt-1 flex items-stretch gap-2">
+            <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+              <p className="text-[0.9375rem] tabular-nums text-foreground/70">
+                {subjName ? (
+                  <strong className="text-navy">{subjName} · </strong>
+                ) : null}
+                {idValidCccd ? `CCCD ${formatCccd(cccd)}` : ""}
+                {idValidCccd && idValidPhone ? " · " : ""}
+                {idValidPhone ? `SĐT ${phone}` : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditName((v) => !v)}
+              className={`${SQ_BTN} bg-background text-sea`}
+            >
+              <EditIcon className="h-6 w-6" />
+              {editName ? "Thu" : "Sửa"}
+            </button>
+          </div>
+          {editName && (
+            <Field label="Tên bạn thuyền (tuỳ chọn)">
+              <input
+                value={subjName}
+                onChange={(e) => setSubjName(e.target.value)}
+                className={inputClass}
+                placeholder="VD: Nguyễn Văn A"
+              />
+            </Field>
+          )}
 
           {ctx.kind === "done" && ctx.result.count > 0 && (
             <div className="mb-3">
@@ -918,7 +1065,7 @@ function ReportSheet({
           <ReportForm
             cccd={idValidCccd ? normalizeCccd(cccd) : ""}
             phone={idValidPhone ? phone : ""}
-            subjectName={name}
+            subjectName={subjName}
             onCancel={onClose}
             onDone={onClose}
           />
@@ -942,12 +1089,15 @@ function ReportForm({
   onDone: () => void;
 }) {
   const { current } = useBoats();
-  const [name, setName] = useState(subjectName);
   const [category, setCategory] = useState<CrewReportCategory | "">("");
   const [detail, setDetail] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  /*  Hai nhóm THU LẠI mặc định (luật C1): 6 nút loại vấn đề chiếm gần nửa sheet
+      chỉ để chọn 1 trong 6, còn "kể rõ hơn" tự nhãn đã nhận là tuỳ chọn. */
+  const [pickCat, setPickCat] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -967,7 +1117,7 @@ function ReportForm({
         body: JSON.stringify({
           cccd: cccd || undefined,
           phone: phone || undefined,
-          subjectName: name.trim() || undefined,
+          subjectName: subjectName.trim() || undefined,
           category,
           detail: detail.trim() || undefined,
           reporterBoat: current?.name || undefined,
@@ -990,9 +1140,9 @@ function ReportForm({
   if (done) {
     return (
       <div className="rounded-2xl bg-ok-bg px-4 py-8 text-center">
-        <p className="text-[1.0625rem] font-bold text-ok">Đã gửi báo cáo.</p>
-        <p className="mt-1 text-[0.9375rem] text-foreground/70">
-          SDVICO xem trước rồi cảnh báo mới hiện cho chủ tàu khác.
+        {/* Rút một dòng (D1): câu đầy đủ đã nói ngay trước nút Gửi. */}
+        <p className="text-[1rem] font-bold text-ok">
+          Đã gửi. Chờ SDVICO duyệt.
         </p>
         <button
           type="button"
@@ -1012,58 +1162,105 @@ function ReportForm({
         phản hồi — vui lòng ghi đúng sự thật.
       </p>
 
-      <Field label="Tên bạn thuyền (tuỳ chọn)">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={inputClass}
-          placeholder="VD: Nguyễn Văn A"
-        />
-      </Field>
-
-      <span className="mb-1.5 block text-[1rem] font-bold text-navy">
-        Vấn đề gì?
-      </span>
-      <div className="mb-3 grid gap-2">
-        {CREW_REPORT_CATEGORIES.map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => setCategory(c)}
-            className={`min-h-[3.25rem] rounded-xl px-3 text-left text-[1rem] font-bold ${
-              category === c ? "bg-navy text-white" : "bg-field text-foreground/70"
-            }`}
-          >
-            {CREW_REPORT_CATEGORY_LABELS[c]}
-          </button>
-        ))}
+      {/* Loại vấn đề: một hàng chuẩn, bấm mới bung — chọn xong đóng lại và thân
+          hàng in tên loại đã chọn. */}
+      <div className="mb-2 flex items-stretch gap-2">
+        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <p className="text-[1rem] text-foreground/80">
+            Vấn đề:{" "}
+            <span className="font-bold text-navy">
+              {category ? CREW_REPORT_CATEGORY_LABELS[category] : "chưa chọn"}
+            </span>
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setPickCat((v) => !v)}
+          className={`${SQ_BTN} bg-background text-sea`}
+        >
+          <ChevronDownIcon className="h-6 w-6" />
+          {pickCat ? "Thu" : "Chọn"}
+        </button>
       </div>
 
-      <Field label="Kể rõ hơn (tuỳ chọn)">
-        <textarea
-          value={detail}
-          onChange={(e) => setDetail(e.target.value)}
-          className={`${inputClass} min-h-[5rem]`}
-          maxLength={500}
-          placeholder="VD: Bỏ tàu ở đảo giữa chuyến, không báo trước."
-        />
-      </Field>
-
-      {msg && (
-        <p className="mb-2 text-[0.9375rem] font-semibold text-danger">{msg}</p>
+      {pickCat && (
+        <div className="mb-3 grid gap-2">
+          {CREW_REPORT_CATEGORIES.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => {
+                setCategory(c);
+                setPickCat(false);
+              }}
+              className={`min-h-[3.5rem] rounded-xl px-3 text-left text-[1rem] font-bold ${
+                category === c
+                  ? "bg-navy text-white"
+                  : "bg-field text-foreground/70"
+              }`}
+            >
+              {CREW_REPORT_CATEGORY_LABELS[c]}
+            </button>
+          ))}
+        </div>
       )}
 
-      <div className="mt-2 grid grid-cols-2 gap-3">
+      <div className="mb-2 flex items-stretch gap-2">
+        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <p className="text-[1rem] text-foreground/80">
+            Kể rõ hơn{" "}
+            <span className="font-bold text-navy">
+              {detail.trim() ? "đã ghi" : "(tuỳ chọn)"}
+            </span>
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowDetail((v) => !v)}
+          className={`${SQ_BTN} bg-background text-sea`}
+        >
+          <EditIcon className="h-6 w-6" />
+          {showDetail ? "Thu" : "Mở"}
+        </button>
+      </div>
+
+      {showDetail && (
+        <Field label="Kể rõ hơn (tuỳ chọn)">
+          <textarea
+            value={detail}
+            onChange={(e) => setDetail(e.target.value)}
+            className={`${inputClass} min-h-[5rem]`}
+            maxLength={500}
+            placeholder="VD: Bỏ tàu ở đảo giữa chuyến, không báo trước."
+          />
+        </Field>
+      )}
+
+      {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
+      <div className="mt-2 flex items-stretch gap-2">
+        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <p
+            className={`text-[0.9375rem] ${msg ? "font-semibold text-danger" : "text-foreground/70"}`}
+          >
+            {msg ?? (category ? "Gửi được rồi." : "Chọn loại vấn đề trước.")}
+          </p>
+        </div>
         <button
           type="button"
           onClick={onCancel}
-          className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+          className={`${SQ_BTN} bg-background text-foreground/70`}
         >
+          <CloseIcon className="h-6 w-6" />
           Quay lại
         </button>
-        <PrimaryButton type="submit" disabled={busy || !category}>
-          {busy ? "Đang gửi…" : "Gửi báo cáo"}
-        </PrimaryButton>
+        <button
+          type="submit"
+          disabled={busy || !category}
+          className={`${SQ_BTN} bg-trim text-white shadow-trim-cta disabled:opacity-40 disabled:shadow-none`}
+        >
+          <CheckIcon className="h-6 w-6" />
+          {busy ? "Đang gửi" : "Gửi"}
+        </button>
       </div>
     </form>
   );

@@ -81,11 +81,10 @@ export default function Home() {
           <UrgentStrip />
         </UrgentWithInstall>
 
+        {/*  Bỏ <h2>Bốn việc chính</h2> (D1): nhắc lại đúng thứ ngay bên dưới —
+            bốn thẻ 166×162px đã tự nói tên mình (Ra khơi / Tàu cá / Bạn thuyền /
+            Giao dịch). aria-label GIỮ NGUYÊN cho trình đọc màn hình. */}
         <section aria-label="Bốn nhóm việc">
-          {/* "Quản lý tàu" bán sai app (trùng tiêu đề /tau) — app là 4 việc */}
-          <h2 className="display mb-1.5 px-1 text-[1.125rem] font-bold text-navy">
-            Bốn việc chính
-          </h2>
           <div className="grid grid-cols-2 gap-3">
             {pillars.map((p) => {
               const Icon = p.icon;
@@ -104,7 +103,7 @@ export default function Home() {
                     <Icon className="h-7 w-7" />
                   </span>
                   <span className="mt-3 block min-w-0">
-                    <span className="display block text-[1.1875rem] font-bold leading-tight text-navy">
+                    <span className="display block text-[1.125rem] font-bold leading-tight text-navy">
                       {p.title}
                     </span>
                     <span className="mt-0.5 block text-[1rem] leading-snug text-foreground/70">
@@ -123,9 +122,9 @@ export default function Home() {
             màn hình chính không được có khối trống. */}
         <InboxSection />
 
-        <p className="pb-2 text-center text-[0.875rem] text-foreground/65">
-          Thuận buồm xuôi gió, cá đầy khoang.
-        </p>
+        {/*  Bỏ "Thuận buồm xuôi gió, cá đầy khoang." (D1) — chữ trang trí
+            thuần tuý: không số, không trạng thái, không giới hạn nguồn, không
+            dặn dò an toàn. */}
       </div>
     </div>
   );

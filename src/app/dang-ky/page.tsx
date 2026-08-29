@@ -195,9 +195,17 @@ export default function DangKyPage() {
           </Link>
           .
         </p>
+        {/*  Vùng chạm lên sàn mà KHÔNG phình thành dải ngang (luật A5 + A3): đo
+            thật link cũ 78×19px — đây là đường DUY NHẤT từ màn đăng ký sang màn
+            đăng nhập, và cũng là đường bà con cần ngay khi vừa nhận lỗi "Số điện
+            thoại này đã có tài khoản — bà con bấm Đăng nhập bên dưới". Câu lỗi
+            chỉ thẳng vào một mục tiêu cao 19px. */}
         <p className="mt-4 text-[0.9375rem] leading-snug text-foreground/70">
           Đã có tài khoản?{" "}
-          <Link href="/login" className="font-bold text-sea">
+          <Link
+            href="/login"
+            className="inline-flex min-h-[3.5rem] items-center px-2 font-bold text-sea"
+          >
             Đăng nhập
           </Link>
         </p>

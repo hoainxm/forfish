@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
+import { ChevronLeftIcon } from "@/components/icons";
 import { SDVICO_HOTLINE, SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
 
 export const metadata = {
@@ -46,7 +48,7 @@ function Section({
   return (
     <section id={id} className="mb-6">
       <h2 className="display mb-2 text-[1.25rem] font-bold text-navy">{title}</h2>
-      <div className="space-y-2.5 text-[1.0625rem] leading-relaxed text-foreground/85">
+      <div className="space-y-2.5 text-[1rem] leading-relaxed text-foreground/85">
         {children}
       </div>
     </section>
@@ -54,6 +56,13 @@ function Section({
 }
 
 export default function QuyenRiengTuPage() {
+  /*  ĐƯỜNG QUAY LẠI (2026-08-29, luật D2 — hành động phải có đường lùi). Đo
+      thật: toàn trang 4441px và TOÀN BỘ link là 2 hotline + sdvico.vn + 5 mục
+      dock — KHÔNG có đường về /login. Bà con đang gõ dở SĐT + mật khẩu, chạm
+      link "Chính sách quyền riêng tư" ở màn đăng nhập là mất sạch cái đã gõ:
+      `manifest.ts` đặt display:"standalone" nên bản cài về màn hình chính KHÔNG
+      có nút back của trình duyệt, mà chính màn login lại đang đẩy bà con đi cài
+      bản đó. Nội dung trang KHÔNG cắt — đây là văn bản pháp lý bắt buộc. */
   return (
     <div>
       <PageHeader
@@ -62,6 +71,16 @@ export default function QuyenRiengTuPage() {
         sub="SDFish thu thập dữ liệu gì, dùng để làm gì, và không chia sẻ với ai. Đọc không cần đăng nhập."
         toColor="var(--sea)"
       />
+      <div className="px-4 pt-3">
+        <Link
+          href="/"
+          className="inline-flex min-h-[3.5rem] items-center gap-1.5 text-[1rem] font-bold text-sea"
+        >
+          <ChevronLeftIcon className="h-5 w-5" />
+          Quay lại
+        </Link>
+      </div>
+
 
       <div className="px-5 pt-5">
         <p className="mb-5 rounded-2xl bg-field px-4 py-3 text-[1rem] leading-relaxed text-foreground/80">
@@ -180,7 +199,7 @@ export default function QuyenRiengTuPage() {
             </li>
             <li>
               <b>Muốn xoá hẳn tài khoản và dữ liệu trên máy chủ</b>: gọi SDVICO{" "}
-              <a href={`tel:${SDVICO_HOTLINE}`} className="font-bold text-sea underline">
+              <a href={`tel:${SDVICO_HOTLINE}`} className="inline-flex min-h-[3.5rem] items-center font-bold text-sea underline">
                 {SDVICO_HOTLINE_DISPLAY}
               </a>{" "}
               — sẽ xoá trong thời gian hợp lý.
@@ -199,11 +218,11 @@ export default function QuyenRiengTuPage() {
         <Section id="lien-he" title="6. Liên hệ">
           <p>
             Thắc mắc về quyền riêng tư, gọi tổng đài SDVICO{" "}
-            <a href={`tel:${SDVICO_HOTLINE}`} className="font-bold text-sea underline">
+            <a href={`tel:${SDVICO_HOTLINE}`} className="inline-flex min-h-[3.5rem] items-center font-bold text-sea underline">
               {SDVICO_HOTLINE_DISPLAY}
             </a>
             , hoặc qua website{" "}
-            <a href="https://sdvico.vn" className="font-bold text-sea underline">
+            <a href="https://sdvico.vn" className="inline-flex min-h-[3.5rem] items-center font-bold text-sea underline">
               sdvico.vn
             </a>
             .

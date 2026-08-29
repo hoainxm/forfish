@@ -181,7 +181,7 @@ type-ramp: 0.75rem 0.8125rem 0.875rem 0.9375rem 1rem 1.125rem
 - **"Điểm của tôi" thay "chọn cảng" (user chốt 2026-06-10)**: ngư dân nghĩ theo CHỖ CỦA MÌNH (bãi hay đánh, rạn quen), không theo danh mục cảng. Bỏ `<select>` cảng. Thay bằng: ghim chỗ đang xem (đặt tên) → sao vàng trên bản đồ + mở 1 chạm; FAB "Điểm tôi" mở sheet quản lý (GPS + ghim + cảng nhà). Cảng nhà chọn 1 lần qua Ô TÌM KIẾM 173 cảng (gõ lọc tên/tỉnh/huyện, KHÔNG đổ list dài). "Về cảng nhà" chỉ hiện khi đã đặt cảng nhà và đang xem chỗ khác — quay về vùng biển nhà (trước đây vô nghĩa vì luôn nhảy về 1 cảng seed cứng).
 - **KHÔNG PHÁN "đi hay không đi" (user chốt 2026-06-10)**: bản đồ mô tả ĐIỀU KIỆN bằng tình trạng biển ("Biển êm/Biển động nhẹ/Biển động mạnh") + con số (sóng m, gió cấp Beaufort, giật cấp) — không hiện điểm số /100, không lời khuyên ra khơi. Ngư dân có lịch chuyến riêng; quyết là việc của thuyền trưởng.
 - **Dự báo kiểu Windy**: thanh thời gian nổi trên map (chỉ hiện khi bật lớp Gió/Sóng) — nhãn giờ tiếng Việt ("Hôm nay · 13h"), slider to + nút chạy ▶; mũi tên chỉ HƯỚNG ĐI của gió/sóng, màu xanh→đỏ theo độ dữ (ngưỡng khớp mức cảnh báo: gió 39 km/h ~ cấp 6, sóng 2,5 m). Lớp "Cá mùa này": polygon viền đứt mảnh + chip nhãn loài rút gọn; tên đầy đủ + chữ "tham khảo" nằm trong sheet.
-### Khung nhập / panel nổi — CHỈ BÀY CÁI KEY (2026-08-29)
+### Khung nhập / panel nổi — CHỈ BÀY CÁI KEY (2026-08-29; nới ra TOÀN APP 2026-08-29e)
 
 Chủ dự án: *"ở từng thao tác xác định rõ key cần là gì, cái nào có thể ẩn đi (collapse/expand) hiển thị thông minh, đừng để chiếm màn hình quá nhiều"*.
 
@@ -196,13 +196,25 @@ Ba câu hỏi trước khi thêm một ô vào khung:
 
 **Đo thật (375×812)**: popup lúc mở form **563px (69% màn) → 296px (36%)**; số ô nhập bày sẵn **6 → 1**; toạ độ điền sẵn thay vì báo "Chưa có toạ độ".
 
-**Trần khung nổi**: mọi panel/popup của rail giữ ≤ ~40% màn ở trạng thái mặc định. Đo hiện tại: Lớp 36% · Đến điểm 31% · Điểm đã lưu 36%.
+**Trần khung nổi**: mọi panel/popup/bottom-sheet **trên màn bản đồ** giữ ≤ ~40% màn ở trạng thái mặc định. Đo trên bản đồ: Lớp 36% · Đến điểm 31% · Điểm đã lưu 36% · sheet Tài khoản 33%.
 
-### Nút hành động trên màn bản đồ — LUẬT VỊ TRÍ & KÍCH THƯỚC (2026-08-29)
+**NGOẠI LỆ ĐÃ CHỐT 2026-08-29f — FORM Ở MÀN THƯỜNG KHÔNG BỊ TRẦN 40%.** Sau khi cắt ô theo C1, đo lại 375×812 vẫn vượt: `DocumentForm` **69%** · `BuyerForm` **67%** · `PriceHistorySheet` **73%** (sheet Tài khoản 33% là ca duy nhất đạt). **Chốt: GIỮ NGUYÊN, không ép xuống 40%.**
+
+*Vì sao:* trần 40% sinh ra để **bản đồ còn nhìn được** — nền phía sau là dữ liệu bà con đang cần đọc trong lúc thao tác. Ở `/tau` · `/tien` · `/nguoi` thì nền sau form **không mang thông tin nào đang cần**, nên che 69% không mất gì. Ép xuống 40% ở đây chỉ còn hai đường: giấu ô đang cần (phạm D2 — thao tác câm, án lệ `CrewForm` giấu ô SĐT rồi báo lỗi trỏ vào ô đang ẩn), hoặc chẻ form thành nhiều bước (thêm bước, đi ngược đúng thứ đợt này vừa cắt). **Luật C1 — chỉ bày cái KEY — vẫn áp cho MỌI form, không ngoại lệ**; chỉ con số 40% là bỏ ngoài màn bản đồ.
+
+### Nút hành động — LUẬT VỊ TRÍ & KÍCH THƯỚC (2026-08-29; nới ra TOÀN APP 2026-08-29e)
 
 Chủ dự án: *"cái nút nó là ô vuông kích thước đồng bộ"* · *"nó là 1 nút thì đừng để nó chiếm cả 1 hàng… 1 ô chiếm 1 hàng thì lại mất cân đối trong khi vẫn chiếm chỗ màn hình"* · *"có logic về tối ưu vị trí và hiển thị chưa?"*.
 
+**0. PHẠM VI — CHỦ DỰ ÁN ĐÃ CHỐT 2026-08-29f.** Hai mục này ra đời trên màn bản đồ nhưng luật là luật CỦA APP: áp cho `/` · `/tau` · `/nguoi` · `/tien` như nhau. Các ca mẫu bản đồ bên dưới (route-planner, my-places-sheet, rail phải) giữ nguyên làm ví dụ.
+
+**NGOẠI LỆ ĐÃ CHỐT — NÚT CHÍNH DUY NHẤT CỦA MÀN GIỮ FULL-WIDTH.** Hỏi: luật A2 (cấm nút hành động full-width) có phủ nút submit của form auth không. **Chốt: KHÔNG — giữ nguyên `PrimaryButton` full-width.** Gồm: Đăng nhập · Tạo tài khoản · Lưu mật khẩu mới · Gửi yêu cầu · CTA của [login-gate.tsx](../../src/components/login-gate.tsx) · [doi-mat-khau/page.tsx:105](../../src/app/doi-mat-khau/page.tsx:105) · [quen-mat-khau/page.tsx:97](../../src/app/quen-mat-khau/page.tsx:97).
+
+*Vì sao ngoại lệ này không phá luật:* A2 sinh ra để nút đừng **ăn chỗ của dữ liệu** và đừng **lẫn vào hàng danh sách**. Trên màn auth không có dữ liệu nào để giành chỗ, và nút là hành động **duy nhất** của cả màn — không có gì để lẫn. Thêm nữa Zalo · Grab · Facebook đều dựng nút này full-width; bà con bấm nó bằng phản xạ, bóp về ô vuông 64px là bắt học lại. **Ranh giới:** ngoại lệ chỉ cho nút chính DUY NHẤT của màn. Màn có từ hai hành động trở lên, hoặc nút nằm trong danh sách/thẻ/panel ⇒ về `SQ_BTN` như thường.
+
 **1. MỘT KHUÔN DUY NHẤT.** Mọi nút hành động dùng chung hằng `SQ_BTN` (**`src/components/ui/sq-btn.ts`** — dời khỏi `route-planner.tsx` ngày 2026-08-29d, xem 5d): ô vuông `w-16` × `min-h-[3.25rem]`, `rounded-2xl`, icon `h-6 w-6` + nhãn `0.6875rem` xuống dòng. Đây **đúng khuôn nút rail phải** (Lớp · Vị trí · Đến điểm · Điểm đã lưu · Dẫn đường) — bà con đã quen hình đó ở ngay cạnh, không phải học kiểu nút thứ hai. Đo thật: nút trong thẻ 56×49px = nút rail 56×49px.
+
+**Nhãn 0.6875rem (11px) — CHỦ DỰ ÁN CHỐT GIỮ 2026-08-29f.** Cỡ này thấp hơn sàn *font ≥18px* mà CLAUDE.md đặt cho bà con 40–60 tuổi, nên phải nói rõ vì sao được miễn: sàn 18px là cho **chữ phải ĐỌC** — tên giấy tờ, con số, câu cảnh báo. Nhãn `SQ_BTN` không phải chữ để đọc mà là **chú thích cho icon** ngay trên nó; icon `h-6 w-6` mới là thứ mắt bắt, nhãn chỉ xác nhận. Vùng chạm vẫn đủ **56px**. Nâng lên 0.75rem thì nhãn hai chữ ("Cảnh báo", "Đăng nhập") tràn ô `w-16` — đổi lấy chữ to hơn 1px bằng nhãn bị cắt là lỗ. **Ranh giới:** 0.6875rem CHỈ dùng cho nhãn dưới icon trong `SQ_BTN`. Mọi chữ khác vẫn theo type-ramp, sàn 0.75rem.
 
 **2. CẤM NÚT FULL-WIDTH.** Một dải ngang chiếm trọn bề ngang cho MỘT việc, trong khi thẻ đang tranh từng chục px với bản đồ. Ba ô vuông xếp hàng tốn bằng một dải cũ. **Trả về khuôn 2026-08-29b**: dải "Chọn cảng nhà" (271×52 full-width trong panel Điểm đã lưu) nay là một hàng chuẩn — vế trái nói CẤP DỮ LIỆU (`"Cảng nhà: chưa đặt"` / tên cảng đang đặt), vế phải là ô `w-16` mang icon kính lúp + nhãn "Chọn". **Không bóp cả nút thành ô vuông trơ**: nó là nút MỞ Ô TÌM, ô vuông không đủ chỗ cho nhãn nói nó làm gì. Lợi ích nói đúng, không bán quá: panel đang chạm trần `max-h-[70dvh]` nên xoá dải KHÔNG kéo bản đồ lộ thêm — được là mép phải thẳng một khuôn và chạm trần muộn hơn một điểm ghim.
 
@@ -238,6 +250,22 @@ Ca ngoại lệ (hàng chủ bị ẩn, vd đủ 6 điểm nên hàng "Chọn đ
 (a) **Chip ngày trong sheet gió sóng** (`fishing-map-view.tsx`): `min-h-[2.75rem]` = 44px, mà đây là ô bị chạm nhiều thứ HAI của cả màn — chạm hụt trên tàu lắc dễ thành vuốt dọc, thu luôn sheet. Nay `min-h-[3.5rem]`. **Đo lại sau khi sửa**, không suy: sheet peek 157 → **169px**, bản đồ **70,2%** (bản có dòng cảnh báo biên) — trên sàn 60%.
 
 (b) **Ba nút icon mỗi hàng điểm** trong panel "Điểm đã lưu" (`my-places-sheet.tsx`): `min-h-[3rem] w-11` = 44×48. Kế hoạch là nâng cả hai chiều lên `min-h-[3.5rem] w-14` (56×56); **đo trên máy thật thì phải rút lại một nửa**. Panel `w-[19rem]` trừ `p-3` còn 271px, ba ô 56px ăn 168px ⇒ thân hàng 103px — nhưng TRONG thân đó còn vòng icon 36px + gap 12 + `px-4` 32, nên **chữ tên chỉ còn 19px**: "Bãi mực Hoàng Sa" hiện ra "Bã…". Phép tính "103px là đọc được" quên phần icon + đệm; `w-16` còn tệ hơn. **Chốt**: nâng CHIỀU CAO lên sàn (48 → **56px**, trục dễ trượt tay nhất khi tàu lắc), giữ bề ngang **44px**. Đo sau khi sửa: hàng vừa khít 271px, tên còn 55px (3 nút) / 99px (2 nút). Ghi `// nợ:` tại chỗ — bề ngang nâng được khi hàng điểm dựng lại cho tên nằm riêng một dòng (cần BA/design chốt).
+
+**5d. ÁP SANG `/` · `/tau` · `/nguoi` · `/tien` (2026-08-29e).** Đợt rà ngoài-bản-đồ. Đo thật 375×812 (gốc chữ 16px):
+
+| Màn / khối | Trước | Sau |
+|---|---|---|
+| `/nguoi` thẻ bạn thuyền đầu tiên | y=380 (47% màn bị ăn trước khi thấy một người) | 2 ô đếm + dải cam 343×60 gộp thành MỘT hàng `[thân "N bạn thuyền · N kẹt giấy tờ"] + [ô Thêm]` |
+| `/nguoi` dải `grid-cols-3` Cảnh báo/Sửa/Xóa | 52px cuối thẻ, không nút nào ở hàng nó thao tác lên | Sửa+Xóa ở hàng danh tính · Cảnh báo ở hàng CCCD/SĐT · Gọi ở hàng số điện thoại |
+| `/tau` thẻ giấy tờ | 373px (46% màn), 2 hàng `grid-cols-2` chỉ chứa nút | thân thẻ theo `[thân flex-1] + [ô w-16]`, hàng không nút chừa `<span className="w-16 shrink-0" aria-hidden />` |
+| `/tien` chip mục (`ui/chip-row`) | tầng 1 48px · tầng 2 42px | 3.5rem · 3.25rem |
+| `/tien` nút Gọi (`CallButton`) | 80×48px | `min-h-[3.5rem]`, bề ngang `px-4` giữ nguyên (nhãn "Gọi hỏi mua" cần chỗ) |
+| `/` dải khẩn "Còn N việc nữa — xem hết" | 343×48 full-width, `setExpanded(true)` MỘT CHIỀU | `SQ_BTN` inline cuối hàng tiêu đề, `setExpanded(v => !v)` — có đường thu lại |
+| `/` hộp thư "Xem N tin cũ hơn" | 343×44 full-width | `SQ_BTN` inline cuối hàng tiêu đề; thẻ tin vào khuôn `[thân] + [ô w-16]` nên mép phải hai danh sách thẳng nhau |
+
+**Khung nhập đã cắt theo C1** (đều đang là bottom-sheet trần `max-h-[85dvh]`, tức 690px = 85% màn): `DocumentForm` 5 ô → 2 (tên gọi hạ xuống dòng đọc-được + ô Sửa, vì `label` khởi tạo bằng `kindLabel(kind)` nên form đang hỏi thứ nó vừa tự trả lời) · `CrewForm` 6 → 3 (validate chỉ đòi tên + MỘT định danh) · `ReportSheet` (tên trùng dòng danh tính → bỏ ô nhập; 6 nút loại vấn đề → hàng `[Vấn đề: chưa chọn] + [Chọn]`) · `BuyerForm` 6 → 2 (cảng điền sẵn từ `useHome()`) · `ListingForm` 9 → 2 (tên/tỉnh từ hồ sơ tàu, SĐT từ tài khoản — nhãn cũ đã tự thú "để trống thì lấy SĐT tài khoản") · `MaintenanceForm` (bỏ ô số chu kỳ — nó và 4 chip là HAI ĐƯỜNG cho CÙNG một giá trị; thêm chip "Khác") · `ProductForm` 5 → 2 · `CartSheet` 5 ô giao hàng → MỘT dòng `Giao: … · … · …` + ô Sửa · sheet Tài khoản gom 5 nhóm sau một hàng "Cài đặt khác".
+
+**Đường lùi giữ nguyên, không đánh đổi**: `document-photos` nay đi qua `ConfirmDialog` dùng chung (trước xoá thẳng ảnh giấy tờ THẬT trên Storage, không hỏi lại, không hoàn tác) và nút xoá lên `h-14 w-14`. Cặp nút xác nhận của `hero-account` giữ đúng khuôn `Thôi` / `Xoá` + `min-h-[3.5rem]` mà `identity-gate.test.ts` đang canh.
 
 **5c. MỌI THÂN HÀNG `flex-1` PHẢI CÓ `min-w-0`.** Flex item mặc định `min-width:auto` nên nó KHÔNG co dưới bề rộng nội dung — `flex-1` một mình là chưa đủ, và phần thừa đẩy nút **ra ngoài mép panel** (panel `overflow-y-auto` ⇒ trục ngang thành auto, nút chỉ thấy khi cuộn ngang: coi như mất nút). Hai chỗ bắt được 2026-08-29b, cả hai đều là lỗi CÓ SẴN chứ không phải mới:
 

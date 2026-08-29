@@ -11,10 +11,12 @@ export const metadata = { title: "Bạn thuyền — SDFish" };
 export default function NguoiPage() {
   return (
     <div>
+      {/* Bỏ prop sub (D1): chỉ giải thích màn này là gì — tiêu đề "Sổ thuyền
+          viên" ngay trên đã nói xong, mà 41px đó nằm trong ngân sách 380px bị ăn
+          trước khi thấy người đầu tiên. */}
       <PageHeader
         kicker="Bạn thuyền"
         title="Sổ thuyền viên"
-        sub="Hồ sơ, chứng chỉ, bảo hiểm — tra cảnh báo trước khi nhận bạn mới."
         toColor="var(--t4)"
       />
       <LoginGate

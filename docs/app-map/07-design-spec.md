@@ -181,6 +181,26 @@ Doc này authored bằng tay (reverse-engineer từ code 2026-06-11). Không tr�
 
 Mobile M = ≤3 khối/viewport. ~~Home: dải khẩn + lưới 4 trục + tagline = đạt.~~ **Home (cập nhật 2026-08-18, chốt theo `app/page.tsx` gói D/E)**: khối theo thứ tự = PageHeader + HeroAccount (chip tài khoản; **+ `KickedNotice` thẻ đỏ inline tầng 2 khi máy này bị máy khác đăng nhập đá**) · BoatSwitcher (chỉ khi >1 tàu) · **StormBanner variant `page`** (CÓ ĐIỀU KIỆN — chỉ khi có bão / tin bão trong máy cũ >24h / chưa từng có tin (`shouldShowStormOnHome`, `STORM_HOME_STALE_MS`); "không có bão" IM; tầng 1, không tính vào ngân sách) · **`UrgentWithInstall`** = UrgentStrip (≤4 dòng, tầng 3) + InstallBanner (CÓ ĐIỀU KIỆN — ẩn khi đã cài / đã tắt / không cho cài / mất sóng / dải khẩn ≥3 dòng / đã nhắc 3 lần cách ≥1 ngày (`forfish.installNudge.v2`); tầng 5) · lưới 4 trục "Bốn việc chính" · InboxSection (3 tin, hiện cả khi chưa đăng nhập, tự ẩn khi không có tin). **Luật ngân sách**: ≤3 khối tầng 3–5 trên viewport đầu (dải khẩn + Install + Inbox — tầng thấp nhường tầng cao), tầng 1–2 không bị cắt — xem §12. /tien, /tau, /nguoi: 1 hàng chip/tab + list — đạt.
 
+### 5b. RÀ MẬT ĐỘ NGOÀI BẢN ĐỒ — `/` · `/tau` · `/nguoi` · `/tien` (2026-08-29e)
+
+Luật A/B/C/D của [03-design-system](03-design-system.md) (§Nút hành động · §Khung nhập) sinh ra trên màn bản đồ, nay áp cho bốn mảng màn còn lại. Ba nhóm việc, theo đúng thứ tự nặng-nhẹ:
+
+**1. CHẶN — đường lấy lại mật khẩu bị bịt.** `/login` đo thật 375×812 `scrollY=0`: "Quên mật khẩu?" nằm y=747–807 còn dock bắt đầu y=739 ⇒ `document.elementFromPoint(187,777)` trả về svg của dock. Thủ phạm là ba đoạn văn 220px giữa nút Đăng nhập và nó — cả ba đều vi phạm D1 (nhắc lại placeholder ô mật khẩu · dạy luật một-máy TRƯỚC khi gặp, lúc bị đá đã có `kickedNote` nói đúng lúc · mẹo cài PWA không liên quan việc đang gõ). Bỏ ba đoạn, đưa "Quên mật khẩu?" lên ngay dưới nút submit. Câu đồng ý Chính sách GIỮ NGUYÊN.
+
+**2. AN TOÀN DỮ LIỆU / THAO TÁC CÂM** (không phải chuyện mật độ):
+- `document-photos`: xoá ảnh giấy tờ THẬT nay đi qua `ConfirmDialog` dùng chung ("Xoá ảnh này?" / "Không xoá" / "Xoá luôn") — trước là gỡ khỏi sổ NGAY rồi `deleteDocPhoto` xoá luôn trên Storage, không hỏi lại, không hoàn tác, mà chụp lại còn cần có sóng. Nút xoá 44 → 56px (nó nằm ĐÈ lên ảnh 96px).
+- `crew-list`: nút "Cảnh báo" trên người CHƯA có CCCD/SĐT từng mở sheet "Sửa thông tin bạn thuyền" — một nút hai việc, nhãn hứa việc nó không làm. Nay VÔ HIỆU đúng ô đó; lý do đã nằm sẵn trong thân hàng ("Chưa có CCCD/SĐT — bấm Sửa để bổ sung, rồi mới tra cảnh báo được").
+- `urgent-strip`: "Còn N việc nữa — xem hết" là `setExpanded(true)` MỘT CHIỀU, xoè rồi không có đường thu lại (nút tự biến mất vì `rest===0`) trong khi hộp thư ngay dưới cùng màn thì có "Thu gọn". Nay `setExpanded(v => !v)`.
+
+**3. MẬT ĐỘ.** Bảng đo và danh sách form đã cắt: [03-design-system §5d](03-design-system.md). Tóm tắt: mọi bottom-sheet đo được đều 690px = 85% màn (trần C2 ~40%), và 5 form đang hỏi thứ máy đã biết — code tự thú ở `document-vault` (`label` bám theo `kind`), `market-board` (nhãn "để trống thì lấy SĐT tài khoản"), `crew-list` (`setName(subjectName)` in lại tên vừa hiện), `sell-guide` (file đã dùng `useHome()` chỗ khác). Cắt ô theo C1 rồi mới ĐO LẠI — **không** hạ trần `max-h-[85dvh]` của `ui/bottom-sheet` (🟡 cross-trục, bóp cả form đang cần chỗ; nếu sau khi cắt vẫn >40% mới bàn tới trần, và phải chốt với chủ dự án).
+
+**CHỦ DỰ ÁN ĐÃ CHỐT 2026-08-29f — ba câu treo, đóng cả ba** (chi tiết + lý do: [03-design-system §Nút hành động mục 0](03-design-system.md) và §Trần khung nổi):
+1. **Nút submit form auth GIỮ full-width** — ngoại lệ cho nút chính DUY NHẤT của màn (Zalo/Grab/Facebook cùng khuôn; màn auth không có dữ liệu để giành chỗ). Kéo theo: `login-gate` CTA, `doi-mat-khau:105`, `quen-mat-khau:97` giữ nguyên — **không** phải việc bỏ sót.
+2. **Trần 40% KHÔNG áp cho form ngoài màn bản đồ** — `DocumentForm` 69% · `BuyerForm` 67% · `PriceHistorySheet` 73% giữ nguyên. Trần đó sinh ra để bản đồ còn nhìn được; ở `/tau` · `/tien` · `/nguoi` nền sau form không mang thông tin đang cần. Luật C1 (chỉ bày cái KEY) **vẫn áp cho mọi form**.
+3. **Nhãn `SQ_BTN` giữ 0.6875rem** — nó là chú thích cho icon, không phải chữ để đọc; vùng chạm vẫn 56px.
+
+**Còn LOẠI khỏi đợt này** (🟡 cross-trục, chưa hỏi): trần `max-h-[85dvh]` của `ui/bottom-sheet` · thêm ô "Đóng" vào hàng tiêu đề `BottomSheet` (chưa có ⇒ nút "Xong"/"Đóng" full-width hiện là đường thoát DUY NHẤT nhìn thấy được, gỡ trước khi có chỗ thay = phá đường lùi) · bỏ kicker của `PageHeader` · áp khuôn B1 cho chip tàu (`boat-switcher`). Cũng KHÔNG cắt câu dặn "Đừng ra khơi vùng ảnh hưởng — nghe đài duyên hải" ở các thẻ tin bão cũ (`inbox-section`): D1 cho phép giữ dặn dò an toàn bắt buộc, lặp ba lần là chữ thừa nhưng giá của việc cắt nhầm là tính mạng. `/quan-tri` ngoài phạm vi (staff SDVICO, desktop-first).
+
 ## 6. Ma trận trạng thái (đã hiện thực)
 
 | Màn | Chưa login | Trống | Lỗi/mạng yếu | Đang tải |

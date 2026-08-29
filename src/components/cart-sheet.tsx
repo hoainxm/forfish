@@ -14,10 +14,12 @@ import {
 import {
   CartIcon,
   CheckIcon,
+  EditIcon,
   MinusIcon,
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 import { useBoats } from "@/components/boat-switcher";
 import { authedFetch } from "@/lib/device-token-store";
 import { timeoutSignal } from "@/lib/abort";
@@ -88,11 +90,21 @@ export function CartSheet({
   const total = cartTotalVnd(items, catalog);
   const hasUnavailable = resolved.some((r) => !r.available);
 
+  /*  ĐIỀN SẴN thứ MÁY ĐÃ BIẾT (2026-08-29, luật C1 câu hỏi 2). Bốn trong năm ô
+      cũ hỏi thứ máy đã có: app đăng nhập BẰNG số điện thoại, tên có ở tài khoản,
+      cảng nhà có ở hồ sơ tàu, tàu thì đang chọn sẵn ở BoatSwitcher. Năm ô đó lại
+      nằm DƯỚI cả danh sách giỏ + khối tổng tiền trong cùng một sheet 85dvh. Nay
+      gộp thành MỘT dòng đọc-được "Giao: … · … · …" + ô nút "Sửa" inline. */
   const [boatId, setBoatId] = useState<string>(current?.id ?? "");
-  const [deliveryLocation, setDeliveryLocation] = useState("");
+  const [deliveryLocation, setDeliveryLocation] = useState(
+    current?.homeProvince ?? "",
+  );
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState(phone ?? "");
   const [note, setNote] = useState("");
+  /** mở form giao hàng — mặc định THU, vì máy đã điền sẵn hết */
+  const [editDelivery, setEditDelivery] = useState(false);
+  const [showNote, setShowNote] = useState(false);
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">(
     "idle",
   );
@@ -204,11 +216,11 @@ export function CartSheet({
           style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
         >
           <CheckIcon className="mx-auto h-11 w-11" />
-          <p className="mt-3 text-[1.1875rem] font-bold">Đã gửi đơn đặt hàng</p>
+          <p className="mt-3 text-[1.125rem] font-bold">Đã gửi đơn đặt hàng</p>
           {/* xác nhận CÓ SỐ: mã đơn (nếu máy chủ trả) + tổng + SĐT nhận —
               để bà con đối chiếu lúc nhà cung cấp gọi (audit G4/G6) */}
           {placed && (
-            <p className="mt-2 text-[1.0625rem] font-bold tabular-nums text-navy">
+            <p className="mt-2 text-[1rem] font-bold tabular-nums text-navy">
               {placed.id ? `Mã đơn ${placed.id.slice(0, 8).toUpperCase()} · ` : ""}
               Tổng {formatVnd(placed.totalVnd)} · Gọi số{" "}
               {placed.contactPhone}
@@ -258,7 +270,7 @@ export function CartSheet({
             {available && product ? (
               <>
                 <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 text-[1.0625rem] font-bold leading-snug text-navy">
+                  <p className="min-w-0 text-[1rem] font-bold leading-snug text-navy">
                     {product.title}
                   </p>
                   <button
@@ -267,9 +279,9 @@ export function CartSheet({
                       onItemsChange(removeItem(items, line.listingId))
                     }
                     aria-label={`Bỏ ${product.title} khỏi giỏ`}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-danger active:bg-danger-bg"
+                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-danger active:bg-danger-bg"
                   >
-                    <TrashIcon className="h-5 w-5" />
+                    <TrashIcon className="h-6 w-6" />
                   </button>
                 </div>
                 <p className="mt-0.5 text-[0.9375rem] text-foreground/70">
@@ -283,7 +295,7 @@ export function CartSheet({
                     }
                     label={product.title}
                   />
-                  <p className="text-[1.0625rem] font-bold text-navy">
+                  <p className="text-[1rem] font-bold text-navy">
                     {formatVnd((product.priceVnd ?? 0) * line.qty)}
                   </p>
                 </div>
@@ -300,9 +312,9 @@ export function CartSheet({
                     onItemsChange(removeItem(items, line.listingId))
                   }
                   aria-label="Bỏ món ngừng bán khỏi giỏ"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-danger active:bg-danger-bg"
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-danger active:bg-danger-bg"
                 >
-                  <TrashIcon className="h-5 w-5" />
+                  <TrashIcon className="h-6 w-6" />
                 </button>
               </div>
             )}
@@ -330,8 +342,8 @@ export function CartSheet({
 
       {/* ── Tổng tiền ───────────────────────────────────────────────── */}
       <div className="mt-3 flex items-center justify-between rounded-2xl bg-navy px-4 py-3 text-white">
-        <span className="text-[1.0625rem] font-bold">Tổng cộng</span>
-        <span className="display text-[1.25rem] font-bold">
+        <span className="text-[1rem] font-bold">Tổng cộng</span>
+        <span className="display text-[1.125rem] font-bold">
           {formatVnd(total)}
         </span>
       </div>
@@ -342,6 +354,34 @@ export function CartSheet({
 
       {/* ── Form đặt hàng ───────────────────────────────────────────── */}
       <form onSubmit={submit} className="mt-4">
+        {/* MỘT dòng đọc-được thay 4 ô bày sẵn + ô nút "Sửa" inline (luật C1) */}
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="text-[1rem] leading-snug text-foreground/80">
+              Giao:{" "}
+              <span className="font-bold text-navy">
+                {[
+                  deliveryLocation.trim() || "chưa ghi chỗ nhận",
+                  contactName.trim(),
+                  contactPhone.trim(),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setEditDelivery((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <EditIcon className="h-6 w-6" />
+            {editDelivery ? "Thu" : "Sửa"}
+          </button>
+        </div>
+
+        {editDelivery && (
+          <>
         {boats.length > 0 && (
           <Field label="Đặt cho tàu (tuỳ chọn)">
             <select
@@ -388,16 +428,40 @@ export function CartSheet({
             required
           />
         </Field>
+          </>
+        )}
 
-        <Field label="Ghi chú thêm (tuỳ chọn)">
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            className={inputClass}
-            placeholder="VD: giao trước 6h sáng, gọi trước khi tới"
-          />
-        </Field>
+        {/* Ghi chú — tự nhãn đã nhận là tuỳ chọn ⇒ thu sau một ô nút */}
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="truncate text-[1rem] text-foreground/80">
+              Ghi chú:{" "}
+              <span className="font-bold text-navy">
+                {note.trim() || "chưa ghi"}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowNote((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <PlusIcon className="h-6 w-6" />
+            {showNote ? "Thu" : "Mở"}
+          </button>
+        </div>
+
+        {showNote && (
+          <Field label="Ghi chú thêm (tuỳ chọn)">
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              className={inputClass}
+              placeholder="VD: giao trước 6h sáng, gọi trước khi tới"
+            />
+          </Field>
+        )}
 
         {/* MỘT lời mời đăng nhập/màn (G7); ẨN khi mất sóng — /login cần sóng
             (tầng 5, 2026-08-18). Bấm "Đặt hàng" lúc chưa đăng nhập = mở /login. */}

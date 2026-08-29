@@ -26,40 +26,31 @@ import { tokenHeader } from "@/lib/device-token-store";
   tư vấn của SDWork, nhân viên gọi lại. Dùng được cả khi CHƯA đăng nhập.
 */
 
+/*  MỘT KHUÔN DUY NHẤT (2026-08-29, luật A1/A2): biến thể `primary` là dải cam
+    `min-h-[3.75rem] w-full` ăn riêng một hàng — trái A2 lẫn A3. Component vốn
+    ĐÃ CÓ SẴN biến thể nhỏ inline đúng tinh thần, mà chỗ chính lại không dùng.
+    Nay chỉ còn một kiểu: chip nhỏ, cao lên sàn chạm 3.5rem, đặt inline ở cuối
+    hàng nó thao tác lên. Prop `variant` bỏ hẳn — không còn ai truyền. */
 export function SdvicoRequestButton({
   topic = "khac",
   productName,
   label = "Gọi SDVICO",
-  variant = "primary",
 }: {
   topic?: RequestTopicId;
   productName?: string;
   label?: string;
-  /** primary = nút cam to; chip = nút nhỏ trong thẻ */
-  variant?: "primary" | "chip";
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      {variant === "primary" ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="display flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
-        >
-          <PhoneIcon className="h-6 w-6" />
-          {label}
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-full bg-t3 px-4 text-[0.9375rem] font-bold text-white transition active:scale-[0.97]"
-        >
-          <PhoneIcon className="h-4 w-4" />
-          {label}
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex min-h-[3.5rem] shrink-0 items-center gap-1.5 rounded-full bg-t3 px-4 text-[0.9375rem] font-bold text-white transition active:scale-[0.97]"
+      >
+        <PhoneIcon className="h-5 w-5" />
+        {label}
+      </button>
       {open && (
         <RequestForm
           topic={topic}

@@ -36,6 +36,7 @@ import {
   type InstallNudgeState,
 } from "@/lib/install-nudge";
 import { AnchorIcon, CloseIcon } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 
 /** Dải khẩn từ ngần này dòng trở lên thì nhắc cài nhường chỗ. */
 const URGENT_ROWS_HIDE_INSTALL = 3;
@@ -186,7 +187,7 @@ export function InstallBanner() {
         <AnchorIcon className="h-6 w-6" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="display text-[1.0625rem] font-bold leading-tight text-navy">
+        <p className="display text-[1rem] font-bold leading-tight text-navy">
           Cài SDFish về máy
         </p>
         {/* CÂU CHỮ TÁCH THEO MÁY (sửa 2026-07-31): trên Android bản cài dùng
@@ -220,23 +221,30 @@ export function InstallBanner() {
               trống, phải tải lại dự báo một lần.
             </span>
           </p>
-        ) : (
-          <button
-            type="button"
-            onClick={install}
-            className="mt-2 flex min-h-[3.25rem] w-full items-center justify-center rounded-xl bg-t1 text-[1.0625rem] font-bold text-white transition active:scale-[0.99]"
-          >
-            Cài về máy
-          </button>
-        )}
+        ) : null}
       </div>
+      {/*  Hai nút về khuôn ô vuông chung (2026-08-29, luật A2/A3/A5). Nút đóng
+          cũ h-9 w-9 = 36×36px — dưới sàn vùng chạm RẤT xa (sàn dự án 56px, sàn
+          SQ_BTN 52px) mà lại nằm ngay cạnh nút "Cài về máy": tay ướt, tàu lắc,
+          bấm trượt là bấm nhầm. aria-label giữ nguyên. */}
+      {mode !== "android-tay" && mode !== "ios" && (
+        <button
+          type="button"
+          onClick={install}
+          className={`${SQ_BTN} self-center bg-t1 text-white`}
+        >
+          <AnchorIcon className="h-6 w-6" />
+          Cài về máy
+        </button>
+      )}
       <button
         type="button"
         onClick={dismiss}
         aria-label="Ẩn nhắc cài về máy"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground/50 transition active:bg-background"
+        className={`${SQ_BTN} self-center text-foreground/50 active:bg-background`}
       >
-        <CloseIcon className="h-5 w-5" />
+        <CloseIcon className="h-6 w-6" />
+        Ẩn
       </button>
     </div>
   );

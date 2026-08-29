@@ -12,10 +12,12 @@ export const metadata = { title: "Tàu cá — SDFish" };
 export default function TauPage() {
   return (
     <div>
+      {/* Rút bỏ vế liệt kê "Giấy tờ, dịch vụ, sản phẩm" khỏi sub (D1): ĐÚNG BA
+          TỪ đó là nhãn ba tab hiện ngay bên dưới. */}
       <PageHeader
         kicker="Quản lý tàu"
         title="Tàu cá"
-        sub="Giấy tờ, dịch vụ, sản phẩm — giữ tàu đủ điều kiện ra khơi."
+        sub="Giữ tàu đủ điều kiện ra khơi."
         toColor="var(--t3)"
       />
       <BoatSwitcher />

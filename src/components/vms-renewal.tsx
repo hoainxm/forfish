@@ -6,23 +6,21 @@ import { BoatForm } from "@/components/boat-switcher";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ChipRow } from "@/components/ui/chip-row";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { PrimaryButton, RefNote } from "@/components/ui/primitives";
+import { CallButton, PrimaryButton, RefNote } from "@/components/ui/primitives";
 import { LoginGate } from "@/components/login-gate";
 import {
   PlusIcon,
   CheckIcon,
   ChevronRightIcon,
-  PhoneIcon,
+  CloseIcon,
 } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 import { apiUrl } from "@/lib/api-base";
 import { timeoutSignal } from "@/lib/abort";
 import { tokenHeader } from "@/lib/device-token-store";
 import { formatVnd } from "@/lib/format";
 import { storageFullCopy } from "@/lib/user-store";
-import {
-  SDVICO_HOTLINE,
-  SDVICO_HOTLINE_DISPLAY,
-} from "@/data/sdvico-showcase";
+import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import {
   RENEWAL_MONTH_OPTIONS,
   RENEWAL_FALLBACK_MONTHLY_PRICE,
@@ -110,9 +108,25 @@ function VmsRenewalInner() {
       <h3 className="display mb-1 px-1 text-[1.125rem] font-bold text-navy">
         Giám sát hành trình
       </h3>
-      <p className="mb-2 px-1 text-[0.875rem] text-foreground/70">
-        Gia hạn thiết bị để tàu đủ điều kiện ra khơi.
-      </p>
+
+      {/*  Ô nút INLINE cuối hàng phụ đề (2026-08-29, luật A2/A3/A4): trước là
+          4 nút full-width ăn riêng hàng LIÊN TIẾP nhau trong một khối. Nhãn rút
+          còn "Gia hạn" — ô SQ_BTN chỉ có 64px bề ngang. */}
+      <div className="mb-2 flex items-stretch gap-2 px-1">
+        <div className="flex min-w-0 flex-1 items-center">
+          <p className="text-[0.875rem] text-foreground/70">
+            Gia hạn thiết bị để tàu đủ điều kiện ra khơi.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onRequest}
+          className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+        >
+          <PlusIcon className="h-6 w-6" />
+          Gia hạn
+        </button>
+      </div>
 
       {saveFailed && (
         <p
@@ -123,17 +137,19 @@ function VmsRenewalInner() {
         </p>
       )}
 
-      {/* Nút chính CÙNG format nút cam "Gọi SDVICO…" / "Thêm việc bảo dưỡng" */}
-      <PrimaryButton onClick={onRequest}>Yêu cầu gia hạn</PrimaryButton>
-
-      {/* Theo dõi trạng thái các yêu cầu đã gửi — giữ nguyên */}
+      {/*  Hàng disclosure theo khuôn B1: [thân flex-1] + [ô w-16 mang chevron].
+          Nó CÓ nội dung nên không phải "nút ăn riêng hàng", chỉ cần vào khuôn. */}
       <button
         type="button"
         onClick={() => setStatusOpen(true)}
-        className="mt-2.5 flex min-h-[3rem] w-full items-center justify-between rounded-2xl px-1 text-[1rem] font-bold text-sea active:opacity-70"
+        className="mt-2.5 flex w-full items-stretch gap-2 rounded-2xl px-1 text-left active:opacity-70"
       >
-        <span>Yêu cầu gia hạn của tôi</span>
-        <ChevronRightIcon className="h-5 w-5" />
+        <span className="flex min-w-0 flex-1 items-center text-[1rem] font-bold text-sea">
+          Yêu cầu gia hạn của tôi
+        </span>
+        <span className="flex w-16 shrink-0 items-center justify-center text-sea">
+          <ChevronRightIcon className="h-6 w-6" />
+        </span>
       </button>
 
       {/* MODAL chặn: chưa có tàu (hoặc tàu chưa có mã) → nút mở form thêm/sửa tàu */}
@@ -141,7 +157,7 @@ function VmsRenewalInner() {
         <BottomSheet title="Chưa thể gia hạn" onClose={() => setGuardOpen(false)}>
           {!current ? (
             <>
-              <p className="text-[1.0625rem] leading-snug text-foreground/80">
+              <p className="text-[1rem] leading-snug text-foreground/80">
                 Bà con chưa thêm tàu nào trong máy. Thêm tàu (kèm mã đăng ký) để
                 gia hạn giám sát hành trình.
               </p>
@@ -154,7 +170,7 @@ function VmsRenewalInner() {
             </>
           ) : (
             <>
-              <p className="text-[1.0625rem] leading-snug text-foreground/80">
+              <p className="text-[1rem] leading-snug text-foreground/80">
                 Tàu “{current.name}” chưa có mã đăng ký. Thêm mã tàu để gia hạn
                 giám sát hành trình.
               </p>
@@ -166,13 +182,17 @@ function VmsRenewalInner() {
               </div>
             </>
           )}
-          <button
-            type="button"
-            onClick={() => setGuardOpen(false)}
-            className="mt-3 min-h-[3.25rem] w-full rounded-full bg-field text-[1.0625rem] font-bold text-foreground/70"
-          >
-            Đóng
-          </button>
+          {/* "Đóng" về ô w-16 inline (luật A2/A3) — không dải ngang ăn hàng */}
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setGuardOpen(false)}
+              className={`${SQ_BTN} bg-field text-foreground/70`}
+            >
+              <CloseIcon className="h-6 w-6" />
+              Đóng
+            </button>
+          </div>
         </BottomSheet>
       )}
 
@@ -331,7 +351,7 @@ function RenewalWizard({
   return (
     <BottomSheet title="Gia hạn giám sát hành trình" onClose={onClose}>
       <div className="rounded-2xl bg-field px-4 py-3">
-        <p className="text-[1.0625rem] font-bold text-navy">{boat.name}</p>
+        <p className="text-[1rem] font-bold text-navy">{boat.name}</p>
         <p className="text-[0.9375rem] text-foreground/70">Mã tàu: {boat.maTau}</p>
       </div>
 
@@ -362,7 +382,7 @@ function RenewalWizard({
                   {formatVnd(unit)}/tháng × {months}
                   {isRef ? " (tham khảo)" : ""}
                 </span>
-                <span className="text-[1.1875rem] font-bold text-navy">
+                <span className="text-[1.125rem] font-bold text-navy">
                   {formatVnd(renewalTotal(months, unit))}
                 </span>
               </div>
@@ -389,22 +409,26 @@ function RenewalWizard({
         </p>
       )}
 
-      <div className="mt-4">
-        <PrimaryButton
+      {/*  Nhãn gọi TÊN VIỆC (luật A4): "Tạo yêu cầu & xem QR" → "Tạo yêu cầu";
+          "Cần hỏi? Gọi SDVICO 1900xxxx" → CallButton nhãn "Gọi". Hai nút về ô
+          inline cuối một hàng có nội dung, không dải ngang ăn hàng. */}
+      <div className="mt-4 flex items-stretch gap-2">
+        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <p className="text-[0.9375rem] text-foreground/70">
+            Nhân viên SDVICO gọi lại xác nhận.
+          </p>
+        </div>
+        <CallButton phone={SDVICO_HOTLINE} label="Gọi" />
+        <button
+          type="button"
           onClick={submit}
           disabled={phase === "sending"}
+          className={`${SQ_BTN} bg-trim text-white shadow-trim-cta disabled:opacity-40 disabled:shadow-none`}
         >
-          {phase === "sending" ? "Đang gửi…" : "Tạo yêu cầu & xem QR"}
-        </PrimaryButton>
+          <CheckIcon className="h-6 w-6" />
+          {phase === "sending" ? "Đang gửi" : "Tạo yêu cầu"}
+        </button>
       </div>
-
-      <a
-        href={`tel:${SDVICO_HOTLINE}`}
-        className="mt-3 flex min-h-[3.25rem] items-center justify-center gap-2 rounded-full text-[1.0625rem] font-bold text-sea"
-      >
-        <PhoneIcon className="h-5 w-5" />
-        Cần hỏi? Gọi SDVICO {SDVICO_HOTLINE_DISPLAY}
-      </a>
     </BottomSheet>
   );
 }
@@ -450,26 +474,26 @@ function RenewalStatusSheet({ onClose }: { onClose: () => void }) {
   return (
     <BottomSheet title="Yêu cầu gia hạn của tôi" onClose={onClose}>
       {state === "loading" && (
-        <p className="px-1 py-8 text-center text-[1.0625rem] text-foreground/65">
+        <p className="px-1 py-8 text-center text-[1rem] text-foreground/65">
           Đang tải…
         </p>
       )}
 
       {state === "empty" && (
-        <p className="px-1 py-8 text-center text-[1.0625rem] text-foreground/65">
+        <p className="px-1 py-8 text-center text-[1rem] text-foreground/65">
           Chưa có yêu cầu gia hạn nào.
         </p>
       )}
 
       {state === "error" && (
         <div className="px-1 py-6 text-center">
-          <p className="text-[1.0625rem] text-foreground/70">
+          <p className="text-[1rem] text-foreground/70">
             Chưa tải được — kiểm tra sóng rồi thử lại.
           </p>
           <button
             type="button"
             onClick={load}
-            className="mt-3 min-h-[3.25rem] rounded-full bg-field px-6 text-[1.0625rem] font-bold text-navy"
+            className="mt-3 min-h-[3.25rem] rounded-full bg-field px-6 text-[1rem] font-bold text-navy"
           >
             Thử lại
           </button>
@@ -493,7 +517,7 @@ function RenewalStatusSheet({ onClose }: { onClose: () => void }) {
               <li key={r.requestCode} className="rounded-2xl bg-field px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[1.0625rem] font-bold text-navy">
+                    <p className="text-[1rem] font-bold text-navy">
                       {r.vesselCode ?? "Tàu"}
                       {r.monthsCount ? ` · ${renewalMonthsLabel(r.monthsCount)}` : ""}
                     </p>

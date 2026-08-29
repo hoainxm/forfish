@@ -11,15 +11,18 @@ import {
 } from "@/lib/documents";
 import {
   AlertIcon,
+  CheckIcon,
+  CloseIcon,
   DocIcon,
   EditIcon,
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+import { Field, inputClass } from "@/components/ui/primitives";
 import { formatVnDate } from "@/lib/format";
 import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { readUserList } from "@/lib/user-list-store";
@@ -190,7 +193,33 @@ export function DocumentVault() {
     <div className="px-4 pt-1">
       {/* ĐỌC KHÔNG ĐƯỢC — nói thẳng và KHOÁ cửa ghi. Thêm giấy mới lúc này là
           ghi đè lên chuỗi gốc còn cứu được, mất cả tủ. */}
-      {readFailed ? (
+      {/*  MỘT HÀNG CHUẨN thay nút cam full-width (2026-08-29, luật A2/A3/B1):
+          [thân cấp dữ liệu flex-1] + [ô nút w-16]. Trước: dải 343×60 ở y=263
+          ăn riêng một hàng cho MỘT việc. Hàng vẫn chừa đúng ô nút khi khoá cửa
+          ghi để mép phải không nhảy giữa hai trạng thái (luật 3b). */}
+      <div className="mb-4 flex items-stretch gap-2">
+        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
+          <p className="text-[1rem] font-bold text-navy">
+            Tủ giấy tờ · {sorted.length} giấy
+          </p>
+        </div>
+        {readFailed ? (
+          <span className="w-16 shrink-0" aria-hidden />
+        ) : (
+          <button
+            onClick={() => {
+              setEditing(null);
+              setShowForm(true);
+            }}
+            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+          >
+            <PlusIcon className="h-6 w-6" />
+            Thêm
+          </button>
+        )}
+      </div>
+
+      {readFailed && (
         <div className="mb-4 overflow-hidden surface">
           <StatusBanner level="danger" icon={<AlertIcon className="h-5 w-5" />}>
             Tủ giấy tờ trong máy đang ĐỌC KHÔNG ĐƯỢC — giấy cũ vẫn nằm trong máy
@@ -198,17 +227,6 @@ export function DocumentVault() {
             đè mất bản cũ); thử tắt hẳn app mở lại, hoặc phục hồi từ tệp sao lưu.
           </StatusBanner>
         </div>
-      ) : (
-        <button
-          onClick={() => {
-            setEditing(null);
-            setShowForm(true);
-          }}
-          className="display mb-4 flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
-        >
-          <PlusIcon className="h-6 w-6" />
-          Thêm giấy tờ mới
-        </button>
       )}
 
       {/* MÁY KHÔNG GIỮ ĐƯỢC — nói ngay, đừng để ra cảng biên phòng kiểm mới biết */}
@@ -270,64 +288,96 @@ export function DocumentVault() {
                 {status.label}
               </StatusBanner>
 
-              <div className="px-4 py-3">
-                <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
-                  {kindLabel(doc.kind)}
-                </p>
-                <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
-                  {doc.label}
-                </p>
+              {/*  THÂN THẺ theo khuôn hàng chung (2026-08-29, luật B1): mỗi dòng
+                  dữ liệu là [thân bg-background flex-1 min-w-0] + [ô nút w-16];
+                  hàng không mang nút vẫn chừa đúng ô đó ⇒ mép phải thẳng. Trước:
+                  hàng grid-cols-2 chỉ để chứa hai nút, tốn 52px không nội dung. */}
+              <div className="space-y-1.5 p-2">
+                <div className="flex items-stretch gap-2">
+                  <div className="min-w-0 flex-1 rounded-2xl bg-background px-3 py-2">
+                    {/*  Loại giấy chỉ in khi KHÁC tên gọi (D1): DocumentForm khởi
+                        tạo label = kindLabel(kind) và giữ label bám theo kind tới
+                        khi user gõ tay ⇒ MẶC ĐỊNH luôn trùng, thẻ in hai lần cùng
+                        một chuỗi ("ĐĂNG KIỂM TÀU CÁ" rồi "Đăng kiểm tàu cá"). */}
+                    {doc.label !== kindLabel(doc.kind) && (
+                      <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
+                        {kindLabel(doc.kind)}
+                      </p>
+                    )}
+                    <p className="display break-words text-[1.125rem] font-bold leading-snug text-navy">
+                      {doc.label}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditing(doc);
+                      setShowForm(true);
+                    }}
+                    className={`${SQ_BTN} bg-background text-sea`}
+                  >
+                    <EditIcon className="h-6 w-6" />
+                    Sửa
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(doc)}
+                    className={`${SQ_BTN} bg-background text-danger`}
+                  >
+                    <TrashIcon className="h-6 w-6" />
+                    Xóa
+                  </button>
+                </div>
+
                 {doc.number && (
-                  <p className="text-[1rem] text-foreground/70">
-                    Số: {doc.number}
-                  </p>
+                  <div className="flex items-stretch gap-2">
+                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                      <p className="text-[1rem] text-foreground/70">
+                        Số: {doc.number}
+                      </p>
+                    </div>
+                    <span className="w-16 shrink-0" aria-hidden />
+                  </div>
                 )}
                 {doc.expiresOn && (
-                  <p className="text-[1rem] text-foreground/70">
-                    Hết hạn: <strong>{formatVnDate(doc.expiresOn)}</strong>
-                  </p>
+                  <div className="flex items-stretch gap-2">
+                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                      <p className="text-[1rem] text-foreground/70">
+                        Hết hạn: <strong>{formatVnDate(doc.expiresOn)}</strong>
+                      </p>
+                    </div>
+                    <span className="w-16 shrink-0" aria-hidden />
+                  </div>
                 )}
                 {doc.note && (
-                  <p className="mt-1.5 rounded-xl bg-background px-3 py-1.5 text-[0.9375rem] text-foreground/70">
-                    {doc.note}
-                  </p>
+                  <div className="flex items-stretch gap-2">
+                    <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+                      <p className="text-[0.9375rem] text-foreground/70">
+                        {doc.note}
+                      </p>
+                    </div>
+                    <span className="w-16 shrink-0" aria-hidden />
+                  </div>
                 )}
-                {/* Ảnh chụp giấy tờ (P3) — thêm/xem cần có sóng */}
-                <DocPhotoStrip
-                  docId={doc.id}
-                  photos={doc.photos ?? []}
-                  online={online}
-                  onChange={(photos) => upsert({ ...doc, photos })}
-                />
-              </div>
 
-              <div className="grid grid-cols-2 border-t border-line">
-                <button
-                  onClick={() => {
-                    setEditing(doc);
-                    setShowForm(true);
-                  }}
-                  className="flex min-h-[3.25rem] items-center justify-center gap-2 text-[1.125rem] font-bold text-sea active:bg-background"
-                >
-                  <EditIcon className="h-5 w-5" />
-                  Sửa
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(doc)}
-                  className="flex min-h-[3.25rem] items-center justify-center gap-2 border-l border-line text-[1.125rem] font-bold text-danger active:bg-background"
-                >
-                  <TrashIcon className="h-5 w-5" />
-                  Xóa
-                </button>
+                {/* Ảnh chụp giấy tờ (P3) — thêm/xem cần có sóng */}
+                <div className="px-1">
+                  <DocPhotoStrip
+                    docId={doc.id}
+                    photos={doc.photos ?? []}
+                    online={online}
+                    onChange={(photos) => upsert({ ...doc, photos })}
+                  />
+                </div>
               </div>
             </li>
           );
         })}
       </ul>
 
-      <p className="py-4 text-center text-[0.875rem] text-foreground/65">
-        Giấy tờ lưu ngay trên máy của bà con.
-      </p>
+      {/*  Bỏ dòng chân trang "Giấy tờ lưu ngay trên máy của bà con." (D1):
+          không phải cấp dữ liệu, không phải dặn dò an toàn — chỉ giải thích app
+          hoạt động thế nào, lại đứng cuối danh sách nên không ai đọc lúc cần.
+          Chỗ đúng của nó là màn cài đặt/sao lưu. Băng đỏ đọc-hỏng / máy-hết-chỗ
+          GIỮ NGUYÊN. */}
 
       {showForm && (
         <DocumentForm
@@ -370,6 +420,12 @@ function DocumentForm({
   const [number, setNumber] = useState(initial?.number ?? "");
   const [expiresOn, setExpiresOn] = useState(initial?.expiresOn ?? "");
   const [note, setNote] = useState(initial?.note ?? "");
+  /*  Hai nhóm THU LẠI mặc định (luật C1). Mở sẵn khi SỬA một giấy đã có dữ liệu
+      trong nhóm đó — không giấu thứ bà con đã nhập. */
+  const [showLabel, setShowLabel] = useState(false);
+  const [showMore, setShowMore] = useState(
+    Boolean(initial?.number || initial?.note),
+  );
 
   function handleKind(next: DocumentKind) {
     setKind(next);
@@ -409,26 +465,40 @@ function DocumentForm({
           </select>
         </Field>
 
-        <Field label="Tên gọi (để bà con dễ nhớ)">
-          <input
-            value={label}
-            onChange={(e) => {
-              setLabel(e.target.value);
-              setLabelTouched(true);
-            }}
-            className={inputClass}
-            placeholder="VD: Đăng kiểm tàu cá"
-          />
-        </Field>
-
-        <Field label="Số giấy tờ (không nhớ thì bỏ qua)">
-          <input
-            value={number}
-            onChange={(e) => setNumber(e.target.value)}
-            className={inputClass}
-            placeholder="VD: ĐK-2024-0571"
-          />
-        </Field>
+        {/*  TÊN GỌI: MÁY ĐÃ BIẾT (khởi tạo kindLabel("dang_kiem"), rồi bám theo
+            kind tới khi user gõ tay) ⇒ form đang hỏi thứ mình vừa tự trả lời.
+            Hạ xuống MỘT DÒNG đọc-được + ô nút "Sửa" (luật C1 câu hỏi 2). */}
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="truncate text-[1rem] text-foreground/80">
+              Tên gọi:{" "}
+              <span className="font-bold text-navy">
+                {label.trim() || kindLabel(kind)}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowLabel((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <EditIcon className="h-6 w-6" />
+            {showLabel ? "Thu" : "Sửa"}
+          </button>
+        </div>
+        {showLabel && (
+          <Field label="Tên gọi (để bà con dễ nhớ)">
+            <input
+              value={label}
+              onChange={(e) => {
+                setLabel(e.target.value);
+                setLabelTouched(true);
+              }}
+              className={inputClass}
+              placeholder="VD: Đăng kiểm tàu cá"
+            />
+          </Field>
+        )}
 
         <Field label="Ngày hết hạn (ghi trên giấy)">
           <input
@@ -439,25 +509,75 @@ function DocumentForm({
           />
         </Field>
 
-        <Field label="Ghi chú thêm">
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            className={inputClass}
-            placeholder="VD: Liên hệ chi cục để gia hạn"
-          />
-        </Field>
+        {/*  Số giấy tờ + ghi chú: cả hai tự nhãn đã nhận là tuỳ chọn, bỏ đi vẫn
+            lưu được ⇒ không phải KEY, thu sau một nút (luật C1/C2 — sheet đo
+            thật 690px = 85% màn, trần ~40%). */}
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="truncate text-[1rem] text-foreground/80">
+              Số giấy:{" "}
+              <span className="font-bold text-navy">
+                {number.trim() || "chưa ghi"}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowMore((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <PlusIcon className="h-6 w-6" />
+            {showMore ? "Thu" : "Chi tiết"}
+          </button>
+        </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-3">
+        {showMore && (
+          <>
+            <Field label="Số giấy tờ (không nhớ thì bỏ qua)">
+              <input
+                value={number}
+                onChange={(e) => setNumber(e.target.value)}
+                className={inputClass}
+                placeholder="VD: ĐK-2024-0571"
+              />
+            </Field>
+
+            <Field label="Ghi chú thêm">
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                className={inputClass}
+                placeholder="VD: Liên hệ chi cục để gia hạn"
+              />
+            </Field>
+          </>
+        )}
+
+        {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
+        <div className="mt-3 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="text-[0.9375rem] text-foreground/70">
+              {expiresOn
+                ? "Đủ để app nhắc hạn."
+                : "Chưa có ngày hết hạn — app sẽ không nhắc được."}
+            </p>
+          </div>
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            className={`${SQ_BTN} bg-background text-foreground/70`}
           >
+            <CloseIcon className="h-6 w-6" />
             Hủy
           </button>
-          <PrimaryButton type="submit">Lưu lại</PrimaryButton>
+          <button
+            type="submit"
+            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+          >
+            <CheckIcon className="h-6 w-6" />
+            Lưu
+          </button>
         </div>
       </form>
     </BottomSheet>

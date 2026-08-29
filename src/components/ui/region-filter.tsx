@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { AnchorIcon } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 import { useBoats } from "@/components/boat-switcher";
 import { HomePref, relevanceRank } from "@/lib/region";
 
@@ -60,16 +62,21 @@ export function HomeBar({
       <div className="mb-3 surface p-3">
         {/* "ở trên" là sai chỗ — thẻ tàu nằm ở khu Tàu cá, không phải màn này
             (audit 2026-08-18 G10). Chữ ≥1rem cho người lớn tuổi. */}
-        <p className="text-[1rem] leading-snug text-foreground/70">
-          Khai báo <strong>tỉnh cảng nhà</strong> trong mục Tàu cá để app chỉ
-          hiện nơi gần bà con.
-        </p>
-        <Link
-          href="/tau"
-          className="mt-1.5 inline-flex min-h-[2.75rem] items-center text-[1rem] font-bold text-sea"
-        >
-          Mở Tàu cá →
-        </Link>
+        {/*  Ô nút INLINE cuối chính hàng câu nhắc mà nó thao tác lên (luật A3),
+            và nâng vùng chạm lên sàn: đo thật link cũ 96×44px, lại nằm riêng
+            một dòng dưới câu nhắc. */}
+        <div className="flex items-stretch gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-[1rem] leading-snug text-foreground/70">
+              Khai báo <strong>tỉnh cảng nhà</strong> trong mục Tàu cá để app chỉ
+              hiện nơi gần bà con.
+            </p>
+          </div>
+          <Link href="/tau" className={`${SQ_BTN} bg-field text-sea`}>
+            <AnchorIcon className="h-6 w-6" />
+            Tàu cá
+          </Link>
+        </div>
       </div>
     );
   }
@@ -79,7 +86,7 @@ export function HomeBar({
         type="button"
         onClick={() => setNear(true)}
         aria-pressed={near}
-        className={`min-h-[2.75rem] rounded-xl text-[0.9375rem] font-bold ${
+        className={`min-h-[3.5rem] rounded-xl text-[0.9375rem] font-bold ${
           near ? "bg-navy text-white" : "bg-field text-foreground/70"
         }`}
       >
@@ -89,7 +96,7 @@ export function HomeBar({
         type="button"
         onClick={() => setNear(false)}
         aria-pressed={!near}
-        className={`min-h-[2.75rem] rounded-xl text-[0.9375rem] font-bold ${
+        className={`min-h-[3.5rem] rounded-xl text-[0.9375rem] font-bold ${
           !near ? "bg-navy text-white" : "bg-field text-foreground/70"
         }`}
       >

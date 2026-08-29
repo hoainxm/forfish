@@ -1,4 +1,7 @@
-/*  Ô NÚT CHUẨN — MỌI nút hành động trong màn bản đồ dùng CHUNG một khuôn
+/*  Ô NÚT CHUẨN — MỌI nút hành động của app dùng CHUNG một khuôn
+    (nới từ "màn bản đồ" ra TOÀN APP 2026-08-29e: /, /tau, /nguoi, /tien nay
+    cùng luật; xem 03-design-system §Nút hành động mục 0 — riêng nút submit của
+    form auth còn chờ chủ dự án chốt)
     (chủ dự án 2026-08-29: *"cái nút nó là ô vuông kích thước đồng bộ"*, *"các
     loại nút dài này bỏ đi"*).
 
@@ -15,6 +18,6 @@
     Ở ĐÂY chứ không nằm trong một component: 2026-08-29 đã có HAI bản chép tay
     của đúng chuỗi này (route-planner + my-places-sheet) — hai bản là hai lần
     lệch nhau khi ai đó chỉnh một chỗ (đúng bài học `haversineKm`, nguyên tắc
-    3). Luật đầy đủ: 03-design-system §"Nút hành động trên màn bản đồ". */
+    3). Luật đầy đủ: 03-design-system §"Nút hành động". */
 export const SQ_BTN =
   "flex min-h-[3.25rem] w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-[0.6875rem] font-bold leading-tight transition active:scale-95";

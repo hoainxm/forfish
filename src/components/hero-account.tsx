@@ -7,9 +7,12 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import {
   BellIcon,
   ChevronRightIcon,
+  CloseIcon,
   LockIcon,
+  TrashIcon,
   UsersIcon,
 } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 import { createClient } from "@/lib/supabase/client";
 import { clearInbox } from "@/lib/inbox";
 import { clearCachedOrders } from "@/lib/catalog-orders";
@@ -111,24 +114,31 @@ function KickedNotice() {
       role="alert"
       className="mt-3 surface border-l-4 border-danger px-4 py-3 text-left"
     >
-      <p className="display text-[1.0625rem] font-bold leading-snug text-danger">
-        Số này vừa được đăng nhập ở máy khác
-      </p>
-      <p className="mt-1 text-[1rem] leading-snug text-foreground/80">
-        Máy này thôi nhận tin mới. Dự báo và sổ sách đã tải vẫn dùng bình
-        thường.{" "}
-        {online
-          ? "Muốn dùng lại: đăng nhập."
-          : "Muốn dùng lại: đăng nhập khi có sóng."}
-      </p>
-      {online && (
-        <Link
-          href="/login"
-          className="mt-2 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.98]"
-        >
-          Đăng nhập
-        </Link>
-      )}
+      {/*  Rút về ĐÚNG MỘT DÒNG cấp dữ liệu (D1) + nút inline (A2/A3): đo trước
+          3 dòng chữ + 1 nút full-width 56px = 233px = 29% màn đầu, đẩy bốn việc
+          chính xuống dưới vạch gấp. Câu "Dự báo và sổ sách đã tải vẫn dùng bình
+          thường" là trấn an chứ không phải dữ liệu; câu "Muốn dùng lại: đăng
+          nhập" nhắc lại đúng nhãn nút ngay dưới. Nhánh MẤT SÓNG giữ nguyên —
+          đổi đuôi câu để nói đúng việc làm được. */}
+      <div className="flex items-stretch gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="display text-[1rem] font-bold leading-snug text-danger">
+            Số này vừa được đăng nhập ở máy khác
+          </p>
+          <p className="mt-1 text-[1rem] leading-snug text-foreground/80">
+            Máy này thôi nhận tin mới — phần đã tải vẫn xem được
+            {online ? "." : " — cần sóng để đăng nhập lại."}
+          </p>
+        </div>
+        {online ? (
+          <Link href="/login" className={`${SQ_BTN} bg-field text-navy`}>
+            <LockIcon className="h-6 w-6" />
+            Đăng nhập
+          </Link>
+        ) : (
+          <span className="w-16 shrink-0" aria-hidden />
+        )}
+      </div>
     </div>
   );
 }
@@ -146,6 +156,8 @@ export function HeroAccount() {
       KHÔNG xoá chuỗi — máy thành "quên người, vẫn còn chuỗi".
       `user` chỉ giữ cho `full_name` (metadata của phiên, có thì hiện). */
   const { user, phone, ready, signedIn } = useAuthUser();
+  /* Nhóm "Cài đặt khác" thu lại mặc định — xem ghi chú ở chỗ dựng hàng */
+  const [showSettings, setShowSettings] = useState(false);
   // HẠNG CỦA TÔI (2026-08-01): premium gán ngoài đời ở /quan-tri, trong app
   // trước nay không có chỗ nào xác nhận ⇒ khách trả tiền phải vào Ra khơi thử
   // bật lớp Cá mới biết. `null` = chưa chắc, không bày gì (luật ở lib/tier.ts).
@@ -436,7 +448,10 @@ export function HeroAccount() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-3 flex min-h-[2.75rem] max-w-full items-center gap-2 rounded-full bg-white/15 pl-2 pr-3.5 text-white backdrop-blur-sm transition active:scale-[0.97]"
+        /*  Sàn chạm 3.5rem = 56px (luật A5 + sàn dự án): đo thật 164×44px, mà
+            đây là CỬA DUY NHẤT vào sheet Tài khoản, lại nằm trên nền gradient
+            tối nên viền không rõ ngoài nắng. */
+        className="mt-3 flex min-h-[3.5rem] max-w-full items-center gap-2 rounded-full bg-white/15 pl-2 pr-3.5 text-white backdrop-blur-sm transition active:scale-[0.97]"
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20">
           <UsersIcon className="h-4.5 w-4.5" />
@@ -456,7 +471,10 @@ export function HeroAccount() {
         <BottomSheet title="Tài khoản" onClose={() => setOpen(false)}>
           {/* danh tính / đăng nhập */}
           {signedIn && phone ? (
-            <div className="mb-4 surface px-4 py-3">
+            /*  Nút "Đăng xuất" về INLINE cuối hàng danh tính (luật A2/A3) —
+                trước là dải full-width ăn riêng một hàng. */
+            <div className="mb-4 flex items-stretch gap-2">
+              <div className="min-w-0 flex-1 surface px-4 py-3">
               {name && (
                 <p className="display text-[1.125rem] font-bold text-navy">
                   Bác {name}
@@ -483,6 +501,16 @@ export function HeroAccount() {
                   </p>
                 </div>
               )}
+              </div>
+              <button
+                type="button"
+                disabled={signingOut}
+                onClick={() => void doSignOut()}
+                className={`${SQ_BTN} self-start bg-field text-trim disabled:opacity-60`}
+              >
+                <LockIcon className="h-6 w-6" />
+                {signingOut ? "Đang ra" : "Đăng xuất"}
+              </button>
             </div>
           ) : (
             <>
@@ -508,12 +536,22 @@ export function HeroAccount() {
                   2026-08-18): /login cần sóng, mời vào là ngõ cụt. Thay bằng
                   một dòng nói thật, không nút. */}
               {online ? (
-                <Link
-                  href="/login"
-                  className="display mb-4 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
-                >
-                  Đăng nhập / Đăng ký
-                </Link>
+                /* Ô nút inline cuối hàng danh tính (luật A2/A3/A4) — nhãn gọi
+                   tên việc: "Đăng nhập" */
+                <div className="mb-4 flex items-stretch gap-2">
+                  <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
+                    <p className="text-[1rem] font-bold text-navy">
+                      Máy này chưa có tài khoản
+                    </p>
+                  </div>
+                  <Link
+                    href="/login"
+                    className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+                  >
+                    <LockIcon className="h-6 w-6" />
+                    Đăng nhập
+                  </Link>
+                </div>
               ) : (
                 <p className="mb-4 rounded-2xl bg-field px-4 py-3 text-[1rem] leading-snug text-foreground/75">
                   Đăng nhập cần sóng — máy đang không có sóng. Có sóng lại bà con
@@ -523,15 +561,40 @@ export function HeroAccount() {
             </>
           )}
 
+          {/*  MỘT HÀNG "Cài đặt khác" gom năm nhóm việc không liên quan nhau
+              (2026-08-29, luật C1/C2). Đo trước: sheet 527px/812px = 65% màn Ở
+              TRẠNG THÁI NHẸ NHẤT (chưa đăng nhập, 11 dòng chữ); đã đăng nhập còn
+              thêm thẻ danh tính + huy hiệu + nút Đăng xuất. Trần C2 là ~40%.
+              Bà con mở chip này để ĐĂNG NHẬP / XEM HẠNG, không phải để đổi cỡ
+              chữ hay đọc chính sách — nên KEY là danh tính + huy hiệu + một hàng
+              hành động; phần còn lại thu lại. CHỈ đổi CHỖ ĐẶT, KHÔNG đụng cơ chế
+              "gọn"/"to" (ngoài phạm vi đợt này). */}
+          <div className="mb-4 flex items-stretch gap-2">
+            <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
+              <p className="text-[1rem] font-bold text-navy">Cài đặt khác</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSettings((v) => !v)}
+              aria-expanded={showSettings}
+              className={`${SQ_BTN} bg-background text-sea`}
+            >
+              <ChevronRightIcon
+                className={`h-6 w-6 ${showSettings ? "-rotate-90" : "rotate-90"}`}
+              />
+              {showSettings ? "Thu" : "Mở"}
+            </button>
+          </div>
+
+          {showSettings && (
+            <>
           {/* cỡ giao diện — auto theo máy là NỀN; chỉ bày 2 tùy chọn ghi đè */}
           <p className="mb-1.5 px-1 text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
             Cỡ giao diện
           </p>
-          <p className="mb-2 px-1 text-[0.875rem] leading-snug text-foreground/70">
-            {mode === "auto"
-              ? "Đang tự theo cỡ chữ cài trong điện thoại. Muốn khác thì chọn:"
-              : "Bấm lại lựa chọn để quay về tự theo máy."}
-          </p>
+          {/*  Bỏ hai dòng hướng dẫn (D1): hai hàng chọn ngay dưới đã tự nói
+              ("Chữ to — Luôn to rõ, dễ đọc ngoài nắng"). Đường về "auto" nay nói
+              bằng TRẠNG THÁI trên chính hàng đang chọn, không bằng chữ dạy. */}
           <div className="mb-4 overflow-hidden surface">
             {MODES.map((m, i) => {
               const on = mode === m.id;
@@ -561,6 +624,7 @@ export function HeroAccount() {
                     </span>
                     <span className="block text-[0.8125rem] leading-snug text-foreground/70">
                       {m.sub}
+                      {on ? " · bấm lại để theo máy" : ""}
                     </span>
                   </span>
                 </button>
@@ -571,32 +635,39 @@ export function HeroAccount() {
           {/* Bật thông báo (Web Push, 2026-07-28) — ẩn hẳn nếu máy không hỗ
               trợ hoặc server chưa cấu hình VAPID (không hiện nút vô dụng) */}
           {pushState !== "unsupported" && pushState !== "unconfigured" && (
-            <button
-              type="button"
-              onClick={togglePush}
-              disabled={pushState === "checking" || pushState === "busy"}
-              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 rounded-2xl bg-field px-4 text-left disabled:opacity-60"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white">
-                <BellIcon className="h-5 w-5 text-navy" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[1rem] font-bold text-navy">
-                  {pushState === "on" ? "Đã bật thông báo" : "Bật thông báo"}
+            /* Hàng B1: [thân "Thông báo" + trạng thái flex-1] + [ô w-16] */
+            <div className="mb-4 flex items-stretch gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl bg-field px-4 py-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white">
+                  <BellIcon className="h-5 w-5 text-navy" />
                 </span>
-                <span className="block text-[0.8125rem] leading-snug text-foreground/70">
-                  {pushState === "on"
-                    ? attach === "attached"
-                      ? "Đã gắn với tài khoản này · nhấn để tắt"
-                      : attach === "no-session"
-                        ? "CHƯA gắn tài khoản — đăng nhập rồi mở lại app"
-                        : attach === "failed"
-                          ? "Chưa gắn được (mất sóng) — mở lại lúc có sóng"
-                          : "Nhấn để tắt trên máy này"
-                    : "Nhận tin nhắn từ SDVICO ngay trên điện thoại"}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[1rem] font-bold text-navy">
+                    Thông báo
+                  </span>
+                  <span className="block text-[0.8125rem] leading-snug text-foreground/70">
+                    {pushState === "on"
+                      ? attach === "attached"
+                        ? "Đang bật · đã gắn tài khoản này"
+                        : attach === "no-session"
+                          ? "Đang bật · CHƯA gắn tài khoản — đăng nhập rồi mở lại app"
+                          : attach === "failed"
+                            ? "Đang bật · chưa gắn được (mất sóng)"
+                            : "Đang bật trên máy này"
+                      : "Đang tắt · tin nhắn SDVICO không hiện lên máy"}
+                  </span>
                 </span>
-              </span>
-            </button>
+              </div>
+              <button
+                type="button"
+                onClick={togglePush}
+                disabled={pushState === "checking" || pushState === "busy"}
+                className={`${SQ_BTN} bg-field text-navy disabled:opacity-60`}
+              >
+                <BellIcon className="h-6 w-6" />
+                {pushState === "on" ? "Tắt" : "Bật"}
+              </button>
+            </div>
           )}
           {pushError && (
             <p className="-mt-2.5 mb-4 px-1 text-[1rem] font-semibold leading-snug text-danger">
@@ -654,26 +725,15 @@ export function HeroAccount() {
             </span>
             <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
           </Link>
-
-          {signedIn && (
-            <>
-              <button
-                type="button"
-                disabled={signingOut}
-                onClick={() => void doSignOut()}
-                /* min-h 3.5rem = 56px, ĐÚNG SÀN tap target của dự án
-                   (03-design-system). Muốn nút bớt nổi thì hạ bằng MÀU/NỀN,
-                   không hạ bằng chiều cao — tay ngư dân không nhỏ đi theo. */
-                className="flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-trim transition active:scale-[0.98] disabled:opacity-60"
-              >
-                {signingOut ? "Đang đăng xuất…" : "Đăng xuất"}
-              </button>
-              {signOutError && (
-                <p className="mt-2 px-1 text-center text-[1rem] font-semibold leading-snug text-danger">
-                  {signOutError}
-                </p>
-              )}
             </>
+          )}
+
+          {/* Nút "Đăng xuất" đã dời lên INLINE cuối hàng danh tính ở đầu sheet
+              (luật A3) — chỉ còn câu báo lỗi ở lại. */}
+          {signedIn && signOutError && (
+            <p className="mt-2 px-1 text-center text-[1rem] font-semibold leading-snug text-danger">
+              {signOutError}
+            </p>
           )}
 
           {/* CHƯA đăng nhập được (phiên hết hạn / mất sóng) mà máy VẪN còn dấu
@@ -681,20 +741,21 @@ export function HeroAccount() {
               cần sóng. Không có nó thì tàu dùng chung máy sẽ mang theo hộp thư
               và quyền premium của chủ tàu ra khơi. */}
           {!signedIn && deviceBound && (
-            <>
-              <button
-                type="button"
-                onClick={() => setConfirmForget(true)}
-                className="flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field px-4 text-center text-[1.0625rem] font-bold text-navy transition active:scale-[0.98]"
-              >
-                Gỡ tài khoản khỏi máy này
-              </button>
+            <div className="flex items-stretch gap-2">
               {/* dòng này mang TIN CHÍNH (nút xoá cái gì) — không được 14px */}
-              <p className="mt-2 px-1 text-center text-[0.9375rem] leading-snug text-foreground/70">
+              <p className="min-w-0 flex-1 px-1 text-[0.9375rem] leading-snug text-foreground/70">
                 Xoá thư cũ và số điện thoại đã lưu trong máy. Không cần sóng.
                 Dữ liệu trên máy chủ vẫn còn. Đăng nhập lại được khi có sóng.
               </p>
-            </>
+              <button
+                type="button"
+                onClick={() => setConfirmForget(true)}
+                className={`${SQ_BTN} bg-field text-navy`}
+              >
+                <TrashIcon className="h-6 w-6" />
+                Gỡ máy này
+              </button>
+            </div>
           )}
         </BottomSheet>
       )}
@@ -711,7 +772,7 @@ export function HeroAccount() {
           <p className="text-[1.125rem] leading-snug text-navy">
             Máy sẽ quên: thư cũ · số điện thoại đã lưu · quyền premium đã lưu.
           </p>
-          <p className="mt-2 text-[1.0625rem] leading-snug text-foreground/75">
+          <p className="mt-2 text-[1rem] leading-snug text-foreground/75">
             Muốn dùng lại thì phải{" "}
             <span className="font-bold text-navy">
               đăng nhập lại — việc đó cần sóng
@@ -731,19 +792,23 @@ export function HeroAccount() {
               Cùng số chữ, cùng min-h 3.5rem (56px, sàn tap target); phân vai
               bằng NỀN (giữ nguyên có nền, hành động có nền trong suốt + màu
               trim), không bằng chiều cao. */}
-          <div className="mt-5 flex flex-col gap-2">
+          {/*  MỘT hàng ngang hai ô w-16 (luật A2/A3) — GIỮ NGUYÊN đường lùi:
+              "Không" vẫn là ô đầu tiên, vẫn đóng sheet mà không xoá gì. */}
+          <div className="mt-5 flex items-stretch justify-end gap-2">
             <button
               type="button"
               onClick={() => setConfirmForget(false)}
-              className="display flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy transition active:scale-[0.98]"
+              className={`${SQ_BTN} min-h-[3.5rem] bg-field text-navy`}
             >
+              <CloseIcon className="h-6 w-6" />
               Thôi
             </button>
             <button
               type="button"
               onClick={forgetThisDevice}
-              className="flex min-h-[3.5rem] w-full items-center justify-center rounded-full text-[1.0625rem] font-bold text-trim transition active:scale-[0.98]"
+              className={`${SQ_BTN} min-h-[3.5rem] bg-field text-trim`}
             >
+              <TrashIcon className="h-6 w-6" />
               Xoá
             </button>
           </div>
