@@ -229,41 +229,32 @@ export function MyPlacesContent({
              "Sửa" · hai ô nhập chỉ hiện khi bấm Sửa. Bỏ hẳn nút "Lấy chỗ đang
              trỏ": toạ độ vào form đã là chỗ đang trỏ. */
         <div className="surface space-y-2 p-3">
-          <div className="flex items-center gap-2">
-            <input
-              value={addName}
-              onChange={(e) => setAddName(e.target.value)}
-              placeholder="Tên điểm (vd: Bãi cá ngừ)"
-              className="min-h-[3.5rem] min-w-0 flex-1 rounded-xl bg-field px-3 text-[1rem] text-navy"
-            />
-            <button
-              type="button"
-              onClick={submitAdd}
-              disabled={!addValid}
-              className={`${SQ_BTN} bg-t1 text-white disabled:opacity-50`}
-            >
-              <StarIcon className="h-6 w-6" />
-              Lưu
-            </button>
-          </div>
+          <input
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            placeholder="Tên điểm (vd: Bãi cá ngừ)"
+            className="min-h-[3.25rem] w-full rounded-xl bg-field px-3 text-[1rem] text-navy"
+          />
 
           {/*  Toạ độ: DÒNG ĐỌC, không phải ô nhập — trừ khi bà con bấm Sửa.
                Đây là thứ đúng 1 trong 20 lần cần đụng tới (gõ tay từ máy định
                vị); bày sẵn hai ô cho ca hiếm là bắt 19 lần kia nhìn thừa. */}
           {!editCoord ? (
-            <div className="flex items-center gap-2">
-              <p className="min-w-0 flex-1 truncate rounded-xl bg-field px-3 py-2 text-[0.9375rem] font-semibold text-navy">
-                <PinIcon className="mr-1.5 inline h-4 w-4 text-t1" aria-hidden />
+            <div className="flex items-center gap-1.5 rounded-xl bg-field px-3 py-2.5">
+              <PinIcon className="h-4 w-4 shrink-0 text-t1" aria-hidden />
+              {/*  KHÔNG `truncate` — toạ độ phải ĐỌC ĐỦ (user 2026-08-29: "nhìn
+                   rõ toạ độ ko?"); DMS dài thì xuống dòng, không cắt cụt. Sửa là
+                   CHỮ inline nhỏ, không phải nút vuông chiếm chỗ. */}
+              <span className="min-w-0 flex-1 text-[0.9375rem] font-semibold leading-snug text-navy">
                 {addPair
                   ? fmtCoordPair(addPair.lat, addPair.lon, prefs.coordFormat)
                   : "Chưa có toạ độ — bấm Sửa để gõ"}
-              </p>
+              </span>
               <button
                 type="button"
                 onClick={() => setEditCoord(true)}
-                className={`${SQ_BTN} bg-field text-navy`}
+                className="shrink-0 rounded-lg px-2.5 py-1 text-[0.875rem] font-bold text-t1 active:scale-95"
               >
-                <EditIcon className="h-6 w-6" />
                 Sửa
               </button>
             </div>
@@ -292,30 +283,38 @@ export function MyPlacesContent({
                   Chưa đọc được toạ độ. Gõ như: {eg.lat} / {eg.lon}.
                 </p>
               )}
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setEditCoord(false)}
-                  className={`${SQ_BTN} bg-field text-navy`}
-                >
-                  <CheckIcon className="h-6 w-6" />
-                  Xong
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setEditCoord(false)}
+                className="min-h-[3rem] w-full rounded-xl bg-field text-[0.9375rem] font-bold text-navy active:scale-[0.99]"
+              >
+                Xong
+              </button>
             </div>
           )}
 
-          <div className="flex justify-end">
+          {/*  Huỷ · Lưu — CẶP một hàng grid-cols-2, KHÔNG nút nào đứng lẻ (user
+               2026-08-29: "nút huỷ 1 mình 1 dòng"). Lưu chuyển từ hàng tên xuống
+               đây thành cặp cân đối; hàng tên nay full-width. */}
+          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => {
                 setAddOpen(false);
                 setEditCoord(false);
               }}
-              className={`${SQ_BTN} bg-field text-foreground/70`}
+              className="min-h-[3.25rem] rounded-xl bg-field text-[1rem] font-bold text-foreground/70 active:scale-[0.99]"
             >
-              <CloseIcon className="h-6 w-6" />
               Huỷ
+            </button>
+            <button
+              type="button"
+              onClick={submitAdd}
+              disabled={!addValid}
+              className="flex min-h-[3.25rem] items-center justify-center gap-1.5 rounded-xl bg-t1 text-[1rem] font-bold text-white disabled:opacity-50 active:scale-[0.99]"
+            >
+              <StarIcon className="h-5 w-5" />
+              Lưu điểm
             </button>
           </div>
         </div>

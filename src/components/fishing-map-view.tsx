@@ -107,12 +107,19 @@ import {
   type SeaScalarResult,
 } from "@/lib/sea-scalars";
 import {
+  ROUTE_HIT_LAYER,
   RouteMapLayers,
   RouteMode,
   RouteStopsLayers,
   type PlannedRoute,
 } from "@/components/route-planner";
+import { formatHoursVN } from "@/lib/route-plan";
+import { legProgressAt } from "@/lib/route-legs";
 import { NOTIFY_HIDE_MS } from "@/lib/notify";
+
+/*  Mảng hằng, KHÔNG dựng inline trong JSX: `interactiveLayerIds` đổi reference
+    mỗi lần vẽ lại là react-map-gl gỡ/gắn lại bộ bắt sự kiện theo nhịp GPS. */
+const ROUTE_HIT_LAYERS = [ROUTE_HIT_LAYER];
 import {
   addStop,
   clearStops,
@@ -230,6 +237,7 @@ import {
   PauseIcon,
   PinIcon,
   PlayIcon,
+  CloseIcon,
   RouteIcon,
   StarIcon,
   TargetIcon,
@@ -1166,6 +1174,25 @@ export default function FishingMapView() {
       menu tự tắt sau `NOTIFY_HIDE_MS` nếu không chọn gì — cùng nhịp với mọi
       dòng nổi khác của màn, không đẻ nhịp riêng. Tắt ngay khi: chạm chỗ khác,
       kéo/zoom bản đồ, hoặc mở một lớp nổi khác. */
+  /*  CHẠM MỘT KHÚC MÀU TRÊN TUYẾN → THẺ THÔNG TIN CHẶNG ĐÓ (chủ dự án
+      2026-08-29g: *"từng khoảng màu ở trên tuyến thì trên bản đồ có thể click
+      nhìn thấy info của từng đoạn"*). Cùng khuôn với menu chạm-giữ: thẻ nhỏ
+      neo tại chỗ chạm. Màu chỉ nói được MỨC (đỏ/cam/xanh); chạm vào mới nói
+      được VÌ SAO.
+      NHỊP TẮT LÀ 8 GIÂY (`NOTIFY_HIDE_LONG_MS`) chứ không 3 giây như menu
+      chạm-giữ: thẻ này là HAI DÒNG (quãng · giờ · cớ), mà 3 giây là nhịp của
+      câu MỘT dòng — người 50 tuổi đọc chưa xong hai dòng trong 5 giây
+      (lib/notify, audit M9). Chọn theo ĐỘ DÀI CÂU, không theo chỗ nó nổi lên. */
+  const [legInfo, setLegInfo] = useState<{
+    idx: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!legInfo) return;
+    const t = setTimeout(() => setLegInfo(null), NOTIFY_HIDE_LONG_MS);
+    return () => clearTimeout(t);
+  }, [legInfo]);
   const [pressMenu, setPressMenu] = useState<{
     lat: number;
     lon: number;
@@ -1529,6 +1556,21 @@ export default function FishingMapView() {
   const [dayIdx, setDayIdx] = useState(0);
   // tuyến dẫn đường tiết kiệm dầu (route-planner.tsx) — vẽ đè lên bản đồ
   const [route, setRoute] = useState<PlannedRoute | null>(null);
+  /*  Nơi xuất phát đang chọn trong thẻ Dẫn đường — chỉ để BẢN ĐỒ vẽ được nhãn
+      khoảng cách đoạn đầu (xuất phát → chỗ 1). RouteMode báo ra qua
+      `onStartCoord`; màn này không quyết định gì với nó. */
+  const [startCoord, setStartCoord] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
+  /*  Tuyến đổi (tính lại / xoá) ⇒ thẻ chặng đang mở nói về chặng KHÔNG CÒN
+      NỮA. Đóng ngay, đừng để con số cũ nằm lại trên bản đồ mới.
+      ĐẶT Ở ĐÂY, KHÔNG đặt cạnh `useState` của `legInfo` phía trên: `route`
+      khai sau nó ⇒ dep `[route]` rơi vào vùng chết TDZ, React Compiler chặn
+      build (cùng cái bẫy 02 §14 ghi cho `borderSrc`). */
+  useEffect(() => {
+    setLegInfo(null);
+  }, [route]);
   // DẪN ĐƯỜNG LIVE: tuyến đang chạy theo (bám tuyến + theo dõi GPS). null = tắt
   const [navMode, setNavMode] = useState<PlannedRoute | null>(null);
   // hạng độ sâu tại điểm đang xem (null = chưa biết/không cảnh báo)
@@ -1813,6 +1855,23 @@ export default function FishingMapView() {
         : null,
     [navMode, tracking.pos, tracking.headingDeg, tracking.speedKmh],
   );
+
+  /*  CÒN BAO XA / BAO LÂU TỚI CHỖ GHÉ KẾ TIẾP (2026-08-29g). Dòng tổng của
+      HUD nói tới ĐÍCH CUỐI — đi 3 chỗ mà chỉ thấy "còn 491 hải lý" thì bà con
+      không biết bao giờ tới chỗ thả lưới đầu tiên.
+      Tốc độ lấy từ GPS (`tracking.speedKmh`) chứ KHÔNG từ hồ sơ tàu: đây là
+      giờ tới THẬT theo tốc độ đang chạy, cùng một nguồn với `etaHours` của
+      dòng tổng — hai con số cạnh nhau mà tính bằng hai tốc độ khác nhau là
+      chỗ bà con mất tin. Chưa chạy ⇒ `toNextH` null ⇒ chỉ hiện quãng. */
+  const nextStop = useMemo(() => {
+    if (!navMode || !navProgress) return null;
+    const bounds = navMode.legBoundsKm ?? [];
+    // đường đi MỘT chỗ: dòng tổng đã nói đúng thứ này, thêm dòng nữa là lặp
+    if (bounds.length < 2) return null;
+    const lp = legProgressAt(bounds, navProgress.alongKm, tracking.speedKmh);
+    if (lp.toNextKm == null) return null;
+    return { so: lp.currentLeg + 1, km: lp.toNextKm, hours: lp.toNextH };
+  }, [navMode, navProgress, tracking.speedKmh]);
 
   /* RANH GIỚI THEO GPS KHI DẪN ĐƯỜNG (2026-08-18, audit M3 — tính mạng/IUU).
      Trước đây cảnh báo ranh giới chỉ tính theo ĐIỂM ĐANG XEM trên bản đồ (prox
@@ -2613,7 +2672,24 @@ export default function FishingMapView() {
             clearSilenceClock();
           }
         }}
+        /*  Chỉ khai lớp bắt chạm KHI CÓ TUYẾN: MapLibre ném lỗi nếu
+             `queryRenderedFeatures` nhận id lớp chưa tồn tại. */
+        interactiveLayerIds={route ? ROUTE_HIT_LAYERS : undefined}
         onClick={(e) => {
+          /*  CHẠM TRÚNG MỘT CHẶNG ⇒ mở thẻ thông tin chặng đó và DỪNG: không
+              dời con trỏ, không đổi điểm xem. Bà con đang hỏi "khúc đỏ này bị
+              gì", trả lời xong mới tính chuyện khác. Đặt TRƯỚC mọi nhánh khác
+              trừ chế độ ĐO (đo là thao tác có chủ đích, không được cướp). */
+          const hitLeg = measureMode
+            ? undefined
+            : e.features?.find((f) => f.layer?.id === ROUTE_HIT_LAYER);
+          if (hitLeg && route) {
+            const idx = Number(hitLeg.properties?.legIdx ?? -1);
+            if (idx >= 0 && idx < (route.legs?.length ?? 0)) {
+              setLegInfo({ idx, x: e.point.x, y: e.point.y });
+              return;
+            }
+          }
           // đổi điểm xem — tuyến cũ GIỮ NGUYÊN trên bản đồ (hội đồng UX
           // 2026-06-11: tuyến tính mất 10s, không tự ý vứt vì một cú chạm
           // nhầm; RoutePlanner sẽ nhắc "tuyến đang tới chỗ cũ" + cho xóa)
@@ -3407,7 +3483,10 @@ export default function FishingMapView() {
         ))}
 
         {/* tuyến dẫn đường tiết kiệm dầu + điểm xuất phát */}
-        <RouteMapLayers route={route} />
+        {/*  `alongKm` = quãng đã chạy dọc tuyến ⇒ chặng nào ở sau lưng thì tô
+             xám (chủ dự án 2026-08-29g). Chỉ có khi ĐANG dẫn đường thật; xem
+             tuyến lúc chưa đi thì mọi chặng giữ nguyên màu cảnh báo. */}
+        <RouteMapLayers route={route} alongKm={navProgress?.alongKm ?? null} />
         {/* Chỗ ghé đã chấm nhưng CHƯA tính tuyến — nét đứt + số, để bà con
             thấy ngay mình đang chấm cái gì.
             ẨN CHỈ KHI tuyến đã tính CÒN KHỚP cả chuỗi điểm (lúc đó hai đường
@@ -3419,6 +3498,15 @@ export default function FishingMapView() {
         <RouteStopsLayers
           stops={stops}
           hidden={route != null && routeMatchesStops(route.stops, stops, point)}
+          /*  `from` = NƠI XUẤT PHÁT ĐANG CHỌN trong thẻ (cảng nhà / chỗ ghim /
+               chỗ đang xem), lùi về vị trí GPS khi bà con chọn "Chỗ tàu tôi"
+               (lựa chọn đó không mang sẵn toạ độ). Phải đúng thứ tự này: thẻ in
+               "↓ 229 hải lý thẳng" theo NƠI XUẤT PHÁT, bản đồ mà đo từ chỗ
+               khác là hai con số đá nhau cho cùng một đoạn.
+               Cả hai đều chưa biết ⇒ null: bỏ nhãn đầu, các nhãn giữa vẫn vẽ.
+               KHÔNG bịa bằng con trỏ — con trỏ không phải chỗ tàu đứng. */
+          from={startCoord ?? tracking.pos}
+          distUnit={prefs.distUnit}
         />
 
         {/* CHẤM TÀU nhấp nháy + pip hướng (mờ + tắt nháy khi mất định vị).
@@ -3655,6 +3743,58 @@ export default function FishingMapView() {
       {/*  MENU NGỮ CẢNH của chạm-giữ — nổi ngay chỗ ngón tay, không phải chạy
            mắt xuống thẻ. Hai việc bà con thực sự muốn làm với MỘT chỗ trên
            biển: ghi nhớ nó, hoặc đi tới nó. Kẹp trong màn để không tràn mép. */}
+      {/*  THẺ THÔNG TIN CHẶNG — trả lời đúng câu "khúc màu này bị gì".
+           Ba con số là DỮ LIỆU (quãng · giờ · cớ); không có câu giải thích
+           cách đọc màu, không có nút nào ngoài đường đóng. */}
+      {legInfo && route?.legs?.[legInfo.idx] && (
+        <div
+          className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
+          style={{
+            left: Math.min(
+              Math.max(8, legInfo.x - 120),
+              window.innerWidth - 248,
+            ),
+            top: Math.min(legInfo.y + 12, window.innerHeight - 180),
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-[1rem] font-bold leading-tight text-navy">
+                {route.stops.length > 1
+                  ? `Chặng ${legInfo.idx + 1} — tới chỗ ${legInfo.idx + 1}`
+                  : "Cả đường đi"}
+              </p>
+              <p className="mt-0.5 text-[0.9375rem] font-semibold text-foreground/75">
+                {fmtDist(route.legs[legInfo.idx].distKm, prefs.distUnit)} ·{" "}
+                {formatHoursVN(route.legs[legInfo.idx].hours)}
+              </p>
+              {/*  CỚ chỉ hiện khi CÓ cớ. Chặng xanh thì nói thẳng là không có
+                   gì đáng nói — im lặng ở đây dễ bị đọc thành "máy chưa kiểm". */}
+              <p
+                className={`mt-1 text-[0.9375rem] font-bold leading-snug ${
+                  route.legs[legInfo.idx].risk === "red"
+                    ? "text-danger"
+                    : route.legs[legInfo.idx].risk === "amber"
+                      ? "text-warn"
+                      : "text-foreground/70"
+                }`}
+              >
+                {route.legs[legInfo.idx].reason ??
+                  "Không có gì đáng lưu ý ở khúc này"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLegInfo(null)}
+              aria-label="Đóng thông tin chặng"
+              className="-m-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-foreground/50 transition active:bg-field"
+            >
+              <CloseIcon className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {pressMenu && (
         <div
           className="pointer-events-auto absolute z-40 w-56 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 shadow-xl"
@@ -3749,6 +3889,7 @@ export default function FishingMapView() {
             onDismissBorder={dismissNavBorder}
             offRoute={navOffRoute}
             onDismissOffRoute={dismissNavOffRoute}
+            nextStop={nextStop}
           />
         )}
         {/* TẢI SẴN DỰ BÁO: tự chạy khi vào trang (không còn nút bấm), báo một
@@ -4006,6 +4147,7 @@ export default function FishingMapView() {
             activeRoute={route}
             stops={stops}
             onStops={setStops}
+            onStartCoord={setStartCoord}
             stopsSaveFailed={stopsSaveFailed}
             places={places}
             storms={storms}

@@ -151,6 +151,27 @@ export const SEA_MASK_COLOR = "#d5e8eb";
 export const ROUTE_LINE_COLOR = "#1a73e8";
 export const ROUTE_CASING_COLOR = "#ffffff";
 
+/*  MÀU THEO CHẶNG (2026-08-29g, chủ dự án: *"điểm nào cần lưu ý thì màu đỏ,
+    cần chú ý vừa thì màu cam, ko có gì thì màu xanh, lúc bắt đầu đi thì cái
+    nào đi qua cho hiện màu xám"*).
+
+    VA CHẠM PHẢI NÓI RA: quy ước ngay trên đầu file dành cam-đỏ ĐỘC QUYỀN cho
+    ranh giới biển ("không được vượt, phạt nặng"). Tô tuyến đỏ/cam là mượn tông
+    đó. Ba thứ giữ cho hai bên KHÔNG lẫn:
+      1. Đỏ tuyến là ĐỎ TƯƠI báo hiệu `#d92d20`, khác hẳn đỏ GẠCH `#b42318`
+         của ranh giới.
+      2. Tuyến luôn có viền trắng `ROUTE_CASING_COLOR` dày bên dưới; ranh giới
+         không có. Nhìn hình là biết đâu là tuyến của mình.
+      3. Ranh giới là một đường DÀI chạy suốt màn theo bờ; chặng tuyến là khúc
+         ngắn nối hai ghim số. Khác cả vị trí lẫn độ dài.
+    Xanh giữ NGUYÊN `ROUTE_LINE_COLOR` — đó đã là màu bà con học được là
+    "đường của tôi", đổi sang xanh lá chỉ để hợp bộ đèn giao thông là bắt học
+    lại một màu mới mà không được gì. */
+export const ROUTE_LEG_RED = "#d92d20";
+export const ROUTE_LEG_AMBER = "#e8710a";
+/** chặng ĐÃ ĐI QUA — xám trầm, vẫn thấy đường nhưng thôi tranh mắt */
+export const ROUTE_LEG_PASSED = "#8a94a0";
+
 /* ---------------------------------------------------------------------------
    NHÃN ĐẢO + TUYẾN HÀNG HẢI — chi tiết "đúng chất hải đồ" (2026-08-07).
    Cả hai là asset TĨNH cùng-origin (service worker giữ sẵn → chạy khi mất

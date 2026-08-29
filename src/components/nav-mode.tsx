@@ -124,6 +124,7 @@ export function NavHud({
   onDismissBorder,
   offRoute,
   onDismissOffRoute,
+  nextStop = null,
 }: {
   progress: NavProgress | null;
   status: NavStatus;
@@ -132,6 +133,11 @@ export function NavHud({
   onDismissBorder?: () => void;
   offRoute?: NavOffRouteNotice | null;
   onDismissOffRoute?: () => void;
+  /*  CHỖ GHÉ KẾ TIẾP — chỉ có khi đường đi qua NHIỀU chỗ (chủ dự án
+      2026-08-29g: *"rồi hiện thời gian và khoảng cách tới điểm tiếp theo"*).
+      Đường đi một chỗ thì dòng "còn X · Y giờ" sẵn có ĐÃ nói đúng thứ này —
+      thêm một dòng nữa là lặp. */
+  nextStop?: { so: number; km: number; hours: number | null } | null;
 }) {
   const prefs = useMapPrefs();
   const lost = status === "lost";
@@ -310,6 +316,27 @@ export function NavHud({
                   ? formatHoursVN(progress.etaHours)
                   : "tàu chưa chạy"}
               </p>
+
+              {/*  CHỖ GHÉ KẾ TIẾP — dòng riêng, ĐẶT TRÊN dòng tổng vì đó mới là
+                   thứ đang phải lái tới. Dòng trên nói tới ĐÍCH CUỐI: đi 3 chỗ
+                   mà chỉ thấy "còn 491 hải lý" thì bà con không biết bao giờ
+                   tới chỗ thả lưới đầu tiên.
+                   Chỉ hiện khi đường đi nhiều chỗ VÀ chưa qua hết (`nextStop`
+                   null ở hai ca đó) — không đẻ dòng thừa cho chuyến một chỗ. */}
+              {nextStop && !progress.arrived && (
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[0.9375rem] font-bold text-t1">
+                  Tới chỗ {nextStop.so}
+                  <span aria-hidden>·</span>
+                  {fmtDist(nextStop.km, prefs.distUnit)}
+                  {nextStop.hours != null && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <ClockIcon className="h-4 w-4 shrink-0" aria-hidden />
+                      {formatHoursVN(nextStop.hours)}
+                    </>
+                  )}
+                </p>
+              )}
 
               {/* LỆCH TUYẾN — chỉ nói khi cha bảo (vượt sang mốc xa hơn), thu
                   được, giọng trung tính. Trước đây dòng này in lại MỖI NHỊP GPS

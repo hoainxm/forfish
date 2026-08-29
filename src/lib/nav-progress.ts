@@ -97,6 +97,11 @@ export interface NavProgress {
   offRoute: boolean;
   /** đã tới gần đích (≤ ARRIVE_KM) */
   arrived: boolean;
+  /*  Quãng ĐÃ CHẠY dọc tuyến (km), đo từ đầu tuyến tới điểm chiếu. Thêm
+      2026-08-29g để bản đồ biết chặng nào đã ở sau lưng mà tô xám, và để thẻ
+      nói được "còn bao xa tới chỗ ghé kế". `projectOntoRoute` vốn đã tính sẵn
+      — trước đây bị vứt đi, nơi gọi phải chiếu lại lần hai. */
+  alongKm: number;
 }
 
 // ── hình học phẳng cục bộ (km) ────────────────────────────────────────────
@@ -256,6 +261,7 @@ export function computeNavProgress(input: NavInput): NavProgress {
       offRouteKm: 0,
       offRoute: false,
       arrived: remainingKm <= ARRIVE_KM,
+      alongKm: 0,
     };
   }
 
@@ -288,6 +294,7 @@ export function computeNavProgress(input: NavInput): NavProgress {
     offRouteKm: proj.offRouteKm,
     offRoute: proj.offRouteKm > OFF_ROUTE_WARN_KM,
     arrived: remainingKm <= ARRIVE_KM,
+    alongKm: proj.alongKm,
   };
 }
 

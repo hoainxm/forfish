@@ -8,11 +8,18 @@
 // "chạy thẳng" thì cả tuyến bỏ so sánh chứ không ghép nửa vời.
 
 import type { RoutePlan } from "@/lib/route-plan";
+import { summarizeLegs, type LegSummary } from "@/lib/route-legs";
 
 export interface MergedRoute {
   plan: RoutePlan;
   /** Chỉ số của từng điểm ghé trong `plan.waypoints` — để vẽ số 1-2-3 */
   stopWpIdx: number[];
+  /*  TỪNG CHẶNG GIỮ LẠI, KHÔNG CHỈ BẢN GỘP (2026-08-29g). Cờ nguy hiểm gộp
+      bằng OR để cả tuyến phải nói khi MỘT chặng có vấn đề — đúng cho câu
+      cảnh báo, nhưng gộp xong thì mất chỗ: tuyến 4 chặng chỉ chặng 3 đè bãi
+      cạn vẫn vẽ một dải đỏ suốt từ bến. Giữ bản tóm tắt từng chặng để bản đồ
+      tô đúng khúc nào đáng lo. */
+  legs: LegSummary[];
 }
 
 /**
@@ -77,5 +84,6 @@ export function mergeLegPlans(plans: RoutePlan[]): MergedRoute | null {
       beyondForecastH: sum((p) => p.beyondForecastH),
     },
     stopWpIdx,
+    legs: summarizeLegs(plans),
   };
 }
