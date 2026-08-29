@@ -111,9 +111,17 @@ export function SnapSheet({
         transition: "height 200ms ease",
       }}
     >
-      {/* nội dung nổi sát mép trên sheet — bottom-full nên tự theo sheet */}
+      {/* nội dung nổi sát mép trên sheet — bottom-full nên tự theo sheet.
+          Nấc `hidden`: pill "Sóng…" dính ĐÁY hàng kéo 56px (items-end) nên chừa
+          ~26px trống phía trên; kéo khối `above` (chip độ phủ + dải ngày) XUỐNG
+          sát pill bằng margin âm để BA KHỐI đứng sát nhau, bản đồ đỡ bị che
+          (user 2026-08-29). Nấc mở giữ nguyên pb-2. */}
       {above && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-full px-2 pb-2">
+        <div
+          className={`pointer-events-none absolute inset-x-0 px-2 ${
+            hidden ? "bottom-full -mb-4 pb-0" : "bottom-full pb-2"
+          }`}
+        >
           {above}
         </div>
       )}

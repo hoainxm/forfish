@@ -907,6 +907,14 @@ Chủ dự án: *"thao tác trên bản đồ, 1 click là chọn điểm (hiể
 
 **OFFLINE**: cú chạm-xoá `return` TRƯỚC `setPoint` nên **không sinh request mạng nào** (không đổi `point` → không kích effect tải dự báo), mất sóng ngoài biển chạm thoải mái. Overlay ẩn khi `pick === "cleared"`: ghim con trỏ, đường tàu→trỏ (`cursor-line`), đường + nhãn tới biên (`border-line`), hàng "Trỏ" của `PlotterReadout` (prop `cursor` nhận `null`).
 
+**N. NẤC `hidden`: KÉO SÁT BA KHỐI CHO ĐỠ CHE BẢN ĐỒ (2026-08-29g)**
+
+Chủ dự án (kèm ảnh): *"kéo sát 3 khối này lại với nhau để bản đồ đỡ bị che"*. Ba khối nổi ở nấc `hidden`: **① chip độ phủ** (`PretripSavedStatus`) · **② dải chip ngày** · **③ pill "Sóng… · Gió cấp…"** (`hiddenLabel`).
+
+Lỗi bố cục: pill nằm trong hàng kéo `min-h-[3.5rem] items-end` (dính ĐÁY để đủ vùng chạm 56px) nên chừa ~26px trống phía trên; khối `above` (① + ②) đặt `bottom-full` TRÊN section → ② cách ③ một khoảng lớn, ba khối rải khắp một dải cao, che nhiều bản đồ dù nền trong suốt.
+
+Sửa: khối `above` ở nấc `hidden` kéo XUỐNG sát pill bằng margin âm (`-mb-4 pb-0`, `snap-sheet.tsx`) — pill vẫn `items-end` giữ vùng chạm 56px, còn ② rơi ngay trên ③. Gap ① ↔ ② hạ `gap-2 → gap-1.5` (`fishing-map-view.tsx`). Nấc mở (peek/half) GIỮ NGUYÊN `pb-2`. *Đo thật (720px)*: gap dải-ngày → pill **~26–45px → 2px**; cụm gọn ở đáy (chip block y=476–607, pill 609–641), bản đồ mở liền một dải từ y=476 (66% màn).
+
 ### 10.8 OFFLINE TRÊN WEB — giữ cache khỏi bị trình duyệt dọn (2026-07-28)
 
 Offline (SW + localStorage) chạy được cả trong TAB trình duyệt, KHÔNG chỉ PWA đã cài — miễn mở khi còn sóng ít nhất 1 lần (SW cài + pretrip tải) trên HTTPS. Nhưng bộ nhớ tab là "best-effort": máy đầy thì trình duyệt tự xoá; riêng **iOS Safari xoá SẠCH storage sau ~7 ngày không dùng nếu CHƯA cài về màn hình chính** — chuyến 5–16 ngày mất dữ liệu giữa chuyến. Hai việc để web offline đáng tin:

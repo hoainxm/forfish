@@ -4247,7 +4247,7 @@ export default function FishingMapView() {
               là chip mất theo. Nay dùng `sheetThu` (peek + hidden) — chip nổi
               ngay trên thanh kéo, chỉ nhường chỗ khi bà con kéo sheet lên đọc. */
           overlayOn || sheetThu ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               {/* Nhãn nhỏ "trong máy đã có dự báo tới đâu" — liếc là biết đã sẵn
                   sàng ra khơi chưa. Có ở nấc peek VÀ hidden (`sheetThu`), chỉ ẩn
                   khi kéo sheet lên đọc chi tiết cho khỏi rối; căn phải, nằm ngay
