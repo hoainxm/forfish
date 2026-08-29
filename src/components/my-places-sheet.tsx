@@ -336,7 +336,7 @@ export function MyPlacesContent({
             className="flex min-h-[3.25rem] w-full items-center gap-2 rounded-full bg-field px-4 text-[0.9375rem] font-bold text-navy active:scale-[0.99]"
           >
             <SearchIcon className="h-5 w-5" />
-            Đặt cảng nhà từ danh mục cảng
+            Chọn cảng nhà
           </button>
         ) : (
           <div>

@@ -1326,7 +1326,7 @@ export function RouteMode({
                   disabled={!coordLat && !coordLon}
                   className="mt-2 min-h-[3.25rem] w-full rounded-xl bg-background text-[1rem] font-bold text-t1 transition active:scale-[0.99] disabled:opacity-50"
                 >
-                  Thêm điểm theo toạ độ vừa gõ
+                  Thêm điểm này
                 </button>
               </div>
 
@@ -1401,8 +1401,8 @@ export function RouteMode({
               {busy
                 ? "Đang tính…"
                 : plan
-                  ? "Tính lại đường"
-                  : "Tính đường đỡ tốn dầu"}
+                  ? "Tính lại"
+                  : "Tính đường"}
             </button>
           </div>
         </>
@@ -1582,7 +1582,7 @@ export function RouteMode({
               disabled={busy}
               className="min-h-[3.5rem] w-full rounded-xl bg-background text-[1rem] font-bold text-navy transition active:scale-[0.99] disabled:opacity-60"
             >
-              {busy ? "Đang tính lại…" : "Tính lại đường"}
+              {busy ? "Đang tính…" : "Tính lại"}
             </button>
           )}
 
