@@ -205,6 +205,18 @@ if [ "$1" = "--self-test" ]; then
   OUTU14=$(git commit -m f7q2 2>&1); RCU14=$?
   if [ "$RCU14" -eq 0 ] && ! echo "$OUTU14" | grep -q "ky tu X tho"; then echo "PASS: 1d-q KHONG bat dau nhan × (U+00D7)"
   else echo "FAIL: 1d-q bat oan dau nhan × (exit=$RCU14): $OUTU14"; RC=1; fi
+  # 1d-r: hex/rgba literal trong chuoi JS (inline style / object mau) -> WARN, khong chan
+  printf 'export const S = () => <div style={{ color: "#ffffff" }}>x</div>\n' > src/ui/Sx.tsx
+  git add src/ui/Sx.tsx
+  OUTU15=$(git commit -m f7r 2>&1); RCU15=$?
+  if [ "$RCU15" -eq 0 ] && echo "$OUTU15" | grep -q "mau hex/rgba literal trong chuoi JS"; then echo "PASS: 1d-r WARN hex literal trong inline style, khong chan"
+  else echo "FAIL: 1d-r sai (exit=$RCU15): $OUTU15"; RC=1; fi
+  # 1d-r: dung token var() trong style -> KHONG bat; MapLibre paint *-color hex -> KHONG bat
+  printf 'export const T = () => <div style={{ color: "var(--navy)" }}>x</div>\nexport const P = { paint: { "fill-color": "#2d8659" } }\n' > src/ui/Tx.tsx
+  git add src/ui/Tx.tsx
+  OUTU16=$(git commit -m f7r2 2>&1); RCU16=$?
+  if [ "$RCU16" -eq 0 ] && ! echo "$OUTU16" | grep -q "mau hex/rgba literal trong chuoi JS"; then echo "PASS: 1d-r KHONG bat var() token + MapLibre paint *-color"
+  else echo "FAIL: 1d-r bat oan var()/paint (exit=$RCU16): $OUTU16"; RC=1; fi
   cd "$OPW" && rm -rf "$TU2" ) > "$PJ/10.log" 2>&1 || echo "FAIL: khoi 10 thoat som" >> "$PJ/10.log" &
   # 1f (NT15): no-marker 2 ve, export trung, page thieu state, lane-vs-spec — moi WARN khong duoc keo FAIL
   ( TB=$(mktemp -d) && cd "$TB" && git init -q . && git config user.email t@t.t && git config user.name t || exit 1
@@ -626,6 +638,17 @@ if [ "$UI_CHECKS" != "off" ]; then
         *.tsx|*.jsx)
           if printf '%s' "$UC" | grep -qF -e '✕' -e '✖'; then
             echo "WARN: ky tu X tho (✕/✖) trong $f — nut dong dung <CloseButton> (src/components/ui/close-button.tsx): glyph icon 24px + cham 56px + goc tren-phai (03-design-system §Nut X dong · Huy · vuot-dong, hook 1d-q)."
+          fi
+          # 1d-r (ForFish 2026-08-29g): mau hex/rgba LITERAL trong CHUOI JS (inline
+          # style={{color:"#.."}} / object mau nhu DOT/FISH_COLOR) — LOT gate 1d vi
+          # 1d chi soi class Tailwind. Ba chỗ đã lọt: my-orders #fff, price-history
+          # rgba, ra-khoi FISH_COLOR/DOT. Đưa về token var(--..) hoặc chuyển màu NỘI
+          # DUNG sang lib (03 §5/§8 cho phép hex trong lib). MapLibre `paint`/`*-color`
+          # được miễn (điều khoản map). WARN, không chặn (tránh FP paint).
+          STYLEHEX=$(printf '%s' "$UC" | grep -nE "[=:][[:space:]]*[\"'](#[0-9a-fA-F]{3,8}\b|(rgba?|hsla?)\()" | grep -vE '\-color"|paint|"(fill|line|circle|text|icon|background|heatmap|raster|hillshade|sky)-' || true)
+          if [ -n "$STYLEHEX" ]; then
+            echo "WARN: mau hex/rgba literal trong chuoi JS o $f (inline style / object mau) — lot gate class Tailwind; dua ve token var(--...) hoac chuyen mau NOI DUNG sang lib (03 §5/§8, hook 1d-r). MapLibre paint duoc mien:"
+            echo "$STYLEHEX" | head -3 | sed 's/^/    /'
           fi
           ;;
       esac
