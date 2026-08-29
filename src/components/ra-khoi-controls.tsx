@@ -59,6 +59,7 @@ import {
   WindIcon,
 } from "@/components/icons";
 import { parseCoordPair } from "@/lib/parse-coord";
+import { CloseButton } from "@/components/ui/close-button";
 
 const FISH_COLOR = "#2d8659"; // xanh lá — cá/ngư trường (design Phương án A)
 
@@ -636,14 +637,7 @@ function PanelHeader({
             </h3>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Đóng"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-field text-navy"
-        >
-          ✕
-        </button>
+        <CloseButton onClose={onClose} />
       </div>
       {/*  ĐÃ BỎ dòng "Chọn dữ liệu nào hiện trên bản đồ · số liệu điểm nằm ở
            sheet dưới" (2026-08-29). Nó là lời DẪN GIẢI, không cấp dữ liệu — và

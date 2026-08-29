@@ -1344,20 +1344,44 @@ export function RouteMode({
             <FuelIcon className="h-6 w-6" />
             Tuỳ chọn
           </button>
-          {/*  TÍNH ĐƯỜNG LÊN HÀNG TRÊN (2026-08-29g). Trước nó nằm trong một
-               DẢI GHIM ĐÁY riêng cao ~66px chỉ để chở một nút + một dòng tóm
-               tắt — trên cửa đọc 252px thì đó là một phần tư chỗ. Nay nút về
-               hàng trên cùng bốn ô kia, dải ghim đáy bỏ hẳn; dòng tóm tắt
-               (`ghimTomTat`) là dữ liệu nên xuống ngay dưới tiêu đề. */}
-          <button
-            type="button"
-            onClick={compute}
-            disabled={busy}
-            className={`${SQ_BTN} -my-1 bg-t1 text-white disabled:opacity-60`}
-          >
-            <RouteIcon className="h-6 w-6" />
-            {busy ? "Đang tính" : plan ? "Tính lại" : "Tính đường"}
-          </button>
+          {/*  MỘT Ô HÀNH ĐỘNG, LUÔN LÀ VIỆC KẾ TIẾP (2026-08-29g, mở rộng
+               2026-08-29h). Ban đầu nút "Tính đường" nằm trong một DẢI GHIM ĐÁY
+               riêng cao ~66px chỉ để chở một nút + một dòng tóm tắt — trên cửa
+               đọc 252px thì đó là một phần tư chỗ. Kéo lên đây xong vẫn còn
+               thanh ghim đáy THỨ HAI của màn kết quả (ba con số + "Dẫn đường"),
+               tức thẻ 252px kẹp giữa hai thanh đứng yên, cửa đọc còn ~104px —
+               chính cái chủ dự án gọi là *"freeze 2 cái trên dưới, nội dung ở
+               giữa kéo khó đọc"*.
+
+               Nay MỘT ô này gánh cả hai việc theo trạng thái: chưa có tuyến (hay
+               đang sửa danh sách) ⇒ **Tính đường**; đã có tuyến và đang đọc kết
+               quả ⇒ **Dẫn đường**. Hai việc không bao giờ là việc kế tiếp cùng
+               lúc, nên chung một ô là ĐỦ, và nhờ vậy thanh ghim đáy bỏ được
+               hẳn. "Tính lại" vẫn còn, nằm inline cuối hàng dặn dò bên dưới —
+               nó là việc SỬA, không phải việc kế tiếp.
+
+               Ô ở HÀNG GHIM nên cuộn sâu tới đâu cũng bấm được — thứ mà thanh
+               đáy vốn dùng để bảo đảm, nay đạt mà không tốn thêm một thanh. */}
+          {plan && result && !editing && onStart ? (
+            <button
+              type="button"
+              onClick={() => onStart(result)}
+              className={`${SQ_BTN} -my-1 bg-t1 text-white`}
+            >
+              <PlayIcon className="h-6 w-6" />
+              Dẫn đường
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={compute}
+              disabled={busy}
+              className={`${SQ_BTN} -my-1 bg-t1 text-white disabled:opacity-60`}
+            >
+              <RouteIcon className="h-6 w-6" />
+              {busy ? "Đang tính" : plan ? "Tính lại" : "Tính đường"}
+            </button>
+          )}
           </div>
         </div>
       {stopsSaveBar}
@@ -1504,11 +1528,11 @@ export function RouteMode({
                 {/*  CÓ TÊN THÌ ĐỌC TÊN: bà con đặt tên "Rạn ông Tư" chính là
                      để khỏi phải dịch toạ độ trong đầu; toạ độ xuống dòng phụ.
                      Không tên thì giữ nguyên như cũ (toạ độ ở dòng chính). */}
-                <span className="block truncate text-[1rem] font-semibold text-navy">
+                <span className="block leading-snug text-[1rem] font-semibold text-navy">
                   {s.name ?? fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
                 </span>
                 {s.name && (
-                  <span className="block truncate text-[0.8125rem] text-foreground/60">
+                  <span className="block leading-snug text-[0.8125rem] text-foreground/60">
                     {fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
                   </span>
                 )}
@@ -1556,7 +1580,7 @@ export function RouteMode({
                      ngay chỗ ngón tay đang thao tác là cách rẻ nhất bỏ thao tác
                      câm mà KHÔNG đẻ ra lối thứ hai: chạm cả hàng vẫn mở bộ chọn
                      như cũ. */}
-                <span className="block truncate text-[0.8125rem] font-bold text-foreground/60">
+                <span className="block leading-snug text-[0.8125rem] font-bold text-foreground/60">
                   {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}
                 </span>
                 {/*  DÒNG RIÊNG, KHÔNG nối vào dòng toạ độ: dòng đó có
@@ -1598,7 +1622,7 @@ export function RouteMode({
                   <span className="block text-[0.8125rem] font-bold text-foreground/60">
                     Chỗ đang xem trên bản đồ
                   </span>
-                  <span className="block truncate text-[1rem] font-bold text-navy">
+                  <span className="block leading-snug text-[1rem] font-bold text-navy">
                     {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}
                   </span>
                   {/* dòng riêng — lý do y như hàng "Thêm điểm dừng" ở trên */}
@@ -1805,6 +1829,70 @@ export function RouteMode({
 
       {plan && result && (
         <>
+          {/*  BA CON SỐ LÀ THỨ ĐẦU TIÊN ĐỌC ĐƯỢC, KHÔNG CÒN GHIM ĐÁY
+               (chủ dự án 2026-08-29h: *"tại sao lại cấu trúc freeze 2 cái trên
+               dưới, nội dung ở giữa kéo khó đọc, cảm giác khó chịu"*).
+
+               Trước: thẻ 252px kẹp GIỮA hai thanh đông cứng — ghim trên ~72px +
+               ghim đáy ~76px ⇒ cửa đọc còn ~104px, tức chưa nổi ba dòng chữ.
+               Chữ bị mép trên và mép dưới cắt ngang cùng lúc, cuộn kiểu gì cũng
+               có một đầu đang cụt. Đó không phải chuyện căn lề, đó là sai cấu
+               trúc: một hộp cao 252px không gánh nổi HAI thanh đứng yên.
+
+               Nay còn ĐÚNG MỘT thanh đông cứng (hàng trên), cửa đọc ~180px.
+               Ba con số thành phần tử ĐẦU của luồng cuộn nên ở `scrollTop=0`
+               vẫn thấy ngay; đọc xong cuộn xuống xem cảnh báo, không phải giành
+               chỗ với thanh nào nữa. Nút "Dẫn đường" KHÔNG cuộn theo — nó dời
+               lên hàng trên (xem chú thích ô hành động ở header), nên cuộn sâu
+               tới đâu vẫn bấm được. */}
+          <div className="rounded-xl bg-background px-3 py-2">
+              <p className="display min-w-0 flex-1 text-[0.9375rem] font-bold leading-snug text-navy">
+                {/*  Bản ĐỌC BẰNG TAI — đánh vần đủ vai của từng con số. Mắt
+                     đọc bản ngắn bên dưới; không nhân đôi cho tai vì bản mắt
+                     đã `aria-hidden`. KHÔNG cắt chữ ở bản này để cho gọn:
+                     nó không chiếm một px nào trên màn. */}
+                <span className="sr-only">
+                  Cả đường đi {fmtDist(plan.distKm, prefs.distUnit)}, tức{" "}
+                  {fmtDist(plan.distKm, prefs.distUnit === "km" ? "nm" : "km")}
+                  . Chạy máy {formatHoursVN(plan.hours)}. Dầu ước tính khoảng{" "}
+                  {Math.round(plan.fuelL)} lít.
+                  {topDanger &&
+                    ` ${topDanger.label}. Sóng tới ${formatNumberVN(plan.maxWaveM)} mét.`}
+                </span>
+                {/*  KHÔNG `truncate`/`line-clamp`: dòng này mang con số sóng —
+                     thứ quyết định đi hay ở — nên thà xuống dòng còn hơn cắt
+                     cụt. Hai dòng vẫn thấp hơn ô nút 3.25rem nên KHÔNG tốn
+                     thêm một px chiều cao nào.
+                     CÓ CẢNH BÁO thì BỎ quy đổi ≈ hải lý (2026-08-29): nhãn
+                     mối nguy dài hơn mảnh "· sóng tới X m" cũ, mà dòng này
+                     không được phép phình sang dòng thứ ba (ghim đáy cao lên
+                     là cửa đọc của thân thẻ hụt đi bấy nhiêu). Quy đổi là
+                     cùng một quãng đường nói bằng đơn vị khác — thứ đầu tiên
+                     đáng nhường chỗ cho mối nguy; bản đọc-bằng-tai vẫn giữ
+                     đủ cả hai. */}
+                <span aria-hidden>
+                  {fmtDist(plan.distKm, prefs.distUnit)}
+                  {!topDanger && (
+                    <>
+                      {" ≈ "}
+                      {fmtDist(
+                        plan.distKm,
+                        prefs.distUnit === "km" ? "nm" : "km",
+                      )}
+                    </>
+                  )}{" "}
+                  · {formatHoursVN(plan.hours)} · ~{Math.round(plan.fuelL)} lít
+                  {topDanger && (
+                    <span className={anyDanger ? "text-danger" : "text-warn"}>
+                      {" "}
+                      · {topDanger.label} · sóng {formatNumberVN(plan.maxWaveM)}{" "}
+                      m
+                    </span>
+                  )}
+                </span>
+              </p>
+          </div>
+
           {/* ── GOM CẢNH BÁO THÀNH TỐI ĐA 3 KHỐI (2026-08-18, audit M7) ─────
               Trước đây tới ~10 thẻ nối đuôi trước nút dẫn đường; nay:
               (1) NGUY HIỂM trên tuyến — sóng dữ, sóng đuôi, cạn/bờ (chỉ khi có)
@@ -1963,97 +2051,6 @@ export function RouteMode({
             </div>
           </div>
 
-          {/* DẪN ĐƯỜNG LIVE: bám tuyến, theo dõi GPS. Chỉ hiện khi cha nối
-              onStart (màn bản đồ), tuyến đã tính xong (result) và bà con ĐANG
-              ĐỌC kết quả — đang sửa danh sách mà bấm là chạy theo tuyến TRƯỚC
-              khi sửa. GHIM ĐÁY — đo thật: nút này từng nằm dưới mép thẻ. */}
-          {onStart && result && !editing && (
-            <div className="sticky bottom-0 z-10 -mx-3 -mb-3 bg-card">
-              {/*  BA CON SỐ GHIM THEO NÚT — thứ bà con chờ 9-10 giây để đọc.
-                   Đo thật: khung ĐỌC ĐƯỢC của thẻ (38dvh trừ hai thanh ghim)
-                   chỉ còn hơn trăm px, mà thân thẻ xếp đoạn "đi từ → tới" rồi
-                   khối đỏ nguy hiểm rồi mới tới lưới 3 ô ⇒ lưới nằm NGOÀI khung
-                   nhìn ngay sau cú cuộn-về-đầu. Không thể vừa hiện trọn khối đỏ
-                   vừa hiện lưới trong một ô cửa đó, nên GHIM một dòng số thay
-                   vì đảo thứ tự (đảo chỗ chỉ đổi nạn nhân — lần đó nạn nhân là
-                   cảnh báo an toàn).
-                   Đây là NHÃN CỦA NÚT, không phải khối cảnh báo thứ tư: không
-                   bo tròn, không bấm được, và TUYỆT ĐỐI không role="status" —
-                   mỗi lần tính lại là trình đọc màn hình đọc oang oang.
-                   TỪ 2026-08-29 nó là BẢN DUY NHẤT của ba con số (lưới 3 ô
-                   trong thân thẻ đã bỏ): quy đổi ≈km/hải lý dời vào đây, còn
-                   nhãn vai của từng số ("giờ chạy máy", "dầu ước tính") bù bằng
-                   dòng `sr-only` ngay dưới — bỏ lưới mà không bù nhãn thì tai
-                   nghe chỉ còn một chuỗi số không biết là số gì.
-                   Khi `editing` bật thì khối này không tồn tại (thanh ghim lúc
-                   đó là của biểu mẫu, nút "Tính lại đường") — CỐ Ý: đang sửa
-                   danh sách thì ba con số là của tuyến TRƯỚC khi sửa. */}
-              {/*  MỘT HÀNG: số liệu bên trái + nút NHỎ bên phải (chủ dự án
-                   2026-08-29: "thiết kế cái nút dẫn đường nhỏ lại, thành 1 ô nhỏ
-                   thôi đỡ chiếm chỗ"). Trước đây chân thẻ ba tầng — dòng số ·
-                   dải cảnh báo · nút full-width — ăn hết khung đọc, chữ trong
-                   thân bị kẹp giữa hai thanh ghim, cuộn cũng không đọc nổi.
-                   Dải cảnh báo riêng đã bỏ: nó là CHỈ DẪN trùng ("đọc kỹ bên
-                   trên"), không cấp dữ liệu. Thay bằng CON SỐ thật ghép vào
-                   chính dòng số liệu — sóng cao bao nhiêu mới là thứ quyết định
-                   đi hay không, và nó không cuộn mất. */}
-              <div className="flex items-center gap-2 px-3 py-2">
-                <p className="display min-w-0 flex-1 text-[0.9375rem] font-bold leading-snug text-navy">
-                  {/*  Bản ĐỌC BẰNG TAI — đánh vần đủ vai của từng con số. Mắt
-                       đọc bản ngắn bên dưới; không nhân đôi cho tai vì bản mắt
-                       đã `aria-hidden`. KHÔNG cắt chữ ở bản này để cho gọn:
-                       nó không chiếm một px nào trên màn. */}
-                  <span className="sr-only">
-                    Cả đường đi {fmtDist(plan.distKm, prefs.distUnit)}, tức{" "}
-                    {fmtDist(plan.distKm, prefs.distUnit === "km" ? "nm" : "km")}
-                    . Chạy máy {formatHoursVN(plan.hours)}. Dầu ước tính khoảng{" "}
-                    {Math.round(plan.fuelL)} lít.
-                    {topDanger &&
-                      ` ${topDanger.label}. Sóng tới ${formatNumberVN(plan.maxWaveM)} mét.`}
-                  </span>
-                  {/*  KHÔNG `truncate`/`line-clamp`: dòng này mang con số sóng —
-                       thứ quyết định đi hay ở — nên thà xuống dòng còn hơn cắt
-                       cụt. Hai dòng vẫn thấp hơn ô nút 3.25rem nên KHÔNG tốn
-                       thêm một px chiều cao nào.
-                       CÓ CẢNH BÁO thì BỎ quy đổi ≈ hải lý (2026-08-29): nhãn
-                       mối nguy dài hơn mảnh "· sóng tới X m" cũ, mà dòng này
-                       không được phép phình sang dòng thứ ba (ghim đáy cao lên
-                       là cửa đọc của thân thẻ hụt đi bấy nhiêu). Quy đổi là
-                       cùng một quãng đường nói bằng đơn vị khác — thứ đầu tiên
-                       đáng nhường chỗ cho mối nguy; bản đọc-bằng-tai vẫn giữ
-                       đủ cả hai. */}
-                  <span aria-hidden>
-                    {fmtDist(plan.distKm, prefs.distUnit)}
-                    {!topDanger && (
-                      <>
-                        {" ≈ "}
-                        {fmtDist(
-                          plan.distKm,
-                          prefs.distUnit === "km" ? "nm" : "km",
-                        )}
-                      </>
-                    )}{" "}
-                    · {formatHoursVN(plan.hours)} · ~{Math.round(plan.fuelL)} lít
-                    {topDanger && (
-                      <span className={anyDanger ? "text-danger" : "text-warn"}>
-                        {" "}
-                        · {topDanger.label} · sóng {formatNumberVN(plan.maxWaveM)}{" "}
-                        m
-                      </span>
-                    )}
-                  </span>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => onStart(result)}
-                  className={`${SQ_BTN} bg-t1 text-white`}
-                >
-                  <PlayIcon className="h-6 w-6" />
-                  Dẫn đường
-                </button>
-              </div>
-            </div>
-          )}
         </>
       )}
       </div>

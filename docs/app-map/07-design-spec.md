@@ -828,6 +828,18 @@ Hàng trên gánh ba ô: **[Thoát | Quay lại] · [Tuỳ chọn] · [Tính đ�
 
 *Đo thật 375×812*: thẻ **252px → 200px** lúc gốc (bản đồ 75%), 252px khi xổ bộ chọn (chạm trần cuộn); ba ô hàng trên đều 64×56 ở x=20 / 219 / 291, cột nút phải thẳng với các nút "Bỏ" bên dưới.
 
+**L7. MỘT THANH ĐÔNG CỨNG, KHÔNG PHẢI HAI (2026-08-29h)** — chủ dự án: *"tại sao lại cấu trúc freeze 2 cái trên dưới, nội dung ở giữa kéo khó đọc, cảm giác khó chịu"* (kèm ảnh: chữ bị mép trên và mép dưới cắt ngang CÙNG LÚC).
+
+L6 đã kéo "Tính đường" lên hàng trên và bỏ dải ghim đáy **của biểu mẫu**, nhưng màn KẾT QUẢ còn một dải ghim đáy THỨ HAI (ba con số + "Dẫn đường"). Hộp 252px kẹp giữa ghim trên ~68px và ghim đáy ~76px ⇒ **cửa đọc còn ~104px, chưa nổi ba dòng chữ**. Đây không phải chuyện căn lề: một hộp cao 252px không gánh nổi HAI thanh đứng yên.
+
+**Luật rút ra — panel có trần chiều cao chỉ được MỘT thanh đông cứng.** Muốn ghim thêm thứ gì thì phải bỏ một thứ đang ghim, không cộng dồn.
+
+Cách làm: ô hành động thứ ba của hàng trên gánh **cả hai việc theo trạng thái** — chưa có tuyến / đang sửa danh sách ⇒ **Tính đường**; đã có tuyến và đang đọc kết quả ⇒ **Dẫn đường**. Hai việc không bao giờ là "việc kế tiếp" cùng lúc, nên chung một ô là đủ. Nhờ vậy dải ghim đáy bỏ được hẳn, mà nút chính vẫn nằm ở hàng ghim nên cuộn sâu tới đâu cũng bấm được — đúng thứ dải đáy vốn dùng để bảo đảm, nay đạt mà không tốn thêm một thanh. "Tính lại" vẫn còn, **inline cuối hàng dặn dò** trong luồng cuộn: nó là việc SỬA, không phải việc kế tiếp.
+
+Ba con số thành **phần tử ĐẦU của luồng cuộn** (không còn ghim): ở `scrollTop=0` vẫn thấy ngay, đọc xong cuộn xuống xem cảnh báo mà không giành chỗ với thanh nào. Thứ tự mới = tóm tắt trước, chi tiết sau — cùng khuôn Google Maps, và khối cảnh báo nằm ngay dưới nên KHÔNG bị giấu (dòng số cũng tự mang nhãn mối nguy đỏ).
+
+*Đo thật 375×812, tuyến 2 chỗ đã tính*: thanh đông cứng **2 → 1**; cửa đọc **~104px → 184px** (+77%); thẻ vẫn 252px, bản đồ vẫn 69%; hàng trên = Thoát · "Đường đi qua 2 chỗ" · Tuỳ chọn · Dẫn đường.
+
 **CHƯA KIỂM ĐƯỢC TRÊN MÁY**: đường chạm-một-khúc-màu (L5). Ô Browser của phiên làm việc không hiển thị nên không chụp/chạm thật được, mà MapLibre bỏ qua sự kiện chuột tổng hợp — cần một lượt chạm tay thật để xác nhận.
 
 **K. CHẠM GIỮ TRÊN BẢN ĐỒ → MENU NGỮ CẢNH (2026-08-29)**

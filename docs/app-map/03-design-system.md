@@ -198,6 +198,8 @@ Ba câu hỏi trước khi thêm một ô vào khung:
 
 **MÀU TUYẾN THEO CHẶNG (2026-08-29g)** — `ocean-map.ts`: xanh `ROUTE_LINE_COLOR #1a73e8` = không có gì · cam `ROUTE_LEG_AMBER #e8710a` = chú ý vừa · đỏ `ROUTE_LEG_RED #d92d20` = phải lưu ý · xám `ROUTE_LEG_PASSED #8a94a0` = đã đi qua. Bề dày đi kèm màu (5 / 4,5 / 3,5 / 2,5px) vì nắng chói làm màu bạc nhanh — chỉ dựa vào màu là thua. **Không phạm quy ước cam-đỏ độc quyền của ranh giới**: đỏ tuyến là đỏ TƯƠI khác đỏ GẠCH `#b42318`, tuyến luôn có viền trắng dày, và ranh giới là đường dài chạy suốt màn còn chặng là khúc ngắn nối hai ghim số. Lý do đầy đủ ở 07 §10.7 L2.
 
+**MỘT THANH ĐÔNG CỨNG, KHÔNG PHẢI HAI (2026-08-29h)** — panel CÓ TRẦN chiều cao chỉ được ghim ĐÚNG MỘT thanh (thường là hàng trên: danh tính + nút hành động). Muốn ghim thêm thứ gì thì phải BỎ một thứ đang ghim, không cộng dồn. Án lệ: thẻ dẫn đường 252px từng ghim cả hàng trên (~68px) lẫn dải đáy (~76px) ⇒ cửa đọc còn ~104px, chữ bị mép trên và mép dưới cắt ngang cùng lúc, cuộn kiểu gì cũng có một đầu đang cụt (chủ dự án: *"freeze 2 cái trên dưới, nội dung ở giữa kéo khó đọc"*). Cách gỡ: cho MỘT ô hành động gánh hai việc theo trạng thái, khi hai việc đó không bao giờ là "việc kế tiếp" cùng lúc. Đo lại: cửa đọc 104 → 184px, chiều cao thẻ không đổi. Chi tiết: 07 §10.7 L7.
+
 **Trần khung nổi**: mọi panel/popup/bottom-sheet **trên màn bản đồ** giữ ≤ ~40% màn ở trạng thái mặc định. Đo trên bản đồ: Lớp 36% · Đến điểm 31% · Điểm đã lưu 36% · sheet Tài khoản 33%.
 
 **NGOẠI LỆ ĐÃ CHỐT 2026-08-29f — FORM Ở MÀN THƯỜNG KHÔNG BỊ TRẦN 40%.** Sau khi cắt ô theo C1, đo lại 375×812 vẫn vượt: `DocumentForm` **69%** · `BuyerForm` **67%** · `PriceHistorySheet` **73%** (sheet Tài khoản 33% là ca duy nhất đạt). **Chốt: GIỮ NGUYÊN, không ép xuống 40%.**

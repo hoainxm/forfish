@@ -220,6 +220,7 @@ import { skillForLead } from "@/lib/forecast-quality";
 import { FORECAST_SKILL } from "@/lib/forecast-skill";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
+import { CloseButton } from "@/components/ui/close-button";
 import { RaKhoiControls } from "@/components/ra-khoi-controls";
 import { StormBanner } from "@/components/storm-banner";
 import {
@@ -237,7 +238,6 @@ import {
   PauseIcon,
   PinIcon,
   PlayIcon,
-  CloseIcon,
   RouteIcon,
   StarIcon,
   TargetIcon,
@@ -3783,14 +3783,7 @@ export default function FishingMapView() {
                   "Không có gì đáng lưu ý ở khúc này"}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setLegInfo(null)}
-              aria-label="Đóng thông tin chặng"
-              className="-m-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-foreground/50 transition active:bg-field"
-            >
-              <CloseIcon className="h-6 w-6" />
-            </button>
+            <CloseButton onClose={() => setLegInfo(null)} label="Đóng thông tin chặng" />
           </div>
         </div>
       )}

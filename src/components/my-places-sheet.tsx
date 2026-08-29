@@ -283,13 +283,17 @@ export function MyPlacesContent({
                   Chưa đọc được toạ độ. Gõ như: {eg.lat} / {eg.lon}.
                 </p>
               )}
-              <button
-                type="button"
-                onClick={() => setEditCoord(false)}
-                className="min-h-[3rem] w-full rounded-xl bg-field text-[0.9375rem] font-bold text-navy active:scale-[0.99]"
-              >
-                Xong
-              </button>
+              {/*  "Xong" = nút CHỮ inline nhỏ căn phải (thu ô nhập về dòng đọc),
+                   KHÔNG phải dải w-full đứng lẻ — cùng khuôn "Sửa" (03 §Nút A4b). */}
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setEditCoord(false)}
+                  className="rounded-lg px-3 py-1.5 text-[0.9375rem] font-bold text-t1 active:scale-95"
+                >
+                  Xong
+                </button>
+              </div>
             </div>
           )}
 
