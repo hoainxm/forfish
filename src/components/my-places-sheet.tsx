@@ -524,36 +524,36 @@ export function MyPlacesContent({
       {!addOpen && (
       <div className="mt-4">
         {!portOpen ? (
-          /*  KHUÔN HÀNG CHUẨN [thân bg-background flex-1] + [ô nút w-16]
-               (03-design-system §Nút hành động, 2026-08-29). Trước đây đây là
-               một dải nút chiếm trọn bề ngang panel — đúng thứ luật cấm. Vế
-               trái nói CẤP DỮ LIỆU (cảng nhà đang đặt là gì), vế phải là ô
-               vuông mở ô tìm. Không bóp cả nút thành ô vuông trơ: nó là nút MỞ
-               Ô TÌM, cần nhãn nói nó làm gì. */
-          <div className="flex items-center gap-2">
-            <p className="flex min-h-[3.25rem] min-w-0 flex-1 items-center gap-2 rounded-xl bg-background px-3 text-[0.9375rem] font-bold text-navy">
-              <AnchorIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
-              <span className="min-w-0 flex-1 truncate">
-                {/*  Tên cảng thường ĐÃ có chữ "Cảng" (vd "Cảng nhà Quy Nhơn",
-                     "Cảng Sa Kỳ") — thêm tiền tố nữa thành "Cảng nhà: Cảng nhà
-                     Quy Nhơn", đọc vấp. Có chữ rồi thì để nguyên tên. */}
-                {home
-                  ? /^cảng/i.test(home.name)
-                    ? home.name
-                    : `Cảng nhà: ${home.name}`
-                  : "Cảng nhà: chưa đặt"}
-              </span>
-            </p>
-            <button
-              type="button"
-              onClick={() => setPortOpen(true)}
-              aria-label="Chọn cảng nhà"
-              className={`${SQ_BTN} bg-field text-navy`}
-            >
-              <SearchIcon className="h-6 w-6" />
-              Chọn
-            </button>
-          </div>
+          /*  MỘT NÚT INLINE (user 2026-08-29: "gom vào 1 cái, click vô là chọn
+               cảng hoặc gõ tên"). Cả hàng LÀ nút: neo + nhãn cảng nhà + kính lúp
+               gợi ý chạm-để-tìm. Bỏ nút "Chọn" rời — chạm bất kỳ đâu trên hàng
+               là mở ô gõ tên cảng luôn. */
+          <button
+            type="button"
+            onClick={() => setPortOpen(true)}
+            aria-label={
+              home
+                ? `Cảng nhà ${home.name} — chạm để đổi`
+                : "Đặt cảng nhà — chạm để gõ tên hoặc chọn cảng"
+            }
+            className="flex min-h-[3.25rem] w-full items-center gap-2 rounded-xl bg-background px-3 text-left text-[0.9375rem] font-bold text-navy active:scale-[0.99]"
+          >
+            <AnchorIcon className="h-5 w-5 shrink-0 text-t1" aria-hidden />
+            <span className="min-w-0 flex-1 truncate">
+              {/*  Tên cảng thường ĐÃ có chữ "Cảng" (vd "Cảng nhà Quy Nhơn",
+                   "Cảng Sa Kỳ") — thêm tiền tố nữa thành "Cảng nhà: Cảng nhà
+                   Quy Nhơn", đọc vấp. Có chữ rồi thì để nguyên tên. */}
+              {home
+                ? /^cảng/i.test(home.name)
+                  ? home.name
+                  : `Cảng nhà: ${home.name}`
+                : "Cảng nhà: chưa đặt"}
+            </span>
+            <SearchIcon
+              className="h-5 w-5 shrink-0 text-foreground/55"
+              aria-hidden
+            />
+          </button>
         ) : (
           <div>
             <div className="flex items-center gap-2 rounded-full bg-field px-3">
