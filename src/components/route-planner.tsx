@@ -302,10 +302,22 @@ export function RouteMapLayers({
           <AnchorIcon className="h-5 w-5" />
         </span>
       </Marker>
-      {/* SỐ CHỖ GHÉ — chỉ vẽ khi đường đi có từ 2 chỗ trở lên; đi một chỗ thì
-          con số "1" là thừa (ghim con trỏ đã nói rồi). */}
-      {route.stops.length > 1 &&
-        route.stops.map((s, i) => (
+      {/*  ĐIỂM CUỐI LUÔN CÓ GHIM, VÀ GHIM KHÁC HẲN CHỖ GHÉ GIỮA ĐƯỜNG
+          (chủ dự án 2026-08-29h: *"ko thấy điểm cuối"*).
+
+          LỖI CŨ: chỉ vẽ ghim khi đường đi có ≥2 chỗ, với lý do "đi một chỗ thì
+          con số 1 là thừa — ghim con trỏ đã nói rồi". Sai ở chỗ **ghim con trỏ
+          đi chỗ khác được**: chạm bản đồ một cái là con trỏ nhảy sang nơi
+          khác, còn tuyến vẫn nằm nguyên ⇒ vạch chạy ra giữa biển rồi HẾT, không
+          có gì đánh dấu nó kết thúc ở đâu. Giữa biển thì đó là câu hỏi quan
+          trọng nhất của cả màn.
+
+          Nay: chỗ ghé GIỮA đường mang số (1, 2, 3…), ĐIỂM CUỐI mang ghim đích
+          nền đặc + icon — nhìn một cái biết đâu là nơi mình định tới, không
+          phải đếm số rồi so với danh sách trong thẻ. */}
+      {route.stops.map((s, i) => {
+        const cuoi = i === route.stops.length - 1;
+        return (
           <Marker
             key={`${s.lat},${s.lon}`}
             longitude={s.lon}
@@ -313,18 +325,32 @@ export function RouteMapLayers({
             anchor="center"
           >
             <span className="flex h-14 w-14 items-center justify-center">
-              <span
-                className="display flex h-10 w-10 items-center justify-center rounded-full bg-white text-[1rem] font-bold shadow-md"
-                style={{
-                  color: ROUTE_LINE_COLOR,
-                  boxShadow: `0 0 0 0.1875rem ${ROUTE_LINE_COLOR}`,
-                }}
-              >
-                {i + 1}
-              </span>
+              {cuoi ? (
+                <span
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-white shadow-md"
+                  style={{
+                    background: ROUTE_LINE_COLOR,
+                    boxShadow: `0 0 0 0.1875rem ${ROUTE_CASING_COLOR}`,
+                  }}
+                  aria-label="Điểm đến"
+                >
+                  <PinIcon className="h-6 w-6" />
+                </span>
+              ) : (
+                <span
+                  className="display flex h-10 w-10 items-center justify-center rounded-full bg-white text-[1rem] font-bold shadow-md"
+                  style={{
+                    color: ROUTE_LINE_COLOR,
+                    boxShadow: `0 0 0 0.1875rem ${ROUTE_LINE_COLOR}`,
+                  }}
+                >
+                  {i + 1}
+                </span>
+              )}
             </span>
           </Marker>
-        ))}
+        );
+      })}
     </>
   );
 }
@@ -1212,7 +1238,7 @@ export function RouteMode({
             // cảnh báo tuyến-cũ (~120px) — lúc đó hàng vẫn có thể nằm dưới
             // ghim. Nâng cấp khi chiều cao hai thanh ghim được đo/đưa vào
             // CSS var thay vì hằng số. */
-        className="pointer-events-auto max-h-[31dvh] scroll-pb-[5.5rem] scroll-pt-[4.5rem] space-y-2 overflow-y-auto surface p-3"
+        className="pointer-events-auto max-h-[31dvh] scroll-pb-[5.5rem] scroll-pt-[4.5rem] space-y-1 overflow-y-auto surface p-3"
       >
         {/*  HÀNG TRÊN GHIM LẠI (sticky): thẻ luôn tràn khung 38dvh nên cuộn là
              chuyện thường trực — không ghim thì nút X trôi mất khỏi tầm mắt.
@@ -1430,7 +1456,7 @@ export function RouteMode({
              hẳn, phải hỏi lại. */}
         {panel === "idle" && coGiDeXoa && (
           <div className="flex items-center gap-2">
-            <p className="min-w-0 flex-1 rounded-xl bg-background px-3 py-2 text-[0.9375rem] font-semibold leading-snug text-foreground/70">
+            <p className="flex min-h-[3.5rem] min-w-0 flex-1 items-center rounded-xl bg-background px-3 text-[0.9375rem] font-semibold leading-snug text-foreground/70">
               {stops.length > 0 ? ghimTomTat : "Đang có một tuyến đã tính"}
             </p>
             <button
@@ -1501,7 +1527,7 @@ export function RouteMode({
                việc khác; lối lưu nằm ở màn kết quả, đúng lúc có cái để lưu. */}
           {compactRows && savedRoutes.length > 0 && (
             <div className="flex items-center gap-2">
-              <p className="min-w-0 flex-1 rounded-xl bg-background px-3 py-2 text-[0.9375rem] font-semibold leading-snug text-navy">
+              <p className="flex min-h-[3.5rem] min-w-0 flex-1 items-center rounded-xl bg-background px-3 text-[0.9375rem] font-semibold leading-snug text-navy">
                 Đường đã lưu · {savedRoutes.length} đường
               </p>
               <button
@@ -1645,11 +1671,12 @@ export function RouteMode({
                 <span className="block leading-snug text-[1rem] font-semibold text-navy">
                   {s.name ?? fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
                 </span>
-                {s.name && (
-                  <span className="block leading-snug text-[0.8125rem] text-foreground/60">
-                    {fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
-                  </span>
-                )}
+                {/*  CÓ TÊN RỒI THÌ THÔI IN TOẠ ĐỘ (2026-08-29h). Dòng thứ ba
+                     đẩy hàng lên 73px trong khi nút cạnh nó 56px — mỗi hàng
+                     một chiều cao khác nhau, nhìn ra đúng cái chủ dự án chê.
+                     Mà bà con đặt tên "Rạn ông Tư" CHÍNH LÀ để khỏi đọc dãy
+                     số; toạ độ vẫn xem được bằng cách chạm ghim trên bản đồ.
+                     Chỗ KHÔNG có tên vẫn in toạ độ ở dòng chính. */}
               </span>
             </div>
             <button
@@ -2081,7 +2108,7 @@ export function RouteMode({
                lên hàng trên (xem chú thích ô hành động ở header), nên cuộn sâu
                tới đâu vẫn bấm được. */}
           <div className="flex items-center gap-2">
-            <div className="min-w-0 flex-1 rounded-xl bg-background px-3 py-2">
+            <div className="flex min-h-[3.5rem] min-w-0 flex-1 items-center rounded-xl bg-background px-3">
               <p className="display min-w-0 flex-1 text-[0.9375rem] font-bold leading-snug text-navy">
                 {/*  Bản ĐỌC BẰNG TAI — đánh vần đủ vai của từng con số. Mắt
                      đọc bản ngắn bên dưới; không nhân đôi cho tai vì bản mắt
@@ -2132,6 +2159,19 @@ export function RouteMode({
                  cuối hàng ba con số, không ăn riêng hàng nào. Chưa tính xong
                  thì không có nút này: lưu một đường chưa biết đi được hay không
                  là cất sẵn một cái bẫy. */}
+            {/*  HAI Ô TRÊN CÙNG MỘT HÀNG — cả hai đều là việc làm LÊN CHÍNH
+                 ba con số này (tính lại chúng / cất chúng lại). Đặt đúng chỗ
+                 quan trọng hơn giữ mỗi hàng một ô: luật cột nút là để mắt tìm
+                 nút cho nhanh, không phải để đẩy nút xuống chỗ không ai thấy. */}
+            <button
+              type="button"
+              onClick={compute}
+              disabled={busy}
+              className={`${SQ_BTN} bg-background text-navy disabled:opacity-60`}
+            >
+              <RouteIcon className="h-6 w-6" />
+              {busy ? "Đang tính" : "Tính lại"}
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -2287,27 +2327,14 @@ export function RouteMode({
                 {beaufort(plan.maxWindKmh)}. Lưới độ sâu ô ~5,5 km — dò hải đồ,
                 nghe đài duyên hải trước khi chạy.
               </p>
-              {/*  HAI NÚT "TÍNH LẠI" CÙNG LÚC — LỖI ĐÃ TỪNG LỌT RA BẢN CHẠY
-                   (chủ dự án 2026-08-29h: *"sao lại có 2 nút tính lại?"*).
-                   Nguyên do: kéo nút tính lên hàng trên mà KHÔNG gỡ nút cũ ở
-                   đây. Sau đó nó hết trùng nhờ hàng trên đổi sang "Dẫn đường"
-                   khi có tuyến — tức hết trùng do MAY, không do thiết kế.
-                   Nay điều kiện viết đúng là PHẦN BÙ của điều kiện hàng trên:
-                   hàng trên hiện "Dẫn đường" khi `plan && result && !editing &&
-                   onStart`, nên ô này chỉ hiện đúng lúc đó. Thiếu `onStart`
-                   (thẻ dùng ở chỗ khác) thì hàng trên là "Tính lại" và ô này
-                   biến mất — không thể trùng nữa dù ai đổi gì. */}
-              {!editing && onStart ? (
-                <button
-                  type="button"
-                  onClick={compute}
-                  disabled={busy}
-                  className={`${SQ_BTN} bg-background text-navy disabled:opacity-60`}
-                >
-                  <RouteIcon className="h-6 w-6" />
-                  {busy ? "Đang tính" : "Tính lại"}
-                </button>
-              ) : null}
+              {/*  KHÔNG còn nút ở hàng này (2026-08-29h). Đo thật 375×812:
+                   "Tính lại" đứng đây rơi xuống y=1082 trong khi thẻ kết thúc
+                   ở 735 — dưới mép 347px, sau trọn khối cảnh báo. Chủ dự án:
+                   *"lúc tính điểm tới điểm tự dưng ẩn cái nút ở cuối"*: trước
+                   khi tính nút nằm ở hàng trên, tính xong nó nhảy xuống đáy
+                   một vùng cuộn dài. Nay nó về hàng ba con số — thứ nó tính ra
+                   — và luôn nằm trong tầm nhìn. Hàng này kéo hết bề ngang
+                   theo luật B1 đã sửa. */}
             </div>
           </div>
 
