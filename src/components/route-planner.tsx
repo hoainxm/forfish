@@ -1746,9 +1746,40 @@ export function RouteMode({
                   onStops?.(addStop(stops, dest.lat, dest.lon));
                   setPanel("idle");
                 }}
-                className="flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl bg-card px-3 text-left transition active:scale-[0.99] disabled:opacity-50"
+                /*  HÀNG "CHỖ ĐANG XEM" PHẢI KHÁC HẲN CÁC HÀNG DƯỚI (chủ dự án
+                    2026-08-29h: *"chỗ cái điểm này cần màu hoặc hiệu ứng cho
+                    khác với cái phía trước để biết là click là chọn cái vị trí
+                    đang chọn"*).
+
+                    Vì sao: các hàng dưới là chỗ TĨNH bà con đã lưu — chọn cái
+                    nào cũng ra đúng cái đó. Hàng này là chỗ SỐNG, đổi theo con
+                    trỏ trên bản đồ; bấm nó là lấy đúng toạ độ đang hiện. Hai
+                    loại khác nhau về bản chất mà cùng một nền trắng thì không
+                    có gì nói ra điều đó.
+
+                    Ba tín hiệu chồng nhau, KHÔNG chỉ dựa vào màu (nắng chói
+                    trên biển làm màu bạc, và có bà con mù màu): nền `t1-bg` +
+                    viền `ring-t1` + một chấm NHẤP NHÁY cạnh ghim — chấm nháy là
+                    thứ duy nhất trên thẻ đang động, mắt bắt trước cả khi đọc
+                    chữ. Cùng khuôn tín hiệu "đang bật" của nút rail (chấm nháy
+                    trắng), không đẻ quy ước mới. */
+                className="relative flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl bg-t1-bg px-3 text-left ring-2 ring-t1 transition active:scale-[0.99] disabled:opacity-50"
               >
-                <PinIcon className="h-6 w-6 shrink-0 text-t1" aria-hidden />
+                <span className="relative flex shrink-0">
+                  <PinIcon className="h-6 w-6 text-t1" aria-hidden />
+                  {/*  Chấm nháy TẮT khi chỗ này đã nằm trong đường đi
+                       (`currentStop`): lúc đó nút đã vô hiệu, để nó nháy tiếp
+                       là mời một cú bấm không làm gì. */}
+                  {currentStop == null && (
+                    <span
+                      className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5"
+                      aria-hidden
+                    >
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-t1/70" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-t1" />
+                    </span>
+                  )}
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[0.8125rem] font-bold text-foreground/60">
                     Chỗ đang xem trên bản đồ
