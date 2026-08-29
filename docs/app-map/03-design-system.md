@@ -7,7 +7,6 @@
 covers: src/app/globals.css
 last_verified: 2026-08-25
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-08-29) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-30 - safe-area pb env(sab), edge-to-edge mobile native, motion điềm đạm khớp globals.css hiện tại (4 commit UI tween đã review) -->
 <!-- re-verified: 2026-08-18 — ĐỐI CHIẾU `globals.css` (bản 2026-08-14 b0bd111) với doc: (1) 51 biến `--*` trong `:root`/`@theme` — bảng màu theo trục có 4 hex LỆCH từ đợt chỉnh AA (t1 #18648b · t2 #2e7d4f · t3 #8f6010 · t4 #7a4d9e) → sửa bảng theo mã, ghi kèm `--tN-bg` + bộ trạng thái ok/warn/danger (+ `-bg`); bổ sung tên token nền tảng `--navy/--sea/--trim/--sun/--foreground/--card/--line` mà doc chỉ gọi bằng tên chữ. (2) `.surface` · `.glass` · `.range-big` · `.range-dual` · `.display` · `.anim-*` · `.dock-frame`/`.bottom-dock`/`--app-vh`/`--dock-*` đều còn trong mã, khớp mục 2/3/6. (3) giá trị oklch ở mục "Token chờ lift" là GIÁ TRỊ MÀU chưa lift, không phải symbol mã — bỏ backtick để doc-health khỏi báo dead-symbol oan; nội dung không đổi. (4) Mục 6 "Lớp Dự báo cá" còn tả heatmap theo loài + hàm `fishHeatColor` (đã xoá) → đính chính theo mã hiện tại (lưới ô 3 mức `FISH_LEVEL_BANDS`, từ 2026-07-27 — 07 đã ghi, 03 chưa). (5) Gói C 2026-08-18: thêm bullet `neutral` cho `CrewIssueLevel`/`requestStatusVN` ở mục "Ngôn ngữ trạng thái" — không token mới. -->
@@ -57,6 +56,7 @@ Hướng mới: **modern edge-to-edge mobile** — nền sáng lạnh, hero bi�
 - **Cool mist** (`--background` #f3f6f8) — nền sáng lạnh; chữ `--foreground` #16283a "sea ink"; `--card` #ffffff; `--line` #e2e9ef hairline (KHÔNG dùng làm viền thẻ)
 - **Field** (`--field` #eaeff3) — nền ô nhập kiểu filled + chip tonal chưa chọn
 - Mọi token trên đều có bản `--color-*` trong `@theme` (Tailwind v4) + `--font-sans`/`--font-display`; dock: `--dock-safe` / `--dock-row` / `--dock-total` (chiều cao pill + safe-area, xem ghi chú PWA)
+- **Chấm nhịp cập nhật lớp bản đồ + accent cá** (2026-08-29g, dời khỏi hex cứng trong `ra-khoi-controls.tsx` sau rà soát design): `--cadence-hour` #f59e0b (🟧 theo giờ) · `--cadence-day` #eab308 (🟨 theo ngày) · `--cadence-fixed` #64748b (⬛ cố định) · `--fish` #2d8659 (accent cá hiện tại — đổi giá trị khi build "Ra khơi A" hồng tím ở mục dưới). Chấm "🟥 liên tục" dùng lại `--trim`. Dùng qua `var(--…)` trong inline style (không có bản `--color-*` vì không cần class Tailwind). Lý do tồn tại: hook `1d-r` chặn hex/rgba literal trong chuỗi JS — màu UI phải là token.
 
 ### Token chờ lift — redesign "Ra khơi A" (nguồn giá trị: lift từ 07-design-spec, 2026-08-13)
 - **Màu cá = hồng tím oklch(0.64 0.19 350)** (design doc Ra khơi A — thay xanh lá hiện tại khi build phương án A); **primary xanh oklch(0.52 0.13 235)** (viết không backtick — `doc-health-report` coi `tên(` trong backtick là symbol mã và báo SUSPECT oan). CHƯA vào `globals.css @theme` — khi build increment tương ứng thì lift vào globals cùng commit rồi xoá chữ "chờ" ở đây. 07-design-spec chỉ TRỎ về mục này, không giữ giá trị (luật "không trộn token" của chính nó §"Không trộn").

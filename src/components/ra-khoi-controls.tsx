@@ -62,7 +62,7 @@ import {
 import { parseCoordPair } from "@/lib/parse-coord";
 import { CloseButton } from "@/components/ui/close-button";
 
-const FISH_COLOR = "#2d8659"; // xanh lá — cá/ngư trường (design Phương án A)
+const FISH_COLOR = "var(--fish)"; // xanh lá — cá/ngư trường (token globals, Phương án A)
 
 // rail xổ ra mà bà con không chạm gì 3s → tự thu (user 2026-07-28, hạ 5s→3s 2026-08-24)
 const AUTO_HIDE_MS = 3000; // 5s → 3s (user 2026-08-24: đỡ rối mắt)
@@ -75,12 +75,13 @@ type PanelId =
   | "cai-dat"
   | "cong-cu";
 
-// nhịp cập nhật → chấm màu (design §3): 🟥 liên tục 🟧 giờ 🟨 ngày ⬛ cố định
+// nhịp cập nhật → chấm màu (design §3): 🟥 liên tục 🟧 giờ 🟨 ngày ⬛ cố định.
+// Màu qua token globals.css (KHÔNG hex trong component — 03 §5/§8, hook 1d-r).
 const DOT: Record<string, string> = {
-  lienTuc: "#e4572e",
-  gio: "#f59e0b",
-  ngay: "#eab308",
-  coDinh: "#64748b",
+  lienTuc: "var(--trim)",
+  gio: "var(--cadence-hour)",
+  ngay: "var(--cadence-day)",
+  coDinh: "var(--cadence-fixed)",
 };
 
 export function RaKhoiControls({
@@ -601,7 +602,7 @@ export function RaKhoiControls({
               className="relative flex min-h-[3.75rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 shadow-md transition active:scale-95"
               style={
                 active
-                  ? { background: r.color, color: "#fff" }
+                  ? { background: r.color, color: "var(--card)" }
                   : { background: "var(--card)", color: "var(--navy)" }
               }
             >

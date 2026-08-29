@@ -22,6 +22,7 @@ last_verified: 2026-08-26
 <!-- re-verified: 2026-08-18d - doi chieu voi cac thay doi trong `src/app` cua ngay hom nay: `/api/storms` (them nguon NCHMF, gop hai nguon) va `/api/me/market-listings` (GET doi dang nhap) deu la tang DU LIEU/QUYEN, KHONG doi mot man hinh nao. Cac man co lien quan da duoc ta o hai ghi chu 2026-08-16 va 2026-08-18 ngay tren: canh bao thieu tin bao tren khoi ket qua tuyen (nay se HIEN THUC khi co ATND vi nguon VN da phu), cho tin doi dang nhap thi hien TIN MAU + nut Dang nhap (dung hanh vi truoc 2026-08-16), Cua hang/Don cua toi hien ban luu kem moc. Khong them man, khong doi token mau, khong doi co chu/tap target. -->
 <!-- re-verified: 2026-08-19 — GỘP BASE (sync base): các ghi chú 2026-08-18 ở trên nói app CÒN sổ/tủ/lịch MẪU — ở sdvico KHÔNG CÒN (bỏ demo 2026-07-29). Bốn màn kho-trên-máy (Bạn thuyền · tủ giấy tờ · nhắc bảo dưỡng · sản phẩm tàu) mở ra RỖNG kèm empty state; chợ tin cũng không có tin mẫu, mất sóng thì nói "chưa tải được" và GIỮ danh sách đang hiện. Giữ nguyên phần base về `readUserList`/băng đỏ đọc-hỏng, `StatusBanner` chốt phạm vi, và `login-gate.tsx` thì sdvico VẪN DÙNG. -->
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-08-29) — code 'src/components' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 ```
 <!-- gate: warn vì UI churn src/app+src/components cao — cảnh báo thay vì chặn. KHÔNG để comment cùng dòng `gate:` (hook tr -d ' ' giữ lại # → phá so khớp = "warn" → chặn nhầm). -->
@@ -200,6 +201,19 @@ Luật A/B/C/D của [03-design-system](03-design-system.md) (§Nút hành độ
 3. **Nhãn `SQ_BTN` giữ 0.6875rem** — nó là chú thích cho icon, không phải chữ để đọc; vùng chạm vẫn 56px.
 
 **Còn LOẠI khỏi đợt này** (🟡 cross-trục, chưa hỏi): trần `max-h-[85dvh]` của `ui/bottom-sheet` · thêm ô "Đóng" vào hàng tiêu đề `BottomSheet` (chưa có ⇒ nút "Xong"/"Đóng" full-width hiện là đường thoát DUY NHẤT nhìn thấy được, gỡ trước khi có chỗ thay = phá đường lùi) · bỏ kicker của `PageHeader` · áp khuôn B1 cho chip tàu (`boat-switcher`). Cũng KHÔNG cắt câu dặn "Đừng ra khơi vùng ảnh hưởng — nghe đài duyên hải" ở các thẻ tin bão cũ (`inbox-section`): D1 cho phép giữ dặn dò an toàn bắt buộc, lặp ba lần là chữ thừa nhưng giá của việc cắt nhầm là tính mạng. `/quan-tri` ngoài phạm vi (staff SDVICO, desktop-first).
+
+## 5c. Flows — đường user đi (flow map)
+
+Nav hướng-đối-tượng (dock 5 mục), không 1-route/lời-hứa (xem CLAUDE.md "Bốn trục"). Các luồng chính user đi qua — nguồn hành vi chi tiết ở ba-spec ([08](08-ba-spec-da-tau.md)), đây chỉ là bản đồ màn để đối chiếu screen map:
+
+- **Xem thời tiết/ngư trường rồi quyết ra khơi**: Trang chủ → dock **Ra khơi** (`/ngu-truong`) → chạm điểm trên bản đồ → sheet peek (điểm đi biển + gió/sóng) → [vuốt nửa xem chi tiết] → [nút Dẫn đường → preview tuyến → Bắt đầu]. Chạm điểm lần nữa = trả bản đồ về trống (§10.7 M).
+- **Ghim/đi tới chỗ quen**: Ra khơi → long-press bản đồ → menu "Lưu thành điểm"/"Dẫn đường tới đây" (§10.7 K), hoặc rail "Điểm đã lưu" → chạm điểm → đi tới.
+- **Giấy tờ / tuân thủ**: dock **Tàu cá** (`/tau`) tab Giấy tờ → thêm/xem giấy tờ (tủ localStorage); **Bạn thuyền** (`/nguoi`) → sổ thuyền viên + tra cảnh báo.
+- **Vận hành / mua vật tư**: `/tau` tab Dịch vụ (nhắc bảo dưỡng) · tab Sản phẩm (Cửa hàng → giỏ → đặt đơn → Đơn của tôi).
+- **Bán được đắt hơn**: dock **Giao dịch** (`/tien`) → bảng giá tham khảo + chợ tin mua/bán + danh bạ chỗ bán.
+- **Tài khoản/premium**: mọi màn → HeroAccount/PremiumLock → gọi SDVICO mở premium (không thanh toán trong app).
+
+Mỗi flow: entry → mục tiêu → step tiếp mong muốn đã khai trong Screen map (§5). Ma trận trạng thái từng màn ở §6.
 
 ## 6. Ma trận trạng thái (đã hiện thực)
 

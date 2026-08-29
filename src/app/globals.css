@@ -33,6 +33,13 @@
   --t4: #7a4d9e;
   --t4-bg: #f1eaf8;
 
+  /* chấm nhịp cập nhật lớp bản đồ (legend rail Ra khơi) + accent cá.
+     lienTuc dùng lại --trim (đỏ cam cảnh báo "liên tục"). */
+  --cadence-hour: #f59e0b; /* 🟧 cập nhật theo giờ */
+  --cadence-day: #eab308; /* 🟨 theo ngày */
+  --cadence-fixed: #64748b; /* ⬛ cố định, không đổi theo ngày */
+  --fish: #2d8659; /* xanh lá — cá/ngư trường (Phương án A) */
+
   /* status — chữ đậm 16px ĐẠT WCAG AA (≥4.5:1) trên nền tint dưới nắng:
      ok 5.85 · warn 6.26 · danger 5.80 (tính trong docs/design-review/04) */
   --ok: #15663a;
