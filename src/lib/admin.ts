@@ -28,6 +28,23 @@ export function isAdminPhone(
   return adminPhones.includes(phone);
 }
 
+// ── ĐẠI LÝ TỔNG (master agent) — env MASTER_AGENT_PHONES ─────────────────────
+// Vai giữa "đại lý thường" (chỉ thấy khách MÌNH cấp) và "admin" (thấy hết):
+// ĐẠI LÝ TỔNG thấy MỌI khách CÒN PREMIUM hiệu lực, KHÔNG thấy khách thường.
+// Danh sách SĐT ở env MASTER_AGENT_PHONES (phẩy ngăn) — giống ADMIN_PHONES,
+// đổi là đổi env + redeploy, không cần migration. Vẫn phải là manager trong DB
+// (customers.role='manager') để qua cửa staff; env này chỉ MỞ RỘNG tầm nhìn của
+// một đại lý sẵn có, KHÔNG tự cấp quyền vào /quan-tri. Dùng chung parser SĐT với
+// admin (parseAdminPhones).
+
+/** SĐT có trong danh sách "đại lý tổng" không (dùng chung logic với isAdminPhone). */
+export function isMasterAgentPhone(
+  phoneOrEmail: string | null | undefined,
+  masterPhones: string[],
+): boolean {
+  return isAdminPhone(phoneOrEmail, masterPhones);
+}
+
 // ── HAI NGUỒN ADMIN (2026-07-31, user chốt) ─────────────────────────────────
 // Trước: admin CHỈ từ env → thêm/bớt phải sửa Vercel + deploy, và trong web
 // không thấy ai là admin. Nay admin = env HOẶC `customers.role='admin'`:

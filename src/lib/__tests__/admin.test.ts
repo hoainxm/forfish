@@ -3,6 +3,7 @@ import {
   checkDemoteAdmin,
   checkSetRole,
   isAdminPhone,
+  isMasterAgentPhone,
   mergeAdmins,
   parseAdminPhones,
 } from "@/lib/admin";
@@ -32,6 +33,20 @@ describe("isAdminPhone", () => {
     expect(isAdminPhone("0999999999", admins)).toBe(false);
     expect(isAdminPhone(null, admins)).toBe(false);
     expect(isAdminPhone("0901234567", [])).toBe(false);
+  });
+});
+
+describe("isMasterAgentPhone — đại lý tổng (env MASTER_AGENT_PHONES)", () => {
+  const masters = parseAdminPhones("0979117924");
+  it("khớp SĐT thường + email ảo + dạng 84", () => {
+    expect(isMasterAgentPhone("0979117924", masters)).toBe(true);
+    expect(isMasterAgentPhone("0979117924@sdvico.local", masters)).toBe(true);
+    expect(isMasterAgentPhone("84979117924", masters)).toBe(true);
+  });
+  it("ngoài danh sách / null / rỗng → false (không tự thành đại lý tổng)", () => {
+    expect(isMasterAgentPhone("0901234567", masters)).toBe(false);
+    expect(isMasterAgentPhone(null, masters)).toBe(false);
+    expect(isMasterAgentPhone("0979117924", [])).toBe(false);
   });
 });
 
