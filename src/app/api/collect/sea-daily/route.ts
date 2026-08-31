@@ -6,6 +6,7 @@
 // Nguồn nào fail thì bỏ qua nguồn đó, các nguồn còn lại vẫn lưu (best-effort,
 // KHÔNG bịa số). Response nói rõ từng phần để cron log tự đối soát.
 import { NextResponse } from "next/server";
+import { getCronSecret } from "@/lib/app-config";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PORTS } from "@/data/ports";
 import { scoreDay, levelOf, type SeaDay, type ScoredSeaDay } from "@/lib/sea";
@@ -74,7 +75,7 @@ async function fetchPortDays(lat: number, lon: number): Promise<ScoredSeaDay[]> 
 export async function GET(req: Request) {
   // Vercel Cron tự gắn Bearer CRON_SECRET; đặt secret là bắt buộc để người
   // ngoài không đập route này cho tốn quota nguồn miễn phí.
-  const secret = process.env.CRON_SECRET ?? "";
+  const secret = (await getCronSecret()) ?? "";
   if (!secret) {
     return NextResponse.json({ ok: false, code: "not_configured" }, { status: 503 });
   }

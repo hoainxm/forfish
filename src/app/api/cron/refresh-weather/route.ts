@@ -1,4 +1,5 @@
 import { PORTS } from "@/data/ports";
+import { getCronSecret } from "@/lib/app-config";
 import { fetchSeaLive, fetchSeaBackupLive, type ScoredSeaDay } from "@/lib/sea";
 import {
   fetchForecastGridLive,
@@ -62,8 +63,8 @@ export const dynamic = "force-dynamic";
 const OM_KINDS: OMKind[] = ["cloud", "rain", "airtemp", "storm", "pressure"];
 const dayOf = (iso: string) => String(iso).slice(0, 10);
 
-function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
+async function authorized(req: Request): Promise<boolean> {
+  const secret = await getCronSecret();
   if (!secret) return false;
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
@@ -233,7 +234,7 @@ function wavSeaSource(
 }
 
 export async function GET(req: Request) {
-  if (!authorized(req)) {
+  if (!(await authorized(req))) {
     return Response.json({ ok: false, code: "unauthorized" }, { status: 401 });
   }
 

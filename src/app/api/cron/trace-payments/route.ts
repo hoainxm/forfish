@@ -8,6 +8,7 @@
 // Vercel Cron (Authorization: Bearer CRON_SECRET). Thiếu env → no-op (degrade).
 // ⚠️ tiền THẬT + đối soát ở SDWork; SDFish chỉ chuyển MÃ (không số tiền, R1).
 import { NextResponse } from "next/server";
+import { getCronSecret } from "@/lib/app-config";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { signOutbound } from "@/lib/sdwork-outbound";
 
@@ -18,7 +19,7 @@ const BATCH = 100;
 
 export async function POST(req: Request) {
   // Vercel Cron gắn Bearer CRON_SECRET — bắt buộc, chống gọi trộm.
-  const secret = process.env.CRON_SECRET ?? "";
+  const secret = (await getCronSecret()) ?? "";
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ ok: false, code: "unauthorized" }, { status: 401 });
   }

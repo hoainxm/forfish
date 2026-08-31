@@ -15,6 +15,7 @@
 // OFFLINE: toàn bộ ở máy chủ; máy bà con mất sóng thì Apple/Google giữ tin và
 // đẩy khi có sóng — sw.js tự in "TIN CŨ N GIỜ" từ `sentAt` = giờ phát tin.
 import { GET as layTinBao } from "@/app/api/storms/route";
+import { getCronSecret } from "@/lib/app-config";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isPushConfigured, sendPushMany } from "@/lib/push-send";
 import {
@@ -28,14 +29,14 @@ import type { StormCheck } from "@/lib/storms";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
+async function authorized(req: Request): Promise<boolean> {
+  const secret = await getCronSecret();
   if (!secret) return false;
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
 export async function GET(req: Request) {
-  if (!authorized(req)) {
+  if (!(await authorized(req))) {
     return Response.json({ ok: false, code: "unauthorized" }, { status: 401 });
   }
   const admin = createAdminClient();

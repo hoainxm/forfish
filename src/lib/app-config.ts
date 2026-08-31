@@ -74,6 +74,16 @@ export async function getVapidConfig(): Promise<{
   return { subject, publicKey, privateKey };
 }
 
+/**
+ * Khoá xác thực CRON — DB (`app_config.cron_secret`) trước, env `CRON_SECRET`
+ * sau. Đặt trong DB dùng chung thì MỌI deploy khớp mà không cần env trên từng
+ * Vercel (bên GỬI — GitHub Actions — vẫn phải mang đúng token này). `null` nếu
+ * chưa cấu hình ⇒ route CẤM HẲN (401), không mở cửa.
+ */
+export async function getCronSecret(): Promise<string | null> {
+  return getConfigValue("cron_secret");
+}
+
 /** Lưu 1 khoá vào DB (upsert). Trả false nếu chưa cấu hình Supabase. */
 export async function setConfigValue(
   key: ConfigKey,

@@ -27,6 +27,7 @@
 //
 // KHÔNG BAO GIỜ XOÁ/SỬA hàng cũ: đường đã đi là lịch sử, tin mới chỉ THÊM hàng.
 import { NextResponse } from "next/server";
+import { getCronSecret } from "@/lib/app-config";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   NCHMF_INDEX_URL,
@@ -63,7 +64,7 @@ async function layHtml(url: string): Promise<string | null> {
 
 export async function GET(req: Request) {
   // Cùng cổng bảo vệ với các cron khác (CRON_SECRET; Vercel Cron tự gắn header)
-  const secret = process.env.CRON_SECRET;
+  const secret = await getCronSecret();
   if (!secret) return NextResponse.json({ ok: false, reason: "no-secret" }, { status: 401 });
   if (req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ ok: false, reason: "unauthorized" }, { status: 401 });
