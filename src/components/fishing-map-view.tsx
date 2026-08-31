@@ -2705,16 +2705,17 @@ export default function FishingMapView() {
               id="storm-corridor-fill"
               type="fill"
               filter={["==", ["get", "kind"], "hanh-lang"]}
-              paint={{ "fill-color": "#e4572e", "fill-opacity": 0.06 }}
+              paint={{ "fill-color": "#e4572e", "fill-opacity": 0.16 }}
             />
             <Layer
               id="storm-corridor-line"
               type="line"
               filter={["==", ["get", "kind"], "hanh-lang"]}
               paint={{
-                "line-color": "#e4572e",
-                "line-width": 1,
-                "line-opacity": 0.35,
+                "line-color": "#b42318",
+                "line-width": 2.5,
+                "line-opacity": 0.9,
+                "line-dasharray": [6, 3],
               }}
             />
             {/* BÁN KÍNH GIÓ MẠNH CẤP 6 quanh tâm — con số bản tin BÃO ghi thẳng

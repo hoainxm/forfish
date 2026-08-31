@@ -5,6 +5,7 @@
 // vẫn "có vẻ đúng". Bà con nhìn đường đó để đoán bão có quét qua chỗ mình không.
 import { describe, expect, it } from "vitest";
 import {
+  KM_TRAN_VONG_NGUY_HIEM,
   VONG_DINH,
   baoLoi,
   nhanMoc,
@@ -210,6 +211,35 @@ describe("tracksToGeoJSON — hình để vẽ", () => {
     ]) {
       expect(khoangCachKm(v.lat, v.lon, a, b)).toBeLessThanOrEqual(v.km + 1e-6);
     }
+  });
+
+  it("khung RỘNG: vòng VẼ bị chặn ≤ trần, nhưng KHỐI hành lang phủ xa hơn", () => {
+    // khung nửa-mặt-phẳng rộng 7° kinh, tâm lệch đông → vòng chuẩn ~670km
+    const rongRows = [
+      hang({ id: "x", issued_at: "2026-08-31T01:00:00Z", lat: 20.6, lon: 110.3 }),
+    ];
+    const rongPts: ForecastRow[] = [
+      {
+        bulletin_id: "x",
+        valid_at: "2026-09-02T00:00:00Z",
+        lat: 21.9,
+        lon: 116.9,
+        cap: 8,
+        giat: 10,
+        danger_box: { latMin: 18, latMax: 30, lonMin: 111.5, lonMax: 118.5 },
+        seq: 0,
+      },
+    ];
+    const gj = tracksToGeoJSON(rowsToTracks(rongRows, rongPts))!;
+    const v = gj.features.find((f) => f.properties?.kind === "vung-nguy-hiem")!;
+    // vòng VẼ bị chặn ≤ trần
+    expect(v.properties?.km).toBeLessThanOrEqual(KM_TRAN_VONG_NGUY_HIEM);
+    // nhưng KHỐI (hành lang) dựng từ extent thật nên trải rộng hơn trần —
+    // có đỉnh cách tâm (116.9E) quá 3° kinh (≳310km), chứng tỏ không bị chặn
+    const hl = gj.features.find((f) => f.properties?.kind === "hanh-lang")!;
+    const ring = (hl.geometry as GeoJSON.Polygon).coordinates[0];
+    const lonMin = Math.min(...ring.map((p) => p[0]));
+    expect(116.9 - lonMin).toBeGreaterThan(3);
   });
 
   it("nón HÀNH LANG: có đúng 1 dải liền (Polygon đóng) bọc vùng dự báo (C)", () => {
