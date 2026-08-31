@@ -2698,25 +2698,51 @@ export default function FishingMapView() {
             mốc một chấm kèm giờ. Vẽ SAU stormGeo để nằm trên polygon GDACS. */}
         {trackGeo && (
           <Source id="storm-track" type="geojson" data={trackGeo}>
-            {/* NÓN HÀNH LANG — dải liền bao mọi vùng nguy hiểm dự báo (bao lồi),
-                vẽ DƯỚI CÙNG (fill nhạt) để mấy vòng + đường đi nổi lên trên; đọc
-                thành MỘT khối như kênh chuyên thay vì các vòng rời. */}
+            {/* ỐNG BÃO — vùng nguy hiểm kiểu NCHMF: 3 lớp LINE DÀY bo tròn quanh
+                TRỤC đường đi (feature `kind:"ong"`), ÔM SÁT tuyến. Line tô PHẲNG nên
+                chỗ bo góc/bo đầu (line tự chồng) chỉ MỘT màu — không đậm lên. Ba line
+                rộng dần, mờ, CHỒNG nhau → gradient XANH (lõi) → TÍM (rìa gió ≥ cấp 6).
+                Vẽ NGOÀI (tím) trước rồi TRONG (xanh) đè. `line-width` px = 2·bán_kính·
+                0,00668·2^zoom (≈ 17°N) để ống co giãn theo bản đồ. */}
             <Layer
-              id="storm-corridor-fill"
-              type="fill"
-              filter={["==", ["get", "kind"], "hanh-lang"]}
-              paint={{ "fill-color": "#e4572e", "fill-opacity": 0.16 }}
+              id="storm-ong-2"
+              type="line"
+              filter={["==", ["get", "kind"], "ong"]}
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{
+                "line-color": "#b3a2e0",
+                "line-opacity": 0.2,
+                "line-width": ["interpolate", ["exponential", 2], ["zoom"], 3, 34, 10, 4379] as unknown as number,
+              }}
             />
             <Layer
-              id="storm-corridor-line"
+              id="storm-ong-1"
               type="line"
-              filter={["==", ["get", "kind"], "hanh-lang"]}
+              filter={["==", ["get", "kind"], "ong"]}
+              layout={{ "line-cap": "round", "line-join": "round" }}
               paint={{
-                "line-color": "#b42318",
-                "line-width": 2.5,
-                "line-opacity": 0.9,
-                "line-dasharray": [6, 3],
+                "line-color": "#79c24d",
+                "line-opacity": 0.22,
+                "line-width": ["interpolate", ["exponential", 2], ["zoom"], 3, 22, 10, 2873] as unknown as number,
               }}
+            />
+            <Layer
+              id="storm-ong-0"
+              type="line"
+              filter={["==", ["get", "kind"], "ong"]}
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{
+                "line-color": "#3f9e26",
+                "line-opacity": 0.26,
+                "line-width": ["interpolate", ["exponential", 2], ["zoom"], 3, 12, 10, 1505] as unknown as number,
+              }}
+            />
+            {/* VÒNG GIÓ trắng quanh mốc dự báo — như NCHMF */}
+            <Layer
+              id="storm-vong-gio"
+              type="line"
+              filter={["==", ["get", "kind"], "vong-gio"]}
+              paint={{ "line-color": "#ffffff", "line-width": 1.5, "line-opacity": 0.65 }}
             />
             {/* BÁN KÍNH GIÓ MẠNH CẤP 6 quanh tâm — con số bản tin BÃO ghi thẳng
                 ("Bán kính gió mạnh cấp 6 khoảng 250km tính từ tâm bão"). Bản tin
@@ -2734,23 +2760,6 @@ export default function FishingMapView() {
               type="line"
               filter={["==", ["get", "kind"], "ban-kinh"]}
               paint={{ "line-color": "#b42318", "line-width": 1.5, "line-opacity": 0.6 }}
-            />
-            <Layer
-              id="storm-danger-fill"
-              type="fill"
-              filter={["==", ["get", "kind"], "vung-nguy-hiem"]}
-              paint={{ "fill-color": "#e4572e", "fill-opacity": 0.1 }}
-            />
-            <Layer
-              id="storm-danger-line"
-              type="line"
-              filter={["==", ["get", "kind"], "vung-nguy-hiem"]}
-              paint={{
-                "line-color": "#e4572e",
-                "line-width": 1,
-                "line-opacity": 0.5,
-                "line-dasharray": [3, 2],
-              }}
             />
             <Layer
               id="storm-past-line"
