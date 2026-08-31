@@ -565,7 +565,7 @@ A: revoke → B: revoke (no-op) → A: insert (sống) → B: insert (CŨNG số
 
 Không vá bằng cách viết code cẩn thận hơn — đây là **ràng buộc**, phải nằm chỗ không ai lách được. `create unique index … on device_tokens (customer_phone) where revoked_at is null` thay index thường của 0037. Lượt insert thua cuộc ném `23505`; route thu hồi lại rồi cấp lại **đúng một lần** → người đăng nhập SAU thắng. Fail-closed: xấu nhất là một lượt đăng nhập phải bấm lại.
 
-### ADMIN nhiều máy — migration [`0053_device_tokens_admin_multi.sql`](../../supabase/migrations/0053_device_tokens_admin_multi.sql) (2026-08-31) — 🔴 **CHƯA APPLY prod**
+### ADMIN nhiều máy — migration [`0053_device_tokens_admin_multi.sql`](../../supabase/migrations/0053_device_tokens_admin_multi.sql) (2026-08-31) — ✅ **ĐÃ APPLY prod (2026-08-31, soi: cột `allow_multi` boolean có, index `where revoked_at is null and allow_multi=false`, 46 token sống giữ nguyên)**
 
 Admin cần **app (điện thoại) + web /quan-tri cùng lúc** — luật "1 tài khoản 1 máy" (0039) đá phiên app khi admin đăng nhập web, phiền. Nới CHỈ cho admin; khách/đại lý giữ 1 máy (chống chia sẻ). Thêm cột `device_tokens.allow_multi boolean default false`; token admin cấp `allow_multi=true`. Index một-chuỗi-sống đổi thành `where revoked_at is null AND allow_multi = false` → hàng admin miễn ràng buộc (nhiều chuỗi sống), hàng khách/đại lý vẫn nhiều nhất một. Code `POST /api/auth/token`: admin (env `ADMIN_PHONES` HOẶC `customers.role='admin'`) → BỎ `revokeTokensOfPhone` + insert `allow_multi:true`.
 
