@@ -12,7 +12,7 @@
 --
 -- ⚠️ OFFLINE: không ảnh hưởng — bảng chỉ đụng lúc đăng nhập/đăng xuất (có sóng).
 --
--- 🔴 CHƯA APPLY prod (ref znzgugvfhgmiszqgjulk) — chủ dự án apply tay.
+-- ✅ ĐÃ APPLY prod 2026-08-31 (ref znzgugvfhgmiszqgjulk).
 
 alter table public.device_tokens
   add column if not exists allow_multi boolean not null default false;
