@@ -31,6 +31,14 @@ import type { StormAlert } from "@/lib/storms";
 /** Trang liệt kê bản tin của NCHMF (bản tin mới nằm ở đây, có link theo slug) */
 export const NCHMF_INDEX_URL = "https://www.nchmf.gov.vn/kttv/";
 
+/** Trang "THỜI TIẾT NGUY HIỂM" của NCHMF — index DỰ PHÒNG (2026-08-31, user).
+ *  Khi trang liệt kê chính hỏng hoặc KHÔNG liệt kê bản tin bão/ATNĐ (đo được
+ *  ca thật: index chính bỏ sót áp thấp mà trang này vẫn có link `...post54480`),
+ *  quét thêm trang này để bắt cơn. Cùng họ URL `.../kttvsite/.../tin-*-postNNNNN`
+ *  nên `pickLatestNchmfBulletin` (SLUG_RE đã nhận cả kttv|kttvsite) đọc được ngay. */
+export const NCHMF_BACKUP_INDEX_URL =
+  "https://nchmf.gov.vn/kttvsite/vi-VN/1/thoi-tiet-nguy-hiem-5-15.html";
+
 /*  Slug bản tin bão/ATNĐ. NCHMF đặt tên theo loại tin:
       tin-ap-thap-nhiet-doi-tren-bien-dong / -gan-bien-dong / -tren-dat-lien
       tin-bao-tren-bien-dong / tin-bao-khan-cap / tin-con-bao-so-N …
