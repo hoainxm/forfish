@@ -62,6 +62,25 @@ describe("parseDangerBox — vùng nguy hiểm là thứ NGUỒN PHÁT, không p
   it("không phải khung → null", () => {
     expect(parseDangerBox("sóng cao 2,0–3,5m, biển động")).toBeNull();
   });
+
+  it("nửa mặt phẳng 'Phía Bắc' — chặn trên bằng khung Biển Đông (áp thấp thật 31/8)", () => {
+    // bản tin ATNĐ 31/8 ghi vùng nguy hiểm kiểu này; trước đây parser sót → danger:null
+    expect(parseDangerBox("Phía Bắc 18,0N; 109,5-114,5E")).toEqual({
+      latMin: 18,
+      latMax: 30, // KHUNG_BIEN_DONG.latMax
+      lonMin: 109.5,
+      lonMax: 114.5,
+    });
+  });
+
+  it("nửa mặt phẳng 'Phía Nam' — chặn dưới bằng khung", () => {
+    expect(parseDangerBox("Phía Nam 15,0N; 110,0-115,0E")).toEqual({
+      latMin: 0, // KHUNG_BIEN_DONG.latMin
+      latMax: 15,
+      lonMin: 110,
+      lonMax: 115,
+    });
+  });
 });
 
 describe("parseGioNgay", () => {
