@@ -9,7 +9,12 @@
 // Không có "vòng tròn bán kính" tự chế. Thứ vẽ được vùng nguy hiểm là `danger`
 // — KHUNG TOẠ ĐỘ do NCHMF phát cho từng mốc. Bịa một con số sai số quanh tâm là
 // tự nhận trách nhiệm mình không có, ở chỗ dính tính mạng (xem migration 0036).
-import { khoangCachKm, type DangerBox } from "@/lib/storm-bulletin";
+import {
+  khoangCachKm,
+  LIEN_TUC_GIO,
+  LIEN_TUC_KM,
+  type DangerBox,
+} from "@/lib/storm-bulletin";
 
 /** Một điểm tâm bão ĐÃ QUAN TRẮC (một bản tin = một điểm) */
 export type TrackPoint = {
@@ -85,10 +90,18 @@ function tenCon(laBao: boolean, soBao: string | null): string {
  * `bulletins` KHÔNG cần sắp sẵn — hàm tự xếp theo giờ, vì một lần đổi thứ tự ở
  * chỗ gọi là một đường đi vẽ ngoằn ngoèo qua biển mà không ai nghi ngờ.
  * Bản tin thiếu toạ độ bị BỎ (không vẽ điểm nằm ở 0°N/0°E giữa Đại Tây Dương).
+ *
+ * `nowMs` = mốc "bây giờ" để chia ĐÃ QUA / SẮP TỚI (chủ dự án 2026-08-31):
+ *   · Mốc DỰ BÁO đã qua giờ (`valid_at < nowMs`) bị BỎ khỏi `forecast` — nó
+ *     không còn là "sắp tới", vẽ tiếp thành gạch-đứt-tương-lai là nói dối.
+ *   · Track CÙNG CƠN nhưng KHÁC KHOÁ (ATNĐ→bão, hoặc ingestion chưa nối) được
+ *     GỘP: giữ forecast của bản MỚI NHẤT, gộp đường-đã-đi của bản cũ, BỎ track
+ *     cũ (kèm forecast cũ) — đúng "tin cũ bị tin mới viết lại thì ẩn đi".
  */
 export function rowsToTracks(
   bulletins: BulletinRow[],
   points: ForecastRow[],
+  nowMs: number = Date.now(),
 ): StormTrack[] {
   const theoKhoa = new Map<string, BulletinRow[]>();
   for (const r of bulletins) {
@@ -131,7 +144,10 @@ export function rowsToTracks(
         cap: p.cap,
         giat: p.giat,
         danger: p.danger_box ?? null,
-      }));
+      }))
+      // BỎ mốc dự báo ĐÃ QUA GIỜ — chỉ "sắp tới" mới là dự báo. Mốc không có
+      // giờ (`at == null`) thì GIỮ (không biết thì thà vẽ). Xem `nowMs`.
+      .filter((p) => p.at == null || p.at >= nowMs);
 
     out.push({
       key,
@@ -149,7 +165,41 @@ export function rowsToTracks(
 
   // cơn có tin mới nhất đứng trước — bà con nhìn cơn đang sống trước tiên
   out.sort((a, b) => b.issuedAt - a.issuedAt);
-  return out;
+
+  /*  GỘP CÙNG CƠN KHÁC KHOÁ — lưới an toàn ở TẦNG VẼ. Ingestion đã nối ATNĐ→bão
+      (`khoaCanDoiTen` trong refresh-storms), nhưng phòng khi khoá vẫn tách (bão
+      đổi số, ingestion gãy, dữ liệu cũ trước khi có logic nối): hai track là MỘT
+      cơn nếu tâm quan trắc MỚI NHẤT cách ≤ `LIEN_TUC_KM` và bản tin cách ≤
+      `LIEN_TUC_GIO` — CÙNG ngưỡng định danh với `noiTiep`. Đã sắp MỚI→CŨ nên
+      track duyệt sau là CŨ hơn: gộp đường-đã-đi của nó vào track mới rồi BỎ nó
+      (forecast cũ theo đó ẩn luôn — đúng "tin cũ bị tin mới viết lại thì ẩn"). */
+  const gop: StormTrack[] = [];
+  for (const t of out) {
+    const tamT = t.past[t.past.length - 1];
+    const chung = tamT
+      ? gop.find((m) => {
+          const tamM = m.past[m.past.length - 1];
+          if (!tamM) return false;
+          const gio = Math.abs(m.issuedAt - t.issuedAt) / 3_600_000;
+          return (
+            gio <= LIEN_TUC_GIO &&
+            khoangCachKm(tamT.lat, tamT.lon, tamM.lat, tamM.lon) <= LIEN_TUC_KM
+          );
+        })
+      : undefined;
+    if (chung) {
+      // t CŨ hơn → chèn đường-đã-đi của nó, xếp lại theo giờ, bỏ điểm trùng
+      // (hai khoá có thể cùng một mốc quan trắc). Forecast của t KHÔNG lấy.
+      const nhap = [...chung.past, ...t.past].sort((a, b) => a.at - b.at);
+      chung.past = nhap.filter(
+        (p, i) =>
+          i === 0 || p.at !== nhap[i - 1].at || p.lat !== nhap[i - 1].lat,
+      );
+    } else {
+      gop.push(t);
+    }
+  }
+  return gop;
 }
 
 /**
