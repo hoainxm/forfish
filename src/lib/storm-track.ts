@@ -235,6 +235,78 @@ export function vongNgoaiTiep(box: DangerBox): {
   return { lat, lon, km };
 }
 
+/**
+ * VÒNG TRÒN VÙNG NGUY HIỂM "CHO CHUẨN" quanh MỘT mốc dự báo (chủ dự án 2026-08-31:
+ * *"vẽ hình tròn nhé, nhưng vẽ cho chuẩn"*).
+ *
+ * Vì sao `vongNgoaiTiep` chưa chuẩn với khung NỬA-MẶT-PHẲNG ("Phía Bắc 18,0N;
+ * 109,5-114,5E"): lúc dựng, cạnh hở bị KẸP tới mép khung Biển Đông (30°N) → khung
+ * cao 12° → vòng ngoại tiếp phình ~700km che nửa bản đồ, và TÂM vòng rơi vào giữa
+ * khung (24°N) chứ không phải chỗ bão. Mép 30°N là biên KHUNG chứ không phải biên
+ * nguy hiểm cơ quan tuyên — không được để nó bơm vòng.
+ *
+ * Chuẩn = vẽ quanh CHÍNH TÂM BÃO `(lat,lon)`, và trước khi đo ngoại tiếp thì CHẶN
+ * chiều vĩ (chiều hay bị kẹp-mép) không vượt quá bề-rộng-kinh quy-ra-độ — dải KINH
+ * (E) luôn được NCHMF phát rõ HAI đầu nên đáng tin làm mốc. Khung THẬT (cao ±1–2°,
+ * nhỏ hơn bề rộng) KHÔNG bị chặn ⇒ giữ nguyên ngoại tiếp: vẫn bao trọn bốn góc,
+ * KHÔNG báo sót (đúng luật 2026-08-18). Chỉ khung kẹp-mép mới co lại quanh tâm.
+ */
+export function vongNguyHiemChuan(
+  lat: number,
+  lon: number,
+  box: DangerBox,
+): { lat: number; lon: number; km: number } {
+  const nuaRongKm = khoangCachKm(lat, box.lonMin, lat, box.lonMax) / 2;
+  const capDo = nuaRongKm / 111.32; // bề rộng kinh → ĐỘ vĩ (xấp xỉ, chỉ để chặn)
+  const latMin = Math.max(box.latMin, lat - capDo);
+  const latMax = Math.min(box.latMax, lat + capDo);
+  const goc: [number, number][] = [
+    [latMin, box.lonMin],
+    [latMin, box.lonMax],
+    [latMax, box.lonMin],
+    [latMax, box.lonMax],
+  ];
+  let km = 0;
+  for (const [a, b] of goc) km = Math.max(km, khoangCachKm(lat, lon, a, b));
+  return { lat, lon, km };
+}
+
+/**
+ * BAO LỒI (convex hull, monotone chain) của tập điểm `[lon,lat]`.
+ *
+ * Dùng nối các vòng nguy hiểm dự báo thành MỘT dải liền — "nón hành lang" giống
+ * kênh chuyên (NCHMF), thay vì mấy vòng rời rạc. Ở khúc track cong nó lấp cả phía
+ * trong cung (báo thừa) — chấp nhận theo đúng tinh thần "thà tránh rộng hơn hụt".
+ * Vòng trả về ĐÓNG (đỉnh đầu = đỉnh cuối) để vẽ Polygon.
+ */
+export function baoLoi(pts: number[][]): number[][] {
+  const p = pts
+    .filter((a) => Number.isFinite(a[0]) && Number.isFinite(a[1]))
+    .slice()
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (p.length < 3) return p.length ? [...p, p[0]] : [];
+  const cross = (o: number[], a: number[], b: number[]) =>
+    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const duoi: number[][] = [];
+  for (const q of p) {
+    while (duoi.length >= 2 && cross(duoi[duoi.length - 2], duoi[duoi.length - 1], q) <= 0)
+      duoi.pop();
+    duoi.push(q);
+  }
+  const tren: number[][] = [];
+  for (let i = p.length - 1; i >= 0; i--) {
+    const q = p[i];
+    while (tren.length >= 2 && cross(tren[tren.length - 2], tren[tren.length - 1], q) <= 0)
+      tren.pop();
+    tren.push(q);
+  }
+  duoi.pop();
+  tren.pop();
+  const hull = duoi.concat(tren);
+  hull.push(hull[0]);
+  return hull;
+}
+
 /** Cơn im quá ngần này giờ thì không vẽ nữa (đã tan hoặc ra khỏi vùng ra tin) */
 export const TRACK_SONG_GIO = 48;
 
@@ -255,9 +327,12 @@ export function nhanMoc(at: number | null): string {
  * Bốn loại `kind` trong properties, mỗi loại một lớp vẽ riêng:
  *   · `qua-khu`   — LineString liền, đoạn cơn ĐÃ ĐI
  *   · `sap-toi`   — LineString gạch đứt, nối tâm hiện tại qua các mốc dự báo
- *   · `moc`       — Point từng mốc (có `nhan`, `tuong-lai`) để chấm + ghi giờ
- *   · `vung-nguy-hiem` — Polygon VÒNG TRÒN ngoại tiếp khung toạ độ NCHMF phát
- *     cho mốc đó (bao trọn khung: báo thừa, không báo sót — xem `vongNgoaiTiep`)
+ *   · `moc`       — Point từng mốc (có `nhan`, `tuongLai`, `lat/lon/cap/giat/at`,
+ *     và `dangerKm` cho mốc dự báo) để chấm + ghi giờ + CHẠM bật popup (A)
+ *   · `vung-nguy-hiem` — Polygon VÒNG TRÒN quanh TÂM BÃO của mốc dự báo, bán kính
+ *     dựng "cho chuẩn" từ khung NCHMF (xem `vongNguyHiemChuan`) (B)
+ *   · `hanh-lang` — Polygon BAO LỒI nối mọi vùng nguy hiểm dự báo thành DẢI LIỀN
+ *     (nón hành lang, vẽ lớp dưới — xem `baoLoi`) (C)
  *   · `ban-kinh`  — vòng BÁN KÍNH GIÓ MẠNH quanh tâm, chỉ khi bản tin BÃO ghi số
  *
  * ⚠️ Đoạn "sắp tới" LUÔN bắt đầu từ TÂM HIỆN TẠI (điểm cuối của `past`), không
@@ -285,6 +360,11 @@ export function tracksToGeoJSON(
           tuongLai: false,
           nhan: nhanMoc(p.at),
           cap: p.cap ?? null,
+          giat: p.giat ?? null,
+          // toạ độ + giờ đưa vào props để CHẠM MỐC bật popup thông tin (A)
+          lat: p.lat,
+          lon: p.lon,
+          at: p.at ?? null,
           ten: t.name,
         },
         geometry: { type: "Point", coordinates: [p.lon, p.lat] },
@@ -316,7 +396,15 @@ export function tracksToGeoJSON(
         });
       }
     }
+    /*  Gom đỉnh của MỌI vòng nguy hiểm dự báo (+ vòng bán kính tâm hiện tại nếu
+        có) để dựng "nón hành lang" — bao lồi nối chúng thành DẢI LIỀN cho giống
+        kênh chuyên (C). Thu trong lúc duyệt mốc, phát 1 feature sau vòng lặp. */
+    const dinhHanhLang: number[][] = [];
+    if (tam && t.radiusKm != null && t.radiusKm > 0) {
+      dinhHanhLang.push(...vongTron(tam[1], tam[0], t.radiusKm));
+    }
     for (const p of t.forecast) {
+      const v = p.danger ? vongNguyHiemChuan(p.lat, p.lon, p.danger) : null;
       features.push({
         type: "Feature",
         properties: {
@@ -324,21 +412,40 @@ export function tracksToGeoJSON(
           tuongLai: true,
           nhan: nhanMoc(p.at),
           cap: p.cap ?? null,
+          giat: p.giat ?? null,
+          // toạ độ + giờ + bán kính vùng nguy hiểm → popup khi CHẠM MỐC (A)
+          lat: p.lat,
+          lon: p.lon,
+          at: p.at ?? null,
+          dangerKm: v ? Math.round(v.km) : null,
           ten: t.name,
         },
         geometry: { type: "Point", coordinates: [p.lon, p.lat] },
       });
-      if (p.danger) {
-        /*  VẼ VÒNG NGOẠI TIẾP thay cho khung chữ nhật (chủ dự án chốt
-            2026-08-18h). Vòng BAO TRỌN khung nên không bỏ sót mét nào của vùng
-            nguồn đã tuyên; phần dư là báo thừa, và với tin bão thì thà tránh
-            rộng hơn tránh hụt. Khung gốc vẫn nằm nguyên trong payload
-            (`forecast[].danger`) — đổi lại lối vẽ chỉ là sửa chỗ này. */
-        const v = vongNgoaiTiep(p.danger);
+      if (v) {
+        /*  VÒNG NGUY HIỂM "CHO CHUẨN" (chủ dự án 2026-08-31): vẽ quanh CHÍNH TÂM
+            BÃO, đã chặn chiều bị-kẹp-mép khỏi phình (xem `vongNguyHiemChuan`).
+            Khung gốc vẫn nằm nguyên trong payload (`forecast[].danger`) — đổi lối
+            vẽ chỉ sửa chỗ này. */
+        const ring = vongTron(v.lat, v.lon, v.km);
+        dinhHanhLang.push(...ring);
         features.push({
           type: "Feature",
           properties: { kind: "vung-nguy-hiem", nhan: nhanMoc(p.at), km: Math.round(v.km) },
-          geometry: { type: "Polygon", coordinates: [vongTron(v.lat, v.lon, v.km)] },
+          geometry: { type: "Polygon", coordinates: [ring] },
+        });
+      }
+    }
+    /*  NÓN HÀNH LANG (C) — MỘT dải liền bọc mọi vùng nguy hiểm dự báo, vẽ ở lớp
+        DƯỚI các vòng (fill nhạt) để đọc thành một khối như kênh chuyên. Chỉ dựng
+        khi đủ điểm tạo đa giác. */
+    if (dinhHanhLang.length >= 3) {
+      const vien = baoLoi(dinhHanhLang);
+      if (vien.length >= 4) {
+        features.push({
+          type: "Feature",
+          properties: { kind: "hanh-lang", key: t.key },
+          geometry: { type: "Polygon", coordinates: [vien] },
         });
       }
     }

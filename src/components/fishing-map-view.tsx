@@ -1263,6 +1263,30 @@ export default function FishingMapView() {
     const t = setTimeout(() => setMarkInfo(null), NOTIFY_HIDE_LONG_MS);
     return () => clearTimeout(t);
   }, [markInfo]);
+
+  /*  CHẠM VÀO MỐC BÃO (tâm đã qua / tâm dự báo) → ô thông tin mốc đó: giờ,
+      toạ độ, cấp/giật, bán kính vùng nguy hiểm (A, 2026-08-31). Giống kênh
+      chuyên: bà con chạm tâm dự báo để biết "lúc đó bão ở đâu, mạnh cỡ nào".
+      Ô đặt NGAY CHỖ TÂM, tự ẩn 3s (NOTIFY_HIDE_MS) cho ĐỒNG BỘ với menu chạm-
+      giữ + các ô map khác (chủ dự án 2026-08-31). */
+  const [stormPtInfo, setStormPtInfo] = useState<{
+    ten: string;
+    nhan: string;
+    tuongLai: boolean;
+    lat: number;
+    lon: number;
+    cap: number | null;
+    giat: number | null;
+    dangerKm: number | null;
+    x: number;
+    y: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!stormPtInfo) return;
+    const t = setTimeout(() => setStormPtInfo(null), NOTIFY_HIDE_MS);
+    return () => clearTimeout(t);
+  }, [stormPtInfo]);
+
   const [pressMenu, setPressMenu] = useState<{
     lat: number;
     lon: number;
@@ -2187,8 +2211,10 @@ export default function FishingMapView() {
     if (route) ids.push(...ROUTE_HIT_LAYERS);
     if (!anyExclusiveOverlay && seamarksOn && seamarkGeo)
       ids.push(...SEAMARK_HIT_LAYERS);
+    // chạm MỐC bão (đã qua / dự báo) để bật popup thông tin mốc đó (A)
+    if (trackGeo) ids.push("storm-moc-toi", "storm-moc-qua");
     return ids.length ? ids : undefined;
-  }, [route, anyExclusiveOverlay, seamarksOn, seamarkGeo]);
+  }, [route, anyExclusiveOverlay, seamarksOn, seamarkGeo, trackGeo]);
 
   const reqKey = `${point.lat},${point.lon}:${retry}`;
   useEffect(() => {
@@ -2868,6 +2894,33 @@ export default function FishingMapView() {
               return;
             }
           }
+          /*  CHẠM TRÚNG MỐC BÃO ⇒ thẻ thông tin mốc (giờ, toạ độ, cấp/giật, vùng
+              nguy hiểm) rồi DỪNG — đúng ý "chạm tâm dự báo ra info" (A). */
+          const hitStorm = measureMode
+            ? undefined
+            : e.features?.find(
+                (f) =>
+                  f.layer?.id === "storm-moc-toi" ||
+                  f.layer?.id === "storm-moc-qua",
+              );
+          if (hitStorm) {
+            const pr = hitStorm.properties ?? {};
+            const num = (v: unknown) =>
+              v == null || v === "" ? null : Number(v);
+            setStormPtInfo({
+              ten: String(pr.ten ?? "Cơn bão"),
+              nhan: String(pr.nhan ?? ""),
+              tuongLai: pr.tuongLai === true || pr.tuongLai === "true",
+              lat: Number(pr.lat),
+              lon: Number(pr.lon),
+              cap: num(pr.cap),
+              giat: num(pr.giat),
+              dangerKm: num(pr.dangerKm),
+              x: e.point.x,
+              y: e.point.y,
+            });
+            return;
+          }
           // đổi điểm xem — tuyến cũ GIỮ NGUYÊN trên bản đồ (hội đồng UX
           // 2026-06-11: tuyến tính mất 10s, không tự ý vứt vì một cú chạm
           // nhầm; RoutePlanner sẽ nhắc "tuyến đang tới chỗ cũ" + cho xóa)
@@ -3257,6 +3310,25 @@ export default function FishingMapView() {
             mốc một chấm kèm giờ. Vẽ SAU stormGeo để nằm trên polygon GDACS. */}
         {trackGeo && (
           <Source id="storm-track" type="geojson" data={trackGeo}>
+            {/* NÓN HÀNH LANG — dải liền bao mọi vùng nguy hiểm dự báo (bao lồi),
+                vẽ DƯỚI CÙNG (fill nhạt) để mấy vòng + đường đi nổi lên trên; đọc
+                thành MỘT khối như kênh chuyên thay vì các vòng rời. */}
+            <Layer
+              id="storm-corridor-fill"
+              type="fill"
+              filter={["==", ["get", "kind"], "hanh-lang"]}
+              paint={{ "fill-color": "#e4572e", "fill-opacity": 0.06 }}
+            />
+            <Layer
+              id="storm-corridor-line"
+              type="line"
+              filter={["==", ["get", "kind"], "hanh-lang"]}
+              paint={{
+                "line-color": "#e4572e",
+                "line-width": 1,
+                "line-opacity": 0.35,
+              }}
+            />
             {/* BÁN KÍNH GIÓ MẠNH CẤP 6 quanh tâm — con số bản tin BÃO ghi thẳng
                 ("Bán kính gió mạnh cấp 6 khoảng 250km tính từ tâm bão"). Bản tin
                 ÁP THẤP NHIỆT ĐỚI không phát số này nên KHÔNG có vòng nào — cố ý,
@@ -4117,6 +4189,68 @@ export default function FishingMapView() {
             <CloseButton
               onClose={() => setMarkInfo(null)}
               label="Đóng thông tin báo hiệu"
+            />
+          </div>
+        </div>
+      )}
+
+      {/*  Ô THÔNG TIN MỐC BÃO (A) — đặt NGAY CHỖ TÂM: căn giữa theo điểm chạm,
+          nổi ngay TRÊN tâm (lật xuống dưới khi tâm sát mép trên). Tự ẩn 3s. */}
+      {stormPtInfo && (
+        <div
+          className="pointer-events-auto absolute z-40 w-56 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
+          style={{
+            left: Math.min(
+              Math.max(116, stormPtInfo.x),
+              window.innerWidth - 116,
+            ),
+            top: stormPtInfo.y > 210 ? stormPtInfo.y - 14 : stormPtInfo.y + 14,
+            transform:
+              stormPtInfo.y > 210
+                ? "translate(-50%, -100%)"
+                : "translate(-50%, 0)",
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-[1rem] font-bold leading-tight text-navy">
+                {stormPtInfo.ten}
+                <span className="ml-1.5 align-middle text-[0.8125rem] font-bold text-danger">
+                  {stormPtInfo.tuongLai ? "· dự báo" : "· đã qua"}
+                </span>
+              </p>
+              {stormPtInfo.nhan && (
+                <p className="mt-0.5 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
+                  Lúc {stormPtInfo.nhan}
+                </p>
+              )}
+              {Number.isFinite(stormPtInfo.lat) &&
+                Number.isFinite(stormPtInfo.lon) && (
+                  <p className="mt-1 text-[0.875rem] font-semibold text-foreground/55">
+                    {fmtCoordPair(
+                      stormPtInfo.lat,
+                      stormPtInfo.lon,
+                      prefs.coordFormat,
+                    )}
+                  </p>
+                )}
+              {stormPtInfo.cap != null && (
+                <p className="mt-1 text-[0.9375rem] font-bold text-danger">
+                  Cấp {stormPtInfo.cap}
+                  {stormPtInfo.giat != null
+                    ? `, giật cấp ${stormPtInfo.giat}`
+                    : ""}
+                </p>
+              )}
+              {stormPtInfo.tuongLai && stormPtInfo.dangerKm != null && (
+                <p className="mt-1 text-[0.875rem] font-semibold text-foreground/60">
+                  Vùng nguy hiểm ~{stormPtInfo.dangerKm} km quanh tâm
+                </p>
+              )}
+            </div>
+            <CloseButton
+              onClose={() => setStormPtInfo(null)}
+              label="Đóng thông tin mốc bão"
             />
           </div>
         </div>

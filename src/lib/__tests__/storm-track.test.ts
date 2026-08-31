@@ -6,10 +6,12 @@
 import { describe, expect, it } from "vitest";
 import {
   VONG_DINH,
+  baoLoi,
   nhanMoc,
   rowsToTracks,
   tracksToGeoJSON,
   vongNgoaiTiep,
+  vongNguyHiemChuan,
   vongTron,
   type BulletinRow,
   type ForecastRow,
@@ -165,12 +167,83 @@ describe("tracksToGeoJSON — hình để vẽ", () => {
     expect(c[1]).toEqual([110.0, 20.5]);
   });
 
-  it("vùng nguy hiểm vẽ thành VÒNG TRÒN ngoại tiếp, vòng đóng", () => {
+  it("vùng nguy hiểm vẽ thành VÒNG TRÒN quanh TÂM BÃO, vòng đóng (B)", () => {
     const gj = tracksToGeoJSON(rowsToTracks(rows, pts))!;
     const v = gj.features.find((f) => f.properties?.kind === "vung-nguy-hiem")!;
     const ring = (v.geometry as GeoJSON.Polygon).coordinates[0];
     expect(ring).toHaveLength(VONG_DINH + 1);
     expect(ring[0]).toEqual(ring[ring.length - 1]);
+    // TÂM vòng = tâm bão dự báo (110, 20.5), KHÔNG phải giữa khung.
+    // Bỏ đỉnh ĐÓNG (trùng đỉnh đầu) trước khi lấy trung bình.
+    const dinh = ring.slice(0, VONG_DINH);
+    const cx = dinh.reduce((s, p) => s + p[0], 0) / VONG_DINH;
+    const cy = dinh.reduce((s, p) => s + p[1], 0) / VONG_DINH;
+    expect(cx).toBeCloseTo(110.0, 1);
+    expect(cy).toBeCloseTo(20.5, 1);
+  });
+
+  /*  "CHO CHUẨN" (2026-08-31): khung NỬA-MẶT-PHẲNG bị kẹp tới mép 30°N cho vòng
+      ngoại tiếp ~700km che nửa bản đồ. Vòng chuẩn phải chặn chiều bị-kẹp → bán
+      kính hợp lý (< ~400km), tâm vẫn ở chỗ bão. */
+  it("khung kẹp-mép (cao 12°) KHÔNG cho vòng khổng lồ — chặn theo bề rộng kinh", () => {
+    const kep = vongNguyHiemChuan(19, 112, {
+      latMin: 18,
+      latMax: 30,
+      lonMin: 109.5,
+      lonMax: 114.5,
+    });
+    expect(kep.lat).toBe(19); // tâm = tâm bão, không phải 24 (giữa khung)
+    expect(kep.lon).toBe(112);
+    expect(kep.km).toBeLessThan(420);
+    // ngoại tiếp cũ trên chính khung này thì khổng lồ — chứng minh khác biệt
+    expect(vongNgoaiTiep({ latMin: 18, latMax: 30, lonMin: 109.5, lonMax: 114.5 }).km).toBeGreaterThan(650);
+  });
+
+  it("khung THẬT (nhỏ, đủ hai đầu) vẫn bao trọn bốn góc — không báo sót", () => {
+    const box = { latMin: 19, latMax: 21, lonMin: 108, lonMax: 112 };
+    const v = vongNguyHiemChuan(20.5, 110, box);
+    for (const [a, b] of [
+      [box.latMin, box.lonMin],
+      [box.latMin, box.lonMax],
+      [box.latMax, box.lonMin],
+      [box.latMax, box.lonMax],
+    ]) {
+      expect(khoangCachKm(v.lat, v.lon, a, b)).toBeLessThanOrEqual(v.km + 1e-6);
+    }
+  });
+
+  it("nón HÀNH LANG: có đúng 1 dải liền (Polygon đóng) bọc vùng dự báo (C)", () => {
+    const gj = tracksToGeoJSON(rowsToTracks(rows, pts))!;
+    const hl = gj.features.filter((f) => f.properties?.kind === "hanh-lang");
+    expect(hl).toHaveLength(1);
+    const ring = (hl[0].geometry as GeoJSON.Polygon).coordinates[0];
+    expect(ring.length).toBeGreaterThanOrEqual(4);
+    expect(ring[0]).toEqual(ring[ring.length - 1]);
+  });
+
+  it("baoLoi: bao trọn mọi điểm đầu vào, vòng đóng", () => {
+    const pts2 = [
+      [0, 0],
+      [4, 0],
+      [4, 4],
+      [0, 4],
+      [2, 2], // điểm trong → không nằm trên biên
+    ];
+    const hull = baoLoi(pts2);
+    expect(hull[0]).toEqual(hull[hull.length - 1]);
+    // 4 đỉnh biên + đóng = 5
+    expect(hull).toHaveLength(5);
+  });
+
+  it("mốc dự báo mang toạ độ + giật + bán kính vùng nguy hiểm cho popup (A)", () => {
+    const gj = tracksToGeoJSON(rowsToTracks(rows, pts))!;
+    const m = gj.features.find(
+      (f) => f.properties?.kind === "moc" && f.properties?.tuongLai === true,
+    )!;
+    expect(m.properties?.lat).toBe(20.5);
+    expect(m.properties?.lon).toBe(110.0);
+    expect(m.properties?.giat).toBe(8);
+    expect(typeof m.properties?.dangerKm).toBe("number");
   });
 
   /*  BẤT BIẾN AN TOÀN — ca này là lý do duy nhất lối vẽ vòng được chấp nhận.
