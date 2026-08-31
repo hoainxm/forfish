@@ -2698,6 +2698,25 @@ export default function FishingMapView() {
             mốc một chấm kèm giờ. Vẽ SAU stormGeo để nằm trên polygon GDACS. */}
         {trackGeo && (
           <Source id="storm-track" type="geojson" data={trackGeo}>
+            {/* NÓN HÀNH LANG — dải liền bao mọi vùng nguy hiểm dự báo (bao lồi),
+                vẽ DƯỚI CÙNG (fill nhạt) để mấy vòng + đường đi nổi lên trên; đọc
+                thành MỘT khối như kênh chuyên thay vì các vòng rời. */}
+            <Layer
+              id="storm-corridor-fill"
+              type="fill"
+              filter={["==", ["get", "kind"], "hanh-lang"]}
+              paint={{ "fill-color": "#e4572e", "fill-opacity": 0.06 }}
+            />
+            <Layer
+              id="storm-corridor-line"
+              type="line"
+              filter={["==", ["get", "kind"], "hanh-lang"]}
+              paint={{
+                "line-color": "#e4572e",
+                "line-width": 1,
+                "line-opacity": 0.35,
+              }}
+            />
             {/* BÁN KÍNH GIÓ MẠNH CẤP 6 quanh tâm — con số bản tin BÃO ghi thẳng
                 ("Bán kính gió mạnh cấp 6 khoảng 250km tính từ tâm bão"). Bản tin
                 ÁP THẤP NHIỆT ĐỚI không phát số này nên KHÔNG có vòng nào — cố ý,
