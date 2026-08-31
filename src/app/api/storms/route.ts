@@ -208,7 +208,11 @@ async function layDuongDi(now: Date): Promise<StormTrack[]> {
       .in("bulletin_id", ids);
     if (ePts) throw ePts;
 
-    return rowsToTracks((rows ?? []) as BulletinRow[], (pts ?? []) as ForecastRow[]);
+    return rowsToTracks(
+      (rows ?? []) as BulletinRow[],
+      (pts ?? []) as ForecastRow[],
+      now.getTime(),
+    );
   } catch (e) {
     console.error("[storms] đọc kho đường đi HỎNG:", (e as Error)?.message);
     return [];
