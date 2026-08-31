@@ -310,6 +310,17 @@ export function baoLoi(pts: number[][]): number[][] {
 /** Cơn im quá ngần này giờ thì không vẽ nữa (đã tan hoặc ra khỏi vùng ra tin) */
 export const TRACK_SONG_GIO = 48;
 
+/**
+ * TRẦN BÁN KÍNH vòng nguy hiểm VẼ ở mỗi mốc (km) — chủ dự án 2026-08-31:
+ * *"khối đậm + vòng mốc gọn lại"*.
+ *
+ * Khung NCHMF nửa-mặt-phẳng rộng tới 7° kinh cho vòng ngoại tiếp tới ~670km —
+ * to vô lý cho một chấm mốc. Chặn cỡ VÒNG ở mức hợp lý để đọc gọn; phần vùng
+ * nguy hiểm THẬT vượt trần vẫn được **KHỐI hành lang** (dựng từ extent ĐẦY ĐỦ,
+ * KHÔNG chặn) phủ trọn — nên chặn vòng KHÔNG làm báo sót, chỉ làm sạch mắt.
+ */
+export const KM_TRAN_VONG_NGUY_HIEM = 300;
+
 /* ═══════════════════════════════════════════════════════════════════════════
    HÌNH ĐỂ VẼ
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -405,6 +416,8 @@ export function tracksToGeoJSON(
     }
     for (const p of t.forecast) {
       const v = p.danger ? vongNguyHiemChuan(p.lat, p.lon, p.danger) : null;
+      // cỡ vòng VẼ bị chặn cho gọn; khối hành lang dưới dùng extent thật
+      const kmVe = v ? Math.min(v.km, KM_TRAN_VONG_NGUY_HIEM) : null;
       features.push({
         type: "Feature",
         properties: {
@@ -417,21 +430,22 @@ export function tracksToGeoJSON(
           lat: p.lat,
           lon: p.lon,
           at: p.at ?? null,
-          dangerKm: v ? Math.round(v.km) : null,
+          dangerKm: kmVe != null ? Math.round(kmVe) : null,
           ten: t.name,
         },
         geometry: { type: "Point", coordinates: [p.lon, p.lat] },
       });
-      if (v) {
+      if (v && kmVe != null) {
         /*  VÒNG NGUY HIỂM "CHO CHUẨN" (chủ dự án 2026-08-31): vẽ quanh CHÍNH TÂM
-            BÃO, đã chặn chiều bị-kẹp-mép khỏi phình (xem `vongNguyHiemChuan`).
-            Khung gốc vẫn nằm nguyên trong payload (`forecast[].danger`) — đổi lối
-            vẽ chỉ sửa chỗ này. */
-        const ring = vongTron(v.lat, v.lon, v.km);
-        dinhHanhLang.push(...ring);
+            BÃO, đã chặn chiều bị-kẹp-mép khỏi phình (xem `vongNguyHiemChuan`), và
+            CHẶN cỡ ở `KM_TRAN_VONG_NGUY_HIEM` cho gọn ("khối đậm + vòng gọn").
+            KHỐI hành lang dưới dùng extent ĐẦY ĐỦ (`v.km`, không chặn) nên vùng
+            nguy hiểm thật vẫn được phủ trọn — chặn vòng không báo sót. */
+        dinhHanhLang.push(...vongTron(v.lat, v.lon, v.km));
+        const ring = vongTron(v.lat, v.lon, kmVe);
         features.push({
           type: "Feature",
-          properties: { kind: "vung-nguy-hiem", nhan: nhanMoc(p.at), km: Math.round(v.km) },
+          properties: { kind: "vung-nguy-hiem", nhan: nhanMoc(p.at), km: Math.round(kmVe) },
           geometry: { type: "Polygon", coordinates: [ring] },
         });
       }
