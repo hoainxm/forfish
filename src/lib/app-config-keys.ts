@@ -4,7 +4,8 @@
 export type ConfigKey =
   | "vapid_public_key"
   | "vapid_private_key"
-  | "vapid_subject";
+  | "vapid_subject"
+  | "cron_secret";
 
 export interface ConfigKeyMeta {
   key: ConfigKey;
@@ -37,6 +38,13 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     secret: false,
     envVar: "VAPID_SUBJECT",
     help: "mailto:ban@domain.com hoặc URL https liên hệ.",
+  },
+  {
+    key: "cron_secret",
+    label: "CRON Secret",
+    secret: true,
+    envVar: "CRON_SECRET",
+    help: "Khoá xác thực cron (GitHub Actions gửi Bearer này). Đặt Ở ĐÂY (DB dùng chung) thì mọi deploy khớp — khỏi set env CRON_SECRET trên từng Vercel. Phải TRÙNG giá trị secret CRON_SECRET bên GitHub.",
   },
 ];
 
