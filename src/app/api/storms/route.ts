@@ -51,15 +51,21 @@ import {
 const GDACS_TC_URL =
   "https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP?eventtype=TC";
 
-/** Trần chờ mỗi nguồn. NCHMF là trang HTML ~60 KB, GDACS JSON ~565 KB. */
-const NGUON_TIMEOUT_MS = 15000;
+/** Trần chờ NCHMF (nguồn CHÍNH VN). Hai lượt tuần tự (index→bản tin) nên tổng
+ *  tệ nhất 2×; giữ dưới trần client để mạng yếu vẫn kịp nhận. */
+const NGUON_TIMEOUT_MS = 12000;
+/** Trần chờ GDACS NGẮN HƠN (nguồn PHỤ, chỉ bù polygon/track). GDACS chết/chậm
+ *  KHÔNG được kéo cả route — NCHMF đã có tin thì phải trả nhanh cho bà con.
+ *  Sự cố thật 2026-08-31: GDACS timeout 15s làm route 15,5s → client (ngoài
+ *  biển) hết giờ → lùi tin cache 18h, BỎ LỠ áp thấp NCHMF đã bắt được. */
+const GDACS_TIMEOUT_MS = 8000;
 
 async function layGdacs(now: Date): Promise<StormAlert[] | null> {
   try {
     const r = await fetch(GDACS_TC_URL, {
       next: { revalidate: 1800 },
       headers: { accept: "application/json" },
-      signal: timeoutSignal(NGUON_TIMEOUT_MS),
+      signal: timeoutSignal(GDACS_TIMEOUT_MS),
     });
     if (!r.ok) {
       // ĐỪNG NUỐT IM: nguồn đổi hợp đồng (400/404) trông y hệt nguồn bảo trì
