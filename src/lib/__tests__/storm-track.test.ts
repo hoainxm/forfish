@@ -5,14 +5,10 @@
 // vẫn "có vẻ đúng". Bà con nhìn đường đó để đoán bão có quét qua chỗ mình không.
 import { describe, expect, it } from "vitest";
 import {
-  KM_TRAN_VONG_NGUY_HIEM,
   VONG_DINH,
-  baoLoi,
   nhanMoc,
   rowsToTracks,
   tracksToGeoJSON,
-  vongNgoaiTiep,
-  vongNguyHiemChuan,
   vongTron,
   type BulletinRow,
   type ForecastRow,
@@ -168,104 +164,36 @@ describe("tracksToGeoJSON — hình để vẽ", () => {
     expect(c[1]).toEqual([110.0, 20.5]);
   });
 
-  it("vùng nguy hiểm vẽ thành VÒNG TRÒN quanh TÂM BÃO, vòng đóng (B)", () => {
+  it("ỐNG BÃO = 1 TRỤC LineString nối tâm hiện tại qua các mốc dự báo", () => {
     const gj = tracksToGeoJSON(rowsToTracks(rows, pts))!;
-    const v = gj.features.find((f) => f.properties?.kind === "vung-nguy-hiem")!;
-    const ring = (v.geometry as GeoJSON.Polygon).coordinates[0];
+    const ong = gj.features.filter((f) => f.properties?.kind === "ong");
+    expect(ong).toHaveLength(1);
+    expect(ong[0].geometry.type).toBe("LineString");
+    const c = (ong[0].geometry as GeoJSON.LineString).coordinates;
+    expect(c[0]).toEqual([113.2, 20.1]); // tâm hiện tại
+    expect(c[c.length - 1]).toEqual([110.0, 20.5]); // mốc dự báo
+  });
+
+  it("vòng gió trắng vẽ ở mỗi mốc dự báo (Polygon đóng)", () => {
+    const gj = tracksToGeoJSON(rowsToTracks(rows, pts))!;
+    const vg = gj.features.filter((f) => f.properties?.kind === "vong-gio");
+    expect(vg).toHaveLength(1); // 1 mốc dự báo
+    const ring = (vg[0].geometry as GeoJSON.Polygon).coordinates[0];
     expect(ring).toHaveLength(VONG_DINH + 1);
     expect(ring[0]).toEqual(ring[ring.length - 1]);
-    // TÂM vòng = tâm bão dự báo (110, 20.5), KHÔNG phải giữa khung.
-    // Bỏ đỉnh ĐÓNG (trùng đỉnh đầu) trước khi lấy trung bình.
-    const dinh = ring.slice(0, VONG_DINH);
-    const cx = dinh.reduce((s, p) => s + p[0], 0) / VONG_DINH;
-    const cy = dinh.reduce((s, p) => s + p[1], 0) / VONG_DINH;
-    expect(cx).toBeCloseTo(110.0, 1);
-    expect(cy).toBeCloseTo(20.5, 1);
   });
 
-  /*  "CHO CHUẨN" (2026-08-31): khung NỬA-MẶT-PHẲNG bị kẹp tới mép 30°N cho vòng
-      ngoại tiếp ~700km che nửa bản đồ. Vòng chuẩn phải chặn chiều bị-kẹp → bán
-      kính hợp lý (< ~400km), tâm vẫn ở chỗ bão. */
-  it("khung kẹp-mép (cao 12°) KHÔNG cho vòng khổng lồ — chặn theo bề rộng kinh", () => {
-    const kep = vongNguyHiemChuan(19, 112, {
-      latMin: 18,
-      latMax: 30,
-      lonMin: 109.5,
-      lonMax: 114.5,
-    });
-    expect(kep.lat).toBe(19); // tâm = tâm bão, không phải 24 (giữa khung)
-    expect(kep.lon).toBe(112);
-    expect(kep.km).toBeLessThan(420);
-    // ngoại tiếp cũ trên chính khung này thì khổng lồ — chứng minh khác biệt
-    expect(vongNgoaiTiep({ latMin: 18, latMax: 30, lonMin: 109.5, lonMax: 114.5 }).km).toBeGreaterThan(650);
-  });
-
-  it("khung THẬT (nhỏ, đủ hai đầu) vẫn bao trọn bốn góc — không báo sót", () => {
-    const box = { latMin: 19, latMax: 21, lonMin: 108, lonMax: 112 };
-    const v = vongNguyHiemChuan(20.5, 110, box);
-    for (const [a, b] of [
-      [box.latMin, box.lonMin],
-      [box.latMin, box.lonMax],
-      [box.latMax, box.lonMin],
-      [box.latMax, box.lonMax],
-    ]) {
-      expect(khoangCachKm(v.lat, v.lon, a, b)).toBeLessThanOrEqual(v.km + 1e-6);
-    }
-  });
-
-  it("khung RỘNG: vòng VẼ bị chặn ≤ trần, nhưng KHỐI hành lang phủ xa hơn", () => {
-    // khung nửa-mặt-phẳng rộng 7° kinh, tâm lệch đông → vòng chuẩn ~670km
-    const rongRows = [
-      hang({ id: "x", issued_at: "2026-08-31T01:00:00Z", lat: 20.6, lon: 110.3 }),
+  it("KHÔNG có danger → KHÔNG vẽ ống/vòng gió (chỉ đường đi + mốc)", () => {
+    const noDanger: ForecastRow[] = [
+      { bulletin_id: "b", valid_at: null, lat: 20.5, lon: 110, cap: 6, giat: 8, danger_box: null, seq: 0 },
     ];
-    const rongPts: ForecastRow[] = [
-      {
-        bulletin_id: "x",
-        valid_at: "2026-09-02T00:00:00Z",
-        lat: 21.9,
-        lon: 116.9,
-        cap: 8,
-        giat: 10,
-        danger_box: { latMin: 18, latMax: 30, lonMin: 111.5, lonMax: 118.5 },
-        seq: 0,
-      },
-    ];
-    const gj = tracksToGeoJSON(rowsToTracks(rongRows, rongPts))!;
-    const v = gj.features.find((f) => f.properties?.kind === "vung-nguy-hiem")!;
-    // vòng VẼ bị chặn ≤ trần
-    expect(v.properties?.km).toBeLessThanOrEqual(KM_TRAN_VONG_NGUY_HIEM);
-    // nhưng KHỐI (hành lang) dựng từ extent thật nên trải rộng hơn trần —
-    // có đỉnh cách tâm (116.9E) quá 3° kinh (≳310km), chứng tỏ không bị chặn
-    const hl = gj.features.find((f) => f.properties?.kind === "hanh-lang")!;
-    const ring = (hl.geometry as GeoJSON.Polygon).coordinates[0];
-    const lonMin = Math.min(...ring.map((p) => p[0]));
-    expect(116.9 - lonMin).toBeGreaterThan(3);
+    const gj = tracksToGeoJSON(rowsToTracks(rows, noDanger))!;
+    expect(gj.features.some((f) => f.properties?.kind === "ong")).toBe(false);
+    expect(gj.features.some((f) => f.properties?.kind === "vong-gio")).toBe(false);
+    expect(gj.features.some((f) => f.properties?.kind === "sap-toi")).toBe(true);
   });
 
-  it("nón HÀNH LANG: có đúng 1 dải liền (Polygon đóng) bọc vùng dự báo (C)", () => {
-    const gj = tracksToGeoJSON(rowsToTracks(rows, pts))!;
-    const hl = gj.features.filter((f) => f.properties?.kind === "hanh-lang");
-    expect(hl).toHaveLength(1);
-    const ring = (hl[0].geometry as GeoJSON.Polygon).coordinates[0];
-    expect(ring.length).toBeGreaterThanOrEqual(4);
-    expect(ring[0]).toEqual(ring[ring.length - 1]);
-  });
-
-  it("baoLoi: bao trọn mọi điểm đầu vào, vòng đóng", () => {
-    const pts2 = [
-      [0, 0],
-      [4, 0],
-      [4, 4],
-      [0, 4],
-      [2, 2], // điểm trong → không nằm trên biên
-    ];
-    const hull = baoLoi(pts2);
-    expect(hull[0]).toEqual(hull[hull.length - 1]);
-    // 4 đỉnh biên + đóng = 5
-    expect(hull).toHaveLength(5);
-  });
-
-  it("mốc dự báo mang toạ độ + giật + bán kính vùng nguy hiểm cho popup (A)", () => {
+  it("mốc dự báo mang toạ độ + giật + bán kính vùng ảnh hưởng cho popup (A)", () => {
     const gj = tracksToGeoJSON(rowsToTracks(rows, pts))!;
     const m = gj.features.find(
       (f) => f.properties?.kind === "moc" && f.properties?.tuongLai === true,
@@ -274,44 +202,6 @@ describe("tracksToGeoJSON — hình để vẽ", () => {
     expect(m.properties?.lon).toBe(110.0);
     expect(m.properties?.giat).toBe(8);
     expect(typeof m.properties?.dangerKm).toBe("number");
-  });
-
-  /*  BẤT BIẾN AN TOÀN — ca này là lý do duy nhất lối vẽ vòng được chấp nhận.
-      Vòng phải BAO TRỌN khung: hụt một góc là báo SÓT một vùng cơ quan đã tuyên
-      là nguy hiểm. Nội tiếp sẽ làm ca này đỏ, và đó là chủ ý. */
-  it("vòng BAO TRỌN cả bốn góc khung — không bỏ sót góc nào", () => {
-    const box = { latMin: 18.5, latMax: 21, lonMin: 113.5, lonMax: 117 };
-    const v = vongNgoaiTiep(box);
-    for (const [a, b] of [
-      [box.latMin, box.lonMin],
-      [box.latMin, box.lonMax],
-      [box.latMax, box.lonMin],
-      [box.latMax, box.lonMax],
-    ]) {
-      expect(khoangCachKm(v.lat, v.lon, a, b)).toBeLessThanOrEqual(v.km + 1e-6);
-    }
-  });
-
-  /*  BỐN GÓC KHÔNG CÁCH ĐỀU TÂM trên mặt cầu — bắt được khi ca này đỏ lần đầu:
-      góc phía NAM xa hơn góc phía BẮC vì một độ kinh trải rộng hơn ở vĩ độ thấp
-      (khung 19–21N/111–115E: góc Bắc 236,1 km, góc Nam 237,3 km). Nên bán kính
-      phải là MAX của cả bốn góc; lấy "nửa đường chéo" theo trực giác hình học
-      phẳng là hụt hơn 1 km ở hai góc dưới. */
-  it("tâm vòng ở GIỮA khung, bán kính là góc XA NHẤT (góc Nam, không phải Bắc)", () => {
-    const box = { latMin: 19, latMax: 21, lonMin: 111, lonMax: 115 };
-    const v = vongNgoaiTiep(box);
-    expect(v.lat).toBeCloseTo(20, 6);
-    expect(v.lon).toBeCloseTo(113, 6);
-
-    const bac = khoangCachKm(20, 113, 21, 115);
-    const nam = khoangCachKm(20, 113, 19, 115);
-    expect(nam).toBeGreaterThan(bac);
-    expect(v.km).toBeCloseTo(nam, 6);
-  });
-
-  it("khung vuông tuyệt đối (một điểm) → bán kính 0, không ném", () => {
-    const v = vongNgoaiTiep({ latMin: 20, latMax: 20, lonMin: 113, lonMax: 113 });
-    expect(v.km).toBe(0);
   });
 
   it("mốc đã qua và mốc sắp tới phân biệt được bằng cờ tuongLai", () => {
