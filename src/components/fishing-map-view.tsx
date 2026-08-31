@@ -1624,6 +1624,15 @@ export default function FishingMapView() {
           geometry: { type: "LineString", coordinates: s.track },
         });
       }
+      // MARKER TÂM BÃO — LUÔN vẽ, kể cả khi thiếu polygon/track (áp thấp GDACS
+      // hay bỏ sót vùng ảnh hưởng, chỉ còn tâm; sự cố 2026-08-31: áp thấp NCHMF
+      // `areas:[]` → trước đây chỉ hiện một vạch track mờ ở mép bản đồ, bà con
+      // không thấy "bão ở đây"). Chấm to màu theo mức cảnh báo.
+      features.push({
+        type: "Feature",
+        properties: { kind: "center", alert: s.alert },
+        geometry: { type: "Point", coordinates: [s.lon, s.lat] },
+      });
     }
     return features.length ? { type: "FeatureCollection", features } : null;
   }, [storms]);
@@ -3218,6 +3227,25 @@ export default function FishingMapView() {
                 "line-color": "#b42318",
                 "line-width": 2.5,
                 "line-dasharray": [2, 1.5],
+              }}
+            />
+            {/* TÂM BÃO/ÁP THẤP — chấm to viền trắng, màu theo mức (danger đỏ đậm,
+                watch cam). Luôn thấy dù cơn thiếu polygon/track. */}
+            <Layer
+              id="storm-center"
+              type="circle"
+              filter={["==", ["get", "kind"], "center"]}
+              paint={{
+                "circle-radius": 7,
+                "circle-color": [
+                  "case",
+                  ["==", ["get", "alert"], "danger"],
+                  "#b42318",
+                  "#e4572e",
+                ],
+                "circle-opacity": 0.9,
+                "circle-stroke-width": 2.5,
+                "circle-stroke-color": "#ffffff",
               }}
             />
           </Source>

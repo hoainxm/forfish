@@ -339,7 +339,11 @@ export async function fetchStormCheck(): Promise<StormCheck> {
 
   try {
     const r = await fetch(apiUrl("/api/storms"), {
-      signal: timeoutSignal(20000),
+      // 28s > trần route (NCHMF 2×12s = 24s): mạng sống-mà-chậm vẫn chờ được tin
+      // THẬT thay vì lùi sớm về bản cache cũ. App vẫn hiện bản đã lưu trong lúc
+      // chờ (không treo UI), nên chờ lâu hơn một chút cho thứ dính tính mạng là
+      // đáng. Mất sóng thật thì fetch hỏng tức thì, không đụng trần này.
+      signal: timeoutSignal(28000),
     });
     if (r.ok) {
       const j = (await r.json()) as StormCheck;
