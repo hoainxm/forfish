@@ -11,6 +11,7 @@ import { deviceId } from "@/lib/device-id";
 import { devicePlatform } from "@/lib/storage-persist";
 import { isValidTokenShape } from "@/lib/device-token";
 import { saveToken } from "@/lib/device-token-store";
+import { writePremiumMark } from "@/lib/tier";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -163,6 +164,8 @@ export default function LoginPage() {
           code?: string;
           kicked?: boolean;
           mustChangePassword?: boolean;
+          tier?: string | null;
+          premiumUntil?: string | null;
         } | null,
       })),
       20000,
@@ -207,6 +210,14 @@ export default function LoginPage() {
       );
       setLoading(false);
       return;
+    }
+    /*  GHI DẤU HẠNG NGAY TẠI ĐĂNG NHẬP (chủ dự án 2026-08-31: token lúc đăng
+        nhập đã biết hạng). Nhờ vậy công cụ premium hiện LIỀN, khỏi chờ nhịp
+        heartbeat (bị cửa 30' chặn ⇒ mở app nguội kẹt "checking"). Chỉ ghi khi
+        máy chủ có trả `tier` (string); không có hàng khách → giữ nguyên dấu cũ. */
+    if (typeof body.tier === "string") {
+      const isPremium = body.tier === "premium";
+      writePremiumMark(isPremium, isPremium ? (body.premiumUntil ?? null) : null);
     }
     // lần đầu (webhook đặt must_change_password) → bắt đổi mật khẩu
     const mustChange = body.mustChangePassword === true;

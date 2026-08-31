@@ -57,15 +57,23 @@ export async function POST(req: Request) {
       đại lý giữ "1 tài khoản 1 máy". Admin = env ADMIN_PHONES HOẶC
       customers.role='admin'. Token admin cấp với allow_multi=true (migration
       0053) → miễn ràng buộc một-chuỗi-sống ở DB, không đụng nhau. */
+  /*  ĐỌC HÀNG KHÁCH MỘT LẦN: role (xét admin) + tier/premium_until (HẠNG). Chủ
+      dự án 2026-08-31: *"token lúc đăng nhập đã xác định rồi mà"* — đúng, hạng
+      biết ngay tại đây, nên TRẢ VỀ để máy ghi dấu premium NGAY, khỏi chờ nhịp
+      heartbeat (bị cửa 30' chặn ⇒ premium mở app nguội kẹt "checking" ⇒ ẩn hết
+      công cụ premium). Chốt hạng thật vẫn ở middleware/RLS mỗi request. */
+  const { data: custRow } = await admin
+    .from("customers")
+    .select("role, tier, premium_until")
+    .eq("phone", phone)
+    .maybeSingle();
+  const cust = custRow as {
+    role?: string;
+    tier?: string;
+    premium_until?: string | null;
+  } | null;
   let isAdmin = isAdminPhone(phone, parseAdminPhones(process.env.ADMIN_PHONES));
-  if (!isAdmin) {
-    const { data: roleRow } = await admin
-      .from("customers")
-      .select("role")
-      .eq("phone", phone)
-      .maybeSingle();
-    isAdmin = (roleRow as { role?: string } | null)?.role === "admin";
-  }
+  if (!isAdmin) isAdmin = cust?.role === "admin";
 
   /*  THU HỒI TRƯỚC, CẤP SAU — luật "1 tài khoản 1 máy" cho KHÁCH/ĐẠI LÝ. Đảo
       lại thì có một khoảnh khắc HAI chuỗi cùng hiệu lực; thu hồi hỏng ngay sau
@@ -124,6 +132,12 @@ export async function POST(req: Request) {
     kicked: kickedCount > 0,
     mustChangePassword:
       data?.user?.user_metadata?.must_change_password === true,
+    /*  HẠNG ngay tại đăng nhập — máy ghi dấu premium liền (writePremiumMark),
+        khỏi chờ heartbeat. `tier` = cột THÔ ('premium'/'basic'); client tự xét
+        hạn với `premiumUntil` (luật E4). Không có hàng khách → null (giữ nguyên
+        dấu cũ, thà cũ hơn sai). */
+    tier: typeof cust?.tier === "string" ? cust.tier : null,
+    premiumUntil: cust?.premium_until ?? null,
   });
 }
 
