@@ -178,8 +178,22 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
   it("đang có sóng, đã đăng nhập: tra xong premium → open; basic → upgrade", () => {
     expect(featureAccessDecision({ ...base, premium: true })).toBe("open");
     expect(featureAccessDecision({ ...base, premium: false })).toBe("upgrade");
-    // chưa tra xong hạng → checking (tránh nháy khoá↔mở)
-    expect(featureAccessDecision({ ...base, premium: null })).toBe("checking");
+  });
+
+  /*  CHƯA CÓ KẾT QUẢ TƯƠI (premium=null) — nhịp heartbeat bị cửa 30' chặn nên có
+      thể không về trong phiên. Dùng DẤU ĐÃ LƯU (ghi ngay tại đăng nhập) thay vì
+      kẹt "checking" (chủ dự án: tk premium ko thấy dàn nút). Chỉ "unknown" (chưa
+      từng biết hạng) mới thật sự chờ. */
+  it("premium=null (heartbeat chưa về): theo DẤU ĐÃ LƯU, không kẹt checking", () => {
+    expect(
+      featureAccessDecision({ ...base, premium: null, cachedMark: "premium" }),
+    ).toBe("open");
+    expect(
+      featureAccessDecision({ ...base, premium: null, cachedMark: "basic" }),
+    ).toBe("upgrade");
+    expect(
+      featureAccessDecision({ ...base, premium: null, cachedMark: "unknown" }),
+    ).toBe("checking");
   });
 
   it("MẤT SÓNG + từng là premium → open (xem tiếp bản đồ cá đã tải sẵn ở bờ)", () => {
@@ -330,9 +344,11 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
     ).toBe("login");
   });
 
-  it("nhánh quyền-đã-lưu KHÔNG đụng ca đang có user (không nháy khoá↔mở)", () => {
-    // đã đăng nhập + đang tra hạng: vẫn im lặng chờ câu trả lời tươi, dù dấu
-    // trong máy là premium — mở rồi đóng lại còn khó hiểu hơn
+  it("đã đăng nhập + premium=null + dấu premium → OPEN (tin dấu ghi lúc login)", () => {
+    /*  ĐỔI 2026-08-31 (chủ dự án: token lúc đăng nhập đã biết hạng): trước đây ca
+        này trả "checking" để chờ heartbeat, nhưng heartbeat bị cửa 30' chặn nên
+        premium mở app nguội KẸT checking ⇒ ẩn hết công cụ premium. Nay dấu được
+        ghi NGAY tại đăng nhập nên tin được — nháy chỉ khi hạ hạng thật (hiếm). */
     expect(
       featureAccessDecision({
         ...base,
@@ -341,7 +357,7 @@ describe("featureAccessDecision — cổng UI, có đường lùi offline cho pr
         cachedMark: "premium",
         hasOfflineIdentity: true,
       }),
-    ).toBe("checking");
+    ).toBe("open");
   });
 
   it("auth HỎNG nhưng CHƯA từng premium → login (không mở bừa)", () => {

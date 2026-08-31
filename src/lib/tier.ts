@@ -537,6 +537,20 @@ export function featureAccessDecision(i: FeatureAccessInput): FeatureAccess {
     // thật → mời đăng nhập
     return "login";
   }
-  // có user, đang tra hạng → chưa kết luận (tránh nháy khoá↔mở)
+  /*  CÓ USER, CHƯA CÓ KẾT QUẢ TƯƠI phiên này (`premium == null`). Trước đây kẹt
+      "checking" để chờ heartbeat — nhưng heartbeat bị cửa 30'/backoff chặn nên
+      mở app NGUỘI trong cửa đó thì câu trả lời tươi KHÔNG BAO GIỜ về ⇒ premium
+      kẹt "checking" ⇒ ẩn hết công cụ premium (chủ dự án báo: *"tk pre ko thấy
+      cái dàn nút của pre"*).
+      NAY DÙNG DẤU ĐÃ LƯU: dấu KHÔNG còn là phỏng đoán cũ — nó được GHI NGAY TẠI
+      ĐĂNG NHẬP (`/api/auth/token` trả tier → login `writePremiumMark`), và
+      heartbeat cập nhật/hạ lại sau. Tức đây là CÂU TRẢ LỜI AUTHORITATIVE gần
+      nhất, đã xét hạn qua `effectivePremiumMark`. Nháy khoá↔mở chỉ xảy ra khi
+      tài khoản BỊ HẠ HẠNG thật giữa hai lần — hiếm, và chấp nhận được so với
+      việc người đã trả tiền không thấy tính năng. Chốt TẢI vẫn ở middleware/RLS.
+      "unknown" (máy chưa từng biết hạng — chưa từng đăng nhập/heartbeat) thì mới
+      thật sự phải chờ. */
+  if (i.cachedMark === "premium") return "open";
+  if (i.cachedMark === "basic") return "upgrade";
   return "checking";
 }
