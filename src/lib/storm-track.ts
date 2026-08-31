@@ -269,7 +269,9 @@ export const TRACK_SONG_GIO = 48;
  * `line-width` MapLibre tính bằng PIXEL nên fishing-map-view quy bán-kính-km ra
  * pixel theo zoom (biểu thức `interpolate exponential 2`) để ống co giãn đúng
  * theo bản đồ. Bán kính CỐ ĐỊNH (không lấy từ khung nửa-mặt-phẳng — khung đó bị
- * kẹp tới mép Biển Đông nên vô dụng cho cỡ vẽ); `danger` chỉ là TÍN HIỆU bật ống.
+ * kẹp tới mép Biển Đông nên vô dụng cho cỡ vẽ). Ống BẬT khi có ĐƯỜNG DỰ BÁO
+ * (≥2 nút), KHÔNG đòi `danger` box — parser NCHMF có ngày hụt, mà tắt vùng nguy
+ * hiểm vì lỗi parse là nguy hiểm (feature an toàn thà cảnh báo rộng hơn tắt câm).
  */
 export const ONG_BAO_MUC = [110, 210, 320];
 
@@ -358,7 +360,14 @@ export function tracksToGeoJSON(
         });
       }
     }
-    const coDanger = t.forecast.some((p) => p.danger);
+    /*  CÓ ĐƯỜNG DỰ BÁO để dựng ống nguy hiểm không. KHÔNG đòi `danger` box của
+        bản tin (chủ dự án 2026-08-31, ca thật: bản tin 07:00 parse hụt danger →
+        cả vùng nguy hiểm biến mất dù bão vẫn đó). Ống dùng bán kính CỐ ĐỊNH
+        (`ONG_BAO_MUC`), box chỉ là tín hiệu — mà parser NCHMF luôn có ngày hụt.
+        Feature an toàn TẮT VÌ LỖI PARSE = nguy hiểm, nên vẽ vùng bão theo ĐƯỜNG
+        ĐI (thứ luôn có) — thà cảnh báo rộng hơn tắt câm. */
+    const nodes = tam ? [tam, ...toi] : toi;
+    const veOng = nodes.length >= 2;
     for (const p of t.forecast) {
       features.push({
         type: "Feature",
@@ -372,13 +381,13 @@ export function tracksToGeoJSON(
           lat: p.lat,
           lon: p.lon,
           at: p.at ?? null,
-          dangerKm: coDanger ? ONG_BAO_MUC[ONG_BAO_MUC.length - 1] : null,
+          dangerKm: veOng ? ONG_BAO_MUC[ONG_BAO_MUC.length - 1] : null,
           ten: t.name,
         },
         geometry: { type: "Point", coordinates: [p.lon, p.lat] },
       });
       // VÒNG GIÓ trắng quanh mốc dự báo (bán kính dải trong) — như NCHMF
-      if (coDanger) {
+      if (veOng) {
         features.push({
           type: "Feature",
           properties: { kind: "vong-gio", key: t.key },
@@ -393,10 +402,8 @@ export function tracksToGeoJSON(
         kiểu NCHMF vẽ bằng lớp LINE DÀY bo tròn quanh trục này (xem fishing-map-
         view: 3 line rộng dần cho gradient xanh→tím). Vẽ bằng line thay đa giác vì
         line MapLibre tô PHẲNG — không cộng độ mờ ở chỗ tự-chồng (bo góc/đầu), nên
-        chỗ tiếp tuyến/giao nhau chỉ MỘT màu. Chỉ bật khi bản tin CÓ tuyên vùng
-        nguy hiểm (`danger`) và đủ ≥2 nút để thành đường. */
-    const nodes = tam ? [tam, ...toi] : toi;
-    if (nodes.length >= 2 && coDanger) {
+        chỗ tiếp tuyến/giao nhau chỉ MỘT màu. Bật khi ĐỦ ≥2 nút để thành đường. */
+    if (veOng) {
       features.push({
         type: "Feature",
         properties: { kind: "ong", key: t.key },

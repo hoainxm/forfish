@@ -226,13 +226,16 @@ describe("tracksToGeoJSON — hình để vẽ", () => {
     expect(ring[0]).toEqual(ring[ring.length - 1]);
   });
 
-  it("KHÔNG có danger → KHÔNG vẽ ống/vòng gió (chỉ đường đi + mốc)", () => {
+  /*  KHÔNG có danger box VẪN vẽ ống — feature an toàn KHÔNG được tắt vì parser
+      NCHMF hụt một bản (ca thật 2026-08-31: bản tin 07:00 parse hụt danger). Ống
+      dùng bán kính cố định, box chỉ là tín hiệu ⇒ có đường dự báo là vẽ. */
+  it("KHÔNG có danger box VẪN vẽ ống + vòng gió (miễn có đường dự báo)", () => {
     const noDanger: ForecastRow[] = [
       { bulletin_id: "b", valid_at: null, lat: 20.5, lon: 110, cap: 6, giat: 8, danger_box: null, seq: 0 },
     ];
     const gj = tracksToGeoJSON(rowsToTracks(rows, noDanger, NOW))!;
-    expect(gj.features.some((f) => f.properties?.kind === "ong")).toBe(false);
-    expect(gj.features.some((f) => f.properties?.kind === "vong-gio")).toBe(false);
+    expect(gj.features.some((f) => f.properties?.kind === "ong")).toBe(true);
+    expect(gj.features.some((f) => f.properties?.kind === "vong-gio")).toBe(true);
     expect(gj.features.some((f) => f.properties?.kind === "sap-toi")).toBe(true);
   });
 
