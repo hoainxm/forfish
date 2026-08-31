@@ -2,7 +2,18 @@
 
 > Load khi: task chạm /quan-tri (vận hành), phân quyền đại lý, trạng thái premium (đã dùng/đã liên hệ), thu tiền + trace tiền đồng bộ SDWork, audit hoạt động admin, luồng đăng nhập admin.
 covers: src/app/quan-tri, src/app/api/admin, src/lib/admin-auth.ts, src/lib/admin.ts
-last_verified: 2026-08-19
+last_verified: 2026-08-31
+<!-- re-verified: 2026-08-31 — DẢI 4 Ô SỐ ĐẦU TAB "Tài khoản" NAY ĐẾM THEO THỨ ĐANG XEM.
+Báo từ hiện trường (Vss Quân Bình Định qua chủ dự án): *"cái con số pre nó ko nhảy theo"* — ảnh chụp
+39 tổng / 39 premium đứng im khi đổi bộ lọc. KHÔNG phải lỗi dữ liệu, cũng không phải `resolveTier`:
+bốn ô đếm trên `accounts` (toàn bộ bảng) trong khi MỌI thứ dưới chúng (ô tìm SĐT/tên, chip
+Premium/Thường, chip Khách-dùng-app/Nhân-sự-quản-trị) đều lọc danh sách ⇒ danh sách đổi mà số đứng im.
+Riêng chip vai còn sai cả nghĩa: màn MẶC ĐỊNH là "Khách dùng app" (đã trừ nhân sự) mà ô vẫn ghi
+"Tổng tài khoản" gồm cả nhân sự — hai con số nói về hai tệp khác nhau đặt cạnh nhau.
+Nay `stats` đếm trên `visible`; nhãn ô đầu "Tổng tài khoản" → "Đang xem" để không hứa một con số
+toàn bảng. Muốn tổng thật thì bỏ hết bộ lọc, đúng như mọi màn danh sách khác.
+KHÔNG đụng luật hạng: `resolveTier(tier, premium_until, now)` giữ nguyên, API `/api/admin/accounts`
+giữ nguyên, quyền và log cấp premium giữ nguyên. AC quản trị không đổi một dòng. -->
 ttl_days: 90
 <!-- re-verified: 2026-08-19 — SYNC BASE (Long-Forfun→sdvico, 41 commit). Đối chiếu 4 vùng covers: (1) `lib/admin.ts` KHÔNG đổi (nguồn admin kép env+DB giữ nguyên như ghi chú 2026-08-04b); `lib/admin-auth.ts` nhận bản SIẾT FAIL-OPEN của base: `requireStaff` tra `staff_permissions` cho manager nay chỉ rơi về preset mặc định khi CỘT CHƯA CÓ (`isMissingColumnError`), còn lỗi tra khác (Postgres nghẹt / schema cache hỏng / driver ném) → **503 `unavailable`** thay vì cấp preset view+create+edit cho người mà máy chủ vừa không tra nổi quyền. Mô hình quyền admin/manager tab×hành động KHÔNG đổi; đường chuỗi-cứng-trước-phiên của sdvico (2026-08-04c) giữ nguyên. (2) `src/app/api/admin` nhận THÊM route đơn hàng `/api/admin/orders` (+`[id]`) của base — chuyển trạng thái đơn `moi→da_nhan→dang_giao→da_giao|da_huy`, gác bằng `requirePermission("don-hang",…)`, push chủ tàu `sent_by=system:order`; `accounts`/`push`/`products` chỉ thêm cột/field, VẪN ghi 2 nhật ký song song (writeAudit→admin_audit + logActivity→admin_activity_log). (3) `src/app/quan-tri/page.tsx` thêm tab **Đơn hàng** + ô nhóm/giá số/đơn vị/cho-đặt ở tab Sản phẩm; KỲ HẠN PREMIUM GIỮ NGUYÊN của sdvico (PREMIUM_TERM_MONTHS=18 + chọn được), KHÔNG lấy "1 năm/lần" của base. (4) Migration đơn hàng của base đổi số 0032/0033/0034 → **0045/0046/0047** và ⚠️ CHƯA APPLY prod SDVICO — tab Đơn hàng chỉ chạy thật sau khi apply. NV1–NV7 hành vi không đổi. -->
 <!-- re-verified: 2026-08-04c — FIX ĐĂNG NHẬP ADMIN dưới kiến trúc base (device-token): `requireStaff` nay xác thực CHUỖI CỨNG trước (tokenIdentity qua next/headers) rồi mới phiên Supabase (đường lùi) — base bỏ phiên nên admin/manager token-only trước bị 401, /quan-tri + nút Trang quản trị chết. Client /quan-tri: 41 call /api/admin/* nay gửi `tokenHeader()`. Phân quyền admin/manager KHÔNG đổi; KHÔNG-tra-được-sổ-chuỗi → 503 (không đá staff oan). -->

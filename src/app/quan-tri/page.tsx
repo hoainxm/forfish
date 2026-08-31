@@ -645,17 +645,6 @@ function AccountsTab({ me }: { me: Me }) {
     [],
   );
 
-  // ── số thống kê nhanh trên đầu tab ──────────────────────────────────────
-  const stats = useMemo(() => {
-    if (!accounts) return null;
-    return {
-      total: accounts.length,
-      premium: accounts.filter((a) => effTier(a) === "premium").length,
-      canLogin: accounts.filter((a) => a.canLogin).length,
-      manual: accounts.filter((a) => !a.fromSdwork).length,
-    };
-  }, [accounts, effTier]);
-
   /** nhân sự = có quyền vào web quản trị (KHÁC hạng premium — hai trục rời) */
   const isStaff = useCallback(
     (a: Account) => a.isAdmin || a.role === "manager",
@@ -684,6 +673,31 @@ function AccountsTab({ me }: { me: Me }) {
       ) ?? null,
     [matched, roleFilter, isStaff],
   );
+
+  /*  ── SỐ THỐNG KÊ ĐẦU TAB — ĐẾM ĐÚNG THỨ ĐANG XEM ────────────────────────
+      Lỗi cũ (báo từ hiện trường 2026-08-31, Vss Quân Bình Định: *"cái con số
+      pre nó ko nhảy theo"*): bốn ô số này đếm trên `accounts` — TOÀN BỘ bảng —
+      trong khi MỌI thứ bên dưới chúng (ô tìm, chip Premium/Thường, chip Khách
+      dùng app/Nhân sự quản trị) đều lọc danh sách. Hệ quả: gõ tìm, đổi chip,
+      bấm sang "Nhân sự quản trị" — danh sách đổi mà bốn con số đứng im, nên
+      nhìn như hỏng. Riêng chip vai còn sai cả nghĩa: màn mặc định là "Khách
+      dùng app" (đã trừ nhân sự) mà ô vẫn ghi "Tổng tài khoản" gồm cả nhân sự.
+
+      Nay đếm trên `visible` — đúng những dòng đang bày ra. Nhãn ô đầu đổi
+      "Tổng tài khoản" → "Đang xem" cho khỏi hứa một con số toàn bảng.
+      Muốn xem tổng thật thì bỏ hết bộ lọc, đúng như mọi màn danh sách khác.
+
+      ĐẶT SAU `visible`: nó phải đọc `visible`, mà `visible` khai bên trên —
+      để nguyên chỗ cũ là rơi vào vùng chết TDZ. */
+  const stats = useMemo(() => {
+    if (!visible) return null;
+    return {
+      total: visible.length,
+      premium: visible.filter((a) => effTier(a) === "premium").length,
+      canLogin: visible.filter((a) => a.canLogin).length,
+      manual: visible.filter((a) => !a.fromSdwork).length,
+    };
+  }, [visible, effTier]);
 
   /** đang xem Khách mà tìm trúng nhân sự → mách một câu, đừng để tưởng mất */
   const hiddenStaff = useMemo(
@@ -913,7 +927,7 @@ function AccountsTab({ me }: { me: Me }) {
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
           {(
             [
-              ["Tổng tài khoản", stats.total],
+              ["Đang xem", stats.total],
               ["Premium hiệu lực", stats.premium],
               ["Đăng nhập được", stats.canLogin],
               ["Tạo tay", stats.manual],
