@@ -1,6 +1,7 @@
 import { parseStorms, type StormAlert } from "@/lib/storms";
 import {
   NCHMF_INDEX_URL,
+  NCHMF_BACKUP_INDEX_URL,
   htmlToText,
   parseNchmfBulletin,
   pickLatestNchmfBulletin,
@@ -86,9 +87,13 @@ async function layGdacs(now: Date): Promise<StormAlert[] | null> {
     không đoán được theo ngày (NCHMF đánh số `postNNNNN` tăng dần).
     Trả `[]` (mảng rỗng) khi trang liệt kê KHÔNG có bản tin bão nào — đó là câu
     trả lời THẬT "hiện không có tin", khác hẳn `null` = không hỏi được. */
-async function layNchmf(now: Date): Promise<StormAlert[] | null> {
+/** Lấy tin bão/ATNĐ từ MỘT trang liệt kê NCHMF (index chính HOẶC dự phòng). */
+async function layNchmfTuIndex(
+  indexUrl: string,
+  now: Date,
+): Promise<StormAlert[] | null> {
   try {
-    const rIndex = await fetch(NCHMF_INDEX_URL, {
+    const rIndex = await fetch(indexUrl, {
       next: { revalidate: 1800 },
       headers: {
         accept: "text/html",
@@ -98,7 +103,7 @@ async function layNchmf(now: Date): Promise<StormAlert[] | null> {
       signal: timeoutSignal(NGUON_TIMEOUT_MS),
     });
     if (!rIndex.ok) {
-      console.error("[storms] NCHMF index trả", rIndex.status);
+      console.error("[storms] NCHMF index trả", rIndex.status, indexUrl);
       return null;
     }
     const url = pickLatestNchmfBulletin(await rIndex.text());
@@ -122,9 +127,28 @@ async function layNchmf(now: Date): Promise<StormAlert[] | null> {
         nói "không có bão" trong ca đó là nói dối chuyện tính mạng. */
     return s ? [s] : null;
   } catch (e) {
-    console.error("[storms] NCHMF hỏng:", (e as Error)?.message);
+    console.error("[storms] NCHMF hỏng:", (e as Error)?.message, indexUrl);
     return null;
   }
+}
+
+/**
+ * Tin VN: thử INDEX CHÍNH trước; KHÔNG ra cơn (hỏng / trang không liệt kê bản
+ * tin bão) thì thử trang THỜI TIẾT NGUY HIỂM (dự phòng, 2026-08-31 — user) để
+ * bắt cơn index chính bỏ sót.
+ *
+ * AN TOÀN (không nói dối chuyện tính mạng): chỉ trả `[]` ("trời yên") khi ÍT
+ * NHẤT một trang HỎI ĐƯỢC (≠ null) mà không thấy cơn; cả hai đều không hỏi được
+ * → `null` ("chưa hỏi được tin bão", KHÔNG được đội lốt "không có bão").
+ * Chỉ tải trang dự phòng KHI cần (index chính không ra cơn) — không tốn thêm
+ * lượt lúc trời có bão rõ hoặc trời yên đã xác nhận.
+ */
+async function layNchmf(now: Date): Promise<StormAlert[] | null> {
+  const chinh = await layNchmfTuIndex(NCHMF_INDEX_URL, now);
+  if (chinh && chinh.length > 0) return chinh;
+  const duPhong = await layNchmfTuIndex(NCHMF_BACKUP_INDEX_URL, now);
+  if (duPhong && duPhong.length > 0) return duPhong;
+  return chinh !== null || duPhong !== null ? [] : null;
 }
 
 /**
