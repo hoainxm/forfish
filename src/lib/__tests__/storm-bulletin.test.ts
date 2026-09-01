@@ -81,6 +81,17 @@ describe("parseDangerBox — vùng nguy hiểm là thứ NGUỒN PHÁT, không p
       lonMax: 115,
     });
   });
+
+  it("nửa mặt phẳng có chữ 'VĨ TUYẾN' (bão số 5 thật 1/9) — vẫn bắt", () => {
+    // bản tin bão số 5 ghi "Phía Bắc vĩ tuyến 18,0N; ..." — parser trước SÓT vì
+    // chữ "vĩ tuyến" xen giữa ⇒ danger:null ⇒ vùng nguy hiểm không lưu được
+    expect(parseDangerBox("Phía Bắc vĩ tuyến 18,0N; 111,5-118,0E")).toEqual({
+      latMin: 18,
+      latMax: 30,
+      lonMin: 111.5,
+      lonMax: 118,
+    });
+  });
 });
 
 describe("parseGioNgay", () => {
