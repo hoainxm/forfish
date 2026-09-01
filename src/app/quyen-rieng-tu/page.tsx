@@ -197,6 +197,19 @@ export default function QuyenRiengTuPage() {
             <li>
               Tài khoản (số điện thoại, tên): giữ khi tài khoản còn hoạt động.
             </li>
+            {/*  KHAI THẲNG VIỆC GIỮ BẢN ĐÃ XOÁ (chủ dự án chốt 2026-09-01, kèm
+                 quyết định "khai rõ trong /quyen-rieng-tu"). Đây là thứ luật và
+                 kho ứng dụng bắt buộc nói ra: dữ liệu người dùng tưởng đã bỏ mà
+                 công ty vẫn giữ thì phải cho họ biết, và cho đường xoá hẳn.
+                 Nói bằng lời thường, không dùng chữ "tombstone"/"soft delete". */}
+            <li>
+              <b>Bản bà con đã xoá: máy chủ vẫn giữ lại một bản.</b> Khi bà con
+              xoá một việc bảo dưỡng, một tờ giấy, hay một người trong sổ thuyền
+              viên, máy chủ giữ lại bản trước đó để SDVICO xem cách bà con dùng
+              app mà cải thiện. Bản này <b>không hiện lại</b> trên máy bà con, và{" "}
+              <b>không chia sẻ ra ngoài</b> (mục 3). Muốn xoá hẳn cả những bản
+              này thì gọi SDVICO ở dưới.
+            </li>
             <li>
               <b>Muốn xoá hẳn tài khoản và dữ liệu trên máy chủ</b>: gọi SDVICO{" "}
               <a href={`tel:${SDVICO_HOTLINE}`} className="inline-flex min-h-[3.5rem] items-center font-bold text-sea underline">

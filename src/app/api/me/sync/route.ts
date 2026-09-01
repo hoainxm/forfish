@@ -17,6 +17,8 @@ import { normalizeVnPhone } from "@/lib/phone";
 import { invalidPut, type SyncKind } from "@/lib/user-sync-core";
 
 const TABLE = "user_docs";
+/** Bảng CHỈ-THÊM giữ bản cũ mỗi lần bị đè — xem migration 0054, 04 §Đồng bộ sổ */
+const HISTORY_TABLE = "user_docs_history";
 
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
@@ -77,6 +79,33 @@ export async function PUT(req: Request) {
       stale: true,
       server: { kind, data: cur.data, clientUpdatedAt: cur.client_updated_at },
     });
+  }
+
+  /*  GIỮ BẢN CŨ TRƯỚC KHI ĐÈ (chủ dự án 2026-09-01: *"phía server ko cần xoá,
+      mà lưu lại ở server kèm trạng thái đã xoá, để có thể phân tích hành vi
+      người dùng sau này"*).
+
+      `user_docs` giữ cả cuốn sổ là MỘT khối JSON, một dòng cho mỗi
+      (owner_phone, kind) — không có dòng riêng cho từng việc để gắn cờ "đã
+      xoá". Nên cách giữ được là chép BẢN TRƯỚC sang bảng chỉ-thêm; muốn biết
+      bà con bỏ cái gì thì so hai bản.
+
+      ⚠️ CHÉP LỖI THÌ KHÔNG CHẶN LƯỢT ĐẨY. Mất một dòng lịch sử là mất một mẩu
+      số liệu phân tích của công ty; chặn lượt đẩy là sổ bà con không lên được
+      server, rồi máy khác kéo về bản cũ — mất việc thật của người dùng. Không
+      bao giờ đánh đổi theo chiều đó. Bảng chưa apply lên prod cũng rơi vào
+      đúng nhánh này (lỗi bảng-không-tồn-tại) nên app vẫn chạy y như cũ. */
+  if (cur) {
+    const { error: hErr } = await admin.from(HISTORY_TABLE).insert({
+      owner_phone: phone,
+      kind,
+      data: cur.data,
+      client_updated_at: cur.client_updated_at,
+    });
+    if (hErr) {
+      // để lại vết cho người vận hành, KHÔNG ném lên client
+      console.error("[me/sync] khong luu duoc lich su:", hErr.message);
+    }
   }
 
   const { error } = await admin.from(TABLE).upsert(
