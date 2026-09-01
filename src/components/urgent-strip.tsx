@@ -295,6 +295,27 @@ export function UrgentStrip() {
 
   if (!mounted) return null;
 
+  /*  CHƯA CÓ TÀI KHOẢN ⇒ KHÔNG BÀY VIỆC CỦA TÀU (2026-09-01).
+      Chủ dự án gửi ảnh dải khẩn đầy "Thay lọc dầu · Quá hạn 93 ngày" và bảo
+      *"bỏ các loại dữ liệu seed này đi"*. Đã rà: KHÔNG còn seed nào trong code
+      (đợt gỡ 2026-07-29 làm sạch, `boats.ts` cũng ghi rõ "KHÔNG seed tàu mẫu").
+      Thứ trong ảnh là dữ liệu THẬT nằm ở máy đó — bản ghi tay còn lại từ lúc
+      chạy thử, đọc thẳng từ localStorage.
+
+      Nhưng nó phơi ra một lỗi thật, và là lỗi của chính đợt khoá đăng nhập vừa
+      xong: cả app đã đòi tài khoản, mà trang chủ vẫn bày lịch bảo dưỡng + giấy
+      tờ + nợ SDVICO đọc từ kho máy — tức việc của MỘT chủ tàu nào đó hiện ra
+      cho người chưa đăng nhập. Máy dùng chung ở bến hay máy vừa cài lại là
+      thấy việc của người khác.
+
+      `readToken()` chứ không phải phiên Supabase: cùng tín hiệu với cổng
+      `require-login`, nên mất sóng ngoài biển vẫn hiện đủ việc.
+
+      KHÔNG áp cùng luật cho hộp thư (`inbox-section`): tin gửi CHUNG tới máy
+      chưa gắn tài khoản là ca đã cố ý mở (sửa 2026-08-01n), giấu đi là mở lại
+      đúng cái lỗ nó sinh ra để bịt. */
+  if (!signedIn) return null;
+
   /*  Không hỏi được đồ SDVICO (S2): chỉ nói khi ĐÃ đăng nhập và máy đang CÓ
       sóng mà vẫn hỏng — mất sóng thì bà con biết rồi, nhắc là "nhắc như cái
       máy" (chính sách 2026-08-18: mất sóng không phải tin). */
