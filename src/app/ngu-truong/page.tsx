@@ -1,4 +1,5 @@
 import { FishingMap } from "@/components/fishing-map";
+import { RequireLogin } from "@/components/require-login";
 
 export const metadata = { title: "Đánh bắt — SDFish" };
 
@@ -17,7 +18,9 @@ export default function NguTruongPage() {
   // iOS (pwa-frame): cao = --app-vh − --dock-total, khớp DockFrame.
   return (
     <div className="full-map fixed inset-x-0 top-0 mx-auto max-w-[480px]">
-      <FishingMap />
+      <RequireLogin what="bản đồ ngư trường">
+        <FishingMap />
+      </RequireLogin>
     </div>
   );
 }

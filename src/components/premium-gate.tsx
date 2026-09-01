@@ -67,7 +67,7 @@ export function PremiumLock({
         href="/login"
         className="display mx-auto mt-3 flex min-h-[3.25rem] w-full max-w-[300px] items-center justify-center rounded-full bg-trim text-[1.0625rem] font-bold text-white transition active:scale-[0.98]"
       >
-        Đăng nhập / Đăng ký
+        Đăng nhập
       </Link>
     ) : (
       <a

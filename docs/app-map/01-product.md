@@ -6,6 +6,26 @@
 
 ---
 
+
+## Ai dùng được — CẦN TÀI KHOẢN, DO SDVICO CẤP (chủ dự án chốt 2026-09-01)
+
+App **yêu cầu đăng nhập** mới dùng được; **không có đường tự đăng ký** — tài khoản do SDVICO cấp, bà con gọi `0939 243 222`. Trước 2026-09-01 app dùng được không cần tài khoản (demo mode localStorage), chỉ khoá vài khối giá trị cao.
+
+**Chưa có tài khoản thì thấy gì:**
+
+| Mở | Khoá |
+|---|---|
+| Trang chủ `/` **đầy đủ như cũ** — hero, tin bão, dải khẩn, Bốn việc, hộp thư, **và lời nhắc cài PWA** (bản web) | `/ngu-truong` bản đồ ngư trường |
+| `/login` · `/quen-mat-khau` · `/quyen-rieng-tu` | `/tau` hồ sơ tàu · `/nguoi` sổ thuyền viên · `/cang` danh bạ cảng |
+| `/tien` mục **Giá cá** (số công khai VASEP) | `/tien` mục Tin mua/bán · Bán ở đâu |
+| `/dang-ky` — GIỮ MÀN nhưng khoá, chỉ còn câu "gọi SDVICO" | |
+
+**Vì sao trang chủ mở nguyên:** người chưa có tài khoản phải NHÌN THẤY app làm được gì rồi mới có cớ gọi xin cấp. Tin bão để mở vì đó là chuyện an toàn tính mạng — không đem ra làm mồi câu tài khoản. Giá cá mở vì là số công khai của VASEP, khoá cũng không giữ được gì.
+
+**Vì sao GIỮ `/dang-ky` mà không xoá route:** đường đó đã phát ra ngoài (tin nhắn nhân viên, ảnh chụp màn, chính câu "Đăng nhập / Đăng ký" trong app cũ). Xoá là bà con bấm vào ra 404 đúng lúc đang cần tài khoản.
+
+**Ngoài biển mất sóng KHÔNG bị khoá:** cổng đọc `signedIn` của `use-auth` = *có phiên HOẶC có chuỗi cứng trong máy*. Chuỗi nằm sẵn ở máy nên mất sóng nhiều ngày vẫn vào được — chặn giữa biển là chặn đúng lúc cần bản đồ và cảnh báo ranh giới nhất. Chốt thật vẫn ở API + RLS khi có sóng.
+
 ## 1. ForFish là gì
 
 App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mobile-first, tiếng Việt đời thường.
@@ -59,6 +79,13 @@ App đồng hành của **ngư dân Việt Nam**, do **SDVICO** đặt hàng. Mo
     - **Dẫn đường LIVE "Bắt đầu dẫn đường" (2026-07-28)**: vẽ xong tuyến → theo dõi GPS trên máy, **bám tuyến đã vẽ** (dẫn tới khúc rẽ kế tiếp), tính quãng + giờ còn lại tới đích, giữ màn hình sáng. Chạy hoàn toàn TRÊN MÁY, **không cần mạng** (khớp offline). **Vị trí CHỈ nằm trên máy — KHÔNG gửi đi đâu, không log**; chia sẻ vị trí cho người nhà (VMS) là việc TƯƠNG LAI, ngoài phạm vi bản này. Vẫn "chỉ tham khảo — không thay máy định vị của tàu"; mất định vị/tàu chưa chạy thì nói thật, không bịa số. Xem [07-design-spec §10.7](07-design-spec.md).
     - **Đường đi NHIỀU ĐIỂM (2026-08-28)**: bà con chấm một chuỗi chỗ ghé (tối đa 6) và **tàu đi ĐÚNG THỨ TỰ đã chấm** — app KHÔNG tự sắp xếp lại, vì thứ tự là kinh nghiệm thuyền trưởng (tối ưu thứ tự thuộc tính năng lộ trình nhiều ngày, [09 §6](09-ba-spec-lo-trinh-chuyen-bien.md)). Mỗi chặng vẫn tính bằng đúng thuật toán né sóng/cạn trên, giờ xuất phát chặng sau cộng dồn giờ chạy chặng trước; ba con số (hải lý · giờ · lít dầu) là của CẢ đường đi và **mọi cảnh báo của từng chặng đều nổi lên cả tuyến** (một chặng cạn = cả tuyến nói cạn). Chuỗi chỗ ghé lưu trong máy (`forfish.routestops.v1`) nên tắt app không mất. **Cảnh báo lệch tuyến** nay nói theo mốc (2/5/10/20 km) kèm chuông riêng — vẫn chỉ CẢNH BÁO, app không tự tính lại tuyến và không phán đúng-sai. Vẫn MIỄN PHÍ như phần dẫn đường.
   - Tin bão/áp thấp: **HAI NGUỒN (2026-08-18)** — (1) **NCHMF** (Trung tâm Dự báo KTTV quốc gia), chính là bản tin bà con nghe trên đài duyên hải: parse trang bản tin `nchmf.gov.vn/kttv/` (`lib/storms-vn.ts`, thuần + test dựng từ bản tin thật), **ưu tiên** vì bà con đối chiếu với đài; (2) hệ cảnh báo thiên tai quốc tế GDACS (EU/UN, JSON công khai) qua proxy `/api/storms`, lọc vùng Biển Đông, bù đường đi + vùng ảnh hưởng dạng polygon. **VÌ SAO PHẢI CÓ NGUỒN VN**: 18/8/2026 người của SDVICO báo từ hiện trường *"đài dự báo áp thấp nhiệt đới trên Biển Đông mà app chưa cập nhật"* — GDACS **không phủ áp thấp nhiệt đới mới hình thành** (đo thật hôm đó: 0 sự kiện trong khung Biển Đông trong khi NCHMF đã ra tin). Hỏng một nguồn vẫn còn nguồn kia; cả hai hỏng thì nói "chưa hỏi được", KHÔNG BAO GIỜ nói "không có bão". **Vẽ trên bản đồ (2026-06-16)**: ngoài tâm bão còn có **đường đi (track)** + **vùng ảnh hưởng (polygon đỏ mờ)** — GDACS trả sẵn LineString/Polygon, parse trong `storms.ts`. **Quy tắc an toàn** (sửa sau audit 2026-06-10): nguồn fail → hiện rõ "Chưa kiểm tra được tin bão — nghe đài duyên hải" (KHÔNG BAO GIỜ nói "không có bão" khi chưa chắc; cũng không im lặng — người dùng không phân biệt được im lặng với "đã kiểm tra, không có"); dòng trấn an xanh chỉ hiện khi đã kiểm tra được thật. Nguồn quốc tế có thể lệch tên/cấp so với bản tin KTTV VN bà con nghe đài — nâng cấp lên nguồn chính thống VN khi có thỏa thuận.
+- **Số đo sâu chính thức (2026-09-01)**: bóc từ **Thông báo hàng hải** — `vmsa.vn`, kho `vms-south.vn`, 16 trang cảng vụ tỉnh → **379 điểm · 203 tuyến/khu nước** + **22 đoạn luồng** khống chế. Mở miền Bắc bằng **OCR 390 PDF ảnh scan** (EasyOCR `vi`+`en`, chạy ngoài repo, `package.json` không đổi): thêm **107 tuyến, TẤT CẢ từ 16,9°B ra Bắc** — Hải Phòng 57, Hà Tĩnh 21, Thanh Hoá 14, Nghệ An 8, Quảng Ninh 6, Quảng Trị 2, sáu cảng vụ trước đây đóng góp **0**. Đây là **dữ liệu nhà nước công bố công khai**: công ty hiện thực hoá cho bà con xem trực quan.
+  - Hai bộ **BÙ NHAU chứ không chồng**: miền Nam ghi theo TOẠ ĐỘ RỜI, miền Bắc ghi theo ĐOẠN GIỮA HAI PHAO. Bỏ một bên là mất trắng một nửa đất nước.
+  - ⚠️ Là dữ liệu **CỬA LUỒNG/CẢNG**, không phải ngư trường xa bờ — nhãn UI nói thẳng *"tham khảo, không thay hải đồ chính thức"*. Ngư trường xa bờ và cửa lạch/cảng cá vẫn TRẮNG, chưa hứa gì.
+  - **Miền Bắc thêm 0 điểm rời — đó là kết quả ĐÚNG.** Cảng vụ phía Bắc không đăng bảng toạ độ điểm cạn; họ đăng góc khu nước kèm một câu độ sâu khống chế. Gắn số đó vào bốn góc là **bịa bốn phép đo ở toạ độ thật**, nên chúng nằm ở `tuyen[]`/`doan[]`.
+  - **Ngày ước lượng NAY CÓ CỜ**: 149 điểm mang ngày suy từ `/uploads/<năm>/<tháng>/` — trước đây trình bày như ngày ký chính xác. Giao diện đọc cờ này để làm THÔ câu trả lời ("khoảng 7 năm trước", không nói tháng) và nói rõ ngày là ước chừng.
+  - ⚠️ **Còn 597 PDF ảnh scan chưa OCR, KHÔNG cái nào ở miền Bắc** (BĐATHH miền Nam 357 · Cần Thơ 95 · TP.HCM 73 · Quy Nhơn 33 · Đà Nẵng 25). Mở nốt được, ~1,5 giờ GPU, không có gì chặn về kỹ thuật.
+  - Đối chiếu chéo với lưới vệ tinh ETOPO+GEBCO: **khớp 99%** (2/379 điểm lệch, đều ở mép ngưỡng; 0/13 đoạn luồng lệch). Vệ tinh nay dùng để **soi lỗi bóc**, không dùng để sửa lưới.
 - **Dữ liệu tương lai**: feed thương mại (vd OceanByte) — **bắt buộc đi qua adapter có thể thay thế**.
   - ⚠️ OceanByte là bên thứ ba nước ngoài, có sản phẩm vessel-tracking cạnh tranh → **không bao giờ là core**, không hardcode vào domain logic.
   - ⚠️ Khuyến nghị ngư trường của họ chỉ cập nhật **2 lần/tuần** → KHÔNG hứa với người dùng độ chính xác hằng ngày cho phần khuyến nghị.

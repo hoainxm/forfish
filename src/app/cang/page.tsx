@@ -1,5 +1,6 @@
 import { PortDirectory } from "@/components/port-directory";
 import { PageHeader } from "@/components/page-header";
+import { RequireLogin } from "@/components/require-login";
 
 export const metadata = { title: "Danh bạ cảng — SDFish" };
 
@@ -14,7 +15,9 @@ export default function CangPage() {
         sub="Cảng chỉ định để bốc dỡ, bán cá, làm thủ tục — lọc theo tỉnh tàu."
         toColor="var(--t1)"
       />
-      <PortDirectory />
+      <RequireLogin what="danh bạ cảng cá">
+        <PortDirectory />
+      </RequireLogin>
     </div>
   );
 }

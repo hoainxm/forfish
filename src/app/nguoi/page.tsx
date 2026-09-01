@@ -1,7 +1,7 @@
 import { CrewList } from "@/components/crew-list";
 import { PageHeader } from "@/components/page-header";
 import { BoatSwitcher } from "@/components/boat-switcher";
-import { LoginGate } from "@/components/login-gate";
+import { RequireLogin } from "@/components/require-login";
 
 export const metadata = { title: "Bạn thuyền — SDFish" };
 
@@ -19,14 +19,15 @@ export default function NguoiPage() {
         title="Sổ thuyền viên"
         toColor="var(--t4)"
       />
-      <LoginGate
-        feature="sổ thuyền viên"
-        blurb="Đăng nhập để lưu hồ sơ, chứng chỉ, bảo hiểm thuyền viên — dữ liệu riêng của bạn, đồng bộ nhiều máy."
-        accent="t4"
-      >
+      {/*  ĐỔI `LoginGate` → `RequireLogin` (chủ dự án 2026-09-01): từ nay CẢ
+           app cần tài khoản, mà tài khoản KHÔNG tự đăng ký được nữa. Câu cũ
+           mời "đăng nhập để lưu hồ sơ… đồng bộ nhiều máy" là chỉ sai đường —
+           người chưa có tài khoản bấm vào /login cũng không vào nổi. Thẻ mới
+           nói thẳng: gọi SDVICO. */}
+      <RequireLogin what="sổ thuyền viên">
         <BoatSwitcher />
         <CrewList />
-      </LoginGate>
+      </RequireLogin>
     </div>
   );
 }

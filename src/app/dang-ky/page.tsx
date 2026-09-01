@@ -1,214 +1,52 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { apiUrl } from "@/lib/api-base";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
-import { withDeadline } from "@/lib/auth-error";
-import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+
 import { PageHeader } from "@/components/page-header";
-import {
-  AuthCard,
-  AuthError,
-  AuthNote,
-  isValidVnPhone,
-  PasswordField,
-  phoneToEmail,
-  sanitizePhoneInput,
-} from "@/components/auth-form";
-import { normalizePassword } from "@/lib/password";
-import { timeoutSignal } from "@/lib/abort";
-import { deviceId } from "@/lib/device-id";
-import { devicePlatform } from "@/lib/storage-persist";
-import { isValidTokenShape } from "@/lib/device-token";
-import { saveToken } from "@/lib/device-token-store";
+import { AuthCard, AuthNote } from "@/components/auth-form";
+import { CallButton } from "@/components/ui/primitives";
+import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
+
+export const metadata = { title: "Đăng ký — SDFish" };
 
 /*
-  Đăng ký tài khoản bằng SĐT (thật chất là email ảo — bà con không thấy).
-  KHÔNG yêu cầu confirm email. Bà con chưa phải khách SDWork vẫn tự tạo
-  được tài khoản. Tài khoản do CRM provision thì mang cờ buộc đổi mật khẩu lần
-  đầu (mật khẩu khởi tạo do nhân viên báo).
+  MÀN TỰ ĐĂNG KÝ ĐÃ KHOÁ (chủ dự án 2026-09-01: *"yêu cầu phải liên hệ SDVICO
+  để cấp acc"*, chọn phương án "giữ màn nhưng khoá lại").
+
+  VÌ SAO GIỮ MÀN CHỨ KHÔNG XOÁ ROUTE: đường `/dang-ky` đã phát ra ngoài — nằm
+  trong tin nhắn nhân viên gửi khách, trong ảnh chụp màn, và ngay trong câu
+  "Đăng nhập / Đăng ký" của các thẻ khoá cũ. Xoá route là bà con bấm vào ra 404
+  giữa lúc đang cần tài khoản; giữ lại thì trang tự nói phải gọi ai.
+
+  BIỂU MẪU CŨ GỠ HẲN, không ẩn đi: để lại form sống mà chặn ở server là hai
+  đường cho cùng một việc, và là chỗ người sau tưởng còn dùng được. Lịch sử git
+  giữ bản cũ nếu cần lấy lại.
+
+  ⚠️ ĐÂY LÀ LỚP VỎ. Cửa thật vẫn là `/api/auth/*` + RLS — route tạo tài khoản
+  phải TỰ chặn người ngoài, không dựa vào việc màn này biến mất.
 */
 export default function DangKyPage() {
-  const router = useRouter();
-  const supabase = createClient();
-
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  if (!supabase) {
-    return (
-      <div>
-        <PageHeader kicker="Tài khoản" title="Đăng ký" toColor="var(--sea)" />
-        <AuthCard>
-          <AuthNote>
-            Chưa cấu hình đăng ký — app vẫn dùng được không cần tài khoản.
-          </AuthNote>
-        </AuthCard>
-      </div>
-    );
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-
-    if (!isValidVnPhone(phone)) {
-      setError("Số điện thoại phải đủ 10 số (ví dụ 0901234567).");
-      return;
-    }
-    const pw = normalizePassword(password);
-    if (pw.length < 6) {
-      setError("Mật khẩu cần ít nhất 6 ký tự.");
-      return;
-    }
-
-    setLoading(true);
-    // Tạo tài khoản qua auth-gateway (email ảo ĐÃ confirm sẵn — email ảo
-    // không có hòm thư thật để bấm link xác nhận).
-    const res = await fetch(apiUrl("/api/auth/signup"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, password: pw }),
-      signal: timeoutSignal(25000),
-    }).catch(() => null);
-
-    if (!res || !res.ok) {
-      const j = res ? await res.json().catch(() => null) : null;
-      setError(
-        j?.code === "exists"
-          ? "Số điện thoại này đã có tài khoản — bà con bấm Đăng nhập bên dưới."
-          : "Không đăng ký được lúc này. Bà con thử lại sau ít phút.",
-      );
-      setLoading(false);
-      return;
-    }
-
-    // Tài khoản đã sẵn sàng → vào luôn.
-    // ĐỒNG HỒ CHẶN (soát 2026-08-02): cú này chạy SAU khi tài khoản đã tạo
-    // THẬT trên máy chủ. Không có đồng hồ thì nút kẹt "Đang tạo…" vĩnh viễn ⇒
-    // bà con bấm tạo lần hai và nhận "Số điện thoại này đã có tài khoản" mà
-    // không hiểu vì sao. Treo/hỏng đều đẩy sang màn Đăng nhập — việc đã xong,
-    // chỉ còn thiếu bước vào.
-    const signIn = await withDeadline(
-      supabase!.auth.signInWithPassword({
-        email: phoneToEmail(phone),
-        password: pw,
-      }),
-      25000,
-    );
-    if (!signIn || signIn.error) {
-      // hiếm — tạo xong mà chưa vào được thì để bà con đăng nhập tay. `?tao=xong`
-      // để /login NÓI RA việc đã xong (audit 2026-08-18 G4: trước đây chuyển
-      // màn im lặng, bà con tưởng đăng ký hỏng, bấm tạo lại → "đã có tài khoản").
-      router.replace("/login?tao=xong");
-      return;
-    }
-
-    /*  ĐỔI PHIÊN LẤY CHUỖI CỨNG — Y HỆT `/login` (sửa 2026-08-02h, lỗi CHẶN).
-        LỖI ĐÃ SỬA: đường này trước đây `signInWithPassword` xong là vào thẳng
-        app, KHÔNG cấp chuỗi. Nghĩa là **mọi tài khoản đăng ký mới chạy hoàn
-        toàn bằng phiên Supabase** — JWT ngắn hạn + refresh tự xoay, tức đúng
-        thứ migration 0026 sinh ra để diệt. Ra khơi mất sóng quá một giờ là
-        auth-js tự xoá phiên và bà con bị đá **mà không ai đăng nhập ở đâu cả**.
-        Và khi gỡ "đường lùi một nhịp phát hành" trong `lib/api-identity.ts`
-        theo kế hoạch, cả nhóm đăng ký mới văng ra cùng lúc.
-
-        Cất không được thì KHÔNG bỏ phiên: giữ đường lùi để bà con vẫn vào được
-        app, hơn là đá họ ra ngay sau khi vừa tạo tài khoản. Câu nhắc để dành cho
-        `/login` — ở đây bà con vừa tạo xong, đừng chặn bằng một hộp lỗi. */
-    const issued = await withDeadline(
-      fetch(apiUrl("/api/auth/token"), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          deviceId: deviceId(),
-          platform: devicePlatform(),
-        }),
-        signal: timeoutSignal(20000),
-      }).then((r) => r.json().catch(() => null)),
-      20000,
-    );
-    /*  ⚠️ CẤP CHUỖI HỎNG THÌ CHẶN, ĐỪNG CHO ĐI TIẾP (sửa 2026-08-02h — phản biện
-        bắt: bản vá trước thiếu vế `else`).
-        Không có vế này thì tài khoản vừa tạo chạy THUẦN phiên Supabase — JWT
-        ngắn hạn + refresh tự xoay — tức đúng thứ 0026 sinh ra để diệt: ra khơi
-        mất sóng quá một giờ là bị đá mà KHÔNG ai đăng nhập ở đâu cả. `/login` đã
-        chặn thật; `/dang-ky` mà thả thì cả nhóm đăng ký mới rơi vào đó. */
-    if (!issued?.ok || !isValidTokenShape(issued.token)) {
-      setError("Tạo tài khoản xong rồi, nhưng mạng yếu nên chưa vào được. Bà con bấm Đăng nhập giúp nhé.");
-      setLoading(false);
-      return;
-    }
-    if (!saveToken(issued.token)) {
-      setError(
-        "Máy đang không cho app lưu dữ liệu nên chưa giữ được đăng nhập. Bà con tắt chế độ duyệt web riêng tư (ẩn danh) rồi thử lại giúp.",
-      );
-      setLoading(false);
-      return;
-    }
-    await withDeadline(supabase!.auth.signOut(), 8000);
-    router.replace("/");
-  }
-
   return (
     <div>
-      <PageHeader
-        kicker="Tài khoản"
-        title="Đăng ký"
-        sub="Tạo tài khoản bằng số điện thoại để giữ sổ tàu trên mây."
-        toColor="var(--sea)"
-      />
+      <PageHeader kicker="Tài khoản" title="Đăng ký" toColor="var(--sea)" />
       <AuthCard>
-        {error && <AuthError>{error}</AuthError>}
-        <form onSubmit={handleSubmit}>
-          <Field label="Số điện thoại">
-            <input
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              className={inputClass}
-              placeholder="0901 234 567"
-              value={phone}
-              onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
-              required
-            />
-          </Field>
-          {/* có nút Hiện/Ẩn nên bỏ được ô "Nhập lại" — bớt một việc gõ */}
-          <PasswordField
-            label="Mật khẩu (ít nhất 6 ký tự)"
-            value={password}
-            onChange={setPassword}
-            autoComplete="new-password"
-          />
-          <PrimaryButton type="submit" disabled={loading}>
-            {loading ? "Đang tạo…" : "Tạo tài khoản"}
-          </PrimaryButton>
-        </form>
-        <p className="mt-3 text-center text-[0.9375rem] leading-snug text-foreground/60">
-          Tạo tài khoản tức là bạn đồng ý với{" "}
-          <Link href="/quyen-rieng-tu" className="font-bold text-sea underline">
-            Chính sách quyền riêng tư
-          </Link>
-          .
-        </p>
-        {/*  Vùng chạm lên sàn mà KHÔNG phình thành dải ngang (luật A5 + A3): đo
-            thật link cũ 78×19px — đây là đường DUY NHẤT từ màn đăng ký sang màn
-            đăng nhập, và cũng là đường bà con cần ngay khi vừa nhận lỗi "Số điện
-            thoại này đã có tài khoản — bà con bấm Đăng nhập bên dưới". Câu lỗi
-            chỉ thẳng vào một mục tiêu cao 19px. */}
-        <p className="mt-4 text-[0.9375rem] leading-snug text-foreground/70">
-          Đã có tài khoản?{" "}
+        {/*  Câu CẤP DỮ LIỆU: nói thẳng ai cấp và gọi số nào. Không có câu an
+             ủi kiểu "rất tiếc" — bà con cần biết bước kế tiếp, không cần lời
+             xin lỗi. */}
+        <AuthNote>
+          Tài khoản SDFish do SDVICO cấp, không tự đăng ký được. Bà con gọi
+          SDVICO {SDVICO_HOTLINE} để được mở tài khoản.
+        </AuthNote>
+        <div className="mt-4 flex flex-col items-center gap-2">
+          <CallButton phone={SDVICO_HOTLINE} label="Gọi SDVICO" />
+          {/*  Đã có tài khoản rồi thì đây là đường về — nút chính DUY NHẤT của
+               màn nên được phép full-width (03-design-system §Nút hành động
+               mục 0). */}
           <Link
             href="/login"
-            className="inline-flex min-h-[3.5rem] items-center px-2 font-bold text-sea"
+            className="display flex min-h-[3.5rem] w-full max-w-[17.5rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
           >
-            Đăng nhập
+            Đã có tài khoản — Đăng nhập
           </Link>
-        </p>
+        </div>
       </AuthCard>
     </div>
   );
