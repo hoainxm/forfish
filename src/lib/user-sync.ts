@@ -46,24 +46,66 @@ interface Meta {
 }
 type MetaMap = Partial<Record<SyncKind, Meta>>;
 
+/*  ── SỔ BOOKKEEPING GIỮ TRONG BỘ NHỚ, localStorage CHỈ LÀ BẢN LƯU ──────────
+    Sửa 2026-09-01 (chủ dự án: *"t xoá việc đó rồi thì có lý do gì nó hiện lại
+    ko? bug?"* — có, đây là một trong các đường).
+
+    LỖI CŨ: `setMeta` ghi thẳng localStorage và NUỐT lỗi kèm chú thích "máy chặn
+    localStorage → thôi, không hỏng gì". Hỏng thật, và hỏng đúng chỗ đau nhất:
+    dữ liệu (`forfish.maintenance.v1`) và mốc thời gian (`forfish.sync.v1`) là
+    HAI lần ghi riêng. Máy chật — chuyện thường trên điện thoại có bản đồ +
+    ảnh giấy tờ — thì ghi dữ liệu lọt mà ghi mốc rớt. Hệ quả dây chuyền:
+
+      xoá một việc  →  dữ liệu mới ghi được, mốc VẪN LÀ SỐ CŨ
+                    →  `pushKind` gửi lên mốc cũ ⇒ server trả `stale`
+                    →  `adoptServer` GHI ĐÈ bản vừa xoá bằng bản cũ của server
+                    →  việc hiện lại y nguyên, không một lời báo.
+
+    Cùng đường đó ở nhánh kéo: `server.clientUpdatedAt > metaOf().at` cũng ra
+    `adoptServer`. Bà con xoá bao nhiêu lần cũng thấy nó về.
+
+    NAY: bản đồ mốc sống trong biến module, đọc localStorage đúng MỘT lần lúc
+    khởi động. Mọi phép so đều đọc bộ nhớ, nên ghi localStorage rớt cũng không
+    làm sai mốc trong phiên đang chạy. localStorage thành BẢN LƯU cho lần mở
+    sau, không còn là nguồn sự thật.
+
+    NỢ CÒN LẠI (nói thẳng, đừng để người sau tưởng đã kín): tắt app khi máy đang
+    chật VÀ sổ chưa đẩy được lên server thì lần mở sau mốc về 0, server thắng,
+    sửa đổi offline đó vẫn mất. Bịt hẳn phải ghi mốc CHUNG một lần với dữ liệu
+    (một khoá, một lần ghi) — việc đó đụng khuôn lưu của cả 5 sổ, để đợt riêng. */
+let metaCache: MetaMap | null = null;
+
 function readMeta(): MetaMap {
+  if (metaCache) return metaCache;
   try {
-    return JSON.parse(window.localStorage.getItem(META_KEY) ?? "{}") as MetaMap;
+    metaCache = JSON.parse(
+      window.localStorage.getItem(META_KEY) ?? "{}",
+    ) as MetaMap;
   } catch {
-    return {};
+    metaCache = {};
   }
+  return metaCache;
 }
 function metaOf(kind: SyncKind): Meta {
   return readMeta()[kind] ?? { at: 0, dirty: false };
 }
-function setMeta(kind: SyncKind, patch: Partial<Meta>): void {
+/** Trả `false` khi KHÔNG lưu được xuống máy (mốc vẫn đúng trong phiên này). */
+function setMeta(kind: SyncKind, patch: Partial<Meta>): boolean {
+  const m = readMeta();
+  m[kind] = { ...(m[kind] ?? { at: 0, dirty: false }), ...patch };
   try {
-    const m = readMeta();
-    m[kind] = { ...(m[kind] ?? { at: 0, dirty: false }), ...patch };
     window.localStorage.setItem(META_KEY, JSON.stringify(m));
+    return true;
   } catch {
-    /* máy chặn localStorage → thôi, không hỏng gì */
+    /*  Không lưu được thì THÔI, nhưng `metaCache` đã cập nhật nên mọi phép so
+        trong phiên này vẫn đúng — đó mới là thứ chặn được cảnh xoá-rồi-hiện-lại. */
+    return false;
   }
+}
+
+/** Chỉ dùng cho test — dựng lại trạng thái sạch giữa các ca. */
+export function __resetSyncMetaCache(): void {
+  metaCache = null;
 }
 
 function readRaw(kind: SyncKind): string | null {
@@ -158,7 +200,16 @@ export async function syncAll(): Promise<void> {
       for (const it of j.items) {
         if (!ACTIVE.includes(it.kind)) continue;
         seen.add(it.kind);
-        if (it.clientUpdatedAt > metaOf(it.kind).at) {
+        /*  KHÔNG NHẬN BẢN SERVER ĐÈ LÊN SỬA ĐỔI CHƯA KỊP ĐẨY (2026-09-01).
+            `dirty` = máy này có sửa mà chưa lên được server (sửa lúc mất
+            sóng — ca thường trực của ngư dân). Nhận về lúc đó là ghi đè đúng
+            thứ bà con vừa làm bằng bản server chưa hề biết tới nó: xoá một
+            việc bảo dưỡng giữa biển, có sóng lại là nó về chỗ cũ.
+            Bỏ qua lượt này thôi, KHÔNG mất bản server: vòng ngay dưới sẽ đẩy
+            bản của máy lên, và nếu server thật sự mới hơn thì `pushKind` nhận
+            câu trả lời `stale` rồi mới nhận về — lúc đó máy đã đẩy xong nên
+            không còn gì để mất. */
+        if (it.clientUpdatedAt > metaOf(it.kind).at && !metaOf(it.kind).dirty) {
           adoptServer(it.kind, it.data, it.clientUpdatedAt); // server mới hơn → nhận
         }
       }

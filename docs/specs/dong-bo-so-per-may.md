@@ -2,6 +2,27 @@
 
 > **Trạng thái**: **P1 + P2 + P3 ĐÃ CODE** (2026-08-26) — chờ apply migration `0050` + `0051` (bucket) lên prod. P1: boats/maintenance/materials. P2: crew (CCCD) + documents metadata + privacy policy. P3: ẢNH giấy tờ (Storage bucket private + nén client + capture UI; v1 cần sóng, nợ hàng đợi offline). ⚠️ Phần Storage/ảnh (P3) là subsystem MỚI — **cần kiểm trên Supabase thật + máy thật** (không test được ở web-dev). tsc/test(2168)/build xanh. Nguồn: user báo "nhập ở ĐT, đăng nhập PC không thấy". Điều tra kết luận KHÔNG phải bug — là thiết kế per-máy. User chốt: **đồng bộ HẾT (cả CCCD + ảnh giấy tờ)**, **giấy tờ có ảnh**, **viết plan trước**.
 
+
+## Hai lỗ làm việc ĐÃ XOÁ sống lại — vá 2026-09-01
+
+Chủ dự án báo: *"t xoá việc đó rồi thì có lý do gì nó hiện lại ko? bug?"*. Có, và là lỗi của chính lớp đồng bộ này chứ không phải seed.
+
+**Lỗ 1 — mốc thời gian ghi hụt mà im lặng.** Dữ liệu (`forfish.<sổ>.v1`) và sổ bookkeeping (`forfish.sync.v1`) là **hai lần ghi localStorage riêng**. Máy chật — chuyện thường trên điện thoại có bản đồ + ảnh giấy tờ — thì ghi dữ liệu lọt mà ghi mốc rớt, và `setMeta` cũ nuốt lỗi kèm chú thích *"máy chặn localStorage → thôi, không hỏng gì"*. Dây chuyền:
+
+```
+xoá một việc → dữ liệu ghi được, mốc VẪN LÀ SỐ CŨ (hoặc mất hẳn ⇒ đọc ra 0)
+             → kéo về: server.clientUpdatedAt > 0  ⇒ adoptServer
+             → GHI ĐÈ bản vừa xoá bằng bản cũ của server, không một lời báo
+```
+
+**Vá**: bản đồ mốc sống trong biến module (`metaCache`), đọc localStorage đúng MỘT lần lúc khởi động; mọi phép so đọc bộ nhớ. localStorage thành BẢN LƯU cho lần mở sau, không còn là nguồn sự thật. `setMeta` trả `boolean` thay vì nuốt.
+
+**Lỗ 2 — kéo bản server đè lên sửa đổi CHƯA kịp đẩy.** Nhánh nhận cũ chỉ so mốc, không hỏi `dirty`. Ngư dân sửa lúc mất sóng là ca thường trực: xoá một việc giữa biển, có sóng lại là nó về chỗ cũ. **Vá**: chỉ `adoptServer` khi `!dirty`. Không mất bản server — vòng ngay dưới đẩy bản của máy lên, server thật sự mới hơn thì `pushKind` nhận `stale` rồi mới nhận về, lúc đó máy đã đẩy xong nên không còn gì để mất.
+
+**Cổng**: `src/lib/__tests__/user-sync-guard.test.ts` — 3 ca, đã thử ngược (trả code về bản cũ thì 2/3 ca ĐỎ).
+
+**NỢ CÒN LẠI, đừng tưởng đã kín**: tắt app khi máy đang chật VÀ sổ chưa đẩy được lên server thì lần mở sau mốc về 0, server thắng, sửa đổi offline đó vẫn mất. Bịt hẳn phải ghi mốc CHUNG một lần với dữ liệu (một khoá, một lần ghi) — đụng khuôn lưu của cả 5 sổ, để đợt riêng.
+
 ## 1. Mục tiêu
 
 Cho dữ liệu bà con nhập trên một máy **hiện được trên máy khác** khi đăng nhập cùng SĐT:
