@@ -11,6 +11,13 @@
 //  · Kéo (mở app/online/đăng nhập): server mới hơn (mốc lớn hơn) → NHẬN về.
 //  · Sổ đã có sẵn từ trước (chưa từng đẩy) mà server chưa có → SEED lên 1 lần.
 // Xung đột 2 máy sửa offline: bên đồng bộ sau thắng (nợ: chưa merge từng item).
+//
+// NỢ NÀY CHỦ DỰ ÁN CHỐT BỎ QUA (2026-09-01): *"ko xảy ra tình trạng đó nên ko
+// cần lo"* — mỗi chủ tàu dùng MỘT máy, nên cảnh "máy A xoá, máy B chưa biết mà
+// sửa sau rồi ghi đè" không có thật ngoài hiện trường. Đừng đầu tư merge từng
+// dòng cho tới khi có ca hai máy thật. Hành vi hiện tại đã chốt bằng test
+// (`sync-tombstone.test.ts` — ca "MÁY CŨ chưa biết tin xoá"): nó là QUYẾT ĐỊNH,
+// không phải tai nạn.
 
 import { authedFetch } from "@/lib/device-token-store";
 import { SYNC_KINDS, type SyncKind } from "@/lib/user-sync-core";
