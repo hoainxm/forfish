@@ -16,9 +16,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeVnPhone } from "@/lib/phone";
 import { invalidPut, type SyncKind } from "@/lib/user-sync-core";
 
+import { keepDeleted, stripDeleted } from "@/lib/sync-tombstone";
+
 const TABLE = "user_docs";
-/** Bảng CHỈ-THÊM giữ bản cũ mỗi lần bị đè — xem migration 0054, 04 §Đồng bộ sổ */
-const HISTORY_TABLE = "user_docs_history";
 
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
@@ -38,7 +38,13 @@ export async function GET(req: Request) {
   if (error) return err(500, "query_failed");
 
   const items = (data as { kind: SyncKind; data: unknown; client_updated_at: number }[]).map(
-    (r) => ({ kind: r.kind, data: r.data, clientUpdatedAt: r.client_updated_at }),
+    /*  LỌC BỎ BẢN ĐÃ XOÁ trước khi trả cho máy — server giữ để phân tích,
+        nhưng bà con đã bỏ thì không được thấy lại (chủ dự án 2026-09-01). */
+    (r) => ({
+      kind: r.kind,
+      data: stripDeleted(r.data),
+      clientUpdatedAt: r.client_updated_at,
+    }),
   );
   return NextResponse.json({ ok: true, items });
 }
@@ -77,42 +83,27 @@ export async function PUT(req: Request) {
     return NextResponse.json({
       ok: true,
       stale: true,
-      server: { kind, data: cur.data, clientUpdatedAt: cur.client_updated_at },
+      // cùng luật với GET: bản trả về cho máy KHÔNG mang theo thứ đã xoá
+      server: {
+        kind,
+        data: stripDeleted(cur.data),
+        clientUpdatedAt: cur.client_updated_at,
+      },
     });
   }
 
-  /*  GIỮ BẢN CŨ TRƯỚC KHI ĐÈ (chủ dự án 2026-09-01: *"phía server ko cần xoá,
-      mà lưu lại ở server kèm trạng thái đã xoá, để có thể phân tích hành vi
-      người dùng sau này"*).
-
-      `user_docs` giữ cả cuốn sổ là MỘT khối JSON, một dòng cho mỗi
-      (owner_phone, kind) — không có dòng riêng cho từng việc để gắn cờ "đã
-      xoá". Nên cách giữ được là chép BẢN TRƯỚC sang bảng chỉ-thêm; muốn biết
-      bà con bỏ cái gì thì so hai bản.
-
-      ⚠️ CHÉP LỖI THÌ KHÔNG CHẶN LƯỢT ĐẨY. Mất một dòng lịch sử là mất một mẩu
-      số liệu phân tích của công ty; chặn lượt đẩy là sổ bà con không lên được
-      server, rồi máy khác kéo về bản cũ — mất việc thật của người dùng. Không
-      bao giờ đánh đổi theo chiều đó. Bảng chưa apply lên prod cũng rơi vào
-      đúng nhánh này (lỗi bảng-không-tồn-tại) nên app vẫn chạy y như cũ. */
-  if (cur) {
-    const { error: hErr } = await admin.from(HISTORY_TABLE).insert({
-      owner_phone: phone,
-      kind,
-      data: cur.data,
-      client_updated_at: cur.client_updated_at,
-    });
-    if (hErr) {
-      // để lại vết cho người vận hành, KHÔNG ném lên client
-      console.error("[me/sync] khong luu duoc lich su:", hErr.message);
-    }
-  }
+  /*  GIỮ BẢN ĐÃ XOÁ Ở SERVER (chủ dự án 2026-09-01: *"đã xoá thì xoá ở máy còn
+      trên server vẫn có"*). Bản ghi biến mất so với lần đẩy trước thì Ở LẠI
+      trong chính cuốn sổ này, chỉ thêm cờ `_deleted` + `_deletedAt` — không
+      bảng mới, không migration, vì `data` vốn là `jsonb`.
+      Máy bà con không thấy lại: nhánh GET đã lọc bỏ trước khi trả về. */
+  const dataGiuVet = keepDeleted(cur?.data, data, new Date().toISOString());
 
   const { error } = await admin.from(TABLE).upsert(
     {
       owner_phone: phone,
       kind,
-      data,
+      data: dataGiuVet,
       client_updated_at: clientUpdatedAt,
       updated_at: new Date().toISOString(),
     },
