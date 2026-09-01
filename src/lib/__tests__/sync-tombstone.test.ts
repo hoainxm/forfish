@@ -85,4 +85,37 @@ describe("stripDeleted — máy bà con KHÔNG BAO GIỜ nhận lại thứ đã
     const server = keepDeleted([{ id: "a" }, { id: "b" }], [{ id: "a" }], NOW);
     expect(stripDeleted(server)).toEqual([{ id: "a" }]);
   });
+
+  it("ĐẨY LÊN cũng không mang: máy chỉ có bản đã lọc nên lần sau đẩy vẫn sạch", () => {
+    /*  Chốt bằng test cái mà tôi từng nói SAI trong một commit message ("lượt
+        kéo/đẩy mang theo cả phần đã xoá"). Không mang:
+        · GET trả bản đã `stripDeleted` ⇒ localStorage của máy KHÔNG có bản xoá;
+        · lần đẩy sau lấy đúng localStorage đó ⇒ thân yêu cầu cũng sạch.
+        Chỉ CỘT `data` trên server là lớn dần — máy và đường truyền thì không. */
+    const server1 = keepDeleted([{ id: "a" }, { id: "b" }], [{ id: "a" }], NOW);
+    const trongMay = stripDeleted(server1); // máy nhận về
+    expect(trongMay).toEqual([{ id: "a" }]);
+    // máy sửa tiếp rồi đẩy lên: thân yêu cầu KHÔNG có "b"
+    const dayLan2 = [{ id: "a", item: "sửa" }];
+    const server2 = keepDeleted(server1, dayLan2, "2026-09-02T00:00:00.000Z") as Record<
+      string,
+      unknown
+    >[];
+    // "b" vẫn nằm ở server, và GIỮ mốc xoá LẦN ĐẦU
+    expect(server2.find((x) => x.id === "b")?.[DELETED_AT]).toBe(NOW);
+    expect(stripDeleted(server2)).toEqual([{ id: "a", item: "sửa" }]);
+  });
+
+  it("MÁY CŨ chưa biết tin xoá mà đẩy sau ⇒ bản ghi sống lại (hệ quả của LWW cả cuốn sổ)", () => {
+    /*  Ghi thành test để đây là QUYẾT ĐỊNH chứ không phải tai nạn: sổ đồng bộ
+        theo luật "bên ghi sau thắng, tính cả cuốn" (user-sync.ts dòng đầu).
+        Máy B chưa kéo tin xoá của máy A mà lại sửa sau ⇒ cả cuốn của B thắng,
+        việc đã xoá quay lại. KHÔNG phải lỗ mới do cờ `_deleted` đẻ ra — muốn
+        hết hẳn thì phải merge TỪNG DÒNG, là món nợ đã ghi sẵn ở user-sync. */
+    const server = [{ id: "b", [DELETED_FLAG]: true, [DELETED_AT]: NOW }];
+    const mayB = [{ id: "b", item: "máy B vẫn còn" }];
+    expect(isDeleted((keepDeleted(server, mayB, NOW) as Record<string, unknown>[])[0])).toBe(
+      false,
+    );
+  });
 });
