@@ -93,8 +93,9 @@ const KHUNG_BIEN_DONG = { latMin: 0, latMax: 30, lonMin: 95, lonMax: 140 };
 /**
  * Vùng nguy hiểm → khung toạ độ. NCHMF ghi HAI kiểu:
  *  · KHUNG ĐẦY ĐỦ:   "19,0-21,0N; 114,5-118,5E" (dải vĩ × dải kinh)
- *  · NỬA MẶT PHẲNG:  "Phía Bắc 18,0N; 109,5-114,5E" (mở về một phía + dải kinh)
- *    — bản tin ÁP THẤP hay dùng kiểu này; phía MỞ chặn bằng khung Biển Đông.
+ *  · NỬA MẶT PHẲNG:  "Phía Bắc 18,0N; 109,5-114,5E" HOẶC "Phía Bắc VĨ TUYẾN
+ *    18,0N; 111,5-118,0E" (mở về một phía + dải kinh) — ÁP THẤP + BÃO hay dùng;
+ *    phía MỞ chặn bằng khung Biển Đông. Chữ "vĩ tuyến" CÓ THỂ CÓ HOẶC KHÔNG.
  * null nếu không đúng hình dạng nào.
  */
 export function parseDangerBox(s: string): DangerBox | null {
@@ -112,10 +113,12 @@ export function parseDangerBox(s: string): DangerBox | null {
       lonMax: Math.max(c, d),
     };
   } else {
-    // Nửa mặt phẳng: "Phía Bắc|Nam 18,0N; 109,5-114,5E". Hướng chặn dải VĨ độ
-    // (Bắc = từ vĩ đó lên, Nam = từ vĩ đó xuống); phía mở lấy biên khung Biển Đông.
+    // Nửa mặt phẳng: "Phía Bắc|Nam [vĩ tuyến] 18,0N; 109,5-114,5E". Hướng chặn
+    // dải VĨ độ (Bắc = từ vĩ đó lên, Nam = từ vĩ đó xuống); phía mở lấy biên khung
+    // Biển Đông. Chữ "vĩ tuyến" TUỲ BẢN TIN có/không (bão số 5 dùng "vĩ tuyến",
+    // áp thấp thì không) — nuốt tuỳ chọn, đừng để một chữ làm mất cả vùng.
     const h =
-      /Phía\s+(Bắc|Nam)\s+(\d{1,2},\d|\d{1,2})\s*N\s*[;,]?\s*(\d{2,3},\d|\d{2,3})\s*[-–]\s*(\d{2,3},\d|\d{2,3})\s*E/iu.exec(
+      /Phía\s+(Bắc|Nam)\s+(?:vĩ\s+tuyến\s+)?(\d{1,2},\d|\d{1,2})\s*N\s*[;,]?\s*(\d{2,3},\d|\d{2,3})\s*[-–]\s*(\d{2,3},\d|\d{2,3})\s*E/iu.exec(
         s,
       );
     if (h) {
