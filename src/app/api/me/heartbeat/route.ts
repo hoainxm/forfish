@@ -268,6 +268,16 @@ export async function POST(req: Request) {
   // thay vì im 12 tiếng. `reason` để gỡ lỗi, KHÔNG kèm SĐT (đừng vọng lại
   // định danh trong phản hồi).
   if (!hit || hit.length === 0) {
+    /*  ⚠️ NGHI CAN SỐ MỘT của ca "tk premium mà không thấy nút premium"
+        (hiện trường 2026-09-02). Tới đây nghĩa là chuỗi đăng nhập ĐỌC ĐƯỢC —
+        tức máy có tài khoản thật — nhưng `customers` KHÔNG có hàng nào mang
+        SĐT này sau `normalizeVnPhone`. Khi đó dấu hạng trong máy ở lại
+        `unknown` MÃI, và rail ẩn sạch Đến điểm / Điểm đã lưu / Dẫn đường;
+        nhịp chạy bao nhiêu lần cũng vô ích.
+        Hay gặp nhất là LỆCH KHUÔN SĐT giữa hàng khách và chuỗi đăng nhập
+        (vd `+84…` vs `09…`). Log SĐT ĐÃ CHUẨN HOÁ để đối chiếu được với
+        /quan-tri — KHÔNG vọng nó vào phản hồi (đừng trả định danh về client). */
+    console.error("[heartbeat] no_customer_row cho SDT (da chuan hoa):", phone);
     return NextResponse.json({
       ok: true,
       recorded: false,

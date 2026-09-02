@@ -42,6 +42,8 @@ import {
   HEARTBEAT_SCAN_MIN_GAP_MS,
 } from "@/lib/heartbeat";
 import { TIER_CACHE_KEY, TIER_UNTIL_KEY } from "@/lib/tier";
+import { DEVICE_TOKEN_KEY } from "@/lib/device-token-store";
+import { DEVICE_TOKEN_LEN } from "@/lib/device-token";
 import {
   clampServerGapMs,
   eventDegradedToState,
@@ -568,6 +570,9 @@ describe("nhịp KHÔNG được ảnh hưởng chế độ offline", () => {
     Bảng chân trị dưới khoá lại đúng thứ tự hàng rào của shouldSendHeartbeat. */
 describe("heartbeatNeedsScan — cổng rẻ trước, quét kho sau", () => {
   const me = { account: "0912345678", standalone: false, deviceId: "may-1" };
+  /*  Chuỗi ĐÚNG KHUÔN — `readToken` lọc theo `isValidTokenShape` (tiền tố
+      `sdf_` + đúng độ dài), chuỗi bịa sẽ bị coi như KHÔNG có chuỗi. */
+  const TOKEN_HOP_LE = "sdf_" + "a".repeat(DEVICE_TOKEN_LEN - 4);
   /** chữ ký ĐẦY ĐỦ mà máy chủ đã xác nhận, cho đúng bộ ba rẻ ở trên */
   const savedSig = (
     over: Partial<typeof me> & { offlineReady?: boolean } = {},
@@ -610,6 +615,38 @@ describe("heartbeatNeedsScan — cổng rẻ trước, quét kho sau", () => {
     localStorage.setItem(HEARTBEAT_SIG_KEY, savedSig());
     localStorage.setItem(HEARTBEAT_KEY, String(NOW - 60_000));
     expect(heartbeatNeedsScan({ ...me, standalone: true }, NOW)).toBe(true);
+  });
+
+  /*  NGÕ CỤT "CHƯA TỪNG BIẾT HẠNG" (hiện trường 2026-09-02: *"tk premium vẫn
+      ko hiển thị các nút premium"*, *"dùng đủ cách rồi vẫn ko có điểm đến"*).
+      Rail ẩn Đến điểm/Điểm đã lưu/Dẫn đường khi `fishAccess !== "open"`, mà
+      `featureAccessDecision` trả "checking" khi dấu hạng là "unknown" — và
+      đường DUY NHẤT hết "unknown" là nhịp này. Cửa 30 phút CÓ nhả, nên đây là
+      chuyện KHOẢNG CHỜ chứ không phải kẹt vĩnh viễn: chờ tới nửa giờ mới thấy
+      công cụ premium thì bà con đã kết luận "app hỏng" từ lâu. */
+  it("CÓ chuỗi đăng nhập mà CHƯA TỪNG biết hạng → true, dù vừa ghi 1 phút trước", () => {
+    localStorage.setItem(HEARTBEAT_SIG_KEY, savedSig());
+    localStorage.setItem(HEARTBEAT_KEY, String(NOW - 60_000));
+    localStorage.setItem(DEVICE_TOKEN_KEY, TOKEN_HOP_LE);
+    // KHÔNG đặt dấu hạng ⇒ readPremiumMark(null) === "unknown"
+    expect(heartbeatNeedsScan(me, NOW)).toBe(true);
+  });
+
+  it("đã biết hạng rồi ⇒ KHÔNG phá cửa 30 phút (không đẻ nhịp thừa)", () => {
+    localStorage.setItem(HEARTBEAT_SIG_KEY, savedSig());
+    localStorage.setItem(HEARTBEAT_KEY, String(NOW - 60_000));
+    localStorage.setItem(DEVICE_TOKEN_KEY, TOKEN_HOP_LE);
+    localStorage.setItem(TIER_CACHE_KEY, "1"); // premium
+    expect(heartbeatNeedsScan(me, NOW)).toBe(false);
+    localStorage.setItem(TIER_CACHE_KEY, "0"); // thường — cũng là "đã biết"
+    expect(heartbeatNeedsScan(me, NOW)).toBe(false);
+  });
+
+  it("CHƯA đăng nhập thì dấu unknown KHÔNG phải cớ gửi nhịp", () => {
+    localStorage.setItem(HEARTBEAT_SIG_KEY, savedSig());
+    localStorage.setItem(HEARTBEAT_KEY, String(NOW - 60_000));
+    // không có chuỗi cứng trong máy
+    expect(heartbeatNeedsScan(me, NOW)).toBe(false);
   });
 
   it("ĐỔI MÁY (mã máy khác) → true", () => {
