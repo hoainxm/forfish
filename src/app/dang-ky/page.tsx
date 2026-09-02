@@ -143,7 +143,15 @@ export default function DangKyPage() {
       setLoading(false);
       return;
     }
-    if (!saveToken(issued.token)) {
+    /*  HẠNG ĐI CÙNG CHUỖI — y hệt `/login` (chủ dự án 2026-09-02: *"chuỗi chỉ
+        ghi success khi có hạng gán vào"*). Máy chủ trả `tier` ngay trong phản
+        hồi cấp chuỗi. Tài khoản vừa đăng ký thì thường chưa có hàng khách ⇒
+        thiếu `tier` coi như hạng THƯỜNG, KHÔNG để trống: "chưa biết hạng" đúng
+        là trạng thái đã ẩn sạch công cụ của người đã trả tiền. */
+    const tierTho = typeof issued.tier === "string" ? issued.tier : "basic";
+    const han =
+      tierTho === "premium" ? ((issued.premiumUntil as string) ?? null) : null;
+    if (!saveToken(issued.token, tierTho, han)) {
       setError(
         "Máy đang không cho app lưu dữ liệu nên chưa giữ được đăng nhập. Bà con tắt chế độ duyệt web riêng tư (ẩn danh) rồi thử lại giúp.",
       );
