@@ -240,7 +240,7 @@ import {
   isVmsZoneOn,
 } from "@/lib/map-prefs";
 import { stormStatus } from "@/lib/storms";
-import { tracksToGeoJSON } from "@/lib/storm-track";
+import { nhanMoc, tracksToGeoJSON } from "@/lib/storm-track";
 import { useStormCheck } from "@/lib/use-storm-check";
 import {
   chipLabel,
@@ -1278,6 +1278,8 @@ export default function FishingMapView() {
     cap: number | null;
     giat: number | null;
     dangerKm: number | null;
+    /** giờ phát của bản tin CŨ mà đường dự báo này mượn về (null = tin mới) */
+    tinCuLuc: number | null;
     x: number;
     y: number;
   } | null>(null);
@@ -2916,6 +2918,7 @@ export default function FishingMapView() {
               cap: num(pr.cap),
               giat: num(pr.giat),
               dangerKm: num(pr.dangerKm),
+              tinCuLuc: num(pr.tinCuLuc),
               x: e.point.x,
               y: e.point.y,
             });
@@ -3348,6 +3351,38 @@ export default function FishingMapView() {
                 "line-color": "#3f9e26",
                 "line-opacity": 0.26,
                 "line-width": ["interpolate", ["exponential", 2], ["zoom"], 3, 12, 10, 1505] as unknown as number,
+              }}
+            />
+            {/*  VÙNG NGUY HIỂM KHI BẢN TIN KHÔNG CÓ ĐƯỜNG DỰ BÁO (2026-09-02).
+                 Ống ở trên cần ≥2 nút để thành đường; bản tin chỉ có vệt quá khứ
+                 thì trước đây KHÔNG vẽ gì — bà con thấy đường bão chạy tới mà
+                 không thấy vùng phải tránh (ảnh chụp máy 09:09 ngày 2/9).
+                 Nay lùi về BA DẢI ĐỒNG TÂM quanh tâm hiện tại, dùng đúng bộ màu
+                 và bán kính của ống nên mắt đọc ra cùng một thứ. Thà cảnh báo
+                 rộng hơn là tắt câm. */}
+            <Layer
+              id="storm-ong-tron"
+              type="fill"
+              filter={["==", ["get", "kind"], "ong-tron"]}
+              paint={{
+                "fill-color": [
+                  "match",
+                  ["get", "muc"],
+                  0,
+                  "#3f9e26",
+                  1,
+                  "#79c24d",
+                  "#b3a2e0",
+                ] as unknown as string,
+                "fill-opacity": [
+                  "match",
+                  ["get", "muc"],
+                  0,
+                  0.26,
+                  1,
+                  0.22,
+                  0.2,
+                ] as unknown as number,
               }}
             />
             {/* VÒNG GIÓ trắng quanh mốc dự báo — như NCHMF */}
@@ -4254,6 +4289,16 @@ export default function FishingMapView() {
               {stormPtInfo.tuongLai && stormPtInfo.dangerKm != null && (
                 <p className="mt-1 text-[0.875rem] font-semibold text-foreground/60">
                   Vùng nguy hiểm ~{stormPtInfo.dangerKm} km quanh tâm
+                </p>
+              )}
+              {/*  KHAI THẬT KHI MƯỢN TIN CŨ (chủ dự án 2026-09-02): tin mới
+                   parse hụt đường dự báo thì app lấy của tin trước để màn không
+                   câm — nhưng phải nói ra, đừng để bà con tưởng đây là số mới
+                   nhất. Tâm bão thì vẫn của tin mới, chỉ đường dự báo là cũ. */}
+              {stormPtInfo.tuongLai && stormPtInfo.tinCuLuc != null && (
+                <p className="mt-1 text-[0.875rem] font-semibold text-warn">
+                  Đường dự báo lấy từ tin {nhanMoc(stormPtInfo.tinCuLuc)} — tin
+                  mới nhất chưa có
                 </p>
               )}
             </div>
