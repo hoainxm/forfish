@@ -486,132 +486,71 @@ export function tierBadge(a: {
 }
 
 export interface FeatureAccessInput {
-  /** Supabase đã cấu hình chưa — chưa thì demo mode mở hết (cùng nếp gate khác) */
+  /** Supabase chưa cấu hình → demo mode mở hết (cùng nếp mọi gate khác) */
   configured: boolean;
-  /** phiên đã kiểm xong chưa (useAuthUser.ready) */
-  authReady: boolean;
-  /** có user đăng nhập không. LƯU Ý: getUser() cần MẠNG để xác thực → mất sóng
-      ngoài khơi trả null DÙ bà con vẫn đang đăng nhập */
-  hasUser: boolean;
-  /** kết quả tra hạng: true=premium, false=basic, null=chưa tra xong */
-  premium: boolean | null;
-  /** máy đang có sóng không (navigator.onLine) */
-  online: boolean;
-  /** dấu hạng đã lưu trong máy — BA trạng thái, "unknown" = chưa bao giờ tra
-      được, khác hẳn "basic" = đã tra được và đúng là hạng thường */
-  cachedMark: PremiumMark;
-  /** getUser() reject/timeout (mất sóng "sống mà chết" — onLine có thể lỡ=true).
-      KHÁC hasUser=false do tra ĐƯỢC mà không có ai (đăng xuất thật). */
-  authErrored?: boolean;
-  /** `premium === false` CHỈ VÌ HẠN: máy chủ vẫn ghi tier='premium', chỉ có
-      đồng hồ MÁY nói là quá hạn. Khác hẳn tier='basic' (chưa từng trả tiền). */
-  premiumExpiredOnly?: boolean;
-  /** máy còn nhớ SĐT lần đăng nhập gần nhất không (lib/offline-identity).
-      "Máy này từng có người đăng nhập và CHƯA AI BẤM ĐĂNG XUẤT" — khác hẳn
-      hasUser=false, thứ chỉ nói "lúc này không hỏi được phiên". */
-  hasOfflineIdentity?: boolean;
-  /** HẠN của dấu đã lưu (TIER_UNTIL_KEY). Chỉ nhánh "quyền đã lưu" lúc CÒN
-      SÓNG (C-7) dùng: cửa mở bằng dấu không hạn thì không bao giờ đóng. */
-  premiumMarkUntil?: string | null;
+  /*  MÁY NÀY ĐÃ GẮN TÀI KHOẢN CHƯA — đọc chuỗi cứng trong máy.
+      Đây là CHÌA của cả app: mọi request đi kèm nó, và server thu hồi được nó.
+      KHÔNG hỏi phiên Supabase nữa (app đã bỏ phiên từ 2026-08), không hỏi
+      `navigator.onLine` (nói dối cả chuyến biển khi tàu có wifi nội bộ). */
+  hasToken: boolean;
+  /*  DẤU HẠNG ĐÃ XÉT HẠN (`effectivePremiumMark`) — ba trạng thái:
+      "premium" · "basic" · "unknown" (chưa bao giờ biết). */
+  mark: PremiumMark;
 }
 
 /**
- * Quy trạng thái truy cập premium về đúng một nấc FeatureAccess. Thuần để test
- * được — hook useFeatureAccess chỉ nối state vào đây.
+ * MỞ HAY KHOÁ TÍNH NĂNG PREMIUM — luật MECE, đúng NĂM nhánh loại trừ nhau.
  *
- * MẤT SÓNG NGOÀI KHƠI (lý do có nhánh offline): getUser() cần mạng để xác thực,
- * nên offline trả `hasUser=false` DÙ bà con vẫn đăng nhập → premium đã trả tiền
- * bị coi như đăng xuất, MẤT bản đồ cá đã tải sẵn ở bờ đúng lúc cần nhất. Đã từng
- * là premium (dấu lưu trong máy) + đang mất sóng → cho xem tiếp thứ mình đã tải
- * hợp lệ. KHÔNG phải lỗ hổng: chốt thật vẫn ở middleware/RLS khi có mạng, còn
- * offline thì SW chỉ trả đúng những gì đã tải hợp lệ lúc còn premium.
+ * ── VÌ SAO VIẾT LẠI (chủ dự án 2026-09-02) ────────────────────────────────
+ * *"làm cái logic gì đơn giản, mece đảm bảo họ đã là premium nó luôn chạy, đã
+ * lưu rồi, đừng có đăng nhập tới lui nếu đã có premium trong máy rồi trừ khi
+ * họ đổi máy thôi"*.
+ *
+ * Bản cũ nhận CHÍN đầu vào (authReady · hasUser · online · authErrored ·
+ * hasOfflineIdentity · premium · premiumExpiredOnly · premiumMarkUntil ·
+ * cachedMark) = 288 tổ hợp, và chính nó đẻ ra chuỗi ngõ cụt phải vá suốt
+ * tháng 8: kẹt "checking" khi mở app nguội; rơi "login" khi phiên rụng lúc bắt
+ * wifi ở cảng; mất quyền giữa biển vì `getUser()` trả null. Mỗi lần vá là thêm
+ * một nhánh, thêm một tổ hợp chưa ai soi.
+ *
+ * Gốc của mớ đó: app hỏi SAI CÂU. Nó hỏi "phiên Supabase còn không, mạng còn
+ * không, đã kiểm xong chưa" — trong khi app đã BỎ phiên Supabase từ 2026-08 và
+ * chạy bằng chuỗi cứng. Chìa thật nằm trong máy, hỏi vòng qua ba thứ hay nói
+ * dối ngoài biển là tự chuốc lấy ngõ cụt.
+ *
+ * ── LUẬT MỚI ──────────────────────────────────────────────────────────────
+ *   1. Chưa cấu hình Supabase        → "open"   (demo mode)
+ *   2. Máy chưa gắn tài khoản        → "login"
+ *   3. Có chìa + dấu "premium"       → "open"
+ *   4. Có chìa + dấu "basic"         → "upgrade"
+ *   5. Có chìa + dấu "unknown"       → "checking"  (và đi hỏi NGAY, xem
+ *                                      `heartbeatNeedsScan`)
+ *
+ * MECE: mỗi trạng thái rơi vào ĐÚNG MỘT nhánh, năm nhánh phủ hết.
+ *
+ * ── BỐN BẢO ĐẢM, VÀ VÌ SAO KHÔNG MẤT AN TOÀN ──────────────────────────────
+ * · **Đã premium là luôn chạy**: mất sóng, phiên rụng, mở app nguội, hết pin
+ *   rồi mở lại — không ca nào hỏi tới mạng nữa. Đúng yêu cầu "đã lưu rồi thì
+ *   đừng bắt đăng nhập tới lui".
+ * · **Đổi máy thì mất**: máy mới không có chuỗi ⇒ nhánh 2 ⇒ đăng nhập. Đúng
+ *   ranh giới chủ dự án đặt ("trừ khi họ đổi máy").
+ * · **Đăng xuất / gỡ máy không hở**: cả hai xoá CHUỖI lẫn DẤU ⇒ nhánh 2.
+ *   Người sau cầm máy không thừa hưởng quyền của người trước.
+ * · **Hạ hạng vẫn đóng được**: dấu KHÔNG phải phỏng đoán — nó do máy chủ ghi
+ *   (đăng nhập + mỗi nhịp). Hạ hạng ở /quan-tri ⇒ nhịp sau ghi "basic" ⇒ nhánh
+ *   4. Hết hạn ⇒ `effectivePremiumMark` đã hạ dấu trước khi tới đây (biên 7
+ *   ngày cho đồng hồ máy lệch, luật E4). Và chốt cuối vẫn là server: chuỗi bị
+ *   thu hồi ⇒ mọi cửa trả 401 ⇒ `signOutLocal`.
+ *
+ * Cái MẤT so với bản cũ: khi máy chủ VỪA nói "basic" mà dấu trong máy còn ghi
+ * "premium", bản cũ có một nhánh riêng cân đo hai nguồn. Nay không cần — câu
+ * trả lời tươi ĐI THẲNG VÀO DẤU (`writePremiumMark`), nên chỉ còn MỘT nguồn sự
+ * thật. Ít nguồn hơn thì hết chỗ cho hai nguồn cãi nhau.
  */
 export function featureAccessDecision(i: FeatureAccessInput): FeatureAccess {
   if (!i.configured) return "open";
-  // 1) CÓ CÂU TRẢ LỜI TƯƠI (vừa tra được hạng của user đang đăng nhập) → dùng
-  //    luôn. Đặt trước mọi nhánh offline để một cú getUser() hết giờ lúc mở app
-  //    không kéo lùi kết quả đã tra xong về "checking".
-  if (i.authReady && i.hasUser && i.premium != null) {
-    if (i.premium) return "open";
-    // HẠ HẠNG CHỈ VÌ HẠN, mà dấu trong máy vẫn còn premium (tức hạn mới quá
-    // trong biên 7 ngày) → cho xem tiếp (sửa 2026-08-02, E4). Vì sao: `premium`
-    // được tính bằng ĐỒNG HỒ MÁY; máy hết pin sạch rồi mất đồng bộ giờ là nhảy
-    // vài ngày như chơi, và lúc đó máy chủ vẫn coi bà con là premium nên gọi
-    // tổng đài cũng không ai giải thích được. Quá biên thì `cachedMark` đã tự
-    // thành "basic" (effectivePremiumMark) nên nhánh này tắt — hết hạn thật vẫn
-    // ra lời mời gia hạn.
-    if (i.premiumExpiredOnly === true && i.cachedMark === "premium") {
-      return "open";
-    }
-    return "upgrade";
-  }
-  // 2) KHÔNG HỎI ĐƯỢC MÁY CHỦ: mất sóng thật, hoặc sóng "sống mà chết" làm
-  //    getUser() hỏng (onLine lỡ = true). Cả hai đều KHÔNG phải đăng xuất, nên
-  //    chỉ còn dấu đã lưu để trả lời.
-  if (!i.online || i.authErrored === true) {
-    // đã từng xác nhận premium → cho xem tiếp bản đã tải hợp lệ ở bờ. KHÔNG
-    // phải cửa sau: chốt thật vẫn ở middleware/RLS khi có mạng, còn offline thì
-    // SW chỉ trả đúng những gì đã tải lúc còn premium.
-    if (i.cachedMark === "premium") return "open";
-    // CHƯA BAO GIỜ tra được hạng → IM LẶNG (E5). Thà không nói gì còn hơn
-    // khẳng định "Tài khoản thường" với người vừa trả tiền mà máy chưa kịp tra.
-    // Ngoại lệ: đã kiểm xong phiên và rõ ràng KHÔNG có ai đăng nhập (máy mới
-    // tinh, hoặc vừa đăng xuất) — lúc đó im lặng thành vòng quay vô nghĩa, mời
-    // đăng nhập mới là việc làm được.
-    if (i.cachedMark === "unknown") {
-      return i.authReady && !i.hasUser ? "login" : "checking";
-    }
-    // "basic": đã tra ĐƯỢC lúc còn sóng, đúng là hạng thường → nói thật.
-    if (!i.authReady) return "checking";
-    return i.hasUser ? "upgrade" : "login";
-  }
-  if (!i.authReady) return "checking";
-  if (!i.hasUser) {
-    /* QUYỀN ĐÃ LƯU TRÊN MÁY (chủ dự án chốt 2026-08-02, C-7).
-       Ca thật: auth-js gọi `_removeSession()` khi làm mới token gặp lỗi KHÔNG
-       phải mạng (400/401/500, hoặc thân HTML của cổng wifi ở cảng) —
-       GoTrueClient.js:3977. Sau đó tàu vẫn có wifi nội bộ ⇒ `online = true`,
-       `getUser()` trả AuthSessionMissingError nên `authErrored = false` ⇒ cả
-       hai nhánh offline bên trên đều không đỡ ⇒ người đã trả tiền tới 2027
-       rơi thẳng xuống "login" và mất quyền CẢ CHUYẾN BIỂN, vì đăng nhập lại
-       thì cần sóng thật.
-       Máy còn nhớ ai từng đăng nhập ở đây (chưa ai bấm Đăng xuất, chưa ai bấm
-       Gỡ khỏi máy) + dấu hạng đã lưu là premium ⇒ cho XEM TIẾP bản đã tải.
-       KHÔNG phải cửa sau: (a) chỉ mở cửa XEM, luật dự án là premium gác cửa
-       TẢI; (b) dấu vẫn có hạn qua effectivePremiumMark; (c) middleware/RLS vẫn
-       chốt mọi thứ đi qua mạng. Dấu "basic"/"unknown" thì VẪN mời đăng nhập —
-       không mở bừa cho người chưa từng được xác nhận premium.
-
-       ĐÒI HẠN THẬT (sửa 2026-08-02c): `premiumMarkWithinGrace(null) === true`,
-       nên dấu KHÔNG HẠN mở cửa này VĨNH VIỄN — tài khoản bị hạ hạng hay xoá ở
-       `/quan-tri` vẫn "open" mãi, vì `hasUser=false` cũng chặn luôn đường tra
-       lại. Nhánh MẤT SÓNG bên trên vẫn nhận dấu không hạn (ở đó thà cho xem
-       tiếp bản đã tải), nhánh CÒN SÓNG này thì không. */
-    if (
-      i.hasOfflineIdentity === true &&
-      i.cachedMark === "premium" &&
-      premiumMarkHasExpiry(i.premiumMarkUntil)
-    ) {
-      return "open";
-    }
-    // có sóng, tra ĐƯỢC mà không có ai, máy cũng đã quên người cũ → đăng xuất
-    // thật → mời đăng nhập
-    return "login";
-  }
-  /*  CÓ USER, CHƯA CÓ KẾT QUẢ TƯƠI phiên này (`premium == null`). Trước đây kẹt
-      "checking" để chờ heartbeat — nhưng heartbeat bị cửa 30'/backoff chặn nên
-      mở app NGUỘI trong cửa đó thì câu trả lời tươi KHÔNG BAO GIỜ về ⇒ premium
-      kẹt "checking" ⇒ ẩn hết công cụ premium (chủ dự án báo: *"tk pre ko thấy
-      cái dàn nút của pre"*).
-      NAY DÙNG DẤU ĐÃ LƯU: dấu KHÔNG còn là phỏng đoán cũ — nó được GHI NGAY TẠI
-      ĐĂNG NHẬP (`/api/auth/token` trả tier → login `writePremiumMark`), và
-      heartbeat cập nhật/hạ lại sau. Tức đây là CÂU TRẢ LỜI AUTHORITATIVE gần
-      nhất, đã xét hạn qua `effectivePremiumMark`. Nháy khoá↔mở chỉ xảy ra khi
-      tài khoản BỊ HẠ HẠNG thật giữa hai lần — hiếm, và chấp nhận được so với
-      việc người đã trả tiền không thấy tính năng. Chốt TẢI vẫn ở middleware/RLS.
-      "unknown" (máy chưa từng biết hạng — chưa từng đăng nhập/heartbeat) thì mới
-      thật sự phải chờ. */
-  if (i.cachedMark === "premium") return "open";
-  if (i.cachedMark === "basic") return "upgrade";
+  if (!i.hasToken) return "login";
+  if (i.mark === "premium") return "open";
+  if (i.mark === "basic") return "upgrade";
   return "checking";
 }

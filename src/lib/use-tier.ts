@@ -253,28 +253,24 @@ export function useFeatureAccess(): {
     }
   }, [authReady, authErrored, hasUser]);
 
+  /*  BA ĐẦU VÀO, KHÔNG CHÍN (2026-09-02 — xem `featureAccessDecision`).
+      Chìa của app là CHUỖI CỨNG trong máy, không phải phiên Supabase (app đã
+      bỏ phiên từ 2026-08) và càng không phải `navigator.onLine` (nói dối cả
+      chuyến biển khi tàu có wifi nội bộ). Hỏi đúng chìa thì hết ngõ cụt.
+      `cachedMark` ĐÃ xét hạn qua `effectivePremiumMark` trước khi tới đây. */
   const access = featureAccessDecision({
     configured: isSupabaseConfigured(),
-    authReady,
-    hasUser,
-    premium,
-    online,
-    cachedMark,
-    authErrored,
-    premiumExpiredOnly: expiredOnly,
-    /* DỮ LIỆU ĐÃ NẰM SẴN TRONG HOOK, CHỈ CHƯA ĐƯỢC CHUYỂN SANG CỬA QUYẾT ĐỊNH
-       (sửa 2026-08-02, C-7): thiếu vế này thì tàu có wifi nội bộ + auth-js tự
-       xoá phiên = người trả tiền tới 2027 rơi xuống "Đăng nhập" giữa biển. */
-    hasOfflineIdentity: deviceBound,
-    /* …và nhánh đó đòi HẠN THẬT: dấu không hạn thì không bao giờ hết, mà ở ca
-       này `hasUser=false` cũng chặn luôn đường tra lại (2026-08-02c). */
-    premiumMarkUntil: premiumUntil,
+    hasToken: tokenPresent,
+    mark: cachedMark,
   });
+  /*  "Đang dùng quyền đã lưu trong máy" — để màn nói thật với bà con rằng
+      quyền đang mở bằng dấu chứ chưa hỏi lại được máy chủ. Nay đo bằng: có
+      chuỗi, dấu premium, nhưng CHƯA có câu trả lời tươi phiên này
+      (`premium == null`) hoặc không có phiên Supabase. */
   const savedAccess =
     isSupabaseConfigured() &&
     access === "open" &&
-    !hasUser &&
-    deviceBound &&
-    cachedMark === "premium";
+    cachedMark === "premium" &&
+    (premium == null || !user);
   return { access, ready: access !== "checking", premiumUntil, savedAccess };
 }
