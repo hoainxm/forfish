@@ -2737,6 +2737,38 @@ export default function FishingMapView() {
                 "line-width": ["interpolate", ["exponential", 2], ["zoom"], 3, 12, 10, 1505] as unknown as number,
               }}
             />
+            {/*  VÙNG NGUY HIỂM KHI BẢN TIN KHÔNG CÓ ĐƯỜNG DỰ BÁO (2026-09-02).
+                 Ống ở trên cần ≥2 nút để thành đường; bản tin chỉ có vệt quá khứ
+                 thì trước đây KHÔNG vẽ gì — bà con thấy đường bão chạy tới mà
+                 không thấy vùng phải tránh (ảnh chụp máy 09:09 ngày 2/9).
+                 Nay lùi về BA DẢI ĐỒNG TÂM quanh tâm hiện tại, dùng đúng bộ màu
+                 và bán kính của ống nên mắt đọc ra cùng một thứ. Thà cảnh báo
+                 rộng hơn là tắt câm. */}
+            <Layer
+              id="storm-ong-tron"
+              type="fill"
+              filter={["==", ["get", "kind"], "ong-tron"]}
+              paint={{
+                "fill-color": [
+                  "match",
+                  ["get", "muc"],
+                  0,
+                  "#3f9e26",
+                  1,
+                  "#79c24d",
+                  "#b3a2e0",
+                ] as unknown as string,
+                "fill-opacity": [
+                  "match",
+                  ["get", "muc"],
+                  0,
+                  0.26,
+                  1,
+                  0.22,
+                  0.2,
+                ] as unknown as number,
+              }}
+            />
             {/* VÒNG GIÓ trắng quanh mốc dự báo — như NCHMF */}
             <Layer
               id="storm-vong-gio"

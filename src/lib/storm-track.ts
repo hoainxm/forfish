@@ -48,6 +48,9 @@ export type StormTrack = {
   issuedAt: number;
   past: TrackPoint[];
   forecast: TrackForecast[];
+  /** Giờ phát của bản tin CŨ mà `forecast`/`radiusKm` phải mượn về, khi tin mới
+      nhất parse hụt hai thứ đó. `null` = tin mới đủ, không mượn gì. */
+  buTuTinLuc: number | null;
 };
 
 /** Hàng thô của `storm_bulletins` (đã select đúng cột) */
@@ -78,6 +81,13 @@ export type ForecastRow = {
 };
 
 const so = (v: number | string): number => (typeof v === "number" ? v : Number(v));
+
+/** Bán kính gió mạnh cấp 6 của một bản tin, `null` khi tin không ghi số. */
+function banKinh(r: BulletinRow): number | null {
+  return r.radius_km != null && Number.isFinite(Number(r.radius_km))
+    ? Number(r.radius_km)
+    : null;
+}
 
 function tenCon(laBao: boolean, soBao: string | null): string {
   if (!laBao) return "Áp thấp nhiệt đới";
@@ -134,27 +144,64 @@ export function rowsToTracks(
       giat: r.giat,
     }));
 
-    const fc = (diemTheoBanTin.get(moiNhat.id) ?? [])
-      .filter((p) => Number.isFinite(so(p.lat)) && Number.isFinite(so(p.lon)))
-      .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0))
-      .map((p) => ({
-        at: p.valid_at ? Date.parse(p.valid_at) : null,
-        lat: so(p.lat),
-        lon: so(p.lon),
-        cap: p.cap,
-        giat: p.giat,
-        danger: p.danger_box ?? null,
-      }))
-      // BỎ mốc dự báo ĐÃ QUA GIỜ — chỉ "sắp tới" mới là dự báo. Mốc không có
-      // giờ (`at == null`) thì GIỮ (không biết thì thà vẽ). Xem `nowMs`.
-      .filter((p) => p.at == null || p.at >= nowMs);
+    const mocDuBao = (id: string): TrackForecast[] =>
+      (diemTheoBanTin.get(id) ?? [])
+        .filter((p) => Number.isFinite(so(p.lat)) && Number.isFinite(so(p.lon)))
+        .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0))
+        .map((p) => ({
+          at: p.valid_at ? Date.parse(p.valid_at) : null,
+          lat: so(p.lat),
+          lon: so(p.lon),
+          cap: p.cap,
+          giat: p.giat,
+          danger: p.danger_box ?? null,
+        }))
+        // BỎ mốc dự báo ĐÃ QUA GIỜ — chỉ "sắp tới" mới là dự báo. Mốc không
+        // có giờ (`at == null`) thì GIỮ (không biết thì thà vẽ). Xem `nowMs`.
+        .filter((p) => p.at == null || p.at >= nowMs);
+
+    let fc = mocDuBao(moiNhat.id);
+    let radiusKm = banKinh(moiNhat);
+    let buTuTinLuc: number | null = null;
+
+    /*  TIN MỚI THIẾU THÌ MƯỢN CỦA TIN CŨ (chủ dự án 2026-09-02: *"nếu tin mới
+        mà nó ko đủ thì dùng toạ độ tâm mới còn các phần kia dùng info của tin
+        cũ bù vào"*). TÂM luôn lấy của tin MỚI NHẤT (điểm cuối `past`) — đó là
+        thứ phải đúng nhất và luôn có. Đường dự báo + bán kính gió mạnh thì thà
+        mượn của tin trước còn hơn để trống: giữa hai bản tin (thường 3–6 giờ)
+        chúng đổi chậm, sai số nhỏ; để trống thì màn hình câm — cái giá rơi vào
+        người đi biển. Mốc dự báo của tin cũ vẫn qua cả bộ lọc `nowMs`, nên chỉ
+        mượn được phần CÒN Ở TƯƠNG LAI — không vẽ lại quá khứ thành dự báo.
+        Giờ tin đã mượn ghi lại để màn nói thật (`buTuTinLuc`), không đội lốt tin mới. */
+    for (let i = rows.length - 2; i >= 0; i--) {
+      if (fc.length && radiusKm != null) break;
+      const cu = rows[i];
+      const gioCu = Date.parse(cu.issued_at);
+      if (!Number.isFinite(gioCu)) continue;
+      let muon = false;
+      if (!fc.length) {
+        const cuFc = mocDuBao(cu.id);
+        if (cuFc.length) {
+          fc = cuFc;
+          muon = true;
+        }
+      }
+      if (radiusKm == null) {
+        const r = banKinh(cu);
+        if (r != null) {
+          radiusKm = r;
+          muon = true;
+        }
+      }
+      // giữ giờ CŨ NHẤT trong những thứ đã mượn — khai chỗ cũ nhất là khai
+      // đúng tuổi thật của dữ liệu đang vẽ, không hứa mới hơn thực tế
+      if (muon) buTuTinLuc = buTuTinLuc == null ? gioCu : Math.min(buTuTinLuc, gioCu);
+    }
 
     out.push({
       key,
-      radiusKm:
-        moiNhat.radius_km != null && Number.isFinite(Number(moiNhat.radius_km))
-          ? Number(moiNhat.radius_km)
-          : null,
+      radiusKm,
+      buTuTinLuc,
       name: tenCon(!!moiNhat.la_bao, moiNhat.so_bao),
       laBao: !!moiNhat.la_bao,
       issuedAt,
@@ -195,6 +242,20 @@ export function rowsToTracks(
         (p, i) =>
           i === 0 || p.at !== nhap[i - 1].at || p.lat !== nhap[i - 1].lat,
       );
+      /*  MƯỢN LUÔN Ở ĐÂY nếu bản mới không có (cùng luật với mượn giữa các bản
+          tin cùng khoá, 2026-09-02): track mới đổi khoá mà chưa kịp có đường dự
+          báo / bán kính thì lấy của bản cũ vừa gộp, thay vì để trống. */
+      if (!chung.forecast.length && t.forecast.length) {
+        chung.forecast = t.forecast;
+        chung.buTuTinLuc = t.buTuTinLuc ?? t.issuedAt;
+      }
+      if (chung.radiusKm == null && t.radiusKm != null) {
+        chung.radiusKm = t.radiusKm;
+        chung.buTuTinLuc = Math.min(
+          chung.buTuTinLuc ?? Number.POSITIVE_INFINITY,
+          t.buTuTinLuc ?? t.issuedAt,
+        );
+      }
     } else {
       gop.push(t);
     }
@@ -381,7 +442,9 @@ export function tracksToGeoJSON(
           lat: p.lat,
           lon: p.lon,
           at: p.at ?? null,
-          dangerKm: veOng ? ONG_BAO_MUC[ONG_BAO_MUC.length - 1] : null,
+          dangerKm: ONG_BAO_MUC[ONG_BAO_MUC.length - 1],
+          // có số = đường dự báo này MƯỢN của bản tin cũ (xem `buTuTinLuc`)
+          tinCuLuc: t.buTuTinLuc,
           ten: t.name,
         },
         geometry: { type: "Point", coordinates: [p.lon, p.lat] },
@@ -409,6 +472,38 @@ export function tracksToGeoJSON(
         properties: { kind: "ong", key: t.key },
         geometry: { type: "LineString", coordinates: nodes },
       });
+    } else if (tam) {
+      /*  CÓ BÃO LÀ PHẢI VẼ VÙNG NGUY HIỂM — KHÔNG có ngoại lệ nào (chủ dự án
+          2026-09-02: *"sao ko vẽ? kiểm tra để đảm bảo có bão là luôn vẽ"*).
+
+          CA THẬT (ảnh chụp máy 09:09 ngày 2/9): bản tin có ĐỦ vệt quá khứ tới
+          `7h 2/9` nhưng KHÔNG parse ra mốc dự báo nào ⇒ `nodes` chỉ còn đúng
+          tâm hiện tại ⇒ `veOng = false` ⇒ màn hiện vệt bão mà TUYỆT NHIÊN
+          không có vùng nguy hiểm. Bà con nhìn thấy đường bão chạy tới, không
+          thấy vùng phải tránh.
+
+          Đây là cùng một lớp lỗi với bản vá 2026-08-31 ("không đòi `danger`
+          box"): mỗi mảnh dữ liệu parse hụt lại tắt câm một feature AN TOÀN.
+          Luật phải là ngược lại — parse được tới đâu thì vẽ tới đó, thiếu thì
+          lùi về vòng tròn quanh tâm, KHÔNG BAO GIỜ lùi về không vẽ gì.
+
+          Vòng tròn dùng ĐÚNG bán kính ngoài của ống (`ONG_BAO_MUC` cuối), nên
+          không đẻ ngưỡng mới và không hứa hẹp hơn ống. Thà cảnh báo rộng hơn
+          là tắt câm — nhầm rộng thì bà con đi vòng, tắt câm thì bà con đi
+          thẳng vào. */
+      /*  BA DẢI ĐỒNG TÂM, đúng bộ bán kính của ống (`ONG_BAO_MUC`) — để mắt
+          đọc ra CÙNG MỘT thứ dù bản tin có đường dự báo hay không. Vẽ từ NGOÀI
+          vào TRONG (tím → xanh) y như thứ tự lớp của ống. */
+      for (let m = ONG_BAO_MUC.length - 1; m >= 0; m--) {
+        features.push({
+          type: "Feature",
+          properties: { kind: "ong-tron", muc: m, key: t.key, ten: t.name },
+          geometry: {
+            type: "Polygon",
+            coordinates: [vongTron(tam[1], tam[0], ONG_BAO_MUC[m])],
+          },
+        });
+      }
     }
   }
   return features.length ? { type: "FeatureCollection", features } : null;
