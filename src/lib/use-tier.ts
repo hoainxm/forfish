@@ -24,6 +24,7 @@ import {
   effectivePremiumMark,
   featureAccessDecision,
   readPremiumMark,
+  readTierMarkRaw,
   resolveTier,
   shouldClearPremiumMark,
   TIER_CACHE_KEY,
@@ -42,7 +43,10 @@ export { TIER_CACHE_KEY, TIER_UNTIL_KEY };
 function readCachedMark(): PremiumMark {
   if (typeof window === "undefined") return "unknown";
   try {
-    return readPremiumMark(window.localStorage.getItem(TIER_CACHE_KEY));
+    /*  Qua `readTierMarkRaw` chứ KHÔNG đọc thẳng kho (2026-09-02): ghi dấu có
+        thể hụt trên máy chật, và khi đó chỉ bộ nhớ mới còn câu trả lời đúng.
+        Đọc thẳng localStorage ở đây là dựng lại đúng ngõ cụt vừa vá. */
+    return readPremiumMark(readTierMarkRaw());
   } catch {
     /* chế độ riêng tư — CHƯA BIẾT, không được kết luận là hạng thường */
     return "unknown";

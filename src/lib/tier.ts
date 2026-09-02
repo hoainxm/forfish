@@ -38,18 +38,79 @@ export const TIER_EVENT = "forfish:tier";
  * không gọi — ghi bừa ở đây là xoá quyền của người đã trả tiền, giữa biển.
  * KHÔNG BAO GIỜ ném (chế độ riêng tư iOS / kho đầy).
  */
+/*  ── DẤU HẠNG GIỮ TRONG BỘ NHỚ, localStorage CHỈ LÀ BẢN LƯU ────────────────
+    Sửa 2026-09-02. Chủ dự án chỉ ra chỗ mấu chốt: *"lúc cấp premium thì đã có
+    acc, có sdt, lúc user đăng nhập vào thì ngay thời điểm đó đã có token và có
+    premium rồi thì các TH lỗi làm sao xảy ra đc"* — đúng, và chính câu đó loại
+    hết mấy giả thuyết trước (lệch SĐT, chưa deploy, cửa 30 phút), để lộ ra
+    đường duy nhất còn lại: **ghi hụt**.
+
+    LỖI: `writePremiumMark` ghi localStorage rồi NUỐT lỗi, kèm chú thích "nhịp
+    sau ghi lại". Nhịp sau gặp đúng cái kho đầy đó ⇒ không bao giờ ghi lại
+    được. Mà đường ĐỌC (use-tier) chỉ đọc localStorage. Hệ quả trên máy chật —
+    chuyện thường trực với app có bản đồ offline + ảnh giấy tờ:
+
+      đăng nhập ĐÚNG (chuỗi cứng ghi được — `saveToken` có đọc lại để xác minh)
+      → dấu hạng ghi HỤT, im lặng
+      → `cachedMark` = "unknown" MÃI
+      → featureAccessDecision = "checking"
+      → rail ẩn sạch Đến điểm · Điểm đã lưu · Dẫn đường
+
+    Bà con trả tiền, đăng nhập được, mà không đặt nổi điểm đến — và không một
+    thông báo nào. Khớp đúng báo cáo hiện trường *"dùng đủ cách rồi vẫn ko có
+    điểm đến"*.
+
+    NAY: dấu vào BIẾN MODULE trước, localStorage sau. Ghi hụt thì phiên đang
+    chạy vẫn đúng hạng. Cùng khuôn đã dùng cho sổ đồng bộ hôm 2026-09-01 —
+    cùng một lớp lỗi "hai lần ghi, một lần bị nuốt".
+
+    NỢ CÒN LẠI (nói thẳng): tắt app rồi mở lại trên máy vẫn chật thì mất dấu,
+    phải chờ nhịp/đăng nhập lại. Bịt hẳn cần dọn chỗ hoặc báo cho bà con biết
+    máy đầy — việc khác, không nhét vào đây. */
+let markCache: { marked: boolean; until: string | null } | null = null;
+
+/** Dấu hạng thô: ƯU TIÊN bộ nhớ (ghi hụt vẫn đúng), rồi mới tới kho máy. */
+export function readTierMarkRaw(): string | null {
+  if (markCache) return markCache.marked ? "1" : "0";
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(TIER_CACHE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Hạn của dấu — cùng luật ưu tiên với `readTierMarkRaw`. */
+export function readTierUntilRaw(): string | null {
+  if (markCache) return markCache.until;
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(TIER_UNTIL_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Quên dấu trong bộ nhớ — gọi kèm mọi đường xoá dấu ở kho (clearTierMark). */
+export function forgetTierMarkCache(): void {
+  markCache = null;
+}
+
 export function writePremiumMark(
   /** ĐÚNG CỘT `tier` THÔ của DB — KHÔNG phải kết quả đã xét hạn (luật E4) */
   marked: boolean,
   until: string | null,
 ): void {
   if (typeof window === "undefined") return;
+  /*  BỘ NHỚ TRƯỚC, KHO SAU — thứ tự này là toàn bộ bản vá: kho ghi hụt thì
+      phiên đang chạy vẫn có câu trả lời đúng. */
+  markCache = { marked, until };
   try {
     window.localStorage.setItem(TIER_CACHE_KEY, marked ? "1" : "0");
     if (until) window.localStorage.setItem(TIER_UNTIL_KEY, until);
     else window.localStorage.removeItem(TIER_UNTIL_KEY);
   } catch {
-    /* hết chỗ / chế độ riêng tư — bỏ qua, nhịp sau ghi lại */
+    /* hết chỗ / chế độ riêng tư — bộ nhớ đã giữ, phiên này không mất hạng */
   }
   try {
     window.dispatchEvent(
