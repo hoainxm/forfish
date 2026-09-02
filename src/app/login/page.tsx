@@ -11,7 +11,6 @@ import { deviceId } from "@/lib/device-id";
 import { devicePlatform } from "@/lib/storage-persist";
 import { isValidTokenShape } from "@/lib/device-token";
 import { saveToken } from "@/lib/device-token-store";
-import { writePremiumMark } from "@/lib/tier";
 import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -204,20 +203,21 @@ export default function LoginPage() {
         tài khoản KHÔNG CÒN credential nào: máy mới không giữ được chuỗi, máy cũ
         thì vừa bị đá. Mất cả hai đầu.
         Cất không được ⇒ GIỮ NGUYÊN phiên tạm, báo thật, để bà con bấm lại. */
-    if (!saveToken(body.token)) {
+    /*  CHUỖI CHỈ GHI THÀNH CÔNG KHI CÓ HẠNG ĐI KÈM (chủ dự án 2026-09-02).
+        Máy chủ vừa trả `tier` ngay trong phản hồi cấp chuỗi, nên không có lý do
+        gì ghi rời hai lần rồi để lệch nhau. Thiếu `tier` (không tìm ra hàng
+        khách) ⇒ coi như hạng THƯỜNG chứ KHÔNG để trống: "chưa biết hạng" chính
+        là trạng thái đã ẩn sạch công cụ của bà con premium. Hạng thật sẽ được
+        nhịp kế cập nhật lên. */
+    const tierTho = typeof body.tier === "string" ? body.tier : "basic";
+    const han =
+      tierTho === "premium" ? ((body.premiumUntil as string) ?? null) : null;
+    if (!saveToken(body.token, tierTho, han)) {
       setError(
         "Máy đang không cho app lưu dữ liệu nên chưa giữ được đăng nhập. Bà con tắt chế độ duyệt web riêng tư (ẩn danh) rồi thử lại giúp.",
       );
       setLoading(false);
       return;
-    }
-    /*  GHI DẤU HẠNG NGAY TẠI ĐĂNG NHẬP (chủ dự án 2026-08-31: token lúc đăng
-        nhập đã biết hạng). Nhờ vậy công cụ premium hiện LIỀN, khỏi chờ nhịp
-        heartbeat (bị cửa 30' chặn ⇒ mở app nguội kẹt "checking"). Chỉ ghi khi
-        máy chủ có trả `tier` (string); không có hàng khách → giữ nguyên dấu cũ. */
-    if (typeof body.tier === "string") {
-      const isPremium = body.tier === "premium";
-      writePremiumMark(isPremium, isPremium ? (body.premiumUntil ?? null) : null);
     }
     // lần đầu (webhook đặt must_change_password) → bắt đổi mật khẩu
     const mustChange = body.mustChangePassword === true;
