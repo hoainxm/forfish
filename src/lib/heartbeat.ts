@@ -285,6 +285,33 @@ export function heartbeatNeedsScan(
   const saved = readText(HEARTBEAT_SIG_KEY);
   if (saved == null) return true;
   if (cheapKeyOfSig(saved) !== cheapKey(c)) return true;
+  /*  CHƯA TỪNG BIẾT HẠNG ⇒ GỬI NGAY, KHÔNG CHỜ HẾT CỬA 30 PHÚT
+      (2026-09-02 — hiện trường: *"tk premium vẫn ko hiển thị các nút premium"*,
+      *"dùng đủ cách rồi vẫn ko có điểm đến"*).
+
+      Rail ẩn "Đến điểm · Điểm đã lưu · Dẫn đường" khi `fishAccess !== "open"`,
+      và `featureAccessDecision` trả `"checking"` khi dấu hạng là `"unknown"`
+      (máy chưa từng biết hạng). Đường DUY NHẤT hết `unknown` là nhịp này.
+
+      ⚠️ NÓI CHO ĐÚNG: cửa 30 phút CÓ NHẢ — qua 30 phút nhịp vẫn chạy, nên đây
+      KHÔNG phải ngõ cụt vĩnh viễn (bản nháp của chú thích này từng viết vậy,
+      sai). Thứ vá được ở đây là KHOẢNG CHỜ: máy vừa đăng nhập mà chưa có dấu
+      thì phải chờ tới 30 phút mới thấy công cụ premium — đúng nửa giờ bà con
+      mở app lên và kết luận "app hỏng". Nay hỏi ngay lượt đầu.
+
+      Rơi vào ca `unknown` khi: đăng nhập từ TRƯỚC lúc `/api/auth/token` trả
+      `tier` (bản 2026-08-31), hoặc lần đăng nhập đó máy chủ KHÔNG TÌM RA hàng
+      khách (`.eq("phone", phone)` không khớp) nên trả `tier: null`.
+
+      VÁ NÀY KHÔNG ĐỠ ĐƯỢC ca hàng khách không khớp SĐT: nhịp có chạy thì máy
+      chủ vẫn trả `recorded:false / no_customer_row`, dấu vẫn `unknown`. Ca đó
+      phải sửa ở chỗ khác — xem ghi chú cùng ngày trong route heartbeat.
+
+      Điều kiện hẹp — CÓ chuỗi đăng nhập mà dấu vẫn `unknown` — nên không đẻ
+      thêm nhịp cho máy chưa đăng nhập hay máy đã biết hạng. Gửi xong là dấu
+      được ghi, lần sau lại theo cửa 30 phút như thường. */
+  if (readToken() != null && readPremiumMark(readText(TIER_CACHE_KEY)) === "unknown")
+    return true;
   const lastAt = readMark(HEARTBEAT_KEY);
   /* mốc tương lai (đồng hồ máy bị chỉnh lùi) cho `since` ÂM ⇒ cả cửa rút ngắn
      lẫn cửa 30 phút đều ra false — đúng y `shouldSendHeartbeat`, đừng để hai
