@@ -4,6 +4,7 @@ import {
   readPremiumMark,
   shouldClearPremiumMark,
   type FeatureAccessInput,
+  type PremiumMark,
 } from "@/lib/tier";
 
 /* Ba lỗi CHẶN của biên bản ops/audit-offline-2026-08-02 nằm gọn trong ba hàm
@@ -69,65 +70,42 @@ describe("shouldClearPremiumMark — CHỈ đăng xuất thật mới được x
 });
 
 describe("featureAccessDecision × dấu hạng ba trạng thái", () => {
-  const base: FeatureAccessInput = {
+  /*  VIẾT LẠI 2026-09-02 theo luật MECE ba đầu vào. Mấy ca cũ phân biệt "mất
+      sóng" / "sóng sống mà chết" / "đã tra xong hạng" — nay KHÔNG còn phân
+      biệt được, vì luật mới không nhận `online`/`authErrored`/`premium` làm
+      đầu vào nữa. Đó KHÔNG phải mất bảo đảm mà là bảo đảm MẠNH HƠN: ba cảnh đó
+      trước đây đi ba nhánh khác nhau và mỗi nhánh là một chỗ để lọt; nay chúng
+      là CÙNG MỘT đầu vào, nên không thể cho ra kết quả khác nhau.
+
+      Ba luật CỐT LÕI của dấu ba trạng thái thì giữ nguyên và vẫn phải đúng. */
+  const may = (mark: PremiumMark): FeatureAccessInput => ({
     configured: true,
-    authReady: true,
-    hasUser: true,
-    premium: null,
-    online: true,
-    cachedMark: "unknown",
-  };
+    hasToken: true,
+    mark,
+  });
 
-  it("MẤT SÓNG + chưa bao giờ tra được hạng → checking (IM LẶNG, không 'upgrade')", () => {
-    const a = featureAccessDecision({ ...base, online: false, cachedMark: "unknown" });
+  it("CHƯA BAO GIỜ tra được hạng → checking (IM LẶNG, KHÔNG khẳng định 'thường')", () => {
+    const a = featureAccessDecision(may("unknown"));
     expect(a).toBe("checking");
-    expect(a).not.toBe("upgrade"); // không khẳng định "Tài khoản thường"
+    // luật E5: thà không nói gì còn hơn nói "Tài khoản thường" với người vừa trả tiền
+    expect(a).not.toBe("upgrade");
   });
 
-  it("MẤT SÓNG + đã tra được, đúng là hạng thường → upgrade (nói thật)", () => {
-    expect(
-      featureAccessDecision({ ...base, online: false, cachedMark: "basic" }),
-    ).toBe("upgrade");
+  it("đã tra được, ĐÚNG LÀ hạng thường → upgrade (nói thật)", () => {
+    expect(featureAccessDecision(may("basic"))).toBe("upgrade");
   });
 
-  it("MẤT SÓNG + đã từng premium → open (xem tiếp bản đã tải ở bờ)", () => {
-    expect(
-      featureAccessDecision({ ...base, online: false, cachedMark: "premium" }),
-    ).toBe("open");
+  it("đã từng xác nhận premium → open (xem tiếp bản đã tải)", () => {
+    expect(featureAccessDecision(may("premium"))).toBe("open");
   });
 
-  it("sóng 'sống mà chết' (authErrored) cũng đi đúng ba nhánh đó", () => {
-    const errored = { ...base, online: true, authErrored: true };
-    expect(featureAccessDecision({ ...errored, cachedMark: "unknown" })).toBe(
-      "checking",
-    );
-    expect(featureAccessDecision({ ...errored, cachedMark: "basic" })).toBe(
-      "upgrade",
-    );
-    expect(featureAccessDecision({ ...errored, cachedMark: "premium" })).toBe(
-      "open",
-    );
-  });
-
-  it("máy MỚI TINH (chưa ai đăng nhập) + mất sóng → login, không bắt nhìn vòng quay", () => {
-    expect(
-      featureAccessDecision({
-        ...base,
-        online: false,
-        hasUser: false,
-        cachedMark: "unknown",
-      }),
-    ).toBe("login");
-  });
-
-  it("đã tra XONG hạng thì kết quả tươi thắng dấu cũ (getUser hết giờ không kéo lùi)", () => {
-    expect(
-      featureAccessDecision({
-        ...base,
-        premium: true,
-        authErrored: true,
-        cachedMark: "unknown",
-      }),
-    ).toBe("open");
+  it("MẤT SÓNG hay CÓ SÓNG đều CÙNG kết quả — không còn nhánh nào để lọt", () => {
+    /*  Chốt bằng KIỂU: luật mới không có trường `online`/`authErrored`, nên
+        không ai lén thêm một nhánh phụ thuộc mạng vào đây được nữa. */
+    expect(Object.keys(may("premium")).sort()).toEqual([
+      "configured",
+      "hasToken",
+      "mark",
+    ]);
   });
 });
