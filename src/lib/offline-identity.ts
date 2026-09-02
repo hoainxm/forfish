@@ -30,7 +30,11 @@
 // ở middleware/RLS khi có mạng.
 
 import { isValidVnPhone, normalizeVnPhone } from "@/lib/phone";
-import { TIER_CACHE_KEY, TIER_UNTIL_KEY } from "@/lib/tier";
+import {
+  TIER_CACHE_KEY,
+  TIER_UNTIL_KEY,
+  forgetTierMarkCache,
+} from "@/lib/tier";
 
 /** Quy ước key forfish.* (xem ops/state-registry.md) */
 export const IDENTITY_KEY = "forfish.identity.v1";
@@ -192,6 +196,10 @@ export function offlineIdentityPhone(): string | null {
  */
 export function clearTierMark(): void {
   if (typeof window === "undefined") return;
+  /*  XOÁ CẢ BẢN TRONG BỘ NHỚ (2026-09-02). Dấu hạng nay ưu tiên bộ nhớ để ghi
+      hụt trên máy chật không làm mất hạng; nhưng đúng vì thế, xoá mà quên bộ
+      nhớ là quyền premium của người CŨ còn sống nguyên sau khi đăng xuất. */
+  forgetTierMarkCache();
   try {
     window.localStorage.removeItem(TIER_CACHE_KEY);
     window.localStorage.removeItem(TIER_UNTIL_KEY);

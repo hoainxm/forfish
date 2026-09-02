@@ -62,6 +62,8 @@ import { countsAsOfflineReady, type DevicePlatform } from "@/lib/app-usage";
 import {
   effectivePremiumMark,
   readPremiumMark,
+  readTierMarkRaw,
+  readTierUntilRaw,
   TIER_CACHE_KEY,
   TIER_UNTIL_KEY,
 } from "@/lib/tier";
@@ -310,7 +312,7 @@ export function heartbeatNeedsScan(
       Điều kiện hẹp — CÓ chuỗi đăng nhập mà dấu vẫn `unknown` — nên không đẻ
       thêm nhịp cho máy chưa đăng nhập hay máy đã biết hạng. Gửi xong là dấu
       được ghi, lần sau lại theo cửa 30 phút như thường. */
-  if (readToken() != null && readPremiumMark(readText(TIER_CACHE_KEY)) === "unknown")
+  if (readToken() != null && readPremiumMark(readTierMarkRaw()) === "unknown")
     return true;
   const lastAt = readMark(HEARTBEAT_KEY);
   /* mốc tương lai (đồng hồ máy bị chỉnh lùi) cho `since` ÂM ⇒ cả cửa rút ngắn
@@ -348,8 +350,8 @@ export function heartbeatNeedsScan(
 export function fishLockedFromMark(nowMs = Date.now()): boolean {
   try {
     const mark = effectivePremiumMark(
-      readPremiumMark(readText(TIER_CACHE_KEY)),
-      readText(TIER_UNTIL_KEY),
+      readPremiumMark(readTierMarkRaw()),
+      readTierUntilRaw(),
       nowMs,
     );
     return mark === "basic";
