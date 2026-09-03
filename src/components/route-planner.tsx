@@ -130,6 +130,8 @@ function readBoat(): BoatProfile {
       typeof b.litersPerHour === "number"
         ? b.litersPerHour
         : DEFAULT_BOAT.litersPerHour,
+    // mớn nước: chỉ nhận số dương hợp lý; mọi thứ khác = "chưa khai"
+    draftM: typeof b.draftM === "number" && b.draftM > 0 && b.draftM <= 10 ? b.draftM : null,
   };
 }
 
@@ -643,6 +645,10 @@ export function RouteMode({
   // next/dynamic ssr:false (không có HTML server để lệch); readBoat tự
   // fallback DEFAULT_BOAT khi không có window/storage
   const [speedKn, setSpeedKn] = useState(() => String(readBoat().speedKn));
+  const [draftM, setDraftM] = useState(() => {
+    const d = readBoat().draftM;
+    return d == null ? "" : String(d);
+  });
   const [lph, setLph] = useState(() => String(readBoat().litersPerHour));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -868,10 +874,15 @@ export function RouteMode({
       const boat: BoatProfile = {
         speedKn: clampNum(speedKn, 2, 30, DEFAULT_BOAT.speedKn),
         litersPerHour: clampNum(lph, 1, 300, DEFAULT_BOAT.litersPerHour),
+        /*  Ô mớn nước cho phép ĐỂ TRỐNG — trống nghĩa là "chưa khai", mọi cảnh
+            báo mớn im lặng. KHÔNG ép về một mặc định: đoán mớn hộ chủ tàu là
+            doạ sai tàu thúng hoặc ru ngủ tàu vỏ thép. */
+        draftM: draftM.trim() === "" ? null : clampNum(draftM, 0.2, 10, 2),
       };
       writeBoat(boat);
       setSpeedKn(String(boat.speedKn));
       setLph(String(boat.litersPerHour));
+      setDraftM(boat.draftM == null ? "" : String(boat.draftM));
 
       // độ sâu fail vẫn tính tiếp — kết quả sẽ tự cảnh báo "chưa né vùng
       // cạn". Kéo SONG SONG với thời tiết (hai nguồn độc lập, đừng bắt nhau
@@ -2097,6 +2108,22 @@ export function RouteMode({
                   max={300}
                   value={lph}
                   onChange={(e) => setLph(e.target.value)}
+                  className="block min-h-[var(--row-h)] w-full rounded-xl bg-card px-3 text-[1.125rem] font-semibold"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[0.875rem] font-bold text-foreground/75">
+                  Mớn nước (m) — trống nếu chưa rõ
+                </span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={0.2}
+                  max={10}
+                  step={0.1}
+                  value={draftM}
+                  onChange={(e) => setDraftM(e.target.value)}
+                  placeholder="vd 1,8"
                   className="block min-h-[var(--row-h)] w-full rounded-xl bg-card px-3 text-[1.125rem] font-semibold"
                 />
               </label>

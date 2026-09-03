@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { buildMapStyle } from "@/lib/ocean-map";
 
@@ -71,32 +71,62 @@ describe("parseByteRange — cắt lát đúng chuẩn byte serving", () => {
   });
 });
 
-describe("sw.js — nền bản đồ phải sống qua bump vỏ và đứng trước nhánh tĩnh", () => {
-  it("đường file trong sw.js KHỚP url pmtiles:// của style bản đồ", () => {
-    const inSw = sw.match(/const BASEMAP_ARCHIVE = "([^"]+)";/);
-    expect(inSw, "sw.js phải có const BASEMAP_ARCHIVE").toBeTruthy();
+describe("sw.js — mọi kho pmtiles phải sống qua bump vỏ và đứng trước nhánh tĩnh", () => {
+  /** Danh sách kho .pmtiles đọc thẳng từ sw.js — nguồn sự thật duy nhất */
+  const archives = (() => {
+    const m = sw.match(/const PMTILES_ARCHIVES = \[([\s\S]*?)\];/);
+    expect(m, "sw.js phải có const PMTILES_ARCHIVES").toBeTruthy();
+    return [...m![1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+  })();
+
+  it("nền bản đồ trong danh sách KHỚP url pmtiles:// của style", () => {
     const src = buildMapStyle(null, new Date("2026-06-10T12:00:00Z")).sources
       .basemap as { url?: string };
-    expect(src.url).toBe(`pmtiles://${inSw![1]}`);
+    expect(archives).toContain(String(src.url).replace("pmtiles://", ""));
   });
 
-  it("KHO RIÊNG được chừa trong activate — bump vỏ KHÔNG xoá 16,9 MB", () => {
+  /*  CỔNG CHỐNG TÁI PHÁT (2026-08-30) — cái bẫy suýt dính.
+
+      Nhánh Range trước đây gắn cứng MỘT đường dẫn. Thêm file `.pmtiles` thứ
+      hai mà quên sửa thì trên bàn làm việc VẪN XANH (có mạng, nhánh tĩnh trả
+      200, trình duyệt tự xử lý Range) nhưng NGOÀI BIỂN mất sóng thì service
+      worker trả nguyên file cho một yêu cầu xin 16 KB ⇒ `pmtiles` ném ⇒ lớp đó
+      CHẾT HẲN, không một dòng lỗi nào tới tay bà con.
+
+      Nên cổng này bắt theo hướng ngược lại: quét MỌI file `.pmtiles` có thật
+      trong `public/data/`, file nào không nằm trong danh sách là ĐỎ. */
+  it("MỌI file .pmtiles trong public/data đều nằm trong PMTILES_ARCHIVES", () => {
+    const dir = join(process.cwd(), "public", "data");
+    const onDisk = readdirSync(dir)
+      .filter((f) => f.endsWith(".pmtiles"))
+      .map((f) => `/data/${f}`);
+    expect(onDisk.length, "không tìm thấy file .pmtiles nào — đọc nhầm chỗ?").toBeGreaterThan(0);
+    for (const f of onDisk) {
+      expect(
+        archives,
+        `'${f}' có trên đĩa nhưng KHÔNG nằm trong PMTILES_ARCHIVES của sw.js — ` +
+          `mất sóng là lớp này chết câm. Thêm nó vào danh sách.`,
+      ).toContain(f);
+    }
+  });
+
+  it("KHO RIÊNG được chừa trong activate — bump vỏ KHÔNG xoá dữ liệu đã tải", () => {
     const block = sw.match(/addEventListener\("activate"[\s\S]*?\n\}\);/);
     expect(block).toBeTruthy();
     expect(block![0]).toContain("k !== SDFISH_BASEMAP_V");
   });
 
-  it("nhánh nền ĐỨNG TRƯỚC nhánh asset tĩnh cache-first", () => {
+  it("nhánh pmtiles ĐỨNG TRƯỚC nhánh asset tĩnh cache-first", () => {
     const fetchHandler = sw.slice(sw.indexOf('addEventListener("fetch"'));
-    const iBasemap = fetchHandler.indexOf("basemapFirst(event)");
+    const iPm = fetchHandler.indexOf("PMTILES_ARCHIVES.includes");
     const iStatic = fetchHandler.indexOf("// asset tĩnh → cache-first");
-    expect(iBasemap).toBeGreaterThan(-1);
+    expect(iPm).toBeGreaterThan(-1);
     expect(iStatic).toBeGreaterThan(-1);
-    expect(iBasemap).toBeLessThan(iStatic);
+    expect(iPm).toBeLessThan(iStatic);
   });
 
   it("CHỈ cất bản 200 — Cache API ném với 206, cất nhầm là hỏng kho", () => {
-    const fill = sw.match(/function fillBasemapArchive\(\)[\s\S]*?\n\}/);
+    const fill = sw.match(/function fillBasemapArchive\(path\)[\s\S]*?\n\}/);
     expect(fill).toBeTruthy();
     expect(fill![0]).toContain("res.status !== 200");
     // và lượt kéo về KHÔNG được kèm header Range

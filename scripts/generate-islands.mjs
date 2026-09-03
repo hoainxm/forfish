@@ -169,7 +169,22 @@ if (outOfRange.length) {
   );
 }
 
-const features = ISLANDS.map((d) => ({
+/*  LOẠI TRỪ 31 TÊN TRÙNG VỚI `coral-reefs.v1.json` (khử trùng 2026-09-03, xem
+    docs/research/ten-bai-can-2026-09.md §9). Luật: thực thể NGẦM (Đá/Bãi/bãi
+    ngầm) chỉ ở coral-reefs (toạ độ TT33 chính thức thắng Wikipedia); đảo NỔI
+    ở đây. Không có Set này thì chạy lại generator là tái sinh trùng và
+    `reefs.test.ts` đỏ ngay (cổng chủ ý). Danh sách = tên có trong mảng trên
+    mà KHÔNG còn trong file đã khử — tính bằng máy, không gõ tay. */
+const LOAI_TRU = new Set([
+  "Đá Bông Bay", "Bãi Bình Sơn", "Bãi Châu Nhai", "Bãi Gò Nổi", "Bãi Ốc Tai Voi",
+  "Bãi Quảng Nghĩa", "Bãi Thủy Tề", "Đá Bắc", "Đá Chim Én", "Đá Hải Sâm", "Đá Lồi",
+  "Đá Trà Tây", "Bãi Đèn Pha", "Bãi Ngự Bình", "Bãi Xà Cừ", "Đá Tây", "Đá Lát",
+  "Đá Đông", "Đá Lớn", "Đá Nam", "Đá Thị", "Đá Núi Le", "Đá Tốc Tan", "Đá Tiên Nữ",
+  "Đá Cô Lin", "Đá Len Đao", "Bãi Thuyền Chài", "Đá Chữ Thập", "Đá Gạc Ma",
+  "Đá Xu Bi", "Đá Vành Khăn",
+]);
+const ISLANDS_GIU = ISLANDS.filter((d) => !LOAI_TRU.has(d.name));
+const features = ISLANDS_GIU.map((d) => ({
   type: "Feature",
   properties: {
     name: d.name,
@@ -184,7 +199,7 @@ const features = ISLANDS.map((d) => ({
 mkdirSync("public/data", { recursive: true });
 const out = { type: "FeatureCollection", features };
 writeFileSync("public/data/vn-islands.v1.json", JSON.stringify(out));
-const byGroup = ISLANDS.reduce((m, d) => ((m[d.group] = (m[d.group] || 0) + 1), m), {});
+const byGroup = ISLANDS_GIU.reduce((m, d) => ((m[d.group] = (m[d.group] || 0) + 1), m), {});
 console.log(
   `OK: public/data/vn-islands.v1.json — ${features.length} đảo`,
   byGroup,

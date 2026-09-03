@@ -50,9 +50,17 @@ export type BoatProfile = {
   speedKn: number;
   /** máy ăn dầu, lít/giờ */
   litersPerHour: number;
+  /*  MỚN NƯỚC (2026-09-02) — "làm mớn" là một món trong danh sách bán hàng của
+      máy hải đồ 5 triệu, và là đầu vào của `tideDraftWarning` (lib/tides): độ
+      sâu hải đồ + con nước ròng + mớn tàu = câu "chờ nước lên hãy qua".
+
+      `null` = chủ tàu CHƯA khai — mọi cảnh báo mớn phải IM, không được đoán
+      một mớn "trung bình" rồi doạ sai người (tàu thúng 0,3 m và tàu vỏ thép
+      3 m cùng dùng app này). Vắng số không phải là số. */
+  draftM?: number | null;
 };
 
-export const DEFAULT_BOAT: BoatProfile = { speedKn: 7, litersPerHour: 20 };
+export const DEFAULT_BOAT: BoatProfile = { speedKn: 7, litersPerHour: 20, draftM: null };
 export const KMH_PER_KNOT = 1.852;
 
 // ── hình học ─────────────────────────────────────────────────────────────

@@ -9,7 +9,9 @@ import {
   parseLightString,
   describeLight,
   describeSeamark,
+  huongDiQuaPhao,
   decodeSeamarks,
+  type Seamark,
   type SeamarkFile,
   type SeamarkType,
 } from "../seamarks";
@@ -224,6 +226,120 @@ describe("describeLight — dịch đặc tính đèn sang câu bà con đọc �
   it("loại lạ không lộ chuỗi tiếng Anh ra màn hình", () => {
     expect(seamarkLabel("cargo_terminal_9000")).toBe("Báo hiệu hàng hải");
     expect(colourLabel("chartreuse")).toBe("");
+  });
+});
+
+/* ── ĐI QUA PHAO PHÍA NÀO ────────────────────────────────────────────────── */
+
+describe("huongDiQuaPhao — phao nằm bên nào luồng, nói bằng chữ", () => {
+  const mark = (type: string, colour?: string, light?: Seamark["light"]): Seamark => ({
+    lon: 107,
+    lat: 16,
+    type,
+    ...(colour ? { colour } : {}),
+    ...(light ? { light } : {}),
+  });
+
+  it("phao luồng: đỏ = bên TRÁI tàu khi vào, xanh = bên PHẢI (vùng A)", () => {
+    expect(huongDiQuaPhao(mark("buoy_lateral", "red"))).toBe(
+      "Vào luồng: để phao này bên TRÁI tàu (ra biển thì bên phải)",
+    );
+    expect(huongDiQuaPhao(mark("buoy_lateral", "green"))).toBe(
+      "Vào luồng: để phao này bên PHẢI tàu (ra biển thì bên trái)",
+    );
+  });
+
+  it("tiêu luồng gọi là 'tiêu', không gọi 'phao'", () => {
+    const cau = huongDiQuaPhao(mark("beacon_lateral", "red"));
+    expect(cau).toContain("tiêu này bên TRÁI");
+    expect(cau).not.toContain("phao");
+  });
+
+  it("luồng rẽ đôi: nói rõ luồng chính bên nào", () => {
+    expect(huongDiQuaPhao(mark("buoy_lateral", "red;green;red"))).toBe(
+      "Luồng rẽ đôi: luồng chính nằm bên PHẢI phao — đi luồng chính thì để phao bên TRÁI tàu",
+    );
+    expect(huongDiQuaPhao(mark("buoy_lateral", "green;red;green"))).toBe(
+      "Luồng rẽ đôi: luồng chính nằm bên TRÁI phao — đi luồng chính thì để phao bên PHẢI tàu",
+    );
+  });
+
+  it("câu tác dụng của nhà nước THẮNG màu thân (cùng thứ tự với chartSymbolId)", () => {
+    // Cục Hàng hải nói trái, OSM tô xanh — tin nhà nước.
+    expect(
+      huongDiQuaPhao(mark("buoy_lateral", "green"), "Báo hiệu phía trái luồng"),
+    ).toContain("bên TRÁI tàu");
+    // vn-aids: không có màu thân, chỉ có màu đèn → vẫn ra câu.
+    expect(
+      huongDiQuaPhao(mark("buoy_lateral", undefined, { colour: "green" })),
+    ).toContain("bên PHẢI tàu");
+  });
+
+  it("phao luồng KHÔNG rõ bên → null, không bịa (bên sai là đưa tàu vào chỗ cạn)", () => {
+    expect(huongDiQuaPhao(mark("buoy_lateral"))).toBeNull();
+    expect(huongDiQuaPhao(mark("buoy_lateral", "yellow"))).toBeNull();
+    expect(
+      huongDiQuaPhao(mark("buoy_lateral", "green"), "Báo hiệu phía phải trái luồng"),
+    ).toBe("Vào luồng: để phao này bên PHẢI tàu (ra biển thì bên trái)"); // câu mập mờ → rơi về màu thân
+  });
+
+  it("phao báo hướng: đi về phía an toàn, nói luôn phía nguy hiểm", () => {
+    expect(huongDiQuaPhao(mark("buoy_cardinal", "black;yellow"))).toBe(
+      "Đi về phía BẮC của phao (chỗ nguy hiểm nằm phía NAM)",
+    );
+    expect(huongDiQuaPhao(mark("buoy_cardinal", "yellow;black"))).toBe(
+      "Đi về phía NAM của phao (chỗ nguy hiểm nằm phía BẮC)",
+    );
+    expect(huongDiQuaPhao(mark("buoy_cardinal", "black;yellow;black"))).toBe(
+      "Đi về phía ĐÔNG của phao (chỗ nguy hiểm nằm phía TÂY)",
+    );
+    expect(huongDiQuaPhao(mark("beacon_cardinal", "yellow;black;yellow"))).toBe(
+      "Đi về phía TÂY của tiêu (chỗ nguy hiểm nằm phía ĐÔNG)",
+    );
+    expect(huongDiQuaPhao(mark("buoy_cardinal"), "BH an toàn phía Nam")).toContain("phía NAM của phao");
+    expect(huongDiQuaPhao(mark("buoy_cardinal"))).toBeNull();
+  });
+
+  it("phao chỗ nguy hiểm / phao nước sâu", () => {
+    expect(huongDiQuaPhao(mark("buoy_isolated_danger", "black;red;black"))).toBe(
+      "Nguy hiểm ngay dưới phao — tránh xa, đừng cắt qua",
+    );
+    expect(huongDiQuaPhao(mark("beacon_isolated_danger"))).toBe(
+      "Nguy hiểm ngay dưới tiêu — tránh xa, đừng cắt qua",
+    );
+    expect(huongDiQuaPhao(mark("buoy_safe_water", "red;white"))).toBe(
+      "Nước an toàn quanh phao, đi qua hai bên đều được",
+    );
+  });
+
+  it("phao chuyên dùng, đèn, loại lạ → null (không có luật đi qua để nói)", () => {
+    for (const t of ["buoy_special_purpose", "light_major", "marine_farm", "platform", "osm_moi"]) {
+      expect(huongDiQuaPhao(mark(t, "yellow")), t).toBeNull();
+    }
+  });
+
+  it("mọi câu trả về đều là tiếng Việt đời thường — không jargon Anh, không mã", () => {
+    const cases: Array<[string, string | undefined]> = [
+      ["buoy_lateral", "red"],
+      ["buoy_lateral", "red;green;red"],
+      ["buoy_cardinal", "black;yellow"],
+      ["buoy_isolated_danger", undefined],
+      ["buoy_safe_water", undefined],
+    ];
+    for (const [t, c] of cases) {
+      const cau = huongDiQuaPhao(mark(t, c));
+      expect(cau).not.toBeNull();
+      expect(cau).not.toMatch(/\b(port|starboard|lateral|cardinal|IALA|buoy|beacon)\b/i);
+      expect(cau).not.toMatch(/[_;{}]/);
+    }
+  });
+
+  it("dữ liệu thật: mọi phao luồng/hướng ra được câu hoặc null, không ném", () => {
+    for (const m of marks) {
+      expect(() => huongDiQuaPhao(m)).not.toThrow();
+    }
+    const coCau = marks.filter((m) => huongDiQuaPhao(m));
+    expect(coCau.length).toBeGreaterThan(50);
   });
 });
 

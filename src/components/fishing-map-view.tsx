@@ -19,6 +19,7 @@ import MapGL, {
   Source,
   Layer,
   type MapRef,
+  type LayerProps,
 } from "react-map-gl/maplibre";
 import type { StyleSpecification, FilterSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -33,20 +34,102 @@ import {
   SEA_LANES_DATA_URL,
   REEFS_DATA_URL,
   REEF_SHAPES_DATA_URL,
-  SEAMARK_LIT_COLOR,
-  SEAMARK_UNLIT_COLOR,
+  REEF_SHAPES_PMTILES_URL,
+  CHAT_DAY_PMTILES_URL,
+  CHAT_DAY_COLORS,
+  KHU_TRU_BAO_COLOR,
+  SEA_CABLE_OPACITY,
+  SEA_CABLE_DASH,
+  SEA_RESTRICTED_OPACITY,
+  PIPELINE_COLOR,
+  PIPELINE_OPACITY,
+  PIPELINE_DASH,
+  SEA_CABLE_MINZOOM,
+  SEA_PIPELINE_MINZOOM,
+  CABLE_LANDING_MINZOOM,
+  SEA_RESTRICTED_MINZOOM,
+  SEA_FAIRWAY_MINZOOM,
+  KHU_TRU_BAO_MINZOOM,
+  CHART_TIER,
+  RIG_MINZOOM,
+  REEF_HAZARD_MINZOOM,
+  REEF_OFFSHORE_MINZOOM,
+  REEF_VENBO_MINZOOM,
+  VN_AID_MINZOOM,
+  DIA_DANH_NGAM_MINZOOM,
+  CHAT_DAY_MINZOOM,
+  SEAMARK_TIER_MINZOOM,
+  SEAMARK_CLUSTER_RADIUS,
+  SEAMARK_CLUSTER_MAXZOOM,
+  CLUSTER_BADGE,
+  DEPTH_BANDS,
+  SAFETY_CONTOUR_STYLE,
+  RESTRICTED_FILL_COLOR,
+  RESTRICTED_FILL_OPACITY,
+  RESTRICTED_LABEL_COLOR,
+  REEF_SHAPE_LINE_OPACITY,
+  REEF_SHAPE_FILL_OPACITY,
+  CHAT_DAY_OPACITY,
+  DEPTH_DANGER_COLOR,
+  DEPTH_SHALLOW_COLOR,
+  DEPTH_SAFE_COLOR,
   ISLAND_LABEL_COLOR,
   ISLAND_DOT_COLOR,
   REEF_LABEL_COLOR,
-  REEF_DOT_COLOR,
   REEF_SHAPE_FILL,
   REEF_SHAPE_LINE,
-  REEF_HAZARD_COLOR,
   SEA_LANE_COLOR,
   SEA_CABLE_COLOR,
   SEA_RESTRICTED_COLOR,
+  DEPTH_LINE_LAYER,
+  SOUNDING_DOT_LAYER,
+  SOUNDING_LABEL_LAYER,
+  LIGHTHOUSE_LAYER,
+  LIGHTHOUSE_LABEL_LAYER,
+  WRECK_LAYER,
   type OceanLayerId,
 } from "@/lib/ocean-map";
+import {
+  chartSymbolId,
+  wreckSymbolId,
+  lighthouseSymbolId,
+  CHART_ICON_SIZE,
+  CHART_FEATURE_ICON,
+  reefSymbolId,
+  diaDanhNgamSymbolId,
+} from "@/lib/chart-symbols";
+import { fetchDenBien, moTaDenBien, tenDayDu, type DenBien } from "@/lib/den-bien";
+import { fetchVnAids, type VnAid } from "@/lib/vn-aids";
+import { fetchXacTau, xacTauLabel, moTaXacTau, type XacTau } from "@/lib/xac-tau";
+import { chatDayLabel, laDayCung, ghiChuChatDayTrong, type ChatDayMa } from "@/lib/chat-day";
+import { fetchDiaDanhNgam, nhanLoaiDiaDanhNgam, type DiaDanhNgam } from "@/lib/dia-danh-ngam";
+import { fetchKhuTruBao, capLabel, tenTinhDep, type KhuTruBao } from "@/lib/khu-tru-bao";
+import {
+  fetchTideStations,
+  nearestTideStation,
+  tideExtremesForDay,
+  tideDraftWarning,
+  tideTrustText,
+  type TideStation,
+} from "@/lib/tides";
+import type { BoatProfile } from "@/lib/route-plan";
+import { readUserRecord } from "@/lib/user-list-store";
+import {
+  fetchSoundings,
+  soundingAgeDays,
+  type SoundingsBundle,
+  type Sounding,
+} from "@/lib/soundings";
+import {
+  fetchSoundingVerdicts,
+  verdictKey,
+  isStale,
+  ageLine,
+  ESTIMATED_DATE_NOTE,
+  SUSPECT,
+  type VerdictIndex,
+} from "@/lib/soundings-verified";
+import { fetchFairwayDepths, type FairwayDepth } from "@/lib/fairway-depth";
 import {
   BASEMAP_SILENT_MS,
   COAST_DATA_URL,
@@ -123,6 +206,7 @@ import {
   fetchSeamarks,
   seamarkLabel,
   type Seamark,
+  huongDiQuaPhao,
 } from "@/lib/seamarks";
 
 /*  Mảng hằng, KHÔNG dựng inline trong JSX: `interactiveLayerIds` đổi reference
@@ -143,22 +227,166 @@ const ROUTE_HIT_LAYERS = [ROUTE_HIT_LAYER];
     Ngoài khơi mất sóng thì lớp này VẪN CÒN — nó là asset tĩnh trong máy, khác
     hẳn lớp ảnh OpenSeaMap trước đây. */
 const SEAMARK_HIT_LAYERS = ["seamark-far", "seamark-mid", "seamark-near"];
+/*  Vòng "+N" (gom cụm) chạm được — chạm là PHÓNG TỚI, không mở thẻ. */
+const CLUSTER_HIT_LAYERS = ["seamark-mid-cum", "seamark-near-cum", "vn-aid-cum"];
+/*  BA TẦNG theo GIÁ TRỊ Ở KHOẢNG CÁCH ĐÓ (2026-09-03c, xem CHART_TIER trong
+    ocean-map): XA = thứ định hướng từ ngoài khơi · VỪA = mọi phao/tiêu luồng
+    + đèn nhỏ (trước đây phao luồng OSM bị đẩy tới z13 vì "dày" — nay chỗ dày
+    đã gom "+N", phao về đúng nấc z9 như phao Cục Hàng hải) · SÁT = phao chuyên
+    dùng, nuôi trồng, neo, cọc — chuyện của cửa lạch. */
 const SEAMARK_FAR = [
   "light_major",
   "light_vessel",
-  "virtual_aton",
-  "platform",
+  /*  "platform" ĐÃ BỎ (reviewer A.1 2026-09-03): 41/41 giàn trong seamarks
+      trùng toạ độ <50 m với `kind=giankhoan` của sea-lanes → vẽ ĐÔI. Giữ bản
+      sea-lanes vì có `ten` + chạm ra thẻ "cấm 500 m quanh". */
   "landmark",
 ];
 const SEAMARK_MID = [
   "light_minor",
   "light_float",
+  "light",
+  "virtual_aton",
   "buoy_cardinal",
   "buoy_isolated_danger",
   "buoy_safe_water",
-  "marine_farm",
+  "buoy_lateral",
+  "beacon",
+  "beacon_lateral",
+  "beacon_cardinal",
+  "beacon_isolated_danger",
+  "beacon_safe_water",
   "anchorage",
   "harbour",
+];
+/*  Không vẽ từ nguồn OSM: giàn khoan đã có bản sea-lanes (kind=giankhoan, có
+    tên + vòng cấm) — để cả hai là vẽ đôi (reviewer A.1). */
+const SEAMARK_AN = ["platform"];
+/*  Layout chung cho icon báo hiệu ba tầng — CHO PHÉP CHỒNG. Ngược với nhãn
+    số đo sâu (ở đó thà mất vài số): một cái phao bị giấu vì chồng lên cái bên
+    cạnh là mất đúng thứ bà con cần thấy khi vào luồng ban đêm. Chồng hình vẫn
+    đọc được; thiếu hình thì không. Chỗ QUÁ dày thì nguồn đã gom "+N" trước. */
+const SEAMARK_ICON_LAYOUT = {
+  "icon-image": ["get", "ic"] as unknown as string,
+  "icon-size": CHART_ICON_SIZE as unknown as number,
+  "icon-allow-overlap": true,
+  "icon-ignore-placement": true,
+  "icon-anchor": "bottom" as const,
+};
+/** Vật lẻ (không phải cụm) — lọc cho lớp icon trên nguồn có cluster. */
+const KHONG_PHAI_CUM = ["!", ["has", "point_count"]] as unknown as FilterSpecification;
+const LA_CUM = ["has", "point_count"] as unknown as FilterSpecification;
+/*  Hai lớp vòng "+N" cho một nguồn có cluster. Trả MẢNG (không Fragment):
+    <Source> của react-map-gl chỉ gắn `source` cho con TRỰC TIẾP — bọc Fragment
+    là hai lớp mất nguồn, im lặng không vẽ. */
+function cumLayers(id: string, minzoom: number) {
+  return [
+    <Layer
+      key={`${id}-cum`}
+      id={`${id}-cum`}
+      type="circle"
+      minzoom={minzoom}
+      filter={LA_CUM}
+      paint={{
+        "circle-radius": CLUSTER_BADGE.radius,
+        "circle-color": CLUSTER_BADGE.fill,
+        "circle-stroke-color": CLUSTER_BADGE.stroke,
+        "circle-stroke-width": 2,
+      }}
+    />,
+    <Layer
+      key={`${id}-cum-so`}
+      id={`${id}-cum-so`}
+      type="symbol"
+      minzoom={minzoom}
+      filter={LA_CUM}
+      layout={{
+        "text-field": ["concat", "+", ["to-string", ["get", "point_count"]]] as unknown as string,
+        "text-font": ["Noto Sans Bold"],
+        "text-size": 13,
+        "text-allow-overlap": true,
+        "text-ignore-placement": true,
+      }}
+      paint={{ "text-color": CLUSTER_BADGE.text }}
+    />,
+  ];
+}
+/*  CHÚ GIẢI THEO TẦNG (2026-09-03c) — sắp theo "phóng tới đâu thấy gì", đúng
+    câu bà con hỏi, thay vì theo loại vật. Mỗi dòng: icon cắt từ sprite, hoặc
+    vệt màu (đường/chấm/vùng), hoặc vòng "+6". */
+type LegendRow = { chu: string; icon?: string; mau?: string; dang?: "duong" | "cham" | "vung"; cum?: boolean };
+type LegendTier = { tieuDe: string; zoom: number; dong: LegendRow[]; ghiChu?: string };
+const LEGEND_TIERS: LegendTier[] = [
+  {
+    tieuDe: "Luôn thấy khi bật Hải đồ chi tiết",
+    zoom: CHART_TIER.LUON,
+    dong: [
+      { mau: ISLAND_DOT_COLOR, dang: "cham", chu: "Đảo nổi có tên (chữ navy)" },
+      { mau: DEPTH_BANDS[DEPTH_BANDS.length - 1].color, dang: "vung", chu: "Dải màu độ sâu: càng sáng càng sâu (0–10 · 10–20 · 20–50 · trên 50 m)" },
+      { mau: SEA_LANE_COLOR, dang: "duong", chu: "Tuyến tàu hàng lớn" },
+      { icon: CHART_FEATURE_ICON.seamount, chu: "Núi ngầm — gò lớn dưới đáy, cá đáy hay tụ quanh sườn" },
+      { icon: CHART_FEATURE_ICON.knoll, chu: "Đồi ngầm — gò thấp dưới đáy" },
+      { icon: CHART_FEATURE_ICON.ridge, chu: "Sống núi ngầm — dải gò dài" },
+      { icon: CHART_FEATURE_ICON.guyot, chu: "Núi chóp phẳng (guyot)" },
+      { icon: CHART_FEATURE_ICON.deep, chu: "Hố ngầm — trũng sâu hơn quanh" },
+      { icon: CHART_FEATURE_ICON.valley, chu: "Thung lũng / hẻm / kênh ngầm — rãnh sâu" },
+      { icon: CHART_FEATURE_ICON.escarpment, chu: "Vách / dốc / đèo ngầm — độ sâu đổi nhanh" },
+    ],
+  },
+  {
+    tieuDe: "Phóng XA — nhìn cả vùng biển",
+    zoom: CHART_TIER.XA,
+    dong: [
+      { icon: "lighthouse", chu: "Đèn biển lớn — chạm xem nhịp chớp" },
+      { icon: "wreck", chu: "Xác tàu chìm (số độ sâu nước trên xác hiện khi phóng vừa)" },
+      { icon: "obstruction", chu: "Chướng ngại vật dưới nước" },
+      { icon: CHART_FEATURE_ICON.rockAwash, chu: "ĐÁ NGẦM — đâm là thủng, tránh xa" },
+      { icon: CHART_FEATURE_ICON.coralReef, chu: "Rạn san hô ngoài khơi — cá tụ, neo trượt" },
+      { icon: CHART_FEATURE_ICON.bank, chu: "Bãi cạn / cồn cát ngoài khơi — có thể ngập, nhìn con nước" },
+      { icon: "platform", chu: "Giàn khoan / công trình biển" },
+      { icon: CHART_FEATURE_ICON.noAnchor, chu: "CẤM NEO — vòng 500 m quanh công trình" },
+      { icon: "anchorage", chu: "Khu neo đậu tránh trú bão" },
+      { mau: SAFETY_CONTOUR_STYLE.color, dang: "duong", chu: "Đường 10 m đậm — nông hơn là phải nhìn con nước" },
+    ],
+  },
+  {
+    tieuDe: "Phóng VỪA — áp bờ, nhìn một tỉnh",
+    zoom: CHART_TIER.VUA,
+    dong: [
+      { icon: "lat-port", chu: "Phao ĐỎ (mạn trái): vào luồng để nó bên TRÁI tàu" },
+      { icon: "lat-stbd", chu: "Phao XANH (mạn phải): vào luồng để nó bên PHẢI tàu" },
+      { icon: "card-n", chu: "Phao hướng (đen-vàng): đi về phía chữ ghi, nguy hiểm phía ngược lại" },
+      { icon: "iso-danger", chu: "Phao chỗ nguy hiểm: nguy hiểm ngay dưới, tránh xa" },
+      { icon: "safe-water", chu: "Phao nước sâu: đi qua hai bên đều được" },
+      { icon: "light-minor", chu: "Đèn nhỏ / đèn cửa — tên đèn biển cũng hiện từ nấc này" },
+      { icon: "harbour", chu: "Bến cảng, cửa lạch" },
+      { cum: true, chu: "Chỗ nhiều phao gom thành vòng +N — chạm vào là phóng tới" },
+      { mau: SEA_CABLE_COLOR, dang: "duong", chu: "Cáp quang/điện ngầm (tím, nét đứt) — đừng thả neo, đừng giã cào" },
+      { icon: CHART_FEATURE_ICON.pipelineMark, chu: "Ống dẫn dầu/khí (đen, vạch-chấm) — đừng thả neo" },
+      { icon: CHART_FEATURE_ICON.cableLanding, chu: "Điểm cáp cập bờ" },
+      { mau: SEA_RESTRICTED_COLOR, dang: "vung", chu: "Vùng cấm / khu hạn chế (viền cam, nền cam nhạt)" },
+      { mau: SEA_LANE_COLOR, dang: "duong", chu: "Luồng cảng, phân luồng" },
+      { icon: CHART_FEATURE_ICON.bank, chu: "Rạn, bãi, đá VEN BỜ (cùng hình như ngoài khơi)" },
+    ],
+  },
+  {
+    tieuDe: "Phóng SÁT — cửa lạch, luồng hẹp",
+    zoom: CHART_TIER.SAT,
+    dong: [
+      { icon: "special", chu: "Phao chuyên dùng (khu nuôi, cáp, đo đạc…)" },
+      { icon: "marine-farm", chu: "Lồng bè nuôi" },
+      { icon: "mooring", chu: "Phao neo / cọc neo" },
+      { mau: DEPTH_DANGER_COLOR, dang: "cham", chu: "Số đo sâu dưới 4 m — ĐỪNG VÀO" },
+      { mau: DEPTH_SHALLOW_COLOR, dang: "cham", chu: "4–12 m — nhìn con nước" },
+      { mau: DEPTH_SAFE_COLOR, dang: "cham", chu: "Từ 12 m — yên tâm" },
+      { mau: CHAT_DAY_COLORS.Co, dang: "cham", chu: "Chất đáy: san hô — neo khó bám" },
+      { mau: CHAT_DAY_COLORS.R, dang: "cham", chu: "Chất đáy: đá" },
+      { mau: CHAT_DAY_COLORS.S, dang: "cham", chu: "Chất đáy: cát — neo bám tốt" },
+      { mau: CHAT_DAY_COLORS.G, dang: "cham", chu: "Chất đáy: vụn san hô" },
+      { mau: CHAT_DAY_COLORS.Sg, dang: "cham", chu: "Chất đáy: cỏ biển" },
+    ],
+    ghiChu: "Chấm đo sâu rỗng ruột = số đo cũ trên một năm, cửa lạch có thể đã bồi. " + ghiChuChatDayTrong(),
+  },
 ];
 import {
   loadSavedRoutes,
@@ -238,6 +466,7 @@ import {
   fmtCoordPair,
   fmtDist,
   isVmsZoneOn,
+  fmtDepthM,
 } from "@/lib/map-prefs";
 import { stormStatus } from "@/lib/storms";
 import { nhanMoc, tracksToGeoJSON } from "@/lib/storm-track";
@@ -470,20 +699,33 @@ export default function FishingMapView() {
       // storage đầy — chỉ mất phần nhớ lớp
     }
   }, []);
-  const [seamarksOn, setSeamarksOn] = useState(true);
+  /*  BA NHÓM LỚP HẢI ĐỒ (chủ dự án 2026-09-03) — gom 6 công tắc con rối mắt về
+      3 nhóm theo cách bà con ĐỌC hải đồ, không theo "loại dữ liệu": độ sâu/đáy
+      để biết chỗ cạn + đánh bắt; báo hiệu/nguy hiểm để đi lại; tên/nơi trú để
+      định vị + tránh bão. Đều dưới công tắc TỔNG chartDetailOn, mặc định BẬT.
+      Công tắc là chuyện NHÌN — dữ liệu vẫn tải đủ; mỗi lớp còn tự gate theo zoom. */
+  const [groupDepthOn, setGroupDepthOn] = useState(true); // số đo sâu · đẳng sâu · chất đáy · hình+tên rạn/đá
+  const [groupNavOn, setGroupNavOn] = useState(true); // phao/tiêu · đèn · xác tàu · đá/chướng ngại · luồng/cáp/vùng cấm/giàn khoan
+  const [groupNameOn, setGroupNameOn] = useState(true); // tên địa danh ngầm · khu tránh trú bão
+  // Mức zoom hiện tại (cập nhật khi zoom XONG, không phải mỗi khung) — để hiện
+  // chú giải chất đáy đúng lúc lớp đó thật sự hiện (z≥9).
+  const [mapZoom, setMapZoom] = useState<number>(DEFAULT_VIEW.zoom);
   // Lớp ngư trường (dự báo cá) MẶC ĐỊNH ẨN (user chốt 2026-08-29): mở app không
   // tự phủ lớp cá lên bản đồ — kể cả tài khoản premium; muốn xem thì tự bật lớp
   // "Ngư trường" ở panel. Trước đây mặc định hiện, phủ sẵn gây rối cho người chỉ
   // xem gió/sóng/hải đồ. State in-memory (không lưu) — mỗi lần mở đều bắt đầu ẩn.
   const [fishOn, setFishOn] = useState(false);
-  // Tuyến hàng hải (tàu hàng hay đi) + luồng/phân luồng — nhãn "tham khảo".
-  // Mặc định BẬT: chủ dự án 2026-08-07 muốn hải đồ có đủ tuyến; là nét mảnh
-  // xám-lam nên không lấn. Ẩn tự động khi bật lớp động (như nhãn đảo).
-  const [lanesOn, setLanesOn] = useState(true);
-  // Rạn / đá ngầm / bãi cạn có tên tiếng Việt — lớp bật–tắt riêng. Mặc định BẬT
-  // vì đây đúng thứ bà con hỏi "sao không thấy đá ngầm"; nhãn nhỏ (rank 2–3) nên
-  // không lấn. Ẩn tự động khi bật lớp động (như nhãn đảo).
-  const [reefsOn, setReefsOn] = useState(true);
+  /*  SỐ ĐO SÂU CHÍNH THỨC — mặc định BẬT. Đây là dữ liệu khảo sát của cơ quan
+      nhà nước, thứ mà máy hải đồ trên tàu lớn có mà app điện thoại thường
+      không; giấu sau một công tắc tắt sẵn thì coi như không có. Chỉ hiện từ
+  /*  HẢI ĐỒ CHI TIẾT — công tắc TỔNG cho cụm lớp hải đồ (chủ dự án 2026-09-02):
+      báo hiệu OSM + báo hiệu chính thức + đèn biển + số đo sâu + đoạn luồng.
+      Một chạm cho bà con muốn màn thoáng, thay vì tắt bốn công tắc con.
+
+      LUẬT CŨ GIỮ NGUYÊN: công tắc là chuyện NHÌN — mọi dữ liệu vẫn tải về đủ,
+      các effect nạp không đọc cờ này. Công tắc con vẫn hoạt động bên trong
+      (tắt tổng thì con bị che; bật tổng thì con quyết từng lớp). */
+  const [chartDetailOn, setChartDetailOn] = useState(true);
   // Ranh giới vùng lộng bật/tắt qua map-prefs. VÙNG BIỂN VMS nay do admin quản
   // lý (bảng vms_zones): đọc từ DB, chưa cấu hình/lỗi → 3 vùng mặc định tĩnh.
   const [vmsZones, setVmsZones] = useState<VmsZone[]>(STATIC_VMS_ZONES);
@@ -1258,11 +1500,135 @@ export default function FishingMapView() {
     x: number;
     y: number;
   } | null>(null);
+  /*  Thẻ "số này khảo sát bao giờ" — mở khi chạm chấm đo sâu. KHÔNG tự tắt sau
+      vài giây như thẻ mốc bão: đây là con số bà con đang cân nhắc để quyết định
+      vào lạch hay không, không phải một dòng tin thoáng qua. */
+  const [depthInfo, setDepthInfo] = useState<{
+    s: Sounding;
+    x: number;
+    y: number;
+  } | null>(null);
+  /*  Thẻ "đèn nào đây" — mở khi chạm ngọn đèn. KHÔNG tự tắt: bà con đang đối
+      chiếu nhịp chớp ngoài kia với con số trên màn, việc đó mất vài chục giây. */
+  const [denInfo, setDenInfo] = useState<{
+    d: DenBien;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [xacTauInfo, setXacTauInfo] = useState<{
+    x: XacTau;
+    px: number;
+    py: number;
+  } | null>(null);
+  /*  Thẻ "đáy chỗ này là gì" — mở khi chạm ô chất đáy. Đọc thẳng thuộc tính
+      từ vector tile (ma/tyLe/soManh), KHÔNG tra mảng fetch: lớp là pmtiles,
+      không có chỉ số `i`. KHÔNG tự tắt: bà con đang cân đáy để thả neo. */
+  const [chatDayInfo, setChatDayInfo] = useState<{
+    ma: string;
+    tyLe: number;
+    soManh: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  /*  Thẻ "khu trú bão nào" — mở khi chạm điểm khu neo đậu. KHÔNG tự tắt: bà con
+      đang tính chạy vào đâu tránh bão, cần đọc kỹ sức chứa + độ tin toạ độ. */
+  const [khuTruBaoInfo, setKhuTruBaoInfo] = useState<{
+    k: KhuTruBao;
+    x: number;
+    y: number;
+  } | null>(null);
+  /*  Thẻ tên rạn/bãi/đá + thẻ hạ tầng (cáp/ống/giàn/vùng cấm/cập bờ) — mở khi
+      chạm; trước đây các lớp này câm (reviewer B.5). Đọc thuộc tính thẳng từ
+      feature, không tra mảng. */
+  const [reefInfo, setReefInfo] = useState<{
+    ten: string;
+    type: string;
+    /** ven-bo · hoang-sa · truong-sa · them-luc-dia — bãi ngầm DK1 sâu 20–50 m
+        KHÔNG được nói "có thể ngập" (reviewer A.11 R3) */
+    group: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [laneInfo, setLaneInfo] = useState<{
+    ten: string;
+    kind: string;
+    loai: string | null;
+    x: number;
+    y: number;
+  } | null>(null);
+  /*  Thẻ địa danh ngầm (núi/đồi/hố/thung lũng…) — chủ dự án 2026-09-03: "đồi
+      ngầm sao không có hình?" → có icon theo loại + chạm ra loại và ý nghĩa. */
+  const [diaDanhInfo, setDiaDanhInfo] = useState<{
+    ten: string;
+    loai: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  /*  SHEET "KÝ HIỆU LÀ GÌ?" (reviewer B.2/B.3): chú giải toàn bộ ký hiệu, dùng
+      ĐÚNG icon cắt từ sprite (không vẽ lại). `spriteMeta` nạp từ chart-sprite.json
+      (SW cache nên offline vẫn có); thiếu thì ô icon để trống, chữ vẫn đọc. */
+  const [legendOpen, setLegendOpen] = useState(false);
+  const [spriteMeta, setSpriteMeta] = useState<Record<
+    string,
+    { x: number; y: number; width: number; height: number }
+  > | null>(null);
   useEffect(() => {
-    if (!markInfo) return;
-    const t = setTimeout(() => setMarkInfo(null), NOTIFY_HIDE_LONG_MS);
-    return () => clearTimeout(t);
-  }, [markInfo]);
+    if (!legendOpen || spriteMeta) return;
+    let alive = true;
+    fetch("/icons/chart-sprite.json", { signal: timeoutSignal(10000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (alive && j && typeof j === "object") setSpriteMeta(j);
+      })
+      .catch(() => {
+        // im lặng: sheet vẫn mở, chỉ thiếu hình — chữ đủ hiểu
+      });
+    return () => {
+      alive = false;
+    };
+  }, [legendOpen, spriteMeta]);
+  /*  Chú giải phải nói ký hiệu HIỆN TỪ MỨC PHÓNG NÀO (chủ dự án 2026-09-03:
+      "có ký hiệu mà không thấy vẽ?") — SCAMIN giấu vật nhỏ ở zoom xa là cố ý,
+      nhưng chú giải liệt kê hết mà không nói thì bà con đi tìm vô ích. */
+  const goiYPhongTo = (z: number) => (mapZoom < z ? " — phóng to thêm mới thấy" : "");
+  /** Ký hiệu đầu dòng chú giải: icon sprite · vệt đường · chấm · ô vùng · vòng "+6". */
+  const kyHieu = (d: LegendRow) => {
+    if (d.icon) return bieuTuong(d.icon);
+    if (d.cum)
+      return (
+        <span
+          className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 text-[0.75rem] font-bold"
+          style={{ borderColor: CLUSTER_BADGE.stroke, color: CLUSTER_BADGE.text, backgroundColor: CLUSTER_BADGE.fill }}
+        >
+          +6
+        </span>
+      );
+    if (d.dang === "duong") return <span className="inline-block h-1 w-6 flex-none rounded" style={{ backgroundColor: d.mau }} />;
+    if (d.dang === "vung") return <span className="inline-block h-4 w-4 flex-none rounded-sm opacity-60" style={{ backgroundColor: d.mau }} />;
+    return <span className="inline-block h-4 w-4 flex-none rounded-full" style={{ backgroundColor: d.mau }} />;
+  };
+  /** Ô icon cắt từ sprite 1x theo tên — trả null nếu chưa có meta. */
+  const bieuTuong = (id: string) => {
+    const m = spriteMeta?.[id];
+    if (!m) return <span className="inline-block h-6 w-6 flex-none" />;
+    return (
+      <span
+        className="inline-block flex-none"
+        style={{
+          width: m.width,
+          height: m.height,
+          backgroundImage: "url(/icons/chart-sprite.png)",
+          backgroundPosition: `-${m.x}px -${m.y}px`,
+          backgroundRepeat: "no-repeat",
+        }}
+        aria-hidden
+      />
+    );
+  };
+  /*  Thẻ phao KHÔNG tự tắt nữa (reviewer B.11 2026-09-03): nay nó mang câu chỉ
+      đường 2 dòng ("để phao bên TRÁI tàu…") — bà con đang đối chiếu với luồng
+      thật, 8 s là chưa đọc xong. Cùng luật với thẻ đèn/xác tàu/đo sâu: chỉ
+      đóng khi bấm X hoặc chạm chỗ khác. */
 
   /*  CHẠM VÀO MỐC BÃO (tâm đã qua / tâm dự báo) → ô thông tin mốc đó: giờ,
       toạ độ, cấp/giật, bán kính vùng nguy hiểm (A, 2026-08-31). Giống kênh
@@ -1827,6 +2193,38 @@ export default function FishingMapView() {
       lúc không tải nổi nữa. `fetchSeamarks` tự có đồng hồ chặn và tự dọn cache
       khi hỏng, nên lần sóng về sau (`netEpoch`) thử lại được. */
   const [seamarkList, setSeamarkList] = useState<Seamark[] | null>(null);
+  /*  KÉO KHO BẢN ĐỒ VỀ MÁY — TÁCH HẲN KHỎI CÔNG TẮC HIỂN THỊ (2026-08-31).
+
+      CHỖ HỞ ĐÃ VÁ: kho `.pmtiles` chỉ được service worker kéo về khi có ai đó
+      xin một ô của nó — mà việc xin ô lại phụ thuộc `<Source>` có mount không,
+      tức phụ thuộc **công tắc "Đá ngầm, rạn" đang bật**. Mặc định là bật nên
+      chưa nổ, nhưng bà con tắt lớp cho đỡ rối trước khi ra khơi thì file có thể
+      CHƯA BAO GIỜ về máy — ngoài biển bật lại là trống trơn, và lúc đó không
+      còn sóng để sửa.
+
+      LUẬT: công tắc là chuyện NHÌN, không phải chuyện CÓ DỮ LIỆU. Bà con tắt
+      một lớp để màn hình đỡ rối, không phải để từ chối tải nó.
+
+      Cách làm: xin 16 KB đầu của mỗi kho. Service worker thấy đường dẫn nằm
+      trong `PMTILES_ARCHIVES` là tự kéo NGUYÊN file về (xem `fillBasemapArchive`
+      trong public/sw.js) — ta không cần thân trả về, chỉ cần chạm vào để nó bắt
+      đầu. Lần sau kho đã có thì đây là một lát cắt từ RAM, gần như miễn phí.
+
+      Nền bản đồ KHÔNG cần ở đây: mở màn là MapLibre xin ô nền ngay, tự kích.
+      Thêm kho mới thì thêm vào mảng này VÀ vào `PMTILES_ARCHIVES` của sw.js. */
+  useEffect(() => {
+    for (const url of [REEF_SHAPES_PMTILES_URL, CHAT_DAY_PMTILES_URL]) {
+      fetch(url.replace("pmtiles://", ""), {
+        headers: { range: "bytes=0-16383" },
+        signal: timeoutSignal(20000),
+      }).catch(() => {
+        /*  im lặng có chủ ý: hỏng thì lần sóng về sau (`netEpoch`) tự thử lại.
+            Thiếu kho rạn thì bản đồ vẫn dùng được — KHÔNG được để việc tải
+            ngầm này làm hỏng cả màn. */
+      });
+    }
+  }, [netEpoch]);
+
   useEffect(() => {
     if (seamarkList) return;
     let alive = true;
@@ -1853,10 +2251,386 @@ export default function FishingMapView() {
       features: seamarkList.map((m, i) => ({
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: [m.lon, m.lat] },
-        properties: { i, t: m.type, lit: m.light ? 1 : 0 },
+        /*  `ic` = tên ký hiệu trong bộ sprite hải đồ. Tính SẴN ở đây một lần
+            cho 5.851 cái, không tính trong biểu thức style — MapLibre sẽ phải
+            chạy lại biểu thức mỗi khung hình. */
+        properties: { i, t: m.type, ic: chartSymbolId(m) },
       })),
     };
   }, [seamarkList]);
+  /*  TÁCH BA NGUỒN theo tầng (2026-09-03c) — gom "+N" là thuộc tính của NGUỒN
+      (MapLibre cluster), mà cụm chỉ được gồm những vật ĐÃ tới nấc hiện: một
+      nguồn chung sẽ ra "+412" ở z7 gồm toàn phao z11 chưa hiện. Tầng xa không
+      gom (đèn lớn thưa; một ngọn đèn bị nuốt vào cụm là mất mốc). */
+  const seamarkTiers = useMemo(() => {
+    if (!seamarkGeo) return null;
+    const far: GeoJSON.Feature[] = [];
+    const mid: GeoJSON.Feature[] = [];
+    const near: GeoJSON.Feature[] = [];
+    for (const f of seamarkGeo.features) {
+      const t = String(f.properties?.t ?? "");
+      if (SEAMARK_AN.includes(t)) continue;
+      (SEAMARK_FAR.includes(t) ? far : SEAMARK_MID.includes(t) ? mid : near).push(f);
+    }
+    const fc = (features: GeoJSON.Feature[]): GeoJSON.FeatureCollection => ({ type: "FeatureCollection", features });
+    return { far: fc(far), mid: fc(mid), near: fc(near) };
+  }, [seamarkGeo]);
+
+  /*  ─── SỐ ĐO SÂU CHÍNH THỨC (2026-08-31) ───────────────────────────────────
+
+      NẠP KHÔNG PHỤ THUỘC CÔNG TẮC. Công tắc `depthsOn` là chuyện NHÌN; dữ liệu
+      thì cứ kéo về. Bà con tắt lớp cho đỡ rối lúc còn ở bờ, ra khơi mất sóng
+      mới bật lại — lúc đó không còn mạng để tải. Cùng luật đã ghi ở khối kéo
+      kho .pmtiles phía trên.
+
+      Hai bộ BÙ NHAU chứ không chồng: miền Nam ghi thông báo theo toạ độ rời
+      (`soundings`), miền Bắc ghi theo đoạn giữa hai phao (`fairwayList`). Thiếu
+      một bên là mất trắng một nửa đất nước. */
+  const [soundings, setSoundings] = useState<SoundingsBundle | null>(null);
+  const [fairwayList, setFairwayList] = useState<FairwayDepth[] | null>(null);
+
+  useEffect(() => {
+    if (soundings) return;
+    let alive = true;
+    fetchSoundings()
+      .then((s) => {
+        if (alive && (s.diem.length || s.tuyen.length)) setSoundings(s);
+      })
+      .catch(() => {
+        // im lặng có chủ ý: lần sóng về sau (`netEpoch`) tự thử lại. Thiếu lớp
+        // độ sâu thì bản đồ vẫn dùng được — KHÔNG được làm hỏng cả màn.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [netEpoch, soundings]);
+
+  useEffect(() => {
+    if (fairwayList) return;
+    let alive = true;
+    fetchFairwayDepths()
+      .then((d) => {
+        if (alive && d.length) setFairwayList(d);
+      })
+      .catch(() => {
+        // như trên
+      });
+    return () => {
+      alive = false;
+    };
+  }, [netEpoch, fairwayList]);
+
+  /*  KẾT QUẢ ĐỐI CHIẾU — quyết định điểm nào KHÔNG được vẽ.
+
+      Bước đối chiếu đã chấm 17 điểm là NGHI LỖI (chữ số lẻ rơi mất lúc bóc
+      PDF: 7,7 m đọc thành 7 m ở 16/17 số của một thông báo). Kết luận đó nằm
+      trong repo suốt mà không dòng nào đọc, nên bản đồ vẫn vẽ chúng như sự
+      thật. Đây là chỗ nối.
+
+      Thiếu file này thì KHÔNG chặn được gì — nhưng cũng KHÔNG làm mất lớp độ
+      sâu: nạp hỏng thì mọi điểm coi như chưa chấm và vẫn vẽ. Đó là lựa chọn có
+      chủ ý: mất sóng không được biến thành mất bản đồ. */
+  const [verdicts, setVerdicts] = useState<VerdictIndex | null>(null);
+
+  /*  ĐÈN BIỂN — 90 ngọn. Nạp KHÔNG phụ thuộc công tắc nào: đây là lớp bà con
+      cần đúng lúc mất sóng, và 5 KB qua sóng thì không có gì để cân nhắc. */
+  const [denBien, setDenBien] = useState<DenBien[] | null>(null);
+
+  useEffect(() => {
+    if (denBien) return;
+    let alive = true;
+    fetchDenBien()
+      .then((d) => {
+        if (alive && d.length) setDenBien(d);
+      })
+      .catch(() => {
+        // im lặng có chủ ý: lần sóng về sau tự thử lại. Thiếu lớp đèn thì bản
+        // đồ vẫn dùng được — KHÔNG được để nó làm hỏng cả màn.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [netEpoch, denBien]);
+
+  /*  ĐỊA DANH NGẦM (núi/đồi/hố/thung lũng ngầm — Thông tư 33/2024/TT-BTNMT,
+      Mục III). 184 tên tiếng Việt có toạ độ — đúng bộ danh mục nhà nước mà bản
+      đồ hải đồ tham khảo dùng, nhưng ta chạy offline. Nạp không phụ thuộc công
+      tắc — cùng luật mọi lớp. */
+  const [diaDanhNgam, setDiaDanhNgam] = useState<DiaDanhNgam[] | null>(null);
+
+  useEffect(() => {
+    if (diaDanhNgam) return;
+    let alive = true;
+    fetchDiaDanhNgam()
+      .then((d) => {
+        if (alive && d.length) setDiaDanhNgam(d);
+      })
+      .catch(() => {
+        // im lặng có chủ ý: lần sóng về sau tự thử lại. Thiếu lớp địa danh thì
+        // bản đồ vẫn dùng được.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [netEpoch, diaDanhNgam]);
+
+  /*  KHU NEO ĐẬU TRÁNH TRÚ BÃO (QĐ 582/2024) — 51 khu có toạ độ đối chiếu.
+      App đã có tin bão + cron đẩy cảnh báo; báo bão mà không chỉ chỗ trú là mới
+      nửa việc. Nạp không phụ thuộc công tắc — cùng luật mọi lớp. */
+  const [khuTruBao, setKhuTruBao] = useState<KhuTruBao[] | null>(null);
+
+  useEffect(() => {
+    if (khuTruBao) return;
+    let alive = true;
+    fetchKhuTruBao()
+      .then((k) => {
+        if (alive && k.length) setKhuTruBao(k);
+      })
+      .catch(() => {
+        // im lặng có chủ ý: lần sóng về sau tự thử lại. Thiếu lớp khu trú thì
+        // bản đồ vẫn dùng được.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [netEpoch, khuTruBao]);
+
+  /*  BÁO HIỆU CHÍNH THỨC CỦA CỤC HÀNG HẢI — 774 cái (147 ở nửa nam mà lớp OSM
+      gần như trắng). Lần tái phát thứ TƯ của bệnh "sinh xong không nối": dữ
+      liệu nằm trong repo từ trước mà không dòng nào đọc, và bộ tự kiểm còn báo
+      "sẽ thấy". Nạp không phụ thuộc công tắc — cùng luật với mọi lớp khác. */
+  const [vnAids, setVnAids] = useState<VnAid[] | null>(null);
+
+  useEffect(() => {
+    if (vnAids) return;
+    let alive = true;
+    fetchVnAids()
+      .then((a) => {
+        if (alive && a.length) setVnAids(a);
+      })
+      .catch(() => {
+        // im lặng có chủ ý — lần sóng về sau tự thử lại
+      });
+    return () => {
+      alive = false;
+    };
+  }, [netEpoch, vnAids]);
+
+  /*  TRẠM THUỶ TRIỀU — 4 trạm UHSLC, engine điều hoà chạy TRONG MÁY (mất sóng
+      vẫn tính được con nước cả năm). "Thuỷ triều" là một món in đậm trên tờ
+      quảng cáo máy hải đồ 5 triệu; của ta nay nối vào thẻ chạm độ sâu: chạm
+      một số đo sâu là biết "con nước ròng hôm nay tàu MÌNH có qua nổi không". */
+  const [tideStations, setTideStations] = useState<TideStation[] | null>(null);
+
+  useEffect(() => {
+    if (tideStations) return;
+    let alive = true;
+    fetchTideStations()
+      .then((t) => {
+        if (alive && t.length) setTideStations(t);
+      })
+      .catch(() => {
+        // im lặng có chủ ý — thiếu triều thì thẻ độ sâu vẫn nói phần còn lại
+      });
+    return () => {
+      alive = false;
+    };
+  }, [netEpoch, tideStations]);
+
+  /*  XÁC TÀU + CHƯỚNG NGẠI — 38 vật chìm từ Thông báo hàng hải, lớp đóng lỗ
+      cuối cùng so với Navionics trong khung đối chiếu. Nạp không phụ thuộc
+      công tắc, cùng luật mọi lớp. */
+  const [xacTau, setXacTau] = useState<XacTau[] | null>(null);
+
+  useEffect(() => {
+    if (xacTau) return;
+    let alive = true;
+    fetchXacTau()
+      .then((x) => {
+        if (alive && x.length) setXacTau(x);
+      })
+      .catch(() => {
+        // im lặng có chủ ý — lần sóng về sau tự thử lại
+      });
+    return () => {
+      alive = false;
+    };
+  }, [netEpoch, xacTau]);
+
+  useEffect(() => {
+    if (verdicts) return;
+    let alive = true;
+    fetchSoundingVerdicts()
+      .then((v) => {
+        if (alive && v.size) setVerdicts(v);
+      })
+      .catch(() => {
+        // im lặng có chủ ý — xem chú thích trên
+      });
+    return () => {
+      alive = false;
+    };
+  }, [netEpoch, verdicts]);
+
+  /*  Dựng GeoJSON MỘT LẦN. `i` là chỉ số trong mảng gốc để lúc chạm tra ngược
+      ra thông báo nguồn — nhét cả object vào `properties` thì MapLibre phải
+      chuỗi-hoá lại toàn bộ mỗi khung hình. `d` là mét (số thực) để biểu thức
+      `step` tô màu và `text-field` in ra thẳng. */
+  const soundingGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!soundings?.diem.length) return null;
+    const homNay = new Date().toISOString().slice(0, 10);
+    const feats: GeoJSON.Feature[] = [];
+    for (const [i, s] of soundings.diem.entries()) {
+      /*  ĐIỂM BỊ CHẤM NGHI LỖI THÌ BỎ HẲN, không vẽ mờ, không vẽ khác màu.
+          Một chỗ trống là thật thà; một con số sai thì không — và bà con đang
+          cầm lái không có cách nào biết con số đó đáng ngờ. */
+      if (verdicts?.get(verdictKey(0, "diem", i))?.kq === SUSPECT) continue;
+      const tuoi = soundingAgeDays(s, homNay);
+      feats.push({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [s.lon, s.lat] },
+        properties: {
+          i,
+          d: s.depthM,
+          nhan: fmtDepthM(s.depthM),
+          // `cu` lái cách vẽ (rỗng ruột), `tuoi` để thẻ chạm nói thành lời
+          cu: isStale(tuoi) ? 1 : 0,
+          tuoi: tuoi ?? -1,
+        },
+      });
+    }
+    return feats.length ? { type: "FeatureCollection", features: feats } : null;
+  }, [soundings, verdicts]);
+
+  /*  Tuyến khảo sát (96 đường, 652 đỉnh) + đoạn luồng khống chế (13) gộp một
+      nguồn: cùng ý nghĩa "đường này sâu bấy nhiêu", cùng cách tô. Gộp thì
+      MapLibre chỉ phải giữ một nguồn thay vì hai. */
+  const depthLineGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    const feats: GeoJSON.Feature[] = [];
+    for (const [i, r] of (soundings?.tuyen ?? []).entries()) {
+      if (r.sauM === null) continue;
+      feats.push({
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: r.points.map((p) => [p.lon, p.lat]),
+        },
+        properties: { k: "tuyen", i, d: r.sauM, nhan: fmtDepthM(r.sauM) },
+      });
+    }
+    for (const [i, f] of (fairwayList ?? []).entries()) {
+      feats.push({
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [f.tu.lon, f.tu.lat],
+            [f.den.lon, f.den.lat],
+          ],
+        },
+        properties: { k: "luong", i, d: f.sauM, nhan: fmtDepthM(f.sauM) },
+      });
+    }
+    return feats.length ? { type: "FeatureCollection", features: feats } : null;
+  }, [soundings, fairwayList]);
+
+  /*  Tính SẴN ký hiệu và tên cho 90 ngọn — không đặt biểu thức trong style, vì
+      MapLibre sẽ chạy lại nó mỗi khung hình. */
+  const denBienGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!denBien?.length) return null;
+    return {
+      type: "FeatureCollection",
+      features: denBien.map((d, i) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [d.lon, d.lat] },
+        properties: { i, ic: lighthouseSymbolId(d), ten: d.ten },
+      })),
+    };
+  }, [denBien]);
+
+  /*  Địa danh ngầm → FeatureCollection nhãn. `ten` đã gồm loại ("Núi ngầm
+      Phước Bửu") nên hiện thẳng, không ghép chuỗi trong style. */
+  const diaDanhNgamGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!diaDanhNgam?.length) return null;
+    return {
+      type: "FeatureCollection",
+      features: diaDanhNgam.map((d) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [d.lon, d.lat] },
+        properties: { ten: d.ten, loai: d.loai },
+      })),
+    };
+  }, [diaDanhNgam]);
+
+  /*  Khu neo đậu tránh trú bão → FeatureCollection. `cap` để chỉnh cỡ chấm
+      (vùng lớn hơn tỉnh), `i` tra ngược mảng cho thẻ chạm. */
+  const khuTruBaoGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!khuTruBao?.length) return null;
+    return {
+      type: "FeatureCollection",
+      features: khuTruBao.map((k, i) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [k.lon, k.lat] },
+        properties: { i, cap: k.cap },
+      })),
+    };
+  }, [khuTruBao]);
+
+  const xacTauGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!xacTau?.length) return null;
+    return {
+      type: "FeatureCollection",
+      features: xacTau.map((x, i) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [x.lon, x.lat] },
+        properties: {
+          i,
+          ic: wreckSymbolId(x.loai, x.doSauVuotQua),
+          // số dán cạnh ký hiệu — CHỈ khi nhà nước công bố, không thì rỗng
+          nhan: typeof x.doSauVuotQua === "number" && x.doSauVuotQua > 0
+            ? fmtDepthM(x.doSauVuotQua)
+            : "",
+        },
+      })),
+    };
+  }, [xacTau]);
+
+  /*  VÒNG CHỌN (2026-09-02) — máy hải đồ thương mại nào cũng khoanh vật vừa
+      chạm; thiếu nó bà con không chắc thẻ đang nói về chấm nào giữa cụm phao.
+
+      KHÔNG thêm state: suy thẳng từ bốn thẻ đang mở — thẻ nào đóng là vòng tự
+      tắt, không có đường nào để vòng "mồ côi" ở lại sau khi thẻ đã đóng. */
+  const selHaloGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    const p = markInfo
+      ? { lon: markInfo.mark.lon, lat: markInfo.mark.lat }
+      : denInfo
+        ? { lon: denInfo.d.lon, lat: denInfo.d.lat }
+        : xacTauInfo
+          ? { lon: xacTauInfo.x.lon, lat: xacTauInfo.x.lat }
+          : depthInfo
+            ? { lon: depthInfo.s.lon, lat: depthInfo.s.lat }
+            : null;
+    if (!p) return null;
+    return {
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: { type: "Point", coordinates: [p.lon, p.lat] }, properties: {} }],
+    };
+  }, [markInfo, denInfo, xacTauInfo, depthInfo]);
+
+  /*  Báo hiệu chính thức — tính sẵn ký hiệu. `chartSymbolId(m, tacDung)` cần
+      CÂU TÁC DỤNG vì nguồn Thông báo hàng hải không ghi màu thân: bên luồng
+      suy từ chính câu của nhà nước ("...chuyển hướng sang phải..."). */
+  const vnAidGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!vnAids?.length) return null;
+    return {
+      type: "FeatureCollection",
+      features: vnAids.map((m, i) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [m.lon, m.lat] },
+        properties: { i, ic: chartSymbolId(m, m.tacDung ?? undefined) },
+      })),
+    };
+  }, [vnAids]);
   const offlineNote = offlineBasemapNote(basemapHealth, coastData != null);
   /* Nhắc "mất sóng" HIỆN RỒI TỰ TẮT như dòng "Đã lưu dự báo tới ngày…" — thẻ
      vàng 2 dòng nằm lì trước đây làm rối bản đồ. Effect chỉ chạy lại khi CÂU
@@ -1931,7 +2705,7 @@ export default function FishingMapView() {
   useEffect(syncBaseTopReady, [
     syncBaseTopReady,
     layerId,
-    seamarksOn,
+    groupNavOn,
     anyExclusiveOverlay,
   ]);
 
@@ -2187,7 +2961,12 @@ export default function FishingMapView() {
       // lớp động đang bật → nền HẢI ĐỒ ĐỘ SÂU (trung tính) thay cho lớp nền màu
       // (SST/phù du) đang chọn: lớp dự báo chỉ phủ vùng VN, phần NGOÀI vùng phủ
       // để hải đồ che cho đẹp (không trống), mà không chồng 2 lớp màu rối mắt.
-      buildMapStyle(anyExclusiveOverlay ? "bathymetry" : layerId, new Date(), {
+      // NỀN HẢI ĐỒ TRƠN khi lớp dự báo động bật HOẶC công tắc "Hải đồ chi tiết"
+      // bật (chủ dự án 2026-09-03): vào chế độ hải đồ thì ẩn HẲN ảnh vệ tinh màu
+      // (Nước nóng lạnh / Vùng nhiều mồi) — ảnh đục 0,85 làm chìm phao·luồng·số
+      // đo sâu ở dải z9–12. Muốn xem ảnh vệ tinh thì TẮT Hải đồ chi tiết; hai
+      // chế độ tách biệt, layerId vẫn được nhớ để hiện lại khi tắt.
+      buildMapStyle(anyExclusiveOverlay || chartDetailOn ? "bathymetry" : layerId, new Date(), {
         /*  LỚP ẢNH BÁO HIỆU TẮT HẲN (2026-08-29) — công tắc `seamarksOn` nay
             điều khiển lớp VECTOR trong máy (xem `seamarkGeo` phía dưới).
 
@@ -2200,7 +2979,7 @@ export default function FishingMapView() {
             muốn dựng lớp phụ zoom sâu quanh cảng thì bật lại một cờ là xong. */
         seamarks: false,
       }) as unknown as StyleSpecification,
-    [layerId, anyExclusiveOverlay],
+    [layerId, anyExclusiveOverlay, chartDetailOn],
   );
 
   /*  LỚP BẮT CHẠM — gom một chỗ, và CHỈ khai lớp ĐANG TỒN TẠI trong style:
@@ -2211,12 +2990,41 @@ export default function FishingMapView() {
   const hitLayers = useMemo(() => {
     const ids: string[] = [];
     if (route) ids.push(...ROUTE_HIT_LAYERS);
-    if (!anyExclusiveOverlay && seamarksOn && seamarkGeo)
-      ids.push(...SEAMARK_HIT_LAYERS);
+    if (!anyExclusiveOverlay && chartDetailOn && groupNavOn && seamarkGeo)
+      ids.push(...SEAMARK_HIT_LAYERS, "seamark-mid-cum", "seamark-near-cum");
+    /*  Chạm CHẤM ĐO SÂU để biết số đó khảo sát bao giờ. Thiếu dòng này thì
+        lớp vẽ ra nhưng CÂM — bà con thấy "7,5" mà không có cách nào biết
+        nó của tháng trước hay của bảy năm trước. */
+    if (!anyExclusiveOverlay && chartDetailOn && groupDepthOn && soundingGeo) ids.push("sounding-dot");
+    /*  Chạm ĐÈN BIỂN để biết đó là ngọn nào. Ban đêm bà con thấy một ánh
+        chớp và câu hỏi duy nhất là "đèn nào?" — đặc tính chớp trả lời được,
+        nhưng chỉ khi chạm được vào. Xếp TRƯỚC báo hiệu vì đèn hiện sớm hơn.
+        Không có công tắc: lớp này luôn bật. */
+    if (!anyExclusiveOverlay && chartDetailOn && groupNavOn && denBienGeo) ids.push("den-bien");
+    /*  Chạm KHU NEO ĐẬU tránh trú bão để đọc tên + sức chứa + độ tin toạ độ —
+        thứ bà con cần lúc quyết chạy vào đâu khi bão tới. */
+    if (!anyExclusiveOverlay && chartDetailOn && groupNavOn) ids.push("khu-tru-bao-dot");
+    /*  Xác tàu chạm được — tên tàu, năm, độ sâu vượt qua (nếu nhà nước
+        ghi) và số thông báo tra ngược. */
+    if (!anyExclusiveOverlay && chartDetailOn && groupNavOn && xacTauGeo) ids.push("xac-tau");
+    /*  Báo hiệu chính thức chạm được — nó mang số hiệu + câu tác dụng của
+        nhà nước, thứ lớp OSM không có. */
+    if (!anyExclusiveOverlay && chartDetailOn && groupNavOn && vnAidGeo) ids.push("vn-aid", "vn-aid-cum");
+    /*  Chạm Ô CHẤT ĐÁY để biết đáy là cát hay đá — quyết định thả neo. Xếp
+        CUỐI trong nhóm vật thể: đây là thuộc tính của chỗ nước, mọi vật thể
+        thật (phao/đèn/xác tàu/số đo) đều gấp hơn nên chặn trước. */
+    /*  Reviewer B.5: tên rạn/đá, vùng cấm, giàn khoan, cáp/ống, điểm cập bờ
+        trước đây KHÔNG chạm được — bà con thấy mà không hỏi được "cái này là
+        gì". Nay chạm được hết, mỗi loại một thẻ ngắn. */
+    if (!anyExclusiveOverlay && chartDetailOn && groupDepthOn) ids.push("reef-dot", "reef-dot-venbo");
+    if (!anyExclusiveOverlay && chartDetailOn && groupNavOn)
+      ids.push("sea-lane-gian", "sea-lane-cap-bo", "sea-lane-camneo", "sea-lane-vungcam-fill", "sea-lane-cap", "sea-lane-ong");
+    if (!anyExclusiveOverlay && chartDetailOn && groupNameOn) ids.push("dia-danh-ngam-label");
+    if (!anyExclusiveOverlay && chartDetailOn && groupDepthOn) ids.push("chat-day-dot");
     // chạm MỐC bão (đã qua / dự báo) để bật popup thông tin mốc đó (A)
     if (trackGeo) ids.push("storm-moc-toi", "storm-moc-qua");
     return ids.length ? ids : undefined;
-  }, [route, anyExclusiveOverlay, seamarksOn, seamarkGeo, trackGeo]);
+  }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo]);
 
   const reqKey = `${point.lat},${point.lon}:${retry}`;
   useEffect(() => {
@@ -2816,8 +3624,40 @@ export default function FishingMapView() {
         initialViewState={DEFAULT_VIEW}
         onDragStart={cancelPress}
         onZoomStart={cancelPress}
+        onZoomEnd={(e) => setMapZoom(e.viewState.zoom)}
         onMoveStart={closePressMenu}
         mapStyle={mapStyle}
+        /*  BA THAM SỐ CHO MÁY YẾU (2026-08-30) — mặc định của MapLibre hợp với
+            máy để bàn, không hợp điện thoại phổ thông trên tàu.
+
+            `validateStyle={false}` — app gọi `setStyle` MỖI LẦN đổi lớp bản đồ,
+            và mỗi lần đó MapLibre kiểm hợp lệ toàn bộ style. Style này do chính
+            `buildMapStyle` dựng ra, đã có cổng `validateStyleMin` chạy trong
+            `npm test` bắt sai ngay lúc build — kiểm lại lúc chạy là làm hai lần
+            một việc, trên đúng cái máy yếu nhất.
+
+            `refreshExpiredTiles={false}` — THẮNG LỢI OFFLINE, không chỉ tốc độ.
+            Mặc định MapLibre tự xin lại ô đã hết hạn theo header. Ngoài khơi
+            sóng chập chờn thì đó là những request vô ích chồng lên nhau, mà ô
+            nền của mình là file tĩnh trong máy chứ có đổi đâu.
+
+            `fadeDuration={0}` — 300 ms mặc định bắt vẽ THÊM khung hình sau MỖI
+            ô về. Hiệu ứng mờ dần đẹp trên máy mạnh; trên máy yếu nó là giật. */
+        validateStyle={false}
+        refreshExpiredTiles={false}
+        fadeDuration={0}
+        /*  KHOÁ XOAY VÀ NGHIÊNG (2026-08-30, chủ dự án chốt) — lý do AN TOÀN
+            trước, tốc độ sau.
+
+            Hải đồ bị xoay khỏi hướng bắc là chuyện nguy hiểm: bà con đối chiếu
+            với la bàn và với hải đồ giấy, cả hai đều bắc-lên-trên. Một cú vuốt
+            hai ngón nhầm là bản đồ nghiêng đi mà không có nút nào rõ ràng để
+            đưa về — trên tàu lắc thì vuốt nhầm là chuyện thường.
+            App không dùng `bearing`/`pitch` ở bất kỳ đâu, nên khoá lại không
+            mất chức năng nào; đổi lại MapLibre bỏ được đường vẽ nghiêng. */
+        dragRotate={false}
+        pitchWithRotate={false}
+        touchPitch={false}
         // KHUNG khi có lớp dự báo (user 2026-07-28): VẪN cho zoom IN + move
         // TRONG khung, chỉ CHẶN zoom-out/pan VƯỢT khung phủ data (minZoom +
         // maxBounds). fitBounds ở effect ghim khung lúc bật lớp.
@@ -2846,7 +3686,15 @@ export default function FishingMapView() {
         // ảnh vệ tinh (ảnh thiếu ô là chuyện thường, mây che cũng trống).
         onError={(e) => {
           const src = (e as unknown as { sourceId?: string }).sourceId;
-          if (src === "basemap") setBasemapFails((n) => nextFailCount(n, false));
+          if (src === "basemap") {
+            setBasemapFails((n) => nextFailCount(n, false));
+            return;
+          }
+          /*  KHÔNG NUỐT LỖI KHÁC (2026-09-03c): handler này từng nuốt cả
+              "Invalid sprite URL … must be absolute" — hai ngày không một icon
+              hải đồ nào vẽ mà không ai biết. Lỗi không phải ô nền thì in ra,
+              để lần sau nó lộ ngay trong console thay vì ngoài biển. */
+          console.error("[bản đồ] MapLibre báo lỗi:", (e as unknown as { error?: unknown }).error ?? e);
         }}
         // Có Ô NỀN VỀ THẬT (`tile` có mặt = một ô vừa tải xong) → đường đã
         // thông, xoá số ô trượt. KHÔNG dùng cờ "source đã tải xong": ô lỗi
@@ -2866,13 +3714,52 @@ export default function FishingMapView() {
              `queryRenderedFeatures` nhận id lớp chưa tồn tại. */
         interactiveLayerIds={hitLayers}
         onClick={(e) => {
+          /*  ĐỆM VÙNG CHẠM ±28 px (reviewer B.5 2026-09-03): trước đây bắt đúng
+              điểm ngón tay nên chấm 2–6 px chạm hụt → xoá điểm xem / bung sheet
+              gió oan. Nay quét hộp 56 px quanh ngón, lấy vật GẦN NHẤT theo
+              pixel; thứ tự ưu tiên theo lớp ở các nhánh dưới giữ nguyên. Vật
+              dạng ĐƯỜNG/VÙNG (cáp, vùng cấm) xếp sau mọi điểm trong hộp — điểm
+              là vật thật, đường là nền. Không có map/lớp thì rơi về e.features
+              (đúng như cũ). */
+          const nearFeats = (() => {
+            const map = mapRef.current?.getMap();
+            const fallback = e.features ?? [];
+            if (!map || !hitLayers) return fallback;
+            const { x, y } = e.point;
+            const R = 28;
+            let found: typeof fallback = [];
+            try {
+              found = map.queryRenderedFeatures(
+                [
+                  [x - R, y - R],
+                  [x + R, y + R],
+                ],
+                { layers: hitLayers },
+              );
+            } catch {
+              return fallback;
+            }
+            const d2 = (f: (typeof fallback)[number]) => {
+              const g = f.geometry;
+              if (g.type !== "Point") return R * R + 1;
+              const p = map.project(g.coordinates as [number, number]);
+              return (p.x - x) ** 2 + (p.y - y) ** 2;
+            };
+            const sorted = found.slice().sort((a, b) => d2(a) - d2(b));
+            /*  GẦN NHẤT THẮNG khi đã ở ngay dưới ngón (≤12 px) — reviewer B.11:
+                không để một cái phao cách 27 px cướp cú chạm của chấm đo sâu
+                nằm đúng dưới ngón chỉ vì phao đứng trước trong chuỗi ưu tiên.
+                Xa hơn 12 px thì mới xét ưu tiên theo lớp như cũ. */
+            if (sorted.length && d2(sorted[0]) <= 12 * 12) return [sorted[0]];
+            return sorted;
+          })();
           /*  CHẠM TRÚNG MỘT CHẶNG ⇒ mở thẻ thông tin chặng đó và DỪNG: không
               dời con trỏ, không đổi điểm xem. Bà con đang hỏi "khúc đỏ này bị
               gì", trả lời xong mới tính chuyện khác. Đặt TRƯỚC mọi nhánh khác
               trừ chế độ ĐO (đo là thao tác có chủ đích, không được cướp). */
           const hitLeg = measureMode
             ? undefined
-            : e.features?.find((f) => f.layer?.id === ROUTE_HIT_LAYER);
+            : nearFeats.find((f) => f.layer?.id === ROUTE_HIT_LAYER);
           if (hitLeg && route) {
             const idx = Number(hitLeg.properties?.legIdx ?? -1);
             if (idx >= 0 && idx < (route.legs?.length ?? 0)) {
@@ -2883,9 +3770,73 @@ export default function FishingMapView() {
           /*  CHẠM TRÚNG BÁO HIỆU ⇒ nói nó là cái gì rồi DỪNG, không dời con trỏ
               (cùng luật với chặng đường ngay trên). Xếp SAU chặng vì khi có
               tuyến thì câu hỏi "khúc đỏ này bị gì" gấp hơn. */
+          /*  CHẠM TRÚNG ĐÈN BIỂN ⇒ nói tên + đặc tính chớp rồi DỪNG. Xếp TRƯỚC
+              phao: đèn to hơn, hiện sớm hơn, và là thứ hỏi tới nhiều hơn. */
+          /*  CHẠM BÁO HIỆU CHÍNH THỨC ⇒ mở thẻ Seamark quen thuộc (nó LÀ một
+              Seamark) — thêm tên + tuyến trong phần mô tả nhờ decode sẵn. */
+          /*  CHẠM VÒNG "+N" ⇒ PHÓNG TỚI đó 2 nấc (kiểu Navionics), không mở thẻ:
+              cụm không phải một vật, nó là lời hứa "phóng vào sẽ thấy N cái". */
+          const hitCum = measureMode
+            ? undefined
+            : nearFeats.find(
+                (f) => CLUSTER_HIT_LAYERS.includes(f.layer?.id ?? "") && f.geometry.type === "Point",
+              );
+          if (hitCum) {
+            const map = mapRef.current?.getMap();
+            const c = (hitCum.geometry as GeoJSON.Point).coordinates as [number, number];
+            if (map) map.easeTo({ center: c, zoom: Math.min(map.getZoom() + 2, 14), duration: 450 });
+            return;
+          }
+          const hitVnAid = measureMode
+            ? undefined
+            : nearFeats.find((f) => f.layer?.id === "vn-aid");
+          if (hitVnAid) {
+            const vi = Number(hitVnAid.properties?.i ?? -1);
+            const va = vi >= 0 ? vnAids?.[vi] : undefined;
+            if (va) {
+              setMarkInfo({ mark: va, x: e.point.x, y: e.point.y });
+              return;
+            }
+          }
+          /*  CHẠM XÁC TÀU ⇒ thẻ nói vật gì, chìm năm nào, tránh ra sao — DỪNG. */
+          const hitXacTau = measureMode
+            ? undefined
+            : nearFeats.find((f) => f.layer?.id === "xac-tau");
+          if (hitXacTau) {
+            const xi = Number(hitXacTau.properties?.i ?? -1);
+            const xx = xi >= 0 ? xacTau?.[xi] : undefined;
+            if (xx) {
+              setXacTauInfo({ x: xx, px: e.point.x, py: e.point.y });
+              return;
+            }
+          }
+          const hitDen = measureMode
+            ? undefined
+            : nearFeats.find((f) => f.layer?.id === "den-bien");
+          if (hitDen) {
+            const di = Number(hitDen.properties?.i ?? -1);
+            const dd = di >= 0 ? denBien?.[di] : undefined;
+            if (dd) {
+              setDenInfo({ d: dd, x: e.point.x, y: e.point.y });
+              return;
+            }
+          }
+          /*  CHẠM KHU NEO ĐẬU TRÁNH TRÚ BÃO ⇒ thẻ tên + sức chứa + độ tin toạ
+              độ rồi DỪNG. */
+          const hitKhu = measureMode
+            ? undefined
+            : nearFeats.find((f) => f.layer?.id === "khu-tru-bao-dot");
+          if (hitKhu) {
+            const ki = Number(hitKhu.properties?.i ?? -1);
+            const kk = ki >= 0 ? khuTruBao?.[ki] : undefined;
+            if (kk) {
+              setKhuTruBaoInfo({ k: kk, x: e.point.x, y: e.point.y });
+              return;
+            }
+          }
           const hitMark = measureMode
             ? undefined
-            : e.features?.find((f) =>
+            : nearFeats.find((f) =>
                 SEAMARK_HIT_LAYERS.includes(f.layer?.id ?? ""),
               );
           if (hitMark) {
@@ -2896,11 +3847,95 @@ export default function FishingMapView() {
               return;
             }
           }
+          /*  CHẠM TRÚNG CHẤM ĐO SÂU ⇒ nói số đó khảo sát bao giờ rồi DỪNG. Xếp
+              SAU báo hiệu: phao là vật thể ngoài đời, số đo sâu là thuộc tính
+              của chỗ nước — trúng cả hai thì phao gấp hơn. */
+          const hitSounding = measureMode
+            ? undefined
+            : nearFeats.find((f) => f.layer?.id === "sounding-dot");
+          if (hitSounding) {
+            const si = Number(hitSounding.properties?.i ?? -1);
+            const sd = si >= 0 ? soundings?.diem[si] : undefined;
+            if (sd) {
+              setDepthInfo({ s: sd, x: e.point.x, y: e.point.y });
+              return;
+            }
+          }
+          /*  CHẠM TÊN RẠN/BÃI/ĐÁ hoặc HẠ TẦNG (cáp/ống/giàn/vùng cấm/cập bờ) —
+              reviewer B.5: các lớp này trước đây câm, bà con thấy mà không hỏi
+              được "cái này là gì". Đọc thuộc tính thẳng từ feature. */
+          const hitReef = measureMode
+            ? undefined
+            : nearFeats.find((f) => f.layer?.id === "reef-dot" || f.layer?.id === "reef-dot-venbo");
+          if (hitReef) {
+            const p = hitReef.properties ?? {};
+            setReefInfo({
+              ten: String(p.name ?? ""),
+              type: String(p.type ?? ""),
+              group: String(p.group ?? ""),
+              x: e.point.x,
+              y: e.point.y,
+            });
+            return;
+          }
+          const LANE_HIT = [
+            "sea-lane-gian",
+            "sea-lane-cap-bo",
+            "sea-lane-camneo",
+            "sea-lane-vungcam-fill",
+            "sea-lane-cap",
+            "sea-lane-ong",
+          ];
+          const hitLane = measureMode
+            ? undefined
+            : nearFeats.find((f) => LANE_HIT.includes(f.layer?.id ?? ""));
+          if (hitLane) {
+            const p = hitLane.properties ?? {};
+            setLaneInfo({
+              ten: String(p.ten ?? ""),
+              kind: String(p.kind ?? ""),
+              loai: p.loai != null ? String(p.loai) : null,
+              x: e.point.x,
+              y: e.point.y,
+            });
+            return;
+          }
+          const hitDiaDanh = measureMode
+            ? undefined
+            : nearFeats.find((f) => f.layer?.id === "dia-danh-ngam-label");
+          if (hitDiaDanh) {
+            const p = hitDiaDanh.properties ?? {};
+            setDiaDanhInfo({
+              ten: String(p.ten ?? ""),
+              loai: String(p.loai ?? ""),
+              x: e.point.x,
+              y: e.point.y,
+            });
+            return;
+          }
+          /*  CHẠM Ô CHẤT ĐÁY ⇒ nói đáy là gì (cát/đá/san hô…) rồi DỪNG. Đọc
+              THẲNG thuộc tính từ vector tile (ma/tyLe/soManh), không tra mảng
+              fetch — lớp là pmtiles. Xếp SAU số đo sâu: vật thể + con số gấp hơn
+              thuộc tính đáy. */
+          const hitChatDay = measureMode
+            ? undefined
+            : nearFeats.find((f) => f.layer?.id === "chat-day-dot");
+          if (hitChatDay) {
+            const p = hitChatDay.properties ?? {};
+            setChatDayInfo({
+              ma: String(p.ma ?? "khac"),
+              tyLe: Number(p.tyLe ?? 0),
+              soManh: Number(p.soManh ?? 0),
+              x: e.point.x,
+              y: e.point.y,
+            });
+            return;
+          }
           /*  CHẠM TRÚNG MỐC BÃO ⇒ thẻ thông tin mốc (giờ, toạ độ, cấp/giật, vùng
               nguy hiểm) rồi DỪNG — đúng ý "chạm tâm dự báo ra info" (A). */
           const hitStorm = measureMode
             ? undefined
-            : e.features?.find(
+            : nearFeats.find(
                 (f) =>
                   f.layer?.id === "storm-moc-toi" ||
                   f.layer?.id === "storm-moc-qua",
@@ -3133,7 +4168,7 @@ export default function FishingMapView() {
             <Layer
               id="map-grid-label"
               type="symbol"
-              minzoom={5}
+              minzoom={CHART_TIER.LUON}
               layout={{
                 "text-field": ["get", "deg"] as unknown as string,
                 "text-font": ["Noto Sans Bold"],
@@ -3459,6 +4494,10 @@ export default function FishingMapView() {
               filter={["==", ["get", "kind"], "moc"]}
               layout={{
                 "text-field": ["get", "nhan"],
+                /*  PHẢI khai font: thiếu là MapLibre xin fontstack mặc định
+                    "Open Sans Regular, Arial Unicode MS Regular" → 404 mỗi lần
+                    nạp (dò 2026-09-03c), và mất sóng thì nhãn mốc bão CÂM. */
+                "text-font": ["Noto Sans Bold"],
                 // chữ to cho mắt 40–60 tuổi dưới nắng chói (cùng cỡ nhãn đảo)
                 "text-size": 13,
                 "text-offset": [0, 1.1],
@@ -3480,38 +4519,134 @@ export default function FishingMapView() {
             phân luồng là hình học OSM đã BỎ TÊN. Chỉ hiện trên nền hải đồ, ẩn
             khi bật lớp động (như nhãn đảo). Vẽ trước nhãn đảo để chữ đảo nổi
             trên đường. */}
-        {!anyExclusiveOverlay && lanesOn && (
+        {!anyExclusiveOverlay && chartDetailOn && groupNavOn && (
           <Source id="sea-lanes" type="geojson" data={SEA_LANES_DATA_URL}>
             {/* CÁP/ỐNG NGẦM — tím chấm; vẽ dưới cùng (hạ tầng nền) */}
             <Layer
+              id="sea-lane-vungcam-fill"
+              type="fill"
+              minzoom={SEA_RESTRICTED_MINZOOM}
+              /*  Chỉ tô nền đa giác KHÉP KÍN; 6 way OSM hở (`hoDang`) vẽ viền
+                  thôi — tô một way hở là bịa diện tích cấm (R1). */
+              filter={["all", ["==", ["get", "kind"], "vungcam"], ["!=", ["get", "hoDang"], true]] as unknown as FilterSpecification}
+              paint={{
+                "fill-color": RESTRICTED_FILL_COLOR,
+                "fill-opacity": RESTRICTED_FILL_OPACITY,
+              }}
+            />
+            {/*  CÁP QUANG/ĐIỆN — tím đậm nét đứt đều (4,83:1), z≥8. Tách khỏi ỐNG
+                 DẪN (reviewer A.3 2026-09-03): ống nguy hiểm hơn khi thả neo,
+                 hải đồ chuẩn vẽ khác — ống ở đây mực đen vạch-chấm + dấu ống
+                 lặp dọc tuyến, khác cả sắc lẫn độ sáng với cáp và vùng cấm. */}
+            <Layer
               id="sea-lane-cap"
               type="line"
+              minzoom={SEA_CABLE_MINZOOM}
               filter={["==", ["get", "kind"], "cap"] as unknown as FilterSpecification}
               layout={{ "line-join": "round", "line-cap": "round" }}
               paint={{
                 "line-color": SEA_CABLE_COLOR,
-                "line-width": 1,
-                "line-dasharray": [0.5, 2.5],
-                "line-opacity": 0.6,
+                "line-width": 1.4,
+                "line-dasharray": [...SEA_CABLE_DASH],
+                "line-opacity": SEA_CABLE_OPACITY,
+              }}
+            />
+            <Layer
+              id="sea-lane-ong"
+              type="line"
+              minzoom={SEA_PIPELINE_MINZOOM}
+              filter={["==", ["get", "kind"], "ong"] as unknown as FilterSpecification}
+              layout={{ "line-join": "round", "line-cap": "round" }}
+              paint={{
+                "line-color": PIPELINE_COLOR,
+                "line-width": 2,
+                "line-dasharray": [...PIPELINE_DASH],
+                "line-opacity": PIPELINE_OPACITY,
+              }}
+            />
+            <Layer
+              id="sea-lane-ong-mark"
+              type="symbol"
+              minzoom={SEA_PIPELINE_MINZOOM}
+              filter={["==", ["get", "kind"], "ong"] as unknown as FilterSpecification}
+              layout={{
+                "symbol-placement": "line",
+                "symbol-spacing": 140,
+                "icon-image": CHART_FEATURE_ICON.pipelineMark,
+                "icon-size": CHART_ICON_SIZE as unknown as number,
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+              }}
+            />
+            {/*  ĐIỂM CÁP CẬP BỜ (10 trạm Vũng Tàu/Đà Nẵng/Quy Nhơn) — trước là
+                 LineString dài 0 vẽ thành đốm 1 px vô nghĩa; nay là Point + icon. */}
+            <Layer
+              id="sea-lane-cap-bo"
+              type="symbol"
+              minzoom={CABLE_LANDING_MINZOOM}
+              filter={["==", ["get", "kind"], "cap-bo"] as unknown as FilterSpecification}
+              layout={{
+                "icon-image": CHART_FEATURE_ICON.cableLanding,
+                "icon-size": CHART_ICON_SIZE as unknown as number,
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+                "icon-anchor": "bottom",
               }}
             />
             {/* VÙNG CẤM / KHU HẠN CHẾ — ranh cam đất, nét đứt (không tô nền) */}
             <Layer
               id="sea-lane-vungcam"
               type="line"
+              minzoom={SEA_RESTRICTED_MINZOOM}
               filter={["==", ["get", "kind"], "vungcam"] as unknown as FilterSpecification}
               layout={{ "line-join": "round" }}
               paint={{
                 "line-color": SEA_RESTRICTED_COLOR,
-                "line-width": 1.4,
+                "line-width": 1.6,
                 "line-dasharray": [2, 2],
-                "line-opacity": 0.75,
+                "line-opacity": SEA_RESTRICTED_OPACITY,
+              }}
+            />
+            {/*  Vùng cấm phải NÓI ra nó là gì (reviewer B.7): nền tô nhạt ở trên
+                 + tên ("Khu cấm neo — …") + icon neo-gạch-chéo riêng cho vòng
+                 cấm neo 500 m quanh công trình biển. Không còn viền đứt câm. */}
+            <Layer
+              id="sea-lane-vungcam-label"
+              type="symbol"
+              minzoom={SEA_RESTRICTED_MINZOOM}
+              filter={["all", ["==", ["get", "kind"], "vungcam"], ["!=", ["get", "hoDang"], true]] as unknown as FilterSpecification}
+              layout={{
+                "text-field": ["get", "ten"] as unknown as string,
+                "text-font": ["Noto Sans Bold"],
+                "text-size": 13,
+                "text-max-width": 9,
+                "text-allow-overlap": false,
+                "text-optional": true,
+              }}
+              paint={{
+                "text-color": RESTRICTED_LABEL_COLOR,
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 1.4,
+              }}
+            />
+            <Layer
+              id="sea-lane-camneo"
+              type="symbol"
+              minzoom={SEA_RESTRICTED_MINZOOM}
+              filter={["all", ["==", ["get", "loai"], "cam-neo"], ["!=", ["get", "hoDang"], true]] as unknown as FilterSpecification}
+              layout={{
+                "icon-image": CHART_FEATURE_ICON.noAnchor,
+                "icon-size": CHART_ICON_SIZE as unknown as number,
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+                "icon-anchor": "center",
               }}
             />
             {/* LUỒNG CẢNG + PHÂN LUỒNG — nét mảnh xám-lam, đứt ngắn */}
             <Layer
               id="sea-lane-osm"
               type="line"
+              minzoom={SEA_FAIRWAY_MINZOOM}
               filter={["match", ["get", "kind"], ["luong", "phanluong"], true, false] as unknown as FilterSpecification}
               layout={{ "line-join": "round", "line-cap": "round" }}
               paint={{
@@ -3537,22 +4672,22 @@ export default function FishingMapView() {
             {/* GIÀN KHOAN / công trình biển — điểm cam đất (hiện khi zoom vừa) */}
             <Layer
               id="sea-lane-gian"
-              type="circle"
-              minzoom={6}
+              type="symbol"
+              minzoom={RIG_MINZOOM}
               filter={["==", ["get", "kind"], "giankhoan"] as unknown as FilterSpecification}
-              paint={{
-                "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2, 10, 4] as unknown as number,
-                "circle-color": SEA_RESTRICTED_COLOR,
-                "circle-stroke-color": "#ffffff",
-                "circle-stroke-width": 1,
-                "circle-opacity": 0.9,
+              layout={{
+                "icon-image": "platform",
+                "icon-size": CHART_ICON_SIZE as unknown as number,
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+                "icon-anchor": "center",
               }}
             />
             {/* nhãn tuyến lớn dọc đường (chỉ feature có `ten`) */}
             <Layer
               id="sea-lane-label"
               type="symbol"
-              minzoom={4.5}
+              minzoom={CHART_TIER.LUON}
               filter={["==", ["get", "kind"], "tuyen"] as unknown as FilterSpecification}
               layout={{
                 "symbol-placement": "line",
@@ -3564,6 +4699,61 @@ export default function FishingMapView() {
               }}
               paint={{
                 "text-color": SEA_LANE_COLOR,
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 1.4,
+              }}
+            />
+          </Source>
+        )}
+
+        {/*  NHÃN ĐỊA DANH NGẦM — 184 tên (núi/đồi/hố/thung lũng ngầm, Thông tư
+             33/2024). Vẽ TRƯỚC nhãn đảo để tên đảo (quan trọng hơn) thắng va
+             chạm. Chữ teal như họ rạn (đối tượng dưới nước), nghiêng nhạt để
+             lùi sau tên đảo/rạn nổi. Chỉ trên nền hải đồ + công tắc riêng. */}
+        {!anyExclusiveOverlay && chartDetailOn && groupNameOn && diaDanhNgamGeo && (
+          <Source id="dia-danh-ngam" type="geojson" data={diaDanhNgamGeo}>
+            <Layer
+              id="dia-danh-ngam-label"
+              type="symbol"
+              minzoom={DIA_DANH_NGAM_MINZOOM}
+              layout={{
+                /*  HÌNH ĐỊA HÌNH THEO `loai` (chủ dự án 2026-09-03: "đồi ngầm sao
+                    không có hình?") — đẳng sâu của ta thưa nên đồi/núi ngầm
+                    không tự lộ; đặt icon mặt cắt (chóp/gò/hố/lòng máng/bậc
+                    vách) ngay toạ độ, tên dưới hình. Cùng bảng với
+                    diaDanhNgamSymbolId. Không allow-overlap: zoom xa tự thưa. */
+                "icon-image": [
+                  "match",
+                  ["get", "loai"],
+                  ["nui", "day"], CHART_FEATURE_ICON.seamount,
+                  "doi", CHART_FEATURE_ICON.knoll,
+                  "song", CHART_FEATURE_ICON.ridge,
+                  "guyot", CHART_FEATURE_ICON.guyot,
+                  "ho", CHART_FEATURE_ICON.deep,
+                  ["thunglung", "hem", "kenh"], CHART_FEATURE_ICON.valley,
+                  ["vach", "doc", "deo"], CHART_FEATURE_ICON.escarpment,
+                  "baivenbo", CHART_FEATURE_ICON.bank,
+                  CHART_FEATURE_ICON.knoll,
+                ] as unknown as string,
+                "icon-size": CHART_ICON_SIZE as unknown as number,
+                "icon-anchor": "bottom",
+                "icon-allow-overlap": false,
+                /*  icon-optional BẮT BUỘC: máy bà con có thể còn sprite CŨ trong
+                    service worker (thiếu 7 hình mới) — không có cờ này MapLibre
+                    bỏ cả symbol, tên địa danh biến mất (đã thấy thật lúc kiểm). */
+                "icon-optional": true,
+                "text-field": ["get", "ten"] as unknown as string,
+                "text-font": ["Noto Sans Regular"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 5, 11, 8, 12, 11, 13] as unknown as number,
+                "text-anchor": "top",
+                "text-offset": [0, 0.3],
+                "text-padding": 3,
+                "text-allow-overlap": false,
+                "text-optional": true,
+                "text-max-width": 8,
+              }}
+              paint={{
+                "text-color": REEF_LABEL_COLOR,
                 "text-halo-color": "#ffffff",
                 "text-halo-width": 1.4,
               }}
@@ -3617,99 +4807,166 @@ export default function FishingMapView() {
         {/* HÌNH DẠNG rạn/bãi ngầm (OSM natural=reef/shoal, ĐÃ BỎ TÊN) — tô teal
             nhạt trong suốt để thấy PHẠM VI rạn + viền teal. Nằm DƯỚI nhãn tên rạn
             (nhãn nổi trên). Cùng toggle "Đá ngầm, rạn"; asset tĩnh SW giữ sẵn. */}
-        {!anyExclusiveOverlay && reefsOn && (
-          <Source id="reef-shapes" type="geojson" data={REEF_SHAPES_DATA_URL}>
+        {/*  HÌNH RẠN — nguồn ĐỘC LẬP (Allen Coral Atlas + WCMC), dạng VECTOR TILE.
+
+             VÌ SAO PMTILES CHỨ KHÔNG PHẢI GEOJSON (2026-08-30, đo thật): bộ rạn
+             vẽ lại có 88.840 mảnh / 4.030.270 đỉnh. Đưa MapLibre một cục dạng
+             `geojson` thì nó phải chuyển hết sang worker rồi tự cắt ô: **835 MB
+             RAM giữ lại, ~4 giây tới ô đầu tiên**, và để vẽ MỘT ô z6 phải xén
+             4.020.968 đỉnh rồi bỏ 99,5%. Trên máy 2–3 GB đó không phải "chậm",
+             hệ điều hành GIẾT TAB. Dạng vector tile: **20 KB đọc, 2,9 MB RAM**,
+             vì chỉ giải ô đang nhìn.
+             Mỗi `<Layer>` BẮT BUỘC có `source-layer="reef"` — thiếu là lớp im
+             lặng không vẽ gì, không báo lỗi. */}
+        {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && (
+          <Source
+            id="reef-shapes"
+            type="vector"
+            url={REEF_SHAPES_PMTILES_URL}
+          >
             <Layer
               id="reef-fill"
               type="fill"
+              source-layer="reef"
               paint={{
                 "fill-color": REEF_SHAPE_FILL,
-                "fill-opacity": 0.18,
+                "fill-opacity": REEF_SHAPE_FILL_OPACITY,
               }}
             />
             <Layer
               id="reef-outline"
               type="line"
+              source-layer="reef"
               paint={{
                 "line-color": REEF_SHAPE_LINE,
-                "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.4, 11, 1.2] as unknown as number,
-                "line-opacity": 0.5,
-              }}
-            />
-            {/* ĐIỂM HIỂM HOẠ: đá ngầm/chướng ngại/xác tàu (seamark, thường gần
-                bờ nơi natural=reef thưa). Chấm hổ phách viền trắng = "coi chừng".
-                Lớp circle chỉ vẽ Point (rạn Polygon/Line bỏ qua); lọc kind cho chắc. */}
-            <Layer
-              id="reef-hazard"
-              type="circle"
-              filter={["match", ["get", "kind"], ["rock", "wreck"], true, false] as unknown as FilterSpecification}
-              paint={{
-                "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2, 11, 4.5] as unknown as number,
-                "circle-color": REEF_HAZARD_COLOR,
-                "circle-stroke-color": "#ffffff",
-                "circle-stroke-width": 1.2,
-                "circle-opacity": 0.92,
+                "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.5, 11, 1.4] as unknown as number,
+                "line-opacity": REEF_SHAPE_LINE_OPACITY,
               }}
             />
           </Source>
         )}
+
+        {/*  CHẤT ĐÁY — cát/đá/san hô/cỏ biển… tô chấm theo loại (Allen Coral
+             Atlas benthic, tham khảo). Vector tile pmtiles vì 362K điểm; thuộc
+             tính ma/tyLe/soManh nằm trong tile để chạm-xem đọc thẳng. Nằm TRÊN
+             nền rạn (thấy đáy trên phạm vi rạn) nhưng DƯỚI chấm hiểm hoạ + số đo
+             sâu + ký hiệu — chất đáy là nền, vật cản và con số nổi trên. Thêm
+             kho mới → nhớ thêm vào mảng pre-warm pmtiles VÀ PMTILES_ARCHIVES
+             của sw.js. */}
+        {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && (
+          <Source id="chat-day" type="vector" url={CHAT_DAY_PMTILES_URL}>
+            <Layer
+              id="chat-day-dot"
+              type="circle"
+              source-layer="chat-day"
+              minzoom={CHAT_DAY_MINZOOM}
+              paint={{
+                "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 1.1, 12, 3] as unknown as number,
+                "circle-color": [
+                  "match",
+                  ["get", "ma"],
+                  "S", CHAT_DAY_COLORS.S,
+                  "R", CHAT_DAY_COLORS.R,
+                  "Co", CHAT_DAY_COLORS.Co,
+                  "G", CHAT_DAY_COLORS.G,
+                  "Sg", CHAT_DAY_COLORS.Sg,
+                  "Ma", CHAT_DAY_COLORS.Ma,
+                  CHAT_DAY_COLORS.khac,
+                ] as unknown as string,
+                "circle-opacity": CHAT_DAY_OPACITY,
+              }}
+            />
+          </Source>
+        )}
+
+        {/*  ĐIỂM HIỂM HOẠ: đá ngầm · chướng ngại · xác tàu — GIỮ NGUỒN OSM.
+
+             KHÔNG gộp được vào bộ ACA ở trên: Allen Coral Atlas và WCMC là ảnh
+             vệ tinh chụp RẠN, chúng **không có lớp điểm hiểm hoạ** (kiểm thật:
+             `kind` trong ô ACA chỉ có `reef` và `shoal`). Mà 45 đá ngầm + 42 xác
+             tàu chính là vật cản đơn lẻ trong luồng — đúng thứ đâm tàu. Bỏ đi
+             để "cho gọn một nguồn" là đánh đổi sai.
+             File OSM 783 KB, chỉ 87 điểm được vẽ — rẻ, và là nguồn duy nhất có.
+             (Vướng ODbL nên `cleanPackage()` tự lọc nó khỏi gói bán ForMaps;
+             dùng trong app thì hợp lệ.) */}
+        {/*  (Khối <Source id="reef-hazards"> đã DỜI XUỐNG ngay sau `soundings`
+             — reviewer A.8 2026-09-03: hiểm hoạ phải vẽ TRÊN chấm đo sâu,
+             không bị số che. Comment lý do nguồn giữ ở đây cho khỏi lạc.) */}
 
         {/*  BÁO HIỆU HÀNG HẢI (2026-08-29) — phao · đèn biển · tiêu · vùng neo,
              5.851 cái từ asset tĩnh /data/seamarks.v1.json (SW giữ sẵn ⇒ NGOÀI
              KHƠI MẤT SÓNG VẪN CÒN — khác hẳn lớp ảnh OpenSeaMap trước đây).
              Chạm vào ra tên tiếng Việt + đặc tính đèn. Ba nấc zoom, xem
              SEAMARK_FAR / SEAMARK_MID ở đầu file. Ẩn khi bật lớp động. */}
-        {!anyExclusiveOverlay && seamarksOn && seamarkGeo && (
-          <Source id="seamarks-v" type="geojson" data={seamarkGeo}>
-            {(
-              [
-                ["seamark-far", 9, ["match", ["get", "t"], SEAMARK_FAR, true, false]],
-                ["seamark-mid", 11, ["match", ["get", "t"], SEAMARK_MID, true, false]],
-                [
-                  "seamark-near",
-                  13,
-                  [
-                    "all",
-                    ["!", ["match", ["get", "t"], SEAMARK_FAR, true, false]],
-                    ["!", ["match", ["get", "t"], SEAMARK_MID, true, false]],
-                  ],
-                ],
-              ] as const
-            ).map(([id, minzoom, filter]) => (
-              <Layer
-                key={id}
-                id={id}
-                type="circle"
-                minzoom={minzoom}
-                filter={filter as unknown as FilterSpecification}
-                paint={{
-                  // CÓ ĐÈN vẽ magenta (quy ước hải đồ giấy), KHÔNG đèn vẽ xanh
-                  // thép — khác nhau này mang thông tin: ban đêm cái nào còn
-                  // nhìn thấy được.
-                  "circle-color": [
-                    "case",
-                    ["==", ["get", "lit"], 1],
-                    SEAMARK_LIT_COLOR,
-                    SEAMARK_UNLIT_COLOR,
-                  ] as unknown as string,
-                  // to dần theo zoom; vùng chạm nới bằng circle-stroke trong
-                  // suốt phía dưới thì phức tạp — ở đây tăng bán kính là đủ vì
-                  // báo hiệu chỉ hiện khi đã zoom gần.
-                  "circle-radius": [
-                    "interpolate",
-                    ["linear"],
-                    ["zoom"],
-                    9,
-                    3,
-                    14,
-                    6.5,
-                  ] as unknown as number,
-                  "circle-stroke-color": "#ffffff",
-                  "circle-stroke-width": 1.4,
-                  "circle-opacity": 0.95,
-                }}
-              />
-            ))}
+        {/*  THỨ BẬC HẢI ĐỒ (2026-09-03) — SỐ ĐO SÂU + ĐƯỜNG LUỒNG là NỀN
+             thông tin, phải vẽ DƯỚI mọi ký hiệu điều hướng (phao · xác tàu ·
+             đèn). Trước đây hai lớp này khai ở CUỐI nên 135 chấm đo sâu ở luồng
+             Vũng Tàu vẽ ĐÈ lên 8 phao + 2 xác tàu — đúng lỗi soi thấy khi chụp
+             màn 2026-09-03. Trên hải đồ giấy số đo sâu luôn nằm dưới ký hiệu:
+             số là chỗ nước, ký hiệu là vật phải tránh. Đưa về đúng chỗ. */}
+        {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && depthLineGeo && (
+          <Source id="depth-lines" type="geojson" data={depthLineGeo}>
+            <Layer {...(DEPTH_LINE_LAYER as unknown as LayerProps)} />
+          </Source>
+        )}
+
+        {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && soundingGeo && (
+          <Source id="soundings" type="geojson" data={soundingGeo}>
+            <Layer {...(SOUNDING_DOT_LAYER as unknown as LayerProps)} />
+            <Layer {...(SOUNDING_LABEL_LAYER as unknown as LayerProps)} />
+          </Source>
+        )}
+
+        {/*  ĐIỂM HIỂM HOẠ OSM (đá ngầm · xác tàu) — vẽ TRÊN số đo sâu (reviewer
+             A.8): vật cản là thứ phải tránh, không được để con số che. Lý do
+             giữ nguồn OSM: xem comment ở chỗ khai cũ phía trên. */}
+        {!anyExclusiveOverlay && chartDetailOn && groupNavOn && (
+          <Source id="reef-hazards" type="geojson" data={REEF_SHAPES_DATA_URL}>
+            <Layer
+              id="reef-hazard"
+              type="symbol"
+              minzoom={REEF_HAZARD_MINZOOM}
+              filter={["match", ["get", "kind"], ["rock", "wreck"], true, false] as unknown as FilterSpecification}
+              layout={{
+                "icon-image": ["match", ["get", "kind"], "wreck", "wreck", "obstruction"] as unknown as string,
+                "icon-size": CHART_ICON_SIZE as unknown as number,
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+                "icon-anchor": "center",
+              }}
+            />
+          </Source>
+        )}
+
+        {!anyExclusiveOverlay && chartDetailOn && groupNavOn && seamarkTiers && (
+          <Source id="seamarks-far" type="geojson" data={seamarkTiers.far}>
+            <Layer id="seamark-far" type="symbol" minzoom={SEAMARK_TIER_MINZOOM.far} layout={SEAMARK_ICON_LAYOUT} />
+          </Source>
+        )}
+        {!anyExclusiveOverlay && chartDetailOn && groupNavOn && seamarkTiers && (
+          <Source
+            id="seamarks-mid"
+            type="geojson"
+            data={seamarkTiers.mid}
+            cluster
+            clusterRadius={SEAMARK_CLUSTER_RADIUS}
+            clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.mid}
+          >
+            <Layer id="seamark-mid" type="symbol" minzoom={SEAMARK_TIER_MINZOOM.mid} filter={KHONG_PHAI_CUM} layout={SEAMARK_ICON_LAYOUT} />
+            {cumLayers("seamark-mid", SEAMARK_TIER_MINZOOM.mid)}
+          </Source>
+        )}
+        {!anyExclusiveOverlay && chartDetailOn && groupNavOn && seamarkTiers && (
+          <Source
+            id="seamarks-near"
+            type="geojson"
+            data={seamarkTiers.near}
+            cluster
+            clusterRadius={SEAMARK_CLUSTER_RADIUS}
+            clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.near}
+          >
+            <Layer id="seamark-near" type="symbol" minzoom={SEAMARK_TIER_MINZOOM.near} filter={KHONG_PHAI_CUM} layout={SEAMARK_ICON_LAYOUT} />
+            {cumLayers("seamark-near", SEAMARK_TIER_MINZOOM.near)}
           </Source>
         )}
 
@@ -3719,22 +4976,58 @@ export default function FishingMapView() {
             dưới nước với đảo nổi (navy). Cùng khuôn symbol nhãn đảo: rank nhỏ chỉ
             ló khi zoom sâu. Hình dạng rạn (polygon) từ Allen Coral Atlas sẽ thêm
             sau vào cùng nguồn. Ẩn khi bật lớp động (như nhãn đảo). */}
-        {!anyExclusiveOverlay && reefsOn && (
+        {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && (
           <Source id="reefs" type="geojson" data={REEFS_DATA_URL}>
+            {/*  1.374 tên rạn/bãi/đá (Thông tư 33/2024). TÁCH ngoài-khơi vs
+                 ven-bờ: nhóm ngoài khơi (Trường Sa/Hoàng Sa/DK1, 149) là MỐC
+                 CHỦ QUYỀN — hiện mọi zoom; nhóm ven bờ (1.225) không có collision
+                 nên phải gate z≥8, nếu không sẽ thành dải chấm dày ở zoom cả
+                 nước. Nhãn (symbol) tự né nhau; chấm (circle) thì không. */}
             <Layer
               id="reef-dot"
-              type="circle"
-              paint={{
-                "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 1.6, 9, 3.6] as unknown as number,
-                "circle-color": REEF_DOT_COLOR,
-                "circle-stroke-color": "#ffffff",
-                "circle-stroke-width": 1,
-                "circle-opacity": 0.9,
+              type="symbol"
+              minzoom={REEF_OFFSHORE_MINZOOM}
+              filter={["!=", ["get", "group"], "ven-bo"] as unknown as FilterSpecification}
+              layout={{
+                /*  HÌNH THEO `type` (reviewer A.4/B.6 2026-09-03): đá ngầm = sao
+                    gai đỏ (nguy hiểm, nổi bật), bãi/cồn = đụn cát, rạn = nhánh
+                    san hô — thay chấm teal giống nhau. Cùng bảng với reefSymbolId. */
+                "icon-image": [
+                  "match",
+                  ["get", "type"],
+                  "da", CHART_FEATURE_ICON.rockAwash,
+                  "ran", CHART_FEATURE_ICON.coralReef,
+                  CHART_FEATURE_ICON.bank,
+                ] as unknown as string,
+                "icon-size": CHART_ICON_SIZE as unknown as number,
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+                "icon-anchor": "center",
+              }}
+            />
+            <Layer
+              id="reef-dot-venbo"
+              type="symbol"
+              minzoom={REEF_VENBO_MINZOOM}
+              filter={["==", ["get", "group"], "ven-bo"] as unknown as FilterSpecification}
+              layout={{
+                "icon-image": [
+                  "match",
+                  ["get", "type"],
+                  "da", CHART_FEATURE_ICON.rockAwash,
+                  "ran", CHART_FEATURE_ICON.coralReef,
+                  CHART_FEATURE_ICON.bank,
+                ] as unknown as string,
+                "icon-size": CHART_ICON_SIZE as unknown as number,
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+                "icon-anchor": "center",
               }}
             />
             <Layer
               id="reef-label"
               type="symbol"
+              filter={["!=", ["get", "group"], "ven-bo"] as unknown as FilterSpecification}
               layout={{
                 "text-field": ["get", "name"] as unknown as string,
                 "text-font": ["Noto Sans Bold"],
@@ -3750,6 +5043,132 @@ export default function FishingMapView() {
                 "text-color": REEF_LABEL_COLOR,
                 "text-halo-color": "#ffffff",
                 "text-halo-width": 1.5,
+              }}
+            />
+            <Layer
+              id="reef-label-venbo"
+              type="symbol"
+              minzoom={REEF_VENBO_MINZOOM}
+              filter={["==", ["get", "group"], "ven-bo"] as unknown as FilterSpecification}
+              layout={{
+                "text-field": ["get", "name"] as unknown as string,
+                "text-font": ["Noto Sans Bold"],
+                "text-size": ["interpolate", ["linear"], ["zoom"], 8, 11, 11, 13] as unknown as number,
+                "text-anchor": "top",
+                "text-offset": [0, 0.55],
+                "text-padding": 2,
+                "symbol-sort-key": ["get", "rank"] as unknown as number,
+                "text-allow-overlap": false,
+                "text-optional": true,
+              }}
+              paint={{
+                "text-color": REEF_LABEL_COLOR,
+                "text-halo-color": "#ffffff",
+                "text-halo-width": 1.5,
+              }}
+            />
+          </Source>
+        )}
+
+        {/*  SỐ ĐO SÂU CHÍNH THỨC (2026-08-31) — 379 điểm + 96 tuyến khảo sát
+             của cơ quan nhà nước (Thông báo hàng hải) + 13 đoạn luồng có độ sâu
+             khống chế. Asset tĩnh, SW giữ sẵn ⇒ NGOÀI KHƠI MẤT SÓNG VẪN CÒN.
+
+             Đặt DƯỚI nhãn chủ quyền (chủ quyền luôn trên cùng) nhưng TRÊN rạn
+             và báo hiệu: đây là con số phải đọc được, không phải nền.
+
+             ĐƯỜNG trước, CHẤM sau, SỐ trên cùng — vẽ ngược lại thì số nằm dưới
+             đường và mất chỗ giao nhau, đúng chỗ luồng hẹp cần đọc nhất. */}
+        {/*  BÁO HIỆU CHÍNH THỨC CỦA CỤC HÀNG HẢI (2026-09-02) — 774 cái, trong
+             đó 147 ở nửa nam nơi lớp OSM gần như trắng (dưới 12°B OSM chỉ có
+             237/5.851). Đây là lớp mang SỐ HIỆU và CÂU TÁC DỤNG của nhà nước —
+             chạm vào tra ngược được tận thông báo gốc.
+
+             Cùng ký hiệu, cùng nấc zoom với lớp OSM (z9) — bà con không cần
+             biết chấm nào từ nguồn nào, chỉ cần thấy phao. Nguồn TÁCH RIÊNG để
+             chạm còn phân biệt được và để một nguồn hỏng không kéo nguồn kia. */}
+        {!anyExclusiveOverlay && chartDetailOn && groupNavOn && vnAidGeo && (
+          <Source
+            id="vn-aids"
+            type="geojson"
+            data={vnAidGeo}
+            cluster
+            clusterRadius={SEAMARK_CLUSTER_RADIUS}
+            clusterMaxZoom={SEAMARK_CLUSTER_MAXZOOM.mid}
+          >
+            <Layer id="vn-aid" type="symbol" minzoom={VN_AID_MINZOOM} filter={KHONG_PHAI_CUM} layout={SEAMARK_ICON_LAYOUT} />
+            {cumLayers("vn-aid", VN_AID_MINZOOM)}
+          </Source>
+        )}
+
+        {/*  ĐÈN BIỂN (2026-09-02) — 90 ngọn, 50 cái ở nửa nam mà trước phiên
+             này app có ĐÚNG 0. Gồm 9 ngọn Trường Sa và 2 nhà giàn DK1, tên
+             tiếng Việt là tên chính.
+
+             Hiện từ z7, sớm hơn phao (z9) và số đo sâu (z11) — vì tầm hiệu lực
+             15–25 hải lý: nó có nghĩa đúng lúc bà con còn cách bờ 25 hải lý và
+             đang tìm đường vào, chứ không phải lúc đã tới luồng. */}
+        {/*  XÁC TÀU + CHƯỚNG NGẠI VẬT (2026-09-02) — tím sẫm viền trắng, kênh
+             màu riêng không trùng đỏ/cam/magenta đang có. Từ z8, sớm hơn phao:
+             vật chìm nằm cả ngoài bãi lưới, không chỉ trong luồng. */}
+        {!anyExclusiveOverlay && chartDetailOn && groupNavOn && xacTauGeo && (
+          <Source id="xac-tau-src" type="geojson" data={xacTauGeo}>
+            <Layer {...(WRECK_LAYER as unknown as LayerProps)} />
+          </Source>
+        )}
+
+        {!anyExclusiveOverlay && chartDetailOn && groupNavOn && denBienGeo && (
+          <Source id="den-bien" type="geojson" data={denBienGeo}>
+            <Layer {...(LIGHTHOUSE_LAYER as unknown as LayerProps)} />
+            <Layer {...(LIGHTHOUSE_LABEL_LAYER as unknown as LayerProps)} />
+          </Source>
+        )}
+
+        {/*  KHU NEO ĐẬU TRÁNH TRÚ BÃO (QĐ 582/2024) — chấm xanh "bến an toàn",
+             nơi CHẠY TỚI khi bão. Vẽ gần trên cùng để dễ thấy giữa cụm ký hiệu.
+             Chạm xem tên + sức chứa + độ tin toạ độ. */}
+        {!anyExclusiveOverlay && chartDetailOn && groupNavOn && khuTruBaoGeo && (
+          <Source id="khu-tru-bao" type="geojson" data={khuTruBaoGeo}>
+            <Layer
+              id="khu-tru-bao-dot"
+              type="symbol"
+              minzoom={KHU_TRU_BAO_MINZOOM}
+              layout={{
+                "icon-image": "anchorage",
+                "icon-size": CHART_ICON_SIZE as unknown as number,
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true,
+                "icon-anchor": "center",
+              }}
+            />
+          </Source>
+        )}
+
+        {/*  VÒNG CHỌN — khoanh vật đang mở thẻ, kiểu máy hải đồ. Hai vòng
+             lồng nhau (đặc mảnh + mờ dày) để nổi trên cả nền sáng lẫn ký hiệu
+             đậm; không tô ruột — không che chính vật đang xem. */}
+        {selHaloGeo && (
+          <Source id="sel-halo" type="geojson" data={selHaloGeo}>
+            <Layer
+              id="sel-halo-ring"
+              type="circle"
+              paint={{
+                "circle-radius": 16,
+                "circle-color": "rgba(0,0,0,0)",
+                "circle-stroke-color": "#1a73e8",
+                "circle-stroke-width": 2.5,
+                "circle-stroke-opacity": 0.9,
+              }}
+            />
+            <Layer
+              id="sel-halo-glow"
+              type="circle"
+              paint={{
+                "circle-radius": 22,
+                "circle-color": "rgba(0,0,0,0)",
+                "circle-stroke-color": "#1a73e8",
+                "circle-stroke-width": 6,
+                "circle-stroke-opacity": 0.25,
               }}
             />
           </Source>
@@ -4222,6 +5641,19 @@ export default function FishingMapView() {
                   {describeSeamark(markInfo.mark)}
                 </p>
               )}
+              {/*  BÊN NÀO LUỒNG — bằng CHỮ (reviewer B.6): "để phao bên TRÁI
+                   tàu" là câu bà con cần lúc cầm lái, không phải nhớ đỏ/xanh. */}
+              {(() => {
+                const huong = huongDiQuaPhao(
+                  markInfo.mark,
+                  (markInfo.mark as Partial<VnAid>).tacDung ?? undefined,
+                );
+                return huong ? (
+                  <p className="mt-1 text-[0.9375rem] font-bold leading-snug text-navy">
+                    {huong}
+                  </p>
+                ) : null;
+              })()}
               <p className="mt-1 text-[0.875rem] font-semibold text-foreground/55">
                 {fmtCoordPair(
                   markInfo.mark.lat,
@@ -4233,6 +5665,507 @@ export default function FishingMapView() {
             <CloseButton
               onClose={() => setMarkInfo(null)}
               label="Đóng thông tin báo hiệu"
+            />
+          </div>
+        </div>
+      )}
+
+      {/*  VẬT CHÌM GÌ ĐÂY (2026-09-02) — tên tàu + năm + độ sâu vượt qua nếu
+           nhà nước ghi (1/38 tin có — TBHH VN hiếm khi in con số này) + số
+           thông báo để tra ngược. KHÔNG tự tắt. */}
+      {xacTauInfo && (
+        <div
+          className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
+          style={{
+            left: Math.min(Math.max(8, xacTauInfo.px - 128), window.innerWidth - 264),
+            top: Math.min(xacTauInfo.py + 12, window.innerHeight - 200),
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-[1.125rem] font-bold leading-tight text-navy">
+                {xacTauLabel(xacTauInfo.x.loai)}
+                {xacTauInfo.x.ten ? ` — ${xacTauInfo.x.ten}` : ""}
+              </p>
+              <p className="mt-0.5 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
+                {moTaXacTau(xacTauInfo.x)}
+              </p>
+              <p className="mt-1 text-[0.875rem] font-semibold text-foreground/55">
+                {fmtCoordPair(xacTauInfo.x.lat, xacTauInfo.x.lon, prefs.coordFormat)}
+              </p>
+              {xacTauInfo.x.soThongBao && (
+                <p className="mt-0.5 text-[0.8125rem] font-semibold text-foreground/45">
+                  Thông báo hàng hải {xacTauInfo.x.soThongBao}
+                </p>
+              )}
+            </div>
+            <CloseButton onClose={() => setXacTauInfo(null)} label="Đóng thông tin vật chìm" />
+          </div>
+        </div>
+      )}
+
+      {/*  ĐÈN NÀO ĐÂY (2026-09-02).
+
+           Câu hỏi thật của bà con lúc 2 giờ sáng không phải "đèn này tên gì"
+           mà "cái chớp ngoài kia là ngọn nào". Đặc tính chớp trả lời được điều
+           đó — nhưng chỉ khi nói bằng tiếng Việt đọc được, không phải mã hải đồ
+           `Fl W 15s`. `moTaDenBien()` lo phần dịch. */}
+      {denInfo && (
+        <div
+          className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
+          style={{
+            left: Math.min(Math.max(8, denInfo.x - 128), window.innerWidth - 264),
+            top: Math.min(denInfo.y + 12, window.innerHeight - 210),
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-[1.125rem] font-bold leading-tight text-navy">
+                {tenDayDu(denInfo.d)}
+              </p>
+              {moTaDenBien(denInfo.d) && (
+                <p className="mt-0.5 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
+                  {moTaDenBien(denInfo.d)}
+                </p>
+              )}
+              {denInfo.d.noi && (
+                <p className="mt-1 text-[0.875rem] font-semibold text-foreground/55">
+                  {denInfo.d.noi}
+                </p>
+              )}
+              <p className="mt-0.5 text-[0.875rem] font-semibold text-foreground/55">
+                {fmtCoordPair(denInfo.d.lat, denInfo.d.lon, prefs.coordFormat)}
+              </p>
+            </div>
+            <CloseButton onClose={() => setDenInfo(null)} label="Đóng thông tin đèn biển" />
+          </div>
+        </div>
+      )}
+
+      {/*  SỐ ĐO SÂU NÀY KHẢO SÁT BAO GIỜ (2026-09-01).
+
+           Vì sao thẻ này quan trọng hơn nó trông: 147/149 điểm quá một năm
+           tuổi rơi trúng dải 4–12 m — đúng dải ra quyết định của tàu mớn
+           1,5–3 m. Trước đây lớp vẽ ra số mà CÂM: bà con thấy "7,5" và không
+           có cách nào biết nó của tháng trước hay của bảy năm trước.
+
+           Nói TUỔI trước, ngày sau: "7 năm 8 tháng trước" là thứ đọc một lần
+           là hiểu; "11/06/2019" bắt người ta tự trừ trong đầu lúc đang lái. */}
+      {/*  SHEET "KÝ HIỆU LÀ GÌ?" — mở từ nút trong panel lớp hải đồ. Icon là
+           ĐÚNG hình trên bản đồ (cắt từ sprite), chữ đời thường, không mã. */}
+      {legendOpen && (
+        <div
+          className="pointer-events-auto absolute inset-x-2 bottom-2 top-16 z-50 flex flex-col overflow-hidden rounded-2xl bg-card/98 shadow-2xl"
+          role="dialog"
+          aria-label="Ký hiệu trên hải đồ"
+        >
+          <div className="flex items-center justify-between border-b border-foreground/10 px-4 py-3">
+            <p className="text-[1.125rem] font-bold text-navy">Ký hiệu trên hải đồ</p>
+            <CloseButton onClose={() => setLegendOpen(false)} label="Đóng chú giải" />
+          </div>
+          <p className="border-b border-foreground/10 bg-field/60 px-4 py-2 text-[0.875rem] font-semibold leading-snug text-foreground/75">
+            Hải đồ hiện dần theo <b>ba nấc phóng</b> (như máy hải đồ thương mại): phóng XA thấy
+            đèn lớn + vật chìm, phóng VỪA thấy phao + cáp, phóng SÁT thấy số đo sâu + chất đáy —
+            và chỉ ở nơi có vật đó. Chỗ nhiều phao gom thành vòng <b>+6</b>, chạm vào là phóng tới.
+          </p>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[0.9375rem] font-semibold text-foreground/85">
+            {LEGEND_TIERS.map((tang) => (
+              <div key={tang.tieuDe} className="mb-4">
+                <p className="mb-1 text-[0.875rem] font-bold uppercase tracking-wide text-foreground/60">
+                  {tang.tieuDe}
+                  <span className="normal-case tracking-normal text-danger/80">{goiYPhongTo(tang.zoom)}</span>
+                </p>
+                {tang.dong.map((d) => (
+                  <div key={d.chu} className="flex min-h-[2.5rem] items-center gap-3 py-0.5">
+                    {kyHieu(d)}
+                    <span>{d.chu}</span>
+                  </div>
+                ))}
+                {tang.ghiChu && <p className="mt-1 text-[0.875rem] text-foreground/65">{tang.ghiChu}</p>}
+              </div>
+            ))}
+            <p className="mb-2 text-[0.875rem] text-foreground/65">
+              Chạm bất kỳ vật nào trên bản đồ để xem tên và chi tiết.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/*  CHÚ GIẢI CHẤT ĐÁY (2026-09-03, chủ dự án hỏi "cái này là cái gì") —
+           chỉ hiện khi lớp chất đáy THẬT SỰ vẽ (nhóm Độ sâu & đáy bật + z≥9),
+           nếu không thì chấm màu vô nghĩa với bà con. Không chặn chạm. */}
+      {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && mapZoom >= CHAT_DAY_MINZOOM && (
+        <div className="pointer-events-none absolute bottom-2 left-2 z-20 rounded-xl bg-card/90 px-2.5 py-2 shadow-lg">
+          <p className="mb-1 text-[0.75rem] font-bold text-navy">Chất đáy</p>
+          <div className="grid grid-cols-1 gap-y-0.5">
+            {(
+              [
+                ["San hô", CHAT_DAY_COLORS.Co],
+                ["Đá", CHAT_DAY_COLORS.R],
+                ["Cát", CHAT_DAY_COLORS.S],
+                ["Vụn", CHAT_DAY_COLORS.G],
+                ["Cỏ biển", CHAT_DAY_COLORS.Sg],
+              ] as const
+            ).map(([label, color]) => (
+              <div key={label} className="flex items-center gap-1.5">
+                <span
+                  className="inline-block h-2.5 w-2.5 flex-none rounded-full"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="text-[0.8125rem] font-semibold text-foreground/80">
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
+          {/*  Chỗ trống ≠ đáy sạch (reviewer B.6) — nói ra ngay dưới chú giải. */}
+          <p className="mt-1.5 max-w-[11rem] text-[0.75rem] font-semibold leading-snug text-foreground/65">
+            {ghiChuChatDayTrong()}
+          </p>
+        </div>
+      )}
+      {/*  THẺ ĐỊA DANH NGẦM — loại địa hình + ý nghĩa cho bà con (núi ngầm là
+           chỗ cá đáy hay tụ; vách/dốc là độ sâu đổi nhanh). Nguồn TT 33/2024. */}
+      {diaDanhInfo && (
+        <div
+          className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
+          style={{
+            left: Math.min(Math.max(8, diaDanhInfo.x - 120), window.innerWidth - 248),
+            top: Math.min(diaDanhInfo.y + 12, window.innerHeight - 180),
+          }}
+        >
+          <div className="flex items-start gap-2">
+            {bieuTuong(diaDanhNgamSymbolId(diaDanhInfo.loai))}
+            <div className="min-w-0 flex-1">
+              <p className="text-[1.125rem] font-bold leading-tight text-navy">{diaDanhInfo.ten}</p>
+              <p className="mt-0.5 text-[0.9375rem] font-semibold leading-snug text-foreground/75">
+                {nhanLoaiDiaDanhNgam(diaDanhInfo.loai) || "Địa hình đáy biển"} —{" "}
+                {["nui", "day", "guyot", "song"].includes(diaDanhInfo.loai)
+                  ? "gò nổi dưới đáy, cá đáy hay tụ quanh sườn"
+                  : diaDanhInfo.loai === "doi"
+                    ? "gò thấp dưới đáy biển"
+                    : ["ho", "thunglung", "hem", "kenh"].includes(diaDanhInfo.loai)
+                      ? "chỗ trũng/rãnh sâu hơn xung quanh"
+                      : ["vach", "doc", "deo"].includes(diaDanhInfo.loai)
+                        ? "đáy đổ dốc gấp, độ sâu đổi nhanh"
+                        : diaDanhInfo.loai === "baivenbo"
+                          ? "bãi ngầm gần bờ — coi chừng cạn"
+                          : "dưới mặt nước, không nhìn thấy"}
+              </p>
+              <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+                Tên theo danh mục địa danh nhà nước (tham khảo)
+              </p>
+            </div>
+            <CloseButton onClose={() => setDiaDanhInfo(null)} label="Đóng thông tin địa danh" />
+          </div>
+        </div>
+      )}
+      {/*  THẺ TÊN RẠN/BÃI/ĐÁ — tên + loại + đúng icon đang vẽ, câu đời thường
+           (đá ngầm nói thẳng nguy hiểm; bãi nói "nhìn con nước"). */}
+      {reefInfo && (
+        <div
+          className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
+          style={{
+            left: Math.min(Math.max(8, reefInfo.x - 120), window.innerWidth - 248),
+            top: Math.min(reefInfo.y + 12, window.innerHeight - 180),
+          }}
+        >
+          <div className="flex items-start gap-2">
+            {bieuTuong(reefSymbolId(reefInfo.type))}
+            <div className="min-w-0 flex-1">
+              <p className="text-[1.125rem] font-bold leading-tight text-navy">{reefInfo.ten}</p>
+              <p
+                className={`mt-0.5 text-[0.9375rem] font-semibold leading-snug ${
+                  reefInfo.type === "da" ? "text-danger" : "text-foreground/75"
+                }`}
+              >
+                {reefInfo.group === "them-luc-dia"
+                  ? "Bãi ngầm thềm lục địa — sâu 20–50 m, khu nhà giàn DK1"
+                  : reefInfo.type === "da"
+                    ? "Đá ngầm — đâm là thủng, tránh xa"
+                    : reefInfo.type === "ran"
+                      ? "Rạn san hô — cá tụ, neo trượt"
+                      : reefInfo.type === "con"
+                        ? "Cồn cát — có thể ngập, nhìn con nước"
+                        : "Bãi cạn — có thể ngập, nhìn con nước"}
+              </p>
+              <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+                Tên theo danh mục địa danh nhà nước (tham khảo)
+              </p>
+            </div>
+            <CloseButton onClose={() => setReefInfo(null)} label="Đóng thông tin rạn" />
+          </div>
+        </div>
+      )}
+      {/*  THẺ HẠ TẦNG — cáp/ống/giàn/vùng cấm/điểm cập bờ: nói rõ nên làm gì
+           (đừng thả neo / cấm neo 500 m / cấm vào). */}
+      {laneInfo && (
+        <div
+          className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
+          style={{
+            left: Math.min(Math.max(8, laneInfo.x - 120), window.innerWidth - 248),
+            top: Math.min(laneInfo.y + 12, window.innerHeight - 180),
+          }}
+        >
+          <div className="flex items-start gap-2">
+            {bieuTuong(
+              laneInfo.kind === "giankhoan"
+                ? "platform"
+                : laneInfo.kind === "cap-bo"
+                  ? CHART_FEATURE_ICON.cableLanding
+                  : laneInfo.kind === "ong"
+                    ? CHART_FEATURE_ICON.pipelineMark
+                    : laneInfo.loai === "cam-neo"
+                      ? CHART_FEATURE_ICON.noAnchor
+                      : "special",
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-[1.0625rem] font-bold leading-tight text-navy">
+                {laneInfo.ten || "Hạ tầng trên biển"}
+              </p>
+              <p
+                className={`mt-0.5 text-[0.9375rem] font-semibold leading-snug ${
+                  laneInfo.kind === "ong" || laneInfo.loai === "cam-neo" || laneInfo.kind === "giankhoan"
+                    ? "text-danger"
+                    : "text-foreground/75"
+                }`}
+              >
+                {laneInfo.kind === "ong"
+                  ? "Ống dẫn dầu/khí dưới đáy — ĐỪNG thả neo gần"
+                  : laneInfo.kind === "cap"
+                    ? "Cáp ngầm dưới đáy — đừng thả neo, mắc là đứt cáp"
+                    : laneInfo.kind === "giankhoan"
+                      ? "Giàn khoan — cấm neo/đánh bắt trong 500 m quanh"
+                      : laneInfo.kind === "cap-bo"
+                        ? "Điểm cáp cập bờ — cấm neo, cấm giã cào quanh đây"
+                        : laneInfo.loai === "cam-neo"
+                          ? "Khu cấm neo — tránh thả neo trong vùng này"
+                          : laneInfo.loai === "cam-danh-bat"
+                            ? "Khu cấm đánh bắt"
+                            : laneInfo.loai === "cam-vao"
+                              ? "Khu CẤM VÀO — không được đi vào vùng này"
+                              : "Khu hạn chế — xem quy định trước khi vào"}
+              </p>
+              <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+                Tham khảo — không thay hải đồ chính thức
+              </p>
+            </div>
+            <CloseButton onClose={() => setLaneInfo(null)} label="Đóng thông tin hạ tầng" />
+          </div>
+        </div>
+      )}
+      {chatDayInfo && (
+        <div
+          className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
+          style={{
+            left: Math.min(
+              Math.max(8, chatDayInfo.x - 120),
+              window.innerWidth - 248,
+            ),
+            top: Math.min(chatDayInfo.y + 12, window.innerHeight - 180),
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <span
+              className="mt-1 inline-block h-4 w-4 flex-none rounded-full"
+              style={{
+                backgroundColor:
+                  CHAT_DAY_COLORS[chatDayInfo.ma] ?? CHAT_DAY_COLORS.khac,
+              }}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-[1.125rem] font-bold leading-tight text-navy">
+                Đáy: {chatDayLabel(chatDayInfo.ma)}
+              </p>
+              {/*  Gợi ý neo — đúng thứ chất đáy dùng để làm gì. Không phải luật
+                   cấm, chỉ nhắc: đá/san hô/vụn thì neo hay trượt. */}
+              <p
+                className={`mt-0.5 text-[0.9375rem] font-semibold leading-snug ${
+                  laDayCung(chatDayInfo.ma as ChatDayMa)
+                    ? "text-danger"
+                    : "text-foreground/75"
+                }`}
+              >
+                {laDayCung(chatDayInfo.ma as ChatDayMa)
+                  ? "Đáy cứng — neo khó bám, dễ trượt"
+                  : "Đáy mềm — neo thường bám tốt"}
+              </p>
+              {/*  Câu đời thường, không %, không tên tổ chức (reviewer B.4) —
+                   cùng lời với `moTaChatDay` trong lib. */}
+              {chatDayInfo.tyLe > 0 && (
+                <p className="mt-0.5 text-[0.875rem] font-semibold leading-snug text-foreground/75">
+                  {chatDayInfo.tyLe >= 80
+                    ? `Gần như toàn ${chatDayLabel(chatDayInfo.ma).toLowerCase()}`
+                    : "Lẫn nhiều loại đáy"}
+                </p>
+              )}
+              <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+                Theo ảnh vệ tinh — tham khảo
+              </p>
+            </div>
+            <CloseButton onClose={() => setChatDayInfo(null)} label="Đóng thông tin chất đáy" />
+          </div>
+        </div>
+      )}
+      {khuTruBaoInfo && (
+        <div
+          className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
+          style={{
+            left: Math.min(
+              Math.max(8, khuTruBaoInfo.x - 128),
+              window.innerWidth - 264,
+            ),
+            top: Math.min(khuTruBaoInfo.y + 12, window.innerHeight - 210),
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <span
+              className="mt-1 inline-block h-4 w-4 flex-none rounded-full"
+              style={{ backgroundColor: KHU_TRU_BAO_COLOR }}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-[1.0625rem] font-bold leading-tight text-navy">
+                Trú bão: {khuTruBaoInfo.k.ten}
+              </p>
+              <p className="mt-0.5 text-[0.875rem] font-semibold leading-snug text-foreground/70">
+                {capLabel(khuTruBaoInfo.k.cap)}
+                {khuTruBaoInfo.k.tinh ? ` · ${tenTinhDep(khuTruBaoInfo.k.tinh)}` : ""}
+              </p>
+              {(khuTruBaoInfo.k.sucChua || khuTruBaoInfo.k.coTauM) && (
+                <p className="mt-0.5 text-[0.875rem] font-semibold leading-snug text-foreground/60">
+                  {[
+                    khuTruBaoInfo.k.sucChua
+                      ? `chứa ~${khuTruBaoInfo.k.sucChua.toLocaleString("vi-VN")} tàu`
+                      : null,
+                    khuTruBaoInfo.k.coTauM ? `tàu dài tới ${khuTruBaoInfo.k.coTauM} m` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                </p>
+              )}
+              {/*  Độ tin toạ độ nói thẳng: "vua" = suy từ đèn/phao gần cửa, lệch
+                   vài km — không được để bà con tưởng chấm là ranh giới vùng neo. */}
+              {khuTruBaoInfo.k.tin === "vua" && (
+                <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-danger/80">
+                  Vị trí gần đúng — chấm chỉ đánh dấu cửa/cảng, không phải ranh vùng neo.
+                </p>
+              )}
+              <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+                Vị trí theo {khuTruBaoInfo.k.nguonToaDo} · theo quy hoạch nhà nước (tham khảo)
+              </p>
+            </div>
+            <CloseButton onClose={() => setKhuTruBaoInfo(null)} label="Đóng thông tin khu trú bão" />
+          </div>
+        </div>
+      )}
+      {depthInfo && (
+        <div
+          className="pointer-events-auto absolute z-40 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
+          style={{
+            left: Math.min(
+              Math.max(8, depthInfo.x - 128),
+              window.innerWidth - 264,
+            ),
+            top: Math.min(depthInfo.y + 12, window.innerHeight - 200),
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-[1.25rem] font-bold leading-tight text-navy">
+                Sâu {fmtDepthM(depthInfo.s.depthM)} m
+              </p>
+              {(() => {
+                const tuoi = soundingAgeDays(
+                  depthInfo.s,
+                  new Date().toISOString().slice(0, 10),
+                );
+                const cu = isStale(tuoi);
+                const uoc = depthInfo.s.notice.ngayUocLuong === true;
+                const txt = ageLine(tuoi, uoc);
+                return (
+                  <>
+                    {txt && (
+                      <p
+                        className={`mt-0.5 text-[0.9375rem] font-bold leading-snug ${
+                          cu ? "text-danger" : "text-foreground/75"
+                        }`}
+                      >
+                        {txt}
+                      </p>
+                    )}
+                    {/*  Ngày SUY RA từ đường dẫn chứ không phải ngày ký thì
+                         phải nói ra. Câu tuổi phía trên đã tự làm thô (chỉ nói
+                         số năm); dòng này giải thích vì sao. */}
+                    {uoc && (
+                      <p className="mt-0.5 text-[0.8125rem] font-semibold leading-snug text-foreground/55">
+                        {ESTIMATED_DATE_NOTE}
+                      </p>
+                    )}
+                    {/*  Câu dặn CHỈ hiện khi số thật sự cũ — nói mọi lúc thì
+                         thành tiếng ồn, và lúc cần thì không ai đọc nữa. */}
+                    {cu && (
+                      <p className="mt-1 text-[0.875rem] font-semibold leading-snug text-danger/85">
+                        Số cũ — cửa lạch có thể đã bồi lắng, đừng tin một mình
+                        con số này.
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
+              <p className="mt-1 text-[0.875rem] font-semibold text-foreground/55">
+                {fmtCoordPair(
+                  depthInfo.s.lat,
+                  depthInfo.s.lon,
+                  prefs.coordFormat,
+                )}
+              </p>
+              {/*  "LÀM MỚN" (2026-09-02) — món bà con đang trả 5 triệu để có.
+                   Độ sâu hải đồ + con nước RÒNG THẤP NHẤT hôm nay + mớn tàu
+                   MÌNH = câu trả lời cho đúng câu hỏi lúc cầm lái: "qua nổi
+                   không, hay chờ nước lên?".
+
+                   Ba cửa im lặng CÓ CHỦ Ý, đều là luật "không bịa":
+                   · chưa khai mớn nước → im (đoán mớn hộ là doạ sai người)
+                   · chưa nạp được trạm triều → im
+                   · trạm quá xa thì tideTrustText tự nói "giờ nước có thể lệch" */}
+              {(() => {
+                const boat = readUserRecord<Partial<BoatProfile>>("forfish.boat.v1").value;
+                const mon = typeof boat?.draftM === "number" && boat.draftM > 0 ? boat.draftM : null;
+                if (mon == null || !tideStations?.length) return null;
+                const gan = nearestTideStation(tideStations, depthInfo.s.lat, depthInfo.s.lon);
+                if (!gan) return null;
+                const homNay = new Date().toISOString().slice(0, 10);
+                const cucTri = tideExtremesForDay(gan.station, homNay);
+                const canhBao = tideDraftWarning(cucTri, {
+                  draftM: mon,
+                  chartDepthM: depthInfo.s.depthM,
+                });
+                const tinCay = tideTrustText(gan.distanceKm, gan.station);
+                if (!canhBao && !tinCay) return null;
+                return (
+                  <>
+                    {canhBao && (
+                      <p className="mt-1 text-[0.9375rem] font-bold leading-snug text-danger">
+                        {canhBao}
+                      </p>
+                    )}
+                    {canhBao && tinCay && (
+                      <p className="mt-0.5 text-[0.8125rem] font-semibold leading-snug text-foreground/55">
+                        {tinCay} (trạm {gan.station.name})
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
+              {/*  Số hiệu thông báo để bà con (hoặc cán bộ cảng vụ) tra lại tận
+                   gốc — ta không phải nguồn cuối cùng, và không giả vờ là. */}
+              <p className="mt-0.5 text-[0.8125rem] font-semibold text-foreground/45">
+                Thông báo hàng hải {depthInfo.s.notice.so}
+              </p>
+            </div>
+            <CloseButton
+              onClose={() => setDepthInfo(null)}
+              label="Đóng thông tin độ sâu"
             />
           </div>
         </div>
@@ -4392,7 +6325,7 @@ export default function FishingMapView() {
         }`}
         aria-hidden={!sheetThu && !navMode}
       >
-        <StormBanner variant="overlay" />
+        <StormBanner variant="overlay" myPos={tracking.pos ?? null} />
         {/* DẪN ĐƯỜNG LIVE: thẻ HUD LUÔN hiện khi đang dẫn đường (kể cả kéo sheet
             lên) — dưới banner bão. Gợi ý lái + quãng/giờ còn lại + nút Dừng. */}
         {navMode && (
@@ -4455,11 +6388,22 @@ export default function FishingMapView() {
               setScalarKind(null);
               setPlaying(false);
               setLayerId(id);
+              /*  Reviewer B.1 (2026-09-03): bật "Hải đồ chi tiết" thì
+                  buildMapStyle ép nền về "bathymetry" — chọn vệ tinh/nhiệt
+                  độ mà không thấy gì đổi, radio vẫn tô đang chọn = câm. Nên
+                  chọn nền KHÁC hải đồ thì tự tắt chi tiết (hai thứ vốn loại
+                  trừ nhau: chi tiết chỉ đẹp trên nền hải đồ trơn). */
+              if (id !== "bathymetry") setChartDetailOn(false);
             }}
-            lanesOn={lanesOn}
-            onLanes={setLanesOn}
-            reefsOn={reefsOn}
-            onReefs={setReefsOn}
+            groupDepthOn={groupDepthOn}
+            onGroupDepth={setGroupDepthOn}
+            groupNavOn={groupNavOn}
+            onGroupNav={setGroupNavOn}
+            groupNameOn={groupNameOn}
+            onGroupName={setGroupNameOn}
+            chartDetailOn={chartDetailOn}
+            onChartDetail={setChartDetailOn}
+            onLegend={() => setLegendOpen(true)}
             scalarKind={scalarKind}
             onScalar={(k) => {
               setScalarKind(k);

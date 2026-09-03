@@ -16,7 +16,9 @@
     "cap:sync": "cap sync",
     "cap:open:ios": "cap open ios",
     "cap:open:android": "cap open android",
-    "guide": "node scripts/build-guide.mjs"
+    "guide": "node scripts/build-guide.mjs",
+    "kiem:ban-do": "node scripts/kiem-ban-do.mjs",
+    "kiem:phu": "node scripts/kiem-phu-hai-do.mjs"
   },
   "dependencies": {
     "@protomaps/basemaps": "^5.7.2",

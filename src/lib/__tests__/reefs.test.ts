@@ -38,15 +38,31 @@ describe("dataset coral-reefs.v1.json — rạn/đá ngầm ship thật", () => 
     }
   });
 
-  it("có nhóm Trường Sa + thềm lục địa với số lượng hợp lý (không rơi rớt lúc sinh lại)", () => {
+  it("đủ bốn nhóm với số lượng hợp lý (khai TT33 2026-09-03 không rơi rớt lúc sinh lại)", () => {
     const byGroup = fc.features.reduce<Record<string, number>>((m, f) => {
       const g = (f.properties as unknown as ReefProps).group;
       m[g] = (m[g] ?? 0) + 1;
       return m;
     }, {});
-    expect(byGroup["truong-sa"]).toBeGreaterThanOrEqual(5);
-    expect(byGroup["them-luc-dia"]).toBeGreaterThanOrEqual(5);
-    expect(fc.features.length).toBeGreaterThanOrEqual(12);
+    // Sau đợt khai Thông tư 33/2024 (A.I ven bờ + B Hoàng Sa + C Trường Sa):
+    // tổng nhảy từ 13 lên ~1.374. Trần dưới đặt CÓ BIÊN để chống rơi rớt nhưng
+    // không giòn — nếu tụt dưới các mốc này là dấu hiệu pipeline sinh sai/thiếu.
+    expect(byGroup["truong-sa"]).toBeGreaterThanOrEqual(90);
+    expect(byGroup["hoang-sa"]).toBeGreaterThanOrEqual(20);
+    expect(byGroup["them-luc-dia"]).toBeGreaterThanOrEqual(10);
+    expect(byGroup["ven-bo"]).toBeGreaterThanOrEqual(1000);
+    expect(fc.features.length).toBeGreaterThanOrEqual(1300);
+  });
+
+  it("mọi mục ven-bờ có admin = tên tỉnh (không rỗng) — chạm nhãn còn biết vùng", () => {
+    for (const f of fc.features) {
+      const p = f.properties as unknown as ReefProps;
+      if (p.group === "ven-bo") {
+        expect(p.admin, `ven-bờ thiếu admin: ${p.name}`).toBeTruthy();
+        // ven-bờ KHÔNG dùng admin gán-cứng của Hoàng Sa/Trường Sa/thềm lục địa
+        expect(Object.values(EXPECTED_REEF_ADMIN)).not.toContain(p.admin);
+      }
+    }
   });
 
   it("admin gán cứng đúng theo group (chủ quyền VN, đồng loạt)", () => {
@@ -64,6 +80,55 @@ describe("dataset coral-reefs.v1.json — rạn/đá ngầm ship thật", () => 
       expect(["ran", "da", "bai", "con"]).toContain(p.type);
       expect([1, 2, 3]).toContain(p.rank);
     }
+  });
+
+  it("KHÔNG tên nào có ở CẢ vn-islands lẫn coral-reefs (khử trùng 2026-09-03, review A.5)", () => {
+    // Trước: 27 tên (Đá Lớn, Đá Nam, Bãi Thuỷ Tề…) nằm ở cả hai file → cùng một
+    // chỗ vừa chấm navy (đảo) vừa chấm teal (rạn), nhãn đổi màu theo zoom.
+    // Luật: NGẦM/rạn/bãi → chỉ coral-reefs; NỔI (đảo/hòn/cồn cát) → chỉ islands.
+    // Quyết định từng cặp: docs/research/ten-bai-can-2026-09.md §9.
+    const islands = readJSON("vn-islands.v1.json");
+    const norm = (s: unknown) => String(s).normalize("NFC").trim().toLowerCase();
+    const reefNames = new Set(fc.features.map((f) => norm(f.properties.name)));
+    const giao = islands.features
+      .map((f) => String(f.properties.name))
+      .filter((n) => reefNames.has(norm(n)));
+    expect(giao, `trùng tên islands ∩ reefs: ${giao.join(", ")}`).toEqual([]);
+  });
+
+  it("KHÔNG đá/bãi NGẦM nào còn nằm cạnh bản sao khác tên trong vn-islands (<2,5 km, cùng tên lõi)", () => {
+    // Bắt ca "Đá Tây" (islands) ↔ "Bãi đá Tây" (reefs), "Đá Thị" ↔ "Đá Núi Thị"…
+    // Cồn cát nổi + Hòn (đảo đá nổi) được phép ở islands; chỉ soi type da/bai.
+    const islands = readJSON("vn-islands.v1.json");
+    const core = (s: unknown) =>
+      String(s)
+        .normalize("NFC")
+        .toLowerCase()
+        .replace(/^(bãi cạn|bãi đá|bãi ngầm|đá ngầm|đá núi|bãi|đá|cồn|rạn)\s+/, "")
+        .trim();
+    const km = (a: number[], b: number[]) => {
+      const R = 6371;
+      const t = (x: number) => (x * Math.PI) / 180;
+      const dLat = t(b[1] - a[1]);
+      const dLon = t(b[0] - a[0]);
+      const s =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(t(a[1])) * Math.cos(t(b[1])) * Math.sin(dLon / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(s));
+    };
+    const bad: string[] = [];
+    for (const i of islands.features) {
+      const t = String(i.properties.type);
+      if (t !== "da" && t !== "bai") continue;
+      if (/^Hòn /.test(String(i.properties.name))) continue; // hòn = đá nổi, hợp lệ ở islands
+      const ci = core(i.properties.name);
+      for (const r of fc.features) {
+        if (core(r.properties.name) !== ci) continue;
+        const d = km(i.geometry.coordinates, r.geometry.coordinates);
+        if (d < 2.5) bad.push(`${i.properties.name} ↔ ${r.properties.name} (${d.toFixed(1)} km)`);
+      }
+    }
+    expect(bad, bad.join(" · ")).toEqual([]);
   });
 });
 

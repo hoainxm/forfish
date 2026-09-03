@@ -87,10 +87,14 @@ const DOT: Record<string, string> = {
 export function RaKhoiControls({
   layerId,
   onLayer,
-  lanesOn,
-  onLanes,
-  reefsOn,
-  onReefs,
+  groupDepthOn,
+  onGroupDepth,
+  groupNavOn,
+  onGroupNav,
+  groupNameOn,
+  onGroupName,
+  chartDetailOn,
+  onChartDetail,
   scalarKind,
   onScalar,
   forecastKind,
@@ -126,7 +130,13 @@ export function RaKhoiControls({
   routeOn = false,
   locating,
   geoError,
+  onLegend,
 }: {
+  /*  "Ký hiệu là gì?" — mở sheet CHÚ GIẢI HẢI ĐỒ (fishing-map-view lo phần
+      sheet). Không truyền = không hiện nút. Reviewer A.7: C-MAP có chú giải
+      trong app, SDFish chỉ có chú giải chất đáy ở góc — bà con thấy ký hiệu
+      lạ mà không có chỗ hỏi. */
+  onLegend?: () => void;
   /** Bấm "Vị trí" → lấy GPS rồi bay tới chỗ mình (fishing-map-view lo phần đó) */
   onLocateMe: () => void;
   /** Gõ tay toạ độ (nút "Đến điểm") → bay tới điểm đó, đặt điểm đang xem */
@@ -158,12 +168,17 @@ export function RaKhoiControls({
   geoError: boolean;
   layerId: OceanLayerId;
   onLayer: (id: OceanLayerId) => void;
-  /** Tuyến hàng hải + luồng/phân luồng trên hải đồ (bật/tắt) */
-  lanesOn: boolean;
-  onLanes: (on: boolean) => void;
-  /** Rạn / đá ngầm / bãi cạn có tên tiếng Việt (bật/tắt) */
-  reefsOn: boolean;
-  onReefs: (on: boolean) => void;
+  /** Nhóm Độ sâu & đáy (số đo sâu · đẳng sâu · chất đáy · rạn/đá) */
+  groupDepthOn: boolean;
+  onGroupDepth: (on: boolean) => void;
+  /** Nhóm Báo hiệu & nguy hiểm (phao/đèn/xác tàu/luồng/cáp/vùng cấm/khu tránh trú bão) */
+  groupNavOn: boolean;
+  onGroupNav: (on: boolean) => void;
+  /** Nhóm Tên địa danh ngầm (chỉ còn tên núi/đồi/hố ngầm — trú bão đã sang nhóm trên) */
+  groupNameOn: boolean;
+  onGroupName: (on: boolean) => void;
+  chartDetailOn: boolean;
+  onChartDetail: (on: boolean) => void;
   scalarKind: SeaScalarKind | null;
   onScalar: (k: SeaScalarKind | null) => void;
   forecastKind: ForecastKind | null;
@@ -368,10 +383,15 @@ export function RaKhoiControls({
                     onScalar(null);
                     onLayer(id);
                   }}
-                  lanesOn={lanesOn}
-                  onLanes={onLanes}
-                  reefsOn={reefsOn}
-                  onReefs={onReefs}
+                  groupDepthOn={groupDepthOn}
+                  onGroupDepth={onGroupDepth}
+                  groupNavOn={groupNavOn}
+                  onGroupNav={onGroupNav}
+                  groupNameOn={groupNameOn}
+                  onGroupName={onGroupName}
+                  chartDetailOn={chartDetailOn}
+                  onChartDetail={onChartDetail}
+                  onLegend={onLegend}
                 />
               )}
               {open === "ngu-truong" && (
@@ -468,7 +488,7 @@ export function RaKhoiControls({
           ) : (
             <ChevronRightIcon className="h-5 w-5" />
           )}
-          <span className="text-[0.6875rem] font-bold leading-tight">
+          <span className="text-[0.8125rem] font-bold leading-tight">
             {collapsed ? "Lớp" : "Ẩn"}
           </span>
         </button>
@@ -486,7 +506,7 @@ export function RaKhoiControls({
           }`}
         >
           <CrosshairIcon className={`h-6 w-6 ${locating ? "animate-pulse" : ""}`} />
-          <span className="text-[0.6875rem] font-bold leading-tight">
+          <span className="text-[0.8125rem] font-bold leading-tight">
             {locating ? "Đang tìm" : geoError ? "Bật GPS" : "Vị trí"}
           </span>
         </button>
@@ -509,7 +529,7 @@ export function RaKhoiControls({
           }`}
         >
           <PinIcon className="h-6 w-6" />
-          <span className="text-[0.6875rem] font-bold leading-tight">
+          <span className="text-[0.8125rem] font-bold leading-tight">
             Đến điểm
           </span>
         </button>
@@ -542,7 +562,7 @@ export function RaKhoiControls({
           }`}
         >
           <StarIcon className="h-6 w-6" />
-          <span className="text-[0.6875rem] font-bold leading-tight">
+          <span className="text-[0.8125rem] font-bold leading-tight">
             Điểm đã lưu
           </span>
         </button>
@@ -584,7 +604,7 @@ export function RaKhoiControls({
               </span>
             )}
             <RouteIcon className="h-6 w-6" />
-            <span className="text-[0.6875rem] font-bold leading-tight">
+            <span className="text-[0.8125rem] font-bold leading-tight">
               {routeOn ? "Đang dẫn" : "Dẫn đường"}
             </span>
           </button>
@@ -614,7 +634,7 @@ export function RaKhoiControls({
                 />
               )}
               <Icon className="h-6 w-6" />
-              <span className="text-[0.6875rem] font-bold leading-tight">
+              <span className="text-[0.8125rem] font-bold leading-tight">
                 {r.label}
               </span>
             </button>
@@ -690,20 +710,32 @@ function HaiDoPanel({
   layerId,
   scalarKind,
   onLayer,
-  lanesOn,
-  onLanes,
-  reefsOn,
-  onReefs,
+  groupDepthOn,
+  onGroupDepth,
+  groupNavOn,
+  onGroupNav,
+  groupNameOn,
+  onGroupName,
+  chartDetailOn,
+  onChartDetail,
+  onLegend,
 }: {
   layerId: OceanLayerId;
   scalarKind: SeaScalarKind | null;
   onLayer: (id: OceanLayerId) => void;
-  /** Tuyến hàng hải + luồng/phân luồng — nét mảnh tham khảo trên hải đồ */
-  lanesOn: boolean;
-  onLanes: (on: boolean) => void;
-  /** Rạn / đá ngầm / bãi cạn có tên tiếng Việt — bật/tắt */
-  reefsOn: boolean;
-  onReefs: (on: boolean) => void;
+  /** Nhóm Độ sâu & đáy (số đo sâu · đẳng sâu · chất đáy · rạn/đá) */
+  groupDepthOn: boolean;
+  onGroupDepth: (on: boolean) => void;
+  /** Nhóm Báo hiệu & nguy hiểm (phao/đèn/xác tàu/luồng/cáp/vùng cấm/khu tránh trú bão) */
+  groupNavOn: boolean;
+  onGroupNav: (on: boolean) => void;
+  /** Nhóm Tên địa danh ngầm (tên núi/đồi/hố ngầm) */
+  groupNameOn: boolean;
+  onGroupName: (on: boolean) => void;
+  chartDetailOn: boolean;
+  onChartDetail: (on: boolean) => void;
+  /** mở sheet chú giải ký hiệu — không truyền = không hiện nút */
+  onLegend?: () => void;
 }) {
   return (
     <div>
@@ -733,7 +765,7 @@ function HaiDoPanel({
                   <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
                     {def.label}
                   </span>
-                  <span className="flex items-center gap-1 text-[0.6875rem] leading-tight text-foreground/65">
+                  <span className="flex items-center gap-1 text-[0.8125rem] leading-tight text-foreground/75">
                     <span
                       className="h-1.5 w-1.5 rounded-full"
                       style={{ background: cad.dot }}
@@ -760,30 +792,83 @@ function HaiDoPanel({
       {/* NHÃN ĐẢO tiếng Việt LUÔN hiện trên hải đồ (chi tiết chủ quyền, không
           tắt được). TUYẾN TÀU thì cho tắt vì có bà con thích bản đồ thoáng. */}
       <div className="mt-2 border-t border-line pt-2">
+        {/* CÔNG TẮC TỔNG cụm hải đồ (2026-09-02) — phao đèn, báo hiệu chính
+            thức, đèn biển, số đo sâu, đoạn luồng. Một chạm cho bà con muốn
+            màn thoáng; công tắc con bên dưới tinh chỉnh từng lớp. CHỈ là
+            chuyện nhìn — dữ liệu vẫn tải đủ về máy. */}
         <Toggle
-          label="Tuyến tàu, luồng lạch"
-          sub="Gồm cáp ngầm, giàn khoan, vùng cấm — tham khảo, không thay hải đồ chính thức"
-          on={lanesOn}
-          onToggle={() => onLanes(!lanesOn)}
+          label="Hải đồ chi tiết"
+          sub="Bật là hiện cả hải đồ — độ sâu, báo hiệu, tên; tự lộ chi tiết khi phóng to"
+          on={chartDetailOn}
+          onToggle={() => onChartDetail(!chartDetailOn)}
           icon={
             <span style={{ color: "var(--t1)" }}>
               <AnchorIcon className="h-5 w-5" />
             </span>
           }
         />
-        {/* Đá ngầm / rạn / bãi cạn có tên tiếng Việt — lớp riêng, mặc định bật:
-            đúng thứ bà con hỏi "sao không thấy đá ngầm". Teal cho đá chìm. */}
+        {/*  BA NHÓM (chủ dự án 2026-09-03) — gom 6 công tắc con về 3 nhóm theo
+            cách bà con đọc hải đồ. Đều nằm dưới "Hải đồ chi tiết" ở trên. */}
         <Toggle
-          label="Đá ngầm, rạn"
-          sub="Đá ngầm, bãi cạn có tên tiếng Việt — tham khảo, không thay hải đồ chính thức"
-          on={reefsOn}
-          onToggle={() => onReefs(!reefsOn)}
+          label="Độ sâu & đáy"
+          sub="Số đo sâu, đường đẳng sâu, chất đáy, đá ngầm/rạn — chỗ cạn và nơi cá về"
+          on={groupDepthOn}
+          onToggle={() => onGroupDepth(!groupDepthOn)}
           icon={
             <span style={{ color: "var(--t1)" }}>
               <DepthIcon className="h-5 w-5" />
             </span>
           }
         />
+        {/*  KHU TRÁNH TRÚ BÃO chuyển từ nhóm "Tên & nơi trú" sang đây
+             (reviewer 2026-09-03): nó là NƠI CHẠY TỚI lúc nguy, cùng loại việc
+             "đi lại an toàn" với phao/đèn/xác tàu — không phải chuyện tên gọi.
+             fishing-map-view đổi gate lớp `khu-tru-bao-dot` sang groupNavOn. */}
+        <Toggle
+          label="Báo hiệu & nguy hiểm"
+          sub="Phao, đèn, xác tàu, luồng, cáp, vùng cấm, khu trú bão"
+          on={groupNavOn}
+          onToggle={() => onGroupNav(!groupNavOn)}
+          icon={
+            <span style={{ color: "var(--t1)" }}>
+              <AnchorIcon className="h-5 w-5" />
+            </span>
+          }
+        />
+        <Toggle
+          label="Tên địa danh ngầm"
+          sub="Tên núi/đồi/hố ngầm dưới biển — để định vị ngư trường"
+          on={groupNameOn}
+          onToggle={() => onGroupName(!groupNameOn)}
+          icon={
+            <span style={{ color: "var(--t1)" }}>
+              <LayersIcon className="h-5 w-5" />
+            </span>
+          }
+        />
+        {/*  "KÝ HIỆU LÀ GÌ?" — cùng khuôn hàng với Toggle (bg-field, bo xl,
+             icon + chữ), nhưng là NÚT MỞ SHEET chứ không phải công tắc: có mũi
+             tên phải, không có cần gạt. Tap ≥56px (03 §Tap tối thiểu). */}
+        {onLegend && (
+          <button
+            type="button"
+            onClick={onLegend}
+            className="mt-2 flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl bg-field px-3 text-left transition active:scale-[0.99]"
+          >
+            <span className="shrink-0" style={{ color: "var(--t1)" }}>
+              <AlertIcon className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
+                Ký hiệu là gì?
+              </span>
+              <span className="block text-[0.8125rem] text-foreground/75">
+                Xem hình phao, đèn, xác tàu, cáp… và nghĩa của từng hình
+              </span>
+            </span>
+            <ChevronRightIcon className="h-5 w-5 shrink-0 text-navy/75" />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -935,7 +1020,7 @@ function ThoiTietPanel({
               </span>
               <span
                 className={`block text-[0.8125rem] leading-snug ${
-                  stormInfo.cu ? "font-bold text-warn" : "text-foreground/65"
+                  stormInfo.cu ? "font-bold text-warn" : "text-foreground/75"
                 }`}
               >
                 {stormInfo.checkedAt != null
@@ -1026,7 +1111,7 @@ function ThoiTietPanel({
         onToggle={() => onScalar(scalarKind === "ssha" ? null : "ssha")}
         icon={<EddyIcon className="h-5 w-5 text-t4" />}
       />
-      <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/60">
+      <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/75">
         Mọi lớp đều là số liệu tham khảo; nguồn có thể tạm gián đoạn và sẽ báo
         “thử lại”. Gió/sóng tại ĐIỂM xem ở sheet khi chạm.
       </p>
@@ -1233,7 +1318,7 @@ function RadioCard({
         <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
           {title}
         </span>
-        <span className="block text-[0.6875rem] text-foreground/65">{sub}</span>
+        <span className="block text-[0.8125rem] text-foreground/75">{sub}</span>
       </span>
     </button>
   );
@@ -1334,7 +1419,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
               />
             </div>
           ))}
-          <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/60">
+          <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/75">
             Các ranh giới trên chỉ để hình dung (dữ liệu VMS{" "}
             {VMS_ZONES_UPDATED.split("-").reverse().join("/")}) — ranh chính
             thức tra Chi cục Thủy sản.
@@ -1397,7 +1482,7 @@ function ToolsPanel({
               Xoá, đo lại
             </button>
           )}
-          <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/55">
+          <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/75">
             Khoảng cách đường chim bay (không theo tuyến né cạn). Đổi đơn vị
             hải lý/km ở Cài đặt.
           </p>
@@ -1437,7 +1522,7 @@ function Toggle({
           {label}
         </span>
         {sub && (
-          <span className="block text-[0.6875rem] text-foreground/65">{sub}</span>
+          <span className="block text-[0.8125rem] text-foreground/75">{sub}</span>
         )}
       </span>
       <span

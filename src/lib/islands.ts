@@ -30,19 +30,33 @@ export type LaneKind =
   | "tuyen" // tuyến hàng hải lớn (vẽ tay, có `ten`)
   | "luong" // luồng vào cảng (fairway)
   | "phanluong" // sơ đồ phân luồng / traffic separation
-  | "cap" // cáp/ống ngầm
-  | "vungcam" // vùng cấm / khu hạn chế (outline)
+  | "cap" // cáp ngầm (quang / điện) — `loai`: quang | dien | chua-ro
+  | "ong" // ỐNG DẪN ngầm (khí / dầu / nhiên liệu / nước / xả) — tách khỏi cáp 2026-09-03
+  | "cap-bo" // điểm cập bờ cáp quang quốc tế tại trạm VN (Point, có `tram`)
+  | "vungcam" // vùng cấm / khu hạn chế (outline) — `loai`: cam-neo | cam-danh-bat | cam-vao | han-che
   | "giankhoan"; // giàn khoan / công trình biển (điểm)
 
-/** Loại tuyến vẽ dạng đường (LineString); `giankhoan` là điểm (Point). */
+/** Loại tuyến vẽ dạng đường (LineString); `giankhoan` + `cap-bo` là điểm (Point). */
 export const LANE_KINDS: LaneKind[] = [
   "tuyen",
   "luong",
   "phanluong",
   "cap",
+  "ong",
+  "cap-bo",
   "vungcam",
   "giankhoan",
 ];
+
+/** Kind vẽ dạng điểm — dùng cho bất biến hình học trong test. */
+export const LANE_POINT_KINDS: readonly LaneKind[] = ["giankhoan", "cap-bo"];
+
+/**
+ * Kind là VÙNG → Polygon khép kín (R1 2026-09-03: symbol `point` trên
+ * LineString bị MapLibre đặt ở đỉnh đầu từng mảnh cắt ô, không phải tâm).
+ * Ngoại lệ: way OSM hở giữ LineString kèm `hoDang: true` (không tự khép).
+ */
+export const LANE_POLYGON_KINDS: readonly LaneKind[] = ["vungcam"];
 
 /**
  * Ký tự Hán/CJK bị CẤM trong nhãn: CJK cơ bản + mở rộng A + nét + ký hiệu +

@@ -7,6 +7,7 @@ last_verified: 2026-08-18
 <!-- re-verified: 2026-08-18b — `public/sw.js` CÓ ĐỔI (gói F push server): CHỈ ở options của `showNotification` trong nhánh `push` — thêm `{tag: data.tag, renotify: true}` khi payload có `tag` (bão `bao-<khoá>`, đơn `don-<id>`; tin tay không tag → như cũ). KHÔNG chạm `SHELL`/`CRITICAL_SHELL`/tên kho/danh sách cache/allowlist `/api/*`/khoá `forfish.*` ⇒ bộ ca §1–§2 KHÔNG đổi. THÊM ca **N-8** (gom thông báo cùng `tag`) và ghi chú CHẠY LẠI **N-4** vì `/api/push/ack` + `/api/me/messages/read` nay BỎ QUA endpoint không có trong `push_subscriptions` (`counted:0`) — máy đã huỷ đăng ký/endpoint bịa không được đếm nữa. Delta gọi ca mới là "N-6" nhưng N-6/N-7 đã có (đặt hàng / chợ tin) → đánh số N-8. -->
 <!-- re-verified: 2026-08-18 - doi chieu bo ca QA voi `public/sw.js` hien tai (ban doi lan cuoi 2026-08-07, mach nay KHONG dung sw.js): 5 kho + ten kho (`sdfish-v6`/`static-v1`/`rsc-v1`/`api-v1`/`tiles-v1`), `SHELL`/`CRITICAL_SHELL`, dau `/__sdfish-shell-ready`, allowlist 9 route `/api/*` va luat cuu 401/403 - tat ca van khop cau chu trong TC-01..TC-13. Them ba ca N-5 (ve tuyen khi chua hoi duoc tin bao) - N-6 (dat hang khi song chap chon, khong duoc ra hai don) - N-7 (cho tin khi mat song), va mot ghi chu dau N-7 tro ve ADR 0004 de lan sau khong ai mo rong ca nay thanh 'kiem co cache chua'. -->
 ttl_days: 120
+<!-- DOC-STATUS: SUSPECT (2026-09-03) — code 'public/sw.js' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 
 <!-- re-verified: 2026-08-07 — sw.js CÓ ĐỔI Ở `CRITICAL_SHELL` (đụng danh sách cache ⇒ theo luật phải soi): THÊM 2 asset tĩnh `/data/vn-islands.v1.json` + `/data/vn-sea-lanes.v1.json` và 4 dải font (`Noto Sans Regular` + `Bold` × `256-511`, `7680-7935` — dấu tiếng Việt cho nhãn đảo/tuyến). KHÔNG bỏ URL nào, KHÔNG đổi tên kho, KHÔNG đổi hình dạng entry, KHÔNG đụng khoá `forfish.*` ⇒ **THÊM url, không cần bump** `SDFISH_CACHE_V` (giữ `sdfish-v6`); `c.add` lúc install tự nhét vào kho đang dùng. Bốn câu soi offline: (a) KHÔNG request runtime mới — hai asset cùng-origin, MapLibre nạp qua kho SW; (b) đụng SHELL nhưng chỉ THÊM (an toàn); (c) KHÔNG đè/xoá dữ liệu đã tải; (d) file tĩnh nằm sẵn trong máy như isobaths/coast, không cần nhánh đọc-bản-lưu riêng. **Ca cần chạy đợt tới**: TC-04 (đã thêm bước 5) — mất sóng, zoom Hoàng Sa/Trường Sa/ven bờ, tên đảo tiếng Việt phải hiện ĐỦ DẤU (không ô vuông); toggle "Tuyến tàu" bật/tắt được. Còn lại bộ bắt buộc §2 KHÔNG đổi hành vi. -->
@@ -319,6 +320,28 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 | N-8 | **Cài bản mới lúc sóng chập chờn** (bóp băng thông rồi mở app để nó tự cập nhật) | Cài hỏng cũng **KHÔNG làm hỏng bản đang chạy** — ra khơi vẫn mở được app như trước khi cập nhật |
 | N-9 | **Lưới toạ độ offline.** Bật lớp lưới toạ độ khi mất sóng | Vẫn thấy **số độ vĩ/kinh** (trước đây mất hết số, im lặng) |
 | N-10 | **Chip "đã lưu" nói thật.** Để máy có đủ dữ liệu rồi chờ qua ngày xa nhất của bản dự báo | Chip đổi sang **"Dự báo đã lưu hết hạn — chạm tải lại"**, KHÔNG còn xanh "Đã lưu đủ — tới ngày &lt;ngày đã qua&gt;" |
+
+### 3c. Đợt hải đồ 2026-09-03c — rà offline trước phát hành (biên bản tự động + việc còn phải test tay)
+
+Đợt này đụng `sw.js` (thêm `PMTILES_ARCHIVES` chat-day, bump `SDFISH_BASEMAP_V` v1→v2, thêm 9 file `/data` vào CRITICAL_SHELL), sinh lại sprite (87 ô) và đổi nội dung 21 file data giữ nguyên đường dẫn ⇒ **chạy trọn bộ bắt buộc ở §2**. Những gì đã kiểm được bằng máy (bản `next build` + `next start` cổng 3100, Chrome, 2026-09-03):
+
+| Kiểm gì | Kết quả |
+|---|---|
+| 43 URL trong CRITICAL_SHELL / SHELL / PMTILES_ARCHIVES có thật trên server (một 404 là `addAll` hỏng cả lượt cài) | **43/43** (200/206) |
+| Mọi asset `src/` tham chiếu (`/data/*`, `/icons/*`, `/fonts/*`) có trong SW | đủ (2 mục "thiếu" là icon manifest và URL gốc sprite — không phải request thật) |
+| 21 file đổi nội dung giữ đường dẫn có được làm mới không | CRITICAL: `addAll` + `cache:"reload"` + `put` ghi đè mỗi lần SW cài; `precacheOne` tải lại URL không băm tên ⇒ **không cần bump vỏ**; pmtiles sinh lại ⇒ đã bump `basemap-v2` |
+| SW cài trên bản build | active + controller; kho `sdfish-v6` **30/30 sống-còn + 10/10 mức 2**, dấu `/__sdfish-shell-ready` có |
+| Kho trả sprite (4 file) / font / data theo **URL tuyệt đối** (dạng MapLibre xin sau sửa `chartSpriteUrl()`) | 15/15 trả 200 từ kho |
+| Nhánh Range cho kho pmtiles MỚI | `chat-day` 206 `bytes 0-16383/8108392` 14 ms; `reef-shapes-aca` 206; cả hai tự đổ nguyên file vào `sdfish-basemap-v2` |
+| Test offline tự động | 18 file / 292 test xanh; trọn bộ 3432 xanh |
+
+**Chưa kiểm được bằng máy (phải làm tay theo §2)**: mở bản đồ trên bản build cần tài khoản (cổng test không có cookie phiên) ⇒ TC-03 / TC-04 / N-7 trên máy thật là bắt buộc. Thêm 3 ca:
+
+| # | Kiểm gì | ĐẠT khi |
+|---|---|---|
+| N-11 | **Ký hiệu hải đồ khi mất sóng.** Mở `/ngu-truong` ở hotspot-không-internet, phóng tới cửa Vũng Tàu (z11) | Thấy **hình** phao đỏ/xanh, sao đèn biển, xác tàu, đụn cát bãi — không phải chỉ chữ. (Sự cố 09-01→03: sprite tương đối ⇒ không icon nào vẽ, kể cả online) |
+| N-12 | **Nhãn có dấu gạch.** Xem tuyến "Tuyến Bắc – Nam Biển Đông" (110°Đ 11,8°B z9,5) khi mất sóng | Nhãn hiện đủ chữ kể cả dấu "–". (Đã sửa 2026-09-03c: thêm dải glyph 8192–8447 cho Noto Sans Regular/Bold từ demotiles.maplibre.org + 2 dòng CRITICAL_SHELL; trước đó 309 nhãn tuyến/giàn có gạch không hiện chữ. Cổng test `ocean-map.test` "dải glyph" đối chiếu ký tự thật trong data với dải đang host, và bắt mọi `.pbf` phải nằm trong SW) |
+| N-13 | **Vòng "+N" khi mất sóng.** Cửa Vũng Tàu z9,5 | Có vòng "+18/+9…" và chạm là phóng tới — gom cụm tính trong máy, không cần mạng |
 
 ---
 

@@ -27,6 +27,15 @@
  */
 
 import { timeoutSignal } from "@/lib/abort";
+import {
+  cardinalFromPurposeVN,
+  quadrantFromBodyColour,
+  sideFromBodyColour,
+  sideFromLightColour,
+  sideFromPurposeVN,
+  type CardinalQuadrant,
+  type LateralSide,
+} from "@/lib/chart-symbols";
 
 /** Loại báo hiệu giữ trong dataset — PHẢI khớp `KEEP` của script sinh file. */
 export type SeamarkType =
@@ -319,6 +328,73 @@ export function describeSeamark(m: Seamark): string {
   const light = describeLight(m.light);
   if (light) bits.push(light);
   return bits.join(" · ");
+}
+
+/* ── ĐI QUA PHAO PHÍA NÀO ───────────────────────────────────────────────── */
+
+/** Câu cho từng bên luồng — `{v}` = "phao"/"tiêu". Vùng A: từ biển vào, ĐỎ trái · XANH phải. */
+const LATERAL_PHRASE: Record<Exclude<LateralSide, "unknown">, string> = {
+  port: "Vào luồng: để {v} này bên TRÁI tàu (ra biển thì bên phải)",
+  stbd: "Vào luồng: để {v} này bên PHẢI tàu (ra biển thì bên trái)",
+  "pref-stbd":
+    "Luồng rẽ đôi: luồng chính nằm bên PHẢI {v} — đi luồng chính thì để {v} bên TRÁI tàu",
+  "pref-port":
+    "Luồng rẽ đôi: luồng chính nằm bên TRÁI {v} — đi luồng chính thì để {v} bên PHẢI tàu",
+};
+
+/** Hướng an toàn + hướng nguy hiểm (ngược lại) — nói cả hai để khỏi phải tự suy. */
+const CARDINAL_PHRASE: Record<Exclude<CardinalQuadrant, "unknown">, [string, string]> = {
+  n: ["BẮC", "NAM"],
+  s: ["NAM", "BẮC"],
+  e: ["ĐÔNG", "TÂY"],
+  w: ["TÂY", "ĐÔNG"],
+};
+
+/**
+ * Chạm vào phao thì câu hỏi thật là "tàu tôi đi qua nó phía nào?" —
+ * `describeSeamark` chỉ tả phao, hàm này TRẢ LỜI câu đó bằng lời người đi biển.
+ *
+ *   phao luồng đỏ        → "Vào luồng: để phao này bên TRÁI tàu (ra biển thì bên phải)"
+ *   phao báo hướng Bắc   → "Đi về phía BẮC của phao (chỗ nguy hiểm nằm phía NAM)"
+ *   phao chỗ nguy hiểm   → "Nguy hiểm ngay dưới phao — tránh xa, đừng cắt qua"
+ *   phao nước sâu        → "Nước an toàn quanh phao, đi qua hai bên đều được"
+ *
+ * `purpose` là câu "tác dụng" của Cục Hàng hải (`VnAid.tacDung`) — nguồn đáng
+ * tin nhất, đặt trước màu thân rồi màu đèn, CÙNG thứ tự với `chartSymbolId`
+ * để chữ và hình không bao giờ nói hai điều khác nhau.
+ *
+ * Trả `null` khi KHÔNG BIẾT (phao chuyên dùng, phao luồng không rõ bên, loại
+ * lạ): chỉ bên luồng sai là đưa tàu vào chỗ cạn — thà im còn hơn bịa.
+ */
+export function huongDiQuaPhao(m: Seamark, purpose?: string): string | null {
+  const type = String(m.type);
+  const vat = type.startsWith("beacon") ? "tiêu" : "phao";
+
+  if (type === "buoy_lateral" || type === "beacon_lateral") {
+    let side = sideFromPurposeVN(purpose);
+    if (side === "unknown") side = sideFromBodyColour(m.colour);
+    if (side === "unknown") side = sideFromLightColour(m.light?.colour);
+    if (side === "unknown") return null;
+    return LATERAL_PHRASE[side].replace(/\{v\}/g, vat);
+  }
+
+  if (type === "buoy_cardinal" || type === "beacon_cardinal") {
+    let q = cardinalFromPurposeVN(purpose);
+    if (q === "unknown") q = quadrantFromBodyColour(m.colour);
+    if (q === "unknown") return null;
+    const [anToan, nguyHiem] = CARDINAL_PHRASE[q];
+    return `Đi về phía ${anToan} của ${vat} (chỗ nguy hiểm nằm phía ${nguyHiem})`;
+  }
+
+  if (type === "buoy_isolated_danger" || type === "beacon_isolated_danger") {
+    return `Nguy hiểm ngay dưới ${vat} — tránh xa, đừng cắt qua`;
+  }
+
+  if (type === "buoy_safe_water" || type === "beacon_safe_water") {
+    return `Nước an toàn quanh ${vat}, đi qua hai bên đều được`;
+  }
+
+  return null;
 }
 
 /* ── GIẢI MÃ DATASET ────────────────────────────────────────────────────── */

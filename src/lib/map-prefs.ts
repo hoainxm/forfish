@@ -134,6 +134,21 @@ export function fmtDist(km: number, unit: DistUnit, digits = 0): string {
   return `${formatNumberVN(kmToUnit(km, unit), digits)} ${distUnitLabel(unit)}`;
 }
 
+/*
+  Số đo sâu in trên bản đồ: "12" · "5,2" · "0,8".
+
+  KHÔNG đổi theo đơn vị khoảng cách. Thông báo hàng hải của cơ quan nhà nước
+  ghi bằng MÉT, và đây là con số bà con sẽ đối chiếu với chính tờ thông báo đó
+  hoặc đọc qua bộ đàm — đổi sang feet/sải là tự tạo ra một con số thứ hai cho
+  cùng một chỗ. Hải lý dùng cho quãng đường thì hợp lý; độ sâu thì không.
+
+  Bỏ ",0" vì "12" đọc nhanh hơn "12,0" dưới nắng, và hải đồ giấy cũng in vậy.
+*/
+export function fmtDepthM(m: number): string {
+  const r = Math.round(m * 10) / 10;
+  return Number.isInteger(r) ? String(r) : formatNumberVN(r, 1);
+}
+
 // ── HỆ TOẠ ĐỘ ──────────────────────────────────────────────────────────────
 
 function oneCoord(v: number, fmt: CoordFormat, pos: string, neg: string): string {
