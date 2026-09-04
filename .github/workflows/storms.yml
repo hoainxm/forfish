@@ -42,13 +42,24 @@ on:
         type: boolean
         default: false
 
+# Quyền tối thiểu (rà soát 2026-09-04, mục D): không khai là nhận MẶC ĐỊNH của
+# repo — mà mặc định đó sắp là Read-and-write cho cap-nhat-hai-do đẩy sổ.
+permissions: {}
+
 concurrency:
   group: storms
   cancel-in-progress: false
 
 jobs:
   storms:
+    # CHỈ CHẠY Ở REPO CÔNG TY (rà soát 2026-09-04, mục B): cùng file này nằm ở
+    # cả hai repo; không cổng là hễ repo Long có lại hạn mức Actions thì nguồn
+    # ngoài bị gõ gấp đôi. So sánh chuỗi không phân biệt hoa thường.
+    if: github.repository == 'sdvico/forfish'
     runs-on: ubuntu-latest
+    # Trần thời gian (rà soát 2026-09-04, mục C): mặc định GitHub là 360 phút —
+    # một lần treo tính đủ 6 giờ, bằng 18 % hạn mức tháng.
+    timeout-minutes: 10
     steps:
       # ── 1. GHI KHO. Nhịp THẬT do `nhipQuet()` trong route quyết (ADR 0005):
       #    trời yên 1 lần/ngày · bão còn xa theo mốc nguồn tự hẹn · bão vào gần

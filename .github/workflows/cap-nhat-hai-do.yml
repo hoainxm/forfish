@@ -85,6 +85,9 @@ jobs:
     # KHÔNG tốn phút runner nào.
     if: github.repository == 'sdvico/forfish'
     runs-on: ubuntu-latest
+    # Trần thời gian (rà soát 2026-09-04, mục C): mặc định GitHub là 360 phút —
+    # một lần treo tính đủ 6 giờ, bằng 18 % hạn mức tháng.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 

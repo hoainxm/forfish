@@ -14,13 +14,24 @@ on:
     - cron: "50 5,17 * * *"
   workflow_dispatch: {}
 
+# Quyền tối thiểu (rà soát 2026-09-04, mục D): không khai là nhận MẶC ĐỊNH của
+# repo — mà mặc định đó sắp là Read-and-write cho cap-nhat-hai-do đẩy sổ.
+permissions: {}
+
 concurrency:
   group: refresh-currents-depth
   cancel-in-progress: false
 
 jobs:
   refresh:
+    # CHỈ CHẠY Ở REPO CÔNG TY (rà soát 2026-09-04, mục B): cùng file này nằm ở
+    # cả hai repo; không cổng là hễ repo Long có lại hạn mức Actions thì nguồn
+    # ngoài bị gõ gấp đôi. So sánh chuỗi không phân biệt hoa thường.
+    if: github.repository == 'sdvico/forfish'
     runs-on: ubuntu-latest
+    # Trần thời gian (rà soát 2026-09-04, mục C): mặc định GitHub là 360 phút —
+    # một lần treo tính đủ 6 giờ, bằng 18 % hạn mức tháng.
+    timeout-minutes: 10
     steps:
       - name: Gọi cron precompute
         env:
@@ -30,7 +41,9 @@ jobs:
           # CHỈ CRON_SECRET là bắt buộc. Thiếu APP_BASE_URL vẫn chạy được
           # bằng đích dự phòng bên dưới — trước đây thiếu var là bỏ cả lượt.
           if [ -z "$CRON_SECRET" ]; then
-            echo "::warning::Thiếu secrets.CRON_SECRET — BỎ QUA lượt này (best-effort; client tự rơi về live). Set ở Settings→Secrets and variables→Actions."; exit 0
+            # ĐỎ chứ không xanh-kèm-warning (rà soát 2026-09-04, mục I): đã có cổng
+            # repo nên chỉ chạy ở repo thật; secret mất là phải có người biết.
+            echo "::error::Thiếu secrets.CRON_SECRET — Settings→Secrets and variables→Actions."; exit 1
           fi
           # ── HAI ĐÍCH, THỬ LẦN LƯỢT, DỪNG Ở ĐÍCH ĐẦU TIÊN TRẢ 200 ──────────
           # Chẩn 2026-09-04: ba workflow precompute này ĐỎ suốt ngày (7–16 giây,

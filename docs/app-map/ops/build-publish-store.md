@@ -110,7 +110,7 @@ cd android
 Workflow `.github/workflows/android-release.yml` gộp §3 bước 1–3 + upload Play qua API. **Trigger: bấm tay** (Actions → *Android release* → Run workflow) **hoặc push tag `vX.Y.Z`**. KHÔNG chạy mỗi push — chế độ (a) `server.url` nên đa số cập nhật chỉ cần deploy Vercel, không cần binary.
 
 **Cơ chế:**
-- `versionCode = 10000 + run_number` → tự tăng, đơn điệu, khỏi sửa `build.gradle` tay. `versionName` lấy từ input hoặc tag (`v1.0.4` → `1.0.4`); `build.gradle` đọc qua `-PappVersionCode/-PappVersionName` (fallback giá trị chốt tay khi build local).
+- `versionCode = date -u +%y%j%H%M` (năm·ngày-trong-năm·giờ·phút, vd `262471125` — rà soát Actions 2026-09-04 mục A: KHÔNG dùng run_number vì đó là bộ đếm riêng từng repo, hai repo cùng file là hai bộ đếm, bên nào phát hành số lớn trước là bên kia bị Play từ chối mãi) → tự tăng, đơn điệu ở mọi repo, khỏi sửa `build.gradle` tay. `versionName` lấy từ input hoặc tag (`v1.0.4` → `1.0.4`); `build.gradle` đọc qua `-PappVersionCode/-PappVersionName` (fallback giá trị chốt tay khi build local).
 - Ký bằng keystore khôi phục từ secret → ghi `android/keystore.properties` runtime (không commit).
 - Upload bằng plugin **Gradle Play Publisher** (`com.github.triplet.play`, classpath ở `android/build.gradle`, block `play{}` ở `android/app/build.gradle`) đọc credential từ env `ANDROID_PUBLISHER_CREDENTIALS`. Track mặc định `internal`.
 - KHÔNG chạy `cap add`; chỉ `cap sync` + `npm run icons`. Web là **stub** (`out/index.html`) vì `server.url` load Vercel lúc chạy.
