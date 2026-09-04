@@ -494,7 +494,15 @@ export const TIDE_STATION_LAYER = {
     // nhãn đảo/rạn giấu mất trạm: cho phép chồng như đèn biển
     "icon-allow-overlap": true,
     "icon-ignore-placement": true,
-    "icon-anchor": "center",
+    /*  ĐẶT SANG BÊN PHẢI ĐIỂM, không đè lên điểm (chủ dự án 2026-09-04, ảnh
+        thật: trạm tại cảng nằm ĐÚNG toạ độ cảng ⇒ khối nước chui dưới ghim
+        cảng nhà, nhãn trạm đè nhãn ghim). Ghim HTML (cảng nhà, chỗ ghim, tàu)
+        luôn vẽ TRÊN mọi lớp MapLibre và chiếm phần trên + nhãn phía dưới của
+        điểm; phao/đèn chiếm đúng tâm. Bên phải là ô còn trống ở mọi cảng. Cùng
+        luật cho cả trạm vùng để một ký hiệu chỉ có một cách đặt. */
+    "icon-anchor": "left",
+    // đơn vị px của ô icon (nhân icon-size): tâm khối cách điểm ~20–30 px
+    "icon-offset": [9, 0],
   },
 } as const;
 
@@ -507,9 +515,24 @@ export const TIDE_STATION_LABEL_LAYER = {
     "text-field": ["step", ["zoom"], ["get", "ten"], TIDE_STATION_TREND_MINZOOM, ["get", "nhan9"]],
     "text-font": ["Noto Sans Bold"],
     "text-size": ["interpolate", ["linear"], ["zoom"], 7, 12, 12, 15],
-    // icon to hơn ⇒ đẩy tên xuống theo, không đè lên khối nước
-    "text-offset": [0, 1.35],
-    "text-anchor": "top",
+    /*  Tên nối tiếp bên phải khối nước, canh giữa theo chiều cao: chừa trống
+        phía dưới điểm cho nhãn ghim cảng nhà / tên cảng. Khoảng lùi (em) nở
+        theo zoom vì icon-size nở còn em thì không — 2,2 em @z7 ≈ 9 + 26 px;
+        3,6 em @z13 ≈ 9 + 43 px. */
+    "text-anchor": "left",
+    "text-justify": "left",
+    // mảng trong biểu thức PHẢI bọc ["literal", …] — không bọc là MapLibre từ chối cả lớp
+    "text-offset": [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      7,
+      ["literal", [2.3, 0]],
+      9,
+      ["literal", [2.9, 0]],
+      13,
+      ["literal", [3.6, 0]],
+    ],
     "text-allow-overlap": false,
     "text-padding": 4,
   },
