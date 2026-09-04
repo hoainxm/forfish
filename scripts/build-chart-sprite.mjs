@@ -301,33 +301,49 @@ const lighthouseShape = () => {
  *      giữ tương phản (viền đứt là để nước lộ qua khe, mất vành dưới nắng).
  *  Ruột cắt theo chính khung cột (clipPath) nên không màu nào lọt ra ngoài
  *  viền ở bốn góc bo. */
+/*  BẢN 2 (chủ dự án cùng ngày: "icon thay vì gạch ngang thì dùng cái lượn
+    sóng cho đẹp, đừng làm cái viền chữ nhật mà dạng không viền"):
+      · KHÔNG khung, KHÔNG viền INK — chỉ một KHỐI NƯỚC màu, đáy bo tròn, MẶT
+        TRÊN LƯỢN SÓNG (mặt nước). Khối cao 30 / 55 / 80 % của ô theo mực;
+      · lên = BLUE + ▲ INK trên mặt sóng · xuống = RED + ▼ · đứng = SLATE,
+        chỉ mặt sóng, không mũi tên;
+      · trạm mô hình: khối kẻ SỌC ngang (khe trong suốt, không trắng).
+    Ngoại lệ có đo của luật "mọi ký hiệu có viền INK" (đầu file, mục 2): viền
+    sinh ra để cứu VÀNG/TRẮNG chuẩn IALA (1,3–1,4:1 trên nước); ba ruột ở đây
+    tự đạt 3,77 / 3,99 / 4,26:1 trên nền nước nên cổng "vành ngoài ≥3:1" của
+    chart-symbols.test vẫn đo và vẫn xanh — không phải bỏ luật, là luật đã thoả
+    bằng chính màu ruột. */
 const tideGauge = (trend, level, model) => {
-  const GX = 4.6;
-  const GY = 3;
-  const GW = 8.4;
-  const GH = 18;
-  const R = 2;
-  const pct = [0.3, 0.55, 0.8][level - 1];
+  const X0 = 5.4;
+  const X1 = 18.6;
+  const YB = 21.6; // đáy khối
+  const H = [0.3, 0.55, 0.8][level - 1] * 16; // 4,8 · 8,8 · 12,8
+  const yt = YB - H; // đường mặt nước (giữa sóng)
+  const A = 1.3; // biên độ sóng
+  const xm = (X0 + X1) / 2;
+  const q = (x, y) => `${x.toFixed(2)},${y.toFixed(2)}`;
+  // mặt sóng: hai gợn — lên trái, xuống giữa — rồi thành phải, đáy bo tròn
+  const body =
+    `M${q(X0, yt)} Q${q(X0 + 3.3, yt - A * 2)} ${q(xm, yt)} Q${q(xm + 3.3, yt + A * 2)} ${q(X1, yt)}` +
+    ` V${q(X1, YB - 2)} Q${q(X1, YB)} ${q(X1 - 2, YB)} H${q(X0 + 2, YB)} Q${q(X0, YB)} ${q(X0, YB - 2)} Z`;
   const color = trend === "up" ? BLUE : trend === "down" ? RED : SLATE;
-  const fillH = GH * pct;
-  const fillY = GY + GH - fillH;
   const inner = model
-    ? // sọc ngang 1,6 màu / 1,0 trắng từ mặt nước xuống đáy
-      Array.from({ length: Math.ceil(fillH / 2.6) }, (_, i) =>
-        el("rect", { x: GX, y: (fillY + i * 2.6).toFixed(2), width: GW, height: Math.min(1.6, fillY + fillH - (fillY + i * 2.6)).toFixed(2), fill: color }),
+    ? // sọc ngang 1,7 màu / 1,1 trong suốt, từ đỉnh sóng xuống đáy, cắt theo khối
+      Array.from({ length: Math.ceil((YB - (yt - A)) / 2.8) }, (_, i) =>
+        el("rect", { x: X0, y: (yt - A + i * 2.8).toFixed(2), width: X1 - X0, height: 1.7, fill: color }),
       ).join("")
-    : el("rect", { x: GX, y: fillY.toFixed(2), width: GW, height: fillH.toFixed(2), fill: color });
+    : el("path", { d: body, fill: color });
+  // mũi tên nằm TRÊN mặt sóng, cách đỉnh sóng 0,8; cao 4,6
+  const ya = yt - A - 0.8;
   const arrow =
     trend === "up"
-      ? el("path", keyed({ d: "M15,14.4 L18.2,9.4 L21.4,14.4 Z", fill: INK }))
+      ? el("path", keyed({ d: `M${q(xm - 3.4, ya)} L${q(xm, ya - 4.6)} L${q(xm + 3.4, ya)} Z`, fill: INK }))
       : trend === "down"
-        ? el("path", keyed({ d: "M15,9.6 L18.2,14.6 L21.4,9.6 Z", fill: INK }))
-        : el("path", keyed({ d: "M15.2,12 H21.2", fill: "none", "stroke-width": K + 1.2 }));
+        ? el("path", keyed({ d: `M${q(xm - 3.4, ya - 4.6)} L${q(xm, ya)} L${q(xm + 3.4, ya - 4.6)} Z`, fill: INK }))
+        : "";
   return (
-    el("defs", {}, el("clipPath", { id: "g" }, el("rect", { x: GX, y: GY, width: GW, height: GH, rx: R }))) +
-    el("rect", { x: GX, y: GY, width: GW, height: GH, rx: R, fill: WHITE }) +
-    el("g", { "clip-path": "url(#g)" }, inner) +
-    el("rect", keyed({ x: GX, y: GY, width: GW, height: GH, rx: R, fill: "none" })) +
+    el("defs", {}, el("clipPath", { id: "g" }, el("path", { d: body }))) +
+    (model ? el("g", { "clip-path": "url(#g)" }, inner) : inner) +
     arrow
   );
 };

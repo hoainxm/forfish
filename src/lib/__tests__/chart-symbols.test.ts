@@ -806,7 +806,8 @@ describe("ký hiệu trạm con nước (cột nước, kiểu máy hải đồ)
       let ink = 0;
       const c = cellOf(PNG_2X, SHEET_2X[id]);
       for (let i = 3; i < c.px.length; i += 4) if (c.px[i] > 200) ink++;
-      expect(ink, `${id} gần rỗng`).toBeGreaterThan(200);
+      // mực thấp nhất (30 %) kẻ sọc là ô nhỏ nhất bộ — ~110 px đặc ở @2x
+      expect(ink, `${id} gần rỗng`).toBeGreaterThan(80);
     }
   });
 
@@ -953,24 +954,25 @@ const LOCKED_CELLS: Record<string, string> = {
   wreck: "eb6bbc053ac6262c",
   "wreck-depth": "1cb5068266a3148c",
   // trạm con nước — cột nước (2026-09-04): 3 chiều × 3 mực × {đo, ước tính}
-  "tide-up-1": "a225361944ee96d8",
-  "tide-up-1-uoc": "4e3d198fece5b3a7",
-  "tide-up-2": "feb6e5674978b419",
-  "tide-up-2-uoc": "bb1d88c66bf057de",
-  "tide-up-3": "6792c85889f31a28",
-  "tide-up-3-uoc": "7e37eb8e82645755",
-  "tide-down-1": "c741b34cf3ab0fab",
-  "tide-down-1-uoc": "af232508418339c2",
-  "tide-down-2": "f551171f86f62266",
-  "tide-down-2-uoc": "d8c37c1f4025e0ae",
-  "tide-down-3": "5d45c0e3a1e830d9",
-  "tide-down-3-uoc": "5cbbaebd66ae896d",
-  "tide-flat-1": "188fac2f9910e30c",
-  "tide-flat-1-uoc": "01fc5cdb1dbe4b81",
-  "tide-flat-2": "3275e7e1a7c8e082",
-  "tide-flat-2-uoc": "8811fa8e02960ca4",
-  "tide-flat-3": "3e4659f3cc6f9c87",
-  "tide-flat-3-uoc": "1a0f52676e370e48",
+  // bản 2 cùng ngày: khối nước KHÔNG viền, mặt sóng (chủ dự án: "đừng làm viền chữ nhật")
+  "tide-up-1": "f64d6247e3b0c85e",
+  "tide-up-1-uoc": "fe6b60dc717887da",
+  "tide-up-2": "2777bbe7d0d540dc",
+  "tide-up-2-uoc": "38ead6390fe0495c",
+  "tide-up-3": "8e894f1f34731739",
+  "tide-up-3-uoc": "b6c5e6ff38e01a51",
+  "tide-down-1": "e3dbe5223695eecc",
+  "tide-down-1-uoc": "28ead6e363b54a4f",
+  "tide-down-2": "9e464efad7d020aa",
+  "tide-down-2-uoc": "49bf4a3f7e263ec3",
+  "tide-down-3": "3b717c67aeb62cdb",
+  "tide-down-3-uoc": "79e24439775e540f",
+  "tide-flat-1": "a8d2724d281cc718",
+  "tide-flat-1-uoc": "9a7ca62b9235a2d2",
+  "tide-flat-2": "b4d63d4fb8af19b6",
+  "tide-flat-2-uoc": "d6e55451550d2dd5",
+  "tide-flat-3": "446bf70dc8705083",
+  "tide-flat-3-uoc": "015bc47b63deadb8",
 };
 
 describe("mọi ký hiệu đã chốt giữ nguyên từng pixel", () => {

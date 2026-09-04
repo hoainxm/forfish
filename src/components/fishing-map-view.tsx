@@ -332,7 +332,7 @@ const LEGEND_TIERS: LegendTier[] = [
       { mau: ISLAND_DOT_COLOR, dang: "cham", chu: "Đảo nổi có tên (chữ navy)" },
       { mau: DEPTH_BANDS[DEPTH_BANDS.length - 1].color, dang: "vung", chu: "Dải màu độ sâu: càng sáng càng sâu (0–10 · 10–20 · 20–50 · trên 50 m)" },
       { mau: SEA_LANE_COLOR, dang: "duong", chu: "Tuyến tàu hàng lớn" },
-      { icon: "tide-up-2", chu: "Trạm con nước — cột nước xanh là đang lên, đỏ là đang xuống, cột kẻ sọc là ước tính; chạm xem giờ nước lớn, nước ròng" },
+      { icon: "tide-up-2", chu: "Trạm con nước — khối nước xanh có mũi tên lên là đang lên, đỏ mũi tên xuống là đang xuống, chỉ mặt sóng là nước đứng, kẻ sọc là ước tính; chạm xem giờ nước lớn, nước ròng" },
       { icon: CHART_FEATURE_ICON.seamount, chu: "Núi ngầm — gò lớn dưới đáy, cá đáy hay tụ quanh sườn" },
       { icon: CHART_FEATURE_ICON.knoll, chu: "Đồi ngầm — gò thấp dưới đáy" },
       { icon: CHART_FEATURE_ICON.ridge, chu: "Sống núi ngầm — dải gò dài" },

@@ -309,7 +309,8 @@ const CRITICAL_SHELL = [
       giữa biển — tệ hơn cả việc chưa từng có ký hiệu. 40 KB cho 4 file.
 
       DẤU SINH LẠI SPRITE — sửa dòng này MỖI LẦN chạy build-chart-sprite.mjs:
-        sprite 105 ô, 2026-09-04 (thêm 18 ô cột nước trạm con nước `tide-*`)
+        sprite 105 ô, 2026-09-04 lần 2 (18 ô cột nước `tide-*` vẽ lại: khối
+        nước không viền, mặt sóng — cùng số ô, KHÁC pixel)
       Vì sao phải có: bốn file này giữ NGUYÊN đường dẫn, nhánh asset tĩnh của
       `fetch` là cache-first, và `addAll` + `cache:"reload"` chỉ chạy lúc SW
       CÀI — mà trình duyệt chỉ cài lại khi sw.js ĐỔI BYTE. Sinh lại sprite mà
