@@ -68,6 +68,22 @@ permissions:
 
 jobs:
   canh-nguon:
+    # ═══ CHỈ CHẠY Ở REPO CÔNG TY (chủ dự án chốt 2026-09-04) ═══════════════
+    # File này CÓ MẶT ở cả hai repo — để code hai bên không lệch nhau, và để
+    # ai đọc repo nào cũng thấy đường ống này tồn tại. Nhưng CHẠY thì chỉ một
+    # nơi, vì hai lý do:
+    #
+    #  1. Hạn mức Actions của repo `Long-Forfun/ForFish` đã hết (cùng lý do
+    #     `storms.yml` phải nhờ runner repo công ty gõ hộ). Chạy ở đó là job
+    #     đỏ đều đặn mỗi tuần, không phải vì nguồn hỏng.
+    #  2. Nguy hơn: hai con robot cùng canh một nguồn rồi mỗi đứa đẩy sổ vào
+    #     một remote ⇒ hai cuốn sổ phân kỳ, và người đọc không biết cuốn nào
+    #     là thật. Một nguồn sự thật, một nơi ghi.
+    #
+    # So sánh chuỗi trong biểu thức Actions KHÔNG phân biệt hoa thường, nên
+    # không phải lo `sdvico` viết kiểu gì. Repo khác thì job hiện "skipped",
+    # KHÔNG tốn phút runner nào.
+    if: github.repository == 'sdvico/forfish'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
