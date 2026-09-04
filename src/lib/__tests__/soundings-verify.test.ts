@@ -22,7 +22,13 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { DEPTH_META } from "../depth-grid";
+import {
+  DEPTH_CLASS_DEEP,
+  DEPTH_CLASS_LABEL,
+  DEPTH_META,
+  decodeDepthGrid,
+  depthClassAt as libDepthClassAt,
+} from "../depth-grid";
 import {
   CONFIDENCE_WEIGHTS,
   FRESH_FULL_DAYS,
@@ -35,7 +41,9 @@ import {
 import type { Provenance } from "../provenance";
 import {
   BIG_GAP_M,
+  CLASS_NAME,
   GRID_META,
+  depthClassAt,
   LAND_Z,
   OUT_OF_DOMAIN_M,
   TBHH_METHOD,
@@ -324,6 +332,46 @@ describe("hằng số chép sang script KHÔNG được trôi khỏi src/lib", (
     expect(GRID_META.step).toBeCloseTo(DEPTH_META.step, 12);
     expect(GRID_META.nLat).toBe(DEPTH_META.nLat);
     expect(GRID_META.nLon).toBe(DEPTH_META.nLon);
+  });
+
+  /*  GIẢI MÃ BIT — CA TỪNG THIẾU (review đợt 4, N5). Chú thích đầu script
+      khẳng định "test đối chiếu từng hằng số ở đây" nhưng ca duy nhất chỉ so
+      `GRID_META`; lưới sang 4 bit/6 lớp mà script vẫn dịch 2 bit, chỉ số vẫn
+      nằm trong mảng (file to gấp đôi) nên KHÔNG ném, chỉ ghi lớp sai vào
+      `soundings-verified.v1.json`. So hằng số không bắt được kiểu lỗi đó — phải
+      so KẾT QUẢ, trên chính file .bin thật. */
+  it("depthClassAt của script cho ĐÚNG lớp như depth-grid.ts trên file .bin thật", () => {
+    const raw = new Uint8Array(readFileSync(join(DATA, "depth-grid.v1.bin")));
+    const grid = decodeDepthGrid(
+      raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as ArrayBuffer,
+    );
+    /*  Rải khắp vùng lưới (5–23°B, 102–118°Đ) chứ không lấy vài điểm quen: hai
+        cách đóng gói khác nhau vẫn trùng nhau ở kha khá ô, nên ca này phải quét
+        đủ rộng để chắc chắn có ô lệch nếu công thức trôi. */
+    let daSo = 0;
+    const lech: string[] = [];
+    const gapLop = new Set<number | null>();
+    for (let a = 0; a < 60; a++) {
+      for (let b = 0; b < 60; b++) {
+        const lat = 5.5 + a * 0.29;
+        const lon = 102.5 + b * 0.25;
+        const thu = depthClassAt(raw, lat, lon);
+        const chuan = libDepthClassAt(grid, lat, lon);
+        gapLop.add(chuan);
+        if (thu !== chuan)
+          lech.push(`${lat.toFixed(2)},${lon.toFixed(2)}: ${thu} ≠ ${chuan}`);
+        daSo++;
+      }
+    }
+    expect(daSo).toBe(3600);
+    expect(lech.slice(0, 5)).toEqual([]);
+    // cổng chống-test-rỗng: phải chạm ĐỦ LOẠI lớp, không phải toàn "đủ sâu"
+    expect(gapLop.size).toBeGreaterThanOrEqual(3);
+  });
+
+  it("bảng tên lớp của script dài đúng bằng thang lớp của lib", () => {
+    expect(CLASS_NAME).toHaveLength(Object.keys(DEPTH_CLASS_LABEL).length);
+    expect(CLASS_NAME).toHaveLength(DEPTH_CLASS_DEEP + 1);
   });
 
   it("tâm ô luôn cách điểm không quá nửa đường chéo ô 15″ (~318 m)", () => {

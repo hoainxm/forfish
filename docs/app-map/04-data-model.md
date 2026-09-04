@@ -7,7 +7,7 @@
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
 last_verified: 2026-08-19
 ttl_days: 180
-<!-- DOC-STATUS: SUSPECT (2026-09-03) — code 'src/lib/documents.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-09-04) — code 'src/lib/documents.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-07-29 — documents.ts GỠ demoDocuments (dead seed, prod không dùng — app đã lên thật, user mới thấy tủ giấy tờ RỖNG). KHÔNG đổi schema/RLS/shape BoatDocument, không đụng migration/webhook/owned-assets. Xem 02 §4 + 07 §8.1. -->
 <!-- re-verified: 2026-08-18 — ĐỐI CHIẾU 5 vùng covers sau gói C/E/F: (1) `documents.ts` `getExpiryStatus` nay import `SOON_DAYS_DOCS/daysUntil/todayIsoVN/addDaysIso` từ `lib/days.ts`, `days===0` → level `expired` "Hết hạn hôm nay" (khớp bảng §3); (2) `owned-assets.ts` `getServiceDueStatus` dùng `SOON_DAYS_SERVICE=14` + `daysUntil` giờ VN, `requestStatusVN` trả `ok|neutral`; (3) `phone.ts` KHÔNG đổi từ 2026-06-16 (4 export `normalizeVnPhone/phoneToEmail/sanitizePhoneInput/isValidVnPhone` + `PHONE_EMAIL_DOMAIN`, đúng như §5b tả "helper SĐT thuần"; report báo SUSPECT chỉ vì commit tạo file trùng ngày last_verified cũ); (4) `sdwork-webhook.ts` + `supabase/migrations` không có thay đổi mới hôm nay ngoài 0034/0035 đã ghi (commit f078783); (5) `push_messages` không migration mới — chỉ THÊM quy ước `sent_by` `system:storm`/`system:order` + `tag` (ghi ở mục 0023). -->
 <!-- re-verified: 2026-08-19 — GỘP BASE (sync base): migration base 0032/0033/0034/0036/0037 đánh lại số thành 0045/0046/0047/0048/0049 cho khỏi đụng số sdvico; base 0035_market_listings_owner_phone BỎ vì trùng logic 0043 của sdvico. Mọi mục dưới đây dùng SỐ MỚI và trạng thái apply tính theo prod SDVICO (⚠️ CHƯA APPLY), KHÔNG phải prod base. -->
@@ -534,6 +534,23 @@ Cả ba đều đã nằm trong service worker từ trước (CRITICAL_SHELL) n�
 | `vn-islands.v1.json` | Bỏ các điểm ngầm đã có bên reefs; **giữ** cồn cát nổi (4) và hòn/đá NỔI (1) vì lên được | **103 → 72**: `dao` 60 · `quan-dao` 7 · `con` 4 · `da` 1 |
 
 Schema không đổi (`islands.ts`/`reefs.ts` đọc như cũ); chỉ thêm property tuỳ chọn `loai`/`tram` ở sea-lanes. Cả ba vẫn trong CRITICAL_SHELL, không bump.
+
+## 7e. Lưới độ sâu tĩnh — 6 lớp, 4 bit/ô (Đợt 0 tuyến/dẫn đường, sinh lại 2026-09-04)
+
+> `public/data/depth-grid.v1.bin` (**8,53 MB**, cùng đường dẫn — SW `addAll` + `cache:"reload"` ghi đè, KHÔNG bump vỏ). Sinh bởi `scripts/generate-depth-grid.mjs` (ngày chốt nguồn ghim trong file script), giải mã `src/lib/depth-grid.ts` (`DEPTH_META` không đổi: 15″ ≈ 450 m, 4.441 × 3.841 ô, gốc 5°B/102°Đ + nửa bước). Đọc O(1) `depthClassAt`; cỡ file lệch (kể cả bản 2 bit cũ 4,26 MB) → `decodeDepthGrid` ném → `depthChecked=false`. MIỄN PHÍ mọi tài khoản.
+
+| Lớp | Nghĩa | Nguồn quyết định | Luật tuyến (`route-plan.ts`) |
+|---|---|---|---|
+| 0 | ĐẤT LIỀN | tâm ô TRONG đa giác `vn-coast.v1.json` (526 Polygon, scanline theo hàng) **HOẶC** cả ETOPO lẫn GEBCO cùng z > 0 | chặn ngoài 5 km quanh hai đầu; trong 5 km → cờ `hasNearLandLeg` |
+| 1 | mặt nạ rạn/bãi cạn/đá ngầm/xác tàu (OSM `reef-shapes`, nở 1–1,5 km + lấp lòng hồ) | như 2026-08-29, "chỉ hạ không nâng" | chặn ngoài 12 km; trong → `hasVeryShallowLeg` |
+| 2 | nước rất cạn, z ∈ (−2, 0] | min(ETOPO, GEBCO); một nguồn nói đất, nguồn kia nói nước → lớp này | như lớp 1 |
+| 3 | nước cạn, z ∈ (−4, −2] | min hai nguồn | trong 12 km: như lớp 1; **ngoài 12 km: chỉ đi khi `boat.draftM` đã khai và `requiredDepthM = mớn + 0,5 + ½·min(Hs,3) ≤ 2,0 m`** → cờ `hasDraftShallowLeg`; chưa khai mớn → chặn |
+| 4 | nước nông, z ∈ (−12, −4] | min hai nguồn | đi được, `hasShallowLeg` + phạt nhẹ |
+| 5 | đủ sâu (z ≤ −12) + ô thiếu số liệu lẻ tẻ | | tự do |
+
+`DEPTH_CLASS_LABEL` (câu đời thường 6 lớp) và `DEPTH_CLASS_MIN_M` (sàn mét: 2→0, 3→2, 4→4, 5→12, đất/mặt nạ → null) xuất từ `depth-grid.ts` để chỗ khác không đoán ngưỡng. `RoutePlan` thêm `hoursAt[]` (giờ cộng dồn tới từng waypoint — hậu kiểm triều/hiểm hoạ tại ETA), `nearPortOnly` (mọi mẫu lớp 0–3 đều trong bán kính nới hai đầu), `hasDraftShallowLeg`, và chỗ giữ `hazardChecked=false`/`hasHazardLeg`/`hasHazardNearPortLeg` (Đợt 2 nối). `mergeLegPlans` nối `hoursAt` cộng dồn, OR cờ, AND `depthChecked`/`hazardChecked`.
+
+**Vì sao sinh lại** (briefing-03, 2026-09-04): bản 2 bit cũ định nghĩa "đất = z > −2 m" nên bãi bùn ven bờ ở mực nước trung bình thành đất — mẫu 0,1° có 257/19.865 ô NƯỚC theo đường bờ bị coi là đất; Rạch Giá không có tuyến nào ra khơi (null trong 2 ms). Đo thật khi sinh lại: 0→2 **74.904 ô** (nước <2 m từng bị gọi là đất), 0→1 24.017, cũ "rất cạn" tách thành 1 (101.930) và 3 (49.428); ngược lại 6.473 ô nước cũ → đất vì nằm TRONG đa giác bờ giản lược (cụm lớn nhất: phá Tam Giang, Huế — không vịnh sâu nào bị lấp). Phân bố: đất 5,66 M · mặt nạ 126 k (0,74 %) · <2 m 75 k · 2–4 m 49 k · 4–12 m 203 k · đủ sâu 10,94 M. Phát hiện thêm lúc sinh: điểm briefing 10,02°B/104,99°Đ có ETOPO −2 m nhưng GEBCO **+1 m** → luật "min" thuần vẫn cho ra đất; vì thế đất ngoài đa giác bờ đòi CẢ HAI nguồn z > 0 (một nguồn nói đất → lớp 2, vẫn chặn ngoài 12 km). Cổng test `depth-grid.test.ts`: cỡ 4 bit, 4 điểm briefing ≠ 0, dải ven bờ 102–110°Đ ô nước-theo-bờ mang lớp 0 ≤ 1,2 % (đo 0,79 %; phần dư là đảo vn-coast giản lược đã cắt + bờ Campuchia/Thái/Hải Nam — cổng 0,1 % của quyết định thiết kế không đạt được với vn-coast hiện tại), mặt nạ ≤ 2 %, 5 toạ độ sự cố 2026-08-29 + tâm 2.622 hình rạn không "đủ sâu".
 
 ## 8. Cross-references
 

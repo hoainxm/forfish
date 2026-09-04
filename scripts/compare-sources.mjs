@@ -88,13 +88,16 @@ const STEP_15S = 1 / 240;
 
 // Ngưỡng phân lớp độ sâu — PHẢI KHỚP scripts/generate-depth-grid.mjs.
 // Sai lệch mét là một chuyện; thứ THẬT SỰ vào tuyến đi của bà con là LỚP này.
+// Thang 6 lớp từ 2026-09-04 (lớp 1 là mặt nạ rạn OSM, không sinh từ z nên
+// không xuất hiện ở đây; đất theo z chỉ khi z > 0 — đường bờ dập thêm ở script).
 function depthClass(z) {
-  if (z > -2) return 0; // đất
-  if (z > -4) return 1; // rất cạn — tuyến không đi qua
-  if (z > -12) return 2; // nông — đi được, cảnh báo
-  return 3; // đủ sâu
+  if (z > 0) return 0; // đất
+  if (z > -2) return 2; // rất cạn <2 m — tuyến không đi qua
+  if (z > -4) return 3; // cạn 2–4 m — chỉ tàu đã khai mớn, đủ nước
+  if (z > -12) return 4; // nông — đi được, cảnh báo
+  return 5; // đủ sâu
 }
-const CLASS_NAME = ["đất", "rất cạn", "nông", "đủ sâu"];
+const CLASS_NAME = ["đất", "mặt nạ rạn", "rất cạn", "cạn 2–4 m", "nông", "đủ sâu"];
 
 // ── TOÁN CẦU ───────────────────────────────────────────────────────────────
 const rad = (d) => (d * Math.PI) / 180;

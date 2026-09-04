@@ -31,10 +31,16 @@ export function mergeLegPlans(plans: RoutePlan[]): MergedRoute | null {
 
   const waypoints = [...plans[0].waypoints];
   const stopWpIdx: number[] = [waypoints.length - 1];
+  /*  Giờ cộng dồn tới từng waypoint nối theo cùng luật bỏ-điểm-đầu: chặng sau
+      cộng thêm giờ đã chạy tới cuối chặng trước (phần tử cuối của mảng đang
+      nối), để ETA tại mỗi điểm là ETA của CẢ chuyến, không phải của riêng chặng. */
+  const hoursAt = [...plans[0].hoursAt];
   for (let i = 1; i < plans.length; i++) {
     // bỏ điểm ĐẦU của chặng sau — nó chính là điểm cuối chặng trước
     waypoints.push(...plans[i].waypoints.slice(1));
     stopWpIdx.push(waypoints.length - 1);
+    const offset = hoursAt[hoursAt.length - 1] ?? 0;
+    for (const h of plans[i].hoursAt.slice(1)) hoursAt.push(offset + h);
   }
 
   const sum = (pick: (p: RoutePlan) => number) =>
@@ -72,9 +78,27 @@ export function mergeLegPlans(plans: RoutePlan[]): MergedRoute | null {
       hasShallowLeg: some((p) => p.hasShallowLeg),
       hasVeryShallowLeg: some((p) => p.hasVeryShallowLeg),
       hasNearLandLeg: some((p) => p.hasNearLandLeg),
+      hasDraftShallowLeg: some((p) => p.hasDraftShallowLeg),
+      /*  "Cạn chỉ ở cảng" cho CẢ tuyến: phải có ít nhất một chặng nói vậy, và
+          KHÔNG chặng nào có chỗ thấp giữa đường. Một chặng `nearPortOnly=false`
+          có thể là "không có chỗ thấp nào" (vô hại) hoặc "có chỗ thấp xa cảng"
+          — phân biệt bằng cờ thấp của chính nó: có cờ mà không nearPortOnly
+          nghĩa là thấp ở giữa đường. */
+      nearPortOnly:
+        some((p) => p.nearPortOnly) &&
+        plans.every(
+          (p) =>
+            p.nearPortOnly ||
+            !(p.hasNearLandLeg || p.hasVeryShallowLeg || p.hasDraftShallowLeg),
+        ),
+      hoursAt,
       hasFollowingSeaRisk: some((p) => p.hasFollowingSeaRisk),
       // chưa kiểm được MỘT chặng = cả tuyến chưa né được bãi cạn
       depthChecked: plans.every((p) => p.depthChecked),
+      // hiểm hoạ: chưa kiểm MỘT chặng = cả tuyến chưa kiểm; có ở MỘT chặng = cả tuyến có
+      hazardChecked: plans.every((p) => p.hazardChecked),
+      hasHazardLeg: some((p) => p.hasHazardLeg),
+      hasHazardNearPortLeg: some((p) => p.hasHazardNearPortLeg),
       cappedToDirect: some((p) => p.cappedToDirect),
       direct,
       fuelDeltaL: direct ? fuelL - direct.fuelL : null,

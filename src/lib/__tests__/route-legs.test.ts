@@ -30,8 +30,14 @@ function leg(over: Partial<RoutePlan> = {}): RoutePlan {
     hasShallowLeg: false,
     hasVeryShallowLeg: false,
     hasNearLandLeg: false,
+    hasDraftShallowLeg: false,
+    nearPortOnly: false,
+    hoursAt: [0, 8],
     hasFollowingSeaRisk: false,
     depthChecked: true,
+    hazardChecked: false,
+    hasHazardLeg: false,
+    hasHazardNearPortLeg: false,
     cappedToDirect: false,
     direct: null,
     fuelDeltaL: null,
@@ -63,6 +69,21 @@ describe("legRisk — chấm mức lưu ý cho MỘT chặng", () => {
     expect(legRisk(leg({ maxWindKmh: CAUTION_WIND_KMH })).risk).toBe("amber");
   });
 
+  /*  VẬT CHẶN (Đợt 2, 2026-09-04): đỏ và ĐỨNG TRƯỚC mọi cớ khác — chặng đi vào
+      vòng chặn của xác tàu/giàn khoan là mối nguy nặng nhất trong bảng. */
+  it("đỏ: chặng dính vật chặn, thắng cả bãi rất cạn", () => {
+    const r = legRisk(leg({ hasHazardLeg: true, hasVeryShallowLeg: true }));
+    expect(r.risk).toBe("red");
+    expect(r.reason).toContain("vật chìm");
+  });
+
+  /*  Còn cờ SÁT BẾN thì CỐ Ý không đổi màu chặng: cảng nào cũng có lồng bè trong
+      5 km, tô cam cả chặng 200 km vì một cái lồng bè ở bến là làm bà con quen
+      mắt rồi thôi không nhìn nữa. Nó được nói bằng một dòng vàng trên thẻ tuyến. */
+  it("cờ vật sát bến KHÔNG làm chặng đổi màu", () => {
+    expect(legRisk(leg({ hasHazardNearPortLeg: true })).risk).toBe("blue");
+  });
+
   it("ngay DƯỚI ngưỡng chú ý vẫn là xanh (biên không được nhích)", () => {
     expect(legRisk(leg({ maxWaveM: CAUTION_WAVE_M - 0.01 })).risk).toBe("blue");
     expect(legRisk(leg({ maxWindKmh: CAUTION_WIND_KMH - 0.01 })).risk).toBe(
@@ -78,6 +99,7 @@ describe("legRisk — chấm mức lưu ý cho MỘT chặng", () => {
 
   it("mỗi mức đỏ/cam đều KÈM CỚ — không có nhãn cảnh báo trống", () => {
     for (const p of [
+      leg({ hasHazardLeg: true }),
       leg({ hasVeryShallowLeg: true }),
       leg({ hasNearLandLeg: true }),
       leg({ maxWaveM: DANGER_WAVE_M }),

@@ -614,6 +614,10 @@ const EXCLUDED: Array<[string, string]> = [
     "forfish.kicked.v1",
     "mốc MÁY NÀY bị máy khác đăng nhập đá (2026-08-18 G1) — chép sang máy khác là bật thẻ đỏ 'bị đá' cho máy chưa từng bị; đăng nhập lại là tự xoá",
   ],
+  [
+    "forfish.nav.rung.v1",
+    "tắt/bật RUNG khi dẫn đường (2026-09-04, Đợt 3) — chuyện của MÁY NÀY: máy khác có thể không có mô-tơ rung, và ai tắt vì để máy trên giá thì máy mới không có lý do gì phải tắt theo. Mặc định BẬT là phía an toàn (rung là kênh cảnh báo còn tới được khi tiếng máy tàu át chuông), nên chép cái 'tắt' sang máy mới là âm thầm bịt một kênh cảnh báo",
+  ],
 ];
 
 type KeyClass =

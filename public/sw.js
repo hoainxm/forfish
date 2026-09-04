@@ -222,6 +222,10 @@ const CRITICAL_SHELL = [
   // NỀN BẢN ĐỒ LÚC MẤT SÓNG: hình bờ + đảo, đường đẳng sâu, độ sâu tại điểm.
   "/data/vn-coast.v1.json",
   "/data/isobaths.v1.json",
+  /*  Lưới độ sâu 6 lớp, 4 bit/ô — 8,53 MB thô (2026-09-04, trước 4,26 MB ở
+      2 bit/ô). Cùng đường dẫn: `addAll` + `cache:"reload"` ghi đè bản cũ mỗi
+      lần SW cài, KHÔNG bump vỏ; bản cũ lỡ còn trong kho thì
+      `decodeDepthGrid` từ chối theo cỡ file → tuyến báo "chưa kiểm độ sâu". */
   "/data/depth-grid.v1.bin",
   // NHÃN ĐẢO tiếng Việt (ven bờ + Hoàng Sa + Trường Sa) + TUYẾN HÀNG HẢI +
   // RẠN/ĐÁ NGẦM/BÃI CẠN — chi tiết hải đồ, nhãn chủ quyền. Thiếu là giữa biển

@@ -5,11 +5,24 @@
     thì im lặng — hỏng đúng thứ lớp này sinh ra để nói.
     Nên bộ test này KHÔNG dựng lưới giả: nó mở file .bin THẬT trong
     public/data và đối chiếu với DEPTH_META, cộng vài điểm mốc địa lý đã biết
-    để bắt cả ca lệch NEO TOẠ ĐỘ (đúng cỡ file nhưng sai gốc/bước). */
+    để bắt cả ca lệch NEO TOẠ ĐỘ (đúng cỡ file nhưng sai gốc/bước).
+
+    Từ 2026-09-04 (Đợt 0): 6 lớp, 4 bit/ô — 0 đất · 1 mặt nạ rạn · 2 nước <2 m
+    · 3 nước 2–4 m · 4 nước 4–12 m · 5 đủ sâu. Bản 2 bit cũ có cỡ đúng một nửa
+    và PHẢI bị `decodeDepthGrid` từ chối. */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { DEPTH_META, decodeDepthGrid, depthClassAt } from "../depth-grid";
+import {
+  DEPTH_CLASS_DEEP,
+  DEPTH_CLASS_LABEL,
+  DEPTH_CLASS_MIN_M,
+  DEPTH_GRID_BYTES,
+  DEPTH_META,
+  decodeDepthGrid,
+  depthClassAt,
+  type DepthClass,
+} from "../depth-grid";
 
 const BIN = join(process.cwd(), "public", "data", "depth-grid.v1.bin");
 const raw = readFileSync(BIN);
@@ -22,17 +35,22 @@ const grid = () =>
     raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as ArrayBuffer,
   );
 
+const N_CELL = DEPTH_META.nLat * DEPTH_META.nLon;
+/** đọc thẳng theo chỉ số ô — dùng cho các vòng quét toàn khung */
+const rawClassAt = (data: Uint8Array, k: number) => (data[k >> 1] >> ((k & 1) * 4)) & 15;
+
 describe("depth-grid.v1.bin ↔ DEPTH_META", () => {
-  it("cỡ file khớp đúng nLat×nLon ở 2 bit/ô", () => {
-    expect(raw.byteLength).toBe(
-      Math.ceil((DEPTH_META.nLat * DEPTH_META.nLon) / 4),
-    );
+  it("cỡ file khớp đúng nLat×nLon ở 4 bit/ô (2 ô/byte)", () => {
+    expect(DEPTH_GRID_BYTES).toBe(Math.ceil(N_CELL / 2));
+    expect(raw.byteLength).toBe(DEPTH_GRID_BYTES);
   });
 
-  it("decodeDepthGrid từ chối file sai cỡ (dù chỉ lệch 1 byte)", () => {
-    const need = Math.ceil((DEPTH_META.nLat * DEPTH_META.nLon) / 4);
-    expect(() => decodeDepthGrid(new ArrayBuffer(need - 1))).toThrow();
-    expect(() => decodeDepthGrid(new ArrayBuffer(need + 1))).toThrow();
+  it("decodeDepthGrid từ chối file sai cỡ (lệch 1 byte, và cả bản 2 bit cũ)", () => {
+    expect(() => decodeDepthGrid(new ArrayBuffer(DEPTH_GRID_BYTES - 1))).toThrow();
+    expect(() => decodeDepthGrid(new ArrayBuffer(DEPTH_GRID_BYTES + 1))).toThrow();
+    // bản 2 bit/ô (4 ô/byte) trước 2026-09-04 — service worker cũ còn giữ có
+    // thể đưa file này vào; đọc nó theo 4 bit là sai lớp khắp nơi ⇒ phải ném
+    expect(() => decodeDepthGrid(new ArrayBuffer(Math.ceil(N_CELL / 4)))).toThrow();
   });
 
   it("bước lưới đúng 15 giây cung (1/240°) như script sinh ra", () => {
@@ -49,6 +67,18 @@ describe("depth-grid.v1.bin ↔ DEPTH_META", () => {
     expect(lat0 + (nLat - 1) * step).toBeGreaterThanOrEqual(23.5);
     expect(lon0 + (nLon - 1) * step).toBeGreaterThanOrEqual(118);
   });
+
+  it("bảng nhãn + sàn độ sâu đủ 6 lớp, sàn tăng dần theo lớp nước", () => {
+    const classes: DepthClass[] = [0, 1, 2, 3, 4, 5];
+    for (const c of classes) expect(DEPTH_CLASS_LABEL[c].length).toBeGreaterThan(3);
+    expect(DEPTH_CLASS_MIN_M[0]).toBeNull();
+    expect(DEPTH_CLASS_MIN_M[1]).toBeNull();
+    expect(DEPTH_CLASS_MIN_M[2]).toBe(0);
+    expect(DEPTH_CLASS_MIN_M[3]).toBe(2);
+    expect(DEPTH_CLASS_MIN_M[4]).toBe(4);
+    expect(DEPTH_CLASS_MIN_M[5]).toBe(12);
+    expect(DEPTH_CLASS_DEEP).toBe(5);
+  });
 });
 
 describe("đọc lưới thật — điểm mốc địa lý", () => {
@@ -61,17 +91,20 @@ describe("đọc lưới thật — điểm mốc địa lý", () => {
     expect(depthClassAt(g(), 0, 110)).toBeNull();
   });
 
-  it("giữa khơi là nước sâu, đồng bằng là đất liền", () => {
-    expect(depthClassAt(g(), 13, 110.5)).toBe(3); // khơi Nam Trung Bộ
+  it("giữa khơi là nước sâu, đồng bằng/thành phố là đất liền (cổng v)", () => {
+    expect(depthClassAt(g(), 13, 110.5)).toBe(DEPTH_CLASS_DEEP); // khơi Nam Trung Bộ
     expect(depthClassAt(g(), 9.1, 105.1)).toBe(0); // đồng bằng Cà Mau
+    expect(depthClassAt(g(), 10.8, 106.7)).toBe(0); // Sài Gòn
     expect(depthClassAt(g(), 21.0, 105.8)).toBe(0); // Hà Nội
   });
 
-  it("rạn giữa biển hiện ra ở độ phân giải mới (Đá Chữ Thập, đảo Phú Lâm)", () => {
+  it("rạn giữa biển hiện ra ở độ phân giải mới (Đá Chữ Thập, đảo Phú Lâm) — mốc cũ vẫn đúng nghĩa", () => {
     // Ở bước 450 m, một điểm đơn lẻ có thể rơi trúng lòng hồ giữa rạn (sâu
     // thật) — nên soi cả mảng quanh đó, đúng thứ tuyến đường quan tâm.
+    // "Đúng nghĩa" = KHÔNG ĐI QUA ĐƯỢC: đất (0) hoặc mặt nạ rạn (1). Bản 2 bit
+    // cũ đòi đúng 0 vì 0 là "z > −2 m"; nay 0 là đường bờ/z > 0 hai nguồn.
     const worstAround = (lat: number, lon: number, rings: number) => {
-      let w = 3;
+      let w: number = DEPTH_CLASS_DEEP;
       for (let a = -rings; a <= rings; a++) {
         for (let b = -rings; b <= rings; b++) {
           const v = depthClassAt(g(), lat + a * DEPTH_META.step, lon + b * DEPTH_META.step);
@@ -80,19 +113,23 @@ describe("đọc lưới thật — điểm mốc địa lý", () => {
       }
       return w;
     };
-    expect(worstAround(9.55, 112.89, 24)).toBe(0); // Đá Chữ Thập (Trường Sa)
-    expect(worstAround(16.83, 112.33, 12)).toBe(0); // đảo Phú Lâm (Hoàng Sa)
+    expect(worstAround(9.55, 112.89, 24)).toBeLessThanOrEqual(1); // Đá Chữ Thập (Trường Sa)
+    expect(worstAround(16.83, 112.33, 12)).toBeLessThanOrEqual(1); // đảo Phú Lâm (Hoàng Sa)
   });
 
-  it("có đủ cả bốn lớp và biển vẫn chiếm phần lớn khung", () => {
-    const seen = [0, 0, 0, 0];
-    for (let k = 0; k < DEPTH_META.nLat * DEPTH_META.nLon; k++) {
-      seen[(g().data[k >> 2] >> ((k & 3) * 2)) & 3]++;
+  it("có đủ cả sáu lớp, không có mã lạ, và biển vẫn chiếm phần lớn khung", () => {
+    const seen = [0, 0, 0, 0, 0, 0];
+    let odd = 0;
+    const d = g().data;
+    for (let k = 0; k < N_CELL; k++) {
+      const v = rawClassAt(d, k);
+      if (v > DEPTH_CLASS_DEEP) odd++;
+      else seen[v]++;
     }
+    expect(odd).toBe(0);
     for (const n of seen) expect(n).toBeGreaterThan(0);
-    const total = DEPTH_META.nLat * DEPTH_META.nLon;
-    expect(seen[3] / total).toBeGreaterThan(0.5); // khung là vùng biển
-    expect(seen[0] / total).toBeLessThan(0.5);
+    expect(seen[5] / N_CELL).toBeGreaterThan(0.5); // khung là vùng biển
+    expect(seen[0] / N_CELL).toBeLessThan(0.5);
   });
 });
 
@@ -100,9 +137,9 @@ describe("đọc lưới thật — điểm mốc địa lý", () => {
     SỰ CỐ AN TOÀN 2026-08-29 — vì sao có nguyên khối test dưới đây.
 
     Bản lưới trước chỉ dựng từ ETOPO 15". Lấy tâm 25 hình rạn thật trong
-    reef-shapes.v1.json rồi hỏi hai nguồn thì 5 tâm bị xếp lớp 3 "đủ sâu"
-    trong khi GEBCO nói nước sâu 1–2 m. Lớp 3 nghĩa là route-plan.ts VẠCH
-    TUYẾN CHẠY THẲNG QUA — tàu mớn 1,5–3 m đi vào là mắc cạn.
+    reef-shapes.v1.json rồi hỏi hai nguồn thì 5 tâm bị xếp "đủ sâu" trong khi
+    GEBCO nói nước sâu 1–2 m. "Đủ sâu" nghĩa là route-plan.ts VẠCH TUYẾN CHẠY
+    THẲNG QUA — tàu mớn 1,5–3 m đi vào là mắc cạn.
 
     Đây không phải lỗi code sửa một dòng là xong: ô ETOPO rộng ~450 m, mà một
     nửa số hình rạn trong file còn NHỎ HƠN MỘT Ô. Một mô hình 450 m về nguyên
@@ -112,9 +149,9 @@ describe("đọc lưới thật — điểm mốc địa lý", () => {
     ai đó chạy lại script mà quên bật mặt nạ.
 
     Hai vế phải cùng đúng, thiếu vế nào cũng là hỏng:
-      · KHÔNG được còn chỗ rạn nào mang lớp 3 (vá thiếu → mắc cạn)
-      · biển sâu thật vẫn phải là lớp 3 (vá quá tay → báo động giả khắp nơi,
-        bà con tắt cảnh báo, mất luôn tác dụng)
+      · KHÔNG được còn chỗ rạn nào mang lớp "đủ sâu" (vá thiếu → mắc cạn)
+      · biển sâu thật vẫn phải là "đủ sâu" (vá quá tay → báo động giả khắp
+        nơi, bà con tắt cảnh báo, mất luôn tác dụng)
     ───────────────────────────────────────────────────────────────────────── */
 describe("ràng buộc an toàn: rạn không bao giờ là 'đủ sâu'", () => {
   let cache: ReturnType<typeof grid> | null = null;
@@ -152,13 +189,13 @@ describe("ràng buộc an toàn: rạn không bao giờ là 'đủ sâu'", () =>
       const cls = depthClassAt(g(), lat, lon);
       if (cls === null) continue; // vài hình nằm ngoài khung 102–118°Đ
       checked++;
-      if (cls === 3) bad.push(`${f.properties.kind} ${lat.toFixed(4)},${lon.toFixed(4)}`);
+      if (cls === DEPTH_CLASS_DEEP) bad.push(`${f.properties.kind} ${lat.toFixed(4)},${lon.toFixed(4)}`);
     }
     expect(checked).toBeGreaterThan(2000); // đã thật sự quét, không rơi hết vào null
     expect(bad).toEqual([]);
   });
 
-  it("năm toạ độ gây ra sự cố không còn là 'đủ sâu'", () => {
+  it("năm toạ độ gây ra sự cố không còn là 'đủ sâu' (mốc cũ, cổng iv)", () => {
     // GEBCO đo lần lượt: -1, -2, -2, -1, -11 m
     for (const [lat, lon] of [
       [9.761, 116.514],
@@ -169,7 +206,7 @@ describe("ràng buộc an toàn: rạn không bao giờ là 'đủ sâu'", () =>
     ]) {
       const cls = depthClassAt(g(), lat, lon);
       expect(cls, `${lat},${lon} phải bị chặn`).not.toBeNull();
-      expect(cls, `${lat},${lon} vẫn đang là "đủ sâu"`).toBeLessThan(3);
+      expect(cls, `${lat},${lon} vẫn đang là "đủ sâu"`).toBeLessThan(DEPTH_CLASS_DEEP);
     }
   });
 
@@ -190,7 +227,7 @@ describe("ràng buộc an toàn: rạn không bao giờ là 'đủ sâu'", () =>
             const cls = depthClassAt(g(), lat + dy * step, lon + dx * step);
             if (cls === null) continue; // ngoài khung 102–118°Đ
             checked++;
-            if (cls === 3) bad.push(`${f.properties.kind} ${lat.toFixed(4)},${lon.toFixed(4)}`);
+            if (cls === DEPTH_CLASS_DEEP) bad.push(`${f.properties.kind} ${lat.toFixed(4)},${lon.toFixed(4)}`);
           }
         } else arr.forEach(walk);
       };
@@ -206,7 +243,7 @@ describe("chống vá quá tay: biển sâu vẫn phải là 'đủ sâu'", () =
   let cache: ReturnType<typeof grid> | null = null;
   const g = () => (cache ??= grid());
 
-  it("các điểm khơi xa mọi rạn vẫn là lớp 3", () => {
+  it("các điểm khơi xa mọi rạn vẫn là 'đủ sâu'", () => {
     for (const [lat, lon, ten] of [
       [13, 114, "giữa Biển Đông"],
       [13, 110.5, "khơi Nam Trung Bộ"],
@@ -215,33 +252,115 @@ describe("chống vá quá tay: biển sâu vẫn phải là 'đủ sâu'", () =
       [11, 111.5, "khơi Bình Thuận"],
       [7, 109, "Nam Biển Đông"],
     ] as [number, number, string][]) {
-      expect(depthClassAt(g(), lat, lon), ten).toBe(3);
+      expect(depthClassAt(g(), lat, lon), ten).toBe(DEPTH_CLASS_DEEP);
     }
   });
 
-  it("cả ô vuông 1°×1° quanh 13°B/114°Đ đều là lớp 3, không lấm tấm báo động giả", () => {
+  it("cả ô vuông 1°×1° quanh 13°B/114°Đ đều 'đủ sâu', không lấm tấm báo động giả", () => {
     let n = 0, deep = 0;
     for (let lat = 12.5; lat <= 13.5; lat += DEPTH_META.step * 4) {
       for (let lon = 113.5; lon <= 114.5; lon += DEPTH_META.step * 4) {
         n++;
-        if (depthClassAt(g(), lat, lon) === 3) deep++;
+        if (depthClassAt(g(), lat, lon) === DEPTH_CLASS_DEEP) deep++;
       }
     }
     expect(n).toBeGreaterThan(3000);
     expect(deep).toBe(n);
   });
 
-  it("lớp 'rất cạn' vẫn là thiểu số — trần 2% khung", () => {
+  it("lớp 1 'mặt nạ rạn' vẫn là thiểu số — trần 2% khung (cổng iii)", () => {
     /*  Mặt nạ rạn ép ô về lớp 1, mà lớp 1 là KHÔNG ĐI QUA ĐƯỢC. Nới tay quá
         thì tuyến nào cũng vòng vèo hoặc "không tìm được đường". Đo thật: sau
-        bản vá là ~0,9%. Trần 2% để ngày ai đó nới bán kính lên vài chục km
-        thì test đỏ chứ không phải bà con phát hiện hộ. */
-    const total = DEPTH_META.nLat * DEPTH_META.nLon;
-    let veryShallow = 0;
-    for (let k = 0; k < total; k++) {
-      if (((g().data[k >> 2] >> ((k & 3) * 2)) & 3) === 1) veryShallow++;
+        bản vá 2026-08-29 là ~0,9% (lúc lớp 1 còn gộp cả nước <4 m); 2026-09-04
+        chỉ còn mặt nạ, ~0,66%. Trần 2% để ngày ai đó nới bán kính lên vài
+        chục km thì test đỏ chứ không phải bà con phát hiện hộ. */
+    let mask = 0;
+    const d = g().data;
+    for (let k = 0; k < N_CELL; k++) if (rawClassAt(d, k) === 1) mask++;
+    expect(mask / N_CELL).toBeGreaterThan(0.001); // mặt nạ có chạy thật
+    expect(mask / N_CELL).toBeLessThan(0.02);
+  });
+});
+
+/*  ─────────────────────────────────────────────────────────────────────────
+    BRIEFING-03 (2026-09-04) — đất không được trộn với nước nông.
+
+    Bản 2 bit cũ định nghĩa "đất = z > −2 m": bãi bùn ven bờ ở mực nước trung
+    bình (0–2 m) thành đất, tuyến từ Rạch Giá bị chặn bởi "đất ngoài khơi" cách
+    bờ 8–12 km. Nay đất = tâm ô TRONG đa giác vn-coast HOẶC cả hai mô hình cùng
+    nói z > 0. Hai cổng dưới đây đọc file thật + đường bờ thật.
+    ───────────────────────────────────────────────────────────────────────── */
+describe("briefing-03: đất theo đường bờ, không theo ngưỡng −2 m", () => {
+  let cache: ReturnType<typeof grid> | null = null;
+  const g = () => (cache ??= grid());
+
+  type Poly = { rings: number[][][]; x0: number; y0: number; x1: number; y1: number };
+  const coastPolys = (): Poly[] => {
+    const fc = JSON.parse(
+      readFileSync(join(process.cwd(), "public", "data", "vn-coast.v1.json"), "utf8"),
+    ) as { features: { geometry: { type: string; coordinates: number[][][] } }[] };
+    return fc.features
+      .filter((f) => f.geometry.type === "Polygon")
+      .map((f) => {
+        const rings = f.geometry.coordinates;
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const p of rings[0]) {
+          if (p[0] < x0) x0 = p[0];
+          if (p[0] > x1) x1 = p[0];
+          if (p[1] < y0) y0 = p[1];
+          if (p[1] > y1) y1 = p[1];
+        }
+        return { rings, x0, y0, x1, y1 };
+      });
+  };
+  const inRing = (lon: number, lat: number, r: number[][]) => {
+    let inside = false;
+    for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+      const xi = r[i][0], yi = r[i][1], xj = r[j][0], yj = r[j][1];
+      if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
     }
-    expect(veryShallow / total).toBeGreaterThan(0.001); // mặt nạ có chạy thật
-    expect(veryShallow / total).toBeLessThan(0.02);
+    return inside;
+  };
+  const onLand = (polys: Poly[], lon: number, lat: number) => {
+    for (const p of polys) {
+      if (lon < p.x0 || lon > p.x1 || lat < p.y0 || lat > p.y1) continue;
+      let ins = false;
+      for (const r of p.rings) if (inRing(lon, lat, r)) ins = !ins;
+      if (ins) return true;
+    }
+    return false;
+  };
+
+  it("cổng (ii): bốn điểm briefing-03 (vịnh Rạch Giá) là NƯỚC, không còn là đất", () => {
+    for (const [lat, lon] of [[10.02, 104.99], [10.02, 104.96], [9.75, 104.85], [10.02, 104.72]]) {
+      const cls = depthClassAt(g(), lat, lon);
+      expect(cls, `${lat},${lon} ngoài khung?`).not.toBeNull();
+      expect(cls, `${lat},${lon} vẫn là "đất"`).not.toBe(0);
+    }
+  });
+
+  it("cổng (i): mẫu 0,1° dải ven bờ VN — ô NƯỚC theo vn-coast hiếm khi mang lớp 0", () => {
+    /*  Đo thật 2026-09-04 (khung 102–110°Đ, 6.457 điểm nước theo đường bờ):
+        bản 2 bit cũ 104 điểm (1,61 %), bản 6 lớp 51 điểm (0,79 %) — phần dư
+        là thứ luật mới CỐ Ý giữ:
+        đảo thật mà vn-coast giản lược đã cắt (Hạ Long, Côn Đảo, Cù Lao Chàm),
+        bờ Campuchia/Thái Lan/Hải Nam không có trong vn-coast (cả hai mô hình
+        cùng z > 0), và ô mép bờ làm tròn 450 m. Trần đặt GIỮA hai con số để
+        quay lại luật "đất = z > −2 m" là đỏ; con số thật ghi ở báo cáo Đợt 0.
+        Cổng ≤ 0,1 % của quyết định thiết kế KHÔNG đạt được với vn-coast hiện
+        tại — không phải vì lưới sai, mà vì đường bờ thiếu đảo; xem Assumptions. */
+    const polys = coastPolys();
+    expect(polys.length).toBeGreaterThan(500);
+    let water = 0;
+    const land: string[] = [];
+    for (let lat = 5.05; lat <= 23.5; lat += 0.1) {
+      for (let lon = 102.05; lon <= 110; lon += 0.1) {
+        if (onLand(polys, lon, lat)) continue;
+        water++;
+        if (depthClassAt(g(), lat, lon) === 0) land.push(`${lat.toFixed(2)},${lon.toFixed(2)}`);
+      }
+    }
+    expect(water).toBeGreaterThan(6000);
+    expect(land.length / water, land.slice(0, 20).join(" ")).toBeLessThan(0.012);
   });
 });

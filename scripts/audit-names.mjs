@@ -490,7 +490,7 @@ function scanTextFile(file, rel, findings) {
 
 /**
  * File .bin — vì sao KHÔNG quét thẳng bằng `buf.toString("utf8")`:
- * `depth-grid.v1.bin` là lưới 2 bit/ô, byte thuần số. Ép nó thành UTF-8 rồi soi
+ * `depth-grid.v1.bin` là lưới 4 bit/ô, byte thuần số. Ép nó thành UTF-8 rồi soi
  * CJK cho ra 19 "chữ Hán" TOÀN BỘ là rác (đo 2026-08-29: 鯪﫪鯥迪諑…) — bãi mìn
  * dương-tính-giả sẽ dạy người ta bỏ qua cổng này, và một cổng bị bỏ qua thì
  * bằng không có.

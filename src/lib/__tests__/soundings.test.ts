@@ -54,6 +54,7 @@ import {
   VN_SEA_BBOX,
   type SoundingsFile,
 } from "../soundings";
+import { DEPTH_CLASS_DEEP } from "../depth-grid";
 
 const FILE = join(process.cwd(), "public", "data", "soundings.v1.json");
 const rawText = readFileSync(FILE, "utf8");
@@ -993,9 +994,12 @@ describe("cổng ra khỏi địa bàn nguồn — luồng/cửa biển/vũng c�
     // Cả ba sau đó đều được HAI mô hình độ sâu độc lập xác nhận là sai:
     // 307 (mô hình 248-249 m, ghi 5,3 m) · 141 (222-227 m, ghi 1,0 m) ·
     // 02/CVĐTNĐIV (109-127 m, ghi 9,0 m).
-    expect(isOutsideSourceDomain(52, 3)).toBe(true);
-    expect(isOutsideSourceDomain(50, 3)).toBe(true);
-    expect(isOutsideSourceDomain(46, 3)).toBe(true);
+    // lớp "đủ sâu" = DEPTH_CLASS_DEEP (5 từ lưới 6 lớp 2026-09-04; trước là 3)
+    expect(isOutsideSourceDomain(52, DEPTH_CLASS_DEEP)).toBe(true);
+    expect(isOutsideSourceDomain(50, DEPTH_CLASS_DEEP)).toBe(true);
+    expect(isOutsideSourceDomain(46, DEPTH_CLASS_DEEP)).toBe(true);
+    // lớp cũ 3 nay là "cạn 2–4 m" — không còn là biển khơi
+    expect(isOutsideSourceDomain(52, 3)).toBe(false);
   });
 
   it("KHÔNG kết tội oan cảng SÔNG — đây là lý do phải có vế lớp độ sâu", () => {
@@ -1006,13 +1010,13 @@ describe("cổng ra khỏi địa bàn nguồn — luồng/cửa biển/vũng c�
   });
 
   it("gần bờ thì không xét, dù nước sâu", () => {
-    expect(isOutsideSourceDomain(5, 3)).toBe(false);
-    expect(isOutsideSourceDomain(OFFSHORE_MIN_KM, 3)).toBe(false);
+    expect(isOutsideSourceDomain(5, DEPTH_CLASS_DEEP)).toBe(false);
+    expect(isOutsideSourceDomain(OFFSHORE_MIN_KM, DEPTH_CLASS_DEEP)).toBe(false);
   });
 
   it("thiếu lớp độ sâu thì KHÔNG đoán", () => {
     expect(isOutsideSourceDomain(80, null)).toBe(false);
-    expect(isOutsideSourceDomain(Number.NaN, 3)).toBe(false);
+    expect(isOutsideSourceDomain(Number.NaN, DEPTH_CLASS_DEEP)).toBe(false);
   });
 
   it("MỌI tuyến trong dataset đều còn trong địa bàn", () => {

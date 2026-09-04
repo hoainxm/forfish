@@ -9,7 +9,13 @@ import {
   type LatLon,
   type WeatherField,
 } from "../route-plan";
-import { DEPTH_META, decodeDepthGrid, depthClassAt } from "../depth-grid";
+import {
+  DEPTH_GRID_BYTES,
+  DEPTH_META,
+  decodeDepthGrid,
+  depthClassAt,
+  type DepthClass,
+} from "../depth-grid";
 
 /*  CỔNG CHẶN KHUÔN — MỌI CẠNH TRẢ VỀ PHẢI ĐI ĐƯỢC THẬT (2026-08-16, thẩm định P0)
  *
@@ -65,13 +71,14 @@ function makeField(bbox: BBox, n: number): WeatherField {
   };
 }
 
-function makeDepth(at: (lat: number, lon: number) => 0 | 1 | 2 | 3) {
+/** lưới giả 6 lớp, 4 bit/ô — 0 đất · 5 đủ sâu (khớp depth-grid.ts từ 2026-09-04) */
+function makeDepth(at: (lat: number, lon: number) => DepthClass) {
   const { lat0, lon0, step, nLat, nLon } = DEPTH_META;
-  const packed = new Uint8Array(Math.ceil((nLat * nLon) / 4));
+  const packed = new Uint8Array(DEPTH_GRID_BYTES);
   for (let i = 0; i < nLat; i++) {
     for (let j = 0; j < nLon; j++) {
       const k = i * nLon + j;
-      packed[k >> 2] |= at(lat0 + i * step, lon0 + j * step) << ((k & 3) * 2);
+      packed[k >> 1] |= at(lat0 + i * step, lon0 + j * step) << ((k & 1) * 4);
     }
   }
   return decodeDepthGrid(packed.buffer);
@@ -118,7 +125,7 @@ const plan = (depth: ReturnType<typeof makeDepth>) =>
 describe("tuyến trả về đã qua kiểm nghiêm", () => {
   it("đảo giữa đường → tuyến vẽ ra không có điểm nào rơi vào đất", () => {
     const g = makeDepth((la, lo) =>
-      Math.abs(la - 12.0) < 0.12 && Math.abs(lo - 111.0) < 0.12 ? 0 : 3,
+      Math.abs(la - 12.0) < 0.12 && Math.abs(lo - 111.0) < 0.12 ? 0 : 5,
     );
     const p = plan(g);
     expect(p).not.toBeNull();
@@ -127,23 +134,24 @@ describe("tuyến trả về đã qua kiểm nghiêm", () => {
 
   it("doi đất chắn kín ngang bbox → NULL, không trả tuyến 'đẹp' cắt qua", () => {
     // dải đất chạy suốt chiều ngang bbox: không có đường nào đi được thật
-    const g = makeDepth((la) => (Math.abs(la - 12.0) < 0.25 ? 0 : 3));
+    const g = makeDepth((la) => (Math.abs(la - 12.0) < 0.25 ? 0 : 5));
     expect(plan(g)).toBeNull();
   });
 
   it("bờ ôm sát nơi xuất phát → vẫn nối được NHƯNG phải cắm cờ hasNearLandLeg", () => {
     const g = makeDepth((la, lo) =>
-      haversineKm({ lat: la, lon: lo }, START) < 3 ? 0 : 3,
+      haversineKm({ lat: la, lon: lo }, START) < 3 ? 0 : 5,
     );
     const p = plan(g);
     expect(p).not.toBeNull();
     // trước bản vá: đoạn này đi qua HOÀN TOÀN im lặng — không cờ, không câu chữ
     expect(p!.hasNearLandLeg).toBe(true);
+    expect(p!.nearPortOnly).toBe(true); // bờ chỉ ở cảng
     expect(landHitsFarFromEnds(p!.waypoints, g)).toEqual([]);
   });
 
   it("biển trống thì không bịa cảnh báo bờ", () => {
-    const p = plan(makeDepth(() => 3));
+    const p = plan(makeDepth(() => 5));
     expect(p).not.toBeNull();
     expect(p!.hasNearLandLeg).toBe(false);
   });

@@ -39,11 +39,51 @@
 //   · Chạy quá cửa sổ dự báo → beyondForecastH > 0, UI phải nói thật phần
 //     đuôi tuyến tính bằng dự báo giờ cuối (không được "êm giả").
 // Mô hình là ƯỚC LƯỢNG THAM KHẢO — UI luôn dặn dò hải đồ + nghe đài.
+//
+// ## Assumptions (Đợt 2, 2026-09-04 — nối kho hải đồ vào chặn cứng)
+// - Chỉ CHẶN thứ đâm vào là hỏng tàu: vật chìm/xác tàu/chướng ngại, giàn khoan,
+//   phao hiểm hoạ cô lập, lồng bè, vùng CẤM VÀO. Cáp/ống, khu cấm neo, luồng,
+//   ranh giới VMS, triều KHÔNG chặn — chúng sinh CÂU ở `route-hazards`, không
+//   sinh đường vòng (quyết định thiết kế §1.6).
+// - VÙNG CẤM VÀO đi HAI ĐƯỜNG theo cỡ (sửa 2026-09-04, review đợt 4):
+//   · Vùng có đường chéo hộp bao ≤ DEPTH_SAMPLE_KM → CHỈ MỤC VẬT ĐIỂM, tâm là
+//     tâm hộp bao, `rKm` = bán kính ngoại tiếp + NO_GO_PAD_KM. `maskWithinSegment`
+//     đo điểm→đoạn nên không có khe, và đệm 500 m ở đây là đệm THẬT.
+//   · Vùng lớn hơn giữ điểm-trong-đa-giác tại mẫu 2 km; ở nhánh này đệm 500 m
+//     chỉ nới HỘP LỌC, không nới phép quyết định. Đo khoảng cách tới từng cạnh
+//     trong vòng nóng Dijkstra là trả tiền ở chỗ chạy 120.000 lượt cho một dải
+//     500 m mà `auditRoute` đã gọi tên bằng câu đỏ "chạy sát khu cấm vào" trên
+//     chính tuyến trả về.
+//   nợ: dải cấm hẹp-mà-dài (300 m × 30 km) vẫn lọt khe mẫu 2 km, nâng cấp bằng
+//   `buildSegmentIndex` trên CẠNH vùng + đo đoạn→đoạn ≤ NO_GO_PAD_KM ngay khi
+//   kho có một hình như vậy (hôm nay không có: đa giác cấm-vào duy nhất trong
+//   `vn-sea-lanes.v1.json` rộng 0,2 × 0,2 km).
+// - "Sát cảng" xét theo VỊ TRÍ CỦA VẬT, không theo chặng: vòng chặn với tới
+//   trong `VICINITY_LAND_KM` quanh nơi xuất phát/điểm đến thì chỉ cắm cờ. Xét
+//   theo chặng thì chặng đầu (4–9 km, chord tới 30 km) không bao giờ nằm trọn
+//   trong 5 km ⇒ lồng bè cách bến 2 km chặn luôn lối ra bến.
+// - Vùng cấm-vào CHỨA nơi xuất phát/điểm đến cũng chỉ cắm cờ, cùng lý lẽ.
 
 import { depthClassAt, type DepthGrid } from "@/lib/depth-grid";
+import {
+  NO_GO_PAD_KM,
+  requiredDepthM,
+  type HazardPacked,
+  type NoGoZone,
+} from "@/lib/hazards";
 import { estimateWaveFromWind } from "@/lib/sea";
+import {
+  buildIndex,
+  maskWithinSegment,
+  pointInRing,
+  type SpatialIndex,
+} from "@/lib/spatial-index";
 
-export type LatLon = { lat: number; lon: number };
+/*  `LatLon` + `haversineKm` sống ở module lá `geo.ts` (gỡ chu trình import với
+    spatial-index — review đợt 4 G3); re-export để mọi chỗ gọi cũ giữ nguyên. */
+import { haversineKm, type LatLon } from "@/lib/geo";
+export type { LatLon } from "@/lib/geo";
+export { haversineKm } from "@/lib/geo";
 
 export type BoatProfile = {
   /** tốc độ lúc trời êm, hải lý/giờ */
@@ -65,18 +105,8 @@ export const KMH_PER_KNOT = 1.852;
 
 // ── hình học ─────────────────────────────────────────────────────────────
 
-const EARTH_R_KM = 6371;
 const rad = (d: number) => (d * Math.PI) / 180;
 const deg = (r: number) => (r * 180) / Math.PI;
-
-export function haversineKm(a: LatLon, b: LatLon): number {
-  const dLat = rad(b.lat - a.lat);
-  const dLon = rad(b.lon - a.lon);
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
-  return 2 * EARTH_R_KM * Math.asin(Math.sqrt(s));
-}
 
 /** Hướng chạy từ a tới b, 0–360° (0 = Bắc, 90 = Đông) */
 export function bearingDeg(a: LatLon, b: LatLon): number {
@@ -386,6 +416,27 @@ const VICINITY_SHALLOW_KM = 12;
 /** Nới chặn Ô ĐẤT chỉ trong bán kính nhỏ hơn — không cho tuyến cắt doi đất */
 const VICINITY_LAND_KM = 5;
 
+/*  MỚN NƯỚC VÀO LUẬT ĐỘ SÂU (Đợt 0, 2026-09-04 — quyết định thiết kế §1.9).
+    Lưới 6 lớp (depth-grid.ts): 0 đất · 1 mặt nạ rạn · 2 nước <2 m · 3 nước
+    2–4 m · 4 nước 4–12 m · 5 đủ sâu. Lớp 3 là dải mới: bãi bùn vịnh Thái Lan,
+    cửa lạch Đông Nam — tàu mớn 1–2 m làm nghề ở đó hằng ngày, còn tàu vỏ thép
+    mớn 3 m thì không. Nên lớp 3 CHỈ mở cho tàu ĐÃ KHAI MỚN và cần
+    (`requiredDepthM`) ≤ DRAFT_SHALLOW_MAX_NEED_M; chưa khai thì giữ chặn như
+    lớp 1–2 (luật 6 brief-01: vắng số không phải là số — không đoán mớn
+    "trung bình" rồi vẽ tuyến qua bãi cho tàu thúng lẫn tàu sắt).
+    Trần 2,0 m = đáy dải (2 m) trừ ròng ~0,5 m vịnh Thái Lan cộng lại với phần
+    dự trữ đã nằm trong `requiredDepthM`. */
+const DRAFT_SHALLOW_MAX_NEED_M = 2.0;
+
+/*  NƯỚC CẦN DƯỚI ĐÁY TÀU — MỘT BẢN DUY NHẤT, ở `lib/hazards.ts` (hợp nhất
+    2026-09-04, Đợt 2). Đợt 0 để tạm một bản cùng tên ngay tại đây vì H1 chưa
+    tồn tại; nay `route-plan` (luật dải 2–4 m), `route-hazards` (câu "chờ nước
+    lên") và `route-planner` (lọc hiểm hoạ theo mớn) đều đọc CÙNG một công thức
+    — hai bản trôi nhau là đúng kiểu lỗi không bao giờ tự lộ (án lệ
+    `haversineKm`/`nearestIndex` từng có hai bản trong repo này).
+    Vẫn `export` ở đây để chỗ gọi cũ và test cũ không phải đổi đường dẫn. */
+export { requiredDepthM } from "@/lib/hazards";
+
 /**
  * Bước lấy mẫu THỜI TIẾT dọc chặng (km). Trước đây mỗi chặng chỉ lấy MỘT mẫu
  * tại trung điểm — chặng dài (lưới thô 25–30 km, nước mã ×√5, chord kéo căng
@@ -395,6 +446,34 @@ const VICINITY_LAND_KM = 5;
  * vùng cấm chắc chắn dính ít nhất một mẫu.
  */
 const WEATHER_SAMPLE_KM = 12;
+
+/**
+ * Bước lấy mẫu ĐỘ SÂU (và vùng cấm vào dạng đa giác) dọc chặng, km. Trước là
+ * hằng số 2 viết thẳng trong `legCost`; tách tên ra vì chỗ dựng vùng cấm phải
+ * đọc ĐÚNG con số này để biết vùng nào nhỏ hơn một bước mẫu — vùng nhỏ hơn
+ * bước mẫu thì phép điểm-trong-đa-giác tại mẫu gần như không bao giờ trúng
+ * (vùng 0,2 km giữa hai mẫu 2 km: ~10 %), nên nó đi đường chỉ mục vật điểm.
+ */
+const DEPTH_SAMPLE_KM = 2;
+
+/**
+ * "CHẤM CHẶN" — một vật điểm có vòng chặn, đã gộp hai nguồn (vật của kho hải
+ * đồ + vùng cấm vào nhỏ hơn bước mẫu, xem `## Assumptions` đầu file) và mang
+ * sẵn MỨC trên từng phần tử: `DOT_CHAN` (chặn cứng) hay `DOT_CO` (chỉ cắm cờ,
+ * luật 7 sát bến). Một chỉ mục, một lượt quét mỗi chặng (O1 tối ưu 2026-09-04
+ * — trước là bốn chỉ mục, bốn lượt).
+ */
+type Dot = { lat: number; lon: number; rKm: number; mask: number };
+/** bit "chỉ cắm cờ `hazardNearPort`" */
+const DOT_CO = 1;
+/** bit "chặn cứng (hoặc `hazard` khi relaxed)" */
+const DOT_CHAN = 2;
+/*  Ba callback khai Ở CẤP MODULE, không phải trong `planRoute`:
+    `maskWithinSegment` nhớ bán kính lớn nhất theo DANH TÍNH hàm (xem docstring
+    của nó) — arrow mới mỗi lượt là quét lại cả danh sách 120.000 lần. */
+const dotRKm = (d: Dot): number => d.rKm;
+const dotMask = (d: Dot): number => d.mask;
+const dotPos = (d: Dot): LatLon => d;
 
 // ── lưới tìm đường + Dijkstra ────────────────────────────────────────────
 
@@ -416,14 +495,51 @@ export type RoutePlan = {
   maxWindKmh: number;
   /** có đoạn mức "không nên đi" (sóng ≥3 m / gió ≥cấp 7) — cảnh báo đỏ */
   hasRoughLeg: boolean;
-  /** có đoạn nước nông 4–12 m */
+  /** có đoạn nước nông 4–12 m (lớp 4) */
   hasShallowLeg: boolean;
   /**
-   * có đoạn đè lên vùng RẤT CẠN (<4 m — rạn, bãi nổi) trong bán kính nới
-   * quanh nơi xuất phát/điểm đến. Đi được (tàu thuộc con nước nhà) nhưng UI
-   * PHẢI cảnh báo — trước đây đi qua im lặng trong khi copy nói "đã né rạn".
+   * có đoạn đè lên vùng RẤT CẠN (lớp 1 mặt nạ rạn · lớp 2 nước <2 m · lớp 3
+   * nước 2–4 m KHI chưa khai mớn/không đủ nước) trong bán kính nới quanh nơi
+   * xuất phát/điểm đến. Đi được (tàu thuộc con nước nhà) nhưng UI PHẢI cảnh
+   * báo — trước đây đi qua im lặng trong khi copy nói "đã né rạn".
    */
   hasVeryShallowLeg: boolean;
+  /**
+   * có đoạn qua dải 2–4 m (lớp 3) NGOÀI bán kính nới, đi được CHỈ VÌ chủ tàu
+   * đã khai mớn và `requiredDepthM` ≤ 2,0 m (Đợt 0, 2026-09-04). Không khai
+   * mớn thì đoạn này là chặn cứng — cờ này không bao giờ bật khi draftM null.
+   */
+  hasDraftShallowLeg: boolean;
+  /**
+   * MỌI mẫu lớp 0–3 trên tuyến đều nằm trong bán kính nới quanh hai đầu (0
+   * trong 5 km, 1–3 trong 12 km) — tức cạn/bờ chỉ là "chuyện ở cảng", không
+   * có chỗ cạn nào giữa đường. false khi tuyến không có mẫu thấp nào, hoặc có
+   * mẫu lớp 3 giữa đường đi qua nhờ mớn. UI (R1) gộp ca true thành MỘT dòng
+   * vàng "sát cảng, máy nới cho đi" thay vì hai mục đỏ luôn bật (briefing-03
+   * phát hiện 2).
+   */
+  nearPortOnly: boolean;
+  /**
+   * Giờ chạy CỘNG DỒN tới từng waypoint (cùng độ dài `waypoints`, [0] = 0,
+   * cuối = `hours`). Hậu kiểm triều/hiểm hoạ tại ETA từng điểm đọc mảng này —
+   * `hoursAcc` của Dijkstra là theo NÚT LƯỚI, sau kéo dây không còn dùng được.
+   */
+  hoursAt: number[];
+  /*  BA CỜ HIỂM HOẠ (nối vào legCost 2026-09-04, Đợt 2).
+      · `hazardChecked` false = CHƯA soi kho hiểm hoạ (chỗ gọi không truyền
+        `hazards`), KHÔNG phải "đã soi và sạch" — UI không được đọc false thành
+        an toàn, phải nói "chưa đối chiếu".
+      · `hasHazardLeg` = tuyến TRẢ VỀ có chặng đi vào vòng chặn của một vật
+        (xác tàu, giàn khoan, lồng bè, vùng cấm-vào) NGOÀI bán kính nới quanh
+        hai đầu. Đường trả về đã qua `walk` nghiêm nên bình thường luôn false;
+        bật là dấu hiệu tuyến lọt lưới — UI phải kêu đỏ chứ không im.
+      · `hasHazardNearPortLeg` = có vật chặn nhưng nằm trong 5 km quanh nơi
+        xuất phát/điểm đến ⇒ KHÔNG chặn (luật 7: cảng nào cũng có lồng bè, đăng
+        đáy, xác tàu cũ — chặn là không tàu nào ra khỏi bến), nhưng phải cắm cờ:
+        nới là nới cho đi, không nới cho im. */
+  hazardChecked: boolean;
+  hasHazardLeg: boolean;
+  hasHazardNearPortLeg: boolean;
   /**
    * có đoạn ĐÈ LÊN ĐẤT theo lưới độ sâu, đi qua được chỉ vì nằm trong bán kính
    * nới `VICINITY_LAND_KM` quanh nơi xuất phát/điểm đến (2026-08-16, thẩm định
@@ -477,6 +593,16 @@ type LegInfo = {
   veryShallow: boolean;
   /** chặng đè lên ĐẤT nhưng được nới vì sát nơi xuất phát/điểm đến */
   nearLand: boolean;
+  /** chặng qua dải 2–4 m ngoài vicinity, đi được nhờ mớn đã khai */
+  draftShallow: boolean;
+  /** chặng chạm vòng chặn của một vật/vùng cấm NGOÀI bán kính nới hai đầu */
+  hazard: boolean;
+  /** chặng chạm vật chặn nhưng cả chặng nằm trong 5 km quanh một đầu */
+  hazardNearPort: boolean;
+  /** có ít nhất một mẫu lớp 0–3 */
+  lowSeen: boolean;
+  /** có mẫu lớp 0–3 NGOÀI bán kính nới của lớp đó (⇒ không phải chuyện ở cảng) */
+  lowFar: boolean;
   following: boolean;
 };
 
@@ -485,7 +611,9 @@ type LegInfo = {
 const INFEASIBLE_LEG: LegInfo = Object.freeze({
   feasible: false, distKm: 0, hours: 0, fuelL: 0, cost: 0,
   waveM: 0, windKmh: 0, rough: false, shallow: false,
-  veryShallow: false, nearLand: false, following: false,
+  veryShallow: false, nearLand: false, draftShallow: false,
+  hazard: false, hazardNearPort: false,
+  lowSeen: false, lowFar: false, following: false,
 });
 
 // export cho route-plan.worker.ts (structured clone nguyên args qua worker)
@@ -499,6 +627,15 @@ export type PlanArgs = {
   /** null = nguồn độ sâu không tải được — vẫn tính, plan.depthChecked=false */
   depth: DepthGrid | null;
   bbox: BBox;
+  /*  HIỂM HOẠ ĐIỂM đã lọc theo khung, dạng PHẲNG (`packHazards`) — ba
+      `Float64Array` + mảng id, structured-clone được sang worker (`SpatialIndex`
+      thì không: nó giữ `PosFn`). Bỏ trống/null = chỗ gọi CHƯA soi kho ⇒
+      `plan.hazardChecked = false`, UI phải nói "chưa đối chiếu", KHÔNG được
+      hiểu thành "đã soi và sạch". */
+  hazards?: HazardPacked | null;
+  /*  Vùng CẤM VÀO dạng đa giác (`buildHazardList().noGo`). Ring là mảng số
+      thuần nên clone được. Cũng lọc theo khung ở phía gọi. */
+  noGo?: NoGoZone[] | null;
 };
 
 // hàng đợi ưu tiên nhị phân tối giản
@@ -581,6 +718,114 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
   const nearEndpoints = (p: LatLon, radiusKm: number) =>
     haversineKm(p, start) <= radiusKm || haversineKm(p, dest) <= radiusKm;
 
+  /*  ── HIỂM HOẠ: DỰNG CHỈ MỤC MỘT LẦN CHO CẢ LƯỢT TÍNH ────────────────────
+      `legCost` chạy ~120.000 lượt; dựng lưới ô ở đây (O(n) một lần, 285 vật
+      trên cả nước, sau khi lọc khung thường vài chục) rồi mỗi chặng chỉ quét
+      mấy ô cắt hộp bao.
+      Vì sao ĐO TỚI ĐOẠN (`maskWithinSegment`) chứ không lấy mẫu điểm: một vòng
+      chặn 300 m (phao hiểm hoạ cô lập) lọt gọn giữa hai mẫu 2 km — đúng bài
+      học `REEF_BUFFER_M` của lưới độ sâu. Khoảng cách điểm→đoạn thì không có
+      khe nào để lọt.
+      `dotRKm`/`dotMask` khai một lần ở cấp module: `maskWithinSegment` nhớ bán
+      kính lớn nhất theo DANH TÍNH hàm — tạo arrow mới mỗi lượt là quét lại cả
+      danh sách 120.000 lần.
+
+      MỨC GHI TRÊN TỪNG VẬT, KHÔNG XÉT THEO CHẶNG (sửa 2026-09-04 sau khi test
+      bắt): vật "sát bến" phải được đánh dấu từ lúc DỰNG, chứ không phải xét
+      theo chặng lúc chạy. Bản đầu hỏi "cả chặng có nằm trong 5 km quanh một
+      đầu không" — nhưng chặng lưới dài 4–9 km và chord kéo dây tới 30 km, nên
+      chặng ĐẦU TIÊN xuất phát từ bến gần như không bao giờ nằm trọn trong 5 km
+      ⇒ một cái lồng bè cách bến 2 km chặn luôn mọi lối ra, `planRoute` trả
+      null: bà con mất hẳn tính năng vì đúng cái mà luật 7 định tha. Đánh dấu
+      theo VỊ TRÍ CỦA VẬT thì hết mơ hồ: vật có vòng chặn với tới trong 5 km
+      quanh một đầu = chuyện ở cảng (`DOT_CO`, chỉ cắm cờ), còn lại = `DOT_CHAN`,
+      chặn cứng ở mọi chặng. Trước đây hai mức là HAI chỉ mục (rồi vùng cấm nhỏ
+      thêm hai nữa = bốn lượt quét mỗi chặng); O1 gộp về MỘT chỉ mục `dotIx`,
+      mức nằm trên phần tử, một lượt quét trả cả hai bit. */
+  const hzPack = args.hazards ?? null;
+  /*  Kiểm ở RANH GIỚI (không cắt được — nguyên tắc 4): gói méo (ba mảng lệch
+      độ dài, ids không phải mảng) thì coi như không có hiểm hoạ chứ không ném
+      giữa Dijkstra. */
+  const hazardN = (() => {
+    if (!hzPack || !Array.isArray(hzPack.ids)) return 0;
+    const n = hzPack.ids.length;
+    const du = (a: { length: number } | null | undefined) => !!a && a.length >= n;
+    return du(hzPack.lat) && du(hzPack.lon) && du(hzPack.rKm) ? n : 0;
+  })();
+  /*  `hazardChecked` = có gói VÀ gói đọc được trọn (review đợt 4, G2): gói méo
+      thì máy KHÔNG chặn gì, mà thứ bà con đọc là "đã đối chiếu vật chặn" — sai.
+      Gói rỗng hợp lệ (0 vật trong khung) vẫn là đã đối chiếu. */
+  const hazardChecked =
+    hzPack != null && Array.isArray(hzPack.ids) && hazardN === hzPack.ids.length;
+  /** mọi "chấm chặn" của lượt tính — vật kho + vùng cấm nhỏ, mức trên từng phần tử */
+  const dots: Dot[] = [];
+  if (hzPack && hazardN > 0) {
+    for (let i = 0; i < hazardN; i++) {
+      const r = hzPack.rKm[i];
+      const dot: Dot = { lat: hzPack.lat[i], lon: hzPack.lon[i], rKm: r, mask: DOT_CHAN };
+      const toi = (q: LatLon) => haversineKm(dot, q) - (r > 0 ? r : 0);
+      if (toi(start) <= VICINITY_LAND_KM || toi(dest) <= VICINITY_LAND_KM)
+        dot.mask = DOT_CO;
+      dots.push(dot);
+    }
+  }
+
+  /*  VÙNG CẤM VÀO: lọc theo khung tính toán MỘT LẦN (dữ liệu thật có 6 vùng
+      trên cả nước), rồi trong vòng nóng chỉ còn hộp bao + điểm-trong-đa-giác
+      tại chính các mẫu 2 km của lớp độ sâu — không thêm vòng lặp nào.
+      Vùng CHỨA nơi xuất phát hoặc điểm đến (cảng nằm trong khu cấm vào của
+      cảng vụ chẳng hạn) thì không chặn nổi — chặn là bà con không rời bến được
+      — nên hạ xuống cắm cờ, đúng luật 7. */
+  const noGoPadDeg = NO_GO_PAD_KM / 111.32;
+  const noGoAll = (args.noGo ?? []).filter(
+    (z) =>
+      z &&
+      Array.isArray(z.ring) &&
+      z.ring.length >= 3 &&
+      z.bbox &&
+      z.bbox.latMin - noGoPadDeg <= bbox.latMax &&
+      z.bbox.latMax + noGoPadDeg >= bbox.latMin &&
+      z.bbox.lonMin - noGoPadDeg <= bbox.lonMax &&
+      z.bbox.lonMax + noGoPadDeg >= bbox.lonMin,
+  );
+  /*  HAI ĐƯỜNG THEO CỠ VÙNG (sửa 2026-09-04 sau review đợt 4). Dữ liệu thật chỉ
+      có MỘT đa giác cấm-vào và nó rộng 0,2 × 0,2 km: kiểm điểm-trong-đa-giác tại
+      mẫu 2 km bắt được chừng 10 % số lần chặng cắt qua — lớp chặn trên giấy.
+      Vùng nhỏ hơn một bước mẫu vì thế được quy về VẬT ĐIỂM (tâm hộp bao, bán
+      kính ngoại tiếp + đệm 500 m) và đi chung máy móc với xác tàu/giàn khoan:
+      `maskWithinSegment` đo điểm→đoạn nên không còn khe nào để lọt, mà cũng
+      không thêm vòng lặp nào vào `legCost` (chung chỉ mục `dotIx` luôn).
+      Vùng LỚN giữ nguyên đường cũ (đúng và rẻ: hộp bao loại gần hết, tia chỉ
+      chạy khi mẫu rơi vào hộp).
+      "Sát bến" xét CÙNG luật với vật chặn (luật 7): vùng CHỨA một đầu, hoặc
+      vòng chặn của vùng nhỏ với tới trong `VICINITY_LAND_KM` quanh một đầu, thì
+      chỉ cắm cờ — chặn là bà con không rời bến được. */
+  const noGoZones: NoGoZone[] = [];
+  const noGoPortZones: NoGoZone[] = [];
+  for (const z of noGoAll) {
+    const chuaDau = pointInRing(start, z.ring) || pointInRing(dest, z.ring);
+    const cLat = (z.bbox.latMin + z.bbox.latMax) / 2;
+    const cLon = (z.bbox.lonMin + z.bbox.lonMax) / 2;
+    const caoKm = (z.bbox.latMax - z.bbox.latMin) * 111.32;
+    const rongKm = (z.bbox.lonMax - z.bbox.lonMin) * 111.32 * Math.cos(rad(cLat));
+    const cheoKm = Math.hypot(caoKm, rongKm);
+    if (cheoKm > DEPTH_SAMPLE_KM) {
+      (chuaDau ? noGoPortZones : noGoZones).push(z);
+      continue;
+    }
+    const dot: Dot = { lat: cLat, lon: cLon, rKm: cheoKm / 2 + NO_GO_PAD_KM, mask: DOT_CHAN };
+    const toi = (q: LatLon) => haversineKm(dot, q) - dot.rKm;
+    if (chuaDau || toi(start) <= VICINITY_LAND_KM || toi(dest) <= VICINITY_LAND_KM)
+      dot.mask = DOT_CO;
+    dots.push(dot);
+  }
+  /** MỘT chỉ mục cho mọi chấm chặn; null = không có gì để hỏi */
+  const dotIx: SpatialIndex<Dot> | null = dots.length > 0 ? buildIndex(dots, dotPos) : null;
+  /*  Điểm dùng lại cho `pointInRing`/`nearEndpoints` — cấp phát một object mỗi
+      mẫu × 120.000 chặng là rác cho bộ gom rác của máy yếu. Cả hai chỉ ĐỌC hai
+      trường, không giữ lại tham chiếu. */
+  const noGoProbe = { lat: 0, lon: 0 };
+
   const calmKmh = boat.speedKn * KMH_PER_KNOT;
 
   /**
@@ -606,43 +851,142 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     let shallow = false;
     let veryShallow = false;
     let nearLand = false;
-    if (depth) {
+    let draftShallow = false;
+    let lowSeen = false;
+    let lowFar = false;
+    let hazard = false;
+    let hazardNearPort = false;
+    if (depth || noGoZones.length > 0 || noGoPortZones.length > 0) {
       /*  BƯỚC MẪU 2 KM, TRƯỚC LÀ 5 (2026-08-16, thẩm định P0). Lưới độ sâu có
-          bước 0,05° ≈ 5,5 km, nên mẫu mỗi 5 km vẫn để lọt: một chấm đảo/đá
-          ngầm nhỏ hơn khoảng cách hai mẫu nằm gọn giữa chúng thì không ai
-          thấy. Nó cũng làm cờ `nearLand` không đáng tin ở cạnh dài: chord kéo
-          dây tới ~30 km chỉ lấy mẫu từ km thứ 5 trở đi ⇒ dải bờ 0–4 km quanh
-          nơi xuất phát đi qua im lặng.
+          bước 15" ≈ 450 m (từ 2026-08-29; bản trước 0,05° ≈ 5,5 km), nhưng mẫu
+          mỗi 5 km vẫn để lọt: một chấm đảo/đá ngầm nhỏ hơn khoảng cách hai mẫu
+          nằm gọn giữa chúng thì không ai thấy (mặt nạ rạn trong script đã nở
+          ≥ 2,4 km để không lọt khe 2 km này). Nó cũng làm cờ `nearLand` không
+          đáng tin ở cạnh dài: chord kéo dây tới ~30 km chỉ lấy mẫu từ km thứ 5
+          trở đi ⇒ dải bờ 0–4 km quanh nơi xuất phát đi qua im lặng.
           Giá phải trả: ~2,5 lần số lượt `depthClassAt` trong vòng nóng của
           Dijkstra. `depthClassAt` là vài phép dịch bit trên `Uint8Array`, rẻ
           hơn hẳn `sampleField` (nội suy thời tiết) chạy ngay dưới, và cả lượt
           tính nằm trong Web Worker. Đo lại nếu có ngày thấy "Đang tính đường…"
           lâu hơn trước. */
-      const nSamples = Math.max(2, Math.ceil(distKm / 2));
+      const nSamples = Math.max(2, Math.ceil(distKm / DEPTH_SAMPLE_KM));
       for (let s = 1; s <= nSamples; s++) {
         const t = s / nSamples;
         const pLat = from.lat + dLatLeg * t;
         const pLon = from.lon + dLonLeg * t;
-        const cls = depthClassAt(depth, pLat, pLon);
+        noGoProbe.lat = pLat;
+        noGoProbe.lon = pLon;
+
+        /*  VÙNG CẤM VÀO LỚN (đa giác rộng hơn một bước mẫu) — kiểm TẠI CHÍNH
+            MẪU NÀY, không thêm vòng lặp. Hộp bao loại gần hết trước khi phải
+            chạy tia; đệm 500 m chỉ nới ở HỘP, còn phép chặn là điểm-trong-đa-
+            giác (xem ## Assumptions đầu file: dải 500 m sát ranh do `auditRoute`
+            gọi tên, không chặn ở đây). Vùng NHỎ không đi đường này — nó nằm
+            trong `dotIx`, đo điểm→đoạn dưới kia. */
+        for (let z = 0; z < noGoZones.length; z++) {
+          const zn = noGoZones[z];
+          if (
+            pLat < zn.bbox.latMin - noGoPadDeg ||
+            pLat > zn.bbox.latMax + noGoPadDeg ||
+            pLon < zn.bbox.lonMin - noGoPadDeg ||
+            pLon > zn.bbox.lonMax + noGoPadDeg
+          )
+            continue;
+          if (!pointInRing(noGoProbe, zn.ring)) continue;
+          if (!relaxed) return INFEASIBLE_LEG;
+          hazard = true;
+        }
+        for (let z = 0; z < noGoPortZones.length; z++) {
+          const zn = noGoPortZones[z];
+          if (
+            pLat < zn.bbox.latMin ||
+            pLat > zn.bbox.latMax ||
+            pLon < zn.bbox.lonMin ||
+            pLon > zn.bbox.lonMax
+          )
+            continue;
+          if (pointInRing(noGoProbe, zn.ring)) hazardNearPort = true;
+        }
+
+        const cls = depth ? depthClassAt(depth, pLat, pLon) : -1;
         if (cls === 0) {
+          lowSeen = true;
           // đất liền: chỉ nới trong bán kính nhỏ sát cảng
-          if (!relaxed && !nearEndpoints({ lat: pLat, lon: pLon }, VICINITY_LAND_KM))
-            return INFEASIBLE_LEG;
+          if (!nearEndpoints(noGoProbe,VICINITY_LAND_KM)) {
+            if (!relaxed) return INFEASIBLE_LEG;
+            lowFar = true;
+          }
           /*  ĐI QUA ĐƯỢC THÌ PHẢI CẮM CỜ (2026-08-16). Cùng lý lẽ với
               `veryShallow` ngay dưới: nới là nới cho đi, không phải nới cho im.
               Ở nhánh `relaxed` (tính lại số liệu) cũng cắm — tổng hiển thị luôn
               là của CẢ tuyến, kể cả đoạn chỉ đi được nhờ nới. */
           nearLand = true;
-        } else if (cls === 1) {
-          if (!relaxed && !nearEndpoints({ lat: pLat, lon: pLon }, VICINITY_SHALLOW_KM))
-            return INFEASIBLE_LEG;
+        } else if (cls === 1 || cls === 2) {
+          lowSeen = true;
+          // mặt nạ rạn / nước <2 m: "rất cạn" — chỉ nới sát cảng/điểm đến
+          if (!nearEndpoints(noGoProbe,VICINITY_SHALLOW_KM)) {
+            if (!relaxed) return INFEASIBLE_LEG;
+            lowFar = true;
+          }
           // đi qua nhờ nới sát cảng/điểm đến — vẫn PHẢI cắm cờ + tính phạt
           // (trước đây im lặng và còn RẺ hơn nước nông 4–12 m hợp lệ)
           veryShallow = true;
-        } else if (cls === 2) {
+        } else if (cls === 3) {
+          lowSeen = true;
+          if (nearEndpoints(noGoProbe,VICINITY_SHALLOW_KM)) {
+            // sát cảng: như "rất cạn" cũ — nới cho đi, cắm cờ
+            veryShallow = true;
+          } else {
+            /*  Dải 2–4 m GIỮA ĐƯỜNG: mở khi đã khai mớn và đủ nước tại mẫu
+                (sóng tại ETA của mẫu — sóng cao thì cần thêm nước dưới đáy).
+                Chỉ hỏi thời tiết ở nhánh hiếm này (mẫu lớp 3 ngoài cảng), không
+                đội chi phí vòng nóng cho mọi mẫu. */
+            let ok = false;
+            if (boat.draftM != null) {
+              const hw = sampleField(field, pLat, pLon, atHour + (distKm * t) / calmKmh);
+              const waveHere = hw ? (hw.waveM ?? estimateWaveFromWind(hw.windKmh)) : null;
+              const need = requiredDepthM(boat.draftM ?? null, waveHere);
+              ok = need != null && need <= DRAFT_SHALLOW_MAX_NEED_M;
+            }
+            lowFar = true;
+            if (ok) {
+              draftShallow = true;
+            } else {
+              if (!relaxed) return INFEASIBLE_LEG;
+              veryShallow = true;
+            }
+          }
+        } else if (cls === 4) {
           shallow = true;
         }
       }
+    }
+
+    /*  ── VẬT CHẶN (xác tàu · chướng ngại · giàn khoan · phao hiểm hoạ cô lập ·
+        lồng bè) ─────────────────────────────────────────────────────────────
+        Đứng SAU kiểm độ sâu vì độ sâu loại được phần lớn chặng bằng phép rẻ
+        hơn. Trả lời đúng/sai là đủ cho Dijkstra — "dính cái gì, cách bao xa" là
+        việc của hậu kiểm `auditRoute`.
+        Vật có vòng chặn với tới trong 5 km quanh MỘT đầu đã được đánh dấu
+        `DOT_CO` lúc dựng: chạm nó chỉ CẮM CỜ, không chặn (luật 7) — cảng nào
+        cũng có lồng bè, đăng đáy, xác tàu cũ nằm trong luồng ra vào; chặn thì
+        không tàu nào rời bến được, mà bà con lại rành khúc đó hơn máy.
+        Vùng cấm vào NHỎ HƠN BƯỚC MẪU nằm chung chỉ mục này (lý do ở chỗ dựng
+        `dots`) — đây là chỗ đệm 500 m của quyết định §1.5 thật sự có hiệu lực:
+        bán kính ngoại tiếp đã cộng `NO_GO_PAD_KM`.
+        MỘT lượt quét trả bit-OR của mức: nghiêm thì dừng ngay khi thấy bit CHẶN
+        (chặng hỏng, cờ không còn nghĩa); relaxed thì lấy đủ cả hai bit vì tổng
+        hiển thị là của CẢ tuyến. */
+    if (dotIx) {
+      const m = maskWithinSegment(
+        dotIx, from, to, dotRKm, dotMask,
+        relaxed ? DOT_CHAN | DOT_CO : DOT_CHAN,
+      );
+      if (m & DOT_CHAN) {
+        if (!relaxed) return INFEASIBLE_LEG;
+        hazard = true;
+      }
+      if (m & DOT_CO) hazardNearPort = true;
     }
 
     const heading = bearingDeg(from, to);
@@ -728,11 +1072,13 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     let cost = weatherCost;
     if (shallow) cost *= SHALLOW_PENALTY;
     if (veryShallow) cost *= SHALLOW_PENALTY;
+    // qua dải 2–4 m nhờ mớn: đi được nhưng chỗ sâu hơn cùng giá thì ưu tiên
+    if (draftShallow) cost *= SHALLOW_PENALTY;
 
     return {
       feasible: true, distKm, hours, fuelL, cost,
       waveM: maxWave, windKmh: maxWind, rough, shallow, veryShallow, nearLand,
-      following,
+      draftShallow, hazard, hazardNearPort, lowSeen, lowFar, following,
     };
   };
 
@@ -824,7 +1170,11 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
   }
   waypoints = smoothed;
 
-  /** Tính lại số liệu trọn tuyến theo đúng mô hình (relaxed → không bao giờ cụt giữa chừng) */
+  /**
+   * Tính lại số liệu trọn tuyến theo đúng mô hình (relaxed → không bao giờ cụt
+   * giữa chừng). `hoursAt[k]` = giờ cộng dồn tới `pts[k]` ([0] = 0) — mảng này
+   * đi ra ngoài theo `RoutePlan.hoursAt` cho hậu kiểm triều/hiểm hoạ tại ETA.
+   */
   const walk = (pts: LatLon[], relaxed: boolean) => {
     let hoursSum = 0,
       fuelSum = 0,
@@ -835,8 +1185,14 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       shallowFlag = false,
       veryShallowFlag = false,
       nearLandFlag = false,
+      draftShallowFlag = false,
+      hazardFlag = false,
+      hazardNearPortFlag = false,
+      lowSeen = false,
+      lowFar = false,
       following = false,
       ok = true;
+    const hoursAt: number[] = [0];
     for (let k = 1; k < pts.length; k++) {
       const leg = legCost(pts[k - 1], pts[k], departHourIdx + hoursSum, relaxed);
       if (!leg.feasible) {
@@ -844,6 +1200,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
         break;
       }
       hoursSum += leg.hours;
+      hoursAt.push(hoursSum);
       fuelSum += leg.fuelL;
       distSum += leg.distKm;
       maxWave = Math.max(maxWave, leg.waveM);
@@ -852,11 +1209,20 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       shallowFlag = shallowFlag || leg.shallow;
       veryShallowFlag = veryShallowFlag || leg.veryShallow;
       nearLandFlag = nearLandFlag || leg.nearLand;
+      draftShallowFlag = draftShallowFlag || leg.draftShallow;
+      hazardFlag = hazardFlag || leg.hazard;
+      hazardNearPortFlag = hazardNearPortFlag || leg.hazardNearPort;
+      lowSeen = lowSeen || leg.lowSeen;
+      lowFar = lowFar || leg.lowFar;
       following = following || leg.following;
     }
     return {
-      ok, hoursSum, fuelSum, distSum, maxWave, maxWind,
-      rough, shallowFlag, veryShallowFlag, nearLandFlag, following,
+      ok, hoursSum, hoursAt, fuelSum, distSum, maxWave, maxWind,
+      rough, shallowFlag, veryShallowFlag, nearLandFlag, draftShallowFlag,
+      hazardFlag, hazardNearPortFlag,
+      // có chỗ thấp, và MỌI chỗ thấp đều là chuyện ở cảng
+      nearPortOnly: lowSeen && !lowFar,
+      following,
     };
   };
 
@@ -919,6 +1285,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       waypoints: directPts,
       distKm: directWalk.distSum,
       hours: directWalk.hoursSum,
+      hoursAt: directWalk.hoursAt,
       fuelL: directWalk.fuelSum,
       maxWaveM: directWalk.maxWave,
       maxWindKmh: directWalk.maxWind,
@@ -926,8 +1293,18 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       hasShallowLeg: directWalk.shallowFlag,
       hasVeryShallowLeg: directWalk.veryShallowFlag,
       hasNearLandLeg: directWalk.nearLandFlag,
+      hasDraftShallowLeg: directWalk.draftShallowFlag,
+      nearPortOnly: directWalk.nearPortOnly,
       hasFollowingSeaRisk: directWalk.following,
       depthChecked: depth != null,
+      /*  Nhánh trần-đường-vòng CHỈ chạy khi `direct` khác null, mà `direct` là
+          kết quả của `walk(directPts, false)` — đi qua đúng `legCost` nghiêm.
+          Nên đường thẳng trả về ở đây KHÔNG THỂ xuyên xác tàu/giàn/vùng cấm;
+          có xuyên thì `direct` đã null và nhánh này không tồn tại. (Test
+          `route-plan-hazards` canh đúng điều này.) */
+      hazardChecked,
+      hasHazardLeg: directWalk.hazardFlag,
+      hasHazardNearPortLeg: directWalk.hazardNearPortFlag,
       cappedToDirect: true,
       direct,
       fuelDeltaL: 0,
@@ -939,6 +1316,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     waypoints,
     distKm: chosen.distSum,
     hours: chosen.hoursSum,
+    hoursAt: chosen.hoursAt,
     fuelL: chosen.fuelSum,
     maxWaveM: chosen.maxWave,
     maxWindKmh: chosen.maxWind,
@@ -946,8 +1324,13 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     hasShallowLeg: chosen.shallowFlag,
     hasVeryShallowLeg: chosen.veryShallowFlag,
     hasNearLandLeg: chosen.nearLandFlag,
+    hasDraftShallowLeg: chosen.draftShallowFlag,
+    nearPortOnly: chosen.nearPortOnly,
     hasFollowingSeaRisk: chosen.following,
     depthChecked: depth != null,
+    hazardChecked,
+    hasHazardLeg: chosen.hazardFlag,
+    hasHazardNearPortLeg: chosen.hazardNearPortFlag,
     cappedToDirect: false,
     direct,
     fuelDeltaL: direct ? chosen.fuelSum - direct.fuelL : null,

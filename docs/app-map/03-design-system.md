@@ -7,6 +7,7 @@
 covers: src/app/globals.css
 last_verified: 2026-08-25
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-09-04) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-30 - safe-area pb env(sab), edge-to-edge mobile native, motion điềm đạm khớp globals.css hiện tại (4 commit UI tween đã review) -->
 <!-- re-verified: 2026-08-18 — ĐỐI CHIẾU `globals.css` (bản 2026-08-14 b0bd111) với doc: (1) 51 biến `--*` trong `:root`/`@theme` — bảng màu theo trục có 4 hex LỆCH từ đợt chỉnh AA (t1 #18648b · t2 #2e7d4f · t3 #8f6010 · t4 #7a4d9e) → sửa bảng theo mã, ghi kèm `--tN-bg` + bộ trạng thái ok/warn/danger (+ `-bg`); bổ sung tên token nền tảng `--navy/--sea/--trim/--sun/--foreground/--card/--line` mà doc chỉ gọi bằng tên chữ. (2) `.surface` · `.glass` · `.range-big` · `.range-dual` · `.display` · `.anim-*` · `.dock-frame`/`.bottom-dock`/`--app-vh`/`--dock-*` đều còn trong mã, khớp mục 2/3/6. (3) giá trị oklch ở mục "Token chờ lift" là GIÁ TRỊ MÀU chưa lift, không phải symbol mã — bỏ backtick để doc-health khỏi báo dead-symbol oan; nội dung không đổi. (4) Mục 6 "Lớp Dự báo cá" còn tả heatmap theo loài + hàm `fishHeatColor` (đã xoá) → đính chính theo mã hiện tại (lưới ô 3 mức `FISH_LEVEL_BANDS`, từ 2026-07-27 — 07 đã ghi, 03 chưa). (5) Gói C 2026-08-18: thêm bullet `neutral` cho `CrewIssueLevel`/`requestStatusVN` ở mục "Ngôn ngữ trạng thái" — không token mới. -->
@@ -255,7 +256,7 @@ Chủ dự án: *"cái nút nó là ô vuông kích thước đồng bộ"* · *
 |---|---|---|
 | Đóng · Tuỳ chọn · Xoá hết | hàng tiêu đề thẻ | thao tác lên cả thẻ |
 | **Tính đường / Tính lại** (màn ĐANG SỬA danh sách) | cuối hàng **dòng tóm tắt của THANH GHIM ĐÁY** (đổi 2026-08-29b, xem dưới) | nút chính của cả màn phải luôn thấy đủ, không bị mép thẻ cắt |
-| **Tính lại** (màn ĐANG ĐỌC kết quả) | cuối hàng **"Đoạn xấu nhất: sóng ~x m, gió cấp y. Lưới độ sâu ô ~5,5 km — dò hải đồ, nghe đài duyên hải trước khi chạy."** (đổi 2026-08-29c) | đây là hàng nói tuyến vừa tính xấu chỗ nào — thấy số xấu thì tính lại, đúng hàng nó thao tác lên |
+| **Tính lại** (màn ĐANG ĐỌC kết quả) | cuối hàng **"Đoạn xấu nhất: sóng ~x m, gió cấp y. Lưới độ sâu ô ~450 m — dò hải đồ, nghe đài duyên hải trước khi chạy."** (đổi 2026-08-29c; "5,5 km" → "450 m" 2026-09-04 theo lưới 15″) | đây là hàng nói tuyến vừa tính xấu chỗ nào — thấy số xấu thì tính lại, đúng hàng nó thao tác lên |
 | **Dẫn đường** | cuối hàng **3 con số kết quả** | đọc số xong thì đi |
 | Bỏ điểm N | cuối chính hàng điểm đó | thao tác lên đúng điểm ấy |
 | **Thêm điểm** (panel Điểm đã lưu) | cuối hàng toggle **"Hiện điểm trên bản đồ"** | trước đây là dải viền đứt ăn trọn một hàng |

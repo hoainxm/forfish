@@ -738,6 +738,16 @@ function pxToLonLat(x, y, z, dec) {
 const DEPTH_N_LAT = 4441;
 const DEPTH_N_LON = 3841;
 
+/*  nợ: CẢ PHẦN 5 ĐO LƯỚI 2 BIT/Ô — trần: mọi con số của phần này thuộc về bản
+    lưới trước 2026-09-04 (4 lớp, 2 bit). Lưới nay là 4 bit/6 lớp, mà ba cách mã
+    hoá đem so (RLE, khối-thưa, cây tứ phân) đều nhồi 2 bit/ô nên không chứa nổi
+    lớp 4 và 5. Điều kiện nâng cấp: khi thật sự cần đo lại cách lưu lưới (vd
+    ngân sách `public/data` chật), viết lại ba bộ mã hoá cho 3–4 bit/ô rồi bỏ
+    cổng cỡ file dưới đây. Tới lúc đó phần 5 THÀ KHÔNG CHẠY còn hơn in số sai:
+    giải mã 2 bit trên file 4 bit không ném (file to gấp đôi, chỉ số vẫn trong
+    mảng), nó chỉ lặng lẽ cho ra một bảng đẹp và sai. */
+const DEPTH_BYTES_2BIT = Math.ceil((4441 * 3841) / 4);
+
 /** Giải nén file 2 bit/ô thành một byte/ô để mọi cách mã hoá cùng xuất phát. */
 function depthClasses(raw) {
   const n = DEPTH_N_LAT * DEPTH_N_LON;
@@ -864,6 +874,15 @@ function part5() {
   section(5, "Mã hoá lưới độ sâu — 2 bit/ô đặc vs RLE vs khối-thưa vs cây tứ phân");
 
   const raw = readFileSync(join(DATA, "depth-grid.v1.bin"));
+  if (raw.length !== DEPTH_BYTES_2BIT) {
+    console.log(
+      `\n  BỎ QUA PHẦN 5 — depth-grid.v1.bin dài ${raw.length} byte, không phải ` +
+        `${DEPTH_BYTES_2BIT} byte của lưới 2 bit/ô mà phần này biết đọc.\n` +
+        `  Xem chú thích "nợ:" ở depthClasses(): ba bộ mã hoá đem so đều nhồi 2 bit/ô,\n` +
+        `  phải viết lại cho 3–4 bit/ô rồi mới đo lại được. Số cũ nằm ở docs/research.\n`,
+    );
+    return;
+  }
   const cls = depthClasses(raw);
   const n = cls.length;
   const hist = [0, 0, 0, 0];

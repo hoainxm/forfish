@@ -456,9 +456,40 @@ import {
 import {
   playBorderWarning,
   playOffRouteChime,
+  playHazardWarning,
   armWarningSound,
 } from "@/lib/warning-sound";
-import { fetchDepthGrid, depthClassAt, type DepthClass } from "@/lib/depth-grid";
+import { vibratePattern, HAZARD_VIBRATE } from "@/lib/haptics";
+import {
+  evaluateNavHazards,
+  initNavHazardState,
+  NAV_LOST_TICK_MS,
+  type NavAlert,
+  type NavHazardState,
+} from "@/lib/nav-hazards";
+import {
+  buildNavContext,
+  cableKmAt,
+  denBienTin,
+  khuTruBaoGan,
+  navRungOn,
+  phaoKeTiep,
+  pickHudLines,
+  restrictedAt,
+  sameAlerts,
+  setNavRungOn,
+  type KhuGan,
+  type NavContext,
+} from "@/lib/nav-context";
+import { fetchSeaLanes } from "@/lib/sea-lanes";
+import { requiredDepthM } from "@/lib/hazards";
+import {
+  DEPTH_CLASS_LABEL,
+  fetchDepthGrid,
+  depthClassAt,
+  type DepthClass,
+  type DepthGrid,
+} from "@/lib/depth-grid";
 import { timeoutSignal } from "@/lib/abort";
 import { weatherFromCode } from "@/lib/weather-codes";
 import {
@@ -497,6 +528,7 @@ import { skillForLead } from "@/lib/forecast-quality";
 import { FORECAST_SKILL } from "@/lib/forecast-skill";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { CloseButton } from "@/components/ui/close-button";
 import { RaKhoiControls } from "@/components/ra-khoi-controls";
 import { StormBanner } from "@/components/storm-banner";
@@ -570,11 +602,18 @@ const BORDER_LEVEL_STYLE: Record<BorderLevel, { bg: string; fg: string }> = {
   very_near: { bg: "var(--danger-bg)", fg: "var(--danger)" },
 };
 
-// Cảnh báo nước cạn tại điểm chạm — từ lưới độ sâu tĩnh (depth-grid.ts).
-// Chỉ nói khi có chuyện (rất cạn / nông); nước đủ sâu thì im.
-const DEPTH_NOTE: Partial<Record<DepthClass, { text: string; danger: boolean }>> = {
-  1: { text: "Chỗ này rất cạn, bãi nổi — coi chừng mắc cạn.", danger: true },
-  2: { text: "Nước nông (cỡ 4–12 m) — để ý con nước.", danger: false },
+/*  Độ sâu tại điểm chạm — từ lưới độ sâu tĩnh 6 lớp (depth-grid.ts, Đợt 0
+    2026-09-04). Chữ lấy từ `DEPTH_CLASS_LABEL` (một nguồn, không tự đặt tên
+    lớp ở đây); màu theo mức đáng lo: đỏ = không đi vào (rạn, nước <2 m), vàng =
+    đi được nhưng nhìn con nước (2–4 m, 4–12 m), thường = trên bờ / đủ sâu (nói
+    cho biết, không doạ). Ngoài lưới (null) thì im. */
+const DEPTH_NOTE: Record<DepthClass, { text: string; tone: "danger" | "warn" | "plain" }> = {
+  0: { text: `${DEPTH_CLASS_LABEL[0]} — theo bản đồ độ sâu của máy, ô ~450 m.`, tone: "plain" },
+  1: { text: `${DEPTH_CLASS_LABEL[1]} — coi chừng mắc cạn.`, tone: "danger" },
+  2: { text: `${DEPTH_CLASS_LABEL[2]} — coi chừng mắc cạn.`, tone: "danger" },
+  3: { text: `${DEPTH_CLASS_LABEL[3]} — chỉ vào theo con nước lên, biết mớn tàu mình.`, tone: "warn" },
+  4: { text: `${DEPTH_CLASS_LABEL[4]} — để ý con nước.`, tone: "warn" },
+  5: { text: `${DEPTH_CLASS_LABEL[5]}.`, tone: "plain" },
 };
 
 const MAP_LAYER_KEY = "forfish.maplayer.v1";
@@ -2997,6 +3036,285 @@ export default function FishingMapView() {
   );
   const stopNav = useCallback(() => setNavMode(null), []);
 
+  /* ── CẢNH BÁO HIỂM HOẠ KHI ĐANG CHẠY (Đợt 3, 2026-09-04) ─────────────────
+     Bộ não ở `lib/nav-hazards.ts` (thuần), kho tra cứu ở `lib/nav-context.ts`
+     (thuần), chuông ở `lib/warning-sound.ts`, rung ở `lib/haptics.ts`. Ở ĐÂY
+     chỉ có ba việc: dựng kho ĐÚNG MỘT LẦN lúc bật dẫn đường, gọi bộ não mỗi
+     fix (có tiết chế), và đổ kết quả ra HUD.
+
+     OFFLINE (4 câu của CLAUDE.md):
+      (a) KHÔNG có request mới nào lúc mở app — sáu kho dưới đây đều là promise
+          ĐÃ ĐỆM (`fetchX` cache cả phiên), và chỉ được chạm khi bà con BẤM
+          "Bắt đầu dẫn đường". Mỗi cái tự có `timeoutSignal` + `.catch`, gói
+          bằng `allSettled` nên mất sóng thì thiếu lớp chứ không treo, không ném.
+      (b) KHÔNG đụng `public/sw.js`, `CRITICAL_SHELL`, hay khoá `forfish.*` nào
+          đang có. Khoá MỚI duy nhất: `forfish.nav.rung.v1` (bật/tắt rung).
+      (c) KHÔNG ghi đè, KHÔNG xoá dữ liệu bà con đã tải; kho chỉ ĐỌC.
+      (d) Nhánh mất sóng LÀ nhánh duy nhất: mọi kho đã nằm trong vỏ sống-còn
+          của service worker, không kho nào nào cần mạng lúc đang chạy. */
+  const navCtxRef = useRef<NavContext | null>(null);
+  const navDepthRef = useRef<DepthGrid | null>(null);
+  const navStateRef = useRef<NavHazardState>(initNavHazardState());
+  /** mốc lần đánh giá gần nhất — để tiết chế ≤1 lần/2 s (xem effect dưới) */
+  const navEvalRef = useRef<{
+    ms: number;
+    lat: number;
+    lon: number;
+    hdg: number | null;
+    phaoMs: number;
+    denMs: number;
+  }>({ ms: 0, lat: NaN, lon: NaN, hdg: null, phaoMs: 0, denMs: 0 });
+  const [navAlerts, setNavAlerts] = useState<NavAlert[]>([]);
+  const [navInfoLine, setNavInfoLine] = useState<string | null>(null);
+  /** câu đèn biển gần nhất — làm mới 30 giây/lần, dùng khi không có phao nào */
+  const navDenRef = useRef<string | null>(null);
+  const [navRung, setNavRung] = useState(true);
+  const navRungRef = useRef(true);
+  /*  Kho khu trú bão đã nạp xong chưa. PHẢI là state chứ không đọc thẳng
+      `navCtxRef.current` lúc vẽ: kho dựng xong trong một promise, mà đọc ref
+      lúc vẽ thì không có gì bảo React vẽ lại ⇒ nút "Khu trú bão gần" có thể
+      không bao giờ hiện. */
+  const [navKhuReady, setNavKhuReady] = useState(false);
+  const [shelterOpen, setShelterOpen] = useState(false);
+  /*  Mớn nước ĐỌC MỘT LẦN lúc bật dẫn đường, từ ĐÚNG nguồn mà thẻ tuyến đọc
+      (`forfish.boat.v1` → `draftM`, kẹp 0–10 m như route-planner:134). Hai chỗ
+      đọc hai kiểu là hai câu khác nhau về cùng một con tàu. */
+  const navNeedRef = useRef<number | null>(null);
+  const navDraftRef = useRef<number | null>(null);
+
+  // cờ rung: đọc kho MỘT LẦN sau khi hydrate (localStorage không có ở SSR)
+  useEffect(() => {
+    const on = navRungOn();
+    navRungRef.current = on;
+    setNavRung(on);
+  }, []);
+  const toggleNavRung = useCallback(() => {
+    setNavRung((on) => {
+      const next = !on;
+      navRungRef.current = next;
+      setNavRungOn(next);
+      return next;
+    });
+  }, []);
+
+  /*  Hàm tra lớp độ sâu + hàm đổi km ra chữ: GIỮ THAM CHIẾU ỔN ĐỊNH. Dựng
+      callback mới mỗi fix là bắt `evaluateNavHazards` nhận một hàm khác mỗi
+      1–2 giây cho không việc gì (de-xuat-B §6 "cấm mỗi fix"). */
+  const navDepthAt = useCallback(
+    (la: number, lo: number) =>
+      navDepthRef.current ? depthClassAt(navDepthRef.current, la, lo) : null,
+    [],
+  );
+  const navFmtDist = useCallback(
+    (km: number) => fmtDist(km, prefs.distUnit, km < 10 ? 1 : 0),
+    [prefs.distUnit],
+  );
+
+  // DỰNG KHO một lần khi navMode null → khác null; dọn sạch khi dừng dẫn đường
+  useEffect(() => {
+    if (!navOn) {
+      navCtxRef.current = null;
+      navStateRef.current = initNavHazardState();
+      navEvalRef.current = {
+        ms: 0,
+        lat: NaN,
+        lon: NaN,
+        hdg: null,
+        phaoMs: 0,
+        denMs: 0,
+      };
+      setNavAlerts([]);
+      setNavInfoLine(null);
+      setShelterOpen(false);
+      setNavKhuReady(false);
+      return;
+    }
+    let alive = true;
+    const boat = readUserRecord<Partial<BoatProfile>>("forfish.boat.v1").value;
+    const mon =
+      typeof boat?.draftM === "number" && boat.draftM > 0 && boat.draftM <= 10
+        ? boat.draftM
+        : null;
+    navDraftRef.current = mon;
+    navNeedRef.current = requiredDepthM(mon, null);
+    void Promise.allSettled([
+      fetchXacTau(),
+      fetchSeaLanes(),
+      fetchSeamarks(),
+      fetchVnAids(),
+      fetchDenBien(),
+      fetchKhuTruBao(),
+      fetchDepthGrid(),
+    ]).then(([xt, sl, sm, va, db, kh, dg]) => {
+      if (!alive) return;
+      navDepthRef.current = dg.status === "fulfilled" ? dg.value : null;
+      const ctx = buildNavContext(
+        {
+          xacTau: xt.status === "fulfilled" ? xt.value : null,
+          laneFeatures: sl.status === "fulfilled" ? sl.value : null,
+          seamarks: sm.status === "fulfilled" ? sm.value : null,
+          vnAids: va.status === "fulfilled" ? va.value : null,
+          denBien: db.status === "fulfilled" ? db.value : null,
+          khuTruBao: kh.status === "fulfilled" ? kh.value : null,
+        },
+        navNeedRef.current,
+      );
+      navCtxRef.current = ctx;
+      setNavKhuReady(ctx.khu != null);
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("nav-context", ctx.counts, `${ctx.buildMs} ms`, ctx.missing);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [navOn]);
+
+  /*  MỖI FIX GPS: tiết chế rồi gọi bộ não đúng MỘT lần.
+      Tiết chế = ≥2 giây HOẶC dời ≥30 m HOẶC đổi hướng ≥15° (de-xuat-B §3).
+      Không tiết chế thì máy yếu chạy nón 3 tia × 25 mẫu + tra chỉ mục theo
+      nhịp GPS 1 Hz suốt chuyến. */
+  const navAccuracyM = tracking.accuracyM;
+  const navStatus = tracking.status;
+  const navHeadingDeg = tracking.headingDeg;
+  const navSpeedKmh = tracking.speedKmh;
+  /*  ĐỒNG HỒ CHO LÚC MẤT GPS (sửa 2026-09-04, review đợt 4 N3). `use-nav-tracking`
+      GIỮ NGUYÊN `pos` khi mất sóng và chỉ đổi `status` một lần, nên effect dưới
+      chạy đúng một lượt rồi đứng: hạn `NAV_LOST_KEEP_MS` (10 phút) không bao giờ
+      tới, câu đỏ ở lại trên HUD vô thời hạn. Nhịp này chỉ chạy khi KHÔNG còn
+      `tracking` — đang bám GPS thì nhịp fix đã lo, thêm interval là thêm vòng
+      lặp trên máy yếu. Dọn khi trở lại `tracking` / tắt dẫn đường / rời màn. */
+  const [navLostTick, setNavLostTick] = useState(0);
+  useEffect(() => {
+    if (!navOn || navStatus === "tracking") return;
+    const id = setInterval(() => setNavLostTick((t) => t + 1), NAV_LOST_TICK_MS);
+    return () => clearInterval(id);
+  }, [navOn, navStatus]);
+  useEffect(() => {
+    if (!navOn || !navPos) return;
+    const now = Date.now();
+    const last = navEvalRef.current;
+    const moiM = Number.isFinite(last.lat)
+      ? haversineKm(navPos.lat, navPos.lon, last.lat, last.lon) * 1000
+      : Infinity;
+    const xoay =
+      last.hdg != null && navHeadingDeg != null
+        ? Math.abs(((navHeadingDeg - last.hdg + 540) % 360) - 180)
+        : navHeadingDeg != null
+          ? 999
+          : 0;
+    if (now - last.ms < 2000 && moiM < 30 && xoay < 15) return;
+
+    const ctx = navCtxRef.current;
+    const { alerts, state } = evaluateNavHazards(navStateRef.current, {
+      pos: navPos,
+      headingDeg: navHeadingDeg,
+      speedKmh: navSpeedKmh,
+      accuracyM: navAccuracyM,
+      nowMs: now,
+      draftM: navDraftRef.current,
+      needM: navNeedRef.current,
+      status: navStatus,
+      ix: ctx?.hazards ?? null,
+      noGo: ctx?.noGo ?? null,
+      depthAt: navDepthRef.current ? navDepthAt : null,
+      nearestCableKm: cableKmAt(ctx, navPos),
+      insideRestricted: restrictedAt(ctx, navPos),
+      borderNm: navProx?.applies ? navProx.distanceNm : null,
+      fmtDist: navFmtDist,
+    });
+    navStateRef.current = state;
+
+    /*  DÒNG TIN (bậc 4): phao kế tiếp ≤2 km nhắc lại tối đa 10 giây một lần,
+        đèn biển 30 giây. Nhịp riêng vì hai thứ này đổi chậm hơn hiểm hoạ, mà
+        dựng câu cho chúng là hai lượt tra chỉ mục nữa. */
+    if (navStatus !== "tracking") {
+      setNavInfoLine(null);
+    } else if (ctx && now - last.phaoMs >= 10_000) {
+      last.phaoMs = now;
+      if (now - last.denMs >= 30_000) {
+        last.denMs = now;
+        navDenRef.current = denBienTin(ctx, navPos, navFmtDist)?.cau ?? null;
+      }
+      // phao thắng đèn: phao là thứ sắp đi ngang, đèn chỉ là mốc nhìn cho vui mắt
+      const p = phaoKeTiep(ctx, navPos, navHeadingDeg, navFmtDist);
+      setNavInfoLine(p ? p.cau : navDenRef.current);
+    }
+
+    last.ms = now;
+    last.lat = navPos.lat;
+    last.lon = navPos.lon;
+    last.hdg = navHeadingDeg;
+
+    setNavAlerts((cu) => (sameAlerts(cu, alerts) ? cu : alerts));
+
+    /*  Chuông + rung: `nav-hazards` đã đếm giãn cách (≤1 chuông/20 s, ≤1
+        rung/30 s, đỏ mới được miễn) nên ở đây chỉ việc phát. Nuốt lỗi là cố
+        ý — máy không phát được tiếng thì cảnh báo HÌNH vẫn phải hiện. */
+    for (const a of alerts) {
+      if (a.chuong) playHazardWarning({ urgent: a.muc === "do" });
+      if (a.rung && navRungRef.current) vibratePattern(HAZARD_VIBRATE);
+    }
+  }, [
+    navOn,
+    navPos,
+    navHeadingDeg,
+    navSpeedKmh,
+    navAccuracyM,
+    navStatus,
+    // nhịp đánh thức lúc mất GPS — không có nó thì hạn 10 phút không tới (N3)
+    navLostTick,
+    navProx,
+    navDepthAt,
+    navFmtDist,
+  ]);
+
+  /*  BA KHU TRÚ BÃO GẦN NHẤT — tính khi mở tấm, không tính sẵn mỗi fix.
+      Chỉ có nghĩa khi ĐANG CÓ BÃO: nút không hiện thì danh sách này không ai
+      hỏi tới. Không phán "kịp hay không kịp", không hứa còn chỗ. */
+  const [shelterRows, setShelterRows] = useState<KhuGan[]>([]);
+  useEffect(() => {
+    if (!shelterOpen || !navPos) {
+      setShelterRows([]);
+      return;
+    }
+    setShelterRows(
+      khuTruBaoGan(navCtxRef.current, navPos, navSpeedKmh, navFmtDist),
+    );
+  }, [shelterOpen, navPos, navSpeedKmh, navFmtDist]);
+  const stormOn = stormInfo.kind === "co-bao";
+  const openShelter = useCallback(() => setShelterOpen(true), []);
+
+  /*  "Vẽ đường tới đây" — ĐẶT ĐÍCH MỚI qua đúng cơ chế sẵn có của nút "Dẫn
+      đường tới đây" trong menu nhấn-giữ (setPoint + routeMode + chuỗi điểm
+      mới). App KHÔNG tự tính, KHÔNG tự đổi tuyến: nó chỉ mở khung vẽ đường
+      với đích là khu trú, bà con bấm Tính rồi bấm Bắt đầu như mọi lần.
+
+      PHẢI dừng dẫn đường đang chạy: khung vẽ đường cố ý không dựng khi
+      `navMode` khác null (lúc đó HUD phải đọc được). Hậu quả đó nói thẳng
+      ngay trong tấm chứ không để bà con phát hiện sau khi bấm. */
+  const veDuongToiKhu = useCallback(
+    (k: KhuGan) => {
+      setShelterOpen(false);
+      setNavMode(null);
+      setPoint({ lat: k.lat, lon: k.lon });
+      flyToPoint(k.lon, k.lat);
+      setRouteMode(true);
+      hideSheetForOverlay();
+      setStops(addStop(clearStops(), k.lat, k.lon, k.ten));
+      setRoute(null);
+    },
+    [flyToPoint, hideSheetForOverlay, setStops],
+  );
+
+  /*  HAI DÒNG CHO HUD — chọn ở lib (thuần, test được), component chỉ vẽ.
+      `navBorder` mức very_near (≤6 hải lý) vẫn đứng đầu và do HUD vẽ riêng;
+      lúc đó dòng tin phao/đèn nhường chỗ. */
+  const navHazardLines = useMemo(
+    () => pickHudLines(navAlerts, navBorder?.level === "very_near", navInfoLine),
+    [navAlerts, navBorder?.level, navInfoLine],
+  );
+
   // độ sâu tại điểm đang xem — lưới tĩnh, đọc cục bộ
   useEffect(() => {
     let alive = true;
@@ -3435,7 +3753,7 @@ export default function FishingMapView() {
     armSheetHide,
     clearSheetHide,
   ]);
-  const depthNote = depth != null ? DEPTH_NOTE[depth] : undefined;
+  const depthNote = depth != null ? DEPTH_NOTE[depth] : undefined; // ngoài lưới → im
   // tuần trăng đêm nay — quyết với nghề đèn (mực, cá cơm); tính offline
   const moon = moonPhase(new Date());
   // vùng cá tại điểm đang xem (tham khảo theo mùa)
@@ -5920,6 +6238,8 @@ export default function FishingMapView() {
                           ? "bãi ngầm gần bờ — coi chừng cạn"
                           : "dưới mặt nước, không nhìn thấy"}
               </p>
+              {/*  TOẠ ĐỘ CHỖ NGẦM — cùng kiểu hiển thị với ô toạ độ máy định vị
+                   (theo hệ bà con đã chọn trong Cài đặt bản đồ). */}
               <DongToaDo
                 lat={diaDanhInfo.lat}
                 lon={diaDanhInfo.lon}
@@ -6374,6 +6694,69 @@ export default function FishingMapView() {
         </div>
       )}
 
+      {/*  KHU TRÚ BÃO GẦN — chỉ mở được khi ĐANG CÓ BÃO và đang dẫn đường.
+           Ba khu gần nhất, kèm còn bao xa và (nếu tàu đang chạy) chừng bao
+           lâu. App KHÔNG phán "kịp/không kịp", KHÔNG hứa còn chỗ, KHÔNG tự
+           đổi tuyến — bấm "Vẽ đường tới đây" mới đặt đích mới. */}
+      {shelterOpen && (
+        <BottomSheet
+          title="Khu trú bão gần đây"
+          onClose={() => setShelterOpen(false)}
+        >
+          {shelterRows.length === 0 ? (
+            <p className="rounded-2xl bg-field p-4 text-[1rem] font-semibold leading-snug text-foreground/75">
+              Chưa tìm được khu trú nào quanh đây trong danh mục nhà nước. Gọi
+              đài duyên hải hoặc bộ đội biên phòng để hỏi chỗ vào.
+            </p>
+          ) : (
+            <>
+              <p className="mb-3 text-[0.9375rem] font-semibold leading-snug text-foreground/70">
+                Bấm &quot;Vẽ đường tới đây&quot; là DỪNG dẫn đường đang chạy và
+                mở khung vẽ đường mới tới khu đó.
+              </p>
+            <ul className="space-y-3">
+              {shelterRows.map((k) => (
+                <li key={k.id} className="rounded-2xl bg-field p-4">
+                  <p className="display text-[1.125rem] font-bold text-navy">
+                    {k.ten}
+                  </p>
+                  <p className="mt-0.5 text-[1rem] font-semibold text-foreground/75">
+                    {[
+                      k.tinh || null,
+                      `cách ${k.khoang}`,
+                      k.gio ? `chừng ${k.gio}` : null,
+                      k.tauDaiM ? `tàu dài tới ${k.tauDaiM} m` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                  {/*  Toạ độ chỉ ở mức tin VỪA thì phải nói ra: khu trú có
+                       thật, nhưng chấm trên bản đồ có thể lệch vài km. */}
+                  {k.ganDung && (
+                    <p className="mt-0.5 text-[0.875rem] font-semibold leading-snug text-warn">
+                      (vị trí gần đúng — vào gần thì hỏi đài duyên hải)
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => veDuongToiKhu(k)}
+                    className="mt-2 min-h-[3.5rem] w-full rounded-2xl bg-t1 px-4 text-[1.0625rem] font-bold text-white transition active:scale-[0.98]"
+                  >
+                    Vẽ đường tới đây
+                  </button>
+                </li>
+              ))}
+            </ul>
+            </>
+          )}
+          <p className="mt-4 text-[0.875rem] font-semibold leading-snug text-foreground/60">
+            Danh mục khu neo đậu tránh trú bão theo quy hoạch nhà nước (tham
+            khảo). Trước khi vào, nghe hướng dẫn của địa phương và Thông báo
+            hàng hải.
+          </p>
+        </BottomSheet>
+      )}
+
       {/* HẠT BAY animated kiểu Windy — canvas overlay TRÊN bản đồ + lớp màu
           (z-10, dưới UI z-20), hạt trắng không bị nền màu che (user 2026-07-29).
           Gió/lớp màu bay theo hướng gió, lớp sóng theo hướng sóng. */}
@@ -6415,6 +6798,13 @@ export default function FishingMapView() {
             offRoute={navOffRoute}
             onDismissOffRoute={dismissNavOffRoute}
             nextStop={nextStop}
+            hazardLines={navHazardLines}
+            rungOn={navRung}
+            onToggleRung={toggleNavRung}
+            /*  Nút trú bão CHỈ khi đang có bão thật (`stormInfo` = co-bao) VÀ
+                kho khu trú đã nạp: nút mở ra danh sách rỗng còn tệ hơn không
+                có nút. */
+            onShelter={stormOn && navKhuReady ? openShelter : undefined}
           />
         )}
         {/* TẢI SẴN DỰ BÁO: tự chạy khi vào trang (không còn nút bấm), báo một
@@ -7438,13 +7828,15 @@ export default function FishingMapView() {
                 </p>
               </div>
 
-              {/* nước cạn tại chỗ này — chỉ nói khi có chuyện */}
+              {/* độ sâu tại chỗ này — đủ 6 lớp; ngoài lưới thì im */}
               {depthNote && (
                 <p
                   className={`rounded-xl px-4 py-3 text-[1rem] font-bold ${
-                    depthNote.danger
+                    depthNote.tone === "danger"
                       ? "bg-danger-bg text-danger"
-                      : "bg-warn-bg text-warn"
+                      : depthNote.tone === "warn"
+                        ? "bg-warn-bg text-warn"
+                        : "bg-surface-2 text-foreground/80"
                   }`}
                 >
                   {depthNote.text}

@@ -42,6 +42,23 @@ const OFF_ROUTE_NOTES: Motif = [
   [D5, 0.2, 0.75, 1.1],
 ];
 
+/**
+ * HIỂM HOẠ KHI ĐANG CHẠY (xác tàu, bãi cạn, giàn khoan…) — motif 3: A5–A5
+ * GIẬT NGẮN, hai nốt CÙNG cao độ, ngắt 90 ms giữa hai nốt.
+ *
+ * Vì sao là nốt lặp, không lên không xuống: hai chuông cũ đã chiếm "đi lên"
+ * (ranh giới) và "đi xuống" (lệch tuyến). Tiếng giật hai nhịp bằng nhau là
+ * hình dạng thứ ba tai phân biệt được ngay cả khi máy để trong buồng lái —
+ * và nó ngắn, vì cảnh báo này có thể nổ khi tàu đang trong luồng hẹp, phải
+ * để bà con còn nghe máy. Mức gấp (đỏ) lặp motif lần 2 sau URGENT_REPEAT_GAP.
+ */
+const HAZARD_NOTE_LEN = 0.3;
+const HAZARD_GAP = 0.09;
+const HAZARD_NOTES: Motif = [
+  [A5, 0.0, 0.9, HAZARD_NOTE_LEN],
+  [A5, HAZARD_NOTE_LEN + HAZARD_GAP, 0.9, HAZARD_NOTE_LEN],
+];
+
 /** Bồi âm chuông: [bội số tần, biên độ]. Bồi cao tắt nhanh hơn (xem decayFor). */
 const PARTIALS: ReadonlyArray<readonly [number, number]> = [
   [1, 1.0],
@@ -89,6 +106,11 @@ export function warningVoices(notes: Motif = BORDER_NOTES): WarningVoice[] {
 /** Lịch giọng chuông LỆCH TUYẾN (thuần — để test soi được motif riêng). */
 export function offRouteVoices(): WarningVoice[] {
   return warningVoices(OFF_ROUTE_NOTES);
+}
+
+/** Lịch giọng chuông HIỂM HOẠ (thuần — test soi được: 2 nốt cùng cao độ, ngắt 90 ms). */
+export function hazardVoices(): WarningVoice[] {
+  return warningVoices(HAZARD_NOTES);
 }
 
 // ── Phần Web Audio (chỉ chạy ở trình duyệt) ──────────────────────────────────
@@ -212,6 +234,33 @@ export function playOffRouteChime(): void {
     master.connect(limiter);
     limiter.connect(c.destination);
     scheduleChime(c, master, c.currentTime + 0.02, offRouteVoices());
+  } catch {
+    /* offline / audio bị chặn → im lặng, KHÔNG throw */
+  }
+}
+
+/**
+ * Phát chuông HIỂM HOẠ khi đang chạy — motif 3 (A5–A5 giật). `urgent` (câu
+ * ĐỎ: còn ≤3 phút / ≤500 m) = lặp motif lần 2, nhỉnh to hơn; câu vàng chỉ một
+ * lượt. Nơi gọi CHỈ phát khi `evaluateNavHazards` trả `chuong: true` — luật
+ * ≤1 chuông/20 s và ≤2 lần mỗi vật nằm ở lib đó, không ở đây. Nuốt MỌI lỗi
+ * như hai chuông kia — cảnh báo HÌNH vẫn là đường chính.
+ */
+export function playHazardWarning(opts?: { urgent?: boolean }): void {
+  const c = getCtx();
+  if (!c) return;
+  try {
+    if (c.state === "suspended") c.resume().catch(() => {});
+    const urgent = opts?.urgent ?? false;
+    const master = c.createGain();
+    master.gain.value = urgent ? 0.68 : 0.52;
+    const limiter = c.createDynamicsCompressor();
+    master.connect(limiter);
+    limiter.connect(c.destination);
+    const base = c.currentTime + 0.02;
+    const voices = hazardVoices();
+    scheduleChime(c, master, base, voices);
+    if (urgent) scheduleChime(c, master, base + URGENT_REPEAT_GAP, voices);
   } catch {
     /* offline / audio bị chặn → im lặng, KHÔNG throw */
   }

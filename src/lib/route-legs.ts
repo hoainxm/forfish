@@ -38,6 +38,17 @@ export interface LegSummary {
  */
 export function legRisk(p: RoutePlan): { risk: LegRisk; reason: string | null } {
   // ĐỎ — thứ có thể làm hỏng chuyến hoặc hỏng tàu
+  /*  VẬT CHẶN ĐỨNG ĐẦU (Đợt 2, 2026-09-04). `hasHazardLeg` nghĩa là chặng đi
+      VÀO vòng chặn của xác tàu/giàn khoan/lồng bè/vùng cấm-vào ở NGOÀI vùng
+      cảng — `planRoute` chặn cứng ca này nên bình thường không bao giờ bật; bật
+      là tuyến đã lọt lưới, và đó là mối nguy nặng hơn mọi thứ dưới đây.
+      CỜ SÁT CẢNG (`hasHazardNearPortLeg`) CỐ Ý KHÔNG ĐỔI MÀU CHẶNG: cảng nào
+      cũng có lồng bè/đăng đáy trong 5 km, tô cam cả chặng 200 km vì một cái
+      lồng bè ở bến là đúng thứ làm bà con quen mắt rồi thôi không nhìn nữa
+      (xem đầu file). Nó được nói bằng MỘT dòng vàng trên thẻ tuyến
+      (`route-danger-items.ts`), đúng chỗ và đúng cỡ. */
+  if (p.hasHazardLeg)
+    return { risk: "red", reason: "đi vào vùng chặn quanh vật chìm / giàn khoan" };
   if (p.hasVeryShallowLeg)
     return { risk: "red", reason: "đè bãi rất cạn (dưới 4 m)" };
   if (p.hasNearLandLeg)
@@ -51,6 +62,9 @@ export function legRisk(p: RoutePlan): { risk: LegRisk; reason: string | null } 
   // CAM — đi được, nhưng phải để mắt
   if (!p.depthChecked)
     return { risk: "amber", reason: "chưa kiểm được độ sâu" };
+  // dải 2–4 m chỉ mở vì đã khai mớn — cam, không im (Đợt 0, 2026-09-04)
+  if (p.hasDraftShallowLeg)
+    return { risk: "amber", reason: "qua chỗ cạn 2–4 m, đủ nước theo mớn đã khai" };
   if (p.hasShallowLeg) return { risk: "amber", reason: "qua vùng nước nông" };
   if (p.hasFollowingSeaRisk)
     return { risk: "amber", reason: "sóng đuôi — dễ trượt sóng" };

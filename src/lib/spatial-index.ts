@@ -37,7 +37,8 @@
  * dưới rồi hỏi `depthClassAt` là xong — đừng nhét lưới độ sâu vào đây.
  */
 
-import { haversineKm, type LatLon } from "@/lib/route-plan";
+// module lá — KHÔNG import route-plan (chu trình import, review đợt 4 G3)
+import { haversineKm, type LatLon } from "@/lib/geo";
 
 /** Một kết quả: đối tượng + khoảng cách thật tới nó (km). */
 export type Hit<T> = { item: T; km: number };
@@ -478,6 +479,41 @@ export function queryCorridor<T>(
 }
 
 /**
+ * LÕI của `distToSegment` — chỉ trả KM, không cấp phát object. Phần "đã đi bao
+ * xa dọc đoạn" để lại ở `lastAlongKm` (biến nháp cấp module) cho chỗ nào cần.
+ *
+ * Vì sao tách: `anyWithinSegment` chạy trong vòng lặp Dijkstra của `route-plan`
+ * (~120.000 chặng một lượt vẽ tuyến, trong worker trên máy yếu). Mỗi lượt tạo
+ * một `{km, alongKm}` là hàng trăm nghìn object cho bộ dọn rác — đúng thứ làm
+ * máy 2 GB khựng. Đọc bằng SỐ, trả bằng SỐ.
+ */
+let lastAlongKm = 0;
+function segDistKm(
+  pLat: number,
+  pLon: number,
+  a: LatLon,
+  b: LatLon,
+): number {
+  const kx = kmPerDegLon((a.lat + b.lat) / 2);
+  const ax = a.lon * kx;
+  const ay = a.lat * KM_PER_DEG_LAT;
+  const bx = b.lon * kx;
+  const by = b.lat * KM_PER_DEG_LAT;
+  const px = pLon * kx;
+  const py = pLat * KM_PER_DEG_LAT;
+
+  const dx = bx - ax;
+  const dy = by - ay;
+  const den = dx * dx + dy * dy;
+  let t = den === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / den;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  const cx = ax + t * dx;
+  const cy = ay + t * dy;
+  lastAlongKm = t * Math.sqrt(den);
+  return Math.hypot(px - cx, py - cy);
+}
+
+/**
  * Khoảng cách từ điểm `p` tới đoạn thẳng a→b, và đã đi bao xa dọc đoạn thì tới
  * chỗ áp sát nhất.
  *
@@ -491,25 +527,596 @@ export function distToSegment(
   a: LatLon,
   b: LatLon,
 ): { km: number; alongKm: number } {
+  const km = segDistKm(p.lat, p.lon, a, b);
+  return { km, alongKm: lastAlongKm };
+}
+
+/* ── CHẶNG a→b CÓ CHẠM VÙNG CẤM CỦA HIỂM HOẠ NÀO KHÔNG ────────────────────── */
+
+/**
+ * Bán kính LỚN NHẤT trong chỉ mục, nhớ theo từng chỉ mục (WeakMap — chỉ mục bị
+ * bỏ thì mục nhớ tự đi theo). Tính một lần O(n), các lượt sau tra O(1) và
+ * KHÔNG cấp phát gì — đây là điều kiện để `anyWithinSegment` chạy trong vòng
+ * nóng của Dijkstra mà không phải đổi chữ ký hợp đồng.
+ */
+const maxRadiusMemo = new WeakMap<object, { of: unknown; km: number }>();
+/*  Ô nhớ MỘT MỤC đứng trước WeakMap (O1 2026-09-04): Dijkstra hỏi cùng một chỉ
+    mục 60.000 lượt liên tiếp — hai phép so danh tính rẻ hơn một `WeakMap.get`
+    mỗi lượt. Giữ tham chiếu mạnh tới ĐÚNG MỘT chỉ mục (cái hỏi gần nhất, vài
+    chục vật) cho tới khi có chỉ mục khác thay chỗ — không phải rò rỉ. */
+let lastIx: object | null = null;
+let lastOf: unknown = null;
+let lastKm = 0;
+function maxRadiusKm<T>(ix: SpatialIndex<T>, rKmOf: (item: T) => number): number {
+  if (ix === lastIx && rKmOf === lastOf) return lastKm;
+  const memo = maxRadiusMemo.get(ix);
+  let km: number;
+  if (memo && memo.of === rKmOf) km = memo.km;
+  else {
+    km = 0;
+    for (let i = 0; i < ix.items.length; i++) {
+      const r = rKmOf(ix.items[i]);
+      if (Number.isFinite(r) && r > km) km = r;
+    }
+    maxRadiusMemo.set(ix, { of: rKmOf, km });
+  }
+  lastIx = ix;
+  lastOf = rKmOf;
+  lastKm = km;
+  return km;
+}
+
+/**
+ * Chặng a→b có đi vào trong bán kính `rKmOf(item)` của phần tử nào không.
+ *
+ * "Xác tàu chặn 500 m, giàn khoan chặn 1 km — chặng này có dính cái nào không?"
+ * → `anyWithinSegment(hazardIx, a, b, (h) => h.rKm)` trong `legCost` của
+ * `route-plan`. Trả lời ĐÚNG/SAI là đủ: Dijkstra chỉ cần biết chặng đi được hay
+ * không, còn "dính cái gì, cách bao xa" là việc hậu kiểm (`route-hazards`).
+ *
+ * Vì sao đo tới ĐOẠN chứ không lấy mẫu điểm dọc chặng: mẫu 2 km lọt khe một
+ * vòng 300 m (phao hiểm hoạ) hay 930 m — bài học `REEF_BUFFER_M` của lưới độ
+ * sâu. Khoảng cách điểm→đoạn thì không có khe.
+ *
+ * KHÔNG cấp phát trong vòng nóng: quét thẳng ô lưới cắt hộp bao của chặng (nới
+ * bằng bán kính lớn nhất), lọc thô bằng số, rồi `segDistKm` trả số. Không gọi
+ * `queryCorridor`/`queryRadius` (chúng dựng mảng kết quả).
+ *
+ * ⚠️ `rKmOf` PHẢI là một hàm ỔN ĐỊNH (khai báo một lần ở cấp module, vd
+ * `const rOf = (h: Hazard) => h.rKm`), KHÔNG tạo arrow mới mỗi lượt gọi: bán
+ * kính lớn nhất được nhớ theo danh tính hàm, đổi hàm là quét lại O(n) — trong
+ * Dijkstra 120.000 lượt thì đó là 120.000 lần quét cả danh sách.
+ */
+export function anyWithinSegment<T>(
+  ix: SpatialIndex<T>,
+  a: LatLon,
+  b: LatLon,
+  rKmOf: (item: T) => number,
+): boolean {
+  if (ix.count === 0) return false;
+  if (
+    !Number.isFinite(a?.lat) ||
+    !Number.isFinite(a?.lon) ||
+    !Number.isFinite(b?.lat) ||
+    !Number.isFinite(b?.lon)
+  )
+    return false;
+  const maxR = maxRadiusKm(ix, rKmOf);
+  if (!(maxR > 0)) return false;
+
+  const latPad = (maxR * BOX_SLACK) / KM_PER_DEG_LAT;
+  const latLo = Math.min(a.lat, b.lat) - latPad;
+  const latHi = Math.max(a.lat, b.lat) + latPad;
+  const farLat = Math.max(Math.abs(a.lat), Math.abs(b.lat));
+  const lonPad = (maxR * BOX_SLACK) / minKmPerDegLon(farLat, latPad);
+  const lonLo = Math.min(a.lon, b.lon) - lonPad;
+  const lonHi = Math.max(a.lon, b.lon) + lonPad;
+
+  const r0 = Math.max(0, rowOf(ix, latLo));
+  const r1 = Math.min(ix.nLat - 1, rowOf(ix, latHi));
+  const c0 = Math.max(0, colOf(ix, lonLo));
+  const c1 = Math.min(ix.nLon - 1, colOf(ix, lonHi));
+  if (r0 > r1 || c0 > c1) return false;
+
+  for (let r = r0; r <= r1; r++) {
+    const base = r * ix.nLon;
+    for (let c = c0; c <= c1; c++) {
+      const cell = base + c;
+      for (let t = ix.start[cell]; t < ix.start[cell + 1]; t++) {
+        const i = ix.order[t];
+        const la = ix.lats[i];
+        const lo = ix.lons[i];
+        if (la < latLo || la > latHi || lo < lonLo || lo > lonHi) continue;
+        const rKm = rKmOf(ix.items[i]);
+        if (!(rKm > 0)) continue;
+        if (segDistKm(la, lo, a, b) <= rKm) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Như `anyWithinSegment`, nhưng MỘT lượt quét trả về BIT-OR của `maskOf(item)`
+ * trên mọi phần tử có vòng chặn chạm chặng a→b (0 = không chạm gì).
+ *
+ * Vì sao có (O1 tối ưu 2026-09-04): `legCost` từng giữ BỐN chỉ mục (vật chặn ·
+ * vật sát cảng · vùng-cấm-nhỏ chặn · vùng-cấm-nhỏ sát cảng) và hỏi bốn lần mỗi
+ * chặng — bốn lần dựng hộp bao, bốn lần duyệt ô, bốn lần tra memo. Gộp thành
+ * một chỉ mục với "mức" ghi trên từng phần tử thì một lượt quét trả đủ cả
+ * hai câu "chặn không / cắm cờ không".
+ *
+ * `stopAt`: dừng sớm ngay khi `(acc & stopAt) === stopAt` — chỗ gọi nghiêm
+ * (Dijkstra) đưa bit CHẶN vào để khỏi quét tiếp khi đã biết chặng hỏng; chỗ
+ * gọi cần đủ cờ đưa cả hai bit. `0` = không dừng sớm.
+ *
+ * Hình chiếu chặng tính MỘT LẦN cho cả lượt (không gọi `segDistKm` từng ứng
+ * viên — hàm đó tính lại `cos` của vĩ độ giữa mỗi lần). Kết quả số học giống
+ * `segDistKm` từng bit: cùng công thức, cùng thứ tự phép tính.
+ *
+ * ⚠️ `rKmOf` và `maskOf` PHẢI là hàm ổn định — cùng lý do với `anyWithinSegment`.
+ */
+export function maskWithinSegment<T>(
+  ix: SpatialIndex<T>,
+  a: LatLon,
+  b: LatLon,
+  rKmOf: (item: T) => number,
+  maskOf: (item: T) => number,
+  stopAt = 0,
+): number {
+  if (ix.count === 0) return 0;
+  if (
+    !Number.isFinite(a?.lat) ||
+    !Number.isFinite(a?.lon) ||
+    !Number.isFinite(b?.lat) ||
+    !Number.isFinite(b?.lon)
+  )
+    return 0;
+  const maxR = maxRadiusKm(ix, rKmOf);
+  if (!(maxR > 0)) return 0;
+
+  /*  Loại theo KHUNG CỦA CẢ CHỈ MỤC trước khi tính ô (rẻ hơn bốn phép chia
+      lấy sàn của rowOf/colOf, và vĩ độ đi trước vì chưa cần `cos`): phần lớn
+      chặng của Dijkstra nằm xa mọi vật — đây là đường đi của số đông. Kết quả
+      y hệt `r0 > r1 || c0 > c1` dưới kia, chỉ tới sớm hơn. */
+  const latPad = (maxR * BOX_SLACK) / KM_PER_DEG_LAT;
+  const latLo = Math.min(a.lat, b.lat) - latPad;
+  const latHi = Math.max(a.lat, b.lat) + latPad;
+  if (latHi < ix.latMin || latLo >= ix.latMin + ix.nLat * ix.cellDeg) return 0;
+  const farLat = Math.max(Math.abs(a.lat), Math.abs(b.lat));
+  const lonPad = (maxR * BOX_SLACK) / minKmPerDegLon(farLat, latPad);
+  const lonLo = Math.min(a.lon, b.lon) - lonPad;
+  const lonHi = Math.max(a.lon, b.lon) + lonPad;
+  if (lonHi < ix.lonMin || lonLo >= ix.lonMin + ix.nLon * ix.cellDeg) return 0;
+
+  const r0 = Math.max(0, rowOf(ix, latLo));
+  const r1 = Math.min(ix.nLat - 1, rowOf(ix, latHi));
+  const c0 = Math.max(0, colOf(ix, lonLo));
+  const c1 = Math.min(ix.nLon - 1, colOf(ix, lonHi));
+  if (r0 > r1 || c0 > c1) return 0;
+
+  // hình chiếu km của chặng — y hệt `segDistKm`, tính một lần
   const kx = kmPerDegLon((a.lat + b.lat) / 2);
   const ax = a.lon * kx;
   const ay = a.lat * KM_PER_DEG_LAT;
-  const bx = b.lon * kx;
-  const by = b.lat * KM_PER_DEG_LAT;
-  const px = p.lon * kx;
-  const py = p.lat * KM_PER_DEG_LAT;
-
-  const dx = bx - ax;
-  const dy = by - ay;
+  const dx = b.lon * kx - ax;
+  const dy = b.lat * KM_PER_DEG_LAT - ay;
   const den = dx * dx + dy * dy;
-  let t = den === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / den;
-  t = t < 0 ? 0 : t > 1 ? 1 : t;
-  const cx = ax + t * dx;
-  const cy = ay + t * dy;
-  return {
-    km: Math.hypot(px - cx, py - cy),
-    alongKm: t * Math.sqrt(den),
+
+  let acc = 0;
+  for (let r = r0; r <= r1; r++) {
+    const base = r * ix.nLon;
+    for (let c = c0; c <= c1; c++) {
+      const cell = base + c;
+      for (let t = ix.start[cell]; t < ix.start[cell + 1]; t++) {
+        const i = ix.order[t];
+        const la = ix.lats[i];
+        const lo = ix.lons[i];
+        if (la < latLo || la > latHi || lo < lonLo || lo > lonHi) continue;
+        const item = ix.items[i];
+        const rKm = rKmOf(item);
+        if (!(rKm > 0)) continue;
+        const px = lo * kx;
+        const py = la * KM_PER_DEG_LAT;
+        let u = den === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / den;
+        u = u < 0 ? 0 : u > 1 ? 1 : u;
+        if (Math.hypot(px - (ax + u * dx), py - (ay + u * dy)) > rKm) continue;
+        acc |= maskOf(item);
+        if (stopAt !== 0 && (acc & stopAt) === stopAt) return acc;
+      }
+    }
+  }
+  return acc;
+}
+
+/* ── ĐIỂM TRONG ĐA GIÁC ──────────────────────────────────────────────────── */
+
+/**
+ * Ray-casting điểm-trong-vòng; `ring` theo GeoJSON `[lon, lat][]`.
+ *
+ * Chuyển từ `route-storm.ts` (2026-09-04) để vùng bão, vùng cấm-vào của hải đồ
+ * và hậu kiểm tuyến dùng CHUNG MỘT BẢN — hai bản trôi nhau là đúng kiểu lỗi
+ * không tự lộ. Hành vi giữ nguyên: điểm nằm đúng trên cạnh thì tuỳ phía, và
+ * điều đó không đổi kết quả nghiệp vụ (sát mép vùng cấm thì đằng nào cũng đang
+ * cảnh báo). Không kẹp kinh tuyến 180° (xem nợ cuối file).
+ */
+export function pointInRing(
+  p: LatLon,
+  ring: readonly (readonly number[])[],
+): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0];
+    const yi = ring[i][1];
+    const xj = ring[j][0];
+    const yj = ring[j][1];
+    if (
+      yi > p.lat !== yj > p.lat &&
+      p.lon < ((xj - xi) * (p.lat - yi)) / (yj - yi) + xi
+    ) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/* ── CHỈ MỤC ĐOẠN — cáp ngầm, ống dẫn, luồng ─────────────────────────────── */
+
+/**
+ * Một đoạn thẳng có gắn "nó là của cái gì" (`ref`: feature cáp, đoạn luồng…).
+ * Đường gấp khúc (LineString) = nhiều Segment nối tiếp cùng một `ref`.
+ */
+export type Segment<R> = { a: LatLon; b: LatLon; ref: R };
+
+/**
+ * Chỉ mục ĐOẠN. Cùng ý tưởng lưới ô CSR như `SpatialIndex`, khác một điều: một
+ * đoạn được ghi vào MỌI ô mà hộp bao của nó chạm — nên một đoạn có thể gặp lại
+ * ở nhiều ô, và truy vấn phải khử trùng (`stamp`).
+ *
+ * Vì sao không chẻ đoạn thành điểm rồi dùng `SpatialIndex`: cáp ngầm 76 đỉnh
+ * cách nhau vài km; hỏi "tuyến có CẮT cáp không" bằng điểm là lại đẻ ra khe
+ * mẫu. Đoạn là đơn vị đúng của câu hỏi.
+ */
+export type SegmentIndex<R> = {
+  readonly segs: readonly Segment<R>[];
+  readonly cellDeg: number;
+  readonly latMin: number;
+  readonly lonMin: number;
+  readonly nLat: number;
+  readonly nLon: number;
+  readonly start: Int32Array;
+  readonly order: Int32Array;
+  /** hộp bao từng đoạn, 4 số một đoạn: latLo, latHi, lonLo, lonHi */
+  readonly box: Float64Array;
+  /** số đoạn THẬT SỰ vào chỉ mục (đã bỏ toạ độ hỏng) */
+  readonly count: number;
+  /** nháp khử trùng: `stamp[i] === gen[0]` nghĩa là đoạn i đã xét ở lượt này */
+  readonly stamp: Int32Array;
+  readonly gen: Int32Array;
+};
+
+const segOk = (s: Segment<unknown>): boolean =>
+  !!s &&
+  !!s.a &&
+  !!s.b &&
+  Number.isFinite(s.a.lat) &&
+  Number.isFinite(s.a.lon) &&
+  Number.isFinite(s.b.lat) &&
+  Number.isFinite(s.b.lon) &&
+  Math.abs(s.a.lat) <= 90 &&
+  Math.abs(s.b.lat) <= 90 &&
+  Math.abs(s.a.lon) <= 180 &&
+  Math.abs(s.b.lon) <= 180;
+
+/**
+ * Dựng chỉ mục đoạn. Đoạn có toạ độ hỏng bị BỎ QUA chứ không ném (cùng luật
+ * `buildIndex`). `cellDeg` bỏ trống thì tự chọn theo mật độ, sàn 0,02° (~2 km)
+ * để đoạn ngắn không rải vào hàng nghìn ô tí hon.
+ */
+export function buildSegmentIndex<R>(
+  segments: readonly Segment<R>[],
+  opts: { cellDeg?: number } = {},
+): SegmentIndex<R> {
+  const n = segments.length;
+  const box = new Float64Array(n * 4);
+  const ok = new Uint8Array(n);
+  let latMin = Infinity;
+  let latMax = -Infinity;
+  let lonMin = Infinity;
+  let lonMax = -Infinity;
+  let count = 0;
+  for (let i = 0; i < n; i++) {
+    const s = segments[i];
+    if (!segOk(s)) continue;
+    const la0 = Math.min(s.a.lat, s.b.lat);
+    const la1 = Math.max(s.a.lat, s.b.lat);
+    const lo0 = Math.min(s.a.lon, s.b.lon);
+    const lo1 = Math.max(s.a.lon, s.b.lon);
+    box[i * 4] = la0;
+    box[i * 4 + 1] = la1;
+    box[i * 4 + 2] = lo0;
+    box[i * 4 + 3] = lo1;
+    ok[i] = 1;
+    count++;
+    if (la0 < latMin) latMin = la0;
+    if (la1 > latMax) latMax = la1;
+    if (lo0 < lonMin) lonMin = lo0;
+    if (lo1 > lonMax) lonMax = lo1;
+  }
+  const empty = {
+    segs: segments,
+    box,
+    stamp: new Int32Array(n),
+    gen: new Int32Array(1),
   };
+  if (count === 0) {
+    return {
+      ...empty,
+      cellDeg: 1,
+      latMin: 0,
+      lonMin: 0,
+      nLat: 1,
+      nLon: 1,
+      start: new Int32Array(2),
+      order: new Int32Array(0),
+      count: 0,
+    };
+  }
+
+  const spanLat = Math.max(latMax - latMin, 1e-6);
+  const spanLon = Math.max(lonMax - lonMin, 1e-6);
+  let cellDeg = opts.cellDeg;
+  if (!Number.isFinite(cellDeg) || (cellDeg ?? 0) <= 0) {
+    cellDeg = Math.max(
+      0.02,
+      Math.sqrt((spanLat * spanLon * TARGET_PER_CELL) / count),
+    );
+  }
+  cellDeg = Math.max(cellDeg as number, 1e-6);
+  let nLat = Math.floor(spanLat / cellDeg) + 1;
+  let nLon = Math.floor(spanLon / cellDeg) + 1;
+  while (nLat * nLon > MAX_CELLS) {
+    cellDeg *= 2;
+    nLat = Math.floor(spanLat / cellDeg) + 1;
+    nLon = Math.floor(spanLon / cellDeg) + 1;
+  }
+
+  const nCells = nLat * nLon;
+  const start = new Int32Array(nCells + 1);
+  const cellRange = (i: number): [number, number, number, number] => [
+    Math.min(nLat - 1, Math.floor((box[i * 4] - latMin) / (cellDeg as number))),
+    Math.min(nLat - 1, Math.floor((box[i * 4 + 1] - latMin) / (cellDeg as number))),
+    Math.min(nLon - 1, Math.floor((box[i * 4 + 2] - lonMin) / (cellDeg as number))),
+    Math.min(nLon - 1, Math.floor((box[i * 4 + 3] - lonMin) / (cellDeg as number))),
+  ];
+  for (let i = 0; i < n; i++) {
+    if (!ok[i]) continue;
+    const [r0, r1, c0, c1] = cellRange(i);
+    for (let r = r0; r <= r1; r++)
+      for (let c = c0; c <= c1; c++) start[r * nLon + c + 1]++;
+  }
+  for (let k = 0; k < nCells; k++) start[k + 1] += start[k];
+  const order = new Int32Array(start[nCells]);
+  const cursor = Int32Array.from(start.subarray(0, nCells));
+  for (let i = 0; i < n; i++) {
+    if (!ok[i]) continue;
+    const [r0, r1, c0, c1] = cellRange(i);
+    for (let r = r0; r <= r1; r++)
+      for (let c = c0; c <= c1; c++) order[cursor[r * nLon + c]++] = i;
+  }
+  return {
+    ...empty,
+    cellDeg,
+    latMin,
+    lonMin,
+    nLat,
+    nLon,
+    start,
+    order,
+    count,
+  };
+}
+
+function segRowOf<R>(sx: SegmentIndex<R>, lat: number): number {
+  const r = Math.floor((lat - sx.latMin) / sx.cellDeg);
+  return r < 0 ? -1 : r >= sx.nLat ? sx.nLat : r;
+}
+function segColOf<R>(sx: SegmentIndex<R>, lon: number): number {
+  const c = Math.floor((lon - sx.lonMin) / sx.cellDeg);
+  return c < 0 ? -1 : c >= sx.nLon ? sx.nLon : c;
+}
+
+/** Bắt đầu một lượt khử trùng mới — O(1), không xoá mảng. */
+function nextGen<R>(sx: SegmentIndex<R>): number {
+  sx.gen[0]++;
+  if (sx.gen[0] === 0x7fffffff) {
+    sx.stamp.fill(0);
+    sx.gen[0] = 1;
+  }
+  return sx.gen[0];
+}
+
+/**
+ * Đoạn GẦN `p` nhất trong tầm `maxKm`, hoặc null. "Tôi đang đứng trên cáp
+ * ngầm nào?" — `nearestSegment(cableIx, me, 0.5)`.
+ *
+ * `maxKm` PHẢI hữu hạn: không có trần thì phải quét cả lưới, mà câu hỏi thật
+ * ngoài biển luôn có trần ("trong nửa km"). Vô hạn/NaN → null, không đoán.
+ */
+export function nearestSegment<R>(
+  sx: SegmentIndex<R>,
+  p: LatLon,
+  maxKm: number,
+): { seg: Segment<R>; km: number } | null {
+  if (
+    sx.count === 0 ||
+    !Number.isFinite(maxKm) ||
+    maxKm <= 0 ||
+    !Number.isFinite(p?.lat) ||
+    !Number.isFinite(p?.lon)
+  )
+    return null;
+  const dLat = (maxKm * BOX_SLACK) / KM_PER_DEG_LAT;
+  const dLon = (maxKm * BOX_SLACK) / minKmPerDegLon(p.lat, dLat);
+  const r0 = Math.max(0, segRowOf(sx, p.lat - dLat));
+  const r1 = Math.min(sx.nLat - 1, segRowOf(sx, p.lat + dLat));
+  const c0 = Math.max(0, segColOf(sx, p.lon - dLon));
+  const c1 = Math.min(sx.nLon - 1, segColOf(sx, p.lon + dLon));
+  const g = nextGen(sx);
+  let bestKm = maxKm;
+  let best = -1;
+  for (let r = r0; r <= r1; r++) {
+    for (let c = c0; c <= c1; c++) {
+      const cell = r * sx.nLon + c;
+      for (let t = sx.start[cell]; t < sx.start[cell + 1]; t++) {
+        const i = sx.order[t];
+        if (sx.stamp[i] === g) continue;
+        sx.stamp[i] = g;
+        const b = i * 4;
+        if (
+          sx.box[b] > p.lat + dLat ||
+          sx.box[b + 1] < p.lat - dLat ||
+          sx.box[b + 2] > p.lon + dLon ||
+          sx.box[b + 3] < p.lon - dLon
+        )
+          continue;
+        const s = sx.segs[i];
+        const km = segDistKm(p.lat, p.lon, s.a, s.b);
+        if (km <= bestKm) {
+          bestKm = km;
+          best = i;
+        }
+      }
+    }
+  }
+  return best < 0 ? null : { seg: sx.segs[best], km: bestKm };
+}
+
+/**
+ * Hai đoạn p1→p2 và q1→q2 có cắt nhau không (mặt phẳng lon/lat — với đoạn vài
+ * km trong vùng biển VN, méo chiếu không đổi được kết quả cắt/không cắt).
+ * Trả tham số t trên p1→p2 tại giao điểm, hoặc −1 nếu không cắt.
+ */
+function segIntersectT(p1: LatLon, p2: LatLon, q1: LatLon, q2: LatLon): number {
+  const rx = p2.lon - p1.lon;
+  const ry = p2.lat - p1.lat;
+  const sxv = q2.lon - q1.lon;
+  const sy = q2.lat - q1.lat;
+  const den = rx * sy - ry * sxv;
+  if (den === 0) return -1; // song song / trùng phương — coi như không cắt, đo khoảng cách sẽ bắt
+  const qx = q1.lon - p1.lon;
+  const qy = q1.lat - p1.lat;
+  const t = (qx * sy - qy * sxv) / den;
+  const u = (qx * ry - qy * rx) / den;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? t : -1;
+}
+
+/**
+ * Khoảng cách ngắn nhất giữa hai ĐOẠN (km) và điểm áp sát tính theo đoạn thứ
+ * nhất (`alongKm` dọc p1→p2). Cắt nhau → 0 km tại giao điểm; không cắt → nhỏ
+ * nhất trong bốn khoảng cách mút→đoạn.
+ */
+export function segToSegKm(
+  p1: LatLon,
+  p2: LatLon,
+  q1: LatLon,
+  q2: LatLon,
+): { km: number; alongKm: number } {
+  const t = segIntersectT(p1, p2, q1, q2);
+  if (t >= 0) {
+    const kx = kmPerDegLon((p1.lat + p2.lat) / 2);
+    const dx = (p2.lon - p1.lon) * kx;
+    const dy = (p2.lat - p1.lat) * KM_PER_DEG_LAT;
+    return { km: 0, alongKm: t * Math.hypot(dx, dy) };
+  }
+  let km = segDistKm(q1.lat, q1.lon, p1, p2);
+  let along = lastAlongKm;
+  let d = segDistKm(q2.lat, q2.lon, p1, p2);
+  if (d < km) {
+    km = d;
+    along = lastAlongKm;
+  }
+  const lenP = haversineKm(p1, p2);
+  d = segDistKm(p1.lat, p1.lon, q1, q2);
+  if (d < km) {
+    km = d;
+    along = 0;
+  }
+  d = segDistKm(p2.lat, p2.lon, q1, q2);
+  if (d < km) {
+    km = d;
+    along = lenP;
+  }
+  return { km, alongKm: along };
+}
+
+/** Một đoạn trong hành lang tuyến, kèm chỗ gặp gần nhất dọc tuyến. */
+export type SegmentPathHit<R> = { seg: Segment<R>; km: number; alongKm: number };
+
+/**
+ * Mọi đoạn nằm trong hành lang rộng `widthKm` (mỗi bên) dọc `path` — mỗi đoạn
+ * MỘT lần (lần áp sát nhất), sắp theo thứ tự gặp. `widthKm = 0` nghĩa là chỉ
+ * lấy đoạn CẮT tuyến ("tuyến có cắt cáp ngầm nào không").
+ *
+ * Lọc hộp bao theo ô trước, rồi mới đo khoảng cách đoạn→đoạn — với 2.000 đoạn
+ * cáp và tuyến 100 chặng, không lọc là 200.000 phép đo mỗi lượt.
+ */
+export function segmentsWithinCorridor<R>(
+  sx: SegmentIndex<R>,
+  path: readonly LatLon[],
+  widthKm: number,
+): SegmentPathHit<R>[] {
+  if (sx.count === 0 || !Number.isFinite(widthKm) || widthKm < 0) return [];
+  const pts = path.filter(
+    (p) => p && Number.isFinite(p.lat) && Number.isFinite(p.lon),
+  );
+  if (pts.length < 2) return [];
+  const found = new Map<number, SegmentPathHit<R>>();
+  let travelled = 0;
+  for (let s = 0; s + 1 < pts.length; s++) {
+    const a = pts[s];
+    const b = pts[s + 1];
+    const latPad = (widthKm * BOX_SLACK) / KM_PER_DEG_LAT;
+    const latLo = Math.min(a.lat, b.lat) - latPad;
+    const latHi = Math.max(a.lat, b.lat) + latPad;
+    const farLat = Math.max(Math.abs(a.lat), Math.abs(b.lat));
+    const lonPad = (widthKm * BOX_SLACK) / minKmPerDegLon(farLat, latPad);
+    const lonLo = Math.min(a.lon, b.lon) - lonPad;
+    const lonHi = Math.max(a.lon, b.lon) + lonPad;
+    const r0 = Math.max(0, segRowOf(sx, latLo));
+    const r1 = Math.min(sx.nLat - 1, segRowOf(sx, latHi));
+    const c0 = Math.max(0, segColOf(sx, lonLo));
+    const c1 = Math.min(sx.nLon - 1, segColOf(sx, lonHi));
+    const g = nextGen(sx);
+    for (let r = r0; r <= r1; r++) {
+      for (let c = c0; c <= c1; c++) {
+        const cell = r * sx.nLon + c;
+        for (let t = sx.start[cell]; t < sx.start[cell + 1]; t++) {
+          const i = sx.order[t];
+          if (sx.stamp[i] === g) continue;
+          sx.stamp[i] = g;
+          const bx = i * 4;
+          if (
+            sx.box[bx] > latHi ||
+            sx.box[bx + 1] < latLo ||
+            sx.box[bx + 2] > lonHi ||
+            sx.box[bx + 3] < lonLo
+          )
+            continue;
+          const seg = sx.segs[i];
+          const d = segToSegKm(a, b, seg.a, seg.b);
+          if (d.km > widthKm) continue;
+          const hit = { seg, km: d.km, alongKm: travelled + d.alongKm };
+          const prev = found.get(i);
+          if (!prev || hit.km < prev.km) found.set(i, hit);
+        }
+      }
+    }
+    travelled += haversineKm(a, b);
+  }
+  const out = [...found.values()];
+  out.sort((x, y) => x.alongKm - y.alongKm);
+  return out;
 }
 
 /**

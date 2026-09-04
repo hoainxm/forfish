@@ -5,10 +5,10 @@
 covers: scripts/generate-depth-grid.mjs, scripts/generate-icons.mjs, scripts/generate-isobaths.mjs, scripts/doc-health-report.sh, scripts/e2e-build.mjs, scripts/e2e-video-export.mjs
 last_verified: 2026-07-30
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-09-03) — code 'scripts/doc-health-report.sh' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-17 - lệnh regenerate asset (icons/depth-grid/isobaths) + deploy/health-check khớp scripts/ hiện tại -->
 <!-- re-verified: 2026-06-29 - generate-icons.mjs đổi nguồn icon.svg→logo-src.png; lệnh `node scripts/generate-icons.mjs` không đổi, vẫn xuất public/icons -->
+<!-- re-verified: 2026-09-04 - generate-depth-grid.mjs sinh lưới 6 lớp 4 bit/ô (thêm đường bờ vn-coast scanline, 8,53 MB, ~3,5–4 phút, cần mạng ETOPO ~68 MB + GEBCO 90 ô vuông); lệnh `node scripts/generate-depth-grid.mjs` không đổi. CHỈ chạy khi nguồn/luật phân lớp đổi (CLAUDE.md chống phình) — ngày chốt nguồn ghi ở đầu script; chi tiết lớp: 04-data-model §7e -->
 
 
 > Viết cho người đang cuống: lệnh copy-paste được ngay. **ForFish KHÔNG có process nền** (Vercel serverless + Supabase Edge Functions) → không có start/stop daemon. "Vận hành" = build, deploy, regenerate asset, đọc registry khi nguồn ngoài chết.

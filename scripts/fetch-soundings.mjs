@@ -579,7 +579,8 @@ function kmToiBo(lon, lat) {
   return m;
 }
 
-/** Lớp độ sâu của app tại một điểm (0 đất · 1 rất cạn · 2 nông · 3 đủ sâu). */
+/** Lớp độ sâu của app tại một điểm — 6 lớp 4 bit/ô từ 2026-09-04 (0 đất · 1 mặt
+ *  nạ rạn · 2 <2 m · 3 2–4 m · 4 4–12 m · 5 đủ sâu), khớp `depth-grid.ts`. */
 function lopSau(lon, lat) {
   napDiaBan();
   if (!gridData) return null;
@@ -587,7 +588,7 @@ function lopSau(lon, lat) {
   const j = Math.round((lon - DG_META.lon0) / DG_META.step);
   if (i < 0 || i >= DG_META.nLat || j < 0 || j >= DG_META.nLon) return null;
   const k = i * DG_META.nLon + j;
-  return (gridData[k >> 2] >> ((k & 3) * 2)) & 3;
+  return (gridData[k >> 1] >> ((k & 1) * 4)) & 15;
 }
 
 /** `true` khi điểm này đã ra khỏi địa bàn luồng/cửa biển/vũng cảng. */

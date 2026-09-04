@@ -28,6 +28,7 @@ import {
   bboxOfPoints,
   formatHoursVN,
   haversineKm,
+  sampleField,
   vnHourIndex,
   type BBox,
   type BoatProfile,
@@ -36,6 +37,28 @@ import {
   type WeatherField,
 } from "@/lib/route-plan";
 import { planRouteAsync } from "@/lib/route-plan-async";
+import {
+  buildHazardList,
+  hazardsInBBox,
+  packHazards,
+  requiredDepthM,
+} from "@/lib/hazards";
+import { auditRoute, type RouteHit } from "@/lib/route-hazards";
+import {
+  buildDangerItems,
+  buildWillMeet,
+  moTaThieu,
+  KHO_HAU_KIEM,
+} from "@/lib/route-danger-items";
+import { estimateWaveFromWind } from "@/lib/sea";
+import { fetchXacTau } from "@/lib/xac-tau";
+import { fetchSeamarks } from "@/lib/seamarks";
+import { fetchVnAids } from "@/lib/vn-aids";
+import { fetchSoundings } from "@/lib/soundings";
+import { fetchSoundingVerdicts } from "@/lib/soundings-verified";
+import { fetchFairwayDepths } from "@/lib/fairway-depth";
+import { fetchTideStations } from "@/lib/tides";
+import { fetchCoralReefs, fetchSeaLanes } from "@/lib/sea-lanes";
 import {
   addSavedRoute,
   removeSavedRoute,
@@ -535,14 +558,17 @@ export function RouteStopsLayers({
     CỐ Ý KHÔNG dùng chung `DEPTH_NOTE` của màn bản đồ: bảng đó đang phục vụ
     sheet gió sóng ở chế độ THƯỜNG và không có khoá 0 (trên bờ); thêm khoá vào
     đó là đổi hành vi một màn khác trong cùng một commit.
-    Giọng "theo bản đồ độ sâu của máy" là mức chắc chắn ĐÚNG với lưới bước
-    0,05° ≈ 5,5 km — điểm sát bờ có thể bị phân loại lệch, không được nói chắc
-    hơn thế. Lớp 2 (nước nông) và ngoài lưới (null) thì IM: chỗ này bà con chạy
-    hằng ngày, nói ra thành nhiễu. KHÔNG khoá, KHÔNG disable nút — bà con có
-    thể cố ý chấm sát bờ theo luồng lạch quen. */
+    Giọng "theo bản đồ độ sâu của máy" là mức chắc chắn ĐÚNG với lưới ô ~450 m
+    (đường bờ giản lược) — điểm sát bờ có thể bị phân loại lệch, không được nói
+    chắc hơn thế. Lớp 3–5 (2–4 m, nông, đủ sâu) và ngoài lưới (null) thì IM:
+    chỗ này bà con chạy hằng ngày, nói ra thành nhiễu. KHÔNG khoá, KHÔNG
+    disable nút — bà con có thể cố ý chấm sát bờ theo luồng lạch quen.
+    Lưới 6 lớp từ 2026-09-04: "rất cạn" nay là lớp 1 (mặt nạ rạn) + lớp 2
+    (nước <2 m). */
 const DEST_DEPTH_WARN: Partial<Record<DepthClass, string>> = {
   0: "Chỗ này trên bờ — theo bản đồ độ sâu của máy",
   1: "Chỗ này rất cạn, bãi nổi — theo bản đồ độ sâu của máy",
+  2: "Chỗ này rất cạn, bãi nổi — theo bản đồ độ sâu của máy",
 };
 
 export function RouteMode({
@@ -663,6 +689,16 @@ export function RouteMode({
       đổi trong khi tuyến trên bản đồ vẫn là tuyến tính lúc chưa có tin. Bà con
       phải đọc được đúng thứ đã dùng để tính. */
   const [stormWarn, setStormWarn] = useState<string | null>(null);
+  /*  HẬU KIỂM KHO HẢI ĐỒ trên tuyến vừa tính (Đợt 2, 2026-09-04): "đi đường
+      này thì GẶP gì, ở đâu" — xác tàu tuyến vừa né sát, cáp ngầm cắt ở km mấy,
+      chỗ phải chờ con nước, phao sẽ gặp. Giữ TRONG state cùng nhịp với `result`,
+      KHÔNG nhét vào `PlannedRoute` và KHÔNG lưu xuống `saved-routes` (luật 10:
+      không lưu kết quả đã tính — kho hải đồ và con nước đổi thì câu chữ cũ
+      thành lời hứa sai). `null` = chưa hậu kiểm được, KHÔNG phải "sạch". */
+  const [audit, setAudit] = useState<{
+    hits: RouteHit[];
+    missing: string[];
+  } | null>(null);
   /*  MỞ LẠI DANH SÁCH ĐIỂM KHI ĐÃ CÓ KẾT QUẢ. Trước đây cả biểu mẫu nằm trong
       `{!plan && …}` nên tính xong là danh sách biến mất, không nút nào quay
       lại: bà con hoặc chịu tuyến sai, hoặc bấm Xoá mất sạch công 9-11 chạm.
@@ -697,6 +733,8 @@ export function RouteMode({
     setError(null);
     setOfflineSavedAt(undefined);
     setStormWarn(null);
+    // hậu kiểm là của TUYẾN CŨ — giữ lại là dán cảnh báo của đường này lên đường kia
+    setAudit(null);
     // danh sách đổi ⇒ ý định "xoá sạch" của nhịp trước không còn đáng tin
     setConfirmClear(false);
   }, [chainSig]);
@@ -820,6 +858,8 @@ export function RouteMode({
     if (busy) return;
     setBusy(true);
     setError(null);
+    // hậu kiểm cũ thuộc về tuyến cũ — bỏ NGAY, đừng để nó sống qua lượt tính mới
+    setAudit(null);
     try {
       let start: LatLon;
       let startLabel: string;
@@ -888,6 +928,27 @@ export function RouteMode({
       // cạn". Kéo SONG SONG với thời tiết (hai nguồn độc lập, đừng bắt nhau
       // chờ); promise await lại trong vòng nở khung vẫn chỉ fetch một lần
       const depthPromise = fetchDepthGrid().catch(() => null);
+      /*  KHO HẢI ĐỒ VÀO THUẬT TOÁN (Đợt 2, 2026-09-04) — kéo SONG SONG với
+          thời tiết và lưới độ sâu, mỗi kho `.catch(() => null)` RIÊNG: mất một
+          kho là mất một lớp cảnh báo, không được làm hỏng cả lượt tính. Kho nào
+          null sẽ được gọi tên ở khối "Tuyến này chưa đối chiếu đủ" — im lặng là
+          để bà con tưởng máy đã soi hết.
+          OFFLINE: cả chín đường dẫn là asset tĩnh cùng-origin nằm trong
+          `CRITICAL_SHELL` của `public/sw.js`, và chỉ tải khi bà con BẤM tính
+          đường (không phải lúc mở app). Mỗi hàm `fetchX` tự có
+          `timeoutSignal(20000)` — đó là trần của TỪNG kho, KHÔNG phải trần chờ
+          của cái nút: trần đó ở chỗ `await` bên dưới (`KHO_CHO_MS`). */
+      const khoPromise = Promise.all([
+        fetchXacTau().catch(() => null),
+        fetchSeaLanes().catch(() => null),
+        fetchSeamarks().catch(() => null),
+        fetchSoundings().catch(() => null),
+        fetchSoundingVerdicts().catch(() => null),
+        fetchFairwayDepths().catch(() => null),
+        fetchVnAids().catch(() => null),
+        fetchCoralReefs().catch(() => null),
+        fetchTideStations().catch(() => null),
+      ]);
       const departHourIdx = vnHourIndex(new Date());
       // tổng chiều dài chuỗi điểm (không phải chỉ đầu–cuối): đường đi vòng qua
       // mấy chỗ ghé cần khung rộng theo QUÃNG THẬT, không theo đường chim bay
@@ -909,6 +970,49 @@ export function RouteMode({
       let chosenField: WeatherField | null = null;
       // chặng nào chặn đường — để câu lỗi chỉ đúng chỗ thay vì nói chung chung
       let failedLeg = 0;
+      /*  TRẦN CHỜ KHO 5 GIÂY (sửa 2026-09-04, review đợt 4 N4). Chín `fetchX`
+          chạy song song và mỗi cái có `timeoutSignal(20000)` riêng, nhưng
+          `Promise.all` chờ CÁI CHẬM NHẤT, và lượt `await` này đứng TRƯỚC vòng
+          nở khung — nên một kho chưa kịp vào kho của service worker (máy mới
+          cài, file 404) là NÚT "TÍNH ĐƯỜNG" ĐỨNG THÊM TỚI 20 GIÂY trước khi
+          thanh "Đang tính…" nhúc nhích. Giữa nắng, trên tàu, đó là treo.
+          5 giây: đủ cho đọc-từ-kho-SW (mili giây) và cho sóng 3G thật ở cảng
+          (chín file JSON nhỏ), mà vẫn ngắn hơn hẳn ngưỡng "hỏng rồi" của người
+          bấm nút. Hết giờ thì TÍNH NGAY với `hazards: null` và các kho vắng
+          được GỌI TÊN ở khối "chưa đối chiếu đủ" — kho về sau chỉ dùng cho lượt
+          tính sau (`fetchX` có cache riêng), lượt này không chờ nữa. */
+      const KHO_CHO_MS = 5000;
+      let hetGio: ReturnType<typeof setTimeout> | undefined;
+      const khoKip = await Promise.race([
+        khoPromise,
+        new Promise<null>((res) => {
+          hetGio = setTimeout(() => res(null), KHO_CHO_MS);
+        }),
+      ]);
+      clearTimeout(hetGio);
+      const [
+        xacTau,
+        laneFeatures,
+        seamarks,
+        soundings,
+        verdicts,
+        fairways,
+        vnAids,
+        reefs,
+        tides,
+      ] = khoKip ?? [null, null, null, null, null, null, null, null, null];
+      /*  Độ sâu tàu CẦN, tính với sóng = null: chỉ dùng để tha những xác tàu có
+          "nước trên vật" đủ sâu (`passable`). Sóng thật tại từng chỗ do hậu kiểm
+          tính lại — ở đây mà cộng sóng vào là tha ÍT hơn, tức an toàn hơn, đúng
+          hướng. `draftM` null ⇒ null ⇒ không tha cái nào (luật 6). */
+      const needM = requiredDepthM(boat.draftM ?? null, null);
+      const kho = buildHazardList({ xacTau, laneFeatures, seamarks }, needM);
+      /*  CÓ SOI ĐƯỢC LỚP VẬT CHẶN KHÔNG. Cả ba kho hỏng ⇒ truyền `hazards: null`
+          để `plan.hazardChecked` = false — thẻ tuyến phải nói "chưa đối chiếu",
+          KHÔNG được im như đã soi và sạch. Còn một kho thì vẫn chặn theo kho đó
+          (chặn thiếu còn hơn không chặn), kho vắng được gọi tên ở khối cảnh báo. */
+      const soiHiemHoa =
+        xacTau != null || laneFeatures != null || seamarks != null;
       for (const m of margins) {
         /*  MỘT trường thời tiết cho CẢ chuỗi điểm, dùng lại cho mọi chặng.
             Hỏi mạng từng chặng thì đường đi 6 chỗ = 6 lượt gọi giữa biển —
@@ -919,6 +1023,13 @@ export function RouteMode({
           fetchWeatherField(bbox),
           depthPromise,
         ]);
+        /*  Lọc hiểm hoạ theo ĐÚNG khung đang tính rồi đóng gói phẳng: tuyến Vũng
+            Tàu → Côn Đảo không việc gì phải mang giàn khoan vịnh Bắc Bộ sang
+            worker. Gói là ba `Float64Array` + mảng id (structured-clone được;
+            `SpatialIndex` thì không — nó giữ hàm lấy toạ độ). */
+        const hazards = soiHiemHoa
+          ? packHazards(hazardsInBBox(kho.hazards, bbox, 0))
+          : null;
         // Dijkstra chạy trong Web Worker — màn không đơ lúc "Đang tính…"
         const legs: RoutePlan[] = [];
         let hoursSoFar = 0;
@@ -933,6 +1044,8 @@ export function RouteMode({
             field,
             depth,
             bbox,
+            hazards,
+            noGo: soiHiemHoa ? kho.noGo : null,
           });
           if (!leg) {
             failedLeg = i;
@@ -992,6 +1105,80 @@ export function RouteMode({
       setOfflineSavedAt(
         chosenField?.source === "grid" ? chosenField.savedAt ?? null : undefined,
       );
+
+      /*  ── HẬU KIỂM TRÊN TUYẾN THẬT SỰ TRẢ VỀ (Đợt 2, 2026-09-04) ──────────
+          Đặt ở ĐÂY, sau `mergeLegPlans` và sau cả nhánh trần-đường-vòng: cái
+          được soi phải là đúng chuỗi waypoint sắp vẽ lên bản đồ, không phải một
+          bản nháp giữa chừng.
+          Chạy ở main thread vì rẻ (vài chục waypoint × mấy kho có chỉ mục) và
+          vì kết quả là CÂU CHỮ — đưa qua worker chỉ để chờ thêm một vòng thông
+          điệp. `try/catch` riêng: hậu kiểm hỏng thì MẤT CÂU CHỮ, không được mất
+          luôn tuyến vừa tính mười giây (và cũng không được rơi vào nhánh lỗi
+          "chưa lấy được dự báo" — sai hẳn nguyên nhân). */
+      const ketQuaPlan = plan;
+      const fieldDaDung = chosenField;
+      try {
+        const t0 =
+          typeof performance !== "undefined" ? performance.now() : Date.now();
+        const kq = auditRoute({
+          waypoints: ketQuaPlan.waypoints,
+          hoursAt: ketQuaPlan.hoursAt,
+          departMs: Date.now(),
+          draftM: boat.draftM ?? null,
+          /*  Sóng tại waypoint i LÚC TÀU TỚI — cùng trường thời tiết đã dùng để
+              vẽ tuyến, cùng trục giờ. Hai bên đọc hai bản dự báo thì câu "cần
+              2,9 m" không khớp con đường đã vẽ. */
+          waveMAt: (i) => {
+            if (!fieldDaDung) return null;
+            const wp = ketQuaPlan.waypoints[i];
+            if (!wp) return null;
+            const h = sampleField(
+              fieldDaDung,
+              wp.lat,
+              wp.lon,
+              departHourIdx + (ketQuaPlan.hoursAt[i] ?? 0),
+            );
+            return h ? h.waveM ?? estimateWaveFromWind(h.windKmh) : null;
+          },
+          stores: {
+            hazards: kho.hazards,
+            passable: kho.passable,
+            soundings: soundings?.diem,
+            verdicts: verdicts ?? undefined,
+            fairways: fairways ?? undefined,
+            lanes: laneFeatures ?? undefined,
+            seamarks: seamarks ?? undefined,
+            vnAids: vnAids ?? undefined,
+            reefs: reefs ?? undefined,
+            tides: tides ?? undefined,
+            // ranh giới là dữ liệu tĩnh nằm sẵn trong mã (geofence) — luôn soi được
+            border: true,
+          },
+        });
+        if (process.env.NODE_ENV !== "production") {
+          console.debug(
+            `[tuyến] hậu kiểm ${Math.round(
+              (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0,
+            )} ms — ${kq.hits.length} mục, thiếu ${kq.missing.length} kho`,
+          );
+        }
+        setAudit({
+          hits: kq.hits,
+          // hai nguồn thiếu: kho không tải được và kho hậu kiểm không có
+          missing: [...new Set([...kho.missing, ...kq.missing])],
+        });
+      } catch {
+        /*  KHÔNG `setAudit(null)` (sửa 2026-09-04, review đợt 4 N1): `null` đọc
+            ra thành "không có mối nguy nào" ở `buildDangerItems` VÀ tắt luôn
+            dòng `moTaThieu` — thẻ tuyến trông y hệt thẻ của một tuyến đã soi
+            sạch, trong khi thật ra không ai soi. Để lại `missing` gọi tên chính
+            lượt hậu kiểm thì bà con còn biết mà tự dò hải đồ. */
+        setAudit({
+          hits: [],
+          missing: [...new Set([...kho.missing, KHO_HAU_KIEM])],
+        });
+      }
+
       const r: PlannedRoute = {
         plan,
         start,
@@ -1020,6 +1207,7 @@ export function RouteMode({
     setResult(null);
     setError(null);
     setOfflineSavedAt(undefined);
+    setAudit(null);
     onRoute(null);
   }
 
@@ -1082,48 +1270,24 @@ export function RouteMode({
       Vì sao nhãn ngắn chứ KHÔNG bê nguyên `text`: các câu này dài 110–200 ký
       tự, nhét vào cột ~271px của dải ghim là 5–8 dòng ⇒ ghim phình 76→150px,
       cửa đọc 88px còn ~15px — lôi cảnh báo lên mà lại chôn nó sâu hơn. */
-  const dangerItems = useMemo<
-    { text: string; label: string; danger: boolean }[]
-  >(() => {
-    if (!plan) return [];
-    const items: { text: string; label: string; danger: boolean }[] = [];
-    if (plan.hasRoughLeg)
-      items.push({
-        danger: true,
-        label: "Sóng quá lớn",
-        text: `Có đoạn sóng tới ${formatNumberVN(plan.maxWaveM)} m, gió cấp ${beaufort(plan.maxWindKmh)} — mức KHÔNG NÊN ĐI với tàu nhỏ. Cân nhắc hoãn chuyến, nghe đài trước khi quyết.`,
-      });
-    if (plan.hasFollowingSeaRisk && !plan.hasRoughLeg)
-      items.push({
-        danger: false,
-        label: "Sóng dồn đuôi",
-        text: "Có đoạn sóng dồn từ phía đuôi (≥2 m, sóng ngắn) — dễ trượt sóng: tới đoạn đó giảm ga, đừng để sóng vỗ thẳng đuôi tàu.",
-      });
-    if (plan.hasVeryShallowLeg)
-      items.push({
-        danger: true,
-        label: "Bãi rất cạn",
-        text: "Có đoạn đè lên vùng RẤT CẠN / bãi nổi (dưới 4 m) gần nơi xuất phát hoặc điểm đến — chỉ vào theo con nước lên, đi chậm, hỏi người rành luồng lạch chỗ đó.",
-      });
-    if (plan.hasNearLandLeg)
-      items.push({
-        danger: true,
-        label: "Đè lên bờ",
-        text: "Đoạn đầu (hoặc cuối) tuyến đè lên phần BỜ theo bản đồ độ sâu của máy — chỗ vào cảng máy không vẽ chính xác được; đoạn đó đi theo luồng quen và hải đồ, đừng bám vạch trên màn hình.",
-      });
-    if (plan.hasShallowLeg)
-      items.push({
-        danger: false,
-        label: "Nước nông",
-        text: "Tuyến có đoạn nước nông (cỡ 4–12 m) — để ý con nước, hải đồ đoạn đó.",
-      });
-    return items;
-  }, [plan]);
+  /*  BẢNG THỨ TỰ + CÂU CHỮ nay ở `lib/route-danger-items.ts` (Đợt 2,
+      2026-09-04): thứ tự và mức đỏ/vàng của cảnh báo an toàn là LUẬT, phải test
+      được — nằm trong một `useMemo` giữa 2.400 dòng JSX thì không ai test nổi.
+      Component chỉ còn RENDER. */
+  const dangerItems = useMemo(
+    () => buildDangerItems(plan, audit?.hits ?? null),
+    [plan, audit],
+  );
+  /** hit mức "tin" — khối "Trên đường sẽ gặp", không màu, không phải mối nguy */
+  const willMeet = useMemo(() => buildWillMeet(audit?.hits ?? null), [audit]);
   const anyDanger = dangerItems.some((i) => i.danger);
-  /*  Ý ĐƯỢC LÊN DẢI GHIM: ưu tiên ý ĐỎ, mới tới ý vàng. Dùng `find`, TUYỆT
-      ĐỐI KHÔNG `dangerItems[0]`: ca (không sóng dữ) + (sóng dồn đuôi) + (bãi
-      rất cạn) cho items[0].danger === false trong khi `anyDanger` === true ⇒
-      lấy [0] là tô ĐỎ một câu vốn chỉ ở mức nhắc. */
+  /*  Ý ĐƯỢC LÊN DẢI GHIM: ưu tiên ý ĐỎ, mới tới ý vàng. GIỮ `find`, KHÔNG đổi
+      về `dangerItems[0]` — dù từ Đợt 2 `buildDangerItems` đã sắp ổn định để mọi
+      ý đỏ đứng trước mọi ý vàng (nên hôm nay hai cách cho cùng kết quả). Lỗi
+      ngày trước là có thật: ca (không sóng dữ) + (sóng dồn đuôi) + (bãi rất cạn)
+      cho `items[0].danger === false` trong khi `anyDanger === true` ⇒ lấy [0] là
+      tô ĐỎ một câu vốn chỉ ở mức nhắc. `find` đúng với MỌI thứ tự, kể cả khi
+      bảng bên lib được sắp lại lần nữa. */
   const topDanger =
     dangerItems.find((i) => i.danger) ?? dangerItems[0] ?? null;
 
@@ -2270,7 +2434,7 @@ export function RouteMode({
               </p>
               <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[0.9375rem] font-semibold leading-snug">
                 {dangerItems.map((i) => (
-                  <li key={i.text}>{i.text}</li>
+                  <li key={i.key}>{i.text}</li>
                 ))}
               </ul>
             </div>
@@ -2304,6 +2468,15 @@ export function RouteMode({
               items.push(
                 "Chưa kiểm tra được độ sâu — tuyến chưa né bãi cạn, bà con tự dò hải đồ.",
               );
+            /*  KHO HẢI ĐỒ (Đợt 2). `hazardChecked` false nghĩa là CHƯA soi kho
+                vật chặn — không phải "đã soi và sạch"; phải nói ra. Còn
+                `moTaThieu` gọi tên từng kho vắng mặt (mất sóng, file hỏng). */
+            if (!plan.hazardChecked)
+              items.push(
+                "Chưa soi được xác tàu, giàn khoan, lồng bè — tuyến chưa né vật chặn, dò hải đồ đoạn lạ.",
+              );
+            const thieuKho = moTaThieu(audit?.missing ?? null);
+            if (thieuKho) items.push(thieuKho);
             if (items.length === 0) return null;
             return (
               <div
@@ -2325,6 +2498,25 @@ export function RouteMode({
             );
           })()}
 
+          {/*  (2b) TRÊN ĐƯỜNG SẼ GẶP — MỚI (Đợt 2, 2026-09-04). Không phải cảnh
+               báo: đây là thứ để ĐỐI CHIẾU MẮT với hải đồ và với cái nhìn thấy
+               ngoài mũi tàu ("km 5 · phao số 7 đỏ — để bên trái"). Vì thế nền
+               `field` trung tính + `role="status"`, đứng SAU hai khối cảnh báo —
+               nó không được giành chỗ của mối nguy. Trần 8 dòng ở
+               `buildWillMeet`: danh sách dài là danh sách không ai đọc. */}
+          {willMeet.length > 0 && (
+            <div role="status" className="rounded-xl bg-field p-3">
+              <p className="text-[1rem] font-bold leading-snug text-navy">
+                Trên đường sẽ gặp
+              </p>
+              <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[0.9375rem] leading-snug text-foreground/80">
+                {willMeet.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/*  (3) SO VỚI CHẠY THẲNG — RÚT VỀ MỘT DÒNG CHỮ (2026-08-29, chủ dự
                án: "các loại giải thích vớ vẩn ko phải là cái cấp data hay info
                thì bỏ hết đi"). Trước là 5 nhánh, mỗi nhánh một KHỐI BO TRÒN CÓ
@@ -2341,8 +2533,13 @@ export function RouteMode({
               </p>
             ) : plan.direct === null ? (
               <p className="text-[0.9375rem] font-semibold leading-snug text-warn">
-                Đường chim bay vướng đất liền / bãi cạn / sóng quá dữ — tuyến
-                này đi vòng qua.
+                {/*  "/ chướng ngại" thêm 2026-09-04: từ Đợt 2, `direct` đi qua
+                     đúng `legCost` có chặn xác tàu/giàn khoan/vùng cấm, nên
+                     đường chim bay còn có thể vướng VẬT chứ không chỉ vướng
+                     đất/cạn/sóng. Câu phải nói đủ lý do, không thì bà con đi
+                     tìm bãi cạn không có thật. */}
+                Đường chim bay vướng đất liền / bãi cạn / chướng ngại / sóng quá
+                dữ — tuyến này đi vòng qua.
               </p>
             ) : plan.fuelDeltaL != null &&
               -plan.fuelDeltaL > Math.max(3, plan.direct.fuelL * 0.03) &&
@@ -2374,7 +2571,7 @@ export function RouteMode({
             <div className="flex items-center gap-2">
               <p className="min-w-0 flex-1 text-[0.875rem] leading-snug text-foreground/65">
                 Đoạn xấu nhất: sóng ~{formatNumberVN(plan.maxWaveM)} m, gió cấp{" "}
-                {beaufort(plan.maxWindKmh)}. Lưới độ sâu ô ~5,5 km — dò hải đồ,
+                {beaufort(plan.maxWindKmh)}. Lưới độ sâu ô ~450 m — dò hải đồ,
                 nghe đài duyên hải trước khi chạy.
               </p>
               {/*  KHÔNG còn nút ở hàng này (2026-08-29h). Đo thật 375×812:

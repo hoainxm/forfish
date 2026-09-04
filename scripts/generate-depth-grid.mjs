@@ -1,14 +1,31 @@
 // Tạo lưới độ sâu tĩnh cho dẫn đường (Trục 1) — chạy MỘT LẦN khi cần làm mới:
 //   node scripts/generate-depth-grid.mjs
 //
+// ⚠️ SINH LẠI LÀ HÀNH ĐỘNG CÓ CHỦ Ý (CLAUDE.md "chống phình"): mỗi lần chạy là
+// một bản 8,5 MB nằm lại trong lịch sử git mãi mãi. Chỉ chạy khi NGUỒN hoặc
+// LUẬT PHÂN LỚP đổi, không phải khi sửa một dòng script.
+//
+//   Ngày chốt nguồn:  ETOPO 2022 v1 (ERDDAP PIFSC) · GEBCO_2026 (ODB NTU) ·
+//                     reef-shapes.v1.json (OSM, 2026-08-29) ·
+//                     vn-coast.v1.json (526 Polygon, 2026-08-10)
+//   Lần sinh:         2026-09-04 (Đợt 0 — tuyến/dẫn đường có kho hải đồ)
+//   Vì sao sinh lại:  briefing-03 (2026-09-04). Bản 2 bit cũ trộn "đất" với
+//                     "nước sâu < 2 m ở mực trung bình": mẫu 0,1° toàn vùng biển
+//                     có 257/19.865 ô NƯỚC theo đường bờ bị coi là ĐẤT (bãi bùn
+//                     vịnh Thái Lan, cửa lạch Đông Nam, vịnh Bắc Bộ), và ngưỡng
+//                     "rất cạn = 4 m" cố định cho mọi tàu ⇒ Rạch Giá KHÔNG có
+//                     tuyến nào ra khơi (null trong 2 ms, cả vòng khung 200 km)
+//                     dù tàu mớn 1–2 m làm nghề ở đó hằng ngày.
+//
 // BA NGUỒN CHỒNG LÊN NHAU, LUÔN LẤY CÁI NGUY HIỂM HƠN:
 //   (1) ETOPO 2022 15" (NOAA NCEI, public domain) qua ERDDAP OceanWatch PIFSC
 //   (2) GEBCO_2026 15" qua ODB NTU (api.odb.ntu.edu.tw/gebco)
 //   (3) mặt nạ rạn/bãi cạn/đá/xác tàu từ public/data/reef-shapes.v1.json (OSM)
+//   + (4) ĐƯỜNG BỜ THẬT public/data/vn-coast.v1.json quyết định cái gì là ĐẤT
 //
 // VÌ SAO PHẢI CÓ (2) VÀ (3) — sự cố 2026-08-29, đây là lỗi AN TOÀN, không phải
 // lỗi làm đẹp. Bản trước chỉ có ETOPO. Lấy tâm 25 hình rạn thật rồi hỏi hai
-// nguồn thì 5 tâm bị ETOPO xếp lớp 3 "đủ sâu" trong khi GEBCO nói nước sâu
+// nguồn thì 5 tâm bị ETOPO xếp "đủ sâu" trong khi GEBCO nói nước sâu
 // 1–2 m (9,761/116,514 · 9,726/116,588 · 9,761/114,341 · 8,682/114,177 ·
 // 22,379/113,886). "Đủ sâu" nghĩa là bộ dẫn đường VẠCH TUYẾN CHẠY THẲNG QUA —
 // tàu mớn 1,5–3 m đi vào là mắc cạn.
@@ -22,6 +39,18 @@
 // OSM chưa vẽ (đo độc lập: ETOPO↔GEBCO khớp 100% ở biển sâu và thềm lục địa,
 // chỉ 85,2% ở vùng rạn — có ô ETOPO nói −344 m mà GEBCO nói −5 m).
 //
+// VÌ SAO PHẢI CÓ (4) — briefing-03: ETOPO/GEBCO ghi bãi bùn ven bờ sâu 0–2 m
+// (mực nước trung bình), mà "đất = z > −2 m" biến cả dải nước đó thành đất.
+// Đất phải do ĐƯỜNG BỜ nói: tâm ô nằm TRONG đa giác vn-coast, HOẶC z > 0 theo
+// CẢ HAI mô hình (đảo nhỏ mà đường bờ giản lược đã cắt mất; một mô hình nói
+// đất một mô hình nói nước thì là lớp 2 — xem chú thích trong mergeGebco).
+// Đường bờ giản lược cũng có giá: phá Tam Giang (Huế) và vài dải mép bờ hẹp
+// nằm TRONG đa giác nên thành đất dù mô hình nói nước (đo 2026-09-04: ~6,5k ô
+// nước cũ → đất, cụm lớn nhất là phá Tam Giang; không vịnh sâu nào bị lấp).
+// Dập bằng SCANLINE theo hàng vĩ độ
+// (giao cạnh đa giác với y = lat → các khoảng x → tô): 4.441 hàng × ~10,8k
+// đỉnh ≈ 48 M phép, dưới 1 s — KHÔNG point-in-polygon từng ô (1,8·10¹¹ phép).
+//
 // Vì sao tải ETOPO bằng `.dods` (nhị phân DAP2) chứ không `.json`: 17 triệu ô ở
 // dạng JSON là ~700 MB chữ, tải cả buổi; `.dods` là float32 thuần ≈ 68 MB.
 // GEBCO thì ODB nhận GeoJSON Polygon + `mode=zonly&sample=1` và trả ĐÚNG lưới
@@ -32,16 +61,22 @@
 // Độ sâu đáy biển không đổi theo ngày → đóng gói thành asset tĩnh, runtime
 // không gọi API.
 //
-// Đầu ra: public/data/depth-grid.v1.bin — 2 bit/ô, 4 ô/byte, row-major
-// từ góc Tây Nam (~4,07 MB). Hằng số lưới phải KHỚP src/lib/depth-grid.ts.
-//   0 = đất liền (z > -2 m)
-//   1 = rất cạn  (z > -4 m)  → tuyến không đi qua (rạn, bãi nổi)
-//   2 = nước nông (z > -12 m) → đi được, cảnh báo (tàu cá VN mớn 1,5–3 m
+// Đầu ra: public/data/depth-grid.v1.bin — 4 bit/ô, 2 ô/byte (ô chẵn ở 4 bit
+// thấp), row-major từ góc Tây Nam (~8,5 MB — đổi ĐỊNH DẠNG, giữ ĐƯỜNG DẪN để
+// service worker `addAll` + `cache:"reload"` tự ghi đè, không bump vỏ).
+// Hằng số lưới phải KHỚP src/lib/depth-grid.ts (DEPTH_META không đổi).
+//   0 = ĐẤT LIỀN   (tâm ô trong đa giác vn-coast HOẶC cả ETOPO lẫn GEBCO z > 0)
+//   1 = MẶT NẠ     (ô chạm hình rạn/bãi cạn/đá ngầm/xác tàu OSM, đã nở) →
+//       tuyến không đi qua
+//   2 = rất cạn    (nước, z ∈ (−2, 0]) → tuyến không đi qua (như lớp 1)
+//   3 = cạn        (nước, z ∈ (−4, −2]) → chỉ tàu ĐÃ KHAI MỚN và cần ≤ 2,0 m
+//       (mớn + 0,5 + ½·sóng) mới được đi qua — chưa khai thì chặn
+//   4 = nước nông  (z ∈ (−12, −4]) → đi được, cảnh báo (tàu cá VN mớn 1,5–3 m
 //       chạy vùng 5–8 m hằng ngày — vd vịnh Rạch Giá cạn <10 m suốt 45 km;
 //       lưu ý ETOPO ~mực nước trung bình, thuỷ triều có nơi ±2 m)
-//   3 = đủ sâu
-// Ngữ nghĩa 4 lớp và cách mã hoá 2 bit GIỮ NGUYÊN — route-plan.ts và
-// fishing-map-view.tsx đang đọc theo đúng nghĩa này.
+//   5 = đủ sâu     (z ≤ −12)
+// "Hạ lớp khi nông hơn" giữ nguyên nghĩa trên thang mới: số nhỏ hơn = nguy
+// hiểm hơn = luôn thắng.
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 
@@ -53,6 +88,10 @@ const LON0 = 102 + STEP / 2; // 102,002083…
 const N_LAT = 4441; // phủ tới 23,502°B (khung cũ: 5–23,5°B)
 const N_LON = 3841; // phủ tới 118,002°Đ (khung cũ: 102–118°Đ)
 const N_CELL = N_LAT * N_LON;
+
+/** Lớp cao nhất — ô thiếu số liệu và ô "đủ sâu" đều mang lớp này */
+const CLASS_DEEP = 5;
+const CLASS_MASK = 1;
 
 const HEADERS = { "User-Agent": "SDFish/1.0 (+https://github.com/Long-Forfun/ForFish)" };
 const TRIES = 4;
@@ -71,6 +110,7 @@ const GEBCO_TILE_DEG = 2; // 2° × 2° = 230.400 ô ≈ 10 MB JSON, ~0,6 s/ô v
 const GEBCO_PAUSE_MS = 300; // nghỉ giữa lô — API học thuật miễn phí, đừng đấm
 
 const REEF_SHAPES = "public/data/reef-shapes.v1.json";
+const COAST = "public/data/vn-coast.v1.json";
 const OUT = "public/data/depth-grid.v1.bin";
 
 /*  BÁN KÍNH NỞ CỦA MẶT NẠ HIỂM HOẠ — ba con số này là phần "an toàn" của cả
@@ -108,11 +148,17 @@ const MAX_ENCLOSED_CELLS = 20000;
 const M_PER_DEG_LAT = 110574;
 const mPerDegLon = (lat) => 111320 * Math.cos((lat * Math.PI) / 180);
 
+/**
+ * Lớp theo độ cao/độ sâu z (m, âm = dưới mặt nước). Chỉ z > 0 mới là đất ở
+ * bước này; đất theo ĐƯỜNG BỜ dập sau (stampCoastLand). Lớp 1 KHÔNG sinh từ z
+ * — nó là mặt nạ rạn.
+ */
 function classify(z) {
-  if (z > -2) return 0;
-  if (z > -4) return 1;
-  if (z > -12) return 2;
-  return 3;
+  if (z > 0) return 0;
+  if (z > -2) return 2;
+  if (z > -4) return 3;
+  if (z > -12) return 4;
+  return CLASS_DEEP;
 }
 
 // ───────────────────────────── ETOPO (nguồn 1) ─────────────────────────────
@@ -249,11 +295,24 @@ async function mergeGebco(cls) {
           const jj = Math.round((lons[k] - LON0) / STEP);
           if (i < 0 || i >= N_LAT || jj < 0 || jj >= N_LON) continue;
           const idx = i * N_LON + jj;
-          const g = classify(z[k]);
+          let g = classify(z[k]);
           if (!touched[idx]) { touched[idx] = 1; covered++; }
+          const e = cls[idx];
+          /*  ĐẤT NGOÀI ĐA GIÁC BỜ CẦN CẢ HAI NGUỒN CÙNG NÓI z > 0 (2026-09-04).
+              Đo thật ở chính điểm briefing-03 (10,02°B 104,99°Đ — vịnh Rạch
+              Giá, 10 km ngoài khơi, KHÔNG trong đa giác bờ): ETOPO z = −2 m,
+              GEBCO z = +1 m. Luật "min" thuần lấy đất của một nguồn làm đất
+              của cả lưới, và đó là lý do bản cũ vẫn "đất ngoài khơi" dù đã bỏ
+              ngưỡng −2 m. Một nguồn nói đất, nguồn kia nói nước ⇒ hạ về lớp 2
+              "rất cạn" (vẫn KHÔNG đi qua ngoài 12 km quanh hai đầu — không mất
+              an toàn, chỉ không còn gọi nhầm là bờ). Đảo thật (Côn Đảo, Hạ
+              Long…) cả hai nguồn đều > 0 nên vẫn là đất. Với các lớp NƯỚC, min
+              vẫn giữ nguyên: nông hơn = nguy hiểm hơn = thắng. */
+          if (e > 0 && g === 0) g = 2;
+          else if (e === 0 && g > 0) { cls[idx] = Math.min(2, g); shallower++; continue; }
           // lớp nhỏ hơn = nông hơn = nguy hiểm hơn → luôn thắng
-          if (cls[idx] === -1 || g < cls[idx]) {
-            if (cls[idx] !== -1) shallower++;
+          if (e === -1 || g < e) {
+            if (e !== -1) shallower++;
             cls[idx] = g;
           }
         }
@@ -273,6 +332,61 @@ async function mergeGebco(cls) {
     `\nGEBCO xong: phủ ${covered}/${N_CELL} ô, hạ lớp ${shallower} ô, ô vuông hỏng ${failed}/${tiles.length}`,
   );
   return { covered, failed, tiles: tiles.length, shallower };
+}
+
+// ─────────────────────── Đường bờ thật — cái gì là ĐẤT (4) ───────────────────────
+
+/**
+ * Dập ĐẤT theo đa giác đường bờ bằng SCANLINE theo hàng vĩ độ: với mỗi hàng
+ * lưới cắt qua đa giác, lấy giao điểm của các cạnh với y = lat, sắp theo x rồi
+ * tô các khoảng [x₂ₜ, x₂ₜ₊₁] (luật chẵn-lẻ — lỗ trong đa giác tự thành nước).
+ * Mỗi đa giác xử lý RIÊNG rồi OR vào lưới, để hai đa giác chồng mép không
+ * triệt tiêu nhau. Chỉ ĐẶT 0, không bao giờ nâng ô đã là 0.
+ */
+function stampCoastLand(cls, fc) {
+  let stamped = 0;
+  let polys = 0;
+  const xs = [];
+  for (const f of fc.features) {
+    const g = f?.geometry;
+    if (!g?.coordinates) continue;
+    const list =
+      g.type === "Polygon" ? [g.coordinates]
+        : g.type === "MultiPolygon" ? g.coordinates
+          : [];
+    for (const rings of list) {
+      polys++;
+      let y0 = Infinity, y1 = -Infinity;
+      for (const r of rings) for (const p of r) { if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; }
+      const i0 = Math.max(0, Math.ceil((y0 - LAT0) / STEP));
+      const i1 = Math.min(N_LAT - 1, Math.floor((y1 - LAT0) / STEP));
+      for (let i = i0; i <= i1; i++) {
+        const lat = LAT0 + i * STEP;
+        xs.length = 0;
+        for (const r of rings) {
+          const n = r.length;
+          for (let s = 0; s < n; s++) {
+            const a = r[s];
+            const b = r[s + 1 < n ? s + 1 : 0];
+            const ya = a[1], yb = b[1];
+            // nửa mở (ya > lat) ≠ (yb > lat): đỉnh nằm đúng trên hàng chỉ đếm một lần
+            if ((ya > lat) !== (yb > lat)) xs.push(a[0] + ((lat - ya) * (b[0] - a[0])) / (yb - ya));
+          }
+        }
+        if (xs.length < 2) continue;
+        xs.sort((p, q) => p - q);
+        for (let t = 0; t + 1 < xs.length; t += 2) {
+          const j0 = Math.max(0, Math.ceil((xs[t] - LON0) / STEP));
+          const j1 = Math.min(N_LON - 1, Math.floor((xs[t + 1] - LON0) / STEP));
+          for (let j = j0; j <= j1; j++) {
+            const k = i * N_LON + j;
+            if (cls[k] !== 0) { cls[k] = 0; stamped++; }
+          }
+        }
+      }
+    }
+  }
+  return { stamped, polys };
 }
 
 // ─────────────────── Mặt nạ rạn / bãi cạn / đá / xác tàu (3) ───────────────────
@@ -444,6 +558,7 @@ function fillEnclosed(mask) {
 
 // ───────────────────────────────── chạy ─────────────────────────────────
 
+const tStart = Date.now();
 const cls = await loadEtopo();
 const gebco = await mergeGebco(cls);
 
@@ -460,6 +575,18 @@ const missing = cls.reduce((n, v) => (v === -1 ? n + 1 : n), 0);
 if (missing > N_CELL * 0.01) {
   throw new Error(`Thiếu ${missing} ô (> 1%) — kiểm tra lại bước/nguồn`);
 }
+
+// Đường bờ THẬT nói cái gì là đất — trước mặt nạ rạn, vì mặt nạ "chỉ hạ không
+// nâng" phải thấy đất đã đứng ở 0 để không đè rạn-trên-đảo thành lớp 1.
+const coast = JSON.parse(readFileSync(COAST, "utf8"));
+if (!Array.isArray(coast?.features) || coast.features.length === 0) {
+  throw new Error(`${COAST} không có feature nào — đường bờ là nguồn duy nhất nói "đất", không được bỏ qua`);
+}
+const tCoast = Date.now();
+const land = stampCoastLand(cls, coast);
+console.log(
+  `đường bờ: ${land.polys} đa giác → dập ${land.stamped} ô thành đất (${Date.now() - tCoast} ms scanline)`,
+);
 
 const fc = JSON.parse(readFileSync(REEF_SHAPES, "utf8"));
 if (!Array.isArray(fc?.features) || fc.features.length === 0) {
@@ -482,26 +609,28 @@ if (pocket.skipped) {
 let forced = 0;
 for (let k = 0; k < N_CELL; k++) {
   if (!mask[k]) continue;
-  // Ô trong rạn CẤM là lớp 3, bất kể mô hình độ sâu nói gì. Chọn lớp 1 "rất
-  // cạn" chứ không phải 2 "nông": lớp 2 chỉ CẢNH BÁO rồi tuyến vẫn chạy qua —
-  // đúng cái hỏng đang sửa. Lớp 1 là mức duy nhất route-plan.ts coi là không
-  // đi được (mà vẫn nới được sát cảng/điểm đến). Không dùng lớp 0 vì 0 nghĩa
-  // là ĐẤT LIỀN, chỗ khác đọc để vẽ bờ và loại điểm dự báo.
-  // Chỉ HẠ, không nâng: rạn nằm trên đất liền (lớp 0) thì giữ nguyên 0.
-  if (cls[k] === -1 || cls[k] > 1) { cls[k] = 1; forced++; }
+  // Ô trong rạn CẤM là lớp 1 "mặt nạ", bất kể mô hình độ sâu nói gì — lớp mà
+  // route-plan.ts coi là không đi được (chỉ nới được sát cảng/điểm đến).
+  // Không dùng lớp 0 vì 0 nghĩa là ĐẤT LIỀN, chỗ khác đọc để vẽ bờ và loại
+  // điểm dự báo. Chỉ HẠ, không nâng: rạn nằm trên đất liền (lớp 0) thì giữ 0.
+  if (cls[k] === -1 || cls[k] > CLASS_MASK) { cls[k] = CLASS_MASK; forced++; }
 }
-console.log(`ép về lớp 1 "rất cạn": ${forced} ô`);
+console.log(`ép về lớp 1 "mặt nạ rạn": ${forced} ô`);
 
 // ô thiếu lẻ tẻ coi như đủ sâu (an toàn nghiêng về "không chặn nhầm giữa khơi")
-const packed = new Uint8Array(Math.ceil(N_CELL / 4));
+// 4 bit/ô, 2 ô/byte: ô chẵn ở 4 bit thấp, ô lẻ ở 4 bit cao.
+const packed = new Uint8Array(Math.ceil(N_CELL / 2));
 for (let k = 0; k < N_CELL; k++) {
-  const c = cls[k] === -1 ? 3 : cls[k];
-  packed[k >> 2] |= c << ((k & 3) * 2);
+  const c = cls[k] === -1 ? CLASS_DEEP : cls[k];
+  packed[k >> 1] |= c << ((k & 1) * 4);
 }
 
 mkdirSync("public/data", { recursive: true });
 writeFileSync(OUT, packed);
-console.log(`OK: ${OUT} — ${N_LAT}×${N_LON} ô, ${packed.length} byte, thiếu ${missing}`);
+console.log(
+  `OK: ${OUT} — ${N_LAT}×${N_LON} ô, ${packed.length} byte, thiếu ${missing}` +
+    ` (tổng ${Math.round((Date.now() - tStart) / 1000)} s)`,
+);
 
 // ─────────────────────── tự soát sau khi đóng gói ───────────────────────
 
@@ -510,23 +639,29 @@ const at = (lat, lon) => {
   const j = Math.round((lon - LON0) / STEP);
   if (i < 0 || i >= N_LAT || j < 0 || j >= N_LON) return null;
   const k = i * N_LON + j;
-  return (packed[k >> 2] >> ((k & 3) * 2)) & 3;
+  return (packed[k >> 1] >> ((k & 1) * 4)) & 15;
 };
-const tally = [0, 0, 0, 0];
-for (let k = 0; k < N_CELL; k++) tally[(packed[k >> 2] >> ((k & 3) * 2)) & 3]++;
+const tally = [0, 0, 0, 0, 0, 0];
+for (let k = 0; k < N_CELL; k++) tally[(packed[k >> 1] >> ((k & 1) * 4)) & 15]++;
 console.log(
-  `phân bố lớp: đất ${tally[0]} · rất cạn ${tally[1]} · nông ${tally[2]} · đủ sâu ${tally[3]}`,
+  `phân bố lớp: đất ${tally[0]} · mặt nạ rạn ${tally[1]} · rất cạn <2 m ${tally[2]}` +
+    ` · cạn 2–4 m ${tally[3]} · nông 4–12 m ${tally[4]} · đủ sâu ${tally[5]}`,
 );
-console.log("khơi Nam Trung Bộ (13, 110.5) →", at(13, 110.5), "(mong 3)");
-console.log("giữa Biển Đông  (13, 114)    →", at(13, 114), "(mong 3)");
+console.log("khơi Nam Trung Bộ (13, 110.5) →", at(13, 110.5), "(mong 5)");
+console.log("giữa Biển Đông  (13, 114)    →", at(13, 114), "(mong 5)");
 console.log("đồng bằng Cà Mau (9.1, 105.1) →", at(9.1, 105.1), "(mong 0)");
-console.log("Vịnh Bắc Bộ (19.5, 107.3)    →", at(19.5, 107.3), "(mong 2-3)");
+console.log("Sài Gòn (10.8, 106.7)        →", at(10.8, 106.7), "(mong 0)");
+console.log("Vịnh Bắc Bộ (19.5, 107.3)    →", at(19.5, 107.3), "(mong 4-5)");
+// Bốn điểm briefing-03: NƯỚC theo đường bờ mà bản cũ bảo là đất
+for (const [lat, lon] of [[10.02, 104.99], [10.02, 104.96], [9.75, 104.85], [10.02, 104.72]]) {
+  console.log(`briefing-03 (${lat}, ${lon}) →`, at(lat, lon), "(mong ≠ 0)");
+}
 // Năm toạ độ đã gây ra sự cố 2026-08-29 — ETOPO nói "đủ sâu", GEBCO nói 1–2 m
 for (const [lat, lon] of [
   [9.761, 116.514], [9.726, 116.588], [9.761, 114.341],
   [8.682, 114.177], [22.379, 113.886],
 ]) {
-  console.log(`sự cố (${lat}, ${lon}) →`, at(lat, lon), "(mong ≤ 2, KHÔNG được là 3)");
+  console.log(`sự cố (${lat}, ${lon}) →`, at(lat, lon), "(mong ≤ 4, KHÔNG được là 5)");
 }
 // Toàn bộ tâm hình rạn: không cái nào được là "đủ sâu"
 const centroid = (g) => {
@@ -538,6 +673,6 @@ const centroid = (g) => {
 let bad = 0;
 for (const f of fc.features) {
   const [lon, lat] = centroid(f.geometry);
-  if (at(lat, lon) === 3) bad++;
+  if (at(lat, lon) === CLASS_DEEP) bad++;
 }
 console.log(`tâm hình rạn còn "đủ sâu": ${bad}/${fc.features.length} (mong 0)`);

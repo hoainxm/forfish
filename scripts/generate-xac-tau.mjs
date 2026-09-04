@@ -707,7 +707,9 @@ function lopDoSauTai(grid, lat, lon) {
   const j = Math.round((lon - lon0) / step);
   if (i < 0 || i >= nLat || j < 0 || j >= nLon) return null;
   const k = i * nLon + j;
-  return (grid[k >> 2] >> ((k & 3) * 2)) & 3;
+  // 4 bit/ô, 2 ô/byte (từ 2026-09-04): 0 đất · 1 mặt nạ rạn · 2 <2 m · 3 2–4 m
+  // · 4 4–12 m · 5 đủ sâu — khớp `depthClassAt` của src/lib/depth-grid.ts
+  return (grid[k >> 1] >> ((k & 1) * 4)) & 15;
 }
 
 /* ══ CHẠY ═════════════════════════════════════════════════════════════════ */
@@ -1213,7 +1215,8 @@ async function chay() {
   if (existsSync(binPath)) grid = new Uint8Array(readFileSync(binPath));
   for (const e of giu) {
     const lop = lopDoSauTai(grid, e.lat, e.lon);
-    if (e.doSau !== null && e.doSau > 12 && lop !== null && lop >= 1 && lop <= 2) {
+    // lớp 1–4 = nước < 12 m (mặt nạ rạn / <2 / 2–4 / 4–12 m)
+    if (e.doSau !== null && e.doSau > 12 && lop !== null && lop >= 1 && lop <= 4) {
       log.doSauVoLy.push(`${e.ten ?? e.so ?? "?"}: ${e.doSau} m ở nước lớp ${lop}`);
       e.doSau = null; // giữ vật, bỏ con số — con số sai nguy hiểm hơn không có
     }

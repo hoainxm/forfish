@@ -349,7 +349,7 @@ function part1() {
     rows.push([
       "depth-grid.v1.bin",
       mb(raw.length),
-      "2 bit/ô, tra tại chỗ",
+      "4 bit/ô, tra tại chỗ",
       ms(m.ms),
       "0.0*",
       m.peakMB.toFixed(1),
@@ -363,7 +363,9 @@ function part1() {
       () => {
         const n = DEPTH_N_LAT * DEPTH_N_LON;
         const out = new Uint8Array(n);
-        for (let k = 0; k < n; k++) out[k] = (m.out[k >> 2] >> ((k & 3) * 2)) & 3;
+        // 4 bit/ô, 2 ô/byte (từ 2026-09-04) — khớp `depthClassAt` của
+        // src/lib/depth-grid.ts; bản 2 bit cũ đọc ra lớp sai mà không ném
+        for (let k = 0; k < n; k++) out[k] = (m.out[k >> 1] >> ((k & 1) * 4)) & 15;
         return out;
       },
       3,

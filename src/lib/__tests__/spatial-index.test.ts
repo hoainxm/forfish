@@ -21,9 +21,20 @@ import {
   queryCorridor,
   distToSegment,
   pathPoints,
+  anyWithinSegment,
+  maskWithinSegment,
+  pointInRing,
+  buildSegmentIndex,
+  nearestSegment,
+  segmentsWithinCorridor,
+  segToSegKm,
+  type Segment,
 } from "../spatial-index";
+import { pointInRing as pointInRingStorm } from "../route-storm";
 import { decodeSeamarks, type Seamark } from "../seamarks";
 import { haversineKm, type LatLon } from "../route-plan";
+import { buildHazardList, type Hazard as RouteHazard } from "../hazards";
+import { decodeXacTau } from "../xac-tau";
 
 const DATA = join(process.cwd(), "public", "data");
 const readJson = (f: string) => JSON.parse(readFileSync(join(DATA, f), "utf8"));
@@ -442,5 +453,333 @@ describe("thời gian truy vấn (đo trên dữ liệu thật)", () => {
     );
 
     expect(idxMs).toBeLessThan(bruteMs);
+  });
+});
+
+/* ── CHẶNG CÓ CHẠM HIỂM HOẠ KHÔNG — anyWithinSegment (2026-09-04) ─────────
+   Đối chiếu với quét cạn bằng chính `distToSegment` trên 1.000 chặng ngẫu
+   nhiên (mốc cố định) qua danh sách hiểm hoạ THẬT (xác tàu + giàn khoan + phao
+   hiểm hoạ + lồng bè). Sai một chặng là Dijkstra cho tàu đi xuyên xác tàu. */
+const laneFeatures = readJson("vn-sea-lanes.v1.json").features as GeoJSON.Feature[];
+const realHazards: RouteHazard[] = buildHazardList(
+  { xacTau: decodeXacTau(readJson("xac-tau.v1.json")), laneFeatures, seamarks },
+  null,
+  2026,
+).hazards;
+const posRH = (h: RouteHazard): LatLon => ({ lat: h.lat, lon: h.lon });
+const rOf = (h: RouteHazard) => h.rKm;
+const rhIndex = buildIndex(realHazards, posRH);
+
+/** Sinh số giả ổn định giữa các lần chạy (LCG) — không dùng Math.random. */
+function lcg(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+/** Chặng ngẫu nhiên: MỘT NỬA rải quanh hiểm hoạ thật (để có ca "chạm"), nửa còn lại rải khắp khung. */
+function randomSegments(n: number, seed: number, maxLenKm: number): [LatLon, LatLon][] {
+  const rnd = lcg(seed);
+  const out: [LatLon, LatLon][] = [];
+  for (let i = 0; i < n; i++) {
+    let a: LatLon;
+    if (i % 2 === 0 && realHazards.length) {
+      const h = realHazards[Math.floor(rnd() * realHazards.length)];
+      a = { lat: h.lat + (rnd() - 0.5) * 0.06, lon: h.lon + (rnd() - 0.5) * 0.06 };
+    } else {
+      a = { lat: 5 + rnd() * 18, lon: 103 + rnd() * 14 };
+    }
+    const ang = rnd() * Math.PI * 2;
+    const len = (0.5 + rnd() * (maxLenKm - 0.5)) / 111.19;
+    out.push([a, { lat: a.lat + Math.sin(ang) * len, lon: a.lon + Math.cos(ang) * len }]);
+  }
+  return out;
+}
+
+function bruteAnyWithin(a: LatLon, b: LatLon): boolean {
+  for (const h of realHazards) if (distToSegment(posRH(h), a, b).km <= h.rKm) return true;
+  return false;
+}
+
+describe("anyWithinSegment — chặng có dính vòng chặn nào không", () => {
+  it("bằng ĐÚNG quét cạn distToSegment trên 1.000 chặng, và có cả ca chạm lẫn ca không", () => {
+    expect(realHazards.length).toBeGreaterThan(100);
+    const segs = randomSegments(1000, 20260904, 9);
+    let cham = 0;
+    for (const [a, b] of segs) {
+      const want = bruteAnyWithin(a, b);
+      expect(anyWithinSegment(rhIndex, a, b, rOf)).toBe(want);
+      if (want) cham++;
+    }
+    expect(cham).toBeGreaterThan(20);
+    expect(cham).toBeLessThan(980);
+  });
+
+  it("chặng đi xuyên tâm xác tàu → chạm; chặng lệch ngoài bán kính một chút → không", () => {
+    const h = realHazards.find((x) => x.loai === "gian-khoan")!;
+    const kmPerDeg = (Math.PI / 180) * 6371;
+    const dx = (h.rKm * 3) / kmPerDeg;
+    expect(anyWithinSegment(rhIndex, { lat: h.lat - dx, lon: h.lon }, { lat: h.lat + dx, lon: h.lon }, rOf)).toBe(true);
+    // tịnh tiến chặng sang ngang r × 1,05 (theo vĩ độ để khỏi lo co kinh độ)
+    const off = (h.rKm * 1.05) / kmPerDeg;
+    expect(
+      anyWithinSegment(
+        rhIndex,
+        { lat: h.lat + off, lon: h.lon - dx },
+        { lat: h.lat + off, lon: h.lon + dx },
+        (x) => (x === h ? h.rKm : 0),
+      ),
+    ).toBe(false);
+  });
+
+  it("bán kính 0/NaN cho mọi phần tử → không bao giờ chạm; chỉ mục rỗng → false; toạ độ hỏng → false", () => {
+    const [a, b] = randomSegments(1, 7, 5)[0];
+    expect(anyWithinSegment(rhIndex, a, b, () => 0)).toBe(false);
+    expect(anyWithinSegment(rhIndex, a, b, () => Number.NaN)).toBe(false);
+    expect(anyWithinSegment(buildIndex([] as RouteHazard[], posRH), a, b, rOf)).toBe(false);
+    expect(anyWithinSegment(rhIndex, { lat: Number.NaN, lon: 1 }, b, rOf)).toBe(false);
+  });
+
+  it("đổi hàm bán kính thì bán kính lớn nhất được tính lại (không dính bộ nhớ đệm cũ)", () => {
+    const h = realHazards[0];
+    const kmPerDeg = (Math.PI / 180) * 6371;
+    const far = { lat: h.lat + 3 / kmPerDeg, lon: h.lon }; // cách 3 km
+    expect(anyWithinSegment(rhIndex, far, far, rOf)).toBe(false);
+    expect(anyWithinSegment(rhIndex, far, far, () => 4)).toBe(true);
+    expect(anyWithinSegment(rhIndex, far, far, rOf)).toBe(false);
+  });
+});
+
+/* ── MỘT LƯỢT QUÉT TRẢ BIT-OR MỨC — maskWithinSegment (O1 2026-09-04) ──────
+   Đây là hàm `legCost` dùng thay cho bốn lượt `anyWithinSegment`; sai một bit
+   là chặn nhầm (bà con không rời bến) hoặc thả nhầm (đi xuyên xác tàu). */
+const CO = 1;
+const CHAN = 2;
+/** mức theo vị trí trong danh sách — cố định, để mọi ca đối chiếu được */
+const maskOfRH = (h: RouteHazard) => (realHazards.indexOf(h) % 3 === 0 ? CO : CHAN);
+
+function bruteMask(a: LatLon, b: LatLon, rKm: (h: RouteHazard) => number = rOf): number {
+  let acc = 0;
+  for (const h of realHazards) if (distToSegment(posRH(h), a, b).km <= rKm(h)) acc |= maskOfRH(h);
+  return acc;
+}
+
+describe("maskWithinSegment — một lượt quét trả đủ bit chặn/cờ", () => {
+  it("bằng ĐÚNG quét cạn (bit-OR) trên 1.000 chặng; có đủ ca 0 / chỉ cờ / chỉ chặn / cả hai", () => {
+    const segs = randomSegments(1000, 20260904, 9);
+    const dem = [0, 0, 0, 0];
+    for (const [a, b] of segs) {
+      const want = bruteMask(a, b);
+      expect(maskWithinSegment(rhIndex, a, b, rOf, maskOfRH)).toBe(want);
+      // cùng câu trả lời đúng/sai với anyWithinSegment
+      expect(want !== 0).toBe(anyWithinSegment(rhIndex, a, b, rOf));
+      dem[want]++;
+    }
+    expect(dem[0]).toBeGreaterThan(20);
+    expect(dem[CO] + dem[CHAN]).toBeGreaterThan(10);
+  });
+
+  it("stopAt: dừng sớm khi đã đủ bit hỏi — nhưng bit đã thấy thì không bao giờ mất", () => {
+    const segs = randomSegments(1000, 7, 12);
+    for (const [a, b] of segs) {
+      const full = bruteMask(a, b);
+      const m = maskWithinSegment(rhIndex, a, b, rOf, maskOfRH, CHAN);
+      // hỏi "chặn không": có chặn thì bit CHẶN phải có; không chặn thì trả đủ như quét cạn
+      if (full & CHAN) expect(m & CHAN).toBe(CHAN);
+      else expect(m).toBe(full);
+      // hỏi đủ hai bit: y hệt quét cạn
+      expect(maskWithinSegment(rhIndex, a, b, rOf, maskOfRH, CO | CHAN)).toBe(full);
+    }
+  });
+
+  it("bán kính 0/NaN → 0; chỉ mục rỗng → 0; toạ độ hỏng → 0", () => {
+    const [a, b] = randomSegments(1, 7, 5)[0];
+    expect(maskWithinSegment(rhIndex, a, b, () => 0, maskOfRH)).toBe(0);
+    expect(maskWithinSegment(rhIndex, a, b, () => Number.NaN, maskOfRH)).toBe(0);
+    expect(maskWithinSegment(buildIndex([] as RouteHazard[], posRH), a, b, rOf, maskOfRH)).toBe(0);
+    expect(maskWithinSegment(rhIndex, { lat: Number.NaN, lon: 1 }, b, rOf, maskOfRH)).toBe(0);
+  });
+
+  it("đổi qua lại chỉ mục / hàm bán kính thì ô nhớ một mục không trả số cũ", () => {
+    const h = realHazards[0];
+    const kmPerDeg = (Math.PI / 180) * 6371;
+    const far = { lat: h.lat + 3 / kmPerDeg, lon: h.lon }; // cách 3 km
+    const r4 = () => 4;
+    const ixRieng = buildIndex([h], posRH);
+    expect(maskWithinSegment(rhIndex, far, far, rOf, maskOfRH)).toBe(0);
+    expect(maskWithinSegment(rhIndex, far, far, r4, maskOfRH)).not.toBe(0);
+    expect(maskWithinSegment(ixRieng, far, far, rOf, maskOfRH)).toBe(0);
+    expect(maskWithinSegment(ixRieng, far, far, r4, maskOfRH)).toBe(maskOfRH(h));
+    expect(maskWithinSegment(rhIndex, far, far, rOf, maskOfRH)).toBe(0);
+    expect(anyWithinSegment(rhIndex, far, far, r4)).toBe(true);
+    expect(anyWithinSegment(ixRieng, far, far, rOf)).toBe(false);
+  });
+});
+
+describe("pointInRing — dùng chung với route-storm", () => {
+  const vuong = [
+    [107, 10],
+    [108, 10],
+    [108, 11],
+    [107, 11],
+    [107, 10],
+  ];
+  it("trong/ngoài hình vuông", () => {
+    expect(pointInRing({ lat: 10.5, lon: 107.5 }, vuong)).toBe(true);
+    expect(pointInRing({ lat: 11.5, lon: 107.5 }, vuong)).toBe(false);
+    expect(pointInRing({ lat: 10.5, lon: 106.9 }, vuong)).toBe(false);
+  });
+  it("route-storm xuất lại ĐÚNG hàm này, không phải bản chép", () => {
+    expect(pointInRingStorm).toBe(pointInRing);
+  });
+  it("vòng rỗng → ngoài", () => {
+    expect(pointInRing({ lat: 10.5, lon: 107.5 }, [])).toBe(false);
+  });
+});
+
+/* ── CHỈ MỤC ĐOẠN — cáp ngầm/ống dẫn thật ───────────────────────────────── */
+type CableRef = { kind: string; i: number };
+const cableSegs: Segment<CableRef>[] = [];
+laneFeatures.forEach((f, i) => {
+  const kind = (f.properties as { kind?: string } | null)?.kind ?? "";
+  if ((kind !== "cap" && kind !== "ong") || f.geometry.type !== "LineString") return;
+  const c = f.geometry.coordinates;
+  for (let k = 0; k + 1 < c.length; k++)
+    cableSegs.push({
+      a: { lat: c[k][1], lon: c[k][0] },
+      b: { lat: c[k + 1][1], lon: c[k + 1][0] },
+      ref: { kind, i },
+    });
+});
+const cableIx = buildSegmentIndex(cableSegs);
+
+describe("chỉ mục đoạn — nearestSegment / segmentsWithinCorridor", () => {
+  it("nhận đủ mọi đoạn cáp/ống thật", () => {
+    expect(cableSegs.length).toBeGreaterThan(500);
+    expect(cableIx.count).toBe(cableSegs.length);
+  });
+
+  it("nearestSegment khớp quét cạn trên 300 điểm quanh cáp (kể cả ca không có gì trong tầm)", () => {
+    const rnd = lcg(99);
+    let co = 0;
+    for (let i = 0; i < 300; i++) {
+      const s = cableSegs[Math.floor(rnd() * cableSegs.length)];
+      const p = { lat: s.a.lat + (rnd() - 0.5) * 0.2, lon: s.a.lon + (rnd() - 0.5) * 0.2 };
+      const maxKm = 5;
+      let want: Segment<CableRef> | null = null;
+      let wantKm = maxKm;
+      for (const c of cableSegs) {
+        const km = distToSegment(p, c.a, c.b).km;
+        if (km <= wantKm) {
+          wantKm = km;
+          want = c;
+        }
+      }
+      const got = nearestSegment(cableIx, p, maxKm);
+      if (!want) expect(got).toBeNull();
+      else {
+        co++;
+        expect(got).not.toBeNull();
+        expect(got!.km).toBeCloseTo(wantKm, 9);
+      }
+    }
+    expect(co).toBeGreaterThan(100);
+  });
+
+  it("maxKm vô hạn/NaN/âm → null, không quét cả lưới; chỉ mục rỗng → null", () => {
+    const p = cableSegs[0].a;
+    expect(nearestSegment(cableIx, p, Infinity)).toBeNull();
+    expect(nearestSegment(cableIx, p, Number.NaN)).toBeNull();
+    expect(nearestSegment(cableIx, p, -1)).toBeNull();
+    expect(nearestSegment(buildSegmentIndex([] as Segment<CableRef>[]), p, 5)).toBeNull();
+  });
+
+  it("segmentsWithinCorridor khớp quét cạn segToSegKm, mỗi đoạn một lần, sắp theo alongKm", () => {
+    // tuyến cắt ngang vịnh Thái Lan và Biển Đông nam — đi qua nhiều cáp
+    const route: LatLon[] = [
+      { lat: 9.9, lon: 104.5 },
+      { lat: 8.2, lon: 105.5 },
+      { lat: 8.6, lon: 107.5 },
+      { lat: 10.3, lon: 107.1 },
+    ];
+    for (const widthKm of [0, 2, 10]) {
+      const got = segmentsWithinCorridor(cableIx, route, widthKm);
+      const want = cableSegs.filter((c) => {
+        let best = Infinity;
+        for (let i = 0; i + 1 < route.length; i++)
+          best = Math.min(best, segToSegKm(route[i], route[i + 1], c.a, c.b).km);
+        return best <= widthKm;
+      });
+      expect(new Set(got.map((h) => h.seg))).toEqual(new Set(want));
+      expect(new Set(got.map((h) => h.seg)).size).toBe(got.length);
+      for (let i = 1; i < got.length; i++) expect(got[i].alongKm).toBeGreaterThanOrEqual(got[i - 1].alongKm);
+    }
+  });
+
+  it("width 0 = CẮT thật: tuyến dựng vuông góc qua giữa một đoạn cáp thật phải bắt đúng đoạn đó", () => {
+    const s = cableSegs[Math.floor(cableSegs.length / 3)];
+    const m = { lat: (s.a.lat + s.b.lat) / 2, lon: (s.a.lon + s.b.lon) / 2 };
+    // pháp tuyến của đoạn (theo độ), dài 0,05° mỗi phía
+    const dl = { lat: s.b.lat - s.a.lat, lon: s.b.lon - s.a.lon };
+    const len = Math.hypot(dl.lat, dl.lon) || 1;
+    const nrm = { lat: (-dl.lon / len) * 0.05, lon: (dl.lat / len) * 0.05 };
+    const route: LatLon[] = [
+      { lat: m.lat + nrm.lat, lon: m.lon + nrm.lon },
+      { lat: m.lat - nrm.lat, lon: m.lon - nrm.lon },
+    ];
+    const got = segmentsWithinCorridor(cableIx, route, 0);
+    expect(got.map((h) => h.seg)).toContain(s);
+    expect(got.find((h) => h.seg === s)!.km).toBe(0);
+    // và một tuyến tịnh tiến ra xa 5 km thì không cắt đoạn đó nữa
+    const xa: LatLon[] = route.map((p) => ({ lat: p.lat + 0.045, lon: p.lon + 0.045 }));
+    expect(segmentsWithinCorridor(cableIx, xa, 0).map((h) => h.seg)).not.toContain(s);
+  });
+
+  it("segToSegKm: cắt nhau → 0 tại giao điểm; song song → khoảng cách mút", () => {
+    const x = segToSegKm({ lat: 10, lon: 107 }, { lat: 10, lon: 108 }, { lat: 9.5, lon: 107.5 }, { lat: 10.5, lon: 107.5 });
+    expect(x.km).toBe(0);
+    expect(x.alongKm).toBeCloseTo(haversineKm({ lat: 10, lon: 107 }, { lat: 10, lon: 107.5 }), 0);
+    const p = segToSegKm({ lat: 10, lon: 107 }, { lat: 10, lon: 108 }, { lat: 10.1, lon: 107 }, { lat: 10.1, lon: 108 });
+    expect(p.km).toBeCloseTo(11.12, 1);
+  });
+
+  it("đoạn toạ độ hỏng bị bỏ, không ném", () => {
+    const ix = buildSegmentIndex([
+      { a: { lat: 10, lon: 107 }, b: { lat: 10.1, lon: 107 }, ref: 1 },
+      { a: { lat: Number.NaN, lon: 107 }, b: { lat: 10.1, lon: 107 }, ref: 2 },
+    ]);
+    expect(ix.count).toBe(1);
+    expect(nearestSegment(ix, { lat: 10.05, lon: 107.01 }, 5)?.seg.ref).toBe(1);
+  });
+});
+
+/* ── BENCH: 300 hiểm hoạ × 120.000 chặng (một lượt Dijkstra) ────────────── */
+describe("thời gian anyWithinSegment (đo trên dữ liệu thật)", () => {
+  it("120.000 chặng qua ~300 hiểm hoạ — in số; trần nới rộng cho CI", () => {
+    const N = 120_000;
+    const segs = randomSegments(N, 4242, 9);
+    // làm nóng
+    for (let i = 0; i < 1000; i++) anyWithinSegment(rhIndex, segs[i][0], segs[i][1], rOf);
+    const t0 = performance.now();
+    let hits = 0;
+    for (let i = 0; i < N; i++) if (anyWithinSegment(rhIndex, segs[i][0], segs[i][1], rOf)) hits++;
+    const ms = performance.now() - t0;
+
+    const t1 = performance.now();
+    for (let i = 0; i < 2000; i++) nearestSegment(cableIx, segs[i][0], 0.5);
+    const nearMs = performance.now() - t1;
+
+    console.log(
+      [
+        "",
+        `  anyWithinSegment — ${realHazards.length} hiểm hoạ, ${rhIndex.nLat}×${rhIndex.nLon} ô: ${N} chặng trong ${ms.toFixed(0)} ms (${((ms / N) * 1000).toFixed(2)} µs/chặng, ${hits} chạm)`,
+        `  nearestSegment    — ${cableIx.count} đoạn cáp/ống, ${cableIx.nLat}×${cableIx.nLon} ô: ${((nearMs / 2000) * 1000).toFixed(1)} µs/lượt (tầm 0,5 km)`,
+        "",
+      ].join("\n"),
+    );
+    // Mục tiêu thiết kế ≤ 300 ms máy bàn; trần test nới ×5 để máy CI chậm không đỏ oan.
+    expect(ms).toBeLessThan(1500);
   });
 });

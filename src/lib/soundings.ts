@@ -339,6 +339,7 @@ export function hasDepthColumn(rows: readonly SoundingRow[]): boolean {
 
 import type { Provenance } from "@/lib/provenance";
 import { timeoutSignal } from "@/lib/abort";
+import { DEPTH_CLASS_DEEP } from "@/lib/depth-grid";
 // Dùng lại bản haversine DUY NHẤT của repo (nguyên tắc 3). `fairway-depth.ts`
 // đã nhập đúng bản này; thêm bản thứ hai ở đây là mở đường cho hai bản trôi.
 import { haversineKm } from "@/lib/route-plan";
@@ -1108,7 +1109,8 @@ export function isSparseDepthColumn(rows: readonly SoundingRow[]): boolean {
  * sông. Cần Thơ nằm 52 km ngược sông Hậu — xa bờ y như một điểm sai ngoài
  * khơi. Cái tách hai ca đó ra là lớp độ sâu của chính app: cảng sông rơi vào
  * lớp 0 (đất/sông, ETOPO không thấy lòng sông), còn điểm sai ngoài khơi rơi
- * vào lớp 3 (đủ sâu, biển khơi).
+ * vào lớp "đủ sâu" (biển khơi — `DEPTH_CLASS_DEEP`, là 3 ở lưới 2 bit cũ và 5
+ * ở lưới 6 lớp từ 2026-09-04).
  *
  * Đo thật 2026-09-01, đợt OCR miền Nam — ba tuyến bị bắt, cả ba đều được HAI
  * mô hình độ sâu độc lập xác nhận là sai sau đó:
@@ -1127,7 +1129,8 @@ export function isOutsideSourceDomain(
 ): boolean {
   if (!Number.isFinite(distToCoastKm)) return false;
   if (distToCoastKm <= OFFSHORE_MIN_KM) return false;
-  return depthClass === 3; // 3 = "đủ sâu" (biển khơi) trong `depth-grid.ts`
+  // "đủ sâu" (biển khơi) — lớp cao nhất của `depth-grid.ts` (5 từ bản 6 lớp 2026-09-04)
+  return depthClass === DEPTH_CLASS_DEEP;
 }
 
 /*

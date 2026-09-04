@@ -38,8 +38,14 @@
 // Không thêm dependency. Toán cầu + chỉ số lưới viết lại tại chỗ vì
 // scripts/*.mjs không nạp được alias "@/lib" — GIỐNG lý do đã ghi ở đầu
 // scripts/compare-sources.mjs. Mối nối giữ bằng test:
-// src/lib/__tests__/soundings-verify.test.ts đối chiếu từng hằng số ở đây với
-// src/lib/depth-grid.ts và src/lib/provenance.ts, và đỏ khi hai bên trôi.
+// src/lib/__tests__/soundings-verify.test.ts đối chiếu hằng số lưới + trọng số
+// chấm điểm với src/lib/depth-grid.ts và src/lib/provenance.ts, VÀ chạy
+// `depthClassAt` dưới đây trên chính depth-grid.v1.bin rồi so từng ô với bản
+// của thư viện — đỏ khi hai bên trôi.
+// ⚠️ Câu trên từng SAI: tới 2026-09-04 test chỉ so `GRID_META`, không đụng tới
+// cách đóng gói bit lẫn bảng lớp, nên lưới lên 4 bit mà script vẫn giải mã 2
+// bit suốt một đợt. Guard được viện dẫn mà không tồn tại còn tệ hơn không có
+// guard: nó ru người đọc. Nay ca so-từng-ô là có thật (review đợt 4, N5).
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -78,16 +84,33 @@ export function cellCentre(lat, lon) {
   return { lat: GRID_META.lat0 + i * GRID_META.step, lon: GRID_META.lon0 + j * GRID_META.step };
 }
 
-/** Lớp đi biển của lưới đóng gói — PHẢI khớp DepthClass của src/lib/depth-grid.ts. */
+/**
+ * Lớp đi biển của lưới đóng gói — PHẢI khớp `depthClassAt` của
+ * src/lib/depth-grid.ts.
+ *
+ * 4 BIT/Ô, 6 LỚP (sửa 2026-09-04, review đợt 4 N5). Bản trước còn giải mã
+ * 2 bit/ô của lưới cũ: file 4 bit to gấp đôi nên chỉ số vẫn nằm trong mảng ⇒
+ * KHÔNG ném, không đỏ, chỉ lặng lẽ ghi lớp sai vào `soundings-verified.v1.json`.
+ * Ô chẵn ở 4 bit thấp, ô lẻ ở 4 bit cao; mã > 5 là không có thật ⇒ `null`.
+ */
 export function depthClassAt(bin, lat, lon) {
   const { lat0, lon0, step, nLat, nLon } = GRID_META;
   const i = Math.round((lat - lat0) / step);
   const j = Math.round((lon - lon0) / step);
   if (i < 0 || i >= nLat || j < 0 || j >= nLon) return null;
   const k = i * nLon + j;
-  return (bin[k >> 2] >> ((k & 3) * 2)) & 3;
+  const v = (bin[k >> 1] >> ((k & 1) * 4)) & 15;
+  return v <= 5 ? v : null;
 }
-export const CLASS_NAME = ["đất", "rất cạn", "nông", "đủ sâu"];
+/** Khớp `DEPTH_CLASS_LABEL` của depth-grid.ts theo THỨ TỰ chỉ số 0–5. */
+export const CLASS_NAME = [
+  "đất",
+  "mặt nạ rạn",
+  "rất cạn",
+  "cạn 2–4 m",
+  "nông",
+  "đủ sâu",
+];
 
 /* ── 1. NGƯỠNG PHÂN LOẠI — MỖI SỐ MỘT LÝ DO ────────────────────────────── */
 
