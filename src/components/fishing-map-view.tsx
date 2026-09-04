@@ -464,9 +464,12 @@ import { weatherFromCode } from "@/lib/weather-codes";
 import {
   useMapPrefs,
   fmtCoordPair,
+  fmtLat,
+  fmtLon,
   fmtDist,
   isVmsZoneOn,
   fmtDepthM,
+  type CoordFormat,
 } from "@/lib/map-prefs";
 import { stormStatus } from "@/lib/storms";
 import { nhanMoc, tracksToGeoJSON } from "@/lib/storm-track";
@@ -648,6 +651,43 @@ function initialLayerId(): OceanLayerId {
     // không có window/storage → dùng mặc định
   }
   return "bathymetry";
+}
+
+/*  TOẠ ĐỘ CỦA VẬT VỪA CHẠM (chủ dự án 2026-09-04: "click vào cho hiện ra cả
+    toạ độ luôn") — bà con chép sang máy định vị để chạy tới. Đọc thẳng
+    geometry của feature, KHÔNG tra ngược mảng: nhiều lớp không mang chỉ số `i`.
+    CHỈ nhận Point — cáp/ống/vùng cấm là đường và vùng, một điểm trên đó không
+    phải "vị trí của nó", nói ra là bà con chạy sai chỗ. */
+function toaDoDiem(f: { geometry?: GeoJSON.Geometry } | undefined): {
+  lat: number;
+  lon: number;
+} | null {
+  const g = f?.geometry;
+  if (!g || g.type !== "Point") return null;
+  const [lon, lat] = g.coordinates;
+  return Number.isFinite(lon) && Number.isFinite(lat) ? { lat, lon } : null;
+}
+
+/*  DÒNG TOẠ ĐỘ trong các thẻ chạm — vĩ độ / kinh độ XUỐNG DÒNG RIÊNG như máy
+    định vị: thẻ chỉ rộng 15rem, để một dòng thì chữ gãy giữa chừng sau dấu
+    chấm giữa. Không có toạ độ (đường/vùng) thì không vẽ gì. */
+function DongToaDo({
+  lat,
+  lon,
+  fmt,
+}: {
+  lat: number | null;
+  lon: number | null;
+  fmt: CoordFormat;
+}) {
+  if (lat == null || lon == null) return null;
+  return (
+    <p className="mt-1 text-[0.875rem] font-semibold leading-snug text-foreground/55">
+      {fmtLat(lat, fmt)}
+      <br />
+      {fmtLon(lon, fmt)}
+    </p>
+  );
 }
 
 /** Lớp bản đồ cho MỘT vùng biển VMS (admin quản lý) — vẽ theo style + màu.
@@ -1546,6 +1586,9 @@ export default function FishingMapView() {
     /** ven-bo · hoang-sa · truong-sa · them-luc-dia — bãi ngầm DK1 sâu 20–50 m
         KHÔNG được nói "có thể ngập" (reviewer A.11 R3) */
     group: string;
+    /** Toạ độ chỗ rạn/bãi/đá — xem `toaDoDiem` */
+    lat: number | null;
+    lon: number | null;
     x: number;
     y: number;
   } | null>(null);
@@ -1553,6 +1596,10 @@ export default function FishingMapView() {
     ten: string;
     kind: string;
     loai: string | null;
+    /** Chỉ giàn khoan / điểm cập bờ mới có — cáp, ống, vùng cấm trải dài nên
+        `toaDoDiem` trả null (một điểm trên đường không phải vị trí của nó) */
+    lat: number | null;
+    lon: number | null;
     x: number;
     y: number;
   } | null>(null);
@@ -1561,6 +1608,11 @@ export default function FishingMapView() {
   const [diaDanhInfo, setDiaDanhInfo] = useState<{
     ten: string;
     loai: string;
+    /*  Toạ độ CHỖ NGẦM (chủ dự án 2026-09-04: "click vào cho hiện ra cả toạ
+        độ luôn") — bà con chép vào máy định vị để chạy tới. Lấy thẳng từ
+        geometry của feature, không tra lại mảng. */
+    lat: number | null;
+    lon: number | null;
     x: number;
     y: number;
   } | null>(null);
@@ -3869,10 +3921,13 @@ export default function FishingMapView() {
             : nearFeats.find((f) => f.layer?.id === "reef-dot" || f.layer?.id === "reef-dot-venbo");
           if (hitReef) {
             const p = hitReef.properties ?? {};
+            const c = toaDoDiem(hitReef);
             setReefInfo({
               ten: String(p.name ?? ""),
               type: String(p.type ?? ""),
               group: String(p.group ?? ""),
+              lat: c?.lat ?? null,
+              lon: c?.lon ?? null,
               x: e.point.x,
               y: e.point.y,
             });
@@ -3891,10 +3946,16 @@ export default function FishingMapView() {
             : nearFeats.find((f) => LANE_HIT.includes(f.layer?.id ?? ""));
           if (hitLane) {
             const p = hitLane.properties ?? {};
+            /*  Giàn khoan và điểm cập bờ là MỘT CHỖ nên nói được toạ độ; cáp,
+                ống, vùng cấm trải dài nên `toaDoDiem` trả null, thẻ khuyết
+                dòng toạ độ — đúng hơn là chỉ đại một điểm trên đường. */
+            const c = toaDoDiem(hitLane);
             setLaneInfo({
               ten: String(p.ten ?? ""),
               kind: String(p.kind ?? ""),
               loai: p.loai != null ? String(p.loai) : null,
+              lat: c?.lat ?? null,
+              lon: c?.lon ?? null,
               x: e.point.x,
               y: e.point.y,
             });
@@ -3905,9 +3966,14 @@ export default function FishingMapView() {
             : nearFeats.find((f) => f.layer?.id === "dia-danh-ngam-label");
           if (hitDiaDanh) {
             const p = hitDiaDanh.properties ?? {};
+            /*  Không đọc được toạ độ thì thẻ vẫn mở, chỉ khuyết dòng toạ độ —
+                đừng để cả thẻ câm vì một dòng phụ. */
+            const c = toaDoDiem(hitDiaDanh);
             setDiaDanhInfo({
               ten: String(p.ten ?? ""),
               loai: String(p.loai ?? ""),
+              lat: c?.lat ?? null,
+              lon: c?.lon ?? null,
               x: e.point.x,
               y: e.point.y,
             });
@@ -5831,7 +5897,9 @@ export default function FishingMapView() {
           className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
           style={{
             left: Math.min(Math.max(8, diaDanhInfo.x - 120), window.innerWidth - 248),
-            top: Math.min(diaDanhInfo.y + 12, window.innerHeight - 180),
+            /*  Thẻ cao hơn các thẻ khác vì có thêm dòng toạ độ → chừa 208px
+                để dòng cuối không chui xuống dưới mép màn. */
+            top: Math.min(diaDanhInfo.y + 12, window.innerHeight - 208),
           }}
         >
           <div className="flex items-start gap-2">
@@ -5852,6 +5920,11 @@ export default function FishingMapView() {
                           ? "bãi ngầm gần bờ — coi chừng cạn"
                           : "dưới mặt nước, không nhìn thấy"}
               </p>
+              <DongToaDo
+                lat={diaDanhInfo.lat}
+                lon={diaDanhInfo.lon}
+                fmt={prefs.coordFormat}
+              />
               <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
                 Tên theo danh mục địa danh nhà nước (tham khảo)
               </p>
@@ -5867,7 +5940,8 @@ export default function FishingMapView() {
           className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
           style={{
             left: Math.min(Math.max(8, reefInfo.x - 120), window.innerWidth - 248),
-            top: Math.min(reefInfo.y + 12, window.innerHeight - 180),
+            /*  Chừa 208px như thẻ địa danh ngầm — thẻ cao thêm dòng toạ độ. */
+            top: Math.min(reefInfo.y + 12, window.innerHeight - 208),
           }}
         >
           <div className="flex items-start gap-2">
@@ -5889,6 +5963,7 @@ export default function FishingMapView() {
                         ? "Cồn cát — có thể ngập, nhìn con nước"
                         : "Bãi cạn — có thể ngập, nhìn con nước"}
               </p>
+              <DongToaDo lat={reefInfo.lat} lon={reefInfo.lon} fmt={prefs.coordFormat} />
               <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
                 Tên theo danh mục địa danh nhà nước (tham khảo)
               </p>
@@ -5904,7 +5979,8 @@ export default function FishingMapView() {
           className="pointer-events-auto absolute z-40 w-60 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-card/97 p-3 shadow-xl"
           style={{
             left: Math.min(Math.max(8, laneInfo.x - 120), window.innerWidth - 248),
-            top: Math.min(laneInfo.y + 12, window.innerHeight - 180),
+            /*  Chừa 208px — giàn khoan / cáp cập bờ có thêm dòng toạ độ. */
+            top: Math.min(laneInfo.y + 12, window.innerHeight - 208),
           }}
         >
           <div className="flex items-start gap-2">
@@ -5946,6 +6022,7 @@ export default function FishingMapView() {
                               ? "Khu CẤM VÀO — không được đi vào vùng này"
                               : "Khu hạn chế — xem quy định trước khi vào"}
               </p>
+              <DongToaDo lat={laneInfo.lat} lon={laneInfo.lon} fmt={prefs.coordFormat} />
               <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
                 Tham khảo — không thay hải đồ chính thức
               </p>
