@@ -306,7 +306,17 @@ const CRITICAL_SHELL = [
   /*  BỘ KÝ HIỆU HẢI ĐỒ (2026-09-01) — phao/tiêu/đèn vẽ đúng hình như hải đồ
       giấy. VÀO NHÓM SỐNG-CÒN cùng lý do với chính lớp báo hiệu: thiếu sprite
       thì MapLibre **im lặng không vẽ** icon nào, tức mất TRẮNG cả lớp báo hiệu
-      giữa biển — tệ hơn cả việc chưa từng có ký hiệu. 40 KB cho 4 file. */
+      giữa biển — tệ hơn cả việc chưa từng có ký hiệu. 40 KB cho 4 file.
+
+      DẤU SINH LẠI SPRITE — sửa dòng này MỖI LẦN chạy build-chart-sprite.mjs:
+        sprite 105 ô, 2026-09-04 (thêm 18 ô cột nước trạm con nước `tide-*`)
+      Vì sao phải có: bốn file này giữ NGUYÊN đường dẫn, nhánh asset tĩnh của
+      `fetch` là cache-first, và `addAll` + `cache:"reload"` chỉ chạy lúc SW
+      CÀI — mà trình duyệt chỉ cài lại khi sw.js ĐỔI BYTE. Sinh lại sprite mà
+      không đụng sw.js là máy đã cài PWA giữ sprite cũ vĩnh viễn: MapLibre
+      thiếu ô mới ⇒ im lặng KHÔNG VẼ lớp dùng ô đó (đã suýt dính 2026-09-04
+      với 11 trạm con nước). Đổi dòng này là đủ — KHÔNG bump SDFISH_CACHE_V
+      (bump xoá kho vỏ trước khi biết mẻ mới có đủ không, xem đầu file). */
   "/icons/chart-sprite.png",
   "/icons/chart-sprite.json",
   "/icons/chart-sprite@2x.png",

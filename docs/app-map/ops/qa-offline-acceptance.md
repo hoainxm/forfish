@@ -335,6 +335,8 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 | Nhánh Range cho kho pmtiles MỚI | `chat-day` 206 `bytes 0-16383/8108392` 14 ms; `reef-shapes-aca` 206; cả hai tự đổ nguyên file vào `sdfish-basemap-v2` |
 | Test offline tự động | 18 file / 292 test xanh; trọn bộ 3432 xanh |
 
+**Kiểm lại 2026-09-04 (con nước: lớp trạm + thẻ + 30 ngày + ký hiệu cột nước)** — bản `next build` + `next start` cổng 3100, Chrome: **45/45** URL vỏ 200/206 (CRITICAL 32 · SHELL 10 · PMTILES 3); SW active, kho `sdfish-v6` có `chart-sprite@2x.json` **105 ô** + `tide-stations.v1.json` 11 trạm; trọn bộ 3.742 test xanh. **LỖ BẮT ĐƯỢC ở lượt kiểm này**: hai commit đầu sinh lại sprite (87 → 105 ô, giữ đường dẫn) mà **không đụng `sw.js`** ⇒ dòng "không cần bump vỏ" ở bảng trên CHỈ đúng khi lượt deploy đó có đổi byte `sw.js` (lượt 2026-09-03 có) — không đổi thì SW không cài lại, nhánh cache-first trả sprite cũ vĩnh viễn, MapLibre thiếu `tide-*` ⇒ 11 trạm im lặng không vẽ trên máy đã cài PWA. Vá: dấu **"sprite N ô, YYYY-MM-DD"** trong `sw.js` cạnh bốn file sprite (sửa mỗi lần chạy `build-chart-sprite.mjs`) + cổng test `chart-symbols.test.ts` so N với số ô thật. Luật rút ra cho §2: **đổi nội dung asset CRITICAL giữ đường dẫn ⇒ commit đó PHẢI đổi byte `sw.js`** (một dòng dấu là đủ, không bump).
+
 **Chưa kiểm được bằng máy (phải làm tay theo §2)**: mở bản đồ trên bản build cần tài khoản (cổng test không có cookie phiên) ⇒ TC-03 / TC-04 / N-7 trên máy thật là bắt buộc. Thêm 3 ca:
 
 | # | Kiểm gì | ĐẠT khi |

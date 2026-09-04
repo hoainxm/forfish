@@ -1061,6 +1061,21 @@ describe("bộ ký hiệu phải được NỐI, không chỉ nằm trong public
     expect(v, "chưa tính sẵn tên ký hiệu vào thuộc tính").toContain("chartSymbolId(");
   });
 
+  it("sinh lại sprite thì sw.js PHẢI đổi byte — dấu 'sprite N ô' khớp số ô thật", () => {
+    /*  Bốn file sprite giữ nguyên đường dẫn, nhánh asset của SW là cache-first,
+        `addAll` + `cache:"reload"` chỉ chạy lúc SW CÀI, mà trình duyệt chỉ cài
+        lại khi sw.js đổi byte. Sinh lại sprite mà không đụng sw.js ⇒ máy đã cài
+        PWA giữ sprite cũ vĩnh viễn ⇒ lớp dùng ô mới im lặng không vẽ (suýt dính
+        2026-09-04 với 18 ô cột nước). Dấu này buộc ai sinh lại sprite phải sửa
+        sw.js cùng commit. */
+    const sw = readFileSync(path.join(process.cwd(), "public", "sw.js"), "utf8");
+    const m = sw.match(/sprite (\d+) ô, (\d{4}-\d{2}-\d{2})/);
+    expect(m, "sw.js thiếu dấu 'sprite N ô, YYYY-MM-DD' cạnh bốn file chart-sprite").toBeTruthy();
+    expect(Number(m![1]), "số ô trong dấu sw.js lệch sprite thật — sinh lại sprite mà chưa sửa sw.js").toBe(
+      Object.keys(SHEET_2X).length,
+    );
+  });
+
   it("bốn file sprite nằm trong vỏ SỐNG-CÒN — mất sóng vẫn vẽ được phao", () => {
     const sw = src("public/sw.js");
     const critical = sw.slice(
