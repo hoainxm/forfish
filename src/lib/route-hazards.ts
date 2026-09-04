@@ -61,7 +61,13 @@ import type { VnAid } from "@/lib/vn-aids";
 import {
   isModelStation,
   nearestTideStation,
+  tideClockText,
+  tideExtremesForDay,
   tideHeightAt,
+  tideTrendAt,
+  tideTrendText,
+  tideUpcoming,
+  vnIsoDate,
   type TideStation,
 } from "@/lib/tides";
 import { borderProximity } from "@/lib/geofence";
@@ -767,6 +773,48 @@ export function auditRoute(args: RouteAuditArgs): { hits: RouteHit[]; missing: s
   }
 
   if (!st.reefs) missing.push("bai-can");
+
+  /* 8. con nước ở HAI ĐẦU tuyến (2026-09-04) — lúc xuất phát và lúc tới đích.
+     Cùng luật với số đo sâu: chỉ nói khi BIẾT MỚN (draftM null ⇒ im), chỉ in
+     số khi có trạm ≤ 120 km. Không đổi tuyến, không phán "đi/không đi": đang
+     là lúc nước ròng thì VÀNG "chờ nước lên", còn lại là TIN để đối chiếu. */
+  if (draftM !== null && st.tides && st.tides.length) {
+    const last = g.wps.length - 1;
+    const etaDen = g.hoursAt ? g.hoursAt[last] : null;
+    const dau: { p: LatLon; etaH: number | null; den: boolean; along: number }[] = [
+      { p: g.wps[0], etaH: 0, den: false, along: 0 },
+      { p: g.wps[last], etaH: Number.isFinite(etaDen) ? etaDen : null, den: true, along: g.totalKm },
+    ];
+    for (const d of dau) {
+      if (d.etaH === null) continue;
+      const near = nearestTideStation(st.tides, d.p.lat, d.p.lon);
+      if (!near || near.distanceKm > TIDE_MAX_KM) continue;
+      const ms = args.departMs + d.etaH * 3600_000;
+      const h = tideHeightAt(near.station, ms);
+      if (!Number.isFinite(h) || !Number.isFinite(ms)) continue;
+      const uoc = isModelStation(near.station) ? " (ước tính)" : "";
+      const ten = near.station.name;
+      const xuHuong = tideTrendText(tideTrendAt(near.station, ms)).toLowerCase();
+      // con nước ròng trong ±90 phút quanh giờ đó = đang là lúc nước ròng
+      const rong = tideExtremesForDay(near.station, vnIsoDate(ms)).find(
+        (e) => e.kind === "low" && Math.abs(e.atMs - ms) <= 90 * 60_000,
+      );
+      const lon = tideUpcoming(near.station, ms, 2).find((u) => u.kind === "high");
+      const lonSau = lon ? ` Nước lớn ${lon.ngayMai ? "mai " : ""}lúc ${tideClockText(lon.atMs)} (${soViet(lon.heightM)} m).` : "";
+      const mo = d.den ? `Tới đích chừng ${tideClockText(ms)}, con nước ở ${ten}` : `Lúc xuất phát, con nước ở ${ten}`;
+      push({
+        id: d.den ? "trieu:den" : "trieu:di",
+        loai: "con-nuoc",
+        ten,
+        km: near.distanceKm,
+        alongKm: d.along,
+        muc: rong ? "vang" : "tin",
+        cau: rong
+          ? `${mo}: đang là lúc nước ròng, còn chừng ${soViet(h)} m${uoc} — ${d.den ? "chờ nước lên hãy vào bến" : "ra cửa cạn thì chờ nước lên"}.${lonSau}`
+          : `${mo}: ${soViet(h)} m${uoc}, ${xuHuong}.${lonSau}`,
+      });
+    }
+  }
 
   /* sắp theo thứ tự gặp; mỗi id một lần — giữ mức nặng hơn, rồi gần hơn */
   const byId = new Map<string, RouteHit>();

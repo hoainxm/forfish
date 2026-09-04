@@ -50,6 +50,8 @@ import {
   SEA_RESTRICTED_MINZOOM,
   SEA_FAIRWAY_MINZOOM,
   KHU_TRU_BAO_MINZOOM,
+  TIDE_STATION_LAYER,
+  TIDE_STATION_LABEL_LAYER,
   CHART_TIER,
   RIG_MINZOOM,
   REEF_HAZARD_MINZOOM,
@@ -106,12 +108,15 @@ import { fetchDiaDanhNgam, nhanLoaiDiaDanhNgam, type DiaDanhNgam } from "@/lib/d
 import { fetchKhuTruBao, capLabel, tenTinhDep, type KhuTruBao } from "@/lib/khu-tru-bao";
 import {
   fetchTideStations,
+  isModelStation,
   nearestTideStation,
   tideExtremesForDay,
   tideDraftWarning,
+  tideTrendAt,
   tideTrustText,
   type TideStation,
 } from "@/lib/tides";
+import { TideCard, TideStationSheet } from "@/components/tide-card";
 import type { BoatProfile } from "@/lib/route-plan";
 import { readUserRecord } from "@/lib/user-list-store";
 import {
@@ -1599,6 +1604,10 @@ export default function FishingMapView() {
     px: number;
     py: number;
   } | null>(null);
+  /*  Sheet con nước của MỘT trạm — mở khi chạm chấm trạm trên bản đồ hoặc bấm
+      "Xem các ngày khác" trong thẻ con nước của sheet điểm. `km` = trạm cách
+      chỗ đang hỏi (0 khi chạm thẳng vào trạm) — để câu độ-tin nói đúng. */
+  const [tramInfo, setTramInfo] = useState<{ st: TideStation; km: number } | null>(null);
   /*  Thẻ "đáy chỗ này là gì" — mở khi chạm ô chất đáy. Đọc thẳng thuộc tính
       từ vector tile (ma/tyLe/soManh), KHÔNG tra mảng fetch: lớp là pmtiles,
       không có chỉ số `i`. KHÔNG tự tắt: bà con đang cân đáy để thả neo. */
@@ -2722,6 +2731,29 @@ export default function FishingMapView() {
       })),
     };
   }, [vnAids]);
+
+  /*  TRẠM CON NƯỚC (2026-09-04) — 11 chấm, lớp miễn phí, mặc định bật. `nhan9`
+      là nhãn từ z9: tên + "đang lên/xuống", tính trong máy theo đồng hồ 5 phút
+      của màn hình (`nowMs`) — không request nào. `model` = trạm mô hình
+      (chấm rỗng), cùng ngôn ngữ với chữ "ước tính" trong thẻ. */
+  const tideGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!tideStations?.length) return null;
+    const chu = (t: ReturnType<typeof tideTrendAt>) =>
+      t === "len" ? "đang lên" : t === "xuong" ? "đang xuống" : "nước đứng";
+    return {
+      type: "FeatureCollection",
+      features: tideStations.map((s, i) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [s.lon, s.lat] },
+        properties: {
+          i,
+          ten: s.name,
+          model: isModelStation(s) ? 1 : 0,
+          nhan9: `${s.name} · ${chu(tideTrendAt(s, nowMs))}`,
+        },
+      })),
+    };
+  }, [tideStations, nowMs]);
   const offlineNote = offlineBasemapNote(basemapHealth, coastData != null);
   /* Nhắc "mất sóng" HIỆN RỒI TỰ TẮT như dòng "Đã lưu dự báo tới ngày…" — thẻ
      vàng 2 dòng nằm lì trước đây làm rối bản đồ. Effect chỉ chạy lại khi CÂU
@@ -3374,6 +3406,9 @@ export default function FishingMapView() {
     /*  Chạm KHU NEO ĐẬU tránh trú bão để đọc tên + sức chứa + độ tin toạ độ —
         thứ bà con cần lúc quyết chạy vào đâu khi bão tới. */
     if (!anyExclusiveOverlay && chartDetailOn && groupNavOn) ids.push("khu-tru-bao-dot");
+    /*  Chạm TRẠM CON NƯỚC ra sheet giờ nước lớn/ròng 7 ngày. Không dính công
+        tắc "Hải đồ chi tiết" — lớp miễn phí, riêng công tắc của nó. */
+    if (!anyExclusiveOverlay && prefs.tideStations && tideGeo) ids.push("tram-trieu-dot");
     /*  Xác tàu chạm được — tên tàu, năm, độ sâu vượt qua (nếu nhà nước
         ghi) và số thông báo tra ngược. */
     if (!anyExclusiveOverlay && chartDetailOn && groupNavOn && xacTauGeo) ids.push("xac-tau");
@@ -3394,7 +3429,7 @@ export default function FishingMapView() {
     // chạm MỐC bão (đã qua / dự báo) để bật popup thông tin mốc đó (A)
     if (trackGeo) ids.push("storm-moc-toi", "storm-moc-qua");
     return ids.length ? ids : undefined;
-  }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo]);
+  }, [route, anyExclusiveOverlay, groupNavOn, seamarkGeo, trackGeo, groupDepthOn, soundingGeo, denBienGeo, vnAidGeo, chartDetailOn, groupNameOn, xacTauGeo, prefs.tideStations, tideGeo]);
 
   const reqKey = `${point.lat},${point.lon}:${retry}`;
   useEffect(() => {
@@ -4156,6 +4191,18 @@ export default function FishingMapView() {
             const c = (hitCum.geometry as GeoJSON.Point).coordinates as [number, number];
             if (map) map.easeTo({ center: c, zoom: Math.min(map.getZoom() + 2, 14), duration: 450 });
             return;
+          }
+          /*  CHẠM TRẠM CON NƯỚC ⇒ sheet 7 ngày của trạm đó — DỪNG. */
+          const hitTram = measureMode
+            ? undefined
+            : nearFeats.find((f) => f.layer?.id === "tram-trieu-dot");
+          if (hitTram) {
+            const ti = Number(hitTram.properties?.i ?? -1);
+            const ts = ti >= 0 ? tideStations?.[ti] : undefined;
+            if (ts) {
+              setTramInfo({ st: ts, km: 0 });
+              return;
+            }
           }
           const hitVnAid = measureMode
             ? undefined
@@ -5528,6 +5575,18 @@ export default function FishingMapView() {
           </Source>
         )}
 
+        {/*  TRẠM CON NƯỚC (2026-09-04) — 11 trạm, chấm xanh dương (đặc = trạm
+             đo, rỗng = trạm mô hình), tên từ z7, "đang lên/xuống" từ z9. Lớp
+             MIỄN PHÍ, công tắc riêng (prefs.tideStations, mặc định bật), KHÔNG
+             theo `chartDetailOn` — chạm trạm phải ra con nước kể cả trên nền
+             vệ tinh. Ẩn khi bật lớp dự báo động (cùng luật mọi lớp hải đồ). */}
+        {!anyExclusiveOverlay && prefs.tideStations && tideGeo && (
+          <Source id="tram-trieu" type="geojson" data={tideGeo}>
+            <Layer {...(TIDE_STATION_LAYER as unknown as LayerProps)} />
+            <Layer {...(TIDE_STATION_LABEL_LAYER as unknown as LayerProps)} />
+          </Source>
+        )}
+
         {/*  VÒNG CHỌN — khoanh vật đang mở thẻ, kiểu máy hải đồ. Hai vòng
              lồng nhau (đặc mảnh + mờ dày) để nổi trên cả nền sáng lẫn ký hiệu
              đậm; không tô ruột — không che chính vật đang xem. */}
@@ -6531,8 +6590,8 @@ export default function FishingMapView() {
                 if (mon == null || !tideStations?.length) return null;
                 const gan = nearestTideStation(tideStations, depthInfo.s.lat, depthInfo.s.lon);
                 if (!gan) return null;
-                const homNay = new Date().toISOString().slice(0, 10);
-                const cucTri = tideExtremesForDay(gan.station, homNay);
+                // ngày theo giờ VN (trước đây lấy ngày UTC — 7 giờ tối đã sang "hôm qua")
+                const cucTri = tideExtremesForDay(gan.station, todayIso);
                 const canhBao = tideDraftWarning(cucTri, {
                   draftM: mon,
                   chartDepthM: depthInfo.s.depthM,
@@ -6698,6 +6757,17 @@ export default function FishingMapView() {
            Ba khu gần nhất, kèm còn bao xa và (nếu tàu đang chạy) chừng bao
            lâu. App KHÔNG phán "kịp/không kịp", KHÔNG hứa còn chỗ, KHÔNG tự
            đổi tuyến — bấm "Vẽ đường tới đây" mới đặt đích mới. */}
+      {/*  SHEET CON NƯỚC CỦA MỘT TRẠM — chạm chấm trạm hoặc "Xem các ngày
+           khác" từ thẻ con nước trong sheet điểm. */}
+      {tramInfo && (
+        <TideStationSheet
+          station={tramInfo.st}
+          distanceKm={tramInfo.km}
+          nowMs={nowMs}
+          onClose={() => setTramInfo(null)}
+        />
+      )}
+
       {shelterOpen && (
         <BottomSheet
           title="Khu trú bão gần đây"
@@ -7645,6 +7715,20 @@ export default function FishingMapView() {
                   </p>
                 );
               })()}
+
+              {/* CON NƯỚC tại điểm (2026-09-04): trạm gần nhất, tính trong máy.
+                  Hôm nay = lúc này + hai con nước kế; ngày khác = các con nước
+                  của ngày đó. Trạm > 120 km chỉ còn lên/xuống. "Xem các ngày
+                  khác" mở sheet 7 ngày của trạm. Không phụ thuộc công tắc lớp
+                  trạm — tắt chấm trên bản đồ không có nghĩa là giấu con nước. */}
+              <TideCard
+                stations={tideStations}
+                lat={point.lat}
+                lon={point.lon}
+                nowMs={nowMs}
+                dayIso={isToday ? undefined : sel?.date}
+                onMore={(st, km) => setTramInfo({ st, km })}
+              />
 
               {/* mưa/dông + độ tin — để LIỀN với sóng/gió (user 2026-06-23) */}
               {(() => {

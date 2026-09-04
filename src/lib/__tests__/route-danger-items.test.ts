@@ -88,6 +88,7 @@ describe("thứ tự cố định", () => {
         hit({ loai: "do-sau", muc: "do" }),
         hit({ loai: "cap-ong", muc: "vang" }),
         hit({ loai: "vung-han-che", muc: "vang" }),
+        hit({ loai: "con-nuoc", muc: "vang", cau: "Lúc xuất phát: đang là lúc nước ròng." }),
       ],
     );
     expect(items.map((i) => i.key)).toEqual([
@@ -103,8 +104,16 @@ describe("thứ tự cố định", () => {
       "can-mon",
       "cap-ong",
       "cam-neo",
+      "con-nuoc",
       "sat-cang",
     ]);
+    expect(items.find((i) => i.key === "con-nuoc")).toMatchObject({ label: "Con nước", danger: false });
+  });
+
+  it("con nước mức 'tin' KHÔNG lên khối cảnh báo — nằm ở 'sẽ gặp' để đối chiếu", () => {
+    const h = hit({ loai: "con-nuoc", muc: "tin", alongKm: 0, cau: "Lúc xuất phát, con nước ở Vũng Tàu: 3,3 m, nước đang lên." });
+    expect(buildDangerItems(plan(), [h])).toEqual([]);
+    expect(buildWillMeet([h])).toEqual([h.cau]);
   });
 
   /*  BẤT BIẾN CỦA DẢI GHIM ĐÁY: nó chỉ in MỘT nhãn — nhãn của ý đỏ đầu tiên

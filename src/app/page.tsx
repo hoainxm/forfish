@@ -6,6 +6,7 @@ import { BoatSwitcher } from "@/components/boat-switcher";
 import { UrgentWithInstall } from "@/components/install-prompt";
 import { InboxSection } from "@/components/inbox-section";
 import { StormBanner } from "@/components/storm-banner";
+import { TideHomeCard } from "@/components/tide-home-card";
 import {
   AnchorIcon,
   FishIcon,
@@ -115,6 +116,12 @@ export default function Home() {
             })}
           </div>
         </section>
+
+        {/* CON NƯỚC CẢNG NHÀ (2026-09-04) — lúc này bao nhiêu, con nước kế lúc
+            mấy giờ, trăng gì; chạm "Xem các ngày khác" ra đường nước 7 ngày.
+            Chỉ hiện khi đã có cảng nhà (điểm ghim hoặc hồ sơ tàu); tính trong
+            máy từ file trạm đã cache — mất sóng vẫn đúng. */}
+        <TideHomeCard />
 
         {/* THÔNG BÁO — ngay dưới bốn việc chính (chủ dự án 2026-08-01). Đây là
             chỗ DUY NHẤT đọc lại được tin đã vuốt tắt. Hiện CẢ KHI CHƯA ĐĂNG

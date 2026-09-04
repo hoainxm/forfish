@@ -41,6 +41,15 @@ import {
   tideModelCaveat,
   tideRangeText,
   tideTrustText,
+  tideCardAt,
+  tideDaySeries,
+  tideMoonText,
+  tideTrendAt,
+  tideTrendText,
+  tideUpcoming,
+  tideUpcomingText,
+  vnIsoDate,
+  TIDE_FAR_KM,
   type TideStation,
 } from "../tides";
 
@@ -517,6 +526,94 @@ describe("chống sập giữa biển", () => {
   });
 });
 
+/* ── THẺ CON NƯỚC (2026-09-04) — dữ liệu cho một thẻ dùng chung ở bốn chỗ ── */
+describe("thẻ con nước: dữ liệu và luật im lặng", () => {
+  const vungTau = () => byId("vung-tau");
+  // 4/9/2026 17:00 giờ VN — có số đo thật cùng ngày ở phần trên
+  const LUC = Date.UTC(2026, 8, 4, 10, 0, 0);
+
+  it("vnIsoDate lấy ngày theo giờ VIỆT NAM, không theo UTC", () => {
+    // 4/9 23:30 VN = 4/9 16:30 UTC → vẫn là 4/9; 5/9 01:00 VN = 4/9 18:00 UTC → 5/9
+    expect(vnIsoDate(Date.UTC(2026, 8, 4, 16, 30))).toBe("2026-09-04");
+    expect(vnIsoDate(Date.UTC(2026, 8, 4, 18, 0))).toBe("2026-09-05");
+  });
+
+  it("xu hướng lên/xuống khớp với mực nước 30 phút sau; đỉnh triều = nước đứng", () => {
+    const st = vungTau();
+    const t = tideTrendAt(st, LUC);
+    const d = tideHeightAt(st, LUC + 30 * 60000) - tideHeightAt(st, LUC);
+    expect(t).toBe(d > 0.02 ? "len" : d < -0.02 ? "xuong" : "dung");
+    // đúng giờ nước lớn thì 30 phút sau chênh không đáng kể
+    const dinh = tideExtremesForDay(st, "2026-09-04").find((e) => e.kind === "high")!;
+    expect(tideTrendAt(st, dinh.atMs - 15 * 60000)).toBe("dung");
+    expect(tideTrendText("len")).toBe("Nước đang lên");
+    expect(tideTrendText("xuong")).toBe("Nước đang xuống");
+  });
+
+  it("hai con nước KẾ TIẾP: sau giờ hỏi, hết hôm nay thì lấy sang ngày mai và ghi (mai)", () => {
+    const st = vungTau();
+    const u = tideUpcoming(st, LUC, 2);
+    expect(u).toHaveLength(2);
+    for (const x of u) expect(x.atMs).toBeGreaterThan(LUC);
+    expect(u[0].atMs).toBeLessThan(u[1].atMs);
+    // hỏi lúc 23:30 → con nước kế phần lớn rơi sang ngày mai
+    const khuya = tideUpcoming(st, Date.UTC(2026, 8, 4, 16, 30), 2);
+    expect(khuya.some((x) => x.ngayMai)).toBe(true);
+    const mai = khuya.find((x) => x.ngayMai)!;
+    expect(tideUpcomingText(mai)).toMatch(/^Nước (lớn|ròng) lúc .* \(mai\) · \d/);
+    expect(tideUpcoming(st, NaN)).toEqual([]);
+  });
+
+  it("đường nước cả ngày: 49 điểm mỗi 30 phút, đỉnh của đường khớp con nước", () => {
+    const st = vungTau();
+    const s = tideDaySeries(st, "2026-09-04");
+    expect(s).toHaveLength(49);
+    const dinh = Math.max(...tideExtremesForDay(st, "2026-09-04").map((e) => e.heightM));
+    expect(Math.abs(Math.max(...s) - dinh)).toBeLessThan(0.05);
+    expect(tideDaySeries(st, "khong-phai-ngay")).toEqual([]);
+  });
+
+  it("tuần trăng ghép được vào một dòng — chỉ nửa tên trăng, không kèm vế nghề đèn", () => {
+    const m = tideMoonText(LUC);
+    expect(m).toMatch(/^Trăng /);
+    expect(m).not.toContain("—");
+    expect(m).not.toMatch(/đèn/);
+  });
+
+  it("chỗ gần trạm: đủ lúc này + hai con nước + dòng trăng·cường/kém + độ tin", () => {
+    // Cần Giờ → Vũng Tàu (~20 km)
+    const c = tideCardAt(stations, 10.41, 106.95, LUC)!;
+    expect(c.station.id).toBe("vung-tau");
+    expect(c.far).toBe(false);
+    expect(c.nowM).not.toBeNull();
+    expect(c.upcoming).toHaveLength(2);
+    expect(c.moonRange).toMatch(/^Trăng .* · Nước lên xuống \d/);
+    expect(c.trust).toBeNull(); // trạm đo, gần: không có gì phải dè chừng
+  });
+
+  it(`chỗ xa mọi trạm hơn ${TIDE_FAR_KM} km: CHỈ lên/xuống — không giờ, không số`, () => {
+    // giữa Biển Đông, cách bờ ~300 km
+    const c = tideCardAt(stations, 12, 112.5, LUC)!;
+    expect(c.far).toBe(true);
+    expect(c.nowM).toBeNull();
+    expect(c.upcoming).toEqual([]);
+    expect(c.moonRange).toBeNull();
+    expect(["len", "xuong", "dung"]).toContain(c.trend);
+    // trạm gần nhất ngoài đó là Nha Trang (mô hình): câu ước-tính đã tự nói
+    // "chỉ xem lên hay xuống" nên không lặp câu khoảng cách — nhưng KHÔNG được null
+    expect(c.trust).toMatch(/lên hay xuống/);
+  });
+
+  it("trạm mô hình gần vẫn mang chữ ước tính; toạ độ hỏng / không trạm → null", () => {
+    const c = tideCardAt(stations, 9.55, 106.6, LUC)!; // Định An (model)
+    expect(c.model).toBe(true);
+    expect(c.trust).toMatch(/ƯỚC TÍNH/);
+    expect(tideCardAt(stations, NaN, 107, LUC)).toBeNull();
+    expect(tideCardAt([], 10, 107, LUC)).toBeNull();
+    expect(tideCardAt(stations, 10, 107, NaN)).toBeNull();
+  });
+});
+
 /*
   ĐÃ NỐI VÀO BẢN ĐỒ CHƯA (2026-09-02) — cổng ba-mảnh cho tài sản không-nối
   thứ NĂM. Engine này nằm đủ test trong repo mà 0 component import, trong khi
@@ -550,5 +647,38 @@ describe("thuỷ triều + làm mớn phải được NỐI, không chỉ nằm 
     // luật "vắng số không phải là số": giá trị lạ phải về null
     const lib = doc("src/lib/route-plan.ts");
     expect(lib).toContain("draftM?: number | null");
+  });
+
+  /* LỚP TRẠM + THẺ CON NƯỚC (2026-09-04) — cổng ba-mảnh cho từng chỗ hiện */
+  it("lớp trạm con nước: vẽ được, chạm được, có công tắc mặc định BẬT", () => {
+    const v = doc("src/components/fishing-map-view.tsx");
+    expect(v, "chưa dựng nguồn trạm").toContain("tideGeo");
+    expect(v, "chưa vẽ lớp trạm").toContain("TIDE_STATION_LAYER");
+    expect(v, "chưa cho chạm trạm").toContain('ids.push("tram-trieu-dot")');
+    expect(v, "chạm trạm chưa mở sheet").toContain("TideStationSheet");
+    // lớp KHÔNG được treo vào công tắc "Hải đồ chi tiết" — miễn phí, riêng
+    expect(v).not.toMatch(/chartDetailOn && [^\n]*prefs\.tideStations/);
+    const rk = doc("src/components/ra-khoi-controls.tsx");
+    expect(rk, "chưa có công tắc").toContain("prefs.tideStations");
+    const mp = doc("src/lib/map-prefs.ts");
+    expect(mp, "công tắc phải mặc định bật").toContain("tideStations: p.tideStations !== false");
+  });
+
+  it("thẻ con nước có ở sheet điểm, trang chủ; sheet điểm không treo vào công tắc lớp", () => {
+    const v = doc("src/components/fishing-map-view.tsx");
+    expect(v).toContain("<TideCard");
+    const home = doc("src/app/page.tsx");
+    expect(home).toContain("<TideHomeCard");
+    const card = doc("src/components/tide-card.tsx");
+    // câu chữ lấy từ lib — component không tự dựng giờ nước
+    expect(card).toContain("tideCardAt(");
+    expect(card).not.toMatch(/phán|nên đi|không nên đi/);
+  });
+
+  it("thẻ tuyến có hàng 'Con nước' cho hai đầu tuyến", () => {
+    const rh = doc("src/lib/route-hazards.ts");
+    expect(rh).toContain('loai: "con-nuoc"');
+    const di = doc("src/lib/route-danger-items.ts");
+    expect(di).toContain('"con-nuoc": "Con nước"');
   });
 });

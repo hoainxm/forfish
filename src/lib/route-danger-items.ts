@@ -16,7 +16,8 @@
  *   ĐỎ:  Sóng quá lớn · Sát ranh giới · Xác tàu/chướng ngại · Giàn khoan ·
  *        Vùng cấm · Bãi rất cạn · Đè lên bờ · Thiếu nước
  *   VÀNG: Sóng dồn đuôi · Nước nông · Chỗ cạn 2–4 m · Cáp ngầm ·
- *        Cấm neo/đánh bắt · (lưu ý khác) · Sát cảng gộp
+ *        Cấm neo/đánh bắt · Con nước (hai đầu đang ròng) · (lưu ý khác) ·
+ *        Sát cảng gộp
  *
  * ── LUẬT SÁT CẢNG ─────────────────────────────────────────────────────────
  * `nearPortOnly` = mọi chỗ cạn/bờ trên tuyến đều nằm trong bán kính nới quanh
@@ -77,6 +78,7 @@ function hangCua(loai: string): string | null {
   if (loai === "do-sau" || loai === "luong") return "thieu-nuoc";
   if (loai === "cap-ong") return "cap-ong";
   if (loai === "vung-han-che") return "cam-neo";
+  if (loai === "con-nuoc") return "con-nuoc"; // hai đầu tuyến đang nước ròng
   if (loai === "phao") return null; // báo hiệu chỉ để "sẽ gặp", không phải mối nguy
   return "khac";
 }
@@ -110,6 +112,7 @@ const NHAN_HANG: Record<string, string> = {
   "thieu-nuoc": "Thiếu nước",
   "cap-ong": "Cáp ngầm",
   "cam-neo": "Cấm neo",
+  "con-nuoc": "Con nước",
   khac: "Lưu ý khác",
 };
 
@@ -226,6 +229,10 @@ export function buildDangerItems(
     });
   them(hang("cap-ong"));
   them(hang("cam-neo"));
+  /*  CON NƯỚC HAI ĐẦU (2026-09-04): chỉ lên đây khi hậu kiểm thấy giờ đi/giờ
+      tới rơi đúng lúc nước ròng (mức vàng) — còn lại là "tin" nằm ở khối "sẽ
+      gặp". Đứng sau cáp/cấm neo vì đây là chuyện CHỜ, không phải chuyện TRÁNH. */
+  them(hang("con-nuoc"));
   them(hang("khac"));
 
   /*  MỘT DÒNG GỘP CHO CẢ VÙNG CẢNG: cạn/bờ sát bến (`nearPortOnly`) và vật

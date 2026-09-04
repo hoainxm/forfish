@@ -57,6 +57,7 @@ import {
   RulerIcon,
   SettingsIcon,
   StarIcon,
+  WavesIcon,
   WindIcon,
 } from "@/components/icons";
 import { parseCoordPair } from "@/lib/parse-coord";
@@ -1385,6 +1386,17 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
         on={prefs.vungLong}
         onToggle={() => setMapPrefs({ vungLong: !prefs.vungLong })}
         icon={<DepthIcon className="h-5 w-5 text-trim" />}
+      />
+      <div className="mb-2" />
+      {/* TRẠM CON NƯỚC (2026-09-04) — lớp miễn phí, mặc định BẬT, bà con tắt
+          được. Không thuộc "Hải đồ chi tiết": chạm trạm là ra con nước, kể cả
+          khi đang xem nền vệ tinh. */}
+      <Toggle
+        label="Trạm con nước"
+        sub="11 trạm · chạm trạm xem giờ nước lớn, nước ròng"
+        on={prefs.tideStations}
+        onToggle={() => setMapPrefs({ tideStations: !prefs.tideStations })}
+        icon={<WavesIcon className="h-5 w-5 text-t1" />}
       />
 
       {vmsZones.length > 0 && (

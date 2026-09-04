@@ -712,3 +712,143 @@ export async function fetchTideStations(): Promise<TideStation[]> {
   }
   return cachedStations;
 }
+
+/* ---------------------------------------------------------------------------
+   7. THẺ CON NƯỚC — dữ liệu cho MỘT thẻ dùng chung (2026-09-04, chủ dự án chốt:
+      "lớp trạm bật mặc định, ghép dòng tuần trăng, thẻ cảng nhà xem được các
+      ngày khác").
+
+   Thẻ hiện ở bốn chỗ (sheet chạm điểm · thẻ cảng nhà · sheet chạm trạm · màn
+   nhiều ngày) nên câu chữ + luật im lặng dồn về đây, không để bốn chỗ tự dựng
+   lấy rồi lệch nhau. Luật:
+     · trạm > TIDE_FAR_KM: chỉ nói ĐANG LÊN / ĐANG XUỐNG, KHÔNG in giờ, không in
+       số — con số của trạm cách 300 km là con số bịa cho cửa nhà mình;
+     · trạm mô hình: `trust` luôn có chữ "ước tính" (tideTrustText lo);
+     · tuần trăng ghép vào cùng dòng với câu cường/kém — hai thứ bà con vẫn
+       nói chung một hơi ("rằm nước rong").
+--------------------------------------------------------------------------- */
+import { moonPhase } from "@/lib/moon";
+
+/** Xa hơn mức này thì thẻ không in giờ/số — chỉ còn lên/xuống. */
+export const TIDE_FAR_KM = 120;
+
+export type TideTrend = "len" | "xuong" | "dung";
+
+/** Chênh dưới mức này trong 30 phút = nước đứng (đỉnh/chân triều). */
+const TREND_EPS_M = 0.02;
+
+/** Nước đang lên hay xuống tại `ms` — so mực nước 30 phút sau với lúc này. */
+export function tideTrendAt(st: TideStation, ms: number): TideTrend {
+  const now = tideHeightAt(st, ms);
+  const next = tideHeightAt(st, ms + 30 * 60000);
+  if (!Number.isFinite(now) || !Number.isFinite(next)) return "dung";
+  const d = next - now;
+  if (d > TREND_EPS_M) return "len";
+  if (d < -TREND_EPS_M) return "xuong";
+  return "dung";
+}
+
+export function tideTrendText(t: TideTrend): string {
+  return t === "len" ? "Nước đang lên" : t === "xuong" ? "Nước đang xuống" : "Nước đứng";
+}
+
+export interface TideUpcoming extends TideExtreme {
+  /** con nước này rơi sang NGÀY MAI (giờ VN) */
+  ngayMai: boolean;
+}
+
+/**
+ * `count` con nước KẾ TIẾP sau `ms`: hết hôm nay thì lấy tiếp của ngày mai —
+ * 10 giờ tối hỏi "nước lớn lúc nào" mà trả lời "hôm nay hết rồi" là vô dụng.
+ */
+export function tideUpcoming(st: TideStation, ms: number, count = 2): TideUpcoming[] {
+  if (!Number.isFinite(ms)) return [];
+  const out: TideUpcoming[] = [];
+  for (let d = 0; d < 2 && out.length < count; d++) {
+    const iso = vnIsoDate(ms + d * 86400000);
+    for (const e of tideExtremesForDay(st, iso)) {
+      if (e.atMs <= ms) continue;
+      out.push({ ...e, ngayMai: d === 1 });
+      if (out.length >= count) break;
+    }
+  }
+  return out;
+}
+
+/** "Nước lớn lúc 7 giờ 50 tối · 3,3 m" — thêm "(mai)" khi sang ngày mai. */
+export function tideUpcomingText(u: TideUpcoming): string {
+  return u.ngayMai ? tideExtremeText(u).replace(" · ", " (mai) · ") : tideExtremeText(u);
+}
+
+/** epoch ms → "YYYY-MM-DD" theo giờ Việt Nam (cùng luật day-labels.ts). */
+export function vnIsoDate(ms: number = Date.now()): string {
+  return new Date(ms + VN_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/** "Trăng rằm" / "Trăng non" — nửa đầu nhãn của lib/moon (bỏ vế nghề đèn). */
+export function tideMoonText(ms: number): string {
+  return moonPhase(new Date(ms)).label.split(" — ")[0];
+}
+
+/**
+ * Mực nước cả ngày, mỗi `stepMin` phút, từ 00:00 tới 24:00 giờ VN (điểm cuối
+ * gồm luôn) — để vẽ đường nước. Ngày hỏng → mảng rỗng.
+ */
+export function tideDaySeries(st: TideStation, isoDate: string, stepMin = 30): number[] {
+  const start = vnDayStartMs(isoDate);
+  if (!Number.isFinite(start) || !(stepMin > 0)) return [];
+  const out: number[] = [];
+  for (let m = 0; m <= 1440; m += stepMin) out.push(tideHeightAt(st, start + m * 60000));
+  return out;
+}
+
+export interface TideCardData {
+  station: TideStation;
+  distanceKm: number;
+  model: boolean;
+  /** trạm > TIDE_FAR_KM: chỉ còn lên/xuống */
+  far: boolean;
+  trend: TideTrend;
+  /** mực nước lúc `nowMs` (m) — null khi far */
+  nowM: number | null;
+  /** hai con nước kế tiếp — rỗng khi far */
+  upcoming: TideUpcoming[];
+  /** "Trăng rằm · Nước lên xuống 2,5 m — con nước cường, chảy xiết" — null khi far */
+  moonRange: string | null;
+  trust: string | null;
+}
+
+/**
+ * Dữ liệu thẻ con nước cho MỘT chỗ vào lúc `nowMs`. null khi không có trạm
+ * hoặc toạ độ hỏng (thẻ không hiện — không có chỗ nào để bịa).
+ */
+export function tideCardAt(
+  stations: readonly TideStation[],
+  lat: number,
+  lon: number,
+  nowMs: number,
+): TideCardData | null {
+  if (!Number.isFinite(nowMs)) return null;
+  const gan = nearestTideStation(stations, lat, lon);
+  if (!gan) return null;
+  const { station, distanceKm } = gan;
+  const far = distanceKm > TIDE_FAR_KM;
+  const trend = tideTrendAt(station, nowMs);
+  const trust = tideTrustText(distanceKm, station);
+  if (far) {
+    return { station, distanceKm, model: isModelStation(station), far, trend, nowM: null, upcoming: [], moonRange: null, trust };
+  }
+  const nowM = tideHeightAt(station, nowMs);
+  const range = tideRangeText(station, vnIsoDate(nowMs));
+  return {
+    station,
+    distanceKm,
+    model: isModelStation(station),
+    far,
+    trend,
+    nowM: Number.isFinite(nowM) ? nowM : null,
+    upcoming: tideUpcoming(station, nowMs, 2),
+    moonRange: range ? `${tideMoonText(nowMs)} · ${range}` : tideMoonText(nowMs),
+    trust,
+  };
+}

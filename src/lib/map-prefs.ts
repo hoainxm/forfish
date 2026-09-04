@@ -30,6 +30,11 @@ export interface MapPrefs {
    * cũ của từng người.
    */
   vmsOverrides: Record<string, boolean>;
+  /**
+   * Trạm con nước (thuỷ triều) trên bản đồ — MẶC ĐỊNH BẬT, bà con tắt được
+   * (chủ dự án 2026-09-04). Lớp MIỄN PHÍ, không dính "Hải đồ chi tiết".
+   */
+  tideStations: boolean;
 }
 
 const KEY = "forfish.mapPrefs.v1";
@@ -40,6 +45,7 @@ const DEFAULT: MapPrefs = {
   mapGrid: false, // lưới kẻ ô toạ độ MẶC ĐỊNH ẨN (user 2026-07-28)
   vungLong: true,
   vmsOverrides: {},
+  tideStations: true,
 };
 const KM_PER_NM = 1.852;
 
@@ -65,6 +71,8 @@ function load(): MapPrefs {
         p.vmsOverrides && typeof p.vmsOverrides === "object"
           ? (p.vmsOverrides as Record<string, boolean>)
           : {},
+      // trạm con nước mặc định bật; chỉ tắt khi đã lưu false
+      tideStations: p.tideStations !== false,
     };
   } catch {
     return DEFAULT;

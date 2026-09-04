@@ -482,6 +482,18 @@ describe("tương phản HẰNG SỐ lớp hải đồ (cáp · ống · vùng c
     ),
   ];
 
+  it("chấm trạm con nước ≥3:1 trên nền biển (tô đặc, không pha mờ)", async () => {
+    const m = await import("@/lib/ocean-map");
+    expect(m.TIDE_STATION_COLOR).toMatch(/^#[0-9a-f]{6}$/);
+    expect(vsSea(m.TIDE_STATION_COLOR, 1)).toBeGreaterThanOrEqual(3);
+    // ba nấc đúng bảng CHART_TIER: chấm LUÔN · tên XA · lên/xuống VỪA
+    expect(m.TIDE_STATION_MINZOOM).toBe(m.CHART_TIER.LUON);
+    expect(m.TIDE_STATION_LABEL_MINZOOM).toBe(m.CHART_TIER.XA);
+    expect(m.TIDE_STATION_TREND_MINZOOM).toBe(m.CHART_TIER.VUA);
+    expect(m.TIDE_STATION_LAYER.id).toBe("tram-trieu-dot");
+    expect(m.TIDE_STATION_LABEL_LAYER.layout["text-font"]).toEqual(["Noto Sans Bold"]);
+  });
+
   it.each(NET)("%s đạt ≥3:1 trên nền biển SAU khi pha độ mờ", (_ten, color, opacity) => {
     expect(color, "màu phải là hex đơn để đo được").toMatch(/^#[0-9a-f]{6}$/);
     const r = vsSea(color, opacity);

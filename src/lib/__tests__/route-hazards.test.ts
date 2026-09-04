@@ -19,7 +19,7 @@ import { decodeVnAids } from "@/lib/vn-aids";
 import { decodeSoundings, type Sounding } from "@/lib/soundings";
 import { decodeVerdicts } from "@/lib/soundings-verified";
 import { decodeFairwayDepths } from "@/lib/fairway-depth";
-import { decodeTideStations, type TideStation } from "@/lib/tides";
+import { decodeTideStations, tideExtremesForDay, type TideStation } from "@/lib/tides";
 import { VN_OUTER_BORDER } from "@/lib/geofence";
 import type { LatLon } from "@/lib/route-plan";
 
@@ -88,8 +88,13 @@ const tramGan = (z0: number, nguon?: "model"): TideStation => ({
   cons: [{ name: "M2", amp: 0, phase: 0 }],
 });
 
-const audit = (stores: RouteAuditStores, draftM: number | null = null, waypoints = ROUTE, hoursAt = HOURS) =>
-  auditRoute({ waypoints, hoursAt, departMs: DEPART, draftM, stores });
+/*  Helper cho các ca theo TỪNG KHO: bỏ hai dòng "con nước hai đầu" (bước 8,
+    2026-09-04) để mỗi ca vẫn soi đúng một tình huống — hai dòng đó có
+    describe riêng bên dưới, đọc thẳng `auditRoute`. */
+const audit = (stores: RouteAuditStores, draftM: number | null = null, waypoints = ROUTE, hoursAt = HOURS) => {
+  const r = auditRoute({ waypoints, hoursAt, departMs: DEPART, draftM, stores });
+  return { ...r, hits: r.hits.filter((h) => h.loai !== "con-nuoc") };
+};
 
 describe("kho thiếu / đầu vào hỏng", () => {
   it("không kho nào → missing đủ tên, hits rỗng, không ném", () => {
@@ -339,6 +344,67 @@ describe("số đo sâu × mớn × triều", () => {
     };
     const r = audit({ soundings: sd, tides: [tramGan(0)], reefs: [bai] }, 2);
     expect(r.hits[0].cau).toContain("gần Bãi Thử");
+  });
+});
+
+describe("con nước ở hai đầu tuyến", () => {
+  // trạm THẬT Vũng Tàu; tuyến từ cửa Vũng Tàu ra khơi 111 km
+  const vungTau = tides.find((t) => t.id === "vung-tau")!;
+  const TU_VT: LatLon[] = [
+    { lat: 10.34, lon: 107.07 },
+    { lat: 9.4, lon: 107.5 },
+  ];
+
+  /** chỉ các dòng con nước, đọc thẳng auditRoute (helper `audit` đã lọc chúng đi) */
+  const conNuoc = (
+    stores: RouteAuditStores,
+    draftM: number | null,
+    waypoints: LatLon[] = TU_VT,
+    hoursAt: number[] = [0, 10],
+    departMs: number = DEPART,
+  ) => auditRoute({ waypoints, hoursAt, departMs, draftM, stores }).hits.filter((h) => h.loai === "con-nuoc");
+
+  it("draftM null → im hẳn, kể cả có trạm ngay cửa", () => {
+    expect(conNuoc({ tides: [vungTau] }, null)).toEqual([]);
+  });
+
+  it("biết mớn + trạm ≤ 120 km → hai dòng: lúc xuất phát (km 0) và lúc tới đích (cuối tuyến)", () => {
+    const cn = conNuoc({ tides: [vungTau] }, 1.5);
+    expect(cn).toHaveLength(2);
+    const di = cn.find((h) => h.id === "trieu:di")!;
+    const den = cn.find((h) => h.id === "trieu:den")!;
+    expect(di.alongKm).toBe(0);
+    expect(den.alongKm).toBeGreaterThan(100);
+    expect(di.cau).toMatch(/^Lúc xuất phát, con nước ở Vũng Tàu: \d+(,\d)? m, nước đang (lên|xuống|đứng)|^Lúc xuất phát, con nước ở Vũng Tàu: đang là lúc nước ròng/);
+    expect(den.cau).toMatch(/^Tới đích chừng \d+ giờ/);
+    for (const h of cn) {
+      expect(["vang", "tin"]).toContain(h.muc);
+      expect(h.cau).not.toContain("(ước tính)");
+      for (const re of CAU_CAM) expect(h.cau).not.toMatch(re);
+    }
+  });
+
+  it("giờ đi rơi đúng lúc nước ròng → VÀNG 'chờ nước lên'; giờ khác → tin", () => {
+    const rong = tideExtremesForDay(vungTau, "2026-09-10").find((e) => e.kind === "low")!;
+    const di = conNuoc({ tides: [vungTau] }, 1.5, TU_VT, [0, 10], rong.atMs).find((h) => h.id === "trieu:di")!;
+    expect(di.muc).toBe("vang");
+    expect(di.cau).toContain("đang là lúc nước ròng");
+    expect(di.cau).toContain("chờ nước lên");
+    // 4 giờ sau chân triều thì đã lên, không còn vàng
+    const sau = conNuoc({ tides: [vungTau] }, 1.5, TU_VT, [0, 10], rong.atMs + 4 * 3600_000);
+    expect(sau.find((h) => h.id === "trieu:di")!.muc).toBe("tin");
+  });
+
+  it("trạm mô hình → '(ước tính)'; không trạm ≤ 120 km → không dòng nào", () => {
+    const cn = conNuoc({ tides: [tramGan(1, "model")] }, 1.5, ROUTE, HOURS);
+    expect(cn.length).toBeGreaterThan(0);
+    for (const h of cn) expect(h.cau).toContain("(ước tính)");
+    const xa = { ...vungTau, lat: 20.7, lon: 106.8 };
+    expect(conNuoc({ tides: [xa] }, 1.5)).toEqual([]);
+  });
+
+  it("hoursAt lệch → không biết giờ tới → chỉ có dòng xuất phát", () => {
+    expect(conNuoc({ tides: [vungTau] }, 1.5, TU_VT, [0]).map((h) => h.id)).toEqual(["trieu:di"]);
   });
 });
 

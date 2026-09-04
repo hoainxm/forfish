@@ -450,6 +450,55 @@ export const KHU_TRU_BAO_COLOR = "#0e8a5f";
     phủ dọc bờ ngay lúc chưa ai chọn bến. Ý "bến an toàn phải thấy sớm" là
     đúng, nhưng z5 là cả nước — chọn bến là việc của mức vùng (2026-09-03). */
 export const KHU_TRU_BAO_MINZOOM = CHART_TIER.XA;
+
+/*  TRẠM CON NƯỚC (thuỷ triều) — 11 trạm, lớp MIỄN PHÍ, mặc định bật, không
+    dính công tắc "Hải đồ chi tiết" (chủ dự án 2026-09-04). Ba nấc:
+      LUÔN (z5): chấm trạm — 11 chấm cả nước không rối;
+      XA   (z7): thêm tên trạm;
+      VỪA  (z9): tên kèm "đang lên / đang xuống" (thuộc tính `nhan9`, tính
+                 trong máy, làm mới theo phút).
+    Màu XANH DƯƠNG đậm — kênh riêng: khác navy nhãn đảo (#14324f) về độ sáng,
+    khác teal rạn, xanh lục khu trú bão, magenta đèn, tím xác tàu. Trạm ĐO tô
+    đặc; trạm MÔ HÌNH tô trắng viền xanh (rỗng = "ước tính", cùng ngôn ngữ với
+    chữ "ước tính" trong thẻ). 5,4:1 trên nền biển #d5e8eb (cổng test). */
+export const TIDE_STATION_COLOR = "#1e5aa8";
+export const TIDE_STATION_MINZOOM = CHART_TIER.LUON;
+export const TIDE_STATION_LABEL_MINZOOM = CHART_TIER.XA;
+export const TIDE_STATION_TREND_MINZOOM = CHART_TIER.VUA;
+
+export const TIDE_STATION_LAYER = {
+  id: "tram-trieu-dot",
+  type: "circle",
+  minzoom: TIDE_STATION_MINZOOM,
+  paint: {
+    // 7 px @z5 → 11 px @z11: đủ chạm (đệm ±28 px của map-view lo phần còn lại)
+    "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 7, 11, 11],
+    "circle-color": ["case", ["==", ["get", "model"], 1], "#ffffff", TIDE_STATION_COLOR],
+    "circle-stroke-color": ["case", ["==", ["get", "model"], 1], TIDE_STATION_COLOR, "#ffffff"],
+    "circle-stroke-width": 2,
+  },
+} as const;
+
+export const TIDE_STATION_LABEL_LAYER = {
+  id: "tram-trieu-ten",
+  type: "symbol",
+  minzoom: TIDE_STATION_LABEL_MINZOOM,
+  layout: {
+    // z7–9: tên; từ z9: tên + đang lên/xuống (`nhan9` do map-view tính)
+    "text-field": ["step", ["zoom"], ["get", "ten"], TIDE_STATION_TREND_MINZOOM, ["get", "nhan9"]],
+    "text-font": ["Noto Sans Bold"],
+    "text-size": ["interpolate", ["linear"], ["zoom"], 7, 11, 12, 14],
+    "text-offset": [0, 0.9],
+    "text-anchor": "top",
+    "text-allow-overlap": false,
+    "text-padding": 4,
+  },
+  paint: {
+    "text-color": TIDE_STATION_COLOR,
+    "text-halo-color": "#ffffff",
+    "text-halo-width": 1.6,
+  },
+} as const;
 export const CHAT_DAY_PMTILES_URL = "pmtiles:///data/chat-day.v1.pmtiles";
 /*  ĐO LẠI 2026-09-03: bộ màu cũ @0,5 chỉ đạt 1,39–2,11:1 — "màu đủ sẫm" trong
     comment trên là chưa đo. Chấm chất đáy là ICON (điểm), sàn 3:1 như mọi ký
