@@ -99,6 +99,7 @@ import {
   CHART_FEATURE_ICON,
   reefSymbolId,
   diaDanhNgamSymbolId,
+  tideSymbolId,
 } from "@/lib/chart-symbols";
 import { fetchDenBien, moTaDenBien, tenDayDu, type DenBien } from "@/lib/den-bien";
 import { fetchVnAids, type VnAid } from "@/lib/vn-aids";
@@ -110,8 +111,10 @@ import {
   fetchTideStations,
   isModelStation,
   nearestTideStation,
+  tideDaySeries,
   tideExtremesForDay,
   tideDraftWarning,
+  tideHeightAt,
   tideTrendAt,
   tideTrustText,
   type TideStation,
@@ -329,6 +332,7 @@ const LEGEND_TIERS: LegendTier[] = [
       { mau: ISLAND_DOT_COLOR, dang: "cham", chu: "Đảo nổi có tên (chữ navy)" },
       { mau: DEPTH_BANDS[DEPTH_BANDS.length - 1].color, dang: "vung", chu: "Dải màu độ sâu: càng sáng càng sâu (0–10 · 10–20 · 20–50 · trên 50 m)" },
       { mau: SEA_LANE_COLOR, dang: "duong", chu: "Tuyến tàu hàng lớn" },
+      { icon: "tide-up-2", chu: "Trạm con nước — cột nước xanh là đang lên, đỏ là đang xuống, cột kẻ sọc là ước tính; chạm xem giờ nước lớn, nước ròng" },
       { icon: CHART_FEATURE_ICON.seamount, chu: "Núi ngầm — gò lớn dưới đáy, cá đáy hay tụ quanh sườn" },
       { icon: CHART_FEATURE_ICON.knoll, chu: "Đồi ngầm — gò thấp dưới đáy" },
       { icon: CHART_FEATURE_ICON.ridge, chu: "Sống núi ngầm — dải gò dài" },
@@ -2740,18 +2744,32 @@ export default function FishingMapView() {
     if (!tideStations?.length) return null;
     const chu = (t: ReturnType<typeof tideTrendAt>) =>
       t === "len" ? "đang lên" : t === "xuong" ? "đang xuống" : "nước đứng";
+    const ngay = isoDateVN(nowMs);
     return {
       type: "FeatureCollection",
-      features: tideStations.map((s, i) => ({
-        type: "Feature" as const,
-        geometry: { type: "Point" as const, coordinates: [s.lon, s.lat] },
-        properties: {
-          i,
-          ten: s.name,
-          model: isModelStation(s) ? 1 : 0,
-          nhan9: `${s.name} · ${chu(tideTrendAt(s, nowMs))}`,
-        },
-      })),
+      features: tideStations.map((s, i) => {
+        const trend = tideTrendAt(s, nowMs);
+        /*  Mực nước LÚC NÀY so với biên độ NGÀY ĐÓ của chính trạm (0 = chân
+            thấp nhất, 1 = đỉnh) → cột nước trong ký hiệu đầy 30/55/80 %.
+            So với ngày chứ không so số tuyệt đối: 2 m ở Vũng Tàu là ròng,
+            2 m ở Quy Nhơn là lớn. */
+        const ser = tideDaySeries(s, ngay, 60);
+        const lo = Math.min(...ser);
+        const hi = Math.max(...ser);
+        const frac = hi > lo ? (tideHeightAt(s, nowMs) - lo) / (hi - lo) : NaN;
+        const model = isModelStation(s);
+        return {
+          type: "Feature" as const,
+          geometry: { type: "Point" as const, coordinates: [s.lon, s.lat] },
+          properties: {
+            i,
+            ten: s.name,
+            model: model ? 1 : 0,
+            ic: tideSymbolId(trend, frac, model),
+            nhan9: `${s.name} · ${chu(trend)}`,
+          },
+        };
+      }),
     };
   }, [tideStations, nowMs]);
   const offlineNote = offlineBasemapNote(basemapHealth, coastData != null);

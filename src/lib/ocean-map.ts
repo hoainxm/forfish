@@ -453,29 +453,35 @@ export const KHU_TRU_BAO_MINZOOM = CHART_TIER.XA;
 
 /*  TRẠM CON NƯỚC (thuỷ triều) — 11 trạm, lớp MIỄN PHÍ, mặc định bật, không
     dính công tắc "Hải đồ chi tiết" (chủ dự án 2026-09-04). Ba nấc:
-      LUÔN (z5): chấm trạm — 11 chấm cả nước không rối;
+      LUÔN (z5): ký hiệu CỘT NƯỚC (tide gauge) — hình quen của Navionics /
+                 C-MAP / OpenCPN: cột đứng có mực nước, xanh dương = đang
+                 lên, đỏ = đang xuống, mực đầy theo biên độ ngày đó, trạm mô
+                 hình ruột kẻ sọc (ô `tide-*` trong chart-sprite, chọn bằng
+                 `tideSymbolId`) — chủ dự án: "đừng dùng hình tròn";
       XA   (z7): thêm tên trạm;
       VỪA  (z9): tên kèm "đang lên / đang xuống" (thuộc tính `nhan9`, tính
                  trong máy, làm mới theo phút).
-    Màu XANH DƯƠNG đậm — kênh riêng: khác navy nhãn đảo (#14324f) về độ sáng,
-    khác teal rạn, xanh lục khu trú bão, magenta đèn, tím xác tàu. Trạm ĐO tô
-    đặc; trạm MÔ HÌNH tô trắng viền xanh (rỗng = "ước tính", cùng ngôn ngữ với
-    chữ "ước tính" trong thẻ). 5,4:1 trên nền biển #d5e8eb (cổng test). */
-export const TIDE_STATION_COLOR = "#1e5aa8";
+    Màu nhãn = BLUE của bảng màu sprite (#2b74c4, 3,77:1 trên nền biển, 3,49:1
+    với viền INK — cổng test) — kênh riêng: khác navy nhãn đảo, teal rạn, xanh
+    lục khu trú bão, magenta đèn, tím xác tàu. */
+export const TIDE_STATION_COLOR = "#2b74c4";
 export const TIDE_STATION_MINZOOM = CHART_TIER.LUON;
 export const TIDE_STATION_LABEL_MINZOOM = CHART_TIER.XA;
 export const TIDE_STATION_TREND_MINZOOM = CHART_TIER.VUA;
 
 export const TIDE_STATION_LAYER = {
   id: "tram-trieu-dot",
-  type: "circle",
+  type: "symbol",
   minzoom: TIDE_STATION_MINZOOM,
-  paint: {
-    // 7 px @z5 → 11 px @z11: đủ chạm (đệm ±28 px của map-view lo phần còn lại)
-    "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 7, 11, 11],
-    "circle-color": ["case", ["==", ["get", "model"], 1], "#ffffff", TIDE_STATION_COLOR],
-    "circle-stroke-color": ["case", ["==", ["get", "model"], 1], TIDE_STATION_COLOR, "#ffffff"],
-    "circle-stroke-width": 2,
+  layout: {
+    "icon-image": ["get", "ic"],
+    // 0,75 = 18 px ≥ sàn 16; cột nước cao gần hết ô nên không cần to như đèn
+    "icon-size": ["interpolate", ["linear"], ["zoom"], 5, 0.75, 9, 0.95, 13, 1.2],
+    // 11 trạm rải cả nước — không bao giờ chồng nhau, nhưng KHÔNG được để
+    // nhãn đảo/rạn giấu mất trạm: cho phép chồng như đèn biển
+    "icon-allow-overlap": true,
+    "icon-ignore-placement": true,
+    "icon-anchor": "center",
   },
 } as const;
 

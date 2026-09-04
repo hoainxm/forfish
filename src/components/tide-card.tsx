@@ -13,11 +13,12 @@
   mất sóng nhiều ngày vẫn ra đúng con nước.
 */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { SQ_BTN } from "@/components/ui/sq-btn";
 import { ChevronRightIcon, ClockIcon, CloseIcon, MoonIcon, WavesIcon } from "@/components/icons";
 import { chipLabel } from "@/lib/day-labels";
+import { moonPhase } from "@/lib/moon";
 import {
   tideCardAt,
   tideDaySeries,
@@ -35,8 +36,12 @@ import {
   type TideTrend,
 } from "@/lib/tides";
 
-/** Số ngày bày trong màn nhiều ngày — một tuần là đủ cho một chuyến gần bờ. */
-export const TIDE_DAYS = 7;
+/**
+ * Số ngày bày trong màn nhiều ngày — TRỌN một chu kỳ trăng (chủ dự án
+ * 2026-09-04: "không xem được các ngày khác trong tháng à?"): bà con tính
+ * chuyến theo con nước rong/kém của cả tháng, không phải theo tuần.
+ */
+export const TIDE_DAYS = 30;
 
 function TrendChip({ trend }: { trend: TideTrend }) {
   const mau =
@@ -285,6 +290,121 @@ function TideCurve({
   );
 }
 
+/* ── DẢI CẢ THÁNG ─────────────────────────────────────────────────────────── */
+
+const SW = 320;
+const SH = 96;
+const S_TOP = 6;
+const S_BOT = 22;
+
+function TideMonthStrip({
+  thang,
+  days,
+  sel,
+  onSel,
+}: {
+  thang: { bienDo: number[]; cuong: boolean[]; trang: ("ram" | "non" | null)[]; max: number };
+  days: string[];
+  sel: number;
+  onSel: (i: number) => void;
+}) {
+  const n = days.length;
+  const colW = SW / n;
+  const ph = SH - S_TOP - S_BOT;
+  const chon = (e: React.MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    if (r.width <= 0) return;
+    const i = Math.floor(((e.clientX - r.left) / r.width) * n);
+    onSel(Math.max(0, Math.min(n - 1, i)));
+  };
+  return (
+    <div
+      role="group"
+      aria-label="Dải con nước 30 ngày — chạm chọn ngày"
+      onClick={chon}
+      className="mt-2 min-h-[3.5rem] cursor-pointer select-none"
+    >
+      <svg viewBox={`0 0 ${SW} ${SH}`} className="block h-auto w-full" aria-hidden>
+        {days.map((d, i) => {
+          const h = Math.max(3, (thang.bienDo[i] / thang.max) * ph);
+          const x = i * colW + 1;
+          const y = S_TOP + ph - h;
+          const daySo = Number(d.slice(8, 10));
+          return (
+            <g key={d}>
+              <rect
+                x={x}
+                y={y}
+                width={colW - 2}
+                height={h}
+                rx={1.5}
+                className={thang.cuong[i] ? "fill-navy" : "fill-t1/45"}
+              />
+              {i === sel && (
+                <rect
+                  x={x - 1}
+                  y={S_TOP - 2}
+                  width={colW}
+                  height={ph + 4}
+                  rx={2}
+                  className="fill-none stroke-danger"
+                  strokeWidth={1.5}
+                />
+              )}
+              {thang.trang[i] === "ram" && (
+                <circle cx={x + (colW - 2) / 2} cy={SH - 14} r={3} className="fill-navy" />
+              )}
+              {thang.trang[i] === "non" && (
+                <circle
+                  cx={x + (colW - 2) / 2}
+                  cy={SH - 14}
+                  r={3}
+                  className="fill-none stroke-navy"
+                  strokeWidth={1.2}
+                />
+              )}
+              {(i === 0 || daySo % 5 === 0) && !thang.trang[i] && (
+                <text
+                  x={x + (colW - 2) / 2}
+                  y={SH - 11}
+                  textAnchor="middle"
+                  className="fill-foreground/60"
+                  fontSize={8.5}
+                >
+                  {daySo}
+                </text>
+              )}
+              <text
+                x={x + (colW - 2) / 2}
+                y={SH - 1}
+                textAnchor="middle"
+                className="fill-foreground/60"
+                fontSize={7}
+              >
+                {(i === 0 || daySo === 1) ? `${daySo}/${Number(d.slice(5, 7))}` : ""}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <p className="mt-1 flex flex-wrap items-center gap-x-3 text-[0.8125rem] font-semibold text-foreground/60">
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-3 w-3 rounded-sm bg-navy" aria-hidden /> nước rong
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-3 w-3 rounded-sm bg-t1/45" aria-hidden /> thường / kém
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-3 w-3 rounded-full bg-navy" aria-hidden /> rằm
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-3 w-3 rounded-full border-2 border-navy" aria-hidden /> mùng 1
+        </span>
+      </p>
+    </div>
+  );
+}
+
 /* ── MÀN NHIỀU NGÀY ───────────────────────────────────────────────────────── */
 
 /**
@@ -307,19 +427,48 @@ export function TideDaysView({
   );
   const [sel, setSel] = useState(0);
   const iso = days[sel] ?? todayIso;
-  // trục mét CỐ ĐỊNH cho cả tuần — đổi ngày mà trục nhảy là mắt đọc sai cường/kém
-  const [loM, hiM] = useMemo(() => {
+  const chipRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // chọn ngày từ dải tháng thì hàng chip phải cuộn tới chip đó — không thì
+  // dải nói một ngày, hàng chip đang bày ngày khác
+  useEffect(() => {
+    chipRefs.current[sel]?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [sel]);
+  /*  Cả tháng tính MỘT lần: biên độ từng ngày (cho dải), trục mét cố định (đổi
+      ngày mà trục nhảy là mắt đọc sai cường/kém), ngày cường, rằm / mùng 1.
+      30 ngày × 25 mẫu giờ + 30 lượt tìm đỉnh — vài ms trên máy cũ. */
+  const thang = useMemo(() => {
     let lo = Infinity;
     let hi = -Infinity;
+    const bienDo: number[] = [];
+    const cuong: boolean[] = [];
     for (const d of days) {
+      let dlo = Infinity;
+      let dhi = -Infinity;
       for (const v of tideDaySeries(station, d, 60)) {
-        if (v < lo) lo = v;
-        if (v > hi) hi = v;
+        if (v < dlo) dlo = v;
+        if (v > dhi) dhi = v;
       }
+      if (dlo < lo) lo = dlo;
+      if (dhi > hi) hi = dhi;
+      bienDo.push(Number.isFinite(dhi - dlo) ? dhi - dlo : 0);
+      cuong.push(/cường/.test(tideRangeText(station, d) ?? ""));
     }
-    if (!Number.isFinite(lo) || !Number.isFinite(hi)) return [0, 4];
-    return [Math.floor(lo * 2) / 2 - 0.25, Math.ceil(hi * 2) / 2 + 0.25];
+    // rằm = pha trăng vượt 0,5 trong ngày; mùng 1 = pha quay về 0 (trăng non)
+    const frac = days.map((d) => moonPhase(new Date(Date.parse(`${d}T12:00:00Z`) - VN_OFFSET_MS)).frac);
+    const trang: ("ram" | "non" | null)[] = frac.map((f, i) => {
+      if (i === 0) return null;
+      const p = frac[i - 1];
+      if (p < 0.5 && f >= 0.5) return "ram";
+      if (f < p) return "non";
+      return null;
+    });
+    const truc: [number, number] =
+      Number.isFinite(lo) && Number.isFinite(hi)
+        ? [Math.floor(lo * 2) / 2 - 0.25, Math.ceil(hi * 2) / 2 + 0.25]
+        : [0, 4];
+    return { bienDo, cuong, trang, truc, max: Math.max(0.1, ...bienDo) };
   }, [station, days]);
+  const [loM, hiM] = thang.truc;
   const extremes = tideExtremesForDay(station, iso);
   const range = tideRangeText(station, iso);
   const moon = tideMoonText(Date.parse(`${iso}T12:00:00Z`) - VN_OFFSET_MS);
@@ -332,6 +481,9 @@ export function TideDaysView({
         {days.map((d, i) => (
           <button
             key={d}
+            ref={(el) => {
+              chipRefs.current[i] = el;
+            }}
             type="button"
             onClick={() => setSel(i)}
             aria-pressed={i === sel}
@@ -346,6 +498,18 @@ export function TideDaysView({
 
       <div className="surface mt-3 p-3">
         <TideCurve station={station} isoDate={iso} loM={loM} hiM={hiM} nowMs={isToday ? nowMs : null} />
+      </div>
+
+      {/*  CẢ CHU KỲ — 30 cột, cột cao = nước lên xuống mạnh (rong/cường), cột
+           thấp = nước kém; rằm ● và mùng 1 ○ đánh dấu dưới cột. Chạm vào dải
+           chọn ngày gần ngón tay nhất (cả dải là một vùng chạm 56 px — 30 cột
+           riêng lẻ chỉ 11 px, không đủ chạm); chip ở trên tự cuộn tới ngày đó. */}
+      <div className="surface mt-3 p-3">
+        <p className="text-[0.9375rem] font-bold leading-snug text-navy">Cả chu kỳ · 30 ngày tới</p>
+        <p className="mt-0.5 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
+          Cột cao là nước rong (lên xuống mạnh), cột thấp là nước kém. Chạm cột để xem ngày đó.
+        </p>
+        <TideMonthStrip thang={thang} days={days} sel={sel} onSel={setSel} />
       </div>
 
       <ul className="mt-3 space-y-1.5">

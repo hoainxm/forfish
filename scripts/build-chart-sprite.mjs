@@ -82,6 +82,11 @@ const WHITE = "#ffffff";
 const MAGENTA = "#c02a88";
 const SLATE = "#456f8a";
 const TEAL = "#0e7c86";
+/*  BLUE #2b74c4 — 3,77:1 nền nước / 3,49:1 với INK — cột nước ĐANG LÊN của
+    trạm con nước (2026-09-04). Cùng mã với TIDE_STATION_COLOR (ocean-map) để
+    nhãn trạm và ruột ký hiệu một màu. Xanh dương chứ không phải xanh lục
+    (GREEN = phao phải luồng) hay teal (rạn): ba thứ ba nghĩa, ba màu. */
+const BLUE = "#2b74c4";
 
 /** Khung vẽ (đơn vị SVG) — 1 đơn vị = 1 px CSS ở icon-size 1. */
 const BOX = 24;
@@ -278,6 +283,52 @@ const lighthouseShape = () => {
         ` L${CX - 3.6},${CY} L${CX - 1.5},${CY - 1.5} Z`,
       fill: INK,
     }))
+  );
+};
+
+/** TRẠM CON NƯỚC — CỘT NƯỚC (tide gauge), ký hiệu quen của mọi máy hải đồ
+ *  (chủ dự án 2026-09-04: "làm cái ký hiệu thuỷ triều cho đúng các loại hay
+ *  dùng, đừng dùng hình tròn"): Navionics vẽ ô chữ nhật có thước nước xanh /
+ *  đỏ, C-MAP vẽ ô đầy dần màu xanh khi nước lên và rút xuống màu đỏ khi nước
+ *  xuống, OpenCPN vẽ cột vàng–xanh. Điểm chung: một CỘT ĐỨNG có mực nước, màu
+ *  nói lên/xuống. Vẽ lại từ ý đó, không đồ hình của ai:
+ *    · cột trắng viền INK, mực nước đầy tới 30 / 55 / 80 % (thấp / vừa / cao
+ *      so với biên độ NGÀY ĐÓ của trạm) — bà con liếc là biết còn nước không;
+ *    · ruột XANH DƯƠNG = đang lên, ĐỎ = đang xuống, SLATE = nước đứng;
+ *    · mũi tên INK bên phải nhắc lại chiều (mù màu đỏ–xanh vẫn đọc được);
+ *    · trạm MÔ HÌNH (ước tính): ruột kẻ SỌC ngang thay vì đặc — "chưa chắc",
+ *      cùng nghĩa với chữ "ước tính" trong thẻ. Viền vẫn liền để vành ngoài
+ *      giữ tương phản (viền đứt là để nước lộ qua khe, mất vành dưới nắng).
+ *  Ruột cắt theo chính khung cột (clipPath) nên không màu nào lọt ra ngoài
+ *  viền ở bốn góc bo. */
+const tideGauge = (trend, level, model) => {
+  const GX = 4.6;
+  const GY = 3;
+  const GW = 8.4;
+  const GH = 18;
+  const R = 2;
+  const pct = [0.3, 0.55, 0.8][level - 1];
+  const color = trend === "up" ? BLUE : trend === "down" ? RED : SLATE;
+  const fillH = GH * pct;
+  const fillY = GY + GH - fillH;
+  const inner = model
+    ? // sọc ngang 1,6 màu / 1,0 trắng từ mặt nước xuống đáy
+      Array.from({ length: Math.ceil(fillH / 2.6) }, (_, i) =>
+        el("rect", { x: GX, y: (fillY + i * 2.6).toFixed(2), width: GW, height: Math.min(1.6, fillY + fillH - (fillY + i * 2.6)).toFixed(2), fill: color }),
+      ).join("")
+    : el("rect", { x: GX, y: fillY.toFixed(2), width: GW, height: fillH.toFixed(2), fill: color });
+  const arrow =
+    trend === "up"
+      ? el("path", keyed({ d: "M15,14.4 L18.2,9.4 L21.4,14.4 Z", fill: INK }))
+      : trend === "down"
+        ? el("path", keyed({ d: "M15,9.6 L18.2,14.6 L21.4,9.6 Z", fill: INK }))
+        : el("path", keyed({ d: "M15.2,12 H21.2", fill: "none", "stroke-width": K + 1.2 }));
+  return (
+    el("defs", {}, el("clipPath", { id: "g" }, el("rect", { x: GX, y: GY, width: GW, height: GH, rx: R }))) +
+    el("rect", { x: GX, y: GY, width: GW, height: GH, rx: R, fill: WHITE }) +
+    el("g", { "clip-path": "url(#g)" }, inner) +
+    el("rect", keyed({ x: GX, y: GY, width: GW, height: GH, rx: R, fill: "none" })) +
+    arrow
   );
 };
 
@@ -591,6 +642,16 @@ for (const [id, v] of Object.entries(SYMBOLS)) {
   if (typeof v === "function") SYMBOLS[id] = v();
 }
 
+/* ── TRẠM CON NƯỚC (lớp tram-trieu, 2026-09-04) ──────────────────────────
+   18 ô = 3 chiều (up/down/flat) × 3 mực (1 thấp · 2 vừa · 3 cao) × {đo, ước
+   tính}. Id khớp `tideSymbolId()` của src/lib/chart-symbols.ts — test chặn. */
+for (const trend of ["up", "down", "flat"]) {
+  for (const level of [1, 2, 3]) {
+    SYMBOLS[`tide-${trend}-${level}`] = tideGauge(trend, level, false);
+    SYMBOLS[`tide-${trend}-${level}-uoc`] = tideGauge(trend, level, true);
+  }
+}
+
 /* ── BIẾN THỂ CÓ ĐÈN ─────────────────────────────────────────────────────
    Ban đêm cái nào còn thấy được là thông tin thật, phải giữ. Thay vì thêm một
    lớp symbol thứ hai trên bản đồ (tốn lớp, dễ lệch), nướng sẵn biến thể
@@ -601,6 +662,8 @@ for (const [id, v] of Object.entries(SYMBOLS)) {
 const LIT_CAPABLE = Object.keys(SYMBOLS).filter(
   (id) =>
     !id.startsWith("light-") &&
+    // trạm con nước không phải báo hiệu, không có đèn
+    !id.startsWith("tide-") &&
     ![
       "landmark", "virtual-aton", "anchorage", "harbour", "gate", "marine-farm",
       // hải đăng TỰ NÓ là đèn; xác tàu/chướng ngại đến từ Thông báo hàng hải

@@ -44,6 +44,8 @@ import {
   sideFromBodyColour,
   sideFromLightColour,
   sideFromPurposeVN,
+  TIDE_ICON_IDS,
+  tideSymbolId,
   wreckSymbolId,
 } from "../chart-symbols";
 
@@ -792,6 +794,68 @@ describe("ký hiệu địa danh ngầm", () => {
   });
 });
 
+/* ── 6e. TRẠM CON NƯỚC — CỘT NƯỚC (2026-09-04) ──────────────────────────── */
+
+describe("ký hiệu trạm con nước (cột nước, kiểu máy hải đồ)", () => {
+  it("18 ô có trong sprite 1x lẫn @2x, không rỗng, không -lit", () => {
+    expect(TIDE_ICON_IDS).toHaveLength(18);
+    for (const id of TIDE_ICON_IDS) {
+      expect(SHEET_1X[id], `thiếu ${id} 1x`).toBeTruthy();
+      expect(SHEET_2X[id], `thiếu ${id} @2x`).toBeTruthy();
+      expect(SHEET_2X[`${id}-lit`], `${id} không được có -lit`).toBeUndefined();
+      let ink = 0;
+      const c = cellOf(PNG_2X, SHEET_2X[id]);
+      for (let i = 3; i < c.px.length; i += 4) if (c.px[i] > 200) ink++;
+      expect(ink, `${id} gần rỗng`).toBeGreaterThan(200);
+    }
+  });
+
+  it("tideSymbolId: chiều + mực + ước tính → đúng id có thật", () => {
+    expect(tideSymbolId("len", 0.1, false)).toBe("tide-up-1");
+    expect(tideSymbolId("len", 0.5, false)).toBe("tide-up-2");
+    expect(tideSymbolId("xuong", 0.9, false)).toBe("tide-down-3");
+    expect(tideSymbolId("dung", NaN, true)).toBe("tide-flat-2-uoc");
+    expect(tideSymbolId("len", 1.4, true)).toBe("tide-up-3-uoc");
+    for (const t of ["len", "xuong", "dung"] as const)
+      for (const f of [0, 0.5, 1])
+        for (const m of [false, true]) expect(SHEET_2X[tideSymbolId(t, f, m)]).toBeTruthy();
+  });
+
+  it("mực nước cao thì cột đầy hơn — đếm pixel màu ruột", () => {
+    const ruot = (id: string) => {
+      const c = cellOf(PNG_2X, SHEET_2X[id]);
+      let n = 0;
+      for (let i = 0; i < c.px.length; i += 4) {
+        // pixel xanh dương/đỏ đặc (không phải trắng, không phải INK)
+        if (c.px[i + 3] > 250 && !(c.px[i] > 240 && c.px[i + 1] > 240) && c.px[i] + c.px[i + 1] + c.px[i + 2] > 120) n++;
+      }
+      return n;
+    };
+    expect(ruot("tide-up-1")).toBeLessThan(ruot("tide-up-2"));
+    expect(ruot("tide-up-2")).toBeLessThan(ruot("tide-up-3"));
+    // ước tính kẻ sọc ⇒ ít pixel màu hơn bản đặc cùng mực
+    expect(ruot("tide-up-3-uoc")).toBeLessThan(ruot("tide-up-3"));
+  });
+
+  /*  Lên/xuống cùng một BÓNG cột (chỉ khác màu ruột + chiều mũi tên) là cố ý:
+      cùng một vật, hai trạng thái — nên không so bóng hai cái với nhau. Cái
+      phải khác bóng là các ký hiệu CỘT/TRỤ khác đang có trong bộ. */
+  it.each([
+    ["tide-up-2", "pile"],
+    ["tide-up-2", "mooring"],
+    ["tide-flat-2", "gate"],
+    ["tide-up-3", "platform"],
+  ])("bóng của %s khác bóng của %s", (a, b) => {
+    const d = differ(silhouette(a), silhouette(b));
+    expect(d, `"${a}" và "${b}" chỉ khác nhau ${(d * 100).toFixed(0)}% về HÌNH`).toBeGreaterThan(0.2);
+  });
+
+  it("màu nhãn trạm (ocean-map) = BLUE của bảng màu sprite", async () => {
+    const m = await import("../ocean-map");
+    expect(m.TIDE_STATION_COLOR).toBe(CHART_PALETTE.blue);
+  });
+});
+
 /* ── 6f. MỌI KÝ HIỆU ĐÃ CHỐT KHOÁ TỪNG PIXEL ──────────────────────────────
    Thêm ô vào tấm sprite là toạ độ mọi ô đổi ⇒ hash CẢ FILE đổi là chuyện
    đương nhiên, không nói lên gì. Cái phải bất biến là PIXEL TRONG TỪNG Ô:
@@ -888,6 +952,25 @@ const LOCKED_CELLS: Record<string, string> = {
   "virtual-aton": "a6a11dddb78b6f1e",
   wreck: "eb6bbc053ac6262c",
   "wreck-depth": "1cb5068266a3148c",
+  // trạm con nước — cột nước (2026-09-04): 3 chiều × 3 mực × {đo, ước tính}
+  "tide-up-1": "a225361944ee96d8",
+  "tide-up-1-uoc": "4e3d198fece5b3a7",
+  "tide-up-2": "feb6e5674978b419",
+  "tide-up-2-uoc": "bb1d88c66bf057de",
+  "tide-up-3": "6792c85889f31a28",
+  "tide-up-3-uoc": "7e37eb8e82645755",
+  "tide-down-1": "c741b34cf3ab0fab",
+  "tide-down-1-uoc": "af232508418339c2",
+  "tide-down-2": "f551171f86f62266",
+  "tide-down-2-uoc": "d8c37c1f4025e0ae",
+  "tide-down-3": "5d45c0e3a1e830d9",
+  "tide-down-3-uoc": "5cbbaebd66ae896d",
+  "tide-flat-1": "188fac2f9910e30c",
+  "tide-flat-1-uoc": "01fc5cdb1dbe4b81",
+  "tide-flat-2": "3275e7e1a7c8e082",
+  "tide-flat-2-uoc": "8811fa8e02960ca4",
+  "tide-flat-3": "3e4659f3cc6f9c87",
+  "tide-flat-3-uoc": "1a0f52676e370e48",
 };
 
 describe("mọi ký hiệu đã chốt giữ nguyên từng pixel", () => {
@@ -900,7 +983,7 @@ describe("mọi ký hiệu đã chốt giữ nguyên từng pixel", () => {
 
   it("bảng khoá phủ ĐỦ mọi ô trong sprite — thêm hình mà không khoá là lọt", () => {
     expect(Object.keys(LOCKED_CELLS).sort()).toEqual(Object.keys(SHEET_2X).sort());
-    expect(Object.keys(LOCKED_CELLS)).toHaveLength(87);
+    expect(Object.keys(LOCKED_CELLS)).toHaveLength(105);
   });
 
   it.each(Object.keys(LOCKED_CELLS))("%s: pixel y nguyên so với bản chốt", (id) => {

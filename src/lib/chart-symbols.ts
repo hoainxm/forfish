@@ -142,6 +142,8 @@ export const CHART_PALETTE = {
   magenta: "#c02a88",
   slate: "#456f8a",
   teal: "#0e7c86",
+  /** cột nước ĐANG LÊN của trạm con nước — cùng mã `TIDE_STATION_COLOR` (2026-09-04) */
+  blue: "#2b74c4",
 } as const;
 
 /**
@@ -294,6 +296,36 @@ const PLAIN_ICON: Record<string, string> = {
 
 /** Ký hiệu cuối cùng khi không nhận ra loại — CÓ HÌNH RIÊNG, không phải chấm trơn. */
 export const CHART_FALLBACK_ICON = "aid-unknown";
+
+/* ── TRẠM CON NƯỚC — CỘT NƯỚC (2026-09-04) ────────────────────────────────
+   Ký hiệu quen của máy hải đồ (Navionics/C-MAP/OpenCPN đều vẽ một cột đứng có
+   mực nước, xanh khi lên, đỏ khi xuống): 3 chiều × 3 mực × {đo, ước tính} =
+   18 ô trong sprite, sinh ở scripts/build-chart-sprite.mjs. */
+export type TideIconTrend = "up" | "down" | "flat";
+
+/** Mọi id ô trạm con nước — test đối chiếu với sprite thật. */
+export const TIDE_ICON_IDS: readonly string[] = Object.freeze(
+  (["up", "down", "flat"] as const).flatMap((t) =>
+    [1, 2, 3].flatMap((l) => [`tide-${t}-${l}`, `tide-${t}-${l}-uoc`]),
+  ),
+);
+
+/**
+ * Id ô cho một trạm lúc này.
+ * @param trend  lên / xuống / đứng (từ `tideTrendAt` của lib/tides)
+ * @param frac   mực nước lúc này so với biên độ NGÀY ĐÓ: 0 = chân triều thấp
+ *               nhất, 1 = đỉnh cao nhất (ngoài [0,1] hay NaN → mực vừa)
+ * @param model  trạm mô hình (ước tính) → ruột kẻ sọc
+ */
+export function tideSymbolId(
+  trend: "len" | "xuong" | "dung",
+  frac: number,
+  model: boolean,
+): string {
+  const t: TideIconTrend = trend === "len" ? "up" : trend === "xuong" ? "down" : "flat";
+  const level = !Number.isFinite(frac) ? 2 : frac < 0.4 ? 1 : frac < 0.7 ? 2 : 3;
+  return `tide-${t}-${level}${model ? "-uoc" : ""}`;
+}
 
 /** Loại nào tự nó đã là ánh đèn hoặc là VÙNG thì không sinh biến thể `-lit`. */
 const NO_LIT_VARIANT = new Set([

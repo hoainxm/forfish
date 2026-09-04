@@ -580,32 +580,158 @@
   "y": 520,
   "pixelRatio": 2
  },
- "valley": {
+ "tide-down-1": {
   "width": 48,
   "height": 48,
   "x": 156,
   "y": 520,
   "pixelRatio": 2
  },
- "virtual-aton": {
+ "tide-down-1-uoc": {
   "width": 48,
   "height": 48,
   "x": 208,
   "y": 520,
   "pixelRatio": 2
  },
- "wreck": {
+ "tide-down-2": {
   "width": 48,
   "height": 48,
   "x": 260,
   "y": 520,
   "pixelRatio": 2
  },
- "wreck-depth": {
+ "tide-down-2-uoc": {
   "width": 48,
   "height": 48,
   "x": 312,
   "y": 520,
+  "pixelRatio": 2
+ },
+ "tide-down-3": {
+  "width": 48,
+  "height": 48,
+  "x": 364,
+  "y": 520,
+  "pixelRatio": 2
+ },
+ "tide-down-3-uoc": {
+  "width": 48,
+  "height": 48,
+  "x": 0,
+  "y": 572,
+  "pixelRatio": 2
+ },
+ "tide-flat-1": {
+  "width": 48,
+  "height": 48,
+  "x": 52,
+  "y": 572,
+  "pixelRatio": 2
+ },
+ "tide-flat-1-uoc": {
+  "width": 48,
+  "height": 48,
+  "x": 104,
+  "y": 572,
+  "pixelRatio": 2
+ },
+ "tide-flat-2": {
+  "width": 48,
+  "height": 48,
+  "x": 156,
+  "y": 572,
+  "pixelRatio": 2
+ },
+ "tide-flat-2-uoc": {
+  "width": 48,
+  "height": 48,
+  "x": 208,
+  "y": 572,
+  "pixelRatio": 2
+ },
+ "tide-flat-3": {
+  "width": 48,
+  "height": 48,
+  "x": 260,
+  "y": 572,
+  "pixelRatio": 2
+ },
+ "tide-flat-3-uoc": {
+  "width": 48,
+  "height": 48,
+  "x": 312,
+  "y": 572,
+  "pixelRatio": 2
+ },
+ "tide-up-1": {
+  "width": 48,
+  "height": 48,
+  "x": 364,
+  "y": 572,
+  "pixelRatio": 2
+ },
+ "tide-up-1-uoc": {
+  "width": 48,
+  "height": 48,
+  "x": 0,
+  "y": 624,
+  "pixelRatio": 2
+ },
+ "tide-up-2": {
+  "width": 48,
+  "height": 48,
+  "x": 52,
+  "y": 624,
+  "pixelRatio": 2
+ },
+ "tide-up-2-uoc": {
+  "width": 48,
+  "height": 48,
+  "x": 104,
+  "y": 624,
+  "pixelRatio": 2
+ },
+ "tide-up-3": {
+  "width": 48,
+  "height": 48,
+  "x": 156,
+  "y": 624,
+  "pixelRatio": 2
+ },
+ "tide-up-3-uoc": {
+  "width": 48,
+  "height": 48,
+  "x": 208,
+  "y": 624,
+  "pixelRatio": 2
+ },
+ "valley": {
+  "width": 48,
+  "height": 48,
+  "x": 260,
+  "y": 624,
+  "pixelRatio": 2
+ },
+ "virtual-aton": {
+  "width": 48,
+  "height": 48,
+  "x": 312,
+  "y": 624,
+  "pixelRatio": 2
+ },
+ "wreck": {
+  "width": 48,
+  "height": 48,
+  "x": 364,
+  "y": 624,
+  "pixelRatio": 2
+ },
+ "wreck-depth": {
+  "width": 48,
+  "height": 48,
+  "x": 0,
+  "y": 676,
   "pixelRatio": 2
  }
 }
