@@ -104,13 +104,24 @@ const D_SEC = "\\d[\\d\\s]{0,3}(?:[.,]\\s*\\d(?:\\s*\\d){0,2})?";
  * trước) có thể bị đọc từ chữ `5` thành `5 10` = 510 độ — đúng cái bẫy đã dính
  * một lần. Chặn ngay từ đầu: phía trước phần độ không được là chữ số, dấu chấm
  * hay dấu phẩy.
+ *
+ * ⚠️ ĐỪNG viết lại thành lookbehind `(?<![\d.,])` — đó ĐÚNG LÀ bản cũ, và nó
+ * làm màn "Ra khơi" ra TRẮNG TRƠN trên iPhone đời cũ (báo từ hiện trường
+ * 2026-09-04, iPhone 12). Safari chỉ hiểu lookbehind từ 16.4; máy cũ hơn ném
+ * `SyntaxError` lúc PARSE cả file .js — mà file này nằm trong chunk lazy của
+ * `fishing-map-view`, nên bản đồ không mount, không một chữ báo lỗi.
+ * Cũng ĐỪNG thay bằng `(?:^|[^\d.,])`: cách đó ĂN MẤT một ký tự, nên hai toạ
+ * độ dính liền `10°44'N106°30'E` sẽ trượt cái thứ hai. Soi ký tự đứng trước
+ * bằng tay là cách duy nhất giữ đủ cả hai điều.
  */
-const NOT_MID_NUMBER = "(?<![\\d.,])";
+function batDauGiuaSo(text: string, index: number): boolean {
+  return index > 0 && /[\d.,]/.test(text[index - 1]);
+}
 
 const toNum = (s: string): number => Number.parseFloat(s.replace(/\s+/g, "").replace(",", "."));
 
 const DMS_RE = new RegExp(
-  `${NOT_MID_NUMBER}(${D_DEG})\\s*${DEG}\\s*(${D_MIN})\\s*${MIN}\\s*(?:(${D_SEC})\\s*${SEC})?\\s*([NSEWnsew])?`,
+  `(${D_DEG})\\s*${DEG}\\s*(${D_MIN})\\s*${MIN}\\s*(?:(${D_SEC})\\s*${SEC})?\\s*([NSEWnsew])?`,
   "g",
 );
 const DEC_RE = /(-?\d+(?:[.,]\d+)?)\s*°?\s*([NSEWnsew])?/g;
@@ -135,6 +146,13 @@ export function parseCoordinate(text: string, kind: CoordKind): number | null {
   let dms: RegExpExecArray | null;
   let thayDms = false;
   while ((dms = DMS_RE.exec(text)) !== null) {
+    // Bắt đầu GIỮA một con số khác ⇒ coi như CHƯA TỪNG khớp (đúng vai cũ của
+    // lookbehind): dò lại từ ký tự kế, và KHÔNG bật `thayDms` — bật là nuốt
+    // mất đường lùi sang khuôn thập phân ở dưới.
+    if (batDauGiuaSo(text, dms.index)) {
+      DMS_RE.lastIndex = dms.index + 1;
+      continue;
+    }
     thayDms = true;
     const v = dmsValue(dms[1], dms[2], dms[3], dms[4], kind);
     if (v !== null) return v;
@@ -206,7 +224,7 @@ export type SoundingRow = {
 
 /** Bắt trọn một chuỗi toạ độ (DMS hoặc thập phân có ghi bán cầu) kèm bán cầu. */
 const TOKEN_RE = new RegExp(
-  `${NOT_MID_NUMBER}(${D_DEG})\\s*${DEG}\\s*(${D_MIN})\\s*${MIN}\\s*(?:(${D_SEC})\\s*${SEC})?\\s*([NSEWnsew])` +
+  `(${D_DEG})\\s*${DEG}\\s*(${D_MIN})\\s*${MIN}\\s*(?:(${D_SEC})\\s*${SEC})?\\s*([NSEWnsew])` +
     `|(-?\\d+[.,]\\d{3,})\\s*°?\\s*([NSEWnsew])`,
   "g",
 );
@@ -228,6 +246,13 @@ export function parseSoundingRow(line: string): SoundingRow | null {
   const tokens: Array<{ start: number; end: number; hemi: string; value: number }> = [];
   let m: RegExpExecArray | null;
   while ((m = TOKEN_RE.exec(line)) !== null) {
+    /*  CHỈ soi nhánh DMS (`m[1]`). Nhánh thập phân của khuôn này trước nay
+        KHÔNG có chốt "không bắt đầu giữa số" — lookbehind cũ đứng trong nhánh
+        đầu, không phủ nhánh sau. Thêm cho nó là đổi hành vi ngoài bản vá. */
+    if (m[1] && batDauGiuaSo(line, m.index)) {
+      TOKEN_RE.lastIndex = m.index + 1;
+      continue;
+    }
     const hemi = (m[4] ?? m[6] ?? "").toUpperCase();
     const kind: CoordKind = hemi === "N" || hemi === "S" ? "lat" : "lon";
     // Tính TẠI CHỖ, KHÔNG gọi `parseCoordinate`: hàm kia thử lại lùi một ký tự
@@ -854,7 +879,7 @@ function ocrDmsCandidates(run: string, secTxt: string): OcrDms[] {
   return out;
 }
 
-const OCR_TOKEN_RE = /(?<![\d.,])(\d{4,7})\s*['’′´]\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*(?:["”″]|['’′´]{1,2})?/g;
+const OCR_TOKEN_RE = /(\d{4,7})\s*['’′´]\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*(?:["”″]|['’′´]{1,2})?/g;
 
 const dmsText = (d: OcrDms, hemi: string): string =>
   `${d.deg}°${String(d.min).padStart(2, "0")}'${String(d.sec).replace(".", ",")}"${hemi}`;
@@ -878,6 +903,10 @@ export function ocrCoordLine(line: string): string | null {
   const toks: Array<{ start: number; end: number; cands: OcrDms[] }> = [];
   let m: RegExpExecArray | null;
   while ((m = OCR_TOKEN_RE.exec(line)) !== null) {
+    if (batDauGiuaSo(line, m.index)) {
+      OCR_TOKEN_RE.lastIndex = m.index + 1;
+      continue;
+    }
     toks.push({ start: m.index, end: m.index + m[0].length, cands: ocrDmsCandidates(m[1], m[2]) });
   }
   if (toks.length < 2) return null;

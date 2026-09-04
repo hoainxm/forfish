@@ -43,10 +43,24 @@ export function RequireLogin({
 }) {
   const { signedIn, ready } = useAuthUser();
 
-  /*  ĐANG KIỂM THÌ KHÔNG VẼ GÌ — nháy thẻ khoá rồi mở ra là nói với người đã
-      có tài khoản rằng họ chưa có. `ready` bật sau khi đọc xong kho ở máy nên
-      nhịp này rất ngắn. */
-  if (!ready) return null;
+  /*  ĐANG KIỂM THÌ CHƯA NÓI GÌ VỀ QUYỀN — nháy thẻ khoá rồi mở ra là nói với
+      người đã có tài khoản rằng họ chưa có.
+
+      Nhưng ĐỪNG vẽ `null` (bản cũ tới 2026-09-04). Cổng này bọc CẢ MÀN của
+      bốn tab; một nhịp `ready` hụt là bà con nhìn thấy MÀN TRẮNG TRƠN cùng
+      cái dock — không chữ, không nút, không biết máy đang làm gì hay đã hỏng
+      (đúng ảnh báo về từ hiện trường: iPhone 12, trắng bóc). Một dòng chữ tốn
+      không đáng bao nhiêu, mà nó là khác biệt giữa "máy đang mở" và "máy chết".
+      `role="status"` để trình đọc màn hình cũng nghe được. */
+  if (!ready)
+    return (
+      <p
+        role="status"
+        className="mt-10 text-center text-[1.125rem] font-semibold text-foreground/60"
+      >
+        Đang mở…
+      </p>
+    );
   if (signedIn) return <>{children}</>;
 
   return (
