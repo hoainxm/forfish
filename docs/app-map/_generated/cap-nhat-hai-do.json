@@ -1,0 +1,444 @@
+{
+  "v": 1,
+  "nguon": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433",
+  "coQuan": "Tổng công ty Bảo đảm an toàn hàng hải Việt Nam (vmsa.vn)",
+  "ghiChu": "Sổ theo dõi Thông báo hàng hải hằng tuần — đầu nguồn của các lớp hải đồ trong app (số đo sâu, báo hiệu, đèn biển, xác tàu). App KHÔNG đọc file này; nó để biết tuần nào cần dựng lại lớp nào.",
+  "banTinMoiNhat": {
+    "tuan": 36,
+    "ngay": "2026-08-31",
+    "url": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-31-08-2026-tuan-36--13838-2.html"
+  },
+  "thongBao": [
+    {
+      "tuan": 36,
+      "ngay": "2026-08-31",
+      "so": "141",
+      "haiDo": [
+        "VN50008"
+      ],
+      "moTa": "VIET NAM - NORTH EAST COAST - QUANG NINH - Buoyage VIỆT NAM - BỜ BIỂN ĐÔNG BẮC BỘ - QUẢNG NINH - Hệ thống phao.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-31-08-2026-tuan-36--13838-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20141.pdf"
+    },
+    {
+      "tuan": 36,
+      "ngay": "2026-08-31",
+      "so": "140",
+      "haiDo": [
+        "VN40011"
+      ],
+      "moTa": "VIET NAM - NORTH CENTRAL COAST - THANH HOA - LE MON - Depths, Fish stakes. VIỆT NAM - BỜ BIỂN BẮC TRUNG BỘ - THANH HÓA - LỆ MÔN - Độ sâu, Đăng đáy cá.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-31-08-2026-tuan-36--13838-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20140.pdf"
+    },
+    {
+      "tuan": 35,
+      "ngay": "2026-08-24",
+      "so": "139",
+      "haiDo": [
+        "VN50019"
+      ],
+      "moTa": "VIET NAM - NORTH CENTRAL COAST - THUA THIEN HUE - THUAN AN - Depth. VIỆT NAM - BỜ BIỂN BẮC TRUNG BỘ - THỪA THIÊN HUẾ - THUẬN AN - Độ sâu.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-24-08-2026-tuan-35--13820-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20139.pdf"
+    },
+    {
+      "tuan": 35,
+      "ngay": "2026-08-24",
+      "so": "138",
+      "haiDo": [
+        "VN50008"
+      ],
+      "moTa": "VIET NAM - NORTH EAST COAST - HAI PHONG - Depths, Marine farm. VIỆT NAM - BỜ BIỂN ĐÔNG BẮC BỘ - HẢI PHÒNG - Độ sâu, khu vực nuôi trồng thủy sản.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-24-08-2026-tuan-35--13820-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20138.pdf"
+    },
+    {
+      "tuan": 35,
+      "ngay": "2026-08-24",
+      "so": "137",
+      "haiDo": [
+        "VN50017"
+      ],
+      "moTa": "VIET NAM - NORTH CENTRAL COAST - QUANG TRI - CUA GIANH - Depths. VIỆT NAM - BỜ BIỂN BẮC TRUNG BỘ - QUẢNG TRỊ - CỬA GIANH - Độ sâu.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-24-08-2026-tuan-35--13820-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20137.pdf"
+    },
+    {
+      "tuan": 35,
+      "ngay": "2026-08-24",
+      "so": "136",
+      "haiDo": [
+        "VN30004"
+      ],
+      "moTa": "VIET NAM - NORTH CENTRAL COAST - THANH HOA - Lighthouse. VIỆT NAM - BỜ BIỂN BẮC TRUNG BỘ - THANH HÓA - Đèn Biển.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-24-08-2026-tuan-35--13820-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20136.pdf"
+    },
+    {
+      "tuan": 35,
+      "ngay": "2026-08-24",
+      "so": "135",
+      "haiDo": [
+        "VN50008"
+      ],
+      "moTa": "VIET NAM - NORTH EAST COAST - HAI PHONG - Depths. VIỆT NAM - BỜ BIỂN ĐÔNG BẮC BỘ - HẢI PHÒNG - Độ sâu.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-24-08-2026-tuan-35--13820-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20135.pdf"
+    },
+    {
+      "tuan": 34,
+      "ngay": "2026-08-17",
+      "so": "134",
+      "haiDo": [
+        "VN50018"
+      ],
+      "moTa": "VIET NAM - NORTH CENTRAL COAST - QUANG TRI - CUA VIET - Depth. VIỆT NAM - BỜ BIỂN BẮC TRUNG BỘ - QUẢNG TRỊ - CỬA VIỆT - Độ sâu.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-17-08-2026-tuan-34--13800-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20134.pdf"
+    },
+    {
+      "tuan": 34,
+      "ngay": "2026-08-17",
+      "so": "133",
+      "haiDo": [
+        "VN30010"
+      ],
+      "moTa": "VIET NAM - NORTH CENTRAL COAST - QUANG TRI - Depths. VIỆT NAM - BỜ BIỂN BẮC TRUNG BỘ - QUẢNG TRỊ - Độ sâu.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-17-08-2026-tuan-34--13800-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20133.pdf"
+    },
+    {
+      "tuan": 34,
+      "ngay": "2026-08-17",
+      "so": "132",
+      "haiDo": [
+        "VN40014",
+        "VN30006"
+      ],
+      "moTa": "VIET NAM - NORTH CENTRAL COAST - NGHE AN - VISSAI - Anchorage and cargo transhipment area. VIỆT NAM - BỜ BIỂN BẮC TRUNG QUỐC NGHỆ AN - VISSAI - Khu vực neo đậu và chuyển tải tạm thời.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-17-08-2026-tuan-34--13800-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20132.pdf"
+    },
+    {
+      "tuan": 34,
+      "ngay": "2026-08-17",
+      "so": "131",
+      "loai": "so-bo",
+      "haiDo": [
+        "VN30031"
+      ],
+      "moTa": "VIET NAM - SOUTHWEST COAST - HON KHOAI - CA MAU - AN GIANG - Work. VIỆT NAM - BỜ BIỂN TÂY NAM BỘ - HÒN KHOAI - CÀ MAU - AN GIANG - Khu vực thi công.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-17-08-2026-tuan-34--13800-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20131(P).pdf"
+    },
+    {
+      "tuan": 34,
+      "ngay": "2026-08-17",
+      "so": "130",
+      "haiDo": [
+        "VN50031"
+      ],
+      "moTa": "VIET NAM - SOUTH EAST COAST - HO CHI MINH - LONG SON MY XUAN - Buoy. VIỆT NAM - BỜ BIỂN NAM TRUNG BỘ - HỒ CHÍ MINH - LONG SƠN MỸ XUÂN - Phao.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-17-08-2026-tuan-34--13800-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20130.pdf"
+    },
+    {
+      "tuan": 34,
+      "ngay": "2026-08-17",
+      "so": "129",
+      "haiDo": [
+        "VN50026"
+      ],
+      "moTa": "VIET NAM - SOUTH CENTRAL COAST - VUNG RO - DAKLAK - Depths, Depth contours, Legend. VIỆT NAM - BỜ BIỂN NAM TRUNG BỘ - VŨNG RÔ - ĐĂK LAWK - Độ sâu, đường đẳng sâu, chú giải.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-17-08-2026-tuan-34--13800-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20129.pdf"
+    },
+    {
+      "tuan": 34,
+      "ngay": "2026-08-17",
+      "so": "128",
+      "haiDo": [
+        "VN50033"
+      ],
+      "moTa": "VIET NAM - SOUTH EAST COAST - HO CHI MINH - SAI GON VUNG TAU - Buoy. VIỆT NAM - BỜ BIỂN ĐÔNG NAM BỘ - HỒ CHÍ MINH - SÀI GÒN VŨNG TÀU - Phao.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-17-08-2026-tuan-34--13800-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20128.pdf"
+    },
+    {
+      "tuan": 33,
+      "ngay": "2026-08-10",
+      "so": "127",
+      "loai": "tam-thoi",
+      "haiDo": [
+        "VN50021"
+      ],
+      "moTa": "VIET NAM - SOUTH CENTRAL COAST - DA NANG - Work. VIỆT NAM - BỜ BIỂN NAM TRUNG BỘ - ĐÀ NẴNG - Khu vực thi công.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-14-08-2026-tuan-33--13778-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20127(T).pdf"
+    },
+    {
+      "tuan": 33,
+      "ngay": "2026-08-10",
+      "so": "126",
+      "haiDo": [
+        "VN30031"
+      ],
+      "moTa": "VIET NAM - SOUTHWEST COAST - AN GIANG - CA MAU - Beacons. VIỆT NAM - BỜ BIỂN TÂY NAM BỘ - AN GIANG - CÀ MAU - Đăng tiêu.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-14-08-2026-tuan-33--13778-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20126.pdf"
+    },
+    {
+      "tuan": 33,
+      "ngay": "2026-08-10",
+      "so": "125",
+      "loai": "so-bo",
+      "haiDo": [
+        "VN30029",
+        "VN30030"
+      ],
+      "moTa": "VIET NAM - SOUTH CENTRAL COAST - CA MAU - AN GIANG - Buoyage - Work. VIỆT NAM - BỜ BIỂN NAM TRUNG BỘ - CÀ MAU - ANG GIANG - Phao - Khu vực thi công.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-14-08-2026-tuan-33--13778-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20125(P)(1).pdf"
+    },
+    {
+      "tuan": 32,
+      "ngay": "2026-08-03",
+      "so": "124",
+      "loai": "tam-thoi",
+      "haiDo": [
+        "VN50021",
+        "VN30012"
+      ],
+      "moTa": "VIET NAM - SOUTH CENTRAL COAST - DA NANG - Buoyage. VIỆT NAM - BỜ BIỂN NAM TRUNG BỘ - ĐÀ NẴNG - Hệ thống phao.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-03-08-2026-tuan-32--13747-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20124(T).pdf"
+    },
+    {
+      "tuan": 32,
+      "ngay": "2026-08-03",
+      "so": "123",
+      "haiDo": [
+        "VN40002"
+      ],
+      "moTa": "VIET NAM - NORTH EAST COAST - QUANG NINH - Buoyage. VIỆT NAM - BỜ BIỂN ĐÔNG BẮC BỘ - QUẢNG NINH - Hệ thống phao.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-03-08-2026-tuan-32--13747-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20123.pdf"
+    },
+    {
+      "tuan": 32,
+      "ngay": "2026-08-03",
+      "so": "122",
+      "haiDo": [
+        "VN40014"
+      ],
+      "moTa": "VIET NAM - NORTH CENTRAL COAST - NGHE AN - Depths. VIỆT NAM - BỜ BIỂN BẮC TRUNG BỘ - NGHỆ AN - Độ sâu.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-03-08-2026-tuan-32--13747-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20122.pdf"
+    },
+    {
+      "tuan": 32,
+      "ngay": "2026-08-03",
+      "so": "121",
+      "haiDo": [
+        "VN40014"
+      ],
+      "moTa": "VIET NAM - NORTH CENTRAL COAST - NGHE AN - VISSAI - Buoy. VIỆT NAM - BỜ BIỂN BẮC TRUNG BỘ - NGHỆ AN - VISSAI - Phao.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-03-08-2026-tuan-32--13747-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20121.pdf"
+    },
+    {
+      "tuan": 32,
+      "ngay": "2026-08-03",
+      "so": "120",
+      "haiDo": [
+        "VN50018",
+        "VN30010"
+      ],
+      "moTa": "VIET NAM - NORTH CENTRAL COAST - QUANG TRI - Buoyage. VIỆT NAM - BỜ BIỂN BẮC TRUNG BỘ - QUẢNG TRỊ - Hệ thống phao.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-03-08-2026-tuan-32--13747-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20120.pdf"
+    },
+    {
+      "tuan": 32,
+      "ngay": "2026-08-03",
+      "so": "119",
+      "haiDo": [
+        "VN50021",
+        "VN30012"
+      ],
+      "moTa": "VIET NAM - SOUTH CENTRAL COAST - DA NANG - Depth. VIỆT NAM - BỜ BIỂN NAM TRUNG BỘ - ĐÀ NẴNG - Độ sâu.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-03-08-2026-tuan-32--13747-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20119(1).pdf"
+    },
+    {
+      "tuan": 32,
+      "ngay": "2026-08-03",
+      "so": "118",
+      "haiDo": [
+        "VN50023"
+      ],
+      "moTa": "VIET NAM - SOUTH CENTRAL COAST - QUANG NGAI - DUNG QUAT - Buoy, Beacon. VIỆT NAM - BỜ BIỂN NAM TRUNG BỘ - QUẢNG NGÃI - DUNG QUẤT - Phao, đăng tiêu.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-03-08-2026-tuan-32--13747-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20118.pdf"
+    },
+    {
+      "tuan": 31,
+      "ngay": "2026-07-27",
+      "so": "113",
+      "haiDo": [
+        "VN30019"
+      ],
+      "moTa": "",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-27-07-2026-tuan-31--13706-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20113.pdf"
+    },
+    {
+      "tuan": 30,
+      "ngay": "2026-07-20",
+      "so": "111",
+      "haiDo": [
+        "VN50059",
+        "VN30034"
+      ],
+      "moTa": "",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-20-07-2026-tuan-30--13698-2.html",
+      "pdf": null
+    },
+    {
+      "tuan": 29,
+      "ngay": "2026-07-13",
+      "so": "100",
+      "haiDo": [
+        "VN50028",
+        "VN50029",
+        "VN30020"
+      ],
+      "moTa": "",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-13-07-2026-tuan-29--13665-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20100.pdf"
+    },
+    {
+      "tuan": 28,
+      "ngay": "2026-07-06",
+      "so": "96",
+      "haiDo": [
+        "VN50018"
+      ],
+      "moTa": "",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-06-07-2026-tuan-28--13644-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%2096.pdf"
+    },
+    {
+      "tuan": 27,
+      "ngay": "2026-06-29",
+      "so": "94",
+      "haiDo": [
+        "VN50020",
+        "VN30011"
+      ],
+      "moTa": "",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-29-06-2026-tuan-27--13612-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%2094(1).pdf"
+    },
+    {
+      "tuan": 26,
+      "ngay": "2026-06-22",
+      "so": "91",
+      "haiDo": [
+        "VN50060"
+      ],
+      "moTa": "",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-22-06-2026-tuan-26--13611-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%2091.pdf"
+    },
+    {
+      "tuan": 25,
+      "ngay": "2026-06-15",
+      "so": "85",
+      "haiDo": [
+        "VN40011"
+      ],
+      "moTa": "",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-15-06-2026-tuan-25--13581-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%2085%20block.pdf"
+    },
+    {
+      "tuan": 24,
+      "ngay": "2026-06-07",
+      "so": "78",
+      "haiDo": [
+        "VN50008"
+      ],
+      "moTa": "",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-07-06-2026-tuan-24--13552-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%2078.pdf"
+    },
+    {
+      "tuan": 23,
+      "ngay": "2026-06-01",
+      "so": "77",
+      "haiDo": [
+        "VN50020"
+      ],
+      "moTa": "",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-01-06-2026-tuan-23--13521-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%2077.pdf"
+    },
+    {
+      "tuan": 22,
+      "ngay": "2026-05-25",
+      "so": "72",
+      "haiDo": [
+        "VN50008"
+      ],
+      "moTa": "",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-25-05-2026-tuan-22--13506-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%2072.pdf"
+    },
+    {
+      "tuan": 21,
+      "ngay": "2026-05-18",
+      "so": "70",
+      "haiDo": [
+        "VN50007",
+        "VN50008"
+      ],
+      "moTa": "",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-18-05-2026-tuan-21--13480-2.html",
+      "pdf": "https://media-vmsc-cms.intelwrit.ing/storage/v1/object/public/media/users/1/originals/thuy-dac/e33d0260-aa8d-40d6-b6ff-7d1daa3005e9.pdf"
+    },
+    {
+      "tuan": 17,
+      "ngay": "2026-04-20",
+      "so": "62",
+      "haiDo": [
+        "VN50016",
+        "VN30008"
+      ],
+      "moTa": "",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-04-05-2026-tuan-19--13436-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%2062.pdf"
+    },
+    {
+      "tuan": 17,
+      "ngay": "2026-04-20",
+      "so": "54",
+      "loai": "tam-thoi",
+      "haiDo": [
+        "VN50031",
+        "VN30025"
+      ],
+      "moTa": "",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-27-04-2026-tuan-18--13421-2.html",
+      "pdf": "https://media-vmsc-cms.intelwrit.ing/storage/v1/object/public/media/users/1/originals/HAIDOGIAY/cf44a5a2-834f-42ab-903e-ac1808034bad.pdf"
+    }
+  ],
+  "chuaBoc": [
+    {
+      "tuan": 20,
+      "ngay": "2026-05-11",
+      "url": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-11-05-2026-tuan-20--13461-2.html"
+    }
+  ]
+}
