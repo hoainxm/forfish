@@ -65,7 +65,9 @@ const ERDDAP =
   "https://uhslc.soest.hawaii.edu/erddap/tabledap/global_hourly_rqds.csv";
 const OUT = "public/data/tide-stations.v1.json";
 const EOT_POINTS = "scripts/eot20-points.json";
-const BUDGET_KB = 60;
+// 11 trạm = 5,6 KB; 83 trạm (4 đo + 7 vùng + 72 cảng, 2026-09-04) = 57 KB —
+// vẫn một file nhỏ trong CRITICAL_SHELL, tải một lần là có con nước cả năm
+const BUDGET_KB = 80;
 
 // Chỉ dựng lại trạm mô hình (không đụng mạng, giữ nguyên trạm đo trong file cũ).
 const ADD_MODEL_ONLY = process.argv.includes("--add-model-only");
@@ -424,15 +426,36 @@ function buildModelStations(gaugeStations, eot) {
   console.log(`   sai số mô hình đại diện (trung vị) = ${(modelRmse * 100).toFixed(1)} cm`);
 
   // 4) dựng trạm mô hình
+  /*  HAI HẠNG (2026-09-04, chủ dự án: "sinh hết đi, sinh ở các cảng luôn"):
+        · 7 điểm cửa lạch lớn (id không có tiền tố) = hạng VÙNG — luật CHẶN
+          giữ nguyên: hỏng một điểm là dừng cả lượt sinh;
+        · điểm `cang-*` (toạ độ cảng cá trong danh mục) = hạng CẢNG — hỏng thì
+          BỎ điểm đó và NÓI RA, không dừng: cảng nằm sâu trong sông (Mỹ Tho,
+          Cần Thơ) ô EOT20 gần nhất cách 40 km trở lên (`sampleRadius` ≥ 3 do
+          extract-eot20.py ghi) — số lấy ở đó là số của cửa biển, không phải
+          của bến; thà thiếu trạm còn hơn có trạm nói giờ nước của chỗ khác. */
   const stations = [];
+  const bo = [];
   for (const m of eot.model) {
+    const laCang = m.id.startsWith("cang-");
+    const loi = (msg) => {
+      if (!laCang) throw new Error(`CHẶN: trạm mô hình ${m.id} ${msg}`);
+      bo.push(`${m.id}: ${msg}`);
+      return null;
+    };
+    if (laCang && (m.sampleRadius ?? 0) >= 3) {
+      loi(`ô EOT20 ướt gần nhất cách ≥ ${m.sampleRadius} ô (~${m.sampleRadius * 14} km) — nằm sâu trong sông`);
+      continue;
+    }
     const cons = toCons(m.cons);
     if (cons.length < 6) {
-      throw new Error(`CHẶN: trạm mô hình ${m.id} chỉ còn ${cons.length} sóng.`);
+      loi(`chỉ còn ${cons.length} sóng`);
+      continue;
     }
     const z0 = Number((-lowestAstronomicalTide(cons)).toFixed(3));
     if (!(z0 > 0.2 && z0 < 3.5)) {
-      throw new Error(`CHẶN: trạm mô hình ${m.id} z0=${z0} m — ngoài khoảng hợp lý.`);
+      loi(`z0=${z0} m — ngoài khoảng hợp lý`);
+      continue;
     }
     stations.push({
       id: m.id,
@@ -444,14 +467,19 @@ function buildModelStations(gaugeStations, eot) {
       span: `mô hình ${eot.extractedAt}`,
       rmseM: modelRmse,
       nguon: "model",
+      ...(laCang ? { hang: "cang" } : {}),
       note: `${m.note} Ước tính từ mô hình EOT20 — kém tin hơn trạm đo.`,
       cons,
     });
     const F = (n) => cons.find((c) => c.name === n)?.amp ?? 0;
     console.log(
       `   ${m.id}: ${cons.length} sóng · z0 ${z0} m · ` +
-        `F=${((F("K1") + F("O1")) / (F("M2") + F("S2") + 1e-9)).toFixed(2)}`,
+        `F=${((F("K1") + F("O1")) / (F("M2") + F("S2") + 1e-9)).toFixed(2)}${laCang ? " · cảng" : ""}`,
     );
+  }
+  if (bo.length) {
+    console.log(`\n   BỎ ${bo.length} điểm cảng (nói ra, không dừng):`);
+    for (const b of bo) console.log(`   ✗ ${b}`);
   }
   return stations;
 }

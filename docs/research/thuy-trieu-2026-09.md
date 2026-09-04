@@ -128,7 +128,8 @@ Không có máy đo tại 7 điểm mô hình để holdout. Số thay thế: **
 - **Dữ liệu**: `public/data/tide-stations.v1.json` giờ có **11 trạm** (4 gauge giữ nguyên byte + 7 model), 10 KB — trong ngân sách 60 KB. Đường dẫn/khoá SW không đổi (offline an toàn).
 - **Engine** (`tides.ts`): thêm cờ `nguon`, hàm `isModelStation()`, `tideModelCaveat()`, và `tideTrustText(distanceKm, station?)` (tham số `station` TUỲ CHỌN — lời gọi cũ vẫn chạy). Engine dự báo GIỮ NGUYÊN.
 - **⚠️ Bàn giao UI (đội bản đồ — `fishing-map-view.tsx`, ngoài quyền sửa của việc này):** lời gọi hiện tại `tideTrustText(gan.distanceKm)` cần đổi thành **`tideTrustText(gan.distanceKm, gan.station)`** để trạm mô hình được gắn cờ "ước tính" NGAY CẢ khi ở gần. Chưa đổi thì trạm mô hình gần sẽ hiện như trạm đo — đây là điểm honesty cần vá sớm.
-- **Sinh lại**: `scripts/extract-eot20.py` (trích EOT20 → `scripts/eot20-points.json`, ~9 KB, đã commit) rồi `npx tsx scripts/generate-tides.mjs --add-model-only`. Gói EOT20 2,3 GB KHÔNG vào repo, KHÔNG tải lúc build.
+- **Sinh lại**: `scripts/extract-eot20.py` (trích EOT20 → `scripts/eot20-points.json`, đã commit) rồi `npx tsx scripts/generate-tides.mjs --add-model-only`. Gói EOT20 2,3 GB KHÔNG vào repo, KHÔNG tải lúc build.
+- **2026-09-04 — trạm tại TỪNG cảng** (chủ dự án: "sinh hết đi, sinh ở các cảng luôn"): đo 90 cảng hoạt động có toạ độ → 11 cảng cách trạm > 120 km, 28 cảng 60–120 km. Thêm 79 điểm `cang-*` vào `eot20-points.json` (từ `FISHING_PORTS`, bỏ điểm cách trạm cũ < 12 km, cặp < 3 km; rà tay bỏ 3 toạ độ sai trong danh mục — Cồn Cỏ ghi ở Cửa Việt, Mỏ Ó ở Long Xuyên, Lạch Bạng ở Rạch Giá — và Mỹ Tho cảng sông 40 km). Bản EOT20 dùng thật là **bản GỘP kiểu TMD** `EOT20_ocean.nc` (287 MB, hRe/hIm mét + mask; giữ ở `ForFish-kho-vat-lieu/scratchpad-2026-09-02/`), `extract-eot20.py` nay đọc được cả bản này (số tại Hòn Dấu khớp bản 2026-09-03 tới 0,02 %) và ghi `sampleRadius`. Kết quả **83 trạm, 57 KB** (`BUDGET_KB` 60 → 80), sai số mô hình trung vị 12,8 cm; F: vịnh Bắc Bộ 10–16 (nhật triều đều), Nam Trung Bộ 2,1–2,6, Vũng Tàu–Cà Mau 0,8–1,2 (bán nhật không đều), Thuận An 0,39 — đúng chế độ từng vùng. Trạm cảng mang `hang: "cang"`, bản đồ chỉ hiện từ z9. Cổng test: mọi cảng ≤ 40 km tới trạm.
 - **Rà lại khi**: UHSLC/IOC mở thêm trạm ĐO VN, EOT20 ra bản mới, hoặc lấy được bảng thuỷ triều VN dạng số (khớp-ngược hằng số).
 
 ---
@@ -146,6 +147,9 @@ curl -s "https://www.ioc-sealevelmonitoring.org/service.php?query=stationlist&sh
 #   giải nén ocean_tides.zip → <dir>/ocean_tides/*.nc
 pip install netCDF4
 python scripts/extract-eot20.py <dir>/ocean_tides     # → scripts/eot20-points.json
-npx tsx scripts/generate-tides.mjs --add-model-only    # quy đổi + ghép 7 trạm model
+#   hoặc bản GỘP TMD: python scripts/extract-eot20.py <thư-mục-chứa-EOT20_ocean.nc>
+npx tsx scripts/generate-tides.mjs --add-model-only    # quy đổi + ghép trạm model (7 vùng + 72 cảng)
+#   máy không có tsx: bundle bằng rolldown (alias @ → src) rồi node <bundle> --add-model-only
+# rồi sửa dòng dấu "trạm N, ngày" trong public/sw.js (file đổi nội dung giữ đường dẫn)
 npm test
 ```

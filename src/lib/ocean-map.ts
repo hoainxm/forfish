@@ -468,6 +468,15 @@ export const TIDE_STATION_COLOR = "#2b74c4";
 export const TIDE_STATION_MINZOOM = CHART_TIER.LUON;
 export const TIDE_STATION_LABEL_MINZOOM = CHART_TIER.XA;
 export const TIDE_STATION_TREND_MINZOOM = CHART_TIER.VUA;
+/*  TRẠM TẠI CẢNG (hang="cang", 2026-09-04 "sinh ở các cảng luôn") — 70+ trạm
+    mô hình EOT20 lấy tại toạ độ cảng cá, dày dọc bờ: chỉ hiện từ nấc VỪA (z9,
+    cùng nấc phao luồng) — ở nấc cả nước 11 trạm vùng đã đủ để hỏi giờ nước,
+    thêm 70 khối nước nữa là bôi kín bờ. Cùng ký hiệu, cùng nhãn; nhãn "đang
+    lên/xuống" của cảng hiện ngay từ nấc này (không có nấc "chỉ tên"). */
+export const TIDE_STATION_CANG_MINZOOM = CHART_TIER.VUA;
+/** Bộ lọc tách hai hạng — dùng cho cả lớp icon lẫn lớp nhãn. */
+export const TIDE_FILTER_VUNG = ["!=", ["get", "hang"], "cang"] as const;
+export const TIDE_FILTER_CANG = ["==", ["get", "hang"], "cang"] as const;
 
 export const TIDE_STATION_LAYER = {
   id: "tram-trieu-dot",

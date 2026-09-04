@@ -167,11 +167,14 @@ describe("trục 3 — honesty: verdict không được tô hồng quá giới h
     const h = layHang(14);
     expect(h.ketLuan).toBe("VƯỢT");
     expect(h.taCo).toMatch(/4 trạm ĐO/);
-    expect(h.taCo).toMatch(/7 trạm MÔ HÌNH/);
+    // 2026-09-03: 7 trạm mô hình; 2026-09-04: +72 trạm tại cảng ⇒ 79 — số có
+    // thể tăng khi danh mục cảng thêm cảng, nhưng chữ "MÔ HÌNH" phải còn
+    expect(h.taCo).toMatch(/\d+ trạm MÔ HÌNH/);
+    expect(h.taCo).toMatch(/tại cảng/);
     expect(h.ghi).toMatch(/EOT20/);
     expect(h.ghi).toMatch(/Rạch Giá|Cà Mau|vịnh Thái Lan/);
-    // "11 trạm đo" (gộp mô hình vào đo) là câu nói ngược nguồn — cấm.
-    expect(h.taCo).not.toMatch(/11 trạm đo/);
+    // "11 trạm đo" / "83 trạm đo" (gộp mô hình vào đo) là câu nói ngược nguồn — cấm.
+    expect(h.taCo).not.toMatch(/\d{2} trạm đo/i);
   });
 
   it("hạng mục 6 (Xác tàu) giữ CHƯA — ghi rõ đây là giới hạn NGUỒN, không phải việc chưa làm, và từ chối bịa số", () => {

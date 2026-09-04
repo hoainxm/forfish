@@ -285,6 +285,9 @@ const CRITICAL_SHELL = [
       tính TRONG MÁY nên có file này là có con nước cả năm không cần mạng —
       "thuỷ triều" là món in đậm trên tờ quảng cáo máy hải đồ 5 triệu. Rẻ nhất
       trong toàn bộ vỏ. */
+  //  DẤU SINH LẠI TRẠM — sửa dòng này mỗi lần generate-tides.mjs đổi file
+  //  (cùng luật với sprite ở dưới: đường dẫn giữ nguyên, sw.js phải đổi byte):
+  //    trạm 83 (4 đo + 7 vùng + 72 cảng), 2026-09-04
   "/data/tide-stations.v1.json",
   /*  XÁC TÀU + CHƯỚNG NGẠI (2026-09-02) — 38 vật chìm, 8 KB. Tàu giã cào
       quét trúng là mất lưới, đêm chạy qua vật cạn là thủng vỏ — và chỗ có xác

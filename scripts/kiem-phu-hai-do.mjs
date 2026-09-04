@@ -553,14 +553,14 @@ export function hangMucChuan() {
     {
       id: 14,
       ten: "Thuỷ triều",
-      taCo: `${ts.stations.length} trạm — ${denDoTram} trạm ĐO thật (gauge, UHSLC/JASL) + ${moHinhTram} trạm MÔ HÌNH (EOT20, CC BY 4.0)`,
+      taCo: `${ts.stations.length} trạm — ${denDoTram} trạm ĐO thật (gauge, UHSLC/JASL) + ${moHinhTram} trạm MÔ HÌNH (EOT20, CC BY 4.0; trong đó ${ts.stations.filter((s) => s.hang === "cang").length} trạm tại cảng cá, 2026-09-04)`,
       // 2026-09-03 (chiều): thêm 7 trạm EOT20 (mô hình thuỷ triều toàn cầu,
       // KHÔNG phải trạm đo thật — gắn cờ `nguon: "model"` trong chính file,
       // đếm riêng denDoTram/moHinhTram để KHÔNG lẫn mô hình vào trạm đo). Giá
       // trị nhất: phủ bờ Tây (Rạch Giá, Mũi Cà Mau — vịnh Thái Lan, bồn triều
       // khác hẳn Biển Đông) trước đây trắng hoàn toàn.
       ketLuan: daNoiSW("tide-stations.v1.json") && ts.stations.length >= 8 ? "VƯỢT" : "CHƯA",
-      ghi: `${denDoTram} trạm đo thật (Hòn Dấu/Vũng Áng/Quy Nhơn/Vũng Tàu) + ${moHinhTram} trạm mô hình EOT20 (RMSE 0,128 m — không lẫn với trạm đo) — phủ thêm bờ Tây (Rạch Giá/Cà Mau, vịnh Thái Lan) trước đây trắng. Vẫn thưa so mạng trạm hải đồ thương mại cho cả bờ biển 3.260 km.`,
+      ghi: `${denDoTram} trạm đo thật (Hòn Dấu/Vũng Áng/Quy Nhơn/Vũng Tàu) + ${moHinhTram} trạm mô hình EOT20 (RMSE ~0,13 m — không lẫn với trạm đo) — phủ bờ Tây (Rạch Giá/Cà Mau, vịnh Thái Lan) và từ 2026-09-04 lấy tại toạ độ TỪNG cảng cá đang hoạt động: mọi cảng cách trạm ≤ 40 km (cổng test), hết cảng nào chỉ xem được "lên/xuống".`,
     },
     {
       id: 15,

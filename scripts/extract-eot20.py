@@ -96,6 +96,40 @@ def sample(lon, lat, real, imag, plat, plon):
     return None, None, None
 
 
+def load_tmd(path):
+    """Bản GỘP kiểu TMD (Chad Greene chuyển đổi, `EOT20_ocean.nc` 287 MB): một
+    file, biến `hRe`/`hIm` (constituents, lat, lon) đơn vị MÉT + `mask` biển/đất
+    + thuộc tính `constituent_order`. Đây là bản ĐÃ DÙNG 2026-09-03 (số tại Hòn
+    Dấu khớp từng chữ số với eot20-points.json). Trả về danh sách
+    (tên sóng, lon, lat, real, imag) với real/imag đổi sang CM để cùng đơn vị
+    với nhánh từng-file ở trên."""
+    ds = Dataset(path)
+    v = ds.variables
+    names = str(v["constituents"].getncattr("constituent_order")).replace(",", " ").split()
+    lon = np.array(v["lon"][:], dtype=float)
+    lat = np.array(v["lat"][:], dtype=float)
+    mask = np.array(v["mask"][:], dtype=float)
+    out = []
+    for k, name in enumerate(names):
+        re = np.ma.masked_invalid(np.array(v["hRe"][k, :, :], dtype=float)) * 100.0
+        im = np.ma.masked_invalid(np.array(v["hIm"][k, :, :], dtype=float)) * 100.0
+        re = np.ma.masked_where(mask < 0.5, re)
+        im = np.ma.masked_where(mask < 0.5, im)
+        out.append((name.upper(), lon, lat, re, im))
+    ds.close()
+    return out
+
+
+def is_tmd(path):
+    try:
+        ds = Dataset(path)
+        ok = "hRe" in ds.variables and "constituents" in ds.dimensions
+        ds.close()
+        return ok
+    except Exception:
+        return False
+
+
 def main(eot_dir):
     doc = json.load(open(POINTS, encoding="utf-8"))
     ncs = [f for f in glob.glob(os.path.join(eot_dir, "**", "*.nc"), recursive=True)
@@ -105,9 +139,15 @@ def main(eot_dir):
     targets = [("calib", p) for p in doc["calib"]] + [("model", p) for p in doc["model"]]
     for _, p in targets:
         p["cons"] = {}
+        p.pop("sampleRadius", None)
+    grids = []
     for path in sorted(ncs):
-        name = constituent_name(path)
-        lon, lat, real, imag = load_grid(path)
+        if is_tmd(path):
+            grids.extend(load_tmd(path))
+        else:
+            lon, lat, real, imag = load_grid(path)
+            grids.append((constituent_name(path), lon, lat, real, imag))
+    for name, lon, lat, real, imag in grids:
         for _, p in targets:
             r, m, rad = sample(lon, lat, real, imag, p["lat"], p["lon"])
             if r is None:
@@ -115,6 +155,9 @@ def main(eot_dir):
             amp = math.hypot(r, m)
             G = (math.degrees(math.atan2(m, r)) + 360) % 360
             p["cons"][name] = {"amp_cm": round(amp, 4), "G_deg": round(G, 2)}
+            # bán kính ô đã phải nới để gặp nước (0 = trúng ô ướt; ≥3 ≈ >40 km,
+            # điểm nằm sâu trong sông/đất — generate-tides.mjs đọc cờ này)
+            p["sampleRadius"] = max(p.get("sampleRadius", 0), rad)
     doc["extractedAt"] = __import__("datetime").date.today().isoformat()
     json.dump(doc, open(POINTS, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     for grp, p in targets:

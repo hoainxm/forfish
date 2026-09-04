@@ -52,6 +52,9 @@ import {
   KHU_TRU_BAO_MINZOOM,
   TIDE_STATION_LAYER,
   TIDE_STATION_LABEL_LAYER,
+  TIDE_STATION_CANG_MINZOOM,
+  TIDE_FILTER_VUNG,
+  TIDE_FILTER_CANG,
   CHART_TIER,
   RIG_MINZOOM,
   REEF_HAZARD_MINZOOM,
@@ -332,7 +335,7 @@ const LEGEND_TIERS: LegendTier[] = [
       { mau: ISLAND_DOT_COLOR, dang: "cham", chu: "Đảo nổi có tên (chữ navy)" },
       { mau: DEPTH_BANDS[DEPTH_BANDS.length - 1].color, dang: "vung", chu: "Dải màu độ sâu: càng sáng càng sâu (0–10 · 10–20 · 20–50 · trên 50 m)" },
       { mau: SEA_LANE_COLOR, dang: "duong", chu: "Tuyến tàu hàng lớn" },
-      { icon: "tide-up-2", chu: "Trạm con nước — khối nước xanh có mũi tên lên là đang lên, đỏ mũi tên xuống là đang xuống, chỉ mặt sóng là nước đứng, kẻ sọc là ước tính; chạm xem giờ nước lớn, nước ròng" },
+      { icon: "tide-up-2", chu: "Trạm con nước — khối nước xanh có mũi tên lên là đang lên, đỏ mũi tên xuống là đang xuống, chỉ mặt sóng là nước đứng, kẻ sọc là ước tính; chạm xem giờ nước lớn, nước ròng. 11 trạm vùng thấy từ đây, trạm tại từng cảng cá hiện khi phóng vừa" },
       { icon: CHART_FEATURE_ICON.seamount, chu: "Núi ngầm — gò lớn dưới đáy, cá đáy hay tụ quanh sườn" },
       { icon: CHART_FEATURE_ICON.knoll, chu: "Đồi ngầm — gò thấp dưới đáy" },
       { icon: CHART_FEATURE_ICON.ridge, chu: "Sống núi ngầm — dải gò dài" },
@@ -2765,6 +2768,7 @@ export default function FishingMapView() {
             i,
             ten: s.name,
             model: model ? 1 : 0,
+            hang: s.hang ?? "vung",
             ic: tideSymbolId(trend, frac, model),
             nhan9: `${s.name} · ${chu(trend)}`,
           },
@@ -3426,7 +3430,7 @@ export default function FishingMapView() {
     if (!anyExclusiveOverlay && chartDetailOn && groupNavOn) ids.push("khu-tru-bao-dot");
     /*  Chạm TRẠM CON NƯỚC ra sheet giờ nước lớn/ròng 7 ngày. Không dính công
         tắc "Hải đồ chi tiết" — lớp miễn phí, riêng công tắc của nó. */
-    if (!anyExclusiveOverlay && prefs.tideStations && tideGeo) ids.push("tram-trieu-dot");
+    if (!anyExclusiveOverlay && prefs.tideStations && tideGeo) ids.push("tram-trieu-dot", "tram-trieu-dot-cang");
     /*  Xác tàu chạm được — tên tàu, năm, độ sâu vượt qua (nếu nhà nước
         ghi) và số thông báo tra ngược. */
     if (!anyExclusiveOverlay && chartDetailOn && groupNavOn && xacTauGeo) ids.push("xac-tau");
@@ -4213,7 +4217,7 @@ export default function FishingMapView() {
           /*  CHẠM TRẠM CON NƯỚC ⇒ sheet 7 ngày của trạm đó — DỪNG. */
           const hitTram = measureMode
             ? undefined
-            : nearFeats.find((f) => f.layer?.id === "tram-trieu-dot");
+            : nearFeats.find((f) => f.layer?.id === "tram-trieu-dot" || f.layer?.id === "tram-trieu-dot-cang");
           if (hitTram) {
             const ti = Number(hitTram.properties?.i ?? -1);
             const ts = ti >= 0 ? tideStations?.[ti] : undefined;
@@ -5600,8 +5604,26 @@ export default function FishingMapView() {
              vệ tinh. Ẩn khi bật lớp dự báo động (cùng luật mọi lớp hải đồ). */}
         {!anyExclusiveOverlay && prefs.tideStations && tideGeo && (
           <Source id="tram-trieu" type="geojson" data={tideGeo}>
-            <Layer {...(TIDE_STATION_LAYER as unknown as LayerProps)} />
-            <Layer {...(TIDE_STATION_LABEL_LAYER as unknown as LayerProps)} />
+            {/*  HAI HẠNG cùng ký hiệu: trạm VÙNG (11) từ z5; trạm TẠI CẢNG
+                 (70+) từ z9 — xem TIDE_STATION_CANG_MINZOOM. */}
+            <Layer {...({ ...TIDE_STATION_LAYER, filter: TIDE_FILTER_VUNG } as unknown as LayerProps)} />
+            <Layer
+              {...({
+                ...TIDE_STATION_LAYER,
+                id: "tram-trieu-dot-cang",
+                minzoom: TIDE_STATION_CANG_MINZOOM,
+                filter: TIDE_FILTER_CANG,
+              } as unknown as LayerProps)}
+            />
+            <Layer {...({ ...TIDE_STATION_LABEL_LAYER, filter: TIDE_FILTER_VUNG } as unknown as LayerProps)} />
+            <Layer
+              {...({
+                ...TIDE_STATION_LABEL_LAYER,
+                id: "tram-trieu-ten-cang",
+                minzoom: TIDE_STATION_CANG_MINZOOM,
+                filter: TIDE_FILTER_CANG,
+              } as unknown as LayerProps)}
+            />
           </Source>
         )}
 

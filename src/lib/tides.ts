@@ -74,6 +74,15 @@ export interface TideStation {
    * Vắng cờ = "gauge" (4 trạm cũ không ghi cờ vẫn là trạm đo).
    */
   nguon?: "gauge" | "model";
+  /**
+   * HẠNG hiển thị trên bản đồ (2026-09-04, "sinh ở các cảng luôn"):
+   *  · "vung" (vắng cờ) — trạm VÙNG: 4 trạm đo + 7 trạm mô hình cửa lạch lớn,
+   *    hiện từ nấc LUÔN (z5) — 11 mốc cả nước không rối;
+   *  · "cang" — trạm TẠI CẢNG (mô hình EOT20 lấy tại toạ độ cảng cá), 70+
+   *    trạm dày dọc bờ ⇒ chỉ hiện từ nấc VỪA (z9). `nearestTideStation` KHÔNG
+   *    phân biệt hạng: thẻ con nước luôn lấy trạm gần nhất.
+   */
+  hang?: "vung" | "cang";
   /** một câu mô tả kiểu con nước ở cửa này — hiện cạnh bảng cho bà con đối chiếu */
   note?: string;
   cons: TideConstituent[];

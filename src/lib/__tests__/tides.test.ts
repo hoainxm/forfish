@@ -314,6 +314,37 @@ describe("file public/data/tide-stations.v1.json", () => {
     }
   });
 
+  /*  TRẠM TẠI CẢNG (2026-09-04, chủ dự án: "sinh hết đi, sinh ở các cảng luôn"):
+      mô hình EOT20 lấy tại toạ độ từng cảng cá đang hoạt động trong danh mục.
+      Cổng: đủ nhiều, đúng hạng, và PHỦ được danh mục cảng — không cảng nào cách
+      trạm quá 40 km, trừ những cảng danh mục ghi SAI toạ độ (liệt kê tường minh,
+      không giấu). */
+  it("trạm tại cảng: ≥ 60 trạm hang=cang, mọi trạm cang-* đúng hạng, trạm vùng không mang hạng", () => {
+    const cang = stations.filter((s) => s.hang === "cang");
+    expect(cang.length).toBeGreaterThanOrEqual(60);
+    for (const s of stations) {
+      if (s.id.startsWith("cang-")) {
+        expect(s.hang, s.id).toBe("cang");
+        expect(s.nguon, s.id).toBe("model");
+      } else expect(s.hang, s.id).toBeUndefined();
+    }
+  });
+
+  it("phủ danh mục cảng: mọi cảng hoạt động có toạ độ cách trạm ≤ 40 km (trừ toạ độ sai đã biết)", async () => {
+    const { FISHING_PORTS } = await import("@/data/fishing-ports");
+    // toạ độ trong danh mục SAI (đã rà tay 2026-09-04): Bến Đầm (Côn Đảo) nằm ở
+    // Vũng Tàu, Cồn Cỏ nằm ở Cửa Việt, Mỏ Ó ở Long Xuyên, Lạch Bạng ở Rạch Giá;
+    // Mỹ Tho là cảng sông cách cửa biển 40 km — cố ý không sinh trạm.
+    const SAI = new Set(["ben-dam-con-dao", "con-co", "mo-o", "lach-bang", "my-tho"]);
+    const xa: string[] = [];
+    for (const p of FISHING_PORTS) {
+      if (!p.active || !Number.isFinite(p.lat) || !Number.isFinite(p.lng) || SAI.has(p.id)) continue;
+      const n = nearestTideStation(stations, p.lat!, p.lng!);
+      if (!n || n.distanceKm > 40) xa.push(`${p.name}: ${n ? n.distanceKm.toFixed(0) : "?"} km`);
+    }
+    expect(xa, `cảng xa trạm:\n${xa.join("\n")}`).toEqual([]);
+  });
+
   it("ghi nguồn + cảnh báo quy ước pha nằm ngay trong file", () => {
     expect(raw.credit).toMatch(/UHSLC/);
     expect(raw.credit).toMatch(/tham khảo/);
@@ -339,7 +370,7 @@ describe("file public/data/tide-stations.v1.json", () => {
       expect(min).toBeGreaterThan(-0.05);
       expect(min).toBeLessThan(0.35);
     }
-  });
+  }, 40_000); // 83 trạm × 17.568 mẫu/năm ≈ 7 s — quá trần 5 s mặc định
 
   it("decodeTideStations chặn file sai phiên bản / sai định dạng", () => {
     expect(() => decodeTideStations(null)).toThrow();
@@ -414,6 +445,7 @@ describe("nói tiếng người", () => {
     expect(tideRangeText(hd, "2026-09-01")).toMatch(/nước gần như đứng/);
   });
 
+  // 83 trạm × 22 ngày × (49 mẫu + tìm đỉnh) ≈ 7 s — quá trần 5 s mặc định
   it("mọi ngày trong một năm đều nói được một câu biên độ", () => {
     for (const st of stations) {
       for (let d = 0; d < 365; d += 17) {
@@ -423,7 +455,7 @@ describe("nói tiếng người", () => {
         expect(tideRangeText(st, iso)).toMatch(/^Nước lên xuống /);
       }
     }
-  });
+  }, 40_000);
 
   it("mọi câu xuất ra đều là chữ Việt đời thường, không có jargon", () => {
     const vt = byId("vung-tau");
@@ -461,13 +493,17 @@ describe("cảnh báo mắc cạn", () => {
 });
 
 describe("chọn trạm gần nhất + nói thật về độ tin cậy", () => {
-  it("Hải Phòng ra Hòn Dấu, Cần Giờ ra Vũng Tàu", () => {
-    expect(nearestTideStation(stations, 20.85, 106.68)?.station.id).toBe(
-      "hon-dau",
+  it("Hải Phòng ra Hòn Dấu, Cần Giờ ra Vũng Tàu (xét trạm VÙNG); có trạm cảng thì lấy trạm cảng gần hơn", () => {
+    const vung = stations.filter((s) => s.hang !== "cang");
+    expect(nearestTideStation(vung, 20.85, 106.68)?.station.id).toBe("hon-dau");
+    expect(nearestTideStation(vung, 10.41, 106.96)?.station.id).toBe("vung-tau");
+    // từ 2026-09-04 có trạm tại cảng: Hải Phòng nay gần trạm cảng Bến Giang hơn
+    // Hòn Dấu — nearestTideStation KHÔNG phân hạng, thẻ lấy trạm gần nhất
+    const hp = nearestTideStation(stations, 20.85, 106.68)!;
+    expect(hp.distanceKm).toBeLessThanOrEqual(
+      nearestTideStation(vung, 20.85, 106.68)!.distanceKm,
     );
-    expect(nearestTideStation(stations, 10.41, 106.96)?.station.id).toBe(
-      "vung-tau",
-    );
+    expect(nearestTideStation(stations, 10.41, 106.96)?.station.id).toBe("vung-tau");
   });
 
   it("toạ độ hỏng / danh sách rỗng → null, không đoán", () => {
@@ -504,6 +540,7 @@ describe("chống sập giữa biển", () => {
     expect(tideExtremesForDay(byId("vung-tau"), "")).toEqual([]);
   });
 
+  // 83 trạm × 28 ngày tìm đỉnh ≈ 6 s — quá trần 5 s mặc định
   it("mọi ngày trong một tháng đều ra ít nhất một con nước", () => {
     for (const st of stations) {
       for (let d = 1; d <= 28; d++) {
@@ -511,7 +548,7 @@ describe("chống sập giữa biển", () => {
         expect(tideExtremesForDay(st, iso).length).toBeGreaterThan(0);
       }
     }
-  });
+  }, 40_000);
 
   it("đỉnh và chân luân phiên, không bao giờ hai đỉnh liền nhau", () => {
     for (const st of stations) {
@@ -654,7 +691,9 @@ describe("thuỷ triều + làm mớn phải được NỐI, không chỉ nằm 
     const v = doc("src/components/fishing-map-view.tsx");
     expect(v, "chưa dựng nguồn trạm").toContain("tideGeo");
     expect(v, "chưa vẽ lớp trạm").toContain("TIDE_STATION_LAYER");
-    expect(v, "chưa cho chạm trạm").toContain('ids.push("tram-trieu-dot")');
+    expect(v, "chưa cho chạm trạm").toContain('ids.push("tram-trieu-dot"');
+    // trạm tại cảng (từ 2026-09-04) là lớp riêng z9 — cũng phải chạm được
+    expect(v, "chưa cho chạm trạm tại cảng").toContain('"tram-trieu-dot-cang"');
     expect(v, "chạm trạm chưa mở sheet").toContain("TideStationSheet");
     // lớp KHÔNG được treo vào công tắc "Hải đồ chi tiết" — miễn phí, riêng
     expect(v).not.toMatch(/chartDetailOn && [^\n]*prefs\.tideStations/);
