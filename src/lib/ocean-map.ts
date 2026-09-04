@@ -475,8 +475,12 @@ export const TIDE_STATION_LAYER = {
   minzoom: TIDE_STATION_MINZOOM,
   layout: {
     "icon-image": ["get", "ic"],
-    // 0,75 = 18 px ≥ sàn 16; cột nước cao gần hết ô nên không cần to như đèn
-    "icon-size": ["interpolate", ["linear"], ["zoom"], 5, 0.75, 9, 0.95, 13, 1.2],
+    /*  ×1,5 so với bản đầu (chủ dự án 2026-09-04: "icon thuỷ triều đang nhỏ,
+        ở các lớp đang bị lẫn các icon khác"): 1,1 = 26 px @z5 → 1,45 = 35 px
+        @z9 → 1,8 = 43 px @z13. Chỉ 11 trạm cả nước, to hơn đèn biển và phao
+        một bậc là ĐÚNG THỨ BẬC: trạm con nước là MỐC để hỏi "giờ nước", phao
+        là chỉ dẫn cục bộ — cùng lý do đèn biển to hơn phao. */
+    "icon-size": ["interpolate", ["linear"], ["zoom"], 5, 1.1, 9, 1.45, 13, 1.8],
     // 11 trạm rải cả nước — không bao giờ chồng nhau, nhưng KHÔNG được để
     // nhãn đảo/rạn giấu mất trạm: cho phép chồng như đèn biển
     "icon-allow-overlap": true,
@@ -493,8 +497,9 @@ export const TIDE_STATION_LABEL_LAYER = {
     // z7–9: tên; từ z9: tên + đang lên/xuống (`nhan9` do map-view tính)
     "text-field": ["step", ["zoom"], ["get", "ten"], TIDE_STATION_TREND_MINZOOM, ["get", "nhan9"]],
     "text-font": ["Noto Sans Bold"],
-    "text-size": ["interpolate", ["linear"], ["zoom"], 7, 11, 12, 14],
-    "text-offset": [0, 0.9],
+    "text-size": ["interpolate", ["linear"], ["zoom"], 7, 12, 12, 15],
+    // icon to hơn ⇒ đẩy tên xuống theo, không đè lên khối nước
+    "text-offset": [0, 1.35],
     "text-anchor": "top",
     "text-allow-overlap": false,
     "text-padding": 4,

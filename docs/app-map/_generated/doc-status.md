@@ -22,7 +22,7 @@
 | docs/app-map/ops/external-services.md | SUSPECT | code 'src/lib/port-price-source.ts' doi sau last_verified |
 | docs/app-map/ops/forecast-accuracy.md | VERIFIED | ok |
 | docs/app-map/ops/native-deploy.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/qa-offline-acceptance.md | VERIFIED | ok |
+| docs/app-map/ops/qa-offline-acceptance.md | SUSPECT | code 'public/sw.js' doi sau last_verified |
 | docs/app-map/ops/runbook-phat-hanh-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/runbook.md | VERIFIED | ok |
 | docs/app-map/ops/self-host-vps.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
