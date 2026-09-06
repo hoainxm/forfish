@@ -6,6 +6,9 @@
 //
 // CHỈ MANG DÒNG ĐANG CHỌN ở giỏ (F-05): dòng bỏ chọn nằm yên trong giỏ.
 //
+// GHI CHÚ THEO TỪNG SHOP (2026-09-06): mỗi khối shop có ô "Ghi chú cho <shop>"
+// riêng, gửi trong `shops[].buyerNote`; KHÔNG còn ô ghi chú chung.
+//
 // KHÔNG TRẢ TIỀN TRONG APP: COD hoặc chuyển khoản thẳng cho shop. Một cách trả
 // tiền cho cả lần đặt (LEAD §4 #9); có shop không có STK ⇒ chip Chuyển khoản
 // hiện MỜ + lý do ngay dưới (F-16 — ẩn hẳn làm người quen CK tưởng app không có).
@@ -86,7 +89,11 @@ export function Checkout() {
   const [addrSheet, setAddrSheet] = useState<AddrSheet>(null);
   const [addrError, setAddrError] = useState<string | null>(null);
   const [method, setMethod] = useState<PaymentMethod>("cod");
-  const [note, setNote] = useState("");
+  /*  GHI CHÚ THEO TỪNG SHOP (2026-09-06): một lần đặt sinh N đơn cho N shop, mà
+      lời dặn mỗi shop một khác ("giao trước 6h" cho đại lý đá, "gọi trước khi
+      tới" cho shop máy). Ô chung cũ gửi cùng một câu cho mọi shop. Khoá theo
+      shopId. */
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [sending, setSending] = useState(false);
   const [results, setResults] = useState<PlaceOrderResult[] | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -179,18 +186,25 @@ export function Checkout() {
     const address: Address = {
       name: chosen.name, phone: chosen.phone, province: chosen.province, detail: chosen.detail, isPort: chosen.isPort,
     };
-    const common = { address, paymentMethod: method, ...(note.trim() ? { buyerNote: note.trim() } : {}) };
+    const common = { address, paymentMethod: method };
     const shops = groups.map((g) => {
       const lines = g.lines.map((l) => ({
         productId: l.productId,
         qty: l.qty,
         ...(l.variantLabel ? { variantLabel: l.variantLabel } : {}),
       }));
+      const shopNote = (notes[g.shop.id] ?? "").trim();
       return {
         shopId: g.shop.id,
         items: lines,
-        clientRef: marketOrderClientRef({ shopId: g.shop.id, items: lines }, common),
+        /*  Vân tay tính KÈM ghi chú của CHÍNH shop này — sửa lời dặn một shop
+            thì chỉ đơn shop đó là đơn mới, các shop kia vẫn chống trùng. */
+        clientRef: marketOrderClientRef(
+          { shopId: g.shop.id, items: lines },
+          { ...common, ...(shopNote ? { buyerNote: shopNote } : {}) },
+        ),
         expectedTotalVnd: g.totalVnd,
+        ...(shopNote ? { buyerNote: shopNote } : {}),
       };
     });
 
@@ -308,11 +322,11 @@ export function Checkout() {
 
   // ── ma trận trước khi đặt ──────────────────────────────────────────────
   if (status === "loading") {
-    return <p role="status" className="px-4 py-10 text-center text-[1.125rem] text-foreground/65">Đang tra lại giỏ…</p>;
+    return <p role="status" className="px-4 py-10 pb-[7rem] text-center text-[1.125rem] text-foreground/65">Đang tra lại giỏ…</p>;
   }
   if (status === "offline" || !online) {
     return (
-      <div className="px-4 py-8 text-center">
+      <div className="px-4 py-8 pb-[7rem] text-center">
         <p className="text-[1.125rem] font-bold text-navy">Đặt hàng cần có sóng. Giỏ vẫn giữ nguyên.</p>
         <button
           type="button"
@@ -326,7 +340,7 @@ export function Checkout() {
   }
   if (status === "error") {
     return (
-      <div className="px-4 py-8 text-center" role="alert">
+      <div className="px-4 py-8 pb-[7rem] text-center" role="alert">
         <p className="text-[1.125rem] font-bold text-danger">Chợ đang trục trặc, chưa tra được giỏ. Thử lại giúp.</p>
         <button
           type="button"
@@ -340,7 +354,7 @@ export function Checkout() {
   }
   if (groups.length === 0) {
     return (
-      <div className="px-4 py-8 text-center">
+      <div className="px-4 py-8 pb-[7rem] text-center">
         <p className="text-[1.125rem] font-bold text-navy">
           {items.length === 0 && cart.items.length > 0 ? "Chưa chọn món nào để đặt." : "Không còn món nào mua được trong giỏ."}
         </p>
@@ -431,23 +445,23 @@ export function Checkout() {
                 <MoneyText vnd={g.totalVnd} />
               </p>
             </div>
+
+            {/* Ghi chú RIÊNG cho shop này — nằm trong khối shop để không nhầm shop */}
+            <div className="mt-3">
+              <Field label={`Ghi chú cho ${g.shop.name} (không bắt buộc)`}>
+                <textarea
+                  className={inputClass}
+                  rows={2}
+                  maxLength={NOTE_MAX}
+                  value={notes[g.shop.id] ?? ""}
+                  onChange={(e) => setNotes((v) => ({ ...v, [g.shop.id]: e.target.value }))}
+                  placeholder="Ví dụ: Giao trước 6h sáng, gọi trước khi tới."
+                />
+              </Field>
+            </div>
           </div>
         ))}
       </section>
-
-      {/* ── Ghi chú (một ghi chú cho cả lần đặt — CheckoutDraft.buyerNote) ── */}
-      <div className="mt-3">
-        <Field label="Ghi chú cho shop (gửi kèm mọi đơn của lần đặt này)">
-          <textarea
-            className={inputClass}
-            rows={2}
-            maxLength={NOTE_MAX}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Ví dụ: Giao trước 6h sáng, gọi trước khi tới."
-          />
-        </Field>
-      </div>
 
       {/* ── 4. Dòng chốt + nút ─────────────────────────────────────────── */}
       <div className="mt-2 rounded-2xl bg-field px-4 py-3">

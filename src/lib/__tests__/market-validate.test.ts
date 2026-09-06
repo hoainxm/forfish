@@ -121,6 +121,10 @@ describe("validateCheckout", () => {
     expect(validateCheckout(checkout({ paymentMethod: "tien_ao" as never }))).toMatch(/cách trả/i);
     expect(validateCheckout(checkout({ address: addr({ phone: "1" }) }))).toMatch(/điện thoại/i);
     expect(validateCheckout(checkout({ buyerNote: "x".repeat(301) }))).toMatch(/ghi chú/i);
+    // ghi chú RIÊNG theo shop (11 §5.6) — cùng trần 300 chữ, sai kiểu ⇒ chặn
+    expect(validateCheckout(checkout({ shops: [{ ...checkout().shops[0], buyerNote: "Giao trước 6h" }] }))).toBeNull();
+    expect(validateCheckout(checkout({ shops: [{ ...checkout().shops[0], buyerNote: "x".repeat(301) }] }))).toMatch(/ghi chú/i);
+    expect(validateCheckout(checkout({ shops: [{ ...checkout().shops[0], buyerNote: 5 as never }] }))).toMatch(/ghi chú/i);
     expect(validateCheckout(checkout({ shops: [] }))).toMatch(/chưa có món/i);
     expect(CART_MAX_LINES).toBe(50);
   });

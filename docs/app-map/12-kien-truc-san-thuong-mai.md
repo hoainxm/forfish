@@ -728,6 +728,8 @@ export interface ShopCheckoutDraft {
   clientRef: string;
   /** tổng client vừa thấy — server tính lại, lệch ⇒ price_changed (11 R5) */
   expectedTotalVnd: number;
+  /** ghi chú RIÊNG cho shop này (11 §5.6, 2026-09-06); thiếu ⇒ dùng buyerNote chung */
+  buyerNote?: string;
 }
 
 export interface CheckoutDraft {
@@ -735,6 +737,7 @@ export interface CheckoutDraft {
   address: Address;
   /** MỘT cách trả tiền cho cả lần đặt (LEAD §4 #9) */
   paymentMethod: PaymentMethod;
+  /** ghi chú CHUNG — chỉ dùng cho shop nào không có shops[].buyerNote */
   buyerNote?: string;
 }
 
@@ -936,6 +939,8 @@ export interface PreparedShopOrder {
   totalVnd: number;
   /** STK shop lúc đặt — route lấy từ Shop khi paymentMethod = chuyen_khoan */
   bankSnapshot?: BankInfo;
+  /** ghi chú RIÊNG cho shop này — adapter ghi vào buyer_note của đơn; thiếu ⇒ common.buyerNote */
+  buyerNote?: string;
 }
 
 export interface OrderListQuery { status?: OrderStatus; page?: number; pageSize?: number }
@@ -980,7 +985,9 @@ export interface MarketStore {
    * Thứ tự kết quả = thứ tự `prepared`.
    */
   placeOrders(buyerPhone: string, prepared: PreparedShopOrder[], common: {
-    address: Address; paymentMethod: PaymentMethod; buyerNote?: string;
+    address: Address; paymentMethod: PaymentMethod;
+    /** ghi chú chung — chỉ dùng khi prepared[].buyerNote trống */
+    buyerNote?: string;
   }): Promise<PlaceOrderResult[]>;
   listBuyerOrders(buyerPhone: string, q?: OrderListQuery): Promise<Page<Order>>;
   listShopOrders(shopId: string, q?: OrderListQuery): Promise<Page<Order>>;
@@ -1228,7 +1235,7 @@ export function validateAddress(a: Address): string | null;
 export function validateCheckout(d: CheckoutDraft): string | null;
 //  1..CHECKOUT_MAX_SHOPS shop, shopId không trùng; mỗi shop 1..ORDER_MAX_LINES item ("Mỗi đơn tối đa 20 món — tách bớt sang lần đặt sau");
 //  qty isValidMarketQty; productId chuỗi không rỗng; clientRef 8..64; expectedTotalVnd nguyên ≥ 0
-//  isPaymentMethod; validateAddress; buyerNote ≤ NOTE_MAX
+//  isPaymentMethod; validateAddress; buyerNote ≤ NOTE_MAX (cả chung lẫn shops[].buyerNote)
 export function validateReview(r: { rating: unknown; comment?: string }): string | null;
 //  rating 1..5 nguyên ("Chọn số sao.") · comment ≤ REVIEW_MAX ("Nhận xét tối đa 500 chữ.")
 export function validateCancelReason(actor: Actor, reason?: string): string | null;  // seller/admin bắt buộc 5..200 ("Ghi lý do cho người mua biết."); buyer tuỳ chọn ≤200
@@ -1528,7 +1535,7 @@ Thời gian máy khách chờ: đọc 12 s, ghi 20 s, upload 60 s. **Không rout
 | `GET /api/cho/san-pham/[id]/danh-gia` | anonymous ok | `?page` | `{ok, items: Review[], total}` (không có hidden) | 404 |
 | `GET /api/cho/shop/[slug]` | anonymous ok | `?page&sort&category` | `{ok, shop: ShopPublic, products: Page<ProductCard>}` | 404 `not_found` (slug lạ); 403 `shop_not_active` (có nhưng chưa duyệt/khoá/từ chối — UI "Shop này đang tạm đóng", KHÔNG lộ lý do) |
 | `POST /api/cho/gio/tinh` | anonymous ok (giỏ xem được chưa cần đăng nhập) | `{items: MarketCartLine[]}` (≤ 50) | `{ok, quote: CartQuote}` — groups có `shop.acceptsBankTransfer`/`shop.paused`; client cất `saveMarketQuote` | 400 |
-| `POST /api/cho/don` | đăng nhập | `CheckoutDraft` | `{ok, results: PlaceOrderResult[]}` (200 kể cả khi một shop lỗi — client hiện từng shop, xoá khỏi giỏ đúng dòng của shop `ok`). Luật server: (1) `validateCheckout`; (2) `getProductsByIds` + `getShop` từng shop; (3) `buildMarketLines` — có `dropped` ⇒ kết quả shop đó `line_unavailable` (không gọi store); (4) `paymentMethod=chuyen_khoan` mà `shopsForcingCod(shops)` ≠ [] ⇒ **400 `invalid`** "Shop {tên} chỉ nhận tiền mặt — chọn Trả khi nhận hàng cho cả lần đặt" (client đã ẩn chip, đây là lưới); (5) `computeTotals` ≠ `expectedTotalVnd` ⇒ kết quả shop đó `price_changed` + `quote` (không gọi store); (6) `placeOrders` cho các shop còn lại (kèm `bankSnapshot`); (7) `notifyMarket` N1 cho `shop.ownerPhone` mỗi đơn ok (không phải duplicate) | 400 `invalid`+message; 503 |
+| `POST /api/cho/don` | đăng nhập | `CheckoutDraft` | `{ok, results: PlaceOrderResult[]}` (200 kể cả khi một shop lỗi — client hiện từng shop, xoá khỏi giỏ đúng dòng của shop `ok`). Luật server: (1) `validateCheckout`; (2) `getProductsByIds` + `getShop` từng shop; (3) `buildMarketLines` — có `dropped` ⇒ kết quả shop đó `line_unavailable` (không gọi store); (4) `paymentMethod=chuyen_khoan` mà `shopsForcingCod(shops)` ≠ [] ⇒ **400 `invalid`** "Shop {tên} chỉ nhận tiền mặt — chọn Trả khi nhận hàng cho cả lần đặt" (client đã ẩn chip, đây là lưới); (5) `computeTotals` ≠ `expectedTotalVnd` ⇒ kết quả shop đó `price_changed` + `quote` (không gọi store); (6) `placeOrders` cho các shop còn lại (kèm `bankSnapshot` và `buyerNote` riêng của shop nếu có — adapter rơi về `common.buyerNote` khi trống); (7) `notifyMarket` N1 cho `shop.ownerPhone` mỗi đơn ok (không phải duplicate) | 400 `invalid`+message; 503 |
 | `GET /api/cho/don` ⏱ | đăng nhập | `?status&page` (pageSize 20, cache máy 50) | `{ok, items: Order[], total}` (kèm shopName/shopPhone/shopSlug) | — |
 | `GET /api/cho/don/[id]` ⏱ | đăng nhập | — | `{ok, order}` — `bankSnapshot` nằm trong order (KHÔNG đọc STK hiện tại của shop — 11 R11) — **buyer_phone ≠ phone ⇒ 404** (không lộ tồn tại) | 404 |
 | `POST /api/cho/don/[id]/huy` | đăng nhập | `{reason?}` (≤200) | `{ok, order}` — `applyTransition(o,"da_huy","buyer")`; N6 cho shop | 409 `bad_transition` |
@@ -1772,10 +1779,11 @@ Commit message mỗi pha ghi câu trả lời offline (CLAUDE.md pre-flight 🟡
 14. Cờ `forfish.mshop.v1` (khoá thứ 5) để sheet Tài khoản biết có shop mà không gọi mạng lúc mở app; sai lệch tối đa tới lần mở sheet có sóng kế tiếp.
 
 ## History
+- **1.5 (2026-09-06) — Buyer, vòng fix UX 2 (ux-audit2)**: `ShopCheckoutDraft.buyerNote?` + `PreparedShopOrder.buyerNote?` (ghi chú theo TỪNG shop; `placeOne` của cả hai adapter dùng `pre.buyerNote ?? common.buyerNote`; `validateCheckout` đo cùng trần `NOTE_MAX`); `MoneyText` luôn `whitespace-nowrap`; `market-order-detail.tsx` thêm "Mua lại" (dùng lại `POST /api/cho/gio/tinh` + `marketLineKey` + `useMarketCart`, không đẻ luật còn-bán thứ hai). Không đổi schema/migration.
 - **1.4 (2026-09-06) — Buyer, vòng fix UX**: `cart.ts` thêm 6 export ô chọn (§4.8, shape lưu thêm `off?`); `validate.ts` thêm `addressErrorField`; `login-gate.tsx` thêm prop `verb?` (mặc định "xem"); `buyer/hooks.ts` `useMarketCart` thêm `unselected/selectedItems/select`, `count` = **số dòng** (F-19); shared thêm `market-header.tsx`, `line-thumb.tsx`; `product-card.tsx` bỏ `onAdd`; `category-chips` level 1; `address-form` `<select>` + `homeProvince`; `LoginInvite` thành BottomSheet (`verb` thay `feature`); `/dev` persona login gọi `applyIdentityAction("SIGNED_IN", true, phone)` (F-29). `OrderLine.image` đã có sẵn từ 1.1 (buildMarketLines + 2 adapter + comment migration) — KHÔNG thêm `imageUrl` trùng nghĩa (nguyên tắc 3), chỉ thêm test. Chữ ký hàm Core cũ giữ nguyên.
 - **1.3 (2026-09-06) — Seller**: lối vào Kênh người bán (§9) chuyển RA NGOÀI nhóm "Cài đặt khác" thu gọn của `hero-account.tsx`, đặt ngay dưới khối danh tính/hạng — nằm trong nhóm thu gọn thì bà con phải bấm "Mở" mới thấy. Hai dạng dòng, cờ `seller-flag` và luật ẩn khi chưa biết + mất sóng GIỮ NGUYÊN.
 - 1.0 (2026-09-06): khởi tạo pha Kiến trúc từ LEAD-BRIEF; 12 điểm phản biện.
 - **1.2 (2026-09-06) — Core**: `ProductQuery.status` (`ProductStatusFilter` = ProductStatus | `bi_go` | `all`) cho `listShopProducts` ở CẢ HAI adapter — route `/api/ban-hang/san-pham` truyền thẳng xuống kho, hết quét 1.000 món rồi lọc trong route (gỡ `// nợ:`); `listProducts` (chợ) không đổi. Thêm biến môi trường `MARKET_STORE_FILE` trỏ tệp kho dev (§5.1), uploads đi theo thư mục của tệp.
 - **1.1 (2026-09-06) — hợp nhất sau phản biện**: đưa đủ LEAD-BRIEF §4/§5 vào schema/type/store/route (`settleOverdue`, `needs_refund`, `shops.paused`, `product_reviews.hidden`, `admin_hidden`, `deleted_at`, `bank_snapshot`, `approved_at`, danh mục id gạch-ngang, `marketOrderClientRef`, `expectedTotalVnd`/`price_changed`, `results[]` từng shop, ép COD, `?province`, khách lạ xem chợ, 2 dạng dòng sheet Tài khoản, sentinel SDVICO, push người bán); tên/mã/số khớp 11-ba-spec 1.1; ownership cuối cùng §10.1. Bảng đối chiếu: `_generated/phan-bien-san-thuong-mai-2026-09-06.md`.
 
-**Last updated**: 2026-09-06 (1.4)
+**Last updated**: 2026-09-06 (1.5)

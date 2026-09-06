@@ -23,7 +23,13 @@ export function PriceText({
   );
 }
 
-/** Số tiền trần (tổng, phí giao…) — một kiểu chữ cho mọi chỗ, `formatVnd` dùng chung. */
+/** Số tiền trần (tổng, phí giao…) — một kiểu chữ cho mọi chỗ, `formatVnd` dùng chung.
+ *  LUÔN `whitespace-nowrap` (R-01, 2026-09-06): "360.000 đ" gãy dòng giữa số và
+ *  chữ "đ" là số tiền đọc thành hai thứ — đặt ở đây để mọi màn khỏi tự nhớ. */
 export function MoneyText({ vnd, bold = true, className = "" }: { vnd: number; bold?: boolean; className?: string }) {
-  return <span className={`${bold ? "font-bold text-navy" : "text-foreground/80"} ${className}`}>{formatVnd(vnd)}</span>;
+  return (
+    <span className={`whitespace-nowrap ${bold ? "font-bold text-navy" : "text-foreground/80"} ${className}`}>
+      {formatVnd(vnd)}
+    </span>
+  );
 }

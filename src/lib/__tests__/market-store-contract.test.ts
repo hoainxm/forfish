@@ -301,6 +301,17 @@ describe("placeOrders — nguyên tử trong shop, độc lập giữa shop", ()
     expect(r4[0]).toMatchObject({ ok: false, code: "shop_not_active" });
     expect((await byTitle("Đá cây 50kg")).stock).toBe(da.stock);
   });
+  it("ghi chú THEO SHOP: prepared.buyerNote thắng ghi chú chung; thiếu thì rơi về chung (11 §5.6)", async () => {
+    const da = await byTitle("Đá cây 50kg");
+    const bugi = await byTitle("Bugi máy tàu NGK");
+    const preHd = prepared(haidang, [da], [{ productId: da.id, qty: 1 }], "m1-note-hd");
+    preHd.buyerNote = "Giao trước 6h sáng";
+    const preSd = prepared(sdvico, [bugi], [{ productId: bugi.id, qty: 1 }], "m1-note-sd"); // KHÔNG có ghi chú riêng
+    const res = await store.placeOrders("0901000001", [preHd, preSd], { ...common, buyerNote: "Gọi trước khi tới" });
+    expect(res.every((r) => r.ok)).toBe(true);
+    if (res[0].ok) expect(res[0].order.buyerNote).toBe("Giao trước 6h sáng");
+    if (res[1].ok) expect(res[1].order.buyerNote).toBe("Gọi trước khi tới");
+  });
   it("biến thể: giá riêng khớp ⇒ ok; nhãn lạ ⇒ line_unavailable", async () => {
     const led = await byTitle("Đèn LED pha tàu cá");
     const ok = await store.placeOrders("0901000001", [prepared(sdvico, [led], [{ productId: led.id, qty: 2, variantLabel: "100W" }], "m1-led-1")], common);

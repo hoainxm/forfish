@@ -23,7 +23,10 @@ export function fnv1a64Hex(s: string): string {
 }
 
 /** Vân tay NỘI DUNG đơn của MỘT shop (LEAD §4 #6): shopId + món (productId, variantLabel, qty — sắp theo khoá) + địa chỉ (5 trường, trim)
- *  + cách trả + ghi chú (trim). Cùng nội dung ⇒ cùng mã ⇒ server nhận ra lần gửi lại; đổi một chữ ⇒ đơn mới (bài học 2026-08-18). */
+ *  + cách trả + ghi chú (trim). Cùng nội dung ⇒ cùng mã ⇒ server nhận ra lần gửi lại; đổi một chữ ⇒ đơn mới (bài học 2026-08-18).
+ *  GHI CHÚ THEO SHOP (2026-09-06): caller truyền `buyerNote` = ghi chú SẼ ĐI VÀO
+ *  ĐƠN CỦA SHOP NÀY (ghi chú riêng nếu có, không thì ghi chú chung) — sửa lời
+ *  dặn một shop chỉ đổi vân tay của đúng shop đó. */
 export function marketOrderClientRef(
   shop: Pick<ShopCheckoutDraft, "shopId" | "items">,
   common: { address: Address; paymentMethod: PaymentMethod; buyerNote?: string },

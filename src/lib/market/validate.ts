@@ -131,6 +131,9 @@ export function validateCheckout(d: CheckoutDraft): string | null {
     const cr = typeof s.clientRef === "string" ? s.clientRef.length : 0;
     if (cr < 8 || cr > 64) return "Thiếu mã chống trùng của đơn — mở lại giỏ rồi đặt lại giúp.";
     if (!isInt(s.expectedTotalVnd) || s.expectedTotalVnd < 0) return "Tổng tiền không hợp lệ — tải lại giỏ giúp.";
+    // ghi chú RIÊNG cho shop này (11 §5.6) — cùng trần với ghi chú chung
+    if (s.buyerNote != null && typeof s.buyerNote !== "string") return "Ghi chú không hợp lệ.";
+    if (optLen(s.buyerNote) > NOTE_MAX) return "Ghi chú tối đa 300 chữ.";
   }
   if (!isPaymentMethod(d.paymentMethod)) return "Chọn cách trả tiền.";
   const addr = validateAddress(d.address);

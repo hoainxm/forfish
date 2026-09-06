@@ -52,6 +52,11 @@ export function ProductDetail({ id }: { id: string }) {
   const [descClamped, setDescClamped] = useState(false);
   const descRef = useRef<HTMLParagraphElement>(null);
   const [imgIdx, setImgIdx] = useState(0); // nhãn "1/3" của dải ảnh (F-23)
+  /*  R-03 (2026-09-06): nút chính KHÔNG mờ khi chưa chọn loại — bấm là cuộn tới
+      khối loại/cỡ và làm nó nháy viền. Nút mờ + chữ "Chọn loại" là hướng dẫn
+      mù: bà con bấm, không thấy gì đổi, tưởng app hỏng. */
+  const variantRef = useRef<HTMLDivElement>(null);
+  const [variantHint, setVariantHint] = useState(false);
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [allReviews, setAllReviews] = useState<Review[] | null>(null);
 
@@ -81,6 +86,12 @@ export function ProductDetail({ id }: { id: string }) {
   const stale = !data && !!product;
   const description = product?.description ?? "";
 
+  useEffect(() => {
+    if (!variantHint) return;
+    const t = setTimeout(() => setVariantHint(false), 2000);
+    return () => clearTimeout(t);
+  }, [variantHint]);
+
   useLayoutEffect(() => {
     if (descOpen) return;
     const el = descRef.current;
@@ -94,7 +105,7 @@ export function ProductDetail({ id }: { id: string }) {
   // ── nhánh không có gì để hiện ───────────────────────────────────────────
   if (status === "loading") {
     return (
-      <div className="px-4 py-4" role="status">
+      <div className="px-4 py-4 pb-[7rem]" role="status">
         <div className="aspect-square w-full animate-pulse rounded-[1.25rem] bg-field" />
         <div className="mt-4 h-6 w-3/4 animate-pulse rounded bg-field" />
         <div className="mt-2 h-6 w-1/3 animate-pulse rounded bg-field" />
@@ -104,7 +115,7 @@ export function ProductDetail({ id }: { id: string }) {
   }
   if (status === "gone") {
     return (
-      <div className="px-4 py-8 text-center">
+      <div className="px-4 py-8 pb-[7rem] text-center">
         <div className="mx-auto mb-3 w-fit text-foreground/50">
           <AlertIcon className="h-8 w-8" />
         </div>
@@ -120,7 +131,7 @@ export function ProductDetail({ id }: { id: string }) {
   }
   if (!product) {
     return (
-      <div className="px-4 py-4">
+      <div className="px-4 py-4 pb-[7rem]">
         {status === "offline" ? (
           <EmptyNet what="trang món" onRetry={() => void load()} />
         ) : (
@@ -138,7 +149,9 @@ export function ProductDetail({ id }: { id: string }) {
   const shopPaused = shop?.paused ?? product.shopPaused;
   const outOfStock = product.stock <= 0 || product.status !== "dang_ban";
   const needVariant = hasVariants && !variant;
-  const canAdd = !outOfStock && !shopClosed && !shopPaused && !needVariant;
+  /*  `needVariant` KHÔNG nằm trong `canAdd` nữa (R-03): nút vẫn bấm được, việc
+      của nó lúc đó là chỉ chỗ chọn loại chứ không phải im lặng. */
+  const canAdd = !outOfStock && !shopClosed && !shopPaused;
   const isFav = fav.has(product.id);
 
   const addLabel = outOfStock
@@ -152,6 +165,11 @@ export function ProductDetail({ id }: { id: string }) {
           : "Thêm vào giỏ";
 
   const onAdd = () => {
+    if (needVariant) {
+      variantRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+      setVariantHint(true);
+      return;
+    }
     const r = cart.add(product.id, hasVariants ? variant : undefined, qty);
     setNote(
       r === "ok"
@@ -296,7 +314,11 @@ export function ProductDetail({ id }: { id: string }) {
 
         {/* ── Biến thể ─────────────────────────────────────────────────── */}
         {hasVariants && (
-          <div className="mt-4">
+          <div
+            ref={variantRef}
+            className="-mx-2 mt-2 rounded-2xl px-2 py-2 transition-shadow"
+            style={variantHint ? { boxShadow: "0 0 0 3px var(--trim)" } : undefined}
+          >
             <p className="mb-1.5 text-[1rem] font-bold text-navy">Chọn loại / cỡ</p>
             <div className="flex flex-wrap gap-2">
               {product.variants.map((v) => (
@@ -315,6 +337,11 @@ export function ProductDetail({ id }: { id: string }) {
                 </button>
               ))}
             </div>
+            {variantHint && (
+              <p role="status" className="mt-1.5 text-[1rem] font-bold text-trim">
+                Chọn loại/cỡ trước rồi bấm lại giúp.
+              </p>
+            )}
           </div>
         )}
 

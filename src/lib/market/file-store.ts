@@ -667,7 +667,7 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
       paymentMethod: common.paymentMethod, paymentStatus: "chua_thanh_toan",
       bankSnapshot: common.paymentMethod === "chuyen_khoan" ? pre.bankSnapshot : undefined,
       needsRefund: false, status: "cho_xac_nhan", address: { ...common.address },
-      buyerNote: common.buyerNote?.trim() || undefined,
+      buyerNote: (pre.buyerNote ?? common.buyerNote)?.trim() || undefined,
       timeline: [{ status: "cho_xac_nhan", at, by: "buyer" }],
       clientRef: pre.clientRef, createdAt: at, updatedAt: at,
     };

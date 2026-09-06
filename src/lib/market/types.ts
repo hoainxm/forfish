@@ -227,6 +227,10 @@ export interface ShopCheckoutDraft {
   clientRef: string;
   /** tổng client vừa thấy — server tính lại, lệch ⇒ price_changed (11 R5) */
   expectedTotalVnd: number;
+  /** GHI CHÚ RIÊNG CHO SHOP NÀY (11 §5.6, 2026-09-06) — dặn dò khác nhau theo
+   *  shop ("giao trước 6h" vs "gọi trước khi tới"). Có thì đơn của shop này
+   *  dùng nó; thiếu thì rơi về `CheckoutDraft.buyerNote`. ≤ NOTE_MAX chữ. */
+  buyerNote?: string;
 }
 
 export interface CheckoutDraft {
@@ -234,6 +238,7 @@ export interface CheckoutDraft {
   address: Address;
   /** MỘT cách trả tiền cho cả lần đặt (LEAD §4 #9) */
   paymentMethod: PaymentMethod;
+  /** ghi chú CHUNG — chỉ dùng cho shop nào không có `shops[].buyerNote` riêng */
   buyerNote?: string;
 }
 

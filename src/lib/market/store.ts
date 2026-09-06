@@ -38,6 +38,9 @@ export interface PreparedShopOrder {
   totalVnd: number;
   /** STK shop lúc đặt — route lấy từ Shop khi paymentMethod = chuyen_khoan */
   bankSnapshot?: BankInfo;
+  /** ghi chú RIÊNG cho shop này (11 §5.6) — có thì adapter ghi số này vào
+   *  `buyer_note` của đơn, thiếu thì dùng `common.buyerNote`. */
+  buyerNote?: string;
 }
 
 export interface OrderListQuery { status?: OrderStatus; page?: number; pageSize?: number }
@@ -82,7 +85,9 @@ export interface MarketStore {
    * Thứ tự kết quả = thứ tự `prepared`.
    */
   placeOrders(buyerPhone: string, prepared: PreparedShopOrder[], common: {
-    address: Address; paymentMethod: PaymentMethod; buyerNote?: string;
+    address: Address; paymentMethod: PaymentMethod;
+    /** ghi chú chung — chỉ dùng khi `prepared[].buyerNote` trống */
+    buyerNote?: string;
   }): Promise<PlaceOrderResult[]>;
   listBuyerOrders(buyerPhone: string, q?: OrderListQuery): Promise<Page<Order>>;
   listShopOrders(shopId: string, q?: OrderListQuery): Promise<Page<Order>>;

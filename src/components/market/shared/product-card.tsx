@@ -24,8 +24,8 @@ export function CategoryIcon({ category, className }: { category: ProductCategor
 
 /**
  * Thẻ sản phẩm ở danh sách (12 §8.1) — GỌN như Shopee (F-04, 2026-09-06): ảnh
- * vuông (badge -N% + ♡ đè góc) · tên 2 dòng · giá · "Đã bán N · ★x.x" · shop ·
- * tỉnh một dòng. CHẠM CẢ THẺ → trang món; KHÔNG còn "+ Giỏ"/"Chọn" trong lưới
+ * vuông (badge -N% + ♡ đè góc) · tên 2 dòng · giá · MỘT dòng "Đã bán N · ★x.x ·
+ * shop · tỉnh". CHẠM CẢ THẺ → trang món; KHÔNG còn "+ Giỏ"/"Chọn" trong lưới
  * (thêm giỏ là việc của trang món — ở đó mới chọn loại/số lượng được).
  *
  * ♡ là nút riêng ĐÈ LÊN ảnh (không lồng trong `<a>`): vùng chạm 2.75rem = ngoại
@@ -89,10 +89,14 @@ export function MarketProductCard({
             </span>
           )}
         </div>
-        <div className="flex flex-1 flex-col px-2.5 pb-2.5 pt-2">
+        {/*  THÂN THẺ GỌN (R-05, 2026-09-06): bỏ `mt-auto` (nó giữ chỗ 2 dòng tên
+             cho thẻ tên 1 dòng ⇒ khoảng trống lớn) và gộp "Đã bán · shop · tỉnh"
+             về MỘT dòng ⇒ thẻ 334px xuống ~300px, gần Shopee (~260) mà không
+             mất chữ nào. Ảnh vuông + tên 2 dòng giữ nguyên. */}
+        <div className="flex flex-1 flex-col px-2.5 pb-2 pt-1.5">
           <p className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{product.title}</p>
-          <PriceText priceVnd={product.priceVnd} compareAtVnd={product.compareAtVnd} className="mt-auto pt-1" />
-          <p className="mt-0.5 text-[0.875rem] text-foreground/65">
+          <PriceText priceVnd={product.priceVnd} compareAtVnd={product.compareAtVnd} className="mt-1" />
+          <p className="mt-0.5 truncate text-[0.875rem] text-foreground/65">
             Đã bán {product.soldCount}
             {product.ratingCount > 0 && (
               <>
@@ -103,8 +107,7 @@ export function MarketProductCard({
                 {product.ratingAvg.toFixed(1)}
               </>
             )}
-          </p>
-          <p className="truncate text-[0.875rem] text-foreground/65">
+            {" · "}
             <span className="font-semibold text-navy/80">{product.shopName}</span>
             {product.shopProvince ? ` · ${product.shopProvince}` : ""}
           </p>

@@ -1,5 +1,8 @@
 // POST /api/cho/don — ĐẶT HÀNG (12 §7.1) · GET /api/cho/don — đơn của tôi.
 //
+// Ghi chú: mỗi shop có thể mang `shops[].buyerNote` riêng; thiếu thì dùng
+// `buyerNote` chung của cả lần đặt (11 §5.6).
+//
 // Luật server (12 §7.1, 11 §5.6): (1) validateCheckout; (2) đọc sản phẩm + shop;
 // (3) buildMarketLines — có dòng rớt ⇒ shop đó `line_unavailable`, KHÔNG gọi kho;
 // (4) chuyển khoản mà có shop không nhận CK ⇒ 400 (lưới — client đã ẩn chip);
@@ -123,6 +126,10 @@ export async function POST(req: Request) {
         clientRef: draft.clientRef,
         lines: built.lines,
         ...totals,
+        /*  GHI CHÚ THEO TỪNG SHOP (11 §5.6, 2026-09-06): mỗi shop nhận đúng lời
+            dặn của mình; shop nào bà con không ghi gì thì adapter rơi về
+            `body.buyerNote` chung. */
+        ...(draft.buyerNote?.trim() ? { buyerNote: draft.buyerNote.trim() } : {}),
         ...(body.paymentMethod === "chuyen_khoan" && shop.bankName && shop.bankAccount && shop.bankHolder
           ? { bankSnapshot: { bankName: shop.bankName, bankAccount: shop.bankAccount, bankHolder: shop.bankHolder } }
           : {}),

@@ -225,11 +225,12 @@ export function MyMarketOrders() {
                 <Link href={`/cho/don/${o.id}`} className="flex items-start gap-3">
                   <LineThumb image={o.items[0]?.image} size={3.5} className="mt-0.5" />
                   <div className="min-w-0 flex-1">
-                    <p className="flex items-center justify-between gap-2">
-                      <span className="min-w-0 truncate text-[1rem] text-foreground/70">{o.shopName ?? "Shop"}</span>
-                      <span className="shrink-0 whitespace-nowrap"><OrderStatusChip status={o.status} /></span>
-                    </p>
-                    <p className="mt-0.5 line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{summarize(o)}</p>
+                    {/*  TÊN SHOP MỘT DÒNG RIÊNG, CHIP TRẠNG THÁI DÒNG DƯỚI (R-04,
+                         2026-09-06): xếp chung một hàng thì "Đại lý Hải Đăng" bị
+                         cắt còn "Đại lý Hải Đă…" — bà con không biết đơn của ai. */}
+                    <p className="truncate text-[1rem] text-foreground/70">{o.shopName ?? "Shop"}</p>
+                    <p className="mt-1"><OrderStatusChip status={o.status} /></p>
+                    <p className="mt-1 line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{summarize(o)}</p>
                     {/*  Mã đơn KHÔNG cắt (bà con đọc mã cho shop) — chật thì tổng tự
                          xuống dòng, canh phải. */}
                     <p className="mt-0.5 flex flex-wrap items-center justify-between gap-x-2 text-[1rem]">

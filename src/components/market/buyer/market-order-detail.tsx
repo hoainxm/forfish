@@ -19,17 +19,18 @@ import { CallButton, PrimaryButton, inputClass } from "@/components/ui/primitive
 import { StatusBanner } from "@/components/ui/status-banner";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { formatVnd } from "@/lib/format";
+import { marketLineKey } from "@/lib/market/cart";
 import { marketGet, marketPost } from "@/lib/market/client";
 import {
   isPendingTooLong, PAYMENT_METHOD_LABEL,
 } from "@/lib/market/order-state";
 import { loadCachedMarketOrders, saveCachedMarketOrders } from "@/lib/market/orders-cache";
-import type { Order, OrderLine } from "@/lib/market/types";
+import type { CartQuote, Order, OrderLine } from "@/lib/market/types";
 import { useOnlineRefetch } from "@/lib/market/use-online";
 import { REVIEW_MAX } from "@/lib/market/validate";
 import { useAuthUser } from "@/lib/use-auth";
 import { ErrorBlock } from "./ui";
-import { useOnlineState } from "./hooks";
+import { useMarketCart, useOnlineState } from "./hooks";
 
 type Act = "huy" | "da-nhan" | "bao-chuyen";
 
@@ -38,6 +39,7 @@ const CANCEL_REASONS = ["Đặt nhầm món", "Không cần nữa", "Tìm đư�
 export function MarketOrderDetail({ id }: { id: string }) {
   const online = useOnlineState();
   const { phone } = useAuthUser();
+  const cart = useMarketCart();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [status, setStatus] = useState<"loading" | "ok" | "error" | "offline" | "gone">("loading");
@@ -52,6 +54,9 @@ export function MarketOrderDetail({ id }: { id: string }) {
   const [comment, setComment] = useState("");
   const [reviewed, setReviewed] = useState<string[]>([]);
   const [reviewNote, setReviewNote] = useState<string | null>(null);
+  const [rebuying, setRebuying] = useState(false);
+  const [rebuyNote, setRebuyNote] = useState<string | null>(null);
+  const [rebuyAdded, setRebuyAdded] = useState(0);
 
   const load = useCallback(async () => {
     setStatus("loading");
@@ -140,6 +145,51 @@ export function MarketOrderDetail({ id }: { id: string }) {
     setNote("Đã gửi đánh giá. Cảm ơn bà con.");
   };
 
+  /*  MUA LẠI (11 §5.8): thêm lại đúng các món CÒN BÁN vào giỏ. Tra lại bằng
+      chính route giỏ (`/api/cho/gio/tinh`) — nó đã biết luật món ngừng bán /
+      hết hàng / shop nghỉ, khỏi đẻ luật thứ hai ở đây. Mất sóng hay chợ trục
+      trặc thì VẪN thêm (giỏ là việc của máy) và nói thẳng là chưa kiểm được,
+      chứ không chặn bà con. */
+  const rebuy = async () => {
+    if (!order || rebuying) return;
+    setRebuying(true);
+    const items = order.items.map((l) => ({
+      productId: l.productId, qty: l.qty, ...(l.variantLabel ? { variantLabel: l.variantLabel } : {}),
+    }));
+    const res = await marketPost<{ quote: CartQuote }>("/api/cho/gio/tinh", { items });
+    setRebuying(false);
+
+    const checked = res.ok;
+    const sellable = checked
+      ? new Set(res.data.quote.groups.flatMap((g) => g.lines.map((l) => marketLineKey(l.productId, l.variantLabel))))
+      : null;
+    let added = 0;
+    let gone = 0;
+    let full = false;
+    for (const l of order.items) {
+      if (sellable && !sellable.has(marketLineKey(l.productId, l.variantLabel))) {
+        gone += 1;
+        continue;
+      }
+      const r = cart.add(l.productId, l.variantLabel, l.qty);
+      if (r === "ok") added += 1;
+      else full = true;
+    }
+    setRebuyAdded(added);
+    setRebuyNote(
+      added === 0
+        ? gone > 0
+          ? "Các món trong đơn này không còn bán nữa."
+          : "Chưa thêm được vào giỏ — máy hết chỗ hoặc giỏ đã đầy."
+        : [
+            `Đã thêm ${added} món vào giỏ.`,
+            gone > 0 ? `${gone} món không còn bán.` : "",
+            full ? "Còn lại chưa thêm được — giỏ đầy hoặc máy hết chỗ." : "",
+            !checked ? "Chưa kiểm được món nào còn bán (mất sóng) — xem lại ở giỏ giúp." : "",
+          ].filter(Boolean).join(" "),
+    );
+  };
+
   const copyCode = async () => {
     if (!order) return;
     try {
@@ -153,7 +203,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
 
   if (status === "loading") {
     return (
-      <div role="status" aria-label="Đang tải đơn" className="px-4 py-3">
+      <div role="status" aria-label="Đang tải đơn" className="px-4 py-3 pb-[7rem]">
         <div className="h-8 w-1/2 animate-pulse rounded bg-field" />
         <div className="mt-2 h-6 w-1/3 animate-pulse rounded bg-field" />
         <div className="surface mt-3 h-32 animate-pulse" />
@@ -163,7 +213,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
   }
   if (status === "gone") {
     return (
-      <div className="px-4 py-8 text-center">
+      <div className="px-4 py-8 pb-[7rem] text-center">
         <div className="mx-auto mb-3 w-fit text-foreground/50"><AlertIcon className="h-8 w-8" /></div>
         <p className="text-[1.125rem] font-bold text-navy">Không tìm thấy đơn này.</p>
         <Link
@@ -177,7 +227,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
   }
   if (!order) {
     return (
-      <div className="px-4 py-4">
+      <div className="px-4 py-4 pb-[7rem]">
         {status === "offline" ? (
           <div className="rounded-[1.25rem] bg-field/70 px-4 py-8 text-center" role="status">
             <p className="text-[1.125rem] font-bold text-navy">
@@ -205,6 +255,9 @@ export function MarketOrderDetail({ id }: { id: string }) {
     order.paymentMethod === "chuyen_khoan" && order.paymentStatus === "chua_thanh_toan" &&
     order.status !== "da_huy" && order.status !== "hoan_thanh";
   const canReview = order.status === "hoan_thanh";
+  /*  MUA LẠI chỉ ở đơn ĐÃ KẾT THÚC (hoàn thành / đã huỷ): đơn đang chạy mà thêm
+      lại vào giỏ là mời bà con đặt trùng. */
+  const canRebuy = order.status === "hoan_thanh" || order.status === "da_huy";
   // P3: shop trả lời "chưa thấy tiền" ⇒ mục cuối cùng của dòng thời gian là chua_thanh_toan
   const notSeen = [...order.timeline].reverse().find((t) => t.status === "chua_thanh_toan");
 
@@ -275,26 +328,33 @@ export function MarketOrderDetail({ id }: { id: string }) {
         <h3 className="mb-2 text-[1.0625rem] font-bold text-navy">Hàng trong đơn</h3>
         <ul className="flex flex-col gap-2">
           {order.items.map((l) => (
-            <li key={`${l.productId}|${l.variantLabel ?? ""}`} className="flex items-center gap-3">
-              <Link href={`/cho/sp/${l.productId}`} className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-3">
-                <LineThumb image={l.image} size={3.5} />
-                <span className="min-w-0 flex-1">
-                  <span className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">
-                    {l.title}
-                    {l.variantLabel ? ` · ${l.variantLabel}` : ""}
+            /*  R-01 (2026-09-06): "Đánh giá" XUỐNG HÀNG RIÊNG. Bản cũ nhét ảnh +
+                tên + thành tiền + nút trên MỘT hàng flex ⇒ ở 390px cột tên còn
+                48px, "120.000 đ × 3 cái" gãy 4 dòng và số tiền đè lên chữ. Đây
+                là màn bà con nhìn để nhớ mình mua gì — đọc không ra là hỏng. */
+            <li key={`${l.productId}|${l.variantLabel ?? ""}`} className="flex flex-col gap-1">
+              <div className="flex items-center gap-3">
+                <Link href={`/cho/sp/${l.productId}`} className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-3">
+                  <LineThumb image={l.image} size={3.5} />
+                  <span className="min-w-0 flex-1">
+                    <span className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">
+                      {l.title}
+                      {l.variantLabel ? ` · ${l.variantLabel}` : ""}
+                    </span>
+                    <span className="block text-[1rem] text-foreground/65">
+                      {formatVnd(l.priceVnd)} × {l.qty} {l.unit}
+                    </span>
                   </span>
-                  <span className="block text-[1rem] text-foreground/65">
-                    {formatVnd(l.priceVnd)} × {l.qty} {l.unit}
-                  </span>
-                </span>
-              </Link>
-              <MoneyText vnd={l.lineTotalVnd} className="shrink-0" />
+                </Link>
+                <MoneyText vnd={l.lineTotalVnd} className="shrink-0" />
+              </div>
               {canReview && !reviewed.includes(l.productId) && (
                 <button
                   type="button"
                   disabled={!online}
                   onClick={() => setReviewLine(l)}
-                  className="min-h-[3.5rem] shrink-0 rounded-full px-3 text-[1rem] font-bold disabled:opacity-40"
+                  aria-label={`Đánh giá ${l.title}`}
+                  className="min-h-[3.5rem] w-full rounded-full text-[1rem] font-bold disabled:opacity-40"
                   style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
                 >
                   Đánh giá
@@ -365,6 +425,34 @@ export function MarketOrderDetail({ id }: { id: string }) {
         </div>
         {order.shopPhone && <CallButton phone={order.shopPhone} label="Gọi shop" />}
       </section>
+
+      {/* ── Mua lại (đơn đã kết thúc) ──────────────────────────────────── */}
+      {canRebuy && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => void rebuy()}
+            disabled={rebuying}
+            className="min-h-[3.5rem] w-full rounded-full text-[1.125rem] font-bold disabled:opacity-40"
+            style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
+          >
+            {rebuying ? "Đang xem món còn bán…" : "Mua lại"}
+          </button>
+          {rebuyNote && (
+            <div
+              role="status"
+              className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-field px-3.5 py-2.5"
+            >
+              <span className="min-w-0 text-[1rem] font-bold leading-snug text-navy">{rebuyNote}</span>
+              {rebuyAdded > 0 && (
+                <Link href="/cho/gio" className="flex min-h-[3.5rem] shrink-0 items-center text-[1rem] font-bold text-t3 underline">
+                  Xem giỏ ({cart.count})
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Hành động theo trạng thái ──────────────────────────────────── */}
       {(canCancel || canReceive || canPay) && (

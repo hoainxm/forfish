@@ -24,7 +24,8 @@ type Sort = NonNullable<ProductQuery["sort"]>;
 type ListRes = { items: ProductCard[]; total: number };
 
 /*  Hàng chip sắp xếp NGANG (F-10): bản cũ 1 nút mở sheet 4 lựa chọn = 2 chạm.
-    Nhãn ngắn để 4 chip + "Gần tôi" nằm một hàng cuộn; "N món" đứng cuối hàng. */
+    Nhãn ngắn để 4 chip + "Gần tôi" nằm một hàng cuộn; "N món" ở DÒNG RIÊNG dưới
+    dải chip (R-02) chứ không cuối hàng cuộn — nằm trong đó là ra ngoài màn. */
 export const SORT_LABEL: Record<Sort, string> = {
   moi: "Mới nhất",
   ban_chay: "Bán chạy",
@@ -148,7 +149,7 @@ export function MarketSearch() {
 
       <CategoryChips value={category} onChange={setCategory} />
 
-      <div className="mb-3 flex items-center gap-1.5 overflow-x-auto px-4" role="group" aria-label="Sắp xếp">
+      <div className="mb-2 flex items-center gap-1.5 overflow-x-auto px-4" role="group" aria-label="Sắp xếp">
         {SORTS.map((s) => (
           <SortChip key={s} on={s === sort} onClick={() => setSort(s)}>
             {SORT_LABEL[s]}
@@ -159,12 +160,16 @@ export function MarketSearch() {
             Gần tôi · {homeProvince}
           </SortChip>
         )}
-        {status === "ok" && (
-          <span className="ml-auto shrink-0 pl-2 text-[1rem] font-semibold text-foreground/65" aria-live="polite">
-            {total} món
-          </span>
-        )}
       </div>
+
+      {/*  SỐ KẾT QUẢ Ở DÒNG RIÊNG (R-02, 2026-09-06): trong dải chip nó bị đẩy ra
+           x=437 — ngoài màn 390px, phải cuộn ngang mới thấy. Số món tìm được là
+           thứ bà con đọc đầu tiên, không được nằm chỗ phải đi tìm. */}
+      {status === "ok" && (
+        <p className="mb-3 px-4 text-[1rem] font-semibold text-foreground/65" aria-live="polite">
+          {total} món
+        </p>
+      )}
 
       {status === "ok" && moreError === "offline" && (
         <NetChip state="offline" text="Không có sóng — đang xem kết quả đã tải" />

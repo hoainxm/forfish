@@ -546,7 +546,7 @@ export function createSupabaseStore(): MarketStore {
           p_items: pre.lines, p_subtotal_vnd: pre.subtotalVnd, p_shipping_vnd: pre.shippingVnd, p_total_vnd: pre.totalVnd,
           p_payment_method: common.paymentMethod,
           p_bank_snapshot: common.paymentMethod === "chuyen_khoan" ? pre.bankSnapshot ?? null : null,
-          p_address: common.address, p_buyer_note: common.buyerNote?.trim() || null,
+          p_address: common.address, p_buyer_note: (pre.buyerNote ?? common.buyerNote)?.trim() || null,
         }),
       );
       if (!error) {

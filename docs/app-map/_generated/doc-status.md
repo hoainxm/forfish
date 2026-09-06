@@ -6,11 +6,11 @@
 | docs/app-map/01-product.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/02-architecture.md | VERIFIED | ok |
 | docs/app-map/03-design-system.md | SUSPECT | code 'src/app/globals.css' doi sau last_verified |
-| docs/app-map/04-data-model.md | VERIFIED | ok |
+| docs/app-map/04-data-model.md | SUSPECT | code 'src/lib/documents.ts' doi sau last_verified |
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/06-jtbd-quan-ly-tau.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/07-design-spec.md | VERIFIED | ok |
-| docs/app-map/08-ba-spec-da-tau.md | VERIFIED | ok |
+| docs/app-map/08-ba-spec-da-tau.md | SUSPECT | code 'src/components/boat-products.tsx' doi sau last_verified |
 | docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md | VERIFIED | ok |
 | docs/app-map/10-ba-spec-quan-tri-van-hanh.md | VERIFIED | ok |
 | docs/app-map/11-ba-spec-san-thuong-mai.md | VERIFIED | ok |
@@ -28,5 +28,5 @@
 | docs/app-map/ops/runbook-phat-hanh-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/runbook.md | SUSPECT | code 'scripts/doc-health-report.sh' doi sau last_verified |
 | docs/app-map/ops/self-host-vps.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/state-registry.md | SUSPECT | code 'src/lib/market/seller-flag.ts' doi sau last_verified |
+| docs/app-map/ops/state-registry.md | VERIFIED | ok |
 | docs/app-map/ops/sync-base-flow.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
