@@ -64,3 +64,6 @@ test-reports/
 
 # pnpm store cache — máy-riêng, không commit
 /.pnpm-store/
+
+# Kho dữ liệu DEV của Chợ vật tư (MARKET_STORE=file) — máy riêng, không commit
+/.local/

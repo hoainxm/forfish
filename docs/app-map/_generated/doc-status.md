@@ -13,6 +13,8 @@
 | docs/app-map/08-ba-spec-da-tau.md | SUSPECT | code 'src/components/urgent-strip.tsx' doi sau last_verified |
 | docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md | VERIFIED | ok |
 | docs/app-map/10-ba-spec-quan-tri-van-hanh.md | VERIFIED | ok |
+| docs/app-map/11-ba-spec-san-thuong-mai.md | ORPHANED | path 'src/lib/market/' khong con ton tai |
+| docs/app-map/12-kien-truc-san-thuong-mai.md | ORPHANED | path 'src/lib/market' khong con ton tai |
 | docs/app-map/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-notify-2026-08-18.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-offline-2026-08-02.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
@@ -24,7 +26,7 @@
 | docs/app-map/ops/native-deploy.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/qa-offline-acceptance.md | SUSPECT | code 'public/sw.js' doi sau last_verified |
 | docs/app-map/ops/runbook-phat-hanh-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/runbook.md | VERIFIED | ok |
+| docs/app-map/ops/runbook.md | SUSPECT | code 'scripts/doc-health-report.sh' doi sau last_verified |
 | docs/app-map/ops/self-host-vps.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/state-registry.md | SUSPECT | code 'src/lib/offline-backup.ts' doi sau last_verified |
 | docs/app-map/ops/sync-base-flow.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
