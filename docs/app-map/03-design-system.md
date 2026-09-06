@@ -135,6 +135,16 @@ Mọi trạng thái trên thẻ (giấy tờ, bảo dưỡng, sản phẩm/bảo
 - **Chip trạng thái đơn**: `moi` = field/navy (neutral), `da_nhan` = warn, `dang_giao` = sea (xanh biển đặc), `da_giao` = ok (xanh lá), `da_huy` = danger. Nhãn từ `ORDER_STATUS_LABELS` (`lib/catalog-orders.ts`) — GIỮ đồng bộ nhãn ở app chủ tàu và /quan-tri.
 - **Giỏ + đặt hàng** ở **bottom-sheet** (`cart-sheet.tsx`) như mọi form tạo/sửa; nút giỏ nổi hiện `cartCount`. Đặt đơn nêu rõ "không thanh toán trong app"; mất mạng báo trung thực "cần có mạng" (online-only).
 
+**Chợ vật tư — BA bộ chip nữa, cùng bảng màu trạng thái (2026-09-06).** Sàn có sáu trạng thái đơn thay vì năm, nên KHÔNG dùng lại bảng của Cửa hàng: nhãn và cặp màu là **một nguồn duy nhất** trong `lib/market/order-state.ts` (`ORDER_STATUS_LABEL`, `ORDER_STATUS_CHIP` — giá trị `var(--token)`, không hex), component dùng chung là `components/market/shared/order-status-chip.tsx`. Người mua, người bán và `/quan-tri` nhìn **cùng một chữ, cùng một màu** — bà con gọi tổng đài đọc "đơn đang giao" thì người trực thấy đúng chữ đó trên màn mình.
+
+| Bộ chip | Giá trị → cặp màu (nền / chữ) |
+|---|---|
+| **Trạng thái đơn chợ** (6) | `cho_xac_nhan` field/navy (neutral — chưa ai làm gì, đừng doạ) · `da_xac_nhan` warn-bg/warn · `dang_giao` sea/card (xanh biển đặc — đang chạy) · `da_giao` ok-bg/ok · `hoan_thanh` ok/card (xanh lá đặc — xong hẳn) · `da_huy` danger-bg/danger |
+| **Thanh toán** (3 nấc, `PaymentStatusChip`) | `chua_thanh_toan` field/navy · `bao_da_chuyen` warn-bg/warn (**lời khai của người mua — app KHÔNG xác minh tiền**, nên vàng "đang chờ", không xanh) · `da_thanh_toan` ok-bg/ok |
+| **Trạng thái gian hàng** (4, chỉ hiện ở `/quan-tri`) | `cho_duyet` warn-bg/warn · `hoat_dong` ok-bg/ok · `tam_khoa` danger-bg/danger · `tu_choi` field/foreground-70 (xám — không phải lỗi hệ thống, là chưa đạt) |
+
+Chip món của admin dùng lại đúng ba cặp trên: "Đã gỡ" = danger, "Đang bán" = ok, "Hết hàng"/"Shop ẩn" = field. **Sao đánh giá** dùng `RatingStars` (`components/market/shared`), không tự chế ký tự ★.
+
 ## 3. Typography
 
 - **Archivo** — display/heading: đậm chắc, đáng tin, kiểu "thiết bị hàng hải" (đã thay Baloo 2 ngày 2026-06-10 — feedback: tròn trịa quá thành trẻ con)
@@ -354,6 +364,8 @@ Chủ dự án 2026-08-29: *"kích thước cái x đóng làm cho đồng bộ�
 
 ---
 
-**Last updated**: 2026-08-29
+**Last updated**: 2026-09-06
+
+<!-- re-verified: 2026-09-06 — CHỢ VẬT TƯ: mục "Đặt hàng" thêm BA bộ chip của sàn (trạng thái đơn 6 giá trị · thanh toán 3 nấc · trạng thái gian hàng 4 giá trị). Đối chiếu mã: `src/lib/market/order-state.ts` (ORDER_STATUS_LABEL + ORDER_STATUS_CHIP, cặp màu bằng `var(--token)` — không hex, không rgba) và `src/components/market/shared/order-status-chip.tsx`; chip gian hàng ở `src/components/admin/market-admin-shared.tsx` (class token: warn-bg/ok-bg/danger-bg/field). KHÔNG token màu MỚI nào được thêm vào `globals.css` — sàn dùng đúng bộ trạng thái sẵn có. Vì sao tách khỏi bảng chip của Cửa hàng (`lib/catalog-orders.ts`, 5 trạng thái): sàn có thêm `hoan_thanh` và nghĩa của `da_giao` khác (chờ người mua xác nhận), gộp một bảng là nói dối một trong hai. Khu `/quan-tri` là web desktop-first nên chạm ở đó theo khuôn tab sẵn có (2.5–2.75rem), KHÔNG áp sàn 3.5rem của app ngư dân — luật tap 56px vẫn nguyên cho mọi màn bà con dùng. -->
 
 **5c. SÁU Ổ CHẠM CÒN SÓT TRONG FORM "THÊM ĐIỂM" (2026-08-29c).** `my-places-sheet.tsx` còn `min-h-[3rem]` (48px) ở sáu chỗ của khối `addOpen`: ô Tên · nút "Lấy chỗ đang trỏ" · hai ô Vĩ/Kinh độ · nút "Hủy" · nút "Lưu điểm" — trong khi CHÍNH FILE ĐÓ đã dùng `3.25rem` ở các hàng khác và `3.5rem` ở hàng điểm. Đây là **sáu ngoại lệ đo được còn sót, KHÔNG phải chuyện cả app chưa đạt sàn** (gốc chữ 16px ⇒ `3.5rem` = 56px, sàn tap toàn app đã đạt). Vì sao đáng sửa dù chỉ là 6 token: đó là **đường đi DUY NHẤT để lưu một điểm đánh cá** — việc cốt lõi của app — và cũng đúng là chỗ lối tắt chạm-giữ trên bản đồ đổ vào ([07 §10.7 K](07-design-spec.md), `prefillTick`); chỗ tốt nhất của app đang dẫn thẳng vào sáu ô nhỏ nhất của app, tay ướt, tàu lắc, sáu ô liền nhau. **Chốt**: bốn ô nhập/nút trong thân form lên `3.25rem`; "Hủy" + "Lưu điểm" (đứng riêng một hàng `grid-cols-2`, nâng không ảnh hưởng bố cục) lên hẳn `3.5rem`. Chỉ đổi token chiều cao, không đụng bố cục ⇒ không có rủi ro tràn — panel đã chứa sẵn hàng `3.25rem`. **KHÔNG đụng bề ngang** cột "Đổi tên"/"Xóa" (44px, xem 5b(b) — vẫn đang có `// nợ:`).

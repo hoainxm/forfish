@@ -57,6 +57,7 @@ import { createClient } from "@/lib/supabase/client";
 import { clearInbox } from "@/lib/inbox";
 import { applyIdentityAction } from "@/lib/offline-identity";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { MarketAdminTab } from "@/components/admin/market-admin-tab";
 import { formatCccd, isValidCccd } from "@/lib/crew";
 import { isValidVnPhone, phoneToEmail, sanitizePhoneInput } from "@/lib/phone";
 import {
@@ -101,6 +102,7 @@ type Tab =
   | "canh-bao"
   | "san-pham"
   | "don-hang"
+  | "cho-vat-tu"
   | "yeu-cau"
   | "vung-bien"
   | "cho-ban"
@@ -338,6 +340,7 @@ export default function QuanTriPage() {
         ["canh-bao", "Thuyền viên"],
         ["san-pham", "Sản phẩm"],
         ["don-hang", "Đơn hàng"],
+        ["cho-vat-tu", "Chợ vật tư"],
         ["yeu-cau", "Yêu cầu"],
         ["vung-bien", "Vùng biển"],
         ["cho-ban", "Chỗ bán"],
@@ -421,6 +424,7 @@ export default function QuanTriPage() {
       {activeTab === "don-hang" && (
         <OrdersTab perms={permsFor(me, "don-hang")} />
       )}
+      {activeTab === "cho-vat-tu" && isAdmin && <MarketAdminTab me={me} />}
       {activeTab === "yeu-cau" && isAdmin && <InquiriesTab />}
       {activeTab === "vung-bien" && isAdmin && <VmsZonesTab />}
       {activeTab === "cho-ban" && (

@@ -3,8 +3,9 @@
 > Load khi: task chạm `/cho/**`, `/ban-hang/**`, tab "Chợ vật tư" ở `/quan-tri`, `src/lib/market/**`, `/api/cho|ban-hang|admin/cho/**`, migration `0054_marketplace.sql`, hoặc bất kỳ câu hỏi "người mua/người bán/admin sàn được làm gì, khi nào, thấy gì".
 covers: src/lib/market/, src/app/cho/, src/app/ban-hang/, src/components/market/, src/components/admin/market-admin-tab.tsx, src/app/api/cho/, src/app/api/ban-hang/, src/app/api/admin/cho/
 last_verified: 2026-09-06
+<!-- re-verified: 2026-09-06 - pha 2b: /cho (8 màn), /ban-hang (7 màn), tab admin, /api/cho|ban-hang|admin/cho đã hiện thực theo §5–§7; AC 77 mã; QA e2e 63 pass / 8 fixme; khác spec: ghi chú người mua là MỘT ô chung cho cả lần đặt (Core CheckoutDraft.buyerNote), giỏ khách lạ dời sang ngăn SĐT khi ngăn đó trống -->
 ttl_days: 90
-<!-- DOC-STATUS: ORPHANED (2026-09-06) — path 'src/lib/market/' khong con ton tai. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: ORPHANED (2026-09-06) — path 'src/app/cho/' khong con ton tai. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 version: v1.1 (2026-09-06) — hợp nhất sau phản biện, chưa build. 16 quyết định LEAD-BRIEF §4 + §5 đã đưa vào; tên trường/mã/route/trần số lấy NGUYÊN VĂN từ [12-kien-truc 1.1](12-kien-truc-san-thuong-mai.md) (12 = nguồn TÊN, 11 = nguồn HÀNH VI). Đối chiếu: [_generated/phan-bien-san-thuong-mai-2026-09-06.md](_generated/phan-bien-san-thuong-mai-2026-09-06.md).
 
 > **Mục đích**: ORACLE HÀNH VI cho agent build + QA — ai được làm gì, hệ thống phản ứng ra sao, đúng-sai đo bằng AC nào. Không mô tả pixel (việc của [07-design-spec](07-design-spec.md)); không mô tả schema cột (việc của [12-kien-truc-san-thuong-mai](12-kien-truc-san-thuong-mai.md) + [04-data-model](04-data-model.md)).
@@ -581,6 +582,6 @@ Mỗi AC 1 dòng kiểm được, **trong ngoặc = route/hàm chịu trách nhi
 
 ## History
 - v1 (2026-09-06): khởi tạo pha BA từ LEAD-BRIEF 2026-09-06; 62 AC; 16 điểm phản biện; 5 điểm chờ chốt.
-- **v1.1 (2026-09-06) — hợp nhất sau phản biện**: đưa đủ 16 quyết định LEAD-BRIEF §4 + §5 vào §3–§10; tên trường/mã trạng thái/route/trần số lấy NGUYÊN VĂN từ 12-kien-truc 1.1 (`cho_duyet|hoat_dong|tam_khoa|tu_choi`, `items/subtotalVnd/shippingVnd`, `address{name,phone,province,detail,isPort}`, `variantLabel`, `/api/cho/san-pham`, `/api/cho/gio/tinh`, `/cho/shop/[slug]`, mã đơn `SD…`, danh mục gạch-ngang); bỏ R4 "không mua shop mình"; thêm R2'/R12/R13/R17/R19; AC 62 → 78 (thêm AC-08/08b/15b/29b/38b/38c/44b/53b/53c/56b/56c/63–67), mỗi AC ghi route/hàm; §12 đổi thành bảng "đã chốt". Bảng đối chiếu: `_generated/phan-bien-san-thuong-mai-2026-09-06.md`.
+- **v1.1 (2026-09-06) — hợp nhất sau phản biện**: đưa đủ 16 quyết định LEAD-BRIEF §4 + §5 vào §3–§10; tên trường/mã trạng thái/route/trần số lấy NGUYÊN VĂN từ 12-kien-truc 1.1 (`cho_duyet|hoat_dong|tam_khoa|tu_choi`, `items/subtotalVnd/shippingVnd`, `address{name,phone,province,detail,isPort}`, `variantLabel`, `/api/cho/san-pham`, `/api/cho/gio/tinh`, `/cho/shop/[slug]`, mã đơn `SD…`, danh mục gạch-ngang); bỏ R4 "không mua shop mình"; thêm R2'/R12/R13/R17/R19; AC 62 → 77 (thêm AC-08/08b/15b/29b/38b/38c/44b/53b/53c/56b/56c/63–67), mỗi AC ghi route/hàm; §12 đổi thành bảng "đã chốt". Bảng đối chiếu: `_generated/phan-bien-san-thuong-mai-2026-09-06.md`.
 
 **Last updated**: 2026-09-06 (v1.1)

@@ -300,6 +300,9 @@ export function createSupabaseStore(): MarketStore {
       const { page, pageSize, from, to } = clampPage(q);
       let qb = client().from("shop_products").select("*", { count: "exact" }).eq("shop_id", shopId).is("deleted_at", null);
       if (q.includeHidden === false) qb = qb.eq("admin_hidden", false).in("status", ["dang_ban", "het_hang"]);
+      if (q.status && q.status !== "all") {
+        qb = q.status === "bi_go" ? qb.eq("admin_hidden", true) : qb.eq("admin_hidden", false).eq("status", q.status);
+      }
       if (q.category) qb = qb.eq("category", q.category);
       if (q.q?.trim()) qb = qb.ilike("search_text", `%${foldVn(q.q).replace(/[%_]/g, " ")}%`);
       const { data, error, count } = await withSig(qb.order("created_at", { ascending: false }).range(from, to));

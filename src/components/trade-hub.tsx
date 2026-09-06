@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+import { BasketIcon, ChevronRightIcon } from "@/components/icons";
 import { PriceBoard } from "@/components/price-board";
 import { SellGuide } from "@/components/sell-guide";
 import { MarketBoard } from "@/components/market-board";
@@ -27,6 +29,30 @@ export function TradeHub() {
 
   return (
     <div>
+      {/*  LỐI VÀO CHỢ VẬT TƯ (12 §9) — đặt TRÊN hàng chip, cùng khổ thẻ `surface`.
+           KHÔNG thêm chip thứ tư vào SECTIONS: chợ là một KHU riêng (route
+           /cho), không phải mục con của Giao dịch; ba chip giữ nguyên hàng
+           ngang (03 "nhãn ngang hàng"). */}
+      <Link
+        href="/cho"
+        className="mx-4 mb-4 flex min-h-[3.5rem] items-center gap-3 px-4 py-3 surface"
+      >
+        <span
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
+          aria-hidden
+        >
+          <BasketIcon className="h-6 w-6" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[1.125rem] font-bold text-navy">Chợ vật tư tàu cá</span>
+          <span className="block text-[1rem] leading-snug text-foreground/65">
+            Máy, ngư cụ, dầu nhớt, đá… nhiều đại lý, giao ra cảng
+          </span>
+        </span>
+        <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+      </Link>
+
       <ChipRow
         options={SECTIONS}
         value={section}

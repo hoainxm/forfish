@@ -3,6 +3,7 @@
 > Load khi: task chạm /quan-tri (vận hành), phân quyền đại lý, trạng thái premium (đã dùng/đã liên hệ), thu tiền + trace tiền đồng bộ SDWork, audit hoạt động admin, luồng đăng nhập admin.
 covers: src/app/quan-tri, src/app/api/admin, src/lib/admin-auth.ts, src/lib/admin.ts
 last_verified: 2026-09-06
+<!-- re-verified: 2026-09-06b - /quan-tri thêm tab "Chợ vật tư" (admin-only, requireAdmin) + route /api/admin/cho/* + 5 mã admin-activity market.*; phân quyền manager/tab hiện có KHÔNG đổi; ranh giới SDFish/SDWork giữ nguyên (tiền sàn không qua SDWork) -->
 <!-- re-verified: 2026-09-06 - admin-auth.ts CHỈ thêm nhánh dev đầu requireStaff (isDevFileMode: tra persona file-store, chỉ sống khi MARKET_STORE=file && !VERCEL && NODE_ENV!=production); ranh giới SDFish/SDWork, phân quyền đại lý, luật 1-tài-khoản-1-máy KHÔNG đổi -->
 <!-- re-verified: 2026-08-31 — DẢI 4 Ô SỐ ĐẦU TAB "Tài khoản" NAY ĐẾM THEO THỨ ĐANG XEM.
 Báo từ hiện trường (Vss Quân Bình Định qua chủ dự án): *"cái con số pre nó ko nhảy theo"* — ảnh chụp

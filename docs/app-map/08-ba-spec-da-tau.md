@@ -2,7 +2,8 @@
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
-last_verified: 2026-09-01
+last_verified: 2026-09-06
+<!-- re-verified: 2026-09-06 - boat-products.tsx CHỈ thêm một thẻ lối vào "Chợ vật tư" (→ /cho) trong mục Cửa hàng; hành vi đa-tàu (R1/R2/R3, gắn sản phẩm theo tàu, cascade) KHÔNG đổi -->
 <!-- re-verified: 2026-09-01 — `urgent-strip.tsx` THÊM MỘT CỔNG HIỂN THỊ, KHÔNG đổi hành vi đa-tàu.
 Chưa có chuỗi cứng trong máy (`readToken() == null`) thì dải khẩn trả `null` — trước đó nó đọc thẳng
 localStorage nên máy CHƯA đăng nhập vẫn bày lịch bảo dưỡng + giấy tờ + nợ SDVICO của một chủ tàu nào đó

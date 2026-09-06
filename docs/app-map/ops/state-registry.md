@@ -2,8 +2,8 @@
 
 > Load khi: đọc/ghi/sửa state phía client, hoặc debug "dữ liệu mất / sai / không lưu". Mọi key `forfish.*` trong localStorage liệt kê ở đây.
 
-covers: src/lib/boats.ts, src/lib/region.ts, src/lib/places.ts, src/lib/sea.ts, src/lib/forecast-cache.ts, src/lib/offline-identity.ts, src/lib/inbox.ts, src/lib/offline-backup.ts
-last_verified: 2026-08-18
+covers: src/lib/boats.ts, src/lib/region.ts, src/lib/places.ts, src/lib/sea.ts, src/lib/forecast-cache.ts, src/lib/offline-identity.ts, src/lib/inbox.ts, src/lib/offline-backup.ts, src/lib/market/cart.ts, src/lib/market/addresses.ts, src/lib/market/favorites.ts, src/lib/market/orders-cache.ts, src/lib/market/seller-flag.ts
+last_verified: 2026-09-06
 ttl_days: 180
 <!-- DOC-STATUS: SUSPECT (2026-09-06) — code 'src/lib/offline-backup.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
@@ -57,7 +57,9 @@ gate: warn
 
 > Registry CANONICAL cho state client (nguyên tắc 11 §state). **State không có trong bảng này = coi như không tồn tại — KHÔNG đoán schema.** ForFish chạy Vercel serverless + demo mode → "state nền" duy nhất là localStorage của trình duyệt (prefix `forfish.*`, GIỮ tên cũ — đổi sẽ mất dữ liệu user). Khi đã đăng nhập Supabase, nguồn sự thật là DB (xem [04-data-model](../04-data-model.md)); localStorage là fallback demo mode (xem [02-architecture §4](../02-architecture.md)).
 
-**Last updated**: 2026-08-18
+**Last updated**: 2026-09-06
+
+<!-- re-verified: 2026-09-06 — NĂM KHOÁ MỚI của CHỢ VẬT TƯ (`forfish.mcart.v1` · `maddr.v1` · `mfav.v1` · `morders.v1` · `mshop.v1`). Đối chiếu mã: `src/lib/market/{cart,addresses,favorites,orders-cache,seller-flag}.ts` — mỗi khoá đúng MỘT module ghi (single-writer), tất cả ngăn theo SĐT chuẩn hoá như `inbox`/`cart`, đọc ngăn của SĐT khác ⇒ coi như trống; và `src/lib/offline-backup.ts` dòng 217–225: cả 5 tiền tố ĐÃ nằm trong `NEVER_BACKUP_PREFIXES` (cổng `offline-backup.test.ts` quét mọi chuỗi `forfish.` trong `src/` nên không khoá nào lọt mà chưa xếp loại). Vì sao KHÔNG SAO LƯU: `maddr` + `morders` mang tên/SĐT/chỗ nhận hàng và tiền của một người thật; `mshop` chép sang máy khác thì máy đó tự nhận có gian hàng. ⚠️ ĐỪNG LẪN `mcart.v1` (chợ, nhiều shop) với `cart.v1` (Cửa hàng SDVICO, một người bán) — hai giỏ khác nhau, hai đường đặt hàng khác nhau. Chi tiết: [12 §4.8–§4.12](../12-kien-truc-san-thuong-mai.md). -->
 
 ---
 
@@ -117,6 +119,12 @@ gate: warn
 | `forfish.catalog.v1` | **Bản lưu DANH MỤC Cửa hàng** (`{savedAt, items[]}`) — ghi mỗi lần `fetchProductListings` thành công; mất sóng đọc ra để xem bình thường (có giá + nút giỏ), kèm dòng "bản lưu lúc …". Không PII nên KHÔNG ngăn theo SĐT | `lib/product-catalog.ts` ← `sdvico-catalog.tsx` | 3 (tab Sản phẩm) | xoá → lần mở sau rơi về danh mục tĩnh tới khi có sóng. **CẤM SAO LƯU** — chép sang máy khác là dán bảng giá cũ vào máy chưa từng tải |
 | `forfish.orders.v1` | **Bản lưu ĐƠN của tôi** (`{phone, savedAt, orders[]}`) — ngăn theo SĐT chuẩn hoá như inbox/cart; mất sóng hiện đơn đã tải thay vì màn lỗi. Xoá khi ĐĂNG XUẤT / "xoá dữ liệu tài khoản khỏi máy" (`hero-account.tsx`) | `lib/catalog-orders.ts` ← `my-orders.tsx` | 3 (tab Sản phẩm) | xoá → mất sóng không xem lại được đơn (có sóng là tải lại). **CẤM SAO LƯU** — mang SĐT nhận hàng + điểm giao |
 | `forfish.cart.v1` | **Giỏ hàng đang soạn** (`{phone, items[]}`) — ngăn theo SĐT như inbox; xoá sau khi đặt xong/đăng xuất. **2026-08-18 (gói E)**: `saveCart` trả `false` khi máy hết chỗ → UI băng đỏ "Máy hết chỗ — CHƯA lưu được giỏ…"; `CART_EVENT` CHỈ bắn khi ghi ok (không báo "đã thêm" cho thứ máy không giữ) | `lib/cart.ts` ← `sdvico-catalog.tsx`, `cart-sheet.tsx` | 3 (tab Sản phẩm) | xoá → mất giỏ đang soạn (đơn đã đặt nằm ở máy chủ, xem "Đơn của tôi"). **CẤM SAO LƯU** (`NEVER_BACKUP_PREFIXES`) — chép sang máy khác vô nghĩa, và chép trùng `ref` là hai máy cùng một mã giỏ |
+| `forfish.mcart.v1` | **CHỢ VẬT TƯ (2026-09-06) — giỏ hàng của sàn**, KHÁC `cart.v1` của Cửa hàng SDVICO: `{phone, items:[{productId,variantLabel?,qty}], quote?}`. Chỉ giữ id + số lượng — **giá KHÔNG lưu trong dòng giỏ**, server tra lại mỗi lần hiện; `quote` là bản tra gần nhất để mất sóng còn nói được "giá lúc HH:MM". Trần 50 dòng, qty 1..999 | `lib/market/cart.ts` (`saveMarketCart`/`saveMarketQuote` — **single-writer**, trả `false` khi máy hết chỗ, badge KHÔNG tăng) | `/cho`, `/cho/gio`, `/cho/thanh-toan` | 2+3 | xoá → giỏ trống; tự xoá dòng của shop đã đặt xong + khi đăng xuất |
+| `forfish.maddr.v1` | Địa chỉ nhận hàng đã lưu (≤10), ngăn theo SĐT: tên · SĐT người nhận · tỉnh · chi tiết · cờ `isPort` (cảng/bến) · địa chỉ mặc định | `lib/market/addresses.ts` (`saveAddresses` — single-writer) | `/cho/thanh-toan` | 2+3 | xoá → gõ lại địa chỉ; đơn CŨ không đổi (đã đóng băng snapshot) |
+| `forfish.mfav.v1` | Món **yêu thích ♡** (≤100), ngăn theo SĐT — lưu kèm **ảnh chụp** tên/giá/ảnh để mất sóng vẫn hiện được khối "Đã thích" | `lib/market/favorites.ts` (`saveFavorites` — single-writer) | `/cho`, `/cho/sp/[id]` | 2+3 | xoá → danh sách thích trống (không mất gì ở máy chủ) |
+| `forfish.morders.v1` | **Bản lưu ĐƠN CHỢ của tôi** (`{phone, savedAt, orders[]}`) — ghi mỗi lần `GET /api/cho/don` thành công; mất sóng hiện bản lưu + **tuổi bản lưu** ("Đang xem đơn đã lưu (N phút trước)"), nút ghi vô hiệu | `lib/market/orders-cache.ts` (`saveCachedMarketOrders` — single-writer) | `/cho/don`, `/cho/don/[id]` | 2+3 | xoá → mất sóng thì không xem được đơn (có sóng tải lại ngay); xoá khi đăng xuất |
+| `forfish.mshop.v1` | **Cờ "máy này có gian hàng"** (`{status, paused}` theo SĐT) — để sheet Tài khoản biết vẽ dòng "Kênh người bán" hay dòng mờ "Đăng ký shop"; **chưa có cờ + mất sóng ⇒ ẩn CẢ HAI** (không đoán bừa) | `lib/market/seller-flag.ts` (`saveShopFlag` — single-writer; cập nhật khi mở sheet Tài khoản và có sóng) | `components/hero-account.tsx`, `/ban-hang/**` | 2+3 | xoá → hai dòng ẩn tới lần tra kế tiếp; xoá khi đăng xuất |
+
 
 > `urgent-strip.tsx` là reader chéo: đọc `documents` + `maintenance` + `crew` để hiện cảnh báo gần đến hạn.
 
@@ -134,7 +142,7 @@ Nguồn luật: `src/lib/offline-backup.ts` (`isBackupable`), cổng test `src/l
 | Cài đặt xem | `displaymode.v1` · `home.v1` · `port.v1` · `maplayer.v1` · `mapPrefs.v1` | ✅ | ✅ |
 | Bà con tự gõ | `documents.v1` · `boats.v1` · `currentBoat.v1` · `boat.v1` · `places.v1` · `maintenance.v1` · `products.v1` · `buyers.v1` · `sdvico-boat.v1` | ❌ | ✅ **kèm cảnh báo đỏ** |
 | Máy-riêng / mốc điều phối (KHÔNG nằm trong danh sách CHO PHÉP; `EXCLUDED` kèm lý do trong `offline-backup.test.ts`) | `installNudge.dismissed.v1` · **`installNudge.v2`** (2026-08-18) · **`kicked.v1`** (2026-08-18) · **`nav.rung.v1`** (2026-09-04) · `pwa-frame.<W>x<H>` · `pretrip.lastRunAt.v1` · `trips.v1` (đã bỏ) | ❌ | ❌ |
-| **KHÔNG BAO GIỜ** (`NEVER_BACKUP_PREFIXES`) | `inbox.*` · `crew.*` · `identity.*` · `tier.*` · `device.*` · `heartbeat.*` · `token.*` · `fcindex.*` · `fcbia.*` · `persist.*` · `orders.*` · `catalog.*` · `cart.*` | ❌ | ❌ |
+| **KHÔNG BAO GIỜ** (`NEVER_BACKUP_PREFIXES`) | `inbox.*` · `crew.*` · `identity.*` · `tier.*` · `device.*` · `heartbeat.*` · `token.*` · `fcindex.*` · `fcbia.*` · `persist.*` · `orders.*` · `catalog.*` · `cart.*` · **`mcart.*` · `maddr.*` · `mfav.*` · `morders.*` · `mshop.*`** (Chợ vật tư, 2026-09-06) | ❌ | ❌ |
 
 **Vì sao từng khoá ở nhóm "KHÔNG BAO GIỜ"** (`NEVER_BACKUP_PREFIXES` — lớp phòng thủ thứ hai, chặn cả tệp đời cũ và tệp sửa tay):
 
@@ -144,6 +152,7 @@ Nguồn luật: `src/lib/offline-backup.ts` (`isBackupable`), cổng test `src/l
 - `tier.*` — dấu premium + hạn: chia tệp = **chia quyền đã trả tiền** (leo thang quyền).
 - `device.v1` — **mã máy phải DUY NHẤT**. Chia tệp ⇒ hai máy cùng mã ⇒ `customer_devices` ghi sai chủ, và máy NHẬN bị đè mã ⇒ 3 mốc trên `customers` **reset oan**.
 - `heartbeat.v2` / `.retry.v1` / `.sig.v1` / `.fails.v1` — mốc + chữ ký nhịp của **máy khác**; đè vào ⇒ máy nhận **im nhịp tới 30 phút** và nhịp SỰ KIỆN thật bị nuốt.
+- **`mcart.*` · `maddr.*` · `mfav.*` · `morders.*` · `mshop.*`** (Chợ vật tư, 2026-09-06) — đều **gắn với MỘT SĐT**: `maddr` mang tên + số + chỗ nhận hàng của người thật; `morders` là đơn (tiền, số tài khoản shop) của người đó; `mshop` nói "máy này có gian hàng" — chép sang máy khác là máy đó tự mở nhầm Kênh người bán. Mất không sao: có sóng là tải lại; giỏ/thích gõ lại vài chạm. Cổng quét `src/` trong `offline-backup.test.ts` bắt mọi chuỗi `"forfish.…"` nên khoá mới KHÔNG lọt qua mà không được xếp loại.
 
 **Nhập tệp = GHI ĐÈ, phải hỏi trước.** `importOfflineData(json, { confirmed: false })` không ghi byte nào; UI đọc + đếm bằng `summarizeBackup` rồi mới cho bấm `[ Đè ]` (xem [07-design-spec](../07-design-spec.md) §popup "Dữ liệu đã lưu"). Tệp đời cũ (không có trường `mode`, gom cả CCCD/mã máy) khi nhập vẫn bị lọc theo allowlist ⇒ rác cũ không leo vào máy được.
 

@@ -6,6 +6,7 @@ covers: src/lib/market, src/app/cho, src/app/ban-hang, src/app/api/cho, src/app/
 gate: warn
 last_verified: 2026-09-06
 ttl_days: 90
+<!-- DOC-STATUS: ORPHANED (2026-09-06) — path 'src/app/cho' khong con ton tai. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-09-06 - Core pha 2a đã hiện thực đúng hợp đồng §2–§6, §8.1: 24 file lib/market, 11 shared component, migration 0054, /api/dev + /dev, 16 file test; không đổi tên/chữ ký (chỉ THÊM notice.ts, rating.ts, marketErrorStatus/isMarketError theo hình dạng, marketSend, sniffImageMime) -->
 
 **Version**: 1.1 (hợp nhất sau phản biện) · **Ngày**: 2026-09-06 · **Tác giả**: Kiến trúc sư (Phase 1) + Reviewer hợp nhất · **Khung**: LEAD-BRIEF 2026-09-06 §4/§5 = luật cao nhất · **Vì sao**: [ADR 0008](../adr/0008-san-thuong-mai-da-nguoi-ban.md) · **Nghiệp vụ**: [11-ba-spec-san-thuong-mai.md](11-ba-spec-san-thuong-mai.md)
@@ -764,6 +765,10 @@ export interface ProductQuery {
   /** false (buyer): status ∈ dang_ban|het_hang, KHÔNG adminHidden, KHÔNG deleted, shop hoat_dong.
    *  true (seller/admin): mọi status + adminHidden, vẫn KHÔNG deleted. */
   includeHidden?: boolean;
+  /** CHỈ `listShopProducts` (seller/admin) đọc — `listProducts` (chợ) BỎ QUA.
+   *  dang_ban|an|het_hang = đúng status VÀ không bị gỡ · bi_go = bị admin gỡ (mọi status)
+   *  · all / bỏ trống = không lọc. Route `?status` (§7.2) truyền THẲNG xuống kho. */
+  status?: ProductStatusFilter;   // = ProductStatus | "bi_go" | "all"
 }
 
 export interface Page<T> {
@@ -1363,6 +1368,8 @@ Hình dạng: `{ phone, hasShop, status, at }`. Test: ngăn + JSON hỏng.
 
 ### 5.1 Tệp `.local/market-dev.json` (gitignore: `/.local/` — ĐÃ có trong `.gitignore` working tree 2026-09-06)
 
+**Đường dẫn**: `MARKET_STORE_FILE` (tuyệt đối, hoặc tương đối cwd) trỏ tệp kho; không đặt ⇒ `.local/market-dev.json`. Ảnh tải lên luôn ở `market-uploads/` **cạnh tệp đó** (`devStoreFile()` / `devUploadDir()` — route `/api/dev/uploads/[name]` đọc cùng chỗ). Nhờ vậy e2e chạy trên kho riêng, không đè kho dev đang dùng tay.
+
 ```jsonc
 {
   "version": 1,
@@ -1758,6 +1765,7 @@ Commit message mỗi pha ghi câu trả lời offline (CLAUDE.md pre-flight 🟡
 
 ## History
 - 1.0 (2026-09-06): khởi tạo pha Kiến trúc từ LEAD-BRIEF; 12 điểm phản biện.
+- **1.2 (2026-09-06) — Core**: `ProductQuery.status` (`ProductStatusFilter` = ProductStatus | `bi_go` | `all`) cho `listShopProducts` ở CẢ HAI adapter — route `/api/ban-hang/san-pham` truyền thẳng xuống kho, hết quét 1.000 món rồi lọc trong route (gỡ `// nợ:`); `listProducts` (chợ) không đổi. Thêm biến môi trường `MARKET_STORE_FILE` trỏ tệp kho dev (§5.1), uploads đi theo thư mục của tệp.
 - **1.1 (2026-09-06) — hợp nhất sau phản biện**: đưa đủ LEAD-BRIEF §4/§5 vào schema/type/store/route (`settleOverdue`, `needs_refund`, `shops.paused`, `product_reviews.hidden`, `admin_hidden`, `deleted_at`, `bank_snapshot`, `approved_at`, danh mục id gạch-ngang, `marketOrderClientRef`, `expectedTotalVnd`/`price_changed`, `results[]` từng shop, ép COD, `?province`, khách lạ xem chợ, 2 dạng dòng sheet Tài khoản, sentinel SDVICO, push người bán); tên/mã/số khớp 11-ba-spec 1.1; ownership cuối cùng §10.1. Bảng đối chiếu: `_generated/phan-bien-san-thuong-mai-2026-09-06.md`.
 
-**Last updated**: 2026-09-06 (1.1)
+**Last updated**: 2026-09-06 (1.2)

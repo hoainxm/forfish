@@ -27,9 +27,15 @@ import type {
 export const DEV_FILE_NAME = "market-dev.json";
 export const DEV_UPLOAD_DIRNAME = "market-uploads";
 
-/** Thư mục `.local` của repo (mặc định) — route uploads đọc cùng chỗ. */
+/** Tệp kho dev: `MARKET_STORE_FILE` (đường dẫn tuyệt đối, hoặc tương đối cwd);
+ *  không đặt ⇒ `.local/market-dev.json` của repo (12 §5.1). */
+export function devStoreFile(env: Record<string, string | undefined> = process.env as Record<string, string | undefined>): string {
+  const raw = env.MARKET_STORE_FILE?.trim();
+  return raw ? path.resolve(process.cwd(), raw) : path.join(process.cwd(), ".local", DEV_FILE_NAME);
+}
+/** Thư mục chứa tệp kho — ảnh tải lên nằm cạnh nó, route uploads đọc cùng chỗ. */
 export function devLocalDir(): string {
-  return path.join(process.cwd(), ".local");
+  return path.dirname(devStoreFile());
 }
 export function devUploadDir(base: string = devLocalDir()): string {
   return path.join(base, DEV_UPLOAD_DIRNAME);
@@ -62,8 +68,8 @@ const byCreatedDesc = <T extends { createdAt: string }>(a: T, b: T) => (a.create
 
 export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): FileMarketStore {
   assertDevFileMode();
-  const dir = opts.dir ?? devLocalDir();
-  const file = path.join(dir, DEV_FILE_NAME);
+  const file = opts.dir ? path.join(opts.dir, DEV_FILE_NAME) : devStoreFile();
+  const dir = path.dirname(file);
   const uploads = devUploadDir(dir);
   const now = opts.now ?? (() => new Date());
   const nowIso = () => now().toISOString();
@@ -184,6 +190,10 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
         if (p.status !== "dang_ban" && p.status !== "het_hang") return false;
         if (shop.status !== "hoat_dong") return false;
       }
+      if (q.status && q.status !== "all") {
+        if (q.status === "bi_go") { if (!p.adminHidden) return false; }
+        else if (p.adminHidden || p.status !== q.status) return false;
+      }
       if (q.shopId && p.shopId !== q.shopId) return false;
       if (q.category && p.category !== q.category) return false;
       if (prov && foldVn(shop.province ?? "") !== prov) return false;
@@ -235,7 +245,8 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
     // ── Sản phẩm (người mua) ──
     async listProducts(q) {
       const s = await load();
-      const list = filterProducts(s, q);
+      // `status` là bộ lọc của người bán — chợ không đọc (12 §3.1), chặn ngay ở đây.
+      const list = filterProducts(s, { ...q, status: "all" });
       const page = paginate(list, q);
       return { ...page, items: page.items.map((p) => toCard(s, p)) };
     },

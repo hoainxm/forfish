@@ -3,6 +3,9 @@
 
 export type ShopStatus = "cho_duyet" | "hoat_dong" | "tam_khoa" | "tu_choi";
 export type ProductStatus = "dang_ban" | "an" | "het_hang";
+/** Bộ LỌC trạng thái ở danh sách món của shop (seller/admin). `bi_go` KHÔNG phải một
+ *  ProductStatus — nó là cờ `adminHidden` (SDVICO gỡ); `all` = không lọc. */
+export type ProductStatusFilter = ProductStatus | "bi_go" | "all";
 export type OrderStatus =
   | "cho_xac_nhan" | "da_xac_nhan" | "dang_giao" | "da_giao" | "hoan_thanh" | "da_huy";
 export type PaymentMethod = "cod" | "chuyen_khoan";
@@ -260,6 +263,10 @@ export interface ProductQuery {
   /** false (buyer): status ∈ dang_ban|het_hang, KHÔNG adminHidden, KHÔNG deleted, shop hoat_dong.
    *  true (seller/admin): mọi status + adminHidden, vẫn KHÔNG deleted. */
   includeHidden?: boolean;
+  /** CHỈ `listShopProducts` (seller/admin) đọc — `listProducts` (chợ) BỎ QUA.
+   *  dang_ban|an|het_hang = đúng status VÀ không bị gỡ · bi_go = bị admin gỡ (mọi status)
+   *  · all / bỏ trống = không lọc. Khớp bảng lọc route 12 §7.2. */
+  status?: ProductStatusFilter;
 }
 
 export interface Page<T> {

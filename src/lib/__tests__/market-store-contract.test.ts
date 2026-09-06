@@ -7,7 +7,8 @@ import { isMarketError, MarketError, marketErrorStatus } from "@/lib/market/erro
 import { settleOverdue } from "@/lib/market/order-state";
 import { buildMarketLines, computeTotals } from "@/lib/market/pricing";
 import type { PreparedShopOrder } from "@/lib/market/store";
-import type { Address, Order, Product, Shop } from "@/lib/market/types";
+import { foldVn } from "@/lib/market/text";
+import type { Address, Order, Product, ProductStatusFilter, Shop } from "@/lib/market/types";
 
 /*  HỢP ĐỒNG CHUNG cho cả hai adapter (12 §3.6) — chạy trên file-store với thư
     mục tạm. supabase-store không chạy được ở máy này (không có DB); bảng hành vi
@@ -212,6 +213,30 @@ describe("sản phẩm (người bán)", () => {
     const u = await store.setProductAdminHidden(p.id, false, null);
     expect(u.adminHidden).toBe(false);
     expect(u.adminHiddenReason).toBeUndefined();
+  });
+  it("listShopProducts ?status: dang_ban|an|het_hang KHÔNG kèm món bị gỡ · bi_go = món bị gỡ · all/bỏ trống = tất cả", async () => {
+    const base = { category: "phu-tung" as const, priceVnd: 90000, unit: "cái", images: [], variants: [], compareAtVnd: undefined };
+    const mk = async (title: string, stock: number, status: "dang_ban" | "an") =>
+      store.createProduct(phuongnam.id, { ...base, title, stock, status }, `loctrangthai ${foldVn(title)}`);
+    const ban = await mk("Ốc siết A", 5, "dang_ban");
+    const an = await mk("Ốc siết B", 5, "an");
+    const het = await mk("Ốc siết C", 0, "dang_ban");        // normalize ⇒ het_hang
+    const go = await mk("Ốc siết D", 5, "dang_ban");
+    await store.setProductAdminHidden(go.id, true, "Hàng giả");
+    expect(het.status).toBe("het_hang");
+
+    const ids = async (status?: ProductStatusFilter) =>
+      (await store.listShopProducts(phuongnam.id, { q: "loctrangthai", pageSize: 50, ...(status ? { status } : {}) }))
+        .items.map((x) => x.id).sort();
+    expect(await ids("dang_ban")).toEqual([ban.id].sort());
+    expect(await ids("an")).toEqual([an.id].sort());
+    expect(await ids("het_hang")).toEqual([het.id].sort());
+    expect(await ids("bi_go")).toEqual([go.id].sort());
+    expect(await ids("all")).toEqual([ban.id, an.id, het.id, go.id].sort());
+    expect(await ids()).toEqual([ban.id, an.id, het.id, go.id].sort());
+    // chợ KHÔNG đọc `status` — vẫn là danh sách công khai (shop chờ duyệt ⇒ rỗng)
+    expect((await store.listProducts({ q: "loctrangthai", status: "an", pageSize: 50 })).total).toBe(0);
+    for (const p2 of [ban, an, het, go]) await store.deleteProduct(phuongnam.id, p2.id);
   });
 });
 

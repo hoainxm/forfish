@@ -12,6 +12,7 @@
     "test": "node scripts/run-vitest.mjs",
     "e2e:build": "node scripts/e2e-build.mjs",
     "e2e:videos": "playwright test",
+    "e2e:san": "playwright test -c playwright.san.config.ts",
     "e2e:export": "node scripts/e2e-video-export.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "cap:sync": "cap sync",

@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  BasketIcon,
   CheckIcon,
+  ChevronRightIcon,
   ClockIcon,
   CloseIcon,
   DocIcon,
@@ -220,6 +222,27 @@ export function BoatProducts() {
       {/* ════ MỤC 2: CỦA SDVICO — cửa hàng gọn, giới thiệu + upsale ═══ */}
       {section === "sdvico" && (
         <div className="px-4">
+          {/*  LỐI VÀO CHỢ VẬT TƯ (12 §9): cửa hàng SDVICO ở dưới GIỮ NGUYÊN —
+               chợ nhiều đại lý là chỗ khác, chưa gộp (LEAD §5 #11, ADR sau). */}
+          <Link
+            href="/cho"
+            className="mb-4 flex min-h-[3.5rem] items-center gap-3 px-4 py-3 surface"
+          >
+            <span
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+              style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
+              aria-hidden
+            >
+              <BasketIcon className="h-6 w-6" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[1.125rem] font-bold text-navy">Chợ vật tư tàu cá — nhiều đại lý</span>
+              <span className="block text-[1rem] leading-snug text-foreground/65">
+                Ngư cụ, đá cây, nhu yếu phẩm… so giá nhiều shop, giao ra cảng
+              </span>
+            </span>
+            <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+          </Link>
           <SdvicoCatalog
             ownedProductNames={synced?.products.map((p) => p.name) ?? []}
           />
