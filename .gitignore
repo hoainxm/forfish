@@ -61,3 +61,6 @@ test-reports/
 # xem CLAUDE.md "Dữ liệu bản đồ trong git — CHỐNG PHÌNH".
 /public/data/reef-shapes-aca.v1.json
 /public/data/reef-shapes-aca.*.tmp
+
+# pnpm store cache — máy-riêng, không commit
+/.pnpm-store/
