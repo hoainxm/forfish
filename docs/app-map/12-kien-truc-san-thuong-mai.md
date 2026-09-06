@@ -6,6 +6,7 @@ covers: src/lib/market, src/app/cho, src/app/ban-hang, src/app/api/cho, src/app/
 gate: warn
 last_verified: 2026-09-06
 ttl_days: 90
+<!-- re-verified: 2026-09-06 - Core pha 2a đã hiện thực đúng hợp đồng §2–§6, §8.1: 24 file lib/market, 11 shared component, migration 0054, /api/dev + /dev, 16 file test; không đổi tên/chữ ký (chỉ THÊM notice.ts, rating.ts, marketErrorStatus/isMarketError theo hình dạng, marketSend, sniffImageMime) -->
 
 **Version**: 1.1 (hợp nhất sau phản biện) · **Ngày**: 2026-09-06 · **Tác giả**: Kiến trúc sư (Phase 1) + Reviewer hợp nhất · **Khung**: LEAD-BRIEF 2026-09-06 §4/§5 = luật cao nhất · **Vì sao**: [ADR 0008](../adr/0008-san-thuong-mai-da-nguoi-ban.md) · **Nghiệp vụ**: [11-ba-spec-san-thuong-mai.md](11-ba-spec-san-thuong-mai.md)
 

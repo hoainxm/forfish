@@ -4,6 +4,7 @@
 covers: src/lib/market/, src/app/cho/, src/app/ban-hang/, src/components/market/, src/components/admin/market-admin-tab.tsx, src/app/api/cho/, src/app/api/ban-hang/, src/app/api/admin/cho/
 last_verified: 2026-09-06
 ttl_days: 90
+<!-- DOC-STATUS: ORPHANED (2026-09-06) — path 'src/lib/market/' khong con ton tai. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 version: v1.1 (2026-09-06) — hợp nhất sau phản biện, chưa build. 16 quyết định LEAD-BRIEF §4 + §5 đã đưa vào; tên trường/mã/route/trần số lấy NGUYÊN VĂN từ [12-kien-truc 1.1](12-kien-truc-san-thuong-mai.md) (12 = nguồn TÊN, 11 = nguồn HÀNH VI). Đối chiếu: [_generated/phan-bien-san-thuong-mai-2026-09-06.md](_generated/phan-bien-san-thuong-mai-2026-09-06.md).
 
 > **Mục đích**: ORACLE HÀNH VI cho agent build + QA — ai được làm gì, hệ thống phản ứng ra sao, đúng-sai đo bằng AC nào. Không mô tả pixel (việc của [07-design-spec](07-design-spec.md)); không mô tả schema cột (việc của [12-kien-truc-san-thuong-mai](12-kien-truc-san-thuong-mai.md) + [04-data-model](04-data-model.md)).

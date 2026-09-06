@@ -6,6 +6,7 @@
 // Helper tách riêng để test ở src/lib/__tests__/catalog-orders.test.ts.
 
 import { isValidVnPhone, normalizeVnPhone } from "@/lib/phone";
+import { fnv1a64Hex } from "@/lib/market/order-ref";
 import type { ProductListing } from "@/lib/product-catalog";
 
 export type OrderStatus =
@@ -131,16 +132,9 @@ function orderFingerprint(d: OrderDraft): string {
  * mật mã và không cần là mật mã.
  */
 export function orderClientRef(d: OrderDraft): string {
-  const s = orderFingerprint(d);
-  const fnv = (seed: number) => {
-    let h = seed >>> 0;
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 0x01000193) >>> 0;
-    }
-    return h.toString(16).padStart(8, "0");
-  };
-  return `v1-${fnv(0x811c9dc5)}${fnv(0x9e3779b9)}`;
+  // Hàm băm dùng CHUNG với Chợ vật tư (lib/market/order-ref.ts) — hết hai bản,
+  // kết quả y hệt bản cũ (test canh vector).
+  return `v1-${fnv1a64Hex(orderFingerprint(d))}`;
 }
 
 /** Số lượng hợp lệ: nguyên, 1..999. */

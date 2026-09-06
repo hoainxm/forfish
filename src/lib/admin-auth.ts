@@ -3,6 +3,9 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tokenIdentity } from "@/lib/device-token-server";
+import { readTokenHeader } from "@/lib/device-token";
+import { isDevFileMode } from "@/lib/market/dev-mode";
+import { getMarketStore } from "@/lib/market/store";
 import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
 import {
   can,
@@ -34,6 +37,14 @@ export type StaffContext =
  * Chưa cấu hình Supabase (demo mode) → không có staff.
  */
 export async function requireStaff(): Promise<StaffContext> {
+  // Nhánh dev kho file (12 §6.3) — persona admin của file-store; prod không bao giờ vào.
+  if (isDevFileMode()) {
+    const raw = readTokenHeader(await headers());
+    const who = raw ? await (await getMarketStore()).devIdentity(raw) : null;
+    if (!who) return { ok: false, status: 401, code: "login_required" };
+    if (who.role === "admin") return { ok: true, phone: who.phone, role: "admin", permissions: null };
+    return { ok: false, status: 403, code: "staff_only" };
+  }
   const supabase = await createClient();
   if (!supabase) return { ok: false, status: 503, code: "not_configured" };
 

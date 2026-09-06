@@ -210,6 +210,19 @@ export const NEVER_BACKUP_PREFIXES = [
    *    tự xoá sau khi đặt xong. Chép sang máy khác chẳng để làm gì (đơn đặt rồi
    *    nằm ở server, xem qua "Đơn của tôi"); mất khoá này không mất gì. */
   "forfish.cart.",
+  /*  · `mcart.` / `maddr.` / `morders.` — CHỢ VẬT TƯ (lib/market, 2026-09-06):
+   *    giỏ đang soạn + bản tra giá, địa chỉ nhận (tên, SĐT người nhận, cảng),
+   *    bản lưu đơn của tôi. Là PII và CÓ SÓNG LÀ TẢI LẠI ĐƯỢC — cùng luật với
+   *    `orders.`/`cart.`: không đi theo tệp sang máy khác. */
+  "forfish.mcart.",
+  "forfish.maddr.",
+  "forfish.morders.",
+  /*  · `mfav.` / `mshop.` — yêu thích (kèm snapshot giá) và cờ "máy này có shop"
+   *    của Chợ vật tư. Của RIÊNG MÁY NÀY: cờ shop chép sang máy khác là sheet
+   *    Tài khoản mời người không có shop vào Kênh người bán; snapshot giá là
+   *    bảng giá cũ dán vào máy chưa từng xem. Mất không mất gì — tra lại được. */
+  "forfish.mfav.",
+  "forfish.mshop.",
 ];
 
 const hasPrefix = (k: string, list: readonly string[]) =>
