@@ -331,8 +331,104 @@ export const DEVICE_TOKEN_KEY = "forfish.token.v1";
 export async function loginViaDevPage(page: Page, phone: string): Promise<void> {
   await page.goto(url("/dev"));
   const row = page.locator("li").filter({ hasText: phone }).first();
-  await row.getByRole("button", { name: /Đăng nhập/i }).click();
+  const nut = row.getByRole("button", { name: /Đăng nhập/i });
+  /*  CHỜ HÀNG PERSONA HIỆN RA TRƯỚC KHI BẤM, hạn rộng hơn `actionTimeout`.
+      Ca đầu tiên của lượt chạy phải chờ `next dev` biên dịch cả trang `/dev`
+      LẪN route `/api/dev/personas` — lần lạnh vượt 15 s là chuyện thường và
+      KHÔNG phải lỗi sản phẩm. Bấm thẳng thì ca đầu đỏ ngẫu nhiên, đúng thứ làm
+      người ta mất niềm tin vào bộ test. */
+  await expect(nut, `hàng persona ${phone} ở /dev (lần chạy lạnh phải chờ biên dịch)`)
+    .toBeVisible({ timeout: 60_000 });
+  await nut.click();
   await expect
     .poll(async () => page.evaluate((k) => window.localStorage.getItem(k), DEVICE_TOKEN_KEY), { timeout: 15_000 })
     .not.toBeNull();
+}
+
+// ── SÀN CHẠM 56px (03-design-system luật A5) ──────────────────────────────────
+/** Sàn chạm của app: 3.5rem = 56px ở cỡ chữ gốc 16px. */
+export const MIN_TAP = 56;
+/** Sàn của ngoại lệ ♡ trên thẻ lưới: 2.75rem = 44px (LEAD F-04). */
+const FAV_TAP = 44;
+
+/**
+ * Đo MỌI ô chạm được đang hiện trên màn (`button` · `a` · ô đánh dấu gốc) và
+ * trả về danh sách vi phạm sàn 56px. Ca gọi hàm này ĐO, không nới: đỏ ở đây là
+ * vi phạm thật của UI — sửa UI, đừng sửa ca.
+ *
+ * BA NGOẠI LỆ DUY NHẤT, đều CÓ CHỦ ĐÍCH và đã chốt bằng văn bản. Thêm cái thứ
+ * tư là bỏ luật, không phải "sửa test":
+ *
+ *  1. **Dock** (`nav[aria-label="Điều hướng chính"]`) — 70×55px. Chủ dự án chốt
+ *     bớt 5px chiều cao để dock không ăn thêm màn; đây là ô luôn ở đúng chỗ,
+ *     bà con không phải nhắm.
+ *  2. **♡ trên thẻ lưới** (`aria-label` Yêu thích / Bỏ yêu thích) — 2.75rem theo
+ *     LEAD F-04: nút đè lên ảnh lớn, KHÔNG cạnh nút nào khác nên chạm hụt không
+ *     bấm nhầm việc khác. Vẫn đo: dưới 44px là đỏ.
+ *  3. **Ô đánh dấu gốc của máy** (`input[type=checkbox]`) nằm trong một `<label>`
+ *     cao ≥ 3.5rem — vùng chạm thật là cả cái nhãn, không phải ô 28px.
+ */
+export async function tapViolations(page: Page): Promise<string[]> {
+  return page.evaluate(
+    ([min, favMin]) => {
+      const out: string[] = [];
+      for (const el of Array.from(document.querySelectorAll('button, a, input[type="checkbox"]'))) {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue; // ẩn / chưa vẽ
+        const cs = getComputedStyle(el);
+        if (cs.visibility === "hidden" || cs.display === "none") continue;
+
+        // ── ngoại lệ 1: dock
+        if (el.closest('nav[aria-label="Điều hướng chính"]')) continue;
+
+        const name = (el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 40);
+        const size = `${Math.round(r.width)}×${Math.round(r.height)}px`;
+
+        // ── ngoại lệ 2: ♡ trên thẻ lưới (vẫn có sàn riêng 2.75rem)
+        if (name === "Yêu thích" || name === "Bỏ yêu thích") {
+          if (r.height >= favMin && r.width >= favMin) continue;
+          out.push(`button "${name}" = ${size} — dưới CẢ sàn ngoại lệ ${favMin}px của ♡`);
+          continue;
+        }
+
+        // ── ngoại lệ 3: ô đánh dấu gốc trong nhãn đủ cao
+        if (el instanceof HTMLInputElement && el.type === "checkbox") {
+          const lab = el.closest("label");
+          if (lab && lab.getBoundingClientRect().height >= min) continue;
+        }
+
+        if (r.height >= min && r.width >= min) continue;
+        out.push(`${el.tagName.toLowerCase()} "${name}" = ${size}`);
+      }
+      return out;
+    },
+    [MIN_TAP, FAV_TAP] as const,
+  );
+}
+
+/** Đo nhiều màn một lượt: mở từng đường dẫn, chờ mốc rồi đo. */
+export async function tapViolationsOfPages(
+  page: Page,
+  pages: ReadonlyArray<readonly [path: string, ready: RegExp]>,
+): Promise<string[]> {
+  const bad: string[] = [];
+  for (const [path, ready] of pages) {
+    await page.goto(url(path));
+    await expect(page.getByText(ready).first(), `mốc "chờ vẽ xong" của ${path}`).toBeVisible();
+    for (const v of await tapViolations(page)) bad.push(`${path} → ${v}`);
+  }
+  return bad;
+}
+
+// ── Giỏ hàng qua MÀN HÌNH ─────────────────────────────────────────────────────
+/**
+ * Thêm một món vào giỏ đúng đường bà con đi: mở trang món rồi bấm nút chính.
+ * KHÔNG nhét thẳng localStorage — nếu `saveMarketCart` hỏng thì ca phải thấy.
+ */
+export async function addToCartViaUi(page: Page, productId: string): Promise<void> {
+  await page.goto(url(`/cho/sp/${productId}`));
+  const add = page.getByRole("button", { name: "Thêm vào giỏ" });
+  await expect(add, "nút Thêm vào giỏ phải bấm được (món còn hàng, shop đang mở)").toBeEnabled();
+  await add.click();
+  await expect(page.getByText(/Đã thêm .* vào giỏ/)).toBeVisible();
 }

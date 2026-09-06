@@ -5,7 +5,8 @@
 // MỌI thao tác kho đều đi qua lib/market/* của Core; ở đây chỉ có React.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  addMarketLine, loadMarketCart, marketCartCount, MARKET_CART_EVENT, saveMarketCart,
+  addMarketLine, loadMarketCart, loadMarketUnselected, MARKET_CART_EVENT, saveMarketCart, saveMarketUnselected,
+  selectedMarketLines, setMarketSelection,
 } from "@/lib/market/cart";
 import { isFavorite, loadFavorites, saveFavorites, toggleFavorite, type FavItem } from "@/lib/market/favorites";
 import { loadCachedMarketOrders } from "@/lib/market/orders-cache";
@@ -45,7 +46,14 @@ export interface MarketCartState {
    *  và lúc đó cổng đăng nhập sẽ chặn oan người đang có tài khoản. */
   signedIn: boolean;
   items: MarketCartLine[];
+  /** SỐ DÒNG trong giỏ (F-19: badge đếm dòng như Shopee — 25 kg dây là 1 dòng, không phải 25). */
   count: number;
+  /** Khoá dòng đang BỎ CHỌN (F-05) — mặc định chọn hết; dòng mới thêm tự được chọn. */
+  unselected: string[];
+  /** Dòng đang chọn = thứ màn Đặt hàng mang đi. */
+  selectedItems: MarketCartLine[];
+  /** Bật/tắt chọn cho một nhóm khoá (một dòng / cả shop / cả giỏ). */
+  select: (keys: readonly string[], on: boolean) => void;
   /** Ghi giỏ; false = MÁY HẾT CHỖ (màn phải báo đỏ, KHÔNG tăng badge). */
   commit: (next: MarketCartLine[]) => boolean;
   /** Thêm 1 dòng (cộng dồn theo biến thể) — trần 50 dòng ⇒ "gio_day". */
@@ -56,6 +64,7 @@ export interface MarketCartState {
 export function useMarketCart(): MarketCartState {
   const { phone, signedIn } = useAuthUser();
   const [items, setItems] = useState<MarketCartLine[]>([]);
+  const [unselected, setUnselected] = useState<string[]>([]);
   const [saveFailed, setSaveFailed] = useState(false);
 
   /*  KHÁCH LẠ ĐĂNG NHẬP THÌ GIỎ ĐI THEO.
@@ -76,7 +85,10 @@ export function useMarketCart(): MarketCartState {
   }, [phone]);
 
   useEffect(() => {
-    const sync = () => setItems(loadMarketCart(phone));
+    const sync = () => {
+      setItems(loadMarketCart(phone));
+      setUnselected(loadMarketUnselected(phone));
+    };
     sync();
     // giỏ đổi ở màn khác / tab khác ⇒ badge và danh sách theo kịp
     window.addEventListener(MARKET_CART_EVENT, sync);
@@ -91,8 +103,21 @@ export function useMarketCart(): MarketCartState {
     (next: MarketCartLine[]) => {
       const ok = saveMarketCart(phone, next);
       setSaveFailed(!ok);
-      if (ok) setItems(next);
+      if (ok) {
+        setItems(next);
+        setUnselected(loadMarketUnselected(phone)); // khoá của dòng vừa bỏ đã được tỉa
+      }
       return ok;
+    },
+    [phone],
+  );
+
+  const select = useCallback(
+    (keys: readonly string[], on: boolean) => {
+      const next = setMarketSelection(loadMarketUnselected(phone), keys, on);
+      // ghi hỏng (máy chật) thì vẫn giữ trong tay — chọn/bỏ chọn tính lại được
+      saveMarketUnselected(phone, next);
+      setUnselected(next);
     },
     [phone],
   );
@@ -107,7 +132,11 @@ export function useMarketCart(): MarketCartState {
     [phone, commit],
   );
 
-  return { phone: phone ?? null, signedIn, items, count: marketCartCount(items), commit, add, saveFailed };
+  return {
+    phone: phone ?? null, signedIn, items, count: items.length,
+    unselected, selectedItems: selectedMarketLines(items, unselected), select,
+    commit, add, saveFailed,
+  };
 }
 
 export interface FavState {

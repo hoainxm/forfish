@@ -1,12 +1,12 @@
 import { MarketSearch } from "@/components/market/buyer/market-search";
-import { PageHeader } from "@/components/page-header";
+import { MarketHeader } from "@/components/market/shared/market-header";
 
 export const metadata = { title: "Tìm vật tư — SDFish" };
 
 export default function ChoTimPage() {
   return (
     <div>
-      <PageHeader kicker="Chợ vật tư" title="Tìm món" toColor="var(--t3)" />
+      <MarketHeader title="Tìm món" fallback="/cho" />
       <MarketSearch />
     </div>
   );

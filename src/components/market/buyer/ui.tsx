@@ -5,9 +5,10 @@
 // lời mời đăng nhập tại điểm chạm. Chỉ những thứ ≥ 2 màn dùng mới nằm ở đây.
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AlertIcon, CartIcon, DocIcon, SearchIcon } from "@/components/icons";
+import { AlertIcon, CartIcon, CloseIcon, DocIcon, SearchIcon } from "@/components/icons";
 import { LoginGate } from "@/components/login-gate";
 import { MarketProductCard } from "@/components/market/shared/product-card";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import type { ProductCard } from "@/lib/market/types";
 import { rememberPeek } from "./product-peek";
 
@@ -68,9 +69,9 @@ export function MarketTopBar({
             type="button"
             onClick={() => onQ("")}
             aria-label="Xoá chữ đang tìm"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground/60"
+            className="-mr-2 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-foreground/60 active:bg-card"
           >
-            ✕
+            <CloseIcon className="h-6 w-6" />
           </button>
         )}
       </form>
@@ -94,23 +95,25 @@ export function MarketTopBar({
   );
 }
 
-/** Lưới 2 cột thẻ món. Ghi lại "bản thẻ" để mở món lúc mất sóng còn thấy gì đó. */
+/**
+ * Lưới 2 cột thẻ món — `auto-rows-fr` để hai thẻ cùng hàng bằng nhau (F-04: thẻ
+ * có giá gạch cao hơn thẻ bên làm hàng lệch). Ghi lại "bản thẻ" để mở món lúc
+ * mất sóng còn thấy gì đó.
+ */
 export function ProductGrid({
   items,
   isFav,
   onFav,
-  onAdd,
 }: {
   items: ProductCard[];
   isFav?: (id: string) => boolean;
   onFav?: (p: ProductCard) => void;
-  onAdd?: (p: ProductCard) => void;
 }) {
   useEffect(() => {
     for (const p of items) rememberPeek(p);
   }, [items]);
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid auto-rows-fr grid-cols-2 gap-3">
       {items.map((p) => (
         <MarketProductCard
           key={p.id}
@@ -118,7 +121,6 @@ export function ProductGrid({
           href={`/cho/sp/${p.id}`}
           fav={isFav?.(p.id)}
           {...(onFav ? { onFav: () => onFav(p) } : {})}
-          {...(onAdd ? { onAdd: () => onAdd(p) } : {})}
         />
       ))}
     </div>
@@ -205,31 +207,34 @@ export function CartFeedback({ note, count }: { note: string | null; count: numb
 /**
  * Lời mời đăng nhập TẠI ĐIỂM CHẠM (11 §5): một lời mời/màn, và **ẩn khi mất
  * sóng** (07 §12 tầng 5 — bấm cũng không vào được thì đừng mời).
+ *
+ * Là BOTTOM SHEET (F-01, 2026-09-06): bản cũ vẽ thẻ inline DƯỚI danh sách /
+ * dưới thanh dính ⇒ bấm Đặt hàng xong màn không đổi gì, bà con tưởng nút hỏng.
+ * Sheet đè lên ngay chỗ đang nhìn, không phải cuộn đi tìm. `verb` = việc bị
+ * khoá ("đặt hàng", "lưu món") — câu thành "Đăng nhập để đặt hàng" (F-20).
  */
 export function LoginInvite({
-  feature,
+  verb,
   online,
   onClose,
 }: {
-  feature: string;
+  verb: string;
   online: boolean;
-  onClose?: () => void;
+  onClose: () => void;
 }) {
   if (!online) return null;
   return (
-    <div className="mb-3">
-      <LoginGate feature={feature} blurb="Tài khoản do SDVICO cấp — gọi SDVICO để được mở." accent="t3">
+    <BottomSheet title="Cần tài khoản" onClose={onClose}>
+      <LoginGate feature="" verb={verb} blurb="Tài khoản do SDVICO cấp — gọi SDVICO để được mở." accent="t3">
         <span />
       </LoginGate>
-      {onClose && (
-        <button
-          type="button"
-          onClick={onClose}
-          className="mx-auto mt-2 flex min-h-[3.5rem] items-center justify-center px-4 text-[1rem] font-bold text-foreground/65"
-        >
-          Để sau
-        </button>
-      )}
-    </div>
+      <button
+        type="button"
+        onClick={onClose}
+        className="mx-auto mt-2 flex min-h-[3.5rem] items-center justify-center px-4 text-[1rem] font-bold text-foreground/65"
+      >
+        Để sau
+      </button>
+    </BottomSheet>
   );
 }

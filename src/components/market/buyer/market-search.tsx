@@ -11,26 +11,45 @@ import { useCallback, useEffect, useState } from "react";
 import { CategoryChips, type CategoryChipValue } from "@/components/market/shared/category-chips";
 import { EmptyNet } from "@/components/market/shared/empty-net";
 import { NetChip } from "@/components/market/shared/net-chip";
-import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { EmptyState } from "@/components/ui/primitives";
 import { isProductCategory } from "@/lib/market/categories";
 import { marketGet } from "@/lib/market/client";
 import type { ProductCard, ProductQuery } from "@/lib/market/types";
 import { useOnlineRefetch } from "@/lib/market/use-online";
 import { loadHome } from "@/lib/region";
-import { CartFeedback, ErrorBlock, GridSkeleton, MarketTopBar, ProductGrid } from "./ui";
+import { ErrorBlock, GridSkeleton, MarketTopBar, ProductGrid } from "./ui";
 import { isOpenOrder, useCachedOrders, useFavorites, useMarketCart, useSeenLabel } from "./hooks";
 
 type Sort = NonNullable<ProductQuery["sort"]>;
 type ListRes = { items: ProductCard[]; total: number };
 
-const SORT_LABEL: Record<Sort, string> = {
+/*  Hàng chip sắp xếp NGANG (F-10): bản cũ 1 nút mở sheet 4 lựa chọn = 2 chạm.
+    Nhãn ngắn để 4 chip + "Gần tôi" nằm một hàng cuộn; "N món" đứng cuối hàng. */
+export const SORT_LABEL: Record<Sort, string> = {
   moi: "Mới nhất",
   ban_chay: "Bán chạy",
-  gia_tang: "Giá thấp → cao",
-  gia_giam: "Giá cao → thấp",
+  gia_tang: "Giá tăng",
+  gia_giam: "Giá giảm",
 };
-const SORTS: Sort[] = ["moi", "ban_chay", "gia_tang", "gia_giam"];
+export const SORTS: Sort[] = ["moi", "ban_chay", "gia_tang", "gia_giam"];
+
+/** Chip 3.5rem đặc/tonal — cùng hình với chip "Gần tôi" (không phải ChipRow tầng 2 = 52px). */
+export function SortChip({ on, onClick, children, pressed = true }: { on: boolean; onClick: () => void; children: React.ReactNode; pressed?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={pressed ? on : undefined}
+      className="min-h-[3.5rem] shrink-0 rounded-full px-4 text-[1rem] font-bold"
+      style={{
+        backgroundColor: on ? "var(--t3)" : "var(--field)",
+        color: on ? "var(--card)" : "var(--navy)",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function MarketSearch() {
   const router = useRouter();
@@ -43,14 +62,12 @@ export function MarketSearch() {
   const [nearOn, setNearOn] = useState(false);
   const [homeProvince, setHomeProvince] = useState<string>("");
   const [sort, setSort] = useState<Sort>("moi");
-  const [sortOpen, setSortOpen] = useState(false);
 
   const [items, setItems] = useState<ProductCard[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<"loading" | "ok" | "error" | "offline">("loading");
   const [moreError, setMoreError] = useState<"error" | "offline" | null>(null);
-  const [note, setNote] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   // ── đọc tham số URL sau mount ──────────────────────────────────────────
@@ -99,16 +116,6 @@ export function MarketSearch() {
     if (items.length === 0) void fetchPage(1, true);
   });
 
-  const add = (p: ProductCard) => {
-    const r = cart.add(p.id, undefined, 1);
-    setNote(
-      r === "ok"
-        ? `Đã thêm ${p.title} vào giỏ`
-        : r === "gio_day"
-          ? "Giỏ đầy rồi — bỏ bớt món cũ rồi thêm lại."
-          : "Máy hết chỗ — CHƯA lưu được giỏ.",
-    );
-  };
   const onFav = (p: ProductCard) => {
     if (!cart.signedIn) {
       router.push(`/cho/sp/${p.id}`);
@@ -130,7 +137,7 @@ export function MarketSearch() {
   const openOrders = (cache?.orders ?? []).filter(isOpenOrder).length;
 
   return (
-    <div className="pb-8">
+    <div className="pb-[7rem]">
       <MarketTopBar
         q={q}
         onQ={setQ}
@@ -141,28 +148,22 @@ export function MarketSearch() {
 
       <CategoryChips value={category} onChange={setCategory} />
 
-      <div className="mb-3 flex items-center gap-2 px-4">
+      <div className="mb-3 flex items-center gap-1.5 overflow-x-auto px-4" role="group" aria-label="Sắp xếp">
+        {SORTS.map((s) => (
+          <SortChip key={s} on={s === sort} onClick={() => setSort(s)}>
+            {SORT_LABEL[s]}
+          </SortChip>
+        ))}
         {homeProvince && (
-          <button
-            type="button"
-            onClick={() => setNearOn((v) => !v)}
-            aria-pressed={nearOn}
-            className="min-h-[3.5rem] shrink-0 rounded-full px-4 text-[1rem] font-bold"
-            style={{
-              backgroundColor: nearOn ? "var(--t3)" : "var(--field)",
-              color: nearOn ? "var(--card)" : "var(--navy)",
-            }}
-          >
+          <SortChip on={nearOn} onClick={() => setNearOn((v) => !v)}>
             Gần tôi · {homeProvince}
-          </button>
+          </SortChip>
         )}
-        <button
-          type="button"
-          onClick={() => setSortOpen(true)}
-          className="ml-auto min-h-[3.5rem] shrink-0 rounded-full bg-field px-4 text-[1rem] font-bold text-navy"
-        >
-          Sắp xếp: {SORT_LABEL[sort]}
-        </button>
+        {status === "ok" && (
+          <span className="ml-auto shrink-0 pl-2 text-[1rem] font-semibold text-foreground/65" aria-live="polite">
+            {total} món
+          </span>
+        )}
       </div>
 
       {status === "ok" && moreError === "offline" && (
@@ -170,8 +171,6 @@ export function MarketSearch() {
       )}
 
       <div className="px-4">
-        <CartFeedback note={note} count={cart.count} />
-
         {status === "loading" && <GridSkeleton />}
         {status === "error" && <ErrorBlock onRetry={() => void fetchPage(1, true)} />}
         {status === "offline" && <EmptyNet what="tìm món" onRetry={() => void fetchPage(1, true)} />}
@@ -185,7 +184,7 @@ export function MarketSearch() {
 
         {status === "ok" && items.length > 0 && (
           <>
-            <ProductGrid items={items} isFav={fav.has} onFav={onFav} onAdd={add} />
+            <ProductGrid items={items} isFav={fav.has} onFav={onFav} />
             {seen && <p className="mt-3 text-center text-[1rem] text-foreground/65">{seen}</p>}
             {moreError === "error" && (
               <p role="alert" className="mt-2 text-center text-[1rem] font-bold text-danger">
@@ -205,31 +204,6 @@ export function MarketSearch() {
         )}
       </div>
 
-      {sortOpen && (
-        <BottomSheet title="Sắp xếp" onClose={() => setSortOpen(false)}>
-          <ul className="flex flex-col gap-1 pb-2">
-            {SORTS.map((s) => (
-              <li key={s}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSort(s);
-                    setSortOpen(false);
-                  }}
-                  aria-pressed={s === sort}
-                  className="flex min-h-[3.5rem] w-full items-center rounded-2xl px-4 text-[1.125rem] font-bold"
-                  style={{
-                    backgroundColor: s === sort ? "var(--t3-bg)" : "transparent",
-                    color: s === sort ? "var(--t3)" : "var(--navy)",
-                  }}
-                >
-                  {SORT_LABEL[s]}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </BottomSheet>
-      )}
     </div>
   );
 }

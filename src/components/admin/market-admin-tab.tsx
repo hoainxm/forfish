@@ -16,7 +16,7 @@ import { useCallback, useEffect, useState } from "react";
 import { formatVnd } from "@/lib/format";
 import { ORDER_STATUS_LABEL, ORDER_STATUSES } from "@/lib/market/order-state";
 import type { AdminOverview } from "@/lib/market/types";
-import { MarketAdminOrders } from "./market-admin-orders";
+import { MarketAdminOrders, type OrderFilter } from "./market-admin-orders";
 import { MarketAdminProducts } from "./market-admin-products";
 import { MarketAdminShops } from "./market-admin-shops";
 import {
@@ -47,6 +47,9 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
   const [error, setError] = useState<string | null>(null);
   const [shops, setShops] = useState<ShopLite[]>([]);
   const [shopId, setShopId] = useState("");
+  /* Bộ lọc đơn sống ở đây (không ở mục Đơn hàng) để ô KPI bấm được sang đúng
+     mục — F-27: mở ra là "Tất cả", không phải "Chờ xác nhận" rồi báo trống. */
+  const [orderStatus, setOrderStatus] = useState<OrderFilter>("all");
 
   const loadOverview = useCallback(() => {
     setOverview(null);
@@ -56,6 +59,16 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
       .catch((e: Error) => setError(e.message));
   }, []);
   useEffect(loadOverview, [loadOverview]);
+
+  /* Sau mỗi lần admin GHI (duyệt shop, xử lý đơn, gỡ món), KPI ở trên phải đổi
+     theo — nếu không thì ô "chờ duyệt" vẫn báo 3 trong khi danh sách chỉ còn 2,
+     và admin không biết tin số nào. Nạp im: giữ số cũ trên màn cho tới khi có
+     số mới, hỏng thì cứ để số cũ (dải KPI không phải chỗ báo lỗi). */
+  const refreshOverview = useCallback(() => {
+    marketAdminGet<{ overview: AdminOverview }>("/api/admin/cho/tong-quan")
+      .then((j) => setOverview(j.overview))
+      .catch(() => {});
+  }, []);
 
   // Danh sách gian hàng cho ô lọc của mục Đơn hàng + Sản phẩm (một lượt đọc).
   useEffect(() => {
@@ -74,7 +87,17 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
 
       {error && <ErrorBox text={error} onRetry={loadOverview} />}
       {!overview && !error && <LoadingBox what="số liệu chợ" />}
-      {overview && <KpiStrip overview={overview} />}
+      {overview && (
+        <KpiStrip
+          overview={overview}
+          onShopsPending={() => setSection("gian-hang")}
+          onOrdersPending={() => {
+            setShopId("");
+            setOrderStatus("cho_xac_nhan");
+            setSection("don-hang");
+          }}
+        />
+      )}
 
       <div className="flex flex-wrap gap-1.5">
         {SECTIONS.map(([id, label]) => (
@@ -90,39 +113,79 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
       {section === "tong-quan" && overview && <OverviewDetail overview={overview} />}
       {section === "gian-hang" && (
         <MarketAdminShops
+          onChanged={refreshOverview}
           onPickShopOrders={(shop) => {
             setShopId(shop.id);
+            setOrderStatus("all");
             setSection("don-hang");
           }}
         />
       )}
       {section === "don-hang" && (
-        <MarketAdminOrders shops={shops} shopId={shopId} onShopId={setShopId} />
+        <MarketAdminOrders
+          shops={shops}
+          shopId={shopId}
+          onShopId={setShopId}
+          status={orderStatus}
+          onStatus={setOrderStatus}
+          onChanged={refreshOverview}
+        />
       )}
       {section === "san-pham" && (
-        <MarketAdminProducts shops={shops} shopId={shopId} onShopId={setShopId} />
+        <MarketAdminProducts
+          shops={shops}
+          shopId={shopId}
+          onShopId={setShopId}
+          onChanged={refreshOverview}
+        />
       )}
     </div>
   );
 }
 
-/** 5 ô "nhìn một phát biết sàn đang thế nào" (11 §7 KPI). */
-function KpiStrip({ overview }: { overview: AdminOverview }) {
-  const tiles: [string, string][] = [
-    ["Gian hàng chờ duyệt", String(overview.shops.cho_duyet)],
-    ["Gian hàng đang bán", String(overview.shops.hoat_dong)],
-    ["Đơn hôm nay", String(sum(overview.orders.today))],
-    ["Chờ xác nhận (30 ngày)", String(overview.orders.d30.cho_xac_nhan)],
-    ["Doanh thu 30 ngày", formatVnd(overview.gmvVnd.d30)],
+/**
+ * 5 ô "nhìn một phát biết sàn đang thế nào" (11 §7 KPI).
+ * Hai ô là HÀNG ĐỢI có việc phải làm ⇒ bấm được, nhảy thẳng sang mục đã lọc
+ * sẵn — số ở ô và danh sách mở ra là cùng một thứ, admin không phải tự dò.
+ * Ba ô còn lại là con số để đọc, không có chỗ nào để đi.
+ */
+function KpiStrip({
+  overview,
+  onShopsPending,
+  onOrdersPending,
+}: {
+  overview: AdminOverview;
+  onShopsPending: () => void;
+  onOrdersPending: () => void;
+}) {
+  const tiles: [string, string, (() => void) | null][] = [
+    ["Gian hàng chờ duyệt", String(overview.shops.cho_duyet), onShopsPending],
+    ["Gian hàng đang bán", String(overview.shops.hoat_dong), null],
+    ["Đơn hôm nay", String(sum(overview.orders.today)), null],
+    ["Chờ xác nhận (30 ngày)", String(overview.orders.d30.cho_xac_nhan), onOrdersPending],
+    ["Doanh thu 30 ngày", formatVnd(overview.gmvVnd.d30), null],
   ];
   return (
     <div className="grid grid-cols-2 gap-2.5 md:grid-cols-5">
-      {tiles.map(([label, v]) => (
-        <div key={label} className="surface px-3 py-3 text-center">
-          <p className="display text-[1.125rem] font-bold tabular-nums text-navy">{v}</p>
-          <p className="text-[0.8125rem] font-semibold text-foreground/65">{label}</p>
-        </div>
-      ))}
+      {tiles.map(([label, v, go]) =>
+        go ? (
+          <button
+            key={label}
+            type="button"
+            onClick={go}
+            className="surface min-h-[3.5rem] px-3 py-3 text-center transition hover:ring-2 hover:ring-sea focus:outline-none focus:ring-2 focus:ring-sea"
+          >
+            <p className="display text-[1.125rem] font-bold tabular-nums text-navy">{v}</p>
+            <p className="text-[0.8125rem] font-semibold text-foreground/65">{label}</p>
+            <p className="mt-0.5 text-[0.75rem] font-semibold text-sea">Xem danh sách →</p>
+          </button>
+        ) : (
+          <div key={label} className="surface px-3 py-3 text-center">
+            <p className="display text-[1.125rem] font-bold tabular-nums text-navy">{v}</p>
+            <p className="text-[0.8125rem] font-semibold text-foreground/65">{label}</p>
+          </div>
+        ),
+      )}
     </div>
   );
 }

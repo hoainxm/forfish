@@ -7,7 +7,7 @@
   đơn ra vẫn biết ai đã đụng vào.
 */
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { formatVnd } from "@/lib/format";
 import { clockVN } from "@/lib/day-labels";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -24,13 +24,15 @@ import {
   ErrorBox,
   FilterChip,
   LoadingBox,
-  marketAdminGet,
   marketAdminPatch,
+  NoticeBar,
   PageHint,
   ReasonDialog,
+  useAdminList,
 } from "./market-admin-shared";
 
-type Filter = OrderStatus | "all";
+/** Bộ lọc trạng thái — tab giữ hộ để ô KPI bấm được sang đúng mục (11 §7). */
+export type OrderFilter = OrderStatus | "all";
 type Ask = "xac-nhan" | "giao" | "da-giao" | "hoan-thanh" | "huy" | "nhan-tien" | "chua-thay" | null;
 
 const INPUT =
@@ -40,47 +42,42 @@ export function MarketAdminOrders({
   shops,
   shopId,
   onShopId,
+  status,
+  onStatus,
+  onChanged,
 }: {
   shops: { id: string; name: string }[];
   shopId: string;
   onShopId: (id: string) => void;
+  status: OrderFilter;
+  onStatus: (s: OrderFilter) => void;
+  onChanged: () => void;
 }) {
-  const [status, setStatus] = useState<Filter>("cho_xac_nhan");
   const [codeDraft, setCodeDraft] = useState("");
   const [phoneDraft, setPhoneDraft] = useState("");
   const [query, setQuery] = useState({ code: "", buyerPhone: "" });
-  const [rows, setRows] = useState<Order[] | null>(null);
-  const [total, setTotal] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const load = useCallback(() => {
-    setRows(null);
-    setError(null);
-    const sp = new URLSearchParams();
-    if (status !== "all") sp.set("status", status);
-    if (shopId) sp.set("shopId", shopId);
-    if (query.code) sp.set("code", query.code);
-    if (query.buyerPhone) sp.set("buyerPhone", query.buyerPhone);
-    marketAdminGet<{ items: Order[]; total: number }>(`/api/admin/cho/don?${sp.toString()}`)
-      .then((j) => {
-        setRows(j.items);
-        setTotal(j.total);
-      })
-      .catch((e: Error) => setError(e.message));
-  }, [status, shopId, query]);
-  useEffect(load, [load]);
+  const sp = new URLSearchParams();
+  if (status !== "all") sp.set("status", status);
+  if (shopId) sp.set("shopId", shopId);
+  if (query.code) sp.set("code", query.code);
+  if (query.buyerPhone) sp.set("buyerPhone", query.buyerPhone);
+  const { rows, total, error, loadingMore, reload, refresh, loadMore } = useAdminList<Order>(
+    `/api/admin/cho/don?${sp.toString()}`,
+  );
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-1.5">
-        <FilterChip label="Tất cả" active={status === "all"} onClick={() => setStatus("all")} />
+        <FilterChip label="Tất cả" active={status === "all"} onClick={() => onStatus("all")} />
         {ORDER_STATUSES.map((s) => (
           <FilterChip
             key={s}
             label={ORDER_STATUS_LABEL[s]}
             active={status === s}
-            onClick={() => setStatus(s)}
+            onClick={() => onStatus(s)}
           />
         ))}
       </div>
@@ -136,11 +133,40 @@ export function MarketAdminOrders({
         )}
       </div>
 
-      {error && <ErrorBox text={error} onRetry={load} />}
-      {!rows && !error && <LoadingBox what="đơn hàng" />}
-      {rows && rows.length === 0 && <EmptyBox text="Không có đơn nào ở mục này." />}
+      {notice && (
+        <NoticeBar ok={notice.ok} text={notice.text} onClose={() => setNotice(null)} />
+      )}
 
-      {rows && rows.length > 0 && <PageHint shown={rows.length} total={total} what="đơn" />}
+      {error && <ErrorBox text={error} onRetry={reload} />}
+      {!rows && !error && <LoadingBox what="đơn hàng" />}
+      {rows && rows.length === 0 && (
+        <EmptyBox
+          text={
+            status === "all"
+              ? "Chưa có đơn nào khớp bộ lọc — thử bỏ lọc gian hàng / mã đơn / SĐT."
+              : `Không có đơn nào đang ở "${ORDER_STATUS_LABEL[status]}" — chọn "Tất cả" để xem mọi đơn.`
+          }
+        />
+      )}
+
+      {rows && rows.length > 0 && (
+        <PageHint
+          shown={rows.length}
+          total={total}
+          what="đơn"
+          /* Phải nói ra: danh sách này KHÔNG giới hạn ngày, còn ô KPI ở đầu tab
+             đếm theo kỳ — hai số lệch nhau là bình thường, im lặng thì admin
+             tưởng máy đếm sai (F-27). */
+          note={
+            <>
+              Danh sách không giới hạn ngày; ô KPI ở đầu tab đếm <b>theo kỳ</b> (hôm nay · 7 ngày
+              · 30 ngày) nên hai số có thể khác nhau.
+            </>
+          }
+          onMore={loadMore}
+          loadingMore={loadingMore}
+        />
+      )}
       {rows && rows.length > 0 && (
         <ul className="space-y-3">
           {rows.map((o) => (
@@ -149,8 +175,12 @@ export function MarketAdminOrders({
               order={o}
               open={openId === o.id}
               onToggle={() => setOpenId(openId === o.id ? null : o.id)}
-              onDone={load}
-              onError={setError}
+              onDone={(say) => {
+                setNotice({ ok: true, text: say });
+                refresh();
+                onChanged();
+              }}
+              onError={(msg) => setNotice({ ok: false, text: msg })}
             />
           ))}
         </ul>
@@ -169,14 +199,13 @@ function OrderRow({
   order: Order;
   open: boolean;
   onToggle: () => void;
-  onDone: () => void;
+  onDone: (say: string) => void;
   onError: (msg: string) => void;
 }) {
   const [ask, setAsk] = useState<Ask>(null);
   const [busy, setBusy] = useState(false);
   const [carrier, setCarrier] = useState(order.carrier ?? "");
   const [tracking, setTracking] = useState(order.trackingCode ?? "");
-  const [done, setDone] = useState<string | null>(null);
 
   const ended = order.status === "hoan_thanh" || order.status === "da_huy";
   const canConfirmMoney = order.paymentMethod === "chuyen_khoan" && !ended && order.paymentStatus !== "da_thanh_toan";
@@ -185,8 +214,7 @@ function OrderRow({
     setBusy(true);
     try {
       await marketAdminPatch(`/api/admin/cho/don/${encodeURIComponent(order.id)}`, body);
-      setDone(say);
-      onDone();
+      onDone(`${order.code}: ${say}`);
     } catch (e) {
       onError((e as Error).message);
     } finally {
@@ -268,8 +296,6 @@ function OrderRow({
           </button>
         )}
       </div>
-
-      {done && <p className="px-4 pb-2 text-[0.875rem] font-semibold text-ok">{done}</p>}
 
       {open && (
         <div className="border-t border-line px-4 py-3">

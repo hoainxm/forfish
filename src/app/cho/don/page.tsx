@@ -1,5 +1,5 @@
 import { MyMarketOrders } from "@/components/market/buyer/my-market-orders";
-import { PageHeader } from "@/components/page-header";
+import { MarketHeader } from "@/components/market/shared/market-header";
 import { RequireLogin } from "@/components/require-login";
 
 export const metadata = { title: "Đơn hàng của tôi — SDFish" };
@@ -7,7 +7,7 @@ export const metadata = { title: "Đơn hàng của tôi — SDFish" };
 export default function DonPage() {
   return (
     <div>
-      <PageHeader kicker="Chợ vật tư" title="Đơn hàng của tôi" toColor="var(--t3)" />
+      <MarketHeader title="Đơn hàng của tôi" fallback="/cho" />
       <RequireLogin what="đơn hàng">
         <MyMarketOrders />
       </RequireLogin>

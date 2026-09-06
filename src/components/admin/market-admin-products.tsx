@@ -21,8 +21,10 @@ import {
   LoadingBox,
   marketAdminGet,
   marketAdminPatch,
+  NoticeBar,
   PageHint,
   ReasonDialog,
+  useAdminList,
 } from "./market-admin-shared";
 
 const INPUT =
@@ -33,32 +35,24 @@ export function MarketAdminProducts({
   shops,
   shopId,
   onShopId,
+  onChanged,
 }: {
   shops: { id: string; name: string }[];
   shopId: string;
   onShopId: (id: string) => void;
+  onChanged: () => void;
 }) {
   const [qDraft, setQDraft] = useState("");
   const [q, setQ] = useState("");
-  const [rows, setRows] = useState<ProductCard[] | null>(null);
-  const [total, setTotal] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const load = useCallback(() => {
-    setRows(null);
-    setError(null);
-    const sp = new URLSearchParams();
-    if (shopId) sp.set("shopId", shopId);
-    if (q) sp.set("q", q);
-    marketAdminGet<{ items: ProductCard[]; total: number }>(`/api/admin/cho/san-pham?${sp.toString()}`)
-      .then((j) => {
-        setRows(j.items);
-        setTotal(j.total);
-      })
-      .catch((e: Error) => setError(e.message));
-  }, [shopId, q]);
-  useEffect(load, [load]);
+  const sp = new URLSearchParams();
+  if (shopId) sp.set("shopId", shopId);
+  if (q) sp.set("q", q);
+  const { rows, total, error, loadingMore, reload, refresh, loadMore } = useAdminList<ProductCard>(
+    `/api/admin/cho/san-pham?${sp.toString()}`,
+  );
 
   return (
     <div className="space-y-4">
@@ -95,11 +89,31 @@ export function MarketAdminProducts({
         </button>
       </div>
 
-      {error && <ErrorBox text={error} onRetry={load} />}
-      {!rows && !error && <LoadingBox what="sản phẩm" />}
-      {rows && rows.length === 0 && <EmptyBox text="Không có món nào khớp." />}
+      {notice && (
+        <NoticeBar ok={notice.ok} text={notice.text} onClose={() => setNotice(null)} />
+      )}
 
-      {rows && rows.length > 0 && <PageHint shown={rows.length} total={total} what="món" />}
+      {error && <ErrorBox text={error} onRetry={reload} />}
+      {!rows && !error && <LoadingBox what="sản phẩm" />}
+      {rows && rows.length === 0 && (
+        <EmptyBox
+          text={
+            q || shopId
+              ? "Không có món nào khớp — bỏ bớt ô lọc hoặc gõ tên khác."
+              : "Chợ chưa có món nào."
+          }
+        />
+      )}
+
+      {rows && rows.length > 0 && (
+        <PageHint
+          shown={rows.length}
+          total={total}
+          what="món"
+          onMore={loadMore}
+          loadingMore={loadingMore}
+        />
+      )}
       {rows && rows.length > 0 && (
         <ul className="space-y-3">
           {rows.map((p) => (
@@ -108,8 +122,12 @@ export function MarketAdminProducts({
               product={p}
               open={openId === p.id}
               onToggle={() => setOpenId(openId === p.id ? null : p.id)}
-              onDone={load}
-              onError={setError}
+              onDone={(say) => {
+                setNotice({ ok: true, text: say });
+                refresh();
+                onChanged();
+              }}
+              onError={(msg) => setNotice({ ok: false, text: msg })}
             />
           ))}
         </ul>
@@ -128,19 +146,17 @@ function ProductRow({
   product: ProductCard;
   open: boolean;
   onToggle: () => void;
-  onDone: () => void;
+  onDone: (say: string) => void;
   onError: (msg: string) => void;
 }) {
   const [ask, setAsk] = useState<"go" | "tra-lai" | null>(null);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
 
   async function patch(body: Record<string, unknown>, say: string) {
     setBusy(true);
     try {
       await marketAdminPatch(`/api/admin/cho/san-pham/${encodeURIComponent(product.id)}`, body);
-      setDone(say);
-      onDone();
+      onDone(`${product.title}: ${say}`);
     } catch (e) {
       onError((e as Error).message);
     } finally {
@@ -211,8 +227,6 @@ function ProductRow({
           </button>
         )}
       </div>
-
-      {done && <p className="px-4 pb-2 text-[0.875rem] font-semibold text-ok">{done}</p>}
 
       {open && (
         <div className="border-t border-line px-4 py-3">

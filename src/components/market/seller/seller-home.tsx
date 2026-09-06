@@ -14,12 +14,12 @@ import {
 import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { CallButton } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import { formatVnd } from "@/lib/format";
 import { marketSend } from "@/lib/market/client";
 import type { Shop, ShopStats, StatsRange } from "@/lib/market/types";
 import { InlineNote, LoadView, marketErrorText, useMarketData, useMyShop } from "./seller-net";
+import { SELLER_BTN } from "./ui";
 
 const RANGE_OPTIONS: readonly ChipOption<StatsRange>[] = [
   { id: "today", label: "Hôm nay" },
@@ -112,19 +112,19 @@ function ShopHome({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
 
       <div className="mb-4 flex flex-wrap items-center gap-2 px-4">
         {shop.paused && shop.status === "hoat_dong" && (
-          <button type="button" onClick={() => void resume()} disabled={busy} className={`${SQ_BTN} bg-field text-navy disabled:opacity-50`}>
+          <button type="button" onClick={() => void resume()} disabled={busy} className={`${SELLER_BTN} bg-field text-navy`}>
             <CartIcon className="h-6 w-6" />
             Mở bán lại
           </button>
         )}
         {shop.status !== "tam_khoa" && (
-          <Link href="/ban-hang/san-pham/moi" className={`${SQ_BTN} bg-trim text-white`}>
+          <Link href="/ban-hang/san-pham/moi" className={`${SELLER_BTN} bg-trim text-white`}>
             <PlusIcon className="h-6 w-6" />
             Thêm món
           </Link>
         )}
         {(shop.status === "cho_duyet" || shop.status === "tu_choi") && (
-          <Link href="/ban-hang/dang-ky" className={`${SQ_BTN} bg-field text-navy`}>
+          <Link href="/ban-hang/dang-ky" className={`${SELLER_BTN} bg-field text-navy`}>
             <SettingsIcon className="h-6 w-6" />
             Sửa đăng ký
           </Link>
@@ -173,7 +173,7 @@ function Stats({ shopStatus }: { shopStatus: Shop["status"] }) {
   return (
     <section>
       <div className="-mx-0 mb-3">
-        <ChipRow options={RANGE_OPTIONS} value={range} onChange={setRange} accent="t3" level={2} ariaLabel="Khoảng thời gian" />
+        <ChipRow options={RANGE_OPTIONS} value={range} onChange={setRange} accent="t3" level={1} ariaLabel="Khoảng thời gian" />
       </div>
       <LoadView state={state} what="số liệu shop" onRetry={reload}>
         {(d) => <StatsBody stats={d.stats} shopStatus={shopStatus} />}

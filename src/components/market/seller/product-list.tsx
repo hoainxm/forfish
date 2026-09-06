@@ -12,11 +12,11 @@ import { PriceText } from "@/components/market/shared/price-text";
 import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { CallButton, EmptyState, inputClass } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import { marketSend } from "@/lib/market/client";
 import type { Product, Shop } from "@/lib/market/types";
 import { InlineNote, LoadView, marketErrorText, useMarketData, useMyShop } from "./seller-net";
+import { SELLER_BTN, SELLER_BTN_WIDE } from "./ui";
 
 type Filter = "dang_ban" | "an" | "het_hang" | "bi_go";
 const FILTERS: readonly ChipOption<Filter>[] = [
@@ -101,7 +101,7 @@ function Inner({ shop }: { shop: Shop }) {
           />
         </span>
         {canEdit && (
-          <Link href="/ban-hang/san-pham/moi" className={`${SQ_BTN} bg-trim text-white`}>
+          <Link href="/ban-hang/san-pham/moi" className={`${SELLER_BTN} shrink-0 bg-trim text-white`}>
             <PlusIcon className="h-6 w-6" />
             Thêm
           </Link>
@@ -114,7 +114,7 @@ function Inner({ shop }: { shop: Shop }) {
           value={filter}
           onChange={(f) => { setFilter(f); setPage(1); }}
           accent="t3"
-          level={2}
+          level={1}
           ariaLabel="Lọc món theo trạng thái"
         />
       </div>
@@ -206,46 +206,51 @@ function Rows({
       <ul className="space-y-1 px-4">
         {rows.map((p) => (
           <li key={p.id} className="surface overflow-hidden">
-            <div className="flex min-h-[3.5rem] items-center gap-3 p-3">
-              <span className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-field">
+            {/*  Tên món ĐỌC ĐƯỢC là việc chính của màn này (fix F-12): tên 2
+                dòng 18px, giá không gãy dòng, hai nút xuống HÀNG RIÊNG chia
+                đôi bề ngang — chen bên phải thì tên chỉ còn ~120px. */}
+            <div className="flex items-start gap-3 p-3">
+              <span className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-field">
                 {p.images[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element -- ảnh sàn (bucket public / dev), không qua optimizer
                   <img src={p.images[0]} alt="" className="h-full w-full object-cover" loading="lazy" />
                 ) : (
                   <span className="flex h-full w-full items-center justify-center text-foreground/40">
-                    <CategoryIcon category={p.category} className="h-7 w-7" />
+                    <CategoryIcon category={p.category} className="h-8 w-8" />
                   </span>
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[1rem] font-bold text-navy">{p.title}</span>
-                <PriceText priceVnd={p.priceVnd} compareAtVnd={p.compareAtVnd} />
-                <span className="mt-0.5 block text-[0.875rem] text-foreground/65">
+                <span className="line-clamp-2 block text-[1.125rem] font-bold leading-snug text-navy">{p.title}</span>
+                <span className="mt-0.5 block whitespace-nowrap">
+                  <PriceText priceVnd={p.priceVnd} compareAtVnd={p.compareAtVnd} />
+                </span>
+                <span className="mt-0.5 block text-[0.9375rem] text-foreground/65">
                   Tồn {p.stock} {p.unit} · Đã bán {p.soldCount}
                   {p.status === "an" && " · Đang ẩn"}
                   {p.status === "het_hang" && " · Hết hàng"}
                 </span>
               </span>
-              {canEdit && (
-                <span className="flex shrink-0 items-center gap-1.5">
-                  <Link href={`/ban-hang/san-pham/${p.id}`} className={`${SQ_BTN} bg-field text-navy`} aria-label={`Sửa ${p.title}`}>
-                    <EditIcon className="h-6 w-6" />
-                    Sửa
-                  </Link>
-                  {p.stock > 0 && !p.adminHidden && (
-                    <button
-                      type="button"
-                      disabled={busy === p.id}
-                      onClick={() => void setStock(p, 0, `Đã đặt "${p.title}" thành hết hàng.`, true)}
-                      className={`${SQ_BTN} bg-field text-navy disabled:opacity-50`}
-                    >
-                      <BoxIcon className="h-6 w-6" />
-                      Hết hàng
-                    </button>
-                  )}
-                </span>
-              )}
             </div>
+            {canEdit && (
+              <div className="flex gap-2 px-3 pb-3">
+                <Link href={`/ban-hang/san-pham/${p.id}`} className={`${SELLER_BTN_WIDE} bg-field text-navy`} aria-label={`Sửa ${p.title}`}>
+                  <EditIcon className="h-6 w-6" />
+                  Sửa
+                </Link>
+                {p.stock > 0 && !p.adminHidden && (
+                  <button
+                    type="button"
+                    disabled={busy === p.id}
+                    onClick={() => void setStock(p, 0, `Đã đặt "${p.title}" thành hết hàng.`, true)}
+                    className={`${SELLER_BTN_WIDE} bg-field text-navy`}
+                  >
+                    <BoxIcon className="h-6 w-6" />
+                    Hết hàng
+                  </button>
+                )}
+              </div>
+            )}
             {p.adminHidden && (
               <div className="border-t border-line px-3 py-2">
                 <p className="text-[1rem] font-bold" style={{ color: "var(--danger)" }}>
@@ -266,7 +271,7 @@ function Rows({
             type="button"
             disabled={data.page <= 1}
             onClick={() => onPage(data.page - 1)}
-            className={`${SQ_BTN} bg-field text-navy disabled:opacity-40`}
+            className={`${SELLER_BTN} bg-field text-navy`}
           >
             <ChevronLeftIcon className="h-6 w-6" />
             Trước
@@ -276,7 +281,7 @@ function Rows({
             type="button"
             disabled={data.page >= pages}
             onClick={() => onPage(data.page + 1)}
-            className={`${SQ_BTN} bg-field text-navy disabled:opacity-40`}
+            className={`${SELLER_BTN} bg-field text-navy`}
           >
             <ChevronRightIcon className="h-6 w-6" />
             Sau

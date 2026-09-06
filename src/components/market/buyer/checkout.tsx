@@ -4,16 +4,19 @@
 // đơn, shop này hỏng không kéo shop kia. Nói thẳng "Sẽ tạo N đơn cho N shop"
 // vì bà con quen một đơn.
 //
+// CHỈ MANG DÒNG ĐANG CHỌN ở giỏ (F-05): dòng bỏ chọn nằm yên trong giỏ.
+//
 // KHÔNG TRẢ TIỀN TRONG APP: COD hoặc chuyển khoản thẳng cho shop. Một cách trả
-// tiền cho cả lần đặt (LEAD §4 #9); có shop không có STK ⇒ ẩn chip Chuyển khoản.
+// tiền cho cả lần đặt (LEAD §4 #9); có shop không có STK ⇒ chip Chuyển khoản
+// hiện MỜ + lý do ngay dưới (F-16 — ẩn hẳn làm người quen CK tưởng app không có).
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckIcon, ChevronRightIcon } from "@/components/icons";
 import { AddressForm } from "@/components/market/shared/address-form";
+import { LineThumb } from "@/components/market/shared/line-thumb";
 import { MoneyText } from "@/components/market/shared/price-text";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Field, PrimaryButton, inputClass } from "@/components/ui/primitives";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { formatVnd } from "@/lib/format";
 import {
@@ -31,6 +34,8 @@ import { useMarketCart, useOnlineState } from "./hooks";
 
 type QuoteRes = { quote: CartQuote; titles: Record<string, string> };
 type OrderRes = { results: PlaceOrderResult[] };
+/** Sheet địa chỉ tách hai bước (F-11): danh sách đã lưu → "Thêm địa chỉ mới" → form. */
+type AddrSheet = "list" | "form" | null;
 
 const newId = () => `a${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -50,16 +55,35 @@ function failLine(r: Extract<PlaceOrderResult, { ok: false }>, shopName: string)
   }
 }
 
+/** Chip cách trả tiền — 3.5rem; `disabled` hiện mờ chứ không biến mất. */
+function PayChip({ on, disabled, onClick, children }: { on: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={on}
+      className="min-h-[3.5rem] flex-1 rounded-full px-4 text-[1rem] font-bold disabled:opacity-40"
+      style={{
+        backgroundColor: on ? "var(--t3)" : "var(--field)",
+        color: on ? "var(--card)" : "var(--navy)",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function Checkout() {
   const online = useOnlineState();
   const cart = useMarketCart();
-  const { phone } = useAuthUser();
+  const { phone, ready } = useAuthUser();
 
   const [quote, setQuote] = useState<CartQuote | null>(null);
   const [status, setStatus] = useState<"loading" | "ok" | "error" | "offline">("loading");
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [draft, setDraft] = useState<Address | null>(null);
-  const [addrOpen, setAddrOpen] = useState(false);
+  const [addrSheet, setAddrSheet] = useState<AddrSheet>(null);
   const [addrError, setAddrError] = useState<string | null>(null);
   const [method, setMethod] = useState<PaymentMethod>("cod");
   const [note, setNote] = useState("");
@@ -67,11 +91,12 @@ export function Checkout() {
   const [results, setResults] = useState<PlaceOrderResult[] | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const homeProvince = loadHome().province;
 
-  // ── tra lại giỏ (giá server là chốt) ───────────────────────────────────
+  // ── tra lại giỏ (giá server là chốt) — CHỈ dòng đang chọn ─────────────
+  const items = cart.selectedItems;
   const reload = useCallback(async () => {
     setStatus("loading");
-    const items = cart.items;
     if (items.length === 0) {
       setQuote(null);
       setStatus("ok");
@@ -85,11 +110,11 @@ export function Checkout() {
     setQuote(res.data.quote);
     saveMarketQuote(phone, res.data.quote);
     setStatus("ok");
-  }, [cart.items, phone]);
+  }, [items, phone]);
 
   /*  Giỏ đọc từ máy trong effect ⇒ lần vẽ đầu còn rỗng. Khoá theo vân tay nội
       dung giỏ, không theo lượt render (cùng bài học ở màn giỏ). */
-  const sig = cart.items.map((l) => `${l.productId}|${l.variantLabel ?? ""}|${l.qty}`).join(",");
+  const sig = items.map((l) => `${l.productId}|${l.variantLabel ?? ""}|${l.qty}`).join(",");
   const quotedSig = useRef<string | null>(null);
   useEffect(() => {
     if (results || quotedSig.current === sig) return; // xong rồi thì đừng tra lại
@@ -98,16 +123,29 @@ export function Checkout() {
   }, [sig, results, reload]);
 
   // ── địa chỉ ────────────────────────────────────────────────────────────
+  /*  ĐỢI `ready` (F-02, audit B-01): lần vẽ đầu `phone` còn null ⇒ đọc ngăn
+      khách lạ = [] ⇒ bản cũ tự bật sheet đè màn dù bà con ĐÃ có địa chỉ. Chỉ
+      mở sẵn form khi danh tính đã rõ mà vẫn chưa có địa chỉ nào; có rồi thì
+      đóng lại (phòng ca phone tới muộn). */
   useEffect(() => {
+    if (!ready) return;
     const list = loadAddresses(phone);
     setAddresses(list);
     if (list.length === 0) {
-      setDraft(seedAddress({ phone: phone ?? "", province: loadHome().province }));
-      setAddrOpen(true);
+      setDraft(seedAddress({ phone: phone ?? "", province: homeProvince }));
+      setAddrSheet("form");
+    } else {
+      setAddrSheet((cur) => (cur === "form" && list.length > 0 ? null : cur));
     }
-  }, [phone]);
+  }, [phone, ready, homeProvince]);
 
   const chosen = addresses.find((a) => a.isDefault) ?? addresses[0] ?? null;
+
+  const openNewAddress = () => {
+    setDraft(seedAddress({ phone: phone ?? "", province: homeProvince }));
+    setAddrError(null);
+    setAddrSheet("form");
+  };
 
   const saveDraft = () => {
     if (!draft) return;
@@ -123,7 +161,7 @@ export function Checkout() {
     }
     setAddresses(next);
     setAddrError(null);
-    setAddrOpen(false);
+    setAddrSheet(null);
   };
 
   // ── đặt hàng ───────────────────────────────────────────────────────────
@@ -143,15 +181,15 @@ export function Checkout() {
     };
     const common = { address, paymentMethod: method, ...(note.trim() ? { buyerNote: note.trim() } : {}) };
     const shops = groups.map((g) => {
-      const items = g.lines.map((l) => ({
+      const lines = g.lines.map((l) => ({
         productId: l.productId,
         qty: l.qty,
         ...(l.variantLabel ? { variantLabel: l.variantLabel } : {}),
       }));
       return {
         shopId: g.shop.id,
-        items,
-        clientRef: marketOrderClientRef({ shopId: g.shop.id, items }, common),
+        items: lines,
+        clientRef: marketOrderClientRef({ shopId: g.shop.id, items: lines }, common),
         expectedTotalVnd: g.totalVnd,
       };
     });
@@ -168,7 +206,7 @@ export function Checkout() {
     }
     setResults(res.data.results);
 
-    // Xoá khỏi giỏ ĐÚNG dòng của shop đã đặt được (LEAD §4 #5).
+    // Xoá khỏi giỏ ĐÚNG dòng của shop đã đặt được (LEAD §4 #5) — dòng bỏ chọn giữ nguyên.
     const okIds = res.data.results
       .filter((r): r is Extract<PlaceOrderResult, { ok: true }> => r.ok)
       .flatMap((r) => r.order.items.map((l) => l.productId));
@@ -201,7 +239,7 @@ export function Checkout() {
     const failOnes = results.filter((r): r is Extract<PlaceOrderResult, { ok: false }> => !r.ok);
     const nameOf = (shopId: string) => groups.find((g) => g.shop.id === shopId)?.shop.name ?? "này";
     return (
-      <div className="px-4 py-4 pb-10">
+      <div className="px-4 py-4 pb-[7rem]">
         <h2 className="display text-[1.375rem] font-bold text-navy">
           {okOnes.length > 0 ? `Đã đặt ${okOnes.length} đơn` : "Chưa đặt được đơn nào"}
         </h2>
@@ -257,6 +295,13 @@ export function Checkout() {
         >
           Xem đơn hàng
         </Link>
+        {/*  F-09: màn kết quả là màn cụt — thêm đường quay lại chợ. */}
+        <Link
+          href="/cho"
+          className="display mx-auto mt-2 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
+        >
+          Mua tiếp
+        </Link>
       </div>
     );
   }
@@ -296,7 +341,9 @@ export function Checkout() {
   if (groups.length === 0) {
     return (
       <div className="px-4 py-8 text-center">
-        <p className="text-[1.125rem] font-bold text-navy">Không còn món nào mua được trong giỏ.</p>
+        <p className="text-[1.125rem] font-bold text-navy">
+          {items.length === 0 && cart.items.length > 0 ? "Chưa chọn món nào để đặt." : "Không còn món nào mua được trong giỏ."}
+        </p>
         <Link
           href="/cho/gio"
           className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-field text-[1.125rem] font-bold text-navy"
@@ -310,11 +357,11 @@ export function Checkout() {
   const summary = quote?.summary ?? { subtotalVnd: 0, shippingVnd: 0, totalVnd: 0, shopCount: 0 };
 
   return (
-    <div className="px-4 py-3 pb-10">
+    <div className="px-4 py-3 pb-[7rem]">
       {/* ── 1. Địa chỉ nhận ────────────────────────────────────────────── */}
-      <section className="surface px-4 py-3">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
+      <section className="surface px-4 py-2">
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1 py-1">
             <p className="text-[1rem] font-bold text-navy">Nhận hàng</p>
             {chosen ? (
               <p className="mt-0.5 text-[1.0625rem] leading-snug">
@@ -328,19 +375,10 @@ export function Checkout() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              setDraft(
-                chosen
-                  ? { name: chosen.name, phone: chosen.phone, province: chosen.province, detail: chosen.detail, isPort: chosen.isPort }
-                  : seedAddress({ phone: phone ?? "", province: loadHome().province }),
-              );
-              setAddrOpen(true);
-            }}
-            className={SQ_BTN}
-            style={{ backgroundColor: "var(--field)", color: "var(--navy)" }}
+            onClick={() => (addresses.length > 0 ? setAddrSheet("list") : openNewAddress())}
+            className="flex min-h-[3.5rem] shrink-0 items-center gap-0.5 rounded-full px-3 text-[1rem] font-bold text-t3"
           >
-            <ChevronRightIcon className="h-6 w-6" />
-            Đổi
+            {chosen ? "Đổi" : "Thêm"} <ChevronRightIcon className="h-5 w-5" />
           </button>
         </div>
       </section>
@@ -349,53 +387,33 @@ export function Checkout() {
       <section className="mt-3">
         <p className="mb-1.5 text-[1rem] font-bold text-navy">Cách trả tiền</p>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setMethod("cod")}
-            aria-pressed={method === "cod"}
-            className="min-h-[3.5rem] flex-1 rounded-full px-4 text-[1rem] font-bold"
-            style={{
-              backgroundColor: method === "cod" ? "var(--t3)" : "var(--field)",
-              color: method === "cod" ? "var(--card)" : "var(--navy)",
-            }}
-          >
-            Trả khi nhận hàng
-          </button>
-          {canBank && (
-            <button
-              type="button"
-              onClick={() => setMethod("chuyen_khoan")}
-              aria-pressed={method === "chuyen_khoan"}
-              className="min-h-[3.5rem] flex-1 rounded-full px-4 text-[1rem] font-bold"
-              style={{
-                backgroundColor: method === "chuyen_khoan" ? "var(--t3)" : "var(--field)",
-                color: method === "chuyen_khoan" ? "var(--card)" : "var(--navy)",
-              }}
-            >
-              Chuyển khoản
-            </button>
-          )}
+          <PayChip on={method === "cod"} onClick={() => setMethod("cod")}>Trả khi nhận hàng</PayChip>
+          <PayChip on={method === "chuyen_khoan"} disabled={!canBank} onClick={() => setMethod("chuyen_khoan")}>
+            Chuyển khoản
+          </PayChip>
         </div>
         {!canBank && (
-          <p className="mt-1 text-[1rem] text-foreground/70">
+          <p className="mt-1.5 text-[1rem] font-semibold text-foreground/70">
             Shop {forcingCod[0]} chỉ nhận tiền mặt — lần đặt này trả khi nhận hàng.
           </p>
         )}
       </section>
 
-      {/* ── 3. Từng shop ───────────────────────────────────────────────── */}
+      {/* ── 3. Từng shop — ảnh · tên · × số lượng · tiền (F-03/F-06) ────── */}
       <section className="mt-3 flex flex-col gap-3">
         {groups.map((g) => (
           <div key={g.shop.id} className="surface px-4 py-3">
             <p className="text-[1.0625rem] font-bold text-navy">{g.shop.name}</p>
-            <ul className="mt-1 flex flex-col gap-1">
+            <ul className="mt-1.5 flex flex-col gap-2">
               {g.lines.map((l) => (
-                <li key={`${l.productId}|${l.variantLabel ?? ""}`} className="flex justify-between gap-3 text-[1rem]">
-                  <span className="min-w-0 flex-1 truncate">
-                    {l.title}
-                    {l.variantLabel ? ` · ${l.variantLabel}` : ""} × {l.qty}
+                <li key={`${l.productId}|${l.variantLabel ?? ""}`} className="flex items-center gap-2.5 text-[1rem]">
+                  <LineThumb image={l.image} size={3} />
+                  <span className="min-w-0 flex-1">
+                    <span className="line-clamp-2 leading-snug">{l.title}</span>
+                    {l.variantLabel && <span className="block text-[0.9375rem] text-foreground/65">Loại: {l.variantLabel}</span>}
                   </span>
-                  <MoneyText vnd={l.lineTotalVnd} bold={false} />
+                  <span className="shrink-0 whitespace-nowrap font-bold text-navy">× {l.qty}</span>
+                  <MoneyText vnd={l.lineTotalVnd} bold={false} className="shrink-0 whitespace-nowrap" />
                 </li>
               ))}
             </ul>
@@ -459,32 +477,45 @@ export function Checkout() {
         Không trả tiền trong app. Trả khi nhận hoặc chuyển khoản thẳng cho shop.
       </p>
 
-      {addrOpen && draft && (
-        <BottomSheet title="Địa chỉ nhận hàng" onClose={() => setAddrOpen(false)}>
-          {addresses.length > 0 && (
-            <ul className="mb-3 flex flex-col gap-2">
-              {addresses.map((a) => (
-                <li key={a.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = setDefaultAddress(addresses, a.id);
-                      saveAddresses(phone, next);
-                      setAddresses(next);
-                      setAddrOpen(false);
-                    }}
-                    className="flex min-h-[3.5rem] w-full flex-col items-start rounded-2xl px-4 py-3 text-left"
-                    style={{ backgroundColor: a.isDefault ? "var(--t3-bg)" : "var(--field)" }}
-                  >
-                    <span className="text-[1rem] font-bold text-navy">{a.name} · {a.phone}</span>
-                    <span className="text-[1rem] text-foreground/70">{a.detail}, {a.province}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="mb-2 text-[1.0625rem] font-bold text-navy">Thêm địa chỉ mới</p>
-          <AddressForm value={draft} onChange={setDraft} error={addrError} />
+      {addrSheet === "list" && (
+        <BottomSheet title="Địa chỉ nhận hàng" onClose={() => setAddrSheet(null)}>
+          <ul className="mb-3 flex flex-col gap-2">
+            {addresses.map((a) => (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = setDefaultAddress(addresses, a.id);
+                    saveAddresses(phone, next);
+                    setAddresses(next);
+                    setAddrSheet(null);
+                  }}
+                  aria-pressed={a.isDefault}
+                  className="flex min-h-[3.5rem] w-full items-center gap-3 rounded-2xl px-4 py-3 text-left"
+                  style={{ backgroundColor: a.isDefault ? "var(--t3-bg)" : "var(--field)" }}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[1rem] font-bold text-navy">{a.name} · {a.phone}</span>
+                    <span className="block text-[1rem] text-foreground/70">{a.detail}, {a.province}</span>
+                  </span>
+                  {a.isDefault && <CheckIcon className="h-6 w-6 shrink-0 text-t3" />}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={openNewAddress}
+            className="mb-2 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-navy"
+          >
+            + Thêm địa chỉ mới
+          </button>
+        </BottomSheet>
+      )}
+
+      {addrSheet === "form" && draft && (
+        <BottomSheet title="Thêm địa chỉ nhận" onClose={() => setAddrSheet(addresses.length > 0 ? "list" : null)}>
+          <AddressForm value={draft} onChange={setDraft} error={addrError} homeProvince={homeProvince} />
           <PrimaryButton className="mb-3 mt-1" onClick={saveDraft}>
             Lưu địa chỉ này
           </PrimaryButton>

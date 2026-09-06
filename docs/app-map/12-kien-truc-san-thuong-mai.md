@@ -6,7 +6,6 @@ covers: src/lib/market, src/app/cho, src/app/ban-hang, src/app/api/cho, src/app/
 gate: warn
 last_verified: 2026-09-06
 ttl_days: 90
-<!-- DOC-STATUS: ORPHANED (2026-09-06) — path 'src/app/cho' khong con ton tai. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-09-06 - Core pha 2a đã hiện thực đúng hợp đồng §2–§6, §8.1: 24 file lib/market, 11 shared component, migration 0054, /api/dev + /dev, 16 file test; không đổi tên/chữ ký (chỉ THÊM notice.ts, rating.ts, marketErrorStatus/isMarketError theo hình dạng, marketSend, sniffImageMime) -->
 
 **Version**: 1.1 (hợp nhất sau phản biện) · **Ngày**: 2026-09-06 · **Tác giả**: Kiến trúc sư (Phase 1) + Reviewer hợp nhất · **Khung**: LEAD-BRIEF 2026-09-06 §4/§5 = luật cao nhất · **Vì sao**: [ADR 0008](../adr/0008-san-thuong-mai-da-nguoi-ban.md) · **Nghiệp vụ**: [11-ba-spec-san-thuong-mai.md](11-ba-spec-san-thuong-mai.md)
@@ -1298,9 +1297,16 @@ export function clearMarketCart(phone: string | null | undefined): void;
 /** Bản tra gần nhất (11 §3.3) — mất sóng hiện "giá lúc HH:MM". */
 export function loadMarketQuote(phone: string | null | undefined): CartQuote | null;
 export function saveMarketQuote(phone: string | null | undefined, quote: CartQuote): void;   // nuốt lỗi — tra lại được
+// ── Ô chọn trong giỏ (F-05, 2026-09-06) — chỉ THÊM, không đổi chữ ký cũ ──
+export const marketLineKey: (productId: string, variantLabel?: string) => string;   // `productId|variantLabel` — khoá dòng dùng chung giỏ/bản tra/ô chọn
+export function pruneUnselected(items: MarketCartLine[], off: readonly string[]): string[];   // tỉa khoá của dòng không còn trong giỏ
+export function selectedMarketLines(items: MarketCartLine[], off: readonly string[]): MarketCartLine[];   // mặc định chọn hết (off rỗng ⇒ trả đúng mảng gốc)
+export function setMarketSelection(off: readonly string[], keys: readonly string[], on: boolean): string[];   // bật/tắt một nhóm khoá (dòng / shop / cả giỏ)
+export function loadMarketUnselected(phone: string | null | undefined): string[];   // đã tỉa theo giỏ hiện có; ngăn khác ⇒ []
+export function saveMarketUnselected(phone: string | null | undefined, off: readonly string[]): boolean;   // giữ items + quote; nuốt lỗi (false)
 ```
 
-Hình dạng lưu: `{ phone: string, items: MarketCartLine[], quote?: CartQuote }`. Test `market-cart.test.ts`: cộng dồn đúng biến thể, clamp 1..999, trần 50 trả `gio_day`, `removeShopLines`, load ngăn khác ⇒ rỗng, save trả false khi setItem ném (mock) và KHÔNG mất quote.
+Hình dạng lưu: `{ phone: string, items: MarketCartLine[], quote?: CartQuote, off?: string[] }` — `off` = khoá dòng bỏ chọn (vắng = chọn hết); `saveMarketCart` tỉa `off` theo giỏ mới, `saveMarketQuote` giữ nguyên `off`. Test `market-cart.test.ts`: cộng dồn đúng biến thể, clamp 1..999, trần 50 trả `gio_day`, `removeShopLines`, load ngăn khác ⇒ rỗng, save trả false khi setItem ném (mock) và KHÔNG mất quote.
 
 ### 4.9 `addresses.ts` (`"use client"`) — khoá `forfish.maddr.v1`
 
@@ -1616,7 +1622,9 @@ T4' (`settleOverdue`) KHÔNG gửi thông báo (hệ thống tự làm lúc đ�
 
 | File | Export | Props chính | Ghi chú |
 |---|---|---|---|
-| `product-card.tsx` | `MarketProductCard` | `product: ProductCard; href; fav?: boolean; onFav?; onAdd?` | ảnh 1:1 (placeholder icon nhóm hàng khi không ảnh/ảnh lỗi), tên 2 dòng, `PriceText`, "-N%" nếu `discountPercent`, "Đã bán N", `ShopBadge`, kho=0 ⇒ phủ "Hết hàng"; `shopPaused` ⇒ chip "Tạm nghỉ"; nút "+ Giỏ" (SQ_BTN) chỉ khi không biến thể, có biến thể ⇒ "Chọn". Tap cả thẻ ≥ 3.5rem. Tên export có tiền tố `Market` để không trùng type `ProductCard` |
+| `product-card.tsx` | `MarketProductCard` | `product: ProductCard; href; fav?: boolean; onFav?` | **Gọn như Shopee (F-04, 2026-09-06)**: ảnh 1:1 (placeholder icon nhóm hàng khi không ảnh/ảnh lỗi) + badge "-N%" + ♡ đè góc ảnh (nút riêng 2.75rem — ngoại lệ có chủ đích, không lồng trong `<a>`), tên 2 dòng, `PriceText`, "Đã bán N · ★x.x", shop · tỉnh 1 dòng; kho=0 ⇒ phủ "Hết hàng"; `shopPaused` ⇒ chip "Tạm nghỉ" trên ảnh. **Chạm cả thẻ → trang món; KHÔNG còn "+ Giỏ"/"Chọn"** (prop `onAdd` đã bỏ). `ProductGrid` dùng `auto-rows-fr` để hai cột bằng nhau. Tên export có tiền tố `Market` để không trùng type `ProductCard` |
+| `market-header.tsx` | `MarketHeader` | `title; fallback?="/cho"; right?` | **Đầu màn chợ gọn ≤ 6rem (F-08/F-09)** thay `PageHeader` hero ở mọi `/cho/**`: `[‹ Quay lại 3.5rem][tiêu đề]` trên gradient trục 3; Quay lại = `router.back()`, `history.length ≤ 1` ⇒ `router.push(fallback)` |
+| `line-thumb.tsx` | `LineThumb` | `image?; size?=3 (rem); className?` | ảnh nhỏ của một dòng hàng (`OrderLine.image` snapshot) — thẻ đơn, chi tiết đơn, tóm tắt đặt hàng, giỏ (F-06); không ảnh/ảnh lỗi ⇒ ô xám icon giỏ |
 | `price-text.tsx` | `PriceText` | `priceVnd; compareAtVnd?; size?: "sm"\|"lg"` | `formatVnd` (lib/format); giá gạch `line-through text-foreground/50` |
 | `rating-stars.tsx` | `RatingStars` | `value: number; count?: number; size?; interactive?; onChange?` | 5 sao từ `StarIcon` (icons.tsx — đã có); interactive tap ≥ 3.5rem/sao |
 | `order-status-chip.tsx` | `OrderStatusChip`, `PaymentStatusChip` | `status` | màu từ `ORDER_STATUS_CHIP` (style inline `backgroundColor/color` bằng `var(--…)` như `my-orders.tsx`) |
@@ -1626,8 +1634,8 @@ T4' (`settleOverdue`) KHÔNG gửi thông báo (hệ thống tự làm lúc đ�
 | `image-picker.tsx` | `ImagePicker` | `value: string[]; onChange; max=6; upload: (blob) => Promise<string>` | `<input type=file accept=image/* multiple>`; nén qua `resizeForMarket(file)` (`src/lib/market/image-resize.ts`, `"use client"`: canvas cạnh dài ≤ 1024, JPEG 0.8, lặp hạ chất lượng tới ≤ 400 KB — **không** dùng `compressImage` của `doc-photos.ts` vì ngưỡng khác 1600/1.8 MB) rồi gọi `upload` từng ảnh với tiến trình; ảnh lỗi ⇒ thẻ đỏ + Thử lại ảnh đó (không chặn ảnh khác); >400 KB sau nén ⇒ "Ảnh quá lớn, chụp lại gần hơn"; hàng ảnh cuộn ngang, nút X `<CloseButton>` |
 | `empty-net.tsx` | `EmptyNet` | `what: string; onRetry; savedAt?: number; extra?: ReactNode` | "Máy đang không có sóng — {what} cần mạng." + nút Thử lại (`PrimaryButton`), có `savedAt` ⇒ "Đang xem bản đã lưu {savedAgoLabel}"; `extra` cho nút "Xem đơn của tôi" (11 §5) |
 | `net-chip.tsx` | `NetChip` | `state: "offline"\|"stale"\|"error"; text` | chip tầng 4 (07 §12): 1 chip/màn, tự tắt 5s/8s |
-| `category-chips.tsx` | `CategoryChips` | `value; onChange` | `ChipRow` level 2 accent `t3`, "Tất cả" + 9 danh mục đúng thứ tự `PRODUCT_CATEGORIES` |
-| `address-form.tsx` | `AddressForm` | `value: Address; onChange; error?` | `Field` + `inputClass`; toggle "Giao ra cảng" (isPort) đổi nhãn ô detail; tỉnh = chip từ `COASTAL_PROVINCES` |
+| `category-chips.tsx` | `CategoryChips` | `value; onChange` | `ChipRow` **level 1** accent `t3` (3.5rem — F-21), "Tất cả" + 9 danh mục đúng thứ tự `PRODUCT_CATEGORIES` |
+| `address-form.tsx` | `AddressForm` | `value: Address; onChange; error?; homeProvince?` | `Field` + `inputClass`; toggle "Giao ra cảng" (isPort) đổi nhãn ô detail; tỉnh = **`<select>` nền tảng** từ `COASTAL_PROVINCES`, `homeProvince` đứng đầu (F-11); `error` (câu từ `validateAddress`) đặt **ngay dưới ô sai** (`addressErrorField` ở `validate.ts`) + focus/scroll tới ô |
 | `src/lib/market/client.ts` (`"use client"`) | `marketGet<T>(path, timeoutMs=12000)`, `marketPost<T>(path, body, timeoutMs=20000)`, `marketUpload(path, blob, timeoutMs=60000)` | — | bọc `authedFetch` + parse `{ok,…}` ⇒ `{ ok:true, data } \| { ok:false, code, message, status, offline: boolean }`; `offline = res===null`. Mọi màn dùng đúng 3 hàm này — không `fetch` trần |
 | `src/lib/market/use-online.ts` (`"use client"`) | `useOnlineRefetch(fn)` | — | nghe `online` ⇒ gọi `fn` (11 §9 "có sóng lại tự tải") |
 
@@ -1670,7 +1678,7 @@ Client component, props `{ me: Me }`; 5 mục con bằng chip (khuôn tab `/quan
 |---|---|---|
 | `src/components/trade-hub.tsx` (Buyer) | **trên** `ChipRow` (đầu `<div>`), cùng khổ với thẻ `surface` | `<Link href="/cho" className="mx-4 mb-4 flex min-h-[3.5rem] items-center gap-3 px-4 surface">` icon `BasketIcon` + `<span className="text-[1.125rem] font-bold text-navy">Chợ vật tư tàu cá</span>` + dòng phụ `text-[1rem] text-foreground/65` "Máy, ngư cụ, dầu nhớt, đá… nhiều đại lý, giao ra cảng" + `ChevronRightIcon` — KHÔNG thêm chip mới vào `SECTIONS` (3 chip là đủ, 03 "nhãn ngang hàng") |
 | `src/components/boat-products.tsx` (Buyer — LEAD §5 #3: chip "Cửa hàng" thật nằm ở đây dòng 58 `{ id: "sdvico", label: "Cửa hàng" }`, không phải `tau-tabs.tsx`) | trong mục `sdvico` (dòng ~223), **trên** `<SdvicoCatalog>` | thẻ `surface` cùng khuôn trên: "Chợ vật tư tàu cá — nhiều đại lý" → `/cho`. Giữ nguyên `SdvicoCatalog` bên dưới (LEAD §5 #11: chưa gộp — ADR sau) |
-| `src/components/hero-account.tsx` (Seller) | **ngay dưới** khối `isStaff && <Link href="/quan-tri">` (dòng ~686–697), cùng class | **Hai dạng dòng (LEAD §4 #16)**, quyết định bởi `loadShopFlag(phone)` (cập nhật khi sheet mở + có sóng qua `GET /api/ban-hang/shop`, 12 s, `.catch`): (a) `hasShop` ⇒ `<Link href="/ban-hang">` "Kênh người bán" + dòng phụ "Đăng sản phẩm, xử lý đơn, thống kê" + `ChevronRightIcon` (thêm "· đang chờ duyệt" khi `status=cho_duyet`); (b) `hasShop=false` ⇒ dòng **mờ** (`text-foreground/65`, không icon nổi) "Bà con có bán vật tư? Đăng ký shop" → `/ban-hang/dang-ky` — không đếm là nudge tầng 5; (c) chưa có cờ + offline ⇒ ẩn cả hai. Cùng file: đăng xuất/xoá dữ liệu gọi thêm `clearMarketCart(phone)`, `clearCachedMarketOrders()`, `clearShopFlag()` |
+| `src/components/hero-account.tsx` (Seller) | **ngay dưới khối danh tính/hạng, TRÊN hàng "Cài đặt khác" thu gọn** (sửa 2026-09-06: trước nằm TRONG nhóm thu gọn nên phải bấm "Mở" mới thấy — lối vào một trục việc, không phải một tuỳ chọn cài đặt), cùng class | **Hai dạng dòng (LEAD §4 #16)**, quyết định bởi `loadShopFlag(phone)` (cập nhật khi sheet mở + có sóng qua `GET /api/ban-hang/shop`, 12 s, `.catch`): (a) `hasShop` ⇒ `<Link href="/ban-hang">` "Kênh người bán" + dòng phụ "Đăng sản phẩm, xử lý đơn, thống kê" + `ChevronRightIcon` (thêm "· đang chờ duyệt" khi `status=cho_duyet`); (b) `hasShop=false` ⇒ dòng **mờ** (`text-foreground/65`, không icon nổi) "Bà con có bán vật tư? Đăng ký shop" → `/ban-hang/dang-ky` — không đếm là nudge tầng 5; (c) chưa có cờ + offline ⇒ ẩn cả hai. Cùng file: đăng xuất/xoá dữ liệu gọi thêm `clearMarketCart(phone)`, `clearCachedMarketOrders()`, `clearShopFlag()` |
 | `src/app/quan-tri/page.tsx` (Admin+Docs) | (1) union `type Tab` thêm `\| "cho-vat-tu"`; (2) mảng `tabs` admin thêm `["cho-vat-tu", "Chợ vật tư"]` sau `["don-hang", "Đơn hàng"]`; (3) sau dòng `{activeTab === "don-hang" && …}` thêm `{activeTab === "cho-vat-tu" && isAdmin && <MarketAdminTab me={me} />}`; (4) import `MarketAdminTab` | **3 dòng + 1 import** (LEAD §5 #1 đã OK). Nhãn 2 chữ "Chợ vật tư" khớp luật 03 |
 | `src/lib/admin-activity.ts` (Admin+Docs — LEAD §5 #2) | `ADMIN_ACTIONS` + `ACTION_LABEL` | 5 mã `market.*` (§7.3) + nhãn tiếng Việt; `isDangerAction` thêm `market.shop-status` khi status ∈ tu_choi/tam_khoa? — KHÔNG: giữ hàm như cũ, nhãn đủ |
 | `docs/app-map/07-design-spec.md` §12 (Admin+Docs) | bảng "Luật chung" dòng "Đơn hàng" | thêm 1 dòng "Chợ vật tư (2026-09-06): ngoại lệ push OS cho actor NGƯỜI BÁN — N1/N8/N10–N12 (LEAD §4 #4); người mua giữ luật cũ" |
@@ -1764,8 +1772,10 @@ Commit message mỗi pha ghi câu trả lời offline (CLAUDE.md pre-flight 🟡
 14. Cờ `forfish.mshop.v1` (khoá thứ 5) để sheet Tài khoản biết có shop mà không gọi mạng lúc mở app; sai lệch tối đa tới lần mở sheet có sóng kế tiếp.
 
 ## History
+- **1.4 (2026-09-06) — Buyer, vòng fix UX**: `cart.ts` thêm 6 export ô chọn (§4.8, shape lưu thêm `off?`); `validate.ts` thêm `addressErrorField`; `login-gate.tsx` thêm prop `verb?` (mặc định "xem"); `buyer/hooks.ts` `useMarketCart` thêm `unselected/selectedItems/select`, `count` = **số dòng** (F-19); shared thêm `market-header.tsx`, `line-thumb.tsx`; `product-card.tsx` bỏ `onAdd`; `category-chips` level 1; `address-form` `<select>` + `homeProvince`; `LoginInvite` thành BottomSheet (`verb` thay `feature`); `/dev` persona login gọi `applyIdentityAction("SIGNED_IN", true, phone)` (F-29). `OrderLine.image` đã có sẵn từ 1.1 (buildMarketLines + 2 adapter + comment migration) — KHÔNG thêm `imageUrl` trùng nghĩa (nguyên tắc 3), chỉ thêm test. Chữ ký hàm Core cũ giữ nguyên.
+- **1.3 (2026-09-06) — Seller**: lối vào Kênh người bán (§9) chuyển RA NGOÀI nhóm "Cài đặt khác" thu gọn của `hero-account.tsx`, đặt ngay dưới khối danh tính/hạng — nằm trong nhóm thu gọn thì bà con phải bấm "Mở" mới thấy. Hai dạng dòng, cờ `seller-flag` và luật ẩn khi chưa biết + mất sóng GIỮ NGUYÊN.
 - 1.0 (2026-09-06): khởi tạo pha Kiến trúc từ LEAD-BRIEF; 12 điểm phản biện.
 - **1.2 (2026-09-06) — Core**: `ProductQuery.status` (`ProductStatusFilter` = ProductStatus | `bi_go` | `all`) cho `listShopProducts` ở CẢ HAI adapter — route `/api/ban-hang/san-pham` truyền thẳng xuống kho, hết quét 1.000 món rồi lọc trong route (gỡ `// nợ:`); `listProducts` (chợ) không đổi. Thêm biến môi trường `MARKET_STORE_FILE` trỏ tệp kho dev (§5.1), uploads đi theo thư mục của tệp.
 - **1.1 (2026-09-06) — hợp nhất sau phản biện**: đưa đủ LEAD-BRIEF §4/§5 vào schema/type/store/route (`settleOverdue`, `needs_refund`, `shops.paused`, `product_reviews.hidden`, `admin_hidden`, `deleted_at`, `bank_snapshot`, `approved_at`, danh mục id gạch-ngang, `marketOrderClientRef`, `expectedTotalVnd`/`price_changed`, `results[]` từng shop, ép COD, `?province`, khách lạ xem chợ, 2 dạng dòng sheet Tài khoản, sentinel SDVICO, push người bán); tên/mã/số khớp 11-ba-spec 1.1; ownership cuối cùng §10.1. Bảng đối chiếu: `_generated/phan-bien-san-thuong-mai-2026-09-06.md`.
 
-**Last updated**: 2026-09-06 (1.2)
+**Last updated**: 2026-09-06 (1.4)

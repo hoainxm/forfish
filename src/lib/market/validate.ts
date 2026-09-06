@@ -139,6 +139,17 @@ export function validateCheckout(d: CheckoutDraft): string | null {
   return null;
 }
 
+/** Ô nào đang sai — để form đặt câu lỗi NGAY DƯỚI ô + focus (F-11). Câu lấy từ `validateAddress`, không đẻ câu thứ hai. */
+export type AddressField = "name" | "phone" | "province" | "detail";
+export function addressErrorField(a: Address): AddressField | null {
+  const n = len(a?.name);
+  if (n < 2 || n > 60) return "name";
+  if (typeof a.phone !== "string" || !isValidVnPhone(a.phone)) return "phone";
+  const p = len(a.province);
+  if (p < 2 || p > 40) return "province";
+  return validateAddress(a) ? "detail" : null;
+}
+
 export function validateReview(r: { rating: unknown; comment?: string }): string | null {
   if (!r || !isInt(r.rating) || r.rating < 1 || r.rating > 5) return "Chọn số sao.";
   if (optLen(r.comment) > REVIEW_MAX) return "Nhận xét tối đa 500 chữ.";

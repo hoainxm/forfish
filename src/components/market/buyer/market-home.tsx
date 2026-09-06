@@ -15,7 +15,6 @@ import { EmptyNet } from "@/components/market/shared/empty-net";
 import { OrderStatusChip } from "@/components/market/shared/order-status-chip";
 import { PriceText } from "@/components/market/shared/price-text";
 import { EmptyState, SectionHeader } from "@/components/ui/primitives";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 import { marketGet } from "@/lib/market/client";
 import type { ProductCard } from "@/lib/market/types";
 import { useOnlineRefetch } from "@/lib/market/use-online";
@@ -64,16 +63,6 @@ export function MarketHome() {
   }, [load]);
   useOnlineRefetch(() => void load());
 
-  const add = (p: ProductCard) => {
-    const r = cart.add(p.id, undefined, 1);
-    setNote(
-      r === "ok"
-        ? `Đã thêm ${p.title} vào giỏ`
-        : r === "gio_day"
-          ? "Giỏ đầy rồi — bỏ bớt món cũ rồi thêm lại."
-          : "Máy hết chỗ — CHƯA lưu được giỏ.",
-    );
-  };
   const onFav = (p: ProductCard) => {
     if (!cart.signedIn) {
       setNote(null);
@@ -100,7 +89,7 @@ export function MarketHome() {
     .slice(0, 6);
 
   return (
-    <div className="pb-8">
+    <div className="pb-[7rem]">
       <MarketTopBar
         q={q}
         onQ={setQ}
@@ -169,11 +158,13 @@ export function MarketHome() {
                             : "Máy hết chỗ — CHƯA lưu được giỏ.",
                       );
                     }}
-                    className={`${SQ_BTN} mt-2`}
+                    /*  Nút thường bấm ⇒ KHÔNG SQ_BTN (F-07: chế độ gọn hạ nó
+                        xuống 37px/11px). */
+                    className="mt-2 flex min-h-[3.5rem] w-full items-center justify-center gap-1.5 rounded-full text-[1rem] font-bold"
                     style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
                     aria-label={`Mua lại ${l.title}`}
                   >
-                    <CartIcon className="h-6 w-6" />
+                    <CartIcon className="h-5 w-5" />
                     Mua lại
                   </button>
                 </li>
@@ -205,7 +196,7 @@ export function MarketHome() {
             {near.length > 0 && (
               <section className="mb-5">
                 <SectionHeader className="px-0">Gần bà con — {province}</SectionHeader>
-                <ProductGrid items={near} isFav={fav.has} onFav={onFav} onAdd={add} />
+                <ProductGrid items={near} isFav={fav.has} onFav={onFav} />
               </section>
             )}
 
@@ -214,7 +205,7 @@ export function MarketHome() {
               {fresh.length === 0 ? (
                 <EmptyState>Chợ chưa có món nào. SDVICO đang mời các đại lý lên sàn.</EmptyState>
               ) : (
-                <ProductGrid items={fresh} isFav={fav.has} onFav={onFav} onAdd={add} />
+                <ProductGrid items={fresh} isFav={fav.has} onFav={onFav} />
               )}
             </section>
           </>

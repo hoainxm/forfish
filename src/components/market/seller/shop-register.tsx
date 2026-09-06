@@ -16,6 +16,7 @@ import { validateShopDraft } from "@/lib/market/validate";
 import { useAuthUser } from "@/lib/use-auth";
 import { useOnline } from "@/lib/use-online";
 import { LoadView, marketErrorText, useMyShop } from "./seller-net";
+import { focusField } from "./ui";
 import {
   emptyShopForm, ShopForm, shopDraftOf, shopFieldDomId, shopFieldOfError, shopFormFrom,
   type ShopFormValue,
@@ -48,10 +49,18 @@ function RegisterInner({ shop }: { shop: Shop | null }) {
     if (shop && shop.status !== "tu_choi") router.replace("/ban-hang");
   }, [shop, router]);
 
+  /*  ĐIỀN SẴN SĐT liên hệ (11 §6.1). `useAuthUser().phone` đọc danh tính TRONG
+      effect nên lần render đầu là null ⇒ `emptyShopForm(phone)` ở useState chỉ
+      chạy một lần và không bao giờ thấy SĐT (bug QA 2026-09-06). Chép vào khi
+      SĐT về và ô còn trống — không đè thứ bà con đã gõ. */
+  useEffect(() => {
+    if (!phone) return;
+    setForm((f) => (f.phone.trim() ? f : { ...f, phone }));
+  }, [phone]);
+
   function fail(msg: string) {
     setError(msg);
-    const el = document.getElementById(shopFieldDomId(shopFieldOfError(msg)));
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    focusField(shopFieldDomId(shopFieldOfError(msg)));
   }
 
   async function submit() {

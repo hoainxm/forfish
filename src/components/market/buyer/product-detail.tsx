@@ -8,7 +8,7 @@
 // + "giá lúc HH:MM"; thêm vào giỏ VẪN chạy (việc của máy); nút Gọi shop KHÔNG
 // ẩn (LEAD §4 #10 — mất data vẫn còn sóng thoại ở bến).
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { QtyStepper } from "@/components/cart-sheet";
 import { AlertIcon, CartIcon, ChevronRightIcon, StarIcon } from "@/components/icons";
 import { EmptyNet } from "@/components/market/shared/empty-net";
@@ -17,7 +17,6 @@ import { RatingStars } from "@/components/market/shared/rating-stars";
 import { ShopBadge } from "@/components/market/shared/shop-badge";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { CallButton, PrimaryButton } from "@/components/ui/primitives";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { clockVN } from "@/lib/day-labels";
 import { marketGet } from "@/lib/market/client";
@@ -48,6 +47,11 @@ export function ProductDetail({ id }: { id: string }) {
   const [note, setNote] = useState<string | null>(null);
   const [gate, setGate] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
+  /*  "Xem thêm" CHỈ khi mô tả thật sự bị cắt (F-17): đo `scrollHeight >
+      clientHeight` sau khi vẽ — bản cũ luôn hiện nút dù mô tả một dòng. */
+  const [descClamped, setDescClamped] = useState(false);
+  const descRef = useRef<HTMLParagraphElement>(null);
+  const [imgIdx, setImgIdx] = useState(0); // nhãn "1/3" của dải ảnh (F-23)
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [allReviews, setAllReviews] = useState<Review[] | null>(null);
 
@@ -75,6 +79,17 @@ export function ProductDetail({ id }: { id: string }) {
   const product = data?.product ?? (status === "offline" ? peek?.product ?? null : null);
   const shop = data?.shop ?? null;
   const stale = !data && !!product;
+  const description = product?.description ?? "";
+
+  useLayoutEffect(() => {
+    if (descOpen) return;
+    const el = descRef.current;
+    if (!el) {
+      setDescClamped(false);
+      return;
+    }
+    setDescClamped(el.scrollHeight > el.clientHeight + 1);
+  }, [description, descOpen]);
 
   // ── nhánh không có gì để hiện ───────────────────────────────────────────
   if (status === "loading") {
@@ -176,7 +191,13 @@ export function ProductDetail({ id }: { id: string }) {
       {/* ── Ảnh cuộn ngang ────────────────────────────────────────────── */}
       <div className="relative">
         {product.images.length > 0 ? (
-          <ul className="flex snap-x snap-mandatory overflow-x-auto">
+          <ul
+            className="flex snap-x snap-mandatory overflow-x-auto"
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              if (el.clientWidth > 0) setImgIdx(Math.round(el.scrollLeft / el.clientWidth));
+            }}
+          >
             {product.images.map((src, i) => (
               <li key={`${src}-${i}`} className="w-full shrink-0 snap-center">
                 {/* eslint-disable-next-line @next/next/no-img-element -- ảnh sàn: bucket public / data-URI seed, không qua optimizer */}
@@ -190,11 +211,20 @@ export function ProductDetail({ id }: { id: string }) {
           </div>
         )}
         {product.images.length > 1 && (
-          <div className="pointer-events-none absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
-            {product.images.map((s, i) => (
-              <span key={`${s}-dot-${i}`} className="h-2 w-2 rounded-full bg-navy/40" />
-            ))}
-          </div>
+          <>
+            <div className="pointer-events-none absolute bottom-3 left-0 right-0 flex justify-center gap-1.5" aria-hidden>
+              {product.images.map((s, i) => (
+                <span key={`${s}-dot-${i}`} className={`h-2 w-2 rounded-full ${i === imgIdx ? "bg-navy" : "bg-navy/40"}`} />
+              ))}
+            </div>
+            <span
+              className="pointer-events-none absolute bottom-3 right-3 rounded-full px-2.5 py-0.5 text-[0.875rem] font-bold"
+              style={{ backgroundColor: "var(--navy)", color: "var(--card)" }}
+              aria-live="polite"
+            >
+              {Math.min(imgIdx + 1, product.images.length)}/{product.images.length}
+            </span>
+          </>
         )}
       </div>
 
@@ -244,19 +274,25 @@ export function ProductDetail({ id }: { id: string }) {
           <span className="text-[1rem] text-foreground/65">/ {product.unit}</span>
         </div>
 
-        <p className="mt-1 text-[1rem] text-foreground/65">
-          Đã bán {product.soldCount}
-          {product.ratingCount > 0 && (
-            <>
-              {" · "}
-              <RatingStars value={product.ratingAvg} count={product.ratingCount} className="align-middle" />
-            </>
+        {/*  F-14: một dòng như Shopee "★ 4.5 (2) · Đã bán 11 · Còn 5" — chưa có
+             đánh giá thì nói thẳng, không để trống. */}
+        <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[1rem] text-foreground/65">
+          {product.ratingCount > 0 ? (
+            <span className="inline-flex items-center gap-1">
+              <span style={{ color: "var(--sun)" }} aria-hidden><StarIcon className="h-4 w-4 fill-current" /></span>
+              <span className="font-bold text-navy">{product.ratingAvg.toFixed(1)}</span>
+              <span>({product.ratingCount})</span>
+            </span>
+          ) : (
+            <span>Chưa có đánh giá</span>
           )}
-          {" · "}
-          {outOfStock ? "Hết hàng" : product.stock <= 20 ? `Còn ${product.stock} ${product.unit}` : "Còn hàng"}
+          <span aria-hidden>·</span>
+          <span>Đã bán {product.soldCount}</span>
+          <span aria-hidden>·</span>
+          <span>{outOfStock ? "Hết hàng" : product.stock <= 20 ? `Còn ${product.stock} ${product.unit}` : "Còn hàng"}</span>
         </p>
 
-        {gate && <div className="mt-3"><LoginInvite feature="món đã lưu" online={online} onClose={() => setGate(false)} /></div>}
+        {gate && <LoginInvite verb="lưu món" online={online} onClose={() => setGate(false)} />}
 
         {/* ── Biến thể ─────────────────────────────────────────────────── */}
         {hasVariants && (
@@ -299,34 +335,38 @@ export function ProductDetail({ id }: { id: string }) {
 
         {/* ── Shop ─────────────────────────────────────────────────────── */}
         <div className="surface mt-4 flex items-center gap-3 px-4 py-3">
-          <Link href={`/cho/shop/${product.shopSlug}`} className="min-w-0 flex-1">
+          <Link href={`/cho/shop/${product.shopSlug}`} className="flex min-h-[3.5rem] min-w-0 flex-1 flex-col justify-center">
             <ShopBadge
               name={product.shopName}
               province={product.shopProvince}
               ratingAvg={shop?.ratingAvg}
               paused={shopPaused}
+              className="text-[1rem]"
             />
             <span className="mt-0.5 flex items-center gap-1 text-[0.9375rem] font-bold text-t3">
               Xem shop <ChevronRightIcon className="h-4 w-4" />
             </span>
           </Link>
-          {shop?.phone && <CallButton phone={shop.phone} label="Gọi shop" />}
+          {/*  "Gọi shop" chỉ ở thanh đáy dính (F-14) — hai nút cùng tên một màn là thừa. */}
+          <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
         </div>
 
         {/* ── Mô tả ────────────────────────────────────────────────────── */}
         {product.description && (
           <section className="mt-4">
             <h3 className="text-[1.125rem] font-bold text-navy">Mô tả</h3>
-            <p className={`mt-1 whitespace-pre-line text-[1.0625rem] leading-relaxed ${descOpen ? "" : "line-clamp-4"}`}>
+            <p ref={descRef} className={`mt-1 whitespace-pre-line text-[1.0625rem] leading-relaxed ${descOpen ? "" : "line-clamp-4"}`}>
               {product.description}
             </p>
-            <button
-              type="button"
-              onClick={() => setDescOpen((v) => !v)}
-              className="mt-1 min-h-[3.5rem] text-[1rem] font-bold text-t3"
-            >
-              {descOpen ? "Thu gọn" : "Xem thêm"}
-            </button>
+            {(descOpen || descClamped) && (
+              <button
+                type="button"
+                onClick={() => setDescOpen((v) => !v)}
+                className="mt-1 min-h-[3.5rem] text-[1rem] font-bold text-t3"
+              >
+                {descOpen ? "Thu gọn" : "Xem thêm"}
+              </button>
+            )}
           </section>
         )}
 
@@ -380,9 +420,12 @@ export function ProductDetail({ id }: { id: string }) {
         {shop?.phone ? (
           <CallButton phone={shop.phone} label="Gọi shop" />
         ) : (
-          <Link href={`/cho/shop/${product.shopSlug}`} className={SQ_BTN} style={{ backgroundColor: "var(--field)", color: "var(--navy)" }}>
-            <CartIcon className="h-6 w-6" />
-            Shop
+          <Link
+            href={`/cho/shop/${product.shopSlug}`}
+            className="flex min-h-[3.5rem] shrink-0 items-center gap-1.5 rounded-full px-4 text-[1rem] font-bold"
+            style={{ backgroundColor: "var(--field)", color: "var(--navy)" }}
+          >
+            Xem shop
           </Link>
         )}
         <PrimaryButton onClick={onAdd} disabled={!canAdd} className="flex-1">

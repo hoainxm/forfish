@@ -3,14 +3,12 @@
 import Link from "next/link";
 import type { ComponentType } from "react";
 import {
-  BasketIcon, BoxIcon, CartIcon, EngineIcon, FuelIcon, GearIcon, IceIcon, LifebuoyIcon, NetIcon, RadarIcon, StarIcon,
+  BasketIcon, BoxIcon, EngineIcon, FuelIcon, GearIcon, IceIcon, LifebuoyIcon, NetIcon, RadarIcon, StarIcon,
 } from "@/components/icons";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 import { CATEGORY_ICON } from "@/lib/market/categories";
 import { discountPercent } from "@/lib/market/pricing";
 import type { ProductCard, ProductCategory } from "@/lib/market/types";
 import { PriceText } from "./price-text";
-import { ShopBadge } from "./shop-badge";
 import { useState } from "react";
 
 type IconProps = { className?: string };
@@ -25,32 +23,35 @@ export function CategoryIcon({ category, className }: { category: ProductCategor
 }
 
 /**
- * Thẻ sản phẩm ở danh sách (12 §8.1). Tên có tiền tố `Market` để không trùng
- * type `ProductCard`. Tap cả thẻ ≥ 3.5rem; nút "+ Giỏ" (SQ_BTN) chỉ khi không
- * biến thể, có biến thể ⇒ "Chọn" (mở trang món).
+ * Thẻ sản phẩm ở danh sách (12 §8.1) — GỌN như Shopee (F-04, 2026-09-06): ảnh
+ * vuông (badge -N% + ♡ đè góc) · tên 2 dòng · giá · "Đã bán N · ★x.x" · shop ·
+ * tỉnh một dòng. CHẠM CẢ THẺ → trang món; KHÔNG còn "+ Giỏ"/"Chọn" trong lưới
+ * (thêm giỏ là việc của trang món — ở đó mới chọn loại/số lượng được).
+ *
+ * ♡ là nút riêng ĐÈ LÊN ảnh (không lồng trong `<a>`): vùng chạm 2.75rem = ngoại
+ * lệ có chủ đích so với sàn 3.5rem — nó nằm trên ảnh lớn, không cạnh nút nào
+ * khác nên chạm hụt không bấm nhầm việc khác (03-design-system ghi ngoại lệ).
+ * Tên export có tiền tố `Market` để không trùng type `ProductCard`.
  */
 export function MarketProductCard({
   product,
   href,
   fav,
   onFav,
-  onAdd,
 }: {
   product: ProductCard;
   href: string;
   fav?: boolean;
   onFav?: () => void;
-  onAdd?: () => void;
 }) {
   const [imgBroken, setImgBroken] = useState(false);
   const pct = discountPercent(product);
   const out = product.stock <= 0 || product.status !== "dang_ban";
-  const hasVariants = product.variants.length > 0;
   const image = product.images[0];
 
   return (
-    <article className="surface relative flex flex-col overflow-hidden">
-      <Link href={href} className="block min-h-[3.5rem]" aria-label={product.title}>
+    <article className="surface relative flex h-full flex-col overflow-hidden">
+      <Link href={href} className="flex h-full min-h-[3.5rem] flex-col" aria-label={product.title}>
         <div className="relative aspect-square w-full bg-field">
           {image && !imgBroken ? (
             // eslint-disable-next-line @next/next/no-img-element -- ảnh sàn: bucket public Supabase / data-URI seed, không qua optimizer (băng thông có đo đếm)
@@ -79,10 +80,18 @@ export function MarketProductCard({
               <span className="rounded-full bg-card px-3 py-1 text-[1rem] font-bold text-navy">Hết hàng</span>
             </div>
           )}
+          {product.shopPaused && !out && (
+            <span
+              className="absolute bottom-2 left-2 rounded-full px-2 py-0.5 text-[0.75rem] font-bold"
+              style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}
+            >
+              Tạm nghỉ
+            </span>
+          )}
         </div>
-        <div className="px-3 pt-2">
+        <div className="flex flex-1 flex-col px-2.5 pb-2.5 pt-2">
           <p className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{product.title}</p>
-          <PriceText priceVnd={product.priceVnd} compareAtVnd={product.compareAtVnd} className="mt-1" />
+          <PriceText priceVnd={product.priceVnd} compareAtVnd={product.compareAtVnd} className="mt-auto pt-1" />
           <p className="mt-0.5 text-[0.875rem] text-foreground/65">
             Đã bán {product.soldCount}
             {product.ratingCount > 0 && (
@@ -95,48 +104,24 @@ export function MarketProductCard({
               </>
             )}
           </p>
-          <ShopBadge name={product.shopName} province={product.shopProvince} paused={product.shopPaused} className="mt-0.5" />
+          <p className="truncate text-[0.875rem] text-foreground/65">
+            <span className="font-semibold text-navy/80">{product.shopName}</span>
+            {product.shopProvince ? ` · ${product.shopProvince}` : ""}
+          </p>
         </div>
       </Link>
-      <div className="flex items-center justify-between gap-2 px-3 pb-3 pt-2">
-        {onFav ? (
-          <button
-            type="button"
-            onClick={onFav}
-            aria-pressed={!!fav}
-            aria-label={fav ? "Bỏ yêu thích" : "Yêu thích"}
-            className="flex h-14 w-14 items-center justify-center rounded-full transition active:scale-95"
-            style={{ color: fav ? "var(--trim)" : "var(--foreground)", backgroundColor: "var(--field)" }}
-          >
-            <StarIcon className={`h-6 w-6 ${fav ? "fill-current" : ""}`} />
-          </button>
-        ) : (
-          <span />
-        )}
-        {hasVariants || !onAdd ? (
-          <Link
-            href={href}
-            className={SQ_BTN}
-            style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
-            aria-label={`Chọn loại ${product.title}`}
-          >
-            <CartIcon className="h-6 w-6" />
-            Chọn
-          </Link>
-        ) : (
-          <button
-            type="button"
-            onClick={onAdd}
-            disabled={out || product.shopPaused}
-            className={`${SQ_BTN} disabled:opacity-40`}
-            style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
-            aria-label={`Thêm ${product.title} vào giỏ`}
-          >
-            <CartIcon className="h-6 w-6" />
-            + Giỏ
-          </button>
-        )}
-      </div>
+      {onFav && (
+        <button
+          type="button"
+          onClick={onFav}
+          aria-pressed={!!fav}
+          aria-label={fav ? "Bỏ yêu thích" : "Yêu thích"}
+          className="absolute right-1.5 top-1.5 flex h-11 w-11 items-center justify-center rounded-full bg-card/90 shadow-sm transition active:scale-95"
+          style={{ color: fav ? "var(--trim)" : "var(--navy)" }}
+        >
+          <StarIcon className={`h-6 w-6 ${fav ? "fill-current" : ""}`} />
+        </button>
+      )}
     </article>
   );
 }

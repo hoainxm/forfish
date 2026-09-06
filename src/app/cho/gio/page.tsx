@@ -1,5 +1,5 @@
 import { MarketCart } from "@/components/market/buyer/market-cart";
-import { PageHeader } from "@/components/page-header";
+import { MarketHeader } from "@/components/market/shared/market-header";
 
 export const metadata = { title: "Giỏ hàng — SDFish" };
 
@@ -7,7 +7,7 @@ export const metadata = { title: "Giỏ hàng — SDFish" };
 export default function GioPage() {
   return (
     <div>
-      <PageHeader kicker="Chợ vật tư" title="Giỏ hàng" toColor="var(--t3)" />
+      <MarketHeader title="Giỏ hàng" fallback="/cho" />
       <MarketCart />
     </div>
   );

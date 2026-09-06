@@ -13,6 +13,7 @@ import type { Shop } from "@/lib/market/types";
 import { validateShopDraft } from "@/lib/market/validate";
 import { useOnline } from "@/lib/use-online";
 import { InlineNote, LoadView, marketErrorText, useMyShop } from "./seller-net";
+import { focusField } from "./ui";
 import {
   ShopForm, shopDraftOf, shopFieldDomId, shopFieldOfError, shopFormFrom, type ShopFormValue,
 } from "./shop-form";
@@ -54,7 +55,7 @@ function Inner({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
     const err = validateShopDraft(draft);
     if (err) {
       setError(err);
-      document.getElementById(shopFieldDomId(shopFieldOfError(err)))?.scrollIntoView({ behavior: "smooth", block: "center" });
+      focusField(shopFieldDomId(shopFieldOfError(err)));
       return;
     }
     setError(null);

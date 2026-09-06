@@ -8,14 +8,13 @@
 // Câu lỗi lấy NGUYÊN của `validateShopDraft` (một nguồn client + server) rồi
 // gắn xuống đúng ô — hàm đó trả lỗi ĐẦU TIÊN nên "cuộn tới ô lỗi đầu" là đủ.
 import { useState } from "react";
-import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { Field, MoneyField, inputClass } from "@/components/ui/primitives";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 import { PlusIcon, TrashIcon } from "@/components/icons";
 import { parseDigits } from "@/lib/format";
 import { sanitizePhoneInput } from "@/lib/phone";
 import { COASTAL_PROVINCES } from "@/lib/region";
 import type { Shop, ShopDraft } from "@/lib/market/types";
+import { invalidProps, SELLER_BTN } from "./ui";
 
 export interface ShopFormValue {
   name: string;
@@ -31,8 +30,6 @@ export interface ShopFormValue {
   bankHolder: string;
   logoUrl: string;
 }
-
-const PROVINCE_OPTIONS: readonly ChipOption<string>[] = COASTAL_PROVINCES.map((p) => ({ id: p.name, label: p.name }));
 
 export function emptyShopForm(phone: string | null): ShopFormValue {
   return {
@@ -128,6 +125,7 @@ export function ShopForm({
             className={inputClass}
             value={value.name}
             onChange={(e) => set({ name: e.target.value })}
+            {...invalidProps(field === "name")}
             placeholder="Ví dụ: Đại lý Hải Đăng"
             maxLength={60}
           />
@@ -142,6 +140,7 @@ export function ShopForm({
             inputMode="tel"
             value={value.phone}
             onChange={(e) => set({ phone: sanitizePhoneInput(e.target.value) })}
+            {...invalidProps(field === "phone")}
             placeholder="09xxxxxxxx"
             autoComplete="tel"
           />
@@ -149,16 +148,23 @@ export function ShopForm({
       </div>
       <ErrLine msg={at("phone")} />
 
-      <p className="mb-1.5 block text-[1rem] font-bold text-navy" id={shopFieldDomId("province")}>Tỉnh của shop</p>
-      <div className="-mx-4 mb-3.5">
-        <ChipRow
-          options={PROVINCE_OPTIONS}
-          value={value.province}
-          onChange={(p) => set({ province: p })}
-          accent="t3"
-          level={2}
-          ariaLabel="Tỉnh của shop"
-        />
+      {/*  Ô CHỌN của máy thay 22 chip cuộn ngang (F-11): người Khánh Hoà phải
+          kéo qua 13 chip mới thấy tỉnh mình; danh sách của hệ điều hành mở ra
+          là chọn được ngay, chữ to sẵn theo cỡ chữ máy. */}
+      <div id={shopFieldDomId("province")}>
+        <Field label="Tỉnh của shop">
+          <select
+            className={inputClass}
+            value={value.province}
+            onChange={(e) => set({ province: e.target.value })}
+            {...invalidProps(field === "province")}
+          >
+            <option value="">— Chọn tỉnh —</option>
+            {COASTAL_PROVINCES.map((p) => (
+              <option key={p.name} value={p.name}>{p.name}</option>
+            ))}
+          </select>
+        </Field>
       </div>
       <ErrLine msg={at("province")} />
 
@@ -168,6 +174,7 @@ export function ShopForm({
             className={inputClass}
             value={value.address}
             onChange={(e) => set({ address: e.target.value })}
+            {...invalidProps(field === "address")}
             placeholder="Ví dụ: Cảng cá Quy Nhơn, lô 12"
             maxLength={200}
           />
@@ -268,7 +275,7 @@ export function ShopForm({
           <button
             type="button"
             onClick={() => { setShowBank(false); set({ bankName: "", bankAccount: "", bankHolder: "" }); }}
-            className={`${SQ_BTN} mb-4 bg-field text-navy`}
+            className={`${SELLER_BTN} mb-4 bg-field text-navy`}
           >
             <TrashIcon className="h-6 w-6" />
             Bỏ STK

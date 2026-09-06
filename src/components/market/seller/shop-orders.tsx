@@ -12,7 +12,9 @@ import { CartIcon, ChevronRightIcon } from "@/components/icons";
 import { formatVnd } from "@/lib/format";
 import { isPendingTooLong, ORDER_STATUSES, ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/market/order-state";
 import type { Order, OrderStatus, ShopStats } from "@/lib/market/types";
+import { LineThumb } from "@/components/market/shared/line-thumb";
 import { LoadView, agoLabel, useMarketData } from "./seller-net";
+import { linesSummary } from "./ui";
 
 interface ListRes { items: Order[]; total: number; page: number; pageSize: number }
 
@@ -36,7 +38,7 @@ export function ShopOrders() {
   return (
     <div className="pb-10">
       <div className="mb-3">
-        <ChipRow options={options} value={tab} onChange={setTab} accent="t3" level={2} ariaLabel="Trạng thái đơn" />
+        <ChipRow options={options} value={tab} onChange={setTab} accent="t3" level={1} ariaLabel="Trạng thái đơn" />
       </div>
       <LoadView state={list.state} what="đơn hàng của shop" onRetry={list.reload}>
         {(d) => <Rows items={d.items} tab={tab} />}
@@ -60,10 +62,13 @@ function Rows({ items, tab }: { items: Order[]; tab: OrderStatus }) {
     <ul className="space-y-1 px-4">
       {items.map((o) => {
         const late = isPendingTooLong(o, nowIso);
-        const soMon = o.items.reduce((s, l) => s + l.qty, 0);
+        // ĐẾM SỐ DÒNG, không cộng số lượng: 1 bao gạo + 25 kg dây là "2 món",
+        // không phải "26 món" (B-06/F-18).
+        const soMon = o.items.length;
         return (
           <li key={o.id}>
-            <Link href={`/ban-hang/don/${o.id}`} className="flex min-h-[3.5rem] items-center gap-3 px-4 py-3 surface">
+            <Link href={`/ban-hang/don/${o.id}`} className="flex min-h-[3.5rem] items-start gap-3 px-4 py-3 surface">
+              <LineThumb image={o.items[0]?.image} size={3.5} />
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2">
                   <b className="text-[1rem] text-navy">{o.code}</b>
@@ -83,6 +88,10 @@ function Rows({ items, tab }: { items: Order[]; tab: OrderStatus }) {
                 </span>
                 <span className="mt-0.5 block truncate text-[1rem] text-foreground/85">
                   {o.address.name} · {o.address.province}
+                </span>
+                {/* Soạn hàng gì — đọc ngay trên thẻ, không phải mở từng đơn (F-15) */}
+                <span className="mt-0.5 line-clamp-2 block text-[1rem] font-semibold leading-snug text-navy">
+                  {linesSummary(o.items)}
                 </span>
                 <span className="mt-0.5 block truncate text-[0.9375rem] text-foreground/65">
                   {soMon} món · {PAYMENT_METHOD_LABEL[o.paymentMethod]} · {agoLabel(o.createdAt)}

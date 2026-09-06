@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/page-header";
+import { MarketHeader } from "@/components/market/shared/market-header";
 import { RequireLogin } from "@/components/require-login";
 import { SellerProductForm } from "@/components/market/seller/product-form";
 
@@ -9,12 +9,7 @@ export default async function SellerProductFormPage({ params }: { params: Promis
   const { id } = await params;
   return (
     <div>
-      <PageHeader
-        kicker="Kênh người bán"
-        title={id === "moi" ? "Thêm món hàng" : "Sửa món hàng"}
-        sub="Ảnh rõ, tên đủ loại–cỡ–hãng thì bà con dễ tìm ra."
-        toColor="var(--t3)"
-      />
+      <MarketHeader title={id === "moi" ? "Thêm món hàng" : "Sửa món hàng"} fallback="/ban-hang/san-pham" />
       <RequireLogin what="kênh người bán">
         <div className="mt-4">
           <SellerProductForm id={id} />

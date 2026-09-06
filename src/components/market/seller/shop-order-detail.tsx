@@ -6,13 +6,13 @@
 // ⇒ nói thẳng + tự tải lại. Nút Gọi người mua KHÔNG ẩn khi mất sóng (LEAD §4 #10).
 import { useState } from "react";
 import { OrderStatusChip, PaymentStatusChip } from "@/components/market/shared/order-status-chip";
+import { LineThumb } from "@/components/market/shared/line-thumb";
 import { OrderTimeline } from "@/components/market/shared/order-timeline";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CallButton, Field, PrimaryButton, inputClass } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 import { CartIcon, CheckIcon, CloseIcon, RouteIcon } from "@/components/icons";
 import { formatVnd } from "@/lib/format";
 import { marketSend } from "@/lib/market/client";
@@ -21,6 +21,7 @@ import {
 } from "@/lib/market/order-state";
 import type { Order, OrderStatus } from "@/lib/market/types";
 import { agoLabel, InlineNote, LoadView, marketErrorText, useMarketData } from "./seller-net";
+import { SELLER_BTN } from "./ui";
 
 const CANCEL_CHIPS: readonly ChipOption<string>[] = [
   { id: "Hết hàng", label: "Hết hàng" },
@@ -80,7 +81,8 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
 
   const late = isPendingTooLong(order, new Date().toISOString());
   const byAdmin = order.timeline.some((t) => t.by.startsWith("admin"));
-  const soMon = order.items.reduce((s, l) => s + l.qty, 0);
+  // ĐẾM SỐ DÒNG, không cộng số lượng (B-06/F-18)
+  const soMon = order.items.length;
 
   return (
     <div className="pb-10">
@@ -142,6 +144,8 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
           <ul className="space-y-2">
             {order.items.map((l, i) => (
               <li key={`${l.productId}-${l.variantLabel ?? ""}-${i}`} className="flex items-start justify-between gap-3">
+                {/* Ảnh món để shop soạn hàng bằng mắt (F-15) */}
+                <LineThumb image={l.image} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[1rem] font-semibold text-navy">{l.title}</span>
                   <span className="block text-[0.9375rem] text-foreground/65">
@@ -180,7 +184,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
                   title: "Đã nhận đủ tiền?",
                   message: "Bấm xong người mua thấy đơn đã thanh toán.",
                 })}
-                className={`${SQ_BTN} bg-card text-navy disabled:opacity-50`}
+                className={`${SELLER_BTN} bg-card text-navy`}
               >
                 <CheckIcon className="h-6 w-6" />
                 Đã nhận tiền
@@ -189,11 +193,11 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
                 type="button"
                 disabled={busy}
                 onClick={() => setPayNoteSheet(true)}
-                className={`${SQ_BTN} bg-card disabled:opacity-50`}
+                className={`${SELLER_BTN} bg-card`}
                 style={{ color: "var(--danger)" }}
               >
                 <CloseIcon className="h-6 w-6" />
-                Chưa thấy
+                Chưa thấy tiền
               </button>
             </div>
           </div>
@@ -214,7 +218,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
                 <CheckIcon className="h-6 w-6" /> Xác nhận đơn
               </PrimaryButton>
               <div className="mt-3 flex justify-center">
-                <button type="button" disabled={busy} onClick={() => setCancelSheet(true)} className={`${SQ_BTN} bg-field disabled:opacity-50`} style={{ color: "var(--danger)" }}>
+                <button type="button" disabled={busy} onClick={() => setCancelSheet(true)} className={`${SELLER_BTN} bg-field`} style={{ color: "var(--danger)" }}>
                   <CloseIcon className="h-6 w-6" />
                   Huỷ đơn
                 </button>
@@ -228,7 +232,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
                 <RouteIcon className="h-6 w-6" /> Giao hàng
               </PrimaryButton>
               <div className="mt-3 flex justify-center">
-                <button type="button" disabled={busy} onClick={() => setCancelSheet(true)} className={`${SQ_BTN} bg-field disabled:opacity-50`} style={{ color: "var(--danger)" }}>
+                <button type="button" disabled={busy} onClick={() => setCancelSheet(true)} className={`${SELLER_BTN} bg-field`} style={{ color: "var(--danger)" }}>
                   <CloseIcon className="h-6 w-6" />
                   Huỷ đơn
                 </button>
@@ -274,17 +278,20 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
               placeholder="Ví dụ: gửi xe Phương Trang chuyến 5 giờ chiều"
             />
           </Field>
-          <div className="flex justify-end">
+          {/*  Nút Lưu chỉ hiện khi ô ĐÃ ĐỔI (F-26): nút mờ nằm sẵn thì bà con
+              không biết mình đã gõ gì chưa lưu; hiện lên là lời nhắc. */}
+          {sellerNote !== (order.sellerNote ?? "") && (
             <button
               type="button"
-              disabled={busy || sellerNote === (order.sellerNote ?? "")}
+              disabled={busy}
               onClick={() => void send({ sellerNote }, "Đã lưu ghi chú.")}
-              className={`${SQ_BTN} bg-field text-navy disabled:opacity-40`}
+              /* nút phụ: cam full-width để dành cho hành động chính của màn */
+              className={`${SELLER_BTN} w-full bg-field text-navy`}
             >
               <CheckIcon className="h-6 w-6" />
-              Lưu
+              Lưu ghi chú
             </button>
-          </div>
+          )}
         </div>
 
         <div className="mt-4 surface px-4 py-3">
@@ -350,7 +357,7 @@ function CancelSheet({ busy, onClose, onSend }: { busy: boolean; onClose: () => 
     <BottomSheet title="Huỷ đơn — vì sao?" onClose={onClose}>
       <div className="px-4 pb-4">
         <div className="-mx-4 mb-3">
-          <ChipRow options={CANCEL_CHIPS} value={reason} onChange={setReason} accent="t3" level={2} ariaLabel="Lý do huỷ" />
+          <ChipRow options={CANCEL_CHIPS} value={reason} onChange={setReason} accent="t3" level={1} ariaLabel="Lý do huỷ" />
         </div>
         <Field label="Lý do cho người mua biết">
           <textarea
@@ -381,7 +388,7 @@ function ShipSheet({ busy, onClose, onSend }: { busy: boolean; onClose: () => vo
     <BottomSheet title="Giao hàng" onClose={onClose}>
       <div className="px-4 pb-4">
         <div className="-mx-4 mb-3">
-          <ChipRow options={CARRIER_CHIPS} value={carrier} onChange={setCarrier} accent="t3" level={2} ariaLabel="Cách giao" />
+          <ChipRow options={CARRIER_CHIPS} value={carrier} onChange={setCarrier} accent="t3" level={1} ariaLabel="Cách giao" />
         </div>
         <Field label="Đơn vị / nhà xe (không bắt buộc)">
           <input className={inputClass} value={carrier} onChange={(e) => setCarrier(e.target.value)} maxLength={40} placeholder="Ví dụ: Xe Phương Trang" />

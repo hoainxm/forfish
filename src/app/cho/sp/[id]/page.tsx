@@ -1,5 +1,5 @@
 import { ProductDetail } from "@/components/market/buyer/product-detail";
-import { PageHeader } from "@/components/page-header";
+import { MarketHeader } from "@/components/market/shared/market-header";
 
 export const metadata = { title: "Món trên chợ — SDFish" };
 
@@ -7,7 +7,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   return (
     <div>
-      <PageHeader kicker="Chợ vật tư" title="Món hàng" toColor="var(--t3)" />
+      <MarketHeader title="Món hàng" fallback="/cho" />
       <ProductDetail id={id} />
     </div>
   );

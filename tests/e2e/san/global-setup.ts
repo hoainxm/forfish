@@ -4,10 +4,12 @@ import path from "node:path";
 
 // KHO SẠCH MỖI LẦN CHẠY.
 //
-// `file-store.ts` chốt đường dẫn kho bằng `path.join(process.cwd(), ".local")` —
-// KHÔNG có biến môi trường trỏ đường dẫn (đã đọc `devLocalDir()` 2026-09-06).
-// Nên bộ test dọn tay: xoá `<SAN_APP_DIR>/.local/market-dev.json` + thư mục ảnh
-// trước khi test chạy; server dev sẽ sinh lại seed ở request đầu tiên.
+// `file-store.ts` đọc biến `MARKET_STORE_FILE` (đường dẫn TỆP kho; ảnh tải lên
+// nằm ở `<dirname>/market-uploads/` — xem `devStoreFile()`/`devUploadDir()`).
+// `playwright.san.config.ts` đặt biến đó cho webServer trỏ vào
+// `<SAN_APP_DIR>/.local/e2e/market-dev.json` — KHO RIÊNG của bộ test, không phải
+// `.local/market-dev.json` mà dev đang gõ tay. Ở đây xoá đúng cặp tệp/thư mục
+// ấy trước khi test chạy; server dev sinh lại seed ở request đầu tiên.
 //
 // ⚠️ Thứ tự của Playwright: webServer (plugin) lên TRƯỚC globalSetup. Không sao —
 // `next dev` không chạm kho tới khi có request vào `/api/cho|ban-hang|dev`, mà
@@ -29,8 +31,12 @@ async function isPortOpen(port: number): Promise<boolean> {
 export default async function globalSetup(): Promise<void> {
   const appDir = process.env.SAN_APP_DIR ? path.resolve(process.env.SAN_APP_DIR) : process.cwd();
   const port = Number(process.env.SAN_PORT ?? 3031);
-  const localDir = path.join(appDir, ".local");
-  const storeFile = path.join(localDir, "market-dev.json");
+  // Cùng quy tắc đường dẫn với `webServer.env.MARKET_STORE_FILE` của config —
+  // biến có sẵn thì theo biến (người chạy đổi chỗ kho vẫn dọn đúng chỗ).
+  const storeFile = process.env.MARKET_STORE_FILE
+    ? path.resolve(appDir, process.env.MARKET_STORE_FILE)
+    : path.join(appDir, ".local", "e2e", "market-dev.json");
+  const localDir = path.dirname(storeFile);
   const uploadDir = path.join(localDir, "market-uploads");
 
   const existed = await fs

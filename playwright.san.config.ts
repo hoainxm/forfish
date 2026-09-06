@@ -7,7 +7,8 @@ import path from "node:path";
 //
 // KHÁC HẲN `playwright.config.ts` (bộ quay video hướng dẫn): bộ này KHÔNG quay
 // video, chạy trên `next dev` ở CHẾ ĐỘ KHO FILE (MARKET_STORE=file, 12 §5–§6)
-// nên có persona `/api/dev/login` và dữ liệu seed `.local/market-dev.json`.
+// nên có persona `/api/dev/login` và dữ liệu seed RIÊNG `.local/e2e/market-dev.json`
+// (qua `MARKET_STORE_FILE`, không đụng kho dev `.local/market-dev.json`).
 //
 // · project `api`    — chỉ dùng `request` (APIRequestContext), KHÔNG cần trình
 //                      duyệt: chạy được cả khi chưa `npx playwright install`.
@@ -20,6 +21,10 @@ import path from "node:path";
 const APP_DIR = process.env.SAN_APP_DIR ? path.resolve(process.env.SAN_APP_DIR) : process.cwd();
 const PORT = Number(process.env.SAN_PORT ?? 3031);
 const BASE_URL = `http://localhost:${PORT}`;
+// Tệp kho của bộ test — `file-store.ts` đọc `MARKET_STORE_FILE` (đường dẫn tệp),
+// ảnh tải lên nằm ở `<dirname>/market-uploads/`. `global-setup.ts` xoá đúng cặp
+// này; giữ hai chỗ khớp nhau bằng cùng một quy tắc đường dẫn.
+const STORE_FILE = path.join(APP_DIR, ".local", "e2e", "market-dev.json");
 
 // Viewport iPhone 17 (402×874 điểm logic) — giống bộ quay video, nhưng KHÔNG quay.
 const mobile = {
@@ -81,6 +86,10 @@ export default defineConfig({
       // `dev-market.mjs` gọi `spawn("next", …)` qua PATH — Playwright không chạy
       // qua `npm run` nên phải tự thêm node_modules/.bin của thư mục app.
       PATH: `${path.join(APP_DIR, "node_modules", ".bin")}${path.delimiter}${process.env.PATH ?? ""}`,
+      // KHO RIÊNG CHO E2E: bộ test xoá sạch kho mỗi lần chạy (global-setup).
+      // Trỏ vào `.local/e2e/` chứ KHÔNG dùng `.local/market-dev.json` chung —
+      // nếu dùng chung thì chạy test là xoá luôn dữ liệu dev đang gõ tay.
+      MARKET_STORE_FILE: STORE_FILE,
     },
   },
 });

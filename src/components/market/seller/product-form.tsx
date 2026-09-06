@@ -13,13 +13,13 @@ import { ChipRow, type ChipOption } from "@/components/ui/chip-row";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, MoneyField, PrimaryButton, inputClass } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 import { marketPost, marketSend, marketUpload } from "@/lib/market/client";
 import { CATEGORY_LABEL, PRODUCT_CATEGORIES } from "@/lib/market/categories";
 import type { Product, ProductCategory, ProductDraftM, Shop } from "@/lib/market/types";
-import { STOCK_MAX, validateMarketProductDraft, VARIANT_MAX } from "@/lib/market/validate";
+import { PRICE_MAX, PRICE_MIN, STOCK_MAX, validateMarketProductDraft, VARIANT_MAX } from "@/lib/market/validate";
 import { useOnline } from "@/lib/use-online";
 import { LoadView, marketErrorText, useMarketData, useMyShop } from "./seller-net";
+import { focusField, invalidProps, SELLER_BTN } from "./ui";
 
 const CATEGORY_OPTIONS: readonly ChipOption<ProductCategory>[] = PRODUCT_CATEGORIES.map((c) => ({
   id: c, label: CATEGORY_LABEL[c],
@@ -85,6 +85,39 @@ function draftOf(f: PForm): ProductDraftM {
   };
 }
 
+/*  Ô NÀO ĐANG SAI (F-25) — câu lỗi vẫn lấy NGUYÊN của `validateMarketProductDraft`
+    (một nguồn client + server), ở đây chỉ hỏi "câu này thuộc ô nào" để đặt nó
+    ngay dưới ô + cuộn tới. Hàm validate trả lỗi ĐẦU TIÊN nên một ô là đủ. */
+type PField = "images" | "title" | "category" | "price" | "compare" | "unit" | "stock" | "description" | "variants";
+
+const pFieldDomId = (f: PField) => `sp-field-${f}`;
+
+function productFieldOfError(msg: string, f: PForm): PField {
+  if (/^Tên món/.test(msg)) return "title";
+  if (/nhóm hàng/i.test(msg)) return "category";
+  if (/^Giá gạch/.test(msg)) return "compare";
+  if (/^Giá từ/.test(msg)) {
+    // cùng một câu dùng cho giá món và giá của loại/cỡ — hỏi lại giá món để biết
+    const v = Number(f.priceDigits || 0);
+    return Number.isInteger(v) && v >= PRICE_MIN && v <= PRICE_MAX ? "variants" : "price";
+  }
+  if (/đơn vị tính/i.test(msg)) return "unit";
+  if (/^Tồn kho/.test(msg)) return "stock";
+  if (/^Mô tả/.test(msg)) return "description";
+  if (/ảnh/i.test(msg)) return "images";
+  if (/loại/i.test(msg)) return "variants";
+  return "title";
+}
+
+function ErrLine({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return (
+    <p className="-mt-2.5 mb-3 text-[1rem] font-bold" style={{ color: "var(--danger)" }} role="alert">
+      {msg}
+    </p>
+  );
+}
+
 export function SellerProductForm({ id }: { id: string }) {
   const isNew = id === "moi";
   const shopState = useMyShop();
@@ -113,7 +146,10 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
   const router = useRouter();
   const online = useOnline();
   const [form, setForm] = useState<PForm>(() => (product ? formOf(product) : emptyForm()));
+  /*  `error` = lỗi của MỘT ô (validate) ⇒ hiện ngay dưới ô đó; `serverNote` =
+      lời của máy chủ / mất sóng ⇒ hiện cạnh nút Lưu (F-25). */
   const [error, setError] = useState<string | null>(null);
+  const [serverNote, setServerNote] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [more, setMore] = useState(false);
   const [askDelete, setAskDelete] = useState(false);
@@ -136,12 +172,18 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
     const err = validateMarketProductDraft(draft);
     if (err) {
       setError(err);
+      setServerNote(null);
       /*  Lỗi có thể nằm trong khối đang thu — mở ra, nếu không bà con thấy câu
           lỗi mà không thấy ô nào để sửa (án lệ D2 "thao tác câm"). */
       setMore(true);
+      /*  Đợi khối vừa mở vẽ xong rồi mới cuộn — cuộn trước thì ô còn chưa có
+          trong trang. */
+      const target = pFieldDomId(productFieldOfError(err, form));
+      requestAnimationFrame(() => focusField(target));
       return;
     }
     setError(null);
+    setServerNote(null);
     setSaving(true);
     const res = product
       ? await marketSend<{ product: Product }>("PATCH", `/api/ban-hang/san-pham/${product.id}`, draft)
@@ -151,7 +193,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
       router.push(`/ban-hang/san-pham?luu=${encodeURIComponent(draft.title)}`);
       return;
     }
-    setError(res.offline ? "Chưa lưu được — cần sóng. Nội dung vẫn ở trên màn." : marketErrorText(res));
+    setServerNote(res.offline ? "Chưa lưu được — cần sóng. Nội dung vẫn ở trên màn." : marketErrorText(res));
   }
 
   async function remove() {
@@ -164,9 +206,11 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
       router.push(`/ban-hang/san-pham?xoa=${encodeURIComponent(product.title)}`);
       return;
     }
-    setError(res.offline ? "Chưa xoá được — cần sóng." : marketErrorText(res));
+    setServerNote(res.offline ? "Chưa xoá được — cần sóng." : marketErrorText(res));
   }
 
+  const badField = error ? productFieldOfError(error, form) : null;
+  const at = (f: PField) => (badField === f ? error ?? undefined : undefined);
   const stockNum = Number(form.stock || 0);
   const setStock = (n: number) => set({ stock: String(Math.min(STOCK_MAX, Math.max(0, n))) });
 
@@ -190,19 +234,26 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
       )}
 
       <div className="px-4">
-        <ImagePicker value={form.images} onChange={(images) => set({ images })} upload={upload} />
+        <div id={pFieldDomId("images")}>
+          <ImagePicker value={form.images} onChange={(images) => set({ images })} upload={upload} />
+        </div>
+        <ErrLine msg={at("images")} />
 
-        <Field label="Tên món">
-          <input
-            className={inputClass}
-            value={form.title}
-            onChange={(e) => set({ title: e.target.value })}
-            placeholder="Ví dụ: Dầu nhớt Castrol 20W-50 thùng 18L"
-            maxLength={120}
-          />
-        </Field>
+        <div id={pFieldDomId("title")}>
+          <Field label="Tên món">
+            <input
+              className={inputClass}
+              value={form.title}
+              onChange={(e) => set({ title: e.target.value })}
+              placeholder="Ví dụ: Dầu nhớt Castrol 20W-50 thùng 18L"
+              maxLength={120}
+              {...invalidProps(badField === "title")}
+            />
+          </Field>
+        </div>
+        <ErrLine msg={at("title")} />
 
-        <p className="mb-1.5 text-[1rem] font-bold text-navy">Nhóm hàng</p>
+        <p className="mb-1.5 text-[1rem] font-bold text-navy" id={pFieldDomId("category")}>Nhóm hàng</p>
       </div>
       <div className="mb-3.5">
         <ChipRow
@@ -211,16 +262,21 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
           value={form.category as ProductCategory}
           onChange={(c) => set({ category: c })}
           accent="t3"
-          level={2}
+          level={1}
           ariaLabel="Nhóm hàng"
         />
       </div>
 
       <div className="px-4">
-        <MoneyField label="Giá bán" digits={form.priceDigits} onDigits={(d) => set({ priceDigits: d })} placeholder="Ví dụ: 1.650.000" />
+        <ErrLine msg={at("category")} />
+
+        <div id={pFieldDomId("price")}>
+          <MoneyField label="Giá bán" digits={form.priceDigits} onDigits={(d) => set({ priceDigits: d })} placeholder="Ví dụ: 1.650.000" />
+        </div>
+        <ErrLine msg={at("price")} />
 
         <p className="mb-1.5 text-[1rem] font-bold text-navy">Tồn kho</p>
-        <div className="mb-1 flex items-center gap-2">
+        <div className="mb-1 flex items-center gap-2" id={pFieldDomId("stock")}>
           <button type="button" onClick={() => setStock(stockNum - 1)} aria-label="Bớt tồn kho"
             className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-field text-navy active:scale-95">
             <MinusIcon className="h-6 w-6" />
@@ -231,23 +287,29 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
             value={form.stock}
             onChange={(e) => set({ stock: e.target.value.replace(/\D/g, "").slice(0, 5) })}
             aria-label="Số lượng còn trong kho"
+            {...invalidProps(badField === "stock")}
           />
           <button type="button" onClick={() => setStock(stockNum + 1)} aria-label="Thêm tồn kho"
             className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-field text-navy active:scale-95">
             <PlusIcon className="h-6 w-6" />
           </button>
         </div>
+        <ErrLine msg={at("stock")} />
         <p className="mb-3.5 text-[0.9375rem] text-foreground/70">Tồn 0 là món tự chuyển sang &quot;Hết hàng&quot;.</p>
 
-        <Field label="Đơn vị tính">
-          <input
-            className={inputClass}
-            value={form.unit}
-            onChange={(e) => set({ unit: e.target.value })}
-            placeholder="lít, cái, bao, thùng…"
-            maxLength={20}
-          />
-        </Field>
+        <div id={pFieldDomId("unit")}>
+          <Field label="Đơn vị tính">
+            <input
+              className={inputClass}
+              value={form.unit}
+              onChange={(e) => set({ unit: e.target.value })}
+              placeholder="lít, cái, bao, thùng…"
+              maxLength={20}
+              {...invalidProps(badField === "unit")}
+            />
+          </Field>
+        </div>
+        <ErrLine msg={at("unit")} />
 
         {!more ? (
           <button
@@ -260,12 +322,15 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
           </button>
         ) : (
           <>
-            <MoneyField
-              label="Giá gạch (giá cũ, để trống nếu không có)"
-              digits={form.compareDigits}
-              onDigits={(d) => set({ compareDigits: d })}
-              placeholder="Cao hơn giá bán"
-            />
+            <div id={pFieldDomId("compare")}>
+              <MoneyField
+                label="Giá gạch (giá cũ, để trống nếu không có)"
+                digits={form.compareDigits}
+                onDigits={(d) => set({ compareDigits: d })}
+                placeholder="Cao hơn giá bán"
+              />
+            </div>
+            <ErrLine msg={at("compare")} />
 
             <label className="mb-2 flex min-h-[3.5rem] items-center justify-between gap-3 rounded-2xl bg-field px-4">
               <span className="text-[1rem] font-bold text-navy">Món có nhiều loại/cỡ</span>
@@ -277,7 +342,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
               />
             </label>
             {form.variantsOn && (
-              <div className="mb-3.5">
+              <div className="mb-3.5" id={pFieldDomId("variants")}>
                 <p className="mb-2 text-[0.9375rem] leading-snug text-foreground/70">
                   Tồn kho tính chung cho mọi loại. Cần ít nhất 2 loại, nhiều nhất {VARIANT_MAX}.
                 </p>
@@ -323,19 +388,24 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
                     <PlusIcon className="h-5 w-5" /> Thêm loại
                   </button>
                 )}
+                <ErrLine msg={at("variants")} />
               </div>
             )}
 
-            <Field label="Mô tả">
-              <textarea
-                className={inputClass}
-                rows={4}
-                value={form.description}
-                onChange={(e) => set({ description: e.target.value })}
-                placeholder="Hàng chính hãng, bảo hành, giao tới cảng nào…"
-                maxLength={2000}
-              />
-            </Field>
+            <div id={pFieldDomId("description")}>
+              <Field label="Mô tả">
+                <textarea
+                  className={inputClass}
+                  rows={4}
+                  value={form.description}
+                  onChange={(e) => set({ description: e.target.value })}
+                  placeholder="Hàng chính hãng, bảo hành, giao tới cảng nào…"
+                  maxLength={2000}
+                  {...invalidProps(badField === "description")}
+                />
+              </Field>
+            </div>
+            <ErrLine msg={at("description")} />
 
             <label className="mb-4 flex min-h-[3.5rem] items-center justify-between gap-3 rounded-2xl bg-field px-4">
               <span className="min-w-0">
@@ -353,10 +423,12 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
           </>
         )}
 
-        {error && (
+        {/*  Câu lỗi của TỪNG Ô đã nằm ngay dưới ô đó (F-25); chỗ này chỉ còn
+            lời của máy chủ / mất sóng — thứ không thuộc ô nào. */}
+        {serverNote && (
           <p className="mb-3 rounded-2xl px-3.5 py-2.5 text-[1rem] font-bold" role="alert"
             style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}>
-            {error}
+            {serverNote}
           </p>
         )}
 
@@ -372,7 +444,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
 
         {product && canEdit && (
           <div className="mt-4 flex justify-center">
-            <button type="button" onClick={() => setAskDelete(true)} className={`${SQ_BTN} bg-field`} style={{ color: "var(--danger)" }}>
+            <button type="button" onClick={() => setAskDelete(true)} className={`${SELLER_BTN} bg-field`} style={{ color: "var(--danger)" }}>
               <TrashIcon className="h-6 w-6" />
               Xoá món
             </button>

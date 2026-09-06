@@ -3,6 +3,7 @@
 // `/cho/shop/[slug]` — TRANG SHOP (11 §5.4). Shop chưa duyệt / bị khoá / bị từ
 // chối ⇒ route trả 403 và màn chỉ nói "Shop này đang tạm đóng." — KHÔNG lộ lý
 // do (đó là chuyện giữa shop và SDVICO).
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AlertIcon } from "@/components/icons";
@@ -13,10 +14,13 @@ import { CallButton, EmptyState } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { formatVnd } from "@/lib/format";
 import { marketGet } from "@/lib/market/client";
-import type { Page, ProductCard, ShopPublic } from "@/lib/market/types";
+import type { Page, ProductCard, ProductQuery, ShopPublic } from "@/lib/market/types";
 import { useOnlineRefetch } from "@/lib/market/use-online";
-import { CartFeedback, ErrorBlock, GridSkeleton, ProductGrid } from "./ui";
+import { SORT_LABEL, SORTS, SortChip } from "./market-search";
+import { ErrorBlock, GridSkeleton, ProductGrid } from "./ui";
 import { useFavorites, useMarketCart } from "./hooks";
+
+type Sort = NonNullable<ProductQuery["sort"]>;
 
 interface ShopRes {
   shop: ShopPublic;
@@ -39,14 +43,14 @@ export function ShopPage({ slug }: { slug: string }) {
   const [items, setItems] = useState<ProductCard[]>([]);
   const [page, setPage] = useState(1);
   const [category, setCategory] = useState<CategoryChipValue>("tat_ca");
+  const [sort, setSort] = useState<Sort>("moi"); // F-24: sắp xếp trong shop (route đã nhận `?sort`)
   const [status, setStatus] = useState<"loading" | "ok" | "error" | "offline" | "closed" | "gone">("loading");
-  const [note, setNote] = useState<string | null>(null);
   const [descOpen, setDescOpen] = useState(false);
 
   const load = useCallback(
     async (p: number, replace: boolean) => {
       if (replace) setStatus("loading");
-      const sp = new URLSearchParams({ page: String(p) });
+      const sp = new URLSearchParams({ page: String(p), sort });
       if (category !== "tat_ca") sp.set("category", category);
       const res = await marketGet<ShopRes>(`/api/cho/shop/${encodeURIComponent(slug)}?${sp.toString()}`);
       if (!res.ok) {
@@ -60,7 +64,7 @@ export function ShopPage({ slug }: { slug: string }) {
       setPage(p);
       setStatus("ok");
     },
-    [slug, category],
+    [slug, category, sort],
   );
 
   useEffect(() => {
@@ -68,18 +72,8 @@ export function ShopPage({ slug }: { slug: string }) {
   }, [load]);
   useOnlineRefetch(() => void load(1, true));
 
-  const add = (p: ProductCard) => {
-    const r = cart.add(p.id, undefined, 1);
-    setNote(
-      r === "ok"
-        ? `Đã thêm ${p.title} vào giỏ`
-        : r === "gio_day"
-          ? "Giỏ đầy rồi — bỏ bớt món cũ rồi thêm lại."
-          : "Máy hết chỗ — CHƯA lưu được giỏ.",
-    );
-  };
   const onFav = (p: ProductCard) => {
-    if (!cart.phone) {
+    if (!cart.signedIn) {
       router.push(`/cho/sp/${p.id}`);
       return;
     }
@@ -104,6 +98,13 @@ export function ShopPage({ slug }: { slug: string }) {
         <p className="text-[1.125rem] font-bold text-navy">
           {status === "closed" ? "Shop này đang tạm đóng." : "Không tìm thấy shop này."}
         </p>
+        {/*  F-09: màn cụt phải có đường ra — trước đây chỉ có câu, không nút. */}
+        <Link
+          href="/cho"
+          className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
+        >
+          Về chợ
+        </Link>
       </div>
     );
   }
@@ -111,7 +112,7 @@ export function ShopPage({ slug }: { slug: string }) {
   const shop = data?.shop;
 
   return (
-    <div className="pb-8">
+    <div className="pb-[7rem]">
       {shop && (
         <>
           {shop.paused && (
@@ -156,9 +157,18 @@ export function ShopPage({ slug }: { slug: string }) {
       <div className="pt-2">
         <CategoryChips value={category} onChange={setCategory} />
       </div>
+      <div className="mb-3 flex items-center gap-1.5 overflow-x-auto px-4" role="group" aria-label="Sắp xếp">
+        {SORTS.map((s) => (
+          <SortChip key={s} on={s === sort} onClick={() => setSort(s)}>
+            {SORT_LABEL[s]}
+          </SortChip>
+        ))}
+        {data && status === "ok" && (
+          <span className="ml-auto shrink-0 pl-2 text-[1rem] font-semibold text-foreground/65">{data.products.total} món</span>
+        )}
+      </div>
 
       <div className="px-4">
-        <CartFeedback note={note} count={cart.count} />
         {status === "loading" && <GridSkeleton n={4} />}
         {status === "error" && <ErrorBlock what="shop này" onRetry={() => void load(1, true)} />}
         {status === "offline" && <EmptyNet what="trang shop" onRetry={() => void load(1, true)} />}
@@ -167,7 +177,7 @@ export function ShopPage({ slug }: { slug: string }) {
         )}
         {status === "ok" && items.length > 0 && (
           <>
-            <ProductGrid items={items} isFav={fav.has} onFav={onFav} onAdd={add} />
+            <ProductGrid items={items} isFav={fav.has} onFav={onFav} />
             {data && items.length < data.products.total && (
               <button
                 type="button"

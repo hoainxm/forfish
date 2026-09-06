@@ -84,8 +84,8 @@ Hướng mới: **modern edge-to-edge mobile** — nền sáng lạnh, hero bi�
 ### Phân cấp điều hướng TRONG trang (chốt 2026-06-10, khi cấu trúc mới sinh chip lồng chip)
 Người 40–60 tuổi phải biết mình đang ở tầng nào bằng MẮT, không bằng suy luận:
 1. **Tabs** (`ui/tabs.tsx`) — chia KHU trong một trang (vd /tau: Giấy tờ · Dịch vụ · Sản phẩm). Track pill sticky, tab chọn navy đặc. *(/tien bỏ Tabs 2026-07-27 — chỉ còn 1 khu Giao dịch.)*
-2. **Chip tầng 1** (`ui/chip-row.tsx` `level=1`) — mục chính TRONG một tab: pill ĐẶC màu trục, 48px, chữ 16px (vd Giá cá · Ai cần mua · Bán ở đâu).
-3. **Chip tầng 2** (`level=2`) — mục con bên trong một mục: pill TONAL nền nhạt màu trục, 42px, chữ 15px — nhỏ + nhẹ hơn hẳn tầng 1 (vd 5 mục của Bán ở đâu).
+2. **Chip tầng 1** (`ui/chip-row.tsx` `level=1`) — mục chính TRONG một tab: pill ĐẶC màu trục, **3.5rem** (56px), chữ 1rem (vd Giá cá · Ai cần mua · Bán ở đâu; chip nhóm hàng + chip sắp xếp của khu chợ). *(Số cũ 48px hết hiệu lực từ 2026-08-29e — xem 5d.)*
+3. **Chip tầng 2** (`level=2`) — mục con bên trong một mục: pill TONAL nền nhạt màu trục, **3.25rem** (52px), chữ nhỏ hơn — nhẹ hơn hẳn tầng 1 (vd 5 mục của Bán ở đâu). 52px là **dưới sàn chạm 56px**: chỉ dùng cho mục con thật sự ít chạm, việc bị chạm nhiều phải ở tầng 1.
 KHÔNG tự chép tay style chip nữa — mọi hàng chip điều hướng dùng `ChipRow` (truyền `accent` đúng màu trục). Không đào sâu quá 3 tầng (Tabs → chip 1 → chip 2 là kịch trần).
 
 ### Nhãn ngang hàng — ĐỒNG BỘ hình dạng (user chốt 2026-07-28)
@@ -144,6 +144,8 @@ Mọi trạng thái trên thẻ (giấy tờ, bảo dưỡng, sản phẩm/bảo
 | **Trạng thái gian hàng** (4, chỉ hiện ở `/quan-tri`) | `cho_duyet` warn-bg/warn · `hoat_dong` ok-bg/ok · `tam_khoa` danger-bg/danger · `tu_choi` field/foreground-70 (xám — không phải lỗi hệ thống, là chưa đạt) |
 
 Chip món của admin dùng lại đúng ba cặp trên: "Đã gỡ" = danger, "Đang bán" = ok, "Hết hàng"/"Shop ẩn" = field. **Sao đánh giá** dùng `RatingStars` (`components/market/shared`), không tự chế ký tự ★.
+
+**CHIP CHỌN CỦA CHỢ = `ChipRow` TẦNG 1, không tầng 2 (2026-09-06).** Chip nhóm hàng ở `/cho` · `/cho/tim` · trang shop (`shared/category-chips.tsx`) và hàng chip sắp xếp ở `/cho/tim` đều dùng **`level={1}`** (3.5rem / 1rem), accent `t3`. Tầng 2 đo được **52px** — dưới sàn chạm — và đây là ô bị chạm nhiều nhất của cả khu chợ: bà con đổi nhóm hàng trước khi làm bất cứ việc gì khác. Luật phân tầng chip ở §"Phân cấp điều hướng TRONG trang" vẫn nguyên; chợ chỉ có MỘT tầng chip nên nó là tầng 1, không phải ngoại lệ.
 
 ## 3. Typography
 
@@ -209,6 +211,13 @@ Ba câu hỏi trước khi thêm một ô vào khung:
 
 **Đo thật (375×812)**: popup lúc mở form **563px (69% màn) → 296px (36%)**; số ô nhập bày sẵn **6 → 1**; toạ độ điền sẵn thay vì báo "Chưa có toạ độ".
 
+**CHỌN MỘT GIÁ TRỊ TRONG DANH SÁCH DÀI (>12 lựa chọn) → `<select>` NỀN TẢNG, không phải hàng chip (chốt 2026-09-06).** Ca sinh ra luật: ô **tỉnh** trong `AddressForm` (đặt hàng) và trong form đăng ký / cài đặt shop từng là **34 chip cuộn ngang** — người Khánh Hòa phải kéo qua ~20 chip mới thấy tỉnh mình, mà hàng chip cuộn ngang không cho biết còn bao nhiêu cái nữa ở bên phải. `<select>` nền tảng mở ra danh sách cuộn dọc quen thuộc, gõ chữ cái nhảy tới nơi, và bà con đã gặp nó ở mọi app khác.
+
+- **Ranh giới với luật chip**: `ChipRow` là để **ĐIỀU HƯỚNG** — chuyển khu/mục, tập nhỏ và cố định, người dùng cần thấy hết lựa chọn cùng lúc (nhóm hàng, mục của một tab, cách sắp xếp). Danh sách **GIÁ TRỊ NHẬP** dài thì không phải việc của chip. Không mâu thuẫn với "mọi hàng chip điều hướng dùng `ChipRow`" ở §Phân cấp điều hướng: chỗ này vốn không nên là chip ngay từ đầu.
+- **Vẫn giữ luật C2 "đoán sẵn giá trị hay đúng nhất"**: đưa **tỉnh của cảng nhà lên đầu** danh sách; người dùng đổi được, không khoá tay ai.
+- **Cỡ chữ**: `<select>` đã nằm trong `input,select,textarea { font-size: max(16px, 1em) }` của `globals.css` (§Nút hành động mục 4) nên iOS không phóng to cả trang khi chạm. Vùng chạm theo sàn 3.5rem như mọi ô nhập.
+- ≤12 lựa chọn, tập cố định, cần thấy hết cùng lúc (vd "Giao ra cảng / bến" × "Địa chỉ nhà / kho") thì **vẫn dùng chip** — luật này không phải lệnh đổi mọi chip thành select.
+
 **MÀU TUYẾN THEO CHẶNG (2026-08-29g)** — `ocean-map.ts`: xanh `ROUTE_LINE_COLOR #1a73e8` = không có gì · cam `ROUTE_LEG_AMBER #e8710a` = chú ý vừa · đỏ `ROUTE_LEG_RED #d92d20` = phải lưu ý · xám `ROUTE_LEG_PASSED #8a94a0` = đã đi qua. Bề dày đi kèm màu (5 / 4,5 / 3,5 / 2,5px) vì nắng chói làm màu bạc nhanh — chỉ dựa vào màu là thua. **Không phạm quy ước cam-đỏ độc quyền của ranh giới**: đỏ tuyến là đỏ TƯƠI khác đỏ GẠCH `#b42318`, tuyến luôn có viền trắng dày, và ranh giới là đường dài chạy suốt màn còn chặng là khúc ngắn nối hai ghim số. Lý do đầy đủ ở 07 §10.7 L2.
 
 **MÀU CHẤT ĐÁY + KHU TRÁNH TRÚ BÃO (2026-09-03)** — `ocean-map.ts`, cùng ngoại lệ "màu nội dung bản đồ" (không phải token UI). **`CHAT_DAY_COLORS`** — mỗi loại đáy một màu ĐỦ TÁCH NHAU và đủ SẪM để đọc dưới nắng trên nền biển sáng (#d5e8eb), tách khỏi teal rạn / magenta báo hiệu / cam-đỏ ranh giới: Cát `S #d99a2b` (vàng cát) · Đá `R #5c5560` (xám đá) · San hô `Co #e2674a` (cam-đỏ san hô) · Vụn `G #a9743f` (nâu đất) · Cỏ biển `Sg #2f9163` (lục rêu) · Thảm rong `Ma #7f8c2f` (ô-liu); loại chưa rõ `khac #8a949c` (xám trung tính) làm nền lùi. Mã khớp `codes` của `chat-day.ts`. **`KHU_TRU_BAO_COLOR #0e8a5f`** — xanh lục "bến an toàn": khu neo đậu là nơi CHẠY TỚI khi bão, nên CỐ Ý không dùng cam-đỏ (màu hiểm hoạ/ranh giới) — kênh màu riêng, tách cả với xanh chỉ đường của tuyến.
@@ -256,6 +265,21 @@ Chủ dự án: *"cái nút nó là ô vuông kích thước đồng bộ"* · *
 **Nhãn 0.6875rem (11px) — CHỦ DỰ ÁN CHỐT GIỮ 2026-08-29f.** Cỡ này thấp hơn sàn *font ≥18px* mà CLAUDE.md đặt cho bà con 40–60 tuổi, nên phải nói rõ vì sao được miễn: sàn 18px là cho **chữ phải ĐỌC** — tên giấy tờ, con số, câu cảnh báo. Nhãn `SQ_BTN` không phải chữ để đọc mà là **chú thích cho icon** ngay trên nó; icon `h-6 w-6` mới là thứ mắt bắt, nhãn chỉ xác nhận. Vùng chạm vẫn đủ **56px**. Nâng lên 0.75rem thì nhãn hai chữ ("Cảnh báo", "Đăng nhập") tràn ô `w-16` — đổi lấy chữ to hơn 1px bằng nhãn bị cắt là lỗ. **Ranh giới:** 0.6875rem CHỈ dùng cho nhãn dưới icon trong `SQ_BTN`. Mọi chữ khác vẫn theo type-ramp, sàn 0.75rem.
 
 **Nợ `0.6875rem` GIẢM (2026-09-03b)**: chữ phụ dưới các công tắc/nhóm trong panel lớp `ra-khoi-controls.tsx` (dòng "tham khảo…", ghi chú nguồn, câu dưới nút "Ký hiệu là gì?") trước cũng dùng 11 px mượn ngoại lệ trên — sai chỗ: đó là chữ ĐỌC dưới nắng, không phải chú thích icon. Nay **`0.8125rem` (13 px)**, mờ tối đa `/75`. Ranh giới ở trên giữ nguyên: 0.6875rem CHỈ cho nhãn dưới icon trong `SQ_BTN`.
+
+**1b. KHU CHỢ VẬT TƯ — KHÔNG DÙNG `SQ_BTN` CHO HÀNH ĐỘNG CHÍNH / VIỆC THƯỜNG BẤM (chốt 2026-09-06, vòng FIX UX).**
+
+Mặc định giao diện của app là **"gọn"** ⇒ `--row-h` = **2.3125rem (37px)** và nhãn `.sq-btn` = **0.6875rem (11px)**. Trên bản đồ điều đó đã chốt là chấp nhận được (§"CHẾ ĐỘ HIỂN THỊ…", 2026-08-29h): nút ở đó là icon phụ, ít bấm, người dùng đổi sang "Nút to" được. **Khu chợ không nằm trong ngoại lệ đó.** Đo thật 390×844 ở chế độ mặc định, mọi nút của chợ rơi xuống 37px cao / chữ 11px: "+ Giỏ" 68×37 · "Bỏ" 55×37 · **"Huỷ" 37×37** · "Đổi" 58×37 · "Chép mã" 88×37 · "Sửa"/"Hết hàng" · "Thêm món" · "Lưu" · "Xoá món" · "Huỷ đơn". Đó là những việc bà con làm suốt buổi, một số có hậu quả tiền bạc (Huỷ đơn, Đặt hàng, Đã nhận hàng) — và mọi máy mới rơi vào 37px mà chưa chọn gì.
+
+**Luật cho `/cho/**` · `/ban-hang/**`:**
+
+| Loại nút ở khu chợ | Khuôn |
+|---|---|
+| Hành động **chính** của màn (Đặt hàng · Thêm vào giỏ · Xác nhận đơn · Lưu) và mọi việc **thường bấm** hoặc **có hậu quả** (Huỷ · Bỏ · Đã nhận hàng · Sửa · Xoá món · Chép mã) | **nút CHỮ ≥3.5rem cao, chữ ≥1rem ở MỌI chế độ** — hằng dùng chung `SELLER_BTN` / `SELLER_BTN_WIDE` (`components/market/seller/ui.tsx`); phía người mua dùng cùng khuôn tại chỗ |
+| Icon phụ, ít bấm, có nhãn giải thích ngay cạnh | `SQ_BTN` như phần còn lại của app |
+
+Vì sao đây **không phải phá luật `SQ_BTN`**: luật một-khuôn sinh ra để nút đừng lệch nhau và đừng ăn chỗ của dữ liệu. Ở chợ, thứ lệch nhau là **cỡ theo chế độ hiển thị**, và cái bị mất không phải chỗ mà là **chạm trúng**. Giữ nguyên: vùng chạm là sàn không bao giờ hạ, và nhãn ở đây là **chữ để ĐỌC** (một chữ "Huỷ" đứng trơ trong ô 37px không có icon nào đỡ), nên nó theo type-ramp chứ không mượn ngoại lệ 0.6875rem.
+
+**NGOẠI LỆ CÓ CHỦ ĐÍCH — nút ♡ trên thẻ món trong lưới: vùng chạm `2.75rem` (44px), dưới sàn 56px.** Nó **đè lên ảnh vuông của thẻ**, là nút **duy nhất** trên thẻ (thẻ lưới đã bỏ hẳn "+ Giỏ"/"Chọn"), và **cạnh nó không có nút nào khác** — chạm hụt thì rơi vào chính link của thẻ, tức mở trang món chứ không kích hoạt nhầm việc khác. Đổi lại, thẻ mới thấp hơn thẻ cũ ~40% nên mỗi màn hiện được gấp đôi số món. Nâng ♡ lên 56px sẽ ăn 1/4 chiều ngang ảnh và đè lên badge `-N%`. **Ranh giới: ngoại lệ 2.75rem CHỈ cho ♡ overlay trên ảnh thẻ lưới.** ♡ ở trang món và mọi nút khác của chợ vẫn 3.5rem.
 
 **2. CẤM NÚT FULL-WIDTH.** Một dải ngang chiếm trọn bề ngang cho MỘT việc, trong khi thẻ đang tranh từng chục px với bản đồ. Ba ô vuông xếp hàng tốn bằng một dải cũ. **Trả về khuôn 2026-08-29b**: dải "Chọn cảng nhà" (271×52 full-width trong panel Điểm đã lưu) nay là một hàng chuẩn — vế trái nói CẤP DỮ LIỆU (`"Cảng nhà: chưa đặt"` / tên cảng đang đặt), vế phải là ô `w-16` mang icon kính lúp + nhãn "Chọn". **Không bóp cả nút thành ô vuông trơ**: nó là nút MỞ Ô TÌM, ô vuông không đủ chỗ cho nhãn nói nó làm gì. Lợi ích nói đúng, không bán quá: panel đang chạm trần `max-h-[70dvh]` nên xoá dải KHÔNG kéo bản đồ lộ thêm — được là mép phải thẳng một khuôn và chạm trần muộn hơn một điểm ghim.
 
@@ -366,6 +390,11 @@ Chủ dự án 2026-08-29: *"kích thước cái x đóng làm cho đồng bộ�
 
 **Last updated**: 2026-09-06
 
+<!-- re-verified: 2026-09-06b — VÒNG FIX UX CHỢ VẬT TƯ, ba luật vào design system (doc đi cùng commit code):
+  §Nút hành động 1b MỚI — khu chợ KHÔNG dùng `SQ_BTN` cho hành động chính / việc thường bấm. Gốc là số ĐO chứ không phải ý thích: mặc định app là "gọn" (`layout.tsx` đặt `data-mode=gon` khi chưa có khoá) ⇒ `--row-h` 2.3125rem và nhãn `.sq-btn` 0.6875rem, nên mọi máy MỚI rơi vào 37px/11px mà người dùng chưa chọn gì; đo 390×844 ra "Huỷ" 37×37, "Bỏ" 55×37, "Chép mã" 88×37… Hằng dùng chung là `SELLER_BTN`/`SELLER_BTN_WIDE` ở `src/components/market/seller/ui.tsx` (tên mang tiền tố seller vì sinh ra ở đó; phía người mua dùng cùng chuỗi tại chỗ — GỘP TÊN là việc vòng sau, KHÔNG nhân bản chuỗi thứ hai). Ngoại lệ ♡ overlay 2.75rem đối chiếu mã: `shared/product-card.tsx` `h-11 w-11` đè lên ảnh, `onFav` là nút riêng ngoài `<a>` — ghi ranh giới rõ để không ai mượn con số này cho nút khác.
+  §Đặt hàng — thêm luật chip chợ = `ChipRow` level 1 (`shared/category-chips.tsx` + hàng sắp xếp ở `market-search.tsx`); nhân đó SỬA số cũ ở §Phân cấp điều hướng (48px/42px) cho khớp 5d (3.5rem/3.25rem) — hai chỗ đang nói hai con số cho cùng một component.
+  §Khung nhập — thêm luật `<select>` nền tảng cho danh sách >12 lựa chọn (tỉnh: `AddressForm` + `seller/shop-form.tsx` đều đã đổi từ 34 chip cuộn ngang sang `<select>` trên `COASTAL_PROVINCES`). ĐÃ ĐỐI CHIẾU với luật chip cũ: không mâu thuẫn — `ChipRow` là để ĐIỀU HƯỚNG, đây là GIÁ TRỊ NHẬP; ghi rõ ranh giới ≤12 vẫn dùng chip để luật không bị đọc thành "đổi hết chip thành select".
+  KHÔNG token màu mới; không đụng `globals.css`. Ma trận trạng thái + screen map: [07 §5a/§6/§7/§8]. -->
 <!-- re-verified: 2026-09-06 — CHỢ VẬT TƯ: mục "Đặt hàng" thêm BA bộ chip của sàn (trạng thái đơn 6 giá trị · thanh toán 3 nấc · trạng thái gian hàng 4 giá trị). Đối chiếu mã: `src/lib/market/order-state.ts` (ORDER_STATUS_LABEL + ORDER_STATUS_CHIP, cặp màu bằng `var(--token)` — không hex, không rgba) và `src/components/market/shared/order-status-chip.tsx`; chip gian hàng ở `src/components/admin/market-admin-shared.tsx` (class token: warn-bg/ok-bg/danger-bg/field). KHÔNG token màu MỚI nào được thêm vào `globals.css` — sàn dùng đúng bộ trạng thái sẵn có. Vì sao tách khỏi bảng chip của Cửa hàng (`lib/catalog-orders.ts`, 5 trạng thái): sàn có thêm `hoan_thanh` và nghĩa của `da_giao` khác (chờ người mua xác nhận), gộp một bảng là nói dối một trong hai. Khu `/quan-tri` là web desktop-first nên chạm ở đó theo khuôn tab sẵn có (2.5–2.75rem), KHÔNG áp sàn 3.5rem của app ngư dân — luật tap 56px vẫn nguyên cho mọi màn bà con dùng. -->
 
 **5c. SÁU Ổ CHẠM CÒN SÓT TRONG FORM "THÊM ĐIỂM" (2026-08-29c).** `my-places-sheet.tsx` còn `min-h-[3rem]` (48px) ở sáu chỗ của khối `addOpen`: ô Tên · nút "Lấy chỗ đang trỏ" · hai ô Vĩ/Kinh độ · nút "Hủy" · nút "Lưu điểm" — trong khi CHÍNH FILE ĐÓ đã dùng `3.25rem` ở các hàng khác và `3.5rem` ở hàng điểm. Đây là **sáu ngoại lệ đo được còn sót, KHÔNG phải chuyện cả app chưa đạt sàn** (gốc chữ 16px ⇒ `3.5rem` = 56px, sàn tap toàn app đã đạt). Vì sao đáng sửa dù chỉ là 6 token: đó là **đường đi DUY NHẤT để lưu một điểm đánh cá** — việc cốt lõi của app — và cũng đúng là chỗ lối tắt chạm-giữ trên bản đồ đổ vào ([07 §10.7 K](07-design-spec.md), `prefillTick`); chỗ tốt nhất của app đang dẫn thẳng vào sáu ô nhỏ nhất của app, tay ướt, tàu lắc, sáu ô liền nhau. **Chốt**: bốn ô nhập/nút trong thân form lên `3.25rem`; "Hủy" + "Lưu điểm" (đứng riêng một hàng `grid-cols-2`, nâng không ảnh hưởng bố cục) lên hẳn `3.5rem`. Chỉ đổi token chiều cao, không đụng bố cục ⇒ không có rủi ro tràn — panel đã chứa sẵn hàng `3.25rem`. **KHÔNG đụng bề ngang** cột "Đổi tên"/"Xóa" (44px, xem 5b(b) — vẫn đang có `// nợ:`).

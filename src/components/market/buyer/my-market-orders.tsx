@@ -1,8 +1,9 @@
 "use client";
 
-// `/cho/don` — ĐƠN HÀNG CỦA TÔI (11 §5.7). Bốn chip gom theo việc bà con phải
+// `/cho/don` — ĐƠN HÀNG CỦA TÔI (11 §5.7). Bốn tab gom theo việc bà con phải
 // làm, không phải theo tên trạng thái kỹ thuật: Đang xử lý · Chờ nhận · Xong ·
-// Đã huỷ.
+// Đã huỷ — chia đều bề ngang (F-13: tab 4 từng nằm ngoài màn, phải cuộn ngang).
+// Thẻ đơn có ẢNH món đầu (F-06) — với người ít chữ, ảnh là cách nhận ra đơn.
 //
 // MẤT SÓNG: hiện BẢN LƯU trong máy + nói rõ nó cũ bao lâu; nút ghi vô hiệu
 // ("việc này cần có sóng"); có sóng lại tự tải (useOnlineRefetch) — không bắt bấm.
@@ -10,10 +11,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRightIcon, DocIcon } from "@/components/icons";
 import { EmptyNet } from "@/components/market/shared/empty-net";
+import { LineThumb } from "@/components/market/shared/line-thumb";
 import { OrderStatusChip } from "@/components/market/shared/order-status-chip";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/primitives";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { formatVnd } from "@/lib/format";
 import { marketGet, marketPost } from "@/lib/market/client";
@@ -46,6 +47,41 @@ const inTab = (o: Order, t: Tab) =>
 /** "Dầu DO ×2, Đá cây ×10" — đủ để nhận ra đơn mà không phải mở. */
 const summarize = (o: Order) =>
   o.items.slice(0, 3).map((l) => `${l.title} ×${l.qty}`).join(", ") + (o.items.length > 3 ? "…" : "");
+
+/** Nút hành động trên thẻ — chữ 1rem, 3.5rem (F-07: không SQ_BTN 37px/11px cho Huỷ/Đã nhận). */
+function ActionButton({
+  tone, disabled, onClick, children,
+}: { tone: "ok" | "warn" | "danger"; disabled: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="min-h-[3.5rem] rounded-full px-4 text-[1rem] font-bold disabled:opacity-40"
+      style={{ backgroundColor: `var(--${tone}-bg)`, color: `var(--${tone})` }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Ba thẻ xương lúc tải (F-22) — không vẽ chữ trần "Đang tải…" trong khi màn khác có skeleton. */
+function OrdersSkeleton() {
+  return (
+    <div role="status" aria-label="Đang tải đơn" className="flex flex-col gap-3">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="surface flex gap-3 px-4 py-3">
+          <div className="h-14 w-14 shrink-0 animate-pulse rounded-xl bg-field" />
+          <div className="flex-1 space-y-2 py-1">
+            <div className="h-4 w-1/2 animate-pulse rounded bg-field" />
+            <div className="h-4 w-3/4 animate-pulse rounded bg-field" />
+            <div className="h-4 w-1/3 animate-pulse rounded bg-field" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 type Pending = { order: Order; kind: "huy" | "da-nhan" | "bao-chuyen" };
 
@@ -126,21 +162,22 @@ export function MyMarketOrders() {
   const count = (t: Tab) => orders.filter((o) => inTab(o, t)).length;
 
   return (
-    <div className="pb-8">
-      <div className="mb-3 flex gap-1.5 overflow-x-auto px-4 pt-3" role="group" aria-label="Lọc đơn">
+    <div className="pb-[7rem]">
+      <div className="mb-3 grid grid-cols-4 gap-1 px-3 pt-3" role="group" aria-label="Lọc đơn">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
             aria-pressed={t.id === tab}
-            className="min-h-[3.5rem] shrink-0 rounded-full px-4 text-[1rem] font-bold"
+            className="flex min-h-[3.5rem] flex-col items-center justify-center rounded-2xl px-1 text-[1rem] font-bold leading-tight"
             style={{
               backgroundColor: t.id === tab ? "var(--t3)" : "var(--field)",
               color: t.id === tab ? "var(--card)" : "var(--navy)",
             }}
           >
-            {t.label} ({count(t.id)})
+            <span>{t.label}</span>
+            <span className="text-[0.875rem] font-semibold opacity-80">{count(t.id)}</span>
           </button>
         ))}
       </div>
@@ -157,9 +194,7 @@ export function MyMarketOrders() {
           </p>
         )}
 
-        {status === "loading" && (
-          <p role="status" className="py-10 text-center text-[1.125rem] text-foreground/65">Đang tải đơn…</p>
-        )}
+        {status === "loading" && <OrdersSkeleton />}
         {status === "error" && <ErrorBlock what="đơn hàng" onRetry={() => void load(1, true)} />}
         {status === "offline" && <EmptyNet what="đơn hàng" onRetry={() => void load(1, true)} />}
 
@@ -187,58 +222,45 @@ export function MyMarketOrders() {
               && o.status !== "da_huy" && o.status !== "hoan_thanh";
             return (
               <li key={o.id} className="surface px-4 py-3">
-                <div className="flex items-start gap-2">
-                  <Link href={`/cho/don/${o.id}`} className="min-w-0 flex-1">
-                    <p className="text-[1.0625rem] font-bold text-navy">{o.code}</p>
-                    <p className="text-[1rem] text-foreground/70">{o.shopName ?? "Shop"}</p>
-                    <p className="mt-0.5 line-clamp-2 text-[1rem] leading-snug">{summarize(o)}</p>
-                    <p className="mt-0.5 text-[1.0625rem] font-bold text-navy">{formatVnd(o.totalVnd)}</p>
-                  </Link>
-                  <div className="flex shrink-0 flex-col items-end gap-2">
-                    <OrderStatusChip status={o.status} />
-                    <ChevronRightIcon className="h-5 w-5 text-foreground/40" />
+                <Link href={`/cho/don/${o.id}`} className="flex items-start gap-3">
+                  <LineThumb image={o.items[0]?.image} size={3.5} className="mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate text-[1rem] text-foreground/70">{o.shopName ?? "Shop"}</span>
+                      <span className="shrink-0 whitespace-nowrap"><OrderStatusChip status={o.status} /></span>
+                    </p>
+                    <p className="mt-0.5 line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{summarize(o)}</p>
+                    {/*  Mã đơn KHÔNG cắt (bà con đọc mã cho shop) — chật thì tổng tự
+                         xuống dòng, canh phải. */}
+                    <p className="mt-0.5 flex flex-wrap items-center justify-between gap-x-2 text-[1rem]">
+                      <span className="whitespace-nowrap text-foreground/65">{o.code}</span>
+                      <span className="ml-auto whitespace-nowrap text-[1.0625rem] font-bold text-navy">{formatVnd(o.totalVnd)}</span>
+                    </p>
                   </div>
-                </div>
+                  <ChevronRightIcon className="mt-1 h-5 w-5 shrink-0 text-foreground/40" />
+                </Link>
                 {isPendingTooLong(o, nowIso) && (
                   <p className="mt-1 text-[1rem] font-bold text-warn">Shop chưa xác nhận sau 2 ngày.</p>
                 )}
                 {(canCancel || canReceive || canPay) && (
-                  <div className="mt-2 flex gap-2">
-                    {canReceive && (
-                      <button
-                        type="button"
-                        disabled={!online || busy}
-                        onClick={() => setPending({ order: o, kind: "da-nhan" })}
-                        className={`${SQ_BTN} disabled:opacity-40`}
-                        style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
-                      >
-                        Đã nhận
-                      </button>
-                    )}
-                    {canPay && (
-                      <button
-                        type="button"
-                        disabled={!online || busy}
-                        onClick={() => setPending({ order: o, kind: "bao-chuyen" })}
-                        className={`${SQ_BTN} disabled:opacity-40`}
-                        style={{ backgroundColor: "var(--warn-bg)", color: "var(--warn)" }}
-                      >
-                        Đã CK
-                      </button>
+                  <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+                    {!online && (
+                      <span className="mr-auto text-[0.9375rem] text-foreground/65">Việc này cần có sóng.</span>
                     )}
                     {canCancel && (
-                      <button
-                        type="button"
-                        disabled={!online || busy}
-                        onClick={() => setPending({ order: o, kind: "huy" })}
-                        className={`${SQ_BTN} disabled:opacity-40`}
-                        style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}
-                      >
-                        Huỷ
-                      </button>
+                      <ActionButton tone="danger" disabled={!online || busy} onClick={() => setPending({ order: o, kind: "huy" })}>
+                        Huỷ đơn
+                      </ActionButton>
                     )}
-                    {!online && (
-                      <span className="self-center text-[0.9375rem] text-foreground/65">Việc này cần có sóng.</span>
+                    {canPay && (
+                      <ActionButton tone="warn" disabled={!online || busy} onClick={() => setPending({ order: o, kind: "bao-chuyen" })}>
+                        Đã chuyển khoản
+                      </ActionButton>
+                    )}
+                    {canReceive && (
+                      <ActionButton tone="ok" disabled={!online || busy} onClick={() => setPending({ order: o, kind: "da-nhan" })}>
+                        Đã nhận hàng
+                      </ActionButton>
                     )}
                   </div>
                 )}

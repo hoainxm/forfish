@@ -73,6 +73,15 @@ describe("buildMarketLines — mỗi DropReason một ca", () => {
     expect(unitPriceFor(led)).toBeNull();
     expect(unitPriceFor(product())).toBe(35000);
   });
+  it("snapshot ẢNH món đầu vào dòng hàng (F-06: thẻ đơn/chi tiết/tóm tắt hiện ảnh); món không ảnh ⇒ không có khoá `image`", () => {
+    const r = buildMarketLines(
+      [{ productId: "p1", qty: 1 }, { productId: "noimg", qty: 1 }],
+      [product({ images: ["https://cdn/anh-1.jpg", "https://cdn/anh-2.jpg"] }), product({ id: "noimg", images: [] })],
+      shopOk,
+    );
+    expect(r.lines[0].image).toBe("https://cdn/anh-1.jpg");
+    expect("image" in r.lines[1]).toBe(false);
+  });
 });
 
 describe("shippingFor / computeTotals / computeCartSummary", () => {

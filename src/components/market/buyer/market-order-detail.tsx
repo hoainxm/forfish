@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AlertIcon, CheckIcon } from "@/components/icons";
+import { LineThumb } from "@/components/market/shared/line-thumb";
 import { MoneyText } from "@/components/market/shared/price-text";
 import { OrderStatusChip, PaymentStatusChip } from "@/components/market/shared/order-status-chip";
 import { OrderTimeline } from "@/components/market/shared/order-timeline";
@@ -15,7 +16,6 @@ import { RatingStars } from "@/components/market/shared/rating-stars";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CallButton, PrimaryButton, inputClass } from "@/components/ui/primitives";
-import { SQ_BTN } from "@/components/ui/sq-btn";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { formatVnd } from "@/lib/format";
@@ -152,7 +152,14 @@ export function MarketOrderDetail({ id }: { id: string }) {
   };
 
   if (status === "loading") {
-    return <p role="status" className="px-4 py-10 text-center text-[1.125rem] text-foreground/65">Đang tải đơn…</p>;
+    return (
+      <div role="status" aria-label="Đang tải đơn" className="px-4 py-3">
+        <div className="h-8 w-1/2 animate-pulse rounded bg-field" />
+        <div className="mt-2 h-6 w-1/3 animate-pulse rounded bg-field" />
+        <div className="surface mt-3 h-32 animate-pulse" />
+        <div className="surface mt-3 h-40 animate-pulse" />
+      </div>
+    );
   }
   if (status === "gone") {
     return (
@@ -202,7 +209,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
   const notSeen = [...order.timeline].reverse().find((t) => t.status === "chua_thanh_toan");
 
   return (
-    <div className="px-4 py-3 pb-10">
+    <div className="px-4 py-3 pb-[7rem]">
       {savedAt != null && (
         <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy" role="status">
           Đang xem bản đã lưu trong máy ({savedAgoLabel(savedAt)}) — có sóng sẽ tự tải mới.
@@ -218,11 +225,11 @@ export function MarketOrderDetail({ id }: { id: string }) {
         <button
           type="button"
           onClick={() => void copyCode()}
-          className={SQ_BTN}
+          className="flex min-h-[3.5rem] shrink-0 items-center gap-1 rounded-full px-4 text-[1rem] font-bold"
           style={{ backgroundColor: "var(--field)", color: "var(--navy)" }}
           aria-label="Sao chép mã đơn"
         >
-          <CheckIcon className="h-6 w-6" />
+          {copied && <CheckIcon className="h-5 w-5 text-ok" />}
           {copied ? "Đã chép" : "Chép mã"}
         </button>
       </div>
@@ -269,22 +276,25 @@ export function MarketOrderDetail({ id }: { id: string }) {
         <ul className="flex flex-col gap-2">
           {order.items.map((l) => (
             <li key={`${l.productId}|${l.variantLabel ?? ""}`} className="flex items-center gap-3">
-              <Link href={`/cho/sp/${l.productId}`} className="min-w-0 flex-1">
-                <p className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">
-                  {l.title}
-                  {l.variantLabel ? ` · ${l.variantLabel}` : ""}
-                </p>
-                <p className="text-[1rem] text-foreground/65">
-                  {formatVnd(l.priceVnd)} × {l.qty} {l.unit}
-                </p>
+              <Link href={`/cho/sp/${l.productId}`} className="flex min-h-[3.5rem] min-w-0 flex-1 items-center gap-3">
+                <LineThumb image={l.image} size={3.5} />
+                <span className="min-w-0 flex-1">
+                  <span className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">
+                    {l.title}
+                    {l.variantLabel ? ` · ${l.variantLabel}` : ""}
+                  </span>
+                  <span className="block text-[1rem] text-foreground/65">
+                    {formatVnd(l.priceVnd)} × {l.qty} {l.unit}
+                  </span>
+                </span>
               </Link>
-              <MoneyText vnd={l.lineTotalVnd} />
+              <MoneyText vnd={l.lineTotalVnd} className="shrink-0" />
               {canReview && !reviewed.includes(l.productId) && (
                 <button
                   type="button"
                   disabled={!online}
                   onClick={() => setReviewLine(l)}
-                  className={`${SQ_BTN} disabled:opacity-40`}
+                  className="min-h-[3.5rem] shrink-0 rounded-full px-3 text-[1rem] font-bold disabled:opacity-40"
                   style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
                 >
                   Đánh giá
@@ -348,7 +358,7 @@ export function MarketOrderDetail({ id }: { id: string }) {
         <div className="min-w-0 flex-1">
           <p className="text-[1rem] font-bold text-navy">{order.shopName ?? "Shop"}</p>
           {order.shopSlug && (
-            <Link href={`/cho/shop/${order.shopSlug}`} className="text-[1rem] font-bold text-t3">
+            <Link href={`/cho/shop/${order.shopSlug}`} className="flex min-h-[3.5rem] items-center text-[1rem] font-bold text-t3">
               Xem shop
             </Link>
           )}

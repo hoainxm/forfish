@@ -7,7 +7,7 @@
   bg-ok-bg…), không hex, không rgba.
 */
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { timeoutSignal } from "@/lib/abort";
 import { apiUrl } from "@/lib/api-base";
 import { tokenHeader } from "@/lib/device-token-store";
@@ -231,21 +231,143 @@ export function ReasonDialog({
   );
 }
 
-/* ── Nói thật khi danh sách bị cắt ─────────────────────────────────────── */
+/* ── Báo kết quả một HÀNH ĐỘNG (khác lỗi tải danh sách) ────────────────── */
 
 /**
- * Route trả 20 dòng/trang. Bảng ở đây CHỈ hiện trang đầu — nên phải NÓI RA,
- * không để admin tưởng mình đang nhìn hết sàn rồi kết luận sai ("không có
- * shop nào chờ duyệt" trong khi có 25).
- * // nợ: chỉ trang đầu 20 dòng + lọc/tìm để thu hẹp, khi sàn quá ~50 gian hàng
- * //      hoặc admin phải cuộn tìm đơn cũ thì thêm nút "Xem thêm" (route đã có `?page=`)
+ * Sau khi ghi (duyệt shop, xác nhận đơn, gỡ món…) danh sách được nạp lại ⇒ thẻ
+ * vừa bấm bị dựng lại và mọi state trong nó biến mất. Nên câu trả lời "xong
+ * chưa / hỏng vì sao" phải nằm ở CẤP DANH SÁCH, không nằm trong thẻ.
+ * Khác `ErrorBox`: chỗ này KHÔNG có nút "Thử lại" — tải lại danh sách không
+ * phải là làm lại việc vừa hỏng, mời lại sẽ dẫn admin đi sai đường.
  */
-export function PageHint({ shown, total, what }: { shown: number; total: number; what: string }) {
-  if (total <= shown) return null;
+export function NoticeBar({
+  ok,
+  text,
+  onClose,
+}: {
+  ok: boolean;
+  text: string;
+  onClose: () => void;
+}) {
   return (
-    <p className="surface px-4 py-2 text-[0.875rem] text-foreground/70">
-      Đang xem <b className="tabular-nums text-navy">{shown}</b> {what} mới nhất trong tổng{" "}
-      <b className="tabular-nums text-navy">{total}</b> — dùng ô lọc/tìm ở trên để thu hẹp.
-    </p>
+    <div
+      role="status"
+      className={`flex items-start justify-between gap-3 rounded-xl px-4 py-3 ${
+        ok ? "bg-ok-bg text-ok" : "bg-danger-bg text-danger"
+      }`}
+    >
+      <p className="text-[0.9375rem] font-semibold leading-snug">{text}</p>
+      <button
+        type="button"
+        onClick={onClose}
+        className="min-h-[2rem] shrink-0 rounded-lg px-2 text-[0.8125rem] font-bold underline"
+      >
+        Đóng
+      </button>
+    </div>
   );
+}
+
+/* ── Nói thật khi danh sách bị cắt + xem tiếp ──────────────────────────── */
+
+/** Trang của mọi route `/api/admin/cho/*` (12 §7.3). Đổi ở đây thì đổi cả nhãn nút. */
+const PAGE_SIZE = 20;
+
+/**
+ * Route trả 20 dòng/trang. Câu này LUÔN hiện (kể cả khi đã đủ) vì con số duy
+ * nhất admin tin được là "bao nhiêu dòng KHỚP BỘ LỌC" — các ô KPI ở trên đếm
+ * theo kỳ (hôm nay / 7 / 30 ngày) nên lệch với danh sách là chuyện bình
+ * thường, không phải sai. Còn thiếu thì có nút xem tiếp, không bắt admin đoán.
+ */
+export function PageHint({
+  shown,
+  total,
+  what,
+  note,
+  onMore,
+  loadingMore,
+}: {
+  shown: number;
+  total: number;
+  what: string;
+  /** Câu nói rõ PHẠM VI của danh sách này khi nó khác phạm vi của ô KPI. */
+  note?: React.ReactNode;
+  onMore?: () => void;
+  loadingMore?: boolean;
+}) {
+  const rest = Math.max(0, total - shown);
+  return (
+    <div className="surface flex flex-wrap items-center justify-between gap-2 px-4 py-2">
+      <p className="text-[0.875rem] leading-snug text-foreground/70">
+        Đang xem <b className="tabular-nums text-navy">{shown}</b> trong tổng{" "}
+        <b className="tabular-nums text-navy">{total}</b> {what} khớp bộ lọc, mới nhất trước.
+        {note ? <> {note}</> : null}
+      </p>
+      {rest > 0 && onMore && (
+        <button
+          type="button"
+          onClick={onMore}
+          disabled={loadingMore}
+          className="min-h-[2.75rem] rounded-xl bg-navy px-5 text-[0.9375rem] font-bold text-white disabled:opacity-50"
+        >
+          {loadingMore ? "Đang tải…" : `Xem thêm ${Math.min(rest, PAGE_SIZE)} ${what}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ── Nạp một danh sách có phân trang (3 mục dùng chung) ────────────────── */
+
+/**
+ * Một danh sách admin = đường dẫn + phân trang + bốn nhánh trạng thái.
+ * Ba mục (gian hàng · đơn · sản phẩm) làm giống hệt nhau nên gom về một chỗ:
+ * - `path` đổi (lọc/tìm) ⇒ nạp lại từ trang 1;
+ * - `loadMore()` nối trang sau vào cuối, KHÔNG xoá cái đang xem;
+ * - `refresh()` (sau khi ghi) nạp lại trang 1 nhưng GIỮ danh sách cũ trên màn
+ *   để không chớp trắng giữa lúc admin đang đọc;
+ * - phản hồi tới trễ của lần nạp cũ bị bỏ (`runRef`) — lọc nhanh tay không
+ *   làm danh sách nhảy về kết quả cũ.
+ */
+export function useAdminList<T>(path: string) {
+  const [rows, setRows] = useState<T[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const pageRef = useRef(1);
+  const runRef = useRef(0);
+
+  const fetchPage = useCallback(
+    (page: number, mode: "reset" | "append" | "refresh") => {
+      const run = ++runRef.current;
+      if (mode === "reset") {
+        setRows(null);
+        setError(null);
+      }
+      if (mode === "append") setLoadingMore(true);
+      const sep = path.includes("?") ? "&" : "?";
+      marketAdminGet<{ items: T[]; total: number }>(`${path}${sep}page=${page}`)
+        .then((j) => {
+          if (run !== runRef.current) return;
+          pageRef.current = page;
+          setTotal(j.total);
+          setError(null);
+          setRows((prev) => (mode === "append" && prev ? [...prev, ...j.items] : j.items));
+        })
+        .catch((e: Error) => {
+          if (run === runRef.current) setError(e.message);
+        })
+        .finally(() => {
+          if (run === runRef.current) setLoadingMore(false);
+        });
+    },
+    [path],
+  );
+
+  const reload = useCallback(() => fetchPage(1, "reset"), [fetchPage]);
+  const refresh = useCallback(() => fetchPage(1, "refresh"), [fetchPage]);
+  const loadMore = useCallback(() => fetchPage(pageRef.current + 1, "append"), [fetchPage]);
+  useEffect(reload, [reload]);
+
+  return { rows, total, error, loadingMore, reload, refresh, loadMore };
 }

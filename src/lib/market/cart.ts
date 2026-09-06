@@ -12,10 +12,17 @@ import { CART_MAX_LINES } from "./validate";
 export const MARKET_CART_KEY = "forfish.mcart.v1";
 export const MARKET_CART_EVENT = "forfish-mcart-changed";
 
-type Stored = { phone: string; items: MarketCartLine[]; quote?: CartQuote };
+/*  `off` = khoá các dòng bà con BỎ CHỌN ở giỏ (F-05, 11 §5.5): mặc định chọn
+    hết nên chỉ lưu phần bỏ chọn — giỏ trống `off` là "mua tất cả", và dòng mới
+    thêm tự được chọn mà không phải ghi gì. Dòng nào không còn trong giỏ thì
+    khoá của nó bị tỉa lúc đọc. */
+type Stored = { phone: string; items: MarketCartLine[]; quote?: CartQuote; off?: string[] };
 
 const same = (l: MarketCartLine, productId: string, variantLabel?: string) =>
   l.productId === productId && (l.variantLabel ?? "") === (variantLabel ?? "");
+
+/** Khoá MỘT dòng giỏ / dòng hàng: `productId|variantLabel` — dùng chung cho giỏ, bản tra, ô chọn. */
+export const marketLineKey = (productId: string, variantLabel?: string) => `${productId}|${variantLabel ?? ""}`;
 
 function clampQty(qty: number): number {
   if (!Number.isFinite(qty)) return 1;
@@ -67,6 +74,30 @@ export function marketCartCount(items: MarketCartLine[]): number {
   return items.reduce((s, l) => s + l.qty, 0);
 }
 
+// ── Ô chọn trong giỏ (F-05) — THUẦN ─────────────────────────────────────
+
+/** Tỉa khoá bỏ-chọn của dòng không còn trong giỏ (giữ thứ tự, bỏ trùng). */
+export function pruneUnselected(items: MarketCartLine[], off: readonly string[]): string[] {
+  const keys = new Set(items.map((l) => marketLineKey(l.productId, l.variantLabel)));
+  return [...new Set(off)].filter((k) => keys.has(k));
+}
+
+/** Dòng ĐANG CHỌN = mọi dòng trừ `off` (mặc định chọn hết). */
+export function selectedMarketLines(items: MarketCartLine[], off: readonly string[]): MarketCartLine[] {
+  if (off.length === 0) return items;
+  const set = new Set(off);
+  return items.filter((l) => !set.has(marketLineKey(l.productId, l.variantLabel)));
+}
+
+/** Bật/tắt chọn cho một nhóm khoá (một dòng, cả shop, hay cả giỏ) — trả `off` mới. */
+export function setMarketSelection(off: readonly string[], keys: readonly string[], on: boolean): string[] {
+  if (on) {
+    const drop = new Set(keys);
+    return off.filter((k) => !drop.has(k));
+  }
+  return [...new Set([...off, ...keys])];
+}
+
 // ── Lưu / đọc trên máy (ngăn theo SĐT) ────────────────────────────────────
 
 function readStored(phone: string | null | undefined): Stored | null {
@@ -104,7 +135,10 @@ export function saveMarketCart(phone: string | null | undefined, items: MarketCa
   let ok = false;
   try {
     const prev = readStored(phone);
-    const payload: Stored = { phone: cartBucket(phone), items, ...(prev?.quote ? { quote: prev.quote } : {}) };
+    const off = prev?.off ? pruneUnselected(items, prev.off) : [];
+    const payload: Stored = {
+      phone: cartBucket(phone), items, ...(prev?.quote ? { quote: prev.quote } : {}), ...(off.length ? { off } : {}),
+    };
     const json = JSON.stringify(payload);
     window.localStorage.setItem(MARKET_CART_KEY, json);
     ok = window.localStorage.getItem(MARKET_CART_KEY) === json;
@@ -144,9 +178,39 @@ export function saveMarketQuote(phone: string | null | undefined, quote: CartQuo
   if (typeof window === "undefined") return;
   try {
     const prev = readStored(phone);
-    const payload: Stored = { phone: cartBucket(phone), items: prev ? cleanLines(prev.items) : [], quote };
+    const payload: Stored = {
+      phone: cartBucket(phone), items: prev ? cleanLines(prev.items) : [], quote,
+      ...(prev?.off?.length ? { off: prev.off } : {}),
+    };
     window.localStorage.setItem(MARKET_CART_KEY, JSON.stringify(payload));
   } catch {
     /* hết chỗ — bản tra là phụ */
+  }
+}
+
+/** Khoá các dòng ĐANG BỎ CHỌN (đã tỉa theo giỏ hiện có). Ngăn khác / chưa có ⇒ []. */
+export function loadMarketUnselected(phone: string | null | undefined): string[] {
+  const s = readStored(phone);
+  if (!s || !Array.isArray(s.off)) return [];
+  return pruneUnselected(cleanLines(s.items), s.off.filter((k): k is string => typeof k === "string"));
+}
+
+/**
+ * Ghi phần bỏ chọn — GIỮ items + quote. Nuốt lỗi (trả false): chọn/bỏ chọn là
+ * thứ tính lại được, không phải sổ của bà con; màn cứ giữ trạng thái trong tay.
+ */
+export function saveMarketUnselected(phone: string | null | undefined, off: readonly string[]): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const prev = readStored(phone);
+    const items = prev ? cleanLines(prev.items) : [];
+    const pruned = pruneUnselected(items, off);
+    const payload: Stored = {
+      phone: cartBucket(phone), items, ...(prev?.quote ? { quote: prev.quote } : {}), ...(pruned.length ? { off: pruned } : {}),
+    };
+    window.localStorage.setItem(MARKET_CART_KEY, JSON.stringify(payload));
+    return true;
+  } catch {
+    return false;
   }
 }

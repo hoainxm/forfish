@@ -5,7 +5,7 @@ covers: src/lib/market/, src/app/cho/, src/app/ban-hang/, src/components/market/
 last_verified: 2026-09-06
 <!-- re-verified: 2026-09-06 - pha 2b: /cho (8 màn), /ban-hang (7 màn), tab admin, /api/cho|ban-hang|admin/cho đã hiện thực theo §5–§7; AC 77 mã; QA e2e 63 pass / 8 fixme; khác spec: ghi chú người mua là MỘT ô chung cho cả lần đặt (Core CheckoutDraft.buyerNote), giỏ khách lạ dời sang ngăn SĐT khi ngăn đó trống -->
 ttl_days: 90
-<!-- DOC-STATUS: ORPHANED (2026-09-06) — path 'src/app/cho/' khong con ton tai. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-09-06) — code 'src/components/market/' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 version: v1.1 (2026-09-06) — hợp nhất sau phản biện, chưa build. 16 quyết định LEAD-BRIEF §4 + §5 đã đưa vào; tên trường/mã/route/trần số lấy NGUYÊN VĂN từ [12-kien-truc 1.1](12-kien-truc-san-thuong-mai.md) (12 = nguồn TÊN, 11 = nguồn HÀNH VI). Đối chiếu: [_generated/phan-bien-san-thuong-mai-2026-09-06.md](_generated/phan-bien-san-thuong-mai-2026-09-06.md).
 
 > **Mục đích**: ORACLE HÀNH VI cho agent build + QA — ai được làm gì, hệ thống phản ứng ra sao, đúng-sai đo bằng AC nào. Không mô tả pixel (việc của [07-design-spec](07-design-spec.md)); không mô tả schema cột (việc của [12-kien-truc-san-thuong-mai](12-kien-truc-san-thuong-mai.md) + [04-data-model](04-data-model.md)).
@@ -218,6 +218,8 @@ Mọi chuyển khác → **409** `bad_transition`, UI: "Đơn đã sang bước 
 
 ## 5. Flow người mua (route theo LEAD §2 + §5 #8)
 
+> **Quy ước đọc (vòng fix UX 2026-09-06)**: mọi chữ "SQ_BTN" trong §5–§7 đọc là **nút hành động khu chợ ≥3.5rem, chữ ≥1rem** (03 §Nút hành động mục 1b) — khu chợ KHÔNG dùng khuôn `SQ_BTN` 37px cho hành động chính/thường bấm. Mọi màn con có `MarketHeader` gọn với "‹ Quay lại". Giỏ có ô chọn dòng/shop/tất cả (§5.5); ♡ trên thẻ lưới là icon đè ảnh 2.75rem (ngoại lệ có chủ đích, 03).
+
 Quy ước chung mọi màn `/cho/**`:
 - **Đăng nhập (LEAD §5 #8, chốt)**: `/cho`, `/cho/tim`, `/cho/sp/[id]`, `/cho/shop/[slug]`, `/cho/gio` — **khách lạ XEM được**, không bọc `RequireLogin`. Cần tài khoản tại **điểm chạm**: nút Đặt hàng (giỏ) · ♡ Yêu thích · Đánh giá — hiện `LoginGate` tại chỗ ("Cần tài khoản để đặt hàng" + Đăng nhập + Gọi SDVICO, 1 lời mời/màn). `/cho/thanh-toan`, `/cho/don`, `/cho/don/[id]` bọc `RequireLogin what="đơn hàng"`. Lời mời đăng nhập **ẩn khi mất sóng** (07 §12 tầng 5).
 - **Nút Gọi shop (`tel:`) KHÔNG ẩn khi mất sóng** (LEAD §4 #10 — mất data vẫn còn sóng thoại là ca thường ở bến). Chỉ lời mời đăng nhập/premium mới ẩn.
@@ -246,7 +248,7 @@ Quy ước chung mọi màn `/cho/**`:
 
 ### 5.3 `/cho/sp/[id]` — Trang sản phẩm
 
-- **Key**: ảnh bìa (vuốt ngang ≤6) · tên · giá (+ giá gạch) · **chọn loại/cỡ** (chip, bắt buộc khi có biến thể; giá đổi theo, tồn CHUNG) · QtyStepper · **nút "Thêm vào giỏ"** (nút chính duy nhất → full-width theo ngoại lệ 03; **không có "Mua ngay"**) ; hàng shop [tên shop · tỉnh · ★x.x] → `/cho/shop/[slug]` + ô SQ_BTN "Gọi"; "Đã bán N"; "Còn M {unit}" khi M ≤ 20, ngược lại "Còn hàng"; mô tả (thu gọn 4 dòng + "Xem thêm"); đánh giá (5 mới nhất + "Xem tất cả" mở sheet, không có đánh giá ẩn); nút ♡ Yêu thích ở hàng tiêu đề.
+- **Key**: ảnh bìa (vuốt ngang ≤6) · tên · giá (+ giá gạch) · **chọn loại/cỡ** (chip, bắt buộc khi có biến thể; giá đổi theo, tồn CHUNG) · QtyStepper · **nút "Thêm vào giỏ"** (nút chính duy nhất → full-width theo ngoại lệ 03; **không có "Mua ngay"**) ; hàng shop [tên shop · tỉnh · ★x.x] → `/cho/shop/[slug]` (KHÔNG có nút Gọi trùng — "Gọi shop" chỉ ở thanh đáy, F-14 2026-09-06); dòng "★ x (n) / Chưa có đánh giá · Đã bán N · Còn M" ngay dưới giá, ♡ cùng hàng tiêu đề; "Đã bán N"; "Còn M {unit}" khi M ≤ 20, ngược lại "Còn hàng"; mô tả (thu gọn 4 dòng + "Xem thêm"); đánh giá (5 mới nhất + "Xem tất cả" mở sheet, không có đánh giá ẩn); nút ♡ Yêu thích ở hàng tiêu đề.
 - **Hành động → thấy ngay**: chọn loại → giá đổi theo; Thêm vào giỏ → nút đổi "Đã thêm (n) · Xem giỏ" 3s, badge tăng; qty > tồn → clamp về tồn + dòng "Chỉ còn M"; ♡ → chưa đăng nhập ⇒ `LoginGate` inline; đã đăng nhập ⇒ tô đầy + "Đã lưu" (local, không cần mạng); Gọi → `tel:` (**không ẩn khi mất sóng**).
 - **Ma trận**: đang tải → skeleton · 404/đã xoá/bị gỡ → "Món này không còn trên chợ." + nút Về chợ · shop `≠ hoat_dong` → "Shop này đang tạm đóng." + nút Thêm vào giỏ **ẩn** · shop `paused` → băng vàng "Shop đang tạm nghỉ, mở lại sau" + nút **vô hiệu** (♡ vẫn dùng được) · hết hàng → nút "Hết hàng" vô hiệu + gợi ý ♡ · giỏ đã 50 dòng → "Giỏ đầy rồi…" · máy hết chỗ → băng đỏ, KHÔNG tăng badge · mất sóng → nếu vào từ danh sách đã tải: hiện tên/giá/ảnh đã có trong bộ nhớ trang trước (không có thì màn quy ước); "Thêm vào giỏ" **vẫn chạy** (local) nhưng ghi "giá lúc HH:MM, sẽ tra lại khi có sóng".
 
@@ -257,6 +259,8 @@ Quy ước chung mọi màn `/cho/**`:
 
 ### 5.5 `/cho/gio` — Giỏ hàng
 
+- **Ô chọn (vòng fix UX 2026-09-06, F-05)**: ô chọn 3.5rem ở từng dòng · đầu mỗi shop · hàng "Chọn tất cả (n/N)"; **mặc định chọn hết**, dòng mới thêm tự được chọn. Tổng tạm, phí giao từng shop và nút **"Đặt hàng (n)"** chỉ tính dòng đang chọn; **dòng bỏ chọn giữ nguyên trong giỏ**. Phần bỏ chọn lưu cùng khoá `forfish.mcart.v1` (`off[]`, tỉa khi dòng rời giỏ). Không chọn dòng nào ⇒ nút vô hiệu + "Chọn ít nhất một món để đặt." Khách lạ bấm Đặt hàng / ♡ ⇒ lời mời đăng nhập là **BottomSheet** ("Đăng nhập để đặt hàng" / "…để lưu món") — không phải thẻ inline dưới danh sách (F-01/F-20).
+
 - **Key**: danh sách theo **nhóm shop** [tên shop (+ chip "Tạm nghỉ")] → dòng món [ảnh · tên · loại · giá × QtyStepper · ô SQ_BTN Bỏ] → "Tiền hàng shop này: … · Giao: …" ; **thanh ghim đáy** 1 hàng: "N món · Tổng tạm: …" + SQ_BTN "Đặt hàng".
 - Vào màn: `POST /api/cho/gio/tinh` tra lại toàn bộ → cập nhật giá/tồn/cờ mua được, cất `quote`; giá đổi so với lần tra trước → dòng vàng dưới món "Giá vừa đổi: 120.000đ → 125.000đ".
 - **Món không mua được** (`dropped`): thẻ mờ + lý do 1 dòng (`DROP_LABEL`: "Hết hàng" · "Chỉ còn M" · "Shop đang tạm đóng" · "Shop đang tạm nghỉ, mở lại sau" · "Món này không còn trên chợ" · "Shop đã ngừng bán món này" · "Loại/cỡ này không còn") + SQ_BTN Bỏ; **không tính vào tổng**; nút Đặt hàng vẫn bấm được nếu còn ≥1 món mua được, màn Đặt hàng chỉ mang món mua được.
@@ -264,6 +268,8 @@ Quy ước chung mọi màn `/cho/**`:
 - **Ma trận**: giỏ rỗng → EmptyState "Giỏ đang trống" + nút Đi chợ · mất sóng → hiện từ bản tra gần nhất + chip "giá lúc HH:MM — có sóng sẽ tra lại", nút **Đặt hàng vô hiệu** + câu "Đặt hàng cần có sóng. Giỏ vẫn giữ nguyên." · chưa từng tra được → chỉ hiện số dòng + "Chưa tải được giá — máy không có sóng" · máy hết chỗ → băng đỏ tầng 2 · 50 dòng → dòng "Giỏ đã đủ 50 món" · một shop > 20 dòng → nút Đặt hàng vô hiệu + "Mỗi đơn tối đa 20 món — tách bớt sang lần đặt sau" · tất cả món không mua được → nút Đặt hàng vô hiệu + "Không còn món nào mua được trong giỏ".
 
 ### 5.6 `/cho/thanh-toan` — Đặt hàng (nhãn màn: **"Đặt hàng"**)
+
+- **Vòng fix UX 2026-09-06**: chỉ mang **dòng đang chọn** ở giỏ (F-05); sheet địa chỉ **chỉ tự mở khi danh tính đã sẵn (`ready`) mà chưa có địa chỉ nào** (F-02 — bản cũ mở đè màn dù đã có địa chỉ); sheet tách hai bước: danh sách đã lưu → "+ Thêm địa chỉ mới" → form; tỉnh là `<select>` nền tảng, tỉnh cảng nhà đứng đầu; câu lỗi đặt ngay dưới ô sai + focus ô (F-11); tóm tắt món có ảnh 3rem + cột "× N" cố định (F-03/F-06); chip Chuyển khoản **hiện mờ (disabled)** + lý do ngay dưới khi có shop không nhận CK (F-16, thay cho ẩn hẳn); màn kết quả có thêm "Mua tiếp" (F-09).
 
 - **Vào từ**: nút Đặt hàng ở giỏ (đã đăng nhập); chỉ mang dòng mua được; **không có sóng thì không vào được** (nút đã vô hiệu).
 - **Key (C1)**: (1) **Địa chỉ nhận** — 1 dòng đọc-được "Nhận: {tên} · {SĐT} · {cảng/địa chỉ}, {tỉnh}" + SQ_BTN "Đổi" (mở sheet chọn/thêm địa chỉ; máy đã biết tên/SĐT/tỉnh cảng nhà (`seedAddress`) nên lần đầu chỉ cần điền **cảng hoặc địa chỉ**); (2) **Cách trả tiền** — 2 chip: "Trả khi nhận hàng" (mặc định) · "Chuyển khoản" — **một cách chung cho cả lần đặt (LEAD §4 #9)**; có shop KHÔNG `acceptsBankTransfer` ⇒ chip Chuyển khoản **ẩn** + dòng nhỏ "Shop X chỉ nhận tiền mặt — lần đặt này trả khi nhận hàng"; (3) **Tóm tắt theo shop**: thẻ mỗi shop [tên shop · k món · tiền hàng · phí giao (hoặc "Miễn phí giao") · **Thành tiền shop**] + ô "Ghi chú cho shop" (thu gọn, SQ_BTN "Ghi chú"); (4) **Dòng chốt**: "**Sẽ tạo N đơn cho N shop** · Tổng: …" — nói rõ vì bà con quen 1 đơn; (5) nút chính **"Đặt hàng"** full-width (nút chính duy nhất) + dòng "Không trả tiền trong app. Trả khi nhận hoặc chuyển khoản thẳng cho shop."
@@ -582,6 +588,7 @@ Mỗi AC 1 dòng kiểm được, **trong ngoặc = route/hàm chịu trách nhi
 
 ## History
 - v1 (2026-09-06): khởi tạo pha BA từ LEAD-BRIEF 2026-09-06; 62 AC; 16 điểm phản biện; 5 điểm chờ chốt.
+- **v1.2 (2026-09-06) — Buyer, vòng fix UX (ux-audit/AUDIT.md + LEAD §6)**: §5.5 ô chọn giỏ + "Đặt hàng (n)" + lời mời đăng nhập là sheet; §5.6 địa chỉ đợi `ready`, sheet hai bước, `<select>` tỉnh, lỗi dưới ô, ảnh + "× N", chip CK mờ, "Mua tiếp"; mọi màn `/cho/**` dùng đầu màn gọn có Quay lại (`MarketHeader`); thẻ lưới gọn chạm-cả-thẻ, bỏ "+ Giỏ"; chip sắp xếp ngang + "N món" (tìm + shop); tab đơn `grid-cols-4`; ảnh món ở thẻ đơn/chi tiết; badge giỏ = số dòng. Không đổi AC.
 - **v1.1 (2026-09-06) — hợp nhất sau phản biện**: đưa đủ 16 quyết định LEAD-BRIEF §4 + §5 vào §3–§10; tên trường/mã trạng thái/route/trần số lấy NGUYÊN VĂN từ 12-kien-truc 1.1 (`cho_duyet|hoat_dong|tam_khoa|tu_choi`, `items/subtotalVnd/shippingVnd`, `address{name,phone,province,detail,isPort}`, `variantLabel`, `/api/cho/san-pham`, `/api/cho/gio/tinh`, `/cho/shop/[slug]`, mã đơn `SD…`, danh mục gạch-ngang); bỏ R4 "không mua shop mình"; thêm R2'/R12/R13/R17/R19; AC 62 → 77 (thêm AC-08/08b/15b/29b/38b/38c/44b/53b/53c/56b/56c/63–67), mỗi AC ghi route/hàm; §12 đổi thành bảng "đã chốt". Bảng đối chiếu: `_generated/phan-bien-san-thuong-mai-2026-09-06.md`.
 
 **Last updated**: 2026-09-06 (v1.1)

@@ -4,6 +4,7 @@ import {
   CHECKOUT_MAX_SHOPS,
   normalizeProductStatus,
   ORDER_MAX_LINES,
+  addressErrorField,
   validateAddress,
   validateCancelReason,
   validateCheckout,
@@ -84,6 +85,22 @@ describe("validateAddress", () => {
     expect(validateAddress(addr({ province: "K" }))).toMatch(/tỉnh/i);
     expect(validateAddress(addr({ detail: "C" }))).toMatch(/cảng/i);
     expect(validateAddress(addr({ isPort: false, detail: "ngắn" }))).toMatch(/địa chỉ/i);
+  });
+});
+
+describe("addressErrorField — ô nào sai, khớp thứ tự câu của validateAddress (F-11)", () => {
+  const addr = (p: Partial<Address> = {}): Address => ({
+    name: "Nguyễn Văn Ba", phone: "0901000001", province: "Khánh Hòa", detail: "Cảng Hòn Rớ", isPort: true, ...p,
+  });
+  it("đúng ô, null khi hợp lệ", () => {
+    expect(addressErrorField(addr())).toBeNull();
+    expect(addressErrorField(addr({ name: "B" }))).toBe("name");
+    expect(addressErrorField(addr({ phone: "09" }))).toBe("phone");
+    expect(addressErrorField(addr({ province: "" }))).toBe("province");
+    expect(addressErrorField(addr({ detail: "C" }))).toBe("detail");
+    expect(addressErrorField(addr({ isPort: false, detail: "ngắn" }))).toBe("detail");
+    // sai nhiều ô ⇒ ô ĐẦU TIÊN theo đúng thứ tự validateAddress (câu lỗi cũng là câu của ô đó)
+    expect(addressErrorField(addr({ name: "", detail: "" }))).toBe("name");
   });
 });
 

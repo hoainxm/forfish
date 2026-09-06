@@ -7,7 +7,7 @@
   và mỗi lần ghi để lại một dòng nhật ký admin (market.shop-status / -owner).
 */
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { formatVnDate } from "@/lib/format";
 import { isValidVnPhone, sanitizePhoneInput } from "@/lib/phone";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -17,12 +17,13 @@ import {
   ErrorBox,
   FilterChip,
   LoadingBox,
-  marketAdminGet,
   marketAdminPatch,
+  NoticeBar,
   PageHint,
   ReasonDialog,
   SHOP_STATUS_LABEL,
   ShopStatusChip,
+  useAdminList,
 } from "./market-admin-shared";
 
 export type ShopRow = Shop & { productCount: number };
@@ -39,24 +40,19 @@ const FILTERS: [Filter, string][] = [
 
 const dayOf = (iso: string) => formatVnDate(iso.slice(0, 10));
 
-export function MarketAdminShops({ onPickShopOrders }: { onPickShopOrders: (shop: ShopRow) => void }) {
+export function MarketAdminShops({
+  onPickShopOrders,
+  onChanged,
+}: {
+  onPickShopOrders: (shop: ShopRow) => void;
+  onChanged: () => void;
+}) {
   const [filter, setFilter] = useState<Filter>("cho_duyet");
-  const [rows, setRows] = useState<ShopRow[] | null>(null);
-  const [total, setTotal] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    setRows(null);
-    setError(null);
-    marketAdminGet<{ items: ShopRow[]; total: number }>(`/api/admin/cho/shops?status=${filter}`)
-      .then((j) => {
-        setRows(j.items);
-        setTotal(j.total);
-      })
-      .catch((e: Error) => setError(e.message));
-  }, [filter]);
-  useEffect(load, [load]);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const { rows, total, error, loadingMore, reload, refresh, loadMore } = useAdminList<ShopRow>(
+    `/api/admin/cho/shops?status=${filter}`,
+  );
 
   return (
     <div className="space-y-4">
@@ -66,19 +62,33 @@ export function MarketAdminShops({ onPickShopOrders }: { onPickShopOrders: (shop
         ))}
       </div>
 
-      {error && <ErrorBox text={error} onRetry={load} />}
+      {notice && (
+        <NoticeBar ok={notice.ok} text={notice.text} onClose={() => setNotice(null)} />
+      )}
+
+      {error && <ErrorBox text={error} onRetry={reload} />}
       {!rows && !error && <LoadingBox what="gian hàng" />}
       {rows && rows.length === 0 && (
         <EmptyBox
           text={
-            filter === "cho_duyet"
-              ? "Không có gian hàng nào chờ duyệt."
-              : `Không có gian hàng ${SHOP_STATUS_LABEL[filter as ShopStatus]?.toLowerCase() ?? ""}.`
+            filter === "all"
+              ? "Chợ chưa có gian hàng nào."
+              : filter === "cho_duyet"
+                ? 'Không có gian hàng nào chờ duyệt — chọn "Tất cả" để xem mọi gian hàng.'
+                : `Không có gian hàng ${SHOP_STATUS_LABEL[filter as ShopStatus]?.toLowerCase() ?? ""} — chọn "Tất cả" để xem mọi gian hàng.`
           }
         />
       )}
 
-      {rows && rows.length > 0 && <PageHint shown={rows.length} total={total} what="gian hàng" />}
+      {rows && rows.length > 0 && (
+        <PageHint
+          shown={rows.length}
+          total={total}
+          what="gian hàng"
+          onMore={loadMore}
+          loadingMore={loadingMore}
+        />
+      )}
       {rows && rows.length > 0 && (
         <ul className="space-y-3">
           {rows.map((shop) => (
@@ -87,8 +97,12 @@ export function MarketAdminShops({ onPickShopOrders }: { onPickShopOrders: (shop
               shop={shop}
               open={openId === shop.id}
               onToggle={() => setOpenId(openId === shop.id ? null : shop.id)}
-              onDone={load}
-              onError={setError}
+              onDone={(say) => {
+                setNotice({ ok: true, text: say });
+                refresh();
+                onChanged();
+              }}
+              onError={(msg) => setNotice({ ok: false, text: msg })}
               onPickShopOrders={() => onPickShopOrders(shop)}
             />
           ))}
@@ -109,7 +123,7 @@ function ShopCard({
   shop: ShopRow;
   open: boolean;
   onToggle: () => void;
-  onDone: () => void;
+  onDone: (say: string) => void;
   onError: (msg: string) => void;
   onPickShopOrders: () => void;
 }) {
@@ -117,7 +131,6 @@ function ShopCard({
   const [busy, setBusy] = useState(false);
   const [ownerDraft, setOwnerDraft] = useState("");
   const [askOwner, setAskOwner] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
 
   const sentinelOwner = !isValidVnPhone(shop.ownerPhone);
 
@@ -125,8 +138,7 @@ function ShopCard({
     setBusy(true);
     try {
       await marketAdminPatch(`/api/admin/cho/shops/${encodeURIComponent(shop.id)}`, body);
-      setDone(say);
-      onDone();
+      onDone(`${shop.name}: ${say}`);
     } catch (e) {
       onError((e as Error).message);
     } finally {
@@ -208,8 +220,6 @@ function ShopCard({
           </button>
         )}
       </div>
-
-      {done && <p className="px-4 pb-2 text-[0.875rem] font-semibold text-ok">{done}</p>}
 
       {open && (
         <div className="border-t border-line px-4 py-3 text-[0.875rem] leading-relaxed text-foreground/80">

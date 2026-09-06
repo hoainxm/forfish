@@ -1,5 +1,5 @@
 import { ShopPage } from "@/components/market/buyer/shop-page";
-import { PageHeader } from "@/components/page-header";
+import { MarketHeader } from "@/components/market/shared/market-header";
 
 export const metadata = { title: "Gian hàng — SDFish" };
 
@@ -7,7 +7,7 @@ export default async function ShopRoute({ params }: { params: Promise<{ slug: st
   const { slug } = await params;
   return (
     <div>
-      <PageHeader kicker="Chợ vật tư" title="Gian hàng" toColor="var(--t3)" />
+      <MarketHeader title="Gian hàng" fallback="/cho" />
       <ShopPage slug={slug} />
     </div>
   );

@@ -611,6 +611,44 @@ export function HeroAccount() {
             </>
           )}
 
+          {/*  LỐI VÀO KÊNH NGƯỜI BÁN (12 §9) — hai dạng dòng:
+               (a) đã có shop ⇒ dòng thường "Kênh người bán";
+               (b) chưa có shop ⇒ dòng MỜ, không icon nổi, chỉ mời một câu;
+               (c) chưa biết (chưa có cờ, mất sóng) ⇒ không dòng nào.
+               ĐẶT NGAY DƯỚI KHỐI DANH TÍNH, TRÊN nhóm "Cài đặt khác" thu gọn
+               (2026-09-06): nằm trong nhóm thu gọn thì bà con phải bấm "Mở" mới
+               thấy — người bán không tìm ra kênh của mình, còn lời mời đăng ký
+               shop thì không ai đọc. Đây là lối vào một TRỤC việc, không phải
+               một tuỳ chọn cài đặt. */}
+          {signedIn && shopFlag?.hasShop && (
+            <Link
+              href="/ban-hang"
+              onClick={() => setOpen(false)}
+              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left surface"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[1rem] font-bold text-navy">
+                  Kênh người bán
+                  {shopFlag.status === "cho_duyet" && " · đang chờ duyệt"}
+                </span>
+                <span className="block text-[0.8125rem] leading-snug text-foreground/70">
+                  Đăng sản phẩm, xử lý đơn, thống kê
+                </span>
+              </span>
+              <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+            </Link>
+          )}
+          {signedIn && shopFlag && !shopFlag.hasShop && (
+            <Link
+              href="/ban-hang/dang-ky"
+              onClick={() => setOpen(false)}
+              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left text-[1rem] text-foreground/65"
+            >
+              <span className="min-w-0 flex-1">Bà con có bán vật tư? Đăng ký shop</span>
+              <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+            </Link>
+          )}
+
           {/*  MỘT HÀNG "Cài đặt khác" gom năm nhóm việc không liên quan nhau
               (2026-08-29, luật C1/C2). Đo trước: sheet 527px/812px = 65% màn Ở
               TRẠNG THÁI NHẸ NHẤT (chưa đăng nhập, 11 dòng chữ); đã đăng nhập còn
@@ -736,39 +774,6 @@ export function HeroAccount() {
               <span className="min-w-0 flex-1 text-[1rem] font-bold text-navy">
                 Trang quản trị
               </span>
-              <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
-            </Link>
-          )}
-
-          {/*  LỐI VÀO KÊNH NGƯỜI BÁN (12 §9) — hai dạng dòng:
-               (a) đã có shop ⇒ dòng thường "Kênh người bán";
-               (b) chưa có shop ⇒ dòng MỜ, không icon nổi, chỉ mời một câu;
-               (c) chưa biết (chưa có cờ, mất sóng) ⇒ không dòng nào. */}
-          {signedIn && shopFlag?.hasShop && (
-            <Link
-              href="/ban-hang"
-              onClick={() => setOpen(false)}
-              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left surface"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-[1rem] font-bold text-navy">
-                  Kênh người bán
-                  {shopFlag.status === "cho_duyet" && " · đang chờ duyệt"}
-                </span>
-                <span className="block text-[0.8125rem] leading-snug text-foreground/70">
-                  Đăng sản phẩm, xử lý đơn, thống kê
-                </span>
-              </span>
-              <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
-            </Link>
-          )}
-          {signedIn && shopFlag && !shopFlag.hasShop && (
-            <Link
-              href="/ban-hang/dang-ky"
-              onClick={() => setOpen(false)}
-              className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 px-4 text-left text-[1rem] text-foreground/65"
-            >
-              <span className="min-w-0 flex-1">Bà con có bán vật tư? Đăng ký shop</span>
               <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
             </Link>
           )}

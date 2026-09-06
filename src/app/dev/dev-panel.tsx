@@ -1,7 +1,7 @@
 "use client";
 
 // Bảng persona dev (12 §6.4): liệt kê persona + shop, nút Đăng nhập → POST
-// /api/dev/login → saveToken(token, tier, null) → router.push theo vai; Đăng
+// /api/dev/login → saveToken(token, tier, null) + applyIdentityAction("SIGNED_IN", true, phone) → router.push theo vai; Đăng
 // xuất = signOutLocal("user"). API 404 ⇒ "Chỉ dùng khi chạy MARKET_STORE=file".
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -12,6 +12,7 @@ import { SQ_BTN } from "@/components/ui/sq-btn";
 import { apiUrl } from "@/lib/api-base";
 import { timeoutSignal } from "@/lib/abort";
 import { readToken, saveToken, signOutLocal, tokenHeader } from "@/lib/device-token-store";
+import { applyIdentityAction } from "@/lib/offline-identity";
 import type { DevPersona, ShopStatus } from "@/lib/market/types";
 
 type PersonaRow = DevPersona & {
@@ -71,6 +72,11 @@ export function DevPanel() {
         setNote("Máy không giữ được chuỗi đăng nhập — thử lại.");
         return;
       }
+      /*  GHI DANH TÍNH như /login thật (F-29, audit E1): không có dòng này thì
+          `useAuthUser().phone` = null ⇒ giỏ/địa chỉ/yêu thích/bản lưu đơn của
+          persona rơi vào ngăn khách lạ dù API nhận đúng người. Đi qua cổng
+          `applyIdentityAction` (K7 — người ghi duy nhất của sổ danh tính). */
+      applyIdentityAction("SIGNED_IN", true, body.persona.phone);
       router.push(HOME[body.persona.role]);
     } catch {
       setNote("Không gọi được máy chủ dev.");
