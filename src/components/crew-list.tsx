@@ -72,7 +72,9 @@ type StoredCrew = CrewMember & { boatId?: string };
   2026-07-27: BỎ phần tiền (ăn chia/ứng) khỏi màn này — chỉ định danh + giấy tờ.
 */
 
-const STORAGE_KEY = "forfish.crew.v1";
+/** Khoá sổ thuyền viên — export cho `lib/assistant/device-snapshot.ts` đếm người (CHỈ đếm, không đọc tên/CCCD). */
+export const CREW_STORAGE_KEY = "forfish.crew.v1";
+const STORAGE_KEY = CREW_STORAGE_KEY;
 
 /*
   App đã đưa vào sử dụng (chủ dự án 2026-07-29): KHÔNG seed sổ mẫu nữa. User mới

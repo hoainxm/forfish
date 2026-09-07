@@ -2,7 +2,8 @@
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
-last_verified: 2026-09-06
+last_verified: 2026-09-07
+<!-- re-verified: 2026-09-07 - crew-list.tsx CHỈ export hằng CREW_STORAGE_KEY (cùng giá trị forfish.crew.v1) cho trợ lý đếm số thuyền viên; hành vi sổ thuyền viên/đa tàu KHÔNG đổi -->
 <!-- re-verified: 2026-09-06 - boat-products.tsx CHỈ thêm một thẻ lối vào "Chợ vật tư" (→ /cho) trong mục Cửa hàng; hành vi đa-tàu (R1/R2/R3, gắn sản phẩm theo tàu, cascade) KHÔNG đổi -->
 <!-- re-verified: 2026-09-01 — `urgent-strip.tsx` THÊM MỘT CỔNG HIỂN THỊ, KHÔNG đổi hành vi đa-tàu.
 Chưa có chuỗi cứng trong máy (`readToken() == null`) thì dải khẩn trả `null` — trước đó nó đọc thẳng
@@ -24,6 +25,7 @@ cố-định/động (R1/R2), cascade R3, guard R7 không bị chạm. AC-1..7 k
 Phan loai co-dinh-theo-tau vs dong-theo-chu (R1/R2) va guard R7 "luon con >=1 tau" giu nguyen; `removeBoat` khong doi chu ky. Cong test moi: `src/lib/__tests__/local-write-atomic.test.ts` (kho day -> cascade KHONG chay, danh sach tau giu nguyen). -->
 
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-09-06) — code 'src/components/boat-products.tsx' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-07-25 - boat-switcher/crew-list/urgent-strip chỉ thêm anchor data-tour (chon-tau, them-thuyen-vien, nhac-viec) cho coach-tour hướng dẫn; KHÔNG đổi hành vi đa-tàu — NV1–NV5, handoff H1, vòng đời thêm/xóa/đổi tàu, AC §8 giữ nguyên. -->
 <!-- re-verified: 2026-07-29 — GỠ seed mẫu (app lên thật): crew-list bỏ demoCrew/isDemo/startRealCrew, maintenance-reminders bỏ demoEntries/isDemo, boat-products bỏ filter demo-sp-. User mới thấy màn RỖNG + empty state, tự nhập. KHÔNG đụng hành vi đa-tàu: thuyền viên vẫn động-theo-chủ R2 (không boatId), lịch bảo dưỡng/sản phẩm vẫn gắn tàu + cascade R3 khi xóa tàu giữ nguyên. AC §8 không đổi. -->
 <!-- re-verify note: covers=maintenance-reminders.tsx, crew-list.tsx, boat-products.tsx (seed removal, behavior đa-tàu bất biến). -->

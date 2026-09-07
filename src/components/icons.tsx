@@ -566,3 +566,53 @@ export function BoxIcon(p: IconProps) {
     </svg>
   );
 }
+
+/** Trợ lý — mic (nút nổi "Nói", vòng mic trên tấm che) */
+export function MicIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect x="9" y="2.5" width="6" height="11" rx="3" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0" />
+      <path d="M12 17.5V21M8.5 21h7" />
+    </svg>
+  );
+}
+
+/** Trợ lý — loa bật tiếng (đọc to câu trả lời) */
+export function SpeakerIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4v-5Z" />
+      <path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18 7a7 7 0 0 1 0 10" />
+    </svg>
+  );
+}
+
+/** Trợ lý — loa tắt tiếng */
+export function SpeakerOffIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4v-5Z" />
+      <path d="M16 9.5l5 5M21 9.5l-5 5" />
+    </svg>
+  );
+}
+
+/** Trợ lý — bàn phím (gõ thay vì nói; máy không nghe được) */
+export function KeyboardIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <rect x="2.5" y="6" width="19" height="12" rx="2.5" />
+      <path d="M6.5 9.5h.01M10 9.5h.01M13.5 9.5h.01M17 9.5h.01M6.5 12.8h.01M10 12.8h.01M13.5 12.8h.01M17 12.8h.01M8 15.6h8" />
+    </svg>
+  );
+}
+
+/** Trợ lý — mũi tên gửi (nút Gửi cạnh ô gõ) */
+export function SendIcon(p: IconProps) {
+  return (
+    <svg {...base(p)}>
+      <path d="M4 12h15M13 6l6 6-6 6" />
+    </svg>
+  );
+}

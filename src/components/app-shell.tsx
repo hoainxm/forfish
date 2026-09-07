@@ -1,9 +1,17 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { BottomNav } from "@/components/bottom-nav";
 import { NativeGpsPrime } from "@/components/native-gps-prime";
 import { UserSyncInit } from "@/components/user-sync-init";
+
+// Trợ lý giọng nói — nạp SAU khung app (ssr:false): nút nổi + tấm che chỉ là
+// đường tắt, không được làm chậm màn đầu (14 §7.3).
+const AssistantMount = dynamic(
+  () => import("@/components/assistant/assistant-mount").then((m) => m.AssistantMount),
+  { ssr: false, loading: () => null },
+);
 
 /*
   Khung app theo KHU (chủ dự án chốt 2026-07-26):
@@ -31,6 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <BottomNav />
       <NativeGpsPrime />
       <UserSyncInit />
+      <AssistantMount />
     </div>
   );
 }

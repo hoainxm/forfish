@@ -163,6 +163,10 @@ export const NEVER_BACKUP_PREFIXES = [
   "forfish.device.",
   "forfish.heartbeat.",
   "forfish.token.",
+  /*  · `assistant.` — sổ Trợ lý giọng nói (14 §5.3): 10 CÂU BÀ CON VỪA NÓI (có thể
+   *    có tên người/số), cờ mic, đếm lượt. Cùng lớp `inbox.`/`crew.`: của riêng
+   *    máy này, xoá là về mặc định, không mất gì đáng giữ. */
+  "forfish.assistant.",
   /*  · `sync.` — SỔ BOOKKEEPING đồng bộ per-máy (lib/user-sync): mỗi kind đã ghi
    *    lúc nào (mốc client) + còn dirty không. Của RIÊNG máy này. Chép sang máy
    *    khác là dán mốc/dirty sai → máy nhận tưởng đã đẩy/đã mới, bỏ qua sổ thật

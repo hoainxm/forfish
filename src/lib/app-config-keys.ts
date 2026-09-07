@@ -5,7 +5,9 @@ export type ConfigKey =
   | "vapid_public_key"
   | "vapid_private_key"
   | "vapid_subject"
-  | "cron_secret";
+  | "cron_secret"
+  | "anthropic_api_key"
+  | "assistant_daily_limit";
 
 export interface ConfigKeyMeta {
   key: ConfigKey;
@@ -45,6 +47,20 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     secret: true,
     envVar: "CRON_SECRET",
     help: "Khoá xác thực cron (GitHub Actions gửi Bearer này). Đặt Ở ĐÂY (DB dùng chung) thì mọi deploy khớp — khỏi set env CRON_SECRET trên từng Vercel. Phải TRÙNG giá trị secret CRON_SECRET bên GitHub.",
+  },
+  {
+    key: "anthropic_api_key",
+    label: "Anthropic API Key (Trợ lý)",
+    secret: true,
+    envVar: "ANTHROPIC_API_KEY",
+    help: "Khoá gọi Claude cho Trợ lý giọng nói. Không hiện lại sau khi lưu. Thiếu ⇒ trợ lý chỉ trả lời việc trong máy.",
+  },
+  {
+    key: "assistant_daily_limit",
+    label: "Trợ lý — số lượt hỏi mạng / ngày / tài khoản",
+    secret: false,
+    envVar: "ASSISTANT_DAILY_LIMIT",
+    help: "Mặc định 30. Chỉ đếm lượt gọi Claude; việc trong máy không tính.",
   },
 ];
 

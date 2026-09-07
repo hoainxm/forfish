@@ -13,6 +13,7 @@
     "e2e:build": "node scripts/e2e-build.mjs",
     "e2e:videos": "playwright test",
     "e2e:san": "playwright test -c playwright.san.config.ts",
+    "e2e:troly": "playwright test -c playwright.troly.config.ts",
     "e2e:export": "node scripts/e2e-video-export.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "cap:sync": "cap sync",
@@ -23,6 +24,7 @@
     "kiem:phu": "node scripts/kiem-phu-hai-do.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
     "@protomaps/basemaps": "^5.7.2",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.1",

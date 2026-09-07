@@ -381,6 +381,21 @@ Chủ dự án 2026-08-29: *"kích thước cái x đóng làm cho đồng bộ�
 
 **Nguồn khảo sát**: Material 3 Dialogs (48dp/24dp) · Apple HIG Sheets (Cancel trái/Done phải, 44pt, `interactiveDismissDisabled` khi có thay đổi) · Shopify Polaris Modal (X/Cancel/Esc/chạm-ngoài, primary phải) · IBM Carbon Modal (Cancel ngoài-trái, primary ngoài-phải, X đóng không gửi) · WCAG 2.5.5 (44px AAA) / 2.5.8 (24px AA).
 
+### Nút nổi TRỢ LÝ + tấm che toàn màn (2026-09-06, [13 §5.1/§5.2](13-ba-spec-tro-ly-giong-noi.md))
+
+Hai khuôn mới, chỉ dùng cho Trợ lý giọng nói — đừng chép sang chỗ khác mà không đọc lý do.
+
+| Khuôn | Chốt | Vì sao |
+|---|---|---|
+| **Nút nổi** (`assistant-fab.tsx`) | tròn **3.5rem** (không hạ ở chế độ gọn), `bg-sea` chữ trắng, icon mic 24px + nhãn "Nói" dưới icon, `right:1rem`, `bottom: calc(var(--dock-total) + 0.75rem)`, `z-20` | Sàn chạm 56px là sàn tuyệt đối (§Nút hành động 5). Neo theo `--dock-total` để nằm ngay TRÊN dock, dưới rail phải của Ra khơi — hai thứ nổi không tranh chỗ |
+| **Luật ẩn** (rẻ → đắt) | route cấm (danh sách tĩnh) → bàn phím mở (`visualViewport` co >150px) → panel khác (`[role=dialog][aria-modal]`) → thanh đáy dính của chợ → **sheet Ra khơi nở nấc `half`** (2026-09-06c: `section[role=region]` có `style.height` theo %) | Nút nổi che ô đang gõ hoặc che "Đặt hàng (n)" là hỏng việc chính của màn. ⚠️ Phép dò thanh dính bắt theo dấu vết `--dock-total`, mà chính nút nổi cũng mang dấu đó ⇒ **phải loại chính nó ra**, không thì nút tự thấy mình → ẩn → hiện → ẩn (đo thật 2026-09-06: ~10.000 lượt/giây, chạm không được) |
+| **Tấm che** (`assistant-sheet.tsx`) | `fixed inset-0` trong cột 480px, `role="dialog" aria-modal`, tự bẫy focus + Esc + khoá cuộn nền; **không** dùng `BottomSheet`, **không** scrim | Cần trọn chiều cao cho vòng mic + chữ TO; nền sau không có gì để nhìn. Đổi lại nó phải tự làm đủ ba việc a11y mà `BottomSheet` làm sẵn |
+| **Sáu khối theo thứ tự** | 1 tiêu đề + Tắt/Bật tiếng (`SQ_BTN` 56px) + `CloseButton` · 2 vòng mic ≥6rem (nhịp `motion-safe:animate-ping`, tôn trọng "giảm chuyển động") + chữ nghe được hiện dần · 3 câu trả lời **≥1.25rem** `text-foreground` + dòng tuổi dữ liệu 0.9375rem · 4 thẻ hành động 0-hoặc-1 (cặp nút `grid-cols-2`, primary bên PHẢI, mỗi nút `min-h-[3.5rem]`) · 5 chip gợi ý 3–4 (`min-h-[3.5rem]`) · 6 hàng đáy "Gõ thay vì nói" / ô gõ | "Chỉ bày cái KEY" (§Khung nhập C1). Chữ trả lời là kênh CHÍNH (nhiều máy Android không có giọng Việt), nên nó to hơn mọi chữ khác trên tấm che |
+| **Đọc lại** | nút chữ "Nghe lại" dưới câu trả lời, ẩn khi đã tắt tiếng hoặc máy không có giọng Việt | iOS chỉ phát tiếng trong một cử chỉ chạm THẬT; câu trả lời tới sau cử chỉ mở tấm che thì máy im — nút này là cử chỉ mới |
+| **Nâng tránh chỗ chạm** (2026-09-06c) | ở `/ngu-truong` đo dải chip ngày rồi nâng nút bằng `marginBottom` (KHÔNG `transform` — lớp `active:scale` đã chiếm thuộc tính đó) | Chip ngày là ô chạm nhiều thứ hai của màn; nâng theo SỐ ĐO thật thì dải đổi chỗ theo nấc sheet vẫn không bị che |
+| **Chữ phụ trên tấm che** (2026-09-06c) | các dòng dặn ("Bật mic trong cài đặt máy…", "Máy này chưa nói được với tôi…", dòng cách xác nhận) và nhãn chip lên **1.125rem**; "Nghe lại" 1.125rem | Đây là chữ ĐỌC, không phải nhãn trang trí — sàn 1.125rem của §Chữ áp cho cả chữ phụ (audit P2-11: 0.9375rem dưới nắng chói bà con 55 tuổi không đọc nổi) |
+| **Đồng hồ** | "Đang nghĩ…" chỉ hiện sau **300 ms**, đổi sang "Hơi lâu, bác chờ chút…" ở **8 s** (cạnh nó là nút "Thôi đợi" — bỏ câu đang hỏi, không đóng tấm che); trạng thái xong không ai chạm **20 s** → tự đóng | Tầng máy trả lời trong nửa giây — nháy một dòng chữ rồi mất còn khó chịu hơn không có. Tự đóng để trả màn về việc bà con đang làm dở |
+
 ## 7. Cross-references
 
 - Vì sao audience là vậy: [01-product.md](01-product.md)

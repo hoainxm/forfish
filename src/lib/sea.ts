@@ -307,6 +307,23 @@ function readCache(
   }
 }
 
+/**
+ * Bản dự báo cảng ĐÃ LƯU trong máy, bất kể cũ — cho Trợ lý (14 §5.1) đọc mà
+ * không phải tự biết khoá `forfish.sea.<port>.v3`. Bọc `readCache(portId, true)`
+ * + mốc lưu; không đổi logic đọc. `null` = chưa từng lưu / hỏng.
+ */
+export function readSeaCache(portId: string): { savedAt: number; days: ScoredSeaDay[] } | null {
+  const days = readCache(portId, true);
+  if (!days || days.length === 0) return null;
+  try {
+    const raw = window.localStorage.getItem(cacheKey(portId));
+    const ts = raw ? (JSON.parse(raw) as { ts?: number }).ts : undefined;
+    return { savedAt: typeof ts === "number" ? ts : 0, days };
+  } catch {
+    return null;
+  }
+}
+
 function writeCache(portId: string, days: ScoredSeaDay[]) {
   try {
     window.localStorage.setItem(
