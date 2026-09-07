@@ -174,6 +174,48 @@ test.describe("Chợ — kênh người bán (API)", () => {
     expect(d2.status, "xoá lần 2 ⇒ 404").toBe(404);
   });
 
+  /*  MÓN LIÊN HỆ BÁO GIÁ (ADR 0011) — đăng được VÀ SỬA ĐƯỢC.
+      Ca này sinh ra từ một lỗi thật: đường PATCH biến `priceVnd: null` thành 0
+      rồi validate chặn, nên 6 món của SDVICO chuyển sang chợ KHÔNG SỬA NỔI, kể
+      cả khi chỉ sửa mô tả (form luôn gửi cả draft). Đường POST thì đúng — nên
+      test phải đi qua CẢ HAI, và phải sửa một trường KHÁC giá để bắt đúng bệnh. */
+  test("ADR 0011 món liên hệ báo giá: đăng được, sửa mô tả vẫn giữ null, đặt giá rồi bỏ giá lại", async ({ request }) => {
+    const tao = await post<{ product: Product }>(
+      request, "/api/ban-hang/san-pham",
+      { ...productDraft, title: "Máy lọc nước biển QA báo giá", priceVnd: null, stock: 0, variants: [] },
+      nam,
+    );
+    expect(tao.status, JSON.stringify(tao.body)).toBe(201);
+    expect(tao.body.product.priceVnd, "đăng mới: giữ null").toBeNull();
+    const id = tao.body.product.id;
+
+    // sửa MÔ TẢ (không đụng giá) — form gửi cả draft nên priceVnd null đi kèm
+    const suaMoTa = await patch<{ product: Product }>(
+      request, `/api/ban-hang/san-pham/${id}`,
+      { ...productDraft, title: "Máy lọc nước biển QA báo giá", priceVnd: null, stock: 0, variants: [], description: "Báo giá theo từng tàu." },
+      nam,
+    );
+    expect(suaMoTa.status, `sửa món liên hệ báo giá phải được — ${JSON.stringify(suaMoTa.body)}`).toBe(200);
+    expect(suaMoTa.body.product.priceVnd, "sửa xong vẫn là liên hệ báo giá").toBeNull();
+    expect(suaMoTa.body.product.description).toContain("Báo giá theo từng tàu");
+
+    // đặt giá thật ⇒ thành món bán thẳng
+    const datGia = await patch<{ product: Product }>(
+      request, `/api/ban-hang/san-pham/${id}`, { priceVnd: 1_500_000, stock: 3 }, nam,
+    );
+    expect(datGia.status, JSON.stringify(datGia.body)).toBe(200);
+    expect(datGia.body.product.priceVnd).toBe(1_500_000);
+
+    // bỏ giá lại ⇒ về liên hệ báo giá
+    const boGia = await patch<{ product: Product }>(
+      request, `/api/ban-hang/san-pham/${id}`, { priceVnd: null }, nam,
+    );
+    expect(boGia.status, JSON.stringify(boGia.body)).toBe(200);
+    expect(boGia.body.product.priceVnd, "bỏ giá ⇒ null, KHÔNG phải 0").toBeNull();
+
+    await del(request, `/api/ban-hang/san-pham/${id}`, nam);
+  });
+
   test("AC-31/AC-50 chuyển trạng thái đơn: sai bước 409, huỷ thiếu lý do 400, đơn shop khác 404", async ({ request }) => {
     const donShop = await get<{ order: Order }>(request, `/api/ban-hang/don/${orderId}`, nam);
     expect(donShop.status).toBe(200);

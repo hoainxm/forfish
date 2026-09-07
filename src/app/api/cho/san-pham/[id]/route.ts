@@ -41,7 +41,7 @@ export async function GET(req: Request, ctx: Ctx) {
     const shop = await store.getShop(product.shopId);
     if (!shop) return notFound();
 
-    const latest = await store.listProductReviews(id, { page: 1, pageSize: 5 });
+    const latest = await store.listReviews({ productId: id, page: 1, pageSize: 5 });
     /*  canReview cần đọc đơn của người gọi — chỉ chạy khi ĐÃ đăng nhập, và
         hỏng thì coi như "chưa được đánh giá" (màn món không được chết vì một
         truy vấn phụ). */

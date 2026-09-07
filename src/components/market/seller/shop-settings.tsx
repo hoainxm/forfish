@@ -12,7 +12,7 @@ import { marketSend, marketUpload } from "@/lib/market/client";
 import type { Shop } from "@/lib/market/types";
 import { validateShopDraft } from "@/lib/market/validate";
 import { useOnline } from "@/lib/use-online";
-import { InlineNote, LoadView, marketErrorText, useMyShop } from "./seller-net";
+import { LoadView, marketErrorText, useInlineNote, useMyShop } from "./seller-net";
 import { focusField } from "./ui";
 import {
   ShopForm, shopDraftOf, shopFieldDomId, shopFieldOfError, shopFormFrom, type ShopFormValue,
@@ -40,7 +40,7 @@ function Inner({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
   const [form, setForm] = useState<ShopFormValue>(() => shopFormFrom(shop));
   const [paused, setPaused] = useState(shop.paused);
   const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState("");
+  const note = useInlineNote();
   const [saving, setSaving] = useState(false);
 
   async function upload(blob: Blob): Promise<string> {
@@ -66,14 +66,14 @@ function Inner({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
       onShop(res.data.shop);
       setForm(shopFormFrom(res.data.shop));
       setPaused(res.data.shop.paused);
-      setNote("Đã lưu cài đặt shop.");
+      note.show("Đã lưu cài đặt shop.");
       return;
     }
     if (res.code === "slug_taken") {
       setError("Tên shop này đã có người dùng — chọn tên khác.");
       return;
     }
-    setNote(res.offline ? "Chưa lưu được — cần sóng. Nội dung vẫn ở trên màn." : marketErrorText(res));
+    note.show(res.offline ? "Chưa lưu được — cần sóng. Nội dung vẫn ở trên màn." : marketErrorText(res), "danger");
   }
 
   const hasBank = !!form.bankAccount.trim();
@@ -87,7 +87,7 @@ function Inner({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
           </StatusBanner>
         </div>
       )}
-      {note && <InlineNote text={note} />}
+      {note.node}
 
       <div className="px-4">
         <label className="mb-4 flex min-h-[3.5rem] items-center justify-between gap-3 rounded-2xl px-4 py-2"

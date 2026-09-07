@@ -15,11 +15,12 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import { marketSend } from "@/lib/market/client";
 import type { Product, Shop } from "@/lib/market/types";
-import { InlineNote, LoadView, marketErrorText, useMarketData, useMyShop } from "./seller-net";
+import { InlineNote, LoadView, marketErrorText, useInlineNote, useMarketData, useMyShop } from "./seller-net";
 import { SELLER_BTN, SELLER_BTN_WIDE } from "./ui";
 
-type Filter = "dang_ban" | "an" | "het_hang" | "bi_go";
+type Filter = "all" | "dang_ban" | "an" | "het_hang" | "bi_go";
 const FILTERS: readonly ChipOption<Filter>[] = [
+  { id: "all", label: "Tất cả" },
   { id: "dang_ban", label: "Đang bán" },
   { id: "an", label: "Đã ẩn" },
   { id: "het_hang", label: "Hết hàng" },
@@ -74,7 +75,12 @@ function Inner({ shop }: { shop: Shop }) {
     return () => clearTimeout(t);
   }, [term]);
 
-  const path = `/api/ban-hang/san-pham?status=${filter}&page=${page}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+  /*  `status=all` ⇒ KHÔNG gửi tham số: route hiểu bỏ trống là tất cả. Đang tìm
+      chữ mà vẫn kẹp trạng thái là lý do chính khiến "tìm không ra". */
+  const path =
+    `/api/ban-hang/san-pham?page=${page}` +
+    (filter === "all" ? "" : `&status=${filter}`) +
+    (q ? `&q=${encodeURIComponent(q)}` : "");
   const { state, reload } = useMarketData<ListRes>(path);
 
   return (
@@ -128,6 +134,7 @@ function Inner({ shop }: { shop: Shop }) {
             canEdit={canEdit}
             onPage={setPage}
             filter={filter}
+            q={q}
           />
         )}
       </LoadView>
@@ -136,15 +143,17 @@ function Inner({ shop }: { shop: Shop }) {
 }
 
 function Rows({
-  data, canEdit, onPage, filter,
+  data, canEdit, onPage, filter, q,
 }: {
   data: ListRes;
   canEdit: boolean;
   onPage: (p: number) => void;
   filter: Filter;
+  /** chữ đang tìm — để câu "không có món nào" nói đúng vì sao trống */
+  q: string;
 }) {
   const [rows, setRows] = useState<Product[]>(data.items);
-  const [note, setNote] = useState("");
+  const note = useInlineNote();
   const [undo, setUndo] = useState<{ id: string; stock: number } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   useEffect(() => { setRows(data.items); setUndo(null); }, [data]);
@@ -160,11 +169,11 @@ function Rows({
     setBusy(p.id);
     const res = await marketSend<{ product: Product }>("PATCH", `/api/ban-hang/san-pham/${p.id}`, { stock });
     setBusy(null);
-    if (!res.ok) return setNote(marketErrorText(res));
+    if (!res.ok) return note.show(marketErrorText(res), "danger");
     const next = res.data.product;
     setRows((cur) => cur.map((x) => (x.id === next.id ? next : x)));
     setUndo(undoable ? { id: p.id, stock: p.stock } : null);
-    setNote(msg);
+    note.show(msg);
   }
 
   const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
@@ -173,7 +182,15 @@ function Rows({
     return (
       <div className="px-4">
         <EmptyState icon={<BoxIcon className="h-8 w-8" />}>
-          {filter === "bi_go" ? "Không có món nào bị SDVICO gỡ." : "Chưa có món nào ở mục này."}
+          {/*  Nói rõ PHẠM VI đang thu hẹp, và chỉ đường mở rộng — "Chưa có món
+               nào ở mục này" khi đang tìm chữ dễ bị đọc thành "shop chưa có món". */}
+          {q
+            ? `Không có món nào tên giống "${q}"${filter === "all" ? "" : " trong mục này — thử chip Tất cả"}.`
+            : filter === "bi_go"
+              ? "Không có món nào bị SDVICO gỡ."
+              : filter === "all"
+                ? "Shop chưa có món nào."
+                : "Chưa có món nào ở mục này."}
         </EmptyState>
         {canEdit && (
           <Link href="/ban-hang/san-pham/moi" className="mt-4 flex min-h-[3.5rem] items-center justify-center gap-2 rounded-full bg-trim text-[1.125rem] font-bold text-white">
@@ -186,7 +203,7 @@ function Rows({
 
   return (
     <div>
-      {note && <InlineNote text={note} />}
+      {note.node}
       {undo && (
         <div className="mb-3 flex items-center justify-between gap-3 px-4">
           <span className="text-[1rem] text-foreground/70">Đặt nhầm?</span>

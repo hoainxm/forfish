@@ -74,7 +74,11 @@ function RegisterInner({ shop }: { shop: Shop | null }) {
     setSending(false);
     if (res.ok) {
       saveShopFlag(phone, { hasShop: true, status: res.data.shop.status, at: Date.now() });
-      router.replace("/ban-hang");
+      /*  BIÊN NHẬN: trước đây nhảy thẳng về Tổng quan, không một lời. Bà con
+          vừa gõ 8 ô cho việc một-lần-trong-đời mà màn đổi trang câm là tưởng
+          hỏng, gõ lại lần nữa. Băng "chờ duyệt" ở Tổng quan là MÔ TẢ TRẠNG
+          THÁI, không thay được lời xác nhận "đã gửi". */
+      router.replace("/ban-hang?dk=xong");
       return;
     }
     if (res.offline) {

@@ -7,7 +7,7 @@
 //
 // Kênh người bán KHÔNG cache gì (11 §9: seller ở bờ, dữ liệu đổi liên tục) —
 // mất sóng thì nói thật, không bày số cũ.
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { EmptyNet } from "@/components/market/shared/empty-net";
 import { PrimaryButton } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
@@ -70,6 +70,97 @@ export function useMarketData<T>(path: string | null): {
     state,
     reload: () => void load(),
     set: (data: T) => setState({ kind: "ok", data }),
+  };
+}
+
+/*  DÒNG BÁO SAU THAO TÁC — dùng hook này, ĐỪNG tự giữ `useState<string>`.
+
+    Lỗi thật đã dính: parent giữ câu báo bằng một chuỗi, `InlineNote` tự tắt sau
+    5 giây, rồi thao tác hỏng LẦN HAI với câu Y HỆT ("Máy đang không có sóng.")
+    ⇒ React thấy state không đổi nên không dựng lại, dòng báo KHÔNG hiện nữa.
+    Bà con bấm mà màn im hoàn toàn, tưởng đã xong.
+
+    Hook đóng mốc thời gian vào state nên lần nào cũng là thay đổi thật, và
+    `key` ép dựng lại để đồng hồ 5 giây chạy từ đầu. */
+export function useInlineNote(): {
+  node: ReactNode;
+  show: (text: string, level?: "ok" | "danger") => void;
+  clear: () => void;
+} {
+  const [n, setN] = useState<{ text: string; level: "ok" | "danger"; at: number } | null>(null);
+  return {
+    node: n ? <InlineNote key={n.at} text={n.text} level={n.level} /> : null,
+    show: (text, level = "ok") => setN({ text, level, at: Date.now() }),
+    clear: () => setN(null),
+  };
+}
+
+export interface PagedRes<T> { items: T[]; total: number; page: number; pageSize: number }
+
+/*  DANH SÁCH PHÂN TRANG "Xem thêm N …" cho kênh người bán (2026-09-07).
+    Sinh ra vì màn đơn của shop trước đó ghim `page=1` và vứt `total`: shop có
+    hơn 20 đơn trong một tab thì đơn thứ 21 KHÔNG có đường nào mở ra, mà cũng
+    không có chữ nào báo là đang bị cắt. Luật của dự án là "Xem thêm N …",
+    không phải Trước/Sau (07 §Ma trận).
+
+    `path(page)` đổi (đổi tab, đổi ô tìm) ⇒ tự về trang 1 và bỏ hết bản đã gom.
+    `runRef` chống phản hồi tới trễ: bấm nhanh hai tab thì bản của tab cũ về sau
+    không được phép đè bản tab mới.
+    // nợ: đây là bản phân trang THỨ BA trong repo (buyer my-market-orders tự
+    // làm, admin có useAdminList) — gom một hook dùng chung khi chạm lần sau. */
+export function useMarketList<T>(path: (page: number) => string): {
+  state: LoadState<PagedRes<T>>;
+  items: T[];
+  total: number;
+  /** còn bao nhiêu món/đơn chưa tải — 0 là hết */
+  more: number;
+  loadingMore: boolean;
+  reload: () => void;
+  loadMore: () => void;
+} {
+  const [state, setState] = useState<LoadState<PagedRes<T>>>({ kind: "loading" });
+  const [items, setItems] = useState<T[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const runRef = useRef(0);
+  const first = path(1);
+
+  const fetchPage = useCallback(
+    async (p: number, append: boolean) => {
+      const run = ++runRef.current;
+      if (append) setLoadingMore(true);
+      else setState({ kind: "loading" });
+      const res = await marketGet<PagedRes<T>>(path(p));
+      if (run !== runRef.current) return; // bản cũ về sau — bỏ
+      if (append) setLoadingMore(false);
+      if (!res.ok) {
+        // Tải thêm mà hỏng thì GIỮ phần đã có, chỉ báo ở nhánh chung khi là lượt đầu
+        if (!append) setState(res.offline ? { kind: "offline" } : { kind: "error", msg: marketErrorText(res) });
+        return;
+      }
+      setTotal(res.data.total);
+      setPage(res.data.page);
+      setItems((cur) => (append ? [...cur, ...res.data.items] : res.data.items));
+      setState({ kind: "ok", data: res.data });
+    },
+    [path],
+  );
+
+  useEffect(() => {
+    void fetchPage(1, false);
+    // `first` là vân tay của bộ lọc: đổi tab / đổi ô tìm ⇒ gom lại từ đầu
+  }, [first, fetchPage]);
+  useOnlineRefetch(() => void fetchPage(1, false));
+
+  return {
+    state,
+    items,
+    total,
+    more: Math.max(0, total - items.length),
+    loadingMore,
+    reload: () => void fetchPage(1, false),
+    loadMore: () => void fetchPage(page + 1, true),
   };
 }
 

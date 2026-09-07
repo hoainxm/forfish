@@ -7,7 +7,7 @@
   đơn ra vẫn biết ai đã đụng vào.
 */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatVnd } from "@/lib/format";
 import { clockVN } from "@/lib/day-labels";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -58,6 +58,12 @@ export function MarketAdminOrders({
   const [query, setQuery] = useState({ code: "", buyerPhone: "" });
   const [openId, setOpenId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  /*  Băng kết quả thao tác TẮT khi đổi bộ lọc (2026-09-07): câu "Đã duyệt gian
+      hàng X" đứng nguyên trong lúc staff đã sang danh sách khác là nói về một
+      thứ không còn trên màn. Lỗi tải thì khác — nó thuộc về lần tải, do ErrorBox
+      lo. */
+  useEffect(() => setNotice(null), [shopId, status, query]);
+
 
   const sp = new URLSearchParams();
   if (status !== "all") sp.set("status", status);

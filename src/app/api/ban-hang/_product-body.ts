@@ -53,7 +53,11 @@ export function productPatchFromBody(b: Record<string, unknown>): Partial<Produc
   if ("title" in b) p.title = str(b.title) ?? "";
   if ("description" in b) p.description = str(b.description) ?? "";
   if ("category" in b) p.category = (typeof b.category === "string" ? b.category : "") as ProductDraftM["category"];
-  if ("priceVnd" in b) p.priceVnd = num(b.priceVnd) ?? 0;
+  /*  `priceVnd: null` = chuyển món sang LIÊN HỆ BÁO GIÁ (ADR 0011). `num(null)`
+      trả undefined rồi `?? 0` biến thành 0, mà validate chặn giá 0 ⇒ shop KHÔNG
+      SỬA NỔI món liên hệ báo giá, kể cả khi chỉ sửa mô tả (form luôn gửi cả
+      draft). Cùng luật với `productDraftFromBody` ở trên. */
+  if ("priceVnd" in b) p.priceVnd = b.priceVnd === null ? null : num(b.priceVnd) ?? 0;
   if ("compareAtVnd" in b) p.compareAtVnd = num(b.compareAtVnd);
   if ("unit" in b) p.unit = str(b.unit) ?? "";
   if ("stock" in b) p.stock = num(b.stock) ?? 0;

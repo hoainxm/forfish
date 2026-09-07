@@ -18,6 +18,7 @@ import { ORDER_STATUS_LABEL, ORDER_STATUSES } from "@/lib/market/order-state";
 import type { AdminOverview } from "@/lib/market/types";
 import { MarketAdminOrders, type OrderFilter } from "./market-admin-orders";
 import { MarketAdminProducts } from "./market-admin-products";
+import { MarketAdminReviews } from "./market-admin-reviews";
 import { MarketAdminShops } from "./market-admin-shops";
 import {
   ErrorBox,
@@ -26,13 +27,14 @@ import {
   marketAdminGet,
 } from "./market-admin-shared";
 
-type Section = "tong-quan" | "gian-hang" | "don-hang" | "san-pham";
+type Section = "tong-quan" | "gian-hang" | "don-hang" | "san-pham" | "danh-gia";
 
 const SECTIONS: [Section, string][] = [
   ["tong-quan", "Tổng quan"],
   ["gian-hang", "Gian hàng"],
   ["don-hang", "Đơn hàng"],
   ["san-pham", "Sản phẩm"],
+  ["danh-gia", "Đánh giá"],
 ];
 
 type ShopLite = { id: string; name: string };
@@ -70,12 +72,34 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
       .catch(() => {});
   }, []);
 
-  // Danh sách gian hàng cho ô lọc của mục Đơn hàng + Sản phẩm (một lượt đọc).
-  useEffect(() => {
-    marketAdminGet<{ items: ShopLite[] }>("/api/admin/cho/shops?status=all")
-      .then((j) => setShops(j.items.map((s) => ({ id: s.id, name: s.name }))))
-      .catch(() => setShops([]));
+  /*  Danh sách gian hàng cho ô lọc của mục Đơn hàng + Sản phẩm.
+      GOM ĐỦ TRANG, không phải một lượt đọc (sửa 2026-09-07): route trả 20 shop
+      một trang, nên bản cũ chỉ nạp 20 gian hàng ĐẦU và từ gian thứ 21 trở đi
+      admin không lọc được — mà cũng không có dấu hiệu gì. Trần 20 lượt (~1000
+      gian hàng) để một sàn lớn bất thường không kéo màn quản trị đứng hình.
+      Hỏng thì NÓI: `catch` cũ nuốt lỗi thành danh sách rỗng, mạng chập là admin
+      tưởng sàn không có gian hàng nào. */
+  const [shopsErr, setShopsErr] = useState<string | null>(null);
+  const loadShops = useCallback(async () => {
+    setShopsErr(null);
+    const all: ShopLite[] = [];
+    try {
+      for (let p = 1; p <= 20; p++) {
+        const j = await marketAdminGet<{ items: ShopLite[]; total: number }>(
+          `/api/admin/cho/shops?status=all&page=${p}`,
+        );
+        all.push(...j.items.map((s) => ({ id: s.id, name: s.name })));
+        if (all.length >= j.total || j.items.length === 0) break;
+      }
+      setShops(all);
+    } catch (e) {
+      setShops([]);
+      setShopsErr((e as Error).message);
+    }
   }, []);
+  useEffect(() => {
+    void loadShops();
+  }, [loadShops]);
 
   return (
     <div className="mt-4 space-y-4">
@@ -86,6 +110,11 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
       </p>
 
       {error && <ErrorBox text={error} onRetry={loadOverview} />}
+      {/*  Ô lọc gian hàng hỏng thì nói thẳng — nếu không, hai mục Đơn hàng và
+           Sản phẩm chỉ còn "Mọi gian hàng" mà không ai biết vì sao. */}
+      {shopsErr && (
+        <ErrorBox text={`Chưa tải được danh sách gian hàng cho ô lọc — ${shopsErr}`} onRetry={() => void loadShops()} />
+      )}
       {!overview && !error && <LoadingBox what="số liệu chợ" />}
       {overview && (
         <KpiStrip
@@ -131,6 +160,7 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
           onChanged={refreshOverview}
         />
       )}
+      {section === "danh-gia" && <MarketAdminReviews onChanged={refreshOverview} />}
       {section === "san-pham" && (
         <MarketAdminProducts
           shops={shops}
@@ -197,6 +227,22 @@ const PERIODS: [keyof AdminOverview["orders"], string][] = [
 ];
 
 function OverviewDetail({ overview }: { overview: AdminOverview }) {
+  /*  SÀN CÒN TRỐNG — nhánh này trước đây không có, nên chợ mới dựng thì bảng
+      vẫn vẽ đủ hàng toàn số 0 và staff phải tự đoán là "chưa có gì" hay "hỏng
+      chỗ nào". Nói thẳng một câu, kèm việc phải làm tiếp. */
+  const shopCount = overview.shops.cho_duyet + overview.shops.hoat_dong + overview.shops.tam_khoa + overview.shops.tu_choi;
+  const orderCount = sum(overview.orders.d30);
+  if (shopCount === 0 && orderCount === 0) {
+    return (
+      <div className="surface px-4 py-6 text-center">
+        <p className="text-[1rem] font-bold text-navy">Chợ chưa có gian hàng nào.</p>
+        <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
+          Số liệu sẽ hiện khi có đại lý đăng ký và bắt đầu bán. Việc đầu tiên là
+          duyệt gian hàng ở mục <b>Gian hàng</b>, hoặc gán chủ cho gian hàng SDVICO.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-3">
       <div className="surface overflow-x-auto">

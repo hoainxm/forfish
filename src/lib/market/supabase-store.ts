@@ -205,7 +205,11 @@ export function createSupabaseStore(): MarketStore {
   async function listOrders(build: (q: OrderQb) => OrderQb, q?: OrderListQuery): Promise<Page<Order>> {
     const { page, pageSize, from, to } = clampPage(q);
     let qb = build(client().from("market_orders").select(`*, ${ORDER_JOIN}`, { count: "exact" }) as unknown as OrderQb);
+    /*  status + code + buyerPhone áp Ở ĐÂY để ba đường (buyer / shop / admin)
+        cùng một luật — trước đây code+SĐT chỉ có ở `listAllOrders`. */
     if (q?.status) qb = qb.eq("status", q.status);
+    if (q?.code?.trim()) qb = qb.eq("code", q.code.trim().toUpperCase());
+    if (q?.buyerPhone?.trim()) qb = qb.eq("buyer_phone", q.buyerPhone.trim());
     const { data, error, count } = await withSig(qb.order("created_at", { ascending: false }).range(from, to));
     if (error) fail("market_orders đọc", error);
     return { items: (data ?? []).map((r) => rowToOrder(r as Row)), total: count ?? 0, page, pageSize };
@@ -217,6 +221,15 @@ export function createSupabaseStore(): MarketStore {
       let qb = client().from("shop_products").select(`*, ${SHOP_JOIN}`, { count: "exact" }).is("deleted_at", null);
       if (!q.includeHidden) {
         qb = qb.eq("admin_hidden", false).in("status", ["dang_ban", "het_hang"]).eq("shops.status", "hoat_dong");
+      }
+      /*  LỌC TRẠNG THÁI cho màn quản trị (2026-09-07): file-store vốn đã áp
+          trong filterProducts dùng chung, bản Supabase thì quên — nên mục Sản
+          phẩm của /quan-tri không lọc được, danh sách trộn lẫn đang bán / ẩn /
+          đã bị gỡ. Cùng luật: bi_go = đã gỡ (mọi status) · còn lại = đúng
+          status VÀ chưa bị gỡ · all/bỏ trống = không lọc. */
+      if (q.status && q.status !== "all") {
+        if (q.status === "bi_go") qb = qb.eq("admin_hidden", true);
+        else qb = qb.eq("admin_hidden", false).eq("status", q.status);
       }
       if (q.shopId) qb = qb.eq("shop_id", q.shopId);
       if (q.category) qb = qb.eq("category", q.category);
@@ -362,14 +375,8 @@ export function createSupabaseStore(): MarketStore {
     },
     listBuyerOrders: (buyerPhone, q) => listOrders((qb) => qb.eq("buyer_phone", buyerPhone), q),
     listShopOrders: (shopId, q) => listOrders((qb) => qb.eq("shop_id", shopId), q),
-    listAllOrders: (q) =>
-      listOrders((qb) => {
-        let x = qb;
-        if (q?.shopId) x = x.eq("shop_id", q.shopId);
-        if (q?.buyerPhone) x = x.eq("buyer_phone", q.buyerPhone);
-        if (q?.code?.trim()) x = x.eq("code", q.code.trim().toUpperCase());
-        return x;
-      }, q),
+    // code + buyerPhone nay do `listOrders` lo; ở đây chỉ còn phạm vi shop
+    listAllOrders: (q) => listOrders((qb) => (q?.shopId ? qb.eq("shop_id", q.shopId) : qb), q),
     async listOverdueDelivered(beforeIso, shopId) {
       let qb = client().from("market_orders").select(`*, ${ORDER_JOIN}`).eq("status", "da_giao").lte("delivered_at", beforeIso);
       if (shopId) qb = qb.eq("shop_id", shopId);
@@ -434,9 +441,11 @@ export function createSupabaseStore(): MarketStore {
       }
       return rowToReview((Array.isArray(data) ? data[0] : data) as Row);
     },
-    async listProductReviews(productId, q) {
+    async listReviews(q) {
       const { page, pageSize, from, to } = clampPage(q);
-      let qb = client().from("product_reviews").select("*", { count: "exact" }).eq("product_id", productId);
+      let qb = client().from("product_reviews").select("*", { count: "exact" });
+      if (q?.productId) qb = qb.eq("product_id", q.productId);
+      if (q?.maxRating != null) qb = qb.lte("rating", q.maxRating);
       if (!q?.includeHidden) qb = qb.eq("hidden", false);
       const { data, error, count } = await withSig(qb.order("created_at", { ascending: false }).range(from, to));
       if (error) fail("product_reviews đọc", error);

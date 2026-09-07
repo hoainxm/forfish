@@ -1735,6 +1735,7 @@ Commit message mỗi pha ghi câu trả lời offline (CLAUDE.md pre-flight 🟡
 | 8 | Người chưa có tài khoản có được XEM chợ? | xem được, gate tại điểm chạm | **Xem được** `/cho`, `/cho/tim`, `/cho/sp`, `/cho/shop` + giỏ; đặt/đơn/đánh giá/bán cần đăng nhập → §8 đầu mục |
 | 9 | Thiếu lọc tỉnh / gần tôi | `?province` + chip "Gần tôi" | OK (khớp BA #11) → §3.1 ProductQuery, §8.2 |
 | 10 | SW không chặn ảnh cross-origin | QA thêm ca ảnh trên PWA | OK → §10.2 |
+| — | **Vòng 2 kênh người bán + quản trị (2026-09-07)** | — | Đường API đổi: `GET /api/ban-hang/don` nhận thêm **`ma`** (mã đơn) + **`sdt`** (SĐT người mua) và trả `total` để màn dựng "Xem thêm"; `GET /api/admin/cho/danh-gia` **bỏ bắt buộc `productId`** (trống = cả sàn) + nhận **`sao`** (lấy đánh giá ≤ n sao); `GET /api/admin/cho/san-pham` nhận **`status`** (`dang_ban`/`an`/`het_hang`/`bi_go`). Kho: `listProductReviews(productId, q)` → **`listReviews(q)`** một hàm; `OrderListQuery` thêm `code`/`buyerPhone` áp trong hàm dùng chung của cả hai adapter; `listProducts` áp `status` khi `includeHidden` (bản Supabase trước đây quên, file-store vốn đã có) |
 | 11 | Hai cửa hàng song song | chỉ đổi lối vào, gộp = ADR sau | OK → §9 · **ĐÃ TRẢ NỢ 2026-09-07: [ADR 0011](../adr/0011-gop-cua-hang-vao-cho.md) + migration 0055 — gộp về MỘT chợ, SDVICO là một gian hàng; sinh thêm bậc sản phẩm "Liên hệ báo giá" (`price_vnd` null)** |
 | 12 | `notifyAccount` cần SupabaseClient | `notifyMarket` adapter mỏng | OK → §7.4 |
 | A2 | Chủ shop SDVICO prod | sentinel + admin gán; file-store persona có shop | OK → §2 seed, §5.3 |

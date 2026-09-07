@@ -4,6 +4,7 @@
 // được — đơn treo không được bỏ rơi người mua (11 §6.2).
 import { NextResponse } from "next/server";
 import { isOrderStatus } from "@/lib/market/order-state";
+import { normalizeVnPhone } from "@/lib/phone";
 import { marketErrorResponse, settleOverdueOrders } from "@/lib/market/route-utils";
 import { requireShopOwner } from "@/lib/market/shop-auth";
 import { getMarketStore } from "@/lib/market/store";
@@ -17,10 +18,20 @@ export async function GET(req: Request) {
     const rawStatus = url.searchParams.get("status");
     if (rawStatus && !isOrderStatus(rawStatus)) return invalid("Trạng thái đơn không đúng.");
     const page = pageOf(url);
+    /*  TRA ĐƠN (2026-09-07): bà con gọi đọc mã đơn hoặc số điện thoại, chủ shop
+        phải tìm ra ngay. Trước đây chỉ admin tra được, chủ shop phải lật từng
+        tab. `listShopOrders` GHIM shopId ở tham số bắt buộc nên không có đường
+        nào lọt đơn của shop khác. SĐT chuẩn hoá trước khi so, không thì "0901…"
+        và "+84901…" thành hai người khác nhau. */
+    const rawCode = url.searchParams.get("ma")?.trim();
+    const rawPhone = url.searchParams.get("sdt")?.trim();
+    const buyerPhone = rawPhone ? normalizeVnPhone(rawPhone) : "";
 
     const store = await getMarketStore();
     const res = await store.listShopOrders(gate.shop.id, {
       ...(rawStatus && isOrderStatus(rawStatus) ? { status: rawStatus } : {}),
+      ...(rawCode ? { code: rawCode } : {}),
+      ...(buyerPhone ? { buyerPhone } : {}),
       page,
       pageSize: 20,
     });

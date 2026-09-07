@@ -273,7 +273,8 @@ export interface ProductQuery {
   /** false (buyer): status ∈ dang_ban|het_hang, KHÔNG adminHidden, KHÔNG deleted, shop hoat_dong.
    *  true (seller/admin): mọi status + adminHidden, vẫn KHÔNG deleted. */
   includeHidden?: boolean;
-  /** CHỈ `listShopProducts` (seller/admin) đọc — `listProducts` (chợ) BỎ QUA.
+  /** `listShopProducts` (seller) đọc; `listProducts` đọc KHI `includeHidden`
+   *  (màn quản trị) — chợ của người mua vẫn bỏ qua.
    *  dang_ban|an|het_hang = đúng status VÀ không bị gỡ · bi_go = bị admin gỡ (mọi status)
    *  · all / bỏ trống = không lọc. Khớp bảng lọc route 12 §7.2. */
   status?: ProductStatusFilter;

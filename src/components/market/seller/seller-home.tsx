@@ -6,7 +6,7 @@
 // đỏ nhưng VẪN vào Đơn hàng (đơn treo không bỏ rơi người mua) · hoat_dong ⇒
 // việc cần làm ngay + số liệu theo kỳ + bán chạy + sắp hết hàng.
 // Không cache gì: mất sóng thì nói thật (11 §9).
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   BasketIcon, BoxIcon, CartIcon, PlusIcon, SettingsIcon, TrendUpIcon,
@@ -18,7 +18,7 @@ import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import { formatVnd } from "@/lib/format";
 import { marketSend } from "@/lib/market/client";
 import type { Shop, ShopStats, StatsRange } from "@/lib/market/types";
-import { InlineNote, LoadView, marketErrorText, useMarketData, useMyShop } from "./seller-net";
+import { InlineNote, LoadView, marketErrorText, useInlineNote, useMarketData, useMyShop } from "./seller-net";
 import { SELLER_BTN } from "./ui";
 
 const RANGE_OPTIONS: readonly ChipOption<StatsRange>[] = [
@@ -61,8 +61,14 @@ function NoShop() {
 }
 
 function ShopHome({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
-  const [note, setNote] = useState("");
+  const note = useInlineNote();
   const [busy, setBusy] = useState(false);
+  /*  BIÊN NHẬN sau khi gửi đăng ký (?dk=xong) — đọc SAU mount qua
+      window.location để trang vẫn dựng tĩnh, cùng khuôn ?luu= của màn món. */
+  const [dangKyXong, setDangKyXong] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("dk") === "xong") setDangKyXong(true);
+  }, []);
 
   async function resume() {
     if (busy) return;
@@ -71,9 +77,9 @@ function ShopHome({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
     setBusy(false);
     if (res.ok) {
       onShop(res.data.shop);
-      setNote("Shop đã mở bán lại.");
+      note.show("Shop đã mở bán lại.");
     } else {
-      setNote(marketErrorText(res));
+      note.show(marketErrorText(res), "danger");
     }
   }
 
@@ -108,7 +114,12 @@ function ShopHome({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
         </div>
       )}
 
-      {note && <InlineNote text={note} />}
+      {dangKyXong && (
+        <div className="mb-3">
+          <InlineNote text="Đã gửi đăng ký gian hàng. SDVICO duyệt xong sẽ báo lại — trong lúc chờ bà con soạn món trước được." />
+        </div>
+      )}
+      {note.node}
 
       <div className="mb-4 flex flex-wrap items-center gap-2 px-4">
         {shop.paused && shop.status === "hoat_dong" && (

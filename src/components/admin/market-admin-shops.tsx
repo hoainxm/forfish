@@ -7,7 +7,7 @@
   và mỗi lần ghi để lại một dòng nhật ký admin (market.shop-status / -owner).
 */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatVnDate } from "@/lib/format";
 import { isValidVnPhone, sanitizePhoneInput } from "@/lib/phone";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -50,6 +50,12 @@ export function MarketAdminShops({
   const [filter, setFilter] = useState<Filter>("cho_duyet");
   const [openId, setOpenId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  /*  Băng kết quả thao tác TẮT khi đổi bộ lọc (2026-09-07): câu "Đã duyệt gian
+      hàng X" đứng nguyên trong lúc staff đã sang danh sách khác là nói về một
+      thứ không còn trên màn. Lỗi tải thì khác — nó thuộc về lần tải, do ErrorBox
+      lo. */
+  useEffect(() => setNotice(null), [filter]);
+
   const { rows, total, error, loadingMore, reload, refresh, loadMore } = useAdminList<ShopRow>(
     `/api/admin/cho/shops?status=${filter}`,
   );

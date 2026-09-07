@@ -12,9 +12,20 @@ export async function GET(req: Request) {
   try {
     const sp = new URL(req.url).searchParams;
     const store = await getMarketStore();
+    /*  LỌC TRẠNG THÁI (2026-09-07): danh sách này bật `includeHidden` nên trộn
+        lẫn đang bán / đã ẩn / hết hàng / ĐÃ BỊ GỠ. Không lọc được thì không rà
+        lại được "những món tôi đã gỡ" — mà đó chính là việc kiểm duyệt.
+        Giá trị lạ ⇒ bỏ qua, coi như không lọc (không ném lỗi cho một tham số
+        hiển thị). */
+    const rawStatus = sp.get("status")?.trim();
+    const status =
+      rawStatus === "dang_ban" || rawStatus === "an" || rawStatus === "het_hang" || rawStatus === "bi_go"
+        ? rawStatus
+        : undefined;
     const page = await store.listProducts({
       q: sp.get("q")?.trim() || undefined,
       shopId: sp.get("shopId")?.trim() || undefined,
+      ...(status ? { status } : {}),
       page: pageParam(sp),
       includeHidden: true,
     });

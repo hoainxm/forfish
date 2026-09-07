@@ -220,7 +220,20 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
   }
 
   function filterOrders(s: DevSeed, pred: (o: SeedOrder) => boolean, q?: OrderListQuery): Page<Order> {
-    const list = s.orders.filter((o) => pred(o) && (!q?.status || o.status === q.status)).sort(byCreatedDesc);
+    /*  status + code + buyerPhone áp Ở ĐÂY để ba đường (buyer / shop / admin)
+        cùng một luật — trước đây code+SĐT chỉ có ở `listAllOrders`, nên chủ shop
+        không tra nổi đơn của chính mình. */
+    const code = q?.code?.trim().toUpperCase();
+    const buyer = q?.buyerPhone?.trim();
+    const list = s.orders
+      .filter(
+        (o) =>
+          pred(o) &&
+          (!q?.status || o.status === q.status) &&
+          (!code || o.code === code) &&
+          (!buyer || o.buyerPhone === buyer),
+      )
+      .sort(byCreatedDesc);
     const page = paginate(list, q);
     return { ...page, items: page.items.map((o) => toOrder(s, o)) };
   }
@@ -419,15 +432,8 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
     },
     async listAllOrders(q) {
       const s = await load();
-      const code = q?.code?.trim().toUpperCase();
-      return filterOrders(
-        s,
-        (o) =>
-          (!q?.shopId || o.shopId === q.shopId) &&
-          (!q?.buyerPhone || o.buyerPhone === q.buyerPhone) &&
-          (!code || o.code === code),
-        q,
-      );
+      // code + buyerPhone nay do `filterOrders` lo; ở đây chỉ còn phạm vi shop
+      return filterOrders(s, (o) => !q?.shopId || o.shopId === q.shopId, q);
     },
     async listOverdueDelivered(beforeIso, shopId) {
       const s = await load();
@@ -487,10 +493,15 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
         return toReview(r);
       });
     },
-    async listProductReviews(productId, q) {
+    async listReviews(q) {
       const s = await load();
       const list = s.reviews
-        .filter((r) => r.productId === productId && (q?.includeHidden || !r.hidden))
+        .filter(
+          (r) =>
+            (!q?.productId || r.productId === q.productId) &&
+            (q?.maxRating == null || r.rating <= q.maxRating) &&
+            (q?.includeHidden || !r.hidden),
+        )
         .sort(byCreatedDesc);
       const page = paginate(list, q);
       return { ...page, items: page.items.map(toReview) };
@@ -708,7 +719,11 @@ function applyProductPatch(p: SeedProduct, patch: Partial<ProductDraftM> & { adm
   if (patch.title != null) p.title = patch.title.trim();
   if ("description" in patch) p.description = patch.description?.trim() || undefined;
   if (patch.category != null) p.category = patch.category;
-  if (patch.priceVnd != null) p.priceVnd = patch.priceVnd;
+  /*  `"priceVnd" in patch` chứ KHÔNG phải `!= null` — null là GIÁ TRỊ CÓ NGHĨA
+      (chuyển món sang liên hệ báo giá, ADR 0011), không phải "không gửi". Dùng
+      `!= null` là bỏ giá xong món vẫn giữ giá cũ, im lặng. Cùng khuôn với
+      `description`/`compareAtVnd` ngay trên dưới. */
+  if ("priceVnd" in patch) p.priceVnd = patch.priceVnd ?? null;
   if ("compareAtVnd" in patch) p.compareAtVnd = patch.compareAtVnd ?? undefined;
   if (patch.unit != null) p.unit = patch.unit.trim();
   if (patch.stock != null) p.stock = patch.stock;

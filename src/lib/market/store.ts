@@ -43,7 +43,19 @@ export interface PreparedShopOrder {
   buyerNote?: string;
 }
 
-export interface OrderListQuery { status?: OrderStatus; page?: number; pageSize?: number }
+/*  `code` + `buyerPhone` nằm Ở ĐÂY chứ không riêng của admin (trước 2026-09-07
+    chỉ `listAllOrders` có): chủ shop cũng phải tra được đơn khi bà con gọi đọc
+    mã hoặc số. Hai bộ lọc này áp trong CHÍNH hàm dùng chung của mỗi adapter nên
+    listBuyerOrders/listShopOrders/listAllOrders cùng một luật, không ai lệch. */
+export interface OrderListQuery {
+  status?: OrderStatus;
+  page?: number;
+  pageSize?: number;
+  /** mã đơn đầy đủ, so KHỚP HẲN sau khi hoa hoá (SD + yymmdd + 4) */
+  code?: string;
+  /** SĐT người mua, đã chuẩn hoá trước khi truyền vào */
+  buyerPhone?: string;
+}
 
 export interface MarketStore {
   // ── Sản phẩm (người mua) ─────────────────────────────────────────────
@@ -91,8 +103,9 @@ export interface MarketStore {
   }): Promise<PlaceOrderResult[]>;
   listBuyerOrders(buyerPhone: string, q?: OrderListQuery): Promise<Page<Order>>;
   listShopOrders(shopId: string, q?: OrderListQuery): Promise<Page<Order>>;
-  /** admin: mọi đơn, lọc tuỳ chọn (11 §7: shop / trạng thái / SĐT người mua / mã đơn) */
-  listAllOrders(q?: OrderListQuery & { shopId?: string; buyerPhone?: string; code?: string }): Promise<Page<Order>>;
+  /** admin: mọi đơn, lọc tuỳ chọn (11 §7: shop / trạng thái / SĐT người mua / mã đơn).
+   *  `buyerPhone`/`code` nay ở `OrderListQuery` — đây chỉ thêm `shopId`. */
+  listAllOrders(q?: OrderListQuery & { shopId?: string }): Promise<Page<Order>>;
   /** quét cho settleOverdue: đơn da_giao có deliveredAt ≤ mốc (≤ 200 đơn/lượt) */
   listOverdueDelivered(beforeIso: string, shopId?: string): Promise<Order[]>;
   getOrder(id: string): Promise<Order | null>;
@@ -108,8 +121,19 @@ export interface MarketStore {
 
   // ── Đánh giá ─────────────────────────────────────────────────────────
   addReview(input: { orderId: string; productId: string; buyerPhone: string; rating: 1 | 2 | 3 | 4 | 5; comment?: string }): Promise<Review>;
-  /** mặc định KHÔNG trả hidden; includeHidden chỉ route admin dùng */
-  listProductReviews(productId: string, q?: { page?: number; pageSize?: number; includeHidden?: boolean }): Promise<Page<Review>>;
+  /*  Đọc đánh giá — MỘT hàm cho cả ba việc: một món (buyer), một món kèm bản ẩn
+      (admin mở chi tiết món), và CẢ SÀN (hàng đợi kiểm duyệt, 2026-09-07).
+      Trước đây chỉ có bản theo món nên admin muốn soát một đánh giá bậy phải
+      đoán đúng món rồi mở ra — với vài trăm món là bất khả thi.
+      · productId bỏ trống = cả sàn · maxRating = chỉ lấy sao ≤ n (1–2 sao là
+      chỗ lời lẽ nặng nằm) · includeHidden CHỈ route admin truyền. */
+  listReviews(q?: {
+    productId?: string;
+    maxRating?: number;
+    page?: number;
+    pageSize?: number;
+    includeHidden?: boolean;
+  }): Promise<Page<Review>>;
   /** admin ẩn/hiện — tính lại ratingAvg/ratingCount sản phẩm + shop từ đánh giá KHÔNG ẩn (RPC market_set_review_hidden) */
   setReviewHidden(id: string, hidden: boolean): Promise<Review>;
   /** id món buyer đã đánh giá trong đơn — cho canReview */

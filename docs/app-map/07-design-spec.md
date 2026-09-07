@@ -228,6 +228,25 @@ Bà con đã quen Shopee; mỗi chỗ chợ làm khác Shopee là một chỗ ph
 
 **NỢ ĐÃ CHỐT — không làm trong vòng này, đừng mở lại như "bỏ sót"**: phóng to ảnh món · lọc theo khoảng giá · **Mua ngay** (bỏ qua giỏ) · chat với shop · voucher/mã giảm · trả hàng–hoàn tiền qua sàn. Bốn thứ sau vốn đã **spec bỏ** ở [11 §2](11-ba-spec-san-thuong-mai.md) (sàn không giữ tiền, không có kênh chat, khiếu nại đi qua tổng đài SDVICO); hai thứ đầu là việc của vòng sau.
 
+### 5a-bis. VÒNG 2 CHO KÊNH NGƯỜI BÁN + QUẢN TRỊ (2026-09-07)
+
+Vòng fix Shopee-parity 2026-09-06 chạy HAI vòng cho màn người mua nhưng chỉ MỘT vòng cho người bán và quản trị (vòng 2 chạm 21 file, không file nào của hai khu này). Vòng này đóng phần còn lại — ưu tiên thứ làm MẤT VIỆC hoặc dính TIỀN.
+
+| Màn | Lệch đã sửa |
+|---|---|
+| `/ban-hang/don` | **Phân trang "Xem thêm N đơn"** — trước ghim `page=1` và vứt `total`, shop có hơn 20 đơn một tab thì đơn thứ 21 KHÔNG mở được và không có chữ nào báo · **ô tra theo mã đơn / SĐT người mua**, đang tra thì BỎ lọc trạng thái + có nút "Xoá tra, về danh sách" · số đếm trên tab hỏng thì NÓI một dòng thay vì để tab trơ (bà con đọc "không số" thành "không có đơn") · chip "Báo đã CK"/"Cần hoàn tiền" từ 13px lên 1rem — chữ về tiền không được nhỏ nhất màn |
+| `/ban-hang/don/[id]` | **Cảnh báo hoàn tiền TRƯỚC khi huỷ**: huỷ đơn chuyển khoản mà người mua đã báo đã chuyển ⇒ tấm che huỷ in băng đỏ nêu rõ số tiền shop phải tự trả lại (trước đây băng chỉ hiện SAU khi đã huỷ, lúc không lùi được nữa) · nút "Huỷ đơn này"/"Báo chưa thấy tiền" **hết mờ câm**: câu hướng dẫn không còn gác theo "đã gõ chữ nào chưa" (R-03) · **9 nút xử lý đơn đổi nhãn "Đang gửi…"** khi bấm — đồng hồ chờ tới 21 giây, nút xám không chữ là bà con bấm lại |
+| `/ban-hang/san-pham` | **Chip "Tất cả"** — thiếu nó thì ô tìm chỉ tìm trong một trạng thái, gõ tên món đang ẩn ra "Chưa có món nào ở mục này" và bà con tưởng chưa từng đăng (cùng ca F-27 đã chữa cho `/quan-tri`) · câu rỗng nói rõ đang bị bộ lọc nào thu hẹp |
+| `/ban-hang/dang-ky` | **Biên nhận**: gửi xong về Tổng quan kèm `?dk=xong` và in "Đã gửi đăng ký gian hàng…". Trước đây nhảy màn câm cho một việc một-lần-trong-đời |
+| Toàn kênh người bán | **Dòng báo sau thao tác hiện lại khi câu LẶP** (`useInlineNote`): trước đây giữ câu bằng một chuỗi nên thao tác hỏng lần hai với câu y hệt là màn im hoàn toàn — bà con tưởng đã xong |
+| `/quan-tri` Chợ vật tư | **Mục "Đánh giá" MỚI** — hàng đợi kiểm duyệt cả sàn, mặc định lọc 1–2 sao, có phân trang; trước đó chỉ soát được bằng cách đoán đúng món rồi mở ra · mục **Sản phẩm** thêm **chip lọc trạng thái** (kể cả "Đã gỡ") + **dòng phạm vi** nói rõ vì sao tổng lớn hơn ô KPI "Món đang bán" · **ô lọc gian hàng gom đủ trang** (trước chỉ nạp 20 shop đầu, gian thứ 21 trở đi không lọc được) và **hết nuốt lỗi mạng thành danh sách rỗng** · băng kết quả thao tác **tự tắt khi đổi bộ lọc** · Tổng quan có **nhánh sàn còn trống** thay cho bảng toàn số 0 |
+
+**Ẩn đánh giá vẫn là hành động MỘT CHẠM, cố ý** (chủ dự án 2026-09-07: *"quản trị viên được quyền làm các kiểu"*). Bù lại nó phải BÁO kết quả — bản trước ẩn xong im lặng. Đây là ngoại lệ có chủ ý của luật "không hành động 1 chạm" (11 §7), chỉ áp cho khu quản trị.
+
+**KHÔNG LÀM, chủ dự án gạt bỏ**: chặn/khoá người mua bom hàng · mọi đề xuất thêm hộp xác nhận cho quản trị viên.
+
+**Còn nợ sau vòng này** (chưa làm, không phải bỏ sót): sửa hàng loạt giá/tồn · sửa nhanh trên thẻ danh sách · phiếu giao hàng để dán lên kiện · nhân bản món · lưu nháp món · sổ tiền đối soát cho shop · trả lời đánh giá · xuất báo cáo cho quản trị · lịch sử một gian hàng · gỡ chủ shop · khung xương lúc tải cho kênh người bán · e2e giao diện cho tab quản trị.
+
 ### 5b. RÀ MẬT ĐỘ NGOÀI BẢN ĐỒ — `/` · `/tau` · `/nguoi` · `/tien` (2026-08-29e)
 
 Luật A/B/C/D của [03-design-system](03-design-system.md) (§Nút hành động · §Khung nhập) sinh ra trên màn bản đồ, nay áp cho bốn mảng màn còn lại. Ba nhóm việc, theo đúng thứ tự nặng-nhẹ:

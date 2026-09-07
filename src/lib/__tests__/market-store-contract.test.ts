@@ -440,7 +440,7 @@ describe("đánh giá", () => {
     expect(hd?.ratingCount).toBe(1);
     expect(await store.reviewedProductIds(done.id)).toEqual([thung]);
   });
-  it("setReviewHidden: ẩn 1 trong 2 (4★/2★) ⇒ avg = điểm còn lại, count 1 — cả sản phẩm lẫn shop; listProductReviews mặc định không có hidden", async () => {
+  it("setReviewHidden: ẩn 1 trong 2 (4★/2★) ⇒ avg = điểm còn lại, count 1 — cả sản phẩm lẫn shop; listReviews mặc định không có hidden", async () => {
     const nuoc = done.items[1].productId;
     const r2 = await store.addReview({ orderId: done.id, productId: nuoc, buyerPhone: "0901000001", rating: 2 });
     expect((await store.getShop(haidang.id))?.ratingAvg).toBe(3);
@@ -451,8 +451,8 @@ describe("đánh giá", () => {
     const hd = await store.getShop(haidang.id);
     expect(hd?.ratingAvg).toBe(4);
     expect(hd?.ratingCount).toBe(1);
-    expect((await store.listProductReviews(nuoc)).total).toBe(0);
-    const withHidden = await store.listProductReviews(nuoc, { includeHidden: true });
+    expect((await store.listReviews({ productId: nuoc })).total).toBe(0);
+    const withHidden = await store.listReviews({ productId: nuoc, includeHidden: true });
     expect(withHidden.total).toBe(1);
     expect(withHidden.items[0].hidden).toBe(true);
     await expectCode(store.setReviewHidden("khong-co", true), "not_found");

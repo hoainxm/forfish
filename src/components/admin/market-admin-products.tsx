@@ -18,6 +18,7 @@ import {
   EmptyBox,
   ErrorBox,
   ErrorBox as InlineError,
+  FilterChip,
   LoadingBox,
   marketAdminGet,
   marketAdminPatch,
@@ -30,6 +31,16 @@ import {
 const INPUT =
   "min-h-[2.75rem] rounded-xl border-0 bg-field px-3 text-[1rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea";
 const BTN = "min-h-[2.5rem] shrink-0 rounded-lg px-3 text-[0.8125rem] font-bold disabled:opacity-50";
+
+/** Lọc trạng thái món cho màn quản trị — khớp bảng lọc route 12 §7.2. */
+type StatusFilter = "all" | "dang_ban" | "an" | "het_hang" | "bi_go";
+const STATUS_FILTERS: [StatusFilter, string][] = [
+  ["all", "Tất cả"],
+  ["dang_ban", "Đang bán"],
+  ["het_hang", "Hết hàng"],
+  ["an", "Shop ẩn"],
+  ["bi_go", "Đã gỡ"],
+];
 
 export function MarketAdminProducts({
   shops,
@@ -44,18 +55,34 @@ export function MarketAdminProducts({
 }) {
   const [qDraft, setQDraft] = useState("");
   const [q, setQ] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  /*  Băng kết quả thao tác TẮT khi đổi bộ lọc (2026-09-07): câu "Đã duyệt gian
+      hàng X" đứng nguyên trong lúc staff đã sang danh sách khác là nói về một
+      thứ không còn trên màn. Lỗi tải thì khác — nó thuộc về lần tải, do ErrorBox
+      lo. */
+  useEffect(() => setNotice(null), [shopId, q, status]);
+
 
   const sp = new URLSearchParams();
   if (shopId) sp.set("shopId", shopId);
   if (q) sp.set("q", q);
+  if (status !== "all") sp.set("status", status);
   const { rows, total, error, loadingMore, reload, refresh, loadMore } = useAdminList<ProductCard>(
     `/api/admin/cho/san-pham?${sp.toString()}`,
   );
 
   return (
     <div className="space-y-4">
+      {/*  LỌC TRẠNG THÁI — danh sách này gồm cả món đã ẩn / hết hàng / BỊ GỠ,
+           nên không có hàng chip này thì không rà lại được việc mình đã làm. */}
+      <div className="flex flex-wrap gap-1.5">
+        {STATUS_FILTERS.map(([id, label]) => (
+          <FilterChip key={id} label={label} active={status === id} onClick={() => setStatus(id)} />
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         <select
           value={shopId}
@@ -98,8 +125,8 @@ export function MarketAdminProducts({
       {rows && rows.length === 0 && (
         <EmptyBox
           text={
-            q || shopId
-              ? "Không có món nào khớp — bỏ bớt ô lọc hoặc gõ tên khác."
+            q || shopId || status !== "all"
+              ? "Không có món nào khớp — bỏ bớt ô lọc, chọn lại trạng thái, hoặc gõ tên khác."
               : "Chợ chưa có món nào."
           }
         />
@@ -110,6 +137,17 @@ export function MarketAdminProducts({
           shown={rows.length}
           total={total}
           what="món"
+          note={
+            /*  Ô KPI ở đầu tab đếm "Món đang bán"; danh sách này đếm CẢ món ẩn,
+                hết hàng và đã bị gỡ. Hai số lệch nhau là bình thường — nhưng
+                phải NÓI, không thì staff không biết tin số nào (cùng ca F-27 đã
+                chữa cho mục Đơn hàng). */
+            status === "all" ? (
+              <>Gồm cả món <b>đã ẩn, hết hàng và bị gỡ</b> — nên số này lớn hơn ô &quot;Món đang bán&quot; ở trên.</>
+            ) : (
+              <>Chỉ đếm món <b>{STATUS_FILTERS.find(([id]) => id === status)?.[1]}</b>.</>
+            )
+          }
           onMore={loadMore}
           loadingMore={loadingMore}
         />

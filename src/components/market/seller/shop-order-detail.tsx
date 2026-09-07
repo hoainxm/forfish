@@ -20,7 +20,7 @@ import {
   isPendingTooLong, ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL,
 } from "@/lib/market/order-state";
 import type { Order, OrderStatus } from "@/lib/market/types";
-import { agoLabel, InlineNote, LoadView, marketErrorText, useMarketData } from "./seller-net";
+import { agoLabel, LoadView, marketErrorText, useInlineNote, useMarketData } from "./seller-net";
 import { SELLER_BTN } from "./ui";
 
 const CANCEL_CHIPS: readonly ChipOption<string>[] = [
@@ -48,8 +48,7 @@ type Ask =
   | { kind: "payment"; to: "da_thanh_toan"; title: string; message: string };
 
 function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order) => void; onReload: () => void }) {
-  const [note, setNote] = useState("");
-  const [err, setErr] = useState("");
+  const note = useInlineNote();
   const [busy, setBusy] = useState(false);
   const [ask, setAsk] = useState<Ask | null>(null);
   const [cancelSheet, setCancelSheet] = useState(false);
@@ -60,20 +59,20 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
   async function send(body: Record<string, unknown>, done: string) {
     if (busy) return; // chống bấm đúp
     setBusy(true);
-    setErr("");
+    note.clear();
     const res = await marketSend<{ order: Order }>("PATCH", `/api/ban-hang/don/${order.id}`, body);
     setBusy(false);
     if (res.ok) {
       onOrder(res.data.order);
-      setNote(done);
+      note.show(done);
       return;
     }
     if (res.code === "bad_transition") {
-      setErr("Đơn đã sang bước khác rồi — đang tải lại.");
+      note.show("Đơn đã sang bước khác rồi — đang tải lại.", "danger");
       onReload();
       return;
     }
-    setErr(res.offline ? "Cần sóng để xử lý đơn — nội dung vẫn còn đây." : marketErrorText(res));
+    note.show(res.offline ? "Cần sóng để xử lý đơn — nội dung vẫn còn đây." : marketErrorText(res), "danger");
   }
 
   const move = (to: OrderStatus, extra: Record<string, unknown> = {}) =>
@@ -104,8 +103,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
         </div>
       )}
 
-      {note && <InlineNote text={note} />}
-      {err && <InlineNote text={err} level="danger" />}
+      {note.node}
 
       <div className="px-4">
         <div className="surface px-4 py-3">
@@ -187,7 +185,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
                 className={`${SELLER_BTN} bg-card text-navy`}
               >
                 <CheckIcon className="h-6 w-6" />
-                Đã nhận tiền
+                {busy ? "Đang gửi…" : "Đã nhận tiền"}
               </button>
               <button
                 type="button"
@@ -197,7 +195,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
                 style={{ color: "var(--danger)" }}
               >
                 <CloseIcon className="h-6 w-6" />
-                Chưa thấy tiền
+                {busy ? "Đang gửi…" : "Chưa thấy tiền"}
               </button>
             </div>
           </div>
@@ -215,12 +213,12 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
                   message: "Người mua sẽ thấy shop đã nhận đơn.",
                 })}
               >
-                <CheckIcon className="h-6 w-6" /> Xác nhận đơn
+                <CheckIcon className="h-6 w-6" /> {busy ? "Đang gửi…" : "Xác nhận đơn"}
               </PrimaryButton>
               <div className="mt-3 flex justify-center">
                 <button type="button" disabled={busy} onClick={() => setCancelSheet(true)} className={`${SELLER_BTN} bg-field`} style={{ color: "var(--danger)" }}>
                   <CloseIcon className="h-6 w-6" />
-                  Huỷ đơn
+                  {busy ? "Đang gửi…" : "Huỷ đơn"}
                 </button>
               </div>
             </>
@@ -229,12 +227,12 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
           {order.status === "da_xac_nhan" && (
             <>
               <PrimaryButton disabled={busy} onClick={() => setShipSheet(true)}>
-                <RouteIcon className="h-6 w-6" /> Giao hàng
+                <RouteIcon className="h-6 w-6" /> {busy ? "Đang gửi…" : "Giao hàng"}
               </PrimaryButton>
               <div className="mt-3 flex justify-center">
                 <button type="button" disabled={busy} onClick={() => setCancelSheet(true)} className={`${SELLER_BTN} bg-field`} style={{ color: "var(--danger)" }}>
                   <CloseIcon className="h-6 w-6" />
-                  Huỷ đơn
+                  {busy ? "Đang gửi…" : "Huỷ đơn"}
                 </button>
               </div>
             </>
@@ -249,7 +247,7 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
                 message: "Người mua sẽ được nhắc bấm Đã nhận hàng.",
               })}
             >
-              <CartIcon className="h-6 w-6" /> Đã giao xong
+              <CartIcon className="h-6 w-6" /> {busy ? "Đang gửi…" : "Đã giao xong"}
             </PrimaryButton>
           )}
 
@@ -319,6 +317,15 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
       {cancelSheet && (
         <CancelSheet
           busy={busy}
+          refundVnd={
+            /*  Cùng luật với `needsRefund` ở tầng đơn (AC-36): chuyển khoản mà
+                người mua đã báo đã chuyển, hoặc shop đã nhận tiền. Nói TRƯỚC
+                khi bấm, không phải sau — huỷ rồi thì không lùi được. */
+            order.paymentMethod === "chuyen_khoan" &&
+            (order.paymentStatus === "bao_da_chuyen" || order.paymentStatus === "da_thanh_toan")
+              ? order.totalVnd
+              : 0
+          }
           onClose={() => setCancelSheet(false)}
           onSend={(reason) => { setCancelSheet(false); void move("da_huy", { note: reason }); }}
         />
@@ -350,12 +357,32 @@ function Inner({ order, onOrder, onReload }: { order: Order; onOrder: (o: Order)
 }
 
 /** Huỷ đơn — LÝ DO BẮT BUỘC 5–200 chữ (11 §4.1 T6), chip gợi ý cho nhanh. */
-function CancelSheet({ busy, onClose, onSend }: { busy: boolean; onClose: () => void; onSend: (reason: string) => void }) {
+function CancelSheet({
+  busy,
+  refundVnd,
+  onClose,
+  onSend,
+}: {
+  busy: boolean;
+  /** > 0 khi huỷ đơn này SẼ đẻ ra nghĩa vụ hoàn tiền — cảnh báo TRƯỚC */
+  refundVnd: number;
+  onClose: () => void;
+  onSend: (reason: string) => void;
+}) {
   const [reason, setReason] = useState("");
   const short = reason.trim().length < 5;
   return (
     <BottomSheet title="Huỷ đơn — vì sao?" onClose={onClose}>
       <div className="px-4 pb-4">
+        {refundVnd > 0 && (
+          <div className="mb-3 rounded-2xl px-4 py-3" style={{ backgroundColor: "var(--danger-bg)" }}>
+            <p className="text-[1rem] font-bold leading-snug" style={{ color: "var(--danger)" }}>
+              Người mua đã chuyển tiền đơn này. Huỷ xong bà con PHẢI tự chuyển trả
+              {" "}
+              {formatVnd(refundVnd)} cho họ — app không giữ tiền, không tự hoàn được.
+            </p>
+          </div>
+        )}
         <div className="-mx-4 mb-3">
           <ChipRow options={CANCEL_CHIPS} value={reason} onChange={setReason} accent="t3" level={1} ariaLabel="Lý do huỷ" />
         </div>
@@ -369,11 +396,16 @@ function CancelSheet({ busy, onClose, onSend }: { busy: boolean; onClose: () => 
             placeholder="Ít nhất 5 chữ"
           />
         </Field>
-        {short && reason.length > 0 && (
-          <p className="mb-2 text-[1rem] font-bold" style={{ color: "var(--danger)" }}>Ghi lý do cho người mua biết.</p>
+        {/*  Câu này KHÔNG gác theo "đã gõ được chữ nào chưa" nữa (R-03): trước đây nút mờ
+             ngay lúc mở tấm che, mà lúc đó ô còn trống nên KHÔNG có chữ nào —
+             bà con thấy một nút chết không lời giải thích. */}
+        {short && (
+          <p className="mb-2 text-[1rem] font-bold" style={{ color: "var(--danger)" }}>
+            Ghi ít nhất 5 chữ nói vì sao huỷ — người mua sẽ đọc câu này.
+          </p>
         )}
         <PrimaryButton disabled={busy || short} onClick={() => onSend(reason.trim())}>
-          Huỷ đơn này
+          {busy ? "Đang huỷ…" : "Huỷ đơn này"}
         </PrimaryButton>
       </div>
     </BottomSheet>
@@ -397,7 +429,7 @@ function ShipSheet({ busy, onClose, onSend }: { busy: boolean; onClose: () => vo
           <input className={inputClass} value={tracking} onChange={(e) => setTracking(e.target.value)} maxLength={40} placeholder="Ví dụ: PT-88213" />
         </Field>
         <PrimaryButton disabled={busy} onClick={() => onSend(carrier.trim(), tracking.trim())}>
-          Chuyển sang Đang giao
+          {busy ? "Đang gửi…" : "Chuyển sang Đang giao"}
         </PrimaryButton>
       </div>
     </BottomSheet>
@@ -421,11 +453,14 @@ function PayNoteSheet({ busy, onClose, onSend }: { busy: boolean; onClose: () =>
             placeholder="Ví dụ: tài khoản chưa thấy tiền về, nhờ bà con kiểm lại nội dung chuyển khoản"
           />
         </Field>
-        {short && reason.length > 0 && (
-          <p className="mb-2 text-[1rem] font-bold" style={{ color: "var(--danger)" }}>Ghi lý do cho người mua biết.</p>
+        {/* Cùng luật R-03 với tấm che huỷ đơn — xem chú thích ở CancelSheet. */}
+        {short && (
+          <p className="mb-2 text-[1rem] font-bold" style={{ color: "var(--danger)" }}>
+            Ghi ít nhất 5 chữ nói rõ chưa thấy tiền — người mua sẽ đọc câu này.
+          </p>
         )}
         <PrimaryButton disabled={busy || short} onClick={() => onSend(reason.trim())}>
-          Báo chưa thấy tiền
+          {busy ? "Đang gửi…" : "Báo chưa thấy tiền"}
         </PrimaryButton>
       </div>
     </BottomSheet>

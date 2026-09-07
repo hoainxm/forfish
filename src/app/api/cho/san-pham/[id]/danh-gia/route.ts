@@ -18,7 +18,7 @@ export async function GET(req: Request, ctx: Ctx) {
       return NextResponse.json({ ok: false, code: "not_found" }, { status: 404 });
     }
     const page = Number(new URL(req.url).searchParams.get("page") ?? "1");
-    const res = await store.listProductReviews(id, {
+    const res = await store.listReviews({ productId: id,
       page: Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1,
       pageSize: 20,
     });

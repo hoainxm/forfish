@@ -219,8 +219,12 @@ test.describe("Kênh người bán — mở gian hàng lần đầu", () => {
 
     await page.getByRole("button", { name: "Gửi đăng ký" }).click();
 
-    // Gửi xong về Tổng quan với băng chờ duyệt — VẪN thêm món trước được (11 §6.2).
-    await expect(page).toHaveURL(/\/ban-hang$/);
+    /*  Gửi xong về Tổng quan với băng chờ duyệt — VẪN thêm món trước được (11 §6.2).
+        URL mang `?dk=xong` (2026-09-07): dấu để in BIÊN NHẬN "Đã gửi đăng ký".
+        Trước đây nhảy về câm — bà con vừa gõ 8 ô cho việc một-lần-trong-đời mà
+        không một lời xác nhận, dễ gửi lại lần nữa. */
+    await expect(page).toHaveURL(/\/ban-hang\?dk=xong$/);
+    await expect(page.getByText(/Đã gửi đăng ký gian hàng/)).toBeVisible();
     await expect(page.getByText(new RegExp(`Shop ${ten} đang chờ SDVICO duyệt`))).toBeVisible();
     await expect(page.getByRole("link", { name: /Thêm món/ })).toBeVisible();
   });

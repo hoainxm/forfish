@@ -19,6 +19,34 @@ export const SELLER_BTN =
 /** Nút chữ chiếm trọn bề ngang ô chứa (hàng nút dưới thẻ món). */
 export const SELLER_BTN_WIDE = `${SELLER_BTN} w-full`;
 
+/*  "XEM THÊM N …" — đáy mọi danh sách dài của kênh người bán (2026-09-07).
+    Luật của dự án là Xem thêm, KHÔNG phải Trước/Sau (07 §Ma trận). Nút NÓI RÕ
+    còn bao nhiêu: danh sách cụt mà im lặng là bà con tưởng mình chỉ có bấy
+    nhiêu đơn. Hết thì component tự biến mất, không để nút chết. */
+export function MoreButton({
+  more,
+  busy,
+  onMore,
+  what,
+}: {
+  more: number;
+  busy: boolean;
+  onMore: () => void;
+  what: string;
+}) {
+  if (more <= 0) return null;
+  return (
+    <button
+      type="button"
+      onClick={onMore}
+      disabled={busy}
+      className={`${SELLER_BTN_WIDE} mt-2 bg-field text-navy`}
+    >
+      {busy ? "Đang tải…" : `Xem thêm ${more} ${what}`}
+    </button>
+  );
+}
+
 /*  Ô ĐANG SAI — viền đỏ + `aria-invalid` để bà con thấy NGAY ô nào phải sửa
     (F-25). Màu qua token, cỡ theo rem; `outline` (không phải `border`) để ô
     không nhảy chỗ khi lỗi hiện ra. */
