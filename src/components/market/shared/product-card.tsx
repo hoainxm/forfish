@@ -46,7 +46,11 @@ export function MarketProductCard({
 }) {
   const [imgBroken, setImgBroken] = useState(false);
   const pct = discountPercent(product);
-  const out = product.stock <= 0 || product.status !== "dang_ban";
+  /*  Món LIÊN HỆ BÁO GIÁ để stock=0 (không theo dõi kho) — KHÔNG được phủ
+      "Hết hàng" lên nó: hàng vẫn có, chỉ là hỏi giá rồi mới mua. Thẻ đã nói
+      "Liên hệ báo giá" ở dòng giá, thế là đủ. */
+  const quoteOnly = product.priceVnd == null;
+  const out = product.status !== "dang_ban" || (!quoteOnly && product.stock <= 0);
   const image = product.images[0];
 
   return (

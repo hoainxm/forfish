@@ -28,17 +28,22 @@ function statusFrom(v: unknown): ProductStatus {
 export function productDraftFromBody(b: Record<string, unknown>): ProductDraftM {
   const stock = num(b.stock) ?? 0;
   const compareAt = num(b.compareAtVnd);
+  /*  `priceVnd: null` trong body = LIÊN HỆ BÁO GIÁ (ADR 0011) — phải giữ null.
+      `num(null)` trả undefined rồi `?? 0` biến thành 0, và validate chặn giá 0 ⇒
+      shop không đăng nổi món báo-giá-theo-tàu. Thiếu hẳn khoá thì vẫn là 0 (lỗi
+      thật, phải báo), khác hẳn với khai null có chủ ý. */
+  const priceVnd = b.priceVnd === null ? null : num(b.priceVnd) ?? 0;
   return {
     title: str(b.title) ?? "",
     description: str(b.description),
     category: (typeof b.category === "string" ? b.category : "") as ProductDraftM["category"],
-    priceVnd: num(b.priceVnd) ?? 0,
+    priceVnd,
     ...(compareAt != null ? { compareAtVnd: compareAt } : {}),
     unit: str(b.unit) ?? "",
     stock,
     images: imagesFrom(b.images),
     variants: variantsFrom(b.variants),
-    status: normalizeProductStatus(statusFrom(b.status), stock),
+    status: normalizeProductStatus(statusFrom(b.status), stock, priceVnd),
   };
 }
 
@@ -62,16 +67,18 @@ export function productPatchFromBody(b: Record<string, unknown>): Partial<Produc
 export function mergedProductDraft(cur: Product, p: Partial<ProductDraftM>): ProductDraftM {
   const stock = "stock" in p ? p.stock ?? 0 : cur.stock;
   const compareAt = "compareAtVnd" in p ? p.compareAtVnd : cur.compareAtVnd;
+  // vá `priceVnd: null` = chuyển món sang liên hệ báo giá; không có khoá thì giữ nguyên
+  const priceVnd = "priceVnd" in p ? p.priceVnd ?? null : cur.priceVnd;
   return {
     title: "title" in p ? p.title ?? "" : cur.title,
     description: "description" in p ? p.description : cur.description,
     category: "category" in p ? p.category ?? cur.category : cur.category,
-    priceVnd: "priceVnd" in p ? p.priceVnd ?? 0 : cur.priceVnd,
+    priceVnd,
     ...(compareAt != null ? { compareAtVnd: compareAt } : {}),
     unit: "unit" in p ? p.unit ?? "" : cur.unit,
     stock,
     images: "images" in p ? p.images ?? [] : cur.images,
     variants: "variants" in p ? p.variants ?? [] : cur.variants,
-    status: normalizeProductStatus("status" in p ? p.status ?? cur.status : cur.status, stock),
+    status: normalizeProductStatus("status" in p ? p.status ?? cur.status : cur.status, stock, priceVnd),
   };
 }

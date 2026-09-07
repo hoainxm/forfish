@@ -2554,12 +2554,23 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
 
   return (
     <div className="mt-4 space-y-4">
-      <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
-        Danh mục hiện trong tab <b>Sản phẩm → Cửa hàng</b> của app ngư dân.
-        Ẩn/hiện/xóa/thêm ở đây áp dụng NGAY, không cần build lại app. Có thể
-        thêm sản phẩm/dịch vụ của <b>đơn vị ngoài SDWork</b> (ghi rõ tên đơn
-        vị + số điện thoại/ghi chú liên hệ).
-      </p>
+      {/*  ĐÃ NGHỈ (2026-09-07, ADR 0011) — nói TRƯỚC mọi thứ khác, bằng màu
+           cảnh báo. "Cửa hàng" trong app ngư dân đã gộp vào Chợ vật tư, app
+           KHÔNG còn đọc bảng này nữa: sửa ở đây mà tưởng bà con thấy ngay là
+           hiểu sai, và cái sai đó chỉ lộ ra khi khách gọi hỏi sao không thấy
+           hàng. Màn giữ lại để tra hàng cũ, chưa gỡ vì còn chờ chốt phân quyền
+           cho tài khoản quản lý (xem ADR 0011 mục "Việc còn mở"). */}
+      <div className="surface border-l-4 px-4 py-3" style={{ borderColor: "var(--warn)" }}>
+        <p className="text-[0.9375rem] font-bold text-navy">
+          Danh mục này ĐÃ NGHỈ — app ngư dân không còn đọc.
+        </p>
+        <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
+          Từ 07/09/2026 &quot;Cửa hàng&quot; trong app đã gộp vào <b>Chợ vật tư</b>:
+          hàng SDVICO nay nằm ở gian hàng SDVICO trên chợ. Thêm/sửa/ẩn ở màn này
+          <b> KHÔNG hiện ra với bà con nữa</b> — muốn đổi hàng đang bán thì sang
+          tab <b>Chợ vật tư → Sản phẩm</b>. Màn này giữ lại chỉ để tra hàng cũ.
+        </p>
+      </div>
 
       {perms.create && (
         <button
@@ -3115,11 +3126,19 @@ function OrdersTab({ perms }: { perms: TabPerms }) {
 
   return (
     <div className="mt-4 space-y-4">
-      <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
-        Đơn đặt hàng bà con gửi từ <b>Cửa hàng</b> trong app. Nhận đơn → chuẩn bị
-        → giao. Mỗi lần đổi trạng thái, app sẽ <b>tự báo cho chủ tàu</b>. Giá và
-        dòng hàng đã chốt lúc đặt, không đổi ở đây.
-      </p>
+      {/*  ĐÃ NGHỈ (2026-09-07, ADR 0011) — đơn cũ của "Cửa hàng" đã chuyển sang
+           chợ (migration 0055); từ nay bà con đặt hàng là đơn về tab Chợ vật tư.
+           Màn này KHÔNG nhận đơn mới nữa, chỉ còn để tra lại. */}
+      <div className="surface border-l-4 px-4 py-3" style={{ borderColor: "var(--warn)" }}>
+        <p className="text-[0.9375rem] font-bold text-navy">
+          Màn đơn này ĐÃ NGHỈ — đơn mới về tab Chợ vật tư.
+        </p>
+        <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
+          Từ 07/09/2026 &quot;Cửa hàng&quot; đã gộp vào <b>Chợ vật tư</b>. Đơn cũ
+          đã được chuyển sang chợ nên <b>xử lý đơn ở tab Chợ vật tư → Đơn hàng</b>,
+          đừng xử lý hai nơi cho một đơn. Màn này giữ để tra lại bản gốc.
+        </p>
+      </div>
 
       <div className="flex flex-wrap gap-1.5">
         {chip("all", "Tất cả")}

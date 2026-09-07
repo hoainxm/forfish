@@ -26,6 +26,7 @@ KHÔNG viết ADR cho: feature thường, UI tweak, fix bug — những thứ đ
 | [0006](0006-cron-day-hon-mot-ngay-khong-vao-vercel-json.md) | Cron dày hơn 1 lần/ngày KHÔNG vào `vercel.json` (Hobby chặn deploy) | Accepted | 2026-08-18 |
 | [0007](0007-siet-bao-mat-sau-sd123456.md) | Lộ trình siết bảo mật sau mật khẩu chung sd123456 (3 bước) | Proposed | 2026-07-21 (đánh lại số 2026-08-19, trùng 0002 khi gộp base) |
 | [0008](0008-san-thuong-mai-da-nguoi-ban.md) | Chợ vật tư tàu cá: sàn ĐA NGƯỜI BÁN tách bảng mới, kho qua adapter MarketStore (supabase/file), định danh SĐT chuỗi cứng, COD + chuyển khoản | Proposed | 2026-09-06 |
+| [0011](0011-gop-cua-hang-vao-cho.md) | Gộp "Cửa hàng" cũ vào Chợ vật tư — một cửa hàng, SDVICO là một gian hàng; dữ liệu chuyển bằng 0055; thêm bậc sản phẩm "Liên hệ báo giá" | Accepted | 2026-09-07 |
 
 ## Cách thêm
 

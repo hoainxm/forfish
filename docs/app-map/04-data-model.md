@@ -687,7 +687,7 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 
 ⚠️ App chạy được **trước khi apply**: cả hai đường ghi (`customers` và `customer_devices` trong `/api/me/heartbeat`) đều có nhánh lùi bỏ cột lạ, và `/api/admin/accounts` có nấc select riêng cho cột này.
 
-### Danh mục ĐẶT HÀNG ĐƯỢC — migration [`0045_catalog_orderable.sql`](../../supabase/migrations/0045_catalog_orderable.sql) (2026-08-11, đánh lại số 2026-08-19) — ⚠️ **CHƯA APPLY prod SDVICO**
+### Danh mục ĐẶT HÀNG ĐƯỢC — migration [`0045_catalog_orderable.sql`](../../supabase/migrations/0045_catalog_orderable.sql) (2026-08-11, đánh lại số 2026-08-19) — ✅ **ĐÃ APPLY prod (soi 2026-09-07: cột có, dữ liệu thật)**
 
 | Thay đổi | Nghĩa |
 |---|---|
@@ -696,7 +696,7 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 
 - ⚠️ **CHƯA APPLY prod SDVICO** — dòng `20260811045204 0032_catalog_orderable` là prod BASE. Seed giá số gợi ý lấy từ `src/data/supplies.ts` (nhập tay qua /quan-tri).
 
-### Đơn đặt hàng — migration [`0046_catalog_orders.sql`](../../supabase/migrations/0046_catalog_orders.sql) (2026-08-11, đánh lại số 2026-08-19) — ⚠️ **CHƯA APPLY prod SDVICO**
+### Đơn đặt hàng — migration [`0046_catalog_orders.sql`](../../supabase/migrations/0046_catalog_orders.sql) (2026-08-11, đánh lại số 2026-08-19) — ✅ **ĐÃ APPLY prod (soi 2026-09-07: cột có, dữ liệu thật)**
 
 | Thay đổi | Nghĩa |
 |---|---|
@@ -705,7 +705,7 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 
 - ⚠️ **CHƯA APPLY prod SDVICO** (dòng `20260811045214 0033_catalog_orders` là prod BASE). **Không thanh toán trong app** (chốt tiền lúc giao/COD — nhất quán "KHÔNG có luồng thanh toán"). **Online-only** (SW bỏ qua POST, không outbox; client báo trung thực khi mất mạng). Quyền mới `don-hang` thêm vào `lib/staff-permissions.ts` (6 tab manager).
 
-### Chống ĐƠN TRÙNG — migration [`0047_catalog_orders_client_ref.sql`](../../supabase/migrations/0047_catalog_orders_client_ref.sql) (2026-08-16, đánh lại số 2026-08-19) — 🔴 CHƯA apply prod
+### Chống ĐƠN TRÙNG — migration [`0047_catalog_orders_client_ref.sql`](../../supabase/migrations/0047_catalog_orders_client_ref.sql) (2026-08-16, đánh lại số 2026-08-19) — ✅ **ĐÃ APPLY prod (soi 2026-09-07: cột client_ref có)**
 
 | Thay đổi | Nghĩa |
 |---|---|
@@ -715,7 +715,7 @@ Nhịp 30 phút chở hai số này lên; `/quan-tri` hiện `kho X/Y MB`. Sau m
 - ✅ **ĐÃ APPLY prod 2026-08-18** (`catalog_orders_client_ref_uniq` = `UNIQUE (customer_phone, client_ref) WHERE client_ref IS NOT NULL`, đã đọc lại `pg_indexes` để xác nhận). **VÌ SAO** (thẩm định 2026-08-16, P1): ở cảng 3G, POST ghi được đơn nhưng phản hồi rơi mất ⇒ client hết 20 giây báo "chưa gửi được" ⇒ bà con bấm lại ⇒ **hai đơn thật, giao hai lần, thu tiền hai lần**. Nay trùng `client_ref` ⇒ route đọc lại đơn cũ và trả `ok:true, duplicate:true`. Trước khi apply: route bắt lỗi `42703/PGRST204` và ghi lại KHÔNG kèm cột ⇒ hành vi y hệt hôm nay (vẫn có thể trùng), không ai bị chặn đặt hàng.
 
 
-### CHỢ VẬT TƯ TÀU CÁ — sàn đa người bán — migration [`0054_marketplace.sql`](../../supabase/migrations/0054_marketplace.sql) (2026-09-06, ADR 0008) — ⚠️ **CHƯA APPLY prod SDVICO**
+### CHỢ VẬT TƯ TÀU CÁ — sàn đa người bán — migration [`0054_marketplace.sql`](../../supabase/migrations/0054_marketplace.sql) (2026-09-06, ADR 0008) — ✅ **ĐÃ APPLY prod 2026-09-07** (soi: 4 bảng + 7 hàm + bucket `market-media` có; RLS bật 0 policy đúng khuôn 0037; seed shop SDVICO 1 dòng)
 
 Thiết kế đầy đủ: [12-kien-truc-san-thuong-mai.md §2](12-kien-truc-san-thuong-mai.md) (SQL nguyên văn) · nghiệp vụ: [11-ba-spec-san-thuong-mai.md](11-ba-spec-san-thuong-mai.md). Bốn bảng MỚI, **không đụng** `product_listings` (0016/0045) và `catalog_orders` (0046/0047) — luồng NCC nội bộ cũ giữ nguyên. SDVICO chỉ là MỘT shop seed sẵn, core không `if (shop === SDVICO)`.
 
@@ -733,10 +733,41 @@ Thiết kế đầy đủ: [12-kien-truc-san-thuong-mai.md §2](12-kien-truc-san
 | bucket `market-media` | Storage **public** (ảnh sản phẩm là nội dung sàn, ai xem cũng như nhau — khác `user-docs` private của giấy tờ), `file_size_limit` 512000 (client nén ≤ 400 KB), mime jpeg/png/webp. Ghi chỉ service-role; không policy ghi cho anon/authenticated |
 | seed | 1 dòng `shops` SDVICO (`owner_phone = 'sdvico:chua-gan'`, `hoat_dong`, Khánh Hòa) `on conflict (slug) do nothing`. Chưa gán chủ thì shop vẫn hiện + nhận đơn (admin xử lý thay, timeline `admin:<sđt>`) |
 
-- ⚠️ **CHƯA APPLY prod SDVICO** (ref `znzgugvfhgmiszqgjulk`) — bước duyệt riêng, Lead apply khi chủ dự án ra lệnh (12 §10.2 pha 4). Kiểm sau apply: 4 bảng + 5 hàm + bucket có; RLS bật 0 policy; anon không còn grant; `get_advisors`.
+- ✅ **ĐÃ APPLY prod 2026-09-07** (ref `znzgugvfhgmiszqgjulk`, chủ dự án ra lệnh). `get_advisors` sau apply: 4 bảng mới nằm trong nhóm INFO `rls_enabled_no_policy` — **đúng thiết kế** (khuôn 0037: RLS bật, không policy, revoke anon/authenticated, mọi đường đi qua route service-role), không phải lỗ hổng. Hai hàm bị WARN thiếu `search_path` đã vá bằng [0056](#khoá-search_path-cho-hai-hàm-của-sàn--migration-0056_market_functions_search_pathsql-2026-09-07--đã-apply-prod-2026-09-07).
 - **Dev không cần DB**: `MARKET_STORE=file npm run dev` (`npm run dev:cho`, cổng 3020) chạy kho file `.local/market-dev.json` + `.local/market-uploads/` (gitignore `/.local/`), seed persona/3 shop/25 món/6 đơn/3 đánh giá (`lib/market/dev-seed.ts`); `identityFromRequest`/`requireStaff` có nhánh dev tra chuỗi ở sổ persona — chỉ bật khi đủ ba điều kiện `isDevFileModeEnv` (MARKET_STORE=file ∧ không VERCEL ∧ NODE_ENV≠production). Chuỗi dev **không bao giờ** vào `device_tokens`.
 - **Không thanh toán trong app** (COD + chuyển khoản tay; `payment_status` là lời khai). **Online-only** (SW không cache `/api/cho|ban-hang|admin/cho|dev`). 5 khoá máy khách `forfish.mcart/maddr/mfav/morders/mshop.v1` xếp loại `NEVER_BACKUP_PREFIXES` (state-registry: Admin+Docs).
 
+### GỘP CỬA HÀNG CŨ VÀO CHỢ — migration [`0055_merge_catalog_into_market.sql`](../../supabase/migrations/0055_merge_catalog_into_market.sql) (2026-09-07, [ADR 0011](../adr/0011-gop-cua-hang-vao-cho.md)) — ✅ **ĐÃ APPLY prod 2026-09-07**
+
+Nền: câu trên ("**không đụng** `product_listings`/`catalog_orders` — luồng cũ giữ nguyên") là đúng cho 0054 và **đã hết hiệu lực từ 0055**. Hai cửa hàng song song (LEAD §5 #11 để lại "gộp = ADR sau") nay gộp làm một: **chợ là cửa hàng duy nhất, SDVICO là một gian hàng**.
+
+**Trạng thái prod đo thật 2026-09-07** (ref `znzgugvfhgmiszqgjulk`): `product_listings` **13 dòng, đều hiện, 7 dòng đặt được, 0 dòng vendor ngoài**; `catalog_orders` **1 đơn thật** (khách `role=customer`, trạng thái `moi`, đặt 28/08 — chưa ai xử lý). Nghĩa là **0045/0046/0047 ĐÃ apply prod** (mấy mục trên còn ghi "CHƯA APPLY" là **doc cũ, sai** — sửa ở dòng dưới), còn **0054 thì CHƯA** (`shops` chưa tồn tại). Vậy: Cửa hàng cũ đang chạy thật với bà con, chợ thì chưa lên.
+
+| Thay đổi | Nghĩa |
+|---|---|
+| `shop_products.price_vnd` **bỏ NOT NULL** | `null` = **LIÊN HỆ BÁO GIÁ** — món bán qua tư vấn, chưa niêm yết giá (máy tàu, thiết bị lớn báo giá theo từng chiếc). CHECK `between 1000 and 1 tỷ` giữ nguyên và vẫn chặn giá 0/âm (`null` đi qua vì `null` là *unknown*, không phải *false*). Món kiểu này **không có giá gạch, không chia loại/cỡ** (`validateMarketProductDraft`), **không vào giỏ, không lên đơn** — chặn ở `isPurchasable`/`buildMarketLines` (lý do rơi mới `chua_co_gia`) **và** ở `market_place_order` (`price_vnd = (it->>'priceVnd')::integer` không bao giờ khớp `null`). Sắp xếp giá: null **xuống cuối cả hai chiều** (`nullsFirst:false` ở supabase-store, `cmpPrice` ở file-store) |
+| hàm `market_fold_vn(text)` | Bản SQL của `foldVn()` (`lib/market/text.ts`) để migration ghi `search_text` **đúng cùng một phép** với app — không thì 13 món chuyển sang tìm không ra. Không dùng extension `unaccent` (prod chưa cài). Chuỗi đích dựng bằng `repeat()` chứ không gõ tay: lệch một ký tự là cả bảng dịch trượt (đã dính thật — "Đá" ra "ya") |
+| `product_listings` → `shop_products` | 13 món đang hiện về gian hàng SDVICO. 7 món có giá giữ giá + đơn vị, **tồn kho đặt 99** (bảng cũ không có tồn kho, món đặt được thì luôn đặt được — 99 để GIỮ NGUYÊN hành vi, không phải SDVICO có đúng 99 cái). 6 món chưa từng niêm yết giá → **liên hệ báo giá**, `stock = 0`. `features` jsonb nối vào cuối `description` thành dòng `· …`. Loại: khớp theo TÊN cho 13 dòng đang có, rơi về `group` khi tên lạ. Chạy lại được (`not exists` theo `(shop, title)`) |
+| `catalog_orders` → `market_orders` | Đơn của bà con **không được rơi**. Trạng thái: `moi`→`cho_xac_nhan`, `da_nhan`→`da_xac_nhan`, còn lại giữ tên. `productId` nối lại theo tên món; không thấy thì để rỗng (dòng hàng là snapshot nên đơn vẫn đọc được, chỉ mất đường bấm sang trang món). **Địa chỉ: KHÔNG bịa tỉnh** — bảng cũ không có cột tỉnh, nên `province` để rỗng và `detail` ghi thẳng "Đơn cũ từ Cửa hàng — chưa ghi địa chỉ nhận, gọi lại cho bà con". Thà trống thật còn hơn đúng giả |
+| `product_listings` · `catalog_orders` | **ĐÃ NGHỈ** (`comment on table`). KHÔNG xoá bảng, KHÔNG xoá dòng nào — còn là đường lùi. App hết đọc; route `/api/sdvico/catalog`, `/api/me/orders`, `/api/admin/products`, `/api/admin/orders` và các file dựng màn cũ giữ lại có `// nợ:` ghi trần |
+
+- ✅ **ĐÃ CHẠY 2026-09-07 theo đúng thứ tự 0054 → 0055 → 0056.** Số đo ngay sau apply: `shops` 1 · `shop_products` **13** (7 có giá + tồn 99, **6 liên hệ báo giá** tồn 0) · `market_orders` **1** (mã `SD260828CAC3`, `cho_xac_nhan`, nối được sang món "Dây curoa máy (bản B)") · `product_listings` **13** và `catalog_orders` **1** GIỮ NGUYÊN không mất dòng nào · `price_vnd` nullable = YES. `search_text` của 13 món khớp `foldVn()` từng chữ.
+- 🔴 **CÒN LẠI: DEPLOY.** Prod DB đã là mô hình mới nhưng code trên `main` vẫn là bản cũ đọc `product_listings`/`catalog_orders` — hai bảng đó còn nguyên nên **app đang chạy KHÔNG hỏng**. Chợ chỉ tới tay bà con khi nhánh `feat/san-thuong-mai` lên. Trong khoảng giữa, đơn mới của bà con vẫn rơi vào `catalog_orders` (màn cũ) — **nhớ chuyển nốt sau khi deploy** bằng cách chạy lại mục 4 của 0055 (câu lệnh chạy lại được, `not exists` theo `id`).
+- **Việc của SDVICO sau khi apply**: vào `/ban-hang` (a) đặt tồn kho thật cho 7 món, (b) đặt giá cho 6 món "Liên hệ báo giá" nếu muốn bán thẳng, (c) xử lý đơn cũ 28/08 đang treo.
+- Khoá máy khách `forfish.orders.v1` (giỏ/đơn Cửa hàng cũ) thành **vô dụng** sau gộp — chưa gỡ, nằm cùng gói nợ với mã chết.
+
+
+### Khoá `search_path` cho hai hàm của sàn — migration [`0056_market_functions_search_path.sql`](../../supabase/migrations/0056_market_functions_search_path.sql) (2026-09-07) — ✅ **ĐÃ APPLY prod 2026-09-07**
+
+Sinh ra NGAY SAU khi apply 0054+0055 vì `get_advisors` báo WARN `function_search_path_mutable` cho đúng hai hàm: `market_set_updated_at` (0054) và `market_fold_vn` (0055). Mọi hàm còn lại của sàn đã ghim `search_path` sẵn trong 0054 — hai hàm này bị sót.
+
+| Thay đổi | Nghĩa |
+|---|---|
+| `market_set_updated_at` · `market_fold_vn` → `set search_path = ''` | Hàm không ghim đường dẫn thì tra tên theo đường dẫn của NGƯỜI GỌI: ai tạo được một schema đứng trước `public` là chèn hàm/toán tử trùng tên rồi cướp quyền thực thi — mà `market_set_updated_at` là trigger chạy trên MỌI lần ghi của bốn bảng sàn. Đặt **rỗng** chứ không phải `public`: thân hai hàm chỉ gọi hàm dựng sẵn (`now`, `trim`, `lower`, `translate`, `repeat`, `regexp_replace`) vốn ở `pg_catalog`, luôn tra được kể cả khi đường dẫn rỗng |
+
+- KHÔNG sửa thẳng vào 0054/0055 — hai file đó đã apply, lịch sử migration phải khớp thứ đã chạy. Vá bằng bước mới.
+- Kiểm sau apply: `pg_proc.proconfig` của cả hai = `search_path=""`; ghi thử một dòng `shops` ⇒ trigger vẫn nhích `updated_at`; `market_fold_vn('Đá cây ướp cá')` vẫn ra `da cay uop ca`.
+<!-- re-verified: 2026-09-07 — 0055 gộp Cửa hàng vào chợ; soi prod: product_listings 13/13 hiện, 7 đặt được, 0 vendor ngoài; catalog_orders 1 đơn thật trạng thái `moi` ngày 28/08; `shops` chưa tồn tại ⇒ 0054 chưa apply, 0045/0046/0047 ĐÃ apply (mục trên ghi "CHƯA APPLY" là doc cũ sai). market_fold_vn đối chiếu với foldVn() trên đủ 13 tên món: khớp từng chữ. -->
 
 <!-- re-verified: 2026-06-14 — schema 0001 boats/documents + §6 gateway khớp code -->
 <!-- re-verified earlier baseline -->

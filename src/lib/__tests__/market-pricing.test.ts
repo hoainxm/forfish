@@ -24,6 +24,36 @@ function product(p: Partial<Product> = {}): Product {
 }
 const shopOk = { id: "s1", status: "hoat_dong" as const, paused: false };
 
+describe("món LIÊN HỆ BÁO GIÁ (priceVnd null) — ADR 0011", () => {
+  const quote = product({ id: "q", priceVnd: null, stock: 0 });
+
+  it("không lên đơn được, và lý do là CHƯA CÓ GIÁ chứ không phải hết hàng", () => {
+    /*  Món kiểu này để stock=0 vì không theo dõi kho. Nếu tồn kho được xét
+        trước thì bà con nhận câu "Hết hàng" — sai hẳn: hàng có, chỉ là phải gọi
+        hỏi giá. Thứ tự hai phép kiểm này chính là điều đang được khoá lại. */
+    const r = buildMarketLines([{ productId: "q", qty: 1 }], [quote], shopOk);
+    expect(r.lines).toEqual([]);
+    expect(r.dropped.map((d) => d.reason)).toEqual(["chua_co_gia"]);
+  });
+
+  it("có tồn kho vẫn không lên đơn — thiếu giá là thiếu giá", () => {
+    const r = buildMarketLines([{ productId: "q", qty: 1 }], [product({ id: "q", priceVnd: null, stock: 50 })], shopOk);
+    expect(r.dropped.map((d) => d.reason)).toEqual(["chua_co_gia"]);
+  });
+
+  it("isPurchasable false, unitPriceFor null, discountPercent null", () => {
+    expect(isPurchasable(quote, shopOk)).toBe(false);
+    expect(unitPriceFor(quote)).toBeNull();
+    expect(discountPercent({ priceVnd: null, compareAtVnd: 100000 })).toBeNull();
+  });
+
+  it("món CÓ giá vẫn đi qua bình thường — luật mới không đụng đường cũ", () => {
+    const r = buildMarketLines([{ productId: "p1", qty: 2 }], [product()], shopOk);
+    expect(r.dropped).toEqual([]);
+    expect(r.lines[0]).toMatchObject({ priceVnd: 35000, qty: 2, lineTotalVnd: 70000 });
+  });
+});
+
 describe("buildMarketLines — mỗi DropReason một ca", () => {
   it("khong_ton_tai (không có / deleted / adminHidden / shop khác)", () => {
     const r = buildMarketLines(
@@ -126,8 +156,10 @@ describe("discountPercent / isPurchasable / isValidMarketQty / acceptsBankTransf
     expect(discountPercent({ priceVnd: 100000, compareAtVnd: 90000 })).toBeNull();
   });
   it("isPurchasable 6 ca", () => {
-    const ok = { status: "dang_ban" as const, adminHidden: false, deletedAt: undefined, stock: 1 };
+    const ok = { status: "dang_ban" as const, adminHidden: false, deletedAt: undefined, stock: 1, priceVnd: 30000 };
     expect(isPurchasable(ok, shopOk)).toBe(true);
+    // món LIÊN HỆ BÁO GIÁ: đủ mọi điều kiện khác nhưng KHÔNG tự đặt được (ADR 0011)
+    expect(isPurchasable({ ...ok, priceVnd: null }, shopOk)).toBe(false);
     expect(isPurchasable({ ...ok, stock: 0 }, shopOk)).toBe(false);
     expect(isPurchasable({ ...ok, status: "an" }, shopOk)).toBe(false);
     expect(isPurchasable({ ...ok, adminHidden: true }, shopOk)).toBe(false);

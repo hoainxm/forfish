@@ -70,8 +70,15 @@ function hourVN(now = Date.now()): number {
   return new Date(now + 7 * 3600_000).getUTCHours();
 }
 
-function purchasable(p: ProductCard): boolean {
-  return p.status === "dang_ban" && !p.adminHidden && !p.deletedAt && p.stock >= 1 && !p.shopPaused;
+/*  Cùng luật với `isPurchasable` (lib/market/pricing.ts) nhưng đọc `shopPaused`
+    của THẺ (trợ lý chỉ có ProductCard, không có Shop). Trả về type guard để
+    món LIÊN HỆ BÁO GIÁ (priceVnd null) bị loại khỏi luồng "thêm vào giỏ" ngay ở
+    tầng kiểu — trợ lý mà mời bà con đặt món chưa có giá là hứa suông. */
+function purchasable(p: ProductCard): p is ProductCard & { priceVnd: number } {
+  return (
+    p.status === "dang_ban" && !p.adminHidden && !p.deletedAt && p.stock >= 1 &&
+    !p.shopPaused && p.priceVnd != null
+  );
 }
 
 /** Điền `portId` thật cho setHomePort / `boatId` thật cho setBoat (answer thuần chỉ có tên đã fold). */

@@ -145,6 +145,8 @@ Mọi trạng thái trên thẻ (giấy tờ, bảo dưỡng, sản phẩm/bảo
 
 Chip món của admin dùng lại đúng ba cặp trên: "Đã gỡ" = danger, "Đang bán" = ok, "Hết hàng"/"Shop ẩn" = field. **Sao đánh giá** dùng `RatingStars` (`components/market/shared`), không tự chế ký tự ★.
 
+**GIÁ HIỆN Ở ĐÂU CŨNG QUA `PriceText`** (`components/market/shared/price-text.tsx`) — thẻ lưới, màn món, màn shop, tìm kiếm, danh sách của người bán. Từ 2026-09-07 ([ADR 0011](../adr/0011-gop-cua-hang-vao-cho.md)) nó nhận `priceVnd: number | null`, và **`null` in ra chữ "Liên hệ báo giá"** — đúng cỡ chữ, đúng màu `text-trim`, đúng độ đậm của giá thật để hàng thẻ không so le. Đây là luật, không phải tuỳ chọn: **cấm để một giá rỗng rơi vào `formatVnd()`**, vì nó in ra "0 đ" và bà con đọc "0 đ" là hiểu cho không. Chỗ nào không dùng được `PriceText` (bảng của `/quan-tri`) thì tự rẽ nhánh `null` trước khi gọi `formatVnd`.
+
 **CHIP CHỌN CỦA CHỢ = `ChipRow` TẦNG 1, không tầng 2 (2026-09-06).** Chip nhóm hàng ở `/cho` · `/cho/tim` · trang shop (`shared/category-chips.tsx`) và hàng chip sắp xếp ở `/cho/tim` đều dùng **`level={1}`** (3.5rem / 1rem), accent `t3`. Tầng 2 đo được **52px** — dưới sàn chạm — và đây là ô bị chạm nhiều nhất của cả khu chợ: bà con đổi nhóm hàng trước khi làm bất cứ việc gì khác. Luật phân tầng chip ở §"Phân cấp điều hướng TRONG trang" vẫn nguyên; chợ chỉ có MỘT tầng chip nên nó là tầng 1, không phải ngoại lệ.
 
 ## 3. Typography

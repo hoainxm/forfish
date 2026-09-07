@@ -22,7 +22,8 @@
 -- Online-only (SW không cache /api/cho|ban-hang|admin/cho).
 --
 -- Xem docs/app-map/12-kien-truc-san-thuong-mai.md §2 (thiết kế) + 04-data-model.md.
--- ⚠️ KHÔNG tự apply lên prod — bước duyệt riêng (ref znzgugvfhgmiszqgjulk).
+-- ✅ ĐÃ APPLY prod 2026-09-07 (ref znzgugvfhgmiszqgjulk, chủ dự án ra lệnh).
+--    Đã chạy rồi thì ĐỪNG sửa file này nữa — vá bằng migration mới (xem 0056).
 
 -- ── 0. Tiện ích dùng chung của sàn ──────────────────────────────────────────
 create or replace function public.market_set_updated_at()

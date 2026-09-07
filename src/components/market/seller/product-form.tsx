@@ -29,6 +29,8 @@ interface VForm { label: string; priceDigits: string }
 interface PForm {
   title: string;
   category: ProductCategory | "";
+  /** Chưa niêm yết giá — bà con gọi hỏi giá (xem `Product.priceVnd`). */
+  quoteOnly: boolean;
   priceDigits: string;
   compareDigits: string;
   unit: string;
@@ -41,7 +43,7 @@ interface PForm {
 }
 
 const emptyForm = (): PForm => ({
-  title: "", category: "", priceDigits: "", compareDigits: "", unit: "", stock: "0",
+  title: "", category: "", quoteOnly: false, priceDigits: "", compareDigits: "", unit: "", stock: "0",
   description: "", images: [], variantsOn: false, variants: [{ label: "", priceDigits: "" }, { label: "", priceDigits: "" }],
   hidden: false,
 });
@@ -50,7 +52,8 @@ function formOf(p: Product): PForm {
   return {
     title: p.title,
     category: p.category,
-    priceDigits: String(p.priceVnd),
+    quoteOnly: p.priceVnd == null,
+    priceDigits: p.priceVnd == null ? "" : String(p.priceVnd),
     compareDigits: p.compareAtVnd != null ? String(p.compareAtVnd) : "",
     unit: p.unit,
     stock: String(p.stock),
@@ -66,6 +69,22 @@ function formOf(p: Product): PForm {
 
 function draftOf(f: PForm): ProductDraftM {
   const compare = f.compareDigits ? Number(f.compareDigits) : undefined;
+  /*  CHƯA NIÊM YẾT GIÁ: gửi lên priceVnd null, và bỏ luôn giá gạch · loại/cỡ ·
+      tồn kho — ba thứ đó đều đo theo giá gốc, không có gốc thì không có nghĩa
+      (validate cũng chặn, đây là để form không gửi rác lên). */
+  if (f.quoteOnly) {
+    return {
+      title: f.title.trim(),
+      description: f.description.trim(),
+      category: f.category as ProductCategory,
+      priceVnd: null,
+      unit: f.unit.trim(),
+      stock: 0,
+      images: f.images,
+      variants: [],
+      status: f.hidden ? "an" : "dang_ban",
+    };
+  }
   return {
     title: f.title.trim(),
     description: f.description.trim(),
@@ -270,11 +289,36 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
       <div className="px-4">
         <ErrLine msg={at("category")} />
 
-        <div id={pFieldDomId("price")}>
-          <MoneyField label="Giá bán" digits={form.priceDigits} onDigits={(d) => set({ priceDigits: d })} placeholder="Ví dụ: 1.650.000" />
-        </div>
-        <ErrLine msg={at("price")} />
+        {/*  MÓN BÁO GIÁ THEO TÀU (2026-09-07, ADR 0011): máy tàu, thiết bị lớn
+             thường báo giá từng chiếc. Không có bậc này thì shop buộc phải bịa
+             một con số, hoặc không đăng được món lên chợ. Bật lên thì giấu luôn
+             giá · tồn kho · giá gạch · loại-cỡ cho khỏi rối. */}
+        <label className="mb-3 flex min-h-[3.5rem] items-center justify-between gap-3 rounded-2xl bg-field px-4">
+          <span className="min-w-0">
+            <span className="block text-[1rem] font-bold text-navy">Chưa để giá — bà con gọi hỏi</span>
+            <span className="block text-[0.9375rem] leading-snug text-foreground/70">
+              Món báo giá theo từng tàu. Chợ hiện &quot;Liên hệ báo giá&quot; và nút gọi shop.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            className="h-7 w-7 shrink-0"
+            checked={form.quoteOnly}
+            onChange={(e) => set({ quoteOnly: e.target.checked })}
+          />
+        </label>
 
+        {!form.quoteOnly && (
+          <>
+            <div id={pFieldDomId("price")}>
+              <MoneyField label="Giá bán" digits={form.priceDigits} onDigits={(d) => set({ priceDigits: d })} placeholder="Ví dụ: 1.650.000" />
+            </div>
+            <ErrLine msg={at("price")} />
+          </>
+        )}
+
+        {!form.quoteOnly && (
+          <>
         <p className="mb-1.5 text-[1rem] font-bold text-navy">Tồn kho</p>
         <div className="mb-1 flex items-center gap-2" id={pFieldDomId("stock")}>
           <button type="button" onClick={() => setStock(stockNum - 1)} aria-label="Bớt tồn kho"
@@ -296,6 +340,8 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
         </div>
         <ErrLine msg={at("stock")} />
         <p className="mb-3.5 text-[0.9375rem] text-foreground/70">Tồn 0 là món tự chuyển sang &quot;Hết hàng&quot;.</p>
+          </>
+        )}
 
         <div id={pFieldDomId("unit")}>
           <Field label="Đơn vị tính">
@@ -318,10 +364,13 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
             className="mb-4 flex min-h-[3.5rem] w-full items-center gap-3 rounded-2xl bg-field px-4 text-left text-[1rem] font-bold text-navy"
           >
             <PlusIcon className="h-5 w-5 shrink-0" />
-            Thêm giá gạch · loại/cỡ · mô tả
+            {/* Món chưa để giá thì giá gạch và loại/cỡ không mở được — đừng mời. */}
+            {form.quoteOnly ? "Thêm mô tả" : "Thêm giá gạch · loại/cỡ · mô tả"}
           </button>
         ) : (
           <>
+            {!form.quoteOnly && (
+              <>
             <div id={pFieldDomId("compare")}>
               <MoneyField
                 label="Giá gạch (giá cũ, để trống nếu không có)"
@@ -390,6 +439,8 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
                 )}
                 <ErrLine msg={at("variants")} />
               </div>
+            )}
+              </>
             )}
 
             <div id={pFieldDomId("description")}>

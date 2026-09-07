@@ -72,6 +72,27 @@ describe("validateMarketProductDraft", () => {
     expect(validateMarketProductDraft(prod({ variants: [{ label: "Đỏ" }, { label: "do" }] }))).toMatch(/trùng tên/i);
     expect(validateMarketProductDraft(prod({ variants: [{ label: "A" }, { label: "B", priceVnd: 10 }] }))).toMatch(/giá/i);
   });
+
+  /*  MÓN LIÊN HỆ BÁO GIÁ (priceVnd null) — ADR 0011. Máy tàu, thiết bị lớn báo
+      giá theo từng chiếc; không có bậc này thì shop phải bịa một con số. */
+  describe("liên hệ báo giá (priceVnd null)", () => {
+    it("hợp lệ khi không giá gạch, không loại/cỡ", () => {
+      expect(validateMarketProductDraft(prod({ priceVnd: null, stock: 0 }))).toBeNull();
+      expect(validateMarketProductDraft(prod({ priceVnd: null, stock: 0, description: "máy lọc nước biển 40L/h" }))).toBeNull();
+    });
+    it("giá gạch KHÔNG đi kèm — không có giá gốc thì gạch cái gì", () => {
+      expect(validateMarketProductDraft(prod({ priceVnd: null, compareAtVnd: 40000 }))).toMatch(/giá gạch/i);
+    });
+    it("loại/cỡ KHÔNG đi kèm — giá biến thể đo theo giá gốc", () => {
+      expect(
+        validateMarketProductDraft(prod({ priceVnd: null, variants: [{ label: "50W" }, { label: "100W" }] })),
+      ).toMatch(/loại/i);
+    });
+    it("giá 0 hay số âm vẫn là SAI, không phải 'liên hệ' — chỉ null mới là liên hệ", () => {
+      expect(validateMarketProductDraft(prod({ priceVnd: 0 }))).toMatch(/giá/i);
+      expect(validateMarketProductDraft(prod({ priceVnd: -1 }))).toMatch(/giá/i);
+    });
+  });
 });
 
 describe("validateAddress", () => {
@@ -153,12 +174,23 @@ describe("validateReview / cancel / payment note / status note", () => {
   });
 });
 
-describe("normalizeProductStatus — 5 ca", () => {
-  it("kho 0 ⇒ het_hang; het_hang có kho ⇒ dang_ban; an giữ nguyên", () => {
-    expect(normalizeProductStatus("dang_ban", 0)).toBe("het_hang");
-    expect(normalizeProductStatus("het_hang", 3)).toBe("dang_ban");
-    expect(normalizeProductStatus("an", 0)).toBe("an");
-    expect(normalizeProductStatus("an", 5)).toBe("an");
-    expect(normalizeProductStatus("dang_ban", 5)).toBe("dang_ban");
+describe("normalizeProductStatus", () => {
+  it("món CÓ GIÁ: kho 0 ⇒ het_hang; het_hang có kho ⇒ dang_ban; an giữ nguyên", () => {
+    expect(normalizeProductStatus("dang_ban", 0, 35_000)).toBe("het_hang");
+    expect(normalizeProductStatus("het_hang", 3, 35_000)).toBe("dang_ban");
+    expect(normalizeProductStatus("an", 0, 35_000)).toBe("an");
+    expect(normalizeProductStatus("an", 5, 35_000)).toBe("an");
+    expect(normalizeProductStatus("dang_ban", 5, 35_000)).toBe("dang_ban");
+  });
+
+  /*  Lỗi thật đã dính (ADR 0011): món liên hệ báo giá để stock 0 vì KHÔNG đếm
+      kho, nhưng hàm này lật nó thành "het_hang" ⇒ thẻ trên chợ dán "Hết hàng"
+      lên hàng vẫn còn. Khoá lại ở đây, chỗ 6 nơi gọi đều đi qua. */
+  it("món LIÊN HỆ BÁO GIÁ: kho 0 KHÔNG thành het_hang — nó không đếm kho", () => {
+    expect(normalizeProductStatus("dang_ban", 0, null)).toBe("dang_ban");
+    expect(normalizeProductStatus("dang_ban", 99, null)).toBe("dang_ban");
+    expect(normalizeProductStatus("an", 0, null)).toBe("an");
+    // đang mang nhãn het_hang từ trước mà chuyển sang liên hệ báo giá ⇒ gỡ nhãn
+    expect(normalizeProductStatus("het_hang", 0, null)).toBe("dang_ban");
   });
 });

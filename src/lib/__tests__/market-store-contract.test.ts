@@ -97,10 +97,10 @@ describe("khởi tạo + ghi an toàn", () => {
 });
 
 describe("listProducts / getProduct / getProductsByIds", () => {
-  it("buyer mặc định: dang_ban|het_hang, !adminHidden, !deleted, shop hoat_dong ⇒ 22 món; shop paused vẫn hiện", async () => {
+  it("buyer mặc định: dang_ban|het_hang, !adminHidden, !deleted, shop hoat_dong ⇒ 23 món (có 1 món liên hệ báo giá); shop paused vẫn hiện", async () => {
     const page = await store.listProducts({ pageSize: 50 });
-    expect(page.total).toBe(22);
-    expect(page.items).toHaveLength(22);
+    expect(page.total).toBe(23);
+    expect(page.items).toHaveLength(23);
     for (const p of page.items) {
       expect(["dang_ban", "het_hang"]).toContain(p.status);
       expect(p.adminHidden).toBe(false);
@@ -112,7 +112,7 @@ describe("listProducts / getProduct / getProductsByIds", () => {
   });
   it("includeHidden: có an + adminHidden, vẫn không deleted", async () => {
     const page = await store.listProducts({ includeHidden: true, pageSize: 50 });
-    expect(page.total).toBe(24);
+    expect(page.total).toBe(25);
     expect(page.items.some((p) => p.adminHidden)).toBe(true);
     expect(page.items.some((p) => p.status === "an")).toBe(true);
     expect(page.items.some((p) => p.deletedAt)).toBe(false);
@@ -129,13 +129,22 @@ describe("listProducts / getProduct / getProductsByIds", () => {
     const bc = await store.listProducts({ sort: "ban_chay", pageSize: 3 });
     expect(bc.items.map((p) => p.soldCount)).toEqual([120, 110, 100]);
     const gt = await store.listProducts({ sort: "gia_tang", pageSize: 50 });
-    for (let i = 1; i < gt.items.length; i++) expect(gt.items[i].priceVnd).toBeGreaterThanOrEqual(gt.items[i - 1].priceVnd);
+    /*  Món LIÊN HỆ BÁO GIÁ (priceVnd null) phải nằm CUỐI, phần có giá thì tăng
+        dần — hai adapter phải cùng luật (ADR 0011). */
+    const gtPrices = gt.items.map((p) => p.priceVnd);
+    const firstNull = gtPrices.findIndex((v) => v == null);
+    if (firstNull >= 0) expect(gtPrices.slice(firstNull).every((v) => v == null)).toBe(true);
+    for (let i = 1; i < gtPrices.length; i++) {
+      const before = gtPrices[i - 1];
+      const now = gtPrices[i];
+      if (before != null && now != null) expect(now).toBeGreaterThanOrEqual(before);
+    }
     const gg = await store.listProducts({ sort: "gia_giam", pageSize: 2 });
     expect(gg.items[0].priceVnd).toBe(185_000_000);
     const big = await store.listProducts({ pageSize: 999 });
     expect(big.pageSize).toBe(50);
     const p2 = await store.listProducts({ pageSize: 10, page: 3 });
-    expect(p2.items).toHaveLength(2);
+    expect(p2.items).toHaveLength(3);   // 23 món ⇒ trang 3 còn 3
     expect(p2.page).toBe(3);
     const shopOnly = await store.listProducts({ shopId: haidang.id, pageSize: 50 });
     expect(shopOnly.items.every((p) => p.shopId === haidang.id)).toBe(true);
@@ -261,7 +270,9 @@ describe("placeOrders — nguyên tử trong shop, độc lập giữa shop", ()
     // (b) COD 2 shop: Hải Đăng ok, SDVICO thiếu hàng (lọc dầu 5 > 2) ⇒ độc lập
     const preHd = prepared(haidang, [da], [{ productId: da.id, qty: 5 }], "m1-test-hd-2");
     const { lines } = buildMarketLines([{ productId: bugi.id, qty: 4 }], [bugi], sdvico);
-    const badLine = { productId: loc.id, title: loc.title, unit: loc.unit, priceVnd: loc.priceVnd, qty: 5, lineTotalVnd: loc.priceVnd * 5 };
+    const locPrice = loc.priceVnd;
+    if (locPrice == null) throw new Error("seed: món lọc dầu phải có giá");
+    const badLine = { productId: loc.id, title: loc.title, unit: loc.unit, priceVnd: locPrice, qty: 5, lineTotalVnd: locPrice * 5 };
     const preSd: PreparedShopOrder = { shopId: sdvico.id, clientRef: "m1-test-sd-1", lines: [...lines, badLine], ...computeTotals([...lines, badLine], sdvico) };
     const res = await store.placeOrders("0901000001", [preHd, preSd], common);
     expect(res.map((r) => r.shopId)).toEqual([haidang.id, sdvico.id]);

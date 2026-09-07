@@ -65,6 +65,13 @@ function paginate<T>(items: T[], q?: { page?: number; pageSize?: number }, def =
   return { items: items.slice(start, start + pageSize), total: items.length, page, pageSize };
 }
 const byCreatedDesc = <T extends { createdAt: string }>(a: T, b: T) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0);
+/** So giá cho sắp xếp: món chưa niêm yết giá (null) LUÔN xuống cuối, bất kể chiều. */
+const cmpPrice = (a: number | null, b: number | null, asc: boolean): number => {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return asc ? a - b : b - a;
+};
 
 export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): FileMarketStore {
   assertDevFileMode();
@@ -202,8 +209,11 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
     });
     switch (q.sort) {
       case "ban_chay": list = list.sort((a, b) => b.soldCount - a.soldCount || byCreatedDesc(a, b)); break;
-      case "gia_tang": list = list.sort((a, b) => a.priceVnd - b.priceVnd || byCreatedDesc(a, b)); break;
-      case "gia_giam": list = list.sort((a, b) => b.priceVnd - a.priceVnd || byCreatedDesc(a, b)); break;
+      /* Món LIÊN HỆ BÁO GIÁ (priceVnd null) xuống CUỐI ở CẢ HAI chiều — cùng luật
+         với adapter Supabase (nullsFirst: false). Không để null rơi vào phép trừ:
+         `null - 5` ra -5, món chưa có giá thành món rẻ nhất. */
+      case "gia_tang": list = list.sort((a, b) => cmpPrice(a.priceVnd, b.priceVnd, true) || byCreatedDesc(a, b)); break;
+      case "gia_giam": list = list.sort((a, b) => cmpPrice(a.priceVnd, b.priceVnd, false) || byCreatedDesc(a, b)); break;
       default: list = list.sort(byCreatedDesc);
     }
     return list;
@@ -223,7 +233,7 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
       if (!p) continue;
       p.stock += it.qty;
       p.soldCount = Math.max(0, p.soldCount - it.qty);
-      p.status = normalizeProductStatus(p.status, p.stock);
+      p.status = normalizeProductStatus(p.status, p.stock, p.priceVnd);
       p.updatedAt = nowIso();
     }
     o.restockedAt = nowIso();
@@ -358,7 +368,7 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
           description: draft.description?.trim() || undefined, category: draft.category,
           priceVnd: draft.priceVnd, compareAtVnd: draft.compareAtVnd ?? undefined, unit: draft.unit.trim(),
           stock: draft.stock, images: [...draft.images], variants: draft.variants.map((v) => ({ ...v })),
-          status: normalizeProductStatus(draft.status, draft.stock), adminHidden: false,
+          status: normalizeProductStatus(draft.status, draft.stock, draft.priceVnd), adminHidden: false,
           soldCount: 0, ratingAvg: 0, ratingCount: 0, createdAt: at, updatedAt: at, searchText,
         };
         s.products.push(p);
@@ -370,7 +380,7 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
         const p = s.products.find((x) => x.id === id && x.shopId === shopId && !x.deletedAt);
         if (!p) throw new MarketError("not_found");
         applyProductPatch(p, patch);
-        p.status = normalizeProductStatus(p.status, p.stock);
+        p.status = normalizeProductStatus(p.status, p.stock, p.priceVnd);
         if (searchText != null) p.searchText = searchText;
         p.updatedAt = nowIso();
         return toProduct(p);
@@ -654,7 +664,7 @@ export function createFileStore(opts: { dir?: string; now?: () => Date } = {}): 
     for (const { p, qty } of plan) {
       p.stock -= qty;
       p.soldCount += qty;
-      p.status = normalizeProductStatus(p.status, p.stock);
+      p.status = normalizeProductStatus(p.status, p.stock, p.priceVnd);
       p.updatedAt = nowIso();
     }
     let code = makeOrderCode(now(), Math.random);

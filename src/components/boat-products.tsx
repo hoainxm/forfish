@@ -24,10 +24,7 @@ import {
   RefNote,
 } from "@/components/ui/primitives";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { ChipRow } from "@/components/ui/chip-row";
 import { useBoats } from "@/components/boat-switcher";
-import { SdvicoCatalog } from "@/components/sdvico-catalog";
-import { MyOrders } from "@/components/my-orders";
 import { SdvicoRequestButton } from "@/components/sdvico-request";
 import { formatVnDate } from "@/lib/format";
 import { readUserList, type UserListRead } from "@/lib/user-list-store";
@@ -43,23 +40,19 @@ import { SdvicoAssignPrompt } from "@/components/sdvico-assign-prompt";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
 
 /*
-  Tab SẢN PHẨM — tách ĐÔI bằng chip tầng 1 (user chốt 2026-06-11, hết cảnh
-  kéo một cột dài):
-  · ĐANG DÙNG — đồ đã mua (đồng bộ SDVICO, nhắc bảo hành) + đồ tự ghi
-  · CỦA SDVICO — cửa hàng gọn focus giới thiệu + upsale (sdvico-catalog)
+  Tab SẢN PHẨM — ĐỒ TRÊN TÀU CỦA BÀ CON, một cột, không còn chip.
+
+  MỘT CỬA HÀNG THÔI (chủ dự án 2026-09-07, ADR 0011). Trước đây tab này có ba
+  chip: "Đang dùng" · "Cửa hàng" · "Đơn của tôi" — mà "Cửa hàng" là một cửa
+  hàng THỨ HAI song song với Chợ vật tư `/cho`: hai giỏ, hai chỗ xem đơn, hàng
+  SDVICO hiện ở hai nơi, bấm vào chia hai luồng. Nay chợ là cửa hàng duy nhất,
+  SDVICO là một gian hàng trong đó; tab này chỉ còn việc của nó — đồ đã mua
+  (đồng bộ SDVICO, nhắc bảo hành) + đồ tự ghi — và MỘT thẻ dẫn sang chợ đặt
+  đúng chỗ hai chip cũ đứng, để tay quen của bà con vẫn chạm trúng.
+
   Mỗi sản phẩm là MỘT thẻ với MỘT băng trạng thái bảo hành màu trên cùng;
   thêm/sửa trong bottom sheet; dữ liệu gắn theo tàu đang chọn (boatId).
 */
-
-type Section = "dang-dung" | "sdvico" | "don-hang";
-
-// "Khuyến nghị" mơ hồ — "Cửa hàng" nói thẳng đây là chỗ xem đồ SDVICO bán.
-// "Đơn của tôi" = chỗ theo dõi đơn đặt hàng từ Cửa hàng.
-const SECTIONS: { id: Section; label: string }[] = [
-  { id: "dang-dung", label: "Đang dùng" },
-  { id: "sdvico", label: "Cửa hàng" },
-  { id: "don-hang", label: "Đơn của tôi" },
-];
 
 const STORAGE_KEY = "forfish.products.v1";
 
@@ -97,7 +90,6 @@ export function BoatProducts() {
   const [editing, setEditing] = useState<BoatProduct | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<BoatProduct | null>(null);
-  const [section, setSection] = useState<Section>("dang-dung");
   // đồ mua của SDVICO — hook dùng chung 4 nấc (loading/guest/error/ok),
   // KHÔNG còn nuốt lỗi mạng thành "chưa đăng nhập"
   const { status: syncStatus, assets, retry } = useSdvicoAssets();
@@ -188,14 +180,49 @@ export function BoatProducts() {
 
   return (
     <div className="pt-1">
-      <ChipRow
-        options={SECTIONS}
-        value={section}
-        onChange={setSection}
-        accent="t3"
-        level={1}
-        ariaLabel="Mục sản phẩm"
-      />
+      {/*  LỐI SANG CHỢ — đứng ĐÚNG CHỖ hai chip "Cửa hàng" · "Đơn của tôi" cũ
+           (ADR 0011). Hai hàng, một thẻ: mua đồ và xem đơn nay đều ở chợ. */}
+      <div className="mx-4 mt-1 mb-3 overflow-hidden surface">
+        <Link
+          href="/cho"
+          className="flex min-h-[3.5rem] items-center gap-3 px-4 py-3"
+        >
+          <span
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
+            aria-hidden
+          >
+            <BasketIcon className="h-6 w-6" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[1.125rem] font-bold text-navy">Mua đồ cho tàu — Chợ vật tư</span>
+            <span className="block text-[1rem] leading-snug text-foreground/65">
+              Máy, ngư cụ, đá cây, dầu nhớt… SDVICO và nhiều đại lý, giao ra cảng
+            </span>
+          </span>
+          <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+        </Link>
+        <div className="mx-4 border-t" style={{ borderColor: "var(--line)" }} />
+        <Link
+          href="/cho/don"
+          className="flex min-h-[3.5rem] items-center gap-3 px-4 py-3"
+        >
+          <span
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
+            aria-hidden
+          >
+            <ClockIcon className="h-6 w-6" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[1.125rem] font-bold text-navy">Đơn hàng của tôi</span>
+            <span className="block text-[1rem] leading-snug text-foreground/65">
+              Coi đơn đã đặt, tới đâu rồi
+            </span>
+          </span>
+          <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
+        </Link>
+      </div>
 
       {/* Hỏi gán hàng SDVICO cho tàu khi có >1 tàu (ba-spec 08 AC-6) */}
       <SdvicoAssignPrompt assets={synced} />
@@ -219,41 +246,7 @@ export function BoatProducts() {
         </div>
       )}
 
-      {/* ════ MỤC 2: CỦA SDVICO — cửa hàng gọn, giới thiệu + upsale ═══ */}
-      {section === "sdvico" && (
-        <div className="px-4">
-          {/*  LỐI VÀO CHỢ VẬT TƯ (12 §9): cửa hàng SDVICO ở dưới GIỮ NGUYÊN —
-               chợ nhiều đại lý là chỗ khác, chưa gộp (LEAD §5 #11, ADR sau). */}
-          <Link
-            href="/cho"
-            className="mb-4 flex min-h-[3.5rem] items-center gap-3 px-4 py-3 surface"
-          >
-            <span
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
-              style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
-              aria-hidden
-            >
-              <BasketIcon className="h-6 w-6" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[1.125rem] font-bold text-navy">Chợ vật tư tàu cá — nhiều đại lý</span>
-              <span className="block text-[1rem] leading-snug text-foreground/65">
-                Ngư cụ, đá cây, nhu yếu phẩm… so giá nhiều shop, giao ra cảng
-              </span>
-            </span>
-            <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
-          </Link>
-          <SdvicoCatalog
-            ownedProductNames={synced?.products.map((p) => p.name) ?? []}
-          />
-        </div>
-      )}
-
-      {/* ════ MỤC 3: ĐƠN CỦA TÔI — theo dõi + huỷ đơn đặt từ Cửa hàng ═══ */}
-      {section === "don-hang" && <MyOrders />}
-
-      {/* ════ MỤC 1: ĐANG DÙNG — đồ đã mua + đồ tự ghi ════════════════ */}
-      {section === "dang-dung" && (
+      {/* ════ ĐỒ ĐANG DÙNG — đồ đã mua + đồ tự ghi ═══════════════════ */}
     <div className="px-4">
       <div className="mb-4">
         {synced ? (
@@ -518,7 +511,6 @@ export function BoatProducts() {
       {/*  Bỏ dòng chân trang "lưu ngay trên máy" (D1) — chỉ giải thích app hoạt
           động thế nào, không cấp dữ liệu, không dặn dò an toàn. */}
     </div>
-      )}
 
       {showForm && (
         <ProductForm

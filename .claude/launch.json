@@ -4,15 +4,31 @@
     {
       "name": "forfish-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000,
       "autoPort": true
     },
     {
       "name": "forfish-prod",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "start"],
+      "runtimeArgs": [
+        "run",
+        "start"
+      ],
       "port": 3100,
+      "autoPort": true
+    },
+    {
+      "name": "forfish-cho",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:cho"
+      ],
+      "port": 3020,
       "autoPort": true
     }
   ]

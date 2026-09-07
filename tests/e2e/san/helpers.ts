@@ -152,6 +152,13 @@ export async function findProduct(
   return found as ProductCard;
 }
 
+/** Giá NIÊM YẾT của một món seed. Món liên hệ báo giá (priceVnd null, ADR 0011)
+ *  không đặt được nên không ca kiểm thử đơn nào dùng — gặp null là seed sai. */
+export function priceOf(p: { title: string; priceVnd: number | null }): number {
+  expect(p.priceVnd, `món seed "${p.title}" phải có giá niêm yết`).not.toBeNull();
+  return p.priceVnd as number;
+}
+
 /** Món của CHÍNH shop (kể cả ẩn / hết hàng) — dùng chuỗi chủ shop. */
 export async function findOwnProduct(
   request: APIRequestContext,

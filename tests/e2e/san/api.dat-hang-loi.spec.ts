@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { Order, ProductCard } from "@/lib/market/types";
 import {
   ADDRESS, PERSONA, SEED, devLogin, expectedTotalFor, findOwnProduct, findProduct, get,
-  listProducts, patch, placeOneOrder, placeOrders, post, stockOf,
+  listProducts, patch, placeOneOrder, placeOrders, post, priceOf, stockOf,
 } from "./helpers";
 
 // TÁM CA LỖI BẮT BUỘC (12 §10.2): hết hàng lúc đặt · giá đổi · huỷ trùng/bấm đúp ·
@@ -50,7 +50,7 @@ test.describe("Chợ — ca lỗi khi đặt hàng (API)", () => {
     const tOk = await expectedTotalFor(request, aoPhao.shopId, okItems, ba);
     const res = await placeOrders(request, ba, [
       { shopId: aoPhao.shopId, items: okItems, expectedTotalVnd: tOk },
-      { shopId: luoi.shopId, items: badItems, expectedTotalVnd: 999 * luoi.priceVnd },
+      { shopId: luoi.shopId, items: badItems, expectedTotalVnd: 999 * priceOf(luoi) },
     ], { buyerNote: "ca mot phan hong" });
     expect(res.status).toBe(200);
     const okRes = res.body.results.find((r) => r.shopId === aoPhao.shopId);
@@ -130,7 +130,7 @@ test.describe("Chợ — ca lỗi khi đặt hàng (API)", () => {
 
       const items = [{ productId: daCay.id, qty: 1 }];
       const res = await placeOrders(request, ba, [
-        { shopId: daCay.shopId, items, expectedTotalVnd: daCay.priceVnd + 30_000 },
+        { shopId: daCay.shopId, items, expectedTotalVnd: priceOf(daCay) + 30_000 },
       ], { buyerNote: "ca tam nghi" });
       expect(res.status).toBe(200);
       const r = res.body.results[0];
@@ -165,7 +165,7 @@ test.describe("Chợ — ca lỗi khi đặt hàng (API)", () => {
 
       const items = [{ productId: daCay.id, qty: 1 }];
       const res = await placeOrders(request, ba, [
-        { shopId: daCay.shopId, items, expectedTotalVnd: daCay.priceVnd },
+        { shopId: daCay.shopId, items, expectedTotalVnd: priceOf(daCay) },
       ], { buyerNote: "ca khoa shop" });
       const r = res.body.results[0];
       expect(r.ok).toBe(false);
@@ -222,7 +222,7 @@ test.describe("Chợ — ca lỗi khi đặt hàng (API)", () => {
   test("AC-25 trần: 21 dòng một shop ⇒ 400; 6 shop ⇒ 400", async ({ request }) => {
     const many = Array.from({ length: 21 }, () => ({ productId: aoPhao.id, qty: 1 }));
     const r1 = await placeOrders(request, ba, [
-      { shopId: aoPhao.shopId, items: many, expectedTotalVnd: 21 * aoPhao.priceVnd },
+      { shopId: aoPhao.shopId, items: many, expectedTotalVnd: 21 * priceOf(aoPhao) },
     ]);
     expect(r1.status).toBe(400);
     expect(r1.body.message ?? "").toContain("tối đa 20 món");
@@ -230,7 +230,7 @@ test.describe("Chợ — ca lỗi khi đặt hàng (API)", () => {
     const sixShops = Array.from({ length: 6 }, (_, i) => ({
       shopId: `00000000-0000-4000-8000-00000000000${i}`,
       items: [{ productId: aoPhao.id, qty: 1 }],
-      expectedTotalVnd: aoPhao.priceVnd,
+      expectedTotalVnd: priceOf(aoPhao),
     }));
     const r2 = await placeOrders(request, ba, sixShops);
     expect(r2.status).toBe(400);

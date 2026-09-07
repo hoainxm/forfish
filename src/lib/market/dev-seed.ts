@@ -69,7 +69,8 @@ interface P {
   shop: "sdvico" | "haidang";
   title: string;
   category: ProductCategory;
-  priceVnd: number;
+  /** null = liên hệ báo giá (ADR 0011) — không vào giỏ, không lên đơn. */
+  priceVnd: number | null;
   compareAtVnd?: number;
   unit: string;
   stock: number;
@@ -99,6 +100,10 @@ const PRODUCTS: P[] = [
   { shop: "sdvico", title: "Mỡ bò bôi trơn xô 15kg", category: "dau-nhot-nhien-lieu", priceVnd: 890_000, unit: "xô", stock: 18, soldCount: 6 },
   { shop: "sdvico", title: "Sơn chống hà tàu cá 5L", category: "khac", priceVnd: 1_100_000, unit: "thùng", stock: 22, soldCount: 8 },
   { shop: "sdvico", title: "Bạt che mưa 4×6m", category: "khac", priceVnd: 380_000, unit: "tấm", stock: 35, soldCount: 21 },
+  /*  MÓN LIÊN HỆ BÁO GIÁ (ADR 0011) — phải có trong seed, không thì dev và e2e
+      không bao giờ nhìn thấy trạng thái này. Đúng khuôn 6 món thật của SDVICO
+      chuyển sang chợ bằng 0055: không giá, không tồn kho, bán qua tư vấn. */
+  { shop: "sdvico", title: "Máy lọc nước biển SEA-40", category: "khac", priceVnd: null, unit: "bộ", stock: 0, soldCount: 0, description: "Lọc nước biển thành nước ngọt 40L/h. Báo giá theo tàu, gọi shop tư vấn." },
   // ── Đại lý Hải Đăng (9) ──
   { shop: "haidang", title: "Dây thừng PP tàu cá", category: "ngu-cu", priceVnd: 45_000, unit: "kg", stock: 500, soldCount: 96, variants: [{ label: "Ø10" }, { label: "Ø12" }, { label: "Ø14" }], description: "Bán theo kg, cuộn 20–25 kg." },
   { shop: "haidang", title: "Lưới rê 3 lớp", category: "ngu-cu", priceVnd: 2_800_000, unit: "tấm", stock: 15, soldCount: 14 },
@@ -113,7 +118,10 @@ const PRODUCTS: P[] = [
 
 function line(p: Product, qty: number, variantLabel?: string): OrderLine {
   const v = variantLabel ? p.variants.find((x) => x.label === variantLabel) : undefined;
+  /* Seed chỉ dựng đơn từ món CÓ GIÁ — món liên hệ báo giá không lên đơn được
+     (pricing.buildMarketLines chặn). Ném sớm để seed sai lộ ra ngay ở dev. */
   const price = v?.priceVnd ?? p.priceVnd;
+  if (price == null) throw new Error(`dev-seed: "${p.title}" chưa có giá, không dựng được dòng đơn`);
   return {
     productId: p.id,
     ...(variantLabel ? { variantLabel } : {}),
@@ -156,7 +164,7 @@ export function buildDevSeed(now: Date): DevSeed {
   const products: SeedProduct[] = PRODUCTS.map((p, i) => {
     const shop = p.shop === "sdvico" ? sdvico : haidang;
     const at = iso(t - (25 - i) * D);
-    const base = normalizeProductStatus(p.status ?? "dang_ban", p.stock);
+    const base = normalizeProductStatus(p.status ?? "dang_ban", p.stock, p.priceVnd);
     const prod: SeedProduct = {
       id: uuid(), shopId: shop.id, title: p.title, description: p.description,
       category: p.category, priceVnd: p.priceVnd, compareAtVnd: p.compareAtVnd, unit: p.unit,

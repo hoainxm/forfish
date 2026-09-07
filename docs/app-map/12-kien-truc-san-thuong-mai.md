@@ -152,7 +152,7 @@ create table if not exists public.shop_products (
   category            text not null check (category in (
                         'may-dong-co', 'dien-tu-hang-hai', 'ngu-cu', 'dau-nhot-nhien-lieu',
                         'da-bao-quan', 'nhu-yeu-pham', 'an-toan', 'phu-tung', 'khac')),  -- LEAD §4 #14, id gạch-ngang
-  price_vnd           integer not null check (price_vnd between 1000 and 1000000000),
+  price_vnd           integer not null check (price_vnd between 1000 and 1000000000),  -- 0055 (ADR 0011) BỎ not null: null = "Liên hệ báo giá"
   compare_at_vnd      integer check (compare_at_vnd is null or compare_at_vnd > price_vnd),  -- "giá gạch"
   unit                text not null check (char_length(unit) between 1 and 20),  -- cái / kg / lít / thùng / cây…
   stock               integer not null default 0 check (stock between 0 and 99999),
@@ -564,7 +564,7 @@ export interface Product {
   title: string;
   description?: string;
   category: ProductCategory;
-  priceVnd: number;
+  priceVnd: number | null;   // null = LIÊN HỆ BÁO GIÁ (ADR 0011) — không vào giỏ, không lên đơn
   compareAtVnd?: number;
   unit: string;
   stock: number;
@@ -689,7 +689,7 @@ export interface ProductDraftM {
   title: string;
   description?: string;
   category: ProductCategory;
-  priceVnd: number;
+  priceVnd: number | null;   // null = LIÊN HỆ BÁO GIÁ (ADR 0011) — không vào giỏ, không lên đơn
   compareAtVnd?: number;
   unit: string;
   stock: number;
@@ -1069,7 +1069,7 @@ export function assertDevFileMode(): void {
 
 | Hành vi | Bắt buộc |
 |---|---|
-| `listProducts` mặc định (buyer) | `status ∈ dang_ban|het_hang` (hết hàng vẫn hiện — 11 §5.2), `adminHidden=false`, `deletedAt=null`, shop `hoat_dong` (shop `paused` VẪN hiện, thẻ mang `shopPaused`); `q` so với `search_text` bằng `foldVn(q)` chứa; `province` = lọc `shops.province`; sort `moi` = created_at desc; `ban_chay` = sold_count desc; `gia_tang/gia_giam` theo `price_vnd`; `pageSize` trần 50 |
+| `listProducts` mặc định (buyer) — 2026-09-07: món `price_vnd` null (Liên hệ báo giá) xếp CUỐI ở cả `gia_tang` lẫn `gia_giam` (`nullsFirst:false` / `cmpPrice`) | `status ∈ dang_ban|het_hang` (hết hàng vẫn hiện — 11 §5.2), `adminHidden=false`, `deletedAt=null`, shop `hoat_dong` (shop `paused` VẪN hiện, thẻ mang `shopPaused`); `q` so với `search_text` bằng `foldVn(q)` chứa; `province` = lọc `shops.province`; sort `moi` = created_at desc; `ban_chay` = sold_count desc; `gia_tang/gia_giam` theo `price_vnd`; `pageSize` trần 50 |
 | `getProduct` | deleted ⇒ null; adminHidden ⇒ trả kèm cờ (route buyer 404) |
 | `getProductsByIds` | trả cả `an`/`het_hang`/adminHidden, KHÔNG deleted; việc loại là của `buildMarketLines` (nó cần biết shop) ⇒ route đọc `getShop` cho từng shopId trong giỏ (≤ 5 shop/lần đặt) |
 | `createShop` | `owner_phone` trùng ⇒ `invalid` ("Số này đã có shop rồi. Vào Kênh người bán để xem."); slug trùng ⇒ `slug_taken` ("Tên shop này đã có người dùng — chọn tên khác.") |
@@ -1336,7 +1336,7 @@ Hình dạng: `{ phone, items: SavedAddress[] }`. Test: thuần 3 hàm + ngăn +
 ```ts
 export const MARKET_FAV_KEY = "forfish.mfav.v1";
 // Trần: FAVORITES_MAX (validate.ts) = 100. Kèm SNAPSHOT để mất sóng còn hiện (11 §3.7).
-export interface FavItem { productId: string; savedAt: number; snapshot: { title: string; priceVnd: number; image?: string; shopName: string } }
+export interface FavItem { productId: string; savedAt: number; snapshot: { title: string; priceVnd: number | null; image?: string; shopName: string } }  // null = liên hệ báo giá (ADR 0011)
 export function loadFavorites(phone): FavItem[];
 export function toggleFavorite(list: FavItem[], item: FavItem): FavItem[];  // có ⇒ bỏ; chưa ⇒ thêm đầu; đầy ⇒ bỏ cũ nhất
 export function isFavorite(list: FavItem[], productId: string): boolean;
@@ -1684,7 +1684,7 @@ Client component, props `{ me: Me }`; 5 mục con bằng chip (khuôn tab `/quan
 | File (owner) | Chỗ | Chèn |
 |---|---|---|
 | `src/components/trade-hub.tsx` (Buyer) | **trên** `ChipRow` (đầu `<div>`), cùng khổ với thẻ `surface` | `<Link href="/cho" className="mx-4 mb-4 flex min-h-[3.5rem] items-center gap-3 px-4 surface">` icon `BasketIcon` + `<span className="text-[1.125rem] font-bold text-navy">Chợ vật tư tàu cá</span>` + dòng phụ `text-[1rem] text-foreground/65` "Máy, ngư cụ, dầu nhớt, đá… nhiều đại lý, giao ra cảng" + `ChevronRightIcon` — KHÔNG thêm chip mới vào `SECTIONS` (3 chip là đủ, 03 "nhãn ngang hàng") |
-| `src/components/boat-products.tsx` (Buyer — LEAD §5 #3: chip "Cửa hàng" thật nằm ở đây dòng 58 `{ id: "sdvico", label: "Cửa hàng" }`, không phải `tau-tabs.tsx`) | trong mục `sdvico` (dòng ~223), **trên** `<SdvicoCatalog>` | thẻ `surface` cùng khuôn trên: "Chợ vật tư tàu cá — nhiều đại lý" → `/cho`. Giữ nguyên `SdvicoCatalog` bên dưới (LEAD §5 #11: chưa gộp — ADR sau) |
+| `src/components/boat-products.tsx` (Buyer) | ~~trong mục `sdvico`, trên `<SdvicoCatalog>`~~ → **THAY HẲN 2026-09-07** ([ADR 0011](../adr/0011-gop-cua-hang-vao-cho.md)) | **ĐÃ GỘP** — không còn chip `SECTIONS` nào: tab Sản phẩm chỉ còn đồ đang dùng trên tàu. Đúng chỗ hai chip "Cửa hàng" · "Đơn của tôi" cũ đứng nay là MỘT thẻ `surface` hai hàng, ngăn bằng `border-t`: (1) `BasketIcon` "Mua đồ cho tàu — Chợ vật tư" / "Máy, ngư cụ, đá cây, dầu nhớt… SDVICO và nhiều đại lý, giao ra cảng" → `/cho`; (2) `ClockIcon` "Đơn hàng của tôi" / "Coi đơn đã đặt, tới đâu rồi" → `/cho/don`. `SdvicoCatalog`/`MyOrders` **hết được dựng** (file giữ lại, có `// nợ:` ghi trần) |
 | `src/components/hero-account.tsx` (Seller) | **ngay dưới khối danh tính/hạng, TRÊN hàng "Cài đặt khác" thu gọn** (sửa 2026-09-06: trước nằm TRONG nhóm thu gọn nên phải bấm "Mở" mới thấy — lối vào một trục việc, không phải một tuỳ chọn cài đặt), cùng class | **Hai dạng dòng (LEAD §4 #16)**, quyết định bởi `loadShopFlag(phone)` (cập nhật khi sheet mở + có sóng qua `GET /api/ban-hang/shop`, 12 s, `.catch`): (a) `hasShop` ⇒ `<Link href="/ban-hang">` "Kênh người bán" + dòng phụ "Đăng sản phẩm, xử lý đơn, thống kê" + `ChevronRightIcon` (thêm "· đang chờ duyệt" khi `status=cho_duyet`); (b) `hasShop=false` ⇒ dòng **mờ** (`text-foreground/65`, không icon nổi) "Bà con có bán vật tư? Đăng ký shop" → `/ban-hang/dang-ky` — không đếm là nudge tầng 5; (c) chưa có cờ + offline ⇒ ẩn cả hai. Cùng file: đăng xuất/xoá dữ liệu gọi thêm `clearMarketCart(phone)`, `clearCachedMarketOrders()`, `clearShopFlag()` |
 | `src/app/quan-tri/page.tsx` (Admin+Docs) | (1) union `type Tab` thêm `\| "cho-vat-tu"`; (2) mảng `tabs` admin thêm `["cho-vat-tu", "Chợ vật tư"]` sau `["don-hang", "Đơn hàng"]`; (3) sau dòng `{activeTab === "don-hang" && …}` thêm `{activeTab === "cho-vat-tu" && isAdmin && <MarketAdminTab me={me} />}`; (4) import `MarketAdminTab` | **3 dòng + 1 import** (LEAD §5 #1 đã OK). Nhãn 2 chữ "Chợ vật tư" khớp luật 03 |
 | `src/lib/admin-activity.ts` (Admin+Docs — LEAD §5 #2) | `ADMIN_ACTIONS` + `ACTION_LABEL` | 5 mã `market.*` (§7.3) + nhãn tiếng Việt; `isDangerAction` thêm `market.shop-status` khi status ∈ tu_choi/tam_khoa? — KHÔNG: giữ hàm như cũ, nhãn đủ |
@@ -1735,7 +1735,7 @@ Commit message mỗi pha ghi câu trả lời offline (CLAUDE.md pre-flight 🟡
 | 8 | Người chưa có tài khoản có được XEM chợ? | xem được, gate tại điểm chạm | **Xem được** `/cho`, `/cho/tim`, `/cho/sp`, `/cho/shop` + giỏ; đặt/đơn/đánh giá/bán cần đăng nhập → §8 đầu mục |
 | 9 | Thiếu lọc tỉnh / gần tôi | `?province` + chip "Gần tôi" | OK (khớp BA #11) → §3.1 ProductQuery, §8.2 |
 | 10 | SW không chặn ảnh cross-origin | QA thêm ca ảnh trên PWA | OK → §10.2 |
-| 11 | Hai cửa hàng song song | chỉ đổi lối vào, gộp = ADR sau | OK → §9 |
+| 11 | Hai cửa hàng song song | chỉ đổi lối vào, gộp = ADR sau | OK → §9 · **ĐÃ TRẢ NỢ 2026-09-07: [ADR 0011](../adr/0011-gop-cua-hang-vao-cho.md) + migration 0055 — gộp về MỘT chợ, SDVICO là một gian hàng; sinh thêm bậc sản phẩm "Liên hệ báo giá" (`price_vnd` null)** |
 | 12 | `notifyAccount` cần SupabaseClient | `notifyMarket` adapter mỏng | OK → §7.4 |
 | A2 | Chủ shop SDVICO prod | sentinel + admin gán; file-store persona có shop | OK → §2 seed, §5.3 |
 | A4 | Mua của chính shop mình | không chặn v1 | OK → Assumptions #4 (11 bỏ R4) |

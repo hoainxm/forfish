@@ -67,8 +67,14 @@ export function validateMarketProductDraft(d: ProductDraftM): string | null {
   const t = len(d.title);
   if (t < 3 || t > 120) return "Tên món 3–120 chữ — ghi rõ loại, cỡ, hãng để bà con tìm ra.";
   if (!isProductCategory(d.category)) return "Chọn nhóm hàng.";
-  if (!isInt(d.priceVnd) || d.priceVnd < PRICE_MIN || d.priceVnd > PRICE_MAX) return "Giá từ 1.000đ đến 1 tỷ.";
-  if (d.compareAtVnd != null && (!isInt(d.compareAtVnd) || d.compareAtVnd <= d.priceVnd))
+  /* LIÊN HỆ BÁO GIÁ (priceVnd null): món bán qua tư vấn — máy tàu, thiết bị lớn
+     báo giá theo từng tàu. Không có giá thì cũng KHÔNG có giá gạch và KHÔNG chia
+     loại/cỡ: cả hai đều là con số so với giá gốc, không có gốc thì vô nghĩa. */
+  const quoteOnly = d.priceVnd == null;
+  if (!quoteOnly && (!isInt(d.priceVnd) || d.priceVnd < PRICE_MIN || d.priceVnd > PRICE_MAX))
+    return "Giá từ 1.000đ đến 1 tỷ.";
+  if (quoteOnly && d.compareAtVnd != null) return "Món liên hệ báo giá thì bỏ trống giá gạch.";
+  if (!quoteOnly && d.compareAtVnd != null && (!isInt(d.compareAtVnd) || d.compareAtVnd <= d.priceVnd!))
     return "Giá gạch phải cao hơn giá bán.";
   const u = len(d.unit);
   if (u < 1 || u > 20) return "Ghi đơn vị tính (lít, cái, bao…).";
@@ -79,6 +85,7 @@ export function validateMarketProductDraft(d: ProductDraftM): string | null {
   const vs = Array.isArray(d.variants) ? d.variants : null;
   if (!vs) return "Có loại/cỡ thì cần ít nhất 2.";
   if (vs.length > 0) {
+    if (quoteOnly) return "Món liên hệ báo giá thì chưa chia loại/cỡ được — đặt giá trước đã.";
     if (vs.length < VARIANT_MIN) return "Có loại/cỡ thì cần ít nhất 2.";
     if (vs.length > VARIANT_MAX) return "Tối đa 10 loại.";
     const seen = new Set<string>();
@@ -182,8 +189,18 @@ export function validateStatusNote(note?: string): string | null {
 }
 
 /** Sản phẩm: kho về 0 ⇒ het_hang; het_hang mà kho > 0 ⇒ dang_ban; 'an' giữ nguyên. */
-export function normalizeProductStatus(status: ProductStatus, stock: number): ProductStatus {
+/*  `priceVnd` là BẮT BUỘC, không phải tuỳ chọn có mặc định: món LIÊN HỆ BÁO GIÁ
+    (null) KHÔNG theo dõi tồn kho — nó để `stock = 0` vì không đếm kho, chứ không
+    phải vì hết hàng. Cho tham số này một mặc định là để 6 chỗ gọi lặng lẽ gắn
+    nhãn "Hết hàng" lên hàng vẫn còn (đã dính thật: thẻ tìm kiếm dán "Hết hàng"
+    lên món SEA-40). Bắt buộc ⇒ trình biên dịch ép từng chỗ gọi phải trả lời. */
+export function normalizeProductStatus(
+  status: ProductStatus,
+  stock: number,
+  priceVnd: number | null,
+): ProductStatus {
   if (status === "an") return "an";
+  if (priceVnd == null) return status === "het_hang" ? "dang_ban" : status;
   if (stock <= 0) return "het_hang";
   if (status === "het_hang") return "dang_ban";
   return status;

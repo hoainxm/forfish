@@ -59,8 +59,16 @@ test.describe("Chợ — vòng lõi người mua (API)", () => {
     ).toContain(SEED.pLocDau);
 
     const asc = await listProducts(request, { sort: "gia_tang", pageSize: 50 });
+    /*  Món LIÊN HỆ BÁO GIÁ (priceVnd null, ADR 0011) luôn xuống CUỐI; phần có
+        giá thì tăng dần. Sắp bằng `a - b` trên null cho kết quả vô nghĩa nên
+        tách hai vế ra kiểm riêng. */
     const prices = asc.body.items.map((p) => p.priceVnd);
-    expect(prices, "gia_tang phải tăng dần").toEqual([...prices].sort((a, b) => a - b));
+    const withPrice = prices.filter((v): v is number => v != null);
+    const firstNull = prices.findIndex((v) => v == null);
+    if (firstNull >= 0) {
+      expect(prices.slice(firstNull).every((v) => v == null), "món chưa có giá phải nằm cuối").toBe(true);
+    }
+    expect(withPrice, "gia_tang phải tăng dần").toEqual([...withPrice].sort((a, b) => a - b));
 
     const hot = await listProducts(request, { sort: "ban_chay", pageSize: 50 });
     const sold = hot.body.items.map((p) => p.soldCount);

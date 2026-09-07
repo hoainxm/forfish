@@ -171,7 +171,8 @@ function ProductRow({
           <p className="text-[1rem] font-bold text-navy">{product.title}</p>
           <p className="mt-0.5 text-[0.8125rem] text-foreground/70">
             {product.shopName} · {categoryLabel(product.category)} ·{" "}
-            {formatVnd(product.priceVnd)}/{product.unit}
+            {/* null = liên hệ báo giá — `formatVnd(null)` sẽ ra "0 đ", nói sai với staff */}
+            {product.priceVnd == null ? "Liên hệ báo giá" : `${formatVnd(product.priceVnd)}/${product.unit}`}
           </p>
           <p className="text-[0.8125rem] tabular-nums text-foreground/55">
             tồn {product.stock} · đã bán {product.soldCount}

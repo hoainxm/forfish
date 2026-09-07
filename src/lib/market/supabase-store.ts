@@ -88,7 +88,10 @@ export function rowToProduct(r: Row): Product {
   const status = r.status === "dang_ban" || r.status === "an" || r.status === "het_hang" ? r.status : "an";
   return {
     id: String(r.id), shopId: String(r.shop_id), title: str(r.title) ?? "", description: str(r.description),
-    category: isProductCategory(r.category) ? r.category : "khac", priceVnd: num(r.price_vnd),
+    category: isProductCategory(r.category) ? r.category : "khac",
+    /* price_vnd NULL = liên hệ báo giá — phải giữ NULL. `num()` sẽ biến thành 0
+       và màn hiện "0 đ", tức là báo SAI giá cho bà con. */
+    priceVnd: r.price_vnd == null ? null : num(r.price_vnd),
     compareAtVnd: r.compare_at_vnd == null ? undefined : num(r.compare_at_vnd), unit: str(r.unit) ?? "",
     stock: num(r.stock), images: strArr(r.images), variants: toVariants(r.variants), status,
     adminHidden: bool(r.admin_hidden), adminHiddenReason: str(r.admin_hidden_reason), deletedAt: str(r.deleted_at),
@@ -221,8 +224,11 @@ export function createSupabaseStore(): MarketStore {
       if (q.q?.trim()) qb = qb.ilike("search_text", `%${foldVn(q.q).replace(/[%_]/g, " ")}%`);
       switch (q.sort) {
         case "ban_chay": qb = qb.order("sold_count", { ascending: false }); break;
-        case "gia_tang": qb = qb.order("price_vnd", { ascending: true }); break;
-        case "gia_giam": qb = qb.order("price_vnd", { ascending: false }); break;
+        /* Món LIÊN HỆ BÁO GIÁ (price_vnd null) xuống CUỐI ở CẢ HAI chiều: bà con
+           bấm "Giá cao → thấp" là muốn xem hàng đắt, không phải hàng chưa có giá
+           (mặc định của Postgres cho DESC là nulls first ⇒ phải nói rõ). */
+        case "gia_tang": qb = qb.order("price_vnd", { ascending: true, nullsFirst: false }); break;
+        case "gia_giam": qb = qb.order("price_vnd", { ascending: false, nullsFirst: false }); break;
         default: break;
       }
       const { data, error, count } = await withSig(qb.order("created_at", { ascending: false }).range(from, to));
@@ -310,7 +316,7 @@ export function createSupabaseStore(): MarketStore {
       return { items: (data ?? []).map((r) => rowToProduct(r as Row)), total: count ?? 0, page, pageSize };
     },
     async createProduct(shopId, draft, searchText) {
-      const row = { ...productDraftToRow(draft as unknown as Record<string, unknown>), shop_id: shopId, search_text: searchText, status: normalizeProductStatus(draft.status, draft.stock) };
+      const row = { ...productDraftToRow(draft as unknown as Record<string, unknown>), shop_id: shopId, search_text: searchText, status: normalizeProductStatus(draft.status, draft.stock, draft.priceVnd) };
       const { data, error } = await withSig(client().from("shop_products").insert(row).select("*")).single();
       if (error) fail("shop_products ghi", error);
       return rowToProduct(data as Row);
@@ -322,7 +328,9 @@ export function createSupabaseStore(): MarketStore {
       void _ah;
       const row = productDraftToRow(rest as Record<string, unknown>);
       const stock = patch.stock ?? cur.stock;
-      row.status = normalizeProductStatus(patch.status ?? cur.status, stock);
+      // `priceVnd` có mặt trong vá thì theo vá (kể cả null = chuyển sang liên hệ báo giá)
+      const priceVnd = "priceVnd" in patch ? patch.priceVnd ?? null : cur.priceVnd;
+      row.status = normalizeProductStatus(patch.status ?? cur.status, stock, priceVnd);
       if (searchText != null) row.search_text = searchText;
       const { data, error } = await withSig(client().from("shop_products").update(row).eq("id", id).eq("shop_id", shopId).select("*")).single();
       if (error) fail("shop_products sửa", error);

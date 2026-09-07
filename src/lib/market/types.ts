@@ -63,7 +63,11 @@ export interface Product {
   title: string;
   description?: string;
   category: ProductCategory;
-  priceVnd: number;
+  /** null = LIÊN HỆ BÁO GIÁ: món bán qua tư vấn, chưa niêm yết giá. Không thêm
+   *  được vào giỏ, không lên đơn (pricing.isPurchasable + buildMarketLines);
+   *  màn món hiện "Gọi hỏi giá" thay "Thêm vào giỏ". Món kiểu này KHÔNG có giá
+   *  gạch và KHÔNG chia loại/cỡ (validate chặn). Xem migration 0055 / ADR 0011. */
+  priceVnd: number | null;
   compareAtVnd?: number;
   unit: string;
   stock: number;
@@ -188,7 +192,8 @@ export interface ProductDraftM {
   title: string;
   description?: string;
   category: ProductCategory;
-  priceVnd: number;
+  /** null = liên hệ báo giá (xem `Product.priceVnd`). */
+  priceVnd: number | null;
   compareAtVnd?: number;
   unit: string;
   stock: number;

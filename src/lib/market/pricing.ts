@@ -3,7 +3,8 @@
 import type { MarketCartLine, OrderLine, Product, Shop } from "./types";
 
 export type DropReason =
-  | "khong_ton_tai" | "ngung_ban" | "het_hang" | "thieu_hang" | "sai_bien_the" | "shop_dong" | "shop_nghi";
+  | "khong_ton_tai" | "ngung_ban" | "het_hang" | "thieu_hang" | "sai_bien_the" | "shop_dong" | "shop_nghi"
+  | "chua_co_gia";
 export interface DroppedLine { productId: string; variantLabel?: string; reason: DropReason; available?: number }
 export const DROP_LABEL: Record<DropReason, string> = {
   khong_ton_tai: "Món này không còn trên chợ",
@@ -13,6 +14,7 @@ export const DROP_LABEL: Record<DropReason, string> = {
   sai_bien_the: "Loại/cỡ này không còn",
   shop_dong: "Shop đang tạm đóng",
   shop_nghi: "Shop đang tạm nghỉ, mở lại sau",
+  chua_co_gia: "Món này bán qua tư vấn — gọi shop hỏi giá",
 };
 
 /** Gom giỏ theo shop — giữ thứ tự xuất hiện; dòng không tìm thấy sản phẩm ⇒ dropped. */
@@ -36,7 +38,8 @@ export function groupCartByShop(
   return { byShop, dropped };
 }
 
-/** Đơn giá thật của một dòng: biến thể có priceVnd thì lấy, không thì giá gốc; biến thể không tồn tại ⇒ null. */
+/** Đơn giá thật của một dòng: biến thể có priceVnd thì lấy, không thì giá gốc; biến thể không tồn tại
+ *  HOẶC món chưa niêm yết giá (liên hệ báo giá) ⇒ null. */
 export function unitPriceFor(p: Product, variantLabel?: string): number | null {
   if (variantLabel == null || variantLabel === "") {
     // món có biến thể thì BẮT BUỘC chọn — không có nhãn là sai biến thể
@@ -63,6 +66,9 @@ export function buildMarketLines(
     const p = byId.get(l.productId);
     if (!p || p.deletedAt || p.adminHidden || p.shopId !== shop.id) { drop(l, "khong_ton_tai"); continue; }
     if (p.status !== "dang_ban") { drop(l, p.status === "het_hang" ? "het_hang" : "ngung_ban"); continue; }
+    /* CHƯA NIÊM YẾT GIÁ xét TRƯỚC tồn kho: món liên hệ báo giá để stock=0, mà
+       nói "Hết hàng" là sai hẳn — hàng có, chỉ chưa có giá để tự đặt. */
+    if (p.priceVnd == null) { drop(l, "chua_co_gia"); continue; }
     if (p.stock <= 0) { drop(l, "het_hang"); continue; }
     if (!isValidMarketQty(l.qty) || p.stock < l.qty) { drop(l, "thieu_hang", p.stock); continue; }
     const price = unitPriceFor(p, l.variantLabel);
@@ -83,15 +89,22 @@ export function buildMarketLines(
   return { lines, dropped };
 }
 
-/** "Mua được" cho UI (11 §3.2) = shop hoat_dong ∧ !paused ∧ status=dang_ban ∧ !adminHidden ∧ !deletedAt ∧ stock ≥ 1. */
+/** "Mua được" cho UI (11 §3.2) = shop hoat_dong ∧ !paused ∧ status=dang_ban ∧ !adminHidden ∧ !deletedAt ∧ stock ≥ 1
+ *  ∧ CÓ GIÁ (món liên hệ báo giá không tự đặt được — gọi shop, xem `Product.priceVnd`). */
 export function isPurchasable(
-  p: Pick<Product, "status" | "adminHidden" | "deletedAt" | "stock">,
+  p: Pick<Product, "status" | "adminHidden" | "deletedAt" | "stock" | "priceVnd">,
   shop: Pick<Shop, "status" | "paused">,
 ): boolean {
   return (
     shop.status === "hoat_dong" && !shop.paused &&
-    p.status === "dang_ban" && !p.adminHidden && !p.deletedAt && p.stock >= 1
+    p.status === "dang_ban" && !p.adminHidden && !p.deletedAt && p.stock >= 1 &&
+    p.priceVnd != null
   );
+}
+
+/** Món bán qua tư vấn (chưa niêm yết giá) — hiện "Liên hệ báo giá" + nút gọi shop. */
+export function isQuoteOnly(p: Pick<Product, "priceVnd">): boolean {
+  return p.priceVnd == null;
 }
 
 export function shippingFor(shop: Pick<Shop, "shippingFlatVnd" | "freeShipFromVnd">, subtotalVnd: number): number {
@@ -129,6 +142,7 @@ export function isValidMarketQty(qty: unknown): qty is number {
 
 /** % giảm để hiện "-20%": compareAt > price ⇒ round; < 5% hoặc không có ⇒ null (11 §5). */
 export function discountPercent(p: Pick<Product, "priceVnd" | "compareAtVnd">): number | null {
+  if (p.priceVnd == null) return null;   // liên hệ báo giá thì không có % giảm
   if (p.compareAtVnd == null || p.compareAtVnd <= p.priceVnd || p.compareAtVnd <= 0) return null;
   const pct = Math.round(((p.compareAtVnd - p.priceVnd) / p.compareAtVnd) * 100);
   return pct < 5 ? null : pct;

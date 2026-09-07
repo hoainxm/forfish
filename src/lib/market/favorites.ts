@@ -10,7 +10,8 @@ export const MARKET_FAV_KEY = "forfish.mfav.v1";
 export interface FavItem {
   productId: string;
   savedAt: number;
-  snapshot: { title: string; priceVnd: number; image?: string; shopName: string };
+  /** priceVnd null = món liên hệ báo giá lúc lưu (xem `Product.priceVnd`). */
+  snapshot: { title: string; priceVnd: number | null; image?: string; shopName: string };
 }
 
 type Stored = { phone: string; items: FavItem[] };

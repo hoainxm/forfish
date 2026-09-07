@@ -4,6 +4,7 @@
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
 last_verified: 2026-09-07
 <!-- re-verified: 2026-09-07 - crew-list.tsx CHỈ export hằng CREW_STORAGE_KEY (cùng giá trị forfish.crew.v1) cho trợ lý đếm số thuyền viên; hành vi sổ thuyền viên/đa tàu KHÔNG đổi -->
+<!-- re-verified: 2026-09-07b — boat-products.tsx GỘP CỬA HÀNG VÀO CHỢ (ADR 0011): bỏ hết chip `SECTIONS` ("Đang dùng" · "Cửa hàng" · "Đơn của tôi"), tab chỉ còn ĐỒ ĐANG DÙNG; hai chip mua-bán thay bằng MỘT thẻ hai hàng dẫn sang /cho và /cho/don. HÀNH VI ĐA TÀU KHÔNG ĐỔI: `SdvicoAssignPrompt` (AC-6, hỏi gán hàng SDVICO cho tàu khi >1 tàu) vẫn dựng nguyên chỗ cũ ngay dưới thẻ lối vào; `useBoats`/`boatId` vẫn gắn từng món đồ tự ghi theo tàu đang chọn (AC-3); `readUserList`/`saveUserJson` + hai băng đỏ đọc-không-được/ghi-không-được giữ y nguyên. Thứ bị gỡ (SdvicoCatalog, MyOrders) vốn KHÔNG gắn theo tàu nên không có AC nào của 08 rụng theo. -->
 <!-- re-verified: 2026-09-06 - boat-products.tsx CHỈ thêm một thẻ lối vào "Chợ vật tư" (→ /cho) trong mục Cửa hàng; hành vi đa-tàu (R1/R2/R3, gắn sản phẩm theo tàu, cascade) KHÔNG đổi -->
 <!-- re-verified: 2026-09-01 — `urgent-strip.tsx` THÊM MỘT CỔNG HIỂN THỊ, KHÔNG đổi hành vi đa-tàu.
 Chưa có chuỗi cứng trong máy (`readToken() == null`) thì dải khẩn trả `null` — trước đó nó đọc thẳng

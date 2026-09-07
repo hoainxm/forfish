@@ -1,18 +1,30 @@
 import { formatVnd } from "@/lib/format";
 
-/** Giá + giá gạch (nếu có). `formatVnd` dùng chung; giá gạch mờ + gạch ngang. */
+/** Giá + giá gạch (nếu có). `formatVnd` dùng chung; giá gạch mờ + gạch ngang.
+ *
+ *  `priceVnd === null` = LIÊN HỆ BÁO GIÁ (món bán qua tư vấn — xem
+ *  `Product.priceVnd`). Nói thẳng bằng CHỮ, tuyệt đối không để rơi vào
+ *  `formatVnd(0)` ra "0 đ": bà con đọc "0 đ" là hiểu cho không. Chữ giữ đúng
+ *  cỡ và màu của giá thật để hàng thẻ không so le. */
 export function PriceText({
   priceVnd,
   compareAtVnd,
   size = "sm",
   className = "",
 }: {
-  priceVnd: number;
+  priceVnd: number | null;
   compareAtVnd?: number;
   size?: "sm" | "lg";
   className?: string;
 }) {
   const main = size === "lg" ? "text-[1.125rem]" : "text-[1rem]";
+  if (priceVnd == null) {
+    return (
+      <span className={`inline-flex flex-wrap items-baseline gap-x-2 ${className}`}>
+        <span className={`${main} font-bold text-trim`}>Liên hệ báo giá</span>
+      </span>
+    );
+  }
   return (
     <span className={`inline-flex flex-wrap items-baseline gap-x-2 ${className}`}>
       <span className={`${main} font-bold text-trim`}>{formatVnd(priceVnd)}</span>

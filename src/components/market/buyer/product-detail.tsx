@@ -147,11 +147,15 @@ export function ProductDetail({ id }: { id: string }) {
   const pct = discountPercent({ priceVnd: unitPrice, compareAtVnd: product.compareAtVnd });
   const shopClosed = shop ? shop.status !== "hoat_dong" : false;
   const shopPaused = shop?.paused ?? product.shopPaused;
-  const outOfStock = product.stock <= 0 || product.status !== "dang_ban";
+  /*  LIÊN HỆ BÁO GIÁ (xem `Product.priceVnd`): món bán qua tư vấn, không tự đặt
+      được. Không tính tồn kho cho nó (để 0, hàng vẫn có) và KHÔNG nói "Hết
+      hàng" — thanh đáy đổi hẳn sang gọi shop. */
+  const quoteOnly = product.priceVnd == null;
+  const outOfStock = product.status !== "dang_ban" || (!quoteOnly && product.stock <= 0);
   const needVariant = hasVariants && !variant;
   /*  `needVariant` KHÔNG nằm trong `canAdd` nữa (R-03): nút vẫn bấm được, việc
       của nó lúc đó là chỉ chỗ chọn loại chứ không phải im lặng. */
-  const canAdd = !outOfStock && !shopClosed && !shopPaused;
+  const canAdd = !quoteOnly && !outOfStock && !shopClosed && !shopPaused;
   const isFav = fav.has(product.id);
 
   const addLabel = outOfStock
@@ -289,7 +293,8 @@ export function ProductDetail({ id }: { id: string }) {
               -{pct}%
             </span>
           )}
-          <span className="text-[1rem] text-foreground/65">/ {product.unit}</span>
+          {/* "Liên hệ báo giá / bộ" đọc không ra câu — đơn vị chỉ có nghĩa khi có giá. */}
+          {!quoteOnly && <span className="text-[1rem] text-foreground/65">/ {product.unit}</span>}
         </div>
 
         {/*  F-14: một dòng như Shopee "★ 4.5 (2) · Đã bán 11 · Còn 5" — chưa có
@@ -306,8 +311,13 @@ export function ProductDetail({ id }: { id: string }) {
           )}
           <span aria-hidden>·</span>
           <span>Đã bán {product.soldCount}</span>
-          <span aria-hidden>·</span>
-          <span>{outOfStock ? "Hết hàng" : product.stock <= 20 ? `Còn ${product.stock} ${product.unit}` : "Còn hàng"}</span>
+          {/* Món liên hệ báo giá không đếm kho — im chỗ này còn hơn nói "Hết hàng" sai. */}
+          {!quoteOnly && (
+            <>
+              <span aria-hidden>·</span>
+              <span>{outOfStock ? "Hết hàng" : product.stock <= 20 ? `Còn ${product.stock} ${product.unit}` : "Còn hàng"}</span>
+            </>
+          )}
         </p>
 
         {gate && <LoginInvite verb="lưu món" online={online} onClose={() => setGate(false)} />}
@@ -346,16 +356,28 @@ export function ProductDetail({ id }: { id: string }) {
         )}
 
         {/* ── Số lượng ─────────────────────────────────────────────────── */}
-        <div className="mt-4 flex items-center justify-between">
-          <span className="text-[1rem] font-bold text-navy">Số lượng</span>
-          <QtyStepper
-            qty={qty}
-            onChange={(n) => setQty(Math.max(1, Math.min(product.stock > 0 ? product.stock : 1, n)))}
-            label={product.title}
-          />
-        </div>
-        {!outOfStock && qty >= product.stock && product.stock <= 20 && (
-          <p className="mt-1 text-right text-[1rem] font-semibold text-warn">Chỉ còn {product.stock}</p>
+        {/*  Món liên hệ báo giá không đặt được ở đây ⇒ không hỏi số lượng. Số
+             lượng bà con chốt với shop lúc gọi. */}
+        {!quoteOnly && (
+          <>
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-[1rem] font-bold text-navy">Số lượng</span>
+              <QtyStepper
+                qty={qty}
+                onChange={(n) => setQty(Math.max(1, Math.min(product.stock > 0 ? product.stock : 1, n)))}
+                label={product.title}
+              />
+            </div>
+            {!outOfStock && qty >= product.stock && product.stock <= 20 && (
+              <p className="mt-1 text-right text-[1rem] font-semibold text-warn">Chỉ còn {product.stock}</p>
+            )}
+          </>
+        )}
+        {quoteOnly && (
+          <p className="mt-4 text-[1rem] leading-snug text-foreground/75">
+            Món này shop báo giá theo từng tàu nên chưa để giá sẵn. Bà con gọi hỏi
+            giá, shop tư vấn loại hợp tàu mình rồi chốt.
+          </p>
         )}
 
         <CartFeedback note={note} count={cart.count} />
@@ -444,21 +466,41 @@ export function ProductDetail({ id }: { id: string }) {
           borderColor: "var(--line)",
         }}
       >
-        {shop?.phone ? (
-          <CallButton phone={shop.phone} label="Gọi shop" />
+        {/*  MÓN LIÊN HỆ BÁO GIÁ: cả thanh chỉ còn MỘT việc — gọi shop hỏi giá.
+             Không để nút "Thêm vào giỏ" mờ nằm cạnh: nút mờ là hướng dẫn mù
+             (R-03), bà con bấm mãi không hiểu vì sao không được. Shop chưa khai
+             số thì đưa về trang shop để còn đường hỏi. */}
+        {quoteOnly ? (
+          shop?.phone ? (
+            <CallButton phone={shop.phone} label="Gọi hỏi giá" className="flex-1" />
+          ) : (
+            <Link
+              href={`/cho/shop/${product.shopSlug}`}
+              className="flex min-h-[3.5rem] flex-1 items-center justify-center gap-1.5 rounded-full px-4 text-[1rem] font-bold"
+              style={{ backgroundColor: "var(--trim)", color: "var(--card)" }}
+            >
+              Xem shop để hỏi giá
+            </Link>
+          )
         ) : (
-          <Link
-            href={`/cho/shop/${product.shopSlug}`}
-            className="flex min-h-[3.5rem] shrink-0 items-center gap-1.5 rounded-full px-4 text-[1rem] font-bold"
-            style={{ backgroundColor: "var(--field)", color: "var(--navy)" }}
-          >
-            Xem shop
-          </Link>
+          <>
+            {shop?.phone ? (
+              <CallButton phone={shop.phone} label="Gọi shop" />
+            ) : (
+              <Link
+                href={`/cho/shop/${product.shopSlug}`}
+                className="flex min-h-[3.5rem] shrink-0 items-center gap-1.5 rounded-full px-4 text-[1rem] font-bold"
+                style={{ backgroundColor: "var(--field)", color: "var(--navy)" }}
+              >
+                Xem shop
+              </Link>
+            )}
+            <PrimaryButton onClick={onAdd} disabled={!canAdd} className="flex-1">
+              <CartIcon className="h-6 w-6" />
+              {addLabel}
+            </PrimaryButton>
+          </>
         )}
-        <PrimaryButton onClick={onAdd} disabled={!canAdd} className="flex-1">
-          <CartIcon className="h-6 w-6" />
-          {addLabel}
-        </PrimaryButton>
       </div>
 
       {reviewsOpen && (
