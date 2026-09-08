@@ -1,0 +1,70 @@
+# -*- coding: utf-8 -*-
+"""Máy sinh giọng "Sen Biển" ở bờ — sinh mp3 nhẹ cho MỌI câu cố định trong
+catalog.json, cả 2 giọng (bac=Trúc Ly, nam=Mỹ Duyên). Xuất out_pack/<giọng>/<id>.mp3
++ manifest.json (id, text, bytes, ms). Nén 24kHz mono 64k.
+
+Chạy: venv\\Scripts\\python.exe gen_pack.py
+"""
+import json, os, time, tempfile, traceback
+
+BASE = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.join(BASE, "out_pack")
+
+
+def wav_ms(path):
+    import wave
+    with wave.open(path, "rb") as w:
+        return round(w.getnframes() / float(w.getframerate()) * 1000)
+
+
+def to_mp3(wav_path, mp3_path):
+    from pydub import AudioSegment
+    seg = AudioSegment.from_wav(wav_path).set_channels(1).set_frame_rate(24000)
+    seg.export(mp3_path, format="mp3", bitrate="64k")
+
+
+def main():
+    with open(os.path.join(BASE, "catalog.json"), "r", encoding="utf-8") as f:
+        cat = json.load(f)
+    voices = cat["voices"]              # {"bac": "Trúc Ly", "nam": "Mỹ Duyên"}
+    items = cat["items"]
+
+    from vieneu import Vieneu
+    print("== nạp VieNeu ==", flush=True)
+    v = Vieneu()
+
+    manifest = {"createdAt": time.strftime("%Y-%m-%dT%H:%M:%S"), "voices": voices, "files": []}
+    total = 0
+    for tag, voice in voices.items():
+        vdir = os.path.join(OUT, tag)
+        os.makedirs(vdir, exist_ok=True)
+        print(f"\n== giọng {tag} = {voice} ==", flush=True)
+        for it in items:
+            iid, text = it["id"], it["text"]
+            try:
+                audio = v.infer(text, voice=voice)
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                    tmp = tf.name
+                v.save(audio, tmp)
+                ms = wav_ms(tmp)
+                mp3 = os.path.join(vdir, f"{iid}.mp3")
+                to_mp3(tmp, mp3)
+                os.remove(tmp)
+                b = os.path.getsize(mp3)
+                total += b
+                manifest["files"].append({"voice": tag, "id": iid, "intent": it.get("intent"), "ms": ms, "bytes": b, "text": text})
+                print(f"  [{iid}] {ms}ms · {b//1024} KB", flush=True)
+            except Exception as e:
+                print(f"  [{iid}] LỖI: {e}", flush=True)
+
+    with open(os.path.join(OUT, "manifest.json"), "w", encoding="utf-8") as f:
+        json.dump(manifest, f, ensure_ascii=False, indent=2)
+    n = len(items)
+    print(f"\nXONG. {len(manifest['files'])}/{2*n} file · tổng {total//1024} KB ({total/1048576:.2f} MB) · {OUT}", flush=True)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        traceback.print_exc()

@@ -1,0 +1,29 @@
+{
+  "_ghi_chu": "SEED câu cố định trợ lý Sen Biển (lấy từ src/lib/assistant/answer.ts, dạng ĐỌC). CHƯA phải answers.json chính thức của gói não (P1 ADR 0010) — cần SDVICO soát. Số khẩn 115 viết 'một một năm' để đọc từng số.",
+  "voices": { "bac": "Trúc Ly", "nam": "Mỹ Duyên" },
+  "items": [
+    { "id": "chao_can_gi",       "intent": "chao_hoi",      "text": "Dạ, bác cần gì?" },
+    { "id": "da_cam_on",         "intent": "chao_hoi",      "text": "Dạ." },
+    { "id": "xac_nhan",          "intent": "xac_nhan",      "text": "Rồi." },
+    { "id": "tu_choi",           "intent": "tu_choi",       "text": "Thôi vậy." },
+    { "id": "tat_tieng",         "intent": "tat_tieng",     "text": "Đã tắt tiếng, tôi chỉ hiện chữ." },
+    { "id": "bat_tieng",         "intent": "bat_tieng",     "text": "Đã bật tiếng." },
+    { "id": "tro_giup",          "intent": "tro_giup",      "text": "Bác hỏi tôi thời tiết, bão, giấy tờ, giá cá, hay bảo tôi mở màn, tìm món, gọi shop." },
+    { "id": "dai_duyen_hai",     "intent": "chung",         "text": "Bác nghe thêm đài duyên hải." },
+    { "id": "ngoai_pham_vi",     "intent": "ngoai_pham_vi", "text": "Việc này tôi không trả lời được. Bác hỏi tôi chuyện đi biển, tàu, giấy tờ, mua bán nhé." },
+    { "id": "y_te",              "intent": "ngoai_pham_vi", "text": "Việc này tôi không trả lời được. Đau ốm thì gọi một một năm hoặc trạm y tế." },
+    { "id": "phap_ly",           "intent": "ngoai_pham_vi", "text": "Chuyện phạt hỏi cảng cá hoặc biên phòng giúp. Tôi coi được giấy tờ nào sắp hết hạn." },
+    { "id": "khong_nghe_ro",     "intent": "khong_hieu",    "text": "Tôi chưa nghe rõ. Bác nói lại giúp." },
+    { "id": "noi_ngan",          "intent": "khong_hieu",    "text": "Bác nói ngắn từng việc một giúp." },
+    { "id": "chua_tra_loi_duoc", "intent": "khong_hieu",    "text": "Tôi chưa trả lời được câu này. Bác thử hỏi cách khác giúp." },
+    { "id": "gia_chua_co",       "intent": "gia_ca",        "text": "Máy chưa có bảng giá. Có sóng mở Giao dịch để tải." },
+    { "id": "dau_chua_co",       "intent": "gia_dau",       "text": "Chưa có giá dầu trong máy. Có sóng mở Giao dịch để tải." },
+    { "id": "cho_mat_song",      "intent": "tim_mon",       "text": "Chợ cần có sóng mới tìm được. Có sóng lại bác hỏi tôi tìm giúp nhé." },
+    { "id": "gio_trong",         "intent": "xem_gio",       "text": "Giỏ chưa có gì. Bác nói tên món cần mua, tôi tìm giúp." },
+    { "id": "bao_chua_co",       "intent": "bao",           "text": "Máy chưa có tin bão. Có sóng tôi hỏi lại được. Bác nghe thêm đài duyên hải." },
+    { "id": "con_nuoc_chua_co",  "intent": "con_nuoc",      "text": "Máy chưa tải bảng con nước. Mở Ra khơi lúc còn sóng." },
+    { "id": "giay_to_trong",     "intent": "giay_to",       "text": "Tủ giấy tờ còn trống. Mở Tàu cá để thêm." },
+    { "id": "quota",             "intent": "khong_hieu",    "text": "Hôm nay bác đã hỏi đủ ba mươi câu cần sóng. Mai hỏi tiếp nhé, việc trong máy tôi vẫn trả lời." },
+    { "id": "hoi_mo_offline",    "intent": "hoi_mo",        "text": "Câu này phải có sóng mới hỏi được. Có sóng lại bác hỏi nhé. Giờ tôi trả lời được: thời tiết, bão, giấy tờ, giá cá." }
+  ]
+}
