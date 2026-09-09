@@ -32,6 +32,8 @@ function leg(waypoints: LatLon[], over: Partial<RoutePlan> = {}): RoutePlan {
     direct: { distKm: 95, hours: 7.5, fuelL: 150, maxWaveM: 1.1 },
     fuelDeltaL: 10,
     beyondForecastH: 0,
+    bestEffortSeas: false,
+    segRisks: [],
     ...over,
   };
 }

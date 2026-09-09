@@ -404,6 +404,16 @@ const PEN_DANGER = 1.5;
 const PEN_BROACH = 1.2;
 const SHALLOW_PENALTY = 1.15; // nước nông 4–12 m: đi được nhưng ưu tiên né
 
+/*  PHẠT CỰC NẶNG cho đoạn ≥ ngưỡng CỨNG (sóng ≥4 m / gió ≥ cấp 8) — CHỈ dùng ở
+    chế độ BEST-EFFORT (`seaAsPenalty`, xem `planRoute`): khi biển động tới mức
+    KHÔNG còn đường "sạch" nào, thay vì bỏ hẳn (trả null), ta hạ chặn-cứng-sóng
+    xuống thành phạt để VẪN ra được "đường ít dữ nhất". Đặt cao (×6) để Dijkstra
+    chỉ dẫm vào ô ≥4 m khi thật sự không tránh được, và luôn chọn đường qua ít
+    ô như vậy nhất / ô nhẹ hơn. KHÔNG áp cho đất/cạn/vật chặn/vùng cấm/bão — mấy
+    thứ đó vẫn chặn cứng tuyệt đối (đâm vào là hỏng tàu, không phải "liều thì đi
+    được"). */
+const PEN_IMPASSABLE_SEA = 6;
+
 /**
  * TRẦN ĐƯỜNG VÒNG: đường thẳng vẫn đi được vật lý mà tuyến tối ưu dài hơn
  * chim bay quá mức này → trả đường thẳng + cảnh báo (VISIR ghi nhận tuyến
@@ -484,6 +494,9 @@ const NEIGHBORS: ReadonlyArray<readonly [number, number]> = [
   [0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1],
   [1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2],
 ];
+
+/** đỏ = phải lưu ý · cam = chú ý vừa · xanh = không có gì (route-legs re-export) */
+export type LegRisk = "red" | "amber" | "blue";
 
 export type RoutePlan = {
   /** start … dest — vẽ thẳng lên bản đồ */
@@ -578,6 +591,19 @@ export type RoutePlan = {
    * UI phải nói thật đoạn đó chưa được kiểm, không được để "êm giả".
    */
   beyondForecastH: number;
+  /**
+   * BEST-EFFORT VÌ BIỂN QUÁ ĐỘNG (2026-09-09). true = KHÔNG còn đường "sạch"
+   * (mọi đường đều dính sóng ≥4 m / gió ≥ cấp 8), nên đây là "ĐƯỜNG ÍT DỮ NHẤT"
+   * — có đi qua vùng ĐÁNG LẼ CHẶN CỨNG. UI PHẢI cảnh báo đỏ mạnh "app KHÔNG
+   * khuyên đi". Đất/cạn/vật chặn/bão vẫn chặn cứng như thường (không nằm ở đây).
+   */
+  bestEffortSeas: boolean;
+  /**
+   * Mức nguy hiểm TỪNG KHÚC (mỗi cặp waypoint liền nhau) — độ dài =
+   * `waypoints.length - 1`. Để bản đồ tô đỏ/cam ĐÚNG đoạn có sóng dữ/cạn, không
+   * chỉ theo chặng chỗ-ghé. "red" cũng gồm khúc best-effort dẫm sóng ≥4 m.
+   */
+  segRisks: LegRisk[];
 };
 
 type LegInfo = {
@@ -604,6 +630,9 @@ type LegInfo = {
   /** có mẫu lớp 0–3 NGOÀI bán kính nới của lớp đó (⇒ không phải chuyện ở cảng) */
   lowFar: boolean;
   following: boolean;
+  /** chặng có mẫu ≥ ngưỡng CỨNG (sóng ≥4 m / gió ≥ cấp 8) — chỉ lọt qua ở chế
+      độ best-effort (`seaAsPenalty`); ở chế độ nghiêm chặng này đã INFEASIBLE */
+  seaImpassable: boolean;
 };
 
 // bất biến + dùng lại cho mọi chặng không đi được — tránh cấp phát object
@@ -613,7 +642,7 @@ const INFEASIBLE_LEG: LegInfo = Object.freeze({
   waveM: 0, windKmh: 0, rough: false, shallow: false,
   veryShallow: false, nearLand: false, draftShallow: false,
   hazard: false, hazardNearPort: false,
-  lowSeen: false, lowFar: false, following: false,
+  lowSeen: false, lowFar: false, following: false, seaImpassable: false,
 });
 
 // export cho route-plan.worker.ts (structured clone nguyên args qua worker)
@@ -685,7 +714,15 @@ class MinHeap {
   }
 }
 
-export function planRoute(args: PlanArgs): RoutePlan | null {
+/**
+ * @param seaAsPenalty BEST-EFFORT — nội bộ, mặc định false. Lượt NGHIÊM (false)
+ * bí (không có đường vì sóng ≥4 m / gió ≥ cấp 8) thì planRoute TỰ GỌI LẠI CHÍNH
+ * NÓ một lần với true: hạ chặn-cứng-sóng xuống phạt cực nặng để ra "đường ít dữ
+ * nhất", cắm `bestEffortSeas`. Đất/cạn/vật chặn/vùng cấm vẫn chặn cứng ⇒ nếu
+ * lượt true CŨNG null thì đúng là KHÔNG có đường vật lý (đất chắn), trả null.
+ * Chặn đệ quy vô hạn: chỉ gọi lại khi `!seaAsPenalty`.
+ */
+export function planRoute(args: PlanArgs, seaAsPenalty = false): RoutePlan | null {
   const { start, dest, boat, departHourIdx, field, depth, bbox } = args;
   const midLat = (bbox.latMin + bbox.latMax) / 2;
   const spanLatKm = (bbox.latMax - bbox.latMin) * 111.32;
@@ -842,6 +879,10 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     to: LatLon,
     atHour: number,
     relaxed: boolean,
+    /*  BEST-EFFORT: sóng ≥4 m / gió ≥ cấp 8 KHÔNG còn chặn cứng mà thành phạt
+        cực nặng (PEN_IMPASSABLE_SEA) + cắm cờ `seaImpassable`. Đất/cạn/vật
+        chặn/vùng cấm VẪN chặn cứng. Chỉ `planRoute` bật khi lượt nghiêm bí. */
+    seaAsPenalty = false,
   ): LegInfo => {
     const distKm = haversineKm(from, to);
     const dLatLeg = to.lat - from.lat;
@@ -1000,6 +1041,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     let maxWind = 0;
     let rough = false;
     let following = false;
+    let seaImpassable = false;
     for (let s = 0; s < nW; s++) {
       const t = (s + 0.5) / nW;
       const h = sampleField(
@@ -1029,7 +1071,10 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       // sea.ts — có số sóng thật thì luôn ưu tiên số thật.
       const waveM = h.waveM ?? estimateWaveFromWind(h.windKmh);
       const hard = waveM >= HARD_WAVE_M || h.windKmh >= HARD_WIND_KMH;
-      if (hard && !relaxed) return INFEASIBLE_LEG; // ≥ cấp 8 — không vẽ tuyến qua
+      // ≥ cấp 8 — CHẶN CỨNG ở lượt nghiêm; best-effort thì cho qua kèm phạt cực
+      // nặng + cắm cờ (relaxed = tính lại số liệu tuyến đã chọn, cũng không chặn)
+      if (hard && !relaxed && !seaAsPenalty) return INFEASIBLE_LEG;
+      if (hard) seaImpassable = true;
 
       const dirF = waveDirFactor(h.waveFromDeg, heading);
       // tốc độ QUA NƯỚC sau khi sóng làm chậm; ngược gió cũng làm CHẬM
@@ -1059,7 +1104,9 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
         h.windKmh >= DANGER_WIND_KMH ||
         (shallow && waveM >= DANGER_WAVE_M - 0.5);
       const caution = waveM >= CAUTION_WAVE_M || h.windKmh >= CAUTION_WIND_KMH;
-      let pen = danger ? PEN_DANGER : caution ? PEN_CAUTION : 1;
+      // đoạn ≥ ngưỡng cứng (chỉ tới đây khi best-effort/relaxed) phạt CỰC nặng
+      // để tuyến chỉ dẫm vào khi không tránh được và chọn ô nhẹ nhất
+      let pen = hard ? PEN_IMPASSABLE_SEA : danger ? PEN_DANGER : caution ? PEN_CAUTION : 1;
       if (fol) pen *= PEN_BROACH;
       weatherCost += subFuel * pen;
 
@@ -1078,8 +1125,34 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     return {
       feasible: true, distKm, hours, fuelL, cost,
       waveM: maxWave, windKmh: maxWind, rough, shallow, veryShallow, nearLand,
-      draftShallow, hazard, hazardNearPort, lowSeen, lowFar, following,
+      draftShallow, hazard, hazardNearPort, lowSeen, lowFar, following, seaImpassable,
     };
+  };
+
+  /*  MỨC NGUY HIỂM MỘT KHÚC (mỗi cặp waypoint) — cùng THỨ TỰ ưu tiên và cùng
+      ngưỡng với `legRisk` của route-legs (một nghĩa, một bộ số). Dùng để tô đỏ/
+      cam ĐÚNG khúc trên bản đồ. Không xét `depthChecked` (đó là chuyện cả tuyến
+      — UI nói bằng dòng cảnh báo riêng, không nhuộm cả tuyến cam). */
+  const legInfoRisk = (leg: LegInfo): LegRisk => {
+    if (
+      leg.hazard ||
+      leg.veryShallow ||
+      leg.nearLand ||
+      leg.seaImpassable ||
+      leg.waveM >= DANGER_WAVE_M ||
+      leg.windKmh >= DANGER_WIND_KMH ||
+      leg.rough
+    )
+      return "red";
+    if (
+      leg.draftShallow ||
+      leg.shallow ||
+      leg.following ||
+      leg.waveM >= CAUTION_WAVE_M ||
+      leg.windKmh >= CAUTION_WIND_KMH
+    )
+      return "amber";
+    return "blue";
   };
 
   // Dijkstra: nhãn = chi phí (dầu × phạt nhẹ) tích luỹ; giờ ETA đi ké nhãn
@@ -1106,7 +1179,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       if (vi < 0 || vi >= nI || vj < 0 || vj >= nJ) continue;
       const v = vi * nJ + vj;
       if (done[v]) continue;
-      const leg = legCost(pu, pointOf(v), departHourIdx + hoursAcc[u], false);
+      const leg = legCost(pu, pointOf(v), departHourIdx + hoursAcc[u], false, seaAsPenalty);
       if (!leg.feasible) continue;
       const c = cost[u] + leg.cost;
       if (c < cost[v]) {
@@ -1118,7 +1191,10 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     }
   }
 
-  if (!Number.isFinite(cost[dIdx])) return null;
+  // Không tới được đích ở lượt nghiêm → thử BEST-EFFORT (biển động); lượt
+  // best-effort cũng không tới → đất chắn thật, trả null.
+  if (!Number.isFinite(cost[dIdx]))
+    return seaAsPenalty ? null : planRoute(args, true);
 
   // dựng lại tuyến node, thay hai đầu bằng toạ độ thật
   const nodePath: number[] = [];
@@ -1143,7 +1219,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     let bestHours =
       haversineKm(waypoints[i], waypoints[i + 1]) / calmKmh;
     {
-      const first = legCost(waypoints[i], waypoints[i + 1], departHourIdx + hoursEst, false);
+      const first = legCost(waypoints[i], waypoints[i + 1], departHourIdx + hoursEst, false, seaAsPenalty);
       // cộng dồn chi phí/giờ của chuỗi cạnh gốc i..j để so với chord
       let sumCost = first.feasible ? first.cost : Infinity;
       let sumHours = first.feasible ? first.hours : bestHours;
@@ -1151,13 +1227,13 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       for (let j = i + 2; j <= maxJ; j++) {
         const orig = legCost(
           waypoints[j - 1], waypoints[j],
-          departHourIdx + hoursEst + sumHours, false,
+          departHourIdx + hoursEst + sumHours, false, seaAsPenalty,
         );
         sumCost += orig.feasible ? orig.cost : Infinity;
         sumHours += orig.feasible
           ? orig.hours
           : haversineKm(waypoints[j - 1], waypoints[j]) / calmKmh;
-        const chord = legCost(waypoints[i], waypoints[j], departHourIdx + hoursEst, false);
+        const chord = legCost(waypoints[i], waypoints[j], departHourIdx + hoursEst, false, seaAsPenalty);
         if (chord.feasible && chord.cost <= sumCost * 1.001) {
           bestJ = j;
           bestHours = chord.hours;
@@ -1175,7 +1251,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
    * giữa chừng). `hoursAt[k]` = giờ cộng dồn tới `pts[k]` ([0] = 0) — mảng này
    * đi ra ngoài theo `RoutePlan.hoursAt` cho hậu kiểm triều/hiểm hoạ tại ETA.
    */
-  const walk = (pts: LatLon[], relaxed: boolean) => {
+  const walk = (pts: LatLon[], relaxed: boolean, seaAsPenalty = false) => {
     let hoursSum = 0,
       fuelSum = 0,
       distSum = 0,
@@ -1191,10 +1267,12 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       lowSeen = false,
       lowFar = false,
       following = false,
+      seaImpassableFlag = false,
       ok = true;
     const hoursAt: number[] = [0];
+    const segRisks: LegRisk[] = [];
     for (let k = 1; k < pts.length; k++) {
-      const leg = legCost(pts[k - 1], pts[k], departHourIdx + hoursSum, relaxed);
+      const leg = legCost(pts[k - 1], pts[k], departHourIdx + hoursSum, relaxed, seaAsPenalty);
       if (!leg.feasible) {
         ok = false;
         break;
@@ -1215,6 +1293,8 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       lowSeen = lowSeen || leg.lowSeen;
       lowFar = lowFar || leg.lowFar;
       following = following || leg.following;
+      seaImpassableFlag = seaImpassableFlag || leg.seaImpassable;
+      segRisks.push(legInfoRisk(leg));
     }
     return {
       ok, hoursSum, hoursAt, fuelSum, distSum, maxWave, maxWind,
@@ -1222,7 +1302,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       hazardFlag, hazardNearPortFlag,
       // có chỗ thấp, và MỌI chỗ thấp đều là chuyện ở cảng
       nearPortOnly: lowSeen && !lowFar,
-      following,
+      following, seaImpassable: seaImpassableFlag, segRisks,
     };
   };
 
@@ -1242,16 +1322,18 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       dáng); vẫn hỏng thì `null` — chỗ gọi đã có đường xử đúng: nới bbox thử
       lại, hết margin thì nói thẳng "chưa tìm được đường an toàn". Thà không có
       tuyến còn hơn một tuyến cắt qua đảo.  */
-  if (!walk(waypoints, false).ok) {
+  if (!walk(waypoints, false, seaAsPenalty).ok) {
     const raw: LatLon[] = [start, ...nodePath.slice(1, -1).map(pointOf), dest];
-    if (!walk(raw, false).ok) return null;
+    // kéo dây lẫn đường Dijkstra thô đều hỏng ở lượt nghiêm → thử best-effort
+    if (!walk(raw, false, seaAsPenalty).ok)
+      return seaAsPenalty ? null : planRoute(args, true);
     waypoints = raw;
   }
 
   /*  `relaxed: true` ở đây CHỈ để gom số liệu hiển thị của tuyến VỪA ĐƯỢC KIỂM
       ở trên — không bao giờ cụt giữa chừng nên tổng luôn là của cả tuyến. Nó
       KHÔNG còn là chỗ quyết định tuyến có hợp lệ hay không. */
-  const chosen = walk(waypoints, true);
+  const chosen = walk(waypoints, true, seaAsPenalty);
 
   // cửa sổ dự báo thật sự có số liệu — quá mốc này hourAt đóng băng giờ cuối,
   // phải báo ra ngoài thay vì để phần đuôi tuyến "êm giả"
@@ -1268,7 +1350,7 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
   const directPts: LatLon[] = Array.from({ length: nSeg + 1 }, (_, k) =>
     lerp(start, dest, k / nSeg),
   );
-  const directWalk = walk(directPts, false);
+  const directWalk = walk(directPts, false, seaAsPenalty);
   const direct = directWalk.ok
     ? {
         distKm: directWalk.distSum,
@@ -1279,8 +1361,10 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     : null;
 
   // TRẦN ĐƯỜNG VÒNG: đường thẳng đi được vật lý mà tuyến vòng quá 30% →
-  // trả đường thẳng + cảnh báo thật, thuyền trưởng tự quyết
-  if (direct && chosen.distSum > directDist * MAX_DETOUR_RATIO) {
+  // trả đường thẳng + cảnh báo thật, thuyền trưởng tự quyết.
+  // BEST-EFFORT KHÔNG áp trần: lúc biển động, một đường vòng dài né bớt ô ≥4 m
+  // đáng giá hơn đường thẳng đâm thẳng vào sóng dữ — đừng ép về chạy thẳng.
+  if (!seaAsPenalty && direct && chosen.distSum > directDist * MAX_DETOUR_RATIO) {
     return {
       waypoints: directPts,
       distKm: directWalk.distSum,
@@ -1309,6 +1393,8 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
       direct,
       fuelDeltaL: 0,
       beyondForecastH: beyondH(directWalk.hoursSum),
+      bestEffortSeas: directWalk.seaImpassable,
+      segRisks: directWalk.segRisks,
     };
   }
 
@@ -1335,6 +1421,8 @@ export function planRoute(args: PlanArgs): RoutePlan | null {
     direct,
     fuelDeltaL: direct ? chosen.fuelSum - direct.fuelL : null,
     beyondForecastH: beyondH(chosen.hoursSum),
+    bestEffortSeas: chosen.seaImpassable,
+    segRisks: chosen.segRisks,
   };
 }
 

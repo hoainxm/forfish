@@ -23,7 +23,7 @@ cố-định/động (R1/R2), cascade R3, guard R7 không bị chạm. AC-1..7 k
 Phan loai co-dinh-theo-tau vs dong-theo-chu (R1/R2) va guard R7 "luon con >=1 tau" giu nguyen; `removeBoat` khong doi chu ky. Cong test moi: `src/lib/__tests__/local-write-atomic.test.ts` (kho day -> cascade KHONG chay, danh sach tau giu nguyen). -->
 
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-09-04) — code 'src/components/urgent-strip.tsx' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-09-09) — code 'src/components/urgent-strip.tsx' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 <!-- re-verified: 2026-07-25 - boat-switcher/crew-list/urgent-strip chỉ thêm anchor data-tour (chon-tau, them-thuyen-vien, nhac-viec) cho coach-tour hướng dẫn; KHÔNG đổi hành vi đa-tàu — NV1–NV5, handoff H1, vòng đời thêm/xóa/đổi tàu, AC §8 giữ nguyên. -->
 <!-- re-verified: 2026-07-29 — GỠ seed mẫu (app lên thật): crew-list bỏ demoCrew/isDemo/startRealCrew, maintenance-reminders bỏ demoEntries/isDemo, boat-products bỏ filter demo-sp-. User mới thấy màn RỖNG + empty state, tự nhập. KHÔNG đụng hành vi đa-tàu: thuyền viên vẫn động-theo-chủ R2 (không boatId), lịch bảo dưỡng/sản phẩm vẫn gắn tàu + cascade R3 khi xóa tàu giữ nguyên. AC §8 không đổi. -->
 <!-- re-verify note: covers=maintenance-reminders.tsx, crew-list.tsx, boat-products.tsx (seed removal, behavior đa-tàu bất biến). -->

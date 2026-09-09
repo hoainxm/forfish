@@ -106,6 +106,13 @@ export function mergeLegPlans(plans: RoutePlan[]): MergedRoute | null {
           đã cộng dồn giờ các chặng trước nên nó tự đo đúng phần đuôi của mình;
           chặng nằm trọn ngoài cửa sổ sẽ khai trọn số giờ của nó. */
       beyondForecastH: sum((p) => p.beyondForecastH),
+      // best-effort vì biển động: MỘT chặng phải liều là cả tuyến phải cảnh báo
+      bestEffortSeas: some((p) => p.bestEffortSeas),
+      /*  Mức nguy hiểm từng khúc: NỐI theo đúng thứ tự chặng. Waypoints gộp bỏ
+          điểm ĐẦU của chặng sau (nó trùng điểm cuối chặng trước), nên số KHÚC =
+          tổng số khúc từng chặng ⇒ segRisks nối thẳng là khớp một-một với các
+          cặp waypoint của tuyến gộp. */
+      segRisks: plans.flatMap((p) => p.segRisks),
     },
     stopWpIdx,
     legs: summarizeLegs(plans),

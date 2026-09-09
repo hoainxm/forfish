@@ -221,10 +221,47 @@ export function RouteMapLayers({
     if (!route) return null;
     const wps = route.plan.waypoints;
     if (wps.length < 2) return null;
+
+    /*  TÔ MÀU TỪNG KHÚC THẬT (2026-09-09): `segRisks` chấm mức nguy hiểm cho MỖI
+        cặp waypoint (chỗ có sóng dữ/cạn), mịn hơn hẳn tô theo chặng chỗ-ghé —
+        chuyến không có điểm ghé giữa trước đây chỉ một màu, nay đúng khúc nào dữ
+        khúc đó đỏ. Gộp các khúc LIỀN NHAU cùng mức thành một feature cho nét
+        liền (join tròn), chỉ đứt ở chỗ ĐỔI màu. */
+    const seg = route.plan.segRisks;
+    if (seg && seg.length === wps.length - 1) {
+      const cum = cumulativeKmAt(
+        wps,
+        wps.map((_, i) => i),
+      );
+      // ĐÃ ĐI QUA = mốc CUỐI khúc đã ở sau lưng (xám nửa vời làm khúc đang đi
+      // trông như đã xong nên chỉ xám khi qua trọn khúc).
+      const stateAt = (k: number): string =>
+        alongKm != null && cum[k + 1] != null && alongKm >= cum[k + 1]
+          ? "passed"
+          : seg[k];
+      const feats = [];
+      let runStart = 0;
+      for (let k = 0; k < seg.length; k++) {
+        const next = k + 1 < seg.length ? stateAt(k + 1) : null;
+        if (next !== stateAt(k)) {
+          feats.push({
+            type: "Feature" as const,
+            properties: { state: stateAt(k), legIdx: runStart },
+            geometry: {
+              type: "LineString" as const,
+              coordinates: wps.slice(runStart, k + 2).map((w) => [w.lon, w.lat]),
+            },
+          });
+          runStart = k + 1;
+        }
+      }
+      return { type: "FeatureCollection" as const, features: feats };
+    }
+
+    /*  LÙI VỀ TÔ THEO CHẶNG (tuyến cũ/thiếu segRisks). Chưa tính được chặng ⇒
+        vẽ NGUYÊN MỘT ĐƯỜNG xanh. Thà mất màu còn hơn mất tuyến. */
     const bounds = route.legBoundsKm ?? [];
     const legs = route.legs ?? [];
-    /*  Chưa tính được chặng (tuyến cũ đọc từ nơi khác, hoặc dữ liệu thiếu) ⇒
-        vẽ NGUYÊN MỘT ĐƯỜNG xanh như cũ. Thà mất màu còn hơn mất tuyến. */
     const cuts =
       route.stopWpIdx.length === legs.length && legs.length > 0
         ? route.stopWpIdx
@@ -233,9 +270,6 @@ export function RouteMapLayers({
     let from = 0;
     for (let i = 0; i < cuts.length; i++) {
       const to = Math.min(Math.max(cuts[i], from + 1), wps.length - 1);
-      /*  ĐÃ ĐI QUA = mốc CUỐI chặng đã ở sau lưng. Cố ý KHÔNG cắt giữa chặng:
-          chặng đang chạy phải giữ nguyên màu cảnh báo của nó, xám nửa vời làm
-          khúc đang đi trông như đã xong. */
       const passed =
         alongKm != null && bounds[i] != null && alongKm >= bounds[i];
       feats.push({
@@ -1072,8 +1106,12 @@ export function RouteMode({
               ? " ở chặng từ nơi xuất phát tới chỗ ghé 1"
               : ` ở chặng từ chỗ ghé ${failedLeg - 1} tới chỗ ghé ${failedLeg}`
             : "";
+        /*  BEST-EFFORT (2026-09-09): sóng dữ KHÔNG còn làm null — `planRoute` tự
+            hạ chặn-cứng-sóng thành "đường ít dữ nhất". Nên null tới đây nghĩa là
+            KHÔNG có đường vật lý: đất liền / bãi cạn / vật chặn / vùng cấm chắn
+            ngang. Nói đúng lý do đó, đừng đổ cho sóng nữa (đi vòng cũng vô ích). */
         setError(
-          `Chưa tìm được đường an toàn${where} — giữa đường vướng đất liền, bãi cạn hoặc sóng quá dữ (trên 4 m).`,
+          `Chưa tìm được đường${where} — đất liền, bãi cạn hoặc vùng cấm chắn ngang, không có đường vòng nào qua được. Kiểm lại điểm đến trên hải đồ.`,
         );
         setResult(null);
         onRoute(null);
@@ -2421,6 +2459,25 @@ export function RouteMode({
                nhất ngay dưới ngón tay ⇒ cảnh báo bãi cạn / đè bờ không bao giờ
                được đọc. Đưa lên đây tốn 0 px và, sau cú cuộn-về-đầu lúc tính
                xong, nó là thứ ĐẦU TIÊN trong khung nhìn. */}
+          {/*  (0) BEST-EFFORT VÌ BIỂN QUÁ ĐỘNG — NẶNG NHẤT, đứng TRƯỚC mọi khối
+               (2026-09-09). Không còn đường "sạch" nào: tuyến vẽ có đoạn sóng
+               ≥4 m / gió ≥ cấp 8. Đây KHÔNG phải lời khuyên đi — chỉ là "nếu
+               buộc phải đi thì đây là đường ít dữ nhất". Nói thẳng, nền đỏ. */}
+          {plan.bestEffortSeas && (
+            <div role="alert" className="rounded-xl bg-danger-bg p-3 text-danger">
+              <p className="flex items-center gap-2 text-[1rem] font-bold leading-snug">
+                <AlertIcon className="h-5 w-5 shrink-0" />
+                Biển đang quá động — app KHÔNG khuyên đi
+              </p>
+              <p className="mt-1.5 text-[0.9375rem] font-semibold leading-snug">
+                Không còn đường nào tránh hết sóng lớn (có đoạn sóng tới{" "}
+                {formatNumberVN(plan.maxWaveM)} m / gió mạnh). Đây chỉ là ĐƯỜNG ÍT
+                DỮ NHẤT để tham khảo — nên chờ biển lặng, nghe đài duyên hải trước
+                khi quyết. Khúc tô đỏ là chỗ dữ nhất.
+              </p>
+            </div>
+          )}
+
           {dangerItems.length > 0 && (
             <div
               role="alert"

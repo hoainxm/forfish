@@ -269,11 +269,19 @@ describe("planRoute", () => {
     expect(Math.max(...p.waypoints.map((w) => w.lat))).toBeGreaterThan(12.5);
   });
 
-  it("sóng ≥4 m (cấp 8) chắn kín mọi lối → trả null, không vẽ liều", () => {
+  it("sóng ≥4 m (cấp 8) chắn kín mọi lối → BEST-EFFORT: vẫn ra đường ít dữ nhất, cắm cờ + tô đỏ", () => {
     const f = makeField(BB, 9, (la, lo) =>
       Math.abs(lo - 111) < 0.3 ? { waveM: 4.5 } : calm(),
     );
-    expect(plan(f)).toBeNull();
+    /*  ĐỔI 2026-09-09 (chủ dự án chốt): trước đây chắn kín ⇒ null ("không vẽ
+        liều"). Nay lượt nghiêm bí thì planRoute tự best-effort — vẫn vẽ ĐƯỜNG
+        ÍT DỮ NHẤT nhưng CẮM CỜ để UI cảnh báo đỏ "app KHÔNG khuyên đi". Sóng
+        dữ KHÔNG bị giấu (maxWave ≥4, có khúc đỏ). */
+    const p = plan(f)!;
+    expect(p).not.toBeNull();
+    expect(p.bestEffortSeas).toBe(true);
+    expect(p.maxWaveM).toBeGreaterThanOrEqual(4);
+    expect(p.segRisks.some((r) => r === "red")).toBe(true);
   });
 
   it("sóng 3 m chắn kín không lối né (chưa tới mức cấm) → đi xuyên + cờ cảnh báo đỏ", () => {
@@ -474,7 +482,7 @@ describe("ràng buộc độ sâu", () => {
 // ── team review 2026-07-26: các bất biến mới ─────────────────────────────
 
 describe("lấy mẫu thời tiết dọc chặng (không lọt khe vùng cấm)", () => {
-  it("dải ≥4 m HẸP (mảnh hơn chặng lưới thô) chắn kín → vẫn phải trả null, không xuyên mép", () => {
+  it("dải ≥4 m HẸP (mảnh hơn chặng lưới thô) chắn kín → PHẢI phát hiện (best-effort cắm cờ, không lọt mép thành 'êm giả')", () => {
     // bbox rất rộng → bước lưới tìm đường ~17 km, chặng nước mã ~39 km;
     // trường thời tiết 9×9 → dải 4,5 m chỉ chiếm MỘT cột mắt lưới, nội suy
     // ra vùng ≥4 m rộng ~23 km quanh cột — trung điểm chặng dài có thể đọc
@@ -485,12 +493,17 @@ describe("lấy mẫu thời tiết dọc chặng (không lọt khe vùng cấm)
     const f = makeField(bb, 9, (la, lo) =>
       Math.abs(lo - 111) < 0.9 ? { waveM: 4.5 } : calm(),
     );
-    expect(
-      planRoute({
-        start: a, dest: b, boat: DEFAULT_BOAT,
-        departHourIdx: 6, field: f, depth: null, bbox: bb,
-      }),
-    ).toBeNull();
+    /*  ĐỔI 2026-09-09: bất biến GIỜ là "dải hẹp KHÔNG được lọt khe mẫu thành
+        tuyến ÊM GIẢ". Best-effort vẫn ra tuyến, nhưng PHẢI bắt được dải ≥4 m ⇒
+        `bestEffortSeas` bật + maxWave ≥4. Nếu lấy mẫu thưa để dải lọt qua thì
+        tuyến sẽ về như biển lặng (bestEffortSeas=false) — đó mới là lỗi. */
+    const p = planRoute({
+      start: a, dest: b, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: f, depth: null, bbox: bb,
+    })!;
+    expect(p).not.toBeNull();
+    expect(p.bestEffortSeas).toBe(true);
+    expect(p.maxWaveM).toBeGreaterThanOrEqual(4);
   });
 });
 

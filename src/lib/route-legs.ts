@@ -8,7 +8,7 @@
 // đọc thành "cả đường này dữ" rồi bỏ luôn tuyến, hoặc tệ hơn là quen mắt với
 // đỏ rồi thôi không nhìn nữa. Chấm theo CHẶNG để cảnh báo trỏ đúng khúc.
 
-import type { LatLon, RoutePlan } from "@/lib/route-plan";
+import type { LatLon, RoutePlan, LegRisk } from "@/lib/route-plan";
 import {
   CAUTION_WAVE_M,
   CAUTION_WIND_KMH,
@@ -17,8 +17,10 @@ import {
   haversineKm,
 } from "@/lib/route-plan";
 
-/** đỏ = phải lưu ý · cam = chú ý vừa · xanh = không có gì · xám = đã đi qua */
-export type LegRisk = "red" | "amber" | "blue";
+/** đỏ = phải lưu ý · cam = chú ý vừa · xanh = không có gì · xám = đã đi qua.
+ *  Định nghĩa DÙNG CHUNG ở `route-plan.ts` (nơi `segRisks` cũng dùng) — re-export
+ *  để chỗ gọi cũ vẫn import được từ đây. */
+export type { LegRisk };
 
 export interface LegSummary {
   distKm: number;
