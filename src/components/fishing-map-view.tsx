@@ -544,6 +544,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { CloseButton } from "@/components/ui/close-button";
 import { RaKhoiControls } from "@/components/ra-khoi-controls";
 import { StormBanner } from "@/components/storm-banner";
+import { StormEarlyBanner } from "@/components/storm-early-banner";
 import {
   PretripAutoNotify,
   PretripSavedStatus,
@@ -2148,6 +2149,40 @@ export default function FishingMapView() {
         : null,
     [stormCheck],
   );
+
+  /*  CẢNH BÁO SỚM (2026-09-09) — vùng áp thấp có khả năng mạnh lên thành ATNĐ/
+      bão (lib/storm-early.ts). CHỈ hiện khi tin bão còn TƯƠI ("khong-co": vừa
+      hỏi được, trời chưa có bão). Đang có bão thật → bão ưu tiên, che luôn. Mất
+      sóng / tin cũ ("khong-hoi-duoc") → ẨN: không đè một cảnh báo có thể đã mấy
+      ngày tuổi lên như tin mới; lời dặn "nghe đài" của trục bão lên tiếng thay. */
+  const earlyWarning =
+    stormInfo.kind === "khong-co" && stormCheck?.ok
+      ? stormCheck.earlyWarning ?? null
+      : null;
+  /*  Khung "vùng áp thấp" → polygon mờ trên bản đồ. Bản tin cho DẠNG KHUNG toạ
+      độ (không phải tâm điểm) nên vẽ đúng khung đó, không tự chế vòng tròn. Bản
+      tin thiếu khung (box=null) thì chỉ có chip chữ, không vẽ gì. */
+  const earlyGeo = useMemo<GeoJSON.FeatureCollection | null>(() => {
+    const box = earlyWarning?.box;
+    if (!box) return null;
+    const ring = [
+      [box.lonMin, box.latMin],
+      [box.lonMax, box.latMin],
+      [box.lonMax, box.latMax],
+      [box.lonMin, box.latMax],
+      [box.lonMin, box.latMin],
+    ];
+    return {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: {},
+          geometry: { type: "Polygon", coordinates: [ring] },
+        },
+      ],
+    };
+  }, [earlyWarning]);
   // ngày đang xem dự báo: 0 = hôm nay … tới FORECAST_MAX_DAYS-1
   const [dayIdx, setDayIdx] = useState(0);
   // tuyến dẫn đường tiết kiệm dầu (route-planner.tsx) — vẽ đè lên bản đồ
@@ -4741,6 +4776,30 @@ export default function FishingMapView() {
         {/* (nhãn loài theo vùng đã bỏ — chọn loài bằng hàng chip phía trên,
             đỡ rối bản đồ; chi tiết loài nằm trong sheet) */}
 
+        {/* CẢNH BÁO SỚM — "vùng áp thấp" (khung toạ độ NCHMF phát) tô VÀNG mờ,
+            viền gạch đứt. Màu vàng để KHÁC HẲN vùng bão đỏ: đây mới là "có thể",
+            chưa phải bão. Chỉ hiện khi không có bão thật (earlyGeo = null lúc đó). */}
+        {earlyGeo && (
+          <Source id="early-geo" type="geojson" data={earlyGeo}>
+            <Layer
+              id="early-area-fill"
+              type="fill"
+              paint={{ "fill-color": "#f0a500", "fill-opacity": 0.14 }}
+            />
+            <Layer
+              id="early-area-line"
+              type="line"
+              layout={{ "line-cap": "round", "line-join": "round" }}
+              paint={{
+                "line-color": "#d98a00",
+                "line-width": 2,
+                "line-opacity": 0.7,
+                "line-dasharray": [2, 1.5],
+              }}
+            />
+          </Source>
+        )}
+
         {/* BÃO — vùng ảnh hưởng (polygon đỏ mờ) + đường đi (track gạch đứt) từ
             GDACS; tâm bão là Marker bên dưới. Cảnh báo trực quan kiểu app
             thời tiết chuyên nghiệp — "đừng ra khơi vùng đỏ". */}
@@ -6896,6 +6955,9 @@ export default function FishingMapView() {
         aria-hidden={!sheetThu && !navMode}
       >
         <StormBanner variant="overlay" myPos={tracking.pos ?? null} />
+        {/* CẢNH BÁO SỚM — dưới banner bão. Cha đã gạn (chỉ khi tin bão tươi &
+            không có bão thật); component tự bung 1 lần rồi thu về chip. */}
+        {earlyWarning && <StormEarlyBanner ew={earlyWarning} />}
         {/* DẪN ĐƯỜNG LIVE: thẻ HUD LUÔN hiện khi đang dẫn đường (kể cả kéo sheet
             lên) — dưới banner bão. Gợi ý lái + quãng/giờ còn lại + nút Dừng. */}
         {navMode && (

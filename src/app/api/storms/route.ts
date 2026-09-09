@@ -5,7 +5,9 @@ import {
   htmlToText,
   parseNchmfBulletin,
   pickLatestNchmfBulletin,
+  pickLatestBienBulletin,
 } from "@/lib/storms-vn";
+import { parseEarlyWarning, type EarlyWarning } from "@/lib/storm-early";
 import { timeoutSignal } from "@/lib/abort";
 import { gopNguonBao } from "@/lib/storm-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -152,6 +154,44 @@ async function layNchmf(now: Date): Promise<StormAlert[] | null> {
 }
 
 /**
+ * CẢNH BÁO SỚM — vùng áp thấp có khả năng mạnh lên thành ATNĐ/bão, đọc từ bản
+ * tin BIỂN của NCHMF (không phải bản tin bão chính thức). Đây là TIN MỀM:
+ *   · soft-fail toàn bộ → `null` (KHÔNG kéo theo bản tin bão thật; nó nằm ở
+ *     nhánh riêng của Promise.all bên dưới, hỏng không làm route 503);
+ *   · dùng CHUNG index đã tải cho `layNchmf` — cùng URL + `revalidate` nên Next
+ *     dedupe, không thêm lượt mạng vào chính trang liệt kê.
+ * Client chỉ hiện khi tin bão còn TƯƠI và không có bão thật (xem storm-early).
+ */
+async function layCanhBaoSom(now: Date): Promise<EarlyWarning | null> {
+  try {
+    const rIndex = await fetch(NCHMF_INDEX_URL, {
+      next: { revalidate: 1800 },
+      headers: {
+        accept: "text/html",
+        "user-agent": "Mozilla/5.0 (compatible; SDFish/1.0; +https://sdvico.vn)",
+      },
+      signal: timeoutSignal(NGUON_TIMEOUT_MS),
+    });
+    if (!rIndex.ok) return null;
+    const url = pickLatestBienBulletin(await rIndex.text());
+    if (!url) return null;
+    const rTin = await fetch(url, {
+      next: { revalidate: 1800 },
+      headers: {
+        accept: "text/html",
+        "user-agent": "Mozilla/5.0 (compatible; SDFish/1.0; +https://sdvico.vn)",
+      },
+      signal: timeoutSignal(NGUON_TIMEOUT_MS),
+    });
+    if (!rTin.ok) return null;
+    return parseEarlyWarning(htmlToText(await rTin.text()), url);
+  } catch (e) {
+    console.error("[storms] cảnh báo sớm hỏng:", (e as Error)?.message);
+    return null;
+  }
+}
+
+/**
  * Gộp hai nguồn: **tin VN đứng trước**, rồi thêm cơn GDACS nào KHÔNG phải bản
  * trùng của tin VN. Luật "cùng cơn" (tâm + thời gian, không nhìn tên) và việc
  * VN MƯỢN polygon/track của GDACS khi cùng cơn nằm ở `lib/storm-identity.ts`
@@ -221,10 +261,11 @@ async function layDuongDi(now: Date): Promise<StormTrack[]> {
 
 export async function GET() {
   const now = new Date();
-  const [vn, gdacs, tracks] = await Promise.all([
+  const [vn, gdacs, tracks, earlyWarning] = await Promise.all([
     layNchmf(now),
     layGdacs(now),
     layDuongDi(now),
+    layCanhBaoSom(now),
   ]);
 
   // CẢ HAI nguồn không hỏi được → 503 (xem ghi chú đầu file). Một bên rỗng
@@ -240,6 +281,9 @@ export async function GET() {
     /*  Đường đi đã qua + dự báo sắp tới (kho 0036). Client cũ KHÔNG đọc trường
         này và vẫn chạy đúng — thêm trường là thêm, không phá hợp đồng. */
     tracks,
+    /*  CẢNH BÁO SỚM (2026-09-09) — vùng áp thấp có khả năng mạnh lên thành
+        ATNĐ/bão. null khi bản tin biển không báo / nguồn lỗi. Client cũ bỏ qua. */
+    earlyWarning,
     /*  Nguồn nào trả lời được lượt này — để /quan-tri và người soát sau biết
         app đang sống bằng nguồn nào, thay vì đoán. Client hiện KHÔNG đọc trường
         này; thêm trường mới không phá `stormStatus` (nó chỉ đọc ok/storms/checkedAt). */

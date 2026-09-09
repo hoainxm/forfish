@@ -72,6 +72,29 @@ export function pickLatestNchmfBulletin(indexHtml: string): string | null {
   return best?.url ?? null;
 }
 
+/*  BẢN TIN "GIÓ MẠNH, SÓNG LỚN, MƯA DÔNG TRÊN BIỂN" — nơi NCHMF ghi khả năng
+    HÌNH THÀNH áp thấp/bão vài ngày TRƯỚC khi có bản tin ATNĐ/bão chính thức
+    (nguồn cảnh báo sớm, xem lib/storm-early.ts). Phát nhiều lần/ngày, luôn nằm
+    trên trang liệt kê chính. Slug: `tin-du-bao-gio-manh-song-lon-va-mua-dong-
+    tren-bien-postNNNNN`. */
+const SLUG_BIEN_RE =
+  /https?:\/\/[^"']*\/(?:kttv|kttvsite)\/vi-VN\/1\/(tin-du-bao-gio-manh-song-lon[^"']*?)-post(\d+)\.html/gi;
+
+/**
+ * URL bản tin biển MỚI NHẤT (số `post` lớn nhất) trong trang liệt kê. Cùng luật
+ * "post lớn nhất" với `pickLatestNchmfBulletin` nhưng KHÁC slug — để riêng cho
+ * rõ (hai loại bản tin, hai mục đích). `null` = trang không có bản tin biển.
+ */
+export function pickLatestBienBulletin(indexHtml: string): string | null {
+  let best: { url: string; id: number } | null = null;
+  for (const m of indexHtml.matchAll(SLUG_BIEN_RE)) {
+    const id = Number(m[2]);
+    if (!Number.isFinite(id)) continue;
+    if (!best || id > best.id) best = { url: m[0], id };
+  }
+  return best?.url ?? null;
+}
+
 /**
  * HTML → chữ thuần một dòng (bỏ script/style, giải mã thực thể cơ bản).
  *

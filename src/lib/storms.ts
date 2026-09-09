@@ -11,6 +11,7 @@ import { loadForecast, saveForecast } from "@/lib/forecast-cache";
 import { forecastStoreReady } from "@/lib/forecast-store";
 import { timeoutSignal } from "@/lib/abort";
 import type { StormTrack } from "@/lib/storm-track";
+import type { EarlyWarning } from "@/lib/storm-early";
 
 export type StormAlert = {
   id: string;
@@ -39,6 +40,11 @@ export type StormCheck =
           vì bản tin ĐÃ LƯU trong máy từ trước bản này không có trường đó — đọc
           cache cũ phải chạy bình thường, không được ném. */
       tracks?: StormTrack[];
+      /** CẢNH BÁO SỚM (2026-09-09): vùng áp thấp có khả năng mạnh lên thành
+          ATNĐ/bão — tin MỀM, đi chung payload để offline tự có (xem
+          lib/storm-early.ts). Optional: bản cache cũ không có trường này. null =
+          bản tin biển không báo khả năng hình thành. */
+      earlyWarning?: EarlyWarning | null;
     }
   | { ok: false };
 
