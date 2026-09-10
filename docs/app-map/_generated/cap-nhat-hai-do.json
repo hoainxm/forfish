@@ -4,11 +4,34 @@
   "coQuan": "Tổng công ty Bảo đảm an toàn hàng hải Việt Nam (vmsa.vn)",
   "ghiChu": "Sổ theo dõi Thông báo hàng hải hằng tuần — đầu nguồn của các lớp hải đồ trong app (số đo sâu, báo hiệu, đèn biển, xác tàu). App KHÔNG đọc file này; nó để biết tuần nào cần dựng lại lớp nào.",
   "banTinMoiNhat": {
-    "tuan": 36,
-    "ngay": "2026-08-31",
-    "url": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-31-08-2026-tuan-36--13838-2.html"
+    "tuan": 37,
+    "ngay": "2026-09-07",
+    "url": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-07-09-2026-tuan-37--13855-2.html"
   },
   "thongBao": [
+    {
+      "tuan": 37,
+      "ngay": "2026-09-07",
+      "so": "144",
+      "haiDo": [
+        "VN50023",
+        "VN30014"
+      ],
+      "moTa": "VIET NAM - SOUTH CENTRAL COAST - QUANG NGAI - DUNG QUAT - New Edition. VIỆT NAM - BỜ BIỂN NAM TRUNG BỘ - QUẢNG NGÃI - DUNG QUẤT - Phiên bản mới.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-07-09-2026-tuan-37--13855-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20144.pdf"
+    },
+    {
+      "tuan": 37,
+      "ngay": "2026-09-07",
+      "so": "143",
+      "haiDo": [
+        "VN50023"
+      ],
+      "moTa": "VIET NAM - SOUTH CENTRAL COAST - QUANG NGAI - DUNG QUAT - Buoy. VIỆT NAM - BỜ BIỂN NAM TRUNG BỘ - QUẢNG NGÃI - DUNG QUẤT - Phao.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-07-09-2026-tuan-37--13855-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20143.pdf"
+    },
     {
       "tuan": 36,
       "ngay": "2026-08-31",
