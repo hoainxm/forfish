@@ -1,0 +1,60 @@
+# CHƯA CHẠY — runbook/khung, cần PC trạm (RTX 3060 12GB) + dữ liệu đồng thuận/đã-duyệt
+#
+# Config fine-tune qwen3.5:9b bằng Unsloth QLoRA — model "thầy" soạn nháp gói não ở bờ.
+# Doc đi kèm: docs/app-map/ops/tram-o-bo/06-fine-tune-qwen-lora.md
+#
+# ⚠️ ĐÂY LÀ ĐIỂM KHỞI ĐẦU — MỌI SỐ PHẢI ĐO LẠI TRÊN PC TRẠM. Không phải cam kết.
+# ⚠️ Chỉ train khi ĐỦ tín hiệu (doc §1): nháp bị sửa nặng ≥30% ≥4 tuần + ≥300 cặp đã duyệt.
+# ⚠️ Unsloth đọc config trong notebook/script Python — YAML này là NGUỒN THAM SỐ để nạp vào
+#    scripts train (chưa viết, cố ý — xem README). Không có "unsloth --config train_config.yaml".
+
+model:
+  # qwen3.5:9b (~6,6GB base) = CHẮC lọt 12GB VRAM có DƯ (QLoRA ~8-10GB); KHÔNG còn ranh giới OOM như 14B.
+  name: "unsloth/Qwen3.5-9B-unsloth-bnb-4bit"   # verify tên đúng trên HF/Unsloth lúc cài
+  load_in_4bit: true          # QLoRA
+  max_seq_length: 2048        # 9B (~6,6GB) thường dư VRAM; hạ 1024 chỉ khi OOM, nới lên nếu cần
+
+lora:
+  r: 16                       # rank thấp: chống overfit tập nhỏ (8-16)
+  alpha: 16                   # thường = r hoặc 2*r
+  dropout: 0.0                # Unsloth tối ưu cho 0
+  bias: "none"
+  target_modules:             # attention + MLP
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+  use_gradient_checkpointing: "unsloth"   # tiết kiệm VRAM
+
+train:
+  per_device_train_batch_size: 2   # 1 nếu OOM
+  gradient_accumulation_steps: 8   # batch hiệu dụng ~16
+  num_train_epochs: 2              # tập nhỏ dễ overfit: 2-3, KHÔNG hơn
+  learning_rate: 0.0002            # 2e-4
+  warmup_ratio: 0.05
+  lr_scheduler_type: "linear"
+  optim: "adamw_8bit"
+  weight_decay: 0.01
+  seed: 3407
+  logging_steps: 1
+  # eval do NGƯỜI chấm (doc §5), không set eval_strategy tự động chấm điểm máy
+
+data:
+  train_file: "./data/train.jsonl"   # sinh bởi prepare_dataset.mjs
+  eval_file: "./data/eval.jsonl"     # tách theo cụm, KHÔNG ngẫu nhiên (chống rò rỉ)
+  chat_template: "qwen3"             # theo template chat qwen3.5 (verify key trên Unsloth lúc cài — có thể là "qwen3" hoặc "qwen3.5")
+
+export:
+  # Đường CHẮC CHẮN: merge -> GGUF -> Ollama (doc §4a). Adapter rời cho Qwen CHƯA chắc Ollama nạp được.
+  merged_dir: "./out/qwen3.5-9b-sdfish-merged-16bit"
+  gguf_quant: "q4_k_m"
+  ollama_model_name: "qwen3-sdfish"
+  # nợ: verify tên hàm Unsloth (save_pretrained_merged / save_pretrained_gguf) trên bản thực cài,
+  # điều kiện nâng cấp: chạy help() sau cài, cập nhật README + số bước.
+
+# nợ: chưa có script train.py gọi config này (cố ý — chưa train lần này).
+#     điều kiện nâng cấp: khi chủ dự án chốt train, viết train.py theo notebook Unsloth Qwen3.5,
+#     nạp các khối trên, ghi số VRAM/thời gian thật vào doc §History.

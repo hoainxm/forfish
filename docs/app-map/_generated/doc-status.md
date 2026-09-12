@@ -4,12 +4,12 @@
 | Doc | Trang thai | Ly do |
 |---|---|---|
 | docs/app-map/01-product.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/02-architecture.md | VERIFIED | ok |
+| docs/app-map/02-architecture.md | SUSPECT | code 'src/app' doi sau last_verified |
 | docs/app-map/03-design-system.md | VERIFIED | ok |
 | docs/app-map/04-data-model.md | SUSPECT | code 'src/lib/documents.ts' doi sau last_verified |
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/06-jtbd-quan-ly-tau.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/07-design-spec.md | VERIFIED | ok |
+| docs/app-map/07-design-spec.md | SUSPECT | code 'src/app' doi sau last_verified |
 | docs/app-map/08-ba-spec-da-tau.md | VERIFIED | ok |
 | docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md | VERIFIED | ok |
 | docs/app-map/10-ba-spec-quan-tri-van-hanh.md | VERIFIED | ok |
@@ -32,3 +32,14 @@
 | docs/app-map/ops/self-host-vps.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/state-registry.md | VERIFIED | ok |
 | docs/app-map/ops/sync-base-flow.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/tram-o-bo/00-tong-quan.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/tram-o-bo/01-cai-local-llm.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/tram-o-bo/02-quan-tri-va-update.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/tram-o-bo/03-vong-dem-soan-goi.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/tram-o-bo/04-toi-uu.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/tram-o-bo/05-sen-bien-giong.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/tram-o-bo/06-fine-tune-qwen-lora.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/tram-o-bo/07-fine-tune-stt-icefall.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/tram-o-bo/08-qa-full-luong.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/tram-o-bo/09-giam-sat.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/tram-o-bo/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |

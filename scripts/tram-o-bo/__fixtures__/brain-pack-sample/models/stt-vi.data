@@ -1,0 +1,1 @@
+PLACEHOLDER — trọng số zipformer-vi-30M-int8 + bpe.model + bpe.vocab. Model thật ~25 MB, sinh ở trạm ở bờ. KHÔNG commit binary thật. File này chỉ để test đường ống đóng gói/kiểm hash.

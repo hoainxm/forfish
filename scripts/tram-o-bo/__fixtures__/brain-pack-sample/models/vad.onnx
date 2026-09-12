@@ -1,0 +1,1 @@
+PLACEHOLDER — Silero VAD (cắt câu). Model thật ~1,8 MB (.onnx nhị phân), sinh/tải ở trạm ở bờ (scripts/build-tro-ly-wasm.sh + fetch-assets.sh). KHÔNG commit binary thật. File này chỉ để test đường ống đóng gói/kiểm hash.

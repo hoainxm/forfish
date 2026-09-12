@@ -1,0 +1,1 @@
+PLACEHOLDER — piper vi (đọc dự phòng khi máy thiếu giọng Việt). Nhị phân WASM thật đi cùng tts-vi.data (tổng phần đọc ~63,9 MB). KHÔNG commit binary thật. File này chỉ để test đường ống đóng gói/kiểm hash.

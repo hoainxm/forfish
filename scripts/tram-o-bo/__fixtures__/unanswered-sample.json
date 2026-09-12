@@ -1,0 +1,17 @@
+{
+  "_ghiChu": "Mẫu đầu vào chặng 1 vòng đêm (03-vong-dem-soan-goi.md §2). ẨN DANH: unansweredHashes là mã băm một chiều (chỉ để đếm/xếp ưu tiên, KHÔNG giải ra chữ); outbox là câu bà con CHỦ ĐỘNG bấm 'gửi khi có sóng', không kèm CCCD/SĐT/toạ độ. Dữ liệu giả cho test, không phải câu thật.",
+  "unansweredHashes": {
+    "9f2a1c7b": 14,
+    "3d8e5a02": 9,
+    "b17c04ff": 5,
+    "77aa9021": 2
+  },
+  "outbox": [
+    { "cauHoi": "cá ngừ ướp đá để được mấy ngày", "chuNhat": "bao-quan" },
+    { "cauHoi": "bảo quản cá ngừ sao cho tươi lâu", "chuNhat": "bao-quan" },
+    { "cauHoi": "ướp đá cá ngừ thế nào cho đúng", "chuNhat": "bao-quan" },
+    { "cauHoi": "ra khơi cần mang theo giấy tờ gì", "chuNhat": "giay-to" },
+    { "cauHoi": "thủ tục giấy tờ trước khi đi biển", "chuNhat": "giay-to" },
+    { "cauHoi": "trước chuyến biển cần chuẩn bị đồ an toàn gì", "chuNhat": "an-toan" }
+  ]
+}

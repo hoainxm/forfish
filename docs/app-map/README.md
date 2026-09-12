@@ -54,7 +54,9 @@
 | ops | [ops/state-registry.md](ops/state-registry.md) | Registry CANONICAL state client — mọi key `forfish.*` localStorage (writer/reader/reset), governance single-writer + versioned key |
 | ops | [ops/qa-offline-acceptance.md](ops/qa-offline-acceptance.md) | **Kịch bản nghiệm thu OFFLINE cho đội tester**: 14 ca test theo từng loại máy (iPhone Safari/A2HS · Android Chrome/PWA), cách giả lập sóng "sống mà chết", tiêu chí chặn phát hành |
 | ops | [ops/runbook.md](ops/runbook.md) | Runbook vận hành: dev/build/lint, regenerate asset tĩnh, deploy Vercel/PWA, health-check doc, escalation 🔴 |
+| ops | [ops/tram-o-bo/README.md](ops/tram-o-bo/README.md) | **TRẠM HỌC Ở BỜ** (PC RTX 3060, không phục vụ live): vận hành Sen Biển độc lập (ADR 0010) — cài local LLM (Ollama + qwen3.5:9b), quản trị+update gói não, vòng đêm soạn gói, tối ưu, giọng VieNeu, fine-tune (runbook, chưa train). Load khi vận hành trạm soạn/phát hành gói |
 | — | [../contracts/sdwork-assets.contract.md](../contracts/sdwork-assets.contract.md) | Contract shape đồ đã mua giữa CRM SDViCo (producer) ↔ ForFish (consumer), versioned |
+| — | [../contracts/tro-ly-brain-pack.contract.md](../contracts/tro-ly-brain-pack.contract.md) | Contract GÓI NÃO trợ lý (producer = trạm ở bờ, consumer = app): manifest có phiên bản + sha256, intents/answers/knowledge/models, luật nội dung (không số sống, đủ nguồn+ngày soát) |
 | — | [../adr/README.md](../adr/README.md) | ADR — log quyết định kiến trúc (vì sao chọn X), đánh số bất biến |
 
 ---
