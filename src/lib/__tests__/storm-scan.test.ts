@@ -9,6 +9,7 @@ import {
   CAP_BAM_SAT,
   GAN_KM,
   HET_CON_GIO,
+  NGU_QUET_PHUT,
   TOI_THIEU_PHUT,
   XA_TOI_DA_GIO,
   cachCangGanNhatKm,
@@ -48,35 +49,38 @@ describe("conDangRaTin — im bao lâu thì coi như hết cơn", () => {
   });
 });
 
-describe("mức NGỦ — trời yên thì một lần mỗi ngày", () => {
+describe(`mức NGỦ — trời yên thì quét đều mỗi ${NGU_QUET_PHUT} phút (~3 giờ)`, () => {
   it("chưa quét lần nào ⇒ quét ngay", () => {
     const d = nhipQuet({ quetLucNao: null, banTinCuoi: null }, NOW);
     expect(d).toMatchObject({ quet: true, muc: "ngu" });
   });
 
-  it("đã quét trong CÙNG ngày VN ⇒ không quét lại", () => {
-    // 01h giờ VN cùng ngày 18/8
-    const d = nhipQuet({ quetLucNao: Date.UTC(2026, 7, 17, 18), banTinCuoi: null }, NOW);
+  it(`vừa quét dưới ${NGU_QUET_PHUT} phút ⇒ chưa quét lại`, () => {
+    const d = nhipQuet({ quetLucNao: NOW - 2 * GIO, banTinCuoi: null }, NOW); // 2h < 3h
     expect(d.quet).toBe(false);
     expect(d.muc).toBe("ngu");
+    expect(d.vi).toContain(`${NGU_QUET_PHUT} phút`);
   });
 
-  it("sang NGÀY VN mới ⇒ quét định kỳ, dù chưa đủ 24 giờ", () => {
-    // quét lúc 23h VN 17/8 (16:00 UTC 17/8); now = 13h VN 18/8 → khác ngày VN
-    const d = nhipQuet({ quetLucNao: Date.UTC(2026, 7, 17, 16), banTinCuoi: null }, NOW);
+  it(`quá ${NGU_QUET_PHUT} phút ⇒ quét định kỳ (cơn mới vào kho ≤3 giờ)`, () => {
+    const d = nhipQuet(
+      { quetLucNao: NOW - (NGU_QUET_PHUT + 1) * 60_000, banTinCuoi: null },
+      NOW,
+    );
     expect(d.quet).toBe(true);
+    expect(d.muc).toBe("ngu");
   });
 
   it("cơn đã tan (bản tin quá cũ) ⇒ tụt về mức ngủ, không bám sát nữa", () => {
     const d = nhipQuet(
       {
-        quetLucNao: NOW - GIO,
+        quetLucNao: NOW - GIO, // vừa quét 1 giờ trước
         banTinCuoi: tin({ issuedAt: NOW - 30 * GIO, ...GAN, cap: 12 }),
       },
       NOW,
     );
     expect(d.muc).toBe("ngu");
-    expect(d.quet).toBe(false); // cùng ngày VN, đã quét
+    expect(d.quet).toBe(false); // 1h < NGU_QUET_PHUT (3h)
   });
 });
 

@@ -32,7 +32,7 @@ Có hai cách chép nhịp cho đúng, và một cách đúng hơn cả hai:
 
 | Mức | Khi nào | Nhịp hỏi nguồn |
 |---|---|---|
-| `ngu` | không có cơn nào đang ra tin (bản tin cuối cũ hơn 18 giờ) | **1 lần/ngày** (đổi ngày VN) |
+| `ngu` | không có cơn nào đang ra tin (bản tin cuối cũ hơn 18 giờ) | **mỗi 3 giờ** (`NGU_QUET_PHUT`) — xem Cập nhật 2026-09-12 |
 | `xa` | có cơn, tâm cách cảng cá gần nhất **>500 km** và dưới cấp 10 | đúng **mốc nguồn tự hẹn**; bản tin không ghi thì 6 giờ |
 | `gan` | tâm **≤500 km** tới một trong 10 cảng, **hoặc** từ **cấp 10** | **1 giờ/lần**, KHÔNG chờ mốc hẹn |
 
@@ -49,15 +49,15 @@ Vì sao ngưỡng là **khoảng cách tới cảng cá**, không phải "trong 
 
 **Được**
 
-- Request thật ra NCHMF khi trời yên: **96/ngày → 2/ngày** (một lượt = index + bản tin). Bớt ~98%.
+- Request thật ra NCHMF khi trời yên: **96/ngày → ~16/ngày** (8 lượt × index + bản tin; trước 2026-09-12 là 2/ngày ở nhịp "1 lần/ngày"). Vẫn bớt ~83%.
 - Nhịp tự khớp mọi nấc leo thang của cơ quan dự báo, không ai phải sửa code khi họ đổi.
 - `storm_scan_log` là bằng chứng nhịp thật — nghi app đang đập nguồn thì mở bảng ra đếm, không phải đoán.
 
 **Mất / phải chấp nhận**
 
 - **Actions vẫn chạy 24 lượt/ngày**, phần lớn là no-op (một câu đọc kho rồi trả `scanned:false`). Cron của GitHub không tự đổi lịch được, nên phải gõ ở nhịp dày nhất mà mức `gan` cần rồi để cổng lọc. Thứ đắt và dễ vỡ là **request ra nguồn ngoài**, và thứ đó đã bị cắt.
-- **Mức `ngu` không phát hiện bão mới trong ngày.** Chấp nhận được vì phát hiện KHÔNG phải việc của cron này: `/api/cron/notify-storms` chạy 30 phút/lần gọi `/api/storms` (NCHMF + GDACS) rồi đẩy thông báo, và mỗi lần bà con mở app cũng hỏi lại. Hậu quả xấu nhất là **khúc đầu của đường vẽ bắt đầu trễ vài giờ** — cảnh báo vẫn tới ngay.
-  ⚠️ Hệ quả này là lý do duy nhất khiến "1 ngày 1 lần" an toàn. **Nếu sau này bỏ hoặc giãn `notify-storms`, phải xét lại ADR này trước.**
+- **Mức `ngu` bắt bão mới trong ≤3 giờ** (sửa 2026-09-12; trước là "trong ngày"). Phát hiện + cảnh báo vẫn ở `/api/cron/notify-storms` (30 phút/lần) và mỗi lần bà con mở app. Nhưng **VÙNG NGUY HIỂM trên bản đồ vẽ TỪ KHO này** — nên kho phải ghi sớm, không để trễ tới cả ngày.
+  ⚠️ **SỬA 2026-09-12 (xem Cập nhật cuối)**: "1 ngày 1 lần" ĐÃ BỎ. Ca thật 12/9: bản đồ có tâm bão (feed trực tiếp) mà THIẾU vùng phải tránh vì kho chưa ghi. Nay `ngu` quét mỗi 3 giờ. `notify-storms` vẫn là đường cảnh báo, không thay.
 - Đọc kho hỏng ⇒ `nhipQuet` thấy "chưa quét lần nào" ⇒ quét một lượt. Cố ý chọn chiều đó: mất trí nhớ thì quét thừa còn hơn im mãi.
 
 ## Alternatives considered / Đã cân nhắc
@@ -68,6 +68,16 @@ Vì sao ngưỡng là **khoảng cách tới cảng cá**, không phải "trong 
 - **Ghi kho ngay trong `/api/storms`** (đường đã fetch sẵn) — bác lần này: `/api/storms` là đường ĐỌC, mỗi lần bà con mở app đều chạy; gắn đường ghi vào đó là mở một đường ghi DB không kiểm soát được nhịp, đúng thứ ADR này đang đi dọn.
 
 ---
+
+## Cập nhật 2026-09-12 — mức `ngu` từ "1 lần/ngày" → mỗi 3 giờ (`NGU_QUET_PHUT`)
+
+**Bối cảnh**: áp thấp nhiệt đới 12/9 (hướng miền Trung). Bản đồ Ra khơi hiện **tâm bão** (feed trực tiếp `/api/storms` trường `storms`) + banner cảnh báo, NHƯNG **KHÔNG vẽ vùng nguy hiểm** — vì vùng nguy hiểm (đường đã đi + mốc dự báo + bán kính) vẽ từ **kho `storm_bulletins`** (trường `tracks`), mà kho do CHÍNH cron này ghi. Cơn hình thành lúc "trời yên" ⇒ mức `ngu` chỉ quét 1 lần/ngày ⇒ chưa ghi bản tin ⇒ `tracks: []` ⇒ vùng câm tới cả ngày (đã đo trên production: bản tin mới nhất trong kho cách 9 ngày, cơn 12/9 chỉ có trong feed trực tiếp).
+
+**Chốt (chủ dự án)**: *"tăng cron lên để có bão vào DB, đừng fix lung tung"* — sửa GỐC ở nhịp ghi kho, KHÔNG vá ở tầng vẽ. Mức `ngu` nay quét **mỗi `NGU_QUET_PHUT` = 180 phút (3 giờ)** thay cho "1 lần/ngày": đếm phút từ lượt quét trước (`storm_scan_log`), không theo ngày VN. Cơn mới vào kho trong **≤3 giờ**.
+
+**Đánh đổi**: request ra NCHMF khi trời yên **2/ngày → ~16/ngày** (8 lượt × 2) — vẫn xa mức cũ 96/ngày, và **trần cứng 55 phút** (`TOI_THIEU_PHUT`) vẫn chặn ca xấu nhất. An-toàn-tính-mạng đổi lấy một ít request tới trang công khai của cơ quan nhà nước — chấp nhận. Số nằm ở MỘT hằng `NGU_QUET_PHUT`, đổi 60 (mỗi giờ) / 360 (6 giờ) trong một dòng.
+
+**Vẫn giữ**: mức `xa`/`gan` không đổi; `notify-storms` vẫn là đường cảnh báo tức thời độc lập. Luật cũ "phải xét lại nếu bỏ `notify-storms`" nay đọc là: mức `ngu` là đường **GHI KHO để VẼ**, không phải đường cảnh báo — hai việc tách bạch. Test: `storm-scan.test.ts` (mức NGỦ đổi sang đếm phút, +ca "quá NGU_QUET_PHUT ⇒ quét"). Lịch GitHub Actions (`storms.yml`, hàng giờ) KHÔNG đổi — nhịp thật vẫn quyết trong `nhipQuet`.
 
 ## Cập nhật 2026-08-18f — thiếu sót của ADR này: KHÔNG đếm phút Actions
 

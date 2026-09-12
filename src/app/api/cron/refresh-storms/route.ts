@@ -13,7 +13,7 @@
 // định Ở ĐÂY: mỗi giờ một lượt gọi, nhưng lượt nào cũng hỏi `nhipQuet()` trước —
 // nói "không" thì lượt đó KHÔNG chạm mạng ngoài, chỉ tốn một câu đọc kho. Nhờ
 // vậy số request THẬT ra NCHMF là:
-//   · trời yên  → **1 lần/ngày**   (48 → 1: bớt ~98%)
+//   · trời yên  → **mỗi 3 giờ** (`NGU_QUET_PHUT`; 48 → 8 — bắt cơn mới trong ≤3 giờ, sửa 2026-09-12)
 //   · bão còn xa→ theo mốc nguồn tự hẹn (thường 6 giờ/lần)
 //   · bão vào gần bà con hoặc từ cấp 10 → **1 giờ/lần**
 // Luật thuần + test: `src/lib/storm-scan.ts`. Trần cứng 55 phút cho MỌI mức.

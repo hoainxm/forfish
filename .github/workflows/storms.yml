@@ -62,7 +62,7 @@ jobs:
     timeout-minutes: 10
     steps:
       # ── 1. GHI KHO. Nhịp THẬT do `nhipQuet()` trong route quyết (ADR 0005):
-      #    trời yên 1 lần/ngày · bão còn xa theo mốc nguồn tự hẹn · bão vào gần
+      #    trời yên mỗi 3 giờ (NGU_QUET_PHUT, sửa 2026-09-12) · bão còn xa theo mốc nguồn tự hẹn · bão vào gần
       #    thì mỗi lượt. Lượt bị cổng chặn KHÔNG chạm NCHMF, chỉ đọc kho.
       - name: Ghi bản tin bão vào kho
         env:
