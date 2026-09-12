@@ -1,0 +1,48 @@
+{
+  "version": "1",
+  "createdAt": "2026-09-12T05:35:29.867Z",
+  "minAppVersion": "1.8.0",
+  "files": [
+    {
+      "path": "brain/answers.v1.json",
+      "sha256": "ec07f3690dc8f27ee33851e41a53331f4acc168060aeadbc06b6db64d445db60",
+      "bytes": 566
+    },
+    {
+      "path": "brain/intents.v1.json",
+      "sha256": "0652dc90583fda9f12213c3cab572a3f59f975970b3a7184f6cb6a0179363821",
+      "bytes": 894
+    },
+    {
+      "path": "brain/knowledge.v1.json",
+      "sha256": "b44eab2b8b9bdaced46150199575a750f7809b690176f9c7f8a7438e8679011a",
+      "bytes": 2601
+    },
+    {
+      "path": "models/stt-vi.data",
+      "sha256": "e7cfb8b75c99b9b45c9d9748130184300d1e6a92a8588151775eb487a7ed82f9",
+      "bytes": 220
+    },
+    {
+      "path": "models/stt-vi.wasm",
+      "sha256": "b9e19f9adf827ec9715f062d8e55fe2985ca0455e1037faedfb3e83e6e25fa03",
+      "bytes": 220
+    },
+    {
+      "path": "models/tts-vi.data",
+      "sha256": "80597acfdfc41f324dec8ace1fb88e0ffb249bfa30ef0dc0e47c393903a4c275",
+      "bytes": 243
+    },
+    {
+      "path": "models/tts-vi.wasm",
+      "sha256": "47147478b2ba1f3a9feac69a3b04226a9b28dc7a4c35e897f024ea7ac9812c12",
+      "bytes": 255
+    },
+    {
+      "path": "models/vad.onnx",
+      "sha256": "75397ea7f0f9397d6c2c282a311154c61720dc91fdef894a59ca7e1e3efd167c",
+      "bytes": 261
+    }
+  ],
+  "notes": "Gói mẫu fixture cho test-full-flow — nội dung THẬT-NHƯ-THẬT, models là placeholder nhỏ."
+}

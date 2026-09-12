@@ -1,0 +1,1 @@
+PLACEHOLDER — WASM sherpa-onnx (offline recognizer + VAD + TTS C API). Model thật ~14,9 MB, build ở trạm ở bờ. KHÔNG commit binary thật. File này chỉ để test đường ống đóng gói/kiểm hash.

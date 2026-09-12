@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "answers": [
+    {
+      "intentId": "hoi_giay_to",
+      "text": "Bác vào Tàu cá › Giấy tờ để xem giấy nào sắp hết hạn."
+    },
+    {
+      "intentId": "hoi_thoi_tiet",
+      "text": "Bác mở Ra khơi để xem sóng gió và điểm đi biển hôm nay."
+    }
+  ],
+  "cauAnToan": {
+    "khongHieu": "Việc này tôi chưa có trong máy. Bác hỏi tôi thời tiết, bão, giấy tờ, giá cá, hay mở màn.",
+    "daiDuyenHai": "Bão gió thì bác nghe thêm đài duyên hải hoặc Icom cho chắc."
+  }
+}

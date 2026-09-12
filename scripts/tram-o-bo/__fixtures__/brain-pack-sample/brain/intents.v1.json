@@ -1,0 +1,37 @@
+{
+  "version": "1",
+  "intents": [
+    {
+      "id": "hoi_thoi_tiet",
+      "mauCau": [
+        "thời tiết hôm nay thế nào",
+        "mai ra khơi được không",
+        "biển có động không",
+        "ngày mai sóng gió sao"
+      ],
+      "tuDongNghia": [
+        ["sóng", "biển động"],
+        ["gió", "trở gió"]
+      ]
+    },
+    {
+      "id": "mo_man",
+      "cumTenMan": [
+        { "cum": ["ra khơi", "ngư trường", "đi biển"], "route": "/ngu-truong" },
+        { "cum": ["giấy tờ", "tủ giấy"], "route": "/tau?tab=giay-to" }
+      ]
+    },
+    {
+      "id": "hoi_giay_to",
+      "mauCau": [
+        "giấy tờ nào sắp hết hạn",
+        "còn thiếu giấy gì không",
+        "đăng kiểm tàu còn hạn không"
+      ]
+    }
+  ],
+  "hotwords": [
+    { "tu": "Yanmar", "score": 1.5 },
+    { "tu": "nhớt", "score": 1.5 }
+  ]
+}

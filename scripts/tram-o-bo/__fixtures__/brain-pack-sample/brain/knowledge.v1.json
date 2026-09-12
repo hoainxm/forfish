@@ -1,0 +1,43 @@
+{
+  "version": "1",
+  "muc": [
+    {
+      "id": "bao-quan-ca-ngu",
+      "cauHoiMau": [
+        "cách bảo quản cá ngừ",
+        "ướp cá ngừ sao cho tươi",
+        "cá ngừ để được lâu không"
+      ],
+      "tuKhoa": ["bảo quản", "cá ngừ", "ướp đá", "giữ tươi"],
+      "traLoi": "Ướp đá ngay khi cá vừa lên khỏi mặt nước, đừng để cá phơi nắng trên boong. Giữ hầm kín gió và che chắn để hơi lạnh không thoát ra. Cá lớn nên moi ruột và làm sạch trước khi ướp. Mỗi ngày kiểm tra rồi bù thêm đá cho cá luôn đủ lạnh.",
+      "nguon": "Trung tâm Khuyến nông Quốc gia — tài liệu bảo quản hải sản sau thu hoạch",
+      "ngaySoat": "2026-09-01",
+      "chipMoMan": "/ngu-truong"
+    },
+    {
+      "id": "giay-to-ra-khoi",
+      "cauHoiMau": [
+        "ra khơi cần mang giấy tờ gì",
+        "thủ tục giấy tờ trước chuyến biển",
+        "cần giấy phép gì để đi biển"
+      ],
+      "tuKhoa": ["giấy tờ", "giấy phép khai thác", "đăng kiểm", "thủ tục"],
+      "traLoi": "Trước khi ra khơi bác nhớ mang giấy phép khai thác, giấy đăng ký và đăng kiểm tàu còn hạn. Thuyền viên cầm theo giấy tờ tùy thân để trình khi lực lượng chức năng kiểm tra. Nếu giấy sắp hết hạn thì lo gia hạn sớm ở cảng, đừng để tới ngày đi mới chạy. Bác mở mục Giấy tờ trong app để xem giấy nào gần hết hạn.",
+      "nguon": "Tài liệu hướng dẫn thủ tục xuất bến — SDVICO tổng hợp từ quy định hiện hành",
+      "ngaySoat": "2026-09-05",
+      "chipMoMan": "/tau?tab=giay-to"
+    },
+    {
+      "id": "chuan-bi-an-toan-truoc-chuyen",
+      "cauHoiMau": [
+        "chuẩn bị an toàn trước khi đi biển",
+        "cần kiểm tra gì trước chuyến",
+        "đồ an toàn trên tàu gồm những gì"
+      ],
+      "tuKhoa": ["an toàn", "áo phao", "kiểm tra tàu", "trước chuyến"],
+      "traLoi": "Trước mỗi chuyến kiểm tra máy chính, bơm hút nước và nhiên liệu dự phòng. Áo phao và phao cứu sinh để chỗ dễ lấy cho mọi người trên tàu. Đèn tín hiệu và còi phải hoạt động tốt để báo hiệu khi cần. Nghe thêm đài duyên hải để nắm tình hình trước khi rời bến.",
+      "nguon": "Cẩm nang an toàn tàu cá — SDVICO soát theo hướng dẫn cơ quan quản lý",
+      "ngaySoat": "2026-09-08"
+    }
+  ]
+}
