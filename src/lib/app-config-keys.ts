@@ -7,7 +7,11 @@ export type ConfigKey =
   | "vapid_subject"
   | "cron_secret"
   | "anthropic_api_key"
-  | "assistant_daily_limit";
+  | "assistant_daily_limit"
+  | "assistant_engine"
+  | "qwen_base_url"
+  | "qwen_model"
+  | "qwen_api_key";
 
 export interface ConfigKeyMeta {
   key: ConfigKey;
@@ -60,7 +64,35 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     label: "Trợ lý — số lượt hỏi mạng / ngày / tài khoản",
     secret: false,
     envVar: "ASSISTANT_DAILY_LIMIT",
-    help: "Mặc định 30. Chỉ đếm lượt gọi Claude; việc trong máy không tính.",
+    help: "Mặc định 30. Đếm lượt gọi tầng mạng (Claude hoặc Qwen); việc trong máy không tính.",
+  },
+  {
+    key: "assistant_engine",
+    label: "Trợ lý — engine tầng mạng",
+    secret: false,
+    envVar: "ASSISTANT_ENGINE",
+    help: "'qwen' = LLM tự host (Qwen qua endpoint OpenAI, 0đ vendor) · 'claude' = Claude Opus (mặc định khi trống). Đổi engine là áp dụng ngay, không redeploy.",
+  },
+  {
+    key: "qwen_base_url",
+    label: "Qwen — base URL (chuẩn OpenAI)",
+    secret: false,
+    envVar: "QWEN_BASE_URL",
+    help: "Endpoint chuẩn OpenAI, KHÔNG kèm /chat/completions. Test máy trạm: http://127.0.0.1:11434/v1 (Ollama). Prod: URL server/tunnel/host Qwen. Thiếu ⇒ engine qwen coi như chưa cấu hình.",
+  },
+  {
+    key: "qwen_model",
+    label: "Qwen — tên model",
+    secret: false,
+    envVar: "QWEN_MODEL",
+    help: "Mặc định qwen3.5:9b. Tên model theo endpoint đang trỏ tới.",
+  },
+  {
+    key: "qwen_api_key",
+    label: "Qwen — API key (nếu endpoint cần)",
+    secret: true,
+    envVar: "QWEN_API_KEY",
+    help: "Bearer cho endpoint có xác thực (vLLM/host). Ollama localhost KHÔNG cần — để trống.",
   },
 ];
 
