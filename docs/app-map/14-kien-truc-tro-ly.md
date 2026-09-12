@@ -6,7 +6,7 @@ covers: src/lib/assistant, src/components/assistant, src/app/api/tro-ly
 gate: warn
 last_verified: 2026-09-06
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-09-08) — code 'src/lib/assistant' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-09-12) — code 'src/lib/assistant' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 
 **Version**: 1.1 (hợp nhất sau phản biện — [phan-bien-tro-ly-2026-09-06](_generated/phan-bien-tro-ly-2026-09-06.md)) · **Ngày**: 2026-09-06 · **Tác giả**: Kiến trúc sư + Phản biện · **Khung**: TROLY-BRIEF 2026-09-06 §1/§2/**§4** = luật cao nhất · **Vì sao**: [ADR 0009](../adr/0009-tro-ly-giong-noi.md) · **Nghiệp vụ**: [13-ba-spec-tro-ly-giong-noi.md](13-ba-spec-tro-ly-giong-noi.md) (BA viết song song — **13 là nguồn cho HÀNH VI + câu chữ, 14 là nguồn cho TÊN**: file, export, type, mã ý định, mã lỗi, khoá)
 
@@ -752,9 +752,11 @@ export async function POST(req: Request) {
   if (!who.ok) return who.res;
   body = await req.json().catch(() => null); validateAssistantRequest(body) → 400 {code:"invalid"} (hình/độ dài) | 400 {code:"bad_snapshot"} (có key cấm: cccd|phone|sdt|shopPhone|docNumber|soGiay|bank|stk|address|lat|lon|names — 13 AC-T53: từ chối, không lặng lẽ bỏ)
   const q = takeQuota(who.phone, await getAssistantDailyLimit()) → hết → 429 {code:"quota"}, header Retry-After tới 0h VN
-  const mode = await resolveMode()             // "mock" | "live" | "no_key"
+  const { mode, engine, key, qwen } = await resolveMode()   // mode "mock"|"live"|"no_key"; engine "claude"|"qwen"
   if (mode === "no_key") return 503 {code:"no_key"}
-  const reply = mode === "mock" ? await mockReply(body) : await askClaude(body, who.phone)
+  const reply = mode === "mock" ? await mockReply(body)
+              : engine === "qwen" ? await askQwen(body, who.phone, qwen)   // §6.7 — LLM tự host, mặc định prod (2026-09-12)
+              : await askClaude(body, who.phone, key)
   return NextResponse.json({ ok:true, reply, remaining: q.remaining }, { headers: { "cache-control": "no-store" } })
 }
 ```
@@ -784,7 +786,9 @@ Thêm vào `CONFIG_KEYS`:
 }
 ```
 
-`ConfigKey` union +2 literal. `getAssistantApiKey(): Promise<string|null>` = `getConfigValue("anthropic_api_key")`. `getAssistantDailyLimit(): Promise<number>` = parse int, mặc định 30, kẹp 1..500. `resolveMode()`: `process.env.ASSISTANT_MOCK === "1"` → mock; có khoá → live; không khoá và `NODE_ENV !== "production"` → mock; còn lại `no_key`. Doc 04 mục 0015 thêm 2 khoá (**không migration** — `app_config` là KV).
+`ConfigKey` union +2 literal. `getAssistantApiKey(): Promise<string|null>` = `getConfigValue("anthropic_api_key")`. `getAssistantDailyLimit(): Promise<number>` = parse int, mặc định 30, kẹp 1..500. Doc 04 mục 0022 thêm khoá (**không migration** — `app_config` là KV).
+
+**Engine đổi được (2026-09-12, chủ dự án "thay claude opus bằng qwen, qwen làm prod")**: thêm 4 khoá `assistant_engine` (`claude`|`qwen`, mặc định `claude`), `qwen_base_url`, `qwen_model` (mặc định `qwen3.5:9b`), `qwen_api_key` (secret). `getAssistantEngine()` đọc `assistant_engine`; `getQwenConfig(): Promise<QwenConfig|null>` (`null` khi thiếu `qwen_base_url`). `resolveMode(): Promise<{mode,engine,key,qwen}>` — `ASSISTANT_MOCK=1`→mock; theo engine: `qwen` có `qwen_base_url`→live / không+dev→mock / còn lại→no_key; `claude` có khoá→live / không+dev→mock / còn lại→no_key.
 
 ### 6.3 `server/quota.ts` (thuần)
 
@@ -913,6 +917,21 @@ HÀNH ĐỘNG (tuỳ chọn)
 `mockReply(body): Promise<AssistantReply>`: chạy `parseUtterance` + `answerOffline(parsed, body.snapshot, Date.now())` trên chính snapshot gửi lên, đổi `source: "mock"`; với `hoi_mo`/`khong_hieu` trả kịch bản cố định (5 câu xoay vòng theo hash của text, ví dụ "Kinh nghiệm bà con: sóng trên 2 mét thì ghe nhỏ đừng ra."); với `tim_mon` gọi thật `getMarketStore().listProducts` (file-store có seed) để UI thấy action `search`. Trễ giả 600 ms để UI hiện "Đang nghĩ…". `source: "mock"` là **dấu hiệu duy nhất** (13 §5.4/§7.2: không header riêng); UI hiện dòng nhỏ "Đang trả lời thử" **chỉ khi không phải production**.
 
 ---
+
+### 6.7 `server/qwen.ts` — engine LLM tự host (thay Claude, 2026-09-12)
+
+Chủ dự án chốt: tầng mạng dùng **Qwen tự host** thay Claude (0đ vendor), **prod luôn**. `qwen.ts` **additive, KHÔNG đụng `claude.ts`** — tái dùng nguyên `SYSTEM_PROMPT`, `finalize` (hậu kiểm chống bịa + "đài duyên hải"), `executeTool`, `TOOLS` từ claude.ts/tools.ts. Đổi engine, **AN TOÀN GIỮ NGUYÊN** vì `finalize` chạy trên chữ cuối, độc lập engine.
+
+```ts
+export interface QwenConfig { baseUrl: string; model: string; apiKey?: string | null }
+export async function askQwen(body, phone, cfg: QwenConfig, now?): Promise<AssistantReply>
+```
+
+- **Chuẩn OpenAI** `POST {baseUrl}/chat/completions` (`stream:false`, `tool_choice:"auto"`, `temperature 0.3`, `max_tokens 700`). `OPENAI_TOOLS` = `TOOLS` map `input_schema→parameters`. Chạy với Ollama, vLLM, hay API Qwen.
+- **Endpoint CẤU HÌNH ĐƯỢC** (`qwen_base_url`): test máy trạm `http://127.0.0.1:11434/v1` (Ollama); **prod trỏ đâu là quyết định ops** (tunnel tới trạm / GPU server có SLA / host Qwen) — code prod-ready, KHÔNG hardcode host.
+- **Cùng hợp đồng vòng lặp** claude.ts: thủ công ≤`MAX_ROUNDS` (3) vòng trong ngân sách `TOTAL_MS` (20 s, import), `timeoutSignal`; `finish_reason:"tool_calls"` → chạy `executeTool` (parse `arguments` JSON) → nhét `role:"tool"` → vòng kế; hết vòng vẫn đòi tool → `upstream`. Lỗi HTTP/parse → `upstream`; abort/timeout → `timeout`.
+- Test: `assistant-qwen.test.ts` (convert tools, tin user, vòng tool→finalize, HTTP lỗi, Bearer). Đã kiểm THẬT qua Ollama qwen3.5:9b trên trạm: gọi `tin_bao`, dùng đúng số, xưng "bác", tự nhắc "đài duyên hải".
+- ⚠️ **Nợ prod**: (a) reachability + SLA của endpoint Qwen là việc ops (ngược §bảo mật ADR 0010 "không lộ Ollama ra internet" nếu chọn tunnel — cân nhắc); (b) LLM live có thể **bịa** câu mở — `finalize` chặn số bịa nhưng không chặn mọi bịa; hướng đích vẫn là kho-đã-duyệt (ADR 0010) cho câu mở. `// nợ: WEATHER_WORDS regex \b ASCII bỏ sót "áp thấp"/"gió" có dấu — câu bão chỉ nối "đài duyên hải" khi có "bão"/"sóng"/"biển động"; siết regex khi rảnh (pre-existing claude.ts).`
 
 ## 7. UI (`src/components/assistant/`)
 

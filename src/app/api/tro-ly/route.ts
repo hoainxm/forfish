@@ -15,6 +15,7 @@ import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { AssistantServerError, askClaude } from "@/lib/assistant/server/claude";
 import { getAssistantDailyLimit, resolveMode } from "@/lib/assistant/server/key";
+import { askQwen } from "@/lib/assistant/server/qwen";
 import { mockReply } from "@/lib/assistant/server/mock";
 import { takeQuota } from "@/lib/assistant/server/quota";
 import { hydrateQuotaFromFile, persistQuotaToFile } from "@/lib/assistant/server/quota-file";
@@ -61,11 +62,16 @@ export async function POST(req: Request) {
     return fail("quota", { "retry-after": String(retry) });
   }
 
-  const { mode, key } = await resolveMode();
+  const { mode, engine, key, qwen } = await resolveMode();
   if (mode === "no_key") return fail("no_key");
 
   try {
-    const reply = mode === "mock" ? await mockReply(v.body) : await askClaude(v.body, who.phone, key as string, t0);
+    const reply =
+      mode === "mock"
+        ? await mockReply(v.body)
+        : engine === "qwen"
+          ? await askQwen(v.body, who.phone, qwen!, t0)
+          : await askClaude(v.body, who.phone, key as string, t0);
     const body: AssistantResponse = { ok: true, reply, remaining: q.remaining };
     return NextResponse.json(body, { headers: NO_STORE });
   } catch (e) {
