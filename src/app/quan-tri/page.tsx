@@ -2555,7 +2555,7 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
   return (
     <div className="mt-4 space-y-4">
       {/*  ĐÃ NGHỈ (2026-09-07, ADR 0011) — nói TRƯỚC mọi thứ khác, bằng màu
-           cảnh báo. "Cửa hàng" trong app ngư dân đã gộp vào Chợ vật tư, app
+           cảnh báo. Màn "Cửa hàng" cũ trong app ngư dân đã gộp vào Cửa hàng (chợ chung), app
            KHÔNG còn đọc bảng này nữa: sửa ở đây mà tưởng bà con thấy ngay là
            hiểu sai, và cái sai đó chỉ lộ ra khi khách gọi hỏi sao không thấy
            hàng. Màn giữ lại để tra hàng cũ, chưa gỡ vì còn chờ chốt phân quyền
@@ -2565,7 +2565,7 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
           Danh mục này ĐÃ NGHỈ — app ngư dân không còn đọc.
         </p>
         <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
-          Từ 07/09/2026 &quot;Cửa hàng&quot; trong app đã gộp vào <b>Cửa hàng</b>:
+          Từ 07/09/2026 màn &quot;Cửa hàng&quot; cũ trong app đã gộp vào <b>Cửa hàng</b> (chợ chung):
           hàng SDVICO nay nằm ở gian hàng SDVICO trên chợ. Thêm/sửa/ẩn ở màn này
           <b> KHÔNG hiện ra với bà con nữa</b> — muốn đổi hàng đang bán thì sang
           tab <b>Cửa hàng → Sản phẩm</b>. Màn này giữ lại chỉ để tra hàng cũ.
@@ -3127,14 +3127,14 @@ function OrdersTab({ perms }: { perms: TabPerms }) {
   return (
     <div className="mt-4 space-y-4">
       {/*  ĐÃ NGHỈ (2026-09-07, ADR 0011) — đơn cũ của "Cửa hàng" đã chuyển sang
-           chợ (migration 0055); từ nay bà con đặt hàng là đơn về tab Chợ vật tư.
+           chợ (migration 0055); từ nay bà con đặt hàng là đơn về tab Cửa hàng.
            Màn này KHÔNG nhận đơn mới nữa, chỉ còn để tra lại. */}
       <div className="surface border-l-4 px-4 py-3" style={{ borderColor: "var(--warn)" }}>
         <p className="text-[0.9375rem] font-bold text-navy">
           Màn đơn này ĐÃ NGHỈ — đơn mới về tab Cửa hàng.
         </p>
         <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
-          Từ 07/09/2026 &quot;Cửa hàng&quot; đã gộp vào <b>Cửa hàng</b>. Đơn cũ
+          Từ 07/09/2026 màn &quot;Cửa hàng&quot; cũ đã gộp vào <b>Cửa hàng</b> (chợ chung). Đơn cũ
           đã được chuyển sang chợ nên <b>xử lý đơn ở tab Cửa hàng → Đơn hàng</b>,
           đừng xử lý hai nơi cho một đơn. Màn này giữ để tra lại bản gốc.
         </p>
