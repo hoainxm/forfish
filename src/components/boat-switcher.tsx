@@ -17,7 +17,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
-import { SQ_BTN } from "@/components/ui/sq-btn";
+import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
 import { useAuthUser } from "@/lib/use-auth";
 
 /*
@@ -29,7 +29,7 @@ import { useAuthUser } from "@/lib/use-auth";
 
 export { useBoats };
 
-export function BoatSwitcher() {
+export function BoatSwitcher({ compact = false }: { compact?: boolean }) {
   const { boats, current, ready, setCurrent, addBoat, updateBoat, removeBoat } =
     useBoats();
   const { signedIn, ready: authReady } = useAuthUser();
@@ -51,7 +51,7 @@ export function BoatSwitcher() {
     /*  Hàng chuẩn thay nút full-width (2026-08-29, luật A2/A3/A4): [thân cấp
         dữ liệu flex-1] + [ô nút w-16]. Nhãn bỏ chữ thừa "của bạn". */
     return (
-      <div className="relative z-10 -mt-6 flex items-stretch gap-2 px-4">
+      <div className={`relative z-10 flex items-stretch gap-2 px-4 ${compact ? "" : "-mt-6"}`}>
         <div className="flex min-w-0 flex-1 items-center surface px-3.5 py-3">
           <p className="text-[1rem] font-bold text-navy">Chưa có tàu nào</p>
         </div>
@@ -79,26 +79,26 @@ export function BoatSwitcher() {
 
   return (
     // chip tàu NỔI đè lên mép hero (tràn viền hiện đại) — mọi trang dùng chung
-    <div className="relative z-10 -mt-6 px-4">
+    <div className={`relative z-10 px-4 ${compact ? "" : "-mt-6"}`}>
       <button
         onClick={() => setPick(true)}
-        className="flex w-full items-center gap-2.5 surface px-3.5 py-2.5 active:scale-[0.99]"
+        className="flex min-h-[4.5rem] w-full items-center gap-3 surface px-4 py-3 active:scale-[0.99]"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-navy text-white">
-          <AnchorIcon className="h-5 w-5" />
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-field text-navy">
+          <AnchorIcon className="h-6 w-6" />
         </span>
         <span className="min-w-0 flex-1 text-left">
-          <span className="block truncate text-[1rem] font-bold text-navy">
+          <span className="block text-[1.125rem] font-bold leading-snug text-navy">
             {current.name}
           </span>
-          <span className="block truncate text-[0.8125rem] text-foreground/70">
+          <span className="mt-1 block text-[0.875rem] text-foreground/80">
             {current.maTau
               ? `Mã tàu: ${current.maTau}`
               : "Chạm để ghi tên, mã tàu"}
             {boats.length > 1 ? ` · ${boats.length} tàu` : ""}
           </span>
         </span>
-        <ChevronRightIcon className="h-5 w-5 shrink-0 rotate-90 text-foreground/65" />
+        <span className="flex shrink-0 flex-col items-center gap-1 text-[0.875rem] font-bold text-sea"><ChevronRightIcon className="h-6 w-6 rotate-90" />Chọn tàu</span>
       </button>
 
       {/*  MÁY HẾT CHỖ — vẽ NGOÀI sheet (S14, audit 2026-08-18): `saveFailed`

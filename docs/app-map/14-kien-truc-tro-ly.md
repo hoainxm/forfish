@@ -6,6 +6,7 @@ covers: src/lib/assistant, src/components/assistant, src/app/api/tro-ly
 gate: warn
 last_verified: 2026-09-06
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-09-08) — code 'src/lib/assistant' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 
 **Version**: 1.1 (hợp nhất sau phản biện — [phan-bien-tro-ly-2026-09-06](_generated/phan-bien-tro-ly-2026-09-06.md)) · **Ngày**: 2026-09-06 · **Tác giả**: Kiến trúc sư + Phản biện · **Khung**: TROLY-BRIEF 2026-09-06 §1/§2/**§4** = luật cao nhất · **Vì sao**: [ADR 0009](../adr/0009-tro-ly-giong-noi.md) · **Nghiệp vụ**: [13-ba-spec-tro-ly-giong-noi.md](13-ba-spec-tro-ly-giong-noi.md) (BA viết song song — **13 là nguồn cho HÀNH VI + câu chữ, 14 là nguồn cho TÊN**: file, export, type, mã ý định, mã lỗi, khoá)
 
@@ -878,7 +879,7 @@ throw upstream                                                              // >
 **`SYSTEM_PROMPT` — NGUYÊN VĂN** (tiếng Việt đời thường; Core dán y nguyên, BA chỉ được sửa câu chữ sau khi 13 chốt):
 
 ```
-Bạn là Trợ lý của SDFish, app đồng hành của ngư dân Việt Nam. Người hỏi là bà con ngư dân 40–60 tuổi, đang ở tàu hoặc ở cảng, mắt nhìn màn hình điện thoại ngoài nắng, có thể đang mất sóng chập chờn.
+Bạn là Sen Biển — trợ lý của SDFish, app đồng hành của ngư dân Việt Nam. Bác hỏi tên thì nói "Tôi là Sen Biển". Người hỏi là bà con ngư dân 40–60 tuổi, đang ở tàu hoặc ở cảng, mắt nhìn màn hình điện thoại ngoài nắng, có thể đang mất sóng chập chờn.
 
 CÁCH NÓI
 - Bà con đang chờ nghe — trả lời ngay, không suy nghĩ dài trước câu đầu.
@@ -917,9 +918,9 @@ HÀNH ĐỘNG (tuỳ chọn)
 
 ### 7.1 `assistant-fab.tsx`
 
-- `position: fixed; right: 1rem; bottom: calc(var(--dock-total) + 0.75rem); width/height: 3.5rem` (tap ≥56px); `z-20` (**dưới** `z-30` của `BottomSheet` ⇒ scrim che nút, chạm scrim = đóng sheet — không cần code phát hiện "có sheet khác mở"); tròn, `bg-sea text-background shadow-lg`, icon mic từ `components/icons.tsx` (thêm `MicIcon` nếu chưa có — nguồn icon duy nhất), `aria-label="Trợ lý"`, `focus-visible:ring-2`.
+- **2026-09-07**: dựng trên khuôn chung `ui/float-btn.tsx` (`FloatBtn`) — khung `fixed inset-x-0 top-0 max-w-[480px] mx-auto overflow-hidden pointer-events-none` cao `var(--app-vh, 100dvh)`; nút `absolute` trong khung, `[side]: 1rem; bottom: calc(var(--dock-total) + 0.75rem + dy px)`, cạnh `4rem`; kéo bằng pointer events + `setPointerCapture`, dời bằng `transform` trên LỚP BỌC (nút giữ `active:scale`); thả → `settleDrop()` (`lib/float-pos.ts`, test `float-pos.test.ts`) nép mép + kẹp dy + quyết ẩn; vị trí nhớ `forfish.fab.v1` (đọc trong `useEffect` sau khi gắn — không đọc trong initializer vì component cha có thể SSR). `z-20` (**dưới** `z-30` của `BottomSheet`); vùng nút `bg-transparent text-navy` **không nền/viền**, mascot `public/icons/sen-bien.png` 48px (cá xanh + nụ sen cam + cụm sóng dưới chân, alpha thật) + nhãn "Sen Biển", `aria-label="Sen Biển — bấm để nói"`, `focus-visible:ring-4`. Nút giỏ ở `sdvico-catalog.tsx` dùng cùng khuôn (`id="gio-hang"`, `baseBottom="5.5rem"`).
 - Ẩn theo **13 §5.1** (nguồn hành vi): route `/quan-tri`, `/dev`, `/login`, `/dang-ky`, `/doi-mat-khau`, `/quen-mat-khau`, `/huong-dan.html`, `/quyen-rieng-tu`; bàn phím mở (`visualViewport` co >150px); `BottomSheet` khác mở (cơ chế: FAB `z-20` dưới scrim `z-30` — tự bị che, không cần code); trên `/ngu-truong`: `SnapSheet` ở half/full hoặc HUD dẫn đường live (Core/UI đọc trạng thái Trục 1 qua export hiện có; không có export → `// nợ: ẩn FAB khi HUD live, cần export từ nav-mode` và QA đo AC-T30/T31); thanh đáy dính (`/cho/gio`, `/cho/sp`, `/cho/don`) → FAB dịch lên trên thanh (đo 390×844, AC-T31). Nhãn "Nói" dưới icon ở chế độ to.
-- Chạm → `onOpen()`; khi sheet mở, FAB ẩn (`hidden`).
+- Chạm → `onOpen()`; khi sheet mở, FAB ẩn (`hidden`). Đang KÉO thì `recheck()` của các phép đo (thanh dính, dải chip ngày) bỏ qua (`draggingRef`) — thả xong lớp bọc đổi `style` nên observer tự đo lại. Phép dò thanh dính lọc `position: fixed` nên lớp bọc `absolute` của chính nút và của nút giỏ không bị nhận nhầm.
 
 ### 7.2 `assistant-sheet.tsx`
 
@@ -1038,3 +1039,5 @@ Timeout: server tổng 20 s tới Anthropic (`maxDuration 25`), client 25 s (13 
 ---
 
 **Last updated**: 2026-09-06 (v1.1 + ghi chú Core build)
+
+Cập nhật UI 2026-09-08: assistant-sheet giữ nấc 65% / 92% trên dock, mic 4rem. Cấu trúc engine, snapshot và hành động giữ nguyên; chi tiết presentation theo 13 và 07.

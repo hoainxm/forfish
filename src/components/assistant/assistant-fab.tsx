@@ -1,14 +1,22 @@
 "use client";
 
 /*
-  NÚT NỔI "Trợ lý" — một chạm là NGHE (13 §5.1 · P1, 14 §7.1).
+  NÚT NỔI "SEN BIỂN" — một chạm là NGHE (13 §5.1 · P1, 14 §7.1).
+
+  Tên "Sen Biển" (user chốt 2026-09-07): linh vật cá xanh đội nụ sen cam,
+  hai vây bên mở như đang lắng nghe và cụm sóng làm chân, nhãn tên ở dưới.
+  Ảnh PNG có alpha thật;
+  nút không mang nền, viền hay huy hiệu để linh vật nổi trực tiếp như bot của
+  app ngân hàng. Hình mic bỏ vì nó nói "ghi âm" chứ không nói "có người giúp".
 
   Vì sao là nút nổi chứ không phải ô trong dock: dock đã kín 5 khu (Trang chủ ·
   Ra khơi · Tàu cá · Bạn thuyền · Giao dịch) và trợ lý KHÔNG phải trục thứ sáu —
-  nó là đường tắt vào cả bốn lời hứa. Nút nổi cùng góc dưới-phải với rail phải
-  của Ra khơi nhưng THẤP HƠN rail (ngay trên dock) để không chồng.
+  nó là đường tắt vào cả bốn lời hứa. Nút nổi mặc định góc dưới-phải, ngay trên
+  dock; bà con KÉO được tới chỗ khác và ẨN được (khuôn chung `ui/float-btn` —
+  giỏ hàng ở Cửa hàng cũng dùng, nên hai nút không còn đè nhau và không bay ra
+  ngoài cột app 480px ở màn rộng).
 
-  Ba luật ẩn, theo đúng thứ tự rẻ → đắt:
+  Ba luật ẩn TỰ ĐỘNG, theo đúng thứ tự rẻ → đắt:
   · route cấm (danh sách tĩnh, không tính toán gì);
   · bàn phím mở (`visualViewport` co > 150px — nút nổi che chỗ gõ là hỏng việc
     đang làm dở, tệ hơn là không có trợ lý);
@@ -16,14 +24,16 @@
     ConfirmDialog portal ra body). z-20 đã nằm DƯỚI scrim z-30 nên nút không
     bấm được, nhưng scrim đen 50% vẫn để lộ nút cam — 13 đòi ẨN hẳn.
 
-  KHÔNG tải gì, KHÔNG đọc localStorage lúc mount (CLAUDE.md 🟡 (a)): snapshot
-  chỉ gom khi bà con MỞ tấm che. Vì vậy nút không có chấm đỏ báo việc — 13 §5.1
-  cũng không đòi chấm; việc đỏ/vàng vào chip gợi ý bên trong tấm che (13 §5.3).
+  KHÔNG tải gì lúc mount (CLAUDE.md 🟡 (a)): snapshot chỉ gom khi bà con MỞ
+  tấm che. Vì vậy nút không có chấm đỏ báo việc — 13 §5.1 cũng không đòi chấm;
+  việc đỏ/vàng vào chip gợi ý bên trong tấm che (13 §5.3). Thứ duy nhất đọc
+  từ máy lúc gắn là VỊ TRÍ nút bà con đã kéo (`forfish.fab.v1`, trong FloatBtn).
 */
 
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { MicIcon } from "@/components/icons";
+import { FloatBtn } from "@/components/ui/float-btn";
 
 /** Màn KHÔNG có trợ lý (13 §5.1) — web quản trị, màn kỹ thuật, mọi màn đăng nhập. */
 const HIDDEN_PREFIXES = [
@@ -52,18 +62,18 @@ const HIDDEN_PREFIXES = [
     // mà 13 §5.1 cho phép; hai file đó không thuộc phần việc của UI trợ lý.
 
     Nhận diện bằng chính DẤU VẾT của thanh: cả hai thanh đều đặt inline
-    `bottom: var(--dock-total)`. Bắt theo dấu vết thật chứ không theo danh sách
-    route, nên giỏ TRỐNG (không có thanh) vẫn còn nút nổi.
+    `bottom: var(--dock-total)` VÀ là `position: fixed`. Bắt theo dấu vết thật
+    chứ không theo danh sách route, nên giỏ TRỐNG (không có thanh) vẫn còn nút nổi.
 
-    ⚠️ CHÍNH NÚT NỔI cũng neo theo `--dock-total` (`calc(... + 0.75rem)`), nên
-    nó khớp cái dấu vết đó. Không loại nó ra thì: nút thấy chính mình → tự ẩn →
-    DOM đổi → soi lại → không thấy ai nữa → hiện lại → vòng lặp vô tận (đo thật
-    2026-09-06: ~10.000 lượt gắn/gỡ mỗi giây, chạm vào không được vì node bị
-    thay liên tục). Vì vậy truyền node của chính nút vào để bỏ qua. */
+    ⚠️ Lớp bọc của chính nút nổi (và của nút giỏ hàng) cũng neo theo
+    `--dock-total`, nhưng là `absolute` trong khung nên phép lọc `fixed` đã loại
+    chúng. Vẫn truyền node của nút vào để chắc: bản cũ từng tự thấy mình → tự ẩn
+    → DOM đổi → soi lại → hiện lại → vòng lặp vô tận (đo thật 2026-09-06:
+    ~10.000 lượt gắn/gỡ mỗi giây, chạm vào không được). */
 function stickyBarOpen(self: HTMLElement | null): boolean {
   if (typeof document === "undefined") return false;
   for (const el of document.querySelectorAll<HTMLElement>('[style*="--dock-total"]')) {
-    if (el === self) continue;
+    if (el === self || (self && el.contains(self))) continue;
     const cs = getComputedStyle(el);
     if (cs.position === "fixed" && el.getBoundingClientRect().height > 0) return true;
   }
@@ -135,9 +145,24 @@ export function AssistantFab({ open, onOpen }: { open: boolean; onOpen: () => vo
   const [blocked, setBlocked] = useState(false);
   const [lift, setLift] = useState(0);
   const liftRef = useRef(0);
+  /*  Đang KÉO thì không đo: nút đi theo ngón tay, đo giữa chừng là nâng/hạ
+      giật cục. Thả xong lớp bọc đổi `style` → observer bên dưới đo lại. */
+  const draggingRef = useRef(false);
+
+  /*  NHỊP THỞ MỘT LƯỢT KHI MỞ APP (03 §Trợ lý trong app, luật 11): bà con phải
+      biết là CÓ trợ lý ở đó. Đúng 3 nhịp rồi thôi — WCAG 2.2.2 cấm chuyển động
+      tự chạy quá 5 giây không dừng được, và ngư dân đang lái tàu thì một cái
+      nhấp nháy vô hạn ở góc màn là thứ gây phiền, không phải thứ mời gọi.
+      Gỡ class sau 4,4 s để lần vẽ lại sau không chạy lại hiệu ứng. */
+  const [tho, setTho] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setTho(false), 4400);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     const recheck = () => {
+      if (draggingRef.current) return;
       setBlocked(keyboardOpen() || modalOpen() || stickyBarOpen(btnRef.current) || mapSheetOpen());
       const next = liftOverDayStrip(btnRef.current, liftRef.current);
       liftRef.current = next;
@@ -194,19 +219,28 @@ export function AssistantFab({ open, onOpen }: { open: boolean; onOpen: () => vo
   if (open || blocked || assistantHiddenOn(pathname)) return null;
 
   return (
-    <button
-      ref={btnRef}
-      type="button"
-      onClick={onOpen}
-      aria-label="Trợ lý — bấm để nói"
-      className="fixed z-20 flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-full bg-sea text-white shadow-lg transition active:scale-[0.95] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sun"
-      /*  `marginBottom` chứ không `transform`: lớp `active:scale-[0.95]` cũng
-          viết vào `transform`, đặt inline là mất hiệu ứng nhấn. Với phần tử
-          `fixed` neo `bottom`, margin dưới đẩy nút LÊN đúng bằng số px. */
-      style={{ right: "1rem", bottom: "calc(var(--dock-total) + 0.75rem)", marginBottom: lift }}
+    <FloatBtn
+      id="sen-bien"
+      label="Sen Biển — bấm để nói"
+      onPress={onOpen}
+      baseBottom="0.75rem"
+      size="4rem"
+      className={`fab-tro-ly bg-transparent text-navy ${tho ? "anim-fab-tho" : ""}`}
+      lift={lift}
+      btnRef={btnRef}
+      onDragChange={(d) => {
+        draggingRef.current = d;
+      }}
     >
-      <MicIcon className="h-6 w-6" />
-      <span className="text-[0.6875rem] font-bold leading-none">Nói</span>
-    </button>
+      <Image
+        src="/icons/sen-bien.png"
+        width={48}
+        height={48}
+        alt=""
+        draggable={false}
+        className="fab-mascot h-11 w-11 object-contain"
+      />
+      <span className="fab-nhan mt-0.5 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[0.6875rem] font-bold leading-none text-navy">Sen Biển</span>
+    </FloatBtn>
   );
 }

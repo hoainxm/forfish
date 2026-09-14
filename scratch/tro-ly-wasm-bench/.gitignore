@@ -1,0 +1,5 @@
+# model + wasm tải về bằng fetch-assets.sh — không commit (126 MB)
+assets/
+*.pem
+*.log
+tmp/

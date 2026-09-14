@@ -23,14 +23,11 @@ export function CategoryIcon({ category, className }: { category: ProductCategor
 }
 
 /**
- * Thẻ sản phẩm ở danh sách (12 §8.1) — GỌN như Shopee (F-04, 2026-09-06): ảnh
- * vuông (badge -N% + ♡ đè góc) · tên 2 dòng · giá · MỘT dòng "Đã bán N · ★x.x ·
- * shop · tỉnh". CHẠM CẢ THẺ → trang món; KHÔNG còn "+ Giỏ"/"Chọn" trong lưới
+ * Thẻ sản phẩm: ảnh 4:3, tên tối đa 3 dòng, giá và shop/tỉnh tách dòng.
+ * CHẠM CẢ THẺ → trang món; KHÔNG còn "+ Giỏ"/"Chọn" trong lưới
  * (thêm giỏ là việc của trang món — ở đó mới chọn loại/số lượng được).
  *
- * ♡ là nút riêng ĐÈ LÊN ảnh (không lồng trong `<a>`): vùng chạm 2.75rem = ngoại
- * lệ có chủ đích so với sàn 3.5rem — nó nằm trên ảnh lớn, không cạnh nút nào
- * khác nên chạm hụt không bấm nhầm việc khác (03-design-system ghi ngoại lệ).
+ * Nút lưu món riêng trên ảnh, không lồng trong link, vùng chạm 3.5rem.
  * Tên export có tiền tố `Market` để không trùng type `ProductCard`.
  */
 export function MarketProductCard({
@@ -54,16 +51,16 @@ export function MarketProductCard({
   const image = product.images[0];
 
   return (
-    <article className="surface relative flex h-full flex-col overflow-hidden">
+    <article className="market-product-card surface relative flex h-full flex-col overflow-hidden">
       <Link href={href} className="flex h-full min-h-[3.5rem] flex-col" aria-label={product.title}>
-        <div className="relative aspect-square w-full bg-field">
+        <div className="market-product-image relative aspect-[4/3] w-full bg-field">
           {image && !imgBroken ? (
             // eslint-disable-next-line @next/next/no-img-element -- ảnh sàn: bucket public Supabase / data-URI seed, không qua optimizer (băng thông có đo đếm)
             <img
               src={image}
               alt={product.title}
               loading="lazy"
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain p-3"
               onError={() => setImgBroken(true)}
             />
           ) : (
@@ -93,14 +90,11 @@ export function MarketProductCard({
             </span>
           )}
         </div>
-        {/*  THÂN THẺ GỌN (R-05, 2026-09-06): bỏ `mt-auto` (nó giữ chỗ 2 dòng tên
-             cho thẻ tên 1 dòng ⇒ khoảng trống lớn) và gộp "Đã bán · shop · tỉnh"
-             về MỘT dòng ⇒ thẻ 334px xuống ~300px, gần Shopee (~260) mà không
-             mất chữ nào. Ảnh vuông + tên 2 dòng giữ nguyên. */}
-        <div className="flex flex-1 flex-col px-2.5 pb-2 pt-1.5">
-          <p className="line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{product.title}</p>
+        {/* Tên/giá trước; shop và tỉnh luôn đọc được, không nhét vào dòng cắt. */}
+        <div className="flex flex-1 flex-col p-3">
+          <p className="line-clamp-3 text-[1.125rem] font-bold leading-snug text-navy">{product.title}</p>
           <PriceText priceVnd={product.priceVnd} compareAtVnd={product.compareAtVnd} className="mt-1" />
-          <p className="mt-0.5 truncate text-[0.875rem] text-foreground/65">
+          <p className="mt-2 text-[0.875rem] leading-relaxed text-foreground/80">
             Đã bán {product.soldCount}
             {product.ratingCount > 0 && (
               <>
@@ -111,10 +105,9 @@ export function MarketProductCard({
                 {product.ratingAvg.toFixed(1)}
               </>
             )}
-            {" · "}
-            <span className="font-semibold text-navy/80">{product.shopName}</span>
-            {product.shopProvince ? ` · ${product.shopProvince}` : ""}
           </p>
+          <p className="mt-auto pt-2 text-[0.875rem] font-semibold leading-snug text-navy">{product.shopName}</p>
+          {product.shopProvince && <p className="mt-1 text-[0.875rem] text-foreground/80">{product.shopProvince}</p>}
         </div>
       </Link>
       {onFav && (
@@ -123,7 +116,7 @@ export function MarketProductCard({
           onClick={onFav}
           aria-pressed={!!fav}
           aria-label={fav ? "Bỏ yêu thích" : "Yêu thích"}
-          className="absolute right-1.5 top-1.5 flex h-11 w-11 items-center justify-center rounded-full bg-card/90 shadow-sm transition active:scale-95"
+          className="absolute right-1 top-1 flex h-14 w-14 items-center justify-center rounded-full bg-card shadow-sm transition active:scale-95"
           style={{ color: fav ? "var(--trim)" : "var(--navy)" }}
         >
           <StarIcon className={`h-6 w-6 ${fav ? "fill-current" : ""}`} />

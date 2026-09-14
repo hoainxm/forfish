@@ -4,6 +4,7 @@
 covers: src/lib/assistant/, src/components/assistant/, src/app/api/tro-ly/
 last_verified: 2026-09-06
 ttl_days: 90
+<!-- DOC-STATUS: SUSPECT (2026-09-08) — code 'src/app/api/tro-ly/' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 version: v1.1 (2026-09-06) — hợp nhất sau phản biện ([_generated/phan-bien-tro-ly-2026-09-06](_generated/phan-bien-tro-ly-2026-09-06.md)); CHƯA build. **14-kien-truc = nguồn TÊN** (mã `Intent`, type, export, mã lỗi, khoá — bảng mã dùng chung ở 14 §3.0); **13 = nguồn HÀNH VI + câu chữ**; **TROLY-BRIEF §4 = luật cao nhất** (§0 dưới).
 
 > **Mục đích**: ORACLE HÀNH VI cho agent build + QA — bà con nói câu gì thì app hiểu thành ý định nào, trả lời bằng dữ liệu nào, làm hành động gì, hỏi lại khi nào, và im/nói thật khi thiếu gì. Không mô tả pixel (việc của [07-design-spec](07-design-spec.md)); không mô tả prompt/SDK/tool schema (việc của 14-kien-truc + ADR 0009).
@@ -203,26 +204,33 @@ Xác nhận bằng **chạm** là đường chính. **Chốt lead P1-7 (2026-09-
 
 ## 5. Màn hình
 
-### 5.1 Nút nổi "Trợ lý" (`assistant-fab.tsx`)
+### 5.1 Nút nổi "Sen Biển" (`assistant-fab.tsx` trên khuôn `ui/float-btn.tsx`)
+
+> **Tên trợ lý = "Sen Biển"** (user chốt 2026-09-07): nhãn dưới icon, tiêu đề tấm che, `aria-label`, và câu tự giới thiệu của tầng mạng ("Tôi là Sen Biển"). Dấu hiệu riêng là mascot `public/icons/sen-bien.png`: **cá xanh + nụ sen cam + cụm sóng xanh dưới chân**, hai vây bên mở như đang lắng nghe. Nút trong suốt hoàn toàn, không nền trắng, viền hay huy hiệu; bóng chỉ bám silhouette mascot theo ngôn ngữ bot ngân hàng. Không robot, hình não, chat-bubble hay lấy mic làm nhận diện.
 
 | Thuộc tính | Quyết định |
 |---|---|
-| Vị trí | Góc **dưới-phải**, ngay **trên dock** (`bottom: calc(var(--dock-total) + 0.75rem)`, `right: 1rem`, safe-area đã tính trong `--dock-total`) — cùng góc với rail phải Ra khơi nhưng **thấp hơn rail** để không chồng |
-| Kích thước | Tròn **3.5rem** (sàn 56px, chế độ gọn KHÔNG hạ — nút này là việc thường bấm, theo luật 03 §1b), icon mic 24px + nhãn "Nói" **dưới icon** khi chế độ to; gọn: icon + nhãn ngang trong viên 3.5rem cao |
-| Màu | Primary `bg-sea` chữ trắng (token `@theme`, cấm hex); trạng thái nghe: viền nhịp `--accent` |
+| Vị trí | **Mặc định** góc **dưới-phải**, ngay **trên dock** (`bottom: calc(var(--dock-total) + 0.75rem)`, cách mép cột app `1rem`, safe-area đã tính trong `--dock-total`) — cùng góc với rail phải Ra khơi nhưng **thấp hơn rail** để không chồng. Nút nằm **trong cột app 480px** (khung `fixed` căn giữa như `.dock-frame`), KHÔNG neo theo mép trình duyệt — màn rộng không còn bay ra ngoài khung (lỗi thật 2026-09-07) |
+| **Kéo được** (2026-09-07) | Giữ và rê là nút đi theo ngón tay (ngưỡng 8px để phân biệt với chạm rung tay); **thả là nép về mép gần nhất** (trái/phải) và giữ độ cao vừa kéo, kẹp trong khung (không lên quá 24px dưới mép trên, không xuống dưới chỗ mặc định). Chạm không rê = bấm như thường. Nhớ theo máy `forfish.fab.v1` (mỗi nút một ngăn: `sen-bien`, `gio-hang`) |
+| **Ẩn được** (2026-09-07) | Đẩy nút **sát ra ngoài mép** (tâm nút lọt vào 40% bề rộng nút sát mép) → nút **nép vào mép, chỉ ló 1,25rem và mờ 70%**; chạm mẩu ló ra = hiện lại (KHÔNG mở trợ lý). Không giấu hẳn: bà con giấu xong không biết mở lại ở đâu là mất luôn trợ lý. `aria-label` khi ẩn nối " — đang ẩn, chạm để hiện lại" |
+| Không đè nút giỏ | Nút giỏ nổi ở Cửa hàng (`sdvico-catalog.tsx`) dùng **cùng khuôn** và mặc định xếp **ngay trên** Sen Biển (`5.5rem` trên dock) — trước đây hai nút cùng một toạ độ, đè nhau (ảnh thật 2026-09-07) |
+| Kích thước | Vùng chạm tròn **4rem** (bằng nút giỏ; sàn 56px, chế độ gọn KHÔNG hạ — nút này là việc thường bấm, theo luật 03 §1b), mascot PNG 48px + nhãn **"Sen Biển"** dưới icon |
+| Màu | Nền `bg-card` không viền + bóng mềm; sen/sóng `--navy` + `--sea`, tâm `--sun`, cá trắng (chỉ token `@theme`, cấm hex); trạng thái nghe: viền nhịp `--accent` |
 | Có ở đâu | Mọi route app ngư dân (`AppShell` nhánh có dock). **KHÔNG** ở `/quan-tri`, `/dev`, `/login`, `/dang-ky`, `/doi-mat-khau`, `/quen-mat-khau`, `/huong-dan.html`, `/quyen-rieng-tu` |
 | Ẩn khi | bàn phím mở (`visualViewport` co >150px) · `BottomSheet`/`SnapSheet`/`ConfirmDialog` bất kỳ đang mở · HUD dẫn đường live đang chạy (07 §10.7 — không che ranh giới/HUD) · sheet Ra khơi ở `half/full` · tấm che trợ lý đang mở (chính nó) |
 | Không che | nút chính của màn: "Đặt hàng (n)" thanh đáy `/cho/gio`, "Thêm vào giỏ" `/cho/sp`, "Gọi shop" thanh đáy — các thanh đáy dính này **đẩy lên** bằng `padding-right` 4.5rem cho hàng nút, hoặc nút nổi **dịch lên** trên thanh dính (`bottom` cộng chiều cao thanh) — UI chọn một cách, đo thật 390×844 mọi màn có thanh dính (§9 AC-T31) |
-| A11y | `aria-label="Trợ lý — bấm để nói"`, `role="button"`, focus ring không huỷ trắng |
-| Lần đầu | Không coach-mark (07 §12 đã gỡ tour). Nhãn "Nói" tự giải thích |
+| A11y | `aria-label="Sen Biển — bấm để nói"`, `role="button"`, focus ring không huỷ trắng; kéo bằng pointer events (`touch-action: none` trên nút), bàn phím vẫn bấm được qua `click` |
+| Lần đầu | Không coach-mark (07 §12 đã gỡ tour). Nhãn "Sen Biển" + hình hoa sen là tên gọi thân quen; kéo/ẩn là cử chỉ quen từ nút nổi Zalo/Messenger, không cần dạy |
 
-### 5.2 Tấm che trợ lý (`assistant-sheet.tsx`) — chỉ bày cái KEY (03 §Khung nhập C1)
+### 5.2 Sheet trợ lý (`assistant-sheet.tsx`) — chỉ bày cái KEY (03 §Khung nhập C1)
+
+> **ĐỔI 2026-09-07 (chủ dự án: *"sao lại xổ ra 1 cái che hết toàn bộ app thế"*)**: KHÔNG còn tấm che toàn màn. Nay là **sheet neo đáy hai nấc** — mặc định **55%**, chạm tay nắm lên **92%** (không 100%), nền mờ **nhìn xuyên** 30%, ba đường đóng (✕ · vuốt · chạm nền). Tự lên nấc cao **chỉ khi bàn phím mở**. Hàng tiêu đề ghi **"Đang xem &lt;tên màn&gt;"**. Luật đầy đủ + nguồn khảo sát (Material 3 · Apple HIG · WCAG 2.2.2 · Intercom · NN/g): [03 §Trợ lý trong app](03-design-system.md).
 
 Là **tấm che toàn màn** (LEAD §1 — `fixed inset-0`, `role="dialog" aria-modal`, Esc + X đóng, khoá cuộn nền; **không** phải `BottomSheet` — cần full-height cho vòng mic + chữ TO + thẻ hành động mà không tranh chỗ với khung nổi bản đồ). Thứ tự từ trên xuống:
 
 | # | Khối | Key? | Chi tiết |
 |---|---|---|---|
-| 1 | Hàng tiêu đề: "Trợ lý" + `CloseButton` góc phải + nút **Tắt tiếng/Bật tiếng** (`SQ_BTN` icon loa, inline cuối hàng tiêu đề — 03 luật 3) | phụ | Không có nút Huỷ (03 §X đóng 2: panel đọc-xem → chỉ X) |
+| 1 | Hàng tiêu đề: "Sen Biển" + `CloseButton` góc phải + nút **Tắt tiếng/Bật tiếng** (`SQ_BTN` icon loa, inline cuối hàng tiêu đề — 03 luật 3) | phụ | Không có nút Huỷ (03 §X đóng 2: panel đọc-xem → chỉ X) |
 | 2 | **Vòng mic** to (≥5rem) giữa, nhịp khi nghe; dưới là **chữ nghe được** hiện dần (interim xám, final đậm) | **KEY** | Chạm vòng = nghe lại (cùng việc với nút nổi) |
 | 3 | **Câu trả lời** chữ TO (≥1.25rem, `text-foreground`, không xám nhạt) — `text`; dòng phụ "Số lưu 2 giờ trước" 0.875rem `--muted` (đủ contrast) | **KEY** | Khi "nghĩ": "Đang nghĩ…" `role=status` |
 | 4 | **Thẻ hành động** (0 hoặc 1): thẻ món + `QtyStepper` + cặp Thôi/Thêm vào giỏ · hoặc tên + số + Thôi/Gọi · hoặc điểm + Thôi/Dẫn đường — cặp nút `grid-cols-2`, primary **phải**, mỗi nút `min-h-[3.5rem]` | KEY khi có | Đây là chỗ DUY NHẤT có nút hành động |
@@ -271,7 +279,7 @@ Chip = câu nói sẵn; 4 chip = 2 theo màn + 1 theo giờ + 1 theo dữ liệu
 | Tình huống | Phát hiện bằng | Trợ lý làm gì | Câu trên màn (không jargon) |
 |---|---|---|---|
 | Chưa cấp quyền mic (lần đầu) | `getUserMedia`/`SpeechRecognition.onerror not-allowed` | chạm nút nổi → trình duyệt hỏi quyền; từ chối → ô gõ + chip, **nhớ** `micDenied` trong `forfish.assistant.v1`; lần sau mở thẳng ô gõ + dòng "Bật mic trong cài đặt máy để nói" | "Máy chưa cho dùng mic. Bác gõ hoặc chọn bên dưới." |
-| Không hỗ trợ STT (`SpeechRecognition` undefined — Firefox, WebView cũ) | feature-detect lúc mở tấm che | vòng mic ẩn, ô gõ + chip hiện sẵn; nút nổi vẫn là "Trợ lý" (icon bàn phím thay mic) | "Máy này chưa nói được với tôi — bác gõ hoặc chọn bên dưới." |
+| Không hỗ trợ STT (`SpeechRecognition` undefined — Firefox, WebView cũ) | feature-detect lúc mở tấm che | vòng mic ẩn, ô gõ + chip hiện sẵn; nút nổi vẫn là **"Sen Biển"** với mascot cá-sen để bà con luôn nhận đúng người trợ giúp | "Máy này chưa nói được với tôi — bác gõ hoặc chọn bên dưới." |
 | Không hỗ trợ TTS / không có giọng `vi-VN` | `speechSynthesis.getVoices()` không có `vi*` (kể cả sau `voiceschanged`) | **không đọc bằng giọng khác** (giọng Anh đọc tiếng Việt = vô nghĩa); chỉ chữ; nút loa mờ + nhãn "Máy không có giọng Việt" | dòng phụ 1 lần: "Máy này không đọc được tiếng Việt, tôi hiện chữ thôi." |
 | STT cần mạng mà mất sóng (Safari iOS/Chrome Android: nhận giọng chạy trên máy chủ Apple/Google — lead §0 #4) | `isDefinitelyOffline()` → mic vẫn thử **1 lần**; `onerror network` hoặc không có kết quả sau 3 s + `!navigator.onLine` | **CHIP làm hàng chính** (đứng trên), ô gõ dưới, ngay lập tức (không đợi 8 s); ý định OFF vẫn trả lời đầy đủ khi chip/gõ | "Mất sóng nên tôi không nghe được, bác chạm câu bên dưới." (câu chốt của lead; có thể nối: "Tôi vẫn trả lời được việc trong máy.") |
 | Mất sóng, câu cần online | `!navigator.onLine` hoặc fetch fail | không gọi `/api/tro-ly`; nói phạm vi offline | "Câu này phải có sóng mới hỏi được. Giờ tôi trả lời được: thời tiết, bão, giấy tờ, giá cá, mở màn." |
@@ -360,6 +368,10 @@ Server **không lưu** câu hỏi/câu trả lời vào DB (chỉ bộ đếm l�
 ## 9. Acceptance Criteria — ORACLE (QA truy vết theo mã)
 
 Mỗi AC 1 dòng kiểm được, **trong ngoặc = tầng · hàm/route chịu trách nhiệm**. Test: **U** = unit (`src/lib/__tests__/assistant-*.test.ts`), **E** = e2e (`tests/e2e/troly/**`, `ASSISTANT_MOCK=1`, persona `/dev`), **A** = API, **M** = đo tay.
+
+> **CỔNG TRUY VẾT (2026-09-07)** — `src/lib/__tests__/assistant-ac-oracle.test.ts` chạy mỗi `npm test`: mọi mã ở §9 phải có **ca kiểm ĐANG CHẠY dẫn chiếu mã đó trong nhãn**, hoặc được khai trong bảng `CHUYEN_TAY` của chính tệp cổng (lý do + mã kịch bản trong [docs/test-cases/tro-ly-2026-09-06.md](../test-cases/tro-ly-2026-09-06.md) + điều kiện trả nợ). Ba luật cổng giữ: mã nằm trong ca `test.fixme`/`skip` **không** tính là phủ (giả xanh); nợ đã trả mà quên xoá khỏi bảng → đỏ; khai mã kịch bản không có thật → đỏ.
+>
+> Rà lần đầu bằng cổng này (2026-09-07): **9 AC không ai nhận** — T04/T05/T06/T07 đã kiểm nhưng thiếu nhãn mã, còn **T30/T32/T35/T38/T43 chỉ nằm trong ca bị hoãn** nên `grep` tưởng đã phủ. Nay: **46 tự động · 10 chuyển đo tay · 0 treo**. Vá kèm: AC-T05 kiểm thêm `qty`, AC-T06 thêm ca năm nhóm bị chặn (kèm ca đối chứng không chặn oan) và ca hook chứng minh ý định cấm **không gọi** `/api/tro-ly` (trước đó chỉ kiểm hằng số `NEVER_ONLINE`, đổi một dòng trong `use-assistant` là câu bệnh tật lên mạng mà test vẫn xanh).
 
 **Hiểu ý (offline, thuần)**
 - AC-T01 (U) Mọi câu ví dụ trong §3 (≥135 câu) parse ra đúng mã INT; sai ≤3% và **không** câu nào rơi vào INT-26 nhầm (OFF · `parseUtterance`).
@@ -503,6 +515,7 @@ Mỗi AC 1 dòng kiểm được, **trong ngoặc = tầng · hàm/route chịu 
 ## History
 
 - v1.3 (2026-09-06, Core+UI sau audit vòng 2): §6 chốt ngưỡng bão xa (dẫn đầu chỉ khi `danger` hoặc ≤500 km tới cảng nhà; thiếu toạ độ = gần); §4.3 nút "Mở …" giữ việc treo cho tiếng "ừ" (P1-N1) và hai đường lùi cảng nhà khác chữ (P2-N2); §4.1 im lặng lần 1 phải ĐỌC "chưa nghe rõ" rồi mới nghe lại (P1-18); tên cảng khớp một phần không được nuốt cụm dài ("Đà Nẵng" ≠ "Bến Đá" — P1-N2), không thấy tên → gợi ý cảng cùng tỉnh.
+- v1.4 (2026-09-07, học phương pháp): đối chiếu với `anthropics/commerce-agents` (Apache 2.0, 2026-09-02) — KHÔNG lấy phần gọi API, chỉ lấy cách đặt luật: lọc chữ bên thứ ba, cổng nguồn gốc cho hành động ghi, ba câu tách bạch mất sóng/máy chưa có/app không có, eval ca độc + ca hiền, gói não chia theo flow. Bảng việc P1–P3 ở [research/commerce-agents-hoc-phuong-phap-2026-09](../research/commerce-agents-hoc-phuong-phap-2026-09.md); ý định mới "chính sách chợ" chờ BA duyệt.
 - v1.0 (2026-09-06): khởi tạo pha BA từ LEAD-BRIEF "Trợ lý" 2026-09-06; 27 ý định; 56 AC; 15 điểm phản biện; 4 điểm chờ chốt.
 - v1.2 (2026-09-06, Core sau audit + QA): §4.3 chốt P1-7 (ừ bằng giọng cho việc hoàn tác được, gọi điện vẫn chạm; nói tên chip = chạm chip); INT-08 tên có dấu + tỉnh từ danh sách thật, chip "Đổi lại"; §6 áp cho MỌI câu thời tiết trong máy (đài duyên hải ở mọi nhánh — AC-T56) và bão trong máy → mở đầu câu + "đừng ra khơi vùng ảnh hưởng", không kết luận "đi được" (P0-1).
 - v1.1 (2026-09-06): **hợp nhất sau phản biện** ([_generated/phan-bien-tro-ly-2026-09-06](_generated/phan-bien-tro-ly-2026-09-06.md)): §0 chốt lead (TROLY-BRIEF §4); §3.0 ánh xạ INT-xx ↔ mã `Intent` của 14 (nguồn tên); INT-07 v1 = mở Ra khơi 3 chạm, không confirm (nợ `?den=`); INT-14 giỏ chợ ONLINE top 3, chạm thẻ = xác nhận; INT-21 bỏ gọi bạn thuyền, hotline `SDVICO_HOTLINE`; INT-02 premium hai tầng; tấm che toàn màn; chip `/cho/sp` bỏ "Thêm món này"; STT `network` → chip hàng chính + câu chốt; client 25 s; mã lỗi +`invalid`/`bad_snapshot`/`upstream`/`timeout`; mock = `reply.source`; `forfish.assistant.` vào `NEVER_BACKUP_PREFIXES`; AC-T05/06/07/08/10/11/17/18/23/24/40/41/51/54 sửa theo type 14 §3.1; §10 việc 8 = 3 chạm (19/20 đạt); §11 #1/2/4/6/9/13 đánh dấu đã chốt; Open = rỗng.
@@ -510,3 +523,7 @@ Mỗi AC 1 dòng kiểm được, **trong ngoặc = tầng · hàm/route chịu 
 ---
 
 **Last updated**: 2026-09-06 (v1.1, hợp nhất sau phản biện)
+
+### UI Sen Biển — 2026-09-08
+
+Nấc nghỉ tăng từ 55% lên 65%, nấc mở rộng giữ 92% của vùng trên dock. Mic thu còn 4rem, glyph 2rem, nhãn bên cạnh để dành chiều cao cho câu trả lời. Nút đổi nấc có chữ Mở rộng/Thu gọn; chip gợi ý phủ chiều ngang và câu trả lời có nền card. Không đổi vòng hội thoại, điều kiện xác nhận hay quyền hành động.

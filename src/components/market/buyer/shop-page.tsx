@@ -103,7 +103,7 @@ export function ShopPage({ slug }: { slug: string }) {
           href="/cho"
           className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
         >
-          Về chợ
+          Về cửa hàng
         </Link>
       </div>
     );

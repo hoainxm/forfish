@@ -285,15 +285,15 @@ export async function tapViolationsIn(page: Page, selector: string): Promise<str
 }
 
 /** Nút nổi trợ lý (nhãn khoá theo 13 §5.1 A11y). */
-export const fab = (page: Page) => page.getByRole("button", { name: "Trợ lý — bấm để nói" });
-/** Tấm che (14 §7.2: `role=dialog aria-modal aria-label="Trợ lý"`). */
-export const SHEET_SELECTOR = '[role="dialog"][aria-label="Trợ lý"]';
-export const sheet = (page: Page) => page.getByRole("dialog", { name: "Trợ lý" });
+export const fab = (page: Page) => page.getByRole("button", { name: "Sen Biển — bấm để nói" });
+/** Tấm che (14 §7.2: `role=dialog aria-modal aria-label="Sen Biển"`). */
+export const SHEET_SELECTOR = '[role="dialog"][aria-label="Sen Biển"]';
+export const sheet = (page: Page) => page.getByRole("dialog", { name: "Sen Biển" });
 export const chipGroup = (page: Page) => page.getByRole("group", { name: "Câu hỏi sẵn" });
 
 /** Mở tấm che đúng đường bà con đi: một chạm nút nổi. */
 export async function openAssistant(page: Page): Promise<void> {
-  await expect(fab(page), "nút nổi Trợ lý phải hiện trên màn app ngư dân").toBeVisible();
+  await expect(fab(page), "nút nổi Sen Biển phải hiện trên màn app ngư dân").toBeVisible();
   await fab(page).click();
   await expect(sheet(page)).toBeVisible();
 }
@@ -324,7 +324,7 @@ export async function catSong(page: Page, ctx: { setOffline(v: boolean): Promise
 /**
  * CHỜ CHO XONG MỘT LƯỢT rồi trả về chữ đang hiện trên tấm che.
  *
- * Không đọc `innerText` ngay: tấm che luôn có sẵn chữ ("Trợ lý", chip), nên đọc
+ * Không đọc `innerText` ngay: tấm che luôn có sẵn chữ ("Sen Biển", chip), nên đọc
  * sớm là ca nào cũng xanh mà chẳng kiểm gì.
  *
  * Mốc "xong" đọc theo ĐÚNG cây DOM của `assistant-sheet.tsx`: cả ba trạng thái

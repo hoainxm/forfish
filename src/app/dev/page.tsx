@@ -10,7 +10,7 @@ export default function DevPage() {
     <div>
       <PageHeader
         kicker="Dev"
-        title="Persona thử Chợ vật tư"
+        title="Persona thử Cửa hàng"
         sub="Chỉ dùng khi chạy MARKET_STORE=file npm run dev — dữ liệu nằm ở .local/market-dev.json."
         toColor="var(--t4)"
       />

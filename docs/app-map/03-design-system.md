@@ -7,7 +7,7 @@
 covers: src/app/globals.css
 last_verified: 2026-08-25
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-09-07) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-09-08) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-06-30 - safe-area pb env(sab), edge-to-edge mobile native, motion điềm đạm khớp globals.css hiện tại (4 commit UI tween đã review) -->
 <!-- re-verified: 2026-08-18 — ĐỐI CHIẾU `globals.css` (bản 2026-08-14 b0bd111) với doc: (1) 51 biến `--*` trong `:root`/`@theme` — bảng màu theo trục có 4 hex LỆCH từ đợt chỉnh AA (t1 #18648b · t2 #2e7d4f · t3 #8f6010 · t4 #7a4d9e) → sửa bảng theo mã, ghi kèm `--tN-bg` + bộ trạng thái ok/warn/danger (+ `-bg`); bổ sung tên token nền tảng `--navy/--sea/--trim/--sun/--foreground/--card/--line` mà doc chỉ gọi bằng tên chữ. (2) `.surface` · `.glass` · `.range-big` · `.range-dual` · `.display` · `.anim-*` · `.dock-frame`/`.bottom-dock`/`--app-vh`/`--dock-*` đều còn trong mã, khớp mục 2/3/6. (3) giá trị oklch ở mục "Token chờ lift" là GIÁ TRỊ MÀU chưa lift, không phải symbol mã — bỏ backtick để doc-health khỏi báo dead-symbol oan; nội dung không đổi. (4) Mục 6 "Lớp Dự báo cá" còn tả heatmap theo loài + hàm `fishHeatColor` (đã xoá) → đính chính theo mã hiện tại (lưới ô 3 mức `FISH_LEVEL_BANDS`, từ 2026-07-27 — 07 đã ghi, 03 chưa). (5) Gói C 2026-08-18: thêm bullet `neutral` cho `CrewIssueLevel`/`requestStatusVN` ở mục "Ngôn ngữ trạng thái" — không token mới. -->
@@ -383,13 +383,74 @@ Chủ dự án 2026-08-29: *"kích thước cái x đóng làm cho đồng bộ�
 
 **Nguồn khảo sát**: Material 3 Dialogs (48dp/24dp) · Apple HIG Sheets (Cancel trái/Done phải, 44pt, `interactiveDismissDisabled` khi có thay đổi) · Shopify Polaris Modal (X/Cancel/Esc/chạm-ngoài, primary phải) · IBM Carbon Modal (Cancel ngoài-trái, primary ngoài-phải, X đóng không gửi) · WCAG 2.5.5 (44px AAA) / 2.5.8 (24px AA).
 
+### Trợ lý trong app — LUẬT CHUNG cho mọi trợ lý nổi (2026-09-07, chủ dự án chốt sau khảo sát)
+
+> Chủ dự án 2026-09-07: *"sao lại xổ ra 1 cái che hết toàn bộ app thế — ghi rõ vào cái quy định đi, đừng có làm các kiểu design không có tư duy, không giống ai"*.
+> Mục này là **quy định**, không phải mô tả bản đang chạy. Ai làm khác phải sửa mục này trước, kèm lý do.
+
+**Khảo sát đã làm (2026-09-07)** — nguồn kiểm chứng được, KHÔNG suy đoán:
+
+| Nguồn | Câu chốt lấy được |
+|---|---|
+| [Intercom Messenger trên app di động](https://www.intercom.com/help/en/articles/6705301-use-the-messenger-in-your-mobile-app) | Messenger mở **dạng bottom sheet gốc**, để người dùng "see exactly where they are in your app" |
+| [Material 3 · Bottom sheets](https://m3.material.io/components/bottom-sheets/guidelines) | Sheet dạng chặn (modal) **mở đầu không quá 50% chiều cao**; đổi nấc và đóng được **bằng nút, không bắt buộc kéo**; *"Don't omit a close affordance in full-screen modal bottom sheets"* |
+| [Apple HIG · Sheets](https://developer.apple.com/design/human-interface-guidelines/sheets) | Sheet "allows some of the parent view to remain visible, **helping people retain their original context**"; **toàn màn chỉ dành cho** "complex or prolonged user flows", ảnh/video/máy ảnh, việc nhiều bước |
+| [WCAG 2.2.2 Pause, Stop, Hide (mức A)](https://www.w3.org/WAI/WCAG21/Understanding/pause-stop-hide.html) | Chuyển động **tự chạy quá 5 giây** song song với nội dung khác thì phải dừng/ẩn được ⇒ **nhịp thở vô hạn là vi phạm** |
+| [Material 3 · FAB](https://m3.material.io/components/floating-action-button/guidelines) | Góc **dưới-phải** là chỗ dễ với nhất trên màn hẹp; **không bao giờ hai nút nổi cùng một màn** |
+| [Material 3 · Chips](https://m3.material.io/components/chips/guidelines) · [NN/g #4](https://www.nngroup.com/articles/ai-chatbots-design-guidelines/) | Gợi ý phải là **nút bấm, không phải chữ**; nhãn ngắn; luôn đi theo nhóm |
+| [Amazon Rufus](https://www.aboutamazon.com/news/retail/how-to-use-amazon-rufus) | Câu hỏi gợi ý **khác nhau theo từng trang**; ở trang sản phẩm thì hỏi về chính sản phẩm đó |
+| [Apple · AssistiveTouch](https://support.apple.com/guide/iphone/use-assistivetouch-iph96b21954/ios) | Nút nổi của hệ điều hành có **độ mờ lúc rảnh** (hạ tới 15%) |
+
+**Không tìm được nguồn** mô tả chi tiết giao diện trợ lý của Shopee, MB Bank, Vietcombank, Techcombank, VPBank, TPBank, Zalo, Grab — báo chí tiếng Việt chỉ nói "chatbot 24/7", không tả một chi tiết màn nào. Nên **đừng viện dẫn các app đó** làm lý do cho một quyết định thiết kế; dùng bảng trên.
+
+#### Luật bắt buộc
+
+| # | Luật | Vì sao |
+|---|---|---|
+| 1 | **CẤM `fixed inset-0`** cho trợ lý. Hỏi–đáp là việc ngắn, không phải "luồng nhiều bước" — Apple HIG dành toàn màn cho ảnh/video/việc dài. Che hết app là bà con **mất dấu mình đang đứng ở đâu** | Apple HIG Sheets · Intercom |
+| 2 | **Hai nấc, mặc định là nấc thấp**: nấc 1 = **55%** chiều cao khả dụng (M3 nói ≤50%; SDFish nới lên 55% vì cỡ chữ ≥1.125rem nên 50% chật), nấc 2 = **92%**, KHÔNG 100% — chừa một dải thấy màn phía sau | M3 · HIG |
+| 3 | **Ba đường đóng**: nút ✕ luôn hiện ở hàng tiêu đề · vuốt xuống · chạm nền mờ. Đổi nấc phải làm được **bằng chạm tay nắm**, không bắt buộc kéo | M3 "cycle through preset heights without dragging" |
+| 4 | **Nền mờ nhìn xuyên** (đen ~32%), KHÔNG nền đục | HIG: giữ ngữ cảnh |
+| 5 | Tự lên nấc 2 **chỉ khi bàn phím mở**. Không tự nhảy vì lý do nào khác | tránh giật màn |
+| 5b | **KHÔNG che thanh điều hướng đáy** (chủ dự án 2026-09-07: *"cái dialog hiện ra không nên che cái bottom menu"*). Cả sheet LẪN nền mờ dừng ở `bottom: var(--dock-total)`; dock vẫn **chạm được** để đổi tab mà không phải đóng trợ lý trước | bà con phải luôn thấy mình đang đứng ở tab nào; bắt đóng trợ lý rồi mới đổi tab là một bước thừa |
+| 6 | **Tay nắm** mép trên, vùng chạm **≥3.5rem** (sàn SDFish, cao hơn 48dp của M3) | 03 §Nút hành động 5 |
+| 7 | Nút nổi **có mặt ở mọi màn app ngư dân**, không biến mất khi đổi tab. M3 nói FAB nên biến mất khi đổi tab, nhưng đó là nút *hành động chính của màn*; trợ lý là **đường tắt xuyên suốt** — NN/g: *"A chatbot that disappears between pages is one that users will stop trying to use"* | NN/g |
+| 8 | **Một nút nổi một màn.** Màn nào đã có nút nổi khác (giỏ hàng ở Cửa hàng) thì hai nút **xếp chồng dọc cách 0.75rem**, không đặt cạnh nhau, không đè | M3 FAB |
+| 9 | **Gợi ý là NÚT BẤM theo màn đang đứng**, 3–4 cái, mỗi nút cao ≥3.5rem, nhãn ≤20 ký tự. Nội dung phải bám **mục tiêu của chính tab đó** — xem bảng §Gợi ý theo tab dưới | M3 Chips · NN/g #4 · Rufus |
+| 10 | Mở sheet ở màn nào thì **dòng đầu nói rõ đang xem gì** ("Đang xem Ra khơi — cảng Quy Nhơn") | Rufus |
+
+#### Hiệu ứng gây chú ý — chọn MỘT, không chồng
+
+| # | Luật | Trần |
+|---|---|---|
+| 11 | **Nhịp thở khi mở app**: 3 nhịp rồi **dừng hẳn**, tổng **≤5 giây**; tắt hoàn toàn dưới `prefers-reduced-motion: reduce` | WCAG 2.2.2 mức A — quá 5 giây mà không dừng được là **vi phạm**, không phải lựa chọn thẩm mỹ |
+| 12 | **Bong bóng chào một dòng** theo màn: bung sau 2 giây, tự thu sau 6 giây hoặc khi bà con cuộn/chạm chỗ khác; có ✕. Tối đa **1 lần/ngày/trục**; **3 ngày liền không ai bấm → thôi hẳn** | Drift welcome message; đừng phiền người đang làm việc |
+| 13 | **Chấm báo** chỉ khi có việc THẬT chưa xem; chấm không số, dùng token màu, **tắt ngay khi mở sheet** | M3 Badges |
+| 14 | **CẤM**: nhấp nháy vô hạn · rung · đổi màu liên tục · âm thanh · nút tự chạy quanh màn | WCAG + ngư dân đang lái tàu |
+
+#### Gợi ý theo tab — bám mục tiêu của trục, không trộn lẫn
+
+Chủ dự án 2026-09-07: *"click vào bot ở từng màn hình nó phải khác nhau tương ứng với mục tiêu của từng cái tab"*. Luật: **hai gợi ý đầu LUÔN thuộc trục của tab đang đứng**; gợi ý theo giờ và theo việc chỉ được chen vào **ô thứ 3–4**, và **không bao giờ đẩy gợi ý của trục ra ngoài**.
+
+| Tab | Trục | Hai gợi ý đầu phải thuộc nhóm |
+|---|---|---|
+| Trang chủ | tổng hợp | việc gấp nhất trong máy (giấy sắp hết · bão · đơn đang giao) |
+| Ra khơi | 1 — đánh bắt | đi được không · sóng gió · bão · dầu/tuyến |
+| Tàu cá | 3 + 4 — vận hành, giấy tờ | giấy tờ · bảo dưỡng · mua đồ cho tàu · đơn |
+| Bạn thuyền | 4 — thuyền viên | số người · bảo hiểm · giấy của thuyền viên |
+| Giao dịch | 2 — bán được đắt | giá cá · giá dầu · chỗ bán |
+
+Sai đã đo thật 2026-09-07: đứng ở **Tàu cá → Sản phẩm** mà gợi ý ra "Ngày mai sao" + "Tin bão" (chuyện thời tiết) vì chip theo giờ và theo việc chiếm chỗ. Đó là lỗi trộn trục, không phải chuyện thẩm mỹ.
+
+---
+
 ### Nút nổi TRỢ LÝ + tấm che toàn màn (2026-09-06, [13 §5.1/§5.2](13-ba-spec-tro-ly-giong-noi.md))
 
 Hai khuôn mới, chỉ dùng cho Trợ lý giọng nói — đừng chép sang chỗ khác mà không đọc lý do.
 
 | Khuôn | Chốt | Vì sao |
 |---|---|---|
-| **Nút nổi** (`assistant-fab.tsx`) | tròn **3.5rem** (không hạ ở chế độ gọn), `bg-sea` chữ trắng, icon mic 24px + nhãn "Nói" dưới icon, `right:1rem`, `bottom: calc(var(--dock-total) + 0.75rem)`, `z-20` | Sàn chạm 56px là sàn tuyệt đối (§Nút hành động 5). Neo theo `--dock-total` để nằm ngay TRÊN dock, dưới rail phải của Ra khơi — hai thứ nổi không tranh chỗ |
+| **Nút nổi "Sen Biển"** (`assistant-fab.tsx` trên khuôn `ui/float-btn.tsx`, 2026-09-07) | vùng chạm tròn **4rem**, **trong suốt, không nền/viền**, mascot PNG 48px + nhãn "Sen Biển" dưới icon; mặc định cách mép **cột app** 1rem, `bottom: calc(var(--dock-total) + 0.75rem)`, `z-20`; **kéo được** (thả nép mép, giữ độ cao), **ẩn được** (đẩy sát mép → ló 1,25rem, mờ 70%, chạm hiện lại), nhớ `forfish.fab.v1` | Linh vật riêng như bot ngân hàng: **cá xanh** thân thiện, **nụ sen cam** hòa vào đỉnh đầu, hai vây bên mở như đang lắng nghe, **cụm sóng xanh** làm chân để khóa nghĩa “biển”. Asset `public/icons/sen-bien.png` có alpha thật, nổi trực tiếp trên màn hình, không huy hiệu trắng/robot/mic; bóng đổ chỉ bám silhouette. Sàn chạm 56px là sàn tuyệt đối (§Nút hành động 5). Nằm TRONG cột 480px; **khuôn `FloatBtn` dùng chung** cho nút giỏ nổi ở Cửa hàng |
 | **Luật ẩn** (rẻ → đắt) | route cấm (danh sách tĩnh) → bàn phím mở (`visualViewport` co >150px) → panel khác (`[role=dialog][aria-modal]`) → thanh đáy dính của chợ → **sheet Ra khơi nở nấc `half`** (2026-09-06c: `section[role=region]` có `style.height` theo %) | Nút nổi che ô đang gõ hoặc che "Đặt hàng (n)" là hỏng việc chính của màn. ⚠️ Phép dò thanh dính bắt theo dấu vết `--dock-total`, mà chính nút nổi cũng mang dấu đó ⇒ **phải loại chính nó ra**, không thì nút tự thấy mình → ẩn → hiện → ẩn (đo thật 2026-09-06: ~10.000 lượt/giây, chạm không được) |
 | **Tấm che** (`assistant-sheet.tsx`) | `fixed inset-0` trong cột 480px, `role="dialog" aria-modal`, tự bẫy focus + Esc + khoá cuộn nền; **không** dùng `BottomSheet`, **không** scrim | Cần trọn chiều cao cho vòng mic + chữ TO; nền sau không có gì để nhìn. Đổi lại nó phải tự làm đủ ba việc a11y mà `BottomSheet` làm sẵn |
 | **Sáu khối theo thứ tự** | 1 tiêu đề + Tắt/Bật tiếng (`SQ_BTN` 56px) + `CloseButton` · 2 vòng mic ≥6rem (nhịp `motion-safe:animate-ping`, tôn trọng "giảm chuyển động") + chữ nghe được hiện dần · 3 câu trả lời **≥1.25rem** `text-foreground` + dòng tuổi dữ liệu 0.9375rem · 4 thẻ hành động 0-hoặc-1 (cặp nút `grid-cols-2`, primary bên PHẢI, mỗi nút `min-h-[3.5rem]`) · 5 chip gợi ý 3–4 (`min-h-[3.5rem]`) · 6 hàng đáy "Gõ thay vì nói" / ô gõ | "Chỉ bày cái KEY" (§Khung nhập C1). Chữ trả lời là kênh CHÍNH (nhiều máy Android không có giọng Việt), nên nó to hơn mọi chữ khác trên tấm che |
@@ -415,3 +476,11 @@ Hai khuôn mới, chỉ dùng cho Trợ lý giọng nói — đừng chép sang 
 <!-- re-verified: 2026-09-06 — CHỢ VẬT TƯ: mục "Đặt hàng" thêm BA bộ chip của sàn (trạng thái đơn 6 giá trị · thanh toán 3 nấc · trạng thái gian hàng 4 giá trị). Đối chiếu mã: `src/lib/market/order-state.ts` (ORDER_STATUS_LABEL + ORDER_STATUS_CHIP, cặp màu bằng `var(--token)` — không hex, không rgba) và `src/components/market/shared/order-status-chip.tsx`; chip gian hàng ở `src/components/admin/market-admin-shared.tsx` (class token: warn-bg/ok-bg/danger-bg/field). KHÔNG token màu MỚI nào được thêm vào `globals.css` — sàn dùng đúng bộ trạng thái sẵn có. Vì sao tách khỏi bảng chip của Cửa hàng (`lib/catalog-orders.ts`, 5 trạng thái): sàn có thêm `hoan_thanh` và nghĩa của `da_giao` khác (chờ người mua xác nhận), gộp một bảng là nói dối một trong hai. Khu `/quan-tri` là web desktop-first nên chạm ở đó theo khuôn tab sẵn có (2.5–2.75rem), KHÔNG áp sàn 3.5rem của app ngư dân — luật tap 56px vẫn nguyên cho mọi màn bà con dùng. -->
 
 **5c. SÁU Ổ CHẠM CÒN SÓT TRONG FORM "THÊM ĐIỂM" (2026-08-29c).** `my-places-sheet.tsx` còn `min-h-[3rem]` (48px) ở sáu chỗ của khối `addOpen`: ô Tên · nút "Lấy chỗ đang trỏ" · hai ô Vĩ/Kinh độ · nút "Hủy" · nút "Lưu điểm" — trong khi CHÍNH FILE ĐÓ đã dùng `3.25rem` ở các hàng khác và `3.5rem` ở hàng điểm. Đây là **sáu ngoại lệ đo được còn sót, KHÔNG phải chuyện cả app chưa đạt sàn** (gốc chữ 16px ⇒ `3.5rem` = 56px, sàn tap toàn app đã đạt). Vì sao đáng sửa dù chỉ là 6 token: đó là **đường đi DUY NHẤT để lưu một điểm đánh cá** — việc cốt lõi của app — và cũng đúng là chỗ lối tắt chạm-giữ trên bản đồ đổ vào ([07 §10.7 K](07-design-spec.md), `prefillTick`); chỗ tốt nhất của app đang dẫn thẳng vào sáu ô nhỏ nhất của app, tay ướt, tàu lắc, sáu ô liền nhau. **Chốt**: bốn ô nhập/nút trong thân form lên `3.25rem`; "Hủy" + "Lưu điểm" (đứng riêng một hàng `grid-cols-2`, nâng không ảnh hưởng bố cục) lên hẳn `3.5rem`. Chỉ đổi token chiều cao, không đụng bố cục ⇒ không có rủi ro tràn — panel đã chứa sẵn hàng `3.25rem`. **KHÔNG đụng bề ngang** cột "Đổi tên"/"Xóa" (44px, xem 5b(b) — vẫn đang có `// nợ:`).
+
+### Cỡ UI cửa hàng — 2026-09-08 (thay quy tắc thẻ lưới cũ)
+
+- Icon thao tác thông thường 1.5rem, vùng chạm 3.5rem; icon mic 2rem trong nút 4rem. Nút lưu món bỏ ngoại lệ 2.75rem, dùng 3.5rem.
+- Tên món và giá thẻ 1.125rem; thông tin shop/tỉnh/thống kê 0.875rem, độ đậm và tương phản tăng. Giá chi tiết size lg dùng text-2xl; tiêu đề trang và Sen Biển text-xl.
+- Thẻ ảnh 4:3, không cắt ảnh hàng; màn dưới 360px một cột, ảnh 2:1. Hai cột còn lại chỉ cân chiều cao trong cùng hàng, không auto-rows-fr toàn danh sách.
+- Thanh tìm không dùng icon trơ cho Giỏ/Đơn. Thanh đầu nền navy phẳng, không hero gradient. Nút người bán rounded-2xl, đồng bộ ô điều khiển sàn.
+- Focus ring rõ, reduced-motion tắt hiệu ứng trong khu sàn. Token màu/font và quy tắc chế độ Gọn/Chữ to giữ nguyên.

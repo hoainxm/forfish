@@ -28,9 +28,8 @@ export function MarketHeader({
   };
   return (
     <header
-      className="hero flex items-center gap-1 px-2 pb-2"
+      className="flex items-center gap-2 bg-navy px-2 pb-2 text-white"
       style={{
-        background: "linear-gradient(150deg, var(--navy) 35%, var(--t3))",
         // edge-to-edge: hàng nút luôn dưới status bar / Dynamic Island
         paddingTop: "calc(0.5rem + env(safe-area-inset-top))",
       }}
@@ -43,7 +42,7 @@ export function MarketHeader({
       >
         <ChevronLeftIcon className="h-7 w-7" />
       </button>
-      <h1 className="display relative z-10 min-w-0 flex-1 truncate text-[1.375rem] font-bold leading-tight">{title}</h1>
+      <h1 className="display relative z-10 min-w-0 flex-1 text-xl font-bold leading-snug">{title}</h1>
       {right && <div className="relative z-10 shrink-0">{right}</div>}
     </header>
   );

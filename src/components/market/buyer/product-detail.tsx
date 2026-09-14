@@ -124,7 +124,7 @@ export function ProductDetail({ id }: { id: string }) {
           href="/cho"
           className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
         >
-          Về chợ
+          Về cửa hàng
         </Link>
       </div>
     );
@@ -223,12 +223,12 @@ export function ProductDetail({ id }: { id: string }) {
             {product.images.map((src, i) => (
               <li key={`${src}-${i}`} className="w-full shrink-0 snap-center">
                 {/* eslint-disable-next-line @next/next/no-img-element -- ảnh sàn: bucket public / data-URI seed, không qua optimizer */}
-                <img src={src} alt={`${product.title} — ảnh ${i + 1}`} className="aspect-square w-full object-cover" />
+                <img src={src} alt={`${product.title} — ảnh ${i + 1}`} className="aspect-[4/3] w-full object-contain bg-card" />
               </li>
             ))}
           </ul>
         ) : (
-          <div className="flex aspect-square w-full items-center justify-center bg-field text-foreground/40">
+          <div className="flex aspect-[4/3] w-full items-center justify-center bg-field text-foreground/40">
             <CartIcon className="h-16 w-16" />
           </div>
         )}
@@ -459,7 +459,7 @@ export function ProductDetail({ id }: { id: string }) {
         /*  NGAY TRÊN DOCK, không đè lên nó: dock là `fixed bottom:0` cao
             `--dock-total` (globals.css) và vẽ SAU nội dung — thanh này để
             `bottom:0` là bà con bấm vào dock chứ không bấm được nút. */
-        className="fixed inset-x-0 z-20 mx-auto flex max-w-[480px] items-center gap-3 border-t px-4 py-3"
+        className="market-purchase-bar fixed inset-x-0 z-20 mx-auto flex max-w-[480px] items-center gap-3 border-t px-4 py-3"
         style={{
           bottom: "var(--dock-total)",
           backgroundColor: "var(--card)",

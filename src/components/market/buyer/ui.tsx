@@ -36,33 +36,35 @@ export function MarketTopBar({
   onSubmit,
   cartCount,
   openOrders,
-  placeholder = "Tìm máy, ngư cụ, dầu nhớt…",
+  embedded = false,
+  placeholder = "Bác cần mua gì?",
 }: {
   q: string;
   onQ: (v: string) => void;
   onSubmit: () => void;
   cartCount: number;
   openOrders: number;
+  embedded?: boolean;
   placeholder?: string;
 }) {
   return (
-    <div className="sticky top-0 z-20 flex items-center gap-2 bg-background/95 px-4 py-2 backdrop-blur">
+    <div className="market-search-bar sticky top-0 z-20 bg-background px-4 pb-3 pt-2">
       <form
-        className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-field px-4"
+        className="flex min-w-0 items-center gap-2 rounded-2xl bg-card pl-4 pr-1 shadow-sm"
         onSubmit={(e) => {
           e.preventDefault();
           onSubmit();
         }}
         role="search"
       >
-        <SearchIcon className="h-5 w-5 shrink-0 text-foreground/50" />
+        <SearchIcon className="h-6 w-6 shrink-0 text-navy" />
         <input
           value={q}
           onChange={(e) => onQ(e.target.value)}
           placeholder={placeholder}
-          aria-label="Tìm món trên chợ"
+          aria-label="Tìm món trong cửa hàng"
           enterKeyHint="search"
-          className="min-h-[3.5rem] w-full border-0 bg-transparent text-[1.0625rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-sea rounded-xl"
+          className="min-h-[3.5rem] min-w-0 flex-1 border-0 bg-transparent text-[1.125rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-sea rounded-xl"
         />
         {q && (
           <button
@@ -74,30 +76,35 @@ export function MarketTopBar({
             <CloseIcon className="h-6 w-6" />
           </button>
         )}
+        <button type="submit" className="flex min-h-[3.5rem] shrink-0 items-center justify-center rounded-xl bg-navy px-4 text-[1rem] font-bold text-white">Tìm</button>
       </form>
+      <nav aria-label="Mua hàng" className={`mt-2 grid gap-2 ${embedded ? "grid-cols-1" : "grid-cols-2"}`}>
       <Link
         href="/cho/gio"
         aria-label={`Giỏ hàng, ${cartCount} món`}
-        className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-field text-navy"
+        className="relative flex min-h-[3.5rem] items-center justify-center gap-2 rounded-2xl bg-field px-3 text-[1rem] font-bold text-navy"
       >
         <CartIcon className="h-6 w-6" />
+        <span>Giỏ hàng</span>
         <Dot n={cartCount} />
       </Link>
-      <Link
+      {!embedded && <Link
         href="/cho/don"
         aria-label={`Đơn hàng của tôi, ${openOrders} đơn đang chạy`}
-        className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-field text-navy"
+        className="relative flex min-h-[3.5rem] items-center justify-center gap-2 rounded-2xl bg-field px-3 text-[1rem] font-bold text-navy"
       >
         <DocIcon className="h-6 w-6" />
+        <span>Đơn của tôi</span>
         <Dot n={openOrders} />
-      </Link>
+      </Link>}
+      </nav>
     </div>
   );
 }
 
 /**
- * Lưới 2 cột thẻ món — `auto-rows-fr` để hai thẻ cùng hàng bằng nhau (F-04: thẻ
- * có giá gạch cao hơn thẻ bên làm hàng lệch). Ghi lại "bản thẻ" để mở món lúc
+ * Lưới 2 cột, mỗi hàng cao theo nội dung; màn hẹp dùng một cột qua CSS.
+ * Ghi lại "bản thẻ" để mở món lúc
  * mất sóng còn thấy gì đó.
  */
 export function ProductGrid({
@@ -113,7 +120,7 @@ export function ProductGrid({
     for (const p of items) rememberPeek(p);
   }, [items]);
   return (
-    <div className="grid auto-rows-fr grid-cols-2 gap-3">
+    <div className="market-product-grid grid grid-cols-2 gap-3">
       {items.map((p) => (
         <MarketProductCard
           key={p.id}
@@ -130,7 +137,7 @@ export function ProductGrid({
 /** Khung xương — KHÔNG BAO GIỜ vẽ null lúc đang tải (11 §5 quy ước). */
 export function GridSkeleton({ n = 6 }: { n?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-3" role="status" aria-label="Đang tải danh sách món">
+    <div className="market-product-grid grid grid-cols-2 gap-3" role="status" aria-label="Đang tải danh sách món">
       {Array.from({ length: n }).map((_, i) => (
         <div key={i} className="surface overflow-hidden">
           <div className="aspect-square w-full animate-pulse bg-field" />
@@ -146,7 +153,7 @@ export function GridSkeleton({ n = 6 }: { n?: number }) {
 
 /** Lỗi máy chủ / hết giờ chờ (có sóng mà không tải được) — nói thật + Thử lại. */
 export function ErrorBlock({
-  what = "chợ",
+  what = "cửa hàng",
   onRetry,
 }: {
   what?: string;
@@ -158,7 +165,7 @@ export function ErrorBlock({
         <AlertIcon className="h-8 w-8" />
       </div>
       <p className="text-[1.125rem] font-bold text-danger">
-        {what === "chợ" ? "Chợ đang trục trặc, chưa tải được." : `Chưa tải được ${what}.`} Thử lại giúp.
+        {what === "cửa hàng" ? "Cửa hàng đang trục trặc, chưa tải được." : `Chưa tải được ${what}.`} Thử lại giúp.
       </p>
       <button
         type="button"

@@ -23,8 +23,8 @@ export function AssistantBubble({
       </p>
     );
   return (
-    <div className="px-1">
-      <p className="display whitespace-pre-line text-[1.375rem] font-bold leading-snug text-foreground">
+    <div className="rounded-2xl bg-card p-4">
+      <p className="display whitespace-pre-line text-xl font-bold leading-relaxed text-foreground">
         {text}
       </p>
       {note && <p className="mt-1.5 text-[0.9375rem] text-foreground/65">{note}</p>}

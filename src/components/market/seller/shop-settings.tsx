@@ -97,7 +97,7 @@ function Inner({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
               Tạm nghỉ bán
             </span>
             <span className="block text-[0.9375rem] leading-snug text-foreground/70">
-              Món vẫn hiện trên chợ nhưng bà con không đặt được. Nhớ bấm Lưu.
+              Món vẫn hiện trên cửa hàng nhưng bà con không đặt được. Nhớ bấm Lưu.
             </span>
           </span>
           <input type="checkbox" className="h-7 w-7 shrink-0" checked={paused} onChange={(e) => setPaused(e.target.checked)} />

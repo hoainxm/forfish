@@ -25,7 +25,7 @@ import { isOpenOrder, useCachedOrders, useFavorites, useMarketCart } from "./hoo
 type ListRes = { items: ProductCard[]; total: number };
 type Status = "loading" | "ok" | "error" | "offline";
 
-export function MarketHome() {
+export function MarketHome({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const cart = useMarketCart();
   const fav = useFavorites();
@@ -91,6 +91,7 @@ export function MarketHome() {
   return (
     <div className="pb-[7rem]">
       <MarketTopBar
+        embedded={embedded}
         q={q}
         onQ={setQ}
         onSubmit={() => router.push(`/cho/tim?q=${encodeURIComponent(q.trim())}`)}
@@ -178,7 +179,7 @@ export function MarketHome() {
         {status === "error" && <ErrorBlock onRetry={() => void load()} />}
         {status === "offline" && (
           <EmptyNet
-            what="chợ"
+            what="cửa hàng"
             onRetry={() => void load()}
             extra={
               <Link
@@ -201,9 +202,9 @@ export function MarketHome() {
             )}
 
             <section className="mb-5">
-              <SectionHeader className="px-0">Món mới lên chợ</SectionHeader>
+              <SectionHeader className="px-0">Món mới về</SectionHeader>
               {fresh.length === 0 ? (
-                <EmptyState>Chợ chưa có món nào. SDVICO đang mời các đại lý lên sàn.</EmptyState>
+                <EmptyState>Cửa hàng chưa có món nào. SDVICO đang mời các đại lý lên sàn.</EmptyState>
               ) : (
                 <ProductGrid items={fresh} isFav={fav.has} onFav={onFav} />
               )}

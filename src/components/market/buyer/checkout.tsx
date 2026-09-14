@@ -214,7 +214,7 @@ export function Checkout() {
       setSendError(
         res.offline
           ? "Chưa rõ đã gửi được chưa — máy mất sóng giữa chừng. Có sóng lại bà con bấm Đặt hàng lần nữa: cùng nội dung thì máy chủ không tạo đơn đôi."
-          : res.message || "Chưa đặt được — chợ đang trục trặc. Thử lại giúp.",
+          : res.message || "Chưa đặt được — cửa hàng đang trục trặc. Thử lại giúp.",
       );
       return;
     }
@@ -376,7 +376,7 @@ export function Checkout() {
       <section className="surface px-4 py-2">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1 py-1">
-            <p className="text-[1rem] font-bold text-navy">Nhận hàng</p>
+            <p className="text-[1.125rem] font-bold text-navy">1. Nhận hàng</p>
             {chosen ? (
               <p className="mt-0.5 text-[1.0625rem] leading-snug">
                 {chosen.name} · {chosen.phone}
@@ -399,8 +399,8 @@ export function Checkout() {
 
       {/* ── 2. Cách trả tiền ───────────────────────────────────────────── */}
       <section className="mt-3">
-        <p className="mb-1.5 text-[1rem] font-bold text-navy">Cách trả tiền</p>
-        <div className="flex gap-2">
+        <p className="mb-2 text-[1.125rem] font-bold text-navy">2. Cách trả tiền</p>
+        <div className="flex flex-wrap gap-2">
           <PayChip on={method === "cod"} onClick={() => setMethod("cod")}>Trả khi nhận hàng</PayChip>
           <PayChip on={method === "chuyen_khoan"} disabled={!canBank} onClick={() => setMethod("chuyen_khoan")}>
             Chuyển khoản

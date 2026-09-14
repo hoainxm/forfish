@@ -294,7 +294,7 @@ function ShopCard({
       {pending === "duyet" && (
         <ConfirmDialog
           title={`Duyệt gian hàng ${shop.name}?`}
-          message="Món đã soạn sẽ hiện lên chợ ngay và shop nhận được thông báo."
+          message="Món đã soạn sẽ hiện lên cửa hàng ngay và shop nhận được thông báo."
           confirmLabel="Duyệt"
           cancelLabel="Không"
           danger={false}
@@ -336,7 +336,7 @@ function ShopCard({
       {pending === "tam-khoa" && (
         <ReasonDialog
           title={`Tạm khoá gian hàng ${shop.name}?`}
-          message="Món của shop biến khỏi chợ ngay. Đơn đang treo shop vẫn xử lý được."
+          message="Món của shop biến khỏi cửa hàng ngay. Đơn đang treo shop vẫn xử lý được."
           confirmLabel="Tạm khoá"
           placeholder="Vì sao khoá? (5–300 chữ)"
           suggestions={["Bán hàng không đúng mô tả", "Nhiều khiếu nại của bà con", "Nghi ngờ gian lận"]}

@@ -19,6 +19,7 @@
   không đợi hết 8 giây im lặng.
 */
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QtyStepper } from "@/components/cart-sheet";
 import {
@@ -160,6 +161,29 @@ function confirmHint(type: AssistantAction["type"] | undefined): string | null {
 
 export function AssistantSheet({ route, onClose }: { route: string; onClose: () => void }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  /*  NẤC SHEET (03 §Trợ lý trong app, luật 2): mặc định 55% — KHÔNG che hết app.
+      Toàn màn chỉ dành cho việc dài nhiều bước (Apple HIG); hỏi–đáp thì bà con
+      phải còn thấy mình đang đứng ở màn nào. Lên 92% khi chạm tay nắm hoặc khi
+      bàn phím mở (luật 5) — 92% chứ không 100%, chừa một dải thấy màn nền. */
+  const [nac, setNac] = useState<"nua" | "cao">("nua");
+
+  /*  ĐANG XEM MÀN NÀO (03 §Trợ lý trong app, luật 10) — sheet chỉ cao 55% nên
+      tên màn đi CHUNG HÀNG với tiêu đề, không chiếm thêm một dòng. Bà con mở trợ
+      lý giữa lúc đang làm dở thì phải thấy ngay nó đang nói chuyện của màn nào. */
+  const tenMan = useMemo(() => {
+    const r = route.split("?")[0];
+    const q = route.includes("tab=") ? route.split("tab=")[1].split("&")[0] : "";
+    if (r.startsWith("/ngu-truong")) return "Ra khơi";
+    if (r.startsWith("/cho/don")) return "Đơn hàng";
+    if (r.startsWith("/cho/gio")) return "Giỏ hàng";
+    if (r.startsWith("/cho")) return "Cửa hàng";
+    if (r.startsWith("/ban-hang")) return "Bán hàng";
+    if (r.startsWith("/nguoi")) return "Bạn thuyền";
+    if (r.startsWith("/tien")) return "Giao dịch";
+    if (r.startsWith("/cang")) return "Cảng cá";
+    if (r.startsWith("/tau")) return q === "dich-vu" ? "Tàu cá · Dịch vụ" : q === "san-pham" ? "Tàu cá · Sản phẩm" : "Tàu cá · Giấy tờ";
+    return "Trang chủ";
+  }, [route]);
   const inputRef = useRef<HTMLInputElement>(null);
   const online = useOnline();
   const doAction = useAssistantActions(onClose);
@@ -452,22 +476,79 @@ export function AssistantSheet({ route, onClose }: { route: string; onClose: () 
   /*  Nút của băng vừa làm xong ("Xem giỏ", "Chọn cảng khác") đã là
       một nút to ngay trên đầu — chip cùng nghĩa nằm dưới là hai nút giống hệt
       nhau cho cùng một việc (P2-2). */
+  /*  Bàn phím ảo mở (`visualViewport` co) là lý do DUY NHẤT sheet tự lên nấc cao:
+      chỗ gõ bị bàn phím ăn mất, không nâng thì ô gõ nằm dưới bàn phím. Đóng bàn
+      phím KHÔNG tự hạ xuống — hạ giữa lúc bà con đang đọc là giật màn. */
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const soi = () => {
+      if (window.innerHeight - vv.height > 150) setNac("cao");
+    };
+    soi();
+    vv.addEventListener("resize", soi);
+    return () => vv.removeEventListener("resize", soi);
+  }, []);
+
   const chips = note?.link
     ? chipsRaw.filter((s) => s.label !== note.link?.label)
     : chipsRaw;
 
   return (
+    /*  DỪNG TRÊN THANH ĐIỀU HƯỚNG (chủ dự án 2026-09-07: "cái dialog hiện ra
+        không nên che cái bottom menu"). Cả sheet LẪN nền mờ đều chừa đúng chiều
+        cao dock, nên bà con vẫn thấy mình đang ở tab nào và chạm đổi tab được
+        ngay mà không phải đóng trợ lý trước. Neo theo --dock-total, không số cứng. */
     <div
-      ref={panelRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Trợ lý"
-      className="anim-fade-in fixed inset-0 z-40 mx-auto flex max-w-[480px] flex-col bg-background"
-      style={{ paddingTop: "env(safe-area-inset-top)" }}
+      className="fixed inset-x-0 top-0 z-40 mx-auto flex max-w-[480px] items-end"
+      style={{ bottom: "var(--dock-total)" }}
     >
+      {/*  NỀN MỜ NHÌN XUYÊN (luật 4) — 32% đen, KHÔNG nền đục: bà con phải còn
+          thấy mình đang đứng ở màn nào. Chạm nền = đóng (luật 3, đường thứ ba). */}
+      <button
+        type="button"
+        aria-label="Đóng Sen Biển"
+        tabIndex={-1}
+        onClick={close}
+        className="anim-scrim-in absolute inset-0 bg-black/30"
+      />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Sen Biển"
+        className="assistant-panel anim-sheet-in relative flex w-full flex-col rounded-t-[1.25rem] bg-background shadow-xl transition-[height] duration-200"
+        style={{ height: nac === "cao" ? "92%" : "65%" }}
+      >
+        {/*  TAY NẮM (luật 6): CHẠM để đổi nấc, không bắt buộc kéo — M3 đòi sheet
+            đổi nấc và đóng được mà không cần thao tác kéo. Vùng chạm cả hàng
+            ≥3.5rem, cao hơn sàn 48dp của M3 vì tay bà con ướt, tàu lắc. */}
+        <button
+          type="button"
+          onClick={() => {
+            tapFeedback();
+            setNac((n) => (n === "nua" ? "cao" : "nua"));
+          }}
+          aria-label={nac === "nua" ? "Mở rộng Sen Biển" : "Thu nhỏ Sen Biển"}
+          className="flex h-14 w-full shrink-0 items-center justify-center"
+        >
+          <span className="flex items-center gap-3 text-[0.875rem] font-semibold text-navy"><span className="h-1 w-8 rounded-full bg-navy/25" />{nac === "nua" ? "Mở rộng" : "Thu gọn"}</span>
+        </button>
       {/* ── 1. Hàng tiêu đề ──────────────────────────────────────────────── */}
-      <header className="flex shrink-0 items-center gap-1 px-3 pt-1">
-        <h2 className="display flex-1 px-1 text-[1.3125rem] font-bold text-navy">Trợ lý</h2>
+      <header className="flex shrink-0 items-center gap-2 px-4 pb-3">
+        {/*  Avatar: mẫu nào cũng để mặt trợ lý ngay cạnh tên — bà con nhìn một cái
+            là biết đang nói chuyện với ai, không phải đọc chữ mới hiểu. */}
+        <Image
+          src="/icons/sen-bien.png"
+          width={40}
+          height={40}
+          alt=""
+          className="h-10 w-10 shrink-0 object-contain"
+        />
+        <div className="min-w-0 flex-1 px-1">
+          <h2 className="display text-xl font-bold leading-tight text-navy">Sen Biển</h2>
+          <p className="text-[0.875rem] leading-snug text-foreground/80">Đang xem {tenMan}</p>
+        </div>
         <button
           type="button"
           onClick={() => {
@@ -477,7 +558,7 @@ export function AssistantSheet({ route, onClose }: { route: string; onClose: () 
           aria-pressed={muted}
           aria-label={muted ? "Bật tiếng" : "Tắt tiếng"}
           disabled={!canSpeak}
-          className="-m-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-navy transition active:bg-field disabled:opacity-40"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-field text-navy transition active:bg-field disabled:opacity-40"
         >
           {muted || !canSpeak ? (
             <SpeakerOffIcon className="h-6 w-6" />
@@ -485,7 +566,7 @@ export function AssistantSheet({ route, onClose }: { route: string; onClose: () 
             <SpeakerIcon className="h-6 w-6" />
           )}
         </button>
-        <CloseButton onClose={close} label="Đóng trợ lý" />
+        <CloseButton onClose={close} label="Đóng Sen Biển" />
       </header>
       {!canSpeak && (
         <p className="px-4 pb-1 text-[1.125rem] text-foreground/65">
@@ -504,11 +585,11 @@ export function AssistantSheet({ route, onClose }: { route: string; onClose: () 
 
         {/* ── 2. Vòng mic + chữ nghe được ────────────────────────────────── */}
         {!typeFirst && (
-          <div className="flex flex-col items-center py-4">
+          <div className="flex items-center justify-center gap-4 py-3">
             {/*  Vòng nhịp là một lớp RIÊNG phía sau: nút giữ nguyên màu đặc.
                  Cho chính nút nhấp nháy (opacity) là làm nó nhạt đi giữa nắng
                  — đúng lúc bà con cần thấy rõ nhất. */}
-            <span className="relative flex h-[6.5rem] w-[6.5rem] items-center justify-center">
+            <span className="relative flex h-16 w-16 shrink-0 items-center justify-center">
               {state.kind === "listening" && (
                 <span
                   aria-hidden
@@ -522,14 +603,14 @@ export function AssistantSheet({ route, onClose }: { route: string; onClose: () 
                   listen();
                 }}
                 aria-label={state.kind === "listening" ? "Đang nghe — chạm để dừng" : "Bấm để nói"}
-                className={`relative flex h-[6.5rem] w-[6.5rem] items-center justify-center rounded-full text-white transition active:scale-[0.96] ${
+                className={`relative flex h-16 w-16 items-center justify-center rounded-full text-white transition active:scale-[0.96] ${
                   state.kind === "listening" ? "bg-trim" : "bg-sea"
                 }`}
               >
-                <MicIcon className="h-12 w-12" />
+                <MicIcon className="h-8 w-8" />
               </button>
             </span>
-            <p className="mt-2.5 text-[1.125rem] font-bold text-navy">
+            <p className="text-[1.125rem] font-bold text-navy">
               {state.kind === "listening" ? "Đang nghe…" : "Bấm để nói"}
             </p>
             {state.kind === "listening" && (
@@ -755,14 +836,25 @@ export function AssistantSheet({ route, onClose }: { route: string; onClose: () 
             {reply.clarify.question}
           </p>
         )}
+        {/*  LỜI CHÀO — chỉ ở lượt đầu, khi chưa hỏi gì. Nói thẳng giúp được việc
+            gì thay vì "tôi có thể giúp gì cho bạn" trống rỗng: bà con ít dùng app
+            cần biết PHẠM VI trước khi mở miệng (NN/g #3: nói rõ trợ lý làm được gì). */}
+        {state.kind === "idle" && !reply && (
+          <div className="mt-3 rounded-2xl rounded-tl-md bg-field px-4 py-3">
+            <p className="text-[1.125rem] leading-snug text-navy">
+              Chào bác, tôi là Sen Biển. Tôi coi giúp thời tiết, tin bão, giấy tờ,
+              bảo dưỡng, giá cá và đơn hàng. Bác bấm một câu bên dưới hoặc nói cho tôi nghe.
+            </p>
+          </div>
+        )}
         {chips.length > 0 && (
-          <div role="group" aria-label="Câu hỏi sẵn" className="mt-2.5 flex flex-wrap gap-2">
+          <div role="group" aria-label="Câu hỏi sẵn" className="mt-3 flex flex-col gap-2">
             {chips.map((s) => (
               <button
                 key={s.utterance}
                 type="button"
                 onClick={() => send(s.utterance)}
-                className="flex min-h-[3.5rem] items-center rounded-full bg-field px-4 text-[1.125rem] font-bold text-navy transition active:scale-[0.98]"
+                className="flex min-h-[3.5rem] w-full items-center rounded-2xl bg-card px-4 py-2 text-left text-[1.125rem] font-semibold text-navy shadow-sm transition active:scale-[0.98]"
               >
                 {s.label}
               </button>
@@ -829,6 +921,7 @@ export function AssistantSheet({ route, onClose }: { route: string; onClose: () 
             Máy này chưa nói được với tôi — bác gõ hoặc chọn bên trên.
           </p>
         )}
+      </div>
       </div>
     </div>
   );

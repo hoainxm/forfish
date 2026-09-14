@@ -104,7 +104,7 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
   return (
     <div className="mt-4 space-y-4">
       <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
-        Chợ vật tư tàu cá — <b>nhiều đại lý bán, SDVICO là một gian hàng như mọi gian hàng</b>.
+        Cửa hàng vật tư tàu cá — <b>nhiều đại lý bán, SDVICO là một gian hàng như mọi gian hàng</b>.
         Ở đây: duyệt gian hàng mới, gỡ món vi phạm, và <b>xử lý đơn thay shop</b> khi bà con gọi
         tổng đài. Mọi bước đều ghi tên bạn ({me.phone}) vào diễn biến đơn và nhật ký quản trị.
       </p>
@@ -115,7 +115,7 @@ export function MarketAdminTab({ me }: { me: { phone: string } }) {
       {shopsErr && (
         <ErrorBox text={`Chưa tải được danh sách gian hàng cho ô lọc — ${shopsErr}`} onRetry={() => void loadShops()} />
       )}
-      {!overview && !error && <LoadingBox what="số liệu chợ" />}
+      {!overview && !error && <LoadingBox what="số liệu cửa hàng" />}
       {overview && (
         <KpiStrip
           overview={overview}

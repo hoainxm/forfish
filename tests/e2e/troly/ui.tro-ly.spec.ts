@@ -98,7 +98,7 @@ test("AC-T27 · /cho: nút nổi hiện, đủ sàn chạm, một chạm là m�
   expect(Math.round(box!.height), "sàn chạm 3.5rem").toBeGreaterThanOrEqual(MIN_TAP);
 
   // và chính giữa nút phải là nút — không có lớp nào phủ lên (13 §5.1 A11y)
-  expect(await truPhuTai(page, box!.x + box!.width / 2, box!.y + box!.height / 2)).toContain("Trợ lý");
+  expect(await truPhuTai(page, box!.x + box!.width / 2, box!.y + box!.height / 2)).toContain("Sen Biển");
 
   const t0 = Date.now();
   await fab(page).click();
@@ -150,7 +150,7 @@ test("AC-T31 · màn có thanh đáy dính (/cho/gio có món, /cho/sp): nút n�
 
     const tren = await truPhuTai(page, b.x + b.width / 2, b.y + b.height / 2);
     expect(tren, `${path}: nút nổi đè lên nút chính = bà con bấm hụt việc đang làm`).not.toContain(
-      "Trợ lý",
+      "Sen Biển",
     );
 
     // nếu UI vẫn hiện nút nổi ở màn này thì hai hình chữ nhật KHÔNG được chồng

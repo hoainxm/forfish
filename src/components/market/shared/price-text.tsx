@@ -17,7 +17,7 @@ export function PriceText({
   size?: "sm" | "lg";
   className?: string;
 }) {
-  const main = size === "lg" ? "text-[1.125rem]" : "text-[1rem]";
+  const main = size === "lg" ? "text-2xl" : "text-[1.125rem]";
   if (priceVnd == null) {
     return (
       <span className={`inline-flex flex-wrap items-baseline gap-x-2 ${className}`}>

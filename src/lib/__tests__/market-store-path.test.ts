@@ -15,10 +15,13 @@ describe("devStoreFile / devUploadDir", () => {
     expect(devUploadDir()).toBe(path.join(process.cwd(), ".local", DEV_UPLOAD_DIRNAME));
   });
   it("env tuyệt đối ⇒ dùng nguyên; uploads nằm cạnh tệp", () => {
-    const abs = path.join(path.sep, "tmp", "san-e2e", "kho.json");
+    // resolve chứ KHÔNG join: trên Windows `join(sep, …)` ra "\tmp\…" — đó là đường
+    // dẫn tương đối theo Ổ ĐĨA, nên `path.resolve` trong impl thêm "C:" vào là đúng.
+    // resolve ở đây cho ra cùng dạng tuyệt đối trên cả Windows lẫn POSIX.
+    const abs = path.resolve(path.sep, "tmp", "san-e2e", "kho.json");
     vi.stubEnv("MARKET_STORE_FILE", abs);
     expect(devStoreFile()).toBe(abs);
-    expect(devUploadDir()).toBe(path.join(path.sep, "tmp", "san-e2e", DEV_UPLOAD_DIRNAME));
+    expect(devUploadDir()).toBe(path.resolve(path.sep, "tmp", "san-e2e", DEV_UPLOAD_DIRNAME));
   });
   it("env tương đối ⇒ tính từ cwd; khoảng trắng thừa bị cắt", () => {
     vi.stubEnv("MARKET_STORE_FILE", "  .tmp/e2e/kho.json  ");
@@ -26,7 +29,8 @@ describe("devStoreFile / devUploadDir", () => {
     expect(devUploadDir()).toBe(path.join(process.cwd(), ".tmp", "e2e", DEV_UPLOAD_DIRNAME));
   });
   it("nhận env truyền thẳng (thuần, không đụng process.env)", () => {
-    expect(devStoreFile({ MARKET_STORE_FILE: path.join(path.sep, "a", "b.json") })).toBe(path.join(path.sep, "a", "b.json"));
+    const abs = path.resolve(path.sep, "a", "b.json"); // xem chú thích resolve/join ở trên
+    expect(devStoreFile({ MARKET_STORE_FILE: abs })).toBe(abs);
     expect(devStoreFile({})).toBe(path.join(process.cwd(), ".local", DEV_FILE_NAME));
   });
 });

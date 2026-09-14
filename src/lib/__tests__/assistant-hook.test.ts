@@ -20,6 +20,8 @@ const bus = vi.hoisted(() => ({
   snap: null as unknown,
   items: [] as unknown[],
   spoken: [] as string[],
+  /** URL hook gọi ra mạng — để chứng minh ý định bị chặn KHÔNG bao giờ lên máy chủ (AC-T06) */
+  fetchUrls: [] as string[],
   /** tay cầm của lượt nghe cuối — test gọi `onError("no-speech")` như Chrome khi bà con im */
   hooks: null as null | { onError(code: string): void },
 }));
@@ -44,7 +46,12 @@ vi.mock("@/lib/assistant/device-snapshot", () => ({
 vi.mock("@/lib/use-auth", () => ({ useAuthUser: () => ({ signedIn: true }) }));
 vi.mock("@/lib/use-online", () => ({ isOffline: () => false }));
 vi.mock("@/lib/boats", () => ({ loadBoats: () => [] }));
-vi.mock("@/lib/device-token-store", () => ({ authedFetch: async () => ({ res: null }) }));
+vi.mock("@/lib/device-token-store", () => ({
+  authedFetch: async (url: string) => {
+    bus.fetchUrls.push(url);
+    return { res: null };
+  },
+}));
 vi.mock("@/lib/market/client", () => ({
   marketGet: async () => ({ ok: true, data: { items: bus.items } }),
 }));
@@ -83,6 +90,7 @@ beforeEach(() => {
   bus.snap = snap();
   bus.items = [];
   bus.spoken = [];
+  bus.fetchUrls = [];
   bus.hooks = null;
 });
 afterEach(() => cleanup());
@@ -258,5 +266,36 @@ describe("useAssistant — P1-4 'đổi lại' bằng giọng = chạm chip", ()
     await settle();
     expect(actions).toEqual([]);
     expect(h.result.current.state.kind).toBe("answered");
+  });
+});
+
+describe("AC-T06 — ý định bị chặn KHÔNG BAO GIỜ lên máy chủ", () => {
+  /*  13 §6 + `types.NEVER_ONLINE`: câu y tế / pháp lý / tiền / tra người / chính trị
+      phải được trả lời NGAY trong máy và tuyệt đối không gửi đi. Trước hôm nay chỉ có
+      `expect(NEVER_ONLINE).toContain("ngoai_pham_vi")` — kiểm HẰNG SỐ, không kiểm
+      HÀNH VI: đổi một dòng trong `use-assistant` là câu bệnh tật của bà con lên mạng
+      mà mọi test vẫn xanh. Ca này đo đường đi thật của hook.
+
+      Kèm ca ĐỐI CHỨNG: một câu hỏi mở bình thường thì PHẢI gọi — không có nó, một
+      bản vá kiểu "cấm gọi mạng luôn cho chắc" cũng xanh.  */
+
+  it("câu bị chặn: trả lời trong máy, không một lượt gọi nào ra /api/tro-ly", async () => {
+    const h = mount(() => {});
+    for (const say of ["uống thuốc gì cho hết say sóng", "phạt bao nhiêu nếu không có nhật ký", "vay tiền ngân hàng lãi suất mấy phần"]) {
+      await act(async () => h.result.current.ask(say));
+      await settle();
+      expect(h.result.current.state.kind, say).toBe("answered");
+    }
+    expect(bus.fetchUrls.filter((u) => u.includes("/api/tro-ly")), "câu bị chặn đã lên máy chủ").toEqual([]);
+  });
+
+  it("ĐỐI CHỨNG: câu hỏi mở bình thường vẫn được gọi lên máy chủ", async () => {
+    const h = mount(() => {});
+    await act(async () => h.result.current.ask("nhớt nào tốt cho máy Yanmar chạy đường dài"));
+    await settle();
+    expect(
+      bus.fetchUrls.filter((u) => u.includes("/api/tro-ly")).length,
+      "câu hỏi mở phải được hỏi tiếp lên máy chủ — nếu 0 thì cổng trên là cổng chết",
+    ).toBe(1);
   });
 });

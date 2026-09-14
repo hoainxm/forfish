@@ -340,7 +340,7 @@ export default function QuanTriPage() {
         ["canh-bao", "Thuyền viên"],
         ["san-pham", "Sản phẩm"],
         ["don-hang", "Đơn hàng"],
-        ["cho-vat-tu", "Chợ vật tư"],
+        ["cho-vat-tu", "Cửa hàng"],
         ["yeu-cau", "Yêu cầu"],
         ["vung-bien", "Vùng biển"],
         ["cho-ban", "Chỗ bán"],
@@ -2565,10 +2565,10 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
           Danh mục này ĐÃ NGHỈ — app ngư dân không còn đọc.
         </p>
         <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
-          Từ 07/09/2026 &quot;Cửa hàng&quot; trong app đã gộp vào <b>Chợ vật tư</b>:
+          Từ 07/09/2026 &quot;Cửa hàng&quot; trong app đã gộp vào <b>Cửa hàng</b>:
           hàng SDVICO nay nằm ở gian hàng SDVICO trên chợ. Thêm/sửa/ẩn ở màn này
           <b> KHÔNG hiện ra với bà con nữa</b> — muốn đổi hàng đang bán thì sang
-          tab <b>Chợ vật tư → Sản phẩm</b>. Màn này giữ lại chỉ để tra hàng cũ.
+          tab <b>Cửa hàng → Sản phẩm</b>. Màn này giữ lại chỉ để tra hàng cũ.
         </p>
       </div>
 
@@ -3131,11 +3131,11 @@ function OrdersTab({ perms }: { perms: TabPerms }) {
            Màn này KHÔNG nhận đơn mới nữa, chỉ còn để tra lại. */}
       <div className="surface border-l-4 px-4 py-3" style={{ borderColor: "var(--warn)" }}>
         <p className="text-[0.9375rem] font-bold text-navy">
-          Màn đơn này ĐÃ NGHỈ — đơn mới về tab Chợ vật tư.
+          Màn đơn này ĐÃ NGHỈ — đơn mới về tab Cửa hàng.
         </p>
         <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
-          Từ 07/09/2026 &quot;Cửa hàng&quot; đã gộp vào <b>Chợ vật tư</b>. Đơn cũ
-          đã được chuyển sang chợ nên <b>xử lý đơn ở tab Chợ vật tư → Đơn hàng</b>,
+          Từ 07/09/2026 &quot;Cửa hàng&quot; đã gộp vào <b>Cửa hàng</b>. Đơn cũ
+          đã được chuyển sang chợ nên <b>xử lý đơn ở tab Cửa hàng → Đơn hàng</b>,
           đừng xử lý hai nơi cho một đơn. Màn này giữ để tra lại bản gốc.
         </p>
       </div>

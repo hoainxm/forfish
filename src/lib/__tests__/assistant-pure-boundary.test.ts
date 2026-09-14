@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 /*  LIB THUẦN CỦA TRỢ LÝ KHÔNG ĐƯỢC IMPORT MODULE "use client" (14 §0b luật 2, F-32).
 
@@ -62,7 +62,8 @@ describe("assistant-pure-boundary — lib thuần không kéo module 'use client
   const pure = readdirSync(DIR).filter((f) => /\.ts$/.test(f) && !CLIENT_GLUE.has(f)).map((f) => join(DIR, f));
 
   it("có đủ lib thuần để soi", () => {
-    const names = pure.map((p) => p.split("/").pop());
+    // basename, KHÔNG split("/"): trên Windows `join` trả "\" nên split("/") giữ nguyên cả đường dẫn
+    const names = pure.map((p) => basename(p));
     for (const must of ["types.ts", "normalize.ts", "intents.ts", "parse.ts", "answer.ts", "suggestions.ts"]) {
       expect(names, `thiếu ${must}`).toContain(must);
     }

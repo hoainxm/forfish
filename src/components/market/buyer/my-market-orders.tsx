@@ -208,7 +208,7 @@ export function MyMarketOrders() {
                 href="/cho"
                 className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[15rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta"
               >
-                Đi chợ
+                Vào cửa hàng
               </Link>
             )}
           </>
@@ -228,7 +228,7 @@ export function MyMarketOrders() {
                     {/*  TÊN SHOP MỘT DÒNG RIÊNG, CHIP TRẠNG THÁI DÒNG DƯỚI (R-04,
                          2026-09-06): xếp chung một hàng thì "Đại lý Hải Đăng" bị
                          cắt còn "Đại lý Hải Đă…" — bà con không biết đơn của ai. */}
-                    <p className="truncate text-[1rem] text-foreground/70">{o.shopName ?? "Shop"}</p>
+                    <p className="text-[1.125rem] font-bold leading-snug text-navy">{o.shopName ?? "Shop"}</p>
                     <p className="mt-1"><OrderStatusChip status={o.status} /></p>
                     <p className="mt-1 line-clamp-2 text-[1rem] font-bold leading-snug text-navy">{summarize(o)}</p>
                     {/*  Mã đơn KHÔNG cắt (bà con đọc mã cho shop) — chật thì tổng tự
@@ -238,7 +238,7 @@ export function MyMarketOrders() {
                       <span className="ml-auto whitespace-nowrap text-[1.0625rem] font-bold text-navy">{formatVnd(o.totalVnd)}</span>
                     </p>
                   </div>
-                  <ChevronRightIcon className="mt-1 h-5 w-5 shrink-0 text-foreground/40" />
+                  <ChevronRightIcon className="mt-1 h-6 w-6 shrink-0 text-navy" />
                 </Link>
                 {isPendingTooLong(o, nowIso) && (
                   <p className="mt-1 text-[1rem] font-bold text-warn">Shop chưa xác nhận sau 2 ngày.</p>

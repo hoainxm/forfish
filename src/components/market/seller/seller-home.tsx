@@ -89,7 +89,7 @@ function ShopHome({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
         <div className="mb-4 overflow-hidden">
           <StatusBanner level="neutral">
             Shop {shop.name} đang chờ SDVICO duyệt (1–2 ngày). Bà con vẫn thêm sản phẩm trước được — món chỉ hiện
-            lên chợ sau khi duyệt.
+            lên cửa hàng sau khi duyệt.
           </StatusBanner>
         </div>
       )}
@@ -147,7 +147,7 @@ function ShopHome({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
 
       <Stats shopStatus={shop.status} />
 
-      <nav className="mt-2 space-y-1 px-4">
+      <nav aria-label="Quản lý gian hàng" className="mt-3 space-y-3 px-4">
         <HomeLink href="/ban-hang/san-pham" icon={<BoxIcon className="h-6 w-6" />} label="Sản phẩm" sub="Thêm, sửa giá, sửa tồn kho" />
         <HomeLink href="/ban-hang/don" icon={<CartIcon className="h-6 w-6" />} label="Đơn hàng" sub="Xác nhận, giao hàng, xem tiền" />
         <HomeLink href="/ban-hang/cai-dat" icon={<SettingsIcon className="h-6 w-6" />} label="Cài đặt shop" sub="Hồ sơ, số tài khoản, tạm nghỉ bán" />
@@ -155,7 +155,7 @@ function ShopHome({ shop, onShop }: { shop: Shop; onShop: (s: Shop) => void }) {
           <HomeLink
             href={`/cho/shop/${shop.slug}`}
             icon={<BasketIcon className="h-6 w-6" />}
-            label="Xem shop trên chợ"
+            label="Xem shop trên cửa hàng"
             sub="Đúng thứ bà con nhìn thấy"
           />
         )}
@@ -240,7 +240,7 @@ function StatsBody({ stats, shopStatus }: { stats: ShopStats; shopStatus: Shop["
         <p className="mt-3 rounded-2xl bg-field/70 px-4 py-6 text-center text-[1.125rem] text-foreground/70">
           {shopStatus === "hoat_dong"
             ? "Chưa có đơn nào. Thêm sản phẩm để bà con thấy shop."
-            : "Chưa có đơn nào — món sẽ lên chợ sau khi SDVICO duyệt shop."}
+            : "Chưa có đơn nào — món sẽ lên cửa hàng sau khi SDVICO duyệt shop."}
         </p>
       )}
     </div>

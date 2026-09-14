@@ -1,0 +1,54 @@
+/* Shared buyer/seller presentation. Uses the app's rem scale and colour tokens. */
+.market-ui {
+  --market-control: 3.5rem;
+  line-height: 1.5;
+}
+
+.market-ui :where(button, a, input, select, textarea):focus-visible,
+.assistant-panel :where(button, a, input):focus-visible {
+  outline: 0.1875rem solid var(--sea);
+  outline-offset: 0.1875rem;
+}
+
+.market-ui :where(button, select, input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"])) {
+  min-height: var(--market-control);
+}
+
+.market-ui :where(input, textarea, select) {
+  scroll-margin-block: 10rem;
+}
+
+.market-ui .surface {
+  border-radius: 1.25rem;
+}
+
+.market-product-card {
+  box-shadow: 0 0.25rem 1rem color-mix(in srgb, var(--navy) 6%, transparent);
+}
+
+.market-product-card > a:focus-visible {
+  outline-offset: -0.1875rem;
+}
+
+.market-purchase-bar {
+  border-radius: 1.25rem 1.25rem 0 0;
+  box-shadow: 0 -0.25rem 1.25rem color-mix(in srgb, var(--navy) 8%, transparent);
+  flex-wrap: wrap;
+}
+
+.market-purchase-bar > * {
+  min-width: 0;
+}
+
+/* Large display mode and narrow phones: protect product names and amounts. */
+@media (max-width: 359px) {
+  .market-product-grid { grid-template-columns: minmax(0, 1fr); }
+  .market-product-image { aspect-ratio: 2 / 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .market-ui *, .assistant-panel * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

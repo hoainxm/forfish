@@ -338,7 +338,7 @@ describe("assistant-parse — bảng câu nói thật (13 §3 / 14 §4.5)", () =
     }
   });
 
-  it("HARD: ca đối chứng bắt buộc (14 §4.5)", () => {
+  it("AC-T05/AC-T07 · HARD: ca đối chứng bắt buộc (14 §4.5)", () => {
     const P = (s: string, ctx: Partial<ParseContext> = {}) => parseUtterance(s, { ...CTX, ...ctx });
     expect(P("bảo hiểm tàu hết hạn chưa").intent).not.toBe("bao");
     expect(P("bảo hiểm tàu hết hạn chưa").intent).toBe("giay_to");
@@ -350,8 +350,8 @@ describe("assistant-parse — bảng câu nói thật (13 §3 / 14 §4.5)", () =
     expect(P("mốt có mưa không").slots.day).toBe(2);
     expect(P("mai đi được không").slots.aspect).toBe("di_duoc");
     expect(P("có bão không").intent).toBe("bao");
-    expect(P("mua 2 thùng nhớt").intent).toBe("tim_mon");
-    expect(P("bỏ 2 thùng nhớt vô giỏ").intent).toBe("them_gio");
+    expect(P("mua 2 thùng nhớt")).toMatchObject({ intent: "tim_mon", slots: { qty: 2 } });
+    expect(P("bỏ 2 thùng nhớt vô giỏ")).toMatchObject({ intent: "them_gio", slots: { qty: 2 } });
     // hành động có hậu quả — KHÔNG có mã (13 P8, AC-T45)
     for (const s of ["huỷ đơn SD260906ABCD", "đặt hàng luôn", "xoá giấy đăng kiểm", "đăng xuất"]) {
       const p = P(s);
@@ -374,6 +374,35 @@ describe("assistant-parse — bảng câu nói thật (13 §3 / 14 §4.5)", () =
     expect(P("uống thuốc gì cho hết say sóng").confidence).toBe(1);
   });
 
+  /*  AC-T06 vế 1 — NĂM NHÓM BỊ CHẶN (13 §6, `intents.BLOCKLIST`). Ca này đi kèm
+      ca đối chứng ngay dưới: câu chỉ CHỨA CHỮ giống nhóm cấm nhưng là việc đi
+      biển bình thường thì KHÔNG được chặn. Không có vế đối chứng thì một bộ dò
+      "chặn tất" cũng xanh, mà chặn oan là bà con mất việc thật.  */
+  it("AC-T06: năm nhóm câu bị chặn đều ra ngoai_pham_vi, và không chặn oan câu nghề", () => {
+    const P = (s: string) => parseUtterance(s, CTX);
+    const chan: [string, string][] = [
+      ["uống thuốc gì cho hết say sóng", "y tế"],
+      ["bác sĩ nói sao về bệnh này", "y tế"],
+      ["phạt bao nhiêu nếu không có nhật ký", "pháp lý"],
+      ["vay tiền ngân hàng lãi suất mấy phần", "tiền"],
+      ["tra căn cước số 012345678901", "tra người"],
+      ["số điện thoại của anh Tâm ở đâu", "tra người"],
+      ["chuyện chính trị dạo này sao", "khác"],
+    ];
+    for (const [say, nhom] of chan) {
+      expect(P(say).intent, `${nhom}: "${say}" phải bị chặn`).toBe("ngoai_pham_vi");
+    }
+    // ĐỐI CHỨNG — cùng ngách chữ nghĩa nhưng là việc đi biển, KHÔNG được chặn
+    const hien = [
+      "bảo hiểm tàu hết hạn chưa",
+      "giá dầu hôm nay bao nhiêu",
+      "gọi shop hỏi cái nhớt",
+      "giấy tờ nào sắp hết hạn",
+    ];
+    for (const say of hien) {
+      expect(P(say).intent, `KHÔNG được chặn oan: "${say}"`).not.toBe("ngoai_pham_vi");
+    }
+  });
   it("không bao giờ ném với đầu vào lạ", () => {
     for (const bad of [null, undefined, 123, {}, " ", "😀😀😀", "a".repeat(5000)]) {
       const p = parseUtterance(bad as unknown as string, CTX);

@@ -17,14 +17,14 @@ const BY_ROUTE: [RegExp, Chip[]][] = [
   [/^\/cho\/sp\//, [c("Gọi shop", "gọi shop", "goi_shop"), c("Xem giỏ", "giỏ có gì", "xem_gio")]],
   [/^\/cho\/gio/, [c("Giỏ có gì", "giỏ có gì", "xem_gio"), c("Tìm thêm món", "tìm nhớt máy", "tim_mon")]],
   [/^\/cho\/don/, [c("Đơn đang giao", "đơn đang giao", "don_cua_toi"), c("Gọi shop", "gọi shop", "goi_shop")]],
-  [/^\/cho/, [c("Tìm nhớt máy", "tìm nhớt máy", "tim_mon"), c("Xem giỏ", "giỏ có gì", "xem_gio")]],
-  [/^\/ban-hang/, [c("Đơn cần xác nhận", "mở bán hàng", "mo_man"), c("Về chợ", "mở chợ", "mo_man")]],
-  [/^\/ngu-truong/, [c("Có bão không", "có bão không", "bao"), c("Con nước hôm nay", "con nước hôm nay", "con_nuoc")]],
+  [/^\/cho/, [c("Tìm nhớt máy", "tìm nhớt máy", "tim_mon"), c("Xem giỏ", "giỏ có gì", "xem_gio"), c("Đơn của tôi", "đơn của tôi", "don_cua_toi")]],
+  [/^\/ban-hang/, [c("Đơn cần xác nhận", "mở bán hàng", "mo_man"), c("Về cửa hàng", "mở cửa hàng", "mo_man")]],
+  [/^\/ngu-truong/, [c("Hôm nay đi được không", "hôm nay đi được không", "thoi_tiet"), c("Có bão không", "có bão không", "bao"), c("Con nước hôm nay", "con nước hôm nay", "con_nuoc")]],
   [/^\/tau\?tab=dich-vu/, [c("Bảo dưỡng tới hạn", "bảo dưỡng gì tới hạn", "bao_duong"), c("Gọi SDVICO", "gọi SDVICO", "goi_sdvico")]],
-  [/^\/tau\?tab=san-pham/, [c("Vào chợ vật tư", "mở chợ", "mo_man"), c("Đơn của tôi", "đơn của tôi", "don_cua_toi")]],
+  [/^\/tau\?tab=san-pham/, [c("Vào cửa hàng", "mở cửa hàng", "mo_man"), c("Đơn của tôi", "đơn của tôi", "don_cua_toi"), c("Bảo dưỡng tới hạn", "bảo dưỡng gì tới hạn", "bao_duong")]],
   [/^\/tau/, [c("Giấy sắp hết hạn", "giấy nào sắp hết hạn", "giay_to"), c("Mở sổ bảo dưỡng", "mở sổ bảo dưỡng", "mo_man")]],
-  [/^\/nguoi/, [c("Ai chưa có bảo hiểm", "ai chưa có bảo hiểm", "thuyen_vien"), c("Tàu có mấy người", "tàu có mấy người", "thuyen_vien")]],
-  [/^\/tien/, [c("Giá cá ngừ", "giá cá ngừ hôm nay", "gia_ca"), c("Giá dầu hôm nay", "giá dầu hôm nay", "gia_dau")]],
+  [/^\/nguoi/, [c("Ai chưa có bảo hiểm", "ai chưa có bảo hiểm", "thuyen_vien"), c("Giấy tờ cần lo", "giấy tờ sắp hết hạn", "giay_to")]],
+  [/^\/tien/, [c("Giá cá ngừ", "giá cá ngừ hôm nay", "gia_ca"), c("Giá dầu hôm nay", "giá dầu hôm nay", "gia_dau"), c("Bán ở đâu", "bán cá ở đâu", "tin_mua_ban")]],
   [/^\/cang/, [c("Đặt cảng nhà", "đặt cảng nhà", "dat_cang_nha"), c("Thời tiết cảng này", "thời tiết hôm nay", "thoi_tiet")]],
   [/^\/?$/, [c("Thời tiết hôm nay", "thời tiết hôm nay", "thoi_tiet"), c("Giấy sắp hết hạn", "giấy tờ sắp hết hạn", "giay_to")]],
 ];
@@ -85,8 +85,22 @@ export function suggestionsFor(
     seen.add(chip.tag);
     out.push(chip);
   };
+  /*  LUẬT GHÉP (03 §Gợi ý theo tab, chủ dự án chốt 2026-09-07: "click vào bot ở
+      từng màn hình nó phải khác nhau tương ứng với mục tiêu của từng cái tab").
+
+      Màn có TRỤC RÕ (Ra khơi · Tàu cá · Bạn thuyền · Giao dịch · Cửa hàng) thì
+      chip theo GIỜ không được chen: đứng ở tab Tàu cá mà máy mời "Ngày mai sao"
+      là hỏi chuyện thời tiết giữa lúc bà con đang lo giấy tờ (đo thật 2026-09-07:
+      /tau?tab=san-pham ra "Vào chợ vật tư · Đơn của tôi · Ngày mai sao · Tin bão"
+      — hai ô cuối lạc trục). Chip theo VIỆC vẫn được, vì việc đỏ là chuyện gấp
+      của chính bà con, không phải chuyện của tab.
+
+      Trang chủ là màn TỔNG HỢP nên giữ cả chip giờ — nó không thuộc trục nào. */
+  const coTruc = route !== "/" && routeChips(route) !== DEFAULT_ROUTE_CHIPS;
   for (const chip of routeChips(route)) push(chip);
-  push(hourChip(hour) as Chip);
   push(taskChip(s, now));
+  if (!coTruc) push(hourChip(hour) as Chip);
+  // màn có trục mà bảng chỉ cho 1 chip dùng được → bù chip giờ cho đủ hai (AC-T26)
+  if (out.length < 2) push(hourChip(hour) as Chip);
   return out.map(({ label, utterance }) => ({ label, utterance }));
 }

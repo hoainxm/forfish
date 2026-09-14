@@ -9,7 +9,7 @@ import { ALL_PORT_NAMES, matchPortKeys, nearPortKeys, portById, portByKey, portK
     ĐÚNG hai danh sách của app, không phải danh sách 2 tên tự đặt.  */
 
 describe("assistant-ports — khoá cảng", () => {
-  it("bỏ tiền tố cảng cá/cảng/bến/cửa, bỏ phần trong ngoặc, bỏ dấu", () => {
+  it("AC-T04: bỏ tiền tố cảng cá/cảng/bến/cửa, bỏ phần trong ngoặc, bỏ dấu (viết hoa/thường/không dấu cùng ra một khoá)", () => {
     expect(portKey("Cảng cá Sa Kỳ")).toBe("sa ky");
     expect(portKey("cảng Sa Kỳ")).toBe("sa ky");
     expect(portKey("Hòn Rớ (Nha Trang)")).toBe("hon ro");
@@ -37,7 +37,7 @@ describe("assistant-ports — khoá cảng", () => {
     expect(portByKey("Hòn Rớ")?.name).not.toContain("(");
   });
 
-  it("khớp đầy đủ thắng khớp một phần; nhiều cảng cùng chữ → ≤4 ứng viên để hỏi lại", () => {
+  it("AC-T04: khớp đầy đủ thắng khớp một phần; nhiều cảng cùng chữ → ≤4 ứng viên để hỏi lại", () => {
     // "Cửa" đứng một mình: nhiều cảng "Cửa …" → hỏi lại chip
     const nhieu = matchPortKeys("Cửa Việt", ALL_PORT_NAMES);
     expect(nhieu.length).toBeGreaterThanOrEqual(1);

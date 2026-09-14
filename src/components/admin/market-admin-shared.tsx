@@ -21,9 +21,9 @@ const WRITE_MS = 20_000;
 const CODE_TEXT: Record<string, string> = {
   login_required: "Phiên đăng nhập đã hết — đăng nhập lại.",
   staff_only: "Tài khoản này không có quyền quản trị.",
-  admin_only: "Chỉ quản trị viên mới xem được Chợ vật tư.",
-  not_configured: "Chưa cấu hình Supabase/service-role — chợ cần kho thật.",
-  unavailable: "Chưa tra được kho chợ — thử lại.",
+  admin_only: "Chỉ quản trị viên mới xem được Cửa hàng.",
+  not_configured: "Chưa cấu hình Supabase/service-role — cửa hàng cần kho thật.",
+  unavailable: "Chưa tra được kho cửa hàng — thử lại.",
   not_found: "Không tìm thấy — có thể vừa bị xoá.",
   bad_transition: "Bước này đã bị người khác làm trước — tải lại để xem trạng thái mới.",
   forbidden: "Không có quyền làm việc này.",

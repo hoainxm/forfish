@@ -253,7 +253,7 @@ function ProductRow({
             onClick={() => setAsk("tra-lai")}
             className={`${BTN} bg-navy text-white`}
           >
-            Trả lại chợ
+            Trả lại cửa hàng
           </button>
         ) : (
           <button
@@ -262,7 +262,7 @@ function ProductRow({
             onClick={() => setAsk("go")}
             className={`${BTN} bg-danger-bg text-danger`}
           >
-            Gỡ khỏi chợ
+            Gỡ khỏi cửa hàng
           </button>
         )}
       </div>
@@ -279,20 +279,20 @@ function ProductRow({
       {ask === "go" && (
         <ReasonDialog
           title={`Gỡ món ${product.title}?`}
-          message="Món biến khỏi chợ và khỏi giỏ của người mua. Đơn đang treo có món này KHÔNG bị huỷ."
+          message="Món biến khỏi cửa hàng và khỏi giỏ của người mua. Đơn đang treo có món này KHÔNG bị huỷ."
           confirmLabel="Gỡ món"
           placeholder="Vì sao gỡ? (5–300 chữ) — shop sẽ đọc câu này"
           suggestions={["Hàng cấm / không đúng quy định", "Mô tả sai sự thật", "Ảnh không phải hàng bán"]}
           onCancel={() => setAsk(null)}
           onConfirm={(reason) => {
             setAsk(null);
-            patch({ adminHidden: true, reason }, "Đã gỡ món khỏi chợ.");
+            patch({ adminHidden: true, reason }, "Đã gỡ món khỏi cửa hàng.");
           }}
         />
       )}
       {ask === "tra-lai" && (
         <ConfirmDialog
-          title={`Trả món ${product.title} về chợ?`}
+          title={`Trả món ${product.title} về cửa hàng?`}
           message="Món hiện lại như cũ nếu gian hàng đang hoạt động."
           confirmLabel="Trả lại"
           cancelLabel="Không"
@@ -300,7 +300,7 @@ function ProductRow({
           onCancel={() => setAsk(null)}
           onConfirm={() => {
             setAsk(null);
-            patch({ adminHidden: false }, "Đã trả món về chợ.");
+            patch({ adminHidden: false }, "Đã trả món về cửa hàng.");
           }}
         />
       )}

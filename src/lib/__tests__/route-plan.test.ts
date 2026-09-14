@@ -42,6 +42,12 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 
+/*  HẠN GIỜ RỘNG CHO CẢ TỆP: mấy ca dò tuyến trên lưới độ sâu chạy 5–8 giây khi
+    máy đang tải (chạy song song với `npm run build` là đủ). Hạn mặc định 5 s làm
+    chúng đỏ ngẫu nhiên trên máy dev Windows — đỏ giả, vì chạy riêng thì xanh hết.
+    Nới hạn KHÔNG che lỗi thật: ca hỏng vẫn hỏng, chỉ là không đổ vì máy bận.  */
+vi.setConfig({ testTimeout: 20_000 });
+
 // ── dựng trường thời tiết giả ────────────────────────────────────────────
 
 const HOURS = 72;

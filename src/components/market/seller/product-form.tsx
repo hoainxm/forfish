@@ -291,7 +291,7 @@ function Inner({ shop, product }: { shop: Shop; product: Product | null }) {
 
         {/*  MÓN BÁO GIÁ THEO TÀU (2026-09-07, ADR 0011): máy tàu, thiết bị lớn
              thường báo giá từng chiếc. Không có bậc này thì shop buộc phải bịa
-             một con số, hoặc không đăng được món lên chợ. Bật lên thì giấu luôn
+             một con số, hoặc không đăng được món lên cửa hàng. Bật lên thì giấu luôn
              giá · tồn kho · giá gạch · loại-cỡ cho khỏi rối. */}
         <label className="mb-3 flex min-h-[3.5rem] items-center justify-between gap-3 rounded-2xl bg-field px-4">
           <span className="min-w-0">

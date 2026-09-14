@@ -14,7 +14,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
-import { SQ_BTN } from "@/components/ui/sq-btn";
+import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -180,49 +180,10 @@ export function BoatProducts() {
 
   return (
     <div className="pt-1">
-      {/*  LỐI SANG CHỢ — đứng ĐÚNG CHỖ hai chip "Cửa hàng" · "Đơn của tôi" cũ
-           (ADR 0011). Hai hàng, một thẻ: mua đồ và xem đơn nay đều ở chợ. */}
-      <div className="mx-4 mt-1 mb-3 overflow-hidden surface">
-        <Link
-          href="/cho"
-          className="flex min-h-[3.5rem] items-center gap-3 px-4 py-3"
-        >
-          <span
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
-            style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
-            aria-hidden
-          >
-            <BasketIcon className="h-6 w-6" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[1.125rem] font-bold text-navy">Mua đồ cho tàu — Chợ vật tư</span>
-            <span className="block text-[1rem] leading-snug text-foreground/65">
-              Máy, ngư cụ, đá cây, dầu nhớt… SDVICO và nhiều đại lý, giao ra cảng
-            </span>
-          </span>
-          <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
-        </Link>
-        <div className="mx-4 border-t" style={{ borderColor: "var(--line)" }} />
-        <Link
-          href="/cho/don"
-          className="flex min-h-[3.5rem] items-center gap-3 px-4 py-3"
-        >
-          <span
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
-            style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
-            aria-hidden
-          >
-            <ClockIcon className="h-6 w-6" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[1.125rem] font-bold text-navy">Đơn hàng của tôi</span>
-            <span className="block text-[1rem] leading-snug text-foreground/65">
-              Coi đơn đã đặt, tới đâu rồi
-            </span>
-          </span>
-          <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/40" />
-        </Link>
-      </div>
+      {/*  ĐÃ GỠ hai lối sang cửa hàng (2026-09-07): /tau nay có TAB "Cửa hàng"
+          và TAB "Đơn" đứng ngay cạnh, nhúng thẳng nội dung. Để lại hai thẻ dẫn
+          ở đây là hai lối vào cho cùng một chỗ, và là đúng cái "nhảy qua nhảy
+          lại" mà chủ dự án chê. */}
 
       {/* Hỏi gán hàng SDVICO cho tàu khi có >1 tàu (ba-spec 08 AC-6) */}
       <SdvicoAssignPrompt assets={synced} />
@@ -367,7 +328,7 @@ export function BoatProducts() {
           đồng bộ SDVICO và đồ bà con tự ghi. Nay nó vừa là tiêu đề khối vừa mang
           ô nút. ĐỌC KHÔNG ĐƯỢC ⇒ chừa ô trống (T13, luật 3b) — banner đỏ ở trên
           đã nói vì sao. */}
-      <div className="mb-4 flex items-stretch gap-2">
+      <div className="tau-section-heading">
         <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
           <p className="text-[1rem] font-bold text-navy">
             Đồ tự ghi · {sorted.length} món

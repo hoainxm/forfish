@@ -45,7 +45,7 @@ export function TradeHub() {
           <BasketIcon className="h-6 w-6" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[1.125rem] font-bold text-navy">Chợ vật tư tàu cá</span>
+          <span className="block text-[1.125rem] font-bold text-navy">Cửa hàng vật tư tàu cá</span>
           <span className="block text-[1rem] leading-snug text-foreground/65">
             Máy, ngư cụ, dầu nhớt, đá… nhiều đại lý, giao ra cảng
           </span>

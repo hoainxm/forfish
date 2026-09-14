@@ -167,6 +167,16 @@ export const NEVER_BACKUP_PREFIXES = [
    *    có tên người/số), cờ mic, đếm lượt. Cùng lớp `inbox.`/`crew.`: của riêng
    *    máy này, xoá là về mặc định, không mất gì đáng giữ. */
   "forfish.assistant.",
+  /*  · `fab.` — VỊ TRÍ NÚT NỔI (Sen Biển, giỏ hàng) bà con đã kéo tới trên MÁY
+   *    NÀY (lib/float-pos, 2026-09-07). Gắn với cỡ màn của đúng máy đó; chép
+   *    sang máy khác là nút nằm sai chỗ. Mất thì nút về góc mặc định. */
+  "forfish.fab.",
+  /*  · `mlist.` — CHỖ ĐANG ĐỨNG trong danh sách cửa hàng (lib/market/list-state,
+   *    2026-09-08): chữ đang tìm, nhóm đã lọc, các món đã tải, vị trí cuộn. Nằm ở
+   *    `sessionStorage` nên tự mất khi đóng app; chép sang máy khác là dán một
+   *    bảng giá CŨ của phiên người khác vào màn đang mở. Mất thì danh sách tải lại,
+   *    không mất gì của bà con. */
+  "forfish.mlist.",
   /*  · `sync.` — SỔ BOOKKEEPING đồng bộ per-máy (lib/user-sync): mỗi kind đã ghi
    *    lúc nào (mốc client) + còn dirty không. Của RIÊNG máy này. Chép sang máy
    *    khác là dán mốc/dirty sai → máy nhận tưởng đã đẩy/đã mới, bỏ qua sổ thật

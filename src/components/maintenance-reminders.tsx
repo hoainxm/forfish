@@ -10,7 +10,7 @@ import {
   TrashIcon,
   WrenchIcon,
 } from "@/components/icons";
-import { SQ_BTN } from "@/components/ui/sq-btn";
+import { TAU_ACTION as SQ_BTN } from "@/components/tau-ui";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { StatusBanner } from "@/components/ui/status-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -221,7 +221,7 @@ export function MaintenanceReminders() {
           Chuỗi class cam full-width này từng có 4 bản chép tay (document-vault,
           maintenance-reminders, boat-products, sdvico-request) — sửa một chỗ là
           lệch, nay gom về SQ_BTN dùng chung (nguyên tắc 3). */}
-      <div className="mb-4 flex items-stretch gap-2">
+      <div className="tau-section-heading">
         <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
           <p className="text-[1rem] font-bold text-navy">
             Sổ nhắc bảo dưỡng · {sorted.length} việc
@@ -300,7 +300,7 @@ export function MaintenanceReminders() {
                   "Vừa làm xong hôm nay" full-width, bấm nhiều nhất màn nên trả
                   giá chiều cao trên MỌI thẻ) nay inline cuối chính hàng "Chu kỳ"
                   mà nó thao tác lên. */}
-              <div className="space-y-1.5 p-2">
+              <div className="tau-record space-y-2 p-3">
                 <div className="flex items-stretch gap-2">
                   <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
                     <p className="display break-words text-[1.125rem] font-bold leading-snug text-navy">

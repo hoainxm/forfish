@@ -5,7 +5,6 @@ covers: src/lib/market/, src/app/cho/, src/app/ban-hang/, src/components/market/
 last_verified: 2026-09-06
 <!-- re-verified: 2026-09-06 - pha 2b: /cho (8 màn), /ban-hang (7 màn), tab admin, /api/cho|ban-hang|admin/cho đã hiện thực theo §5–§7; AC 77 mã; QA e2e 63 pass / 8 fixme; khác spec: ghi chú người mua là MỘT ô chung cho cả lần đặt (Core CheckoutDraft.buyerNote), giỏ khách lạ dời sang ngăn SĐT khi ngăn đó trống -->
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-09-07) — code 'src/app/api/admin/cho/' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 version: v1.1 (2026-09-06) — hợp nhất sau phản biện, chưa build. 16 quyết định LEAD-BRIEF §4 + §5 đã đưa vào; tên trường/mã/route/trần số lấy NGUYÊN VĂN từ [12-kien-truc 1.1](12-kien-truc-san-thuong-mai.md) (12 = nguồn TÊN, 11 = nguồn HÀNH VI). Đối chiếu: [_generated/phan-bien-san-thuong-mai-2026-09-06.md](_generated/phan-bien-san-thuong-mai-2026-09-06.md).
 
 > **Mục đích**: ORACLE HÀNH VI cho agent build + QA — ai được làm gì, hệ thống phản ứng ra sao, đúng-sai đo bằng AC nào. Không mô tả pixel (việc của [07-design-spec](07-design-spec.md)); không mô tả schema cột (việc của [12-kien-truc-san-thuong-mai](12-kien-truc-san-thuong-mai.md) + [04-data-model](04-data-model.md)).
@@ -297,6 +296,86 @@ Quy ước chung mọi màn `/cho/**`:
 - **Nút hành động theo trạng thái** (mỗi hành động → ConfirmDialog nêu rõ, rồi dòng inline 8s): Huỷ đơn (`cho_xac_nhan`) → "Đã huỷ đơn …" ; Tôi đã chuyển khoản (`chuyen_khoan ∧ chua_thanh_toan`) → "Đã báo shop — shop kiểm tra rồi xác nhận" ; **Đã nhận hàng** (`da_giao`, nút chính) → "Cảm ơn bà con. Đánh giá món hàng?" + nút Đánh giá ; Đánh giá (`hoan_thanh`, món chưa đánh giá) → nút **full-width ở HÀNG RIÊNG dưới dòng món** (2026-09-06 R-01: nhét cùng hàng với ảnh + tên + thành tiền thì cột tên còn 48px và số tiền đè lên chữ) → sheet sao + chữ → "Đã gửi đánh giá".
 - **Mua lại** (2026-09-06; `hoan_thanh` hoặc `da_huy`): nút chữ 3.5rem full-width — tra lại các món của đơn bằng `POST /api/cho/gio/tinh` rồi thêm **món còn bán** vào giỏ, trả lời tại chỗ "Đã thêm N món vào giỏ. M món không còn bán." + đường "Xem giỏ (n)"; giỏ đầy / máy hết chỗ nói thẳng; **mất sóng vẫn thêm** (giỏ là việc của máy) kèm câu "Chưa kiểm được món nào còn bán (mất sóng) — xem lại ở giỏ giúp."
 - **Ma trận**: `da_huy` do seller/admin → khối đỏ "Shop đã huỷ: {lý do}" (+ "Shop cần hoàn tiền cho bà con — gọi shop" khi `needsRefund`) · `bao_da_chuyen` bị trả về `chua_thanh_toan` (P3) → khối vàng "Shop chưa thấy tiền: {lý do} — kiểm tra lại giao dịch hoặc gọi shop" · `cho_xac_nhan` > 48h → dòng "Shop chưa xác nhận sau 2 ngày" · 404/không phải đơn của mình → "Không tìm thấy đơn này." · mất sóng → đọc từ cache nếu có; nút ghi vô hiệu + câu quy ước.
+
+---
+
+## 5b. NGƯỜI MUA CHỈ CÓ BA VIỆC — Tìm món · Mua hàng · Xem đơn (chủ dự án chốt 2026-09-08)
+
+> Nguyên văn: *"giữ sàn đầy đủ phía sau, nhưng phía người mua chỉ tập trung vào ba việc: Tìm món — Mua hàng — Xem đơn. Sen Biển hỗ trợ ngay tại chỗ để bà con đỡ phải chuyển màn."*
+>
+> Sàn đa người bán ở §1–§5 **giữ nguyên** (shop, duyệt, tồn kho, đơn theo shop). Mục này chỉ nói phía **người mua nhìn thấy gì** và **đi lại ra sao**.
+
+**Thứ tự làm, do chủ dự án chốt** — ba bước đầu chữa đúng chỗ rối, chưa thêm tính năng mới:
+
+| # | Việc | Trạng thái |
+|---|---|---|
+| 1 | Giữ trạng thái danh sách + sửa điều hướng | ĐANG LÀM 2026-09-08 |
+| 2 | Khung xem nhanh sản phẩm ngay trên danh sách | chưa |
+| 3 | Sen Biển hiểu món và việc đang làm | chưa |
+| 4 | Mua lại nhanh | chưa |
+
+### 5b.1 Màn đầu cửa hàng — thứ tự ưu tiên
+
+| Thứ tự | Khối | Điều kiện hiện |
+|---|---|---|
+| 1 | Ô lớn **"Bác cần mua gì?"**, có nút nói | luôn |
+| 2 | **Đơn đang giao** | chỉ khi có đơn chưa xong |
+| 3 | **Mua lại món cũ** | chỉ khi đã từng mua |
+| 4 | Nhóm hàng + danh sách sản phẩm | luôn |
+
+- **Giỏ hàng luôn dễ tìm**: có CHỮ và SỐ LƯỢNG, không phải mỗi cái icon.
+- **Kênh người bán chuyển vào Tài khoản** — giao diện mua hàng chỉ còn việc mua.
+
+### 5b.2 Giữ trạng thái — luật quan trọng nhất
+
+> Đây là thay đổi chữa đúng cảm giác *"nhảy qua nhảy lại"*. Trước 2026-09-08, `market-search` giữ tìm/lọc/sắp xếp/số món đã tải trong `useState`: mở một món rồi Quay lại là **mất sạch**, bà con phải gõ lại chữ tìm, chọn lại nhóm, cuộn lại từ đầu.
+
+Khi rời danh sách rồi quay lại (nút Quay lại, back của máy, đóng khung xem nhanh) phải giữ NGUYÊN:
+
+| Giữ | Vì sao |
+|---|---|
+| chữ đang tìm | gõ lại trên tàu, tay ướt, là việc nặng |
+| nhóm hàng + lọc gần + thứ tự sắp xếp | bà con đã chọn xong một lần |
+| **số món đã tải** (đã bấm "Xem thêm" mấy lần) | tải lại từ trang 1 là tốn sóng và mất chỗ |
+| **vị trí cuộn** | quay lại phải thấy đúng món vừa xem |
+
+Phạm vi giữ: **trong một phiên** (`sessionStorage`, không sao lưu, không qua máy khác). Mở app mới = danh sách mới.
+
+### 5b.3 Đường đi và đường về
+
+| Luật | Chốt |
+|---|---|
+| Dock trong sàn | đánh dấu **Giao dịch** — không để bà con đứng trong cửa hàng mà không ô nào sáng |
+| Quay lại | về màn vừa xem trong app; mở từ liên kết ngoài thì về **Cửa hàng** |
+| Sau khi đặt | hiện **"Đã đặt hàng"** + nút **"Theo dõi đơn"**; Quay lại **KHÔNG** đưa về biểu mẫu đặt hàng cũ |
+| Tên gọi | dùng thống nhất **"Cửa hàng"** trên mọi giao diện (2026-09-07 đã đổi 35 chỗ) |
+
+### 5b.4 Xem nhanh sản phẩm (bước 2)
+
+- Chạm món → **khung xem nhanh ngay trên danh sách**: ảnh, giá, loại/cỡ, số lượng, nút Thêm vào giỏ.
+- Đọc mô tả hoặc đánh giá đầy đủ mới mở trang chi tiết.
+- Thêm xong **giữ nguyên màn**, báo *"Đã thêm 2 chai — Xem giỏ"*, chọn tiếp món khác được ngay.
+
+### 5b.5 Sen Biển hiểu món và việc đang làm (bước 3)
+
+Bot phải biết: **đang xem món nào · đã chọn loại gì · đang tìm gì · vừa hỏi gì trong phiên**.
+
+| Bà con nói | Sen Biển làm |
+|---|---|
+| đang xem dầu, hỏi *"có can 20 lít không?"* | tra biến thể của ĐÚNG món đang xem |
+| đang tìm lưới, nói *"loại rẻ hơn"* | cập nhật kết quả ngay trên danh sách hiện tại |
+| *"lấy hai cái này"* | hiện đúng món, loại, số lượng, tiền để chạm xác nhận |
+| *"đơn tới đâu rồi?"* | trả trạng thái ngay trong bot; cần chi tiết mới mở đơn |
+| *"mua như lần trước"* | cho chọn đơn cũ, **kiểm lại giá và tồn** rồi mới xác nhận thêm giỏ |
+
+**Hai luật cứng**: hỏi thông tin thì **trả lời tại chỗ**, chỉ chuyển màn khi bà con bảo mở; **không tự điều hướng** giữa lúc bà con đang đọc câu trả lời. Ngữ cảnh giữ khi đóng/mở bot trong phiên, đổi món thì cập nhật theo món mới. Chưa rõ *"cái này"* là món nào thì **hỏi một câu ngắn kèm lựa chọn, không đoán**.
+
+### 5b.6 Thông minh nhưng dễ kiểm soát
+
+- Nhớ địa chỉ giao và lựa chọn quen, **cho sửa ngay**.
+- Giá hoặc tồn đổi → **chỉ rõ MÓN NÀO đổi**, không báo chung chung.
+- Mất sóng → **giữ giỏ và nội dung đang nhập**, nói rõ chưa đặt được (không nuốt lỗi im — án lệ `saveUserJson`).
+- Gợi ý hàng dựa trên nhu cầu, giá và **dữ liệu sản phẩm có thật**; thiếu thông tin thì nói thiếu.
 
 ---
 
@@ -597,3 +676,5 @@ Mỗi AC 1 dòng kiểm được, **trong ngoặc = route/hàm chịu trách nhi
 - **v1.1 (2026-09-06) — hợp nhất sau phản biện**: đưa đủ 16 quyết định LEAD-BRIEF §4 + §5 vào §3–§10; tên trường/mã trạng thái/route/trần số lấy NGUYÊN VĂN từ 12-kien-truc 1.1 (`cho_duyet|hoat_dong|tam_khoa|tu_choi`, `items/subtotalVnd/shippingVnd`, `address{name,phone,province,detail,isPort}`, `variantLabel`, `/api/cho/san-pham`, `/api/cho/gio/tinh`, `/cho/shop/[slug]`, mã đơn `SD…`, danh mục gạch-ngang); bỏ R4 "không mua shop mình"; thêm R2'/R12/R13/R17/R19; AC 62 → 77 (thêm AC-08/08b/15b/29b/38b/38c/44b/53b/53c/56b/56c/63–67), mỗi AC ghi route/hàm; §12 đổi thành bảng "đã chốt". Bảng đối chiếu: `_generated/phan-bien-san-thuong-mai-2026-09-06.md`.
 
 **Last updated**: 2026-09-06 (v1.3)
+
+Cập nhật UI 2026-09-08: ảnh chi tiết hàng dùng khung 4:3 và object-contain, giảm vùng ảnh trống và không cắt vật tư. Các thay đổi bố cục được ghi ở 07-design-spec, không thay đổi máy trạng thái đơn hoặc giao kèo API.

@@ -35,7 +35,8 @@ export function BottomNav() {
         >
           {items.map(({ href, label, icon: Icon }) => {
             const active =
-              href === "/" ? pathname === "/" : pathname.startsWith(href);
+              href === "/" ? pathname === "/" : pathname.startsWith(href) ||
+                (href === "/tien" && (pathname === "/cho" || pathname.startsWith("/cho/") || pathname === "/ban-hang" || pathname.startsWith("/ban-hang/")));
             return (
               <li key={href}>
                 <Link
