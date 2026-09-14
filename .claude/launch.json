@@ -12,6 +12,18 @@
       "autoPort": true
     },
     {
+      "name": "forfish-dev-webpack",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--webpack"
+      ],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
       "name": "forfish-prod",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
