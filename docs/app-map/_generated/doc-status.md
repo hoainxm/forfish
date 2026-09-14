@@ -42,4 +42,5 @@
 | docs/app-map/ops/tram-o-bo/07-fine-tune-stt-icefall.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/tram-o-bo/08-qa-full-luong.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/tram-o-bo/09-giam-sat.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/tram-o-bo/10-kien-truc-sen-bien-ai.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/tram-o-bo/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |

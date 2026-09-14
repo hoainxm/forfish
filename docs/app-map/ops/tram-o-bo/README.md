@@ -18,6 +18,7 @@
 | 07 | [07-fine-tune-stt-icefall.md](07-fine-tune-stt-icefall.md) | **Runbook** fine-tune STT zipformer-vi (icefall/k2, cần WSL2/Docker) → export ONNX int8 vào gói. **CHƯA train**; leo thang hotwords trước |
 | 08 | [08-qa-full-luong.md](08-qa-full-luong.md) | **QA full luồng** gói não: 3 nhóm ca (A tự động `test-full-flow.mjs` · B cần PC trạm Ollama/VieNeu · C cần app-side P1 → [qa-offline-acceptance](../qa-offline-acceptance.md)). Kéo câu → LLM nháp → duyệt → đóng gói → cổng kiểm → nhận gói/kiểm hash + ca âm |
 | 09 | [09-giam-sat.md](09-giam-sat.md) | **Giám sát** trạm (`health-check.mjs`): triết lý "trạm chết KHÔNG khẩn" (00 §6), phân mức 🟢/🟡/🔴 theo *độ cũ gói* + *vòng đêm chạy chưa*; đo Ollama/marker `last-run.json`/GPU/đĩa; lịch Task Scheduler 15–30′, chỗ cắm notify, log ngoài repo |
+| 10 | [10-kien-truc-sen-bien-ai.md](10-kien-truc-sen-bien-ai.md) | **RÀ SOÁT + THIẾT KẾ Sen Biển AI (Qwen)**: audit 3 tầng hiện tại · routing online↔offline thông minh (thác bậc T0→T1→T2) · Qwen server (hosting/vLLM, num_ctx 🔴, token, fine-tune) · đạt-mức-Claude bằng dữ liệu chuyên biệt (tool `tra_kho` 🔴) · test/giám sát/tối ưu · roadmap + quyết định cần chốt |
 
 ## Công cụ (ngoài `src/`, chạy ở bờ)
 
