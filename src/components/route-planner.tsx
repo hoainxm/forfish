@@ -34,9 +34,10 @@ import {
   type BoatProfile,
   type LatLon,
   type RoutePlan,
+  type RoutePlanFailure,
   type WeatherField,
 } from "@/lib/route-plan";
-import { planRouteAsync } from "@/lib/route-plan-async";
+import { planRouteWithDiagnosticsAsync } from "@/lib/route-plan-async";
 import {
   buildHazardList,
   hazardsInBBox,
@@ -996,6 +997,19 @@ export function RouteMode({
         Math.min(150, Math.max(45, dist * 0.3)),
         Math.min(420, Math.max(200, dist * 1.1)),
       ];
+      /*  THỜI TIẾT KHUNG ĐẦU KHỞI ĐỘNG CÙNG LÚC VỚI KHO (sửa 2026-09-14). Trước
+          đây `fetchWeatherField` chỉ được gọi SAU khi đã chờ xong kho (trần 5
+          giây bên dưới) ⇒ hai nguồn độc lập mà nối đuôi nhau: kho chậm là cộng
+          thẳng 5 giây vào lượt chờ thời tiết. Nay gọi ngay; kết quả gói thành
+          `{ f }` / `{ e }` để lời từ chối được BẮT NGAY (không thành
+          unhandledrejection trong lúc đang chờ kho), rồi ném lại đúng chỗ dùng
+          ⇒ vẫn rơi vào `catch` "Chưa lấy được dự báo…" như cũ. Cache 45 phút,
+          timeout và nhánh lưới đã lưu nằm trong `fetchWeatherField`, không đổi. */
+      const firstBBox = clampBBox(bboxOfPoints(legPts, margins[0]));
+      const firstField = fetchWeatherField(firstBBox).then(
+        (f) => ({ f }),
+        (e: unknown) => ({ e }),
+      );
       let plan: RoutePlan | null = null;
       let stopWpIdx: number[] = [];
       // tên khác `legs` của vòng trong (mảng RoutePlan) — đừng để che nhau
@@ -1004,6 +1018,8 @@ export function RouteMode({
       let chosenField: WeatherField | null = null;
       // chặng nào chặn đường — để câu lỗi chỉ đúng chỗ thay vì nói chung chung
       let failedLeg = 0;
+      // chẩn đoán của lượt tìm hỏng GẦN NHẤT (khung rộng nhất đã thử)
+      let failure: RoutePlanFailure = "no-route";
       /*  TRẦN CHỜ KHO 5 GIÂY (sửa 2026-09-04, review đợt 4 N4). Chín `fetchX`
           chạy song song và mỗi cái có `timeoutSignal(20000)` riêng, nhưng
           `Promise.all` chờ CÁI CHẬM NHẤT, và lượt `await` này đứng TRƯỚC vòng
@@ -1047,14 +1063,20 @@ export function RouteMode({
           (chặn thiếu còn hơn không chặn), kho vắng được gọi tên ở khối cảnh báo. */
       const soiHiemHoa =
         xacTau != null || laneFeatures != null || seamarks != null;
-      for (const m of margins) {
+      for (let mi = 0; mi < margins.length; mi++) {
         /*  MỘT trường thời tiết cho CẢ chuỗi điểm, dùng lại cho mọi chặng.
             Hỏi mạng từng chặng thì đường đi 6 chỗ = 6 lượt gọi giữa biển —
             mỗi lượt là một lượt có thể treo. Đổi lại lưới thô hơn chút (adapter
             kẹp ≤120 điểm cho mọi khung), thuật toán vẫn nội suy như cũ. */
-        const bbox = clampBBox(bboxOfPoints(legPts, m));
+        const bbox =
+          mi === 0 ? firstBBox : clampBBox(bboxOfPoints(legPts, margins[mi]));
         const [field, depth] = await Promise.all([
-          fetchWeatherField(bbox),
+          mi === 0
+            ? firstField.then((r) => {
+                if ("e" in r) throw r.e;
+                return r.f;
+              })
+            : fetchWeatherField(bbox),
           depthPromise,
         ]);
         /*  Lọc hiểm hoạ theo ĐÚNG khung đang tính rồi đóng gói phẳng: tuyến Vũng
@@ -1068,7 +1090,7 @@ export function RouteMode({
         const legs: RoutePlan[] = [];
         let hoursSoFar = 0;
         for (let i = 1; i < legPts.length; i++) {
-          const leg = await planRouteAsync({
+          const outcome = await planRouteWithDiagnosticsAsync({
             start: legPts[i - 1],
             dest: legPts[i],
             boat,
@@ -1081,8 +1103,10 @@ export function RouteMode({
             hazards,
             noGo: soiHiemHoa ? kho.noGo : null,
           });
+          const leg = outcome.plan;
           if (!leg) {
             failedLeg = i;
+            failure = outcome.failure ?? "no-route";
             break;
           }
           legs.push(leg);
@@ -1100,18 +1124,35 @@ export function RouteMode({
         }
       }
       if (!plan) {
+        /*  NÓI ĐIỀU MÁY BIẾT, KHÔNG NÓI QUÁ (sửa 2026-09-14). Câu cũ "không có
+            đường vòng nào qua được. Kiểm lại điểm đến" sai hai chỗ đã đo được:
+            null còn xảy ra khi lưới dự báo không phủ một phần khung, và khi lưới
+            tìm hữu hạn bỏ sót lối; còn đầu bị kẹt có thể là NƠI ĐI chứ không
+            phải điểm đến. Nên câu gọi tên + toạ độ CẢ HAI đầu của đúng chặng
+            hỏng để bà con tự soát, và chỉ nhắc chuyện dự báo khi lượt tìm thật
+            sự gặp chỗ thiếu số (`weather-coverage`). */
+        const leg = Math.max(1, failedLeg);
+        const fromPt = legPts[leg - 1];
+        const toPt = legPts[leg];
+        const fromStop = leg >= 2 ? stops[leg - 2] : null;
+        const toStop = stops.length ? stops[leg - 1] : null;
+        const fromName =
+          leg === 1 ? startLabel : fromStop?.name ?? `chỗ ghé ${leg - 1}`;
+        const toRole =
+          stops.length > 0 && leg < stops.length ? `chỗ ghé ${leg}` : "điểm đến";
+        const toName = toStop?.name ? `${toRole} ${toStop.name}` : toRole;
+        const fmt = (p: LatLon) => fmtCoordPair(p.lat, p.lon, prefs.coordFormat);
         const where =
-          stops.length > 1 && failedLeg > 0
-            ? failedLeg === 1
+          legPts.length > 2
+            ? leg === 1
               ? " ở chặng từ nơi xuất phát tới chỗ ghé 1"
-              : ` ở chặng từ chỗ ghé ${failedLeg - 1} tới chỗ ghé ${failedLeg}`
+              : ` ở chặng từ chỗ ghé ${leg - 1} tới ${leg < stops.length ? `chỗ ghé ${leg}` : "điểm đến"}`
             : "";
-        /*  BEST-EFFORT (2026-09-09): sóng dữ KHÔNG còn làm null — `planRoute` tự
-            hạ chặn-cứng-sóng thành "đường ít dữ nhất". Nên null tới đây nghĩa là
-            KHÔNG có đường vật lý: đất liền / bãi cạn / vật chặn / vùng cấm chắn
-            ngang. Nói đúng lý do đó, đừng đổ cho sóng nữa (đi vòng cũng vô ích). */
+        const kiemLai = `Kiểm lại nơi đi (${fromName} · ${fmt(fromPt)}) và ${toName} (${fmt(toPt)}) trên hải đồ.`;
         setError(
-          `Chưa tìm được đường${where} — đất liền, bãi cạn hoặc vùng cấm chắn ngang, không có đường vòng nào qua được. Kiểm lại điểm đến trên hải đồ.`,
+          failure === "weather-coverage"
+            ? `Chưa tìm được đường${where}. Dự báo còn thiếu ở một phần vùng này. ${kiemLai} Khi có sóng, tải lại dự báo rồi thử lại.`
+            : `Chưa tìm được đường${where}. ${kiemLai}`,
         );
         setResult(null);
         onRoute(null);
@@ -1801,6 +1842,20 @@ export function RouteMode({
                 {startOptions.find((o) => o.id === effectiveStartId)?.label ??
                   "Chọn nơi xuất phát"}
               </span>
+              {/*  TOẠ ĐỘ NƠI ĐI (2026-09-14): nhãn "Cảng nhà — Tam Quang" không
+                   cho biết máy sẽ tính từ ĐÂU; câu lỗi nay bảo kiểm lại cả nơi
+                   đi nên thẻ phải cho đọc được nó. "Chỗ đang xem" đã có toạ độ
+                   trong nhãn; "định vị" chưa có toạ độ tới lúc bấm Tính.
+                   CỐ Ý KHÔNG cảnh báo "trên bờ" ở đây: cảng thật (Tam Quang, Quy
+                   Nhơn, Vũng Tàu) nằm ô hạng 0 của lưới mà vẫn tính được đường
+                   nhờ luật sát cảng — cảnh báo sẽ kêu ở gần như mọi cảng. */}
+              {effectiveStartId !== "cursor" && (
+                <span className="block truncate text-[0.8125rem] font-bold text-foreground/60">
+                  {startCoord
+                    ? fmtCoordPair(startCoord.lat, startCoord.lon, prefs.coordFormat)
+                    : "Lấy vị trí tàu lúc bấm Tính đường"}
+                </span>
+              )}
             </span>
             <ChevronRightIcon
               className="h-5 w-5 shrink-0 text-foreground/40"
@@ -1907,12 +1962,17 @@ export function RouteMode({
                 <span className="block leading-snug text-[1rem] font-semibold text-navy">
                   {s.name ?? fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
                 </span>
-                {/*  CÓ TÊN RỒI THÌ THÔI IN TOẠ ĐỘ (2026-08-29h). Dòng thứ ba
-                     đẩy hàng lên 73px trong khi nút cạnh nó 56px — mỗi hàng
-                     một chiều cao khác nhau, nhìn ra đúng cái chủ dự án chê.
-                     Mà bà con đặt tên "Rạn ông Tư" CHÍNH LÀ để khỏi đọc dãy
-                     số; toạ độ vẫn xem được bằng cách chạm ghim trên bản đồ.
-                     Chỗ KHÔNG có tên vẫn in toạ độ ở dòng chính. */}
+                {/*  CÓ TÊN VẪN IN TOẠ ĐỘ Ở DÒNG PHỤ (đảo lại bản 2026-08-29h,
+                     sửa 2026-09-14). Bản cũ giấu toạ độ khi có tên cho hàng đều
+                     56px — nhưng ảnh lỗi thật cho thấy cái giá: điểm đến ghi
+                     "Chỗ chưa đặt tên", câu lỗi bảo "kiểm lại điểm đến", mà
+                     không ai đọc được điểm đó NẰM ĐÂU (con trỏ và điểm đến là hai
+                     chỗ khác nhau). Soát được đầu vào quan trọng hơn hàng đều. */}
+                {s.name && (
+                  <span className="block text-[0.8125rem] font-bold leading-tight text-foreground/60">
+                    {fmtCoordPair(s.lat, s.lon, prefs.coordFormat)}
+                  </span>
+                )}
               </span>
             </div>
             <button
@@ -1976,8 +2036,12 @@ export function RouteMode({
                      ngay chỗ ngón tay đang thao tác là cách rẻ nhất bỏ thao tác
                      câm mà KHÔNG đẻ ra lối thứ hai: chạm cả hàng vẫn mở bộ chọn
                      như cũ. */}
+                {/*  "Chỗ đang xem:" đứng trước (2026-09-14) — dòng này là CON
+                     TRỎ, không phải điểm đến đã thêm. Thiếu nhãn thì toạ độ con
+                     trỏ + cảnh báo "trên bờ" dưới nó bị đọc nhầm là của điểm
+                     đến (đúng chuyện đã xảy ra với ảnh lỗi Tam Quang). */}
                 <span className="block leading-snug text-[0.8125rem] font-bold text-foreground/60">
-                  {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}
+                  Chỗ đang xem: {fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}
                 </span>
                 {/*  DÒNG RIÊNG, KHÔNG nối vào dòng toạ độ: dòng đó có
                      `truncate`, nối thêm là câu cảnh báo bị cắt mất đuôi trên
