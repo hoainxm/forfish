@@ -65,8 +65,11 @@ import { CloseButton } from "@/components/ui/close-button";
 
 const FISH_COLOR = "var(--fish)"; // xanh lá — cá/ngư trường (token globals, Phương án A)
 
-// rail xổ ra mà bà con không chạm gì 3s → tự thu (user 2026-07-28, hạ 5s→3s 2026-08-24)
-const AUTO_HIDE_MS = 3000; // 5s → 3s (user 2026-08-24: đỡ rối mắt)
+// rail xổ ra mà bà con không chạm gì 5s → tự thu. MỌI chạm/gõ trong rail+panel
+// nạp lại 5s (còn thao tác là còn ở lại — onPointerDownCapture/onKeyDownCapture).
+// Nhịp: 5s (2026-07-28) → 3s (2026-08-24 "đỡ rối mắt") → 5s (2026-09-14, bạn test
+// báo 3s đọc/thao tác không kịp; reset-khi-tương-tác đã có nên 5s không "rối mắt").
+const AUTO_HIDE_MS = 5000;
 
 type PanelId =
   | "hai-do"
