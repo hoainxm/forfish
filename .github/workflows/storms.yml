@@ -81,10 +81,12 @@ jobs:
           URLS=$(printf '%s\n%s\n' "${BASE_URL%/}" "https://forfish.vercel.app" | awk 'NF&&!seen[$0]++')
           ok=0
           for u in $URLS; do
+            rm -f resp.json
             code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
               -H "Authorization: Bearer $CRON_SECRET" \
-              "$u/api/cron/refresh-storms$Q")
-            echo "[$u] HTTP $code"; cat resp.json 2>/dev/null; echo
+              "$u/api/cron/refresh-storms$Q" || true)
+            [ -n "$code" ] || code="000"
+            echo "[$u] HTTP $code"; cat resp.json 2>/dev/null || true; echo
             { [ "$code" = "200" ] || [ "$code" = "503" ]; } && ok=1
           done
           test "$ok" = "1"
@@ -105,10 +107,12 @@ jobs:
           URLS=$(printf '%s\n%s\n' "${BASE_URL%/}" "https://forfish.vercel.app" | awk 'NF&&!seen[$0]++')
           ok=0
           for u in $URLS; do
+            rm -f resp.json
             code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
               -H "Authorization: Bearer $CRON_SECRET" \
-              "$u/api/cron/notify-storms")
-            echo "[$u] HTTP $code"; cat resp.json 2>/dev/null; echo
+              "$u/api/cron/notify-storms" || true)
+            [ -n "$code" ] || code="000"
+            echo "[$u] HTTP $code"; cat resp.json 2>/dev/null || true; echo
             { [ "$code" = "200" ] || [ "$code" = "503" ]; } && ok=1
           done
           test "$ok" = "1"

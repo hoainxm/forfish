@@ -81,3 +81,37 @@ export function resolveConfigCell(
 export function isConfigKey(k: string): k is ConfigKey {
   return CONFIG_META.has(k as ConfigKey);
 }
+
+/* ── CACHE app_config: HỎI KHÔNG ĐƯỢC ≠ KHÔNG CÓ ────────────────────────────
+   Án lệ 2026-09-15 (cron ĐỎ 7–16 giây = bị đá về NGAY = 401, không phải hết
+   giờ): `loadMap` cũ ghi cache cho MỌI lượt đọc, kể cả lượt Supabase trả lỗi —
+   một cái chớp mạng biến `app_config` thành RỖNG suốt 30 giây. Deploy nào đặt
+   cron_secret/VAPID trong DB (đúng ý đồ "không cần env trên từng Vercel") thì
+   trong 30 giây đó `getCronSecret()` = null ⇒ mọi cron trả 401 ⇒ workflow đỏ;
+   `getVapidConfig()` = null ⇒ KHÔNG đẩy được cảnh báo bão. Cùng bài học với
+   `loadWeatherSnapshot` (2026-08-02) và `saveUserJson` (2026-07-31): nuốt lỗi
+   thành "không có" là mất đồ thật.
+
+   Luật: đọc ĐƯỢC → thay bản mới, hẹn `okMs`. Đọc HỎNG → GIỮ NGUYÊN bản đọc
+   được lần trước (rỗng nếu chưa từng có) và hẹn thử lại SỚM (`failMs`), không
+   được kéo dài cái rỗng ra tới `okMs`. */
+export interface ConfigCache {
+  at: number;
+  ttlMs: number;
+  map: Record<string, string>;
+}
+
+export function nextConfigCache(
+  prev: ConfigCache | null,
+  read: { ok: boolean; map?: Record<string, string> },
+  now: number,
+  ttl: { okMs: number; failMs: number },
+): ConfigCache {
+  if (read.ok) return { at: now, ttlMs: ttl.okMs, map: read.map ?? {} };
+  return { at: now, ttlMs: ttl.failMs, map: prev?.map ?? {} };
+}
+
+/** Cache còn dùng được không (hết hạn theo ttl của CHÍNH lượt ghi ra nó). */
+export function configCacheFresh(c: ConfigCache | null, now: number): boolean {
+  return c != null && now - c.at < c.ttlMs;
+}

@@ -69,10 +69,12 @@ jobs:
           URLS=$(printf '%s\n%s\n' "${BASE_URL%/}" "https://forfish.vercel.app" | awk 'NF&&!seen[$0]++')
           ok=0
           for u in $URLS; do
+            rm -f resp.json
             code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
               -H "Authorization: Bearer $CRON_SECRET" \
-              "$u/api/cron/refresh-weather")
-            echo "[$u] HTTP $code"; cat resp.json 2>/dev/null; echo
+              "$u/api/cron/refresh-weather" || true)
+            [ -n "$code" ] || code="000"
+            echo "[$u] HTTP $code"; cat resp.json 2>/dev/null || true; echo
             if [ "$code" = "200" ]; then ok=1; break; fi
             echo "::warning::$u trả HTTP $code cho /api/cron/refresh-weather. 401 = CRON_SECRET của repo KHÔNG khớp env CRON_SECRET của deploy đó (hoặc deploy chưa đặt env này)."
           done
