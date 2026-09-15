@@ -27,7 +27,7 @@ export default function VmsZonesMap({
 }) {
   // Nền hải đồ tối giản (không lớp vệ tinh/phao) — đủ để định vị vùng.
   const mapStyle = useMemo(
-    () => buildMapStyle(null, new Date(), { seamarks: false }) as StyleSpecification,
+    () => buildMapStyle(null, { seamarks: false }) as StyleSpecification,
     [],
   );
   return (

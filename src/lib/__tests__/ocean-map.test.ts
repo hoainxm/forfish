@@ -5,7 +5,6 @@ import * as oceanMap from "../ocean-map";
 import {
   buildMapStyle,
   formatDateVN,
-  latestAvailableDate,
   OCEAN_LAYERS,
   OFFLINE_COAST_BEFORE_ID,
   SEA_MASK_COLOR,
@@ -40,29 +39,6 @@ import {
 } from "../ocean-map";
 import { CHART_ICON_BASE_PX, CHART_ICON_MIN_PX } from "../chart-symbols";
 
-describe("latestAvailableDate", () => {
-  it("lùi đúng số ngày theo UTC", () => {
-    expect(latestAvailableDate(new Date("2026-06-10T12:00:00Z"), 2)).toBe(
-      "2026-06-08",
-    );
-  });
-
-  it("lùi qua đầu tháng / đầu năm", () => {
-    expect(latestAvailableDate(new Date("2026-06-01T00:00:00Z"), 2)).toBe(
-      "2026-05-30",
-    );
-    expect(latestAvailableDate(new Date("2026-01-01T05:00:00Z"), 3)).toBe(
-      "2025-12-29",
-    );
-  });
-
-  it("pad số 0 cho tháng/ngày một chữ số", () => {
-    expect(latestAvailableDate(new Date("2026-03-05T00:00:00Z"), 1)).toBe(
-      "2026-03-04",
-    );
-  });
-});
-
 describe("formatDateVN", () => {
   it("bỏ số 0 thừa: 2026-06-08 → 8/6", () => {
     expect(formatDateVN("2026-06-08")).toBe("8/6");
@@ -71,10 +47,16 @@ describe("formatDateVN", () => {
 });
 
 describe("OCEAN_LAYERS", () => {
-  it("lớp theo ngày chứa đúng ngày trong URL; mọi lớp đủ placeholder z/x/y", () => {
+  it("lớp ảnh dùng NGÀY `default` của GIBS (không tự trừ ngày); mọi lớp đủ placeholder z/x/y", () => {
     for (const def of Object.values(OCEAN_LAYERS)) {
-      const url = def.tiles("2026-06-08");
-      if (def.dated) expect(url).toContain("/2026-06-08/");
+      const url = def.tiles();
+      // Lớp ảnh vệ tinh theo ngày: KHÔNG được nhúng một ngày cụ thể nữa (ngày
+      // tự tính từng trả 404 khi nguồn đăng chậm — xem OCEAN_LAYERS). Phải là
+      // từ khoá `default` để GIBS tự trả ảnh mới nhất còn.
+      if (def.dated) {
+        expect(url).toContain("/default/default/");
+        expect(url).not.toMatch(/\/\d{4}-\d{2}-\d{2}\//);
+      }
       expect(url).toContain("{z}");
       expect(url).toContain("{y}");
       expect(url).toContain("{x}");
@@ -88,10 +70,8 @@ describe("OCEAN_LAYERS", () => {
 });
 
 describe("buildMapStyle", () => {
-  const now = new Date("2026-06-10T12:00:00Z");
-
   it("không có lớp dữ liệu → nền VECTOR pmtiles + mask chủ quyền + phao đèn", () => {
-    const style = buildMapStyle(null, now);
+    const style = buildMapStyle(null);
     expect(Object.keys(style.sources)).toEqual([
       "basemap",
       "sea-mask",
@@ -135,7 +115,7 @@ describe("buildMapStyle", () => {
 
   it("CHỐT CHỦ QUYỀN: nền KHÔNG lớp symbol nào (không nhãn OSM → KHÔNG THỂ lọt chữ Trung)", () => {
     for (const l of ["bathymetry", "sst", null] as const) {
-      const layers = buildMapStyle(l, now).layers as {
+      const layers = buildMapStyle(l).layers as {
         type: string;
         source?: string;
       }[];
@@ -149,7 +129,7 @@ describe("buildMapStyle", () => {
   it("mốc chèn bờ offline nằm SAU mask, TRƯỚC mọi lớp nội dung", () => {
     // Chèn dưới sea-mask = xoá Hoàng Sa/Trường Sa lúc mất sóng (mask tô kín ô
     // biển ở mức toàn cảnh) — mốc phải nằm ngay TRÊN mask.
-    const ids = (buildMapStyle("sst", now).layers as { id: string }[]).map(
+    const ids = (buildMapStyle("sst").layers as { id: string }[]).map(
       (l) => l.id,
     );
     expect(ids.indexOf(OFFLINE_COAST_BEFORE_ID)).toBeGreaterThan(
@@ -161,7 +141,7 @@ describe("buildMapStyle", () => {
   });
 
   it("lớp NỀN NƯỚC vẽ đầu tiên — mất sóng không được ra màn hình trắng", () => {
-    const layers = buildMapStyle(null, now).layers as {
+    const layers = buildMapStyle(null).layers as {
       id: string;
       type: string;
       paint?: Record<string, unknown>;
@@ -172,7 +152,7 @@ describe("buildMapStyle", () => {
   });
 
   it("font chữ bản đồ TỰ HOST (same-origin) — mất sóng vẫn còn số mét", () => {
-    const style = buildMapStyle("bathymetry", now) as unknown as {
+    const style = buildMapStyle("bathymetry") as unknown as {
       glyphs: string;
     };
     expect(style.glyphs.startsWith("/fonts/")).toBe(true);
@@ -180,7 +160,7 @@ describe("buildMapStyle", () => {
   });
 
   it("hải đồ + phao đèn đi qua cầu same-origin (service worker giữ được)", () => {
-    const style = buildMapStyle("bathymetry", now);
+    const style = buildMapStyle("bathymetry");
     const chart = style.sources["ocean-data"] as { tiles: string[] };
     const marks = style.sources["seamarks"] as { tiles: string[] };
     expect(chart.tiles[0]).toBe("/api/tiles/chart/{z}/{x}/{y}");
@@ -188,14 +168,18 @@ describe("buildMapStyle", () => {
   });
 
   it("tắt phao đèn → không có source seamarks; ranh giới/nhãn không có công tắc", () => {
-    const style = buildMapStyle("sst", now, { seamarks: false });
+    const style = buildMapStyle("sst", { seamarks: false });
     expect(Object.keys(style.sources)).not.toContain("seamarks");
   });
 
-  it("có lớp dữ liệu → thêm source ocean-data với ngày đã trừ độ trễ", () => {
-    const style = buildMapStyle("sst", now);
+  it("có lớp dữ liệu → thêm source ocean-data lấy ảnh GIBS mới nhất (ngày `default`)", () => {
+    const style = buildMapStyle("sst");
     const src = style.sources["ocean-data"] as { tiles: string[] };
-    expect(src.tiles[0]).toContain("/2026-06-08/");
+    // Nguồn GIBS tự chọn ảnh mới nhất còn qua từ khoá `default` — KHÔNG nhúng
+    // một ngày cụ thể (ngày tự tính từng trả 404 khi nguồn đăng chậm).
+    expect(src.tiles[0]).toContain("gibs.earthdata.nasa.gov");
+    expect(src.tiles[0]).toContain("/default/default/");
+    expect(src.tiles[0]).not.toMatch(/\/\d{4}-\d{2}-\d{2}\//);
     // thứ tự: mask < lớp dữ liệu < phao đèn
     const ids = (style.layers as { id: string }[]).map((l) => l.id);
     expect(ids.indexOf("ocean-data")).toBeGreaterThan(ids.indexOf("sea-mask"));
@@ -203,7 +187,7 @@ describe("buildMapStyle", () => {
   });
 
   it("mask mờ dần rồi tắt khi zoom gần bờ (không che luồng lạch)", () => {
-    const style = buildMapStyle("bathymetry", now);
+    const style = buildMapStyle("bathymetry");
     const mask = (style.layers as { id: string; paint?: Record<string, unknown> }[]).find(
       (l) => l.id === "sea-mask",
     )!;
@@ -215,7 +199,7 @@ describe("buildMapStyle", () => {
   });
 
   it("nền hải đồ có đường đẳng sâu + nhãn số mét (style có glyphs)", () => {
-    const style = buildMapStyle("bathymetry", now) as unknown as {
+    const style = buildMapStyle("bathymetry") as unknown as {
       glyphs?: string;
       sources: Record<string, unknown>;
       layers: { id: string; type: string }[];
@@ -227,12 +211,12 @@ describe("buildMapStyle", () => {
       style.layers.find((l) => l.id === "isobath-labels")?.type,
     ).toBe("symbol");
     // nền vệ tinh thì KHÔNG vẽ đẳng sâu (rối)
-    const sst = buildMapStyle("sst", now);
+    const sst = buildMapStyle("sst");
     expect(Object.keys(sst.sources)).not.toContain("isobaths");
   });
 
   it("lớp ảnh/độ sâu nhả ra khi zoom sâu (z>12); phao đèn hiện từ z8", () => {
-    const style = buildMapStyle("bathymetry", now);
+    const style = buildMapStyle("bathymetry");
     const layers = style.layers as { id: string; maxzoom?: number; minzoom?: number }[];
     expect(layers.find((l) => l.id === "ocean-data")?.maxzoom).toBe(12);
     expect(layers.find((l) => l.id === "seamarks")?.minzoom).toBe(8);
@@ -259,10 +243,9 @@ describe("style dựng ra phải HỢP LỆ với chính MapLibre", () => {
     const { validateStyleMin } = await import(
       "@maplibre/maplibre-gl-style-spec"
     );
-    const now = new Date("2026-06-10T12:00:00Z");
     for (const layerId of ["bathymetry", "sst", "chlorophyll", null] as const) {
       for (const seamarks of [true, false]) {
-        const style = buildMapStyle(layerId, now, { seamarks });
+        const style = buildMapStyle(layerId, { seamarks });
         const errs = validateStyleMin(
           style as Parameters<typeof validateStyleMin>[0],
         );
@@ -275,7 +258,7 @@ describe("style dựng ra phải HỢP LỆ với chính MapLibre", () => {
   });
 
   it("ĐẲNG SÂU: mức càng nông càng đòi zoom gần — số mét hiện sau đường", () => {
-    const style = buildMapStyle("bathymetry", new Date("2026-06-10T12:00:00Z"));
+    const style = buildMapStyle("bathymetry");
     const layers = style.layers as { id: string; filter?: unknown }[];
     const line = layers.find((l) => l.id === "isobath-lines");
     const label = layers.find((l) => l.id === "isobath-labels");
@@ -317,7 +300,7 @@ describe("tương phản nét hải đồ (tính sau khi pha độ mờ)", () =>
     fg.map((v, i) => Math.round(v * a + bg[i] * (1 - a)));
 
   it("đường đẳng sâu đạt ≥3:1 SAU KHI pha độ mờ", () => {
-    const style = buildMapStyle("bathymetry", new Date("2026-06-10T12:00:00Z"));
+    const style = buildMapStyle("bathymetry");
     const line = (style.layers as { id: string; paint?: Record<string, unknown> }[]).find(
       (l) => l.id === "isobath-lines",
     );
@@ -356,7 +339,7 @@ describe("tương phản nét hải đồ (tính sau khi pha độ mờ)", () =>
 */
 describe("nguồn đẳng sâu hai vai — lớp nào cũng phải lọc theo `k`", () => {
   it("mọi lớp đọc source 'isobaths' đều mang bộ lọc vai", () => {
-    const style = buildMapStyle("bathymetry", new Date("2026-06-10T12:00:00Z"));
+    const style = buildMapStyle("bathymetry");
     const layers = (
       style.layers as { id: string; source?: string; filter?: unknown }[]
     ).filter((l) => l.source === "isobaths");
@@ -418,7 +401,7 @@ describe("dải tô: nếu ai bật thì nét đẳng sâu vẫn phải đọc �
       tương phản TĂNG. Cổng nay đo THẬT cả ba: nét trên nền sâu mới · nét
       trên nền nông giữ nguyên · nhãn số mét. */
   it("dải đủ-nước: nét đẳng sâu ĐẠT sàn trên CẢ HAI nền, nhãn đạt 4,5:1", () => {
-    const style = buildMapStyle("bathymetry", new Date("2026-06-10T12:00:00Z"));
+    const style = buildMapStyle("bathymetry");
     const fill = (style.layers as {
       source?: string; type: string; paint?: Record<string, unknown>;
     }[]).find((l) => l.source === "isobaths" && l.type === "fill");
@@ -629,7 +612,7 @@ describe("sàn cỡ icon: mọi nấc icon-size của mọi spec symbol ≥ CHAR
 describe("sprite của style PHẢI là URL tuyệt đối (sự cố 2026-09-01→03: không một icon nào vẽ)", () => {
   it("buildMapStyle().sprite có scheme + host + đúng đường dẫn sprite", async () => {
     const { CHART_SPRITE_URL, chartSpriteUrl } = await import("../chart-symbols");
-    const style = buildMapStyle("bathymetry", new Date("2026-09-03T00:00:00Z"));
+    const style = buildMapStyle("bathymetry");
     expect(style.sprite).toBe(chartSpriteUrl());
     // MapLibre v5 kiểm bằng "có scheme://host" — tương đối là im lặng bỏ mọi icon
     expect(String(style.sprite)).toMatch(/^[a-z][a-z0-9+.-]*:\/\/[^/]+\/icons\/chart-sprite$/i);

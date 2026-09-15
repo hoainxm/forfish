@@ -1047,7 +1047,7 @@ describe("bộ ký hiệu phải được NỐI, không chỉ nằm trong public
   it("style KHAI BÁO sprite — thiếu là mọi ký hiệu câm lặng", async () => {
     const { buildMapStyle } = await import("../ocean-map");
     for (const layerId of ["bathymetry", "sst", "chlorophyll", null] as const) {
-      const style = buildMapStyle(layerId, new Date("2026-06-10T12:00:00Z")) as {
+      const style = buildMapStyle(layerId) as {
         sprite?: string;
       };
       expect(

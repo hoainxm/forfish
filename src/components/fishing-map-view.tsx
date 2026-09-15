@@ -3425,7 +3425,7 @@ export default function FishingMapView() {
       // (Nước nóng lạnh / Vùng nhiều mồi) — ảnh đục 0,85 làm chìm phao·luồng·số
       // đo sâu ở dải z9–12. Muốn xem ảnh vệ tinh thì TẮT Hải đồ chi tiết; hai
       // chế độ tách biệt, layerId vẫn được nhớ để hiện lại khi tắt.
-      buildMapStyle(anyExclusiveOverlay || chartDetailOn ? "bathymetry" : layerId, new Date(), {
+      buildMapStyle(anyExclusiveOverlay || chartDetailOn ? "bathymetry" : layerId, {
         /*  LỚP ẢNH BÁO HIỆU TẮT HẲN (2026-08-29) — công tắc `seamarksOn` nay
             điều khiển lớp VECTOR trong máy (xem `seamarkGeo` phía dưới).
 

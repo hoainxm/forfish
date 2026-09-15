@@ -706,7 +706,8 @@ function cadLine(id: OceanLayerId): { text: string; dot: string } {
   if (!def.dated) return { text: "Cố định · Không đổi theo ngày", dot: DOT.coDinh };
   // Ảnh vệ tinh theo ngày (KHÔNG phải dự báo). Bỏ số "trễ ~2 ngày" khỏi UI
   // (user 2026-07-29: ngư dân không cần biết), nhưng vẫn ghi "ảnh vệ tinh" để
-  // khỏi nhầm với lớp dự báo mây/gió/sóng. `lagDays` vẫn dùng để lấy ảnh mới nhất.
+  // khỏi nhầm với lớp dự báo mây/gió/sóng. Ảnh mới nhất do GIBS tự chọn qua
+  // ngày `default` (xem OCEAN_LAYERS) — app không tự tính ngày nữa.
   return { text: "Ảnh vệ tinh · theo ngày", dot: DOT.ngay };
 }
 

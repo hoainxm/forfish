@@ -80,7 +80,7 @@ describe("sw.js — mọi kho pmtiles phải sống qua bump vỏ và đứng tr
   })();
 
   it("nền bản đồ trong danh sách KHỚP url pmtiles:// của style", () => {
-    const src = buildMapStyle(null, new Date("2026-06-10T12:00:00Z")).sources
+    const src = buildMapStyle(null).sources
       .basemap as { url?: string };
     expect(archives).toContain(String(src.url).replace("pmtiles://", ""));
   });

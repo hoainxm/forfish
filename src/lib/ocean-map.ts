@@ -27,14 +27,14 @@ export type OceanLayerDef = {
   help: string;
   /** Chú giải hai đầu thang màu */
   legend: { from: string; to: string; gradient: string } | null;
-  /** Ảnh chậm mấy ngày so với hôm nay (đã dò thực tế nguồn) */
-  lagDays: number;
   /** false = bản đồ tĩnh (độ sâu đáy biển) — không có khái niệm "ảnh ngày X" */
   dated: boolean;
   /** Độ mờ khi vẽ đè (mặc định 0.85); lớp tự đứng được (độ sâu) dùng 1 */
   opacity?: number;
-  /** Trả về URL template tile cho một ngày YYYY-MM-DD (lớp tĩnh bỏ qua) */
-  tiles: (isoDate: string) => string;
+  /** Mẫu URL template tile XYZ. Lớp ảnh vệ tinh theo ngày dùng NGÀY `default`
+   *  của GIBS (nguồn tự chọn ảnh mới nhất còn — xem OCEAN_LAYERS) nên không
+   *  nhận tham số ngày; lớp tĩnh (độ sâu) đi qua cầu same-origin. */
+  tiles: () => string;
   /** Mức zoom sâu nhất nguồn có tile thật (zoom sâu hơn thì phóng to tile cũ) */
   maxNativeZoom: number;
 };
@@ -59,10 +59,18 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
       gradient:
         "linear-gradient(90deg,#4575b4,#91cf60,#dcdcdc,#fdae61,#d73027)",
     },
-    lagDays: 2,
     dated: true,
-    tiles: (d) =>
-      `${GIBS}/GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies/default/${d}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
+    // NGÀY `default` (2026-09-14) — ĐỪNG QUAY LẠI TỰ TRỪ NGÀY.
+    // Trước đây tự tính `hôm nay − lagDays` (SST để 2 ngày). Nhưng nguồn ảnh
+    // này (MUR anomaly) đăng CHẬM và độ trễ THAY ĐỔI theo tuần: dò 2026-09-14
+    // thấy ảnh mới nhất là 2026-09-07 (trễ 7 ngày), nên URL ngày 09-12 trả 404
+    // TOÀN BỘ ô ⇒ chọn lớp "Nước nóng lạnh" ra hải đồ trống lốm đốm ô, không
+    // báo gì (lớp GIBS cross-origin không đi qua onError của basemap). GIBS
+    // nhận từ khoá thời gian `default` = ảnh mới nhất còn, do CHÍNH nguồn chọn
+    // ⇒ hết đoán độ trễ, hết 404 vì ngày chưa có. UI không hiện ngày ảnh nên
+    // không mất nhãn nào (xem ra-khoi-controls `cadLine`).
+    tiles: () =>
+      `${GIBS}/GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies/default/default/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
     maxNativeZoom: 7,
   },
   chlorophyll: {
@@ -75,10 +83,12 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
       gradient:
         "linear-gradient(90deg,#30123b,#28bceb,#a2fc3c,#fabd23,#7a0403)",
     },
-    lagDays: 2,
     dated: true,
-    tiles: (d) =>
-      `${GIBS}/VIIRS_NOAA20_Chlorophyll_a/default/${d}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
+    // Cùng lý do SST: dùng NGÀY `default` của GIBS thay vì tự trừ ngày. Lớp
+    // phù du (VIIRS) hôm nay trễ ít hơn, nhưng độ trễ vẫn đổi theo ngày —
+    // `default` để nguồn tự chọn ảnh mới nhất còn, khỏi 404 lúc ngày chưa có.
+    tiles: () =>
+      `${GIBS}/VIIRS_NOAA20_Chlorophyll_a/default/default/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png`,
     maxNativeZoom: 7,
   },
   bathymetry: {
@@ -93,7 +103,6 @@ export const OCEAN_LAYERS: Record<OceanLayerId, OceanLayerDef> = {
       to: "Sâu",
       gradient: "linear-gradient(90deg,#d9eef5,#9fcde4,#5b9bc9,#2a6299,#0b2d59)",
     },
-    lagDays: 0,
     dated: false,
     opacity: 1,
     // Đi qua cầu same-origin /api/tiles/chart/... để service worker giữ lại
@@ -110,15 +119,6 @@ export const OCEAN_LAYER_ORDER: OceanLayerId[] = [
   "sst",
   "chlorophyll",
 ];
-
-/** Ngày (UTC) mới nhất chắc chắn có ảnh, lùi `lagDays` so với `now`. */
-export function latestAvailableDate(now: Date, lagDays: number): string {
-  const d = new Date(now.getTime() - lagDays * 24 * 60 * 60 * 1000);
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 /** "2026-06-08" → "8/6" cho copy tiếng Việt */
 export function formatDateVN(isoDate: string): string {
@@ -935,7 +935,6 @@ const BASEMAP_DEAD_LAYERS = new Set([
  */
 export function buildMapStyle(
   layerId: OceanLayerId | null,
-  now: Date,
   opts: { seamarks?: boolean } = {},
 ) {
   const { seamarks = true } = opts;
@@ -1046,7 +1045,7 @@ export function buildMapStyle(
     const def = OCEAN_LAYERS[layerId];
     sources["ocean-data"] = {
       type: "raster",
-      tiles: [def.tiles(latestAvailableDate(now, def.lagDays))],
+      tiles: [def.tiles()],
       tileSize: 256,
       maxzoom: def.maxNativeZoom,
     };
