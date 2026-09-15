@@ -28,6 +28,18 @@ SEC_SENSITIVE_PATHS='(^|/)(auth|payment|billing|crypto|secrets?)(/|$)|\.env|migr
 SELF_TEST_MIGRATION_SAMPLE='supabase/migrations/0001_init.sql'
 SELF_TEST_DOC_SAMPLE='docs/app-map/04-data-model.md'
 
+# ── MATCHER HỢP ĐỒNG (nguyên tắc 10) — path $1 nằm trong vùng covers $2? in "1" nếu khớp.
+# Khớp = trùng đúng file HOẶC là con của thư mục (`$2/...`). Sibling (src/lib-utils vs src/lib)
+# KHÔNG khớp. ⚠️ ĐẶT `case` TRONG HÀM, ĐỪNG nhét thẳng vào `$( … )`: bash 3.2 (/bin/sh của
+# macOS) đếm ngoặc của command-substitution bị lẫn với `)` của case-pattern → "syntax error
+# near ';;'" làm CẢ script không parse (dò 2026-09-15; Linux/bash5/dash thì parse được nên CI
+# xanh mà máy Mac chết). Gọi $(covers_hit …) thì trong `$( )` không có `case` nên parse mọi shell.
+covers_hit() {
+  case "$1" in
+    "$2" | "$2"/*) echo 1 ;;
+  esac
+}
+
 if [ "$1" = "--self-test" ]; then
   echo "ok: hook parse duoc."
   RC=0
@@ -46,9 +58,9 @@ if [ "$1" = "--self-test" ]; then
   echo "  BUDGET = $CLAUDE_MD_CHAR_BUDGET chars"
   # Contract test matcher (CÙNG bảng với doc-health-report self-test — matcher tồn tại
   # ở 2 file, bảng này là hợp đồng chung, nguyên tắc 10 áp cho nội bộ hệ):
-  M=$(echo "src/lib-utils/a.ts" | while read -r c; do case "$c" in "src/lib"|"src/lib"/*) echo 1;; esac; done)
+  M=$(covers_hit "src/lib-utils/a.ts" "src/lib")
   [ -z "$M" ] && echo "PASS: matcher contract — sibling (src/lib-utils) KHONG khop src/lib" || { echo "FAIL: matcher overmatch sibling"; RC=1; }
-  M=$(echo "src/lib/x.ts" | while read -r c; do case "$c" in "src/lib"|"src/lib"/*) echo 1;; esac; done)
+  M=$(covers_hit "src/lib/x.ts" "src/lib")
   [ -n "$M" ] && echo "PASS: matcher contract — child (src/lib/x) khop" || { echo "FAIL: matcher miss child"; RC=1; }
   # Fixture gate: warn — chạy flow thật trong temp repo, WARN nhưng KHÔNG chặn
   HOOK_SELF="$0"; case "$HOOK_SELF" in /*|[A-Za-z]:*) ;; *) HOOK_SELF="$(pwd)/$HOOK_SELF";; esac
@@ -510,7 +522,7 @@ for doc in $(git ls-files 'docs/app-map/*.md' 'docs/app-map/**/*.md' 2>/dev/null
   HIT=0
   for p in $(echo "$CLINE" | sed 's/^[Cc]overs:[[:space:]]*//' | tr ',' '\n' | sed 's/^ *//; s/ *$//'); do
     [ -n "$p" ] || continue
-    H=$(echo "$CHANGED" | while read -r c; do case "$c" in "$p"|"$p"/*) echo 1; break;; esac; done)
+    H=$(echo "$CHANGED" | while read -r c; do if [ -n "$(covers_hit "$c" "$p")" ]; then echo 1; break; fi; done)
     [ -n "$H" ] && { HIT=1; break; }
   done
   # "Doc da duoc sua" = co it nhat 1 dong staged-diff KHONG phai marker DOC-STATUS may-ghi.
@@ -554,7 +566,7 @@ if [ "$CLAIMS_CHECK" != "off" ]; then
       { [ -n "$CBR" ] && [ "$CBR" != "$CURBR" ]; } || continue
       CPATHS=$(sed -n '/"write_paths"/,/\]/p' "$cf" | grep '^[[:space:]]*"' | grep -v write_paths | sed 's/^[[:space:]]*"//; s/",*$//')
       for p in $CPATHS; do
-        H=$(echo "$CHANGED" | while read -r c; do case "$c" in "$p"|"$p"/*) echo 1; break;; esac; done)
+        H=$(echo "$CHANGED" | while read -r c; do if [ -n "$(covers_hit "$c" "$p")" ]; then echo 1; break; fi; done)
         if [ -n "$H" ]; then
           CLOT=$(grep '"lot"' "$cf" | head -1 | sed 's/.*: *"//; s/".*//')
           echo "BLOCK: staged path trong write-set cua claim khac — '$p' thuoc lot '$CLOT' (branch $CBR)."
@@ -718,7 +730,10 @@ if [ "$BUILD_CHECKS" != "off" ]; then
     NEWFN=$(git diff --cached -U0 -- "$f" 2>/dev/null | grep -E '^\+export (async )?function [A-Za-z_]' | sed -E 's/^\+export (async )?function ([A-Za-z_][A-Za-z0-9_]*).*/\2/' || true)
     for fn in $NEWFN; do
       echo "$fn" | grep -qE "^($EXPORT_ALLOW)$" && continue
-      DUP=$(git grep -lE "export (async )?function $fn\b" -- '*.ts' '*.tsx' '*.js' '*.jsx' 2>/dev/null | grep -v "^$f$" | head -1)
+      # `-w` (whole-word) thay cho `\b`: BSD regex của git trên macOS KHÔNG hiểu
+      # `\b` (GNU-only) → pattern trượt câm, WARN không bao giờ bắn (dò 2026-09-15,
+      # Linux/CI thì `\b` chạy nên lỗi ẩn). `-w` chặn cả prefix (dupFn ≠ dupFnExtra).
+      DUP=$(git grep -lwE "export (async )?function $fn" -- '*.ts' '*.tsx' '*.js' '*.jsx' 2>/dev/null | grep -v "^$f$" | head -1)
       [ -n "$DUP" ] && echo "WARN: export function '$fn' moi trong $f trung ten voi $DUP — grep truoc khi them, dung lai hoac gop (NT15 §3)."
     done
   done
