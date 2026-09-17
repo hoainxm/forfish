@@ -1,0 +1,9 @@
+{
+  "_ghi_chu": "DANH SÁCH TÀI KHOẢN TEST — nguồn duy nhất, khoanh vùng: scripts/test-account.mjs CHỈ cấp chuỗi thiết bị / đổi hạng tạm cho số trong danh sách này, số khác từ chối. Đây là tài khoản có sẵn trong DB production (bảng customers), KHÔNG phải máy bà con. Thêm số mới thì thêm vào đây kèm mục đích. Hạng ghi ở đây là hạng GỐC để script trả lại sau khi test.",
+  "accounts": [
+    { "phone": "0912345678", "tier": "premium", "name": "TEST CASE NPP", "purpose": "premium có sẵn — thường có máy thật đang giữ chuỗi, chỉ cấp thêm với --multi" },
+    { "phone": "0123456154", "tier": "premium", "name": "test case khach hang", "purpose": "premium có sẵn — cùng lưu ý --multi" },
+    { "phone": "0900000777", "tier": "basic", "name": "Khách Test E2E", "purpose": "tài khoản thường; nâng premium tạm bằng --premium để thử cửa premium rồi script tự trả về basic" },
+    { "phone": "0903333333", "tier": "basic", "name": "Test SDWork Side", "purpose": "tài khoản thường thứ hai — dùng khi cần một SĐT khác để không dính đệm hạng 5 phút của middleware" }
+  ]
+}

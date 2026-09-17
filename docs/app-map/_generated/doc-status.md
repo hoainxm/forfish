@@ -28,3 +28,4 @@
 | docs/app-map/ops/self-host-vps.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/state-registry.md | VERIFIED | ok |
 | docs/app-map/ops/sync-base-flow.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
+| docs/app-map/ops/test-tai-khoan.md | VERIFIED | ok |
