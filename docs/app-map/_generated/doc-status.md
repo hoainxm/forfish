@@ -9,22 +9,22 @@
 | docs/app-map/04-data-model.md | SUSPECT | code 'src/lib/documents.ts' doi sau last_verified |
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/06-jtbd-quan-ly-tau.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/07-design-spec.md | SUSPECT | code 'src/app' doi sau last_verified |
+| docs/app-map/07-design-spec.md | VERIFIED | ok |
 | docs/app-map/08-ba-spec-da-tau.md | SUSPECT | code 'src/components/urgent-strip.tsx' doi sau last_verified |
 | docs/app-map/09-ba-spec-lo-trinh-chuyen-bien.md | VERIFIED | ok |
-| docs/app-map/10-ba-spec-quan-tri-van-hanh.md | VERIFIED | ok |
+| docs/app-map/10-ba-spec-quan-tri-van-hanh.md | SUSPECT | code 'src/app/api/admin' doi sau last_verified |
 | docs/app-map/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-notify-2026-08-18.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-offline-2026-08-02.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/audit-offline-vong2-2026-08-02.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/build-publish-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/dot1-setup.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/external-services.md | SUSPECT | code 'src/lib/port-price-source.ts' doi sau last_verified |
-| docs/app-map/ops/forecast-accuracy.md | VERIFIED | ok |
+| docs/app-map/ops/external-services.md | VERIFIED | ok |
+| docs/app-map/ops/forecast-accuracy.md | SUSPECT | code 'src/lib/forecast-skill.ts' doi sau last_verified |
 | docs/app-map/ops/native-deploy.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/qa-offline-acceptance.md | SUSPECT | code 'public/sw.js' doi sau last_verified |
+| docs/app-map/ops/qa-offline-acceptance.md | VERIFIED | ok |
 | docs/app-map/ops/runbook-phat-hanh-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/runbook.md | VERIFIED | ok |
 | docs/app-map/ops/self-host-vps.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/state-registry.md | SUSPECT | code 'src/lib/offline-backup.ts' doi sau last_verified |
+| docs/app-map/ops/state-registry.md | VERIFIED | ok |
 | docs/app-map/ops/sync-base-flow.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |

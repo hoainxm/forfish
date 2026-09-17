@@ -225,6 +225,20 @@ describe("DÂY NỐI — cổng chữ (kiểu lỗi: file có, hàm có, mà kh�
     expect(v).toContain("registerDataProtocol()");
   });
 
+  it("KHÔNG file .ts/.tsx nào (kể cả test) `import` JSON từ public/data — TS của next build sẽ parse bản ĐÃ MÃ (build Vercel c3cc67a đỏ)", () => {
+    const all: string[] = [];
+    const walkAll = (dir: string) => {
+      for (const f of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+        const p = `${dir}/${f.name}`;
+        if (f.isDirectory()) walkAll(p);
+        else if (/\.(ts|tsx)$/.test(f.name)) all.push(p);
+      }
+    };
+    walkAll("src");
+    const hits = all.filter((p) => /from\s+"[^"]*public\/data\//.test(strip(read(p))));
+    expect(hits, "đọc bằng readFileSync + JSON.parse lúc chạy, đừng import").toEqual([]);
+  });
+
   it("`npm run build` mã hoá TRƯỚC `next build`", () => {
     const pkg = JSON.parse(read("package.json")) as { scripts: { build: string }; license: string };
     expect(pkg.scripts.build).toBe("node scripts/encode-data.mjs && next build");

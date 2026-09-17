@@ -1,6 +1,16 @@
 import { describe, it, expect } from "vitest";
 import weights from "@/data/fish-blend-weights.json";
-import climFile from "../../../public/data/fish-climatology.v1.json";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+/*  ĐỌC BẰNG readFileSync, KHÔNG `import` JSON (2026-09-17, build Vercel c3cc67a
+    đỏ): `next build` chạy TypeScript trên cả file test; import JSON là bắt TS
+    parse `public/data/fish-climatology.v1.json` — mà lúc build Vercel file đó
+    ĐÃ MÃ HOÁ (SDF2) ⇒ "File appears to be binary". Đọc lúc chạy test thì TS
+    không đụng; test chạy trên bản rõ trong git nên vẫn đọc được. */
+const climFile: unknown = JSON.parse(
+  readFileSync(join(process.cwd(), "public", "data", "fish-climatology.v1.json"), "utf8"),
+);
 import {
   blendUsable,
   maxMeasuredLead,
