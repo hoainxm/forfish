@@ -115,6 +115,8 @@ export async function configStatus(): Promise<ConfigStatusRow[]> {
       source: cell.source,
       set: cell.set,
       value: cell.value,
+      generate: m.generate,
+      risk: m.risk,
     };
   });
 }

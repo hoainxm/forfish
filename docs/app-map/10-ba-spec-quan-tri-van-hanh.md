@@ -2,7 +2,8 @@
 
 > Load khi: task chạm /quan-tri (vận hành), phân quyền đại lý, trạng thái premium (đã dùng/đã liên hệ), thu tiền + trace tiền đồng bộ SDWork, audit hoạt động admin, luồng đăng nhập admin.
 covers: src/app/quan-tri, src/app/api/admin, src/lib/admin-auth.ts, src/lib/admin.ts
-last_verified: 2026-08-31
+last_verified: 2026-09-17
+<!-- re-verified: 2026-09-17 — CẤU HÌNH ỨNG DỤNG: LƯU SAI LÀ CHẾT HỆ THỐNG, NAY CÓ BA LỚP CHẶN (ảnh prod cùng ngày: trình duyệt tự điền SĐT 0938… vào ô VAPID Public Key, mật khẩu vào Private Key, nút Lưu sáng; chủ dự án: "thao tác cái là chết hệ thống mà không cảnh báo"). (1) Input tắt tự điền: `autoComplete=new-password|off`, `name=cfg-<key>`, `spellCheck=false`, data-lpignore/1p-ignore. (2) Kiểm dạng NGAY KHI GÕ bằng `validateConfigValue` (lib/app-config-keys, thuần): sai thì dòng đỏ "Không đúng dạng… nếu ô tự hiện SĐT/mật khẩu là trình duyệt điền nhầm" + khoá nút Lưu; PATCH /api/admin/app-config kiểm lại lần nữa cho MỌI khoá ⇒ 400 `bad_value` (VAPID public 80–100 base64url, private 40–50, subject mailto:/https:, cron ≥16 ký tự, khoá dữ liệu 64 hex). (3) Bấm Lưu mở hộp xác nhận (role=alertdialog, nền danger) nói HẬU QUẢ của đúng khoá đó (`risk` khai trong registry, lời thường, có test cấm jargon) + "Áp dụng ngay cho mọi máy, không hoàn tác được ở đây"; "Lưu thật" mới ghi, "Huỷ" đóng. Registry thêm 2 ô khoá dữ liệu bản đồ `data_key_current` (secret, nút "Tạo ngẫu nhiên" sinh 64 hex trên máy admin) / `data_key_prev`; ghi khoá hiện hành mới thì khoá cũ tự trượt xuống prev (`dataKeyShift`). Cổng: `__tests__/app-config-guard.test.ts` (risk đủ + lời thường, validate từng khoá kể cả đúng chuỗi trong ảnh, shift, dây nối trang + route). -->
 <!-- re-verified: 2026-08-31 — DẢI 4 Ô SỐ ĐẦU TAB "Tài khoản" NAY ĐẾM THEO THỨ ĐANG XEM.
 Báo từ hiện trường (Vss Quân Bình Định qua chủ dự án): *"cái con số pre nó ko nhảy theo"* — ảnh chụp
 39 tổng / 39 premium đứng im khi đổi bộ lọc. KHÔNG phải lỗi dữ liệu, cũng không phải `resolveTier`:

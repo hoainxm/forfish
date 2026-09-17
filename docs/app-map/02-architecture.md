@@ -442,6 +442,8 @@ NỢ ĐÃ BIẾT, KHÔNG SỬA ĐỢT NÀY: (i) `seamarksOn` vẫn hằng `true`
 
 ---
 
+<!-- re-verified: 2026-09-17a — /quan-tri CẤU HÌNH ỨNG DỤNG: chống tự điền + kiểm ranh giới + xác nhận hậu quả (chi tiết hành vi ở 10 re-verified 2026-09-17). `lib/app-config-keys.ts`: `ConfigKeyMeta.risk` (bắt buộc, câu hậu quả) + `generate?: "hex32"`; thêm khoá `data_key_current`/`data_key_prev` (secret; dùng cho mã file dữ liệu bản đồ — phần đọc/phát khoá đi commit sau); thuần `validateConfigValue`, `isDataKeyValue`, `dataKeyShift`; `ConfigStatusRow` thêm `generate`/`risk`; `lib/app-config.ts` `configStatus` trả hai trường đó. `app/api/admin/app-config` PATCH: `validateConfigValue` cho MỌI khoá ⇒ 400; `data_key_current` ghi kèm trượt khoá cũ sang prev. `app/quan-tri/page.tsx` AppConfigCard: input `autoComplete`/`name`/`data-lpignore`, `randomHex32` + nút Tạo ngẫu nhiên cho ô `generate`, kiểm khi gõ (`bad` ⇒ dòng đỏ + khoá Lưu), state `confirm` ⇒ hộp alertdialog `{row.risk}` + Lưu thật/Huỷ. CỔNG: `__tests__/app-config-guard.test.ts`. OFFLINE: trang quản trị desktop, không đụng app ngư dân/SW/khoá forfish.*. -->
+
 ## 1. Stack
 
 - **Next.js 16** App Router + TypeScript (lưu ý: Next 16 có breaking changes — đọc `node_modules/next/dist/docs/` khi không chắc API)
