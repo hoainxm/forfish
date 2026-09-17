@@ -371,6 +371,9 @@ const SHELL = [
   // lớp cá của chuyến DÀI pha trộn bản này với dự báo. Nằm sẵn trong máy thì
   // giữa biển mất sóng vẫn tính được lộ trình 16 ngày.
   "/data/fish-climatology.v1.json",
+  // THAM SỐ MÔ HÌNH (trọng số blend cá + bảng skill) — SDF2, đi cùng mùa vụ; thiếu thì
+  // blend tắt (giữ dự báo) và độ tin không hạ thêm, không trắng gì (2026-09-16).
+  "/data/model-params.v1.json",
   // HÌNH DẠNG rạn/bãi ngầm (OSM natural=reef/shoal, ~307 KB). Ở tier BEST-EFFORT
   // (không CRITICAL): lớp phụ trợ — nhãn TÊN rạn đã nằm ở CRITICAL, thiếu hình
   // thì vẫn còn tên. Nặng nên không để nó chặn install lúc sóng chập chờn.

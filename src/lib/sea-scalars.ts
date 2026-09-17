@@ -13,6 +13,7 @@ import { saveForecast, loadForecast } from "@/lib/forecast-cache";
 import { forecastStoreReady } from "@/lib/forecast-store";
 import { seaScalarSnapshotId } from "@/lib/weather-snapshot-id";
 import { timeoutSignal } from "@/lib/abort";
+import { tokenHeader } from "@/lib/device-token-store";
 
 export type SeaScalarKind = "ssha" | "sss";
 
@@ -148,7 +149,7 @@ async function loadSeaScalarSnapshot(
   try {
     const r = await fetch(
       apiUrl(`/api/weather-snapshot?id=${seaScalarSnapshotId(kind)}`),
-      { signal: timeoutSignal(10000) },
+      { headers: tokenHeader(), signal: timeoutSignal(10000) },
     );
     if (!r.ok) return null;
     const j = (await r.json()) as SeaScalarResult;
@@ -232,6 +233,7 @@ export async function fetchSeaScalar(
   // 2) live
   try {
     const r = await fetch(apiUrl(`/api/sea-scalar?kind=${kind}`), {
+      headers: tokenHeader(),
       signal: timeoutSignal(25000),
     });
     if (r.ok) {

@@ -16,7 +16,7 @@
  * chỗ gọi không với tới ⇒ bản đồ trắng cả chuyến.
  */
 
-import { timeoutSignal } from "@/lib/abort";
+import { fetchDataJson } from "@/lib/data-fetch";
 import { REEFS_DATA_URL, SEA_LANES_DATA_URL } from "@/lib/ocean-map";
 
 /**
@@ -29,11 +29,7 @@ const cache = new Map<string, Promise<GeoJSON.Feature[]>>();
 async function fetchFeatures(url: string, nhan: string): Promise<GeoJSON.Feature[]> {
   let p = cache.get(url);
   if (!p) {
-    p = fetch(url, { signal: timeoutSignal(20000) })
-      .then((r) => {
-        if (!r.ok) throw new Error(`${nhan} ${r.status}`);
-        return r.json();
-      })
+    p = fetchDataJson(url, 20000, nhan)
       .then((j) => {
         const fc = j as Partial<GeoJSON.FeatureCollection> | null;
         return Array.isArray(fc?.features) ? fc.features : [];

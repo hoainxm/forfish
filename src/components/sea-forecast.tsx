@@ -21,6 +21,7 @@ import { FREE_FORECAST_DAYS } from "@/lib/tier";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { PremiumLock } from "@/components/premium-gate";
 import { AnchorIcon, WavesIcon, WindIcon } from "@/components/icons";
+import { loadModelParams } from "@/lib/model-params";
 
 /*
   Dự báo biển — màn hình "mở app là biết hôm nay đi hay ở":
@@ -37,9 +38,6 @@ const levelColor: Record<SeaLevel, { fg: string; bg: string }> = {
   bad: { fg: "var(--danger)", bg: "var(--danger-bg)" },
 };
 
-// Bảng skill backtest nạp 1 lần (offline, không gọi mạng) — nắn bias điểm số
-// + gán độ tin trung thực theo tầm ngày.
-const SKILL = loadForecastSkill();
 
 export function SeaForecast() {
   // Phân hạng (2026-07-26): miễn phí đúng 3 ngày (hôm nay + 2 ngày kế);
@@ -66,8 +64,11 @@ export function SeaForecast() {
     // Tầm ngày tính từ HÔM NAY tới ngày dự báo (không theo vị trí mảng) — nếu
     // sau này dãy ngày đến từ bản lưu trong máy thì độ tin vẫn đúng.
     const todayIso = isoDateVN();
-    fetchSeaForecast(p)
-      .then((raw) => {
+    // Bảng skill (model-params, SDF2) nạp cùng lúc — nắn bias + độ tin theo tầm ngày;
+    // chưa nạp được thì null = không hạ độ tin (degrade sẵn có). Không bao giờ reject.
+    Promise.all([fetchSeaForecast(p), loadModelParams()])
+      .then(([raw]) => {
+        const SKILL = loadForecastSkill();
         // Nắn bias thô theo backtest rồi mới hiển thị điểm số.
         const corrected = applyBiasCorrection(raw, SKILL, todayIso);
         setDays(corrected);

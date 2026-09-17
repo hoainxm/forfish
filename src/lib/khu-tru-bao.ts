@@ -34,7 +34,7 @@
  *   trường này là `null`, KHÔNG phải 0.
  */
 
-import { timeoutSignal } from "@/lib/abort";
+import { fetchDataJson } from "@/lib/data-fetch";
 import { trongKhungBienVN } from "@/lib/den-bien";
 
 /* ── KIỂU ────────────────────────────────────────────────────────────────── */
@@ -203,11 +203,7 @@ let cached: Promise<KhuTruBao[]> | null = null;
  */
 export async function fetchKhuTruBao(): Promise<KhuTruBao[]> {
   if (!cached) {
-    cached = fetch("/data/khu-tru-bao.v1.json", { signal: timeoutSignal(20000) })
-      .then((r) => {
-        if (!r.ok) throw new Error(`khu-tru-bao ${r.status}`);
-        return r.json();
-      })
+    cached = fetchDataJson("/data/khu-tru-bao.v1.json", 20000, "khu-tru-bao")
       .then(decodeKhuTruBao)
       .catch((e) => {
         cached = null; // lần sau thử lại (mất sóng không khoá vĩnh viễn)

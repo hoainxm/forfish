@@ -26,7 +26,7 @@
  *   hải đồ). Nguồn OSM để trống rất nhiều → mọi trường đều tuỳ chọn.
  */
 
-import { timeoutSignal } from "@/lib/abort";
+import { fetchDataJson } from "@/lib/data-fetch";
 import {
   cardinalFromPurposeVN,
   quadrantFromBodyColour,
@@ -457,11 +457,7 @@ let cached: Promise<Seamark[]> | null = null;
  */
 export async function fetchSeamarks(): Promise<Seamark[]> {
   if (!cached) {
-    cached = fetch("/data/seamarks.v1.json", { signal: timeoutSignal(20000) })
-      .then((r) => {
-        if (!r.ok) throw new Error(`seamarks ${r.status}`);
-        return r.json();
-      })
+    cached = fetchDataJson("/data/seamarks.v1.json", 20000, "seamarks")
       .then(decodeSeamarks)
       .catch((e) => {
         cached = null; // lần sau thử lại (mất sóng không khoá vĩnh viễn)

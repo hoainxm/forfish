@@ -20,7 +20,7 @@
  * Chỗ trống đó nằm trên luồng Soài Rạp / Lòng Tàu. Mất 17 điểm ở đó là mất
  * thật, nhưng số đo đã rơi chữ số lẻ thì nó không còn là số đo nữa.
  */
-import { timeoutSignal } from "@/lib/abort";
+import { fetchDataJson } from "@/lib/data-fetch";
 
 /** Ba file nguồn, đúng thứ tự `tep` trong file đối chiếu. */
 export const VERDICT_FILES = [
@@ -168,13 +168,7 @@ let cached: Promise<VerdictIndex> | null = null;
  */
 export async function fetchSoundingVerdicts(): Promise<VerdictIndex> {
   if (!cached) {
-    cached = fetch("/data/soundings-verified.v1.json", {
-      signal: timeoutSignal(20000),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`soundings-verified ${r.status}`);
-        return r.json();
-      })
+    cached = fetchDataJson("/data/soundings-verified.v1.json", 20000, "soundings-verified")
       .then(decodeVerdicts)
       .catch((e) => {
         cached = null;

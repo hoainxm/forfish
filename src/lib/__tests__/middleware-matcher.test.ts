@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { DATA_ROUTE_MATCHER } from "@/lib/data-route-rules";
 
 /*  CỔNG CHẶN KHUÔN — "MIDDLEWARE CHỈ CHẠY Ở ĐƯỜNG CẦN CHỐT QUYỀN".
 
@@ -49,12 +50,11 @@ describe("matcher middleware — chỉ còn đúng đường cần chốt quyề
   });
 
   it("danh sách ngắn — thêm đường là phải sửa test này, không trôi lặng lẽ", () => {
-    expect(LIST).toEqual(["/api/fish-forecast"]);
+    expect(LIST).toEqual([...DATA_ROUTE_MATCHER]);
   });
 
-  it("ô bản đồ / tài nguyên tĩnh: KHÔNG một lượt Supabase Auth nào", () => {
+  it("tài nguyên tĩnh / trang: KHÔNG một lượt Supabase Auth nào (ô ảnh /api/tiles nay CÓ gác — đệm danh tính 10 phút, không tra DB từng ô)", () => {
     const khong_duoc_chay = [
-      "/api/tiles/sst/5/25/14",
       "/sw.js",
       "/manifest.webmanifest",
       "/data/depth-grid.v1.bin",

@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import weights from "@/data/fish-blend-weights.json";
 import climFile from "../../../public/data/fish-climatology.v1.json";
 import {
-  BLEND_USABLE,
-  MAX_MEASURED_LEAD,
+  blendUsable,
+  maxMeasuredLead,
   ABSENT_PERSIST,
   blendWeight,
   measuredWeight,
@@ -21,6 +21,10 @@ import {
   fishLeadDays,
   type ClimatologyFile,
 } from "@/lib/fish-blend";
+import { setModelParams } from "@/lib/model-params";
+
+// Bảng w nay đi qua model-params (SDF2) — test nạp thẳng từ nguồn sự thật src/data.
+setModelParams({ fishBlend: weights });
 
 /*
   Lớp cá cho chuyến dài = pha trộn dự báo × mùa vụ. Test canh 3 thứ:
@@ -77,8 +81,8 @@ describe("bảng trọng số w(d) — số đo được, không đặt tay", ()
 
 describe("blendWeight — nội suy theo tầm ngày", () => {
   it("bảng dùng được", () => {
-    expect(BLEND_USABLE).toBe(true);
-    expect(MAX_MEASURED_LEAD).toBeGreaterThanOrEqual(10);
+    expect(blendUsable()).toBe(true);
+    expect(maxMeasuredLead()).toBeGreaterThanOrEqual(10);
   });
 
   it("ngày 0 = 1 (hôm nay chính là ảnh hôm nay, không pha)", () => {
@@ -97,8 +101,8 @@ describe("blendWeight — nội suy theo tầm ngày", () => {
   });
 
   it("quá mốc đo cuối thì GIỮ w mốc cuối — không ngoại suy", () => {
-    const last = blendWeight(MAX_MEASURED_LEAD);
-    expect(blendWeight(MAX_MEASURED_LEAD + 5)).toBeCloseTo(last, 9);
+    const last = blendWeight(maxMeasuredLead());
+    expect(blendWeight(maxMeasuredLead() + 5)).toBeCloseTo(last, 9);
     expect(blendWeight(999)).toBeCloseTo(last, 9);
   });
 
@@ -126,7 +130,7 @@ describe("blendScore", () => {
 
   it("tầm càng xa càng nghiêng về mùa vụ", () => {
     const near = blendScore(90, 20, 1);
-    const far = blendScore(90, 20, MAX_MEASURED_LEAD);
+    const far = blendScore(90, 20, maxMeasuredLead());
     expect(far).toBeLessThanOrEqual(near);
   });
 
@@ -426,7 +430,7 @@ describe("fishLeadDays — tuổi ảnh cũng là tầm ngày", () => {
 
   it("ảnh 8 ngày tuổi thì PHA LOÃNG thật, không giữ w=1", () => {
     const lead = fishLeadDays("2026-07-23", "2026-07-31", 0);
-    if (BLEND_USABLE) expect(blendWeight(lead)).toBeLessThan(1);
+    if (blendUsable()) expect(blendWeight(lead)).toBeLessThan(1);
     expect(blendWeight(0)).toBe(1);
   });
 

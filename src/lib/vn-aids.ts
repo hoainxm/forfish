@@ -22,7 +22,7 @@
  * màu thân luôn -1 (thông báo không ghi màu), nên bên luồng phải suy từ chính
  * câu đó — `chartSymbolId(m, purpose)` đã biết cách.
  */
-import { timeoutSignal } from "@/lib/abort";
+import { fetchDataJson } from "@/lib/data-fetch";
 import type { Seamark, LightInfo } from "@/lib/seamarks";
 
 /** Một báo hiệu chính thức = Seamark + phần nhà nước công bố kèm. */
@@ -105,11 +105,7 @@ let cached: Promise<VnAid[]> | null = null;
  */
 export async function fetchVnAids(): Promise<VnAid[]> {
   if (!cached) {
-    cached = fetch("/data/vn-aids.v1.json", { signal: timeoutSignal(20000) })
-      .then((r) => {
-        if (!r.ok) throw new Error(`vn-aids ${r.status}`);
-        return r.json();
-      })
+    cached = fetchDataJson("/data/vn-aids.v1.json", 20000, "vn-aids")
       .then(decodeVnAids)
       .catch((e) => {
         cached = null;

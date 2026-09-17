@@ -21,6 +21,13 @@ import MapGL, {
   type MapRef,
   type LayerProps,
 } from "react-map-gl/maplibre";
+
+/*  Ô ẢNH /api/tiles/* nay qua cổng danh tính ở middleware (2026-09-16) — MapLibre
+    tự fetch nên phải gắn chuỗi thiết bị vào đây. Không phải ô của mình thì để yên. */
+function transformTileRequest(url: string): { url: string; headers?: Record<string, string> } {
+  if (url.includes("/api/tiles/")) return { url, headers: tokenHeader() };
+  return { url };
+}
 import type { StyleSpecification, FilterSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -187,7 +194,7 @@ import {
   fishLeadDays,
   hotspotSpacingDeg,
   hotspotMaxCount,
-  BLEND_USABLE,
+  blendUsable,
   type Climatology,
 } from "@/lib/fish-blend";
 import { fishFailNote, lowQualityNote } from "@/lib/source-registry";
@@ -503,6 +510,7 @@ import {
   type DepthGrid,
 } from "@/lib/depth-grid";
 import { timeoutSignal } from "@/lib/abort";
+import { dataSourceUrl, fetchDataJson } from "@/lib/data-fetch";
 import { weatherFromCode } from "@/lib/weather-codes";
 import {
   useMapPrefs,
@@ -537,7 +545,9 @@ import {
 } from "@/lib/marine-weather";
 import type { PretripPoint } from "@/lib/pretrip";
 import { skillForLead } from "@/lib/forecast-quality";
-import { FORECAST_SKILL } from "@/lib/forecast-skill";
+import { loadForecastSkill } from "@/lib/forecast-skill";
+import { useModelParams } from "@/lib/model-params";
+import { tokenHeader } from "@/lib/device-token-store";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { SnapSheet, type SheetSize } from "@/components/ui/snap-sheet";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -2838,14 +2848,10 @@ export default function FishingMapView() {
   useEffect(() => {
     if (coastData) return; // có rồi thì thôi — file tĩnh, không đổi
     let alive = true;
-    // AbortSignal.timeout chưa có trên WebView/Safari cũ (máy rẻ của bà con) —
-    // gọi thẳng sẽ ném TypeError ĐỒNG BỘ và làm sập cả cây React. `timeoutSignal`
-    // không bao giờ ném và còn có đường lùi AbortController nên máy cũ vẫn có
-    // trần thời gian (bản canh `typeof` cũ ở đây thì mất trần).
-    const signal = timeoutSignal(15000);
-    fetch(COAST_DATA_URL, { signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => alive && j && setCoastData(j as GeoJSON.FeatureCollection))
+    // Qua `fetchDataJson` (giải mã bản mã + trần 15 s bằng `timeoutSignal`, không
+    // bao giờ ném đồng bộ — máy cũ thiếu AbortSignal.timeout vẫn có đường lùi).
+    fetchDataJson<GeoJSON.FeatureCollection>(COAST_DATA_URL, 15000, "coast")
+      .then((j) => alive && j && setCoastData(j))
       .catch(() => {
         // im lặng có chủ ý: hỏng thì lần sóng về sau (netEpoch) tự thử lại
       });
@@ -3649,7 +3655,7 @@ export default function FishingMapView() {
 
   const fishView = useMemo<FishForecast | null>(() => {
     if (!fishCast) return null;
-    if (fishLead <= 0 || !clim || !BLEND_USABLE) return fishCast;
+    if (fishLead <= 0 || !clim || !blendUsable()) return fishCast;
     const month = Number((sel?.date ?? todayIso).slice(5, 7));
     if (!Number.isFinite(month) || month < 1 || month > 12) return fishCast;
     // v2: quy điểm mùa vụ về ĐÚNG thang bản đồ ngày (phân vị) rồi pha trên HỢP
@@ -3788,9 +3794,10 @@ export default function FishingMapView() {
     };
   }, [fishHotspots, point]);
   // độ tin nói thật: nhãn theo tầm ngày, hạ thêm nếu backtest đo được sai số
-  // lớn ở tầm ngày này (skill từ src/data/forecast-skill.json, không gọi mạng)
+  // lớn ở tầm ngày này (skill từ model-params.v1.json — SDF2, SW giữ sẵn)
+  const modelParams = useModelParams(); // vẽ lại khi bảng skill (SDF2) nạp xong
   const skillConf =
-    skillForLead(FORECAST_SKILL, daysAhead + 1)?.confidence ?? null;
+    skillForLead(loadForecastSkill(modelParams), daysAhead + 1)?.confidence ?? null;
   const confidence = forecastConfidence(daysAhead, skillConf);
   /** Số đo "lúc này" trong bản lưu là số ĐÔNG CỨNG lúc lưu — chỉ nói thật giờ đo */
   const isToday = sel?.date === todayIso;
@@ -4107,6 +4114,7 @@ export default function FishingMapView() {
             ô về. Hiệu ứng mờ dần đẹp trên máy mạnh; trên máy yếu nó là giật. */
         validateStyle={false}
         refreshExpiredTiles={false}
+        transformRequest={transformTileRequest}
         fadeDuration={0}
         /*  KHOÁ XOAY VÀ NGHIÊNG (2026-08-30, chủ dự án chốt) — lý do AN TOÀN
             trước, tốc độ sau.
@@ -4753,7 +4761,7 @@ export default function FishingMapView() {
             hết bờ, không thấy đâu là đất/đảo). Đúng thứ tự Windy: nền màu →
             hạt → ĐƯỜNG BỜ → nhãn. Lớp GL chèn DƯỚI lớp này (beforeId). */}
         {anyExclusiveOverlay && (
-          <Source id="overlay-coast" type="geojson" data={COAST_DATA_URL}>
+          <Source id="overlay-coast" type="geojson" data={dataSourceUrl(COAST_DATA_URL)}>
             <Layer
               id="overlay-coast-fill"
               type="fill"
@@ -5032,7 +5040,7 @@ export default function FishingMapView() {
             khi bật lớp động (như nhãn đảo). Vẽ trước nhãn đảo để chữ đảo nổi
             trên đường. */}
         {!anyExclusiveOverlay && chartDetailOn && groupNavOn && (
-          <Source id="sea-lanes" type="geojson" data={SEA_LANES_DATA_URL}>
+          <Source id="sea-lanes" type="geojson" data={dataSourceUrl(SEA_LANES_DATA_URL)}>
             {/* CÁP/ỐNG NGẦM — tím chấm; vẽ dưới cùng (hạ tầng nền) */}
             <Layer
               id="sea-lane-vungcam-fill"
@@ -5281,7 +5289,7 @@ export default function FishingMapView() {
             Chỉ trên nền hải đồ, ẩn khi bật lớp động. Dấu tiếng Việt cần dải font
             256-511 + 7680-7935 (đã thêm vào SHELL service worker cho offline). */}
         {!anyExclusiveOverlay && (
-          <Source id="islands" type="geojson" data={ISLANDS_DATA_URL}>
+          <Source id="islands" type="geojson" data={dataSourceUrl(ISLANDS_DATA_URL)}>
             <Layer
               id="island-dot"
               type="circle"
@@ -5433,7 +5441,7 @@ export default function FishingMapView() {
              A.8): vật cản là thứ phải tránh, không được để con số che. Lý do
              giữ nguồn OSM: xem comment ở chỗ khai cũ phía trên. */}
         {!anyExclusiveOverlay && chartDetailOn && groupNavOn && (
-          <Source id="reef-hazards" type="geojson" data={REEF_SHAPES_DATA_URL}>
+          <Source id="reef-hazards" type="geojson" data={dataSourceUrl(REEF_SHAPES_DATA_URL)}>
             <Layer
               id="reef-hazard"
               type="symbol"
@@ -5489,7 +5497,7 @@ export default function FishingMapView() {
             ló khi zoom sâu. Hình dạng rạn (polygon) từ Allen Coral Atlas sẽ thêm
             sau vào cùng nguồn. Ẩn khi bật lớp động (như nhãn đảo). */}
         {!anyExclusiveOverlay && chartDetailOn && groupDepthOn && (
-          <Source id="reefs" type="geojson" data={REEFS_DATA_URL}>
+          <Source id="reefs" type="geojson" data={dataSourceUrl(REEFS_DATA_URL)}>
             {/*  1.374 tên rạn/bãi/đá (Thông tư 33/2024). TÁCH ngoài-khơi vs
                  ven-bờ: nhóm ngoài khơi (Trường Sa/Hoàng Sa/DK1, 149) là MỐC
                  CHỦ QUYỀN — hiện mọi zoom; nhóm ven bờ (1.225) không có collision

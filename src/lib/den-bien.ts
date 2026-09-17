@@ -36,7 +36,7 @@
  * - `-1` trong file nghĩa là NGUỒN KHÔNG CÔNG BỐ, không phải "bằng 0".
  */
 
-import { timeoutSignal } from "@/lib/abort";
+import { fetchDataJson } from "@/lib/data-fetch";
 import type { Provenance } from "@/lib/provenance";
 import {
   colourLabel,
@@ -308,11 +308,7 @@ let cached: Promise<DenBien[]> | null = null;
  */
 export async function fetchDenBien(): Promise<DenBien[]> {
   if (!cached) {
-    cached = fetch("/data/den-bien.v1.json", { signal: timeoutSignal(20000) })
-      .then((r) => {
-        if (!r.ok) throw new Error(`den-bien ${r.status}`);
-        return r.json();
-      })
+    cached = fetchDataJson("/data/den-bien.v1.json", 20000, "den-bien")
       .then(decodeDenBien)
       .catch((e) => {
         cached = null; // lần sau thử lại (mất sóng không khoá vĩnh viễn)

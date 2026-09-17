@@ -25,6 +25,9 @@ import {
   VERDICT_FILES,
 } from "@/lib/soundings-verified";
 
+/** Thân phản hồi dạng byte — fetchDataJson đọc arrayBuffer rồi giải mã (bản rõ trả nguyên). */
+const jsonBytes = (o: unknown) => new TextEncoder().encode(JSON.stringify(o)).buffer;
+
 const root = process.cwd();
 const read = (p: string) => fs.readFileSync(path.join(root, p), "utf8");
 const RAW = JSON.parse(read("public/data/soundings-verified.v1.json"));
@@ -165,7 +168,7 @@ describe("hỏng thì lần sóng về sau thử lại được", () => {
     const spy = vi
       .fn()
       .mockRejectedValueOnce(new Error("mat song"))
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ muc: [] }) });
+      .mockResolvedValueOnce({ ok: true, arrayBuffer: async () => jsonBytes({ muc: [] }) });
     vi.stubGlobal("fetch", spy);
     await expect(fetchSoundingVerdicts()).rejects.toThrow();
     await expect(fetchSoundingVerdicts()).resolves.toBeInstanceOf(Map);
@@ -177,7 +180,7 @@ describe("hỏng thì lần sóng về sau thử lại được", () => {
     const { fetchSoundingVerdicts } = await import("@/lib/soundings-verified");
     const spy = vi
       .fn()
-      .mockResolvedValue({ ok: true, json: async () => ({ muc: [] }) });
+      .mockResolvedValue({ ok: true, arrayBuffer: async () => jsonBytes({ muc: [] }) });
     vi.stubGlobal("fetch", spy);
     await fetchSoundingVerdicts();
     await fetchSoundingVerdicts();

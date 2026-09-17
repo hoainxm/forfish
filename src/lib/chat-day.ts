@@ -37,7 +37,7 @@
  *   là mẫu thật, và bỏ nó đi là bịa ra một khoảng trắng giả ở chỗ có dữ liệu.
  */
 
-import { timeoutSignal } from "@/lib/abort";
+import { fetchDataJson } from "@/lib/data-fetch";
 import { trongKhungBienVN } from "@/lib/den-bien";
 import type { Provenance } from "@/lib/provenance";
 
@@ -196,11 +196,7 @@ let cached: Promise<ChatDayDiem[]> | null = null;
  */
 export async function fetchChatDay(): Promise<ChatDayDiem[]> {
   if (!cached) {
-    cached = fetch("/data/chat-day.v1.json", { signal: timeoutSignal(20000) })
-      .then((r) => {
-        if (!r.ok) throw new Error(`chat-day ${r.status}`);
-        return r.json();
-      })
+    cached = fetchDataJson("/data/chat-day.v1.json", 20000, "chat-day")
       .then(decodeChatDay)
       .catch((e) => {
         cached = null; // lần sau thử lại (mất sóng không khoá vĩnh viễn)

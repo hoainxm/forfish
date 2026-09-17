@@ -338,7 +338,7 @@ export function hasDepthColumn(rows: readonly SoundingRow[]): boolean {
 /* ── 4. DATASET ─────────────────────────────────────────────────────────── */
 
 import type { Provenance } from "@/lib/provenance";
-import { timeoutSignal } from "@/lib/abort";
+import { fetchDataJson } from "@/lib/data-fetch";
 import { DEPTH_CLASS_DEEP } from "@/lib/depth-grid";
 // Dùng lại bản haversine DUY NHẤT của repo (nguyên tắc 3). `fairway-depth.ts`
 // đã nhập đúng bản này; thêm bản thứ hai ở đây là mở đường cho hai bản trôi.
@@ -1157,13 +1157,7 @@ export type SoundingsBundle = {
 
 export async function fetchSoundings(): Promise<SoundingsBundle> {
   if (!cachedSoundings) {
-    cachedSoundings = fetch("/data/soundings.v1.json", {
-      signal: timeoutSignal(20000),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`soundings ${r.status}`);
-        return r.json();
-      })
+    cachedSoundings = fetchDataJson("/data/soundings.v1.json", 20000, "soundings")
       .then((raw) => ({
         diem: decodeSoundings(raw),
         tuyen: decodeSoundingRoutes(raw),

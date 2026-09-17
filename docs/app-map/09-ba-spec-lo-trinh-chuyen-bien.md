@@ -2,8 +2,10 @@
 
 > Load khi: task chạm đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (pha trộn dự báo × mùa vụ), nguồn dữ liệu cho tầm 16 ngày, hoặc so vị trí hiện tại với tuyến đã lưu.
 covers: src/lib/fish-blend.ts, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
-last_verified: 2026-08-16
+last_verified: 2026-09-16
 ttl_days: 90
+
+<!-- re-verified: 2026-09-16 — `fish-blend.ts` CHỈ đổi CÁCH TẢI bản mùa vụ: `fetch("/data/fish-climatology.v1.json").then(r=>r.json())` → `fetchDataJson(...)` (lib/data-fetch.ts: tải → giải mã data-codec → parse) vì file phát ra ngoài nay là BẢN MÃ (02 re-verified 2026-09-16). Không đổi w(d), không đổi decodeClimatology, không đổi luật xoá-cache-rồi-trả-null (D-PH12). Bản rõ trong git đi cùng đường ⇒ fish-blend.test.ts vẫn import file thật như cũ. -->
 
 <!-- re-verified: 2026-08-02h — soát offline VÒNG 2 (`ops/audit-offline-vong2-2026-08-02.md`, chất vấn #3 "biết khuôn, viết ra khuôn, không áp khuôn"): `fish-blend.ts` CHỈ đổi đúng một dòng — `AbortSignal.timeout(15000)` → `timeoutSignal(15000)` từ `lib/abort.ts`. KHÔNG đổi một con số nào của bộ pha trộn. Lý do: `AbortSignal.timeout` là hàm tĩnh chỉ có từ Safari 16 / Chrome 103; iPhone kẹt iOS 15.8 (Safari 15) ném `TypeError` NGAY TẠI lời gọi ⇒ trên nhóm máy đó nhánh tải bản đồ mùa vụ hỏng vì một lý do KHÔNG PHẢI mạng, mà lại đội lốt "mất sóng". `timeoutSignal` có đường lùi thật bằng `AbortController + setTimeout`, nên máy cũ lần đầu tiên CÓ trần thời gian thật (trước đây `sea.ts`/`fishing-map-view.tsx` canh bằng `typeof` rồi trả `undefined` = chạy KHÔNG trần). Tỷ lệ w(d), thang phân vị, `blendFishCells`, `fishLeadDays` KHÔNG đổi — §5d/§5e/§5f còn đúng nguyên. Cổng chặn tái phát: `src/lib/__tests__/no-bare-abort-timeout.test.ts`. -->
 
