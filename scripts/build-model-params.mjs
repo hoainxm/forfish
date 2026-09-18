@@ -13,9 +13,14 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const OUT = join("public", "data", "model-params.v1.json");
+// Dùng dấu "/" CỐ ĐỊNH (không `join`): các chuỗi này đi thẳng vào `builtFrom`
+// của tệp phát hành, nên phải KHÔNG phụ thuộc HĐH — `join` cho "src\\data\\…"
+// trên Windows ⇒ tệp sinh trên Windows khác tệp sinh trên macOS/CI (Linux) ⇒
+// model-params.test.ts đỏ trên mọi máy khác máy đã build. `readFileSync(join(
+// root, p))` bên dưới vẫn chạy đúng vì Node chuẩn hoá "/" khi đọc trên Windows.
 export const SOURCES = {
-  fishBlend: join("src", "data", "fish-blend-weights.json"),
-  forecastSkill: join("src", "data", "forecast-skill.json"),
+  fishBlend: "src/data/fish-blend-weights.json",
+  forecastSkill: "src/data/forecast-skill.json",
 };
 
 /** @param {string} root gốc repo */
