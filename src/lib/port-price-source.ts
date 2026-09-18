@@ -13,6 +13,7 @@ import { apiUrl } from "@/lib/api-base";
 import { loadForecast, saveForecast } from "@/lib/forecast-cache";
 import { forecastStoreReady } from "@/lib/forecast-store";
 import { timeoutSignal } from "@/lib/abort";
+import { tokenHeader } from "@/lib/device-token-store";
 
 export const VASEP_LISTING_URL =
   "https://vasep.com.vn/gia-thuy-san/gia-trong-nuoc";
@@ -197,6 +198,7 @@ export async function fetchLivePrices(): Promise<LivePriceResult> {
   let netFailed = false;
   try {
     const r = await fetch(apiUrl("/api/port-prices"), {
+      headers: tokenHeader(),
       signal: timeoutSignal(15000),
     });
     if (r.ok) {

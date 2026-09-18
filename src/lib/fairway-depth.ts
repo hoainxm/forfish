@@ -75,7 +75,7 @@
 
 import { haversineKm, type LatLon } from "@/lib/route-plan";
 import type { Provenance } from "@/lib/provenance";
-import { timeoutSignal } from "@/lib/abort";
+import { fetchDataJson } from "@/lib/data-fetch";
 
 /* ── 1. DẢI HỢP LỆ ──────────────────────────────────────────────────────── */
 
@@ -617,13 +617,7 @@ let cachedFairway: Promise<FairwayDepth[]> | null = null;
 
 export async function fetchFairwayDepths(): Promise<FairwayDepth[]> {
   if (!cachedFairway) {
-    cachedFairway = fetch("/data/fairway-depths.v1.json", {
-      signal: timeoutSignal(20000),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`fairway-depths ${r.status}`);
-        return r.json();
-      })
+    cachedFairway = fetchDataJson("/data/fairway-depths.v1.json", 20000, "fairway-depths")
       .then(decodeFairwayDepths)
       .catch((e) => {
         cachedFairway = null; // lần sau thử lại

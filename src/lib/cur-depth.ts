@@ -19,6 +19,7 @@ import { isDailyCacheCurrent } from "@/lib/source-cadence";
 import { curDepthSnapshotId, CUR_DEPTH_MAX_DAYS } from "@/lib/weather-snapshot-id";
 import type { ForecastGrid } from "@/lib/forecast-grid";
 import { timeoutSignal } from "@/lib/abort";
+import { tokenHeader } from "@/lib/device-token-store";
 
 export type CurDepthClientGrid = ForecastGrid & {
   tier?: number;
@@ -96,7 +97,7 @@ export function peekCurDepthGrid(
 
 async function fetchJson(url: string, timeoutMs: number): Promise<CurDepthClientGrid | null> {
   try {
-    const r = await fetch(apiUrl(url), { signal: timeoutSignal(timeoutMs) });
+    const r = await fetch(apiUrl(url), { headers: tokenHeader(), signal: timeoutSignal(timeoutMs) });
     if (!r.ok) return null;
     const j = (await r.json()) as CurDepthClientGrid & { ok?: boolean };
     return usable(j) ? j : null;

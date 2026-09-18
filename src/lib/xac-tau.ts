@@ -28,7 +28,7 @@
  *   CẠN NHẤT — hứa nhiều nước hơn thực tế là kiểu sai nguy hiểm nhất.
  */
 
-import { timeoutSignal } from "@/lib/abort";
+import { fetchDataJson } from "@/lib/data-fetch";
 import { trongKhungBienVN } from "@/lib/den-bien";
 import type { Provenance } from "@/lib/provenance";
 
@@ -227,11 +227,7 @@ let cached: Promise<XacTau[]> | null = null;
  */
 export async function fetchXacTau(): Promise<XacTau[]> {
   if (!cached) {
-    cached = fetch("/data/xac-tau.v1.json", { signal: timeoutSignal(20000) })
-      .then((r) => {
-        if (!r.ok) throw new Error(`xac-tau ${r.status}`);
-        return r.json();
-      })
+    cached = fetchDataJson("/data/xac-tau.v1.json", 20000, "xac-tau")
       .then(decodeXacTau)
       .catch((e) => {
         cached = null; // lần sau thử lại (mất sóng không khoá vĩnh viễn)

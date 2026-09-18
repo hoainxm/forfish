@@ -714,15 +714,71 @@ class MinHeap {
   }
 }
 
+/*  CHẨN ĐOÁN KHI KHÔNG RA TUYẾN (2026-09-14, kiểm chứng chéo Claude/Codex).
+    `null` trước đây bị đọc thành "không có đường vật lý" — SAI hai chỗ:
+    (1) lưới thời tiết không phủ một phần khung (`sampleField` null giữa biển)
+        cũng chặn cạnh y như đất, đo thật: hai đầu nước sâu + field rỗng ⇒ null;
+    (2) tìm trên lưới hữu hạn có thể bỏ sót lối (dời gốc khung ±3–6 km: 9/50
+        lượt null trên cùng dữ liệu).
+    Nên chỉ có HAI nhãn, và cả hai đều là "điều đã gặp", không phải nguyên nhân
+    chắc chắn: `weather-coverage` = trong lượt tìm hỏng CÓ gặp chỗ thiếu dự báo;
+    `no-route` = chưa tìm được trên lưới của máy. KHÔNG có nhãn "đất chắn" —
+    đếm được cạnh đất không chứng minh được không có lối. */
+export type RoutePlanFailure = "weather-coverage" | "no-route";
+export type RoutePlanOutcome =
+  | { plan: RoutePlan; failure: null }
+  | { plan: null; failure: RoutePlanFailure };
+
+/** điều một lượt tìm đã GẶP — chỉ đọc khi lượt đó trả null */
+type AttemptDiag = { seaBlocked: boolean; weatherGap: boolean };
+
 /**
- * @param seaAsPenalty BEST-EFFORT — nội bộ, mặc định false. Lượt NGHIÊM (false)
- * bí (không có đường vì sóng ≥4 m / gió ≥ cấp 8) thì planRoute TỰ GỌI LẠI CHÍNH
- * NÓ một lần với true: hạ chặn-cứng-sóng xuống phạt cực nặng để ra "đường ít dữ
- * nhất", cắm `bestEffortSeas`. Đất/cạn/vật chặn/vùng cấm vẫn chặn cứng ⇒ nếu
- * lượt true CŨNG null thì đúng là KHÔNG có đường vật lý (đất chắn), trả null.
- * Chặn đệ quy vô hạn: chỉ gọi lại khi `!seaAsPenalty`.
+ * Tính tuyến kèm chẩn đoán. Lượt NGHIÊM trước; CHỈ KHI lượt nghiêm thật sự bị
+ * chặn vì sóng ≥4 m / gió ≥ cấp 8 (ở bất kỳ lượt `legCost` nghiêm nào — Dijkstra,
+ * kéo dây, kiểm lại tuyến) mới chạy lượt BEST-EFFORT hạ ngưỡng sóng thành phạt
+ * cực nặng để ra "đường ít dữ nhất" (`bestEffortSeas`).
+ * Vì sao bỏ được lượt best-effort khi không có chặn sóng: hai lượt chỉ khác
+ * nhau đúng ở ngưỡng cứng sóng/gió (phạt `PEN_IMPASSABLE_SEA` cũng chỉ áp cho
+ * mẫu vượt ngưỡng đó) — lượt nghiêm không gặp mẫu nào như vậy thì lượt
+ * best-effort đi lại y hệt từng bước và cũng null. Đo thật: ca đất chắn / thiếu
+ * phủ dự báo trước đây đều chạy thừa cả lượt thứ hai.
+ */
+export function planRouteWithDiagnostics(args: PlanArgs): RoutePlanOutcome {
+  const strict: AttemptDiag = { seaBlocked: false, weatherGap: false };
+  const plan = planAttempt(args, false, strict);
+  if (plan) return { plan, failure: null };
+  let weatherGap = strict.weatherGap;
+  if (strict.seaBlocked) {
+    const loose: AttemptDiag = { seaBlocked: false, weatherGap: false };
+    const bestEffort = planAttempt(args, true, loose);
+    if (bestEffort) return { plan: bestEffort, failure: null };
+    weatherGap = weatherGap || loose.weatherGap;
+  }
+  return { plan: null, failure: weatherGap ? "weather-coverage" : "no-route" };
+}
+
+/**
+ * Cửa tương thích cho chỗ gọi/test cũ chỉ cần tuyến hoặc null — CÙNG một
+ * thuật toán với `planRouteWithDiagnostics`, không có bản thứ hai.
+ * @param seaAsPenalty true = chạy thẳng lượt best-effort (test dùng để soi riêng)
  */
 export function planRoute(args: PlanArgs, seaAsPenalty = false): RoutePlan | null {
+  if (seaAsPenalty) {
+    return planAttempt(args, true, { seaBlocked: false, weatherGap: false });
+  }
+  return planRouteWithDiagnostics(args).plan;
+}
+
+/**
+ * MỘT lượt tìm (nghiêm hoặc best-effort). `diag` được ghi trong lúc chạy:
+ * `seaBlocked` khi một cạnh nghiêm bị loại vì ngưỡng cứng sóng/gió,
+ * `weatherGap` khi một cạnh bị loại vì chỗ giữa biển không có số dự báo.
+ */
+function planAttempt(
+  args: PlanArgs,
+  seaAsPenalty: boolean,
+  diag: AttemptDiag,
+): RoutePlan | null {
   const { start, dest, boat, departHourIdx, field, depth, bbox } = args;
   const midLat = (bbox.latMin + bbox.latMax) / 2;
   const spanLatKm = (bbox.latMax - bbox.latMin) * 111.32;
@@ -1055,8 +1111,10 @@ export function planRoute(args: PlanArgs, seaAsPenalty = false): RoutePlan | nul
         if (
           !relaxed &&
           !nearEndpoints({ lat: from.lat + dLatLeg * t, lon: from.lon + dLonLeg * t }, VICINITY_SHALLOW_KM)
-        )
+        ) {
+          diag.weatherGap = true;
           return INFEASIBLE_LEG;
+        }
         // sát cảng: chạy bằng số 0 an toàn (đoạn ngắn)
         const h0 = subKm / calmKmh;
         hours += h0;
@@ -1073,7 +1131,10 @@ export function planRoute(args: PlanArgs, seaAsPenalty = false): RoutePlan | nul
       const hard = waveM >= HARD_WAVE_M || h.windKmh >= HARD_WIND_KMH;
       // ≥ cấp 8 — CHẶN CỨNG ở lượt nghiêm; best-effort thì cho qua kèm phạt cực
       // nặng + cắm cờ (relaxed = tính lại số liệu tuyến đã chọn, cũng không chặn)
-      if (hard && !relaxed && !seaAsPenalty) return INFEASIBLE_LEG;
+      if (hard && !relaxed && !seaAsPenalty) {
+        diag.seaBlocked = true;
+        return INFEASIBLE_LEG;
+      }
       if (hard) seaImpassable = true;
 
       const dirF = waveDirFactor(h.waveFromDeg, heading);
@@ -1191,10 +1252,9 @@ export function planRoute(args: PlanArgs, seaAsPenalty = false): RoutePlan | nul
     }
   }
 
-  // Không tới được đích ở lượt nghiêm → thử BEST-EFFORT (biển động); lượt
-  // best-effort cũng không tới → đất chắn thật, trả null.
-  if (!Number.isFinite(cost[dIdx]))
-    return seaAsPenalty ? null : planRoute(args, true);
+  // Không tới được đích → null; có thử lại best-effort hay không là việc của
+  // `planRouteWithDiagnostics` (đọc `diag.seaBlocked`).
+  if (!Number.isFinite(cost[dIdx])) return null;
 
   // dựng lại tuyến node, thay hai đầu bằng toạ độ thật
   const nodePath: number[] = [];
@@ -1324,9 +1384,9 @@ export function planRoute(args: PlanArgs, seaAsPenalty = false): RoutePlan | nul
       tuyến còn hơn một tuyến cắt qua đảo.  */
   if (!walk(waypoints, false, seaAsPenalty).ok) {
     const raw: LatLon[] = [start, ...nodePath.slice(1, -1).map(pointOf), dest];
-    // kéo dây lẫn đường Dijkstra thô đều hỏng ở lượt nghiêm → thử best-effort
-    if (!walk(raw, false, seaAsPenalty).ok)
-      return seaAsPenalty ? null : planRoute(args, true);
+    // kéo dây lẫn đường Dijkstra thô đều hỏng → null (có chặn sóng trong các
+    // lượt `legCost` này thì `diag.seaBlocked` đã bật để thử best-effort)
+    if (!walk(raw, false, seaAsPenalty).ok) return null;
     waypoints = raw;
   }
 

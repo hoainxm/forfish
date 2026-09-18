@@ -13,6 +13,7 @@
 import { proxyTileTemplate } from "@/lib/tile-proxy";
 import { layers as protomapsLayers, namedFlavor } from "@protomaps/basemaps";
 import { chartSpriteUrl } from "@/lib/chart-symbols";
+import { dataSourceUrl } from "@/lib/data-fetch";
 
 // "truecolor" (Ảnh mây trời) ĐÃ GỘP về lớp DỰ BÁO "Mây" (panel Thời tiết,
 // scalar-field) — user 2026-07-28: một chỗ cho mây, coi ảnh đã-qua là hôm nay
@@ -1078,7 +1079,8 @@ export function buildMapStyle(
         Có cổng canh trong ocean-map.test. */
     sources["isobaths"] = {
       type: "geojson",
-      data: "/data/isobaths.v1.json",
+      // qua sdfdata:// để giải mã bản mã (data-fetch.ts) — MapLibre tự fetch thì đọc ra rác
+      data: dataSourceUrl("/data/isobaths.v1.json"),
     };
     /*  DẢI "ĐỦ NƯỚC" KIỂU HẢI ĐỒ GIẤY (2026-09-02) — chủ dự án: lớp Hải đồ
         chi tiết phải quen mắt như hải đồ thương mại. Trên giấy: nước sâu để

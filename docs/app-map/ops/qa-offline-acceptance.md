@@ -7,7 +7,7 @@ last_verified: 2026-08-18
 <!-- re-verified: 2026-08-18b — `public/sw.js` CÓ ĐỔI (gói F push server): CHỈ ở options của `showNotification` trong nhánh `push` — thêm `{tag: data.tag, renotify: true}` khi payload có `tag` (bão `bao-<khoá>`, đơn `don-<id>`; tin tay không tag → như cũ). KHÔNG chạm `SHELL`/`CRITICAL_SHELL`/tên kho/danh sách cache/allowlist `/api/*`/khoá `forfish.*` ⇒ bộ ca §1–§2 KHÔNG đổi. THÊM ca **N-8** (gom thông báo cùng `tag`) và ghi chú CHẠY LẠI **N-4** vì `/api/push/ack` + `/api/me/messages/read` nay BỎ QUA endpoint không có trong `push_subscriptions` (`counted:0`) — máy đã huỷ đăng ký/endpoint bịa không được đếm nữa. Delta gọi ca mới là "N-6" nhưng N-6/N-7 đã có (đặt hàng / chợ tin) → đánh số N-8. -->
 <!-- re-verified: 2026-08-18 - doi chieu bo ca QA voi `public/sw.js` hien tai (ban doi lan cuoi 2026-08-07, mach nay KHONG dung sw.js): 5 kho + ten kho (`sdfish-v6`/`static-v1`/`rsc-v1`/`api-v1`/`tiles-v1`), `SHELL`/`CRITICAL_SHELL`, dau `/__sdfish-shell-ready`, allowlist 9 route `/api/*` va luat cuu 401/403 - tat ca van khop cau chu trong TC-01..TC-13. Them ba ca N-5 (ve tuyen khi chua hoi duoc tin bao) - N-6 (dat hang khi song chap chon, khong duoc ra hai don) - N-7 (cho tin khi mat song), va mot ghi chu dau N-7 tro ve ADR 0004 de lan sau khong ai mo rong ca nay thanh 'kiem co cache chua'. -->
 ttl_days: 120
-<!-- DOC-STATUS: SUSPECT (2026-09-09) — code 'public/sw.js' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-09-17) — code 'public/sw.js' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 
 <!-- re-verified: 2026-09-04 — Đợt 0 tuyến/dẫn đường: `public/sw.js` CHỈ thêm chú thích cạnh `/data/depth-grid.v1.bin` (không đổi SHELL/CRITICAL_SHELL/tên kho/khoá `forfish.*`). File `depth-grid.v1.bin` ĐỔI NỘI DUNG + ĐỔI CỠ (4,26 → 8,53 MB, 2 bit → 4 bit/ô) nhưng GIỮ ĐƯỜNG DẪN ⇒ như 21 file của đợt 2026-09-03c: `addAll` + `cache:"reload"` + `put` ghi đè khi SW cài, KHÔNG bump vỏ. Nếu máy còn giữ bản cũ (SW chưa cài lại), `decodeDepthGrid` từ chối theo cỡ file → tuyến tính được nhưng báo "chưa né được vùng cạn" (`depthChecked=false`) — không đọc sai lớp trong im lặng. Bốn câu offline: (a) không request mới; (b) đụng sw.js chỉ ở chú thích; (c) không xoá/đè dữ liệu bà con, chỉ đè asset tĩnh; (d) không màn mới. CA CẦN CHẠY đợt tới: TC-03/TC-04 sau khi cài bản mới rồi mất sóng — chạm bản đồ vịnh Rạch Giá (10,02°B 104,99°Đ) phải ra "Rất cạn, chưa tới 2 m nước", KHÔNG phải "Trên bờ"; vẽ tuyến Rạch Giá → Côn Đảo với mớn 1,2 m khai trong Tuỳ chọn phải CÓ tuyến. -->
@@ -458,3 +458,27 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 | 13 | Xoá thủ công `depth-grid.v1.bin` khỏi kho SW (DevTools → Cache Storage) rồi lặp bước 2–3 | Cảnh báo **xác tàu/giàn khoan vẫn chạy**; chỉ mất phần cảnh báo bãi cạn theo mũi tàu. Console `nav-context` có tên kho thiếu. **KHÔNG** màn trắng, **KHÔNG** ném lỗi |
 
 > **HỎNG (chặn)**: bước 2 có bất kỳ request mạng nào, hoặc `nav-context` in ra **nhiều hơn một lần** cho một lượt dẫn đường (⇒ chỉ mục đang dựng lại theo nhịp GPS — máy sẽ nóng và tụt pin). Bước 4 thu HUD mà dòng ĐỎ biến mất (⇒ mất cảnh báo tính mạng đúng lúc bà con vừa dọn màn hình). Bước 7 neo mà vẫn kêu (⇒ đồng hồ neo hỏng, tai bà con sẽ học cách bỏ qua tiếng chuông). Bước 11 hiện một con số giờ (⇒ đang bịa). Bước 13 màn trắng hoặc mất luôn cảnh báo xác tàu (⇒ một kho thiếu đang kéo sập cả lớp).
+
+## Kiểm lại 2026-09-16 — mã hoá file dữ liệu (data-codec)
+
+Đợt này KHÔNG đụng `sw.js`, `SHELL`, khoá `forfish.*`; đổi TẦNG ĐỌC của 24 file `/data/**` (fetch → giải mã → parse) và cách MapLibre nạp GeoJSON tĩnh (`sdfdata://`) + pmtiles (`DecodingSource`). Bốn câu soi trả lời ở 02 (re-verified 2026-09-16). Điểm cần kiểm tay khi deploy bản mã đầu tiên lên Vercel:
+
+1. **Máy đã cài PWA, kho SW còn bản RÕ** → mở Ra khơi mất sóng: lớp bờ/đảo/báo hiệu/độ sâu vẫn vẽ (decode không header ⇒ trả nguyên). Sóng về, SW `cache: "reload"` kéo bản mã đè lên ⇒ lần sau vẫn vẽ.
+2. **Máy mới, kho trống** → mở có sóng: nền pmtiles vẽ (lát Range dời +4 byte), GeoJSON tĩnh vẽ qua `sdfdata://`; console không có "Unexpected token" (dấu hiệu chỗ nào đó còn parse bản mã trực tiếp — cổng `data-codec.test` chặn trong src, nhưng `scripts/audit-style.mjs` chạy ngoài app vẫn đọc theo URL cũ).
+3. **curl một URL /data** trên production: byte đầu phải là `SDF1` (0x53 0x44 0x46 0x31), Content-Encoding vẫn `br` (nén còn ăn — nếu mất nén là Vercel đổi luật content-type, phải xem lại).
+4. **429 dự báo cá**: tài khoản premium gọi >60 lượt/10 phút → 429 `rate_limited`; SW coi 429 là "cứu được" ⇒ lớp cá vẫn hiện bản cũ, không trắng.
+
+
+### Bổ sung 2026-09-16b — nhóm SDF2 (khoá theo tài khoản)
+
+5. **Máy mới, đăng nhập có sóng, mở Ra khơi** → Network có `GET /api/data-key` 200 một lần; localStorage có `forfish.datakey.v1`; lớp độ sâu/báo hiệu/luồng vẽ. Mở lại mất sóng: vẫn vẽ (khoá trong máy, file trong kho SW).
+6. **Máy mới, đăng nhập có sóng nhưng KHÔNG mở Ra khơi, rồi mất sóng mới mở** → nền/bờ/đảo/rạn/trạm triều (SDF1) vẫn vẽ; lớp SDF2 vắng, KHÔNG màn trắng, không treo. Sóng về: lớp SDF2 tự về sau lượt `/api/data-key`.
+7. **Đổi khoá ở /quan-tri (Tạo ngẫu nhiên → Lưu) + deploy** → máy đã cài: file cũ trong kho SW giải bằng khoá cũ (kho giữ 3 khoá), file mới tải về kèm khoá mới; không lớp nào "rác" giữa chừng.
+8. **curl `/data/soundings.v1.json`** trên production: 4 byte đầu `SDF2`, thân ngẫu nhiên (không còn dấu `{`); `curl /api/data-key` không header chuỗi thiết bị → 401/503, không bao giờ 200.
+
+### Bổ sung 2026-09-16c — cổng API + model-params (ĐỤNG sw.js: thêm 1 URL vào SHELL)
+
+9. **Đăng nhập, có sóng, mở Ra khơi** → mọi `/api/*` dữ liệu 200 (header `x-sdfish-token` có trong request, kể cả `/api/tiles/*`); `/data/model-params.v1.json` 200 (SDF2). Mất sóng mở lại: lớp cá vẫn pha mùa vụ (w đã nạp, file trong kho SW), ô ảnh cũ từ kho.
+10. **Xoá chuỗi thiết bị (giả bị đá) rồi mở Ra khơi có sóng** → `/api/*` 401; SW trả bản cũ trong kho (401 ∈ isRescuableStatus) ⇒ màn không trắng; ô ảnh chưa có trong kho thì trống; thẻ hạng báo đúng như luật bị đá sẵn có.
+11. **Tài khoản thường xin `grid:d16`** → 403 `premium_required`; d3 vẫn 200. Premium: cả hai 200. Gọi >60 lượt dự báo cá / >600 lượt dữ liệu trong 10 phút → 429, SW vẫn trả bản cũ.
+12. **Khách chưa đăng nhập ở Trang chủ** → không tin bão/giá (401), thẻ con nước vẫn có, không treo, không lỗi đỏ ngoài 401 trong console.

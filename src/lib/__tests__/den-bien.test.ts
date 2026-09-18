@@ -50,6 +50,9 @@ import {
   DEN_KHONG_TEN_PUB112,
 } from "../../../scripts/fetch-nga-lights.mjs";
 
+/** Thân phản hồi dạng byte — fetchDataJson đọc arrayBuffer rồi giải mã (bản rõ trả nguyên). */
+const jsonBytes = (o: unknown) => new TextEncoder().encode(JSON.stringify(o)).buffer;
+
 const FILE = path.join(process.cwd(), "public", "data", "den-bien.v1.json");
 const RAW = readFileSync(FILE, "utf8");
 const DATA = JSON.parse(RAW) as DenBienFile;
@@ -485,7 +488,7 @@ describe("đèn biển: hỏng thì lần sóng về sau thử lại được", 
     const spy = vi
       .fn()
       .mockRejectedValueOnce(new Error("mat song"))
-      .mockResolvedValueOnce({ ok: true, json: async () => DATA });
+      .mockResolvedValueOnce({ ok: true, arrayBuffer: async () => jsonBytes(DATA) });
     vi.stubGlobal("fetch", spy);
 
     await expect(fetchDenBien()).rejects.toThrow();
@@ -502,7 +505,7 @@ describe("đèn biển: hỏng thì lần sóng về sau thử lại được", 
     const spy = vi
       .fn()
       .mockResolvedValueOnce({ ok: false, status: 404 })
-      .mockResolvedValueOnce({ ok: true, json: async () => DATA });
+      .mockResolvedValueOnce({ ok: true, arrayBuffer: async () => jsonBytes(DATA) });
     vi.stubGlobal("fetch", spy);
     await expect(fetchDenBien()).rejects.toThrow(/404/);
     await expect(fetchDenBien()).resolves.toHaveLength(DATA.lights.length);
@@ -512,7 +515,7 @@ describe("đèn biển: hỏng thì lần sóng về sau thử lại được", 
   it("thành công thì NHỚ, không gọi mạng lần nữa", async () => {
     vi.resetModules();
     const { fetchDenBien } = await import("@/lib/den-bien");
-    const spy = vi.fn().mockResolvedValue({ ok: true, json: async () => DATA });
+    const spy = vi.fn().mockResolvedValue({ ok: true, arrayBuffer: async () => jsonBytes(DATA) });
     vi.stubGlobal("fetch", spy);
     await fetchDenBien();
     await fetchDenBien();

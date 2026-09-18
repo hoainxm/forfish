@@ -12,6 +12,7 @@ import { forecastStoreReady } from "@/lib/forecast-store";
 import { timeoutSignal } from "@/lib/abort";
 import type { StormTrack } from "@/lib/storm-track";
 import type { EarlyWarning } from "@/lib/storm-early";
+import { tokenHeader } from "@/lib/device-token-store";
 
 export type StormAlert = {
   id: string;
@@ -345,6 +346,7 @@ export async function fetchStormCheck(): Promise<StormCheck> {
 
   try {
     const r = await fetch(apiUrl("/api/storms"), {
+      headers: tokenHeader(),
       // 28s > trần route (NCHMF 2×12s = 24s): mạng sống-mà-chậm vẫn chờ được tin
       // THẬT thay vì lùi sớm về bản cache cũ. App vẫn hiện bản đã lưu trong lúc
       // chờ (không treo UI), nên chờ lâu hơn một chút cho thứ dính tính mạng là

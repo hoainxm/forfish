@@ -95,6 +95,17 @@ Nghĩa là ràng buộc cắn đúng chỗ có tiền, không cắn lớp bản 
 
 **Thông tin nhà nước Việt Nam công bố công khai** (Thông báo hàng hải, tin bão, danh mục báo hiệu): doanh nghiệp hiện thực hoá thành ứng dụng cho bà con là việc bình thường. Điều 15 Luật SHTT loại "văn bản hành chính" và "số liệu" khỏi bảo hộ quyền tác giả. **Đừng viết câu dè chừng nào cho nhóm này.**
 
+## Dữ liệu phát ra ngoài — MÃ HOÁ HAI NHÓM (chốt 2026-09-16, "PWA trước")
+
+> `public/data/**` phát ra CDN là **bản mã**; trong git vẫn **bản RÕ** (test/script/hook đọc thẳng). `npm run build` = `node scripts/encode-data.mjs && next build` — chỉ mã tại chỗ khi `VERCEL=1`/`SDFISH_ENCODE_DATA=1`; lỡ chạy máy dev: `git checkout -- public/data`. Trần PWA: người CÓ tài khoản vẫn rút được khoá; đạt được là người KHÔNG tài khoản tải file là rác, lộ thì tra ra ai nhận khoá.
+
+- **SDF1** (miễn phí/OSM: nền, bờ, đảo, rạn, tuyến, seamarks, tide-stations cho thẻ Trang chủ của khách): hoán vị byte, bảng trong bundle = khoá cửa. Giữ nén Brotli, giải được lát Range.
+- **SDF2** (biên tập — danh sách `CURATED` ở `scripts/encode-data.mjs`): gzip + AES-256-CTR, khoá ở `app_config.data_key_current` (admin đổi ở `/quan-tri`; **build đầu tự sinh**; env `SDFISH_DATA_KEY` chỉ đè khi build tay). Đổi khoá ⇒ cũ trượt sang `data_key_prev`, route trả cả hai; deploy lại. App cất `forfish.datakey.v1`. Thêm lớp mới tốn công ⇒ thêm vào `CURATED`.
+- Code: `src/lib/data-codec.mjs` · `data-crypt.ts` · `inflate.mjs` (iOS 15) · `data-fetch.ts` (một cửa đọc — **CẤM `fetch("/data/…")` trần**, cổng `data-codec.test.ts`) · `data-protocol.ts` (`sdfdata://`) · `pmtiles-protocol.ts` (`DecodingSource`) · `data-key.ts`/`data-key-server.ts`. Chi tiết: 02 re-verified 2026-09-16/16b.
+- **Gác MỌI route dữ liệu** ("server mình là nguồn thì đều bảo vệ"): `middleware.ts` matcher 11 đường đích danh → `dataGate` (`lib/supabase/middleware.ts`): 401 không chuỗi thiết bị · 403 premium (dự báo cá; `grid:dN`/`scalar:*:dN` N>3) · 429 theo SĐT (fish 60 · data 600 · tiles 3000 / 10 phút); đệm danh tính 10 phút. Luật thuần `lib/data-route-rules.ts`, cổng `data-route-rules.test.ts` đỏ khi thêm route dữ liệu mà quên gác. Client gửi `tokenHeader()`; khách chưa đăng nhập hết tin bão/giá.
+- **Tham số mô hình ra khỏi bundle**: `scripts/build-model-params.mjs` gộp `src/data/fish-blend-weights.json` + `forecast-skill.json` → `public/data/model-params.v1.json` (SDF2); app đọc qua `lib/model-params.ts`. **Fit/backtest xong phải chạy lại script** — cổng `model-params.test.ts` bắt lệch.
+- Kèm: LICENSE độc quyền SDVICO (ODbL §4.6 lớp OSM vẫn đưa bản rõ khi có yêu cầu), rate limit `/api/fish-forecast` 60/10 phút (`rate-limit.ts`, per-instance — nợ đã ghi).
+
 ## Pre-flight risk flags — dừng lại hỏi user khi
 
 - 🔴 **DB/migration**: đụng `supabase/migrations/`, RLS, schema (project ref `znzgugvfhgmiszqgjulk`) — KHÔNG tự apply lên remote

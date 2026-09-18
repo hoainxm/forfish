@@ -20,7 +20,7 @@
 // là route-plan.ts vạch tuyến chạy thẳng qua. Chi tiết + số đo: chú thích đầu
 // scripts/generate-depth-grid.mjs; test giữ: src/lib/__tests__/depth-grid.test.ts.
 
-import { timeoutSignal } from "@/lib/abort";
+import { fetchDataBytes } from "@/lib/data-fetch";
 
 /**
  * Sáu lớp, số NHỎ hơn = nguy hiểm hơn. Luật đi/chặn nằm ở route-plan.ts
@@ -138,13 +138,7 @@ const DEPTH_NETWORK_MS = 60000;
  */
 export async function fetchDepthGrid(): Promise<DepthGrid> {
   if (!cached) {
-    cached = fetch("/data/depth-grid.v1.bin", {
-      signal: timeoutSignal(DEPTH_NETWORK_MS),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`depth grid ${r.status}`);
-        return r.arrayBuffer();
-      })
+    cached = fetchDataBytes("/data/depth-grid.v1.bin", DEPTH_NETWORK_MS, "depth grid")
       .then(decodeDepthGrid)
       .catch((e) => {
         cached = null; // lần sau thử lại

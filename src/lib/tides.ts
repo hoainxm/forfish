@@ -700,19 +700,13 @@ export function tideTrustText(
 
    Cùng án lệ fetchSeamarks: hỏng thì xoá đệm để lần sóng về sau thử lại.
 --------------------------------------------------------------------------- */
-import { timeoutSignal } from "@/lib/abort";
+import { fetchDataJson } from "@/lib/data-fetch";
 
 let cachedStations: Promise<TideStation[]> | null = null;
 
 export async function fetchTideStations(): Promise<TideStation[]> {
   if (!cachedStations) {
-    cachedStations = fetch("/data/tide-stations.v1.json", {
-      signal: timeoutSignal(20000),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`tide-stations ${r.status}`);
-        return r.json();
-      })
+    cachedStations = fetchDataJson("/data/tide-stations.v1.json", 20000, "tide-stations")
       .then(decodeTideStations)
       .catch((e) => {
         cachedStations = null;

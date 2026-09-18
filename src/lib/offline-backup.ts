@@ -163,6 +163,10 @@ export const NEVER_BACKUP_PREFIXES = [
   "forfish.device.",
   "forfish.heartbeat.",
   "forfish.token.",
+  /*  · `datakey.` — KHOÁ GIẢI file dữ liệu nhóm biên tập (lib/data-key), server
+   *    giao cho tài khoản đã đăng nhập. Chép sang máy khác = trao khoá cho máy
+   *    chưa từng đăng nhập; máy mới cứ đăng nhập là được cấp lại, không mất gì. */
+  "forfish.datakey.",
   /*  · `sync.` — SỔ BOOKKEEPING đồng bộ per-máy (lib/user-sync): mỗi kind đã ghi
    *    lúc nào (mốc client) + còn dirty không. Của RIÊNG máy này. Chép sang máy
    *    khác là dán mốc/dirty sai → máy nhận tưởng đã đẩy/đã mới, bỏ qua sổ thật
@@ -450,6 +454,7 @@ const NEVER_NAMES: Array<[string, string]> = [
   ["forfish.tier.", "dấu tài khoản nâng cao"],
   ["forfish.device.", "mã máy"],
   ["forfish.heartbeat.", "nhịp báo về"],
+  ["forfish.datakey.", "khoá mở dữ liệu bản đồ (máy tự xin lại khi đăng nhập)"],
   ["forfish.fcindex.", "sổ mục lục kho dự báo"],
   ["forfish.fcbia.", "danh sách lớp chờ xoá của máy này"],
 ];

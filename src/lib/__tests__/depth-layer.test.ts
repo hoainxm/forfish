@@ -29,6 +29,9 @@ import {
 } from "@/lib/ocean-map";
 import { fmtDepthM } from "@/lib/map-prefs";
 
+/** Thân phản hồi dạng byte — fetchDataJson đọc arrayBuffer rồi giải mã (bản rõ trả nguyên). */
+const jsonBytes = (o: unknown) => new TextEncoder().encode(JSON.stringify(o)).buffer;
+
 const root = process.cwd();
 const read = (p: string) => fs.readFileSync(path.join(root, p), "utf8");
 
@@ -250,7 +253,7 @@ describe("hỏng thì lần sóng về sau thử lại được", () => {
     const spy = vi
       .fn()
       .mockRejectedValueOnce(new Error("mat song"))
-      .mockResolvedValueOnce({ ok: true, json: async () => body });
+      .mockResolvedValueOnce({ ok: true, arrayBuffer: async () => jsonBytes(body) });
     vi.stubGlobal("fetch", spy);
 
     await expect(fetchSoundings()).rejects.toThrow();
@@ -266,7 +269,7 @@ describe("hỏng thì lần sóng về sau thử lại được", () => {
     const { fetchSoundings } = await import("@/lib/soundings");
     const spy = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ v: 1, thongBao: [], diem: [], tuyen: [] }),
+      arrayBuffer: async () => jsonBytes({ v: 1, thongBao: [], diem: [], tuyen: [] }),
     });
     vi.stubGlobal("fetch", spy);
     await fetchSoundings();
@@ -280,7 +283,7 @@ describe("hỏng thì lần sóng về sau thử lại được", () => {
     const spy = vi
       .fn()
       .mockResolvedValueOnce({ ok: false, status: 404 })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ v: 1, doan: [] }) });
+      .mockResolvedValueOnce({ ok: true, arrayBuffer: async () => jsonBytes({ v: 1, doan: [] }) });
     vi.stubGlobal("fetch", spy);
     await expect(fetchFairwayDepths()).rejects.toThrow(/404/);
     await expect(fetchFairwayDepths()).resolves.toEqual([]);

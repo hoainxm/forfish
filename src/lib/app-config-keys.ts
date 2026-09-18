@@ -5,7 +5,9 @@ export type ConfigKey =
   | "vapid_public_key"
   | "vapid_private_key"
   | "vapid_subject"
-  | "cron_secret";
+  | "cron_secret"
+  | "data_key_current"
+  | "data_key_prev";
 
 export interface ConfigKeyMeta {
   key: ConfigKey;
@@ -15,12 +17,17 @@ export interface ConfigKeyMeta {
   /** env fallback cùng nghĩa (di trú từ env sang DB) */
   envVar: string;
   help?: string;
+  /** Trang quản trị hiện nút "Tạo ngẫu nhiên" — giá trị sinh ở máy admin theo khuôn này */
+  generate?: "hex32";
+  /** HẬU QUẢ nếu lưu sai — hiện ở bước xác nhận trước khi ghi (2026-09-17) */
+  risk: string;
 }
 
 export const CONFIG_KEYS: ConfigKeyMeta[] = [
   {
     key: "vapid_public_key",
     label: "VAPID Public Key",
+    risk: "Sai khoá công khai là MỌI máy đã bật thông báo ngừng nhận tin bão/tin mới, và phải bật lại từng máy.",
     secret: false,
     envVar: "VAPID_PUBLIC_KEY",
     help: "Khoá công khai Web Push (tạo bằng: npx web-push generate-vapid-keys).",
@@ -28,6 +35,7 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
   {
     key: "vapid_private_key",
     label: "VAPID Private Key",
+    risk: "Sai khoá bí mật là server không gửi được thông báo nào nữa, không báo lỗi rõ.",
     secret: true,
     envVar: "VAPID_PRIVATE_KEY",
     help: "Khoá bí mật Web Push — không hiện lại sau khi lưu.",
@@ -35,6 +43,7 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
   {
     key: "vapid_subject",
     label: "VAPID Subject",
+    risk: "Sai subject là dịch vụ đẩy của Apple/Google từ chối mọi thông báo.",
     secret: false,
     envVar: "VAPID_SUBJECT",
     help: "mailto:ban@domain.com hoặc URL https liên hệ.",
@@ -42,11 +51,83 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
   {
     key: "cron_secret",
     label: "CRON Secret",
+    risk: "Không trùng GitHub là mọi cron (bão, thời tiết, cá, giá) ngừng chạy — dữ liệu cũ dần mà không ai biết.",
     secret: true,
     envVar: "CRON_SECRET",
     help: "Khoá xác thực cron (GitHub Actions gửi Bearer này). Đặt Ở ĐÂY (DB dùng chung) thì mọi deploy khớp — khỏi set env CRON_SECRET trên từng Vercel. Phải TRÙNG giá trị secret CRON_SECRET bên GitHub.",
   },
+  /*  KHOÁ DỮ LIỆU BẢN ĐỒ (2026-09-17): mã 15 file biên tập lúc build (scripts/
+      encode-data.mjs đọc DB qua service-role) và phát cho tài khoản đã đăng nhập
+      (/api/data-key). Lần build đầu chưa có thì build TỰ SINH và ghi vào đây —
+      admin không phải làm gì. Đổi khoá: bấm "Tạo ngẫu nhiên" → Lưu; route
+      /api/admin/app-config tự chuyển khoá cũ sang "trước đó" để máy đang dùng
+      file cũ vẫn đọc được; file MỚI chỉ dùng khoá mới sau lần deploy kế. */
+  {
+    key: "data_key_current",
+    label: "Khoá dữ liệu bản đồ (hiện hành)",
+    risk: "Sai khoá là sau lần deploy kế, 15 file dữ liệu bản đồ mã bằng khoá này không máy nào giải được.",
+    secret: true,
+    envVar: "SDFISH_DATA_KEY",
+    generate: "hex32",
+    help: "Mã 15 file dữ liệu biên tập (độ sâu, báo hiệu, luồng, chất đáy, mùa vụ cá…). Build đầu tự sinh. Đổi: bấm Tạo ngẫu nhiên → Lưu, khoá cũ tự chuyển xuống ô dưới; deploy lại để file mới dùng khoá mới.",
+  },
+  {
+    key: "data_key_prev",
+    label: "Khoá dữ liệu bản đồ (trước đó)",
+    risk: "Đè sai là máy đã tải file bằng khoá cũ mất lớp độ sâu/báo hiệu cho tới khi tải lại.",
+    secret: true,
+    envVar: "SDFISH_DATA_KEY_PREV",
+    help: "Tự chuyển từ khoá hiện hành khi đổi khoá — máy đã tải file bằng khoá cũ vẫn đọc được. Xoá bằng cách dán một khoá mới đè lên.",
+  },
 ];
+
+/** Khoá dữ liệu phải đúng 64 ký tự hex (32 byte). */
+export function isDataKeyValue(v: string): boolean {
+  return /^[0-9a-f]{64}$/i.test(v.trim());
+}
+
+/**
+ * KIỂM Ở RANH GIỚI trước khi ghi DB (2026-09-17, sau ảnh prod: trình duyệt tự
+ * điền SĐT vào ô VAPID Public Key). Một giá trị sai dạng ghi vào là thông báo
+ * chết / file dữ liệu không giải được — nên chặn ở đây, không tin ô nhập.
+ */
+export function validateConfigValue(key: ConfigKey, value: string): boolean {
+  const v = value.trim();
+  if (!v) return false;
+  switch (key) {
+    case "data_key_current":
+    case "data_key_prev":
+      return isDataKeyValue(v);
+    case "vapid_public_key":
+      // P-256 điểm công khai 65 byte → base64url 87 ký tự (web-push sinh ra thế)
+      return /^[A-Za-z0-9_-]{80,100}$/.test(v);
+    case "vapid_private_key":
+      // 32 byte → base64url 43 ký tự
+      return /^[A-Za-z0-9_-]{40,50}$/.test(v);
+    case "vapid_subject":
+      return /^(mailto:[^\s@]+@[^\s@]+|https:\/\/\S+)$/.test(v);
+    case "cron_secret":
+      return v.length >= 16 && !/\s/.test(v);
+    default:
+      return true;
+  }
+}
+
+/**
+ * Ghi khoá hiện hành mới thì khoá cũ (nếu có và KHÁC) trượt xuống "trước đó".
+ * Thuần, trả danh sách ô cần ghi theo thứ tự.
+ */
+export function dataKeyShift(
+  oldCurrent: string | null,
+  newCurrent: string,
+): Array<{ key: ConfigKey; value: string }> {
+  const neu = newCurrent.trim().toLowerCase();
+  const cu = oldCurrent?.trim().toLowerCase() ?? "";
+  const rows: Array<{ key: ConfigKey; value: string }> = [];
+  if (cu && cu !== neu) rows.push({ key: "data_key_prev", value: cu });
+  rows.push({ key: "data_key_current", value: neu });
+  return rows;
+}
 
 export const CONFIG_META = new Map(CONFIG_KEYS.map((m) => [m.key, m]));
 
@@ -59,6 +140,8 @@ export interface ConfigStatusRow {
   set: boolean;
   /** null với khoá secret (không lộ) */
   value: string | null;
+  generate?: "hex32";
+  risk: string;
 }
 
 /** Nguồn hiệu lực của một khoá: DB đè env; giá trị secret KHÔNG trả ra. */

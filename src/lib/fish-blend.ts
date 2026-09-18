@@ -11,16 +11,16 @@
 // scripts/fit-fish-blend-weights.mjs → src/data/fish-blend-weights.json.
 // Sửa w phải chạy lại script, KHÔNG gõ số vào đây.
 //
-// OFFLINE (bất biến của app): bảng w NHÚNG THẲNG vào bundle (JSON nhỏ, không
+// OFFLINE (bất biến của app): bảng w đi cùng model-params.v1.json (SDF2, SW giữ sẵn, không
 // bao giờ phải tải); bản mùa vụ là asset tĩnh /data/fish-climatology.v1.json
 // đã nằm trong danh sách pre-cache của service worker → giữa biển mất sóng vẫn
 // dựng được lộ trình. Thiếu bản mùa vụ ⇒ TRẢ NGUYÊN bản dự báo (bất biến
 // monotonic: mất nguồn thì bớt thông tin, KHÔNG bịa thêm).
 
-import weightsRaw from "@/data/fish-blend-weights.json";
-import { timeoutSignal } from "@/lib/abort";
+import { getModelParams, loadModelParams } from "@/lib/model-params";
+import { fetchDataJson } from "@/lib/data-fetch";
 
-/* ── bảng trọng số (sinh offline) ─────────────────────────────────────────── */
+/* ── bảng trọng số (sinh offline) — nạp qua model-params (SDF2), KHÔNG nhúng bundle (2026-09-16) ── */
 
 interface LeadRow {
   lead: number;
@@ -32,22 +32,36 @@ interface WeightsFile {
   cvWinsOverPersistence?: number[];
 }
 
-const WEIGHTS = weightsRaw as WeightsFile;
+/** Bảng w hiện hành; chưa nạp ⇒ rỗng ⇒ blend tự tắt (giữ dự báo — đường suy biến sẵn có). */
+function weightsFile(): WeightsFile {
+  return (getModelParams()?.fishBlend as WeightsFile | undefined) ?? {};
+}
 
-/** Các mốc tầm ngày đã ĐO được, tăng dần, đã bỏ mốc thiếu số */
-const MEASURED: { lead: number; w: number }[] = (WEIGHTS.perLead ?? [])
-  .filter((r): r is { lead: number; w: number } => typeof r?.w === "number")
-  .map((r) => ({ lead: r.lead, w: Math.min(1, Math.max(0, r.w)) }))
-  .sort((a, b) => a.lead - b.lead);
+let memoSrc: WeightsFile | null = null;
+let memoRows: { lead: number; w: number }[] = [];
+/** Các mốc tầm ngày đã ĐO được, tăng dần, đã bỏ mốc thiếu số (đệm theo bảng đang dùng) */
+function measured(): { lead: number; w: number }[] {
+  const w = weightsFile();
+  if (w !== memoSrc) {
+    memoSrc = w;
+    memoRows = (w.perLead ?? [])
+      .filter((r): r is { lead: number; w: number } => typeof r?.w === "number")
+      .map((r) => ({ lead: r.lead, w: Math.min(1, Math.max(0, r.w)) }))
+      .sort((a, b) => a.lead - b.lead);
+  }
+  return memoRows;
+}
 
-/** Bảng w có dùng được không — rỗng/suy biến thì lớp blend tự tắt (giữ persist) */
-export const BLEND_USABLE =
-  MEASURED.length > 0 && WEIGHTS.guard?.degenerate !== true;
+/** Bảng w có dùng được không — chưa nạp/rỗng/suy biến thì lớp blend tự tắt (giữ persist) */
+export function blendUsable(): boolean {
+  return measured().length > 0 && weightsFile().guard?.degenerate !== true;
+}
 
 /** Tầm ngày xa nhất bảng w nói được (ngày) — quá mốc này giữ w của mốc cuối */
-export const MAX_MEASURED_LEAD = MEASURED.length
-  ? MEASURED[MEASURED.length - 1].lead
-  : 0;
+export function maxMeasuredLead(): number {
+  const m = measured();
+  return m.length ? m[m.length - 1].lead : 0;
+}
 
 /**
  * TỶ LỆ ĐO ĐƯỢC — bao nhiêu phần tin bản dự báo tại tầm `dayIdx`, theo backtest.
@@ -55,22 +69,22 @@ export const MAX_MEASURED_LEAD = MEASURED.length
  * (có lớp chọn của chủ dự án đè lên — xem PRODUCT_SHARE bên dưới).
  */
 export function measuredWeight(dayIdx: number): number {
-  if (!BLEND_USABLE) return 1;
+  if (!blendUsable()) return 1;
   const d = Math.max(0, dayIdx);
   if (d === 0) return 1;
-  if (d <= MEASURED[0].lead) {
-    const t = d / MEASURED[0].lead;
-    return 1 + t * (MEASURED[0].w - 1);
+  if (d <= measured()[0].lead) {
+    const t = d / measured()[0].lead;
+    return 1 + t * (measured()[0].w - 1);
   }
-  for (let i = 0; i < MEASURED.length - 1; i++) {
-    const a = MEASURED[i];
-    const b = MEASURED[i + 1];
+  for (let i = 0; i < measured().length - 1; i++) {
+    const a = measured()[i];
+    const b = measured()[i + 1];
     if (d <= b.lead) {
       const t = (d - a.lead) / (b.lead - a.lead);
       return a.w + t * (b.w - a.w);
     }
   }
-  return MEASURED[MEASURED.length - 1].w;
+  return measured()[measured().length - 1].w;
 }
 
 /* ── LỚP CHỌN CỦA CHỦ DỰ ÁN (2026-07-28) ─────────────────────────────────────
@@ -140,13 +154,13 @@ export const PRODUCT_SHARE_GAMMA = 2.5;
 /** Tỷ lệ MÙA VỤ gánh tại tầm `dayIdx` (0..1) — số app thật sự dùng */
 export function climShare(dayIdx: number): number {
   const d = Math.max(0, dayIdx);
-  if (!BLEND_USABLE || d === 0) return 0;
+  if (!blendUsable() || d === 0) return 0;
   const raw = 1 - measuredWeight(d);
-  const lo = 1 - measuredWeight(MEASURED[0].lead);
-  const hi = 1 - measuredWeight(MEASURED[MEASURED.length - 1].lead);
+  const lo = 1 - measuredWeight(measured()[0].lead);
+  const hi = 1 - measuredWeight(measured()[measured().length - 1].lead);
   // dải đo suy biến (hai đầu bằng nhau) → rơi về nội suy thẳng giữa hai mốc chọn
   if (!(hi > lo)) {
-    const t = Math.min(1, d / Math.max(1, MEASURED[MEASURED.length - 1].lead));
+    const t = Math.min(1, d / Math.max(1, measured()[measured().length - 1].lead));
     return PRODUCT_SHARE_FIRST + t * (PRODUCT_SHARE_LAST - PRODUCT_SHARE_FIRST);
   }
   const t = (raw - lo) / (hi - lo);
@@ -164,7 +178,7 @@ export function climShare(dayIdx: number): number {
  * · bảng hỏng/suy biến → 1 (dùng thẳng bản dự báo, không pha)
  */
 export function blendWeight(dayIdx: number): number {
-  if (!BLEND_USABLE) return 1;
+  if (!blendUsable()) return 1;
   if (Math.max(0, dayIdx) === 0) return 1;
   return 1 - climShare(dayIdx);
 }
@@ -405,7 +419,7 @@ export function blendFishCells(
   dayIdx: number,
   opts?: { gridStep?: number },
 ): BlendableCell[] {
-  if (!cells.length || dayIdx <= 0 || !clim || !BLEND_USABLE) return cells;
+  if (!cells.length || dayIdx <= 0 || !clim || !blendUsable()) return cells;
   const buf = clim.months.get(month);
   if (!buf) return cells;
 
@@ -562,14 +576,13 @@ let cached: Promise<Climatology | null> | null = null;
  */
 export function fetchClimatology(): Promise<Climatology | null> {
   if (!cached) {
-    cached = fetch("/data/fish-climatology.v1.json", {
-      signal: timeoutSignal(15000),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`climatology ${r.status}`);
-        return r.json();
-      })
-      .then((j) => decodeClimatology(j as ClimatologyFile))
+    // Bảng w (model-params, SDF2) tải SONG SONG với mùa vụ — blend chạy sau khi
+    // có mùa vụ nên lúc đó w đã sẵn; không tốn thêm một vòng mạng nối tiếp.
+    cached = Promise.all([
+      fetchDataJson("/data/fish-climatology.v1.json", 15000, "climatology"),
+      loadModelParams(),
+    ])
+      .then(([j]) => decodeClimatology(j as ClimatologyFile))
       .catch(() => {
         /* XOÁ CACHE RỒI MỚI TRẢ null (D-PH12, soát 2026-08-02): trước đây
            `.catch(() => null)` gán thẳng promise-null vào `cached`, nên MỘT

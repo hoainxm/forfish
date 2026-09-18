@@ -261,7 +261,9 @@ export default function QuyenRiengTuPage() {
 
         <p className="pb-4 text-[0.9375rem] text-foreground/55">
           SDFish do SDVICO phát hành. Mọi số liệu giá cả, dự báo biển, mức phạt
-          trong app đều là tham khảo.
+          trong app đều là tham khảo. Bản quyền © 2026 Công ty SDVICO — phần
+          mềm, giao diện và bộ dữ liệu bản đồ đã biên tập là tài sản độc quyền,
+          không được sao chép hay dùng lại cho sản phẩm khác.
         </p>
       </div>
     </div>

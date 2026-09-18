@@ -30,7 +30,7 @@
  *   trăm km — nên KHÔNG suy tỉnh/vị trí từ tên.
  */
 
-import { timeoutSignal } from "@/lib/abort";
+import { fetchDataJson } from "@/lib/data-fetch";
 import { trongKhungBienVN } from "@/lib/den-bien";
 
 /* ── KIỂU ────────────────────────────────────────────────────────────────── */
@@ -132,11 +132,7 @@ let cached: Promise<DiaDanhNgam[]> | null = null;
  */
 export async function fetchDiaDanhNgam(): Promise<DiaDanhNgam[]> {
   if (!cached) {
-    cached = fetch("/data/dia-danh-ngam.v1.json", { signal: timeoutSignal(20000) })
-      .then((r) => {
-        if (!r.ok) throw new Error(`dia-danh-ngam ${r.status}`);
-        return r.json();
-      })
+    cached = fetchDataJson("/data/dia-danh-ngam.v1.json", 20000, "dia-danh-ngam")
       .then(decodeDiaDanhNgam)
       .catch((e) => {
         cached = null;

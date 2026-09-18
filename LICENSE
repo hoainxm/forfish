@@ -1,0 +1,45 @@
+SDFish — PHẦN MỀM ĐỘC QUYỀN / PROPRIETARY SOFTWARE
+
+Bản quyền © 2026 Công ty SDVICO. Bảo lưu mọi quyền.
+Copyright © 2026 SDVICO Company. All rights reserved.
+
+Toàn bộ nội dung trong kho mã này — mã nguồn, tài liệu, thiết kế giao diện,
+biểu tượng, tên gọi SDFish, cùng các bộ dữ liệu bản đồ đã biên tập (báo hiệu
+hàng hải, đèn biển, số đo sâu, luồng lạch, con nước, mùa vụ cá, khu tránh trú
+bão…) — là tài sản độc quyền của SDVICO, được bảo hộ theo Luật Sở hữu trí tuệ
+Việt Nam và các điều ước quốc tế về quyền tác giả.
+
+KHÔNG ĐƯỢC PHÉP, nếu không có văn bản cho phép của SDVICO:
+  1. Sao chép, phân phối, cho thuê, công bố, hoặc đưa lên nơi khác toàn bộ
+     hay một phần kho mã này.
+  2. Dịch ngược, phân tích ngược, giải mã, trích xuất bộ dữ liệu hoặc thuật
+     toán để dùng cho sản phẩm khác.
+  3. Tạo tác phẩm phái sinh, hoặc dùng làm mẫu để dựng ứng dụng tương tự.
+  4. Gỡ bỏ, che, hay thay đổi thông báo bản quyền này.
+
+Phần mềm được phát triển theo đặt hàng của SDVICO; quan hệ sở hữu giữa bên
+đặt hàng và bên phát triển (Long-Forfun) theo hợp đồng riêng giữa hai bên.
+
+THƯ VIỆN VÀ DỮ LIỆU BÊN THỨ BA giữ giấy phép riêng của họ, không thuộc phạm
+vi thông báo này:
+  · Thư viện mã nguồn mở khai trong package.json (giấy phép trong node_modules).
+  · Dữ liệu dẫn xuất từ OpenStreetMap chịu giấy phép ODbL v1.0 — theo ODbL
+    §4.6, bản máy-đọc-được của phần dẫn xuất sẽ được cung cấp cho người nhận
+    khi có yêu cầu (chi tiết: docs/formaps/00-phap-ly.md).
+  · Số liệu công bố công khai của cơ quan nhà nước Việt Nam (Thông báo hàng
+    hải, tin bão, danh mục báo hiệu) là số liệu không thuộc đối tượng bảo hộ
+    quyền tác giả (Điều 15 Luật SHTT); phần được bảo hộ là bản biên tập.
+
+Phần mềm được cung cấp "NGUYÊN TRẠNG". Mọi số liệu giá cả, dự báo biển, dự
+báo cá trong ứng dụng chỉ mang tính tham khảo.
+
+Liên hệ cấp phép: SDVICO — hotline 0939 243 222.
+
+---
+
+English summary: This repository is proprietary software owned by SDVICO.
+No part may be copied, redistributed, reverse-engineered, or used to build a
+derivative product without SDVICO's written permission. Third-party libraries
+and OpenStreetMap-derived data keep their own licenses (see package.json and
+docs/formaps/00-phap-ly.md). Provided "AS IS"; all forecasts are for reference
+only.

@@ -82,6 +82,11 @@ node scripts/generate-ios-screenshots.mjs  # iPhone 6.5"/6.7" + iPad 12.9"/13"
 ```bash
 # 1. Đồng bộ web → native
 npm run build                 # nếu chế độ (b) static bundle; chế độ (a) server.url thì web deploy Vercel là đủ
+#   ⚠ 2026-09-16: `npm run build` = encode-data + next build. Trên máy dev script BỎ QUA (không có VERCEL=1)
+#   ⇒ bundle static chế độ (b) mang bản RÕ. Muốn bundle native mang bản mã: SDFISH_ENCODE_DATA=1 npm run build
+#   rồi `git checkout -- public/data` để trả cây làm việc về bản rõ. Vercel tự mã hoá, không cần làm gì.
+#   Khoá SDF2 lấy từ app_config.data_key_current (Vercel có SUPABASE_SERVICE_ROLE_KEY lúc build; trống thì build tự sinh).
+#   Build tay không có Supabase: SDFISH_DATA_KEY=<hex của DB> SDFISH_ENCODE_DATA=1 npm run build (khoá PHẢI trùng DB, không thì app không giải được).
 npm run cap:sync              # cap sync — copy web + plugin sang android/
 npm run icons                 # đảm bảo icon đúng
 
