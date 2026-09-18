@@ -115,6 +115,34 @@ export function __resetSyncMetaCache(): void {
   metaCache = null;
 }
 
+/**
+ * XOÁ SỔ MỐC ĐỒNG BỘ — cả bản trong BỘ NHỚ (`metaCache`) lẫn localStorage.
+ * Gọi khi bà con TỰ ĐĂNG XUẤT / GỠ TÀI KHOẢN khỏi máy (trao máy cho người khác),
+ * đi CÙNG lượt xoá dữ liệu chủ tàu (`clearUserScopedData`).
+ *
+ * VÌ SAO PHẢI XOÁ CẢ MỐC (không chỉ dữ liệu): đăng xuất xoá `forfish.boats.v1`…
+ * nhưng để lại sổ mốc thì lần đăng nhập lại `syncAll` so LWW
+ * `server.clientUpdatedAt > metaOf().at` HOÁ FALSE (mốc cũ còn nguyên = ngang
+ * server) ⇒ KHÔNG kéo bản server về ⇒ CHỦ THẬT đăng nhập lại vẫn thấy TRỐNG.
+ * Đưa mốc về 0 thì `server.at > 0` ⇒ kéo lại đủ.
+ *
+ * VÌ SAO XOÁ CẢ BẢN BỘ NHỚ: `metaCache` mới là nguồn sự thật trong phiên (xem
+ * chú thích khối trên) — xoá mỗi localStorage thì phiên đang chạy VẪN so bằng
+ * mốc cũ. Đặt `{}` (không phải `null`) để phiên này chắc chắn sạch kể cả khi
+ * `removeItem` ném (máy chặn storage).
+ *
+ * KHÔNG BAO GIỜ ném.
+ */
+export function clearSyncMeta(): void {
+  metaCache = {};
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(META_KEY);
+  } catch {
+    /* bản bộ nhớ đã sạch — phiên này so đúng, lần mở sau đọc ra "{}" */
+  }
+}
+
 function readRaw(kind: SyncKind): string | null {
   try {
     return window.localStorage.getItem(KEY[kind]);

@@ -16,6 +16,13 @@ import { SQ_BTN } from "@/components/ui/sq-btn";
 import { createClient } from "@/lib/supabase/client";
 import { clearInbox } from "@/lib/inbox";
 import { clearCachedOrders } from "@/lib/catalog-orders";
+import { clearUserScopedData } from "@/lib/auth-scope";
+import { clearCart } from "@/lib/cart";
+import {
+  ACTIVE_SYNC_KINDS,
+  clearSyncMeta,
+  USER_SYNC_EVENT,
+} from "@/lib/user-sync";
 import {
   applyIdentityAction,
   offlineIdentityPhone,
@@ -60,6 +67,48 @@ const MODE_KEY = "forfish.displaymode.v1";
 /** Đăng xuất chờ tối đa bấy nhiêu rồi coi như KHÔNG đăng xuất được (cùng khuôn
  *  đồng hồ với use-auth 8s / use-tier 12s — nút bấm thì phải ngắn hơn). */
 const SIGN_OUT_MS = 6000;
+
+/*  DỌN HỒ SƠ CHỦ TÀU KHỎI MÁY — gọi khi bà con TỰ ĐĂNG XUẤT / GỠ TÀI KHOẢN
+    (có ý trao máy cho người khác).
+
+    VÌ SAO CÓ (bug rò rỉ 2026-09-18): trước đây đăng xuất chỉ xoá chuỗi + danh
+    tính + dấu hạng + hộp thư + đơn hàng. Hồ sơ TÀU (tên tàu, số đăng ký), sổ
+    thuyền viên (CCCD), tủ giấy tờ, danh bạ nậu vựa, sổ bảo dưỡng/vật tư NẰM LẠI
+    localStorage ⇒ người sau mở app vẫn thấy TÊN + SỐ TÀU của chủ cũ. Trái bất
+    biến CÁCH LY TÀI KHOẢN (cùng luật với hộp thư + đơn hàng đã xoá ngay trên).
+
+    `clearUserScopedData` (lib/auth-scope) là hàm ĐÃ CÓ SẴN cho đúng việc này
+    ("clear data KH khi user CHANGE hoặc logout") nhưng CHƯA TỪNG được gọi ở đâu
+    trong app — cổng cách ly tài khoản dựng xong mà chưa đấu dây. Nay đấu vào.
+    Nó xoá boats/currentBoat/boat/sdvico-boat/products/documents/maintenance/
+    buyers/debts/trips/crew/tier.premium VÀ nhờ Service Worker xoá kho `/api/*`
+    riêng tư đã cache (rò tên/serial/mã đơn của người cũ khi máy mất sóng).
+
+    AN TOÀN CHO CHỦ THẬT: boats/maintenance/materials/crew/documents đồng bộ
+    server (lib/user-sync) ⇒ đăng nhập lại là kéo về. NHƯNG phải xoá KÈM sổ mốc
+    đồng bộ (`clearSyncMeta`): để lại mốc thì lần đăng nhập lại LWW coi server
+    "không mới hơn" ⇒ KHÔNG kéo bản server về ⇒ chủ thật thấy trống. Giỏ hàng
+    giữ SĐT + điểm giao của người trước nên đi cùng (`clearCart` tự bắn CART_EVENT).
+
+    BẮN USER_SYNC_EVENT cho từng sổ: `router.refresh()` KHÔNG reset state của
+    client component (bài học use-auth), mà boat-store/crew-list/document-vault/
+    maintenance/products đọc lại theo sự kiện này ⇒ màn đang mở về TRỐNG NGAY.
+
+    CHỈ nhánh TỰ ĐĂNG XUẤT / GỠ TÀI KHOẢN. KHÔNG gọi ở nhánh BỊ MÁY KHÁC ĐÁ
+    (`signOutLocal("kicked")`) — nhánh đó CỐ Ý giữ dữ liệu đã tải để bà con còn
+    dùng ngoài biển. */
+function wipeOwnerDataFromDevice(): void {
+  clearUserScopedData(); // dữ liệu chủ tàu + nhờ SW xoá kho /api riêng tư
+  clearSyncMeta(); // để đăng nhập lại KÉO ĐỦ bản server (không thì LWW chặn)
+  clearCart(null); // giỏ giữ SĐT + điểm giao người trước (tự bắn CART_EVENT)
+  try {
+    for (const kind of ACTIVE_SYNC_KINDS) {
+      window.dispatchEvent(new CustomEvent(USER_SYNC_EVENT, { detail: { kind } }));
+    }
+  } catch {
+    /* môi trường không có sự kiện (WebView lạ) — màn sẽ đọc lại lúc điều hướng */
+  }
+}
 
 type Mode = "auto" | "to" | "gon";
 
@@ -384,6 +433,9 @@ export function HeroAccount() {
         Khác hẳn nhánh BỊ MÁY KHÁC ĐÁ (`signOutLocal("kicked")`), nhánh đó chỉ
         xoá chuỗi và giữ nguyên dữ liệu đã tải. */
     signOutLocal("user");
+    // HỒ SƠ CHỦ TÀU (tên/số tàu, thuyền viên, giấy tờ, nậu vựa…) cũng phải đi —
+    // trước đây thiếu, người sau mở app còn thấy tên + số tàu của chủ cũ.
+    wipeOwnerDataFromDevice();
     setDeviceBound(false);
     setOpen(false);
     router.refresh();
@@ -411,6 +463,9 @@ export function HeroAccount() {
     // cổng duy nhất (K7) — đã kèm xoá dấu hạng, đừng gọi thêm đường thứ hai
     applyIdentityAction("device-forget", false);
     clearKickedMark(); // máy đã quên tài khoản — thẻ "bị đá" hết lý do
+    // Gỡ tài khoản = trao máy đi: hồ sơ chủ tàu (tên/số tàu, thuyền viên, giấy
+    // tờ…) phải theo hộp thư + danh tính, không được ở lại cho người sau.
+    wipeOwnerDataFromDevice();
     setDeviceBound(false);
     setConfirmForget(false);
     setOpen(false);
@@ -748,8 +803,9 @@ export function HeroAccount() {
             <div className="flex items-stretch gap-2">
               {/* dòng này mang TIN CHÍNH (nút xoá cái gì) — không được 14px */}
               <p className="min-w-0 flex-1 px-1 text-[0.9375rem] leading-snug text-foreground/70">
-                Xoá thư cũ và số điện thoại đã lưu trong máy. Không cần sóng.
-                Dữ liệu trên máy chủ vẫn còn. Đăng nhập lại được khi có sóng.
+                Xoá khỏi máy: thư cũ, số điện thoại, hồ sơ tàu, sổ thuyền viên,
+                giấy tờ, danh bạ đã lưu. Không cần sóng. Đăng nhập lại (có sóng)
+                để lấy lại phần đã đồng bộ.
               </p>
               <button
                 type="button"
@@ -774,7 +830,8 @@ export function HeroAccount() {
           onClose={() => setConfirmForget(false)}
         >
           <p className="text-[1.125rem] leading-snug text-navy">
-            Máy sẽ quên: thư cũ · số điện thoại đã lưu · quyền premium đã lưu.
+            Máy sẽ quên: thư cũ · số điện thoại · hồ sơ tàu · sổ thuyền viên ·
+            giấy tờ · danh bạ · quyền premium đã lưu.
           </p>
           <p className="mt-2 text-[1rem] leading-snug text-foreground/75">
             Muốn dùng lại thì phải{" "}
