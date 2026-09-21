@@ -4,11 +4,55 @@
   "coQuan": "Tổng công ty Bảo đảm an toàn hàng hải Việt Nam (vmsa.vn)",
   "ghiChu": "Sổ theo dõi Thông báo hàng hải hằng tuần — đầu nguồn của các lớp hải đồ trong app (số đo sâu, báo hiệu, đèn biển, xác tàu). App KHÔNG đọc file này; nó để biết tuần nào cần dựng lại lớp nào.",
   "banTinMoiNhat": {
-    "tuan": 37,
-    "ngay": "2026-09-07",
-    "url": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-07-09-2026-tuan-37--13855-2.html"
+    "tuan": 39,
+    "ngay": "2026-09-21",
+    "url": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-21-09-2026-tuan-39--13888-2.html"
   },
   "thongBao": [
+    {
+      "tuan": 39,
+      "ngay": "2026-09-21",
+      "so": "155",
+      "haiDo": [
+        "VN50017"
+      ],
+      "moTa": "VIET NAM - NORTH CENTRAL COAST - QUANG TRI - CƯA GIANH - Wreck. VIỆT NAM - BỜ BIỂN BẮC TRUNG BỘ - QUẢNG TRỊ - CỬA GIANH - Tàu đắm.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-21-09-2026-tuan-39--13888-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20155(1).pdf"
+    },
+    {
+      "tuan": 39,
+      "ngay": "2026-09-21",
+      "so": "154",
+      "haiDo": [
+        "VN30033"
+      ],
+      "moTa": "VIET NAM - SOUTHWEST COAST - AN GIANG - Wreck. VIỆT NAM - BỜ BIỂN TÂY NAM BỘ - AN GIANG - Tàu đắm.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-21-09-2026-tuan-39--13888-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20154.pdf"
+    },
+    {
+      "tuan": 38,
+      "ngay": "2026-09-14",
+      "so": "153",
+      "haiDo": [
+        "VN50034"
+      ],
+      "moTa": "VIET NAM - SOUTH EAST COAST - HO CHI MINH - SOAI RAP - Wreck. VIỆT NAM - BỜ BIỂN ĐÔNG NAM BỘ - HỒ CHÍ MINH - SOÀI RẠP - Tàu đắm.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-14-09-2026-tuan-38--13887-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20153.pdf"
+    },
+    {
+      "tuan": 38,
+      "ngay": "2026-09-14",
+      "so": "152",
+      "haiDo": [
+        "VN30029"
+      ],
+      "moTa": "VIET NAM - SOUTHWEST COAST - CA MAU - Wreck. VIỆT NAM - BỜ BIỂN TÂY NAM BỘ - CÀ MAU - Tàu đắm.",
+      "banTin": "https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433/cap-nhat-hai-do-giay-ngay-14-09-2026-tuan-38--13887-2.html",
+      "pdf": "https://vmsa.vn/baodam/upload/files/2026%20152.pdf"
+    },
     {
       "tuan": 37,
       "ngay": "2026-09-07",
