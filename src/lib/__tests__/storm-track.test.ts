@@ -9,7 +9,6 @@ import {
   nhanMoc,
   rowsToTracks,
   tracksToGeoJSON,
-  vongNgoaiTiep,
   vongTron,
   type BulletinRow,
   type ForecastRow,
@@ -21,6 +20,10 @@ import {
   stormKeyFor,
   type NchmfBulletin,
 } from "@/lib/storm-bulletin";
+
+// Mốc "bây giờ" cố định cho test — forecast dated phải là TƯƠNG LAI so với mốc
+// này để không bị lọc "đã qua giờ" (rowsToTracks bỏ mốc dự báo valid_at < now).
+const NOW = Date.parse("2026-08-18T12:00:00Z");
 
 function hang(p: Partial<BulletinRow> & { id: string; issued_at: string }): BulletinRow {
   return {
@@ -82,6 +85,45 @@ describe("rowsToTracks — gom bản tin thành đường đi", () => {
     const [t] = rowsToTracks(rows, pts);
     expect(t.forecast).toHaveLength(1);
     expect(t.forecast[0].lat).toBe(2);
+  });
+
+  it("BỎ mốc dự báo ĐÃ QUA GIỜ; giữ mốc chưa tới + mốc không giờ", () => {
+    const rows = [hang({ id: "x", issued_at: "2026-08-18T07:00:00Z" })];
+    const pts: ForecastRow[] = [
+      { bulletin_id: "x", valid_at: "2026-08-18T00:00:00Z", lat: 1, lon: 1, cap: null, giat: null, danger_box: null, seq: 0 }, // đã qua < NOW
+      { bulletin_id: "x", valid_at: "2026-08-19T00:00:00Z", lat: 2, lon: 2, cap: null, giat: null, danger_box: null, seq: 1 }, // sắp tới
+      { bulletin_id: "x", valid_at: null, lat: 3, lon: 3, cap: null, giat: null, danger_box: null, seq: 2 }, // không giờ → giữ
+    ];
+    const [t] = rowsToTracks(rows, pts, NOW); // NOW = 2026-08-18T12:00
+    expect(t.forecast.map((p) => p.lat)).toEqual([2, 3]); // mốc đã qua (lat 1) bị bỏ
+  });
+
+  it("GỘP cùng cơn khác khoá (ATNĐ→bão): 1 track, past nối, forecast của bản mới", () => {
+    const bulletins = [
+      hang({ id: "a1", storm_key: "atnd-20260818", issued_at: "2026-08-18T01:00:00Z", lat: 18.0, lon: 116.0 }),
+      hang({ id: "a2", storm_key: "atnd-20260818", issued_at: "2026-08-18T07:00:00Z", lat: 18.5, lon: 115.0 }),
+      // khoá MỚI, tâm gần a2 (≤600km) + trong 12h ⇒ cùng cơn
+      hang({ id: "b1", storm_key: "bao-so-5-2026", la_bao: true, so_bao: "5", issued_at: "2026-08-18T13:00:00Z", lat: 19.0, lon: 114.0 }),
+    ];
+    const pts: ForecastRow[] = [
+      { bulletin_id: "a2", valid_at: "2026-08-19T00:00:00Z", lat: 20, lon: 113, cap: null, giat: null, danger_box: null, seq: 0 }, // cũ → ẩn
+      { bulletin_id: "b1", valid_at: "2026-08-19T06:00:00Z", lat: 21, lon: 112, cap: null, giat: null, danger_box: null, seq: 0 }, // mới → giữ
+    ];
+    const tracks = rowsToTracks(bulletins, pts, NOW);
+    expect(tracks).toHaveLength(1); // gộp thành MỘT
+    const t = tracks[0];
+    expect(t.laBao).toBe(true); // giữ bản MỚI (bão)
+    expect(t.past.map((p) => p.lon)).toEqual([116.0, 115.0, 114.0]); // đường-đã-đi nối theo giờ
+    expect(t.forecast).toHaveLength(1); // forecast CŨ (atnd) ẩn
+    expect(t.forecast[0].lon).toBe(112);
+  });
+
+  it("KHÁC cơn (tâm cách xa) → KHÔNG gộp, giữ 2 track", () => {
+    const bulletins = [
+      hang({ id: "p", storm_key: "atnd-A", issued_at: "2026-08-18T07:00:00Z", lat: 12, lon: 110 }),
+      hang({ id: "q", storm_key: "atnd-B", issued_at: "2026-08-18T08:00:00Z", lat: 22, lon: 118 }), // cách ~1400km
+    ];
+    expect(rowsToTracks(bulletins, [], NOW)).toHaveLength(2);
   });
 
   it("mốc dự báo xếp theo seq, không theo thứ tự DB trả về", () => {
@@ -158,61 +200,58 @@ describe("tracksToGeoJSON — hình để vẽ", () => {
   ];
 
   it("đoạn SẮP TỚI nối từ TÂM HIỆN TẠI, không bỏ hở khúc đầu", () => {
-    const gj = tracksToGeoJSON(rowsToTracks(rows, pts))!;
+    const gj = tracksToGeoJSON(rowsToTracks(rows, pts, NOW))!;
     const toi = gj.features.find((f) => f.properties?.kind === "sap-toi")!;
     const c = (toi.geometry as GeoJSON.LineString).coordinates;
     expect(c[0]).toEqual([113.2, 20.1]); // tâm mới nhất
     expect(c[1]).toEqual([110.0, 20.5]);
   });
 
-  it("vùng nguy hiểm vẽ thành VÒNG TRÒN ngoại tiếp, vòng đóng", () => {
-    const gj = tracksToGeoJSON(rowsToTracks(rows, pts))!;
-    const v = gj.features.find((f) => f.properties?.kind === "vung-nguy-hiem")!;
-    const ring = (v.geometry as GeoJSON.Polygon).coordinates[0];
+  it("ỐNG BÃO = 1 TRỤC LineString nối tâm hiện tại qua các mốc dự báo", () => {
+    const gj = tracksToGeoJSON(rowsToTracks(rows, pts, NOW))!;
+    const ong = gj.features.filter((f) => f.properties?.kind === "ong");
+    expect(ong).toHaveLength(1);
+    expect(ong[0].geometry.type).toBe("LineString");
+    const c = (ong[0].geometry as GeoJSON.LineString).coordinates;
+    expect(c[0]).toEqual([113.2, 20.1]); // tâm hiện tại
+    expect(c[c.length - 1]).toEqual([110.0, 20.5]); // mốc dự báo
+  });
+
+  it("vòng gió trắng vẽ ở mỗi mốc dự báo (Polygon đóng)", () => {
+    const gj = tracksToGeoJSON(rowsToTracks(rows, pts, NOW))!;
+    const vg = gj.features.filter((f) => f.properties?.kind === "vong-gio");
+    expect(vg).toHaveLength(1); // 1 mốc dự báo
+    const ring = (vg[0].geometry as GeoJSON.Polygon).coordinates[0];
     expect(ring).toHaveLength(VONG_DINH + 1);
     expect(ring[0]).toEqual(ring[ring.length - 1]);
   });
 
-  /*  BẤT BIẾN AN TOÀN — ca này là lý do duy nhất lối vẽ vòng được chấp nhận.
-      Vòng phải BAO TRỌN khung: hụt một góc là báo SÓT một vùng cơ quan đã tuyên
-      là nguy hiểm. Nội tiếp sẽ làm ca này đỏ, và đó là chủ ý. */
-  it("vòng BAO TRỌN cả bốn góc khung — không bỏ sót góc nào", () => {
-    const box = { latMin: 18.5, latMax: 21, lonMin: 113.5, lonMax: 117 };
-    const v = vongNgoaiTiep(box);
-    for (const [a, b] of [
-      [box.latMin, box.lonMin],
-      [box.latMin, box.lonMax],
-      [box.latMax, box.lonMin],
-      [box.latMax, box.lonMax],
-    ]) {
-      expect(khoangCachKm(v.lat, v.lon, a, b)).toBeLessThanOrEqual(v.km + 1e-6);
-    }
+  /*  KHÔNG có danger box VẪN vẽ ống — feature an toàn KHÔNG được tắt vì parser
+      NCHMF hụt một bản (ca thật 2026-08-31: bản tin 07:00 parse hụt danger). Ống
+      dùng bán kính cố định, box chỉ là tín hiệu ⇒ có đường dự báo là vẽ. */
+  it("KHÔNG có danger box VẪN vẽ ống + vòng gió (miễn có đường dự báo)", () => {
+    const noDanger: ForecastRow[] = [
+      { bulletin_id: "b", valid_at: null, lat: 20.5, lon: 110, cap: 6, giat: 8, danger_box: null, seq: 0 },
+    ];
+    const gj = tracksToGeoJSON(rowsToTracks(rows, noDanger, NOW))!;
+    expect(gj.features.some((f) => f.properties?.kind === "ong")).toBe(true);
+    expect(gj.features.some((f) => f.properties?.kind === "vong-gio")).toBe(true);
+    expect(gj.features.some((f) => f.properties?.kind === "sap-toi")).toBe(true);
   });
 
-  /*  BỐN GÓC KHÔNG CÁCH ĐỀU TÂM trên mặt cầu — bắt được khi ca này đỏ lần đầu:
-      góc phía NAM xa hơn góc phía BẮC vì một độ kinh trải rộng hơn ở vĩ độ thấp
-      (khung 19–21N/111–115E: góc Bắc 236,1 km, góc Nam 237,3 km). Nên bán kính
-      phải là MAX của cả bốn góc; lấy "nửa đường chéo" theo trực giác hình học
-      phẳng là hụt hơn 1 km ở hai góc dưới. */
-  it("tâm vòng ở GIỮA khung, bán kính là góc XA NHẤT (góc Nam, không phải Bắc)", () => {
-    const box = { latMin: 19, latMax: 21, lonMin: 111, lonMax: 115 };
-    const v = vongNgoaiTiep(box);
-    expect(v.lat).toBeCloseTo(20, 6);
-    expect(v.lon).toBeCloseTo(113, 6);
-
-    const bac = khoangCachKm(20, 113, 21, 115);
-    const nam = khoangCachKm(20, 113, 19, 115);
-    expect(nam).toBeGreaterThan(bac);
-    expect(v.km).toBeCloseTo(nam, 6);
-  });
-
-  it("khung vuông tuyệt đối (một điểm) → bán kính 0, không ném", () => {
-    const v = vongNgoaiTiep({ latMin: 20, latMax: 20, lonMin: 113, lonMax: 113 });
-    expect(v.km).toBe(0);
+  it("mốc dự báo mang toạ độ + giật + bán kính vùng ảnh hưởng cho popup (A)", () => {
+    const gj = tracksToGeoJSON(rowsToTracks(rows, pts, NOW))!;
+    const m = gj.features.find(
+      (f) => f.properties?.kind === "moc" && f.properties?.tuongLai === true,
+    )!;
+    expect(m.properties?.lat).toBe(20.5);
+    expect(m.properties?.lon).toBe(110.0);
+    expect(m.properties?.giat).toBe(8);
+    expect(typeof m.properties?.dangerKm).toBe("number");
   });
 
   it("mốc đã qua và mốc sắp tới phân biệt được bằng cờ tuongLai", () => {
-    const gj = tracksToGeoJSON(rowsToTracks(rows, pts))!;
+    const gj = tracksToGeoJSON(rowsToTracks(rows, pts, NOW))!;
     const moc = gj.features.filter((f) => f.properties?.kind === "moc");
     expect(moc.filter((f) => f.properties?.tuongLai === false)).toHaveLength(2);
     expect(moc.filter((f) => f.properties?.tuongLai === true)).toHaveLength(1);

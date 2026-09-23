@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+import { PrimaryButton } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
 import {
   AuthCard,
@@ -46,7 +46,6 @@ export default function DoiMatKhauPage() {
 
   const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   /** Đổi xong — nói "Đã đổi mật khẩu" ngay tại chỗ ~1,5 giây rồi mới về Trang
@@ -121,10 +120,6 @@ export default function DoiMatKhauPage() {
 
     if (password.length < 6) {
       setError("Mật khẩu mới cần ít nhất 6 ký tự.");
-      return;
-    }
-    if (password !== confirm) {
-      setError("Hai ô mật khẩu chưa giống nhau. Bà con nhập lại giúp nhé.");
       return;
     }
 
@@ -244,28 +239,18 @@ export default function DoiMatKhauPage() {
               placeholder="Mật khẩu đang dùng"
             />
           )}
-          <Field label="Mật khẩu mới">
-            <input
-              type="password"
-              autoComplete="new-password"
-              className={inputClass}
-              placeholder="Ít nhất 6 ký tự"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </Field>
-          <Field label="Nhập lại mật khẩu mới">
-            <input
-              type="password"
-              autoComplete="new-password"
-              className={inputClass}
-              placeholder="Gõ lại cho chắc"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              required
-            />
-          </Field>
+          {/*  DÙNG PasswordField (có nút Hiện/Ẩn) và BỎ ô "Nhập lại" — cùng
+              quyết định repo đã chốt ở /dang-ky ("có nút Hiện/Ẩn nên bỏ được ô
+              Nhập lại — bớt một việc gõ"). Trước đây hai ô này là <input
+              type=password> TRẦN, tức ba lần gõ MÙ mật khẩu, tay ướt, trên tàu
+              lắc. Ngả tự nguyện nay còn 2 ô, ngả ép còn 1 ô. */}
+          <PasswordField
+            label="Mật khẩu mới (ít nhất 6 ký tự)"
+            value={password}
+            onChange={setPassword}
+            autoComplete="new-password"
+            placeholder="Ít nhất 6 ký tự"
+          />
           <PrimaryButton type="submit" disabled={loading || done}>
             {loading ? "Đang lưu…" : done ? "Đã đổi" : "Lưu mật khẩu mới"}
           </PrimaryButton>
@@ -285,9 +270,15 @@ export default function DoiMatKhauPage() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="mt-3 flex min-h-[3.75rem] w-full items-center justify-center rounded-full border-2 border-line text-[1.0625rem] font-bold text-foreground/80 transition active:scale-[0.98]"
+              /*  Nút phụ hạ xuống link chữ inline (luật A2/A3) nhưng vùng chạm
+                  vẫn ≥3.5rem — không phình thành dải ngang ăn riêng hàng.
+                  Nhãn "Thoát ra, để đổi sau" đọc như ĐĂNG XUẤT, mà handleSignOut
+                  không gọi signOutLocal("user") nên bà con VẪN đang đăng nhập ⇒
+                  đổi nhãn cho khớp việc nó thật sự làm (luật A4). Đổi HÀNH VI là
+                  nghiệp vụ — phải hỏi BA, không làm trong đợt UI này. */
+              className="mt-3 inline-flex min-h-[3.5rem] items-center px-4 text-[1rem] font-bold text-sea transition active:scale-[0.98]"
             >
-              Thoát ra, để đổi sau
+              Để sau
             </button>
           </>
         )}

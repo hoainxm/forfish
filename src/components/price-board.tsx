@@ -15,6 +15,7 @@ import {
   TrendDownIcon,
   TrendUpIcon,
 } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 import { formatVnDate } from "@/lib/format";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { PriceHistorySheet } from "@/components/price-history-sheet";
@@ -159,8 +160,7 @@ export function PriceBoard() {
           {result.savedAt != null
             ? ` · bản lưu trong máy (${savedAgoLabel(result.savedAt)})`
             : ""}
-          . Loài chưa có giá tuần này là giá tham khảo. Giá thật tại cảng có thể
-          khác.
+          . Giá thật tại cảng có thể khác.
         </p>
       ) : result.netFailed ? (
         <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[0.9375rem] font-semibold text-warn">
@@ -198,33 +198,39 @@ export function PriceBoard() {
       <ul className="space-y-3">
         {shown.map((p) => {
           const t = TREND[p.trend];
+          /*  Hàng giá theo khuôn B1: [thân flex-1 min-w-0 — chạm cả hàng vẫn mở
+              biểu đồ như cũ] + [ô nút w-16]. Trước đây hàng thiếu ô nút nên mép
+              phải không thẳng, mà cuối hàng lại có DÒNG CHỮ "Xem biểu đồ giá ›"
+              nhắc lại đúng việc cả hàng đã làm (13 lần trên một trang, ~350px
+              chữ thừa) — bỏ chữ, đưa việc vào đúng ô. */
           return (
-            <li key={p.id} className="surface overflow-hidden">
+            <li key={p.id} className="surface flex items-stretch overflow-hidden">
               <button
                 type="button"
                 onClick={() => openChart(p.id)}
                 aria-label={`Xem biểu đồ giá ${p.species}`}
-                className="block w-full px-4 py-3.5 text-left transition active:scale-[0.99]"
+                className="block min-w-0 flex-1 px-4 py-3.5 text-left transition active:scale-[0.99]"
               >
               <div className="flex items-start justify-between gap-3">
                 <p className="display flex items-center gap-2 text-[1.125rem] font-bold leading-snug text-navy">
                   {p.species}
                   {isLive &&
                     ((p as LivePortPrice).live ? (
-                      <span className="rounded-full bg-ok-bg px-2 py-0.5 text-[0.6875rem] font-bold text-ok">
+                      <span className="rounded-full bg-ok-bg px-2 py-0.5 text-[0.75rem] font-bold text-ok">
                         giá tuần
                       </span>
                     ) : (
-                      <span className="rounded-full bg-field px-2 py-0.5 text-[0.6875rem] font-semibold text-foreground/65">
+                      <span className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-semibold text-foreground/65">
                         tham khảo
                       </span>
                     ))}
                 </p>
+                {/*  Bỏ style ghi đè rgba cứng (E1): TREND.flat đã khai
+                    color: "var(--foreground)" sẵn — ghi đè bằng rgba là màu
+                    ngoài token, không đổi theo theme. */}
                 <p
                   className="flex shrink-0 items-center gap-1.5 pt-0.5 text-[0.9375rem] font-bold"
-                  style={{
-                    color: p.trend === "flat" ? "rgba(28,43,54,0.55)" : t.color,
-                  }}
+                  style={{ color: t.color }}
                 >
                   <t.Icon className="h-5 w-5" />
                   {t.word}
@@ -238,10 +244,19 @@ export function PriceBoard() {
                   {[p.region, p.note].filter(Boolean).join(" · ")}
                 </p>
               )}
-              <span className="mt-1.5 flex items-center gap-1 text-[0.875rem] font-bold text-sea">
-                Xem biểu đồ giá
-                <ChevronRightIcon className="h-4 w-4" />
-              </span>
+              </button>
+              {/*  Ô nút là AFFORDANCE NHÌN cho ngón tay; nút thân hàng ở trên đã
+                  mang aria-label đầy đủ nên ô này ẩn khỏi trình đọc màn hình để
+                  khỏi đọc hai lần cùng một việc. */}
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-hidden
+                onClick={() => openChart(p.id)}
+                className={`${SQ_BTN} self-center text-sea`}
+              >
+                <ChevronRightIcon className="h-6 w-6" />
+                Biểu đồ
               </button>
             </li>
           );

@@ -18,6 +18,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronDownIcon, ChevronRightIcon } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 import { useAuthUser } from "@/lib/use-auth";
 import { staleWarningVN } from "@/lib/push-message";
 import {
@@ -197,12 +199,48 @@ export function InboxSection() {
 
   const shown = expanded ? messages : messages.slice(0, PREVIEW_COUNT);
   const rest = messages.length - shown.length;
+  /*  CHỈ CHỪA CỘT NÚT KHI DANH SÁCH THẬT SỰ CÓ NÚT (2026-08-29).
+      Luật B1 nói mọi hàng chừa đúng một ô w-16 để mép phải thẳng — nhưng đo lại
+      thấy đa số tin không mang `url`, nên cả danh sách chừa một cột RỖNG: bề
+      ngang chữ tụt 343 → 271px (mất 21%) mà không hàng nào dùng tới cột đó.
+      Chừa cột là để các hàng THẲNG NHAU, không phải để thẳng với một danh sách
+      khác ở khối khác. Không hàng nào có nút ⇒ không có gì để thẳng ⇒ trả bề
+      ngang lại cho chữ. */
+  const coChevron = shown.some((m) => m.url);
 
   return (
     <section aria-label="Thông báo">
-      <h2 className="display mb-1.5 px-1 text-[1.125rem] font-bold text-navy">
-        Thông báo
-      </h2>
+      {/*  Nút xoè/thu về INLINE cuối hàng tiêu đề (2026-08-29, luật A2/A3/A5):
+          trước là dải 343×44 (dưới sàn 52px) rộng bằng cả thẻ tin bên trên nên
+          trông như một thẻ tin nữa. Số tin là DỮ LIỆU ⇒ lên hàng tiêu đề. */}
+      <div className="mb-1.5 flex items-stretch gap-2 px-1">
+        <div className="flex min-w-0 flex-1 items-center">
+          <h2 className="display text-[1.125rem] font-bold text-navy">
+            Thông báo
+            {rest > 0 && (
+              <span className="text-[1rem] font-semibold text-foreground/70">
+                {" "}
+                · còn {rest} tin cũ hơn
+              </span>
+            )}
+          </h2>
+        </div>
+        {rest > 0 || expanded ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+            className={`${SQ_BTN} bg-field text-navy`}
+          >
+            <ChevronDownIcon
+              className={`h-6 w-6 ${expanded ? "rotate-180" : ""}`}
+            />
+            {expanded ? "Thu gọn" : "Xem hết"}
+          </button>
+        ) : (
+          <span className="w-16 shrink-0" aria-hidden />
+        )}
+      </div>
       <ul ref={listRef} className="space-y-2">
         {shown.map((m) => {
           const isUnread = unread.has(m.id);
@@ -217,7 +255,7 @@ export function InboxSection() {
           const inner = (
             <>
               <span className="flex items-baseline justify-between gap-2">
-                <span className="display flex min-w-0 items-baseline gap-2 text-[1.0625rem] font-bold leading-snug text-navy">
+                <span className="display flex min-w-0 items-baseline gap-2 text-[1rem] font-bold leading-snug text-navy">
                   {isUnread && (
                     <span
                       className="inline-block h-2.5 w-2.5 shrink-0 self-center rounded-full bg-trim"
@@ -226,7 +264,7 @@ export function InboxSection() {
                   )}
                   <span className="min-w-0">{m.title}</span>
                 </span>
-                <span className="shrink-0 text-[0.8125rem] tabular-nums text-foreground/50">
+                <span className="shrink-0 text-[0.8125rem] tabular-nums text-foreground/70">
                   {fmt(m.sentAt)}
                 </span>
               </span>
@@ -243,32 +281,36 @@ export function InboxSection() {
               )}
             </>
           );
+          /*  Khuôn hàng chung (luật B1): [thân flex-1 min-w-0] + [ô w-16].
+              Thẻ không có url vẫn chừa ô đó ĐỂ THẲNG với thẻ có url — nhưng chỉ
+              khi trong danh sách có ít nhất một thẻ mang url (xem `coChevron`). */
           return (
-            <li key={m.id} data-msg-id={m.id}>
+            <li key={m.id} data-msg-id={m.id} className="flex items-stretch gap-2">
               {m.url ? (
-                <Link
-                  href={m.url}
-                  className={`${cardClass} transition active:scale-[0.99]`}
-                >
-                  {inner}
-                </Link>
+                <>
+                  <Link
+                    href={m.url}
+                    className={`${cardClass} min-w-0 flex-1 transition active:scale-[0.99]`}
+                  >
+                    {inner}
+                  </Link>
+                  <span
+                    className="flex w-16 shrink-0 items-center justify-center text-foreground/30"
+                    aria-hidden
+                  >
+                    <ChevronRightIcon className="h-6 w-6" />
+                  </span>
+                </>
               ) : (
-                <div className={cardClass}>{inner}</div>
+                <>
+                  <div className={`${cardClass} min-w-0 flex-1`}>{inner}</div>
+                  {coChevron && <span className="w-16 shrink-0" aria-hidden />}
+                </>
               )}
             </li>
           );
         })}
       </ul>
-      {(rest > 0 || expanded) && (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-          className="mt-2 min-h-[2.75rem] w-full rounded-full bg-field text-[0.9375rem] font-bold text-navy transition active:scale-[0.99]"
-        >
-          {expanded ? "Thu gọn" : `Xem ${rest} tin cũ hơn`}
-        </button>
-      )}
     </section>
   );
 }

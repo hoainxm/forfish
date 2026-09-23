@@ -188,7 +188,7 @@ export function PriceHistorySheet({
       trend = {
         Icon: MinusIcon,
         word: "gần như đi ngang",
-        color: "rgba(28,43,54,0.55)",
+        color: "var(--foreground)",
       };
   }
 
@@ -256,14 +256,12 @@ export function PriceHistorySheet({
           <div className="rounded-2xl bg-card p-2 ring-1 ring-line">
             <Chart points={points} />
           </div>
-          <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/60">
-            Dải xanh là khoảng giá thấp–cao mỗi tuần; đường đậm là mức giữa.
-          </p>
-
-          {/* nguồn — trung thực, không hứa chính xác */}
+          {/*  Bỏ dòng "Dải xanh là… đường đậm là…" (D1): chữ DẠY CÁCH ĐỌC biểu
+              đồ. Rút dòng nguồn còn đúng vế chưa nói ở đâu — giới hạn nguồn
+              (VASEP + Khánh Hòa + "giá thật tại cảng có thể khác") đã nằm ở dải
+              nguồn của bảng giá NGAY PHÍA SAU sheet này, giữ ở MỘT chỗ. */}
           <p className="mt-3 rounded-xl bg-field px-3 py-2 text-[0.8125rem] leading-snug text-foreground/70">
-            Nguồn: bản tin giá nguyên liệu hằng tuần của VASEP (Khánh Hòa). Giá
-            tham khảo, giá thật tại cảng có thể khác.
+            Giá tuần của VASEP.
           </p>
         </>
       )}

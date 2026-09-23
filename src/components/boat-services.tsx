@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { CheckIcon, ClockIcon } from "@/components/icons";
 import { StatusBanner } from "@/components/ui/status-banner";
-import { RefNote } from "@/components/ui/primitives";
 import { MaintenanceReminders } from "@/components/maintenance-reminders";
 import { SdvicoRequestButton } from "@/components/sdvico-request";
 import { formatVnd, formatVnDate } from "@/lib/format";
@@ -35,23 +34,32 @@ export function BoatServices() {
 
   return (
     <div className="px-4 pt-1">
-      <div className="mb-4">
-        <RefNote tone="var(--t3)" bg="var(--t3-bg)">
-          Sửa chữa, bảo dưỡng, cước phí — cần gì bấm nút gọi, SDVICO gọi lại
-          tận nơi.
-        </RefNote>
-      </div>
-
+      {/*  Bỏ RefNote "Sửa chữa, bảo dưỡng, cước phí — cần gì bấm nút gọi…" (D1):
+          nó DẠY CÁCH DÙNG cái nút nằm ngay 8px bên dưới, không mang số liệu,
+          trạng thái hay giới hạn nguồn nào. Nút gọi nay là chip inline cuối
+          hàng cấp dữ liệu (luật A2/A3), nhãn rút từ 31 ký tự còn "Gọi SDVICO"
+          (luật A4 — gọi TÊN VIỆC, không hứa kết quả). */}
       <div className="mb-5">
-        <SdvicoRequestButton topic="sua-chua" label="Gọi SDVICO sửa chữa / bảo dưỡng" />
+        <div className="flex items-center gap-2">
+          <p className="min-w-0 flex-1 text-[1rem] font-bold text-navy">
+            {activeServices.length} dịch vụ đang dùng
+          </p>
+          <SdvicoRequestButton topic="sua-chua" label="Gọi SDVICO" />
+        </div>
         {/* 4 nấc — chỉ mời đăng nhập khi THẬT SỰ chưa đăng nhập */}
         {syncStatus === "guest" && (
-          <Link
-            href="/login"
-            className="mt-2.5 flex min-h-[3.5rem] w-full items-center justify-center rounded-full bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.98]"
-          >
-            Đăng nhập để thấy dịch vụ của mình
-          </Link>
+          <div className="mt-2.5 flex items-center gap-2">
+            <p className="min-w-0 flex-1 text-[0.9375rem] leading-snug text-foreground/70">
+              Đăng nhập bằng SĐT lúc mua hàng là dịch vụ của bà con tự hiện ở
+              đây.
+            </p>
+            <Link
+              href="/login"
+              className="flex min-h-[3.5rem] shrink-0 items-center rounded-full bg-field px-4 text-[1rem] font-bold text-navy transition active:scale-[0.98]"
+            >
+              Đăng nhập
+            </Link>
+          </div>
         )}
         {syncStatus === "error" && (
           <div className="mt-2.5 flex items-center justify-between gap-3 rounded-2xl bg-danger-bg px-3.5 py-2.5">
@@ -133,7 +141,7 @@ export function BoatServices() {
                       : "Chờ thanh toán"}
                 </StatusBanner>
                 <div className="px-4 py-3">
-                  <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
+                  <p className="display text-[1.125rem] font-bold leading-snug text-navy">
                     {formatVnd(p.amountVnd)}
                   </p>
                   <p className="text-[1rem] text-foreground/70">
@@ -147,7 +155,6 @@ export function BoatServices() {
                   </p>
                   <div className="mt-2 flex justify-end">
                     <SdvicoRequestButton
-                      variant="chip"
                       topic="cuoc"
                       productName={`Đơn ${p.orderCode}`}
                       label="Hỏi khoản này"
@@ -185,7 +192,7 @@ export function BoatServices() {
                   <p className="text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
                     {serviceKindLabel(s.kind)}
                   </p>
-                  <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
+                  <p className="display text-[1.125rem] font-bold leading-snug text-navy">
                     {s.name}
                   </p>
                   {s.nextDueOn && (
@@ -201,7 +208,6 @@ export function BoatServices() {
                   {(due.level === "soon" || due.level === "overdue") && (
                     <div className="mt-2 flex justify-end">
                       <SdvicoRequestButton
-                        variant="chip"
                         topic={s.kind === "subscription" ? "cuoc" : "bao-duong"}
                         productName={s.name}
                         label="Đặt lịch / hỏi kỳ này"
@@ -222,12 +228,11 @@ export function BoatServices() {
       )}
 
       {/* sổ nhắc bảo dưỡng tự ghi — của bà con, lưu trên máy */}
+      {/* Bỏ dòng "Tự ghi việc thay nhớt…" (D1): dạy cách dùng, không cấp dữ
+          liệu — hàng "Sổ nhắc bảo dưỡng · N việc" ngay dưới đã nói đủ. */}
       <h3 className="display mb-1 px-1 text-[1.125rem] font-bold text-navy">
         Sổ nhắc bảo dưỡng của tôi
       </h3>
-      <p className="mb-2 px-1 text-[0.875rem] text-foreground/70">
-        Tự ghi việc thay nhớt, thay lọc… app nhắc tới kỳ.
-      </p>
       <div className="-mx-4">
         <MaintenanceReminders />
       </div>

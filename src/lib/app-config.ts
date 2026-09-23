@@ -11,7 +11,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   CONFIG_KEYS,
   CONFIG_META,
+  configCacheFresh,
+  nextConfigCache,
   resolveConfigCell,
+  type ConfigCache,
   type ConfigKey,
   type ConfigStatusRow,
 } from "@/lib/app-config-keys";
@@ -27,23 +30,52 @@ export {
 
 const TABLE = "app_config";
 const TTL_MS = 30_000;
+/*  Đọc HỎNG thì hẹn lại SỚM — không được để một cái chớp mạng khoá cấu hình
+    rỗng suốt 30 giây (xem án lệ ở `nextConfigCache`). */
+const FAIL_TTL_MS = 3_000;
+/*  Cron chạy trên lambda LẠNH: không có bản cache lần trước để mà giữ, nên
+    "giữ bản cũ" một mình chưa cứu được lượt đọc đầu tiên bị hỏng. Thử lại đúng
+    MỘT lần, 300 ms — rẻ so với một lượt cron mất trắng vì 401. */
+const RETRY_MS = 300;
 
-let cache: { at: number; map: Record<string, string> } | null = null;
+let cache: ConfigCache | null = null;
+
+/** Một lượt đọc bảng — `ok:false` là KHÔNG HỎI ĐƯỢC (lỗi/ném), khác với hỏi
+    được mà bảng trống (`ok:true, map:{}`). */
+async function readMapOnce(): Promise<{
+  ok: boolean;
+  map?: Record<string, string>;
+}> {
+  const admin = createAdminClient();
+  //  Chưa cấu hình Supabase (demo/preview) = đúng là KHÔNG CÓ bản nào, không
+  //  phải hỏng — cache bình thường để khỏi gõ lại mỗi lượt.
+  if (!admin) return { ok: true, map: {} };
+  try {
+    const { data, error } = await admin.from(TABLE).select("key,value");
+    if (error || !data) return { ok: false };
+    const map: Record<string, string> = {};
+    for (const r of data as { key: string; value: string }[]) {
+      if (r.value) map[r.key] = r.value;
+    }
+    return { ok: true, map };
+  } catch {
+    // client ném (mạng/DNS) — vẫn là "không hỏi được", KHÔNG phải "không có"
+    return { ok: false };
+  }
+}
 
 async function loadMap(): Promise<Record<string, string>> {
-  if (cache && Date.now() - cache.at < TTL_MS) return cache.map;
-  const admin = createAdminClient();
-  const map: Record<string, string> = {};
-  if (admin) {
-    const { data, error } = await admin.from(TABLE).select("key,value");
-    if (!error && data) {
-      for (const r of data as { key: string; value: string }[]) {
-        if (r.value) map[r.key] = r.value;
-      }
-    }
+  if (configCacheFresh(cache, Date.now())) return cache!.map;
+  let read = await readMapOnce();
+  if (!read.ok) {
+    await new Promise((r) => setTimeout(r, RETRY_MS));
+    read = await readMapOnce();
   }
-  cache = { at: Date.now(), map };
-  return map;
+  cache = nextConfigCache(cache, read, Date.now(), {
+    okMs: TTL_MS,
+    failMs: FAIL_TTL_MS,
+  });
+  return cache.map;
 }
 
 /** Xóa cache (gọi sau khi ghi để lần đọc tới thấy giá trị mới ngay). */
@@ -72,6 +104,16 @@ export async function getVapidConfig(): Promise<{
   ]);
   if (!subject || !publicKey || !privateKey) return null;
   return { subject, publicKey, privateKey };
+}
+
+/**
+ * Khoá xác thực CRON — DB (`app_config.cron_secret`) trước, env `CRON_SECRET`
+ * sau. Đặt trong DB dùng chung thì MỌI deploy khớp mà không cần env trên từng
+ * Vercel (bên GỬI — GitHub Actions — vẫn phải mang đúng token này). `null` nếu
+ * chưa cấu hình ⇒ route CẤM HẲN (401), không mở cửa.
+ */
+export async function getCronSecret(): Promise<string | null> {
+  return getConfigValue("cron_secret");
 }
 
 /** Lưu 1 khoá vào DB (upsert). Trả false nếu chưa cấu hình Supabase. */
@@ -105,6 +147,8 @@ export async function configStatus(): Promise<ConfigStatusRow[]> {
       source: cell.source,
       set: cell.set,
       value: cell.value,
+      generate: m.generate,
+      risk: m.risk,
     };
   });
 }

@@ -27,6 +27,17 @@ CLAUDE_MD_CHAR_BUDGET=${CLAUDE_MD_CHAR_BUDGET:-24000}
 
 NOW=$(date +%s)
 
+# ── MATCHER HỢP ĐỒNG (nguyên tắc 10) — CÙNG luật với .githooks/pre-commit `covers_hit`.
+# path $1 nằm trong vùng covers $2? in "1" nếu khớp (trùng file HOẶC con của thư mục).
+# ⚠️ `case` PHẢI ở trong hàm, ĐỪNG nhét thẳng vào `$( … )`: bash 3.2 (/bin/sh macOS)
+# lẫn `)` của case-pattern với `)` đóng command-substitution → syntax error, cả script
+# không parse (dò 2026-09-15; Linux/bash5/dash parse được nên CI xanh mà máy Mac chết).
+covers_hit() {
+  case "$1" in
+    "$2" | "$2"/*) echo 1 ;;
+  esac
+}
+
 # Đọc frontmatter 1 doc -> in 1 DÒNG "paths_phẩy_ngăn|last_verified_epoch|ttl"
 # (paths giữ dạng phẩy-ngăn trên 1 dòng — KHÔNG newline, vì cut xử lý theo dòng;
 #  bug đa-covers vòng review 8 sinh ra từ đúng chỗ này)
@@ -68,7 +79,7 @@ doc_state() {
         CFILES=$(git show --name-only --format= "$DOC_COMMIT" 2>/dev/null)
         for p in $PATHS; do
           [ -n "$p" ] || continue
-          H=$(echo "$CFILES" | while read -r c; do case "$c" in "$p"|"$p"/*) echo 1; break;; esac; done)
+          H=$(echo "$CFILES" | while read -r c; do if [ -n "$(covers_hit "$c" "$p")" ]; then echo 1; break; fi; done)
           [ -n "$H" ] && { ATTEST=1; break; }
         done
       fi
@@ -160,9 +171,9 @@ if [ "$1" = "--self-test" ]; then
   FAST=1; STF=$(doc_state docs/app-map/01-t.md 2>/dev/null | cut -d'|' -f1); FAST=0
   [ "$STF" = "VERIFIED" ] && echo "PASS: --fast skip symbol scan" || { echo "FAIL: --fast van scan symbol ('$STF')"; RC=1; }
   # Contract test matcher (CÙNG bảng với hook --self-test — hợp đồng chung của matcher 2 nơi)
-  M=$(echo "src/lib-utils/a.ts" | while read -r c; do case "$c" in "src/lib"|"src/lib"/*) echo 1;; esac; done)
+  M=$(covers_hit "src/lib-utils/a.ts" "src/lib")
   [ -z "$M" ] && echo "PASS: matcher contract — sibling KHONG khop" || { echo "FAIL: matcher overmatch sibling"; RC=1; }
-  M=$(echo "src/lib/x.ts" | while read -r c; do case "$c" in "src/lib"|"src/lib"/*) echo 1;; esac; done)
+  M=$(covers_hit "src/lib/x.ts" "src/lib")
   [ -n "$M" ] && echo "PASS: matcher contract — child khop" || { echo "FAIL: matcher miss child"; RC=1; }
   git rm -rq src/a && git commit -qm c4
   ST=$(doc_state docs/app-map/01-t.md 2>/dev/null | cut -d'|' -f1)
@@ -264,7 +275,9 @@ echo "--- Broken cross-ref ---"
 BROKEN=$(git ls-files 'docs/app-map/*.md' 'docs/app-map/**/*.md' 2>/dev/null | sort -u | while read -r f; do
   DIR=$(dirname "$f")
   grep -oE '\]\(([^)#]+\.md)' "$f" | sed 's/](//' | while read -r link; do
-    case "$link" in http*|/*) continue ;; esac
+    # bỏ link ngoài (http…) / tuyệt đối (/…). Dùng ${var#prefix} thay `case` vì
+    # `case` trong `$( )` làm /bin/sh macOS (bash 3.2) không parse — xem covers_hit.
+    if [ "${link#http}" != "$link" ] || [ "${link#/}" != "$link" ]; then continue; fi
     [ -f "$DIR/$link" ] || echo "  $f -> $link (khong ton tai)"
   done
 done)

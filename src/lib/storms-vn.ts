@@ -31,6 +31,14 @@ import type { StormAlert } from "@/lib/storms";
 /** Trang liệt kê bản tin của NCHMF (bản tin mới nằm ở đây, có link theo slug) */
 export const NCHMF_INDEX_URL = "https://www.nchmf.gov.vn/kttv/";
 
+/** Trang "THỜI TIẾT NGUY HIỂM" của NCHMF — index DỰ PHÒNG (2026-08-31, user).
+ *  Khi trang liệt kê chính hỏng hoặc KHÔNG liệt kê bản tin bão/ATNĐ (đo được
+ *  ca thật: index chính bỏ sót áp thấp mà trang này vẫn có link `...post54480`),
+ *  quét thêm trang này để bắt cơn. Cùng họ URL `.../kttvsite/.../tin-*-postNNNNN`
+ *  nên `pickLatestNchmfBulletin` (SLUG_RE đã nhận cả kttv|kttvsite) đọc được ngay. */
+export const NCHMF_BACKUP_INDEX_URL =
+  "https://nchmf.gov.vn/kttvsite/vi-VN/1/thoi-tiet-nguy-hiem-5-15.html";
+
 /*  Slug bản tin bão/ATNĐ. NCHMF đặt tên theo loại tin:
       tin-ap-thap-nhiet-doi-tren-bien-dong / -gan-bien-dong / -tren-dat-lien
       tin-bao-tren-bien-dong / tin-bao-khan-cap / tin-con-bao-so-N …
@@ -57,6 +65,29 @@ export function pickLatestNchmfBulletin(indexHtml: string): string | null {
   for (const m of indexHtml.matchAll(SLUG_RE)) {
     const slug = m[1].toLowerCase();
     if (slug.includes("tin-cuoi-cung")) continue; // bản tin KẾT THÚC, không phải bão đang có
+    const id = Number(m[2]);
+    if (!Number.isFinite(id)) continue;
+    if (!best || id > best.id) best = { url: m[0], id };
+  }
+  return best?.url ?? null;
+}
+
+/*  BẢN TIN "GIÓ MẠNH, SÓNG LỚN, MƯA DÔNG TRÊN BIỂN" — nơi NCHMF ghi khả năng
+    HÌNH THÀNH áp thấp/bão vài ngày TRƯỚC khi có bản tin ATNĐ/bão chính thức
+    (nguồn cảnh báo sớm, xem lib/storm-early.ts). Phát nhiều lần/ngày, luôn nằm
+    trên trang liệt kê chính. Slug: `tin-du-bao-gio-manh-song-lon-va-mua-dong-
+    tren-bien-postNNNNN`. */
+const SLUG_BIEN_RE =
+  /https?:\/\/[^"']*\/(?:kttv|kttvsite)\/vi-VN\/1\/(tin-du-bao-gio-manh-song-lon[^"']*?)-post(\d+)\.html/gi;
+
+/**
+ * URL bản tin biển MỚI NHẤT (số `post` lớn nhất) trong trang liệt kê. Cùng luật
+ * "post lớn nhất" với `pickLatestNchmfBulletin` nhưng KHÁC slug — để riêng cho
+ * rõ (hai loại bản tin, hai mục đích). `null` = trang không có bản tin biển.
+ */
+export function pickLatestBienBulletin(indexHtml: string): string | null {
+  let best: { url: string; id: number } | null = null;
+  for (const m of indexHtml.matchAll(SLUG_BIEN_RE)) {
     const id = Number(m[2]);
     if (!Number.isFinite(id)) continue;
     if (!best || id > best.id) best = { url: m[0], id };

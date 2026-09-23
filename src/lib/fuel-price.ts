@@ -7,6 +7,7 @@ import { apiUrl } from "@/lib/api-base";
 import { loadForecast, saveForecast } from "@/lib/forecast-cache";
 import { forecastStoreReady } from "@/lib/forecast-store";
 import { timeoutSignal } from "@/lib/abort";
+import { tokenHeader } from "@/lib/device-token-store";
 
 export interface FuelPrice {
   /** đồng/lít, vùng 1 (gần kho) */
@@ -67,6 +68,7 @@ export async function fetchFuelPrice(): Promise<FuelPrice | null> {
 
   try {
     const r = await fetch(apiUrl("/api/fuel-price"), {
+      headers: tokenHeader(),
       signal: timeoutSignal(15000),
     });
     if (r.ok) {

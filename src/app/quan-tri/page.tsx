@@ -95,6 +95,7 @@ import {
   groupLabel,
   type CatalogGroupId,
 } from "@/lib/catalog-groups";
+import { validateConfigValue, type ConfigKey } from "@/lib/app-config-keys";
 
 type Tab =
   | "tai-khoan"
@@ -645,17 +646,6 @@ function AccountsTab({ me }: { me: Me }) {
     [],
   );
 
-  // ── số thống kê nhanh trên đầu tab ──────────────────────────────────────
-  const stats = useMemo(() => {
-    if (!accounts) return null;
-    return {
-      total: accounts.length,
-      premium: accounts.filter((a) => effTier(a) === "premium").length,
-      canLogin: accounts.filter((a) => a.canLogin).length,
-      manual: accounts.filter((a) => !a.fromSdwork).length,
-    };
-  }, [accounts, effTier]);
-
   /** nhân sự = có quyền vào web quản trị (KHÁC hạng premium — hai trục rời) */
   const isStaff = useCallback(
     (a: Account) => a.isAdmin || a.role === "manager",
@@ -684,6 +674,31 @@ function AccountsTab({ me }: { me: Me }) {
       ) ?? null,
     [matched, roleFilter, isStaff],
   );
+
+  /*  ── SỐ THỐNG KÊ ĐẦU TAB — ĐẾM ĐÚNG THỨ ĐANG XEM ────────────────────────
+      Lỗi cũ (báo từ hiện trường 2026-08-31, Vss Quân Bình Định: *"cái con số
+      pre nó ko nhảy theo"*): bốn ô số này đếm trên `accounts` — TOÀN BỘ bảng —
+      trong khi MỌI thứ bên dưới chúng (ô tìm, chip Premium/Thường, chip Khách
+      dùng app/Nhân sự quản trị) đều lọc danh sách. Hệ quả: gõ tìm, đổi chip,
+      bấm sang "Nhân sự quản trị" — danh sách đổi mà bốn con số đứng im, nên
+      nhìn như hỏng. Riêng chip vai còn sai cả nghĩa: màn mặc định là "Khách
+      dùng app" (đã trừ nhân sự) mà ô vẫn ghi "Tổng tài khoản" gồm cả nhân sự.
+
+      Nay đếm trên `visible` — đúng những dòng đang bày ra. Nhãn ô đầu đổi
+      "Tổng tài khoản" → "Đang xem" cho khỏi hứa một con số toàn bảng.
+      Muốn xem tổng thật thì bỏ hết bộ lọc, đúng như mọi màn danh sách khác.
+
+      ĐẶT SAU `visible`: nó phải đọc `visible`, mà `visible` khai bên trên —
+      để nguyên chỗ cũ là rơi vào vùng chết TDZ. */
+  const stats = useMemo(() => {
+    if (!visible) return null;
+    return {
+      total: visible.length,
+      premium: visible.filter((a) => effTier(a) === "premium").length,
+      canLogin: visible.filter((a) => a.canLogin).length,
+      manual: visible.filter((a) => !a.fromSdwork).length,
+    };
+  }, [visible, effTier]);
 
   /** đang xem Khách mà tìm trúng nhân sự → mách một câu, đừng để tưởng mất */
   const hiddenStaff = useMemo(
@@ -913,7 +928,7 @@ function AccountsTab({ me }: { me: Me }) {
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
           {(
             [
-              ["Tổng tài khoản", stats.total],
+              ["Đang xem", stats.total],
               ["Premium hiệu lực", stats.premium],
               ["Đăng nhập được", stats.canLogin],
               ["Tạo tay", stats.manual],
@@ -5109,7 +5124,16 @@ type ConfigRow = {
   source: "db" | "env" | "none";
   set: boolean;
   value: string | null;
+  generate?: "hex32";
+  risk: string;
 };
+
+/** 32 byte ngẫu nhiên → 64 hex, sinh ngay trên máy admin (khoá dữ liệu bản đồ). */
+function randomHex32(): string {
+  const b = new Uint8Array(32);
+  crypto.getRandomValues(b);
+  return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+}
 
 function AppConfigCard() {
   const [rows, setRows] = useState<ConfigRow[] | null>(null);
@@ -5117,6 +5141,11 @@ function AppConfigCard() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  /*  BƯỚC XÁC NHẬN (2026-09-17, chủ dự án: "thao tác cái là chết hệ thống mà
+      không cảnh báo"): bấm Lưu lần một chỉ mở hộp nói HẬU QUẢ của khoá đó,
+      bấm "Lưu thật" mới ghi. Giá trị sai dạng thì chặn từ lúc gõ, không tới
+      được bước này. */
+  const [confirm, setConfirm] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setError(null);
@@ -5143,6 +5172,7 @@ function AppConfigCard() {
   async function save(key: string) {
     const value = drafts[key] ?? "";
     if (!value.trim()) return;
+    setConfirm(null);
     setBusy(key);
     setSaved(null);
     try {
@@ -5188,6 +5218,8 @@ function AppConfigCard() {
       <div className="mt-3 space-y-3">
         {rows?.map((row) => {
           const b = badge(row.source);
+          const draft = drafts[row.key] ?? "";
+          const bad = !!draft.trim() && !validateConfigValue(row.key as ConfigKey, draft);
           return (
             <div key={row.key} className="rounded-xl bg-field/50 p-3">
               <div className="flex items-center justify-between gap-2">
@@ -5218,6 +5250,17 @@ function AppConfigCard() {
               <div className="mt-2 flex gap-2">
                 <input
                   type={row.secret ? "password" : "text"}
+                  /*  CHẶN TỰ ĐIỀN (2026-09-17, ảnh từ prod): trình duyệt coi cặp ô
+                      chữ + ô mật khẩu là form đăng nhập, tự điền SĐT vào VAPID
+                      Public Key và mật khẩu đã lưu vào Private Key — bấm nhầm Lưu
+                      là khoá Web Push bị đè, thông báo chết. `new-password` là
+                      giá trị duy nhất Chrome/Safari tôn trọng cho ô mật khẩu;
+                      tên ô không giống "username/password" để hết bị đoán. */
+                  name={`cfg-${row.key}`}
+                  autoComplete={row.secret ? "new-password" : "off"}
+                  spellCheck={false}
+                  data-lpignore="true"
+                  data-1p-ignore=""
                   value={drafts[row.key] ?? ""}
                   onChange={(e) =>
                     setDrafts((d) => ({ ...d, [row.key]: e.target.value }))
@@ -5229,10 +5272,20 @@ function AppConfigCard() {
                   }
                   className="min-w-0 flex-1 rounded-lg border border-line bg-card px-3 py-2 text-[0.875rem]"
                 />
+                {row.generate === "hex32" && (
+                  <button
+                    type="button"
+                    disabled={busy === row.key}
+                    onClick={() => setDrafts((d) => ({ ...d, [row.key]: randomHex32() }))}
+                    className="shrink-0 rounded-lg border border-line bg-card px-3 py-2 text-[0.875rem] font-bold text-navy disabled:opacity-50"
+                  >
+                    Tạo ngẫu nhiên
+                  </button>
+                )}
                 <button
                   type="button"
-                  disabled={busy === row.key || !(drafts[row.key] ?? "").trim()}
-                  onClick={() => save(row.key)}
+                  disabled={busy === row.key || !draft.trim() || bad}
+                  onClick={() => setConfirm(row.key)}
                   className="shrink-0 rounded-lg bg-sea px-4 py-2 text-[0.875rem] font-bold text-white disabled:opacity-50"
                 >
                   {busy === row.key
@@ -5242,6 +5295,38 @@ function AppConfigCard() {
                       : "Lưu"}
                 </button>
               </div>
+              {bad && (
+                <p role="alert" className="mt-1 text-[0.875rem] font-semibold text-danger">
+                  Không đúng dạng {row.label}. Nếu ô tự hiện số điện thoại hay mật khẩu
+                  thì là trình duyệt điền nhầm — xoá đi, đừng lưu.
+                </p>
+              )}
+              {confirm === row.key && !bad && (
+                <div role="alertdialog" className="mt-2 rounded-xl bg-danger-bg p-3">
+                  <p className="text-[0.9375rem] font-bold text-danger">
+                    Sắp thay {row.label}. {row.risk}
+                  </p>
+                  <p className="mt-1 text-[0.875rem] text-foreground/80">
+                    Áp dụng ngay cho mọi máy, không hoàn tác được ở đây. Đã kiểm kỹ giá trị chưa?
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => save(row.key)}
+                      className="rounded-lg bg-danger px-4 py-2 text-[0.875rem] font-bold text-white"
+                    >
+                      Lưu thật
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirm(null)}
+                      className="rounded-lg border border-line bg-card px-4 py-2 text-[0.875rem] font-bold text-navy"
+                    >
+                      Huỷ
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

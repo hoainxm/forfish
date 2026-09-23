@@ -1,4 +1,5 @@
 import { computeFishForecast } from "@/lib/fish-forecast-run";
+import { getCronSecret } from "@/lib/app-config";
 import { saveFishSnapshot } from "@/lib/fish-snapshot";
 
 /**
@@ -16,14 +17,14 @@ import { saveFishSnapshot } from "@/lib/fish-snapshot";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
+async function authorized(req: Request): Promise<boolean> {
+  const secret = await getCronSecret();
   if (!secret) return false;
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
 export async function GET(req: Request) {
-  if (!authorized(req)) {
+  if (!(await authorized(req))) {
     return Response.json({ ok: false, code: "unauthorized" }, { status: 401 });
   }
   const payload = await computeFishForecast();

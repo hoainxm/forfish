@@ -10,6 +10,9 @@ import {
   knotToKmh,
   ARRIVE_KM,
   OFF_ROUTE_WARN_KM,
+  OFF_ROUTE_STEPS_KM,
+  offRouteStepFor,
+  offRouteStepCrossed,
   MIN_MOVING_KMH,
 } from "../nav-progress";
 import { haversineKm, type LatLon } from "../route-plan";
@@ -167,5 +170,46 @@ describe("computeNavProgress — bám tuyến", () => {
     });
     expect(p.remainingKm).toBeCloseTo(haversineKm({ lat: 10, lon: 108 }, B), 1);
     expect(p.nextWp).toEqual(B);
+  });
+});
+
+describe("mốc nói lại khi LỆCH TUYẾN — ảnh gương của mốc ranh giới", () => {
+  it("mốc đầu chính là OFF_ROUTE_WARN_KM (không đổi ngưỡng vào đang chạy)", () => {
+    expect(OFF_ROUTE_STEPS_KM[0]).toBe(OFF_ROUTE_WARN_KM);
+  });
+
+  it("offRouteStepFor: đang bám tuyến ⇒ null; ra xa thì lấy mốc LỚN NHẤT đã vượt", () => {
+    expect(offRouteStepFor(0)).toBeNull();
+    expect(offRouteStepFor(1.9)).toBeNull();
+    expect(offRouteStepFor(2)).toBe(2); // đúng mốc = đã vượt
+    expect(offRouteStepFor(4.9)).toBe(2);
+    expect(offRouteStepFor(5)).toBe(5);
+    expect(offRouteStepFor(11)).toBe(10);
+    expect(offRouteStepFor(999)).toBe(20);
+    expect(offRouteStepFor(Number.NaN)).toBeNull();
+  });
+
+  it("nói lần đầu khi vượt ngưỡng, IM khi vẫn trong mốc cũ", () => {
+    expect(offRouteStepCrossed(2.4, null)).toBe(2);
+    expect(offRouteStepCrossed(3.1, 2)).toBeNull(); // vẫn mốc 2 → im
+    expect(offRouteStepCrossed(4.9, 2)).toBeNull();
+  });
+
+  it("nói lại khi vượt sang mốc XA HƠN", () => {
+    expect(offRouteStepCrossed(6, 2)).toBe(5);
+    expect(offRouteStepCrossed(12, 5)).toBe(10);
+    expect(offRouteStepCrossed(25, 10)).toBe(20);
+  });
+
+  it("lái về gần tuyến thì IM (mốc lùi trong im lặng), lệch ra lại thì nói lại", () => {
+    expect(offRouteStepCrossed(6, 20)).toBeNull(); // đang về gần → không nói
+    // nơi gọi cập nhật prev = offRouteStepFor(6) = 5 trong im lặng
+    expect(offRouteStepFor(6)).toBe(5);
+    expect(offRouteStepCrossed(12, 5)).toBe(10); // lệch ra lại → nói lại
+  });
+
+  it("về bám tuyến (dưới ngưỡng) ⇒ thôi hẳn", () => {
+    expect(offRouteStepCrossed(1.5, 10)).toBeNull();
+    expect(offRouteStepFor(1.5)).toBeNull();
   });
 });

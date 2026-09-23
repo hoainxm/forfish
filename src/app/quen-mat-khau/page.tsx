@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Field, inputClass, PrimaryButton } from "@/components/ui/primitives";
+import {
+  CallButton,
+  Field,
+  inputClass,
+  PrimaryButton,
+} from "@/components/ui/primitives";
 import { PageHeader } from "@/components/page-header";
 import {
   AuthCard,
@@ -85,13 +90,13 @@ export default function QuenMatKhauPage() {
         <PageHeader kicker="Tài khoản" title="Quên mật khẩu" toColor="var(--sea)" />
         <AuthCard>
           <AuthNote>{done}</AuthNote>
-          <p className="mb-4 text-[1.0625rem] leading-relaxed text-foreground/70">
+          <p className="mb-4 text-[1rem] leading-relaxed text-foreground/70">
             Nhận được mật khẩu mới, bà con đăng nhập rồi đổi lại thành mật khẩu
             của riêng mình cho an toàn.
           </p>
           <Link
             href="/login"
-            className="display flex min-h-[3.75rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+            className="display flex min-h-[3.75rem] w-full items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
           >
             Về trang đăng nhập
           </Link>
@@ -109,15 +114,23 @@ export default function QuenMatKhauPage() {
         toColor="var(--sea)"
       />
       <AuthCard>
+        {/*  ĐẢO NGƯỢC ƯU TIÊN (2026-08-29, luật A5/D1): ở nhánh chưa cấu hình
+            endpoint, việc DUY NHẤT bà con làm được là GỌI HOTLINE — mà link đó
+            chỉ 171×21px, dưới sàn 56px gần ba lần, trong khi "Quay lại đăng
+            nhập" (chỉ là đường lùi) được cả dải 303×60. Nay hotline là
+            CallButton đúng khuôn, đường lùi hạ xuống link chữ. */}
         {!endpoint ? (
-          <AuthNote>
-            Bà con gọi SDVICO {HOTLINE_HIEN} để được cấp lại mật khẩu giúp nhé.
-          </AuthNote>
+          <div className="mb-4 flex items-stretch gap-2">
+            <p className="min-w-0 flex-1 text-[1rem] leading-snug text-foreground/70">
+              Gọi SDVICO {HOTLINE_HIEN} để được cấp lại mật khẩu.
+            </p>
+            <CallButton phone={HOTLINE} label="Gọi SDVICO" />
+          </div>
         ) : (
           <>
+            {/* Rút còn vế CẤP DỮ LIỆU chưa nói ở đâu khác (D1) */}
             <AuthNote>
-              Điền đúng số điện thoại và họ tên đã đăng ký khi mua hàng. Nhân viên
-              SDVICO kiểm tra rồi gọi lại báo mật khẩu mới trong vòng 24 giờ.
+              Nhân viên SDVICO gọi lại báo mật khẩu mới trong vòng 24 giờ.
             </AuthNote>
             {error && <AuthError>{error}</AuthError>}
             <form onSubmit={handleSubmit}>
@@ -151,15 +164,12 @@ export default function QuenMatKhauPage() {
           </>
         )}
 
-        <p className="mt-5 text-[1rem] leading-snug text-foreground/70">
-          Cần gấp? Gọi{" "}
-          <a href={`tel:${HOTLINE}`} className="font-bold text-sea">
-            SDVICO {HOTLINE_HIEN}
-          </a>
-        </p>
+        {/*  Bỏ đoạn "Cần gấp? Gọi SDVICO …" (D1): số này đã nói ngay phía trên,
+            cách đúng hai dòng. Đường lùi hạ xuống link chữ inline, vùng chạm
+            vẫn ≥3.5rem (luật A2/A3/A5). */}
         <Link
           href="/login"
-          className="mt-3 flex min-h-[3.75rem] w-full items-center justify-center rounded-full border-2 border-line text-[1.0625rem] font-bold text-foreground/80 transition active:scale-[0.98]"
+          className="mt-3 inline-flex min-h-[3.5rem] items-center px-4 text-[1rem] font-bold text-sea transition active:scale-[0.98]"
         >
           Quay lại đăng nhập
         </Link>

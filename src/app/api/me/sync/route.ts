@@ -16,6 +16,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeVnPhone } from "@/lib/phone";
 import { invalidPut, type SyncKind } from "@/lib/user-sync-core";
 
+import { keepDeleted, stripDeleted } from "@/lib/sync-tombstone";
+
 const TABLE = "user_docs";
 
 const err = (status: number, code: string) =>
@@ -36,7 +38,13 @@ export async function GET(req: Request) {
   if (error) return err(500, "query_failed");
 
   const items = (data as { kind: SyncKind; data: unknown; client_updated_at: number }[]).map(
-    (r) => ({ kind: r.kind, data: r.data, clientUpdatedAt: r.client_updated_at }),
+    /*  LỌC BỎ BẢN ĐÃ XOÁ trước khi trả cho máy — server giữ để phân tích,
+        nhưng bà con đã bỏ thì không được thấy lại (chủ dự án 2026-09-01). */
+    (r) => ({
+      kind: r.kind,
+      data: stripDeleted(r.data),
+      clientUpdatedAt: r.client_updated_at,
+    }),
   );
   return NextResponse.json({ ok: true, items });
 }
@@ -75,15 +83,27 @@ export async function PUT(req: Request) {
     return NextResponse.json({
       ok: true,
       stale: true,
-      server: { kind, data: cur.data, clientUpdatedAt: cur.client_updated_at },
+      // cùng luật với GET: bản trả về cho máy KHÔNG mang theo thứ đã xoá
+      server: {
+        kind,
+        data: stripDeleted(cur.data),
+        clientUpdatedAt: cur.client_updated_at,
+      },
     });
   }
+
+  /*  GIỮ BẢN ĐÃ XOÁ Ở SERVER (chủ dự án 2026-09-01: *"đã xoá thì xoá ở máy còn
+      trên server vẫn có"*). Bản ghi biến mất so với lần đẩy trước thì Ở LẠI
+      trong chính cuốn sổ này, chỉ thêm cờ `_deleted` + `_deletedAt` — không
+      bảng mới, không migration, vì `data` vốn là `jsonb`.
+      Máy bà con không thấy lại: nhánh GET đã lọc bỏ trước khi trả về. */
+  const dataGiuVet = keepDeleted(cur?.data, data, new Date().toISOString());
 
   const { error } = await admin.from(TABLE).upsert(
     {
       owner_phone: phone,
       kind,
-      data,
+      data: dataGiuVet,
       client_updated_at: clientUpdatedAt,
       updated_at: new Date().toISOString(),
     },

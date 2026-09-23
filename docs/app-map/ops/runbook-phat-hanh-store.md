@@ -135,7 +135,7 @@ curl -s https://forfish-alpha.vercel.app/quyen-rieng-tu | grep "quyền riêng t
 > Chỉ đi tiếp mục 3/4 khi cần binary mới (đổi icon/plugin, bump version, đóng reject).
 
 **4) Bump version** (mỗi lần nộp store BẮT BUỘC tăng):
-- **Android**: nếu build bằng CI thì **tự tăng** (`versionCode = 10000 + run_number`), khỏi sửa.
+- **Android**: nếu build bằng CI thì **tự tăng** theo giờ UTC (`versionCode = date -u +%y%j%H%M`, không dùng run_number), khỏi sửa.
   Build tay thì sửa `android/app/build.gradle` (`versionCode` tăng, `versionName` mới).
 - **iOS**: trong Xcode → target App → General → **Build** tăng lên số lớn hơn lần upload gần nhất
   (bản `1.0 (1)` đã dùng → nộp lần sau dùng **build ≥ 2**), giữ **Version = 1.0**.

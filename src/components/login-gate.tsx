@@ -51,13 +51,21 @@ export function LoginGate({
       </p>
       <p className="mx-auto mt-1 max-w-[34ch] text-[1rem] leading-snug text-foreground/65">
         {blurb ??
-          "Tài khoản dùng chung với lúc mua hàng SDVICO — số điện thoại là vào được."}
+          /*  MỜI TẠO TÀI KHOẢN lại (2026-09-23): người ngoài tự đăng ký được
+              bằng SĐT — chỉ đúng bước kế là Đăng ký, hoặc Đăng nhập nếu đã có. */
+          "Tạo nhanh bằng số điện thoại, hoặc đăng nhập nếu đã có."}
       </p>
       <Link
-        href="/login"
-        className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[280px] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-[0_10px_24px_-8px_rgba(228,87,46,0.55)] transition active:scale-[0.98]"
+        href="/dang-ky"
+        className="display mx-auto mt-4 flex min-h-[3.5rem] w-full max-w-[17.5rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
       >
-        Đăng nhập / Đăng ký
+        Đăng ký
+      </Link>
+      <Link
+        href="/login"
+        className="mx-auto mt-2 inline-flex min-h-[3.5rem] items-center px-2 text-[1rem] font-bold text-sea"
+      >
+        Đã có tài khoản — Đăng nhập
       </Link>
     </div>
   );

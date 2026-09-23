@@ -49,3 +49,15 @@ test-reports/
 
 # Junction skill per-machine (`ai-simple init`) — cam commit: git recurse junction = copy = drift
 .claude/skills/
+
+# BẢN ĐỒ RẠN — trong git chỉ có MỘT file: public/data/reef-shapes-aca.v1.bin
+# (mức chi tiết, 8,4 MB, khuôn delta+varint của src/lib/reef-bin.mjs).
+#
+#  · Bản JSON là VẬT LIỆU TRUNG GIAN của scripts/encode-reef-shapes.mjs — 76 MB,
+#    không phát hành, không ai đọc lúc chạy. Dựng lại được từ
+#    scripts/generate-reef-shapes-aca.mjs (cần mạng, có cache ô ACA).
+#  · Hai mức nhẹ hơn SINH LÚC BUILD từ chính file .bin
+# Commit mấy file này là thêm hàng chục MB vào lịch sử git vĩnh viễn —
+# xem CLAUDE.md "Dữ liệu bản đồ trong git — CHỐNG PHÌNH".
+/public/data/reef-shapes-aca.v1.json
+/public/data/reef-shapes-aca.*.tmp

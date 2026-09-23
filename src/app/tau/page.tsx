@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/page-header";
 import { BoatSwitcher } from "@/components/boat-switcher";
 import { TauTabs } from "@/components/tau-tabs";
+import { RequireLogin } from "@/components/require-login";
 
 export const metadata = { title: "Tàu cá — SDFish" };
 
@@ -12,14 +13,21 @@ export const metadata = { title: "Tàu cá — SDFish" };
 export default function TauPage() {
   return (
     <div>
+      {/* Rút bỏ vế liệt kê "Giấy tờ, dịch vụ, sản phẩm" khỏi sub (D1): ĐÚNG BA
+          TỪ đó là nhãn ba tab hiện ngay bên dưới. */}
       <PageHeader
         kicker="Quản lý tàu"
         title="Tàu cá"
-        sub="Giấy tờ, dịch vụ, sản phẩm — giữ tàu đủ điều kiện ra khơi."
+        sub="Giữ tàu đủ điều kiện ra khơi."
         toColor="var(--t3)"
       />
-      <BoatSwitcher />
-      <TauTabs />
+      {/*  CẢ MÀN CẦN TÀI KHOẢN (chủ dự án 2026-09-01). Tiêu đề vẫn hiện để
+           người chưa có tài khoản biết mình đang đứng ở đâu, và thẻ khoá nói
+           thẳng phải gọi SDVICO. */}
+      <RequireLogin what="hồ sơ tàu">
+        <BoatSwitcher />
+        <TauTabs />
+      </RequireLogin>
     </div>
   );
 }

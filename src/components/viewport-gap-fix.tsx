@@ -1,21 +1,26 @@
 "use client";
 
 /*
-  DOCK iOS 26 STANDALONE — GHIM VÀO SHELL cao đúng màn NHÌN THẤY.
+  DOCK bản cài iOS (standalone) — GHIM CAO ĐÚNG VÙNG NHÌN THẤY.
 
-  Bug WebKit (Apple sửa Safari 26.1, số 158055568): ở bản cài, layout viewport
-  kẹt ngắn → position:fixed bottom:0 (dock/map/sheet) bám đáy viewport ngắn,
-  lòi khối trống. Mọi cách "đo phần hụt rồi bù" đều lệch vì iOS báo chiều cao
-  KHÁC nhau giữa trang có scroll và không.
+  Bug WebKit standalone (số 158055568): iOS báo chiều cao viewport KHÁC nhau giữa
+  các tab — tab cuộn được cho viewport ĐẦY, tab tĩnh (map fixed) cho viewport
+  NGẮN hơn. `position:fixed` bám đáy viewport ngắn → dock/khung LỆCH giữa 2 màn,
+  màn ngắn bị CỤT.
 
-  Cách chắc: CHỈ bản cài iOS → class `pwa-frame` trên <html> + --app-vh = ĐÁY
-  LỚN NHẤT của viewport (vv.height, chỉ cho lớn lên). CSS cho DockFrame + khung
-  app (app-shell min-height) cao đúng --app-vh → tab viewport nhỏ tự nở bằng
-  tab dài, dock khớp (globals.css). Ngoài standalone: KHÔNG chạy → y hệt cũ.
+  CÁCH (chủ dự án chốt 2026-08-29 — "đọc khung nào lớn hơn thì CỐ ĐỊNH theo khung
+  đó thôi"): --app-vh = ĐÁY LỚN NHẤT đo được, CHỈ CHO LỚN LÊN rồi KHOÁ; trần =
+  screen.height (bỏ số đo vọt quá màn thật). CSS ghim dock-frame + app-shell +
+  full-map theo --app-vh (globals.css) → MỌI tab MỘT chiều cao DUY NHẤT → dock
+  khớp, hết cụt. app-shell min-height = --app-vh ép tab ngắn nở bằng tab dài
+  (nội dung cao hơn viewport ngắn → iOS tự giãn viewport bằng tab dài).
 
-  localStorage theo screen.w×h: giữ mốc qua các lần mở app (khỏi học lại). Đặt
-  --app-vh NGAY từ localStorage lúc init + chỉ ghi lại khi số LỚN LÊN → chuyển
-  tab không reflow, MƯỢT. KHÔNG cập nhật lúc input focus (bàn phím mở).
+  KHÔNG "tự hạ theo tab ngắn": mọi lần thử hạ đều gây DAO ĐỘNG qua lại 2 tab
+  (chính là lỗi "khung kia bị cụt / không lưu"). Đo vọt quá màn đã chặn bằng trần
+  screen.height; trong ngưỡng đó thì GIỮ CHẶT mốc lớn nhất.
+
+  Lưu localStorage theo screen.w×h → mở lại có ngay mốc, khỏi đo lại (đỡ giật).
+  KHÔNG đo lúc gõ (bàn phím mở → viewport ngắn hợp lệ). Ngoài standalone: không chạy.
 */
 
 import { useEffect } from "react";
@@ -27,20 +32,18 @@ export function ViewportGapFix() {
     const standalone =
       window.matchMedia?.("(display-mode: standalone)").matches === true ||
       (navigator as { standalone?: boolean }).standalone === true;
-    if (!standalone) return; // ngoài standalone: không đụng gì
+    if (!standalone) return; // ngoài bản cài: không đụng gì
 
     const de = document.documentElement;
     de.classList.add("pwa-frame");
     let raf = 0;
-    // GIỮ ĐÁY LỚN NHẤT đã đo cho từng CHIỀU màn hình: tab KHÔNG cuộn iOS báo
-    // viewport thấp hơn tab cuộn được → chỉ cho LỚN LÊN, không cho nhỏ lại.
-    // localStorage (2026-07-29 user): GIỮ qua các lần mở app — mở lại là có
-    // ngay mốc đã học, KHÔNG phải đo lại (đỡ giật lúc khởi động + chuyển tab).
+    // GIỮ ĐÁY LỚN NHẤT đã đo cho từng CHIỀU màn hình. localStorage: giữ qua các
+    // lần mở app — mở lại có ngay mốc đã học, khỏi đo lại.
     let stableKey = "";
     let stableBottom = 0;
 
     /** đọc mốc đã lưu cho chiều màn hiện tại + đặt --app-vh NGAY (khỏi nhảy).
-        Trả key hiện tại; đổi chiều (xoay) thì nạp lại mốc của chiều mới. */
+        Đổi chiều (xoay) thì nạp lại mốc của chiều mới. */
     const syncKey = () => {
       const key = `forfish.pwa-frame.${screen.width}x${screen.height}`;
       if (key !== stableKey) {
@@ -49,14 +52,8 @@ export function ViewportGapFix() {
         try {
           saved = Number(localStorage.getItem(key)) || 0;
         } catch {}
-        // TRẦN VẬT LÝ: vùng nhìn thấy KHÔNG thể cao hơn màn hình thật. Mốc đã
-        // lưu mà > screen.height là số đo LỖI kẹt lại (bug iOS đo vọt 1 lần) →
-        // BỎ, coi như chưa có mốc để đo lại tươi. Đây là nguyên nhân dock chui
-        // khỏi đáy màn: khung cao hơn màn → dock trôi xuống dưới mép (user
-        // 2026-08-07: "dính wh max 1 lần, quá khung màn hình"; trước đây phải
-        // xoá app mới thoát vì mốc chỉ-tăng, giờ tự bỏ).
-        const ceil = screen.height || saved;
-        if (saved > ceil) saved = 0;
+        // TRẦN VẬT LÝ: mốc > màn thật là số đo LỖI kẹt lại → bỏ, đo lại tươi.
+        if (saved > (screen.height || saved)) saved = 0;
         stableBottom = saved;
         if (saved > 0) de.style.setProperty("--app-vh", `${saved}px`);
       }
@@ -68,7 +65,9 @@ export function ViewportGapFix() {
       const el = document.activeElement as HTMLElement | null;
       if (!el) return false;
       const tag = el.tagName;
-      return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable === true;
+      return (
+        tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable === true
+      );
     };
 
     const apply = () => {
@@ -76,23 +75,19 @@ export function ViewportGapFix() {
       raf = requestAnimationFrame(() => {
         if (isTyping()) return; // bàn phím mở → viewport ngắn hợp lệ, bỏ
         const key = syncKey();
-        // KÍCH THƯỚC viewport (vv.height, không offsetTop — offset cuộn làm vọt)
+        // vv.height = KÍCH THƯỚC viewport (không offsetTop — offset cuộn làm vọt).
         const measured = Math.round(vv.height);
-        // TRẦN VẬT LÝ: bỏ số đo vọt quá màn hình thật (glitch iOS) — không cho
-        // latch mốc quá to (dock sẽ chui khỏi đáy màn, phải xoá app mới thoát).
+        // TRẦN CỨNG = KÍCH THƯỚC MÀN HÌNH THẬT của máy: `screen.height` (CSS px)
+        // do iOS cấp — KHÔNG cần biết tên/đời máy, đây CHÍNH LÀ size màn của đúng
+        // máy đó. --app-vh KHÔNG BAO GIỜ được vượt quá nó.
         const ceil = screen.height || measured;
+        // Đo VỌT quá màn thật = glitch iOS → BỎ (không cho latch mốc quá to →
+        // dock chui khỏi đáy).
         if (measured > ceil) return;
-        if (measured > stableBottom) {
-          // LỚN LÊN: nhận ngay (tab cuộn được cho viewport đầy đủ hơn tab tĩnh).
-          stableBottom = measured;
-        } else if (stableBottom - measured > 32) {
-          // NHỎ hơn NHIỀU (>32px, quá mức jitter giữa các tab): mốc cũ SAI/kẹt
-          // quá to → TỰ HẠ về số đo thật (tự chữa, khỏi xoá app). Chênh nhỏ thì
-          // rơi xuống nhánh dưới, GIỮ nguyên → không reflow → chuyển tab MƯỢT.
-          stableBottom = measured;
-        } else {
-          return; // chênh nhỏ: giữ mốc, tránh giật giữa các tab
-        }
+        // CHỈ LỚN LÊN rồi KHOÁ. Nhỏ hơn (tab tĩnh) → GIỮ mốc lớn, KHÔNG tự hạ
+        // (tự hạ = dao động 2 tab).
+        if (measured <= stableBottom) return;
+        stableBottom = Math.min(measured, ceil); // KHOÁ TRẦN màn hình, tuyệt đối
         try {
           localStorage.setItem(key, String(stableBottom));
         } catch {}
@@ -110,7 +105,7 @@ export function ViewportGapFix() {
     };
     window.addEventListener("focusout", onFocusOut);
     document.addEventListener("visibilitychange", onVisible);
-    // lưới an toàn: đổi tab / trạng thái viewport tự đổi không bắn event
+    // lưới an toàn: đổi tab / viewport tự đổi mà không bắn event
     const tick = window.setInterval(apply, 600);
 
     return () => {

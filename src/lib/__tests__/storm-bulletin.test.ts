@@ -62,6 +62,36 @@ describe("parseDangerBox — vùng nguy hiểm là thứ NGUỒN PHÁT, không p
   it("không phải khung → null", () => {
     expect(parseDangerBox("sóng cao 2,0–3,5m, biển động")).toBeNull();
   });
+
+  it("nửa mặt phẳng 'Phía Bắc' — chặn trên bằng khung Biển Đông (áp thấp thật 31/8)", () => {
+    // bản tin ATNĐ 31/8 ghi vùng nguy hiểm kiểu này; trước đây parser sót → danger:null
+    expect(parseDangerBox("Phía Bắc 18,0N; 109,5-114,5E")).toEqual({
+      latMin: 18,
+      latMax: 30, // KHUNG_BIEN_DONG.latMax
+      lonMin: 109.5,
+      lonMax: 114.5,
+    });
+  });
+
+  it("nửa mặt phẳng 'Phía Nam' — chặn dưới bằng khung", () => {
+    expect(parseDangerBox("Phía Nam 15,0N; 110,0-115,0E")).toEqual({
+      latMin: 0, // KHUNG_BIEN_DONG.latMin
+      latMax: 15,
+      lonMin: 110,
+      lonMax: 115,
+    });
+  });
+
+  it("nửa mặt phẳng có chữ 'VĨ TUYẾN' (bão số 5 thật 1/9) — vẫn bắt", () => {
+    // bản tin bão số 5 ghi "Phía Bắc vĩ tuyến 18,0N; ..." — parser trước SÓT vì
+    // chữ "vĩ tuyến" xen giữa ⇒ danger:null ⇒ vùng nguy hiểm không lưu được
+    expect(parseDangerBox("Phía Bắc vĩ tuyến 18,0N; 111,5-118,0E")).toEqual({
+      latMin: 18,
+      latMax: 30,
+      lonMin: 111.5,
+      lonMax: 118,
+    });
+  });
 });
 
 describe("parseGioNgay", () => {

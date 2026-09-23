@@ -29,6 +29,7 @@ import { stormNoticeText, type StormStatus } from "@/lib/storms";
 import { useOnline } from "@/lib/use-online";
 import { clockVN } from "@/lib/day-labels";
 import type { SavedPlace } from "@/lib/places";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 import {
   useMapPrefs,
   setMapPrefs,
@@ -51,17 +52,24 @@ import {
   EddyIcon,
   FishIcon,
   PinIcon,
+  PlusIcon,
+  RouteIcon,
   RulerIcon,
   SettingsIcon,
   StarIcon,
+  WavesIcon,
   WindIcon,
 } from "@/components/icons";
 import { parseCoordPair } from "@/lib/parse-coord";
+import { CloseButton } from "@/components/ui/close-button";
 
-const FISH_COLOR = "#2d8659"; // xanh lá — cá/ngư trường (design Phương án A)
+const FISH_COLOR = "var(--fish)"; // xanh lá — cá/ngư trường (token globals, Phương án A)
 
-// rail xổ ra mà bà con không chạm gì 3s → tự thu (user 2026-07-28, hạ 5s→3s 2026-08-24)
-const AUTO_HIDE_MS = 3000; // 5s → 3s (user 2026-08-24: đỡ rối mắt)
+// rail xổ ra mà bà con không chạm gì 5s → tự thu. MỌI chạm/gõ trong rail+panel
+// nạp lại 5s (còn thao tác là còn ở lại — onPointerDownCapture/onKeyDownCapture).
+// Nhịp: 5s (2026-07-28) → 3s (2026-08-24 "đỡ rối mắt") → 5s (2026-09-14, bạn test
+// báo 3s đọc/thao tác không kịp; reset-khi-tương-tác đã có nên 5s không "rối mắt").
+const AUTO_HIDE_MS = 5000;
 
 type PanelId =
   | "hai-do"
@@ -71,19 +79,26 @@ type PanelId =
   | "cai-dat"
   | "cong-cu";
 
-// nhịp cập nhật → chấm màu (design §3): 🟥 liên tục 🟧 giờ 🟨 ngày ⬛ cố định
+// nhịp cập nhật → chấm màu (design §3): 🟥 liên tục 🟧 giờ 🟨 ngày ⬛ cố định.
+// Màu qua token globals.css (KHÔNG hex trong component — 03 §5/§8, hook 1d-r).
 const DOT: Record<string, string> = {
-  lienTuc: "#e4572e",
-  gio: "#f59e0b",
-  ngay: "#eab308",
-  coDinh: "#64748b",
+  lienTuc: "var(--trim)",
+  gio: "var(--cadence-hour)",
+  ngay: "var(--cadence-day)",
+  coDinh: "var(--cadence-fixed)",
 };
 
 export function RaKhoiControls({
   layerId,
   onLayer,
-  lanesOn,
-  onLanes,
+  groupDepthOn,
+  onGroupDepth,
+  groupNavOn,
+  onGroupNav,
+  groupNameOn,
+  onGroupName,
+  chartDetailOn,
+  onChartDetail,
   scalarKind,
   onScalar,
   forecastKind,
@@ -111,22 +126,63 @@ export function RaKhoiControls({
   onClearMeasure,
   onLocateMe,
   onGoCoord,
+  cursor,
+  addPlaceSignal,
+  onLayerOpenChange,
+  closeLayersSignal,
+  onRoutePanel,
+  routeOn = false,
   locating,
   geoError,
+  onLegend,
 }: {
+  /*  "Ký hiệu là gì?" — mở sheet CHÚ GIẢI HẢI ĐỒ (fishing-map-view lo phần
+      sheet). Không truyền = không hiện nút. Reviewer A.7: C-MAP có chú giải
+      trong app, SDFish chỉ có chú giải chất đáy ở góc — bà con thấy ký hiệu
+      lạ mà không có chỗ hỏi. */
+  onLegend?: () => void;
   /** Bấm "Vị trí" → lấy GPS rồi bay tới chỗ mình (fishing-map-view lo phần đó) */
   onLocateMe: () => void;
   /** Gõ tay toạ độ (nút "Đến điểm") → bay tới điểm đó, đặt điểm đang xem */
   onGoCoord: (lat: number, lon: number) => void;
+  /*  Bấm "Dẫn đường" → LỐI TẮT: mở sheet ở nấc cao + mở sẵn panel dẫn đường +
+      cuộn tới nơi (fishing-map-view lo). Không truyền = không hiện nút. */
+  /** chỗ đang trỏ trên bản đồ — form lưu điểm dùng để "lấy chỗ đang trỏ" */
+  cursor?: { lat: number; lon: number } | null;
+  /*  Menu chạm-giữ trên bản đồ chọn "Lưu thành điểm" → cha tăng số này lên,
+      rail mở ô "Điểm đã lưu" kèm form thêm điểm, toạ độ đã điền sẵn theo con
+      trỏ. Đếm chứ không dùng boolean: lưu chỗ thứ hai vẫn phải kích được. */
+  addPlaceSignal?: number;
+  /*  BÁO LÊN CHA khi rail đang mở một LỚP NỔI (panel lớp · ô "Đến điểm" · ô
+      "Điểm đã lưu"). Cha dùng để không bung sheet gió sóng đè lên — luật một
+      lúc một lớp nổi ở 07 §10.7 I. */
+  onLayerOpenChange?: (open: boolean) => void;
+  /*  Cha yêu cầu ĐÓNG SẠCH lớp nổi (đếm để lần sau vẫn kích được). Chỉ dùng
+      cho ngoại lệ ranh giới ≤6 hl: cảnh báo đó không ai được che. */
+  closeLayersSignal?: number;
+  onRoutePanel?: () => void;
+  /*  ĐANG Ở TRONG chế độ dẫn đường — nút phải TRÔNG KHÁC HẲN (user
+      2026-08-28e: "hiện thời ko khác gì nhau"). Cùng khuôn nút "Đến điểm":
+      bật thì nền `t1` + vòng trắng, tắt thì nền `navy`; kèm `aria-pressed`
+      để trình đọc màn hình cũng biết. */
+  routeOn?: boolean;
   /** đang xin GPS — nút phải nói đang chạy, đừng để bà con bấm hoài */
   locating: boolean;
   /** máy từ chối / không có GPS — PHẢI nói, không được câm (nguyên tắc trung thực) */
   geoError: boolean;
   layerId: OceanLayerId;
   onLayer: (id: OceanLayerId) => void;
-  /** Tuyến hàng hải + luồng/phân luồng trên hải đồ (bật/tắt) */
-  lanesOn: boolean;
-  onLanes: (on: boolean) => void;
+  /** Nhóm Độ sâu & đáy (số đo sâu · đẳng sâu · chất đáy · rạn/đá) */
+  groupDepthOn: boolean;
+  onGroupDepth: (on: boolean) => void;
+  /** Nhóm Báo hiệu & nguy hiểm (phao/đèn/xác tàu/luồng/cáp/vùng cấm/khu tránh trú bão) */
+  groupNavOn: boolean;
+  onGroupNav: (on: boolean) => void;
+  /** Nhóm Tên địa danh ngầm (chỉ còn tên núi/đồi/hố ngầm — trú bão đã sang nhóm trên) */
+  groupNameOn: boolean;
+  onGroupName: (on: boolean) => void;
+  chartDetailOn: boolean;
+  onChartDetail: (on: boolean) => void;
   scalarKind: SeaScalarKind | null;
   onScalar: (k: SeaScalarKind | null) => void;
   forecastKind: ForecastKind | null;
@@ -170,6 +226,70 @@ export function RaKhoiControls({
   const [collapsed, setCollapsed] = useState(true);
   // Ô GÕ TAY TOẠ ĐỘ (nút "Đến điểm") — luôn bấm được kể cả khi thu bảng lớp.
   const [coordOpen, setCoordOpen] = useState(false);
+  /*  ĐIỂM ĐÃ LƯU tách khỏi danh sách panel rail thành NÚT RIÊNG dưới "Đến
+      điểm" (user 2026-08-28h). Nó là chỗ bà con MỞ NHANH chỗ quen — cùng
+      loại việc với "Vị trí"/"Đến điểm" (đi tới một toạ độ), không phải
+      loại việc "bật/tắt lớp bản đồ" như 5 panel còn lại. */
+  const [placesOpen, setPlacesOpen] = useState(false);
+  const [addPlaceOpen, setAddPlaceOpen] = useState(false);
+  /*  ĐIỀN SẴN TOẠ ĐỘ CON TRỎ — CHỈ khi form mở do menu chạm-giữ (07 §10.7 K).
+      Mở panel bằng nút rail thì KHÔNG điền: app không được tự khai một toạ độ
+      bà con chưa hề chỉ. Đặt bằng số của lượt tín hiệu, xoá khi panel đóng. */
+  const [prefillTick, setPrefillTick] = useState(0);
+  useEffect(() => {
+    if (!addPlaceSignal) return;
+    setOpen(null);
+    setCoordOpen(false);
+    setPlacesOpen(true);
+    setAddPlaceOpen(true);
+    setPrefillTick(addPlaceSignal);
+  }, [addPlaceSignal]);
+  /*  ĐÓNG PANEL LÀ DỌN LUÔN TRẠNG THÁI FORM (2026-08-29h — chủ dự án: *"điểm
+      đã lưu ko thấy điểm cũ? t lưu điểm gà mà ko thấy"*).
+
+      LỖI: `addPlaceOpen` bật lên khi mở form từ menu chạm-giữ, và chỉ tắt khi
+      bà con bấm Lưu/Huỷ. Đóng panel bằng nút X lúc form đang mở thì cờ NẰM
+      LẠI — lần sau bấm "Điểm đã lưu" ở rail, form bung ra ngay, mà form mở thì
+      danh sách điểm cũ bị thu (xem `!addOpen` trong my-places-sheet). Kết quả:
+      bà con vừa lưu một điểm xong, mở ra lại thấy form trống và KHÔNG thấy
+      điểm nào — tưởng máy nuốt mất điểm của mình. Điểm vẫn còn (ghim vẫn hiện
+      trên bản đồ), chỉ là danh sách bị giấu.
+
+      Đây là lớp lỗi "trạng thái sống dai hơn lần dùng": mở panel bằng nút rail
+      phải luôn về màn MẶC ĐỊNH — danh sách điểm — chứ không kế thừa việc dở
+      của lượt trước. */
+  useEffect(() => {
+    if (!placesOpen) {
+      setPrefillTick(0);
+      setAddPlaceOpen(false);
+    }
+  }, [placesOpen]);
+  /*  BÁO CHA: rail đang có lớp nổi nào mở không. Cha (fishing-map-view) dùng để
+      chạm bản đồ chỉ dời con trỏ, khỏi bung sheet gió sóng đè lên panel. */
+  const anyLayerOpen = open !== null || placesOpen || coordOpen;
+  useEffect(() => {
+    onLayerOpenChange?.(anyLayerOpen);
+  }, [anyLayerOpen, onLayerOpenChange]);
+  /*  Cha đòi nhường chỗ cho cảnh báo ranh giới ≤6 hl → đóng sạch lớp nổi. */
+  useEffect(() => {
+    if (!closeLayersSignal) return;
+    setOpen(null);
+    setCoordOpen(false);
+    setPlacesOpen(false);
+  }, [closeLayersSignal]);
+  /*  LUẬT HIỂN THỊ — MỘT LỚP NỔI MỘT LÚC (chủ dự án 2026-08-29: "2 chế độ lúc
+      lưu và lúc dẫn đường đang hiển thị 1 lúc nó bị chồng chéo và rối nhau").
+      Vào chế độ dẫn đường là ĐÓNG SẠCH panel lớp + ô toạ độ + ô điểm đã lưu.
+      Vì sao đóng chứ không xếp chồng cho khéo: xem bảng "hiện đồng thời được /
+      không được" ở 07 §10.7 I — cả ba thứ này đều là LỚP NỔI ĐÈ BẢN ĐỒ, mà
+      màn chỉ có một chỗ cho lớp nổi. Ghép đôi nào cũng dưới 50% số lượt dùng
+      nên không đáng đánh đổi sự rối. */
+  useEffect(() => {
+    if (!routeOn) return;
+    setOpen(null);
+    setCoordOpen(false);
+    setPlacesOpen(false);
+  }, [routeOn]);
 
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const armAutoHide = useCallback(() => {
@@ -214,7 +334,6 @@ export function RaKhoiControls({
         !!overlayField ||
         !!scalarKind,
     },
-    { id: "diem", label: "Điểm đã lưu", icon: StarIcon, color: "var(--navy)" },
     {
       id: "cong-cu",
       label: "Công cụ",
@@ -224,6 +343,13 @@ export function RaKhoiControls({
     },
     { id: "cai-dat", label: "Cài đặt", icon: SettingsIcon, color: "var(--navy)" },
   ];
+
+  // ĐẾN ĐIỂM · ĐIỂM ĐÃ LƯU · DẪN ĐƯỜNG = TÍNH NĂNG PREMIUM (user chốt 2026-08-29):
+  // ẨN HẲN khỏi acc thường (chưa đăng nhập "login" / hạng thường "upgrade"). Chỉ
+  // hiện ở nấc "open" (fishAccess = access tài khoản, dùng chung nấc với lớp cá).
+  // "checking" cũng ẩn — thà premium thấy nút hiện chậm một nhịp còn hơn nháy
+  // tính năng premium cho người thường rồi rút đi. Lớp + Vị trí vẫn cho mọi người.
+  const premiumTools = fishAccess === "open";
 
   return (
     <div
@@ -261,8 +387,15 @@ export function RaKhoiControls({
                     onScalar(null);
                     onLayer(id);
                   }}
-                  lanesOn={lanesOn}
-                  onLanes={onLanes}
+                  groupDepthOn={groupDepthOn}
+                  onGroupDepth={onGroupDepth}
+                  groupNavOn={groupNavOn}
+                  onGroupNav={onGroupNav}
+                  groupNameOn={groupNameOn}
+                  onGroupName={onGroupName}
+                  chartDetailOn={chartDetailOn}
+                  onChartDetail={onChartDetail}
+                  onLegend={onLegend}
                 />
               )}
               {open === "ngu-truong" && (
@@ -312,8 +445,26 @@ export function RaKhoiControls({
         </div>
       )}
 
-      {/* Ô GÕ TAY TOẠ ĐỘ — nổi cạnh nút "Đến điểm", độc lập với panel rail */}
-      {coordOpen && (
+      {/* ĐIỂM ĐÃ LƯU — nổi cạnh nút, cùng khuôn ô toạ độ (premium) */}
+      {premiumTools && placesOpen && (
+        <div className="pointer-events-auto absolute right-[4.5rem] top-0 max-h-[70dvh] w-[19rem] max-w-[calc(100vw-5rem)] overflow-y-auto rounded-2xl bg-card/97 p-3 shadow-xl">
+          <DiemPanel
+            cursor={cursor}
+            prefillTick={prefillTick}
+            addOpen={addPlaceOpen}
+            onAddOpenChange={setAddPlaceOpen}
+            showPlaces={showPlaces}
+            onShowPlaces={onShowPlaces}
+            places={places}
+            onPlaces={onPlaces}
+            onGoPlace={onGoPlace}
+            onClose={() => setPlacesOpen(false)}
+          />
+        </div>
+      )}
+
+      {/* Ô GÕ TAY TOẠ ĐỘ — nổi cạnh nút "Đến điểm", độc lập với panel rail (premium) */}
+      {premiumTools && coordOpen && (
         <div className="pointer-events-auto absolute right-[4.5rem] top-0 w-[19rem] max-w-[calc(100vw-5rem)] rounded-2xl bg-card/97 p-3 shadow-xl">
           <GoToPointPopup
             onGoCoord={onGoCoord}
@@ -341,7 +492,7 @@ export function RaKhoiControls({
           ) : (
             <ChevronRightIcon className="h-5 w-5" />
           )}
-          <span className="text-[0.6875rem] font-bold leading-tight">
+          <span className="text-[0.8125rem] font-bold leading-tight">
             {collapsed ? "Lớp" : "Ẩn"}
           </span>
         </button>
@@ -359,17 +510,20 @@ export function RaKhoiControls({
           }`}
         >
           <CrosshairIcon className={`h-6 w-6 ${locating ? "animate-pulse" : ""}`} />
-          <span className="text-[0.6875rem] font-bold leading-tight">
+          <span className="text-[0.8125rem] font-bold leading-tight">
             {locating ? "Đang tìm" : geoError ? "Bật GPS" : "Vị trí"}
           </span>
         </button>
 
-        {/* ĐẾN ĐIỂM — gõ tay toạ độ để nhảy tới điểm cần xem (không cần GPS,
-            chạy cả khi mất sóng). Đặt NGAY DƯỚI nút "Vị trí", luôn hiện. */}
+        {/* ĐẾN ĐIỂM (premium) — gõ tay toạ độ để nhảy tới điểm cần xem (không
+            cần GPS, chạy cả khi mất sóng). Đặt NGAY DƯỚI nút "Vị trí". */}
+        {premiumTools && (
         <button
           type="button"
           onClick={() => {
+            if (routeOn) onRoutePanel?.(); // thoát dẫn đường trước, không đè
             setOpen(null); // đóng panel rail (nếu đang mở) cho khỏi chồng
+            setPlacesOpen(false);
             setCoordOpen((v) => !v);
           }}
           aria-label="Đến điểm — gõ toạ độ"
@@ -379,10 +533,86 @@ export function RaKhoiControls({
           }`}
         >
           <PinIcon className="h-6 w-6" />
-          <span className="text-[0.6875rem] font-bold leading-tight">
+          <span className="text-[0.8125rem] font-bold leading-tight">
             Đến điểm
           </span>
         </button>
+        )}
+
+        {/* DẪN ĐƯỜNG — LỐI TẮT tới panel dẫn đường trong sheet (user 2026-08-28:
+            "tách cái dẫn đường ở sheet ra thành 1 button, đơn giản hoá thao
+            tác"). Trước đây muốn dẫn đường phải: chạm biển → vuốt sheet lên nấc
+            cao → cuộn tìm khối Dẫn đường → bấm mở panel. Nay MỘT chạm: sheet mở
+            sẵn ở nấc cao, panel mở sẵn, cuộn sẵn tới nơi.
+            Form dẫn đường vẫn Ở TRONG SHEET, không bê vào rail: nó có chọn nơi
+            xuất phát + 2 ô số + thẻ kết quả 3 con số + khối cảnh báo — rail rộng
+            16,5rem không chứa nổi mà vẫn giữ được cỡ chữ ≥18px cho bà con. Rail
+            giữ đúng vai "chỗ bấm", sheet giữ đúng vai "chỗ đọc" (07 §11). */}
+        {/* ĐIỂM ĐÃ LƯU (premium) — chỗ quen của chủ tàu, mở nhanh một chạm */}
+        {premiumTools && (
+        <button
+          type="button"
+          onClick={() => {
+            // đang dẫn đường mà mở lớp nổi khác ⇒ THOÁT chế độ trước, không đè
+            if (routeOn) onRoutePanel?.();
+            setOpen(null);
+            setCoordOpen(false);
+            setPlacesOpen((v) => !v);
+          }}
+          aria-label="Điểm đã lưu"
+          aria-expanded={placesOpen}
+          className={`flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-white shadow-md transition active:scale-95 ${
+            placesOpen ? "bg-t1" : "bg-navy"
+          }`}
+        >
+          <StarIcon className="h-6 w-6" />
+          <span className="text-[0.8125rem] font-bold leading-tight">
+            Điểm đã lưu
+          </span>
+        </button>
+        )}
+
+        {premiumTools && onRoutePanel && (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(null); // đóng panel rail cho khỏi chồng lên sheet
+              setCoordOpen(false);
+              setPlacesOpen(false);
+              onRoutePanel();
+            }}
+            aria-label={
+              routeOn
+                ? "Đang dẫn đường — chạm để đóng"
+                : "Dẫn đường — mở bảng tính đường đi"
+            }
+            aria-pressed={routeOn}
+            /*  BA tín hiệu BẬT, không chỉ đổi màu: nền `t1` (cùng khuôn nút
+                "Đến điểm" ngay trên), chữ đổi "Dẫn đường" → "Đang dẫn", và một
+                CHẤM TRẮNG NHẤP NHÁY. Ngoài nắng chói trên tàu, đổi mỗi màu là
+                gần như không phân biệt được — phải có dấu ĐỘNG và chữ đổi. */
+            className={`relative flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-white shadow-md transition active:scale-95 ${
+              routeOn ? "bg-t1" : "bg-navy"
+            }`}
+          >
+            {/*  CHẤM SÁNG NHẤP NHÁY khi đang bật — màu nền đổi thôi thì ngoài
+                 nắng chói trên tàu nhìn gần như nhau; thêm một dấu ĐỘNG mới
+                 đọc được ngay là "đang ở trong chế độ này". */}
+            {routeOn && (
+              <span
+                className="absolute right-1.5 top-1.5 flex h-2.5 w-2.5"
+                aria-hidden
+              >
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+              </span>
+            )}
+            <RouteIcon className="h-6 w-6" />
+            <span className="text-[0.8125rem] font-bold leading-tight">
+              {routeOn ? "Đang dẫn" : "Dẫn đường"}
+            </span>
+          </button>
+        )}
         {!collapsed &&
           RAIL.map((r) => {
           const active = open === r.id;
@@ -396,7 +626,7 @@ export function RaKhoiControls({
               className="relative flex min-h-[3.75rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 shadow-md transition active:scale-95"
               style={
                 active
-                  ? { background: r.color, color: "#fff" }
+                  ? { background: r.color, color: "var(--card)" }
                   : { background: "var(--card)", color: "var(--navy)" }
               }
             >
@@ -408,7 +638,7 @@ export function RaKhoiControls({
                 />
               )}
               <Icon className="h-6 w-6" />
-              <span className="text-[0.6875rem] font-bold leading-tight">
+              <span className="text-[0.8125rem] font-bold leading-tight">
                 {r.label}
               </span>
             </button>
@@ -461,18 +691,12 @@ function PanelHeader({
             </h3>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Đóng"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-field text-navy"
-        >
-          ✕
-        </button>
+        <CloseButton onClose={onClose} />
       </div>
-      <p className="mt-1 text-[0.75rem] leading-snug text-foreground/65">
-        Chọn dữ liệu nào hiện trên bản đồ · số liệu điểm nằm ở sheet dưới
-      </p>
+      {/*  ĐÃ BỎ dòng "Chọn dữ liệu nào hiện trên bản đồ · số liệu điểm nằm ở
+           sheet dưới" (2026-08-29). Nó là lời DẪN GIẢI, không cấp dữ liệu — và
+           `PanelHeader` dùng chung nên nó lọt sang cả ô "Đến điểm — gõ toạ độ",
+           nơi câu đó còn SAI (ô ấy không chọn lớp nào cả). */}
     </div>
   );
 }
@@ -482,7 +706,8 @@ function cadLine(id: OceanLayerId): { text: string; dot: string } {
   if (!def.dated) return { text: "Cố định · Không đổi theo ngày", dot: DOT.coDinh };
   // Ảnh vệ tinh theo ngày (KHÔNG phải dự báo). Bỏ số "trễ ~2 ngày" khỏi UI
   // (user 2026-07-29: ngư dân không cần biết), nhưng vẫn ghi "ảnh vệ tinh" để
-  // khỏi nhầm với lớp dự báo mây/gió/sóng. `lagDays` vẫn dùng để lấy ảnh mới nhất.
+  // khỏi nhầm với lớp dự báo mây/gió/sóng. Ảnh mới nhất do GIBS tự chọn qua
+  // ngày `default` (xem OCEAN_LAYERS) — app không tự tính ngày nữa.
   return { text: "Ảnh vệ tinh · theo ngày", dot: DOT.ngay };
 }
 
@@ -490,15 +715,32 @@ function HaiDoPanel({
   layerId,
   scalarKind,
   onLayer,
-  lanesOn,
-  onLanes,
+  groupDepthOn,
+  onGroupDepth,
+  groupNavOn,
+  onGroupNav,
+  groupNameOn,
+  onGroupName,
+  chartDetailOn,
+  onChartDetail,
+  onLegend,
 }: {
   layerId: OceanLayerId;
   scalarKind: SeaScalarKind | null;
   onLayer: (id: OceanLayerId) => void;
-  /** Tuyến hàng hải + luồng/phân luồng — nét mảnh tham khảo trên hải đồ */
-  lanesOn: boolean;
-  onLanes: (on: boolean) => void;
+  /** Nhóm Độ sâu & đáy (số đo sâu · đẳng sâu · chất đáy · rạn/đá) */
+  groupDepthOn: boolean;
+  onGroupDepth: (on: boolean) => void;
+  /** Nhóm Báo hiệu & nguy hiểm (phao/đèn/xác tàu/luồng/cáp/vùng cấm/khu tránh trú bão) */
+  groupNavOn: boolean;
+  onGroupNav: (on: boolean) => void;
+  /** Nhóm Tên địa danh ngầm (tên núi/đồi/hố ngầm) */
+  groupNameOn: boolean;
+  onGroupName: (on: boolean) => void;
+  chartDetailOn: boolean;
+  onChartDetail: (on: boolean) => void;
+  /** mở sheet chú giải ký hiệu — không truyền = không hiện nút */
+  onLegend?: () => void;
 }) {
   return (
     <div>
@@ -528,7 +770,7 @@ function HaiDoPanel({
                   <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
                     {def.label}
                   </span>
-                  <span className="flex items-center gap-1 text-[0.6875rem] leading-tight text-foreground/65">
+                  <span className="flex items-center gap-1 text-[0.8125rem] leading-tight text-foreground/75">
                     <span
                       className="h-1.5 w-1.5 rounded-full"
                       style={{ background: cad.dot }}
@@ -555,17 +797,83 @@ function HaiDoPanel({
       {/* NHÃN ĐẢO tiếng Việt LUÔN hiện trên hải đồ (chi tiết chủ quyền, không
           tắt được). TUYẾN TÀU thì cho tắt vì có bà con thích bản đồ thoáng. */}
       <div className="mt-2 border-t border-line pt-2">
+        {/* CÔNG TẮC TỔNG cụm hải đồ (2026-09-02) — phao đèn, báo hiệu chính
+            thức, đèn biển, số đo sâu, đoạn luồng. Một chạm cho bà con muốn
+            màn thoáng; công tắc con bên dưới tinh chỉnh từng lớp. CHỈ là
+            chuyện nhìn — dữ liệu vẫn tải đủ về máy. */}
         <Toggle
-          label="Tuyến tàu, luồng lạch"
-          sub="Gồm cáp ngầm, giàn khoan, vùng cấm — tham khảo, không thay hải đồ chính thức"
-          on={lanesOn}
-          onToggle={() => onLanes(!lanesOn)}
+          label="Hải đồ chi tiết"
+          sub="Bật là hiện cả hải đồ — độ sâu, báo hiệu, tên; tự lộ chi tiết khi phóng to"
+          on={chartDetailOn}
+          onToggle={() => onChartDetail(!chartDetailOn)}
           icon={
             <span style={{ color: "var(--t1)" }}>
               <AnchorIcon className="h-5 w-5" />
             </span>
           }
         />
+        {/*  BA NHÓM (chủ dự án 2026-09-03) — gom 6 công tắc con về 3 nhóm theo
+            cách bà con đọc hải đồ. Đều nằm dưới "Hải đồ chi tiết" ở trên. */}
+        <Toggle
+          label="Độ sâu & đáy"
+          sub="Số đo sâu, đường đẳng sâu, chất đáy, đá ngầm/rạn — chỗ cạn và nơi cá về"
+          on={groupDepthOn}
+          onToggle={() => onGroupDepth(!groupDepthOn)}
+          icon={
+            <span style={{ color: "var(--t1)" }}>
+              <DepthIcon className="h-5 w-5" />
+            </span>
+          }
+        />
+        {/*  KHU TRÁNH TRÚ BÃO chuyển từ nhóm "Tên & nơi trú" sang đây
+             (reviewer 2026-09-03): nó là NƠI CHẠY TỚI lúc nguy, cùng loại việc
+             "đi lại an toàn" với phao/đèn/xác tàu — không phải chuyện tên gọi.
+             fishing-map-view đổi gate lớp `khu-tru-bao-dot` sang groupNavOn. */}
+        <Toggle
+          label="Báo hiệu & nguy hiểm"
+          sub="Phao, đèn, xác tàu, luồng, cáp, vùng cấm, khu trú bão"
+          on={groupNavOn}
+          onToggle={() => onGroupNav(!groupNavOn)}
+          icon={
+            <span style={{ color: "var(--t1)" }}>
+              <AnchorIcon className="h-5 w-5" />
+            </span>
+          }
+        />
+        <Toggle
+          label="Tên địa danh ngầm"
+          sub="Tên núi/đồi/hố ngầm dưới biển — để định vị ngư trường"
+          on={groupNameOn}
+          onToggle={() => onGroupName(!groupNameOn)}
+          icon={
+            <span style={{ color: "var(--t1)" }}>
+              <LayersIcon className="h-5 w-5" />
+            </span>
+          }
+        />
+        {/*  "KÝ HIỆU LÀ GÌ?" — cùng khuôn hàng với Toggle (bg-field, bo xl,
+             icon + chữ), nhưng là NÚT MỞ SHEET chứ không phải công tắc: có mũi
+             tên phải, không có cần gạt. Tap ≥56px (03 §Tap tối thiểu). */}
+        {onLegend && (
+          <button
+            type="button"
+            onClick={onLegend}
+            className="mt-2 flex min-h-[3.5rem] w-full items-center gap-2.5 rounded-xl bg-field px-3 text-left transition active:scale-[0.99]"
+          >
+            <span className="shrink-0" style={{ color: "var(--t1)" }}>
+              <AlertIcon className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
+                Ký hiệu là gì?
+              </span>
+              <span className="block text-[0.8125rem] text-foreground/75">
+                Xem hình phao, đèn, xác tàu, cáp… và nghĩa của từng hình
+              </span>
+            </span>
+            <ChevronRightIcon className="h-5 w-5 shrink-0 text-navy/75" />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -717,7 +1025,7 @@ function ThoiTietPanel({
               </span>
               <span
                 className={`block text-[0.8125rem] leading-snug ${
-                  stormInfo.cu ? "font-bold text-warn" : "text-foreground/65"
+                  stormInfo.cu ? "font-bold text-warn" : "text-foreground/75"
                 }`}
               >
                 {stormInfo.checkedAt != null
@@ -808,7 +1116,7 @@ function ThoiTietPanel({
         onToggle={() => onScalar(scalarKind === "ssha" ? null : "ssha")}
         icon={<EddyIcon className="h-5 w-5 text-t4" />}
       />
-      <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/60">
+      <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/75">
         Mọi lớp đều là số liệu tham khảo; nguồn có thể tạm gián đoạn và sẽ báo
         “thử lại”. Gió/sóng tại ĐIỂM xem ở sheet khi chạm.
       </p>
@@ -817,6 +1125,10 @@ function ThoiTietPanel({
 }
 
 function DiemPanel({
+  cursor,
+  prefillTick,
+  addOpen: addOpenProp,
+  onAddOpenChange,
   showPlaces,
   onShowPlaces,
   places,
@@ -824,6 +1136,11 @@ function DiemPanel({
   onGoPlace,
   onClose,
 }: {
+  cursor?: { lat: number; lon: number } | null;
+  /** >0 = form vừa mở do menu chạm-giữ → điền sẵn toạ độ con trỏ */
+  prefillTick?: number;
+  addOpen?: boolean;
+  onAddOpenChange?: (v: boolean) => void;
   showPlaces: boolean;
   onShowPlaces: (on: boolean) => void;
   places: SavedPlace[];
@@ -831,23 +1148,59 @@ function DiemPanel({
   onGoPlace: (lat: number, lon: number) => void;
   onClose: () => void;
 }) {
+  const [addOpenLocal, setAddOpenLocal] = useState(false);
+  const addOpen = addOpenProp ?? addOpenLocal;
+  const setAddOpen = (v: boolean) => {
+    setAddOpenLocal(v);
+    onAddOpenChange?.(v);
+  };
   return (
     <div>
-      <Toggle
-        label="Hiện trên bản đồ"
-        sub="Đánh dấu các điểm đã lưu"
-        on={showPlaces}
-        onToggle={() => onShowPlaces(!showPlaces)}
-        icon={<StarIcon className="h-5 w-5 text-navy" />}
-      />
+      {/*  NÚT KHÔNG ĂN RIÊNG MỘT HÀNG (03-design-system §Nút hành động): trước
+           đây "Thêm điểm" là một dải viền đứt chiếm trọn một hàng của panel —
+           đúng thứ chủ dự án chê. Nay nó là ô vuông cùng khuôn rail, nằm INLINE
+           cuối hàng toggle. */}
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <Toggle
+            label="Hiện điểm trên bản đồ"
+            on={showPlaces}
+            onToggle={() => onShowPlaces(!showPlaces)}
+            icon={<StarIcon className="h-5 w-5 text-navy" />}
+          />
+        </div>
+        {/*  HÀNG KHÔNG CÓ NÚT VẪN CHỪA Ô (03-design-system §Nút hành động):
+             trước đây form mở là nút biến mất HẲN, toggle nở từ 199px ra 271px
+             — cùng một hàng mà đổi khuôn giữa hai trạng thái, mép phải nhảy.
+             Ô trống giữ mép phải thẳng, đúng khuôn đã có ở route-planner. */}
+        {!addOpen ? (
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            aria-label="Thêm điểm mới"
+            /*  DÙNG KHUÔN CHUNG, KHÔNG CHÉP TAY (2026-08-29h): chuỗi cũ là
+                bản chép của `SQ_BTN` nên nó KHÔNG ăn theo `--row-h` — chế độ
+                "Gọn" hạ mọi nút xuống 37px thì riêng nút này vẫn 52px. Đúng
+                bài học hai-bản-chép-tay đã ghi ngay trong file sq-btn.ts. */
+            className={`${SQ_BTN} bg-t1 text-white`}
+          >
+            <PlusIcon className="h-6 w-6" />
+            Thêm điểm
+          </button>
+        ) : null}
+      </div>
       <div className="mt-3">
         {/* quản lý điểm NGAY trong panel — compact cho rail hẹp */}
         <MyPlacesContent
+          cursor={cursor}
+          prefillTick={prefillTick}
+          addOpen={addOpen}
+          onAddOpenChange={setAddOpen}
+          hideAddButton
           places={places}
           onPlaces={onPlaces}
           onGo={onGoPlace}
           onClose={onClose}
-          compact
         />
       </div>
     </div>
@@ -888,9 +1241,6 @@ function GoToPointPopup({
     <div>
       <PanelHeader title="Đến điểm — gõ toạ độ" onClose={onClose} />
       <label className="mb-2 block">
-        <span className="mb-1 block text-[0.8125rem] font-bold text-navy">
-          Vĩ độ (Bắc)
-        </span>
         <input
           type="text"
           inputMode="text"
@@ -905,9 +1255,6 @@ function GoToPointPopup({
         />
       </label>
       <label className="mb-2 block">
-        <span className="mb-1 block text-[0.8125rem] font-bold text-navy">
-          Kinh độ (Đông)
-        </span>
         <input
           type="text"
           inputMode="text"
@@ -937,10 +1284,11 @@ function GoToPointPopup({
       >
         Đến điểm
       </button>
-      <p className="mt-2 text-[0.75rem] leading-snug text-foreground/65">
-        Gõ độ-phút (vd 8 30) hoặc độ thập phân (vd 8,5). Vùng biển mình mặc định
-        Bắc/Đông — gõ Nam/Tây thì thêm chữ S/W hoặc dấu trừ.
-      </p>
+      {/*  ĐÃ BỎ đoạn "Gõ độ-phút (vd 8 30) hoặc độ thập phân… thêm chữ S/W
+           hoặc dấu trừ" (2026-08-29). Ví dụ gõ đã nằm ngay trong placeholder
+           của chính ô, theo đúng hệ đang cài — nhắc lại ở dưới là dạy lại thứ
+           vừa chỉ. Phần S/W là ca hiếm (biển mình Bắc/Đông); ai gõ vào vẫn đọc
+           được, và gõ sai thì câu lỗi nói đúng cách gõ. */}
     </div>
   );
 }
@@ -975,7 +1323,7 @@ function RadioCard({
         <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
           {title}
         </span>
-        <span className="block text-[0.6875rem] text-foreground/65">{sub}</span>
+        <span className="block text-[0.8125rem] text-foreground/75">{sub}</span>
       </span>
     </button>
   );
@@ -1043,6 +1391,17 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
         onToggle={() => setMapPrefs({ vungLong: !prefs.vungLong })}
         icon={<DepthIcon className="h-5 w-5 text-trim" />}
       />
+      <div className="mb-2" />
+      {/* TRẠM CON NƯỚC (2026-09-04) — lớp miễn phí, mặc định BẬT, bà con tắt
+          được. Không thuộc "Hải đồ chi tiết": chạm trạm là ra con nước, kể cả
+          khi đang xem nền vệ tinh. */}
+      <Toggle
+        label="Trạm con nước"
+        sub="11 trạm · chạm trạm xem giờ nước lớn, nước ròng"
+        on={prefs.tideStations}
+        onToggle={() => setMapPrefs({ tideStations: !prefs.tideStations })}
+        icon={<WavesIcon className="h-5 w-5 text-t1" />}
+      />
 
       {vmsZones.length > 0 && (
         <>
@@ -1076,7 +1435,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
               />
             </div>
           ))}
-          <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/60">
+          <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/75">
             Các ranh giới trên chỉ để hình dung (dữ liệu VMS{" "}
             {VMS_ZONES_UPDATED.split("-").reverse().join("/")}) — ranh chính
             thức tra Chi cục Thủy sản.
@@ -1139,7 +1498,7 @@ function ToolsPanel({
               Xoá, đo lại
             </button>
           )}
-          <p className="mt-2 text-[0.6875rem] leading-snug text-foreground/55">
+          <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/75">
             Khoảng cách đường chim bay (không theo tuyến né cạn). Đổi đơn vị
             hải lý/km ở Cài đặt.
           </p>
@@ -1157,7 +1516,10 @@ function Toggle({
   icon,
 }: {
   label: string;
-  sub: string;
+  /*  Dòng phụ TUỲ CHỌN (2026-08-29): chủ dự án yêu cầu bỏ các câu giải thích
+      không cấp dữ liệu. Toggle nào mà nhãn đã tự nói hết thì không truyền
+      `sub` — đỡ một dòng chữ trong panel vốn đã chật. */
+  sub?: string;
   on: boolean;
   onToggle: () => void;
   icon: React.ReactNode;
@@ -1175,7 +1537,9 @@ function Toggle({
         <span className="block text-[0.9375rem] font-bold leading-tight text-navy">
           {label}
         </span>
-        <span className="block text-[0.6875rem] text-foreground/65">{sub}</span>
+        {sub && (
+          <span className="block text-[0.8125rem] text-foreground/75">{sub}</span>
+        )}
       </span>
       <span
         className={`flex h-7 w-12 shrink-0 items-center rounded-full px-0.5 transition ${on ? "justify-end bg-ok" : "justify-start bg-line"}`}

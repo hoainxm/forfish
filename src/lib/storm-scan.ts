@@ -21,23 +21,26 @@
 //
 // ═══ BA MỨC, PHÂN THEO PHẠM VI ═══
 //
-//   · `ngu`  — KHÔNG có cơn nào đang ra tin ⇒ **1 lần/ngày** (đổi ngày VN).
+//   · `ngu`  — KHÔNG có cơn nào đang ra tin ⇒ **mỗi 3 giờ** (`NGU_QUET_PHUT`) để
+//              cơn MỚI hình thành vào kho trong ≤3 giờ, không phải chờ tới hôm sau.
 //   · `xa`   — có cơn, nhưng còn XA bà con (>500 km tới cảng gần nhất) ⇒ quét
 //              ĐÚNG lúc nguồn hẹn bản tin kế; nguồn không hẹn thì 6 giờ.
 //   · `gan`  — cơn đã vào tầm ảnh hưởng ngư dân (≤500 km tới một cảng) HOẶC
 //              mạnh từ cấp 10 ⇒ **1 giờ/lần**, KHÔNG chờ mốc hẹn (lúc này NCHMF
 //              phát thêm tin ngoài lịch, chờ đúng mốc là trễ mất một nhịp).
 //
-// ⚠️ MỨC `ngu` KHÔNG PHẢI LÀ CHỖ PHÁT HIỆN BÃO MỚI — đừng siết nó vì lo sót.
-// Việc phát hiện nằm ở đường khác và đã chạy 30 phút/lần: `/api/cron/notify-storms`
-// gọi `/api/storms` (NCHMF + GDACS) rồi đẩy thông báo. Cron kho này chỉ lo GHI
-// LẠI ĐƯỜNG ĐI để vẽ. Hậu quả xấu nhất khi trời yên mà bão vừa hình thành: khúc
-// đầu của đường vẽ bắt đầu trễ vài giờ — bà con VẪN được cảnh báo ngay.
+// CẢNH BÁO bão mới vẫn ở đường khác (30 phút/lần): `/api/cron/notify-storms` gọi
+// `/api/storms` (NCHMF + GDACS) rồi đẩy thông báo — bà con được BÁO ngay. NHƯNG
+// VÙNG NGUY HIỂM TRÊN BẢN ĐỒ vẽ TỪ KHO NÀY (đường đi + mốc dự báo, `tracks` của
+// `/api/storms`), nên kho ghi trễ = bản đồ có tâm bão (feed trực tiếp) mà THIẾU
+// vùng phải tránh. Ca thật 12/9 (áp thấp hướng miền Trung): tâm hiện, vùng câm.
+// VÌ THẾ mức `ngu` nay quét **mỗi 3 giờ** (không còn 1 lần/ngày) để cơn mới vào
+// kho trong ≤3 giờ — chủ dự án 2026-09-12: *"tăng cron lên để có bão vào DB"*.
+// Trần cứng 55 phút (`TOI_THIEU_PHUT`) giữ nguyên, chặn ca xấu nhất.
 //
 // Mọi hàm THUẦN, không đọc đồng hồ trong thân hàm (`now` truyền vào) — test được.
 import { PORTS } from "@/data/ports";
 import { khoangCachKm } from "@/lib/storm-bulletin";
-import { isoDateVN } from "@/lib/day-labels";
 
 export type MucQuet = "ngu" | "xa" | "gan";
 
@@ -81,6 +84,12 @@ export const CAP_BAM_SAT = 10;
 export const TOI_THIEU_PHUT = 55;
 /** Mức `xa` mà bản tin không hẹn mốc kế thì tự quét lại sau ngần này giờ */
 export const XA_TOI_DA_GIO = 6;
+/** TRỜI YÊN quét lại sau ngần này PHÚT — thay cho "1 lần/ngày" cũ (chủ dự án
+    2026-09-12: *"tăng cron lên để có bão vào DB"*). Vùng nguy hiểm trên bản đồ vẽ
+    từ kho `storm_bulletins`; kho ghi trễ thì bản đồ có tâm bão mà thiếu vùng. 3
+    giờ ⇒ cơn mới vào kho trong ≤3 giờ, mà vẫn chỉ 8 lần/ngày khi yên (xa mức cũ
+    48). Đổi nhịp trời-yên CHỈ Ở ĐÂY; trần cứng 55 phút vẫn chặn trên. */
+export const NGU_QUET_PHUT = 180;
 
 /** Khoảng cách từ tâm bão tới cảng cá VN gần nhất (km) */
 export function cachCangGanNhatKm(lat: number, lon: number): number {
@@ -115,17 +124,22 @@ export function nhipQuet(st: TrangThaiQuet, now: number): QuyetDinhQuet {
   const con = conDangRaTin(b, now);
   const cachCangKm = con && b ? Math.round(cachCangGanNhatKm(b.lat, b.lon)) : null;
 
-  // ── TRỜI YÊN: một lần mỗi NGÀY VN. Đổi ngày là quét, không đếm giờ trôi —
-  //    nhịp cố định, không trôi dần mỗi ngày một chút như phép "đủ 20 giờ".
+  // ── TRỜI YÊN: quét đều mỗi `NGU_QUET_PHUT` (3 giờ) để cơn mới vào kho sớm.
+  //    Đếm PHÚT từ lượt quét trước (không theo ngày VN) — nhịp đều, không dồn về
+  //    0 giờ đổi ngày rồi im cả ngày như trước.
   if (!con) {
     if (st.quetLucNao == null) {
       return { quet: true, muc: "ngu", vi: "chưa quét lần nào", cachCangKm: null };
     }
-    const cu = isoDateVN(st.quetLucNao);
-    const nay = isoDateVN(now);
-    return cu === nay
-      ? { quet: false, muc: "ngu", vi: `trời yên, hôm nay (${nay}) đã quét`, cachCangKm: null }
-      : { quet: true, muc: "ngu", vi: `trời yên, quét định kỳ ngày ${nay}`, cachCangKm: null };
+    const tu = now - st.quetLucNao;
+    return tu >= NGU_QUET_PHUT * 60_000
+      ? { quet: true, muc: "ngu", vi: `trời yên, quét định kỳ (cách ${phutLe(tu)} phút)`, cachCangKm: null }
+      : {
+          quet: false,
+          muc: "ngu",
+          vi: `trời yên, vừa quét ${phutLe(tu)} phút trước (mỗi ${NGU_QUET_PHUT} phút)`,
+          cachCangKm: null,
+        };
   }
 
   const bt = b as BanTinCuoi;

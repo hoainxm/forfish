@@ -75,6 +75,12 @@ Giao diện **độc lập** (desktop, không dock, không link trong app — g�
 
 Chưa set `ADMIN_PHONES` → không ai là admin (trang báo 403).
 
+## Bản quyền & chống sao chép
+
+- **Phần mềm độc quyền** của SDVICO — xem [LICENSE](LICENSE). Không sao chép, phân phối, dịch ngược, hay dùng dữ liệu cho sản phẩm khác khi chưa có văn bản cho phép.
+- **Dữ liệu `public/data/` phát ra ngoài là bản mã** (`scripts/encode-data.mjs` chạy trước `next build` trên Vercel; trong git là bản rõ). Hai nhóm: lớp miễn phí/OSM = hoán vị byte (khoá cửa); lớp biên tập (độ sâu, báo hiệu, luồng, đèn, chất đáy, mùa vụ cá) = **gzip + AES-256-CTR**, khoá nằm ở `app_config` (admin đổi ở `/quan-tri`, build đầu tự sinh), app xin ở `/api/data-key` sau đăng nhập. Trần của PWA: người có tài khoản vẫn rút được khoá khỏi máy mình; cái chặn được là người không tài khoản, và lộ thì tra ra ai nhận khoá.
+- **Mọi API dữ liệu** (dự báo cá, lưới thời tiết, dòng chảy, độ mặn, bão, ô ảnh, giá) đi qua cổng ở `middleware.ts`: cần tài khoản (chuỗi thiết bị), rate limit theo SĐT; dự báo cá và lưới thời tiết >3 ngày cần premium. Tham số mô hình (trọng số blend cá, bảng skill) không còn trong bundle — nằm ở `public/data/model-params.v1.json` (SDF2).
+
 ## Deploy & phát hành
 
 - Web: push `main` → Vercel tự deploy (`forfish-alpha.vercel.app`; đang chuyển sang `sdfish.sdvico.vn`).

@@ -11,7 +11,8 @@
  *
  * Hai chỗ mount (2026-08-18):
  *   · variant="overlay" — nổi trên bản đồ Ra khơi: chip gọn khi yên, thẻ đầy
- *     đủ khi có bão (tự thu sau 5s trừ khi có cơn cấp danger), nhánh chưa hỏi
+ *     đủ khi có bão (tự thu sau 5 s, cơn danger 8 s; CHỈ nằm lì khi tàu đang
+ *     trong vùng bão — prop myPos), nhánh chưa hỏi
  *     được thu về chip 1 dòng, bung đầy đủ 8s mỗi khi CÂU đổi.
  *   · variant="page" — Trang chủ, trên dải khẩn: CHỈ lên tiếng khi có bão hoặc
  *     tin đã quá cũ >24h / chưa từng có (shouldShowStormOnHome); còn lại IM.
@@ -28,13 +29,17 @@ import { useOnline } from "@/lib/use-online";
 import { NOTIFY_HIDE_LONG_MS, NOTIFY_HIDE_MS } from "@/lib/notify";
 import { clockVN } from "@/lib/day-labels";
 import { beaufort } from "@/lib/marine-weather";
+import { routeStormConflict } from "@/lib/route-storm";
 import { AlertIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/icons";
 
 export function StormBanner({
   variant = "page",
+  myPos = null,
 }: {
   /** "overlay" = nổi trên bản đồ full-screen: chip gọn khi yên, thẻ đầy đủ khi có bão */
   variant?: "page" | "overlay";
+  /** Vị trí tàu (GPS) — để biết tàu có TRONG vùng bão không; null = chưa định vị */
+  myPos?: { lat: number; lon: number } | null;
 }) {
   // Hỏi tin bão + TỰ THỬ LẠI khi có sóng lại / mở lại app / định kỳ.
   // KHÔNG gọi fetchStormCheck một lần rồi thôi — xem lib/use-storm-check.ts.
@@ -59,16 +64,30 @@ export function StormBanner({
   const stormKey =
     status.kind === "co-bao" ? status.storms.map((s) => s.id).join(",") : "";
 
-  // Overlay có bão: hiện đầy đủ 5s (S12: 3s→5s) rồi TỰ THU thành chip — bà con
-  // thấy 1 lần, sau đó không chiếm view; chạm mở lại. KHÔNG tự thu khi có cơn
-  // cấp danger (an toàn tính mạng thắng gọn gàng).
+  /*  TÀU CÓ TRONG VÙNG BÃO KHÔNG — cùng phép với chặn tuyến (route-storm):
+      cách tâm/hành lang dự báo dưới 200 km hoặc nằm trong polygon vùng ảnh
+      hưởng. Chưa định vị ⇒ false (không biết thì không giữ hộp che bản đồ —
+      chip đỏ vẫn nằm đó). */
+  const trongVungBao =
+    anyDanger &&
+    myPos != null &&
+    status.kind === "co-bao" &&
+    routeStormConflict([myPos], status.storms.filter((s) => s.alert === "danger")) != null;
+
+  /*  Overlay có bão: hiện đầy đủ rồi TỰ THU thành chip — bà con thấy 1 lần,
+      sau đó không chiếm view; chạm mở lại. Cơn thường 5 s (S12: 3→5), cơn cấp
+      danger 8 s. CHỈ nằm lì khi cơn danger VÀ tàu đang trong vùng bão — đúng
+      spec 07 §"1 Tính mạng" (audit-notify 2026-08-18: "danger + tàu trong bán
+      kính: không tự thu"). Trước đây code chặn tự thu với MỌI cơn danger, kể
+      cả bão ở tận Hoàng Sa khi tàu chưa định vị — chủ dự án hỏi hai lần "sao
+      không tự ẩn" (2026-09-03c). Chip thu vẫn ĐỎ và ghi tên bão + cấp. */
   useEffect(() => {
     if (variant !== "overlay" || !stormKey) return;
-    setOpen(true); // cơn mới / danh sách đổi → bung lại cho thấy
-    if (anyDanger) return; // cấp danger: nằm đó, chỉ thu khi bà con tự chạm
-    const t = setTimeout(() => setOpen(false), NOTIFY_HIDE_MS);
+    setOpen(true); // cơn mới / danh sách đổi / vừa lọt vào vùng bão → bung lại
+    if (trongVungBao) return; // đang trong vùng bão: nằm đó, chỉ thu khi bà con tự chạm
+    const t = setTimeout(() => setOpen(false), anyDanger ? NOTIFY_HIDE_LONG_MS : NOTIFY_HIDE_MS);
     return () => clearTimeout(t);
-  }, [stormKey, anyDanger, variant]);
+  }, [stormKey, anyDanger, trongVungBao, variant]);
 
   // Overlay chưa hỏi được: bung câu đầy đủ 8s (2 dòng) mỗi khi CÂU ĐỔI (tin
   // vừa quá 12h, tuổi nhảy giờ→ngày, mất sóng↔nguồn lỗi), rồi thu về chip.
@@ -159,7 +178,15 @@ export function StormBanner({
         }`}
       >
         <AlertIcon className="h-4 w-4 shrink-0" />
-        {status.storms.length} tin bão — chạm xem
+        {/* MỘT cơn thì gọi đích danh + cấp gió: chip thu vẫn phải nói được
+            "bão gì, mạnh cỡ nào" — "1 tin bão" là giấu thông tin. */}
+        {status.storms.length === 1
+          ? (() => {
+              const s = status.storms[0];
+              const cap = s.windKmh != null ? ` cấp ${beaufort(s.windKmh)}` : "";
+              return `${s.kindLabel}${s.name ? ` ${s.name}` : ""}${cap} — chạm xem`;
+            })()
+          : `${status.storms.length} tin bão — chạm xem`}
         <ChevronDownIcon className="h-4 w-4" />
       </button>
     );
@@ -239,7 +266,7 @@ export function StormBanner({
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Thu gọn tin bão"
-                className={`-mr-1 -mt-1 ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                className={`-mr-1 -mt-1 ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
                   danger ? "text-danger" : "text-warn"
                 }`}
               >

@@ -18,26 +18,65 @@ on:
     - cron: "40 4,10,16,22 * * *"
   workflow_dispatch: {}
 
+# Quyền tối thiểu (rà soát 2026-09-04, mục D): không khai là nhận MẶC ĐỊNH của
+# repo — mà mặc định đó sắp là Read-and-write cho cap-nhat-hai-do đẩy sổ.
+permissions: {}
+
 concurrency:
   group: refresh-weather
   cancel-in-progress: false
 
 jobs:
   refresh:
+    # CHỈ CHẠY Ở REPO CÔNG TY (rà soát 2026-09-04, mục B): cùng file này nằm ở
+    # cả hai repo; không cổng là hễ repo Long có lại hạn mức Actions thì nguồn
+    # ngoài bị gõ gấp đôi. So sánh chuỗi không phân biệt hoa thường.
+    if: github.repository == 'sdvico/forfish'
     runs-on: ubuntu-latest
+    # Trần thời gian (rà soát 2026-09-04, mục C): mặc định GitHub là 360 phút —
+    # một lần treo tính đủ 6 giờ, bằng 18 % hạn mức tháng.
+    timeout-minutes: 10
     steps:
       - name: Gọi cron precompute
         env:
           BASE_URL: ${{ vars.APP_BASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
-            echo "::warning::Thiếu vars.APP_BASE_URL hoặc secrets.CRON_SECRET — BỎ QUA lần này (best-effort; client tự rơi về live). Set ở Settings→Secrets and variables→Actions của REPO DEPLOY (hoainxm) để cron chạy thật."; exit 0
+          # CHỈ CRON_SECRET là bắt buộc. Thiếu APP_BASE_URL vẫn chạy được
+          # bằng đích dự phòng bên dưới — trước đây thiếu var là bỏ cả lượt.
+          if [ -z "$CRON_SECRET" ]; then
+            # ĐỎ chứ không xanh-kèm-warning (rà soát 2026-09-04, mục I): đã có cổng
+            # repo nên chỉ chạy ở repo thật; secret mất là phải có người biết.
+            echo "::error::Thiếu secrets.CRON_SECRET — Settings→Secrets and variables→Actions."; exit 1
           fi
-          # bỏ dấu "/" thừa ở cuối APP_BASE_URL → tránh URL //api/... bị 308 redirect
-          BASE_URL="${BASE_URL%/}"
-          code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            "$BASE_URL/api/cron/refresh-weather")
-          echo "HTTP $code"; cat resp.json; echo
-          test "$code" = "200"
+          # ── HAI ĐÍCH, THỬ LẦN LƯỢT, DỪNG Ở ĐÍCH ĐẦU TIÊN TRẢ 200 ──────────
+          # Chẩn 2026-09-04: ba workflow precompute này ĐỎ suốt ngày (7–16 giây,
+          # tức bị đá về NGAY chứ không phải hết giờ 90–120s), trong khi `storms`
+          # xanh mọi lượt. Khác nhau đúng một chỗ: `storms` gõ HAI đích, ba cái
+          # này chỉ gõ `vars.APP_BASE_URL`. Mà route precompute chỉ có đúng hai
+          # lối ra — 401 và 200 — nên trả lời tức thì mà khác 200 thì là 401.
+          # ⇒ CRON_SECRET của repo này KHÔNG khớp env của deploy mà APP_BASE_URL
+          # trỏ tới; `storms` sống sót được là nhờ đích thứ hai.
+          #
+          # KHÁC `storms` MỘT ĐIỂM: ở đây DỪNG ngay khi có đích trả 200. `storms`
+          # phải gõ cả hai vì mỗi deploy đẩy push bằng VAPID của nó; còn ba cái
+          # này ghi snapshot vào CÙNG Supabase nên một lượt thành công là cả hai
+          # deploy đọc được — gõ tiếp chỉ tổ nhân đôi lượt tải Open-Meteo/Copernicus.
+          #
+          # Đích nào hỏng vẫn NÓI RA bằng ::warning:: — job xanh nhưng lệch cấu
+          # hình KHÔNG được biến mất. Sửa gốc nằm ngoài repo: đặt CRON_SECRET cho
+          # đúng deploy, hoặc trỏ APP_BASE_URL sang deploy có secret khớp.
+          URLS=$(printf '%s\n%s\n' "${BASE_URL%/}" "https://forfish.vercel.app" | awk 'NF&&!seen[$0]++')
+          ok=0
+          for u in $URLS; do
+            rm -f resp.json
+            code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              "$u/api/cron/refresh-weather" || true)
+            [ -n "$code" ] || code="000"
+            echo "[$u] HTTP $code"; cat resp.json 2>/dev/null || true; echo
+            if [ "$code" = "200" ]; then ok=1; break; fi
+            echo "::warning::$u trả HTTP $code cho /api/cron/refresh-weather. 401 = CRON_SECRET của repo KHÔNG khớp env CRON_SECRET của deploy đó (hoặc deploy chưa đặt env này)."
+          done
+          # Xanh khi CÓ đích chạy được; đỏ khi KHÔNG đích nào — giống storms.yml.
+          test "$ok" = "1"

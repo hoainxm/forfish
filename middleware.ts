@@ -1,29 +1,42 @@
-import { type NextRequest } from "next/server";
-import { premiumGate } from "@/lib/supabase/middleware";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { dataGate } from "@/lib/supabase/middleware";
+import { DATA_ROUTE_MATCHER, dataRouteRule } from "@/lib/data-route-rules";
 
 /**
- * CHỐT PREMIUM của /api/fish-forecast — và từ 2026-08-02 thì CHỈ CÓ THẾ.
+ * CỔNG DỮ LIỆU (2026-09-16, mở rộng từ chốt premium /api/fish-forecast 2026-08-02):
+ * mọi route trả dữ liệu cho app — dự báo cá, lưới thời tiết, dòng chảy, độ mặn,
+ * bão, ô ảnh, giá — đều đòi tài khoản + rate limit; dự báo cá và lưới >3 ngày
+ * đòi premium. Luật ở lib/data-route-rules.ts (thuần, có test), cổng ở
+ * lib/supabase/middleware.ts (đệm danh tính 10 phút để ô ảnh không tra DB từng ô).
  *
- * Bản cũ chạy trên gần như mọi đường dẫn với đúng một mục đích: gọi
- * `auth.getUser()` để @supabase/ssr làm tươi phiên. Việc đó nay KHÔNG CÒN CẦN —
- * app ngư dân không giữ phiên nữa, nó giữ một chuỗi cứng không hết hạn
- * (lib/device-token.ts). Và việc đó chính là thứ đang **đá bà con ra khỏi tài
- * khoản**: mỗi lần mở app là mấy request song song, mỗi request một edge instance
- * riêng cùng xoay một refresh token; ngoài biển chỉ cần một lượt xoay mà phản hồi
- * không về là phiên chết vĩnh viễn.
- *
- * Bỏ nó đi thì mất luôn cả một lớp chậm: mỗi lượt vào trang trước đây phải chờ
- * một vòng tới Supabase Auth ở edge, không timeout, không catch.
+ * Matcher là DANH SÁCH ĐÍCH DANH — không mẫu bắt-tất-cả (cổng
+ * middleware-matcher.test.ts): mở matcher rộng là quay lại cỗ máy xoay phiên
+ * Supabase từng đá bà con ra khỏi tài khoản giữa biển.
  */
 export async function middleware(request: NextRequest) {
-  return await premiumGate(request);
+  const rule = dataRouteRule(request.nextUrl.pathname, request.nextUrl.searchParams);
+  if (!rule) return NextResponse.next({ request });
+  return dataGate(request, rule);
 }
 
 export const config = {
-  /*  MỘT ĐƯỜNG DUY NHẤT. Không còn danh sách loại trừ dài dằng dặc (ô bản đồ,
-      chunk js, font, ảnh…) vì không còn gì cần chạy trên các đường đó.
-      ⚠️ THÊM CHỐT QUYỀN MỚI thì thêm đường vào đây VÀ vào
-      `middleware-matcher.test.ts` — nó là cổng chặn khuôn, cố ý liệt kê từng
-      đường dẫn để không ai nới chốt quyền mà không ai thấy. */
-  matcher: ["/api/fish-forecast"],
+  /*  Ghi tay lại từ DATA_ROUTE_MATCHER (Next đọc `config` tĩnh — không nhận
+      import lúc build); test `middleware-matcher.test.ts` đối chiếu hai bên. */
+  matcher: [
+    "/api/fish-forecast",
+    "/api/weather-snapshot",
+    "/api/currents-depth",
+    "/api/sea-scalar",
+    "/api/salinity",
+    "/api/storms",
+    "/api/nautical",
+    "/api/port-prices",
+    "/api/port-prices/history",
+    "/api/fuel-price",
+    "/api/tiles/:src/:z/:x/:y",
+  ],
 };
+
+/** Cho test đối chiếu — cùng nguồn với lib. */
+export const MATCHER_SOURCE = DATA_ROUTE_MATCHER;

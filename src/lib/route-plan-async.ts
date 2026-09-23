@@ -4,7 +4,12 @@
 // Không có Worker (SSR/test) hoặc worker hỏng → chạy đồng bộ tại chỗ — đúng
 // kết quả, chỉ mất cái mượt; KHÔNG bao giờ vì worker mà mất tính năng.
 
-import { planRoute, type PlanArgs, type RoutePlan } from "./route-plan";
+import {
+  planRouteWithDiagnostics,
+  type PlanArgs,
+  type RoutePlan,
+  type RoutePlanOutcome,
+} from "./route-plan";
 import type { PlanRequest, PlanResponse } from "./route-plan.worker";
 
 // một worker sống cả phiên (dựng lại nếu chết), ghép trả lời theo id
@@ -12,7 +17,7 @@ let worker: Worker | null = null;
 let nextId = 1;
 const pending = new Map<
   number,
-  { args: PlanArgs; resolve: (p: RoutePlan | null) => void }
+  { args: PlanArgs; resolve: (o: RoutePlanOutcome) => void }
 >();
 
 function ensureWorker(): Worker | null {
@@ -29,7 +34,9 @@ function ensureWorker(): Worker | null {
     if (!req) return;
     pending.delete(e.data.id);
     // worker báo lỗi tính toán → tính lại đồng bộ cho chắc có kết quả
-    req.resolve(e.data.ok ? e.data.plan : planRoute(req.args));
+    req.resolve(
+      e.data.ok ? e.data.outcome : planRouteWithDiagnostics(req.args),
+    );
   };
   worker.onerror = () => {
     // worker chết (script không tải được…) — trả lời mọi request đang chờ
@@ -38,7 +45,7 @@ function ensureWorker(): Worker | null {
     pending.clear();
     worker?.terminate();
     worker = null;
-    for (const req of waiting) req.resolve(planRoute(req.args));
+    for (const req of waiting) req.resolve(planRouteWithDiagnostics(req.args));
   };
   return worker;
 }
@@ -47,10 +54,14 @@ function ensureWorker(): Worker | null {
     được ~3–4 giây trên máy yếu; 20 giây là đã hỏng thật chứ không phải chậm. */
 const PLAN_WORKER_GIVEUP_MS = 20_000;
 
-/** planRoute chạy nền — cùng tham số/kết quả, không block main thread */
-export function planRouteAsync(args: PlanArgs): Promise<RoutePlan | null> {
+/** Tính tuyến kèm chẩn đoán, chạy nền. MỌI nhánh dự phòng (không có Worker,
+    `onerror`, worker báo `ok:false`, hết giờ, `postMessage` ném) đều trả đúng
+    outcome của bản đồng bộ — không nhánh nào được đánh rơi nhãn chẩn đoán. */
+export function planRouteWithDiagnosticsAsync(
+  args: PlanArgs,
+): Promise<RoutePlanOutcome> {
   const w = ensureWorker();
-  if (!w) return Promise.resolve(planRoute(args));
+  if (!w) return Promise.resolve(planRouteWithDiagnostics(args));
   return new Promise((resolve) => {
     const id = nextId++;
     /*  ⚠️ PHẢI CÓ CỬA SETTLE THỨ BA (sửa 2026-08-02h).
@@ -67,7 +78,7 @@ export function planRouteAsync(args: PlanArgs): Promise<RoutePlan | null> {
         có kết quả, đúng như nhánh `onerror` vẫn làm. */
     const timer = setTimeout(() => {
       if (!pending.delete(id)) return; // worker đã trả lời kịp
-      resolve(planRoute(args));
+      resolve(planRouteWithDiagnostics(args));
     }, PLAN_WORKER_GIVEUP_MS);
     pending.set(id, {
       args,
@@ -84,7 +95,12 @@ export function planRouteAsync(args: PlanArgs): Promise<RoutePlan | null> {
           trả bản đồng bộ. */
       clearTimeout(timer);
       pending.delete(id);
-      resolve(planRoute(args));
+      resolve(planRouteWithDiagnostics(args));
     }
   });
+}
+
+/** Cửa tương thích: chỉ tuyến hoặc null, cùng đường chạy với bản chẩn đoán */
+export function planRouteAsync(args: PlanArgs): Promise<RoutePlan | null> {
+  return planRouteWithDiagnosticsAsync(args).then((o) => o.plan);
 }

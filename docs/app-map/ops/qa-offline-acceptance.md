@@ -7,9 +7,10 @@ last_verified: 2026-08-18
 <!-- re-verified: 2026-08-18b — `public/sw.js` CÓ ĐỔI (gói F push server): CHỈ ở options của `showNotification` trong nhánh `push` — thêm `{tag: data.tag, renotify: true}` khi payload có `tag` (bão `bao-<khoá>`, đơn `don-<id>`; tin tay không tag → như cũ). KHÔNG chạm `SHELL`/`CRITICAL_SHELL`/tên kho/danh sách cache/allowlist `/api/*`/khoá `forfish.*` ⇒ bộ ca §1–§2 KHÔNG đổi. THÊM ca **N-8** (gom thông báo cùng `tag`) và ghi chú CHẠY LẠI **N-4** vì `/api/push/ack` + `/api/me/messages/read` nay BỎ QUA endpoint không có trong `push_subscriptions` (`counted:0`) — máy đã huỷ đăng ký/endpoint bịa không được đếm nữa. Delta gọi ca mới là "N-6" nhưng N-6/N-7 đã có (đặt hàng / chợ tin) → đánh số N-8. -->
 <!-- re-verified: 2026-08-18 - doi chieu bo ca QA voi `public/sw.js` hien tai (ban doi lan cuoi 2026-08-07, mach nay KHONG dung sw.js): 5 kho + ten kho (`sdfish-v6`/`static-v1`/`rsc-v1`/`api-v1`/`tiles-v1`), `SHELL`/`CRITICAL_SHELL`, dau `/__sdfish-shell-ready`, allowlist 9 route `/api/*` va luat cuu 401/403 - tat ca van khop cau chu trong TC-01..TC-13. Them ba ca N-5 (ve tuyen khi chua hoi duoc tin bao) - N-6 (dat hang khi song chap chon, khong duoc ra hai don) - N-7 (cho tin khi mat song), va mot ghi chu dau N-7 tro ve ADR 0004 de lan sau khong ai mo rong ca nay thanh 'kiem co cache chua'. -->
 ttl_days: 120
-<!-- DOC-STATUS: SUSPECT (2026-08-25) — code 'public/sw.js' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-09-17) — code 'public/sw.js' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 
+<!-- re-verified: 2026-09-04 — Đợt 0 tuyến/dẫn đường: `public/sw.js` CHỈ thêm chú thích cạnh `/data/depth-grid.v1.bin` (không đổi SHELL/CRITICAL_SHELL/tên kho/khoá `forfish.*`). File `depth-grid.v1.bin` ĐỔI NỘI DUNG + ĐỔI CỠ (4,26 → 8,53 MB, 2 bit → 4 bit/ô) nhưng GIỮ ĐƯỜNG DẪN ⇒ như 21 file của đợt 2026-09-03c: `addAll` + `cache:"reload"` + `put` ghi đè khi SW cài, KHÔNG bump vỏ. Nếu máy còn giữ bản cũ (SW chưa cài lại), `decodeDepthGrid` từ chối theo cỡ file → tuyến tính được nhưng báo "chưa né được vùng cạn" (`depthChecked=false`) — không đọc sai lớp trong im lặng. Bốn câu offline: (a) không request mới; (b) đụng sw.js chỉ ở chú thích; (c) không xoá/đè dữ liệu bà con, chỉ đè asset tĩnh; (d) không màn mới. CA CẦN CHẠY đợt tới: TC-03/TC-04 sau khi cài bản mới rồi mất sóng — chạm bản đồ vịnh Rạch Giá (10,02°B 104,99°Đ) phải ra "Rất cạn, chưa tới 2 m nước", KHÔNG phải "Trên bờ"; vẽ tuyến Rạch Giá → Côn Đảo với mớn 1,2 m khai trong Tuỳ chọn phải CÓ tuyến. -->
 <!-- re-verified: 2026-08-07 — sw.js CÓ ĐỔI Ở `CRITICAL_SHELL` (đụng danh sách cache ⇒ theo luật phải soi): THÊM 2 asset tĩnh `/data/vn-islands.v1.json` + `/data/vn-sea-lanes.v1.json` và 4 dải font (`Noto Sans Regular` + `Bold` × `256-511`, `7680-7935` — dấu tiếng Việt cho nhãn đảo/tuyến). KHÔNG bỏ URL nào, KHÔNG đổi tên kho, KHÔNG đổi hình dạng entry, KHÔNG đụng khoá `forfish.*` ⇒ **THÊM url, không cần bump** `SDFISH_CACHE_V` (giữ `sdfish-v6`); `c.add` lúc install tự nhét vào kho đang dùng. Bốn câu soi offline: (a) KHÔNG request runtime mới — hai asset cùng-origin, MapLibre nạp qua kho SW; (b) đụng SHELL nhưng chỉ THÊM (an toàn); (c) KHÔNG đè/xoá dữ liệu đã tải; (d) file tĩnh nằm sẵn trong máy như isobaths/coast, không cần nhánh đọc-bản-lưu riêng. **Ca cần chạy đợt tới**: TC-04 (đã thêm bước 5) — mất sóng, zoom Hoàng Sa/Trường Sa/ven bờ, tên đảo tiếng Việt phải hiện ĐỦ DẤU (không ô vuông); toggle "Tuyến tàu" bật/tắt được. Còn lại bộ bắt buộc §2 KHÔNG đổi hành vi. -->
 <!-- re-verified: 2026-08-02k — sw.js CÓ ĐỔI, chỉ ở HÀM DỌN Ô BẢN ĐỒ; KHÔNG chạm `SHELL`, `CRITICAL_SHELL`, tên kho, danh sách cache hay khoá `forfish.*` ⇒ bộ ca offline dưới đây KHÔNG đổi. `trimTileCache` nay hỏi `self.navigator.storage.estimate()`: còn dưới 60 MB trống thì siết trần ô từ 600 xuống 120 (`tranOHienGio`). VÌ SAO: từ bản này payload dự báo nằm ở **IndexedDB** còn ô bản đồ ở Cache Storage — HAI KHO KHÁC NHAU nhưng **dùng chung một hạn ngạch theo origin**, nên trần-theo-SỐ-Ô không nói gì về BYTE: 600 ô nặng vài chục MB vẫn ăn hết chỗ lẽ ra dành cho gói 16 ngày, rồi lượt ghi dự báo kế tiếp hỏng trong khi trần ô "chưa chạm". Ô bản đồ có sóng là tải lại được, dự báo giữa biển thì không — nên khi chật thì hy sinh ô, đúng thứ tự chủ dự án chốt (*"xóa tile cũ trước, không xóa gói dự báo mới nhất"*). Hỏi hỏng / máy không có Storage API ⇒ giữ nguyên trần 600, KHÔNG đoán. CA CẦN THÊM cho đợt nghiệm thu tới: (a) máy còn <60 MB trống, kéo bản đồ nhiều vùng rồi mất sóng — ô cũ bị dọn là ĐÚNG, nhưng **gói dự báo phải còn nguyên** và popup "trong máy có gì" vẫn đủ lớp; (b) máy rộng chỗ — trần vẫn 600, không siết oan. -->
 
@@ -122,9 +123,22 @@ Mỗi ca ghi: **mã ca · mã máy · ĐẠT/HỎNG · ảnh chụp màn hình �
 2. Phóng to/thu nhỏ, kéo bản đồ.
 3. Chạm một điểm bất kỳ trên biển → xem sheet số liệu.
 4. Kéo thanh ngày sang ngày 2, ngày 3.
-5. 🆕 Zoom vào vùng Hoàng Sa / Trường Sa và ven bờ → đọc **tên đảo tiếng Việt** (vd đảo Phú Lâm, đảo Song Tử Tây, Lý Sơn). Bật/tắt "Tuyến tàu, luồng lạch" trong panel Hải đồ.
+5. 🆕 Zoom vào vùng Hoàng Sa / Trường Sa và ven bờ → đọc **tên đảo tiếng Việt** (vd đảo Phú Lâm, đảo Song Tử Tây, Lý Sơn). Bật/tắt "Tuyến tàu, luồng lạch" **và "Đá ngầm, rạn"** trong panel Hải đồ.
+6. 🆕 Zoom vùng Trường Sa + thềm lục địa phía Nam → đọc **tên rạn/đá ngầm tiếng Việt** (vd Đá Chữ Thập, Bãi Cỏ Mây, Bãi Tư Chính, Bãi Vũng Mây) — chữ TEAL, tách với đảo navy.
 
-**ĐẠT**: thấy đường bờ, đảo, đường đẳng sâu **có số mét**; **tên đảo tiếng Việt hiện ĐỦ DẤU** (không ô vuông, không mất dấu — nhãn đảo dùng dải font 256-511 + 7680-7935 đã nằm trong CRITICAL_SHELL); chạm điểm ra được số gió/sóng (có thể ghi "số liệu đã lưu"); kéo ngày đổi được; tuyến tàu bật/tắt được.
+7. 🆕 **NỀN BẢN ĐỒ VECTOR (2026-08-28)** — làm TRƯỚC khi bật máy bay: mở **Ra khơi** ở nơi sóng TỐT, chờ ~30 giây (SW kéo `vn-basemap.pmtiles` 16,9 MB về nền — chỉ MỘT lần cho cả đời máy). Kiểm bằng DevTools → Application → Cache Storage → phải thấy kho **`sdfish-basemap-v1`** có đúng một mục. RỒI mới bật máy bay, đóng hẳn app, mở lại → **Ra khơi**.
+
+**ĐẠT (nền vector)**: thấy **hình đất liền + bờ biển vẽ nét thật** (không phải chỉ khối bờ tối giản màu cát của `vn-coast`), kéo/zoom mượt, KHÔNG có câu "Chưa tải được nền bản đồ".
+**HỎNG (chặn)**: mất sóng ra nền trắng/xanh trơn, hoặc console có lỗi `content-length exceeding request` / `Bad response code` từ pmtiles — nghĩa là nhánh `basemapFirst` trong `sw.js` không cắt lát đúng (xem 02-architecture, ghi chú 2026-08-28). ⚠️ Máy CHƯA kịp tải xong 16,9 MB mà đã ra khơi thì rơi về lớp bờ tối giản — ĐÚNG THIẾT KẾ, không phải lỗi; phân biệt bằng kho `sdfish-basemap-v1` có mục hay không.
+
+8. 🆕 **BÁO HIỆU + ĐỘ SÂU MỚI (2026-08-29)** — vẫn đang bật máy bay: zoom vào một cửa luồng quen (Cửa Định An · luồng Hải Phòng · Vũng Tàu) tới mức thấy rõ bờ. Phải thấy **chấm phao/đèn**: màu hồng sen = cái CÓ đèn (ban đêm nhìn thấy được), xanh thép = không đèn. **Chạm vào một chấm** → hiện thẻ tên tiếng Việt ("Phao luồng", "Đèn biển lớn"…) kèm câu tả đèn kiểu "Chớp 2 nhịp, ánh trắng, 10 giây một vòng, xa 14 hải lý" và toạ độ. Kéo ra xa dần: chấm phải THƯA DẦN theo nấc (z13 → z11 → z9), không phải mất hết cùng lúc.
+
+**ĐẠT (báo hiệu)**: chấm hiện ĐẦY ĐỦ khi mất sóng (đây là điểm khác lớp ảnh cũ — trước đây mất sóng là mất sạch phao); chạm ra thẻ có chữ tiếng Việt, **KHÔNG có mã hải đồ kiểu `Fl(2)W.10s14M` lộ ra màn**, KHÔNG có tên nước ngoài/chữ Trung.
+**ĐẠT (độ sâu)**: bật nền "Hải đồ độ sâu", zoom vào ven bờ → thấy đường **5 m và 10 m** (trước đây nông nhất là 20 m); zoom ra mức toàn cảnh thì các đường nông này phải BIẾN MẤT, chỉ còn 200 m trở lên — nếu ở mức toàn cảnh mà chín mức chồng nhau thành búi chỉ là HỎNG.
+**HỎNG (chặn)**: mất sóng mà không có chấm báo hiệu nào ⇒ `seamarks.v1.json` chưa vào CRITICAL_SHELL. Bản đồ mất SẠCH đường đẳng sâu ở mọi zoom ⇒ biểu thức `["zoom"]` trong `filter` sai và MapLibre đã lặng lẽ bỏ cả lớp (xem 02-architecture, ghi chú 2026-08-29).
+
+**ĐẠT**: thấy đường bờ, đảo, đường đẳng sâu **có số mét**; **tên đảo + tên rạn/đá ngầm tiếng Việt hiện ĐỦ DẤU** (không ô vuông, không mất dấu — dùng dải font 256-511 + 7680-7935 đã nằm trong CRITICAL_SHELL); **KHÔNG một nhãn tiếng Trung/Anh nào** (không "Fiery Cross", "Vanguard Bank"…); chạm điểm ra được số gió/sóng (có thể ghi "số liệu đã lưu"); kéo ngày đổi được; tuyến tàu **và đá ngầm/rạn** bật/tắt được.
+**HỎNG (chặn ngay, báo gấp)**: bất kỳ nhãn rạn/đá ngầm nào ra **tên nước ngoài hoặc ký tự Trung** — đây là lỗi chủ quyền.
 **HỎNG (chặn)**: bản đồ xám/trắng hoàn toàn, mất hết chữ số trên đường đẳng sâu, hoặc **tên đảo ra ô vuông / rớt dấu tiếng Việt** khi mất sóng.
 
 ---
@@ -308,6 +322,30 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 | N-9 | **Lưới toạ độ offline.** Bật lớp lưới toạ độ khi mất sóng | Vẫn thấy **số độ vĩ/kinh** (trước đây mất hết số, im lặng) |
 | N-10 | **Chip "đã lưu" nói thật.** Để máy có đủ dữ liệu rồi chờ qua ngày xa nhất của bản dự báo | Chip đổi sang **"Dự báo đã lưu hết hạn — chạm tải lại"**, KHÔNG còn xanh "Đã lưu đủ — tới ngày &lt;ngày đã qua&gt;" |
 
+### 3c. Đợt hải đồ 2026-09-03c — rà offline trước phát hành (biên bản tự động + việc còn phải test tay)
+
+Đợt này đụng `sw.js` (thêm `PMTILES_ARCHIVES` chat-day, bump `SDFISH_BASEMAP_V` v1→v2, thêm 9 file `/data` vào CRITICAL_SHELL), sinh lại sprite (87 ô) và đổi nội dung 21 file data giữ nguyên đường dẫn ⇒ **chạy trọn bộ bắt buộc ở §2**. Những gì đã kiểm được bằng máy (bản `next build` + `next start` cổng 3100, Chrome, 2026-09-03):
+
+| Kiểm gì | Kết quả |
+|---|---|
+| 43 URL trong CRITICAL_SHELL / SHELL / PMTILES_ARCHIVES có thật trên server (một 404 là `addAll` hỏng cả lượt cài) | **43/43** (200/206) |
+| Mọi asset `src/` tham chiếu (`/data/*`, `/icons/*`, `/fonts/*`) có trong SW | đủ (2 mục "thiếu" là icon manifest và URL gốc sprite — không phải request thật) |
+| 21 file đổi nội dung giữ đường dẫn có được làm mới không | CRITICAL: `addAll` + `cache:"reload"` + `put` ghi đè mỗi lần SW cài; `precacheOne` tải lại URL không băm tên ⇒ **không cần bump vỏ**; pmtiles sinh lại ⇒ đã bump `basemap-v2` |
+| SW cài trên bản build | active + controller; kho `sdfish-v6` **30/30 sống-còn + 10/10 mức 2**, dấu `/__sdfish-shell-ready` có |
+| Kho trả sprite (4 file) / font / data theo **URL tuyệt đối** (dạng MapLibre xin sau sửa `chartSpriteUrl()`) | 15/15 trả 200 từ kho |
+| Nhánh Range cho kho pmtiles MỚI | `chat-day` 206 `bytes 0-16383/8108392` 14 ms; `reef-shapes-aca` 206; cả hai tự đổ nguyên file vào `sdfish-basemap-v2` |
+| Test offline tự động | 18 file / 292 test xanh; trọn bộ 3432 xanh |
+
+**Kiểm lại 2026-09-04 (con nước: lớp trạm + thẻ + 30 ngày + ký hiệu cột nước)** — bản `next build` + `next start` cổng 3100, Chrome: **45/45** URL vỏ 200/206 (CRITICAL 32 · SHELL 10 · PMTILES 3); SW active, kho `sdfish-v6` có `chart-sprite@2x.json` **105 ô** + `tide-stations.v1.json` 11 trạm; trọn bộ 3.742 test xanh. **LỖ BẮT ĐƯỢC ở lượt kiểm này**: hai commit đầu sinh lại sprite (87 → 105 ô, giữ đường dẫn) mà **không đụng `sw.js`** ⇒ dòng "không cần bump vỏ" ở bảng trên CHỈ đúng khi lượt deploy đó có đổi byte `sw.js` (lượt 2026-09-03 có) — không đổi thì SW không cài lại, nhánh cache-first trả sprite cũ vĩnh viễn, MapLibre thiếu `tide-*` ⇒ 11 trạm im lặng không vẽ trên máy đã cài PWA. Vá: dấu **"sprite N ô, YYYY-MM-DD"** trong `sw.js` cạnh bốn file sprite (sửa mỗi lần chạy `build-chart-sprite.mjs`) + cổng test `chart-symbols.test.ts` so N với số ô thật. Luật rút ra cho §2: **đổi nội dung asset CRITICAL giữ đường dẫn ⇒ commit đó PHẢI đổi byte `sw.js`** (một dòng dấu là đủ, không bump).
+
+**Chưa kiểm được bằng máy (phải làm tay theo §2)**: mở bản đồ trên bản build cần tài khoản (cổng test không có cookie phiên) ⇒ TC-03 / TC-04 / N-7 trên máy thật là bắt buộc. Thêm 3 ca:
+
+| # | Kiểm gì | ĐẠT khi |
+|---|---|---|
+| N-11 | **Ký hiệu hải đồ khi mất sóng.** Mở `/ngu-truong` ở hotspot-không-internet, phóng tới cửa Vũng Tàu (z11) | Thấy **hình** phao đỏ/xanh, sao đèn biển, xác tàu, đụn cát bãi — không phải chỉ chữ. (Sự cố 09-01→03: sprite tương đối ⇒ không icon nào vẽ, kể cả online) |
+| N-12 | **Nhãn có dấu gạch.** Xem tuyến "Tuyến Bắc – Nam Biển Đông" (110°Đ 11,8°B z9,5) khi mất sóng | Nhãn hiện đủ chữ kể cả dấu "–". (Đã sửa 2026-09-03c: thêm dải glyph 8192–8447 cho Noto Sans Regular/Bold từ demotiles.maplibre.org + 2 dòng CRITICAL_SHELL; trước đó 309 nhãn tuyến/giàn có gạch không hiện chữ. Cổng test `ocean-map.test` "dải glyph" đối chiếu ký tự thật trong data với dải đang host, và bắt mọi `.pbf` phải nằm trong SW) |
+| N-13 | **Vòng "+N" khi mất sóng.** Cửa Vũng Tàu z9,5 | Có vòng "+18/+9…" và chạm là phóng tới — gom cụm tính trong máy, không cần mạng |
+
 ---
 
 ## 4. Ba câu hỏi lớn đợt test này phải trả lời
@@ -396,3 +434,51 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 | 6 | Bấm banner đơn ở bước 2 | Mở đúng `/tau?tab=san-pham`; bấm banner bão → mở `/ngu-truong` (⚠️ chưa mở đúng thẻ bão theo `?bao=` — nợ đã ghi, không tính hỏng) |
 
 > **HỎNG**: bước 2 ra 2 banner chồng nhau cho cùng một đơn (⇒ `tag` không tới sw.js hoặc `renotify` thiếu), hoặc bước 4 hai tin tay bị gom mất một (⇒ tin tay bị gắn tag nhầm), hoặc bước 3 máy rung cho `da_nhan`.
+
+---
+
+### N-9 · Cảnh báo hiểm hoạ khi ĐANG CHẠY, hoàn toàn không sóng (mới 2026-09-04, Đợt 3)
+
+> **Vì sao có ca này**: từ 2026-09-04 lúc dẫn đường app tự soi quanh tàu — xác tàu, giàn khoan, vùng cấm vào, bãi cạn theo mũi tàu, cáp ngầm, phao kế tiếp — và kêu chuông/rung khi tới gần. Toàn bộ việc đó phải chạy **100 % trong máy**: đúng lúc cần nó nhất (ngoài khơi, đêm, mất sóng) thì không có mạng để hỏi ai. Kho dùng: `xac-tau.v1.json`, `vn-sea-lanes.v1.json`, `seamarks.v1.json`, `vn-aids.v1.json`, `den-bien.v1.json`, `khu-tru-bao.v1.json`, `depth-grid.v1.bin` — **tất cả đã nằm trong `CRITICAL_SHELL` của `public/sw.js` từ trước**, đợt này KHÔNG thêm kho mới, KHÔNG bump phiên bản vỏ.
+
+| Bước | Làm gì | ĐẠT khi |
+|---|---|---|
+| 1 | Máy **B/D** đã làm TC-01 (kho đã về máy). **Bật máy bay**, đóng hẳn app, mở lại → **Ra khơi** | Bản đồ vẽ được như TC-04 |
+| 2 | Vẽ một đường đi ven bờ rồi bấm **Bắt đầu dẫn đường**. Mở DevTools → Console (hoặc `chrome://inspect`) | Có đúng **MỘT** dòng `nav-context {...} <N> ms` — **N < 300 ms** trên máy 2 GB. Tab Network **không có request mới nào** (mọi kho lấy từ kho service worker / bộ đệm phiên) |
+| 3 | Chạy (hoặc giả GPS) về phía một xác tàu / giàn khoan có thật | Còn ~2 km: HUD hiện **1 dòng VÀNG** kèm 1 nhịp rung. Còn ~500 m: dòng chuyển **ĐỎ** + **chuông**. Mỗi vật nói **tối đa 2 lần**, không lặp mỗi nhịp GPS |
+| 4 | Bấm nút **trừ** để thu HUD thành chip nhỏ khi đang có dòng ĐỎ | Dòng đỏ **vẫn hiện** dưới chip (cùng luật ranh giới ≤6 hải lý). Dòng vàng/tin thì ẩn theo HUD |
+| 5 | Chạm dòng **vàng** (hoặc dòng tin phao) | Dòng đó thu lại; vật KHÁC tới sau vẫn nói. Dòng ĐỎ **không thu được** (bấm không có tác dụng) |
+| 6 | Bấm nút **"Rung: bật"** trong HUD → thành "Rung: tắt". Chạy tới hiểm hoạ tiếp theo | Không rung nữa, **chuông vẫn kêu**, chữ vẫn hiện. Đóng app mở lại (vẫn máy bay) → nút vẫn ở "Rung: tắt" |
+| 7 | Neo/đứng yên cạnh một hiểm hoạ hơn 5 phút | **Im hẳn** — không chuông, không rung, không dòng mới |
+| 8 | Chạy chậm (<3 hải lý/giờ) ngang một tuyến **cáp ngầm** rồi chạy nhanh (>7 hải lý/giờ) qua chính chỗ đó | Chậm: 1 dòng vàng *"Đang trên cáp ngầm — đừng neo, đừng thả giã"*, nhắc lại ≤1 lần/10 phút. Nhanh: **im** (chạy qua cáp là hợp pháp) |
+| 9 | Vào một cửa luồng có phao | Dòng **tin** (nền nhạt, không chuông không rung): tên phao + còn bao xa + bên đi qua. Không suy được bên thì câu **không nói bên** chứ không đoán |
+| 10 | **Khi đang có bão** (hoặc dựng tin bão thử): mở HUD | Có nút **"Khu trú bão gần"** → tấm hiện **3 khu**: tên · tỉnh · cách bao xa · (tàu đang chạy) chừng bao lâu · "tàu dài tới N m" nếu quy hoạch có ghi · "(vị trí gần đúng)" với khu tin vừa |
+| 11 | Tàu **đứng yên** rồi mở lại tấm khu trú | **Không có dòng giờ** nào (app không bịa giờ khi chưa biết tốc độ) |
+| 12 | Bấm **"Vẽ đường tới đây"** | Dẫn đường **dừng**, khung vẽ đường mở ra với đích là khu trú đó. App **không tự tính**, **không tự đổi tuyến**, **không** nói "kịp/không kịp" hay "hãy vào" |
+| 13 | Xoá thủ công `depth-grid.v1.bin` khỏi kho SW (DevTools → Cache Storage) rồi lặp bước 2–3 | Cảnh báo **xác tàu/giàn khoan vẫn chạy**; chỉ mất phần cảnh báo bãi cạn theo mũi tàu. Console `nav-context` có tên kho thiếu. **KHÔNG** màn trắng, **KHÔNG** ném lỗi |
+
+> **HỎNG (chặn)**: bước 2 có bất kỳ request mạng nào, hoặc `nav-context` in ra **nhiều hơn một lần** cho một lượt dẫn đường (⇒ chỉ mục đang dựng lại theo nhịp GPS — máy sẽ nóng và tụt pin). Bước 4 thu HUD mà dòng ĐỎ biến mất (⇒ mất cảnh báo tính mạng đúng lúc bà con vừa dọn màn hình). Bước 7 neo mà vẫn kêu (⇒ đồng hồ neo hỏng, tai bà con sẽ học cách bỏ qua tiếng chuông). Bước 11 hiện một con số giờ (⇒ đang bịa). Bước 13 màn trắng hoặc mất luôn cảnh báo xác tàu (⇒ một kho thiếu đang kéo sập cả lớp).
+
+## Kiểm lại 2026-09-16 — mã hoá file dữ liệu (data-codec)
+
+Đợt này KHÔNG đụng `sw.js`, `SHELL`, khoá `forfish.*`; đổi TẦNG ĐỌC của 24 file `/data/**` (fetch → giải mã → parse) và cách MapLibre nạp GeoJSON tĩnh (`sdfdata://`) + pmtiles (`DecodingSource`). Bốn câu soi trả lời ở 02 (re-verified 2026-09-16). Điểm cần kiểm tay khi deploy bản mã đầu tiên lên Vercel:
+
+1. **Máy đã cài PWA, kho SW còn bản RÕ** → mở Ra khơi mất sóng: lớp bờ/đảo/báo hiệu/độ sâu vẫn vẽ (decode không header ⇒ trả nguyên). Sóng về, SW `cache: "reload"` kéo bản mã đè lên ⇒ lần sau vẫn vẽ.
+2. **Máy mới, kho trống** → mở có sóng: nền pmtiles vẽ (lát Range dời +4 byte), GeoJSON tĩnh vẽ qua `sdfdata://`; console không có "Unexpected token" (dấu hiệu chỗ nào đó còn parse bản mã trực tiếp — cổng `data-codec.test` chặn trong src, nhưng `scripts/audit-style.mjs` chạy ngoài app vẫn đọc theo URL cũ).
+3. **curl một URL /data** trên production: byte đầu phải là `SDF1` (0x53 0x44 0x46 0x31), Content-Encoding vẫn `br` (nén còn ăn — nếu mất nén là Vercel đổi luật content-type, phải xem lại).
+4. **429 dự báo cá**: tài khoản premium gọi >60 lượt/10 phút → 429 `rate_limited`; SW coi 429 là "cứu được" ⇒ lớp cá vẫn hiện bản cũ, không trắng.
+
+
+### Bổ sung 2026-09-16b — nhóm SDF2 (khoá theo tài khoản)
+
+5. **Máy mới, đăng nhập có sóng, mở Ra khơi** → Network có `GET /api/data-key` 200 một lần; localStorage có `forfish.datakey.v1`; lớp độ sâu/báo hiệu/luồng vẽ. Mở lại mất sóng: vẫn vẽ (khoá trong máy, file trong kho SW).
+6. **Máy mới, đăng nhập có sóng nhưng KHÔNG mở Ra khơi, rồi mất sóng mới mở** → nền/bờ/đảo/rạn/trạm triều (SDF1) vẫn vẽ; lớp SDF2 vắng, KHÔNG màn trắng, không treo. Sóng về: lớp SDF2 tự về sau lượt `/api/data-key`.
+7. **Đổi khoá ở /quan-tri (Tạo ngẫu nhiên → Lưu) + deploy** → máy đã cài: file cũ trong kho SW giải bằng khoá cũ (kho giữ 3 khoá), file mới tải về kèm khoá mới; không lớp nào "rác" giữa chừng.
+8. **curl `/data/soundings.v1.json`** trên production: 4 byte đầu `SDF2`, thân ngẫu nhiên (không còn dấu `{`); `curl /api/data-key` không header chuỗi thiết bị → 401/503, không bao giờ 200.
+
+### Bổ sung 2026-09-16c — cổng API + model-params (ĐỤNG sw.js: thêm 1 URL vào SHELL)
+
+9. **Đăng nhập, có sóng, mở Ra khơi** → mọi `/api/*` dữ liệu 200 (header `x-sdfish-token` có trong request, kể cả `/api/tiles/*`); `/data/model-params.v1.json` 200 (SDF2). Mất sóng mở lại: lớp cá vẫn pha mùa vụ (w đã nạp, file trong kho SW), ô ảnh cũ từ kho.
+10. **Xoá chuỗi thiết bị (giả bị đá) rồi mở Ra khơi có sóng** → `/api/*` 401; SW trả bản cũ trong kho (401 ∈ isRescuableStatus) ⇒ màn không trắng; ô ảnh chưa có trong kho thì trống; thẻ hạng báo đúng như luật bị đá sẵn có.
+11. **Tài khoản thường xin `grid:d16`** → 403 `premium_required`; d3 vẫn 200. Premium: cả hai 200. Gọi >60 lượt dự báo cá / >600 lượt dữ liệu trong 10 phút → 429, SW vẫn trả bản cũ.
+12. **Khách chưa đăng nhập ở Trang chủ** → không tin bão/giá (401), thẻ con nước vẫn có, không treo, không lỗi đỏ ngoài 401 trong console.

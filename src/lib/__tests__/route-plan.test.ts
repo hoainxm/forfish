@@ -5,6 +5,7 @@ import {
   MAX_DETOUR_RATIO,
   angleDiffDeg,
   bboxFor,
+  bboxOfPoints,
   bearingDeg,
   followingSeaRisk,
   formatHoursVN,
@@ -28,7 +29,18 @@ import {
   weatherFieldCacheKey,
 } from "../route-weather";
 import { planRouteAsync } from "../route-plan-async";
-import { DEPTH_META, decodeDepthGrid, depthClassAt } from "../depth-grid";
+import { requiredDepthM } from "../route-plan";
+import { requiredDepthM as requiredDepthMGoc } from "../hazards";
+import {
+  DEPTH_GRID_BYTES,
+  DEPTH_META,
+  decodeDepthGrid,
+  depthClassAt,
+  type DepthClass,
+  type DepthGrid,
+} from "../depth-grid";
+import fs from "node:fs";
+import path from "node:path";
 
 // ── dựng trường thời tiết giả ────────────────────────────────────────────
 
@@ -257,11 +269,19 @@ describe("planRoute", () => {
     expect(Math.max(...p.waypoints.map((w) => w.lat))).toBeGreaterThan(12.5);
   });
 
-  it("sóng ≥4 m (cấp 8) chắn kín mọi lối → trả null, không vẽ liều", () => {
+  it("sóng ≥4 m (cấp 8) chắn kín mọi lối → BEST-EFFORT: vẫn ra đường ít dữ nhất, cắm cờ + tô đỏ", () => {
     const f = makeField(BB, 9, (la, lo) =>
       Math.abs(lo - 111) < 0.3 ? { waveM: 4.5 } : calm(),
     );
-    expect(plan(f)).toBeNull();
+    /*  ĐỔI 2026-09-09 (chủ dự án chốt): trước đây chắn kín ⇒ null ("không vẽ
+        liều"). Nay lượt nghiêm bí thì planRoute tự best-effort — vẫn vẽ ĐƯỜNG
+        ÍT DỮ NHẤT nhưng CẮM CỜ để UI cảnh báo đỏ "app KHÔNG khuyên đi". Sóng
+        dữ KHÔNG bị giấu (maxWave ≥4, có khúc đỏ). */
+    const p = plan(f)!;
+    expect(p).not.toBeNull();
+    expect(p.bestEffortSeas).toBe(true);
+    expect(p.maxWaveM).toBeGreaterThanOrEqual(4);
+    expect(p.segRisks.some((r) => r === "red")).toBe(true);
   });
 
   it("sóng 3 m chắn kín không lối né (chưa tới mức cấm) → đi xuyên + cờ cảnh báo đỏ", () => {
@@ -355,30 +375,32 @@ describe("dòng chảy trong tuyến", () => {
 
 // ── lưới độ sâu ──────────────────────────────────────────────────────────
 
-function makeDepth(at: (lat: number, lon: number) => 0 | 1 | 2 | 3) {
+/*  Lưới giả 6 lớp, 4 bit/ô (2 ô/byte) — khớp scripts/generate-depth-grid.mjs
+    từ 2026-09-04: 0 đất · 1 mặt nạ rạn · 2 <2 m · 3 2–4 m · 4 4–12 m · 5 đủ sâu. */
+function makeDepth(at: (lat: number, lon: number) => DepthClass) {
   const { lat0, lon0, step, nLat, nLon } = DEPTH_META;
-  const packed = new Uint8Array(Math.ceil((nLat * nLon) / 4));
+  const packed = new Uint8Array(DEPTH_GRID_BYTES);
   for (let i = 0; i < nLat; i++) {
     for (let j = 0; j < nLon; j++) {
       const k = i * nLon + j;
-      packed[k >> 2] |= at(lat0 + i * step, lon0 + j * step) << ((k & 3) * 2);
+      packed[k >> 1] |= at(lat0 + i * step, lon0 + j * step) << ((k & 1) * 4);
     }
   }
   return decodeDepthGrid(packed.buffer);
 }
 
 describe("ràng buộc độ sâu", () => {
-  it("đóng gói 2-bit đọc lại đúng, ngoài lưới trả null", () => {
-    const g = makeDepth((la) => (la < 10 ? 1 : 3));
+  it("đóng gói 4-bit đọc lại đúng, ngoài lưới trả null", () => {
+    const g = makeDepth((la) => (la < 10 ? 1 : 5));
     expect(depthClassAt(g, 8, 110)).toBe(1);
-    expect(depthClassAt(g, 15, 110)).toBe(3);
+    expect(depthClassAt(g, 15, 110)).toBe(5);
     expect(depthClassAt(g, 30, 110)).toBeNull();
   });
 
-  it("bãi cạn (<4 m) chắn ngang → tuyến vòng qua dù thời tiết êm", () => {
+  it("bãi cạn (mặt nạ rạn, lớp 1) chắn ngang → tuyến vòng qua dù thời tiết êm", () => {
     const f = makeField(BB, 9, calm);
     const g = makeDepth((la, lo) =>
-      Math.abs(lo - 111) < 0.3 && la < 12.6 ? 1 : 3,
+      Math.abs(lo - 111) < 0.3 && la < 12.6 ? 1 : 5,
     );
     const p = planRoute({
       start: START, dest: DEST, boat: DEFAULT_BOAT,
@@ -393,7 +415,7 @@ describe("ràng buộc độ sâu", () => {
     const f = makeField(BB, 9, calm);
     // chấm đảo nhỏ ~6 km ngay trên đường thẳng, giữa hai mắt lưới tìm đường
     const g = makeDepth((la, lo) =>
-      Math.abs(la - 12.0) < 0.03 && Math.abs(lo - 111.01) < 0.03 ? 0 : 3,
+      Math.abs(la - 12.0) < 0.03 && Math.abs(lo - 111.01) < 0.03 ? 0 : 5,
     );
     const p = planRoute({
       start: START, dest: DEST, boat: DEFAULT_BOAT,
@@ -416,9 +438,9 @@ describe("ràng buộc độ sâu", () => {
     }
   });
 
-  it("dải nước nông 4–12 m trên đường → vẫn đi nhưng cắm cờ hasShallowLeg", () => {
+  it("dải nước nông 4–12 m (lớp 4) trên đường → vẫn đi nhưng cắm cờ hasShallowLeg", () => {
     const f = makeField(BB, 9, calm);
-    const g = makeDepth((la, lo) => (Math.abs(lo - 111) < 0.3 ? 2 : 3));
+    const g = makeDepth((la, lo) => (Math.abs(lo - 111) < 0.3 ? 4 : 5));
     const p = planRoute({
       start: START, dest: DEST, boat: DEFAULT_BOAT,
       departHourIdx: 6, field: f, depth: g, bbox: BB,
@@ -429,7 +451,7 @@ describe("ràng buộc độ sâu", () => {
   it("sát cảng RẤT CẠN (class 1) trong 12 km vẫn nối được NHƯNG phải cắm cờ hasVeryShallowLeg; vòng đất class 0 ngoài 5 km thì chặn", () => {
     const f = makeField(BB, 9, calm);
     const shallowRing = makeDepth((la, lo) =>
-      haversineKm({ lat: la, lon: lo }, START) < 8 ? 1 : 3,
+      haversineKm({ lat: la, lon: lo }, START) < 8 ? 1 : 5,
     );
     const pShallow = planRoute({
       start: START, dest: DEST, boat: DEFAULT_BOAT,
@@ -439,11 +461,14 @@ describe("ràng buộc độ sâu", () => {
     // team review 2026-07-26: trước đây đoạn rất cạn sát cảng đi qua IM LẶNG
     // trong khi copy nói "đã né rạn" — giờ bắt buộc báo thật
     expect(pShallow!.hasVeryShallowLeg).toBe(true);
+    // cạn CHỈ ở cảng → cờ gộp bật; không có chỗ cạn giữa đường
+    expect(pShallow!.nearPortOnly).toBe(true);
+    expect(pShallow!.hasDraftShallowLeg).toBe(false);
 
     const landRing = makeDepth((la, lo) => {
       const d = haversineKm({ lat: la, lon: lo }, START);
       // vành đai ĐẤT dày 7,5 km (dày hơn bước lấy mẫu 5 km) ngoài bán kính nới 5 km
-      return d > 5.5 && d < 13 ? 0 : 3;
+      return d > 5.5 && d < 13 ? 0 : 5;
     });
     expect(
       planRoute({
@@ -457,7 +482,7 @@ describe("ràng buộc độ sâu", () => {
 // ── team review 2026-07-26: các bất biến mới ─────────────────────────────
 
 describe("lấy mẫu thời tiết dọc chặng (không lọt khe vùng cấm)", () => {
-  it("dải ≥4 m HẸP (mảnh hơn chặng lưới thô) chắn kín → vẫn phải trả null, không xuyên mép", () => {
+  it("dải ≥4 m HẸP (mảnh hơn chặng lưới thô) chắn kín → PHẢI phát hiện (best-effort cắm cờ, không lọt mép thành 'êm giả')", () => {
     // bbox rất rộng → bước lưới tìm đường ~17 km, chặng nước mã ~39 km;
     // trường thời tiết 9×9 → dải 4,5 m chỉ chiếm MỘT cột mắt lưới, nội suy
     // ra vùng ≥4 m rộng ~23 km quanh cột — trung điểm chặng dài có thể đọc
@@ -468,12 +493,17 @@ describe("lấy mẫu thời tiết dọc chặng (không lọt khe vùng cấm)
     const f = makeField(bb, 9, (la, lo) =>
       Math.abs(lo - 111) < 0.9 ? { waveM: 4.5 } : calm(),
     );
-    expect(
-      planRoute({
-        start: a, dest: b, boat: DEFAULT_BOAT,
-        departHourIdx: 6, field: f, depth: null, bbox: bb,
-      }),
-    ).toBeNull();
+    /*  ĐỔI 2026-09-09: bất biến GIỜ là "dải hẹp KHÔNG được lọt khe mẫu thành
+        tuyến ÊM GIẢ". Best-effort vẫn ra tuyến, nhưng PHẢI bắt được dải ≥4 m ⇒
+        `bestEffortSeas` bật + maxWave ≥4. Nếu lấy mẫu thưa để dải lọt qua thì
+        tuyến sẽ về như biển lặng (bestEffortSeas=false) — đó mới là lỗi. */
+    const p = planRoute({
+      start: a, dest: b, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: f, depth: null, bbox: bb,
+    })!;
+    expect(p).not.toBeNull();
+    expect(p.bestEffortSeas).toBe(true);
+    expect(p.maxWaveM).toBeGreaterThanOrEqual(4);
   });
 });
 
@@ -525,7 +555,7 @@ describe("rất cạn quanh ĐIỂM ĐẾN", () => {
   it("vành class-1 quanh dest: vẫn nối được nhưng hasVeryShallowLeg phải bật", () => {
     const f = makeField(BB, 9, calm);
     const g = makeDepth((la, lo) =>
-      haversineKm({ lat: la, lon: lo }, DEST) < 8 ? 1 : 3,
+      haversineKm({ lat: la, lon: lo }, DEST) < 8 ? 1 : 5,
     );
     const p = planRoute({
       start: START, dest: DEST, boat: DEFAULT_BOAT,
@@ -533,6 +563,150 @@ describe("rất cạn quanh ĐIỂM ĐẾN", () => {
     });
     expect(p).not.toBeNull();
     expect(p!.hasVeryShallowLeg).toBe(true);
+    expect(p!.nearPortOnly).toBe(true);
+  });
+});
+
+// ── Đợt 0 (2026-09-04): lớp 3 theo mớn, hoursAt, nearPortOnly ─────────────
+
+describe("requiredDepthM — nước cần dưới đáy tàu", () => {
+  /*  MỘT BẢN DUY NHẤT (Đợt 2, 2026-09-04): `route-plan` nay re-export bản của
+      `hazards.ts`. Canh bằng danh tính hàm — hai bản trôi nhau (route-plan cộng
+      0,5 m, hazards cộng 0,6 m chẳng hạn) là kiểu lỗi không bao giờ tự lộ:
+      tuyến vẽ ra vẫn đẹp, chỉ khác chỗ nó cho tàu chui qua. */
+  it("là ĐÚNG một hàm với bản ở hazards.ts, không phải bản sao", () => {
+    expect(requiredDepthM).toBe(requiredDepthMGoc);
+  });
+  it("chưa khai mớn → null (mọi câu mớn phải im)", () => {
+    expect(requiredDepthM(null, 1)).toBeNull();
+    expect(requiredDepthM(Number.NaN, 1)).toBeNull();
+  });
+  it("mớn + 0,5 + ½·sóng, sóng kẹp trần 3 m, thiếu sóng coi như 0", () => {
+    expect(requiredDepthM(1.2, 0.3)).toBeCloseTo(1.85, 6);
+    expect(requiredDepthM(1.2, null)).toBeCloseTo(1.7, 6);
+    expect(requiredDepthM(1.2, 5)).toBeCloseTo(3.2, 6); // ½·min(5,3)
+  });
+});
+
+describe("dải 2–4 m (lớp 3) giữa đường — chỉ mở khi khai mớn và đủ nước", () => {
+  // dải lớp 3 chắn KÍN mọi vĩ độ của khung → không có lối vòng
+  const band = () => makeDepth((la, lo) => (Math.abs(lo - 111) < 0.3 ? 3 : 5));
+  const run = (draftM: number | null, waveM = 0.3) =>
+    planRoute({
+      start: START, dest: DEST,
+      boat: { speedKn: 7, litersPerHour: 20, draftM },
+      departHourIdx: 6, field: makeField(BB, 9, () => ({ waveM, windKmh: 10 })),
+      depth: band(), bbox: BB,
+    });
+
+  it("chưa khai mớn → chặn như rất cạn: không có tuyến (luật 6, không đoán mớn)", () => {
+    expect(run(null)).toBeNull();
+  });
+
+  it("mớn 1,2 m biển êm → cần 1,85 m ≤ 2,0 → đi được, cờ hasDraftShallowLeg, KHÔNG phải chuyện ở cảng", () => {
+    const p = run(1.2);
+    expect(p).not.toBeNull();
+    expect(p!.hasDraftShallowLeg).toBe(true);
+    expect(p!.hasVeryShallowLeg).toBe(false);
+    expect(p!.nearPortOnly).toBe(false); // dải ở giữa đường, cách hai đầu >12 km
+  });
+
+  it("mớn 1,6 m → cần 2,25 m > 2,0 → vẫn chặn; mớn 1,2 m nhưng sóng 1 m → cần 2,2 m → chặn", () => {
+    expect(run(1.6)).toBeNull();
+    expect(run(1.2, 1.0)).toBeNull();
+  });
+
+  it("lớp 3 SÁT CẢNG (trong 12 km) vẫn nới cho đi như trước, cắm cờ rất cạn — kể cả chưa khai mớn", () => {
+    const ring = makeDepth((la, lo) =>
+      haversineKm({ lat: la, lon: lo }, START) < 8 ? 3 : 5,
+    );
+    const p = planRoute({
+      start: START, dest: DEST, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: makeField(BB, 9, calm), depth: ring, bbox: BB,
+    });
+    expect(p).not.toBeNull();
+    expect(p!.hasVeryShallowLeg).toBe(true);
+    expect(p!.hasDraftShallowLeg).toBe(false);
+    expect(p!.nearPortOnly).toBe(true);
+  });
+});
+
+describe("hoursAt — giờ cộng dồn tới từng waypoint", () => {
+  it("cùng độ dài waypoints, bắt đầu 0, tăng ngặt, cuối = hours", () => {
+    const p = plan(makeField(BB, 7, calm))!;
+    expect(p.hoursAt.length).toBe(p.waypoints.length);
+    expect(p.hoursAt[0]).toBe(0);
+    for (let k = 1; k < p.hoursAt.length; k++) expect(p.hoursAt[k]).toBeGreaterThan(p.hoursAt[k - 1]);
+    expect(p.hoursAt[p.hoursAt.length - 1]).toBeCloseTo(p.hours, 9);
+  });
+
+  it("nhánh trần đường vòng (cappedToDirect) cũng có hoursAt của đường thẳng", () => {
+    const a: LatLon = { lat: 12.0, lon: 110.0 };
+    const b: LatLon = { lat: 12.0, lon: 110.92 };
+    const f = makeField(BB, 9, (la) => (la < 12.5 ? { waveM: 3.5 } : calm()));
+    const p = planRoute({
+      start: a, dest: b, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: f, depth: null, bbox: BB,
+    })!;
+    expect(p.hoursAt.length).toBe(p.waypoints.length);
+    expect(p.hoursAt[p.hoursAt.length - 1]).toBeCloseTo(p.hours, 9);
+  });
+
+  it("biển trống: không chỗ thấp nào → nearPortOnly=false (không có gì để gộp), hazard placeholder = chưa kiểm", () => {
+    const p = planRoute({
+      start: START, dest: DEST, boat: DEFAULT_BOAT,
+      departHourIdx: 6, field: makeField(BB, 9, calm), depth: makeDepth(() => 5), bbox: BB,
+    })!;
+    expect(p.nearPortOnly).toBe(false);
+    expect(p.hazardChecked).toBe(false);
+    expect(p.hasHazardLeg).toBe(false);
+    expect(p.hasHazardNearPortLeg).toBe(false);
+  });
+});
+
+describe("Rạch Giá → nam Côn Đảo trên lưới THẬT (briefing-03, cổng đo §4)", () => {
+  /*  Trước Đợt 0: null trong 2 ms ở cả hai vòng khung — "đất ngoài khơi" km
+      8–12 + "rất cạn <4 m" km 14–24 chặn mọi lối. Nay: khai mớn 1,2 m thì có
+      tuyến; chưa khai thì vẫn null (dải 2–4 m không mở cho tàu chưa biết mớn). */
+  const VN: BBox = { latMin: 4, latMax: 24.5, lonMin: 99, lonMax: 119 };
+  const clamp = (b: BBox): BBox => ({
+    latMin: Math.max(VN.latMin, b.latMin), latMax: Math.min(VN.latMax, b.latMax),
+    lonMin: Math.max(VN.lonMin, b.lonMin), lonMax: Math.min(VN.lonMax, b.lonMax),
+  });
+  const A: LatLon = { lat: 10.02, lon: 105.08 };
+  const B: LatLon = { lat: 8.55, lon: 106.6 };
+  let real: DepthGrid | null = null;
+  const realDepth = () => {
+    if (!real) {
+      const raw = fs.readFileSync(path.resolve(__dirname, "../../../public/data/depth-grid.v1.bin"));
+      real = decodeDepthGrid(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as ArrayBuffer);
+    }
+    return real;
+  };
+  const tryPlan = (draftM: number | null) => {
+    const dKm = haversineKm(A, B);
+    // hai vòng nới khung y như route-planner.tsx
+    for (const margin of [Math.min(150, Math.max(45, dKm * 0.3)), Math.min(420, Math.max(200, dKm * 1.1))]) {
+      const bbox = clamp(bboxOfPoints([A, B], margin));
+      const p = planRoute({
+        start: A, dest: B, boat: { speedKn: 7, litersPerHour: 20, draftM },
+        departHourIdx: 6, field: makeField(bbox, 8, calm), depth: realDepth(), bbox,
+      });
+      if (p) return p;
+    }
+    return null;
+  };
+
+  it("mớn 1,2 m → CÓ tuyến, đi qua dải 2–4 m nhờ mớn", () => {
+    const p = tryPlan(1.2);
+    expect(p).not.toBeNull();
+    expect(p!.depthChecked).toBe(true);
+    expect(p!.hasDraftShallowLeg).toBe(true);
+    expect(p!.hoursAt.length).toBe(p!.waypoints.length);
+  });
+
+  it("chưa khai mớn → vẫn null (đúng luật: không đoán mớn để vẽ qua bãi)", () => {
+    expect(tryPlan(null)).toBeNull();
   });
 });
 
@@ -674,5 +848,37 @@ describe("helpers hiển thị", () => {
   it("vnHourIndex: 03:30 UTC = 10 giờ sáng VN", () => {
     expect(vnHourIndex(new Date("2026-06-10T03:30:00Z"))).toBe(10);
     expect(vnHourIndex(new Date("2026-06-10T17:00:00Z"))).toBe(0);
+  });
+});
+
+describe("bboxOfPoints — khung bao trọn chuỗi điểm (đường đi nhiều chỗ ghé)", () => {
+  const P = [
+    { lat: 13, lon: 110 },
+    { lat: 16, lon: 112 },
+    { lat: 11, lon: 114 },
+  ];
+
+  it("bao đủ MỌI điểm, không bỏ sót điểm ở giữa chuỗi", () => {
+    const bb = bboxOfPoints(P, 0);
+    for (const p of P) {
+      expect(p.lat).toBeGreaterThanOrEqual(bb.latMin);
+      expect(p.lat).toBeLessThanOrEqual(bb.latMax);
+      expect(p.lon).toBeGreaterThanOrEqual(bb.lonMin);
+      expect(p.lon).toBeLessThanOrEqual(bb.lonMax);
+    }
+    expect(bb.latMin).toBeCloseTo(11, 6);
+    expect(bb.latMax).toBeCloseTo(16, 6);
+  });
+
+  it("nở đúng marginKm mỗi phía", () => {
+    const bb = bboxOfPoints(P, 111.32);
+    expect(bb.latMin).toBeCloseTo(10, 3); // 11 − 1°
+    expect(bb.latMax).toBeCloseTo(17, 3); // 16 + 1°
+  });
+
+  it("bboxFor cũ = bboxOfPoints hai điểm (không đổi hành vi đang chạy)", () => {
+    const a = { lat: 13, lon: 110 };
+    const b = { lat: 16, lon: 112 };
+    expect(bboxFor(a, b, 120)).toEqual(bboxOfPoints([a, b], 120));
   });
 });

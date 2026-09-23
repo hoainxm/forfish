@@ -417,6 +417,57 @@ thứ bà con hỏi: **tên đảo đầy đủ** và **tuyến hàng hải**. H
 - **EEZ / ranh giới trên biển**: chủ dự án chốt **KHÔNG vẽ** (mọi nguồn dính
   đường tranh chấp; app đã có ranh giới biển VN + vùng lộng).
 
+## 6c. ĐÃ TRIỂN KHAI 2026-08-28 — LỚP RẠN / ĐÁ NGẦM / BÃI CẠN
+
+Nghiên cứu gốc (mục 3) ghi "không có nguồn miễn phí cho số độ sâu điểm + contour
+10/20/50 m" → **rạn/đá ngầm nhỏ không hiện** trên hải đồ độ sâu (lưới GEBCO/ETOPO
+~450 m quá thô để resolve vật vài chục mét). Bà con hỏi thẳng "sao không thấy đá
+ngầm, GPS thương mại có mà". Chốt hai vế:
+
+**TÊN — curated tiếng Việt (làm ngay, không cần nguồn ngoài).** Giống bài toán tên
+đảo (§6b): OSM/ACA chỉ có tên Anh/Philippines/Trung (Second Thomas Shoal, Vanguard
+Bank, Whitsun Reef…). → `public/data/coral-reefs.v1.json` (13 rạn/bãi: Trường Sa 7
++ thềm lục địa DK1 6), tên Việt từ **Wikipedia tiếng Việt**, sinh bởi
+`scripts/generate-coral-reefs.mjs`. Cổng `src/lib/reefs.ts` (dùng lại
+hasForbiddenChars/coordInVNSea của islands.ts) + test đọc file THẬT chặn CJK + tên
+nước ngoài. Group mới `them-luc-dia` cho DK1 (Tư Chính/Vũng Mây… — thềm lục địa
+phía Nam, KHÔNG thuộc Trường Sa về địa lý). Toggle "Đá ngầm, rạn" panel Hải đồ,
+màu teal tách navy đảo. 6 đảo NỔI mà agent tra được (Thị Tứ/Loại Ta/Song Tử Đông/
+Bến Lạc/Vĩnh Viễn/Bình Nguyên) TẠM chưa thêm — là đảo, không phải rạn (ngoài phạm
+vi lần này). Danh sách "cần xác minh": Bãi Ba Kè (Bombay Castle — toạ độ nguồn lệch
+~1° kinh độ), Đá Nhạn Gia, Bãi Suối Ngà — chưa đủ tin cậy, KHÔNG bịa.
+
+**HÌNH DẠNG — Allen Coral Atlas (CC-BY 4.0).** Đường RẺ NHẤT hợp pháp cho hình rạn
+(máy GPS thương mại đắt vì bản quyền Navionics/C-MAP; ACA suy từ Sentinel-2, CC-BY
+dùng thương mại được nếu clip vùng + credit, KHÔNG tái bản toàn cầu). **Verify sống
+2026-08-28** (drive nền web ACA): tại Đá Chữ Thập (9,55N/112,89E) có **1718 mảnh
+geomorphic** đủ lớp (Reef Crest/Slope/Flat/Lagoon) — vùng phủ Trường Sa THẬT + chi
+tiết. Lấy lớp **Reef Extent** (nhẹ) hơn Geomorphic (nặng, 9 lớp). Tải TAY: đăng
+nhập → vẽ polygon vùng → "Download data" → email (bất đồng bộ, chờ xử lý thống kê).
+File raster/vector còn phải **đơn giản hoá mạnh** (mapshaper) cho hợp ngân sách
+offline (~KB như isobaths). Khi ghép: thêm credit "Rạn: Allen Coral Atlas (CC-BY)"
+vào attribution `ocean-map.ts`. KHÔNG import lớp "Maritime Boundaries" của ACA
+(dính đường tranh chấp).
+
+**CẬP NHẬT 2026-08-28b — team rà 2 agent (ACA phiền vì phải email):**
+- **HÌNH RẠN chốt dùng OSM `natural=reef`/`shoal` (Overpass, ODbL) — ĐÃ SHIP.**
+  Verify thật: 1145 reef + 58 shoal khung VN (Trường Sa 1277 feature). Đường ít
+  rủi ro nhất: đúng pipeline sea-lanes đã có, tải bulk không login, đóng gói tĩnh
+  offline. `scripts/generate-reef-shapes.mjs` → `public/data/reef-shapes.v1.json`
+  (~307 KB sau simplify, BỎ HẾT tên). ACA hạ xuống **roadmap** (chi tiết hơn
+  nhưng nặng 183 MB phải cắt) — **phát hiện**: ACA có bucket công khai
+  `gs://coral-atlas-static-files/preprocessed_map_data/datasets.tgz` KHÔNG login/
+  email (né luồng email ở trên). License ACA: lớp maps/geomorphic/benthic =
+  CC-BY 4.0 (thương mại OK); Mosaic ảnh Planet = BY-NC-SA (KHÔNG dùng); Boundaries
+  = tranh chấp (KHÔNG dùng).
+- **UNEP-WCMC Global Coral Reefs = LOẠI** (General Data License phi thương mại).
+- **NỀN BẢN ĐỒ**: CARTO đổi chính sách ~25–26/08/2026 → raster basemap đòi API
+  key, hiện watermark "API KEY REQUIRED" (ảnh hưởng cả production, nhưng chỉ chữ
+  mờ — tile vẫn về). Chốt **đi thẳng Protomaps PMTiles** (file .pmtiles tĩnh
+  same-origin, SW giữ được → lần đầu có NỀN THẬT khi mất sóng; không key, không
+  phí, thương mại OK) thay vì vá bằng key CARTO (không cache được + CARTO đang
+  khai tử raster). Chi tiết đánh đổi + bảng nhà cung cấp: báo cáo team 2026-08-28.
+
 ## 7. Test commands (đã chạy trước khi viết)
 
 ```bash

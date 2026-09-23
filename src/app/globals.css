@@ -33,6 +33,13 @@
   --t4: #7a4d9e;
   --t4-bg: #f1eaf8;
 
+  /* chấm nhịp cập nhật lớp bản đồ (legend rail Ra khơi) + accent cá.
+     lienTuc dùng lại --trim (đỏ cam cảnh báo "liên tục"). */
+  --cadence-hour: #f59e0b; /* 🟧 cập nhật theo giờ */
+  --cadence-day: #eab308; /* 🟨 theo ngày */
+  --cadence-fixed: #64748b; /* ⬛ cố định, không đổi theo ngày */
+  --fish: #2d8659; /* xanh lá — cá/ngư trường (Phương án A) */
+
   /* status — chữ đậm 16px ĐẠT WCAG AA (≥4.5:1) trên nền tint dưới nắng:
      ok 5.85 · warn 6.26 · danger 5.80 (tính trong docs/design-review/04) */
   --ok: #15663a;
@@ -167,9 +174,54 @@ html {
 */
 html[data-mode="to"] {
   font-size: 16px;
+  /* "To" giữ đúng sàn chạm 56px của app (tay ướt, tàu lắc, nắng chói) */
+  --row-h: 3.5rem;
 }
+/*  Ô NHẬP vẫn giữ sàn 16px như một CẦU DAO: chế độ "Theo máy" (auto) ăn theo
+    cỡ chữ của điện thoại, máy nào đặt nhỏ là lại rơi xuống dưới ngưỡng iOS.
+    Không `!important` nữa vì không còn phải thắng ai — gốc đã 16px. */
+input,
+select,
+textarea {
+  font-size: max(16px, 1em);
+}
+
+/*  "GỌN" NAY LÀ 16px, KHÔNG CÒN 14px (chủ dự án 2026-08-29: *"đừng để nó phóng
+    to nữa, đưa kích thước lên cho đủ"*).
+
+    VÌ SAO: 14px làm MỌI ô nhập rơi xuống dưới ngưỡng 16px của iOS ⇒ chạm vào ô
+    là hệ điều hành tự phóng to cả trang; trên bản CÀI (standalone) không có
+    thanh địa chỉ để thu lại, app kẹt luôn ở trạng thái phóng — rail tràn khỏi
+    mép phải, dock cụt, "ko view được cái gì". Vá riêng ô nhập bằng `!important`
+    chỉ chữa triệu chứng và còn làm ô nhập to lệch khỏi phần chữ quanh nó.
+
+    Nâng gốc lên 16px chữa luôn một lỗ thứ hai đã đo được: sàn tap 3.5rem ở
+    gốc 14 chỉ ra 49px — DƯỚI sàn 56px của chính design-system này. Ở gốc 16px
+    thì 3.5rem = đúng 56px.
+
+    Đổi lại mật độ thưa hơn ~14%: mọi thẻ cao thêm, nên phải soi lại sàn "bản đồ
+    ≥60%" sau khi đổi (xem 03-design-system §Nút hành động). */
 html[data-mode="gon"] {
-  font-size: 14px;
+  font-size: 16px;
+  /*  CHẾ ĐỘ "GỌN" NAY GỌN THẬT (chủ dự án 2026-08-29h: *"nút hạ xuống 37 với
+      chế độ gọn"*). Trước đó "gọn" và "to" cùng 16px gốc nên công tắc chẳng
+      đổi gì — chọn xong màn y hệt.
+
+      GỌN KHÔNG ĐỘNG VÀO CỠ CHỮ, chỉ hạ chiều cao hàng + nút: cỡ chữ hạ xuống
+      dưới 16px là iOS tự phóng to cả trang khi chạm ô nhập (án lệ 2026-08-29,
+      lỗi "bể ra hết"). Gọn = ít khoảng đệm, KHÔNG phải chữ nhỏ.
+
+      37px DƯỚI SÀN CHẠM 56px — chủ dự án chốt sau khi tôi nêu lo ngại: đây là
+      lựa chọn CÓ Ý THỨC của người dùng, ai thấy khó bấm thì đổi sang "To".
+      Mặc định của app vẫn là 56px. */
+  --row-h: 2.3125rem;
+}
+
+:root {
+  /*  Chiều cao chuẩn của MỘT hàng và MỘT nút hành động — thân hàng và nút phải
+      bằng nhau (07 §10.7 M10). Chế độ hiển thị ghi đè biến này; mặc định là
+      sàn chạm 56px. */
+  --row-h: 3.5rem;
 }
 
 body {
@@ -478,4 +530,42 @@ textarea,
   .no-print {
     display: none !important;
   }
+}
+
+
+/*  NÚT HÀNH ĐỘNG Ô VUÔNG — hình khối định nghĩa ở đây (không phải trong chuỗi
+    Tailwind) vì chế độ "gọn" phải ĐỔI CẢ BỐ CỤC chứ không chỉ chiều cao:
+    37px không đủ chỗ cho icon 24px xếp TRÊN nhãn (24 + 2 + 14 + đệm ≈ 56).
+    Gọn ⇒ icon và nhãn nằm NGANG, nút thấp lại và rộng ra. Nhãn KHÔNG bị bỏ:
+    icon trơ trọi thì bà con 40–60 tuổi phải đoán (CLAUDE.md cấm). */
+.sq-btn {
+  display: flex;
+  min-height: var(--row-h);
+  width: 4rem;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  border-radius: 1rem;
+  padding-block: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.25;
+  transition-property: color, background-color, border-color, transform;
+  transition-duration: 150ms;
+}
+.sq-btn:active {
+  transform: scale(0.95);
+}
+html[data-mode="gon"] .sq-btn {
+  width: auto;
+  flex-direction: row;
+  gap: 0.25rem;
+  padding-block: 0.25rem;
+  padding-inline: 0.5rem;
+}
+html[data-mode="gon"] .sq-btn svg {
+  height: 1.25rem;
+  width: 1.25rem;
 }

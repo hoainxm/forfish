@@ -42,16 +42,27 @@ on:
         type: boolean
         default: false
 
+# Quyền tối thiểu (rà soát 2026-09-04, mục D): không khai là nhận MẶC ĐỊNH của
+# repo — mà mặc định đó sắp là Read-and-write cho cap-nhat-hai-do đẩy sổ.
+permissions: {}
+
 concurrency:
   group: storms
   cancel-in-progress: false
 
 jobs:
   storms:
+    # CHỈ CHẠY Ở REPO CÔNG TY (rà soát 2026-09-04, mục B): cùng file này nằm ở
+    # cả hai repo; không cổng là hễ repo Long có lại hạn mức Actions thì nguồn
+    # ngoài bị gõ gấp đôi. So sánh chuỗi không phân biệt hoa thường.
+    if: github.repository == 'sdvico/forfish'
     runs-on: ubuntu-latest
+    # Trần thời gian (rà soát 2026-09-04, mục C): mặc định GitHub là 360 phút —
+    # một lần treo tính đủ 6 giờ, bằng 18 % hạn mức tháng.
+    timeout-minutes: 10
     steps:
       # ── 1. GHI KHO. Nhịp THẬT do `nhipQuet()` trong route quyết (ADR 0005):
-      #    trời yên 1 lần/ngày · bão còn xa theo mốc nguồn tự hẹn · bão vào gần
+      #    trời yên mỗi 3 giờ (NGU_QUET_PHUT, sửa 2026-09-12) · bão còn xa theo mốc nguồn tự hẹn · bão vào gần
       #    thì mỗi lượt. Lượt bị cổng chặn KHÔNG chạm NCHMF, chỉ đọc kho.
       - name: Ghi bản tin bão vào kho
         env:
@@ -59,19 +70,26 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           FORCE: ${{ inputs.force }}
         run: |
-          if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
-            echo "Thiếu vars.APP_BASE_URL hoặc secrets.CRON_SECRET"; exit 1
-          fi
-          BASE_URL="${BASE_URL%/}"
+          if [ -z "$CRON_SECRET" ]; then echo "Thiếu secrets.CRON_SECRET"; exit 1; fi
           Q=""
           if [ "$FORCE" = "true" ]; then Q="?force=1"; fi
-          code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            "$BASE_URL/api/cron/refresh-storms$Q")
-          echo "HTTP $code"; cat resp.json; echo
-          # 503 = NGUỒN hỏng (NCHMF bảo trì / đọc không nổi bản tin), không phải
-          # lỗi của mình — để job đỏ ở ca đó là dạy nhau bỏ qua màu đỏ.
-          test "$code" = "200" || test "$code" = "503"
+          # HAI ĐÍCH SONG SONG (2026-08-31, chủ dự án): forfish-alpha
+          # (vars.APP_BASE_URL) + forfish.vercel.app (app LONG — Actions của long
+          # hết hạn mức billing nên nhờ runner repo này gõ hộ). Cùng Supabase →
+          # ghi kho idempotent; đích nào hỏng KHÔNG kéo đích kia. Job xanh nếu ÍT
+          # NHẤT một đích trả 200/503 (503 = NGUỒN NCHMF hỏng, không phải lỗi mình).
+          URLS=$(printf '%s\n%s\n' "${BASE_URL%/}" "https://forfish.vercel.app" | awk 'NF&&!seen[$0]++')
+          ok=0
+          for u in $URLS; do
+            rm -f resp.json
+            code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              "$u/api/cron/refresh-storms$Q" || true)
+            [ -n "$code" ] || code="000"
+            echo "[$u] HTTP $code"; cat resp.json 2>/dev/null || true; echo
+            { [ "$code" = "200" ] || [ "$code" = "503" ]; } && ok=1
+          done
+          test "$ok" = "1"
 
       # ── 2. ĐẨY THÔNG BÁO. `if: always()` là CỐ Ý: ghi kho hỏng thì cùng lắm
       #    bản đồ thiếu một khúc đường, còn không đẩy được cảnh báo là bà con
@@ -82,13 +100,19 @@ jobs:
           BASE_URL: ${{ vars.APP_BASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
-            echo "Thiếu vars.APP_BASE_URL hoặc secrets.CRON_SECRET"; exit 1
-          fi
-          BASE_URL="${BASE_URL%/}"
-          code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            "$BASE_URL/api/cron/notify-storms")
-          echo "HTTP $code"; cat resp.json; echo
-          # 503 = cả hai nguồn bão hỏng; route CỐ Ý không gửi bừa lúc đó.
-          test "$code" = "200" || test "$code" = "503"
+          if [ -z "$CRON_SECRET" ]; then echo "Thiếu secrets.CRON_SECRET"; exit 1; fi
+          # HAI ĐÍCH SONG SONG: MỖI deploy gửi push bằng VAPID CỦA NÓ tới người
+          # đăng ký của nó (forfish-alpha ↔ user alpha; forfish.vercel.app ↔ user
+          # long). Đây là lý do phải gõ CẢ HAI — không gộp một (VAPID khác nhau).
+          URLS=$(printf '%s\n%s\n' "${BASE_URL%/}" "https://forfish.vercel.app" | awk 'NF&&!seen[$0]++')
+          ok=0
+          for u in $URLS; do
+            rm -f resp.json
+            code=$(curl -sS -o resp.json -w "%{http_code}" -m 90 -L \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              "$u/api/cron/notify-storms" || true)
+            [ -n "$code" ] || code="000"
+            echo "[$u] HTTP $code"; cat resp.json 2>/dev/null || true; echo
+            { [ "$code" = "200" ] || [ "$code" = "503" ]; } && ok=1
+          done
+          test "$ok" = "1"

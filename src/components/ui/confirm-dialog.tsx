@@ -82,7 +82,7 @@ export function ConfirmDialog({
           <button
             ref={cancelRef}
             onClick={() => requestClose()}
-            className="min-h-[3.5rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            className="min-h-[3.5rem] rounded-2xl bg-field text-[1.125rem] font-bold text-foreground/70"
           >
             {cancelLabel}
           </button>
@@ -91,7 +91,7 @@ export function ConfirmDialog({
               tapFeedback();
               requestClose(onConfirm);
             }}
-            className={`min-h-[3.5rem] rounded-xl text-[1.125rem] font-bold text-white ${
+            className={`min-h-[3.5rem] rounded-2xl text-[1.125rem] font-bold text-white ${
               danger ? "bg-danger" : "bg-sea"
             }`}
           >

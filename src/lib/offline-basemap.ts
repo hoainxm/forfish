@@ -1,9 +1,11 @@
 // NỀN TỐI GIẢN KHI MẤT SÓNG — bà con giữa biển vẫn thấy bờ, thấy đảo.
 //
-// Lỗ hổng đã bịt: mọi ô bản đồ nền lấy từ host ngoài (cartocdn) nên service
-// worker không giữ được (public/sw.js bỏ qua khác origin). Mất sóng là nền
-// trắng: có số gió sóng, có điểm nóng cá, nhưng mũi tên lơ lửng giữa khoảng
-// không, không biết bờ đâu, đảo đâu → mất định hướng, nguy hiểm.
+// Lỗ hổng đã bịt: nền bản đồ khi mất sóng có thể không vẽ được (trước là ô
+// cartocdn host ngoài; nay là nền VECTOR Protomaps từ file pmtiles same-origin
+// — SW CHƯA cache nên mất sóng vẫn có thể không về). Không có nền thì mũi tên
+// gió + chấm tàu lơ lửng giữa khoảng không, không biết bờ đâu, đảo đâu → mất
+// định hướng, nguy hiểm. (Cache pmtiles offline = việc nâng cấp sau; tới lúc đó
+// lớp vn-coast này vẫn là lưới an toàn cuối.)
 //
 // Cách bịt: hình bờ + đảo đóng gói sẵn trong máy (public/data/vn-coast.v1.json,
 // sinh bởi scripts/generate-coastline.mjs, nguồn Natural Earth public domain,

@@ -15,6 +15,7 @@
 import { apiUrl } from "@/lib/api-base";
 import { DEVICE_TOKEN_HEADER, isValidTokenShape, shouldDropAccount, type TokenDenial } from "@/lib/device-token";
 import { applyIdentityAction } from "@/lib/offline-identity";
+import { TIER_CACHE_KEY, TIER_EVENT, TIER_UNTIL_KEY } from "@/lib/tier";
 import { timeoutSignal } from "@/lib/abort";
 
 /** Quy ước khoá forfish.* (xem docs/app-map/ops/state-registry.md) */
@@ -95,15 +96,68 @@ export function readToken(): string | null {
  * ĐỌC LẠI để xác minh chứ không tin `setItem` im lặng: Safari chế độ riêng tư
  * đời cũ nhận `setItem` rồi vứt, không ném gì cả.
  */
-export function saveToken(token: string): boolean {
+export function saveToken(
+  token: string,
+  /*  HẠNG PHẢI ĐI CÙNG CHUỖI (chủ dự án 2026-09-02: *"chuỗi chỉ ghi success khi
+      có hạng gán vào"*, *"1 token ứng với premium thì có hạn theo cái dữ liệu
+      trên server"*).
+
+      VÌ SAO: trước đây chuỗi và dấu hạng là HAI lần ghi rời. Chuỗi ghi có đọc
+      lại để xác minh, dấu hạng thì ghi rồi nuốt lỗi ⇒ đẻ ra trạng thái thứ ba
+      "có chuỗi mà chưa biết hạng", và chính nó là chỗ bà con premium bị ẩn sạch
+      công cụ. Nay ghi CẶP: hạng trước, chuỗi sau, xác minh cả hai; thiếu một
+      vế thì coi như ĐĂNG NHẬP CHƯA XONG và bảo bà con bấm lại.
+
+      Vì sao ghi HẠNG TRƯỚC: nếu chuỗi vào được mà hạng hụt thì lại đúng cái
+      trạng thái thứ ba đang muốn diệt. Ghi hạng trước, hạng hụt thì dừng luôn,
+      chuỗi chưa hề nằm xuống — máy sạch, bấm lại là xong.
+
+      `tier` là CỘT THÔ của DB ('premium'/'basic'), KHÔNG phải kết quả đã xét
+      hạn (luật E4): hạn lưu riêng và chỉ đem ra xét lúc ĐỌC, có biên 7 ngày cho
+      đồng hồ máy lệch ngoài biển. */
+  tier: string,
+  until: string | null,
+): boolean {
   try {
+    if (!writeTierWithToken(tier, until)) return false;
     window.localStorage.setItem(DEVICE_TOKEN_KEY, token);
     const ok = window.localStorage.getItem(DEVICE_TOKEN_KEY) === token;
     if (ok) {
       clearKickedMark(); // đăng nhập lại = hết "bị đá" — thẻ đỏ ở Trang chủ tự tắt
       announceToken();
+      /*  Báo hạng vừa ghi cho màn đang mở (use-tier nghe `TIER_EVENT`). Ghi đã
+          xong ở trên rồi; đây chỉ là tiếng gọi, không phải đường ghi thứ hai. */
+      try {
+        window.dispatchEvent(
+          new CustomEvent(TIER_EVENT, {
+            detail: { marked: tier === "premium", until },
+          }),
+        );
+      } catch {
+        /* WebView rất cũ không có CustomEvent — màn vẽ lại ở lần mở sau */
+      }
     }
     return ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ghi hạng đi kèm chuỗi, CÓ ĐỌC LẠI để xác minh — không nuốt lỗi như đường cũ.
+ *
+ * Đặt ở file này chứ không ở `tier.ts`: đây là một nửa của bản ghi đăng nhập,
+ * và `identity-gate.test.ts` canh cho chỉ MỘT file được đụng tới kho chuỗi.
+ * `tier.ts` giữ nguyên vai module THUẦN (không đụng kho, không đụng React).
+ */
+function writeTierWithToken(tier: string, until: string | null): boolean {
+  const dau = tier === "premium" ? "1" : "0";
+  try {
+    window.localStorage.setItem(TIER_CACHE_KEY, dau);
+    if (until) window.localStorage.setItem(TIER_UNTIL_KEY, until);
+    else window.localStorage.removeItem(TIER_UNTIL_KEY);
+    // ĐỌC LẠI: Safari riêng tư đời cũ nhận `setItem` rồi vứt, không ném gì
+    return window.localStorage.getItem(TIER_CACHE_KEY) === dau;
   } catch {
     return false;
   }

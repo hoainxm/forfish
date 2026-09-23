@@ -13,10 +13,12 @@ const invalidCreds = {
 };
 
 describe("loginErrorMessage — tách lỗi đăng nhập (2026-07-21)", () => {
-  it("SĐT chưa có tài khoản → chỉ đường gọi SDVICO cấp tài khoản", () => {
+  it("SĐT chưa có tài khoản → chỉ đường TỰ ĐĂNG KÝ (mở lại 2026-09-23)", () => {
     const msg = loginErrorMessage(invalidCreds, false);
     expect(msg).toContain("chưa có tài khoản");
-    expect(msg).toContain("0939 243 222");
+    // Người ngoài tự đăng ký lại được → chỉ sang Đăng ký, KHÔNG bắt gọi SDVICO.
+    expect(msg).toContain("Đăng ký");
+    expect(msg).not.toContain("0939 243 222");
     // KHÔNG gợi ý mật khẩu cho số chưa đăng ký.
     expect(msg).not.toContain("sd123456");
   });

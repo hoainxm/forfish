@@ -19,11 +19,18 @@ import {
   Card,
   EmptyState,
   Field,
-  PrimaryButton,
-  RefNote,
   inputClass,
 } from "@/components/ui/primitives";
-import { CheckIcon, PlusIcon, TrashIcon, UsersIcon } from "@/components/icons";
+import {
+  CheckIcon,
+  CloseIcon,
+  EditIcon,
+  PlusIcon,
+  TrashIcon,
+  UsersIcon,
+} from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
+import { useBoats } from "@/components/boat-switcher";
 import { useAuthUser } from "@/lib/use-auth";
 import { formatVnDate } from "@/lib/format";
 import { useOnline } from "@/lib/use-online";
@@ -116,10 +123,6 @@ export function MarketBoard() {
 
   return (
     <div>
-      <RefNote tone="var(--t2)" bg="var(--t2-bg)">
-        Nơi đăng tin bán cá và tin cần mua — cả làng cùng xem, gọi thẳng nhau
-        đỡ bị ép giá. Đầu nậu, vựa, nhà máy cũng đăng tin cần mua ở đây.
-      </RefNote>
 
       {/* MẤT SÓNG NÓI THẬT — trước đây ca này im lặng đổi sang tin mẫu, bà con
           tưởng chợ vắng hoặc tưởng tin mình vừa biến mất. */}
@@ -145,22 +148,37 @@ export function MarketBoard() {
         </p>
       )}
 
-      <div className="my-3">
+      {/*  Ô nút INLINE cuối hàng cấp dữ liệu (2026-08-29, luật A2/A3/A4): trước
+          là nút full-width nằm một mình trong <div className="my-3"> ở CẢ HAI
+          nhánh, ăn trọn một hàng. Hàng cấp dữ liệu dùng lại khuôn của sell-guide
+          ("{list.length} vựa") và thay luôn RefNote 343×97px (12% chiều cao màn
+          toàn chữ giải thích) mà chip "Tin mua/bán" ngay trên đã nói xong. */}
+      <div className="my-3 flex items-stretch gap-2">
+        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <p className="text-[0.875rem] font-semibold text-foreground/70">
+            {listings.length} tin đang mở
+          </p>
+        </div>
         {ready && signedIn ? (
-          <PrimaryButton onClick={() => setShowForm(true)}>
+          <button
+            onClick={() => setShowForm(true)}
+            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
+          >
             <PlusIcon className="h-6 w-6" />
-            Đăng tin mua/bán
-          </PrimaryButton>
+            Đăng tin
+          </button>
         ) : ready && online ? (
           /* lời mời đăng nhập ẨN khi mất sóng — /login cần sóng (tầng 5, 2026-08-18) */
           <Link
             href="/login"
-            className="display flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
+            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
           >
             <PlusIcon className="h-6 w-6" />
-            Đăng nhập để đăng tin
+            Đăng nhập
           </Link>
-        ) : null}
+        ) : (
+          <span className="w-16 shrink-0" aria-hidden />
+        )}
       </div>
 
       <div className="-mx-4">
@@ -254,8 +272,12 @@ function ListingCard({
   const busy = pending || deleting;
   return (
     <Card className="p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+      {/*  Hai nút của tin MÌNH về INLINE cuối hàng tiêu đề thẻ (2026-08-29, luật
+          A3/A5): trước là hàng footer border-t riêng, cả hai chỉ min-h-[2.75rem]
+          = 44px — dưới sàn A5 52px và dưới sàn 56px của CLAUDE.md, mà "Xóa" là
+          hành động phá huỷ. */}
+      <div className="flex items-stretch gap-2">
+        <div className="min-w-0 flex-1">
           <span
             className="inline-block rounded-full px-2.5 py-0.5 text-[0.75rem] font-bold"
             style={
@@ -265,19 +287,53 @@ function ListingCard({
             }
           >
             {SIDE_LABEL[l.side]}
+            {l.status === "closed" ? " · đã đóng" : ""}
           </span>
           <p className="mt-1 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/65">
             {POSTER_KIND_LABEL[l.posterKind]}
             {l.province ? ` · ${l.province}` : ""}
           </p>
-          <p className="display text-[1.1875rem] font-bold leading-snug text-navy">
+          <p className="display break-words text-[1.125rem] font-bold leading-snug text-navy">
             {l.species}
           </p>
         </div>
-        {l.status === "closed" && (
-          <span className="shrink-0 rounded-full bg-field px-2.5 py-1 text-[0.75rem] font-bold text-foreground/70">
-            Đã đóng
-          </span>
+        {l.mine ? (
+          <>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={async () => {
+                // ĐỌC KẾT QUẢ (2026-08-16) — xem ghi chú ở nút Xoá.
+                setPending(true);
+                const xong = await setListingStatus(
+                  l.id,
+                  l.status === "open" ? "closed" : "open",
+                );
+                setPending(false);
+                onFailed(
+                  xong
+                    ? null
+                    : "Chưa đổi được trạng thái tin — cần có mạng, thử lại khi có sóng.",
+                );
+                if (xong) onChanged();
+              }}
+              className={`${SQ_BTN} bg-background text-sea disabled:opacity-50`}
+            >
+              <CheckIcon className="h-6 w-6" />
+              {pending ? "Đang gửi" : l.status === "open" ? "Đã xong" : "Mở lại"}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onDelete}
+              className={`${SQ_BTN} bg-background text-danger disabled:opacity-50`}
+            >
+              <TrashIcon className="h-6 w-6" />
+              {deleting ? "Đang xoá" : "Xóa"}
+            </button>
+          </>
+        ) : (
+          <span className="w-16 shrink-0" aria-hidden />
         )}
       </div>
 
@@ -308,45 +364,6 @@ function ListingCard({
         ) : null}
       </div>
 
-      {l.mine && (
-        <div className="mt-2 flex gap-4 border-t border-line pt-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={async () => {
-              // ĐỌC KẾT QUẢ (2026-08-16) — xem ghi chú ở nút Xoá.
-              setPending(true);
-              const xong = await setListingStatus(
-                l.id,
-                l.status === "open" ? "closed" : "open",
-              );
-              setPending(false);
-              onFailed(
-                xong
-                  ? null
-                  : "Chưa đổi được trạng thái tin — cần có mạng, thử lại khi có sóng.",
-              );
-              if (xong) onChanged();
-            }}
-            className="flex min-h-[2.75rem] items-center gap-1.5 text-[0.9375rem] font-bold text-sea disabled:opacity-50"
-          >
-            <CheckIcon className="h-4 w-4" />
-            {pending
-              ? "Đang gửi…"
-              : l.status === "open"
-                ? "Đánh dấu đã xong"
-                : "Mở lại tin"}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onDelete}
-            className="flex min-h-[2.75rem] items-center gap-1.5 text-[0.9375rem] font-bold text-danger disabled:opacity-50"
-          >
-            <TrashIcon className="h-4 w-4" /> {deleting ? "Đang xoá…" : "Xóa"}
-          </button>
-        </div>
-      )}
     </Card>
   );
 }
@@ -366,17 +383,26 @@ function ListingForm({
   onCancel: () => void;
   onSaved: () => void;
 }) {
+  /*  ĐIỀN SẴN thứ MÁY ĐÃ BIẾT (luật C1 câu hỏi 2): tên hiển thị + tỉnh/bến lấy
+      từ hồ sơ tàu đang chọn, SĐT lấy từ tài khoản — chính nhãn cũ đã tự thú
+      "để trống thì lấy SĐT tài khoản", tức là biết mà vẫn hỏi. Vẫn sửa được:
+      mở hàng "Người đăng". */
+  const { current } = useBoats();
+  const { phone: accountPhone } = useAuthUser();
   const [side, setSide] = useState<ListingSide>("ban");
   const [posterKind, setPosterKind] = useState<PosterKind>("ngu-dan");
-  const [posterName, setPosterName] = useState("");
+  const [posterName, setPosterName] = useState(current?.name ?? "");
   const [species, setSpecies] = useState("");
   const [quantity, setQuantity] = useState("");
   const [priceText, setPriceText] = useState("");
-  const [province, setProvince] = useState("");
-  const [phone, setPhone] = useState("");
+  const [province, setProvince] = useState(current?.homeProvince ?? "");
+  const [phone, setPhone] = useState(accountPhone ?? "");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /* Hai nhóm THU LẠI mặc định — 9 ô bày sẵn trong sheet trần 85dvh là quá tay */
+  const [showWho, setShowWho] = useState(false);
+  const [showMore, setShowMore] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -418,7 +444,7 @@ function ListingForm({
                   type="button"
                   onClick={() => setSide(s)}
                   aria-pressed={on}
-                  className={`min-h-[3.25rem] rounded-2xl text-[1.0625rem] font-bold transition active:scale-[0.98] ${
+                  className={`min-h-[3.5rem] rounded-2xl text-[1rem] font-bold transition active:scale-[0.98] ${
                     on ? "text-white" : "bg-field text-navy/65"
                   }`}
                   style={on ? { backgroundColor: "var(--t2)" } : undefined}
@@ -430,28 +456,6 @@ function ListingForm({
           </div>
         </div>
 
-        <Field label="Tên hiển thị (bắt buộc)">
-          <input
-            value={posterName}
-            onChange={(e) => setPosterName(e.target.value)}
-            className={inputClass}
-            placeholder="VD: Tàu ông Bảy, Vựa cô Ba"
-            required
-          />
-        </Field>
-        <Field label="Bà con là">
-          <select
-            value={posterKind}
-            onChange={(e) => setPosterKind(e.target.value as PosterKind)}
-            className={inputClass}
-          >
-            {POSTER_KINDS.map((k) => (
-              <option key={k.value} value={k.value}>
-                {k.label}
-              </option>
-            ))}
-          </select>
-        </Field>
         <Field label="Loài cá (bắt buộc)">
           <input
             value={species}
@@ -461,66 +465,149 @@ function ListingForm({
             required
           />
         </Field>
-        <Field label="Khối lượng">
-          <input
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            className={inputClass}
-            placeholder="VD: ~1,2 tấn/chuyến, 500 kg"
-          />
-        </Field>
-        <Field label="Giá mong muốn">
-          <input
-            value={priceText}
-            onChange={(e) => setPriceText(e.target.value)}
-            className={inputClass}
-            placeholder="VD: 130 nghìn/kg trở lên, theo chợ"
-          />
-        </Field>
-        <Field label="Tỉnh / bến">
-          <input
-            value={province}
-            onChange={(e) => setProvince(e.target.value)}
-            className={inputClass}
-            placeholder="VD: Khánh Hòa"
-          />
-        </Field>
-        <Field label="Số điện thoại (để trống thì lấy SĐT tài khoản)">
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className={inputClass}
-            inputMode="tel"
-            placeholder="VD: 0901234567"
-          />
-        </Field>
-        <Field label="Ghi chú">
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            className={inputClass}
-            placeholder="VD: cá ướp đá chuẩn, về bến sáng mai"
-          />
-        </Field>
 
-        {error && (
-          <p className="mb-2 rounded-xl bg-danger-bg px-3 py-2 text-[0.9375rem] font-semibold text-danger">
-            {error}
-          </p>
+        {/* Người đăng — máy đã biết, chỉ hiện dòng đọc-được + đường sửa */}
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="truncate text-[1rem] text-foreground/80">
+              Người đăng:{" "}
+              <span className="font-bold text-navy">
+                {posterName.trim() || "chưa đặt tên"}
+              </span>
+              {province.trim() ? ` · ${province}` : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowWho((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <EditIcon className="h-6 w-6" />
+            {showWho ? "Thu" : "Sửa"}
+          </button>
+        </div>
+
+        {showWho && (
+          <>
+            <Field label="Tên hiển thị (bắt buộc)">
+              <input
+                value={posterName}
+                onChange={(e) => setPosterName(e.target.value)}
+                className={inputClass}
+                placeholder="VD: Tàu ông Bảy, Vựa cô Ba"
+                required
+              />
+            </Field>
+            <Field label="Bà con là">
+              <select
+                value={posterKind}
+                onChange={(e) => setPosterKind(e.target.value as PosterKind)}
+                className={inputClass}
+              >
+                {POSTER_KINDS.map((k) => (
+                  <option key={k.value} value={k.value}>
+                    {k.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Tỉnh / bến">
+              <input
+                value={province}
+                onChange={(e) => setProvince(e.target.value)}
+                className={inputClass}
+                placeholder="VD: Khánh Hòa"
+              />
+            </Field>
+            <Field label="Số điện thoại (để trống thì lấy SĐT tài khoản)">
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className={inputClass}
+                inputMode="tel"
+                placeholder="VD: 0901234567"
+              />
+            </Field>
+          </>
         )}
 
-        <div className="mt-2 grid grid-cols-2 gap-3">
+        {/* Khối lượng · giá · ghi chú: bỏ đi vẫn đăng được ⇒ thu sau một nút */}
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="truncate text-[1rem] text-foreground/80">
+              Khối lượng, giá:{" "}
+              <span className="font-bold text-navy">
+                {[quantity.trim(), priceText.trim()]
+                  .filter(Boolean)
+                  .join(" · ") || "chưa ghi"}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowMore((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <PlusIcon className="h-6 w-6" />
+            {showMore ? "Thu" : "Chi tiết"}
+          </button>
+        </div>
+
+        {showMore && (
+          <>
+            <Field label="Khối lượng">
+              <input
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                className={inputClass}
+                placeholder="VD: ~1,2 tấn/chuyến, 500 kg"
+              />
+            </Field>
+            <Field label="Giá mong muốn">
+              <input
+                value={priceText}
+                onChange={(e) => setPriceText(e.target.value)}
+                className={inputClass}
+                placeholder="VD: 130 nghìn/kg trở lên, theo chợ"
+              />
+            </Field>
+            <Field label="Ghi chú">
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                className={inputClass}
+                placeholder="VD: cá ướp đá chuẩn, về bến sáng mai"
+              />
+            </Field>
+          </>
+        )}
+
+        {/* Hàng cuối theo khuôn B1 — hai ô nút inline, không dải ngang ăn hàng */}
+        <div className="mt-2 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p
+              className={`text-[0.9375rem] ${error ? "font-semibold text-danger" : "text-foreground/70"}`}
+            >
+              {error ?? "Tin hiện cho cả làng xem."}
+            </p>
+          </div>
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            className={`${SQ_BTN} bg-background text-foreground/70`}
           >
+            <CloseIcon className="h-6 w-6" />
             Hủy
           </button>
-          <PrimaryButton type="submit" disabled={saving}>
-            {saving ? "Đang đăng…" : "Đăng tin"}
-          </PrimaryButton>
+          <button
+            type="submit"
+            disabled={saving}
+            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta disabled:opacity-40 disabled:shadow-none`}
+          >
+            <CheckIcon className="h-6 w-6" />
+            {saving ? "Đang đăng" : "Đăng tin"}
+          </button>
         </div>
       </form>
     </BottomSheet>

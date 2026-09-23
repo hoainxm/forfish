@@ -16,7 +16,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requirePermission, requireStaff } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
-import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
+import { isAdminPhone, isMasterAgentPhone, parseAdminPhones } from "@/lib/admin";
 import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
 import { TEMP_RESET_PASSWORD } from "@/lib/temp-password";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
@@ -273,17 +273,30 @@ export async function GET() {
   // chưa cấp ai → thấy RỖNG (an toàn, không lộ khách người khác).
   let visible = accounts;
   if (who.role === "manager") {
-    const owned = new Set<string>();
-    try {
-      const { data: g } = await admin
-        .from("premium_grants")
-        .select("customer_phone")
-        .eq("granted_by", who.phone);
-      for (const row of g ?? []) owned.add(row.customer_phone as string);
-    } catch {
-      /* premium_grants chưa có → đại lý thấy rỗng */
+    if (
+      isMasterAgentPhone(who.phone, parseAdminPhones(process.env.MASTER_AGENT_PHONES))
+    ) {
+      // ĐẠI LÝ TỔNG (env MASTER_AGENT_PHONES): thấy MỌI khách CÒN PREMIUM hiệu
+      // lực, ẨN khách thường. Scope ở SERVER như đại lý thường — không chỉ ẩn UI.
+      const now = Date.now();
+      visible = accounts.filter(
+        (a) => resolveTier(a.tier, a.premiumUntil, now) === "premium",
+      );
+    } else {
+      // đại lý thường — CHỈ khách MÌNH cấp premium (granted_by). Bảng log chưa
+      // có / chưa cấp ai → thấy RỖNG (an toàn, không lộ khách người khác).
+      const owned = new Set<string>();
+      try {
+        const { data: g } = await admin
+          .from("premium_grants")
+          .select("customer_phone")
+          .eq("granted_by", who.phone);
+        for (const row of g ?? []) owned.add(row.customer_phone as string);
+      } catch {
+        /* premium_grants chưa có → đại lý thấy rỗng */
+      }
+      visible = accounts.filter((a) => owned.has(a.phone));
     }
-    visible = accounts.filter((a) => owned.has(a.phone));
   }
 
   // THỐNG KÊ THEO NGƯỜI CẤP: mỗi khách tính theo lần cấp GẦN NHẤT

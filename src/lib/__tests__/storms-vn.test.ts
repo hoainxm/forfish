@@ -324,6 +324,15 @@ describe("pickLatestNchmfBulletin", () => {
       pickLatestNchmfBulletin(`<a href="https://x/kttv/vi-VN/1/ban-tin-thuy-van-post1.html">x</a>`),
     ).toBeNull();
   });
+
+  it("NGUỒN DỰ PHÒNG: trang 'thời tiết nguy hiểm' (đường dẫn kttvsite) vẫn bắt được ATNĐ", () => {
+    // Backup index dùng kttvsite (khác kttv của index chính) — SLUG_RE nhận cả hai.
+    // Link thật đo được 2026-08-31 khi index chính bỏ sót áp thấp.
+    const backup =
+      `<a href="https://nchmf.gov.vn/kttvsite/vi-VN/1/tin-ap-thap-nhiet-doi-tren-bien-dong-post54480.html">ATNĐ</a>` +
+      `<a href="https://nchmf.gov.vn/kttvsite/vi-VN/1/tin-du-bao-mua-lon-post54442.html">mưa</a>`;
+    expect(pickLatestNchmfBulletin(backup)).toContain("post54480");
+  });
 });
 
 describe("htmlToText", () => {

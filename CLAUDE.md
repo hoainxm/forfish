@@ -56,6 +56,56 @@ Mọi thay đổi `src/` phải update doc app-map tương ứng **TRONG CÙNG C
 
 Test: **Vitest** (`npm test`, test tại `src/lib/__tests__/`) — thêm logic mới vào `src/lib/` thì viết test kèm cùng commit. **Node ≥ 20** (CI pin 20); script `test` = `node scripts/run-vitest.mjs` — file bọc CHỈ thêm cờ `--no-experimental-webstorage` khi Node ≥22 (để tắt localStorage native che localStorage của jsdom), còn Node 20 thì bỏ cờ (cờ chưa tồn tại → truyền qua NODE_OPTIONS sẽ làm Node exit 9). ⚠️ ĐỪNG quay lại `NODE_OPTIONS=--no-experimental-webstorage vitest run`: nó làm CI Node 20 đỏ (exit 9) và hỏng `npm test` trên Windows (cú pháp gán biến kiểu bash). Nhờ file bọc, `npm test` xanh trên CI (Node 20), máy dev (Node 22/26) và Windows. Skip chỉ cho phép với pure UI tweak / config-only / doc-only, note rõ trong commit message.
 
+## Dữ liệu bản đồ trong git — CHỐNG PHÌNH (chốt 2026-08-29)
+
+> Deploy **trên Vercel**, `public/data/` phát thẳng làm asset tĩnh. Nhưng git giữ **vĩnh viễn từng bản** của mọi file nhị phân/JSON lớn: sinh lại một file 42 MB là 42 MB nằm lại trong lịch sử **mãi mãi**, clone chậm cho cả team. Mốc hiện tại: `.git` **114 MB**, `public/data/` **96 MB**.
+
+| # | Quy tắc | Vì sao |
+|---|---|---|
+| 1 | **Một lớp = MỘT file.** Đổi nội dung thì ĐÈ, không đẻ `-v2`/`-old`/`.bak`. Đường dẫn ổn định là điều kiện để service worker làm mới đúng (xem `precacheOne`) | Mỗi biến thể là một bản sao trọn vẹn trong lịch sử |
+| 2 | **Chỉ commit mức CHI TIẾT nhất.** Các mức nhẹ hơn **sinh lúc build** — giản lược Douglas–Peucker là phép cục bộ, không cần mạng, chạy được trong `npm run build` trên Vercel | Repo gánh 76 MB thay vì 125 MB, và ba mức không bao giờ lệch nhau |
+| 3 | **Sinh lại là hành động CÓ CHỦ Ý, không phải phản xạ.** Ghim ngày chốt nguồn trong chính file; chỉ sinh lại khi nguồn thật sự đổi, không phải khi sửa một dòng script | Mỗi lần chạy `generate-*.mjs` là một khoản nợ lịch sử không trả lại được |
+| 4 | **Trần dung lượng, hook chặn**: một file `public/data/**` > **20 MB**, hoặc cả thư mục > **120 MB** → BLOCK. Muốn vượt thì ghi lý do vào commit message với dòng `data-budget: <lý do>` | Trần đặt ở chỗ còn kịp nghĩ lại, không phải lúc clone đã 500 MB |
+| 5 | **CẤM file dữ liệu tạm trong cây làm việc.** Kết quả dò, mẫu API, bản nháp → để ngoài repo (thư mục tạm của phiên). Hook chặn `*.json`/`*.html` mới ở gốc repo | Đã dính thật 2026-08-29: agent để lại `da.json`, `hp.json`, `da2.json`, `enc_list.html` ở gốc |
+| 6 | **Không dùng Git LFS mà chưa thử deploy trước.** Vercel không tài liệu hoá việc checkout object LFS; file thành con trỏ là bản đồ chết ngoài biển mà build vẫn xanh | Hỏng ở đúng chỗ không ai kiểm: production, offline |
+
+**Khi trần 120 MB thật sự chật**: chủ dự án chốt 2026-08-29 là **dữ liệu nằm trong code**, KHÔNG đưa ra Vercel Blob hay CDN ngoài. Lý do không phải sở thích: `public/data/` hôm nay đi theo deployment và phát qua CDN Vercel — nén Brotli sẵn, không tính tiền riêng; cho app tải thẳng từ Blob là biến **mỗi lượt bà con tải** thành băng thông CÓ ĐO ĐẾM (42–76 MB × vài trăm ngư dân = hàng chục GB/tháng). Đổi một vấn đề của người phát triển lấy một hoá đơn vận hành.
+
+> Nên đường đi khi chật là **ĐỔI ĐỊNH DẠNG LƯU, không đổi chỗ lưu**. Đo thật: GeoJSON tốn **19,8 byte mỗi đỉnh toạ độ** vì lưu số thành chữ; delta + zigzag + varint (đúng thứ MVT dùng) cho ~4–5 byte/đỉnh — lớp rạn 76 MB xuống còn khoảng 17 MB, lọt dưới trần mà không mất một đỉnh nào. Hết đường đó rồi mới tính chuyện ra khỏi git.
+
+## Nguồn dữ liệu — ĐỪNG TỰ GIỚI HẠN (chốt 2026-08-31)
+
+> **Bản đồ là MIỄN PHÍ. Cái bán là DỰ BÁO CÁ.** `src/lib/tier.ts`: *"Premium mở: dự báo cá + thời tiết quá 3 ngày."* Độ sâu · phao đèn · rạn · đẳng sâu · nền bản đồ · thuỷ triều — tất cả cho không, mọi tài khoản.
+
+Lỗi đã dính nhiều lần: agent đọc "SDFish là sản phẩm thương mại" rồi **loại thẳng** nguồn ghi *non-commercial*, dù nguồn đó chỉ dùng cho **lớp bản đồ miễn phí**. Ràng buộc bị áp sai chỗ, và mất nguồn tốt vì một lý do không tồn tại.
+
+**Luật đúng — nó ngược với trực giác:**
+
+| Nguồn dùng cho | Ràng buộc "phi thương mại" |
+|---|---|
+| Lớp **bản đồ** (miễn phí) | **KHÔNG chặn.** Không thu tiền ai để xem bản đồ |
+| **Dự báo cá**, thời tiết >3 ngày (bán) | **CÓ chặn.** Đây mới là chỗ đồng tiền đi qua |
+
+Nghĩa là ràng buộc cắn đúng chỗ có tiền, không cắn lớp bản đồ. Đừng gộp hai thứ.
+
+**Vẫn là cổng chặn thật, đừng lẫn với điều trên:**
+- **Copyleft phần mềm** (GPL của bộ ký hiệu OpenCPN, share-alike ODbL của OSM) — đây là ràng buộc lên **mã và cơ sở dữ liệu**, không phải chuyện thu tiền hay không. Vẫn phải tránh.
+- **Cấm "adapted"** (IHO S-52) — cấm cả việc vẽ lại theo hình của họ, bất kể miễn phí.
+- **Chủ quyền** — nguồn nào buộc ghi "South China Sea" hay tên Trung Quốc thì loại, dù giấy phép sạch tới đâu.
+
+**Thông tin nhà nước Việt Nam công bố công khai** (Thông báo hàng hải, tin bão, danh mục báo hiệu): doanh nghiệp hiện thực hoá thành ứng dụng cho bà con là việc bình thường. Điều 15 Luật SHTT loại "văn bản hành chính" và "số liệu" khỏi bảo hộ quyền tác giả. **Đừng viết câu dè chừng nào cho nhóm này.**
+
+## Dữ liệu phát ra ngoài — MÃ HOÁ HAI NHÓM (chốt 2026-09-16, "PWA trước")
+
+> `public/data/**` phát ra CDN là **bản mã**; trong git vẫn **bản RÕ** (test/script/hook đọc thẳng). `npm run build` = `node scripts/encode-data.mjs && next build` — chỉ mã tại chỗ khi `VERCEL=1`/`SDFISH_ENCODE_DATA=1`; lỡ chạy máy dev: `git checkout -- public/data`. Trần PWA: người CÓ tài khoản vẫn rút được khoá; đạt được là người KHÔNG tài khoản tải file là rác, lộ thì tra ra ai nhận khoá.
+
+- **SDF1** (miễn phí/OSM: nền, bờ, đảo, rạn, tuyến, seamarks, tide-stations cho thẻ Trang chủ của khách): hoán vị byte, bảng trong bundle = khoá cửa. Giữ nén Brotli, giải được lát Range.
+- **SDF2** (biên tập — danh sách `CURATED` ở `scripts/encode-data.mjs`): gzip + AES-256-CTR, khoá ở `app_config.data_key_current` (admin đổi ở `/quan-tri`; **build đầu tự sinh**; env `SDFISH_DATA_KEY` chỉ đè khi build tay). Đổi khoá ⇒ cũ trượt sang `data_key_prev`, route trả cả hai; deploy lại. App cất `forfish.datakey.v1`. Thêm lớp mới tốn công ⇒ thêm vào `CURATED`.
+- Code: `src/lib/data-codec.mjs` · `data-crypt.ts` · `inflate.mjs` (iOS 15) · `data-fetch.ts` (một cửa đọc — **CẤM `fetch("/data/…")` trần**, cổng `data-codec.test.ts`) · `data-protocol.ts` (`sdfdata://`) · `pmtiles-protocol.ts` (`DecodingSource`) · `data-key.ts`/`data-key-server.ts`. Chi tiết: 02 re-verified 2026-09-16/16b.
+- **Gác MỌI route dữ liệu** ("server mình là nguồn thì đều bảo vệ"): `middleware.ts` matcher 11 đường đích danh → `dataGate` (`lib/supabase/middleware.ts`): 401 không chuỗi thiết bị · 403 premium (dự báo cá; `grid:dN`/`scalar:*:dN` N>3) · 429 theo SĐT (fish 60 · data 600 · tiles 3000 / 10 phút); đệm danh tính 10 phút. Luật thuần `lib/data-route-rules.ts`, cổng `data-route-rules.test.ts` đỏ khi thêm route dữ liệu mà quên gác. Client gửi `tokenHeader()`; khách chưa đăng nhập hết tin bão/giá.
+- **Tham số mô hình ra khỏi bundle**: `scripts/build-model-params.mjs` gộp `src/data/fish-blend-weights.json` + `forecast-skill.json` → `public/data/model-params.v1.json` (SDF2); app đọc qua `lib/model-params.ts`. **Fit/backtest xong phải chạy lại script** — cổng `model-params.test.ts` bắt lệch.
+- Kèm: LICENSE độc quyền SDVICO (ODbL §4.6 lớp OSM vẫn đưa bản rõ khi có yêu cầu), rate limit `/api/fish-forecast` 60/10 phút (`rate-limit.ts`, per-instance — nợ đã ghi).
+
 ## Pre-flight risk flags — dừng lại hỏi user khi
 
 - 🔴 **DB/migration**: đụng `supabase/migrations/`, RLS, schema (project ref `znzgugvfhgmiszqgjulk`) — KHÔNG tự apply lên remote

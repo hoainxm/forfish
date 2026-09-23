@@ -82,6 +82,11 @@ node scripts/generate-ios-screenshots.mjs  # iPhone 6.5"/6.7" + iPad 12.9"/13"
 ```bash
 # 1. Đồng bộ web → native
 npm run build                 # nếu chế độ (b) static bundle; chế độ (a) server.url thì web deploy Vercel là đủ
+#   ⚠ 2026-09-16: `npm run build` = encode-data + next build. Trên máy dev script BỎ QUA (không có VERCEL=1)
+#   ⇒ bundle static chế độ (b) mang bản RÕ. Muốn bundle native mang bản mã: SDFISH_ENCODE_DATA=1 npm run build
+#   rồi `git checkout -- public/data` để trả cây làm việc về bản rõ. Vercel tự mã hoá, không cần làm gì.
+#   Khoá SDF2 lấy từ app_config.data_key_current (Vercel có SUPABASE_SERVICE_ROLE_KEY lúc build; trống thì build tự sinh).
+#   Build tay không có Supabase: SDFISH_DATA_KEY=<hex của DB> SDFISH_ENCODE_DATA=1 npm run build (khoá PHẢI trùng DB, không thì app không giải được).
 npm run cap:sync              # cap sync — copy web + plugin sang android/
 npm run icons                 # đảm bảo icon đúng
 
@@ -110,7 +115,7 @@ cd android
 Workflow `.github/workflows/android-release.yml` gộp §3 bước 1–3 + upload Play qua API. **Trigger: bấm tay** (Actions → *Android release* → Run workflow) **hoặc push tag `vX.Y.Z`**. KHÔNG chạy mỗi push — chế độ (a) `server.url` nên đa số cập nhật chỉ cần deploy Vercel, không cần binary.
 
 **Cơ chế:**
-- `versionCode = 10000 + run_number` → tự tăng, đơn điệu, khỏi sửa `build.gradle` tay. `versionName` lấy từ input hoặc tag (`v1.0.4` → `1.0.4`); `build.gradle` đọc qua `-PappVersionCode/-PappVersionName` (fallback giá trị chốt tay khi build local).
+- `versionCode = date -u +%y%j%H%M` (năm·ngày-trong-năm·giờ·phút, vd `262471125` — rà soát Actions 2026-09-04 mục A: KHÔNG dùng run_number vì đó là bộ đếm riêng từng repo, hai repo cùng file là hai bộ đếm, bên nào phát hành số lớn trước là bên kia bị Play từ chối mãi) → tự tăng, đơn điệu ở mọi repo, khỏi sửa `build.gradle` tay. `versionName` lấy từ input hoặc tag (`v1.0.4` → `1.0.4`); `build.gradle` đọc qua `-PappVersionCode/-PappVersionName` (fallback giá trị chốt tay khi build local).
 - Ký bằng keystore khôi phục từ secret → ghi `android/keystore.properties` runtime (không commit).
 - Upload bằng plugin **Gradle Play Publisher** (`com.github.triplet.play`, classpath ở `android/build.gradle`, block `play{}` ở `android/app/build.gradle`) đọc credential từ env `ANDROID_PUBLISHER_CREDENTIALS`. Track mặc định `internal`.
 - KHÔNG chạy `cap add`; chỉ `cap sync` + `npm run icons`. Web là **stub** (`out/index.html`) vì `server.url` load Vercel lúc chạy.

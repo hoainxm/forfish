@@ -11,6 +11,8 @@ import { loadForecast, saveForecast } from "@/lib/forecast-cache";
 import { forecastStoreReady } from "@/lib/forecast-store";
 import { timeoutSignal } from "@/lib/abort";
 import type { StormTrack } from "@/lib/storm-track";
+import type { EarlyWarning } from "@/lib/storm-early";
+import { tokenHeader } from "@/lib/device-token-store";
 
 export type StormAlert = {
   id: string;
@@ -39,6 +41,11 @@ export type StormCheck =
           vì bản tin ĐÃ LƯU trong máy từ trước bản này không có trường đó — đọc
           cache cũ phải chạy bình thường, không được ném. */
       tracks?: StormTrack[];
+      /** CẢNH BÁO SỚM (2026-09-09): vùng áp thấp có khả năng mạnh lên thành
+          ATNĐ/bão — tin MỀM, đi chung payload để offline tự có (xem
+          lib/storm-early.ts). Optional: bản cache cũ không có trường này. null =
+          bản tin biển không báo khả năng hình thành. */
+      earlyWarning?: EarlyWarning | null;
     }
   | { ok: false };
 
@@ -339,7 +346,12 @@ export async function fetchStormCheck(): Promise<StormCheck> {
 
   try {
     const r = await fetch(apiUrl("/api/storms"), {
-      signal: timeoutSignal(20000),
+      headers: tokenHeader(),
+      // 28s > trần route (NCHMF 2×12s = 24s): mạng sống-mà-chậm vẫn chờ được tin
+      // THẬT thay vì lùi sớm về bản cache cũ. App vẫn hiện bản đã lưu trong lúc
+      // chờ (không treo UI), nên chờ lâu hơn một chút cho thứ dính tính mạng là
+      // đáng. Mất sóng thật thì fetch hỏng tức thì, không đụng trần này.
+      signal: timeoutSignal(28000),
     });
     if (r.ok) {
       const j = (await r.json()) as StormCheck;

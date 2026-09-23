@@ -1,0 +1,197 @@
+# CANH "CẬP NHẬT HẢI ĐỒ GIẤY" CỦA NHÀ NƯỚC — vmsa.vn, mỗi tuần một bản tin.
+#
+# Tổng công ty Bảo đảm an toàn hàng hải Việt Nam mỗi tuần đăng một bản tin liệt
+# kê Thông báo hàng hải trong tuần và những tờ hải đồ bị ảnh hưởng:
+#   https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433
+# Đây là ĐẦU NGUỒN của các lớp hải đồ trong app (số đo sâu, báo hiệu, đèn biển,
+# xác tàu). Workflow này giữ một cuốn sổ để KHÔNG BỎ SÓT tuần nào:
+#   `docs/app-map/_generated/cap-nhat-hai-do.json`
+#
+# ═══ VÌ SAO CHỈ GHI SỔ, KHÔNG TỰ DỰNG LẠI LỚP BẢN ĐỒ ══════════════════════
+# Dữ liệu dẫn đường sai thì bà con đâm vào chỗ cạn. Repo này đã chốt "parse
+# trượt ⇒ KHÔNG ghi hàng rỗng" cho bản tin bão vì *một hàng sai là một khúc
+# đường vẽ sai, nằm lại vĩnh viễn*. Để robot tự ghi độ sâu mới vào hải đồ mà
+# không ai đọc lại là đúng cái sai đó, phóng to. Thêm nữa, các `generate-*.mjs`
+# đọc kho PDF nằm NGOÀI repo (nhiều GB) — dựng lại từ mỗi tuần mới sẽ ra file
+# chỉ có tuần đó, tức XOÁ dữ liệu cũ. Nên máy CANH nguồn, người quyết số.
+#
+# ═══ NHỊP: THEO CHU KỲ NHÀ NƯỚC, CÓ LƯỢT VÉT ══════════════════════════════
+# Nguồn phát THEO TUẦN, gần như luôn thứ Hai — nhưng KHÔNG phải luôn: đo thật
+# trên chính danh mục, tuần 33/2026 đăng thứ Năm 14/08 (và tuần 32 ngày 03/08
+# rồi nhảy 11 ngày). Gõ đúng mỗi thứ Hai là có tuần lọt tới bảy ngày sau mới
+# biết. Nên: thứ Hai (lượt chính) + thứ Năm (lượt vét).
+#
+# GitHub tính tiền Actions THEO JOB, làm tròn LÊN 1 phút (bài học `storms.yml`
+# 2026-08-18: hai workflow nhịp dày ≈ 19 USD/tháng). Ở đây 2 lượt/tuần ≈ 8
+# phút/tháng — coi như không. Và mỗi lượt chỉ gõ vmsa.vn **2 request** khi
+# không có gì mới (1 trang danh mục + 1 bản tin chưa bóc được), vì script bỏ
+# qua mọi bản tin đã nằm trong sổ.
+#
+# ═══ THỬ LẠI: BA LỚP ══════════════════════════════════════════════════════
+#   1. TRONG MỖI REQUEST — `scripts/lib/tai-lai.mjs`: 4 lượt, nghỉ 2s→5s→12s,
+#      đồng hồ chặn 25s/lượt. 4xx thì KHÔNG thử lại (404 gõ thêm vẫn 404).
+#   2. TRONG JOB — bước dưới chạy lại cả script tối đa 3 lượt, nghỉ 1 phút rồi
+#      5 phút. Lớp này lo ca "web nhà nước nằm vài phút rồi dậy".
+#   3. GIỮA CÁC LƯỢT — thứ Năm vét lại tuần thứ Hai hụt; và bản tin nào chưa
+#      vào sổ thì lượt sau vẫn thấy nó thiếu, tự đọc lại. Không cần trạng thái.
+# Hết cả ba lớp vẫn hỏng ⇒ job ĐỎ, để có người biết. Nguồn chết một tuần không
+# phải lỗi mình, nhưng im lặng thì tuần sau không ai nhớ ra mà kiểm.
+#
+# ═══ ẢNH HƯỞNG OFFLINE: KHÔNG ═════════════════════════════════════════════
+# Sổ ghi vào `docs/` chứ KHÔNG vào `public/data/` — app không đọc nên không
+# bắt bà con tải thêm byte nào. Không thêm request mạng lúc mở app, không đụng
+# `public/sw.js`, không đụng khoá `forfish.*`, không đè dữ liệu đã tải.
+#
+# CẦN CẤU HÌNH: không có. Dùng `GITHUB_TOKEN` sẵn có (`contents: write`).
+# Đẩy bằng `GITHUB_TOKEN` KHÔNG kích hoạt workflow khác (GitHub chặn đệ quy),
+# nên commit của sổ này không gọi `ci.yml` — cố ý, sổ không đụng `src/`.
+name: cập nhật hải đồ (vmsa.vn)
+
+on:
+  schedule:
+    # 09:00 UTC = 16:00 giờ VN — sau giờ hành chính, bản tin trong ngày đã lên
+    - cron: "0 9 * * 1" # thứ Hai — lượt chính, đúng chu kỳ nguồn
+    - cron: "0 9 * * 4" # thứ Năm — lượt vét cho tuần đăng muộn
+  workflow_dispatch:
+    inputs:
+      tat_ca:
+        description: "Quét HẾT mọi trang danh mục (dựng lại sổ từ đầu — chậm, ~150 request)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: cap-nhat-hai-do
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  canh-nguon:
+    # ═══ CHỈ CHẠY Ở REPO CÔNG TY (chủ dự án chốt 2026-09-04) ═══════════════
+    # File này CÓ MẶT ở cả hai repo — để code hai bên không lệch nhau, và để
+    # ai đọc repo nào cũng thấy đường ống này tồn tại. Nhưng CHẠY thì chỉ một
+    # nơi, vì hai lý do:
+    #
+    #  1. Hạn mức Actions của repo `Long-Forfun/ForFish` đã hết (cùng lý do
+    #     `storms.yml` phải nhờ runner repo công ty gõ hộ). Chạy ở đó là job
+    #     đỏ đều đặn mỗi tuần, không phải vì nguồn hỏng.
+    #  2. Nguy hơn: hai con robot cùng canh một nguồn rồi mỗi đứa đẩy sổ vào
+    #     một remote ⇒ hai cuốn sổ phân kỳ, và người đọc không biết cuốn nào
+    #     là thật. Một nguồn sự thật, một nơi ghi.
+    #
+    # So sánh chuỗi trong biểu thức Actions KHÔNG phân biệt hoa thường, nên
+    # không phải lo `sdvico` viết kiểu gì. Repo khác thì job hiện "skipped",
+    # KHÔNG tốn phút runner nào.
+    if: github.repository == 'sdvico/forfish'
+    runs-on: ubuntu-latest
+    # Trần thời gian (rà soát 2026-09-04, mục C): mặc định GitHub là 360 phút —
+    # một lần treo tính đủ 6 giờ, bằng 18 % hạn mức tháng.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # KHÔNG `npm ci`: script chỉ dùng `node:fs`/`fetch` sẵn có của Node 20.
+      # Cài 1.000 gói để chạy một file không dependency là phí một phút job.
+
+      - name: Đọc bản tin mới từ vmsa.vn (thử lại 3 lượt)
+        id: quet
+        env:
+          TAT_CA: ${{ inputs.tat_ca }}
+        run: |
+          set -o pipefail
+          CO=""
+          if [ "$TAT_CA" = "true" ]; then CO="--tat-ca"; fi
+          # Nghỉ 60s rồi 300s giữa các lượt — đủ cho một lần khởi động lại của
+          # web đời cũ, mà cả bước vẫn dưới 8 phút nên không đội giờ job.
+          NGHI="60 300"
+          n=0
+          for cho in $NGHI ""; do
+            n=$((n+1))
+            echo "── lượt $n ─────────────────────────────────────────────"
+            if node scripts/theo-doi-cap-nhat-hai-do.mjs $CO 2>&1 | tee quet.log; then
+              echo "ok=1" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+            if [ -n "$cho" ]; then
+              echo "::warning::Lượt $n trượt — nghỉ ${cho}s rồi thử lại."
+              sleep "$cho"
+            fi
+          done
+          echo "::error::Đã thử $n lượt, vmsa.vn vẫn không đọc được. Sổ giữ nguyên, lượt sau tự vét."
+          exit 1
+
+      # Tóm tắt hiện thẳng trên trang chạy — không phải mở log mới biết tuần
+      # này có gì. Đây là chỗ NGƯỜI đọc để quyết "có cần dựng lại lớp nào không".
+      - name: Ghi tóm tắt
+        if: always()
+        run: |
+          {
+            echo "## Cập nhật hải đồ giấy — vmsa.vn"
+            echo
+            grep -E '^(Thêm mới|Sổ hiện có|Có [0-9]+ bản tin)' quet.log 2>/dev/null || true
+            echo
+            if grep -q '^  + ' quet.log 2>/dev/null; then
+              echo "### Thông báo mới trong tuần"
+              echo '```'
+              grep '^  + ' quet.log
+              echo '```'
+              echo "> Đụng tới lớp nào (số đo sâu · báo hiệu · đèn · xác tàu) thì dựng lại lớp đó"
+              echo "> bằng \`scripts/generate-*.mjs\` trên máy có kho PDF. Robot KHÔNG tự ghi."
+            else
+              echo "_Không có thông báo mới._"
+            fi
+            if grep -q '^  ? ' quet.log 2>/dev/null; then
+              echo
+              echo "### ⚠ Bản tin chưa bóc được (bảng lồng nhau) — cần mở tay"
+              echo '```'
+              grep '^  ? ' quet.log
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Chỉ commit khi sổ ĐỔI THẬT. Script cố ý KHÔNG ghi mốc thời gian vào sổ,
+      # nên tuần không có tin mới thì file byte-identical ⇒ không đẻ commit rác.
+      - name: Ghi sổ vào repo
+        if: steps.quet.outputs.ok == '1'
+        run: |
+          SO=docs/app-map/_generated/cap-nhat-hai-do.json
+          # `git status --porcelain` chứ không `git diff`: `git diff` KHÔNG thấy
+          # file chưa được theo dõi, nên lần đầu sổ ra đời sẽ im lặng bỏ qua.
+          if [ -z "$(git status --porcelain -- "$SO")" ]; then
+            echo "Sổ không đổi — không commit."; exit 0
+          fi
+          # `grep -c` trả mã 1 khi đếm được 0 — `|| true` để không rơi ra khỏi
+          # bước, nhưng KHÔNG `|| echo 0` (grep đã in "0" rồi, sẽ thành "0\n0").
+          MOI=$(grep -c '^  + ' quet.log 2>/dev/null || true)
+          # Log mất/rỗng ⇒ chuỗi rỗng ⇒ tiêu đề commit thành "thêm  thông báo".
+          MOI=${MOI:-0}
+          TUAN=$(node -p "require('./$SO').banTinMoiNhat?.tuan ?? '?'")
+          NGAY=$(node -p "require('./$SO').banTinMoiNhat?.ngay ?? '?'")
+          git config user.name  "sdfish-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$SO"
+          git commit -F - <<EOF
+          chore(hải đồ): sổ cập nhật hải đồ giấy — tuần $TUAN ngày $NGAY, thêm $MOI thông báo
+
+          Tự động từ https://vmsa.vn/thuy-dac-428/cap-nhat-hai-do-giay-433
+          (workflow .github/workflows/cap-nhat-hai-do.yml).
+
+          Sổ chỉ GHI LẠI thông báo nhà nước đã đăng — KHÔNG tự sửa lớp hải đồ
+          nào. Tuần nào đụng số đo sâu / báo hiệu / đèn / xác tàu thì người
+          dựng lại lớp đó bằng scripts/generate-*.mjs trên máy có kho PDF.
+
+          OFFLINE: không ảnh hưởng — sổ nằm trong docs/, app không đọc, không
+          thêm request mạng, không đụng public/sw.js hay khoá forfish.*.
+          EOF
+          # Đẩy FAST-FORWARD. Nhánh chung đi nhanh (nhiều người + agent cùng
+          # đẩy) nên rebase lên bản mới nhất rồi mới đẩy; CẤM --force.
+          # `fetch` + `rebase` chứ không `pull --rebase`: checkout có thể để
+          # HEAD rời nhánh, mà `pull` ở trạng thái đó kêu "not currently on a
+          # branch" — `rebase` thì chạy được.
+          git fetch origin "${GITHUB_REF_NAME}"
+          git rebase "origin/${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

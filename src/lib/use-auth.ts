@@ -136,12 +136,24 @@ export function useAuthUser(): {
     const settle = () => {
       if (alive) setReady(true);
     };
-    // đồng hồ chặn: getUser() treo quá 8s coi như không tra được (errored) →
-    // ready vẫn bật, tier lo nấc offline-premium
-    const timer = setTimeout(() => {
-      if (alive) setErrored(true);
+    /*  ĐỒNG HỒ CHẶN 8s: getUser() treo quá lâu coi như không tra được
+        (errored) → `ready` vẫn bật, tier lo nấc offline-premium.
+
+        ⚠️ MỘT MÌNH `setTimeout` LÀ KHÔNG ĐỦ (sửa 2026-09-04, báo hiện trường
+        "iPhone 12 vào màn hình trắng"). iOS ĐÌNH CHỈ hẹn giờ của trang khi bản
+        cài PWA bị đẩy xuống nền; mở lại từ nền thì React KHÔNG remount, effect
+        này không chạy lại, và cái hẹn giờ kia có thể không bao giờ nổ ⇒ `ready`
+        kẹt `false` vĩnh viễn ⇒ `RequireLogin` vẽ đúng số không ⇒ bốn tab của
+        dock (Ra khơi / Tàu cá / Bạn thuyền / cảng) ra MÀN TRẮNG, không một chữ.
+        Nên chốt theo ĐỒNG HỒ TREO TƯỜNG, và soi lại mỗi lần màn sáng lại. */
+    const hanChot = Date.now() + 8000;
+    const heGio = () => {
+      if (!alive || Date.now() < hanChot) return;
+      setErrored(true);
       settle();
-    }, 8000);
+    };
+    const timer = setTimeout(heGio, 8000);
+    document.addEventListener("visibilitychange", heGio);
     supabase.auth
       .getUser()
       .then(({ data, error }) => {
@@ -180,6 +192,7 @@ export function useAuthUser(): {
     return () => {
       alive = false;
       clearTimeout(timer);
+      document.removeEventListener("visibilitychange", heGio);
       sub.subscription.unsubscribe();
     };
   }, []);

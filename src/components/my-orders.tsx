@@ -33,7 +33,7 @@ function statusChip(s: OrderStatus): { bg: string; fg: string } {
     case "da_nhan":
       return { bg: "var(--warn-bg)", fg: "var(--warn)" };
     case "dang_giao":
-      return { bg: "var(--sea)", fg: "#ffffff" };
+      return { bg: "var(--sea)", fg: "var(--card)" };
     case "da_giao":
       return { bg: "var(--ok-bg)", fg: "var(--ok)" };
     case "da_huy":

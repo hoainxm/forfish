@@ -130,6 +130,8 @@ export const TRANSFER_KEYS = [
   "forfish.currentBoat.v1",
   "forfish.boat.v1",
   "forfish.places.v1",
+  "forfish.routestops.v1",
+  "forfish.savedroutes.v1",
   "forfish.maintenance.v1",
   "forfish.products.v1",
   "forfish.buyers.v1",
@@ -161,6 +163,10 @@ export const NEVER_BACKUP_PREFIXES = [
   "forfish.device.",
   "forfish.heartbeat.",
   "forfish.token.",
+  /*  · `datakey.` — KHOÁ GIẢI file dữ liệu nhóm biên tập (lib/data-key), server
+   *    giao cho tài khoản đã đăng nhập. Chép sang máy khác = trao khoá cho máy
+   *    chưa từng đăng nhập; máy mới cứ đăng nhập là được cấp lại, không mất gì. */
+  "forfish.datakey.",
   /*  · `sync.` — SỔ BOOKKEEPING đồng bộ per-máy (lib/user-sync): mỗi kind đã ghi
    *    lúc nào (mốc client) + còn dirty không. Của RIÊNG máy này. Chép sang máy
    *    khác là dán mốc/dirty sai → máy nhận tưởng đã đẩy/đã mới, bỏ qua sổ thật
@@ -388,6 +394,21 @@ const PERSONAL_SPECS: Record<string, BackupGroupSpec> = {
     unit: "điểm",
     kind: "personal",
   },
+  /*  Chuỗi chỗ ghé của đường đi (lib/route-stops.ts) — cùng loại với điểm ghim:
+      toạ độ bà con tự chấm, không nguồn nào tải lại được, và là chuyện riêng
+      của tàu ⇒ chỉ đi cùng chế độ `transfer`, kèm cảnh báo đỏ. */
+  "forfish.routestops.v1": {
+    id: "routestops",
+    name: "chỗ ghé của đường đi",
+    unit: "chỗ",
+    kind: "personal",
+  },
+  "forfish.savedroutes.v1": {
+    id: "savedroutes",
+    name: "đường đi đã lưu",
+    unit: "đường",
+    kind: "personal",
+  },
   "forfish.maintenance.v1": {
     id: "maintenance",
     name: "lịch bảo dưỡng",
@@ -433,6 +454,7 @@ const NEVER_NAMES: Array<[string, string]> = [
   ["forfish.tier.", "dấu tài khoản nâng cao"],
   ["forfish.device.", "mã máy"],
   ["forfish.heartbeat.", "nhịp báo về"],
+  ["forfish.datakey.", "khoá mở dữ liệu bản đồ (máy tự xin lại khi đăng nhập)"],
   ["forfish.fcindex.", "sổ mục lục kho dự báo"],
   ["forfish.fcbia.", "danh sách lớp chờ xoá của máy này"],
 ];

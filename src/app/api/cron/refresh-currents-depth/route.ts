@@ -1,4 +1,5 @@
 import { fetchCurDepthGrid, sliceCurDepthDays } from "@/lib/copernicus-cur-depth";
+import { getCronSecret } from "@/lib/app-config";
 import { saveWeatherSnapshot } from "@/lib/weather-snapshot";
 import {
   CUR_DEPTH_TIERS,
@@ -20,14 +21,14 @@ import {
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
+async function authorized(req: Request): Promise<boolean> {
+  const secret = await getCronSecret();
   if (!secret) return false;
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
 export async function GET(req: Request) {
-  if (!authorized(req)) {
+  if (!(await authorized(req))) {
     return Response.json({ ok: false, code: "unauthorized" }, { status: 401 });
   }
   const savedAt = Date.now();

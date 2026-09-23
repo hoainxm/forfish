@@ -38,6 +38,7 @@ import {
   GRID_N_LON,
 } from "@/lib/forecast-grid";
 import { timeoutSignal } from "@/lib/abort";
+import { tokenHeader } from "@/lib/device-token-store";
 
 // mây/mưa/nhiệt/dông/áp suất = Open-Meteo (lưới gió, theo GIỜ);
 // salinity = Copernicus (lưới 1/3° riêng, theo NGÀY) qua /api/salinity;
@@ -323,6 +324,7 @@ async function fetchSalinityField(days: number): Promise<ScalarGrid> {
   }
   try {
     const r = await fetch(apiUrl(`/api/salinity?days=${Math.round(days)}`), {
+      headers: tokenHeader(),
       signal: timeoutSignal(35000),
     });
     if (!r.ok) throw new Error(`salinity ${r.status}`);
@@ -364,7 +366,7 @@ async function loadSalinitySnapshotClient(days: number): Promise<ScalarGrid | nu
   try {
     const r = await fetch(
       apiUrl(`/api/weather-snapshot?id=${salinitySnapshotId(days)}`),
-      { signal: timeoutSignal(10000) },
+      { headers: tokenHeader(), signal: timeoutSignal(10000) },
     );
     if (!r.ok) return null;
     const g = (await r.json()) as ScalarGrid;
@@ -515,7 +517,7 @@ async function loadScalarSnapshotClient(
   try {
     const r = await fetch(
       apiUrl(`/api/weather-snapshot?id=${scalarSnapshotId(kind, days)}`),
-      { signal: timeoutSignal(10000) },
+      { headers: tokenHeader(), signal: timeoutSignal(10000) },
     );
     if (!r.ok) return null;
     const g = (await r.json()) as ScalarGrid;

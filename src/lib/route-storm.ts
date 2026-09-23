@@ -17,7 +17,12 @@
 //   · nằm TRONG polygon vùng ảnh hưởng (bán kính gió) nguồn vẽ.
 
 import { haversineKm, type LatLon } from "@/lib/route-plan";
+// Điểm-trong-đa-giác dùng CHUNG với vùng cấm-vào của hải đồ (spatial-index)
+// — hai bản trôi nhau là lỗi không tự lộ. Re-export để chỗ gọi cũ không gãy.
+import { pointInRing } from "@/lib/spatial-index";
 import type { StormAlert } from "@/lib/storms";
+
+export { pointInRing };
 
 /** Đệm quanh tâm bão + hành lang track dự báo (chốt chủ dự án 2026-07-26) */
 export const STORM_SAFE_RADIUS_KM = 200;
@@ -50,22 +55,6 @@ export function distToSegmentKm(p: LatLon, a: LatLon, b: LatLon): number {
       ? 0
       : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
-}
-
-/** Ray-casting điểm-trong-ring; ring theo GeoJSON [lon,lat][] */
-export function pointInRing(p: LatLon, ring: number[][]): boolean {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, yi] = ring[i];
-    const [xj, yj] = ring[j];
-    if (
-      yi > p.lat !== yj > p.lat &&
-      p.lon < ((xj - xi) * (p.lat - yi)) / (yj - yi) + xi
-    ) {
-      inside = !inside;
-    }
-  }
-  return inside;
 }
 
 /**

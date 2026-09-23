@@ -21,6 +21,7 @@ import { FREE_FORECAST_DAYS } from "@/lib/tier";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { PremiumLock } from "@/components/premium-gate";
 import { AnchorIcon, WavesIcon, WindIcon } from "@/components/icons";
+import { loadModelParams } from "@/lib/model-params";
 
 /*
   Dự báo biển — màn hình "mở app là biết hôm nay đi hay ở":
@@ -37,9 +38,6 @@ const levelColor: Record<SeaLevel, { fg: string; bg: string }> = {
   bad: { fg: "var(--danger)", bg: "var(--danger-bg)" },
 };
 
-// Bảng skill backtest nạp 1 lần (offline, không gọi mạng) — nắn bias điểm số
-// + gán độ tin trung thực theo tầm ngày.
-const SKILL = loadForecastSkill();
 
 export function SeaForecast() {
   // Phân hạng (2026-07-26): miễn phí đúng 3 ngày (hôm nay + 2 ngày kế);
@@ -66,8 +64,11 @@ export function SeaForecast() {
     // Tầm ngày tính từ HÔM NAY tới ngày dự báo (không theo vị trí mảng) — nếu
     // sau này dãy ngày đến từ bản lưu trong máy thì độ tin vẫn đúng.
     const todayIso = isoDateVN();
-    fetchSeaForecast(p)
-      .then((raw) => {
+    // Bảng skill (model-params, SDF2) nạp cùng lúc — nắn bias + độ tin theo tầm ngày;
+    // chưa nạp được thì null = không hạ độ tin (degrade sẵn có). Không bao giờ reject.
+    Promise.all([fetchSeaForecast(p), loadModelParams()])
+      .then(([raw]) => {
+        const SKILL = loadForecastSkill();
         // Nắn bias thô theo backtest rồi mới hiển thị điểm số.
         const corrected = applyBiasCorrection(raw, SKILL, todayIso);
         setDays(corrected);
@@ -191,7 +192,7 @@ export function SeaForecast() {
             <div className="grid grid-cols-2 border-t border-black/5 bg-card">
               <p className="flex min-h-[3.5rem] items-center justify-center gap-2 text-[1rem]">
                 <WavesIcon className="h-5 w-5 text-sea" />
-                Sóng <strong>{today.waveMaxM.toFixed(1)} m</strong>
+                Sóng <strong>{today.waveMaxM.toFixed(1).replace(".", ",")} m</strong>
               </p>
               <p className="flex min-h-[3.5rem] items-center justify-center gap-2 border-l border-line text-[1rem]">
                 <WindIcon className="h-5 w-5 text-sea" />
@@ -225,11 +226,11 @@ export function SeaForecast() {
                     >
                       ●
                     </span>
-                    <span className="w-[80px] shrink-0 text-[1rem] font-semibold capitalize">
+                    <span className="w-[5rem] shrink-0 text-[1rem] font-semibold capitalize">
                       {formatDay(d.date)}
                     </span>
                     <span
-                      className="display w-[52px] shrink-0 rounded-xl py-1 text-center text-[1.125rem] font-bold tabular-nums"
+                      className="display w-[3.25rem] shrink-0 rounded-xl py-1 text-center text-[1.125rem] font-bold tabular-nums"
                       style={{
                         color: levelColor[d.level].fg,
                         backgroundColor: levelColor[d.level].bg,
@@ -238,7 +239,7 @@ export function SeaForecast() {
                       {d.score}
                     </span>
                     <span className="flex-1 text-right text-[0.9375rem] leading-snug text-foreground/70 tabular-nums">
-                      sóng {d.waveMaxM.toFixed(1)} m
+                      sóng {d.waveMaxM.toFixed(1).replace(".", ",")} m
                       {d.waveEstimated && (
                         <span className="text-foreground/45"> (ước)</span>
                       )}{" "}

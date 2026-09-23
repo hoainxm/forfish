@@ -90,20 +90,51 @@ export type NchmfBulletin = {
 
 const KHUNG_BIEN_DONG = { latMin: 0, latMax: 30, lonMin: 95, lonMax: 140 };
 
-/** "19,0-21,0N; 114,5-118,5E" → khung. null nếu không đúng hình dạng. */
+/**
+ * Vùng nguy hiểm → khung toạ độ. NCHMF ghi HAI kiểu:
+ *  · KHUNG ĐẦY ĐỦ:   "19,0-21,0N; 114,5-118,5E" (dải vĩ × dải kinh)
+ *  · NỬA MẶT PHẲNG:  "Phía Bắc 18,0N; 109,5-114,5E" HOẶC "Phía Bắc VĨ TUYẾN
+ *    18,0N; 111,5-118,0E" (mở về một phía + dải kinh) — ÁP THẤP + BÃO hay dùng;
+ *    phía MỞ chặn bằng khung Biển Đông. Chữ "vĩ tuyến" CÓ THỂ CÓ HOẶC KHÔNG.
+ * null nếu không đúng hình dạng nào.
+ */
 export function parseDangerBox(s: string): DangerBox | null {
+  let box: DangerBox | null = null;
   const m =
     /(\d{1,2},\d|\d{1,2})\s*[-–]\s*(\d{1,2},\d|\d{1,2})\s*N\s*[;,]?\s*(\d{2,3},\d|\d{2,3})\s*[-–]\s*(\d{2,3},\d|\d{2,3})\s*E/iu.exec(
       s,
     );
-  if (!m) return null;
-  const [a, b, c, d] = m.slice(1, 5).map(soVn);
-  const box = {
-    latMin: Math.min(a, b),
-    latMax: Math.max(a, b),
-    lonMin: Math.min(c, d),
-    lonMax: Math.max(c, d),
-  };
+  if (m) {
+    const [a, b, c, d] = m.slice(1, 5).map(soVn);
+    box = {
+      latMin: Math.min(a, b),
+      latMax: Math.max(a, b),
+      lonMin: Math.min(c, d),
+      lonMax: Math.max(c, d),
+    };
+  } else {
+    // Nửa mặt phẳng: "Phía Bắc|Nam [vĩ tuyến] 18,0N; 109,5-114,5E". Hướng chặn
+    // dải VĨ độ (Bắc = từ vĩ đó lên, Nam = từ vĩ đó xuống); phía mở lấy biên khung
+    // Biển Đông. Chữ "vĩ tuyến" TUỲ BẢN TIN có/không (bão số 5 dùng "vĩ tuyến",
+    // áp thấp thì không) — nuốt tuỳ chọn, đừng để một chữ làm mất cả vùng.
+    const h =
+      /Phía\s+(Bắc|Nam)\s+(?:vĩ\s+tuyến\s+)?(\d{1,2},\d|\d{1,2})\s*N\s*[;,]?\s*(\d{2,3},\d|\d{2,3})\s*[-–]\s*(\d{2,3},\d|\d{2,3})\s*E/iu.exec(
+        s,
+      );
+    if (h) {
+      const lat = soVn(h[2]);
+      const c = soVn(h[3]);
+      const d = soVn(h[4]);
+      const bac = /Bắc/i.test(h[1]);
+      box = {
+        latMin: bac ? lat : KHUNG_BIEN_DONG.latMin,
+        latMax: bac ? KHUNG_BIEN_DONG.latMax : lat,
+        lonMin: Math.min(c, d),
+        lonMax: Math.max(c, d),
+      };
+    }
+  }
+  if (!box) return null;
   // ngoài khung Biển Đông = đọc nhầm số khác trong câu
   if (
     box.latMin < KHUNG_BIEN_DONG.latMin ||

@@ -77,7 +77,7 @@ export function PrimaryButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`display flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.1875rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none ${className}`}
+      className={`display flex min-h-[3.75rem] w-full items-center justify-center gap-2.5 rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98] disabled:opacity-40 disabled:shadow-none ${className}`}
     >
       {children}
     </button>
@@ -135,7 +135,11 @@ export function CallButton({
   return (
     <a
       href={`tel:${first.replace(/[^\d+]/g, "")}`}
-      className={`inline-flex min-h-[3rem] shrink-0 items-center gap-1.5 rounded-full bg-sea px-4 text-[0.9375rem] font-bold text-white transition active:scale-[0.97] ${className}`}
+      /*  Chiều cao lên sàn 3.5rem (2026-08-29, luật A5): đo thật 80×48px trên
+          /tien mục "Bán ở đâu" — dưới sàn. Gọi thương lái là việc chạm-nhiều
+          trên bến, tay ướt. Bề ngang px-4 GIỮ NGUYÊN: nhãn "Gọi hỏi mua" /
+          "Gọi chào bán" cần chỗ, bóp về w-16 sẽ cắt chữ. */
+      className={`inline-flex min-h-[3.5rem] shrink-0 items-center gap-1.5 rounded-full bg-sea px-4 text-[0.9375rem] font-bold text-white transition active:scale-[0.97] ${className}`}
     >
       <PhoneIcon className="h-4 w-4" />
       {label}

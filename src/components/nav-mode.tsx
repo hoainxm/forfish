@@ -17,9 +17,12 @@ import { formatHoursVN } from "@/lib/route-plan";
 import type { NavProgress } from "@/lib/nav-progress";
 import type { NavStatus } from "@/lib/use-nav-tracking";
 import type { BorderLevel } from "@/lib/geofence";
+import type { HudLine } from "@/lib/nav-context";
 import { useMapPrefs, fmtDist } from "@/lib/map-prefs";
 import {
   AlertIcon,
+  AnchorIcon,
+  ChevronRightIcon,
   ClockIcon,
   MinusIcon,
   NavArrowIcon,
@@ -101,20 +104,79 @@ export type NavBorderNotice = {
   dismissed: boolean;
 };
 
+/**
+ * Lệch tuyến — cha (fishing-map-view) tính mốc từ lib/nav-progress, HUD chỉ vẽ.
+ * KHÁC ranh giới ở hai chỗ, cố ý: (1) màu VÀNG, không bao giờ đỏ — đỏ giữ riêng
+ * cho ranh giới IUU; (2) LUÔN thu được, kể cả lệch rất xa — lái khác đường đã
+ * vẽ là quyền của thuyền trưởng (né tàu bạn, thả lưới, đổi ý), app là người
+ * phụ việc chứ không phải người chấm đúng-sai (09-ba-spec §5c).
+ */
+export type NavOffRouteNotice = {
+  /** mốc đang ở (km — 2/5/10/20) */
+  step: number;
+  km: number;
+  /** bà con đã chạm thu dòng này */
+  dismissed: boolean;
+};
+
+/*  Mảng rỗng DÙNG CHUNG làm mặc định: `hazardLines = []` viết thẳng trong
+    tham số sẽ tạo mảng MỚI mỗi lần vẽ — mà HUD vẽ lại theo nhịp GPS. */
+const EMPTY_LINES: HudLine[] = [];
+
+/** Nền + chữ cho từng mức cảnh báo — token màu, không hex (design-system §màu). */
+const MUC_TONE: Record<HudLine["muc"], string> = {
+  do: "bg-danger-bg text-danger",
+  vang: "bg-warn-bg text-warn",
+  // dòng TIN (phao, đèn) không phải cảnh báo: nền kính nhạt như ô "đang tìm vị trí"
+  tin: "bg-white/45 text-navy",
+};
+
 export function NavHud({
   progress,
   status,
   onStop,
   border,
   onDismissBorder,
+  offRoute,
+  onDismissOffRoute,
+  nextStop = null,
+  hazardLines = EMPTY_LINES,
+  rungOn = true,
+  onToggleRung,
+  onShelter,
 }: {
   progress: NavProgress | null;
   status: NavStatus;
   onStop: () => void;
   border?: NavBorderNotice | null;
   onDismissBorder?: () => void;
+  offRoute?: NavOffRouteNotice | null;
+  onDismissOffRoute?: () => void;
+  /*  CẢNH BÁO HIỂM HOẠ khi đang chạy (Đợt 3) — cha tính ở `lib/nav-hazards`
+      rồi chọn dòng ở `lib/pickHudLines`; HUD chỉ VẼ, không xếp lại thứ tự,
+      không tự viết câu. Tối đa 2 dòng: dòng `khoa` (đỏ) không thu được và
+      hiện cả khi HUD đã thu thành chip — cùng luật với ranh giới ≤6 hải lý. */
+  hazardLines?: HudLine[];
+  /** cờ rung của bà con (`forfish.nav.rung.v1`) — cha giữ, HUD chỉ bật/tắt */
+  rungOn?: boolean;
+  onToggleRung?: () => void;
+  /*  CHỖ TRÚ BÃO — cha chỉ truyền hàm này khi ĐANG CÓ BÃO (`stormInfo.kind ===
+      "co-bao"`) và kho khu trú đã nạp. Không có bão thì không có nút: nút trú
+      bão nằm sẵn quanh năm là dạy mắt bỏ qua nó đúng hôm cần. */
+  onShelter?: () => void;
+  /*  CHỖ GHÉ KẾ TIẾP — chỉ có khi đường đi qua NHIỀU chỗ (chủ dự án
+      2026-08-29g: *"rồi hiện thời gian và khoảng cách tới điểm tiếp theo"*).
+      Đường đi một chỗ thì dòng "còn X · Y giờ" sẵn có ĐÃ nói đúng thứ này —
+      thêm một dòng nữa là lặp. */
+  nextStop?: { so: number; km: number; hours: number | null } | null;
 }) {
   const prefs = useMapPrefs();
+  /*  Thu từng dòng cảnh báo (chỉ dòng KHÔNG khoá). Nhớ theo `id` chứ không
+      theo vị trí: `nav-hazards` chỉ nói mỗi vật tối đa 2 lần, nên thu một lần
+      là thu đúng cái vật đó — vật khác tới vẫn nói. */
+  const [thuIds, setThuIds] = useState<string[]>([]);
+  const lines = hazardLines.filter((l) => l.khoa || !thuIds.includes(l.id));
+  const linesKhoa = lines.filter((l) => l.khoa);
   const lost = status === "lost";
   const denied = status === "denied";
   /* RANH GIỚI (2026-08-18, audit M3): dòng warn/danger theo GPS; ≤6 hải lý
@@ -188,6 +250,19 @@ export function NavHud({
             {borderLine}
           </p>
         )}
+        {/*  HIỂM HOẠ MỨC ĐỎ cũng theo luật đó: xác tàu/bãi cạn/vùng cấm ngay
+             trước mũi là chuyện tính mạng, thu HUD thành chip không được làm
+             nó biến mất. Dòng vàng/tin thì nhường — mở HUD ra là thấy. */}
+        {linesKhoa.map((l) => (
+          <p
+            key={l.id}
+            role="alert"
+            className="pointer-events-auto flex items-center gap-2 rounded-xl bg-danger-bg px-3 py-2 text-[0.9375rem] font-bold leading-snug text-danger shadow-md"
+          >
+            <AlertIcon className="h-5 w-5 shrink-0" />
+            {l.cau}
+          </p>
+        ))}
       </div>
     );
   }
@@ -217,6 +292,23 @@ export function NavHud({
             aria-hidden
           />
         </div>
+        {/*  TẮT/BẬT RUNG — nhỏ nhưng phải bấm được bằng ngón cái ướt: 44 px
+             (2.75rem) như nút ẩn bên cạnh. Chữ chứ không chỉ hình: bà con
+             không đoán được biểu tượng rung, mà bấm nhầm là mất kênh cảnh báo
+             duy nhất còn tới được khi máy trong túi áo mưa. */}
+        {onToggleRung && (
+          <button
+            type="button"
+            onClick={onToggleRung}
+            aria-pressed={rungOn}
+            aria-label={rungOn ? "Tắt rung khi có cảnh báo" : "Bật rung khi có cảnh báo"}
+            className={`min-h-[2.75rem] shrink-0 rounded-xl px-3 text-[0.875rem] font-bold transition active:scale-95 ${
+              rungOn ? "bg-t1/15 text-t1" : "bg-navy/10 text-navy/60"
+            }`}
+          >
+            {rungOn ? "Rung: bật" : "Rung: tắt"}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setHidden(true)}
@@ -243,6 +335,51 @@ export function NavHud({
           <AlertIcon className="h-5 w-5 shrink-0" />
           <span className="min-w-0 flex-1">{borderLine}</span>
           {!borderLocked && <MinusIcon className="h-4 w-4 shrink-0" />}
+        </button>
+      )}
+
+      {/*  HIỂM HOẠ TRÊN ĐƯỜNG (Đợt 3) — dưới ranh giới, trên mọi thứ khác.
+           Thứ tự do `lib/nav-hazards` quyết (nặng nhất trước), HUD KHÔNG xếp
+           lại. Đỏ: không thu được. Vàng/tin: chạm để thu, thu theo id nên vật
+           khác tới vẫn nói. */}
+      {lines.map((l) =>
+        l.khoa ? (
+          <p
+            key={l.id}
+            role="alert"
+            className={`flex min-h-[2.75rem] items-center gap-2 rounded-xl px-2.5 py-2 text-[0.9375rem] font-bold leading-snug ${MUC_TONE.do}`}
+          >
+            <AlertIcon className="h-5 w-5 shrink-0" />
+            <span className="min-w-0 flex-1">{l.cau}</span>
+          </p>
+        ) : (
+          <button
+            key={l.id}
+            type="button"
+            role={l.muc === "vang" ? "alert" : "status"}
+            onClick={() => setThuIds((ids) => [...ids.slice(-7), l.id])}
+            aria-label="Thu dòng này"
+            className={`flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[0.9375rem] font-bold leading-snug ${MUC_TONE[l.muc]}`}
+          >
+            {l.muc === "vang" && <AlertIcon className="h-5 w-5 shrink-0" />}
+            <span className="min-w-0 flex-1">{l.cau}</span>
+            <MinusIcon className="h-4 w-4 shrink-0" />
+          </button>
+        ),
+      )}
+
+      {/*  KHU TRÚ BÃO GẦN — CHỈ hiện khi đang có bão. App không phán "chạy vào
+           đi": chỉ mở danh sách khu, còn bao xa, chừng bao lâu; vào hay không
+           là quyết định của thuyền trưởng. */}
+      {onShelter && (
+        <button
+          type="button"
+          onClick={onShelter}
+          className="flex min-h-[3.5rem] w-full items-center gap-2 rounded-xl bg-warn-bg px-2.5 py-2 text-left text-[1rem] font-bold leading-snug text-warn"
+        >
+          <AnchorIcon className="h-5 w-5 shrink-0" />
+          <span className="min-w-0 flex-1">Khu trú bão gần</span>
+          <ChevronRightIcon className="h-5 w-5 shrink-0" />
         </button>
       )}
 
@@ -292,11 +429,44 @@ export function NavHud({
                   : "tàu chưa chạy"}
               </p>
 
-              {progress.offRoute && !progress.arrived && (
-                <p className="mt-1.5 rounded-xl bg-[var(--warn-bg)] p-2 text-[0.875rem] font-bold leading-snug text-[var(--warn)]">
-                  Lệch tuyến ~{fmtDist(progress.offRouteKm, prefs.distUnit)} —
-                  lái về đường xanh đã vẽ.
+              {/*  CHỖ GHÉ KẾ TIẾP — dòng riêng, ĐẶT TRÊN dòng tổng vì đó mới là
+                   thứ đang phải lái tới. Dòng trên nói tới ĐÍCH CUỐI: đi 3 chỗ
+                   mà chỉ thấy "còn 491 hải lý" thì bà con không biết bao giờ
+                   tới chỗ thả lưới đầu tiên.
+                   Chỉ hiện khi đường đi nhiều chỗ VÀ chưa qua hết (`nextStop`
+                   null ở hai ca đó) — không đẻ dòng thừa cho chuyến một chỗ. */}
+              {nextStop && !progress.arrived && (
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[0.9375rem] font-bold text-t1">
+                  Tới chỗ {nextStop.so}
+                  <span aria-hidden>·</span>
+                  {fmtDist(nextStop.km, prefs.distUnit)}
+                  {nextStop.hours != null && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <ClockIcon className="h-4 w-4 shrink-0" aria-hidden />
+                      {formatHoursVN(nextStop.hours)}
+                    </>
+                  )}
                 </p>
+              )}
+
+              {/* LỆCH TUYẾN — chỉ nói khi cha bảo (vượt sang mốc xa hơn), thu
+                  được, giọng trung tính. Trước đây dòng này in lại MỖI NHỊP GPS
+                  suốt thời gian còn lệch và không thu được. */}
+              {offRoute && !offRoute.dismissed && !progress.arrived && (
+                <button
+                  type="button"
+                  onClick={onDismissOffRoute}
+                  aria-label="Thu dòng nhắc lệch tuyến"
+                  className="mt-1.5 flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl bg-[var(--warn-bg)] px-2.5 py-2 text-left text-[0.875rem] font-bold leading-snug text-[var(--warn)]"
+                >
+                  <span className="min-w-0 flex-1">
+                    Đang đi khác đường đã vẽ ~
+                    {fmtDist(offRoute.km, prefs.distUnit)} — lái về vạch xanh
+                    nếu muốn.
+                  </span>
+                  <MinusIcon className="h-4 w-4 shrink-0" />
+                </button>
               )}
               {progress.arrived && (
                 <p className="mt-1.5 rounded-xl bg-[var(--ok-bg)] p-2 text-[0.875rem] font-bold leading-snug text-[var(--ok)]">

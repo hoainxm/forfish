@@ -40,9 +40,11 @@ export function PortDirectory() {
         />
       </div>
 
+      {/*  Bỏ vế TRÙNG CHỮ (D1): sub của PageHeader ngay đầu màn đã viết "Cảng
+          chỉ định để bốc dỡ, bán cá, làm thủ tục — lọc theo tỉnh tàu." Giữ đúng
+          vế cấp dữ liệu / giới hạn nguồn. */}
       <RefNote tone="var(--t3)" bg="var(--t3-bg)">
-        Cảng cá chỉ định để bốc dỡ, bán cá, làm thủ tục. Nguồn chính thức,
-        cập nhật theo công bố của tỉnh.
+        Nguồn chính thức, cập nhật theo công bố của tỉnh.
       </RefNote>
 
       <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/70">

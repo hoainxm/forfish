@@ -23,7 +23,13 @@ import { useTodayVN } from "@/lib/use-today";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
 import { readToken } from "@/lib/device-token-store";
 import { useOnline } from "@/lib/use-online";
-import { AlertIcon, ClockIcon, ChevronRightIcon } from "@/components/icons";
+import {
+  AlertIcon,
+  ClockIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+} from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 
 /*
   Việc cần làm ngay — one urgent strip spanning ALL pillars, not just giấy tờ.
@@ -289,6 +295,27 @@ export function UrgentStrip() {
 
   if (!mounted) return null;
 
+  /*  CHƯA CÓ TÀI KHOẢN ⇒ KHÔNG BÀY VIỆC CỦA TÀU (2026-09-01).
+      Chủ dự án gửi ảnh dải khẩn đầy "Thay lọc dầu · Quá hạn 93 ngày" và bảo
+      *"bỏ các loại dữ liệu seed này đi"*. Đã rà: KHÔNG còn seed nào trong code
+      (đợt gỡ 2026-07-29 làm sạch, `boats.ts` cũng ghi rõ "KHÔNG seed tàu mẫu").
+      Thứ trong ảnh là dữ liệu THẬT nằm ở máy đó — bản ghi tay còn lại từ lúc
+      chạy thử, đọc thẳng từ localStorage.
+
+      Nhưng nó phơi ra một lỗi thật, và là lỗi của chính đợt khoá đăng nhập vừa
+      xong: cả app đã đòi tài khoản, mà trang chủ vẫn bày lịch bảo dưỡng + giấy
+      tờ + nợ SDVICO đọc từ kho máy — tức việc của MỘT chủ tàu nào đó hiện ra
+      cho người chưa đăng nhập. Máy dùng chung ở bến hay máy vừa cài lại là
+      thấy việc của người khác.
+
+      `readToken()` chứ không phải phiên Supabase: cùng tín hiệu với cổng
+      `require-login`, nên mất sóng ngoài biển vẫn hiện đủ việc.
+
+      KHÔNG áp cùng luật cho hộp thư (`inbox-section`): tin gửi CHUNG tới máy
+      chưa gắn tài khoản là ca đã cố ý mở (sửa 2026-08-01n), giấu đi là mở lại
+      đúng cái lỗ nó sinh ra để bịt. */
+  if (!signedIn) return null;
+
   /*  Không hỏi được đồ SDVICO (S2): chỉ nói khi ĐÃ đăng nhập và máy đang CÓ
       sóng mà vẫn hỏng — mất sóng thì bà con biết rồi, nhắc là "nhắc như cái
       máy" (chính sách 2026-08-18: mất sóng không phải tin). */
@@ -308,9 +335,39 @@ export function UrgentStrip() {
 
   return (
     <section aria-label="Việc cần làm ngay">
-      <h2 className="display mb-1.5 px-1 text-[1rem] font-bold text-navy">
-        Việc cần làm ngay
-      </h2>
+      {/*  Nút xoè/thu về INLINE cuối hàng tiêu đề (2026-08-29, luật A2/A3/A5).
+          Trước: dải 343×48 full-width ăn riêng một hàng ngay dưới 4 hàng việc
+          343×81 nên mắt đọc nó như HÀNG VIỆC THỨ 5; cao 48px, dưới sàn 52px; và
+          onClick chỉ setExpanded(true) — xoè rồi KHÔNG có đường thu lại (nút tự
+          biến mất vì rest===0), trong khi hộp thư ngay dưới cùng màn thì có
+          "Thu gọn". Con số "còn N việc" là DỮ LIỆU ⇒ lên hàng tiêu đề. */}
+      <div className="mb-1.5 flex items-stretch gap-2 px-1">
+        <div className="flex min-w-0 flex-1 items-center">
+          <h2 className="display text-[1rem] font-bold text-navy">
+            Việc cần làm ngay
+            {rest > 0 && (
+              <span className="font-semibold text-foreground/70">
+                {" "}
+                · còn {rest} việc nữa
+              </span>
+            )}
+          </h2>
+        </div>
+        {all.length > MAX_ROWS ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <ChevronDownIcon
+              className={`h-6 w-6 ${expanded ? "rotate-180" : ""}`}
+            />
+            {expanded ? "Thu gọn" : "Xem hết"}
+          </button>
+        ) : (
+          <span className="w-16 shrink-0" aria-hidden />
+        )}
+      </div>
       <div className="overflow-hidden surface">
         <ul>
           {shown.map((item, i) => {
@@ -319,7 +376,7 @@ export function UrgentStrip() {
               <li key={item.id}>
                 <Link
                   href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3.5 transition active:bg-background ${
+                  className={`flex items-center gap-3 py-3.5 pl-4 transition active:bg-background ${
                     i > 0 ? "border-t border-line" : ""
                   }`}
                 >
@@ -352,22 +409,21 @@ export function UrgentStrip() {
                       {item.status}
                     </span>
                   </span>
-                  <ChevronRightIcon className="h-5 w-5 shrink-0 text-foreground/30" />
+                  {/*  Chevron nằm trong ĐÚNG cột w-16 như hộp thư (2026-08-29f):
+                       trước đây nó ở trong lề px-4 của thẻ nên tâm icon lệch 8px
+                       so với chevron hộp thư ngay bên dưới — hai danh sách cùng
+                       một màn mà hai cột icon không thẳng. */}
+                  <span
+                    className="flex w-16 shrink-0 items-center justify-center text-foreground/30"
+                    aria-hidden
+                  >
+                    <ChevronRightIcon className="h-6 w-6" />
+                  </span>
                 </Link>
               </li>
             );
           })}
         </ul>
-        {rest > 0 && (
-          <button
-            type="button"
-            onClick={() => setExpanded(true)}
-            className="flex min-h-[3rem] w-full items-center justify-between border-t border-line bg-background px-4 text-[0.9375rem] font-bold text-sea active:bg-field"
-          >
-            Còn {rest} việc nữa — xem hết
-            <ChevronRightIcon className="h-5 w-5 rotate-90" />
-          </button>
-        )}
         {sdvicoNote && (
           <p className="border-t border-line px-4 py-2 text-[0.875rem] text-foreground/65">
             Chưa hỏi được nợ/bảo hành bên SDVICO — sóng đang yếu, app sẽ thử lại.

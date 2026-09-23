@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PriceBoard } from "@/components/price-board";
 import { SellGuide } from "@/components/sell-guide";
 import { MarketBoard } from "@/components/market-board";
+import { RequireLogin } from "@/components/require-login";
 import { ChipRow } from "@/components/ui/chip-row";
 
 /*
@@ -35,13 +36,24 @@ export function TradeHub() {
         ariaLabel="Mục giao dịch"
       />
 
+      {/*  BẢNG GIÁ MỞ CHO MỌI NGƯỜI, HAI MỤC CÒN LẠI CẦN TÀI KHOẢN (chủ dự án
+           2026-09-01). Giá cá là số công khai của VASEP — mở ra để người chưa
+           có tài khoản thấy app đáng dùng, rồi mới gọi SDVICO xin cấp. Chợ tin
+           mua/bán và danh bạ mối quen thì gắn với người dùng cụ thể (đăng tin
+           dưới tên ai, gọi cho mối của ai) nên phải có tài khoản. */}
       {section === "gia" && <PriceBoard />}
       {section === "tin" && (
-        <div className="px-4">
-          <MarketBoard />
-        </div>
+        <RequireLogin what="chợ tin mua bán">
+          <div className="px-4">
+            <MarketBoard />
+          </div>
+        </RequireLogin>
       )}
-      {section === "ban-o-dau" && <SellGuide />}
+      {section === "ban-o-dau" && (
+        <RequireLogin what="danh bạ chỗ bán">
+          <SellGuide />
+        </RequireLogin>
+      )}
     </div>
   );
 }

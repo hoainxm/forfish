@@ -1,10 +1,13 @@
 import { parseStorms, type StormAlert } from "@/lib/storms";
 import {
   NCHMF_INDEX_URL,
+  NCHMF_BACKUP_INDEX_URL,
   htmlToText,
   parseNchmfBulletin,
   pickLatestNchmfBulletin,
+  pickLatestBienBulletin,
 } from "@/lib/storms-vn";
+import { parseEarlyWarning, type EarlyWarning } from "@/lib/storm-early";
 import { timeoutSignal } from "@/lib/abort";
 import { gopNguonBao } from "@/lib/storm-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -51,15 +54,21 @@ import {
 const GDACS_TC_URL =
   "https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP?eventtype=TC";
 
-/** Trần chờ mỗi nguồn. NCHMF là trang HTML ~60 KB, GDACS JSON ~565 KB. */
-const NGUON_TIMEOUT_MS = 15000;
+/** Trần chờ NCHMF (nguồn CHÍNH VN). Hai lượt tuần tự (index→bản tin) nên tổng
+ *  tệ nhất 2×; giữ dưới trần client để mạng yếu vẫn kịp nhận. */
+const NGUON_TIMEOUT_MS = 12000;
+/** Trần chờ GDACS NGẮN HƠN (nguồn PHỤ, chỉ bù polygon/track). GDACS chết/chậm
+ *  KHÔNG được kéo cả route — NCHMF đã có tin thì phải trả nhanh cho bà con.
+ *  Sự cố thật 2026-08-31: GDACS timeout 15s làm route 15,5s → client (ngoài
+ *  biển) hết giờ → lùi tin cache 18h, BỎ LỠ áp thấp NCHMF đã bắt được. */
+const GDACS_TIMEOUT_MS = 8000;
 
 async function layGdacs(now: Date): Promise<StormAlert[] | null> {
   try {
     const r = await fetch(GDACS_TC_URL, {
       next: { revalidate: 1800 },
       headers: { accept: "application/json" },
-      signal: timeoutSignal(NGUON_TIMEOUT_MS),
+      signal: timeoutSignal(GDACS_TIMEOUT_MS),
     });
     if (!r.ok) {
       // ĐỪNG NUỐT IM: nguồn đổi hợp đồng (400/404) trông y hệt nguồn bảo trì
@@ -80,9 +89,13 @@ async function layGdacs(now: Date): Promise<StormAlert[] | null> {
     không đoán được theo ngày (NCHMF đánh số `postNNNNN` tăng dần).
     Trả `[]` (mảng rỗng) khi trang liệt kê KHÔNG có bản tin bão nào — đó là câu
     trả lời THẬT "hiện không có tin", khác hẳn `null` = không hỏi được. */
-async function layNchmf(now: Date): Promise<StormAlert[] | null> {
+/** Lấy tin bão/ATNĐ từ MỘT trang liệt kê NCHMF (index chính HOẶC dự phòng). */
+async function layNchmfTuIndex(
+  indexUrl: string,
+  now: Date,
+): Promise<StormAlert[] | null> {
   try {
-    const rIndex = await fetch(NCHMF_INDEX_URL, {
+    const rIndex = await fetch(indexUrl, {
       next: { revalidate: 1800 },
       headers: {
         accept: "text/html",
@@ -92,7 +105,7 @@ async function layNchmf(now: Date): Promise<StormAlert[] | null> {
       signal: timeoutSignal(NGUON_TIMEOUT_MS),
     });
     if (!rIndex.ok) {
-      console.error("[storms] NCHMF index trả", rIndex.status);
+      console.error("[storms] NCHMF index trả", rIndex.status, indexUrl);
       return null;
     }
     const url = pickLatestNchmfBulletin(await rIndex.text());
@@ -116,7 +129,64 @@ async function layNchmf(now: Date): Promise<StormAlert[] | null> {
         nói "không có bão" trong ca đó là nói dối chuyện tính mạng. */
     return s ? [s] : null;
   } catch (e) {
-    console.error("[storms] NCHMF hỏng:", (e as Error)?.message);
+    console.error("[storms] NCHMF hỏng:", (e as Error)?.message, indexUrl);
+    return null;
+  }
+}
+
+/**
+ * Tin VN: thử INDEX CHÍNH trước; KHÔNG ra cơn (hỏng / trang không liệt kê bản
+ * tin bão) thì thử trang THỜI TIẾT NGUY HIỂM (dự phòng, 2026-08-31 — user) để
+ * bắt cơn index chính bỏ sót.
+ *
+ * AN TOÀN (không nói dối chuyện tính mạng): chỉ trả `[]` ("trời yên") khi ÍT
+ * NHẤT một trang HỎI ĐƯỢC (≠ null) mà không thấy cơn; cả hai đều không hỏi được
+ * → `null` ("chưa hỏi được tin bão", KHÔNG được đội lốt "không có bão").
+ * Chỉ tải trang dự phòng KHI cần (index chính không ra cơn) — không tốn thêm
+ * lượt lúc trời có bão rõ hoặc trời yên đã xác nhận.
+ */
+async function layNchmf(now: Date): Promise<StormAlert[] | null> {
+  const chinh = await layNchmfTuIndex(NCHMF_INDEX_URL, now);
+  if (chinh && chinh.length > 0) return chinh;
+  const duPhong = await layNchmfTuIndex(NCHMF_BACKUP_INDEX_URL, now);
+  if (duPhong && duPhong.length > 0) return duPhong;
+  return chinh !== null || duPhong !== null ? [] : null;
+}
+
+/**
+ * CẢNH BÁO SỚM — vùng áp thấp có khả năng mạnh lên thành ATNĐ/bão, đọc từ bản
+ * tin BIỂN của NCHMF (không phải bản tin bão chính thức). Đây là TIN MỀM:
+ *   · soft-fail toàn bộ → `null` (KHÔNG kéo theo bản tin bão thật; nó nằm ở
+ *     nhánh riêng của Promise.all bên dưới, hỏng không làm route 503);
+ *   · dùng CHUNG index đã tải cho `layNchmf` — cùng URL + `revalidate` nên Next
+ *     dedupe, không thêm lượt mạng vào chính trang liệt kê.
+ * Client chỉ hiện khi tin bão còn TƯƠI và không có bão thật (xem storm-early).
+ */
+async function layCanhBaoSom(now: Date): Promise<EarlyWarning | null> {
+  try {
+    const rIndex = await fetch(NCHMF_INDEX_URL, {
+      next: { revalidate: 1800 },
+      headers: {
+        accept: "text/html",
+        "user-agent": "Mozilla/5.0 (compatible; SDFish/1.0; +https://sdvico.vn)",
+      },
+      signal: timeoutSignal(NGUON_TIMEOUT_MS),
+    });
+    if (!rIndex.ok) return null;
+    const url = pickLatestBienBulletin(await rIndex.text());
+    if (!url) return null;
+    const rTin = await fetch(url, {
+      next: { revalidate: 1800 },
+      headers: {
+        accept: "text/html",
+        "user-agent": "Mozilla/5.0 (compatible; SDFish/1.0; +https://sdvico.vn)",
+      },
+      signal: timeoutSignal(NGUON_TIMEOUT_MS),
+    });
+    if (!rTin.ok) return null;
+    return parseEarlyWarning(htmlToText(await rTin.text()), url);
+  } catch (e) {
+    console.error("[storms] cảnh báo sớm hỏng:", (e as Error)?.message);
     return null;
   }
 }
@@ -178,7 +248,11 @@ async function layDuongDi(now: Date): Promise<StormTrack[]> {
       .in("bulletin_id", ids);
     if (ePts) throw ePts;
 
-    return rowsToTracks((rows ?? []) as BulletinRow[], (pts ?? []) as ForecastRow[]);
+    return rowsToTracks(
+      (rows ?? []) as BulletinRow[],
+      (pts ?? []) as ForecastRow[],
+      now.getTime(),
+    );
   } catch (e) {
     console.error("[storms] đọc kho đường đi HỎNG:", (e as Error)?.message);
     return [];
@@ -187,10 +261,11 @@ async function layDuongDi(now: Date): Promise<StormTrack[]> {
 
 export async function GET() {
   const now = new Date();
-  const [vn, gdacs, tracks] = await Promise.all([
+  const [vn, gdacs, tracks, earlyWarning] = await Promise.all([
     layNchmf(now),
     layGdacs(now),
     layDuongDi(now),
+    layCanhBaoSom(now),
   ]);
 
   // CẢ HAI nguồn không hỏi được → 503 (xem ghi chú đầu file). Một bên rỗng
@@ -206,6 +281,9 @@ export async function GET() {
     /*  Đường đi đã qua + dự báo sắp tới (kho 0036). Client cũ KHÔNG đọc trường
         này và vẫn chạy đúng — thêm trường là thêm, không phá hợp đồng. */
     tracks,
+    /*  CẢNH BÁO SỚM (2026-09-09) — vùng áp thấp có khả năng mạnh lên thành
+        ATNĐ/bão. null khi bản tin biển không báo / nguồn lỗi. Client cũ bỏ qua. */
+    earlyWarning,
     /*  Nguồn nào trả lời được lượt này — để /quan-tri và người soát sau biết
         app đang sống bằng nguồn nào, thay vì đoán. Client hiện KHÔNG đọc trường
         này; thêm trường mới không phá `stormStatus` (nó chỉ đọc ok/storms/checkedAt). */

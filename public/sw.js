@@ -82,6 +82,56 @@ const SDFISH_STAGE_V = "sdfish-stage-v1";
 /** Trần entry RSC (đủ vài vòng dock × vài build) */
 const RSC_CACHE_MAX = 60;
 
+/*  KHO NỀN BẢN ĐỒ VECTOR — RIÊNG cho ĐÚNG MỘT file:
+    public/data/vn-basemap.pmtiles (~16,9 MB · Protomaps dựng từ OpenStreetMap ·
+    không key, không host ngoài — thay nền CARTO nay đòi API key).
+
+    VÌ SAO KHO RIÊNG, KHÔNG NHÉT VÀO SHELL:
+     (a) 16,9 MB KHÔNG được phép ngồi trong ngân sách install. Cài ở cảng sóng
+         chập chờn mà mẻ này hết giờ là hỏng CẢ vỏ (xem `installShell`).
+     (b) Kho vỏ bị `activate` xoá mỗi lần bump SDFISH_CACHE_V ⇒ để chung thì mỗi
+         bản deploy bắt bà con tải lại 16,9 MB qua sóng 3G ngoài cảng.
+    Kho riêng nằm NGOÀI phiên bản vỏ ⇒ tải MỘT LẦN, giữ mãi qua mọi deploy.
+
+    BUMP SDFISH_BASEMAP_V khi nào: CHỈ khi sinh lại chính file .pmtiles (cập
+    nhật dữ liệu OSM, đổi khung, đổi mức zoom). Bump = `activate` xoá kho cũ =
+    mọi máy tải lại 16,9 MB — đừng bump vì lý do khác. */
+/*  BUMP v1 → v2 (2026-08-29) — LÝ DO CHỦ QUYỀN, BẮT BUỘC.
+
+    File `vn-basemap.pmtiles` bản v1 chứa **12.755 đối tượng mang chữ Hán**,
+    trong đó có `三沙市` (thành phố Tam Sa — đơn vị Trung Quốc lập 2012 để quản
+    Hoàng Sa + Trường Sa) đặt ngay trên đảo Phú Lâm, cùng tên Trung Quốc cho cả
+    6 bãi thềm lục địa của Việt Nam. Màn hình không hiện chúng (buildMapStyle
+    lọc hết lớp `symbol`), nhưng dữ liệu thì nằm trong file đang phát cho bà con.
+
+    VÌ SAO PHẢI BUMP chứ không chỉ thay file: kho này CỐ Ý không bị `activate`
+    xoá theo phiên bản vỏ, và `fillBasemapArchive` bỏ qua nếu kho đã có sẵn
+    `/data/vn-basemap.pmtiles`. Đường dẫn giữ nguyên, nội dung đổi ⇒ **không
+    bump là mọi máy đã cài PWA tiếp tục dùng bản có `三沙市` MÃI MÃI**. Đúng ca
+    mà chú thích dưới đây mô tả.
+
+    Giá phải trả: bà con tải lại một lần. Bản mới **nhẹ hơn 2,4 MB** (14,4 so
+    với 16,9) nên lần tải lại này còn rẻ hơn lần đầu. */
+const SDFISH_BASEMAP_V = "sdfish-basemap-v2";
+/*  DANH SÁCH KHO PMTILES — nhiều file, KHÔNG phải một (2026-08-30).
+
+    LỖI SUÝT DÍNH: nhánh phục vụ Range trước đây gắn cứng vào ĐÚNG MỘT đường
+    dẫn. Thêm file `.pmtiles` thứ hai (lớp rạn) mà quên sửa chỗ này thì trên
+    bàn làm việc VẪN XANH — vì có mạng, nhánh asset tĩnh trả 200 và trình duyệt
+    tự xử lý Range. Nhưng ngoài biển mất sóng, service worker trả nguyên file
+    cho một yêu cầu xin 16 KB ⇒ thư viện `pmtiles` ném ⇒ **lớp rạn chết hẳn**,
+    không một dòng lỗi nào tới tay bà con. Đúng khuôn "hỏng ở chỗ không ai
+    kiểm" mà cả file này được viết ra để chống.
+
+    Thêm file .pmtiles mới thì THÊM VÀO ĐÂY, không có bước nào khác. */
+const PMTILES_ARCHIVES = [
+  "/data/vn-basemap.pmtiles",
+  "/data/reef-shapes-aca.v1.pmtiles",
+  "/data/chat-day.v1.pmtiles",
+];
+/** Giữ tên cũ cho chỗ khác đang dùng — nền bản đồ vẫn là file sống-còn nhất */
+const BASEMAP_ARCHIVE = PMTILES_ARCHIVES[0];
+
 /*  DANH SÁCH /api ĐƯỢC CACHE — GIỮ ĐỒNG BỘ với src/lib/sw-cache-policy.ts
     (test `sw-cache-policy.test.ts` đọc file này và bắt lệch).
     Vì sao có: SW từng cache MỌI /api/* GET, mà từ 2026-08-01 còn cứu cả 401/403
@@ -172,17 +222,109 @@ const CRITICAL_SHELL = [
   // NỀN BẢN ĐỒ LÚC MẤT SÓNG: hình bờ + đảo, đường đẳng sâu, độ sâu tại điểm.
   "/data/vn-coast.v1.json",
   "/data/isobaths.v1.json",
+  /*  Lưới độ sâu 6 lớp, 4 bit/ô — 8,53 MB thô (2026-09-04, trước 4,26 MB ở
+      2 bit/ô). Cùng đường dẫn: `addAll` + `cache:"reload"` ghi đè bản cũ mỗi
+      lần SW cài, KHÔNG bump vỏ; bản cũ lỡ còn trong kho thì
+      `decodeDepthGrid` từ chối theo cỡ file → tuyến báo "chưa kiểm độ sâu". */
   "/data/depth-grid.v1.bin",
-  // NHÃN ĐẢO tiếng Việt (ven bờ + Hoàng Sa + Trường Sa) + TUYẾN HÀNG HẢI —
-  // chi tiết hải đồ, nhãn chủ quyền. Thiếu là giữa biển mất hết tên đảo, mất
-  // định hướng. Asset tĩnh nhỏ (~18 KB + ~3 KB).
+  // NHÃN ĐẢO tiếng Việt (ven bờ + Hoàng Sa + Trường Sa) + TUYẾN HÀNG HẢI +
+  // RẠN/ĐÁ NGẦM/BÃI CẠN — chi tiết hải đồ, nhãn chủ quyền. Thiếu là giữa biển
+  // mất hết tên đảo/đá ngầm, mất định hướng. Asset tĩnh nhỏ (~18 + ~3 + ~2 KB).
   "/data/vn-islands.v1.json",
   "/data/vn-sea-lanes.v1.json",
+  "/data/coral-reefs.v1.json",
+  /*  BÁO HIỆU HÀNG HẢI — phao, đèn biển, tiêu, vùng neo (5.851 cái, 184 KB thô
+      / ~47 KB qua sóng vì Vercel nén Brotli).
+
+      VÌ SAO VÀO NHÓM SỐNG-CÒN chứ không phải "có thì tốt" (2026-08-29): trước
+      đây lớp này là ẢNH raster kéo từ OpenSeaMap qua mạng, nên ngoài khơi mất
+      sóng là mất sạch báo hiệu — chỉ còn những ô bà con tình cờ đã mở qua. Vào
+      luồng ban đêm mà không thấy phao là chuyện tính mạng, không phải chuyện
+      tiện. Nay là dữ liệu tĩnh cùng origin nên giữ được; và vì nó rẻ hơn cả
+      đường đẳng sâu đang nằm sẵn ở nhóm này, không có lý do để xuống nhóm dưới. */
+  "/data/seamarks.v1.json",
+  /*  SỐ ĐO SÂU CHÍNH THỨC (2026-08-31) — 379 điểm khảo sát + 96 tuyến của cơ
+      quan nhà nước, cộng 13 đoạn luồng có độ sâu khống chế.
+
+      VÌ SAO VÀO NHÓM SỐNG-CÒN: đây là dữ liệu CỬA LUỒNG — thứ bà con cần đúng
+      lúc đang vào lạch, thường là đêm, thường là đã xa bờ nhiều ngày nên sóng
+      chập chờn. Cùng ca với lớp báo hiệu ngay trên: vào luồng mà không biết chỗ
+      nào 2 m là chuyện tính mạng. 16 trong 379 điểm nông dưới 4 m.
+
+      GIÁ: 679 + 82 KB thô nhưng chỉ 43 + 7 KB qua sóng (Vercel nén Brotli) —
+      RẺ HƠN lớp báo hiệu (47 KB) đã nằm sẵn ở nhóm này. Không có lý do để xuống
+      nhóm dưới.
+
+      Hai file BÙ NHAU chứ không chồng: miền Nam ghi theo toạ độ rời, miền Bắc
+      ghi theo đoạn giữa hai phao. Bỏ một là mất trắng một nửa đất nước. */
+  "/data/soundings.v1.json",
+  "/data/fairway-depths.v1.json",
+  /*  KẾT QUẢ ĐỐI CHIẾU — quyết định điểm nào KHÔNG được vẽ (17 điểm đã bị
+      chấm NGHI LỖI: chữ số lẻ rơi mất lúc bóc PDF).
+
+      PHẢI vào nhóm SỐNG-CÒN, không phải nhóm "có thì tốt": thiếu file này thì
+      bộ lọc không chạy và bản đồ vẽ LẠI 17 điểm sai như sự thật — mà đúng lúc
+      thiếu nó là lúc mất sóng, tức lúc bà con ở xa nhất và ít có cách kiểm
+      chứng nhất. Một dữ liệu an toàn không được phép chỉ đúng khi có mạng. */
+  "/data/soundings-verified.v1.json",
+  /*  ĐÈN BIỂN (2026-09-02) — 90 ngọn, 31 KB thô / **5 KB qua sóng**.
+
+      VÀO NHÓM SỐNG-CÒN, và đây là lớp có lý do mạnh nhất trong cả nhóm: đèn
+      biển có tầm hiệu lực 15–25 hải lý và là thứ bà con định hướng BAN ĐÊM khi
+      mọi thứ khác tắt. Mất sóng ngoài khơi mà mất luôn vị trí đèn là mất đúng
+      cái cuối cùng còn dẫn được đường vào bờ.
+
+      Rẻ tới mức không cần cân nhắc: 5 KB, bằng một phần mười lớp báo hiệu. */
+  "/data/den-bien.v1.json",
+  /*  BÁO HIỆU CHÍNH THỨC CỦA CỤC HÀNG HẢI (2026-09-02) — 774 cái, 94 KB thô
+      / ~13 KB qua sóng. Cùng lý do sống-còn với lớp báo hiệu OSM ngay trên:
+      vào luồng ban đêm mà không thấy phao là chuyện tính mạng — và lớp này là
+      bản CHÍNH THỨC có số hiệu, phủ 147 cái ở nửa nam nơi OSM gần như trắng. */
+  "/data/vn-aids.v1.json",
+  /*  TRẠM THUỶ TRIỀU (2026-09-02) — 4 trạm UHSLC, 5,6 KB. Engine điều hoà
+      tính TRONG MÁY nên có file này là có con nước cả năm không cần mạng —
+      "thuỷ triều" là món in đậm trên tờ quảng cáo máy hải đồ 5 triệu. Rẻ nhất
+      trong toàn bộ vỏ. */
+  //  DẤU SINH LẠI TRẠM — sửa dòng này mỗi lần generate-tides.mjs đổi file
+  //  (cùng luật với sprite ở dưới: đường dẫn giữ nguyên, sw.js phải đổi byte):
+  //    trạm 83 (4 đo + 7 vùng + 72 cảng), 2026-09-04
+  "/data/tide-stations.v1.json",
+  /*  XÁC TÀU + CHƯỚNG NGẠI (2026-09-02) — 38 vật chìm, 8 KB. Tàu giã cào
+      quét trúng là mất lưới, đêm chạy qua vật cạn là thủng vỏ — và chỗ có xác
+      tàu thường là chỗ đã từng có tai nạn, tức đúng vùng bà con hay đánh. */
+  "/data/xac-tau.v1.json",
+  /*  ĐỊA DANH NGẦM (2026-09-03) — 184 tên núi/đồi/hố/thung lũng ngầm nhà nước
+      công bố (Thông tư 33/2024), 8 KB. Chi tiết tên như hải đồ thương mại; mất
+      sóng vẫn phải thấy để định vị "tôi đang ở gần núi ngầm nào". */
+  "/data/dia-danh-ngam.v1.json",
+  /*  KHU NEO ĐẬU TRÁNH TRÚ BÃO (2026-09-03) — 51 khu (QĐ 582/2024), 12 KB.
+      App báo bão thì phải chỉ được chỗ chạy vào; đây đúng lúc mất sóng cần
+      nhất, nên bắt buộc offline. */
+  "/data/khu-tru-bao.v1.json",
   //  DẤU TÀU trên bản đồ (ảnh ghim tàu cá). Thiếu nó thì giữa biển mất sóng bà
   //  con KHÔNG THẤY TÀU MÌNH ĐÂU trên bản đồ — mất đúng thứ màn này sinh ra để
   //  trả lời. Nhỏ (5,5 KB + 13,8 KB bản @2x) nên ghim cả hai.
   "/icons/boat-marker.png",
   "/icons/boat-marker@2x.png",
+  /*  BỘ KÝ HIỆU HẢI ĐỒ (2026-09-01) — phao/tiêu/đèn vẽ đúng hình như hải đồ
+      giấy. VÀO NHÓM SỐNG-CÒN cùng lý do với chính lớp báo hiệu: thiếu sprite
+      thì MapLibre **im lặng không vẽ** icon nào, tức mất TRẮNG cả lớp báo hiệu
+      giữa biển — tệ hơn cả việc chưa từng có ký hiệu. 40 KB cho 4 file.
+
+      DẤU SINH LẠI SPRITE — sửa dòng này MỖI LẦN chạy build-chart-sprite.mjs:
+        sprite 105 ô, 2026-09-04 lần 2 (18 ô cột nước `tide-*` vẽ lại: khối
+        nước không viền, mặt sóng — cùng số ô, KHÁC pixel)
+      Vì sao phải có: bốn file này giữ NGUYÊN đường dẫn, nhánh asset tĩnh của
+      `fetch` là cache-first, và `addAll` + `cache:"reload"` chỉ chạy lúc SW
+      CÀI — mà trình duyệt chỉ cài lại khi sw.js ĐỔI BYTE. Sinh lại sprite mà
+      không đụng sw.js là máy đã cài PWA giữ sprite cũ vĩnh viễn: MapLibre
+      thiếu ô mới ⇒ im lặng KHÔNG VẼ lớp dùng ô đó (đã suýt dính 2026-09-04
+      với 11 trạm con nước). Đổi dòng này là đủ — KHÔNG bump SDFISH_CACHE_V
+      (bump xoá kho vỏ trước khi biết mẻ mới có đủ không, xem đầu file). */
+  "/icons/chart-sprite.png",
+  "/icons/chart-sprite.json",
+  "/icons/chart-sprite@2x.png",
+  "/icons/chart-sprite@2x.json",
   // font chữ trên bản đồ (số mét đường đẳng sâu) — thiếu là mất hết CHỮ/SỐ
   "/fonts/Noto%20Sans%20Regular/0-255.pbf",
   /*  FONTSTACK THỨ HAI (2026-08-02, audit A9). Bản đồ dùng HAI fontstack:
@@ -202,6 +344,13 @@ const CRITICAL_SHELL = [
   "/fonts/Noto%20Sans%20Bold/7680-7935.pbf",
   "/fonts/Noto%20Sans%20Regular/256-511.pbf",
   "/fonts/Noto%20Sans%20Regular/7680-7935.pbf",
+  /*  DẢI 8192–8447 (U+2000–U+20FF: gạch ngang "–" "—", ba chấm "…") — 2026-09-03c.
+      309 nhãn tuyến/giàn ("Tuyến Bắc – Nam Biển Đông") chứa dấu gạch; thiếu dải
+      là MapLibre 404 rồi BỎ NGUYÊN NHÃN (đường vẫn vẽ) — online cũng mất chữ,
+      offline càng mất. Lấy từ demotiles.maplibre.org, cùng nguồn 3 dải trên
+      (khớp từng byte). Cổng test ocean-map.test đối chiếu ký tự trong data. */
+  "/fonts/Noto%20Sans%20Regular/8192-8447.pbf",
+  "/fonts/Noto%20Sans%20Bold/8192-8447.pbf",
 ];
 
 const SHELL = [
@@ -222,6 +371,13 @@ const SHELL = [
   // lớp cá của chuyến DÀI pha trộn bản này với dự báo. Nằm sẵn trong máy thì
   // giữa biển mất sóng vẫn tính được lộ trình 16 ngày.
   "/data/fish-climatology.v1.json",
+  // THAM SỐ MÔ HÌNH (trọng số blend cá + bảng skill) — SDF2, đi cùng mùa vụ; thiếu thì
+  // blend tắt (giữ dự báo) và độ tin không hạ thêm, không trắng gì (2026-09-16).
+  "/data/model-params.v1.json",
+  // HÌNH DẠNG rạn/bãi ngầm (OSM natural=reef/shoal, ~307 KB). Ở tier BEST-EFFORT
+  // (không CRITICAL): lớp phụ trợ — nhãn TÊN rạn đã nằm ở CRITICAL, thiếu hình
+  // thì vẫn còn tên. Nặng nên không để nó chặn install lúc sóng chập chờn.
+  "/data/reef-shapes.v1.json",
 ];
 
 /** Rút các đường dẫn /_next/static/... mà một trang HTML cần (JS · CSS · font) */
@@ -249,7 +405,29 @@ function lazyChunkUrls(js) {
     để đi tiếp sang các chunk mà nó gọi. */
 async function precacheOne(store, url) {
   const isJs = url.endsWith(".js");
-  const hit = await store.match(url);
+  /*  URL CÓ BĂM TÊN hay KHÔNG — quyết định được dùng lại bản trong kho hay
+      phải tải lại (2026-08-29, lỗi CHẶN về an toàn).
+
+      LỖI ĐÃ SỬA: nhánh "đã có → không tải lại" bên dưới viết cho `/_next/
+      static/*` — ở đó tên file mang băm nội dung, nên cùng URL thì CHẮC CHẮN
+      cùng nội dung, tải lại là phí. Nhưng hàm này cũng phục vụ nhóm "có thì
+      tốt" của SHELL, trong đó có `/data/reef-shapes.v1.json` và
+      `/data/fish-climatology.v1.json` — **đường dẫn KHÔNG băm**. Cùng một URL
+      hoàn toàn có thể mang nội dung MỚI.
+
+      Hệ quả thật, không phải giả định: bản vá 2026-08-28 sửa lỗi giản lược làm
+      BIẾN MẤT 1.409/2.612 vòng rạn (rạn nhỏ ven bờ — thứ đâm tàu) chỉ đổi nội
+      dung `reef-shapes.v1.json`, giữ nguyên đường dẫn. Với luật cũ, mọi máy đã
+      cài PWA sẽ giữ bản THIẾU RẠN vĩnh viễn, kể cả khi service worker cài lại
+      — vì `store.match(url)` thấy có là thôi.
+
+      Nay: băm tên thì dùng lại (giữ nguyên lý do FIFO ở dưới); không băm tên
+      thì tải lại kèm `cache: "reload"` để không nhận bản cũ trong kho HTTP của
+      trình duyệt. Mạng hỏng lúc tải lại thì `fetch` ném, `allSettled` của nhánh
+      "có thì tốt" nuốt, và **bản cũ trong kho vẫn còn nguyên** — không có khe
+      nào làm bà con mất dữ liệu đang dùng được. */
+  const isImmutable = url.startsWith("/_next/static/");
+  const hit = isImmutable ? await store.match(url) : null;
   if (hit) {
     // ĐÃ CÓ (bản build trước cũng dùng chunk này) → KHÔNG tải lại, nhưng phải
     // GHI LẠI để đưa xuống CUỐI HÀNG. Cache API trả key theo thứ tự THÊM VÀO và
@@ -266,7 +444,13 @@ async function precacheOne(store, url) {
     await putWithRoom(store, url, forPut, null, DON_KHI_DAY, SDFISH_STATIC_V);
     return body;
   }
-  const net = await fetch(url);
+  /*  `cache: "reload"` cho URL KHÔNG băm tên — bỏ qua kho HTTP của trình duyệt.
+      Thiếu cờ này thì vừa gỡ được luật "đã có thì thôi" ở trên xong lại vấp
+      đúng bản cũ ở tầng dưới, y như cũ. URL băm tên không cần (nội dung bất
+      biến) nên để mặc định cho nhẹ. */
+  const net = await fetch(
+    isImmutable ? url : new Request(url, { cache: "reload" }),
+  );
   if (!net.ok) return null;
   // Nhân bản TRƯỚC khi ai đó đọc thân — put() nuốt một bản, đọc chữ một bản.
   const forCache = net.clone();
@@ -644,7 +828,9 @@ self.addEventListener("activate", (event) => {
                 k !== SDFISH_TILE_V &&
                 k !== SDFISH_API_V &&
                 k !== SDFISH_STATIC_V &&
-                k !== SDFISH_RSC_V,
+                k !== SDFISH_RSC_V &&
+                // kho nền bản đồ (16,9 MB, tải một lần) — bump vỏ KHÔNG xoá nó
+                k !== SDFISH_BASEMAP_V,
             )
             .map((k) => caches.delete(k)),
         ),
@@ -1038,6 +1224,161 @@ async function putWithRoom(c, req, res, max, trimFn, cacheName) {
   else if (max != null) await trimCache(c, max);
 }
 
+/*
+  NỀN BẢN ĐỒ VECTOR ĐỌC BẰNG RANGE (2026-08-28) — vì sao BẮT BUỘC có nhánh riêng.
+
+  Thư viện `pmtiles` KHÔNG tải cả file: mỗi ô bản đồ là một request kèm
+  `Range: bytes=a-b`. Nhánh asset tĩnh bên dưới trả lời bằng `caches.match(req)`,
+  mà Cache API BỎ QUA header Range ⇒ nó trả nguyên bản 200 dài 16,9 MB cho một
+  yêu cầu xin 16 KB. Và `pmtiles` bắt đúng ca đó rồi NÉM:
+
+      if (status === 200 && (!contentLength || +contentLength > length)) throw
+
+  ⇒ mất sóng giữa biển là MẤT NỀN BẢN ĐỒ, mà lỗi nằm trong thư viện nên không ai
+  đọc ra. Nên: cất NGUYÊN file (200) trong kho, còn lúc phục vụ thì TỰ CẮT LÁT và
+  trả 206 đúng chuẩn byte serving.
+
+  (Cache API cũng KHÔNG cho `put` một response 206 — thêm một lý do phải giữ bản
+  đầy đủ rồi cắt, chứ không cất từng lát.)
+*/
+
+/*  Bản đầy đủ giữ trong RAM của service worker — KHÔNG phải tối ưu vặt.
+    Một khung hình bản đồ xin vài chục ô = vài chục lượt cắt lát; gọi
+    `hit.arrayBuffer()` mỗi lượt là dựng lại 16,9 MB mỗi lượt ⇒ giật máy yếu.
+    Đọc MỘT lần, các lượt sau dùng chung. Trình duyệt dọn SW thì biến này mất
+    theo — lượt sau đọc lại từ kho, không mất mát gì. */
+let basemapBufPromise = new Map();
+/** Lượt kéo NGUYÊN file về kho — một lượt mỗi file, cho cả vòng đời SW */
+let basemapFillPromise = new Map();
+
+/** ArrayBuffer bản đầy đủ của `path` trong kho, hoặc null nếu CHƯA tải về. */
+function basemapBuffer(path) {
+  if (!basemapBufPromise.has(path)) {
+    basemapBufPromise.set(
+      path,
+      caches
+        .open(SDFISH_BASEMAP_V)
+        .then((c) => c.match(path))
+        .then((hit) => (hit ? hit.arrayBuffer() : null))
+        .catch(() => null)
+        .then((buf) => {
+          /*  CHƯA CÓ thì ĐỪNG NHỚ "không có": ngay sau đây `fillBasemapArchive`
+              sẽ kéo file về, lượt xin ô kế tiếp phải được hỏi lại kho — nhớ kết
+              quả rỗng là bản đồ đứng ở nhánh mạng cho tới khi SW chết. */
+          if (!buf) basemapBufPromise.delete(path);
+          return buf;
+        }),
+    );
+  }
+  return basemapBufPromise.get(path);
+}
+
+/*  Kéo NGUYÊN file .pmtiles về kho (200, KHÔNG Range).
+    `cache: "reload"` để không nhận lại bản cũ trong kho HTTP của trình duyệt:
+    bump SDFISH_BASEMAP_V nghĩa là file đã SINH LẠI mà tên đường dẫn giữ nguyên.
+    Hỏng thì xoá dấu để lượt sau thử lại — KHÔNG cất bản thiếu. */
+function fillBasemapArchive(path) {
+  if (!basemapFillPromise.has(path)) {
+    basemapFillPromise.set(
+      path,
+      (async () => {
+        const c = await caches.open(SDFISH_BASEMAP_V);
+        if (await c.match(path)) return;
+        // `fetch` phát TỪ service worker nên KHÔNG quay lại handler này (không đệ quy)
+        const res = await fetch(path, { cache: "reload" });
+        if (!res.ok || res.status !== 200) throw new Error("kho pmtiles tải thiếu");
+        await c.put(path, res);
+      })().catch(() => {
+        basemapFillPromise.delete(path);
+      }),
+    );
+  }
+  return basemapFillPromise.get(path);
+}
+
+/**
+ * "bytes=a-b" → [đầu, cuối] (cuối TÍNH CẢ), null nếu không hiểu hoặc vô lý.
+ * THUẦN — có test (`sw-basemap-range.test.ts` đọc thẳng hàm này từ sw.js).
+ */
+function parseByteRange(header, size) {
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(header || "").trim());
+  if (!m) return null;
+  const rawStart = m[1];
+  const rawEnd = m[2];
+  let start;
+  let end;
+  if (rawStart === "") {
+    // dạng hậu tố `bytes=-500` = 500 byte CUỐI file
+    const n = Number(rawEnd);
+    if (rawEnd === "" || !Number.isFinite(n) || n <= 0) return null;
+    start = Math.max(0, size - n);
+    end = size - 1;
+  } else {
+    start = Number(rawStart);
+    end = rawEnd === "" ? size - 1 : Number(rawEnd);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+    if (end > size - 1) end = size - 1; // xin quá đuôi → cắt về đuôi (đúng RFC)
+  }
+  if (start < 0 || start >= size || start > end) return null;
+  return [start, end];
+}
+
+/** Header chung cho mọi lát cắt — thiếu `accept-ranges` là client tưởng không cắt được */
+function basemapHeaders(length, contentRange) {
+  const h = {
+    "content-type": "application/octet-stream",
+    "content-length": String(length),
+    "accept-ranges": "bytes",
+  };
+  if (contentRange) h["content-range"] = contentRange;
+  return h;
+}
+
+/*  Phục vụ file nền: CÓ bản đầy đủ trong kho → tự cắt lát, trả 206 (mất sóng vẫn
+    có nền thật). CHƯA có → lượt này đi mạng, ĐỒNG THỜI kéo nguyên file về nền để
+    chuyến sau ngoài biển đã có sẵn. */
+/*  Chờ mạng bao lâu rồi bỏ cuộc, cho LƯỢT ĐẦU chưa có file trong kho (khuôn K1
+    — "sóng sống mà chết" thì `fetch` treo, không reject, `.catch` không bao giờ
+    chạy). Rộng hơn ô bản đồ (8 s) vì đây là lát của một file 16,9 MB trên CDN,
+    nhưng vẫn phải có trần: nhánh này KHÔNG có bản lưu để lùi về, treo là bản đồ
+    đứng câm. Hết giờ → 504 gọn, lớp bờ trong máy (vn-coast) đỡ lấy màn hình. */
+const BASEMAP_NETWORK_MS = 12000;
+
+function basemapFirst(event, path) {
+  const req = event.request;
+  const range = req.headers.get("range");
+  return basemapBuffer(path).then((buf) => {
+    if (!buf) {
+      keepAlive(event, fillBasemapArchive(path));
+      const net = fetch(req).catch(() => null);
+      return raceTimeout(net, BASEMAP_NETWORK_MS).then(
+        (res) => res || new Response(null, { status: 504 }),
+      );
+    }
+    if (!range) {
+      return new Response(buf.slice(0), {
+        headers: basemapHeaders(buf.byteLength, null),
+      });
+    }
+    const span = parseByteRange(range, buf.byteLength);
+    if (!span) {
+      return new Response(null, {
+        status: 416,
+        headers: { "content-range": "bytes */" + buf.byteLength },
+      });
+    }
+    const start = span[0];
+    const end = span[1];
+    return new Response(buf.slice(start, end + 1), {
+      status: 206,
+      headers: basemapHeaders(
+        end - start + 1,
+        "bytes " + start + "-" + end + "/" + buf.byteLength,
+      ),
+    });
+  });
+}
+
 /*  Ô bản đồ chờ mạng bao lâu rồi lấy ô đã cất (2026-08-02, audit B3). Ô nhỏ
     (~20 KB) nên 8 giây là rộng rãi cho 3G thật; quá đó gần như chắc chắn là ca
     "sóng sống mà chết" — mà nhánh này trước KHÔNG có đồng hồ nên ô đã nằm sẵn
@@ -1197,6 +1538,14 @@ self.addEventListener("fetch", (event) => {
 
   if (url.pathname.startsWith("/api/tiles/")) {
     event.respondWith(tileFirst(event));
+    return;
+  }
+
+  /*  NỀN BẢN ĐỒ VECTOR (.pmtiles) — nhánh RIÊNG, phải đứng TRƯỚC nhánh asset
+      tĩnh. Lý do đầy đủ ở `basemapFirst`: nhánh tĩnh trả nguyên 16,9 MB cho một
+      yêu cầu Range xin 16 KB, và thư viện pmtiles ném lỗi ⇒ mất nền bản đồ. */
+  if (PMTILES_ARCHIVES.includes(url.pathname)) {
+    event.respondWith(basemapFirst(event, url.pathname));
     return;
   }
 

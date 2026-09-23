@@ -28,6 +28,18 @@ SEC_SENSITIVE_PATHS='(^|/)(auth|payment|billing|crypto|secrets?)(/|$)|\.env|migr
 SELF_TEST_MIGRATION_SAMPLE='supabase/migrations/0001_init.sql'
 SELF_TEST_DOC_SAMPLE='docs/app-map/04-data-model.md'
 
+# ── MATCHER HỢP ĐỒNG (nguyên tắc 10) — path $1 nằm trong vùng covers $2? in "1" nếu khớp.
+# Khớp = trùng đúng file HOẶC là con của thư mục (`$2/...`). Sibling (src/lib-utils vs src/lib)
+# KHÔNG khớp. ⚠️ ĐẶT `case` TRONG HÀM, ĐỪNG nhét thẳng vào `$( … )`: bash 3.2 (/bin/sh của
+# macOS) đếm ngoặc của command-substitution bị lẫn với `)` của case-pattern → "syntax error
+# near ';;'" làm CẢ script không parse (dò 2026-09-15; Linux/bash5/dash thì parse được nên CI
+# xanh mà máy Mac chết). Gọi $(covers_hit …) thì trong `$( )` không có `case` nên parse mọi shell.
+covers_hit() {
+  case "$1" in
+    "$2" | "$2"/*) echo 1 ;;
+  esac
+}
+
 if [ "$1" = "--self-test" ]; then
   echo "ok: hook parse duoc."
   RC=0
@@ -46,9 +58,9 @@ if [ "$1" = "--self-test" ]; then
   echo "  BUDGET = $CLAUDE_MD_CHAR_BUDGET chars"
   # Contract test matcher (CÙNG bảng với doc-health-report self-test — matcher tồn tại
   # ở 2 file, bảng này là hợp đồng chung, nguyên tắc 10 áp cho nội bộ hệ):
-  M=$(echo "src/lib-utils/a.ts" | while read -r c; do case "$c" in "src/lib"|"src/lib"/*) echo 1;; esac; done)
+  M=$(covers_hit "src/lib-utils/a.ts" "src/lib")
   [ -z "$M" ] && echo "PASS: matcher contract — sibling (src/lib-utils) KHONG khop src/lib" || { echo "FAIL: matcher overmatch sibling"; RC=1; }
-  M=$(echo "src/lib/x.ts" | while read -r c; do case "$c" in "src/lib"|"src/lib"/*) echo 1;; esac; done)
+  M=$(covers_hit "src/lib/x.ts" "src/lib")
   [ -n "$M" ] && echo "PASS: matcher contract — child (src/lib/x) khop" || { echo "FAIL: matcher miss child"; RC=1; }
   # Fixture gate: warn — chạy flow thật trong temp repo, WARN nhưng KHÔNG chặn
   HOOK_SELF="$0"; case "$HOOK_SELF" in /*|[A-Za-z]:*) ;; *) HOOK_SELF="$(pwd)/$HOOK_SELF";; esac
@@ -192,6 +204,31 @@ if [ "$1" = "--self-test" ]; then
   OUTU12=$(git commit -m f6p 2>&1); RCU12=$?
   if [ "$RCU12" -eq 0 ] && echo "$OUTU12" | grep -q "thieu be mat trinh duyet"; then echo "PASS: 1d-p WARN globals thieu ::selection/caret, khong chan"
   else echo "FAIL: 1d-p sai (exit=$RCU12): $OUTU12"; RC=1; fi
+  # 1d-q: ky tu X tho (✕, tao bang hex de chinh hook khong chua truc tiep) -> WARN, khong chan;
+  # dau nhan × (U+00D7) KHONG bi bat.
+  XR=$(printf '\xe2\x9c\x95'); MULT=$(printf '\xc3\x97')
+  printf 'export const X = () => <button aria-label="Dong">%s</button>\n' "$XR" > src/ui/Xr.tsx
+  git add src/ui/Xr.tsx
+  OUTU13=$(git commit -m f7q 2>&1); RCU13=$?
+  if [ "$RCU13" -eq 0 ] && echo "$OUTU13" | grep -q "ky tu X tho"; then echo "PASS: 1d-q WARN ky tu X tho, khong chan"
+  else echo "FAIL: 1d-q sai (exit=$RCU13): $OUTU13"; RC=1; fi
+  printf 'export const M = () => <span>Da cay %s2</span>\n' "$MULT" > src/ui/Mu.tsx
+  git add src/ui/Mu.tsx
+  OUTU14=$(git commit -m f7q2 2>&1); RCU14=$?
+  if [ "$RCU14" -eq 0 ] && ! echo "$OUTU14" | grep -q "ky tu X tho"; then echo "PASS: 1d-q KHONG bat dau nhan × (U+00D7)"
+  else echo "FAIL: 1d-q bat oan dau nhan × (exit=$RCU14): $OUTU14"; RC=1; fi
+  # 1d-r: hex/rgba literal trong chuoi JS (inline style / object mau) -> WARN, khong chan
+  printf 'export const S = () => <div style={{ color: "#ffffff" }}>x</div>\n' > src/ui/Sx.tsx
+  git add src/ui/Sx.tsx
+  OUTU15=$(git commit -m f7r 2>&1); RCU15=$?
+  if [ "$RCU15" -eq 0 ] && echo "$OUTU15" | grep -q "mau hex/rgba literal trong chuoi JS"; then echo "PASS: 1d-r WARN hex literal trong inline style, khong chan"
+  else echo "FAIL: 1d-r sai (exit=$RCU15): $OUTU15"; RC=1; fi
+  # 1d-r: dung token var() trong style -> KHONG bat; MapLibre paint *-color hex -> KHONG bat
+  printf 'export const T = () => <div style={{ color: "var(--navy)" }}>x</div>\nexport const P = { paint: { "fill-color": "#2d8659" } }\n' > src/ui/Tx.tsx
+  git add src/ui/Tx.tsx
+  OUTU16=$(git commit -m f7r2 2>&1); RCU16=$?
+  if [ "$RCU16" -eq 0 ] && ! echo "$OUTU16" | grep -q "mau hex/rgba literal trong chuoi JS"; then echo "PASS: 1d-r KHONG bat var() token + MapLibre paint *-color"
+  else echo "FAIL: 1d-r bat oan var()/paint (exit=$RCU16): $OUTU16"; RC=1; fi
   cd "$OPW" && rm -rf "$TU2" ) > "$PJ/10.log" 2>&1 || echo "FAIL: khoi 10 thoat som" >> "$PJ/10.log" &
   # 1f (NT15): no-marker 2 ve, export trung, page thieu state, lane-vs-spec — moi WARN khong duoc keo FAIL
   ( TB=$(mktemp -d) && cd "$TB" && git init -q . && git config user.email t@t.t && git config user.name t || exit 1
@@ -485,7 +522,7 @@ for doc in $(git ls-files 'docs/app-map/*.md' 'docs/app-map/**/*.md' 2>/dev/null
   HIT=0
   for p in $(echo "$CLINE" | sed 's/^[Cc]overs:[[:space:]]*//' | tr ',' '\n' | sed 's/^ *//; s/ *$//'); do
     [ -n "$p" ] || continue
-    H=$(echo "$CHANGED" | while read -r c; do case "$c" in "$p"|"$p"/*) echo 1; break;; esac; done)
+    H=$(echo "$CHANGED" | while read -r c; do if [ -n "$(covers_hit "$c" "$p")" ]; then echo 1; break; fi; done)
     [ -n "$H" ] && { HIT=1; break; }
   done
   # "Doc da duoc sua" = co it nhat 1 dong staged-diff KHONG phai marker DOC-STATUS may-ghi.
@@ -529,7 +566,7 @@ if [ "$CLAIMS_CHECK" != "off" ]; then
       { [ -n "$CBR" ] && [ "$CBR" != "$CURBR" ]; } || continue
       CPATHS=$(sed -n '/"write_paths"/,/\]/p' "$cf" | grep '^[[:space:]]*"' | grep -v write_paths | sed 's/^[[:space:]]*"//; s/",*$//')
       for p in $CPATHS; do
-        H=$(echo "$CHANGED" | while read -r c; do case "$c" in "$p"|"$p"/*) echo 1; break;; esac; done)
+        H=$(echo "$CHANGED" | while read -r c; do if [ -n "$(covers_hit "$c" "$p")" ]; then echo 1; break; fi; done)
         if [ -n "$H" ]; then
           CLOT=$(grep '"lot"' "$cf" | head -1 | sed 's/.*: *"//; s/".*//')
           echo "BLOCK: staged path trong write-set cua claim khac — '$p' thuoc lot '$CLOT' (branch $CBR)."
@@ -605,6 +642,28 @@ if [ "$UI_CHECKS" != "off" ]; then
         echo "BLOCK: letter-spacing am vuot san -0.03em trong $f — chu dinh nhau, khong doc duoc (04 §3, hook 1d-i)."
         FAIL=1
       fi
+      # 1d-q (ForFish 2026-08-29g — chu du an chot "nut X dong lam cho dong bo"):
+      # ky tu X tho (✕ U+2715 / ✖ U+2716) lam nut dong = tu che, lech baseline + scale xau,
+      # khong design system nao dung (Apple HIG/Material 3/Polaris/Carbon). Dung <CloseButton>.
+      # Chi ✕/✖ — KHONG bat × (U+00D7) vi la dau nhan hop le ("Da cay ×2"). WARN, khong chan.
+      case "$f" in
+        *.tsx|*.jsx)
+          if printf '%s' "$UC" | grep -qF -e '✕' -e '✖'; then
+            echo "WARN: ky tu X tho (✕/✖) trong $f — nut dong dung <CloseButton> (src/components/ui/close-button.tsx): glyph icon 24px + cham 56px + goc tren-phai (03-design-system §Nut X dong · Huy · vuot-dong, hook 1d-q)."
+          fi
+          # 1d-r (ForFish 2026-08-29g): mau hex/rgba LITERAL trong CHUOI JS (inline
+          # style={{color:"#.."}} / object mau nhu DOT/FISH_COLOR) — LOT gate 1d vi
+          # 1d chi soi class Tailwind. Ba chỗ đã lọt: my-orders #fff, price-history
+          # rgba, ra-khoi FISH_COLOR/DOT. Đưa về token var(--..) hoặc chuyển màu NỘI
+          # DUNG sang lib (03 §5/§8 cho phép hex trong lib). MapLibre `paint`/`*-color`
+          # được miễn (điều khoản map). WARN, không chặn (tránh FP paint).
+          STYLEHEX=$(printf '%s' "$UC" | grep -nE "[=:][[:space:]]*[\"'](#[0-9a-fA-F]{3,8}\b|(rgba?|hsla?)\()" | grep -vE '\-color"|paint|"(fill|line|circle|text|icon|background|heatmap|raster|hillshade|sky)-' || true)
+          if [ -n "$STYLEHEX" ]; then
+            echo "WARN: mau hex/rgba literal trong chuoi JS o $f (inline style / object mau) — lot gate class Tailwind; dua ve token var(--...) hoac chuyen mau NOI DUNG sang lib (03 §5/§8, hook 1d-r). MapLibre paint duoc mien:"
+            echo "$STYLEHEX" | head -3 | sed 's/^/    /'
+          fi
+          ;;
+      esac
       # P2 (WARN — GOP 1 alternation theo ngan sach thoi gian methodology/08). Tung id:
       # 1d-j transition-all · 1d-k animate layout-prop (width/height/top/left/margin/padding)
       # · 1d-l hover:scale · 1d-m uppercase+leading-none · 1d-n text-[clamp(] · 1d-o border+shadow-lg
@@ -671,7 +730,10 @@ if [ "$BUILD_CHECKS" != "off" ]; then
     NEWFN=$(git diff --cached -U0 -- "$f" 2>/dev/null | grep -E '^\+export (async )?function [A-Za-z_]' | sed -E 's/^\+export (async )?function ([A-Za-z_][A-Za-z0-9_]*).*/\2/' || true)
     for fn in $NEWFN; do
       echo "$fn" | grep -qE "^($EXPORT_ALLOW)$" && continue
-      DUP=$(git grep -lE "export (async )?function $fn\b" -- '*.ts' '*.tsx' '*.js' '*.jsx' 2>/dev/null | grep -v "^$f$" | head -1)
+      # `-w` (whole-word) thay cho `\b`: BSD regex của git trên macOS KHÔNG hiểu
+      # `\b` (GNU-only) → pattern trượt câm, WARN không bao giờ bắn (dò 2026-09-15,
+      # Linux/CI thì `\b` chạy nên lỗi ẩn). `-w` chặn cả prefix (dupFn ≠ dupFnExtra).
+      DUP=$(git grep -lwE "export (async )?function $fn" -- '*.ts' '*.tsx' '*.js' '*.jsx' 2>/dev/null | grep -v "^$f$" | head -1)
       [ -n "$DUP" ] && echo "WARN: export function '$fn' moi trong $f trung ten voi $DUP — grep truoc khi them, dung lai hoac gop (NT15 §3)."
     done
   done
@@ -877,6 +939,63 @@ for f in $(echo "$CHANGED" | grep -E 'docs/app-map/.*\.md$' | grep -v '_generate
   if ! head -5 "$f" | grep -qiE 'load (khi|when)'; then
     echo "WARN: $f thieu dong 'Load khi/Load when' o dau file (nguyen tac 02)."
   fi
+done
+
+# ── 6. NGÂN SÁCH DỮ LIỆU BẢN ĐỒ — chống phình repo (chốt 2026-08-29) ───
+# Vì sao là hook chứ không phải quy ước: git giữ VĨNH VIỄN từng bản của mọi file
+# lớn. Lúc nhận ra repo đã 500 MB thì không gỡ lại được nữa mà không viết lại
+# lịch sử. Trần đặt ở chỗ còn kịp nghĩ lại. Luật đầy đủ ở CLAUDE.md mục
+# "Dữ liệu bản đồ trong git — CHỐNG PHÌNH".
+DATA_FILE_MAX=$((20 * 1024 * 1024))   # một file
+DATA_DIR_MAX=$((120 * 1024 * 1024))   # cả public/data
+# Lối thoát có chủ ý: ghi `data-budget: <ly do>` vào commit message.
+#
+# ⚠️ ĐỪNG viết lại thành `BUDGET_WAIVER=$(grep -c ... || echo 0)` (lỗi đã dính
+# 2026-08-29, mất hai lượt mới tìm ra): `grep -c` KHÔNG khớp thì in "0" NHƯNG
+# THOÁT MÃ 1, nên `|| echo 0` cũng chạy ⇒ biến mang HAI dòng "0\n0" ⇒
+# `[ "$X" -eq 0 ]` lỗi cú pháp ⇒ cả mục kiểm bị bỏ qua KHÔNG MỘT LỜI NÀO, file
+# nào cũng lọt. Cổng hỏng im lặng còn tệ hơn không có cổng: nó cho cảm giác an
+# toàn giả. `grep -q` trả đúng mã thoát và không in gì — dùng nó.
+BUDGET_WAIVER=0
+if [ -n "$1" ] && [ -f "$1" ] && grep -qiE '^data-budget:' "$1" 2>/dev/null; then
+  BUDGET_WAIVER=1
+fi
+
+for f in $(git diff --cached --name-only --diff-filter=ACM | grep '^public/data/' || true); do
+  [ -f "$f" ] || continue
+  sz=$(wc -c < "$f" | tr -d ' ')
+  if [ "$sz" -gt "$DATA_FILE_MAX" ] && [ "$BUDGET_WAIVER" -eq 0 ]; then
+    echo "BLOCK: '$f' nang $((sz / 1024 / 1024)) MB, vuot tran 20 MB/file."
+    echo "       Sinh muc nhe hon luc build thay vi commit nhieu ban (CLAUDE.md, quy tac 2),"
+    echo "       hoac ghi 'data-budget: <ly do>' vao commit message neu that su can."
+    FAIL=1
+  fi
+done
+
+# Chi dem thu GIT PHAI GANH: file da theo doi + file moi chua bi .gitignore loai.
+# KHONG dung `du -sb public/data` nua (2026-08-29): tu khi hai muc ban do nhe hon
+# duoc SINH LUC BUILD vao chinh thu muc nay (scripts/derive-map-tiers.mjs, da
+# .gitignore), `du` dem ca ~58 MB san pham build va chan MOI commit tren may vua
+# chay `npm run build`. Loi thoat duy nhat luc do la ghi `data-budget:` — tuc la
+# tu tay pha dung cai luat nay dung de bao ve.
+if [ -d public/data ]; then
+  DIR_SZ=$(git ls-files --cached --others --exclude-standard -- public/data 2>/dev/null \
+    | while IFS= read -r f; do [ -f "$f" ] && wc -c < "$f"; done \
+    | awk '{s+=$1} END {print s+0}')
+  if [ -n "$DIR_SZ" ] && [ "$DIR_SZ" -gt "$DATA_DIR_MAX" ] && [ "$BUDGET_WAIVER" -eq 0 ]; then
+    echo "BLOCK: public/data tong $((DIR_SZ / 1024 / 1024)) MB (phan git ganh), vuot tran 120 MB."
+    echo "       Buoc tiep theo la dua du lieu nang ra Vercel Blob, khong phai noi tran."
+    FAIL=1
+  fi
+fi
+
+# File du lieu tam o GOC repo — da dinh that 2026-08-29 (da.json, hp.json, enc_list.html)
+for f in $(git diff --cached --name-only --diff-filter=A | grep -E '^[^/]+\.(json|html|csv|geojson)$' || true); do
+  case "$f" in
+    package.json|package-lock.json|tsconfig.json|vercel.json|components.json|.eslintrc.json) continue ;;
+  esac
+  echo "BLOCK: '$f' la file du lieu la o GOC repo — de o thu muc tam ngoai repo (CLAUDE.md, quy tac 5)."
+  FAIL=1
 done
 
 # ── 5. Regenerate doc-status (cổng đọc luôn fresh — meta-rot guard) ─────

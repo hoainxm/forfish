@@ -48,15 +48,30 @@ concurrency:
 
 jobs:
   build:
+    # CHỈ CHẠY Ở REPO CÔNG TY (rà soát 2026-09-04, mục B): cùng file này nằm ở
+    # cả hai repo; không cổng là hễ repo Long có lại hạn mức Actions thì nguồn
+    # ngoài bị gõ gấp đôi. So sánh chuỗi không phân biệt hoa thường.
+    if: github.repository == 'sdvico/forfish'
     runs-on: ubuntu-latest
+    # Trần thời gian (rà soát 2026-09-04, mục C): mặc định GitHub là 360 phút —
+    # một lần treo tính đủ 6 giờ, bằng 18 % hạn mức tháng.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
-      # versionCode phải TĂNG mỗi upload. 10000 + run_number: luôn > versionCode
-      # hiện tại (4) và đơn điệu tăng theo mỗi lần chạy. Không bao giờ đụng tay.
-      # (Biểu thức ${{ }} của GHA không làm số học → tính ở bash.)
+      # versionCode phải TĂNG mỗi upload. THEO GIỜ UTC, KHÔNG theo run_number
+      # (rà soát 2026-09-04, mục A): run_number là bộ đếm RIÊNG của từng workflow
+      # trong từng repo — cùng file này nằm ở hai repo là hai bộ đếm, bên nào
+      # phát hành số lớn trước là bên kia bị Play từ chối mãi; đổi tên file cũng
+      # về 0. `%y%j%H%M` = năm-ngàytrongnăm-giờ-phút (vd 262471830): đơn điệu
+      # tăng, giống nhau ở mọi repo, > mọi số cũ (10xxx), và < trần Play
+      # 2.100.000.000 (max 993652359). KHÔNG dùng %y%m%d%H%M: 2,6 tỷ, tràn int32.
+      # Hai lần phát hành trong CÙNG một phút thì lần sau bị Play từ chối —
+      # chấp nhận, lỗi đó nói thẳng lý do. Nâng cấp sau: play-publisher
+      # `resolutionStrategy = AUTO` (hỏi Play số hiện tại rồi +1) — cần
+      # PLAY_SERVICE_ACCOUNT_JSON ngay cả khi chỉ build, nên chưa dùng.
       - name: Tính versionCode
-        run: echo "APP_VERSION_CODE=$((10000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+        run: echo "APP_VERSION_CODE=$(date -u +%y%j%H%M)" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v4
         with:

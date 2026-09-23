@@ -21,11 +21,12 @@ import {
   Card,
   EmptyState,
   Field,
-  PrimaryButton,
   RefNote,
   inputClass,
 } from "@/components/ui/primitives";
 import {
+  CheckIcon,
+  CloseIcon,
   EditIcon,
   PinIcon,
   PlusIcon,
@@ -33,6 +34,7 @@ import {
   TrashIcon,
   UsersIcon,
 } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 
 /*
   "Bán ở đâu / bán cho ai" (trục GIAO DỊCH) — giúp bà con không bị ép giá.
@@ -157,9 +159,10 @@ function Wholesalers({
 
   return (
     <div>
+      {/* Bỏ câu hai (D1): nó chỉ đường tới chip "Mối quen" đang HIỆN NGAY TRÊN
+          nó — chữ nhắc lại thứ vừa hiện. */}
       <RefNote>
         Vựa/cơ sở thu mua có đăng tin công khai — gọi xác minh trước khi bán.
-        Nậu quen tại bến của bà con thì lưu ở mục “Mối quen”.
       </RefNote>
 
       <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/70">
@@ -439,16 +442,26 @@ function MyBuyers() {
         </div>
       )}
 
-      <div className="my-3">
-        <PrimaryButton
+      {/*  Nút "Thêm mối" về INLINE cuối hàng cấp dữ liệu (luật A2 + A3): trước
+          là dải 343×60 nằm một mình trong <div className="my-3"> — một dải
+          ngang cho MỘT việc, ăn trọn một hàng. Khuôn hàng lấy lại của mục Nậu
+          vựa ("{list.length} vựa"). */}
+      <div className="my-3 flex items-stretch gap-2">
+        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+          <p className="text-[0.875rem] font-semibold text-foreground/70">
+            {buyers.length} mối quen
+          </p>
+        </div>
+        <button
           onClick={() => {
             setEditing(null);
             setShowForm(true);
           }}
+          className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
         >
           <PlusIcon className="h-6 w-6" />
-          Thêm mối quen
-        </PrimaryButton>
+          Thêm mối
+        </button>
       </div>
 
       {ready && buyers.length === 0 && (
@@ -461,17 +474,47 @@ function MyBuyers() {
         {buyers.map((b) => (
           <li key={b.id}>
             <Card className="p-3.5">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
+              {/*  "Sửa"/"Xóa" về INLINE cuối hàng tên mối quen (luật A3/A5):
+                  trước là hàng footer border-t riêng, hai nút KHÔNG khai min-h
+                  nào (đo thật 50×24px — chưa bằng một nửa sàn 52px), mà "Xóa"
+                  lại là hành động phá huỷ (xoá số thương lái bà con gõ tay). */}
+              <div className="flex items-stretch gap-2">
+                <div className="min-w-0 flex-1">
                   <p className="text-[0.75rem] font-bold uppercase tracking-wide text-foreground/65">
                     {typeLabel(b.type)}
                   </p>
-                  <p className="display text-[1.125rem] font-bold leading-snug text-navy">
+                  <p className="display break-words text-[1.125rem] font-bold leading-snug text-navy">
                     {b.name}
                   </p>
                 </div>
-                {b.phone && <CallButton phone={b.phone} />}
+                <button
+                  onClick={() => {
+                    setEditing(b);
+                    setShowForm(true);
+                  }}
+                  className={`${SQ_BTN} bg-background text-sea`}
+                >
+                  <EditIcon className="h-6 w-6" />
+                  Sửa
+                </button>
+                <button
+                  onClick={() => setConfirmDel(b)}
+                  className={`${SQ_BTN} bg-background text-danger`}
+                >
+                  <TrashIcon className="h-6 w-6" />
+                  Xóa
+                </button>
               </div>
+              {/* SĐT là DỮ LIỆU (đọc/chép được); nút GỌI inline cuối chính
+                  hàng đó — hàng nó thao tác lên (luật A3/B1). */}
+              {b.phone && (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <p className="min-w-0 flex-1 text-[0.9375rem] tabular-nums text-foreground/70">
+                    SĐT: {b.phone}
+                  </p>
+                  <CallButton phone={b.phone} />
+                </div>
+              )}
               {b.port && (
                 <p className="text-[0.9375rem] text-foreground/70">Cảng: {b.port}</p>
               )}
@@ -485,23 +528,6 @@ function MyBuyers() {
                   {b.note}
                 </p>
               )}
-              <div className="mt-2 flex gap-4 border-t border-line pt-2">
-                <button
-                  onClick={() => {
-                    setEditing(b);
-                    setShowForm(true);
-                  }}
-                  className="flex items-center gap-1.5 text-[0.9375rem] font-bold text-sea"
-                >
-                  <EditIcon className="h-4 w-4" /> Sửa
-                </button>
-                <button
-                  onClick={() => setConfirmDel(b)}
-                  className="flex items-center gap-1.5 text-[0.9375rem] font-bold text-danger"
-                >
-                  <TrashIcon className="h-4 w-4" /> Xóa
-                </button>
-              </div>
             </Card>
           </li>
         ))}
@@ -542,12 +568,20 @@ function BuyerForm({
   onCancel: () => void;
   onSave: (b: SavedBuyer) => void;
 }) {
+  const { home } = useHome();
   const [name, setName] = useState(initial?.name ?? "");
   const [type, setType] = useState<SavedBuyer["type"]>(initial?.type ?? "nau-vua");
-  const [port, setPort] = useState(initial?.port ?? "");
+  /*  Cảng/bến ĐIỀN SẴN từ cảng nhà bà con đã khai (luật C1 câu hỏi 2 — máy đã
+      biết thì đừng hỏi). Vẫn sửa được: bấm ô "Sửa" của hàng đọc-được. */
+  const [port, setPort] = useState(initial?.port ?? home.province ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
   const [species, setSpecies] = useState((initial?.species ?? []).join(", "));
   const [note, setNote] = useState(initial?.note ?? "");
+  /*  Chỉ bày 2 ô KEY (Tên + SĐT): sổ này tồn tại để GỌI ĐƯỢC người ta sau. Bốn
+      ô còn lại bỏ đi vẫn lưu được ⇒ thu lại (luật C1/C2 — panel đo thật 690px
+      = 85% màn, trần ~40%). */
+  const [showType, setShowType] = useState(false);
+  const [showMore, setShowMore] = useState(false);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -572,36 +606,29 @@ function BuyerForm({
       onClose={onCancel}
     >
       <form onSubmit={submit}>
-        <Field label="Tên (bắt buộc)">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={inputClass}
-            placeholder="VD: Vựa cô Ba, Nhà máy Bidifisco"
-            required
-          />
-        </Field>
-        <Field label="Loại">
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as SavedBuyer["type"])}
-            className={inputClass}
+        {/* Hàng KEY 1: tên + ô "Lưu" inline ngay cuối hàng nó */}
+        <div className="mb-3.5 flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <Field label="Tên (bắt buộc)">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={inputClass}
+                placeholder="VD: Vựa cô Ba"
+                required
+              />
+            </Field>
+          </div>
+          <button
+            type="submit"
+            className={`${SQ_BTN} mb-3.5 bg-trim text-white shadow-trim-cta`}
           >
-            {BUYER_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Cảng / bến hay gặp">
-          <input
-            value={port}
-            onChange={(e) => setPort(e.target.value)}
-            className={inputClass}
-            placeholder="VD: Cảng Hòn Rớ"
-          />
-        </Field>
+            <CheckIcon className="h-6 w-6" />
+            Lưu
+          </button>
+        </div>
+
+        {/* Hàng KEY 2: số điện thoại — mục đích của cả sổ này */}
         <Field label="Số điện thoại">
           <input
             value={phone}
@@ -611,32 +638,99 @@ function BuyerForm({
             placeholder="VD: 0901234567"
           />
         </Field>
-        <Field label="Loài hay mua (cách nhau dấu phẩy)">
-          <input
-            value={species}
-            onChange={(e) => setSpecies(e.target.value)}
-            className={inputClass}
-            placeholder="VD: cá ngừ, cá thu"
-          />
-        </Field>
-        <Field label="Ghi chú (giá thường, có ứng tổn, mức trừ hao…)">
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            className={inputClass}
-            placeholder="VD: trả 95k/kg cá ngừ, ứng tổn 50tr, trừ hao 5%"
-          />
-        </Field>
-        <div className="mt-2 grid grid-cols-2 gap-3">
+
+        {/* Loại: đã có mặc định "Nậu vựa" ⇒ dòng đọc-được + ô sửa */}
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="text-[1rem] text-foreground/80">
+              Loại:{" "}
+              <span className="font-bold text-navy">{typeLabel(type)}</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowType((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <EditIcon className="h-6 w-6" />
+            {showType ? "Thu" : "Sửa"}
+          </button>
+        </div>
+        {showType && (
+          <Field label="Loại">
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value as SavedBuyer["type"])}
+              className={inputClass}
+            >
+              {BUYER_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+
+        {/* Cảng/bến + loài + ghi chú: thu sau một nút */}
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="truncate text-[1rem] text-foreground/80">
+              Bến:{" "}
+              <span className="font-bold text-navy">
+                {port.trim() || "chưa ghi"}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowMore((v) => !v)}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <PlusIcon className="h-6 w-6" />
+            {showMore ? "Thu" : "Chi tiết"}
+          </button>
+        </div>
+
+        {showMore && (
+          <>
+            <Field label="Cảng / bến hay gặp">
+              <input
+                value={port}
+                onChange={(e) => setPort(e.target.value)}
+                className={inputClass}
+                placeholder="VD: Cảng Hòn Rớ"
+              />
+            </Field>
+            <Field label="Loài hay mua (cách nhau dấu phẩy)">
+              <input
+                value={species}
+                onChange={(e) => setSpecies(e.target.value)}
+                className={inputClass}
+                placeholder="VD: cá ngừ, cá thu"
+              />
+            </Field>
+            <Field label="Ghi chú (giá thường, có ứng tổn, mức trừ hao…)">
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                className={inputClass}
+                placeholder="VD: trả 95k/kg cá ngừ, ứng tổn 50tr, trừ hao 5%"
+              />
+            </Field>
+          </>
+        )}
+
+        <div className="mt-2 flex justify-end">
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            className={`${SQ_BTN} bg-background text-foreground/70`}
           >
+            <CloseIcon className="h-6 w-6" />
             Hủy
           </button>
-          <PrimaryButton type="submit">Lưu lại</PrimaryButton>
         </div>
       </form>
     </BottomSheet>

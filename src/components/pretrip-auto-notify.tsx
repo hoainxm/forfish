@@ -728,7 +728,7 @@ function PretripSavedSheet({
                   type="button"
                   onClick={() => retry(l.id)}
                   disabled={!!busy}
-                  className={`shrink-0 rounded-lg px-3 py-1.5 text-[0.8125rem] font-bold transition active:scale-95 disabled:opacity-50 ${
+                  className={`flex min-h-[3.25rem] shrink-0 items-center rounded-lg px-4 text-[0.8125rem] font-bold transition active:scale-95 disabled:opacity-50 ${
                     l.saved ? "text-sea" : "bg-navy text-white"
                   }`}
                 >

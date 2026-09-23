@@ -86,8 +86,9 @@ export function PlotterReadout({
   blocked?: boolean;
   lastFixAt: number | null;
   accuracyM: number | null;
-  /** chỗ đang xem dự báo = "con trỏ" của máy định vị */
-  cursor: LatLon;
+  /** chỗ đang xem dự báo = "con trỏ" của máy định vị. `null` = bản đồ đang
+      TRỐNG (user trả về trống bằng cú chạm) → ẩn hàng TRỎ, chỉ còn hàng TÀU. */
+  cursor: LatLon | null;
   /** chạm hàng TÀU TÔI khi chưa có vị trí: xin quyền + bay tới tàu */
   onGoMyPos: () => void;
 }) {
@@ -100,7 +101,7 @@ export function PlotterReadout({
   // thì bỏ trống, KHÔNG đo từ một điểm đoán. Con trỏ nằm ngay trên tàu thì
   // hướng là số vô nghĩa — nói "ngay tại tàu", đừng in "0° Bắc".
   const rng =
-    myPos != null
+    myPos != null && cursor != null
       ? (() => {
           const km = haversineKm(myPos, cursor);
           if (km < AT_BOAT_KM) return "ngay tại tàu";
@@ -177,7 +178,10 @@ export function PlotterReadout({
         </button>
       )}
 
-      {/* ── CON TRỎ (chỗ đang xem dự báo) — luôn là DÒNG CHỮ, một dòng ──── */}
+      {/* ── CON TRỎ (chỗ đang xem dự báo) — luôn là DÒNG CHỮ, một dòng ────
+          Ẩn khi bản đồ TRỐNG (cursor == null): không có điểm xem thì không in
+          toạ độ trỏ (tránh "cứ chạm là tính vị trí nhìn rối" — user 2026-08-29). */}
+      {cursor != null && (
       <p className="flex min-h-[1.375rem] items-center gap-1.5">
         <PinIcon className="h-4 w-4 shrink-0 text-trim" />
         <RowLabel text="Trỏ" />
@@ -190,6 +194,7 @@ export function PlotterReadout({
           </span>
         )}
       </p>
+      )}
     </div>
   );
 }

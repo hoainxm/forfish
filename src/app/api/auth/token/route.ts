@@ -25,6 +25,7 @@ import { normalizePlatform } from "@/lib/app-usage";
 import { isValidDeviceId } from "@/lib/device-id";
 import { newDeviceToken, hashDeviceToken } from "@/lib/device-token";
 import { revokeTokensOfPhone, tokenIdentity } from "@/lib/device-token-server";
+import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -48,17 +49,44 @@ export async function POST(req: Request) {
   const deviceId = isValidDeviceId(body?.deviceId) ? body.deviceId : null;
   const platform = normalizePlatform(body?.platform);
 
-  /*  THU HỒI TRƯỚC, CẤP SAU — thứ tự này là toàn bộ luật "1 tài khoản 1 máy".
-      Đảo lại thì có một khoảnh khắc HAI chuỗi cùng hiệu lực, và nếu bước thu hồi
-      hỏng ngay sau đó thì máy cũ sống tiếp vĩnh viễn — đúng thứ tính năng này
-      sinh ra để chặn. Thu hồi không xong ⇒ KHÔNG cấp chuỗi, báo bà con thử lại. */
-  const revoked = await revokeTokensOfPhone(phone, "new_login");
-  if (!revoked.ok) {
-    return NextResponse.json({ ok: false, code: "revoke_failed" }, { status: 503 });
-  }
-
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ ok: false, code: "not_configured" }, { status: 503 });
+
+  /*  ADMIN ĐƯỢC NHIỀU MÁY (chủ dự án 2026-08-31): admin cần app (điện thoại) +
+      web /quan-tri cùng lúc, nên KHÔNG đá phiên cũ khi đăng nhập máy mới. Khách/
+      đại lý giữ "1 tài khoản 1 máy". Admin = env ADMIN_PHONES HOẶC
+      customers.role='admin'. Token admin cấp với allow_multi=true (migration
+      0053) → miễn ràng buộc một-chuỗi-sống ở DB, không đụng nhau. */
+  /*  ĐỌC HÀNG KHÁCH MỘT LẦN: role (xét admin) + tier/premium_until (HẠNG). Chủ
+      dự án 2026-08-31: *"token lúc đăng nhập đã xác định rồi mà"* — đúng, hạng
+      biết ngay tại đây, nên TRẢ VỀ để máy ghi dấu premium NGAY, khỏi chờ nhịp
+      heartbeat (bị cửa 30' chặn ⇒ premium mở app nguội kẹt "checking" ⇒ ẩn hết
+      công cụ premium). Chốt hạng thật vẫn ở middleware/RLS mỗi request. */
+  const { data: custRow } = await admin
+    .from("customers")
+    .select("role, tier, premium_until")
+    .eq("phone", phone)
+    .maybeSingle();
+  const cust = custRow as {
+    role?: string;
+    tier?: string;
+    premium_until?: string | null;
+  } | null;
+  let isAdmin = isAdminPhone(phone, parseAdminPhones(process.env.ADMIN_PHONES));
+  if (!isAdmin) isAdmin = cust?.role === "admin";
+
+  /*  THU HỒI TRƯỚC, CẤP SAU — luật "1 tài khoản 1 máy" cho KHÁCH/ĐẠI LÝ. Đảo
+      lại thì có một khoảnh khắc HAI chuỗi cùng hiệu lực; thu hồi hỏng ngay sau
+      đó thì máy cũ sống mãi. Thu hồi không xong ⇒ KHÔNG cấp chuỗi, báo thử lại.
+      ADMIN thì BỎ QUA bước này — nhiều máy sống song song là CỐ Ý. */
+  let kickedCount = 0;
+  if (!isAdmin) {
+    const revoked = await revokeTokensOfPhone(phone, "new_login");
+    if (!revoked.ok) {
+      return NextResponse.json({ ok: false, code: "revoke_failed" }, { status: 503 });
+    }
+    kickedCount = revoked.revoked;
+  }
 
   /*  THỬ LẠI MỘT LẦN KHI ĐỤNG RÀNG BUỘC "MỘT CHUỖI SỐNG" (0028).
       Hai lượt đăng nhập chạy sát nhau có thể xen kẽ revoke/insert; index unique
@@ -70,7 +98,9 @@ export async function POST(req: Request) {
   let token = "";
   let error: { code?: string; message: string } | null = null;
   for (let lan = 0; lan < 2; lan++) {
-    if (lan > 0) {
+    if (lan > 0 && !isAdmin) {
+      // Chỉ khách/đại lý mới đụng ràng buộc một-chuỗi-sống (23505) cần thu hồi
+      // lại. Token admin (allow_multi) không vướng index nên không rơi vào đây.
       const lai = await revokeTokensOfPhone(phone, "new_login");
       if (!lai.ok) break;
     }
@@ -78,6 +108,7 @@ export async function POST(req: Request) {
     const res = await admin.from("device_tokens").insert({
       token_hash: await hashDeviceToken(token),
       customer_phone: phone,
+      allow_multi: isAdmin,
       ...(deviceId ? { device_id: deviceId } : {}),
       ...(platform ? { platform } : {}),
     });
@@ -96,10 +127,17 @@ export async function POST(req: Request) {
     ok: true,
     token,
     phone,
-    /** máy cũ vừa bị đá — để màn hình nói "đã đăng xuất máy trước" cho minh bạch */
-    kicked: revoked.revoked > 0,
+    /** máy cũ vừa bị đá — để màn hình nói "đã đăng xuất máy trước" cho minh bạch.
+        Admin không đá máy cũ (nhiều máy CỐ Ý) nên luôn 0. */
+    kicked: kickedCount > 0,
     mustChangePassword:
       data?.user?.user_metadata?.must_change_password === true,
+    /*  HẠNG ngay tại đăng nhập — máy ghi dấu premium liền (writePremiumMark),
+        khỏi chờ heartbeat. `tier` = cột THÔ ('premium'/'basic'); client tự xét
+        hạn với `premiumUntil` (luật E4). Không có hàng khách → null (giữ nguyên
+        dấu cũ, thà cũ hơn sai). */
+    tier: typeof cust?.tier === "string" ? cust.tier : null,
+    premiumUntil: cust?.premium_until ?? null,
   });
 }
 

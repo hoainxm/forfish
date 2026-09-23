@@ -6,15 +6,18 @@ import { useBoats } from "@/lib/boat-store";
 import { purgeBoatData } from "@/lib/boat-cascade";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Field, PrimaryButton, inputClass } from "@/components/ui/primitives";
+import { Field, inputClass } from "@/components/ui/primitives";
 import { COASTAL_PROVINCES, REGION_LABEL } from "@/lib/region";
 import { storageFullCopy } from "@/lib/user-store";
 import {
   AnchorIcon,
+  CheckIcon,
   ChevronRightIcon,
+  CloseIcon,
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
+import { SQ_BTN } from "@/components/ui/sq-btn";
 import { useAuthUser } from "@/lib/use-auth";
 
 /*
@@ -45,14 +48,19 @@ export function BoatSwitcher() {
 
   // Đã đăng nhập nhưng chưa có tàu → mời thêm tàu đầu tiên (không seed tàu mẫu).
   if (!current) {
+    /*  Hàng chuẩn thay nút full-width (2026-08-29, luật A2/A3/A4): [thân cấp
+        dữ liệu flex-1] + [ô nút w-16]. Nhãn bỏ chữ thừa "của bạn". */
     return (
-      <div className="relative z-10 -mt-6 px-4">
+      <div className="relative z-10 -mt-6 flex items-stretch gap-2 px-4">
+        <div className="flex min-w-0 flex-1 items-center surface px-3.5 py-3">
+          <p className="text-[1rem] font-bold text-navy">Chưa có tàu nào</p>
+        </div>
         <button
           onClick={() => setForm({ id: `boat-${Date.now()}`, name: "" })}
-          className="flex min-h-[3.25rem] w-full items-center justify-center gap-2 surface px-3.5 py-3 text-[1rem] font-bold text-navy active:scale-[0.99]"
+          className={`${SQ_BTN} surface text-navy`}
         >
-          <PlusIcon className="h-5 w-5" />
-          Thêm tàu của bạn
+          <PlusIcon className="h-6 w-6" />
+          Thêm tàu
         </button>
         {form && (
           <BoatForm
@@ -148,16 +156,19 @@ export function BoatSwitcher() {
               </li>
             ))}
           </ul>
-          <button
-            onClick={() => {
-              setForm({ id: `boat-${Date.now()}`, name: "" });
-              setPick(false);
-            }}
-            className="mt-3 flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-full bg-field text-[1rem] font-bold text-navy"
-          >
-            <PlusIcon className="h-5 w-5" />
-            Thêm tàu mới
-          </button>
+          {/* Ô nút inline, không dải ngang ăn hàng (luật A2/A3) */}
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => {
+                setForm({ id: `boat-${Date.now()}`, name: "" });
+                setPick(false);
+              }}
+              className={`${SQ_BTN} bg-field text-navy`}
+            >
+              <PlusIcon className="h-6 w-6" />
+              Thêm tàu
+            </button>
+          </div>
         </BottomSheet>
       )}
 
@@ -289,27 +300,37 @@ export function BoatForm({
             placeholder="VD: 15"
           />
         </Field>
-        <div className="mt-2 grid grid-cols-2 gap-3">
+        {/*  BA hành động về MỘT hàng cuối form (2026-08-29, luật A2/A3): trước
+            là ba dải ngang xếp chồng (cặp Hủy/Lưu grid-cols-2 + "Xóa tàu này"
+            full-width). "Xoá" giữ màu danger và GIỮ NGUYÊN ConfirmDialog ở phía
+            gọi — không bỏ đường lùi. */}
+        <div className="mt-2 flex items-stretch justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[3.75rem] rounded-full bg-field text-[1.125rem] font-bold text-foreground/70"
+            className={`${SQ_BTN} bg-field text-foreground/70`}
           >
+            <CloseIcon className="h-6 w-6" />
             Hủy
           </button>
-          <PrimaryButton type="submit">Lưu tàu</PrimaryButton>
-        </div>
-
-        {onDelete && (
           <button
-            type="button"
-            onClick={onDelete}
-            className="mt-3 flex min-h-[3.25rem] w-full items-center justify-center gap-2 text-[1.0625rem] font-bold text-danger active:opacity-70"
+            type="submit"
+            className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
           >
-            <TrashIcon className="h-5 w-5" />
-            Xóa tàu này
+            <CheckIcon className="h-6 w-6" />
+            Lưu
           </button>
-        )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              className={`${SQ_BTN} bg-field text-danger`}
+            >
+              <TrashIcon className="h-6 w-6" />
+              Xoá
+            </button>
+          )}
+        </div>
       </form>
     </BottomSheet>
   );
