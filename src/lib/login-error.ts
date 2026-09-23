@@ -59,7 +59,9 @@ export function loginErrorMessage(err: RawAuthError, exists: AccountExists): str
 
   // Sai thông tin đăng nhập — tách theo kết quả check tồn tại tài khoản.
   if (exists === false) {
-    return `Số điện thoại này chưa có tài khoản SDFish. Bà con gọi SDVICO ${HOTLINE_HIEN} để được cấp tài khoản nhé.`;
+    // Người ngoài tự đăng ký lại được (2026-09-23) — chỉ đường Đăng ký, không
+    // bắt gọi SDVICO nữa. Giữ cụm "chưa có tài khoản" (cổng test canh câu này).
+    return "Số điện thoại này chưa có tài khoản SDFish. Bà con bấm Đăng ký bên dưới để tạo nhanh bằng số này nhé.";
   }
   if (exists === true) {
     return "Số đúng rồi, nhưng mật khẩu chưa đúng. Bà con thử mật khẩu ban đầu sd123456, hoặc bấm Quên mật khẩu bên dưới nhé.";

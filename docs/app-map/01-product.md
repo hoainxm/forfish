@@ -7,9 +7,9 @@
 ---
 
 
-## Ai dùng được — CẦN TÀI KHOẢN, DO SDVICO CẤP (chủ dự án chốt 2026-09-01)
+## Ai dùng được — CẦN TÀI KHOẢN, TỰ ĐĂNG KÝ ĐƯỢC (chủ dự án chốt 2026-09-01, mở lại đăng ký 2026-09-23)
 
-App **yêu cầu đăng nhập** mới dùng được; **không có đường tự đăng ký** — tài khoản do SDVICO cấp, bà con gọi `0939 243 222`. Trước 2026-09-01 app dùng được không cần tài khoản (demo mode localStorage), chỉ khoá vài khối giá trị cao.
+App **yêu cầu đăng nhập** mới dùng được. **Người ngoài TỰ ĐĂNG KÝ được** tại `/dang-ky` bằng số điện thoại (mở lại 2026-09-23 — đảo vế "chỉ SDVICO cấp" của 2026-09-01); tài khoản mới là **hạng thường (basic)**, premium vẫn chỉ gán qua SDWork/`/quan-tri`. Khách SDVICO đã được provision qua webhook thì đăng nhập thẳng. Trước 2026-09-01 app dùng được không cần tài khoản (demo mode localStorage), chỉ khoá vài khối giá trị cao.
 
 **Chưa có tài khoản thì thấy gì:**
 
@@ -18,11 +18,11 @@ App **yêu cầu đăng nhập** mới dùng được; **không có đường t�
 | Trang chủ `/` — hero, tin bão, Bốn việc, hộp thư, **và lời nhắc cài PWA** (bản web) | `/ngu-truong` bản đồ ngư trường |
 | `/login` · `/quen-mat-khau` · `/quyen-rieng-tu` | `/tau` hồ sơ tàu · `/nguoi` sổ thuyền viên · `/cang` danh bạ cảng |
 | `/tien` mục **Giá cá** (số công khai VASEP) | `/tien` mục Tin mua/bán · Bán ở đâu |
-| `/dang-ky` — GIỮ MÀN nhưng khoá, chỉ còn câu "gọi SDVICO" | |
+| `/dang-ky` — **biểu mẫu tự đăng ký (mở lại 2026-09-23)** · `/quen-mat-khau` | |
 
-**Vì sao trang chủ mở nguyên:** người chưa có tài khoản phải NHÌN THẤY app làm được gì rồi mới có cớ gọi xin cấp. Tin bão để mở vì đó là chuyện an toàn tính mạng — không đem ra làm mồi câu tài khoản. Giá cá mở vì là số công khai của VASEP, khoá cũng không giữ được gì.
+**Vì sao trang chủ mở nguyên:** người chưa có tài khoản phải NHÌN THẤY app làm được gì rồi mới có cớ tạo tài khoản. Tin bão để mở vì đó là chuyện an toàn tính mạng — không đem ra làm mồi câu tài khoản. Giá cá mở vì là số công khai của VASEP, khoá cũng không giữ được gì.
 
-**Vì sao GIỮ `/dang-ky` mà không xoá route:** đường đó đã phát ra ngoài (tin nhắn nhân viên, ảnh chụp màn, chính câu "Đăng nhập / Đăng ký" trong app cũ). Xoá là bà con bấm vào ra 404 đúng lúc đang cần tài khoản.
+**Mở lại tự đăng ký (2026-09-23):** cổng khoá màn (`RequireLogin`/`LoginGate`) và câu lỗi "chưa có tài khoản" ở `/login` nay mời **Đăng ký** trước (link → `/dang-ky`), Đăng nhập sau; bỏ hướng "gọi SDVICO để được cấp" ở các chỗ TẠO tài khoản. Các câu "gọi SDVICO" còn lại là về **premium** (dự báo cá / cảnh báo thuyền viên) — việc khác, giữ nguyên.
 
 **DẢI KHẨN ẨN KHI CHƯA ĐĂNG NHẬP (2026-09-01b).** Chủ dự án gửi ảnh dải khẩn đầy "Thay lọc dầu · Quá hạn 93 ngày" và bảo *"bỏ các loại dữ liệu seed này đi"*. **Không còn seed nào trong code** — đợt gỡ 2026-07-29 đã làm sạch (`boats.ts` ghi rõ "KHÔNG seed tàu mẫu"); thứ trong ảnh là dữ liệu THẬT gõ tay còn lại trong máy đó, đọc thẳng từ localStorage. Nhưng nó phơi ra lỗi của chính đợt khoá đăng nhập: cả app đã đòi tài khoản mà trang chủ vẫn bày lịch bảo dưỡng + giấy tờ + nợ SDVICO của MỘT chủ tàu nào đó cho người chưa đăng nhập — máy dùng chung ở bến, hay máy vừa cài lại, là thấy việc của người khác. Nay `UrgentStrip` trả `null` khi chưa có chuỗi cứng.
 

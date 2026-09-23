@@ -3,14 +3,13 @@
 import Link from "next/link";
 
 import { LockIcon } from "@/components/icons";
-import { CallButton } from "@/components/ui/primitives";
-import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import { useAuthUser } from "@/lib/use-auth";
 
 /*
   CỔNG ĐĂNG NHẬP CẤP MÀN — chủ dự án chốt 2026-09-01: *"user yêu cầu phải đăng
-  nhập mới dùng được, yêu cầu phải liên hệ SDVICO để cấp acc, user ko acc chỉ
-  thấy được màn hình trang chủ"*.
+  nhập mới dùng được … user ko acc chỉ thấy được màn hình trang chủ"*. Vế "phải
+  liên hệ SDVICO để cấp acc" ĐÃ ĐẢO 2026-09-23: mở lại tự đăng ký cho người
+  ngoài — cổng này nay mời TẠO tài khoản thẳng, không còn bắt gọi SDVICO.
 
   KHÁC `LoginGate`: cái kia khoá MỘT KHỐI bên trong một màn đang mở (dự báo cá,
   chợ tin mua bán) và vẫn để phần còn lại của màn đọc được. Cái này khoá CẢ MÀN.
@@ -75,21 +74,25 @@ export function RequireLogin({
         <p className="display mt-3 text-[1.125rem] font-bold leading-snug text-navy">
           Cần tài khoản để mở {what}
         </p>
-        {/*  CÂU CẤP DỮ LIỆU, KHÔNG PHẢI CHỮ AN ỦI: nói THẲNG tài khoản lấy ở
-             đâu. Bà con không tự đăng ký được, nên câu "hãy đăng ký" là chỉ
-             sai đường — đó là lý do màn /dang-ky cũng đã khoá. */}
+        {/*  CÂU CẤP DỮ LIỆU: nói THẲNG bước kế. Người ngoài nay tự tạo tài khoản
+             được bằng SĐT — không còn phải gọi SDVICO trước. */}
         <p className="mx-auto mt-1 max-w-[34ch] text-[1rem] leading-snug text-foreground/70">
-          Tài khoản do SDVICO cấp. Gọi {SDVICO_HOTLINE} để được mở.
+          Tạo nhanh bằng số điện thoại, hoặc đăng nhập nếu đã có.
         </p>
         <div className="mt-4 flex flex-col items-center gap-2">
-          <CallButton phone={SDVICO_HOTLINE} label="Gọi SDVICO" />
           {/*  NÚT CHÍNH DUY NHẤT CỦA MÀN ⇒ được phép full-width (ngoại lệ đã
                chốt ở 03-design-system §Nút hành động mục 0). */}
           <Link
-            href="/login"
+            href="/dang-ky"
             className="display flex min-h-[3.5rem] w-full max-w-[17.5rem] items-center justify-center rounded-full bg-trim text-[1.125rem] font-bold text-white shadow-trim-cta transition active:scale-[0.98]"
           >
-            Đăng nhập
+            Đăng ký
+          </Link>
+          <Link
+            href="/login"
+            className="inline-flex min-h-[3.5rem] items-center px-2 text-[1rem] font-bold text-sea"
+          >
+            Đã có tài khoản — Đăng nhập
           </Link>
         </div>
       </div>

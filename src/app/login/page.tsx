@@ -315,7 +315,19 @@ export default function LoginPage() {
         >
           Quên mật khẩu?
         </Link>
-        <p className="mt-4 text-center text-[0.9375rem] leading-snug text-foreground/60">
+        {/*  Đường sang tự đăng ký (mở lại 2026-09-23): người ngoài chưa có tài
+             khoản tạo nhanh bằng SĐT — câu lỗi "chưa có tài khoản" ở
+             login-error.ts chỉ thẳng xuống nút này. */}
+        <p className="mt-4 text-[0.9375rem] leading-snug text-foreground/70">
+          Chưa có tài khoản?{" "}
+          <Link
+            href="/dang-ky"
+            className="inline-flex min-h-[3.5rem] items-center px-2 font-bold text-sea"
+          >
+            Đăng ký
+          </Link>
+        </p>
+        <p className="mt-1 text-center text-[0.9375rem] leading-snug text-foreground/60">
           Đăng nhập tức là bạn đồng ý với{" "}
           <Link href="/quyen-rieng-tu" className="font-bold text-sea underline">
             Chính sách quyền riêng tư

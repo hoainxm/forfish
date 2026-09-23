@@ -1,0 +1,148 @@
+# Deploy SDFish (Next.js SSR) lên server Windows nội bộ, sau IIS reverse-proxy.
+#
+# GIỮ Y HỆT KHUNG CRM SDVICO 40 (deploy.yml của crm-sdvico-40):
+#   self-hosted runner · build → release\<timestamp> → robocopy /MIR sang `current`
+#   → prune giữ N bản · trigger push main + chạy tay.
+#
+# KHÁC CRM (bắt buộc, vì SDFish là SSR chứ không phải web tĩnh — 60 API route +
+# middleware auth nên KHÔNG static-export được):
+#   1. Build ra bundle `output: 'standalone'` (đã bật trong next.config.ts) thay cho dist/.
+#   2. Sau khi swap `current` → RESTART Windows service chạy `node server.js` (NSSM).
+#   3. IIS đứng trước làm reverse-proxy về 127.0.0.1:<APP_PORT> (ARR + URL Rewrite),
+#      thay cho "serve thư mục tĩnh".
+#
+# SETUP SERVER 1 LẦN (runner, NSSM service, IIS ARR, .env.production, rollback):
+#   → docs/app-map/ops/deploy-windows-iis.md   (đọc trước khi bật workflow này)
+#
+# ĐỔI TRƯỚC KHI DÙNG:
+#   - runs-on     : label runner cài trên server đích (forfish là repo riêng nên cần
+#                   runner org-level HOẶC 1 runner mới đăng ký cho repo này — xem doc).
+#   - DEPLOY_BASE : thư mục gốc deploy (tổ chức anh em với CRM dưới C:\SDViCo Soft\).
+#   - APP_PORT    : cổng nội bộ Node lắng nghe — PHẢI khớp PORT trong .env.production.
+name: Deploy (Windows IIS)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Không để 2 lần deploy chồng nhau lên cùng thư mục current (giống tinh thần ci.yml).
+concurrency:
+  group: deploy-windows-iis
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DEPLOY_BASE: 'C:\SDViCo Soft\FORFISH'
+  APP_PORT: '3010'          # ← phải khớp PORT trong shared\.env.production
+  SERVICE_NAME: 'forfish'   # ← tên NSSM service chạy node server.js
+  KEEP_RELEASES: 5
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, FORFISH]   # ← đổi label khớp runner của bạn
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          clean: false
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Install có cache bằng hash lockfile: trùng hash → skip install (y hệt CRM).
+      - name: Install dependencies
+        shell: powershell
+        run: |
+          npm install --package-lock-only --ignore-scripts
+
+          $lockHash = (Get-FileHash "package-lock.json" -Algorithm MD5).Hash
+          $hashFile = "node_modules\.install-hash"
+          if ((Test-Path "node_modules") -and (Test-Path $hashFile) -and ((Get-Content $hashFile) -eq $lockHash)) {
+            Write-Host "node_modules up to date, skipping install"
+          } else {
+            Write-Host "Installing dependencies..."
+            npm install --ignore-scripts
+            $lockHash | Set-Content $hashFile
+          }
+
+      - name: Build
+        run: npm run build
+
+      # Gom bundle standalone → release\<timestamp> → swap current (dừng service để nhả
+      # khoá file → robocopy /MIR → chạy lại service) → smoke check → prune.
+      - name: Deploy release
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $timestamp  = Get-Date -Format "yyyyMMdd_HHmmss"
+          $releaseDir = "$env:DEPLOY_BASE\release\$timestamp"
+          $currentDir = "$env:DEPLOY_BASE\current"
+
+          # 1) Gom bundle: Next standalone tách `.next/static` và `public` RA NGOÀI
+          #    server bundle → phải copy thủ công 3 phần vào cùng release.
+          New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+          Copy-Item -Path ".next\standalone\*" -Destination $releaseDir -Recurse -Force
+          New-Item -ItemType Directory -Path "$releaseDir\.next\static" -Force | Out-Null
+          Copy-Item -Path ".next\static\*" -Destination "$releaseDir\.next\static" -Recurse -Force
+          if (Test-Path "public") {
+            Copy-Item -Path "public" -Destination $releaseDir -Recurse -Force
+          }
+          Write-Host "Staged standalone build to: $releaseDir"
+
+          # 2) Swap current. Service đang chạy giữ khoá file trong current → dừng trước
+          #    khi robocopy, xong bật lại (downtime vài giây). robocopy exit 1-7 là BÌNH
+          #    THƯỜNG; chỉ >= 8 mới lỗi thật.
+          $svc = Get-Service -Name $env:SERVICE_NAME -ErrorAction SilentlyContinue
+          if ($svc) {
+            Stop-Service -Name $env:SERVICE_NAME -Force
+            Write-Host "Stopped service: $env:SERVICE_NAME"
+          }
+
+          robocopy $releaseDir $currentDir /MIR /NFL /NDL /NJH /NJS
+          if ($LASTEXITCODE -ge 8) {
+            throw "robocopy failed with exit code $LASTEXITCODE"
+          }
+          $global:LASTEXITCODE = 0
+          Write-Host "Swapped current -> $timestamp"
+
+          if ($svc) {
+            Start-Service -Name $env:SERVICE_NAME
+            Write-Host "Started service: $env:SERVICE_NAME"
+          } else {
+            Write-Host "WARNING: Service '$env:SERVICE_NAME' chua ton tai."
+            Write-Host "  -> Tao NSSM service lan dau theo docs/app-map/ops/deploy-windows-iis.md"
+          }
+
+          # 3) Smoke check: đợi Node dậy và trả HTTP (tối đa ~30s) trước khi coi là thành công.
+          if ($svc) {
+            $ok = $false
+            foreach ($i in 1..15) {
+              try {
+                $r = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$($env:APP_PORT)/" -TimeoutSec 5
+                if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) { $ok = $true; break }
+              } catch { Start-Sleep -Seconds 2 }
+            }
+            if (-not $ok) {
+              throw "Smoke check FAIL: 127.0.0.1:$($env:APP_PORT) khong phan hoi. Xem logs\err.log."
+            }
+            Write-Host "Smoke check OK on 127.0.0.1:$($env:APP_PORT)"
+          }
+
+          # 4) Prune: giữ KEEP_RELEASES bản mới nhất để rollback.
+          $releases = Get-ChildItem -Path "$env:DEPLOY_BASE\release" -Directory |
+                      Sort-Object Name -Descending
+          if ($releases.Count -gt [int]$env:KEEP_RELEASES) {
+            $releases | Select-Object -Skip ([int]$env:KEEP_RELEASES) | ForEach-Object {
+              Remove-Item -Path $_.FullName -Recurse -Force
+              Write-Host "Pruned old release: $($_.Name)"
+            }
+          }
+          Write-Host "Deploy complete: $timestamp"

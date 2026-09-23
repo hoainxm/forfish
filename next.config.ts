@@ -12,6 +12,11 @@ const e2eDistDir = process.env.E2E_DEMO_BUILD
     : undefined;
 
 const nextConfig: NextConfig = {
+  // Deploy server nội bộ (IIS + NSSM, xem docs/app-map/ops/deploy-windows-iis.md):
+  // cần bundle Node TỰ CHỨA → build ra `.next/standalone/server.js` + node_modules
+  // tối thiểu, copy gọn sang server, KHÔNG cần `npm install` lúc chạy. Vercel BỎ QUA
+  // field này nên deploy Vercel hiện tại không đổi.
+  output: "standalone",
   // Ghim gốc workspace về thư mục dự án. Máy dev có lockfile lạc ở thư mục cha
   // (C:\Users\ACER\package-lock.json) khiến Next đoán nhầm gốc → sai manifest
   // module (lỗi 500 "Could not find module global-error.js"). Ghim rõ để hết.

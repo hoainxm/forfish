@@ -20,10 +20,8 @@ export default function NguoiPage() {
         toColor="var(--t4)"
       />
       {/*  ĐỔI `LoginGate` → `RequireLogin` (chủ dự án 2026-09-01): từ nay CẢ
-           app cần tài khoản, mà tài khoản KHÔNG tự đăng ký được nữa. Câu cũ
-           mời "đăng nhập để lưu hồ sơ… đồng bộ nhiều máy" là chỉ sai đường —
-           người chưa có tài khoản bấm vào /login cũng không vào nổi. Thẻ mới
-           nói thẳng: gọi SDVICO. */}
+           app cần tài khoản. Người ngoài tự đăng ký lại được (2026-09-23) —
+           thẻ khoá mời TẠO tài khoản hoặc đăng nhập, không còn bắt gọi SDVICO. */}
       <RequireLogin what="sổ thuyền viên">
         <BoatSwitcher />
         <CrewList />
