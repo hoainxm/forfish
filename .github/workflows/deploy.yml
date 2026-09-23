@@ -38,19 +38,22 @@ jobs:
       - name: Prepare and Copy files to Destination
         shell: powershell
         run: |
-          # $env:GITHUB_WORKSPACE là biến môi trường chứa đường dẫn code vừa được tải về
           $src = $env:GITHUB_WORKSPACE
           $dst = "C:\sdfish\forfish"
 
-          # Dọn dẹp thư mục cũ và tạo lại
-          Remove-Item $dst -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Path $dst -Force | Out-Null
+          # Xóa sạch nội dung bên trong thư mục đích cũ
+          Remove-Item -Path "$dst\*" -Recurse -Force -ErrorAction SilentlyContinue
+          if (!(Test-Path -Path $dst)) { New-Item -ItemType Directory -Path $dst -Force | Out-Null }
 
-          # Copy đúng các file của chế độ standalone
-          Copy-Item "$src\.next\standalone\*" $dst -Recurse
-          Copy-Item "$src\.next\static" "$dst\.next\static" -Recurse
-          Copy-Item "$src\public" "$dst\public" -Recurse
+          # Copy nội dung standalone (Khắc phục lỗi leaf item bằng Get-ChildItem)
+          Get-ChildItem -Path "$src\.next\standalone" | Copy-Item -Destination $dst -Recurse -Force
 
+          # Tạo sẵn cấu trúc thư mục trước để tránh lỗi chép nhầm
+          New-Item -ItemType Directory -Path "$dst\.next" -Force -ErrorAction SilentlyContinue | Out-Null
+
+          # Copy thư mục static và public
+          Copy-Item -Path "$src\.next\static" -Destination "$dst\.next\static" -Recurse -Force
+          Copy-Item -Path "$src\public" -Destination "$dst\public" -Recurse -Force
       # 7. Khởi động lại PM2
       - name: Restart PM2
         shell: powershell
