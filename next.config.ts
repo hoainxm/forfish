@@ -23,7 +23,6 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
-  output: "standalone",
   ...(e2eDistDir ? { distDir: e2eDistDir } : {}),
 };
 export default nextConfig;
