@@ -1,8 +1,13 @@
 # Deploy SDFish lên server Windows nội bộ (IIS + NSSM)
 
 > Workflow: [`.github/workflows/deploy.windows-iis.yml`](../../../.github/workflows/deploy.windows-iis.yml).
-> Đây là hướng dẫn **setup server 1 lần** + cách vận hành/rollback. Deploy về sau là
-> tự động khi push `main`.
+> Đây là hướng dẫn **setup server 1 lần** + cách vận hành/rollback.
+>
+> ⚠️ **Workflow đang MANUAL-ONLY** (`workflow_dispatch`) — chạy tay ở tab Actions.
+> Trigger `on: push` đã GỠ (2026-09-23) vì job đòi self-hosted runner nhãn
+> `[self-hosted, FORFISH]` chưa tồn tại → mỗi push main làm run treo Queued rồi đỏ.
+> **Sau khi dựng xong runner + NSSM service** (các bước dưới) thì thêm lại `push:
+> branches: [main]` vào workflow để deploy tự động.
 >
 > Nguồn gốc: bê đúng "hướng đi" của **CRM SDVICO 40** (`crm-sdvico-40/.github/workflows/deploy.yml`)
 > — self-hosted runner · release/current/prune · robocopy `/MIR`. Khác một điểm: CRM là
