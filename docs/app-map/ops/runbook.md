@@ -46,8 +46,20 @@ node scripts/generate-isobaths.mjs     # đường đẳng sâu (isobath)
 
 ## Deploy
 
+> ⚠️ **NGUỒN VERCEL PROD = `hoainxm/forfish`** (chủ dự án chốt 2026-09-24). Prod
+> chỉ đổi khi **hoainxm/main** nhận commit — sdvico/base có commit KHÔNG làm prod
+> đổi. Bài học thật (signup f65803a kẹt 1 ngày): push đủ 2 repo nhưng nếu Vercel
+> không auto-build từ hoainxm thì prod vẫn cũ — kiểm Deployments trên Vercel.
+>
+> **PUSH FLOW = 2 REPO** (sdvico + hoainxm), MỘT lệnh `git push origin main` là đủ
+> vì `origin` cấu hình 2 push URL. **`base` (Long-Forfun) chỉ FETCH — KHÔNG push**
+> (xem [sync-base-flow.md](sync-base-flow.md)). Nếu `git remote -v` thấy origin có
+> push URL Long-Forfun → drift, gỡ:
+> `git remote set-url --delete --push origin https://github.com/Long-Forfun/ForFish`.
+
 ```bash
-# Web: push lên main → Vercel auto-deploy (repo github.com/Long-Forfun/ForFish)
+# Web: push lên main → Vercel auto-deploy từ hoainxm/forfish.
+# origin = 2 push URL (sdvico + hoainxm) → 1 lệnh ra CẢ 2 repo.
 git push origin main
 
 # PWA/native: xem ops/native-deploy.md (manifest/SW + Capacitor wrap)

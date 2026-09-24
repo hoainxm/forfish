@@ -5,3 +5,4 @@
 2026-09-18 | ops/ci | CLAUDE.md, docs/app-map/ops/external-services.md, docs/app-map/ops/runbook.md, docs/app-map/01-product.md, docs/app-map/ops/state-registry.md
 2026-09-21 | product/architecture (scope-check) | CLAUDE.md, docs/app-map/01-product.md, docs/app-map/02-architecture.md, docs/app-map/README.md, docs/app-map/10-ba-spec-quan-tri-van-hanh.md
 2026-09-23 | data(auth/RLS)+product | CLAUDE.md, docs/app-map/04-data-model.md, docs/app-map/01-product.md, docs/app-map/02-architecture.md, docs/app-map/05-agents-team.md
+2026-09-24 | ops/deploy+auth | CLAUDE.md, docs/app-map/ops/sync-base-flow.md, docs/app-map/ops/runbook.md, docs/app-map/ops/external-services.md, docs/app-map/04-data-model.md

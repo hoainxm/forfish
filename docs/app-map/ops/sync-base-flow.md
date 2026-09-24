@@ -7,9 +7,10 @@
 ## 0. Bất biến của luồng (đọc 1 lần, nhớ mãi)
 
 - **Hướng CHỈ MỘT CHIỀU**: `base` (Long-Forfun) → `origin` (sdvico + hoainxm). CHỈ lấy commit base mà origin chưa có. **KHÔNG BAO GIỜ** đẩy ngược delta sdvico lên base.
+- 🚀 **`hoainxm` LÀ NGUỒN VERCEL PROD** (chủ dự án chốt 2026-09-24). Nghĩa là: **prod chỉ đổi khi `hoainxm/main` nhận commit**. Push đủ 2 repo (sdvico + hoainxm) là ĐÚNG flow — nhưng bước làm PROD đổi là commit về **hoainxm**, không phải sdvico. Đẩy mỗi sdvico = prod đứng im (bài học signup 2026-09-24: f65803a kẹt 1 ngày). base/Long-Forfun KHÔNG dính deploy.
 - **Remote topology** (đã cấu hình sẵn trong repo):
-  - `base` = https://github.com/Long-Forfun/ForFish (NGUỒN, fetch+push nhưng ta chỉ FETCH)
-  - `origin` = 2 push URL: https://github.com/sdvico/forfish (fetch+push) + https://github.com/hoainxm/forfish (push). → **1 lần `git push origin` = đẩy CẢ 2 remote đích**.
+  - `base` = https://github.com/Long-Forfun/ForFish (NGUỒN, chỉ **FETCH** — KHÔNG push. Đừng thêm base vào push URL của origin: đẩy delta lên base là phạm bất biến một-chiều. Đã dính drift 2026-09-24 — origin lỡ có 3 push URL, gỡ bằng `git remote set-url --delete --push origin https://github.com/Long-Forfun/ForFish`.)
+  - `origin` = **ĐÚNG 2 push URL**: https://github.com/sdvico/forfish (fetch+push) + https://github.com/hoainxm/forfish (push, **= Vercel prod**). → **1 lần `git push origin main` = đẩy CẢ 2 remote đích**, và hoainxm nhận commit ⇒ Vercel auto-deploy.
 - **origin/main và base/main LUÔN diverge thật** (không ff): sdvico có delta riêng (đại lý, thu tiền thủ công, webhook NV4/5/7, privacy, self-host); base có tính năng mới. Pattern lịch sử = sdvico định kỳ MERGE base vào rồi giữ delta.
 
 ## 1. Các bước (đã kiểm chứng 2026-08-01)
