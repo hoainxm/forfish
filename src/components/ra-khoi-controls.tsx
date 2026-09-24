@@ -473,9 +473,16 @@ export function RaKhoiControls({
         </div>
       )}
 
-      {/* RAIL dọc mép phải — ẩn/hiện được như menu lớp các app bản đồ */}
+      {/* RAIL dọc mép phải — ẩn/hiện được như menu lớp các app bản đồ.
+          MÀN NGẮN: xổ hết (Lớp·Vị trí·3 nút premium·5 panel) là ~40rem, dài hơn
+          cả màn iPhone nhỏ → nút cuối (Thời tiết/Công cụ/Cài đặt) tụt xuống dưới
+          sheet đáy, KHÔNG chạm được (bug user 2026-09-24: "không chọn được lớp
+          thời tiết"). Nay CHẶN chiều cao theo màn (trừ chỗ banner trên + sheet
+          peek dưới) rồi cho TRƯỢT dọc chọn nốt. Đệm ngang `px-1.5 -mx-1.5` để
+          overflow-x (kèm theo khi bật overflow-y) không cắt bóng nút; giữ mép
+          nút đúng chỗ cũ. Màn cao thì đủ chỗ, không hiện thanh trượt. */}
       <div
-        className="pointer-events-auto flex flex-col items-end gap-2"
+        className="pointer-events-auto flex max-h-[calc(100dvh-14rem)] flex-col items-end gap-2 overflow-y-auto px-1.5 py-1 -mx-1.5 -my-1 [overscroll-behavior:contain] [&>button]:shrink-0"
       >
         <button
           type="button"
