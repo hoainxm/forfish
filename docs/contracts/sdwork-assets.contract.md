@@ -95,7 +95,7 @@ SdvicoRequestButton / ProductDetailSheet (hàng vendor_kind='sdvico')
 
 **CHUẨN BỊ DEPLOY (checklist):**
 - [ ] **Env trên Vercel** (prod): `SDWORK_SUPABASE_URL=https://exueouggmbjtjvsvpfya.supabase.co` + `SDWORK_SUPABASE_ANON_KEY=<publishable/anon, KHÔNG service-role>`. Thiếu → `/api/sdvico/request` trả 503, app báo "chưa gửi được".
-- [ ] **Edge Function `forfish-gateway` phía CRM** phải nhận `action:"request"` và INSERT `consultation_requests` (việc phía SDWork, không thuộc repo ForFish). Nếu gateway chỉ có `action:"assets"` thì yêu cầu rơi vào `crm_error`.
+- [x] **Edge Function `forfish-gateway` phía CRM** nhận `action:"request"` và INSERT `consultation_requests` — ✅ **ĐÃ XÁC NHẬN 2026-09-24**: có dòng thật `[ForFish] Hỏi cước / gia hạn — hỏi cước tàu` (2026-08-15, test nội bộ SĐT 0939243222) trong `consultation_requests`, định dạng khớp `buildRequestMessage`. Không cần sửa phía CRM.
 - [ ] **Verify sau deploy**: bấm "Gửi yêu cầu mua" 1 sản phẩm trên prod → kiểm `consultation_requests` bên CRM thấy dòng `[ForFish]` mới. Hoặc `curl -X POST https://<prod>/api/sdvico/request -H 'content-type: application/json' -d '{"name":"Test","phone":"0901234567","topic":"mua","productName":"Máy lọc dầu"}'` → `{ok:true}`.
 - [ ] RLS/quyền: gateway dùng `SDWORK_SUPABASE_ANON_KEY` (anon) — Edge Function phía CRM tự chèn bằng service-role của nó; ForFish KHÔNG cầm service-role của CRM.
 
