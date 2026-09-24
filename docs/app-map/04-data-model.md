@@ -228,6 +228,10 @@ Nguồn + thiết kế đầy đủ: [docs/specs/dong-bo-so-per-may.md](../specs
 - Nhóm Cửa hàng (`group`): 9 thiết bị/vật tư gán `dien_tu`/`co_dien`/`nhu_yeu_pham`; 2 app để NULL → gom "Khác".
 - ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`, KHÔNG tự apply). Chưa apply thì prod giữ 6 seed cũ; local/demo đã thấy 11 sản phẩm qua fallback tĩnh.
 
+### DỌN danh mục — chỉ giữ 11 sản phẩm tài liệu — migration [`0055_product_catalog_prune.sql`](../../supabase/migrations/0055_product_catalog_prune.sql) (2026-09-24) — ⚠️ **CHƯA APPLY prod**
+
+`delete from product_listings where vendor_kind='sdvico' and id not in (<11 uuid seed>)` — xóa các sản phẩm SDVICO KHÔNG thuộc tài liệu còn sót trong bảng (bộ đàm, máy dò cá, hàng test…). **GIỮ nguyên sản phẩm đơn vị NGOÀI** (`vendor_kind='external'`). Idempotent. Sinh cùng `scripts/gen-product-seed.mjs` (danh sách uuid đồng bộ với 0054). Cần cho prod vì 0054 chỉ xóa 6 seed cũ (uuid 1111) chứ không đụng sản phẩm admin/nguồn khác đã thêm.
+
 ### Yêu cầu hỏi mua/tư vấn — migration [`0017_product_inquiries.sql`](../../supabase/migrations/0017_product_inquiries.sql) (2026-07-28, Phase 2) — ✅ ĐÃ APPLY prod
 
 | Thay đổi | Nghĩa |

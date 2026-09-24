@@ -682,16 +682,44 @@ function ProductDetailSheet({
           </div>
         )}
 
-        {/* Liên hệ: đơn vị ngoài dùng số riêng, còn lại hotline SDVICO */}
-        <a
-          href={`tel:${p.vendorKind === "external" && p.contactPhone ? p.contactPhone : SDVICO_HOTLINE}`}
-          className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.98]"
-        >
-          <PhoneIcon className="h-5 w-5" />
-          {p.vendorKind === "external" && p.contactPhone
-            ? `Gọi ${p.contactPhone}`
-            : `Gọi SDVICO ${SDVICO_HOTLINE_DISPLAY}`}
-        </a>
+        {/* Gửi yêu cầu mua → SDWork (hàng SDVICO) / để lại yêu cầu (đơn vị ngoài),
+            kèm đường gọi. Cùng luồng với thẻ ngoài danh sách. */}
+        <div className="space-y-2">
+          {p.vendorKind === "external" ? (
+            <>
+              <ProductInquiryButton
+                listingId={p.id}
+                listingTitle={p.title}
+                vendorKind="external"
+                vendorName={p.vendorName}
+              />
+              {p.contactPhone && (
+                <a
+                  href={`tel:${p.contactPhone}`}
+                  className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.98]"
+                >
+                  <PhoneIcon className="h-5 w-5" />
+                  Gọi {p.contactPhone}
+                </a>
+              )}
+            </>
+          ) : (
+            <>
+              <SdvicoRequestButton
+                topic="mua"
+                productName={p.title}
+                label="Gửi yêu cầu mua"
+              />
+              <a
+                href={`tel:${SDVICO_HOTLINE}`}
+                className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-field text-[1.0625rem] font-bold text-navy transition active:scale-[0.98]"
+              >
+                <PhoneIcon className="h-5 w-5" />
+                Gọi SDVICO {SDVICO_HOTLINE_DISPLAY}
+              </a>
+            </>
+          )}
+        </div>
       </div>
     </BottomSheet>
   );

@@ -71,3 +71,23 @@ on conflict (id) do update set
 const out = join(__dirname, "..", "supabase", "migrations", "0054_product_catalog_seed_2026.sql");
 writeFileSync(out, sql, "utf8");
 console.log(`[gen-product-seed] Ghi ${SDVICO_SHOWCASE.length} sản phẩm → ${out}`);
+
+// ── 0055: DỌN danh mục — chỉ GIỮ ${SDVICO_SHOWCASE.length} sản phẩm SDVICO trong tài liệu ──────────
+// Xóa mọi sản phẩm vendor_kind='sdvico' KHÔNG thuộc bộ seed (bộ đàm, máy dò cá,
+// hàng test cũ…). GIỮ nguyên sản phẩm đơn vị NGOÀI (vendor_kind='external').
+const keepIds = SDVICO_SHOWCASE.map((p) => p.uuid);
+const pruneSql = `-- SDFish — DỌN danh mục sản phẩm (2026-09-24). Chủ dự án: chỉ giữ ${SDVICO_SHOWCASE.length} sản phẩm
+-- SDVICO trong tài liệu chính thức; xóa các sản phẩm SDVICO không liên quan còn
+-- sót trong bảng (bộ đàm, máy dò cá, hàng test…). Sinh TỰ ĐỘNG từ
+-- src/data/sdvico-showcase.ts (scripts/gen-product-seed.mjs) — đừng sửa tay.
+--
+-- GIỮ nguyên sản phẩm ĐƠN VỊ NGOÀI (vendor_kind='external'). Idempotent.
+-- ⚠️ KHÔNG tự apply lên prod — bước duyệt riêng (ref znzgugvfhgmiszqgjulk).
+
+delete from public.product_listings
+where vendor_kind = 'sdvico'
+  and id not in (${keepIds.map(q).join(", ")});
+`;
+const pruneOut = join(__dirname, "..", "supabase", "migrations", "0055_product_catalog_prune.sql");
+writeFileSync(pruneOut, pruneSql, "utf8");
+console.log(`[gen-product-seed] Ghi prune (giữ ${keepIds.length}) → ${pruneOut}`);
