@@ -9,6 +9,7 @@ import {
   ChevronRightIcon,
   CloseIcon,
   LockIcon,
+  PlusIcon,
   TrashIcon,
   UsersIcon,
 } from "@/components/icons";
@@ -595,8 +596,12 @@ export function HeroAccount() {
                   2026-08-18): /login cần sóng, mời vào là ngõ cụt. Thay bằng
                   một dòng nói thật, không nút. */}
               {online ? (
-                /* Ô nút inline cuối hàng danh tính (luật A2/A3/A4) — nhãn gọi
-                   tên việc: "Đăng nhập" */
+                /*  Ô nút inline cuối hàng danh tính (luật A2/A3/A4). MỞ LẠI TỰ
+                    ĐĂNG KÝ (2026-09-24): người mới TẠO tài khoản thẳng ở đây —
+                    "Máy này chưa có tài khoản" giờ có đúng đường kế tiếp. Hai ô
+                    vuông cùng hàng = CÙNG 56px, KHÔNG tốn thêm chiều dọc. Đăng
+                    ký là CTA chính (cam) cho người chưa có; Đăng nhập cạnh bên
+                    cho người đã có tài khoản (vd đang dùng máy khác). */
                 <div className="mb-4 flex items-stretch gap-2">
                   <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-4 py-3">
                     <p className="text-[1rem] font-bold text-navy">
@@ -604,17 +609,21 @@ export function HeroAccount() {
                     </p>
                   </div>
                   <Link
-                    href="/login"
+                    href="/dang-ky"
                     className={`${SQ_BTN} bg-trim text-white shadow-trim-cta`}
                   >
+                    <PlusIcon className="h-6 w-6" />
+                    Đăng ký
+                  </Link>
+                  <Link href="/login" className={`${SQ_BTN} bg-field text-navy`}>
                     <LockIcon className="h-6 w-6" />
                     Đăng nhập
                   </Link>
                 </div>
               ) : (
                 <p className="mb-4 rounded-2xl bg-field px-4 py-3 text-[1rem] leading-snug text-foreground/75">
-                  Đăng nhập cần sóng — máy đang không có sóng. Có sóng lại bà con
-                  mở lại chỗ này.
+                  Đăng ký và đăng nhập đều cần sóng — máy đang không có sóng. Có
+                  sóng lại bà con mở lại chỗ này.
                 </p>
               )}
             </>

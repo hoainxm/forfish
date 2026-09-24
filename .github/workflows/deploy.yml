@@ -1,9 +1,12 @@
 name: Deploy Next.js via Self-hosted Runner
 
+# ⚠️ MANUAL-ONLY (2026-09-24) — job đòi self-hosted runner; chưa đăng ký runner
+# thì `on: push` làm run treo Queued rồi ĐỎ mỗi lần push main (cùng lỗi đã sửa ở
+# deploy.windows-iis.yml). Dựng runner xong thì thêm lại:
+#   push:
+#     branches: [main]
 on:
-  push:
-    branches:
-      - main # Chạy tự động khi push code lên nhánh main
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
