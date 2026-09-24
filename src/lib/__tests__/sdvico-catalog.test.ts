@@ -79,12 +79,21 @@ describe("showcase Khuyến nghị — sản phẩm chính từ sdvico.vn", () =
     const lineIds = new Set(CATALOG_GROUPS.map((g) => g.id));
     expect(SDVICO_SHOWCASE.length).toBeGreaterThanOrEqual(6);
     for (const s of SDVICO_SHOWCASE) {
-      expect(lineIds.has(s.line)).toBe(true);
-      expect(s.image).toMatch(/^\/sdvico\/.+\.(jpg|png|webp)$/);
+      // Thiết bị/vật tư nối một dòng SKU CRM thật ("đang dùng"); ỨNG DỤNG
+      // (line "app") không có SKU nên miễn — ảnh cũng có thể trống (thẻ fallback).
+      const isApp = s.line === "app";
+      if (!isApp) {
+        expect(lineIds.has(s.line)).toBe(true);
+        expect(s.image).toMatch(/^\/sdvico\/.+\.(jpg|png|webp)$/);
+      } else if (s.image) {
+        expect(s.image).toMatch(/^\/sdvico\/.+\.(jpg|png|webp)$/);
+      }
       expect(s.imgW).toBeGreaterThan(0);
       expect(s.imgH).toBeGreaterThan(0);
       expect(s.desc.length).toBeGreaterThan(10);
       expect(s.features.length).toBeGreaterThanOrEqual(2);
+      // Sản phẩm có detail thì phải đủ mục cốt lõi (đối chiếu tài liệu).
+      if (s.detail.specs) expect(s.detail.specs.length).toBeGreaterThan(0);
     }
   });
 });

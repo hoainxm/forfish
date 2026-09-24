@@ -14,7 +14,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
-import { validateProductDraft, type ProductDraft } from "@/lib/product-catalog";
+import { validateProductDraft, toDetail, type ProductDraft } from "@/lib/product-catalog";
 import { isCatalogGroup } from "@/lib/catalog-groups";
 
 const err = (status: number, code: string) =>
@@ -70,7 +70,7 @@ export async function GET() {
   const { data, error } = await admin
     .from("product_listings")
     .select(
-      "id,vendor_kind,vendor_name,title,category,description,features,price_text,image_url,contact_phone,contact_note,line,group,price_vnd,unit,orderable,visible,sort_order,created_by,created_at,updated_at",
+      "id,vendor_kind,vendor_name,title,category,description,features,detail,price_text,image_url,contact_phone,contact_note,line,group,price_vnd,unit,orderable,visible,sort_order,created_by,created_at,updated_at",
     )
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false })
@@ -87,6 +87,7 @@ export async function GET() {
     features: Array.isArray(r.features)
       ? (r.features as unknown[]).filter((f) => typeof f === "string")
       : [],
+    detail: toDetail(r.detail) ?? null,
     priceText: (r.price_text as string) ?? null,
     imageUrl: (r.image_url as string) ?? null,
     contactPhone: (r.contact_phone as string) ?? null,

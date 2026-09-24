@@ -216,6 +216,18 @@ Nguồn + thiết kế đầy đủ: [docs/specs/dong-bo-so-per-may.md](../specs
 
 - ✅ **ĐÃ APPLY prod 2026-07-28** (ref `znzgugvfhgmiszqgjulk`, qua Supabase MCP — user xác nhận apply; advisor không cảnh báo gì mới cho bảng này). Trước khi apply, app chạy bằng `SDVICO_SHOWCASE` tĩnh (client `fetchProductListings()` trả `null` khi bảng chưa tồn tại/chưa cấu hình → fallback, không crash) — hành vi fallback này vẫn giữ nguyên cho các môi trường (vd local dev) chưa apply.
 
+### CHI TIẾT sản phẩm + seed đủ danh mục — migration [`0054_product_catalog_seed_2026.sql`](../../supabase/migrations/0054_product_catalog_seed_2026.sql) (2026-09-24) — ⚠️ **CHƯA APPLY prod**
+
+| Thay đổi | Nghĩa |
+|---|---|
+| cột `product_listings.detail jsonb` (nullable) | Nội dung TRANG CHI TIẾT sản phẩm: `{models, maker, forWho, benefits[], specs[{label,value}], variant}` — hiện trong sheet Chi tiết (`ProductDetailSheet` ở `sdvico-catalog.tsx`, mở bằng nút "Xem chi tiết"). NULL = thẻ đơn giản như cũ (backward-safe). Đọc qua `toDetail()` (`lib/product-catalog.ts`, khoan dung, có test) — thêm vào select công khai + `/api/admin/products` GET |
+| SEED 11 sản phẩm chi tiết | Thay 6 seed cũ (0016, uuid `1111`-series) bằng **11 sản phẩm** từ tài liệu chính thức SDVICO ("Thong-tin-chi-tiet-san-pham-SDVICO.docx"), uuid `2222`-series. **BỎ "Điện thoại vệ tinh XT-Pro"** (không có trong tài liệu). `delete` 6 uuid seed cũ (admin tự thêm — uuid ngẫu nhiên — KHÔNG bị đụng) + `on conflict (id) do update` (idempotent, chạy lại refresh nội dung) |
+
+- **NGUỒN ĐƠN + sinh tự động**: nội dung ở `src/data/sdvico-showcase.ts` (type `ShowcaseProduct.detail: ProductDetail`); migration SQL **sinh bằng** `node scripts/gen-product-seed.mjs` (Node ≥22 strip type) — **sửa sản phẩm ⇒ sửa file TS rồi chạy lại script**, đừng sửa SQL tay. Cùng mảng này là FALLBACK tĩnh khi Supabase chưa cấu hình.
+- Ảnh: `/public/sdvico/*` (loc-dau.jpg · sea40.jpg · s-tracking.jpg · vifish.png · thuraya.jpg · nano-graphene.jpg · adnano.png · ac-quy.png · pv-paint.png · sdfish.png; 2 app: SDFish có ảnh, Ngư dân 247 để trống → thẻ fallback nhãn loại).
+- Nhóm Cửa hàng (`group`): 9 thiết bị/vật tư gán `dien_tu`/`co_dien`/`nhu_yeu_pham`; 2 app để NULL → gom "Khác".
+- ⚠️ **CHƯA APPLY prod** (ref `znzgugvfhgmiszqgjulk`, KHÔNG tự apply). Chưa apply thì prod giữ 6 seed cũ; local/demo đã thấy 11 sản phẩm qua fallback tĩnh.
+
 ### Yêu cầu hỏi mua/tư vấn — migration [`0017_product_inquiries.sql`](../../supabase/migrations/0017_product_inquiries.sql) (2026-07-28, Phase 2) — ✅ ĐÃ APPLY prod
 
 | Thay đổi | Nghĩa |

@@ -18,6 +18,28 @@ import { isCatalogGroup, type CatalogGroupId } from "@/lib/catalog-groups";
 
 export type VendorKind = "sdvico" | "external";
 
+/** Một dòng thông số kỹ thuật (nhãn · giá trị) — dựng bảng trong sheet chi tiết. */
+export interface ProductSpec {
+  label: string;
+  value: string;
+}
+
+/** Nội dung chi tiết sản phẩm (hiện trong sheet Chi tiết). null với dòng cũ. */
+export interface ProductDetail {
+  /** Mã và phiên bản */
+  models?: string;
+  /** Phân loại / nhà sản xuất */
+  maker?: string;
+  /** Dành cho ai (đối tượng dùng) */
+  forWho?: string;
+  /** Lợi ích chính — đầy đủ (khác `features` tóm tắt trên thẻ) */
+  benefits?: string[];
+  /** Bảng thông số kỹ thuật */
+  specs?: ProductSpec[];
+  /** Ghi chú biến thể (bản cơ vs bản điện…), chữ tự do */
+  variant?: string;
+}
+
 export interface ProductListing {
   id: string;
   vendorKind: VendorKind;
@@ -27,6 +49,8 @@ export interface ProductListing {
   category?: string;
   description?: string;
   features: string[];
+  /** Nội dung chi tiết (bảng thông số, lợi ích…) — undefined = chỉ thẻ đơn giản */
+  detail?: ProductDetail;
   priceText?: string;
   imageUrl?: string;
   contactPhone?: string;
@@ -54,6 +78,7 @@ export interface ProductDraft {
   category?: string;
   description?: string;
   features: string[];
+  detail?: ProductDetail;
   priceText?: string;
   imageUrl?: string;
   contactPhone?: string;
@@ -97,6 +122,7 @@ type Row = {
   category: string | null;
   description: string | null;
   features: unknown;
+  detail: unknown;
   price_text: string | null;
   image_url: string | null;
   contact_phone: string | null;
@@ -116,6 +142,40 @@ function toFeatures(v: unknown): string[] {
   return v.filter((x): x is string => typeof x === "string");
 }
 
+function toStrArray(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+}
+
+/** jsonb `detail` → ProductDetail (khoan dung: bỏ qua giá trị lạ, không ném). */
+export function toDetail(v: unknown): ProductDetail | undefined {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  const o = v as Record<string, unknown>;
+  const str = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : undefined);
+  const specs = Array.isArray(o.specs)
+    ? o.specs
+        .filter(
+          (s): s is { label: unknown; value: unknown } =>
+            !!s && typeof s === "object",
+        )
+        .map((s) => ({
+          label: typeof s.label === "string" ? s.label : "",
+          value: typeof s.value === "string" ? s.value : "",
+        }))
+        .filter((s) => s.label || s.value)
+    : undefined;
+  const benefits = Array.isArray(o.benefits) ? toStrArray(o.benefits) : undefined;
+  const d: ProductDetail = {
+    models: str("models"),
+    maker: str("maker"),
+    forWho: str("forWho"),
+    benefits: benefits && benefits.length > 0 ? benefits : undefined,
+    specs: specs && specs.length > 0 ? specs : undefined,
+    variant: str("variant"),
+  };
+  // Rỗng hoàn toàn → undefined (giữ ngữ nghĩa "chỉ thẻ đơn giản").
+  return Object.values(d).some((x) => x !== undefined) ? d : undefined;
+}
+
 /** Dòng DB → ProductListing (khoan dung với giá trị lạ, không ném lỗi). */
 export function rowToListing(r: Row): ProductListing {
   return {
@@ -126,6 +186,7 @@ export function rowToListing(r: Row): ProductListing {
     category: r.category ?? undefined,
     description: r.description ?? undefined,
     features: toFeatures(r.features),
+    detail: toDetail(r.detail),
     priceText: r.price_text ?? undefined,
     imageUrl: r.image_url ?? undefined,
     contactPhone: r.contact_phone ?? undefined,
@@ -158,7 +219,7 @@ export async function fetchProductListings(): Promise<ProductListing[] | null> {
   let q = supabase
     .from(TABLE)
     .select(
-      "id,vendor_kind,vendor_name,title,category,description,features,price_text,image_url,contact_phone,contact_note,line,group,price_vnd,unit,orderable,visible,sort_order,created_at",
+      "id,vendor_kind,vendor_name,title,category,description,features,detail,price_text,image_url,contact_phone,contact_note,line,group,price_vnd,unit,orderable,visible,sort_order,created_at",
     )
     .eq("visible", true)
     .order("sort_order", { ascending: true })

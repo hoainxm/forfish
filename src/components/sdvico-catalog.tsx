@@ -1,10 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CartIcon, CheckIcon, PhoneIcon } from "@/components/icons";
+import {
+  CartIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  PhoneIcon,
+} from "@/components/icons";
 import { SdvicoRequestButton } from "@/components/sdvico-request";
 import { ProductInquiryButton } from "@/components/product-inquiry-button";
 import { CartSheet, QtyStepper } from "@/components/cart-sheet";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { ChipRow } from "@/components/ui/chip-row";
 import { apiUrl } from "@/lib/api-base";
 import { type CatalogGroup } from "@/lib/sdvico-catalog";
@@ -58,8 +64,10 @@ function fromStaticShowcase(): ProductListing[] {
     category: p.category,
     description: p.desc,
     features: p.features,
+    detail: p.detail,
     imageUrl: p.image,
     line: p.line,
+    group: p.group,
     orderable: false,
     visible: true,
     sortOrder: i,
@@ -94,6 +102,8 @@ export function SdvicoCatalog({
   // ── Giỏ hàng (local, keyed theo SĐT) ─────────────────────────────────
   const [cart, setCart] = useState<CartLine[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
+  // Sản phẩm đang mở sheet Chi tiết (null = đóng).
+  const [detailOf, setDetailOf] = useState<ProductListing | null>(null);
   /** máy KHÔNG giữ được giỏ (hết chỗ / bị chặn) — băng đỏ, không nuốt im
    *  (audit 2026-08-18 G5). Giỏ trong tay vẫn dùng để đặt ngay được. */
   const [cartSaveFailed, setCartSaveFailed] = useState(false);
@@ -311,12 +321,14 @@ export function SdvicoCatalog({
                   p={p}
                   inCartQty={qtyInCart(p.id)}
                   onAdd={(qty) => updateCart(addToCart(cart, p.id, qty))}
+                  onDetail={() => setDetailOf(p)}
                 />
               ) : (
                 <InquiryCard
                   key={p.id}
                   p={p}
                   owned={Boolean(p.line && ownedLines.has(p.line))}
+                  onDetail={() => setDetailOf(p)}
                 />
               ),
             )}
@@ -365,6 +377,10 @@ export function SdvicoCatalog({
           onOrdered={() => updateCart([])}
         />
       )}
+
+      {detailOf && (
+        <ProductDetailSheet p={detailOf} onClose={() => setDetailOf(null)} />
+      )}
     </div>
   );
 }
@@ -375,10 +391,12 @@ function OrderableCard({
   p,
   inCartQty,
   onAdd,
+  onDetail,
 }: {
   p: ProductListing;
   inCartQty: number;
   onAdd: (qty: number) => void;
+  onDetail: () => void;
 }) {
   const [qty, setQty] = useState(1);
   /*  THÊM XONG → BỘ ĐẾM VỀ 1 (audit 2026-08-18 G6). Bản cũ giữ nguyên số vừa
@@ -424,6 +442,7 @@ function OrderableCard({
               / {p.unit}
             </span>
           </p>
+          {p.detail && <DetailLink onDetail={onDetail} />}
         </div>
       </div>
 
@@ -448,7 +467,15 @@ function OrderableCard({
 
 // ── Thẻ HỎI MUA (chưa niêm yết giá số) — cùng khuôn gọn với thẻ đặt được, nằm
 //    TRONG khối nhóm. SDVICO → hộp tư vấn CRM; đơn vị ngoài → gọi + để lại yêu cầu.
-function InquiryCard({ p, owned }: { p: ProductListing; owned: boolean }) {
+function InquiryCard({
+  p,
+  owned,
+  onDetail,
+}: {
+  p: ProductListing;
+  owned: boolean;
+  onDetail: () => void;
+}) {
   const external = p.vendorKind === "external";
   return (
     <li className="overflow-hidden surface">
@@ -497,6 +524,7 @@ function InquiryCard({ p, owned }: { p: ProductListing; owned: boolean }) {
                 ? "Liên hệ đơn vị để biết giá."
                 : "Giá báo theo tàu — hỏi là nhân viên gọi lại."}
           </p>
+          {p.detail && <DetailLink onDetail={onDetail} />}
         </div>
       </div>
 
@@ -533,5 +561,138 @@ function InquiryCard({ p, owned }: { p: ProductListing; owned: boolean }) {
         )}
       </div>
     </li>
+  );
+}
+
+// ── Đường mở sheet Chi tiết — dùng chung cho cả hai loại thẻ ──────────────
+function DetailLink({ onDetail }: { onDetail: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onDetail}
+      className="mt-1.5 inline-flex min-h-[2.75rem] items-center gap-0.5 text-[0.9375rem] font-bold text-sea"
+    >
+      Xem chi tiết
+      <ChevronRightIcon className="h-4 w-4" />
+    </button>
+  );
+}
+
+// ── Sheet CHI TIẾT sản phẩm: mã/phiên bản · phân loại · dành cho ai · lợi ích
+//    · bảng thông số · biến thể. Nội dung từ product_listings.detail (seed từ
+//    tài liệu SDVICO). Chỉ mở khi p.detail có.
+function ProductDetailSheet({
+  p,
+  onClose,
+}: {
+  p: ProductListing;
+  onClose: () => void;
+}) {
+  const d = p.detail ?? {};
+  return (
+    <BottomSheet title={p.title} onClose={onClose}>
+      <div className="space-y-4 pb-2">
+        {p.imageUrl && (
+          <div className="overflow-hidden rounded-2xl bg-field">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={p.imageUrl}
+              alt={p.title}
+              className="max-h-64 w-full object-contain"
+            />
+          </div>
+        )}
+
+        {(p.category || d.models) && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {p.category && (
+              <span className="rounded-full bg-t3-bg px-3 py-1 text-[0.875rem] font-bold text-t3">
+                {p.category}
+              </span>
+            )}
+            {d.models && (
+              <span className="text-[0.9375rem] font-semibold text-foreground/70">
+                {d.models}
+              </span>
+            )}
+          </div>
+        )}
+
+        {d.maker && (
+          <p className="text-[1rem] leading-snug text-foreground/80">{d.maker}</p>
+        )}
+
+        {d.forWho && (
+          <div>
+            <h4 className="display text-[1rem] font-bold text-navy">Dành cho ai</h4>
+            <p className="mt-1 text-[1.0625rem] leading-relaxed text-foreground/85">
+              {d.forWho}
+            </p>
+          </div>
+        )}
+
+        {d.benefits && d.benefits.length > 0 && (
+          <div>
+            <h4 className="display text-[1rem] font-bold text-navy">Lợi ích chính</h4>
+            <ul className="mt-1 space-y-1.5">
+              {d.benefits.map((b, i) => (
+                <li
+                  key={i}
+                  className="flex gap-2 text-[1.0625rem] leading-relaxed text-foreground/85"
+                >
+                  <CheckIcon className="mt-1 h-4 w-4 shrink-0 text-ok" />
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {d.specs && d.specs.length > 0 && (
+          <div>
+            <h4 className="display mb-1 text-[1rem] font-bold text-navy">
+              Thông số kỹ thuật
+            </h4>
+            <dl className="overflow-hidden rounded-2xl border border-line">
+              {d.specs.map((s, i) => (
+                <div
+                  key={i}
+                  className={`flex gap-3 px-3.5 py-2.5 ${i % 2 === 1 ? "bg-field/60" : ""}`}
+                >
+                  <dt className="w-2/5 shrink-0 text-[0.9375rem] font-semibold text-foreground/60">
+                    {s.label}
+                  </dt>
+                  <dd className="flex-1 text-[0.9375rem] font-medium text-navy">
+                    {s.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
+
+        {d.variant && (
+          <div className="rounded-2xl bg-field px-3.5 py-3">
+            <h4 className="display text-[0.9375rem] font-bold text-navy">
+              Bản cơ và bản điện
+            </h4>
+            <p className="mt-1 text-[1rem] leading-relaxed text-foreground/80">
+              {d.variant}
+            </p>
+          </div>
+        )}
+
+        {/* Liên hệ: đơn vị ngoài dùng số riêng, còn lại hotline SDVICO */}
+        <a
+          href={`tel:${p.vendorKind === "external" && p.contactPhone ? p.contactPhone : SDVICO_HOTLINE}`}
+          className="flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.98]"
+        >
+          <PhoneIcon className="h-5 w-5" />
+          {p.vendorKind === "external" && p.contactPhone
+            ? `Gọi ${p.contactPhone}`
+            : `Gọi SDVICO ${SDVICO_HOTLINE_DISPLAY}`}
+        </a>
+      </div>
+    </BottomSheet>
   );
 }

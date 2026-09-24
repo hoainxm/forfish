@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   rowToListing,
+  toDetail,
   validateProductDraft,
   type ProductDraft,
 } from "@/lib/product-catalog";
@@ -105,6 +106,7 @@ describe("rowToListing", () => {
     category: "Máy lọc nước biển",
     description: "Mô tả",
     features: ["Công nghệ RO"],
+    detail: null,
     price_text: null,
     image_url: "/sdvico/sea40.jpg",
     contact_phone: null,
@@ -166,5 +168,36 @@ describe("rowToListing", () => {
     });
     expect(listing.vendorKind).toBe("external");
     expect(listing.vendorName).toBe("Cơ sở A");
+  });
+
+  it("detail: parse jsonb đầy đủ (models/maker/forWho/benefits/specs/variant)", () => {
+    const listing = rowToListing({
+      ...baseRow,
+      detail: {
+        models: "SF50",
+        maker: "SDVICO",
+        forWho: "Tàu gỗ",
+        benefits: ["Lọc cặn", 42, "Tách nước"],
+        specs: [{ label: "Độ lọc", value: "1-10 micron" }, { label: "", value: "" }],
+        variant: "Bản cơ / bản điện",
+      },
+    });
+    expect(listing.detail?.models).toBe("SF50");
+    expect(listing.detail?.benefits).toEqual(["Lọc cặn", "Tách nước"]);
+    expect(listing.detail?.specs).toEqual([{ label: "Độ lọc", value: "1-10 micron" }]);
+  });
+});
+
+describe("toDetail — parse jsonb khoan dung", () => {
+  it("null/rỗng/không phải object → undefined", () => {
+    expect(toDetail(null)).toBeUndefined();
+    expect(toDetail("x")).toBeUndefined();
+    expect(toDetail([])).toBeUndefined();
+    expect(toDetail({})).toBeUndefined();
+    expect(toDetail({ specs: [], benefits: [] })).toBeUndefined();
+  });
+  it("giữ trường có, bỏ mảng rỗng", () => {
+    const d = toDetail({ maker: "SDVICO", benefits: [], specs: [] });
+    expect(d).toEqual({ maker: "SDVICO" });
   });
 });
