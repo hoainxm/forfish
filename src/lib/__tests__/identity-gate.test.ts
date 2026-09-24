@@ -342,7 +342,7 @@ describe("gỡ tài khoản khỏi máy — cả hai đường đều gỡ push"
        thích vì sao nó sai — quét thô sẽ báo động oan), rồi gộp khoảng trắng:
        câu bị JSX ngắt dòng, và xuống dòng thì CRLF/LF tuỳ máy. */
     const flat = stripComments(src).replace(/\s+/g, " ");
-    expect(flat).toContain("cho tới khi có người đăng nhập trên máy");
+    expect(flat).toContain("cho tới khi có người đăng nhập");
     expect(flat).not.toContain("cho tới lần có sóng sau");
   });
 

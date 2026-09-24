@@ -43,7 +43,7 @@ function statusMessage(status: OrderStatus): { title: string; body: string } {
     case "da_huy":
       return {
         title: "Đơn hàng đã huỷ",
-        body: "Đơn hàng của bà con đã được huỷ. Cần hỗ trợ thì gọi nhà cung cấp.",
+        body: "Đơn hàng của bà con đã huỷ. Cần giúp thì gọi bên bán.",
       };
     default:
       return { title: "Cập nhật đơn hàng", body: ORDER_STATUS_LABELS[status] };

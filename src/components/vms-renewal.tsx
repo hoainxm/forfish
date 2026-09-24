@@ -65,7 +65,7 @@ export function VmsRenewal() {
     <div className="px-4 pt-5 pb-2">
       <LoginGate
         feature="gia hạn giám sát hành trình"
-        blurb="Đăng nhập để gia hạn thiết bị giám sát hành trình (VMS) cho tàu của bạn."
+        blurb="Đăng nhập để gia hạn thiết bị giám sát hành trình (VMS) cho tàu của bà con."
         accent="t3"
       >
         <VmsRenewalInner />
@@ -154,7 +154,7 @@ function VmsRenewalInner() {
 
       {/* MODAL chặn: chưa có tàu (hoặc tàu chưa có mã) → nút mở form thêm/sửa tàu */}
       {guardOpen && (
-        <BottomSheet title="Chưa thể gia hạn" onClose={() => setGuardOpen(false)}>
+        <BottomSheet title="Chưa gia hạn được" onClose={() => setGuardOpen(false)}>
           {!current ? (
             <>
               <p className="text-[1rem] leading-snug text-foreground/80">

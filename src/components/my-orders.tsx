@@ -150,7 +150,7 @@ export function MyOrders() {
       return;
     }
     if (j?.code === "cannot_cancel") {
-      setCancelErr("Đơn đã được xử lý, không huỷ được nữa.");
+      setCancelErr("Đơn chuyển đi rồi, không huỷ được nữa.");
       fetchOrders(); // đồng bộ lại trạng thái mới
     } else {
       setCancelErr("Chưa huỷ được — thử lại khi có sóng.");

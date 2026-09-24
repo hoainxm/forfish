@@ -265,7 +265,7 @@ export function DepartureChecklist() {
           })}
         </ul>
         <p className="mt-3 rounded-2xl bg-field px-3.5 py-2.5 text-[0.875rem] font-semibold leading-snug text-foreground/70">
-          ForFish chỉ NHẮC mốc — việc khai báo làm trên hệ thống nhà nước
+          ForFish chỉ NHẮC mốc — việc khai báo làm trên cổng nhà nước
           hoặc phần mềm nhật ký điện tử, không khai trong app này.
         </p>
       </Card>

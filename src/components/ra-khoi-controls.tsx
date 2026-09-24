@@ -791,8 +791,8 @@ function HaiDoPanel({
         })}
       </ul>
       <p className="mt-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] leading-snug text-foreground/70">
-        Ảnh vệ tinh, không phải thời gian thực. Phao báo hiệu chỉ hiện khi phóng
-        to gần bờ.
+        Ảnh vệ tinh chụp trước đó, không phải ngay lúc này. Phao báo hiệu chỉ
+        hiện khi phóng to gần bờ.
       </p>
       {/* NHÃN ĐẢO tiếng Việt LUÔN hiện trên hải đồ (chi tiết chủ quyền, không
           tắt được). TUYẾN TÀU thì cho tắt vì có bà con thích bản đồ thoáng. */}
@@ -908,7 +908,7 @@ function NguTruongPanel({
     <div>
       {/* KHÔNG nói tuổi bản đồ cá ở đây nữa (bỏ 2026-07-25 — màn hình rối) */}
       <Toggle
-        label="Dự báo cá (PFZ)"
+        label="Dự báo cá (chỗ hay có cá)"
         sub="Theo ngày · ảnh vệ tinh"
         on={fishOn}
         onToggle={() => onFish(!fishOn)}
@@ -1111,14 +1111,14 @@ function ThoiTietPanel({
       ))}
       <Toggle
         label="Nước dâng/xoáy"
-        sub="SSHA · theo ngày, chậm ~2 ngày"
+        sub="Theo ngày · chậm ~2 ngày"
         on={scalarKind === "ssha"}
         onToggle={() => onScalar(scalarKind === "ssha" ? null : "ssha")}
         icon={<EddyIcon className="h-5 w-5 text-t4" />}
       />
       <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/75">
-        Mọi lớp đều là số liệu tham khảo; nguồn có thể tạm gián đoạn và sẽ báo
-        “thử lại”. Gió/sóng tại ĐIỂM xem ở sheet khi chạm.
+        Mấy lớp này chỉ để coi cho biết; lúc mạng chập chờn máy sẽ báo “thử
+        lại”. Muốn biết gió, sóng ngay chỗ nào thì chạm vào chỗ đó trên bản đồ.
       </p>
     </div>
   );

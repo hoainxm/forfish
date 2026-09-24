@@ -174,7 +174,7 @@ export default function LoginPage() {
         bấm lại là chạy, khỏi gõ lại mật khẩu. */
     if (!issued) {
       setError(
-        "Mật khẩu đúng rồi nhưng mạng yếu, chưa giữ được phiên — bà con bấm Đăng nhập lần nữa giúp.",
+        "Mật khẩu đúng rồi nhưng mạng yếu nên chưa vào hẳn được — bà con bấm Đăng nhập lần nữa giúp.",
       );
       setLoading(false);
       return;
@@ -253,7 +253,7 @@ export default function LoginPage() {
       <PageHeader
         kicker="Tài khoản"
         title="Đăng nhập"
-        sub="Nhập số điện thoại và mật khẩu để xem thiết bị, bảo hành, hỗ trợ của bạn."
+        sub="Nhập số điện thoại và mật khẩu để xem đồ đã mua, bảo hành và được SDVICO chăm sóc."
         toColor="var(--sea)"
       />
       <AuthCard>
@@ -328,7 +328,7 @@ export default function LoginPage() {
           </Link>
         </p>
         <p className="mt-1 text-center text-[0.9375rem] leading-snug text-foreground/60">
-          Đăng nhập tức là bạn đồng ý với{" "}
+          Đăng nhập tức là bà con đồng ý với{" "}
           <Link href="/quyen-rieng-tu" className="font-bold text-sea underline">
             Chính sách quyền riêng tư
           </Link>

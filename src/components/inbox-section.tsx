@@ -276,7 +276,7 @@ export function InboxSection() {
               </span>
               {m.mine && (
                 <span className="mt-1 inline-block rounded-full bg-t1-bg px-2 py-0.5 text-[0.75rem] font-bold text-t1">
-                  Gửi riêng cho bạn
+                  Gửi riêng cho bà con
                 </span>
               )}
             </>

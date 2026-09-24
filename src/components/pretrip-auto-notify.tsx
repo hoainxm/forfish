@@ -296,7 +296,7 @@ export function PretripSavedStatus({
   // Vỏ chưa đủ thì KHÔNG được nói "đã lưu đủ" dù dữ liệu đầy.
   const shellMissing = shellOk === false;
   const text = shellMissing
-    ? "Vỏ app chưa tải đủ — mở lại lúc có sóng"
+    ? "App chưa tải xong phần chạy — mở lại lúc có sóng"
     : coverageChipText(phase, cov, undefined, online, forecastStoreState());
   // MÀU phải khớp CHỮ: đủ lớp + còn hạn + chưa quá chu kỳ (coverageChipOk),
   // chứ không chỉ "có bản trong máy" — chip xanh trên bản 10 ngày tuổi là lời
@@ -379,7 +379,7 @@ export function PretripSavedStatus({
 const LAYER_HELP: Record<SavedLayerId, string> = {
   grid: "Gió & sóng CẢ Biển Đông — xem ở BẤT KỲ đâu (kể cả tầng mặt)",
   point: "Ghim điểm nào là có dự báo chi tiết 16 ngày điểm đó",
-  fish: "Bản đồ điểm cá (dự báo ngắn ngày, cần premium)",
+  fish: "Bản đồ điểm cá (dự báo ngắn ngày, cần tài khoản Premium)",
   scalar: "Mây, mưa, nhiệt không khí, nguy cơ dông, áp suất",
   salinity: "Độ mặn nước biển",
   seascalar: "Nước dâng / xoáy nước (gom mồi)",
@@ -951,8 +951,8 @@ function ConfirmImportSheet({
       )}
       {perKey && (
         <p className="mt-2 text-[1rem] leading-snug text-foreground/70">
-          Lớp dự báo và cài đặt đè theo từng phần trùng tên; phần máy đang có mà
-          tệp không có thì giữ nguyên.
+          Dự báo và cài đặt: cái nào trùng thì tệp đè lên, cái nào máy đang có mà
+          tệp không có thì vẫn giữ.
         </p>
       )}
       {/*  CÂU NÀY PHẢI THEO TỆP ĐANG MỞ, KHÔNG PHẢI CÂU CỐ ĐỊNH (vòng soát chéo).

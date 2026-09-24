@@ -50,8 +50,8 @@ export function BoatServices() {
         {syncStatus === "guest" && (
           <div className="mt-2.5 flex items-center gap-2">
             <p className="min-w-0 flex-1 text-[0.9375rem] leading-snug text-foreground/70">
-              Đăng nhập bằng SĐT lúc mua hàng là dịch vụ của bà con tự hiện ở
-              đây.
+              Bà con đăng nhập bằng số điện thoại lúc mua hàng là dịch vụ tự
+              hiện ra ở đây.
             </p>
             <Link
               href="/login"

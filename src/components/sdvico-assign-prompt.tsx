@@ -40,8 +40,8 @@ export function SdvicoAssignPrompt({ assets }: { assets: OwnedAssets | null }) {
   return (
     <BottomSheet title="Đồ này của tàu nào?" onClose={save}>
       <p className="mb-3 text-[0.9375rem] leading-snug text-foreground/70">
-        Bà con có nhiều tàu — chọn món vừa mua/đồng bộ thuộc tàu nào để app nhắc
-        đúng tàu. Không rõ thì để &ldquo;Dùng chung&rdquo;.
+        Bà con có nhiều tàu — món này của tàu nào thì chọn tàu đó để app nhắc
+        đúng. Không rõ thì cứ để &ldquo;Dùng chung&rdquo;.
       </p>
       <ul className="space-y-3">
         {need.map((id) => (
@@ -67,7 +67,7 @@ export function SdvicoAssignPrompt({ assets }: { assets: OwnedAssets | null }) {
       </ul>
       <div className="mt-3">
         <PrimaryButton type="button" onClick={save}>
-          Lưu gán
+          Lưu
         </PrimaryButton>
       </div>
     </BottomSheet>

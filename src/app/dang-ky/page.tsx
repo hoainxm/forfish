@@ -177,7 +177,7 @@ export default function DangKyPage() {
       <PageHeader
         kicker="Tài khoản"
         title="Đăng ký"
-        sub="Tạo tài khoản bằng số điện thoại để giữ sổ tàu trên mây."
+        sub="Tạo tài khoản bằng số điện thoại để cất sổ tàu trên mạng, đổi máy vẫn còn."
         toColor="var(--sea)"
       />
       <AuthCard>
@@ -207,7 +207,7 @@ export default function DangKyPage() {
           </PrimaryButton>
         </form>
         <p className="mt-3 text-center text-[0.9375rem] leading-snug text-foreground/60">
-          Tạo tài khoản tức là bạn đồng ý với{" "}
+          Tạo tài khoản tức là bà con đồng ý với{" "}
           <Link href="/quyen-rieng-tu" className="font-bold text-sea underline">
             Chính sách quyền riêng tư
           </Link>

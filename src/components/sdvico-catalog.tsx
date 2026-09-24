@@ -262,8 +262,8 @@ export function SdvicoCatalog({
         Cửa hàng
       </h3>
       <p className="mb-3 px-1 text-[0.9375rem] text-foreground/70">
-        Chọn hàng, thêm vào giỏ rồi đặt — nhà cung cấp giao tận nơi. Không thanh
-        toán trong app.
+        Chọn hàng, thêm vào giỏ rồi đặt — bên bán giao tận nơi. Không trả tiền
+        trong app.
       </p>
 
       {/* ĐANG XEM BẢN TRONG MÁY — nói thật mà KHÔNG cản việc xem (2026-08-18).
@@ -271,7 +271,7 @@ export function SdvicoCatalog({
           thể đã đổi, và biết là máy sẽ tự lấy bản mới khi có sóng. */}
       {cachedAt != null && (
         <p className="mb-3 px-1 text-[0.9375rem] font-semibold text-[var(--warn)]">
-          Đang xem danh mục đã lưu trong máy ({savedAgoLabel(cachedAt)}) — giá và
+          Đang xem bảng hàng đã lưu trong máy ({savedAgoLabel(cachedAt)}) — giá và
           món có thể đã đổi. Có sóng lại là máy tự tải bản mới.
         </p>
       )}
@@ -303,7 +303,7 @@ export function SdvicoCatalog({
 
       {showcase.length === 0 && (
         <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
-          Chưa có sản phẩm nào — gọi hotline bên dưới để được tư vấn trực tiếp.
+          Chưa có hàng nào — gọi số bên dưới, có người tư vấn cho bà con.
         </p>
       )}
 
@@ -521,8 +521,8 @@ function InquiryCard({
             {p.priceText
               ? `Giá tham khảo: ${p.priceText}`
               : external
-                ? "Liên hệ đơn vị để biết giá."
-                : "Giá báo theo tàu — hỏi là nhân viên gọi lại."}
+                ? "Gọi hỏi bên bán để biết giá."
+                : "Giá tùy tàu — bấm hỏi mua, nhân viên gọi lại."}
           </p>
           {p.detail && <DetailLink onDetail={onDetail} />}
         </div>

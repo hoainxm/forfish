@@ -20,15 +20,16 @@ import { useOnline } from "@/lib/use-online";
   Khoá UI chỉ là lớp vỏ — /api/fish-forecast bị chặn thật ở middleware.
 
   2026-08-18 (audit G7/M8, chính sách thông báo tầng 5): MỘT tên "Premium"
-  (bỏ "tài khoản nâng cao"), câu chuẩn "… là tính năng Premium — gọi SDVICO để
-  mở"; ẨN HOÀN TOÀN khi máy báo mất sóng — `tel:` / `/login` giữa biển là ngõ
+  (bỏ "tài khoản nâng cao"), câu chuẩn "… là phần Premium — gọi SDVICO để
+  mở" (đổi "tính năng"→"phần" 2026-09-24, giọng bà con); ẨN HOÀN TOÀN khi máy
+  báo mất sóng — `tel:` / `/login` giữa biển là ngõ
   cụt, mời chỉ thêm bực.
 */
 
 /** Câu chuẩn cho mọi lời mời Premium — dùng cả ngoài PremiumLock (chip ngày,
     peek) để cả app chỉ có một cách gọi tên. */
 export function premiumLine(feature: string): string {
-  return `${cap(feature)} là tính năng Premium — gọi SDVICO để mở.`;
+  return `${cap(feature)} là phần Premium — gọi SDVICO để mở.`;
 }
 
 export function PremiumLock({
@@ -55,11 +56,11 @@ export function PremiumLock({
   const title =
     access === "login"
       ? `Đăng nhập để xem ${feature}`
-      : `${cap(feature)} là tính năng Premium`;
+      : `${cap(feature)} là phần Premium`;
   const sub =
     access === "login"
       ? (blurb ??
-        "Tài khoản dùng chung với lúc mua hàng SDVICO — số điện thoại là vào được.")
+        "Tài khoản chung với lúc mua hàng SDVICO — cứ số điện thoại là vào được.")
       : (blurb ?? "Gọi SDVICO để mở là xem được ngay.");
   const cta =
     access === "login" ? (

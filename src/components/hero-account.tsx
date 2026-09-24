@@ -120,8 +120,8 @@ const MODES: { id: Exclude<Mode, "auto">; label: string; sub: string }[] = [
       của cả hai chế độ cùng là 16px (chống iOS tự phóng to), "Chữ to" KHÔNG
       còn đổi cỡ chữ một điểm nào — nhãn hứa một việc nó không làm. Thứ thật
       sự đổi là chiều cao hàng và nút: 56px (to) so với 37px (gọn). */
-  { id: "to", label: "Nút to", sub: "Nút và hàng cao 56px — dễ bấm tay ướt" },
-  { id: "gon", label: "Gọn", sub: "Nút thấp 37px — thấy được nhiều hàng hơn" },
+  { id: "to", label: "Nút to", sub: "Nút to, hàng cao — dễ bấm tay ướt" },
+  { id: "gon", label: "Gọn", sub: "Nút thấp gọn — thấy được nhiều hàng hơn" },
 ];
 
 function prettyPhone(p: string): string {
@@ -305,7 +305,7 @@ export function HeroAccount() {
     setPushState("off");
     setPushError(
       r.error === "denied"
-        ? "Trình duyệt đang chặn quyền thông báo — vào cài đặt trình duyệt để bật lại."
+        ? "Máy đang chặn thông báo — vào phần cài đặt của máy để bật lại."
         : "Chưa bật được — kiểm tra mạng rồi thử lại.",
     );
   }
@@ -587,7 +587,7 @@ export function HeroAccount() {
                     Đang dùng quyền đã lưu trên máy
                   </p>
                   <p className="mt-1 text-[1rem] leading-snug text-foreground/75">
-                    Máy chưa hỏi lại được tài khoản. Bạn vẫn xem được phần đã
+                    Máy chưa hỏi lại được tài khoản. Bà con vẫn xem được phần đã
                     tải sẵn; đăng nhập lại khi có sóng để cập nhật.
                   </p>
                 </div>
@@ -658,7 +658,7 @@ export function HeroAccount() {
             <>
           {/* cỡ giao diện — auto theo máy là NỀN; chỉ bày 2 tùy chọn ghi đè */}
           <p className="mb-1.5 px-1 text-[0.8125rem] font-bold uppercase tracking-wide text-foreground/65">
-            Cỡ giao diện
+            Cỡ chữ và nút
           </p>
           {/*  Bỏ hai dòng hướng dẫn (D1): hai hàng chọn ngay dưới đã tự nói
               ("Chữ to — Luôn to rõ, dễ đọc ngoài nắng"). Đường về "auto" nay nói
@@ -774,7 +774,7 @@ export function HeroAccount() {
                   Đổi mật khẩu
                 </span>
                 <span className="block text-[0.8125rem] leading-snug text-foreground/70">
-                  Đặt mật khẩu mới cho tài khoản của bạn
+                  Đặt mật khẩu mới cho tài khoản của bà con
                 </span>
               </span>
               <ChevronRightIcon className="h-4 w-4 shrink-0 text-foreground/40" />
@@ -814,7 +814,7 @@ export function HeroAccount() {
               <p className="min-w-0 flex-1 px-1 text-[0.9375rem] leading-snug text-foreground/70">
                 Xoá khỏi máy: thư cũ, số điện thoại, hồ sơ tàu, sổ thuyền viên,
                 giấy tờ, danh bạ đã lưu. Không cần sóng. Đăng nhập lại (có sóng)
-                để lấy lại phần đã đồng bộ.
+                để lấy lại phần đã lưu trên mạng.
               </p>
               <button
                 type="button"
@@ -855,8 +855,8 @@ export function HeroAccount() {
               NHẬP. Nên "cho tới lần có sóng sau" là một lời hứa sai — có sóng
               mà không ai đăng nhập thì endpoint vẫn trỏ về chủ tàu. */}
           <p className="mt-2 text-[0.9375rem] leading-snug text-foreground/70">
-            Thông báo nhắm riêng có thể còn tới máy này cho tới khi có người
-            đăng nhập trên máy.
+            Tin nhắn riêng cho chủ tàu có thể vẫn hiện trên máy này cho tới khi
+            có người đăng nhập.
           </p>
           {/* CẶP NÚT XÁC NHẬN — MỘT KHUÔN CHO CẢ APP: `Thôi` / `<động từ>`.
               Cùng số chữ, cùng min-h 3.5rem (56px, sàn tap target); phân vai

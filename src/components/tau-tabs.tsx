@@ -96,7 +96,7 @@ export function TauTabs() {
             content: (
               <LoginGate
                 feature="dịch vụ và nhắc bảo dưỡng"
-                blurb="Đăng nhập để theo dõi dịch vụ, công nợ SDVICO và lịch bảo dưỡng — dữ liệu riêng của bạn."
+                blurb="Đăng nhập để theo dõi dịch vụ, công nợ SDVICO và lịch bảo dưỡng — dữ liệu riêng của bà con."
                 accent="t3"
               >
                 <BoatServices />
@@ -111,7 +111,7 @@ export function TauTabs() {
             content: (
               <LoginGate
                 feature="sản phẩm của tàu"
-                blurb="Đăng nhập để quản lý đồ đã mua, bảo hành — dữ liệu riêng của bạn."
+                blurb="Đăng nhập để quản lý đồ đã mua, bảo hành — dữ liệu riêng của bà con."
                 accent="t3"
               >
                 <BoatProducts />

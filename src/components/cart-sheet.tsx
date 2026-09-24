@@ -201,7 +201,7 @@ export function CartSheet({
     } else if (code === "invalid_draft") {
       setErrMsg("Đơn còn thiếu thông tin — kiểm tra lại giỏ và SĐT nhận hàng.");
     } else if (code === "not_configured") {
-      setErrMsg("Chỗ đặt hàng chưa mở. Bà con gọi hotline để đặt giúp.");
+      setErrMsg("Chỗ đặt hàng chưa mở. Bà con gọi số tổng đài để đặt giúp.");
     } else {
       setErrMsg("Chưa đặt được đơn — thử lại khi có sóng.");
     }
@@ -227,7 +227,7 @@ export function CartSheet({
             </p>
           )}
           <p className="mt-1 text-[1rem] text-foreground/70">
-            Nhà cung cấp sẽ nhận và liên hệ giao hàng. Xem tình trạng đơn ở mục
+            Bên bán nhận đơn rồi gọi bà con hẹn giao. Xem đơn tới đâu ở mục
             “Đơn của tôi”.
           </p>
         </div>
@@ -350,8 +350,7 @@ export function CartSheet({
         </span>
       </div>
       <p className="mt-1.5 px-1 text-[0.8125rem] text-foreground/65">
-        Không thanh toán trong app — nhà cung cấp giao hàng và thu tiền trực
-        tiếp.
+        Không trả tiền trong app — bên bán giao hàng, nhận tiền tận nơi.
       </p>
 
       {/* ── Form đặt hàng ───────────────────────────────────────────── */}

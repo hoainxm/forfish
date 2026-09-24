@@ -36,7 +36,7 @@ export function SupplyCatalog() {
         style={{ backgroundColor: "var(--t3-bg)", color: "var(--t3)" }}
       >
         Giá tham khảo ngày {formatVnDate(SUPPLY_PRICE_DATE)}. Đặt hàng qua đại
-        lý sẽ có trong bản tới — bà con dùng tạm danh mục để so giá.
+        lý sẽ có trong bản tới — bà con dùng tạm bảng này để so giá.
       </div>
 
       {/* category chips — horizontal scroll, big enough for wet thumbs */}

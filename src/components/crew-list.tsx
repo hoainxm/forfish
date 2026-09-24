@@ -771,7 +771,7 @@ function codeMessage(code: string | undefined): string {
     case "cccd_pepper_missing":
       return "Bên SDVICO chưa bật được phần tra cảnh báo — báo SDVICO giúp.";
     case "premium_required":
-      return "Cảnh báo thuyền viên là tính năng Premium — gọi SDVICO để mở.";
+      return "Cảnh báo thuyền viên là phần Premium — gọi SDVICO để mở.";
     case "login_required":
       return "Cần đăng nhập để dùng cảnh báo thuyền viên.";
     case "bad_cccd":
@@ -1009,7 +1009,7 @@ function ReportSheet({
         <PremiumLock
           access={access}
           feature="cảnh báo thuyền viên"
-          blurb="Báo cáo & tra cảnh báo bạn thuyền là tính năng Premium."
+          blurb="Báo cáo & tra cảnh báo bạn thuyền là phần Premium."
           accent="t4"
         />
       ) : !configured ? (
@@ -1158,8 +1158,8 @@ function ReportForm({
   return (
     <form onSubmit={submit} className="mt-1">
       <p className="mb-3 text-[0.9375rem] leading-snug text-foreground/70">
-        SDVICO xem trước rồi mới hiện báo cáo. Người bị ghi có quyền
-        phản hồi — vui lòng ghi đúng sự thật.
+        SDVICO xem trước rồi mới hiện báo cáo. Người bị ghi cũng được
+        trả lời lại — bà con nhớ ghi đúng sự thật.
       </p>
 
       {/* Loại vấn đề: một hàng chuẩn, bấm mới bung — chọn xong đóng lại và thân

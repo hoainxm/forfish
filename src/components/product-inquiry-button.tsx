@@ -142,11 +142,11 @@ function InquiryForm({
           style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
         >
           <CheckIcon className="mx-auto h-10 w-10" />
-          <p className="mt-3 text-[1.125rem] font-bold">Đã ghi nhận yêu cầu</p>
+          <p className="mt-3 text-[1.125rem] font-bold">Đã nhận yêu cầu</p>
           <p className="mt-1 text-[1rem] text-foreground/70">
             {vendorKind === "external" && vendorName?.trim()
-              ? `Yêu cầu về hàng của ${vendorName.trim()} đã ghi nhận — sẽ có người gọi lại sớm nhất có thể.`
-              : "SDVICO sẽ xem và liên hệ lại sớm nhất có thể."}
+              ? `Yêu cầu về hàng của ${vendorName.trim()} đã nhận rồi — có người gọi lại cho bà con sớm.`
+              : "SDVICO xem xong sẽ gọi lại cho bà con sớm."}
           </p>
         </div>
         <div className="mt-4">

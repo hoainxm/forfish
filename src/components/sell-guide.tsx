@@ -162,7 +162,7 @@ function Wholesalers({
       {/* Bỏ câu hai (D1): nó chỉ đường tới chip "Mối quen" đang HIỆN NGAY TRÊN
           nó — chữ nhắc lại thứ vừa hiện. */}
       <RefNote>
-        Vựa/cơ sở thu mua có đăng tin công khai — gọi xác minh trước khi bán.
+        Vựa/cơ sở thu mua có đăng tin công khai — gọi hỏi cho chắc trước khi bán.
       </RefNote>
 
       <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/70">
@@ -307,7 +307,7 @@ function Factories({
         đại lý — hỏi đại lý/cảng để bán được cho họ.
       </RefNote>
       <p className="mb-2 mt-2 px-1 text-[0.875rem] font-semibold text-foreground/70">
-        {list.length} doanh nghiệp
+        {list.length} nhà máy
       </p>
       <ul className="space-y-2.5">
         {list.map((b) => (
