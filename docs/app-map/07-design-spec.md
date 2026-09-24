@@ -4,10 +4,13 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-08-26
+last_verified: 2026-09-24
 ttl_days: 90
 <!-- DOC-STATUS: SUSPECT (2026-09-12) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
+<!-- re-verified: 2026-09-24 16:00 — DOCK (bottom-nav.tsx): 5 mục cố định Trang chủ·Ra khơi·Tàu cá·Bạn thuyền·Giao dịch còn khớp §"Mobile bottom dock (5)"; nhãn 2 chữ 1 dòng ("Nhãn ngang hàng") là spec ĐÚNG. Bug đã sửa: nhãn gãy 2 dòng ở máy hẹp (≤399px) → nay `.dock-label` hạ cỡ chữ theo bề ngang, 1 dòng ở 320→430px. Không đổi route/taxonomy dock. -->
+<!-- re-verify(07): dock 5 mục + nhãn 1 dòng khớp bottom-nav.tsx -->
+
 <!-- re-verified: 2026-08-26 — GỠ HẲN coach-tour trên màn (§12 viết lại thành "ĐÃ GỠ"): xoá engine (coach-tour.tsx/tour-launcher.tsx/lib/tour.ts/tour.test.ts) + gỡ mọi neo data-tour ở page/bottom-nav/ra-khoi-controls/boat-switcher/snap-sheet/urgent-strip/tabs + khoá forfish.tour.* + dọn set-key tắt-tour ở scripts/capture-app-screens.mjs. Sách HTML huong-dan.html (npm run guide) GIỮ nguyên. -->
 
 <!-- re-verified: 2026-08-18g — DOC DELTA của BỐN GÓI CODE C·D·E·F theo audit thông báo (`ops/audit-notify-2026-08-18.md`, luật ở §12). Đối chiếu từng mục với mã trước khi ghi; chỗ delta nói khác mã thì ghi theo mã.

@@ -5,10 +5,13 @@
 **Load khi / Load when**: sửa UI, màu sắc, typography, copy, trạng thái (status), hoặc thêm component mới.
 
 covers: src/app/globals.css
-last_verified: 2026-08-25
+last_verified: 2026-09-24
 ttl_days: 90
 <!-- DOC-STATUS: SUSPECT (2026-09-09) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
+<!-- re-verified: 2026-09-24 16:00 — ĐỐI CHIẾU globals.css cho fix dock: `.dock-frame`/`.bottom-dock`/`--dock-row`/`--dock-total` còn khớp; `.anim-*` (motion điềm đạm) còn; `.sq-btn:active { scale(0.95) }` + transition color/bg/transform còn (mọi nút hành động đã có press feedback). THÊM `.dock-label` (nhãn dock 1 dòng, cỡ chữ hạ theo bề ngang máy) — xem §"Nhãn ngang hàng" mục 5. Bug đã sửa: "Bạn thuyền"/"Trang chủ"/"Giao dịch" gãy 2 dòng ở ≤399px → icon lệch khỏi pill. -->
+<!-- re-verify(03): dock-label responsive + sq-btn:active + anim-* motion -->
+
 <!-- re-verified: 2026-06-30 - safe-area pb env(sab), edge-to-edge mobile native, motion điềm đạm khớp globals.css hiện tại (4 commit UI tween đã review) -->
 <!-- re-verified: 2026-08-18 — ĐỐI CHIẾU `globals.css` (bản 2026-08-14 b0bd111) với doc: (1) 51 biến `--*` trong `:root`/`@theme` — bảng màu theo trục có 4 hex LỆCH từ đợt chỉnh AA (t1 #18648b · t2 #2e7d4f · t3 #8f6010 · t4 #7a4d9e) → sửa bảng theo mã, ghi kèm `--tN-bg` + bộ trạng thái ok/warn/danger (+ `-bg`); bổ sung tên token nền tảng `--navy/--sea/--trim/--sun/--foreground/--card/--line` mà doc chỉ gọi bằng tên chữ. (2) `.surface` · `.glass` · `.range-big` · `.range-dual` · `.display` · `.anim-*` · `.dock-frame`/`.bottom-dock`/`--app-vh`/`--dock-*` đều còn trong mã, khớp mục 2/3/6. (3) giá trị oklch ở mục "Token chờ lift" là GIÁ TRỊ MÀU chưa lift, không phải symbol mã — bỏ backtick để doc-health khỏi báo dead-symbol oan; nội dung không đổi. (4) Mục 6 "Lớp Dự báo cá" còn tả heatmap theo loài + hàm `fishHeatColor` (đã xoá) → đính chính theo mã hiện tại (lưới ô 3 mức `FISH_LEVEL_BANDS`, từ 2026-07-27 — 07 đã ghi, 03 chưa). (5) Gói C 2026-08-18: thêm bullet `neutral` cho `CrewIssueLevel`/`requestStatusVN` ở mục "Ngôn ngữ trạng thái" — không token mới. -->
 <!-- re-verified: 2026-08-29 — DOCK iOS: RÚT GỌN `--app-vh` về ĐÚNG một luật (chủ dự án chốt, máy iOS 26.6 vẫn lỗi sau nhiều vòng vá): "đọc khung nào lớn hơn thì CỐ ĐỊNH theo khung đó thôi". viewport-gap-fix.tsx nay = CHỈ CHO LỚN LÊN rồi KHOÁ (`measured <= stableBottom → return`), trần `screen.height` (bỏ glitch vọt), lưu localStorage. ĐÃ BỎ nhánh "tự hạ theo tab ngắn" (>32px) — chính nó gây DAO ĐỘNG qua lại 2 tab = lỗi "khung kia cụt / không lưu". ĐÃ BỎ cổng phiên bản `viewportBugFixed()` (native 26.6 vẫn lệch per-tab → workaround chạy cho MỌI bản cài iOS). CSS `:root.pwa-frame` (dock-frame/app-shell/full-map theo --app-vh) KHÔNG đổi; app-shell min-height=--app-vh vẫn ép tab ngắn nở bằng tab dài. -->
@@ -96,6 +99,7 @@ Mọi cụm điều khiển ngang hàng (thanh tab, hàng chip, hàng nút phân
 2. **Cùng biên độ số chữ**: đặt budget cho cụm trước (vd tab /quan-tri: đúng 2 chữ/nhãn) rồi CHỌN TỪ cho vừa khuôn — không co giãn khuôn theo từ. Tên không vừa → đổi từ (vd "Cảnh báo TV" 3 chữ → "Thuyền viên" 2 chữ), KHÔNG để nhãn 1 chữ cụt lủn đứng cạnh nhãn 3 chữ dài ngoằng.
 3. **Cơ chế chống gãy dòng**: ≤4 tab mới được segmented `flex-1` (và phải kiểm nhãn dài nhất vẫn 1 dòng ở 360px); >4 tab → hàng CUỘN NGANG (`overflow-x-auto` + nút `shrink-0 whitespace-nowrap`) đúng pattern `ui/tabs.tsx`. KHÔNG ép nhiều tab vào một hàng bằng flex-1.
 4. **Không tự chế tablist**: trong app dùng `ui/tabs.tsx` / `ChipRow`; trang đứng riêng (vd /quan-tri) được style riêng nhưng vẫn phải theo 3 luật trên.
+5. **Dock 5 cột — nhãn cố định, KHÔNG cuộn được**: dock là 5 mục cố định (`grid-cols-5`), không được cuộn ngang như tab. Nhãn 2 chữ (Bạn thuyền · Trang chủ · Giao dịch) rộng ~65px ở 12px, mà ô dock chỉ 54–68px tuỳ máy ⇒ ở máy hẹp nhãn GÃY 2 DÒNG, icon+chữ tràn khỏi pill trắng, lệch so với các tab khác (bug user 2026-09-24). Cách chống: class `.dock-label` (globals.css) = `white-space:nowrap` + hạ cỡ chữ theo BỀ NGANG máy bằng media-query, GIỮ rem (không clamp font — hook 1d-n): ≥400px `0.75rem` · 345–399px `0.6875rem` · <345px `0.625rem`. `line-height:1.15` (không `leading-none`) để chừa dấu tiếng Việt. Đo thật: 1 dòng ở mọi bề ngang 320→430px. Dock item bấm có `active:scale-95` + `transition-[color,background-color,transform]` (khớp `.sq-btn:active`).
 
 Luật này áp cho CHỮ trong nhãn, không chỉ CSS: viết copy cho tab/nút là phải nghĩ theo cụm, không đặt tên từng cái một.
 

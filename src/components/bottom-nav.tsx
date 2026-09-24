@@ -31,7 +31,7 @@ export function BottomNav() {
     <div className="dock-frame">
       <nav aria-label="Điều hướng chính" className="bottom-dock backdrop-blur-md">
         <ul
-          className="grid h-full grid-cols-5 items-stretch gap-1 px-1.5 py-1.5"
+          className="grid h-full grid-cols-5 items-stretch gap-0.5 px-1 py-1.5"
         >
           {items.map(({ href, label, icon: Icon }) => {
             const active =
@@ -41,14 +41,12 @@ export function BottomNav() {
                 <Link
                   href={href}
                   aria-current={active ? "page" : undefined}
-                  className={`flex h-full flex-col items-center justify-center gap-0.5 rounded-[1.25rem] transition-colors ${
+                  className={`flex h-full flex-col items-center justify-center gap-0.5 rounded-[1.25rem] transition-[color,background-color,transform] duration-200 ease-out active:scale-95 ${
                     active ? "bg-white text-navy" : "text-white/75"
                   }`}
                 >
-                  <Icon className="h-6 w-6" />
-                  <span className="text-[0.75rem] font-bold leading-none">
-                    {label}
-                  </span>
+                  <Icon className="h-6 w-6 shrink-0" />
+                  <span className="dock-label font-bold">{label}</span>
                 </Link>
               </li>
             );

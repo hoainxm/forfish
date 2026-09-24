@@ -135,6 +135,34 @@ html {
   bottom: var(--dock-total);
 }
 
+/*
+  NHÃN DOCK — 5 cột, nhãn 2 chữ LUÔN 1 dòng (03 §"Nhãn ngang hàng"). Bug user
+  2026-09-24: "Bạn thuyền" (và cả "Trang chủ"/"Giao dịch") gãy 2 dòng trên máy
+  hẹp → icon+chữ tràn khỏi pill trắng, lệch so với các tab khác. App KHÔNG tự
+  thu cỡ chữ cho vừa. Cách sửa: chặn gãy dòng + hạ cỡ chữ theo BỀ NGANG máy
+  (rem, giữ nguyên type-ramp/data-mode — KHÔNG clamp font, hook 1d-n). Mốc đo
+  thật ở 12px: "Bạn thuyền" cần ~65px, ô dock chỉ 54–68px tuỳ máy.
+    · ≥400px (iPhone Plus/Max, đa số Android): 0.75rem
+    · 345–399px (iPhone SE/mini/15/16): 0.6875rem
+    · <345px (iPhone SE 1 gen, Android nhỏ, iOS 15): 0.625rem
+  line-height 1.15 (KHÔNG leading-none) để chừa dấu tiếng Việt (ạ/ề/ủ).
+*/
+.dock-label {
+  white-space: nowrap;
+  line-height: 1.15;
+  font-size: 0.75rem;
+}
+@media (max-width: 399px) {
+  .dock-label {
+    font-size: 0.6875rem;
+  }
+}
+@media (max-width: 344px) {
+  .dock-label {
+    font-size: 0.625rem;
+  }
+}
+
 :root.pwa-frame .dock-frame {
   top: 0;
   bottom: auto;
