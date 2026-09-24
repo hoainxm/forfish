@@ -67,17 +67,21 @@ export async function GET() {
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
 
-  const { data, error } = await admin
-    .from("product_listings")
-    .select(
-      "id,vendor_kind,vendor_name,title,category,description,features,detail,price_text,image_url,contact_phone,contact_note,line,group,price_vnd,unit,orderable,visible,sort_order,created_by,created_at,updated_at",
-    )
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false })
-    .limit(500);
+  const base =
+    "id,vendor_kind,vendor_name,title,category,description,features,price_text,image_url,contact_phone,contact_note,line,group,price_vnd,unit,orderable,visible,sort_order,created_by,created_at,updated_at";
+  // Lùi bỏ `detail` nếu cột chưa có (deploy trước migration 0054) — quản trị vẫn chạy.
+  const runAdmin = (cols: string) =>
+    admin
+      .from("product_listings")
+      .select(cols)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false })
+      .limit(500);
+  let { data, error } = await runAdmin(`${base},detail`);
+  if (error) ({ data, error } = await runAdmin(base));
   if (error) return err(500, "query_failed");
 
-  const listings = (data ?? []).map((r) => ({
+  const listings = ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
     id: r.id as string,
     vendorKind: r.vendor_kind === "external" ? "external" : "sdvico",
     vendorName: (r.vendor_name as string) ?? null,

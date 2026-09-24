@@ -216,19 +216,25 @@ export async function fetchProductListings(): Promise<ProductListing[] | null> {
   // trần là để lại kết nối treo suốt phiên ở sóng "sống mà chết".
   // `.abortSignal()` không nhận `undefined` sạch ⇒ gắn có điều kiện.
   const sig = timeoutSignal(12000);
-  let q = supabase
-    .from(TABLE)
-    .select(
-      "id,vendor_kind,vendor_name,title,category,description,features,detail,price_text,image_url,contact_phone,contact_note,line,group,price_vnd,unit,orderable,visible,sort_order,created_at",
-    )
-    .eq("visible", true)
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false })
-    .limit(200);
-  if (sig) q = q.abortSignal(sig);
-  const { data, error } = await q;
+  const base =
+    "id,vendor_kind,vendor_name,title,category,description,features,price_text,image_url,contact_phone,contact_note,line,group,price_vnd,unit,orderable,visible,sort_order,created_at";
+  // Thử KÈM `detail`; cột chưa có (deploy trước migration 0054) → lùi bỏ cột lạ,
+  // KHÔNG để cả danh mục rơi về fallback tĩnh (khuôn 0031/0052, xem 04).
+  const run = (cols: string) => {
+    let q = supabase
+      .from(TABLE)
+      .select(cols)
+      .eq("visible", true)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (sig) q = q.abortSignal(sig);
+    return q;
+  };
+  let { data, error } = await run(`${base},detail`);
+  if (error) ({ data, error } = await run(base));
   if (error || !data) return null;
-  const listings = (data as Row[]).map(rowToListing);
+  const listings = (data as unknown as Row[]).map(rowToListing);
   saveCachedCatalog(listings);
   return listings;
 }
