@@ -50,9 +50,14 @@ SUPABASE_SERVICE_ROLE_KEY=<service role key>
 SDWORK_SUPABASE_URL=<...>
 SDWORK_SUPABASE_ANON_KEY=<...>
 SDWORK_WEBHOOK_SECRET=<...>
-SDWORK_SYNC_URL=<...>
 NEXT_PUBLIC_SDWORK_ANON_KEY=<...>
 NEXT_PUBLIC_SDWORK_FUNCTIONS_URL=<...>
+# Đối soát thu tiền — cron trace-payments POST sang đây, ký HMAC bằng chính
+# SDWORK_WEBHOOK_SECRET. Trống = TẮT đẩy ngược (cron no-op, không lỗi).
+SDWORK_TRACE_URL=<...>
+# Gia hạn VMS (S-Tracking, 2026-08-21) — edge fn `sdfish-renewal` bên CRM.
+# Trống = thẻ "Giám sát hành trình" ở /tau tab Dịch vụ báo chưa cấu hình.
+SDFISH_RENEWAL_SECRET=<...>
 # Web app cùng origin → để trống
 NEXT_PUBLIC_API_BASE=
 # Web Push (dùng lại cặp đã sinh, hoặc chạy: npx web-push generate-vapid-keys)
@@ -68,7 +73,24 @@ CREW_CCCD_PEPPER=<openssl rand -hex 32>
 CRON_SECRET=<...>
 ```
 
+> 🗑️ **Bỏ `SDWORK_SYNC_URL` (soát 2026-08-27)**: fork sdvico KHÔNG có route `/api/sdwork/password-sync` (đẩy mật khẩu ngược sang SDWork) — không dòng code nào đọc biến này. Điền vào chỉ tổ tưởng đã bật đồng bộ mật khẩu 2 chiều. *(02-architecture §2 vẫn liệt kê route đó — drift của doc kia, chưa sửa.)*
+>
 > ⚠️ `VAPID_PRIVATE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SDWORK_WEBHOOK_SECRET`, `CREW_CCCD_PEPPER` là **bí mật** — file `.env.production` chmod 600, KHÔNG commit.
+
+## 3b. DB phải sẵn sàng TRƯỚC khi mở cho bà con (soát 2026-08-27)
+
+Host chỉ đổi chỗ chạy Node — **DB vẫn là project cũ `znzgugvfhgmiszqgjulk`**, không có gì tự di trú.
+
+**Soi DB THẬT ngày 2026-08-27: schema ĐỦ, không phải apply gì trước khi lên.** `0045`–`0052` đều đã có mặt trên prod (`catalog_orders`, `storm_bulletins`, `storm_forecast_points`, `storm_scan_log`, `user_docs` đều tồn tại; bucket Storage `user-docs` có, `public=false`).
+
+⚠️ **ĐỪNG tin nhãn "🔴 CHƯA apply" trong [04-data-model](../04-data-model.md)** — nhiều dòng ở đó đã cũ. Riêng `user_docs`/`user_docs_photos` (0050/0051) apply bằng SQL editor nên **KHÔNG nằm trong bảng `supabase_migrations`**, tra bằng `list_migrations` sẽ tưởng là thiếu. Cách kiểm đúng là soi bảng/cột thật:
+
+```sql
+select table_name from information_schema.tables where table_schema='public' order by 1;
+select id, public from storage.buckets;
+```
+
+🔴 Nếu về sau có migration thật cần apply: **phải hỏi chủ dự án**, không tự chạy (luật pre-flight). Kiểm nhanh sau khi lên: `/quan-tri` → tab Sức khoẻ, và `GET /api/admin/crons` (đo tuổi bản ghi để biết cron sống hay chết).
 
 ## 4. Build + chạy nền (pm2)
 
@@ -119,6 +141,25 @@ sudo certbot --nginx -d sdfish.sdvico.vn --redirect
 
 VPS = KHÔNG có Vercel Cron. Phải TỰ trigger `/api/cron/*` từ máy → **hết Hobby limit** (5 cron + hàng-giờ chạy thoải mái, miễn phí). `vercel.json crons` chỉ Vercel đọc; Next.js server bỏ qua.
 
+### 7.0 ĐỦ 8 ĐƯỜNG — soát lại 2026-08-27
+
+Bản 2026-08-01 của mục này chỉ liệt **5** (đúng `vercel.json` lúc đó). Code hiện có **8**; 3 đường thiếu đều sinh sau ngày đó và đang chạy nhờ **GitHub Actions**, KHÔNG nhờ `vercel.json` — đổi host mà quên là mất luôn.
+
+| Đường | Method | Nhịp | Hôm nay chạy bằng |
+|---|---|---|---|
+| `/api/cron/refresh-fish` | GET | `20 */6 * * *` | GH Actions **+** vercel.json → **double-hit** |
+| `/api/cron/refresh-weather` | GET | `40 4,10,16,22 * * *` | GH Actions **+** vercel.json → **double-hit** |
+| `/api/cron/refresh-currents-depth` | GET | `50 5,17 * * *` | GH Actions |
+| `/api/cron/refresh-storms` | GET | `5 * * * *` | GH Actions (gộp 1 job với dòng dưới) |
+| `/api/cron/notify-storms` | GET | `5 * * * *` | GH Actions |
+| `/api/collect/sea-daily` | GET | `30 23 * * *` | vercel.json |
+| `/api/cron/snapshot-prices` | GET | `0 3 * * 6` | vercel.json |
+| `/api/cron/trace-payments` | **POST** | `0 1 * * *` | vercel.json |
+
+Cả 8 cùng một cổng: `Authorization: Bearer $CRON_SECRET`. **Thiếu `CRON_SECRET` là 401 chứ không phải mở cửa** — fail-closed, đúng ý.
+
+⚠️ **Hai cron BÃO phải giữ nhịp 1 GIỜ**, đừng thưa hơn: cổng nhịp `TOI_THIEU_PHUT` = 55 phút trong `lib/storm-scan.ts` (ADR 0005). Gõ thưa hơn thì mức "bão áp bờ" tự tụt xuống 2 giờ/lần. Và **đừng đưa hai cái này về `vercel.json`** — Hobby chỉ cho 1 lần/ngày, một dòng `*/30` ở đó từng chặn đứng deploy 7 tiếng mà bảng Deployments không báo lỗi gì (ADR 0006).
+
 ### 7a. Script gọi chung (đọc CRON_SECRET từ .env.production)
 
 ```bash
@@ -139,12 +180,23 @@ sudo crontab -e     # dán các dòng dưới (UTC — khớp lịch vercel.json
 ```
 
 ```cron
-0 2 * * *    /usr/local/bin/sdfish-cron.sh /api/cron/refresh-fish     >> /var/log/sdfish-cron.log 2>&1
-30 2 * * *   /usr/local/bin/sdfish-cron.sh /api/cron/refresh-weather  >> /var/log/sdfish-cron.log 2>&1
-30 23 * * *  /usr/local/bin/sdfish-cron.sh /api/collect/sea-daily     >> /var/log/sdfish-cron.log 2>&1
-0 3 * * 6    /usr/local/bin/sdfish-cron.sh /api/cron/snapshot-prices  >> /var/log/sdfish-cron.log 2>&1
-0 * * * *    /usr/local/bin/sdfish-cron.sh /api/cron/trace-payments POST >> /var/log/sdfish-cron.log 2>&1
+TZ=UTC
+# ── giữ nhịp y hệt GH Actions đang chạy (đừng đổi nhịp lúc đổi host) ──
+20 */6 * * *      /usr/local/bin/sdfish-cron.sh /api/cron/refresh-fish            >> /var/log/sdfish-cron.log 2>&1
+40 4,10,16,22 * * * /usr/local/bin/sdfish-cron.sh /api/cron/refresh-weather       >> /var/log/sdfish-cron.log 2>&1
+50 5,17 * * *     /usr/local/bin/sdfish-cron.sh /api/cron/refresh-currents-depth  >> /var/log/sdfish-cron.log 2>&1
+# BÃO — 1 giờ/lần, hai đường liền nhau (ghi kho rồi mới đẩy tin)
+5 * * * *         /usr/local/bin/sdfish-cron.sh /api/cron/refresh-storms          >> /var/log/sdfish-cron.log 2>&1
+6 * * * *         /usr/local/bin/sdfish-cron.sh /api/cron/notify-storms           >> /var/log/sdfish-cron.log 2>&1
+# ── các đường vốn ở vercel.json ──
+30 23 * * *       /usr/local/bin/sdfish-cron.sh /api/collect/sea-daily            >> /var/log/sdfish-cron.log 2>&1
+0 3 * * 6         /usr/local/bin/sdfish-cron.sh /api/cron/snapshot-prices         >> /var/log/sdfish-cron.log 2>&1
+0 * * * *         /usr/local/bin/sdfish-cron.sh /api/cron/trace-payments POST     >> /var/log/sdfish-cron.log 2>&1
 ```
+
+`TZ=UTC` ở đầu crontab là **bắt buộc** — mọi nhịp trên chép từ `vercel.json`/GH Actions vốn tính giờ UTC, mà VPS PA Vietnam chạy giờ VN (+07). Quên dòng này là lệch 7 tiếng: `sea-daily` 23:30 UTC hoá ra 06:30 sáng VN hôm sau.
+
+`sdfish-cron.sh` gọi `127.0.0.1:3000` nên **không đi qua nginx/TLS** — nhanh, kín, và chạy được cả lúc chứng chỉ đang gia hạn.
 
 > `trace-payments` là **POST** (khác refresh-* GET). Trên VPS đặt lại **hàng-giờ** (`0 * * * *`) vì không còn Hobby limit. Timezone crontab theo giờ hệ thống — set `TZ=UTC` ở đầu crontab nếu VPS chạy giờ VN mà muốn khớp UTC.
 
@@ -179,7 +231,9 @@ systemctl list-timers | grep sdfish     # kiểm lịch
 ### 7d. Dọn nguồn trùng
 
 - **Bỏ `crons` khỏi `vercel.json`** nếu KHÔNG còn deploy Vercel (Vercel không chạy nữa thì vô hại nếu để, nhưng gỡ cho sạch).
-- **GitHub Actions `refresh-*.yml`**: chọn 1 nguồn — hoặc VPS cron, hoặc GH Actions. Chạy CẢ 2 = double-hit endpoint. Khi VPS cron lo hết → tắt/ xoá workflow GH (Actions → Disable).
+- **GitHub Actions `refresh-*.yml` + `storms.yml`**: chọn 1 nguồn — hoặc VPS cron, hoặc GH Actions. Chạy CẢ 2 = double-hit endpoint. Khi VPS cron lo hết → tắt workflow GH (Actions → ⋯ → Disable workflow), giữ `ci.yml` + `android-release.yml`.
+  - **Khuyến nghị: dồn hết về VPS crontab.** Ba lý do: (a) gọi `127.0.0.1` không tốn phút Actions — chính `storms.yml` đã phải gộp 2 job vì GH tính tiền theo job làm tròn LÊN 1 phút, ước ~19 USD/tháng; (b) không phụ thuộc runner GitHub ra được VPS Việt Nam; (c) một chỗ để soi log.
+  - **Nếu vẫn giữ GH Actions**: phải đổi biến repo **`APP_BASE_URL`** (Settings → Secrets and variables → Actions → *Variables*) sang `https://sdfish.sdvico.vn`, và secret `CRON_SECRET` phải TRÙNG `.env.production`. Quên đổi = tin bão vẫn bắn về host cũ.
 - Verify chạy tay: `sudo /usr/local/bin/sdfish-cron.sh /api/cron/refresh-weather` → kỳ vọng JSON 200.
 
 ## 8. Verify
@@ -206,4 +260,4 @@ cd /var/www/sdfish && git pull && npm ci && \
 
 ---
 
-**Last updated**: 2026-08-01 (thêm §7 Cron — systemd/crontab thay Vercel Cron) · Host: VPS `116.103.228.188` (PA Vietnam) · Runtime: Node 20 + pm2 + nginx + certbot
+**Last updated**: 2026-08-27 (soát lệch code↔runbook: +`SDWORK_TRACE_URL` +`SDFISH_RENEWAL_SECRET`, bỏ `SDWORK_SYNC_URL` chết; §7.0 đủ 8 cron — thêm storms ×2 + currents-depth vốn chỉ chạy trên GH Actions; `TZ=UTC`; §3b soi DB thật — schema ĐỦ, không phải apply gì; nhãn "chưa apply" ở 04 đã cũ) · trước đó 2026-08-01 (thêm §7 Cron — systemd/crontab thay Vercel Cron) · Host: VPS `116.103.228.188` (PA Vietnam) · Runtime: Node 20 + pm2 + nginx + certbot

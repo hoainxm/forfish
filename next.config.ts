@@ -25,5 +25,4 @@ const nextConfig: NextConfig = {
   },
   ...(e2eDistDir ? { distDir: e2eDistDir } : {}),
 };
-
 export default nextConfig;
