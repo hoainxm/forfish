@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDetail,
   rowToListing,
+  specsFromText,
+  specsToText,
   toDetail,
   validateProductDraft,
   type ProductDraft,
@@ -199,5 +202,33 @@ describe("toDetail — parse jsonb khoan dung", () => {
   it("giữ trường có, bỏ mảng rỗng", () => {
     const d = toDetail({ maker: "SDVICO", benefits: [], specs: [] });
     expect(d).toEqual({ maker: "SDVICO" });
+  });
+});
+
+describe("form chi tiết — specs text ↔ mảng + buildDetail", () => {
+  it("specsFromText: 'nhãn | giá trị' mỗi dòng, bỏ dòng thiếu vế", () => {
+    expect(specsFromText("Độ lọc | 1-10 micron\nrác\nBảo hành | 12 tháng")).toEqual([
+      { label: "Độ lọc", value: "1-10 micron" },
+      { label: "Bảo hành", value: "12 tháng" },
+    ]);
+    expect(specsFromText("Nhãn |")).toEqual([]); // thiếu giá trị
+  });
+  it("specsToText: round-trip", () => {
+    const specs = [{ label: "A", value: "1" }, { label: "B", value: "2" }];
+    expect(specsFromText(specsToText(specs))).toEqual(specs);
+  });
+  it("buildDetail: gom ô rời, undefined nếu trống hết", () => {
+    expect(buildDetail({})).toBeUndefined();
+    expect(buildDetail({ models: "  ", benefitsText: "\n\n" })).toBeUndefined();
+    const d = buildDetail({
+      models: "SF50",
+      benefitsText: "Lợi ích 1\n\nLợi ích 2",
+      specsText: "Độ lọc | 1 micron",
+    });
+    expect(d).toEqual({
+      models: "SF50",
+      benefits: ["Lợi ích 1", "Lợi ích 2"],
+      specs: [{ label: "Độ lọc", value: "1 micron" }],
+    });
   });
 });

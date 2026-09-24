@@ -93,6 +93,52 @@ export interface ProductDraft {
 
 const TABLE = "product_listings";
 
+// ── Helper CHO FORM QUẢN TRỊ nhập chi tiết (thuần, test được) ──────────────
+
+/** Textarea "nhãn | giá trị" mỗi dòng → mảng ProductSpec (bỏ dòng trống/thiếu vế). */
+export function specsFromText(text: string): ProductSpec[] {
+  return text
+    .split("\n")
+    .map((line) => {
+      const i = line.indexOf("|");
+      if (i < 0) return null;
+      const label = line.slice(0, i).trim();
+      const value = line.slice(i + 1).trim();
+      return label && value ? { label, value } : null;
+    })
+    .filter((s): s is ProductSpec => s !== null);
+}
+
+/** Mảng ProductSpec → textarea "nhãn | giá trị" mỗi dòng (đổ vào form khi sửa). */
+export function specsToText(specs?: ProductSpec[]): string {
+  return (specs ?? []).map((s) => `${s.label} | ${s.value}`).join("\n");
+}
+
+/** Gom các ô rời của form thành ProductDetail (undefined nếu trống hết). */
+export function buildDetail(input: {
+  models?: string;
+  maker?: string;
+  forWho?: string;
+  benefitsText?: string;
+  specsText?: string;
+  variant?: string;
+}): ProductDetail | undefined {
+  const benefits = (input.benefitsText ?? "")
+    .split("\n")
+    .map((b) => b.trim())
+    .filter(Boolean);
+  const specs = specsFromText(input.specsText ?? "");
+  const d: ProductDetail = {
+    models: input.models?.trim() || undefined,
+    maker: input.maker?.trim() || undefined,
+    forWho: input.forWho?.trim() || undefined,
+    benefits: benefits.length > 0 ? benefits : undefined,
+    specs: specs.length > 0 ? specs : undefined,
+    variant: input.variant?.trim() || undefined,
+  };
+  return Object.values(d).some((v) => v !== undefined) ? d : undefined;
+}
+
 // ── Helper THUẦN (test được) ───────────────────────────────────────────────
 
 /** Trả câu lỗi tiếng Việt nếu draft chưa hợp lệ, null nếu OK. */

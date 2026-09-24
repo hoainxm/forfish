@@ -95,6 +95,11 @@ import {
   groupLabel,
   type CatalogGroupId,
 } from "@/lib/catalog-groups";
+import {
+  buildDetail,
+  specsToText,
+  type ProductDetail,
+} from "@/lib/product-catalog";
 import { validateConfigValue, type ConfigKey } from "@/lib/app-config-keys";
 
 type Tab =
@@ -2475,6 +2480,7 @@ type ProductRow = {
   category: string | null;
   description: string | null;
   features: string[];
+  detail?: ProductDetail | null;
   priceText: string | null;
   imageUrl: string | null;
   contactPhone: string | null;
@@ -2730,6 +2736,17 @@ function ProductForm({
     initial?.priceVnd != null ? String(initial.priceVnd) : "",
   );
   const [unit, setUnit] = useState(initial?.unit ?? "");
+  // ── CHI TIẾT sản phẩm (hiện trong sheet "Xem chi tiết") ────────────────────
+  const initDetail = initial?.detail ?? undefined;
+  const [showDetail, setShowDetail] = useState(false);
+  const [dModels, setDModels] = useState(initDetail?.models ?? "");
+  const [dMaker, setDMaker] = useState(initDetail?.maker ?? "");
+  const [dForWho, setDForWho] = useState(initDetail?.forWho ?? "");
+  const [dBenefits, setDBenefits] = useState(
+    (initDetail?.benefits ?? []).join("\n"),
+  );
+  const [dSpecs, setDSpecs] = useState(specsToText(initDetail?.specs));
+  const [dVariant, setDVariant] = useState(initDetail?.variant ?? "");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -2764,6 +2781,14 @@ function ProductForm({
         .split("\n")
         .map((f) => f.trim())
         .filter(Boolean),
+      detail: buildDetail({
+        models: dModels,
+        maker: dMaker,
+        forWho: dForWho,
+        benefitsText: dBenefits,
+        specsText: dSpecs,
+        variant: dVariant,
+      }),
       priceText: priceText.trim() || undefined,
       imageUrl: imageUrl.trim() || undefined,
       contactPhone: contactPhone.trim() || undefined,
@@ -2969,6 +2994,78 @@ function ProductForm({
                   className={field}
                 />
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── CHI TIẾT SẢN PHẨM (sheet "Xem chi tiết") ─────────────────────── */}
+        <div className="rounded-xl bg-field/60 px-3 py-3">
+          <button
+            type="button"
+            onClick={() => setShowDetail((v) => !v)}
+            aria-expanded={showDetail}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <span className="min-w-0">
+              <span className="block text-[0.9375rem] font-bold text-navy">
+                Chi tiết sản phẩm
+              </span>
+              <span className="block text-[0.8125rem] leading-snug text-foreground/60">
+                Thông số, đối tượng, biến thể — hiện khi bà con bấm &ldquo;Xem chi tiết&rdquo;.
+              </span>
+            </span>
+            <span className="shrink-0 text-[0.8125rem] font-bold text-sea">
+              {showDetail ? "Thu gọn" : "Mở"}
+            </span>
+          </button>
+
+          {showDetail && (
+            <div className="mt-3 space-y-2.5">
+              <input
+                placeholder="Mã / phiên bản (VD: SF50 bản cơ, SF300B bản điện)"
+                value={dModels}
+                onChange={(e) => setDModels(e.target.value)}
+                className={field}
+              />
+              <input
+                placeholder="Phân loại / nhà sản xuất (VD: Sản phẩm SDVICO)"
+                value={dMaker}
+                onChange={(e) => setDMaker(e.target.value)}
+                className={field}
+              />
+              <textarea
+                placeholder="Dành cho ai — đối tượng dùng"
+                value={dForWho}
+                onChange={(e) => setDForWho(e.target.value)}
+                rows={2}
+                className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+              />
+              <textarea
+                placeholder={"Lợi ích chính — mỗi dòng một ý"}
+                value={dBenefits}
+                onChange={(e) => setDBenefits(e.target.value)}
+                rows={3}
+                className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+              />
+              <div>
+                <textarea
+                  placeholder={"Thông số — mỗi dòng: Nhãn | Giá trị\nVD: Độ lọc | 1–10 micron"}
+                  value={dSpecs}
+                  onChange={(e) => setDSpecs(e.target.value)}
+                  rows={4}
+                  className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+                />
+                <p className="mt-1 text-[0.75rem] leading-snug text-foreground/55">
+                  Mỗi dòng một thông số, ngăn nhãn và giá trị bằng dấu &ldquo;|&rdquo;.
+                </p>
+              </div>
+              <textarea
+                placeholder="Biến thể (VD: khác nhau giữa bản cơ và bản điện) — tuỳ chọn"
+                value={dVariant}
+                onChange={(e) => setDVariant(e.target.value)}
+                rows={2}
+                className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
+              />
             </div>
           )}
         </div>
