@@ -10,6 +10,7 @@ ttl_days: 90
 gate: warn
 <!-- re-verified: 2026-09-24 16:00 — DOCK (bottom-nav.tsx): 5 mục cố định Trang chủ·Ra khơi·Tàu cá·Bạn thuyền·Giao dịch còn khớp §"Mobile bottom dock (5)"; nhãn 2 chữ 1 dòng ("Nhãn ngang hàng") là spec ĐÚNG. Bug đã sửa: nhãn gãy 2 dòng ở máy hẹp (≤399px) → nay `.dock-label` hạ cỡ chữ theo bề ngang, 1 dòng ở 320→430px. Không đổi route/taxonomy dock. -->
 <!-- re-verify(07): dock 5 mục + nhãn 1 dòng khớp bottom-nav.tsx -->
+<!-- re-verified: 2026-09-24 16:40 — AUDIT UI P1 (fix hiển thị, không đụng dữ liệu/route): (1) /tien bảng giá (price-board.tsx): badge "giá tuần"/"tham khảo" nay INLINE trong dòng tên cá (không còn flex items-center trôi ra giữa 2 dòng khi tên dài) — đo 320px "Cá ngừ đại dương"/"Cá ngừ sọc dưa (cá ngừ vằn)" badge nằm gọn dưới tên, không đè. (2) /ngu-truong (fishing-map-view.tsx): nhãn "N hải lý tới biên" đổi anchor center→bottom offset[0,-6] → chip nổi TRÊN đường đo, hết đè lên pin. Rail lớp KHÔNG đổi: đã bounded đúng bằng max-h calc(100dvh-14rem) (đáy ≤655px < hàng ngày 671px), chỗ "cụt" trước là băng loading tạm thời che, không phải lỗi layout. -->
 
 <!-- re-verified: 2026-08-26 — GỠ HẲN coach-tour trên màn (§12 viết lại thành "ĐÃ GỠ"): xoá engine (coach-tour.tsx/tour-launcher.tsx/lib/tour.ts/tour.test.ts) + gỡ mọi neo data-tour ở page/bottom-nav/ra-khoi-controls/boat-switcher/snap-sheet/urgent-strip/tabs + khoá forfish.tour.* + dọn set-key tắt-tour ở scripts/capture-app-screens.mjs. Sách HTML huong-dan.html (npm run guide) GIỮ nguyên. -->
 

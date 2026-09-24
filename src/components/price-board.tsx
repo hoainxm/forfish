@@ -212,18 +212,24 @@ export function PriceBoard() {
                 className="block min-w-0 flex-1 px-4 py-3.5 text-left transition active:scale-[0.99]"
               >
               <div className="flex items-start justify-between gap-3">
-                <p className="display flex items-center gap-2 text-[1.125rem] font-bold leading-snug text-navy">
+                {/*  Badge INLINE trong dòng chữ (không flex items-center): tên cá
+                    dài xuống 2 dòng thì badge chạy theo chữ như một cái tag ở
+                    cuối tên, KHÔNG trôi ra giữa hai dòng đè lên tên (bug user
+                    2026-09-24). min-w-0 flex-1 để nhường chỗ cho cụm xu hướng
+                    bên phải. */}
+                <p className="display min-w-0 flex-1 text-[1.125rem] font-bold leading-snug text-navy">
                   {p.species}
-                  {isLive &&
-                    ((p as LivePortPrice).live ? (
-                      <span className="rounded-full bg-ok-bg px-2 py-0.5 text-[0.75rem] font-bold text-ok">
-                        giá tuần
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-semibold text-foreground/65">
-                        tham khảo
-                      </span>
-                    ))}
+                  {isLive && (
+                    <span
+                      className={`ml-1.5 inline-block whitespace-nowrap rounded-full px-2 py-0.5 align-[0.08em] text-[0.75rem] ${
+                        (p as LivePortPrice).live
+                          ? "bg-ok-bg font-bold text-ok"
+                          : "bg-field font-semibold text-foreground/65"
+                      }`}
+                    >
+                      {(p as LivePortPrice).live ? "giá tuần" : "tham khảo"}
+                    </span>
+                  )}
                 </p>
                 {/*  Bỏ style ghi đè rgba cứng (E1): TREND.flat đã khai
                     color: "var(--foreground)" sẵn — ghi đè bằng rgba là màu

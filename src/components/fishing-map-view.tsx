@@ -5985,7 +5985,8 @@ export default function FishingMapView() {
         <Marker
           longitude={(point.lon + prox.nearest[0]) / 2}
           latitude={(point.lat + prox.nearest[1]) / 2}
-          anchor="center"
+          anchor="bottom"
+          offset={[0, -6]}
         >
           {/*  Nhãn tô bằng TOKEN `--danger`, KHÔNG hard-code hex vào class
                Tailwind — hook chặn (nguyên tắc 8). Màu ranh giới của lớp bản đồ
