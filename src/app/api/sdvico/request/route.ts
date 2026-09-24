@@ -8,21 +8,8 @@ import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createConsultationRequest, isAssetSyncConfigured } from "@/lib/sdwork-assets";
-import { topicLabel } from "@/lib/sdvico-catalog";
-
-function normalizePhone(raw: string): string {
-  let d = raw.replace(/\D/g, "");
-  if (d.startsWith("84")) d = "0" + d.slice(2);
-  else if (!d.startsWith("0")) d = "0" + d;
-  return d;
-}
-
-function isValidVnPhone(raw: string): boolean {
-  const d = raw.replace(/\D/g, "");
-  const local = d.startsWith("84") ? d.slice(2) : d.startsWith("0") ? d.slice(1) : d;
-  // ĐÚNG 10 số (0 + 9); dạng 84/+84 quy về 9 local. Chối 0xxxxxxxxxx (11 số).
-  return /^[1-9]\d{8}$/.test(local);
-}
+import { normalizeVnPhone, isValidVnPhone } from "@/lib/phone";
+import { buildRequestMessage } from "@/lib/sdwork-request";
 
 export async function POST(req: Request) {
   if (!isAssetSyncConfigured()) {
@@ -68,17 +55,15 @@ export async function POST(req: Request) {
   if (!isValidVnPhone(phoneRaw)) {
     return NextResponse.json({ ok: false, code: "invalid_phone" }, { status: 400 });
   }
-  const detail = (body.detail ?? "").trim().slice(0, 500);
-  const product = (body.productName ?? "").trim().slice(0, 120);
-
-  const message =
-    `[ForFish] ${topicLabel(body.topic ?? "khac")}` +
-    (product ? ` · ${product}` : "") +
-    (detail ? ` — ${detail}` : "");
+  const message = buildRequestMessage({
+    topic: body.topic,
+    productName: body.productName,
+    detail: body.detail,
+  });
 
   const ok = await createConsultationRequest({
     fullName: name.slice(0, 120),
-    phone: normalizePhone(phoneRaw),
+    phone: normalizeVnPhone(phoneRaw),
     message,
   });
   if (!ok) {
