@@ -4,10 +4,32 @@ on:
   push:
     branches:
       - main # Chạy tự động khi push code lên nhánh main
+  workflow_dispatch: # Cho phép bấm chạy tay trên GitHub Actions
 
 jobs:
   build-and-deploy:
     runs-on: self-hosted # Quan trọng: Chỉ định chạy trên máy chủ của bạn
+    environment: production # Tên GitHub Environment chứa các Secrets/Variables
+
+    env:
+      # Lấy biến môi trường từ GitHub Secrets hoặc GitHub Repository Variables
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || vars.SUPABASE_SERVICE_ROLE_KEY }}
+      NEXT_PUBLIC_API_BASE: ${{ secrets.NEXT_PUBLIC_API_BASE || vars.NEXT_PUBLIC_API_BASE }}
+      # Các biến tùy chọn khác (nếu có cấu hình trong GitHub)
+      SDWORK_SUPABASE_URL: ${{ secrets.SDWORK_SUPABASE_URL || vars.SDWORK_SUPABASE_URL }}
+      SDWORK_SUPABASE_ANON_KEY: ${{ secrets.SDWORK_SUPABASE_ANON_KEY || vars.SDWORK_SUPABASE_ANON_KEY }}
+      SDWORK_WEBHOOK_SECRET: ${{ secrets.SDWORK_WEBHOOK_SECRET || vars.SDWORK_WEBHOOK_SECRET }}
+      SDWORK_TRACE_URL: ${{ secrets.SDWORK_TRACE_URL || vars.SDWORK_TRACE_URL }}
+      NEXT_PUBLIC_SDWORK_FUNCTIONS_URL: ${{ secrets.NEXT_PUBLIC_SDWORK_FUNCTIONS_URL || vars.NEXT_PUBLIC_SDWORK_FUNCTIONS_URL }}
+      NEXT_PUBLIC_SDWORK_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SDWORK_ANON_KEY || vars.NEXT_PUBLIC_SDWORK_ANON_KEY }}
+      CREW_CCCD_PEPPER: ${{ secrets.CREW_CCCD_PEPPER || vars.CREW_CCCD_PEPPER }}
+      SDFISH_RENEWAL_SECRET: ${{ secrets.SDFISH_RENEWAL_SECRET || vars.SDFISH_RENEWAL_SECRET }}
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_VAPID_PUBLIC_KEY || vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
+      ADMIN_PHONES: ${{ secrets.ADMIN_PHONES || vars.ADMIN_PHONES }}
+      MASTER_AGENT_PHONES: ${{ secrets.MASTER_AGENT_PHONES || vars.MASTER_AGENT_PHONES }}
+      PORT: ${{ secrets.PORT || vars.PORT }}
 
     steps:
       # 1. Kéo mã nguồn trực tiếp về thư mục làm việc của Runner trên server
@@ -25,16 +47,64 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 4. Build ứng dụng Next.js
+      # 4. Tạo file .env.production và .env để Next.js nhúng NEXT_PUBLIC_* lúc build và nạp runtime
+      - name: Create .env files
+        shell: powershell
+        run: |
+          $lines = @()
+          $keys = @(
+            "NEXT_PUBLIC_SUPABASE_URL",
+            "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+            "SUPABASE_SERVICE_ROLE_KEY",
+            "NEXT_PUBLIC_API_BASE",
+            "SDWORK_SUPABASE_URL",
+            "SDWORK_SUPABASE_ANON_KEY",
+            "SDWORK_WEBHOOK_SECRET",
+            "SDWORK_TRACE_URL",
+            "NEXT_PUBLIC_SDWORK_FUNCTIONS_URL",
+            "NEXT_PUBLIC_SDWORK_ANON_KEY",
+            "CREW_CCCD_PEPPER",
+            "SDFISH_RENEWAL_SECRET",
+            "NEXT_PUBLIC_VAPID_PUBLIC_KEY",
+            "ADMIN_PHONES",
+            "MASTER_AGENT_PHONES",
+            "PORT"
+          )
+          foreach ($k in $keys) {
+            $val = [System.Environment]::GetEnvironmentVariable($k)
+            if ($val) {
+              $lines += "$k=$val"
+            }
+          }
+          # Nếu server đích đã có .env sẵn, bù thêm các key chưa có trong GitHub
+          $dstEnv = "C:\sdfish\forfish\.env"
+          if (Test-Path $dstEnv) {
+            Get-Content $dstEnv | ForEach-Object {
+              $line = $_.Trim()
+              if ($line -and -not $line.StartsWith("#") -and $line.Contains("=")) {
+                $parts = $line.Split("=", 2)
+                $k = $parts[0].Trim()
+                $v = $parts[1].Trim()
+                if (-not [System.Environment]::GetEnvironmentVariable($k)) {
+                  $lines += "$k=$v"
+                }
+              }
+            }
+          }
+          $lines | Set-Content -Path ".env.production" -Encoding utf8
+          $lines | Set-Content -Path ".env" -Encoding utf8
+          Write-Host "Created .env.production and .env with $($lines.Count) variables"
+
+      # 5. Build ứng dụng Next.js (đã có env nạp sẵn)
       - name: Build Next.js App
         run: npm run build
 
-      # 5. Tạm dừng PM2 trước khi chép file
+      # 6. Tạm dừng PM2 trước khi chép file
       - name: Stop PM2
         run: pm2 stop forfish
         continue-on-error: true # Bỏ qua lỗi nếu ứng dụng chưa từng được chạy trong PM2
 
-      # 6. Copy file bằng PowerShell
+      # 7. Copy file bằng PowerShell sang thư mục đích
       - name: Prepare and Copy files to Destination
         shell: powershell
         run: |
@@ -54,9 +124,21 @@ jobs:
           # Copy thư mục static và public
           Copy-Item -Path "$src\.next\static" -Destination "$dst\.next\static" -Recurse -Force
           Copy-Item -Path "$src\public" -Destination "$dst\public" -Recurse -Force
-      # 7. Khởi động lại PM2
+
+          # Copy file .env.production và .env để server.js (standalone) đọc lúc runtime
+          if (Test-Path "$src\.env.production") {
+            Copy-Item -Path "$src\.env.production" -Destination "$dst\.env.production" -Force
+          }
+          if (Test-Path "$src\.env") {
+            Copy-Item -Path "$src\.env" -Destination "$dst\.env" -Force
+          }
+
+      # 8. Khởi động lại PM2
       - name: Restart PM2
         shell: powershell
         run: |
           cd C:\sdfish\forfish
-          pm2 restart forfish
+          pm2 restart forfish --update-env 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            pm2 start server.js --name forfish --update-env
+          }
