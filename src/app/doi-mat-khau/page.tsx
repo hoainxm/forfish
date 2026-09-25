@@ -16,6 +16,11 @@ import { useAuthUser } from "@/lib/use-auth";
 import { withDeadline } from "@/lib/auth-error";
 import { readToken } from "@/lib/device-token-store";
 import { phoneToEmail } from "@/components/auth-form";
+import {
+  normalizePassword,
+  PASSWORD_MIN_LENGTH,
+  passwordProblem,
+} from "@/lib/password";
 
 /*
   Đổi mật khẩu — HAI ngả vào (2026-07-29):
@@ -118,8 +123,9 @@ export default function DoiMatKhauPage() {
     e.preventDefault();
     setError(null);
 
-    if (password.length < 6) {
-      setError("Mật khẩu mới cần ít nhất 6 ký tự.");
+    const pwProblem = passwordProblem(password);
+    if (pwProblem) {
+      setError(pwProblem);
       return;
     }
 
@@ -155,9 +161,13 @@ export default function DoiMatKhauPage() {
     }
 
     // 2) Đổi mật khẩu + tắt cờ buộc đổi NGAY TRÊN user_metadata.
+    //    LƯU BẢN normalizePassword (bỏ khoảng trắng đầu/cuối) để KHỚP đúng thứ
+    //    /login gửi lên (login cũng normalizePassword trước signInWithPassword).
+    //    Trước đây lưu `password` THÔ: đặt mật khẩu lỡ dính dấu cách cuối là lần
+    //    sau đăng nhập gõ đúng vẫn trượt (login đã trim) → tự khoá mình ra.
     const upd = await withDeadline(
       supabase!.auth.updateUser({
-        password,
+        password: normalizePassword(password),
         data: { must_change_password: false },
       }),
       25000,
@@ -245,11 +255,11 @@ export default function DoiMatKhauPage() {
               type=password> TRẦN, tức ba lần gõ MÙ mật khẩu, tay ướt, trên tàu
               lắc. Ngả tự nguyện nay còn 2 ô, ngả ép còn 1 ô. */}
           <PasswordField
-            label="Mật khẩu mới (ít nhất 6 ký tự)"
+            label="Mật khẩu mới"
             value={password}
             onChange={setPassword}
             autoComplete="new-password"
-            placeholder="Ít nhất 6 ký tự"
+            minLength={PASSWORD_MIN_LENGTH}
           />
           <PrimaryButton type="submit" disabled={loading || done}>
             {loading ? "Đang lưu…" : done ? "Đã đổi" : "Lưu mật khẩu mới"}

@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Field, inputClass } from "@/components/ui/primitives";
+import { passwordRuleHint } from "@/lib/password";
 
 /*
   Mảnh dùng chung cho các form đăng nhập / đổi mật khẩu.
@@ -32,14 +33,21 @@ export function PasswordField({
   onChange,
   autoComplete = "current-password",
   placeholder,
+  minLength,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   autoComplete?: "current-password" | "new-password";
   placeholder?: string;
+  /*  Bật NHÃN KIỂM TRA TẠI CHỖ khi ĐẶT mật khẩu mới (user 2026-09-25: "chưa có
+      label verify chính xác… chỉ báo lỗi"). Chỉ truyền cho ô mật khẩu MỚI —
+      ô "mật khẩu hiện tại" không cần vì không phải đang đặt luật. */
+  minLength?: number;
 }) {
   const [shown, setShown] = useState(false);
+  const hint =
+    typeof minLength === "number" ? passwordRuleHint(value, minLength) : null;
   return (
     <Field label={label}>
       <span className="relative block">
@@ -53,6 +61,7 @@ export function PasswordField({
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          aria-describedby={hint ? "pw-rule" : undefined}
           required
         />
         <button
@@ -64,6 +73,20 @@ export function PasswordField({
           {shown ? "Ẩn" : "Hiện"}
         </button>
       </span>
+      {/*  NHÃN KIỂM TRA TẠI CHỖ (aria-live): nói ĐÚNG luật + trạng thái hiện tại
+          ngay khi gõ, không đợi bấm Lưu. Chưa đủ = giọng NHẮC (neutral, không
+          đỏ hoảng — đỏ để dành cho lỗi submit); đủ = xanh ok kèm dấu ✓. Nội dung
+          từ passwordRuleHint (thuần, có test). */}
+      {hint && (
+        <p
+          id="pw-rule"
+          aria-live="polite"
+          className="mt-1.5 text-[0.9375rem] font-semibold leading-snug"
+          style={{ color: hint.ok ? "var(--ok)" : "var(--foreground)" }}
+        >
+          {hint.text}
+        </p>
+      )}
     </Field>
   );
 }

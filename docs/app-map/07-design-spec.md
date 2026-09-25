@@ -4,10 +4,12 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-09-24
+last_verified: 2026-09-25
 ttl_days: 90
 <!-- DOC-STATUS: SUSPECT (2026-09-12) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
+<!-- re-verified: 2026-09-25 — LUẬT MẬT KHẨU + NHÃN KIỂM TRA TẠI CHỖ (user chốt "đặt tự do, tối thiểu 6 ký tự là nguyên tắc duy nhất; chưa có label verify chính xác"). LUẬT: TỰ DO, KHÔNG bắt chữ hoa/thường/số/ký tự đặc biệt — chỉ TỐI THIỂU 6 ký tự (đếm sau trim). Gom về `src/lib/password.ts`: `PASSWORD_MIN_LENGTH=6` + `passwordProblem()` (chặn submit, dùng ở /dang-ky + /doi-mat-khau + api/auth/signup) + `passwordRuleHint()` (nhãn tại chỗ). NHÃN: `PasswordField` (auth-form.tsx) nhận `minLength` → dưới ô mật khẩu MỚI hiện nhãn aria-live đổi ngay khi gõ: chưa gõ "Đặt mật khẩu tự do, chỉ cần ít nhất 6 ký tự." (neutral) · thiếu "Cần ít nhất 6 ký tự — đang có N." (neutral) · đủ "✓ Được rồi — mật khẩu đủ dài (N ký tự)." (xanh --ok). Bỏ luật khỏi label ("Mật khẩu"/"Mật khẩu mới") vì nhãn đã nói. SỬA KÈM: /doi-mat-khau lưu `normalizePassword(password)` (trước lưu thô → dính dấu cách cuối là login đã trim không khớp, tự khoá mình ra). Verify browser (3 trạng thái live) + test `password.test.ts` (11). KHÔNG char-class requirement ở đâu; KHÔNG config.toml password policy (Supabase mặc định min 6, khớp). Không đổi route/DB/RLS/nav. -->
+<!-- re-verify(07): password free-form min6 + passwordRuleHint label + doi-mat-khau normalize save -->
 <!-- re-verified: 2026-09-24 16:00 — DOCK (bottom-nav.tsx): 5 mục cố định Trang chủ·Ra khơi·Tàu cá·Bạn thuyền·Giao dịch còn khớp §"Mobile bottom dock (5)"; nhãn 2 chữ 1 dòng ("Nhãn ngang hàng") là spec ĐÚNG. Bug đã sửa: nhãn gãy 2 dòng ở máy hẹp (≤399px) → nay `.dock-label` hạ cỡ chữ theo bề ngang, 1 dòng ở 320→430px. Không đổi route/taxonomy dock. -->
 <!-- re-verify(07): dock 5 mục + nhãn 1 dòng khớp bottom-nav.tsx -->
 <!-- re-verified: 2026-09-24 16:40 — AUDIT UI P1 (fix hiển thị, không đụng dữ liệu/route): (1) /tien bảng giá (price-board.tsx): badge "giá tuần"/"tham khảo" nay INLINE trong dòng tên cá (không còn flex items-center trôi ra giữa 2 dòng khi tên dài) — đo 320px "Cá ngừ đại dương"/"Cá ngừ sọc dưa (cá ngừ vằn)" badge nằm gọn dưới tên, không đè. (2) /ngu-truong (fishing-map-view.tsx): nhãn "N hải lý tới biên" đổi anchor center→bottom offset[0,-6] → chip nổi TRÊN đường đo, hết đè lên pin. Rail lớp KHÔNG đổi: đã bounded đúng bằng max-h calc(100dvh-14rem) (đáy ≤655px < hàng ngày 671px), chỗ "cụt" trước là băng loading tạm thời che, không phải lỗi layout. -->

@@ -17,7 +17,11 @@ import {
   phoneToEmail,
   sanitizePhoneInput,
 } from "@/components/auth-form";
-import { normalizePassword } from "@/lib/password";
+import {
+  normalizePassword,
+  PASSWORD_MIN_LENGTH,
+  passwordProblem,
+} from "@/lib/password";
 import { timeoutSignal } from "@/lib/abort";
 import { deviceId } from "@/lib/device-id";
 import { devicePlatform } from "@/lib/storage-persist";
@@ -67,8 +71,9 @@ export default function DangKyPage() {
       return;
     }
     const pw = normalizePassword(password);
-    if (pw.length < 6) {
-      setError("Mật khẩu cần ít nhất 6 ký tự.");
+    const pwProblem = passwordProblem(password);
+    if (pwProblem) {
+      setError(pwProblem);
       return;
     }
 
@@ -195,12 +200,15 @@ export default function DangKyPage() {
               required
             />
           </Field>
-          {/* có nút Hiện/Ẩn nên bỏ được ô "Nhập lại" — bớt một việc gõ */}
+          {/* có nút Hiện/Ẩn nên bỏ được ô "Nhập lại" — bớt một việc gõ.
+              Luật (ít nhất 6 ký tự) nay hiện ở NHÃN KIỂM TRA tại chỗ dưới ô
+              (minLength) nên bỏ khỏi label cho gọn — không nhắc hai lần. */}
           <PasswordField
-            label="Mật khẩu (ít nhất 6 ký tự)"
+            label="Mật khẩu"
             value={password}
             onChange={setPassword}
             autoComplete="new-password"
+            minLength={PASSWORD_MIN_LENGTH}
           />
           <PrimaryButton type="submit" disabled={loading}>
             {loading ? "Đang tạo…" : "Tạo tài khoản"}
