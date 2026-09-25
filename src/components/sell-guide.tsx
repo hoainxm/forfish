@@ -50,7 +50,7 @@ import { SQ_BTN } from "@/components/ui/sq-btn";
 type Section = "vua" | "cho" | "nhamay" | "moiquen";
 
 const SECTIONS: { id: Section; label: string }[] = [
-  { id: "vua", label: "Nậu vựa" },
+  { id: "vua", label: "Nậu, vựa" },
   { id: "cho", label: "Chợ đầu mối" },
   { id: "nhamay", label: "Nhà máy" },
   { id: "moiquen", label: "Mối quen" },
@@ -298,7 +298,7 @@ function Factories({
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Tìm theo loài: cá ngừ, tôm, mực…"
+          placeholder="Tìm theo loại: cá ngừ, tôm, mực…"
           className="min-h-[3.25rem] w-full rounded-2xl border-0 bg-field pl-11 pr-4 text-[1.125rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
       </div>
@@ -363,7 +363,7 @@ function Factories({
 const STORAGE_KEY = "forfish.buyers.v1";
 
 const BUYER_TYPES: { value: SavedBuyer["type"]; label: string }[] = [
-  { value: "nau-vua", label: "Nậu vựa" },
+  { value: "nau-vua", label: "Nậu, vựa" },
   { value: "vua-dai-ly", label: "Vựa / đại lý" },
   { value: "nha-may", label: "Nhà máy" },
   { value: "htx", label: "Hợp tác xã" },
@@ -547,7 +547,7 @@ function MyBuyers() {
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
           title="Xóa mối quen này?"
-          message={`“${confirmDel.name}” sẽ bị xóa khỏi sổ.`}
+          message={`“${confirmDel.name}” sẽ bị xóa khỏi danh bạ.`}
           onCancel={() => setConfirmDel(null)}
           onConfirm={() => {
             setBuyers((prev) => prev.filter((x) => x.id !== confirmDel.id));
@@ -602,7 +602,7 @@ function BuyerForm({
 
   return (
     <BottomSheet
-      title={initial ? "Sửa mối quen" : "Thêm mối quen"}
+      title={initial ? "Sửa thông tin mối quen" : "Thêm mối quen"}
       onClose={onCancel}
     >
       <form onSubmit={submit}>
@@ -629,7 +629,7 @@ function BuyerForm({
         </div>
 
         {/* Hàng KEY 2: số điện thoại — mục đích của cả sổ này */}
-        <Field label="Số điện thoại">
+        <Field label="Số điện thoại liên hệ">
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -657,7 +657,7 @@ function BuyerForm({
           </button>
         </div>
         {showType && (
-          <Field label="Loại">
+          <Field label="Loại hình">
             <select
               value={type}
               onChange={(e) => setType(e.target.value as SavedBuyer["type"])}
@@ -694,7 +694,7 @@ function BuyerForm({
 
         {showMore && (
           <>
-            <Field label="Cảng / bến hay gặp">
+            <Field label="Cảng / bến hay giao dịch">
               <input
                 value={port}
                 onChange={(e) => setPort(e.target.value)}
@@ -702,7 +702,7 @@ function BuyerForm({
                 placeholder="VD: Cảng Hòn Rớ"
               />
             </Field>
-            <Field label="Loài hay mua (cách nhau dấu phẩy)">
+            <Field label="Loài hay thu mua (ngăn cách bằng dấu phẩy)">
               <input
                 value={species}
                 onChange={(e) => setSpecies(e.target.value)}
@@ -710,13 +710,13 @@ function BuyerForm({
                 placeholder="VD: cá ngừ, cá thu"
               />
             </Field>
-            <Field label="Ghi chú (giá thường, có ứng tổn, mức trừ hao…)">
+            <Field label="Ghi chú (giá thường mua, có ứng vốn, tỷ lệ trừ hao…)">
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
                 className={inputClass}
-                placeholder="VD: trả 95k/kg cá ngừ, ứng tổn 50tr, trừ hao 5%"
+                placeholder="VD: trả 95k/kg cá ngừ, ứng trước 50tr, trừ hao 5%"
               />
             </Field>
           </>

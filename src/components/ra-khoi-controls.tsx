@@ -490,7 +490,7 @@ export function RaKhoiControls({
             if (!collapsed) setOpen(null);
             setCollapsed((c) => !c);
           }}
-          aria-label={collapsed ? "Hiện lớp bản đồ" : "Ẩn bảng lớp"}
+          aria-label={collapsed ? "Hiện lớp bản đồ" : "Ẩn bảng tùy chọn"}
           aria-expanded={!collapsed}
           className="flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl bg-navy py-2 text-white shadow-md transition active:scale-95"
         >
@@ -500,7 +500,7 @@ export function RaKhoiControls({
             <ChevronRightIcon className="h-5 w-5" />
           )}
           <span className="text-[0.8125rem] font-bold leading-tight">
-            {collapsed ? "Lớp" : "Ẩn"}
+            {collapsed ? "Lớp bản đồ" : "Ẩn"}
           </span>
         </button>
 
@@ -518,7 +518,7 @@ export function RaKhoiControls({
         >
           <CrosshairIcon className={`h-6 w-6 ${locating ? "animate-pulse" : ""}`} />
           <span className="text-[0.8125rem] font-bold leading-tight">
-            {locating ? "Đang tìm" : geoError ? "Bật GPS" : "Vị trí"}
+            {locating ? "Đang tìm vị trí" : geoError ? "Bật GPS" : "Vị trí"}
           </span>
         </button>
 
@@ -533,7 +533,7 @@ export function RaKhoiControls({
             setPlacesOpen(false);
             setCoordOpen((v) => !v);
           }}
-          aria-label="Đến điểm — gõ toạ độ"
+          aria-label="Đến điểm — nhập toạ độ"
           aria-expanded={coordOpen}
           className={`flex min-h-[3.25rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 shadow-md transition active:scale-95 ${
             coordOpen ? "bg-t1 text-white" : "bg-navy text-white"
@@ -591,7 +591,7 @@ export function RaKhoiControls({
             aria-label={
               routeOn
                 ? "Đang dẫn đường — chạm để đóng"
-                : "Dẫn đường — mở bảng tính đường đi"
+                : "Dẫn đường — mở bảng tính lộ trình"
             }
             aria-pressed={routeOn}
             /*  BA tín hiệu BẬT, không chỉ đổi màu: nền `t1` (cùng khuôn nút
@@ -616,7 +616,7 @@ export function RaKhoiControls({
             )}
             <RouteIcon className="h-6 w-6" />
             <span className="text-[0.8125rem] font-bold leading-tight">
-              {routeOn ? "Đang dẫn" : "Dẫn đường"}
+              {routeOn ? "Đang dẫn đường" : "Lộ trình"}
             </span>
           </button>
         )}
@@ -658,7 +658,7 @@ export function RaKhoiControls({
 
 const PANEL_TITLE: Record<PanelId, string> = {
   "hai-do": "Hải đồ — Lớp nền",
-  "ngu-truong": "Ngư trường — Lớp cá",
+  "ngu-truong": "Ngư trường — Phân bố cá",
   "thoi-tiet": "Thời tiết — gió, sóng, bão",
   diem: "Điểm đã lưu của tôi",
   "cong-cu": "Công cụ — đo khoảng cách",
@@ -710,12 +710,12 @@ function PanelHeader({
 
 function cadLine(id: OceanLayerId): { text: string; dot: string } {
   const def = OCEAN_LAYERS[id];
-  if (!def.dated) return { text: "Cố định · Không đổi theo ngày", dot: DOT.coDinh };
+  if (!def.dated) return { text: "Lớp cố định · Không đổi theo ngày", dot: DOT.coDinh };
   // Ảnh vệ tinh theo ngày (KHÔNG phải dự báo). Bỏ số "trễ ~2 ngày" khỏi UI
   // (user 2026-07-29: ngư dân không cần biết), nhưng vẫn ghi "ảnh vệ tinh" để
   // khỏi nhầm với lớp dự báo mây/gió/sóng. Ảnh mới nhất do GIBS tự chọn qua
   // ngày `default` (xem OCEAN_LAYERS) — app không tự tính ngày nữa.
-  return { text: "Ảnh vệ tinh · theo ngày", dot: DOT.ngay };
+  return { text: "Ảnh vệ tinh · thay đổi theo ngày", dot: DOT.ngay };
 }
 
 function HaiDoPanel({
@@ -810,7 +810,7 @@ function HaiDoPanel({
             chuyện nhìn — dữ liệu vẫn tải đủ về máy. */}
         <Toggle
           label="Hải đồ chi tiết"
-          sub="Bật là hiện cả hải đồ — độ sâu, báo hiệu, tên; tự lộ chi tiết khi phóng to"
+          sub="Hiển thị đầy đủ hải đồ — độ sâu, báo hiệu, tên; tự lộ chi tiết khi phóng to"
           on={chartDetailOn}
           onToggle={() => onChartDetail(!chartDetailOn)}
           icon={
@@ -823,7 +823,7 @@ function HaiDoPanel({
             cách bà con đọc hải đồ. Đều nằm dưới "Hải đồ chi tiết" ở trên. */}
         <Toggle
           label="Độ sâu & đáy"
-          sub="Số đo sâu, đường đẳng sâu, chất đáy, đá ngầm/rạn — chỗ cạn và nơi cá về"
+          sub="Số đo sâu, đường đẳng sâu, chất đáy, đá ngầm/rạn — nơi có thể mắc cạn hoặc cá tập trung"
           on={groupDepthOn}
           onToggle={() => onGroupDepth(!groupDepthOn)}
           icon={
@@ -849,7 +849,7 @@ function HaiDoPanel({
         />
         <Toggle
           label="Tên địa danh ngầm"
-          sub="Tên núi/đồi/hố ngầm dưới biển — để định vị ngư trường"
+          sub="Tên núi/đồi/hố ngầm dưới biển — giúp định vị ngư trường"
           on={groupNameOn}
           onToggle={() => onGroupName(!groupNameOn)}
           icon={
@@ -910,12 +910,12 @@ function NguTruongPanel({
   const [expanded, setExpanded] = useState(false);
   const name = fishSpecies
     ? SPECIES_META[fishSpecies]?.full ?? fishSpecies
-    : "Mọi loài cá";
+    : "Tất cả các loài cá";
   return (
     <div>
       {/* KHÔNG nói tuổi bản đồ cá ở đây nữa (bỏ 2026-07-25 — màn hình rối) */}
       <Toggle
-        label="Dự báo cá (chỗ hay có cá)"
+        label="Dự báo cá (vùng có khả năng tập trung)"
         sub="Theo ngày · ảnh vệ tinh"
         on={fishOn}
         onToggle={() => onFish(!fishOn)}
@@ -1036,9 +1036,9 @@ function ThoiTietPanel({
                 }`}
               >
                 {stormInfo.checkedAt != null
-                  ? `Tin lúc ${clockVN(stormInfo.checkedAt)}`
-                  : "Chưa rõ tin lúc nào"}
-                {stormInfo.cu && " · tin cũ trong máy"}
+                  ? `Cập nhật lúc ${clockVN(stormInfo.checkedAt)}`
+                  : "Chưa rõ giờ báo tin"}
+                {stormInfo.cu && " · bản tin cũ lưu trong máy"}
               </span>
             </span>
           </div>
@@ -1069,14 +1069,14 @@ function ThoiTietPanel({
       </p>
       <Toggle
         label="Gió"
-        sub="Theo giờ · cập nhật vài giờ"
+        sub="Theo giờ · cập nhật vài giờ một lần"
         on={forecastKind === "wind"}
         onToggle={() => onForecast(forecastKind === "wind" ? null : "wind")}
         icon={<WindIcon className="h-5 w-5 text-t1" />}
       />
       <Toggle
         label="Sóng"
-        sub="Theo giờ · cập nhật vài giờ"
+        sub="Theo giờ · cập nhật vài giờ một lần"
         on={forecastKind === "wave"}
         onToggle={() => onForecast(forecastKind === "wave" ? null : "wave")}
         icon={<WindIcon className="h-5 w-5 text-t2" />}
@@ -1085,7 +1085,7 @@ function ThoiTietPanel({
           tự trống. Mũi tên chỉ hướng nước CHẢY VỀ. */}
       <Toggle
         label="Dòng chảy"
-        sub="Theo giờ · dự báo tới ~10 ngày"
+        sub="Theo giờ · dự báo lên tới ~10 ngày"
         on={forecastKind === "current"}
         onToggle={() => onForecast(forecastKind === "current" ? null : "current")}
         icon={
@@ -1118,7 +1118,7 @@ function ThoiTietPanel({
       ))}
       <Toggle
         label="Nước dâng/xoáy"
-        sub="Theo ngày · chậm ~2 ngày"
+        sub="Theo ngày · độ trễ ~2 ngày"
         on={scalarKind === "ssha"}
         onToggle={() => onScalar(scalarKind === "ssha" ? null : "ssha")}
         icon={<EddyIcon className="h-5 w-5 text-t4" />}
@@ -1170,7 +1170,7 @@ function DiemPanel({
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
           <Toggle
-            label="Hiện điểm trên bản đồ"
+            label="Hiển thị trên bản đồ"
             on={showPlaces}
             onToggle={() => onShowPlaces(!showPlaces)}
             icon={<StarIcon className="h-5 w-5 text-navy" />}
@@ -1237,7 +1237,7 @@ function GoToPointPopup({
   const submit = () => {
     const pair = parseCoordPair(latText, lonText);
     if (!pair) {
-      setErr("Chưa đọc được toạ độ. Xem lại ví dụ bên dưới.");
+      setErr("Định dạng toạ độ chưa đúng. Bà con xem lại ví dụ bên dưới nhé.");
       return;
     }
     onGoCoord(pair.lat, pair.lon);
@@ -1246,7 +1246,7 @@ function GoToPointPopup({
 
   return (
     <div>
-      <PanelHeader title="Đến điểm — gõ toạ độ" onClose={onClose} />
+      <PanelHeader title="Đến điểm — nhập toạ độ" onClose={onClose} />
       <label className="mb-2 block">
         <input
           type="text"
@@ -1348,7 +1348,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
           active={prefs.distUnit === "nm"}
           onClick={() => setMapPrefs({ distUnit: "nm" })}
           title="Hải lý"
-          sub="nm · chuẩn đi biển"
+          sub="nm · đơn vị chuẩn đi biển"
         />
         <RadioCard
           active={prefs.distUnit === "km"}
@@ -1384,8 +1384,8 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
         Lớp bản đồ
       </p>
       <Toggle
-        label="Lưới kẻ ô (toạ độ)"
-        sub="Kẻ kinh/vĩ tuyến 1° trên bản đồ · không liên quan dự báo cá"
+        label="Lưới toạ độ"
+        sub="Kẻ kinh/vĩ tuyến 1° trên bản đồ · không liên quan đến dự báo cá"
         on={prefs.mapGrid}
         onToggle={() => setMapPrefs({ mapGrid: !prefs.mapGrid })}
         icon={<GridIcon className="h-5 w-5 text-navy" />}
@@ -1393,7 +1393,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
       <div className="mb-2" />
       <Toggle
         label="Ranh giới vùng lộng"
-        sub="NĐ 26/2019 · tàu 12–<15m · tham khảo"
+        sub="NĐ 26/2019 · tàu 12–<15m · mang tính tham khảo"
         on={prefs.vungLong}
         onToggle={() => setMapPrefs({ vungLong: !prefs.vungLong })}
         icon={<DepthIcon className="h-5 w-5 text-trim" />}
@@ -1404,7 +1404,7 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
           khi đang xem nền vệ tinh. */}
       <Toggle
         label="Trạm con nước"
-        sub="11 trạm · chạm trạm xem giờ nước lớn, nước ròng"
+        sub="11 trạm · chạm vào trạm để xem giờ nước lớn, nước ròng"
         on={prefs.tideStations}
         onToggle={() => setMapPrefs({ tideStations: !prefs.tideStations })}
         icon={<WavesIcon className="h-5 w-5 text-t1" />}
@@ -1422,10 +1422,10 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
                 label={zone.name}
                 sub={
                   zone.style === "line-dashed"
-                    ? "Viền nét đứt · tham khảo"
+                    ? "Viền nét đứt · mang tính tham khảo"
                     : zone.style === "fill"
-                      ? "Vùng tô nền · tham khảo"
-                      : "Viền · tham khảo"
+                      ? "Vùng tô nền · mang tính tham khảo"
+                      : "Viền · mang tính tham khảo"
                 }
                 on={isVmsZoneOn(prefs.vmsOverrides, zone.id, zone.defaultOn)}
                 onToggle={() =>
@@ -1492,8 +1492,8 @@ function ToolsPanel({
           ) : (
             <p className="mt-2 rounded-xl bg-field/70 px-2.5 py-2 text-[0.8125rem] font-semibold leading-snug text-t1">
               {measureCount === 0
-                ? "Chạm điểm thứ nhất trên bản đồ."
-                : "Chạm điểm thứ hai để ra khoảng cách."}
+                ? "Bà con chạm điểm thứ nhất trên bản đồ nhé."
+                : "Chạm thêm điểm thứ hai để xem khoảng cách."}
             </p>
           )}
           {measureCount > 0 && (

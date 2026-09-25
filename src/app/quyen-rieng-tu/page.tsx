@@ -6,7 +6,7 @@ import { SDVICO_HOTLINE, SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
 export const metadata = {
   title: "Chính sách quyền riêng tư — SDFish",
   description:
-    "SDFish thu thập dữ liệu gì, dùng để làm gì, có chia sẻ với ai không. Chính sách quyền riêng tư của app đồng hành ngư dân do SDVICO phát hành.",
+    "Chi tiết về việc ứng dụng SDFish (do SDVICO phát hành) thu thập, sử dụng và bảo mật thông tin của bà con.",
 };
 
 /*
@@ -66,9 +66,9 @@ export default function QuyenRiengTuPage() {
   return (
     <div>
       <PageHeader
-        kicker="Pháp lý"
+        kicker="Thông tin pháp lý"
         title="Chính sách quyền riêng tư"
-        sub="SDFish thu thập dữ liệu gì, dùng để làm gì, và không chia sẻ với ai. Đọc không cần đăng nhập."
+        sub="Xem chi tiết về việc ứng dụng thu thập và sử dụng dữ liệu của bà con (không cần đăng nhập)."
         toColor="var(--sea)"
       />
       <div className="px-4 pt-3">
@@ -84,114 +84,114 @@ export default function QuyenRiengTuPage() {
 
       <div className="px-5 pt-5">
         <p className="mb-5 rounded-2xl bg-field px-4 py-3 text-[1rem] leading-relaxed text-foreground/80">
-          <b>SDFish</b> là app đồng hành của ngư dân do <b>Công ty SDVICO</b> phát
+          <b>SDFish</b> là ứng dụng đồng hành cùng ngư dân do <b>Công ty SDVICO</b> phát
           hành. Chính sách này giải thích bằng lời dễ hiểu: app giữ những gì, để
           làm gì, ai được thấy. <b>Cập nhật lần cuối: {UPDATED}.</b>
         </p>
 
-        <Section id="tom-tat" title="Tóm tắt nhanh">
+        <Section id="tom-tat" title="Tóm tắt thông tin">
           <ul className="list-disc space-y-1.5 pl-5">
             <li>
               Sổ sách của bà con (hồ sơ tàu, giấy tờ, thuyền viên, bảo dưỡng,
-              vật tư) lưu <b>trong máy</b> và <b>đồng bộ lên máy chủ theo tài
+              vật tư) lưu <b>được lưu trữ trên máy</b> và <b>đồng bộ lên máy chủ theo tài
               khoản</b> — chỉ bà con (đăng nhập đúng số điện thoại của mình) xem
               được, đổi/mất máy vẫn còn.
             </li>
             <li>
-              App <b>không có quảng cáo</b>, <b>không theo dõi</b> bà con, không
+              App <b>không chứa quảng cáo</b>, <b>không theo dõi người dùng</b> bà con, không
               bán dữ liệu cho ai.
             </li>
             <li>
-              Vị trí GPS chỉ dùng để <b>canh bản đồ và xem gió sóng đúng chỗ</b> —
+              Vị trí GPS chỉ dùng để <b>tự động căn chỉnh bản đồ và cung cấp thông tin gió sóng đúng khu vực</b> —
               không lưu lại, không gắn với tài khoản.
             </li>
             <li>Muốn xoá tài khoản: gọi SDVICO {SDVICO_HOTLINE_DISPLAY}.</li>
           </ul>
         </Section>
 
-        <Section id="thu-thap" title="1. App thu thập dữ liệu gì">
-          <p>Chỉ những thứ cần để app chạy đúng chức năng:</p>
+        <Section id="thu-thap" title="1. Ứng dụng thu thập thông tin gì?">
+          <p>Ứng dụng chỉ thu thập các thông tin cần thiết để phục vụ bà con:</p>
           <ul className="list-disc space-y-1.5 pl-5">
             <li>
-              <b>Số điện thoại</b> — là tên đăng nhập của bà con. Bắt buộc để có
+              <b>Số điện thoại liên hệ</b> — là tên đăng nhập của bà con. Bắt buộc để có
               tài khoản riêng, người khác cầm máy không xem được sổ.
             </li>
             <li>
-              <b>Họ tên</b> — nếu bà con là khách đã mua hàng SDVICO, tên được
+              <b>Họ và tên</b> — nếu bà con là khách đã mua hàng SDVICO, tên được
               đồng bộ từ hệ thống chăm sóc khách hàng của SDVICO để hiển thị trên
               thẻ tài khoản.
             </li>
             <li>
-              <b>Mã tài khoản</b> — một dãy ký tự do hệ thống đăng nhập tạo ra để
+              <b>Thông tin định danh tài khoản</b> — một dãy ký tự do hệ thống đăng nhập tạo ra để
               phân biệt tài khoản này với tài khoản khác.
             </li>
             <li>
-              <b>Nội dung bà con tự nhập</b> — hồ sơ tàu, giấy tờ (số giấy, hạn,
-              và <b>ảnh chụp giấy tờ</b> nếu bà con tự thêm), thuyền viên (gồm{" "}
-              <b>số CCCD</b>), nhắc bảo dưỡng, vật tư. Những thứ này <b>lưu trong
-              máy</b> và <b>đồng bộ lên máy chủ gắn với tài khoản</b> để đổi/mất
+              <b>Thông tin do bà con tự cung cấp</b> — hồ sơ tàu, giấy tờ (số giấy, hạn,
+              và <b>hình ảnh giấy tờ</b> nếu bà con tự thêm), thuyền viên (gồm{" "}
+              <b>thông tin CCCD</b>), lịch nhắc bảo dưỡng, dữ liệu vật tư. Những thông tin này <b>lưu trong
+              máy</b> và <b>được đồng bộ và bảo mật trên máy chủ gắn liền với tài khoản của bà con</b> để đổi/mất
               máy vẫn còn — chỉ bà con (đăng nhập đúng số điện thoại) xem được,
               không chia cho ai khác.
             </li>
             <li>
-              <b>Vị trí GPS</b> — chỉ khi bà con mở tính năng bản đồ hoặc dẫn
-              đường và <b>bấm đồng ý</b> cho phép. Dùng ngay lúc đó để canh bản đồ
+              <b>Vị trí định vị GPS</b> — chỉ khi bà con mở tính năng bản đồ hoặc dẫn
+              đường và <b>chọn đồng ý cung cấp</b> cho phép. Dùng ngay lúc đó để canh bản đồ
               về chỗ mình đứng và hỏi gió sóng theo toạ độ. <b>Không lưu lại,
               không gắn với tài khoản.</b>
             </li>
           </ul>
           <p>
-            App <b>không</b> đọc kho ảnh, danh bạ, tin nhắn hay lịch sử duyệt web
-            của bà con, và <b>không</b> có mã quảng cáo (IDFA/AAID). Ảnh duy nhất
-            app giữ là <b>ảnh giấy tờ bà con tự chọn</b> thêm vào tủ giấy tờ (nêu
+            App <b>cam kết không</b> đọc kho ảnh, danh bạ, tin nhắn hay lịch sử duyệt web
+            của bà con, và <b>tuyệt đối không</b> có mã quảng cáo (IDFA/AAID). Ảnh duy nhất
+            app giữ là <b>hình ảnh giấy tờ do bà con chủ động tải lên</b> thêm vào tủ giấy tờ (nêu
             ở trên).
           </p>
         </Section>
 
-        <Section id="muc-dich" title="2. Dùng dữ liệu để làm gì">
+        <Section id="muc-dich" title="2. Dữ liệu được sử dụng vào mục đích gì?">
           <ul className="list-disc space-y-1.5 pl-5">
-            <li>Cho bà con đăng nhập và giữ sổ riêng của mình.</li>
-            <li>Hiển thị bản đồ biển, gió sóng, dự báo theo đúng vùng bà con quan tâm.</li>
-            <li>Nhắc hạn giấy tờ, bảo hiểm, bảo dưỡng.</li>
-            <li>Kết nối bà con với dịch vụ hỗ trợ của SDVICO khi cần.</li>
+            <li>Giúp bà con đăng nhập và lưu giữ thông tin hồ sơ của riêng mình.</li>
+            <li>Hỗ trợ tự động hiển thị bản đồ biển, dự báo thời tiết tại đúng khu vực tàu đang hoạt động.</li>
+            <li>Tính năng nhắc nhở khi đến hạn giấy tờ, bảo hiểm, bảo dưỡng định kỳ.</li>
+            <li>Hỗ trợ kết nối bà con với đội ngũ chăm sóc khách hàng của SDVICO khi có yêu cầu.</li>
           </ul>
           <p>
-            <b>Không</b> dùng dữ liệu cho quảng cáo, không xây hồ sơ theo dõi hành
+            <b>Không sử dụng</b> dùng dữ liệu cho quảng cáo, không xây hồ sơ theo dõi hành
             vi, không dùng cho mục đích ngoài những điều nêu trên.
           </p>
         </Section>
 
-        <Section id="chia-se" title="3. Chia sẻ với ai">
-          <p>SDFish không bán, không cho thuê dữ liệu. Chỉ có vài bên kỹ thuật cần thiết:</p>
+        <Section id="chia-se" title="3. Dữ liệu được chia sẻ với những đơn vị nào?">
+          <p>Ứng dụng SDFish tuyệt đối không bán hoặc cho thuê dữ liệu của bà con. Dữ liệu chỉ được kết nối với các đối tác kỹ thuật nhằm đảm bảo ứng dụng hoạt động:</p>
           <ul className="list-disc space-y-1.5 pl-5">
             <li>
-              <b>Nền tảng đăng nhập &amp; máy chủ (Supabase)</b> — giữ số điện
+              <b>Nền tảng xác thực đăng nhập &amp; lưu trữ (Supabase)</b> — giữ số điện
               thoại, họ tên, mã tài khoản để bà con đăng nhập được. Bảo vệ bằng
               luật truy cập: mỗi người chỉ đọc được dữ liệu của chính mình.
             </li>
             <li>
-              <b>Hệ thống chăm sóc khách hàng của SDVICO (SDWork)</b> — đồng bộ
+              <b>Hệ thống chăm sóc khách hàng nội bộ của SDVICO (SDWork)</b> — đồng bộ
               tài khoản và dịch vụ cho khách đã mua hàng. Đây là hệ thống nội bộ
               của chính SDVICO.
             </li>
             <li>
-              <b>Nguồn dữ liệu thời tiết &amp; hải văn công cộng</b> (ví dụ
-              Open-Meteo, NOAA, Copernicus) — app gửi cho họ <b>toạ độ trần</b> để
-              lấy gió sóng, <b>không kèm</b> tên, số điện thoại hay bất cứ thông
+              <b>Hệ thống cung cấp dữ liệu thời tiết &amp; hải văn (dữ liệu công cộng)</b> (ví dụ
+              Open-Meteo, NOAA, Copernicus) — app gửi cho họ <b>toạ độ lấy mẫu (không chứa định danh)</b> để
+              lấy gió sóng, <b>đảm bảo không đi kèm</b> tên, số điện thoại hay bất cứ thông
               tin nhận dạng nào.
             </li>
           </ul>
           <p>
-            <b>Không có bên quảng cáo, không có bên phân tích hành vi</b> (không
+            <b>Không có sự can thiệp của các bên cung cấp quảng cáo hoặc công ty phân tích hành vi</b> (không
             Google Analytics, Firebase, Facebook, AdMob, AppsFlyer, Adjust,
-            Sentry…). App <b>không theo dõi</b> bà con qua các app/website khác.
+            Sentry…). App <b>không theo dõi người dùng</b> bà con qua các app/website khác.
           </p>
         </Section>
 
-        <Section id="luu-tru" title="4. Giữ bao lâu, xoá thế nào">
+        <Section id="luu-tru" title="4. Chính sách lưu trữ và yêu cầu xoá dữ liệu">
           <ul className="list-disc space-y-1.5 pl-5">
             <li>
-              Sổ trong máy: còn khi bà con còn giữ. <b>Đăng xuất là app tự dọn</b>{" "}
+              Sổ trong máy: còn khi bà con còn giữ. <b>Ứng dụng sẽ tự động dọn dẹp khi bà con đăng xuất</b>{" "}
               dữ liệu riêng khỏi máy đó, người sau cầm máy không thấy.
             </li>
             <li>
@@ -203,15 +203,15 @@ export default function QuyenRiengTuPage() {
                  công ty vẫn giữ thì phải cho họ biết, và cho đường xoá hẳn.
                  Nói bằng lời thường, không dùng chữ "tombstone"/"soft delete". */}
             <li>
-              <b>Bản bà con đã xoá: máy chủ vẫn giữ lại một bản.</b> Khi bà con
+              <b>Đối với các dữ liệu bà con đã xóa trên máy, hệ thống máy chủ sẽ vẫn lưu một bản sao lưu.</b> Khi bà con
               xoá một việc bảo dưỡng, một tờ giấy, hay một người trong sổ thuyền
               viên, máy chủ giữ lại bản trước đó để SDVICO xem cách bà con dùng
-              app mà cải thiện. Bản này <b>không hiện lại</b> trên máy bà con, và{" "}
-              <b>không chia sẻ ra ngoài</b> (mục 3). Muốn xoá hẳn cả những bản
+              app mà cải thiện. Bản này <b>ngừng hiển thị</b> trên máy bà con, và{" "}
+              <b>cam kết không chia sẻ cho bên thứ ba</b> (mục 3). Muốn xoá hẳn cả những bản
               này thì gọi SDVICO ở dưới.
             </li>
             <li>
-              <b>Muốn xoá hẳn tài khoản và dữ liệu trên máy chủ</b>: gọi SDVICO{" "}
+              <b>Hỗ trợ xoá vĩnh viễn tài khoản và dữ liệu hệ thống nếu bà con có yêu cầu</b>: gọi SDVICO{" "}
               <a href={`tel:${SDVICO_HOTLINE}`} className="inline-flex min-h-[3.5rem] items-center font-bold text-sea underline">
                 {SDVICO_HOTLINE_DISPLAY}
               </a>{" "}
@@ -220,15 +220,15 @@ export default function QuyenRiengTuPage() {
           </ul>
         </Section>
 
-        <Section id="quyen" title="5. Quyền của bà con">
+        <Section id="quyen" title="5. Quyền lợi của bà con">
           <p>
             Bà con có quyền xem, sửa, hoặc yêu cầu xoá dữ liệu của mình. Sửa trực
             tiếp trong app; xoá tài khoản thì gọi SDVICO. App dành cho người trưởng
-            thành làm nghề biển, <b>không hướng tới trẻ em</b>.
+            thành làm nghề biển, <b>sản phẩm không định hướng tới trẻ em</b>.
           </p>
         </Section>
 
-        <Section id="lien-he" title="6. Liên hệ">
+        <Section id="lien-he" title="6. Thông tin liên hệ">
           <p>
             Thắc mắc về quyền riêng tư, gọi tổng đài SDVICO{" "}
             <a href={`tel:${SDVICO_HOTLINE}`} className="inline-flex min-h-[3.5rem] items-center font-bold text-sea underline">

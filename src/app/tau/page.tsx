@@ -18,7 +18,7 @@ export default function TauPage() {
       <PageHeader
         kicker="Quản lý tàu"
         title="Tàu cá"
-        sub="Giữ tàu đủ điều kiện ra khơi."
+        sub="Theo dõi hồ sơ để tàu luôn đủ điều kiện ra khơi."
         toColor="var(--t3)"
       />
       {/*  CẢ MÀN CẦN TÀI KHOẢN (chủ dự án 2026-09-01). Tiêu đề vẫn hiện để

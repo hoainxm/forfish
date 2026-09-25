@@ -297,7 +297,7 @@ export function SdvicoCatalog({
           onChange={setActiveGroup}
           accent="t3"
           level={2}
-          ariaLabel="Lọc nhóm hàng"
+          ariaLabel="Lọc theo nhóm hàng"
         />
       )}
 
@@ -421,7 +421,7 @@ function OrderableCard({
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-[0.75rem] font-semibold text-foreground/40">
-              {p.category || "Hàng"}
+              {p.category || "Hàng hóa"}
             </div>
           )}
         </div>
@@ -458,7 +458,7 @@ function OrderableCard({
           className="flex min-h-[3.5rem] flex-1 items-center justify-center gap-2 rounded-full bg-trim px-4 text-[1.0625rem] font-bold text-white shadow-trim-btn transition active:scale-[0.97]"
         >
           <CartIcon className="h-5 w-5" />
-          {inCartQty > 0 ? `Đã thêm (${inCartQty})` : "Thêm vào giỏ"}
+          {inCartQty > 0 ? `Đã thêm (${inCartQty})` : "Thêm vào giỏ hàng"}
         </button>
       </div>
     </li>
@@ -491,7 +491,7 @@ function InquiryCard({
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-[0.75rem] font-semibold text-foreground/40">
-              {p.category || "Hàng"}
+              {p.category || "Hàng hóa"}
             </div>
           )}
         </div>
@@ -521,8 +521,8 @@ function InquiryCard({
             {p.priceText
               ? `Giá tham khảo: ${p.priceText}`
               : external
-                ? "Gọi hỏi bên bán để biết giá."
-                : "Giá tùy tàu — bấm hỏi mua, nhân viên gọi lại."}
+                ? "Gọi trực tiếp cho bên bán để hỏi giá."
+                : "Bấm hỏi mua để nhân viên gọi lại tư vấn giá cho tàu của bà con."}
           </p>
           {p.detail && <DetailLink onDetail={onDetail} />}
         </div>
@@ -556,7 +556,7 @@ function InquiryCard({
           <SdvicoRequestButton
             topic="mua"
             productName={p.title}
-            label={owned ? "Mua thêm / vật tư thay" : "Hỏi mua / tư vấn"}
+            label={owned ? "Mua thêm / vật tư thay thế" : "Hỏi mua / tư vấn chi tiết"}
           />
         )}
       </div>
@@ -624,7 +624,7 @@ function ProductDetailSheet({
 
         {d.forWho && (
           <div>
-            <h4 className="display text-[1rem] font-bold text-navy">Dành cho ai</h4>
+            <h4 className="display text-[1rem] font-bold text-navy">Phù hợp cho</h4>
             <p className="mt-1 text-[1.0625rem] leading-relaxed text-foreground/85">
               {d.forWho}
             </p>
@@ -633,7 +633,7 @@ function ProductDetailSheet({
 
         {d.benefits && d.benefits.length > 0 && (
           <div>
-            <h4 className="display text-[1rem] font-bold text-navy">Lợi ích chính</h4>
+            <h4 className="display text-[1rem] font-bold text-navy">Lợi ích mang lại</h4>
             <ul className="mt-1 space-y-1.5">
               {d.benefits.map((b, i) => (
                 <li
@@ -708,7 +708,7 @@ function ProductDetailSheet({
               <SdvicoRequestButton
                 topic="mua"
                 productName={p.title}
-                label="Gửi yêu cầu mua"
+                label="Gửi yêu cầu mua hàng"
               />
               <a
                 href={`tel:${SDVICO_HOTLINE}`}

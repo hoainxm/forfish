@@ -230,7 +230,7 @@ function TideCurve({
       viewBox={`0 0 ${W} ${H}`}
       className="block h-auto w-full"
       role="img"
-      aria-label={`Đường nước ngày ${isoDate} tại trạm ${station.name}`}
+      aria-label={`Biểu đồ nước ngày ${isoDate} tại trạm ${station.name}`}
     >
       {/* đêm: 0h–5h30 và 18h–24h tô nền mờ để đọc "nước lớn ban đêm" ngay */}
       <rect x={X(0)} y={PAD_T} width={X(330) - X(0)} height={ph} className="fill-field" />
@@ -320,7 +320,7 @@ function TideMonthStrip({
   return (
     <div
       role="group"
-      aria-label="Dải con nước 30 ngày — chạm chọn ngày"
+      aria-label="Dự báo con nước 30 ngày — chạm để chọn ngày"
       onClick={chon}
       className="mt-2 min-h-[3.5rem] cursor-pointer select-none"
     >

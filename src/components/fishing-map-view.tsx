@@ -336,7 +336,7 @@ type LegendRow = { chu: string; icon?: string; mau?: string; dang?: "duong" | "c
 type LegendTier = { tieuDe: string; zoom: number; dong: LegendRow[]; ghiChu?: string };
 const LEGEND_TIERS: LegendTier[] = [
   {
-    tieuDe: "Luôn thấy khi bật Hải đồ chi tiết",
+    tieuDe: "Luôn hiển thị khi bật Hải đồ chi tiết",
     zoom: CHART_TIER.LUON,
     dong: [
       { mau: ISLAND_DOT_COLOR, dang: "cham", chu: "Đảo nổi có tên (chữ navy)" },
@@ -359,7 +359,7 @@ const LEGEND_TIERS: LegendTier[] = [
       { icon: "lighthouse", chu: "Đèn biển lớn — chạm xem nhịp chớp" },
       { icon: "wreck", chu: "Xác tàu chìm (số độ sâu nước trên xác hiện khi phóng vừa)" },
       { icon: "obstruction", chu: "Chướng ngại vật dưới nước" },
-      { icon: CHART_FEATURE_ICON.rockAwash, chu: "ĐÁ NGẦM — đâm là thủng, tránh xa" },
+      { icon: CHART_FEATURE_ICON.rockAwash, chu: "ĐÁ NGẦM — đâm là thủng, cần tránh xa" },
       { icon: CHART_FEATURE_ICON.coralReef, chu: "Rạn san hô ngoài khơi — cá tụ, neo trượt" },
       { icon: CHART_FEATURE_ICON.bank, chu: "Bãi cạn / cồn cát ngoài khơi — có thể ngập, nhìn con nước" },
       { icon: "platform", chu: "Giàn khoan / công trình biển" },
@@ -395,7 +395,7 @@ const LEGEND_TIERS: LegendTier[] = [
       { icon: "special", chu: "Phao chuyên dùng (khu nuôi, cáp, đo đạc…)" },
       { icon: "marine-farm", chu: "Lồng bè nuôi" },
       { icon: "mooring", chu: "Phao neo / cọc neo" },
-      { mau: DEPTH_DANGER_COLOR, dang: "cham", chu: "Số đo sâu dưới 4 m — ĐỪNG VÀO" },
+      { mau: DEPTH_DANGER_COLOR, dang: "cham", chu: "Số đo sâu dưới 4 m — KHÔNG NÊN VÀO" },
       { mau: DEPTH_SHALLOW_COLOR, dang: "cham", chu: "4–12 m — nhìn con nước" },
       { mau: DEPTH_SAFE_COLOR, dang: "cham", chu: "Từ 12 m — yên tâm" },
       { mau: CHAT_DAY_COLORS.Co, dang: "cham", chu: "Chất đáy: san hô — neo khó bám" },
@@ -634,7 +634,7 @@ const DEPTH_NOTE: Record<DepthClass, { text: string; tone: "danger" | "warn" | "
   0: { text: `${DEPTH_CLASS_LABEL[0]} — theo bản đồ độ sâu của máy, ô ~450 m.`, tone: "plain" },
   1: { text: `${DEPTH_CLASS_LABEL[1]} — coi chừng mắc cạn.`, tone: "danger" },
   2: { text: `${DEPTH_CLASS_LABEL[2]} — coi chừng mắc cạn.`, tone: "danger" },
-  3: { text: `${DEPTH_CLASS_LABEL[3]} — chỉ vào theo con nước lên, biết mớn tàu mình.`, tone: "warn" },
+  3: { text: `${DEPTH_CLASS_LABEL[3]} — chỉ vào theo con nước lên, cần biết mớn nước của tàu.`, tone: "warn" },
   4: { text: `${DEPTH_CLASS_LABEL[4]} — để ý con nước.`, tone: "warn" },
   5: { text: `${DEPTH_CLASS_LABEL[5]}.`, tone: "plain" },
 };
@@ -650,7 +650,7 @@ const MAP_LAYER_KEY = "forfish.maplayer.v1";
  * gió tại chỗ, KHÔNG biết sóng lừng từ bão xa: thà nói "chưa có số sóng thật"
  * còn hơn đưa một con số trông như thật.
  */
-const WAVE_EST_MARK = " (ước)";
+const WAVE_EST_MARK = " (ước lượng)";
 
 // thanh giờ gió/sóng xổ ra mà 3s không thao tác → tự thu (user 2026-07-28, hạ 5s→3s 2026-08-24)
 const STRIP_AUTO_HIDE_MS = 3000; // 5s → 3s (user 2026-08-24: đỡ rối mắt)
@@ -2108,12 +2108,12 @@ export default function FishingMapView() {
       trên đài, và nghe như bản tin mới hơn thực tế. `updated` của cơn mang giờ
       PHÁT TIN; không có thì mới lùi về giờ hỏi. Cùng luật với `storm-banner`. */
   const stormTimeLabel = (() => {
-    if (stormInfo.kind !== "co-bao") return "Chưa rõ tin lúc nào";
+    if (stormInfo.kind !== "co-bao") return "Chưa rõ giờ báo tin";
     const phat = Date.parse(stormInfo.storms[0]?.updated ?? "");
     if (Number.isFinite(phat)) return `Bản tin ${clockVN(phat)}`;
     return stormInfo.checkedAt != null
-      ? `Tin lúc ${clockVN(stormInfo.checkedAt)}`
-      : "Chưa rõ tin lúc nào";
+      ? `Cập nhật lúc ${clockVN(stormInfo.checkedAt)}`
+      : "Chưa rõ giờ báo tin";
   })();
   // Geometry bão → GeoJSON: vùng ảnh hưởng (polygon) + đường đi (track) để vẽ
   // đè bản đồ kiểu app thời tiết chuyên nghiệp (nguồn GDACS đã có sẵn).
@@ -4017,7 +4017,7 @@ export default function FishingMapView() {
   // (cảng nhà nằm trong đó). Không tự bịa thêm chỗ — chỉ nơi bà con đã đánh dấu.
   const pretripPoints = useMemo<PretripPoint[]>(
     () => [
-      { lat: point.lat, lon: point.lon, name: currentPlace?.name ?? "Chỗ đang xem" },
+      { lat: point.lat, lon: point.lon, name: currentPlace?.name ?? "Điểm đang xem" },
       ...places.map((p) => ({
         lat: p.lat,
         lon: p.lon,
@@ -4164,7 +4164,7 @@ export default function FishingMapView() {
               "Invalid sprite URL … must be absolute" — hai ngày không một icon
               hải đồ nào vẽ mà không ai biết. Lỗi không phải ô nền thì in ra,
               để lần sau nó lộ ngay trong console thay vì ngoài biển. */
-          console.error("[bản đồ] MapLibre báo lỗi:", (e as unknown as { error?: unknown }).error ?? e);
+          console.error("[bản đồ] Lỗi tải bản đồ:", (e as unknown as { error?: unknown }).error ?? e);
         }}
         // Có Ô NỀN VỀ THẬT (`tile` có mặt = một ô vừa tải xong) → đường đã
         // thông, xoá số ô trượt. KHÔNG dùng cờ "source đã tải xong": ô lỗi
@@ -5795,7 +5795,7 @@ export default function FishingMapView() {
               }`}
               style={{ color: activeFishColor ?? "#1b4b2c" }}
               role="button"
-              aria-label={`Điểm nóng có cá${h.near ? " gần bạn" : ""}: ${h.top.join(", ")}`}
+              aria-label={`Điểm có khả năng nhiều cá${h.near ? " gần bạn" : ""}: ${h.top.join(", ")}`}
             >
               <TargetIcon className="h-6 w-6" />
             </span>
@@ -5994,13 +5994,13 @@ export default function FishingMapView() {
                tương phản sẵn. Hex chỉ được phép nằm trong `paint` của MapLibre,
                không phải trong className. */}
           <span className="whitespace-nowrap rounded-full border border-white/80 bg-danger px-2 py-0.5 text-[0.6875rem] font-bold text-white shadow-md">
-            {prox.outside ? "ngoài biên " : ""}
+            {prox.outside ? "ngoài ranh giới " : ""}
             {fmtDist(
               prox.distanceNm * 1.852,
               prefs.distUnit,
               prox.distanceNm < 10 ? 1 : 0,
             )}
-            {prox.outside ? " vào trong" : " tới biên"}
+            {prox.outside ? " vào trong" : " tới ranh giới"}
           </span>
         </Marker>
         )}
@@ -6137,8 +6137,8 @@ export default function FishingMapView() {
             <div className="min-w-0 flex-1">
               <p className="text-[1rem] font-bold leading-tight text-navy">
                 {route.stops.length > 1
-                  ? `Chặng ${legInfo.idx + 1} — tới chỗ ${legInfo.idx + 1}`
-                  : "Cả đường đi"}
+                  ? `Chặng ${legInfo.idx + 1} — tới điểm ${legInfo.idx + 1}`
+                  : "Toàn bộ tuyến đường"}
               </p>
               <p className="mt-0.5 text-[0.9375rem] font-semibold text-foreground/75">
                 {fmtDist(route.legs[legInfo.idx].distKm, prefs.distUnit)} ·{" "}
@@ -6156,7 +6156,7 @@ export default function FishingMapView() {
                 }`}
               >
                 {route.legs[legInfo.idx].reason ??
-                  "Không có gì đáng lưu ý ở khúc này"}
+                  "Không có thông tin đáng lưu ý ở chặng này"}
               </p>
             </div>
             <CloseButton onClose={() => setLegInfo(null)} label="Đóng thông tin chặng" />
@@ -6315,7 +6315,7 @@ export default function FishingMapView() {
             <CloseButton onClose={() => setLegendOpen(false)} label="Đóng chú giải" />
           </div>
           <p className="border-b border-foreground/10 bg-field/60 px-4 py-2 text-[0.875rem] font-semibold leading-snug text-foreground/75">
-            Hải đồ hiện dần theo <b>ba nấc phóng</b> (như máy hải đồ thương mại): phóng XA thấy
+            Hải đồ hiện dần theo <b>ba mức phóng to</b> (như máy hải đồ thương mại): phóng XA thấy
             đèn lớn + vật chìm, phóng VỪA thấy phao + cáp, phóng SÁT thấy số đo sâu + chất đáy —
             và chỉ ở nơi có vật đó. Chỗ nhiều phao gom thành vòng <b>+6</b>, chạm vào là phóng tới.
           </p>
@@ -6443,7 +6443,7 @@ export default function FishingMapView() {
                 {reefInfo.group === "them-luc-dia"
                   ? "Bãi ngầm thềm lục địa — sâu 20–50 m, khu nhà giàn DK1"
                   : reefInfo.type === "da"
-                    ? "Đá ngầm — đâm là thủng, tránh xa"
+                    ? "Đá ngầm — đâm là thủng, cần tránh xa"
                     : reefInfo.type === "ran"
                       ? "Rạn san hô — cá tụ, neo trượt"
                       : reefInfo.type === "con"
@@ -6498,7 +6498,7 @@ export default function FishingMapView() {
                   : laneInfo.kind === "cap"
                     ? "Cáp ngầm dưới đáy — đừng thả neo, mắc là đứt cáp"
                     : laneInfo.kind === "giankhoan"
-                      ? "Giàn khoan — cấm neo/đánh bắt trong 500 m quanh"
+                      ? "Giàn khoan — cấm neo/đánh bắt trong phạm vi 500 m"
                       : laneInfo.kind === "cap-bo"
                         ? "Điểm cáp cập bờ — cấm neo, cấm giã cào quanh đây"
                         : laneInfo.loai === "cam-neo"
@@ -6507,7 +6507,7 @@ export default function FishingMapView() {
                             ? "Khu cấm đánh bắt"
                             : laneInfo.loai === "cam-vao"
                               ? "Khu CẤM VÀO — không được đi vào vùng này"
-                              : "Khu hạn chế — xem quy định trước khi vào"}
+                              : "Khu hạn chế — xem kỹ quy định trước khi vào"}
               </p>
               <DongToaDo lat={laneInfo.lat} lon={laneInfo.lon} fmt={prefs.coordFormat} />
               <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-foreground/60">
@@ -6559,7 +6559,7 @@ export default function FishingMapView() {
               {chatDayInfo.tyLe > 0 && (
                 <p className="mt-0.5 text-[0.875rem] font-semibold leading-snug text-foreground/75">
                   {chatDayInfo.tyLe >= 80
-                    ? `Gần như toàn ${chatDayLabel(chatDayInfo.ma).toLowerCase()}`
+                    ? `Gần như toàn bộ ${chatDayLabel(chatDayInfo.ma).toLowerCase()}`
                     : "Lẫn nhiều loại đáy"}
                 </p>
               )}
@@ -6599,9 +6599,9 @@ export default function FishingMapView() {
                 <p className="mt-0.5 text-[0.875rem] font-semibold leading-snug text-foreground/60">
                   {[
                     khuTruBaoInfo.k.sucChua
-                      ? `chứa ~${khuTruBaoInfo.k.sucChua.toLocaleString("vi-VN")} tàu`
+                      ? `sức chứa ~${khuTruBaoInfo.k.sucChua.toLocaleString("vi-VN")} tàu`
                       : null,
-                    khuTruBaoInfo.k.coTauM ? `tàu dài tới ${khuTruBaoInfo.k.coTauM} m` : null,
+                    khuTruBaoInfo.k.coTauM ? `phù hợp tàu dài tới ${khuTruBaoInfo.k.coTauM} m` : null,
                   ]
                     .filter(Boolean)
                     .join(", ")}
@@ -6844,7 +6844,7 @@ export default function FishingMapView() {
             className="flex min-h-[3.5rem] w-full items-center gap-2.5 px-3 text-left text-[1rem] font-bold text-t1 transition active:bg-field"
           >
             <RouteIcon className="h-6 w-6 shrink-0" />
-            {routeMode ? "Thêm vào đường đi" : "Dẫn đường tới đây"}
+            {routeMode ? "Thêm vào lộ trình" : "Dẫn đường tới đây"}
           </button>
           <button
             type="button"
@@ -6903,7 +6903,7 @@ export default function FishingMapView() {
                       k.tinh || null,
                       `cách ${k.khoang}`,
                       k.gio ? `chừng ${k.gio}` : null,
-                      k.tauDaiM ? `tàu dài tới ${k.tauDaiM} m` : null,
+                      k.tauDaiM ? `phù hợp tàu dài tới ${k.tauDaiM} m` : null,
                     ]
                       .filter(Boolean)
                       .join(" · ")}
@@ -7443,8 +7443,8 @@ export default function FishingMapView() {
                       </span>
                       <span className="mt-0.5 block text-[1rem] font-semibold leading-snug text-foreground/75">
                         {netOnline
-                          ? "Chưa xác nhận được Premium, mà trong máy cũng không còn bản dài ngày. Chạm để tắt dòng này."
-                          : "Trong máy không còn bản dài ngày. Chạm để tắt dòng này."}
+                          ? "Chưa xác nhận được gói Premium, và máy cũng không còn bản lưu dài ngày. Chạm để tắt thông báo này."
+                          : "Trong máy không còn bản lưu dài ngày. Chạm để tắt thông báo này."}
                       </span>
                     </button>
                   )}
@@ -7479,7 +7479,7 @@ export default function FishingMapView() {
             </div>
           ) : undefined
         }
-        label="Gió sóng chỗ đang xem"
+        label="Gió sóng tại điểm đang xem"
         peek={
           // Bật lớp dự báo + đang ở nấc PEEK (strip hiện ở trên) → ẨN panel biển
           // động cho gọn. Vuốt LÊN (half/full) thì panel + chip ngày HIỆN LẠI đầy
@@ -7501,7 +7501,7 @@ export default function FishingMapView() {
           ) : allPast ? (
             <p className="py-3 text-[1rem] font-bold leading-snug text-warn">
               Số lưu trong máy ở chỗ này đã qua ngày hết
-              {cond?.savedAt != null && ` (lưu ${clockVN(cond.savedAt)})`}. Có
+              {cond?.savedAt != null && ` (bản lưu ${clockVN(cond.savedAt)})`}. Có
               sóng lại máy sẽ tự lấy số mới.
             </p>
           ) : sel ? (
@@ -7517,7 +7517,7 @@ export default function FishingMapView() {
                     <span>
                       Số gió, sóng lấy từ bản đã lưu
                       {cond.savedAt != null &&
-                        ` (lưu lúc ${clockVN(cond.savedAt)})`}
+                        ` (bản lưu lúc ${clockVN(cond.savedAt)})`}
                       . Chưa có mưa, dông chỗ này.
                     </span>
                   </p>
@@ -7636,7 +7636,7 @@ export default function FishingMapView() {
               {fishLocked && fishOn && netOnline && (
                 <p className="mt-1 text-[0.9375rem] font-semibold text-foreground/70">
                   {premiumAccess === "login"
-                    ? "Dự báo cá cần đăng nhập — xem bên dưới."
+                    ? "Dự báo cá dành cho tài khoản đăng nhập — xem bên dưới."
                     : premiumLine("dự báo cá")}
                 </p>
               )}
@@ -7659,7 +7659,7 @@ export default function FishingMapView() {
                         </>
                       ) : (
                         <>
-                          {premiumLine(`xem quá ${FREE_FORECAST_DAYS} ngày`)}{" "}
+                          {premiumLine(`xem trước quá ${FREE_FORECAST_DAYS} ngày`)}{" "}
                           <a
                             href={`tel:${SDVICO_HOTLINE}`}
                             className="font-bold text-trim"
@@ -7730,7 +7730,7 @@ export default function FishingMapView() {
                 Cả ngày: sóng tới{" "}
                 {sel.waveMaxM > 0
                   ? `${formatNumberVN(sel.waveMaxM)} m${sel.waveEstimated ? WAVE_EST_MARK : ""}`
-                  : "— (chưa có số)"}{" "}
+                  : "— (chưa có dữ liệu)"}{" "}
                 · gió tới cấp {beaufort(sel.windMaxKmh)}
                 {sel.gustMaxKmh > 0 && `, giật cấp ${beaufort(sel.gustMaxKmh)}`}
                 {/* Hướng gió CHỦ ĐẠO cả ngày — hôm nay đã có hướng (tức thời)
@@ -7754,7 +7754,7 @@ export default function FishingMapView() {
                   <AlertIcon className="mt-0.5 h-5 w-5 shrink-0" />
                   <span>
                     Chưa lấy được số sóng thật — số sóng ở trên là máy ước theo
-                    gió{sel.level ? ", tình trạng biển cũng theo số ước đó" : ""}
+                    gió{sel.level ? ", tình trạng biển cũng theo mức ước tính đó" : ""}
                     . Nghe thêm đài duyên hải trước khi ra khơi.
                   </span>
                 </p>
@@ -7877,8 +7877,8 @@ export default function FishingMapView() {
                   feature="dự báo cá"
                   blurb={
                     premiumAccess === "login"
-                      ? "Bản đồ chỗ có khả năng nhiều cá: loài gì, khả năng bao nhiêu, đi hướng nào — đăng nhập tài khoản Premium là xem được."
-                      : "Bản đồ chỗ có khả năng nhiều cá: loài gì, khả năng bao nhiêu, đi hướng nào — gọi SDVICO để mở."
+                      ? "Tính năng bản đồ dự báo luồng cá (loài cá, mật độ, hướng di chuyển) dành riêng cho tài khoản Premium. Bà con đăng nhập để xem nhé."
+                      : "Tính năng bản đồ dự báo luồng cá (loài cá, mật độ, hướng di chuyển) dành riêng cho gói Premium. Bà con gọi SDVICO để mở nhé."
                   }
                 />
               ) : fishCast && fishAtPoint ? (
@@ -7905,7 +7905,7 @@ export default function FishingMapView() {
                               bản đồ cá là bản service worker giữ lại, có thể
                               mấy ngày tuổi — nói "ảnh mới nhất" là đúng ở cả
                               hai ca, mà vẫn không phải khoe tuổi ảnh ra màn hình. */}
-                          Chỗ này <b>không nổi bật</b> trên ảnh mới nhất cho{" "}
+                          Chỗ này <b>không có gì nổi bật</b> trên ảnh mới nhất cho{" "}
                           <b>{selMeta?.full ?? fishSpecies}</b> — dò vùng tô màu
                           khi chọn loài này trên bản đồ.
                         </p>
@@ -7917,10 +7917,10 @@ export default function FishingMapView() {
                     fishAtPoint.c == null
                       ? null
                       : fishAtPoint.c >= 0.5
-                        ? "mồi dày"
+                        ? "mật độ cao"
                         : fishAtPoint.c >= 0.15
-                          ? "mồi vừa"
-                          : "mồi loãng";
+                          ? "mật độ vừa"
+                          : "mật độ thưa";
                   return (
                     <div className="flex items-start gap-2.5 surface p-3.5">
                       <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-trim" />
@@ -7969,15 +7969,15 @@ export default function FishingMapView() {
                         {fishLead > 0 && (
                           <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/70">
                             {fishLead <= FISH_STABLE_DAYS
-                              ? "Chỗ cá ít đổi trong vài ngày tới — cái đổi là gió, sóng."
-                              : "Ngày xa thế này, chỗ cá dựa nhiều vào kinh nghiệm nhiều năm của tháng — càng xa càng nên xem thêm gió, sóng."}
+                              ? "Phân bố cá ít thay đổi trong vài ngày tới — chủ yếu thay đổi về gió và sóng."
+                              : "Dự báo ngày xa thường dựa nhiều vào kinh nghiệm mùa vụ — bà con nên kết hợp xem thêm gió, sóng để quyết định."}
                           </p>
                         )}
                         {/* ưu tiên gần mình: điểm cá gần chỗ đang xem nhất */}
                         {nearestHotspot && (
                           <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-t1">
                             {nearestHotspot.km <= 5.5
-                              ? "Điểm cá nổi bật ngay chỗ bạn đang xem."
+                              ? "Vùng có khả năng tập trung cá ngay tại điểm đang xem."
                               : `Điểm cá gần bạn nhất: ~${fmtDist(nearestHotspot.km, prefs.distUnit)} hướng ${nearestHotspot.dir} (khả năng ${
                                   nearestHotspot.v >= 70
                                     ? "TỐT"
@@ -7995,7 +7995,7 @@ export default function FishingMapView() {
                 <div className="flex items-start gap-2.5 surface p-3.5">
                   <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-t3" />
                   <p className="text-[0.9375rem] leading-snug text-foreground/80">
-                    Chỗ này <b>không nổi bật</b> trên ảnh vệ tinh mới nhất — dò
+                    Chỗ này <b>không có gì nổi bật</b> trên ảnh vệ tinh mới nhất — dò
                     các vùng xanh lá trên bản đồ. Mùa này vùng{" "}
                     <b>{fishRegion?.name}</b> thường có:{" "}
                     {fishHere.join(", ")}{" "}

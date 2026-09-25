@@ -44,9 +44,9 @@ function formatRange(p: PortPrice): string {
 }
 
 const TREND = {
-  up: { Icon: TrendUpIcon, word: "đang lên", color: "var(--ok)" },
-  down: { Icon: TrendDownIcon, word: "đang xuống", color: "var(--danger)" },
-  flat: { Icon: MinusIcon, word: "đứng giá", color: "var(--foreground)" },
+  up: { Icon: TrendUpIcon, word: "đang tăng", color: "var(--ok)" },
+  down: { Icon: TrendDownIcon, word: "đang giảm", color: "var(--danger)" },
+  flat: { Icon: MinusIcon, word: "bình ổn", color: "var(--foreground)" },
 } as const;
 
 const STATIC_RESULT: LivePriceResult = {
@@ -227,7 +227,7 @@ export function PriceBoard() {
                           : "bg-field font-semibold text-foreground/65"
                       }`}
                     >
-                      {(p as LivePortPrice).live ? "giá tuần" : "tham khảo"}
+                      {(p as LivePortPrice).live ? "giá trong tuần" : "tham khảo"}
                     </span>
                   )}
                 </p>

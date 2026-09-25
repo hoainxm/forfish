@@ -14,7 +14,7 @@ export default function TienPage() {
       <PageHeader
         kicker="Giao dịch"
         title="Mua bán của tàu"
-        sub="Bán có lợi thế nhờ nắm giá và mối mua — đăng tin, gọi thẳng đầu mối."
+        sub="Giúp bà con nắm giá cả và đầu mối thu mua — dễ dàng đăng tin, gọi trực tiếp thương lái."
         toColor="var(--t2)"
       />
       {/* Giao dịch (giá cá tham khảo) để PUBLIC — nắm giá là quyền lợi chung,

@@ -139,8 +139,8 @@ export function SnapSheet({
         }`}
         aria-label={
           hidden
-            ? "Vuốt lên xem gió sóng chỗ đang xem"
-            : "Vuốt lên xem thêm, vuốt xuống thu gọn"
+            ? "Vuốt lên để xem thông tin gió sóng tại điểm đang xem"
+            : "Vuốt lên để xem thêm, vuốt xuống để thu gọn"
         }
       >
         {hidden ? (

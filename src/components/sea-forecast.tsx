@@ -145,7 +145,7 @@ export function SeaForecast() {
         <>
           {/* điểm hôm nay — to, một màu, một câu */}
           <section
-            aria-label="Điểm đi biển hôm nay"
+            aria-label="Thông tin đi biển hôm nay"
             className="overflow-hidden rounded-xl"
             style={{ backgroundColor: levelColor[today.level].bg }}
           >
@@ -202,7 +202,7 @@ export function SeaForecast() {
           </section>
 
           {/* các ngày tới */}
-          <section aria-label="Những ngày tới" className="mt-5">
+          <section aria-label="Dự báo những ngày tới" className="mt-5">
             <h2 className="display mb-2 px-1 text-[1.125rem] font-bold text-navy">
               Những ngày tới
             </h2>
@@ -241,7 +241,7 @@ export function SeaForecast() {
                     <span className="flex-1 text-right text-[0.9375rem] leading-snug text-foreground/70 tabular-nums">
                       sóng {d.waveMaxM.toFixed(1).replace(".", ",")} m
                       {d.waveEstimated && (
-                        <span className="text-foreground/45"> (ước)</span>
+                        <span className="text-foreground/45"> (ước tính)</span>
                       )}{" "}
                       · gió {Math.round(d.windMaxKmh)} km/h
                       {w && (
@@ -266,8 +266,8 @@ export function SeaForecast() {
                 feature={`dự báo ${days.length} ngày`}
                 blurb={
                   access === "login"
-                    ? "Đăng nhập bằng tài khoản nâng cao để xem cả nửa tháng tới — tính chuyến dài ngày dễ hơn."
-                    : "Tài khoản đang dùng chưa coi được — gọi SDVICO nâng cấp để coi cả nửa tháng tới."
+                    ? "Bà con đăng nhập bằng tài khoản nâng cao để xem dự báo cho nửa tháng tới — giúp lên kế hoạch chuyến biển dài ngày dễ dàng hơn."
+                    : "Tài khoản hiện tại chưa hỗ trợ tính năng này — bà con liên hệ SDVICO để nâng cấp và xem dự báo cho cả nửa tháng tới nhé."
                 }
               />
             </div>
@@ -305,7 +305,7 @@ function confColor(q?: DayQuality): string {
 }
 
 function confWord(c: number): string {
-  if (c >= 0.66) return "Độ tin cao";
-  if (c >= 0.45) return "Độ tin vừa";
-  return "Độ tin thấp — xem lại sát ngày";
+  if (c >= 0.66) return "Độ tin cậy cao";
+  if (c >= 0.45) return "Độ tin cậy vừa";
+  return "Độ tin cậy thấp — bà con nên xem lại khi sát ngày khởi hành";
 }

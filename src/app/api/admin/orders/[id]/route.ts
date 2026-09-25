@@ -32,18 +32,18 @@ function statusMessage(status: OrderStatus): { title: string; body: string } {
       };
     case "dang_giao":
       return {
-        title: "Đơn hàng đang giao",
-        body: "Hàng đang trên đường giao tới. Để ý điện thoại nhé.",
+        title: "Đơn hàng đang được giao",
+        body: "Hàng đang trên đường giao tới. Bà con để ý điện thoại nhé.",
       };
     case "da_giao":
       return {
         title: "Đơn hàng đã giao xong",
-        body: "Đơn hàng đã giao. Chúc bà con chuyến biển thuận lợi!",
+        body: "Đơn hàng đã giao thành công. Chúc bà con chuyến biển thuận lợi!",
       };
     case "da_huy":
       return {
         title: "Đơn hàng đã huỷ",
-        body: "Đơn hàng của bà con đã huỷ. Cần giúp thì gọi bên bán.",
+        body: "Đơn hàng của bà con đã được huỷ. Cần hỗ trợ thêm bà con gọi cho bên bán nhé.",
       };
     default:
       return { title: "Cập nhật đơn hàng", body: ORDER_STATUS_LABELS[status] };

@@ -380,10 +380,10 @@ export function MaintenanceReminders() {
       {confirmDelete && (
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
-          title="Xóa việc này?"
-          message={`“${confirmDelete.item}” sẽ bị xóa, không lấy lại được.`}
+          title="Xóa nhắc nhở này?"
+          message={`“${confirmDelete.item}” sẽ bị xóa khỏi danh sách và không thể khôi phục.`}
           cancelLabel="Không xóa"
-          confirmLabel="Xóa luôn"
+          confirmLabel="Xác nhận xóa"
           onCancel={() => setConfirmDelete(null)}
           onConfirm={() => remove(confirmDelete.id)}
         />
@@ -458,11 +458,11 @@ function MaintenanceForm({
 
   return (
     <BottomSheet
-      title={initial ? "Sửa việc bảo dưỡng" : "Thêm việc bảo dưỡng"}
+      title={initial ? "Sửa nhắc nhở bảo dưỡng" : "Thêm nhắc nhở bảo dưỡng"}
       onClose={onCancel}
     >
       <form onSubmit={submit}>
-        <Field label="Việc gì?">
+        <Field label="Bà con cần bảo dưỡng gì?">
           <select
             value={picked}
             onChange={(e) => setPicked(e.target.value)}
@@ -473,12 +473,12 @@ function MaintenanceForm({
                 {t}
               </option>
             ))}
-            <option value={OTHER}>Việc khác</option>
+            <option value={OTHER}>Công việc khác</option>
           </select>
         </Field>
 
         {picked === OTHER && (
-          <Field label="Ghi tên việc đó">
+          <Field label="Ghi tên công việc">
             <input
               value={customItem}
               onChange={(e) => setCustomItem(e.target.value)}
@@ -492,7 +492,7 @@ function MaintenanceForm({
             ô số và 4 chip là HAI ĐƯỜNG CHO CÙNG MỘT giá trị, đúng lỗi mà
             03-design-system đã chỉ mặt ở ca my-places-sheet. Chip nâng lên sàn
             chạm 3.25rem (trước 2.75rem = 44px, dưới sàn). */}
-        <Field label="Bao lâu làm một lần?">
+        <Field label="Bao lâu cần làm một lần?">
           <div className="grid grid-cols-5 gap-2">
             {INTERVAL_CHIPS.map((d) => (
               <button
@@ -557,7 +557,7 @@ function MaintenanceForm({
           </button>
         </div>
         {showLastDone && (
-          <Field label="Làm gần nhất ngày nào?">
+          <Field label="Lần làm gần nhất là ngày nào?">
             <input
               type="date"
               value={lastDone}

@@ -403,7 +403,7 @@ export function CrewList() {
                     <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
                       <p className="text-[0.9375rem] text-foreground/70">
                         {m.certLabel}
-                        {m.certExpiry && ` — hạn ${formatVnDate(m.certExpiry)}`}
+                        {m.certExpiry && ` — hết hạn ${formatVnDate(m.certExpiry)}`}
                       </p>
                     </div>
                     <span className="w-16 shrink-0" aria-hidden />
@@ -452,9 +452,9 @@ export function CrewList() {
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
           title="Xóa khỏi sổ thuyền viên?"
-          message={`“${confirmDelete.name}” sẽ bị xóa khỏi sổ trên máy này (không ảnh hưởng cảnh báo đã gửi).`}
+          message={`“${confirmDelete.name}” sẽ bị xóa khỏi sổ trên máy này (nhưng không ảnh hưởng đến các cảnh báo đã gửi).`}
           cancelLabel="Không xóa"
-          confirmLabel="Xóa luôn"
+          confirmLabel="Xác nhận xóa"
           onCancel={() => setConfirmDelete(null)}
           onConfirm={() => {
             const next = crew.filter((x) => x.id !== confirmDelete.id);
@@ -509,28 +509,28 @@ function CrewForm({
     e.preventDefault();
     setErr(null);
     if (!name.trim()) {
-      setErr("Chưa nhập tên.");
+      setErr("Chưa nhập tên thuyền viên.");
       return;
     }
     const cccdEntered = cccd.trim() !== "";
     const phoneEntered = phone.trim() !== "";
     // Định danh = CCCD HOẶC SĐT (1 trong 2). Cái nào có nhập thì phải đúng.
     if (cccdEntered && !isValidCccd(cccd)) {
-      setErr("CCCD phải đủ 12 số (hoặc để trống, dùng SĐT).");
+      setErr("Bà con nhập đủ 12 số CCCD (nếu không nhớ, có thể để trống và dùng số điện thoại).");
       return;
     }
     if (phoneEntered && !isValidVnPhone(phone)) {
-      setErr("Số điện thoại chưa hợp lệ.");
+      setErr("Số điện thoại không đúng định dạng.");
       return;
     }
     if (!isValidCccd(cccd) && !isValidVnPhone(phone)) {
-      setErr("Cần CCCD (12 số) hoặc số điện thoại để nhận ra đúng người.");
+      setErr("Bà con cần nhập số CCCD (12 số) hoặc số điện thoại để hệ thống nhận diện đúng người nhé.");
       return;
     }
     const cccdNorm = isValidCccd(cccd) ? normalizeCccd(cccd) : "";
     // trùng CCCD với người khác trong sổ (cho phép giữ nguyên của chính mình)
     if (cccdNorm && cccdNorm !== initialCccdNorm && takenCccds.has(cccdNorm)) {
-      setErr("CCCD này đã có trong sổ — mỗi người một CCCD.");
+      setErr("Số CCCD này đã có trong sổ thuyền viên. Mỗi người chỉ dùng một số CCCD.");
       return;
     }
     onSave({
@@ -554,7 +554,7 @@ function CrewForm({
       onClose={onCancel}
     >
       <form onSubmit={submit}>
-        <Field label="Tên (bắt buộc)">
+        <Field label="Họ và tên (bắt buộc)">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -564,7 +564,7 @@ function CrewForm({
           />
         </Field>
 
-        <Field label="Số CCCD (12 số — hoặc dùng SĐT bên dưới)">
+        <Field label="Số CCCD (12 số — nếu không có thì điền số điện thoại bên dưới)">
           <input
             value={cccd}
             onChange={(e) => setCccd(e.target.value)}
@@ -575,7 +575,7 @@ function CrewForm({
           />
         </Field>
 
-        <Field label="Số điện thoại (dùng thay CCCD nếu chưa có)">
+        <Field label="Số điện thoại (dùng thay cho CCCD nếu chưa có)">
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -613,7 +613,7 @@ function CrewForm({
           </button>
         </div>
         {showRole && (
-          <Field label="Làm việc gì trên tàu?">
+          <Field label="Đảm nhận công việc gì trên tàu?">
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as CrewRole)}
@@ -682,7 +682,7 @@ function CrewForm({
             </Field>
 
             {hasInsurance && (
-              <Field label="Bảo hiểm hết hạn ngày nào?">
+              <Field label="Bảo hiểm hết hạn vào ngày nào?">
                 <input
                   type="date"
                   value={insuranceExpiry}
@@ -694,7 +694,7 @@ function CrewForm({
 
             {needsCert && (
               <>
-                <Field label="Văn bằng / chứng chỉ">
+                <Field label="Văn bằng / chứng chỉ chuyên môn">
                   <input
                     value={certLabel}
                     onChange={(e) => setCertLabel(e.target.value)}
@@ -706,7 +706,7 @@ function CrewForm({
                     }
                   />
                 </Field>
-                <Field label="Chứng chỉ hết hạn ngày nào?">
+                <Field label="Chứng chỉ hết hạn vào ngày nào?">
                   <input
                     type="date"
                     value={certExpiry}
@@ -726,7 +726,7 @@ function CrewForm({
             <p
               className={`text-[0.9375rem] ${err ? "font-semibold text-danger" : "text-foreground/70"}`}
             >
-              {err ?? "Cần tên + CCCD hoặc số điện thoại."}
+              {err ?? "Yêu cầu có Tên + CCCD hoặc số điện thoại."}
             </p>
           </div>
           <button
@@ -760,7 +760,7 @@ type LookupState =
 
 /** Bản trên máy chưa nối với SDVICO (chưa có Supabase) — một câu, dùng 3 chỗ. */
 const NOT_CONNECTED_COPY =
-  "Bản trên máy này chưa nối với SDVICO nên chưa tra được cảnh báo.";
+  "Ứng dụng trên máy này chưa liên kết với tài khoản SDVICO nên chưa tra cứu được cảnh báo.";
 
 // Copy đời thường (T10, 2026-08-18): không "máy chủ / cấu hình / khoá bảo mật /
 // định danh / kiểm duyệt"; một tên duy nhất "Premium".
@@ -769,15 +769,15 @@ function codeMessage(code: string | undefined): string {
     case "not_configured":
       return NOT_CONNECTED_COPY;
     case "cccd_pepper_missing":
-      return "Bên SDVICO chưa bật được phần tra cảnh báo — báo SDVICO giúp.";
+      return "Tài khoản chưa được kích hoạt tính năng tra cứu cảnh báo — bà con liên hệ SDVICO để được hỗ trợ nhé.";
     case "premium_required":
-      return "Cảnh báo thuyền viên là phần Premium — gọi SDVICO để mở.";
+      return "Tính năng cảnh báo thuyền viên nằm trong gói Premium — bà con gọi SDVICO để kích hoạt nhé.";
     case "login_required":
-      return "Cần đăng nhập để dùng cảnh báo thuyền viên.";
+      return "Bà con đăng nhập để xem thông tin cảnh báo thuyền viên nhé.";
     case "bad_cccd":
-      return "CCCD phải đủ 12 số.";
+      return "CCCD cần nhập đủ 12 số.";
     default:
-      return "Không tra được — kiểm tra mạng rồi thử lại.";
+      return "Hiện không tra cứu được. Bà con kiểm tra mạng rồi thử lại sau nhé.";
   }
 }
 
@@ -842,7 +842,7 @@ function WarningsList({ result }: { result: CrewLookupResult }) {
             </p>
             {rp.subjectResponse && (
               <p className="mt-1.5 rounded-lg bg-field px-3 py-2 text-[0.875rem] text-foreground/75">
-                <span className="font-bold text-navy">Người này trả lời: </span>
+                <span className="font-bold text-navy">Thuyền viên phản hồi: </span>
                 {rp.subjectResponse}
               </p>
             )}
@@ -906,11 +906,11 @@ function IdentityCheck({
       <PremiumLock
         compact
         access={access}
-        feature="tra cảnh báo bạn thuyền"
+        feature="tra cứu cảnh báo bạn thuyền"
         blurb={
           access === "login"
-            ? "Đăng nhập là app tự tra cảnh báo về người này ngay khi gõ xong CCCD/SĐT."
-            : "Gọi SDVICO mở Premium là app tự tra cảnh báo về người này khi thêm."
+            ? "Đăng nhập để ứng dụng tự động kiểm tra cảnh báo ngay khi bà con nhập xong CCCD/SĐT."
+            : "Kích hoạt gói Premium để ứng dụng tự động kiểm tra thông tin cảnh báo khi thêm người mới."
         }
         accent="t4"
       />
@@ -1004,12 +1004,12 @@ function ReportSheet({
   }, []);
 
   return (
-    <BottomSheet title="Báo cáo bạn thuyền" onClose={onClose}>
+    <BottomSheet title="Gửi báo cáo bạn thuyền" onClose={onClose}>
       {locked ? (
         <PremiumLock
           access={access}
           feature="cảnh báo thuyền viên"
-          blurb="Báo cáo & tra cảnh báo bạn thuyền là phần Premium."
+          blurb="Tính năng báo cáo & tra cứu cảnh báo bạn thuyền dành riêng cho gói Premium."
           accent="t4"
         />
       ) : !configured ? (
@@ -1102,7 +1102,7 @@ function ReportForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!category) {
-      setMsg("Chọn loại vấn đề.");
+      setMsg("Vui lòng chọn loại vấn đề.");
       return;
     }
     setBusy(true);
@@ -1225,7 +1225,7 @@ function ReportForm({
       </div>
 
       {showDetail && (
-        <Field label="Kể rõ hơn (tuỳ chọn)">
+        <Field label="Kể rõ hơn về sự việc (tuỳ chọn)">
           <textarea
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
@@ -1242,7 +1242,7 @@ function ReportForm({
           <p
             className={`text-[0.9375rem] ${msg ? "font-semibold text-danger" : "text-foreground/70"}`}
           >
-            {msg ?? (category ? "Gửi được rồi." : "Chọn loại vấn đề trước.")}
+            {msg ?? (category ? "Đã có thể gửi báo cáo." : "Bà con chọn loại vấn đề trước nhé.")}
           </p>
         </div>
         <button
@@ -1259,7 +1259,7 @@ function ReportForm({
           className={`${SQ_BTN} bg-trim text-white shadow-trim-cta disabled:opacity-40 disabled:shadow-none`}
         >
           <CheckIcon className="h-6 w-6" />
-          {busy ? "Đang gửi" : "Gửi"}
+          {busy ? "Đang gửi" : "Gửi báo cáo"}
         </button>
       </div>
     </form>

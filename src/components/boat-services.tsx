@@ -157,7 +157,7 @@ export function BoatServices() {
                     <SdvicoRequestButton
                       topic="cuoc"
                       productName={`Đơn ${p.orderCode}`}
-                      label="Hỏi khoản này"
+                      label="Hỏi về khoản này"
                     />
                   </div>
                 </div>
@@ -210,7 +210,7 @@ export function BoatServices() {
                       <SdvicoRequestButton
                         topic={s.kind === "subscription" ? "cuoc" : "bao-duong"}
                         productName={s.name}
-                        label="Đặt lịch / hỏi kỳ này"
+                        label="Đặt lịch / hỏi về kỳ này"
                       />
                     </div>
                   )}

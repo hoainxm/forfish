@@ -16,7 +16,7 @@ export function ConfirmDialog({
   message,
   children,
   cancelLabel = "Không",
-  confirmLabel = "Xóa luôn",
+  confirmLabel = "Xác nhận xóa",
   danger = true,
   onCancel,
   onConfirm,

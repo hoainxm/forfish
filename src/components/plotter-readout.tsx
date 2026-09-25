@@ -115,7 +115,7 @@ export function PlotterReadout({
 
   // Đuôi câu của dòng TÀU TÔI — ghép vào CÙNG DÒNG để không đẻ thêm hàng.
   const myTail = stale
-    ? `· số lúc ${lastFixAt != null ? clockVN(lastFixAt) : "trước"}`
+    ? `· toạ độ lúc ${lastFixAt != null ? clockVN(lastFixAt) : "trước"}`
     : myPos != null && accuracyM != null && accuracyM > ACCURACY_WARN_M
       ? `· ±${Math.round(accuracyM)} m`
       : null;
@@ -148,8 +148,8 @@ export function PlotterReadout({
           onClick={onGoMyPos}
           aria-label={
             denied
-              ? "Định vị đang bị chặn — chạm để thử xin quyền lại"
-              : "Bật định vị để hiện toạ độ tàu"
+              ? "Tính năng định vị đang bị chặn — chạm để cấp quyền lại nhé"
+              : "Bật định vị để hiển thị toạ độ tàu"
           }
           className="flex min-h-[3.5rem] w-full items-center gap-1.5 py-1 text-left transition active:scale-[0.98]"
         >
@@ -162,10 +162,10 @@ export function PlotterReadout({
           <span className="min-w-0 flex-1">
             <span className="block text-[0.75rem] font-bold leading-snug text-navy">
               {denied
-                ? "Máy chưa cho định vị"
+                ? "Ứng dụng chưa được cấp quyền định vị"
                 : status === "idle"
                   ? "Chạm để bật định vị"
-                  : "Đang tìm định vị…"}
+                  : "Đang lấy toạ độ…"}
             </span>
             {/* CHỈ trạng thái bị chặn mới được thêm dòng thứ hai — bà con phải
                 biết đi đâu mà bật. Các trạng thái khác giữ đúng một dòng. */}

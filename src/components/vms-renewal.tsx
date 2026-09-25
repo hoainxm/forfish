@@ -64,8 +64,8 @@ export function VmsRenewal() {
     // LoginGate ở đây phòng khi dùng lẻ; trong tab Dịch vụ đã có LoginGate bọc ngoài.
     <div className="px-4 pt-5 pb-2">
       <LoginGate
-        feature="gia hạn giám sát hành trình"
-        blurb="Đăng nhập để gia hạn thiết bị giám sát hành trình (VMS) cho tàu của bà con."
+        feature="gia hạn máy giám sát hành trình"
+        blurb="Đăng nhập để gia hạn dịch vụ giám sát hành trình (VMS) cho tàu của bà con."
         accent="t3"
       >
         <VmsRenewalInner />
@@ -290,7 +290,7 @@ function RenewalWizard({
       } else {
         setErrText(
           j?.code === "not_signed_in" || r.status === 401
-            ? "Bà con cần đăng nhập để gia hạn."
+            ? "Bà con đăng nhập để tiếp tục gia hạn nhé."
             : null,
         );
         setPhase("error");
@@ -324,7 +324,7 @@ function RenewalWizard({
           <Row label="Ngân hàng">{result.bank.bankName}</Row>
           <Row label="Số tài khoản">{result.bank.accountNumber}</Row>
           <Row label="Chủ tài khoản">{result.bank.accountName}</Row>
-          <Row label="Nội dung CK">
+          <Row label="Nội dung chuyển khoản">
             <strong className="text-navy">{result.transferNote}</strong>
           </Row>
         </dl>
@@ -342,23 +342,23 @@ function RenewalWizard({
           >
             Đóng
           </button>
-          <PrimaryButton onClick={onDone}>Xem trạng thái</PrimaryButton>
+          <PrimaryButton onClick={onDone}>Xem trạng thái xử lý</PrimaryButton>
         </div>
       </BottomSheet>
     );
   }
 
   return (
-    <BottomSheet title="Gia hạn giám sát hành trình" onClose={onClose}>
+    <BottomSheet title="Gia hạn máy giám sát hành trình" onClose={onClose}>
       <div className="rounded-2xl bg-field px-4 py-3">
         <p className="text-[1rem] font-bold text-navy">{boat.name}</p>
         <p className="text-[0.9375rem] text-foreground/70">Mã tàu: {boat.maTau}</p>
       </div>
 
-      <p className="mb-1.5 mt-4 text-[1rem] font-bold text-navy">Chọn số tháng</p>
+      <p className="mb-1.5 mt-4 text-[1rem] font-bold text-navy">Chọn thời gian gia hạn</p>
       <ChipRow
         accent="t3"
-        ariaLabel="Số tháng gia hạn"
+        ariaLabel="Số tháng muốn gia hạn"
         options={RENEWAL_MONTH_OPTIONS.map((m) => ({
           id: String(m),
           label: renewalMonthsLabel(m),
@@ -369,7 +369,7 @@ function RenewalWizard({
 
       <div className="rounded-2xl bg-field px-4 py-3 text-[1rem]">
         {priceState === "loading" ? (
-          <span className="text-foreground/70">Đang lấy giá…</span>
+          <span className="text-foreground/70">Đang tải thông tin giá…</span>
         ) : (
           // LUÔN hiện giá + tổng: lấy được thì dùng giá server; lỗi thì dùng giá
           // tham khảo (server vẫn là nơi tính tiền THẬT lúc tạo yêu cầu).
@@ -405,7 +405,7 @@ function RenewalWizard({
           style={{ color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
         >
           {errText ??
-            "Chưa gửi được yêu cầu — kiểm tra sóng rồi thử lại, hoặc gọi SDVICO."}
+            "Chưa gửi được yêu cầu. Bà con kiểm tra lại mạng hoặc gọi trực tiếp cho SDVICO nhé."}
         </p>
       )}
 
@@ -418,7 +418,7 @@ function RenewalWizard({
             Nhân viên SDVICO gọi lại xác nhận.
           </p>
         </div>
-        <CallButton phone={SDVICO_HOTLINE} label="Gọi" />
+        <CallButton phone={SDVICO_HOTLINE} label="Gọi tổng đài" />
         <button
           type="button"
           onClick={submit}
@@ -426,7 +426,7 @@ function RenewalWizard({
           className={`${SQ_BTN} bg-trim text-white shadow-trim-cta disabled:opacity-40 disabled:shadow-none`}
         >
           <CheckIcon className="h-6 w-6" />
-          {phase === "sending" ? "Đang gửi" : "Tạo yêu cầu"}
+          {phase === "sending" ? "Đang gửi yêu cầu" : "Tạo yêu cầu"}
         </button>
       </div>
     </BottomSheet>

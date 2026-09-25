@@ -67,7 +67,7 @@ export function FishSpeciesContent({
           style={{ background: "linear-gradient(135deg,#95d5b2,#1b4b2c)" }}
           aria-hidden
         />
-        <span className="flex-1 text-left text-[1rem] font-bold">Mọi loài</span>
+        <span className="flex-1 text-left text-[1rem] font-bold">Tất cả các loài</span>
         {current == null && <CheckIcon className="h-5 w-5 shrink-0" />}
       </button>
       <p className="mb-3 px-1 text-[0.8125rem] leading-snug text-foreground/70">

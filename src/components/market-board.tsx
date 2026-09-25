@@ -131,7 +131,7 @@ export function MarketBoard() {
           <StatusBanner level="warn">
             Chưa tải được tin mới — máy đang không có sóng.{" "}
             {real && real.length > 0
-              ? "Bên dưới là danh sách lần tải gần nhất."
+              ? "Bên dưới là danh sách tải về gần nhất."
               : "Bà con thử lại lúc có sóng nhé."}
           </StatusBanner>
         </div>
@@ -228,7 +228,7 @@ export function MarketBoard() {
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
           title="Xóa tin này?"
-          message={`Tin “${confirmDel.species}” sẽ bị gỡ khỏi chợ.`}
+          message={`Tin rao “${confirmDel.species}” sẽ bị gỡ khỏi chợ giao dịch.`}
           onCancel={() => setConfirmDel(null)}
           onConfirm={async () => {
             /*  ĐỌC KẾT QUẢ (2026-08-16): bản cũ `await deleteListing(...)` rồi
@@ -240,7 +240,7 @@ export function MarketBoard() {
             const xong = await deleteListing(id);
             setDeletingId(null);
             setActionErr(
-              xong ? null : "Chưa xoá được tin — cần có mạng, thử lại khi có sóng.",
+              xong ? null : "Chưa xoá được tin. Bà con thử lại khi có mạng nhé.",
             );
             if (xong) void refresh();
           }}
@@ -313,14 +313,14 @@ function ListingCard({
                 onFailed(
                   xong
                     ? null
-                    : "Chưa đổi được trạng thái tin — cần có mạng, thử lại khi có sóng.",
+                    : "Chưa cập nhật được trạng thái. Bà con thử lại khi có mạng nhé.",
                 );
                 if (xong) onChanged();
               }}
               className={`${SQ_BTN} bg-background text-sea disabled:opacity-50`}
             >
               <CheckIcon className="h-6 w-6" />
-              {pending ? "Đang gửi" : l.status === "open" ? "Đã xong" : "Mở lại"}
+              {pending ? "Đang gửi" : l.status === "open" ? "Đã xong" : "Mở lại tin"}
             </button>
             <button
               type="button"
@@ -329,7 +329,7 @@ function ListingCard({
               className={`${SQ_BTN} bg-background text-danger disabled:opacity-50`}
             >
               <TrashIcon className="h-6 w-6" />
-              {deleting ? "Đang xoá" : "Xóa"}
+              {deleting ? "Đang xoá" : "Xác nhận xóa"}
             </button>
           </>
         ) : (
@@ -422,7 +422,7 @@ function ListingForm({
     const res = await createListing(draft);
     setSaving(false);
     if (!res.ok) {
-      setError(res.error ?? "Đăng chưa được, thử lại.");
+      setError(res.error ?? "Hiện chưa đăng được, bà con thử lại sau ít phút nhé.");
       return;
     }
     onSaved();
@@ -489,7 +489,7 @@ function ListingForm({
 
         {showWho && (
           <>
-            <Field label="Tên hiển thị (bắt buộc)">
+            <Field label="Tên người đăng (bắt buộc)">
               <input
                 value={posterName}
                 onChange={(e) => setPosterName(e.target.value)}
@@ -511,7 +511,7 @@ function ListingForm({
                 ))}
               </select>
             </Field>
-            <Field label="Tỉnh / bến">
+            <Field label="Tỉnh / bến cập tàu">
               <input
                 value={province}
                 onChange={(e) => setProvince(e.target.value)}
@@ -519,7 +519,7 @@ function ListingForm({
                 placeholder="VD: Khánh Hòa"
               />
             </Field>
-            <Field label="Số điện thoại (để trống thì lấy SĐT tài khoản)">
+            <Field label="Số điện thoại (nếu để trống sẽ dùng số tài khoản)">
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -568,7 +568,7 @@ function ListingForm({
                 value={priceText}
                 onChange={(e) => setPriceText(e.target.value)}
                 className={inputClass}
-                placeholder="VD: 130 nghìn/kg trở lên, theo chợ"
+                placeholder="VD: 130 nghìn/kg trở lên, theo giá chợ"
               />
             </Field>
             <Field label="Ghi chú">
@@ -577,7 +577,7 @@ function ListingForm({
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
                 className={inputClass}
-                placeholder="VD: cá ướp đá chuẩn, về bến sáng mai"
+                placeholder="VD: cá ướp đá chuẩn, sáng mai về bến"
               />
             </Field>
           </>
@@ -589,7 +589,7 @@ function ListingForm({
             <p
               className={`text-[0.9375rem] ${error ? "font-semibold text-danger" : "text-foreground/70"}`}
             >
-              {error ?? "Tin hiện cho cả làng xem."}
+              {error ?? "Đăng tin công khai trên hệ thống."}
             </p>
           </div>
           <button
@@ -606,7 +606,7 @@ function ListingForm({
             className={`${SQ_BTN} bg-trim text-white shadow-trim-cta disabled:opacity-40 disabled:shadow-none`}
           >
             <CheckIcon className="h-6 w-6" />
-            {saving ? "Đang đăng" : "Đăng tin"}
+            {saving ? "Đang đăng bài" : "Đăng tin"}
           </button>
         </div>
       </form>

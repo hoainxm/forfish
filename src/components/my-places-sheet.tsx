@@ -271,7 +271,7 @@ export function MyPlacesContent({
               <span className="min-w-0 flex-1 text-[0.9375rem] font-semibold leading-snug text-navy">
                 {addPair
                   ? fmtCoordPair(addPair.lat, addPair.lon, prefs.coordFormat)
-                  : "Chưa có toạ độ — bấm Sửa để gõ"}
+                  : "Chưa có toạ độ — bấm Sửa để nhập"}
               </span>
               {/*  HAI NÚT NÀY TRƯỚC LÀ CHỮ TRẦN ~26px — dưới sàn chạm rất xa
                    (chủ dự án 2026-08-29h). Nay theo khuôn `sq-btn` nên tự ăn
@@ -337,8 +337,8 @@ export function MyPlacesContent({
                 }`}
               >
                 {!addValid && (addLat || addLon)
-                  ? `Chưa đọc được toạ độ. Gõ như: ${eg.lat} / ${eg.lon}.`
-                  : `Gõ như: ${eg.lat} / ${eg.lon}`}
+                  ? `Định dạng toạ độ chưa đúng. Bà con nhập theo mẫu: ${eg.lat} / ${eg.lon}.`
+                  : `Bà con nhập theo mẫu: ${eg.lat} / ${eg.lon}`}
               </p>
             </div>
           )}
@@ -483,7 +483,7 @@ export function MyPlacesContent({
                           {p.name}
                         </span>
                         <span className="block text-[0.8125rem] text-foreground/70">
-                          {isHome ? "Cảng nhà" : "Chỗ hay đánh"}
+                          {isHome ? "Cảng nhà" : "Điểm hay đánh bắt"}
                         </span>
                       </span>
                     </button>
@@ -497,7 +497,7 @@ export function MyPlacesContent({
                           setMenuId(menuId === p.id ? null : p.id)
                         }
                         aria-expanded={menuId === p.id}
-                        aria-label={`Việc khác với ${p.name}`}
+                        aria-label={`Thao tác khác với ${p.name}`}
                         className={`${SQ_BTN} text-foreground/70 active:bg-field`}
                       >
                         {menuId === p.id ? (
@@ -564,7 +564,7 @@ export function MyPlacesContent({
       {sorted.length === 0 && (
         <p className="mt-3 px-1 text-[0.9375rem] leading-snug text-foreground/70">
           Chưa ghim chỗ nào. Chạm vào chỗ hay đánh trên bản đồ rồi bấm{" "}
-          <b>Ghim chỗ này</b> — lần sau mở một chạm là tới.
+          <b>Ghim điểm này</b> — lần sau mở một chạm là tới.
         </p>
       )}
 
@@ -583,7 +583,7 @@ export function MyPlacesContent({
             aria-label={
               home
                 ? `Cảng nhà ${home.name} — chạm để đổi`
-                : "Đặt cảng nhà — chạm để gõ tên hoặc chọn cảng"
+                : "Đặt cảng nhà — chạm để nhập tên hoặc chọn cảng"
             }
             className="flex min-h-[3.25rem] w-full items-center gap-2 rounded-xl bg-background px-3 text-left text-[0.9375rem] font-bold text-navy active:scale-[0.99]"
           >
@@ -611,7 +611,7 @@ export function MyPlacesContent({
                 value={portQuery}
                 onChange={(e) => setPortQuery(e.target.value)}
                 autoFocus
-                placeholder="Gõ tên cảng hoặc tỉnh…"
+                placeholder="Nhập tên cảng hoặc tỉnh…"
                 className="min-h-[3.25rem] flex-1 bg-transparent text-[1rem] font-semibold"
               />
             </div>
@@ -675,7 +675,7 @@ export function MyPlacesSheet({
   onClose: () => void;
 }) {
   return (
-    <BottomSheet title="Điểm của tôi" onClose={onClose}>
+    <BottomSheet title="Điểm đã lưu" onClose={onClose}>
       <MyPlacesContent
         places={places}
         onPlaces={onPlaces}

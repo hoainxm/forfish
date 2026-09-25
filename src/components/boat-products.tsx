@@ -56,7 +56,7 @@ type Section = "dang-dung" | "sdvico" | "don-hang";
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "dang-dung", label: "Đang dùng" },
   { id: "sdvico", label: "Cửa hàng" },
-  { id: "don-hang", label: "Đơn của tôi" },
+  { id: "don-hang", label: "Đơn hàng của tôi" },
 ];
 
 const STORAGE_KEY = "forfish.products.v1";
@@ -275,7 +275,7 @@ export function BoatProducts() {
             </div>
           </>
         ) : (
-          <RefNote>Đang kiểm tra đồ SDVICO của bà con…</RefNote>
+          <RefNote>Đang kiểm tra các sản phẩm SDVICO của bà con…</RefNote>
         )}
       </div>
 
@@ -335,7 +335,7 @@ export function BoatProducts() {
                       <SdvicoRequestButton
                           topic="sua-chua"
                         productName={`${p.name}${p.serial ? ` (serial ${p.serial})` : ""}`}
-                        label="Gọi bảo hành món này"
+                        label="Gọi bảo hành sản phẩm này"
                       />
                     </div>
                   )}
@@ -513,9 +513,9 @@ export function BoatProducts() {
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
           title="Xóa sản phẩm này?"
-          message={`“${confirmDelete.name}” sẽ bị xóa khỏi danh sách, không lấy lại được.`}
+          message={`“${confirmDelete.name}” sẽ bị xóa khỏi danh sách và không thể khôi phục.`}
           cancelLabel="Không xóa"
-          confirmLabel="Xóa luôn"
+          confirmLabel="Xác nhận xóa"
           onCancel={() => setConfirmDelete(null)}
           onConfirm={() => remove(confirmDelete.id)}
         />
@@ -589,7 +589,7 @@ function ProductForm({
 
   return (
     <BottomSheet
-      title={initial ? "Sửa sản phẩm" : "Thêm sản phẩm SDVICO"}
+      title={initial ? "Sửa thông tin sản phẩm" : "Thêm sản phẩm SDVICO"}
       onClose={onCancel}
     >
       <form onSubmit={submit}>
@@ -609,7 +609,7 @@ function ProductForm({
         </Field>
 
         {picked === OTHER && (
-          <Field label="Ghi tên sản phẩm đó">
+          <Field label="Nhập tên sản phẩm đó">
             <input
               value={customName}
               onChange={(e) => setCustomName(e.target.value)}
@@ -687,8 +687,8 @@ function ProductForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[0.9375rem] text-foreground/70">
               {warrantyUntil
-                ? "Đủ để app nhắc bảo hành."
-                : "Chưa có hạn bảo hành — app sẽ không nhắc được."}
+                ? "Thông tin đã đủ để app nhắc bảo hành."
+                : "Chưa có ngày hết hạn — ứng dụng sẽ không thể nhắc bảo hành giúp bà con."}
             </p>
           </div>
           <button

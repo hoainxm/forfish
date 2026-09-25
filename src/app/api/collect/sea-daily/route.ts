@@ -117,7 +117,7 @@ export async function GET(req: Request) {
       ok: failed < PORTS.length,
       rows,
       note: failed
-        ? `${failed}/${PORTS.length} cảng fail: ${firstErr.slice(0, 120)}`
+        ? `Lỗi lấy dữ liệu tại ${failed}/${PORTS.length} cảng: ${firstErr.slice(0, 120)}`
         : undefined,
     };
   }
@@ -126,7 +126,7 @@ export async function GET(req: Request) {
   {
     const forecast = await loadFishForecast(now.getMonth() + 1);
     if (!forecast) {
-      parts.fish = { ok: false, rows: 0, note: "nguồn NOAA fail" };
+      parts.fish = { ok: false, rows: 0, note: "Lỗi kết nối nguồn dự báo NOAA" };
     } else {
       const batch = toFishDailyRows(collectedOn, forecast);
       const { error } = batch.length
@@ -154,7 +154,7 @@ export async function GET(req: Request) {
       : { error: null };
     parts.storms = { ok: !error, rows: error ? 0 : batch.length };
   } catch {
-    parts.storms = { ok: false, rows: 0, note: "nguồn GDACS fail" };
+    parts.storms = { ok: false, rows: 0, note: "Lỗi kết nối nguồn cảnh báo GDACS" };
   }
 
   const ok = Object.values(parts).some((p) => p.ok);

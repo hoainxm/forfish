@@ -31,7 +31,7 @@ const upstreamDown = () => new Response(null, { status: 503 });
 
 export async function GET(_req: Request, { params }: Ctx) {
   const { src, z: zs, x: xs, y: ys } = await params;
-  if (!isTileProxySource(src)) return new Response("Tile lạ", { status: 404 });
+  if (!isTileProxySource(src)) return new Response("Bản đồ không xác định", { status: 404 });
   const url = upstreamTileUrl(
     src,
     Number.parseInt(zs, 10),

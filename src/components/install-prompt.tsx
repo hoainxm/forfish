@@ -197,8 +197,8 @@ export function InstallBanner() {
             "cài xong là ra khơi mở được" cho iPhone là hứa hão. */}
         <p className="mt-1 text-[0.9375rem] leading-snug text-foreground/70">
           {mode === "ios"
-            ? "Cài về màn hình chính thì máy giữ dự báo lâu hơn — không tự xoá sau ít ngày."
-            : "Cài về màn hình chính thì ra khơi mất sóng vẫn mở được, và máy giữ dự báo lâu hơn — không tự xoá sau ít ngày."}
+            ? "Cài ra màn hình chính giúp máy giữ dự báo lâu hơn (không bị tự xóa sau vài ngày)."
+            : "Cài ra màn hình chính giúp mở app khi không có sóng, và máy sẽ giữ dự báo lâu hơn (không bị tự xóa sau vài ngày)."}
         </p>
 
         {mode === "android-tay" ? (

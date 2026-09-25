@@ -29,7 +29,7 @@ import { useOnline } from "@/lib/use-online";
 /** Câu chuẩn cho mọi lời mời Premium — dùng cả ngoài PremiumLock (chip ngày,
     peek) để cả app chỉ có một cách gọi tên. */
 export function premiumLine(feature: string): string {
-  return `${cap(feature)} là phần Premium — gọi SDVICO để mở.`;
+  return `${cap(feature)} là tính năng Premium — bà con gọi SDVICO để mở nhé.`;
 }
 
 export function PremiumLock({
@@ -56,12 +56,12 @@ export function PremiumLock({
   const title =
     access === "login"
       ? `Đăng nhập để xem ${feature}`
-      : `${cap(feature)} là phần Premium`;
+      : `${cap(feature)} là tính năng Premium`;
   const sub =
     access === "login"
       ? (blurb ??
-        "Tài khoản chung với lúc mua hàng SDVICO — cứ số điện thoại là vào được.")
-      : (blurb ?? "Gọi SDVICO để mở là xem được ngay.");
+        "Tài khoản dùng chung với lúc mua hàng SDVICO — bà con nhập số điện thoại là vào được.")
+      : (blurb ?? "Gọi SDVICO để kích hoạt là xem được ngay.");
   const cta =
     access === "login" ? (
       <Link

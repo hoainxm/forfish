@@ -174,7 +174,7 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
       })
       .catch(() => {
         lastAttemptPartial = false;
-        setNote({ text: "Chưa tải được dự báo — chưa có sóng.", kind: "warn" });
+        setNote({ text: "Chưa tải được dự báo — máy đang không có mạng.", kind: "warn" });
       })
       .finally(() => {
         running = false;
@@ -296,7 +296,7 @@ export function PretripSavedStatus({
   // Vỏ chưa đủ thì KHÔNG được nói "đã lưu đủ" dù dữ liệu đầy.
   const shellMissing = shellOk === false;
   const text = shellMissing
-    ? "App chưa tải xong phần chạy — mở lại lúc có sóng"
+    ? "App cần mạng để tải nốt dữ liệu. Bà con mở lại khi có sóng nhé."
     : coverageChipText(phase, cov, undefined, online, forecastStoreState());
   // MÀU phải khớp CHỮ: đủ lớp + còn hạn + chưa quá chu kỳ (coverageChipOk),
   // chứ không chỉ "có bản trong máy" — chip xanh trên bản 10 ngày tuổi là lời
@@ -668,7 +668,7 @@ function PretripSavedSheet({
         <p className="mb-3 rounded-xl bg-warn-bg px-3 py-2 text-[0.9375rem] font-bold leading-snug text-warn">
           {khoState === "dang-mo"
             ? "Đang mở kho dữ liệu trong máy…"
-            : "Chưa mở được kho dữ liệu — số dưới đây có thể chưa đủ. Thử đóng app rồi mở lại."}
+            : "Máy chưa mở được dữ liệu đã lưu. Bà con thử đóng app rồi mở lại xem sao nhé."}
         </p>
       )}
       <ul className="space-y-2">
@@ -699,8 +699,8 @@ function PretripSavedSheet({
                   <span className="block text-[0.8125rem] font-semibold leading-snug text-warn">
                     {l.saved
                       ? // lớp vốn đã có: nói đúng cái vừa hụt — bản MỚI
-                        "Chưa có bản mới hơn — nguồn chưa ra bản khác, hoặc chưa có sóng."
-                      : "Chưa tải được — cần có sóng, hoặc nguồn đang bận. Thử lại sau."}
+                        "Chưa có bản dự báo mới — có thể hệ thống chưa cập nhật, hoặc máy đang không có mạng."
+                      : "Chưa tải được — bà con kiểm tra lại mạng hoặc thử lại sau ít phút nhé."}
                   </span>
                 ) : (
                   <span className="block text-[0.8125rem] leading-snug text-foreground/65">
@@ -930,8 +930,8 @@ function ConfirmImportSheet({
     <BottomSheet title="Phục hồi từ tệp" onClose={onCancel}>
       <p className="text-[1.125rem] font-bold leading-snug text-navy">
         {groups.length > 0
-          ? `Tệp lưu ngày ${dayMonth(sum.savedAt)}. Bấm Đè là GHI ĐÈ những thứ sau:`
-          : `Tệp lưu ngày ${dayMonth(sum.savedAt)} không có thứ gì phục hồi được.`}
+          ? `Máy đã có bản lưu ngày ${dayMonth(sum.savedAt)}. Nếu bấm "Ghi đè", app sẽ thay thế các thông tin sau:`
+          : `Tệp lưu ngày ${dayMonth(sum.savedAt)} đang rỗng, không có dữ liệu để phục hồi.`}
       </p>
       {groups.length > 0 && (
         <ul className="mt-3 space-y-2">
@@ -961,7 +961,7 @@ function ConfirmImportSheet({
           máy tin là 8 bạn thuyền đã về, thực tế app bỏ im. */}
       {sum.skipped.length > 0 ? (
         <p className="mt-3 text-[1.125rem] font-bold leading-snug text-warn">
-          Tệp có {sum.skipped.join(" · ")} nhưng app <b>BỎ QUA</b> — những thứ đó{" "}
+          Tệp có {sum.skipped.join(" · ")} nhưng app <b>Bỏ qua</b> — những thứ đó{" "}
           <b>không được phục hồi</b>, bản trong máy giữ nguyên, thiếu thì phải
           nhập tay lại.
         </p>
@@ -986,7 +986,7 @@ function ConfirmImportSheet({
           disabled={busy || groups.length === 0}
           className="min-h-[3.5rem] rounded-xl bg-navy text-[1.0625rem] font-bold text-white transition active:scale-[0.99] disabled:opacity-50"
         >
-          {busy ? "Đang ghi…" : "Đè"}
+          {busy ? "Đang lưu…" : "Ghi đè"}
         </button>
       </div>
     </BottomSheet>
@@ -1028,7 +1028,7 @@ function TransferWarnSheet({
                   g.countable ? `${g.name} (${g.file} ${g.unit})` : g.name,
                 )
                 .join(" · ")
-            : "chưa có gì bà con tự nhập"}
+            : "chưa có dữ liệu nhập tay"}
           . Chỉ đưa cho <b>máy của chính mình</b> — đừng gửi Zalo cho người khác.
         </p>
       </div>

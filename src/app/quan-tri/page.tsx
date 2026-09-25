@@ -304,10 +304,10 @@ export default function QuanTriPage() {
         </h1>
         <p className="mt-3 text-[1.0625rem] leading-snug text-foreground/70">
           {healthErr === 403 &&
-            "Tài khoản đang đăng nhập không có quyền quản trị (không phải admin, cũng chưa được gán làm tài khoản quản lý)."}
+            "Tài khoản này chưa được cấp quyền quản trị. Vui lòng liên hệ Admin để được hỗ trợ."}
           {healthErr === 503 &&
-            "Hệ thống chưa cấu hình Supabase — trang quản trị cần DB thật, không chạy ở demo mode."}
-          {healthErr === 0 && "Không gọi được máy chủ — kiểm tra mạng rồi tải lại."}
+            "Chưa kết nối được cơ sở dữ liệu (Supabase). Trang quản trị không chạy ở chế độ dùng thử."}
+          {healthErr === 0 && "Không kết nối được với máy chủ. Bạn kiểm tra lại mạng rồi tải lại trang nhé."}
         </p>
         {healthErr === 403 && (
           <button
@@ -344,14 +344,14 @@ export default function QuanTriPage() {
         ["canh-bao", "Thuyền viên"],
         ["san-pham", "Sản phẩm"],
         ["don-hang", "Đơn hàng"],
-        ["yeu-cau", "Yêu cầu"],
+        ["yeu-cau", "Yêu cầu hỗ trợ"],
         ["vung-bien", "Vùng biển"],
-        ["cho-ban", "Chỗ bán"],
+        ["cho-ban", "Điểm thu mua"],
         ["thong-bao", "Thông báo"],
-        ["du-lieu", "Dữ liệu"],
-        ["he-thong", "Hệ thống"],
+        ["du-lieu", "Dữ liệu hệ thống"],
+        ["he-thong", "Cấu hình hệ thống"],
         ["phan-quyen", "Phân quyền"],
-        ["nhat-ky", "Nhật ký"],
+        ["nhat-ky", "Nhật ký hoạt động"],
       ]
     : visibleTabs(me.permissions).map((t) => [t, TAB_LABEL[t]] as [Tab, string]);
 
@@ -466,13 +466,13 @@ function AdminLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
     e.preventDefault();
     setError(null);
     if (!isValidVnPhone(phone)) {
-      setError("Số điện thoại chưa hợp lệ.");
+      setError("Số điện thoại không đúng định dạng.");
       return;
     }
     const supabase = createClient();
     if (!supabase) {
       setError(
-        "Máy chủ chưa cấu hình Supabase — trang quản trị cần DB thật, không chạy ở demo mode.",
+        "Chưa kết nối được cơ sở dữ liệu (Supabase). Trang quản trị không chạy ở chế độ dùng thử.",
       );
       return;
     }
@@ -483,7 +483,7 @@ function AdminLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
     });
     if (signInError || !data.user) {
       setBusy(false);
-      setError("Sai số điện thoại hoặc mật khẩu.");
+      setError("Số điện thoại hoặc mật khẩu chưa đúng.");
       return;
     }
     // 1 TÀI KHOẢN = 1 MÁY — giữ ĐÚNG luật của /login, không nới riêng cho
@@ -568,7 +568,7 @@ function AdminLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
           disabled={busy}
           className="min-h-[2.75rem] w-full rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50"
         >
-          {busy ? "Đang vào…" : "Đăng nhập"}
+          {busy ? "Đang đăng nhập…" : "Đăng nhập"}
         </button>
       </form>
 
@@ -638,8 +638,8 @@ function AccountsTab({ me }: { me: Me }) {
       .catch((e: Error) =>
         setError(
           e.message === "not_configured"
-            ? "Thiếu SUPABASE_SERVICE_ROLE_KEY trong env — copy từ Supabase Dashboard (Settings → API → service_role) rồi restart/redeploy."
-            : "Chưa tải được danh sách — thử lại.",
+            ? "Cấu hình môi trường đang thiếu khóa dịch vụ (Service Role Key). Vui lòng thêm từ Supabase Dashboard và khởi động lại."
+            : "Chưa tải được danh sách. Vui lòng thử lại.",
         ),
       );
   }, []);
@@ -741,15 +741,15 @@ function AccountsTab({ me }: { me: Me }) {
     if (!r?.ok || !j?.ok) {
       setError(
         action === "grant"
-          ? "Kích hoạt/gia hạn chưa được — thử lại."
-          : "Hạ hạng chưa được — thử lại.",
+          ? "Thao tác kích hoạt hoặc gia hạn bị lỗi. Vui lòng thử lại."
+          : "Lỗi khi hạ cấp tài khoản. Vui lòng thử lại.",
       );
       return;
     }
     if (j.logged === false) {
       // thao tác THÀNH CÔNG nhưng ghi log hỏng — nói thật để đối soát tay
       setError(
-        "Đã đổi hạng nhưng GHI LOG LỖI (bảng premium_grants) — thống kê theo người cấp sẽ thiếu lần này.",
+        "Đã đổi hạng nhưng hệ thống gặp lỗi khi lưu lịch sử. Thống kê theo người cấp có thể bị thiếu dữ liệu này.",
       );
     }
     load();
@@ -774,7 +774,7 @@ function AccountsTab({ me }: { me: Me }) {
     }).catch(() => null);
     if (!r?.ok) {
       flip(!next);
-      setError("Chưa đổi được trạng thái chăm khách — thử lại.");
+      setError("Lỗi cập nhật trạng thái chăm sóc khách hàng. Vui lòng thử lại.");
     }
   }
 
@@ -797,15 +797,15 @@ function AccountsTab({ me }: { me: Me }) {
     if (!r?.ok || !j?.ok) {
       setError(
         j?.code === "bad_code"
-          ? "Nhập mã chuyển khoản."
+          ? "Nhập mã giao dịch chuyển khoản."
           : j?.code === "not_your_customer"
-            ? "Chỉ ghi thu tiền cho khách của bạn."
-            : "Ghi thu tiền chưa được — thử lại.",
+            ? "Bạn chỉ được ghi nhận thu tiền cho khách hàng do mình quản lý."
+            : "Lỗi ghi nhận thông tin thu tiền. Vui lòng thử lại.",
       );
       return;
     }
     setNotice(
-      `Đã ghi mã CK cho ${a.phone} — chờ đối chiếu (xem biến động số dư SDWork rồi bấm "Đã đối chiếu").`,
+      `Đã ghi nhận mã chuyển khoản cho ${a.phone}. Vui lòng kiểm tra biến động số dư SDWork và bấm "Đã đối chiếu".`,
     );
     load();
   }
@@ -829,12 +829,12 @@ function AccountsTab({ me }: { me: Me }) {
     if (!r?.ok || !j?.ok) {
       setError(
         j?.code === "no_pending_payment"
-          ? "Khách này không có khoản nào đang chờ đối chiếu."
-          : "Đối chiếu chưa được — thử lại.",
+          ? "Khách hàng này không có khoản thu nào đang chờ đối chiếu."
+          : "Lỗi thao tác đối chiếu. Vui lòng thử lại.",
       );
       return;
     }
-    setNotice(`Đã đối chiếu khoản thu của ${a.phone}.`);
+    setNotice(`Đã đối chiếu thành công khoản thu của ${a.phone}.`);
     load();
   }
 
@@ -857,13 +857,13 @@ function AccountsTab({ me }: { me: Me }) {
     if (!r?.ok || !j?.ok) {
       setError(
         j?.code === "not_provisioned"
-          ? "Tài khoản này chưa đăng nhập được (chưa provision) — không có mật khẩu để đặt lại."
-          : "Đặt lại mật khẩu chưa được — thử lại.",
+          ? "Tài khoản này chưa được khởi tạo hoàn toàn trên hệ thống nên chưa thể đặt lại mật khẩu."
+          : "Lỗi đặt lại mật khẩu. Vui lòng thử lại.",
       );
       return;
     }
     setNotice(
-      `Đã đặt lại mật khẩu cho ${a.phone}${a.name ? ` (${a.name})` : ""} — báo khách đăng nhập bằng mật khẩu tạm ${j.tempPassword ?? "sd123456"}, vào xong app sẽ bắt tự đổi.`,
+      `Đã cấp lại mật khẩu cho ${a.phone}${a.name ? ` (${a.name})` : ""}. Vui lòng báo khách dùng mật khẩu tạm là ${j.tempPassword ?? "sd123456"} (app sẽ yêu cầu khách đổi mật khẩu khi đăng nhập).`,
     );
   }
 
@@ -875,7 +875,7 @@ function AccountsTab({ me }: { me: Me }) {
     ).catch(() => null);
     setBusyPhone(null);
     if (!r?.ok) {
-      setError("Xoá chưa được — thử lại.");
+      setError("Xóa không thành công. Vui lòng thử lại.");
       return;
     }
     load();
@@ -905,7 +905,7 @@ function AccountsTab({ me }: { me: Me }) {
     }).catch(() => null);
     const j = (await r?.json().catch(() => null)) as { ok?: boolean } | null;
     if (!r?.ok || !j?.ok) {
-      setError("Lưu ghi chú chưa được — thử lại.");
+      setError("Lưu ghi chú không thành công. Vui lòng thử lại.");
       load(); // trả màn về đúng trạng thái DB
     }
   }
@@ -934,9 +934,9 @@ function AccountsTab({ me }: { me: Me }) {
           {(
             [
               ["Đang xem", stats.total],
-              ["Premium hiệu lực", stats.premium],
-              ["Đăng nhập được", stats.canLogin],
-              ["Tạo tay", stats.manual],
+              ["Gói Premium đang hiệu lực", stats.premium],
+              ["Đã đăng nhập", stats.canLogin],
+              ["Tạo thủ công", stats.manual],
             ] as [string, number][]
           ).map(([label, v]) => (
             <div key={label} className="surface px-3 py-3 text-center">
@@ -956,7 +956,7 @@ function AccountsTab({ me }: { me: Me }) {
         <input
           type="search"
           inputMode="search"
-          placeholder="Tìm theo SĐT hoặc tên khách…"
+          placeholder="Tìm theo số điện thoại hoặc tên khách hàng…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label="Tìm tài khoản"
@@ -965,7 +965,7 @@ function AccountsTab({ me }: { me: Me }) {
         <div className="flex gap-1.5">
           {chip("all", "Tất cả")}
           {chip("premium", "Premium")}
-          {chip("basic", "Thường")}
+          {chip("basic", "Hạng thường")}
         </div>
       </div>
 
@@ -973,7 +973,7 @@ function AccountsTab({ me }: { me: Me }) {
       <div className="flex flex-wrap items-center gap-1.5">
         {(
           [
-            ["khach", "Khách dùng app"],
+            ["khach", "Khách hàng dùng app"],
             ["nhan-su", "Nhân sự quản trị"],
           ] as ["khach" | "nhan-su", string][]
         ).map(([id, label]) => (
@@ -993,8 +993,8 @@ function AccountsTab({ me }: { me: Me }) {
         ))}
         <span className="text-[0.8125rem] text-foreground/55">
           {roleFilter === "khach"
-            ? "Tạo/phân quyền nhân sự làm ở tab Phân quyền"
-            : "Chỉ để cấp premium / đặt lại mật khẩu cho nhân sự"}
+            ? "Để tạo hoặc phân quyền nhân sự, hãy dùng tab Phân quyền"
+            : "Chỉ dùng để cấp Premium / đặt lại mật khẩu cho nhân sự"}
         </span>
       </div>
 
@@ -1123,11 +1123,11 @@ function AccountsTab({ me }: { me: Me }) {
                       <RoleBadge account={a} />
                     </p>
                     <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
-                      {a.fromSdwork ? "Từ SDWork" : "Tạo tay"} ·{" "}
-                      {a.canLogin ? "đăng nhập được" : "CHƯA đăng nhập được"} ·
+                      {a.fromSdwork ? "Nguồn từ SDWork" : "Tạo thủ công"} ·{" "}
+                      {a.canLogin ? "Đã đăng nhập" : "Chưa tạo tài khoản"} ·
                       cập nhật {fmtDT(a.updatedAt)}
                       {a.premiumActivatedAt &&
-                        ` · premium kích hoạt ${fmtD(a.premiumActivatedAt)}`}
+                        ` · Premium được kích hoạt ${fmtD(a.premiumActivatedAt)}`}
                     </p>
                     {/* NV2 (ba-spec 10) — chip chăm khách, bấm đổi ngay */}
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -1141,7 +1141,7 @@ function AccountsTab({ me }: { me: Me }) {
                             : "bg-field text-foreground/55"
                         }`}
                       >
-                        {a.premiumUsed ? "✓ Đã dùng" : "Chưa dùng"}
+                        {a.premiumUsed ? "✓ Đã sử dụng" : "Chưa sử dụng"}
                       </button>
                       <button
                         type="button"
@@ -1163,10 +1163,10 @@ function AccountsTab({ me }: { me: Me }) {
                               ? "bg-ok-bg text-ok"
                               : "bg-warn-bg text-warn"
                           }`}
-                          title={`Mã CK: ${a.payment.code}`}
+                          title={`Mã giao dịch: ${a.payment.code}`}
                         >
                           {a.payment.reconciledStatus === "reconciled"
-                            ? "✓ Đã thu · đối chiếu"
+                            ? "✓ Đã thu · đã đối chiếu"
                             : "Đã thu · chờ đối chiếu"}
                         </span>
                       ) : (
@@ -1181,7 +1181,7 @@ function AccountsTab({ me }: { me: Me }) {
                             type="button"
                             disabled={busyPhone === a.phone}
                             onClick={() => reconcilePayment(a)}
-                            title="Đã xem biến động số dư SDWork thấy tiền vào → đánh dấu đối chiếu"
+                            title="Sau khi thấy tiền vào tài khoản SDWork → chọn đánh dấu đối chiếu"
                             className="min-h-[2rem] rounded-full bg-ok-bg px-2.5 text-[0.75rem] font-bold text-ok disabled:opacity-50"
                           >
                             ✓ Đối chiếu
@@ -1211,11 +1211,11 @@ function AccountsTab({ me }: { me: Me }) {
                   >
                     {effTier(a) === "premium"
                       ? a.premiumUntil
-                        ? `Premium đến ${fmtD(a.premiumUntil)}`
+                        ? `Gói Premium đến ${fmtD(a.premiumUntil)}`
                         : "Premium"
                       : a.tier === "premium"
-                        ? `HẾT HẠN ${fmtD(a.premiumUntil)}`
-                        : "Thường"}
+                        ? `Đã hết hạn ${fmtD(a.premiumUntil)}`
+                        : "Hạng thường"}
                   </span>
                   <div className="flex shrink-0 gap-1.5">
                     {perms.edit && (
@@ -1235,8 +1235,8 @@ function AccountsTab({ me }: { me: Me }) {
                         className="min-h-[2.5rem] rounded-lg bg-navy px-3 text-[0.8125rem] font-bold text-white disabled:opacity-50"
                       >
                         {effTier(a) === "premium"
-                          ? "Gia hạn premium"
-                          : "Kích hoạt premium"}
+                          ? "Gia hạn gói Premium"
+                          : "Kích hoạt gói Premium"}
                       </button>
                     )}
                     {isAdmin && effTier(a) === "premium" && (
@@ -1287,8 +1287,8 @@ function AccountsTab({ me }: { me: Me }) {
                         trạng thái đo được (khách làm được tới đâu). Cột
                         `staff_used` giữ nguyên trong DB, chỉ gỡ khỏi màn. */}
                     <FlagToggle
-                      onLabel="Đã hướng dẫn trực tiếp"
-                      offLabel="Chưa hướng dẫn trực tiếp"
+                      onLabel="Đã được hướng dẫn trực tiếp"
+                      offLabel="Chưa được hướng dẫn trực tiếp"
                       value={a.staffGuided}
                       editable={perms.edit}
                       onToggle={() => setFlag(a, { guided: !a.staffGuided })}
@@ -1333,12 +1333,12 @@ function AccountsTab({ me }: { me: Me }) {
             <ConfirmDialog
               title={
                 toGrant.active
-                  ? `Gia hạn premium cho ${toGrant.a.phone}?`
-                  : `Kích hoạt premium cho ${toGrant.a.phone}?`
+                  ? `Xác nhận gia hạn gói Premium cho ${toGrant.a.phone}?`
+                  : `Xác nhận kích hoạt gói Premium cho ${toGrant.a.phone}?`
               }
-              message={`${toGrant.a.name ?? "Khách"} sẽ có premium ${term}, đến ${fmtD(until)}. Lần cấp này được ghi log dưới tên bạn.`}
-              confirmLabel={toGrant.active ? "Gia hạn" : "Kích hoạt"}
-              cancelLabel="Không"
+              message={`${toGrant.a.name ?? "Khách hàng"} sẽ được cấp gói Premium ${term}, sử dụng đến ngày ${fmtD(until)}. Lịch sử cấp quyền này sẽ ghi nhận dưới tên bạn.`}
+              confirmLabel={toGrant.active ? "Xác nhận gia hạn" : "Xác nhận kích hoạt"}
+              cancelLabel="Hủy thao tác"
               danger={false}
               onCancel={() => setToGrant(null)}
               onConfirm={() => {
@@ -1357,10 +1357,10 @@ function AccountsTab({ me }: { me: Me }) {
         })()}
       {toDowngrade && (
         <ConfirmDialog
-          title={`Hạ ${toDowngrade.phone} về tài khoản thường?`}
-          message="Khách sẽ mất dự báo cá và dự báo 16 ngày ngay lập tức."
-          confirmLabel="Hạ về thường"
-          cancelLabel="Không"
+          title={`Hạ cấp ${toDowngrade.phone} về tài khoản thường?`}
+          message="Khách hàng sẽ không thể xem bản đồ dự báo cá và dự báo thời tiết 16 ngày."
+          confirmLabel="Xác nhận hạ cấp"
+          cancelLabel="Hủy thao tác"
           danger
           onCancel={() => setToDowngrade(null)}
           onConfirm={() => {
@@ -1372,10 +1372,10 @@ function AccountsTab({ me }: { me: Me }) {
       )}
       {toReset && (
         <ConfirmDialog
-          title={`Đặt lại mật khẩu cho ${toReset.phone}?`}
-          message={`${toReset.name ? `${toReset.name} — ` : ""}mật khẩu về tạm sd123456, mật khẩu cũ hết dùng được. Khách đăng nhập lại sẽ bị bắt tự đổi mật khẩu mới.`}
-          confirmLabel="Đặt lại"
-          cancelLabel="Không"
+          title={`Xác nhận đặt lại mật khẩu cho ${toReset.phone}?`}
+          message={`${toReset.name ? `${toReset.name} — ` : ""}mật khẩu sẽ đổi thành sd123456, mật khẩu cũ sẽ bị hủy. Khách đăng nhập lại sẽ được yêu cầu đổi mật khẩu mới.`}
+          confirmLabel="Xác nhận đặt lại"
+          cancelLabel="Hủy thao tác"
           danger={false}
           onCancel={() => setToReset(null)}
           onConfirm={() => {
@@ -1387,10 +1387,10 @@ function AccountsTab({ me }: { me: Me }) {
       )}
       {toDelete && (
         <ConfirmDialog
-          title={`Xoá tài khoản ${toDelete.phone}?`}
-          message={`${toDelete.name ? `${toDelete.name} — ` : ""}khách sẽ không đăng nhập được nữa. Không hoàn tác được.`}
-          confirmLabel="Xoá luôn"
-          cancelLabel="Không"
+          title={`Xác nhận xóa tài khoản ${toDelete.phone}?`}
+          message={`${toDelete.name ? `${toDelete.name} — ` : ""}khách sẽ không thể đăng nhập được nữa. Không thể khôi phục lại tài khoản đã xóa.`}
+          confirmLabel="Xác nhận xóa"
+          cancelLabel="Hủy thao tác"
           danger
           onCancel={() => setToDelete(null)}
           onConfirm={() => {
@@ -1409,7 +1409,7 @@ function AccountsTab({ me }: { me: Me }) {
               Ghi thu tiền — {toPay.phone}
             </p>
             <p className="mt-1 text-[0.875rem] leading-snug text-foreground/70">
-              Mã CK = <b>SĐT khách</b> (khách ghi SĐT vào nội dung chuyển khoản)
+              Mã CK = <b>Số điện thoại khách</b> (khách ghi SĐT vào nội dung chuyển khoản)
               — đã điền sẵn, sửa nếu khách ghi mã khác. Sau đó xem biến động số
               dư SDWork thấy tiền vào rồi bấm &quot;Đã đối chiếu&quot;.
             </p>
@@ -1417,7 +1417,7 @@ function AccountsTab({ me }: { me: Me }) {
               autoFocus
               value={payCode}
               onChange={(e) => setPayCode(e.target.value)}
-              placeholder="Mã CK = SĐT khách (vd 0912345678)"
+              placeholder="Mã giao dịch = Số điện thoại khách (vd: 0912345678)"
               className="mt-3 min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
             />
             <div className="mt-4 flex gap-2">
@@ -1496,15 +1496,15 @@ function AppUsage({ a }: { a: Account }) {
   };
   const why: Record<UsageStage, string> = {
     "chua-ghi-nhan":
-      "Máy chưa gửi nhịp nào. KHÔNG có nghĩa chưa dùng app: nhịp chỉ gửi khi ĐÃ ĐĂNG NHẬP + còn sóng, và chỉ ghi từ 01/08/2026.",
+      "Thiết bị chưa gửi tín hiệu. Tuy nhiên điều này không có nghĩa là khách chưa dùng app: tín hiệu chỉ được gửi khi đã đăng nhập và có mạng (chỉ ghi nhận từ 01/08/2026).",
     "moi-vo-web":
-      "Đã mở app trong trình duyệt nhưng CHƯA lần nào mở bản cài. Trên iPhone, bản Thêm-vào-Màn-hình-chính có kho RIÊNG — ra khơi là trắng tay. Gọi nhắc: mở icon vừa cài ngay khi còn sóng.",
+      "Khách mới dùng trên trình duyệt nhưng chưa mở bản đã cài. Trên iPhone, bản cài ngoài Màn hình chính có kho lưu trữ riêng, nếu không tải dữ liệu thì ra khơi sẽ không xem được bản đồ. Vui lòng gọi nhắc khách mở icon vừa cài khi còn mạng.",
     "da-mo-ban-cai":
-      "Đã mở bản cài nhưng kho của nó còn TRỐNG TRƠN — chưa tải được lớp nào. Phải hướng dẫn bấm tải từ đầu, lúc còn sóng.",
+      "Khách đã mở bản cài nhưng chưa tải dữ liệu. Vui lòng hướng dẫn khách bấm tải dự báo khi có sóng.",
     "da-tai-mot-phan":
-      "Đã mở bản cài và tải được MỘT PHẦN (kho bản cài đã có ngày phủ) nhưng chưa đủ mọi lớp — mẻ tải đứt giữa chừng. Chỉ cần nhắc mở lại app lúc có sóng, phần đã tải còn nguyên.",
+      "Khách đã mở bản cài và đang tải dở dữ liệu thì bị gián đoạn. Vui lòng gọi nhắc khách mở lại app lúc có sóng để tải nốt phần còn thiếu.",
     "du-do-di-bien":
-      "Máy đã báo: vỏ app đủ + mọi lớp dữ liệu đã tải, ĐO TRÊN ĐÚNG KHO sẽ dùng ngoài biển. Lưu ý: đây là mốc ĐÃ TỪNG đủ, không phải bây giờ còn đủ.",
+      "Thiết bị báo cáo: Ứng dụng và toàn bộ dữ liệu đã được tải về kho offline. Lưu ý: đây là trạng thái ghi nhận trong quá khứ, hiện tại dữ liệu có thể đã hết hạn.",
   };
   /*  CHIP SẴN SÀNG (2026-08-02g) — gộp "online lần cuối" + "dữ liệu tới ngày
       nào", và ĐO TRÊN ĐÚNG KHO SẼ RA KHƠI. Luật thuần + test ở lib/app-usage.ts.
@@ -1535,32 +1535,32 @@ function AppUsage({ a }: { a: Account }) {
     unknown: "bg-field text-foreground/50",
   };
   const rdLabel: Record<ReadinessReason, string> = {
-    "chua-ghi-nhan": "Chưa ghi nhận",
-    "chua-cai": "Chưa mở bản cài",
-    "ban-cai-cu": "Bản cài lâu chưa mở",
-    "het-du-lieu": "Hết dữ liệu",
-    "sap-can": "Dữ liệu sắp cạn",
-    "mat-song-lau": "Lâu chưa lên sóng",
-    "chua-bao-ngay": "Chưa rõ dữ liệu",
-    on: "Sẵn sàng",
+    "chua-ghi-nhan": "Chưa ghi nhận hoạt động",
+    "chua-cai": "Chưa sử dụng bản cài",
+    "ban-cai-cu": "Lâu chưa mở lại bản cài",
+    "het-du-lieu": "Đã hết dữ liệu lưu trữ",
+    "sap-can": "Dữ liệu lưu trữ sắp hết hạn",
+    "mat-song-lau": "Lâu chưa kết nối mạng",
+    "chua-bao-ngay": "Không rõ trạng thái dữ liệu",
+    on: "Sẵn sàng sử dụng",
   };
   /* VIỆC CẦN LÀM, không phải mô tả trạng thái — nhân viên đọc là gọi được luôn */
   const rdWhy: Record<ReadinessReason, string> = {
     "chua-ghi-nhan":
-      "Máy chưa gửi nhịp nào. KHÔNG có nghĩa chưa dùng app: nhịp chỉ gửi khi ĐÃ ĐĂNG NHẬP + còn sóng, và chỉ ghi từ 01/08/2026.",
+      "Thiết bị chưa gửi tín hiệu (không có nghĩa là khách chưa dùng app, vì tín hiệu chỉ gửi khi đã đăng nhập và có mạng, ghi nhận từ 01/08/2026).",
     "chua-cai":
-      "Chỉ mới mở app trong trình duyệt. Trên iPhone bản Thêm-vào-Màn-hình-chính có kho RIÊNG — dữ liệu tải trong Safari KHÔNG theo ra khơi được. Gọi nhắc: mở icon vừa cài, rồi bấm tải.",
+      "Khách mới dùng trên trình duyệt. Đối với iPhone, dữ liệu tải trên Safari sẽ không dùng được khi ra khơi. Gọi nhắc khách mở bằng icon ngoài Màn hình chính để tải dữ liệu.",
     "ban-cai-cu":
-      "Đã cài và đã tải, NHƯNG gần đây toàn mở bằng trình duyệt. Kho của bản cài (thứ sẽ theo ra khơi) đứng im từ lâu. Gọi nhắc: mở ĐÚNG cái icon đã cài khi còn sóng.",
+      "Khách đã cài app nhưng gần đây chỉ dùng trên trình duyệt. Dữ liệu trên bản cài không được cập nhật. Vui lòng gọi nhắc khách mở đúng icon ứng dụng khi có mạng.",
     "het-du-lieu":
-      "Dữ liệu trong bản cài đã hết hạn phủ. Ra khơi bây giờ là không có dự báo. Gọi ngay.",
+      "Dữ liệu dự báo trong bản cài đã hết hạn. Nếu ra khơi lúc này sẽ không có thông tin. Cần gọi hỗ trợ ngay.",
     "sap-can":
-      "Dữ liệu trong bản cài chỉ còn vài ngày. Còn sóng thì còn kịp — gọi nhắc bấm tải.",
+      "Dữ liệu dự báo trong app chỉ còn vài ngày. Vui lòng gọi nhắc khách cập nhật dự báo mới khi có mạng.",
     "mat-song-lau":
-      "Máy lâu chưa lên sóng, nên con số dữ liệu là lời khai cũ. Có thể bà con đang ngoài khơi.",
+      "Thiết bị đã lâu không kết nối mạng, số liệu này là từ lần cuối cập nhật. Khả năng tàu đang ở ngoài khơi.",
     "chua-bao-ngay":
-      "Có mở bản cài gần đây nhưng máy chưa báo được dữ liệu phủ tới ngày nào.",
-    on: "Bản cài mở gần đây và dữ liệu còn dài. Không cần gọi.",
+      "Thiết bị có mở ứng dụng gần đây nhưng chưa báo cáo tình trạng dữ liệu.",
+    on: "Ứng dụng được mở gần đây và dữ liệu dự báo vẫn còn dài hạn. Không cần gọi hỗ trợ.",
   };
   const mocs = [
     /*  DÁN NHÃN KHO (0027): trên iOS kho bản cài tách riêng Safari, nên một con
@@ -1579,10 +1579,10 @@ function AppUsage({ a }: { a: Account }) {
         này sinh ra để tìm. */
     a.dataUntil
       ? a.pwaLastOpenAt
-        ? `bản cài: dữ liệu tới ${fmtNgay(a.dataUntil)}`
-        : `số cũ (trước 08/2026, chưa rõ kho): dữ liệu tới ${fmtNgay(a.dataUntil)}`
+        ? `bản cài đặt: dữ liệu sử dụng được đến ${fmtNgay(a.dataUntil)}`
+        : `trạng thái cũ (trước 08/2026): dữ liệu sử dụng được đến ${fmtNgay(a.dataUntil)}`
       : null,
-    a.dataUntilWeb ? `web: dữ liệu tới ${fmtNgay(a.dataUntilWeb)}` : null,
+    a.dataUntilWeb ? `trình duyệt web: dữ liệu sử dụng được đến ${fmtNgay(a.dataUntilWeb)}` : null,
     /*  KHO CỦA MÁY (0029) — con số quyết định "dữ liệu đi biển nên nằm kho nào",
         và là chỗ duy nhất biết iOS thật sự cho bao nhiêu. Hiện cả hai để nhìn ra
         máy nào sắp đầy (used tiến sát quota = gọi nhắc dọn bớt ảnh/video TRƯỚC
@@ -1596,15 +1596,15 @@ function AppUsage({ a }: { a: Account }) {
         IndexedDB/Cache dùng chung hạn ngạch origin. Nên một con số tổng không
         nói được kho nào sắp chật. */
     a.storageLsMb != null || a.storageIdbMb != null
-      ? `ở đâu: ls ${a.storageLsMb ?? "?"} · idb ${a.storageIdbMb ?? "?"} · cache ${a.storageCacheMb ?? "?"} MB`
+      ? `lưu trữ: ls ${a.storageLsMb ?? "?"} · idb ${a.storageIdbMb ?? "?"} · cache ${a.storageCacheMb ?? "?"} MB`
       : null,
     /*  CÒN CHỖ KHÔNG — gần 0 là máy sắp không giữ nổi gói đi biển, đáng gọi
         nhắc dọn ảnh/video TRƯỚC khi nhổ neo. */
-    a.storageAvailableMb != null ? `còn trống ${a.storageAvailableMb} MB` : null,
+    a.storageAvailableMb != null ? `dung lượng trống ${a.storageAvailableMb} MB` : null,
     /*  ⚠️ KHO DỰ BÁO CÒN KẸT Ở localStorage — máy không mở nổi IndexedDB nên
         đang chở ~4 MB trong thùng 5 MB, tức chạy sát mép lỗi iOS 16. Chỉ nêu
         khi ĐANG kẹt: trạng thái đúng thì không cần chiếm chỗ trên màn hình. */
-    a.storageBackend === "ls" ? "⚠️ kho dự báo còn ở localStorage" : null,
+    a.storageBackend === "ls" ? "⚠️ Kho dự báo đang dùng bộ nhớ tạm (localStorage)" : null,
     /*  BỘ NHỚ BỀN — chống vòng thu hồi LRU khi máy đầy. Luật "chỉ nói khi CÒN
         LÀM ĐƯỢC GÌ" nằm ở `persistNote` (lib/app-usage, có test): máy đã cài,
         còn 39 GB trống mà vẫn hô "chưa được cấp bộ nhớ bền" là bắt nhân viên
@@ -1615,9 +1615,9 @@ function AppUsage({ a }: { a: Account }) {
       asked: a.storagePersistAsked ?? null,
       availableMb: a.storageAvailableMb ?? null,
     }),
-    a.offlineReadyAt ? `đủ đồ ${fmtDT(a.offlineReadyAt)}` : null,
-    a.pwaLastOpenAt ? `bản cài mở ${fmtDT(a.pwaLastOpenAt)}` : null,
-    a.webLastOpenAt ? `web mở ${fmtDT(a.webLastOpenAt)}` : null,
+    a.offlineReadyAt ? `dữ liệu đầy đủ lúc ${fmtDT(a.offlineReadyAt)}` : null,
+    a.pwaLastOpenAt ? `mở app lần cuối lúc ${fmtDT(a.pwaLastOpenAt)}` : null,
+    a.webLastOpenAt ? `mở trên web lần cuối lúc ${fmtDT(a.webLastOpenAt)}` : null,
   ].filter(Boolean);
   return (
     <>
@@ -1639,10 +1639,10 @@ function AppUsage({ a }: { a: Account }) {
         <span
           title={
             a.devicePlatform === "ios"
-              ? "Máy iPhone/iPad — hướng dẫn: Chia sẻ → Thêm vào Màn hình chính. LƯU Ý: bản cài trên iOS dùng kho RIÊNG, tải dữ liệu trong Safari không tính cho bản cài."
+              ? "Với iPhone/iPad — Hướng dẫn: Bấm nút Chia sẻ → Thêm vào Màn hình chính. LƯU Ý: Bản cài ngoài Màn hình chính có kho lưu trữ độc lập, dữ liệu tải qua trình duyệt Safari sẽ không dùng được."
               : a.devicePlatform === "android"
-                ? "Máy Android — hướng dẫn: bấm Cài ứng dụng. Bản cài dùng chung kho với Chrome nên tải ở đâu cũng như nhau."
-                : "Không nhận ra iPhone hay Android (máy tính, hoặc trình duyệt lạ)."
+                ? "Với máy Android — Hướng dẫn: Bấm Cài ứng dụng. Ứng dụng dùng chung bộ nhớ với trình duyệt Chrome nên có thể tải dữ liệu trên nền tảng nào cũng được."
+                : "Hệ thống không xác định được thiết bị là iPhone hay Android (có thể khách dùng máy tính hoặc trình duyệt khác)."
           }
           className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-semibold text-foreground/70"
         >
@@ -1669,15 +1669,15 @@ function AppUsage({ a }: { a: Account }) {
       {a.devices.length > 1 && (
         <span
           title={[
-            `Tài khoản này đã dùng ${a.devices.length} máy (mới nhất trước):`,
+            `Tài khoản này đã sử dụng trên ${a.devices.length} thiết bị (thiết bị mới nhất ở trên):`,
             ...a.devices.map(
               (d, i) =>
-                `${i === 0 ? "▸ đang dùng" : "·"} ${
-                  d.platform ? PLATFORM_LABEL[d.platform] : "Không rõ máy"
+                `${i === 0 ? "▸ thiết bị đang dùng" : "·"} ${
+                  d.platform ? PLATFORM_LABEL[d.platform] : "Không xác định được thiết bị"
                 } …${d.tag} — lần đầu ${fmtD(d.firstSeenAt)}, gần nhất ${fmtDT(d.lastSeenAt)}`,
             ),
             "",
-            "Mốc ở dòng này là của MÁY ĐANG DÙNG — đổi máy là đếm lại từ đầu.",
+            "Số liệu này thuộc về thiết bị ĐANG SỬ DỤNG — nếu khách đổi máy, thống kê sẽ tính lại từ đầu.",
           ].join("\n")}
           className="rounded-full bg-warn-bg px-2 py-0.5 text-[0.75rem] font-bold text-warn"
         >
@@ -1701,7 +1701,7 @@ function AppUsage({ a }: { a: Account }) {
              hôm nay), nên nó nhỏ hơn hiệu hai ngày lịch đúng 1 — nói "trọn" để
              không chỏi với dòng "dữ liệu tới 17/08" ngay bên cạnh. */}
         {rd.seaDays != null && rd.seaDays > 0
-          ? ` · còn ${rd.seaDays} ngày trọn`
+          ? ` · còn ${rd.seaDays} ngày đầy đủ dữ liệu`
           : ""}
       </span>
       </div>
@@ -1855,17 +1855,17 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
     if (!r?.ok || !j?.ok) {
       setMsg(
         j?.code === "bad_phone"
-          ? "SĐT chưa hợp lệ."
+          ? "Số điện thoại không đúng định dạng."
           : j?.code === "bad_password"
-            ? "Mật khẩu tối thiểu 6 ký tự."
-            : "Tạo chưa được — thử lại.",
+            ? "Mật khẩu cần có ít nhất 6 ký tự."
+            : "Tạo tài khoản không thành công. Vui lòng thử lại.",
       );
       return;
     }
     setMsg(
       j.provisioned
-        ? "Đã tạo. Báo người dùng đăng nhập bằng SĐT + mật khẩu tạm (lần đầu app bắt đổi)."
-        : "Đã lưu nhưng TẠO ĐĂNG NHẬP LỖI — kiểm tra lại.",
+        ? "Tạo thành công. Vui lòng báo khách đăng nhập bằng SĐT và mật khẩu tạm (app sẽ yêu cầu đổi mật khẩu ở lần đầu tiên)."
+        : "Đã lưu thông tin nhưng lỗi quá trình tạo tài khoản đăng nhập. Vui lòng kiểm tra lại.",
     );
     setPhone("");
     setName("");
@@ -1897,13 +1897,13 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
           <input
             required
             inputMode="numeric"
-            placeholder="SĐT (0901234567)"
+            placeholder="Số điện thoại (ví dụ: 0901234567)"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className={field}
           />
           <input
-            placeholder="Tên khách (tuỳ chọn)"
+            placeholder="Tên khách hàng (tuỳ chọn)"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className={field}
@@ -1911,7 +1911,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
           <input
             required
             type="text"
-            placeholder="Mật khẩu tạm (≥6 ký tự)"
+            placeholder="Mật khẩu tạm thời (≥6 ký tự)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className={field}
@@ -1940,7 +1940,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
             disabled={busy}
             className="min-h-[2.75rem] rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50 sm:col-span-2 lg:col-span-4"
           >
-            {busy ? "Đang tạo…" : "Tạo tài khoản"}
+            {busy ? "Đang tạo tài khoản…" : "Tạo tài khoản"}
           </button>
           {msg && (
             <p className="text-[0.875rem] font-semibold text-foreground/75 sm:col-span-2 lg:col-span-4">
@@ -1978,7 +1978,7 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   pending: { label: "Chờ duyệt", cls: "bg-warn-bg text-warn" },
   approved: { label: "Đã duyệt", cls: "bg-danger-bg text-danger" },
   rejected: { label: "Từ chối", cls: "bg-field text-foreground/65" },
-  withdrawn: { label: "Đã rút", cls: "bg-field text-foreground/65" },
+  withdrawn: { label: "Đã rút xuống", cls: "bg-field text-foreground/65" },
 };
 
 function CrewReportsTab({ perms }: { perms: TabPerms }) {
@@ -2011,8 +2011,8 @@ function CrewReportsTab({ perms }: { perms: TabPerms }) {
       .catch((e: Error) =>
         setError(
           e.message === "not_configured"
-            ? "Chưa cấu hình Supabase/service-role — cảnh báo cần DB thật."
-            : "Chưa tải được danh sách — thử lại.",
+            ? "Chưa kết nối được cơ sở dữ liệu (Supabase). Tính năng này không chạy ở chế độ dùng thử."
+            : "Chưa tải được danh sách. Vui lòng thử lại.",
         ),
       );
   }, [status]);
@@ -2031,7 +2031,7 @@ function CrewReportsTab({ perms }: { perms: TabPerms }) {
     }).catch(() => null);
     setBusyId(null);
     if (!r?.ok) {
-      setError("Thao tác chưa được — thử lại.");
+      setError("Thao tác không thành công. Vui lòng thử lại.");
       return;
     }
     load();
@@ -2045,7 +2045,7 @@ function CrewReportsTab({ perms }: { perms: TabPerms }) {
     ).catch(() => null);
     setBusyId(null);
     if (!r?.ok) {
-      setError("Xóa chưa được — thử lại.");
+      setError("Xóa không thành công. Vui lòng thử lại.");
       return;
     }
     load();
@@ -2079,7 +2079,7 @@ function CrewReportsTab({ perms }: { perms: TabPerms }) {
       <div className="flex gap-1.5">
         {chip("pending", "Chờ duyệt")}
         {chip("approved", "Đã duyệt")}
-        {chip("rejected", "Từ chối")}
+        {chip("rejected", "Đã từ chối")}
         {chip("all", "Tất cả")}
       </div>
 
@@ -2126,26 +2126,26 @@ function CrewReportsTab({ perms }: { perms: TabPerms }) {
         <ConfirmDialog
           title={
             confirm.action === "approve"
-              ? "Duyệt báo cáo này?"
+              ? "Xác nhận duyệt báo cáo này?"
               : confirm.action === "reject"
                 ? "Từ chối báo cáo này?"
-                : "Rút báo cáo đã duyệt xuống?"
+                : "Rút báo cáo đã duyệt khỏi hệ thống?"
           }
           message={
             confirm.action === "approve"
-              ? "Sau khi duyệt, chủ tàu khác nhập CCCD này sẽ THẤY cảnh báo. Đảm bảo đã kiểm tra."
+              ? "Sau khi duyệt, các chủ tàu khác tra cứu CCCD này sẽ thấy cảnh báo. Hãy đảm bảo thông tin đã được kiểm chứng."
               : confirm.action === "reject"
-                ? "Báo cáo sẽ không hiện cho ai. Dùng khi nội dung sai/không đủ căn cứ."
-                : "Cảnh báo sẽ ngừng hiện cho chủ tàu khác."
+                ? "Báo cáo sẽ bị ẩn khỏi mọi người. Chỉ sử dụng khi nội dung không chính xác hoặc thiếu căn cứ."
+                : "Cảnh báo sẽ ngừng hiển thị đối với các chủ tàu khác."
           }
           confirmLabel={
             confirm.action === "approve"
-              ? "Duyệt, cho hiện"
+              ? "Duyệt và cho hiển thị"
               : confirm.action === "reject"
-                ? "Từ chối"
-                : "Rút xuống"
+                ? "Từ chối báo cáo"
+                : "Rút báo cáo"
           }
-          cancelLabel="Không"
+          cancelLabel="Hủy thao tác"
           danger={confirm.action !== "approve"}
           onCancel={() => setConfirm(null)}
           onConfirm={() => {
@@ -2159,9 +2159,9 @@ function CrewReportsTab({ perms }: { perms: TabPerms }) {
       {toDelete && (
         <ConfirmDialog
           title="Xóa cảnh báo khỏi danh sách?"
-          message="Xóa HẲN bản ghi này (khác 'rút xuống' vẫn giữ lại). Không hoàn tác được — dùng khi báo cáo sai/trùng."
-          confirmLabel="Xóa luôn"
-          cancelLabel="Không"
+          message="Xóa vĩnh viễn báo cáo này (sẽ không thể khôi phục). Chỉ dùng thao tác này khi báo cáo bị sai hoặc trùng lặp."
+          confirmLabel="Xác nhận xóa"
+          cancelLabel="Hủy thao tác"
           danger
           onCancel={() => setToDelete(null)}
           onConfirm={() => {
@@ -2203,7 +2203,7 @@ function ReportCard({
           <p className="mt-0.5 text-[0.8125rem] tabular-nums text-foreground/70">
             {row.subjectCccd ? `CCCD ${formatCccd(row.subjectCccd)}` : ""}
             {row.subjectCccd && row.subjectPhone ? " · " : ""}
-            {row.subjectPhone ? `SĐT ${row.subjectPhone}` : ""}
+            {row.subjectPhone ? `SĐT liên hệ ${row.subjectPhone}` : ""}
             {row.subjectName ? ` · ${row.subjectName}` : ""}
           </p>
         </div>
@@ -2225,7 +2225,7 @@ function ReportCard({
         {row.reporterBoat ? ` (${row.reporterBoat})` : ""} · gửi{" "}
         {fmtDT(row.createdAt)}
         {row.moderatedBy &&
-          ` · duyệt bởi ${row.moderatedBy} ${fmtDT(row.moderatedAt)}`}
+          ` · người duyệt: ${row.moderatedBy} lúc ${fmtDT(row.moderatedAt)}`}
       </p>
 
       {/* phản hồi người bị ghi (admin thay mặt ghi, v1) — ghi = edit */}
@@ -2238,7 +2238,7 @@ function ReportCard({
           value={resp}
           onChange={(e) => setResp(e.target.value)}
           maxLength={500}
-          placeholder="Ghi lại đính chính/giải thích của người bị ghi nếu họ liên hệ SDVICO…"
+          placeholder="Ghi chú lại phản hồi hoặc đính chính từ người bị báo cáo nếu họ liên hệ SDVICO…"
           className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
         <button
@@ -2300,7 +2300,7 @@ function ReportCard({
             type="button"
             disabled={busy}
             onClick={onDelete}
-            title="Xóa hẳn khỏi danh sách"
+            title="Xóa vĩnh viễn khỏi danh sách"
             className="min-h-[2.5rem] shrink-0 rounded-lg bg-danger-bg px-3 text-[0.8125rem] font-bold text-danger disabled:opacity-50"
           >
             Xóa
@@ -2332,19 +2332,19 @@ function AddCrewReportForm({ onAdded }: { onAdded: () => void }) {
     e.preventDefault();
     setMsg(null);
     if (!cccdOk && !phoneOk) {
-      setMsg("Cần CCCD (12 số) hoặc SĐT.");
+      setMsg("Vui lòng nhập CCCD (12 số) hoặc Số điện thoại.");
       return;
     }
     if (cccd.trim() && !cccdOk) {
-      setMsg("CCCD phải đủ 12 số (hoặc để trống).");
+      setMsg("Số CCCD cần đủ 12 số (hoặc để trống nếu không nhớ).");
       return;
     }
     if (phone.trim() && !phoneOk) {
-      setMsg("SĐT chưa hợp lệ.");
+      setMsg("Số điện thoại không đúng định dạng.");
       return;
     }
     if (!category) {
-      setMsg("Chọn loại vấn đề.");
+      setMsg("Vui lòng chọn loại vấn đề.");
       return;
     }
     setBusy(true);
@@ -2367,12 +2367,12 @@ function AddCrewReportForm({ onAdded }: { onAdded: () => void }) {
     if (!r?.ok || !j?.ok) {
       setMsg(
         j?.code === "cccd_pepper_missing"
-          ? "Máy chủ chưa cấu hình CREW_CCCD_PEPPER."
-          : "Thêm chưa được — thử lại.",
+          ? "Máy chủ chưa được cấu hình CREW_CCCD_PEPPER."
+          : "Thêm không thành công. Vui lòng thử lại.",
       );
       return;
     }
-    setMsg("Đã thêm — cảnh báo hiện ngay cho chủ tàu khác khi tra.");
+    setMsg("Đã thêm thành công — cảnh báo sẽ hiển thị ngay cho các chủ tàu khác khi tra cứu.");
     setCccd("");
     setPhone("");
     setName("");
@@ -2400,14 +2400,14 @@ function AddCrewReportForm({ onAdded }: { onAdded: () => void }) {
           <div className="grid gap-2.5 sm:grid-cols-2">
             <input
               inputMode="numeric"
-              placeholder="CCCD (12 số) — hoặc dùng SĐT"
+              placeholder="CCCD (12 số) — hoặc sử dụng Số điện thoại"
               value={cccd}
               onChange={(e) => setCccd(e.target.value)}
               className={field}
             />
             <input
               inputMode="tel"
-              placeholder="SĐT (nếu không có CCCD)"
+              placeholder="Số điện thoại (nếu không có CCCD)"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               className={field}
@@ -2422,7 +2422,7 @@ function AddCrewReportForm({ onAdded }: { onAdded: () => void }) {
           <div
             className="grid gap-1.5 sm:grid-cols-2"
             role="group"
-            aria-label="Loại vấn đề"
+            aria-label="Phân loại vấn đề"
           >
             {CREW_REPORT_CATEGORIES.map((c) => (
               <button
@@ -2441,7 +2441,7 @@ function AddCrewReportForm({ onAdded }: { onAdded: () => void }) {
             ))}
           </div>
           <textarea
-            placeholder="Kể rõ hơn (tuỳ chọn)"
+            placeholder="Mô tả chi tiết (tuỳ chọn)"
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
             maxLength={500}
@@ -2452,7 +2452,7 @@ function AddCrewReportForm({ onAdded }: { onAdded: () => void }) {
             disabled={busy || !canSubmit}
             className="min-h-[2.75rem] w-full rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50"
           >
-            {busy ? "Đang thêm…" : "Thêm & duyệt luôn"}
+            {busy ? "Đang xử lý thêm…" : "Thêm & duyệt cảnh báo"}
           </button>
           {msg && (
             <p className="text-[0.875rem] font-semibold text-foreground/75">
@@ -2519,8 +2519,8 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
       .catch((e: Error) =>
         setError(
           e.message === "not_configured"
-            ? "Chưa cấu hình Supabase/service-role — danh mục cần DB thật."
-            : "Chưa tải được danh mục — thử lại.",
+            ? "Chưa kết nối được cơ sở dữ liệu (Supabase). Tính năng này không chạy ở chế độ dùng thử."
+            : "Chưa tải được danh mục. Vui lòng thử lại.",
         ),
       );
   }, []);
@@ -2535,7 +2535,7 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
     }).catch(() => null);
     setBusyId(null);
     if (!r?.ok) {
-      setError("Đổi trạng thái chưa được — thử lại.");
+      setError("Cập nhật trạng thái không thành công. Vui lòng thử lại.");
       return;
     }
     load();
@@ -2549,7 +2549,7 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
     ).catch(() => null);
     setBusyId(null);
     if (!r?.ok) {
-      setError("Xóa chưa được — thử lại.");
+      setError("Xóa không thành công. Vui lòng thử lại.");
       return;
     }
     load();
@@ -2560,7 +2560,7 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
       <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
         Danh mục hiện trong tab <b>Sản phẩm → Cửa hàng</b> của app ngư dân.
         Ẩn/hiện/xóa/thêm ở đây áp dụng NGAY, không cần build lại app. Có thể
-        thêm sản phẩm/dịch vụ của <b>đơn vị ngoài SDWork</b> (ghi rõ tên đơn
+        thêm sản phẩm/dịch vụ của <b>Đơn vị ngoài hệ thống SDWork</b> (ghi rõ tên đơn
         vị + số điện thoại/ghi chú liên hệ).
       </p>
 
@@ -2609,19 +2609,19 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
                   {row.title}
                   {row.vendorKind === "external" && (
                     <span className="ml-2 rounded-full bg-t3/15 px-2 py-0.5 text-[0.75rem] font-bold text-t3">
-                      {row.vendorName ?? "Đơn vị ngoài"}
+                      {row.vendorName ?? "Đơn vị bên ngoài"}
                     </span>
                   )}
                 </p>
                 <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
-                  {row.category ?? "Chưa gắn loại"} ·{" "}
-                  {row.visible ? "đang hiện" : "ĐANG ẨN"}
+                  {row.category ?? "Chưa phân loại"} ·{" "}
+                  {row.visible ? "đang hiển thị" : "ĐANG ẨN"}
                   {row.orderable &&
                     row.priceVnd != null &&
                     ` · cho đặt ${groupLabel(row.group)} · ${formatVnd(row.priceVnd)}${
                       row.unit ? `/${row.unit}` : ""
                     }`}
-                  {row.createdBy && ` · sửa gần nhất bởi ${row.createdBy}`}
+                  {row.createdBy && ` · cập nhật gần nhất bởi ${row.createdBy}`}
                 </p>
               </div>
               <span
@@ -2631,7 +2631,7 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
                     : "bg-field text-foreground/65"
                 }`}
               >
-                {row.visible ? "Hiện" : "Ẩn"}
+                {row.visible ? "Hiển thị" : "Ẩn"}
               </span>
               <div className="flex shrink-0 gap-1.5">
                 {perms.edit && (
@@ -2642,7 +2642,7 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
                       onClick={() => toggleVisible(row)}
                       className="min-h-[2.5rem] rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-navy disabled:opacity-50"
                     >
-                      {row.visible ? "Ẩn đi" : "Cho hiện"}
+                      {row.visible ? "Chọn ẩn" : "Chọn hiển thị"}
                     </button>
                     <button
                       type="button"
@@ -2683,10 +2683,10 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
 
       {toDelete && (
         <ConfirmDialog
-          title={`Xóa "${toDelete.title}" khỏi danh mục?`}
-          message="Sản phẩm sẽ biến mất khỏi tab Sản phẩm của app ngay lập tức. Không hoàn tác được."
-          confirmLabel="Xóa luôn"
-          cancelLabel="Không"
+          title={`Xác nhận xóa sản phẩm "${toDelete.title}" khỏi danh mục?`}
+          message="Sản phẩm sẽ biến mất khỏi tab Sản phẩm của khách hàng ngay lập tức. Thao tác này không thể khôi phục."
+          confirmLabel="Xác nhận xóa"
+          cancelLabel="Hủy thao tác"
           danger
           onCancel={() => setToDelete(null)}
           onConfirm={() => {
@@ -2756,15 +2756,15 @@ function ProductForm({
     const priceNum = parseInt(priceVnd.replace(/\D/g, ""), 10) || 0;
     if (orderable) {
       if (priceNum <= 0) {
-        setMsg("Cho đặt hàng thì phải nhập giá (VND) lớn hơn 0.");
+        setMsg("Để cho phép đặt hàng, giá tiền (VND) phải lớn hơn 0.");
         return;
       }
       if (!unit.trim()) {
-        setMsg("Nhập đơn vị bán (kg, lít, thùng, cái…).");
+        setMsg("Vui lòng nhập đơn vị tính (kg, lít, thùng, cái…).");
         return;
       }
       if (!group) {
-        setMsg("Chọn nhóm hàng (điện tử / cơ điện / nhu yếu phẩm).");
+        setMsg("Chọn nhóm phân loại (điện tử / cơ điện / nhu yếu phẩm).");
         return;
       }
     }
@@ -2812,8 +2812,8 @@ function ProductForm({
     if (!r?.ok || !j?.ok) {
       setMsg(
         j?.code === "invalid_draft"
-          ? "Thiếu tên, hoặc (đơn vị ngoài) thiếu tên đơn vị/liên hệ."
-          : "Lưu chưa được — thử lại.",
+          ? "Vui lòng nhập Tên sản phẩm, hoặc Tên đơn vị/Liên hệ (đối với đối tác ngoài)."
+          : "Lưu thông tin không thành công. Vui lòng thử lại.",
       );
       return;
     }
@@ -2826,18 +2826,18 @@ function ProductForm({
   return (
     <div className="surface px-4 py-3.5">
       <p className="mb-3 text-[1rem] font-bold text-navy">
-        {initial ? `Sửa "${initial.title}"` : "Thêm sản phẩm mới"}
+        {initial ? `Chỉnh sửa "${initial.title}"` : "Thêm sản phẩm mới"}
       </p>
       <form onSubmit={submit} className="space-y-2.5">
         <div
           className="grid grid-cols-2 gap-1.5"
           role="group"
-          aria-label="Nguồn sản phẩm"
+          aria-label="Nguồn cung cấp"
         >
           {(
             [
               ["sdvico", "SDVICO"],
-              ["external", "Đơn vị ngoài"],
+              ["external", "Đơn vị đối tác ngoài"],
             ] as [VendorKind, string][]
           ).map(([id, label]) => (
             <button
@@ -2858,7 +2858,7 @@ function ProductForm({
 
         {vendorKind === "external" && (
           <input
-            placeholder="Tên đơn vị (bắt buộc — VD: Cơ sở lưới Vũng Tàu)"
+            placeholder="Tên đơn vị cung cấp (bắt buộc — VD: Cơ sở lưới Vũng Tàu)"
             value={vendorName}
             onChange={(e) => setVendorName(e.target.value)}
             className={field}
@@ -2873,20 +2873,20 @@ function ProductForm({
           className={field}
         />
         <input
-          placeholder="Loại (VD: Máy lọc nước biển)"
+          placeholder="Phân loại (VD: Máy lọc nước biển)"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           className={field}
         />
         <textarea
-          placeholder="Mô tả ngắn"
+          placeholder="Mô tả ngắn gọn"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
           className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
         <textarea
-          placeholder={"Tính năng — mỗi dòng một ý"}
+          placeholder={"Tính năng nổi bật — mỗi dòng một ý"}
           value={features}
           onChange={(e) => setFeatures(e.target.value)}
           rows={3}
@@ -2900,7 +2900,7 @@ function ProductForm({
             className={field}
           />
           <input
-            placeholder="URL ảnh (tuỳ chọn)"
+            placeholder="Đường dẫn ảnh minh họa (tuỳ chọn)"
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
             className={field}
@@ -2910,13 +2910,13 @@ function ProductForm({
           <div className="grid gap-2.5 sm:grid-cols-2">
             <input
               inputMode="tel"
-              placeholder="SĐT liên hệ"
+              placeholder="Số điện thoại liên hệ"
               value={contactPhone}
               onChange={(e) => setContactPhone(e.target.value)}
               className={field}
             />
             <input
-              placeholder="Ghi chú liên hệ (địa chỉ, chợ…)"
+              placeholder="Ghi chú thêm về thông tin liên hệ (địa chỉ, khu vực…)"
               value={contactNote}
               onChange={(e) => setContactNote(e.target.value)}
               className={field}
@@ -2959,7 +2959,7 @@ function ProductForm({
               <div
                 className="grid grid-cols-3 gap-1.5"
                 role="group"
-                aria-label="Nhóm hàng"
+                aria-label="Thuộc nhóm hàng"
               >
                 {CATALOG_GROUPS.map((g) => (
                   <button
@@ -2980,7 +2980,7 @@ function ProductForm({
               <div className="grid gap-2.5 sm:grid-cols-2">
                 <input
                   inputMode="numeric"
-                  placeholder="Giá (VND) — VD: 250000"
+                  placeholder="Mức giá (VND) — VD: 250000"
                   value={priceVnd}
                   onChange={(e) =>
                     setPriceVnd(e.target.value.replace(/\D/g, "").slice(0, 12))
@@ -2988,7 +2988,7 @@ function ProductForm({
                   className={field}
                 />
                 <input
-                  placeholder="Đơn vị (kg, lít, thùng, cái…)"
+                  placeholder="Đơn vị tính (kg, lít, thùng, cái…)"
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
                   className={field}
@@ -3015,33 +3015,33 @@ function ProductForm({
               </span>
             </span>
             <span className="shrink-0 text-[0.8125rem] font-bold text-sea">
-              {showDetail ? "Thu gọn" : "Mở"}
+              {showDetail ? "Thu gọn" : "Mở rộng"}
             </span>
           </button>
 
           {showDetail && (
             <div className="mt-3 space-y-2.5">
               <input
-                placeholder="Mã / phiên bản (VD: SF50 bản cơ, SF300B bản điện)"
+                placeholder="Mã sản phẩm / phiên bản (VD: SF50 bản cơ, SF300B bản điện)"
                 value={dModels}
                 onChange={(e) => setDModels(e.target.value)}
                 className={field}
               />
               <input
-                placeholder="Phân loại / nhà sản xuất (VD: Sản phẩm SDVICO)"
+                placeholder="Phân loại / hãng sản xuất (VD: Sản phẩm SDVICO)"
                 value={dMaker}
                 onChange={(e) => setDMaker(e.target.value)}
                 className={field}
               />
               <textarea
-                placeholder="Dành cho ai — đối tượng dùng"
+                placeholder="Phù hợp đối tượng nào"
                 value={dForWho}
                 onChange={(e) => setDForWho(e.target.value)}
                 rows={2}
                 className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
               />
               <textarea
-                placeholder={"Lợi ích chính — mỗi dòng một ý"}
+                placeholder={"Lợi ích mang lại — mỗi dòng một ý"}
                 value={dBenefits}
                 onChange={(e) => setDBenefits(e.target.value)}
                 rows={3}
@@ -3049,7 +3049,7 @@ function ProductForm({
               />
               <div>
                 <textarea
-                  placeholder={"Thông số — mỗi dòng: Nhãn | Giá trị\nVD: Độ lọc | 1–10 micron"}
+                  placeholder={"Thông số kỹ thuật — định dạng: Tên thông số | Giá trị\nVD: Độ lọc | 1–10 micron"}
                   value={dSpecs}
                   onChange={(e) => setDSpecs(e.target.value)}
                   rows={4}
@@ -3060,7 +3060,7 @@ function ProductForm({
                 </p>
               </div>
               <textarea
-                placeholder="Biến thể (VD: khác nhau giữa bản cơ và bản điện) — tuỳ chọn"
+                placeholder="Phiên bản khác nhau (VD: bản cơ và bản điện khác nhau ra sao) — tuỳ chọn"
                 value={dVariant}
                 onChange={(e) => setDVariant(e.target.value)}
                 rows={2}
@@ -3083,7 +3083,7 @@ function ProductForm({
             disabled={busy}
             className="min-h-[2.75rem] rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50"
           >
-            {busy ? "Đang lưu…" : "Lưu"}
+            {busy ? "Đang lưu trữ…" : "Lưu thông tin"}
           </button>
         </div>
         {msg && (
@@ -3114,9 +3114,9 @@ const ORDER_BADGE: Record<OrderStatus, string> = {
 
 /** Các bước chuyển tiến (không tính Huỷ) kèm nhãn nút cho từng đích. */
 const ORDER_STEP_ACTIONS: { to: OrderStatus; label: string }[] = [
-  { to: "da_nhan", label: "Nhận đơn" },
-  { to: "dang_giao", label: "Bắt đầu giao" },
-  { to: "da_giao", label: "Đã giao xong" },
+  { to: "da_nhan", label: "Xác nhận nhận đơn" },
+  { to: "dang_giao", label: "Đang trên đường giao" },
+  { to: "da_giao", label: "Đã giao thành công" },
 ];
 
 /** Mã ngắn dễ đọc cho NCC (6 ký tự cuối id, viết hoa). */
@@ -3147,8 +3147,8 @@ function OrdersTab({ perms }: { perms: TabPerms }) {
       .catch((e: Error) =>
         setError(
           e.message === "not_configured"
-            ? "Chưa cấu hình Supabase/service-role — đơn hàng cần DB thật."
-            : "Chưa tải được đơn hàng — thử lại.",
+            ? "Chưa kết nối được cơ sở dữ liệu (Supabase). Tính năng này không chạy ở chế độ dùng thử."
+            : "Chưa tải được danh sách đơn hàng. Vui lòng thử lại.",
         ),
       );
   }, [status]);
@@ -3169,8 +3169,8 @@ function OrdersTab({ perms }: { perms: TabPerms }) {
     if (!r?.ok || !j?.ok) {
       setError(
         j?.code === "bad_transition"
-          ? "Bước chuyển không hợp lệ — tải lại để xem trạng thái mới nhất."
-          : "Đổi trạng thái chưa được — thử lại.",
+          ? "Thao tác chuyển trạng thái không đúng luồng. Vui lòng tải lại trang để xem trạng thái mới nhất."
+          : "Đổi trạng thái không thành công. Vui lòng thử lại.",
       );
       return;
     }
@@ -3187,7 +3187,7 @@ function OrdersTab({ perms }: { perms: TabPerms }) {
     const j = (await r?.json().catch(() => null)) as { ok?: boolean } | null;
     setBusyId(null);
     if (!r?.ok || !j?.ok) {
-      setError("Lưu ghi chú chưa được — thử lại.");
+      setError("Lưu ghi chú không thành công. Vui lòng thử lại.");
       return;
     }
     load();
@@ -3210,17 +3210,17 @@ function OrdersTab({ perms }: { perms: TabPerms }) {
   return (
     <div className="mt-4 space-y-4">
       <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
-        Đơn đặt hàng bà con gửi từ <b>Cửa hàng</b> trong app. Nhận đơn → chuẩn bị
-        → giao. Mỗi lần đổi trạng thái, app sẽ <b>tự báo cho chủ tàu</b>. Giá và
+        Đơn đặt hàng bà con gửi từ <b>Quản lý Cửa hàng</b> trong app. Nhận đơn → chuẩn bị
+        → giao. Mỗi lần đổi trạng thái, app sẽ <b>ứng dụng tự động báo cho chủ tàu</b>. Giá và
         dòng hàng đã chốt lúc đặt, không đổi ở đây.
       </p>
 
       <div className="flex flex-wrap gap-1.5">
         {chip("all", "Tất cả")}
-        {chip("moi", "Mới")}
-        {chip("da_nhan", "Đã nhận")}
-        {chip("dang_giao", "Đang giao")}
-        {chip("da_giao", "Đã giao")}
+        {chip("moi", "Đơn mới")}
+        {chip("da_nhan", "Đã tiếp nhận")}
+        {chip("dang_giao", "Đang giao hàng")}
+        {chip("da_giao", "Giao thành công")}
         {chip("da_huy", "Đã huỷ")}
       </div>
 
@@ -3265,10 +3265,10 @@ function OrdersTab({ perms }: { perms: TabPerms }) {
 
       {toCancel && (
         <ConfirmDialog
-          title={`Huỷ đơn ${shortCode(toCancel.id)}?`}
-          message="Đơn sẽ chuyển sang Đã huỷ và app báo cho chủ tàu. Không quay lại được."
-          confirmLabel="Huỷ đơn"
-          cancelLabel="Không"
+          title={`Xác nhận huỷ đơn hàng ${shortCode(toCancel.id)}?`}
+          message={`Đơn hàng sẽ chuyển sang trạng thái "Đã huỷ" và ứng dụng sẽ thông báo cho chủ tàu. Thao tác này không thể đảo ngược.`}
+          confirmLabel="Xác nhận huỷ đơn"
+          cancelLabel="Hủy thao tác"
           danger
           onCancel={() => setToCancel(null)}
           onConfirm={() => {
@@ -3328,7 +3328,7 @@ function OrderCard({
 
       <p className="px-4 pt-1 text-[0.8125rem] text-foreground/55">
         đặt {formatVnDate(order.createdAt.slice(0, 10))}
-        {order.deliveryLocation ? ` · giao tại ${order.deliveryLocation}` : ""}
+        {order.deliveryLocation ? ` · giao hàng tại ${order.deliveryLocation}` : ""}
       </p>
 
       <ul className="mt-2 border-t border-line">
@@ -3350,7 +3350,7 @@ function OrderCard({
         ))}
       </ul>
       <div className="flex items-baseline justify-between gap-3 border-t border-line px-4 py-2">
-        <span className="text-[0.875rem] font-bold text-foreground/70">Tổng</span>
+        <span className="text-[0.875rem] font-bold text-foreground/70">Tổng giá trị</span>
         <span className="text-[1.0625rem] font-bold tabular-nums text-navy">
           {formatVnd(order.totalVnd)}
         </span>
@@ -3358,7 +3358,7 @@ function OrderCard({
 
       {order.note && (
         <p className="border-t border-line px-4 py-2 text-[0.875rem] leading-snug text-foreground/80">
-          <span className="font-semibold text-foreground/60">Ghi chú chủ tàu: </span>
+          <span className="font-semibold text-foreground/60">Ghi chú từ chủ tàu: </span>
           {order.note}
         </p>
       )}
@@ -3373,7 +3373,7 @@ function OrderCard({
       {perms.edit ? (
         <div className="border-t border-line px-4 py-2.5">
           <textarea
-            placeholder="Ghi chú NCC (nội bộ / gửi kèm) — tuỳ chọn"
+            placeholder="Ghi chú dành cho Nhà cung cấp (thông tin nội bộ) — tuỳ chọn"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
@@ -3416,7 +3416,7 @@ function OrderCard({
       ) : (
         order.dealerNote && (
           <p className="border-t border-line px-4 py-2 text-[0.875rem] leading-snug text-foreground/80">
-            <span className="font-semibold text-foreground/60">Ghi chú NCC: </span>
+            <span className="font-semibold text-foreground/60">Ghi chú của Nhà cung cấp: </span>
             {order.dealerNote}
           </p>
         )
@@ -3433,7 +3433,7 @@ function OrderCard({
 type InquiryStatus = "moi" | "da_lien_he" | "xong";
 
 const INQUIRY_STATUS_BADGE: Record<InquiryStatus, { label: string; cls: string }> = {
-  moi: { label: "Mới", cls: "bg-warn-bg text-warn" },
+  moi: { label: "Yêu cầu mới", cls: "bg-warn-bg text-warn" },
   da_lien_he: { label: "Đã liên hệ", cls: "bg-sea/15 text-sea" },
   xong: { label: "Xong", cls: "bg-ok-bg text-ok" },
 };
@@ -3479,16 +3479,16 @@ const VmsZonesMapDyn = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex h-full w-full items-center justify-center bg-field">
-        <p className="text-[1rem] font-semibold text-t1">Đang mở bản đồ…</p>
+        <p className="text-[1rem] font-semibold text-t1">Đang tải bản đồ…</p>
       </div>
     ),
   },
 );
 
 const STYLE_LABEL: Record<VmsZoneStyle, string> = {
-  fill: "Tô nền",
-  line: "Viền liền",
-  "line-dashed": "Viền nét đứt",
+  fill: "Vùng tô nền",
+  line: "Đường viền liền",
+  "line-dashed": "Đường viền nét đứt",
 };
 
 function VmsZonesTab() {
@@ -3526,8 +3526,8 @@ function VmsZonesTab() {
       .catch((e: Error) =>
         setError(
           e.message === "not_configured"
-            ? "Chưa cấu hình Supabase/service-role — vùng biển cần DB thật. Chạy migration 0013_vms_zones trước."
-            : "Chưa tải được danh sách vùng — thử lại.",
+            ? "Chưa kết nối được cơ sở dữ liệu (Supabase). Tính năng này yêu cầu chạy migration 0013_vms_zones trước."
+            : "Chưa tải được danh sách vùng biển. Vui lòng thử lại.",
         ),
       );
   }, []);
@@ -3546,7 +3546,7 @@ function VmsZonesTab() {
         if (!j.ok) throw new Error();
         load();
       } catch {
-        setError("Không lưu được thay đổi — thử lại.");
+        setError("Không lưu được thay đổi. Vui lòng thử lại.");
       } finally {
         setBusyId(null);
       }
@@ -3566,7 +3566,7 @@ function VmsZonesTab() {
         if (!j.ok) throw new Error();
         load();
       } catch {
-        setError("Không xóa được — thử lại.");
+        setError("Xóa không thành công. Vui lòng thử lại.");
       } finally {
         setBusyId(null);
       }
@@ -3583,7 +3583,7 @@ function VmsZonesTab() {
       const text = await file.text();
       const fc = parseUploadedGeoJSON(text);
       setGeojson(fc);
-      setFileName(`${file.name} · ${countPoints(fc).toLocaleString("vi-VN")} điểm`);
+      setFileName(`${file.name} · có ${countPoints(fc).toLocaleString("vi-VN")} điểm toạ độ`);
       if (!name.trim()) setName(file.name.replace(/\.(geo)?json$/i, ""));
     } catch (e) {
       setFileErr((e as Error).message);
@@ -3593,7 +3593,7 @@ function VmsZonesTab() {
   async function submit() {
     setFormMsg(null);
     if (!geojson) {
-      setFileErr("Chọn tệp GeoJSON trước.");
+      setFileErr("Vui lòng chọn tệp định dạng GeoJSON trước.");
       return;
     }
     const draft = { name, color, style, defaultOn, visible: true, isBorder, geojson };
@@ -3619,8 +3619,8 @@ function VmsZonesTab() {
     } catch (e) {
       setFormMsg(
         (e as Error).message === "too_big"
-          ? "Tệp quá nặng (>200.000 điểm) — cắt gọn nguồn trước khi tải."
-          : "Không thêm được vùng — thử lại.",
+          ? "Tệp dữ liệu quá lớn (>200.000 điểm toạ độ) — vui lòng giảm bớt chi tiết bản đồ trước khi tải lên."
+          : "Thêm vùng không thành công. Vui lòng thử lại.",
       );
     } finally {
       setSubmitting(false);
@@ -3662,7 +3662,7 @@ function VmsZonesTab() {
 
       {/* Thêm vùng bằng GeoJSON */}
       <div className="mt-4 rounded-2xl border border-line bg-field/40 p-4">
-        <p className="text-[1rem] font-bold text-navy">Thêm vùng (tải GeoJSON)</p>
+        <p className="text-[1rem] font-bold text-navy">Thêm vùng mới (từ tệp GeoJSON)</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="text-[0.8125rem] font-semibold text-foreground/70">
@@ -3690,7 +3690,7 @@ function VmsZonesTab() {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="vd Vùng cấm đánh bắt mùa sinh sản"
+              placeholder="vd: Vùng cấm đánh bắt mùa sinh sản"
               className="mt-1 block w-full rounded-lg border border-line bg-card px-3 py-2 text-[0.9375rem]"
             />
           </label>
@@ -3748,10 +3748,10 @@ function VmsZonesTab() {
             className="mt-0.5 h-5 w-5"
           />
           <span>
-            Vùng này là <b>ranh giới</b> dùng để cảnh báo
+            Vùng này là <b>đường ranh giới</b> dùng để cảnh báo
             <span className="mt-0.5 block text-[0.8125rem] leading-snug text-foreground/60">
               App sẽ đo &quot;cách ranh giới bao xa&quot; theo hình này. Nên nạp
-              dạng <b>vùng kín</b> — chỉ là đường thì app đo được khoảng cách
+              dạng <b>khu vực đóng</b> — chỉ là đường thì app đo được khoảng cách
               nhưng không biết trong hay ngoài, sẽ không báo &quot;đã ra
               ngoài&quot;. Không đánh dấu vùng nào thì app giữ ranh giới sẵn có.
             </span>
@@ -3766,14 +3766,14 @@ function VmsZonesTab() {
           onClick={submit}
           className="mt-3 rounded-xl bg-sea px-5 py-2.5 text-[1rem] font-bold text-white disabled:opacity-50"
         >
-          {submitting ? "Đang lưu…" : "Thêm vùng"}
+          {submitting ? "Đang lưu trữ…" : "Thêm vùng"}
         </button>
       </div>
 
       {/* Danh sách vùng */}
       <div className="mt-4 space-y-2">
         {zones === null && !error && (
-          <p className="text-[0.9375rem] text-foreground/60">Đang tải…</p>
+          <p className="text-[0.9375rem] text-foreground/60">Đang xử lý tải lên…</p>
         )}
         {zones?.length === 0 && (
           <p className="rounded-xl bg-field px-3 py-3 text-[0.9375rem] text-foreground/60">
@@ -3813,7 +3813,7 @@ function VmsZonesTab() {
                   z.defaultOn ? "bg-ok-bg text-ok" : "bg-field text-foreground/60"
                 }`}
               >
-                {z.defaultOn ? "✓ Bật sẵn trên app" : "Tắt sẵn trên app"}
+                {z.defaultOn ? "✓ Bật mặc định trên ứng dụng" : "Tắt mặc định trên ứng dụng"}
               </button>
               <button
                 type="button"
@@ -3823,7 +3823,7 @@ function VmsZonesTab() {
                   z.isBorder ? "bg-danger-bg text-danger" : "bg-field text-foreground/60"
                 }`}
               >
-                {z.isBorder ? "✓ Là ranh giới cảnh báo" : "Không phải ranh giới"}
+                {z.isBorder ? "✓ Đặt làm ranh giới cảnh báo" : "Không sử dụng làm ranh giới"}
               </button>
               <button
                 type="button"
@@ -3833,7 +3833,7 @@ function VmsZonesTab() {
                   z.visible ? "bg-field text-foreground/70" : "bg-warn-bg text-warn"
                 }`}
               >
-                {z.visible ? "Đang hiện — ẩn đi" : "Đang ẩn — hiện lại"}
+                {z.visible ? "Đang hiển thị — chọn ẩn đi" : "Đang ẩn — chọn hiện lại"}
               </button>
               <button
                 type="button"
@@ -3850,9 +3850,9 @@ function VmsZonesTab() {
 
       {toDelete && (
         <ConfirmDialog
-          title="Xóa vùng này?"
-          message={`"${toDelete.name}" sẽ bị xóa khỏi bản đồ của app ngư dân.`}
-          confirmLabel="Xóa luôn"
+          title="Xác nhận xóa vùng biển này?"
+          message={`Vùng "${toDelete.name}" sẽ bị xóa khỏi bản đồ ứng dụng của ngư dân.`}
+          confirmLabel="Xác nhận xóa"
           onCancel={() => setToDelete(null)}
           onConfirm={() => {
             remove(toDelete.id);
@@ -3908,8 +3908,8 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
       .catch((e: Error) =>
         setError(
           e.message === "not_configured"
-            ? "Chưa cấu hình Supabase/service-role — danh bạ cần DB thật. Chạy migration 0014_sell_contacts trước."
-            : "Chưa tải được danh bạ — thử lại.",
+            ? "Chưa kết nối được cơ sở dữ liệu (Supabase). Tính năng này yêu cầu chạy migration 0014_sell_contacts trước."
+            : "Chưa tải được danh bạ. Vui lòng thử lại.",
         ),
       );
   }, []);
@@ -3927,7 +3927,7 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
         if (!((await r.json()) as { ok: boolean }).ok) throw new Error();
         load();
       } catch {
-        setError("Không lưu được thay đổi — thử lại.");
+        setError("Không lưu được thay đổi. Vui lòng thử lại.");
       } finally {
         setBusyId(null);
       }
@@ -3946,7 +3946,7 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
         if (!((await r.json()) as { ok: boolean }).ok) throw new Error();
         load();
       } catch {
-        setError("Không xóa được — thử lại.");
+        setError("Xóa không thành công. Vui lòng thử lại.");
       } finally {
         setBusyId(null);
       }
@@ -3967,8 +3967,8 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
       if (!j.ok) {
         setError(
           j.code === "not_empty"
-            ? "Danh bạ đã có dữ liệu — không nạp đè."
-            : "Không nạp được danh bạ mặc định.",
+            ? "Danh bạ đã có sẵn dữ liệu — hệ thống không hỗ trợ tải đè."
+            : "Tải danh bạ mặc định không thành công.",
         );
       } else load();
     } finally {
@@ -4007,7 +4007,7 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
               kindFilter === k ? "bg-navy text-white" : "bg-field text-foreground/70"
             }`}
           >
-            {k === "all" ? "Tất cả" : SELL_KIND_LABEL[k]}
+            {k === "all" ? "Tất cả các loại" : SELL_KIND_LABEL[k]}
           </button>
         ))}
         {perms.create && (
@@ -4026,7 +4026,7 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
                 onClick={seedDefaults}
                 className="rounded-xl bg-field px-4 py-2 text-[0.9375rem] font-bold text-navy disabled:opacity-50"
               >
-                {seeding ? "Đang nạp…" : "Nạp danh bạ mặc định"}
+                {seeding ? "Đang xử lý nạp dữ liệu…" : "Nạp danh bạ mặc định"}
               </button>
             )}
           </div>
@@ -4034,7 +4034,7 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
       </div>
 
       {contacts === null && !error && (
-        <p className="mt-4 text-[0.9375rem] text-foreground/60">Đang tải…</p>
+        <p className="mt-4 text-[0.9375rem] text-foreground/60">Đang tải thông tin…</p>
       )}
       {contacts?.length === 0 && (
         <p className="mt-4 rounded-xl bg-field px-3 py-3 text-[0.9375rem] text-foreground/60">
@@ -4085,7 +4085,7 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
                       c.visible ? "bg-field text-foreground/70" : "bg-warn-bg text-warn"
                     }`}
                   >
-                    {c.visible ? "Đang hiện — ẩn đi" : "Đang ẩn — hiện lại"}
+                    {c.visible ? "Đang hiển thị — chọn ẩn đi" : "Đang ẩn — chọn hiện lại"}
                   </button>
                 </>
               )}
@@ -4117,9 +4117,9 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
       )}
       {toDelete && (
         <ConfirmDialog
-          title="Xóa đầu mối này?"
-          message={`"${toDelete.name}" sẽ bị xóa khỏi danh bạ của app ngư dân.`}
-          confirmLabel="Xóa luôn"
+          title="Xóa đầu mối này khỏi danh bạ?"
+          message={`Đối tác "${toDelete.name}" sẽ bị xóa khỏi danh bạ trên ứng dụng của ngư dân.`}
+          confirmLabel="Xác nhận xóa"
           onCancel={() => setToDelete(null)}
           onConfirm={() => {
             remove(toDelete.id);
@@ -4188,7 +4188,7 @@ function SellContactForm({
       if (!((await r.json()) as { ok: boolean }).ok) throw new Error();
       onSaved();
     } catch {
-      onError("Không lưu được đầu mối — thử lại.");
+      onError("Lưu thông tin đầu mối không thành công. Vui lòng thử lại.");
       onClose();
     } finally {
       setBusy(false);
@@ -4205,7 +4205,7 @@ function SellContactForm({
         className="max-h-[85vh] w-full max-w-[440px] overflow-y-auto rounded-2xl bg-card p-5"
       >
         <p className="display text-[1.25rem] font-bold text-navy">
-          {initial ? "Sửa đầu mối" : "Thêm đầu mối"}
+          {initial ? "Sửa thông tin đầu mối" : "Thêm đầu mối mới"}
         </p>
         <div className="mt-3 space-y-3">
           <div>
@@ -4227,15 +4227,15 @@ function SellContactForm({
               ))}
             </div>
           </div>
-          <SellField label="Tên (bắt buộc)" value={name} onChange={setName} />
-          <SellField label="Tỉnh" value={province} onChange={setProvince} />
-          <SellField label="Địa chỉ" value={address} onChange={setAddress} />
-          <SellField label="Số điện thoại" value={phone} onChange={setPhone} />
+          <SellField label="Tên đầu mối (bắt buộc)" value={name} onChange={setName} />
+          <SellField label="Tỉnh / Thành phố" value={province} onChange={setProvince} />
+          <SellField label="Địa chỉ chi tiết" value={address} onChange={setAddress} />
+          <SellField label="Số điện thoại liên hệ" value={phone} onChange={setPhone} />
           {kind === "cho" && (
-            <SellField label="Giờ họp" value={hours} onChange={setHours} />
+            <SellField label="Thời gian họp chợ / giao dịch" value={hours} onChange={setHours} />
           )}
           <SellField
-            label="Loài (cách nhau dấu phẩy)"
+            label="Các loài hay thu mua (ngăn cách bằng dấu phẩy)"
             value={species}
             onChange={setSpecies}
           />
@@ -4264,7 +4264,7 @@ function SellContactForm({
             onClick={submit}
             className="min-h-[3rem] rounded-xl bg-sea text-[1rem] font-bold text-white disabled:opacity-50"
           >
-            {busy ? "Đang lưu…" : "Lưu lại"}
+            {busy ? "Đang lưu thông tin…" : "Lưu thông tin"}
           </button>
         </div>
       </div>
@@ -4320,8 +4320,8 @@ function InquiriesTab() {
       .catch((e: Error) =>
         setError(
           e.message === "not_configured"
-            ? "Chưa cấu hình Supabase/service-role — yêu cầu cần DB thật."
-            : "Chưa tải được danh sách — thử lại.",
+            ? "Chưa kết nối được cơ sở dữ liệu (Supabase). Tính năng này không chạy ở chế độ dùng thử."
+            : "Chưa tải được danh sách yêu cầu. Vui lòng thử lại.",
         ),
       );
   }, [status]);
@@ -4336,7 +4336,7 @@ function InquiriesTab() {
     }).catch(() => null);
     setBusyId(null);
     if (!r?.ok) {
-      setError("Đổi trạng thái chưa được — thử lại.");
+      setError("Cập nhật trạng thái không thành công. Vui lòng thử lại.");
       return;
     }
     load();
@@ -4350,7 +4350,7 @@ function InquiriesTab() {
     ).catch(() => null);
     setBusyId(null);
     if (!r?.ok) {
-      setError("Xóa chưa được — thử lại.");
+      setError("Xóa không thành công. Vui lòng thử lại.");
       return;
     }
     load();
@@ -4374,15 +4374,15 @@ function InquiriesTab() {
     <div className="mt-4 space-y-4">
       <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
         Yêu cầu &ldquo;Để lại yêu cầu&rdquo; bà con gửi từ danh mục sản phẩm — chủ yếu sản
-        phẩm của <b>đơn vị ngoài SDWork</b> (hàng SDVICO vẫn đi qua hộp tư vấn
+        phẩm của <b>đơn vị đối tác ngoài SDWork</b> (hàng SDVICO vẫn đi qua hộp tư vấn
         CRM như cũ, không hiện ở đây).
       </p>
 
       <div className="flex flex-wrap gap-1.5">
-        {chip("moi", "Mới")}
-        {chip("da_lien_he", "Đã liên hệ")}
+        {chip("moi", "Yêu cầu mới")}
+        {chip("da_lien_he", "Đã liên hệ xử lý")}
         {chip("xong", "Xong")}
-        {chip("all", "Tất cả")}
+        {chip("all", "Tất cả yêu cầu")}
       </div>
 
       {error && (
@@ -4417,7 +4417,7 @@ function InquiriesTab() {
                 <div className="flex items-start justify-between gap-3 px-4 pt-3">
                   <div className="min-w-0">
                     <p className="text-[1rem] font-bold text-navy">
-                      {row.listingTitle ?? "Sản phẩm không rõ"}
+                      {row.listingTitle ?? "Sản phẩm không xác định"}
                     </p>
                     <p className="mt-0.5 text-[0.8125rem] tabular-nums text-foreground/70">
                       SĐT {row.customerPhone}
@@ -4438,7 +4438,7 @@ function InquiriesTab() {
                 <p className="px-4 pt-2 text-[0.8125rem] text-foreground/55">
                   gửi {fmtDT(row.createdAt)}
                   {row.handledBy &&
-                    ` · xử lý bởi ${row.handledBy} ${fmtDT(row.handledAt)}`}
+                    ` · người xử lý: ${row.handledBy} lúc ${fmtDT(row.handledAt)}`}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5 border-t border-line px-4 py-2.5">
                   {row.status !== "da_lien_he" && (
@@ -4478,10 +4478,10 @@ function InquiriesTab() {
 
       {toDelete && (
         <ConfirmDialog
-          title="Xóa yêu cầu này?"
-          message="Xóa hẳn khỏi danh sách. Không hoàn tác được."
-          confirmLabel="Xóa luôn"
-          cancelLabel="Không"
+          title="Xác nhận xóa yêu cầu này?"
+          message="Yêu cầu sẽ bị xóa vĩnh viễn khỏi danh sách. Thao tác này không thể khôi phục."
+          confirmLabel="Xác nhận xóa"
+          cancelLabel="Hủy thao tác"
           danger
           onCancel={() => setToDelete(null)}
           onConfirm={() => {
@@ -4550,8 +4550,8 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
       .catch((e: Error) =>
         setError(
           e.message === "not_configured"
-            ? "Chưa cấu hình Supabase/service-role."
-            : "Chưa tải được thống kê — thử lại.",
+            ? "Máy chủ chưa được cấu hình (thiếu service-role của Supabase)."
+            : "Chưa tải được thống kê. Vui lòng thử lại.",
         ),
       );
   }, []);
@@ -4583,12 +4583,12 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
     if (!r?.ok || !j?.ok) {
       setResult(
         j?.code === "vapid_not_configured"
-          ? "Máy chủ chưa cấu hình VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY/VAPID_SUBJECT."
+          ? "Cấu hình hệ thống chưa có khoá kết nối thông báo (VAPID)."
           : j?.code === "missing_content"
-            ? "Nhập đủ tiêu đề + nội dung."
+            ? "Vui lòng nhập đầy đủ tiêu đề và nội dung thông báo."
             : j?.code === "missing_phone"
-              ? "Nhập SĐT khi gửi theo từng người."
-              : "Gửi chưa được — thử lại.",
+              ? "Cần nhập số điện thoại khách hàng khi gửi thông báo cá nhân."
+              : "Gửi thông báo không thành công. Vui lòng thử lại.",
       );
       return;
     }
@@ -4597,13 +4597,13 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
     if (!j.found) {
       setResult(
         target === "phone"
-          ? "KHÔNG có máy nào gắn tài khoản này — chưa ai nhận được. Bà con phải mở app, đăng nhập rồi bật Thông báo thì mới nhận được tin nhắm riêng."
-          : "KHÔNG có máy nào đăng ký nhận thông báo — chưa ai nhận được.",
+          ? "Chưa có thiết bị nào liên kết với tài khoản này. Khách hàng cần mở app, đăng nhập và bật quyền Thông báo thì mới nhận được tin."
+          : "Hiện chưa có thiết bị nào đăng ký nhận thông báo trên hệ thống.",
       );
       return;
     }
     setResult(
-      `Đã gửi ${j.sent}/${j.found} máy${j.failed ? ` · lỗi ${j.failed}` : ""}${j.cleaned ? ` · dọn ${j.cleaned} đăng ký chết` : ""}.`,
+      `Đã gửi tới ${j.sent}/${j.found} thiết bị${j.failed ? ` · lỗi ${j.failed}` : ""}${j.cleaned ? ` · dọn ${j.cleaned} đăng ký chết` : ""}.`,
     );
     setTitle("");
     setBody("");
@@ -4643,9 +4643,9 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
             [
               // "Có SĐT / Ẩn danh" nói sai bản chất: cột đó là CON TRỎ TỚI
               // TÀI KHOẢN, không phải số liên lạc (2026-08-01).
-              ["Máy đã đăng ký", stats.total],
-              ["Đã gắn tài khoản", stats.named],
-              ["Chưa gắn tài khoản", stats.anonymous],
+              ["Số máy đã đăng ký", stats.total],
+              ["Số máy đã đăng nhập", stats.named],
+              ["Số máy chưa đăng nhập", stats.anonymous],
             ] as [string, number][]
           ).map(([label, v]) => (
             <div key={label} className="surface px-3 py-3 text-center">
@@ -4673,12 +4673,12 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
         <div
           className="grid grid-cols-2 gap-1.5"
           role="group"
-          aria-label="Gửi cho ai"
+          aria-label="Đối tượng nhận thông báo"
         >
           {(
             [
-              ["all", "Toàn bộ"],
-              ["phone", "Một tài khoản"],
+              ["all", "Toàn bộ khách hàng"],
+              ["phone", "Một tài khoản cụ thể"],
             ] as ["all" | "phone", string][]
           ).map(([id, label]) => (
             <button
@@ -4714,10 +4714,10 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
                 <select
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  aria-label="Chọn tài khoản nhận thông báo"
+                  aria-label="Chọn tài khoản sẽ nhận thông báo"
                   className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
                 >
-                  <option value="">— Chọn tài khoản nhận —</option>
+                  <option value="">— Chọn tài khoản người nhận —</option>
                   {stats?.accounts.map((a) => (
                     <option key={a.phone} value={a.phone}>
                       {a.phone}
@@ -4737,20 +4737,20 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
           </div>
         )}
         <input
-          placeholder="Tiêu đề"
+          placeholder="Tiêu đề thông báo"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
         <textarea
-          placeholder="Nội dung"
+          placeholder="Nội dung chi tiết"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={2}
           className="min-h-[3.5rem] w-full rounded-xl border-0 bg-field px-3 py-2 text-[0.875rem] focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         />
         <input
-          placeholder="Mở trang nào khi bấm vào (tuỳ chọn, VD /tien)"
+          placeholder="Trang sẽ mở khi khách bấm vào thông báo (tuỳ chọn, ví dụ: /tien)"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
@@ -4761,7 +4761,7 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
           onClick={() => setConfirmSend(true)}
           className="min-h-[2.75rem] w-full rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50"
         >
-          {busy ? "Đang gửi…" : "Gửi thông báo"}
+          {busy ? "Đang gửi thông báo…" : "Gửi thông báo"}
         </button>
         {result && (
           <p className="text-[0.875rem] font-semibold text-foreground/75">
@@ -4795,7 +4795,7 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
                 <span className="text-foreground/55">
                   {m.target === "account"
                     ? `→ ${m.targetPhone ?? "?"}`
-                    : "→ toàn bộ"}
+                    : "→ toàn bộ danh sách"}
                 </span>
                 <span className="text-foreground/45">{fmtDT(m.createdAt)}</span>
                 <span className="ml-auto tabular-nums">
@@ -4810,14 +4810,14 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
             ))}
           </ul>
           <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/55">
-            <b>Đẩy</b> = máy chủ giao được cho Apple/Google. <b>Nhận</b> = máy bà
-            con báo về đã nhận thật (đếm theo <b>máy</b>). <b>Đọc</b> = đếm theo{" "}
-            <b>người</b>: bấm vào thông báo, hoặc mở app xem tin ở mục Thông báo
+            <b>Đã gửi đi</b> = máy chủ đã chuyển tới Apple/Google. <b>Thiết bị nhận</b> = máy bà
+            con báo về đã nhận thật (đếm theo <b>máy</b>). <b>Đã đọc</b> = đếm theo{" "}
+            <b>người dùng</b>: bấm vào thông báo, hoặc mở app xem tin ở mục Thông báo
             trang chủ — một người hai máy vẫn tính một. Tin luôn nằm trong mục
             Thông báo ở trang chủ, nên đẩy hụt thì mở app vẫn đọc được.
           </p>
           <p className="mt-1 text-[0.8125rem] leading-snug text-foreground/45">
-            Đọc thấp hơn Nhận là <b>bình thường</b>: bà con hay liếc thông báo
+            Đọc thấp hơn Nhận là <b>trạng thái bình thường</b>: bà con hay liếc thông báo
             trên màn khoá rồi vuốt tắt — đường đó không máy nào đo được.
           </p>
         </div>
@@ -4827,12 +4827,12 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
         <ConfirmDialog
           title={
             target === "all"
-              ? "Gửi cho TOÀN BỘ người đã bật thông báo?"
-              : `Gửi cho SĐT ${phone.trim()}?`
+              ? "Bạn xác nhận gửi thông báo này cho toàn bộ khách hàng đã bật nhận thông báo?"
+              : `Xác nhận gửi thông báo cho thuê bao ${phone.trim()}?`
           }
           message={`"${title.trim()}" — ${body.trim()}`}
           confirmLabel="Gửi ngay"
-          cancelLabel="Không"
+          cancelLabel="Hủy thao tác"
           danger={target === "all"}
           onCancel={() => setConfirmSend(false)}
           onConfirm={() => {
@@ -4949,25 +4949,25 @@ function CronsPanel() {
     noteWhenNeutral?: string,
   ): { state: "ok" | "down" | "loading" | "neutral"; note: string } => {
     const t = d[key];
-    if (!report) return { state: "loading", note: "đang kiểm tra…" };
-    if (!t) return { state: "down", note: "không có dữ liệu trả về" };
-    if (!t.ok) return { state: "down", note: `lỗi truy vấn: ${t.error}` };
+    if (!report) return { state: "loading", note: "đang rà soát dữ liệu…" };
+    if (!t) return { state: "down", note: "hệ thống không trả về kết quả" };
+    if (!t.ok) return { state: "down", note: `lỗi trong quá trình truy xuất: ${t.error}` };
     const base = t.latest
-      ? `bản ${fmtD(t.latest)} · ${t.rows} dòng`
-      : "chưa có bản nào";
+      ? `bản cập nhật ${fmtD(t.latest)} · tổng ${t.rows} bản ghi`
+      : "chưa ghi nhận bản lưu nào";
     if (t.fresh === null)
       return { state: "neutral", note: `${base}${noteWhenNeutral ? ` — ${noteWhenNeutral}` : ""}` };
     return t.fresh
-      ? { state: "ok", note: `${base} — đúng nhịp ngày` }
+      ? { state: "ok", note: `${base} — đúng tiến độ cập nhật` }
       : {
           state: "down",
-          note: `${base} — TRỄ (không có bản hôm nay/hôm qua): collector ngoài repo có thể đã đứng`,
+          note: `${base} — TRỄ (không có dữ liệu mới): Trình thu thập dữ liệu có thể đang bị treo.`,
         };
   };
 
   const seaR = dailyRow("sea_daily", "");
   const fdR = dailyRow("fish_forecast_daily", "");
-  const stR = dailyRow("storm_events", "", "chỉ ghi khi có bão/ATNĐ — không tính trễ");
+  const stR = dailyRow("storm_events", "", "chỉ cập nhật khi có tin bão/ATNĐ — không xét tiến độ");
 
   return (
     <div className="surface overflow-hidden">
@@ -4979,18 +4979,18 @@ function CronsPanel() {
           state={
             !report ? "loading" : !f || !f.ok ? "down" : !f.exists ? "down" : f.fresh ? "ok" : "down"
           }
-          label="Snapshot dự báo cá — cron refresh-fish (Vercel 02:00 UTC/ngày + GitHub Actions 6h/lần)"
+          label="Bản lưu dự báo cá (Snapshots) — tiến trình tự động refresh-fish (Vercel chạy lúc 02:00 UTC/ngày + GitHub Actions 6h/lần)"
           note={
             !report
-              ? "đang kiểm tra…"
+              ? "đang rà soát…"
               : !f || !f.ok
-                ? `lỗi truy vấn: ${!f ? "?" : (f as { error: string }).error}`
+                ? `lỗi trong quá trình truy xuất: ${!f ? "?" : (f as { error: string }).error}`
                 : !f.exists
-                  ? "CHƯA CÓ snapshot nào — cron chưa chạy lần nào (migration 0005 đã apply chưa?)"
+                  ? "CHƯA CÓ bản lưu nào — tiến trình tự động chưa từng chạy (cần kiểm tra tiến trình migration 0005)"
                   : `tính lúc ${fmtDT(f.generatedAt)} · ảnh vệ tinh ${fmtD(f.targetDate)} · chất lượng ${f.dataQuality != null ? Math.round(f.dataQuality * 100) + "%" : "—"}${
                       f.fresh
-                        ? " — đang tươi"
-                        : " — QUÁ 30 GIỜ: cron đứng, app đang tự tính live (chậm hơn); kiểm tra Vercel Cron + GitHub Actions"
+                        ? " — dữ liệu được cập nhật mới"
+                        : " — QUÁ 30 GIỜ: Trình tự động (cron) có thể đang bị treo, ứng dụng đang phải tự tính toán bù (sẽ chậm hơn). Cần kiểm tra lại cấu hình hệ thống."
                     }`
           }
         />
@@ -4998,36 +4998,36 @@ function CronsPanel() {
           state={
             !report ? "loading" : !w || !w.ok ? "down" : w.keys === 0 ? "down" : w.fresh ? "ok" : "down"
           }
-          label="Snapshot thời tiết — cron refresh-weather (Vercel 02:30 UTC/ngày, lưới an toàn khi Open-Meteo lỗi)"
+          label="Bản lưu thời tiết (Snapshots) — tiến trình tự động refresh-weather (chạy lúc 02:30 UTC/ngày để dự phòng trường hợp API Open-Meteo gặp sự cố)"
           note={
             !report
-              ? "đang kiểm tra…"
+              ? "đang rà soát…"
               : !w || !w.ok
-                ? `lỗi truy vấn: ${!w ? "?" : (w as { error: string }).error}`
+                ? `lỗi trong quá trình truy xuất: ${!w ? "?" : (w as { error: string }).error}`
                 : w.keys === 0
-                  ? "CHƯA CÓ khoá nào — cron chưa chạy lần nào"
+                  ? "CHƯA CÓ khóa xác thực nào — tiến trình tự động chưa từng chạy"
                   : `${w.keys} khoá (10 cảng + lưới) · mới nhất ${fmtDT(w.newest)}${
-                      w.fresh ? " — đang tươi" : " — QUÁ 30 GIỜ: cron đứng"
+                      w.fresh ? " — dữ liệu được cập nhật mới" : " — QUÁ 30 GIỜ: Trình tự động (cron) đang bị treo."
                     }${
                       w.staleKeys && w.staleKeys.length > 0 && w.fresh
-                        ? ` · ${w.staleKeys.length} khoá bị bỏ rơi: ${w.staleKeys.join(", ")}`
+                        ? ` · Có ${w.staleKeys.length} khóa xác thực cũ chưa được xóa: ${w.staleKeys.join(", ")}`
                         : ""
                     }`
           }
         />
         <CronRow
           state={seaR.state}
-          label="sea_daily — collector dự báo biển theo ngày (NGOÀI repo)"
+          label="sea_daily — trình lấy dữ liệu biển hàng ngày (đặt ngoài dự án chính)"
           note={seaR.note}
         />
         <CronRow
           state={fdR.state}
-          label="fish_forecast_daily — collector bản đồ cá theo ngày (NGOÀI repo)"
+          label="fish_forecast_daily — trình lấy bản đồ cá hàng ngày (đặt ngoài dự án chính)"
           note={fdR.note}
         />
         <CronRow
           state={stR.state}
-          label="storm_events — collector tin bão (NGOÀI repo)"
+          label="storm_events — trình thu thập cảnh báo bão (đặt ngoài dự án chính)"
           note={stR.note}
         />
       </ul>
@@ -5066,8 +5066,8 @@ function DataTab() {
             state: "down",
             note:
               typeof j.code === "string"
-                ? `lỗi: ${j.code}`
-                : `không trả dữ liệu (HTTP ${r.status})`,
+                ? `mã lỗi: ${j.code}`
+                : `API không trả dữ liệu (Mã HTTP ${r.status})`,
           });
           return;
         }
@@ -5085,7 +5085,7 @@ function DataTab() {
           );
         }
       } catch {
-        set({ state: "down", note: "không gọi được (timeout/mạng)" });
+        set({ state: "down", note: "không thể kết nối tới nguồn dữ liệu (lỗi timeout/mạng)" });
       }
     };
 
@@ -5094,24 +5094,24 @@ function DataTab() {
       "/api/fish-forecast",
       setFish,
       (j) =>
-        `ảnh ngày ${fmtD(String(j.targetDate ?? ""))} · tính lúc ${fmtDT(String(j.generatedAt ?? ""))}`,
+        `dữ liệu ngày ${fmtD(String(j.targetDate ?? ""))} · được tổng hợp lúc ${fmtDT(String(j.generatedAt ?? ""))}`,
       40000,
     );
     check("/api/storms", setStorms, (j) => {
       const n = Array.isArray(j.storms) ? j.storms.length : 0;
-      return `${n === 0 ? "không có bão" : `${n} cơn bão/ATNĐ`} · kiểm tra ${fmtDT(String(j.checkedAt ?? ""))}`;
+      return `${n === 0 ? "không có tin bão" : `${n} cơn bão/ATNĐ`} · kiểm tra gần nhất lúc ${fmtDT(String(j.checkedAt ?? ""))}`;
     });
-    check("/api/fuel-price", setFuel, () => "có giá dầu DO mới nhất");
+    check("/api/fuel-price", setFuel, () => "đã cập nhật giá dầu DO mới nhất");
     check("/api/port-prices", setPrices, (j) =>
-      `nguồn ${String(j.source ?? "?")}${j.province ? ` · ${String(j.province)}` : ""}`,
+      `nguồn tham khảo ${String(j.source ?? "?")}${j.province ? ` · ${String(j.province)}` : ""}`,
     );
   }, []);
 
   const rows: [string, string, SourceState][] = [
-    ["Dự báo cá (vệ tinh NOAA/Copernicus/HYCOM)", "/api/fish-forecast", fish],
-    ["Tin bão Biển Đông", "/api/storms", storms],
-    ["Giá dầu DO", "/api/fuel-price", fuel],
-    ["Giá thủy sản (VASEP)", "/api/port-prices", prices],
+    ["Dữ liệu dự báo cá (từ vệ tinh NOAA/Copernicus/HYCOM)", "/api/fish-forecast", fish],
+    ["Thông tin cảnh báo bão khu vực Biển Đông", "/api/storms", storms],
+    ["Bảng giá dầu DO", "/api/fuel-price", fuel],
+    ["Bảng giá thủy sản (theo VASEP)", "/api/port-prices", prices],
   ];
 
   return (
@@ -5139,7 +5139,7 @@ function DataTab() {
             <div className="min-w-0 flex-1">
               <p className="text-[0.9375rem] font-bold text-navy">{label}</p>
               <p className="text-[0.8125rem] text-foreground/65">
-                {s.state === "loading" ? "đang kiểm tra…" : s.note}
+                {s.state === "loading" ? "đang rà soát trạng thái…" : s.note}
                 <span className="text-foreground/40"> · {path}</span>
               </p>
             </div>
@@ -5259,8 +5259,8 @@ function AppConfigCard() {
       .catch((e: Error) =>
         setError(
           e.message === "admin_only"
-            ? "Chỉ admin xem/sửa được cấu hình."
-            : "Chưa tải được cấu hình — thử lại.",
+            ? "Tính năng cấu hình chỉ dành cho Quản trị viên (Admin)."
+            : "Chưa tải được dữ liệu cấu hình. Vui lòng thử lại.",
         ),
       );
   }, []);
@@ -5284,7 +5284,7 @@ function AppConfigCard() {
       setSaved(key);
       load();
     } catch {
-      setError("Không lưu được — thử lại.");
+      setError("Không thể lưu cài đặt. Vui lòng thử lại.");
     } finally {
       setBusy(null);
     }
@@ -5295,7 +5295,7 @@ function AppConfigCard() {
       ? { t: "DB ✓", c: "bg-ok-bg text-ok" }
       : s === "env"
         ? { t: "env (host)", c: "bg-field text-foreground/70" }
-        : { t: "chưa đặt", c: "bg-danger-bg text-danger" };
+        : { t: "chưa thiết lập", c: "bg-danger-bg text-danger" };
 
   return (
     <div className="surface p-4">
@@ -5310,7 +5310,7 @@ function AppConfigCard() {
         <p className="mt-2 text-[0.875rem] font-semibold text-danger">{error}</p>
       )}
       {rows === null && !error && (
-        <p className="mt-2 text-[0.875rem] text-foreground/60">Đang tải…</p>
+        <p className="mt-2 text-[0.875rem] text-foreground/60">Đang tải thông tin…</p>
       )}
       <div className="mt-3 space-y-3">
         {rows?.map((row) => {
@@ -5364,8 +5364,8 @@ function AppConfigCard() {
                   }
                   placeholder={
                     row.source === "none"
-                      ? "Dán giá trị…"
-                      : "Dán giá trị mới để thay…"
+                      ? "Nhập giá trị mới…"
+                      : "Nhập giá trị mới để thay thế…"
                   }
                   className="min-w-0 flex-1 rounded-lg border border-line bg-card px-3 py-2 text-[0.875rem]"
                 />
@@ -5386,10 +5386,10 @@ function AppConfigCard() {
                   className="shrink-0 rounded-lg bg-sea px-4 py-2 text-[0.875rem] font-bold text-white disabled:opacity-50"
                 >
                   {busy === row.key
-                    ? "Đang lưu…"
+                    ? "Đang lưu cấu hình…"
                     : saved === row.key
-                      ? "Đã lưu ✓"
-                      : "Lưu"}
+                      ? "Cấu hình đã được lưu ✓"
+                      : "Lưu cấu hình"}
                 </button>
               </div>
               {bad && (
@@ -5443,15 +5443,15 @@ function SystemTab({ health }: { health: Health }) {
         <Row
           ok={env?.supabase ?? false}
           label="Supabase (DB + Auth)"
-          note={env?.supabase ? "đã cấu hình" : "THIẾU env — app đang demo mode"}
+          note={env?.supabase ? "đã được cấu hình" : "THIẾU khóa môi trường (env) — ứng dụng đang chạy ở chế độ dùng thử"}
         />
         <Row
           ok={env?.serviceRole ?? false}
           label="Service role key"
           note={
             env?.serviceRole
-              ? "đã cấu hình (webhook + trang này ghi được)"
-              : "THIẾU — webhook SDWork và trang này không ghi được DB"
+              ? "đã cấu hình (chức năng gửi tin và ghi dữ liệu hoạt động bình thường)"
+              : "THIẾU cấu hình — liên kết với hệ thống SDWork hiện chưa ghi được dữ liệu"
           }
         />
         <Row
@@ -5459,24 +5459,24 @@ function SystemTab({ health }: { health: Health }) {
           label="Webhook SDWork (HMAC secret)"
           note={
             env?.webhookSecret
-              ? "đã cấu hình"
-              : "THIẾU SDWORK_WEBHOOK_SECRET — khách mới bên CRM không tự sang app"
+              ? "đã được cấu hình đầy đủ"
+              : "THIẾU khoá SDWORK_WEBHOOK_SECRET — dữ liệu khách mới bên CRM sẽ không tự đồng bộ sang app"
           }
         />
         <Row
           ok={(env?.adminPhones ?? 0) > 0}
-          label={`Quản trị viên: ${env?.adminPhones ?? 0} SĐT`}
-          note="đổi trong env ADMIN_PHONES (phẩy ngăn cách) rồi redeploy"
+          label={`Số lượng Quản trị viên: ${env?.adminPhones ?? 0}`}
+          note="vui lòng cập nhật trong biến môi trường ADMIN_PHONES (cách nhau bởi dấu phẩy) rồi khởi động lại hệ thống"
         />
         <Row
           ok={db ? db.tierMigrationApplied : null}
-          label="Migration phân hạng (0003_account_tier)"
+          label="Khởi tạo bảng dữ liệu phân hạng (0003_account_tier)"
           note={
             db == null
-              ? "chưa kiểm tra được (thiếu service role)"
+              ? "chưa thể rà soát (hệ thống thiếu khóa service role)"
               : db.tierMigrationApplied
-                ? "đã apply — cột tier/premium_until sẵn sàng"
-                : "CHƯA APPLY — mọi tài khoản đang bị coi là hạng thường"
+                ? "đã được áp dụng — sẵn sàng sử dụng các cột phân hạng/thời hạn premium"
+                : "CHƯA ÁP DỤNG — tất cả tài khoản đang được mặc định là hạng thường."
           }
         />
       </ul>
@@ -5485,10 +5485,10 @@ function SystemTab({ health }: { health: Health }) {
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
           {(
             [
-              ["Tài khoản", db.customers],
-              ["Premium hiệu lực", db.premiumActive],
-              ["Thiết bị", db.devices],
-              ["Vật tư", db.supplies],
+              ["Tài khoản người dùng", db.customers],
+              ["Gói Premium đang hiệu lực", db.premiumActive],
+              ["Danh sách thiết bị", db.devices],
+              ["Quản lý vật tư", db.supplies],
             ] as [string, number | null][]
           ).map(([label, v]) => (
             <div key={label} className="surface px-3 py-3 text-center">
@@ -5567,19 +5567,19 @@ function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
     if (!r?.ok || !j?.ok) {
       setMsg(
         j?.code === "bad_phone"
-          ? "SĐT chưa hợp lệ."
+          ? "Số điện thoại không đúng định dạng."
           : j?.code === "bad_password"
-            ? "Mật khẩu tối thiểu 6 ký tự."
+            ? "Mật khẩu cần có tối thiểu 6 ký tự."
             : j?.code === "admin_only"
-              ? "Chỉ quản trị viên tạo được tài khoản nhân sự."
-              : "Tạo chưa được — thử lại.",
+              ? "Chỉ Quản trị viên (Admin) mới có quyền tạo tài khoản nhân sự."
+              : "Tạo tài khoản không thành công. Vui lòng thử lại.",
       );
       return;
     }
     setMsg(
       j.provisioned
-        ? `Đã tạo ${role === "admin" ? "quản trị viên" : "quản lý"} ${phone}. Báo họ đăng nhập bằng SĐT + mật khẩu tạm (lần đầu bắt đổi).`
-        : "Đã lưu nhưng TẠO ĐĂNG NHẬP LỖI — kiểm tra lại.",
+        ? `Đã tạo tài khoản ${role === "admin" ? "quản trị viên" : "quản lý"} cho số ${phone}. Vui lòng báo nhân sự đăng nhập bằng SĐT và mật khẩu tạm (ứng dụng sẽ yêu cầu đổi mật khẩu ở lần đầu tiên).`
+        : "Đã lưu thông tin nhưng lỗi quá trình tạo tài khoản đăng nhập. Vui lòng kiểm tra lại.",
     );
     setPhone("");
     setName("");
@@ -5620,7 +5620,7 @@ function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
           <input
             required
             inputMode="numeric"
-            placeholder="SĐT (0901234567)"
+            placeholder="Số điện thoại (vd: 0901234567)"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className={field}
@@ -5634,7 +5634,7 @@ function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
           <input
             required
             type="text"
-            placeholder="Mật khẩu tạm (≥6 ký tự)"
+            placeholder="Mật khẩu tạm thời (≥6 ký tự)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className={field}
@@ -5646,8 +5646,8 @@ function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
           >
             {(
               [
-                ["manager", "Quản lý — theo bảng quyền"],
-                ["admin", "Quản trị viên — toàn quyền"],
+                ["manager", "Cấp Quản lý — quyền hạn được cấp theo chức năng"],
+                ["admin", "Cấp Quản trị viên — có toàn quyền trên hệ thống"],
               ] as ["manager" | "admin", string][]
             ).map(([id, label]) => (
               <button
@@ -5670,7 +5670,7 @@ function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
             disabled={busy}
             className="min-h-[2.75rem] rounded-xl bg-trim text-[0.9375rem] font-bold text-white disabled:opacity-50"
           >
-            {busy ? "Đang tạo…" : "Tạo tài khoản"}
+            {busy ? "Đang tạo tài khoản…" : "Tạo tài khoản"}
           </button>
           {msg && (
             <p className="text-[0.875rem] font-semibold text-foreground/75 sm:col-span-2 lg:col-span-3">
@@ -5682,10 +5682,10 @@ function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
 
       {confirmAdmin && (
         <ConfirmDialog
-          title={`Tạo ${phone} làm quản trị viên?`}
-          message="Tài khoản mới sẽ TOÀN QUYỀN ngay: xóa tài khoản, đặt lại mật khẩu, đổi phân quyền, gửi thông báo… và tự tạo/nâng được quản trị viên khác. Nếu chỉ cần làm việc theo khu thì chọn Quản lý."
-          confirmLabel="Tạo quản trị viên"
-          cancelLabel="Không"
+          title={`Xác nhận cấp quyền Quản trị viên cho số ${phone}?`}
+          message="Quản trị viên sẽ có toàn quyền trên hệ thống (xóa tài khoản, cấp mật khẩu, đổi phân quyền, gửi thông báo, v.v.). Nếu nhân sự chỉ phụ trách khách hàng theo khu vực, vui lòng chọn cấp độ Quản lý."
+          confirmLabel="Xác nhận tạo Quản trị viên"
+          cancelLabel="Hủy thao tác"
           danger
           onCancel={() => setConfirmAdmin(false)}
           onConfirm={() => {
@@ -5730,10 +5730,10 @@ function PermissionsTab() {
       .catch((e: Error) =>
         setError(
           e.message === "not_configured"
-            ? "Chưa cấu hình Supabase/service-role — phân quyền cần DB thật."
+            ? "Chưa kết nối được cơ sở dữ liệu (Supabase). Tính năng này không chạy ở chế độ dùng thử."
             : e.message === "admin_only"
-              ? "Chỉ quản trị viên vào được mục Phân quyền."
-              : "Chưa tải được danh sách quản lý — thử lại.",
+              ? "Khu vực Phân quyền chỉ dành riêng cho Quản trị viên."
+              : "Chưa tải được danh sách nhân sự quản lý. Vui lòng thử lại.",
         ),
       );
   }, []);
@@ -5756,22 +5756,22 @@ function PermissionsTab() {
     setRoleBusy(false);
     if (!r?.ok || !j?.ok) {
       const why: Record<string, string> = {
-        self: "Không tự hạ chính mình được — nhờ quản trị viên khác làm.",
+        self: "Bạn không thể tự hạ cấp tài khoản của chính mình — vui lòng nhờ một Quản trị viên khác thao tác.",
         env_admin:
-          "SĐT này lấy quyền từ env ADMIN_PHONES — muốn bỏ quyền phải xoá khỏi biến môi trường trên Vercel rồi deploy lại, web không hạ được.",
+          "Tài khoản này được cấp quyền trực tiếp từ biến môi trường ADMIN_PHONES — để hủy quyền, bạn cần cập nhật cấu hình trên máy chủ Vercel, không thể hủy trực tiếp trên giao diện web.",
         last_admin:
-          "Đây là quản trị viên CUỐI CÙNG — hạ xuống là không ai vào được web quản trị nữa. Nâng người khác lên trước đã.",
+          "Đây là Quản trị viên DUY NHẤT còn lại — nếu bạn hạ cấp, sẽ không còn ai có quyền quản trị hệ thống. Vui lòng phân quyền cho một người khác trước.",
         not_found:
-          "Chưa có tài khoản nào mang SĐT này — tạo tài khoản ở tab Tài khoản trước.",
-        bad_phone: "SĐT chưa hợp lệ.",
+          "Hệ thống chưa có tài khoản nào dùng số điện thoại này — vui lòng tạo tài khoản mới ở tab Tài khoản trước.",
+        bad_phone: "Số điện thoại không đúng định dạng.",
       };
-      setRoleMsg(why[j?.code ?? ""] ?? "Chưa đổi được — thử lại.");
+      setRoleMsg(why[j?.code ?? ""] ?? "Phân quyền không thành công. Vui lòng thử lại.");
       return;
     }
     setRoleMsg(
       role === "admin"
-        ? `Đã nâng ${phone} lên quản trị viên.`
-        : `Đã hạ ${phone} xuống quản lý.`,
+        ? `Đã nâng cấp tài khoản ${phone} thành Quản trị viên.`
+        : `Đã điều chỉnh tài khoản ${phone} xuống cấp Quản lý.`,
     );
     setPromotePhone("");
     load();
@@ -5780,14 +5780,14 @@ function PermissionsTab() {
   return (
     <div className="mt-4 space-y-4">
       <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
-        Khu <b>NHÂN SỰ</b>: tạo và phân quyền người làm việc trên web quản trị.
-        Người dùng app (khách thường / premium) nằm ở tab <b>Tài khoản</b> —
+        Khu <b>QUẢN LÝ NHÂN SỰ</b>: tạo và phân quyền người làm việc trên web quản trị.
+        Người dùng app (khách thường / premium) nằm ở tab <b>Danh sách tài khoản</b> —
         hai luồng tách hẳn cho khỏi lẫn.
         <br />
         <b className="text-navy">Quản trị viên</b> toàn quyền mọi khu, không cần
         cấu hình. <b className="text-navy">Quản lý</b> chạy theo bảng quyền: 5
         khu (Tài khoản · Sản phẩm · Thuyền viên · Thông báo · Chỗ bán) × 4 mức{" "}
-        <b>Xem · Tạo mới · Sửa · Xóa</b>; bỏ <b>Xem</b> = ẩn hẳn khu đó. (4 khu
+        <b>Xem · Tạo mới · Sửa · Xóa</b>; bỏ chọn <b>Xem</b> = ẩn hẳn khu đó. (4 khu
         Yêu cầu · Vùng biển · Dữ liệu · Hệ thống chỉ dành cho quản trị viên.)
       </p>
 
@@ -5816,7 +5816,7 @@ function PermissionsTab() {
                 {a.source === "env" ? (
                   <span
                     className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-bold text-foreground/65"
-                    title="Quyền từ biến môi trường ADMIN_PHONES — web không hạ được, phải sửa trên Vercel rồi deploy"
+                    title="Nhận quyền trực tiếp từ biến môi trường ADMIN_PHONES — không thể thay đổi trên web, cần cập nhật trên máy chủ Vercel"
                   >
                     từ env · cửa cứu hộ
                   </span>
@@ -5844,10 +5844,10 @@ function PermissionsTab() {
         <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3 sm:flex-row">
           <input
             inputMode="numeric"
-            placeholder="SĐT tài khoản muốn nâng lên quản trị viên…"
+            placeholder="Nhập SĐT của tài khoản muốn nâng lên Quản trị viên…"
             value={promotePhone}
             onChange={(e) => setPromotePhone(e.target.value)}
-            aria-label="SĐT nâng lên quản trị viên"
+            aria-label="Số điện thoại cần nâng cấp"
             className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea sm:flex-1"
           />
           <button
@@ -5869,7 +5869,7 @@ function PermissionsTab() {
           ăn ngay, không cần deploy. Không thể tự hạ chính mình, cũng không hạ
           được người cuối cùng.
           <br />
-          Người ghi <b>từ env</b> lấy quyền từ biến <b>ADMIN_PHONES</b> trên
+          Người ghi <b>cấp quyền từ biến môi trường</b> nhận quyền từ hệ thống gốc <b>ADMIN_PHONES</b> trên
           Vercel — giữ làm cửa cứu hộ, web không hạ được. Muốn chuyển hẳn sang
           quản từ web: nâng chính SĐT đó lên quản trị viên ở ô dưới (ghi quyền
           vào tài khoản), kiểm tra vẫn vào được, rồi mới xoá nó khỏi{" "}
@@ -5879,10 +5879,10 @@ function PermissionsTab() {
 
       {toPromote && (
         <ConfirmDialog
-          title={`Nâng ${toPromote} lên quản trị viên?`}
-          message="Tài khoản này sẽ TOÀN QUYỀN mọi khu: xóa tài khoản, đặt lại mật khẩu, đổi phân quyền, gửi thông báo… và tự nâng được người khác lên quản trị viên. Chỉ nâng người bạn thật sự tin."
-          confirmLabel="Nâng lên quản trị viên"
-          cancelLabel="Không"
+          title={`Xác nhận cấp quyền Quản trị viên cho số ${toPromote}?`}
+          message="Quản trị viên sẽ có toàn quyền trên hệ thống (bao gồm xóa tài khoản, cấp lại mật khẩu, và có thể cấp quyền Admin cho người khác). Hãy đảm bảo bạn cấp quyền đúng người."
+          confirmLabel="Cấp quyền Quản trị viên"
+          cancelLabel="Hủy thao tác"
           danger
           onCancel={() => setToPromote(null)}
           onConfirm={() => {
@@ -5894,10 +5894,10 @@ function PermissionsTab() {
       )}
       {toDemote && (
         <ConfirmDialog
-          title={`Hạ ${toDemote.phone} xuống quản lý?`}
-          message={`${toDemote.name ? `${toDemote.name} — ` : ""}mất toàn quyền ngay, chỉ còn quyền theo bảng phân quyền của tài khoản quản lý (bảng cũ giữ nguyên nếu trước đây từng có).`}
-          confirmLabel="Hạ xuống quản lý"
-          cancelLabel="Không"
+          title={`Chuyển tài khoản ${toDemote.phone} xuống cấp Quản lý?`}
+          message={`${toDemote.name ? `${toDemote.name} — ` : ""}sẽ mất quyền quản trị viên, chỉ còn các quyền thao tác trong phạm vi quản lý được phân công.`}
+          confirmLabel="Chuyển xuống cấp Quản lý"
+          cancelLabel="Hủy thao tác"
           danger
           onCancel={() => setToDemote(null)}
           onConfirm={() => {
@@ -5936,7 +5936,7 @@ function PermissionsTab() {
       )}
       {managers && managers.length === 0 && (
         <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
-          Chưa có tài khoản quản lý nào. Tạo ở tab <b>Tài khoản</b> (chọn loại
+          Chưa có tài khoản quản lý nào. Tạo ở tab <b>Bảng tài khoản</b> (chọn loại
           &ldquo;Quản lý&rdquo;), rồi quay lại đây phân quyền.
         </p>
       )}
@@ -5988,12 +5988,12 @@ function ManagerPermCard({
     if (!r?.ok || !j?.ok) {
       setMsg(
         j?.code === "migration_needed"
-          ? "Chưa lưu được — DB chưa có cột phân quyền (apply migration 0017)."
-          : "Lưu chưa được — thử lại.",
+          ? "Chưa lưu được cấu hình — hệ thống đang thiếu cột dữ liệu phân quyền (vui lòng chạy tiến trình migration 0017)."
+          : "Lưu phân quyền không thành công. Vui lòng thử lại.",
       );
       return;
     }
-    setMsg("Đã lưu quyền.");
+    setMsg("Cấu hình phân quyền đã được lưu.");
     onSaved();
   }
 
@@ -6054,7 +6054,7 @@ function ManagerPermCard({
                             : "bg-field text-foreground/45"
                         }`}
                       >
-                        {on ? "Bật" : "Tắt"}
+                        {on ? "Kích hoạt" : "Vô hiệu hoá"}
                       </button>
                     </td>
                   );
@@ -6072,7 +6072,7 @@ function ManagerPermCard({
           onClick={save}
           className="min-h-[2.75rem] rounded-xl bg-trim px-6 text-[0.9375rem] font-bold text-white disabled:opacity-50"
         >
-          {busy ? "Đang lưu…" : "Lưu quyền"}
+          {busy ? "Đang lưu cấu hình…" : "Lưu phân quyền"}
         </button>
         {dirty && !busy && (
           <button
@@ -6143,10 +6143,10 @@ function ActivityLogTab() {
       .catch((e: Error) =>
         setError(
           e.message === "not_configured"
-            ? "Chưa cấu hình Supabase/service-role — nhật ký cần DB thật."
+            ? "Chưa kết nối được cơ sở dữ liệu (Supabase). Tính năng này không chạy ở chế độ dùng thử."
             : e.message === "admin_only"
-              ? "Chỉ quản trị viên xem được nhật ký."
-              : "Chưa tải được nhật ký — thử lại.",
+              ? "Tính năng xem nhật ký hoạt động chỉ dành cho Quản trị viên."
+              : "Chưa tải được nhật ký hoạt động. Vui lòng thử lại.",
         ),
       );
   }, []);
@@ -6169,10 +6169,10 @@ function ActivityLogTab() {
   return (
     <div className="mt-4 space-y-4">
       <p className="surface px-4 py-3 text-[0.875rem] leading-snug text-foreground/70">
-        Ghi lại mọi thao tác <b>ghi/xóa</b> của quản trị viên & quản lý (tạo/xóa
+        Ghi lại mọi thao tác <b>dữ liệu thêm/xóa</b> của quản trị viên & quản lý (tạo/xóa
         tài khoản, cấp premium, đổi ghi chú, gửi thông báo, đổi phân quyền…) —
-        soát được <b>ai làm gì, lúc nào</b>. Thao tác xóa/nhạy cảm tô{" "}
-        <span className="font-bold text-danger">đỏ</span>. Không sửa/xóa được
+        soát được <b>ghi nhận thao tác của ai, vào thời gian nào</b>. Thao tác xóa/nhạy cảm tô{" "}
+        <span className="font-bold text-danger">quan trọng</span>. Không sửa/xóa được
         nhật ký.
       </p>
 
@@ -6209,19 +6209,19 @@ function ActivityLogTab() {
             } | null;
             setProbing(false);
             if (!r?.ok || !j?.ok) {
-              setProbe("Không gọi được máy chủ — thử lại.");
+              setProbe("Không kết nối được với máy chủ. Vui lòng thử lại.");
               return;
             }
             setProbe(
               j.wrote
-                ? `Ghi được. Nhật ký đang có ${j.readBack ?? "?"} dòng.`
-                : "GHI HỎNG — nhật ký không ghi được. Mã lỗi nằm ở Vercel → Logs (tìm \"activity-log\").",
+                ? `Đã kết nối thành công. Nhật ký hiện có khoảng ${j.readBack ?? "?"} dữ liệu.`
+                : "Lỗi hệ thống — không lưu được nhật ký. Vui lòng kiểm tra mã lỗi trên hệ thống máy chủ (tìm \"activity-log\").",
             );
             if (j.wrote) load();
           }}
           className="min-h-[2.5rem] rounded-xl bg-field px-4 text-[0.875rem] font-bold text-navy disabled:opacity-50"
         >
-          {probing ? "Đang kiểm tra…" : "Kiểm tra ghi nhật ký"}
+          {probing ? "Đang kiểm tra hệ thống…" : "Kiểm tra trạng thái ghi nhật ký"}
         </button>
         {probe && (
           <span className="text-[0.875rem] font-semibold text-foreground/75">
@@ -6235,19 +6235,19 @@ function ActivityLogTab() {
         <input
           type="search"
           inputMode="search"
-          placeholder="Tìm theo SĐT người làm hoặc tên thao tác…"
+          placeholder="Tìm theo số điện thoại người thao tác hoặc tên hành động…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          aria-label="Tìm nhật ký"
+          aria-label="Tra cứu nhật ký"
           className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-4 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea sm:flex-1"
         />
         <select
           value={actionFilter}
           onChange={(e) => setActionFilter(e.target.value)}
-          aria-label="Lọc loại thao tác"
+          aria-label="Phân loại thao tác"
           className="min-h-[2.75rem] rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
         >
-          <option value="all">Mọi thao tác</option>
+          <option value="all">Tất cả các thao tác</option>
           {ADMIN_ACTIONS.map((a) => (
             <option key={a} value={a}>
               {actionLabel(a)}
@@ -6294,7 +6294,7 @@ function ActivityLogTab() {
           <p className="px-1 text-[0.8125rem] font-semibold text-foreground/55">
             {visible.length === events.length
               ? `${events.length} hoạt động gần nhất`
-              : `${visible.length}/${events.length} hoạt động khớp`}
+              : `Hiển thị ${visible.length}/${events.length} hoạt động phù hợp`}
           </p>
           {visible.length === 0 ? (
             <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
@@ -6324,7 +6324,7 @@ function ActivityLogTab() {
                           : "bg-t1-bg text-t1"
                       }`}
                     >
-                      {e.actorRole === "admin" ? "admin" : "quản lý"}
+                      {e.actorRole === "admin" ? "admin" : "nhân sự quản lý"}
                     </span>
                     {e.target && (
                       <span className="text-[0.8125rem] tabular-nums text-foreground/60">

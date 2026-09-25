@@ -53,7 +53,7 @@ export function BoatSwitcher() {
     return (
       <div className="relative z-10 -mt-6 flex items-stretch gap-2 px-4">
         <div className="flex min-w-0 flex-1 items-center surface px-3.5 py-3">
-          <p className="text-[1rem] font-bold text-navy">Chưa có tàu nào</p>
+          <p className="text-[1rem] font-bold text-navy">Chưa có thông tin tàu</p>
         </div>
         <button
           onClick={() => setForm({ id: `boat-${Date.now()}`, name: "" })}
@@ -147,7 +147,7 @@ export function BoatSwitcher() {
                       setForm(b);
                       setPick(false);
                     }}
-                    aria-label={`Sửa tàu ${b.name}`}
+                    aria-label={`Sửa thông tin tàu ${b.name}`}
                     className={`shrink-0 rounded-r-xl px-3 text-[0.875rem] font-bold ${b.id === current.id ? "text-white underline" : "text-sea"}`}
                   >
                     Sửa
@@ -203,9 +203,9 @@ export function BoatSwitcher() {
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
           title={`Xóa tàu "${confirmDelete.name}"?`}
-          message="Giấy tờ và lịch bảo dưỡng của riêng tàu này sẽ bị xóa. Thuyền viên và đồ đã mua SDVICO vẫn giữ (về của chung)."
+          message="Giấy tờ và lịch bảo dưỡng của tàu này sẽ bị xóa. Thuyền viên và đồ đã mua từ SDVICO vẫn được giữ lại."
           cancelLabel="Không xóa"
-          confirmLabel="Xóa tàu"
+          confirmLabel="Xác nhận xóa"
           onCancel={() => setConfirmDelete(null)}
           onConfirm={() => {
             /*  Xoá hỏng cũng phải nói (2026-08-16): `removeBoat` nay ghi danh

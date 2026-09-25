@@ -126,7 +126,7 @@ export function CartSheet({
       if (!online) {
         setState("error");
         setErrMsg(
-          "Đặt hàng cần đăng nhập, mà đăng nhập thì cần sóng — máy đang không có sóng. Giỏ vẫn giữ nguyên.",
+          "Để đặt hàng bà con cần đăng nhập, nhưng máy đang mất mạng. Giỏ hàng vẫn được giữ nguyên.",
         );
         return;
       }
@@ -135,7 +135,7 @@ export function CartSheet({
     }
     if (!isValidVnPhone(contactPhone)) {
       setState("error");
-      setErrMsg("Nhập đúng số điện thoại nhận hàng rồi thử lại.");
+      setErrMsg("Bà con kiểm tra lại số điện thoại nhận hàng nhé.");
       return;
     }
     const boat = boats.find((b) => b.id === boatId);
@@ -175,7 +175,7 @@ export function CartSheet({
           nguyên nên bấm lại là gửi đúng đơn đó, không đẻ đơn thứ hai. */
       setState("error");
       setErrMsg(
-        "Chưa gửi được — đặt hàng cần có mạng. Giỏ vẫn còn nguyên; có sóng lại bà con bấm “Đặt hàng” lần nữa giúp.",
+        `Chưa gửi được đơn vì máy đang mất mạng. Giỏ hàng vẫn còn nguyên; khi nào có sóng bà con bấm "Đặt hàng" lại giúp nhé.`,
       );
       return;
     }
@@ -195,15 +195,15 @@ export function CartSheet({
     setState("error");
     const code = j?.code;
     if (code === "items_unavailable") {
-      setErrMsg("Có món vừa ngừng bán — xem lại giỏ rồi đặt lại.");
+      setErrMsg("Có mặt hàng vừa ngừng bán — bà con kiểm tra lại giỏ rồi đặt lại nhé.");
     } else if (code === "login_required") {
-      setErrMsg("Cần đăng nhập bằng SĐT để đặt hàng.");
+      setErrMsg("Bà con vui lòng đăng nhập bằng số điện thoại để đặt hàng nhé.");
     } else if (code === "invalid_draft") {
-      setErrMsg("Đơn còn thiếu thông tin — kiểm tra lại giỏ và SĐT nhận hàng.");
+      setErrMsg("Đơn hàng còn thiếu thông tin, bà con kiểm tra lại giỏ hàng và số điện thoại nhận hàng nhé.");
     } else if (code === "not_configured") {
-      setErrMsg("Chỗ đặt hàng chưa mở. Bà con gọi số tổng đài để đặt giúp.");
+      setErrMsg("Tính năng đặt hàng trực tuyến đang tạm đóng. Bà con gọi số tổng đài để nhân viên hỗ trợ đặt hàng nhé.");
     } else {
-      setErrMsg("Chưa đặt được đơn — thử lại khi có sóng.");
+      setErrMsg("Hiện chưa gửi được đơn hàng — bà con thử lại khi có sóng nhé.");
     }
   }
 
@@ -282,7 +282,7 @@ export function CartSheet({
                     className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full text-danger active:bg-danger-bg"
                   >
                     <TrashIcon className="h-6 w-6" />
-                    <span className="text-[0.6875rem] font-bold leading-none">Bỏ</span>
+                    <span className="text-[0.6875rem] font-bold leading-none">Bỏ mặt hàng</span>
                   </button>
                 </div>
                 <p className="mt-0.5 text-[0.9375rem] text-foreground/70">
@@ -316,7 +316,7 @@ export function CartSheet({
                   className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full text-danger active:bg-danger-bg"
                 >
                   <TrashIcon className="h-6 w-6" />
-                  <span className="text-[0.6875rem] font-bold leading-none">Bỏ</span>
+                  <span className="text-[0.6875rem] font-bold leading-none">Bỏ mặt hàng</span>
                 </button>
               </div>
             )}
@@ -362,7 +362,7 @@ export function CartSheet({
               Giao:{" "}
               <span className="font-bold text-navy">
                 {[
-                  deliveryLocation.trim() || "chưa ghi chỗ nhận",
+                  deliveryLocation.trim() || "chưa ghi địa chỉ nhận",
                   contactName.trim(),
                   contactPhone.trim(),
                 ]
@@ -500,7 +500,7 @@ export function CartSheet({
             type="submit"
             disabled={state === "sending" || hasUnavailable}
           >
-            {state === "sending" ? "Đang gửi…" : "Đặt hàng"}
+            {state === "sending" ? "Đang gửi đơn…" : "Đặt hàng"}
           </PrimaryButton>
         </div>
       </form>

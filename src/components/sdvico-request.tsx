@@ -34,7 +34,7 @@ import { tokenHeader } from "@/lib/device-token-store";
 export function SdvicoRequestButton({
   topic = "khac",
   productName,
-  label = "Gọi SDVICO",
+  label = "Gọi tổng đài SDVICO",
 }: {
   topic?: RequestTopicId;
   productName?: string;
@@ -132,7 +132,7 @@ function RequestForm({
     // check đăng nhập xong — `required` của DOM không bảo vệ được lúc chưa
     // render → không bao giờ để yêu cầu bay đi mà CSKH không có số gọi lại.
     if (!signedPhone && phone.replace(/\D/g, "").length < 9) {
-      setErrText("Bà con nhập số điện thoại để SDVICO gọi lại nhé.");
+      setErrText("Bà con nhập số điện thoại để nhân viên SDVICO gọi lại hỗ trợ nhé.");
       setState("error");
       return;
     }
@@ -155,7 +155,7 @@ function RequestForm({
       if (j?.ok) {
         // hiện ngay trong "Yêu cầu đã gửi" — chống gửi trùng vì tưởng chưa ăn
         const topicLabel =
-          REQUEST_TOPICS.find((t) => t.id === topic)?.label ?? "Yêu cầu";
+          REQUEST_TOPICS.find((t) => t.id === topic)?.label ?? "Yêu cầu hỗ trợ";
         addOptimisticRequest(
           [topicLabel, productName, detail.trim()].filter(Boolean).join(" — "),
         );
@@ -170,13 +170,13 @@ function RequestForm({
 
   if (state === "done") {
     return (
-      <BottomSheet title="Đã gửi cho SDVICO" onClose={onClose}>
+      <BottomSheet title="Đã gửi yêu cầu tới SDVICO" onClose={onClose}>
         <div
           className="rounded-[1.25rem] px-4 py-8 text-center"
           style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
         >
           <CheckIcon className="mx-auto h-10 w-10" />
-          <p className="mt-3 text-[1.125rem] font-bold">SDVICO đã nhận yêu cầu</p>
+          <p className="mt-3 text-[1.125rem] font-bold">SDVICO đã nhận được yêu cầu</p>
           <p className="mt-1 text-[1rem] text-foreground/70">
             Nhân viên sẽ gọi lại cho bà con trong giờ làm việc.
           </p>
@@ -189,14 +189,14 @@ function RequestForm({
   }
 
   return (
-    <BottomSheet title="Gọi SDVICO" onClose={onClose}>
+    <BottomSheet title="Gọi tổng đài SDVICO" onClose={onClose}>
       <form onSubmit={submit}>
         {productName && (
           <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy">
             Về: {productName}
           </p>
         )}
-        <Field label="Bà con cần việc gì?">
+        <Field label="Bà con cần hỗ trợ vấn đề gì?">
           <select
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
@@ -224,7 +224,7 @@ function RequestForm({
                 required
               />
             </Field>
-            <Field label="Tên bà con (để nhân viên xưng hô)">
+            <Field label="Tên của bà con (để nhân viên tiện xưng hô)">
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -235,7 +235,7 @@ function RequestForm({
           </>
         )}
 
-        <Field label="Dặn thêm (nếu có)">
+        <Field label="Lưu ý thêm (nếu có)">
           <textarea
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
@@ -259,7 +259,7 @@ function RequestForm({
             style={{ color: "var(--danger)", backgroundColor: "var(--danger-bg)" }}
           >
             {errText ??
-              "Chưa gửi được — kiểm tra số điện thoại rồi thử lại, hoặc gọi thẳng đại lý SDVICO gần nhất."}
+              "Chưa gửi được — bà con kiểm tra lại số điện thoại hoặc có thể gọi thẳng đại lý SDVICO gần nhất nhé."}
           </p>
         )}
 
@@ -273,7 +273,7 @@ function RequestForm({
           </button>
           {/* chưa check xong đăng nhập thì chưa cho gửi — tránh gửi thiếu số */}
           <PrimaryButton type="submit" disabled={state === "sending" || !checked}>
-            {state === "sending" ? "Đang gửi…" : "Gửi yêu cầu"}
+            {state === "sending" ? "Đang gửi yêu cầu…" : "Gửi yêu cầu"}
           </PrimaryButton>
         </div>
 

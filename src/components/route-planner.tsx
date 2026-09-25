@@ -473,7 +473,7 @@ export function RouteStopsLayers({
         key: `${a.lat},${a.lon}->${b.lat},${b.lon}`,
         lat: (a.lat + b.lat) / 2,
         lon: (a.lon + b.lon) / 2,
-        text: `${fmtDist(haversineKm(a, b), distUnit)} thẳng`,
+        text: `${fmtDist(haversineKm(a, b), distUnit)} đường chim bay`,
       });
     }
     return out;
@@ -601,9 +601,9 @@ export function RouteStopsLayers({
     Lưới 6 lớp từ 2026-09-04: "rất cạn" nay là lớp 1 (mặt nạ rạn) + lớp 2
     (nước <2 m). */
 const DEST_DEPTH_WARN: Partial<Record<DepthClass, string>> = {
-  0: "Chỗ này trên bờ — theo bản đồ độ sâu của máy",
-  1: "Chỗ này rất cạn, bãi nổi — theo bản đồ độ sâu của máy",
-  2: "Chỗ này rất cạn, bãi nổi — theo bản đồ độ sâu của máy",
+  0: "Điểm này nằm trên bờ — theo bản đồ độ sâu của ứng dụng",
+  1: "Điểm này rất cạn hoặc bãi nổi — theo bản đồ độ sâu của ứng dụng",
+  2: "Điểm này rất cạn hoặc bãi nổi — theo bản đồ độ sâu của ứng dụng",
 };
 
 export function RouteMode({
@@ -839,15 +839,15 @@ export function RouteMode({
   const startOptions: { id: string; label: string; coord: LatLon | null }[] = [
     {
       id: "cursor",
-      label: `Chỗ đang xem — ${fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}`,
+      label: `Điểm đang xem — ${fmtCoordPair(dest.lat, dest.lon, prefs.coordFormat)}`,
       coord: dest,
     },
     ...myPlaces.map((p) => ({
       id: `place:${p.id}`,
-      label: p.kind === "home" ? `Cảng nhà — ${p.name}` : `Chỗ ghim — ${p.name}`,
+      label: p.kind === "home" ? `Cảng nhà — ${p.name}` : `Điểm đã ghim — ${p.name}`,
       coord: { lat: p.lat, lon: p.lon },
     })),
-    { id: "gps", label: "Chỗ tàu tôi đang đứng (định vị)", coord: null },
+    { id: "gps", label: "Vị trí tàu hiện tại (theo định vị)", coord: null },
     {
       id: `port:${nearestPort.id}`,
       label: `Cảng ${nearestPort.name} — gần điểm đến nhất`,
@@ -900,17 +900,17 @@ export function RouteMode({
       let startLabel: string;
       if (effectiveStartId === "cursor") {
         start = { lat: dest.lat, lon: dest.lon };
-        startLabel = "Chỗ đang xem";
+        startLabel = "Điểm đang xem";
       } else if (effectiveStartId === "gps") {
         try {
           start = await myPosition();
         } catch {
           setError(
-            "Chưa lấy được vị trí tàu — bật định vị giúp, hoặc chọn đi từ cảng.",
+            "Ứng dụng chưa lấy được vị trí tàu — bà con bật định vị giúp, hoặc chọn đi từ một cảng nhé.",
           );
           return;
         }
-        startLabel = "Chỗ tàu tôi";
+        startLabel = "Vị trí tàu hiện tại";
       } else if (effectiveStartId.startsWith("place:")) {
         const pl = places.find(
           (p) => `place:${p.id}` === effectiveStartId,
@@ -938,9 +938,9 @@ export function RouteMode({
           setError(
             stops.length
               ? i === 1
-                ? "Chỗ ghé 1 đang quá gần nơi xuất phát — chấm chỗ xa hơn trên biển."
-                : `Chỗ ghé ${i} và chỗ ghé ${i - 1} đang quá sát nhau — chấm cách nhau xa hơn.`
-              : "Điểm đến đang quá gần nơi xuất phát — chạm chỗ xa hơn trên biển.",
+                ? "Điểm ghé 1 đang quá gần nơi xuất phát — bà con chọn điểm xa hơn trên biển nhé."
+                : `Điểm ghé ${i} và điểm ghé ${i - 1} đang quá sát nhau — bà con chọn khoảng cách xa hơn một chút.`
+              : "Điểm đến đang quá gần nơi xuất phát — bà con chọn điểm xa hơn trên biển nhé.",
           );
           return;
         }
@@ -1137,21 +1137,21 @@ export function RouteMode({
         const fromStop = leg >= 2 ? stops[leg - 2] : null;
         const toStop = stops.length ? stops[leg - 1] : null;
         const fromName =
-          leg === 1 ? startLabel : fromStop?.name ?? `chỗ ghé ${leg - 1}`;
+          leg === 1 ? startLabel : fromStop?.name ?? `điểm ghé ${leg - 1}`;
         const toRole =
-          stops.length > 0 && leg < stops.length ? `chỗ ghé ${leg}` : "điểm đến";
+          stops.length > 0 && leg < stops.length ? `điểm ghé ${leg}` : "điểm đến";
         const toName = toStop?.name ? `${toRole} ${toStop.name}` : toRole;
         const fmt = (p: LatLon) => fmtCoordPair(p.lat, p.lon, prefs.coordFormat);
         const where =
           legPts.length > 2
             ? leg === 1
-              ? " ở chặng từ nơi xuất phát tới chỗ ghé 1"
-              : ` ở chặng từ chỗ ghé ${leg - 1} tới ${leg < stops.length ? `chỗ ghé ${leg}` : "điểm đến"}`
+              ? " ở chặng từ nơi xuất phát tới điểm ghé 1"
+              : ` ở chặng từ điểm ghé ${leg - 1} tới ${leg < stops.length ? `chỗ ghé ${leg}` : "điểm đến"}`
             : "";
-        const kiemLai = `Kiểm lại nơi đi (${fromName} · ${fmt(fromPt)}) và ${toName} (${fmt(toPt)}) trên hải đồ.`;
+        const kiemLai = `Bà con kiểm tra lại nơi xuất phát (${fromName} · ${fmt(fromPt)}) và ${toName} (${fmt(toPt)}) trên hải đồ.`;
         setError(
           failure === "weather-coverage"
-            ? `Chưa tìm được đường${where}. Dự báo còn thiếu ở một phần vùng này. ${kiemLai} Khi có sóng, tải lại dự báo rồi thử lại.`
+            ? `Chưa tìm được đường${where}. Vùng này đang thiếu dữ liệu dự báo. ${kiemLai} Bà con thử tải lại dự báo khi có sóng nhé.`
             : `Chưa tìm được đường${where}. ${kiemLai}`,
         );
         setResult(null);
@@ -1171,9 +1171,9 @@ export function RouteMode({
       if (conflict) {
         const s = conflict.storm;
         setError(
-          `KHÔNG VẼ TUYẾN — đường đi cắt vào vùng nguy hiểm của ${s.kindLabel.toLowerCase()} ${s.name} ` +
-            `(trong vòng ${STORM_SAFE_RADIUS_KM} km quanh tâm hoặc đường đi dự báo của bão). ` +
-            `Hoãn chuyến, nghe đài duyên hải trước khi quyết.`,
+          `LỘ TRÌNH KHÔNG AN TOÀN — Tuyến đường đi qua vùng nguy hiểm của ${s.kindLabel.toLowerCase()} ${s.name} ` +
+            `(trong phạm vi ${STORM_SAFE_RADIUS_KM} km quanh tâm hoặc đường đi dự báo của bão). ` +
+            `Bà con nên cân nhắc hoãn chuyến và nghe đài duyên hải để nắm thêm tình hình.`,
         );
         setResult(null);
         onRoute(null);
@@ -1274,8 +1274,8 @@ export function RouteMode({
       setEditing(false);
     } catch {
       setError(
-        "Chưa lấy được dự báo cho tuyến và trong máy chưa có lưới đã lưu. " +
-          "Mở màn Ra khơi lúc còn sóng để máy tự tải sẵn gió sóng, rồi thử lại.",
+        "Tuyến này chưa có dự báo và máy cũng chưa lưu dữ liệu. " +
+          "Bà con mở màn hình Ra khơi lúc có sóng để máy tự tải sẵn thông tin gió sóng, rồi thử lại nhé.",
       );
     } finally {
       setBusy(false);
@@ -1313,12 +1313,12 @@ export function RouteMode({
     ? !chainStale && startStale
       ? /*  Danh sách điểm y nguyên, chỉ nơi xuất phát đổi: nhìn điểm đến
             thấy đúng hết nên phải chỉ thẳng vào cái đã lệch. */
-        "Vạch xanh còn đi từ nơi xuất phát CŨ"
+        "Vạch xanh đang hiển thị từ nơi xuất phát cũ"
       : staleDestMoved
-        ? "Vạch xanh còn dẫn tới chỗ chạm trước"
+        ? "Vạch xanh đang dẫn tới điểm chọn trước đó"
         : /*  Điểm cuối vẫn thế mà chuỗi đã lệch (thêm/bỏ điểm GIỮA): phải nói
               thẳng vạch xanh là đường CŨ, vì nhìn điểm đến thì thấy y như cũ. */
-          "Vạch xanh là đường CŨ, lệch danh sách dưới"
+          "Vạch xanh là lộ trình cũ, không khớp với danh sách bên dưới"
     : null;
 
   /*  ĐƯỜNG ĐI NHIỀU ĐIỂM — nút PHỤ (nền field), không phải primary: 07 §5 chốt
@@ -1412,7 +1412,7 @@ export function RouteMode({
     stops.length === 0
       ? "Chưa chọn điểm đến"
       : `${stops.length} chỗ${
-          thangKm != null ? ` · ~${fmtDist(thangKm, prefs.distUnit)} thẳng` : ""
+          thangKm != null ? ` · ~${fmtDist(thangKm, prefs.distUnit)} đường chim bay` : ""
         }`;
   /** câu cảnh báo cho chỗ con trỏ đang đứng — null là im (xem DEST_DEPTH_WARN) */
   const destDepthWarn =
@@ -1554,7 +1554,7 @@ export function RouteMode({
             type="button"
             onClick={() => (panel === "idle" ? onClose() : setPanel("idle"))}
             aria-label={
-              panel === "idle" ? "Thoát dẫn đường" : "Quay lại danh sách điểm"
+              panel === "idle" ? "Thoát chế độ dẫn đường" : "Quay lại danh sách điểm"
             }
             className={`${SQ_BTN} bg-navy/10 text-navy`}
           >
@@ -1595,10 +1595,10 @@ export function RouteMode({
                 ) : (
                   <span className="min-w-0 flex-1 truncate text-[1rem] font-bold leading-tight text-navy">
                     {stops.length > 1
-                      ? `Đường đi qua ${stops.length} chỗ`
+                      ? `Lộ trình qua ${stops.length} điểm`
                       : stops.length === 1
-                        ? "Đường đi tới chỗ đã đánh dấu"
-                        : "Dẫn đường tới chỗ đang xem"}
+                        ? "Lộ trình tới điểm đã đánh dấu"
+                        : "Dẫn đường tới điểm đang xem"}
                   </span>
                 )}
                 <ChevronRightIcon
@@ -1622,21 +1622,21 @@ export function RouteMode({
                   luôn biết mình đang ở đâu và lùi bằng cách nào. */
               <p className="truncate text-[1rem] font-bold leading-tight text-navy">
                 {panel === "start"
-                  ? "Đi từ đâu"
+                  ? "Nơi xuất phát"
                   : panel === "dest"
-                    ? "Thêm một chỗ"
+                    ? "Thêm điểm dừng"
                     : panel === "saved"
-                      ? "Đường đã lưu"
+                      ? "Lộ trình đã lưu"
                       : "Tuỳ chọn tàu"}
               </p>
             ) : (
               <>
                 <p className="truncate text-[1rem] font-bold leading-tight text-navy">
                   {stops.length > 1
-                    ? `Đường đi qua ${stops.length} chỗ`
+                    ? `Lộ trình qua ${stops.length} điểm`
                     : stops.length === 1
-                      ? "Đường đi tới chỗ đã đánh dấu"
-                      : "Dẫn đường tới chỗ đang xem"}
+                      ? "Lộ trình tới điểm đã đánh dấu"
+                      : "Dẫn đường tới điểm đang xem"}
                 </p>
                 {/*  KHÔNG in `ghimTomTat` ở đây nữa (2026-08-29h): hàng "Xoá
                      hết" ngay dưới đã mang đúng câu đó làm thân hàng, in cả
@@ -1660,7 +1660,7 @@ export function RouteMode({
             type="button"
             onClick={() => setPanel(panel === "boat" ? "idle" : "boat")}
             aria-expanded={panel === "boat"}
-            aria-label={`Tuỳ chọn — tàu chạy ${speedKn} hải lý/giờ, ăn ${lph} lít dầu/giờ`}
+            aria-label={`Thông số hành trình — tàu chạy ${speedKn} hải lý/giờ, tiêu thụ ${lph} lít dầu/giờ`}
             className={`${SQ_BTN} ${
               panel === "boat" ? "bg-t1 text-white" : "bg-navy/10 text-t1"
             }`}
@@ -1703,7 +1703,7 @@ export function RouteMode({
               className={`${SQ_BTN} bg-t1 text-white disabled:opacity-60`}
             >
               <RouteIcon className="h-6 w-6" />
-              {busy ? "Đang tính" : plan ? "Tính lại" : "Tính đường"}
+              {busy ? "Đang tính toán" : plan ? "Tính lại" : "Tính lộ trình"}
             </button>
           )}
           </div>
@@ -1734,7 +1734,7 @@ export function RouteMode({
         {panel === "idle" && coGiDeXoa && (
           <div className="flex items-center gap-2">
             <p className="flex min-h-[var(--row-h)] min-w-0 flex-1 items-center rounded-xl bg-background px-3 text-[0.9375rem] font-semibold leading-snug text-foreground/70">
-              {stops.length > 0 ? ghimTomTat : "Đang có một tuyến đã tính"}
+              {stops.length > 0 ? ghimTomTat : "Đang có một lộ trình đã tính"}
             </p>
             <button
               type="button"
@@ -1755,9 +1755,9 @@ export function RouteMode({
               <TrashIcon className="h-5 w-5 shrink-0" />
               {confirmClear
                 ? stops.length > 0
-                  ? `Xoá cả ${stops.length} chỗ + tuyến?`
-                  : "Xoá tuyến?"
-                : "Xoá hết"}
+                  ? `Xoá toàn bộ ${stops.length} điểm và lộ trình này?`
+                  : "Xoá lộ trình này?"
+                : "Xác nhận xoá"}
             </button>
           </div>
         )}
@@ -1853,7 +1853,7 @@ export function RouteMode({
                 <span className="block truncate text-[0.8125rem] font-bold text-foreground/60">
                   {startCoord
                     ? fmtCoordPair(startCoord.lat, startCoord.lon, prefs.coordFormat)
-                    : "Lấy vị trí tàu lúc bấm Tính đường"}
+                    : "Cập nhật vị trí tàu lúc bấm Tính lộ trình"}
                 </span>
               )}
             </span>
@@ -1997,7 +1997,7 @@ export function RouteMode({
                     ý, và băng cảnh báo đủ nói. */
                 if (con.length === 0) clearRoute();
               }}
-              aria-label={"Bỏ điểm " + (i + 1)}
+              aria-label={"Xóa điểm này " + (i + 1)}
               className={`${SQ_BTN} bg-background text-danger`}
             >
               <CloseIcon className="h-6 w-6" />
@@ -2172,8 +2172,8 @@ export function RouteMode({
                       setCoordLat(e.target.value);
                       setCoordErr(false);
                     }}
-                    placeholder={`Vĩ độ (vd ${egCoord.lat})`}
-                    aria-label="Vĩ độ điểm muốn thêm"
+                    placeholder={`Vĩ độ (vd: ${egCoord.lat})`}
+                    aria-label="Vĩ độ của điểm muốn thêm"
                     className="min-h-[3.25rem] w-full rounded-xl bg-background px-3 text-[1rem] font-semibold text-navy"
                   />
                   <input
@@ -2182,8 +2182,8 @@ export function RouteMode({
                       setCoordLon(e.target.value);
                       setCoordErr(false);
                     }}
-                    placeholder={`Kinh độ (vd ${egCoord.lon})`}
-                    aria-label="Kinh độ điểm muốn thêm"
+                    placeholder={`Kinh độ (vd: ${egCoord.lon})`}
+                    aria-label="Kinh độ của điểm muốn thêm"
                     className="min-h-[3.25rem] w-full rounded-xl bg-background px-3 text-[1rem] font-semibold text-navy"
                   />
                 </div>
@@ -2221,7 +2221,7 @@ export function RouteMode({
                   onStops?.(addStop(stops, port.lat, port.lon, `Cảng ${port.name}`));
                   setPanel("idle");
                 }}
-                aria-label="Thêm một cảng làm điểm đến"
+                aria-label="Chọn một cảng làm điểm đến"
                 className="block min-h-[var(--row-h)] w-full rounded-xl bg-card px-3 text-[1rem] font-semibold text-foreground/70"
               >
                 <option value="">Chọn một cảng…</option>
@@ -2262,7 +2262,7 @@ export function RouteMode({
                     value={saveName}
                     onChange={(e) => setSaveName(e.target.value)}
                     placeholder={suggestName(stops)}
-                    aria-label="Tên đường đi muốn lưu"
+                    aria-label="Tên lộ trình muốn lưu"
                     className="min-h-[var(--row-h)] min-w-0 flex-1 rounded-xl bg-background px-3 text-[1rem] font-semibold text-navy"
                   />
                   <button
@@ -2326,7 +2326,7 @@ export function RouteMode({
                         </span>
                         <span className="block truncate text-[0.8125rem] font-semibold text-foreground/60">
                           {r.stops.length} chỗ
-                          {r.start?.label ? ` · từ ${r.start.label}` : ""}
+                          {r.start?.label ? ` · khởi hành từ ${r.start.label}` : ""}
                         </span>
                       </span>
                     </button>
@@ -2335,7 +2335,7 @@ export function RouteMode({
                       onClick={() =>
                         onSavedRoutes?.(removeSavedRoute(savedRoutes, r.id))
                       }
-                      aria-label={`Bỏ đường đã lưu ${r.name}`}
+                      aria-label={`Xóa lộ trình đã lưu ${r.name}`}
                       className={`${SQ_BTN} bg-background text-danger`}
                     >
                       <CloseIcon className="h-6 w-6" />
@@ -2436,7 +2436,7 @@ export function RouteMode({
                   . Chạy máy {formatHoursVN(plan.hours)}. Dầu ước tính khoảng{" "}
                   {Math.round(plan.fuelL)} lít.
                   {topDanger &&
-                    ` ${topDanger.label}. Sóng tới ${formatNumberVN(plan.maxWaveM)} mét.`}
+                    ` ${topDanger.label}. Sóng có thể lên tới ${formatNumberVN(plan.maxWaveM)} mét.`}
                 </span>
                 {/*  KHÔNG `truncate`/`line-clamp`: dòng này mang con số sóng —
                      thứ quyết định đi hay ở — nên thà xuống dòng còn hơn cắt
@@ -2486,7 +2486,7 @@ export function RouteMode({
               className={`${SQ_BTN} bg-background text-navy disabled:opacity-60`}
             >
               <RouteIcon className="h-6 w-6" />
-              {busy ? "Đang tính" : "Tính lại"}
+              {busy ? "Đang tính toán" : "Tính lại"}
             </button>
             <button
               type="button"
@@ -2583,18 +2583,18 @@ export function RouteMode({
               );
             if (plan.beyondForecastH > 0)
               items.push(
-                `Chuyến chạy dài hơn dự báo đang có: chừng ${formatHoursVN(plan.beyondForecastH)} cuối máy phải tính bằng dự báo của giờ cuối cùng — đoạn đó CHƯA chắc đúng.`,
+                `Hành trình dự kiến dài hơn dữ liệu dự báo: khoảng ${formatHoursVN(plan.beyondForecastH)} cuối sẽ được ước tính dựa trên dữ liệu của giờ cuối cùng — đoạn này thông tin có thể không còn chính xác tuyệt đối.`,
               );
             if (!plan.depthChecked)
               items.push(
-                "Chưa kiểm tra được độ sâu — tuyến chưa né bãi cạn, bà con tự dò hải đồ.",
+                "Chưa kiểm tra được độ sâu — lộ trình tự động chưa thể né bãi cạn, bà con lưu ý tự kiểm tra trên hải đồ nhé.",
               );
             /*  KHO HẢI ĐỒ (Đợt 2). `hazardChecked` false nghĩa là CHƯA soi kho
                 vật chặn — không phải "đã soi và sạch"; phải nói ra. Còn
                 `moTaThieu` gọi tên từng kho vắng mặt (mất sóng, file hỏng). */
             if (!plan.hazardChecked)
               items.push(
-                "Chưa soi được xác tàu, giàn khoan, lồng bè — tuyến chưa né vật chặn, dò hải đồ đoạn lạ.",
+                "Chưa rà soát được xác tàu, giàn khoan, lồng bè — lộ trình chưa né chướng ngại vật, bà con chú ý quan sát hải đồ ở vùng biển lạ nhé.",
               );
             const thieuKho = moTaThieu(audit?.missing ?? null);
             if (thieuKho) items.push(thieuKho);

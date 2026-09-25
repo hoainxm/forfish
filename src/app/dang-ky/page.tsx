@@ -67,7 +67,7 @@ export default function DangKyPage() {
     setError(null);
 
     if (!isValidVnPhone(phone)) {
-      setError("Số điện thoại phải đủ 10 số (ví dụ 0901234567).");
+      setError("Bà con nhập đủ 10 số nhé (ví dụ: 0901234567).");
       return;
     }
     const pw = normalizePassword(password);
@@ -91,8 +91,8 @@ export default function DangKyPage() {
       const j = res ? await res.json().catch(() => null) : null;
       setError(
         j?.code === "exists"
-          ? "Số điện thoại này đã có tài khoản — bà con bấm Đăng nhập bên dưới."
-          : "Không đăng ký được lúc này. Bà con thử lại sau ít phút.",
+          ? "Số điện thoại này đã có tài khoản — bà con bấm Đăng nhập bên dưới nhé."
+          : "Hiện tại chưa đăng ký được. Bà con thử lại sau ít phút nhé.",
       );
       setLoading(false);
       return;
@@ -166,7 +166,7 @@ export default function DangKyPage() {
       tierTho === "premium" ? ((body.premiumUntil as string) ?? null) : null;
     if (!saveToken(body.token, tierTho, han)) {
       setError(
-        "Máy đang không cho app lưu dữ liệu nên chưa giữ được đăng nhập. Bà con tắt chế độ duyệt web riêng tư (ẩn danh) rồi thử lại giúp.",
+        "Trình duyệt đang bật chế độ Ẩn danh nên app không nhớ được tài khoản. Bà con tắt chế độ Ẩn danh rồi đăng nhập lại nhé.",
       );
       setLoading(false);
       return;

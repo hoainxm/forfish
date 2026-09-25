@@ -184,9 +184,9 @@ export function StormBanner({
           ? (() => {
               const s = status.storms[0];
               const cap = s.windKmh != null ? ` cấp ${beaufort(s.windKmh)}` : "";
-              return `${s.kindLabel}${s.name ? ` ${s.name}` : ""}${cap} — chạm xem`;
+              return `${s.kindLabel}${s.name ? ` ${s.name}` : ""}${cap} — chạm để xem chi tiết`;
             })()
-          : `${status.storms.length} tin bão — chạm xem`}
+          : `Có ${status.storms.length} tin bão — chạm để xem chi tiết`}
         <ChevronDownIcon className="h-4 w-4" />
       </button>
     );
@@ -255,10 +255,10 @@ export function StormBanner({
                   const phat = Date.parse(s.updated ?? "");
                   if (Number.isFinite(phat)) return `Bản tin ${clockVN(phat)}`;
                   return status.checkedAt != null
-                    ? `Tin lúc ${clockVN(status.checkedAt)}`
-                    : "Chưa rõ tin lúc nào";
+                    ? `Cập nhật lúc ${clockVN(status.checkedAt)}`
+                    : "Chưa rõ giờ báo tin";
                 })()}
-                {status.cu && " — tin cũ trong máy, nghe lại đài duyên hải"}
+                {status.cu && " — bản tin cũ lưu trong máy, bà con nhớ nghe thêm đài duyên hải nhé"}
               </p>
             </div>
             {variant === "overlay" && (

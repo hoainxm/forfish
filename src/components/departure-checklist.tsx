@@ -42,19 +42,19 @@ const READINESS_UI: Record<
 > = {
   green: {
     level: "ok",
-    title: "Giấy tờ app kiểm được đều ổn",
+    title: "Giấy tờ trên app đã đầy đủ",
     fg: "var(--ok)",
     bg: "var(--ok-bg)",
   },
   yellow: {
     level: "warn",
-    title: "Có giấy sắp hết hạn — lo trước khi đi",
+    title: "Có giấy tờ sắp hết hạn — bà con nhớ kiểm tra trước khi đi biển nhé",
     fg: "var(--warn)",
     bg: "var(--warn-bg)",
   },
   red: {
     level: "danger",
-    title: "Chưa đủ điều kiện — còn việc phải lo",
+    title: "Chưa đủ điều kiện — vẫn còn một số việc cần xử lý",
     fg: "var(--danger)",
     bg: "var(--danger-bg)",
   },
@@ -64,11 +64,11 @@ const STATUS_UI: Record<
   CheckStatus,
   { color: string; bg: string; word: string }
 > = {
-  ok: { color: "var(--ok)", bg: "var(--ok-bg)", word: "Đủ" },
+  ok: { color: "var(--ok)", bg: "var(--ok-bg)", word: "Đầy đủ" },
   soon: { color: "var(--warn)", bg: "var(--warn-bg)", word: "Sắp hết hạn" },
   expired: { color: "var(--danger)", bg: "var(--danger-bg)", word: "Quá hạn" },
   missing: { color: "var(--danger)", bg: "var(--danger-bg)", word: "Chưa có" },
-  manual: { color: "var(--foreground)", bg: "var(--field)", word: "Tự kiểm" },
+  manual: { color: "var(--foreground)", bg: "var(--field)", word: "Tự kiểm tra" },
 };
 
 function StatusIcon({ status }: { status: CheckStatus }) {

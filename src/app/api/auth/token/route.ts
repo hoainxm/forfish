@@ -119,7 +119,7 @@ export async function POST(req: Request) {
     /*  Đã thu hồi chuỗi cũ mà cấp chuỗi mới hỏng ⇒ tài khoản này tạm thời KHÔNG
         máy nào vào được. Nói thật để máy thử lại; bà con vẫn đang giữ phiên
         Supabase tạm của bước 1 nên bấm lại là chạy, không phải nhập lại mật khẩu. */
-    console.error("[auth/token] cấp chuỗi HỎNG:", error.code, error.message);
+    console.error("Lỗi xác thực tài khoản:", error.code, error.message);
     return NextResponse.json({ ok: false, code: "issue_failed" }, { status: 503 });
   }
 

@@ -394,9 +394,9 @@ export function DocumentVault() {
         <ConfirmDialog
           icon={<TrashIcon className="h-9 w-9 text-danger" />}
           title="Xóa giấy tờ này?"
-          message={`“${confirmDelete.label}” sẽ bị xóa, không lấy lại được.`}
+          message={`“${confirmDelete.label}” sẽ bị xóa khỏi hồ sơ và không thể khôi phục.`}
           cancelLabel="Không xóa"
-          confirmLabel="Xóa luôn"
+          confirmLabel="Xác nhận xóa"
           onCancel={() => setConfirmDelete(null)}
           onConfirm={() => remove(confirmDelete.id)}
         />
@@ -447,11 +447,11 @@ function DocumentForm({
 
   return (
     <BottomSheet
-      title={initial ? "Sửa giấy tờ" : "Thêm giấy tờ"}
+      title={initial ? "Sửa thông tin giấy tờ" : "Thêm giấy tờ mới"}
       onClose={onCancel}
     >
       <form onSubmit={submit}>
-        <Field label="Đây là giấy gì?">
+        <Field label="Loại giấy tờ">
           <select
             value={kind}
             onChange={(e) => handleKind(e.target.value as DocumentKind)}
@@ -533,7 +533,7 @@ function DocumentForm({
 
         {showMore && (
           <>
-            <Field label="Số giấy tờ (không nhớ thì bỏ qua)">
+            <Field label="Số giấy tờ (không nhớ có thể bỏ qua)">
               <input
                 value={number}
                 onChange={(e) => setNumber(e.target.value)}
@@ -559,8 +559,8 @@ function DocumentForm({
           <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
             <p className="text-[0.9375rem] text-foreground/70">
               {expiresOn
-                ? "Đủ để app nhắc hạn."
-                : "Chưa có ngày hết hạn — app sẽ không nhắc được."}
+                ? "Thông tin đã đủ để app nhắc hạn."
+                : "Chưa có ngày hết hạn — ứng dụng sẽ không thể nhắc nhở giúp bà con."}
             </p>
           </div>
           <button

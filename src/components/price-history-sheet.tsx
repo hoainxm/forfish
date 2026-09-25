@@ -187,7 +187,7 @@ export function PriceHistorySheet({
     else
       trend = {
         Icon: MinusIcon,
-        word: "gần như đi ngang",
+        word: "tương đối ổn định",
         color: "var(--foreground)",
       };
   }
@@ -207,8 +207,8 @@ export function PriceHistorySheet({
         <div className="rounded-2xl bg-warn-bg px-4 py-8 text-center">
           <p className="text-[1.125rem] font-semibold text-warn">
             {offline
-              ? "Chưa tải được lịch sử giá — máy đang không có sóng."
-              : "Chưa hỏi được lịch sử giá lúc này."}
+              ? "Chưa tải được lịch sử giá — máy đang không có mạng."
+              : "Hiện chưa cập nhật được lịch sử giá."}
           </p>
           <p className="mt-1 text-[1rem] text-foreground/70">
             Bảng giá tuần vẫn xem được. Có sóng lại bà con mở lại biểu đồ nhé.

@@ -148,7 +148,7 @@ export default function DoiMatKhauPage() {
         25000,
       );
       if (!verify) {
-        setError("Mạng yếu quá, chưa kiểm được mật khẩu. Bà con thử lại nhé.");
+        setError("Mạng hơi yếu nên chưa kiểm tra được mật khẩu. Bà con thử lại nhé.");
         setLoading(false);
         return;
       }
@@ -173,7 +173,7 @@ export default function DoiMatKhauPage() {
       25000,
     );
     if (!upd) {
-      setError("Mạng yếu quá, chưa đổi được mật khẩu. Bà con thử lại nhé.");
+      setError("Mạng hơi yếu nên chưa đổi được mật khẩu. Bà con thử lại nhé.");
       setLoading(false);
       return;
     }

@@ -97,7 +97,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     if (!isValidVnPhone(phone)) {
-      setError("Số điện thoại phải đủ 10 số (ví dụ 0901234567). Bà con kiểm tra lại nhé.");
+      setError("Bà con nhập đủ 10 số nhé (ví dụ: 0901234567).");
       return;
     }
     setLoading(true);
@@ -113,7 +113,7 @@ export default function LoginPage() {
       25000,
     );
     if (!res) {
-      setError("Mạng yếu quá, chưa vào được. Bà con thử lại giúp nhé.");
+      setError("Mạng hơi yếu, chưa đăng nhập được. Bà con thử lại giúp nhé.");
       setLoading(false);
       return;
     }
@@ -174,7 +174,7 @@ export default function LoginPage() {
         bấm lại là chạy, khỏi gõ lại mật khẩu. */
     if (!issued) {
       setError(
-        "Mật khẩu đúng rồi nhưng mạng yếu nên chưa vào hẳn được — bà con bấm Đăng nhập lần nữa giúp.",
+        "Mạng hơi yếu, bà con bấm Đăng nhập lại lần nữa nhé.",
       );
       setLoading(false);
       return;
@@ -214,7 +214,7 @@ export default function LoginPage() {
       tierTho === "premium" ? ((body.premiumUntil as string) ?? null) : null;
     if (!saveToken(body.token, tierTho, han)) {
       setError(
-        "Máy đang không cho app lưu dữ liệu nên chưa giữ được đăng nhập. Bà con tắt chế độ duyệt web riêng tư (ẩn danh) rồi thử lại giúp.",
+        "Trình duyệt đang bật chế độ Ẩn danh nên app không nhớ được tài khoản. Bà con tắt chế độ Ẩn danh rồi đăng nhập lại nhé.",
       );
       setLoading(false);
       return;

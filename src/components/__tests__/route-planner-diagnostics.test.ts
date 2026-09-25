@@ -35,7 +35,7 @@ function mount() {
   }));
 }
 function clickCompute() {
-  fireEvent.click(screen.getByRole("button", { name: "Tính đường" }));
+  fireEvent.click(screen.getByRole("button", { name: "Tính lộ trình" }));
 }
 
 beforeEach(() => {
@@ -72,8 +72,8 @@ describe("Tính đường — chờ dữ liệu và giải thích đúng điểm
     // Cho một lượt event loop đi qua khi kho chưa xong: rejection không được bỏ mặc.
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
     await act(async () => { release(null); });
-    await screen.findByText(/Chưa lấy được dự báo/);
-    expect((screen.getByRole("button", { name: "Tính đường" }) as HTMLButtonElement).disabled).toBe(false);
+    await screen.findByText(/Tuyến này chưa có dự báo/);
+    expect((screen.getByRole("button", { name: "Tính lộ trình" }) as HTMLButtonElement).disabled).toBe(false);
     expect(mocks.plan).not.toHaveBeenCalled();
   });
 
@@ -84,7 +84,7 @@ describe("Tính đường — chờ dữ liệu và giải thích đúng điểm
     await waitFor(() => expect(mocks.plan).toHaveBeenCalledWith(expect.objectContaining({
       start: { lat: home.lat, lon: home.lon }, dest: { lat: stop.lat, lon: stop.lon },
     })));
-    await waitFor(() => expect(screen.getByText(/Kiểm lại/)).toBeDefined());
+    await waitFor(() => expect(screen.getByText(/kiểm tra lại/)).toBeDefined());
     expect(document.body.textContent).not.toContain("không có đường vòng nào qua được");
     expect(document.body.textContent).toMatch(/nơi đi|nơi xuất phát/);
   });
@@ -93,7 +93,7 @@ describe("Tính đường — chờ dữ liệu và giải thích đúng điểm
     mocks.plan.mockResolvedValue({ plan: null, failure: "weather-coverage" });
     mount();
     clickCompute();
-    await screen.findByText(/Dự báo còn thiếu/);
+    await screen.findByText(/thiếu dữ liệu dự báo/);
     expect(document.body.textContent).not.toContain("không có đường vòng nào qua được");
   });
 });

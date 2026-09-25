@@ -181,7 +181,7 @@ function KickedNotice() {
           </p>
           <p className="mt-1 text-[1rem] leading-snug text-foreground/80">
             Máy này thôi nhận tin mới — phần đã tải vẫn xem được
-            {online ? "." : " — cần sóng để đăng nhập lại."}
+            {online ? "." : " — cần mạng để đăng nhập lại."}
           </p>
         </div>
         {online ? (
@@ -305,8 +305,8 @@ export function HeroAccount() {
     setPushState("off");
     setPushError(
       r.error === "denied"
-        ? "Máy đang chặn thông báo — vào phần cài đặt của máy để bật lại."
-        : "Chưa bật được — kiểm tra mạng rồi thử lại.",
+        ? "Máy đang chặn thông báo — bà con vào phần cài đặt của máy để bật lại nhé."
+        : "Chưa bật được — bà con kiểm tra mạng rồi thử lại nhé.",
     );
   }
 
@@ -402,7 +402,7 @@ export function HeroAccount() {
     }
     setSigningOut(false);
     if (!done) {
-      setSignOutError("Chưa đăng xuất được — chưa có sóng. Thử lại lúc có sóng nhé.");
+      setSignOutError("Chưa đăng xuất được — máy đang không có mạng. Thử lại lúc có sóng nhé.");
       return;
     }
     // ĐÃ đăng xuất thật mới dọn máy. Gỡ tài khoản khỏi máy này để tin nhắm
@@ -569,7 +569,7 @@ export function HeroAccount() {
                 className={`${SQ_BTN} self-start bg-field text-trim disabled:opacity-60`}
               >
                 <LockIcon className="h-6 w-6" />
-                {signingOut ? "Đang ra" : "Đăng xuất"}
+                {signingOut ? "Đang thoát" : "Đăng xuất"}
               </button>
             </div>
           ) : (
@@ -692,7 +692,7 @@ export function HeroAccount() {
                     </span>
                     <span className="block text-[0.8125rem] leading-snug text-foreground/70">
                       {m.sub}
-                      {on ? " · bấm lại để theo máy" : ""}
+                      {on ? " · bấm lại để theo dõi máy" : ""}
                     </span>
                   </span>
                 </button>
@@ -718,11 +718,11 @@ export function HeroAccount() {
                       ? attach === "attached"
                         ? "Đang bật · đã gắn tài khoản này"
                         : attach === "no-session"
-                          ? "Đang bật · CHƯA gắn tài khoản — đăng nhập rồi mở lại app"
+                          ? "Đang bật · Chưa gắn tài khoản — bà con đăng nhập rồi mở lại app nhé"
                           : attach === "failed"
-                            ? "Đang bật · chưa gắn được (mất sóng)"
+                            ? "Đang bật · chưa liên kết được (do mất sóng)"
                             : "Đang bật trên máy này"
-                      : "Đang tắt · tin nhắn SDVICO không hiện lên máy"}
+                      : "Đang tắt · tin nhắn từ SDVICO sẽ không hiện lên máy"}
                   </span>
                 </span>
               </div>

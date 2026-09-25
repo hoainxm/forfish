@@ -306,7 +306,7 @@ export function NavHud({
               rungOn ? "bg-t1/15 text-t1" : "bg-navy/10 text-navy/60"
             }`}
           >
-            {rungOn ? "Rung: bật" : "Rung: tắt"}
+            {rungOn ? "Báo rung: đang bật" : "Báo rung: đang tắt"}
           </button>
         )}
         <button
@@ -328,7 +328,7 @@ export function NavHud({
           disabled={borderLocked}
           onClick={onDismissBorder}
           aria-label={
-            borderLocked ? undefined : "Thu dòng cảnh báo ranh giới"
+            borderLocked ? undefined : "Thu gọn dòng cảnh báo ranh giới"
           }
           className={`flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[0.9375rem] font-bold leading-snug ${borderTone}`}
         >
@@ -358,7 +358,7 @@ export function NavHud({
             type="button"
             role={l.muc === "vang" ? "alert" : "status"}
             onClick={() => setThuIds((ids) => [...ids.slice(-7), l.id])}
-            aria-label="Thu dòng này"
+            aria-label="Thu gọn thông báo này"
             className={`flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[0.9375rem] font-bold leading-snug ${MUC_TONE[l.muc]}`}
           >
             {l.muc === "vang" && <AlertIcon className="h-5 w-5 shrink-0" />}
@@ -411,10 +411,10 @@ export function NavHud({
                 )}
                 <p className="display min-w-0 text-[1.25rem] font-bold leading-tight text-navy">
                   {progress.arrived
-                    ? "Đã tới gần nơi"
+                    ? "Đã tới gần điểm đến"
                     : progress.steer
                       ? progress.steer.label
-                      : "Đang bắt hướng đi…"}
+                      : "Đang xác định hướng di chuyển…"}
                 </p>
               </div>
               {/* một dòng: hướng · quãng còn lại · giờ chạy (thay 2 ô to cũ) */}
@@ -457,7 +457,7 @@ export function NavHud({
                 <button
                   type="button"
                   onClick={onDismissOffRoute}
-                  aria-label="Thu dòng nhắc lệch tuyến"
+                  aria-label="Thu gọn nhắc nhở lệch tuyến"
                   className="mt-1.5 flex min-h-[2.75rem] w-full items-center gap-2 rounded-xl bg-[var(--warn-bg)] px-2.5 py-2 text-left text-[0.875rem] font-bold leading-snug text-[var(--warn)]"
                 >
                   <span className="min-w-0 flex-1">

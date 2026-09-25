@@ -142,11 +142,11 @@ function InquiryForm({
           style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
         >
           <CheckIcon className="mx-auto h-10 w-10" />
-          <p className="mt-3 text-[1.125rem] font-bold">Đã nhận yêu cầu</p>
+          <p className="mt-3 text-[1.125rem] font-bold">Đã tiếp nhận yêu cầu</p>
           <p className="mt-1 text-[1rem] text-foreground/70">
             {vendorKind === "external" && vendorName?.trim()
-              ? `Yêu cầu về hàng của ${vendorName.trim()} đã nhận rồi — có người gọi lại cho bà con sớm.`
-              : "SDVICO xem xong sẽ gọi lại cho bà con sớm."}
+              ? `Yêu cầu về hàng của ${vendorName.trim()} đã được ghi nhận — nhân viên sẽ gọi lại cho bà con sớm nhé.`
+              : "SDVICO đã ghi nhận và sẽ gọi lại cho bà con trong thời gian sớm nhất."}
           </p>
         </div>
         <div className="mt-4">
@@ -157,12 +157,12 @@ function InquiryForm({
   }
 
   return (
-    <BottomSheet title="Để lại yêu cầu" onClose={onClose}>
+    <BottomSheet title="Để lại yêu cầu tư vấn" onClose={onClose}>
       <form onSubmit={submit}>
         <p className="mb-3 rounded-2xl bg-field px-3.5 py-2.5 text-[1rem] font-semibold text-navy">
           Về: {listingTitle}
         </p>
-        <Field label="Số điện thoại (bắt buộc — để gọi lại)">
+        <Field label="Số điện thoại (bắt buộc — để nhân viên gọi lại)">
           <input
             value={phone}
             onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
@@ -172,7 +172,7 @@ function InquiryForm({
             required
           />
         </Field>
-        <Field label="Tên bà con (tuỳ chọn)">
+        <Field label="Tên của bà con (tuỳ chọn)">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -180,7 +180,7 @@ function InquiryForm({
             placeholder="VD: anh Hai"
           />
         </Field>
-        <Field label="Cần hỏi gì (tuỳ chọn)">
+        <Field label="Câu hỏi hoặc lưu ý thêm (tuỳ chọn)">
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}

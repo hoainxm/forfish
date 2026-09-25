@@ -44,10 +44,10 @@ function Thumb({
     <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-line bg-field">
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element -- signed URL động
-        <img src={url} alt="Ảnh giấy tờ" className="h-full w-full object-cover" />
+        <img src={url} alt="Ảnh chụp giấy tờ" className="h-full w-full object-cover" />
       ) : (
         <div className="flex h-full w-full items-center justify-center px-1 text-center text-[0.75rem] text-navy/60">
-          {failed ? "Cần sóng để xem" : "Đang tải…"}
+          {failed ? "Cần có mạng để xem" : "Đang tải…"}
         </div>
       )}
       {canDelete && (
@@ -97,12 +97,12 @@ export function DocPhotoStrip({
       const blob = await compressImage(file);
       const path = await uploadDocPhoto(docId, blob);
       if (!path) {
-        setErr("Chưa tải được ảnh lên — cần có sóng, thử lại khi có mạng.");
+        setErr("Ảnh chưa tải lên được. Bà con chờ có mạng rồi thử lại nhé.");
         return;
       }
       onChange([...photos, path]);
     } catch {
-      setErr("Ảnh không đọc được — thử ảnh khác giúp nhé.");
+      setErr("Định dạng ảnh không hỗ trợ, bà con thử chọn ảnh khác nhé.");
     } finally {
       setBusy(false);
     }
@@ -146,7 +146,7 @@ export function DocPhotoStrip({
       </div>
       {!online && (
         <p className="text-[0.8125rem] text-navy/60">
-          {photos.length ? "Cần sóng để xem/sửa ảnh." : "Thêm ảnh giấy tờ khi có sóng."}
+          {photos.length ? "Cần có mạng để xem hoặc sửa ảnh." : "Bà con có thể thêm ảnh giấy tờ khi điện thoại kết nối mạng."}
         </p>
       )}
       {err && <p className="mt-1 text-[0.8125rem] text-danger">{err}</p>}
@@ -161,10 +161,10 @@ export function DocPhotoStrip({
       {confirmDel && (
         <ConfirmDialog
           icon={<TrashIcon className="h-8 w-8 text-danger" />}
-          title="Xoá ảnh này?"
-          message="Xoá rồi là mất hẳn — muốn có lại phải lôi giấy ra chụp lại, và cần có sóng."
+          title="Xác nhận xoá ảnh này?"
+          message="Nếu xoá, bà con sẽ cần chụp lại và cần có mạng để tải lên lần nữa."
           cancelLabel="Không xoá"
-          confirmLabel="Xoá luôn"
+          confirmLabel="Xác nhận xoá"
           onCancel={() => setConfirmDel(null)}
           onConfirm={() => {
             onDel(confirmDel);

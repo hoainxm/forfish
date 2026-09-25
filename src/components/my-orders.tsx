@@ -137,7 +137,7 @@ export function MyOrders() {
     setConfirmCancel(null);
     if (!res) {
       setCancelErr(
-        "Chưa huỷ được — việc này cần có mạng. Có sóng lại bà con bấm huỷ lần nữa giúp; danh sách đơn thì máy tự cập nhật.",
+        "Chưa huỷ được — việc này cần có mạng. Có sóng lại bà con bấm huỷ lần nữa giúp; danh sách đơn thì máy sẽ tự động cập nhật.",
       );
       return;
     }
@@ -150,10 +150,10 @@ export function MyOrders() {
       return;
     }
     if (j?.code === "cannot_cancel") {
-      setCancelErr("Đơn chuyển đi rồi, không huỷ được nữa.");
+      setCancelErr("Đơn hàng đã được chuyển đi, không thể huỷ được nữa.");
       fetchOrders(); // đồng bộ lại trạng thái mới
     } else {
-      setCancelErr("Chưa huỷ được — thử lại khi có sóng.");
+      setCancelErr("Chưa huỷ được — bà con thử lại khi có sóng nhé.");
     }
   }
 
@@ -283,7 +283,7 @@ export function MyOrders() {
                       disabled={cancelling === o.id}
                       className="mt-3 min-h-[3.25rem] w-full rounded-full bg-field text-[1.0625rem] font-bold text-danger active:scale-[0.98] disabled:opacity-40"
                     >
-                      {cancelling === o.id ? "Đang huỷ…" : "Huỷ đơn"}
+                      {cancelling === o.id ? "Đang xử lý huỷ…" : "Huỷ đơn"}
                     </button>
                   )}
                 </div>
@@ -295,10 +295,10 @@ export function MyOrders() {
 
       {confirmCancel && (
         <ConfirmDialog
-          title="Huỷ đơn này?"
-          message={`Đơn “${summarizeItems(confirmCancel) || "này"}” sẽ được huỷ. Chỉ huỷ được khi đơn còn “Mới”.`}
+          title="Xác nhận huỷ đơn này?"
+          message={`Đơn “${summarizeItems(confirmCancel) || "này"}” sẽ được huỷ. Chỉ có thể huỷ đối với đơn hàng đang ở trạng thái “Mới”.`}
           cancelLabel="Không huỷ"
-          confirmLabel="Huỷ đơn"
+          confirmLabel="Xác nhận huỷ đơn"
           onCancel={() => setConfirmCancel(null)}
           onConfirm={() => doCancel(confirmCancel)}
         />

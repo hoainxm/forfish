@@ -34,7 +34,7 @@ const SEVERITY: Record<
 > = {
   high: { level: "danger", amount: "text-danger", label: "Phạt rất nặng" },
   medium: { level: "warn", amount: "text-warn", label: "Phạt nặng" },
-  low: { level: "neutral", amount: "text-foreground", label: "Phạt nhẹ hơn" },
+  low: { level: "neutral", amount: "text-foreground", label: "Phạt nhẹ" },
 };
 
 export function FinesLookup() {
@@ -60,7 +60,7 @@ export function FinesLookup() {
 
   return (
     <div className="px-4 pt-1">
-      <h2 className="display text-[1.375rem] font-bold text-navy">Tra mức phạt</h2>
+      <h2 className="display text-[1.375rem] font-bold text-navy">Tra cứu mức phạt</h2>
       <p className="mt-1 text-[1rem] text-foreground/70">
         Gõ vài chữ để tìm, ví dụ: giấy phép, vùng biển, nhật ký
       </p>
@@ -82,7 +82,7 @@ export function FinesLookup() {
       <div
         className="-mx-4 mt-2.5 flex gap-2 overflow-x-auto px-4 pb-1"
         role="group"
-        aria-label="Từ khóa hay tra"
+        aria-label="Từ khóa thường tra cứu"
       >
         {[
           "giấy phép",
@@ -114,8 +114,8 @@ export function FinesLookup() {
       {isFiltering && (
         <p className="mt-3 text-[1rem] font-bold text-foreground/70">
           {results.length > 0
-            ? `${results.length} mức phạt`
-            : "Không thấy mức phạt nào"}
+            ? `Có ${results.length} mức phạt`
+            : "Không tìm thấy mức phạt nào"}
         </p>
       )}
 
