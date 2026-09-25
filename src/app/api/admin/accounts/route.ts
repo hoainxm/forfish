@@ -19,6 +19,7 @@ import { logActivity } from "@/lib/admin-activity-log";
 import { isAdminPhone, isMasterAgentPhone, parseAdminPhones } from "@/lib/admin";
 import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
 import { TEMP_RESET_PASSWORD } from "@/lib/temp-password";
+import { normalizePassword, PASSWORD_MIN_LENGTH } from "@/lib/password";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 import { normalizePlatform } from "@/lib/app-usage";
 
@@ -380,8 +381,14 @@ export async function POST(req: Request) {
   if (!admin) return err(503, "not_configured");
 
   if (!body?.phone || !isValidVnPhone(body.phone)) return err(400, "bad_phone");
-  if (!body.password || body.password.length < 6)
-    return err(400, "bad_password");
+  // Cùng LUẬT DUY NHẤT với app ngư dân (lib/password): tối thiểu 6 ký tự sau khi
+  // bỏ khoảng trắng đầu/cuối. Chuẩn hoá LUÔN giá trị lưu để khớp thứ /login gửi
+  // lên (login normalizePassword) — admin lỡ gõ dấu cách cuối thì khách vẫn đăng
+  // nhập được bằng mật khẩu được cấp.
+  const password = normalizePassword(
+    typeof body.password === "string" ? body.password : "",
+  );
+  if (password.length < PASSWORD_MIN_LENGTH) return err(400, "bad_password");
   const phone = normalizeVnPhone(body.phone);
   const now = new Date().toISOString();
 
@@ -418,7 +425,7 @@ export async function POST(req: Request) {
   // provision auth — cùng nếp webhook: đã tồn tại thì bỏ qua, KHÔNG đè mật khẩu
   const { error: authErr } = await admin.auth.admin.createUser({
     email: phoneToEmail(phone),
-    password: body.password,
+    password,
     email_confirm: true,
     user_metadata: { must_change_password: true },
   });

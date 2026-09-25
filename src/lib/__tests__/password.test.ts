@@ -51,35 +51,34 @@ describe("passwordProblem — luật DUY NHẤT: tự do, tối thiểu 6 ký t�
   });
 });
 
-describe("passwordRuleHint — nhãn kiểm tra tại chỗ", () => {
-  it("chưa gõ → mời + nói luật, ok=false", () => {
-    const h = passwordRuleHint("");
-    expect(h.ok).toBe(false);
-    expect(h.text).toContain("ít nhất 6 ký tự");
-    expect(h.text).not.toContain("đang có");
+describe("passwordRuleHint — nhãn kiểm tra tại chỗ (ngắn gọn)", () => {
+  it("chưa gõ → trấn an tự do + mốc, ok=false", () => {
+    expect(passwordRuleHint("")).toEqual({
+      ok: false,
+      text: "Gõ gì cũng được, ít nhất 6 ký tự.",
+    });
   });
 
-  it("đang gõ mà thiếu → đếm rõ còn bao nhiêu, ok=false", () => {
+  it("đang gõ mà thiếu → đếm THẲNG còn thiếu mấy ký tự, ok=false", () => {
     expect(passwordRuleHint("abc")).toEqual({
       ok: false,
-      text: "Cần ít nhất 6 ký tự — đang có 3.",
+      text: "Còn thiếu 3 ký tự.",
     });
-    // trim trước khi đếm: "  abc " = 3 ký tự thật
-    expect(passwordRuleHint("  abc ").text).toBe(
-      "Cần ít nhất 6 ký tự — đang có 3.",
-    );
+    expect(passwordRuleHint("abcde").text).toBe("Còn thiếu 1 ký tự.");
+    // trim trước khi đếm: "  abc " = 3 ký tự thật → còn thiếu 3
+    expect(passwordRuleHint("  abc ").text).toBe("Còn thiếu 3 ký tự.");
   });
 
-  it("đủ dài → ok=true + số ký tự (đếm sau trim)", () => {
-    expect(passwordRuleHint("abcdef")).toEqual({
-      ok: true,
-      text: "✓ Được rồi — mật khẩu đủ dài (6 ký tự).",
-    });
+  it("đủ dài → ok=true, câu ngắn", () => {
+    expect(passwordRuleHint("abcdef")).toEqual({ ok: true, text: "✓ Được rồi." });
     expect(passwordRuleHint("  bien dong  ").ok).toBe(true); // 9 ký tự sau trim
   });
 
   it("nhận minLength khác khi cần", () => {
     expect(passwordRuleHint("abcd", 4).ok).toBe(true);
-    expect(passwordRuleHint("abc", 4).ok).toBe(false);
+    expect(passwordRuleHint("abc", 4)).toEqual({
+      ok: false,
+      text: "Còn thiếu 1 ký tự.",
+    });
   });
 });

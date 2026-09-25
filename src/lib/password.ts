@@ -33,15 +33,15 @@ export function passwordRuleHint(
   raw: string,
   minLength: number = PASSWORD_MIN_LENGTH,
 ): { ok: boolean; text: string } {
+  // NGẮN + RÕ (user 2026-09-25): mỗi trạng thái một câu ngắn, nói đúng việc bà
+  // con cần làm tiếp — chưa gõ thì trấn an "gõ gì cũng được" + mốc; đang gõ thì
+  // đếm THẲNG còn thiếu mấy ký tự; đủ thì "Được rồi" gọn.
   const len = normalizePassword(raw).length;
   if (len >= minLength) {
-    return { ok: true, text: `✓ Được rồi — mật khẩu đủ dài (${len} ký tự).` };
+    return { ok: true, text: "✓ Được rồi." };
   }
   if (len === 0) {
-    return {
-      ok: false,
-      text: `Đặt mật khẩu tự do, chỉ cần ít nhất ${minLength} ký tự.`,
-    };
+    return { ok: false, text: `Gõ gì cũng được, ít nhất ${minLength} ký tự.` };
   }
-  return { ok: false, text: `Cần ít nhất ${minLength} ký tự — đang có ${len}.` };
+  return { ok: false, text: `Còn thiếu ${minLength - len} ký tự.` };
 }
