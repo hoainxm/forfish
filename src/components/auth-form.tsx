@@ -91,13 +91,16 @@ export function PasswordField({
   );
 }
 
-/** Khung trắng giữa màn — nơi đặt form đăng nhập. */
+/*  Khung trắng giữa màn — nơi đặt form đăng nhập/đăng ký.
+    ĐỒNG ĐỀU VỚI HERO + MÀN HÌNH (user 2026-09-25): trước có `max-w-[420px]`
+    khiến thẻ HẸP hơn header 52px trên khung 480 (thụt vào 26px mỗi bên), nhìn
+    thẻ lọt thỏm/lệch so với hero tràn viền phía trên. Nay thẻ rộng đúng cột
+    app-shell (đã cap 480) và dùng `px-5` để MÉP thẻ thẳng hàng với mép chữ hero
+    (PageHeader cũng px-5) — trên/dưới một trục, không so le. */
 export function AuthCard({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto mt-6 w-full max-w-[420px] px-4">
-      <div className="surface p-5">
-        {children}
-      </div>
+    <div className="mt-6 w-full px-5">
+      <div className="surface p-5">{children}</div>
     </div>
   );
 }
