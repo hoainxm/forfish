@@ -78,6 +78,18 @@ function RequestForm({
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">(
     "idle",
   );
+  /*  ĐƠN MUA (phase 1, 2026-09-25): topic "mua" + có sản phẩm → tạo ĐƠN sang
+      SDWork (function sdfish-order) thay vì chỉ gửi yêu cầu tư vấn. `externalRef`
+      SINH MỘT LẦN cho mỗi form → gửi lại (bấm hai lần / lỗi mạng) KHÔNG tạo đơn
+      trùng (server CRM idempotent theo ref). `orderRef` = mã SDF-xxxxxx trả về. */
+  const [externalRef] = useState(
+    () =>
+      "sdf-" +
+      (typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`),
+  );
+  const [orderRef, setOrderRef] = useState<string | null>(null);
   // App yêu cầu đăng nhập → đã biết SĐT/tên rồi, form KHÔNG hỏi lại
   // (signedPhone != null = ẩn ô tên + SĐT). Chỉ khách lạ mới phải nhập SĐT.
   const [signedPhone, setSignedPhone] = useState<string | null>(null);
@@ -138,7 +150,35 @@ function RequestForm({
     }
     setErrText(null);
     setState("sending");
+    // ĐƠN MUA: chỉ khi hỏi MUA một sản phẩm cụ thể. Topic khác (cước/sửa chữa…)
+    // hoặc không có sản phẩm → vẫn là yêu cầu tư vấn như cũ.
+    const isOrder = topic === "mua" && !!productName?.trim();
     try {
+      if (isOrder) {
+        const r = await fetch(apiUrl("/api/sdvico/order"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...tokenHeader() },
+          body: JSON.stringify({
+            externalRef,
+            name: name.trim(),
+            phone: phone.trim(),
+            productName,
+            note: detail.trim(),
+          }),
+          signal: timeoutSignal(20000),
+        });
+        const j = await r.json().catch(() => null);
+        if (j?.ok) {
+          addOptimisticRequest(
+            ["Đơn mua", productName, detail.trim()].filter(Boolean).join(" — "),
+          );
+          setOrderRef(typeof j.displayRef === "string" ? j.displayRef : null);
+          setState("done");
+        } else {
+          setState("error");
+        }
+        return;
+      }
       const r = await fetch(apiUrl("/api/sdvico/request"), {
         method: "POST",
         headers: { "Content-Type": "application/json", ...tokenHeader() },
@@ -169,17 +209,42 @@ function RequestForm({
   }
 
   if (state === "done") {
+    const wasOrder = topic === "mua" && !!productName?.trim();
     return (
-      <BottomSheet title="Đã gửi yêu cầu tới SDVICO" onClose={onClose}>
+      <BottomSheet
+        title={wasOrder ? "Đã gửi đơn mua" : "Đã gửi yêu cầu tới SDVICO"}
+        onClose={onClose}
+      >
         <div
           className="rounded-[1.25rem] px-4 py-8 text-center"
           style={{ backgroundColor: "var(--ok-bg)", color: "var(--ok)" }}
         >
           <CheckIcon className="mx-auto h-10 w-10" />
-          <p className="mt-3 text-[1.125rem] font-bold">SDVICO đã nhận được yêu cầu</p>
-          <p className="mt-1 text-[1rem] text-foreground/70">
-            Nhân viên sẽ gọi lại cho bà con trong giờ làm việc.
-          </p>
+          {wasOrder ? (
+            <>
+              <p className="mt-3 text-[1.125rem] font-bold">
+                SDVICO đã nhận đơn mua của bà con
+              </p>
+              {orderRef && (
+                <p className="mt-1 text-[1.0625rem] font-bold text-navy">
+                  Mã đơn: {orderRef}
+                </p>
+              )}
+              <p className="mt-1 text-[1rem] text-foreground/70">
+                Đơn đang chờ SDVICO duyệt. Nhân viên sẽ gọi báo giá và xác nhận
+                cho bà con.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-3 text-[1.125rem] font-bold">
+                SDVICO đã nhận được yêu cầu
+              </p>
+              <p className="mt-1 text-[1rem] text-foreground/70">
+                Nhân viên sẽ gọi lại cho bà con trong giờ làm việc.
+              </p>
+            </>
+          )}
         </div>
         <div className="mt-4">
           <PrimaryButton onClick={onClose}>Xong</PrimaryButton>

@@ -99,6 +99,32 @@ SdvicoRequestButton / ProductDetailSheet (hàng vendor_kind='sdvico')
 - [ ] **Verify sau deploy**: bấm "Gửi yêu cầu mua" 1 sản phẩm trên prod → kiểm `consultation_requests` bên CRM thấy dòng `[ForFish]` mới. Hoặc `curl -X POST https://<prod>/api/sdvico/request -H 'content-type: application/json' -d '{"name":"Test","phone":"0901234567","topic":"mua","productName":"Máy lọc dầu"}'` → `{ok:true}`.
 - [ ] RLS/quyền: gateway dùng `SDWORK_SUPABASE_ANON_KEY` (anon) — Edge Function phía CRM tự chèn bằng service-role của nó; ForFish KHÔNG cầm service-role của CRM.
 
+## ĐƠN MUA SDFish → SDWork (function `sdfish-order`, phase 1) — 2026-09-25
+
+> KHÁC `consultation_requests`: đây là **ĐƠN MUA THẬT** vào bảng `orders`/`order_items`
+> của CRM, có mã hiển thị + luồng kinh doanh DUYỆT. Chỉ dùng cho **hỏi MUA một sản
+> phẩm** (topic=`mua` + có sản phẩm); các topic khác (cước/sửa chữa…) vẫn đi
+> `action:"request"` → `consultation_requests` như cũ.
+
+**Luồng:** SdvicoRequestButton/ProductDetailSheet (topic=mua + sản phẩm) → `/api/sdvico/order` → `lib/sdwork-order.createSdfishOrder()` → `POST {SDFISH_ORDER_URL}` header `x-sdfish-secret` → CRM tạo đơn nguồn `sdfish`.
+
+**Payload gửi (`sdfish-order`):**
+```jsonc
+{ "action": "create", "source": "sdfish",
+  "externalRef": "sdf-<uuid>",              // BẮT BUỘC, idempotent (gửi trùng → đơn cũ)
+  "customer": { "fullName": "string", "phone": "0xxxxxxxxx" },  // CRM tự tạo/khớp KH theo SĐT
+  "items": [ { "productName": "string", "sku": null, "qty": 1, "unitPriceVnd": null } ],
+  "note": "string?", "deliveryAddress": null }
+```
+**Response phase 1:**
+```jsonc
+{ "ok": true, "displayRef": "SDF-xxxxxx", "status": "pending" }
+```
+- **Phase 1**: gửi TÊN sản phẩm (text), `qty:1`, giá trống → kinh doanh gán SKU + báo giá lúc duyệt. **Chưa có mã `DH…`** — mã đơn thật sinh khi kinh doanh DUYỆT (về SDFish ở **phase 2** qua webhook trạng thái, cần thống nhất endpoint+payload).
+- **Auth**: shared secret header `x-sdfish-secret` (function `verify_jwt=false`; KHÔNG gửi apikey/Authorization — bài học renewal). Env: `SDFISH_ORDER_SECRET` + `SDFISH_ORDER_URL` (trống → suy từ `SDWORK_SUPABASE_URL`).
+- **Lỗi route**: 503 `not_configured` (thiếu env) · 400 `missing_ref`/`missing_product`/`invalid_phone` · 502 `crm_error`.
+- **Cần cho phase 2**: SDWork đẩy webhook về SDFish khi đổi trạng thái (`pending → xác nhận → …`) + gửi mã `DH…` để SDFish hiện cho ngư dân.
+
 ## Compatibility rules
 
 - **Non-breaking** (không bump): thêm field optional; thêm `service.kind` mới (consumer `serviceKindLabel` có nhánh default "Dịch vụ").
@@ -112,4 +138,5 @@ SdvicoRequestButton / ProductDetailSheet (hàng vendor_kind='sdvico')
 |---|---|---|---|
 | 2026-06-11 | v1 | Khởi tạo contract (gateway v4: warranty_cards + vw_imported_serials) | ForFish (toàn bộ) |
 | 2026-08-02 | v1 (**KHÔNG bump**) | **Shape KHÔNG đổi một field nào.** Adapter `src/lib/sdwork-assets.ts` chỉ đổi đúng một dòng ở tầng vận chuyển: `AbortSignal.timeout(15000)` → `timeoutSignal(15000)` (`src/lib/abort.ts`). Lý do: `AbortSignal.timeout` chỉ có từ Safari 16 / Chrome 103, iPhone kẹt iOS 15.8 ném `TypeError` ngay tại lời gọi ⇒ nhóm máy đó gọi gateway hỏng vì lý do KHÔNG phải mạng nhưng lại đội lốt "mất sóng", và `useSdvicoAssets` rơi nhầm về nấc `error`. Trần 15 s giữ nguyên; `undefined` chỉ xảy ra khi môi trường thiếu cả `AbortController`. Không cần đổi gì phía producer. | ForFish — không consumer nào phải sửa |
+| 2026-09-25 | v1 (**KHÔNG bump**) | **THÊM luồng ĐƠN MUA phase 1** (function `sdfish-order`, action `create`) — SDFish side sẵn sàng chờ SDWork trả sandbox URL+secret. Code: `lib/sdwork-order.ts` (`buildOrderPayload`, có test) · route `/api/sdvico/order` · `sdvico-request.tsx` nhánh topic=mua+sản phẩm → tạo đơn (externalRef ổn định, hiện `SDF-xxxxxx`). Env mới: `SDFISH_ORDER_SECRET`/`SDFISH_ORDER_URL`. Consultation (`request`) giữ nguyên cho topic khác. | ForFish (sẵn sàng đấu nối) |
 | 2026-09-24 | v1 (**KHÔNG bump**) | **Tài liệu hoá action `request`** (yêu cầu mua → SDWork) vốn đã chạy nhưng chưa ghi contract — thêm §"Yêu cầu mua → SDWork" + payload + checklist deploy + cách kinh doanh check. Code: tách `lib/sdwork-request.ts` (`buildRequestMessage`, có test), route `/api/sdvico/request` dùng lại `lib/phone` (bỏ dupe `normalizePhone`/`isValidVnPhone`). Hành vi KHÔNG đổi. | ForFish — không consumer nào phải sửa |
