@@ -202,6 +202,7 @@ import { moonPhase } from "@/lib/moon";
 import { FREE_FORECAST_DAYS } from "@/lib/tier";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { PremiumLock } from "@/components/premium-gate";
+import { TileLoadDebug } from "@/components/tile-load-debug";
 import { SDVICO_HOTLINE } from "@/data/sdvico-showcase";
 import {
   fetchSeaScalar,
@@ -787,6 +788,13 @@ const ONLINE_REFRESH_GAP_MS = 2 * 60 * 1000;
 
 export default function FishingMapView() {
   const mapRef = useRef<MapRef>(null);
+  // `?debug=tiles` → bảng % tải ô theo nguồn (components/tile-load-debug). Đọc
+  // một lần sau mount (window chỉ có ở client) — không ảnh hưởng người dùng thường.
+  const [tileDebug, setTileDebug] = useState(false);
+  useEffect(() => {
+    setTileDebug(new URLSearchParams(window.location.search).get("debug") === "tiles");
+  }, []);
+  const getMapForDebug = useCallback(() => mapRef.current?.getMap(), []);
 
   /** Có sóng lại → tăng, các effect tải dữ liệu nghe theo để LÀM MỚI (2026-07-29) */
   const [netEpoch, setNetEpoch] = useState(0);
@@ -6115,6 +6123,16 @@ export default function FishingMapView() {
         )}
       </MapGL>
       </div>
+
+      {tileDebug && (
+        <TileLoadDebug
+          getMap={getMapForDebug}
+          labels={{
+            basemap: "Nền đất–nước",
+            "ocean-data": OCEAN_LAYERS[anyExclusiveOverlay || chartDetailOn ? "bathymetry" : layerId]?.label ?? "Lớp ảnh",
+          }}
+        />
+      )}
 
       {/*  MENU NGỮ CẢNH của chạm-giữ — nổi ngay chỗ ngón tay, không phải chạy
            mắt xuống thẻ. Hai việc bà con thực sự muốn làm với MỘT chỗ trên
