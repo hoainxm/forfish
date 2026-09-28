@@ -186,6 +186,16 @@ describe("buildMapStyle", () => {
     expect(ids.indexOf("seamarks")).toBeGreaterThan(ids.indexOf("ocean-data"));
   });
 
+  it("nước của nền cùng màu mask — lỗ mây lớp vệ tinh không lộ ô vuông", () => {
+    // Lệch màu (Protomaps #80deea vs mask) ⇒ qua lỗ mây của lớp phù du thấy
+    // nguyên khung mask hình chữ nhật giữa Biển Đông (lỗi thật 2026-09-28).
+    const style = buildMapStyle("chlorophyll");
+    const water = (style.layers as { id: string; paint?: Record<string, unknown> }[]).find(
+      (l) => l.id === "water",
+    )!;
+    expect(water.paint?.["fill-color"]).toBe(SEA_MASK_COLOR);
+  });
+
   it("mask mờ dần rồi tắt khi zoom gần bờ (không che luồng lạch)", () => {
     const style = buildMapStyle("bathymetry");
     const mask = (style.layers as { id: string; paint?: Record<string, unknown> }[]).find(

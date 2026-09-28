@@ -8,3 +8,4 @@
 2026-09-24 | ops/deploy+auth | CLAUDE.md, docs/app-map/ops/sync-base-flow.md, docs/app-map/ops/runbook.md, docs/app-map/ops/external-services.md, docs/app-map/04-data-model.md
 2026-09-24 | product-catalog+admin | CLAUDE.md, docs/app-map/01-product.md, docs/app-map/04-data-model.md, docs/app-map/02-architecture.md, docs/app-map/10-ba-spec-quan-tri-van-hanh.md, docs/app-map/07-design-spec.md
 2026-09-24 | design,architecture | CLAUDE.md, docs/app-map/03-design-system.md, docs/app-map/07-design-spec.md, docs/app-map/02-architecture.md
+2026-09-28 | architecture,data | CLAUDE.md,docs/app-map/02-architecture.md,docs/app-map/01-product.md,docs/app-map/ops/external-services.md

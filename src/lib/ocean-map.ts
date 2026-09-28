@@ -961,6 +961,17 @@ export function buildMapStyle(
       !l.id.startsWith("boundaries") &&
       !BASEMAP_DEAD_LAYERS.has(l.id) &&
       !l.id.startsWith("landuse_"),
+  ).map((l) =>
+    /*  NƯỚC CỦA NỀN = MÀU MASK (2026-09-28). Protomaps "light" tô biển
+        #80deea (xanh ngọc) còn khung `sea-mask` là SEA_MASK_COLOR. Lớp ảnh vệ
+        tinh (Nước nóng lạnh / Vùng nhiều mồi) có lỗ trong suốt chỗ mây che —
+        qua lỗ, trong khung mask ra xám nhạt, ngoài khung ra xanh ngọc ⇒ bà con
+        thấy một Ô VUÔNG LỚN giữa Biển Đông tưởng bản đồ tải lỗi. Cùng màu thì
+        lỗ mây liền một tông, mép khung biến mất. Chỉ đổi lớp `water` (fill);
+        sông `water_river/stream` giữ màu gốc để còn nổi trên nền đất. */
+    l.id === "water"
+      ? { ...l, paint: { ...(l as { paint?: object }).paint, "fill-color": SEA_MASK_COLOR } }
+      : l,
   ) as object[];
 
   const sources: Record<string, object> = {
