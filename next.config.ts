@@ -26,5 +26,10 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   ...(e2eDistDir ? { distDir: e2eDistDir } : {}),
+  // Mã bản cho "Có bản mới — chạm để cập nhật" (lib/app-version.ts). Vercel tự
+  // đặt VERCEL_GIT_COMMIT_SHA lúc build; ngoài Vercel rỗng ⇒ tính năng tự tắt.
+  env: {
+    NEXT_PUBLIC_BUILD_ID: (process.env.VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 12),
+  },
 };
 export default nextConfig;

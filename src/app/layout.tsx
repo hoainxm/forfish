@@ -3,6 +3,7 @@ import { Archivo, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { SwRegister } from "@/components/sw-register";
+import { UpdateNotice } from "@/components/update-notice";
 import { UsageHeartbeat } from "@/components/usage-heartbeat";
 import { ViewportGapFix } from "@/components/viewport-gap-fix";
 
@@ -69,6 +70,8 @@ export default function RootLayout({
         />
         <AppShell>{children}</AppShell>
         <SwRegister />
+        {/* "Có bản mới — Cập nhật": so mã bản với /api/version, chỉ báo, không tự tải lại. */}
+        <UpdateNotice />
         {/* Máy tự báo đã mở app (cho /quan-tri biết ai chưa mở BẢN CÀI).
             Không vẽ gì, không chặn gì — xem lib/heartbeat.ts. */}
         <UsageHeartbeat />

@@ -93,6 +93,7 @@ describe("matcher middleware.ts ↔ DATA_ROUTE_MATCHER ↔ route thật", () => 
     const KHONG_PHAI_DU_LIEU = new Set([
       "auth", "admin", "cron", "collect", "push", "sdwork", "me", // auth/quản trị/cron/webhook/riêng tư — tự gác
       "data-key", // tự gác + rate limit trong route
+      "version", // chỉ trả mã bản đang deploy (báo có bản mới) — công khai, không dữ liệu
       "market-listings", "crew-reports", "product-inquiries", "renewal", "sdvico", // nghiệp vụ per-user, identityFromRequest trong route
     ]);
     const top = readdirSync(join(ROOT, "src", "app", "api"), { withFileTypes: true })
