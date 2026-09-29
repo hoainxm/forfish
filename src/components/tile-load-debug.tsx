@@ -10,6 +10,9 @@
 import { useEffect, useState } from "react";
 import type { Map as MaplibreMap } from "maplibre-gl";
 import { readTileTallies, type TileTally } from "@/lib/tile-load-stats";
+import { LOCAL_BUILD_ID } from "@/lib/app-version";
+import { apiUrl } from "@/lib/api-base";
+import { timeoutSignal } from "@/lib/abort";
 
 const POLL_MS = 500;
 
@@ -23,6 +26,15 @@ export function TileLoadDebug({
 }) {
   const [rows, setRows] = useState<TileTally[]>([]);
   const [lastErr, setLastErr] = useState<Record<string, string>>({});
+  // Mã bản máy đang chạy vs máy chủ — lệch là máy đang kẹt code cũ (ca Android
+  // 2026-09-29: sửa đã deploy mà điện thoại vẫn vẽ như cũ).
+  const [serverBuild, setServerBuild] = useState<string | null>(null);
+  useEffect(() => {
+    fetch(apiUrl("/api/version"), { cache: "no-store", signal: timeoutSignal(5000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setServerBuild(typeof j?.build === "string" ? j.build : "?"))
+      .catch(() => setServerBuild("không hỏi được"));
+  }, []);
 
   useEffect(() => {
     let map: MaplibreMap | undefined;
@@ -57,6 +69,12 @@ export function TileLoadDebug({
       aria-label="Kiểm tra tải bản đồ"
     >
       <p className="mb-1 font-bold">Tải ô bản đồ</p>
+      <p className="mb-1">
+        Bản máy: {LOCAL_BUILD_ID || "(trống)"} · máy chủ: {serverBuild ?? "…"}
+        {serverBuild && LOCAL_BUILD_ID && serverBuild !== LOCAL_BUILD_ID ? (
+          <span className="block font-bold text-danger">↳ Máy đang chạy BẢN CŨ</span>
+        ) : null}
+      </p>
       {rows.length === 0 ? (
         <p>Chưa có ô nào…</p>
       ) : (

@@ -27,9 +27,16 @@ const nextConfig: NextConfig = {
   },
   ...(e2eDistDir ? { distDir: e2eDistDir } : {}),
   // Mã bản cho "Có bản mới — chạm để cập nhật" (lib/app-version.ts). Vercel tự
-  // đặt VERCEL_GIT_COMMIT_SHA lúc build; ngoài Vercel rỗng ⇒ tính năng tự tắt.
+  // đặt VERCEL_GIT_COMMIT_SHA; bản tự host sdfish.sdvico.vn build trên GitHub
+  // Actions (.github/workflows/deploy.yml) nên có GITHUB_SHA — thiếu nhánh này
+  // thì máy chủ trả mã rỗng và thẻ không bao giờ hiện (dính 2026-09-29).
+  // Máy dev: cả hai rỗng ⇒ tính năng tự tắt.
   env: {
-    NEXT_PUBLIC_BUILD_ID: (process.env.VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 12),
+    NEXT_PUBLIC_BUILD_ID: (
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      process.env.GITHUB_SHA ||
+      ""
+    ).slice(0, 12),
   },
 };
 export default nextConfig;

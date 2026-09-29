@@ -10,3 +10,4 @@
 2026-09-24 | design,architecture | CLAUDE.md, docs/app-map/03-design-system.md, docs/app-map/07-design-spec.md, docs/app-map/02-architecture.md
 2026-09-28 | architecture,data | CLAUDE.md,docs/app-map/02-architecture.md,docs/app-map/01-product.md,docs/app-map/ops/external-services.md
 2026-09-28 | architecture,ops | CLAUDE.md,docs/app-map/02-architecture.md
+2026-09-29 | ops,architecture | CLAUDE.md,docs/app-map/02-architecture.md,docs/app-map/ops/native-deploy.md
