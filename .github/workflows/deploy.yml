@@ -1,10 +1,24 @@
 name: Deploy Next.js via Self-hosted Runner
 
+# Tối ưu thời gian (2026-09-29, trước đó ~20 phút/lần) — xem ops/runbook.md "Deploy self-host":
+#   - checkout clean:false  → giữ node_modules + .next/cache giữa các lần (không build lạnh)
+#   - npm ci CHỈ khi package-lock.json / bản Node đổi (node_modules 683 MB, 478 gói)
+#   - bỏ setup-node `cache: npm` (runner tự host đã có ~/.npm trên đĩa, khỏi up/down GitHub)
+#   - robocopy /MIR /MT chỉ chép file đổi; ráp bản mới ở thư mục stage khi web vẫn chạy,
+#     PM2 chỉ dừng trong lúc tráo stage → live
+#   - concurrency: 2 lần push liền nhau không chép chồng lên nhau
+
 on:
   push:
     branches:
       - main # Chạy tự động khi push code lên nhánh main
   workflow_dispatch: # Cho phép bấm chạy tay trên GitHub Actions
+
+# Xếp hàng, KHÔNG huỷ giữa chừng: huỷ đúng lúc đang tráo stage → live là web nằm chết
+# (PM2 đã dừng, chưa khởi động lại).
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
@@ -30,22 +44,44 @@ jobs:
       ADMIN_PHONES: ${{ secrets.ADMIN_PHONES || vars.ADMIN_PHONES }}
       MASTER_AGENT_PHONES: ${{ secrets.MASTER_AGENT_PHONES || vars.MASTER_AGENT_PHONES }}
       PORT: ${{ secrets.PORT || vars.PORT }}
+      # Tăng tốc: không tải Chrome của puppeteer (chỉ dùng cho script quay video, deploy không cần)
+      PUPPETEER_SKIP_DOWNLOAD: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Thư mục trên server
+      APP_DIR: C:\sdfish\forfish
+      STAGE_DIR: C:\sdfish\forfish-next
 
     steps:
-      # 1. Kéo mã nguồn trực tiếp về thư mục làm việc của Runner trên server
+      # 1. Kéo mã nguồn. clean:false để GIỮ node_modules + .next/cache (git clean -ffdx
+      #    mặc định xoá cả hai ⇒ lần nào cũng cài lại + build lạnh). checkout vẫn --force
+      #    nên file có trong git luôn đúng bản của commit.
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          clean: false
 
-      # 2. Setup Node.js (GitHub sẽ tự tải Node.js về cho runner dùng)
+      # 2. Setup Node.js — KHÔNG `cache: npm`: trên runner tự host, ~/.npm đã nằm sẵn trên
+      #    đĩa; cache của action chỉ tốn thời gian nén + tải lên/xuống máy chủ GitHub.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' 
-          cache: 'npm'
+          node-version: '20'
 
-      # 3. Cài đặt các gói phụ thuộc
-      - name: Install dependencies
-        run: npm ci
+      # 3. Cài gói CHỈ khi package-lock.json hoặc bản Node đổi.
+      - name: Install dependencies (only when lockfile changes)
+        shell: powershell
+        run: |
+          # npm in "npm warn …" ra stderr — đừng để PowerShell coi là lỗi; xét $LASTEXITCODE
+          $ErrorActionPreference = "Continue"
+          $hash = (Get-FileHash package-lock.json -Algorithm SHA256).Hash + "|" + (node -v)
+          $mark = "node_modules\.deploy-lock-hash"
+          if ((Test-Path $mark) -and ((Get-Content $mark -Raw).Trim() -eq $hash)) {
+            Write-Host "package-lock.json + Node unchanged - skip npm ci"
+          } else {
+            npm ci --prefer-offline --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Set-Content -Path $mark -Value $hash -Encoding ascii
+          }
 
       # 4. Tạo file .env.production và .env để Next.js nhúng NEXT_PUBLIC_* lúc build và nạp runtime
       - name: Create .env files
@@ -77,7 +113,7 @@ jobs:
             }
           }
           # Nếu server đích đã có .env sẵn, bù thêm các key chưa có trong GitHub
-          $dstEnv = "C:\sdfish\forfish\.env"
+          $dstEnv = "$env:APP_DIR\.env"
           if (Test-Path $dstEnv) {
             Get-Content $dstEnv | ForEach-Object {
               $line = $_.Trim()
@@ -95,50 +131,47 @@ jobs:
           $lines | Set-Content -Path ".env" -Encoding utf8
           Write-Host "Created .env.production and .env with $($lines.Count) variables"
 
-      # 5. Build ứng dụng Next.js (đã có env nạp sẵn)
+      # 5. Build ứng dụng Next.js (đã có env nạp sẵn). .next/cache còn từ lần trước ⇒ build ấm.
       - name: Build Next.js App
         run: npm run build
 
-      # 6. Tạm dừng PM2 trước khi chép file
-      - name: Stop PM2
-        run: pm2 stop forfish
-        continue-on-error: true # Bỏ qua lỗi nếu ứng dụng chưa từng được chạy trong PM2
-
-      # 7. Copy file bằng PowerShell sang thư mục đích
-      - name: Prepare and Copy files to Destination
+      # 6. Ráp bản chạy được vào STAGE trong lúc web cũ VẪN CHẠY.
+      #    robocopy /MIR chỉ chép file khác (so size + giờ sửa), /MT chép song song.
+      #    robocopy: mã thoát < 8 là thành công (1 = có chép file) ⇒ phải tự quy về 0.
+      - name: Stage new build
         shell: powershell
         run: |
           $src = $env:GITHUB_WORKSPACE
-          $dst = "C:\sdfish\forfish"
-
-          # Xóa sạch nội dung bên trong thư mục đích cũ
-          Remove-Item -Path "$dst\*" -Recurse -Force -ErrorAction SilentlyContinue
-          if (!(Test-Path -Path $dst)) { New-Item -ItemType Directory -Path $dst -Force | Out-Null }
-
-          # Copy nội dung standalone (Khắc phục lỗi leaf item bằng Get-ChildItem)
-          Get-ChildItem -Path "$src\.next\standalone" | Copy-Item -Destination $dst -Recurse -Force
-
-          # Tạo sẵn cấu trúc thư mục trước để tránh lỗi chép nhầm
-          New-Item -ItemType Directory -Path "$dst\.next" -Force -ErrorAction SilentlyContinue | Out-Null
-
-          # Copy thư mục static và public
-          Copy-Item -Path "$src\.next\static" -Destination "$dst\.next\static" -Recurse -Force
-          Copy-Item -Path "$src\public" -Destination "$dst\public" -Recurse -Force
-
-          # Copy file .env.production và .env để server.js (standalone) đọc lúc runtime
-          if (Test-Path "$src\.env.production") {
-            Copy-Item -Path "$src\.env.production" -Destination "$dst\.env.production" -Force
-          }
-          if (Test-Path "$src\.env") {
-            Copy-Item -Path "$src\.env" -Destination "$dst\.env" -Force
+          $std = "$src\.next\standalone"
+          $opts = @("/MIR", "/MT:16", "/R:2", "/W:2", "/NFL", "/NDL", "/NJH", "/NP")
+          function Invoke-Robo($from, $to) {
+            robocopy $from $to @opts | Out-Host
+            if ($LASTEXITCODE -ge 8) { throw "robocopy $from -> $to failed (code $LASTEXITCODE)" }
           }
 
-      # 8. Khởi động lại PM2
-      - name: Restart PM2
+          # Ráp static + public + .env vào standalone (cùng ổ, nhanh)
+          Invoke-Robo "$src\.next\static" "$std\.next\static"
+          Invoke-Robo "$src\public" "$std\public"
+          Copy-Item "$src\.env.production", "$src\.env" -Destination $std -Force -ErrorAction SilentlyContinue
+
+          # Đồng bộ sang stage: chỉ file đổi được chép
+          Invoke-Robo $std $env:STAGE_DIR
+          exit 0
+
+      # 7. Dừng PM2 CHỈ trong lúc tráo stage → live (robocopy chỉ chép phần khác, vài giây).
+      #    Phải dừng vì Windows khoá file .node/.js đang được process dùng.
+      - name: Swap stage to live + restart PM2
         shell: powershell
         run: |
-          cd C:\sdfish\forfish
+          # pm2 báo lỗi ra stderr khi app chưa từng chạy — không được làm hỏng step
+          $ErrorActionPreference = "Continue"
+          pm2 stop forfish 2>$null
+          robocopy $env:STAGE_DIR $env:APP_DIR /MIR /MT:16 /R:2 /W:2 /NFL /NDL /NJH /NP | Out-Host
+          $rc = $LASTEXITCODE
+          Set-Location $env:APP_DIR
           pm2 restart forfish --update-env 2>$null
           if ($LASTEXITCODE -ne 0) {
             pm2 start server.js --name forfish --update-env
           }
+          if ($rc -ge 8) { throw "robocopy stage -> live failed (code $rc) - check $env:APP_DIR" }
+          exit 0

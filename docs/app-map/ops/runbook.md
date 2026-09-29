@@ -66,6 +66,15 @@ git push origin main
 ```
 **Verify sau deploy**: mở route từng trục (`/ngu-truong` `/gia-ca` `/van-hanh` `/giay-to`), check nguồn ngoài degrade đúng (thẻ "Thử lại", không treo).
 
+**Deploy self-host PM2 — `.github/workflows/deploy.yml` (tối ưu 2026-09-29, trước ~20 phút/lần)**: runner `self-hosted` Windows, push `main` → build standalone → PM2 `forfish` ở `C:\sdfish\forfish`. Chỗ nhanh lên, ĐỪNG gỡ ngược:
+- `checkout clean: false` — giữ `node_modules` + `.next/cache` (mặc định `git clean -ffdx` xoá cả hai ⇒ cài lại 683 MB + build lạnh mỗi lần).
+- `npm ci` chỉ chạy khi hash `package-lock.json` + `node -v` đổi (dấu ở `node_modules\.deploy-lock-hash`). Nghi `node_modules` hỏng → xoá file dấu đó, lần sau cài lại sạch.
+- Không `setup-node cache: npm` (runner tự host đã có `~/.npm`); `PUPPETEER_SKIP_DOWNLOAD`.
+- Ráp bản mới vào `C:\sdfish\forfish-next` (stage) khi web cũ vẫn chạy; PM2 chỉ dừng lúc `robocopy /MIR` stage → live (chỉ chép file đổi). robocopy mã < 8 = thành công.
+- `concurrency: deploy-prod`, **không** `cancel-in-progress` — huỷ giữa lúc tráo là web chết.
+- Chuỗi trong script PowerShell giữ ASCII: `shell: powershell` (5.1) đọc file không BOM theo ANSI ⇒ chữ Việt trong `"…"` vỡ cú pháp (comment thì được).
+- Việc trên máy chủ (ngoài repo): loại trừ Windows Defender cho thư mục `_work` của runner, `C:\sdfish`, `%LOCALAPPDATA%\npm-cache`.
+
 **Env + cron Vercel (2026-08-18)**: `CRON_SECRET` (env Vercel; Vercel Cron tự gắn `Authorization: Bearer`) nay bảo vệ **4** cron trong `vercel.json`: `refresh-fish` `0 2 * * *` · `refresh-weather` `30 2 * * *` · `snapshot-prices` `0 3 * * 6` · **`notify-storms` `*/30 * * * *`** (push tin bão tự động, gói F — xem [external-services](external-services.md) + [02](../02-architecture.md)). ⚠️ Số cron vượt trần Hobby (2) — plan Vercel phải cho phép, **chưa kiểm**; thiếu `CRON_SECRET` → cron trả 401, app bà con không hỏng (vẫn tự hỏi `/api/storms` khi mở). Kiểm nhanh sau deploy: `curl -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/cron/notify-storms` → `{ok:true, storms:N, pushed:[…]}` (401 `unauthorized` · 503 `not_configured`/`vapid_not_configured`/`storms_unavailable` · 500 `query_failed`); chạy 2 lần liền mà `pushed` lần 2 vẫn có tin cùng cơn = lỗi (khử trùng 48h bằng `push_messages sent_by='system:storm'`).
 
 ## Video hướng dẫn cho bà con (quay tự động)
