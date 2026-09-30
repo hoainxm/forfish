@@ -6,7 +6,6 @@ covers: src/lib/assistant, src/components/assistant, src/app/api/tro-ly
 gate: warn
 last_verified: 2026-09-06
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-09-12) — code 'src/lib/assistant' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 
 **Version**: 1.1 (hợp nhất sau phản biện — [phan-bien-tro-ly-2026-09-06](_generated/phan-bien-tro-ly-2026-09-06.md)) · **Ngày**: 2026-09-06 · **Tác giả**: Kiến trúc sư + Phản biện · **Khung**: TROLY-BRIEF 2026-09-06 §1/§2/**§4** = luật cao nhất · **Vì sao**: [ADR 0009](../adr/0009-tro-ly-giong-noi.md) · **Nghiệp vụ**: [13-ba-spec-tro-ly-giong-noi.md](13-ba-spec-tro-ly-giong-noi.md) (BA viết song song — **13 là nguồn cho HÀNH VI + câu chữ, 14 là nguồn cho TÊN**: file, export, type, mã ý định, mã lỗi, khoá)
 

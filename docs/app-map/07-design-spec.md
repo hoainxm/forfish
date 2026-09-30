@@ -6,7 +6,6 @@
 covers: src/app, src/components
 last_verified: 2026-09-06
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-09-12) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 <!-- re-verified: 2026-08-26 — GỠ HẲN coach-tour trên màn (§12 viết lại thành "ĐÃ GỠ"): xoá engine (coach-tour.tsx/tour-launcher.tsx/lib/tour.ts/tour.test.ts) + gỡ mọi neo data-tour ở page/bottom-nav/ra-khoi-controls/boat-switcher/snap-sheet/urgent-strip/tabs + khoá forfish.tour.* + dọn set-key tắt-tour ở scripts/capture-app-screens.mjs. Sách HTML huong-dan.html (npm run guide) GIỮ nguyên. -->
 

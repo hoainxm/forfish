@@ -4,7 +4,7 @@
 covers: src/lib/assistant/, src/components/assistant/, src/app/api/tro-ly/
 last_verified: 2026-09-06
 ttl_days: 90
-<!-- DOC-STATUS: SUSPECT (2026-09-08) — code 'src/app/api/tro-ly/' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- DOC-STATUS: SUSPECT (2026-09-30) — code 'src/app/api/tro-ly/' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 version: v1.1 (2026-09-06) — hợp nhất sau phản biện ([_generated/phan-bien-tro-ly-2026-09-06](_generated/phan-bien-tro-ly-2026-09-06.md)); CHƯA build. **14-kien-truc = nguồn TÊN** (mã `Intent`, type, export, mã lỗi, khoá — bảng mã dùng chung ở 14 §3.0); **13 = nguồn HÀNH VI + câu chữ**; **TROLY-BRIEF §4 = luật cao nhất** (§0 dưới).
 
 > **Mục đích**: ORACLE HÀNH VI cho agent build + QA — bà con nói câu gì thì app hiểu thành ý định nào, trả lời bằng dữ liệu nào, làm hành động gì, hỏi lại khi nào, và im/nói thật khi thiếu gì. Không mô tả pixel (việc của [07-design-spec](07-design-spec.md)); không mô tả prompt/SDK/tool schema (việc của 14-kien-truc + ADR 0009).
