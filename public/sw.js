@@ -20,6 +20,17 @@
   đang chạy được. (KHÔNG dùng Date.now — phải ổn định.)
 */
 const SDFISH_CACHE_V = "sdfish-v6";
+/*  DẤU LÀM MỚI VỎ — đổi chuỗi này (KHÔNG bump SDFISH_CACHE_V) khi cần mọi máy
+    tải lại HTML "/" + "/ngu-truong" và chunk của chúng. sw.js đổi byte ⇒ trình
+    duyệt cài lại ⇒ `installShell` tải `cache:"reload"` rồi ĐÈ đúng các khoá
+    sống-còn, không xoá kho nào (dữ liệu, ô bản đồ, nền giữ nguyên).
+    Vì sao có (2026-09-30): Android bản Thêm-vào-màn-hình-chính kẹt HTML cũ
+    nhiều ngày — mở app mà mạng chưa trả trong NAV_NETWORK_MS là lấy trang
+    trong kho, còn kho vỏ chỉ được thay khi sw.js đổi (từ 2026-09-23 không đổi)
+    ⇒ bản sửa ô vuông lớp mồi lên web/iOS mà Android vẫn vẽ như cũ.
+    Mỗi lần đổi, mỗi máy tải lại vỏ sống-còn (~2,5 MB) — đổi có chủ ý, đừng đổi
+    theo mỗi deploy (thẻ "Có bản mới" ở components/update-notice lo việc đó). */
+const VO_REFRESH_MARK = "2026-09-30 android-stale-html";
 /** Kho ô bản đồ để riêng — xoá/giới hạn được mà không đụng vỏ app */
 const SDFISH_TILE_V = "sdfish-tiles-v1";
 /*  Kho DỮ LIỆU /api/* — CỐ Ý TÁCH khỏi kho vỏ và KHÔNG mang phiên bản vỏ.
