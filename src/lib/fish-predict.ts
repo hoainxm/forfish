@@ -104,7 +104,7 @@ const COLD_SCALE = 0.09;
  * KHẨU VỊ TẦNG NHIỆT MẶC ĐỊNH — `[bắt đầu hợp, hợp hẳn]` tính bằng MÉT dị
  * thường KHÔNG GIAN của D20 (xem `thermoFit`). ÂM = ưa nêm nhiệt NÔNG hơn vùng
  * lân cận: nêm nhô lên (dome/ridging) đẩy dinh dưỡng lên và NÉN MỎNG tầng sống
- * → cá nổi tầng mặt (ngừ vây vàng/vằn/chù/ồ/chấm, thu, cờ, nục heo, ngân, mực
+ * → cá nổi tầng mặt (ngừ vây vàng/vằn/chù/chấm, thu, cờ, nục heo, ngân, mực
  * xà) dồn lại; đây là cơ chế kinh điển của ngư trường cá ngừ vây vàng/cá cờ
  * (nén tầng sống ở vùng nêm nhiệt nhô — Costa Rica Dome, sống nhiệt xích đạo).
  * CĂN CỨ SỐ chọn mốc (scripts/thermofit-diagnose.mjs, lưới HYCOM thật, 1454 ô
@@ -234,6 +234,13 @@ export interface SpeciesProfile {
    * lưới độ sâu (ETOPO) truyền vào buildFishForecast mới có tác dụng.
    */
   offshore?: [number, number];
+  /**
+   * CỔNG ĐỘ SÂU ĐÁY cho loài VEN BỜ (gương `offshore`): `[a, b]` mét — đáy ≤ a
+   * hợp đủ (×1), ≥ b m loại hẳn (×0). Không khai cùng lúc với `offshore`.
+   * Hiện chỉ ngừ ồ: cá nổi VEN BỜ nhưng bám cơ chế mặt biển (nước trồi, front)
+   * — không có cổng này thì điểm nóng trôi theo vệt nước trồi ra khơi sâu.
+   */
+  inshore?: [number, number];
 }
 
 // Bộ khẩu vị 39 loài ngư dân VN khai thác nhiều nhất (đủ để ~90% bà con tìm
@@ -270,7 +277,19 @@ export const SPECIES_PROFILES: SpeciesProfile[] = [
   { species: "Cá ngừ mắt to", short: "ngừ mắt to", category: "pelagic-large", surfaceSignal: "medium", color: "#4338ca", depthBand: "đêm tầng mặt <50 m, ngày lặn sâu 200–500 m (quanh/dưới nêm nhiệt), xa bờ", sst: [22, 25, 29, 31], chlLog: [-1.3, -0.3], w: { thermFront: 0.3, chlFront: 0.1, eddy: 0.35, upw: 0.05, conv: 0.15, thermo: 0.5 }, thermoBand: [4, 12], coldCore: false, offshore: [100, 300] },
   { species: "Cá ngừ vằn", short: "ngừ vằn", category: "pelagic-large", surfaceSignal: "high", color: "#2563eb", depthBand: "tầng mặt 0–260 m", sst: [23, 25, 29.5, 31], chlLog: [-1.0, 0.0], w: { thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.05, conv: 0.2, thermo: 0.2 }, coldCore: false, offshore: [50, 200] },
   { species: "Cá ngừ chù", short: "ngừ chù", category: "pelagic-large", surfaceSignal: "medium", color: "#0891b2", depthBand: "tầng mặt 0–50 m", sst: [24, 28, 31, 32], chlLog: [-1.1, -0.5], w: { thermFront: 0.2, chlFront: 0.25, eddy: 0.15, upw: 0.05, conv: 0.1, thermo: 0.2 }, coldCore: false },
-  { species: "Cá ngừ ồ", short: "ngừ ồ", category: "pelagic-large", surfaceSignal: "medium", color: "#0e7490", depthBand: "tầng mặt 0–200 m, ven rạn", sst: [18, 24, 28, 30], chlLog: [-0.8, 0.3], w: { thermFront: 0.25, chlFront: 0.2, eddy: 0.1, upw: 0.1, conv: 0.05, thermo: 0.15 }, coldCore: false },
+  // Ngừ ồ = Auxis rochei (bullet tuna) theo NĐ 37/2024 Phụ lục V — KHÁC ngừ chù
+  // (A. thazard, hồ sơ ngay trên); chợ Nhơn Lý (Quy Nhơn) bán hai thứ hai giá.
+  // Sửa 2026-09-30: cá VEN BỜ & quanh đảo (FishBase "10 – ? m"), săn đàn cá cơm
+  // ⇒ bám front nhiệt + front mồi + nước trồi ven bờ Nam Trung Bộ, KHÔNG dùng
+  // tầng nhiệt (thềm nông, D20 vô nghĩa). Nhiệt: cận dưới 21,5 (ấu trùng Auxis
+  // chịu 21,6–30,5), tối ưu 25–29 (FishBase 27–28; rochei chịu tới ~28), cận
+  // trên 31,5 — dốc 29–31,5 để mùa hè nước trồi mát hơn được điểm hơn nước
+  // nóng đều. Cũ [18,24,28,30] cận dưới 18 không nguồn nào ghi. `inshore`
+  // [200,600]: thềm ≤200 m hợp đủ, khơi ≥600 m loại (đo lưới thật t7: không
+  // cổng này thì trung vị điểm nóng ở nước sâu 1826 m, cách bờ 88 km).
+  // chlLog [-1,0]: nước ven bờ giàu mồi hơn khơi — sweep 6 biến thể trên lưới
+  // thật (24/7 + 28/9): duy nhất bản này giữ 91% ô ≥50 ở đáy ≤200 m cả 2 ngày.
+  { species: "Cá ngừ ồ", short: "ngừ ồ", category: "pelagic-large", surfaceSignal: "medium", color: "#0e7490", depthBand: "tầng mặt ven bờ & quanh đảo, theo đàn cá cơm", sst: [21.5, 25, 29, 31.5], chlLog: [-1.0, 0.0], w: { thermFront: 0.3, chlFront: 0.25, eddy: 0.1, upw: 0.25, conv: 0.15 }, coldCore: false, inshore: [200, 600] },
   { species: "Cá ngừ chấm", short: "ngừ chấm", category: "pelagic-large", surfaceSignal: "medium", color: "#0d9488", depthBand: "ven bờ 0–80 m", sst: [16, 24, 27, 31], chlLog: [-0.7, 0.4], w: { thermFront: 0.2, chlFront: 0.2, eddy: 0.05, upw: 0.15, conv: 0.1, thermo: 0.1 }, coldCore: false },
   { species: "Cá thu", short: "cá thu", category: "pelagic-large", surfaceSignal: "high", color: "#155e75", depthBand: "tầng mặt – đáy 5–170 m, ven bờ", sst: [16, 23, 29, 31], chlLog: [-0.7, 0.4], w: { thermFront: 0.35, chlFront: 0.2, eddy: 0.1, upw: 0.1, conv: 0.15, thermo: 0.05 }, coldCore: false },
   { species: "Cá cờ (cá cờ buồm)", short: "cá cờ", category: "pelagic-large", surfaceSignal: "high", color: "#3b82f6", depthBand: "tầng mặt 0–200 m", sst: [20, 25, 28, 30], chlLog: [-1.4, -0.2], w: { thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.05, conv: 0.1, thermo: 0.3 }, coldCore: false, offshore: [50, 200] },
@@ -458,6 +477,17 @@ export function deepWaterFit(depthM: number, a: number, b: number): number {
   if (!Number.isFinite(depthM)) return DEPTH_UNKNOWN_FIT;
   if (b <= a) return depthM >= b ? 1 : 0;
   return Math.max(0, Math.min(1, (depthM - a) / (b - a)));
+}
+
+/**
+ * Hợp ĐỘ SÂU ĐÁY cho loài VEN BỜ — gương của `deepWaterFit`: 1 khi đáy ≤ a m,
+ * dốc a→b, 0 khi ≥ b m. Thiếu độ sâu → `DEPTH_UNKNOWN_FIT` (cùng luật "không
+ * biết thì bớt chắc chắn"). Sinh ra 2026-09-30: đo lưới thật tháng 7 thấy điểm
+ * nóng ngừ ồ (cá ven bờ) trôi theo vệt nước trồi ra khơi sâu 1826 m.
+ */
+export function shallowWaterFit(depthM: number, a: number, b: number): number {
+  if (!Number.isFinite(depthM)) return DEPTH_UNKNOWN_FIT;
+  return 1 - deepWaterFit(depthM, a, b);
 }
 
 /**
@@ -1228,11 +1258,16 @@ export function buildFishForecast(
         // CỔNG ĐỘ SÂU: loài xa bờ (offshore) ở nước cạn → điểm kéo về 0.
         // KHÔNG BIẾT độ sâu (mất lưới ETOPO / ô NaN) → DEPTH_UNKNOWN_FIT (<1),
         // KHÔNG phải ×1: mất nguồn thì bớt chắc chắn chứ không được thưởng oan.
+        // Loài VEN BỜ (inshore) thì ngược lại: nước khơi sâu → kéo về 0.
         const depthFit = p.offshore
           ? cellDepthM != null
             ? deepWaterFit(cellDepthM, p.offshore[0], p.offshore[1])
             : DEPTH_UNKNOWN_FIT
-          : 1;
+          : p.inshore
+            ? cellDepthM != null
+              ? shallowWaterFit(cellDepthM, p.inshore[0], p.inshore[1])
+              : DEPTH_UNKNOWN_FIT
+            : 1;
         // `sW` = prior mùa vụ mềm (≤1): chính vụ ×1 (không đổi), tháng đệm hạ
         // điểm đầu/cuối vụ. Là thừa số ≤1 nên bất biến "mất tín hiệu = điểm
         // GIẢM" vẫn giữ.
