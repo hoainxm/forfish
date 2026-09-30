@@ -4,6 +4,7 @@ import {
   chlFit,
   convergenceStrength,
   deepWaterFit,
+  shallowWaterFit,
   foodGate,
   frontStrength,
   gradientStrength,
@@ -466,6 +467,42 @@ describe("thermoBand theo loài (hồ sơ SPECIES_PROFILES)", () => {
   it("loài khai thermoBand thì phải CÓ trọng số w.thermo (nếu không dải vô nghĩa)", () => {
     for (const p of SPECIES_PROFILES)
       if (p.thermoBand) expect(p.w.thermo ?? 0).toBeGreaterThan(0);
+  });
+});
+
+describe("shallowWaterFit (cổng độ sâu loài ven bờ)", () => {
+  it("≤a hợp đủ, dốc a→b, ≥b loại; thiếu độ sâu → DEPTH_UNKNOWN_FIT", () => {
+    expect(shallowWaterFit(50, 200, 600)).toBe(1);
+    expect(shallowWaterFit(200, 200, 600)).toBe(1);
+    expect(shallowWaterFit(400, 200, 600)).toBeCloseTo(0.5, 5);
+    expect(shallowWaterFit(1826, 200, 600)).toBe(0);
+    expect(shallowWaterFit(NaN, 200, 600)).toBe(DEPTH_UNKNOWN_FIT);
+  });
+
+  it("không loài nào khai CẢ offshore lẫn inshore", () => {
+    for (const p of SPECIES_PROFILES) expect(!!p.offshore && !!p.inshore).toBe(false);
+  });
+});
+
+describe("ngừ ồ = Auxis rochei, cá ven bờ (sửa 2026-09-30)", () => {
+  const find = (short: string) => SPECIES_PROFILES.find((p) => p.short === short)!;
+  const oo = find("ngừ ồ");
+
+  it("tách riêng khỏi ngừ chù (A. thazard) — hai hồ sơ khác nhau", () => {
+    const chu = find("ngừ chù");
+    expect(oo.species).not.toBe(chu.species);
+    expect(oo.sst).not.toEqual(chu.sst);
+  });
+
+  it("ven bờ: cổng inshore thay offshore, KHÔNG dùng tầng nhiệt (thềm nông)", () => {
+    expect(oo.offshore).toBeUndefined();
+    expect(oo.inshore).toEqual([200, 600]);
+    expect(oo.w.thermo ?? 0).toBe(0);
+    expect(oo.w.upw).toBeGreaterThan(0); // nước trồi ven bờ Nam Trung Bộ mùa rộ
+  });
+
+  it("cận dưới nhiệt có nguồn (≥21 °C, ấu trùng Auxis chịu từ 21,6)", () => {
+    expect(oo.sst[0]).toBeGreaterThanOrEqual(21);
   });
 });
 

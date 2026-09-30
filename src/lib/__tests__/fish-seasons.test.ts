@@ -226,3 +226,19 @@ describe("distanceToPolygonDeg — khoảng cách tới ĐOẠN THẲNG", () => 
     expect(distanceToPolygonDeg(0, 0, square)).toBeCloseTo(0, 9);
   });
 });
+
+describe("mùa ngừ ồ (sửa 2026-09-30 — khai cũ 11–5 ngược mùa)", () => {
+  const oo = FISH_SEASONS.filter((f) => f.species === "Cá ngừ ồ");
+
+  it("rộ tháng 3–9 ở Nam Trung Bộ (Nhơn Lý ~5–6, Đức Phổ tháng 9)", () => {
+    const ntb = oo.find((f) => f.regions.includes("nam-trung-bo"))!;
+    for (const m of [5, 6, 9]) expect(seasonPrior(ntb.months, m)).toBe(1);
+  });
+
+  it("giữa đông (tháng 12–1) KHÔNG còn là chính vụ", () => {
+    for (const f of oo) {
+      expect(seasonPrior(f.months, 12)).toBe(0);
+      expect(seasonPrior(f.months, 1)).toBe(0);
+    }
+  });
+});

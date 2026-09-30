@@ -280,10 +280,14 @@ export const FISH_SEASONS: FishSeason[] = [
     note: "Cá ngừ nhỏ, xuất hiện xuân–hè ở Hoàng Sa, Trường Sa; bắt kèm câu tay ngừ vằn.",
   },
   {
+    // Sửa 2026-09-30: khai cũ 11–5 NGƯỢC mùa (biên bản kiểm cá ngừ 2026-07-28,
+    // 01-product). Nguồn VN: rộ tháng 3–8; Nhơn Lý (Quy Nhơn) rộ khoảng tháng
+    // 5–6 DL; Đức Phổ (Quảng Ngãi) trúng ngừ ồ gần bờ tháng 9. Ngoài vụ vẫn có
+    // lác đác quanh năm — vạt đệm của seasonPrior (tháng 2, 10 = 0,5) đủ phủ.
     species: "Cá ngừ ồ",
-    months: [11, 12, 1, 2, 3, 4, 5],
+    months: [3, 4, 5, 6, 7, 8, 9],
     regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo"],
-    note: "Đỉnh sản lượng tháng 11–2, bầy nổi ven bờ và quanh rạn, bắt kèm cá thu.",
+    note: "Rộ tháng 3–9, đàn nổi gần bờ và quanh đảo theo đàn cá cơm — lưới vây, lưới rút, rê. Khác cá ngừ chù.",
   },
   {
     species: "Cá ngừ chấm",
