@@ -35,7 +35,6 @@ import { StatusBanner } from "@/components/ui/status-banner";
 import type { AssistantAction, AssistantReply, DeviceSnapshot, Suggestion } from "@/lib/assistant/types";
 import { hasVietnameseVoice, speak, sttSupported, ttsSupported } from "@/lib/assistant/speech";
 import { gomSnapshot } from "@/lib/assistant/device-snapshot";
-import { loadAssistantPrefs } from "@/lib/assistant/history";
 import { extractQty, normalizeUtterance } from "@/lib/assistant/normalize";
 import { taskChip } from "@/lib/assistant/suggestions";
 import { useAssistant } from "@/lib/assistant/use-assistant";
@@ -213,15 +212,13 @@ export function AssistantSheet({ route, onClose }: { route: string; onClose: () 
     [doAction],
   );
   const asst = useAssistant({ route, onAction });
-  const { state, muted, setMuted, listen, ask, confirm, cancel, suggestions } = asst;
+  const { state, muted, setMuted, listen, ask, confirm, cancel, suggestions, micDenied, retryMic } = asst;
 
-  /*  Máy này nói/nghe được không — hỏi MỘT lần lúc mở (feature-detect không đổi
+  /*  Máy này nghe được không — hỏi MỘT lần lúc mở (feature-detect không đổi
       giữa chừng). `micDenied` nhớ từ lần trước để khỏi bắt bà con bị hỏi quyền
-      rồi từ chối lại lần nữa (13 §5.4). */
-  const cap = useMemo(() => {
-    const prefs = loadAssistantPrefs();
-    return { stt: sttSupported(), micDenied: prefs.micDenied };
-  }, []);
+      rồi từ chối lại lần nữa (13 §5.4) — nhưng đọc SỐNG từ hook: mở tấm che mà
+      trình duyệt đã cho mic lại thì cờ tự bỏ, vòng mic hiện lại (bug 2026-09-30). */
+  const cap = useMemo(() => ({ stt: sttSupported(), micDenied }), [micDenied]);
   /*  Giọng Việt: `getVoices()` trên Chrome Android trả rỗng ở lần hỏi đầu rồi
       mới nạp xong (sự kiện `voiceschanged`). Hỏi lại vài nhịp — nói "máy không
       đọc được tiếng Việt" oan là cắt mất kênh chính của bà con. */
@@ -471,7 +468,9 @@ export function AssistantSheet({ route, onClose }: { route: string; onClose: () 
   const chipsRaw: Suggestion[] = reply?.clarify?.options?.length
     ? reply.clarify.options
     : lastQ && state.kind !== "answered" && state.kind !== "thinking"
-      ? [{ label: "Hỏi lại câu trước", utterance: lastQ }, ...workChips].slice(0, 4)
+      ? // "Hỏi lại câu trước" trùng câu với một chip gợi ý ("thời tiết hôm nay") → bỏ chip gợi ý:
+        // hai nút gửi cùng một câu là thừa, và React báo trùng key (2026-09-30)
+        [{ label: "Hỏi lại câu trước", utterance: lastQ }, ...workChips.filter((s) => s.utterance !== lastQ)].slice(0, 4)
       : workChips;
   /*  Nút của băng vừa làm xong ("Xem giỏ", "Chọn cảng khác") đã là
       một nút to ngay trên đầu — chip cùng nghĩa nằm dưới là hai nút giống hệt
@@ -670,9 +669,11 @@ export function AssistantSheet({ route, onClose }: { route: string; onClose: () 
                 who="troly"
                 text={reply.text}
                 note={
-                  reply.savedAt && !reply.text.toLowerCase().includes("lưu")
-                    ? `Số ${savedAgoLabel(reply.savedAt)}`
-                    : undefined
+                  reply.sourceNote
+                    ? reply.sourceNote
+                    : reply.savedAt && !reply.text.toLowerCase().includes("lưu")
+                      ? `Số ${savedAgoLabel(reply.savedAt)}`
+                      : undefined
                 }
               />
               {canSpeak && !muted && reply.speak && (
@@ -912,9 +913,26 @@ export function AssistantSheet({ route, onClose }: { route: string; onClose: () 
           </button>
         )}
         {!canListen && cap.micDenied && (
-          <p className="mt-1.5 text-center text-[1.125rem] text-foreground/65">
-            Bật mic trong cài đặt máy để nói.
-          </p>
+          <>
+            <p className="mt-1.5 text-center text-[1.125rem] text-foreground/65">
+              Bật mic trong cài đặt máy để nói.
+            </p>
+            {/*  Máy không hỏi lại được quyền (Safari cũ) thì đây là đường duy nhất
+                 quay về vòng mic sau khi bà con đã bật mic trong cài đặt. */}
+            {cap.stt && (
+              <button
+                type="button"
+                onClick={() => {
+                  tapFeedback();
+                  retryMic();
+                }}
+                className="mt-1 flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-full text-[1.0625rem] font-bold text-navy transition active:bg-field"
+              >
+                <MicIcon className="h-6 w-6" />
+                Thử nói lại
+              </button>
+            )}
+          </>
         )}
         {!canListen && !cap.stt && (
           <p className="mt-1.5 text-center text-[1.125rem] text-foreground/65">

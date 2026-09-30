@@ -14,7 +14,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { AssistantServerError, askClaude } from "@/lib/assistant/server/claude";
-import { getAssistantDailyLimit, resolveMode } from "@/lib/assistant/server/key";
+import { getAssistantDailyLimit, getAssistantOnlineEnabled, resolveMode } from "@/lib/assistant/server/key";
 import { askQwen } from "@/lib/assistant/server/qwen";
 import { mockReply } from "@/lib/assistant/server/mock";
 import { takeQuota } from "@/lib/assistant/server/quota";
@@ -53,6 +53,9 @@ export async function POST(req: Request) {
   }
   const v = validateAssistantRequest(parsed, raw.length);
   if (!v.ok) return fail(v.code);
+
+  // tầng mạng tắt ở /quan-tri → trả như "chưa mở", KHÔNG trừ lượt của bà con
+  if (!(await getAssistantOnlineEnabled())) return fail("no_key");
 
   await hydrateQuotaFromFile(t0);
   const q = takeQuota(who.phone, await getAssistantDailyLimit(), t0);

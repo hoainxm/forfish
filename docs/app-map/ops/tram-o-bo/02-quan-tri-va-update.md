@@ -6,6 +6,8 @@
 
 ---
 
+> ⚠️ **ĐỔI 2026-09-30 — gói phát hành LOCAL, không qua Storage/`/quan-tri`** (chủ dự án: "local thôi"). Đường thật hôm nay: người duyệt điền `duyet: {nguoi, ngay}` vào từng mục `scripts/tram-o-bo/kho/kho-nhap.json` → chạy `node scripts/tram-o-bo/phat-hanh-local.mjs` (gom mục đã duyệt + catalog giọng + mp3 từ `~/sdfish-tram/giong-out` → `public/tro-ly/`, validator làm cổng, `manifest.version` tự +1 khi nội dung đổi) → commit + deploy. Máy bà con nhận gói khi mở trợ lý (≥6 giờ/lần) hoặc sau tải-trước-chuyến (14 §5.5). Rollout % / lùi gói bằng nút = CHƯA có; lùi gói = `git revert` commit gói rồi deploy. Phần §0–§4 dưới là thiết kế Storage + `/quan-tri`, giữ để tham chiếu nếu sau này cần phát gói không cần deploy.
+
 ## 0. Bức tranh một trang
 
 ```

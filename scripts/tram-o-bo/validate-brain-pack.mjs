@@ -28,6 +28,7 @@ import {
   rmSync,
 } from "node:fs";
 import { join, relative, sep, basename, dirname } from "node:path";
+import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 
 const DEFAULT_BUDGET_MB = 70;
@@ -316,4 +317,5 @@ function main() {
   process.exit(res.fails.length === 0 ? 0 : 1);
 }
 
-main();
+// chạy như lệnh thì chạy main; import (phat-hanh-local.mjs) thì chỉ lấy hàm
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

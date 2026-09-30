@@ -38,11 +38,13 @@ Trạm ở bờ  ── đóng gói (export-brain-pack.mjs) ──►  zip (mani
 |---|---|---|
 | Trạm ở bờ (PC RTX 3060) | `scripts/tram-o-bo/export-brain-pack.mjs` | ĐÓNG gói: gom `brain/*.json` đã duyệt + `models/` → zip + tính sha256 |
 | Trạm ở bờ | `scripts/tram-o-bo/validate-brain-pack.mjs` (có `--self-test`) | GÁC gói: kiểm shape theo contract này TRƯỚC khi cho phát hành |
-| SDFish `/quan-tri` (server) | tab "Gói trợ lý" + `POST /api/admin/assistant-pack` (P2, chưa dựng) | NHẬN zip → sinh `manifest.json` → đẩy bucket → ghi `app_config` + audit |
-| SDFish app (client) | `src/lib/assistant/brain-pack.ts` (P1, chưa dựng) | TẢI + kiểm sha256 + đổi khối; đọc `manifest.json` |
-| SDFish app (client) | `src/lib/assistant/brain.ts` (P1, chưa dựng) | ĐỌC `intents/answers/knowledge` thành cấu trúc `parse.ts`/`answer.ts` dùng; BM25 nhỏ trên `knowledge` |
+| SDFish repo (bờ) | `scripts/tram-o-bo/phat-hanh-local.mjs` (2026-09-30) | PHÁT HÀNH LOCAL: mục kho có `duyet` + `scripts/tro-ly-giong/catalog.json` + mp3 → `public/tro-ly/` (dùng `buildManifest` + `validatePack` làm cổng) |
+| SDFish `/quan-tri` (server) | tab "Gói trợ lý" + `POST /api/admin/assistant-pack` (P2 — **BỎ 2026-09-30**, gói local) | NHẬN zip → sinh `manifest.json` → đẩy bucket → ghi `app_config` + audit |
+| SDFish app (client) | `src/lib/assistant/brain-pack.ts` ✅ | TẢI `/tro-ly/*` + kiểm sha256 + đổi khối (kho `sdfish-tro-ly-v1`); `BRAIN_READER_VERSION` so `minAppVersion` |
+| SDFish app (client + server) | `src/lib/assistant/brain.ts` ✅ | ĐỌC `knowledge` (BM25 + cổng bằng chứng) + `answers` (map mp3). `intents` CHƯA đọc (bảng trong code vẫn là nguồn duy nhất) |
+| SDFish máy chủ | `src/lib/assistant/server/tools.ts` tool `tra_kho` ✅ | ĐỌC `knowledge.v1.json` đã phát hành (nhúng lúc build) cho tầng mạng Qwen/Claude |
 
-> Chưa có file `src/` nào ở trên khi contract này viết (P1/P2 của ADR 0010 do phiên khác dựng). Contract chốt shape TRƯỚC để hai phía khớp.
+> **2026-09-30 — nơi chứa đổi thành `public/tro-ly/` đi theo bản deploy** (chủ dự án: "local thôi"), KHÔNG Supabase Storage. Mọi thứ khác trong contract giữ nguyên; §Trần dung lượng: gói hiện ~2,2 MB (không `models/`) — nếu sau này thêm `models/` (~50–70 MB) thì KHÔNG được để trong `public/` (hook trần 20 MB/file) → khi đó mới dựng Storage.
 
 ---
 
@@ -233,4 +235,5 @@ Phần NẶNG của gói — nhị phân sherpa-onnx + model. Kích thước dư
 
 | Ngày | Version | Thay đổi |
 |---|---|---|
+| 2026-09-30 | v1.1 (non-breaking) | Consumer đầu tiên land (`brain.ts`, `brain-pack.ts`, `tra_kho`). `answers[].id` TUỲ CHỌN (mã câu catalog — một ý định có nhiều câu cố định); `answers[].text` = ĐÚNG câu app đọc (`reply.speak`) vì là khoá tra mp3. Nơi chứa = `public/tro-ly/` (local). Không bump `vN`, không bump `minAppVersion` (reader 1.0.0). |
 | 2026-09-11 | v1 | Khởi tạo contract: `manifest.json` + `intents.v1`/`answers.v1`/`knowledge.v1` + `models/` + `audio/` tuỳ chọn. Luật nội dung (không số sống / không y tế-pháp lý-tiền / đủ nguồn + ngày soát). Luật bump hai tầng (`manifest.version` mỗi phát hành, `vN` khi phá shape) + van `minAppVersion`. Chưa có consumer `src/` (P1/P2 ADR 0010 chưa dựng) — chốt shape trước. |

@@ -19,8 +19,8 @@ vi.mock("@/lib/weather-snapshot", () => ({ loadWeatherSnapshot: async () => ({ p
 const { TOOLS, TOOL_NAMES, executeTool } = await import("@/lib/assistant/server/tools");
 
 describe("assistant-tools-schema", () => {
-  it("đúng 6 tool, tên hợp lệ, đã sort", () => {
-    expect(TOOL_NAMES).toEqual(["don_cua_toi", "gia_ca", "gia_dau", "thoi_tiet_cang", "tim_san_pham", "tin_bao"]);
+  it("đúng 7 tool, tên hợp lệ, đã sort", () => {
+    expect(TOOL_NAMES).toEqual(["don_cua_toi", "gia_ca", "gia_dau", "thoi_tiet_cang", "tim_san_pham", "tin_bao", "tra_kho"]);
     expect([...TOOL_NAMES].sort()).toEqual(TOOL_NAMES);
     for (const n of TOOL_NAMES) expect(n).toMatch(/^[a-z_]+$/);
   });
@@ -51,5 +51,10 @@ describe("assistant-tools-schema", () => {
     const r = await executeTool("tim_san_pham", { q: "nhớt", so_luong_toi_da: 3 }, "0901", 2000);
     expect(r.is_error).toBe(true);
     expect(r.content).not.toMatch(/Error|stack/);
+  });
+
+  it("tra_kho: chỉ đọc kho ĐÃ PHÁT HÀNH; không có mục khớp → báo thật, không bịa", async () => {
+    const r = await executeTool("tra_kho", { cau_hoi: "ai là tổng thống mỹ" }, "0901", 2000);
+    expect(r).toMatchObject({ is_error: true, content: "Kho chưa có tài liệu cho chuyện này." });
   });
 });

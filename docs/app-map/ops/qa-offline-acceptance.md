@@ -288,6 +288,18 @@ Ngày 0: tải đủ dữ liệu trên cả ba. Ngày 8: mở cả ba **khi đan
 
 ---
 
+### TC-15 — Gói não Sen Biển sống qua mất sóng + cập nhật app (2026-09-30)
+**Máy**: mọi máy · 5 phút.
+
+1. Có sóng: mở Sen Biển (nút nổi) một lần — gói tải nền (~2 MB, không có dấu gì trên màn).
+2. Bật máy bay. Mở lại Sen Biển → gõ "chào" và "thời tiết hôm nay".
+3. Deploy bản app mới (đổi vỏ), mở app có sóng rồi lại bật máy bay → gõ "chào".
+
+**ĐẠT**: bước 2 và 3 đều nghe **giọng nữ Sen Biển** đọc câu cố định (không phải giọng máy); không màn nào treo.
+**HỎNG (chặn)**: bước 3 mất giọng Sen Biển (kho `sdfish-tro-ly-v1` bị xoá khi đổi vỏ) — hoặc Sen Biển treo "Đang nghĩ…" khi mất sóng.
+
+---
+
 ## 2. Tiêu chí phát hành
 
 | Mức | Nghĩa | Xử lý |

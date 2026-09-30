@@ -1,0 +1,192 @@
+{
+  "_ghi_chu": "KHO KIẾN THỨC NHÁP của Sen Biển (soạn 2026-09-30 bởi AI theo yêu cầu chủ dự án — CHƯA AI DUYỆT). Mục nào duyet=null thì KHÔNG vào gói phát hành. Người duyệt (SDVICO): đọc lại từng câu, sửa cho đúng nghề, kiểm nguồn thật, rồi điền duyet = {\"nguoi\": \"tên\", \"ngay\": \"yyyy-mm-dd\"}. Chạy `node scripts/tram-o-bo/phat-hanh-local.mjs` để dựng gói ở public/tro-ly. Luật: traLoi ≤4 câu, KHÔNG số sống (giá/thời tiết), KHÔNG y tế/pháp lý/tiền cá nhân — docs/contracts/tro-ly-brain-pack.contract.md.",
+  "version": "1",
+  "muc": [
+    {
+      "id": "bao-quan-ca-ngu",
+      "cauHoiMau": ["cách bảo quản cá ngừ", "ướp cá ngừ sao cho tươi", "cá ngừ đại dương giữ sao cho thịt đỏ đẹp"],
+      "tuKhoa": ["cá ngừ", "bảo quản", "ướp"],
+      "traLoi": "Cá ngừ lên tàu thì làm chết nhanh, cắt lấy tiết cho ra hết máu rồi mới ướp. Moi ruột, rửa sạch bằng nước biển sạch. Nhồi đá vào bụng và mang, vùi cá ngập trong đá, không để cá chạm vách hầm. Cá không được nằm nắng trên boong, càng làm lạnh sớm cá càng giữ màu thịt đẹp.",
+      "nguon": "Trung tâm Khuyến nông Quốc gia — kỹ thuật bảo quản cá ngừ đại dương trên tàu",
+      "ngaySoat": "",
+      "chipMoMan": "/tien",
+      "duyet": null
+    },
+    {
+      "id": "uop-da-ca",
+      "cauHoiMau": ["ướp đá cá thế nào cho đúng", "xếp cá với đá trong hầm ra sao", "cá ướp đá bị hư"],
+      "tuKhoa": ["ướp đá", "xếp cá", "hầm cá"],
+      "traLoi": "Rải một lớp đá dưới đáy hầm trước, rồi cứ một lớp cá một lớp đá, trên cùng phủ đá dày. Đá nên đập nhỏ để ôm sát thân cá, đá cục to làm cá dập và có chỗ không lạnh. Chừa lỗ thoát cho nước đá tan chảy đi, cá ngâm nước đá tan mau mềm. Mỗi ngày xem lại và bù thêm đá chỗ bị lún.",
+      "nguon": "Trung tâm Khuyến nông Quốc gia — bảo quản sản phẩm khai thác hải sản bằng nước đá",
+      "ngaySoat": "",
+      "duyet": null
+    },
+    {
+      "id": "ve-sinh-ham-ca",
+      "cauHoiMau": ["vệ sinh hầm cá thế nào", "hầm cá bị hôi", "rửa hầm cá sau chuyến"],
+      "tuKhoa": ["hầm cá", "vệ sinh", "hôi"],
+      "traLoi": "Xong chuyến là dỡ hết cá và đá cũ, cọ sạch nhớt cá bám ở vách và sàn hầm. Rửa bằng nước sạch rồi mở nắp phơi cho khô. Chỗ lớp cách nhiệt bị bể hay thấm nước thì sửa sớm, hầm thấm là đá mau tan. Hầm sạch thì cá chuyến sau giữ được lâu hơn.",
+      "nguon": "Trung tâm Khuyến nông Quốc gia — vệ sinh hầm bảo quản trên tàu cá",
+      "ngaySoat": "",
+      "duyet": null
+    },
+    {
+      "id": "bao-quan-muc",
+      "cauHoiMau": ["bảo quản mực sao cho trắng", "mực ướp bị đỏ", "giữ mực tươi trên tàu"],
+      "tuKhoa": ["mực", "bảo quản", "ướp"],
+      "traLoi": "Mực câu lên thì ướp lạnh ngay, đừng để nằm nắng. Nên cho mực vào túi hoặc khay rồi mới vùi trong đá, không để nước đá tan ngấm trực tiếp vào thân mực. Tránh xếp chồng quá dày làm mực bị đè dập. Mực giữ lạnh đều thì da còn sáng, bán được giá hơn.",
+      "nguon": "Trung tâm Khuyến nông Quốc gia — bảo quản mực trên tàu khai thác",
+      "ngaySoat": "",
+      "duyet": null
+    },
+    {
+      "id": "ca-mau-hu",
+      "cauHoiMau": ["vì sao cá mau hư", "cá chưa về tới bờ đã mềm", "cá bị bầm dập"],
+      "tuKhoa": ["mau hư", "mềm", "bầm dập"],
+      "traLoi": "Cá mau hư thường do nằm nắng lâu trước khi ướp, hoặc bị giẫm, quăng mạnh làm bầm thịt. Hầm thiếu đá, đá tan mà không bù thêm cũng làm cá mềm nhanh. Đổ cá xuống hầm nhẹ tay, ướp càng sớm càng tốt. Rửa sạch máu nhớt trước khi ướp để vi khuẩn khỏi sinh sôi.",
+      "nguon": "Trung tâm Khuyến nông Quốc gia — giảm tổn thất sau thu hoạch hải sản",
+      "ngaySoat": "",
+      "duyet": null
+    },
+    {
+      "id": "xa-nuoc-loc-dau",
+      "cauHoiMau": ["dầu có nước thì làm sao", "xả nước ở lọc dầu", "máy tàu bị nước trong dầu"],
+      "tuKhoa": ["lọc dầu", "nước trong dầu", "dầu có nước", "xả nước"],
+      "traLoi": "Trước mỗi chuyến và mỗi sáng, bác mở van dưới cốc lọc tách nước cho chảy hết phần nước đọng rồi mới chạy máy. Thấy dầu đục hay có giọt nước thì thay lõi lọc. Nắp thùng dầu phải đậy kín, lúc đổ dầu tránh để nước mưa lọt vào. Dầu lẫn nước làm máy giật, khó nổ và hại bơm cao áp.",
+      "nguon": "Hướng dẫn bảo dưỡng máy thuỷ cỡ nhỏ — tài liệu tập huấn thuyền trưởng, máy trưởng tàu cá",
+      "ngaySoat": "",
+      "chipMoMan": "/tau?tab=dich-vu",
+      "duyet": null
+    },
+    {
+      "id": "thay-nhot-may-tau",
+      "cauHoiMau": ["khi nào thay nhớt máy tàu", "bao lâu thay nhớt", "thay nhớt máy thuỷ"],
+      "tuKhoa": ["thay nhớt", "nhớt máy"],
+      "traLoi": "Thay nhớt theo số giờ chạy máy ghi trong sổ hướng dẫn của hãng máy, đừng đợi nhớt đen mới thay. Thay nhớt thì thay luôn lọc nhớt. Mỗi sáng trước khi chạy, rút que thăm xem nhớt còn đủ vạch không. Bác ghi ngày thay vào sổ bảo dưỡng trong app để máy nhắc lần sau.",
+      "nguon": "Hướng dẫn bảo dưỡng máy thuỷ cỡ nhỏ — tài liệu tập huấn thuyền trưởng, máy trưởng tàu cá",
+      "ngaySoat": "",
+      "chipMoMan": "/tau?tab=dich-vu",
+      "duyet": null
+    },
+    {
+      "id": "may-tau-nong",
+      "cauHoiMau": ["máy tàu bị nóng", "máy nóng quá phải làm sao", "nước làm mát không ra"],
+      "tuKhoa": ["máy nóng", "làm mát", "quá nhiệt"],
+      "traLoi": "Thấy máy nóng thì giảm ga, cho máy chạy chậm rồi tắt, đừng tắt đột ngột lúc đang tải nặng. Xem lỗ hút nước biển có bị rác, bao ni lông bịt không, và nước làm mát có phun ra ở ống xả không. Không ra nước thì thường do cánh bơm nước biển bị mòn hoặc gãy, nên mang cánh bơm dự phòng theo tàu. Kiểm luôn dây curoa bơm nước có chùng hay đứt không.",
+      "nguon": "Hướng dẫn bảo dưỡng máy thuỷ cỡ nhỏ — tài liệu tập huấn thuyền trưởng, máy trưởng tàu cá",
+      "ngaySoat": "",
+      "chipMoMan": "/tau?tab=dich-vu",
+      "duyet": null
+    },
+    {
+      "id": "may-kho-no",
+      "cauHoiMau": ["máy tàu khó nổ", "đề máy không nổ", "máy khởi động khó"],
+      "tuKhoa": ["khó nổ", "không nổ", "khởi động"],
+      "traLoi": "Trước hết coi bình điện có đủ không, cọc bình có bị ten, lỏng không. Kế đến xem thùng dầu còn dầu, lọc dầu có nghẹt hay có nước không, đường dầu có lọt gió không. Xả gió đường dầu theo hướng dẫn của máy rồi đề lại. Đề mãi không được thì nghỉ cho đề nguội, đừng đề liên tục làm cháy mô tơ đề.",
+      "nguon": "Hướng dẫn bảo dưỡng máy thuỷ cỡ nhỏ — tài liệu tập huấn thuyền trưởng, máy trưởng tàu cá",
+      "ngaySoat": "",
+      "duyet": null
+    },
+    {
+      "id": "binh-ac-quy",
+      "cauHoiMau": ["giữ bình ắc quy trên tàu", "bình điện mau hết", "ắc quy bị yếu"],
+      "tuKhoa": ["ắc quy", "bình điện"],
+      "traLoi": "Để bình ở chỗ khô ráo, chằng chắc cho khỏi xê dịch khi tàu lắc. Lau sạch muối và ten ở cọc bình, siết chặt đầu cos. Tắt đèn và thiết bị không dùng khi máy nghỉ để bình khỏi cạn. Bình yếu thì thay sớm, ra khơi mà hết điện đề là mắc kẹt.",
+      "nguon": "Hướng dẫn bảo dưỡng máy thuỷ cỡ nhỏ — tài liệu tập huấn thuyền trưởng, máy trưởng tàu cá",
+      "ngaySoat": "",
+      "duyet": null
+    },
+    {
+      "id": "tiet-kiem-dau-chay-ga-vua",
+      "cauHoiMau": ["làm sao tiết kiệm dầu", "chạy tàu cho đỡ tốn dầu", "tàu ăn dầu nhiều"],
+      "tuKhoa": ["tiết kiệm dầu", "tốn dầu", "ăn dầu"],
+      "traLoi": "Chạy ga vừa phải là đỡ tốn dầu nhất, rồ hết ga chỉ nhanh thêm chút mà dầu hao nhiều hơn hẳn. Tránh chạy ngược sóng gió lớn khi không cần, xem mục dẫn đường trong app để chọn giờ và đường đi êm hơn. Giữ máy đúng bảo dưỡng, lọc gió lọc dầu sạch. Xếp đồ và đá cân tàu, tàu nghiêng lệch cũng tốn dầu.",
+      "nguon": "Tài liệu tập huấn tiết kiệm nhiên liệu cho tàu cá — SDVICO tổng hợp",
+      "ngaySoat": "",
+      "chipMoMan": "/ngu-truong",
+      "duyet": null
+    },
+    {
+      "id": "ha-bam-vo-tau",
+      "cauHoiMau": ["hà bám vỏ tàu có sao không", "cạo hà chân vịt", "vỏ tàu bẩn tốn dầu"],
+      "tuKhoa": ["hà bám", "chân vịt", "vỏ tàu"],
+      "traLoi": "Hà và rêu bám vỏ tàu, chân vịt làm tàu nặng nước, chạy chậm mà tốn dầu hơn. Lên đà định kỳ để cạo hà và sơn chống hà. Chân vịt bị mẻ, cong cánh thì sửa cho cân, không thì máy rung và hao dầu. Cạo sạch trước mùa đánh bắt chính là đỡ dầu cả mùa.",
+      "nguon": "Tài liệu tập huấn tiết kiệm nhiên liệu cho tàu cá — SDVICO tổng hợp",
+      "ngaySoat": "",
+      "duyet": null
+    },
+    {
+      "id": "ao-phao-truoc-chuyen",
+      "cauHoiMau": ["kiểm tra áo phao trước khi đi", "đồ cứu sinh trên tàu", "phao cứu sinh cần những gì"],
+      "tuKhoa": ["áo phao", "phao cứu sinh", "cứu sinh"],
+      "traLoi": "Mỗi người trên tàu phải có một áo phao còn tốt, để chỗ dễ lấy, không khoá trong khoang. Coi áo có rách, dây buộc còn chắc, phao tròn có dây ném kèm. Chỉ cho bạn thuyền mới chỗ để áo phao và cách mặc. Lúc sóng lớn hay làm việc ở mạn tàu ban đêm thì nên mặc áo phao.",
+      "nguon": "Cục Thuỷ sản — hướng dẫn an toàn cho người và tàu cá khi hoạt động trên biển",
+      "ngaySoat": "",
+      "duyet": null
+    },
+    {
+      "id": "goi-cap-cuu-vhf",
+      "cauHoiMau": ["gặp nạn gọi ai", "gọi cứu nạn trên biển thế nào", "máy icom gọi cấp cứu kênh nào"],
+      "tuKhoa": ["cấp cứu", "cứu nạn", "gặp nạn", "kênh 16"],
+      "traLoi": "Gặp nạn thì gọi trên máy thoại kênh 16, đọc rõ tên tàu, số hiệu, vị trí và chuyện đang gặp. Máy có nút cấp cứu thì bấm giữ nút đó để phát tín hiệu. Gọi thêm tàu bạn đang ở gần và đài duyên hải. Giữ bình tĩnh, cho mọi người mặc áo phao trong lúc chờ.",
+      "nguon": "Hệ thống đài thông tin duyên hải Việt Nam (Vishipel) — hướng dẫn liên lạc cấp cứu cho tàu cá",
+      "ngaySoat": "",
+      "duyet": null
+    },
+    {
+      "id": "nguoi-roi-xuong-bien",
+      "cauHoiMau": ["có người rơi xuống biển làm sao", "bạn thuyền té xuống nước", "người rớt xuống biển"],
+      "tuKhoa": ["rơi xuống biển", "té xuống nước", "rớt xuống biển"],
+      "traLoi": "Hô to cho cả tàu biết và ném ngay phao tròn hoặc thứ gì nổi về phía người rơi. Cử một người chỉ tay và nhìn theo người rơi, không rời mắt. Giảm ga, quay tàu vòng lại, tiến vào từ phía dưới gió và tắt chân vịt khi tới gần người. Cần thì gọi kênh 16 nhờ tàu bạn cùng tìm.",
+      "nguon": "Cục Thuỷ sản — hướng dẫn an toàn cho người và tàu cá khi hoạt động trên biển",
+      "ngaySoat": "",
+      "duyet": null
+    },
+    {
+      "id": "chay-tren-tau",
+      "cauHoiMau": ["tàu bị cháy phải làm sao", "chữa cháy trên tàu", "cháy buồng máy"],
+      "tuKhoa": ["cháy", "chữa cháy", "bình chữa cháy"],
+      "traLoi": "Có cháy thì hô cho cả tàu, tắt máy và khoá van dầu để lửa khỏi có thêm dầu. Dùng bình chữa cháy xịt vào gốc lửa, cháy dầu thì không tạt nước. Đóng kín khoang cháy để lửa thiếu gió. Lửa lớn không dập được thì mặc áo phao, gọi kênh 16 và chuẩn bị rời tàu.",
+      "nguon": "Cục Thuỷ sản — hướng dẫn an toàn cho người và tàu cá khi hoạt động trên biển",
+      "ngaySoat": "",
+      "duyet": null
+    },
+    {
+      "id": "tau-ro-nuoc",
+      "cauHoiMau": ["tàu bị rò nước", "nước vào khoang tàu", "tàu bị thủng"],
+      "tuKhoa": ["rò nước", "nước vào", "thủng"],
+      "traLoi": "Chạy bơm hút khô ngay, rồi tìm chỗ nước vào: trục chân vịt, van thông biển, đường ống hay mối nối vỏ. Chặn tạm bằng giẻ, nêm gỗ hoặc bao đệm, siết lại chỗ lỏng. Nước vẫn lên nhanh thì cho mọi người mặc áo phao, gọi kênh 16 và tàu bạn gần đó. Về bờ phải sửa dứt điểm, đừng chỉ chặn tạm rồi đi tiếp.",
+      "nguon": "Cục Thuỷ sản — hướng dẫn an toàn cho người và tàu cá khi hoạt động trên biển",
+      "ngaySoat": "",
+      "duyet": null
+    },
+    {
+      "id": "chuan-bi-khi-co-bao",
+      "cauHoiMau": ["nghe tin bão thì làm gì", "tàu đang ngoài biển có bão", "chuẩn bị tránh trú bão"],
+      "tuKhoa": ["tránh trú bão", "tin bão", "trú bão", "có bão"],
+      "traLoi": "Nghe tin bão thì chạy ngay về nơi tránh trú gần nhất, đừng ráng đánh thêm mẻ. Báo vị trí cho đồn biên phòng, chủ tàu và giữ liên lạc với tàu bạn. Chằng buộc đồ trên boong, đóng kín cửa khoang, cho mọi người mặc áo phao. Bác nghe đài duyên hải liên tục để biết đường đi của bão.",
+      "nguon": "Hệ thống đài thông tin duyên hải Việt Nam (Vishipel) — hướng dẫn phòng tránh bão cho tàu cá",
+      "ngaySoat": "",
+      "chipMoMan": "/ngu-truong",
+      "duyet": null
+    },
+    {
+      "id": "nhot-thai-rac-thai",
+      "cauHoiMau": ["nhớt thải đổ đâu", "rác trên tàu xử lý sao", "có được đổ nhớt xuống biển không"],
+      "tuKhoa": ["nhớt thải", "rác", "đổ xuống biển"],
+      "traLoi": "Nhớt thải gom vào can có nắp, mang về bờ giao chỗ thu gom, không đổ xuống biển. Rác nhựa, lưới hư, dây cũ cũng giữ lại trên tàu đem về. Lưới bỏ ngoài biển quấn chân vịt tàu khác và giết cá nhỏ. Biển sạch thì cá còn cho bà con đánh lâu dài.",
+      "nguon": "Cục Thuỷ sản — hướng dẫn giảm rác thải nhựa và ngư cụ bị bỏ trên biển",
+      "ngaySoat": "",
+      "duyet": null
+    },
+    {
+      "id": "va-luoi",
+      "cauHoiMau": ["lưới rách vá sao cho bền", "giữ lưới bền lâu", "bảo quản lưới sau chuyến"],
+      "tuKhoa": ["lưới", "vá lưới", "bảo quản lưới"],
+      "traLoi": "Về bờ thì giũ sạch rác, rong và cá mắc, rửa lưới bằng nước ngọt nếu có. Phơi chỗ râm mát, nắng gắt lâu làm sợi lưới mau mục. Chỗ rách vá sớm cho đúng cỡ mắt lưới, để lâu lỗ rách toạc rộng thêm. Cất lưới khô, tránh chuột và dầu nhớt dính vào.",
+      "nguon": "Trung tâm Khuyến nông Quốc gia — kỹ thuật sử dụng và bảo quản ngư cụ",
+      "ngaySoat": "",
+      "duyet": null
+    }
+  ]
+}

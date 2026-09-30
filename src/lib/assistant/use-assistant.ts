@@ -28,12 +28,14 @@ import type { ProductCard } from "@/lib/market/types";
 import { useAuthUser } from "@/lib/use-auth";
 import { isOffline } from "@/lib/use-online";
 import { answerOffline, onlineErrorReply } from "./answer";
+import { knowledgeReply, searchKnowledge, voiceRegion, type VoiceRegion } from "./brain";
+import { audioUrlFor, loadBrain, refreshBrainPack, type LoadedBrain } from "./brain-pack";
 import { gomSnapshot, stripForServer } from "./device-snapshot";
 import { loadAssistantPrefs, pushAssistantTurn, saveAssistantPrefs, type AssistantPrefs } from "./history";
 import { wordCount } from "./normalize";
 import { CONFIDENCE_OFFLINE, parseUtterance } from "./parse";
 import { ALL_PORT_NAMES, portById, portByKey } from "./ports";
-import { cancelSpeak, listenOnce, speak, sttSupported, type ListenErrorCode, type ListenHandle } from "./speech";
+import { cancelSpeak, listenOnce, setPackVoice, speak, sttSupported, type ListenErrorCode, type ListenHandle } from "./speech";
 import { suggestionsFor } from "./suggestions";
 import type {
   AssistantAction, AssistantErrorCode, AssistantReply, AssistantResponse, DeviceSnapshot, ParsedIntent, Suggestion,
@@ -157,6 +159,12 @@ interface Engine {
   setMuted(v: boolean): void;
   lastSnapshot(): DeviceSnapshot | null;
   onHidden(): void;
+  /** có sóng: kiểm gói não mới (≤1 lần/6 giờ, có đồng hồ) rồi nạp lại nếu đổi */
+  refreshBrain(): void;
+  /** hỏi lại quyền mic của trình duyệt: không còn bị chặn → bỏ cờ `micDenied` */
+  recheckMic(): void;
+  /** bà con chạm "Thử nói lại" sau khi đã bật mic trong cài đặt */
+  retryMic(): void;
 }
 
 function createEngine(
@@ -179,6 +187,15 @@ function createEngine(
   let stateKind: AssistantState["kind"] = "idle";
   let cancelTimer: ReturnType<typeof setTimeout> | null = null;
   let reListen: ReturnType<typeof setTimeout> | null = null;
+  /*  GÓI NÃO (ADR 0010 P1): kho kiến thức + mp3 giọng Sen Biển, đọc từ kho riêng
+      trong máy — không cần sóng. Chưa có gói → `null`, hành vi y như trước. */
+  let brain: LoadedBrain | null = null;
+  let region: VoiceRegion = "bac";
+  const applyBrain = (b: LoadedBrain | null) => {
+    brain = b;
+    setPackVoice(b ? (text) => audioUrlFor(brain, text, region) : null);
+  };
+  void loadBrain().then(applyBrain);
 
   const push = (s: AssistantState) => {
     stateKind = s.kind;
@@ -255,6 +272,7 @@ function createEngine(
     const route = ctxRef.current.route;
     snapshot = gomSnapshot(route);
     setSnap(snapshot);
+    region = voiceRegion(snapshot.home?.province);
     const parsed = parseUtterance(said, {
       route,
       awaitingConfirm: !!pending,
@@ -320,6 +338,18 @@ function createEngine(
         if (!alive()) return;
       }
       return finish(reply, said);
+    }
+
+    // ── kho kiến thức trong máy (T1): câu hỏi mở tìm trong kho ĐÃ DUYỆT trước khi tốn sóng/lượt ──
+    if (parsed.intent === "hoi_mo" || parsed.intent === "khong_hieu") {
+      const b = brain ?? (await loadBrain());
+      if (!alive()) return;
+      if (b !== brain) applyBrain(b);
+      const hit = b ? searchKnowledge(b.knowledge, said) : null;
+      if (hit) {
+        misheard = 0;
+        return finish(knowledgeReply(hit), said);
+      }
     }
 
     // câu ngắn không hiểu → hỏi lại lần 1 trước, không tốn lượt (13 §11 #13)
@@ -481,6 +511,31 @@ function createEngine(
       ctxRef.current = c;
     },
     ask, listen, confirm, cancel, mounted, scheduleCancel, setMuted, lastSnapshot: () => snapshot, onHidden,
+    refreshBrain: () => {
+      if (isOffline()) return;
+      void refreshBrainPack().then((r) => {
+        if (r === "moi") void loadBrain().then(applyBrain);
+      });
+    },
+    /*  `micDenied` từng là cờ MỘT CHIỀU: bị từ chối một lần là vòng mic biến mất
+        mãi, kể cả khi bà con đã vào cài đặt bật lại (bug 2026-09-30). Nay mỗi lần
+        mở trợ lý hỏi lại trình duyệt; máy không hỗ trợ hỏi (Safari cũ) thì còn
+        nút "Thử nói lại" ở tấm che. */
+    recheckMic: () => {
+      if (!prefs.micDenied) return;
+      const perms = typeof navigator !== "undefined" ? navigator.permissions : undefined;
+      if (!perms?.query) return;
+      perms
+        .query({ name: "microphone" as PermissionName })
+        .then((st) => {
+          if (st.state !== "denied" && prefs.micDenied) savePrefs({ ...prefs, micDenied: false });
+        })
+        .catch(() => {});
+    },
+    retryMic: () => {
+      savePrefs({ ...prefs, micDenied: false });
+      listenImpl();
+    },
   };
 }
 
@@ -501,6 +556,9 @@ export function useAssistant(opts: { route: string; onAction(a: AssistantAction)
   // Huỷ được HẸN sang tick sau: StrictMode dev cleanup rồi mount lại ngay, `mounted()` bỏ hẹn — mic mở lúc chạm FAB không bị abort (P0-2)
   useEffect(() => {
     engine.mounted();
+    // mở trợ lý (bà con chủ động chạm — không phải lúc mở app) + có sóng → kiểm gói não mới
+    engine.refreshBrain();
+    engine.recheckMic();
     const onVis = () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") engine.onHidden();
     };
@@ -525,5 +583,7 @@ export function useAssistant(opts: { route: string; onAction(a: AssistantAction)
     cancel: engine.cancel,
     suggestions,
     turns: prefs.last,
+    micDenied: prefs.micDenied,
+    retryMic: engine.retryMic,
   };
 }

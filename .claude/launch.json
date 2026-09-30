@@ -24,6 +24,22 @@
       "autoPort": true
     },
     {
+      "name": "forfish-dev-qwen",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--webpack"
+      ],
+      "env": {
+        "ASSISTANT_ENGINE": "qwen",
+        "QWEN_BASE_URL": "http://localhost:11434/v1"
+      },
+      "port": 3000,
+      "autoPort": true
+    },
+    {
       "name": "forfish-prod",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

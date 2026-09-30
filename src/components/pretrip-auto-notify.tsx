@@ -165,6 +165,13 @@ export function PretripAutoNotify({ points }: { points: PretripPoint[] }) {
             sạch nghĩa là chẳng ghi được gì, xin lúc đó chỉ tốn một cửa/ngày.
             KHÔNG phải request mạng, không ai chờ nó — xem lib/storage-persist. */
         void ensurePersistentStorage();
+        /*  GÓI NÃO TRỢ LÝ (kho kiến thức + giọng Sen Biển) đi theo đúng nhịp
+            tải-trước-chuyến: có sóng, 6 giờ/lần, đồng hồ riêng, không ném — gói
+            nhỏ (vài MB), hỏng thì gói cũ vẫn dùng. Nạp động: không kéo code trợ
+            lý vào bundle trang chủ. */
+        void import("@/lib/assistant/brain-pack")
+          .then((m) => m.refreshBrainPack())
+          .catch(() => {});
         // Mẻ bị cắt giữa chừng → giãn cửa THỬ LẠI ra 30 phút (không ghi mốc 6
         // giờ nhưng cũng không được bắn lại sau 2 phút).
         lastAttemptPartial = r.timedOut;

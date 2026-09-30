@@ -38,6 +38,7 @@ vi.mock("@/lib/assistant/speech", () => ({
     return () => {};
   },
   cancelSpeak: () => {},
+  setPackVoice: () => {},
 }));
 vi.mock("@/lib/assistant/device-snapshot", () => ({
   gomSnapshot: () => bus.snap,

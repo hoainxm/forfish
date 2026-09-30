@@ -225,12 +225,49 @@ function refreshVoices(): void {
   }
 }
 
-/** Giọng Việt, ưu tiên giọng cài trong máy (đọc được lúc mất sóng). null = máy không có giọng Việt. */
+/*  GIỌNG NỮ (chốt 2026-09-08: Sen Biển là giọng nữ — Trúc Ly / Mỹ Duyên). API
+    giọng máy không có trường giới tính, nên nhận theo TÊN giọng phổ biến:
+    Windows "Microsoft An" và Edge "NamMinh" là giọng NAM (registry Windows ghi
+    Gender=Male); "HoaiMy" (Edge/Windows), "Linh" (Apple), giọng Google vi là NỮ. */
+const MALE_VOICE_RE = /\b(an|nam ?minh)\b/i;
+const FEMALE_VOICE_RE = /hoai ?my|hoài ?my|\blinh\b|google|female|\bnữ\b/i;
+
+/** Hạng một giọng Việt: nhỏ hơn = tốt hơn. Mất sóng thì giọng mạng không đọc được → xếp sau. */
+export function voiceRank(v: Pick<SpeechSynthesisVoice, "name" | "localService">, online: boolean): number {
+  const gender = FEMALE_VOICE_RE.test(v.name) ? 0 : MALE_VOICE_RE.test(v.name) ? 2 : 1;
+  const reach = v.localService ? 0 : online ? 0 : 10;
+  return reach + gender;
+}
+
+/** Giọng Việt tốt nhất: đọc được lúc này (mất sóng → giọng cài trong máy), rồi ưu tiên giọng nữ. null = máy không có giọng Việt. */
 export function vietnameseVoice(): SpeechSynthesisVoice | null {
   refreshVoices();
   const vi = voices.filter((v) => (v.lang ?? "").toLowerCase().startsWith("vi"));
   if (vi.length === 0) return null;
-  return vi.find((v) => v.localService) ?? vi[0];
+  const online = typeof navigator === "undefined" || navigator.onLine !== false;
+  return [...vi].sort((a, b) => voiceRank(a, online) - voiceRank(b, online))[0];
+}
+
+/* ───────────────── giọng Sen Biển sinh sẵn (mp3 trong gói não) ───────────────── */
+
+let packVoice: ((text: string) => string | null) | null = null;
+let audioEl: HTMLAudioElement | null = null;
+
+/** Gói não đã nạp → cho `speak` biết câu nào có mp3 giọng Sen Biển (use-assistant đặt). */
+export function setPackVoice(lookup: ((text: string) => string | null) | null): void {
+  packVoice = lookup;
+}
+
+function stopAudio(): void {
+  if (!audioEl) return;
+  try {
+    audioEl.pause();
+  } catch {
+    /* đã dừng */
+  }
+  audioEl.onended = null;
+  audioEl.onerror = null;
+  audioEl = null;
 }
 
 export function hasVietnameseVoice(): boolean {
@@ -244,6 +281,50 @@ export function hasVietnameseVoice(): boolean {
  * Không `onstart` sau 1,5 s → bỏ, gọi `onEnd` để UI không treo.
  */
 export function speak(text: string, opts: { rate?: number; onEnd?(): void } = {}): () => void {
+  const url = text.trim() && typeof Audio !== "undefined" ? packVoice?.(text) ?? null : null;
+  if (url) return speakMp3(url, text, opts);
+  return speakSynth(text, opts);
+}
+
+/**
+ * Câu cố định có mp3 giọng Sen Biển → phát mp3 (đọc được cả khi máy không có
+ * giọng Việt, không cần sóng). Phát hỏng (iOS chặn tự phát, file lỗi) → lùi về
+ * giọng máy ngay, bà con vẫn nghe.
+ */
+function speakMp3(url: string, text: string, opts: { rate?: number; onEnd?(): void }): () => void {
+  cancelSpeak();
+  const a = new Audio(url);
+  audioEl = a;
+  let ended = false;
+  let fellBack: (() => void) | null = null;
+  const end = () => {
+    if (ended) return;
+    ended = true;
+    if (audioEl === a) audioEl = null;
+    opts.onEnd?.();
+  };
+  const fallback = () => {
+    if (ended || audioEl !== a) return;
+    audioEl = null;
+    fellBack = speakSynth(text, opts);
+    ended = true; // speakSynth tự gọi onEnd
+  };
+  a.onended = end;
+  a.onerror = fallback;
+  try {
+    const p = a.play();
+    if (p && typeof p.catch === "function") p.catch(fallback);
+  } catch {
+    fallback();
+  }
+  return () => {
+    if (fellBack) return fellBack();
+    if (audioEl === a) stopAudio();
+    end();
+  };
+}
+
+function speakSynth(text: string, opts: { rate?: number; onEnd?(): void }): () => void {
   const noop = () => {};
   if (!ttsSupported()) {
     opts.onEnd?.();
@@ -303,6 +384,7 @@ export function speak(text: string, opts: { rate?: number; onEnd?(): void } = {}
 }
 
 export function cancelSpeak(): void {
+  stopAudio();
   if (!ttsSupported()) return;
   try {
     window.speechSynthesis.cancel();

@@ -18,7 +18,7 @@ const SRC = join(ROOT, "src");
 const DIR = join(SRC, "lib", "assistant");
 
 /** File ĐƯỢC PHÉP là "use client" trong thư mục trợ lý — mọi file khác là thuần. */
-const CLIENT_GLUE = new Set(["device-snapshot.ts", "speech.ts", "history.ts", "use-assistant.ts"]);
+const CLIENT_GLUE = new Set(["device-snapshot.ts", "speech.ts", "history.ts", "use-assistant.ts", "brain-pack.ts"]);
 const EXPLICIT_BAN = ["sea", "market/cart", "inbox", "market/orders-cache", "boat-store", "use-online"];
 
 function isClientModule(file: string): boolean {

@@ -8,6 +8,7 @@
 
 import { SDVICO_HOTLINE, SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
 import { addDaysIso, todayIsoVN } from "@/lib/days";
+import { foldVn } from "@/lib/market/text";
 import { savedAgoLabel } from "@/lib/forecast-cache";
 import { STORM_MAX_AGE_MS } from "@/lib/storms";
 import { weatherFromCode } from "@/lib/weather-codes";
@@ -317,10 +318,16 @@ function answerTide(p: ParsedIntent, s: DeviceSnapshot, now: number): AssistantR
   return reply("con_nuoc", `${dayName} ${s.tide.stationName}: ${parts.join(", ")}. Số ${luuLabel(s.tide.savedAt, now)}.`, { ...nav(SCREEN_HREF.ra_khoi), savedAt: s.tide.savedAt });
 }
 
+/** "tàu BĐ 91234" — nhưng tên bà con đặt đã mở bằng "Tàu/Ghe/Thuyền" thì KHÔNG ghép thêm
+    (từng đọc "Tàu Tàu của tôi", 2026-09-30). */
+export function tauTen(name: string): string {
+  return /^(tau|ghe|thuyen)( |$)/.test(foldVn(name)) ? name : `tàu ${name}`;
+}
+
 function answerDocs(p: ParsedIntent, s: DeviceSnapshot): AssistantReply {
   const extra = nav(SCREEN_HREF.giay_to);
   if (s.docs === null) return reply("giay_to", "Tủ giấy tờ trong máy đang đọc không được, bác mở Tàu cá xem giúp.", extra);
-  const boat = s.boat?.name ? `tàu ${s.boat.name}` : "tàu";
+  const boat = s.boat?.name ? tauTen(s.boat.name) : "tàu";
   let docs = s.docs;
   if (p.slots.docKind) {
     const want = p.slots.docKind;
@@ -398,7 +405,7 @@ function answerBoat(p: ParsedIntent, s: DeviceSnapshot): AssistantReply {
           boat-store khi thực hiện; ở đây gắn tên làm id để hợp đồng đủ trường. */
       // chip "Đổi lại" = đặt lại tàu đang chọn trước đó (nói "đổi lại" cũng chọn chip này — use-assistant)
       const back = s.boat.name && s.boat.name !== hitName ? [chip("Đổi lại", `đổi sang tàu ${s.boat.name}`)] : [];
-      return reply("tau_cua_toi", `Đã chuyển sang tàu ${hitName}.${back.length ? " Không đúng thì chạm 'Đổi lại'." : ""}`, {
+      return reply("tau_cua_toi", `Đã chuyển sang ${tauTen(hitName)}.${back.length ? " Không đúng thì chạm 'Đổi lại'." : ""}`, {
         action: { type: "setBoat", boatId: hitName, boatName: hitName },
         ...(back.length ? { clarify: { question: "", options: back } } : {}),
       });
@@ -406,7 +413,7 @@ function answerBoat(p: ParsedIntent, s: DeviceSnapshot): AssistantReply {
     const options = s.boat.names.slice(0, 4).map((n) => chip(n, `đổi sang tàu ${n}`));
     return reply("tau_cua_toi", "Không thấy tàu tên đó. Bác chọn tàu:", { clarify: { question: "Đổi sang tàu nào?", options } });
   }
-  return reply("tau_cua_toi", `Đang chọn tàu ${s.boat.name}${s.boat.count > 1 ? ` (bác có ${s.boat.count} tàu)` : ""}.`, nav(SCREEN_HREF.tau));
+  return reply("tau_cua_toi", `Đang chọn ${tauTen(s.boat.name)}${s.boat.count > 1 ? ` (bác có ${s.boat.count} tàu)` : ""}.`, nav(SCREEN_HREF.tau));
 }
 
 function answerFind(p: ParsedIntent, s: DeviceSnapshot): AssistantReply {

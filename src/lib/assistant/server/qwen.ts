@@ -86,6 +86,13 @@ async function chat(
       temperature: TEMPERATURE,
       max_tokens: QWEN_MAX_TOKENS,
       stream: false,
+      /*  TẮT "nghĩ" (doc 10 §4.3 N1b). Qwen3.5 mặc định nghĩ trước khi trả lời:
+          đo 2026-09-30 trên Ollama — không tắt thì 30 giây mà `content` RỖNG
+          (hết 700 token vào phần nghĩ), tắt thì 1,4 giây có câu. Hai cách viết
+          cho hai loại máy chủ: Ollama đọc `reasoning_effort`, vLLM đọc
+          `chat_template_kwargs`; máy chủ không biết trường nào thì bỏ qua. */
+      reasoning_effort: "none",
+      chat_template_kwargs: { enable_thinking: false },
     }),
     signal,
   });

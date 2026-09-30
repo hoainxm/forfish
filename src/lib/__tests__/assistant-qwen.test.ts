@@ -44,7 +44,7 @@ afterEach(() => {
 
 describe("qwen — chuyển TOOLS sang khuôn OpenAI", () => {
   it("mỗi tool là {type:function, function:{name, parameters}}, giữ đủ 6, sort theo tên", () => {
-    expect(OPENAI_TOOLS).toHaveLength(6);
+    expect(OPENAI_TOOLS).toHaveLength(7);
     for (const t of OPENAI_TOOLS) {
       expect(t.type).toBe("function");
       expect(typeof t.function.name).toBe("string");

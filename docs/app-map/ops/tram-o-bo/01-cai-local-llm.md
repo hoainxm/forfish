@@ -117,8 +117,7 @@ Ollama đọc **biến môi trường**. Trên Windows, đặt ở cấp **hệ 
 | `OLLAMA_MAX_LOADED_MODELS` | `1` | 12GB nên giữ 1 model cùng lúc; tránh Ollama nạp song song `qwen3.5:9b` + bản dự phòng gây tràn. |
 | `OLLAMA_NUM_PARALLEL` | `1` | batch tuần tự ban đêm, không cần đa luồng; giữ VRAM ổn định. |
 
-**`num_ctx` (độ dài ngữ cảnh)**: **KHÔNG** để mặc định thấp khi gom cụm nhiều câu. Đặt **per-request** trong
-lời gọi API (`"options":{"num_ctx": 8192}`) hoặc trong Modelfile. Bắt đầu **8192**, tăng dần tới khi `ollama ps`
+**`num_ctx` (độ dài ngữ cảnh)**: **KHÔNG** để mặc định thấp (Ollama mặc định **4096**). ✅ **ĐÃ ĐẶT 2026-09-30: env user `OLLAMA_CONTEXT_LENGTH=8192`** + khởi động lại Ollama — `ollama ps` báo `CONTEXT 8192`, `100% GPU`, 5,7 GB. Lý do: tầng mạng `/api/tro-ly` gọi qua endpoint **`/v1` chuẩn OpenAI, nơi Ollama KHÔNG nhận `num_ctx` theo request** — lời dặn + 7 tool + snapshot ≤8 KB vượt 4096 là bị CẮT NGẦM (trả lời sai mà không báo). Lời gọi `/api/chat` gốc (vòng đêm) vẫn đặt được per-request `"options":{"num_ctx": 8192}` hoặc trong Modelfile. Bắt đầu **8192**, tăng dần tới khi `ollama ps`
 báo có phần **CPU** (tràn) thì lùi lại. **Đo trần `num_ctx` trên PC thật.**
 
 **Lượng tử**: giữ **Q4_K_M** (tag mặc định ở trên) — cân bằng chất lượng/VRAM tốt nhất cho 12GB. Không tự ý lên Q8 (tràn).

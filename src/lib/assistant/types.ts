@@ -263,6 +263,8 @@ export interface AssistantReply {
   source: ReplySource;
   /** mốc lưu của dữ liệu dùng để trả lời (epoch ms) — UI in "lưu lúc …" */
   savedAt?: number;
+  /** câu trả lời trích KHO KIẾN THỨC: dòng nguồn + tháng soát ("Theo … · SDVICO soát 9/2026") — UI in dưới câu */
+  sourceNote?: string;
   /** ý định đã hiểu — để UI chọn chip tiếp theo + log */
   intent: Intent;
 }

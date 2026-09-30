@@ -57,7 +57,9 @@ Máy đọc mp3 đúng y file — sai một chữ là **sai suốt gói** cho t�
 
 Soát xong mới đưa mp3 vào gói → đóng gói → đăng ([02-quan-tri-va-update.md](02-quan-tri-va-update.md), Agent B).
 
-## 5. Máy chọn giọng bac/nam thế nào — **câu hỏi mở (cần quyết)**
+## 5. Máy chọn giọng bac/nam thế nào — ✅ CHỐT TẠM 2026-09-30 (theo tỉnh cảng nhà)
+
+> **Đã làm**: `voiceRegion(snapshot.home.province)` (src/lib/assistant/brain.ts) — tỉnh Nam Bộ (gồm tên cũ + sau sáp nhập 2025) → `nam` (Mỹ Duyên), còn lại + chưa đặt cảng nhà → `bac` (Trúc Ly). Thiếu mp3 giọng này thì lấy giọng kia. Bà con tự chọn giọng = chưa làm (cần UI). **Đã sinh thật 2026-09-30**: 42 câu × 2 giọng = 84 mp3, 1,95 MB (`gen_pack.py`, ra `~/sdfish-tram/giong-out`, venv `~/sdfish-tram/vieneu-venv`), đã vào gói v1 ở `public/tro-ly/audio/`. **Nhịp (chủ dự án chê "chưa tự nhiên", 2026-09-30)**: VieNeu mặc định temp 0.8 đọc ~5,7 tiếng/giây — nhanh, ngữ điệu thất thường. `gen_pack.py` chốt `TEMPERATURE = 0.5` + `ATEMPO = 0.85` (ffmpeg, chậm 15% giữ cao độ) — bản "E" của trang nghe thử; gói v2 2,31 MB. Đổi nhịp = sửa 2 hằng đó, chạy lại `gen_pack.py` + `phat-hanh-local.mjs`. Catalog nay khoá theo ĐÚNG câu app đọc (`text`) + `doc` cách đọc (115 → "một một năm"); test `assistant-voice-catalog.test.ts` chặn lệch.
 
 Gói có **cả hai** giọng. Máy phát giọng nào cho một bà con thì **CHƯA chốt**. Vài đường có thể:
 - Theo **vùng đăng ký của tàu/hồ sơ** (tỉnh) → bản đồ tỉnh→giọng (Bắc+Trung→`bac`, Nam→`nam`).

@@ -1,0 +1,387 @@
+{
+  "version": "1",
+  "answers": [
+    {
+      "id": "chao_can_gi",
+      "intentId": "chao_hoi",
+      "text": "Dạ, bác cần gì?",
+      "mp3": {
+        "bac": "audio/bac/chao_can_gi.mp3",
+        "nam": "audio/nam/chao_can_gi.mp3"
+      }
+    },
+    {
+      "id": "da",
+      "intentId": "chao_hoi",
+      "text": "Dạ.",
+      "mp3": {
+        "bac": "audio/bac/da.mp3",
+        "nam": "audio/nam/da.mp3"
+      }
+    },
+    {
+      "id": "xac_nhan",
+      "intentId": "xac_nhan",
+      "text": "Rồi.",
+      "mp3": {
+        "bac": "audio/bac/xac_nhan.mp3",
+        "nam": "audio/nam/xac_nhan.mp3"
+      }
+    },
+    {
+      "id": "tu_choi",
+      "intentId": "tu_choi",
+      "text": "Thôi vậy.",
+      "mp3": {
+        "bac": "audio/bac/tu_choi.mp3",
+        "nam": "audio/nam/tu_choi.mp3"
+      }
+    },
+    {
+      "id": "tat_tieng",
+      "intentId": "tat_tieng",
+      "text": "Đã tắt tiếng, tôi chỉ hiện chữ.",
+      "mp3": {
+        "bac": "audio/bac/tat_tieng.mp3",
+        "nam": "audio/nam/tat_tieng.mp3"
+      }
+    },
+    {
+      "id": "bat_tieng",
+      "intentId": "bat_tieng",
+      "text": "Đã bật tiếng.",
+      "mp3": {
+        "bac": "audio/bac/bat_tieng.mp3",
+        "nam": "audio/nam/bat_tieng.mp3"
+      }
+    },
+    {
+      "id": "tro_giup",
+      "intentId": "tro_giup",
+      "text": "Bác hỏi tôi thời tiết, bão, giấy tờ, giá cá, hay bảo tôi mở màn, tìm món, gọi shop.",
+      "mp3": {
+        "bac": "audio/bac/tro_giup.mp3",
+        "nam": "audio/nam/tro_giup.mp3"
+      }
+    },
+    {
+      "id": "ngoai_pham_vi",
+      "intentId": "ngoai_pham_vi",
+      "text": "Việc này tôi không trả lời được. Bác hỏi tôi chuyện đi biển, tàu, giấy tờ, mua bán nhé.",
+      "mp3": {
+        "bac": "audio/bac/ngoai_pham_vi.mp3",
+        "nam": "audio/nam/ngoai_pham_vi.mp3"
+      }
+    },
+    {
+      "id": "y_te",
+      "intentId": "ngoai_pham_vi",
+      "text": "Việc này tôi không trả lời được. Đau ốm thì gọi 115 hoặc trạm y tế.",
+      "mp3": {
+        "bac": "audio/bac/y_te.mp3",
+        "nam": "audio/nam/y_te.mp3"
+      }
+    },
+    {
+      "id": "phap_ly",
+      "intentId": "ngoai_pham_vi",
+      "text": "Chuyện phạt hỏi cảng cá hoặc biên phòng giúp. Tôi coi được giấy tờ nào sắp hết hạn.",
+      "mp3": {
+        "bac": "audio/bac/phap_ly.mp3",
+        "nam": "audio/nam/phap_ly.mp3"
+      }
+    },
+    {
+      "id": "khong_nghe_ro",
+      "intentId": "khong_hieu",
+      "text": "Tôi chưa nghe rõ. Bác nói lại giúp.",
+      "mp3": {
+        "bac": "audio/bac/khong_nghe_ro.mp3",
+        "nam": "audio/nam/khong_nghe_ro.mp3"
+      }
+    },
+    {
+      "id": "noi_ngan",
+      "intentId": "khong_hieu",
+      "text": "Bác nói ngắn từng việc một giúp.",
+      "mp3": {
+        "bac": "audio/bac/noi_ngan.mp3",
+        "nam": "audio/nam/noi_ngan.mp3"
+      }
+    },
+    {
+      "id": "chua_tra_loi_duoc",
+      "intentId": "khong_hieu",
+      "text": "Tôi chưa trả lời được câu này. Bác thử hỏi cách khác giúp.",
+      "mp3": {
+        "bac": "audio/bac/chua_tra_loi_duoc.mp3",
+        "nam": "audio/nam/chua_tra_loi_duoc.mp3"
+      }
+    },
+    {
+      "id": "gia_chua_co",
+      "intentId": "gia_ca",
+      "text": "Máy chưa có bảng giá. Có sóng mở Giao dịch để tải.",
+      "mp3": {
+        "bac": "audio/bac/gia_chua_co.mp3",
+        "nam": "audio/nam/gia_chua_co.mp3"
+      }
+    },
+    {
+      "id": "dau_chua_co",
+      "intentId": "gia_dau",
+      "text": "Chưa có giá dầu trong máy. Có sóng mở Giao dịch để tải.",
+      "mp3": {
+        "bac": "audio/bac/dau_chua_co.mp3",
+        "nam": "audio/nam/dau_chua_co.mp3"
+      }
+    },
+    {
+      "id": "gio_trong",
+      "intentId": "xem_gio",
+      "text": "Giỏ chưa có gì. Bác nói tên món cần mua, tôi tìm giúp.",
+      "mp3": {
+        "bac": "audio/bac/gio_trong.mp3",
+        "nam": "audio/nam/gio_trong.mp3"
+      }
+    },
+    {
+      "id": "bao_chua_co",
+      "intentId": "bao",
+      "text": "Máy chưa có tin bão. Có sóng tôi hỏi lại được, bác nghe thêm đài duyên hải.",
+      "mp3": {
+        "bac": "audio/bac/bao_chua_co.mp3",
+        "nam": "audio/nam/bao_chua_co.mp3"
+      }
+    },
+    {
+      "id": "con_nuoc_chua_co",
+      "intentId": "con_nuoc",
+      "text": "Máy chưa tải bảng con nước. Mở Ra khơi lúc còn sóng.",
+      "mp3": {
+        "bac": "audio/bac/con_nuoc_chua_co.mp3",
+        "nam": "audio/nam/con_nuoc_chua_co.mp3"
+      }
+    },
+    {
+      "id": "giay_to_trong",
+      "intentId": "giay_to",
+      "text": "Tủ giấy tờ còn trống. Mở Tàu cá để thêm.",
+      "mp3": {
+        "bac": "audio/bac/giay_to_trong.mp3",
+        "nam": "audio/nam/giay_to_trong.mp3"
+      }
+    },
+    {
+      "id": "bao_duong_trong",
+      "intentId": "bao_duong",
+      "text": "Chưa ghi việc bảo dưỡng nào. Mở Tàu cá, mục Dịch vụ để thêm.",
+      "mp3": {
+        "bac": "audio/bac/bao_duong_trong.mp3",
+        "nam": "audio/nam/bao_duong_trong.mp3"
+      }
+    },
+    {
+      "id": "thuyen_vien_trong",
+      "intentId": "thuyen_vien",
+      "text": "Chưa có ai trong sổ bạn thuyền. Mở Bạn thuyền để thêm.",
+      "mp3": {
+        "bac": "audio/bac/thuyen_vien_trong.mp3",
+        "nam": "audio/nam/thuyen_vien_trong.mp3"
+      }
+    },
+    {
+      "id": "tau_trong",
+      "intentId": "tau_cua_toi",
+      "text": "Chưa có tàu nào trong máy. Mở Tàu cá để thêm tàu.",
+      "mp3": {
+        "bac": "audio/bac/tau_trong.mp3",
+        "nam": "audio/nam/tau_trong.mp3"
+      }
+    },
+    {
+      "id": "hop_thu_trong",
+      "intentId": "hop_thu",
+      "text": "Không có tin mới.",
+      "mp3": {
+        "bac": "audio/bac/hop_thu_trong.mp3",
+        "nam": "audio/nam/hop_thu_trong.mp3"
+      }
+    },
+    {
+      "id": "mo_man_hoi",
+      "intentId": "mo_man",
+      "text": "Tôi mở được: Ra khơi, Tàu cá, Bạn thuyền, Giao dịch, Chợ. Bác muốn mở cái nào?",
+      "mp3": {
+        "bac": "audio/bac/mo_man_hoi.mp3",
+        "nam": "audio/nam/mo_man_hoi.mp3"
+      }
+    },
+    {
+      "id": "mo_ra_khoi",
+      "intentId": "mo_man",
+      "text": "Mở Ra khơi.",
+      "mp3": {
+        "bac": "audio/bac/mo_ra_khoi.mp3",
+        "nam": "audio/nam/mo_ra_khoi.mp3"
+      }
+    },
+    {
+      "id": "mo_tau",
+      "intentId": "mo_man",
+      "text": "Mở Tàu cá.",
+      "mp3": {
+        "bac": "audio/bac/mo_tau.mp3",
+        "nam": "audio/nam/mo_tau.mp3"
+      }
+    },
+    {
+      "id": "mo_giay_to",
+      "intentId": "mo_man",
+      "text": "Mở Giấy tờ.",
+      "mp3": {
+        "bac": "audio/bac/mo_giay_to.mp3",
+        "nam": "audio/nam/mo_giay_to.mp3"
+      }
+    },
+    {
+      "id": "mo_ban_thuyen",
+      "intentId": "mo_man",
+      "text": "Mở Bạn thuyền.",
+      "mp3": {
+        "bac": "audio/bac/mo_ban_thuyen.mp3",
+        "nam": "audio/nam/mo_ban_thuyen.mp3"
+      }
+    },
+    {
+      "id": "mo_giao_dich",
+      "intentId": "mo_man",
+      "text": "Mở Giao dịch.",
+      "mp3": {
+        "bac": "audio/bac/mo_giao_dich.mp3",
+        "nam": "audio/nam/mo_giao_dich.mp3"
+      }
+    },
+    {
+      "id": "mo_cho",
+      "intentId": "mo_man",
+      "text": "Mở Cửa hàng.",
+      "mp3": {
+        "bac": "audio/bac/mo_cho.mp3",
+        "nam": "audio/nam/mo_cho.mp3"
+      }
+    },
+    {
+      "id": "chua_dat_cang",
+      "intentId": "thoi_tiet",
+      "text": "Bác chưa đặt cảng nhà, nói tên cảng bác hay đi hoặc chọn trong danh sách cảng nhé.",
+      "mp3": {
+        "bac": "audio/bac/chua_dat_cang.mp3",
+        "nam": "audio/nam/chua_dat_cang.mp3"
+      }
+    },
+    {
+      "id": "chua_ghim_diem",
+      "intentId": "dan_duong",
+      "text": "Bác chưa ghim điểm nào. Mở Ra khơi, chạm giữ trên biển để ghim.",
+      "mp3": {
+        "bac": "audio/bac/chua_ghim_diem.mp3",
+        "nam": "audio/nam/chua_ghim_diem.mp3"
+      }
+    },
+    {
+      "id": "hoi_mo_cho_song",
+      "intentId": "hoi_mo",
+      "text": "Câu này tôi cần hỏi thêm khi có sóng. Bác chờ chút.",
+      "mp3": {
+        "bac": "audio/bac/hoi_mo_cho_song.mp3",
+        "nam": "audio/nam/hoi_mo_cho_song.mp3"
+      }
+    },
+    {
+      "id": "hoi_mo_offline",
+      "intentId": "hoi_mo",
+      "text": "Câu này phải có sóng mới hỏi được. Có sóng lại bác hỏi nhé.",
+      "mp3": {
+        "bac": "audio/bac/hoi_mo_offline.mp3",
+        "nam": "audio/nam/hoi_mo_offline.mp3"
+      }
+    },
+    {
+      "id": "mang_offline",
+      "intentId": "khong_hieu",
+      "text": "Câu này phải có sóng mới hỏi được. Giờ tôi trả lời được: thời tiết, bão, giấy tờ, giá cá, mở màn.",
+      "mp3": {
+        "bac": "audio/bac/mang_offline.mp3",
+        "nam": "audio/nam/mang_offline.mp3"
+      }
+    },
+    {
+      "id": "mang_chua_mo",
+      "intentId": "khong_hieu",
+      "text": "Phần hỏi thêm chưa mở. Bác hỏi tôi việc trong máy nhé.",
+      "mp3": {
+        "bac": "audio/bac/mang_chua_mo.mp3",
+        "nam": "audio/nam/mang_chua_mo.mp3"
+      }
+    },
+    {
+      "id": "mang_hong",
+      "intentId": "khong_hieu",
+      "text": "Trợ lý mạng đang không sẵn sàng. Bác hỏi việc trong máy nhé.",
+      "mp3": {
+        "bac": "audio/bac/mang_hong.mp3",
+        "nam": "audio/nam/mang_hong.mp3"
+      }
+    },
+    {
+      "id": "mang_cham",
+      "intentId": "khong_hieu",
+      "text": "Sóng yếu, hỏi không kịp. Bác thử lại hoặc hỏi việc trong máy.",
+      "mp3": {
+        "bac": "audio/bac/mang_cham.mp3",
+        "nam": "audio/nam/mang_cham.mp3"
+      }
+    },
+    {
+      "id": "het_luot",
+      "intentId": "khong_hieu",
+      "text": "Hôm nay bác đã hỏi đủ 30 câu cần sóng. Mai hỏi tiếp nhé, việc trong máy tôi vẫn trả lời.",
+      "mp3": {
+        "bac": "audio/bac/het_luot.mp3",
+        "nam": "audio/nam/het_luot.mp3"
+      }
+    },
+    {
+      "id": "chon_chip",
+      "intentId": "khong_hieu",
+      "text": "Bác thử chọn một trong mấy cái này:",
+      "mp3": {
+        "bac": "audio/bac/chon_chip.mp3",
+        "nam": "audio/nam/chon_chip.mp3"
+      }
+    },
+    {
+      "id": "chua_nghe_ro_lai",
+      "intentId": "khong_hieu",
+      "text": "Tôi chưa nghe rõ, bác nói lại giúp.",
+      "mp3": {
+        "bac": "audio/bac/chua_nghe_ro_lai.mp3",
+        "nam": "audio/nam/chua_nghe_ro_lai.mp3"
+      }
+    },
+    {
+      "id": "cham_nut_goi",
+      "intentId": "goi_shop",
+      "text": "Gọi điện thì bác chạm nút Gọi giúp tôi.",
+      "mp3": {
+        "bac": "audio/bac/cham_nut_goi.mp3",
+        "nam": "audio/nam/cham_nut_goi.mp3"
+      }
+    }
+  ],
+  "cauAnToan": {
+    "khongHieu": "Việc này tôi chưa có trong máy. Bác hỏi tôi thời tiết, bão, giấy tờ, giá cá, hay mở màn.",
+    "daiDuyenHai": "Bác nghe thêm đài duyên hải."
+  }
+}

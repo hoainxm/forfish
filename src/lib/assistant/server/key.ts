@@ -17,6 +17,19 @@ export async function getAssistantDailyLimit(): Promise<number> {
   return clampDailyLimit(await getConfigValue("assistant_daily_limit"));
 }
 
+/**
+ * Cờ tầng mạng (ADR 0010 ↔ doc 10 §4.2, chủ dự án chốt 2026-09-30: BẬT, kho trước).
+ * Trống/lạ = bật; chỉ 'tat' / 'tắt' / 0 / false / off mới tắt.
+ */
+export function isOnlineEnabled(raw: string | null | undefined): boolean {
+  const v = (raw ?? "").trim().toLowerCase();
+  return !["tat", "tắt", "0", "false", "off", "khong", "không"].includes(v);
+}
+
+export async function getAssistantOnlineEnabled(): Promise<boolean> {
+  return isOnlineEnabled(await getConfigValue("assistant_online_enabled"));
+}
+
 export type AssistantMode = "mock" | "live" | "no_key";
 export type AssistantEngine = "claude" | "qwen";
 

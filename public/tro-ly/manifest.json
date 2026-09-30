@@ -1,0 +1,438 @@
+{
+  "version": "2",
+  "createdAt": "2026-09-30T09:18:09.739Z",
+  "minAppVersion": "1.0.0",
+  "files": [
+    {
+      "path": "audio/bac/bao_chua_co.mp3",
+      "sha256": "fd856044085b7e50d0083cb8d1383ef556869d4bdf84976d63ce5ef48c14e3f4",
+      "bytes": 38252
+    },
+    {
+      "path": "audio/bac/bao_duong_trong.mp3",
+      "sha256": "89b281c7696bf4a25efa0af404b45e7a2cf590db174eaa817a5ce33ff4152c92",
+      "bytes": 28460
+    },
+    {
+      "path": "audio/bac/bat_tieng.mp3",
+      "sha256": "e6b33edf964fc353e20722906f24af031bc79b10cfd7e3f3e3bd97b8230990fa",
+      "bytes": 8876
+    },
+    {
+      "path": "audio/bac/cham_nut_goi.mp3",
+      "sha256": "14b7733b1ec5ac960999490f3f27716d25a5ce6b648a8d38b01cdfe60ddff129",
+      "bytes": 20972
+    },
+    {
+      "path": "audio/bac/chao_can_gi.mp3",
+      "sha256": "7af40fd0d4f5b7378f877cde56f9dc98ba2bb8041623c12c5f2b50fb03647e82",
+      "bytes": 10412
+    },
+    {
+      "path": "audio/bac/chon_chip.mp3",
+      "sha256": "605619888ffbf64eac202374f3042ace5901344fc8ef8edacaff4a2028ec1c73",
+      "bytes": 16364
+    },
+    {
+      "path": "audio/bac/chua_dat_cang.mp3",
+      "sha256": "f009641ae3d90669633cc80a0cae2d9208383e3b116e4b35681ab5cc2b7d725b",
+      "bytes": 35948
+    },
+    {
+      "path": "audio/bac/chua_ghim_diem.mp3",
+      "sha256": "6e86ae05d7fdad107127736357335d7e7dfd8273a74fd2bd0a83173b1a18c7f6",
+      "bytes": 29996
+    },
+    {
+      "path": "audio/bac/chua_nghe_ro_lai.mp3",
+      "sha256": "f2d2234fd31c9912384ea2c0a2bf9a5321cd1764fb97546883a9f37bf4f280bb",
+      "bytes": 19436
+    },
+    {
+      "path": "audio/bac/chua_tra_loi_duoc.mp3",
+      "sha256": "0d3e3e9f6be8296e4f749fd16f096e5f4d31d1d9b91c376d8da65d9a265404fd",
+      "bytes": 26924
+    },
+    {
+      "path": "audio/bac/con_nuoc_chua_co.mp3",
+      "sha256": "c35336cb9ba2094362385af82f8b73f0e44739cd1c680677cd21d6e4a1e5ac44",
+      "bytes": 26156
+    },
+    {
+      "path": "audio/bac/da.mp3",
+      "sha256": "24aa9eb930d686bcef08cfb8bdcd2d722fa7f40641153b811d6b011f4619b856",
+      "bytes": 4460
+    },
+    {
+      "path": "audio/bac/dau_chua_co.mp3",
+      "sha256": "5d1c00e0257fea4904095fd055631282259e6ac4979497d365aff2ec9f12e43a",
+      "bytes": 27116
+    },
+    {
+      "path": "audio/bac/gia_chua_co.mp3",
+      "sha256": "2b32a679c9be04531c8d2b579153fccac4f7ac981709fb059bb4ecdde26f406f",
+      "bytes": 25388
+    },
+    {
+      "path": "audio/bac/giay_to_trong.mp3",
+      "sha256": "31526c699cae507e94cd0cdaa57095cdfd4159d43281a15f62c86b1a32ba9d50",
+      "bytes": 22508
+    },
+    {
+      "path": "audio/bac/gio_trong.mp3",
+      "sha256": "1b6e1d07dd48a1c491a6bab7b91069112bfdb150fa2f0136669ba1ea8a2c01a5",
+      "bytes": 28460
+    },
+    {
+      "path": "audio/bac/het_luot.mp3",
+      "sha256": "1ed078a37744af0500968f8d3ba2f9ea911252697ffce79fe9ed80b17a15304f",
+      "bytes": 46508
+    },
+    {
+      "path": "audio/bac/hoi_mo_cho_song.mp3",
+      "sha256": "e69175dcddde4951276568f461d0853039ec148038a695a4b67c16fbec43d23b",
+      "bytes": 27116
+    },
+    {
+      "path": "audio/bac/hoi_mo_offline.mp3",
+      "sha256": "df53c2cb10959d6a8c3afafc24a368442b606517692ed7b14d5c99212ed789a3",
+      "bytes": 29228
+    },
+    {
+      "path": "audio/bac/hop_thu_trong.mp3",
+      "sha256": "6ea2629118b7fc9a980bcefb822823ddec2e44f062bf8ab93a1feb6230e9cea8",
+      "bytes": 11180
+    },
+    {
+      "path": "audio/bac/khong_nghe_ro.mp3",
+      "sha256": "b7c521fa4549faca0da7cb6ebf0728dc37251a6dbfefb1681eec4e5290ecb6c0",
+      "bytes": 18668
+    },
+    {
+      "path": "audio/bac/mang_cham.mp3",
+      "sha256": "0d83cc2b6271cf33762c66b44059ae5178ec569748951bd3caa0f0bb9d8bc3ab",
+      "bytes": 31532
+    },
+    {
+      "path": "audio/bac/mang_chua_mo.mp3",
+      "sha256": "e31841a929adc1edba937a9df16c628d46ae4faa19f77f42938bcd9a4896b25c",
+      "bytes": 26156
+    },
+    {
+      "path": "audio/bac/mang_hong.mp3",
+      "sha256": "fad42ec71dd6affda3e3dd2b69e38bcecf57b55bfc9cc18edfe4eafc6f4c209c",
+      "bytes": 29228
+    },
+    {
+      "path": "audio/bac/mang_offline.mp3",
+      "sha256": "f38f256ca09d955e10412e2b0a90f13d41866918ac38b8b0c47767764d52b73f",
+      "bytes": 44396
+    },
+    {
+      "path": "audio/bac/mo_ban_thuyen.mp3",
+      "sha256": "e5fac40abbdbfecb1733db0bdbcc174d686a94e2682f46f137ba4b263b6e7abb",
+      "bytes": 8108
+    },
+    {
+      "path": "audio/bac/mo_cho.mp3",
+      "sha256": "7b58eaf1805b707a4f5d8e837eb0a5cca2fc9d6565f867e8e41c2847b8a24e7c",
+      "bytes": 8876
+    },
+    {
+      "path": "audio/bac/mo_giao_dich.mp3",
+      "sha256": "4691724da2ef6f8d7c6c1d94198ed7e7f620adbc7c3af2eb1c53835aa0457ab9",
+      "bytes": 8108
+    },
+    {
+      "path": "audio/bac/mo_giay_to.mp3",
+      "sha256": "cd523848c78f1a5c61ab982f934ffe37768d74ebb62d867ef65aa34aae4db204",
+      "bytes": 8876
+    },
+    {
+      "path": "audio/bac/mo_man_hoi.mp3",
+      "sha256": "8dbe6108cdb0b21056b456b721bee46568ab5ccc24dcd885e7f0d2d99533575c",
+      "bytes": 36716
+    },
+    {
+      "path": "audio/bac/mo_ra_khoi.mp3",
+      "sha256": "7f720cb91128373d26fc3d7ab93df194b7361c71da64dcfbb11e0d51f942cd14",
+      "bytes": 9644
+    },
+    {
+      "path": "audio/bac/mo_tau.mp3",
+      "sha256": "21e0032c460de528893e9c4851864a735dc0fd49c539a2a6219dd26b29983220",
+      "bytes": 8876
+    },
+    {
+      "path": "audio/bac/ngoai_pham_vi.mp3",
+      "sha256": "4de3e15d4869b736c03d901b853aa751651558ab31c3b60bd208c373f7085109",
+      "bytes": 39020
+    },
+    {
+      "path": "audio/bac/noi_ngan.mp3",
+      "sha256": "d65bc048e33fe9d33f2dafb3ad33b94c4050885eab52b106462fa9be744bfa40",
+      "bytes": 15020
+    },
+    {
+      "path": "audio/bac/phap_ly.mp3",
+      "sha256": "9d5d4960f8bfaf54144b1cca932b8020f0baafa8a45c7d300cc9f18d0dc57626",
+      "bytes": 37484
+    },
+    {
+      "path": "audio/bac/tat_tieng.mp3",
+      "sha256": "4ae35315ec3aeb221d1ad3dce45d3b51f3dcdb55b0559645ab7b834a8648da3d",
+      "bytes": 16556
+    },
+    {
+      "path": "audio/bac/tau_trong.mp3",
+      "sha256": "7bcbe8a742922d30873a9d3d1f1c734ab8f9bd1cb2b65033c6c0a8d0ba0f7ee8",
+      "bytes": 25580
+    },
+    {
+      "path": "audio/bac/thuyen_vien_trong.mp3",
+      "sha256": "de902a50cdcd082e5a49fb00c6719cbc81844708c9ea1d553f3371635618c4cb",
+      "bytes": 26156
+    },
+    {
+      "path": "audio/bac/tro_giup.mp3",
+      "sha256": "5661784fa77500c7b582c01915996cdfc1739000e9e74757031815c35e803cfb",
+      "bytes": 43628
+    },
+    {
+      "path": "audio/bac/tu_choi.mp3",
+      "sha256": "0e9f463fa7b975b29278f4e61d3e984ce2f68b35f7582ea28319841417184d69",
+      "bytes": 5996
+    },
+    {
+      "path": "audio/bac/xac_nhan.mp3",
+      "sha256": "ee3a87d7b48aaca7bc8aff7d0974d23f1034d966b37aa7d5d454be911d359efb",
+      "bytes": 5804
+    },
+    {
+      "path": "audio/bac/y_te.mp3",
+      "sha256": "5ce3a513812c34109d09fab5f33f9b6cb48d8fa3d39bd706ead69f7360469915",
+      "bytes": 36716
+    },
+    {
+      "path": "audio/nam/bao_chua_co.mp3",
+      "sha256": "c6256ea72da440837c76d42829b043b90cd059a06433ae9d01aa2a3f9d52085b",
+      "bytes": 56300
+    },
+    {
+      "path": "audio/nam/bao_duong_trong.mp3",
+      "sha256": "d8889052988253dd9cda70f307b7be84a400bf769e1d0f1069fb519962cf3039",
+      "bytes": 43436
+    },
+    {
+      "path": "audio/nam/bat_tieng.mp3",
+      "sha256": "7d4f330feed7c0401a0724637b50d5e469d3647e10ad0c965af437fc6d994d08",
+      "bytes": 11948
+    },
+    {
+      "path": "audio/nam/cham_nut_goi.mp3",
+      "sha256": "b01885404fbc9be01a09339afee19d546e29951c6f8b7aa80f63427a104c7a62",
+      "bytes": 26156
+    },
+    {
+      "path": "audio/nam/chao_can_gi.mp3",
+      "sha256": "c3cdf06f1cee3a3852708e75cbfa630948c7de0028995a917cb129a3ccec96d5",
+      "bytes": 16364
+    },
+    {
+      "path": "audio/nam/chon_chip.mp3",
+      "sha256": "c9f50b9fba2d38b495bd030c3af62be9a14078e381efae69e28de3905e01d20e",
+      "bytes": 22508
+    },
+    {
+      "path": "audio/nam/chua_dat_cang.mp3",
+      "sha256": "c88937970a428b0af6a26569c1fbacb068633b7af91b539454da0a02b2b7ace7",
+      "bytes": 54956
+    },
+    {
+      "path": "audio/nam/chua_ghim_diem.mp3",
+      "sha256": "63a97e2225aa0479fddb68a863b38c3f205f1cf77d07e03c1315952fcf022577",
+      "bytes": 44972
+    },
+    {
+      "path": "audio/nam/chua_nghe_ro_lai.mp3",
+      "sha256": "b8a34903f909976383b4276bed7f37df2c3ebf9f1a9a64a8be80262b04606bd8",
+      "bytes": 24812
+    },
+    {
+      "path": "audio/nam/chua_tra_loi_duoc.mp3",
+      "sha256": "855c71a21dc33c0d32039d4976ea787a456e758ef9fcc5aa0409c2997784001d",
+      "bytes": 39788
+    },
+    {
+      "path": "audio/nam/con_nuoc_chua_co.mp3",
+      "sha256": "505eb7aac7acfbd09b9f262de00ac059866e13586646e1a2b396d1d1767d2944",
+      "bytes": 35948
+    },
+    {
+      "path": "audio/nam/da.mp3",
+      "sha256": "562bdb66d274d7a992aff92f2d60baf8bf0ce78f5c894fb64b88ff642c1c4729",
+      "bytes": 6572
+    },
+    {
+      "path": "audio/nam/dau_chua_co.mp3",
+      "sha256": "c16cbe110c7d6d9e9326a80ed26d0a507bf478954c00af458893b88515675231",
+      "bytes": 37484
+    },
+    {
+      "path": "audio/nam/gia_chua_co.mp3",
+      "sha256": "84837779e1bc1fb39c96a16704a2739c405d6b6e497344941e97a6bd01858aca",
+      "bytes": 37484
+    },
+    {
+      "path": "audio/nam/giay_to_trong.mp3",
+      "sha256": "a37cbc55e6108adffc5de70896d7c28559473e5855d3e5e18ecec2fa35249842",
+      "bytes": 32300
+    },
+    {
+      "path": "audio/nam/gio_trong.mp3",
+      "sha256": "815ddcfc8ccbc8e08b0eb972d9d1581ba54aa760386e28dfba7e016a766eece4",
+      "bytes": 39788
+    },
+    {
+      "path": "audio/nam/het_luot.mp3",
+      "sha256": "1f1abfe2f9c2f44269015d29eaedf2d1de0981bf9dfbbe273009df2918e87b50",
+      "bytes": 66860
+    },
+    {
+      "path": "audio/nam/hoi_mo_cho_song.mp3",
+      "sha256": "a3717f7050d9d4dd1208be4bb308bab31490e32b8f09b964989d3c95ca982fa0",
+      "bytes": 39788
+    },
+    {
+      "path": "audio/nam/hoi_mo_offline.mp3",
+      "sha256": "39492426511c2566a9a9d8deff2acf860f25c8ec6a30f44a703ade9513b5fd3b",
+      "bytes": 43436
+    },
+    {
+      "path": "audio/nam/hop_thu_trong.mp3",
+      "sha256": "a9fac131c174ed06b39fd2336dbb0acb5ff8276aef908dce858412099f6bd09c",
+      "bytes": 13484
+    },
+    {
+      "path": "audio/nam/khong_nghe_ro.mp3",
+      "sha256": "55ea3bb93a5b05a4e0816b5ff5e6df9f8df7b10ffe6524c59c959c23ade9aaa7",
+      "bytes": 25388
+    },
+    {
+      "path": "audio/nam/mang_cham.mp3",
+      "sha256": "f787edb215abddd33190629d0398c126cd46c48c241feb1cc6824836dfa6c68e",
+      "bytes": 47276
+    },
+    {
+      "path": "audio/nam/mang_chua_mo.mp3",
+      "sha256": "2f8cc89b536ab007daf95d9b794a9682986805878340eba76848db14f46284c0",
+      "bytes": 37484
+    },
+    {
+      "path": "audio/nam/mang_hong.mp3",
+      "sha256": "8f5525ac7afa970cdffb52745a26f937d37e9dadb4426876db095a33b75d26c7",
+      "bytes": 36716
+    },
+    {
+      "path": "audio/nam/mang_offline.mp3",
+      "sha256": "0ab69aaf29266ff4cce4b37f47e26174a00725e51ff3766e856d4988a50937e7",
+      "bytes": 66092
+    },
+    {
+      "path": "audio/nam/mo_ban_thuyen.mp3",
+      "sha256": "5f7bf3c2d89e356804a5f67eab30ec4503385bef717e540d2b0194ae20e45ac1",
+      "bytes": 11948
+    },
+    {
+      "path": "audio/nam/mo_cho.mp3",
+      "sha256": "053f338262bd13085586ed9cdcc755cc4fed5c625d1464e331b32e2b9c2552f3",
+      "bytes": 15596
+    },
+    {
+      "path": "audio/nam/mo_giao_dich.mp3",
+      "sha256": "c440c111eb1b41b4e188f92c8a326c66941fc02d1f140639a0f929681a4b6731",
+      "bytes": 16556
+    },
+    {
+      "path": "audio/nam/mo_giay_to.mp3",
+      "sha256": "8c20a695860838a293a4f58b4793faa6100621f8ec7c15605aa6ad179be0055f",
+      "bytes": 11180
+    },
+    {
+      "path": "audio/nam/mo_man_hoi.mp3",
+      "sha256": "117cc3792abbf9dd78a0587e051aed13d2e55e3e9833e32996a1fa3ba4499de2",
+      "bytes": 61676
+    },
+    {
+      "path": "audio/nam/mo_ra_khoi.mp3",
+      "sha256": "97201b0db957f48d3a4681c1a75125a0bae8637670db5f76a87cf27ad0144767",
+      "bytes": 11948
+    },
+    {
+      "path": "audio/nam/mo_tau.mp3",
+      "sha256": "939378c9de05f9099f8348c3abdf0ef04f1cd594ddfba89349661afff90bf37a",
+      "bytes": 11948
+    },
+    {
+      "path": "audio/nam/ngoai_pham_vi.mp3",
+      "sha256": "debdde0a8922f4508c4f65c854e19f56c7e38466e900eb690726e387c0905a04",
+      "bytes": 59372
+    },
+    {
+      "path": "audio/nam/noi_ngan.mp3",
+      "sha256": "61f5fe4042bfed1af7fc701979dc1ddc67c454ce7dd3021d6c31cb25e5ffafb0",
+      "bytes": 26156
+    },
+    {
+      "path": "audio/nam/phap_ly.mp3",
+      "sha256": "6c94cf9055d44800a92aa09f44d9b44c103adfed9a2028b94020641a7aa5c82f",
+      "bytes": 58604
+    },
+    {
+      "path": "audio/nam/tat_tieng.mp3",
+      "sha256": "93b3efaa250d95af8a8c56e3dd265235531c5c44a2d3d75f1b8464875060a6ec",
+      "bytes": 24620
+    },
+    {
+      "path": "audio/nam/tau_trong.mp3",
+      "sha256": "389f3341acc62c1ffd46f0352aa00e7bd8197fe6d05533e790f575084363fb0b",
+      "bytes": 37484
+    },
+    {
+      "path": "audio/nam/thuyen_vien_trong.mp3",
+      "sha256": "9c3750d8a7833e526434924b5731d60a82c898737465f13d05b37b5d34b9b528",
+      "bytes": 39020
+    },
+    {
+      "path": "audio/nam/tro_giup.mp3",
+      "sha256": "3ef1dee7d840c1b1b85a4f0f7818a9c85adb04d52df7f0362e2cdeee1b547094",
+      "bytes": 65324
+    },
+    {
+      "path": "audio/nam/tu_choi.mp3",
+      "sha256": "593d2fe5d3daba73bb58304fe0e412f12166708344e0a32e6fd94fc44b90c7e5",
+      "bytes": 8876
+    },
+    {
+      "path": "audio/nam/xac_nhan.mp3",
+      "sha256": "f5c4167c6064daaed6ce00638a2a7905e5cdc5537bcccf777552ba0f3455f6f0",
+      "bytes": 8876
+    },
+    {
+      "path": "audio/nam/y_te.mp3",
+      "sha256": "521956c183511665cfaacf97bde2994c9482ebe210fb4aa0afdad18e02bd06e8",
+      "bytes": 54764
+    },
+    {
+      "path": "brain/answers.v1.json",
+      "sha256": "b825c3987e51cc3b3d4221ef1b504925a0cbc14221d55d98af01d4a8e7d00e37",
+      "bytes": 11075
+    },
+    {
+      "path": "brain/knowledge.v1.json",
+      "sha256": "95e4eaa7fe0766b42eba6c724296d0c5b572d53f24646a996fc896ac554a8326",
+      "bytes": 34
+    }
+  ],
+  "notes": "0 mục kho đã duyệt · 42 câu cố định · 84 mp3"
+}

@@ -18,12 +18,14 @@ cố định. Đây là bộ sinh mp3 đó — **VieNeu-TTS thay OmniVoice** (ch
 ## Chạy (ở bờ, cần Python 3.12 + venv ngoài repo)
 
 ```bash
-python -m venv venv && venv/Scripts/pip install vieneu   # ONNX CPU, không cần torch
-venv/Scripts/python gen_pack.py                           # đọc catalog.json → out_pack/<giọng>/<id>.mp3
+py -3.12 -m venv ~/sdfish-tram/vieneu-venv && ~/sdfish-tram/vieneu-venv/Scripts/pip install vieneu pydub   # ONNX CPU, không cần torch; cần ffmpeg trên PATH
+~/sdfish-tram/vieneu-venv/Scripts/python gen_pack.py      # catalog.json → ~/sdfish-tram/giong-out/<giọng>/<id>.mp3 (đổi bằng SEN_BIEN_OUT)
+node scripts/tram-o-bo/phat-hanh-local.mjs                # (ở gốc repo) đưa mp3 + kho đã duyệt vào public/tro-ly
 ```
 
-- `catalog.json` — SEED câu cố định (id theo intent, dạng ĐỌC). Lấy từ
-  `src/lib/assistant/answer.ts`. **Cần SDVICO soát** trước khi phát hành (nhất là
+- `catalog.json` — câu cố định. `text` = ĐÚNG NGUYÊN VĂN câu app đọc (khoá tra mp3 —
+  test `src/lib/__tests__/assistant-voice-catalog.test.ts` chặn lệch với `answer.ts`);
+  `doc` = cách ĐỌC khi chữ viết đọc sai (vd 115 → "một một năm"). **Cần SDVICO soát** trước khi phát hành (nhất là
   số khẩn "115" viết "một một năm" để đọc từng số).
 - `gen_pack.py` — sinh mp3 24kHz mono 64k cho cả 2 giọng + `manifest.json`.
 - `synth_senbien.py`, `synth_nu.py` — script đo/so giọng lúc chọn (giữ để tra lại).
@@ -36,6 +38,6 @@ CLAUDE.md §"Dữ liệu bản đồ trong git"). Chỉ commit **công cụ + ca
 
 ## Còn nợ
 
-- Nhét `out_pack/` vào gói não + contract `tro-ly-brain-pack` — chờ **P1 của ADR 0010**
-  (chưa dựng). Lúc đó chốt: máy chọn giọng theo vùng (bac/nam) thế nào.
+- ✅ 2026-09-30: 84 mp3 (42 câu × 2 giọng, 1,95 MB) đã vào gói `public/tro-ly/audio/`;
+  máy chọn giọng theo tỉnh cảng nhà (Nam Bộ → `nam`, còn lại → `bac`).
 - Số khẩn / tên riêng / cách đọc: SDVICO soát catalog.

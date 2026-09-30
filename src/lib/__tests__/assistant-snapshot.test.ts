@@ -17,6 +17,8 @@ const DOC_NO = "KH-91234/ĐK-2026";
 const CREW_NAME = "Nguyễn Văn Tâm";
 const BOAT = "BĐ-91234-TS";
 const now = Date.now();
+// hạn giấy TƯƠNG ĐỐI hôm nay (+14 ngày = "soon") — ngày cứng "2026-09-20" từng làm test tự đỏ khi lịch trôi qua (2026-09-30)
+const SOON = new Date(now + 14 * 86_400_000).toISOString().slice(0, 10);
 
 function seed() {
   localStorage.clear();
@@ -29,7 +31,7 @@ function seed() {
     { id: "c2", name: "Trần Năm", cccd: "098765432109", role: "may_truong", hasInsurance: true, insuranceExpiry: "2030-01-01" },
   ]));
   localStorage.setItem("forfish.documents.v1", JSON.stringify([
-    { id: "d1", kind: "dang_kiem", label: "Đăng kiểm", number: DOC_NO, expiresOn: "2026-09-20", boatId: "b1", note: "ghi chú riêng tư" },
+    { id: "d1", kind: "dang_kiem", label: "Đăng kiểm", number: DOC_NO, expiresOn: SOON, boatId: "b1", note: "ghi chú riêng tư" },
   ]));
   localStorage.setItem("forfish.maintenance.v1", JSON.stringify([
     { id: "m1", item: "Thay nhớt " + "x".repeat(100), lastDone: "2026-08-01", intervalDays: 30, boatId: "b1" },
@@ -56,7 +58,7 @@ describe("assistant-snapshot — gom + strip (jsdom)", () => {
       expect(json, secret).not.toContain(secret);
     }
     expect(s.crew).toEqual({ count: 2, issues: 1 });
-    expect(s.docs?.[0]).toMatchObject({ label: "Đăng kiểm tàu cá", expiresOn: "2026-09-20", level: "soon" });
+    expect(s.docs?.[0]).toMatchObject({ label: "Đăng kiểm tàu cá", expiresOn: SOON, level: "soon" });
     expect(s.maintenance?.[0].item.length).toBeLessThanOrEqual(40);
     expect(s.boat).toEqual({ name: BOAT, count: 2, names: [BOAT, "Ghe nhỏ"] });
     expect(s.placeNames).toEqual(["Bãi mực", "Cảng nhà"]);

@@ -128,6 +128,19 @@ describe("assistant-claude-request — finalize (hậu kiểm)", () => {
     expect(finalize("#hanh_dong: mo_man=/cho", BODY, ctx).text.length).toBeGreaterThan(5);
   });
 
+  it("chữ có dấu 'bão'/'gió' đứng cuối câu vẫn bị bắt → nối đài duyên hải (nợ `\\b` ASCII, 2026-09-30)", () => {
+    const tc = { toolRan: true, toolPhones: [] };
+    expect(finalize("Chiều nay trở gió", BODY, tc).text).toMatch(/đài duyên hải/);
+    expect(finalize("Chưa thấy tin bão", BODY, tc).text).toMatch(/đài duyên hải/);
+    expect(finalize("Mở chợ nhé.", BODY, tc).text).not.toMatch(/đài duyên hải/);
+  });
+
+  it("câu thời tiết: bỏ lời trấn an tự thêm ('bác yên tâm nhé')", () => {
+    const r = finalize("Hiện chưa thấy tin bão nào trên Biển Đông, bác yên tâm nhé. Bác nghe thêm đài duyên hải.", BODY, { toolRan: true, toolPhones: [] });
+    expect(r.text).not.toMatch(/yên tâm/);
+    expect(r.text).toBe("Hiện chưa thấy tin bão nào trên Biển Đông. Bác nghe thêm đài duyên hải.");
+  });
+
   it("intent gắn nhãn lại từ câu nói; ngoai_pham_vi không bao giờ là nhãn online", () => {
     expect(finalize("Chuyện này tôi không rành.", BODY, ctx).intent).toBe("hoi_mo");
     expect(finalize("x", { ...BODY, text: "uống thuốc gì cho hết say sóng" }, ctx).intent).toBe("khong_hieu");

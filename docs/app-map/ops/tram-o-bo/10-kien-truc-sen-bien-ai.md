@@ -28,7 +28,7 @@ flowchart TB
 | Tầng | Trạng thái | Chi phí | Cần sóng | Vai trò |
 |---|---|---|---|---|
 | **T0 — máy hiểu 31 ý định** (TS thuần) | ✅ chạy | 0đ | Không | Mọi việc "trong máy": thời tiết/bão đã lưu, giấy tờ, bảo dưỡng, giỏ, giá. Tức thì. |
-| **T1 — gói não offline (BM25 retrieval)** | ❌ CHƯA dựng (ADR 0010 P1) | 0đ | Không | Câu mở trả bằng KHO KIẾN THỨC đã duyệt trong máy — đích thay tầng mạng |
+| **T1 — gói não offline (BM25 retrieval)** | ✅ **dựng 2026-09-30** (máy + tool `tra_kho`); kho phát hành đang RỖNG — 20 mục nháp chờ SDVICO duyệt | 0đ | Không | Câu mở trả bằng KHO KIẾN THỨC đã duyệt trong máy — đích thay tầng mạng |
 | **T2 — tầng mạng Qwen** | ✅ **vừa dựng** (31dfb84) | ~0đ vendor (điện/GPU) | Có | Câu mở/không hiểu → qwen3.5:9b + tool app-data |
 | ~~Claude opus-5~~ | ⏸️ giữ code, chọn engine qua `assistant_engine` | 5/25 USD/1M | Có | Phương án; ~50–150 USD/ngày/1000 ngư dân → lý do đổi Qwen |
 
@@ -164,7 +164,7 @@ Nghiên cứu 2026 (Frontiers in Medicine; Winder.ai; BentoML): *SLM + RAG match
 | # | 9B hay lộ | Đòn bẩy | Trạng thái |
 |---|---|---|---|
 | 1 | không biết **số sống** | **6 tool** app-data | ✅ chạy |
-| 2 | không biết **kiến thức tĩnh** nghề cá | 🔴 **domain RAG: tool `tra_kho`** trích `knowledge.v1.json` | ❌ **CHƯA nối vào Qwen** — §3.2 |
+| 2 | không biết **kiến thức tĩnh** nghề cá | 🔴 **domain RAG: tool `tra_kho`** trích `knowledge.v1.json` | ✅ **nối 2026-09-30** (tool thứ 7, prompt dặn gọi trước) — chờ kho có mục đã duyệt |
 | 3 | lạc giọng/dài dòng | **system prompt mạnh + few-shot** | 🟡 prompt tốt, chưa few-shot |
 | 4 | **bịa số, quên nhắc an toàn** | **`finalize` guardrail** (độc lập engine) | ✅ chạy |
 | 5 | vẫn đuối có hệ thống | fine-tune LoRA | ⏸ nợ có điều kiện (06) |

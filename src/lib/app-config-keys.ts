@@ -8,6 +8,7 @@ export type ConfigKey =
   | "cron_secret"
   | "anthropic_api_key"
   | "assistant_daily_limit"
+  | "assistant_online_enabled"
   | "assistant_engine"
   | "qwen_base_url"
   | "qwen_model"
@@ -65,6 +66,13 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     secret: false,
     envVar: "ASSISTANT_DAILY_LIMIT",
     help: "Mặc định 30. Đếm lượt gọi tầng mạng (Claude hoặc Qwen); việc trong máy không tính.",
+  },
+  {
+    key: "assistant_online_enabled",
+    label: "Trợ lý — bật hỏi mạng (Qwen/Claude)",
+    secret: false,
+    envVar: "ASSISTANT_ONLINE_ENABLED",
+    help: "Mặc định BẬT (trống = bật). Máy luôn tìm trong KHO KIẾN THỨC trong máy trước; chỉ câu kho không có mới hỏi mạng. Gõ 'tat' (hoặc 0/false) để tắt hẳn tầng mạng — 0 đồng, câu ngoài kho trả 'chưa mở'.",
   },
   {
     key: "assistant_engine",

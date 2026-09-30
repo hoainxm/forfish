@@ -190,6 +190,7 @@ Core (`lib/assistant/**`, workers, `scripts/build-tro-ly-wasm.sh`, contract gói
 
 ## History
 
+- **2026-09-30**: P1 dựng **phần kho + giọng** theo lệnh chủ dự án "hoàn thiện hết" — `brain.ts` (BM25 có cổng bằng chứng) + `brain-pack.ts` (đổi khối sha256, kho `sdfish-tro-ly-v1`) + T1 trước online + tool `tra_kho` cho Qwen + mp3 VieNeu 84 file. **Lệch ADR có chủ ý**: gói ở `public/tro-ly` theo deploy ("local thôi"), KHÔNG Storage/`/quan-tri` (P2 bỏ); tầng mạng **BẬT** mặc định (`assistant_online_enabled`, doc 10 §4.2) thay vì tắt; SW thêm 2 dòng (giữ kho + bỏ qua `/tro-ly/`). **Chưa làm**: nghe/đọc WASM (P0 bước 2 đo phone vẫn chưa có → Status giữ Proposed), `intents.v1`, `unansweredHashes`. Kho phát hành đang rỗng — 20 mục nháp AI chờ SDVICO duyệt.
 - **2026-09-07**: Proposed v0.1 — gói nghe offline WASM, giữ tầng mạng Claude.
 - **2026-09-07c**: P0 bước 1 đo trên PC — chuỗi VAD→STT→TTS chạy trong trình duyệt bằng gói `sherpa_onnx_web` dựng sẵn; số ở §P0; x_low loại; rủi ro INITIAL_MEMORY 512 MB; chờ đo phone.
 - **2026-09-07d**: Đo hotwords trên PC — có tác dụng thật (từ ngành 8/15 → 11–12/15) nhưng boost cao đè nghĩa ("biển động" → "Biển Đông"); chốt `hotwordsScore` 1,5 + luật không nhận hotword trùng âm. Sinh `bpe.vocab` từ `bpe.model`. Sửa 3 lỗi trên đường "dựng lại" (`sed` mất dấu gạch ngược, `curl` nuốt lỗi mạng + `| tail` che mã thoát, `openssl` thiếu `MSYS_NO_PATHCONV`) — đều lộ ra khi chạy thật. Bộ đo chuyển về nằm trọn trong repo, chạy lại full để kiểm.

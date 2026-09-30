@@ -24,6 +24,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, relative, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const DEFAULT_BUDGET_MB = 70; // ADR 0010: ~50–70 MB/gói
 const MANIFEST_NAME = "manifest.json";
@@ -170,4 +171,5 @@ function main() {
   );
 }
 
-main();
+// chạy như lệnh thì chạy main; import (phat-hanh-local.mjs) thì chỉ lấy hàm
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

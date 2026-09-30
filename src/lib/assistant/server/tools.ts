@@ -18,7 +18,13 @@ import { settleOverdueOrders } from "@/lib/market/route-utils";
 import { getMarketStore } from "@/lib/market/store";
 import { loadWeatherSnapshot } from "@/lib/weather-snapshot";
 import { seaSnapshotId } from "@/lib/weather-snapshot-id";
+// kho kiến thức ĐÃ PHÁT HÀNH — đúng file máy bà con tải (public/tro-ly, dựng bằng
+// scripts/tram-o-bo/phat-hanh-local.mjs). Nhúng lúc build: cùng bản deploy, cùng nội dung.
+import knowledgeJson from "../../../../public/tro-ly/brain/knowledge.v1.json";
+import { buildKnowledgeIndex, parseKnowledge, searchKnowledge } from "../brain";
 import type { SeaDaySummary } from "../types";
+
+const KHO = buildKnowledgeIndex(parseKnowledge(knowledgeJson));
 
 export const TOOL_MAX_MS = 8_000;
 export const TOOL_RESULT_MAX_CHARS = 2_000;
@@ -55,6 +61,9 @@ export const TOOLS: Tool[] = [
     so_luong_toi_da: { type: "integer", minimum: 1, maximum: 5, description: "số món tối đa, 1..5" },
   }),
   tool("tin_bao", "Tin bão / áp thấp nhiệt đới trên Biển Đông hiện tại (NCHMF + GDACS).", {}),
+  tool("tra_kho", "Tra kho kiến thức nghề cá ĐÃ DUYỆT (bảo quản cá, máy tàu, an toàn, tiết kiệm dầu...). Trả đúng đoạn tài liệu + nguồn, hoặc báo kho chưa có.", {
+    cau_hoi: { type: "string", description: "câu hỏi của bác, viết lại ngắn gọn bằng tiếng Việt có dấu" },
+  }),
 ].sort((a, b) => a.name.localeCompare(b.name));
 
 export const TOOL_NAMES = TOOLS.map((t) => t.name);
@@ -150,6 +159,11 @@ async function run(name: string, input: Record<string, unknown>, phone: string):
         name: s.name, kindLabel: s.kindLabel, windKmh: s.windKmh, alert: s.alert,
       }));
       return okJson({ checkedAt: (j as { checkedAt?: string }).checkedAt ?? null, storms });
+    }
+    case "tra_kho": {
+      const hit = searchKnowledge(KHO, strOf(input, "cau_hoi").slice(0, 300));
+      if (!hit) return err("Kho chưa có tài liệu cho chuyện này.");
+      return okJson({ traLoi: hit.item.traLoi, nguon: hit.item.nguon, ngaySoat: hit.item.ngaySoat });
     }
     default:
       return err("Không có công cụ này.");

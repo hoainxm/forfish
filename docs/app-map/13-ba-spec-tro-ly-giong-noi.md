@@ -494,6 +494,7 @@ Mỗi AC 1 dòng kiểm được, **trong ngoặc = tầng · hàm/route chịu 
 
 ## Assumptions (lead/chủ dự án bác thì sửa spec, không sửa code trước)
 
+- **2026-09-30 (chủ dự án: "hoàn thiện hết")**: (a) câu hỏi mở tìm KHO KIẾN THỨC ĐÃ DUYỆT trong máy TRƯỚC khi hỏi mạng; kho không đủ bằng chứng thì không trả gần đúng; câu hỏi giá/tiền không bao giờ trả từ kho. (b) Tầng mạng (Qwen) mặc định BẬT, tắt được ở `/quan-tri` (`assistant_online_enabled`). (c) Từ chối mic KHÔNG khoá vĩnh viễn: mở tấm che hỏi lại quyền trình duyệt; có nút "Thử nói lại". (d) Câu cố định đọc mp3 giọng nữ Sen Biển; vùng giọng theo tỉnh cảng nhà (Nam Bộ → Mỹ Duyên, còn lại → Trúc Ly), chưa đặt cảng → Trúc Ly. (e) Kho do AI soạn là NHÁP — chỉ vào máy bà con sau khi SDVICO duyệt.
 - **Chốt theo brief**: một nút nổi mic ở mọi màn app ngư dân; hai tầng hiểu; Web Speech API + `speechSynthesis`; không đặt hàng/huỷ/xoá bằng giọng; N=30 lượt/ngày; key qua env hoặc `app_config`; mock cho dev.
 - Giỏ mà trợ lý thêm là **giỏ chợ vật tư** (`forfish.mcart.v1`), không phải giỏ SDVICO — lead đã chốt (§0 #1).
 - Tấm che là **toàn màn** (LEAD §1), không `BottomSheet`; thứ tự khối KEY theo §5.2.
