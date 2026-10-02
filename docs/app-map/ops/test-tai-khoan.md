@@ -2,7 +2,7 @@
 
 > Load khi: cần thử API/app bằng tài khoản thật trên production hoặc preview (premium, thường, bị chặn 401/403/429), không muốn nhớ SQL.
 covers: scripts/test-account.mjs, scripts/test-accounts.json
-last_verified: 2026-09-17
+last_verified: 2026-10-02
 ttl_days: 180
 
 ## Vì sao có
@@ -25,7 +25,8 @@ App xác thực bằng **chuỗi thiết bị** (`forfish.token.v1`, lib/device-
 Cần `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` trong env hoặc `.env.local` (service-role, giữ kín).
 
 ```bash
-node scripts/test-account.mjs ds                          # hạng + hạn + số chuỗi sống từng tài khoản
+node scripts/test-account.mjs ds                          # loại + hạng + hạn + số chuỗi sống từng tài khoản
+node scripts/test-account.mjs danh-dau 0xxxxxxxxx          # MỘT lần mỗi số: đánh dấu loại "test" (cần 0056)
 node scripts/test-account.mjs cap 0900000777 --premium 1  # cấp chuỗi + nâng premium tạm 1 ngày
 node scripts/test-account.mjs cap 0903333333              # cấp chuỗi cho tài khoản thường
 node scripts/test-account.mjs thu 0900000777              # xoá chuỗi của script + trả về basic
@@ -36,6 +37,11 @@ node scripts/test-account.mjs thu --all                   # dọn mọi chuỗi 
 
 ## Luật script tự giữ
 
+- **Chỉ tài khoản LOẠI test** (RBAC 2026-10-02, `customers.account_kind`, 0056): số trong JSON mà DB chưa đánh dấu ⇒ từ chối, chạy `danh-dau` trước. 0056 chưa apply (cột không có) ⇒ chạy như cũ.
+- **Không bao giờ cấp cho nhân sự** (admin/quản lý — `staff_accounts` hoặc `customers.role`).
+- **Chuỗi tự hết hạn sau 24 giờ** (`device_tokens.expires_at`); 0056 chưa apply ⇒ chuỗi không hạn, script in nhắc `thu`.
+- **Ghi nhật ký** `admin_activity_log` (actor `script:test-account`): cấp chuỗi (`account.test-token`), nâng/trả hạng (`account.grant`/`account.downgrade`), đánh dấu loại (`account.set-kind`) — hiện ở tab Nhật ký /quan-tri. Ghi hỏng không chặn việc chính nhưng in cảnh báo.
+- **Tài khoản loại test không vào được /quan-tri** và không nhận tin "gửi tất cả" — kể cả khi ai đó lỡ gán vai.
 - **Không đá máy thật**: tài khoản đang có chuỗi sống ⇒ từ chối, trừ khi `--multi` (chèn với `allow_multi=true`).
 - **Dấu vết**: hàng do script tạo có `device_id = test-script`, `platform = test:<hạng gốc>`; `thu` chỉ xoá hàng đó và đọc hạng gốc từ đó để trả lại — chuỗi của máy thật không bị đụng.
 - **Đệm hạng 5 phút** ở middleware (lib/supabase/middleware.ts): vừa nâng/hạ hạng thì API có thể còn trả theo hạng cũ tối đa 5 phút trên instance đó. Thử premium và thường thì dùng HAI SĐT khác nhau.

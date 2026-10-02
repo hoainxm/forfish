@@ -17,16 +17,28 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requirePermission, requireStaff } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
 import {
+  checkDemoteAdmin,
   isAdminPhone,
-  isMasterAgentPhone,
+  normalizeAccountKind,
   parseAdminPhones,
   roleAfterCreate,
+  ACCOUNT_KINDS,
+  type AccountKind,
+  type StaffScope,
 } from "@/lib/admin";
+import {
+  listDbStaff,
+  loadActor,
+  managerTargetCheck,
+  writeStaffRole,
+} from "@/lib/staff-store";
+import { revokeTokensOfPhone } from "@/lib/device-token-server";
 import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
-import { TEMP_RESET_PASSWORD } from "@/lib/temp-password";
 import { normalizePassword, PASSWORD_MIN_LENGTH } from "@/lib/password";
+import { randomTempPassword } from "@/lib/temp-password";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 import { normalizePlatform } from "@/lib/app-usage";
+import { isMissingColumnError } from "@/lib/staff-permissions";
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -88,6 +100,17 @@ async function writeAudit(
   } catch {
     /* bảng admin_audit chưa có → bỏ qua */
   }
+}
+
+/** Bọc managerTargetCheck (lib/staff-store) thành Response lỗi của route. */
+async function guardManagerTarget(
+  admin: Admin,
+  who: { phone: string; role: "admin" | "manager"; scope: StaffScope },
+  phone: string,
+  allowUnclaimed: boolean,
+): Promise<NextResponse | null> {
+  const d = await managerTargetCheck(admin, who, phone, allowUnclaimed);
+  return d ? err(d.status, d.code) : null;
 }
 
 export async function GET() {
@@ -194,6 +217,20 @@ export async function GET() {
   // — xem lib/admin-auth.ts). Trả cờ thật + nguồn để UI dán nhãn khỏi lẫn với
   // quản lý.
   const adminPhones = parseAdminPhones(process.env.ADMIN_PHONES);
+  // VAI từ staff_accounts (0056) — chưa apply thì listDbStaff lùi về
+  // customers.role. Tra hỏng → chỉ mất nhãn vai, danh sách vẫn về.
+  const dbStaff = await listDbStaff(admin);
+  const staffRole = new Map<string, "admin" | "manager">(
+    dbStaff.ok ? dbStaff.rows.map((x) => [x.phone, x.role]) : [],
+  );
+  // LOẠI tài khoản (0056 account_kind) — đọc riêng, cột chưa có = mọi người "real"
+  const kindOf = new Map<string, AccountKind>();
+  {
+    const k = await admin.from("customers").select("phone, account_kind");
+    if (!k.error)
+      for (const x of (k.data ?? []) as { phone: string; account_kind: unknown }[])
+        kindOf.set(x.phone, normalizeAccountKind(x.account_kind));
+  }
 
   /*  LỊCH SỬ MÁY (customer_devices, 0033) — MỘT câu cho cả danh sách rồi gom
       trong JS, KHÔNG hỏi từng khách (716 khách = 716 câu). Bảng nhỏ (mỗi khách
@@ -232,10 +269,13 @@ export async function GET() {
     tier: (r.tier as string) ?? "basic",
     premiumUntil: (r.premium_until as string) ?? null,
     premiumActivatedAt: (r.premium_activated_at as string) ?? null,
-    role: (r.role as string) ?? "customer",
-    /** admin THẬT — env HOẶC role='admin' */
+    role: staffRole.get(r.phone as string) ?? (dbStaff.ok ? "customer" : ((r.role as string) ?? "customer")),
+    /** admin THẬT — env HOẶC staff_accounts role='admin' */
     isAdmin:
-      isAdminPhone(r.phone as string, adminPhones) || r.role === "admin",
+      isAdminPhone(r.phone as string, adminPhones) ||
+      staffRole.get(r.phone as string) === "admin",
+    /** real | test | demo | reviewer (0056) */
+    kind: kindOf.get(r.phone as string) ?? "real",
     fromSdwork: Boolean(r.sdwork_ref),
     updatedAt: (r.updated_at as string) ?? null,
     canLogin: provisioned.has(r.phone as string),
@@ -279,14 +319,15 @@ export async function GET() {
   // chưa cấp ai → thấy RỖNG (an toàn, không lộ khách người khác).
   let visible = accounts;
   if (who.role === "manager") {
-    if (
-      isMasterAgentPhone(who.phone, parseAdminPhones(process.env.MASTER_AGENT_PHONES))
-    ) {
-      // ĐẠI LÝ TỔNG (env MASTER_AGENT_PHONES): thấy MỌI khách CÒN PREMIUM hiệu
+    if (who.scope === "all_premium") {
+      // ĐẠI LÝ TỔNG (staff_accounts.scope; env MASTER_AGENT_PHONES lùi): thấy MỌI khách CÒN PREMIUM hiệu
       // lực, ẨN khách thường. Scope ở SERVER như đại lý thường — không chỉ ẩn UI.
       const now = Date.now();
       visible = accounts.filter(
-        (a) => resolveTier(a.tier, a.premiumUntil, now) === "premium",
+        (a) =>
+          resolveTier(a.tier, a.premiumUntil, now) === "premium" &&
+          !a.isAdmin &&
+          a.role === "customer",
       );
     } else {
       // đại lý thường — CHỈ khách MÌNH cấp premium (granted_by). Bảng log chưa
@@ -351,7 +392,7 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
-    me: { phone: who.phone, role: who.role },
+    me: { phone: who.phone, role: who.role, scope: who.scope },
     accounts: visible,
     grantStats,
   });
@@ -405,14 +446,20 @@ export async function POST(req: Request) {
 
   // SĐT có thể ĐÃ có tài khoản: tạo chỉ được NÂNG vai, không HẠ (roleAfterCreate),
   // và bỏ trống tên thì giữ tên cũ. Đọc hỏng → dừng, không ghi mù đè vai.
-  const { data: existing, error: exErr } = await admin
-    .from("customers")
-    .select("role")
-    .eq("phone", phone)
-    .maybeSingle();
-  if (exErr) return err(500, "lookup_failed");
-  const existed = Boolean(existing);
-  const prevRole = (existing as { role?: string } | null)?.role ?? null;
+  // Vai cũ tra qua loadActor (staff_accounts → lùi customers.role). Đọc hỏng
+  // → dừng, không ghi mù.
+  const prev = await loadActor(admin, phone);
+  if (!prev.ok) return err(500, "lookup_failed");
+  const existed = Boolean(prev.actor.customer);
+  const prevRole = prev.actor.source === "db" ? prev.actor.role : null;
+  // SĐT đã có: quản lý chỉ được đụng khách của mình (tạo kèm premium trên SĐT
+  // đã có = một lần CẤP — cùng luật với PATCH grant).
+  if (existed && who.role === "manager") {
+    const denied = await guardManagerTarget(admin, who, phone, true);
+    if (denied) return denied;
+  }
+  if (role !== "customer" && prev.actor.kind !== "real")
+    return err(400, "not_real_account");
   const finalRole = roleAfterCreate(prevRole, role);
   const name = body.name?.trim();
 
@@ -429,6 +476,11 @@ export async function POST(req: Request) {
     { onConflict: "phone" },
   );
   if (upErr) return err(500, "upsert_failed");
+  // VAI staff ghi vào staff_accounts (0056) — upsert ở trên chỉ là gương cột cũ
+  if (finalRole !== "customer" && finalRole !== prevRole) {
+    const w = await writeStaffRole(admin, { phone, role: finalRole, by: who.phone });
+    if (!w.ok) return err(500, w.code);
+  }
 
   let logged = true;
   if (activate) {
@@ -457,8 +509,7 @@ export async function POST(req: Request) {
   });
   await logActivity(admin, {
     actorPhone: who.phone,
-    // requireAdmin (tạo quản lý) không trả role → mặc định 'admin'
-    actorRole: (who as { role?: "admin" | "manager" }).role ?? "admin",
+    actorRole: who.role,
     action: "account.create",
     target: phone,
     detail: { role: finalRole, requestedRole: role, existed, activatePremium: activate },
@@ -503,15 +554,8 @@ export async function PATCH(req: Request) {
     const admin = createAdminClient();
     if (!admin) return err(503, "not_configured");
 
-    if (who.role === "manager") {
-      const { data: g } = await admin
-        .from("premium_grants")
-        .select("customer_phone")
-        .eq("granted_by", who.phone)
-        .eq("customer_phone", phone)
-        .limit(1);
-      if (!g || g.length === 0) return err(403, "not_your_customer");
-    }
+    const denied = await guardManagerTarget(admin, who, phone, false);
+    if (denied) return denied;
 
     const { data, error } = await admin
       .from("customers")
@@ -525,6 +569,13 @@ export async function PATCH(req: Request) {
       action: "set_flag",
       target: phone,
       detail: `${flag}=${b.value === true}`,
+    });
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: who.role,
+      action: "account.set-care-flag",
+      target: phone,
+      detail: { flag, value: b.value === true },
     });
     return NextResponse.json({
       ok: true,
@@ -546,15 +597,8 @@ export async function PATCH(req: Request) {
     const admin = createAdminClient();
     if (!admin) return err(503, "not_configured");
 
-    if (who.role === "manager") {
-      const { data: g } = await admin
-        .from("premium_grants")
-        .select("customer_phone")
-        .eq("granted_by", who.phone)
-        .eq("customer_phone", phone)
-        .limit(1);
-      if (!g || g.length === 0) return err(403, "not_your_customer");
-    }
+    const denied = await guardManagerTarget(admin, who, phone, false);
+    if (denied) return denied;
 
     const { error } = await admin.from("payments").insert({
       customer_phone: phone,
@@ -568,6 +612,13 @@ export async function PATCH(req: Request) {
       action: "record_payment",
       target: phone,
       detail: `code=${code}`,
+    });
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: who.role,
+      action: "account.record-payment",
+      target: phone,
+      detail: { code },
     });
     return NextResponse.json({
       ok: true,
@@ -601,6 +652,13 @@ export async function PATCH(req: Request) {
       target: phone,
       detail: `count=${data.length}`,
     });
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: "admin",
+      action: "account.reconcile-payment",
+      target: phone,
+      detail: { count: data.length },
+    });
     return NextResponse.json({
       ok: true,
       action: "reconcile_payment",
@@ -614,6 +672,10 @@ export async function PATCH(req: Request) {
     if (!who.ok) return err(who.status, who.code);
     const admin = createAdminClient();
     if (!admin) return err(503, "not_configured");
+    // Quản lý: không tự cấp cho mình, không cấp cho staff, không "cướp" khách
+    // người khác đã cấp (khách chưa ai cấp thì được — đó là cách nhận khách mới)
+    const denied = await guardManagerTarget(admin, who, phone, true);
+    if (denied) return denied;
 
     const { data: cur, error: qErr } = await admin
       .from("customers")
@@ -712,11 +774,9 @@ export async function PATCH(req: Request) {
   }
 
   if (body.action === "reset-password") {
-    // ĐẶT LẠI MẬT KHẨU — chỉ admin (manager không được reset tài khoản khách).
-    // Mật khẩu về tạm cố định sd123456; must_change_password bật lại để khách
-    // bị bắt tự đổi ngay lần đăng nhập kế. Phiên cũ của khách không thu hồi
-    // được từ đây (supabase-js chưa có admin signOut theo id) — nhưng lần
-    // đăng nhập mới sẽ tự đá phiên cũ (signOut scope 'others' ở /login).
+    // ĐẶT LẠI MẬT KHẨU — chỉ admin. Mật khẩu tạm NGẪU NHIÊN mỗi lần
+    // (randomTempPassword); must_change_password bật lại để khách bị bắt tự
+    // đổi ngay lần đăng nhập kế; mọi chuỗi đang sống bị thu hồi.
     const who = await requireAdmin();
     if (!who.ok) return err(who.status, who.code);
     const admin = createAdminClient();
@@ -730,8 +790,9 @@ export async function PATCH(req: Request) {
     }
     if (!authUser) return err(404, "not_provisioned");
 
+    const tempPassword = randomTempPassword();
     const { error } = await admin.auth.admin.updateUserById(authUser.id, {
-      password: TEMP_RESET_PASSWORD,
+      password: tempPassword,
       // giữ metadata cũ (full_name…) — updateUserById GHI ĐÈ cả object
       user_metadata: { ...authUser.user_metadata, must_change_password: true },
     });
@@ -742,16 +803,21 @@ export async function PATCH(req: Request) {
       action: "reset_password",
       target: phone,
     });
+    // Đặt lại mật khẩu = nghi lộ ⇒ đá MỌI máy đang giữ chuỗi (bản cũ để chuỗi
+    // sống mãi — người đang chiếm tài khoản vẫn vào được sau khi đổi mật khẩu).
+    const revoked = await revokeTokensOfPhone(phone, "admin");
     await logActivity(admin, {
       actorPhone: who.phone,
       actorRole: "admin",
       action: "account.reset-password",
       target: phone,
+      detail: { revokedTokens: revoked.revoked },
     });
     return NextResponse.json({
       ok: true,
       action: "reset-password",
-      tempPassword: TEMP_RESET_PASSWORD,
+      tempPassword,
+      revokedSessions: revoked.revoked,
     });
   }
 
@@ -762,6 +828,8 @@ export async function PATCH(req: Request) {
     if (!who.ok) return err(who.status, who.code);
     const admin = createAdminClient();
     if (!admin) return err(503, "not_configured");
+    const denied = await guardManagerTarget(admin, who, phone, false);
+    if (denied) return denied;
 
     const patch: Record<string, unknown> = {
       staff_note_by: who.phone,
@@ -797,6 +865,55 @@ export async function PATCH(req: Request) {
     });
   }
 
+  if (body.action === "set-kind") {
+    // LOẠI TÀI KHOẢN (0056) — chỉ admin. Staff không được mang loại test/demo
+    // (hạ vai trước, có chủ ý). Đổi loại ⇒ thu hồi chuỗi để lần đăng nhập kế
+    // nhận đúng hạn chuỗi của loại mới (tokenTtlMs).
+    const who = await requireAdmin();
+    if (!who.ok) return err(who.status, who.code);
+    const admin = createAdminClient();
+    if (!admin) return err(503, "not_configured");
+    const kind = (body as { kind?: unknown }).kind;
+    if (typeof kind !== "string" || !(ACCOUNT_KINDS as readonly string[]).includes(kind))
+      return err(400, "bad_kind");
+    const cur = await loadActor(admin, phone);
+    if (!cur.ok) return err(503, "unavailable");
+    if (!cur.actor.customer) return err(404, "not_found");
+    if (kind !== "real" && cur.actor.role !== null) return err(400, "is_staff");
+    const { error } = await admin
+      .from("customers")
+      .update({ account_kind: kind, updated_at: nowIso })
+      .eq("phone", phone);
+    if (error) return err(500, isMissingColumnError(error) ? "migration_needed" : "update_failed");
+    const revoked = await revokeTokensOfPhone(phone, "admin");
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: "admin",
+      action: "account.set-kind",
+      target: phone,
+      detail: { from: cur.actor.kind, to: kind, revokedTokens: revoked.revoked },
+    });
+    return NextResponse.json({ ok: true, action: "set-kind", kind });
+  }
+
+  if (body.action === "revoke-sessions") {
+    // ĐĂNG XUẤT MỌI MÁY của một SĐT — chỉ admin (nghi lộ tài khoản, máy mất).
+    const who = await requireAdmin();
+    if (!who.ok) return err(who.status, who.code);
+    const r = await revokeTokensOfPhone(phone, "admin");
+    if (!r.ok) return err(503, "unavailable");
+    const admin = createAdminClient();
+    if (admin)
+      await logActivity(admin, {
+        actorPhone: who.phone,
+        actorRole: "admin",
+        action: "account.revoke-sessions",
+        target: phone,
+        detail: { revokedTokens: r.revoked },
+      });
+    return NextResponse.json({ ok: true, action: "revoke-sessions", revoked: r.revoked });
+  }
+
   return err(400, "bad_action");
 }
 
@@ -811,6 +928,31 @@ export async function DELETE(req: Request) {
   if (!phoneRaw) return err(400, "bad_phone");
   const phone = normalizeVnPhone(phoneRaw);
 
+  // Quản lý: chỉ khách của mình, không bao giờ staff/chính mình.
+  const denied = await guardManagerTarget(admin, who, phone, false);
+  if (denied) return denied;
+  // Admin xoá STAFF: cùng 3 chốt như hạ vai (tự xoá mình · admin env · người
+  // cuối cùng) — xoá là hạ vai triệt để nhất.
+  const target = await loadActor(admin, phone);
+  if (!target.ok) return err(503, "unavailable");
+  if (target.actor.role === "admin") {
+    const dbStaff = await listDbStaff(admin);
+    if (!dbStaff.ok) return err(503, "unavailable");
+    const reason = checkDemoteAdmin({
+      actorPhone: who.phone,
+      targetPhone: phone,
+      envPhones: parseAdminPhones(process.env.ADMIN_PHONES),
+      dbAdminPhones: dbStaff.rows.filter((r) => r.role === "admin").map((r) => r.phone),
+    });
+    if (reason) return err(400, reason);
+  }
+  if (normalizeVnPhone(who.phone) === phone) return err(400, "self");
+
+  // Thu hồi chuỗi TRƯỚC: xoá xong mà chuỗi còn sống thì máy đó vẫn qua cửa
+  // (cổng chỉ hỏi sổ chuỗi, không hỏi auth user).
+  const revoked = await revokeTokensOfPhone(phone, "admin");
+  if (!revoked.ok) return err(503, "unavailable");
+
   // xoá auth user trước (đăng nhập tắt ngay), rồi tới dữ liệu customers
   try {
     const authUser = await findAuthUser(admin, phoneToEmail(phone));
@@ -824,11 +966,16 @@ export async function DELETE(req: Request) {
   // và sau này CCCD/giấy tờ ở P2/P3). Best-effort: tài khoản đã xoá, không chặn
   // vì bước dọn. Ảnh giấy tờ trong Storage sẽ dọn cùng khi P3 làm.
   await admin.from("user_docs").delete().eq("owner_phone", phone);
+  if (target.actor.source === "db") {
+    // gỡ vai staff (bảng 0056) — không để hàng vai mồ côi sống lại khi SĐT được tạo lại
+    await writeStaffRole(admin, { phone, role: "customer", by: who.phone }).catch(() => null);
+  }
   await logActivity(admin, {
     actorPhone: who.phone,
     actorRole: who.role,
     action: "account.delete",
     target: phone,
+    detail: { revokedTokens: revoked.revoked, wasRole: target.actor.role },
   });
   return NextResponse.json({ ok: true });
 }

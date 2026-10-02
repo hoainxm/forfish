@@ -7,7 +7,8 @@
 //
 // Cần: NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (env hoặc .env.local).
 //
-//   node scripts/test-account.mjs ds                       # danh sách + hạng + số chuỗi sống
+//   node scripts/test-account.mjs ds                       # danh sách + hạng + loại + số chuỗi sống
+//   node scripts/test-account.mjs danh-dau 0900000777      # đánh dấu loại "test" (0056) — làm MỘT lần mỗi số
 //   node scripts/test-account.mjs cap 0900000777           # cấp chuỗi, in header + đoạn dán trình duyệt
 //   node scripts/test-account.mjs cap 0900000777 --premium 1   # kèm nâng premium tạm 1 ngày
 //   node scripts/test-account.mjs cap 0912345678 --multi   # tài khoản đang có máy thật: cấp thêm, không đá
@@ -16,6 +17,15 @@
 //
 // Dấu vết để dọn đúng thứ mình tạo: device_tokens.device_id = "test-script",
 // platform = "test:<hạng gốc>" (đọc lại để trả hạng). Không đụng chuỗi của máy thật.
+//
+// SIẾT 2026-10-02 (RBAC — service-role key là chìa thay mật khẩu, phải có rào):
+//   · chỉ cấp cho tài khoản LOẠI "test" (customers.account_kind, 0056) — số
+//     trong JSON mà DB chưa đánh dấu thì từ chối, chạy `danh-dau` trước
+//   · KHÔNG BAO GIỜ cấp cho tài khoản nhân sự (staff_accounts / customers.role)
+//   · chuỗi cấp ra HẾT HẠN sau 24 giờ (device_tokens.expires_at)
+//   · nâng premium tạm + đánh dấu loại đều GHI NHẬT KÝ admin_activity_log
+//     (actor "script:test-account") — trước đây đổi hạng không để lại dấu vết
+// 0056 chưa apply (cột/bảng chưa có) → bỏ qua đúng phần đó, như code app.
 
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
@@ -23,6 +33,8 @@ import { fileURLToPath } from "node:url";
 import { createHash, randomBytes } from "node:crypto";
 
 export const MARK = "test-script";
+export const TEST_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // khớp lib/admin TEST_TOKEN_TTL_MS
+const ACTOR = "script:test-account";
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const ACCOUNTS_FILE = join(HERE, "test-accounts.json");
 
@@ -88,18 +100,34 @@ const q = (s) => encodeURIComponent(s);
 
 /** Tình trạng một SĐT: hạng, hạn, số chuỗi sống, số chuỗi do script cấp. */
 export async function status(rest, phone) {
-  const [c] = await rest.get(`customers?select=phone,tier,premium_until,name&phone=eq.${q(phone)}`);
+  // select=* — cột account_kind/role có thể chưa có (0056), liệt kê là hỏng câu
+  const [c] = await rest.get(`customers?select=*&phone=eq.${q(phone)}`);
   const tokens = await rest.get(`device_tokens?select=token_hash,device_id,platform,created_at&customer_phone=eq.${q(phone)}&revoked_at=is.null`);
-  return { customer: c ?? null, live: tokens.length, mine: tokens.filter((t) => t.device_id === MARK) };
+  let staff = null;
+  try {
+    const [srow] = await rest.get(`staff_accounts?select=role,disabled_at&phone=eq.${q(phone)}`);
+    staff = srow ?? null;
+  } catch (e) {
+    // bảng chưa có (0056 chưa apply) → dựa vào customers.role; lỗi khác → dừng
+    if (!/PGRST205|42P01|HTTP 404/.test(String(e))) throw e;
+  }
+  return { customer: c ?? null, staff, live: tokens.length, mine: tokens.filter((t) => t.device_id === MARK) };
 }
 
 /**
  * Lập kế hoạch cấp (thuần, test được): từ tình trạng + cờ → việc phải làm hoặc lý do từ chối.
- * @param {{ customer: any, live: number }} st
+ * @param {{ customer: any, staff?: any, live: number }} st
  * @param {{ multi?: boolean, premiumDays?: number }} flags
  */
 export function planCap(st, flags) {
   if (!st.customer) return { ok: false, reason: "SĐT không có trong bảng customers" };
+  const staffRole = st.staff && !st.staff.disabled_at ? st.staff.role : st.customer.role;
+  if (staffRole === "admin" || staffRole === "manager") {
+    return { ok: false, reason: `tài khoản NHÂN SỰ (${staffRole}) — script test không bao giờ cấp chuỗi cho tài khoản quản trị` };
+  }
+  if (st.customer.account_kind !== undefined && st.customer.account_kind !== "test") {
+    return { ok: false, reason: `loại tài khoản là "${st.customer.account_kind}", không phải "test" — chạy: node scripts/test-account.mjs danh-dau <sđt>` };
+  }
   if (st.live > 0 && !flags.multi) {
     return { ok: false, reason: `đang có ${st.live} chuỗi sống (máy thật?) — luật 1 tài khoản 1 máy; muốn cấp thêm thì --multi` };
   }
@@ -113,16 +141,27 @@ export async function cap(rest, phone, flags, out = console.log) {
   const plan = planCap(st, flags);
   if (!plan.ok) throw new Error(`Không cấp cho ${phone}: ${plan.reason}`);
   const { token, hash } = newToken();
-  await rest.post("device_tokens", {
+  const row = {
     token_hash: hash,
     customer_phone: phone,
     device_id: MARK,
     platform: `test:${plan.origTier}`,
     allow_multi: plan.allowMulti,
-  });
+  };
+  const expiresAt = new Date(Date.now() + TEST_TOKEN_TTL_MS).toISOString();
+  try {
+    await rest.post("device_tokens", { ...row, expires_at: expiresAt });
+  } catch (e) {
+    // cột expires_at chưa có (0056 chưa apply) → cấp như cũ, KHÔNG hạn
+    if (!/PGRST204|42703/.test(String(e))) throw e;
+    await rest.post("device_tokens", row);
+    out(`! 0056 chưa apply — chuỗi này KHÔNG tự hết hạn, nhớ 'thu'`);
+  }
+  await logScript(rest, "account.test-token", phone, { origTier: plan.origTier, multi: plan.allowMulti, expiresAt });
   if (plan.raise) {
     const until = new Date(Date.now() + flags.premiumDays * 86400000).toISOString();
     await rest.patch(`customers?phone=eq.${q(phone)}`, { tier: "premium", premium_until: until });
+    await logScript(rest, "account.grant", phone, { temporary: true, premiumUntil: until });
     out(`↑ nâng ${phone} lên premium tạm tới ${until} (script sẽ trả về ${plan.origTier} khi 'thu')`);
   }
   out(`✓ đã cấp chuỗi cho ${phone} (${st.customer.name ?? ""})`);
@@ -148,17 +187,45 @@ export async function thu(rest, phone, out = console.log) {
   out(`✓ xoá ${del.length} chuỗi do script cấp của ${phone} (chuỗi máy thật không đụng)`);
   if (orig === "basic" && st.customer.tier === "premium") {
     await rest.patch(`customers?phone=eq.${q(phone)}`, { tier: "basic", premium_until: null });
+    await logScript(rest, "account.downgrade", phone, { temporary: true });
     out(`↓ trả ${phone} về basic`);
   }
 }
 
+/** Ghi nhật ký quản trị (admin_activity_log) — KHÔNG chặn việc chính nếu hỏng,
+ *  nhưng nói ra (cùng nếp lib/admin-activity-log). */
+async function logScript(rest, action, target, detail, out = console.error) {
+  try {
+    await rest.post("admin_activity_log", { actor_phone: ACTOR, actor_role: "script", action, target, detail });
+  } catch (e) {
+    out(`! không ghi được nhật ký (${action} ${target}): ${String(e).slice(0, 120)}`);
+  }
+}
+
+/** Đánh dấu một SĐT là tài khoản THỬ (account_kind='test'). Nhân sự → từ chối. */
+export async function danhDau(rest, phone, out = console.log) {
+  const st = await status(rest, phone);
+  if (!st.customer) throw new Error(`${phone} không có trong customers`);
+  const staffRole = st.staff && !st.staff.disabled_at ? st.staff.role : st.customer.role;
+  if (staffRole === "admin" || staffRole === "manager") {
+    throw new Error(`${phone} là tài khoản nhân sự (${staffRole}) — không đánh dấu test`);
+  }
+  if (st.customer.account_kind === undefined) {
+    throw new Error("Cột customers.account_kind chưa có — apply migration 0056 trước");
+  }
+  if (st.customer.account_kind === "test") return out(`= ${phone} đã là loại test`);
+  await rest.patch(`customers?phone=eq.${q(phone)}`, { account_kind: "test" });
+  await logScript(rest, "account.set-kind", phone, { from: st.customer.account_kind, to: "test" });
+  out(`✓ ${phone}: ${st.customer.account_kind} → test`);
+}
+
 export async function ds(rest, accounts, out = console.log) {
-  out(`${"SĐT".padEnd(12)}${"hạng gốc".padEnd(10)}${"hạng DB".padEnd(10)}${"hạn premium".padEnd(22)}${"chuỗi sống".padEnd(12)}tên`);
+  out(`${"SĐT".padEnd(12)}${"loại".padEnd(7)}${"hạng gốc".padEnd(10)}${"hạng DB".padEnd(10)}${"hạn premium".padEnd(22)}${"chuỗi sống".padEnd(12)}tên`);
   for (const a of accounts) {
     const st = await status(rest, a.phone);
     const c = st.customer;
     out(
-      `${a.phone.padEnd(12)}${a.tier.padEnd(10)}${(c?.tier ?? "—").padEnd(10)}${(c?.premium_until ?? "").slice(0, 19).padEnd(22)}${String(st.live).padEnd(3)}${st.mine.length ? `(${st.mine.length} của script)` : ""}`.padEnd(66) + (c?.name ?? "(không có trong DB)"),
+      `${a.phone.padEnd(12)}${String(c?.account_kind ?? "?").padEnd(7)}${a.tier.padEnd(10)}${(c?.tier ?? "—").padEnd(10)}${(c?.premium_until ?? "").slice(0, 19).padEnd(22)}${String(st.live).padEnd(3)}${st.mine.length ? `(${st.mine.length} của script)` : ""}`.padEnd(66) + (c?.name ?? "(không có trong DB)"),
     );
   }
 }
@@ -177,6 +244,9 @@ if (isMain) {
     else if (cmd === "cap") {
       if (!allowed(arg)) throw new Error(`${arg} KHÔNG nằm trong scripts/test-accounts.json — thêm vào đó trước (khoanh vùng tài khoản test).`);
       await cap(restApi, arg, flags);
+    } else if (cmd === "danh-dau") {
+      if (!allowed(arg)) throw new Error(`${arg} KHÔNG nằm trong scripts/test-accounts.json`);
+      await danhDau(restApi, arg);
     } else if (cmd === "thu") {
       const list = arg === "--all" ? accounts.map((a) => a.phone) : [arg];
       for (const p of list) {
@@ -184,7 +254,7 @@ if (isMain) {
         await thu(restApi, p);
       }
     } else {
-      console.log("Dùng: node scripts/test-account.mjs ds | cap <sđt> [--premium N] [--multi] | thu <sđt>|--all");
+      console.log("Dùng: node scripts/test-account.mjs ds | danh-dau <sđt> | cap <sđt> [--premium N] [--multi] | thu <sđt>|--all");
       process.exit(2);
     }
   } catch (e) {

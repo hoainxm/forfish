@@ -93,7 +93,7 @@ POST /api/sdwork/webhook
 
 ## 5b. Đồng bộ mật khẩu 2 chiều (1 credential — đăng nhập được CẢ 2 app)
 
-- **Inbound (SDWork → SDFish) RESET**: customer event `data.resetPassword:true` + `password` → SDFish `updateUserById` đặt lại mk auth user + XÓA cờ `must_change_password` còn sót (chính sách 2026-07-21: không ép đổi). Tra id qua RPC `auth_user_id_by_phone` (migration `0003`). `provisioned:true` = đặt lại OK.
+- **Inbound (SDWork → SDFish) RESET**: customer event `data.resetPassword:true` + `password` → SDFish `updateUserById` đặt lại mk auth user + XÓA cờ `must_change_password` còn sót (chính sách 2026-07-21: không ép đổi). Tra id qua RPC `auth_user_id_by_phone` (migration `0003`). `provisioned:true` = đặt lại OK. **Ngoại lệ (2026-10-02, RBAC — KHÔNG breaking, shape không đổi)**: SĐT là **tài khoản nhân sự SDFish** (admin/quản lý — `staff_accounts` hoặc env cứu hộ) ⇒ SDFish **KHÔNG đặt lại** mật khẩu (vẫn trả `ok:true, provisioned:true`); tra vai lỗi ⇒ coi là nhân sự. Lý do: thao tác ở CRM không được thành đường chiếm quyền quản trị SDFish. Muốn đặt lại mật khẩu nhân sự → admin SDFish làm ở `/quan-tri`.
 - **Outbound (SDFish → SDWork)**: KH đổi mk ở `/doi-mat-khau` → SDFish `POST {SDWORK_SYNC_URL}` body `{ phone, password }` (SĐT lấy từ **session**, không tin client), header **`x-sdfish-signature`** = HMAC-SHA256(raw, `SDWORK_WEBHOOK_SECRET`). **Best-effort**: đổi tại SDFish đã xong, lỗi đẩy ngược KHÔNG chặn KH; cron đối soát/đẩy lại = sau.
 - **SDWork phải dựng endpoint nhận** (xem §7): verify `x-sdfish-signature` → đặt mk khách bên CRM = `password`. Nếu không dựng → mk chỉ đổi ở SDFish, đăng nhập SDWork vẫn mk cũ.
 - 🔐 Mật khẩu đi **plaintext** trên kênh HMAC+TLS (đối xứng inbound vốn cũng gửi plaintext). KHÔNG log password 2 đầu.

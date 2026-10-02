@@ -11,6 +11,12 @@ export const ADMIN_ACTIONS = [
   "account.reset-password",
   "account.set-flags",
   "account.delete",
+  "account.set-care-flag",
+  "account.record-payment",
+  "account.reconcile-payment",
+  "account.set-kind",
+  "account.revoke-sessions",
+  "account.test-token",
   // Sản phẩm
   "product.create",
   "product.update",
@@ -37,6 +43,7 @@ export const ADMIN_ACTIONS = [
   // Phân quyền
   "staff.set-permissions",
   "staff.set-role",
+  "staff.set-scope",
   // Tự kiểm tra: nút "Kiểm tra ghi nhật ký" ở tab Nhật ký ghi thử một dòng —
   // để biết nhật ký CÓ ghi được không mà không phải đợi một thao tác thật
   "system.log-probe",
@@ -51,6 +58,12 @@ export const ACTION_LABEL: Record<AdminActionKey, string> = {
   "account.reset-password": "Đặt lại mật khẩu",
   "account.set-flags": "Đổi ghi chú theo dõi",
   "account.delete": "Xóa tài khoản",
+  "account.set-care-flag": "Đổi cờ chăm khách",
+  "account.record-payment": "Ghi nhận mã chuyển khoản",
+  "account.reconcile-payment": "Xác nhận đã đối chiếu tiền",
+  "account.set-kind": "Đổi loại tài khoản (thật/test/demo)",
+  "account.revoke-sessions": "Đăng xuất mọi máy",
+  "account.test-token": "Cấp chuỗi thử (script test)",
   "product.create": "Thêm sản phẩm",
   "product.update": "Sửa sản phẩm",
   "product.delete": "Xóa sản phẩm",
@@ -69,6 +82,7 @@ export const ACTION_LABEL: Record<AdminActionKey, string> = {
   "zone.delete": "Xóa vùng biển",
   "staff.set-permissions": "Đổi phân quyền quản lý",
   "staff.set-role": "Nâng/hạ quản trị viên",
+  "staff.set-scope": "Đổi tầm nhìn quản lý",
   "system.log-probe": "Kiểm tra ghi nhật ký",
 };
 
@@ -90,6 +104,9 @@ const DANGER_ACTIONS = new Set<string>([
   "staff.set-permissions",
   // nâng/hạ quản trị viên = đổi quyền cao nhất — luôn phải soi
   "staff.set-role",
+  "staff.set-scope",
+  "account.set-kind",
+  "account.revoke-sessions",
 ]);
 
 export function isDangerAction(action: string): boolean {

@@ -61,12 +61,12 @@ SDFISH_RENEWAL_SECRET=<...>
 # Web app cùng origin → để trống
 NEXT_PUBLIC_API_BASE=
 # Web Push (dùng lại cặp đã sinh, hoặc chạy: npx web-push generate-vapid-keys)
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=BKmPhkrMh6bf3iS4K5zPnm7DjJ3dbGtszRzBptzCWz0_pbsdLYVma4IdFRv30gQonCuHk1n1xJs17bJJukrdUEA
-VAPID_PUBLIC_KEY=BKmPhkrMh6bf3iS4K5zPnm7DjJ3dbGtszRzBptzCWz0_pbsdLYVma4IdFRv30gQonCuHk1n1xJs17bJJukrdUEA
-VAPID_PRIVATE_KEY=kjvRv-_quRCdhLUxua1mc-PzaSswKtX3flQwhL5lHYU
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=<khoá công khai của cặp mới>
+VAPID_PUBLIC_KEY=<khoá công khai của cặp mới>
+VAPID_PRIVATE_KEY=<khoá riêng — KHÔNG ghi vào doc/git; lấy từ trình quản lý bí mật>
 VAPID_SUBJECT=https://sdvico.vn
 # Admin (full-admin qua env)
-ADMIN_PHONES=0938635689
+ADMIN_PHONES=<1 SĐT cứu hộ — xem ops/rbac-runbook.md>
 # Pepper băm CCCD — sinh 1 lần, GIỮ CỐ ĐỊNH: openssl rand -hex 32
 CREW_CCCD_PEPPER=<openssl rand -hex 32>
 # Cron (đã có sẵn giá trị trên hệ thống → dùng lại đúng giá trị đó)

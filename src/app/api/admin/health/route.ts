@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/admin-auth";
+import { parseAdminPhones } from "@/lib/admin";
 
 export async function GET() {
   const who = await requireStaff();
@@ -21,6 +22,7 @@ export async function GET() {
     phone: who.phone,
     role: who.role,
     permissions: who.role === "manager" ? who.permissions : null,
+    scope: who.scope,
   };
   const admin = createAdminClient();
 
@@ -28,9 +30,8 @@ export async function GET() {
     supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
     serviceRole: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     webhookSecret: Boolean(process.env.SDWORK_WEBHOOK_SECRET),
-    adminPhones: (process.env.ADMIN_PHONES ?? "")
-      .split(",")
-      .filter((s) => s.trim()).length,
+    // đếm SAU chuẩn hoá + bỏ trùng (bản cũ đếm chuỗi thô: "0912…, 84912…" ra 2)
+    adminPhones: new Set(parseAdminPhones(process.env.ADMIN_PHONES)).size,
   };
   if (!admin) {
     return NextResponse.json({ ok: true, me, env, db: null });

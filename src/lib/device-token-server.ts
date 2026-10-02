@@ -18,6 +18,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   hashDeviceToken,
+  isExpired,
   readTokenHeader,
   type TokenDenial,
 } from "@/lib/device-token";
@@ -46,7 +47,9 @@ export async function tokenIdentity(req: Request): Promise<TokenIdentity> {
   const tokenHash = await hashDeviceToken(raw);
   const { data, error } = await admin
     .from("device_tokens")
-    .select("customer_phone, revoked_at")
+    // "*" chứ không liệt kê cột: expires_at (0056) có thể chưa apply — liệt kê
+    // cột chưa có là câu truy vấn hỏng ⇒ 503 toàn bộ bà con.
+    .select("*")
     .eq("token_hash", tokenHash)
     .maybeSingle();
 
@@ -64,6 +67,10 @@ export async function tokenIdentity(req: Request): Promise<TokenIdentity> {
   // Tra ĐƯỢC, có hàng, đã thu hồi → máy khác đã đăng nhập cùng số. Đây là đường
   // ra HỢP LỆ DUY NHẤT của một máy đang dùng bình thường.
   if (data.revoked_at) return { ok: false, denial: "token_revoked" };
+  // HẾT HẠN (chỉ chuỗi staff/test/demo có hạn — khách thật luôn null). Báo như
+  // "không có trong sổ": máy gỡ tài khoản lặng lẽ, không nói dối "máy khác vừa
+  // đăng nhập".
+  if (isExpired(data.expires_at, Date.now())) return { ok: false, denial: "unknown_token" };
 
   return { ok: true, phone: data.customer_phone, tokenHash };
 }

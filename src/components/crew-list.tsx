@@ -52,6 +52,14 @@ function hasIdentity(id: Identity): boolean {
   return isValidCccd(id.cccd ?? "") || isValidVnPhone(id.phone ?? "");
 }
 /** Query string cho lookup — chỉ gắn định danh HỢP LỆ. */
+/** Chỉ gửi định danh HỢP LỆ (cùng luật identityQuery). */
+function identityBody(id: Identity): { cccd?: string; phone?: string } {
+  return {
+    ...(isValidCccd(id.cccd ?? "") ? { cccd: id.cccd as string } : {}),
+    ...(isValidVnPhone(id.phone ?? "") ? { phone: id.phone as string } : {}),
+  };
+}
+
 function identityQuery(id: Identity): string {
   const p = new URLSearchParams();
   if (isValidCccd(id.cccd ?? "")) p.set("cccd", id.cccd as string);
@@ -796,9 +804,14 @@ async function fetchLookup(
         có đồng hồ 12 giây (giữ nguyên ý D-PH5: sóng "sống mà chết" không được
         làm ô tra kẹt "đang tra…" vĩnh viễn) và tự soi phản hồi xem máy có vừa
         bị đá không (`noteResponse`). */
+    // POST (2026-10-02): CCCD đi trong thân request, KHÔNG trên URL (log/CDN).
     const { res: r } = await authedFetch(
-      `/api/crew-reports/lookup?${identityQuery(id)}`,
-      {},
+      "/api/crew-reports/lookup",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(identityBody(id)),
+      },
       12000,
     );
     if (!r) return { ok: false };

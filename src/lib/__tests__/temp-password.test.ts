@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { TEMP_RESET_PASSWORD } from "../temp-password";
+import { randomTempPassword } from "../temp-password";
 
-describe("TEMP_RESET_PASSWORD", () => {
-  it("đạt tối thiểu 6 ký tự của Supabase Auth", () => {
-    expect(TEMP_RESET_PASSWORD.length).toBeGreaterThanOrEqual(6);
+describe("randomTempPassword", () => {
+  it("đạt tối thiểu 6 ký tự của Supabase Auth, khuôn sd + 6 số", () => {
+    const p = randomTempPassword();
+    expect(p.length).toBeGreaterThanOrEqual(6);
+    expect(p).toMatch(/^sd\d{6}$/);
   });
 
-  it("đúng giá trị user chốt 2026-07-29 — đổi là phải báo lại sale", () => {
-    expect(TEMP_RESET_PASSWORD).toBe("sd123456");
+  it("đệm số 0 đầu cho giá trị nhỏ", () => {
+    expect(randomTempPassword(() => 42)).toBe("sd000042");
+    expect(randomTempPassword(() => 1_234_567)).toBe("sd234567");
+  });
+
+  it("KHÔNG còn là mật khẩu cố định ai cũng biết (sd123456)", () => {
+    const seen = new Set(Array.from({ length: 50 }, () => randomTempPassword()));
+    expect(seen.size).toBeGreaterThan(40);
   });
 });

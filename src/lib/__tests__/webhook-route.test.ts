@@ -51,6 +51,12 @@ const h = vi.hoisted(() => {
 });
 
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => h.admin }));
+// Vai nhân sự (RBAC 2026-10-02): mặc định KHÔNG ai là staff; test riêng bật lên.
+const staff = vi.hoisted(() => ({ phones: new Set<string>(), unavailable: false }));
+vi.mock("@/lib/staff-store", () => ({
+  isStaffPhone: async (_admin: unknown, phone: string) =>
+    staff.unavailable ? null : staff.phones.has(phone),
+}));
 
 import { POST } from "@/app/api/sdwork/webhook/route";
 
@@ -65,6 +71,8 @@ beforeEach(() => {
   h.calls.rpc.length = 0;
   h.state.createUserError = null;
   h.state.rpcData = "uid-123";
+  staff.phones.clear();
+  staff.unavailable = false;
 });
 
 function post(body: unknown, sig?: string) {
@@ -138,6 +146,29 @@ describe("POST /api/sdwork/webhook", () => {
     expect(h.calls.updateUserById[0].args.password).toBe("newpass1");
     // Reset cũng XÓA cờ ép đổi còn sót (chính sách 2026-07-21)
     expect(h.calls.updateUserById[0].args.user_metadata).toEqual({ must_change_password: false });
+  });
+
+  it("TÀI KHOẢN NHÂN SỰ + resetPassword:true → KHÔNG đặt lại (CRM không chiếm được quyền quản trị)", async () => {
+    staff.phones.add("0901234567");
+    h.state.createUserError = { message: "User already registered" };
+    const res = await post({
+      events: [
+        { entity: "customer", action: "upsert", ref: "c1", data: { phone: "0901234567", password: "newpass1", resetPassword: true } },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect(h.calls.updateUserById).toHaveLength(0);
+  });
+
+  it("không tra được vai (DB nghẹt) → coi như nhân sự, KHÔNG đặt lại", async () => {
+    staff.unavailable = true;
+    h.state.createUserError = { message: "User already registered" };
+    await post({
+      events: [
+        { entity: "customer", action: "upsert", ref: "c1", data: { phone: "0901234567", password: "newpass1", resetPassword: true } },
+      ],
+    });
+    expect(h.calls.updateUserById).toHaveLength(0);
   });
 
   it("reset nhưng RPC không tìm thấy user → provisioned:false (không nuốt lỗi)", async () => {

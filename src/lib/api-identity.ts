@@ -25,9 +25,8 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeVnPhone } from "@/lib/phone";
-import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
-import { resolveTier } from "@/lib/tier";
+import { phoneFromAuthEmail } from "@/lib/phone";
+import { effectiveTier } from "@/lib/staff-store";
 import { tokenIdentity, touchToken } from "@/lib/device-token-server";
 
 export type Gate =
@@ -69,7 +68,7 @@ export async function identityFromRequest(
   if (supabase) {
     const { data } = await supabase.auth.getUser();
     const email = data?.user?.email;
-    const phone = email ? normalizeVnPhone(email.split("@")[0]) : null;
+    const phone = phoneFromAuthEmail(email);
     if (phone) return { ok: true, phone, legacy: true };
   }
 
@@ -101,20 +100,11 @@ export async function premiumDenied(
     // 503 đi thẳng ra ngoài: đây là "chưa biết", không phải "không có quyền".
     return { status, code: status === 503 ? "unavailable" : "login_required" };
   }
-  if (isAdminPhone(who.phone, parseAdminPhones(process.env.ADMIN_PHONES))) {
-    return null;
-  }
+  // Luật chung với cổng dữ liệu (lib/staff-store effectiveTier): hạng thật,
+  // cộng quản trị viên mọi nguồn (trước chỉ admin env — admin DB bị chặn oan).
   const admin = createAdminClient();
   if (!admin) return { status: 503, code: "unavailable" };
-  const { data, error } = await admin
-    .from("customers")
-    .select("tier, premium_until")
-    .eq("phone", who.phone)
-    .maybeSingle();
-  if (error) {
-    console.error("[premium] tra hạng HỎNG:", error.code, error.message);
-    return { status: 503, code: "unavailable" };
-  }
-  const tier = resolveTier(data?.tier, data?.premium_until, Date.now());
+  const tier = await effectiveTier(admin, who.phone);
+  if (tier === "unavailable") return { status: 503, code: "unavailable" };
   return tier === "premium" ? null : { status: 403, code: "premium_required" };
 }

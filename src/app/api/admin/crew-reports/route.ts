@@ -9,9 +9,10 @@
 // "canh-bao": GET=view · POST=create · PATCH=edit · DELETE=delete.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requirePermission } from "@/lib/admin-auth";
+import { requirePermission, requireStaff } from "@/lib/admin-auth";
+import { can } from "@/lib/staff-permissions";
 import { logActivity } from "@/lib/admin-activity-log";
-import { cleanReportDetail, isCrewReportCategory } from "@/lib/crew-report";
+import { cleanReportDetail, isCrewReportCategory, maskTail } from "@/lib/crew-report";
 import { subjectIdentity } from "@/lib/crew-report-hash";
 
 const err = (status: number, code: string) =>
@@ -22,6 +23,17 @@ const STATUSES = ["pending", "approved", "rejected", "withdrawn"] as const;
 export async function GET(req: Request) {
   const who = await requirePermission("canh-bao", "view");
   if (!who.ok) return err(who.status, who.code);
+  /*  CHE ĐỊNH DANH cho QUẢN LÝ (RBAC 2026-10-02): CCCD thô chỉ admin thấy
+      (quản lý thấy 4 số cuối — đủ đối chiếu giấy tờ). SĐT NGƯỜI BÁO: quản lý
+      có quyền DUYỆT (canh-bao:edit) mới thấy đủ để gọi đối chất; chỉ xem thì
+      che. Chốt ở SERVER — UI không nhận được số thô thì không lộ được. */
+  let fullCccd = who.role === "admin";
+  let fullReporter = who.role === "admin";
+  if (who.role === "manager") {
+    const st = await requireStaff();
+    fullReporter = st.ok && st.role === "manager" && can(st.permissions, "canh-bao", "edit");
+    fullCccd = false;
+  }
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
 
@@ -44,10 +56,16 @@ export async function GET(req: Request) {
 
   const reports = (data ?? []).map((r) => ({
     id: r.id as string,
-    subjectCccd: (r.subject_cccd as string) ?? null,
-    subjectPhone: (r.subject_phone as string) ?? null,
+    subjectCccd: fullCccd
+      ? ((r.subject_cccd as string) ?? null)
+      : maskTail(r.subject_cccd as string | null),
+    subjectPhone: fullCccd
+      ? ((r.subject_phone as string) ?? null)
+      : maskTail(r.subject_phone as string | null, 3),
     subjectName: (r.subject_name as string) ?? null,
-    reporterPhone: r.reporter_phone as string,
+    reporterPhone: fullReporter
+      ? (r.reporter_phone as string)
+      : (maskTail(r.reporter_phone as string | null, 3) ?? ""),
     reporterBoat: (r.reporter_boat as string) ?? null,
     category: r.category as string,
     detail: (r.detail as string) ?? null,

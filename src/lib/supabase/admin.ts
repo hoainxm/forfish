@@ -3,8 +3,8 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Admin client (SERVICE ROLE) — server-only, BYPASS RLS. Chỉ dùng trong route
- * handler đặc quyền: webhook ingest (ghi customers/devices/supplies), OTP
- * verify (đảm bảo user + cấp link đăng nhập). Trả null khi chưa cấu hình để
+ * handler đặc quyền: webhook ingest (ghi customers/devices/supplies), cấp
+ * chuỗi đăng nhập, /api/admin/* (vai qua lib/staff-store). Trả null khi chưa cấu hình để
  * caller degrade (như demo mode). KHÔNG bao giờ import vào client component.
  */
 export function createAdminClient() {

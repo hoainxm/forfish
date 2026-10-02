@@ -1,7 +1,8 @@
 "use client";
 
 /*
-  /quan-tri — WEB QUẢN TRỊ (admin only, env ADMIN_PHONES). ĐỘC LẬP về giao
+  /quan-tri — WEB QUẢN TRỊ (staff: admin toàn quyền · quản lý theo bảng quyền;
+  vai ở bảng staff_accounts — RBAC 2026-10-02, lib/staff-store). ĐỘC LẬP về giao
   diện (app-shell cho khu này thoát khung mobile + dock), CHUNG deploy/DB với
   app ngư dân. Người dùng là STAFF SDVICO — desktop-first, responsive xuống
   tablet/mobile (bổ sung 2026-07-26 theo yêu cầu chủ dự án: search, confirm
@@ -11,13 +12,18 @@
     (confirm + chọn hạn), xoá (confirm)
   · Dữ liệu  — tình trạng các nguồn (client gọi API sẵn có của app)
   · Hệ thống — env, đếm, migration, nhịp webhook
-  Quyền THẬT nằm ở /api/admin/* (requireAdmin) — trang này chỉ là vỏ hiển thị.
+  Quyền THẬT nằm ở /api/admin/* (requireStaff/requireAdmin/requirePermission)
+  — trang này chỉ là vỏ hiển thị. Đăng nhập = chuỗi cứng như app (hạn 7 ngày).
 */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { apiUrl } from "@/lib/api-base";
+import { deviceId } from "@/lib/device-id";
+import { devicePlatform } from "@/lib/storage-persist";
+import { isValidTokenShape } from "@/lib/device-token";
+import { tokenIssueErrorMessage } from "@/lib/login-error";
 import { AdminNav, AdminSkeleton } from "@/components/admin/admin-nav";
 import {
   ADMIN_TAB_LABEL,
@@ -63,7 +69,6 @@ import {
 } from "@/lib/app-usage";
 import { createClient } from "@/lib/supabase/client";
 import { clearInbox } from "@/lib/inbox";
-import { applyIdentityAction } from "@/lib/offline-identity";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCccd, isValidCccd } from "@/lib/crew";
 import { isValidVnPhone, phoneToEmail, sanitizePhoneInput } from "@/lib/phone";
@@ -89,7 +94,7 @@ import {
   isDangerAction,
 } from "@/lib/admin-activity";
 import { timeoutSignal } from "@/lib/abort";
-import { tokenHeader } from "@/lib/device-token-store";
+import { saveToken, signOutLocal, tokenHeader } from "@/lib/device-token-store";
 import { formatVnd, formatVnDate } from "@/lib/format";
 import {
   canTransition,
@@ -112,7 +117,7 @@ import { validateConfigValue, type ConfigKey } from "@/lib/app-config-keys";
 
 type Tab = AdminTab;
 
-/** Vai trò staff — admin (env) toàn quyền; quản lý (DB) theo bảng phân quyền */
+/** Vai trò staff — admin (env cứu hộ / staff_accounts) toàn quyền; quản lý theo bảng phân quyền */
 type StaffRole = "admin" | "manager";
 
 /** Người đang đăng nhập trang quản trị. permissions=null khi admin (toàn quyền). */
@@ -154,10 +159,12 @@ type Account = {
   premiumUntil: string | null;
   premiumActivatedAt: string | null;
   role: string;
-  /** QUẢN TRỊ VIÊN thật (SĐT trong env ADMIN_PHONES) — KHÁC cột `role` trong
-   *  DB: role='admin' trong DB không có tác dụng gì, chỉ 'manager' mới được
-   *  code đọc. Xem badge ở danh sách tài khoản. */
+  /** QUẢN TRỊ VIÊN thật — env ADMIN_PHONES (cứu hộ) HOẶC staff_accounts
+   *  role='admin' (0056). Xem badge ở danh sách tài khoản. */
   isAdmin: boolean;
+  /** real | test | demo | reviewer (0056) — khác real: không làm staff,
+   *  chuỗi có hạn, không nhận tin gửi tất cả */
+  kind?: "real" | "test" | "demo" | "reviewer";
   fromSdwork: boolean;
   updatedAt: string | null;
   canLogin: boolean;
@@ -289,8 +296,17 @@ export default function QuanTriPage() {
        không cần đồng hồ như hero-account: mất sóng thì cùng lắm phiên còn trên
        máy chủ, phần trong máy vẫn phải sạch. */
     clearInbox();
-    // đi qua CỔNG DUY NHẤT (K7) — quên = xoá luôn dấu hạng
-    applyIdentityAction("user-signed-out", false);
+    /*  THU HỒI CHUỖI Ở MÁY CHỦ rồi xoá ở máy (2026-10-02). Bản cũ chỉ bỏ phiên
+        Supabase: chuỗi cứng vẫn nằm trong máy ⇒ bấm Đăng xuất xong /quan-tri
+        vẫn vào được, và chuỗi admin (nhiều máy) sống tiếp trên máy dùng chung.
+        Mất sóng thì vẫn dọn máy — chuỗi trên máy chủ tự hết hạn (staff 7 ngày). */
+    await fetch(apiUrl("/api/auth/token"), {
+      method: "DELETE",
+      headers: tokenHeader(),
+      signal: timeoutSignal(8000),
+    }).catch(() => null);
+    // signOutLocal đi qua CỔNG DUY NHẤT (K7) — quên = xoá luôn dấu hạng
+    signOutLocal("user");
     // Ở LẠI /quan-tri và hiện form đăng nhập quản trị ngay tại đây — KHÔNG đá
     // sang /login của app khách (user 2026-07-31).
     setHealth(null);
@@ -351,9 +367,12 @@ export default function QuanTriPage() {
     );
   }
 
+  /*  Thiếu `me` → coi là QUẢN LÝ KHÔNG QUYỀN (thấy rỗng), KHÔNG phải admin
+      (bản cũ mặc định "admin" — fail-open ở vỏ; quyền thật vẫn ở server nhưng
+      vỏ không được hứa thứ người đó không có). */
   const me: Me = {
     phone: health.me?.phone ?? "",
-    role: health.me?.role ?? "admin",
+    role: health.me?.role ?? "manager",
     permissions: health.me?.permissions ?? null,
   };
   const isAdmin = me.role === "admin";
@@ -482,18 +501,65 @@ function AdminLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
       setError("Số điện thoại hoặc mật khẩu chưa đúng.");
       return;
     }
-    // 1 TÀI KHOẢN = 1 MÁY — giữ ĐÚNG luật của /login, không nới riêng cho
-    // trang quản trị. Thu hồi hỏng thì bỏ qua, phiên máy này vẫn hợp lệ.
+    /*  ĐỔI PHIÊN LẤY CHUỖI CỨNG như /login (RBAC 2026-10-02). Bản cũ chạy THUẦN
+        phiên Supabase ⇒ mọi /api/admin/* sống nhờ "đường lùi cookie một nhịp
+        phát hành" (api-identity.ts) — gỡ đường lùi là chết cả web quản trị. Nay
+        nhận chuỗi (admin: nhiều máy, hạn 7 ngày — lib/admin tokenTtlMs) rồi
+        bỏ phiên Supabase. Đổi mật khẩu lần đầu thì GIỮ phiên (màn đó cần). */
+    let issued: {
+      ok?: boolean;
+      token?: unknown;
+      code?: string;
+      mustChangePassword?: boolean;
+      tier?: string | null;
+      premiumUntil?: string | null;
+    } | null = null;
     try {
-      await supabase.auth.signOut({ scope: "others" });
+      const r = await fetch(apiUrl("/api/auth/token"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ deviceId: deviceId(), platform: devicePlatform() }),
+        signal: timeoutSignal(20000),
+      });
+      issued = await r.json().catch(() => null);
     } catch {
-      /* mạng chập chờn — không chặn đăng nhập */
+      issued = null;
+    }
+    if (!issued) {
+      setBusy(false);
+      setError("Mạng yếu — bấm Đăng nhập lại.");
+      return;
+    }
+    if (!issued.ok || !isValidTokenShape(issued.token)) {
+      setBusy(false);
+      setError(tokenIssueErrorMessage(issued.code ?? "issue_failed"));
+      return;
+    }
+    const tierTho = typeof issued.tier === "string" ? issued.tier : "basic";
+    if (
+      !saveToken(
+        issued.token,
+        tierTho,
+        tierTho === "premium" ? (issued.premiumUntil ?? null) : null,
+      )
+    ) {
+      setBusy(false);
+      setError("Trình duyệt đang chặn lưu trữ (chế độ Ẩn danh?) — tắt rồi đăng nhập lại.");
+      return;
     }
     // tài khoản còn mật khẩu tạm: bắt đổi trước (đổi xong app trả về trang chủ,
     // quay lại /quan-tri là vào thẳng)
-    if (data.user.user_metadata?.must_change_password === true) {
+    if (
+      issued.mustChangePassword === true ||
+      data.user.user_metadata?.must_change_password === true
+    ) {
       router.push("/doi-mat-khau");
       return;
+    }
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      /* phiên tạm còn sót không nới quyền gì — chuỗi đã là thứ duy nhất được dùng */
     }
     setBusy(false);
     onLoggedIn(); // gọi lại /api/admin/health — đủ quyền là vào thẳng bảng điều khiển
@@ -610,6 +676,7 @@ function AccountsTab({ me }: { me: Me }) {
   const [toDowngrade, setToDowngrade] = useState<Account | null>(null);
   const [toDelete, setToDelete] = useState<Account | null>(null);
   const [toReset, setToReset] = useState<Account | null>(null);
+  const [toRevoke, setToRevoke] = useState<Account | null>(null);
   // NV3 — ghi thu tiền: khách đang nhập mã + nội dung ô mã CK
   const [toPay, setToPay] = useState<Account | null>(null);
   const [payCode, setPayCode] = useState("");
@@ -732,13 +799,15 @@ function AccountsTab({ me }: { me: Me }) {
     const j = (await r?.json().catch(() => null)) as {
       ok?: boolean;
       logged?: boolean;
+      code?: string;
     } | null;
     setBusyPhone(null);
     if (!r?.ok || !j?.ok) {
       setError(
-        action === "grant"
+        staffDenialMessage(j?.code) ??
+        (action === "grant"
           ? "Thao tác kích hoạt hoặc gia hạn bị lỗi. Vui lòng thử lại."
-          : "Lỗi khi hạ cấp tài khoản. Vui lòng thử lại.",
+          : "Lỗi khi hạ cấp tài khoản. Vui lòng thử lại."),
       );
       return;
     }
@@ -834,7 +903,7 @@ function AccountsTab({ me }: { me: Me }) {
     load();
   }
 
-  /** reset-password = mật khẩu về tạm sd123456, khách bị bắt tự đổi khi
+  /** reset-password = mật khẩu tạm NGẪU NHIÊN (server trả về), khách bị bắt tự đổi khi
    *  đăng nhập lại (chỉ admin — server chặn bằng requireAdmin) */
   async function resetPassword(a: Account) {
     setBusyPhone(a.phone);
@@ -859,8 +928,52 @@ function AccountsTab({ me }: { me: Me }) {
       return;
     }
     setNotice(
-      `Đã cấp lại mật khẩu cho ${a.phone}${a.name ? ` (${a.name})` : ""}. Vui lòng báo khách dùng mật khẩu tạm là ${j.tempPassword ?? "sd123456"} (app sẽ yêu cầu khách đổi mật khẩu khi đăng nhập).`,
+      `Đã cấp lại mật khẩu cho ${a.phone}${a.name ? ` (${a.name})` : ""}. Vui lòng báo khách dùng mật khẩu tạm là ${j.tempPassword ?? "(không nhận được — bấm đặt lại lần nữa)"} — mật khẩu này chỉ hiện MỘT lần, các máy đang đăng nhập đã bị đăng xuất (app sẽ yêu cầu khách đổi mật khẩu khi đăng nhập).`,
     );
+  }
+
+  /** LOẠI TÀI KHOẢN (0056) — chỉ admin. Khác "thật": không làm nhân sự,
+   *  phiên đăng nhập có hạn, không nhận tin gửi tất cả. */
+  async function setKind(a: Account, kind: NonNullable<Account["kind"]>) {
+    setBusyPhone(a.phone);
+    setNotice(null);
+    const r = await fetch(apiUrl("/api/admin/accounts"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...tokenHeader() },
+      body: JSON.stringify({ phone: a.phone, action: "set-kind", kind }),
+    }).catch(() => null);
+    const j = (await r?.json().catch(() => null)) as { ok?: boolean; code?: string } | null;
+    setBusyPhone(null);
+    if (!r?.ok || !j?.ok) {
+      setError(
+        j?.code === "is_staff"
+          ? "Tài khoản nhân sự không được đổi sang test/demo — hạ vai ở tab Phân quyền trước."
+          : j?.code === "migration_needed"
+            ? "Cơ sở dữ liệu chưa có cột loại tài khoản (migration 0056) — báo kỹ thuật apply trước."
+            : "Đổi loại tài khoản không thành công. Vui lòng thử lại.",
+      );
+      return;
+    }
+    setNotice(`Đã đổi ${a.phone} thành tài khoản ${KIND_LABEL[kind].toLowerCase()} — các máy đang đăng nhập đã bị đăng xuất.`);
+    load();
+  }
+
+  /** ĐĂNG XUẤT MỌI MÁY — chỉ admin (nghi lộ tài khoản / mất máy). */
+  async function revokeSessions(a: Account) {
+    setBusyPhone(a.phone);
+    setNotice(null);
+    const r = await fetch(apiUrl("/api/admin/accounts"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...tokenHeader() },
+      body: JSON.stringify({ phone: a.phone, action: "revoke-sessions" }),
+    }).catch(() => null);
+    const j = (await r?.json().catch(() => null)) as { ok?: boolean; revoked?: number } | null;
+    setBusyPhone(null);
+    if (!r?.ok || !j?.ok) {
+      setError("Chưa đăng xuất được — vui lòng thử lại.");
+      return;
+    }
+    setNotice(`Đã đăng xuất ${j.revoked ?? 0} máy của ${a.phone}.`);
   }
 
   async function remove(a: Account) {
@@ -871,7 +984,8 @@ function AccountsTab({ me }: { me: Me }) {
     ).catch(() => null);
     setBusyPhone(null);
     if (!r?.ok) {
-      setError("Xóa không thành công. Vui lòng thử lại.");
+      const j = (await r?.json().catch(() => null)) as { code?: string } | null;
+      setError(staffDenialMessage(j?.code) ?? "Xóa không thành công. Vui lòng thử lại.");
       return;
     }
     load();
@@ -1115,6 +1229,7 @@ function AccountsTab({ me }: { me: Me }) {
                       {/* VAI: quản trị viên (env) > quản lý (DB role). Ghi rõ
                           để khỏi lẫn — xem RoleBadge. */}
                       <RoleBadge account={a} />
+                      <KindBadge account={a} />
                     </p>
                     <p className="mt-0.5 text-[0.8125rem] text-foreground/60">
                       {a.fromSdwork ? "Nguồn từ SDWork" : "Tạo thủ công"} ·{" "}
@@ -1253,6 +1368,39 @@ function AccountsTab({ me }: { me: Me }) {
                         Đặt lại mật khẩu
                       </button>
                     )}
+                    {isAdmin && (
+                      <label className="sr-only" htmlFor={`kind-${a.phone}`}>
+                        Loại tài khoản của {a.phone}
+                      </label>
+                    )}
+                    {isAdmin && (
+                      <select
+                        id={`kind-${a.phone}`}
+                        value={a.kind ?? "real"}
+                        disabled={busyPhone === a.phone}
+                        onChange={(e) =>
+                          setKind(a, e.target.value as NonNullable<Account["kind"]>)
+                        }
+                        title="Loại tài khoản — test/demo không làm nhân sự, phiên có hạn, không nhận tin gửi tất cả"
+                        className="min-h-[2.5rem] rounded-lg bg-field px-2 text-[0.8125rem] font-bold text-foreground/70 disabled:opacity-50"
+                      >
+                        {(Object.keys(KIND_LABEL) as NonNullable<Account["kind"]>[]).map((k) => (
+                          <option key={k} value={k}>
+                            {KIND_LABEL[k]}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {isAdmin && a.canLogin && (
+                      <button
+                        type="button"
+                        disabled={busyPhone === a.phone}
+                        onClick={() => setToRevoke(a)}
+                        className="min-h-[2.5rem] rounded-lg bg-field px-3 text-[0.8125rem] font-bold text-foreground/70 disabled:opacity-50"
+                      >
+                        Đăng xuất mọi máy
+                      </button>
+                    )}
                     {perms.delete && (
                       <button
                         type="button"
@@ -1364,10 +1512,25 @@ function AccountsTab({ me }: { me: Me }) {
           }}
         />
       )}
+      {toRevoke && (
+        <ConfirmDialog
+          title={`Đăng xuất mọi máy của ${toRevoke.phone}?`}
+          message={`${toRevoke.name ? `${toRevoke.name} — ` : ""}mọi điện thoại/máy tính đang đăng nhập số này sẽ bị đăng xuất ở lần dùng mạng kế tiếp. Dữ liệu đã tải trong máy giữ nguyên; người dùng đăng nhập lại bằng mật khẩu hiện tại.`}
+          confirmLabel="Đăng xuất mọi máy"
+          cancelLabel="Hủy thao tác"
+          danger={false}
+          onCancel={() => setToRevoke(null)}
+          onConfirm={() => {
+            const a = toRevoke;
+            setToRevoke(null);
+            revokeSessions(a);
+          }}
+        />
+      )}
       {toReset && (
         <ConfirmDialog
           title={`Xác nhận đặt lại mật khẩu cho ${toReset.phone}?`}
-          message={`${toReset.name ? `${toReset.name} — ` : ""}mật khẩu sẽ đổi thành sd123456, mật khẩu cũ sẽ bị hủy. Khách đăng nhập lại sẽ được yêu cầu đổi mật khẩu mới.`}
+          message={`${toReset.name ? `${toReset.name} — ` : ""}hệ thống sẽ tạo mật khẩu tạm mới (hiện một lần sau khi bấm), mật khẩu cũ bị hủy và mọi máy đang đăng nhập bị đăng xuất. Khách đăng nhập lại sẽ được yêu cầu đổi mật khẩu mới.`}
           confirmLabel="Xác nhận đặt lại"
           cancelLabel="Hủy thao tác"
           danger={false}
@@ -1452,6 +1615,43 @@ function AccountsTab({ me }: { me: Me }) {
  *   customers.role='admin' (nâng/hạ ở tab Phân quyền).
  * · `role='manager'` → QUẢN LÝ, quyền theo bảng ở tab Phân quyền.
  */
+/** Câu báo cho các mã CHẶN theo vai (RBAC 2026-10-02) — null = không phải
+ *  mã chặn vai, caller dùng câu mặc định của mình. */
+function staffDenialMessage(code: string | undefined): string | null {
+  switch (code) {
+    case "self":
+      return "Không thể thao tác trên chính tài khoản của bạn.";
+    case "staff_target":
+      return "Tài khoản này là nhân sự quản trị — chỉ quản trị viên mới thao tác được.";
+    case "not_your_customer":
+      return "Khách này do người khác quản lý — bạn chỉ thao tác được với khách do mình cấp Premium.";
+    case "env_admin":
+      return "Quản trị viên cấp từ cấu hình máy chủ — không xoá được trên web.";
+    case "last_admin":
+      return "Đây là quản trị viên cuối cùng — thêm quản trị viên khác trước.";
+    default:
+      return null;
+  }
+}
+
+/** Nhãn LOẠI tài khoản (0056). Giữ đồng bộ với ACCOUNT_KINDS ở lib/admin. */
+const KIND_LABEL: Record<NonNullable<Account["kind"]>, string> = {
+  real: "Thật",
+  test: "Test",
+  demo: "Demo",
+  reviewer: "Duyệt app",
+};
+
+/** Chỉ hiện khi KHÁC tài khoản thật — để không nhầm máy thử với bà con. */
+function KindBadge({ account }: { account: Account }) {
+  if (!account.kind || account.kind === "real") return null;
+  return (
+    <span className="ml-2 rounded-full bg-warn-bg px-2 py-0.5 text-[0.75rem] font-bold text-warn">
+      {KIND_LABEL[account.kind]}
+    </span>
+  );
+}
+
 function RoleBadge({ account }: { account: Account }) {
   if (account.isAdmin) {
     return (
@@ -3129,7 +3329,7 @@ function OrdersTab({ perms }: { perms: TabPerms }) {
     setError(null);
     setOrders(null);
     const qs = status === "all" ? "" : `?status=${status}`;
-    fetch(apiUrl(`/api/admin/orders${qs}`))
+    fetch(apiUrl(`/api/admin/orders${qs}`), { headers: tokenHeader() })
       .then(async (r) => {
         const j = (await r.json()) as {
           ok: boolean;
@@ -3153,7 +3353,8 @@ function OrdersTab({ perms }: { perms: TabPerms }) {
     setBusyId(order.id);
     const r = await fetch(apiUrl(`/api/admin/orders/${encodeURIComponent(order.id)}`), {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      // chuỗi cứng (2026-10-02) — bản cũ thiếu, sống nhờ đường lùi cookie
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ status: next }),
     }).catch(() => null);
     const j = (await r?.json().catch(() => null)) as {
@@ -3176,7 +3377,8 @@ function OrdersTab({ perms }: { perms: TabPerms }) {
     setBusyId(order.id);
     const r = await fetch(apiUrl(`/api/admin/orders/${encodeURIComponent(order.id)}`), {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
+      // chuỗi cứng (2026-10-02) — bản cũ thiếu, sống nhờ đường lùi cookie
+      headers: { "content-type": "application/json", ...tokenHeader() },
       body: JSON.stringify({ dealerNote: note }),
     }).catch(() => null);
     const j = (await r?.json().catch(() => null)) as { ok?: boolean } | null;
@@ -5522,6 +5724,8 @@ type ManagerPerm = {
   name: string | null;
   permissions: StaffPermissions;
   configured: boolean;
+  /** own = khách mình cấp · all_premium = đại lý tổng (0056) */
+  scope?: "own" | "all_premium";
 };
 
 /** Một quản trị viên + NGUỒN quyền: 'db' hạ được ở đây, 'env' thì không. */
@@ -5764,6 +5968,9 @@ function PermissionsTab() {
         not_found:
           "Hệ thống chưa có tài khoản nào dùng số điện thoại này — vui lòng tạo tài khoản mới ở tab Tài khoản trước.",
         bad_phone: "Số điện thoại không đúng định dạng.",
+        not_real_account:
+          "Đây là tài khoản test/demo — không được làm nhân sự. Đổi loại về \"Thật\" ở tab Tài khoản trước (có chủ ý).",
+        unavailable: "Chưa tra được cơ sở dữ liệu — vui lòng thử lại sau ít phút.",
       };
       setRoleMsg(why[j?.code ?? ""] ?? "Phân quyền không thành công. Vui lòng thử lại.");
       return;
@@ -5785,8 +5992,8 @@ function PermissionsTab() {
         hai luồng tách hẳn cho khỏi lẫn.
         <br />
         <b className="text-navy">Quản trị viên</b> toàn quyền mọi khu, không cần
-        cấu hình. <b className="text-navy">Quản lý</b> chạy theo bảng quyền: 5
-        khu (Tài khoản · Sản phẩm · Thuyền viên · Thông báo · Chỗ bán) × 4 mức{" "}
+        cấu hình. <b className="text-navy">Quản lý</b> chạy theo bảng quyền: 6
+        khu (Tài khoản · Sản phẩm · Đơn hàng · Thuyền viên · Thông báo · Chỗ bán) × 4 mức{" "}
         <b>Xem · Tạo mới · Sửa · Xóa</b>; bỏ chọn <b>Xem</b> = ẩn hẳn khu đó. (4 khu
         Yêu cầu · Vùng biển · Dữ liệu · Hệ thống chỉ dành cho quản trị viên.)
       </p>
@@ -5910,10 +6117,10 @@ function PermissionsTab() {
 
       {migrationNeeded && (
         <p className="surface bg-warn-bg px-4 py-3 text-[0.875rem] font-semibold text-warn">
-          Cột phân quyền chưa có trong DB — cần apply migration
-          0017_staff_permissions. Hiện quản lý đang chạy theo quyền mặc định
-          (Xem + Tạo + Sửa, không Xóa); lưu thay đổi sẽ báo lỗi cho tới khi
-          apply xong.
+          Bảng nhân sự chưa có trong DB — cần apply migration
+          0056_rbac_staff_accounts. Hiện vai và quyền vẫn đọc từ hồ sơ khách
+          (cách cũ, vẫn chạy); riêng tầm nhìn đại lý tổng chưa lưu được cho
+          tới khi apply xong.
         </p>
       )}
 
@@ -5957,6 +6164,29 @@ function ManagerPermCard({
   const [draft, setDraft] = useState<StaffPermissions>(manager.permissions);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  /** TẦM NHÌN (thay env MASTER_AGENT_PHONES) — lưu ngay khi chọn. */
+  async function saveScope(scope: "own" | "all_premium") {
+    setBusy(true);
+    setMsg(null);
+    const r = await fetch(apiUrl("/api/admin/staff"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...tokenHeader() },
+      body: JSON.stringify({ phone: manager.phone, action: "set-scope", scope }),
+    }).catch(() => null);
+    setBusy(false);
+    const j = (await r?.json().catch(() => null)) as { ok?: boolean; code?: string } | null;
+    if (!r?.ok || !j?.ok) {
+      setMsg(
+        j?.code === "migration_needed"
+          ? "Chưa lưu được tầm nhìn — cơ sở dữ liệu chưa có bảng nhân sự (migration 0056)."
+          : "Lưu tầm nhìn không thành công. Vui lòng thử lại.",
+      );
+      return;
+    }
+    setMsg("Đã lưu tầm nhìn khách hàng.");
+    onSaved();
+  }
 
   const dirty = useMemo(
     () => JSON.stringify(draft) !== JSON.stringify(manager.permissions),
@@ -6013,6 +6243,19 @@ function ManagerPermCard({
           </span>
         )}
       </div>
+
+      <label className="mt-3 flex flex-wrap items-center gap-2 text-[0.875rem] font-semibold text-foreground/70">
+        Thấy khách nào:
+        <select
+          value={manager.scope ?? "own"}
+          disabled={busy}
+          onChange={(e) => saveScope(e.target.value as "own" | "all_premium")}
+          className="min-h-[2.5rem] rounded-lg bg-field px-2 text-[0.875rem] font-bold text-navy disabled:opacity-50"
+        >
+          <option value="own">Chỉ khách do mình cấp Premium</option>
+          <option value="all_premium">Mọi khách đang Premium (đại lý tổng)</option>
+        </select>
+      </label>
 
       <div className="mt-3 overflow-x-auto">
         <table className="w-full border-collapse text-left">

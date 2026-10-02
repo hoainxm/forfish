@@ -5,6 +5,7 @@
 // requirePermission tab "thong-bao": GET=view · POST(gửi)=create.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { managerTargetCheck, nonRealPhones } from "@/lib/staff-store";
 import { requirePermission } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
 import { isPushConfigured, sendPushMany } from "@/lib/push-send";
@@ -165,10 +166,17 @@ export async function POST(req: Request) {
   if (!title || !message) return err(400, "missing_content");
   if (body?.target === "phone" && !body.phone?.trim())
     return err(400, "missing_phone");
+  // QUẢN LÝ: không gửi TOÀN BỘ người dùng (một cú bấm tới 700+ máy là việc
+  // của quản trị), chỉ nhắn riêng khách của mình (RBAC 2026-10-02).
+  if (who.role === "manager") {
+    if (body?.target !== "phone") return err(403, "broadcast_admin_only");
+    const d = await managerTargetCheck(admin, who, normalizeVnPhone(body.phone!.trim()), false);
+    if (d) return err(d.status, d.code);
+  }
 
   let q = admin
     .from("push_subscriptions")
-    .select("id,endpoint,p256dh,auth_key");
+    .select("id,endpoint,p256dh,auth_key,customer_phone");
   // CHUẨN HOÁ id tài khoản — cả app dùng normalizeVnPhone, riêng đường push
   // trước đây chỉ .trim() ⇒ "0938 635 689" hay dạng 84xxx là khớp trượt, gửi
   // cho 0 người mà im lặng.
@@ -178,7 +186,12 @@ export async function POST(req: Request) {
   const { data, error } = await q;
   if (error) return err(500, "query_failed");
 
-  const rows = data ?? [];
+  // Gửi TẤT CẢ: bỏ máy của tài khoản test/demo/reviewer (0056) — tin thật
+  // không đổ vào máy thử, và số "đã gửi" chỉ đếm bà con thật.
+  const skip = targetAccount ? new Set<string>() : await nonRealPhones(admin);
+  const rows = (data ?? []).filter(
+    (r) => !skip.has((r as { customer_phone?: string | null }).customer_phone ?? ""),
+  );
 
   /* GHI BẢN TIN TRƯỚC KHI ĐẨY (0023): id của nó đi kèm payload để service
      worker báo về "đã nhận / đã đọc", và để trang chủ có HỘP THƯ đọc lại —

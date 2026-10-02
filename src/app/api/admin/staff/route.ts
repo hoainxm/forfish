@@ -1,21 +1,28 @@
-// /api/admin/staff — PHÂN QUYỀN TÀI KHOẢN QUẢN LÝ (2026-07-30). ADMIN-ONLY.
-// · GET   : liệt kê mọi tài khoản role='manager' + bảng quyền đã chuẩn hoá
-//           (5 tab × view/create/edit/delete). Preset mặc định cho ai chưa
-//           cấu hình (normalizePermissions).
-// · PATCH : { phone, permissions } — ghi bảng quyền cho một quản lý. Chuẩn hoá
-//           trước khi ghi (chỉ nhận 5 tab hợp lệ, ép cờ về boolean, fail-closed).
-// Chỉ service-role ghi cột customers.staff_permissions (0017). Chốt thật khi
-// quản lý thao tác nằm ở requirePermission trong từng route /api/admin/*.
+// /api/admin/staff — PHÂN QUYỀN NHÂN SỰ. ADMIN-ONLY.
+// · GET   : quản trị viên (env + DB) + quản lý kèm bảng quyền đã chuẩn hoá
+//           (6 tab × view/create/edit/delete) và tầm nhìn (own | all_premium).
+// · PATCH : { phone, permissions } — bảng quyền một quản lý (fail-closed)
+//           { phone, action:'set-scope', scope } — tầm nhìn quản lý
+//           { phone, action:'set-role', role } — nâng/hạ vai (3 chốt + thu hồi chuỗi)
+// Nguồn VAI: bảng staff_accounts (0056, RBAC 2026-10-02) — đọc/ghi qua
+// lib/staff-store (gương sang customers.role để đường lùi không lệch).
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
 import {
   checkSetRole,
-  isAdminPhone,
   mergeAdmins,
+  normalizeStaffScope,
   parseAdminPhones,
 } from "@/lib/admin";
+import {
+  listDbStaff,
+  loadActor,
+  writeStaffPermissions,
+  writeStaffRole,
+} from "@/lib/staff-store";
+import { revokeTokensOfPhone } from "@/lib/device-token-server";
 import { normalizeVnPhone } from "@/lib/phone";
 import { normalizePermissions } from "@/lib/staff-permissions";
 
@@ -28,81 +35,38 @@ export async function GET() {
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
 
-  // Cột staff_permissions có thể chưa tồn tại (0017 chưa apply) → thử select
-  // kèm; lỗi thì rơi về select không có cột (quản lý vẫn hiện, quyền = mặc định)
-  // và báo migrationNeeded để UI nói thật.
-  let rows: { phone: string; name: string | null; staff_permissions?: unknown }[] =
-    [];
-  let migrationNeeded = false;
-  {
-    const withCol = await admin
-      .from("customers")
-      .select("phone, name, staff_permissions")
-      .eq("role", "manager")
-      .order("updated_at", { ascending: false });
-    if (withCol.error) {
-      migrationNeeded = true;
-      const noCol = await admin
-        .from("customers")
-        .select("phone, name")
-        .eq("role", "manager")
-        .order("updated_at", { ascending: false });
-      if (noCol.error) return err(500, "query_failed");
-      rows = (noCol.data ?? []) as typeof rows;
-    } else {
-      rows = (withCol.data ?? []) as typeof rows;
-    }
-  }
+  // Nguồn VAI: staff_accounts (0056) — chưa apply thì đọc customers.role
+  // (listDbStaff tự lùi) và báo migrationNeeded để UI nói thật.
+  const staff = await listDbStaff(admin);
+  if (!staff.ok) return err(500, "query_failed");
+  const migrationNeeded = !staff.tableReady;
 
-  const managers = rows.map((r) => ({
-    phone: r.phone,
-    name: r.name ?? null,
-    permissions: normalizePermissions(r.staff_permissions),
-    // đã cấu hình tay chưa (null = còn ở preset mặc định)
-    configured: r.staff_permissions != null,
-  }));
-
-  // QUẢN TRỊ VIÊN — HAI NGUỒN (2026-07-31): env ADMIN_PHONES (cửa cứu hộ, web
-  // không hạ được) + customers.role='admin' (quản ngay trên web). Trả kèm
-  // `source` để UI nói rõ cái nào sửa được ở đây.
   const envPhones = parseAdminPhones(process.env.ADMIN_PHONES);
-  const { data: dbAdminRows } = await admin
-    .from("customers")
-    .select("phone, name")
-    .eq("role", "admin");
-  const dbAdminPhones = (dbAdminRows ?? []).map(
-    (r) => (r as { phone: string }).phone,
-  );
+  const dbAdminPhones = staff.rows.filter((r) => r.role === "admin").map((r) => r.phone);
   const merged = mergeAdmins(envPhones, dbAdminPhones);
 
   // tên hiển thị: gom từ hàng customers (admin env có thể chưa có hàng nào)
-  let adminNames: Record<string, string | null> = Object.fromEntries(
-    (dbAdminRows ?? []).map((r) => [
-      (r as { phone: string }).phone,
-      (r as { name: string | null }).name ?? null,
-    ]),
-  );
-  const missing = merged
-    .map((a) => a.phone)
-    .filter((p) => !(p in adminNames));
-  if (missing.length > 0) {
-    const { data: nRows } = await admin
-      .from("customers")
-      .select("phone, name")
-      .in("phone", missing);
-    adminNames = {
-      ...adminNames,
-      ...Object.fromEntries(
-        (nRows ?? []).map((r) => [
-          (r as { phone: string }).phone,
-          (r as { name: string | null }).name ?? null,
-        ]),
-      ),
-    };
+  const phones = [...new Set([...merged.map((a) => a.phone), ...staff.rows.map((r) => r.phone)])];
+  const names: Record<string, string | null> = {};
+  if (phones.length > 0) {
+    const { data: nRows } = await admin.from("customers").select("phone, name").in("phone", phones);
+    for (const r of (nRows ?? []) as { phone: string; name: string | null }[])
+      names[r.phone] = r.name ?? null;
   }
+
+  const managers = staff.rows
+    .filter((r) => r.role === "manager")
+    .map((r) => ({
+      phone: r.phone,
+      name: names[r.phone] ?? null,
+      permissions: normalizePermissions(r.permissions),
+      // đã cấu hình tay chưa (null = còn ở preset mặc định)
+      configured: r.permissions != null,
+      scope: r.scope,
+    }));
   const admins = merged.map((a) => ({
     phone: a.phone,
-    name: adminNames[a.phone] ?? null,
+    name: names[a.phone] ?? null,
     source: a.source,
   }));
 
@@ -120,6 +84,7 @@ export async function PATCH(req: Request) {
     permissions?: unknown;
     action?: string;
     role?: string;
+    scope?: string;
   } | null;
   if (!body?.phone) return err(400, "bad_phone");
   const phone = normalizeVnPhone(body.phone);
@@ -141,70 +106,73 @@ export async function PATCH(req: Request) {
 
     const envPhones = parseAdminPhones(process.env.ADMIN_PHONES);
 
-    const { data: cur, error: qErr } = await admin
-      .from("customers")
-      .select("role")
-      .eq("phone", phone)
-      .maybeSingle();
-    if (qErr) return err(500, "query_failed");
-    if (!cur) return err(404, "not_found");
-    const curRole = (cur as { role?: string }).role ?? "customer";
-    if (curRole === nextRole)
+    const cur = await loadActor(admin, phone);
+    if (!cur.ok) return err(503, "unavailable");
+    if (!cur.actor.customer) return err(404, "not_found");
+    // Tài khoản test/demo/reviewer KHÔNG được làm staff (tách tài khoản thử
+    // khỏi quyền quản trị). Muốn thì đổi loại về "real" trước — có chủ ý.
+    if (nextRole !== "customer" && cur.actor.kind !== "real")
+      return err(400, "not_real_account");
+    const curRole = cur.actor.source === "db" ? (cur.actor.role ?? "customer") : "customer";
+    if (curRole === nextRole && cur.actor.source !== "env")
       return NextResponse.json({ ok: true, phone, role: nextRole });
 
-    const { data: dbAdmins } = await admin
-      .from("customers")
-      .select("phone")
-      .eq("role", "admin");
+    const dbStaff = await listDbStaff(admin);
+    if (!dbStaff.ok) return err(500, "query_failed");
     const reason = checkSetRole({
       actorPhone: who.phone,
       targetPhone: phone,
       curRole,
       nextRole,
       envPhones,
-      dbAdminPhones: (dbAdmins ?? []).map((r) => (r as { phone: string }).phone),
+      dbAdminPhones: dbStaff.rows.filter((r) => r.role === "admin").map((r) => r.phone),
     });
     if (reason) return err(400, reason);
 
-    const { error: upErr } = await admin
-      .from("customers")
-      .update({ role: nextRole, updated_at: new Date().toISOString() })
-      .eq("phone", phone);
-    if (upErr) return err(500, "update_failed");
+    const w = await writeStaffRole(admin, { phone, role: nextRole, by: who.phone });
+    if (!w.ok) return err(500, w.code);
+    // Đổi vai ⇒ thu hồi mọi chuỗi đang sống: chuỗi cấp theo vai CŨ (admin được
+    // nhiều máy, không hạn…) không được sống tiếp sau khi hạ vai. Người đó
+    // đăng nhập lại là nhận chuỗi đúng vai mới.
+    const revoked = await revokeTokensOfPhone(phone, "admin");
 
     await logActivity(admin, {
       actorPhone: who.phone,
       actorRole: "admin",
       action: "staff.set-role",
       target: phone,
-      detail: { from: curRole, to: nextRole },
+      detail: { from: curRole, to: nextRole, revokedTokens: revoked.revoked },
     });
     return NextResponse.json({ ok: true, phone, role: nextRole });
   }
 
-  // KHÔNG cho gán quyền cho SĐT admin (admin đã toàn quyền, cột này vô nghĩa
-  // và gây hiểu nhầm là quyền của admin bị giới hạn).
-  if (isAdminPhone(phone, parseAdminPhones(process.env.ADMIN_PHONES)))
-    return err(400, "is_admin");
+  // Chỉ áp cho tài khoản đang là QUẢN LÝ (admin đã toàn quyền — gán bảng quyền
+  // cho admin vô nghĩa và gây hiểu nhầm là quyền admin bị giới hạn).
+  const cur = await loadActor(admin, phone);
+  if (!cur.ok) return err(503, "unavailable");
+  if (!cur.actor.customer && cur.actor.role === null) return err(404, "not_found");
+  if (cur.actor.role === "admin") return err(400, "is_admin");
+  if (cur.actor.role !== "manager") return err(400, "not_manager");
 
-  // Chỉ áp cho tài khoản đang là quản lý.
-  const { data: cur, error: qErr } = await admin
-    .from("customers")
-    .select("role")
-    .eq("phone", phone)
-    .maybeSingle();
-  if (qErr) return err(500, "query_failed");
-  if (!cur) return err(404, "not_found");
-  if ((cur as { role?: string }).role !== "manager")
-    return err(400, "not_manager");
+  // TẦM NHÌN (thay env MASTER_AGENT_PHONES): own | all_premium
+  if (body.action === "set-scope") {
+    const scope = normalizeStaffScope(body.scope);
+    const w = await writeStaffPermissions(admin, { phone, scope });
+    if (!w.ok) return err(500, w.code);
+    await logActivity(admin, {
+      actorPhone: who.phone,
+      actorRole: "admin",
+      action: "staff.set-scope",
+      target: phone,
+      detail: { scope },
+    });
+    return NextResponse.json({ ok: true, phone, scope });
+  }
 
   const permissions = normalizePermissions(body.permissions);
-  const { error } = await admin
-    .from("customers")
-    .update({ staff_permissions: permissions, updated_at: new Date().toISOString() })
-    .eq("phone", phone);
-  // cột chưa có (0017 chưa apply) → nói thật để admin đi apply migration
-  if (error) return err(500, "migration_needed");
+  const w = await writeStaffPermissions(admin, { phone, permissions });
+  // cột/bảng chưa có → nói thật để admin đi apply migration
+  if (!w.ok) return err(500, w.code);
 
   await logActivity(admin, {
     actorPhone: who.phone,

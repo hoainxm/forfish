@@ -67,9 +67,15 @@ describe("isMissingColumnError — chỉ 'cột chưa có' mới được cấp 
   });
 
   it("requireStaff KHÔNG còn nhánh nuốt mọi lỗi vào preset", () => {
-    const src = read("src", "lib", "admin-auth.ts");
-    // nhánh manager phải hỏi isMissingColumnError trước khi dùng preset
-    expect(src).toContain("isMissingColumnError");
-    expect(src).toContain('code: "unavailable"');
+    // RBAC 2026-10-02: tra vai/quyền dời sang lib/staff-store (loadActor).
+    // Luật giữ nguyên: CHỈ "bảng/cột chưa có" mới được lùi; lỗi khác → 503.
+    const auth = read("src", "lib", "admin-auth.ts");
+    expect(auth).toContain("loadActor");
+    expect(auth).toContain('code: "unavailable"');
+    const store = read("src", "lib", "staff-store.ts");
+    expect(store).toContain("isMissingTableError");
+    expect(store).toContain("unavailable: true");
+    // đọc hàng bằng select("*") để cột chưa có không làm hỏng câu truy vấn
+    expect(store).toContain('.select("*")');
   });
 });

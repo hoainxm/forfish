@@ -113,3 +113,11 @@ export type TokenDenial =
 export function shouldDropAccount(d: TokenDenial): boolean {
   return d === "unknown_token" || d === "token_revoked";
 }
+
+/** Chuỗi có hạn (`expires_at`, 0056) đã quá hạn chưa. null/rác = KHÔNG hạn —
+ *  mặc định của khách thật; giá trị không đọc được không được làm văng ai. */
+export function isExpired(expiresAt: unknown, now: number): boolean {
+  if (typeof expiresAt !== "string" || !expiresAt) return false;
+  const t = Date.parse(expiresAt);
+  return Number.isFinite(t) && t <= now;
+}

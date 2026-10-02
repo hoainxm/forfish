@@ -10,6 +10,7 @@ import {
   planCap,
   cap,
   thu,
+  danhDau,
 } from "../../../scripts/test-account.mjs";
 import { isValidTokenShape } from "@/lib/device-token";
 
@@ -60,12 +61,28 @@ describe("helper thuần", () => {
     expect(planCap({ customer: { tier: "premium" }, live: 2 }, { multi: true })).toMatchObject({ ok: true, allowMulti: true });
     expect(planCap({ customer: null, live: 0 }, {}).ok).toBe(false);
   });
+
+  it("planCap (RBAC 2026-10-02): KHÔNG bao giờ cấp cho nhân sự; chỉ loại test khi cột đã có", () => {
+    const base = { tier: "basic" };
+    // nhân sự — bảng mới hoặc cột cũ
+    expect(planCap({ customer: base, staff: { role: "admin" }, live: 0 }, {}).ok).toBe(false);
+    expect(planCap({ customer: { ...base, role: "manager" }, staff: null, live: 0 }, {}).ok).toBe(false);
+    // hàng staff đã KHOÁ thì không còn là nhân sự (rơi về cột cũ)
+    expect(planCap({ customer: { ...base, account_kind: "test" }, staff: { role: "admin", disabled_at: "2026-10-01" }, live: 0 }, {}).ok).toBe(true);
+    // 0056 đã apply: chỉ loại test
+    expect(planCap({ customer: { ...base, account_kind: "real" }, live: 0 }, {})).toMatchObject({ ok: false, reason: expect.stringMatching(/danh-dau/) });
+    expect(planCap({ customer: { ...base, account_kind: "demo" }, live: 0 }, {}).ok).toBe(false);
+    expect(planCap({ customer: { ...base, account_kind: "test" }, live: 0 }, {}).ok).toBe(true);
+    // 0056 chưa apply (cột không có trong hàng) → như cũ
+    expect(planCap({ customer: base, live: 0 }, {}).ok).toBe(true);
+  });
 });
 
 describe("cap / thu qua REST giả", () => {
   type Row = Record<string, unknown>;
   function fakeDb(customer: Row) {
     const tokens: Row[] = [];
+    const logs: Row[] = [];
     const calls: string[] = [];
     const fetchImpl = vi.fn(async (url: string, init: { method?: string; body?: string }) => {
       const u = new URL(url);
@@ -73,13 +90,15 @@ describe("cap / thu qua REST giả", () => {
       calls.push(`${init.method} ${path}`);
       const ok = (body: unknown) => ({ ok: true, status: 200, text: async () => JSON.stringify(body) });
       if (init.method === "GET" && path.startsWith("customers")) return ok([customer]);
+      if (init.method === "GET" && path.startsWith("staff_accounts")) return ok([]);
+      if (init.method === "POST" && path === "admin_activity_log") { logs.push(JSON.parse(init.body!) as Row); return ok([]); }
       if (init.method === "GET" && path.startsWith("device_tokens")) return ok(tokens.filter((t) => !t.revoked_at));
       if (init.method === "POST" && path === "device_tokens") { const row = JSON.parse(init.body!) as Row; tokens.push(row); return ok([row]); }
       if (init.method === "PATCH" && path.startsWith("customers")) { Object.assign(customer, JSON.parse(init.body!)); return ok([customer]); }
       if (init.method === "DELETE" && path.startsWith("device_tokens")) { const del = tokens.filter((t) => t.device_id === MARK); for (const d of del) tokens.splice(tokens.indexOf(d), 1); return ok(del); }
       return { ok: false, status: 500, text: async () => "?" };
     });
-    return { customer, tokens, calls, rest: makeRest({ url: "https://x.supabase.co", srk: "srk" }, fetchImpl as unknown as typeof fetch) };
+    return { customer, tokens, logs, calls, rest: makeRest({ url: "https://x.supabase.co", srk: "srk" }, fetchImpl as unknown as typeof fetch) };
   }
 
   it("cap --premium trên basic: chèn chuỗi có dấu vết + nâng hạng; thu: xoá đúng chuỗi đó + trả basic", async () => {
@@ -89,7 +108,14 @@ describe("cap / thu qua REST giả", () => {
     expect(isValidTokenShape(token)).toBe(true);
     expect(db.tokens).toHaveLength(1);
     expect(db.tokens[0]).toMatchObject({ customer_phone: "0900000777", device_id: MARK, platform: "test:basic", allow_multi: false });
+    // chuỗi test có hạn ~24 giờ
+    const exp = Date.parse(db.tokens[0].expires_at as string);
+    expect(exp - Date.now()).toBeGreaterThan(23 * 3600_000);
+    expect(exp - Date.now()).toBeLessThanOrEqual(24 * 3600_000);
     expect(db.customer.tier).toBe("premium");
+    // cấp chuỗi + nâng hạng đều để lại dấu vết
+    expect(db.logs.map((l) => l.action)).toEqual(["account.test-token", "account.grant"]);
+    expect(db.logs[1]).toMatchObject({ actor_phone: "script:test-account", target: "0900000777" });
     expect(out.join("\n")).toContain(`x-sdfish-token: ${token}`);
     expect(out.join("\n")).toContain("localStorage.setItem('forfish.token.v1'");
     // chuỗi máy thật (không phải của script) phải sống sót qua 'thu'
@@ -97,6 +123,18 @@ describe("cap / thu qua REST giả", () => {
     await thu(db.rest, "0900000777", (s: string) => out.push(s));
     expect(db.tokens.map((t) => t.device_id)).toEqual(["may-that"]);
     expect(db.customer).toMatchObject({ tier: "basic", premium_until: null });
+    expect(db.logs.at(-1)).toMatchObject({ action: "account.downgrade" });
+  });
+
+  it("danh-dau: real → test + ghi nhật ký; nhân sự từ chối; cột chưa có từ chối", async () => {
+    const db = fakeDb({ phone: "0900000777", tier: "basic", account_kind: "real" });
+    await danhDau(db.rest, "0900000777", () => {});
+    expect(db.customer.account_kind).toBe("test");
+    expect(db.logs[0]).toMatchObject({ action: "account.set-kind", detail: { from: "real", to: "test" } });
+    const staff = fakeDb({ phone: "0900000001", tier: "basic", role: "admin", account_kind: "real" });
+    await expect(danhDau(staff.rest, "0900000001", () => {})).rejects.toThrow(/nhân sự/);
+    const old = fakeDb({ phone: "0900000777", tier: "basic" });
+    await expect(danhDau(old.rest, "0900000777", () => {})).rejects.toThrow(/0056/);
   });
 
   it("cap khi đang có chuỗi sống và không --multi ⇒ ném, không chèn gì", async () => {

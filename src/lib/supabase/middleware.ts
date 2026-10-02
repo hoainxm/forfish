@@ -1,9 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { resolveTier } from "@/lib/tier";
-import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
+import { effectiveTier } from "@/lib/staff-store";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeVnPhone } from "@/lib/phone";
+import { phoneFromAuthEmail } from "@/lib/phone";
 import { tokenIdentity } from "@/lib/device-token-server";
 import { readTokenHeader } from "@/lib/device-token";
 import { allowRequest, type RateStore } from "@/lib/rate-limit";
@@ -70,7 +69,7 @@ export async function dataGate(request: NextRequest, rule: DataRouteRule) {
   });
   const { data } = await supabase.auth.getUser();
   if (!data?.user) return deny(401, "no_token");
-  const phone = normalizeVnPhone(data.user.email?.split("@")[0] ?? "");
+  const phone = phoneFromAuthEmail(data.user.email);
   if (!phone) return deny(401, "no_token");
 
   const res = await gateByPhone(phone, rule, deny);
@@ -97,14 +96,11 @@ async function gateByPhone(
   deny: (status: number, code: string) => NextResponse,
 ): Promise<NextResponse> {
   if (rule.premium) {
-    // Admin (env ADMIN_PHONES) xem như premium — kiểm tra được đúng thứ khách
-    // premium thấy, khỏi phải tự gán hạng cho mình trong DB.
-    const admin = isAdminPhone(phone, parseAdminPhones(process.env.ADMIN_PHONES));
-    if (!admin) {
-      const tier = await cachedTier(phone);
-      if (tier === "unavailable") return deny(503, "unavailable");
-      if (tier !== "premium") return deny(403, "premium_required");
-    }
+    // Quản trị viên (env HOẶC DB — luật chung lib/staff-store effectiveTier)
+    // xem như premium để kiểm tra được đúng thứ khách premium thấy.
+    const tier = await cachedTier(phone);
+    if (tier === "unavailable") return deny(503, "unavailable");
+    if (tier !== "premium") return deny(403, "premium_required");
   }
   // Gọi dồn dập (cào để phát lại) → 429. Máy bà con gọi vài lượt mỗi lần mở
   // bản đồ, ô ảnh vài trăm — cách trần rất xa. 429 nằm trong `isRescuableStatus`
@@ -152,17 +148,9 @@ async function cachedTier(phone: string): Promise<string> {
   if (hit && hit.exp > Date.now()) return hit.tier;
   const admin = createAdminClient();
   if (!admin) return "unavailable";
-  const { data, error } = await admin
-    .from("customers")
-    .select("tier, premium_until")
-    .eq("phone", phone)
-    .maybeSingle();
   // KHÔNG tra được ≠ chưa premium. 503 để máy giữ nguyên dấu đã lưu và thử lại.
-  if (error) {
-    console.error("[data-gate] tra hạng HỎNG:", error.code, error.message);
-    return "unavailable";
-  }
-  const tier = resolveTier(data?.tier, data?.premium_until, Date.now());
+  const tier = await effectiveTier(admin, phone);
+  if (tier === "unavailable") return "unavailable";
   if (tierCache.size >= CACHE_MAX) {
     const oldest = tierCache.keys().next().value;
     if (oldest !== undefined) tierCache.delete(oldest);

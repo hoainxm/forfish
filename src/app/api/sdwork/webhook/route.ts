@@ -4,6 +4,7 @@
 // Hợp đồng event: docs/integration/sdwork-sso-contract.md.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isStaffPhone } from "@/lib/staff-store";
 import { dbErrorDetail } from "@/lib/db-error";
 import { isValidVnPhone, phoneToEmail } from "@/lib/phone";
 import {
@@ -194,7 +195,12 @@ export async function POST(req: Request) {
       const phone = (row as { phone: string }).phone;
       if (intent.password) {
         try {
-          await syncAuthPassword(admin, phone, intent.password, intent.reset);
+          /*  TÀI KHOẢN NHÂN SỰ (staff_accounts/env, RBAC 2026-10-02): CRM KHÔNG
+              được đặt lại mật khẩu — một thao tác ở SDWork không được thành
+              đường chiếm quyền quản trị SDFish. Vẫn tạo nếu chưa có; đã có thì
+              giữ nguyên mật khẩu. Tra hỏng → coi như staff (an toàn hơn). */
+          const reset = intent.reset && (await isStaffPhone(admin, phone)) === false;
+          await syncAuthPassword(admin, phone, intent.password, reset);
           provisioned = true;
         } catch {
           provisioned = false;

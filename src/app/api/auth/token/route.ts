@@ -20,12 +20,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeVnPhone } from "@/lib/phone";
+import { phoneFromAuthEmail } from "@/lib/phone";
 import { normalizePlatform } from "@/lib/app-usage";
 import { isValidDeviceId } from "@/lib/device-id";
 import { newDeviceToken, hashDeviceToken } from "@/lib/device-token";
 import { revokeTokensOfPhone, tokenIdentity } from "@/lib/device-token-server";
-import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
+import { tokenTtlMs } from "@/lib/admin";
+import { loadActor } from "@/lib/staff-store";
+import { isMissingColumnError } from "@/lib/staff-permissions";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -37,7 +39,7 @@ export async function POST(req: Request) {
   if (!email) {
     return NextResponse.json({ ok: false, code: "login_required" }, { status: 401 });
   }
-  const phone = normalizeVnPhone(email.split("@")[0]);
+  const phone = phoneFromAuthEmail(email);
   if (!phone) {
     return NextResponse.json({ ok: false, code: "bad_account" }, { status: 400 });
   }
@@ -54,26 +56,30 @@ export async function POST(req: Request) {
 
   /*  ADMIN ĐƯỢC NHIỀU MÁY (chủ dự án 2026-08-31): admin cần app (điện thoại) +
       web /quan-tri cùng lúc, nên KHÔNG đá phiên cũ khi đăng nhập máy mới. Khách/
-      đại lý giữ "1 tài khoản 1 máy". Admin = env ADMIN_PHONES HOẶC
-      customers.role='admin'. Token admin cấp với allow_multi=true (migration
+      đại lý giữ "1 tài khoản 1 máy". Admin = loadActor (env cứu hộ HOẶC
+      staff_accounts; đường lùi customers.role). Token admin cấp với allow_multi=true (migration
       0053) → miễn ràng buộc một-chuỗi-sống ở DB, không đụng nhau. */
   /*  ĐỌC HÀNG KHÁCH MỘT LẦN: role (xét admin) + tier/premium_until (HẠNG). Chủ
       dự án 2026-08-31: *"token lúc đăng nhập đã xác định rồi mà"* — đúng, hạng
       biết ngay tại đây, nên TRẢ VỀ để máy ghi dấu premium NGAY, khỏi chờ nhịp
       heartbeat (bị cửa 30' chặn ⇒ premium mở app nguội kẹt "checking" ⇒ ẩn hết
       công cụ premium). Chốt hạng thật vẫn ở middleware/RLS mỗi request. */
-  const { data: custRow } = await admin
-    .from("customers")
-    .select("role, tier, premium_until")
-    .eq("phone", phone)
-    .maybeSingle();
-  const cust = custRow as {
-    role?: string;
+  /*  VAI + LOẠI + HẠNG một lượt qua loadActor (luật chung, RBAC 2026-10-02).
+      Không tra được → 503: cấp chuỗi khi chưa biết người này là ai thì hoặc
+      đá máy cũ của admin oan, hoặc cấp chuỗi không hạn cho tài khoản test. */
+  const ar = await loadActor(admin, phone);
+  if (!ar.ok) {
+    return NextResponse.json({ ok: false, code: "unavailable" }, { status: 503 });
+  }
+  const cust = ar.actor.customer as {
     tier?: string;
     premium_until?: string | null;
   } | null;
-  let isAdmin = isAdminPhone(phone, parseAdminPhones(process.env.ADMIN_PHONES));
-  if (!isAdmin) isAdmin = cust?.role === "admin";
+  const isAdmin = ar.actor.role === "admin";
+  /*  HẠN CHUỖI: khách thật KHÔNG hạn (0037 — bà con mất sóng nhiều ngày);
+      staff 7 ngày, test 24 giờ, demo/reviewer 7 ngày (lib/admin tokenTtlMs). */
+  const ttl = tokenTtlMs({ isStaff: ar.actor.role !== null, kind: ar.actor.kind });
+  const expiresAt = ttl === null ? null : new Date(Date.now() + ttl).toISOString();
 
   /*  THU HỒI TRƯỚC, CẤP SAU — luật "1 tài khoản 1 máy" cho KHÁCH/ĐẠI LÝ. Đảo
       lại thì có một khoảnh khắc HAI chuỗi cùng hiệu lực; thu hồi hỏng ngay sau
@@ -105,13 +111,20 @@ export async function POST(req: Request) {
       if (!lai.ok) break;
     }
     token = newDeviceToken();
-    const res = await admin.from("device_tokens").insert({
+    const row: Record<string, unknown> = {
       token_hash: await hashDeviceToken(token),
       customer_phone: phone,
       allow_multi: isAdmin,
       ...(deviceId ? { device_id: deviceId } : {}),
       ...(platform ? { platform } : {}),
-    });
+    };
+    let res = await admin
+      .from("device_tokens")
+      .insert(expiresAt ? { ...row, expires_at: expiresAt } : row);
+    // 0056 chưa apply (cột expires_at chưa có) → cấp như cũ, không chặn đăng nhập
+    if (expiresAt && isMissingColumnError(res.error)) {
+      res = await admin.from("device_tokens").insert(row);
+    }
     error = res.error;
     if (!error || error.code !== "23505") break;
   }

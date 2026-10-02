@@ -6,7 +6,7 @@
 //   chốt 2026-07-26 sau một vòng thử tách project riêng rồi quay lại)
 // · xem dự báo cá như premium (kiểm tra đúng thứ khách premium thấy)
 
-import { normalizeVnPhone } from "@/lib/phone";
+import { normalizeVnPhone, phoneFromAuthEmail } from "@/lib/phone";
 
 /** "0901234567, 84912345678" → ["0901234567","0912345678"] (chuẩn hoá, bỏ rác) */
 export function parseAdminPhones(env: string | undefined | null): string[] {
@@ -24,7 +24,10 @@ export function isAdminPhone(
   adminPhones: string[],
 ): boolean {
   if (!phoneOrEmail || adminPhones.length === 0) return false;
-  const phone = normalizeVnPhone(phoneOrEmail.split("@")[0]);
+  const phone = phoneOrEmail.includes("@")
+    ? phoneFromAuthEmail(phoneOrEmail)
+    : normalizeVnPhone(phoneOrEmail);
+  if (!phone) return false;
   return adminPhones.includes(phone);
 }
 
@@ -147,4 +150,120 @@ export function roleAfterCreate(
       ? (existingRole as AccountRole)
       : "customer";
   return ROLE_RANK[cur] > ROLE_RANK[requested] ? cur : requested;
+}
+
+// ── BA TRỤC TÀI KHOẢN (RBAC 2026-10-02, user chốt "làm hết") ─────────────────
+// Trước: vai trò, loại tài khoản và hạng dồn vào một hàng `customers`, và
+// "ai là admin" được tính lại ở 6 chỗ, mỗi chỗ một luật. Nay tách ba trục ĐỘC
+// LẬP, mỗi trục một nguồn:
+// · VAI  (admin | manager | không)  — bảng `staff_accounts` (0056); env
+//        ADMIN_PHONES chỉ còn là CỬA CỨU HỘ
+// · LOẠI (real | test | demo | reviewer) — `customers.account_kind` (0056)
+// · HẠNG (basic | premium)            — `customers.tier`, không đổi
+// Mọi chỗ cần biết "người này là ai" đi qua `loadActor` (lib/staff-store.ts),
+// luật thuần nằm ở đây để test.
+
+export type AccountKind = "real" | "test" | "demo" | "reviewer";
+export const ACCOUNT_KINDS: readonly AccountKind[] = [
+  "real",
+  "test",
+  "demo",
+  "reviewer",
+] as const;
+
+/** Giá trị lạ / cột chưa có → "real" (luật chặt nhất cho TOKEN: không hết hạn
+ *  oan của bà con thật; và loại khác real mới bị cấm làm staff). */
+export function normalizeAccountKind(v: unknown): AccountKind {
+  return typeof v === "string" && (ACCOUNT_KINDS as readonly string[]).includes(v)
+    ? (v as AccountKind)
+    : "real";
+}
+
+/** Tầm nhìn của QUẢN LÝ: `own` = khách mình cấp · `all_premium` = mọi khách
+ *  còn premium (thay env MASTER_AGENT_PHONES). Lạ → `own` (hẹp nhất). */
+export type StaffScope = "own" | "all_premium";
+export function normalizeStaffScope(v: unknown): StaffScope {
+  return v === "all_premium" ? "all_premium" : "own";
+}
+
+export type StaffRoleResolved = {
+  role: "admin" | "manager" | null;
+  source: "env" | "db" | null;
+};
+
+/**
+ * VAI của một SĐT — luật DUY NHẤT (thay 6 bản rải rác).
+ * · env ADMIN_PHONES → admin (cứu hộ; thắng mọi thứ, kể cả loại tài khoản)
+ * · tài khoản test/demo/reviewer → KHÔNG BAO GIỜ là staff (tách tài khoản thử
+ *   khỏi quyền quản trị — một token test lọt ra không mở được /quan-tri)
+ * · bảng staff_accounts đã có (`tableReady`) → theo hàng của bảng; hàng đã khoá
+ *   (`disabled`) = không vai
+ * · bảng chưa có (0056 chưa apply) → đường lùi `customers.role` như cũ
+ */
+export function resolveStaffRole(args: {
+  envAdmin: boolean;
+  kind: AccountKind;
+  tableReady: boolean;
+  staff: { role?: string | null; disabled?: boolean } | null;
+  legacyRole: string | null | undefined;
+}): StaffRoleResolved {
+  if (args.envAdmin) return { role: "admin", source: "env" };
+  if (args.kind !== "real") return { role: null, source: null };
+  const raw = args.tableReady
+    ? args.staff && !args.staff.disabled
+      ? args.staff.role
+      : null
+    : args.legacyRole;
+  if (raw === "admin" || raw === "manager") return { role: raw, source: "db" };
+  return { role: null, source: null };
+}
+
+const HOUR = 60 * 60 * 1000;
+export const STAFF_TOKEN_TTL_MS = 7 * 24 * HOUR;
+export const TEST_TOKEN_TTL_MS = 24 * HOUR;
+export const DEMO_TOKEN_TTL_MS = 7 * 24 * HOUR;
+
+/**
+ * Tuổi thọ chuỗi cứng. `null` = KHÔNG hết hạn — bắt buộc cho KHÁCH THẬT: bà
+ * con mất sóng nhiều ngày ngoài biển, token hết hạn giữa chuyến là văng khỏi
+ * tài khoản đúng lúc cần dự báo (luật 0037 giữ nguyên cho nhóm này).
+ * Staff/test/demo thì có hạn: chuỗi quản trị bị lộ không sống mãi.
+ */
+export function tokenTtlMs(args: {
+  isStaff: boolean;
+  kind: AccountKind;
+}): number | null {
+  if (args.kind === "test") return TEST_TOKEN_TTL_MS;
+  if (args.isStaff) return STAFF_TOKEN_TTL_MS;
+  if (args.kind === "demo" || args.kind === "reviewer") return DEMO_TOKEN_TTL_MS;
+  return null;
+}
+
+/**
+ * QUẢN LÝ được đụng vào khách này không — luật chung cho cấp premium, xoá,
+ * gửi thông báo riêng. Admin không đi qua đây. Trả `null` = được.
+ * · self          — tự cấp premium/xoá chính mình
+ * · staff_target  — đụng tài khoản quản trị/quản lý khác
+ * · not_your_customer — khách đã có người khác cấp (`grantedBy` không có mình)
+ * `allowUnclaimed`: khách CHƯA ai cấp lần nào — cho phép với CẤP PREMIUM (đó là
+ * cách đại lý nhận khách mới), cấm với XOÁ/NHẮN (chưa phải khách của ai).
+ * Tầm `all_premium` được đụng mọi khách đang premium (đúng tầm nó nhìn thấy).
+ */
+export function managerTargetDenial(args: {
+  actorPhone: string;
+  targetPhone: string;
+  targetIsStaff: boolean;
+  grantedBy: string[];
+  scope: StaffScope;
+  targetIsPremium: boolean;
+  allowUnclaimed: boolean;
+}): "self" | "staff_target" | "not_your_customer" | null {
+  const actor = normalizeVnPhone(args.actorPhone);
+  if (normalizeVnPhone(args.targetPhone) === actor) return "self";
+  if (args.targetIsStaff) return "staff_target";
+  const by = args.grantedBy.map(normalizeVnPhone);
+  if (by.includes(actor)) return null;
+  if (args.scope === "all_premium" && args.targetIsPremium) return null;
+  if (by.length === 0 && args.allowUnclaimed) return null;
+  return "not_your_customer";
 }

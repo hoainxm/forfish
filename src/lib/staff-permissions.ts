@@ -2,11 +2,12 @@
 // chung: UI /quan-tri (ẩn/hiện tab + nút), route /api/admin/* (chốt thật qua
 // requirePermission), và tab Phân quyền (soạn bảng quyền cho từng quản lý).
 //
-// HAI VAI (src/lib/admin-auth.ts):
-// · admin  — SĐT trong env ADMIN_PHONES: TOÀN QUYỀN, bỏ qua bảng quyền
-//   (permissions = null). Đổi admin = đổi env, không migration.
-// · manager — customers.role='manager' (0004) + customers.staff_permissions
-//   (0017): quyền theo TAB × HÀNH ĐỘNG, admin cấu hình trong /quan-tri.
+// HAI VAI (src/lib/admin-auth.ts + lib/staff-store.ts, RBAC 2026-10-02):
+// · admin  — env ADMIN_PHONES (cứu hộ) HOẶC staff_accounts role='admin' (0056):
+//   TOÀN QUYỀN, bỏ qua bảng quyền (permissions = null).
+// · manager — staff_accounts role='manager' + permissions (0056; trước khi
+//   apply: customers.role + customers.staff_permissions — 0007/0028): quyền
+//   theo TAB × HÀNH ĐỘNG, admin cấu hình trong /quan-tri.
 //
 // 6 TAB được phép cho quản lý (chốt user 2026-07-30; thêm don-hang 2026-08-11).
 // 4 tab còn lại (yeu-cau · vung-bien · du-lieu · he-thong) ADMIN-ONLY CỨNG —
@@ -167,6 +168,15 @@ export function isMissingColumnError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
   const code = (err as { code?: unknown }).code;
   return code === "42703" || code === "PGRST204";
+}
+
+/** BẢNG chưa có (migration chưa apply) — cùng tinh thần `isMissingColumnError`:
+ *  CHỈ `42P01` (Postgres) / `PGRST205` (PostgREST không thấy bảng). Mã khác
+ *  ⇒ "chưa biết" ⇒ caller trả 503, không đoán. */
+export function isMissingTableError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = (err as { code?: unknown }).code;
+  return code === "42P01" || code === "PGRST205";
 }
 
 /**

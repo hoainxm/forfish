@@ -7,7 +7,7 @@
 --
 -- LƯU Ý: migration này CHỈ lập HỒ SƠ (customers row). ĐĂNG NHẬP (auth.users) phải
 -- provision RIÊNG: admin hiện tại vào /quan-tri → "Tạo tài khoản" → chọn
--- "Admin — toàn quyền", SĐT 0900000001, mật khẩu tạm sd123456 (app bắt đổi lần
+-- "Admin — toàn quyền", SĐT 0900000001, mật khẩu tạm do admin tự đặt (app bắt đổi lần
 -- đầu). Form upsert lại đúng row này (idempotent theo phone) + tạo auth user.
 
 insert into public.customers (phone, name, role, updated_at)

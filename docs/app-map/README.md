@@ -51,6 +51,7 @@
 | ops | [ops/state-registry.md](ops/state-registry.md) | Registry CANONICAL state client — mọi key `forfish.*` localStorage (writer/reader/reset), governance single-writer + versioned key |
 | ops | [ops/qa-offline-acceptance.md](ops/qa-offline-acceptance.md) | **Kịch bản nghiệm thu OFFLINE cho đội tester**: 14 ca test theo từng loại máy (iPhone Safari/A2HS · Android Chrome/PWA), cách giả lập sóng "sống mà chết", tiêu chí chặn phát hành |
 | ops | [ops/test-tai-khoan.md](ops/test-tai-khoan.md) | **Tài khoản test một lệnh**: `scripts/test-account.mjs` cấp chuỗi thiết bị / nâng premium tạm / dọn; danh sách khoanh vùng ở `scripts/test-accounts.json`; ca kiểm 401/403/200 chuẩn |
+| ops | [ops/rbac-runbook.md](ops/rbac-runbook.md) | **Tài khoản & phân quyền (RBAC 2026-10-02)**: vai (`staff_accounts`) · loại (real/test/demo/reviewer) · hạng tách ba trục; bảng quyền theo vai; thứ tự deploy → apply 0056 → gỡ admin chung → thu env; xoay khoá đã lộ |
 | ops | [ops/runbook.md](ops/runbook.md) | Runbook vận hành: dev/build/lint, regenerate asset tĩnh, deploy Vercel/PWA, health-check doc, escalation 🔴 |
 | — | [../contracts/sdwork-assets.contract.md](../contracts/sdwork-assets.contract.md) | Contract shape đồ đã mua giữa CRM SDViCo (producer) ↔ ForFish (consumer), versioned |
 | — | [../adr/README.md](../adr/README.md) | ADR — log quyết định kiến trúc (vì sao chọn X), đánh số bất biến |

@@ -80,3 +80,15 @@ export const CREW_REPORT_DETAIL_MAX = 500;
 export function cleanReportDetail(raw: string | null | undefined): string {
   return (raw ?? "").trim().slice(0, CREW_REPORT_DETAIL_MAX);
 }
+
+/**
+ * Che bớt định danh cho QUẢN LÝ ở /quan-tri (RBAC 2026-10-02): CCCD/SĐT thô
+ * chỉ admin thấy đủ. Giữ `keep` ký tự cuối để vẫn đối chiếu được với giấy tờ
+ * chủ tàu đưa ("CCCD đuôi 1234"). null/rỗng giữ nguyên.
+ */
+export function maskTail(v: string | null | undefined, keep = 4): string | null {
+  if (!v) return v ?? null;
+  const s = String(v);
+  if (s.length <= keep) return "•".repeat(s.length);
+  return "•".repeat(s.length - keep) + s.slice(-keep);
+}

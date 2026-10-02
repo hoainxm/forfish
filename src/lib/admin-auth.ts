@@ -2,11 +2,12 @@ import "server-only";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { phoneFromAuthEmail } from "@/lib/phone";
 import { tokenIdentity } from "@/lib/device-token-server";
-import { isAdminPhone, parseAdminPhones } from "@/lib/admin";
+import type { StaffScope } from "@/lib/admin";
+import { loadActor } from "@/lib/staff-store";
 import {
   can,
-  isMissingColumnError,
   normalizePermissions,
   type ManagerTab,
   type PermAction,
@@ -18,19 +19,24 @@ export type StaffRole = "admin" | "manager";
 /** Ai đang thao tác /api/admin/*. admin bỏ qua bảng quyền (permissions=null,
  *  toàn quyền); manager mang bảng quyền đã chuẩn hoá (5 tab × 4 cờ). */
 export type StaffContext =
-  | { ok: true; phone: string; role: "admin"; permissions: null }
-  | { ok: true; phone: string; role: "manager"; permissions: StaffPermissions }
+  | { ok: true; phone: string; role: "admin"; permissions: null; scope: StaffScope }
+  | {
+      ok: true;
+      phone: string;
+      role: "manager";
+      permissions: StaffPermissions;
+      /** own = khách mình cấp · all_premium = đại lý tổng */
+      scope: StaffScope;
+    }
   | { ok: false; status: number; code: string };
 
 /**
- * Kiểm quyền STAFF cho route /api/admin/* — hai vai (2026-07-30 phân quyền):
- * · admin   — SĐT trong env ADMIN_PHONES **HOẶC** customers.role='admin'
- *             (2026-07-31, user chốt): toàn quyền (permissions=null). Nguồn DB
- *             để thêm/bớt quản trị viên ngay trên web không cần deploy; env
- *             giữ lại làm CỬA CỨU HỘ (web không hạ được admin từ env).
- * · manager — customers.role='manager' + customers.staff_permissions
- *             (migration staff_permissions): quyền theo TAB × HÀNH ĐỘNG. Chưa
- *             apply (cột chưa có) → dùng preset mặc định để quản lý vẫn làm việc.
+ * Kiểm quyền STAFF cho route /api/admin/* — hai vai:
+ * · admin   — env ADMIN_PHONES (CỬA CỨU HỘ, web không hạ được) HOẶC hàng
+ *             staff_accounts role='admin' (0056; trước khi apply: customers.role)
+ *             → toàn quyền (permissions=null).
+ * · manager — staff_accounts role='manager' + permissions/scope: quyền theo
+ *             TAB × HÀNH ĐỘNG, tầm nhìn own | all_premium.
  * Chưa cấu hình Supabase (demo mode) → không có staff.
  */
 export async function requireStaff(): Promise<StaffContext> {
@@ -56,64 +62,31 @@ export async function requireStaff(): Promise<StaffContext> {
     // chưa gửi chuỗi / chuỗi bị thu hồi → thử phiên Supabase cũ (đường lùi)
     const { data } = await supabase.auth.getUser();
     const email = data?.user?.email;
-    if (email) phone = email.split("@")[0];
+    phone = phoneFromAuthEmail(email);
   }
   if (!phone) return { ok: false, status: 401, code: "login_required" };
 
-  if (isAdminPhone(phone, parseAdminPhones(process.env.ADMIN_PHONES))) {
-    return { ok: true, phone, role: "admin", permissions: null };
-  }
-
-  // staff nằm trong DB — tra bằng service-role (chỉ đọc đúng hàng của SĐT
-  // đang đăng nhập, không lộ gì thêm)
+  /*  VAI tra ở MỘT chỗ (lib/staff-store loadActor — RBAC 2026-10-02): env
+      ADMIN_PHONES (cứu hộ) → bảng staff_accounts (0056) → đường lùi
+      customers.role khi 0056 chưa apply. Tài khoản test/demo/reviewer KHÔNG
+      BAO GIỜ là staff. DB không tra được → 503 (không đoán, không đá oan).
+      Bảng quyền hỏng/thiếu cột → normalizePermissions fail-closed như cũ. */
   const admin = createAdminClient();
   if (!admin) return { ok: false, status: 503, code: "not_configured" };
-  try {
-    const { data: row, error } = await admin
-      .from("customers")
-      .select("role")
-      .eq("phone", phone)
-      .maybeSingle();
-    // QUẢN TRỊ VIÊN nguồn DB — toàn quyền y như admin env, KHÔNG tra bảng quyền
-    if (!error && row?.role === "admin") {
-      return { ok: true, phone, role: "admin", permissions: null };
-    }
-    if (!error && row?.role === "manager") {
-      /*  Bảng quyền tra RIÊNG: 0017 chưa apply (cột chưa có) thì KHÔNG được coi
-          quản lý là "không phải staff" — vẫn cho vào với preset mặc định.
-
-          ⚠️ NHƯNG CHỈ CA ĐÓ (sửa 2026-08-16, thẩm định P1). Bản cũ nuốt MỌI
-          lỗi vào cùng một nhánh preset, nên Postgres nghẹt / schema cache hỏng
-          cũng cấp `view+create+edit` trên cả 6 tab cho một người mà máy chủ
-          vừa không tra nổi quyền. Cấp quyền vì hạ tầng hỏng là fail-open —
-          đúng thứ `can()` được viết ra để chặn. Nay: cột chưa có → preset (chủ
-          ý cũ, giữ nguyên); lỗi khác → 503, để màn quản trị báo "chưa tra được"
-          và người ta thử lại, thay vì lặng lẽ làm việc với quyền không ai cấp. */
-      let permissions: StaffPermissions;
-      try {
-        const { data: p, error: pErr } = await admin
-          .from("customers")
-          .select("staff_permissions")
-          .eq("phone", phone)
-          .maybeSingle();
-        if (pErr && !isMissingColumnError(pErr)) {
-          console.error("[admin-auth] tra bảng quyền HỎNG:", pErr.code, pErr.message);
-          return { ok: false, status: 503, code: "unavailable" };
-        }
-        permissions = normalizePermissions(
-          (p as { staff_permissions?: unknown } | null)?.staff_permissions,
-        );
-      } catch (e) {
-        // Ném thật (mạng/driver) — cũng là "chưa biết", không phải "cột chưa có"
-        if (!isMissingColumnError(e)) {
-          return { ok: false, status: 503, code: "unavailable" };
-        }
-        permissions = normalizePermissions(null);
-      }
-      return { ok: true, phone, role: "manager", permissions };
-    }
-  } catch {
-    /* cột role chưa có (migration 0004 chưa apply) → không phải manager */
+  const r = await loadActor(admin, phone);
+  if (!r.ok) return { ok: false, status: 503, code: "unavailable" };
+  const a = r.actor;
+  if (a.role === "admin") {
+    return { ok: true, phone, role: "admin", permissions: null, scope: "all_premium" };
+  }
+  if (a.role === "manager") {
+    return {
+      ok: true,
+      phone,
+      role: "manager",
+      permissions: a.permissions ?? normalizePermissions(null),
+      scope: a.scope,
+    };
   }
   return { ok: false, status: 403, code: "staff_only" };
 }
@@ -121,13 +94,14 @@ export async function requireStaff(): Promise<StaffContext> {
 /** Giữ cho chỗ chỉ chấp nhận ADMIN (hạ hạng/đặt-lại-mật-khẩu/tạo quản lý/xoá
  *  cấu hình/4 tab admin-only cứng). */
 export async function requireAdmin(): Promise<
-  { ok: true; phone: string } | { ok: false; status: number; code: string }
+  | { ok: true; phone: string; role: "admin"; scope: StaffScope }
+  | { ok: false; status: number; code: string }
 > {
   const who = await requireStaff();
   if (!who.ok) return who;
   if (who.role !== "admin")
     return { ok: false, status: 403, code: "admin_only" };
-  return { ok: true, phone: who.phone };
+  return { ok: true, phone: who.phone, role: "admin", scope: who.scope };
 }
 
 /**
@@ -139,13 +113,14 @@ export async function requirePermission(
   tab: ManagerTab,
   action: PermAction,
 ): Promise<
-  | { ok: true; phone: string; role: StaffRole }
+  | { ok: true; phone: string; role: StaffRole; scope: StaffScope }
   | { ok: false; status: number; code: string }
 > {
   const who = await requireStaff();
   if (!who.ok) return who;
-  if (who.role === "admin") return { ok: true, phone: who.phone, role: "admin" };
+  if (who.role === "admin")
+    return { ok: true, phone: who.phone, role: "admin", scope: who.scope };
   if (!can(who.permissions, tab, action))
     return { ok: false, status: 403, code: "no_permission" };
-  return { ok: true, phone: who.phone, role: "manager" };
+  return { ok: true, phone: who.phone, role: "manager", scope: who.scope };
 }

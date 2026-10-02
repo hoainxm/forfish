@@ -1,8 +1,13 @@
-// GET /api/crew-reports/lookup?cccd=…&phone=… — chủ tàu PREMIUM tra cảnh báo
+// POST /api/crew-reports/lookup {cccd?, phone?} — chủ tàu PREMIUM tra cảnh báo
 // theo CCCD HOẶC SĐT (1 trong 2 đủ; có cả hai thì khớp bên nào cũng ra). Chỉ
 // trả report ĐÃ DUYỆT (status='approved'); KHÔNG lộ SĐT người báo (giảm trả
 // thù/vu khống). Đọc bằng service-role qua khoá HASH (bảng RLS không policy
 // client, migration 0007 + 0009).
+//
+// POST thay GET (RBAC 2026-10-02): CCCD là định danh nhạy cảm — nằm trên URL
+// là nằm trong log truy cập Vercel/CDN, lịch sử trình duyệt, header Referer.
+// GET giữ lại MỘT nhịp phát hành cho bản app đã cài chưa cập nhật (bà con
+// ngoài biển cập nhật chậm) — nợ: gỡ GET, khi bản có POST đã phủ ≥ 60 ngày.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePremiumUser } from "@/lib/premium-guard";
@@ -14,13 +19,27 @@ import type { CrewReportPublic } from "@/lib/crew-report";
 const err = (status: number, code: string) =>
   NextResponse.json({ ok: false, code }, { status });
 
+export async function POST(req: Request) {
+  const body = (await req.json().catch(() => null)) as {
+    cccd?: unknown;
+    phone?: unknown;
+  } | null;
+  return lookup(
+    req,
+    typeof body?.cccd === "string" ? body.cccd : "",
+    typeof body?.phone === "string" ? body.phone : "",
+  );
+}
+
+/** Đường cũ — bản app đã cài trước 2026-10-02. Xem ghi chú đầu file. */
 export async function GET(req: Request) {
+  const url = new URL(req.url);
+  return lookup(req, url.searchParams.get("cccd") ?? "", url.searchParams.get("phone") ?? "");
+}
+
+async function lookup(req: Request, cccd: string, phone: string) {
   const who = await requirePremiumUser(req);
   if (!who.ok) return err(who.status, who.code);
-
-  const url = new URL(req.url);
-  const cccd = url.searchParams.get("cccd") ?? "";
-  const phone = url.searchParams.get("phone") ?? "";
 
   // gom khoá hash của các định danh HỢP LỆ được gửi lên (CCCD và/hoặc SĐT)
   const orConds: string[] = [];
