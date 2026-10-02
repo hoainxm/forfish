@@ -1851,6 +1851,9 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
       ok?: boolean;
       code?: string;
       provisioned?: boolean;
+      existed?: boolean;
+      role?: string;
+      keptRole?: boolean;
     } | null;
     if (!r?.ok || !j?.ok) {
       setMsg(
@@ -1863,7 +1866,9 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
       return;
     }
     setMsg(
-      j.provisioned
+      j.existed
+        ? `Số ${phone} đã có tài khoản từ trước — mật khẩu cũ giữ nguyên${activatePremium ? ", đã kích hoạt Premium" : ""}.${j.keptRole ? ` Giữ nguyên vai ${j.role === "admin" ? "quản trị viên" : "quản lý"} (muốn hạ vai thì dùng tab Phân quyền).` : ""}`
+        : j.provisioned
         ? "Tạo thành công. Vui lòng báo khách đăng nhập bằng SĐT và mật khẩu tạm (app sẽ yêu cầu đổi mật khẩu ở lần đầu tiên)."
         : "Đã lưu thông tin nhưng lỗi quá trình tạo tài khoản đăng nhập. Vui lòng kiểm tra lại.",
     );
@@ -5563,6 +5568,9 @@ function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
       ok?: boolean;
       code?: string;
       provisioned?: boolean;
+      existed?: boolean;
+      role?: string;
+      keptRole?: boolean;
     } | null;
     if (!r?.ok || !j?.ok) {
       setMsg(
@@ -5577,7 +5585,9 @@ function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
       return;
     }
     setMsg(
-      j.provisioned
+      j.existed
+        ? `Số ${phone} đã có tài khoản từ trước — mật khẩu cũ giữ nguyên. Vai hiện tại: ${j.role === "admin" ? "quản trị viên" : "quản lý"}${j.keptRole ? " (giữ vai cao hơn; muốn hạ thì dùng nút Hạ bên dưới)" : ""}.`
+        : j.provisioned
         ? `Đã tạo tài khoản ${role === "admin" ? "quản trị viên" : "quản lý"} cho số ${phone}. Vui lòng báo nhân sự đăng nhập bằng SĐT và mật khẩu tạm (ứng dụng sẽ yêu cầu đổi mật khẩu ở lần đầu tiên).`
         : "Đã lưu thông tin nhưng lỗi quá trình tạo tài khoản đăng nhập. Vui lòng kiểm tra lại.",
     );

@@ -125,3 +125,26 @@ export function checkSetRole(args: {
     dbAdminPhones: args.dbAdminPhones,
   });
 }
+
+const ROLE_RANK = { customer: 0, manager: 1, admin: 2 } as const;
+export type AccountRole = keyof typeof ROLE_RANK;
+
+/**
+ * Vai SAU KHI "tạo tài khoản" (`POST /api/admin/accounts`) trên một SĐT có thể
+ * ĐÃ có hàng `customers`. Tạo CHỈ được NÂNG, không bao giờ HẠ: lấy vai cao hơn
+ * giữa vai hiện có và vai yêu cầu. Hạ vai phải đi `set-role` (qua 3 chốt
+ * checkDemoteAdmin + ghi nhật ký) — án lệ 2026-09-30: form tạo KHÁCH cấp premium
+ * cho một SĐT đã có tài khoản và lặng lẽ ghi đè `role` thành 'customer'.
+ * Vai lạ trong DB coi như 'customer' (không cho nó thắng).
+ */
+export function roleAfterCreate(
+  existingRole: string | null | undefined,
+  requested: AccountRole,
+): AccountRole {
+  const cur =
+    existingRole &&
+    Object.prototype.hasOwnProperty.call(ROLE_RANK, existingRole)
+      ? (existingRole as AccountRole)
+      : "customer";
+  return ROLE_RANK[cur] > ROLE_RANK[requested] ? cur : requested;
+}

@@ -6,6 +6,7 @@ import {
   isMasterAgentPhone,
   mergeAdmins,
   parseAdminPhones,
+  roleAfterCreate,
 } from "@/lib/admin";
 
 describe("parseAdminPhones", () => {
@@ -195,5 +196,27 @@ describe("checkSetRole — nâng thoáng, hạ chặt", () => {
         dbAdminPhones: ["0912345678"],
       }),
     ).toBe("env_admin");
+  });
+});
+
+describe("roleAfterCreate — tạo chỉ NÂNG vai, không HẠ", () => {
+  it("SĐT mới (chưa có hàng) → đúng vai yêu cầu", () => {
+    expect(roleAfterCreate(null, "customer")).toBe("customer");
+    expect(roleAfterCreate(undefined, "admin")).toBe("admin");
+  });
+  it("án lệ 2026-09-30: form tạo KHÁCH trên SĐT đang là admin/quản lý → giữ vai", () => {
+    expect(roleAfterCreate("admin", "customer")).toBe("admin");
+    expect(roleAfterCreate("manager", "customer")).toBe("manager");
+  });
+  it("tạo QUẢN LÝ trên SĐT đang là admin → vẫn admin (hạ phải qua set-role)", () => {
+    expect(roleAfterCreate("admin", "manager")).toBe("admin");
+  });
+  it("NÂNG thì được", () => {
+    expect(roleAfterCreate("customer", "manager")).toBe("manager");
+    expect(roleAfterCreate("manager", "admin")).toBe("admin");
+  });
+  it("vai lạ trong DB không thắng", () => {
+    expect(roleAfterCreate("superuser", "customer")).toBe("customer");
+    expect(roleAfterCreate("constructor", "customer")).toBe("customer");
   });
 });

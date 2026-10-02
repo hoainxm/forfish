@@ -11,3 +11,5 @@
 2026-09-28 | architecture,data | CLAUDE.md,docs/app-map/02-architecture.md,docs/app-map/01-product.md,docs/app-map/ops/external-services.md
 2026-09-28 | architecture,ops | CLAUDE.md,docs/app-map/02-architecture.md
 2026-09-29 | ops,architecture | CLAUDE.md,docs/app-map/02-architecture.md,docs/app-map/ops/native-deploy.md
+2026-09-30 | data,product,auth | CLAUDE.md,docs/app-map/04-data-model.md,docs/app-map/01-product.md,docs/app-map/05-agents-team.md
+2026-10-02 | data,product | CLAUDE.md,docs/app-map/04-data-model.md,docs/app-map/02-architecture.md,docs/app-map/ops/external-services.md,docs/contracts/sdwork-assets.contract.md

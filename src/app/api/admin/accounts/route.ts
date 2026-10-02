@@ -16,7 +16,12 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requirePermission, requireStaff } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
-import { isAdminPhone, isMasterAgentPhone, parseAdminPhones } from "@/lib/admin";
+import {
+  isAdminPhone,
+  isMasterAgentPhone,
+  parseAdminPhones,
+  roleAfterCreate,
+} from "@/lib/admin";
 import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
 import { TEMP_RESET_PASSWORD } from "@/lib/temp-password";
 import { normalizePassword, PASSWORD_MIN_LENGTH } from "@/lib/password";
@@ -398,11 +403,24 @@ export async function POST(req: Request) {
     ? nextPremiumUntil(null, Date.now(), body.termMonths)
     : null;
 
+  // SĐT có thể ĐÃ có tài khoản: tạo chỉ được NÂNG vai, không HẠ (roleAfterCreate),
+  // và bỏ trống tên thì giữ tên cũ. Đọc hỏng → dừng, không ghi mù đè vai.
+  const { data: existing, error: exErr } = await admin
+    .from("customers")
+    .select("role")
+    .eq("phone", phone)
+    .maybeSingle();
+  if (exErr) return err(500, "lookup_failed");
+  const existed = Boolean(existing);
+  const prevRole = (existing as { role?: string } | null)?.role ?? null;
+  const finalRole = roleAfterCreate(prevRole, role);
+  const name = body.name?.trim();
+
   const { error: upErr } = await admin.from("customers").upsert(
     {
       phone,
-      name: body.name?.trim() || null,
-      role,
+      ...(name || !existed ? { name: name || null } : {}),
+      role: finalRole,
       ...(activate
         ? { tier: "premium", premium_until: until, premium_activated_at: now }
         : {}),
@@ -435,7 +453,7 @@ export async function POST(req: Request) {
     actor: who.phone,
     action: "create_account",
     target: phone,
-    detail: `role=${role}${activate ? " +premium" : ""}`,
+    detail: `role=${finalRole}${finalRole !== role ? ` (giữ, yêu cầu ${role})` : ""}${activate ? " +premium" : ""}`,
   });
   await logActivity(admin, {
     actorPhone: who.phone,
@@ -443,9 +461,17 @@ export async function POST(req: Request) {
     actorRole: (who as { role?: "admin" | "manager" }).role ?? "admin",
     action: "account.create",
     target: phone,
-    detail: { role, activatePremium: activate },
+    detail: { role: finalRole, requestedRole: role, existed, activatePremium: activate },
   });
-  return NextResponse.json({ ok: true, phone, provisioned, logged });
+  return NextResponse.json({
+    ok: true,
+    phone,
+    provisioned,
+    logged,
+    existed,
+    role: finalRole,
+    keptRole: finalRole !== role,
+  });
 }
 
 export async function PATCH(req: Request) {
