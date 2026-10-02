@@ -18,6 +18,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { apiUrl } from "@/lib/api-base";
+import { AdminNav, AdminSkeleton } from "@/components/admin/admin-nav";
+import {
+  ADMIN_TAB_LABEL,
+  ALL_ADMIN_TABS,
+  groupVisibleTabs,
+  tabFromHash,
+  type AdminTab,
+} from "@/lib/admin-nav";
 import {
   countPoints,
   parseUploadedGeoJSON,
@@ -102,19 +110,7 @@ import {
 } from "@/lib/product-catalog";
 import { validateConfigValue, type ConfigKey } from "@/lib/app-config-keys";
 
-type Tab =
-  | "tai-khoan"
-  | "canh-bao"
-  | "san-pham"
-  | "don-hang"
-  | "yeu-cau"
-  | "vung-bien"
-  | "cho-ban"
-  | "thong-bao"
-  | "du-lieu"
-  | "he-thong"
-  | "phan-quyen"
-  | "nhat-ky";
+type Tab = AdminTab;
 
 /** Vai trò staff — admin (env) toàn quyền; quản lý (DB) theo bảng phân quyền */
 type StaffRole = "admin" | "manager";
@@ -252,6 +248,18 @@ const fold = (s: string): string =>
 export default function QuanTriPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("tai-khoan");
+  // Tab nằm trên #hash: tải lại / gửi link vẫn mở đúng khu (đọc sau mount —
+  // SSR không có window).
+  useEffect(() => {
+    const fromHash = tabFromHash(window.location.hash);
+    if (fromHash) setTab(fromHash);
+  }, []);
+  const selectTab = useCallback((next: Tab) => {
+    setTab(next);
+    window.history.replaceState(null, "", `#${next}`);
+    // đổi khu thì về đầu nội dung — đỡ rơi giữa danh sách dài của tab trước
+    window.scrollTo({ top: 0 });
+  }, []);
   const [health, setHealth] = useState<Health | null>(null);
   const [healthErr, setHealthErr] = useState<number | null>(null);
 
@@ -323,8 +331,22 @@ export default function QuanTriPage() {
   }
   if (!health) {
     return (
-      <div className="mx-auto max-w-[640px] px-4 py-16 text-center text-[1.0625rem] text-foreground/65">
-        Đang kiểm tra quyền quản trị…
+      <div className="mx-auto max-w-[1200px] px-4 pb-16 pt-6 md:px-8">
+        <div className="flex items-center gap-3" aria-hidden>
+          <div className="h-11 w-11 animate-pulse rounded-xl bg-field" />
+          <div className="space-y-2">
+            <div className="h-5 w-40 animate-pulse rounded-md bg-field" />
+            <div className="h-3.5 w-28 animate-pulse rounded-md bg-field" />
+          </div>
+        </div>
+        <div className="mt-6 md:grid md:grid-cols-[13.5rem_minmax(0,1fr)] md:gap-8">
+          <div className="hidden space-y-2 md:block" aria-hidden>
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="h-11 animate-pulse rounded-xl bg-field" />
+            ))}
+          </div>
+          <AdminSkeleton label="Đang kiểm tra quyền quản trị…" rows={4} />
+        </div>
       </div>
     );
   }
@@ -336,33 +358,19 @@ export default function QuanTriPage() {
   };
   const isAdmin = me.role === "admin";
 
-  // TAB được thấy: admin = 9 tab nghiệp vụ + Phân quyền; quản lý = chỉ các tab
-  // có cờ view trong bảng quyền (4 tab admin-only cứng không bao giờ hiện).
-  const tabs: [Tab, string][] = isAdmin
-    ? [
-        ["tai-khoan", "Tài khoản"],
-        ["canh-bao", "Thuyền viên"],
-        ["san-pham", "Sản phẩm"],
-        ["don-hang", "Đơn hàng"],
-        ["yeu-cau", "Yêu cầu hỗ trợ"],
-        ["vung-bien", "Vùng biển"],
-        ["cho-ban", "Điểm thu mua"],
-        ["thong-bao", "Thông báo"],
-        ["du-lieu", "Dữ liệu hệ thống"],
-        ["he-thong", "Cấu hình hệ thống"],
-        ["phan-quyen", "Phân quyền"],
-        ["nhat-ky", "Nhật ký hoạt động"],
-      ]
-    : visibleTabs(me.permissions).map((t) => [t, TAB_LABEL[t]] as [Tab, string]);
+  // TAB được thấy: admin = đủ; quản lý = chỉ các tab có cờ view trong bảng
+  // quyền (tab admin-only cứng không bao giờ hiện). Rồi XẾP vào nhóm.
+  const visible: Tab[] = isAdmin ? ALL_ADMIN_TABS : visibleTabs(me.permissions);
+  const groups = groupVisibleTabs(visible);
 
   // Tab đang chọn không nằm trong danh sách được phép → về tab đầu (quản lý bị
-  // thu quyền giữa chừng vẫn không kẹt ở tab trống).
-  const activeTab = tabs.some(([id]) => id === tab) ? tab : (tabs[0]?.[0] ?? tab);
+  // thu quyền giữa chừng / hash lạ vẫn không kẹt ở tab trống).
+  const activeTab = visible.includes(tab) ? tab : (visible[0] ?? tab);
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 pb-16 pt-6 md:px-8">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+    <div className="mx-auto max-w-[1200px] px-4 pb-16 pt-6 md:px-8">
+      <header className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           {/* Logo CHUNG với app ngư dân (bộ icon PWA sinh từ image/logo sdfish.png) */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -372,11 +380,11 @@ export default function QuanTriPage() {
             height={44}
             className="h-11 w-11 shrink-0 rounded-xl border border-line"
           />
-          <div>
+          <div className="min-w-0">
             <h1 className="display text-[1.5rem] font-bold leading-tight text-navy md:text-[1.75rem]">
               SDFish Quản trị
             </h1>
-            <p className="mt-0.5 text-[0.9375rem] text-foreground/65">
+            <p className="mt-0.5 truncate text-[0.9375rem] text-foreground/65">
               {isAdmin
                 ? "Quản trị viên · toàn quyền"
                 : `Quản lý · ${me.phone}`}
@@ -386,37 +394,23 @@ export default function QuanTriPage() {
         <button
           type="button"
           onClick={logout}
-          className="min-h-[2.5rem] shrink-0 rounded-xl bg-field px-4 text-[0.875rem] font-bold text-navy"
+          className="min-h-[2.75rem] shrink-0 rounded-xl bg-field px-4 text-[0.875rem] font-bold text-navy transition-transform active:scale-[0.98]"
         >
           Đăng xuất
         </button>
-      </div>
+      </header>
 
-      {/* Thanh tab cuộn ngang (pattern ui/tabs.tsx) — nhãn 1 dòng (nowrap).
-          Danh sách `tabs` đã tính theo vai (admin thấy đủ, quản lý theo bảng
-          phân quyền) ở trên. */}
-      <div
-        className="mt-4 flex gap-1.5 overflow-x-auto border-b border-line pb-2"
-        role="tablist"
-      >
-        {tabs.map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === id}
-            onClick={() => setTab(id)}
-            className={`min-h-[2.75rem] shrink-0 whitespace-nowrap rounded-xl px-4 text-[0.9375rem] font-bold transition ${
-              activeTab === id
-                ? "bg-navy text-white shadow-sm"
-                : "bg-field text-foreground/70"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* Điều hướng theo NHÓM (lib/admin-nav): cột trái trên desktop, thanh
+          dính đầu màn trên mobile. Danh sách tab đã lọc theo vai ở trên. */}
+      <div className="mt-4 md:mt-6 md:grid md:grid-cols-[13.5rem_minmax(0,1fr)] md:gap-8">
+        <AdminNav groups={groups} active={activeTab} onSelect={selectTab} />
 
+        {/* key = tab ⇒ mỗi lần đổi khu, nội dung mới hiện mờ dần (motion điềm
+            đạm có sẵn, tự tắt khi máy bật giảm chuyển động). */}
+        <section key={activeTab} className="anim-fade-in min-w-0" role="tabpanel">
+          <h2 className="mt-4 hidden text-[1.25rem] font-bold text-navy md:mt-0 md:block">
+            {ADMIN_TAB_LABEL[activeTab]}
+          </h2>
       {activeTab === "tai-khoan" && <AccountsTab me={me} />}
       {activeTab === "canh-bao" && (
         <CrewReportsTab perms={permsFor(me, "canh-bao")} />
@@ -439,6 +433,8 @@ export default function QuanTriPage() {
       {activeTab === "he-thong" && isAdmin && <SystemTab health={health} />}
       {activeTab === "phan-quyen" && isAdmin && <PermissionsTab />}
       {activeTab === "nhat-ky" && isAdmin && <ActivityLogTab />}
+        </section>
+      </div>
     </div>
   );
 }
@@ -1074,9 +1070,7 @@ function AccountsTab({ me }: { me: Me }) {
         </div>
       )}
       {!accounts && !error && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
-          Đang tải danh sách tài khoản…
-        </p>
+        <AdminSkeleton label="Đang tải danh sách tài khoản…" />
       )}
       {accounts && accounts.length === 0 && (
         <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
@@ -1888,7 +1882,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between text-[1rem] font-bold text-navy"
+        className="flex min-h-[2.75rem] w-full items-center justify-between gap-3 text-left text-[1rem] font-bold text-navy"
         aria-expanded={open}
       >
         Tạo tài khoản khách
@@ -1897,7 +1891,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
       {open && (
         <form
           onSubmit={submit}
-          className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4"
+          className="anim-fade-in mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4"
         >
           <input
             required
@@ -2101,9 +2095,7 @@ function CrewReportsTab({ perms }: { perms: TabPerms }) {
         </div>
       )}
       {!rows && !error && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
-          Đang tải…
-        </p>
+        <AdminSkeleton label="Đang tải…" />
       )}
       {rows && rows.length === 0 && (
         <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
@@ -2394,14 +2386,14 @@ function AddCrewReportForm({ onAdded }: { onAdded: () => void }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between text-[1rem] font-bold text-navy"
+        className="flex min-h-[2.75rem] w-full items-center justify-between gap-3 text-left text-[1rem] font-bold text-navy"
         aria-expanded={open}
       >
         Thêm thuyền viên có vấn đề (duyệt luôn)
         <span aria-hidden>{open ? "−" : "+"}</span>
       </button>
       {open && (
-        <form onSubmit={submit} className="mt-3 space-y-2.5">
+        <form onSubmit={submit} className="anim-fade-in mt-3 space-y-2.5">
           <div className="grid gap-2.5 sm:grid-cols-2">
             <input
               inputMode="numeric"
@@ -2592,9 +2584,7 @@ function ProductsTab({ perms }: { perms: TabPerms }) {
         </div>
       )}
       {!rows && !error && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
-          Đang tải danh mục…
-        </p>
+        <AdminSkeleton label="Đang tải danh mục…" />
       )}
       {rows && rows.length === 0 && (
         <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
@@ -3242,9 +3232,7 @@ function OrdersTab({ perms }: { perms: TabPerms }) {
         </div>
       )}
       {!orders && !error && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
-          Đang tải đơn hàng…
-        </p>
+        <AdminSkeleton label="Đang tải đơn hàng…" />
       )}
       {orders && orders.length === 0 && (
         <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
@@ -4039,7 +4027,9 @@ function SellContactsTab({ perms }: { perms: TabPerms }) {
       </div>
 
       {contacts === null && !error && (
-        <p className="mt-4 text-[0.9375rem] text-foreground/60">Đang tải thông tin…</p>
+        <div className="mt-3">
+          <AdminSkeleton label="Đang tải thông tin…" rows={2} />
+        </div>
       )}
       {contacts?.length === 0 && (
         <p className="mt-4 rounded-xl bg-field px-3 py-3 text-[0.9375rem] text-foreground/60">
@@ -4403,9 +4393,7 @@ function InquiriesTab() {
         </div>
       )}
       {!rows && !error && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
-          Đang tải…
-        </p>
+        <AdminSkeleton label="Đang tải…" />
       )}
       {rows && rows.length === 0 && (
         <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
@@ -5315,7 +5303,9 @@ function AppConfigCard() {
         <p className="mt-2 text-[0.875rem] font-semibold text-danger">{error}</p>
       )}
       {rows === null && !error && (
-        <p className="mt-2 text-[0.875rem] text-foreground/60">Đang tải thông tin…</p>
+        <div className="mt-3">
+          <AdminSkeleton label="Đang tải thông tin…" rows={2} />
+        </div>
       )}
       <div className="mt-3 space-y-3">
         {rows?.map((row) => {
@@ -5616,7 +5606,7 @@ function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between text-[1rem] font-bold text-navy"
+        className="flex min-h-[2.75rem] w-full items-center justify-between gap-3 text-left text-[1rem] font-bold text-navy"
         aria-expanded={open}
       >
         Tạo tài khoản nhân sự (quản lý / quản trị viên)
@@ -5625,7 +5615,7 @@ function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
       {open && (
         <form
           onSubmit={submit}
-          className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
+          className="anim-fade-in mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
         >
           <input
             required
@@ -5940,14 +5930,13 @@ function PermissionsTab() {
         </div>
       )}
       {!managers && !error && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
-          Đang tải danh sách quản lý…
-        </p>
+        <AdminSkeleton label="Đang tải danh sách quản lý…" />
       )}
       {managers && managers.length === 0 && (
         <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
-          Chưa có tài khoản quản lý nào. Tạo ở tab <b>Bảng tài khoản</b> (chọn loại
-          &ldquo;Quản lý&rdquo;), rồi quay lại đây phân quyền.
+          Chưa có tài khoản quản lý nào. Tạo bằng mục{" "}
+          <b>Tạo tài khoản nhân sự</b> ở trên (chọn &ldquo;Quản lý&rdquo;), rồi
+          phân quyền ngay tại đây.
         </p>
       )}
 
@@ -6289,9 +6278,7 @@ function ActivityLogTab() {
         </div>
       )}
       {!events && !error && (
-        <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">
-          Đang tải nhật ký…
-        </p>
+        <AdminSkeleton label="Đang tải nhật ký…" />
       )}
       {events && events.length === 0 && !error && (
         <p className="surface px-4 py-8 text-center text-[1rem] text-foreground/65">

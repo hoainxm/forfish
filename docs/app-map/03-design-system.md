@@ -5,10 +5,11 @@
 **Load khi / Load when**: sửa UI, màu sắc, typography, copy, trạng thái (status), hoặc thêm component mới.
 
 covers: src/app/globals.css
-last_verified: 2026-09-24
+last_verified: 2026-10-02
 ttl_days: 90
 <!-- DOC-STATUS: SUSPECT (2026-09-09) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
+<!-- re-verified: 2026-10-02 12:00 — ĐỐI CHIẾU globals.css: `.anim-fade-in` (sdf-scrim-in 180ms ease-out) + block prefers-reduced-motion (animation-duration 0.01ms, iteration 1) còn khớp. PATTERN MỚI chỉ cho /quan-tri (không đụng app ngư dân, không thêm token/keyframe): `AdminSkeleton` (components/admin/admin-nav.tsx) = câu "Đang tải…" + thẻ `.surface` chứa thanh `bg-field animate-pulse` — khung xương đúng dáng danh sách thay chữ trơ trọi; `AdminNav` = điều hướng nhóm (cột trái desktop / thanh dính mobile), nút tab `transition-[background-color,color,box-shadow,transform] duration-200` + `active:scale-[0.98]`. -->
 <!-- re-verified: 2026-09-24 16:00 — ĐỐI CHIẾU globals.css cho fix dock: `.dock-frame`/`.bottom-dock`/`--dock-row`/`--dock-total` còn khớp; `.anim-*` (motion điềm đạm) còn; `.sq-btn:active { scale(0.95) }` + transition color/bg/transform còn (mọi nút hành động đã có press feedback). THÊM `.dock-label` (nhãn dock 1 dòng, cỡ chữ hạ theo bề ngang máy) — xem §"Nhãn ngang hàng" mục 5. Bug đã sửa: "Bạn thuyền"/"Trang chủ"/"Giao dịch" gãy 2 dòng ở ≤399px → icon lệch khỏi pill. -->
 <!-- re-verify(03): dock-label responsive + sq-btn:active + anim-* motion -->
 <!-- re-verified: 2026-09-24 17:00 — audit UI P2: THÊM route-fade `src/app/template.tsx` (verify browser: wrapper `.anim-fade-in` chạy `sdf-scrim-in` 180ms khi đổi route, /ngu-truong bỏ qua, /quan-tri không vỡ). LÀM RÕ hai họ nút (sq-btn vuông tại-chỗ vs pill CTA/auth) — đối chiếu `sdvico-request.tsx` (rounded-full bg-t3 active:scale) + `login-gate.tsx` (rounded-full bg-trim active:scale) + `sq-btn.ts` (.sq-btn:active scale trong globals.css): đều CÓ press feedback, hai họ intentional. -->
