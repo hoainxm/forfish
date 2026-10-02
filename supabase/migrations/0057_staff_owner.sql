@@ -15,6 +15,8 @@
 -- Đổi tên admin tổng = update cột phone của hàng owner (có chủ ý, bằng SQL).
 --
 -- ⚠️ OFFLINE: không ảnh hưởng — chỉ bảng vai quản trị.
+--
+-- ✅ ĐÃ APPLY prod 2026-10-02 (ref znzgugvfhgmiszqgjulk, chủ dự án duyệt).
 
 alter table public.staff_accounts
   drop constraint if exists staff_accounts_role_check;

@@ -16,7 +16,7 @@ ttl_days: 180
 ---
 
 <!-- 0052 (đổi số từ 0038 base khi sync — 0038 đã là data_until_web ở sdvico) — `vms_zones.is_border` -->
-### 0057 — ADMIN TỔNG TRONG DB — migration [`0057_staff_owner.sql`](../../supabase/migrations/0057_staff_owner.sql) (2026-10-02) — ⚠️ **CHƯA APPLY prod**
+### 0057 — ADMIN TỔNG TRONG DB — migration [`0057_staff_owner.sql`](../../supabase/migrations/0057_staff_owner.sql) (2026-10-02) — ✅ **ĐÃ APPLY prod 2026-10-02** (chủ dự án duyệt; soi sau apply: đúng 1 hàng `admin`/`owner` còn hiệu lực)
 
 - `staff_accounts.role` mở thêm `owner` (check `owner|admin|manager`); index unique `staff_accounts_one_owner_idx` trên `(role) where role='owner'` ⇒ **một** admin tổng.
 - Seed hàng `('admin','owner')` — định danh là TÊN đăng nhập, khớp auth user `admin@sdvico.local` (tạo bằng `scripts/owner-account.mjs`; mật khẩu KHÔNG nằm trong migration).
