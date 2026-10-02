@@ -32,7 +32,8 @@ Một cửa đọc: `src/lib/staff-store.ts` (`loadActor`). Luật thuần + tes
 
 Một tài khoản đăng nhập `/quan-tri` bằng **tên** (vd `admin`), không phải SĐT. Đứng trên mọi quản trị viên: **chỉ người này nâng/hạ/tạo/xoá quản trị viên**; web không hạ/xoá được admin tổng. Thay vai "cứu hộ" của env `ADMIN_PHONES`.
 
-- **Không bao giờ `admin/admin`.** Đây là chìa mở mọi cửa và `admin` là tên đầu tiên kẻ dò mật khẩu thử. Script chặn: tối thiểu 12 ký tự, 3/4 loại ký tự, không chứa tên/`admin`/`123456`/`sdvico`.
+- **Không bao giờ `admin/admin`.** Đây là chìa mở mọi cửa và `admin` là tên đầu tiên kẻ dò mật khẩu thử. Script chặn: tối thiểu 12 ký tự, có cả chữ lẫn số (hoặc ≥16 ký tự), không chứa tên đăng nhập/`123456`/`sdvico`, không ký tự có dấu. (Nới 2026-10-02 — bỏ luật 3/4 loại ký tự vì chủ dự án gõ mãi không đạt.)
+- **Gõ mật khẩu**: TẮT bộ gõ tiếng Việt (Telex/Unikey biến `aa`→`â` khi gõ ẩn). Mỗi ký tự hiện một dấu `•`; chưa đạt thì script liệt kê HẾT lý do và cho gõ lại (3 lần). Terminal không phải TTY (khung terminal của một số app) vẫn chạy được nhưng chữ có thể hiện ra — dọn màn hình sau đó.
 - Định danh trong hệ thống là chính cái tên (`device_tokens.customer_phone = 'admin'`, nhật ký `actor_phone = 'admin'`). Không có hồ sơ khách, không dùng app ngư dân. Phiên 12 giờ, nhiều máy.
 - Chưa khai `OWNER_LOGIN` ⇒ không có admin tổng và mọi quản trị viên vẫn nâng/hạ được nhau (luật cũ) — để không tự khoá cửa lúc chuyển đổi.
 
