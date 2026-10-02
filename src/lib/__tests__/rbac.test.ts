@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  authIdentity,
+  checkDemoteAdmin,
   DEMO_TOKEN_TTL_MS,
   isAdminPhone,
+  isOwnerIdentity,
+  normalizeOwnerLogin,
+  OWNER_TOKEN_TTL_MS,
+  ownerEmail,
   managerTargetDenial,
   normalizeAccountKind,
   normalizeStaffScope,
@@ -150,5 +156,50 @@ describe("maskTail — che định danh cho quản lý", () => {
     expect(maskTail("123")).toBe("•••");
     expect(maskTail(null)).toBeNull();
     expect(maskTail("")).toBe("");
+  });
+});
+
+/*  ADMIN TỔNG (chủ dự án chốt 2026-10-02): một tài khoản đăng nhập bằng TÊN,
+    chỉ người này nâng/hạ quản trị viên; thay env ADMIN_PHONES làm cửa cứu hộ. */
+describe("admin tổng — tên đăng nhập + định danh", () => {
+  it("normalizeOwnerLogin: chữ thường 3–32, bắt đầu bằng chữ, KHÔNG là SĐT", () => {
+    expect(normalizeOwnerLogin(" Admin ")).toBe("admin");
+    expect(normalizeOwnerLogin("ad")).toBeNull();
+    expect(normalizeOwnerLogin("1admin")).toBeNull();
+    expect(normalizeOwnerLogin("admin tổng")).toBeNull();
+    expect(normalizeOwnerLogin("0912345678")).toBeNull();
+    expect(normalizeOwnerLogin(undefined)).toBeNull();
+  });
+  it("authIdentity: đúng <owner>@sdvico.local → tên; mọi thứ khác như phoneFromAuthEmail", () => {
+    expect(authIdentity("admin@sdvico.local", "admin")).toBe("admin");
+    expect(authIdentity("ADMIN@SDVICO.LOCAL", "admin")).toBe("admin");
+    // đuôi khác không được giả làm admin tổng
+    expect(authIdentity("admin@gmail.com", "admin")).toBe(phoneFromAuthEmail("admin@gmail.com"));
+    // tên khác vẫn bị từ chối (không mở cửa cho tên bất kỳ)
+    expect(authIdentity("root@sdvico.local", "admin")).toBeNull();
+    // chưa khai OWNER_LOGIN → "admin" không là gì cả
+    expect(authIdentity("admin@sdvico.local", null)).toBeNull();
+    // SĐT vẫn như cũ
+    expect(authIdentity("0912345678@sdvico.local", "admin")).toBe("0912345678");
+  });
+  it("isOwnerIdentity so đúng tên", () => {
+    expect(isOwnerIdentity("admin", "admin")).toBe(true);
+    expect(isOwnerIdentity("Admin", "admin")).toBe(true);
+    expect(isOwnerIdentity("0912345678", "admin")).toBe(false);
+    expect(isOwnerIdentity("admin", null)).toBe(false);
+  });
+  it("ownerEmail", () => {
+    expect(ownerEmail("admin")).toBe("admin@sdvico.local");
+  });
+  it("chuỗi admin tổng: 12 giờ, thắng mọi luật khác", () => {
+    expect(tokenTtlMs({ isStaff: true, kind: "real", isOwner: true })).toBe(OWNER_TOKEN_TTL_MS);
+    expect(OWNER_TOKEN_TTL_MS).toBeLessThan(STAFF_TOKEN_TTL_MS);
+  });
+  it("có admin tổng ⇒ hạ quản trị viên DB cuối cùng không còn là last_admin", () => {
+    const args = { actorPhone: "0911111111", targetPhone: "0922222222", envPhones: [], dbAdminPhones: ["0922222222"] };
+    expect(checkDemoteAdmin(args)).toBe("last_admin");
+    expect(checkDemoteAdmin({ ...args, ownerConfigured: true })).toBeNull();
+    // tự hạ mình vẫn chặn dù có admin tổng
+    expect(checkDemoteAdmin({ ...args, targetPhone: "0911111111", ownerConfigured: true })).toBe("self");
   });
 });

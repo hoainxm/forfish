@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { effectiveTier } from "@/lib/staff-store";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { phoneFromAuthEmail } from "@/lib/phone";
+import { authIdentity, ownerLogin } from "@/lib/admin";
 import { tokenIdentity } from "@/lib/device-token-server";
 import { readTokenHeader } from "@/lib/device-token";
 import { allowRequest, type RateStore } from "@/lib/rate-limit";
@@ -69,7 +69,7 @@ export async function dataGate(request: NextRequest, rule: DataRouteRule) {
   });
   const { data } = await supabase.auth.getUser();
   if (!data?.user) return deny(401, "no_token");
-  const phone = phoneFromAuthEmail(data.user.email);
+  const phone = authIdentity(data.user.email, ownerLogin());
   if (!phone) return deny(401, "no_token");
 
   const res = await gateByPhone(phone, rule, deny);

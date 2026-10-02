@@ -25,7 +25,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { phoneFromAuthEmail } from "@/lib/phone";
+import { authIdentity, ownerLogin } from "@/lib/admin";
 import { effectiveTier } from "@/lib/staff-store";
 import { tokenIdentity, touchToken } from "@/lib/device-token-server";
 
@@ -68,7 +68,7 @@ export async function identityFromRequest(
   if (supabase) {
     const { data } = await supabase.auth.getUser();
     const email = data?.user?.email;
-    const phone = phoneFromAuthEmail(email);
+    const phone = authIdentity(email, ownerLogin());
     if (phone) return { ok: true, phone, legacy: true };
   }
 

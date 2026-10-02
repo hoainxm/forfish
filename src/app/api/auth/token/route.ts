@@ -20,12 +20,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { phoneFromAuthEmail } from "@/lib/phone";
 import { normalizePlatform } from "@/lib/app-usage";
 import { isValidDeviceId } from "@/lib/device-id";
 import { newDeviceToken, hashDeviceToken } from "@/lib/device-token";
 import { revokeTokensOfPhone, tokenIdentity } from "@/lib/device-token-server";
-import { tokenTtlMs } from "@/lib/admin";
+import { authIdentity, ownerLogin, tokenTtlMs } from "@/lib/admin";
 import { loadActor } from "@/lib/staff-store";
 import { isMissingColumnError } from "@/lib/staff-permissions";
 
@@ -39,7 +38,7 @@ export async function POST(req: Request) {
   if (!email) {
     return NextResponse.json({ ok: false, code: "login_required" }, { status: 401 });
   }
-  const phone = phoneFromAuthEmail(email);
+  const phone = authIdentity(email, ownerLogin());
   if (!phone) {
     return NextResponse.json({ ok: false, code: "bad_account" }, { status: 400 });
   }
@@ -78,7 +77,11 @@ export async function POST(req: Request) {
   const isAdmin = ar.actor.role === "admin";
   /*  HẠN CHUỖI: khách thật KHÔNG hạn (0037 — bà con mất sóng nhiều ngày);
       staff 7 ngày, test 24 giờ, demo/reviewer 7 ngày (lib/admin tokenTtlMs). */
-  const ttl = tokenTtlMs({ isStaff: ar.actor.role !== null, kind: ar.actor.kind });
+  const ttl = tokenTtlMs({
+    isStaff: ar.actor.role !== null,
+    kind: ar.actor.kind,
+    isOwner: ar.actor.owner,
+  });
   const expiresAt = ttl === null ? null : new Date(Date.now() + ttl).toISOString();
 
   /*  THU HỒI TRƯỚC, CẤP SAU — luật "1 tài khoản 1 máy" cho KHÁCH/ĐẠI LÝ. Đảo

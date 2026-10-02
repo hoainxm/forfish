@@ -11,21 +11,37 @@ gate: warn
 
 | Trục | Nguồn | Ai đổi |
 |---|---|---|
-| **VAI** — admin · manager · (không) | bảng `staff_accounts` (0056) · env `ADMIN_PHONES` = **1 số cứu hộ** | admin, tab Phân quyền |
+| **VAI** — admin tổng · admin · manager · (không) | admin tổng = env `OWNER_LOGIN` (đăng nhập bằng TÊN) · admin/manager = bảng `staff_accounts` (0056) | admin tổng nâng/hạ quản trị viên; quản trị viên quản lý vai Quản lý — tab Phân quyền |
 | **LOẠI** — real · test · demo · reviewer | `customers.account_kind` (0056) | admin, ô "Loại" ở tab Tài khoản · `scripts/test-account.mjs danh-dau` |
 | **HẠNG** — basic · premium | `customers.tier` | webhook SDWork, admin, quản lý (chỉ khách mình) |
 
 Một cửa đọc: `src/lib/staff-store.ts` (`loadActor`). Luật thuần + test: `src/lib/admin.ts` (`resolveStaffRole`, `managerTargetDenial`, `tokenTtlMs`) — `src/lib/__tests__/rbac.test.ts`. Chi tiết luật nghiệp vụ: [10-ba-spec R3/R6–R10](../10-ba-spec-quan-tri-van-hanh.md); schema: [04 §0056](../04-data-model.md).
 
-| | Admin | Quản lý `own` | Quản lý `all_premium` | Khách thật | test / demo / reviewer |
-|---|---|---|---|---|---|
-| Vào /quan-tri | ✓ | theo bảng quyền | theo bảng quyền | – | **không bao giờ** |
-| Cấp/gia hạn premium | ✓ | khách mình + khách chưa ai cấp; cấm tự cấp | + mọi khách đang premium | – | – |
-| Xoá · ghi cờ · ghi thu tiền · nhắn riêng | ✓ | chỉ khách mình | + khách đang premium | – | – |
-| Gửi thông báo TẤT CẢ | ✓ | – | – | – | không nhận |
-| Hạ hạng · đặt lại mật khẩu · đổi loại · đăng xuất mọi máy | ✓ | – | – | – | – |
-| CCCD trong tab Thuyền viên | đủ | 4 số cuối | 4 số cuối | – | – |
-| Hạn chuỗi đăng nhập | 7 ngày, nhiều máy | 7 ngày, 1 máy | 7 ngày, 1 máy | **không hạn** | test 24 giờ · demo 7 ngày |
+| | Admin tổng | Admin | Quản lý `own` | Quản lý `all_premium` | Khách thật | test / demo / reviewer |
+|---|---|---|---|---|---|---|
+| Nâng/hạ/tạo/xoá quản trị viên | ✓ | – | – | – | – | – |
+| Vào /quan-tri | ✓ | ✓ | theo bảng quyền | theo bảng quyền | – | **không bao giờ** |
+| Cấp/gia hạn premium | ✓ | ✓ | khách mình + khách chưa ai cấp; cấm tự cấp | + mọi khách đang premium | – | – |
+| Xoá · ghi cờ · ghi thu tiền · nhắn riêng | ✓ | ✓ (xoá admin: không) | chỉ khách mình | + khách đang premium | – | – |
+| Gửi thông báo TẤT CẢ | ✓ | ✓ | – | – | – | không nhận |
+| Hạ hạng · đặt lại mật khẩu · đổi loại · đăng xuất mọi máy | ✓ | ✓ | – | – | – | – |
+| CCCD trong tab Thuyền viên | đủ | đủ | 4 số cuối | 4 số cuối | – | – |
+| Hạn chuỗi đăng nhập | 12 giờ, nhiều máy | 7 ngày, nhiều máy | 7 ngày, 1 máy | 7 ngày, 1 máy | **không hạn** | test 24 giờ · demo 7 ngày |
+
+## Admin tổng (chủ dự án chốt 2026-10-02)
+
+Một tài khoản đăng nhập `/quan-tri` bằng **tên** (vd `admin`), không phải SĐT. Đứng trên mọi quản trị viên: **chỉ người này nâng/hạ/tạo/xoá quản trị viên**; web không hạ/xoá được admin tổng. Thay vai "cứu hộ" của env `ADMIN_PHONES`.
+
+- **Không bao giờ `admin/admin`.** Đây là chìa mở mọi cửa và `admin` là tên đầu tiên kẻ dò mật khẩu thử. Script chặn: tối thiểu 12 ký tự, 3/4 loại ký tự, không chứa tên/`admin`/`123456`/`sdvico`.
+- Định danh trong hệ thống là chính cái tên (`device_tokens.customer_phone = 'admin'`, nhật ký `actor_phone = 'admin'`). Không có hồ sơ khách, không dùng app ngư dân. Phiên 12 giờ, nhiều máy.
+- Chưa khai `OWNER_LOGIN` ⇒ không có admin tổng và mọi quản trị viên vẫn nâng/hạ được nhau (luật cũ) — để không tự khoá cửa lúc chuyển đổi.
+
+**Bật (làm theo thứ tự):**
+1. Trên máy mình (có `.env.local` chứa `SUPABASE_SERVICE_ROLE_KEY` prod): `node scripts/owner-account.mjs admin` → tự gõ mật khẩu (không hiện ra màn hình). Chạy lại lệnh này = đổi mật khẩu + đăng xuất mọi máy của admin tổng.
+2. Vercel → env `OWNER_LOGIN=admin` (server-only) → deploy.
+3. Mở `/quan-tri`, đăng nhập bằng `admin` + mật khẩu vừa đặt. Tab Phân quyền phải thấy dòng **admin tổng** đứng đầu và ô "Nâng lên quản trị viên".
+4. Chuyển người đang có thành quản trị viên: nhập SĐT ở ô "Nâng lên quản trị viên" (người chưa có tài khoản → "Tạo tài khoản nhân sự" chọn cấp Quản trị viên).
+5. Xoá env `ADMIN_PHONES` trên Vercel → deploy. Từ đây cửa cứu hộ duy nhất là admin tổng; quên mật khẩu thì chạy lại bước 1.
 
 ## Thứ tự triển khai — ĐỪNG đảo
 
@@ -40,7 +56,7 @@ Một cửa đọc: `src/lib/staff-store.ts` (`loadActor`). Luật thuần + tes
    2. Từng người đăng nhập thử /quan-tri bằng tài khoản riêng.
    3. Hạ `0900000001` (nút Hạ) — hệ thống thu hồi mọi chuỗi của số này ngay. Nếu cần giữ hồ sơ, đổi loại sang `demo` để số đó không bao giờ thành staff lại.
 5. **Đại lý tổng**: với mỗi số trong env `MASTER_AGENT_PHONES` → tab Phân quyền → "Thấy khách nào" = *Mọi khách đang Premium*. Xong hết thì **xoá env** `MASTER_AGENT_PHONES`.
-6. **Thu gọn env `ADMIN_PHONES` về đúng 1 số cứu hộ** (người chịu trách nhiệm cao nhất, không dùng hằng ngày). Số đó nâng lên admin trong DB trước rồi mới xoá các số env còn lại (`checkSetRole` cho phép nâng số đang là admin env — đường di cư).
+6. **Bật admin tổng rồi BỎ env `ADMIN_PHONES`** (chủ dự án chốt 2026-10-02 — mục "Admin tổng" ở trên). Số nào trong env cần giữ quyền thì nâng lên quản trị viên DB trước khi xoá env.
 
 ## Xoay khoá — BẮT BUỘC (đã lộ trong lịch sử git)
 

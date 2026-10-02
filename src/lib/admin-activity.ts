@@ -44,6 +44,7 @@ export const ADMIN_ACTIONS = [
   "staff.set-permissions",
   "staff.set-role",
   "staff.set-scope",
+  "staff.owner-setup",
   // Tự kiểm tra: nút "Kiểm tra ghi nhật ký" ở tab Nhật ký ghi thử một dòng —
   // để biết nhật ký CÓ ghi được không mà không phải đợi một thao tác thật
   "system.log-probe",
@@ -83,6 +84,7 @@ export const ACTION_LABEL: Record<AdminActionKey, string> = {
   "staff.set-permissions": "Đổi phân quyền quản lý",
   "staff.set-role": "Nâng/hạ quản trị viên",
   "staff.set-scope": "Đổi tầm nhìn quản lý",
+  "staff.owner-setup": "Tạo/đổi mật khẩu admin tổng",
   "system.log-probe": "Kiểm tra ghi nhật ký",
 };
 
@@ -105,6 +107,7 @@ const DANGER_ACTIONS = new Set<string>([
   // nâng/hạ quản trị viên = đổi quyền cao nhất — luôn phải soi
   "staff.set-role",
   "staff.set-scope",
+  "staff.owner-setup",
   "account.set-kind",
   "account.revoke-sessions",
 ]);

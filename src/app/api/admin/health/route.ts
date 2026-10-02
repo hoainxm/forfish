@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/admin-auth";
-import { parseAdminPhones } from "@/lib/admin";
+import { ownerLogin, parseAdminPhones } from "@/lib/admin";
 
 export async function GET() {
   const who = await requireStaff();
@@ -23,6 +23,10 @@ export async function GET() {
     role: who.role,
     permissions: who.role === "manager" ? who.permissions : null,
     scope: who.scope,
+    /** ADMIN TỔNG — UI chỉ hiện nút nâng/hạ/tạo quản trị viên cho người này */
+    owner: who.owner,
+    /** đã khai OWNER_LOGIN chưa — chưa thì mọi admin quản lý admin (luật cũ) */
+    ownerConfigured: Boolean(ownerLogin()),
   };
   const admin = createAdminClient();
 

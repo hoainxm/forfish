@@ -57,7 +57,8 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 ## 2. User registry
 | User (role/tier) | Là ai | Vòng đời | Bối cảnh chính |
 |---|---|---|---|
-| `admin` (`staff_accounts` role='admin' — 0056; env `ADMIN_PHONES` = 1 số CỨU HỘ) | Quản trị hệ thống toàn quyền — **mỗi người một tài khoản có tên** (tài khoản chung `0900000001` đang trong lộ trình gỡ, xem ops/rbac-runbook.md) | quen/power | web /quan-tri, desktop |
+| `admin tổng` (env `OWNER_LOGIN`, đăng nhập bằng TÊN — 2026-10-02) | Chủ dự án — người DUY NHẤT nâng/hạ/tạo/xoá quản trị viên; thay cửa cứu hộ `ADMIN_PHONES` | power | web /quan-tri |
+| `admin` (`staff_accounts` role='admin' — 0056) | Quản trị hệ thống toàn quyền — **mỗi người một tài khoản có tên** (tài khoản chung `0900000001` đang trong lộ trình gỡ, xem ops/rbac-runbook.md) | quen/power | web /quan-tri, desktop |
 | `đại lý` (= `staff_accounts` role='manager', `scope` own; **đại lý tổng** = `scope` all_premium) | Bán premium + chăm khách của mình; sau nhận chia doanh thu | quen | web /quan-tri (1–2 tab), mobile/desktop |
 | `tài khoản thử` (`customers.account_kind` = test / demo / reviewer) | Test nội bộ, demo bán hàng, tài khoản duyệt App Store | — | app SDFish; KHÔNG BAO GIỜ vào /quan-tri |
 | `ngư dân` (customer basic/premium) | Người mua gói; KHÔNG vào /quan-tri | — | app SDFish |
@@ -165,6 +166,7 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 | R7 | **Ba trục độc lập** (2026-10-02): VAI (`staff_accounts`) · LOẠI (`customers.account_kind`) · HẠNG (`customers.tier`). Không trục nào suy ra trục khác; một luật `resolveStaffRole` cho "ai là admin" | `account_kind` ≠ real ⇒ không bao giờ là staff (kể cả có hàng staff_accounts); env cứu hộ thắng mọi thứ |
 | R8 | **Hạn chuỗi**: khách thật KHÔNG hạn (bà con ngoài biển); staff 7 ngày; test 24 giờ; demo/reviewer 7 ngày | đổi loại/vai ⇒ thu hồi chuỗi để lần đăng nhập kế nhận đúng hạn |
 | R9 | **Thu hồi chuỗi** khi: xoá tài khoản · đặt lại mật khẩu · đổi vai · đổi loại · admin bấm "Đăng xuất mọi máy" | thu hồi hỏng khi xoá ⇒ 503, KHÔNG xoá (xoá mà chuỗi còn sống thì máy vẫn qua cửa) |
+| R11 | **ADMIN TỔNG** (chủ dự án chốt 2026-10-02): một tài khoản đăng nhập bằng tên (`OWNER_LOGIN`), CHỈ người này nâng/hạ/tạo/xoá quản trị viên; quản trị viên quản lý vai Quản lý. Web không hạ/xoá được admin tổng. Mật khẩu ≥12 ký tự do chủ dự án tự gõ qua script (không bao giờ `admin/admin`); phiên 12 giờ | chưa khai `OWNER_LOGIN` ⇒ luật cũ (mọi admin quản lý admin); có admin tổng ⇒ hạ quản trị viên DB cuối cùng KHÔNG còn bị chặn `last_admin` |
 | R10 | Webhook SDWork **không đặt lại mật khẩu tài khoản nhân sự**; script test chỉ cấp cho tài khoản loại test, không bao giờ cho nhân sự, có ghi nhật ký | tra vai hỏng ⇒ coi là nhân sự (không đặt lại) |
 
 ## 10. Assumptions & Open decisions (elicitation)

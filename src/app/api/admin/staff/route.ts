@@ -12,7 +12,9 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
 import {
   checkSetRole,
+  isOwnerIdentity,
   mergeAdmins,
+  ownerLogin,
   normalizeStaffScope,
   parseAdminPhones,
 } from "@/lib/admin";
@@ -64,13 +66,25 @@ export async function GET() {
       configured: r.permissions != null,
       scope: r.scope,
     }));
-  const admins = merged.map((a) => ({
-    phone: a.phone,
-    name: names[a.phone] ?? null,
-    source: a.source,
-  }));
+  // ADMIN TỔNG đứng đầu danh sách (nguồn "owner" — web không hạ/xoá được)
+  const owner = ownerLogin();
+  const admins = [
+    ...(owner ? [{ phone: owner, name: "Admin tổng", source: "owner" as const }] : []),
+    ...merged.map((a) => ({
+      phone: a.phone,
+      name: names[a.phone] ?? null,
+      source: a.source,
+    })),
+  ];
 
-  return NextResponse.json({ ok: true, managers, admins, migrationNeeded });
+  return NextResponse.json({
+    ok: true,
+    managers,
+    admins,
+    migrationNeeded,
+    /** người đang xem có phải admin tổng — UI chỉ hiện nút nâng/hạ admin khi true */
+    canManageAdmins: who.owner || !owner,
+  });
 }
 
 export async function PATCH(req: Request) {
@@ -87,6 +101,8 @@ export async function PATCH(req: Request) {
     scope?: string;
   } | null;
   if (!body?.phone) return err(400, "bad_phone");
+  // Admin tổng không phải đối tượng của bất kỳ thao tác nào ở đây
+  if (isOwnerIdentity(body.phone, ownerLogin())) return err(400, "owner");
   const phone = normalizeVnPhone(body.phone);
 
   // ── NÂNG/HẠ QUẢN TRỊ VIÊN (2026-07-31) ───────────────────────────────────
@@ -116,6 +132,13 @@ export async function PATCH(req: Request) {
     const curRole = cur.actor.source === "db" ? (cur.actor.role ?? "customer") : "customer";
     if (curRole === nextRole && cur.actor.source !== "env")
       return NextResponse.json({ ok: true, phone, role: nextRole });
+    // NÂNG lên / HẠ khỏi quản trị viên: CHỈ ADMIN TỔNG (chủ dự án chốt
+    // 2026-10-02). Quản trị viên thường chỉ quản lý được vai đại lý/khách.
+    // CHƯA khai OWNER_LOGIN thì giữ luật cũ (mọi admin) — không tự khoá cửa
+    // trong lúc chuyển đổi.
+    const touchesAdmin =
+      nextRole === "admin" || curRole === "admin" || cur.actor.source === "env";
+    if (touchesAdmin && ownerLogin() && !who.owner) return err(403, "owner_only");
 
     const dbStaff = await listDbStaff(admin);
     if (!dbStaff.ok) return err(500, "query_failed");
@@ -126,6 +149,7 @@ export async function PATCH(req: Request) {
       nextRole,
       envPhones,
       dbAdminPhones: dbStaff.rows.filter((r) => r.role === "admin").map((r) => r.phone),
+      ownerConfigured: Boolean(ownerLogin()),
     });
     if (reason) return err(400, reason);
 

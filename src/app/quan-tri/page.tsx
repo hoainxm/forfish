@@ -23,6 +23,7 @@ import { apiUrl } from "@/lib/api-base";
 import { deviceId } from "@/lib/device-id";
 import { devicePlatform } from "@/lib/storage-persist";
 import { isValidTokenShape } from "@/lib/device-token";
+import { normalizeOwnerLogin, ownerEmail } from "@/lib/admin";
 import { tokenIssueErrorMessage } from "@/lib/login-error";
 import { AdminNav, AdminSkeleton } from "@/components/admin/admin-nav";
 import {
@@ -480,8 +481,12 @@ function AdminLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!isValidVnPhone(phone)) {
-      setError("Số điện thoại không đúng định dạng.");
+    /*  SĐT như mọi tài khoản, HOẶC tên đăng nhập của ADMIN TỔNG (2026-10-02,
+        vd "admin" → admin@sdvico.local). Máy không biết tên thật là gì — máy
+        chủ chỉ nhận đúng tên khai ở OWNER_LOGIN (lib/admin authIdentity). */
+    const loginName = isValidVnPhone(phone) ? null : normalizeOwnerLogin(phone);
+    if (!isValidVnPhone(phone) && !loginName) {
+      setError("Số điện thoại hoặc tên đăng nhập không đúng định dạng.");
       return;
     }
     const supabase = createClient();
@@ -493,7 +498,7 @@ function AdminLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
     }
     setBusy(true);
     const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email: phoneToEmail(phone),
+      email: loginName ? ownerEmail(loginName) : phoneToEmail(phone),
       password,
     });
     if (signInError || !data.user) {
@@ -598,17 +603,22 @@ function AdminLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
         )}
         <label className="block">
           <span className="mb-1 block text-[0.875rem] font-bold text-navy">
-            Số điện thoại
+            Số điện thoại hoặc tên đăng nhập
           </span>
           <input
-            type="tel"
-            inputMode="tel"
+            type="text"
             autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
             required
             autoFocus
             placeholder="0901 234 567"
             value={phone}
-            onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
+            onChange={(e) => {
+              const v = e.target.value;
+              // có chữ cái = tên đăng nhập (admin tổng); chỉ số = SĐT như cũ
+              setPhone(/[a-z]/i.test(v) ? v.trim().toLowerCase().slice(0, 32) : sanitizePhoneInput(v));
+            }}
             className="min-h-[2.75rem] w-full rounded-xl border-0 bg-field px-3 text-[0.9375rem] font-semibold focus:bg-card focus:outline-none focus:ring-2 focus:ring-sea"
           />
         </label>
@@ -1629,6 +1639,8 @@ function staffDenialMessage(code: string | undefined): string | null {
       return "Quản trị viên cấp từ cấu hình máy chủ — không xoá được trên web.";
     case "last_admin":
       return "Đây là quản trị viên cuối cùng — thêm quản trị viên khác trước.";
+    case "owner_only":
+      return "Chỉ admin tổng mới thao tác được với tài khoản quản trị viên.";
     default:
       return null;
   }
@@ -5729,7 +5741,7 @@ type ManagerPerm = {
 };
 
 /** Một quản trị viên + NGUỒN quyền: 'db' hạ được ở đây, 'env' thì không. */
-type AdminRow = { phone: string; name: string | null; source: "env" | "db" };
+type AdminRow = { phone: string; name: string | null; source: "owner" | "env" | "db" };
 
 /**
  * Tạo tài khoản NHÂN SỰ (quản lý / quản trị viên) — tách hẳn khỏi form tạo
@@ -5739,7 +5751,14 @@ type AdminRow = { phone: string; name: string | null; source: "env" | "db" };
  * KHÔNG có ô premium: premium là HẠNG của người dùng app, không dính vai nhân
  * sự — cần thì cấp bên tab Tài khoản.
  */
-function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
+function CreateStaffForm({
+  onCreated,
+  canManageAdmins,
+}: {
+  onCreated: () => void;
+  /** chỉ ADMIN TỔNG mới tạo được quản trị viên (server chốt lại: owner_only) */
+  canManageAdmins: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
@@ -5853,7 +5872,9 @@ function CreateStaffForm({ onCreated }: { onCreated: () => void }) {
                 ["manager", "Cấp Quản lý — quyền hạn được cấp theo chức năng"],
                 ["admin", "Cấp Quản trị viên — có toàn quyền trên hệ thống"],
               ] as ["manager" | "admin", string][]
-            ).map(([id, label]) => (
+            )
+              .filter(([id]) => id !== "admin" || canManageAdmins)
+              .map(([id, label]) => (
               <button
                 key={id}
                 type="button"
@@ -5913,6 +5934,7 @@ function PermissionsTab() {
   const [promotePhone, setPromotePhone] = useState("");
   const [toPromote, setToPromote] = useState<string | null>(null);
   const [toDemote, setToDemote] = useState<AdminRow | null>(null);
+  const [canManageAdmins, setCanManageAdmins] = useState(false);
 
   const load = useCallback(() => {
     setError(null);
@@ -5925,10 +5947,12 @@ function PermissionsTab() {
           managers?: ManagerPerm[];
           admins?: AdminRow[];
           migrationNeeded?: boolean;
+          canManageAdmins?: boolean;
         };
         if (!j.ok) throw new Error(j.code ?? "load");
         setManagers(j.managers ?? []);
         setAdmins(j.admins ?? []);
+        setCanManageAdmins(j.canManageAdmins === true);
         setMigrationNeeded(Boolean(j.migrationNeeded));
       })
       .catch((e: Error) =>
@@ -5968,6 +5992,8 @@ function PermissionsTab() {
         not_found:
           "Hệ thống chưa có tài khoản nào dùng số điện thoại này — vui lòng tạo tài khoản mới ở tab Tài khoản trước.",
         bad_phone: "Số điện thoại không đúng định dạng.",
+        owner_only: "Chỉ admin tổng mới nâng/hạ được quản trị viên.",
+        owner: "Không thể thay đổi tài khoản admin tổng trên web.",
         not_real_account:
           "Đây là tài khoản test/demo — không được làm nhân sự. Đổi loại về \"Thật\" ở tab Tài khoản trước (có chủ ý).",
         unavailable: "Chưa tra được cơ sở dữ liệu — vui lòng thử lại sau ít phút.",
@@ -5998,7 +6024,7 @@ function PermissionsTab() {
         Yêu cầu · Vùng biển · Dữ liệu · Hệ thống chỉ dành cho quản trị viên.)
       </p>
 
-      <CreateStaffForm onCreated={load} />
+      <CreateStaffForm onCreated={load} canManageAdmins={canManageAdmins} />
 
       {/* QUẢN TRỊ VIÊN — toàn quyền, nâng/hạ ngay tại đây (trừ người từ env). */}
       <div className="surface px-4 py-3.5">
@@ -6020,7 +6046,14 @@ function PermissionsTab() {
                   {a.phone}
                 </span>
                 {a.name && <span className="text-foreground/60">{a.name}</span>}
-                {a.source === "env" ? (
+                {a.source === "owner" ? (
+                  <span
+                    className="rounded-full bg-trim px-2 py-0.5 text-[0.75rem] font-bold text-white"
+                    title="Tài khoản đăng nhập bằng tên, khai ở OWNER_LOGIN — người duy nhất nâng/hạ quản trị viên; web không hạ/xoá được"
+                  >
+                    admin tổng
+                  </span>
+                ) : a.source === "env" ? (
                   <span
                     className="rounded-full bg-field px-2 py-0.5 text-[0.75rem] font-bold text-foreground/65"
                     title="Nhận quyền trực tiếp từ biến môi trường ADMIN_PHONES — không thể thay đổi trên web, cần cập nhật trên máy chủ Vercel"
@@ -6032,6 +6065,7 @@ function PermissionsTab() {
                     <span className="rounded-full bg-navy px-2 py-0.5 text-[0.75rem] font-bold text-white">
                       từ tài khoản
                     </span>
+                    {canManageAdmins && (
                     <button
                       type="button"
                       disabled={roleBusy}
@@ -6040,6 +6074,7 @@ function PermissionsTab() {
                     >
                       Hạ xuống quản lý
                     </button>
+                    )}
                   </>
                 )}
               </li>
@@ -6047,7 +6082,9 @@ function PermissionsTab() {
           </ul>
         )}
 
-        {/* NÂNG: nhập SĐT một tài khoản đã có → thành quản trị viên */}
+        {/* NÂNG: nhập SĐT một tài khoản đã có → thành quản trị viên. CHỈ ADMIN
+            TỔNG (2026-10-02) — quản trị viên thường không thấy ô này. */}
+        {canManageAdmins && (
         <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3 sm:flex-row">
           <input
             inputMode="numeric"
@@ -6066,15 +6103,17 @@ function PermissionsTab() {
             Nâng lên quản trị viên
           </button>
         </div>
+        )}
         {roleMsg && (
           <p className="mt-2 text-[0.875rem] font-semibold text-foreground/75">
             {roleMsg}
           </p>
         )}
         <p className="mt-2 text-[0.8125rem] leading-snug text-foreground/60">
-          Quản trị viên toàn quyền mọi khu, không cần bảng quyền. Nâng/hạ ở đây
-          ăn ngay, không cần deploy. Không thể tự hạ chính mình, cũng không hạ
-          được người cuối cùng.
+          Quản trị viên toàn quyền mọi khu, không cần bảng quyền. Chỉ{" "}
+          <b>admin tổng</b> nâng/hạ được quản trị viên; quản trị viên quản lý
+          nhân sự cấp Quản lý. Nâng/hạ ăn ngay, không cần deploy. Không thể tự
+          hạ chính mình.
           <br />
           Người ghi <b>cấp quyền từ biến môi trường</b> nhận quyền từ hệ thống gốc <b>ADMIN_PHONES</b> trên
           Vercel — giữ làm cửa cứu hộ, web không hạ được. Muốn chuyển hẳn sang

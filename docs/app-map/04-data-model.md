@@ -32,6 +32,7 @@ Ba trục độc lập, mỗi trục một nguồn (trước: dồn chung hàng 
 - **Một cửa đọc/ghi**: `src/lib/staff-store.ts` (`loadActor`, `effectiveTier`, `listDbStaff`, `writeStaffRole`, `writeStaffPermissions`, `managerTargetCheck`, `nonRealPhones`); luật thuần `resolveStaffRole` / `managerTargetDenial` / `tokenTtlMs` ở `src/lib/admin.ts` (test `rbac.test.ts`).
 - **Chạy được TRƯỚC khi apply**: bảng chưa có (`42P01`/`PGRST205`, `isMissingTableError`) → vai đọc từ `customers.role`; cột chưa có → mọi người `real`, chuỗi cấp không hạn. Ghi vai luôn **gương** sang `customers.role`/`staff_permissions` để lùi bản deploy không lệch quyền. Gỡ hai cột cũ = migration riêng, sau này.
 - **Webhook SDWork KHÔNG đặt lại mật khẩu** tài khoản nhân sự (tra hỏng → coi là nhân sự).
+- **ADMIN TỔNG** (2026-10-02, không cần migration): auth user `<OWNER_LOGIN>@sdvico.local` (tạo bằng `scripts/owner-account.mjs`, `user_metadata.owner=true`), KHÔNG có hàng `customers`/`staff_accounts`. Định danh = chính cái tên ⇒ `device_tokens.customer_phone` và `admin_activity_log.actor_phone` có thể mang giá trị `'admin'` (không phải SĐT) — mọi chỗ đọc hai cột này coi đó là chuỗi định danh, không chuẩn hoá SĐT. `current_phone()` trả `'admin'` cho phiên này ⇒ RLS không khớp hàng khách nào (đúng ý: admin tổng không dùng app ngư dân).
 
 ### 0052 — `vms_zones.is_border` · ⚠️ **CHƯA APPLY prod SDVICO** (đổi số từ 0038 base; "đã apply" trong log base là prod BASE)
 

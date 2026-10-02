@@ -2,9 +2,8 @@ import "server-only";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { phoneFromAuthEmail } from "@/lib/phone";
+import { authIdentity, ownerLogin, type StaffScope } from "@/lib/admin";
 import { tokenIdentity } from "@/lib/device-token-server";
-import type { StaffScope } from "@/lib/admin";
 import { loadActor } from "@/lib/staff-store";
 import {
   can,
@@ -19,7 +18,15 @@ export type StaffRole = "admin" | "manager";
 /** Ai đang thao tác /api/admin/*. admin bỏ qua bảng quyền (permissions=null,
  *  toàn quyền); manager mang bảng quyền đã chuẩn hoá (5 tab × 4 cờ). */
 export type StaffContext =
-  | { ok: true; phone: string; role: "admin"; permissions: null; scope: StaffScope }
+  | {
+      ok: true;
+      phone: string;
+      role: "admin";
+      permissions: null;
+      scope: StaffScope;
+      /** ADMIN TỔNG (OWNER_LOGIN) — người DUY NHẤT nâng/hạ quản trị viên */
+      owner: boolean;
+    }
   | {
       ok: true;
       phone: string;
@@ -27,6 +34,7 @@ export type StaffContext =
       permissions: StaffPermissions;
       /** own = khách mình cấp · all_premium = đại lý tổng */
       scope: StaffScope;
+      owner: false;
     }
   | { ok: false; status: number; code: string };
 
@@ -62,7 +70,7 @@ export async function requireStaff(): Promise<StaffContext> {
     // chưa gửi chuỗi / chuỗi bị thu hồi → thử phiên Supabase cũ (đường lùi)
     const { data } = await supabase.auth.getUser();
     const email = data?.user?.email;
-    phone = phoneFromAuthEmail(email);
+    phone = authIdentity(email, ownerLogin());
   }
   if (!phone) return { ok: false, status: 401, code: "login_required" };
 
@@ -77,7 +85,14 @@ export async function requireStaff(): Promise<StaffContext> {
   if (!r.ok) return { ok: false, status: 503, code: "unavailable" };
   const a = r.actor;
   if (a.role === "admin") {
-    return { ok: true, phone, role: "admin", permissions: null, scope: "all_premium" };
+    return {
+      ok: true,
+      phone,
+      role: "admin",
+      permissions: null,
+      scope: "all_premium",
+      owner: a.owner,
+    };
   }
   if (a.role === "manager") {
     return {
@@ -86,6 +101,7 @@ export async function requireStaff(): Promise<StaffContext> {
       role: "manager",
       permissions: a.permissions ?? normalizePermissions(null),
       scope: a.scope,
+      owner: false,
     };
   }
   return { ok: false, status: 403, code: "staff_only" };
@@ -94,14 +110,26 @@ export async function requireStaff(): Promise<StaffContext> {
 /** Giữ cho chỗ chỉ chấp nhận ADMIN (hạ hạng/đặt-lại-mật-khẩu/tạo quản lý/xoá
  *  cấu hình/4 tab admin-only cứng). */
 export async function requireAdmin(): Promise<
-  | { ok: true; phone: string; role: "admin"; scope: StaffScope }
+  | { ok: true; phone: string; role: "admin"; scope: StaffScope; owner: boolean }
   | { ok: false; status: number; code: string }
 > {
   const who = await requireStaff();
   if (!who.ok) return who;
   if (who.role !== "admin")
     return { ok: false, status: 403, code: "admin_only" };
-  return { ok: true, phone: who.phone, role: "admin", scope: who.scope };
+  return { ok: true, phone: who.phone, role: "admin", scope: who.scope, owner: who.owner };
+}
+
+/** CHỈ ADMIN TỔNG — nâng/hạ/tạo quản trị viên (chủ dự án chốt 2026-10-02:
+ *  một quản trị viên bị lộ không tự sinh thêm quản trị viên được). */
+export async function requireOwner(): Promise<
+  { ok: true; phone: string } | { ok: false; status: number; code: string }
+> {
+  const who = await requireStaff();
+  if (!who.ok) return who;
+  if (who.role !== "admin" || !who.owner)
+    return { ok: false, status: 403, code: "owner_only" };
+  return { ok: true, phone: who.phone };
 }
 
 /**

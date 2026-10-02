@@ -6,7 +6,12 @@
 //   chốt 2026-07-26 sau một vòng thử tách project riêng rồi quay lại)
 // · xem dự báo cá như premium (kiểm tra đúng thứ khách premium thấy)
 
-import { normalizeVnPhone, phoneFromAuthEmail } from "@/lib/phone";
+import {
+  isValidVnPhone,
+  normalizeVnPhone,
+  PHONE_EMAIL_DOMAIN,
+  phoneFromAuthEmail,
+} from "@/lib/phone";
 
 /** "0901234567, 84912345678" → ["0901234567","0912345678"] (chuẩn hoá, bỏ rác) */
 export function parseAdminPhones(env: string | undefined | null): string[] {
@@ -87,6 +92,8 @@ export function checkDemoteAdmin(args: {
   targetPhone: string;
   envPhones: string[];
   dbAdminPhones: string[];
+  /** có ADMIN TỔNG (OWNER_LOGIN) ⇒ không bao giờ "hết quản trị viên" */
+  ownerConfigured?: boolean;
 }): "self" | "env_admin" | "last_admin" | null {
   const actor = normalizeVnPhone(args.actorPhone);
   const target = normalizeVnPhone(args.targetPhone);
@@ -96,7 +103,7 @@ export function checkDemoteAdmin(args: {
   const remaining = mergeAdmins(args.envPhones, args.dbAdminPhones).filter(
     (a) => a.phone !== target,
   );
-  return remaining.length === 0 ? "last_admin" : null;
+  return remaining.length === 0 && !args.ownerConfigured ? "last_admin" : null;
 }
 
 /**
@@ -114,6 +121,7 @@ export function checkSetRole(args: {
   nextRole: "customer" | "manager" | "admin";
   envPhones: string[];
   dbAdminPhones: string[];
+  ownerConfigured?: boolean;
 }): "self" | "env_admin" | "last_admin" | null {
   if (args.nextRole === "admin") return null;
   // đang là admin (dù nguồn nào) mà hạ xuống → soi kỹ
@@ -126,6 +134,7 @@ export function checkSetRole(args: {
     targetPhone: args.targetPhone,
     envPhones: args.envPhones,
     dbAdminPhones: args.dbAdminPhones,
+    ownerConfigured: args.ownerConfigured,
   });
 }
 
@@ -222,6 +231,8 @@ const HOUR = 60 * 60 * 1000;
 export const STAFF_TOKEN_TTL_MS = 7 * 24 * HOUR;
 export const TEST_TOKEN_TTL_MS = 24 * HOUR;
 export const DEMO_TOKEN_TTL_MS = 7 * 24 * HOUR;
+/** Admin tổng: chìa mở mọi cửa — phiên ngắn nhất trong nhóm staff. */
+export const OWNER_TOKEN_TTL_MS = 12 * HOUR;
 
 /**
  * Tuổi thọ chuỗi cứng. `null` = KHÔNG hết hạn — bắt buộc cho KHÁCH THẬT: bà
@@ -232,7 +243,9 @@ export const DEMO_TOKEN_TTL_MS = 7 * 24 * HOUR;
 export function tokenTtlMs(args: {
   isStaff: boolean;
   kind: AccountKind;
+  isOwner?: boolean;
 }): number | null {
+  if (args.isOwner) return OWNER_TOKEN_TTL_MS;
   if (args.kind === "test") return TEST_TOKEN_TTL_MS;
   if (args.isStaff) return STAFF_TOKEN_TTL_MS;
   if (args.kind === "demo" || args.kind === "reviewer") return DEMO_TOKEN_TTL_MS;
@@ -266,4 +279,59 @@ export function managerTargetDenial(args: {
   if (args.scope === "all_premium" && args.targetIsPremium) return null;
   if (by.length === 0 && args.allowUnclaimed) return null;
   return "not_your_customer";
+}
+
+// ── ADMIN TỔNG (owner) — chủ dự án chốt 2026-10-02 ──────────────────────────
+// MỘT tài khoản đăng nhập bằng TÊN (vd "admin"), không phải SĐT, đứng trên mọi
+// quản trị viên: web không hạ/xoá được, CHỈ người này nâng/hạ quản trị viên.
+// Thay vai "cứu hộ" của env ADMIN_PHONES (env bỏ sau khi admin tổng đăng nhập
+// được — ops/rbac-runbook.md). Tên khai ở env OWNER_LOGIN; không khai = không
+// có admin tổng (mọi luật quay về như trước).
+// Định danh trong hệ thống = chính tên đó (thay cho SĐT ở device_tokens,
+// nhật ký…). Không có hồ sơ khách, không dùng app ngư dân.
+
+/** Khuôn tên đăng nhập admin tổng: chữ thường, 3–32 ký tự, bắt đầu bằng chữ,
+ *  KHÔNG được là SĐT (để không bao giờ đè lên danh tính một khách). */
+export function normalizeOwnerLogin(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const s = raw.trim().toLowerCase();
+  if (!/^[a-z][a-z0-9._-]{2,31}$/.test(s)) return null;
+  if (isValidVnPhone(s)) return null;
+  return s;
+}
+
+/** Tên admin tổng đang khai ở env (server). null = không có admin tổng. */
+export function ownerLogin(): string | null {
+  return normalizeOwnerLogin(process.env.OWNER_LOGIN);
+}
+
+/** Email Supabase Auth của admin tổng: `<tên>@sdvico.local`. */
+export function ownerEmail(login: string): string {
+  return `${login}@${PHONE_EMAIL_DOMAIN}`;
+}
+
+/**
+ * ĐỊNH DANH của một phiên Supabase — SĐT như cũ (phoneFromAuthEmail), CỘNG
+ * đúng MỘT ngoại lệ: `<OWNER_LOGIN>@sdvico.local` → tên admin tổng. Tên khác
+ * không phải SĐT vẫn bị từ chối như lớp vá P0 (không mở cửa cho tên bất kỳ).
+ */
+export function authIdentity(
+  email: string | null | undefined,
+  owner: string | null,
+): string | null {
+  if (email && owner) {
+    const at = email.lastIndexOf("@");
+    if (
+      at > 0 &&
+      email.slice(at + 1).toLowerCase() === PHONE_EMAIL_DOMAIN &&
+      email.slice(0, at).toLowerCase() === owner
+    )
+      return owner;
+  }
+  return phoneFromAuthEmail(email);
+}
+
+/** Định danh này có phải admin tổng không (so đúng tên, không chuẩn hoá SĐT). */
+export function isOwnerIdentity(id: string | null | undefined, owner: string | null): boolean {
+  return Boolean(id && owner && id.toLowerCase() === owner);
 }

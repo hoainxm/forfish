@@ -18,6 +18,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   isAdminPhone,
   isMasterAgentPhone,
+  isOwnerIdentity,
+  ownerLogin,
   managerTargetDenial,
   normalizeAccountKind,
   normalizeStaffScope,
@@ -37,6 +39,8 @@ type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
 export type Actor = {
   phone: string;
+  /** ADMIN TỔNG (OWNER_LOGIN) — luôn kèm role "admin" */
+  owner: boolean;
   role: "admin" | "manager" | null;
   source: "env" | "db" | null;
   /** chỉ có với manager; admin = null (toàn quyền) */
@@ -81,6 +85,23 @@ async function readStaffRow(
  * đoán "là staff").
  */
 export async function loadActor(admin: Admin, phone: string): Promise<ActorResult> {
+  // ADMIN TỔNG: định danh là TÊN, không có hồ sơ khách, không có hàng staff —
+  // vai suy thẳng từ env OWNER_LOGIN, không chạm DB (đây là cửa cứu hộ mới).
+  if (isOwnerIdentity(phone, ownerLogin())) {
+    return {
+      ok: true,
+      actor: {
+        phone,
+        owner: true,
+        role: "admin",
+        source: "env",
+        permissions: null,
+        scope: "all_premium",
+        kind: "real",
+        customer: null,
+      },
+    };
+  }
   const envAdmin = isAdminPhone(phone, envAdmins());
 
   const cust = await admin.from("customers").select("*").eq("phone", phone).maybeSingle();
@@ -92,6 +113,7 @@ export async function loadActor(admin: Admin, phone: string): Promise<ActorResul
         ok: true,
         actor: {
           phone,
+          owner: false,
           role: "admin",
           source: "env",
           permissions: null,
@@ -137,7 +159,10 @@ export async function loadActor(admin: Admin, phone: string): Promise<ActorResul
           ? "all_premium"
           : "own";
 
-  return { ok: true, actor: { phone, role, source, permissions, scope, kind, customer } };
+  return {
+    ok: true,
+    actor: { phone, owner: false, role, source, permissions, scope, kind, customer },
+  };
 }
 
 /**

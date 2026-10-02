@@ -14,12 +14,13 @@
 // Ghi bằng service-role (bypass RLS).
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin, requirePermission, requireStaff } from "@/lib/admin-auth";
+import { requireAdmin, requireOwner, requirePermission, requireStaff } from "@/lib/admin-auth";
 import { logActivity } from "@/lib/admin-activity-log";
 import {
   checkDemoteAdmin,
   isAdminPhone,
   normalizeAccountKind,
+  ownerLogin,
   parseAdminPhones,
   roleAfterCreate,
   ACCOUNT_KINDS,
@@ -100,6 +101,12 @@ async function writeAudit(
   } catch {
     /* bảng admin_audit chưa có → bỏ qua */
   }
+}
+
+/** Người gọi có phải ADMIN TỔNG không (requirePermission không mang cờ owner). */
+async function isOwnerCaller(): Promise<boolean> {
+  const o = await requireOwner();
+  return o.ok;
 }
 
 /** Bọc managerTargetCheck (lib/staff-store) thành Response lỗi của route. */
@@ -423,6 +430,9 @@ export async function POST(req: Request) {
       ? await requirePermission("tai-khoan", "create")
       : await requireAdmin();
   if (!who.ok) return err(who.status, who.code);
+  // Tạo QUẢN TRỊ VIÊN: chỉ admin tổng (khi đã khai OWNER_LOGIN — 2026-10-02)
+  if (role === "admin" && ownerLogin() && !("owner" in who && who.owner))
+    return err(403, "owner_only");
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
 
@@ -936,6 +946,10 @@ export async function DELETE(req: Request) {
   const target = await loadActor(admin, phone);
   if (!target.ok) return err(503, "unavailable");
   if (target.actor.role === "admin") {
+    // xoá quản trị viên = hạ vai triệt để ⇒ cùng luật: chỉ admin tổng
+    if (ownerLogin() && !(who.role === "admin" && (await isOwnerCaller()))) {
+      return err(403, "owner_only");
+    }
     const dbStaff = await listDbStaff(admin);
     if (!dbStaff.ok) return err(503, "unavailable");
     const reason = checkDemoteAdmin({
@@ -943,6 +957,7 @@ export async function DELETE(req: Request) {
       targetPhone: phone,
       envPhones: parseAdminPhones(process.env.ADMIN_PHONES),
       dbAdminPhones: dbStaff.rows.filter((r) => r.role === "admin").map((r) => r.phone),
+      ownerConfigured: Boolean(ownerLogin()),
     });
     if (reason) return err(400, reason);
   }
