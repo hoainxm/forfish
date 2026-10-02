@@ -224,6 +224,8 @@ export function resolveStaffRole(args: {
       : null
     : args.legacyRole;
   if (raw === "admin" || raw === "manager") return { role: raw, source: "db" };
+  // ADMIN TỔNG trong DB (0057) = quyền admin; cờ owner do loadActor gắn
+  if (raw === "owner") return { role: "admin", source: "db" };
   return { role: null, source: null };
 }
 
@@ -329,6 +331,24 @@ export function authIdentity(
       return owner;
   }
   return phoneFromAuthEmail(email);
+}
+
+/**
+ * TÊN ĐĂNG NHẬP (không phải SĐT) của một phiên `<tên>@sdvico.local` — ứng viên
+ * admin tổng khi admin tổng nằm trong DB (0057). Chỉ là ỨNG VIÊN: nơi cấp chuỗi
+ * (auth/token) bắt buộc tra DB thấy đúng hàng `owner` mới cho qua; tên khác bị
+ * từ chối như lớp vá P0.
+ */
+export function loginNameFromAuthEmail(email: string | null | undefined): string | null {
+  if (!email) return null;
+  const at = email.lastIndexOf("@");
+  if (at <= 0 || email.slice(at + 1).toLowerCase() !== PHONE_EMAIL_DOMAIN) return null;
+  return normalizeOwnerLogin(email.slice(0, at));
+}
+
+/** Định danh có phải SĐT không (SĐT = chuỗi chữ số đã chuẩn hoá). */
+export function isPhoneIdentity(id: string | null | undefined): boolean {
+  return Boolean(id && /^0\d+$/.test(id));
 }
 
 /** Định danh này có phải admin tổng không (so đúng tên, không chuẩn hoá SĐT). */

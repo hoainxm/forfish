@@ -14,11 +14,11 @@ import {
   checkSetRole,
   isOwnerIdentity,
   mergeAdmins,
-  ownerLogin,
   normalizeStaffScope,
   parseAdminPhones,
 } from "@/lib/admin";
 import {
+  findOwner,
   listDbStaff,
   loadActor,
   writeStaffPermissions,
@@ -67,7 +67,9 @@ export async function GET() {
       scope: r.scope,
     }));
   // ADMIN TỔNG đứng đầu danh sách (nguồn "owner" — web không hạ/xoá được)
-  const owner = ownerLogin();
+  const fo = await findOwner(admin);
+  if (!fo.ok) return err(503, "unavailable");
+  const owner = fo.owner;
   const admins = [
     ...(owner ? [{ phone: owner, name: "Admin tổng", source: "owner" as const }] : []),
     ...merged.map((a) => ({
@@ -101,8 +103,10 @@ export async function PATCH(req: Request) {
     scope?: string;
   } | null;
   if (!body?.phone) return err(400, "bad_phone");
+  const fo = await findOwner(admin);
+  if (!fo.ok) return err(503, "unavailable");
   // Admin tổng không phải đối tượng của bất kỳ thao tác nào ở đây
-  if (isOwnerIdentity(body.phone, ownerLogin())) return err(400, "owner");
+  if (isOwnerIdentity(body.phone, fo.owner)) return err(400, "owner");
   const phone = normalizeVnPhone(body.phone);
 
   // ── NÂNG/HẠ QUẢN TRỊ VIÊN (2026-07-31) ───────────────────────────────────
@@ -138,7 +142,7 @@ export async function PATCH(req: Request) {
     // trong lúc chuyển đổi.
     const touchesAdmin =
       nextRole === "admin" || curRole === "admin" || cur.actor.source === "env";
-    if (touchesAdmin && ownerLogin() && !who.owner) return err(403, "owner_only");
+    if (touchesAdmin && fo.owner && !who.owner) return err(403, "owner_only");
 
     const dbStaff = await listDbStaff(admin);
     if (!dbStaff.ok) return err(500, "query_failed");
@@ -149,7 +153,7 @@ export async function PATCH(req: Request) {
       nextRole,
       envPhones,
       dbAdminPhones: dbStaff.rows.filter((r) => r.role === "admin").map((r) => r.phone),
-      ownerConfigured: Boolean(ownerLogin()),
+      ownerConfigured: Boolean(fo.owner),
     });
     if (reason) return err(400, reason);
 

@@ -65,8 +65,10 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY=<khoá công khai của cặp mới>
 VAPID_PUBLIC_KEY=<khoá công khai của cặp mới>
 VAPID_PRIVATE_KEY=<khoá riêng — KHÔNG ghi vào doc/git; lấy từ trình quản lý bí mật>
 VAPID_SUBJECT=https://sdvico.vn
-# Admin (full-admin qua env)
-ADMIN_PHONES=<1 SĐT cứu hộ — xem ops/rbac-runbook.md>
+# Admin tổng — nay nằm trong DB (migration 0057), KHÔNG cần khai ở đây.
+# OWNER_LOGIN=admin   ← chỉ để tương thích bản trước, có thể bỏ trống
+# Cửa cứu hộ cũ — BỎ sau khi admin tổng đăng nhập được
+ADMIN_PHONES=
 # Pepper băm CCCD — sinh 1 lần, GIỮ CỐ ĐỊNH: openssl rand -hex 32
 CREW_CCCD_PEPPER=<openssl rand -hex 32>
 # Cron (đã có sẵn giá trị trên hệ thống → dùng lại đúng giá trị đó)

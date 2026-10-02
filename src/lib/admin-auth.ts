@@ -2,7 +2,12 @@ import "server-only";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { authIdentity, ownerLogin, type StaffScope } from "@/lib/admin";
+import {
+  authIdentity,
+  loginNameFromAuthEmail,
+  ownerLogin,
+  type StaffScope,
+} from "@/lib/admin";
 import { tokenIdentity } from "@/lib/device-token-server";
 import { loadActor } from "@/lib/staff-store";
 import {
@@ -70,7 +75,7 @@ export async function requireStaff(): Promise<StaffContext> {
     // chưa gửi chuỗi / chuỗi bị thu hồi → thử phiên Supabase cũ (đường lùi)
     const { data } = await supabase.auth.getUser();
     const email = data?.user?.email;
-    phone = authIdentity(email, ownerLogin());
+    phone = authIdentity(email, ownerLogin()) ?? loginNameFromAuthEmail(email);
   }
   if (!phone) return { ok: false, status: 401, code: "login_required" };
 

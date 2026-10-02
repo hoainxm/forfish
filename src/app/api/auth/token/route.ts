@@ -24,7 +24,13 @@ import { normalizePlatform } from "@/lib/app-usage";
 import { isValidDeviceId } from "@/lib/device-id";
 import { newDeviceToken, hashDeviceToken } from "@/lib/device-token";
 import { revokeTokensOfPhone, tokenIdentity } from "@/lib/device-token-server";
-import { authIdentity, ownerLogin, tokenTtlMs } from "@/lib/admin";
+import {
+  authIdentity,
+  isPhoneIdentity,
+  loginNameFromAuthEmail,
+  ownerLogin,
+  tokenTtlMs,
+} from "@/lib/admin";
 import { loadActor } from "@/lib/staff-store";
 import { isMissingColumnError } from "@/lib/staff-permissions";
 
@@ -38,7 +44,9 @@ export async function POST(req: Request) {
   if (!email) {
     return NextResponse.json({ ok: false, code: "login_required" }, { status: 401 });
   }
-  const phone = authIdentity(email, ownerLogin());
+  // SĐT (hoặc tên admin tổng khai ở env), rồi mới tới ỨNG VIÊN tên đăng nhập —
+  // ứng viên chỉ được cấp chuỗi khi DB xác nhận là admin tổng (0057, bên dưới).
+  const phone = authIdentity(email, ownerLogin()) ?? loginNameFromAuthEmail(email);
   if (!phone) {
     return NextResponse.json({ ok: false, code: "bad_account" }, { status: 400 });
   }
@@ -69,6 +77,10 @@ export async function POST(req: Request) {
   const ar = await loadActor(admin, phone);
   if (!ar.ok) {
     return NextResponse.json({ ok: false, code: "unavailable" }, { status: 503 });
+  }
+  // Tên đăng nhập không phải SĐT mà không phải admin tổng ⇒ không cấp gì
+  if (!isPhoneIdentity(phone) && !ar.actor.owner) {
+    return NextResponse.json({ ok: false, code: "bad_account" }, { status: 400 });
   }
   const cust = ar.actor.customer as {
     tier?: string;

@@ -30,19 +30,20 @@ Một cửa đọc: `src/lib/staff-store.ts` (`loadActor`). Luật thuần + tes
 
 ## Admin tổng (chủ dự án chốt 2026-10-02)
 
-Một tài khoản đăng nhập `/quan-tri` bằng **tên** (vd `admin`), không phải SĐT. Đứng trên mọi quản trị viên: **chỉ người này nâng/hạ/tạo/xoá quản trị viên**; web không hạ/xoá được admin tổng. Thay vai "cứu hộ" của env `ADMIN_PHONES`.
+Một tài khoản đăng nhập `/quan-tri` bằng **tên** (vd `admin`), không phải SĐT. Nguồn: hàng `staff_accounts` role=`owner` (0057, MỘT người — index unique), hoặc env `OWNER_LOGIN` (cách cũ, vẫn đọc). Tên đăng nhập khác SĐT mà không có hàng owner ⇒ máy chủ không cấp chuỗi (`bad_account`). Đứng trên mọi quản trị viên: **chỉ người này nâng/hạ/tạo/xoá quản trị viên**; web không hạ/xoá được admin tổng. Thay vai "cứu hộ" của env `ADMIN_PHONES`.
 
 - **Không bao giờ `admin/admin`.** Đây là chìa mở mọi cửa và `admin` là tên đầu tiên kẻ dò mật khẩu thử. Script chặn: tối thiểu 12 ký tự, có cả chữ lẫn số (hoặc ≥16 ký tự), không chứa tên đăng nhập/`123456`/`sdvico`, không ký tự có dấu. (Nới 2026-10-02 — bỏ luật 3/4 loại ký tự vì chủ dự án gõ mãi không đạt.)
 - **Gõ mật khẩu**: TẮT bộ gõ tiếng Việt (Telex/Unikey biến `aa`→`â` khi gõ ẩn). Mỗi ký tự hiện một dấu `•`; chưa đạt thì script liệt kê HẾT lý do và cho gõ lại (3 lần). Terminal không phải TTY (khung terminal của một số app) vẫn chạy được nhưng chữ có thể hiện ra — dọn màn hình sau đó.
 - Định danh trong hệ thống là chính cái tên (`device_tokens.customer_phone = 'admin'`, nhật ký `actor_phone = 'admin'`). Không có hồ sơ khách, không dùng app ngư dân. Phiên 12 giờ, nhiều máy.
-- Chưa khai `OWNER_LOGIN` ⇒ không có admin tổng và mọi quản trị viên vẫn nâng/hạ được nhau (luật cũ) — để không tự khoá cửa lúc chuyển đổi.
+- Chưa có admin tổng (chưa apply 0057, không env) ⇒ không có admin tổng và mọi quản trị viên vẫn nâng/hạ được nhau (luật cũ) — để không tự khoá cửa lúc chuyển đổi.
 
-**Bật (làm theo thứ tự):**
-1. Trên máy mình (có `.env.local` chứa `SUPABASE_SERVICE_ROLE_KEY` prod): `node scripts/owner-account.mjs admin` → tự gõ mật khẩu (không hiện ra màn hình). Chạy lại lệnh này = đổi mật khẩu + đăng xuất mọi máy của admin tổng.
-2. Vercel → env `OWNER_LOGIN=admin` (server-only) → deploy.
+**Bật (làm theo thứ tự) — GỌN từ 2026-10-02 (0057, admin tổng nằm trong DB, KHÔNG cần sửa env server / khởi động lại):**
+1. Trên máy mình (có `.env.local` chứa `SUPABASE_SERVICE_ROLE_KEY` prod): `node scripts/owner-account.mjs admin` → tự gõ mật khẩu (mỗi ký tự hiện `•`). Chạy lại lệnh này = đổi mật khẩu + đăng xuất mọi máy của admin tổng. *(Cách khác không cần script: Supabase SQL editor — `update auth.users set encrypted_password = crypt('<mật khẩu>', gen_salt('bf')) where email = 'admin@sdvico.local';` — chạy tay, KHÔNG lưu vào migration/git.)*
+2. Apply migration **`0057_staff_owner.sql`** — ghi hàng `staff_accounts (phone='admin', role='owner')`. Code đã deploy nhận ra ngay, không cần làm gì trên server.
+   - *(Tuỳ chọn, tương thích bản trước: env `OWNER_LOGIN=admin` trong `.env.production` của server riêng `sdfish.sdvico.vn` vẫn được đọc — không còn cần.)*
 3. Mở `/quan-tri`, đăng nhập bằng `admin` + mật khẩu vừa đặt. Tab Phân quyền phải thấy dòng **admin tổng** đứng đầu và ô "Nâng lên quản trị viên".
 4. Chuyển người đang có thành quản trị viên: nhập SĐT ở ô "Nâng lên quản trị viên" (người chưa có tài khoản → "Tạo tài khoản nhân sự" chọn cấp Quản trị viên).
-5. Xoá env `ADMIN_PHONES` trên Vercel → deploy. Từ đây cửa cứu hộ duy nhất là admin tổng; quên mật khẩu thì chạy lại bước 1.
+5. Xoá dòng `ADMIN_PHONES` (và `MASTER_AGENT_PHONES` khi đã chuyển đại lý tổng) trong `.env.production` của server riêng → khởi động lại app (Linux: `pm2 reload sdfish --update-env` · Windows: `nssm restart forfish`). Bước này KHÔNG bắt buộc ngay — để env cũ cũng không sao. Từ đây cửa cứu hộ duy nhất là admin tổng; quên mật khẩu thì chạy lại bước 1.
 
 ## Thứ tự triển khai — ĐỪNG đảo
 
@@ -65,7 +66,7 @@ Gỡ khỏi file không xoá được khỏi lịch sử git, nên phải coi nh
 
 | Thứ | Lộ ở đâu | Làm gì |
 |---|---|---|
-| Khoá riêng VAPID | `ops/self-host-vps.md` (trước 2026-10-02) | Trước hết **so khoá trong doc với khoá đang chạy** trên Vercel/VPS — khác nhau thì chỉ cần gỡ (đã gỡ). Trùng thì phải xoay: `npx web-push generate-vapid-keys` → thay 3 biến `VAPID_PRIVATE_KEY` / `VAPID_PUBLIC_KEY` / `NEXT_PUBLIC_VAPID_PUBLIC_KEY` → deploy. ⚠️ **Hiện app KHÔNG tự đăng ký lại** khi khoá đổi (`push-client.ts` dùng lại đăng ký cũ nếu có) và máy chủ chỉ dọn đăng ký chết 404/410 ⇒ xoay khoá xong là **mọi máy mất thông báo** (kể cả tin bão) tới khi bà con tắt/bật lại thông báo. Phải làm thay đổi client "đăng ký lại khi khoá khác" và để nó phủ máy TRƯỚC khi xoay |
+| Khoá riêng VAPID | `ops/self-host-vps.md` (trước 2026-10-02) | Trước hết **so khoá trong doc với khoá đang chạy** trên server production — khác nhau thì chỉ cần gỡ (đã gỡ). Trùng thì phải xoay: `npx web-push generate-vapid-keys` → thay 3 biến `VAPID_PRIVATE_KEY` / `VAPID_PUBLIC_KEY` / `NEXT_PUBLIC_VAPID_PUBLIC_KEY` → deploy. ⚠️ **Hiện app KHÔNG tự đăng ký lại** khi khoá đổi (`push-client.ts` dùng lại đăng ký cũ nếu có) và máy chủ chỉ dọn đăng ký chết 404/410 ⇒ xoay khoá xong là **mọi máy mất thông báo** (kể cả tin bão) tới khi bà con tắt/bật lại thông báo. Phải làm thay đổi client "đăng ký lại khi khoá khác" và để nó phủ máy TRƯỚC khi xoay |
 | Mật khẩu khởi tạo admin chung | comment `0024_shared_admin.sql` | làm bước 4 ở trên; nếu chưa gỡ được ngay thì đặt lại mật khẩu số đó ở /quan-tri |
 | SĐT cá nhân của chủ dự án trong `ADMIN_PHONES` | `ops/self-host-vps.md` | không phải bí mật, nhưng đừng để số cá nhân làm admin hằng ngày — bước 6 |
 

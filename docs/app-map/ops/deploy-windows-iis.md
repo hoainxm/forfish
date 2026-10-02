@@ -110,6 +110,9 @@ SDWORK_WEBHOOK_SECRET=
 CREW_CCCD_PEPPER=
 SDFISH_RENEWAL_SECRET=
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+# Admin tổng — nay nằm trong DB (migration 0057), KHÔNG cần khai ở đây.
+# OWNER_LOGIN=admin   ← chỉ để tương thích bản trước, có thể bỏ trống
+# Cửa cứu hộ cũ + đại lý tổng qua env — BỎ sau khi chuyển xong (rbac-runbook)
 ADMIN_PHONES=
 MASTER_AGENT_PHONES=
 ```

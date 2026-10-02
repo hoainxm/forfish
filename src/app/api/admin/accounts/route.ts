@@ -20,7 +20,6 @@ import {
   checkDemoteAdmin,
   isAdminPhone,
   normalizeAccountKind,
-  ownerLogin,
   parseAdminPhones,
   roleAfterCreate,
   ACCOUNT_KINDS,
@@ -28,6 +27,7 @@ import {
   type StaffScope,
 } from "@/lib/admin";
 import {
+  findOwner,
   listDbStaff,
   loadActor,
   managerTargetCheck,
@@ -431,10 +431,13 @@ export async function POST(req: Request) {
       : await requireAdmin();
   if (!who.ok) return err(who.status, who.code);
   // Tạo QUẢN TRỊ VIÊN: chỉ admin tổng (khi đã khai OWNER_LOGIN — 2026-10-02)
-  if (role === "admin" && ownerLogin() && !("owner" in who && who.owner))
-    return err(403, "owner_only");
   const admin = createAdminClient();
   if (!admin) return err(503, "not_configured");
+  if (role === "admin") {
+    const fo = await findOwner(admin);
+    if (!fo.ok) return err(503, "unavailable");
+    if (fo.owner && !("owner" in who && who.owner)) return err(403, "owner_only");
+  }
 
   if (!body?.phone || !isValidVnPhone(body.phone)) return err(400, "bad_phone");
   // Cùng LUẬT DUY NHẤT với app ngư dân (lib/password): tối thiểu 6 ký tự sau khi
@@ -947,7 +950,9 @@ export async function DELETE(req: Request) {
   if (!target.ok) return err(503, "unavailable");
   if (target.actor.role === "admin") {
     // xoá quản trị viên = hạ vai triệt để ⇒ cùng luật: chỉ admin tổng
-    if (ownerLogin() && !(who.role === "admin" && (await isOwnerCaller()))) {
+    const fo = await findOwner(admin);
+    if (!fo.ok) return err(503, "unavailable");
+    if (fo.owner && !(who.role === "admin" && (await isOwnerCaller()))) {
       return err(403, "owner_only");
     }
     const dbStaff = await listDbStaff(admin);
@@ -957,7 +962,7 @@ export async function DELETE(req: Request) {
       targetPhone: phone,
       envPhones: parseAdminPhones(process.env.ADMIN_PHONES),
       dbAdminPhones: dbStaff.rows.filter((r) => r.role === "admin").map((r) => r.phone),
-      ownerConfigured: Boolean(ownerLogin()),
+      ownerConfigured: Boolean(fo.owner),
     });
     if (reason) return err(400, reason);
   }

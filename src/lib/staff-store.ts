@@ -132,6 +132,10 @@ export async function loadActor(admin: Admin, phone: string): Promise<ActorResul
   const staff = envAdmin ? { ok: true as const, tableReady: true, row: null } : await readStaffRow(admin, phone);
   if (!staff.ok) return { ok: false, unavailable: true };
 
+  // ADMIN TỔNG trong DB (0057): hàng staff_accounts role='owner', còn hiệu lực
+  const ownerRow =
+    staff.tableReady && staff.row?.role === "owner" && !staff.row.disabled_at;
+
   const { role, source } = resolveStaffRole({
     envAdmin,
     kind,
@@ -161,7 +165,7 @@ export async function loadActor(admin: Admin, phone: string): Promise<ActorResul
 
   return {
     ok: true,
-    actor: { phone, owner: false, role, source, permissions, scope, kind, customer },
+    actor: { phone, owner: ownerRow, role, source, permissions, scope, kind, customer },
   };
 }
 
@@ -344,4 +348,25 @@ export async function nonRealPhones(admin: Admin): Promise<Set<string>> {
     .neq("account_kind", "real");
   if (error) return new Set();
   return new Set(((data ?? []) as { phone: string }[]).map((r) => r.phone));
+}
+
+/**
+ * ADMIN TỔNG hiện tại: env OWNER_LOGIN (nếu khai — tương thích) HOẶC hàng
+ * staff_accounts role='owner' (0057). `owner:null` = chưa có admin tổng ⇒ các
+ * route giữ luật cũ (mọi admin quản lý admin). Tra hỏng → ok:false (caller 503).
+ */
+export async function findOwner(
+  admin: Admin,
+): Promise<{ ok: true; owner: string | null } | { ok: false }> {
+  const env = ownerLogin();
+  if (env) return { ok: true, owner: env };
+  const { data, error } = await admin
+    .from("staff_accounts")
+    .select("phone")
+    .eq("role", "owner")
+    .is("disabled_at", null)
+    .limit(1);
+  if (error) return isMissingTableError(error) ? { ok: true, owner: null } : { ok: false };
+  const row = (data ?? [])[0] as { phone?: string } | undefined;
+  return { ok: true, owner: row?.phone ?? null };
 }

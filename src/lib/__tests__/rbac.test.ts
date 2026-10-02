@@ -5,6 +5,8 @@ import {
   DEMO_TOKEN_TTL_MS,
   isAdminPhone,
   isOwnerIdentity,
+  isPhoneIdentity,
+  loginNameFromAuthEmail,
   normalizeOwnerLogin,
   OWNER_TOKEN_TTL_MS,
   ownerEmail,
@@ -201,5 +203,28 @@ describe("admin tổng — tên đăng nhập + định danh", () => {
     expect(checkDemoteAdmin({ ...args, ownerConfigured: true })).toBeNull();
     // tự hạ mình vẫn chặn dù có admin tổng
     expect(checkDemoteAdmin({ ...args, targetPhone: "0911111111", ownerConfigured: true })).toBe("self");
+  });
+});
+
+/*  ADMIN TỔNG TRONG DB (0057, 2026-10-02 — "không có cách nào đỡ rắc rối hơn à"):
+    vai owner là một hàng staff_accounts, không cần env/khởi động lại server. */
+describe("admin tổng trong DB", () => {
+  it("resolveStaffRole: hàng owner = quyền admin; hàng owner bị khoá = không vai", () => {
+    const base = { envAdmin: false, kind: "real" as const, tableReady: true, legacyRole: null };
+    expect(resolveStaffRole({ ...base, staff: { role: "owner" } })).toEqual({ role: "admin", source: "db" });
+    expect(resolveStaffRole({ ...base, staff: { role: "owner", disabled: true } }).role).toBeNull();
+  });
+  it("loginNameFromAuthEmail: chỉ tên hợp khuôn trên @sdvico.local — là ỨNG VIÊN, DB quyết", () => {
+    expect(loginNameFromAuthEmail("admin@sdvico.local")).toBe("admin");
+    expect(loginNameFromAuthEmail("Admin@SDVICO.local")).toBe("admin");
+    expect(loginNameFromAuthEmail("admin@gmail.com")).toBeNull();
+    expect(loginNameFromAuthEmail("0912345678@sdvico.local")).toBeNull();
+    expect(loginNameFromAuthEmail("a b@sdvico.local")).toBeNull();
+    expect(loginNameFromAuthEmail(null)).toBeNull();
+  });
+  it("isPhoneIdentity phân biệt SĐT với tên đăng nhập", () => {
+    expect(isPhoneIdentity("0912345678")).toBe(true);
+    expect(isPhoneIdentity("admin")).toBe(false);
+    expect(isPhoneIdentity("")).toBe(false);
   });
 });

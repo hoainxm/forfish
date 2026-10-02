@@ -16,6 +16,13 @@ ttl_days: 180
 ---
 
 <!-- 0052 (đổi số từ 0038 base khi sync — 0038 đã là data_until_web ở sdvico) — `vms_zones.is_border` -->
+### 0057 — ADMIN TỔNG TRONG DB — migration [`0057_staff_owner.sql`](../../supabase/migrations/0057_staff_owner.sql) (2026-10-02) — ⚠️ **CHƯA APPLY prod**
+
+- `staff_accounts.role` mở thêm `owner` (check `owner|admin|manager`); index unique `staff_accounts_one_owner_idx` trên `(role) where role='owner'` ⇒ **một** admin tổng.
+- Seed hàng `('admin','owner')` — định danh là TÊN đăng nhập, khớp auth user `admin@sdvico.local` (tạo bằng `scripts/owner-account.mjs`; mật khẩu KHÔNG nằm trong migration).
+- Code: `loadActor` gắn `owner:true` khi hàng owner còn hiệu lực; `findOwner` (staff-store) = env `OWNER_LOGIN` (tương thích) HOẶC hàng owner; `/api/auth/token` chỉ cấp chuỗi cho định danh không-phải-SĐT khi DB xác nhận owner (`loginNameFromAuthEmail` chỉ là ứng viên). Thay việc sửa env server + khởi động lại.
+- Apply trước hay sau deploy code đều an toàn: code cũ coi `owner` là vai lạ (không quyền).
+
 ### 0056 — TÁCH VAI · LOẠI · HẠN CHUỖI (RBAC) — migration [`0056_rbac_staff_accounts.sql`](../../supabase/migrations/0056_rbac_staff_accounts.sql) (2026-10-02) — ⚠️ **CHƯA APPLY prod** (deploy code TRƯỚC, apply SAU — [ops/rbac-runbook.md](ops/rbac-runbook.md))
 
 Ba trục độc lập, mỗi trục một nguồn (trước: dồn chung hàng `customers` do webhook SDWork upsert/xoá; "ai là admin" tính ở 6 chỗ với 6 luật):

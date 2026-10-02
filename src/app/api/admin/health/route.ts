@@ -6,7 +6,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/admin-auth";
-import { ownerLogin, parseAdminPhones } from "@/lib/admin";
+import { parseAdminPhones } from "@/lib/admin";
+import { findOwner } from "@/lib/staff-store";
 
 export async function GET() {
   const who = await requireStaff();
@@ -26,7 +27,7 @@ export async function GET() {
     /** ADMIN TỔNG — UI chỉ hiện nút nâng/hạ/tạo quản trị viên cho người này */
     owner: who.owner,
     /** đã khai OWNER_LOGIN chưa — chưa thì mọi admin quản lý admin (luật cũ) */
-    ownerConfigured: Boolean(ownerLogin()),
+    ownerConfigured: false,
   };
   const admin = createAdminClient();
 
@@ -40,6 +41,8 @@ export async function GET() {
   if (!admin) {
     return NextResponse.json({ ok: true, me, env, db: null });
   }
+  const fo = await findOwner(admin);
+  me.ownerConfigured = fo.ok && fo.owner !== null;
 
   const now = new Date().toISOString();
   const countAll = async (table: string) => {
