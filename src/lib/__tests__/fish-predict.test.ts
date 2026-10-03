@@ -135,6 +135,17 @@ describe("buildFishForecast", () => {
     lats,
     lons,
   ); // có ranh nhiệt dọc + nhiệt hợp nhiều loài
+  // THỀM 40 m (2026-10-03): MỌI loài nay có cổng độ sâu — không lưới độ sâu thì
+  // ×DEPTH_UNKNOWN_FIT và rớt khỏi payload; test về cơ chế phải cho độ sâu thật.
+  const shelf = grid(
+    [
+      [40, 40, 40],
+      [40, 40, 40],
+      [40, 40, 40],
+    ],
+    lats,
+    lons,
+  );
   const food = grid(
     [
       [0.8, 0.8, 0.8],
@@ -146,7 +157,7 @@ describe("buildFishForecast", () => {
   );
 
   it("vùng hợp loài đang vụ → ra ô có điểm + tên loài + điểm theo loài", () => {
-    const out = buildFishForecast(warm, food, null, 6);
+    const out = buildFishForecast(warm, food, null, 6, { depth: shelf });
     expect(out.cells.length).toBeGreaterThan(0);
     // ô có loài ĐỊNH VỊ được (cột front nhiệt mạnh) — soft-OR: cần cơ chế thật
     const cell = out.cells.find((c) => c.top.length > 0);
@@ -234,7 +245,7 @@ describe("buildFishForecast", () => {
       lats,
       lons,
     );
-    const noEddy = buildFishForecast(warm, flatChl, null, 6);
+    const noEddy = buildFishForecast(warm, flatChl, null, 6, { depth: shelf });
     const dipSsha = grid(
       [
         [0.0, 0.0, 0.0],
@@ -244,7 +255,7 @@ describe("buildFishForecast", () => {
       lats,
       lons,
     );
-    const withEddy = buildFishForecast(warm, flatChl, dipSsha, 6);
+    const withEddy = buildFishForecast(warm, flatChl, dipSsha, 6, { depth: shelf });
     const bestNuc = (o: ReturnType<typeof buildFishForecast>) =>
       Math.max(0, ...o.cells.map((c) => c.sp["cá nục"] ?? 0));
     expect(bestNuc(withEddy)).toBeGreaterThan(bestNuc(noEddy));
@@ -261,7 +272,7 @@ describe("buildFishForecast", () => {
       lats,
       lons,
     );
-    const noEddy = buildFishForecast(warm, flatChl, null, 6);
+    const noEddy = buildFishForecast(warm, flatChl, null, 6, { depth: shelf });
     const uniformLow = grid(
       [
         [-0.15, -0.15, -0.15],
@@ -271,7 +282,7 @@ describe("buildFishForecast", () => {
       lats,
       lons,
     );
-    const withUniform = buildFishForecast(warm, flatChl, uniformLow, 6);
+    const withUniform = buildFishForecast(warm, flatChl, uniformLow, 6, { depth: shelf });
     const bestNuc = (o: ReturnType<typeof buildFishForecast>) =>
       Math.max(0, ...o.cells.map((c) => c.sp["cá nục"] ?? 0));
     expect(bestNuc(withUniform)).toBe(bestNuc(noEddy));
@@ -287,7 +298,7 @@ describe("buildFishForecast", () => {
       lats,
       lons,
     );
-    const base = buildFishForecast(warm, flatChl, null, 6);
+    const base = buildFishForecast(warm, flatChl, null, 6, { depth: shelf });
     const dipAnom = grid(
       [
         [0.0, 0.0, 0.0],
@@ -298,6 +309,7 @@ describe("buildFishForecast", () => {
       lons,
     );
     const withUpw = buildFishForecast(warm, flatChl, null, 6, {
+      depth: shelf,
       anom: dipAnom,
     });
     const bestCom = (o: ReturnType<typeof buildFishForecast>) =>
@@ -315,7 +327,7 @@ describe("buildFishForecast", () => {
       lats,
       lons,
     );
-    const base = buildFishForecast(warm, flatChl, null, 6);
+    const base = buildFishForecast(warm, flatChl, null, 6, { depth: shelf });
     // nước dồn vào cột giữa (u đổi dấu), v đứng yên
     const u = grid(
       [
@@ -336,6 +348,7 @@ describe("buildFishForecast", () => {
       lons,
     );
     const withConv = buildFishForecast(warm, flatChl, null, 6, {
+      depth: shelf,
       cur: { u, v },
     });
     const cellNo = base.cells.find((c) => c.lon === 107.25);
@@ -1007,8 +1020,11 @@ describe("MẤT NGUỒN → điểm GIẢM hoặc GIỮ, tuyệt đối KHÔNG T
       best(run({ depth: null }), "ngừ vây vàng"),
     );
   });
-  it("loài KHÔNG có cổng xa bờ không bị ảnh hưởng khi mất lưới độ sâu", () => {
-    expect(best(run({ depth: null }), "cá nục")).toBe(best(run({}), "cá nục"));
+  it("loài VEN BỜ trên nước 2500 m bị loại (×0); mất lưới độ sâu → ×0,5, không về ×1 (2026-10-03)", () => {
+    expect(best(run({}), "cá nục")).toBe(0);
+    const unknown = best(run({ depth: null }), "cá nục");
+    expect(unknown).toBeGreaterThan(0);
+    expect(unknown).toBeLessThanOrEqual(Math.round(100 * DEPTH_UNKNOWN_FIT));
   });
 });
 
@@ -1116,6 +1132,32 @@ describe("SPECIES_PROFILES khớp FISH_SEASONS", () => {
       expect(seasons.has(p.species), `thiếu mùa vụ: ${p.species}`).toBe(true);
     }
   });
+  it("MỌI loài có cổng độ sâu (inshore XOR offshore) — 2026-10-03: 31/40 từng không có", () => {
+    for (const p of SPECIES_PROFILES) {
+      const n = (p.inshore ? 1 : 0) + (p.offshore ? 1 : 0);
+      expect(n, `${p.short}: cần đúng một cổng độ sâu`).toBe(1);
+      const g = p.inshore ?? p.offshore!;
+      expect(g[0], `${p.short}: a < b`).toBeLessThan(g[1]);
+      if (p.inshore) expect(g[0], `${p.short}: inshore a ≥ 15 m (không phải đầu dưới dải sống)`).toBeGreaterThanOrEqual(15);
+    }
+  });
+  it("cổng cách bờ riêng chỉ khai cho loài offshore; ngừ vằn & nục heo nới [10,25]", () => {
+    for (const p of SPECIES_PROFILES) if (p.coastKm) expect(p.offshore, p.short).toBeDefined();
+    expect(SPECIES_PROFILES.find((p) => p.short === "ngừ vằn")!.coastKm).toEqual([10, 25]);
+    expect(SPECIES_PROFILES.find((p) => p.short === "nục heo")!.coastKm).toEqual([10, 25]);
+  });
+  it("loài cửa sông đã rút khỏi dự báo biển (cua biển, cá đối); cá ngân là cá nổi nhỏ", () => {
+    const shorts = new Set(SPECIES_PROFILES.map((p) => p.short));
+    expect(shorts.has("cua biển")).toBe(false);
+    expect(shorts.has("cá đối")).toBe(false);
+    expect(SPECIES_PROFILES.find((p) => p.short === "cá ngân")!.category).toBe("pelagic-small");
+  });
+  it("trần nhiệt: không loài ven bờ nào hợp-hẳn dưới 29,5 °C (nước VN mùa hè 29,5–30,5)", () => {
+    for (const p of SPECIES_PROFILES) {
+      if (p.tempSource === "bottom" || p.tempSource === "deep") continue;
+      expect(p.sst[2], `${p.short}: c=${p.sst[2]}`).toBeGreaterThanOrEqual(29);
+    }
+  });
   it("đủ rộng (~90% loài bà con đánh) + có nhóm cả 6 loại", () => {
     expect(SPECIES_PROFILES.length).toBeGreaterThanOrEqual(36);
     const cats = new Set(SPECIES_PROFILES.map((p) => p.category));
@@ -1199,11 +1241,22 @@ describe("VIỆC 4 — cổng nhiệt loài đáy dùng NHIỆT ĐÁY (bottomTem
   );
   const phen = (o: ReturnType<typeof buildFishForecast>): number =>
     Math.max(0, ...o.cells.map((c) => c.sp["cá phèn"] ?? 0));
+  // thềm 40 m — cá phèn nay có cổng inshore [80,150] (2026-10-03)
+  const shelf = grid(
+    [
+      [40, 40, 40],
+      [40, 40, 40],
+      [40, 40, 40],
+    ],
+    lats,
+    lons,
+  );
 
   it("KHÔNG bottomTemp → hệt hành vi cũ (chấm bằng SST mặt) — BẤT BIẾN", () => {
-    const base = buildFishForecast(warm, food, null, 6);
+    const base = buildFishForecast(warm, food, null, 6, { depth: shelf });
     // bottomTemp = ĐÚNG BẰNG nhiệt mặt → cổng nhiệt cho kết quả y hệt base
     const same = buildFishForecast(warm, food, null, 6, {
+      depth: shelf,
       bottomTemp: grid(
         [
           [27, 27, 27],
@@ -1219,9 +1272,10 @@ describe("VIỆC 4 — cổng nhiệt loài đáy dùng NHIỆT ĐÁY (bottomTem
   });
 
   it("nhiệt ĐÁY lạnh hơn (rìa dải) → điểm cá phèn GIẢM so với chấm mặt", () => {
-    const base = buildFishForecast(warm, food, null, 6);
+    const base = buildFishForecast(warm, food, null, 6, { depth: shelf });
     // đáy 24°C: tFit = (24−22)/(25−22) ≈ 0.67 < 1 (mặt 27 → tFit 1) → điểm tụt
     const cold = buildFishForecast(warm, food, null, 6, {
+      depth: shelf,
       bottomTemp: grid(
         [
           [24, 24, 24],
@@ -1237,8 +1291,9 @@ describe("VIỆC 4 — cổng nhiệt loài đáy dùng NHIỆT ĐÁY (bottomTem
   });
 
   it("ô nhiệt đáy NaN → FALLBACK về SST mặt (không phạt oan)", () => {
-    const base = buildFishForecast(warm, food, null, 6);
+    const base = buildFishForecast(warm, food, null, 6, { depth: shelf });
     const nanBottom = buildFishForecast(warm, food, null, 6, {
+      depth: shelf,
       bottomTemp: grid(
         [
           [NaN, NaN, NaN],
@@ -1264,7 +1319,7 @@ describe("VIỆC 4 — cổng nhiệt loài đáy dùng NHIỆT ĐÁY (bottomTem
       lats,
       lons,
     );
-    const out = buildFishForecast(warm, food, null, 6, { bottomTemp: gradBottom });
+    const out = buildFishForecast(warm, food, null, 6, { depth: shelf, bottomTemp: gradBottom });
     const vals = out.cells
       .map((c) => c.sp["cá phèn"])
       .filter((v): v is number => v != null);

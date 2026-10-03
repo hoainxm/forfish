@@ -250,10 +250,36 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
    ngưỡng 25: 6–9 → 2–3 ô; ô cá khơi ≥50 KHÔNG mất ô nào (56–60). Lưới ETOPO không có nút biển nào
    (nguồn hỏng) ⇒ bỏ cổng cách bờ, để DEPTH_UNKNOWN_FIT lo như cũ. Tốc độ: quét cửa sổ bán kính
    50 km (quét toàn lưới làm một lượt chậm 3 s → 13 s); khớp quét toàn lưới 0 nút lệch.
-   🟡 CÒN MỞ: cá rạn/đáy (cá hồng, cá kẽm, cá mú — tín hiệu "low") có 175–291 ô ≥25 trên nước
-   >1000 m (lưới 30/9) vì không có cổng độ sâu nào; ngừ chù (A. thazard, ven bờ lẫn khơi) chưa có cổng.
-   🟡 CÙNG KHUÔN LỖI, CHƯA SỬA (chờ chủ dự án): cá thu sst [16,23,29,31] và ngừ chấm [16,24,27,31]
-   — lưới 30/9 max chỉ 0,20 và 0,155 (0 ô ≥50) vì trần nhiệt thấp hơn nước VN cuối hè.
+   ✅ 2026-10-03c — RÀ 40 HỒ SƠ LOÀI BẰNG TEAM 6 AGENT + ÁP THEO TIÊU CHÍ (chủ dự án: "đưa ra
+   tiêu chí quyết rồi chọn theo tiêu chí tốt nhất rồi chạy"). Hồ sơ đầy đủ: ops/fish-review-2026-10-03/
+   (6 báo cáo có nguồn + README tổng hợp + tiêu chí + 7 quyết định). TIÊU CHÍ (thứ tự): (1) không
+   nói dối bà con — không vẽ điểm nóng nơi không có bằng chứng; (2) có nguồn mới đổi; (3) không tắt
+   loài đang vụ; (4) điểm nóng "Mọi loài" không phình; (5) ít code, không đổi payload.
+   ĐÃ ÁP: · **38/38 loài có cổng độ sâu** (`inshore` XOR `offshore`, cổng test) — trước 31/40 không
+   có ⇒ tôm/ghẹ/cá đáy/cá rạn/mực ven bờ chấm điểm trên nước >1000 m (ghẹ 21, tôm bạc 22, bạch tuộc
+   30, ngừ chù 46 ô ≥25 → 0; ngừ chù giữ 47 ô 1000–2500 m có chủ ý: sườn đảo HS/TS). Ngữ nghĩa
+   `inshore [a,b]`: a = độ sâu đánh bắt LỚN NHẤT, b ≈ 1,6–2a — 3/5 agent điền [min,max] dải sống,
+   bộ đo bắt được (cá trích 64→9 ô) trước khi áp. · **Trần nhiệt** ~20 loài nâng lên 30–32 °C (cùng
+   khuôn lỗi ngừ ồ): bạc má 0→30 ô ≥50, ngừ chấm 0→143, mực xà 16→48, mực ống 18→108. · **Sàn
+   nhiệt** vụ đông VBB hạ (trích 23→18, bạc má 23→17, bơn 26→20, kẽm 26→21, mực nang 22→17).
+   · **Mùa vụ** theo nguồn: ruốc tách 4 vùng (NTB ngược 180°), tôm sú → bố mẹ Bãi Cạn 9–2 TNB, cá
+   khoai 5–10 → 10–3, mực ống VBB 5–11, mực xà 2–9, mực nang 11–3, ngừ vằn thêm vụ hè 4–9 ven bờ,
+   vây vàng/mắt to tách gió mùa (Hoàng Sa 9–4, khơi ĐNB 4–9, Trường Sa quanh năm theo SGGP), cá thu
+   thêm 2–9 NTB, ghẹ chính vụ 4–11 (lệnh cấm chỉ 3 hải lý ven bờ), bạc má thêm 3–6, cá sòng thêm vụ
+   VBB 5–9 (sòng nhật), cá trích TB 9–4, cá cơm TB 2–5 + TNB hai vụ, cá đù thêm 6–10 Nam Bộ.
+   · **Định danh**: cá ngân = *Atule mate* (NĐ 37) → pelagic-small ven bờ quanh năm; lầm = *Sardinella
+   aurita*; tôm bạc = *F. merguiensis*. · **RÚT cua biển, cá đối** khỏi lớp dự báo (rừng ngập mặn/cửa
+   sông 0–10 m — tiêu chí 1). · `coastKm` riêng ngừ vằn/nục heo [10,25]. · `tempSource: bottom` hồng,
+   mú, kẽm, mực nang, bạch tuộc. · Cá cơm w.upw 0,25→0,55; tôm/ghẹ w.eddy→0; mực lá surfaceSignal low.
+   ĐO (lưới 30/9, so bản production 707b467, 3 tháng): số loài hiện 20→34 (t1), 34→38 (t4), 36→37
+   (t10); cá khơi <30 km ở ngưỡng 50: 0; loài ven bờ trên >1000 m: 0 (trừ ngừ chù có chủ ý).
+   **Điểm nóng "Mọi loài" 12,3→14,4 % (t1), 13,1→16,4 % (t4), 13,2→16,4 % (t10) — VƯỢT tiêu chí (4)
+   ~1 điểm %**, nguyên nhân là loài vụ hè từng bị trần nhiệt tắt oan (ngừ chấm, mực ống, ngừ vằn, nục
+   heo) nay hiện đúng vụ — chấp nhận vì tiêu chí (3) đứng trên (4); ghi để C1 kiểm bằng vị trí tàu.
+   NỢ: cá thu, cá cờ vẫn ≤1 ô ≥50 dù hồ sơ đã sửa — gốc là `SOFTOR_SCALE 0,4` (một cơ chế đơn lẻ
+   tối đa 40 điểm, xem báo cáo thuật toán B2/C7); sàn nhiệt mùa đông chưa kiểm trên SST mùa đông
+   thật; `tempSource: bottom` chưa đo (HYCOM trượt); Q6 cá đáy "low" tô cả thềm ~60 điểm — đầu ra
+   trung thực nhưng cần design-spec vẽ thành vùng thềm theo mùa thay cho điểm nóng.
    Số sinh thái riêng A. rochei rất ít ⇒ dải nhiệt dựa trên chi Auxis (FishBase, SEAFDEC). "Cá mè đen"
    (user nêu cùng lúc) CHƯA thêm: không nguồn nào ghép tên này với loài biển — chờ xác nhận tại cảng.
 

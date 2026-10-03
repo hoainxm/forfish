@@ -105,11 +105,15 @@ describe("fishInRegion", () => {
       "hoang-sa",
       "trung-bo",
     ];
+    // 2026-10-03: mùa tách theo gió mùa (RIMF-143) — Hoàng Sa 9–4 nên tháng 7
+    // chỉ còn vạt đệm 0,5; "có mặt" = prior > 0, không đòi chính vụ.
     for (const sp of TUNAS) {
       for (const month of [7, 8, 9]) {
         for (const region of offshore) {
           expect(
-            fishInRegion(region, month).some((s) => s.species === sp),
+            FISH_SEASONS.some(
+              (s) => s.species === sp && s.regions.includes(region) && seasonPrior(s.months, month) > 0,
+            ),
             `${sp} thiếu ở ${region} tháng ${month}`,
           ).toBe(true);
         }

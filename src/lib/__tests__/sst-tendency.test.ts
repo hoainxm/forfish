@@ -188,8 +188,11 @@ describe("buildFishForecast — `frontSst` tách FRONT khỏi GIÁ TRỊ nhiệt
       values: sstNow.lats.map(() => sstNow.lons.map(() => 29)),
       date: "2026-07-24",
     };
-    const withFront = buildFishForecast(sstPred, chl, null, 7, { frontSst: sstNow });
-    const flatFront = buildFishForecast(sstPred, chl, null, 7, { frontSst: flat });
+    // thềm 60 m (2026-10-03): mọi loài nay có cổng độ sâu — không lưới độ sâu
+    // thì ×0,5 và rớt khỏi payload, hai bản rỗng sẽ "bằng nhau" giả.
+    const shelf: ScalarGrid = { ...flat, values: sstNow.lats.map(() => sstNow.lons.map(() => 60)) };
+    const withFront = buildFishForecast(sstPred, chl, null, 7, { frontSst: sstNow, depth: shelf });
+    const flatFront = buildFishForecast(sstPred, chl, null, 7, { frontSst: flat, depth: shelf });
     // cùng GIÁ TRỊ nhiệt (sstPred) nhưng front khác → điểm khác
     expect(JSON.stringify(withFront.cells)).not.toBe(JSON.stringify(flatFront.cells));
     // nhiệt hiển thị luôn lấy từ lưới GIÁ TRỊ, không phải lưới front
