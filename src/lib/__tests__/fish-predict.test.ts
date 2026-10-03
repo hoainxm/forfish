@@ -504,6 +504,13 @@ describe("ngừ ồ = Auxis rochei, cá ven bờ (sửa 2026-09-30)", () => {
   it("cận dưới nhiệt có nguồn (≥21 °C, ấu trùng Auxis chịu từ 21,6)", () => {
     expect(oo.sst[0]).toBeGreaterThanOrEqual(21);
   });
+
+  it("sửa 2026-10-03: nước ven bờ mùa rộ 29,5–30,5 °C hợp ĐỦ (không bị trừ nhiệt)", () => {
+    // bản 30/9 hợp hẳn chỉ tới 29 ⇒ 30 °C chỉ được 0,6 ⇒ 1/919 ô ≥50 trên lưới thật
+    for (const t of [29.5, 30, 30.4]) expect(trapezoid(t, ...oo.sst)).toBe(1);
+    expect(trapezoid(31.5, ...oo.sst)).toBeGreaterThan(0);
+    expect(trapezoid(32, ...oo.sst)).toBe(0);
+  });
 });
 
 describe("tầng nhiệt HYCOM tăng điểm cá ngừ", () => {

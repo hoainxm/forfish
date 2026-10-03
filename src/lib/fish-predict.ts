@@ -282,14 +282,17 @@ export const SPECIES_PROFILES: SpeciesProfile[] = [
   // Sửa 2026-09-30: cá VEN BỜ & quanh đảo (FishBase "10 – ? m"), săn đàn cá cơm
   // ⇒ bám front nhiệt + front mồi + nước trồi ven bờ Nam Trung Bộ, KHÔNG dùng
   // tầng nhiệt (thềm nông, D20 vô nghĩa). Nhiệt: cận dưới 21,5 (ấu trùng Auxis
-  // chịu 21,6–30,5), tối ưu 25–29 (FishBase 27–28; rochei chịu tới ~28), cận
-  // trên 31,5 — dốc 29–31,5 để mùa hè nước trồi mát hơn được điểm hơn nước
-  // nóng đều. Cũ [18,24,28,30] cận dưới 18 không nguồn nào ghi. `inshore`
+  // chịu 21,6–30,5), hợp hẳn 25–30,5, dốc 30,5–32. Sửa 2026-10-03: bản
+  // 30/9 cho hợp hẳn chỉ tới 29 ⇒ tự mâu thuẫn với chính mùa rộ của nó (Nhơn
+  // Lý tháng 5–6, ven bờ 29,5–30,5 °C). Đo lưới thật 30/9: SST ven bờ p10–p90
+  // 29,75–30,4 ⇒ tFit trung vị 0,58 ở MỌI ô, chỉ 1/919 ô ≥50. Lên 30,5 (đúng
+  // mép trên nguồn đã dẫn): 103 ô ≥50, 102 ở đáy ≤200 m, 11 ô ngoài Nhơn Lý–
+  // Đức Phổ. Cũ [18,24,28,30] cận dưới 18 không nguồn nào ghi. `inshore`
   // [200,600]: thềm ≤200 m hợp đủ, khơi ≥600 m loại (đo lưới thật t7: không
   // cổng này thì trung vị điểm nóng ở nước sâu 1826 m, cách bờ 88 km).
   // chlLog [-1,0]: nước ven bờ giàu mồi hơn khơi — sweep 6 biến thể trên lưới
   // thật (24/7 + 28/9): duy nhất bản này giữ 91% ô ≥50 ở đáy ≤200 m cả 2 ngày.
-  { species: "Cá ngừ ồ", short: "ngừ ồ", category: "pelagic-large", surfaceSignal: "medium", color: "#0e7490", depthBand: "tầng mặt ven bờ & quanh đảo, theo đàn cá cơm", sst: [21.5, 25, 29, 31.5], chlLog: [-1.0, 0.0], w: { thermFront: 0.3, chlFront: 0.25, eddy: 0.1, upw: 0.25, conv: 0.15 }, coldCore: false, inshore: [200, 600] },
+  { species: "Cá ngừ ồ", short: "ngừ ồ", category: "pelagic-large", surfaceSignal: "medium", color: "#0e7490", depthBand: "tầng mặt ven bờ & quanh đảo, theo đàn cá cơm", sst: [21.5, 25, 30.5, 32], chlLog: [-1.0, 0.0], w: { thermFront: 0.3, chlFront: 0.25, eddy: 0.1, upw: 0.25, conv: 0.15 }, coldCore: false, inshore: [200, 600] },
   { species: "Cá ngừ chấm", short: "ngừ chấm", category: "pelagic-large", surfaceSignal: "medium", color: "#0d9488", depthBand: "ven bờ 0–80 m", sst: [16, 24, 27, 31], chlLog: [-0.7, 0.4], w: { thermFront: 0.2, chlFront: 0.2, eddy: 0.05, upw: 0.15, conv: 0.1, thermo: 0.1 }, coldCore: false },
   { species: "Cá thu", short: "cá thu", category: "pelagic-large", surfaceSignal: "high", color: "#155e75", depthBand: "tầng mặt – đáy 5–170 m, ven bờ", sst: [16, 23, 29, 31], chlLog: [-0.7, 0.4], w: { thermFront: 0.35, chlFront: 0.2, eddy: 0.1, upw: 0.1, conv: 0.15, thermo: 0.05 }, coldCore: false },
   { species: "Cá cờ (cá cờ buồm)", short: "cá cờ", category: "pelagic-large", surfaceSignal: "high", color: "#3b82f6", depthBand: "tầng mặt 0–200 m", sst: [20, 25, 28, 30], chlLog: [-1.4, -0.2], w: { thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.05, conv: 0.1, thermo: 0.3 }, coldCore: false, offshore: [50, 200] },

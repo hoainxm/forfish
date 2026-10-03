@@ -229,6 +229,16 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
    bằng số (lưới thật 24/7/2026): không có cổng thì điểm nóng ngừ ồ trôi theo vệt nước trồi ra khơi —
    trung vị cách bờ 88 km, đáy 1826 m, chỉ 12/70 ô ≥50 ở nước ≤100 m. %điểm nóng "Mọi loài" lệch ≤0,54
    điểm % ở cả 3 ngày đo (24/7, 10/1, 28/9).
+   ✅ SỬA TIẾP 2026-10-03 (chủ dự án: "sao user không thấy ngừ ồ"): (1) NHIỆT — bản 30/9 cho hợp
+   hẳn chỉ tới 29 °C, tự mâu thuẫn với mùa rộ (ven bờ tháng 5–6 là 29,5–30,5 °C). Đo lưới thật 30/9:
+   SST ven bờ p10–p90 29,75–30,4 ⇒ tFit trung vị 0,58 ở mọi ô ⇒ 1/919 ô ≥50. Nay sst [21,5; 25;
+   30,5; 32] (30,5 = mép trên chính nguồn ấu trùng Auxis đã dẫn) ⇒ 115 ô ≥50, max 63, 102/103 ô
+   ≥50 ở đáy ≤200 m, 11 ô ngoài Nhơn Lý–Đức Phổ. Đánh đổi đã đo: %điểm nóng "Mọi loài" tăng
+   ~+3,5 điểm % (9,3→12,9, ước trên lưới 30/9) — vùng ven bờ trước trống nay có loài thật.
+   (2) MÙA — nới 3–9 → 3–10 (bà con còn đánh tháng 10); tháng 2/11 đệm 0,5, tháng 12–1 vẫn 0.
+   Không nới thì dữ liệu sang tháng 10 ⇒ ×0,5 ⇒ max ~26, bản đồ trống.
+   🟡 CÙNG KHUÔN LỖI, CHƯA SỬA (chờ chủ dự án): cá thu sst [16,23,29,31] và ngừ chấm [16,24,27,31]
+   — lưới 30/9 max chỉ 0,20 và 0,155 (0 ô ≥50) vì trần nhiệt thấp hơn nước VN cuối hè.
    Số sinh thái riêng A. rochei rất ít ⇒ dải nhiệt dựa trên chi Auxis (FishBase, SEAFDEC). "Cá mè đen"
    (user nêu cùng lúc) CHƯA thêm: không nguồn nào ghép tên này với loài biển — chờ xác nhận tại cảng.
 

@@ -235,6 +235,13 @@ describe("mùa ngừ ồ (sửa 2026-09-30 — khai cũ 11–5 ngược mùa)", 
     for (const m of [5, 6, 9]) expect(seasonPrior(ntb.months, m)).toBe(1);
   });
 
+  it("nới 2026-10-03: tháng 10 vẫn là vụ (đủ 1), tháng 11 đệm 0,5", () => {
+    for (const f of oo) {
+      expect(seasonPrior(f.months, 10)).toBe(1);
+      expect(seasonPrior(f.months, 11)).toBe(0.5);
+    }
+  });
+
   it("giữa đông (tháng 12–1) KHÔNG còn là chính vụ", () => {
     for (const f of oo) {
       expect(seasonPrior(f.months, 12)).toBe(0);

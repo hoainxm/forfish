@@ -283,11 +283,15 @@ export const FISH_SEASONS: FishSeason[] = [
     // Sửa 2026-09-30: khai cũ 11–5 NGƯỢC mùa (biên bản kiểm cá ngừ 2026-07-28,
     // 01-product). Nguồn VN: rộ tháng 3–8; Nhơn Lý (Quy Nhơn) rộ khoảng tháng
     // 5–6 DL; Đức Phổ (Quảng Ngãi) trúng ngừ ồ gần bờ tháng 9. Ngoài vụ vẫn có
-    // lác đác quanh năm — vạt đệm của seasonPrior (tháng 2, 10 = 0,5) đủ phủ.
+    // lác đác quanh năm.
+    // NỚI 2026-10-03 (chủ dự án: bà con còn đánh đầu tháng 10): thêm tháng 10
+    // làm đuôi vụ — Đức Phổ trúng gần bờ tháng 9 thì đàn chưa tan ngay. Với
+    // vạt đệm seasonPrior: tháng 2 và 11 = 0,5; tháng 12–1 vẫn 0 (giữa đông).
+    // Không nới thì dữ liệu sang tháng 10 là điểm ×0,5 ⇒ max ~26, bản đồ trống.
     species: "Cá ngừ ồ",
-    months: [3, 4, 5, 6, 7, 8, 9],
+    months: [3, 4, 5, 6, 7, 8, 9, 10],
     regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo"],
-    note: "Rộ tháng 3–9, đàn nổi gần bờ và quanh đảo theo đàn cá cơm — lưới vây, lưới rút, rê. Khác cá ngừ chù.",
+    note: "Rộ tháng 3–9, còn đánh tới tháng 10; đàn nổi gần bờ và quanh đảo theo đàn cá cơm — lưới vây, lưới rút, rê. Khác cá ngừ chù.",
   },
   {
     species: "Cá ngừ chấm",
