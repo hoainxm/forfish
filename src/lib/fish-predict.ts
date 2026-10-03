@@ -20,11 +20,12 @@ import { forecastStoreReady } from "@/lib/forecast-store";
 import type { FieldProvenance } from "@/lib/source-registry";
 import { timeoutSignal } from "@/lib/abort";
 import { noteResponse, tokenHeader } from "@/lib/device-token-store";
+import { seasonalThermalBand, type SstClimatology } from "@/lib/thermal-band";
 
 // Bán kính (độ) gán ô biển về vùng gần nhất — đủ phủ kín toàn EEZ + Hoàng Sa/
 // Trường Sa, vẫn loại nước ngoài xa hẳn (Hải Nam, Philippines). PFZ tính cho
 // MỌI ô biển VN, không chỉ trong các đa giác khoanh sẵn.
-const REGION_REACH_DEG = 2.0;
+export const REGION_REACH_DEG = 2.0;
 
 /* ----------------------------------------------------------------------------
    Khẩu vị loài — dải nhiệt (trapezoid °C) + mồi (log10 chlorophyll mg/m³)
@@ -1080,8 +1081,15 @@ export function buildFishForecast(
      * cùng dữ liệu, không phải chạy hai lần rồi ghép file.
      */
     convFullPerDeg?: number;
+    /**
+     * Bảng khí hậu SST theo vùng–tháng (src/data/sst-climatology.v1.json →
+     * `.regions`) cho DẢI NHIỆT LAI (lib/thermal-band.ts). Tuỳ chọn: thiếu ⇒
+     * dải hồ sơ cố định như cũ. Chỉ NỚI cao nguyên nên có bảng ≥ không bảng.
+     */
+    climo?: SstClimatology | null;
   },
 ): FishForecast {
+  const climo = extra?.climo ?? null;
   const anom = extra?.anom ?? null;
   const cur = extra?.cur ?? null;
   const thermo = extra?.thermo ?? null;
@@ -1278,8 +1286,19 @@ export function buildFishForecast(
             : p.tempSource === "deep"
               ? tDeep
               : t;
-        const band = tierT != null ? p.sst : (p.sstFallback ?? p.sst);
+        const bandRaw = tierT != null ? p.sst : (p.sstFallback ?? p.sst);
         const tGate = tierT != null ? tierT : t;
+        // DẢI NHIỆT LAI (C3, 2026-10-03e): cao nguyên [b,c] nới theo khí hậu SST
+        // vùng–tháng (p25/p75), biên [a,d] giữ. CHỈ khi cổng đang chấm nhiệt MẶT
+        // (loài mặt, hoặc loài đáy/sâu đang FALLBACK về mặt vì thiếu HYCOM):
+        // loài đáy đang chấm nhiệt đáy thật thì khí hậu mặt không liên quan.
+        // Thiếu bảng ⇒ `bandRaw` (hành vi cũ; chỉ nới nên mất bảng không bao
+        // giờ làm điểm tăng).
+        const surfaceGate =
+          tierT == null || (p.tempSource !== "bottom" && p.tempSource !== "deep");
+        const band = surfaceGate
+          ? seasonalThermalBand(bandRaw, region.id, month, climo)
+          : bandRaw;
         const tFit = trapezoid(tGate, band[0], band[1], band[2], band[3]);
         if (tFit === 0) continue;
         // MỒI = GIỚI HẠN MỀM (tách khỏi soft-OR): mồi=0 chỉ hạ điểm còn

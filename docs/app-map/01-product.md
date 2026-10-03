@@ -282,6 +282,30 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
    trung thực nhưng cần design-spec vẽ thành vùng thềm theo mùa thay cho điểm nóng.
    Số sinh thái riêng A. rochei rất ít ⇒ dải nhiệt dựa trên chi Auxis (FishBase, SEAFDEC). "Cá mè đen"
    (user nêu cùng lúc) CHƯA thêm: không nguồn nào ghép tên này với loài biển — chờ xác nhận tại cảng.
+   ✅ 2026-10-03e — DẢI NHIỆT LAI (C3 báo cáo thuật toán; chữa GỐC lớp lỗi "trần/sàn nhiệt cố định
+   tắt loài đúng vụ" mà đợt 1 mới sửa TAY ~25 dải). `src/lib/thermal-band.ts` `seasonalThermalBand`:
+   giữ biên chịu đựng [a,d] của hồ sơ, cao nguyên [b,c] NỚI theo khí hậu SST vùng–tháng:
+   b' = min(b, max(a+0,5, p25)) · c' = max(c, min(d−0,5, p75)). CHỈ NỚI, không co — co theo khí hậu
+   thì "mất bảng" làm điểm TĂNG, vi phạm bất biến mất-nguồn (test khoá cả hai cấp: hàm thuần và
+   `buildFishForecast`); p25/p75 chứ không p10/p90 để ¼ ô nóng/mát nhất vẫn phân hoá. Chỉ áp khi cổng
+   đang chấm nhiệt MẶT (loài đáy chấm nhiệt đáy HYCOM giữ nguyên; fallback mặt thì áp). BẢNG:
+   `src/data/sst-climatology.v1.json` (11 KB, bundle server — `fish-forecast-run.ts` truyền
+   `extra.climo`, KHÔNG request mạng lúc chạy) sinh bởi `scripts/collect-sst-climatology.mjs`:
+   CoralTemp 2021–2025, 3 lát/tháng/năm, gộp mọi ô biển theo `FISH_REGIONS` (đúng `nearestRegionWithin`
+   của app) → p10/25/50/75/90 × 7 vùng × 12 tháng (84/84). KHÔNG dùng `fish-climatology.v1.json` vì
+   file đó là ĐIỂM CÁ đã chấm, không còn SST. ĐO (lưới 30/9, cùng dữ liệu, có/không bảng): 0 ô×loài
+   giảm ở mọi tháng; %điểm nóng "Mọi loài" t1 14,4→14,4 · t4 16,4→16,5 · t7 16,5→17,2 · t9 16,4→16,7 ·
+   t10 16,4→16,4 (Δ ≤ 0,8 — đạt tiêu chí 4); loài trong payload có 0 ô ≥50: t9 4→2, t10 2→0, t7 5→4;
+   ô ≥50 t9: cá sòng 0→68, cá cờ 0→17, cá tráo 11→114, bạc má 30→88, cá mối 72→107; std(tFit) loài bị
+   phạt oan TĂNG (tráo 0,14→0,22, sòng 0,13→0,22, cờ 0,13→0,23) — nới cao nguyên tới p75 đưa ô
+   nóng-vừa lên 1 và tách khỏi ô nóng hẳn. BẰNG CHỨNG CÔNG THỨC ĐÚNG: tính dải lai từ dải CŨ (707b467^)
+   cho 16 loài đợt 1 nâng TRẦN bằng tay → c' lệch ≤ 0,5 °C so với số tay ở 16/16 (vd vây vàng 30,6 vs
+   30,5; ngừ ồ 30,9 vs 30,5; mực ống 30,5 vs 30,5). Ngược lại SÀN sửa tay (bạc má 25→21, trích 25→21,
+   bơn 27→23, mực nang 25→20) dải lai KHÔNG tái tạo được vì chúng đổi cả a — biên chịu đựng là việc của
+   hồ sơ + nguồn, công thức cố ý không đụng. GIỚI HẠN: (1) không chữa BÃO HOÀ (ngừ ồ/ruốc/cá cơm std
+   tFit 0,02–0,03 trước và sau) — chữa cần CO cao nguyên, bị bất biến mất-nguồn chặn; (2) lưới đo là
+   SST 30/9 nên t1/t4 chỉ kiểm bất biến, không kiểm sinh học mùa đông; (3) `fish-climatology.v1.json`
+   (bản mùa vụ cho blend) chấm bằng dải cũ — collector đã nối `climo`, sinh lại khi có chủ ý.
 
 🟡 CỔNG NHIỆT LỆCH ẤM (đo độc lập trên SST thật xác nhận): tháng 7 biển VN chỉ trải 28,7–30,0 °C mà
  plateau vây vàng là 26–30 ⇒ 90,4 % ô đạt điểm tối đa, độ lệch chuẩn 0,081 ⇒ TERM NHIỆT KHÔNG PHÂN BIỆT

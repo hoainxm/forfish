@@ -32,6 +32,8 @@ import {
   type Resolved,
 } from "@/lib/source-registry";
 import { timeoutSignal } from "@/lib/abort";
+import sstClimo from "@/data/sst-climatology.v1.json";
+import type { SstClimatology } from "@/lib/thermal-band";
 
 /**
  * TÍNH bản đồ dự báo cá (PFZ) — kéo lưới SST + phù du mới nhất từ nguồn công
@@ -307,6 +309,9 @@ export async function computeFishForecast(): Promise<FishForecastResult> {
         bottomTemp: hycom?.bottom ?? null,
         // nhiệt 250 m — hạ tầng giữ sẵn, chưa gán loài (xem 01-product)
         deepTemp: hycom?.deep250 ?? null,
+        // bảng khí hậu SST vùng–tháng cho dải nhiệt lai (bundle server, không
+        // request mạng — scripts/collect-sst-climatology.mjs sinh lại ~1 lần/năm)
+        climo: sstClimo.regions as SstClimatology,
       }),
       // `generatedAt` = LÚC TÍNH bản đồ này (khác `date` = ngày ẢNH vệ tinh).
       generatedAt: new Date().toISOString(),
