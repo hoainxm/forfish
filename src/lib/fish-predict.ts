@@ -138,6 +138,22 @@ export const THERMO_BAND_DEFAULT: [number, number] = [-4, -23];
  * nguyên tắc chứ không phải theo mức cắt.
  */
 export const DEPTH_UNKNOWN_FIT = 0.5;
+/**
+ * CỔNG NỀN RẠN (2026-10-03, C6) cho loài `requiresReef` (cá hồng, mú, kẽm).
+ * Ô 0,25° CÓ RẠN (lưới `extra.reef`, dựng từ Allen Coral Atlas + OSM + rạn có
+ * tên — scripts/build-reef-grid.mjs) ⇒ BỎ QUA cổng độ sâu (×1): rạn Trường
+ * Sa/Hoàng Sa là chóp nhô từ nền 1.000–2.000 m, độ sâu TRUNG BÌNH ô vẫn sâu
+ * dù ngư dân câu ở sườn rạn 20–150 m (SGGP "Câu cá ở Trường Sa"). Ô KHÔNG có
+ * rạn ⇒ cổng độ sâu như cũ NHÂN THÊM hệ số này: thềm bùn không rạn vẫn có cá
+ * hồng/kẽm (đáy bùn cứng, lưới kéo VBB — FishBase, CTU 3592) nên không ×0,
+ * nhưng thiếu cơ chế gom chính (nền cứng) thì bớt chắc. THIẾU lưới rạn ⇒ coi
+ * như "không rạn" (×hệ số) — mất nguồn không bao giờ làm điểm TĂNG (bất biến
+ * monotonic): ô rạn 1 → ×hệ số (giảm), ô không rạn giữ nguyên.
+ * Chọn 0,5 (đo lưới 30/9, xem result-c6): các mức 0,5/0,7 đều giữ loài trong
+ * payload; 0,5 là mức mà ô thềm KHÔNG rạn rơi dưới sàn hiển thị 50 — đúng ý
+ * "không rạn thì không khẳng định", còn ô có rạn mới lên bản đồ.
+ */
+export const REEF_ABSENT_FIT = 0.5;
 
 export interface SpeciesProfile {
   /** khớp đúng chuỗi `species` trong FISH_SEASONS */
@@ -169,6 +185,12 @@ export interface SpeciesProfile {
    * HYCOM fail) — hành vi hệt loài "surface".
    */
   tempSource?: "surface" | "bottom" | "deep";
+  /**
+   * CỔNG NỀN RẠN (cá hồng, mú, kẽm): ô có rạn trong `extra.reef` ⇒ bỏ qua cổng
+   * độ sâu (×1 — rạn giữa biển sâu Trường Sa/Hoàng Sa); ô không rạn hoặc thiếu
+   * lưới rạn ⇒ cổng độ sâu như cũ × `REEF_ABSENT_FIT`. Xem hằng đó.
+   */
+  requiresReef?: boolean;
   /**
    * Dải nhiệt MẶT dự phòng [min,optMin,optMax,max] °C — CHỈ dùng khi tempSource
    * là "bottom"/"deep" NHƯNG thiếu lưới tầng sâu (HYCOM fail) hoặc ô NaN. Cần khi
@@ -335,9 +357,9 @@ export const SPECIES_PROFILES: SpeciesProfile[] = [
   { species: "Cá chim", short: "cá chim", category: "demersal", surfaceSignal: "medium", color: "#a16207", tempSource: "bottom", depthBand: "đáy bùn 5–110 m", sst: [22, 24, 30, 32], chlLog: [-0.3, 0.8], w: { thermFront: 0.2, chlFront: 0.2, eddy: 0.1, upw: 0.1, conv: 0.1 }, coldCore: false, inshore: [80, 150] },
   { species: "Cá bơn", short: "cá bơn", category: "demersal", surfaceSignal: "low", color: "#78350f", tempSource: "bottom", depthBand: "đáy cát bùn 20–50 m", sst: [20, 23, 30, 32], chlLog: [-0.3, 1.0], w: { thermFront: 0.05, chlFront: 0.1, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false, inshore: [80, 150] },
   // ── CÁ RẠN (câu rạn) — gắn rạn, ảnh mặt biển gần như không giúp ──────────
-  { species: "Cá hồng", short: "cá hồng", category: "reef", surfaceSignal: "low", color: "#dc2626", depthBand: "rạn & đáy cứng 12–100 m", sst: [20, 23, 30, 32], chlLog: [-1, 0.5], w: { thermFront: 0.05, chlFront: 0.05, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false, tempSource: "bottom", inshore: [100, 200] },
-  { species: "Cá mú (cá song)", short: "cá mú", category: "reef", surfaceSignal: "low", color: "#b91c1c", depthBand: "rạn & đáy cứng 5–50 m", sst: [23, 25, 30, 32], chlLog: [-1.2, 0.5], w: { thermFront: 0.05, chlFront: 0.05, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false, tempSource: "bottom", inshore: [60, 150] },
-  { species: "Cá kẽm", short: "cá kẽm", category: "reef", surfaceSignal: "low", color: "#e11d48", depthBand: "rạn nước trong 2–25 m", sst: [21, 24, 30, 32], chlLog: [-0.8, 0.6], w: { thermFront: 0.05, chlFront: 0.05, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false, tempSource: "bottom", inshore: [50, 100] },
+  { species: "Cá hồng", short: "cá hồng", category: "reef", surfaceSignal: "low", color: "#dc2626", depthBand: "rạn & đáy cứng 12–100 m", sst: [20, 23, 30, 32], chlLog: [-1, 0.5], w: { thermFront: 0.05, chlFront: 0.05, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false, tempSource: "bottom", inshore: [100, 200], requiresReef: true },
+  { species: "Cá mú (cá song)", short: "cá mú", category: "reef", surfaceSignal: "low", color: "#b91c1c", depthBand: "rạn & đáy cứng 5–50 m", sst: [23, 25, 30, 32], chlLog: [-1.2, 0.5], w: { thermFront: 0.05, chlFront: 0.05, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false, tempSource: "bottom", inshore: [60, 150], requiresReef: true },
+  { species: "Cá kẽm", short: "cá kẽm", category: "reef", surfaceSignal: "low", color: "#e11d48", depthBand: "rạn nước trong 2–25 m", sst: [21, 24, 30, 32], chlLog: [-0.8, 0.6], w: { thermFront: 0.05, chlFront: 0.05, eddy: 0.05, upw: 0.05, conv: 0.05 }, coldCore: false, tempSource: "bottom", inshore: [50, 100], requiresReef: true },
   // ── GIÁP XÁC — sống ĐÁY/CỬA SÔNG, theo MÙA VỤ + VÙNG, không vẽ điểm giả ──
   //  SỬA SINH HỌC: 4 loài đáy dưới trước để `conv` (hội tụ DÒNG CHẢY MẶT, lưới
   //  25 km) làm trọng số LỚN NHẤT — sai: chúng sống ĐÁY bùn/cửa sông, dòng mặt
@@ -1061,6 +1083,17 @@ export function buildFishForecast(
     depth?: ScalarGrid | null;
     /** lưới NHIỆT ĐỘ ĐÁY (°C) — HYCOM; cổng nhiệt loài đáy (tempSource "bottom") */
     bottomTemp?: ScalarGrid | null;
+    /**
+     * lưới TỶ LỆ RẠN trong ô 0,25° (0..1; `src/data/reef-grid-025.v1.json`,
+     * scripts/build-reef-grid.mjs) — cổng nền rạn cho loài `requiresReef`.
+     * Thiếu ⇒ coi mọi ô "không rạn" (× REEF_ABSENT_FIT), không bao giờ tăng điểm.
+     */
+    reef?: ScalarGrid | null;
+    /**
+     * CHỈ để hiệu chỉnh (đo TRƯỚC/SAU cùng tiến trình): thay `REEF_ABSENT_FIT`.
+     * Runtime KHÔNG truyền.
+     */
+    reefAbsentFit?: number;
     /** lưới NHIỆT tầng ~250 m (°C) — HYCOM; cổng nhiệt cá ngừ mắt to (tempSource "deep") */
     deepTemp?: ScalarGrid | null;
     /**
@@ -1094,6 +1127,8 @@ export function buildFishForecast(
       : null;
   const bottomTemp = extra?.bottomTemp ?? null;
   const deepTemp = extra?.deepTemp ?? null;
+  const reef = extra?.reef ?? null;
+  const reefAbsentFit = extra?.reefAbsentFit ?? REEF_ABSENT_FIT;
 
   // GUARD ĐƠN VỊ tại chỗ dùng — lưới chưa khai thì bỏ qua, khai SAI thì ném.
   // Bẫy thật: nguồn SST chính trả Kelvin, nguồn dự phòng CoralTemp trả °C sẵn;
@@ -1251,6 +1286,12 @@ export function buildFishForecast(
         if (Number.isFinite(dv)) cellDepthM = dv;
         cellCoastKm = coastKm?.[dpi]?.[dpj] ?? null;
       }
+      // ô có RẠN không (lưới rạn 0,25°) — null = thiếu lưới / ô NaN ⇒ "không rạn"
+      let cellHasReef: boolean | null = null;
+      if (reef) {
+        const rv = reef.values[nearestIndex(reef.lats, lat)]?.[nearestIndex(reef.lons, lon)];
+        if (Number.isFinite(rv)) cellHasReef = (rv as number) > 0;
+      }
       // nhiệt độ ĐÁY / tầng 250 m tại ô (°C) — cổng nhiệt loài đáy / ngừ mắt to.
       // Thiếu lưới hoặc ô NaN → null → chấm bằng SST mặt (fallback, không regress).
       const sampleT = (g: ScalarGrid | null): number | null => {
@@ -1331,7 +1372,7 @@ export function buildFishForecast(
         // Loài xa bờ còn qua CỔNG CÁCH BỜ (OFFSHORE_COAST_KM): thềm miền Trung
         // dốc nên độ sâu một mình để lọt; và ô sát bờ có nút ETOPO rơi vào đất
         // (độ sâu "không biết" ⇒ 0,5) nay ra 0 vì cách bờ 0 km.
-        const depthFit = p.offshore
+        const depthGate = p.offshore
           ? (cellDepthM != null
               ? deepWaterFit(cellDepthM, p.offshore[0], p.offshore[1])
               : DEPTH_UNKNOWN_FIT) *
@@ -1343,6 +1384,13 @@ export function buildFishForecast(
               ? shallowWaterFit(cellDepthM, p.inshore[0], p.inshore[1])
               : DEPTH_UNKNOWN_FIT
             : 1;
+        // CỔNG NỀN RẠN (requiresReef): ô có rạn ⇒ bỏ qua cổng độ sâu (chóp rạn
+        // nhô từ nền sâu); không rạn / thiếu lưới rạn ⇒ cổng độ sâu × REEF_ABSENT_FIT.
+        const depthFit = p.requiresReef
+          ? cellHasReef
+            ? 1
+            : depthGate * reefAbsentFit
+          : depthGate;
         // `sW` = prior mùa vụ mềm (≤1): chính vụ ×1 (không đổi), tháng đệm hạ
         // điểm đầu/cuối vụ. Là thừa số ≤1 nên bất biến "mất tín hiệu = điểm
         // GIẢM" vẫn giữ.

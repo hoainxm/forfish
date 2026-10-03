@@ -32,6 +32,10 @@ import {
   type Resolved,
 } from "@/lib/source-registry";
 import { timeoutSignal } from "@/lib/abort";
+// Lưới rạn 0,25° (14 KB) dựng LÚC BUILD từ public/data bản rõ (scripts/
+// build-reef-grid.mjs) — đi theo bundle server, không fetch, không giải mã;
+// cổng nền rạn cho cá hồng/mú/kẽm (`SpeciesProfile.requiresReef`).
+import reefGridJson from "@/data/reef-grid-025.v1.json";
 
 /**
  * TÍNH bản đồ dự báo cá (PFZ) — kéo lưới SST + phù du mới nhất từ nguồn công
@@ -305,6 +309,7 @@ export async function computeFishForecast(): Promise<FishForecastResult> {
         thermo: hycom?.d20 ?? null,
         depth: bathyR?.grid ?? null,
         bottomTemp: hycom?.bottom ?? null,
+        reef: reefGridJson as unknown as ScalarGrid,
         // nhiệt 250 m — hạ tầng giữ sẵn, chưa gán loài (xem 01-product)
         deepTemp: hycom?.deep250 ?? null,
       }),

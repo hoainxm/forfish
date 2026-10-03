@@ -21,6 +21,7 @@ import {
   trapezoid,
   CONV_FULL_PER_DEG,
   DEPTH_UNKNOWN_FIT,
+  REEF_ABSENT_FIT,
   SPECIES_META,
   SPECIES_PROFILES,
   thermoFit,
@@ -208,7 +209,11 @@ describe("buildFishForecast", () => {
       gapLats,
       gapLons,
     );
-    const out = buildFishForecast(warmGap, foodGap, null, 6);
+    // Đáy 60 m khai rõ: test này nói về GÁN VÙNG, không phải về cổng độ sâu.
+    // (Trước 2026-10-03g nó sống nhờ cá rạn qua được DEPTH_UNKNOWN_FIT; nay cá
+    // rạn không rạn ×0,5 nữa nên phải cho độ sâu thật để loài ven bờ lên điểm.)
+    const depthGap = grid(gapLats.map(() => gapLons.map(() => 60)), gapLats, gapLons);
+    const out = buildFishForecast(warmGap, foodGap, null, 6, { depth: depthGap });
     expect(out.cells.length).toBeGreaterThan(0);
   });
 
@@ -964,7 +969,9 @@ describe("MẤT NGUỒN → điểm GIẢM hoặc GIỮ, tuyệt đối KHÔNG T
   };
   const thermo = g4((i, j) => 60 + 40 * i + 25 * j);
   const depth = g4(() => 2500);
-  const base = { anom, cur, thermo, depth };
+  // mọi ô CÓ rạn — để cổng rạn (cá hồng/mú/kẽm) ĐANG SỐNG ở bản đủ nguồn
+  const reef = g4(() => 0.02);
+  const base = { anom, cur, thermo, depth, reef };
   const run = (over: Parameters<typeof buildFishForecast>[4]) =>
     buildFishForecast(sst, chl, sla, 6, { ...base, ...over });
   const table = (f: ReturnType<typeof buildFishForecast>) => {
@@ -981,6 +988,7 @@ describe("MẤT NGUỒN → điểm GIẢM hoặc GIỮ, tuyệt đối KHÔNG T
     ["mất dòng chảy (hội tụ)", { cur: null }],
     ["mất tầng nhiệt + dị thường nhiệt", { thermo: null, anom: null }],
     ["mất tầng nhiệt + dị thường + dòng chảy", { thermo: null, anom: null, cur: null }],
+    ["mất lưới rạn (cổng nền rạn)", { reef: null }],
   ];
   it("bản ĐỦ NGUỒN có điểm để so (test không rỗng)", () => {
     expect(full.size).toBeGreaterThan(20);
@@ -1025,6 +1033,44 @@ describe("MẤT NGUỒN → điểm GIẢM hoặc GIỮ, tuyệt đối KHÔNG T
     const unknown = best(run({ depth: null }), "cá nục");
     expect(unknown).toBeGreaterThan(0);
     expect(unknown).toBeLessThanOrEqual(Math.round(100 * DEPTH_UNKNOWN_FIT));
+  });
+
+  // ── CỔNG NỀN RẠN (C6, 2026-10-03) — cá hồng/mú/kẽm `requiresReef` ──────────
+  describe("cổng nền rạn (requiresReef)", () => {
+    const noReef = g4(() => 0);
+    it("hồ sơ: đúng 3 loài rạn có requiresReef, và chúng vẫn có cổng inshore", () => {
+      const r = SPECIES_PROFILES.filter((p) => p.requiresReef);
+      expect(r.map((p) => p.short).sort()).toEqual(["cá hồng", "cá kẽm", "cá mú"]);
+      expect(r.every((p) => p.inshore && !p.offshore)).toBe(true);
+    });
+    it("ô CÓ rạn trên nền 2500 m: cá rạn SỐNG (bỏ qua cổng độ sâu) — trước đây ×0", () => {
+      expect(best(run({}), "cá hồng")).toBeGreaterThanOrEqual(25);
+      expect(best(run({ reef: noReef }), "cá hồng")).toBe(0); // không rạn ⇒ cổng độ sâu ×0 như cũ
+    });
+    it("ô KHÔNG rạn, đáy nông: điểm = cổng độ sâu cũ × REEF_ABSENT_FIT (knob 1.0 = bản cũ)", () => {
+      const shallow = g4(() => 40);
+      const old = best(run({ depth: shallow, reef: noReef, reefAbsentFit: 1 }), "cá hồng");
+      const now = best(run({ depth: shallow, reef: noReef }), "cá hồng");
+      expect(old).toBeGreaterThan(0);
+      expect(now).toBe(Math.round(old * REEF_ABSENT_FIT));
+    });
+    it("ô có rạn + đáy nông: ×1, không thưởng thêm so với bản cũ", () => {
+      const shallow = g4(() => 40);
+      const old = best(run({ depth: shallow, reef: noReef, reefAbsentFit: 1 }), "cá hồng");
+      expect(best(run({ depth: shallow }), "cá hồng")).toBe(old);
+    });
+    it("THIẾU lưới rạn = 'không rạn': ô rạn sâu về 0, ô nông × REEF_ABSENT_FIT — không bao giờ cao hơn khi có lưới", () => {
+      expect(best(run({ reef: null }), "cá hồng")).toBe(0);
+      const shallow = g4(() => 40);
+      expect(best(run({ depth: shallow, reef: null }), "cá hồng")).toBe(
+        best(run({ depth: shallow, reef: noReef }), "cá hồng"),
+      );
+    });
+    it("loài KHÔNG requiresReef không đổi một điểm nào khi có/mất lưới rạn", () => {
+      const a = table(run({}));
+      const b = table(run({ reef: null }));
+      for (const [k, v] of a) if (!/cá hồng|cá mú|cá kẽm/.test(k)) expect(b.get(k)).toBe(v);
+    });
   });
 });
 
