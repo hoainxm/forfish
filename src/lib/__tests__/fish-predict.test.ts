@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildFishForecast,
   chlFit,
+  coastDistanceKm,
+  OFFSHORE_COAST_KM,
   convergenceStrength,
   deepWaterFit,
   shallowWaterFit,
@@ -510,6 +512,42 @@ describe("ngừ ồ = Auxis rochei, cá ven bờ (sửa 2026-09-30)", () => {
     for (const t of [29.5, 30, 30.4]) expect(trapezoid(t, ...oo.sst)).toBe(1);
     expect(trapezoid(31.5, ...oo.sst)).toBeGreaterThan(0);
     expect(trapezoid(32, ...oo.sst)).toBe(0);
+  });
+});
+
+describe("cổng CÁCH BỜ cho cá khơi (2026-10-03)", () => {
+  // lưới 1×4 dọc kinh độ bước 0,25°: nút 0 là ĐẤT (NaN), ba nút biển SÂU 2000 m
+  const bathy: ScalarGrid = {
+    lats: [12],
+    lons: [109, 109.25, 109.5, 109.75],
+    values: [[NaN, 2000, 2000, 2000]],
+    date: "",
+  };
+
+  it("coastDistanceKm: đất = 0, biển tăng dần theo khoảng cách tới nút đất gần nhất", () => {
+    const d = coastDistanceKm(bathy)[0];
+    expect(d[0]).toBe(0);
+    expect(d[1]).toBeGreaterThan(25);
+    expect(d[1]).toBeLessThan(30); // 0,25° kinh ở 12°N ≈ 27 km
+    expect(d[3]).toBeCloseTo(3 * d[1], 0);
+  });
+
+  it("capKm: trong bán kính KHỚP quét toàn lưới, ngoài bán kính ⇒ Infinity", () => {
+    const full = coastDistanceKm(bathy)[0];
+    const cap = coastDistanceKm(bathy, 30)[0];
+    expect(cap[1]).toBe(full[1]); // ~27 km < 30
+    expect(cap[2]).toBe(Infinity); // ~54 km > 30
+  });
+
+  it("không có đất ⇒ Infinity (không chặn oan)", () => {
+    const sea: ScalarGrid = { ...bathy, values: [[2000, 2000, 2000, 2000]] };
+    expect(coastDistanceKm(sea)[0][0]).toBe(Infinity);
+  });
+
+  it("dải cổng 20→50 km", () => {
+    expect(OFFSHORE_COAST_KM).toEqual([20, 50]);
+    expect(deepWaterFit(10, ...OFFSHORE_COAST_KM)).toBe(0);
+    expect(deepWaterFit(80, ...OFFSHORE_COAST_KM)).toBe(1);
   });
 });
 

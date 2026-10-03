@@ -284,14 +284,13 @@ export const FISH_SEASONS: FishSeason[] = [
     // 01-product). Nguồn VN: rộ tháng 3–8; Nhơn Lý (Quy Nhơn) rộ khoảng tháng
     // 5–6 DL; Đức Phổ (Quảng Ngãi) trúng ngừ ồ gần bờ tháng 9. Ngoài vụ vẫn có
     // lác đác quanh năm.
-    // NỚI 2026-10-03 (chủ dự án: bà con còn đánh đầu tháng 10): thêm tháng 10
-    // làm đuôi vụ — Đức Phổ trúng gần bờ tháng 9 thì đàn chưa tan ngay. Với
-    // vạt đệm seasonPrior: tháng 2 và 11 = 0,5; tháng 12–1 vẫn 0 (giữa đông).
-    // Không nới thì dữ liệu sang tháng 10 là điểm ×0,5 ⇒ max ~26, bản đồ trống.
+    // Tháng 10 (bà con còn đánh): KHÔNG khai thêm — luật nới vụ chung 2026-10-03
+    // (SEASON_FULL_PAD_MONTHS) đã cho tháng 2 và 10 đủ điểm; 1 và 11 = 0,5;
+    // tháng 12 = 0 (giữa đông). Lịch này giữ đúng nghĩa "tháng RỘ".
     species: "Cá ngừ ồ",
-    months: [3, 4, 5, 6, 7, 8, 9, 10],
+    months: [3, 4, 5, 6, 7, 8, 9],
     regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo"],
-    note: "Rộ tháng 3–9, còn đánh tới tháng 10; đàn nổi gần bờ và quanh đảo theo đàn cá cơm — lưới vây, lưới rút, rê. Khác cá ngừ chù.",
+    note: "Rộ tháng 3–9; đàn nổi gần bờ và quanh đảo theo đàn cá cơm — lưới vây, lưới rút, rê. Khác cá ngừ chù.",
   },
   {
     species: "Cá ngừ chấm",
@@ -472,18 +471,24 @@ export function fishInRegion(
 }
 
 /**
- * Độ rộng "vạt" mùa vụ tính bằng tháng — chỉ THÁNG ĐỆM ngay sát vụ được điểm
- * >0 (với giá trị 2 thì tháng liền kề = 0.5, cách 2 tháng = 0). Giữ HẸP có chủ
- * ý: chỉ làm mượt ranh giới đầu/cuối vụ, KHÔNG kéo dài vụ ra vô tội vạ.
+ * NỚI VỤ (chủ dự án chốt 2026-10-03 "nới vụ ra", áp MỌI loài): số tháng sát
+ * vụ vẫn tính ĐỦ điểm. Lịch mùa vụ khai tháng RỘ; cá có mặt trước/sau rộ —
+ * bản cũ (0 tháng đệm đủ) làm loài tắt ngúm đúng lúc bà con còn đánh (ngừ ồ
+ * đầu tháng 10 bị ×0,5 ⇒ bản đồ trống).
+ */
+export const SEASON_FULL_PAD_MONTHS = 1;
+/**
+ * Độ rộng vạt dốc SAU phần đệm đủ: với 2 thì cách vụ 2 tháng = 0,5, cách 3
+ * tháng = 0. Vẫn có điểm 0: loài trái vụ hẳn không hiện (KHÔNG quanh năm).
  */
 export const SEASON_TAPER_MONTHS = 2;
 
 /**
  * PRIOR MÙA VỤ MỀM ∈ [0,1] cho một loài ở một tháng — THAY cổng nhị phân cũ
  * (trong vụ = 1, ngoài vụ = 0, điểm NHẢY VÁCH ở ranh giới tháng). Quy tắc:
- *   · tháng chính vụ            → 1
- *   · tháng đệm ngay đầu/cuối vụ → giảm tuyến tính (đầu/cuối vụ, khả năng thấp hơn)
- *   · ngoài vụ hẳn             → 0
+ *   · tháng chính vụ + SEASON_FULL_PAD_MONTHS tháng sát hai đầu → 1
+ *   · xa hơn                    → giảm tuyến tính (đầu/cuối vụ, khả năng thấp hơn)
+ *   · ngoài vụ hẳn              → 0
  * Khoảng cách tính VÒNG TRÒN (tháng 12 nối tháng 1). Loài có mặt QUANH NĂM
  * (đủ 12 tháng, vd cá ngừ) → luôn 1, không đổi.
  *
@@ -499,7 +504,8 @@ export function seasonPrior(months: number[], month: number): number {
     const d = Math.min(raw, 12 - raw); // vòng tròn 12 tháng
     if (d < dmin) dmin = d;
   }
-  return Math.max(0, 1 - dmin / SEASON_TAPER_MONTHS);
+  if (dmin <= SEASON_FULL_PAD_MONTHS) return 1;
+  return Math.max(0, 1 - (dmin - SEASON_FULL_PAD_MONTHS) / SEASON_TAPER_MONTHS);
 }
 
 /**

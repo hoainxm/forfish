@@ -14,6 +14,7 @@
 
 import { FISH_SEASONS, nearestRegionWithin, seasonPrior } from "@/data/fish-seasons";
 import { apiUrl } from "@/lib/api-base";
+import { haversineKm } from "@/lib/geo";
 import { saveForecast, loadForecast } from "@/lib/forecast-cache";
 import { forecastStoreReady } from "@/lib/forecast-store";
 import type { FieldProvenance } from "@/lib/source-registry";
@@ -491,6 +492,54 @@ export function deepWaterFit(depthM: number, a: number, b: number): number {
 export function shallowWaterFit(depthM: number, a: number, b: number): number {
   if (!Number.isFinite(depthM)) return DEPTH_UNKNOWN_FIT;
   return 1 - deepWaterFit(depthM, a, b);
+}
+
+/**
+ * CỔNG CÁCH BỜ cho loài XA BỜ (`offshore`) — `[a, b]` km: < a km ×0, dốc
+ * a→b, ≥ b km ×1. Sinh ra 2026-10-03 (chủ dự án: "cá khơi mà dự báo gần bờ là
+ * không chuẩn"): thềm miền Trung dốc đứng, cách bờ 20–30 km đáy đã >200 m nên
+ * cổng ĐỘ SÂU một mình để lọt. Đo lưới thật (t1/t4/t9, ngưỡng 25): ngừ vây
+ * vàng 6 · ngừ vằn 3 · nục heo 7 ô cách bờ đất liền <30 km.
+ */
+export const OFFSHORE_COAST_KM: [number, number] = [20, 50];
+
+/**
+ * Khoảng cách (km) từ mỗi nút lưới ETOPO tới nút ĐẤT gần nhất (ô NaN của
+ * `parseBathyGrid` = z ≥ 0). Nút đất → 0. Không có đất nào → Infinity.
+ * Độ phân giải = bước lưới (0,25° ≈ 28 km) ⇒ sai số cỡ ±14 km — đủ cho cổng
+ * dốc 20→50 km; đảo nhỏ (Hoàng Sa, Trường Sa) lọt giữa các nút nên KHÔNG tính
+ * là bờ — đúng ý: cá khơi quanh đảo xa vẫn là cá khơi.
+ *
+ * `capKm`: chỉ cần biết tới mức này (cổng bão hoà ở OFFSHORE_COAST_KM[1]) —
+ * xa hơn trả Infinity. Quét CỬA SỔ nút lân cận thay vì cả lưới: quét hết
+ * (4485 nút × 1321 nút đất) làm một lượt dự báo chậm 3 s → 13 s (đo 2026-10-03).
+ */
+export function coastDistanceKm(depth: ScalarGrid, capKm = Infinity): number[][] {
+  const { lats, lons, values } = depth;
+  const isLand = (i: number, j: number) => !Number.isFinite(values[i]?.[j]);
+  const stepLat = gridStepDeg(lats);
+  const stepLon = gridStepDeg(lons);
+  // cos ở vĩ độ CAO nhất (nhỏ nhất) ⇒ 1 nút kinh ngắn nhất ⇒ cửa sổ đủ rộng
+  const minCos = Math.cos((Math.max(...lats.map(Math.abs)) * Math.PI) / 180);
+  // số nút tối đa cần quét mỗi phía để chắc chắn phủ hết bán kính capKm
+  const wi = Number.isFinite(capKm) ? Math.ceil(capKm / (stepLat * 111)) : lats.length;
+  const wj = Number.isFinite(capKm)
+    ? Math.ceil(capKm / (stepLon * 111 * minCos))
+    : lons.length;
+  return lats.map((lat, i) =>
+    lons.map((lon, j) => {
+      if (isLand(i, j)) return 0;
+      let m = Infinity;
+      for (let a = Math.max(0, i - wi); a <= Math.min(lats.length - 1, i + wi); a++) {
+        for (let b = Math.max(0, j - wj); b <= Math.min(lons.length - 1, j + wj); b++) {
+          if (!isLand(a, b)) continue;
+          const d = haversineKm({ lat, lon }, { lat: lats[a], lon: lons[b] });
+          if (d < m) m = d;
+        }
+      }
+      return m <= capKm ? m : Infinity;
+    }),
+  );
 }
 
 /**
@@ -1028,6 +1077,12 @@ export function buildFishForecast(
   const cur = extra?.cur ?? null;
   const thermo = extra?.thermo ?? null;
   const depth = extra?.depth ?? null;
+  // Lưới không có nút biển nào = ETOPO hỏng (không phải "toàn đất") ⇒ không
+  // dựng cổng cách bờ, để luật "mất nguồn ⇒ DEPTH_UNKNOWN_FIT" lo như cũ.
+  const coastKm =
+    depth && depth.values.some((r) => r.some(Number.isFinite))
+      ? coastDistanceKm(depth, OFFSHORE_COAST_KM[1])
+      : null;
   const bottomTemp = extra?.bottomTemp ?? null;
   const deepTemp = extra?.deepTemp ?? null;
 
@@ -1179,11 +1234,13 @@ export function buildFishForecast(
       }
       // độ sâu đáy tại ô (m, dương) — để CHẶN loài xa bờ (offshore) ở nước cạn
       let cellDepthM: number | null = null;
+      let cellCoastKm: number | null = null;
       if (depth) {
         const dpi = nearestIndex(depth.lats, lat);
         const dpj = nearestIndex(depth.lons, lon);
         const dv = depth.values[dpi]?.[dpj];
         if (Number.isFinite(dv)) cellDepthM = dv;
+        cellCoastKm = coastKm?.[dpi]?.[dpj] ?? null;
       }
       // nhiệt độ ĐÁY / tầng 250 m tại ô (°C) — cổng nhiệt loài đáy / ngừ mắt to.
       // Thiếu lưới hoặc ô NaN → null → chấm bằng SST mặt (fallback, không regress).
@@ -1262,10 +1319,16 @@ export function buildFishForecast(
         // KHÔNG BIẾT độ sâu (mất lưới ETOPO / ô NaN) → DEPTH_UNKNOWN_FIT (<1),
         // KHÔNG phải ×1: mất nguồn thì bớt chắc chắn chứ không được thưởng oan.
         // Loài VEN BỜ (inshore) thì ngược lại: nước khơi sâu → kéo về 0.
+        // Loài xa bờ còn qua CỔNG CÁCH BỜ (OFFSHORE_COAST_KM): thềm miền Trung
+        // dốc nên độ sâu một mình để lọt; và ô sát bờ có nút ETOPO rơi vào đất
+        // (độ sâu "không biết" ⇒ 0,5) nay ra 0 vì cách bờ 0 km.
         const depthFit = p.offshore
-          ? cellDepthM != null
-            ? deepWaterFit(cellDepthM, p.offshore[0], p.offshore[1])
-            : DEPTH_UNKNOWN_FIT
+          ? (cellDepthM != null
+              ? deepWaterFit(cellDepthM, p.offshore[0], p.offshore[1])
+              : DEPTH_UNKNOWN_FIT) *
+            (cellCoastKm != null && Number.isFinite(cellCoastKm)
+              ? deepWaterFit(cellCoastKm, OFFSHORE_COAST_KM[0], OFFSHORE_COAST_KM[1])
+              : 1)
           : p.inshore
             ? cellDepthM != null
               ? shallowWaterFit(cellDepthM, p.inshore[0], p.inshore[1])

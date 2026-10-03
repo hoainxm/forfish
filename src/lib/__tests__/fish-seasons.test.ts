@@ -6,6 +6,7 @@ import {
   fishInRegion,
   nearestRegionWithin,
   regionAt,
+  SEASON_FULL_PAD_MONTHS,
   SEASON_TAPER_MONTHS,
   seasonPrior,
   type FishRegionId,
@@ -18,23 +19,24 @@ describe("seasonPrior (mùa vụ MỀM, thay cổng nhị phân)", () => {
     for (const m of S) expect(seasonPrior(S, m)).toBe(1);
   });
 
-  it("tháng đệm ngay sát vụ = 0.5, cách 2 tháng = 0 (vạt hẹp)", () => {
-    expect(seasonPrior(S, 3)).toBeCloseTo(0.5, 9); // liền trước
-    expect(seasonPrior(S, 10)).toBeCloseTo(0.5, 9); // liền sau
-    expect(seasonPrior(S, 2)).toBe(0); // cách 2
-    expect(seasonPrior(S, 11)).toBe(0);
+  it("NỚI VỤ 2026-10-03: tháng sát vụ ĐỦ 1, cách 2 tháng = 0.5, cách 3 = 0", () => {
+    expect(seasonPrior(S, 3)).toBe(1); // liền trước
+    expect(seasonPrior(S, 10)).toBe(1); // liền sau
+    expect(seasonPrior(S, 2)).toBeCloseTo(0.5, 9); // cách 2
+    expect(seasonPrior(S, 11)).toBeCloseTo(0.5, 9);
+    expect(seasonPrior(S, 1)).toBe(0); // cách 3 — trái vụ hẳn vẫn tắt
+    expect(seasonPrior(S, 12)).toBe(0);
   });
 
-  it("KHÔNG còn cú nhảy 0↔1: có bậc trung gian ở ranh giới", () => {
-    // trước đây tháng 3 = 0 và tháng 4 = 1 (nhảy vách); nay 3 = 0.5
-    expect(seasonPrior(S, 3)).toBeGreaterThan(0);
-    expect(seasonPrior(S, 3)).toBeLessThan(seasonPrior(S, 4));
+  it("KHÔNG có cú nhảy 0↔1: có bậc trung gian ở ranh giới", () => {
+    expect(seasonPrior(S, 2)).toBeGreaterThan(0);
+    expect(seasonPrior(S, 2)).toBeLessThan(seasonPrior(S, 3));
   });
 
   it("khoảng cách tính VÒNG TRÒN (tháng 12 nối tháng 1)", () => {
-    expect(seasonPrior([12], 1)).toBeCloseTo(0.5, 9);
-    expect(seasonPrior([1], 12)).toBeCloseTo(0.5, 9);
-    expect(seasonPrior([1, 2], 12)).toBeCloseTo(0.5, 9);
+    expect(seasonPrior([12], 1)).toBe(1);
+    expect(seasonPrior([12], 2)).toBeCloseTo(0.5, 9);
+    expect(seasonPrior([1, 2], 11)).toBeCloseTo(0.5, 9);
   });
 
   it("loài quanh năm (đủ 12 tháng) → luôn 1", () => {
@@ -46,7 +48,8 @@ describe("seasonPrior (mùa vụ MỀM, thay cổng nhị phân)", () => {
     expect(seasonPrior([], 6)).toBe(0);
   });
 
-  it("hằng vạt giữ HẸP (chỉ 1 tháng đệm mỗi phía)", () => {
+  it("hằng nới vụ: 1 tháng đủ + vạt 2 (tổng tối đa 2 tháng có điểm mỗi phía)", () => {
+    expect(SEASON_FULL_PAD_MONTHS).toBe(1);
     expect(SEASON_TAPER_MONTHS).toBe(2);
   });
 });
@@ -235,17 +238,17 @@ describe("mùa ngừ ồ (sửa 2026-09-30 — khai cũ 11–5 ngược mùa)", 
     for (const m of [5, 6, 9]) expect(seasonPrior(ntb.months, m)).toBe(1);
   });
 
-  it("nới 2026-10-03: tháng 10 vẫn là vụ (đủ 1), tháng 11 đệm 0,5", () => {
+  it("nới vụ chung 2026-10-03: tháng 10 vẫn đủ 1, tháng 11 đệm 0,5", () => {
     for (const f of oo) {
       expect(seasonPrior(f.months, 10)).toBe(1);
       expect(seasonPrior(f.months, 11)).toBe(0.5);
     }
   });
 
-  it("giữa đông (tháng 12–1) KHÔNG còn là chính vụ", () => {
+  it("giữa đông KHÔNG còn là chính vụ (tháng 12 = 0, tháng 1 chỉ đệm 0,5)", () => {
     for (const f of oo) {
       expect(seasonPrior(f.months, 12)).toBe(0);
-      expect(seasonPrior(f.months, 1)).toBe(0);
+      expect(seasonPrior(f.months, 1)).toBeLessThan(1);
     }
   });
 });

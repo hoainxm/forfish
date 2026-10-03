@@ -237,6 +237,21 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
    ~+3,5 điểm % (9,3→12,9, ước trên lưới 30/9) — vùng ven bờ trước trống nay có loài thật.
    (2) MÙA — nới 3–9 → 3–10 (bà con còn đánh tháng 10); tháng 2/11 đệm 0,5, tháng 12–1 vẫn 0.
    Không nới thì dữ liệu sang tháng 10 ⇒ ×0,5 ⇒ max ~26, bản đồ trống.
+   ✅ 2026-10-03b — NỚI VỤ MỌI LOÀI + CỔNG CÁCH BỜ CHO CÁ KHƠI (chủ dự án: "nới vụ ra"; "cá khơi
+   mà dự báo gần bờ là không chuẩn"). (1) `seasonPrior`: thêm `SEASON_FULL_PAD_MONTHS = 1` — tháng sát
+   vụ ĐỦ 1 (trước 0,5), cách 2 tháng 0,5, cách 3 tháng 0 (trái vụ hẳn vẫn tắt). Ngừ ồ trả về khai 3–9
+   (tháng 10 đã đủ điểm nhờ luật chung). Đo cùng dữ liệu 30/9: số loài t1 20→28, t9 30→36; %điểm
+   nóng "Mọi loài" t4/t9 KHÔNG đổi, t10 195→288 ô (loài sát vụ nay đủ điểm). (2) CỔNG CÁCH BỜ
+   `OFFSHORE_COAST_KM = [20, 50]` nhân thêm vào cổng độ sâu của MỌI loài `offshore`: khoảng cách tới
+   nút ĐẤT gần nhất trên chính lưới ETOPO 0,25° (`coastDistanceKm`, không nguồn mới; đảo nhỏ lọt
+   giữa nút nên không tính là bờ). Lý do: thềm miền Trung dốc — cách bờ 20–30 km đáy đã >200 m nên
+   cổng độ sâu một mình để lọt; thêm nữa ô sát bờ có nút ETOPO rơi vào đất bị coi "không biết độ
+   sâu" ⇒ ×0,5 thay vì 0. Kết quả (cùng dữ liệu, t1/t4/t9/t10): cá khơi cách bờ đất liền <30 km ở
+   ngưỡng 25: 6–9 → 2–3 ô; ô cá khơi ≥50 KHÔNG mất ô nào (56–60). Lưới ETOPO không có nút biển nào
+   (nguồn hỏng) ⇒ bỏ cổng cách bờ, để DEPTH_UNKNOWN_FIT lo như cũ. Tốc độ: quét cửa sổ bán kính
+   50 km (quét toàn lưới làm một lượt chậm 3 s → 13 s); khớp quét toàn lưới 0 nút lệch.
+   🟡 CÒN MỞ: cá rạn/đáy (cá hồng, cá kẽm, cá mú — tín hiệu "low") có 175–291 ô ≥25 trên nước
+   >1000 m (lưới 30/9) vì không có cổng độ sâu nào; ngừ chù (A. thazard, ven bờ lẫn khơi) chưa có cổng.
    🟡 CÙNG KHUÔN LỖI, CHƯA SỬA (chờ chủ dự án): cá thu sst [16,23,29,31] và ngừ chấm [16,24,27,31]
    — lưới 30/9 max chỉ 0,20 và 0,155 (0 ô ≥50) vì trần nhiệt thấp hơn nước VN cuối hè.
    Số sinh thái riêng A. rochei rất ít ⇒ dải nhiệt dựa trên chi Auxis (FishBase, SEAFDEC). "Cá mè đen"
