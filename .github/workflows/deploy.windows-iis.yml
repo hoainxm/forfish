@@ -77,8 +77,35 @@ jobs:
             $lockHash | Set-Content $hashFile
           }
 
+      # MÃ HOÁ public/data (2026-10-02): encode-data.mjs CHỈ chạy khi có VERCEL=1
+      # hoặc SDFISH_ENCODE_DATA=1 — thiếu cờ là .pmtiles/.json lên server bản RÕ mà
+      # build vẫn xanh (đã dính: nền bản đồ bị tải về). Khoá SDF2 đọc từ app_config
+      # bằng service-role ⇒ nạp shared\.env.production vào môi trường lúc build
+      # (kèm NEXT_PUBLIC_* — chúng cũng phải có lúc build). Thiếu khoá ⇒ build ĐỎ.
       - name: Build
-        run: npm run build
+        shell: powershell
+        env:
+          SDFISH_ENCODE_DATA: '1'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $envFile = "$env:DEPLOY_BASE\shared\.env.production"
+          if (-not (Test-Path $envFile)) { throw "Thieu $envFile - khong co khoa de ma hoa public/data" }
+          foreach ($line in Get-Content $envFile) {
+            $t = $line.Trim()
+            if ($t -eq "" -or $t.StartsWith("#")) { continue }
+            $i = $t.IndexOf("=")
+            if ($i -lt 1) { continue }
+            $k = $t.Substring(0, $i).Trim()
+            $v = $t.Substring($i + 1).Trim().Trim('"').Trim("'")
+            if ($v -ne "") { [Environment]::SetEnvironmentVariable($k, $v, "Process") }
+          }
+          npm run build
+          if ($LASTEXITCODE -ne 0) { throw "npm run build that bai ($LASTEXITCODE)" }
+
+      # Cổng cuối TRƯỚC khi dừng service: còn file dữ liệu rõ (hoặc nhóm biên tập
+      # chưa SDF2) thì KHÔNG phát.
+      - name: Verify encoded data
+        run: node scripts/encode-data.mjs --verify --dir public/data
 
       # Gom bundle standalone → release\<timestamp> → swap current (dừng service để nhả
       # khoá file → robocopy /MIR → chạy lại service) → smoke check → prune.

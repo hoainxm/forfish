@@ -7,8 +7,11 @@ import {
   fetchDataKey,
   getDataKey,
   prefetchDataKey,
+  refreshDataKeyOnce,
   __resetDataKeyCacheForTest,
 } from "@/lib/data-key";
+import { DEVICE_TOKEN_KEY } from "@/lib/device-token-store";
+import { DEVICE_TOKEN_LEN, DEVICE_TOKEN_PREFIX } from "@/lib/device-token";
 
 /*  KHO KHOÁ PHÍA MÁY (2026-09-16): xin ở /api/data-key, cất `forfish.datakey.v1`,
     RAM → kho → server; mọi lỗi mạng ⇒ null, KHÔNG ném; id server nói phải khớp
@@ -132,6 +135,55 @@ describe("getDataKey", () => {
     expect(Object.keys(store)).toHaveLength(3);
     expect(store[keyIdOfSync(keys[0])]).toBeUndefined();
     expect(store[keyIdOfSync(keys[3])]).toBe(hexOf(keys[3]));
+  });
+});
+
+describe("getDataKey — khoá TRƯỚC sau khi admin đổi khoá (2026-10-02)", () => {
+  it("kho trống, file mã bằng khoá cũ ⇒ server trả [mới, cũ] ⇒ mở được bằng khoá cũ", async () => {
+    const prev = new Uint8Array(randomBytes(32));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        okResp({ ok: true, keys: [{ id: ID, key: hexOf(KEY) }, { id: keyIdOfSync(prev), key: hexOf(prev) }] }),
+      ),
+    );
+    expect(await getDataKey(keyIdOfSync(prev))).not.toBeNull();
+  });
+});
+
+describe("refreshDataKeyOnce — xin khoá sớm vì nền bản đồ cũng là SDF2", () => {
+  const TOKEN = DEVICE_TOKEN_PREFIX + "a".repeat(DEVICE_TOKEN_LEN - DEVICE_TOKEN_PREFIX.length);
+
+  it("chưa đăng nhập ⇒ không gọi mạng", () => {
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+    refreshDataKeyOnce();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("mất sóng ⇒ im; có sóng ⇒ xin dù kho ĐÃ có khoá, và chỉ một lần mỗi lần nạp", async () => {
+    ls.setItem(DEVICE_TOKEN_KEY, TOKEN);
+    ls.setItem(DATA_KEY_STORE, JSON.stringify({ [ID]: hexOf(KEY) }));
+    const spy = vi.fn().mockResolvedValue(okResp({ ok: true, id: ID, key: hexOf(KEY) }));
+    vi.stubGlobal("fetch", spy);
+    vi.stubGlobal("navigator", { onLine: false });
+    refreshDataKeyOnce();
+    expect(spy).not.toHaveBeenCalled();
+    vi.stubGlobal("navigator", { onLine: true });
+    refreshDataKeyOnce();
+    await Promise.resolve();
+    refreshDataKeyOnce();
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("lượt xin hỏng ⇒ lần gọi sau (có sóng lại / vừa đăng nhập) thử tiếp", async () => {
+    ls.setItem(DEVICE_TOKEN_KEY, TOKEN);
+    const spy = vi.fn().mockResolvedValue({ ok: false, status: 503 });
+    vi.stubGlobal("fetch", spy);
+    refreshDataKeyOnce();
+    await new Promise((r) => setTimeout(r, 0));
+    refreshDataKeyOnce();
+    expect(spy).toHaveBeenCalledTimes(2);
   });
 });
 

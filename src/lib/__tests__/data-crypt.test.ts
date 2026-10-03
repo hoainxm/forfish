@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, readdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes, createCipheriv } from "node:crypto";
@@ -24,7 +24,7 @@ import {
 } from "@/lib/data-crypt";
 import { DecodingSource } from "@/lib/pmtiles-protocol";
 import { parseDataKeyHex, keyIdOfSync, dataKeyPayload } from "@/lib/data-key-server";
-import { encodeCurated, encodeDir, keyIdBytes, CURATED } from "../../../scripts/encode-data.mjs";
+import { encodeCurated, encodeDir, keyIdBytes, isCurated, OPEN_SDF1 } from "../../../scripts/encode-data.mjs";
 import type { Source } from "pmtiles";
 
 /*  SDF2 — NHÓM BIÊN TẬP: gzip + AES-256-CTR, khoá theo tài khoản (2026-09-16).
@@ -221,21 +221,23 @@ describe("DecodingSource với file SDF2 (pmtiles biên tập)", () => {
 });
 
 describe("scripts/encode-data.mjs — hai nhóm", () => {
-  it("nhóm biên tập → SDF2, còn lại → SDF1; lần hai bỏ qua hết", () => {
+  it("mặc định → SDF2 (kể cả nền/bờ), chỉ OPEN_SDF1 → SDF1; lần hai bỏ qua hết", () => {
     const dir = mkdtempSync(join(tmpdir(), "sdfish-sdf2-"));
     try {
       writeFileSync(join(dir, "soundings.v1.json"), '{"diem":[]}');
       writeFileSync(join(dir, "vn-coast.v1.json"), '{"type":"FeatureCollection"}');
+      writeFileSync(join(dir, "tide-stations.v1.json"), '{"v":1}');
       writeFileSync(join(dir, "chat-day.v1.pmtiles"), Buffer.from("PMTiles\x03"));
       const r = encodeDir(dir, { key: KEY });
-      expect(r.curated).toEqual(["chat-day.v1.pmtiles", "soundings.v1.json"]);
-      expect(r.encoded).toEqual(["vn-coast.v1.json"]);
+      expect(r.curated).toEqual(["chat-day.v1.pmtiles", "soundings.v1.json", "vn-coast.v1.json"]);
+      expect(r.encoded).toEqual(["tide-stations.v1.json"]);
       expect(hasDataHeader2(new Uint8Array(readFileSync(join(dir, "soundings.v1.json"))))).toBe(true);
-      expect(hasDataHeader(new Uint8Array(readFileSync(join(dir, "vn-coast.v1.json"))))).toBe(true);
+      expect(hasDataHeader2(new Uint8Array(readFileSync(join(dir, "vn-coast.v1.json"))))).toBe(true);
+      expect(hasDataHeader(new Uint8Array(readFileSync(join(dir, "tide-stations.v1.json"))))).toBe(true);
       const r2 = encodeDir(dir, { key: KEY });
       expect(r2.curated).toEqual([]);
       expect(r2.encoded).toEqual([]);
-      expect(r2.skipped).toHaveLength(3);
+      expect(r2.skipped).toHaveLength(4);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -251,9 +253,14 @@ describe("scripts/encode-data.mjs — hai nhóm", () => {
     }
   });
 
-  it("mọi tên trong CURATED là file có thật, và tide-stations KHÔNG ở đó (thẻ Trang chủ cho khách)", () => {
-    for (const f of CURATED) expect(() => readFileSync(join(DATA_DIR, f))).not.toThrow();
-    expect(CURATED.has("tide-stations.v1.json")).toBe(false);
-    expect(CURATED.has("vn-basemap.pmtiles")).toBe(false);
+  it("CHỈ tide-stations mở (thẻ Trang chủ cho khách); nền/rạn/bờ/đảo/tuyến đều khoá SDF2", () => {
+    expect([...OPEN_SDF1]).toEqual(["tide-stations.v1.json"]);
+    for (const f of OPEN_SDF1) expect(() => readFileSync(join(DATA_DIR, f))).not.toThrow();
+    for (const f of readdirSync(DATA_DIR)) {
+      if (f === "tide-stations.v1.json") continue;
+      expect(isCurated(f), f).toBe(true);
+    }
+    expect(isCurated("vn-basemap.pmtiles")).toBe(true);
+    expect(isCurated("lop-moi-chua-khai.v1.json"), "lớp mới mặc định KHOÁ").toBe(true);
   });
 });

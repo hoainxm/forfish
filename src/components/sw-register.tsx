@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 
 import { ensurePersistentStorage } from "@/lib/storage-persist";
+import { refreshDataKeyOnce } from "@/lib/data-key";
+import { TOKEN_STORE_EVENT } from "@/lib/device-token-store";
 
 /*
   Đăng ký service worker (public/sw.js) sau khi mount — CHỈ production
@@ -22,6 +24,14 @@ import { ensurePersistentStorage } from "@/lib/storage-persist";
 */
 export function SwRegister() {
   useEffect(() => {
+    /*  KHOÁ DỮ LIỆU BẢN ĐỒ (2026-10-02): nền .pmtiles/bờ/đảo cũng là SDF2 — máy
+        không có khoá mà ra khơi là trắng bản đồ. Xin ngay khi nạp app, khi vừa
+        đăng nhập (TOKEN_STORE_EVENT) và khi có sóng lại; mỗi lần nạp chỉ một
+        lượt thành công, không có tài khoản / mất sóng thì im. */
+    refreshDataKeyOnce();
+    window.addEventListener(TOKEN_STORE_EVENT, refreshDataKeyOnce);
+    window.addEventListener("online", refreshDataKeyOnce);
+
     void ensurePersistentStorage();
 
     if (process.env.NODE_ENV !== "production") return;

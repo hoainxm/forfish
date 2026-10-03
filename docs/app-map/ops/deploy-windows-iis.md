@@ -34,7 +34,6 @@ Trình duyệt/app  ──HTTP──►  IIS (site :80/:443, reverse-proxy)
 
 `next.config.ts` đã bật `output: 'standalone'` → `next build` ra `.next/standalone/server.js`
 kèm `node_modules` tối thiểu, **khỏi `npm install` trên server lúc chạy**.
-
 ---
 
 ## 1. Bố cục thư mục trên server (tổ chức anh em với CRM)
@@ -122,6 +121,17 @@ MASTER_AGENT_PHONES=
 > đặt chúng thành biến môi trường của tài khoản runner, hoặc thêm bước ghi `.env.production`
 > vào workspace trước `npm run build`. Khoá **không** `NEXT_PUBLIC_` (service role, pepper…)
 > chỉ cần lúc chạy → nằm ở `shared\.env.production` là đủ.
+>
+> **Cập nhật 2026-10-02 — workflow tự nạp `shared\.env.production` vào bước Build** (kèm
+> `SDFISH_ENCODE_DATA=1`). Lý do: `scripts/encode-data.mjs` CHỈ mã hoá `public/data` khi
+> có `VERCEL=1` hoặc `SDFISH_ENCODE_DATA=1`; bản workflow đầu thiếu cờ ⇒ script "bỏ qua"
+> ⇒ `.pmtiles`/`.json` lên server **bản RÕ**, ai cũng tải về mở được, build vẫn xanh.
+> Nhóm SDF2 cần khoá ở `app_config.data_key_current` ⇒ bước build phải có
+> `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (hoặc `SDFISH_DATA_KEY`) —
+> đều lấy từ file này. Thiếu file/khoá ⇒ build **đỏ**, có chủ ý. Sau build có bước
+> `node scripts/encode-data.mjs --verify --dir public/data`: còn file rõ (hoặc file nhóm
+> biên tập chưa SDF2) thì dừng TRƯỚC khi đụng service. Cổng test:
+> `data-codec.test.ts` ca "deploy IIS bật cờ mã hoá…".
 
 ---
 
@@ -244,6 +254,9 @@ Start-Service forfish
   `X-Forwarded-Proto`/`X-Forwarded-Host` (§5).
 - **`NEXT_PUBLIC_*` rỗng trên client**: chúng nhúng **lúc build**; phải có mặt ở bước build
   của runner, không chỉ trong `shared\.env.production` (xem cảnh báo §3).
+- **Bước "Verify encoded data" đỏ**: có file `public/data` chưa mã — thường do thiếu khoá
+  lúc build hoặc ai đó gỡ `SDFISH_ENCODE_DATA`. ĐỪNG tắt bước này cho qua: tắt là phát
+  bản đồ rõ ra ngoài. Kiểm `shared\.env.production` có service-role (§3).
 - **`--env-file` không nhận**: Node < 20.6. Nâng Node hoặc dùng `AppEnvironmentExtra` (§4).
 - **Runner không ghi được / không stop được service**: tài khoản chạy runner thiếu quyền
   thư mục hoặc quyền service (§2).

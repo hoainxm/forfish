@@ -13,7 +13,7 @@ import {
   hasDataHeader,
   unsubstitute,
 } from "@/lib/data-codec.mjs";
-import { encodeDir } from "../../../scripts/encode-data.mjs";
+import { encodeDir, encodeCurated, findUnencoded } from "../../../scripts/encode-data.mjs";
 import { fetchDataBytes, fetchDataJson, dataSourceUrl, DATA_PROTOCOL } from "@/lib/data-fetch";
 import { DecodingSource, archiveKey } from "@/lib/pmtiles-protocol";
 import type { Source } from "pmtiles";
@@ -109,18 +109,47 @@ describe("scripts/encode-data.mjs — mã hoá tại chỗ", () => {
       writeFileSync(join(dir, "b.bin"), Buffer.from([0, 0, 0, 7]));
       writeFileSync(join(dir, "c.pmtiles"), Buffer.from("PMTiles\x03"));
       writeFileSync(join(dir, "README.md"), "# để yên");
-      const r1 = encodeDir(dir);
+      const r1 = encodeDir(dir, { curated: new Set() });
       expect(r1.encoded).toEqual(["a.json", "b.bin", "c.pmtiles"]);
       expect(r1.skipped).toEqual([]);
       expect(readFileSync(join(dir, "README.md"), "utf8")).toBe("# để yên");
       expect(hasDataHeader(new Uint8Array(readFileSync(join(dir, "a.json"))))).toBe(true);
       expect(dec(decodeData(new Uint8Array(readFileSync(join(dir, "a.json")))))).toBe('{"x":1}');
-      const r2 = encodeDir(dir);
+      const r2 = encodeDir(dir, { curated: new Set() });
       expect(r2.encoded).toEqual([]);
       expect(r2.skipped).toEqual(["a.json", "b.bin", "c.pmtiles"]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("scripts/encode-data.mjs --verify — cổng bản phát", () => {
+  it("bắt file rõ và file biên tập mới chỉ SDF1; bỏ qua SDF2 và đuôi khác", () => {
+    const dir = mkdtempSync(join(tmpdir(), "sdfish-verify-"));
+    try {
+      writeFileSync(join(dir, "nen.pmtiles"), Buffer.from("PMTiles"));
+      writeFileSync(join(dir, "ok.json"), encodeData(new TextEncoder().encode("{}")));
+      writeFileSync(join(dir, "kho.json"), encodeData(new TextEncoder().encode("{}")));
+      writeFileSync(join(dir, "kin.json"), encodeCurated(new TextEncoder().encode("{}"), new Uint8Array(32).fill(7), { gzip: true }));
+      writeFileSync(join(dir, "README.md"), "# rõ cũng được");
+      const r = findUnencoded(dir, new Set(["kho.json", "kin.json"]));
+      expect(r.plain).toEqual(["nen.pmtiles"]);
+      expect(r.weak).toEqual(["kho.json"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("deploy IIS bật cờ mã hoá và chạy --verify trước khi phát", () => {
+    const wf = readFileSync(join(ROOT, ".github/workflows/deploy.windows-iis.yml"), "utf8");
+    expect(wf).toMatch(/SDFISH_ENCODE_DATA:\s*'1'/);
+    const build = wf.indexOf("npm run build");
+    const verify = wf.indexOf("encode-data.mjs --verify");
+    const deploy = wf.indexOf("Deploy release");
+    expect(build).toBeGreaterThan(-1);
+    expect(verify).toBeGreaterThan(build);
+    expect(deploy).toBeGreaterThan(verify);
   });
 });
 

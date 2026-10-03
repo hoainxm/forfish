@@ -5,11 +5,13 @@
 // ngoài biển mất sóng vẫn giải được file trong kho SW. Giữ tối đa 3 khoá theo
 // id — đổi khoá lúc phát hành thì máy còn giữ khoá cũ cho file cũ.
 //
-// OFFLINE: không có khoá trong máy + mất sóng ⇒ lớp SDF2 vắng, lớp SDF1 (nền,
-// bờ, đảo, rạn) vẫn có. Vỏ bản đồ gọi `prefetchDataKey()` ngay khi mở có sóng
-// để không rơi vào ca đó. Mọi lỗi mạng đều nuốt thành null, KHÔNG BAO GIỜ ném.
+// OFFLINE: không có khoá trong máy + mất sóng ⇒ CẢ BẢN ĐỒ vắng — từ 2026-10-02
+// nền .pmtiles/bờ/đảo/rạn cũng là SDF2 (chỉ trạm triều còn SDF1). Nên khoá phải
+// vào máy SỚM: `refreshDataKeyOnce()` chạy lúc nạp app / vừa đăng nhập / có sóng
+// lại (sw-register), vỏ bản đồ gọi thêm `prefetchDataKey()`. Mọi lỗi mạng đều
+// nuốt thành null, KHÔNG BAO GIỜ ném.
 
-import { tokenHeader } from "@/lib/device-token-store";
+import { readToken, tokenHeader } from "@/lib/device-token-store";
 import { timeoutSignal } from "@/lib/abort";
 import { bytesOfHex } from "@/lib/data-codec.mjs";
 import { importAesKey, keyIdOf } from "@/lib/data-crypt";
@@ -103,7 +105,9 @@ export function getDataKey(keyId: string): Promise<CryptoKey | null> {
     let hex = readStore()[keyId];
     if (!hex) {
       const got = await fetchDataKey();
-      if (got?.id === keyId) hex = got.hex;
+      // Đọc lại kho: server trả [hiện hành, trước đó] — file mã bằng khoá TRƯỚC
+      // (máy chưa kịp tải bản mới sau khi admin đổi khoá) cũng phải mở được.
+      hex = readStore()[keyId] ?? (got?.id === keyId ? got.hex : undefined);
     }
     const raw = hex ? bytesOfHex(hex) : null;
     if (!raw) {
@@ -128,8 +132,27 @@ export function prefetchDataKey(): void {
   void fetchDataKey();
 }
 
+let refreshed = false;
+
+/**
+ * Xin lại khoá MỘT lần mỗi lần nạp app (kể cả khi kho đã có): admin đổi khoá rồi
+ * deploy thì SW tải file mã bằng khoá MỚI ngầm, máy chưa mở bản đồ lúc có sóng
+ * mà ra khơi là mất cả nền. Chỉ chạy khi có tài khoản và có sóng; hỏng thì lần
+ * gọi sau (đăng nhập / có sóng lại) thử tiếp. Không ném.
+ */
+export function refreshDataKeyOnce(): void {
+  if (refreshed || typeof window === "undefined") return;
+  if (!readToken()) return;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+  refreshed = true;
+  void fetchDataKey().then((r) => {
+    if (!r) refreshed = false;
+  });
+}
+
 /** Cho test: xoá đệm RAM. */
 export function __resetDataKeyCacheForTest(): void {
   mem.clear();
   inflight = null;
+  refreshed = false;
 }

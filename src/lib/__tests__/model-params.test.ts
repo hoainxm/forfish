@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { buildModelParams, OUT } from "../../../scripts/build-model-params.mjs";
-import { CURATED } from "../../../scripts/encode-data.mjs";
+import { isCurated } from "../../../scripts/encode-data.mjs";
 import {
   MODEL_PARAMS_URL,
   getModelParams,
@@ -31,7 +31,7 @@ describe("file phát hành ↔ nguồn sự thật", () => {
   });
 
   it("thuộc nhóm SDF2 và có trong vỏ SW", () => {
-    expect(CURATED.has("model-params.v1.json")).toBe(true);
+    expect(isCurated("model-params.v1.json")).toBe(true);
     const sw = readFileSync(join(ROOT, "public", "sw.js"), "utf8");
     expect(sw).toContain('"/data/model-params.v1.json"');
     expect(MODEL_PARAMS_URL).toBe("/data/model-params.v1.json");

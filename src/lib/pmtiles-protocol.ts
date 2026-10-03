@@ -8,9 +8,9 @@
 // VÌ SAO "sạch, không chữ Trung": nền CHỈ lấy hình học (đất/nước/bờ/đường), BỎ
 // HẾT nhãn OSM (nơi lọt tên Hải Nam/đảo tranh chấp) — xem buildMapStyle.
 //
-// BẢN MÃ (2026-09-16): file .pmtiles phát ra ngoài đã qua data-codec — SDF1
-// (hoán vị byte, 4 byte header) cho nền/rạn miễn phí, SDF2 (AES-CTR, 29 byte
-// header, khoá theo tài khoản) cho kho biên tập như chất đáy. Thư viện pmtiles
+// BẢN MÃ (2026-09-16; từ 2026-10-02 MỌI .pmtiles kể cả nền/rạn là SDF2 — xem
+// OPEN_SDF1 ở scripts/encode-data.mjs): SDF2 = AES-CTR, 29 byte header, khoá
+// theo tài khoản; nhánh SDF1 (hoán vị, 4 byte) giữ để đọc kho SW cũ. Thư viện pmtiles
 // đọc bằng Range request nên không tải trọn file để giải; `DecodingSource` bọc
 // `FetchSource`: dời offset qua header và giải từng lát (hoán vị ngược, hoặc
 // CTR nhảy đúng khối). Lát đầu (offset 0) nhìn header để biết file là bản gì —

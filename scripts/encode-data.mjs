@@ -5,10 +5,10 @@
 // mới đóng gói ⇒ CDN phát ra ngoài toàn bản mã. App giải lúc đọc (lib/data-fetch.ts).
 //
 // HAI NHÓM (định dạng ở src/lib/data-codec.mjs):
-//   · SDF1 — nhóm MIỄN PHÍ / dẫn xuất OSM (nền, bờ, đảo, rạn, tuyến, trạm triều
-//     cho thẻ Trang chủ của khách): hoán vị byte, khoá cửa, không cần đăng nhập.
-//   · SDF2 — nhóm BIÊN TẬP (số đo sâu, báo hiệu, luồng, đèn, chất đáy, mùa vụ cá,
-//     lưới độ sâu, đẳng sâu): gzip + AES-256-CTR. KHOÁ: env SDFISH_DATA_KEY →
+//   · SDF1 — CHỈ `OPEN_SDF1` (trạm triều cho thẻ Trang chủ của khách): hoán vị
+//     byte, khoá cửa, không cần đăng nhập.
+//   · SDF2 — MỌI file còn lại, kể cả nền .pmtiles/bờ/đảo/rạn/tuyến (đảo luật
+//     2026-10-02 — xem OPEN_SDF1): gzip + AES-256-CTR. KHOÁ: env SDFISH_DATA_KEY →
 //     app_config.data_key_current (admin ở /quan-tri) → tự sinh lần đầu (xem
 //     resolveBuildKey). App xin khoá ở /api/data-key sau đăng nhập. Không có
 //     khoá nào ⇒ build ĐỎ, có chủ ý: lặng lẽ rơi về SDF1 là phát bản yếu mà không ai biết.
@@ -17,7 +17,11 @@
 // Lỡ chạy trên máy dev thì khôi phục:  git checkout -- public/data
 // Idempotent: file đã có header thì bỏ qua — chạy hai lần không mã chồng.
 //
+// Deploy KHÔNG phải Vercel (IIS…) phải tự đặt SDFISH_ENCODE_DATA=1 rồi chạy
+// `--verify` trước khi phát — thiếu cờ thì bước này lặng lẽ bỏ qua, file đi ra RÕ.
+//
 // Cách dùng: node scripts/encode-data.mjs [--force] [--dir public/data]
+//            node scripts/encode-data.mjs --verify [--dir public/data]   (đỏ nếu còn file rõ)
 
 import { readdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
 import { join, extname, resolve } from "node:path";
@@ -36,27 +40,23 @@ import {
 export const DATA_EXTS = new Set([".json", ".bin", ".pmtiles"]);
 
 /**
- * NHÓM BIÊN TẬP → SDF2. Thêm lớp mới tốn công thì thêm vào đây.
- * `tide-stations` CỐ Ý không có: thẻ con nước ở Trang chủ hiện cho cả khách
- * chưa đăng nhập (components/tide-home-card.tsx).
+ * NHÓM MỞ → SDF1 (khoá cửa, không cần đăng nhập). MỌI file khác → SDF2.
+ *
+ * ĐẢO LUẬT 2026-10-02 (chủ dự án: "fix đủ hết"): trước đây liệt kê nhóm biên
+ * tập, còn lại rơi về SDF1 — nền `vn-basemap.pmtiles`, rạn, bờ, đảo, tuyến bị
+ * tải về rồi giải bằng bảng trong bundle, KHÔNG cần tài khoản. Bản đồ chỉ mở
+ * sau đăng nhập (RequireLogin ở /ngu-truong) nên khách không mất gì khi khoá.
+ * Giờ mặc định là KHOÁ: lớp mới thêm vào public/data tự đi SDF2, quên khai
+ * không còn là lỗ.
+ * `tide-stations` là ngoại lệ duy nhất: thẻ con nước ở Trang chủ hiện cho cả
+ * khách chưa đăng nhập (components/tide-home-card.tsx).
  */
-export const CURATED = new Set([
-  "soundings.v1.json",
-  "soundings-verified.v1.json",
-  "soundings-cangvu.v1.json",
-  "fairway-depths.v1.json",
-  "vn-aids.v1.json",
-  "den-bien.v1.json",
-  "dia-danh-ngam.v1.json",
-  "khu-tru-bao.v1.json",
-  "xac-tau.v1.json",
-  "chat-day.v1.json",
-  "chat-day.v1.pmtiles",
-  "fish-climatology.v1.json",
-  "depth-grid.v1.bin",
-  "isobaths.v1.json",
-  "model-params.v1.json",
-]);
+export const OPEN_SDF1 = new Set(["tide-stations.v1.json"]);
+
+/** File này phải mã SDF2 (khoá theo tài khoản)? */
+export function isCurated(name) {
+  return !OPEN_SDF1.has(name);
+}
 
 /** @param {Uint8Array} key @returns {Uint8Array} 8 byte đầu SHA-256 — cùng công thức lib/data-key-server.ts */
 export function keyIdBytes(key) {
@@ -88,11 +88,11 @@ export function encodeCurated(raw, key, opts) {
 /**
  * Mã hoá tại chỗ mọi file dữ liệu trong `dir`.
  * @param {string} dir
- * @param {{ key?: Uint8Array | null, curated?: Set<string> }} [opts]
+ * @param {{ key?: Uint8Array | null, curated?: Set<string> }} [opts] `curated` cho test: chỉ các tên này SDF2 (mặc định: isCurated)
  * @returns {{ encoded: string[], curated: string[], skipped: string[] }}
  */
 export function encodeDir(dir, opts = {}) {
-  const curatedSet = opts.curated ?? CURATED;
+  const cur = opts.curated ? (n) => opts.curated.has(n) : isCurated;
   const key = opts.key ?? null;
   const encoded = [];
   const curated = [];
@@ -106,7 +106,7 @@ export function encodeDir(dir, opts = {}) {
       skipped.push(name);
       continue;
     }
-    if (curatedSet.has(name)) {
+    if (cur(name)) {
       if (!key) {
         throw new Error(
           `[encode-data] ${name} thuộc nhóm biên tập nhưng KHÔNG CÓ KHOÁ: build cần ` +
@@ -122,6 +122,29 @@ export function encodeDir(dir, opts = {}) {
     encoded.push(name);
   }
   return { encoded, curated, skipped };
+}
+
+/**
+ * KIỂM BẢN PHÁT (2026-10-02): file dữ liệu nào sắp phát ra ngoài mà còn RÕ, hoặc
+ * thuộc nhóm biên tập mà chưa phải SDF2. Sinh ra vì deploy IIS từng build thiếu cờ
+ * ⇒ script "bỏ qua" ⇒ .pmtiles lên server nguyên bản rõ, build vẫn xanh.
+ * @param {string} dir
+ * @param {Set<string>} [curatedSet] cho test (mặc định: isCurated)
+ * @returns {{ plain: string[], weak: string[] }}
+ */
+export function findUnencoded(dir, curatedSet) {
+  const cur = curatedSet ? (n) => curatedSet.has(n) : isCurated;
+  const plain = [];
+  const weak = [];
+  for (const name of readdirSync(dir).sort()) {
+    const p = join(dir, name);
+    if (!statSync(p).isFile() || !DATA_EXTS.has(extname(name))) continue;
+    const raw = new Uint8Array(readFileSync(p));
+    if (hasDataHeader2(raw)) continue;
+    if (!hasDataHeader(raw)) plain.push(name);
+    else if (cur(name)) weak.push(name);
+  }
+  return { plain, weak };
 }
 
 /**
@@ -185,6 +208,17 @@ if (isMain) {
   const force = args.includes("--force");
   const dirIdx = args.indexOf("--dir");
   const dir = dirIdx >= 0 ? args[dirIdx + 1] : join(process.cwd(), "public", "data");
+  if (args.includes("--verify")) {
+    const { plain, weak } = findUnencoded(dir);
+    for (const f of plain) console.error(`  ✗ RÕ   ${f}`);
+    for (const f of weak) console.error(`  ✗ SDF1 ${f} (nhóm biên tập phải SDF2)`);
+    if (plain.length || weak.length) {
+      console.error(`[encode-data --verify] ${dir}: ${plain.length + weak.length} file chưa mã đúng — KHÔNG phát ra ngoài`);
+      process.exit(1);
+    }
+    console.log(`[encode-data --verify] ${dir}: mọi file dữ liệu đã mã`);
+    process.exit(0);
+  }
   const allowed = force || process.env.VERCEL || process.env.SDFISH_ENCODE_DATA;
   if (!allowed) {
     console.log(
