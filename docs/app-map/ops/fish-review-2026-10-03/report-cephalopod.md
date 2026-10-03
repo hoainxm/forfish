@@ -1,5 +1,7 @@
 # Báo cáo nhóm mực & bạch tuộc (cephalopod) — hồ sơ loài dự báo cá SDFish
 
+**Load khi / Load when**: nguồn sinh thái mực — load khi sửa hồ sơ nhóm cephalopod.
+
 Ngày: 2026-10-03 · Agent: nghiên cứu sinh thái loài · Nguồn hồ sơ đối chiếu: `profiles-current.json` (5 mục `category: "cephalopod"`).
 Ngân sách tra cứu: ~22 lượt WebSearch/WebFetch (dưới trần 25). Nhiều trang (ResearchGate, tandfonline, sealifebase.ca) chặn 403 — đã dùng bản mirror (sealifebase.se, pmc.ncbi.nlm.nih.gov) hoặc trích PDF về đọc bằng `pdftotext`.
 

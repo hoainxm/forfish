@@ -1,5 +1,7 @@
 # Báo cáo nhóm cá đáy + cá rạn (11 loài) — hồ sơ loài cho dự báo cá SDFish
 
+**Load khi / Load when**: nguồn sinh thái cá đáy & cá rạn — load khi sửa hồ sơ demersal/reef.
+
 Ngày: 2026-10-03 · Agent: nghiên cứu sinh thái nhóm `demersal` + `reef`
 Loài: cá hố · cá mối · cá đổng · cá phèn · cá đù · cá khoai · cá chim · cá bơn · cá hồng · cá mú · cá kẽm
 Lượt tìm đã dùng: 24/25 (WebSearch) + ~20 WebFetch.

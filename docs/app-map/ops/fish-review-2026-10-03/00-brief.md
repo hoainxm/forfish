@@ -1,5 +1,7 @@
 # Brief chung — Team nghiên cứu hồ sơ loài cho dự báo cá SDFish (2026-10-03)
 
+**Load khi / Load when**: đề bài giao cho team agent rà loài — load khi tổ chức đợt rà kế tiếp.
+
 ## Bối cảnh
 SDFish (app cho ngư dân VN) chấm điểm từng ô biển 0,25° cho 40 loài:
 `fit = cổng nhiệt (trapezoid SST [a,b,c,d]) × mồi (chl-a, log10, dải [lo,hi]) × soft-OR cơ chế gom cá (front nhiệt, front mồi, rìa xoáy SSHA, nước trồi, hội tụ dòng, dị thường tầng nhiệt D20) × cổng độ sâu (offshore [a,b] m / inshore [a,b] m) × cổng cách bờ (cá khơi, 20→50 km) × mùa vụ (theo tháng, theo vùng)`.

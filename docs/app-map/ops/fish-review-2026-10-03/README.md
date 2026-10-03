@@ -1,5 +1,7 @@
 # Rà hồ sơ 40 loài cá + thuật toán dự báo — tổng hợp team agent 2026-10-03
 
+**Load khi / Load when**: tổng hợp rà hồ sơ loài đợt 2026-10-03, tiêu chí quyết, 7 quyết định, số đo — load khi sửa hồ sơ loài hoặc thuật toán dự báo cá.
+
 > **Trạng thái: ĐÃ ÁP mục 2 (commit cùng thư mục này, 2026-10-03).** 6 agent chạy song song (5 nhóm loài + 1 rà thuật toán), mỗi đề xuất kèm nguồn; lead đo từng đề xuất trên lưới thật ngày 30/9/2026 (3 tháng giả định 1/4/10) rồi áp theo tiêu chí. Báo cáo gốc: `report-*.md` cùng thư mục; đề bài: `00-brief.md`.
 
 ## 0. Tiêu chí quyết (chủ dự án: "đưa ra tiêu chí quyết rồi chọn theo tiêu chí tốt nhất rồi chạy") và 7 quyết định

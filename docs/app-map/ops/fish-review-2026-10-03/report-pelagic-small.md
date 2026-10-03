@@ -1,5 +1,7 @@
 # Báo cáo nhóm `pelagic-small` — 9 loài cá nổi nhỏ (2026-10-03)
 
+**Load khi / Load when**: nguồn sinh thái cá nổi nhỏ — load khi sửa hồ sơ nhóm pelagic-small.
+
 Phạm vi: cá nục · cá cơm · cá trích · bạc má · cá tráo · cá sòng · chỉ vàng · cá lầm · cá đối.
 Nguồn chính đã đọc: Viện Nghiên cứu Hải sản (RIMF) hồ sơ loài, Nghị định 37/2024/NĐ-CP Phụ lục V (bản PDF tiếng Anh do FisheryProgress đăng), Tạp chí KH ĐH Cần Thơ, VJS/VAST, FishBase (mirror .se/.de), bài hải dương học về nước trồi Nam Trung Bộ, và báo địa phương (CHỈ dùng cho tháng rộ, ghi rõ là báo).
 

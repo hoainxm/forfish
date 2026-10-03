@@ -1,5 +1,7 @@
 # Rà soát THUẬT TOÁN dự báo vùng cá (PFZ) của SDFish so với thế giới — 2026-10-03
 
+**Load khi / Load when**: so thuật toán PFZ của SDFish với INCOIS/Đài Loan/Trung Quốc/RIMF + đề xuất C1–C9 — load khi sửa buildFishForecast.
+
 > Phạm vi: `src/lib/fish-predict.ts` (`buildFishForecast`, `softOrHabitat`, `trapezoid`, `chlFit`, `foodGate`, `thermoFit`, `deepWaterFit`/`shallowWaterFit`, `coastDistanceKm`, `spatialAnomaly`, `frontStrength`/`gradientStrength`, hằng `SOFTOR_SCALE 0.4 · AGG_FLOOR 0 · NEUTRAL_AGG 0.6 · FOOD_FLOOR 0.45 · SURFACE_CONF {1/0.6/0.25} · UPW_SCALE 0.55 · COLD_SCALE 0.09 · THERMO_BAND_DEFAULT [-4,-23] · DEPTH_UNKNOWN_FIT 0.5`) và `seasonPrior` (`src/data/fish-seasons.ts`, PAD 1 tháng, TAPER 2 tháng). Chỉ đọc, không sửa. Chỗ nào chỉ đọc được tóm tắt (không toàn văn) ghi rõ.
 
 ## Công thức SDFish đang chạy (đọc từ mã)

@@ -1,5 +1,7 @@
 # Báo cáo nhóm GIÁP XÁC — tôm bạc · tôm sú · ghẹ xanh · cua biển · ruốc
 
+**Load khi / Load when**: nguồn sinh thái tôm ghẹ ruốc — load khi sửa hồ sơ crustacean.
+
 Ngày: 2026-10-03 · Đầu vào: `BRIEF.md`, `profiles-current.json` (5 mục `category: "crustacean"`). Ngân sách: ~28 WebSearch + ~25 WebFetch (4 PDF đọc bằng pdftotext tại máy).
 
 ## 0. Kết luận chung (đọc trước)

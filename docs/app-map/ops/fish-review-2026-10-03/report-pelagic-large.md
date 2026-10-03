@@ -1,5 +1,7 @@
 # Báo cáo nhóm `pelagic-large` — 10 loài cá nổi lớn (2026-10-03)
 
+**Load khi / Load when**: nguồn sinh thái cá ngừ & cá nổi lớn — load khi sửa hồ sơ nhóm pelagic-large.
+
 Phạm vi: ngừ vây vàng · ngừ mắt to · ngừ vằn · ngừ chù · ngừ ồ · ngừ chấm · cá thu · cá cờ · nục heo · cá ngân.
 Ngân sách tìm kiếm đã dùng: ~26 lượt WebSearch + ~30 lượt đọc nguồn. Mọi con số kèm nguồn; chỗ không tìm được ghi "giữ".
 
