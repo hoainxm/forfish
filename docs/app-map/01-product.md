@@ -291,6 +291,26 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
    +0,31/+0,10/−0,05/+0,23 (t1/4/7/10), số loài KHÔNG đổi; ranh nước trồi NT–BT 32 % ô top-decile
    (nền 10 %), thềm Tây Nam Bộ 41 %. Chi tiết, bảng stride (0,05° bị loại: 6,1 MB, chỉ hơn 0,02) và
    toạ độ top ở ops/external-services.md mục "Front trên lưới gốc (C2)".
+   ✅ 2026-10-03g — CỔNG NỀN RẠN cho cá hồng/mú/kẽm (C6 báo cáo thuật toán; `SpeciesProfile.requiresReef`,
+   hằng `REEF_ABSENT_FIT = 0,5`). VẤN ĐỀ: cổng `inshore` chấm theo độ sâu ĐÁY TRUNG BÌNH ô 0,25° (~27 km),
+   mà rạn Trường Sa/Hoàng Sa là chóp nhô từ nền 1.000–2.000 m ⇒ ô có rạn vẫn ×0 đúng chỗ ngư dân câu ở
+   sườn rạn 20–150 m (SGGP "Câu cá ở Trường Sa"); ngược lại ô thềm bùn không rạn vẫn đủ điểm. NGUỒN: lưới
+   rạn 0,25° `src/data/reef-grid-025.v1.json` (14 KB, 554/5120 ô có rạn — Trường Sa 213, Hoàng Sa 24, ven bờ
+   173) dựng LÚC BUILD bởi `scripts/build-reef-grid.mjs` từ 3 lớp bản RÕ trong git: `reef-shapes-aca.v1.bin`
+   (Allen Coral Atlas + WCMC, CC-BY — 809 feature ở Trường Sa, đủ dữ liệu), `reef-shapes.v1.json` (OSM),
+   `coral-reefs.v1.json` (rạn có tên); tô đa giác lên lưới 0,01° rồi đếm tỷ lệ. Cổng test `reef-grid.test.ts`
+   bắt hash nguồn lệch. VÌ SAO không đọc .bin lúc chạy: server (cron) không có cửa đọc `public/data` — trên
+   Vercel lúc chạy là bản MÃ, `data-fetch.ts` là cửa của trình duyệt; lưới nhỏ đi theo bundle server, không
+   mạng, không giải mã. LUẬT: ô CÓ rạn ⇒ bỏ cổng độ sâu (×1); KHÔNG rạn ⇒ cổng độ sâu cũ × 0,5 ("không rạn thì
+   bớt chắc" — hồng/kẽm vẫn có trên đáy bùn cứng, lưới kéo VBB nên không ×0); THIẾU lưới rạn ⇒ coi như không
+   rạn (mất nguồn không tăng điểm — kịch bản "mất lưới rạn" thêm vào test monotonic). ĐO (lưới 30/9, t4/7/10
+   — t1 trái vụ): ô rạn trên đáy >200 m vào payload 0→177/196 (hồng 35–43, mú 38–47, kẽm 31–39 điểm) nhưng
+   KHÔNG tới sàn hiển thị 50 vì trần habitat loài `low` ở vùng không front vệ tinh ≈ 0,42–0,47 — hệ số không-rạn
+   (0,5/0,7) không đổi được điều này; ô ≥50: hồng 209→30, mú 96→20, kẽm 91→24 (toàn bộ ô rớt là ô KHÔNG rạn; ô
+   còn lại đều có rạn); n25 hồng 673→476, mú 412→365, kẽm 241→311; %điểm nóng "Mọi loài" KHÔNG đổi (loài low
+   không tính). Tiêu chí C6 "ô ≥50 còn ≥30 % số cũ" KHÔNG đạt (14–25 %) — đánh đổi có chủ ý theo tiêu chí (1):
+   không rạn thì không khẳng định; loài vẫn trong payload (tiêu chí 3). NỢ/ĐỂ MỞ: muốn Trường Sa lên ≥50 phải
+   coi RẠN là CƠ CHẾ GOM (term trong soft-OR) chứ không chỉ là cổng — việc nghiệp vụ, chưa làm.
    Số sinh thái riêng A. rochei rất ít ⇒ dải nhiệt dựa trên chi Auxis (FishBase, SEAFDEC). "Cá mè đen"
    (user nêu cùng lúc) CHƯA thêm: không nguồn nào ghép tên này với loài biển — chờ xác nhận tại cảng.
    ✅ 2026-10-03d — THUẬT TOÁN đợt 2 (C7 · C8 · C5 của ops/fish-review-2026-10-03/report-algorithm.md),
