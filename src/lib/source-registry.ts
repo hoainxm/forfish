@@ -155,6 +155,11 @@ export const MISSING_PENALTY_BY_FIELD: Record<string, number> = {
   hycom: 0.15,
   currents: 0.05,
   anom: 0.05,
+  // lưới GỐC MỊN cho front (C2, 2026-10-03): mất thì front vẫn tính trên lưới
+  // 0,25° (mờ hơn, KHÔNG mất cơ chế) — hệ số nới neo p90 cũ nên %điểm nóng đổi
+  // ≤0,3 điểm % ⇒ nửa mức nhẹ, không doạ oan.
+  sstFine: 0.025,
+  chlFine: 0.025,
 };
 /** Trường tuỳ chọn lạ (thêm sau mà quên khai đòn bẩy) → mức nhẹ, không doạ oan */
 export const MISSING_OPTIONAL_PENALTY = 0.05;

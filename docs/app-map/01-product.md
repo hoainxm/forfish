@@ -280,6 +280,17 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
    tối đa 40 điểm, xem báo cáo thuật toán B2/C7); sàn nhiệt mùa đông chưa kiểm trên SST mùa đông
    thật; `tempSource: bottom` chưa đo (HYCOM trượt); Q6 cá đáy "low" tô cả thềm ~60 điểm — đầu ra
    trung thực nhưng cần design-spec vẽ thành vùng thềm theo mùa thay cho điểm nóng.
+   ✅ 2026-10-03f — C2: FRONT NHIỆT/MỒI TÍNH TRÊN LƯỚI GỐC MỊN RỒI GỘP KHỐI (báo cáo thuật toán B3:
+   sai phân giữa ô 0,25° = chênh trên 56 km, mờ front 1–10 km). Nay tải thêm 2 lưới TUỲ CHỌN cùng nguồn
+   NOAA chỉ đổi stride — SST 0,1° (`sstFine`, 1,5 MB thô/107 KB gzip) + phù du 0,083° (`chlFine`,
+   2,7 MB/249 KB) — tính |∇| tại đó rồi TRUNG BÌNH của |∇| về ô cá (`blockMeanGrid`, phân hoạch theo
+   toạ độ; không phải ∇ của trung bình — mẫu đã làm cho hội tụ Copernicus). Thiếu lưới mịn ⇒ front như
+   cũ (không bịa, không mất ô). Hệ số `FRONT_FINE_FULL_SCALE = 1,3` neo p90 cũ (trung bình |∇| không
+   triệt nhiễu nên hệ số 1 làm %điểm nóng +2…+3 điểm %, vượt tiêu chí 4). ĐO lưới 30/9–1/10: tự tương
+   quan không gian front 0,392 → 0,524 (mẫu hội tụ 0,228 → 0,467), std 0,124 (≥0,1), %điểm nóng Δ
+   +0,31/+0,10/−0,05/+0,23 (t1/4/7/10), số loài KHÔNG đổi; ranh nước trồi NT–BT 32 % ô top-decile
+   (nền 10 %), thềm Tây Nam Bộ 41 %. Chi tiết, bảng stride (0,05° bị loại: 6,1 MB, chỉ hơn 0,02) và
+   toạ độ top ở ops/external-services.md mục "Front trên lưới gốc (C2)".
    Số sinh thái riêng A. rochei rất ít ⇒ dải nhiệt dựa trên chi Auxis (FishBase, SEAFDEC). "Cá mè đen"
    (user nêu cùng lúc) CHƯA thêm: không nguồn nào ghép tên này với loài biển — chờ xác nhận tại cảng.
 

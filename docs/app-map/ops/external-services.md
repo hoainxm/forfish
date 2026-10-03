@@ -7,6 +7,7 @@ last_verified: 2026-08-18
 ttl_days: 180
 <!-- DOC-STATUS: SUSPECT (2026-09-17) — code 'src/lib/port-price-source.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
+<!-- re-verified: 2026-10-03f — C2 FRONT TRÊN LƯỚI GỐC: fish-forecast-run.ts THÊM 2 trường tuỳ chọn `sstFine` (Blended/CoralTemp stride 2 = 0,1°, 1,5 MB thô / 107 KB gzip, 2,4 s) + `chlFine` (DINEOF stride 1 = 0,083°, 2,7 MB / 249 KB, 3,1 s; fetch `no-store` vì > 2 MB data cache Next) — CÙNG host coastwatch, CÙNG UA, CÙNG timeout 20 s, cùng luật so ngày; 9 → 13 fetch/lượt, vẫn song song. Thiếu ⇒ front tính trên lưới 0,25° như cũ (dataQuality −0,025/trường). Chi tiết + bảng đo: mục "Front trên lưới gốc (C2)". -->
 <!-- re-verified: 2026-10-03 — fish-predict.ts: cổng CÁCH BỜ cho cá khơi dùng LẠI lưới ETOPO đang tải (không nguồn ngoài mới, không đổi timeout/fallback); ETOPO hỏng (không nút biển) ⇒ bỏ cổng, DEPTH_UNKNOWN_FIT như cũ. Ghi nhận cùng ngày: HYCOM (tầng nhiệt/nhiệt đáy) trượt 4/4 lượt thử từ máy dev — fallback đã chạy đúng (payload ok, dataQuality 0,85). -->
 <!-- re-verified: 2026-09-30 — fish-predict.ts: sửa hồ sơ ngừ ồ (Auxis rochei) + thêm cổng `inshore`/`shallowWaterFit` cho loài ven bờ. KHÔNG nguồn ngoài mới, KHÔNG đổi timeout/fallback; thiếu ETOPO thì cổng ven bờ dùng chung DEPTH_UNKNOWN_FIT 0,5 như cổng offshore. -->
 <!-- re-verified: 2026-07-30 — dọn drift: fuel-price.ts đổi sau lần verify trước NHƯNG chỉ theo đợt cắt mô tả UI 2026-07-27 (commit 2f63c93) — contract NGUỒN không đổi: vẫn scrape giaxanghomnay.com (Petrolimex, JSON không key), cache 6h, fail→null ẩn dòng giá dầu. Bảng "service ngoài" hàng Petrolimex/giaxanghomnay giữ nguyên. -->
@@ -234,6 +235,8 @@ const { data, error } = await q;
 | `currents` (u,v) | không | `copernicus-glo-phy-uv-total` — CMEMS `cmems_mod_glo_phy_anfc_merged-uv_PT1H-i`, `utotal`/`vtotal` 1/12° (ARCO Zarr, asset `timeChunked`); **cặp u+v là MỘT ứng viên**, ngày = ngày UTC của mốc GIỜ đã chọn.<br>**KHÔNG có dự phòng — CỐ Ý**: NOAA `noaacwBLENDEDNRTcurrentsDaily` ĐÃ BỊ GỠ khỏi trường này (xem mục Copernicus bên dưới) | 1 (bước 1 giờ) | **bỏ HẲN yếu tố hội tụ dòng** — thà thiếu còn hơn lùi về nhiễu |
 | `hycom` (D20 + nhiệt đáy + 250 m) | không | `hycom-gofs` — 1 cube → 3 lưới (OPeNDAP `tds.hycom.org`, **hay treo** → timeout ngắn `SLOW_SOURCE_TIMEOUT_MS` 12s, KHÔNG phải 20s) | 3 | cá ngừ bỏ yếu tố tầng nhiệt; loài đáy fallback SST mặt |
 | `bathy` (độ sâu đáy) | không | `etopo-2022-15s` (PIFSC ERDDAP) — **TĨNH**, ngày = hôm nay, `maxAgeDays = STATIC_MAX_AGE_DAYS` (không bao giờ stale) | — | KHÔNG bỏ cổng: loài xa bờ nhân `DEPTH_UNKNOWN_FIT` 0.5 (điểm trần 50 = sàn hiển thị → không dựng lại được điểm nóng sát bờ) |
+| `sstFine` (SST 0,1° CHỈ cho front — C2, 2026-10-03) | không | 1. `noaa-blended-sst-fine` — `noaacwBLENDEDsstDaily` stride **2** (`SST_FRONT_STRIDE`, kelvin)<br>2. `noaa-coraltemp-sst-fine` — `noaacrwsstDaily` stride 2 (°C) | 3 | front nhiệt tính trên lưới 0,25° như trước (mờ hơn, KHÔNG mất cơ chế) — `dataQuality` −0,025 |
+| `chlFine` (phù du 0,083° CHỈ cho front mồi — C2) | không | 1. `noaa-viirs-dineof-chl-fine` — `noaacwNPPN20VIIRSDINEOFDaily` stride **1** (`CHL_FRONT_STRIDE`)<br>2. `noaa-multisensor-dineof-chl-fine` — stride 1. Cả hai fetch **`cache: "no-store"`** (thân 2,7 MB > trần 2 MB data cache Next — cache 6 h vốn vô dụng với cron 1 lần/ngày) | 7 | front mồi tính trên lưới 0,25° như trước — `dataQuality` −0,025 |
 
 **Thêm nguồn mới** = thêm phần tử vào mảng ứng viên trong `route.ts` + một dòng ở bảng này. KHÔNG phải sửa luật. Trước khi thêm **PHẢI fetch thử thật** (đúng bbox/stride, kiểm ĐƠN VỊ — CoralTemp là °C còn Blended là kelvin; sai là cả bản đồ lệch 273°).
 
@@ -241,6 +244,30 @@ const { data, error } = await q;
 `dataQuality` = 1 − 0,25/trường **bắt buộc** cũ − 0,05/trường **tuỳ chọn** mất hẳn − 0,025/trường tuỳ chọn có-nhưng-cũ (kẹp [0,1]). CHỈ để hạ kỳ vọng — **KHÔNG nhân vào điểm cá**.
 
 **Tải trọng lên NOAA**: 9 → **11 fetch/lượt tính** (thêm 2 nguồn dự phòng) → **9** sau khi gỡ cặp u,v NOAA khỏi trường `currents` (2026-07-26), cộng ~6 request Copernicus (metadata + 3 trục, cache 24 h + 4 chunk dữ liệu). Tất cả **song song** nên wall-clock ≈ lưới chậm nhất, không cộng dồn. Mỗi lưới ~250–300 KB (không phải "vài MB" như ghi trước đây). ISR 6h + cửa chặn `pretrip-auto` giữ trần lượt gọi như cũ. Nếu về sau thêm nhiều ứng viên nữa mà route chạm 60 s thì đổi chiến lược: chỉ gọi dự phòng khi nguồn chính hỏng (mất luật "so ngày lấy mới nhất" — phải cân nhắc, ghi lại lý do).
+
+### Front trên lưới gốc (C2, 2026-10-03) — |∇| tính ở 0,1°/0,083° rồi GỘP KHỐI về ô cá
+
+> Code: `fish-predict.ts` `blockMeanGrid` · `fineFrontOnto` · `isFinerGrid` · `FRONT_FINE_FULL_SCALE` · `extra.frontSstFine`/`frontChlFine`; nối ở `fish-forecast-run.ts` (`SST_FRONT_CANDIDATES`, `CHL_FRONT_CANDIDATES`). Test: `fish-front-fine.test.ts`. Hồ sơ đề bài: `ops/fish-review-2026-10-03/report-algorithm.md` B3/C2.
+
+**Vì sao**: `frontStrength` sai phân giữa trên lưới 0,25° = đo chênh nhiệt giữa hai ô cách **56 km** → front 1–10 km (ranh nước trồi, rìa thềm) bị làm mờ và nhạy nhiễu — đúng lỗi đã sửa cho hội tụ dòng Copernicus (1/12° → `blockMeanAt`). Nay: tải thêm lưới GỐC mịn từ CÙNG nguồn (chỉ đổi stride), tính |∇| tại đó, rồi **trung bình của |∇|** về ô 0,25° (KHÔNG phải ∇ của trung bình). Phân hoạch theo toạ độ (`blockMeanGrid`: nút mịn thuộc ô có tâm gần nhất, cách ≤ ½ bước) nên tỷ lệ bước không nguyên (0,1°→0,25° = 2–3 nút/trục) vẫn đúng tâm.
+
+**Chọn stride — đo thật ERDDAP 1/10/2026** (bbox 5–22N × 102–118E, `curl --compressed`):
+
+| Lưới | Hàng | JSON thô | Trên dây (gzip) | Thời gian | Tự tương quan trễ-1 của front (ô được chấm, n=2346) |
+|---|---|---|---|---|---|
+| SST stride 5 = 0,25° (hiện có) | 4.485 | 252 KB | 19 KB | 1,4 s | **0,392** |
+| SST stride 2 = **0,1° — CHỌN** | 27.531 | 1,5 MB | 107 KB | 2,4 s | **0,524** |
+| SST stride 1 = 0,05° | 109.461 | 6,1 MB | 408 KB | 2,6 s | 0,543 — vượt trần ~5 MB/lưới + trần 2 MB data cache Next, chỉ hơn 0,02 ⇒ không đáng |
+| chl stride 3 = 0,25° (hiện có) | — | ~300 KB | — | ~3 s | 0,745 |
+| chl stride 1 = **0,083° — CHỌN** | 39.565 | 2,7 MB | 249 KB | 3,1 s | 0,785 (ô bão hoà =1: 215 → 70, xếp hạng được nhiều ô hơn) |
+
+**Hiệu chỉnh `FRONT_FINE_FULL_SCALE = 1,3`** (cùng luật `CONV_FULL_PER_DEG`: neo dải động cũ). Trung bình của |∇| KHÔNG triệt tiêu nhiễu dưới-ô nên phân bố trượt lên: ở hệ số 1 mean 0,211→0,300, p90 0,402→0,512, **%điểm nóng +2,1…+3,1 điểm % — vượt tiêu chí Δ ≤ 2**. Quét 1,0–1,8: p90 khớp cũ tại **1,3** (0,394) ⇒ %điểm nóng Δ **+0,31 · +0,10 · −0,05 · +0,23** (t1/t4/t7/t10), std 0,144→0,124 (≥0,1 đạt), tự tương quan không đổi theo hệ số (chỉ đổi biên độ). Hệ số **phụ thuộc bước lưới mịn**: 0,05° cần 1,4 — đổi stride phải đo lại.
+
+**Vị trí top-decile front (so với nền 10 %) — cấu trúc đã biết GIỮ và RÕ hơn**: ranh nước trồi Ninh Thuận–Bình Thuận (10,5–12,5N 108,5–110,5E) 30 → **32 %**; đẳng sâu 50 m VBB (18,5–21N 106–108E) 21 → 21 %; cửa VBB–Hải Nam 15 → **20 %**; thềm Tây Nam Bộ 36 → **41 %**. Top ô: 20,27N/109,78E · 11,78N/109,78E · 10,28N/104,28E · 20,52N/109,53E · 12,28N/109,28E · 10,78N/108,28E · 11,03N/108,78E (ảnh 1/10/2026).
+
+**Loài (ô ≥50, t4, lưới 30/9–1/10)**: cá nục 39→44 · bạc má 30→35 · ngừ vằn 51→58 · mực xà 48→57 · nục heo 106→117 · ngừ vây vàng 85→89 · cá thu 1→2 · cá lầm 12→11; số loài hiện KHÔNG đổi (34/38/33/37). Bất biến "mất nguồn ⇒ điểm giảm hoặc giữ" KHÔNG bị đụng: lưới mịn vắng ⇒ front = lưới 0,25° (đường cũ), không bịa.
+
+**Tải trọng**: 9 → **13 fetch/lượt tính** (4 ứng viên mới, cùng host coastwatch, cùng `ERDDAP_UA`, cùng `GRID_TIMEOUT_MS` 20 s, song song — wall-clock ≈ lưới chậm nhất ~3 s). Tổng byte trên dây +~360 KB/lượt. Cron `/api/cron/refresh-fish` 1 lần/ngày ⇒ không đáng kể.
 
 ## Copernicus Marine ARCO (Zarr) — dòng chảy TỔNG, **ĐANG CHẠY trong `/api/fish-forecast`** (từ 2026-07-26)
 
