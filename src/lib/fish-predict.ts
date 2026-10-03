@@ -67,8 +67,16 @@ export const SURFACE_CONF: Record<SurfaceSignal, number> = {
 //   36.4%→26.6% (t1) · chồng lấn hotspot chéo loài (Jaccard) 0.12→0.11.
 //   Cá đáy mùa đông KHÔNG biến mất: cá mối/tôm bạc/ghẹ đều có ô s≥50 (716/36/32).
 // Xem scripts/fish-predict-viec3-calib.mjs (chạy lại: npx tsx …).
-/** Hệ số soft-OR: <1 để nhiều cơ chế VỪA-PHẢI không cộng dồn thành "sáng rực" */
-const SOFTOR_SCALE = 0.4;
+/** Hệ số soft-OR: <1 để nhiều cơ chế VỪA-PHẢI không cộng dồn thành "sáng rực".
+ *  TOÁN THẬT (sửa chú thích 2026-10-03d, C7): MỘT cơ chế đầy (x=1, w=wMax) cho
+ *  agg = scale = 0,4 ⇒ loài conf 1 tối đa 40 điểm < sàn hiển thị 50; hai cơ chế
+ *  đầy → 0,64. Nghĩa là ô ≥50 ĐÒI ≥2 cơ chế (hoặc 1 đầy + vài cơ chế vừa) —
+ *  giống bậc thang INCOIS, KHÔNG phải "một cơ chế mạnh là đủ". Đo lưới 30/9: trong
+ *  ô×loài fit ≥0,5 có 0/1/2/3/4 cơ chế x≥0,5 = 0 · 27 · 55 · 16 · 3 %. Sweep nâng
+ *  scale (t1/t4): 0,42 → %điểm nóng +1,6/+1,9; 0,45 → +3,7/+4,5; 0,5 → +7,0/+8,5;
+ *  0,6 → +12,8/+16,1 điểm — muốn 1 cơ chế chạm 50 cần 0,5 nhưng Δ≤2 chỉ cho tới
+ *  ~0,42 ⇒ hai tiêu chí không gặp nhau → GIỮ 0,4, chỉ sửa lời. */
+export const SOFTOR_SCALE = 0.4;
 /** Nền sàn tổ hợp cơ chế: 0 = điểm nóng CHỈ do cơ chế gom cá thật (front/xoáy/
  *  nước trồi) quyết → co vùng nóng về ~18% (trước ~50%), trung thực hơn. Đã đo:
  *  nền >0 (thử 0.12) nâng điểm MỌI ô → vùng đỏ phình to hơn cả bản cũ (t7 30%,
@@ -552,7 +560,9 @@ export function coastDistanceKm(depth: ScalarGrid, capKm = Infinity): number[][]
 }
 
 /**
- * SOFT-OR tổ hợp các cơ chế gom cá — "chỉ cần MỘT cơ chế mạnh là đủ sáng ô":
+ * SOFT-OR tổ hợp các cơ chế gom cá — một cơ chế mạnh KHÔNG bị cơ chế yếu dìm
+ * (khác trung bình cộng), nhưng cũng KHÔNG đủ một mình: với scale 0,4 một cơ
+ * chế đầy cho agg = 0,4 (< sàn hiển thị 50), ô ≥50 cần ≥2 cơ chế cùng chỗ:
  *   = 1 − Π_k ( 1 − scale · (w_k / wMax) · clamp01(x_k) )
  * Thay TRUNG BÌNH CỘNG có trọng số (nén phương sai: 6 yếu tố yếu pha loãng 1
  * yếu tố mạnh → mọi ô về 0.3–0.5) bằng phép HỢP xác suất: một front/xoáy/nước
@@ -1198,6 +1208,7 @@ export function buildFishForecast(
       const fChlFront = chlFront[ci]?.[cj] ?? 0;
       let fEddy = 0;
       let coldStrength = 0;
+      let warmStrength = 0;
       if (sla && eddyEdge) {
         const si = nearestIndex(sla.lats, lat);
         const sj = nearestIndex(sla.lons, lon);
@@ -1207,6 +1218,11 @@ export function buildFishForecast(
         const slaAnomV = slaSpatial?.[si]?.[sj];
         coldStrength = Number.isFinite(slaAnomV)
           ? Math.min(1, Math.max(0, -(slaAnomV as number) / COLD_SCALE))
+          : 0;
+        // mực nước CAO HƠN lân cận = xoáy ấm cục bộ — gương coldStrength, cùng
+        // thước COLD_SCALE (p90 |dị thường| đo chung hai phía). Dùng cho cá nổi lớn.
+        warmStrength = Number.isFinite(slaAnomV)
+          ? Math.min(1, Math.max(0, (slaAnomV as number) / COLD_SCALE))
           : 0;
       }
       // nước trồi/xáo trộn: LẠNH HƠN VÙNG LÂN CẬN (dị thường không gian nhiệt
@@ -1281,6 +1297,12 @@ export function buildFishForecast(
         const band = tierT != null ? p.sst : (p.sstFallback ?? p.sst);
         const tGate = tierT != null ? tierT : t;
         const tFit = trapezoid(tGate, band[0], band[1], band[2], band[3]);
+        // KHÔNG đệm ngoài [a,d] (C8 rà 2026-10-03d, đã đo rồi BỎ): sàn 0,2 kiểu
+        // FOOD_FLOOR cho điểm tối đa 20 < KEEP_MIN 25 ⇒ không bao giờ vào payload,
+        // là no-op; sàn ≥0,5 mới hiện mà hiện nghĩa là vẽ "tốt" ngoài dải chịu
+        // đựng đã dẫn nguồn = nói dối. Lưới 30/9: đệm ±1 °C chỉ chạm 3 ô×loài.
+        // Loài "0 ô trong vụ" (cá cờ, cá sòng) kẹt ở TRẦN c=29 °C (dốc 0,3–0,6
+        // khi nước 29,75–30,4) — việc của HỒ SƠ loài, không phải của cổng.
         if (tFit === 0) continue;
         // MỒI = GIỚI HẠN MỀM (tách khỏi soft-OR): mồi=0 chỉ hạ điểm còn
         // FOOD_FLOOR, không zero hẳn để loài KHÔNG biến mất vì nhiễu ảnh mồi.
@@ -1290,14 +1312,26 @@ export function buildFishForecast(
         // KHÔNG bao giờ được đọc. Mặc định 1 giữ nguyên bản đồ hiện tại.
         const food = chlFit(c, p.chlLog[0], p.chlLog[1]);
         const foodLimiter = foodGate(food, p.foodDependence ?? 1);
-        // loài ưa nước trồi lạnh: rìa xoáy HOẶC nước lõm lạnh, lấy mạnh hơn
+        // loài ưa nước trồi lạnh: rìa xoáy HOẶC nước lõm lạnh, lấy mạnh hơn.
+        // CÁ NỔI LỚN (pelagic-large, coldCore=false): rìa xoáy HOẶC nước LỒI ẤM
+        // cục bộ (xoáy ấm/anticyclone) — 4 nghiên cứu độc lập cho ngừ vằn/vây
+        // vàng/chù ưa SSHA DƯƠNG (Zainuddin 2017/2023 0–12,5 cm; Mugo 2010 0→+50
+        // cm; Hsu 2021; Zhou 2022 Auxis thazard Biển Đông), xem ops/fish-review-
+        // 2026-10-03/report-algorithm.md B5/C5. CHỈ nhóm này: nguồn chỉ nói về cá
+        // ngừ & cá nổi lớn; mở cho mọi coldCore=false thì cá đáy/rạn (hồng 209→213,
+        // mối 72→75 ô ≥50) sáng thêm không có bằng chứng. Đo lưới 30/9 (t1/t4/t7/
+        // t10): %điểm nóng "Mọi loài" +0,25…+0,66 điểm; std eddyTerm 0,283→0,292;
+        // nục heo 106→123, vây vàng 85→92, chù 57→61, thu 1→3 ô ≥50; số loài giữ.
         const eddyTerm = sla
           ? p.coldCore
             ? Math.max(fEddy, coldStrength)
-            : fEddy
+            : p.category === "pelagic-large"
+              ? Math.max(fEddy, warmStrength)
+              : fEddy
           : null;
 
-        // SOFT-OR trên các CƠ CHẾ GOM CÁ (một cơ chế mạnh là đủ), loại yếu tố
+        // SOFT-OR trên các CƠ CHẾ GOM CÁ (một cơ chế đầy = 0,4 < sàn 50; ô ≥50
+        // cần ≥2 cơ chế cùng chỗ — xem SOFTOR_SCALE), loại yếu tố
         // thiếu dữ liệu. Mốc chuẩn hoá wMax là mức KHAI BÁO của hồ sơ loài
         // (SPECIES_WMAX), KHÔNG suy từ các term còn lại — nếu suy thì mất nguồn
         // sẽ kéo mốc xuống và LÀM ĐIỂM TĂNG. Mồi ĐÃ tách ra làm limiter.
