@@ -16,6 +16,7 @@ import {
   parseErddapGrid,
   percentileRank,
   softOrHabitat,
+  SOFTOR_SCALE,
   spatialAnomaly,
   speciesWMax,
   trapezoid,
@@ -1405,5 +1406,108 @@ describe("VIỆC 4 — cá ngừ mắt to GIỮ cổng nhiệt MẶT (deepTemp k
     });
     expect(bigeye(withDeep)).toBe(bigeye(base)); // mắt to KHÔNG là "deep" → bỏ qua deepTemp
     expect(bigeye(base)).toBeGreaterThan(0);
+  });
+});
+
+describe("2026-10-03d — soft-OR nói đúng toán (C7) + xoáy ẤM cho cá nổi lớn (C5)", () => {
+  it("C7: MỘT cơ chế đầy ở wMax = SOFTOR_SCALE = 0,4 < 0,5 → loài conf 1 KHÔNG qua sàn hiển thị 50", () => {
+    expect(SOFTOR_SCALE).toBe(0.4);
+    const one = softOrHabitat([[0.3, 1]], SOFTOR_SCALE, 0.3);
+    expect(one).toBeCloseTo(0.4, 10);
+    // mọi cổng khác hoàn hảo (×1) thì điểm = agg·100 = 40 < 50
+    expect(Math.round(one * 100)).toBeLessThan(50);
+    // hai cơ chế đầy → 1 − 0,6² = 0,64 ≥ 0,5: ô ≥50 đòi ≥2 cơ chế cùng chỗ
+    const two = softOrHabitat([[0.3, 1], [0.3, 1]], SOFTOR_SCALE, 0.3);
+    expect(two).toBeCloseTo(0.64, 10);
+    expect(two).toBeGreaterThanOrEqual(0.5);
+  });
+
+  // ngoài khơi Nam Trung Bộ, tháng 6 — vây vàng (pelagic-large, coldCore=false) đang vụ
+  const tlats = [11.5, 11.75, 12.0];
+  const tlons = [110.0, 110.25, 110.5];
+  const warmOff = grid(
+    [
+      [28, 28, 28],
+      [28, 28, 28],
+      [28, 28, 28],
+    ],
+    tlats,
+    tlons,
+  );
+  const clearChl = grid(
+    [
+      [0.4, 0.4, 0.4],
+      [0.4, 0.4, 0.4],
+      [0.4, 0.4, 0.4],
+    ],
+    tlats,
+    tlons,
+  );
+  const deepGrid = grid(
+    [
+      [2500, 2500, 2500],
+      [2500, 2500, 2500],
+      [2500, 2500, 2500],
+    ],
+    tlats,
+    tlons,
+  );
+  // SSHA LỒI cục bộ ở ô giữa (+0,2 m so lân cận) = xoáy ấm; nền 0 quanh
+  const bumpSsha = grid(
+    [
+      [0.0, 0.0, 0.0],
+      [0.0, 0.2, 0.0],
+      [0.0, 0.0, 0.0],
+    ],
+    tlats,
+    tlons,
+  );
+  // cùng độ lớn nhưng LÕM (xoáy lạnh) — đối chứng: cá nổi lớn không ưa
+  const dipSsha = grid(
+    [
+      [0.0, 0.0, 0.0],
+      [0.0, -0.2, 0.0],
+      [0.0, 0.0, 0.0],
+    ],
+    tlats,
+    tlons,
+  );
+  const spAt = (f: ReturnType<typeof buildFishForecast>, sp: string) =>
+    f.cells.find((c) => c.lat === 11.75 && c.lon === 110.25)?.sp[sp] ?? 0;
+
+  it("C5: SSHA LỒI cục bộ → điểm 'ngừ vây vàng' TĂNG so với không có SSHA", () => {
+    const base = buildFishForecast(warmOff, clearChl, null, 6, { depth: deepGrid });
+    const warm = buildFishForecast(warmOff, clearChl, bumpSsha, 6, { depth: deepGrid });
+    expect(spAt(warm, "ngừ vây vàng")).toBeGreaterThan(spAt(base, "ngừ vây vàng"));
+  });
+
+  it("C5: cùng độ lớn, LÕM (xoáy lạnh) cho cá nổi lớn THẤP hơn LỒI — chỉ dấu DƯƠNG mới là xoáy ấm", () => {
+    // ở ô giữa gradient SSHA (rìa xoáy) hai trường bằng nhau; khác nhau chỉ ở dấu
+    const warm = buildFishForecast(warmOff, clearChl, bumpSsha, 6, { depth: deepGrid });
+    const cold = buildFishForecast(warmOff, clearChl, dipSsha, 6, { depth: deepGrid });
+    expect(spAt(warm, "ngừ vây vàng")).toBeGreaterThan(spAt(cold, "ngừ vây vàng"));
+  });
+
+  it("C5: SSHA LỒI ĐỒNG LOẠT cả vùng (mùa cả bồn) → KHÔNG đổi điểm (dị thường không gian = 0)", () => {
+    const base = buildFishForecast(warmOff, clearChl, null, 6, { depth: deepGrid });
+    const uniform = grid(
+      [
+        [0.15, 0.15, 0.15],
+        [0.15, 0.15, 0.15],
+        [0.15, 0.15, 0.15],
+      ],
+      tlats,
+      tlons,
+    );
+    const withUniform = buildFishForecast(warmOff, clearChl, uniform, 6, { depth: deepGrid });
+    expect(spAt(withUniform, "ngừ vây vàng")).toBe(spAt(base, "ngừ vây vàng"));
+  });
+
+  it("C5: hồ sơ — xoáy ấm CHỈ áp cho pelagic-large; loài coldCore=true không thuộc nhóm đó", () => {
+    // Bất biến hồ sơ: không loài cá nổi lớn nào khai coldCore=true (nếu có thì nhánh
+    // xoáy ấm bị nhánh coldCore che mất — phải cân nhắc lại khi đổi hồ sơ)
+    for (const p of SPECIES_PROFILES.filter((x) => x.category === "pelagic-large")) {
+      expect(p.coldCore, p.species).toBe(false);
+    }
   });
 });
