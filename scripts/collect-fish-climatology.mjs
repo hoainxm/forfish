@@ -28,7 +28,7 @@
 // (tỷ lệ w(d) đo trên chính bản mùa vụ này) rồi `npm test`.
 // Lần chạy 2026-07-28: 6 năm 2020–2025, ~144 request, ~6 phút, 12/12 tháng, 71 KB.
 // ─────────────────────────────────────────────────────────────────────────────
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import {
   buildFishForecast,
@@ -38,6 +38,8 @@ import {
 
 const CW = "https://coastwatch.noaa.gov/erddap/griddap";
 const OUT_DEFAULT = "public/data/fish-climatology.v1.json";
+// bảng khí hậu SST cho dải nhiệt lai — CÙNG bảng route dùng (fish-forecast-run.ts)
+const SST_CLIMO = JSON.parse(readFileSync("src/data/sst-climatology.v1.json", "utf8")).regions;
 
 // Lưới đích = ĐÚNG lưới bản live (0,25°, bbox 5–22N / 102–118E) để hai bản
 // khớp ô nhau — stride 5 trên lưới CoralTemp 0,05°.
@@ -177,7 +179,7 @@ for (let m = 1; m <= 12; m++) {
   }
 
   // CÙNG hàm chấm điểm với bản live ⇒ điểm hai bên so sánh được
-  const fc = buildFishForecast(sstClim, chlClim, null, m);
+  const fc = buildFishForecast(sstClim, chlClim, null, m, { climo: SST_CLIMO });
   const cells = fc.cells ?? [];
   if (!axes && cells.length) {
     axes = { lats: sstClim.lats, lons: sstClim.lons };
