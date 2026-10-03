@@ -311,6 +311,27 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
    không tính). Tiêu chí C6 "ô ≥50 còn ≥30 % số cũ" KHÔNG đạt (14–25 %) — đánh đổi có chủ ý theo tiêu chí (1):
    không rạn thì không khẳng định; loài vẫn trong payload (tiêu chí 3). NỢ/ĐỂ MỞ: muốn Trường Sa lên ≥50 phải
    coi RẠN là CƠ CHẾ GOM (term trong soft-OR) chứ không chỉ là cổng — việc nghiệp vụ, chưa làm.
+   → LEAD CHỐT cùng ngày (tiêu chí 1: rạn là bằng chứng sinh cảnh bắt buộc của cá rạn, mạnh hơn mọi tín
+   hiệu mặt biển): `REEF_HABITAT_FLOOR = 0,7` — ô có rạn ⇒ `habitat = max(habitat, 0,7)` (≈ mức "hai cơ chế
+   trùng chỗ" 0,64) cho đúng 3 loài `requiresReef`; nhiệt/mồi/mùa vẫn nhân sau; thiếu lưới rạn ⇒ không sàn.
+   Cổng test: ô rạn nền 2500 m hợp nhiệt/mồi ⇒ ≥50; cá phèn không đổi.
+   ✅ 2026-10-03h — GỘP 4 NHÁNH (c78 · c3 · c2 · c6) + KIỂM ĐỊNH BẰNG VỊ TRÍ TÀU THẬT (C1, lần đầu có
+   chuẩn ngoài). Nguồn: GFW apparent fishing effort v3 (Zenodo, 0,01°/ngày, CC BY-NC — chỉ dùng đối chiếu
+   nội bộ, không nhúng app), 8 ngày 2024 rải 4 mùa, tàu VNM 132.593 giờ; payload dựng lại bằng
+   `scripts/fish-validate-run.mjs` (SST/chl/SLA/anom theo ngày, KHÔNG HYCOM/Copernicus; `--features full`
+   nối khí hậu + rạn + front mịn), đo bằng `scripts/fish-validate-positions.mjs` (lift = mật độ giờ đánh bắt
+   trong ô ≥50 / nền; p hoán vị ngày 200 lần). Runbook: ops/fish-validate-positions.md. ĐO lưới 30/9
+   (harness, bản gộp so 11e3180): số loài không đổi, %điểm nóng +0,8…+1,7 điểm % (trong trần 2), cá hồng
+   209→34 ô thềm không rạn, cá sòng 0→40, cá cờ 0→11. LIFT (gốc 11e3180 → gộp, payload production, p trong
+   ngoặc): tổng 3,59 → 3,75 (0,5/0,76) · lưới vây→cá nổi nhỏ 2,16 → 2,30 · câu tay→ngừ vằn 0,00 → 0,28 ·
+   **câu vàng khơi→vây vàng/mắt to 0,79 → 0,66** · **lưới kéo→cá đáy 1,75 → 1,61** · ngẫu nhiên 1,05.
+   ĐỌC THẲNG: (1) bản đồ "Mọi loài" trúng chỗ tàu đánh (mỗi ngày p 0,005) nhưng lưới lệch 4 tháng cho lift
+   y hệt ⇒ phần đúng chủ yếu là ĐỊA LÝ TĨNH (độ sâu, cách bờ, mùa), tín hiệu "hôm nay cá ở đâu" từ
+   SST/chl/SLA chưa đo được; (2) **cá ngừ xa bờ đang chỉ sai chỗ** (lift <1 cả trước và sau; 3/8 ngày không
+   giờ câu nào trong ô nóng) — việc số 1 kế tiếp, là hồ sơ/ngư trường chứ không nhánh nào chữa; (3) hai dòng
+   đi lùi (câu vàng, lưới kéo) p 0,4–0,5 với 8 ngày ⇒ chưa kết luận được, GHI THEO DÕI: cần ≥20 ngày + HYCOM
+   lịch sử để p có răng. Gộp vì mỗi nhánh đạt tiêu chí riêng (nguồn, bất biến, Δ hot) và lift chưa phân
+   biệt được.
    Số sinh thái riêng A. rochei rất ít ⇒ dải nhiệt dựa trên chi Auxis (FishBase, SEAFDEC). "Cá mè đen"
    (user nêu cùng lúc) CHƯA thêm: không nguồn nào ghép tên này với loài biển — chờ xác nhận tại cảng.
    ✅ 2026-10-03d — THUẬT TOÁN đợt 2 (C7 · C8 · C5 của ops/fish-review-2026-10-03/report-algorithm.md),

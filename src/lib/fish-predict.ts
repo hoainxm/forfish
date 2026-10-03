@@ -163,6 +163,18 @@ export const DEPTH_UNKNOWN_FIT = 0.5;
  * "không rạn thì không khẳng định", còn ô có rạn mới lên bản đồ.
  */
 export const REEF_ABSENT_FIT = 0.5;
+/**
+ * SÀN HABITAT KHI Ô CÓ RẠN (2026-10-03, lead chốt sau C6): với loài `requiresReef`,
+ * rạn là SINH CẢNH BẮT BUỘC — bằng chứng mạnh hơn mọi tín hiệu mặt biển (loài
+ * `low`, SURFACE_CONF 0,25, trần habitat ≈ 0,42–0,47 ở ô không front) nên chỉ
+ * bỏ cổng độ sâu thì chóp rạn Trường Sa vẫn không bao giờ tới sàn hiển thị 50
+ * (đo C6: 177/196 ô rạn nền sâu vào payload ở 31–47 điểm). Đặt sàn 0,7 ≈ mức
+ * "hai cơ chế gom cá trùng chỗ" (soft-OR 0,64) — rạn thật đáng tin hơn hai front
+ * vệ tinh. Áp qua `max(habitat, sàn)`: ô có front vẫn cao hơn ô chỉ có rạn;
+ * nhiệt/mồi/mùa vẫn nhân sau nên ô rạn nước lạnh trái vụ vẫn thấp. THIẾU lưới
+ * rạn ⇒ không ô nào "có rạn" ⇒ không sàn (mất nguồn không tăng điểm).
+ */
+export const REEF_HABITAT_FLOOR = 0.7;
 
 export interface SpeciesProfile {
   /** khớp đúng chuỗi `species` trong FISH_SEASONS */
@@ -1543,8 +1555,11 @@ export function buildFishForecast(
         // tính, không vẽ điểm nóng giả. Loài nổi (high) giữ nguyên.
         const conf = SURFACE_CONF[p.surfaceSignal];
         const aggEff = conf * agg + (1 - conf) * NEUTRAL_AGG;
-        // nền sàn: mùa+nhiệt+mồi vẫn quyết điểm ngay cả khi cơ chế trơ
-        const habitat = AGG_FLOOR + (1 - AGG_FLOOR) * aggEff;
+        // nền sàn: mùa+nhiệt+mồi vẫn quyết điểm ngay cả khi cơ chế trơ.
+        // Cá rạn đứng trên rạn: sinh cảnh bắt buộc có thật ⇒ sàn REEF_HABITAT_FLOOR.
+        const habitatRaw = AGG_FLOOR + (1 - AGG_FLOOR) * aggEff;
+        const habitat =
+          p.requiresReef && cellHasReef ? Math.max(habitatRaw, REEF_HABITAT_FLOOR) : habitatRaw;
         // CỔNG ĐỘ SÂU: loài xa bờ (offshore) ở nước cạn → điểm kéo về 0.
         // KHÔNG BIẾT độ sâu (mất lưới ETOPO / ô NaN) → DEPTH_UNKNOWN_FIT (<1),
         // KHÔNG phải ×1: mất nguồn thì bớt chắc chắn chứ không được thưởng oan.

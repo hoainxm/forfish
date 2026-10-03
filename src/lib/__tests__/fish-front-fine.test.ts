@@ -145,8 +145,17 @@ describe("buildFishForecast — extra.frontSstFine / frontChlFine", () => {
     const a = base();
     const b = buildFishForecast(sst, chl, null, 7, { depth: shelf, frontSstFine: sstFine });
     expect(JSON.stringify(b.cells)).not.toBe(JSON.stringify(a.cells));
-    expect(b.cells.length).toBe(a.cells.length);
-    for (let i = 0; i < a.cells.length; i++) expect(b.cells[i].t).toBe(a.cells[i].t);
+    // số ô CÓ THỂ đổi (front mạnh hơn kéo thêm ô qua KEEP_MIN — sau khi gộp C5
+    // xoáy ấm thì đúng vậy: 57 → 64); bất biến là nhiệt hiển thị của CÙNG ô.
+    const tA = new Map(a.cells.map((c) => [`${c.lat},${c.lon}`, c.t]));
+    let common = 0;
+    for (const c of b.cells) {
+      const t = tA.get(`${c.lat},${c.lon}`);
+      if (t === undefined) continue;
+      common++;
+      expect(c.t).toBe(t);
+    }
+    expect(common).toBeGreaterThan(0);
   });
 
   it("frontChlFine mịn → front mồi đổi theo lưới mịn", () => {

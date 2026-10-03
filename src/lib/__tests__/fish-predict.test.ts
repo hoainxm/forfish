@@ -23,6 +23,7 @@ import {
   CONV_FULL_PER_DEG,
   DEPTH_UNKNOWN_FIT,
   REEF_ABSENT_FIT,
+  REEF_HABITAT_FLOOR,
   SPECIES_META,
   SPECIES_PROFILES,
   thermoFit,
@@ -1055,10 +1056,13 @@ describe("MẤT NGUỒN → điểm GIẢM hoặc GIỮ, tuyệt đối KHÔNG T
       expect(old).toBeGreaterThan(0);
       expect(now).toBe(Math.round(old * REEF_ABSENT_FIT));
     });
-    it("ô có rạn + đáy nông: ×1, không thưởng thêm so với bản cũ", () => {
+    it("ô có rạn + đáy nông: cổng độ sâu ×1; điểm = max(bản cũ, sàn habitat rạn) — không bao giờ thấp hơn bản cũ", () => {
       const shallow = g4(() => 40);
       const old = best(run({ depth: shallow, reef: noReef, reefAbsentFit: 1 }), "cá hồng");
-      expect(best(run({ depth: shallow }), "cá hồng")).toBe(old);
+      const now = best(run({ depth: shallow }), "cá hồng");
+      expect(now).toBeGreaterThanOrEqual(old);
+      // sàn 0,7 có ý: ô rạn nông không front vệ tinh vẫn tới sàn hiển thị
+      expect(now).toBeGreaterThanOrEqual(50);
     });
     it("THIẾU lưới rạn = 'không rạn': ô rạn sâu về 0, ô nông × REEF_ABSENT_FIT — không bao giờ cao hơn khi có lưới", () => {
       expect(best(run({ reef: null }), "cá hồng")).toBe(0);
@@ -1066,6 +1070,16 @@ describe("MẤT NGUỒN → điểm GIẢM hoặc GIỮ, tuyệt đối KHÔNG T
       expect(best(run({ depth: shallow, reef: null }), "cá hồng")).toBe(
         best(run({ depth: shallow, reef: noReef }), "cá hồng"),
       );
+    });
+    it("SÀN HABITAT RẠN (lead chốt 2026-10-03): ô rạn nền sâu, nhiệt/mồi hợp ⇒ cá rạn tới sàn hiển thị 50; thiếu lưới rạn ⇒ không sàn", () => {
+      // run({}) = lưới có rạn ở ô giữa trên nền 2500 m (fixture C6); habitat loài
+      // low ở ô không front ≈ 0,45 ⇒ không có sàn thì chỉ 31–47 điểm (đo C6).
+      const withReef = best(run({}), "cá hồng");
+      expect(withReef).toBeGreaterThanOrEqual(50);
+      expect(withReef).toBeLessThanOrEqual(Math.round(100 * REEF_HABITAT_FLOOR) + 1);
+      expect(best(run({ reef: null }), "cá hồng")).toBe(0);
+      // sàn chỉ cho loài requiresReef: cá phèn (đáy, không rạn) không đổi
+      expect(best(run({}), "cá phèn")).toBe(best(run({ reef: null }), "cá phèn"));
     });
     it("loài KHÔNG requiresReef không đổi một điểm nào khi có/mất lưới rạn", () => {
       const a = table(run({}));
