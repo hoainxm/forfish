@@ -777,6 +777,19 @@ export const CHL_FRONT_FULL_PER_DEG = 1.0;
 /** Gradient SSHA đạt "mạnh hẳn" (m mỗi ĐỘ) */
 export const EDDY_FULL_PER_DEG = 0.16;
 
+/**
+ * HỆ SỐ NỚI mức "rõ hẳn" khi front tính trên LƯỚI GỐC MỊN rồi gộp khối (C2).
+ * Trung bình của |∇| trên các nút mịn KHÔNG triệt tiêu nhiễu dưới-ô (|·| luôn
+ * dương) nên phân bố trượt lên so với sai phân 0,25° (đo lưới thật 1/10/2026,
+ * 2346 ô được chấm, lưới 0,1°: mean 0,211→0,300 · p90 0,402→0,512; %điểm nóng
+ * +2,1…+3,1 điểm % — vượt tiêu chí Δ ≤ 2). Cùng luật với `CONV_FULL_PER_DEG`:
+ * NEO THEO DẢI ĐỘNG CŨ (giữ p90 ≈ cũ: 1,3 ⇒ p90 0,394) để yếu tố front KHÔNG TO
+ * LÊN, chỉ ĐÚNG CHỖ hơn (%điểm nóng Δ −0,05…+0,31). Hệ số PHỤ THUỘC bước lưới
+ * mịn — đổi stride thì đo lại (0,05° cần 1,4). Bảng đo: ops/external-services.md
+ * mục "Front trên lưới gốc (C2)".
+ */
+export const FRONT_FINE_FULL_SCALE = 1.3;
+
 /** Front nhiệt (giữ tên cũ cho test/đọc) — gradient SST theo ĐỘ */
 export function frontStrength(grid: ScalarGrid): number[][] {
   return gradientStrength(
@@ -878,6 +891,80 @@ export function blockMeanAt(
     }
   }
   return n > 0 ? sum / n : NaN;
+}
+
+/**
+ * GỘP KHỐI CẢ LƯỚI: trường `fine` (đã tính trên lưới gốc mịn, trục `fineLats`/
+ * `fineLons`) → lưới đích thô (`coarseLats`/`coarseLons`), mỗi ô đích = TRUNG
+ * BÌNH các nút mịn rơi vào ô (dùng `blockMeanAt`, tỷ lệ bước = round(thô/mịn)).
+ *
+ * Dùng cho FRONT (C2, 2026-10-03): |∇SST| tính trên lưới CRW/Blended 0,05° rồi
+ * gộp về ô cá 0,25° — là "trung bình của |gradient|", KHÔNG phải "gradient của
+ * trung bình" (cái sau = sai phân giữa hai ô cách 56 km, làm mờ front 1–10 km
+ * và nhạy nhiễu — đúng lỗi đã sửa cho hội tụ dòng Copernicus 1/12°).
+ *
+ * Ô đích không có nút mịn hữu hạn nào → `NaN` (caller tự lùi về giá trị thô).
+ * Lưới mịn KHÔNG mịn hơn đích (ratio ≤ 1) → vẫn chạy, trả nút gần nhất.
+ */
+export function blockMeanGrid(
+  fine: number[][],
+  fineLats: number[],
+  fineLons: number[],
+  coarseLats: number[],
+  coarseLons: number[],
+): number[][] {
+  // PHÂN HOẠCH theo toạ độ: mỗi nút mịn thuộc đúng MỘT ô đích (ô có tâm gần
+  // nhất, cách ≤ ½ bước đích) — không lệ thuộc tỷ lệ bước có nguyên hay không
+  // (0,05°→0,25° là 5 nút/trục; 0,1°→0,25° là 2–3 nút/trục, tâm vẫn không lệch).
+  const halfLat = gridStepDeg(coarseLats) / 2 + 1e-9;
+  const halfLon = gridStepDeg(coarseLons) / 2 + 1e-9;
+  const owner = (axis: number[], v: number, half: number) => {
+    const k = nearestIndex(axis, v);
+    return Math.abs(axis[k] - v) <= half ? k : -1;
+  };
+  const rowOf = fineLats.map((v) => owner(coarseLats, v, halfLat));
+  const colOf = fineLons.map((v) => owner(coarseLons, v, halfLon));
+  const sum = coarseLats.map(() => coarseLons.map(() => 0));
+  const cnt = coarseLats.map(() => coarseLons.map(() => 0));
+  for (let i = 0; i < fine.length; i++) {
+    const r = rowOf[i];
+    if (r < 0) continue;
+    const row = fine[i];
+    for (let j = 0; j < row.length; j++) {
+      const c = colOf[j];
+      const v = row[j];
+      if (c < 0 || !Number.isFinite(v)) continue;
+      sum[r][c] += v;
+      cnt[r][c]++;
+    }
+  }
+  return sum.map((row, r) => row.map((s, c) => (cnt[r][c] > 0 ? s / cnt[r][c] : NaN)));
+}
+
+/** Lưới `fine` có MỊN HƠN HẲN lưới `coarse` không (bước ≤ ½ ở cả hai trục)? */
+export function isFinerGrid(fine: ScalarGrid, coarse: ScalarGrid): boolean {
+  return (
+    gridStepDeg(fine.lats) * 2 <= gridStepDeg(coarse.lats) &&
+    gridStepDeg(fine.lons) * 2 <= gridStepDeg(coarse.lons)
+  );
+}
+
+/**
+ * Front trên LƯỚI GỐC MỊN rồi gộp khối về lưới đích; ô thiếu nút mịn lùi về
+ * `coarseFront` (hành vi cũ). Mức "rõ hẳn" quy theo ĐỘ nên hai lưới cùng thang.
+ */
+export function fineFrontOnto(
+  fineValues: number[][],
+  fine: ScalarGrid,
+  fullPerDeg: number,
+  coarse: ScalarGrid,
+  coarseFront: number[][],
+): number[][] {
+  const g = gradientStrength(fineValues, fullPerDeg * gridStepDeg(fine.lats));
+  const pooled = blockMeanGrid(g, fine.lats, fine.lons, coarse.lats, coarse.lons);
+  return pooled.map((row, i) =>
+    row.map((v, j) => (Number.isFinite(v) ? v : coarseFront[i][j])),
+  );
 }
 
 export function gridStepDeg(axis: number[], fallback = 0.25): number {
@@ -1085,6 +1172,16 @@ export function buildFishForecast(
      */
     frontSst?: ScalarGrid | null;
     /**
+     * Lưới SST GỐC MỊN (Blended/CRW 0,05°, stride 1) CHỈ để tính FRONT nhiệt
+     * (C2, 2026-10-03): |∇| tính trên lưới mịn rồi GỘP KHỐI về ô 0,25° (trung
+     * bình của |gradient|, không phải gradient của trung bình). Thắng `frontSst`
+     * khi có mặt và mịn hơn hẳn `sst` (bước ≤ ½); không mịn hơn → bỏ qua.
+     * Thiếu / ô không có nút mịn → hành vi cũ (front trên lưới 0,25°).
+     */
+    frontSstFine?: ScalarGrid | null;
+    /** Lưới phù du GỐC MỊN (DINEOF 0,083°, stride 1) cho FRONT mồi — như trên */
+    frontChlFine?: ScalarGrid | null;
+    /**
      * CHỈ để hiệu chỉnh (scripts/conv-copernicus-calib.mjs): thay mức "hội tụ rõ
      * hẳn" mặc định `CONV_FULL_PER_DEG`. Runtime KHÔNG truyền — route dùng mặc
      * định. Có knob này thì script so TRƯỚC/SAU được trong CÙNG một tiến trình,
@@ -1097,6 +1194,8 @@ export function buildFishForecast(
      * dải hồ sơ cố định như cũ. Chỉ NỚI cao nguyên nên có bảng ≥ không bảng.
      */
     climo?: SstClimatology | null;
+    /** CHỈ để hiệu chỉnh C2: thay `FRONT_FINE_FULL_SCALE`. Runtime KHÔNG truyền. */
+    frontFineFullScale?: number;
   },
 ): FishForecast {
   const climo = extra?.climo ?? null;
@@ -1134,12 +1233,40 @@ export function buildFishForecast(
     extra.frontSst.lons.length === sst.lons.length
       ? extra.frontSst
       : sst;
-  const thermFront = frontStrength(frontSrc);
+  const coarseThermFront = frontStrength(frontSrc);
+  // FRONT TRÊN LƯỚI GỐC MỊN (C2): có lưới 0,05° thì |∇| tính ở đó rồi gộp khối
+  // về ô cá — cùng chiều vật lý với hội tụ dòng (chi tiết nằm ở lưới mịn, đừng
+  // làm mượt trước rồi mới đạo hàm). Không có / không mịn hơn → lưới 0,25°.
+  const sstFine = extra?.frontSstFine ?? null;
+  expectUnit(sstFine, "degC", "buildFishForecast: frontSstFine");
+  const fineScale = extra?.frontFineFullScale ?? FRONT_FINE_FULL_SCALE;
+  const thermFront =
+    sstFine && isFinerGrid(sstFine, sst)
+      ? fineFrontOnto(
+          sstFine.values,
+          sstFine,
+          THERM_FRONT_FULL_PER_DEG * fineScale,
+          sst,
+          coarseThermFront,
+        )
+      : coarseThermFront;
   const logChl = logChlGrid(chl);
-  const chlFront = gradientStrength(
+  const coarseChlFront = gradientStrength(
     logChl,
     CHL_FRONT_FULL_PER_DEG * gridStepDeg(chl.lats),
   );
+  const chlFine = extra?.frontChlFine ?? null;
+  expectUnit(chlFine, "mg/m3", "buildFishForecast: frontChlFine");
+  const chlFront =
+    chlFine && isFinerGrid(chlFine, chl)
+      ? fineFrontOnto(
+          logChlGrid(chlFine),
+          chlFine,
+          CHL_FRONT_FULL_PER_DEG,
+          chl,
+          coarseChlFront,
+        )
+      : coarseChlFront;
   // Bao nhiêu nút lưới dòng chảy rơi vào MỘT ô cá (≥1). Copernicus 1/12° vs ô
   // 0.25° ⇒ 3×3 = 9 nút; nguồn thô hơn ⇒ 1 (rơi về đúng ô tâm).
   const convRatioLat = cur
@@ -1458,9 +1585,20 @@ const ERDDAP = "https://coastwatch.noaa.gov/erddap/griddap";
 export const ERDDAP_UA =
   "Mozilla/5.0 (compatible; SDFish/1.0; +https://github.com/Long-Forfun/ForFish)";
 
-export function sstGridUrl(): string {
+/**
+ * STRIDE lưới SST 0,05°: 5 = ô cá 0,25° (giá trị nhiệt); 2 = 0,1° CHỈ cho FRONT
+ * (C2, 2026-10-03). Đo thật 1/10/2026: stride 2 → 27.531 hàng, 1,5 MB JSON thô
+ * (107 KB gzip trên đường truyền), 2,4 s; stride 1 (0,05°) → 109.461 hàng, 6,1 MB
+ * (408 KB gzip), 2,6 s — vượt trần ~5 MB/lưới và trần 2 MB của data cache Next,
+ * tự tương quan chỉ hơn 0,02 (0,543 vs 0,524) ⇒ chọn 0,1°.
+ */
+export const SST_FRONT_STRIDE = 2;
+/** STRIDE lưới phù du 0,083°: 3 = ô cá; 1 = lưới gốc cho FRONT mồi (39.565 hàng, 2,7 MB thô / 249 KB gzip, 3,1 s) */
+export const CHL_FRONT_STRIDE = 1;
+
+export function sstGridUrl(stride = 5): string {
   // 0.05° × stride 5 = 0.25°; lat tăng dần
-  return `${ERDDAP}/noaacwBLENDEDsstDaily.json?analysed_sst%5B(last)%5D%5B(5.0):5:(22.0)%5D%5B(102.0):5:(118.0)%5D`;
+  return `${ERDDAP}/noaacwBLENDEDsstDaily.json?analysed_sst%5B(last)%5D%5B(5.0):${stride}:(22.0)%5D%5B(102.0):${stride}:(118.0)%5D`;
 }
 
 /**
@@ -1470,8 +1608,8 @@ export function sstGridUrl(): string {
  * bản đồ lệch 273°. Đã fetch thử thật 2026-07-26: 200, ~255 KB, ~3,5 s.
  * Dùng khi nguồn chính hỏng, hoặc khi nó có ảnh MỚI HƠN (luật so ngày).
  */
-export function sstBackupGridUrl(): string {
-  return `${ERDDAP}/noaacrwsstDaily.json?analysed_sst%5B(last)%5D%5B(22.0):5:(5.0)%5D%5B(102.0):5:(118.0)%5D`;
+export function sstBackupGridUrl(stride = 5): string {
+  return `${ERDDAP}/noaacrwsstDaily.json?analysed_sst%5B(last)%5D%5B(22.0):${stride}:(5.0)%5D%5B(102.0):${stride}:(118.0)%5D`;
 }
 
 /**
@@ -1519,9 +1657,9 @@ export function slaGridUrl(): string {
   return `${ERDDAP}/noaacwBLENDEDsshDaily.json?sla%5B(last)%5D%5B(5.0):2:(22.0)%5D%5B(102.0):2:(118.0)%5D`;
 }
 
-export function chlGridUrl(): string {
+export function chlGridUrl(stride = 3): string {
   // 0.083° × stride 3 = 0.25°; trục lat GIẢM dần + có chiều altitude
-  return `${ERDDAP}/noaacwNPPN20VIIRSDINEOFDaily.json?chlor_a%5B(last)%5D%5B(0.0)%5D%5B(22.0):3:(5.0)%5D%5B(102.0):3:(118.0)%5D`;
+  return `${ERDDAP}/noaacwNPPN20VIIRSDINEOFDaily.json?chlor_a%5B(last)%5D%5B(0.0)%5D%5B(22.0):${stride}:(5.0)%5D%5B(102.0):${stride}:(118.0)%5D`;
 }
 
 /**
@@ -1531,8 +1669,8 @@ export function chlGridUrl(): string {
  * được. Đã fetch thử thật 2026-07-26: 200, ~300 KB, ~3,3 s (ảnh 14/7, cũ hơn
  * nguồn chính 23/7 → luật so ngày để nguồn chính thắng, đúng ý muốn).
  */
-export function chlBackupGridUrl(): string {
-  return `${ERDDAP}/noaacwNPPN20S3ASCIDINEOFDaily.json?chlor_a%5B(last)%5D%5B(0.0)%5D%5B(22.0):3:(5.0)%5D%5B(102.0):3:(118.0)%5D`;
+export function chlBackupGridUrl(stride = 3): string {
+  return `${ERDDAP}/noaacwNPPN20S3ASCIDINEOFDaily.json?chlor_a%5B(last)%5D%5B(0.0)%5D%5B(22.0):${stride}:(5.0)%5D%5B(102.0):${stride}:(118.0)%5D`;
 }
 
 export function anomGridUrl(): string {

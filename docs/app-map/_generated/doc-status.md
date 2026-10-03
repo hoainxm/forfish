@@ -4,7 +4,7 @@
 | Doc | Trang thai | Ly do |
 |---|---|---|
 | docs/app-map/01-product.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/02-architecture.md | SUSPECT | code 'src/app' doi sau last_verified |
+| docs/app-map/02-architecture.md | VERIFIED | ok |
 | docs/app-map/03-design-system.md | VERIFIED | ok |
 | docs/app-map/04-data-model.md | VERIFIED | ok |
 | docs/app-map/05-agents-team.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
@@ -20,7 +20,7 @@
 | docs/app-map/ops/build-publish-store.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/deploy-windows-iis.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/dot1-setup.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
-| docs/app-map/ops/external-services.md | SUSPECT | code 'src/lib/fish-forecast-run.ts' doi sau last_verified |
+| docs/app-map/ops/external-services.md | SUSPECT | code 'src/lib/fish-predict.ts' doi sau last_verified |
 | docs/app-map/ops/fish-review-2026-10-03/00-brief.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/fish-review-2026-10-03/README.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |
 | docs/app-map/ops/fish-review-2026-10-03/report-algorithm.md | NO-COVERS | doc khong gan code (chi hop le cho decision/vision) |

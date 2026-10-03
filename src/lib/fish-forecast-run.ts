@@ -4,8 +4,10 @@ import {
   bathyGridUrl,
   buildFishForecast,
   chlBackupGridUrl,
+  CHL_FRONT_STRIDE,
   chlGridUrl,
   ERDDAP_UA,
+  SST_FRONT_STRIDE,
   parseBathyGrid,
   gridDateSkewDays,
   parseErddapGrid,
@@ -73,6 +75,14 @@ const opt = () => ({
   signal: timeoutSignal(GRID_TIMEOUT_MS),
   headers: { "User-Agent": ERDDAP_UA },
 });
+// Lưới GỐC MỊN cho front (C2): thân JSON 1,5–2,7 MB; data cache của Next bỏ qua
+// (và cảnh báo) mọi mục > 2 MB nên KHÔNG khai revalidate — cron 1 lần/ngày, cache
+// 6 h vốn không có tác dụng ở đây. Timeout/UA giữ y hệt lưới chính.
+const optNoStore = () => ({
+  cache: "no-store" as const,
+  signal: timeoutSignal(GRID_TIMEOUT_MS),
+  headers: { "User-Agent": ERDDAP_UA },
+});
 
 /** Tuổi tối đa coi là "hiện tại" cho ảnh vệ tinh ngày (trễ xử lý 1–2 ngày) */
 const DAILY_MAX_AGE_DAYS = 3;
@@ -82,10 +92,10 @@ const CHL_MAX_AGE_DAYS = 7;
 /** Nạp một lưới vô hướng ERDDAP → {grid, date}; không dùng được thì null */
 function erddapScalar(
   url: string,
-  opts: { hasAltitude: boolean; kelvin?: boolean; unit?: GridUnit },
+  opts: { hasAltitude: boolean; kelvin?: boolean; unit?: GridUnit; noStore?: boolean },
 ): () => Promise<{ grid: ScalarGrid; date: string } | null> {
   return async () => {
-    const res = await fetch(url, opt());
+    const res = await fetch(url, opts.noStore ? optNoStore() : opt());
     if (!res.ok) return null;
     const g = parseErddapGrid(await res.json(), opts);
     if (g.lats.length === 0 || !g.date) return null;
@@ -140,6 +150,55 @@ const CHL_CANDIDATES: FieldCandidate<ScalarGrid>[] = [
       "NOAA VIIRS + Sentinel-3 OLCI DINEOF chlor_a (noaacwNPPN20S3ASCIDINEOFDaily)",
     maxAgeDays: CHL_MAX_AGE_DAYS,
     load: erddapScalar(chlBackupGridUrl(), { hasAltitude: true, unit: "mg/m3" }),
+  },
+];
+
+// LƯỚI GỐC MỊN CHO FRONT (C2, 2026-10-03) — TUỲ CHỌN. Cùng hai nguồn, cùng luật
+// so ngày với trường chính, chỉ khác stride: SST 0,1° (2 thay 5), phù du 0,083°
+// (1 thay 3). `buildFishForecast` tính |∇| trên lưới này rồi gộp khối về ô cá;
+// thiếu ⇒ front tính trên lưới 0,25° như cũ (không bịa, không giảm ô — chỉ mờ).
+const SST_FRONT_CANDIDATES: FieldCandidate<ScalarGrid>[] = [
+  {
+    id: "noaa-blended-sst-fine",
+    label: "NOAA Blended SST daily 0,1° (front)",
+    maxAgeDays: DAILY_MAX_AGE_DAYS,
+    load: erddapScalar(sstGridUrl(SST_FRONT_STRIDE), {
+      hasAltitude: false,
+      kelvin: true,
+      unit: "degC",
+    }),
+  },
+  {
+    id: "noaa-coraltemp-sst-fine",
+    label: "NOAA CoralTemp SST daily 0,1° (front)",
+    maxAgeDays: DAILY_MAX_AGE_DAYS,
+    load: erddapScalar(sstBackupGridUrl(SST_FRONT_STRIDE), {
+      hasAltitude: false,
+      unit: "degC",
+    }),
+  },
+];
+
+const CHL_FRONT_CANDIDATES: FieldCandidate<ScalarGrid>[] = [
+  {
+    id: "noaa-viirs-dineof-chl-fine",
+    label: "NOAA VIIRS DINEOF chlor_a 0,083° (front mồi)",
+    maxAgeDays: CHL_MAX_AGE_DAYS,
+    load: erddapScalar(chlGridUrl(CHL_FRONT_STRIDE), {
+      hasAltitude: true,
+      unit: "mg/m3",
+      noStore: true, // 2,7 MB > trần 2 MB data cache Next
+    }),
+  },
+  {
+    id: "noaa-multisensor-dineof-chl-fine",
+    label: "NOAA VIIRS + Sentinel-3 DINEOF chlor_a 0,083° (front mồi)",
+    maxAgeDays: CHL_MAX_AGE_DAYS,
+    load: erddapScalar(chlBackupGridUrl(CHL_FRONT_STRIDE), {
+      hasAltitude: true,
+      unit: "mg/m3",
+      noStore: true,
+    }),
   },
 ];
 
@@ -241,15 +300,18 @@ export async function computeFishForecast(): Promise<FishForecastResult> {
     // MỌI ứng viên của MỌI trường chạy SONG SONG (resolveField dùng allSettled
     // bên trong, các trường lại nằm trong một Promise.all) — tổng thời gian =
     // lưới CHẬM NHẤT, không cộng dồn. Ngân sách route 60s giữ nguyên.
-    const [sstR, chlR, slaR, anomR, curR, hycomR, bathyR] = await Promise.all([
-      resolveField(SST_CANDIDATES, todayIso),
-      resolveField(CHL_CANDIDATES, todayIso),
-      resolveField(SLA_CANDIDATES, todayIso),
-      resolveField(ANOM_CANDIDATES, todayIso),
-      resolveField(CURRENT_CANDIDATES, todayIso),
-      resolveField(HYCOM_CANDIDATES, todayIso),
-      resolveField(bathyCandidates(todayIso), todayIso),
-    ]);
+    const [sstR, chlR, slaR, anomR, curR, hycomR, bathyR, sstFineR, chlFineR] =
+      await Promise.all([
+        resolveField(SST_CANDIDATES, todayIso),
+        resolveField(CHL_CANDIDATES, todayIso),
+        resolveField(SLA_CANDIDATES, todayIso),
+        resolveField(ANOM_CANDIDATES, todayIso),
+        resolveField(CURRENT_CANDIDATES, todayIso),
+        resolveField(HYCOM_CANDIDATES, todayIso),
+        resolveField(bathyCandidates(todayIso), todayIso),
+        resolveField(SST_FRONT_CANDIDATES, todayIso),
+        resolveField(CHL_FRONT_CANDIDATES, todayIso),
+      ]);
 
     // SST + phù du BẮT BUỘC: hết sạch nguồn thì không bịa bản đồ cá
     if (!sstR || !chlR) return { ok: false };
@@ -271,6 +333,8 @@ export async function computeFishForecast(): Promise<FishForecastResult> {
       currents: curR,
       hycom: hycomR,
       bathy: bathyR,
+      sstFine: sstFineR,
+      chlFine: chlFineR,
     };
     const sources: Record<string, FieldProvenance> = {};
     const quality: QualityField[] = [];
@@ -299,6 +363,8 @@ export async function computeFishForecast(): Promise<FishForecastResult> {
       curR?.grid?.u,
       hycom?.d20,
       hycom?.bottom,
+      sstFineR?.grid,
+      chlFineR?.grid,
     ]);
     return {
       ...buildFishForecast(sstR.grid, chlR.grid, slaR?.grid ?? null, month, {
@@ -312,6 +378,9 @@ export async function computeFishForecast(): Promise<FishForecastResult> {
         // bảng khí hậu SST vùng–tháng cho dải nhiệt lai (bundle server, không
         // request mạng — scripts/collect-sst-climatology.mjs sinh lại ~1 lần/năm)
         climo: sstClimo.regions as SstClimatology,
+        // front trên lưới gốc mịn (C2) — thiếu thì front tính trên lưới 0,25°
+        frontSstFine: sstFineR?.grid ?? null,
+        frontChlFine: chlFineR?.grid ?? null,
       }),
       // `generatedAt` = LÚC TÍNH bản đồ này (khác `date` = ngày ẢNH vệ tinh).
       generatedAt: new Date().toISOString(),
