@@ -357,6 +357,13 @@ export function RaKhoiControls({
       // mọi chạm/gõ phím trong rail + panel = "thao tác" → hoãn tự thu 5s
       onPointerDownCapture={() => !collapsed && armAutoHide()}
       onKeyDownCapture={() => !collapsed && armAutoHide()}
+      // CUỘN cũng là "đang đọc" → nạp lại đồng hồ tự-thu. `scroll` KHÔNG bubble
+      // nên onScroll ở container cha không bắt được; nhưng nó CÓ pha CAPTURE,
+      // nên onScrollCapture bắt được cuộn ở MỌI vùng con (panel lớp max-h-62vh,
+      // panel điểm, rail nút) tại MỘT chỗ. Thiếu vế này: cuộn bánh xe/quán tính
+      // (buông tay trang vẫn trôi) không bắn pointerdown ⇒ panel tự tắt giữa lúc
+      // bà con đang kéo xem (bug "Ngư trường → Tất cả → kéo xuống là tắt").
+      onScrollCapture={() => !collapsed && armAutoHide()}
     >
       {/* KHÔNG còn thẻ "Chuẩn bị đi biển" ở đây (bỏ 2026-07-25): máy TỰ tải sẵn
           khi vào trang và chỉ báo một dòng nhỏ tự tắt — xem

@@ -100,6 +100,12 @@ export function SnapSheet({
       aria-label={label}
       onPointerDownCapture={onInteract}
       onKeyDownCapture={onInteract}
+      // CUỘN cũng là "đang đọc" → nạp lại đồng hồ tự-ẩn. Dùng onScrollCapture ở
+      // SECTION (không phải onScroll ở riêng div thân): `scroll` không bubble
+      // nhưng có pha CAPTURE, nên bắt được cả thân sheet LẪN vùng cuộn LỒNG bên
+      // trong (vd danh sách tuyến trong route-planner) — chỉ onScroll ở thân thì
+      // cuộn list con không bắn, sheet sập giữa lúc đọc.
+      onScrollCapture={onInteract}
       className={`absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-[1.75rem] ${
         hidden
           ? "pointer-events-none bg-transparent"
@@ -184,11 +190,10 @@ export function SnapSheet({
       </div>
 
       {size !== "peek" && !hidden && (
-        /* onScroll cũng tính là "đang đọc" → nạp lại đồng hồ tự-ẩn: cuộn quán
-           tính (buông tay rồi trang vẫn trôi) KHÔNG bắn pointerdown, thiếu vế
-           này thì đang trôi giữa chừng sheet sập xuống. */
+        /* Cuộn thân (và mọi vùng cuộn lồng) nạp lại đồng hồ tự-ẩn qua
+           onScrollCapture ở <section> trên — cuộn quán tính (buông tay trang vẫn
+           trôi) KHÔNG bắn pointerdown, thiếu thì đang trôi giữa chừng sheet sập. */
         <div
-          onScroll={onInteract}
           className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-2 [overscroll-behavior:contain]"
         >
           {children}

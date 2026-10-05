@@ -5,10 +5,12 @@
 **Load khi / Load when**: sửa UI, màu sắc, typography, copy, trạng thái (status), hoặc thêm component mới.
 
 covers: src/app/globals.css
-last_verified: 2026-10-02
+last_verified: 2026-10-05
 ttl_days: 90
 <!-- DOC-STATUS: SUSPECT (2026-09-09) — code 'src/app/globals.css' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
+<!-- re-verified: 2026-10-05 10:40 — thêm pattern "overlay tự-ẩn phải tính CUỘN là thao tác" (onScrollCapture ở container gốc, không onScroll): đối chiếu `ui/snap-sheet.tsx` (<section onScrollCapture={onInteract}>) + `ra-khoi-controls.tsx` (container gốc onScrollCapture) — khớp sau fix 2026-10-05. Tap-target SnapSheet min-h-[3.5rem] còn đúng. -->
+<!-- re-verify(03): pattern overlay tự-ẩn + cuộn (onScrollCapture) -->
 <!-- re-verified: 2026-10-02 12:00 — ĐỐI CHIẾU globals.css: `.anim-fade-in` (sdf-scrim-in 180ms ease-out) + block prefers-reduced-motion (animation-duration 0.01ms, iteration 1) còn khớp. PATTERN MỚI chỉ cho /quan-tri (không đụng app ngư dân, không thêm token/keyframe): `AdminSkeleton` (components/admin/admin-nav.tsx) = câu "Đang tải…" + thẻ `.surface` chứa thanh `bg-field animate-pulse` — khung xương đúng dáng danh sách thay chữ trơ trọi; `AdminNav` = điều hướng nhóm (cột trái desktop / thanh dính mobile), nút tab `transition-[background-color,color,box-shadow,transform] duration-200` + `active:scale-[0.98]`. -->
 <!-- re-verified: 2026-09-24 16:00 — ĐỐI CHIẾU globals.css cho fix dock: `.dock-frame`/`.bottom-dock`/`--dock-row`/`--dock-total` còn khớp; `.anim-*` (motion điềm đạm) còn; `.sq-btn:active { scale(0.95) }` + transition color/bg/transform còn (mọi nút hành động đã có press feedback). THÊM `.dock-label` (nhãn dock 1 dòng, cỡ chữ hạ theo bề ngang máy) — xem §"Nhãn ngang hàng" mục 5. Bug đã sửa: "Bạn thuyền"/"Trang chủ"/"Giao dịch" gãy 2 dòng ở ≤399px → icon lệch khỏi pill. -->
 <!-- re-verify(03): dock-label responsive + sq-btn:active + anim-* motion -->
@@ -85,6 +87,7 @@ Hướng mới: **modern edge-to-edge mobile** — nền sáng lạnh, hero bi�
 - **HAI HỌ NÚT — có chủ đích, đừng gộp** (làm rõ 2026-09-24, audit UI): (a) **Nút hành động TẠI CHỖ trong hàng/thẻ** = ô VUÔNG `.sq-btn` (`ui/sq-btn.ts`, 56px, icon trên chữ) — vd "Thêm", "Gia hạn", "Biểu đồ". (b) **CTA liên hệ / xác thực** = PILL `rounded-full` — "Gọi SDVICO" (`sdvico-request.tsx`, `CallButton`), "Đăng nhập"/"Đăng ký" (`login-gate.tsx`). Hai họ CÙNG XUẤT HIỆN trên một màn (vd /tau Dịch vụ) là ĐÚNG, không phải lệch chuẩn — mỗi họ mang một nghĩa. Cả hai đã có `:active` scale (press feedback). Thêm nút mới: chọn họ theo NGHĨA (tại-chỗ → vuông; liên-hệ/auth → pill), không trộn hình trong cùng một nghĩa.
 - **Hướng dẫn trên màn (coach-tour) ĐÃ GỠ 2026-08-26** — component `ui/coach-tour.tsx` + engine `lib/tour.ts` đã xoá (chủ dự án chốt "app cần hướng dẫn là app đểu, bỏ luôn"). KHÔNG dựng lại tour tự-bung; sách hướng dẫn HTML ngoài app vẫn còn ([07 §12](07-design-spec.md)).
 - **Tap target**: nâng Tabs + nút SnapSheet lên `min-h-[3.5rem]` (56px) — đạt sàn tap chính cho tay ướt. Thanh kéo của SnapSheet ở nấc `hidden` (2026-08-24) VẼ mảnh (vệt kính h-8) nhưng VÙNG CHẠM vẫn `min-h-[3.5rem]` — vệt vẽ mảnh không được kéo vùng chạm xuống theo.
+- **Overlay TỰ-ẨN khi idle phải tính CUỘN là "đang đọc"** (pattern chốt 2026-10-05, fix bug "Ngư trường → Tất cả → kéo xuống là tắt"): mọi lớp nổi có đồng hồ tự-đóng khi không thao tác (SnapSheet 3s · rail/panel lớp `ra-khoi-controls` 5s) mà BÊN TRONG có vùng cuộn (`overflow-y-auto`) phải nạp lại đồng hồ KHI CUỘN, không chỉ khi chạm/gõ. Dùng **`onScrollCapture` ở container gốc** (KHÔNG `onScroll`): sự kiện `scroll` không bubble nên onScroll ở cha không bắt được vùng cuộn con; pha CAPTURE thì bắt được MỌI vùng cuộn con (kể cả list LỒNG, vd route-planner trong sheet) tại một chỗ. Lý do bắt buộc: cuộn bánh xe / cuộn quán tính (buông tay trang vẫn trôi) KHÔNG bắn `pointerdown` ⇒ chỉ nghe pointer/key thì panel sập giữa lúc bà con đang kéo xem. (`ui/snap-sheet.tsx` `<section onScrollCapture>` · `ra-khoi-controls.tsx` container gốc.)
 - **Dock điều hướng nổi**: thanh navy kính mờ bo 26px tách khỏi mép màn hình, tab chọn = pill trắng. Item ≥60px, icon luôn kèm chữ.
 - Thẻ 4 trục ở Home: **tonal** — nền `--tN-bg`, icon tròn đặc `--tN`.
 
