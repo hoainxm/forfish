@@ -37,6 +37,12 @@ const nextConfig: NextConfig = {
       process.env.GITHUB_SHA ||
       ""
     ).slice(0, 12),
+    // Ngày build (YYYY-MM-DD) để hiện nhãn phiên bản dễ đọc "ngày · mã" —
+    // CHỈ đặt khi có mã bản (build trong CI), để máy dev vẫn rỗng ⇒ tính năng
+    // tắt gọn như cũ. Dùng giờ build (≈ ngày deploy), không phải ngày commit.
+    NEXT_PUBLIC_BUILD_DATE: (process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA)
+      ? new Date().toISOString().slice(0, 10)
+      : "",
   },
 };
 export default nextConfig;

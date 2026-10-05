@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isNewBuild, dueForCheck, VERSION_CHECK_EVERY_MS } from "@/lib/app-version";
+import { isNewBuild, dueForCheck, buildLabel, VERSION_CHECK_EVERY_MS } from "@/lib/app-version";
 
 describe("isNewBuild", () => {
   it("mã máy chủ khác mã đang chạy ⇒ có bản mới", () => {
@@ -16,6 +16,27 @@ describe("isNewBuild", () => {
     expect(isNewBuild("abc123", "")).toBe(false);
     expect(isNewBuild("abc123", null)).toBe(false);
     expect(isNewBuild("abc123", 42)).toBe(false);
+  });
+});
+
+describe("buildLabel", () => {
+  it("ngày + 7 ký tự mã đầu", () => {
+    expect(buildLabel("2a59c1adfdabf983afa9ed65", "2026-10-05")).toBe("2026-10-05 · 2a59c1a");
+  });
+
+  it("mã rỗng ⇒ bản phát triển (bất kể ngày)", () => {
+    expect(buildLabel("", "2026-10-05")).toBe("bản phát triển");
+    expect(buildLabel("", "")).toBe("bản phát triển");
+    expect(buildLabel("   ", "2026-10-05")).toBe("bản phát triển");
+  });
+
+  it("thiếu ngày ⇒ chỉ mã ngắn", () => {
+    expect(buildLabel("2a59c1adfdabf983", "")).toBe("2a59c1a");
+    expect(buildLabel("2a59c1adfdabf983", "  ")).toBe("2a59c1a");
+  });
+
+  it("mã ngắn hơn 7 ký tự ⇒ giữ nguyên", () => {
+    expect(buildLabel("abc12", "2026-10-05")).toBe("2026-10-05 · abc12");
   });
 });
 

@@ -224,6 +224,28 @@ Chạy tay lần đầu để kiểm tra: repo → **Actions → Deploy (Windows
    (host header/binding đã đặt) để thử proxy.
 4. Từ lần deploy sau, workflow tự **stop → robocopy → start → smoke check** service.
 
+### 7b. Kiểm sau deploy (một lệnh)
+
+`scripts/check-deploy.mjs` (Node ≥ 18, không cần cài gì) kiểm một phát: mã bản máy
+chủ đã khớp commit vừa đẩy chưa, (tuỳ chọn) làm mới snapshot cá, và xác nhận loài
+mới (vd "ngừ ồ") đã vào dự báo.
+
+```bash
+# 1) chỉ kiểm bản đã lên đúng chưa (so /api/version với commit HEAD):
+node scripts/check-deploy.mjs                      # mặc định https://sdfish.sdvico.vn
+node scripts/check-deploy.mjs --expect <commit12>  # hoặc chỉ định mã chờ
+
+# 2) deploy xong, làm mới snapshot cá rồi xác nhận "ngừ ồ" đã vào:
+CRON_SECRET=<bí mật cron> SDFISH_TOKEN=<token máy đã login premium> \
+  node scripts/check-deploy.mjs --refresh --fish
+```
+
+- Mã bản = `NEXT_PUBLIC_BUILD_ID` = 12 ký tự đầu `GITHUB_SHA` (có khi build trong Actions).
+  `/api/version` trả mã RỖNG ⇒ build KHÔNG qua Actions (hoặc thiếu env) → thẻ "Có bản mới" tắt.
+- `CRON_SECRET` lấy từ `shared\.env.production`. `SDFISH_TOKEN` là `localStorage['forfish.token.v1']`
+  của MỘT máy đã đăng nhập premium (DevTools → Application → Local Storage). Thiếu thì bước đó BỎ QUA.
+- Mã thoát 0 = mọi phép bắt buộc đạt; 1 = có phép hỏng (dùng được trong CI/kịch bản).
+
 ---
 
 ## 8. Rollback (khi bản mới lỗi)

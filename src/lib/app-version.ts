@@ -14,6 +14,23 @@
 /** Mã bản của code đang chạy (nhúng lúc build). Rỗng = build ngoài Vercel/dev. */
 export const LOCAL_BUILD_ID = process.env.NEXT_PUBLIC_BUILD_ID ?? "";
 
+/** Ngày build (YYYY-MM-DD) nhúng lúc build — để hiện nhãn "ngày · mã". Rỗng = dev. */
+export const LOCAL_BUILD_DATE = process.env.NEXT_PUBLIC_BUILD_DATE ?? "";
+
+/**
+ * NHÃN PHIÊN BẢN DỄ ĐỌC cho người dùng: `"YYYY-MM-DD · <7 ký tự mã>"` (vd
+ * "2026-10-05 · 2a59c1a"). Ngày đọc được ngay (bản hôm nào), 7 ký tự mã đủ đối
+ * chiếu chính xác mà không dài như SHA 40. Mã rỗng (dev / build ngoài CI) ⇒
+ * "bản phát triển" (không có gì để khoe). Thiếu ngày ⇒ chỉ mã ngắn. Thuần, test được.
+ */
+export function buildLabel(id: string, date: string): string {
+  const sha = (id || "").trim();
+  if (!sha) return "bản phát triển";
+  const short = sha.slice(0, 7);
+  const d = (date || "").trim();
+  return d ? `${d} · ${short}` : short;
+}
+
 /** Khoảng cách tối thiểu giữa hai lần hỏi — quay lại app liên tục không đập mạng. */
 export const VERSION_CHECK_EVERY_MS = 10 * 60_000;
 /** Trần chờ một lần hỏi — sóng yếu thì bỏ, lần sau hỏi lại. */

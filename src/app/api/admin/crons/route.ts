@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
+import { fishSnapshotRowId } from "@/lib/fish-snapshot";
 import {
   isSnapshotFresh,
   SNAPSHOT_MAX_AGE_MS,
@@ -80,7 +81,9 @@ export async function GET() {
       const { data, error } = await admin
         .from("fish_forecast_snapshot")
         .select("target_date, data_quality, generated_at, updated_at")
-        .eq("id", "latest")
+        // hàng của MÔ HÌNH ĐANG CHẠY (lib/fish-snapshot) — hàng `latest` cũ có
+        // thể do bản deploy khác (Vercel cũ) ghi, nhìn vào đó là đọc nhầm sức khoẻ
+        .eq("id", fishSnapshotRowId())
         .maybeSingle();
       if (error) return { ok: false as const, error: error.message };
       if (!data) return { ok: true as const, exists: false as const };

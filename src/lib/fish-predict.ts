@@ -12,7 +12,13 @@
 // TRUNG THỰC: đây là vùng CÓ KHẢ NĂNG, tính từ ảnh trễ ~2 ngày, độ phân giải
 // ~25 km — không phải lời hứa "có cá", UI phải luôn ghi rõ.
 
-import { FISH_SEASONS, nearestRegionWithin, seasonPrior } from "@/data/fish-seasons";
+import {
+  FISH_SEASONS,
+  SEASON_FULL_PAD_MONTHS,
+  SEASON_TAPER_MONTHS,
+  nearestRegionWithin,
+  seasonPrior,
+} from "@/data/fish-seasons";
 import { apiUrl } from "@/lib/api-base";
 import { haversineKm } from "@/lib/geo";
 import { saveForecast, loadForecast } from "@/lib/forecast-cache";
@@ -1658,6 +1664,63 @@ export const ERDDAP_UA =
 export const SST_FRONT_STRIDE = 2;
 /** STRIDE lưới phù du 0,083°: 3 = ô cá; 1 = lưới gốc cho FRONT mồi (39.565 hàng, 2,7 MB thô / 249 KB gzip, 3,1 s) */
 export const CHL_FRONT_STRIDE = 1;
+
+/**
+ * PHIÊN BẢN CÔNG THỨC chấm điểm cá — TĂNG 1 khi đổi CÁCH TÍNH trong
+ * `buildFishForecast` (công thức, cổng, thứ tự nhân) mà KHÔNG lộ ra qua hồ sơ
+ * loài / lịch mùa / hằng số đã liệt kê trong `fishModelSignature`. Những thứ đó
+ * TỰ vào dấu vân tay, không cần nhớ tăng tay.
+ */
+export const FISH_ALGO_REV = 1;
+
+/**
+ * CHỮ KÝ MÔ HÌNH CÁ — chuỗi chuẩn hoá mọi thứ quyết định bản đồ cá ra sao: hồ sơ
+ * loài, lịch mùa vụ, hằng số mùa, các hằng số chấm điểm, phiên bản công thức.
+ * `lib/fish-snapshot.ts` băm chuỗi này (+ file khí hậu SST + lưới rạn) thành
+ * DẤU VÂN TAY → mỗi mô hình đọc/ghi HÀNG SNAPSHOT RIÊNG.
+ *
+ * VÌ SAO (dính thật 2026-10-05): bảng `fish_forecast_snapshot` DÙNG CHUNG giữa
+ * các bản deploy. Bản Vercel cũ (code 30/9, chưa có sửa mùa tháng 10 cho ngừ ồ)
+ * chạy cron 02:00 UTC ghi đè hàng chung ⇒ prod `sdfish.sdvico.vn` (code mới) đọc
+ * lại số do mô hình CŨ tính ⇒ ngừ ồ biến mất khỏi bản đồ lẫn bộ lọc loài, dù code
+ * mới cho ngừ ồ 64 điểm trên cùng ảnh. Đóng dấu theo mô hình thì bản cũ ghi hàng
+ * cũ, bản mới đọc hàng mới — không còn đè nhau.
+ *
+ * Thuần, tất định (cùng code ⇒ cùng chuỗi). Gọi lúc chạy, không lúc nạp module.
+ */
+export function fishModelSignature(): string {
+  return JSON.stringify({
+    algo: FISH_ALGO_REV,
+    profiles: SPECIES_PROFILES,
+    seasons: FISH_SEASONS,
+    seasonPad: [SEASON_FULL_PAD_MONTHS, SEASON_TAPER_MONTHS],
+    k: {
+      REGION_REACH_DEG,
+      SURFACE_CONF,
+      SOFTOR_SCALE,
+      AGG_FLOOR,
+      NEUTRAL_AGG,
+      FOOD_FLOOR,
+      KEEP_MIN,
+      SPATIAL_RADIUS_DEG,
+      UPW_SCALE,
+      COLD_SCALE,
+      THERMO_BAND_DEFAULT,
+      DEPTH_UNKNOWN_FIT,
+      REEF_ABSENT_FIT,
+      REEF_HABITAT_FLOOR,
+      CHL_RANK_PLATEAU_FRAC,
+      OFFSHORE_COAST_KM,
+      THERM_FRONT_FULL_PER_DEG,
+      CHL_FRONT_FULL_PER_DEG,
+      EDDY_FULL_PER_DEG,
+      FRONT_FINE_FULL_SCALE,
+      CONV_FULL_PER_DEG,
+      SST_FRONT_STRIDE,
+      CHL_FRONT_STRIDE,
+    },
+  });
+}
 
 export function sstGridUrl(stride = 5): string {
   // 0.05° × stride 5 = 0.25°; lat tăng dần

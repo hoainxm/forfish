@@ -6,24 +6,22 @@ import { apiUrl } from "@/lib/api-base";
 import { timeoutSignal } from "@/lib/abort";
 import {
   LOCAL_BUILD_ID,
+  LOCAL_BUILD_DATE,
   VERSION_CHECK_TIMEOUT_MS,
+  buildLabel,
   isNewBuild,
 } from "@/lib/app-version";
 
 /*
-  DÒNG "PHIÊN BẢN" — cho bà con/người hỗ trợ LIẾC biết máy đang chạy bản nào và
-  đã phải bản mới nhất chưa (bổ sung cho thẻ nổi "Có bản mới" ở layout, vốn CHỈ
-  hiện khi có bản mới — xem components/update-notice.tsx). Đặt ở chân trang Quyền
-  riêng tư (khu "giới thiệu app"), cùng khuôn chữ muted với dòng bản quyền.
+  KHỐI "PHIÊN BẢN" trong panel Cài đặt (rail Ra khơi) — cho bà con/người hỗ trợ
+  biết máy đang chạy BẢN NÀO (nhãn "ngày · mã", vd "2026-10-05 · 2a59c1a") và đã
+  phải bản mới nhất chưa. Bổ sung cho thẻ nổi "Có bản mới" ở layout (vốn CHỈ hiện
+  khi có bản mới — components/update-notice.tsx); đây hiện THƯỜNG TRỰC để xác nhận
+  máy đã lên bản mới sau khi deploy.
 
-  Vì sao cần: trước đây mã bản máy vs máy chủ chỉ thấy ở `/ngu-truong?debug=tiles`
-  (components/tile-load-debug.tsx) — người dùng thường không có chỗ xác nhận
-  "máy mình đã lên bản mới chưa".
-
-  OFFLINE/TRUNG THỰC: mã rỗng (dev / build ngoài CI) ⇒ chỉ ghi "bản phát triển",
-  KHÔNG hỏi máy chủ. Mất sóng / route lỗi ⇒ im lặng ở phần đối chiếu (không treo,
-  không báo lỗi, `.catch` nuốt). KHÔNG tự tải lại (như UpdateNotice). Không lưu
-  gì (không đụng khoá forfish.*), không gửi gì đi.
+  OFFLINE/TRUNG THỰC: mã rỗng (dev / build ngoài CI) ⇒ "bản phát triển", KHÔNG hỏi
+  máy chủ. Mất sóng / route lỗi ⇒ im phần đối chiếu (không treo, không báo lỗi,
+  `.catch` nuốt). KHÔNG tự tải lại. Không lưu gì (không đụng khoá forfish.*).
 */
 export function AppVersionLine() {
   const [match, setMatch] = useState<"idle" | "latest" | "new">("idle");
@@ -47,12 +45,24 @@ export function AppVersionLine() {
     };
   }, []);
 
-  const build = LOCAL_BUILD_ID || "bản phát triển";
   return (
-    <p className="pb-4 text-[0.9375rem] text-foreground/55">
-      Phiên bản: {build}
-      {match === "latest" && " · đã là bản mới nhất"}
-      {match === "new" && " · có bản mới — bấm Cập nhật ở đầu màn hình"}
-    </p>
+    <div>
+      <p className="mb-2 mt-3 text-[0.75rem] font-bold uppercase tracking-wide text-foreground/55">
+        Phiên bản
+      </p>
+      <p className="text-[0.9375rem] font-semibold text-foreground/80">
+        {buildLabel(LOCAL_BUILD_ID, LOCAL_BUILD_DATE)}
+      </p>
+      {match === "latest" && (
+        <p className="mt-0.5 text-[0.8125rem] text-foreground/55">
+          Đã là bản mới nhất.
+        </p>
+      )}
+      {match === "new" && (
+        <p className="mt-0.5 text-[0.8125rem] text-foreground/55">
+          Có bản mới — bấm “Cập nhật” ở thẻ đầu màn hình.
+        </p>
+      )}
+    </div>
   );
 }

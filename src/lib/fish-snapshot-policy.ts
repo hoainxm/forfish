@@ -105,6 +105,23 @@ export interface SnapshotMeta {
  *  · `targetDate` mới ≥ cũ → CÓ (bằng ngày vẫn ghi: làm tươi `generatedAt` +
  *    có thể đủ nguồn tuỳ chọn hơn nếu lần trước dính nguồn treo)
  */
+/**
+ * Hàng snapshot CŨ (một hàng dùng chung, id `latest`) — bản deploy chưa có dấu
+ * vân tay mô hình vẫn đọc/ghi hàng này. Bản mới KHÔNG đọc nó nữa.
+ */
+export const LEGACY_SNAPSHOT_ROW_ID = "latest";
+
+/**
+ * ID HÀNG SNAPSHOT THEO MÔ HÌNH: `latest:<dấu vân tay>`. Mỗi mô hình cá một hàng
+ * ⇒ bản deploy chạy mô hình khác (vd bản Vercel cũ) không ghi đè được số của
+ * bản này (xem `fishModelSignature` ở lib/fish-predict.ts). Dấu vân tay rỗng/sai
+ * dạng ⇒ lùi về hàng cũ (không bao giờ ném). Thuần.
+ */
+export function snapshotRowId(fingerprint: string | null | undefined): string {
+  const fp = (fingerprint ?? "").trim().toLowerCase();
+  return /^[0-9a-f]{8,64}$/.test(fp) ? `latest:${fp}` : LEGACY_SNAPSHOT_ROW_ID;
+}
+
 export function shouldReplaceSnapshot(
   existingTargetDate: string | null | undefined,
   incoming: SnapshotMeta | null | undefined,

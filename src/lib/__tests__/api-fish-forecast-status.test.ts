@@ -13,8 +13,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const snapshot = vi.hoisted(() => ({ value: null as unknown }));
 const live = vi.hoisted(() => ({ value: { ok: false } as unknown }));
 
+const saved = vi.hoisted(() => ({ calls: 0, throws: false }));
 vi.mock("@/lib/fish-snapshot", () => ({
   loadFishSnapshot: async () => snapshot.value,
+  saveFishSnapshot: async () => {
+    saved.calls += 1;
+    if (saved.throws) throw new Error("db down");
+    return { saved: true, reason: "ok" };
+  },
 }));
 vi.mock("@/lib/fish-forecast-run", () => ({
   computeFishForecast: async () => live.value,
@@ -34,6 +40,40 @@ beforeEach(() => {
   snapshot.value = null;
   live.value = { ok: false };
   buildPhase.value = false;
+  saved.calls = 0;
+  saved.throws = false;
+});
+
+/*  HÀNG SNAPSHOT THEO MÔ HÌNH (2026-10-05): hàng của mô hình đang chạy có thể
+    chưa ai ghi (cron rơi về bản Vercel cũ) ⇒ route tính live thì phải LƯU lại,
+    nếu không mỗi nhịp ISR lại kéo bảy nguồn ngoài. Lưu hỏng KHÔNG được làm hỏng
+    phản hồi. */
+describe("/api/fish-forecast — tính live xong thì lưu snapshot", () => {
+  it("chưa có hàng của mô hình này, live OK ⇒ 200 VÀ đã lưu", async () => {
+    live.value = { ok: true };
+    const res = await GET();
+    expect(res.status).toBe(200);
+    expect(saved.calls).toBe(1);
+  });
+
+  it("snapshot còn tươi ⇒ KHÔNG tính, KHÔNG ghi lại", async () => {
+    snapshot.value = { ok: true, generatedAt: "tuoi" };
+    await GET();
+    expect(saved.calls).toBe(0);
+  });
+
+  it("lưu hỏng (DB sập) ⇒ vẫn 200 với bản vừa tính", async () => {
+    live.value = { ok: true };
+    saved.throws = true;
+    const res = await GET();
+    expect(res.status).toBe(200);
+  });
+
+  it("live hỏng ⇒ KHÔNG ghi gì (đừng đè bản tốt bằng số hỏng)", async () => {
+    snapshot.value = { ok: true, generatedAt: "cu" };
+    await GET();
+    expect(saved.calls).toBe(0);
+  });
 });
 
 describe("/api/fish-forecast — mã trạng thái", () => {

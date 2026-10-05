@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { ChevronLeftIcon } from "@/components/icons";
-import { AppVersionLine } from "@/components/app-version-line";
 import { SDVICO_HOTLINE, SDVICO_HOTLINE_DISPLAY } from "@/data/sdvico-showcase";
 
 export const metadata = {
@@ -266,7 +265,6 @@ export default function QuyenRiengTuPage() {
           mềm, giao diện và bộ dữ liệu bản đồ đã biên tập là tài sản độc quyền,
           không được sao chép hay dùng lại cho sản phẩm khác.
         </p>
-        <AppVersionLine />
       </div>
     </div>
   );

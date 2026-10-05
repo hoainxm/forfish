@@ -1,5 +1,5 @@
 import { computeFishForecast } from "@/lib/fish-forecast-run";
-import { loadFishSnapshot } from "@/lib/fish-snapshot";
+import { loadFishSnapshot, saveFishSnapshot } from "@/lib/fish-snapshot";
 import { isBuildPhase, isSnapshotFresh } from "@/lib/fish-snapshot-policy";
 
 /**
@@ -33,7 +33,23 @@ export async function GET() {
   // 2) Snapshot CŨ (cron đứng) / chưa có / bảng chưa tạo → tự tính LIVE cho tươi,
   //    KHÔNG âm thầm dọn số cũ như số mới.
   const live = await computeFishForecast();
-  if (live.ok) return Response.json(live);
+  if (live.ok) {
+    /*  LƯU LẠI vào hàng snapshot của mô hình đang chạy (2026-10-05). Hàng theo
+        mô hình chỉ có người ghi khi cron gọi ĐÚNG bản này — cron GitHub hay rơi
+        về bản Vercel cũ (401 lệch secret), nên thiếu bước này thì mỗi nhịp ISR
+        30 phút lại kéo bảy nguồn ngoài. Lỗi ghi KHÔNG được làm hỏng phản hồi:
+        bà con vẫn nhận bản vừa tính. */
+    try {
+      const r = await saveFishSnapshot(live);
+      if (!r.saved && r.reason !== "not-newer" && r.reason !== "no-admin-client") {
+        console.error("[fish-forecast] lưu snapshot hỏng:", r.reason);
+      }
+    } catch (e) {
+      // ghi hỏng thì thôi (lần sau tính lại) — nhưng phải để lại dấu vết
+      console.error("[fish-forecast] lưu snapshot ném lỗi:", e);
+    }
+    return Response.json(live);
+  }
   if (snap && snap.ok) return Response.json(snap);
   /* 4) KHÔNG CÒN GÌ ĐỂ TRẢ → 503, KHÔNG PHẢI 200 (sửa 2026-08-02, audit C-4).
         Service worker chỉ cất phản hồi `res.ok`, mà `Response.json({ok:false})`

@@ -62,6 +62,7 @@ import {
 } from "@/components/icons";
 import { parseCoordPair } from "@/lib/parse-coord";
 import { CloseButton } from "@/components/ui/close-button";
+import { AppVersionLine } from "@/components/app-version-line";
 
 const FISH_COLOR = "var(--fish)"; // xanh lá — cá/ngư trường (token globals, Phương án A)
 
@@ -1456,6 +1457,8 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
           </p>
         </>
       )}
+
+      <AppVersionLine />
     </div>
   );
 }

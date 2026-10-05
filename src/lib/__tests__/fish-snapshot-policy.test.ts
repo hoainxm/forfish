@@ -7,7 +7,50 @@ import {
   SNAPSHOT_REVALIDATE,
   isBuildPhase,
   NEXT_BUILD_PHASE,
+  snapshotRowId,
+  LEGACY_SNAPSHOT_ROW_ID,
 } from "@/lib/fish-snapshot-policy";
+import { fishModelSignature, SPECIES_PROFILES } from "@/lib/fish-predict";
+import { SEASON_FULL_PAD_MONTHS } from "@/data/fish-seasons";
+
+/*  MỖI MÔ HÌNH MỘT HÀNG SNAPSHOT (2026-10-05). Ca thật: bản Vercel cũ (code
+    30/9) ghi đè hàng `latest` dùng chung ⇒ prod đọc số của mô hình cũ ⇒ ngừ ồ
+    mất khỏi bản đồ + bộ lọc loài dù code mới cho 64 điểm. */
+describe("snapshotRowId — hàng theo dấu vân tay mô hình", () => {
+  it("vân tay hex hợp lệ ⇒ latest:<vân tay>, khác hàng cũ", () => {
+    expect(snapshotRowId("3f9a1c2b7e4d")).toBe("latest:3f9a1c2b7e4d");
+    expect(snapshotRowId("3F9A1C2B7E4D")).toBe("latest:3f9a1c2b7e4d");
+    expect(snapshotRowId("3f9a1c2b7e4d")).not.toBe(LEGACY_SNAPSHOT_ROW_ID);
+  });
+
+  it("hai mô hình khác nhau ⇒ hai hàng khác nhau (bản cũ không đè được bản mới)", () => {
+    expect(snapshotRowId("aaaaaaaaaaaa")).not.toBe(snapshotRowId("bbbbbbbbbbbb"));
+  });
+
+  it("vân tay rỗng / sai dạng ⇒ lùi về hàng cũ, KHÔNG ném", () => {
+    expect(snapshotRowId("")).toBe(LEGACY_SNAPSHOT_ROW_ID);
+    expect(snapshotRowId(null)).toBe(LEGACY_SNAPSHOT_ROW_ID);
+    expect(snapshotRowId(undefined)).toBe(LEGACY_SNAPSHOT_ROW_ID);
+    expect(snapshotRowId("xyz-not-hex")).toBe(LEGACY_SNAPSHOT_ROW_ID);
+    expect(snapshotRowId("abc")).toBe(LEGACY_SNAPSHOT_ROW_ID); // quá ngắn
+  });
+});
+
+describe("fishModelSignature — chữ ký mô hình cá", () => {
+  it("tất định: gọi nhiều lần ra cùng chuỗi", () => {
+    expect(fishModelSignature()).toBe(fishModelSignature());
+  });
+
+  it("chứa hồ sơ loài (có ngừ ồ) + hằng đệm mùa ⇒ sửa hồ sơ/mùa là đổi vân tay", () => {
+    const sig = JSON.parse(fishModelSignature());
+    const shorts = (sig.profiles as { short: string }[]).map((p) => p.short);
+    expect(shorts).toContain("ngừ ồ");
+    expect(sig.profiles).toHaveLength(SPECIES_PROFILES.length);
+    expect(sig.seasonPad[0]).toBe(SEASON_FULL_PAD_MONTHS);
+    expect(typeof sig.algo).toBe("number");
+    expect(sig.k.KEEP_MIN).toBe(25);
+  });
+});
 
 describe("shouldReplaceSnapshot — giữ bản tốt, không lùi ngày", () => {
   const good = { ok: true as const, targetDate: "2026-07-24" };
