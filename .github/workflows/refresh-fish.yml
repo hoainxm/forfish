@@ -3,8 +3,8 @@
 # hoặc bỏ run lúc tải cao) → route vẫn có fallback tự tính nên trễ/bỏ không sao.
 #
 # CẦN CẤU HÌNH (Settings → Secrets and variables → Actions):
-#   · Variable  APP_BASE_URL  = URL production, vd https://<app>.vercel.app
-#   · Secret    CRON_SECRET   = TRÙNG với env CRON_SECRET đặt trên Vercel
+#   · Variable  APP_BASE_URL  = URL production ĐANG CHẠY CODE MỚI, vd https://sdfish.sdvico.vn
+#   · Secret    CRON_SECRET   = TRÙNG với CRON_SECRET của chính deploy đó (env hoặc app_config)
 name: refresh-fish-forecast
 
 on:
@@ -37,14 +37,17 @@ jobs:
           BASE_URL: ${{ vars.APP_BASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          # CHỈ CRON_SECRET là bắt buộc. Thiếu APP_BASE_URL vẫn chạy được
-          # bằng đích dự phòng bên dưới — trước đây thiếu var là bỏ cả lượt.
+          # CẢ HAI bắt buộc (2026-10-05): bỏ đích dự phòng forfish.vercel.app —
+          # xem khối chú thích ngay trên vòng gọi.
+          if [ -z "$BASE_URL" ]; then
+            echo "::error::Thiếu vars.APP_BASE_URL — Settings→Secrets and variables→Actions (vd https://sdfish.sdvico.vn)."; exit 1
+          fi
           if [ -z "$CRON_SECRET" ]; then
             # ĐỎ chứ không xanh-kèm-warning (rà soát 2026-09-04, mục I): đã có cổng
             # repo nên chỉ chạy ở repo thật; secret mất là phải có người biết.
             echo "::error::Thiếu secrets.CRON_SECRET — Settings→Secrets and variables→Actions."; exit 1
           fi
-          # ── HAI ĐÍCH, THỬ LẦN LƯỢT, DỪNG Ở ĐÍCH ĐẦU TIÊN TRẢ 200 ──────────
+          # ── (LỊCH SỬ) HAI ĐÍCH, THỬ LẦN LƯỢT — nay CHỈ MỘT đích, xem ⛔ dưới ──
           # Chẩn 2026-09-04: ba workflow precompute này ĐỎ suốt ngày (7–16 giây,
           # tức bị đá về NGAY chứ không phải hết giờ 90–120s), trong khi `storms`
           # xanh mọi lượt. Khác nhau đúng một chỗ: `storms` gõ HAI đích, ba cái
@@ -61,7 +64,16 @@ jobs:
           # Đích nào hỏng vẫn NÓI RA bằng ::warning:: — job xanh nhưng lệch cấu
           # hình KHÔNG được biến mất. Sửa gốc nằm ngoài repo: đặt CRON_SECRET cho
           # đúng deploy, hoặc trỏ APP_BASE_URL sang deploy có secret khớp.
-          URLS=$(printf '%s\n%s\n' "${BASE_URL%/}" "https://forfish.vercel.app" | awk 'NF&&!seen[$0]++')
+          #
+          # ⛔ BỎ ĐÍCH DỰ PHÒNG `https://forfish.vercel.app` (2026-10-05, sự cố thật):
+          # deploy đó bám repo Long-Forfun, đứng ở code 30/9 (/api/version 404)
+          # nhưng ghi CHUNG Supabase. Nó trả 200 ⇒ vòng dừng ở đó ⇒ snapshot được
+          # tính bằng MÔ HÌNH CŨ (ngừ ồ biến mất khỏi bản đồ + bộ lọc), còn deploy
+          # đang chạy code mới không bao giờ được gõ. Gõ nhầm bản cũ tệ hơn đỏ:
+          # đỏ thì có người biết, xanh-với-số-cũ thì không ai biết. Chỉ gõ đúng
+          # APP_BASE_URL. Các workflow khác (storms/refresh-weather/
+          # refresh-currents-depth) CHƯA đổi — chủ dự án chốt giữ nguyên.
+          URLS="${BASE_URL%/}"
           ok=0
           for u in $URLS; do
             rm -f resp.json
