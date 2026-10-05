@@ -154,9 +154,9 @@ Bản 2026-08-01 của mục này chỉ liệt **5** (đúng `vercel.json` lúc 
 | `/api/cron/refresh-currents-depth` | GET | `50 5,17 * * *` | GH Actions |
 | `/api/cron/refresh-storms` | GET | `5 * * * *` | GH Actions (gộp 1 job với dòng dưới) |
 | `/api/cron/notify-storms` | GET | `5 * * * *` | GH Actions |
-| `/api/collect/sea-daily` | GET | `30 23 * * *` | vercel.json |
-| `/api/cron/snapshot-prices` | GET | `0 3 * * 6` | vercel.json |
-| `/api/cron/trace-payments` | **POST** | `0 1 * * *` | vercel.json |
+| `/api/collect/sea-daily` | GET | `30 23 * * *` | vercel.json (bản Vercel cũ) + `cron-prod.yml` cho prod IIS (2026-10-05) |
+| `/api/cron/snapshot-prices` | GET | `0 3 * * 6` | vercel.json (bản Vercel cũ) + `cron-prod.yml` cho prod IIS |
+| `/api/cron/trace-payments` | **POST** | `10 * * * *` | ⚠️ **CHƯA TỪNG CHẠY tới 2026-10-05**: từng nằm trong vercel.json nhưng Vercel Cron gọi **GET** ⇒ 405 (đo thật). Đã gỡ khỏi vercel.json; nay `cron-prod.yml` gọi POST (cổng `cron-routes.test.ts` khoá lỗi này) |
 
 Cả 8 cùng một cổng: `Authorization: Bearer $CRON_SECRET`. **Thiếu `CRON_SECRET` là 401 chứ không phải mở cửa** — fail-closed, đúng ý.
 

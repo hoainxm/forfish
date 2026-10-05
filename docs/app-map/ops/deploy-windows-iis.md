@@ -246,6 +246,33 @@ CRON_SECRET=<bí mật cron> SDFISH_TOKEN=<token máy đã login premium> \
   của MỘT máy đã đăng nhập premium (DevTools → Application → Local Storage). Thiếu thì bước đó BỎ QUA.
 - Mã thoát 0 = mọi phép bắt buộc đạt; 1 = có phép hỏng (dùng được trong CI/kịch bản).
 
+### 7c. Cron trên prod (IIS KHÔNG có lịch — 2026-10-05)
+
+IIS không có Vercel Cron. Ba cron trước đây CHỈ nằm trong `vercel.json` — tức chỉ bản
+cũ `forfish.vercel.app` (bám repo Long-Forfun, đứng 30/9) gọi, chạy code cũ trên
+Supabase DÙNG CHUNG. Nay chúng chạy bằng **`.github/workflows/cron-prod.yml`**, gọi
+THẲNG prod:
+
+| Việc | Method | Lịch (UTC) |
+|---|---|---|
+| `/api/collect/sea-daily` | GET | `50 23 * * *` (sau Vercel cũ 23:30 ⇒ số mô hình cá mới ghi sau, thắng) |
+| `/api/cron/snapshot-prices` | GET | `20 3 * * 6` |
+| `/api/cron/trace-payments` | **POST** | `10 * * * *` — **lần bật đầu tiên**: Vercel Cron gọi GET ⇒ 405, việc này CHƯA từng chạy |
+
+⚠️ **ĐIỀU KIỆN BẮT BUỘC — đo 2026-10-05 prod CHƯA có `CRON_SECRET`** (`/api/collect/sea-daily`
+trả `not_configured`; `app_config.cron_secret` trong DB cũng trống). Chưa đặt thì MỌI cron
+gõ prod bị chặn — đây cũng là gốc của "401 ở APP_BASE_URL" ghi ở ops/external-services.md:
+cron rơi về bản Vercel cũ. Làm một lần:
+1. `shared\.env.production`: thêm `CRON_SECRET=<chuỗi ngẫu nhiên dài>` rồi `Restart-Service forfish`.
+2. GitHub repo `sdvico/forfish` → Settings → Secrets and variables → Actions → Secret
+   **`PROD_CRON_SECRET`** = đúng chuỗi đó.
+3. Actions → **cron-prod** → Run workflow → chọn từng việc, xem xanh.
+
+Workflow ĐỎ có chủ ý khi thiếu/lệch secret (không để xanh câm như trace-payments mấy tháng nay).
+Gọi tay một POST tới prod nhớ kèm body rỗng (`curl -X POST --data ''`) — IIS/ARR trả **411**
+nếu POST không có `Content-Length`. Cổng test `src/lib/__tests__/cron-routes.test.ts` khoá:
+cron trong `vercel.json` phải có GET; method trong `cron-prod.yml` phải khớp route.
+
 ---
 
 ## 8. Rollback (khi bản mới lỗi)

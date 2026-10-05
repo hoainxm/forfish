@@ -1,0 +1,101 @@
+# CRON CHO PROD sdfish.sdvico.vn — ba việc trước đây CHỈ có Vercel cron gọi.
+#
+# Vì sao (rà 2026-10-05): prod là IIS tự host (header `x-powered-by: ARR/3.0`),
+# KHÔNG có lịch nào. Ba cron dưới chỉ nằm trong vercel.json, tức chỉ bản
+# forfish.vercel.app gọi — mà bản đó bám repo Long-Forfun, đứng ở 8fff8db (30/9).
+# Sửa code mấy cron này trên main sẽ KHÔNG BAO GIỜ tới đó, trong khi nó ghi vào
+# Supabase DÙNG CHUNG. Workflow này gọi THẲNG prod, chạy code mới nhất.
+#
+#   · /api/collect/sea-daily     GET  — lịch sử biển 10 cảng + dự báo cá + bão
+#   · /api/cron/snapshot-prices  GET  — tích luỹ lịch sử giá VASEP (thứ Bảy)
+#   · /api/cron/trace-payments   POST — bắn MÃ CK sang SDWork đối soát (NV4).
+#       ⚠️ Route này CHỈ có POST, mà Vercel Cron gọi GET ⇒ 405 ⇒ trước nay CHƯA
+#       chạy lần nào. Ở đây gọi POST ⇒ đây là lần BẬT ĐẦU TIÊN. Bảng payments
+#       2026-10-05 đang 0 dòng. Prod thiếu SDWORK_TRACE_URL/SDWORK_WEBHOOK_SECRET
+#       thì route tự bỏ qua (`skipped: not_configured`), không lỗi.
+#
+# CHẠY HAI LẦN CÓ SAO KHÔNG: không. Cả ba upsert theo khoá (sea_daily
+# collected_on,port_id,date · fish_forecast_daily collected_on,lat,lon ·
+# storm_events collected_on,storm_id · price_history week_end,species_id);
+# trace-payments chỉ lấy dòng traced_at IS NULL rồi đánh dấu. Lịch ở đây đặt
+# SAU lịch Vercel cùng việc ⇒ lần ghi sau (prod, mô hình cá mới) thắng.
+#
+# ⚠️ ĐO 2026-10-05: PROD CHƯA CÓ CRON_SECRET (sea-daily trả `not_configured`,
+#    app_config.cron_secret trong DB cũng trống) ⇒ MỌI cron gõ prod đều bị chặn —
+#    cũng là lý do các workflow refresh-* luôn "401 ở APP_BASE_URL" rồi rơi về
+#    bản Vercel cũ. Workflow này ĐỎ cho tới khi đặt xong bước 1 dưới đây.
+#
+# CẦN CẤU HÌNH:
+#   1. Trên prod: thêm `CRON_SECRET=<chuỗi ngẫu nhiên dài>` vào .env.production
+#      rồi khởi động lại app (hoặc đặt app_config.cron_secret — khoá DB thắng env
+#      ở MỌI deploy dùng chung DB, kể cả bản Vercel cũ).
+#   2. GitHub (Settings → Secrets and variables → Actions): Secret
+#      PROD_CRON_SECRET = đúng chuỗi đó. Chưa đặt thì dùng tạm secrets.CRON_SECRET
+#      (đang khớp bản VERCEL, không khớp prod).
+#   · Variable PROD_BASE_URL    = mặc định https://sdfish.sdvico.vn (khỏi đặt).
+#   CỐ Ý KHÔNG dùng APP_BASE_URL (đang trỏ deploy lệch secret — ops/external-
+#   services.md 2026-09-04) và KHÔNG lùi về forfish.vercel.app (bản cũ).
+name: cron-prod
+
+on:
+  schedule:
+    - cron: "50 23 * * *" # sea-daily        — Vercel cũ 23:30, đây chạy sau
+    - cron: "20 3 * * 6" # snapshot-prices  — Vercel cũ thứ Bảy 03:00
+    - cron: "10 * * * *" # trace-payments   — mỗi giờ (theo ops/self-host-vps §7b); Vercel cũ 01:00 gọi GET ⇒ 405
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Chạy tay việc nào"
+        type: choice
+        options: [sea-daily, snapshot-prices, trace-payments]
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: cron-prod-${{ github.event.schedule || github.event.inputs.job }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    # chỉ repo công ty — file này cũng nằm ở hoainxm/Long-Forfun; không cổng là
+    # mỗi việc chạy hai, ba lần trên cùng prod
+    if: github.repository == 'sdvico/forfish'
+    runs-on: ubuntu-latest
+    # sea-daily maxDuration 300s; trần 10 phút đủ, khỏi ăn hạn mức khi treo
+    timeout-minutes: 10
+    steps:
+      - name: Gọi cron trên prod
+        env:
+          BASE_URL: ${{ vars.PROD_BASE_URL || 'https://sdfish.sdvico.vn' }}
+          CRON_SECRET: ${{ secrets.PROD_CRON_SECRET || secrets.CRON_SECRET }}
+          WHICH: ${{ github.event.schedule || github.event.inputs.job }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::Thiếu secrets.PROD_CRON_SECRET (và CRON_SECRET) — Settings→Secrets and variables→Actions."; exit 1
+          fi
+          case "$WHICH" in
+            "50 23 * * *"|sea-daily)        P=/api/collect/sea-daily;    M=GET;  T=330 ;;
+            "20 3 * * 6"|snapshot-prices)   P=/api/cron/snapshot-prices; M=GET;  T=90  ;;
+            "10 * * * *"|trace-payments)     P=/api/cron/trace-payments;  M=POST; T=90  ;;
+            *) echo "::error::Không rõ việc nào: '$WHICH'"; exit 1 ;;
+          esac
+          u="${BASE_URL%/}$P"
+          args=(-sS -o resp.json -w "%{http_code}" -m "$T" -X "$M" -H "Authorization: Bearer $CRON_SECRET")
+          if [ "$M" = POST ]; then
+            # IIS/ARR của prod ĐÒI Content-Length cho POST — thiếu là 411 ngay ở
+            # IIS, chưa tới route (đo thật 2026-10-05). Body rỗng = Content-Length 0.
+            args+=(--data '')
+          fi
+          code=$(curl "${args[@]}" "$u" || true)
+          [ -n "$code" ] || code="000"
+          echo "[$M $u] HTTP $code"; cat resp.json 2>/dev/null || true; echo
+          # ĐỎ có chủ ý ở mọi ca dưới: cấu hình lệch mà job xanh là việc LẶNG LẼ
+          # không bao giờ chạy — đúng cách trace-payments "chạy" mấy tháng nay.
+          if grep -q '"not_configured"' resp.json 2>/dev/null; then
+            echo "::error::Prod CHƯA có CRON_SECRET (route trả not_configured). Đặt CRON_SECRET trong .env.production của prod (hoặc app_config.cron_secret) rồi khởi động lại app."; exit 1
+          fi
+          if [ "$code" = "401" ]; then
+            echo "::error::401 — prod CHƯA có CRON_SECRET, hoặc secret KHÔNG khớp. Đặt CRON_SECRET trong .env.production của sdfish.sdvico.vn (khởi động lại app) VÀ secrets.PROD_CRON_SECRET = đúng giá trị đó."; exit 1
+          fi
+          test "$code" = "200"
