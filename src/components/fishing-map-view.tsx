@@ -181,8 +181,10 @@ import {
   type ForecastKind,
 } from "@/lib/forecast-grid";
 import { fishInRegion, regionAt } from "@/data/fish-seasons";
+import { isNewerGeneratedAt, onSwApiFresh } from "@/lib/sw-api-fresh";
 import {
   fetchFishForecast,
+  fishForecastTuKhoSW,
   SPECIES_META,
   FISH_LEVEL_BANDS,
   type FishForecast,
@@ -942,6 +944,11 @@ export default function FishingMapView() {
   const premiumUnsure = premiumAccess !== "open";
 
   const [fishCast, setFishCast] = useState<FishForecast | null>(null);
+  // bản đang hiện — cho tin "bản mới về kho" của SW so tuổi (không re-subscribe)
+  const fishCastRef = useRef<FishForecast | null>(null);
+  useEffect(() => {
+    fishCastRef.current = fishCast;
+  }, [fishCast]);
   // loài đang lọc trên bản đồ (null = loài tốt nhất mỗi ô)
   const [fishSpecies, setFishSpecies] = useState<string | null>(null);
   // lỗi tải dự báo cá phải LÊN TIẾNG — không để nút Cá lặng lẽ biến mất
@@ -985,6 +992,24 @@ export default function FishingMapView() {
     loadFish();
     // netEpoch: có sóng lại → thử kéo bản mới (không phải chờ mở lại app)
   }, [premiumAccess, loadFish, netEpoch]);
+  /* SÓNG YẾU → SW trả bản CŨ sau 10 s, bản mới về muộn chỉ nằm trong kho.
+     SW báo đã cất xong thì đọc thẳng kho rồi thay lớp cá — không tải lại
+     (2026-10-05, ca ngừ ồ: xem lib/sw-api-fresh.ts). Chỉ thay khi MỚI HƠN. */
+  useEffect(
+    () =>
+      onSwApiFresh("/api/fish-forecast", () => {
+        void fishForecastTuKhoSW().then((d) => {
+          const cur = fishCastRef.current;
+          if (!d || (cur && !isNewerGeneratedAt(cur.generatedAt, d.generatedAt))) {
+            return;
+          }
+          setFishCast(d);
+          setFishQualityNote(lowQualityNote(d));
+          setFishFailNote(null);
+        });
+      }),
+    [],
+  );
   /* BẢN ĐỒ MÙA VỤ — asset tĩnh cùng origin (~71 KB), service worker giữ sẵn nên
      giữa biển vẫn có. Dùng để pha trộn lớp cá cho NGÀY XA (xem lib/fish-blend.ts).
      Không bao giờ ném: hỏng → null → lớp cá giữ nguyên bản ảnh mới nhất. */

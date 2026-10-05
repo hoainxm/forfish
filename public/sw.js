@@ -202,6 +202,12 @@ const ASSET_NETWORK_MS = 20000;
     bắt bà con nhìn màn trống khi thứ họ cần đã nằm sẵn trong máy. Không có bản
     lưu thì vẫn chờ hết đồng hồ của client, không cắt oan bản mới về muộn. */
 const API_STALE_MS = 10000;
+/*  Đã trả bản cũ vì hết API_STALE_MS: chờ bản mới về tối đa bấy nhiêu để báo
+    trang (xem `notifyApiFresh`). Bằng trần 35 s của client + dư cất kho. */
+const API_FRESH_NOTIFY_MS = 45000;
+/** Tên tin SW → trang: "bản mới của <path> đã nằm trong kho". Trùng
+    `SW_API_FRESH_MSG` ở lib/sw-api-fresh.ts. */
+const API_FRESH_MSG = "sdfish:api-fresh";
 /** Trần thời gian tải sẵn JS/CSS của vỏ lúc install — quá thì thôi, cài vỏ mới
     quan trọng hơn (chunk còn thiếu sẽ cất dần lúc bà con mở trang) */
 const PRECACHE_MAX_MS = 20000;
@@ -971,6 +977,16 @@ function keepAliveLate(event, net, limitMs) {
   return keepAlive(event, raceTimeout(net, limitMs * 2));
 }
 
+/** Báo mọi tab: bản mới của `path` đã cất vào kho API — trang tự đọc kho. */
+function notifyApiFresh(path) {
+  return self.clients
+    .matchAll({ type: "window" })
+    .then((list) => {
+      for (const c of list) c.postMessage({ type: API_FRESH_MSG, path });
+    })
+    .catch(() => {});
+}
+
 /** Giữ một kho trong trần: Cache API trả key theo thứ tự thêm vào → bỏ từ đầu. */
 async function trimCache(cache, max) {
   const keys = await cache.keys();
@@ -1585,12 +1601,14 @@ self.addEventListener("fetch", (event) => {
 
   if (isApi) {
     // network-first: ưu tiên dữ liệu mới, mất mạng dùng cache/last-good.
+    /** lượt cất bản MỚI vào kho — null = mạng chưa/không trả bản tốt */
+    let stored = null;
     const net = fetch(req)
       .then(async (res) => {
         if (res.ok && req.method === "GET") {
           const copy = res.clone();
           // dữ liệu /api/* vào kho RIÊNG — không mất khi bump vỏ
-          keepAlive(
+          stored = keepAlive(
             event,
             caches
               .open(SDFISH_API_V)
@@ -1637,7 +1655,26 @@ self.addEventListener("fetch", (event) => {
         không mất tính "ưu tiên dữ liệu mới". */
     event.respondWith(
       raceTimeout(net, API_STALE_MS).then(
-        (winner) => winner || caches.match(req).then((h) => h || net),
+        (winner) =>
+          winner ||
+          caches.match(req).then((h) => {
+            if (!h) return net;
+            /*  ĐÃ TRẢ BẢN CŨ → BẢN MỚI VỀ THÌ BÁO TRANG (2026-10-05). Trước
+                đây bản mới về muộn chỉ được CẤT, màn đang mở không ai báo ⇒
+                bà con nhìn bản cũ tới lúc mở lại app (ca thật: ngừ ồ "không
+                có" trên máy Quân Bình Định khi máy chủ đã có). Báo SAU khi
+                cất xong để trang đọc thẳng từ kho, không tải lại lần hai. */
+            keepAlive(
+              event,
+              raceTimeout(
+                net.then(() => stored).then(() => {
+                  if (stored) return notifyApiFresh(url.pathname);
+                }),
+                API_FRESH_NOTIFY_MS,
+              ),
+            );
+            return h;
+          }),
       ),
     );
     return;
