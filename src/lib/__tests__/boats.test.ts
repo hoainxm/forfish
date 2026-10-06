@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  BOAT_PAPER_FIELDS,
+  countPaperFields,
+  formatBoatNumber,
+  kwToCv,
   loadBoats,
+  parseBoatNumber,
+  parseBuiltYear,
   saveBoats,
   loadCurrentBoatId,
   saveCurrentBoatId,
@@ -57,5 +63,61 @@ describe("current boat id", () => {
   it("lưu rồi đọc lại", () => {
     saveCurrentBoatId("b1");
     expect(loadCurrentBoatId()).toBe("b1");
+  });
+});
+
+// ── HỒ SƠ THEO GIẤY TỜ TÀU (2026-10-06) ─────────────────────────────────────
+describe("parseBoatNumber — số kiểu Việt in trên giấy đăng kiểm", () => {
+  it("dấu PHẨY thập phân đọc đúng (parseFloat cũ ra 55)", () => {
+    expect(parseBoatNumber("55,60")).toEqual({ ok: true, value: 55.6 });
+    expect(parseBoatNumber("5,25")).toEqual({ ok: true, value: 5.25 });
+    expect(parseBoatNumber("18.00")).toEqual({ ok: true, value: 18 });
+    expect(parseBoatNumber(" 566 ")).toEqual({ ok: true, value: 566 });
+  });
+  it("rỗng = chưa ghi (ô tuỳ chọn), không phải lỗi", () => {
+    expect(parseBoatNumber("")).toEqual({ ok: true, value: undefined });
+    expect(parseBoatNumber("   ")).toEqual({ ok: true, value: undefined });
+  });
+  it("chữ lạ / âm / hai dấu / vượt trần ⇒ lỗi, KHÔNG lặng lẽ cắt", () => {
+    expect(parseBoatNumber("abc").ok).toBe(false);
+    expect(parseBoatNumber("-3").ok).toBe(false);
+    expect(parseBoatNumber("1,2,3").ok).toBe(false);
+    expect(parseBoatNumber("566kW").ok).toBe(false);
+    expect(parseBoatNumber("180", 100).ok).toBe(false);
+  });
+});
+
+describe("parseBuiltYear", () => {
+  it("4 số, 1950 … năm nay", () => {
+    expect(parseBuiltYear("2018", 2026)).toEqual({ ok: true, value: 2018 });
+    expect(parseBuiltYear("", 2026)).toEqual({ ok: true, value: undefined });
+    expect(parseBuiltYear("18", 2026).ok).toBe(false);
+    expect(parseBuiltYear("2030", 2026).ok).toBe(false);
+    expect(parseBuiltYear("1900", 2026).ok).toBe(false);
+  });
+});
+
+describe("kwToCv / formatBoatNumber / countPaperFields", () => {
+  it("566 kW = 770 CV như giấy đăng kiểm in", () => {
+    expect(kwToCv(566)).toBe(770);
+  });
+  it("in lại số theo dấu phẩy để đổ vào ô sửa", () => {
+    expect(formatBoatNumber(55.6)).toBe("55,6");
+    expect(formatBoatNumber(undefined)).toBe("");
+  });
+  it("đếm đúng ô theo giấy đã ghi; tàu cũ (4 ô) = 0", () => {
+    const old: Boat = { id: "b", name: "Tàu", maTau: "X", lengthM: 15 };
+    expect(countPaperFields(old)).toBe(0);
+    expect(
+      countPaperFields({ ...old, ownerName: "A", grossTonnage: 55.6, gear: "" }),
+    ).toBe(2);
+    expect(BOAT_PAPER_FIELDS.length).toBe(19);
+  });
+  it("tàu cũ đã lưu (chưa có ô mới) vẫn đọc được nguyên vẹn", () => {
+    store.setItem(
+      "forfish.boats.v1",
+      JSON.stringify([{ id: "b1", name: "Cũ", maTau: "BV-1", lengthM: 12 }]),
+    );
+    expect(loadBoats()).toEqual([{ id: "b1", name: "Cũ", maTau: "BV-1", lengthM: 12 }]);
   });
 });

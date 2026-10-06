@@ -4,9 +4,10 @@
 
 ```
 covers: src/app, src/components
-last_verified: 2026-10-05
+last_verified: 2026-10-06
 ttl_days: 90
 <!-- DOC-STATUS: SUSPECT (2026-09-12) — code 'src/app' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- re-verified: 2026-10-06 16:40 — đối chiếu code: §12 dòng Push (notify-storms tầng 1 + đơn hàng system:order) khớp `src/app/api/cron/notify-storms` + `lib/account-notify`; THÊM ngoại lệ tầng 3 nhắc hạn giấy tờ (`/api/cron/notify-docs`, `lib/doc-reminders`), hàng `doc-reminder-bell.tsx` ở tab Giấy tờ, BoatForm 4 nhóm ô theo giấy + kiểm số dấu phẩy, form giấy tờ có Ngày cấp + giữ ảnh khi Sửa. Soi thật trên trình duyệt 375px (trang soi tạm, đã xoá). -->
 gate: warn
 <!-- re-verified: 2026-10-05 10:40 — rail/panel auto-hide (ra-khoi-controls `AUTO_HIDE_MS=5000`, `armAutoHide`, 3 vùng cuộn `overflow-y-auto`) + SnapSheet tự-ẩn (`SHEET_AUTO_HIDE_MS=3000`, `onInteract`): CÒN KHỚP. Fix 2026-10-05: cuộn nay nạp lại đồng hồ qua `onScrollCapture` (ra-khoi-controls container gốc + snap-sheet `<section>`, thay `onScroll` ở thân) — sửa bug "Ngư trường → Tất cả → kéo xuống là tự tắt"; dòng 376 + 397 cập nhật. -->
 <!-- re-verify(07): rail/sheet auto-hide — onScrollCapture nạp lại đồng hồ khi cuộn (fix scroll-dismiss) -->
@@ -316,6 +317,9 @@ Mỗi flow: entry → mục tiêu → step tiếp mong muốn đã khai trong Sc
 | Đổi điểm xem trên map khi đang có tuyến | tuyến CŨ giữ nguyên + dải nhắc "tới chỗ chạm trước" + Xóa tuyến |
 | Đổi tàu (chip BoatSwitcher) | mọi màn đang mở đổi theo tàu đó NGAY, không reload (ba-spec [08](08-ba-spec-da-tau.md) AC-4) |
 | Xóa tàu (form Sửa tàu → Xóa tàu này) | ConfirmDialog nêu rõ; giấy tờ/bảo dưỡng của tàu bị xóa, thuyền viên + đồ SDVICO giữ; nhảy sang tàu còn lại. Còn 1 tàu → KHÔNG hiện nút xóa (08 R7) |
+| Sửa/Thêm tàu → bấm "Chi tiết" (2026-10-06) | mở 4 nhóm ô THEO GIẤY (giấy đăng ký & giấy phép khai thác · an toàn kỹ thuật · kích thước & trọng tải · máy chính), lưới 2 cột cho ô ngắn; hàng trên nút luôn nói "đã ghi N/19 mục". Tàu đã ghi ô nào → nhóm MỞ SẴN khi vào sửa |
+| Lưu tàu có ô số gõ sai (2026-10-06) | KHÔNG lưu; ô sai viền đỏ + câu ngay dưới "Số chưa đúng — chỉ gõ số, phần lẻ dùng dấu phẩy (VD 5,25)" (role=alert), nhóm chứa ô sai tự mở; gõ lại ô đó là câu tắt. Dấu phẩy Việt ("55,60") là ĐÚNG. Ô công suất kW hiện kèm "= N CV (mã lực)" |
+| Sửa một giấy đã có ảnh → Lưu (2026-10-06) | ảnh GIỮ NGUYÊN (bản cũ làm rơi đường dẫn ảnh); thẻ in "Hết hạn: dd/mm/yyyy · Cấp: dd/mm/yyyy" khi có ngày cấp |
 | Bấm "Yêu cầu gia hạn" (khối VMS) khi chưa đủ điều kiện (2026-08-21) | mở modal "Chưa thể gia hạn": chưa có tàu → nút "Thêm tàu của bạn" (→ BoatForm thêm tàu); có tàu thiếu mã → nút "Thêm mã tàu" (→ BoatForm sửa). KHÔNG mở wizard tới khi tàu đang chọn có mã |
 | Tạo yêu cầu gia hạn VMS (2026-08-21) | wizard hiện **QR VietQR** + số tiền + nội dung CK + StatusBanner "Yêu cầu đã tạo · mã GH-…"; lỗi/mất sóng → câu thật "Chưa gửi được… kiểm tra sóng" + nút gọi SDVICO; xong → mở "Yêu cầu gia hạn của tôi" (trạng thái Chờ chuyển khoản/Đã nhận tiền/Đã gia hạn) |
 | Đổi mật khẩu (`/doi-mat-khau`) — 2026-08-18 | dòng inline "Đã đổi mật khẩu. Đang về trang chính…" 1,5s rồi về `/` (không toast) |

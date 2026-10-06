@@ -2,7 +2,7 @@
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
 covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
-last_verified: 2026-09-01
+last_verified: 2026-10-06
 <!-- re-verified: 2026-09-01 — `urgent-strip.tsx` THÊM MỘT CỔNG HIỂN THỊ, KHÔNG đổi hành vi đa-tàu.
 Chưa có chuỗi cứng trong máy (`readToken() == null`) thì dải khẩn trả `null` — trước đó nó đọc thẳng
 localStorage nên máy CHƯA đăng nhập vẫn bày lịch bảo dưỡng + giấy tờ + nợ SDVICO của một chủ tàu nào đó
@@ -24,6 +24,7 @@ Phan loai co-dinh-theo-tau vs dong-theo-chu (R1/R2) va guard R7 "luon con >=1 ta
 
 ttl_days: 90
 <!-- DOC-STATUS: SUSPECT (2026-09-09) — code 'src/components/urgent-strip.tsx' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- re-verified: 2026-10-06 16:45 — đối chiếu code: R1/R2 (document-vault lọc `boatId`, crew-list KHÔNG gắn boatId), NV5 dải khẩn gom mọi tàu + `boatLabel` khi >1 tàu (urgent-strip.tsx), cổng `readToken()` của dải khẩn — khớp. THÊM: NV1 19 ô theo giấy (boats.ts + BoatForm), NV5 kênh push nhắc hạn + AC-8 (doc-reminders.ts). -->
 <!-- re-verified: 2026-07-25 - boat-switcher/crew-list/urgent-strip chỉ thêm anchor data-tour (chon-tau, them-thuyen-vien, nhac-viec) cho coach-tour hướng dẫn; KHÔNG đổi hành vi đa-tàu — NV1–NV5, handoff H1, vòng đời thêm/xóa/đổi tàu, AC §8 giữ nguyên. -->
 <!-- re-verified: 2026-07-29 — GỠ seed mẫu (app lên thật): crew-list bỏ demoCrew/isDemo/startRealCrew, maintenance-reminders bỏ demoEntries/isDemo, boat-products bỏ filter demo-sp-. User mới thấy màn RỖNG + empty state, tự nhập. KHÔNG đụng hành vi đa-tàu: thuyền viên vẫn động-theo-chủ R2 (không boatId), lịch bảo dưỡng/sản phẩm vẫn gắn tàu + cascade R3 khi xóa tàu giữ nguyên. AC §8 không đổi. -->
 <!-- re-verify note: covers=maintenance-reminders.tsx, crew-list.tsx, boat-products.tsx (seed removal, behavior đa-tàu bất biến). -->
@@ -79,7 +80,7 @@ ttl_days: 90
 
 ### Flow NV1 — Thêm tàu · owner: chủ tàu
 - **Start**: chủ đang có ≥1 tàu
-- **Input**: tên tàu (bắt buộc), mã tàu/cảng nhà/chiều dài (tùy)
+- **Input**: tên tàu (bắt buộc), mã tàu/cảng nhà/chiều dài (tùy). **2026-10-06**: + 19 ô TUỲ CHỌN chép từ 3 giấy cố định của tàu (Giấy chứng nhận đăng ký · Giấy an toàn kỹ thuật · Giấy phép khai thác): chủ tàu, hô hiệu, cảng đăng ký, nghề chính, vùng hoạt động, cấp tàu, vật liệu vỏ, năm/nơi đóng, số thuyền viên, GT, trọng tải, Bmax, D, d, ký hiệu/số máy, công suất kW, số máy chính — là hồ sơ CỐ ĐỊNH theo tàu (R1). CCCD chủ tàu/thuyền trưởng + chứng chỉ thuyền trưởng KHÔNG vào tàu: thuộc sổ thuyền viên (R2)
 - **Steps**: khai thông tin → lưu → tàu mới thành tàu đang chọn
 - **Output**: 1 tàu mới + **bộ hồ sơ cố định TRỐNG** (giấy tờ=0, bảo dưỡng=0, chuyến biển=0); hồ sơ động (thuyền viên, hàng SDVICO) không đổi
 - **End**: tàu mới hiển thị là tàu đang chọn, các màn hồ sơ cố định ở trạng thái trống

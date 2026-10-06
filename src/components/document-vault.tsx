@@ -8,6 +8,7 @@ import {
   byUrgency,
   getExpiryStatus,
   kindLabel,
+  kindUsuallyNoExpiry,
 } from "@/lib/documents";
 import {
   AlertIcon,
@@ -337,11 +338,17 @@ export function DocumentVault() {
                     <span className="w-16 shrink-0" aria-hidden />
                   </div>
                 )}
-                {doc.expiresOn && (
+                {(doc.expiresOn || doc.issuedOn) && (
                   <div className="flex items-stretch gap-2">
                     <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
                       <p className="text-[1rem] text-foreground/70">
-                        Hết hạn: <strong>{formatVnDate(doc.expiresOn)}</strong>
+                        {doc.expiresOn && (
+                          <>
+                            Hết hạn: <strong>{formatVnDate(doc.expiresOn)}</strong>
+                          </>
+                        )}
+                        {doc.expiresOn && doc.issuedOn && " · "}
+                        {doc.issuedOn && <>Cấp: {formatVnDate(doc.issuedOn)}</>}
                       </p>
                     </div>
                     <span className="w-16 shrink-0" aria-hidden />
@@ -418,13 +425,14 @@ function DocumentForm({
   const [label, setLabel] = useState(initial?.label ?? kindLabel("dang_kiem"));
   const [labelTouched, setLabelTouched] = useState(Boolean(initial));
   const [number, setNumber] = useState(initial?.number ?? "");
+  const [issuedOn, setIssuedOn] = useState(initial?.issuedOn ?? "");
   const [expiresOn, setExpiresOn] = useState(initial?.expiresOn ?? "");
   const [note, setNote] = useState(initial?.note ?? "");
   /*  Hai nhóm THU LẠI mặc định (luật C1). Mở sẵn khi SỬA một giấy đã có dữ liệu
       trong nhóm đó — không giấu thứ bà con đã nhập. */
   const [showLabel, setShowLabel] = useState(false);
   const [showMore, setShowMore] = useState(
-    Boolean(initial?.number || initial?.note),
+    Boolean(initial?.number || initial?.note || initial?.issuedOn),
   );
 
   function handleKind(next: DocumentKind) {
@@ -435,11 +443,16 @@ function DocumentForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    /*  GIỮ MỌI THỨ FORM KHÔNG SỬA (2026-10-06): bản cũ dựng object mới từ đầu
+        nên bấm "Sửa → Lưu" một giấy đã có ẢNH là đường dẫn ảnh rơi mất (ảnh
+        vẫn nằm ở Storage mà thẻ không còn biết) — `...initial` giữ `photos`. */
     onSave({
+      ...initial,
       id: initial?.id ?? `doc-${Date.now()}`,
       kind,
       label: label.trim() || kindLabel(kind),
       number: number.trim() || undefined,
+      issuedOn: issuedOn || undefined,
       expiresOn: expiresOn || undefined,
       note: note.trim() || undefined,
     });
@@ -538,7 +551,16 @@ function DocumentForm({
                 value={number}
                 onChange={(e) => setNumber(e.target.value)}
                 className={inputClass}
-                placeholder="VD: ĐK-2024-0571"
+                placeholder="VD: 1769/2025/GL-GPKTTS"
+              />
+            </Field>
+
+            <Field label="Ngày cấp (ghi trên giấy)">
+              <input
+                type="date"
+                value={issuedOn}
+                onChange={(e) => setIssuedOn(e.target.value)}
+                className={inputClass}
               />
             </Field>
 
@@ -560,7 +582,9 @@ function DocumentForm({
             <p className="text-[0.9375rem] text-foreground/70">
               {expiresOn
                 ? "Thông tin đã đủ để app nhắc hạn."
-                : "Chưa có ngày hết hạn — ứng dụng sẽ không thể nhắc nhở giúp bà con."}
+                : kindUsuallyNoExpiry(kind)
+                  ? "Giấy này thường không thời hạn — để trống ngày hết hạn."
+                  : "Chưa có ngày hết hạn — ứng dụng sẽ không thể nhắc nhở giúp bà con."}
             </p>
           </div>
           <button

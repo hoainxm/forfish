@@ -3,6 +3,7 @@
 import { SOON_DAYS_DOCS, daysUntil } from "@/lib/days";
 
 export type DocumentKind =
+  | "dang_ky_tau"
   | "dang_kiem"
   | "giay_phep_khai_thac"
   | "an_toan_thuc_pham"
@@ -24,8 +25,13 @@ export interface BoatDocument {
   photos?: string[];
 }
 
+/*  Thứ tự + tên theo ĐÚNG bộ giấy bà con mang theo (2026-10-06, đối chiếu giấy
+    thật Gia Lai): đăng ký tàu → an toàn kỹ thuật (đăng kiểm) → giấy phép khai
+    thác → … Giá trị `dang_kiem` GIỮ NGUYÊN (dữ liệu cũ trong máy + user_docs),
+    chỉ đổi tên hiển thị cho khớp tiêu đề in trên giấy. */
 export const DOCUMENT_KINDS: { value: DocumentKind; label: string }[] = [
-  { value: "dang_kiem", label: "Đăng kiểm tàu cá" },
+  { value: "dang_ky_tau", label: "Giấy chứng nhận đăng ký tàu cá" },
+  { value: "dang_kiem", label: "Giấy an toàn kỹ thuật (đăng kiểm)" },
   { value: "giay_phep_khai_thac", label: "Giấy phép khai thác thủy sản" },
   { value: "an_toan_thuc_pham", label: "Chứng nhận an toàn thực phẩm" },
   { value: "bao_hiem", label: "Bảo hiểm tàu / thuyền viên" },
@@ -35,6 +41,12 @@ export const DOCUMENT_KINDS: { value: DocumentKind; label: string }[] = [
 
 export function kindLabel(kind: DocumentKind): string {
   return DOCUMENT_KINDS.find((k) => k.value === kind)?.label ?? "Giấy tờ";
+}
+
+/** Loại giấy THƯỜNG KHÔNG THỜI HẠN (giấy đăng ký tàu cá in "Không thời hạn")
+ *  — form nói "để trống ngày hết hạn" thay vì dọa "app không nhắc được". */
+export function kindUsuallyNoExpiry(kind: DocumentKind): boolean {
+  return kind === "dang_ky_tau";
 }
 
 export type ExpiryLevel = "expired" | "soon" | "ok" | "none";

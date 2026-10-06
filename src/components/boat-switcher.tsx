@@ -1,7 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { type Boat } from "@/lib/boats";
+import {
+  BOAT_PAPER_FIELDS,
+  FISHING_ZONE_LABEL,
+  HULL_MATERIAL_LABEL,
+  VESSEL_CLASS_LABEL,
+  countPaperFields,
+  formatBoatNumber,
+  kwToCv,
+  parseBoatNumber,
+  parseBuiltYear,
+  type Boat,
+  type FishingZone,
+  type HullMaterial,
+  type VesselClass,
+} from "@/lib/boats";
 import { useBoats } from "@/lib/boat-store";
 import { purgeBoatData } from "@/lib/boat-cascade";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -220,6 +234,52 @@ export function BoatSwitcher() {
   );
 }
 
+/* Ô "theo giấy tờ" dạng chữ trong form — số/năm parse khi Lưu (parseBoatNumber).
+   Trần từng ô số đặt rộng rãi (chỉ chặn gõ nhầm kiểu thêm 2 số 0), KHÔNG phải
+   luật đăng kiểm. */
+type PaperKey = (typeof BOAT_PAPER_FIELDS)[number];
+type Draft = Record<PaperKey | "lengthM", string>;
+
+const NUMBER_RULES: Partial<Record<keyof Draft, { max: number; int?: boolean }>> = {
+  lengthM: { max: 100 },
+  breadthM: { max: 30 },
+  depthM: { max: 20 },
+  draughtM: { max: 15 },
+  grossTonnage: { max: 5000 },
+  deadweightT: { max: 5000 },
+  engineKw: { max: 10000 },
+  crewMax: { max: 100, int: true },
+  engineCount: { max: 10, int: true },
+};
+
+function draftOf(b: Boat): Draft {
+  const num = (n: number | undefined) => formatBoatNumber(n);
+  return {
+    lengthM: num(b.lengthM),
+    ownerName: b.ownerName ?? "",
+    callSign: b.callSign ?? "",
+    regPort: b.regPort ?? "",
+    gear: b.gear ?? "",
+    fishingZone: b.fishingZone ?? "",
+    vesselClass: b.vesselClass ?? "",
+    hullMaterial: b.hullMaterial ?? "",
+    builtYear: b.builtYear != null ? String(b.builtYear) : "",
+    builtPlace: b.builtPlace ?? "",
+    crewMax: num(b.crewMax),
+    grossTonnage: num(b.grossTonnage),
+    deadweightT: num(b.deadweightT),
+    breadthM: num(b.breadthM),
+    depthM: num(b.depthM),
+    draughtM: num(b.draughtM),
+    engineModel: b.engineModel ?? "",
+    engineSerial: b.engineSerial ?? "",
+    engineKw: num(b.engineKw),
+    engineCount: num(b.engineCount),
+  };
+}
+
+const BAD_NUMBER = "Số chưa đúng — chỉ gõ số, phần lẻ dùng dấu phẩy (VD 5,25).";
+
 export function BoatForm({
   initial,
   isNew,
@@ -237,21 +297,68 @@ export function BoatForm({
   const [name, setName] = useState(initial.name);
   const [maTau, setMaTau] = useState(initial.maTau ?? "");
   const [province, setProvince] = useState(initial.homeProvince ?? "");
-  const [lengthM, setLengthM] = useState(
-    initial.lengthM != null ? String(initial.lengthM) : "",
-  );
+  const [d, setD] = useState<Draft>(() => draftOf(initial));
+  const [errors, setErrors] = useState<Partial<Record<keyof Draft, string>>>({});
+  /*  CÁC Ô THEO GIẤY THU LẠI MẶC ĐỊNH (luật C1/C2 — sheet không quá ~40% màn).
+      Tàu ĐÃ ghi ô nào thì mở sẵn — không giấu thứ bà con đã nhập. */
+  const [showPaper, setShowPaper] = useState(countPaperFields(initial) > 0);
+  const filled = countPaperFields({ ...initial, ...draftAsLoose(d) });
+
+  const set = (k: keyof Draft) => (v: string) => {
+    setD((x) => ({ ...x, [k]: v }));
+    if (errors[k]) setErrors((e) => ({ ...e, [k]: undefined }));
+  };
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    /*  KIỂM Ở RANH GIỚI (CLAUDE.md quy tắc 4): số gõ sai thì NÓI và KHÔNG lưu,
+        đừng lặng lẽ cắt "55,60" thành 55 như parseFloat cũ. */
+    const errs: Partial<Record<keyof Draft, string>> = {};
+    const nums: Partial<Record<keyof Draft, number | undefined>> = {};
+    for (const [k, rule] of Object.entries(NUMBER_RULES) as [keyof Draft, { max: number; int?: boolean }][]) {
+      const r = parseBoatNumber(d[k], rule.max);
+      if (!r.ok || (rule.int && r.value != null && !Number.isInteger(r.value))) {
+        errs[k] = BAD_NUMBER;
+      } else nums[k] = r.value;
+    }
+    const year = parseBuiltYear(d.builtYear, new Date().getFullYear());
+    if (!year.ok) errs.builtYear = "Năm đóng gõ đủ 4 số (VD 2018).";
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      if (Object.keys(errs).some((k) => k !== "lengthM")) setShowPaper(true);
+      return;
+    }
+    const txt = (v: string) => v.trim() || undefined;
     onSave({
       ...initial,
       name: name.trim(),
       maTau: maTau.trim() || undefined,
       homeProvince: province || undefined,
-      lengthM: lengthM ? parseFloat(lengthM) : undefined,
+      lengthM: nums.lengthM,
+      ownerName: txt(d.ownerName),
+      callSign: txt(d.callSign),
+      regPort: txt(d.regPort),
+      gear: txt(d.gear),
+      fishingZone: (d.fishingZone || undefined) as FishingZone | undefined,
+      vesselClass: (d.vesselClass || undefined) as VesselClass | undefined,
+      hullMaterial: (d.hullMaterial || undefined) as HullMaterial | undefined,
+      builtYear: year.ok ? year.value : undefined,
+      builtPlace: txt(d.builtPlace),
+      crewMax: nums.crewMax,
+      grossTonnage: nums.grossTonnage,
+      deadweightT: nums.deadweightT,
+      breadthM: nums.breadthM,
+      depthM: nums.depthM,
+      draughtM: nums.draughtM,
+      engineModel: txt(d.engineModel),
+      engineSerial: txt(d.engineSerial),
+      engineKw: nums.engineKw,
+      engineCount: nums.engineCount,
     });
   }
+
+  const kw = parseBoatNumber(d.engineKw, 10000);
 
   return (
     <BottomSheet title={isNew ? "Thêm tàu" : "Sửa thông tin tàu"} onClose={onCancel}>
@@ -291,15 +398,97 @@ export function BoatForm({
             ))}
           </select>
         </Field>
-        <Field label="Chiều dài tàu (m) — nếu biết">
-          <input
-            value={lengthM}
-            onChange={(e) => setLengthM(e.target.value)}
-            className={inputClass}
-            inputMode="decimal"
-            placeholder="VD: 15"
-          />
-        </Field>
+        <NumField
+          label="Chiều dài tàu Lmax (m) — nếu biết"
+          value={d.lengthM}
+          onChange={set("lengthM")}
+          error={errors.lengthM}
+          placeholder="VD: 18,00"
+        />
+
+        {/*  HÀNG MỞ HỒ SƠ THEO GIẤY — khuôn [thân flex-1] + [ô nút], như "Chi
+            tiết" của form giấy tờ. Đếm số ô đã ghi để bà con biết còn thiếu. */}
+        <div className="mb-3.5 flex items-stretch gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-background px-3 py-2">
+            <p className="text-[1rem] leading-snug text-foreground/80">
+              Theo giấy đăng ký, đăng kiểm, giấy phép:{" "}
+              <span className="font-bold text-navy">
+                đã ghi {filled}/{BOAT_PAPER_FIELDS.length} mục
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPaper((v) => !v)}
+            aria-expanded={showPaper}
+            className={`${SQ_BTN} bg-background text-sea`}
+          >
+            <PlusIcon className="h-6 w-6" />
+            {showPaper ? "Thu" : "Chi tiết"}
+          </button>
+        </div>
+
+        {showPaper && (
+          <>
+            <GroupTitle>Giấy đăng ký &amp; giấy phép khai thác</GroupTitle>
+            <TextField label="Chủ tàu" value={d.ownerName} onChange={set("ownerName")} placeholder="VD: Nguyễn Văn Ba" />
+            <div className="grid grid-cols-2 gap-x-2">
+              <TextField label="Hô hiệu" value={d.callSign} onChange={set("callSign")} placeholder="Nếu có" />
+              <TextField label="Cảng đăng ký" value={d.regPort} onChange={set("regPort")} placeholder="VD: Tam Quan" />
+            </div>
+            <TextField label="Nghề chính" value={d.gear} onChange={set("gear")} placeholder="VD: Câu cá ngừ" />
+            <SelectField
+              label="Vùng hoạt động"
+              value={d.fishingZone}
+              onChange={set("fishingZone")}
+              options={FISHING_ZONE_LABEL}
+            />
+
+            <GroupTitle>Giấy an toàn kỹ thuật (đăng kiểm)</GroupTitle>
+            <div className="grid grid-cols-2 gap-x-2">
+              <SelectField
+                label="Cấp tàu"
+                value={d.vesselClass}
+                onChange={set("vesselClass")}
+                options={VESSEL_CLASS_LABEL}
+              />
+              <SelectField
+                label="Vật liệu vỏ"
+                value={d.hullMaterial}
+                onChange={set("hullMaterial")}
+                options={HULL_MATERIAL_LABEL}
+              />
+              <NumField label="Năm đóng" value={d.builtYear} onChange={set("builtYear")} error={errors.builtYear} placeholder="VD: 2018" />
+              <TextField label="Nơi đóng" value={d.builtPlace} onChange={set("builtPlace")} placeholder="VD: Gia Lai" />
+              <NumField label="Số thuyền viên" value={d.crewMax} onChange={set("crewMax")} error={errors.crewMax} placeholder="VD: 8" />
+            </div>
+
+            <GroupTitle>Kích thước &amp; trọng tải</GroupTitle>
+            <div className="grid grid-cols-2 gap-x-2">
+              <NumField label="Rộng Bmax (m)" value={d.breadthM} onChange={set("breadthM")} error={errors.breadthM} placeholder="VD: 5,25" />
+              <NumField label="Cao mạn D (m)" value={d.depthM} onChange={set("depthM")} error={errors.depthM} placeholder="VD: 2,50" />
+              <NumField label="Chiều chìm d (m)" value={d.draughtM} onChange={set("draughtM")} error={errors.draughtM} placeholder="VD: 1,80" />
+              <NumField label="Dung tích GT" value={d.grossTonnage} onChange={set("grossTonnage")} error={errors.grossTonnage} placeholder="VD: 55,60" />
+              <NumField label="Trọng tải (tấn)" value={d.deadweightT} onChange={set("deadweightT")} error={errors.deadweightT} placeholder="VD: 61,60" />
+            </div>
+
+            <GroupTitle>Máy chính</GroupTitle>
+            <div className="grid grid-cols-2 gap-x-2">
+              <TextField label="Ký hiệu máy" value={d.engineModel} onChange={set("engineModel")} placeholder="VD: KOMATSU" />
+              <TextField label="Số máy" value={d.engineSerial} onChange={set("engineSerial")} placeholder="VD: 12221" />
+              <NumField
+                label="Công suất (kW)"
+                value={d.engineKw}
+                onChange={set("engineKw")}
+                error={errors.engineKw}
+                placeholder="VD: 566"
+                hint={kw.ok && kw.value != null ? `= ${kwToCv(kw.value)} CV (mã lực)` : undefined}
+              />
+              <NumField label="Số máy chính" value={d.engineCount} onChange={set("engineCount")} error={errors.engineCount} placeholder="VD: 1" />
+            </div>
+          </>
+        )}
+
         {/*  BA hành động về MỘT hàng cuối form (2026-08-29, luật A2/A3): trước
             là ba dải ngang xếp chồng (cặp Hủy/Lưu grid-cols-2 + "Xóa tàu này"
             full-width). "Xoá" giữ màu danger và GIỮ NGUYÊN ConfirmDialog ở phía
@@ -333,5 +522,104 @@ export function BoatForm({
         </div>
       </form>
     </BottomSheet>
+  );
+}
+
+/** Draft (toàn chuỗi) → dạng lỏng để đếm ô đã ghi (rỗng = chưa ghi). */
+function draftAsLoose(d: Draft): Partial<Boat> {
+  const out: Record<string, string | undefined> = {};
+  for (const k of BOAT_PAPER_FIELDS) out[k] = d[k].trim() || undefined;
+  return out as Partial<Boat>;
+}
+
+function GroupTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-2 mt-1 text-[0.875rem] font-bold uppercase tracking-wide text-foreground/65">
+      {children}
+    </p>
+  );
+}
+
+function TextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <Field label={label}>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={inputClass}
+        placeholder={placeholder}
+      />
+    </Field>
+  );
+}
+
+function NumField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  error,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  error?: string;
+  hint?: string;
+}) {
+  return (
+    <Field label={label}>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${inputClass} ${error ? "ring-2 ring-danger" : ""}`}
+        inputMode="decimal"
+        placeholder={placeholder}
+        aria-invalid={error ? true : undefined}
+      />
+      {error ? (
+        <span role="alert" className="mt-1 block text-[0.9375rem] font-bold leading-snug text-danger">
+          {error}
+        </span>
+      ) : hint ? (
+        <span className="mt-1 block text-[0.9375rem] text-foreground/70">{hint}</span>
+      ) : null}
+    </Field>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: Record<string, string>;
+}) {
+  return (
+    <Field label={label}>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}>
+        <option value="">— Chọn —</option>
+        {Object.entries(options).map(([v, l]) => (
+          <option key={v} value={v}>
+            {l}
+          </option>
+        ))}
+      </select>
+    </Field>
   );
 }

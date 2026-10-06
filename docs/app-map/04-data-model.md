@@ -5,9 +5,10 @@
 **Load khi / Load when**: đụng DB/migration/RLS, sửa `src/lib/documents.ts`, nối vault với Supabase, hoặc thêm bảng mới.
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
-last_verified: 2026-10-02
+last_verified: 2026-10-06
 ttl_days: 180
 <!-- DOC-STATUS: SUSPECT (2026-09-17) — code 'src/lib/documents.ts' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
+<!-- re-verified: 2026-10-06 16:30 — đối chiếu code: `DocumentKind`/`DOCUMENT_KINDS`/`getExpiryStatus`/`SOON_DAYS_DOCS` (documents.ts + days.ts) khớp; THÊM `dang_ky_tau`, `kindUsuallyNoExpiry`, issuedOn trên form; `Boat` +19 ô theo giấy (boats.ts); user_docs + bucket user-docs ĐO THẬT có ở znzgugvfhgmiszqgjulk (sửa drift "chưa có"); staff_permissions + cờ `resetPassword`; reset mật khẩu khách ⇒ sd123456 (ADR 0008); §5 mục 5 nhắc hạn push. -->
 <!-- re-verified: 2026-10-02 15:40 — RBAC: đối chiếu `phone.ts` (thêm `phoneFromAuthEmail`), 0002 `current_phone()` (split_part không xét đuôi — vá ở 0056), 0007/0019 `customers.role` customer|manager|admin, 0024 admin chung, 0028 `staff_permissions`, 0037/0039/0053 `device_tokens` (không hạn, allow_multi chỉ admin). Khớp code trước khi thêm 0056. -->
 <!-- re-verified: 2026-07-29 — documents.ts GỠ demoDocuments (dead seed, prod không dùng — app đã lên thật, user mới thấy tủ giấy tờ RỖNG). KHÔNG đổi schema/RLS/shape BoatDocument, không đụng migration/webhook/owned-assets. Xem 02 §4 + 07 §8.1. -->
 <!-- re-verified: 2026-08-18 — ĐỐI CHIẾU 5 vùng covers sau gói C/E/F: (1) `documents.ts` `getExpiryStatus` nay import `SOON_DAYS_DOCS/daysUntil/todayIsoVN/addDaysIso` từ `lib/days.ts`, `days===0` → level `expired` "Hết hạn hôm nay" (khớp bảng §3); (2) `owned-assets.ts` `getServiceDueStatus` dùng `SOON_DAYS_SERVICE=14` + `daysUntil` giờ VN, `requestStatusVN` trả `ok|neutral`; (3) `phone.ts` KHÔNG đổi từ 2026-06-16 (4 export `normalizeVnPhone/phoneToEmail/sanitizePhoneInput/isValidVnPhone` + `PHONE_EMAIL_DOMAIN`, đúng như §5b tả "helper SĐT thuần"; report báo SUSPECT chỉ vì commit tạo file trùng ngày last_verified cũ); (4) `sdwork-webhook.ts` + `supabase/migrations` không có thay đổi mới hôm nay ngoài 0034/0035 đã ghi (commit f078783); (5) `push_messages` không migration mới — chỉ THÊM quy ước `sent_by` `system:storm`/`system:order` + `tag` (ghi ở mục 0023). -->
@@ -86,6 +87,8 @@ create index if not exists vms_zones_is_border_idx
 | `registration` | text | số đăng ký, vd "BV-1234-TS" |
 | `length_m` | numeric | chiều dài (m) |
 | `created_at` | timestamptz | default now() |
+
+> **Bảng này app CHƯA dùng** — hồ sơ tàu thật nằm ở `forfish.boats.v1` (máy) + gương `user_docs` kind=`boats` (jsonb, giữ NGUYÊN shape `Boat` của `src/lib/boats.ts`). **HỒ SƠ THEO GIẤY (2026-10-06)**: `Boat` thêm 19 ô TUỲ CHỌN chép từ Giấy chứng nhận đăng ký · Giấy an toàn kỹ thuật · Giấy phép khai thác — `ownerName` · `callSign` (hô hiệu) · `regPort` (cảng đăng ký) · `gear` (nghề chính) · `fishingZone` (`khoi`/`long`/`ven_bo`) · `vesselClass` (`khong_han_che`/`han_che_1..3`) · `hullMaterial` (`go`/`thep`/`composite`/`khac`) · `builtYear` · `builtPlace` · `crewMax` · `grossTonnage` (GT) · `deadweightT` · `breadthM` (Bmax) · `depthM` (D) · `draughtM` (d) · `engineModel` · `engineSerial` · `engineKw` · `engineCount`. CHỈ CỘNG THÊM ⇒ không bump khoá, không migration (jsonb). CỐ Ý KHÔNG có CCCD/địa chỉ chủ tàu (danh sách tàu đi vào tệp sao lưu `lib/offline-backup`, CCCD thì không bao giờ); CCCD + chứng chỉ thuyền trưởng ở sổ thuyền viên (`crew.ts`, R2 của 08). Số đọc dấu phẩy Việt (`parseBoatNumber` — "55,60" ⇒ 55.6; bản cũ `parseFloat` ra 55).
 
 ### `public.documents` — giấy tờ (Trục 4)
 | Cột | Kiểu | Ghi chú |
@@ -216,7 +219,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 - Kết quả đo: **96 → 2 request/ngày khi trời yên** (một lượt = index + bản tin). Bão còn xa → theo mốc nguồn hẹn (thường 6 giờ). Bão ≤500 km tới cảng hoặc từ cấp 10 → 1 giờ/lần.
 - ⚠️ **CHƯA APPLY prod SDVICO** (ref `znzgugvfhgmiszqgjulk`, KHÔNG tự apply).
 
-### ĐỒNG BỘ SỔ per-máy (cross-device) — migration [`0050_user_docs.sql`](../../supabase/migrations/0050_user_docs.sql) (2026-08-26, P1) — ⚠️ **APPLY NHẦM PROJECT 2026-09-18** — đúng prod (znzgugvfhgmiszqgjulk) CHƯA có, chờ apply lại
+### ĐỒNG BỘ SỔ per-máy (cross-device) — migration [`0050_user_docs.sql`](../../supabase/migrations/0050_user_docs.sql) (2026-08-26, P1) — ✅ **ĐÃ CÓ ở prod `znzgugvfhgmiszqgjulk`** (đo 2026-10-06: bảng có dữ liệu 5 kind, bucket `user-docs` private có; ghi chú "apply nhầm project 2026-09-18" bên dưới là lịch sử)
 
 Nguồn + thiết kế đầy đủ: [docs/specs/dong-bo-so-per-may.md](../specs/dong-bo-so-per-may.md). Trước nay hồ sơ tàu / bảo dưỡng / vật tư / sổ thuyền viên / tủ giấy tờ CHỈ nằm localStorage per-máy → nhập ở điện thoại không thấy trên PC. P1 đấu 3 sổ KHÔNG nhạy cảm; crew/documents (CCCD/giấy tờ) ở P2/P3.
 
@@ -232,7 +235,8 @@ Nguồn + thiết kế đầy đủ: [docs/specs/dong-bo-so-per-may.md](../specs
 
 | GIỮ BẢN ĐÃ XOÁ | Chủ dự án 2026-09-01: *"đã xoá thì xoá ở máy còn trên server vẫn có"*. **KHÔNG bảng mới, KHÔNG migration** — `data` vốn là `jsonb`: bản ghi biến mất so với lần đẩy trước thì Ở LẠI trong chính cuốn sổ đó, chỉ thêm `_deleted: true` + `_deletedAt` (giờ server). Luật thuần ở [`lib/sync-tombstone.ts`](../../src/lib/sync-tombstone.ts): `keepDeleted` ghép lúc PUT, `stripDeleted` lọc lúc GET **và** ở nhánh trả `stale` — máy bà con KHÔNG BAO GIỜ nhận lại thứ mình đã bỏ. Phân tích thì đọc thẳng cột `data` (lọc `_deleted = true`). Chỉ áp cho sổ là MẢNG bản ghi có `id`; shape khác thì lấy nguyên bản mới, không đoán. **KHÔNG có gì thêm chạy qua đường truyền hay nằm lại máy**: GET trả bản đã lọc ⇒ localStorage không chứa bản xoá ⇒ lần đẩy sau cũng sạch. Chỉ CỘT `data` trên server lớn dần theo số lần xoá. **Hệ quả đã biết**: máy cũ chưa kéo tin xoá mà lại sửa sau thì cả cuốn của nó thắng và bản ghi sống lại — đó là luật LWW-cả-cuốn có sẵn của `user-sync`, không phải lỗ do cờ này đẻ ra; hết hẳn thì phải merge từng dòng. **Chủ dự án chốt BỎ QUA nợ này (2026-09-01)**: *"ko xảy ra tình trạng đó nên ko cần lo"* — mỗi chủ tàu dùng MỘT máy. Đừng đầu tư merge từng dòng cho tới khi có ca hai máy thật. Cả hai đã chốt bằng test. Đã khai ở [/quyen-rieng-tu](../../src/app/quyen-rieng-tu/page.tsx) mục 4. |
 
-- ⚠️ **APPLY NHẦM PROJECT (2026-09-18)** — chủ dự án apply 0050 + 0051 vào SAI Supabase project; đúng prod (ref `znzgugvfhgmiszqgjulk`) **CHƯA có**. Hệ quả: route `/api/me/sync` + `/api/me/docs/photo` ở prod thật vẫn trả 503/500, client giữ localStorage như cũ (không mất dữ liệu, chỉ CHƯA đồng bộ) ⇒ đăng xuất/gỡ máy xoá bản máy thì hồ sơ tay CHƯA kéo lại được tới khi apply LẠI đúng project. Cần: (1) apply 0050+0051 lên `znzgugvfhgmiszqgjulk`; (2) tuỳ chọn dọn bảng `public.user_docs` + bucket `user-docs` orphan ở project nhầm (cả hai idempotent, non-destructive — xem quy trình dọn ở lịch sử phiên/PR). Sau khi apply đúng: đổi mục này về ✅ + boats/crew/documents/maintenance/materials đồng bộ hai chiều.
+- ✅ **ĐO LẠI 2026-10-06 (chỉ đọc)**: `public.user_docs` + bucket `user-docs` ĐÃ CÓ ở `znzgugvfhgmiszqgjulk`, có dòng thật (boats/documents/crew/maintenance/materials) ⇒ đồng bộ đang chạy; cron nhắc hạn `/api/cron/notify-docs` đọc từ đây. Mục dưới giữ làm lịch sử.
+- ~~⚠️ **APPLY NHẦM PROJECT (2026-09-18)**~~ — chủ dự án apply 0050 + 0051 vào SAI Supabase project; đúng prod (ref `znzgugvfhgmiszqgjulk`) **CHƯA có**. Hệ quả: route `/api/me/sync` + `/api/me/docs/photo` ở prod thật vẫn trả 503/500, client giữ localStorage như cũ (không mất dữ liệu, chỉ CHƯA đồng bộ) ⇒ đăng xuất/gỡ máy xoá bản máy thì hồ sơ tay CHƯA kéo lại được tới khi apply LẠI đúng project. Cần: (1) apply 0050+0051 lên `znzgugvfhgmiszqgjulk`; (2) tuỳ chọn dọn bảng `public.user_docs` + bucket `user-docs` orphan ở project nhầm (cả hai idempotent, non-destructive — xem quy trình dọn ở lịch sử phiên/PR). Sau khi apply đúng: đổi mục này về ✅ + boats/crew/documents/maintenance/materials đồng bộ hai chiều.
 
 ### Danh mục sản phẩm ADMIN quản lý — migration [`0016_product_catalog.sql`](../../supabase/migrations/0016_product_catalog.sql) (2026-07-28) — ✅ ĐÃ APPLY prod
 
@@ -426,7 +430,9 @@ Nguồn + thiết kế đầy đủ: [docs/specs/dong-bo-so-per-may.md](../specs
 ## 3. Domain logic — `src/lib/documents.ts`
 
 ### DocumentKind (giữ sync với cột `kind`)
-`dang_kiem` · `giay_phep_khai_thac` · `an_toan_thuc_pham` · `bao_hiem` · `chung_chi_thuyen_truong` · `khac` — label tiếng Việt trong `DOCUMENT_KINDS`.
+`dang_ky_tau` · `dang_kiem` · `giay_phep_khai_thac` · `an_toan_thuc_pham` · `bao_hiem` · `chung_chi_thuyen_truong` · `khac` — label tiếng Việt trong `DOCUMENT_KINDS`.
+- **2026-10-06** (đối chiếu bộ giấy thật): thêm `dang_ky_tau` "Giấy chứng nhận đăng ký tàu cá" (đứng đầu; thường KHÔNG thời hạn — `kindUsuallyNoExpiry`, form gợi ý để trống hạn). `dang_kiem` GIỮ giá trị, đổi tên hiện "Giấy an toàn kỹ thuật (đăng kiểm)" theo tiêu đề in trên giấy (giấy cũ có `label` "Đăng kiểm tàu cá" nay thẻ in thêm dòng loại phía trên — đúng luật "loại khác tên gọi"). Form thêm **Ngày cấp** (`issuedOn` — trường đã có trong `BoatDocument` nhưng trước không có ô). Lưu khi SỬA giữ mọi trường không có trên form (`photos`…) — bản cũ dựng object mới làm rơi đường dẫn ảnh.
+- Bảng `public.documents` (0001) có cột `kind` text KHÔNG check constraint và app CHƯA ghi bảng này (giấy tờ đi `user_docs` kind=documents) ⇒ thêm loại không cần migration.
 
 ### Expiry status — `getExpiryStatus(doc, today)`
 - ~~**`SOON_DAYS = 30`** — ngưỡng "sắp hết hạn"~~ → **`SOON_DAYS_DOCS = 30`** (bảng ngưỡng chung bên dưới, 2026-08-18)
