@@ -55,7 +55,21 @@ export const ACTION_LABEL: Record<PermAction, string> = {
 };
 
 export type TabPerms = Record<PermAction, boolean>;
-export type StaffPermissions = Record<ManagerTab, TabPerms>;
+/**
+ * Bảng quyền = 6 tab × 4 cờ + CỜ RIÊNG `resetPassword` (2026-10-06, user chốt:
+ * "phân quyền nút đặt lại mật khẩu cho phép những tài khoản nào có quyền này").
+ * Đặt lại mật khẩu không phải Xem/Tạo/Sửa/Xoá của một tab — nó là chìa vào
+ * tài khoản khách (mật khẩu về sd123456 ai cũng biết) ⇒ cờ RIÊNG, admin tick
+ * từng quản lý, MẶC ĐỊNH TẮT kể cả preset. Có cờ cũng CHỈ trên khách của mình
+ * (managerTargetCheck — cấm nhân sự, cấm chính mình). Nằm chung cột jsonb
+ * `staff_accounts.permissions` (0056) ⇒ KHÔNG cần migration.
+ */
+export type StaffPermissions = Record<ManagerTab, TabPerms> & {
+  resetPassword: boolean;
+};
+
+/** Nhãn cờ riêng — hiện ở tab Phân quyền. */
+export const RESET_PASSWORD_LABEL = "Đặt lại mật khẩu khách của mình";
 
 const ALL_FALSE: TabPerms = {
   view: false,
@@ -72,7 +86,8 @@ const VIEW_CREATE_EDIT: TabPerms = {
 };
 
 /** Bảng quyền của quản lý MỚI (chưa được admin chỉnh tay): xem+tạo+sửa cả 6
- *  tab, KHÔNG xóa (chốt user 2026-07-30 — an toàn nhất, admin bật Xóa khi cần). */
+ *  tab, KHÔNG xóa (chốt user 2026-07-30 — an toàn nhất, admin bật Xóa khi cần).
+ *  KHÔNG đặt lại mật khẩu (2026-10-06) — admin tick riêng từng người. */
 export const DEFAULT_MANAGER_PERMISSIONS: StaffPermissions = Object.freeze({
   "tai-khoan": { ...VIEW_CREATE_EDIT },
   "san-pham": { ...VIEW_CREATE_EDIT },
@@ -80,6 +95,7 @@ export const DEFAULT_MANAGER_PERMISSIONS: StaffPermissions = Object.freeze({
   "canh-bao": { ...VIEW_CREATE_EDIT },
   "thong-bao": { ...VIEW_CREATE_EDIT },
   "cho-ban": { ...VIEW_CREATE_EDIT },
+  resetPassword: false,
 });
 
 export function isManagerTab(tab: string): tab is ManagerTab {
@@ -100,14 +116,14 @@ function coerceTab(raw: unknown): TabPerms {
 /** Bảng quyền mới toanh, tất cả cờ = giá trị cho trước (dùng khi soạn UI). */
 export function emptyPermissions(value = false): StaffPermissions {
   const fill = value ? ALL_TRUE : ALL_FALSE;
-  const out = {} as StaffPermissions;
+  const out = { resetPassword: value } as StaffPermissions;
   for (const tab of MANAGER_TABS) out[tab] = { ...fill };
   return out;
 }
 
 /** Bản sao sâu (an toàn để mutate trong UI/route). */
 export function clonePermissions(p: StaffPermissions): StaffPermissions {
-  const out = {} as StaffPermissions;
+  const out = { resetPassword: p.resetPassword === true } as StaffPermissions;
   for (const tab of MANAGER_TABS) out[tab] = { ...p[tab] };
   return out;
 }
@@ -144,7 +160,8 @@ export function normalizePermissions(raw: unknown): StaffPermissions {
     return emptyPermissions(false); // số / mảng / "null" / true ⇒ khoá hết
   }
   const r = obj as Record<string, unknown>;
-  const out = {} as StaffPermissions;
+  // cờ riêng: CHỈ `true` mới là bật — thiếu/rác ⇒ tắt (fail-closed)
+  const out = { resetPassword: r.resetPassword === true } as StaffPermissions;
   for (const tab of MANAGER_TABS) out[tab] = coerceTab(r[tab]);
   return out;
 }
@@ -190,6 +207,20 @@ export function can(
 ): boolean {
   if (!perms) return false;
   return perms[tab]?.[action] === true;
+}
+
+/**
+ * Được bấm "Đặt lại mật khẩu" không. admin → luôn được (không đi qua bảng
+ * quyền); quản lý → CHỈ khi admin đã tick cờ riêng. perms null ⇒ false.
+ * Đây mới là cửa VAI; cửa ĐỐI TƯỢNG (khách của mình, không phải nhân sự,
+ * không phải chính mình) chốt ở route bằng managerTargetCheck.
+ */
+export function canResetPassword(
+  role: "admin" | "manager",
+  perms: StaffPermissions | null | undefined,
+): boolean {
+  if (role === "admin") return true;
+  return perms?.resetPassword === true;
 }
 
 /** Quản lý thấy được tab nào (có cờ view). Giữ thứ tự MANAGER_TABS. */

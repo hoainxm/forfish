@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isStaffPhone } from "@/lib/staff-store";
+import { DEFAULT_CUSTOMER_PASSWORD } from "@/lib/temp-password";
 import { dbErrorDetail } from "@/lib/db-error";
 import { isValidVnPhone, phoneToEmail } from "@/lib/phone";
 import {
@@ -28,8 +29,9 @@ type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 // Mật khẩu khởi tạo mặc định — chính sách 2026-07-21: MỌI khách SDWork đều có
 // tài khoản SDFish (username = SĐT), mật khẩu mặc định sd123456, KHÔNG ép đổi
 // lần đầu. Event đồng bộ định kỳ (không kèm password) vẫn tạo được tài khoản
-// cho khách còn thiếu nhờ mật khẩu này.
-const DEFAULT_PASSWORD = "sd123456";
+// cho khách còn thiếu nhờ mật khẩu này. MỘT nguồn với nút Đặt lại ở /quan-tri
+// (lib/temp-password — 2026-10-06).
+const DEFAULT_PASSWORD = DEFAULT_CUSTOMER_PASSWORD;
 
 // Đồng bộ mật khẩu đăng nhập (SĐT + mật khẩu) — 1 credential cho cả 2 app.
 //  · chưa có user → TẠO. KHÔNG bật must_change_password (chính sách 2026-07-21:

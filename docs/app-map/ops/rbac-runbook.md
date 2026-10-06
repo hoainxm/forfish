@@ -3,9 +3,10 @@
 > Load khi: triển khai/kiểm tra việc tách vai · loại · hạng tài khoản (2026-10-02), apply migration 0056, xoay khoá sau sự cố lộ, gỡ tài khoản admin dùng chung, thêm/bớt quản trị viên.
 
 covers: supabase/migrations/0056_rbac_staff_accounts.sql, src/lib/staff-store.ts
-last_verified: 2026-10-02
+last_verified: 2026-10-06
 ttl_days: 90
 gate: warn
+<!-- re-verified: 2026-10-06 16:00 — bảng quyền đặt lại mật khẩu: cờ riêng `resetPassword` (staff-permissions.ts, normalizePermissions fail-closed), route reset-password dùng requireStaff + canResetPassword + managerTargetCheck, khách về DEFAULT_CUSTOMER_PASSWORD, nhân sự randomTempPassword (ADR 0008). -->
 
 ## Mô hình (một đoạn)
 
@@ -24,7 +25,8 @@ Một cửa đọc: `src/lib/staff-store.ts` (`loadActor`). Luật thuần + tes
 | Cấp/gia hạn premium | ✓ | ✓ | khách mình + khách chưa ai cấp; cấm tự cấp | + mọi khách đang premium | – | – |
 | Xoá · ghi cờ · ghi thu tiền · nhắn riêng | ✓ | ✓ (xoá admin: không) | chỉ khách mình | + khách đang premium | – | – |
 | Gửi thông báo TẤT CẢ | ✓ | ✓ | – | – | – | không nhận |
-| Hạ hạng · đặt lại mật khẩu · đổi loại · đăng xuất mọi máy | ✓ | ✓ | – | – | – | – |
+| Đặt lại mật khẩu (khách ⇒ `sd123456`, nhân sự ⇒ ngẫu nhiên — ADR 0008) | ✓ | ✓ | chỉ khi admin tick cờ riêng `resetPassword`; chỉ khách mình, cấm nhân sự + chính mình | như cột trái, + khách đang premium | – | – |
+| Hạ hạng · đổi loại · đăng xuất mọi máy | ✓ | ✓ | – | – | – | – |
 | CCCD trong tab Thuyền viên | đủ | đủ | 4 số cuối | 4 số cuối | – | – |
 | Hạn chuỗi đăng nhập | 12 giờ, nhiều máy | 7 ngày, nhiều máy | 7 ngày, 1 máy | 7 ngày, 1 máy | **không hạn** | test 24 giờ · demo 7 ngày |
 
@@ -83,4 +85,4 @@ Gỡ khỏi file không xoá được khỏi lịch sử git, nên phải coi nh
 - Gỡ GET `/api/crew-reports/lookup` (đã có POST) — khi bản app có POST đã phủ ≥ 60 ngày.
 - Gỡ đường lùi cookie Supabase ở `api-identity.ts` — /quan-tri nay đã dùng chuỗi cứng, không còn phụ thuộc.
 - Bảng nhật ký cũ `admin_audit` (0027) vẫn được ghi song song với `admin_activity_log`; gộp hẳn cần chủ dự án duyệt (đụng nhật ký kiểm toán).
-- Mật khẩu mặc định khi webhook provision (`sd123456`, ADR 0007) giữ nguyên — có lộ trình siết riêng trong ADR.
+- Mật khẩu mặc định khi webhook provision (`sd123456`, ADR 0007) giữ nguyên — có lộ trình siết riêng trong ADR. Từ 2026-10-06 nút Đặt lại + ô tạo khách cũng về đúng mật khẩu này (ADR 0008, một nguồn `DEFAULT_CUSTOMER_PASSWORD`).

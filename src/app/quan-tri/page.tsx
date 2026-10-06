@@ -83,7 +83,9 @@ import {
   ACTION_LABEL,
   MANAGER_TABS,
   PERM_ACTIONS,
+  RESET_PASSWORD_LABEL,
   TAB_LABEL,
+  canResetPassword,
   visibleTabs,
   type ManagerTab,
   type StaffPermissions,
@@ -95,6 +97,7 @@ import {
   isDangerAction,
 } from "@/lib/admin-activity";
 import { timeoutSignal } from "@/lib/abort";
+import { DEFAULT_CUSTOMER_PASSWORD } from "@/lib/temp-password";
 import { saveToken, signOutLocal, tokenHeader } from "@/lib/device-token-store";
 import { formatVnd, formatVnDate } from "@/lib/format";
 import {
@@ -659,8 +662,11 @@ type TierFilter = "all" | "premium" | "basic";
 function AccountsTab({ me }: { me: Me }) {
   const isAdmin = me.role === "admin";
   // Quyền trên tab Tài khoản: create=tạo khách · edit=cấp/gia hạn premium ·
-  // delete=xoá tài khoản. Hạ hạng + đặt-lại-mật-khẩu vẫn ADMIN-ONLY cứng.
+  // delete=xoá tài khoản. Hạ hạng vẫn ADMIN-ONLY cứng. Đặt lại mật khẩu: admin,
+  // hoặc quản lý được tick cờ riêng (2026-10-06) — server chốt thêm "chỉ khách
+  // của mình, không phải nhân sự".
   const perms = permsFor(me, "tai-khoan");
+  const canReset = canResetPassword(me.role, me.permissions);
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [grantStats, setGrantStats] = useState<GrantStat[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -913,8 +919,8 @@ function AccountsTab({ me }: { me: Me }) {
     load();
   }
 
-  /** reset-password = mật khẩu tạm NGẪU NHIÊN (server trả về), khách bị bắt tự đổi khi
-   *  đăng nhập lại (chỉ admin — server chặn bằng requireAdmin) */
+  /** reset-password (2026-10-06): khách về sd123456, nhân sự ra mật khẩu ngẫu
+   *  nhiên (server trả về, hiện một lần); app nhắc đổi khi đăng nhập lại. */
   async function resetPassword(a: Account) {
     setBusyPhone(a.phone);
     setNotice(null);
@@ -927,18 +933,27 @@ function AccountsTab({ me }: { me: Me }) {
       ok?: boolean;
       code?: string;
       tempPassword?: string;
+      isDefault?: boolean;
     } | null;
     setBusyPhone(null);
     if (!r?.ok || !j?.ok) {
       setError(
         j?.code === "not_provisioned"
           ? "Tài khoản này chưa được khởi tạo hoàn toàn trên hệ thống nên chưa thể đặt lại mật khẩu."
-          : "Lỗi đặt lại mật khẩu. Vui lòng thử lại.",
+          : j?.code === "not_your_customer"
+            ? "Khách này không do bạn cấp/chăm nên bạn không đặt lại mật khẩu được. Nhờ quản trị viên."
+            : j?.code === "staff_target" || j?.code === "self"
+              ? "Không đặt lại được mật khẩu tài khoản nhân sự ở đây. Nhờ quản trị viên."
+              : j?.code === "no_permission"
+                ? "Tài khoản của bạn chưa được cấp quyền đặt lại mật khẩu."
+                : "Lỗi đặt lại mật khẩu. Vui lòng thử lại.",
       );
       return;
     }
     setNotice(
-      `Đã cấp lại mật khẩu cho ${a.phone}${a.name ? ` (${a.name})` : ""}. Vui lòng báo khách dùng mật khẩu tạm là ${j.tempPassword ?? "(không nhận được — bấm đặt lại lần nữa)"} — mật khẩu này chỉ hiện MỘT lần, các máy đang đăng nhập đã bị đăng xuất (app sẽ yêu cầu khách đổi mật khẩu khi đăng nhập).`,
+      j.isDefault
+        ? `Đã đặt lại mật khẩu cho ${a.phone}${a.name ? ` (${a.name})` : ""} về ${j.tempPassword ?? DEFAULT_CUSTOMER_PASSWORD}. Các máy đang đăng nhập số này đã bị đăng xuất; khách đăng nhập lại bằng SĐT + ${j.tempPassword ?? DEFAULT_CUSTOMER_PASSWORD}, app sẽ nhắc đổi mật khẩu (có thể để sau).`
+        : `Đã cấp lại mật khẩu cho nhân sự ${a.phone}${a.name ? ` (${a.name})` : ""}: ${j.tempPassword ?? "(không nhận được — bấm đặt lại lần nữa)"} — mật khẩu này chỉ hiện MỘT lần, các máy đang đăng nhập đã bị đăng xuất.`,
     );
   }
 
@@ -1368,7 +1383,7 @@ function AccountsTab({ me }: { me: Me }) {
                         Về thường
                       </button>
                     )}
-                    {isAdmin && a.canLogin && (
+                    {canReset && a.canLogin && (isAdmin || !isStaff(a)) && (
                       <button
                         type="button"
                         disabled={busyPhone === a.phone}
@@ -1540,7 +1555,7 @@ function AccountsTab({ me }: { me: Me }) {
       {toReset && (
         <ConfirmDialog
           title={`Xác nhận đặt lại mật khẩu cho ${toReset.phone}?`}
-          message={`${toReset.name ? `${toReset.name} — ` : ""}hệ thống sẽ tạo mật khẩu tạm mới (hiện một lần sau khi bấm), mật khẩu cũ bị hủy và mọi máy đang đăng nhập bị đăng xuất. Khách đăng nhập lại sẽ được yêu cầu đổi mật khẩu mới.`}
+          message={`${toReset.name ? `${toReset.name} — ` : ""}${isStaff(toReset) ? "đây là tài khoản NHÂN SỰ: hệ thống tạo mật khẩu tạm ngẫu nhiên (hiện một lần sau khi bấm)" : `mật khẩu sẽ về mặc định ${DEFAULT_CUSTOMER_PASSWORD}`}, mật khẩu cũ bị hủy và mọi máy đang đăng nhập bị đăng xuất. Đăng nhập lại app sẽ nhắc đổi mật khẩu.`}
           confirmLabel="Xác nhận đặt lại"
           cancelLabel="Hủy thao tác"
           danger={false}
@@ -2028,7 +2043,9 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
-  const [password, setPassword] = useState("");
+  // ĐIỀN SẴN mật khẩu mặc định của khách (2026-10-06, user chốt: "set mặc định
+  // mật khẩu về sd123456, hiện tại còn lung tung") — vẫn sửa được khi cần.
+  const [password, setPassword] = useState(DEFAULT_CUSTOMER_PASSWORD);
   const [activatePremium, setActivatePremium] = useState(false);
   // kỳ hạn premium khi tạo kèm — chỉ gửi khi có tick activatePremium
   const [premiumMonths, setPremiumMonths] = useState(PREMIUM_TERM_MONTHS);
@@ -2075,12 +2092,12 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
       j.existed
         ? `Số ${phone} đã có tài khoản từ trước — mật khẩu cũ giữ nguyên${activatePremium ? ", đã kích hoạt Premium" : ""}.${j.keptRole ? ` Giữ nguyên vai ${j.role === "admin" ? "quản trị viên" : "quản lý"} (muốn hạ vai thì dùng tab Phân quyền).` : ""}`
         : j.provisioned
-        ? "Tạo thành công. Vui lòng báo khách đăng nhập bằng SĐT và mật khẩu tạm (app sẽ yêu cầu đổi mật khẩu ở lần đầu tiên)."
+        ? `Tạo thành công. Vui lòng báo khách đăng nhập bằng SĐT và mật khẩu ${password.trim()} (app sẽ nhắc đổi mật khẩu ở lần đầu tiên).`
         : "Đã lưu thông tin nhưng lỗi quá trình tạo tài khoản đăng nhập. Vui lòng kiểm tra lại.",
     );
     setPhone("");
     setName("");
-    setPassword("");
+    setPassword(DEFAULT_CUSTOMER_PASSWORD);
     setActivatePremium(false);
     setPremiumMonths(PREMIUM_TERM_MONTHS);
     onCreated();
@@ -2122,6 +2139,7 @@ function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
           <input
             required
             type="text"
+            aria-label="Mật khẩu ban đầu (mặc định sd123456)"
             placeholder="Mật khẩu tạm thời (≥6 ký tự)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -6344,6 +6362,32 @@ function ManagerPermCard({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/*  CỜ RIÊNG đặt lại mật khẩu (2026-10-06) — không thuộc ô Xem/Tạo/Sửa/Xoá
+          của tab nào; mặc định TẮT. Có cờ cũng chỉ trên khách của người này. */}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
+        <span className="text-[0.9375rem] font-semibold text-navy">
+          {RESET_PASSWORD_LABEL}
+          <span className="block text-[0.8125rem] font-normal text-foreground/65">
+            Mật khẩu khách về {DEFAULT_CUSTOMER_PASSWORD}. Không áp cho tài khoản nhân sự.
+          </span>
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={draft.resetPassword}
+          aria-label={RESET_PASSWORD_LABEL}
+          onClick={() => {
+            setMsg(null);
+            setDraft((d) => ({ ...d, resetPassword: !d.resetPassword }));
+          }}
+          className={`inline-flex h-9 min-w-[2.75rem] items-center justify-center rounded-lg px-2 text-[0.8125rem] font-bold transition ${
+            draft.resetPassword ? "bg-ok-bg text-ok" : "bg-field text-foreground/45"
+          }`}
+        >
+          {draft.resetPassword ? "Kích hoạt" : "Vô hiệu hoá"}
+        </button>
       </div>
 
       <div className="mt-3 flex items-center gap-3">

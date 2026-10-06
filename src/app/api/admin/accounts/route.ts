@@ -7,7 +7,9 @@
 //                             admin chọn — body.termMonths, mặc định 1 năm 6
 //                             tháng; server tự clamp + ghi log)
 // · PATCH action='downgrade'→ ADMIN-ONLY CỨNG (hạ hạng — thao tác nhạy cảm)
-// · PATCH action='reset-password' → ADMIN-ONLY CỨNG (đặt lại mật khẩu tạm)
+// · PATCH action='reset-password' → admin; quản lý CHỈ khi admin tick cờ riêng
+//                             `resetPassword` VÀ chỉ trên khách của mình
+//                             (2026-10-06). Khách về sd123456, nhân sự ngẫu nhiên.
 // · DELETE                  → delete (admin + quản lý có cờ delete)
 // Mỗi lần cấp/hạ đều ghi LOG premium_grants (granted_by = SĐT người thao tác).
 // Webhook SDWork vẫn là đường nạp khách CHÍNH — tạo tay dành cho ca lẻ.
@@ -28,6 +30,7 @@ import {
 } from "@/lib/admin";
 import {
   findOwner,
+  isStaffPhone,
   listDbStaff,
   loadActor,
   managerTargetCheck,
@@ -36,10 +39,10 @@ import {
 import { revokeTokensOfPhone } from "@/lib/device-token-server";
 import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
 import { normalizePassword, PASSWORD_MIN_LENGTH } from "@/lib/password";
-import { randomTempPassword } from "@/lib/temp-password";
+import { resetPasswordFor } from "@/lib/temp-password";
 import { nextPremiumUntil, resolveTier } from "@/lib/tier";
 import { normalizePlatform } from "@/lib/app-usage";
-import { isMissingColumnError } from "@/lib/staff-permissions";
+import { canResetPassword, isMissingColumnError } from "@/lib/staff-permissions";
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 
@@ -787,13 +790,24 @@ export async function PATCH(req: Request) {
   }
 
   if (body.action === "reset-password") {
-    // ĐẶT LẠI MẬT KHẨU — chỉ admin. Mật khẩu tạm NGẪU NHIÊN mỗi lần
-    // (randomTempPassword); must_change_password bật lại để khách bị bắt tự
-    // đổi ngay lần đăng nhập kế; mọi chuỗi đang sống bị thu hồi.
-    const who = await requireAdmin();
+    // ĐẶT LẠI MẬT KHẨU (2026-10-06, ADR 0008). Hai cửa:
+    //  · VAI: admin luôn được; quản lý CHỈ khi admin tick cờ riêng resetPassword.
+    //  · ĐỐI TƯỢNG: quản lý chỉ trên khách của mình — cấm nhân sự, cấm chính
+    //    mình (managerTargetCheck, cùng luật R3 của cấp premium/xoá).
+    // Khách về sd123456 (MỘT mật khẩu chung — user chốt), nhân sự vẫn NGẪU
+    // NHIÊN. must_change_password bật lại để app NHẮC đổi (có lối "để sau");
+    // mọi chuỗi đang sống bị thu hồi (R9).
+    const who = await requireStaff();
     if (!who.ok) return err(who.status, who.code);
+    if (!canResetPassword(who.role, who.permissions))
+      return err(403, "no_permission");
     const admin = createAdminClient();
     if (!admin) return err(503, "not_configured");
+    const denied = await guardManagerTarget(admin, who, phone, false);
+    if (denied) return denied;
+    // tra vai ĐỐI TƯỢNG hỏng ⇒ coi là nhân sự (ra mật khẩu ngẫu nhiên — hướng an
+    // toàn), không đoán là khách rồi đặt mật khẩu ai cũng biết
+    const targetIsStaff = (await isStaffPhone(admin, phone)) !== false;
 
     let authUser: Awaited<ReturnType<typeof findAuthUser>>;
     try {
@@ -803,7 +817,7 @@ export async function PATCH(req: Request) {
     }
     if (!authUser) return err(404, "not_provisioned");
 
-    const tempPassword = randomTempPassword();
+    const tempPassword = resetPasswordFor(targetIsStaff);
     const { error } = await admin.auth.admin.updateUserById(authUser.id, {
       password: tempPassword,
       // giữ metadata cũ (full_name…) — updateUserById GHI ĐÈ cả object
@@ -815,21 +829,26 @@ export async function PATCH(req: Request) {
       actor: who.phone,
       action: "reset_password",
       target: phone,
+      detail: targetIsStaff ? "staff:random" : "customer:default",
     });
     // Đặt lại mật khẩu = nghi lộ ⇒ đá MỌI máy đang giữ chuỗi (bản cũ để chuỗi
     // sống mãi — người đang chiếm tài khoản vẫn vào được sau khi đổi mật khẩu).
     const revoked = await revokeTokensOfPhone(phone, "admin");
     await logActivity(admin, {
       actorPhone: who.phone,
-      actorRole: "admin",
+      actorRole: who.role,
       action: "account.reset-password",
       target: phone,
-      detail: { revokedTokens: revoked.revoked },
+      detail: {
+        revokedTokens: revoked.revoked,
+        password: targetIsStaff ? "random" : "default",
+      },
     });
     return NextResponse.json({
       ok: true,
       action: "reset-password",
       tempPassword,
+      isDefault: !targetIsStaff,
       revokedSessions: revoked.revoked,
     });
   }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   can,
+  canResetPassword,
   clonePermissions,
   DEFAULT_MANAGER_PERMISSIONS,
   emptyPermissions,
@@ -175,5 +176,41 @@ describe("helpers", () => {
     const b = clonePermissions(a);
     b["tai-khoan"].view = false;
     expect(a["tai-khoan"].view).toBe(true);
+  });
+});
+
+describe("cờ riêng resetPassword — đặt lại mật khẩu (2026-10-06)", () => {
+  it("preset mặc định KHÔNG có quyền đặt lại mật khẩu", () => {
+    expect(DEFAULT_MANAGER_PERMISSIONS.resetPassword).toBe(false);
+    expect(normalizePermissions(null).resetPassword).toBe(false);
+  });
+
+  it("chỉ `true` mới bật; thiếu / truthy khác / rác ⇒ tắt (fail-closed)", () => {
+    expect(normalizePermissions({ resetPassword: true }).resetPassword).toBe(true);
+    expect(normalizePermissions({}).resetPassword).toBe(false);
+    expect(normalizePermissions({ resetPassword: "true" }).resetPassword).toBe(false);
+    expect(normalizePermissions({ resetPassword: 1 }).resetPassword).toBe(false);
+    expect(normalizePermissions("rác").resetPassword).toBe(false);
+    expect(normalizePermissions(JSON.stringify({ resetPassword: true })).resetPassword).toBe(true);
+  });
+
+  it("đi cùng bảng quyền khi lưu lại: clone giữ cờ, empty theo giá trị", () => {
+    const p = normalizePermissions({ resetPassword: true, "tai-khoan": { view: true } });
+    expect(clonePermissions(p).resetPassword).toBe(true);
+    expect(emptyPermissions(true).resetPassword).toBe(true);
+    expect(emptyPermissions(false).resetPassword).toBe(false);
+  });
+
+  it("canResetPassword: admin luôn được; quản lý chỉ khi có cờ; perms null ⇒ không", () => {
+    expect(canResetPassword("admin", null)).toBe(true);
+    expect(canResetPassword("manager", null)).toBe(false);
+    expect(canResetPassword("manager", normalizePermissions(null))).toBe(false);
+    expect(
+      canResetPassword("manager", normalizePermissions({ resetPassword: true })),
+    ).toBe(true);
+  });
+
+  it("cờ riêng KHÔNG mở thêm tab nào (visibleTabs chỉ theo view)", () => {
+    expect(visibleTabs(normalizePermissions({ resetPassword: true }))).toEqual([]);
   });
 });

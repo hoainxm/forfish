@@ -25,6 +25,7 @@ KHÔNG viết ADR cho: feature thường, UI tweak, fix bug — những thứ đ
 | [0005](0005-nhip-quet-tin-bao-theo-muc-uu-tien.md) | Nhịp quét tin bão theo mức ưu tiên; nhịp lấy từ chính bản tin | Accepted | 2026-08-18 |
 | [0006](0006-cron-day-hon-mot-ngay-khong-vao-vercel-json.md) | Cron dày hơn 1 lần/ngày KHÔNG vào `vercel.json` (Hobby chặn deploy) | Accepted | 2026-08-18 |
 | [0007](0007-siet-bao-mat-sau-sd123456.md) | Lộ trình siết bảo mật sau mật khẩu chung sd123456 (3 bước) | Proposed | 2026-07-21 (đánh lại số 2026-08-19, trùng 0002 khi gộp base) |
+| [0008](0008-dat-lai-mat-khau-khach-ve-sd123456.md) | Đặt lại mật khẩu KHÁCH về sd123456; quyền đặt lại tick riêng từng quản lý | Accepted | 2026-10-06 |
 
 ## Cách thêm
 

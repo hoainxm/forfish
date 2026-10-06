@@ -2,7 +2,7 @@
 
 > Load khi: task chạm /quan-tri (vận hành), phân quyền đại lý, trạng thái premium (đã dùng/đã liên hệ), thu tiền + trace tiền đồng bộ SDWork, audit hoạt động admin, luồng đăng nhập admin.
 covers: src/app/quan-tri, src/app/api/admin, src/lib/admin-auth.ts, src/lib/admin.ts
-last_verified: 2026-10-02
+last_verified: 2026-10-06
 <!-- re-verified: 2026-10-02 15:50 — RBAC: vai tách sang `staff_accounts` (0056), loại tài khoản real/test/demo/reviewer, R3 siết ở server cho grant/delete/set-flags/push riêng + tạo-khách-trên-SĐT-đã-có; R3b thêm nguồn DB `scope`; R6 sửa theo 0053 (admin nhiều máy, đã chốt 2026-08-31); thêm R7–R10. -->
 <!-- re-verified: 2026-10-02 12:00 — /quan-tri ĐIỀU HƯỚNG NHÓM (lib/admin-nav, chỉ XẾP chỗ): danh sách tab vẫn tính theo vai — admin đủ, quản lý `visibleTabs(staff_permissions)`; 4 tab admin-only cứng vẫn gác `isAdmin` lúc render + requireAdmin ở API. NV1–NV7 + R3/R3b/R3c hành vi không đổi. -->
 <!-- re-verified: 2026-10-02 11:10 — TẠO TÀI KHOẢN KHÔNG HẠ VAI (thêm luật R3c): `POST /api/admin/accounts` đọc vai cũ, ghi `roleAfterCreate` (lib/admin.ts, có test) = vai cao hơn; hạ vai chỉ qua set-role (checkSetRole/checkDemoteAdmin không đổi). requireAdmin cho tạo nhân sự + requirePermission("tai-khoan","create") cho tạo khách giữ nguyên. Án lệ 2026-09-30: tạo khách cấp premium trên SĐT đã có tài khoản đã ghi đè role thành customer. -->
@@ -168,6 +168,7 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 | R9 | **Thu hồi chuỗi** khi: xoá tài khoản · đặt lại mật khẩu · đổi vai · đổi loại · admin bấm "Đăng xuất mọi máy" | thu hồi hỏng khi xoá ⇒ 503, KHÔNG xoá (xoá mà chuỗi còn sống thì máy vẫn qua cửa) |
 | R11 | **ADMIN TỔNG** (chủ dự án chốt 2026-10-02): một tài khoản đăng nhập bằng tên (hàng owner trong `staff_accounts`, 0057 — trước đó env `OWNER_LOGIN`), CHỈ người này nâng/hạ/tạo/xoá quản trị viên; quản trị viên quản lý vai Quản lý. Web không hạ/xoá được admin tổng. Mật khẩu ≥12 ký tự do chủ dự án tự gõ qua script (không bao giờ `admin/admin`); phiên 12 giờ | chưa có admin tổng ⇒ luật cũ (mọi admin quản lý admin); có admin tổng ⇒ hạ quản trị viên DB cuối cùng KHÔNG còn bị chặn `last_admin` |
 | R10 | Webhook SDWork **không đặt lại mật khẩu tài khoản nhân sự**; script test chỉ cấp cho tài khoản loại test, không bao giờ cho nhân sự, có ghi nhật ký | tra vai hỏng ⇒ coi là nhân sự (không đặt lại) |
+| R12 | **ĐẶT LẠI MẬT KHẨU** (2026-10-06, ADR 0008): admin luôn được; quản lý chỉ khi admin tick **cờ riêng `resetPassword`** (tab Phân quyền, mặc định tắt) và chỉ trên **khách của mình** (cùng cửa R3: cấm nhân sự, cấm chính mình). Khách ⇒ `sd123456` (một nguồn `DEFAULT_CUSTOMER_PASSWORD`, cũng là ô điền sẵn khi tạo khách), nhân sự ⇒ ngẫu nhiên; app nhắc đổi (có "để sau"); thu hồi chuỗi (R9); ghi 2 nhật ký với vai thật người bấm | tra vai đối tượng hỏng ⇒ coi là nhân sự (ra mật khẩu ngẫu nhiên); quản lý không cờ ⇒ 403 `no_permission`; khách người khác ⇒ 403 `not_your_customer` |
 
 ## 10. Assumptions & Open decisions (elicitation)
 **Giả định an toàn đã chọn (fail-closed):**
@@ -249,6 +250,7 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 ---
 
 ## History
+- 2026-10-06 — **R12 đặt lại mật khẩu** (ADR 0008): quyền tick riêng từng quản lý (chỉ khách mình), khách về `sd123456`, nhân sự ngẫu nhiên; ô mật khẩu khi tạo khách điền sẵn `sd123456`. Không migration (cờ trong jsonb 0056).
 - 2026-07-30 — Tạo từ hội thoại team (Long/Nam/Hòa). Chốt ranh giới SDFish vận hành vs SDWork quản trị tiền; scope IN/OUT; NV1–NV8; AC-1..10.
 - 2026-07-30 — Chốt D1 (đại lý 1 khu "Khách của tôi", scoped), D2 (staff cũng 1-máy — R6), D3 (webhook SDWork→SDFish, tái dùng inbound). +AC-10.
 - 2026-07-30 — **BUILD đợt 1**: NV2 (2 cờ chăm khách premium_used/contacted, migration 0025, chip bấm đổi ở /quan-tri) + NV6 scope đại lý (GET accounts lọc theo premium_grants.granted_by, PATCH set_flag chặn khách người khác). AC-1/2/8 có mã.
