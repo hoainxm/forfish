@@ -32,6 +32,7 @@ import { DocPhotoStrip } from "@/components/document-photos";
 import { deleteDocPhoto } from "@/lib/doc-photos";
 import { useTodayVN } from "@/lib/use-today";
 import { useBoats } from "@/components/boat-switcher";
+import { DocReminderBell } from "@/components/doc-reminder-bell";
 
 // BoatDocument lives in @/lib/documents (shared, not edited). We attach a boat
 // dimension here without touching that file: the localStorage shape is freeform
@@ -219,6 +220,11 @@ export function DocumentVault() {
           </button>
         )}
       </div>
+
+      {/* Mời bật chuông nhắc hạn — chỉ khi có giấy có hạn, chưa bật, có sóng */}
+      {!readFailed && (
+        <DocReminderBell hasExpiring={sorted.some((d) => Boolean(d.expiresOn))} />
+      )}
 
       {readFailed && (
         <div className="mb-4 overflow-hidden surface">

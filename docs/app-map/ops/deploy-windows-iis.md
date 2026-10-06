@@ -258,6 +258,7 @@ THẲNG prod:
 | `/api/collect/sea-daily` | GET | `50 23 * * *` (sau Vercel cũ 23:30 ⇒ số mô hình cá mới ghi sau, thắng) |
 | `/api/cron/snapshot-prices` | GET | `20 3 * * 6` |
 | `/api/cron/trace-payments` | **POST** | `10 * * * *` — **lần bật đầu tiên**: Vercel Cron gọi GET ⇒ 405, việc này CHƯA từng chạy |
+| `/api/cron/notify-docs` | GET | `0 0 * * *` (07:00 giờ VN) — nhắc hạn giấy tờ qua thông báo điện thoại (2026-10-06); chỉ prod, không có ở Vercel |
 
 ⚠️ **ĐIỀU KIỆN BẮT BUỘC — đo 2026-10-05 prod CHƯA có `CRON_SECRET`** (`/api/collect/sea-daily`
 trả `not_configured`; `app_config.cron_secret` trong DB cũng trống). Chưa đặt thì MỌI cron

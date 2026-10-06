@@ -13,6 +13,9 @@
 #       chạy lần nào. Ở đây gọi POST ⇒ đây là lần BẬT ĐẦU TIÊN. Bảng payments
 #       2026-10-05 đang 0 dòng. Prod thiếu SDWORK_TRACE_URL/SDWORK_WEBHOOK_SECRET
 #       thì route tự bỏ qua (`skipped: not_configured`), không lỗi.
+#   · /api/cron/notify-docs      GET  — NHẮC HẠN GIẤY TỜ qua thông báo điện
+#       thoại (2026-10-06), 07:00 giờ VN. KHÔNG có ở vercel.json — chỉ prod.
+#       Chạy hai lần cùng ngày không sao: sổ khử trùng là push_messages.
 #
 # CHẠY HAI LẦN CÓ SAO KHÔNG: không. Cả ba upsert theo khoá (sea_daily
 # collected_on,port_id,date · fish_forecast_daily collected_on,lat,lon ·
@@ -42,12 +45,13 @@ on:
     - cron: "50 23 * * *" # sea-daily        — Vercel cũ 23:30, đây chạy sau
     - cron: "20 3 * * 6" # snapshot-prices  — Vercel cũ thứ Bảy 03:00
     - cron: "10 * * * *" # trace-payments   — mỗi giờ (theo ops/self-host-vps §7b); Vercel cũ 01:00 gọi GET ⇒ 405
+    - cron: "0 0 * * *" # notify-docs      — 07:00 giờ VN, nhắc hạn giấy tờ (bà con dậy sớm, chưa ra khơi)
   workflow_dispatch:
     inputs:
       job:
         description: "Chạy tay việc nào"
         type: choice
-        options: [sea-daily, snapshot-prices, trace-payments]
+        options: [sea-daily, snapshot-prices, trace-payments, notify-docs]
         required: true
 
 permissions: {}
@@ -78,6 +82,7 @@ jobs:
             "50 23 * * *"|sea-daily)        P=/api/collect/sea-daily;    M=GET;  T=330 ;;
             "20 3 * * 6"|snapshot-prices)   P=/api/cron/snapshot-prices; M=GET;  T=90  ;;
             "10 * * * *"|trace-payments)     P=/api/cron/trace-payments;  M=POST; T=90  ;;
+            "0 0 * * *"|notify-docs)         P=/api/cron/notify-docs;     M=GET;  T=150 ;;
             *) echo "::error::Không rõ việc nào: '$WHICH'"; exit 1 ;;
           esac
           u="${BASE_URL%/}$P"

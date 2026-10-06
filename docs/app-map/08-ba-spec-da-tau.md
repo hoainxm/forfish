@@ -108,7 +108,7 @@ ttl_days: 90
 
 ### Flow NV5 — Nhắc việc theo tàu · owner: hệ thống
 - **Start**: chủ mở app
-- **Input**: hồ sơ cố định mọi tàu (quá hạn/tới hạn) + hàng SDVICO (bảo hành/cước) đã gán tàu
+- **Input**: hồ sơ cố định mọi tàu (quá hạn/tới hạn) + hàng SDVICO (bảo hành/cước) đã gán tàu. **2026-10-06**: thêm kênh THÔNG BÁO ĐIỆN THOẠI cho hạn giấy tờ + bảo hiểm/chứng chỉ thuyền viên (cron máy chủ đọc bản đồng bộ, 07 §12 ngoại lệ tầng 3) — cùng luật nhãn tàu (AC-8)
 - **Steps**: gom việc cần làm của TẤT CẢ tàu → mỗi việc gắn nhãn tàu của nó
 - **Output**: danh sách việc gộp đa-tàu, mỗi việc nêu rõ thuộc tàu nào; món "chưa gán" hiện không nhãn (của chung)
 - **End**: chủ thấy đúng việc nào của tàu nào
@@ -186,6 +186,12 @@ ttl_days: 90
 - **Then** mỗi việc nêu rõ thuộc tàu nào; việc của T2 nhắc kèm nhãn T2; món chưa-gán không nhãn tàu
 - **Assert**: mỗi urgent item có `boatLabel == boat(record)`; item SDVICO `boatId==T2` → nhãn T2; `shownCount == tổng việc của mọi tàu`
 
+### AC-8 — Thông báo nhắc hạn nói rõ tàu nào · Maps to: NV5 · Test: unit (2026-10-06)
+- **Given** chủ có ≥2 tàu; giấy của T2 còn 15 ngày hết hạn và đã đồng bộ lên máy chủ
+- **When** lượt nhắc hạn buổi sáng chạy
+- **Then** chủ nhận ĐÚNG MỘT thông báo trong ngày, dòng giấy đó mở đầu bằng tên T2; lượt kế cùng ngày/cùng mốc KHÔNG gửi lại
+- **Assert**: `expiringItemsOf(...)[i].label.startsWith(name(T2)+":")` && `dueReminders(items, sentKeys∪{key}, today).length==0` (`doc-reminders.test.ts`)
+
 > Mỗi AC: atomic · testable · map 1 flow · không từ UI. Flow mới (NV1–NV5) → mặc định E2E trừ AC-3/AC-5 logic thuần.
 
 ## 11. Assumptions / Open
@@ -200,6 +206,7 @@ ttl_days: 90
 
 ## History
 - v1 (2026-06-15): khởi tạo từ nhu cầu "đa tàu — hồ sơ cố định/động" của chủ tàu; 4 quyết định chốt qua elicitation; transfer-chủ OUT scope.
+- 2026-10-06: NV1 thêm 19 ô theo giấy tàu (cố định theo tàu); NV5 thêm kênh thông báo điện thoại + AC-8. Phân loại R1/R2 không đổi (CCCD/chứng chỉ thuyền trưởng vẫn ở sổ thuyền viên).
 
 <!-- re-verified: 2026-06-15 — build 5/5 XONG: AC-6 (lib/sdvico-assign.ts store + SdvicoAssignPrompt "Đồ này của tàu nào?" trên /tau Sản phẩm; verify unit, e2e cần SDVICO login) + AC-7 (urgent-strip gắn nhãn tàu mỗi việc, gộp mọi tàu, chưa-gán=của chung). TOÀN BỘ AC-1..7 đã hiện thực. -->
 - build 1/5 (2026-06-15): AC-4 + AC-3-guard hiện thực (boat-store).

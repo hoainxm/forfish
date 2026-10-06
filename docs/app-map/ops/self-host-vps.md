@@ -156,9 +156,10 @@ Bản 2026-08-01 của mục này chỉ liệt **5** (đúng `vercel.json` lúc 
 | `/api/cron/notify-storms` | GET | `5 * * * *` | GH Actions |
 | `/api/collect/sea-daily` | GET | `30 23 * * *` | vercel.json (bản Vercel cũ) + `cron-prod.yml` cho prod IIS (2026-10-05) |
 | `/api/cron/snapshot-prices` | GET | `0 3 * * 6` | vercel.json (bản Vercel cũ) + `cron-prod.yml` cho prod IIS |
+| `/api/cron/notify-docs` | GET | `0 0 * * *` (07:00 VN) | `cron-prod.yml` (2026-10-06) — NHẮC HẠN GIẤY TỜ qua Web Push; KHÔNG ở vercel.json. Chạy 2 lần/ngày không sao (sổ khử trùng `push_messages sent_by='system:docs'`) |
 | `/api/cron/trace-payments` | **POST** | `10 * * * *` | ⚠️ **CHƯA TỪNG CHẠY tới 2026-10-05**: từng nằm trong vercel.json nhưng Vercel Cron gọi **GET** ⇒ 405 (đo thật). Đã gỡ khỏi vercel.json; nay `cron-prod.yml` gọi POST (cổng `cron-routes.test.ts` khoá lỗi này) |
 
-Cả 8 cùng một cổng: `Authorization: Bearer $CRON_SECRET`. **Thiếu `CRON_SECRET` là 401 chứ không phải mở cửa** — fail-closed, đúng ý.
+Cả 9 cùng một cổng: `Authorization: Bearer $CRON_SECRET`. **Thiếu `CRON_SECRET` là 401 chứ không phải mở cửa** — fail-closed, đúng ý.
 
 ⚠️ **Hai cron BÃO phải giữ nhịp 1 GIỜ**, đừng thưa hơn: cổng nhịp `TOI_THIEU_PHUT` = 55 phút trong `lib/storm-scan.ts` (ADR 0005). Gõ thưa hơn thì mức "bão áp bờ" tự tụt xuống 2 giờ/lần. Và **đừng đưa hai cái này về `vercel.json`** — Hobby chỉ cho 1 lần/ngày, một dòng `*/30` ở đó từng chặn đứng deploy 7 tiếng mà bảng Deployments không báo lỗi gì (ADR 0006).
 

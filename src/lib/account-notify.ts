@@ -31,11 +31,15 @@ export async function notifyAccount(
     pushOs?: boolean;
     /** gom thông báo cùng việc trên máy (vd `don-<orderId>`) */
     tag?: string;
+    /** true = ghi hộp thư HỎNG thì KHÔNG đẩy (dòng hộp thư là sổ khử trùng của
+     *  cron nhắc hạn — đẩy mà không có sổ ⇒ sáng mai đẩy lại cùng tin) */
+    onlyIfRecorded?: boolean;
   },
-): Promise<void> {
+): Promise<NotifyResult> {
+  const none: NotifyResult = { recorded: false, devices: 0, sent: 0 };
   try {
     const target = normalizeVnPhone(phone);
-    if (!target) return;
+    if (!target) return none;
     const pushOs = msg.pushOs !== false;
 
     const { data: subs } = await admin
@@ -60,8 +64,11 @@ export async function notifyAccount(
       .select("id")
       .maybeSingle();
     const messageId = (rec as { id: string } | null)?.id ?? null;
+    const recorded = messageId !== null;
+    if (msg.onlyIfRecorded && !recorded) return none;
 
-    if (!pushOs || rows.length === 0 || !(await isPushConfigured())) return;
+    if (!pushOs || rows.length === 0 || !(await isPushConfigured()))
+      return { recorded, devices: rows.length, sent: 0 };
 
     const { sent, goneIds } = await sendPushMany(
       rows.map((r) => ({
@@ -83,7 +90,19 @@ export async function notifyAccount(
       await admin.from("push_subscriptions").delete().in("id", goneIds);
     if (messageId)
       await admin.from("push_messages").update({ sent }).eq("id", messageId);
+    return { recorded, devices: rows.length, sent };
   } catch {
     // thông báo là phụ — đơn đã đổi trạng thái xong rồi, nuốt lỗi ở đây
+    return none;
   }
+}
+
+/** Kết quả gửi — caller cũ bỏ qua được; cron nhắc hạn dùng để đếm. */
+export interface NotifyResult {
+  /** đã ghi được dòng hộp thư (push_messages) */
+  recorded: boolean;
+  /** số máy của tài khoản đã bật thông báo */
+  devices: number;
+  /** số máy đẩy tới được */
+  sent: number;
 }
