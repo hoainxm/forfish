@@ -1,7 +1,22 @@
 # SPEC — Đồng bộ sổ per-máy lên server (cross-device) + ảnh giấy tờ
 
-> **Trạng thái**: **P1 + P2 + P3 ĐÃ CODE** (2026-08-26) — chờ apply migration `0050` + `0051` (bucket) lên prod. P1: boats/maintenance/materials. P2: crew (CCCD) + documents metadata + privacy policy. P3: ẢNH giấy tờ (Storage bucket private + nén client + capture UI; v1 cần sóng, nợ hàng đợi offline). ⚠️ Phần Storage/ảnh (P3) là subsystem MỚI — **cần kiểm trên Supabase thật + máy thật** (không test được ở web-dev). tsc/test(2168)/build xanh. Nguồn: user báo "nhập ở ĐT, đăng nhập PC không thấy". Điều tra kết luận KHÔNG phải bug — là thiết kế per-máy. User chốt: **đồng bộ HẾT (cả CCCD + ảnh giấy tờ)**, **giấy tờ có ảnh**, **viết plan trước**.
+> **Trạng thái (cập nhật 2026-10-06)**: **ĐANG CHẠY ở prod** — `user_docs` + bucket `user-docs` đã có ở `znzgugvfhgmiszqgjulk` (đo chỉ đọc 2026-10-06). Thiết kế §3–4 dưới đây (cột `rev`/`baseRev`/409, `PUT /api/me/sync/:kind`, `useSyncedList`) là BẢN ĐỀ XUẤT BAN ĐẦU; mã thật dùng `client_updated_at` + `PUT /api/me/sync` + `markLocalWrite`/`syncAll` — nguồn đúng là [04 §ĐỒNG BỘ SỔ](../app-map/04-data-model.md) và mục "Gộp theo mục" ngay dưới.
+> 
+> Dòng trạng thái cũ (giữ làm lịch sử): **Trạng thái**: **P1 + P2 + P3 ĐÃ CODE** (2026-08-26) — chờ apply migration `0050` + `0051` (bucket) lên prod. P1: boats/maintenance/materials. P2: crew (CCCD) + documents metadata + privacy policy. P3: ẢNH giấy tờ (Storage bucket private + nén client + capture UI; v1 cần sóng, nợ hàng đợi offline). ⚠️ Phần Storage/ảnh (P3) là subsystem MỚI — **cần kiểm trên Supabase thật + máy thật** (không test được ở web-dev). tsc/test(2168)/build xanh. Nguồn: user báo "nhập ở ĐT, đăng nhập PC không thấy". Điều tra kết luận KHÔNG phải bug — là thiết kế per-máy. User chốt: **đồng bộ HẾT (cả CCCD + ảnh giấy tờ)**, **giấy tờ có ảnh**, **viết plan trước**.
 
+
+## Gộp theo mục + chủ sổ — vá 2026-10-06 ("đăng nhập máy khác không thấy")
+
+User: *"mỗi tài khoản lưu trữ và quản lý hồ sơ tàu của họ, đăng nhập ở thiết bị khác vẫn xem được, hiện tại thì không"*. Tính năng ĐÃ CÓ; đo prod (chỉ đọc) ra 4 lỗ:
+
+| # | Lỗ | Vá |
+|---|---|---|
+| 1 | LWW **nguyên cuốn**: máy ghi sau đè cả cuốn ⇒ tàu/giấy tạo ở máy kia mất (prod: giấy trỏ vào tàu server chưa từng thấy) | PUT kèm `baseIds` ⇒ server gộp 3 chiều theo `id` (`mergeById`): thêm/xoá của cả hai máy đều giữ; trùng mục ⇒ bên ghi sau thắng; không biết base ⇒ HỢP, không suy ra xoá. App cũ không gửi `baseIds` ⇒ luật cũ |
+| 2 | Seed chỉ khi mốc = 0 ⇒ cuốn `boats` từng ghi mà chưa lên server thì không bao giờ lên (prod: 2 chủ tàu có giấy, không có tàu) | Server chưa có dòng ⇒ đẩy, bất kể mốc |
+| 3 | Mục trỏ vào tàu không còn ⇒ không tàu nào nhận ⇒ ẩn ở mọi máy | `showsUnderBoat`: tàu không còn ⇒ hiện ở tàu đang xem |
+| 4 | Máy bị đá (giữ dữ liệu) rồi tài khoản KHÁC đăng nhập ⇒ thấy sổ người trước, sổ dirty bị đẩy vào tài khoản mới | GET trả `phone`; máy ghi `_owner`; khác người ⇒ dọn sổ + mốc rồi kéo đúng; đẩy lẻ cũng dừng |
+
+Nợ còn lại: hai máy sửa CÙNG MỘT mục lúc mất sóng ⇒ bên ghi sau thắng nguyên mục (chưa gộp từng trường). Ảnh giấy tờ vẫn cần sóng để thêm/xem.
 
 ## Hai lỗ làm việc ĐÃ XOÁ sống lại — vá 2026-09-01
 

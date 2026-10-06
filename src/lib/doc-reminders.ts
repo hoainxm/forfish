@@ -27,6 +27,7 @@
 import { daysUntil } from "@/lib/days";
 import { formatVnDate } from "@/lib/format";
 import { kindLabel, type DocumentKind } from "@/lib/documents";
+import { isDeleted } from "@/lib/sync-tombstone";
 
 export const DOC_PUSH_SENT_BY = "system:docs";
 export const DOC_PUSH_TAG = "giay-to";
@@ -131,9 +132,16 @@ export function docPushMessage(due: DueReminder[]): { title: string; body: strin
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const str = (v: unknown): string | undefined =>
   typeof v === "string" && v.trim() ? v.trim() : undefined;
+/*  BỎ MỤC ĐÃ XOÁ (vá 2026-10-06, cùng ngày): server GIỮ bản ghi bà con đã xoá,
+    chỉ gắn `_deleted` (lib/sync-tombstone — máy không bao giờ thấy lại). Đọc
+    thẳng `user_docs` mà không lọc là nhắc hạn cả giấy đã xoá, thuyền viên đã
+    cho nghỉ, đặt tên theo tàu đã bán. */
 const asArray = (v: unknown): Record<string, unknown>[] =>
   Array.isArray(v)
-    ? v.filter((x): x is Record<string, unknown> => !!x && typeof x === "object")
+    ? v.filter(
+        (x): x is Record<string, unknown> =>
+          !!x && typeof x === "object" && !isDeleted(x),
+      )
     : [];
 
 /**

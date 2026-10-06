@@ -5,16 +5,25 @@
 // Bảng user_docs (0050) RLS đóng hẳn: client ẩn danh không đọc được của ai.
 //
 // GET  = kéo MỌI kind của SĐT đang đăng nhập.
-// PUT  = ghi 1 kind (body {kind, data, clientUpdatedAt}); LAST-WRITE-WINS: server
-//        có bản mới hơn (client_updated_at lớn hơn) → KHÔNG đè, trả stale + bản
-//        server để client nhận về.
+// PUT  = ghi 1 kind (body {kind, data, clientUpdatedAt, baseIds?}).
+//        · CÓ `baseIds` (máy đời 2026-10-06+): GỘP 3 CHIỀU THEO `id`
+//          (`mergeById`, lib/user-sync-core) — máy thêm/xoá gì, máy khác
+//          thêm/xoá gì đều giữ; mục có ở cả hai thì bên GHI SAU thắng. Trả
+//          `server` = cuốn đã gộp + mốc mới để máy nhận về.
+//        · KHÔNG có `baseIds` (bản app cũ còn ngoài biển): giữ LAST-WRITE-WINS
+//          nguyên cuốn như trước — server mới hơn thì trả stale.
 //
 // ⚠️ KHÔNG cache ở service worker (gắn danh tính, dữ liệu riêng tư).
 import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeVnPhone } from "@/lib/phone";
-import { invalidPut, type SyncKind } from "@/lib/user-sync-core";
+import {
+  invalidPut,
+  isValidBaseIds,
+  mergeById,
+  type SyncKind,
+} from "@/lib/user-sync-core";
 
 import { keepDeleted, stripDeleted } from "@/lib/sync-tombstone";
 
@@ -46,7 +55,11 @@ export async function GET(req: Request) {
       clientUpdatedAt: r.client_updated_at,
     }),
   );
-  return NextResponse.json({ ok: true, items });
+  // `phone` = chủ của các cuốn này (chính người đang gọi). Máy so với chủ của
+  // sổ đang nằm trong máy: khác người ⇒ sổ trong máy là của tài khoản TRƯỚC
+  // (máy bị đá rồi người khác đăng nhập) ⇒ dọn trước khi kéo/đẩy. Không lộ gì
+  // thêm: người gọi vốn biết SĐT của chính mình.
+  return NextResponse.json({ ok: true, phone, items });
 }
 
 export async function PUT(req: Request) {
@@ -58,9 +71,12 @@ export async function PUT(req: Request) {
     kind?: SyncKind;
     data?: unknown;
     clientUpdatedAt?: number;
+    baseIds?: unknown;
   } | null;
   const bad = invalidPut(body);
   if (bad) return err(400, bad);
+  const hasBase = !!body && "baseIds" in body;
+  if (hasBase && !isValidBaseIds(body!.baseIds)) return err(400, "bad_base");
   const { kind, data, clientUpdatedAt } = body as {
     kind: SyncKind;
     data: unknown;
@@ -78,6 +94,47 @@ export async function PUT(req: Request) {
     .eq("kind", kind)
     .maybeSingle();
   if (readErr) return err(500, "query_failed");
+
+  /*  GỘP THEO MỤC (máy mới gửi `baseIds`). Cuốn không phải mảng mục có `id`
+      ⇒ mergeById trả null ⇒ rơi xuống luật cũ bên dưới. */
+  if (hasBase && cur) {
+    const curAt = Number(cur.client_updated_at) || 0;
+    const merged = mergeById(
+      cur.data,
+      data,
+      (body!.baseIds as string[] | null) ?? null,
+      clientUpdatedAt >= curAt,
+    );
+    if (merged) {
+      const serverLive = stripDeleted(cur.data);
+      // Gộp xong y hệt server ⇒ không ghi, chỉ trả về để máy nhận cho khớp.
+      if (JSON.stringify(merged) === JSON.stringify(serverLive)) {
+        return NextResponse.json({
+          ok: true,
+          server: { kind, data: serverLive, clientUpdatedAt: curAt },
+        });
+      }
+      // Mốc mới PHẢI lớn hơn mốc server: máy khác so `server > mốc của mình`
+      // để biết có bản mới mà kéo về.
+      const newAt = Math.max(clientUpdatedAt, curAt + 1);
+      const { error } = await admin.from(TABLE).upsert(
+        {
+          owner_phone: phone,
+          kind,
+          data: keepDeleted(cur.data, merged, new Date().toISOString()),
+          client_updated_at: newAt,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "owner_phone,kind" },
+      );
+      if (error) return err(500, "write_failed");
+      return NextResponse.json({
+        ok: true,
+        merged: true,
+        server: { kind, data: merged, clientUpdatedAt: newAt },
+      });
+    }
+  }
 
   if (cur && cur.client_updated_at > clientUpdatedAt) {
     return NextResponse.json({

@@ -15,6 +15,7 @@ import { getExpiryStatus } from "@/lib/documents";
 import { getServiceDueStatus } from "@/lib/owned-assets";
 import { useSdvicoAssets } from "@/lib/use-sdvico-assets";
 import { useBoats } from "@/lib/boat-store";
+import { showsUnderBoat } from "@/lib/boats";
 import { useTodayVN } from "@/lib/use-today";
 
 /*
@@ -32,7 +33,7 @@ import { useTodayVN } from "@/lib/use-today";
 */
 export function TauTabs() {
   const { assets } = useSdvicoAssets();
-  const { current, ready: boatReady } = useBoats();
+  const { current, boats, ready: boatReady } = useBoats();
   const { today, todayIso } = useTodayVN();
   const [tab, setTab] = useState("giay-to");
   const [docsBadge, setDocsBadge] = useState(false);
@@ -42,8 +43,9 @@ export function TauTabs() {
   // của tàu đang chọn, cùng luật với DocumentVault/MaintenanceReminders).
   useEffect(() => {
     if (!boatReady) return;
+    const known = new Set(boats.map((b) => b.id));
     const ofBoat = <T extends { boatId?: string }>(x: T) =>
-      x.boatId === current?.id || x.boatId == null;
+      showsUnderBoat(x.boatId, current?.id, known);
 
     const d = loadDocs();
     setDocsBadge(
@@ -64,7 +66,7 @@ export function TauTabs() {
     );
     // đọc lại khi đổi tab (vừa sửa xong trong tab), đổi tàu, đổi ngày
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, current?.id, todayIso, boatReady]);
+  }, [tab, current?.id, todayIso, boatReady, boats]);
 
   const sdvicoOverdue = useMemo(() => {
     if (!assets) return false;

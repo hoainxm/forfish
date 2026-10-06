@@ -19,6 +19,7 @@ import { formatVnDate } from "@/lib/format";
 import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { readUserList } from "@/lib/user-list-store";
 import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
+import { showsUnderBoat } from "@/lib/boats";
 import {
   SOON_DAYS_SERVICE,
   addDaysIso,
@@ -175,10 +176,10 @@ export function MaintenanceReminders() {
 
   // Only this boat's entries. Legacy entries with no boatId belong to the
   // current boat for back-compat.
-  const boatEntries = useMemo(
-    () => entries.filter((e) => e.boatId === current?.id || e.boatId == null),
-    [entries, current],
-  );
+  const boatEntries = useMemo(() => {
+    const known = boatReady ? new Set(boats.map((b) => b.id)) : null;
+    return entries.filter((e) => showsUnderBoat(e.boatId, current?.id, known));
+  }, [entries, current, boats, boatReady]);
 
   const sorted = useMemo(
     () =>

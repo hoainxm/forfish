@@ -20,7 +20,10 @@
 // không phải tai nạn.
 
 import { authedFetch } from "@/lib/device-token-store";
-import { SYNC_KINDS, type SyncKind } from "@/lib/user-sync-core";
+import { clearUserScopedData } from "@/lib/auth-scope";
+import { offlineIdentityPhone } from "@/lib/offline-identity";
+import { normalizeVnPhone } from "@/lib/phone";
+import { liveIds, SYNC_KINDS, type SyncKind } from "@/lib/user-sync-core";
 
 /** kind → khoá localStorage (giữ NGUYÊN khoá hiện có, không dời dữ liệu). */
 const KEY: Record<SyncKind, string> = {
@@ -50,8 +53,13 @@ export const USER_SYNC_EVENT = "forfish:usersync";
 interface Meta {
   at: number; // mốc ghi client gần nhất (ms)
   dirty: boolean; // có sửa chưa đẩy được không
+  /** BASE của gộp 3 chiều (2026-10-06): id các mục máy thấy ở lần đồng bộ
+   *  gần nhất (nhận về hoặc đẩy lên xong). Vắng = chưa biết (máy đời cũ). */
+  ids?: string[];
 }
-type MetaMap = Partial<Record<SyncKind, Meta>>;
+/** `_owner` = SĐT CHỦ của các cuốn đang nằm trong máy (2026-10-06). Khác người
+ *  đang đăng nhập ⇒ sổ trong máy là của tài khoản trước ⇒ dọn, không đẩy. */
+type MetaMap = Partial<Record<SyncKind, Meta>> & { _owner?: string };
 
 /*  ── SỔ BOOKKEEPING GIỮ TRONG BỘ NHỚ, localStorage CHỈ LÀ BẢN LƯU ──────────
     Sửa 2026-09-01 (chủ dự án: *"t xoá việc đó rồi thì có lý do gì nó hiện lại
@@ -182,12 +190,55 @@ function emitSync(kind: SyncKind): void {
 
 function adoptServer(kind: SyncKind, data: unknown, at: number): void {
   writeRaw(kind, JSON.stringify(data));
-  setMeta(kind, { at, dirty: false });
+  setMeta(kind, { at, dirty: false, ids: liveIds(data) ?? undefined });
   emitSync(kind);
+}
+
+/** SĐT chuẩn hoá, rỗng ⇒ null (so người cho đúng một khuôn với server). */
+function phoneKey(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const p = normalizeVnPhone(raw);
+  return p.length >= 10 ? p : null;
+}
+
+function setOwner(phone: string): void {
+  const m = readMeta();
+  m._owner = phone;
+  try {
+    window.localStorage.setItem(META_KEY, JSON.stringify(m));
+  } catch {
+    /* bản bộ nhớ đã đúng cho phiên này */
+  }
+}
+
+/**
+ * SỔ TRONG MÁY LÀ CỦA NGƯỜI KHÁC? (2026-10-06)
+ *
+ * Đường thật: máy A của chủ X bị đá (X đăng nhập máy B) — nhánh "bị đá" CỐ Ý
+ * giữ dữ liệu để dùng ngoài biển. Rồi tài khoản Y đăng nhập máy A. Trước đây
+ * không ai dọn: Y thấy tàu + giấy tờ + CCCD thuyền viên của X, và nếu sổ của X
+ * còn "dirty" thì `syncAll` ĐẨY sổ của X vào tài khoản Y. Nay: chủ sổ khác
+ * người server vừa xác nhận ⇒ xoá sổ chủ tàu trong máy + sổ mốc, rồi kéo đúng
+ * của Y. Chỉ chạy khi SERVER trả SĐT (có sóng, đã đăng nhập) — mất sóng không
+ * bao giờ dọn.
+ */
+function switchOwnerIfNeeded(serverPhone: string): void {
+  const owner = readMeta()._owner;
+  if (owner && owner !== serverPhone) {
+    clearUserScopedData();
+    clearSyncMeta();
+    for (const k of ACTIVE) emitSync(k); // màn đang mở về trống ngay
+  }
+  if (readMeta()._owner !== serverPhone) setOwner(serverPhone);
 }
 
 /** Đẩy 1 sổ lên server. Giữ dirty nếu mất sóng/lỗi để lần sau thử lại. */
 async function pushKind(kind: SyncKind): Promise<void> {
+  /*  KHÔNG ĐẨY SỔ CỦA NGƯỜI KHÁC: chủ sổ trong máy khác người đang dùng máy
+      ⇒ thôi, để `syncAll` (có server xác nhận) dọn rồi kéo đúng sổ. */
+  const owner = readMeta()._owner;
+  const me = phoneKey(offlineIdentityPhone());
+  if (owner && me && owner !== me) return;
   const raw = readRaw(kind);
   if (raw == null) return;
   let data: unknown;
@@ -200,17 +251,29 @@ async function pushKind(kind: SyncKind): Promise<void> {
   const { res } = await authedFetch("/api/me/sync", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ kind, data, clientUpdatedAt: at }),
+    // baseIds: null = chưa biết base ⇒ server gộp kiểu HỢP (không suy ra xoá)
+    body: JSON.stringify({
+      kind,
+      data,
+      clientUpdatedAt: at,
+      baseIds: metaOf(kind).ids ?? null,
+    }),
   });
   if (!res || !res.ok) return; // mất sóng / 401 / 5xx → giữ dirty
   const j = (await res.json().catch(() => null)) as {
     stale?: boolean;
+    merged?: boolean;
     server?: { data: unknown; clientUpdatedAt: number };
   } | null;
-  if (j?.stale && j.server) {
-    adoptServer(kind, j.server.data, j.server.clientUpdatedAt); // server mới hơn
+  if (j?.server) {
+    /*  Server trả cuốn ĐÃ GỘP (hoặc bản mới hơn — server đời cũ). Chỉ nhận về
+        khi máy KHÔNG ghi thêm gì trong lúc chờ: có ghi thêm thì lượt đẩy của
+        lần ghi đó đang đi, server sẽ gộp tiếp — nhận bây giờ là đè mất nó. */
+    if (metaOf(kind).at === at) {
+      adoptServer(kind, j.server.data, j.server.clientUpdatedAt);
+    }
   } else {
-    setMeta(kind, { dirty: false });
+    setMeta(kind, { dirty: false, ids: liveIds(data) ?? undefined });
   }
 }
 
@@ -229,9 +292,13 @@ export async function syncAll(): Promise<void> {
   if (res && res.ok) {
     const j = (await res.json().catch(() => null)) as {
       ok?: boolean;
+      phone?: string;
       items?: { kind: SyncKind; data: unknown; clientUpdatedAt: number }[];
     } | null;
-    if (j?.ok && Array.isArray(j.items)) {
+    if (!j?.ok) return; // trả lời lạ ⇒ chưa đụng gì, lần sau thử lại
+    const serverPhone = phoneKey(j.phone);
+    if (serverPhone) switchOwnerIfNeeded(serverPhone);
+    if (Array.isArray(j.items)) {
       for (const it of j.items) {
         if (!ACTIVE.includes(it.kind)) continue;
         seen.add(it.kind);
@@ -244,18 +311,27 @@ export async function syncAll(): Promise<void> {
             bản của máy lên, và nếu server thật sự mới hơn thì `pushKind` nhận
             câu trả lời `stale` rồi mới nhận về — lúc đó máy đã đẩy xong nên
             không còn gì để mất. */
-        if (it.clientUpdatedAt > metaOf(it.kind).at && !metaOf(it.kind).dirty) {
+        const m = metaOf(it.kind);
+        if (it.clientUpdatedAt > m.at && !m.dirty) {
           adoptServer(it.kind, it.data, it.clientUpdatedAt); // server mới hơn → nhận
+        } else if (!m.dirty && m.ids === undefined) {
+          // máy đời cũ, sổ đã khớp server: lấy cuốn server làm BASE cho lần gộp sau
+          const ids = liveIds(it.data);
+          if (ids) setMeta(it.kind, { ids });
         }
       }
     }
   } else {
     return; // mất sóng khi kéo → chưa làm gì, lần sau thử lại (KHÔNG mất dữ liệu)
   }
-  // Đẩy sổ dirty; và SEED sổ có sẵn mà server chưa có (data cũ trước khi bật sync).
+  /*  Đẩy sổ dirty; và SEED MỌI sổ có dữ liệu mà server CHƯA CÓ DÒNG nào.
+      Đổi 2026-10-06: bản cũ chỉ seed khi mốc = 0. Đo prod: 2 chủ tàu có giấy
+      tờ trên server mà KHÔNG có dòng "tàu" — mốc tàu ≠ 0 (đã từng ghi) nhưng
+      chưa lên được ⇒ không bao giờ seed lại ⇒ đăng nhập máy khác không có tàu,
+      giấy gắn tàu bị ẩn. Server chưa có dòng nghĩa là không có gì để mất. */
   for (const kind of ACTIVE) {
-    if (!seen.has(kind) && hasLocalData(kind) && metaOf(kind).at === 0) {
-      setMeta(kind, { at: Date.now(), dirty: true });
+    if (!seen.has(kind) && hasLocalData(kind)) {
+      setMeta(kind, { at: metaOf(kind).at || Date.now(), dirty: true });
     }
     if (metaOf(kind).dirty) await pushKind(kind);
   }

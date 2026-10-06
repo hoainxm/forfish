@@ -141,6 +141,7 @@ ttl_days: 90
 | R5 | Đổi tàu đang xem → mọi màn phản ánh tàu đó ngay, không cần reload/đổi tab | nguồn: bug triage 2026-06-15 |
 | R6 | Nhắc việc gộp mọi tàu, mỗi việc nhãn rõ tàu; hàng SDVICO chưa gán → của chung (không nhãn) | — |
 | R7 | Luôn còn ≥1 tàu — chặn xóa tàu cuối | — |
+| R8 | **Hồ sơ theo TÀI KHOẢN, không theo máy** (2026-10-06): đăng nhập máy khác thấy đủ tàu + hồ sơ cố định + thuyền viên (đồng bộ `user_docs` theo SĐT, gộp theo mục). Mục cố định trỏ vào tàu KHÔNG còn trong danh sách ⇒ hiện ở tàu đang xem (không được "biến mất") | hai máy cùng thêm/xoá ⇒ giữ đủ; cùng sửa MỘT mục ⇒ bên ghi sau thắng; sổ trong máy của tài khoản trước ⇒ dọn khi server xác nhận người mới |
 
 ## 10. Acceptance Criteria — ORACLE
 
@@ -186,6 +187,12 @@ ttl_days: 90
 - **Then** mỗi việc nêu rõ thuộc tàu nào; việc của T2 nhắc kèm nhãn T2; món chưa-gán không nhãn tàu
 - **Assert**: mỗi urgent item có `boatLabel == boat(record)`; item SDVICO `boatId==T2` → nhãn T2; `shownCount == tổng việc của mọi tàu`
 
+### AC-9 — Đăng nhập máy khác thấy đủ hồ sơ · Maps to: NV1/NV3 · Test: unit (2026-10-06)
+- **Given** tài khoản có tàu T1 + giấy tờ của T1 đã lên server từ máy A; máy B trống
+- **When** đăng nhập máy B (có sóng)
+- **Then** B có T1 và giấy tờ của T1; máy A thêm tàu T2 trong khi B thêm giấy cho T1 ⇒ cả hai thay đổi đều còn sau khi hai máy đồng bộ
+- **Assert**: `user-sync-account.test.ts` (máy trống nhận đủ, `_owner` khác ⇒ dọn + không PUT sổ người trước, seed tàu khi server chưa có dòng) && `user-sync-merge.test.ts` (`mergeById` giữ thêm/xoá hai phía)
+
 ### AC-8 — Thông báo nhắc hạn nói rõ tàu nào · Maps to: NV5 · Test: unit (2026-10-06)
 - **Given** chủ có ≥2 tàu; giấy của T2 còn 15 ngày hết hạn và đã đồng bộ lên máy chủ
 - **When** lượt nhắc hạn buổi sáng chạy
@@ -206,6 +213,7 @@ ttl_days: 90
 
 ## History
 - v1 (2026-06-15): khởi tạo từ nhu cầu "đa tàu — hồ sơ cố định/động" của chủ tàu; 4 quyết định chốt qua elicitation; transfer-chủ OUT scope.
+- 2026-10-06b: R8 + AC-9 — hồ sơ theo tài khoản (gộp theo mục, chủ sổ, seed khi server chưa có, mục mồ côi hiện ở tàu đang xem).
 - 2026-10-06: NV1 thêm 19 ô theo giấy tàu (cố định theo tàu); NV5 thêm kênh thông báo điện thoại + AC-8. Phân loại R1/R2 không đổi (CCCD/chứng chỉ thuyền trưởng vẫn ở sổ thuyền viên).
 
 <!-- re-verified: 2026-06-15 — build 5/5 XONG: AC-6 (lib/sdvico-assign.ts store + SdvicoAssignPrompt "Đồ này của tàu nào?" trên /tau Sản phẩm; verify unit, e2e cần SDVICO login) + AC-7 (urgent-strip gắn nhãn tàu mỗi việc, gộp mọi tàu, chưa-gán=của chung). TOÀN BỘ AC-1..7 đã hiện thực. -->

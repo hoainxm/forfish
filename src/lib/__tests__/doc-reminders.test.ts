@@ -147,3 +147,24 @@ describe("expiringItemsOf — đọc bản đồng bộ, không tin shape", () =
     expect(expiringItemsOf({ documents: {}, crew: "x", boats: 3 })).toEqual([]);
   });
 });
+
+describe("bỏ mục ĐÃ XOÁ (server giữ bản xoá có cờ _deleted)", () => {
+  it("giấy / thuyền viên / tàu đã xoá không sinh nhắc, không đặt tên", () => {
+    const items = expiringItemsOf({
+      documents: [
+        { id: "d1", label: "Giấy phép", boatId: "b2", expiresOn: "2026-06-10", _deleted: true },
+        { id: "d2", label: "Đăng kiểm", boatId: "b2", expiresOn: "2026-06-10" },
+      ],
+      crew: [
+        { id: "c1", name: "Anh Tư", hasInsurance: true, insuranceExpiry: "2026-06-01", _deleted: true },
+      ],
+      boats: [
+        { id: "b1", name: "Tàu A" },
+        { id: "b2", name: "Tàu B" },
+        { id: "b3", name: "Tàu cũ đã bán", _deleted: true },
+      ],
+    });
+    expect(items.map((i) => i.ref)).toEqual(["doc:d2"]);
+    expect(items[0].label).toBe("Tàu B: Đăng kiểm"); // vẫn 2 tàu sống ⇒ kèm tên
+  });
+});

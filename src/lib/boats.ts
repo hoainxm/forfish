@@ -193,3 +193,27 @@ export function saveCurrentBoatId(id: string) {
     /* ignore */
   }
 }
+
+/**
+ * Mục (giấy tờ · bảo dưỡng · đồ đã mua) có HIỆN dưới tàu đang xem không.
+ *
+ * Luật cũ: `boatId === tàu đang xem || boatId == null`. Lỗ (đo prod 2026-10-06):
+ * mục trỏ vào một tàu KHÔNG CÒN trong danh sách — tàu tạo ở máy khác mà cuốn
+ * "tàu" chưa lên server, hay bị máy kia đè mất — thì KHÔNG tàu nào nhận nó:
+ * đăng nhập máy mới là giấy tờ "biến mất" dù vẫn nằm nguyên trong sổ.
+ *
+ * Nay: tàu của mục không còn ⇒ coi như CHƯA GẮN TÀU (hiện ở tàu đang xem, như
+ * giấy đời cũ chưa có boatId). Sửa → Lưu một lần là mục tự gắn lại tàu đang xem.
+ *
+ * @param knownBoatIds id các tàu đã nạp; `null` = danh sách tàu CHƯA NẠP xong ⇒
+ *   chưa dám gọi là "mồ côi" (tránh chớp cả sổ của mọi tàu lúc mở màn).
+ */
+export function showsUnderBoat(
+  itemBoatId: string | null | undefined,
+  currentId: string | null | undefined,
+  knownBoatIds: ReadonlySet<string> | null,
+): boolean {
+  if (itemBoatId == null || itemBoatId === "") return true;
+  if (itemBoatId === currentId) return true;
+  return knownBoatIds !== null && !knownBoatIds.has(itemBoatId);
+}

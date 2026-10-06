@@ -32,6 +32,7 @@ import { DocPhotoStrip } from "@/components/document-photos";
 import { deleteDocPhoto } from "@/lib/doc-photos";
 import { useTodayVN } from "@/lib/use-today";
 import { useBoats } from "@/components/boat-switcher";
+import { showsUnderBoat } from "@/lib/boats";
 import { DocReminderBell } from "@/components/doc-reminder-bell";
 
 // BoatDocument lives in @/lib/documents (shared, not edited). We attach a boat
@@ -160,12 +161,12 @@ export function DocumentVault() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boats.length]);
 
-  // Only this boat's documents. Legacy items with no boatId belong to the
-  // current boat for back-compat.
-  const boatDocs = useMemo(
-    () => docs.filter((d) => d.boatId === current?.id || d.boatId == null),
-    [docs, current],
-  );
+  // Only this boat's documents. Legacy items with no boatId — và mục trỏ vào
+  // tàu không còn trong danh sách (showsUnderBoat) — thuộc tàu đang xem.
+  const boatDocs = useMemo(() => {
+    const known = boatReady ? new Set(boats.map((b) => b.id)) : null;
+    return docs.filter((d) => showsUnderBoat(d.boatId, current?.id, known));
+  }, [docs, current, boats, boatReady]);
 
   const sorted = useMemo(
     () => [...boatDocs].sort(byUrgency(today)),

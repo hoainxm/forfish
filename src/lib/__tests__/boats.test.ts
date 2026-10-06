@@ -8,6 +8,7 @@ import {
   parseBoatNumber,
   parseBuiltYear,
   saveBoats,
+  showsUnderBoat,
   loadCurrentBoatId,
   saveCurrentBoatId,
   type Boat,
@@ -119,5 +120,25 @@ describe("kwToCv / formatBoatNumber / countPaperFields", () => {
       JSON.stringify([{ id: "b1", name: "Cũ", maTau: "BV-1", lengthM: 12 }]),
     );
     expect(loadBoats()).toEqual([{ id: "b1", name: "Cũ", maTau: "BV-1", lengthM: 12 }]);
+  });
+});
+
+describe("showsUnderBoat — mục trỏ vào tàu KHÔNG CÒN không được biến mất", () => {
+  const known = new Set(["b1", "b2"]);
+  it("đúng tàu đang xem / chưa gắn tàu ⇒ hiện", () => {
+    expect(showsUnderBoat("b1", "b1", known)).toBe(true);
+    expect(showsUnderBoat(undefined, "b1", known)).toBe(true);
+    expect(showsUnderBoat(null, null, known)).toBe(true);
+  });
+  it("của tàu KHÁC còn tồn tại ⇒ không hiện ở tàu này", () => {
+    expect(showsUnderBoat("b2", "b1", known)).toBe(false);
+  });
+  it("tàu của mục không còn trong danh sách ⇒ hiện ở tàu đang xem", () => {
+    expect(showsUnderBoat("b9", "b1", known)).toBe(true);
+    // máy mới chưa có tàu nào ⇒ giấy vẫn hiện, không trống trơn
+    expect(showsUnderBoat("b9", undefined, new Set())).toBe(true);
+  });
+  it("danh sách tàu CHƯA NẠP xong ⇒ chưa gọi là mồ côi", () => {
+    expect(showsUnderBoat("b9", "b1", null)).toBe(false);
   });
 });

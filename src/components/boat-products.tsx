@@ -31,6 +31,7 @@ import { formatVnDate } from "@/lib/format";
 import { readUserList, type UserListRead } from "@/lib/user-list-store";
 import { saveUserJson, storageFullCopy } from "@/lib/user-store";
 import { markLocalWrite, USER_SYNC_EVENT } from "@/lib/user-sync";
+import { showsUnderBoat } from "@/lib/boats";
 import { useTodayVN } from "@/lib/use-today";
 import {
   BoatProduct,
@@ -85,7 +86,7 @@ function saveProducts(products: BoatProduct[]): boolean {
 
 export function BoatProducts() {
   const { today } = useTodayVN();
-  const { current, boats } = useBoats();
+  const { current, boats, ready: boatReady } = useBoats();
   const [products, setProducts] = useState<BoatProduct[]>([]);
   const [ready, setReady] = useState(false);
   /** máy KHÔNG ĐỌC ĐƯỢC danh sách đã lưu → không mở cửa ghi, và nói ra */
@@ -155,13 +156,10 @@ export function BoatProducts() {
   }, [boats.length]);
 
   // Chỉ hiện sản phẩm của tàu đang chọn (item chưa gắn tàu cũng hiện).
-  const forBoat = useMemo(
-    () =>
-      products.filter(
-        (p) => p.boatId === current?.id || p.boatId == null,
-      ),
-    [products, current?.id],
-  );
+  const forBoat = useMemo(() => {
+    const known = boatReady ? new Set(boats.map((b) => b.id)) : null;
+    return products.filter((p) => showsUnderBoat(p.boatId, current?.id, known));
+  }, [products, current?.id, boats, boatReady]);
 
   const sorted = useMemo(
     () => [...forBoat].sort(byWarrantyUrgency(today)),
