@@ -1,0 +1,27 @@
+# GitGuardian / ggshield — báo nhầm đã soát tay 2026-10-07 (18 incident mở, nguồn hoainxm/forfish).
+# Nguyên tắc: bỏ qua ĐÚNG file test hoặc ĐÚNG chuỗi giả, không bỏ cả thư mục —
+# một secret thật lỡ dán vào chỗ khác vẫn phải bị bắt.
+# KHÔNG thêm khoá VAPID cũ (incident 37807976) vào đây: đó là khoá thật đã lộ, không phải báo nhầm.
+version: 2
+
+secret:
+  ignored_paths:
+    # Fixture luật mật khẩu: chuỗi mẫu để kiểm tra mật khẩu yếu/mạnh, không phải tài khoản nào.
+    - "src/lib/__tests__/owner-account-script.test.ts" # 37808175 37808177 37808178 37808179 37809049 37809050 37809051
+    - "src/lib/__tests__/password.test.ts" # 37807974 37807975 37807977
+    - "src/lib/__tests__/temp-password.test.ts" # 37807978 — đầu ra sinh từ số giả (sd000042, sd234567)
+    # Payload webhook SDWork giả (matkhau123, abc123, new456...) chạy trên mock Supabase.
+    - "src/lib/__tests__/webhook-route.test.ts" # 37807979
+    - "src/lib/__tests__/sdwork-webhook.test.ts" # 37807981 37807982
+    - "src/lib/__tests__/sdwork-outbound.test.ts" # 37807981 (occurrence thứ 3)
+    # Self-test của chính cổng SEC: cố ý chứa secret GIẢ đủ loại (AIza, AKIA, ghp_...) để thử hook chặn.
+    # Bỏ cả file vì ghi chuỗi giả vào đây thì pre-commit lại chặn chính file này.
+    - ".githooks/pre-commit" # 37807973
+
+  ignored_matches:
+    # scripts/owner-account.mjs:32 — danh sách CHỐNG mật khẩu yếu (WEAK), không phải mật khẩu.
+    - name: owner-account WEAK deny-list (37808176)
+      match: matkhau
+    # scripts/capture-app-screens.mjs:13 — chữ giữ chỗ trong comment hướng dẫn .env.local.
+    - name: capture-app-screens placeholder (37807980)
+      match: matkhau-tai-khoan-test
