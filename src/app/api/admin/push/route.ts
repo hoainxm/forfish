@@ -237,7 +237,7 @@ export async function POST(req: Request) {
   // TTL 4 tuần nên tin hoàn toàn có thể nổ nhiều ngày sau (xem sw.js pushBodyVN)
   // TIN TAY KHÔNG CÓ `tag` (audit P2): mỗi tin admin gửi là một việc riêng,
   // không được đè lên nhau; chỉ bão/đơn hàng mới gom theo mã sự kiện.
-  const { sent, goneIds, failed } = await sendPushMany(
+  const { sent, goneIds, failed, failedByStatus } = await sendPushMany(
     rows.map((r) => ({
       id: r.id as string,
       endpoint: r.endpoint,
@@ -273,6 +273,9 @@ export async function POST(req: Request) {
     found: rows.length,
     sent,
     failed,
+    // hỏng THEO MÃ (2026-10-07): 403 hàng loạt = khoá VAPID lệch với khoá máy đã
+    // đăng ký — /quan-tri nói thẳng ra thay vì chỉ "lỗi N"
+    failedByStatus,
     cleaned: goneIds.length,
     // GIỜ KHUYA (22h–5h VN) KHÔNG CHẶN tin tay — admin tự quyết — nhưng báo để
     // màn /quan-tri nhắc "tin này sẽ đánh thức bà con". Bão tự động mới có luật

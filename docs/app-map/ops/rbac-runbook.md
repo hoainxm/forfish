@@ -72,6 +72,8 @@ Gỡ khỏi file không xoá được khỏi lịch sử git, nên phải coi nh
 | Mật khẩu khởi tạo admin chung | comment `0024_shared_admin.sql` | làm bước 4 ở trên; nếu chưa gỡ được ngay thì đặt lại mật khẩu số đó ở /quan-tri |
 | SĐT cá nhân của chủ dự án trong `ADMIN_PHONES` | `ops/self-host-vps.md` | không phải bí mật, nhưng đừng để số cá nhân làm admin hằng ngày — bước 6 |
 
+> **Backlog (hoãn 2026-10-07):** lưu dấu khoá VAPID (`vapid_pub_fp`) cho từng dòng `push_subscriptions` để lần đổi khoá biết chính xác máy nào còn dùng khoá cũ — cần migration. Nâng cấp khi >50 đăng ký hoặc TRƯỚC lần đổi khoá VAPID kế tiếp. Hiện 403 chỉ được đếm (`failedByStatus`), không xoá.
+
 ## Kiểm nhanh sau mỗi đợt đổi quyền
 
 - Tài khoản quản lý: không thấy khách của người khác; bấm cấp premium cho chính mình → báo "Không thể thao tác trên chính tài khoản của bạn".

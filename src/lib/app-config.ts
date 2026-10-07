@@ -134,6 +134,22 @@ export async function setConfigValue(
   return !error;
 }
 
+/** Lưu NHIỀU khoá trong MỘT lệnh upsert — cả cặp vào hoặc không khoá nào vào
+    (đổi cặp VAPID không được dừng giữa chừng ở trạng thái lệch cặp). */
+export async function setConfigValues(
+  rows: Array<{ key: ConfigKey; value: string }>,
+  who: string,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  if (!admin) return false;
+  const now = new Date().toISOString();
+  const { error } = await admin.from(TABLE).upsert(
+    rows.map((r) => ({ key: r.key, value: r.value ?? "", updated_by: who, updated_at: now })),
+  );
+  invalidateConfigCache();
+  return !error;
+}
+
 /** Trạng thái mọi khoá cho trang quản trị — che giá trị secret. */
 export async function configStatus(): Promise<ConfigStatusRow[]> {
   const map = await loadMap();

@@ -2,7 +2,8 @@
 
 > Load khi: task chạm /quan-tri (vận hành), phân quyền đại lý, trạng thái premium (đã dùng/đã liên hệ), thu tiền + trace tiền đồng bộ SDWork, audit hoạt động admin, luồng đăng nhập admin.
 covers: src/app/quan-tri, src/app/api/admin, src/lib/admin-auth.ts, src/lib/admin.ts
-last_verified: 2026-10-06
+last_verified: 2026-10-07
+<!-- re-verified: 2026-10-07 16:10 — THÔNG BÁO + CẶP VAPID: (1) Gửi thông báo (tab Thông báo): POST /api/admin/push trả thêm `failedByStatus`; màn nối "Lỗi theo mã — mã 403: N…", có 403 thì nói thẳng là khoá VAPID lệch. 403 KHÔNG thử lại, KHÔNG xoá đăng ký (dán nhầm khoá mà xoá theo 403 = mất sạch đăng ký). (2) Cấu hình ứng dụng: thêm lớp chặn thứ 4 — lưu ô VAPID lệch cặp với ô kia ⇒ 409 `vapid_pair_mismatch`, không ghi; đổi cả cặp = dán CẢ HAI ô rồi Lưu một ô (`pairValue`, hai ô một lệnh upsert). Phân quyền không đổi: app-config vẫn requireAdmin, push vẫn requirePermission("thong-bao"). R3/NV1–NV8 không đổi. -->
 <!-- re-verified: 2026-10-02 15:50 — RBAC: vai tách sang `staff_accounts` (0056), loại tài khoản real/test/demo/reviewer, R3 siết ở server cho grant/delete/set-flags/push riêng + tạo-khách-trên-SĐT-đã-có; R3b thêm nguồn DB `scope`; R6 sửa theo 0053 (admin nhiều máy, đã chốt 2026-08-31); thêm R7–R10. -->
 <!-- re-verified: 2026-10-02 12:00 — /quan-tri ĐIỀU HƯỚNG NHÓM (lib/admin-nav, chỉ XẾP chỗ): danh sách tab vẫn tính theo vai — admin đủ, quản lý `visibleTabs(staff_permissions)`; 4 tab admin-only cứng vẫn gác `isAdmin` lúc render + requireAdmin ở API. NV1–NV7 + R3/R3b/R3c hành vi không đổi. -->
 <!-- re-verified: 2026-10-02 11:10 — TẠO TÀI KHOẢN KHÔNG HẠ VAI (thêm luật R3c): `POST /api/admin/accounts` đọc vai cũ, ghi `roleAfterCreate` (lib/admin.ts, có test) = vai cao hơn; hạ vai chỉ qua set-role (checkSetRole/checkDemoteAdmin không đổi). requireAdmin cho tạo nhân sự + requirePermission("tai-khoan","create") cho tạo khách giữ nguyên. Án lệ 2026-09-30: tạo khách cấp premium trên SĐT đã có tài khoản đã ghi đè role thành customer. -->
@@ -251,6 +252,7 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 
 ## History
 - 2026-10-06 — **R12 đặt lại mật khẩu** (ADR 0008): quyền tick riêng từng quản lý (chỉ khách mình), khách về `sd123456`, nhân sự ngẫu nhiên; ô mật khẩu khi tạo khách điền sẵn `sd123456`. Không migration (cờ trong jsonb 0056).
+- 2026-10-07 — Gửi thông báo báo lỗi theo mã (403 = khoá VAPID lệch, không xoá đăng ký); Cấu hình ứng dụng chặn lưu cặp VAPID lệch (409), đổi cặp phải dán cả hai ô.
 - 2026-07-30 — Tạo từ hội thoại team (Long/Nam/Hòa). Chốt ranh giới SDFish vận hành vs SDWork quản trị tiền; scope IN/OUT; NV1–NV8; AC-1..10.
 - 2026-07-30 — Chốt D1 (đại lý 1 khu "Khách của tôi", scoped), D2 (staff cũng 1-máy — R6), D3 (webhook SDWork→SDFish, tái dùng inbound). +AC-10.
 - 2026-07-30 — **BUILD đợt 1**: NV2 (2 cờ chăm khách premium_used/contacted, migration 0025, chip bấm đổi ở /quan-tri) + NV6 scope đại lý (GET accounts lọc theo premium_grants.granted_by, PATCH set_flag chặn khách người khác). AC-1/2/8 có mã.

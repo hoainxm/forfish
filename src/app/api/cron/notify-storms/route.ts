@@ -88,7 +88,15 @@ export async function GET(req: Request) {
     authKey: r.auth_key as string,
   }));
 
-  const pushed: { key: string; reason: string; devices: number; sent: number; failed: number }[] = [];
+  const pushed: {
+    key: string;
+    reason: string;
+    devices: number;
+    sent: number;
+    failed: number;
+    /** hỏng theo mã (403 = khoá VAPID lệch) — đọc trong log GitHub Actions */
+    failedByStatus?: Record<string, number>;
+  }[] = [];
   const goneAll = new Set<string>();
   for (const p of plans) {
     // GHI HỘP THƯ TRƯỚC (0023): id đi kèm payload để máy báo về; và chính dòng
@@ -119,7 +127,7 @@ export async function GET(req: Request) {
     }
     // chỉ đẩy tới máy còn sống sau các cơn trước trong cùng lượt
     const live = rows.filter((r) => !goneAll.has(r.id));
-    const { sent, goneIds, failed } = await sendPushMany(live, {
+    const { sent, goneIds, failed, failedByStatus } = await sendPushMany(live, {
       title: p.title,
       body: p.body,
       url: p.url,
@@ -129,7 +137,7 @@ export async function GET(req: Request) {
     });
     for (const id of goneIds) goneAll.add(id);
     await admin.from("push_messages").update({ sent }).eq("id", messageId);
-    pushed.push({ key: p.key, reason: p.reason, devices: live.length, sent, failed });
+    pushed.push({ key: p.key, reason: p.reason, devices: live.length, sent, failed, failedByStatus });
   }
   if (goneAll.size > 0) {
     await admin.from("push_subscriptions").delete().in("id", [...goneAll]);

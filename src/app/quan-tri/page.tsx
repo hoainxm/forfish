@@ -118,6 +118,7 @@ import {
   type ProductDetail,
 } from "@/lib/product-catalog";
 import { validateConfigValue, type ConfigKey } from "@/lib/app-config-keys";
+import { describePushFailures } from "@/lib/push-delivery";
 
 type Tab = AdminTab;
 
@@ -4803,6 +4804,7 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
       found?: number;
       sent?: number;
       failed?: number;
+      failedByStatus?: Record<string, number>;
       cleaned?: number;
     } | null;
     if (!r?.ok || !j?.ok) {
@@ -4828,7 +4830,8 @@ function PushNotificationsTab({ perms }: { perms: TabPerms }) {
       return;
     }
     setResult(
-      `Đã gửi tới ${j.sent}/${j.found} thiết bị${j.failed ? ` · lỗi ${j.failed}` : ""}${j.cleaned ? ` · dọn ${j.cleaned} đăng ký chết` : ""}.`,
+      `Đã gửi tới ${j.sent}/${j.found} thiết bị${j.failed ? ` · lỗi ${j.failed}` : ""}${j.cleaned ? ` · dọn ${j.cleaned} đăng ký chết` : ""}.` +
+        (j.failed ? ` ${describePushFailures(j.failedByStatus)}` : ""),
     );
     setTitle("");
     setBody("");
@@ -5494,18 +5497,31 @@ function AppConfigCard() {
   async function save(key: string) {
     const value = drafts[key] ?? "";
     if (!value.trim()) return;
+    /*  CẶP VAPID (2026-10-07): server chặn khoá công khai lệch khoá bí mật (409).
+        Đổi cả cặp = dán CẢ HAI ô rồi Lưu một ô — ô kia đi kèm làm `pairValue`,
+        server ghi hai khoá trong một lệnh. */
+    const pairKey =
+      key === "vapid_public_key" ? "vapid_private_key" : key === "vapid_private_key" ? "vapid_public_key" : null;
+    const pairValue = pairKey ? (drafts[pairKey] ?? "").trim() : "";
     setConfirm(null);
     setBusy(key);
     setSaved(null);
+    setError(null);
     try {
       const r = await fetch(apiUrl("/api/admin/app-config"), {
         method: "PATCH",
         headers: { "content-type": "application/json", ...tokenHeader() },
-        body: JSON.stringify({ key, value }),
+        body: JSON.stringify(pairValue ? { key, value, pairValue } : { key, value }),
       });
-      const j = (await r.json()) as { ok: boolean };
+      const j = (await r.json()) as { ok: boolean; code?: string };
+      if (j.code === "vapid_pair_mismatch") {
+        setError(
+          "Khoá công khai và khoá bí mật VAPID không cùng một cặp — chưa lưu gì. Muốn đổi cặp khoá: dán CẢ HAI ô (lấy từ cùng một lần tạo khoá) rồi bấm Lưu ở một ô.",
+        );
+        return;
+      }
       if (!j.ok) throw new Error();
-      setDrafts((d) => ({ ...d, [key]: "" }));
+      setDrafts((d) => ({ ...d, [key]: "", ...(pairValue && pairKey ? { [pairKey]: "" } : {}) }));
       setSaved(key);
       load();
     } catch {
