@@ -27,3 +27,56 @@ describe("urlBase64ToUint8Array", () => {
     expect(bytes.length).toBe(5);
   });
 });
+
+import { decideRekey, sameServerKey } from "@/lib/push-client";
+
+describe("sameServerKey — đăng ký có dùng đúng khoá server không", () => {
+  const key = "BA7gxuKUApzkQIdGEDwnTC"; // base64url bất kỳ, đủ để so byte
+  const bytes = (s: string) => urlBase64ToUint8Array(s).buffer as ArrayBuffer;
+
+  it("trùng byte → true; khác → false", () => {
+    expect(sameServerKey(bytes(key), key)).toBe(true);
+    expect(sameServerKey(bytes("ZZ7gxuKUApzkQIdGEDwnTC"), key)).toBe(false);
+    expect(sameServerKey(bytes("BA7g"), key)).toBe(false); // khác độ dài
+  });
+
+  it("trình duyệt cũ không cho biết khoá (null) → null = KHÔNG BIẾT, không phải lệch", () => {
+    expect(sameServerKey(null, key)).toBeNull();
+    expect(sameServerKey(undefined, key)).toBeNull();
+  });
+
+  it("khoá server sai dạng → null, không ném", () => {
+    expect(sameServerKey(bytes(key), "%%%không-phải-base64%%%")).toBeNull();
+  });
+});
+
+describe("decideRekey", () => {
+  const base = {
+    permission: "granted" as const,
+    hasSubscription: true,
+    pending: false,
+    serverKey: true,
+    keyMatch: true as boolean | null,
+  };
+
+  it("khoá lệch chắc chắn → rotate", () => {
+    expect(decideRekey({ ...base, keyMatch: false })).toBe("rotate");
+  });
+
+  it("khoá khớp / không biết → keep (trình duyệt cũ giữ nguyên)", () => {
+    expect(decideRekey(base)).toBe("keep");
+    expect(decideRekey({ ...base, keyMatch: null })).toBe("keep");
+  });
+
+  it("chưa cấp quyền / không hỏi được khoá (mất sóng) → keep", () => {
+    expect(decideRekey({ ...base, keyMatch: false, permission: "default" })).toBe("keep");
+    expect(decideRekey({ ...base, keyMatch: false, permission: "denied" })).toBe("keep");
+    expect(decideRekey({ ...base, keyMatch: false, permission: "unsupported" })).toBe("keep");
+    expect(decideRekey({ ...base, keyMatch: false, serverKey: false })).toBe("keep");
+  });
+
+  it("không có đăng ký: có dấu đổi dở → resubscribe; không dấu (tự tắt) → keep", () => {
+    expect(decideRekey({ ...base, hasSubscription: false, pending: true, keyMatch: null })).toBe("resubscribe");
+    expect(decideRekey({ ...base, hasSubscription: false, pending: false, keyMatch: null })).toBe("keep");
+  });
+});
