@@ -9,6 +9,14 @@ import "server-only";
 
 import webpush from "web-push";
 import { getVapidConfig } from "@/lib/app-config";
+import {
+  deliverWithRetry,
+  tallyFanout,
+  type FanoutTally,
+  type SendPushResult,
+} from "@/lib/push-delivery";
+
+export type { SendPushResult } from "@/lib/push-delivery";
 
 export interface PushPayload {
   title: string;
@@ -34,19 +42,18 @@ export async function isPushConfigured(): Promise<boolean> {
   return (await getVapidConfig()) !== null;
 }
 
-/** Thử lại MỘT lần sau ngần này khi lỗi không phải endpoint chết (audit P11) */
+/** Thử lại MỘT lần sau ngần này khi lỗi tạm (audit P11) */
 const RETRY_DELAY_MS = 2000;
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
-export type SendPushResult = { ok: boolean; gone?: boolean; unconfigured?: boolean };
 
 /**
  * Gửi 1 thông báo. Trả `gone:true` khi endpoint đã chết (404/410) — caller
  * nên xóa subscription đó khỏi DB (dọn rác tự nhiên, không cần cron riêng).
  * `unconfigured:true` nếu chưa có đủ khoá VAPID.
  *
- * LỖI KHÁC 404/410 (5xx của Apple/Google, mạng chớp) → chờ 2s thử lại đúng MỘT
- * lần trong cùng request rồi mới đếm là hỏng — có trần, không vòng lặp.
+ * Lỗi TẠM (5xx, 429, mạng chớp) → chờ 2s thử lại đúng MỘT lần. 4xx khác (403
+ * khoá VAPID lệch…) → KHÔNG thử lại, KHÔNG xoá, trả `status` để đếm theo mã.
+ * Luật nằm ở lib/push-delivery.ts (thuần, có test).
  */
 export async function sendPush(
   target: PushTarget,
@@ -55,42 +62,39 @@ export async function sendPush(
   const vapid = await getVapidConfig();
   if (!vapid) return { ok: false, unconfigured: true };
   webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
-  const once = async (): Promise<SendPushResult> => {
-    try {
-      await webpush.sendNotification(
-        {
-          endpoint: target.endpoint,
-          keys: { p256dh: target.p256dh, auth: target.authKey },
-        },
-        JSON.stringify(payload),
-      );
-      return { ok: true };
-    } catch (e) {
-      const status = (e as { statusCode?: number })?.statusCode;
-      return { ok: false, gone: status === 404 || status === 410 };
-    }
-  };
-  const first = await once();
-  if (first.ok || first.gone) return first;
-  await sleep(RETRY_DELAY_MS);
-  return once();
+  return deliverWithRetry(
+    async () => {
+      try {
+        await webpush.sendNotification(
+          {
+            endpoint: target.endpoint,
+            keys: { p256dh: target.p256dh, auth: target.authKey },
+          },
+          JSON.stringify(payload),
+        );
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, status: (e as { statusCode?: number })?.statusCode };
+      }
+    },
+    () => sleep(RETRY_DELAY_MS),
+  );
 }
 
 export type PushFanoutRow = PushTarget & { id: string };
 
 /**
  * Gửi cùng một payload tới NHIỀU máy, song song. Trả số gửi được, id các hàng
- * đã chết (caller xoá khỏi push_subscriptions) và số hỏng thật. Một chỗ cho ba
- * đường gửi (tay / đơn hàng / bão) — luật đếm sent/gone/failed không chép ba bản.
+ * đã chết (caller xoá khỏi push_subscriptions), số hỏng thật và số hỏng THEO MÃ
+ * (403 = khoá VAPID lệch…). Một chỗ cho ba đường gửi (tay / đơn hàng / bão) —
+ * luật đếm không chép ba bản.
  */
 export async function sendPushMany(
   rows: PushFanoutRow[],
   payload: PushPayload,
-): Promise<{ sent: number; goneIds: string[]; failed: number }> {
+): Promise<FanoutTally> {
   const results = await Promise.all(
     rows.map((r) => sendPush(r, payload).then((res) => ({ id: r.id, ...res }))),
   );
-  const sent = results.filter((r) => r.ok).length;
-  const goneIds = results.filter((r) => !r.ok && r.gone).map((r) => r.id);
-  return { sent, goneIds, failed: results.length - sent - goneIds.length };
+  return tallyFanout(results);
 }

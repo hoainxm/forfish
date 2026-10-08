@@ -61,6 +61,8 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
     subscription?: PushSubscriptionInput;
     userAgent?: string;
+    /** endpoint CŨ khi máy vừa đăng ký lại vì khoá VAPID đổi (2026-10-07) */
+    oldEndpoint?: string;
   } | null;
   const invalid = validatePushSubscription(body?.subscription);
   if (invalid) return err(400, "invalid_subscription");
@@ -85,6 +87,19 @@ export async function POST(req: Request) {
     .from("push_subscriptions")
     .upsert(row, { onConflict: "endpoint" });
   if (error) return err(500, "insert_failed");
+
+  /*  ĐỔI KHOÁ VAPID (2026-10-07): máy vừa hủy đăng ký cũ + đăng ký bằng khoá mới
+      gửi kèm endpoint CŨ ⇒ xoá dòng cũ (đăng ký mới ĐÃ lưu ở trên — thứ tự này
+      để không bao giờ mất cả hai). Cùng luật chủ hàng như DELETE (`ownedRow`):
+      chỉ hàng chưa gắn ai hoặc của chính tài khoản đang đăng nhập. Xoá hỏng /
+      không được phép thì BỎ QUA — dòng cũ sẽ tự dọn khi gửi gặp 404/410. */
+  const old = typeof body?.oldEndpoint === "string" ? body.oldEndpoint : "";
+  if (old && old !== sub.endpoint && old.length <= 2048) {
+    const own = await ownedRow(admin, old, account);
+    if (!("res" in own) && own.exists && own.allowed) {
+      await admin.from("push_subscriptions").delete().eq("endpoint", old);
+    }
+  }
   return NextResponse.json({ ok: true, attached: !!account });
 }
 
