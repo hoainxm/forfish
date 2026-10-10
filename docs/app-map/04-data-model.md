@@ -18,6 +18,18 @@ ttl_days: 180
 ---
 
 <!-- 0052 (đổi số từ 0038 base khi sync — 0038 đã là data_until_web ở sdvico) — `vms_zones.is_border` -->
+### 0058 — KHO LƯU TRỮ DỰ BÁO THEO NGÀY — migration [`0058_forecast_archive.sql`](../../supabase/migrations/0058_forecast_archive.sql) (2026-10-10) — ✅ **ĐÃ APPLY prod 2026-10-10** (chủ dự án duyệt "chạy đi"; soi sau apply: bucket `public=false`, 0 policy trên `storage.objects` cho bucket này, advisor không cảnh báo mới)
+
+- Bucket Storage **riêng tư** `forecast-archive` (`public=false`, KHÔNG policy anon/authenticated — chỉ service-role, như `user-docs` 0051). Không bảng mới.
+- Vì sao: `weather_snapshot`/`fish_forecast_snapshot` GHI ĐÈ mỗi ngày; `fish_forecast_daily` (0005) chỉ giữ ô ≥ 60, `sea_daily` chỉ 10 điểm cảng ⇒ lưới thời tiết đầy đủ, bản đồ cá đủ ô và lưới ĐẦU VÀO mô hình cá mất sau 24 h, không fit/kiểm định lại được trên đúng bản production (kiểm định DataLake 2026-10-10 phải dựng lại payload, thiếu HYCOM/Copernicus).
+- Nội dung (file `.json.gz`, đường dẫn `<loại>/<YYYY>/<YYYY-MM-DD>/<tên>.json.gz` — `lib/forecast-archive.ts` `archivePath`, `:` trong id ⇒ `_`):
+  - `weather/…/<id snapshot>` — MỌI hàng `weather_snapshot` (lưới gió/sóng d3·d16, `scalar:*`, `curdepth:*`, `salinity:*`, `seascalar:*`, `sea:<cảng>`, cả hàng thô `raw:*`), ghi bởi cron `/api/collect/archive`.
+  - `fish/…/<id hàng>` — MỌI hàng `fish_forecast_snapshot` (payload đủ ô, đủ loài), cùng cron.
+  - `fish-inputs/…/<trường>` — lưới đầu vào `computeFishForecast` (sst, chl, sla, anom, currents, hycom, sstFine, chlFine; bỏ bathy vì tĩnh) kèm `saved`/`targetDate`, ghi bởi `/api/cron/refresh-fish` mỗi lần tính được.
+- Mỗi ngày đúng một bản mỗi file (upsert — lượt sau trong ngày đè lượt trước). Không route nào đọc kho cho app; đọc bằng script offline. Không có thông tin cá nhân.
+- Dung lượng ước tính vài MB/ngày (~1–2 GB/năm) — vượt hạn mức Storage gói Free (1 GB) sau khoảng nửa năm; khi chật thì gộp/xoá theo năm, chưa đặt tự xoá.
+- Apply trước hay sau deploy code đều an toàn: thiếu bucket thì `putArchive` trả lỗi trong `parts`/`archive` của response cron, snapshot vẫn ghi bình thường.
+
 ### 0057 — ADMIN TỔNG TRONG DB — migration [`0057_staff_owner.sql`](../../supabase/migrations/0057_staff_owner.sql) (2026-10-02) — ✅ **ĐÃ APPLY prod 2026-10-02** (chủ dự án duyệt; soi sau apply: đúng 1 hàng `admin`/`owner` còn hiệu lực)
 
 - `staff_accounts.role` mở thêm `owner` (check `owner|admin|manager`); index unique `staff_accounts_one_owner_idx` trên `(role) where role='owner'` ⇒ **một** admin tổng.

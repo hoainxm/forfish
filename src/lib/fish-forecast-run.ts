@@ -295,7 +295,14 @@ const REQUIRED_FIELDS = new Set(["sst", "chl"]);
  * cells/species/generatedAt/sources/dataQuality/targetDate/dateSkewDays), hoặc
  * `{ ok:false }` khi SST/phù du hết sạch nguồn.
  */
-export async function computeFishForecast(): Promise<FishForecastResult> {
+export async function computeFishForecast(opts?: {
+  /**
+   * Nhận các lưới ĐẦU VÀO đã dùng (theo trường: sst, chl, sla, anom, currents, hycom,
+   * sstFine, chlFine — bỏ bathy vì tĩnh) — cron lưu vào kho `forecast-archive` để sau này
+   * dựng lại/fit đúng bản production (2026-10-10). Không truyền = hành vi cũ.
+   */
+  onInputs?: (inputs: Record<string, Resolved<unknown>>) => void;
+}): Promise<FishForecastResult> {
   try {
     // Ngày hôm nay theo GIỜ VIỆT NAM — máy chủ Vercel chạy UTC, lấy đồng hồ máy
     // chủ sẽ lệch ngày (và lệch THÁNG mùa vụ) trong khoảng 00:00–07:00 giờ VN.
@@ -340,6 +347,11 @@ export async function computeFishForecast(): Promise<FishForecastResult> {
       sstFine: sstFineR,
       chlFine: chlFineR,
     };
+    if (opts?.onInputs) {
+      const inputs: Record<string, Resolved<unknown>> = {};
+      for (const [k, r] of Object.entries(fields)) if (r && k !== "bathy") inputs[k] = r;
+      opts.onInputs(inputs);
+    }
     const sources: Record<string, FieldProvenance> = {};
     const quality: QualityField[] = [];
     for (const [key, r] of Object.entries(fields)) {

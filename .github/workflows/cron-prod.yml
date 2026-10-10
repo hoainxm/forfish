@@ -7,6 +7,9 @@
 # Supabase DÙNG CHUNG. Workflow này gọi THẲNG prod, chạy code mới nhất.
 #
 #   · /api/collect/sea-daily     GET  — lịch sử biển 10 cảng + dự báo cá + bão
+#   · /api/collect/archive       GET  — lưu trữ theo ngày (2026-10-10): chép mọi lưới thời
+#       tiết + bản đồ cá đủ ô vào Storage `forecast-archive` (migration 0058) — hai bảng
+#       snapshot ghi đè mỗi ngày. Đặt sau refresh-fish/refresh-weather (02:00/02:30 UTC).
 #   · /api/cron/snapshot-prices  GET  — tích luỹ lịch sử giá VASEP (thứ Bảy)
 #   · /api/cron/trace-payments   POST — bắn MÃ CK sang SDWork đối soát (NV4).
 #       ⚠️ Route này CHỈ có POST, mà Vercel Cron gọi GET ⇒ 405 ⇒ trước nay CHƯA
@@ -17,7 +20,7 @@
 #       thoại (2026-10-06), 07:00 giờ VN. KHÔNG có ở vercel.json — chỉ prod.
 #       Chạy hai lần cùng ngày không sao: sổ khử trùng là push_messages.
 #
-# CHẠY HAI LẦN CÓ SAO KHÔNG: không. Cả ba upsert theo khoá (sea_daily
+# CHẠY HAI LẦN CÓ SAO KHÔNG: không. archive ghi đè đúng file của ngày; các việc còn lại upsert theo khoá (sea_daily
 # collected_on,port_id,date · fish_forecast_daily collected_on,lat,lon ·
 # storm_events collected_on,storm_id · price_history week_end,species_id);
 # trace-payments chỉ lấy dòng traced_at IS NULL rồi đánh dấu. Lịch ở đây đặt
@@ -43,6 +46,7 @@ name: cron-prod
 on:
   schedule:
     - cron: "50 23 * * *" # sea-daily        — Vercel cũ 23:30, đây chạy sau
+    - cron: "35 3 * * *" # archive          — Vercel cũ 03:15
     - cron: "20 3 * * 6" # snapshot-prices  — Vercel cũ thứ Bảy 03:00
     - cron: "10 * * * *" # trace-payments   — mỗi giờ (theo ops/self-host-vps §7b); Vercel cũ 01:00 gọi GET ⇒ 405
     - cron: "0 0 * * *" # notify-docs      — 07:00 giờ VN, nhắc hạn giấy tờ (bà con dậy sớm, chưa ra khơi)
@@ -51,7 +55,7 @@ on:
       job:
         description: "Chạy tay việc nào"
         type: choice
-        options: [sea-daily, snapshot-prices, trace-payments, notify-docs]
+        options: [sea-daily, archive, snapshot-prices, trace-payments, notify-docs]
         required: true
 
 permissions: {}
@@ -80,6 +84,7 @@ jobs:
           fi
           case "$WHICH" in
             "50 23 * * *"|sea-daily)        P=/api/collect/sea-daily;    M=GET;  T=330 ;;
+            "35 3 * * *"|archive)           P=/api/collect/archive;      M=GET;  T=330 ;;
             "20 3 * * 6"|snapshot-prices)   P=/api/cron/snapshot-prices; M=GET;  T=90  ;;
             "10 * * * *"|trace-payments)     P=/api/cron/trace-payments;  M=POST; T=90  ;;
             "0 0 * * *"|notify-docs)         P=/api/cron/notify-docs;     M=GET;  T=150 ;;

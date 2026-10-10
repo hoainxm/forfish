@@ -2,8 +2,8 @@
 
 > **Load khi**: muốn biết dự báo cá có **đúng chỗ tàu thật đi đánh** không (không chỉ "phân biệt được" nội bộ), khi chốt B1/B2 (AMM vs soft-OR vs weighted-sum) bằng số, khi cần dữ liệu vị trí tàu để đo, hoặc khi ai hỏi "giấy phép GFW có cản gì không".
 
-covers: scripts/fish-validate-positions.mjs, scripts/gfw-fetch-day.mjs
-last_verified: 2026-10-03
+covers: scripts/fish-validate-positions.mjs, scripts/gfw-fetch-day.mjs, scripts/dl-collect.mjs, scripts/dl-build-labels.mjs, scripts/dl-eval.mjs, scripts/dl-fit-profiles.mjs
+last_verified: 2026-10-10
 ttl_days: 180
 gate: warn
 
@@ -34,7 +34,10 @@ Bảng nghề → loài mặc định (`DEFAULT_GEAR_MAP` trong script, đè b�
 - Năm 2024 là **tạm** (GFW ghi "provisional", phân loại tàu có thể đổi). Bản mới hơn 2024: qua API 4Wings (`public-global-fishing-effort:latest`, cần token tại globalfishingwatch.org/our-apis/tokens, miễn phí **chỉ phi thương mại**, trần 50.000 request/ngày, 1,5 triệu/tháng, ≤ 5 token/người) — chưa làm, chưa cần.
 - Cột `hours` là giờ CÓ MẶT; script chỉ dùng `fishing_hours` (giờ bị mô hình GFW gán là đang đánh bắt). Giờ AIS **không phải sản lượng**: tàu đậu lâu ở chỗ ít cá cũng ra nhiều giờ.
 
-### 2b. Nguồn Việt Nam — chưa lấy được
+### 2b. Nguồn Việt Nam — DataLake thủy sản (LẤY ĐƯỢC từ 2026-10-10, xem §9)
+DataLake của Cục (bản thử, đường hầm trycloudflare đổi địa chỉ — hỏi đội DataLake qua cổng góp ý Giám sát MKN; khoá `DATALAKE_MCP_KEY` trong `.env.local` của repo IUU) có `logbooks` (nhật ký eCDT theo chuyến: sản lượng theo loài mã ASFIS, số mẻ, bốc dỡ có/không giám sát — **KHÔNG có toạ độ mẻ**, `fishingArea` trống 97 %), `trips` (giờ rời/cập), `vessels/{id}/track` (điểm VMS 1–2 h/điểm, ≤ 31 ngày/lần, lịch sử từ ~7/2026), `vessels` (nghề, chiều dài). Dùng để **huấn luyện** lớp cá (chủ dự án chốt 2026-10-10). API trả cả tên/SĐT chủ tàu — bộ tải BỎ ngay, dữ liệu ở `~/sdfish-data`, NGOÀI repo.
+
+### 2c. Nguồn Việt Nam cũ — mục ghi trước khi có DataLake
 - **VMS Cục Thuỷ sản** (~30.000 tàu ≥ 15 m, 97–100 % đã lắp theo báo chí 2024–2026): dữ liệu vận hành nhà nước, **không công khai**; GFW hỗ trợ VN từ 2019 nhưng không phát hành VMS VN. Đường đi: SDVICO xin qua Cục/Chi cục theo thoả thuận — việc kinh doanh, không phải việc code.
 - **Nhật ký khai thác điện tử / eCDT**: hệ truy xuất nguồn gốc của cơ quan quản lý, không có API công khai.
 - **Nhật ký chuyến trong app** (tự có, ít, nhưng là dữ liệu CÓ sản lượng): khi đủ vài trăm chuyến thì xuất CSV `lat,lon,hours,geartype,date` và chạy cùng script này — đó là nguồn duy nhất đo được "có cá" chứ không chỉ "có tàu".
@@ -109,3 +112,27 @@ Payload gốc: `--features base` trên worktree 11e3180; payload gộp: `--featu
 | mực xà (squid_jigger 56 h) | 0,00 | 0,00 | | |
 
 Đọc: mọi p hoán vị ngày 0,24–0,96 — 8 ngày KHÔNG phân biệt được gốc/gộp. Chiều: cá nổi nhỏ và ngừ vằn lên, câu vàng khơi và lưới kéo xuống (cả hai cách giải thích đều hợp: lưới kéo giảm vì cổng rạn hạ cá hồng/kẽm trên thềm bùn — mà lưới kéo lại bắt chúng ở đó; câu vàng giảm vì ô nóng vây vàng tăng 3.129→3.927 làm loãng mật độ). G1 (Δdyn) chưa chạy lại cho bản gộp. Việc kế tiếp theo tiêu chí 2 (có số đo mới đổi): (1) ≥20 ngày + HYCOM lịch sử để p có răng; (2) soát hồ sơ cá ngừ khơi theo chính ô câu vàng thật (lift <1 cả trước và sau là lỗi hồ sơ, không phải thuật toán); (3) xem lại `REEF_ABSENT_FIT` bằng chính lift lưới kéo khi đủ ngày.
+
+## 9. Huấn luyện + kiểm định bằng DataLake (2026-10-10) — 107.109 nhật ký × track VMS 27.578 tàu, 8–9/2026
+
+**Chuỗi script** (offline, dữ liệu ngoài repo ở `~/sdfish-data`):
+```bash
+DATALAKE_BASE=https://<đường hầm>.trycloudflare.com node scripts/dl-collect.mjs --env ../IUU/.env.local --from 2026-08-01 --to 2026-09-30   # tải (nối tiếp được)
+node --max-old-space-size=8192 scripts/dl-build-labels.mjs [--trust monitored]        # nhãn ô 0,05° × ngày
+npx tsx scripts/fish-validate-run.mjs --dates <…> --out ~/sdfish-data/fc-full --features full   # payload + lưới cache
+npx tsx scripts/dl-eval.mjs --payloads ~/sdfish-data/fc-full/payload-fill --perm 300            # kiểm định
+npx tsx scripts/dl-fit-profiles.mjs --species "ngừ vằn"                                          # tối ưu 1 loài (~20 phút)
+```
+- **Vị trí đánh bắt KHÔNG lấy từ lời khai** — chỉ từ VMS: đoạn giữa hai điểm có tốc độ trong dải của nghề = đang đánh. Dải tốc độ tự chỉnh bằng tương quan Spearman giữa số đợt tìm được và `haulCount` (ưu tiên nhật ký điện tử): rê 0–1 kn ρ 0,60 · câu 0,3–1,5 ρ 0,56 · kéo 1,5–2 ρ 0,46 · vây 0,6–5 ρ 0,67 · lưới chụp 0,3–1 ρ 0,29.
+- **Lời khai sai** (loài/kg): bốc dỡ không giám sát ×0,5 (10.202 chuyến) · sản lượng y hệt chuyến khác cùng tàu ×0,3 (288) · khai thác ≠ bốc dỡ > 2 lần ×0,7 (281) · khai có cá mà VMS không thấy đoạn đánh ⇒ loại (1.085) · kg/giờ > p99 nghề ⇒ kéo về p99 (257). Bản `--trust monitored` (chỉ chuyến có giám sát) cho cùng chiều kết luận.
+- **Số đo chính — AUCeff**: P(ô của 1 kg cá loài s có điểm cao hơn ô của 1 giờ đánh của nhóm nghề bắt s). 0,5 = không hơn "chỗ tàu hay đi". Δdyn = AUCeff cùng ngày − AUCeff ghép dự báo ngày khác (hoán vị 300).
+
+**Kết quả kiểm định** (31 ngày, 36.569 chuyến, 2,28 triệu giờ đánh):
+- Bản đồ "Mọi loài": AUCarea 0,71 nhưng AUCeff **0,47** ⇒ chỉ đúng chỗ tàu hay đi, KHÔNG chỉ chỗ năng suất cao. Kéo xuống chủ yếu bởi cá nục (0,485, 11,6 nghìn t) và ngừ ồ (0,447, 3,4 nghìn t).
+- Δdyn ≈ 0 ở đa số loài — tín hiệu "hôm nay" từ ảnh vệ tinh gần như chưa đo được; có nghĩa: ngừ vằn (HEAD +0,018 p 0,003), ngừ chấm, bạc má, cá phèn, cá chim.
+- Bản WIP 2026-10-10 (soft-OR cá nổi lớn 0,6, trái vụ ×0,6) so HEAD: ngừ vằn 0,645→0,697, ngừ vây vàng 0,606→0,665, cá thu, mực ống, cá mối, nục heo tăng; ngừ chấm 0,524→0,490 giảm; Δdyn ngừ vằn mất (0,018→0,002).
+
+**Tối ưu tham số hồ sơ** (`dl-fit-profiles`, trên code WIP; gập tháng 8 ↔ 9, nhận khi cả hai chiều không tệ đi và TB tăng ≥ 0,01) — 16/25 loài nhận, 9 giữ nguyên. Kết quả từng loài: `~/sdfish-data/fit/fit-<loài>.json`. **CHƯA áp vào `SPECIES_PROFILES`.**
+- 13/16 loài nhận dừng ở `chlShift −0,4` = **mép lưới dò** ⇒ dải phù du `chlLog` đang lệch cao có hệ thống (cùng nguồn VIIRS DINEOF với production nên không phải lệch nguồn); 8/16 nhận `foodDependence 0`. Chạy lại với lưới dò rộng hơn trước khi áp.
+- Giữ nguyên nhưng hồ sơ dưới 0,5 (chỉ ngược): **cá chim 0,395** — cần soát tay; cá cờ 0,514 ngang ngẫu nhiên.
+- Giới hạn: MỘT mùa (gió Tây Nam), tàu có VMS (chủ yếu ≥ 15 m), payload dựng lại thiếu HYCOM/Copernicus — từ 2026-10-10 kho `forecast-archive` (04 §0058) lưu lưới đầu vào production mỗi ngày để lần sau fit đúng bản thật.

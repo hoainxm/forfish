@@ -1,6 +1,9 @@
 import { computeFishForecast } from "@/lib/fish-forecast-run";
 import { getCronSecret } from "@/lib/app-config";
 import { saveFishSnapshot } from "@/lib/fish-snapshot";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { vnToday } from "@/lib/sea-history";
+import { archivePath, putArchive, summarizePuts } from "@/lib/forecast-archive";
 
 /**
  * CRON PRECOMPUTE dự báo cá (2026-07-26). Tính bản đồ cá server-side rồi GHI
@@ -12,9 +15,9 @@ import { saveFishSnapshot } from "@/lib/fish-snapshot";
  * Chưa đặt secret → CẤM HẲN (401), khỏi bị gọi bừa từ ngoài.
  */
 
-// Tính thật kéo nguồn 14–30s → giữ 60s. Dynamic: KHÔNG cache (mỗi lần lịch chạy
-// là một lần tính mới).
-export const maxDuration = 60;
+// Tính thật kéo nguồn 14–30s → 60s, +30s cho phần lưu trữ lưới đầu vào (2026-10-10,
+// ~8 file nén vài MB) = 90s. Dynamic: KHÔNG cache (mỗi lần lịch chạy là một lần tính mới).
+export const maxDuration = 90;
 export const dynamic = "force-dynamic";
 
 async function authorized(req: Request): Promise<boolean> {
@@ -27,9 +30,24 @@ export async function GET(req: Request) {
   if (!(await authorized(req))) {
     return Response.json({ ok: false, code: "unauthorized" }, { status: 401 });
   }
-  const payload = await computeFishForecast();
+  let inputs: Record<string, unknown> | null = null;
+  const payload = await computeFishForecast({ onInputs: (x) => (inputs = x) });
   const result = await saveFishSnapshot(payload);
+  // LƯU TRỮ lưới đầu vào (2026-10-10) mỗi lần tính được — kể cả khi snapshot không bị thay
+  // (ảnh chưa mới hơn): bỏ thì có ngày kho trống. `saved` cho biết bản này app có phát không.
+  // Ghi hỏng không ảnh hưởng snapshot (putArchive không ném).
+  let archive: ReturnType<typeof summarizePuts> | null = null;
+  const admin = payload.ok === true && inputs ? createAdminClient() : null;
+  if (admin && inputs) {
+    const day = vnToday(new Date());
+    const meta = { saved: result.saved, targetDate: payload.ok === true ? (payload.targetDate ?? null) : null };
+    const puts = [];
+    for (const [k, r] of Object.entries(inputs as Record<string, object>))
+      puts.push(await putArchive(admin, archivePath("fish-inputs", day, k), { field: k, ...meta, ...r }));
+    archive = summarizePuts(puts);
+  }
   return Response.json({
+    archive,
     ok: payload.ok === true,
     saved: result.saved,
     reason: result.reason,
