@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { gunzipSync } from "node:zlib";
 
 vi.mock("server-only", () => ({}));
-const { archivePath, encodeArchive, summarizePuts, putArchive } = await import("@/lib/forecast-archive");
+const { archivePath, encodeArchive, summarizePuts, putArchive, mapPool } = await import("@/lib/forecast-archive");
 
 describe("forecast-archive", () => {
   it("đường dẫn theo loại/năm/ngày, id snapshot có ':' thành '_'", () => {
@@ -69,5 +69,23 @@ describe("putArchive — thử lại khi mạng chập chờn", () => {
     expect(r).toMatchObject({ ok: false, bytes: 0 });
     expect(r.error).toContain("sau 3 lần");
     expect(upload).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("mapPool — ghi song song có giới hạn", () => {
+  it("không quá `limit` việc cùng lúc, giữ đúng thứ tự kết quả", async () => {
+    let running = 0, peak = 0;
+    const out = await mapPool([5, 1, 4, 2, 3, 0, 6], 3, async (x) => {
+      running++;
+      peak = Math.max(peak, running);
+      await new Promise((r) => setTimeout(r, x));
+      running--;
+      return x * 10;
+    });
+    expect(out).toEqual([50, 10, 40, 20, 30, 0, 60]);
+    expect(peak).toBe(3);
+  });
+  it("mảng rỗng ⇒ rỗng", async () => {
+    expect(await mapPool([], 6, async (x) => x)).toEqual([]);
   });
 });

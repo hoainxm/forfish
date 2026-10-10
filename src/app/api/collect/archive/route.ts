@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 import { getCronSecret } from "@/lib/app-config";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { vnToday } from "@/lib/sea-history";
-import { archivePath, putArchive, summarizePuts } from "@/lib/forecast-archive";
+import { ARCHIVE_CONCURRENCY, archivePath, mapPool, putArchive, summarizePuts } from "@/lib/forecast-archive";
 
 export const maxDuration = 300; // lưới d16 vài MB/hàng, ~50 hàng
 export const dynamic = "force-dynamic";
@@ -28,7 +28,9 @@ export async function GET(req: Request) {
   const day = vnToday(new Date());
   const parts: Record<string, ReturnType<typeof summarizePuts>> = {};
 
-  // Từng hàng một (không select * cả bảng một lần): hàng d16 nặng, gộp lại dễ vượt bộ nhớ.
+  // Mỗi hàng select riêng (không select * cả bảng một lần — hàng d16 nặng), nhưng chạy
+  // SONG SONG theo nhóm ARCHIVE_CONCURRENCY: đo prod 2026-10-10, ghi TUẦN TỰ 57 file mất
+  // 5 phút 13 giây (~5 s/file IIS → Supabase) ⇒ IIS/ARR cắt ở ~5 phút, cron-prod nhận 502.
   for (const [kind, table] of [
     ["weather", "weather_snapshot"],
     ["fish", "fish_forecast_snapshot"],
@@ -38,15 +40,12 @@ export async function GET(req: Request) {
       parts[kind] = { ok: false, files: 0, bytes: 0, failed: 1, note: error?.message ?? "không đọc được danh sách" };
       continue;
     }
-    const puts = [];
-    for (const { id } of ids as { id: string }[]) {
+    const puts = await mapPool(ids as { id: string }[], ARCHIVE_CONCURRENCY, async ({ id }) => {
       const { data: row, error: e } = await admin.from(table).select("*").eq("id", id).maybeSingle();
-      puts.push(
-        e || !row
-          ? { path: `${kind}/${id}`, ok: false, bytes: 0, error: e?.message ?? "mất hàng" }
-          : await putArchive(admin, archivePath(kind, day, id), row),
-      );
-    }
+      return e || !row
+        ? { path: `${kind}/${id}`, ok: false, bytes: 0, error: e?.message ?? "mất hàng" }
+        : await putArchive(admin, archivePath(kind, day, id), row);
+    });
     parts[kind] = summarizePuts(puts);
   }
 

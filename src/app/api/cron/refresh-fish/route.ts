@@ -3,7 +3,7 @@ import { getCronSecret } from "@/lib/app-config";
 import { saveFishSnapshot } from "@/lib/fish-snapshot";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { vnToday } from "@/lib/sea-history";
-import { archivePath, putArchive, summarizePuts } from "@/lib/forecast-archive";
+import { ARCHIVE_CONCURRENCY, archivePath, mapPool, putArchive, summarizePuts } from "@/lib/forecast-archive";
 
 /**
  * CRON PRECOMPUTE dự báo cá (2026-07-26). Tính bản đồ cá server-side rồi GHI
@@ -41,9 +41,9 @@ export async function GET(req: Request) {
   if (admin && inputs) {
     const day = vnToday(new Date());
     const meta = { saved: result.saved, targetDate: payload.ok === true ? (payload.targetDate ?? null) : null };
-    const puts = [];
-    for (const [k, r] of Object.entries(inputs as Record<string, object>))
-      puts.push(await putArchive(admin, archivePath("fish-inputs", day, k), { field: k, ...meta, ...r }));
+    const puts = await mapPool(Object.entries(inputs as Record<string, object>), ARCHIVE_CONCURRENCY, ([k, r]) =>
+      putArchive(admin, archivePath("fish-inputs", day, k), { field: k, ...meta, ...r }),
+    );
     archive = summarizePuts(puts);
   }
   return Response.json({

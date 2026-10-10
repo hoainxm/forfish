@@ -70,6 +70,23 @@ export async function putArchive(admin: SupabaseClient, path: string, obj: unkno
   return { path, ok: false, bytes: 0, error: `${last} (sau ${tries} lần)` };
 }
 
+/** Số file ghi cùng lúc — 6 đủ rút 57 file từ ~5 phút xuống ~1 phút mà không dồn Supabase. */
+export const ARCHIVE_CONCURRENCY = 6;
+
+/** Chạy `fn` trên mọi phần tử, tối đa `limit` việc cùng lúc; giữ đúng thứ tự kết quả. */
+export async function mapPool<T, R>(items: readonly T[], limit: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker));
+  return out;
+}
+
 /** Gộp kết quả nhiều lần ghi cho log cron: số file, tổng byte, lỗi đầu tiên. */
 export function summarizePuts(puts: readonly ArchivePut[]): { ok: boolean; files: number; bytes: number; failed: number; note?: string } {
   const failed = puts.filter((p) => !p.ok);
