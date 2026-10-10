@@ -1288,14 +1288,14 @@ describe("VIỆC 4 — cổng nhiệt loài đáy dùng NHIỆT ĐÁY (bottomTem
     lats,
     lons,
   ); // 27°C mặt → cá phèn tFit mặt = 1 (dải [22,25,30,32])
-  // Cá phèn dải mồi [-0.2, 1.2] ⇒ cao nguyên từ log 0.5 (CHL_RANK_PLATEAU_FRAC).
-  // chl 0.8 (log −0.10) ở đầu NGHÈO ⇒ mồi ~0.48 dìm điểm dưới KEEP_MIN; dùng
-  // 4.0 (log 0.60) cho mồi HẾT là yếu tố giới hạn, cô lập đúng NHIỆT ĐÁY.
+  // Cá phèn dải mồi [-1.2, 0.2] (fit DataLake 2026-10-10; trước [-0.2, 1.2]) ⇒ cao nguyên
+  // từ log −0.5 (CHL_RANK_PLATEAU_FRAC) tới 0.2 — chl 0.32–1.58. Dùng 1.0 (log 0) cho mồi
+  // HẾT là yếu tố giới hạn, cô lập đúng NHIỆT ĐÁY (giá trị cũ 4.0 nay vượt trần dải mồi).
   const food = grid(
     [
-      [4.0, 4.0, 4.0],
-      [4.0, 4.0, 4.0],
-      [4.0, 4.0, 4.0],
+      [1.0, 1.0, 1.0],
+      [1.0, 1.0, 1.0],
+      [1.0, 1.0, 1.0],
     ],
     lats,
     lons,

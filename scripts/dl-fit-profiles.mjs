@@ -18,6 +18,7 @@
 //
 // Ra: <out>/fit-<loài>.json  {species, base, best, cv:{…}, accepted, caveat}
 //   --grids ~/sdfish-data/fc-full/grids  --labels ~/sdfish-data/dl/labels  --out ~/sdfish-data/fit
+//   --cfg '{"chlShift":-1}'  không dò, chỉ kiểm chéo gốc vs bộ chỉnh này (dùng khi đổi code nền)
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -32,6 +33,8 @@ const LAB = home(arg("labels", "~/sdfish-data/dl/labels"));
 const OUT = home(arg("out", "~/sdfish-data/fit"));
 const SPECIES = arg("species", null);
 const MIN_GAIN = Number(arg("min-gain", 0.01));
+// --cfg '<json>': KHÔNG dò — chỉ đo gốc vs bộ chỉnh đã chọn (kiểm lại trên code khác, vd main)
+const FIXED_CFG = arg("cfg", null) ? JSON.parse(arg("cfg")) : null;
 mkdirSync(OUT, { recursive: true });
 if (!SPECIES) { console.error('cần --species "<tên ngắn>"'); process.exit(2); }
 
@@ -77,13 +80,25 @@ function apply(cfg) {
   Object.assign(prof, structuredClone(base));
   const sh = cfg.sstShift ?? 0, wd = cfg.sstWidth ?? 1;
   const tr = (a) => { const c = (a[1] + a[2]) / 2; return a.map((v) => +(c + (v - c) * wd + sh).toFixed(2)); };
-  prof.sst = tr(base.sst);
-  if (base.sstFallback) prof.sstFallback = tr(base.sstFallback);
+  // LUẬT NGHIỆP VỤ (test fish-predict "trần nhiệt", chốt 2026-10-03): nước VN mùa hè 29,5–30,5 °C
+  // ⇒ loài TẦNG MẶT không được HẠ phía nóng (sst[2], sst[3]) — chỉ chỉnh phía lạnh hoặc nâng trần.
+  // Dữ liệu 8–9/2026 là MỘT mùa; hạ trần theo nó là phạt oan cả mùa hè sau.
+  const surface = !base.tempSource || base.tempSource === "surface";
+  const keepWarm = (a, b0) => {
+    if (!surface) return a;
+    const w = [a[0], a[1], Math.max(a[2], b0[2]), Math.max(a[3], b0[3])];
+    w[1] = Math.min(w[1], w[2]);
+    w[0] = Math.min(w[0], w[1]);
+    return w;
+  };
+  prof.sst = keepWarm(tr(base.sst), base.sst);
+  if (base.sstFallback) prof.sstFallback = keepWarm(tr(base.sstFallback), base.sstFallback);
   if (cfg.chlShift) prof.chlLog = base.chlLog.map((v) => +(v + cfg.chlShift).toFixed(2));
   if (cfg.food !== undefined) prof.foodDependence = cfg.food;
   if (cfg.depthScale && base.offshore) prof.offshore = base.offshore.map((v) => Math.round(v * cfg.depthScale));
   if (cfg.depthScale && base.inshore) prof.inshore = base.inshore.map((v) => Math.round(v * cfg.depthScale));
-  if (cfg.coastScale && base.offshore) prof.coastKm = (base.coastKm ?? [20, 50]).map((v) => Math.round(v * cfg.coastScale));
+  // coastKm khai RIÊNG (ngừ vằn, nục heo [10,25] — nguồn RIMF, test khoá) ⇒ không dò
+  if (cfg.coastScale && base.offshore && !base.coastKm) prof.coastKm = (base.coastKm ?? [20, 50]).map((v) => Math.round(v * cfg.coastScale));
 }
 
 /**
@@ -129,10 +144,11 @@ function evaluate(cfg, ds) {
 const GRID = {
   sstShift: [-2, -1, -0.5, 0.5, 1, 2],
   sstWidth: [0.6, 0.8, 1.25, 1.5],
-  chlShift: [-0.4, -0.2, 0.2, 0.4],
+  // −0,4 là mép ở lượt đầu 2026-10-10 (13/16 loài nhận dừng đúng mép) ⇒ mở rộng tới −1,0
+  chlShift: [-1, -0.8, -0.6, -0.4, -0.2, 0.2, 0.4],
   food: [0, 0.25, 0.5, 0.75],
   ...(base.offshore || base.inshore ? { depthScale: [0.5, 0.75, 1.5, 2] } : {}),
-  ...(base.offshore ? { coastScale: [0.5, 0.75, 1.5] } : {}),
+  ...(base.offshore && !base.coastKm ? { coastScale: [0.5, 0.75, 1.5] } : {}),
 };
 
 /** Leo toạ độ: mỗi nút vặn thử mọi mức, giữ mức tốt nhất nếu tăng > 0,002; 2 vòng. */
@@ -158,7 +174,7 @@ const allD = new Set(inputs.map((x) => x.d));
 const baseAll = evaluate({}, allD);
 const folds = months.map((test) => {
   const train = new Set([...allD].filter((d) => !d.startsWith(test)));
-  const f = fit(train);
+  const f = FIXED_CFG ? { cfg: FIXED_CFG, best: evaluate(FIXED_CFG, train) } : fit(train);
   const b = evaluate({}, setOf(test));
   const t = evaluate(f.cfg, setOf(test));
   return { test, cfg: f.cfg, trainEff: f.best.eff, testBase: b.eff, testFit: t.eff, testKg: Math.round(b.kg), gain: t.eff - b.eff };
@@ -166,7 +182,7 @@ const folds = months.map((test) => {
 const gains = folds.map((f) => f.gain).filter(Number.isFinite);
 const meanGain = gains.reduce((a, b) => a + b, 0) / (gains.length || 1);
 const accepted = gains.length === months.length && gains.every((x) => x >= -0.005) && meanGain >= MIN_GAIN;
-const final = accepted ? fit(allD) : { cfg: {}, best: baseAll };
+const final = accepted ? (FIXED_CFG ? { cfg: FIXED_CFG, best: evaluate(FIXED_CFG, allD) } : fit(allD)) : { cfg: {}, best: baseAll };
 apply(final.cfg);
 const out = {
   species: SPECIES,

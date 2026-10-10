@@ -132,7 +132,17 @@ npx tsx scripts/dl-fit-profiles.mjs --species "ngừ vằn"                     
 - Δdyn ≈ 0 ở đa số loài — tín hiệu "hôm nay" từ ảnh vệ tinh gần như chưa đo được; có nghĩa: ngừ vằn (HEAD +0,018 p 0,003), ngừ chấm, bạc má, cá phèn, cá chim.
 - Bản WIP 2026-10-10 (soft-OR cá nổi lớn 0,6, trái vụ ×0,6) so HEAD: ngừ vằn 0,645→0,697, ngừ vây vàng 0,606→0,665, cá thu, mực ống, cá mối, nục heo tăng; ngừ chấm 0,524→0,490 giảm; Δdyn ngừ vằn mất (0,018→0,002).
 
-**Tối ưu tham số hồ sơ** (`dl-fit-profiles`, trên code WIP; gập tháng 8 ↔ 9, nhận khi cả hai chiều không tệ đi và TB tăng ≥ 0,01) — 16/25 loài nhận, 9 giữ nguyên. Kết quả từng loài: `~/sdfish-data/fit/fit-<loài>.json`. **CHƯA áp vào `SPECIES_PROFILES`.**
-- 13/16 loài nhận dừng ở `chlShift −0,4` = **mép lưới dò** ⇒ dải phù du `chlLog` đang lệch cao có hệ thống (cùng nguồn VIIRS DINEOF với production nên không phải lệch nguồn); 8/16 nhận `foodDependence 0`. Chạy lại với lưới dò rộng hơn trước khi áp.
+**Tối ưu tham số hồ sơ** (`dl-fit-profiles`; gập tháng 8 ↔ 9, nhận khi cả hai chiều không tệ đi và TB tăng ≥ 0,01). Lượt 1 dò phù du tới −0,4, lượt 2 tới −1,0 (trên code WIP chưa commit) → 17 loài; KIỂM LẠI trên code `main` bằng `--cfg` (không dò lại) kèm LUẬT NGHIỆP VỤ: loài tầng mặt KHÔNG hạ phía nóng dải nhiệt (test "trần nhiệt", 2026-10-03), không dò `coastKm` đã khai riêng (ngừ vằn, nục heo) ⇒ **ĐÃ ÁP 15 loài vào `SPECIES_PROFILES` (2026-10-10)**, mỗi dòng có chú thích "fit DataLake" ghi AUCeff trước/sau từng tháng. Rơi khi kiểm trên `main`: mực ống (phần tăng chỉ có trên code WIP), cá sòng (toàn bộ phần tăng đến từ hạ trần nhiệt — cấm). Kết quả: `~/sdfish-data/fit-main2/fit-<loài>.json`.
+
+| Loài | AUCeff trước → sau (cả kỳ) | Tháng 8 (đo) | Tháng 9 (đo) |
+|---|---|---|---|
+| ngừ ồ | 0,447 → 0,588 | 0,426 → 0,528 | 0,446 → 0,644 |
+| cá nục | 0,485 → 0,552 | 0,497 → 0,565 | 0,469 → 0,536 |
+| bạc má | 0,681 → 0,770 | 0,660 → 0,760 | 0,677 → 0,774 |
+| cá cơm | 0,600 → 0,676 | 0,560 → 0,661 | 0,630 → 0,687 |
+| cá đổng · cá tráo · cá trích · cá phèn · cá hố · bạch tuộc · ngừ chù · ngừ chấm · ngừ vằn · nục heo · mực nang | cả kỳ: cá đổng 0,523→0,595 · cá tráo 0,436→0,526 · cá trích 0,488→0,556 · cá phèn 0,603→0,639 · cá hố 0,497→0,520 · bạch tuộc 0,681→0,741 · ngừ chù 0,617→0,641 · ngừ chấm 0,524→0,562 · ngừ vằn 0,645→0,668 · nục heo 0,521→0,551 · mực nang 0,501→0,523 | | |
+
+Test đổi kèm: `fish-predict.test.ts` "VIỆC 4" đổi chl mẫu 4,0 → 1,0 cho cá phèn (giá trị cũ vượt dải mồi mới — test cô lập nhiệt đáy, không khoá dải mồi).
+- Dải phù du `chlLog` lệch cao có hệ thống (cùng nguồn VIIRS DINEOF với production nên không phải lệch nguồn): lượt 1 13/16 dừng ở mép −0,4; lượt 2 cá nục, cá đổng, cá tráo, cá phèn, cá hố vẫn dừng ở mép −1,0 ⇒ với nhóm này điều có ích nhiều khả năng là GIẢM ảnh hưởng phù du hẳn (việc mở: đo phương án tắt cổng mồi chung); 7/15 loài đã áp có `foodDependence` 0–0,5.
 - Giữ nguyên nhưng hồ sơ dưới 0,5 (chỉ ngược): **cá chim 0,395** — cần soát tay; cá cờ 0,514 ngang ngẫu nhiên.
 - Giới hạn: MỘT mùa (gió Tây Nam), tàu có VMS (chủ yếu ≥ 15 m), payload dựng lại thiếu HYCOM/Copernicus — từ 2026-10-10 kho `forecast-archive` (04 §0058) lưu lưới đầu vào production mỗi ngày để lần sau fit đúng bản thật.
