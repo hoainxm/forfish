@@ -240,7 +240,7 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
    Không nới thì dữ liệu sang tháng 10 ⇒ ×0,5 ⇒ max ~26, bản đồ trống.
    ✅ 2026-10-03b — NỚI VỤ MỌI LOÀI + CỔNG CÁCH BỜ CHO CÁ KHƠI (chủ dự án: "nới vụ ra"; "cá khơi
    mà dự báo gần bờ là không chuẩn"). (1) `seasonPrior`: thêm `SEASON_FULL_PAD_MONTHS = 1` — tháng sát
-   vụ ĐỦ 1 (trước 0,5), cách 2 tháng 0,5, cách 3 tháng 0 (trái vụ hẳn vẫn tắt). Ngừ ồ trả về khai 3–9
+   vụ ĐỦ 1 (trước 0,5), cách 2 tháng 0,5, cách 3 tháng 0 (trái vụ hẳn vẫn tắt — ĐỔI 2026-10-10: 0,8 / 0,6). Ngừ ồ trả về khai 3–9
    (tháng 10 đã đủ điểm nhờ luật chung). Đo cùng dữ liệu 30/9: số loài t1 20→28, t9 30→36; %điểm
    nóng "Mọi loài" t4/t9 KHÔNG đổi, t10 195→288 ô (loài sát vụ nay đủ điểm). (2) CỔNG CÁCH BỜ
    `OFFSHORE_COAST_KM = [20, 50]` nhân thêm vào cổng độ sâu của MỌI loài `offshore`: khoảng cách tới
@@ -384,6 +384,25 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
    tFit 0,02–0,03 trước và sau) — chữa cần CO cao nguyên, bị bất biến mất-nguồn chặn; (2) lưới đo là
    SST 30/9 nên t1/t4 chỉ kiểm bất biến, không kiểm sinh học mùa đông; (3) `fish-climatology.v1.json`
    (bản mùa vụ cho blend) chấm bằng dải cũ — collector đã nối `climo`, sinh lại khi có chủ ý.
+   ✅ 2026-10-10 — GIẢM SỨC NẶNG MÙA VỤ, VỆ TINH QUYẾT (chủ dự án, phản hồi thực địa Bình Định: "cá ngừ
+   vằn tháng này tàu nào vào cũng bán 800tr tới tỷ4 mà app báo không có cá"; "thời vụ chặn quá nhiều
+   info của khoa học"). CHẨN ĐOÁN TRƯỚC KHI SỬA (lưới thật ảnh 7/10): tháng 10 lịch vụ KHÔNG trừ ngừ vằn
+   (chính vụ cả 4 vùng khơi); cả bản đồ tháng 10 lịch vụ chỉ tắt 3 loài×vùng (trích, hố — VBB; khoai —
+   TNB). Thứ ép điểm là soft-OR "≥2 cơ chế mới qua 50" (C7 ở dưới). Ba sửa, đều chủ dự án chọn:
+   (1) `PELAGIC_LARGE_SOFTOR_SCALE = 0,6` (fish-predict.ts) cho 9 loài cá nổi lớn — một cơ chế đầy = 0,6
+   (Trung bình); ô KHÔNG cơ chế nào vẫn 0 (AGG_FLOOR giữ 0, không phủ nền). Đây là quyết định sản phẩm
+   đè lên tiêu chí "Δ%điểm nóng ≤2" của C7 — biết trước cái giá (sweep C7: 0,6 → +12,8/+16,1 điểm %).
+   (2) `SEASON_OFF_FLOOR = 0,6` (fish-seasons.ts): `seasonPrior` trái vụ hẳn = 0,6 thay 0, cách vụ 2
+   tháng = 0,8 (trước 0,5) — lịch vụ là kinh nghiệm tháng RỘ, không phải quan trắc; trái vụ tối đa 60
+   điểm, không bao giờ lên Cao. Loài KHÔNG khai ở vùng (địa lý) vẫn 0.
+   (3) `PRODUCT_SHARE_LAST` 0,56 → 0,25 (fish-blend.ts): ngày xa ảnh vệ tinh gánh ≥75 % (09 §5f).
+   ĐO (cùng ảnh 7/10, tháng 10, trước → sau, ô Thấp/TB/Cao): ngừ vằn 143/18/2 → 460/72/26 · vây vàng
+   172/21/4 → 422/88/32 · nục heo 271/36/9 → 536/170/60 · cá cờ 61/11/0 → 152/36/18 · cá thu 51/0/0 →
+   143/24/0 · "Mọi loài" 961/111/12 → 1204/430/75 · cá nục, cá mối KHÔNG đổi (không phải cá nổi lớn,
+   đang vụ). Khơi Bình Định 12,8–14,8°N × 109,2–111,5°E: ngừ vằn 0 → 35 ô ≥40 (max 36 → 49) — ảnh 7/10
+   nước ở đây ĐỒNG ĐỀU (SST 29,4–30,3, chl 0,15–0,2, ít front) nên vẫn chỉ mức Thấp; ô TB/Cao nằm ở
+   11–12°N khơi Khánh Hoà–Ninh Thuận. Vân tay mô hình tự đổi (hằng mới vào `fishModelSignature`) ⇒
+   snapshot cũ không đè.
 
 🟡 CỔNG NHIỆT LỆCH ẤM (đo độc lập trên SST thật xác nhận): tháng 7 biển VN chỉ trải 28,7–30,0 °C mà
  plateau vây vàng là 26–30 ⇒ 90,4 % ô đạt điểm tối đa, độ lệch chuẩn 0,081 ⇒ TERM NHIỆT KHÔNG PHÂN BIỆT

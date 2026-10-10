@@ -101,10 +101,17 @@ export function measuredWeight(dayIdx: number): number {
    giảm. Đánh đổi: ít chính xác hơn một chút, đổi lấy bản đồ ngày xa có nội dung.
 
    CÁCH DỰNG: giữ nguyên HÌNH DẠNG đường cong đo được (lên nhanh mấy ngày đầu
-   rồi thoải dần) và kéo giãn tuyến tính để hai đầu chạm đúng 6 % và 56 %. Đổi
-   hai mốc này = đổi hằng số ở đây; KHÔNG sửa file weights (file đó là số đo). */
+   rồi thoải dần) và kéo giãn tuyến tính để hai đầu chạm đúng 6 % và mốc cuối. Đổi
+   hai mốc này = đổi hằng số ở đây; KHÔNG sửa file weights (file đó là số đo).
+
+   HẠ 56 % → 25 % (chủ dự án chốt 2026-10-10, phản hồi thực địa ngừ vằn Bình
+   Định: "thời vụ chặn quá nhiều info của khoa học — giảm vụ, dựa trên dữ liệu
+   chính"). 25 % sát mức tối ưu backtest (~20 % ở ngày 16) ⇒ ngày xa ảnh vệ tinh
+   quyết ≥75 %. Cái giá đã biết ở trên: ít ô "mùa vụ đẻ ra" vượt sàn hiển thị
+   hơn — bản đồ ngày xa gần bản đồ hôm nay hơn, đổi lại bớt kéo về trung bình
+   nhiều năm. */
 export const PRODUCT_SHARE_FIRST = 0.06; // mùa vụ gánh ở tầm ngày đo đầu tiên
-export const PRODUCT_SHARE_LAST = 0.56; // ... và ở tầm ngày đo cuối cùng
+export const PRODUCT_SHARE_LAST = 0.25; // ... và ở tầm ngày đo cuối cùng
 /**
  * ĐỘ CONG. gamma > 1 = giữ THẤP mấy ngày đầu rồi VỌT LÊN về cuối.
  *

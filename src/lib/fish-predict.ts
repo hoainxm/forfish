@@ -15,6 +15,7 @@
 import {
   FISH_SEASONS,
   SEASON_FULL_PAD_MONTHS,
+  SEASON_OFF_FLOOR,
   SEASON_TAPER_MONTHS,
   nearestRegionWithin,
   seasonPrior,
@@ -84,6 +85,14 @@ export const SURFACE_CONF: Record<SurfaceSignal, number> = {
  *  0,6 → +12,8/+16,1 điểm — muốn 1 cơ chế chạm 50 cần 0,5 nhưng Δ≤2 chỉ cho tới
  *  ~0,42 ⇒ hai tiêu chí không gặp nhau → GIỮ 0,4, chỉ sửa lời. */
 export const SOFTOR_SCALE = 0.4;
+/** SOFT-OR riêng CÁ NỔI LỚN (ngừ, thu, cờ, nục heo) — chủ dự án chốt 2026-10-10
+ *  sau phản hồi thực địa Bình Định: "ngừ vằn tháng 10 tàu nào vào cũng bán 800tr
+ *  tới tỷ4 mà app báo không có cá". Đo lưới thật 7/10: 727 ô có ngừ vằn nhưng chỉ
+ *  20 ô ≥60, 4 ô ≥75 — mùa vụ KHÔNG trừ gì (tháng 10 chính vụ), thứ ép điểm là
+ *  luật "≥2 cơ chế mới lên 50" ở trên. Cá nổi lớn đi đàn rộng, bám MỘT front/xoáy
+ *  là đã tụ ⇒ một cơ chế đầy = 0,6 (đủ mức Trung bình). Ô KHÔNG có cơ chế nào vẫn
+ *  0 điểm (AGG_FLOOR giữ 0) — nới là nới theo tín hiệu vệ tinh, không phủ nền. */
+export const PELAGIC_LARGE_SOFTOR_SCALE = 0.6;
 /** Nền sàn tổ hợp cơ chế: 0 = điểm nóng CHỈ do cơ chế gom cá thật (front/xoáy/
  *  nước trồi) quyết → co vùng nóng về ~18% (trước ~50%), trung thực hơn. Đã đo:
  *  nền >0 (thử 0.12) nâng điểm MỌI ô → vùng đỏ phình to hơn cả bản cũ (t7 30%,
@@ -1398,7 +1407,8 @@ export function buildFishForecast(
       if (!region) continue;
 
       // MÙA VỤ MỀM: mỗi loài ở vùng này có prior ∈ [0,1] theo tháng (1 = chính
-      // vụ, ~0.5 ở tháng đệm đầu/cuối vụ, 0 = ngoài vụ) — thay cổng nhị phân cũ
+      // vụ, giảm dần ở vạt đầu/cuối vụ, SEASON_OFF_FLOOR = 0,6 khi trái vụ hẳn —
+      // từ 2026-10-10 trái vụ chỉ TRỪ BỚT, vệ tinh vẫn quyết) — thay cổng nhị phân cũ
       // (điểm nhảy vách 0↔đầy ở ranh giới tháng). Gộp nhiều dòng mùa của cùng
       // loài trong vùng → lấy prior LỚN NHẤT (loài chỉ chấm MỘT lần).
       const seasonW = new Map<string, number>();
@@ -1577,7 +1587,7 @@ export function buildFishForecast(
           mech.push([p.w.thermo as number, thermoFit(thermoAnomM, p.thermoBand)]);
         const agg = softOrHabitat(
           mech,
-          SOFTOR_SCALE,
+          p.category === "pelagic-large" ? PELAGIC_LARGE_SOFTOR_SCALE : SOFTOR_SCALE,
           SPECIES_WMAX.get(p.species) ?? speciesWMax(p.w),
         );
         // TRUNG THỰC: loài đáy/rạn ảnh vệ tinh ít nói được → kéo tổ hợp về trung
@@ -1616,7 +1626,7 @@ export function buildFishForecast(
             : depthGate * reefAbsentFit
           : depthGate;
         // `sW` = prior mùa vụ mềm (≤1): chính vụ ×1 (không đổi), tháng đệm hạ
-        // điểm đầu/cuối vụ. Là thừa số ≤1 nên bất biến "mất tín hiệu = điểm
+        // điểm đầu/cuối vụ, trái vụ ×0,6. Là thừa số ≤1 nên bất biến "mất tín hiệu = điểm
         // GIẢM" vẫn giữ.
         const fit = tFit * foodLimiter * habitat * depthFit * sW;
         if (fit > 0)
@@ -1716,11 +1726,12 @@ export function fishModelSignature(): string {
     algo: FISH_ALGO_REV,
     profiles: SPECIES_PROFILES,
     seasons: FISH_SEASONS,
-    seasonPad: [SEASON_FULL_PAD_MONTHS, SEASON_TAPER_MONTHS],
+    seasonPad: [SEASON_FULL_PAD_MONTHS, SEASON_TAPER_MONTHS, SEASON_OFF_FLOOR],
     k: {
       REGION_REACH_DEG,
       SURFACE_CONF,
       SOFTOR_SCALE,
+      PELAGIC_LARGE_SOFTOR_SCALE,
       AGG_FLOOR,
       NEUTRAL_AGG,
       FOOD_FLOOR,

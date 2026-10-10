@@ -328,6 +328,11 @@ ngày rồi mới trung bình, thay vì trung bình rồi mới tính front — 
 
 ## 5f. v3 — MỨC MÙA VỤ DO CHỦ DỰ ÁN CHỌN (6 % → 56 %) + giãn lại phân bố
 
+> ⚠️ **HẠ 2026-10-10: mốc cuối 56 % → 25 %** (`PRODUCT_SHARE_LAST`, chủ dự án: "thời vụ chặn quá nhiều
+> info của khoa học — giảm vụ, dựa trên dữ liệu chính", sau phản hồi ngừ vằn Bình Định). 25 % sát mức tối
+> ưu backtest (~20 % ở ngày 16). Hình dạng đường cong, gamma 2,5, phần giãn phân bố giữ nguyên; các con số
+> 56 % bên dưới là LỊCH SỬ. Xem 01-product mục ✅ 2026-10-10.
+
 Chủ dự án chốt 2026-07-28: *"tăng theo ngày từ 6 % ngày 1 tới 56 % ngày 16 chứ 20 % thì ít quá"*.
 Đây là **QUYẾT ĐỊNH SẢN PHẨM đè lên số đo** — ghi rõ để người sau khỏi tưởng là kết quả backtest.
 Hằng số ở `PRODUCT_SHARE_FIRST/LAST` trong `lib/fish-blend.ts` (KHÔNG sửa file weights — file đó

@@ -307,7 +307,7 @@ describe("v3 — lớp chọn của chủ dự án + giãn lại phân bố", ()
   const clim = decodeClimatology(climFile as unknown as ClimatologyFile);
   const month = 7;
 
-  it("tỷ lệ mùa vụ chạm đúng hai mốc chủ dự án chốt (6 % → 56 %)", () => {
+  it("tỷ lệ mùa vụ chạm đúng hai mốc chủ dự án chốt (6 % → 25 %, hạ 2026-10-10)", () => {
     const leads = w.perLead
       .filter((r): r is { lead: number; w: number } => typeof r.w === "number")
       .map((r) => r.lead)

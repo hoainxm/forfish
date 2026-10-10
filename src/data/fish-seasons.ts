@@ -609,17 +609,27 @@ export function fishInRegion(
  */
 export const SEASON_FULL_PAD_MONTHS = 1;
 /**
- * Độ rộng vạt dốc SAU phần đệm đủ: với 2 thì cách vụ 2 tháng = 0,5, cách 3
- * tháng = 0. Vẫn có điểm 0: loài trái vụ hẳn không hiện (KHÔNG quanh năm).
+ * Độ rộng vạt dốc SAU phần đệm đủ: dốc từ 1 xuống SEASON_OFF_FLOOR — với 2 thì
+ * cách vụ 2 tháng = 0,8, cách 3 tháng trở đi = 0,6 (trước 2026-10-10: 0,5 rồi 0).
  */
 export const SEASON_TAPER_MONTHS = 2;
+/**
+ * SÀN TRÁI VỤ (chủ dự án chốt 2026-10-10: "thời vụ chặn quá nhiều info của khoa
+ * học — giảm vụ, dựa trên dữ liệu chính"). Lịch vụ chỉ là kinh nghiệm/tài liệu
+ * tháng RỘ, không phải quan trắc: trái vụ mà ảnh vệ tinh thấy nước hợp nhiệt +
+ * mồi + front thì vẫn phải hiện, chỉ TRỪ BỚT điểm. ×0,6 ⇒ loài trái vụ chỗ hợp
+ * nhất tối đa 60 (Trung bình), không bao giờ lên Cao. Loài KHÔNG khai ở vùng đó
+ * (địa lý, không phải mùa) vẫn 0.
+ */
+export const SEASON_OFF_FLOOR = 0.6;
 
 /**
  * PRIOR MÙA VỤ MỀM ∈ [0,1] cho một loài ở một tháng — THAY cổng nhị phân cũ
  * (trong vụ = 1, ngoài vụ = 0, điểm NHẢY VÁCH ở ranh giới tháng). Quy tắc:
  *   · tháng chính vụ + SEASON_FULL_PAD_MONTHS tháng sát hai đầu → 1
  *   · xa hơn                    → giảm tuyến tính (đầu/cuối vụ, khả năng thấp hơn)
- *   · ngoài vụ hẳn              → 0
+ *   · ngoài vụ hẳn              → SEASON_OFF_FLOOR (0,6 — trừ bớt, KHÔNG tắt)
+ *   · lịch rỗng                 → 0
  * Khoảng cách tính VÒNG TRÒN (tháng 12 nối tháng 1). Loài có mặt QUANH NĂM
  * (đủ 12 tháng, vd cá ngừ) → luôn 1, không đổi.
  *
@@ -636,7 +646,9 @@ export function seasonPrior(months: number[], month: number): number {
     if (d < dmin) dmin = d;
   }
   if (dmin <= SEASON_FULL_PAD_MONTHS) return 1;
-  return Math.max(0, 1 - (dmin - SEASON_FULL_PAD_MONTHS) / SEASON_TAPER_MONTHS);
+  // dốc tuyến tính từ 1 xuống SÀN trái vụ (không xuống 0)
+  const t = Math.min(1, (dmin - SEASON_FULL_PAD_MONTHS) / SEASON_TAPER_MONTHS);
+  return 1 - (1 - SEASON_OFF_FLOOR) * t;
 }
 
 /**

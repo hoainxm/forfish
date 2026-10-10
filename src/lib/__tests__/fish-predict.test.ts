@@ -17,6 +17,8 @@ import {
   percentileRank,
   softOrHabitat,
   SOFTOR_SCALE,
+  PELAGIC_LARGE_SOFTOR_SCALE,
+  FISH_LEVEL_BANDS,
   spatialAnomaly,
   speciesWMax,
   trapezoid,
@@ -1480,6 +1482,17 @@ describe("2026-10-03d — soft-OR nói đúng toán (C7) + xoáy ẤM cho cá n�
     const two = softOrHabitat([[0.3, 1], [0.3, 1]], SOFTOR_SCALE, 0.3);
     expect(two).toBeCloseTo(0.64, 10);
     expect(two).toBeGreaterThanOrEqual(0.5);
+  });
+
+  it("2026-10-10: CÁ NỔI LỚN — một cơ chế đầy đủ lên mức Trung bình; không cơ chế vẫn 0", () => {
+    expect(PELAGIC_LARGE_SOFTOR_SCALE).toBe(0.6);
+    const one = softOrHabitat([[0.3, 1]], PELAGIC_LARGE_SOFTOR_SCALE, 0.3);
+    expect(Math.round(one * 100)).toBeGreaterThanOrEqual(FISH_LEVEL_BANDS[1].min);
+    // không có tín hiệu vệ tinh nào → vẫn 0, nới KHÔNG phủ nền
+    expect(softOrHabitat([[0.3, 0], [0.2, 0]], PELAGIC_LARGE_SOFTOR_SCALE, 0.3)).toBe(0);
+    // vẫn ≤ 1 khi mọi cơ chế đầy
+    const all = softOrHabitat([[0.3, 1], [0.3, 1], [0.3, 1]], PELAGIC_LARGE_SOFTOR_SCALE, 0.3);
+    expect(all).toBeLessThanOrEqual(1);
   });
 
   // ngoài khơi Nam Trung Bộ, tháng 6 — vây vàng (pelagic-large, coldCore=false) đang vụ
