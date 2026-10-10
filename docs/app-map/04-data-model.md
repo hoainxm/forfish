@@ -26,8 +26,8 @@ ttl_days: 180
   - `weather/…/<id snapshot>` — MỌI hàng `weather_snapshot` (lưới gió/sóng d3·d16, `scalar:*`, `curdepth:*`, `salinity:*`, `seascalar:*`, `sea:<cảng>`, cả hàng thô `raw:*`), ghi bởi cron `/api/collect/archive`.
   - `fish/…/<id hàng>` — MỌI hàng `fish_forecast_snapshot` (payload đủ ô, đủ loài), cùng cron.
   - `fish-inputs/…/<trường>` — lưới đầu vào `computeFishForecast` (sst, chl, sla, anom, currents, hycom, sstFine, chlFine; bỏ bathy vì tĩnh) kèm `saved`/`targetDate`, ghi bởi `/api/cron/refresh-fish` mỗi lần tính được.
-- Mỗi ngày đúng một bản mỗi file (upsert — lượt sau trong ngày đè lượt trước). Không route nào đọc kho cho app; đọc bằng script offline. Không có thông tin cá nhân.
-- Dung lượng ước tính vài MB/ngày (~1–2 GB/năm) — vượt hạn mức Storage gói Free (1 GB) sau khoảng nửa năm; khi chật thì gộp/xoá theo năm, chưa đặt tự xoá.
+- Mỗi ngày đúng một bản mỗi file (upsert — lượt sau trong ngày đè lượt trước). Ghi thử lại 3 lần (1 s, 3 s): chạy thật prod 2026-10-10 thấy mạng IIS → Supabase rớt `fetch failed` ngẫu nhiên một file mỗi lượt. Lượt đầu: 55 file thời tiết + 2 bản đồ cá ≈ 0,77 MB, lưới đầu vào ≈ 0,2 MB/lần ⇒ dưới 1 MB/ngày. Không route nào đọc kho cho app; đọc bằng script offline. Không có thông tin cá nhân.
+- Dung lượng đo thật < 1 MB/ngày (~0,35 GB/năm) — trong hạn mức Storage gói Free (1 GB) khoảng 2–3 năm; khi chật thì gộp/xoá theo năm, chưa đặt tự xoá.
 - Apply trước hay sau deploy code đều an toàn: thiếu bucket thì `putArchive` trả lỗi trong `parts`/`archive` của response cron, snapshot vẫn ghi bình thường.
 
 ### 0057 — ADMIN TỔNG TRONG DB — migration [`0057_staff_owner.sql`](../../supabase/migrations/0057_staff_owner.sql) (2026-10-02) — ✅ **ĐÃ APPLY prod 2026-10-02** (chủ dự án duyệt; soi sau apply: đúng 1 hàng `admin`/`owner` còn hiệu lực)

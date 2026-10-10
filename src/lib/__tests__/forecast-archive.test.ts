@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { gunzipSync } from "node:zlib";
 
 vi.mock("server-only", () => ({}));
-const { archivePath, encodeArchive, summarizePuts } = await import("@/lib/forecast-archive");
+const { archivePath, encodeArchive, summarizePuts, putArchive } = await import("@/lib/forecast-archive");
 
 describe("forecast-archive", () => {
   it("đường dẫn theo loại/năm/ngày, id snapshot có ':' thành '_'", () => {
@@ -33,5 +33,41 @@ describe("forecast-archive", () => {
     expect(s.note).toContain("Bucket not found");
     expect(summarizePuts([]).ok).toBe(false);
     expect(summarizePuts([{ path: "b", ok: false, bytes: 0, error: "x" }]).ok).toBe(false);
+  });
+});
+
+describe("putArchive — thử lại khi mạng chập chờn", () => {
+  /** client giả: `fails` lần đầu ném "fetch failed", sau đó thành công */
+  const fakeAdmin = (fails: number) => {
+    let n = 0;
+    const upload = vi.fn(async () => {
+      if (n++ < fails) throw new TypeError("fetch failed");
+      return { error: null };
+    });
+    return { client: { storage: { from: () => ({ upload }) } } as never, upload };
+  };
+
+  it("rớt 2 lần rồi lên ⇒ ok, gọi 3 lần", async () => {
+    vi.useFakeTimers();
+    const { client, upload } = fakeAdmin(2);
+    const p = putArchive(client, "fish/2026/2026-10-10/x.json.gz", { a: 1 });
+    await vi.runAllTimersAsync();
+    const r = await p;
+    vi.useRealTimers();
+    expect(r.ok).toBe(true);
+    expect(r.bytes).toBeGreaterThan(0);
+    expect(upload).toHaveBeenCalledTimes(3);
+  });
+
+  it("rớt mãi ⇒ không ném, báo lỗi kèm số lần", async () => {
+    vi.useFakeTimers();
+    const { client, upload } = fakeAdmin(99);
+    const p = putArchive(client, "fish/2026/2026-10-10/x.json.gz", { a: 1 });
+    await vi.runAllTimersAsync();
+    const r = await p;
+    vi.useRealTimers();
+    expect(r).toMatchObject({ ok: false, bytes: 0 });
+    expect(r.error).toContain("sau 3 lần");
+    expect(upload).toHaveBeenCalledTimes(3);
   });
 });

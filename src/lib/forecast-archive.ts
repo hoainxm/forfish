@@ -42,17 +42,32 @@ export interface ArchivePut {
   error?: string;
 }
 
-/** Ghi một file vào kho (ghi đè). Không ném — lỗi trả trong kết quả. */
-export async function putArchive(admin: SupabaseClient, path: string, obj: unknown): Promise<ArchivePut> {
+/**
+ * Ghi một file vào kho (ghi đè). Không ném — lỗi trả trong kết quả. THỬ LẠI tối đa `tries`
+ * lần (nghỉ 1 s, 3 s): đo prod 2026-10-10, mạng IIS → Supabase rớt "fetch failed" ngẫu nhiên
+ * MỘT file mỗi lượt (lượt 1 chlfine, lượt 2 currents) — không thử lại là ngày đó mất file.
+ */
+export async function putArchive(admin: SupabaseClient, path: string, obj: unknown, tries = 3): Promise<ArchivePut> {
+  let buf: Buffer;
   try {
-    const buf = encodeArchive(obj);
-    const { error } = await admin.storage
-      .from(ARCHIVE_BUCKET)
-      .upload(path, buf, { contentType: "application/gzip", upsert: true });
-    return error ? { path, ok: false, bytes: 0, error: error.message } : { path, ok: true, bytes: buf.length };
+    buf = encodeArchive(obj);
   } catch (e) {
     return { path, ok: false, bytes: 0, error: e instanceof Error ? e.message : String(e) };
   }
+  let last = "";
+  for (let a = 0; a < tries; a++) {
+    if (a > 0) await new Promise((r) => setTimeout(r, a === 1 ? 1000 : 3000));
+    try {
+      const { error } = await admin.storage
+        .from(ARCHIVE_BUCKET)
+        .upload(path, buf, { contentType: "application/gzip", upsert: true });
+      if (!error) return { path, ok: true, bytes: buf.length };
+      last = error.message;
+    } catch (e) {
+      last = e instanceof Error ? e.message : String(e);
+    }
+  }
+  return { path, ok: false, bytes: 0, error: `${last} (sau ${tries} lần)` };
 }
 
 /** Gộp kết quả nhiều lần ghi cho log cron: số file, tổng byte, lỗi đầu tiên. */
