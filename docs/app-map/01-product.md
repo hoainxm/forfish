@@ -403,6 +403,19 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
    nước ở đây ĐỒNG ĐỀU (SST 29,4–30,3, chl 0,15–0,2, ít front) nên vẫn chỉ mức Thấp; ô TB/Cao nằm ở
    11–12°N khơi Khánh Hoà–Ninh Thuận. Vân tay mô hình tự đổi (hằng mới vào `fishModelSignature`) ⇒
    snapshot cũ không đè.
+ ✅ SỬA TIẾP 2026-10-11 — NGỪ Ồ + NGỪ CHÙ ĐI KHƠI (Vss Quân Bình Định gửi tàu BĐ-95290-TS đang đánh ở
+   13°44'N 114°21'E, đáy >3000 m: "đang cá nhiều mà Sen báo không có" — ngừ vằn, ngừ ồ, ngừ chù).
+   (a) Ngừ vằn: đã đúng từ 16e42a2; bà con thấy số cũ vì app native tải `forfish-alpha.vercel.app`
+   còn ở 2118ea6 (08/10) — xem ops/external-services §PRECOMPUTE. (b) Ngừ ồ, ngừ chù: cổng `inshore` cho ×0 ở
+   đáy ≥600/1250 m ⇒ vùng khơi KHÔNG BAO GIỜ có hai loài này; ngừ ồ còn thiếu vùng Hoàng Sa/Trường Sa
+   trong lịch vụ (không được chấm). eCDT 8–9/2026: 48 % kg ngừ ồ, 55 % kg ngừ chù từ chuyến >10 ngày
+   (100 % tàu ≥15 m). Sửa: `inshoreFloor` 0,7 (khơi còn ×0,7, thềm ×1 — vẫn ưu tiên ven bờ) + ngừ ồ thêm
+   vùng `hoang-sa`, `truong-sa-dk1`. ĐO (dựng lại lưới 09/10, full features): 30 ô cao nhất cả hai loài
+   VẪN ở thềm (đáy trung vị 151/131 m, 0 ô >1000 m — không lặp lỗi "điểm nóng trôi ra khơi" 24/7); ô
+   ≥40 ở đáy >1000 m 0 → 24 (ngừ ồ), 0 → 87 (ngừ chù); quanh tàu 0 → 26–30 / 28–41. Sàn 0,5 đã thử: khơi
+   vẫn dưới sàn hiển thị. ## Assumptions: sàn 0,7 chọn theo tỉ lệ sản lượng chuyến dài, CHƯA kiểm AUCeff
+   DataLake (thiếu vết VMS 8–9 trên máy) — chạy `dl-eval` lại khi có; eCDT chỉ phủ tàu ≥15 m nên tỉ lệ
+   khơi bị thổi phồng so với cả đội tàu, vì vậy giữ ưu tiên ven bờ thay vì bỏ cổng.
 
 🟡 CỔNG NHIỆT LỆCH ẤM (đo độc lập trên SST thật xác nhận): tháng 7 biển VN chỉ trải 28,7–30,0 °C mà
  plateau vây vàng là 26–30 ⇒ 90,4 % ô đạt điểm tối đa, độ lệch chuẩn 0,081 ⇒ TERM NHIỆT KHÔNG PHÂN BIỆT

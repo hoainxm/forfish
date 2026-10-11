@@ -373,9 +373,12 @@ export const FISH_SEASONS: FishSeason[] = [
     // Tháng 10 (bà con còn đánh): KHÔNG khai thêm — luật nới vụ chung 2026-10-03
     // (SEASON_FULL_PAD_MONTHS) đã cho tháng 2 và 10 đủ điểm; 1 và 11 = 0,5;
     // tháng 12 = 0 (giữa đông). Lịch này giữ đúng nghĩa "tháng RỘ".
+    // Thêm Hoàng Sa + Trường Sa 2026-10-11: tàu Bình Định đánh ngừ ồ ở khơi
+    // 13°44'N 114°21'E (vùng truong-sa-dk1) — không có vùng thì loài không được
+    // chấm. Ưu tiên ven bờ vẫn do cổng `inshore` + `inshoreFloor` (fish-predict).
     species: "Cá ngừ ồ",
     months: [3, 4, 5, 6, 7, 8, 9],
-    regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo"],
+    regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo", "hoang-sa", "truong-sa-dk1"],
     note: "Rộ tháng 3–9; đàn nổi gần bờ và quanh đảo theo đàn cá cơm — lưới vây, lưới rút, rê. Khác cá ngừ chù.",
   },
   {

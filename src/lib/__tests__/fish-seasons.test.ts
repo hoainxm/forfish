@@ -247,6 +247,12 @@ describe("distanceToPolygonDeg — khoảng cách tới ĐOẠN THẲNG", () => 
 describe("mùa ngừ ồ (sửa 2026-09-30 — khai cũ 11–5 ngược mùa)", () => {
   const oo = FISH_SEASONS.filter((f) => f.species === "Cá ngừ ồ");
 
+  it("có vùng khơi Hoàng Sa + Trường Sa (tàu Bình Định đánh ở 13°44'N 114°21'E, 2026-10-11)", () => {
+    const regions = new Set(oo.flatMap((f) => f.regions));
+    expect(regions.has("hoang-sa")).toBe(true);
+    expect(regions.has("truong-sa-dk1")).toBe(true);
+  });
+
   it("rộ tháng 3–9 ở Nam Trung Bộ (Nhơn Lý ~5–6, Đức Phổ tháng 9)", () => {
     const ntb = oo.find((f) => f.regions.includes("nam-trung-bo"))!;
     for (const m of [5, 6, 9]) expect(seasonPrior(ntb.months, m)).toBe(1);

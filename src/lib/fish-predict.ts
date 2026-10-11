@@ -305,6 +305,14 @@ export interface SpeciesProfile {
    */
   inshore?: [number, number];
   /**
+   * SÀN cho cổng `inshore` (0..1, mặc định 0 = loại hẳn ở nước sâu). Cho loài
+   * ƯU TIÊN ven bờ nhưng VẪN ĐI KHƠI: nước sâu ≥ b m còn ×sàn thay vì ×0, ven
+   * bờ vẫn ×1 nên điểm nóng giữ ở thềm. Sinh ra 2026-10-11 (phản hồi Bình Định:
+   * ngừ ồ/ngừ chù đánh ở khơi 13°44'N 114°21'E, đáy >3000 m, app báo 0) — nhật
+   * ký eCDT 8–9/2026: 48 % kg ngừ ồ, 55 % kg ngừ chù từ chuyến >10 ngày.
+   */
+  inshoreFloor?: number;
+  /**
    * CỔNG CÁCH BỜ RIÊNG cho loài `offshore` (km, `[a, b]`: <a ×0, ≥b ×1). Mặc
    * định `OFFSHORE_COAST_KM` [20, 50]. Ngừ vằn, nục heo vụ hè vào sát bờ Bình
    * Định–Khánh Hoà (RIMF) nên nới [10, 25] — không có thì vụ hè ven bờ của loài
@@ -356,7 +364,8 @@ export const SPECIES_PROFILES: SpeciesProfile[] = [
   // fit DataLake 2026-10-10 (dl-fit-profiles, kiểm chéo trên main): AUCeff 0.645→0.668 (T08 0.577→0.595 · T09 0.706→0.733) · chỉnh {"sstWidth": 0.6, "chlShift": -0.8, "food": 0.5}
   { species: "Cá ngừ vằn", short: "ngừ vằn", category: "pelagic-large", surfaceSignal: "high", color: "#2563eb", depthBand: "tầng mặt 0–260 m", sst: [25.1, 26.9, 30.5, 32], chlLog: [-1.8, -0.8], w: { thermFront: 0.3, chlFront: 0.15, eddy: 0.3, upw: 0.05, conv: 0.2, thermo: 0.2 }, coldCore: false, offshore: [50, 200], coastKm: [10, 25], foodDependence: 0.5 },
   // fit DataLake 2026-10-10 (dl-fit-profiles, kiểm chéo trên main): AUCeff 0.617→0.641 (T08 0.613→0.647 · T09 0.629→0.642) · chỉnh {"sstShift": -0.5, "sstWidth": 0.6, "depthScale": 0.5}
-  { species: "Cá ngừ chù", short: "ngừ chù", category: "pelagic-large", surfaceSignal: "medium", color: "#0891b2", depthBand: "tầng mặt 0–50 m", sst: [25.7, 28.1, 31, 32], chlLog: [-1.1, -0.5], w: { thermFront: 0.2, chlFront: 0.25, eddy: 0.15, upw: 0.05, conv: 0.1, thermo: 0.2 }, coldCore: false, inshore: [300, 1250] },
+  // inshoreFloor 0,7 (2026-10-11, phản hồi Bình Định — đánh ở khơi đáy >3000 m, app báo 0): eCDT 8–9/2026 55 % kg từ chuyến >10 ngày. Dựng lại 09/10: 30 ô cao nhất vẫn ở thềm (đáy trung vị 131 m, 0 ô >1000 m); 87 ô khơi >1000 m đạt ≥40; quanh tàu 28–41 (sàn 0,5: 26–29, dưới sàn hiển thị 40).
+  { species: "Cá ngừ chù", short: "ngừ chù", category: "pelagic-large", surfaceSignal: "medium", color: "#0891b2", depthBand: "tầng mặt 0–50 m", sst: [25.7, 28.1, 31, 32], chlLog: [-1.1, -0.5], w: { thermFront: 0.2, chlFront: 0.25, eddy: 0.15, upw: 0.05, conv: 0.1, thermo: 0.2 }, coldCore: false, inshore: [300, 1250], inshoreFloor: 0.7 },
   // Ngừ ồ = Auxis rochei (bullet tuna) theo NĐ 37/2024 Phụ lục V — KHÁC ngừ chù
   // (A. thazard, hồ sơ ngay trên); chợ Nhơn Lý (Quy Nhơn) bán hai thứ hai giá.
   // Sửa 2026-09-30: cá VEN BỜ & quanh đảo (FishBase "10 – ? m"), săn đàn cá cơm
@@ -373,7 +382,8 @@ export const SPECIES_PROFILES: SpeciesProfile[] = [
   // chlLog [-1,0]: nước ven bờ giàu mồi hơn khơi — sweep 6 biến thể trên lưới
   // thật (24/7 + 28/9): duy nhất bản này giữ 91% ô ≥50 ở đáy ≤200 m cả 2 ngày.
   // fit DataLake 2026-10-10 (dl-fit-profiles, kiểm chéo trên main): AUCeff 0.447→0.588 (T08 0.426→0.528 · T09 0.446→0.644) · chỉnh {"sstWidth": 0.8, "chlShift": -0.8}
-  { species: "Cá ngừ ồ", short: "ngừ ồ", category: "pelagic-large", surfaceSignal: "medium", color: "#0e7490", depthBand: "tầng mặt ven bờ & quanh đảo, theo đàn cá cơm", sst: [22.75, 25.55, 30.5, 32], chlLog: [-1.8, -0.8], w: { thermFront: 0.3, chlFront: 0.25, eddy: 0.1, upw: 0.25, conv: 0.15 }, coldCore: false, inshore: [200, 600] },
+  // inshoreFloor 0,7 (2026-10-11, phản hồi Bình Định — đánh ở khơi đáy >3000 m, app báo 0): eCDT 8–9/2026 48 % kg từ chuyến >10 ngày. Dựng lại 09/10: 30 ô cao nhất vẫn ở thềm (đáy trung vị 151 m, 0 ô >1000 m); 24 ô khơi >1000 m đạt ≥40; quanh tàu 26–30 (sàn 0,5: dưới 25, bị cắt khỏi payload).
+  { species: "Cá ngừ ồ", short: "ngừ ồ", category: "pelagic-large", surfaceSignal: "medium", color: "#0e7490", depthBand: "tầng mặt ven bờ & quanh đảo, theo đàn cá cơm", sst: [22.75, 25.55, 30.5, 32], chlLog: [-1.8, -0.8], w: { thermFront: 0.3, chlFront: 0.25, eddy: 0.1, upw: 0.25, conv: 0.15 }, coldCore: false, inshore: [200, 600], inshoreFloor: 0.7 },
   // fit DataLake 2026-10-10 (dl-fit-profiles, kiểm chéo trên main): AUCeff 0.524→0.562 (T08 0.467→0.476 · T09 0.431→0.546) · chỉnh {"sstWidth": 0.6, "chlShift": -0.8, "depthScale": 0.5}
   { species: "Cá ngừ chấm", short: "ngừ chấm", category: "pelagic-large", surfaceSignal: "medium", color: "#0d9488", depthBand: "ven bờ 0–80 m", sst: [23.3, 26.9, 30.5, 32], chlLog: [-1.5, -0.4], w: { thermFront: 0.2, chlFront: 0.2, eddy: 0.05, upw: 0.15, conv: 0.1, thermo: 0.1 }, coldCore: false, inshore: [100, 300] },
   { species: "Cá thu", short: "cá thu", category: "pelagic-large", surfaceSignal: "high", color: "#155e75", depthBand: "tầng mặt – đáy 5–170 m, ven bờ", sst: [20, 25, 30, 31.5], chlLog: [-0.7, 0.4], w: { thermFront: 0.35, chlFront: 0.2, eddy: 0.1, upw: 0.1, conv: 0.15, thermo: 0.05 }, coldCore: false, inshore: [150, 500] },
@@ -578,10 +588,11 @@ export function deepWaterFit(depthM: number, a: number, b: number): number {
  * dốc a→b, 0 khi ≥ b m. Thiếu độ sâu → `DEPTH_UNKNOWN_FIT` (cùng luật "không
  * biết thì bớt chắc chắn"). Sinh ra 2026-09-30: đo lưới thật tháng 7 thấy điểm
  * nóng ngừ ồ (cá ven bờ) trôi theo vệt nước trồi ra khơi sâu 1826 m.
+ * `floor` (hồ sơ `inshoreFloor`): nước sâu ≥ b còn ×floor thay vì ×0.
  */
-export function shallowWaterFit(depthM: number, a: number, b: number): number {
+export function shallowWaterFit(depthM: number, a: number, b: number, floor = 0): number {
   if (!Number.isFinite(depthM)) return DEPTH_UNKNOWN_FIT;
-  return 1 - deepWaterFit(depthM, a, b);
+  return floor + (1 - floor) * (1 - deepWaterFit(depthM, a, b));
 }
 
 /**
@@ -1615,7 +1626,7 @@ export function buildFishForecast(
               : 1)
           : p.inshore
             ? cellDepthM != null
-              ? shallowWaterFit(cellDepthM, p.inshore[0], p.inshore[1])
+              ? shallowWaterFit(cellDepthM, p.inshore[0], p.inshore[1], p.inshoreFloor)
               : DEPTH_UNKNOWN_FIT
             : 1;
         // CỔNG NỀN RẠN (requiresReef): ô có rạn ⇒ bỏ qua cổng độ sâu (chóp rạn

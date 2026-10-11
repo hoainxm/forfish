@@ -506,6 +506,43 @@ describe("shallowWaterFit (cổng độ sâu loài ven bờ)", () => {
   it("không loài nào khai CẢ offshore lẫn inshore", () => {
     for (const p of SPECIES_PROFILES) expect(!!p.offshore && !!p.inshore).toBe(false);
   });
+
+  it("sàn (inshoreFloor): nước sâu còn ×sàn, ven bờ vẫn ×1, thiếu độ sâu không đổi", () => {
+    expect(shallowWaterFit(3000, 200, 600, 0.7)).toBeCloseTo(0.7, 9);
+    expect(shallowWaterFit(400, 200, 600, 0.7)).toBeCloseTo(0.85, 9);
+    expect(shallowWaterFit(100, 200, 600, 0.7)).toBe(1);
+    expect(shallowWaterFit(NaN, 200, 600, 0.7)).toBe(DEPTH_UNKNOWN_FIT);
+  });
+
+  it("inshoreFloor chỉ khai cùng inshore, trong (0,1)", () => {
+    for (const p of SPECIES_PROFILES) {
+      if (p.inshoreFloor == null) continue;
+      expect(p.inshore, p.short).toBeDefined();
+      expect(p.inshoreFloor).toBeGreaterThan(0);
+      expect(p.inshoreFloor).toBeLessThan(1);
+    }
+  });
+});
+
+describe("ngừ ồ + ngừ chù vẫn đi khơi (phản hồi Bình Định 2026-10-11)", () => {
+  const find = (short: string) => SPECIES_PROFILES.find((p) => p.short === short)!;
+  // 13°44'N 114°21'E, đáy >3000 m: trước đây cổng inshore ×0 ⇒ app báo không có
+  // ngừ ồ/ngừ chù dù tàu đang đánh. eCDT 8–9/2026: ~50 % kg từ chuyến >10 ngày.
+  it("có sàn nên nước sâu không còn ×0", () => {
+    for (const s of ["ngừ ồ", "ngừ chù"]) {
+      const p = find(s);
+      expect(shallowWaterFit(3000, p.inshore![0], p.inshore![1], p.inshoreFloor)).toBeGreaterThan(0);
+    }
+  });
+
+  it("ven bờ vẫn được ưu tiên hơn khơi (sàn < 1)", () => {
+    for (const s of ["ngừ ồ", "ngừ chù"]) {
+      const p = find(s);
+      const shelf = shallowWaterFit(100, p.inshore![0], p.inshore![1], p.inshoreFloor);
+      const deep = shallowWaterFit(3000, p.inshore![0], p.inshore![1], p.inshoreFloor);
+      expect(deep).toBeLessThan(shelf);
+    }
+  });
 });
 
 describe("ngừ ồ = Auxis rochei, cá ven bờ (sửa 2026-09-30)", () => {
