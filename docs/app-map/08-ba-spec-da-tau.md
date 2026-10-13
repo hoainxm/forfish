@@ -1,8 +1,9 @@
 # 08 — ba-spec: Đa tàu — hồ sơ cố-định-theo-tàu vs động-theo-chủ
 
 > Load khi: task chạm hành vi quản lý nhiều tàu, vòng đời thêm/xóa/đổi tàu, phân loại hồ sơ, gán hàng SDVICO theo tàu, nhắc việc đa-tàu.
-covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/boats.ts
-last_verified: 2026-10-06
+covers: src/components/boat-switcher.tsx, src/components/document-vault.tsx, src/components/maintenance-reminders.tsx, src/components/crew-list.tsx, src/components/boat-products.tsx, src/components/urgent-strip.tsx, src/lib/urgent.ts, src/lib/boats.ts
+last_verified: 2026-10-14
+<!-- re-verified: 2026-10-14 09:00 — `urgent-strip.tsx` TÁCH LOGIC sang `src/lib/urgent.ts` (thêm vào covers) để bản tin mở đầu của chế độ Đang chạy (doc 15) dùng chung một luật hạn. `computeUrgent` chuyển NGUYÊN VĂN (diff = 0 dòng thân hàm), kèm `maintStatus`, `loadStored`, `sdvicoUrgent`, `byUrgencyOrder`, `PILLAR_TAG` và các kiểu; component re-export `byUrgencyOrder`/`sdvicoUrgent` cho test cũ. NV5/AC-7: vẫn gom MỌI tàu + gắn `boatLabel` khi >1 tàu; cổng `readToken()` của dải khẩn giữ nguyên ở component (bản tin giọng đọc cũng chỉ đọc việc khi máy đã gắn tài khoản). R1/R2/R3/R7, khoá `forfish.*` không đổi. Test `urgent-strip.test.ts` xanh. -->
 <!-- re-verified: 2026-09-01 — `urgent-strip.tsx` THÊM MỘT CỔNG HIỂN THỊ, KHÔNG đổi hành vi đa-tàu.
 Chưa có chuỗi cứng trong máy (`readToken() == null`) thì dải khẩn trả `null` — trước đó nó đọc thẳng
 localStorage nên máy CHƯA đăng nhập vẫn bày lịch bảo dưỡng + giấy tờ + nợ SDVICO của một chủ tàu nào đó

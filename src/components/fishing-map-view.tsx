@@ -454,8 +454,16 @@ import { WindParticles } from "@/components/wind-particles";
 import { NavHud, NavBoatMarker } from "@/components/nav-mode";
 import { PlotterReadout } from "@/components/plotter-readout";
 import { useNavTracking } from "@/lib/use-nav-tracking";
+import { useNavVoice } from "@/lib/nav-voice/use-nav-voice";
+import type { ChartReadiness } from "@/lib/nav-voice/opening";
+import { VOICE_MODE_LABEL } from "@/lib/nav-voice/prefs";
+import { ttsUnlock } from "@/lib/voice/tts";
+import { CruiseIntroSheet } from "@/components/nav-voice-ui";
+import { loadBoats, loadCurrentBoatId } from "@/lib/boats";
+import type { NavInfoLine } from "@/lib/nav-context";
 import {
   computeNavProgress,
+  MIN_MOVING_KMH,
   offRouteStepCrossed,
   offRouteStepFor,
 } from "@/lib/nav-progress";
@@ -631,6 +639,18 @@ const BORDER_LEVEL_STYLE: Record<BorderLevel, { bg: string; fg: string }> = {
     lớp ở đây); màu theo mức đáng lo: đỏ = không đi vào (rạn, nước <2 m), vàng =
     đi được nhưng nhìn con nước (2–4 m, 4–12 m), thường = trên bờ / đủ sâu (nói
     cho biết, không doạ). Ngoài lưới (null) thì im. */
+/** Giữ dòng cảnh báo hải đồ trên HUD ngần này sau khi nói (xem effect mỗi fix). */
+const NAV_ALERT_HOLD_MS = 30_000;
+
+/** Nước dưới tàu, gọn cho dòng thân HUD "Đang chạy" (lớp 0 = đất/nhiễu GPS: im). */
+const CRUISE_DEPTH_SHORT: Record<number, string | undefined> = {
+  1: "trên rạn đá",
+  2: "nước dưới 2 m",
+  3: "nước 2–4 m",
+  4: "nước 4–12 m",
+  5: "nước trên 12 m",
+};
+
 const DEPTH_NOTE: Record<DepthClass, { text: string; tone: "danger" | "warn" | "plain" }> = {
   0: { text: `${DEPTH_CLASS_LABEL[0]} — theo bản đồ độ sâu của máy, ô ~450 m.`, tone: "plain" },
   1: { text: `${DEPTH_CLASS_LABEL[1]} — coi chừng mắc cạn.`, tone: "danger" },
@@ -2222,6 +2242,11 @@ export default function FishingMapView() {
   }, [route]);
   // DẪN ĐƯỜNG LIVE: tuyến đang chạy theo (bám tuyến + theo dõi GPS). null = tắt
   const [navMode, setNavMode] = useState<PlannedRoute | null>(null);
+  /*  CHẾ ĐỘ ĐANG CHẠY không tuyến (doc 15 §3B, 2026-10-13): chỉ cần GPS là máy
+      canh hải đồ + đọc cảnh báo. Dùng CHUNG mọi bộ não của dẫn đường live (ranh
+      giới, hiểm hoạ, phao/đèn) — `navOn` dưới đây = có tuyến HOẶC đang chạy. */
+  const [cruise, setCruise] = useState(false);
+  const [cruiseIntro, setCruiseIntro] = useState(false);
   // hạng độ sâu tại điểm đang xem (null = chưa biết/không cảnh báo)
   const [depth, setDepth] = useState<DepthClass | null>(null);
   /*  Thẻ dẫn đường ở đáy — đo mép trên thật lúc chạm bản đồ để biết điểm vừa
@@ -2966,8 +2991,8 @@ export default function FishingMapView() {
   /*  Dẫn đường HOẶC ô toạ độ tàu đều cần theo dõi GPS — dùng CHUNG một watch.
       `keepAwake` chỉ bật khi đang dẫn đường: xem toạ độ mà giữ màn hình sáng
       cả buổi là ăn hết pin giữa biển. */
-  const tracking = useNavTracking(navMode != null || gpsOn, {
-    keepAwake: navMode != null,
+  const tracking = useNavTracking(navMode != null || cruise || gpsOn, {
+    keepAwake: navMode != null || cruise,
   });
   /*  Vị trí mới nhất giữ trong ref: `goToMyBoat` cần đọc nó mà KHÔNG được nhận
       `tracking.pos` làm dep — fix về mỗi 1–2 giây, dựng lại callback từng nhịp
@@ -3013,7 +3038,7 @@ export default function FishingMapView() {
      → 3, lib/geofence borderStepCrossed), không lặp mỗi nhịp GPS; ≤6 hải lý
      không thu được (NavHud). Đi ra xa thì mốc lùi trong im lặng để lần quay
      lại gần vẫn được nhắc. */
-  const navOn = navMode != null;
+  const navOn = navMode != null || cruise;
   const navPos = tracking.pos;
   // memo theo fix GPS — effect dưới lệ thuộc reference này, không được đổi
   // mỗi lần vẽ lại (sẽ set state vòng lặp)
@@ -3124,20 +3149,31 @@ export default function FishingMapView() {
   // camera bám vị trí tàu mỗi khi có fix mới (chỉ khi định vị còn tốt — mất
   // định vị thì GIỮ NGUYÊN khung, không giật camera theo vị trí cũ)
   useEffect(() => {
-    if (navMode && tracking.pos && tracking.status === "tracking") {
+    if (navOn && tracking.pos && tracking.status === "tracking") {
       flyToPoint(tracking.pos.lon, tracking.pos.lat);
     }
-  }, [navMode, tracking.pos, tracking.status, flyToPoint]);
+  }, [navOn, tracking.pos, tracking.status, flyToPoint]);
 
   const startNav = useCallback(
     (r: PlannedRoute) => {
+      ttsUnlock(); // trong cử chỉ chạm — mở khoá loa iOS cho giọng đọc
+      setCruise(false); // đang chạy không tuyến → nâng lên có tuyến, vòng canh KHÔNG dừng
       setNavMode(r);
       setRoute(r); // đảm bảo tuyến đang vẽ đúng tuyến đang dẫn
       setSize("peek"); // để bản đồ + HUD lộ tối đa
     },
     [setSize],
   );
-  const stopNav = useCallback(() => setNavMode(null), []);
+  const stopNav = useCallback(() => {
+    setNavMode(null);
+    setCruise(false);
+  }, []);
+  const startCruise = useCallback(() => {
+    ttsUnlock();
+    setCruiseIntro(false);
+    setCruise(true);
+    setSize("peek"); // bản đồ + HUD lộ tối đa, như bắt đầu dẫn đường
+  }, [setSize]);
 
   /* ── CẢNH BÁO HIỂM HOẠ KHI ĐANG CHẠY (Đợt 3, 2026-09-04) ─────────────────
      Bộ não ở `lib/nav-hazards.ts` (thuần), kho tra cứu ở `lib/nav-context.ts`
@@ -3168,9 +3204,17 @@ export default function FishingMapView() {
     denMs: number;
   }>({ ms: 0, lat: NaN, lon: NaN, hdg: null, phaoMs: 0, denMs: 0 });
   const [navAlerts, setNavAlerts] = useState<NavAlert[]>([]);
-  const [navInfoLine, setNavInfoLine] = useState<string | null>(null);
+  /** lần cuối có câu cảnh báo mới — giữ dòng trên HUD NAV_ALERT_HOLD_MS */
+  const navAlertsAtRef = useRef(-Infinity);
+  const [navInfo, setNavInfo] = useState<NavInfoLine | null>(null);
   /** câu đèn biển gần nhất — làm mới 30 giây/lần, dùng khi không có phao nào */
-  const navDenRef = useRef<string | null>(null);
+  const navDenRef = useRef<NavInfoLine | null>(null);
+  /** lớp độ sâu DƯỚI TÀU (0..5, `depthClassAt`) — giọng đọc vùng nước (doc 15 §5) */
+  const [navDepthHere, setNavDepthHere] = useState<number | null>(null);
+  /** kho hải đồ dựng tới đâu — bản tin mở đầu nói thật (null = đang dựng) */
+  const [navChart, setNavChart] = useState<ChartReadiness | null>(null);
+  /** chiều dài tàu đang chọn — ngưỡng sóng gió theo cỡ tàu (doc 15 Assumptions 5) */
+  const [navLengthM, setNavLengthM] = useState<number | null>(null);
   const [navRung, setNavRung] = useState(true);
   const navRungRef = useRef(true);
   /*  Kho khu trú bão đã nạp xong chưa. PHẢI là state chứ không đọc thẳng
@@ -3227,7 +3271,9 @@ export default function FishingMapView() {
         denMs: 0,
       };
       setNavAlerts([]);
-      setNavInfoLine(null);
+      setNavInfo(null);
+      setNavDepthHere(null);
+      setNavChart(null);
       setShelterOpen(false);
       setNavKhuReady(false);
       return;
@@ -3239,6 +3285,13 @@ export default function FishingMapView() {
         ? boat.draftM
         : null;
     navDraftRef.current = mon;
+    try {
+      const cur = loadCurrentBoatId();
+      const b = loadBoats().find((x) => x.id === cur) ?? null;
+      setNavLengthM(typeof b?.lengthM === "number" && b.lengthM > 0 ? b.lengthM : null);
+    } catch {
+      setNavLengthM(null);
+    }
     navNeedRef.current = requiredDepthM(mon, null);
     void Promise.allSettled([
       fetchXacTau(),
@@ -3264,6 +3317,13 @@ export default function FishingMapView() {
       );
       navCtxRef.current = ctx;
       setNavKhuReady(ctx.khu != null);
+      /*  HẢI ĐỒ ĐỦ CHƯA — bản tin mở đầu nói thật: thiếu lưới độ sâu hay thiếu
+          kho chướng ngại thì "chỉ canh được một phần", không hứa đủ. */
+      const coDoSau = navDepthRef.current != null;
+      const coVat = ctx.counts.hazards > 0;
+      setNavChart(
+        !coDoSau && !coVat ? "chua-co" : coDoSau && ctx.missing.length === 0 ? "du" : "thieu",
+      );
       if (process.env.NODE_ENV !== "production") {
         console.debug("nav-context", ctx.counts, `${ctx.buildMs} ms`, ctx.missing);
       }
@@ -3332,24 +3392,39 @@ export default function FishingMapView() {
         đèn biển 30 giây. Nhịp riêng vì hai thứ này đổi chậm hơn hiểm hoạ, mà
         dựng câu cho chúng là hai lượt tra chỉ mục nữa. */
     if (navStatus !== "tracking") {
-      setNavInfoLine(null);
+      setNavInfo(null);
     } else if (ctx && now - last.phaoMs >= 10_000) {
       last.phaoMs = now;
       if (now - last.denMs >= 30_000) {
         last.denMs = now;
-        navDenRef.current = denBienTin(ctx, navPos, navFmtDist)?.cau ?? null;
+        navDenRef.current = denBienTin(ctx, navPos, navFmtDist);
       }
       // phao thắng đèn: phao là thứ sắp đi ngang, đèn chỉ là mốc nhìn cho vui mắt
       const p = phaoKeTiep(ctx, navPos, navHeadingDeg, navFmtDist);
-      setNavInfoLine(p ? p.cau : navDenRef.current);
+      const next = p ?? navDenRef.current;
+      setNavInfo((cu) => (cu?.id === next?.id && cu?.cau === next?.cau ? cu : next));
     }
+    // VÙNG NƯỚC DƯỚI TÀU — đọc lưới độ sâu đã nạp (O(1), không mạng)
+    setNavDepthHere(
+      navStatus === "tracking" && navDepthRef.current
+        ? depthClassAt(navDepthRef.current, navPos.lat, navPos.lon)
+        : null,
+    );
 
     last.ms = now;
     last.lat = navPos.lat;
     last.lon = navPos.lon;
     last.hdg = navHeadingDeg;
 
-    setNavAlerts((cu) => (sameAlerts(cu, alerts) ? cu : alerts));
+    /*  GIỮ DÒNG CẢNH BÁO 30 GIÂY (2026-10-13). `evaluateNavHazards` chỉ trả câu
+        đúng lúc VƯỢT MỐC — fix kế tiếp trả rỗng — nên trước đây dòng đỏ "xác
+        tàu phía trước" chỉ nháy ~2 giây rồi mất. Giờ có giọng đọc, nhưng người
+        nghe kém / máy tàu ồn vẫn phải ĐỌC lại được: giữ câu vừa nói tới khi có
+        câu mới hoặc quá 30 giây. Chỉ là lớp hiển thị — mốc/đếm lần vẫn ở lib. */
+    if (alerts.length > 0) navAlertsAtRef.current = now;
+    const giu =
+      alerts.length === 0 && navStatus === "tracking" && now - navAlertsAtRef.current < NAV_ALERT_HOLD_MS;
+    if (!giu) setNavAlerts((cu) => (sameAlerts(cu, alerts) ? cu : alerts));
 
     /*  Chuông + rung: `nav-hazards` đã đếm giãn cách (≤1 chuông/20 s, ≤1
         rung/30 s, đỏ mới được miễn) nên ở đây chỉ việc phát. Nuốt lỗi là cố
@@ -3414,9 +3489,98 @@ export default function FishingMapView() {
       `navBorder` mức very_near (≤6 hải lý) vẫn đứng đầu và do HUD vẽ riêng;
       lúc đó dòng tin phao/đèn nhường chỗ. */
   const navHazardLines = useMemo(
-    () => pickHudLines(navAlerts, navBorder?.level === "very_near", navInfoLine),
-    [navAlerts, navBorder?.level, navInfoLine],
+    () => pickHudLines(navAlerts, navBorder?.level === "very_near", navInfo?.cau ?? null),
+    [navAlerts, navBorder?.level, navInfo],
   );
+
+  /* ── GIỌNG ĐỌC KHI CHẠY (doc 15, 2026-10-13) ─────────────────────────────
+     Mọi quyết định "đọc gì, lúc nào" ở `lib/nav-voice/*` (thuần, có test).
+     Ở đây chỉ gom nguồn đã có sẵn trên màn này đưa vào. Hải đồ (độ sâu, rạn,
+     xác tàu, chướng ngại) là ưu tiên số một — chủ dự án chốt 2026-10-13. */
+  const navLegs = useMemo(() => {
+    const bounds = navMode?.legBoundsKm ?? [];
+    if (!navMode || !navProgress || bounds.length < 2) return { passed: 0, total: 0 };
+    return {
+      passed: legProgressAt(bounds, navProgress.alongKm, null).currentLeg,
+      total: bounds.length,
+    };
+  }, [navMode, navProgress]);
+  const navMoving = tracking.speedKmh != null && tracking.speedKmh >= MIN_MOVING_KMH;
+  const voiceBorder = useMemo(
+    () =>
+      navBorder
+        ? { step: navBorder.step, distanceNm: navBorder.distanceNm, level: navBorder.level }
+        : null,
+    [navBorder],
+  );
+  const voiceOffRoute = useMemo(
+    () => (navOffRoute ? { step: navOffRoute.step, km: navOffRoute.km } : null),
+    [navOffRoute],
+  );
+  const navVoice = useNavVoice({
+    on: navOn,
+    unit: prefs.distUnit === "km" ? "km" : "nm",
+    pos: tracking.pos,
+    headingDeg: tracking.headingDeg,
+    speedKmh: tracking.speedKmh,
+    moving: navMoving,
+    gps: tracking.status,
+    alerts: navAlerts,
+    border: voiceBorder,
+    offRoute: voiceOffRoute,
+    info: navInfo,
+    storm: stormInfo,
+    depthHere: navDepthHere,
+    legsPassed: navLegs.passed,
+    legsTotal: navLegs.total,
+    arrived: navProgress?.arrived ?? false,
+    chart: navChart,
+    lengthM: navLengthM,
+  });
+  const voiceHud = useMemo(
+    () => ({
+      label:
+        navVoice.level === "im30"
+          ? "Giọng: im 30 phút"
+          : `Giọng: ${VOICE_MODE_LABEL[navVoice.level]}`,
+      on: navVoice.level === "day-du" || navVoice.level === "it",
+      onCycle: navVoice.cycleLevel,
+      speaking: navVoice.speaking,
+      onAck: navVoice.ack,
+      noVoice:
+        navVoice.avail && !navVoice.avail.ok
+          ? { canInstall: navVoice.avail.canInstall, onInstall: navVoice.openInstall }
+          : null,
+    }),
+    [navVoice],
+  );
+  /*  Dòng thân HUD khi ĐANG CHẠY không tuyến: hướng · tốc độ · nước dưới tàu. */
+  const cruiseLine = useMemo(() => {
+    if (navMode || !tracking.pos) return null;
+    if (!navMoving) return "Tàu đang đứng — máy vẫn canh.";
+    if (tracking.headingDeg == null) return "Đang bắt hướng đi…";
+    const v = tracking.speedKmh ?? 0;
+    const tocDo =
+      prefs.distUnit === "km"
+        ? `${Math.round(v)} km/giờ`
+        : `${Math.round(v / 1.852)} hải lý/giờ`;
+    const nuoc =
+      navDepthHere != null && CRUISE_DEPTH_SHORT[navDepthHere]
+        ? ` · ${CRUISE_DEPTH_SHORT[navDepthHere]}`
+        : "";
+    return `Hướng ${windDirectionVN(tracking.headingDeg)} · ${tocDo}${nuoc}`;
+  }, [navMode, tracking.pos, tracking.headingDeg, tracking.speedKmh, navMoving, prefs.distUnit, navDepthHere]);
+  const toggleCruise = useCallback(() => {
+    if (navOn) {
+      stopNav();
+      return;
+    }
+    if (!navVoice.prefs.daXem) {
+      setCruiseIntro(true);
+      return;
+    }
+    startCruise();
+  }, [navOn, stopNav, navVoice.prefs.daXem, startCruise]);
 
   // độ sâu tại điểm đang xem — lưới tĩnh, đọc cục bộ
   useEffect(() => {
@@ -6894,6 +7058,15 @@ export default function FishingMapView() {
         />
       )}
 
+      {cruiseIntro && (
+        <CruiseIntroSheet
+          onClose={() => setCruiseIntro(false)}
+          onStart={() => {
+            navVoice.markIntroSeen();
+            startCruise();
+          }}
+        />
+      )}
       {shelterOpen && (
         <BottomSheet
           title="Khu trú bão gần đây"
@@ -6975,11 +7148,11 @@ export default function FishingMapView() {
           Về peek thì hiện lại. */}
       <div
         className={`safe-pt pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-2 transition-opacity duration-200 ${
-          sheetThu || navMode
+          sheetThu || navOn
             ? "opacity-100"
             : "opacity-0 [&_*]:pointer-events-none"
         }`}
-        aria-hidden={!sheetThu && !navMode}
+        aria-hidden={!sheetThu && !navOn}
       >
         <StormBanner variant="overlay" myPos={tracking.pos ?? null} />
         {/* CẢNH BÁO SỚM — dưới banner bão. Cha đã gạn (chỉ khi tin bão tươi &
@@ -6987,8 +7160,11 @@ export default function FishingMapView() {
         {earlyWarning && <StormEarlyBanner ew={earlyWarning} />}
         {/* DẪN ĐƯỜNG LIVE: thẻ HUD LUÔN hiện khi đang dẫn đường (kể cả kéo sheet
             lên) — dưới banner bão. Gợi ý lái + quãng/giờ còn lại + nút Dừng. */}
-        {navMode && (
+        {navOn && (
           <NavHud
+            title={navMode ? "Đang dẫn đường" : "Đang chạy"}
+            cruiseLine={cruiseLine}
+            voice={voiceHud}
             progress={navProgress}
             status={tracking.status}
             onStop={stopNav}
@@ -7044,6 +7220,8 @@ export default function FishingMapView() {
             closeLayersSignal={closeRailSignal}
             onRoutePanel={openRoutePanel}
             routeOn={routeMode}
+            onCruise={toggleCruise}
+            cruiseOn={navOn}
             locating={locating}
             geoError={geoError}
             layerId={layerId}

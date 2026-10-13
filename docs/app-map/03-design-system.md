@@ -180,6 +180,8 @@ type-ramp: 0.75rem 0.8125rem 0.875rem 0.9375rem 1rem 1.125rem
 
 ## 6. Pattern bản đồ (Trục 1)
 
+- **HUD dẫn đường / Đang chạy — hàng KÊNH CẢNH BÁO (2026-10-13, 07 §10.7 S)**: lưới 2 cột ngay dưới hàng tiêu đề: **"Giọng: đầy đủ / ít / im 30 phút / tắt"** (`SpeakerIcon`) | **"Báo rung: đang bật/tắt"** — chữ chứ không chỉ hình, ≥44 px, bật = `bg-t1/15 text-t1`, tắt/im = `bg-navy/10 text-navy/60`. Dòng **câu đang đọc**: `SpeakerIcon` + đúng câu loa đang nói; câu đỏ dùng `bg-danger-bg text-danger` + nút **"Đã nghe"** nền `bg-danger` chữ trắng. Máy không có giọng Việt: dòng `bg-warn-bg text-warn` + nút **"Tải giọng"** nền `bg-navy` (KHÔNG chữ trắng trên `warn` — tương phản thấp ngoài nắng). Nút rail **"Bắt đầu chạy" / "Đang chạy"** cùng khuôn nút "Lộ trình": nền đổi + chữ đổi + chấm trắng nhấp nháy.
+
 - **Nhãn chủ quyền**: BIỂN ĐÔNG / VỊNH BẮC BỘ / VỊNH THÁI LAN + HOÀNG SA (TP. Đà Nẵng — VN), TRƯỜNG SA (Tỉnh Khánh Hòa — VN) render bằng HTML marker tiếng Việt, halo màu nước để đọc được trên mọi lớp ảnh; tile quốc tế bị che bằng mask ở zoom ≤9. KHÔNG để lộ "South China Sea / Paracel / Spratly". Map view mới phải dùng lại `buildMapStyle` + `SOVEREIGNTY_LABELS` từ `src/lib/ocean-map.ts`.
 - **Chọn lớp ảnh**: nút to ≥56px, icon + từ đời thường ("Hải đồ độ sâu", "Nước nóng lạnh", "Vùng nhiều mồi", "Ảnh mây trời") — không dùng thuật ngữ SST/chlorophyll trong UI. **Lớp mặc định khi mở = Hải đồ độ sâu** (chuẩn mọi app hàng hải — Navionics/C-MAP/OpenCPN mở nautical chart, vệ tinh chỉ là tuỳ chọn; xem [../research/09-hai-do-mac-dinh.md](../research/09-hai-do-mac-dinh.md)); app nhớ lớp người dùng chọn (`forfish.maplayer.v1`).
 - **Trung thực dữ liệu**: luôn hiện "Ảnh ngày X — ảnh vệ tinh luôn chậm vài ngày" đè góc bản đồ; chú giải nói rõ "chỗ trống là mây che".

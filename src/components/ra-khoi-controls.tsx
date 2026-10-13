@@ -56,6 +56,7 @@ import {
   RouteIcon,
   RulerIcon,
   SettingsIcon,
+  SpeakerIcon,
   StarIcon,
   WavesIcon,
   WindIcon,
@@ -63,6 +64,7 @@ import {
 import { parseCoordPair } from "@/lib/parse-coord";
 import { CloseButton } from "@/components/ui/close-button";
 import { AppVersionLine } from "@/components/app-version-line";
+import { VoiceSettingsSection } from "@/components/nav-voice-ui";
 
 const FISH_COLOR = "var(--fish)"; // xanh lá — cá/ngư trường (token globals, Phương án A)
 
@@ -133,6 +135,8 @@ export function RaKhoiControls({
   closeLayersSignal,
   onRoutePanel,
   routeOn = false,
+  onCruise,
+  cruiseOn = false,
   locating,
   geoError,
   onLegend,
@@ -162,6 +166,11 @@ export function RaKhoiControls({
       cho ngoại lệ ranh giới ≤6 hl: cảnh báo đó không ai được che. */
   closeLayersSignal?: number;
   onRoutePanel?: () => void;
+  /*  CHẾ ĐỘ ĐANG CHẠY (doc 15 §3B) — chỉ cần GPS, máy đọc cảnh báo hải đồ, ranh
+      giới, bão, sóng gió. MIỄN PHÍ mọi tài khoản (cảnh báo an toàn, không phải
+      dự báo cá) nên KHÔNG gác `premiumTools`. Bấm lại khi đang bật = dừng. */
+  onCruise?: () => void;
+  cruiseOn?: boolean;
   /*  ĐANG Ở TRONG chế độ dẫn đường — nút phải TRÔNG KHÁC HẲN (user
       2026-08-28e: "hiện thời ko khác gì nhau"). Cùng khuôn nút "Đến điểm":
       bật thì nền `t1` + vòng trắng, tắt thì nền `navy`; kèm `aria-pressed`
@@ -529,6 +538,37 @@ export function RaKhoiControls({
             {locating ? "Đang tìm vị trí" : geoError ? "Bật GPS" : "Vị trí"}
           </span>
         </button>
+
+        {/* BẮT ĐẦU CHẠY — kiểu VietMap: có vị trí là máy canh + đọc to. Ngay dưới
+            "Vị trí" vì đây là việc làm MỖI CHUYẾN. Ba tín hiệu bật như nút Lộ
+            trình: nền đổi, chữ đổi, chấm nhấp nháy. */}
+        {onCruise && (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(null);
+              setCoordOpen(false);
+              setPlacesOpen(false);
+              onCruise();
+            }}
+            aria-pressed={cruiseOn}
+            aria-label={cruiseOn ? "Đang chạy — chạm để dừng đọc cảnh báo" : "Bắt đầu chạy — máy đọc cảnh báo theo vị trí tàu"}
+            className={`relative flex min-h-[3.5rem] w-16 flex-col items-center justify-center gap-0.5 rounded-2xl py-2 text-white shadow-md transition active:scale-95 ${
+              cruiseOn ? "bg-t1" : "bg-navy"
+            }`}
+          >
+            {cruiseOn && (
+              <span className="absolute right-1.5 top-1.5 flex h-2.5 w-2.5" aria-hidden>
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+              </span>
+            )}
+            <SpeakerIcon className="h-6 w-6" />
+            <span className="text-[0.8125rem] font-bold leading-tight">
+              {cruiseOn ? "Đang chạy" : "Bắt đầu chạy"}
+            </span>
+          </button>
+        )}
 
         {/* ĐẾN ĐIỂM (premium) — gõ tay toạ độ để nhảy tới điểm cần xem (không
             cần GPS, chạy cả khi mất sóng). Đặt NGAY DƯỚI nút "Vị trí". */}
@@ -1383,6 +1423,9 @@ function SettingsPanel({ vmsZones }: { vmsZones: VmsZone[] }) {
           sub="vd 8,50°N · 109,30°E"
         />
       </div>
+
+      {/* GIỌNG ĐỌC khi chạy (doc 15 §9) — mức đọc + Nghe thử + tải giọng */}
+      <VoiceSettingsSection />
 
       <p className="mt-3 rounded-xl bg-field/70 px-2.5 py-2 text-[0.75rem] leading-snug text-foreground/70">
         Đổi ở đây thì toạ độ, khoảng cách, dẫn đường và công cụ đo đều đổi theo.
