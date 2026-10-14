@@ -415,7 +415,28 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
    ≥40 ở đáy >1000 m 0 → 24 (ngừ ồ), 0 → 87 (ngừ chù); quanh tàu 0 → 26–30 / 28–41. Sàn 0,5 đã thử: khơi
    vẫn dưới sàn hiển thị. ## Assumptions: sàn 0,7 chọn theo tỉ lệ sản lượng chuyến dài, CHƯA kiểm AUCeff
    DataLake (thiếu vết VMS 8–9 trên máy) — chạy `dl-eval` lại khi có; eCDT chỉ phủ tàu ≥15 m nên tỉ lệ
-   khơi bị thổi phồng so với cả đội tàu, vì vậy giữ ưu tiên ven bờ thay vì bỏ cổng.
+   khơi bị thổi phồng so với cả đội tàu, vì vậy giữ ưu tiên ven bờ thay vì bỏ cổng. ĐÓNG (ops/fish-
+   validate-positions §10): AUCeff ngừ ồ 0,573 → 0,626 sau sửa này.
+ ✅ 2026-10-14 — HAI KÊNH BẰNG CHỨNG TỪ SẢN LƯỢNG THẬT (chủ dự án: "dùng dữ liệu datalake đã down về —
+   các loài cá có vị trí đã đánh bắt, đã có sản lượng theo vị trí — tối ưu lại dự báo"). Ngoài ảnh vệ
+   tinh, điểm loài nay cộng thêm (soft-OR, chỉ cộng không trừ, thiếu lưới ⇒ như cũ) hai lưới tĩnh theo
+   THÁNG-TRONG-NĂM, cùng trục 0,25°, bundle server (không request mạng), chỉ giữ ô ≥3 tàu:
+   (1) KÊNH ĐỘI TÀU `src/data/fleet-effort-025.v1.json` (lib/fleet-effort.ts, `FLEET_SCALE` 0,5) — giờ
+   đánh VMS theo nghề; loài lấy nghề bắt ≥10 % sản lượng của nó. Gốc: tàu BĐ-95532-TS 11/10 giữ >20 tấn ở
+   ô nước đều mà mô hình chấm 26–32. (2) KÊNH SẢN LƯỢNG LOÀI `src/data/species-catch-025.v1.json`
+   (`CATCH_SCALE` 0,7, `CATCH_FULL_KG` 8000) — kg TỪNG LOÀI theo ô × tháng: 155 nghìn chuyến 01–10/2026
+   (nhật ký eCDT × giờ đánh VMS, lời khai đã nhân trọng số tin cậy), 34 loài, 274 nghìn tấn. Gộp vào ĐIỂM
+   CUỐI (bằng chứng sản lượng thắng hồ sơ suy diễn về mùa/mồi/độ sâu) nhưng SAU cổng nhiệt (nước hôm
+   nay ngoài dải chịu đựng thì không vẽ). ĐO (giữ-tháng-ra, 61 ngày 8–9/2026, AUCeff TB theo kg — 0,5 =
+   không hơn "chỗ tàu hay đi"): 0,621 → 0,672 (đội tàu) → **0,736** (+ sản lượng loài); cả hai tháng
+   đều tăng; cá nục 0,644 → 0,758 · ngừ chấm 0,640 → 0,757 · cá mối 0,599 → 0,724 · cá đổng 0,630 → 0,726 ·
+   chỉ vàng 0,811 → 0,887 · ngừ ồ 0,664 → 0,728 · ngừ chù 0,654 → 0,716 · ngừ vằn 0,786 → 0,806; không loài
+   nào tụt quá 0,002. QUYẾT ĐỊNH SẢN PHẨM: dò `CATCH_SCALE` tới 1,0 thì AUCeff còn tăng (0,754) — tức là
+   "bản đồ chỗ năm trước bắt được"; chốt 0,7 < ngưỡng Cao 75 để sản lượng tháng trước MỘT MÌNH chỉ đưa
+   tới Trung bình, lên Cao (đỏ) phải có ảnh vệ tinh hôm nay đồng ý. GIỚI HẠN: chỉ tàu có VMS + khai eCDT
+   (chủ yếu ≥15 m); MỘT năm dữ liệu (tháng 11–12 chưa có sản lượng loài ⇒ chỉ còn kênh đội tàu); nhãn
+   kiểm định chỉ mùa gió Tây Nam; lưới tĩnh không nói "hôm nay" — Δdyn chưa đo lại. Sinh lại khi có
+   thêm tháng nhật ký: ops/fish-validate-positions §11.
 
 🟡 CỔNG NHIỆT LỆCH ẤM (đo độc lập trên SST thật xác nhận): tháng 7 biển VN chỉ trải 28,7–30,0 °C mà
  plateau vây vàng là 26–30 ⇒ 90,4 % ô đạt điểm tối đa, độ lệch chuẩn 0,081 ⇒ TERM NHIỆT KHÔNG PHÂN BIỆT

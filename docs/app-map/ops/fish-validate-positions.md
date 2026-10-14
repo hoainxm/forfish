@@ -2,8 +2,8 @@
 
 > **Load khi**: muốn biết dự báo cá có **đúng chỗ tàu thật đi đánh** không (không chỉ "phân biệt được" nội bộ), khi chốt B1/B2 (AMM vs soft-OR vs weighted-sum) bằng số, khi cần dữ liệu vị trí tàu để đo, hoặc khi ai hỏi "giấy phép GFW có cản gì không".
 
-covers: scripts/fish-validate-positions.mjs, scripts/gfw-fetch-day.mjs, scripts/dl-collect.mjs, scripts/dl-build-labels.mjs, scripts/dl-eval.mjs, scripts/dl-fit-profiles.mjs
-last_verified: 2026-10-10
+covers: scripts/fish-validate-positions.mjs, scripts/gfw-fetch-day.mjs, scripts/dl-collect.mjs, scripts/dl-build-labels.mjs, scripts/dl-eval.mjs, scripts/dl-fit-profiles.mjs, scripts/build-fleet-effort-grid.mjs, scripts/build-species-catch-grid.mjs, scripts/dl-eval-fleet.mjs
+last_verified: 2026-10-14
 ttl_days: 180
 gate: warn
 
@@ -149,3 +149,67 @@ Test đổi kèm: `fish-predict.test.ts` "VIỆC 4" đổi chl mẫu 4,0 → 1,0
 
 **Kiểm chứng bản chốt 2026-10-10 (soft-OR cá nổi lớn 0,6 · sàn trái vụ ×0,6 · mùa vụ ngày xa 25 %) trên nền hồ sơ đã hiệu chỉnh** — cùng 31 ngày, cùng nhãn: AUCeff TB theo sản lượng **+0,017**; ngừ vằn 0,668 → **0,734** (loài phản hồi thực địa Bình Định), mực nang +0,079, ngừ vây vàng +0,059, mực ống +0,056, cá thu / cá trích / nục heo ≈ +0,06, cá mối +0,030, cá đổng +0,023; giảm nhẹ ngừ ồ −0,015, cá sòng −0,020, cá cờ −0,010; "mọi loài" −0,002. Nhãn chỉ chuyến có giám sát cho cùng chiều. Cái giá: Δdyn ngừ vằn 0,012 → 0,001 (bản đồ tĩnh hơn). Phần mùa vụ ngày xa (fish-blend) không đo được bằng bộ này (chỉ chấm ngày ảnh).
 
+## 10. Kênh đội tàu + dựng lại bộ đo DataLake (2026-10-11)
+
+**Dựng lại bộ đo** (bản `~/sdfish-data` của 10/10 không còn trên máy): bộ chuyển `C:\Users\admin\sdfish-data\tools\dl-adapt-local.mjs` (NGOÀI repo) đổi bản kéo local `AI Assistant/sdvico-data/data-local/datalake-iuu` (dời khỏi ForFish 14/10/2026) (snapshot 2026-10-11 + `tracks/<tháng>.ndjson.gz`) thành đúng tệp vào của `dl-build-labels.mjs`, bỏ chủ tàu/số đăng ký. Hai biến thể nhãn: `dl-trk0809` (track CHỈ 8–9 — **khớp §9**: ngừ vằn 0,734 · cá nục 0,552 · bạc má 0,770 · cá chim 0,395) và `dl` (track 7–10, thêm 3,7 nghìn chuyến rời bến tháng 7, dải tốc độ lưới rê đổi 0–1 → 0,3–1 kn ⇒ AUCeff lệch tới ±0,07 vài loài). **Dùng `dl-trk0809` làm nền so sánh.** Lưới vệ tinh 61 ngày 8–9/2026 ở `fc-full/grids` (tải ~3,5 phút). Ngừ ồ nay 0,626 (§9: 0,573) — phần tăng đến từ 3f86eab (sàn cổng ven bờ 0,7 + vùng HS/TS), đóng `## Assumptions` của sửa đó trong 01-product.
+
+```bash
+node --max-old-space-size=8192 scripts/build-fleet-effort-grid.mjs                       # lưới production (~4 phút)
+for m in 2026-08 2026-09; do node --max-old-space-size=8192 scripts/build-fleet-effort-grid.mjs --exclude-month $m --out ~/sdfish-data/fleet/fleet-ex-$m.json; done
+npx tsx scripts/dl-eval-fleet.mjs --grids ~/sdfish-data/fc-full/grids --labels ~/sdfish-data/dl-trk0809/labels --fleet-dir ~/sdfish-data/fleet [--month 2026-08]
+```
+
+**Kiểm định kênh đội tàu** — ngày tháng M chấm bằng lưới đội tàu dựng KHÔNG CÓ tháng M (tháng kề vẫn có = đúng tình huống production). AUCeff / AUCarea trung bình theo kg, 61 ngày:
+
+| Cấu hình | AUCeff | AUCarea | Tháng 8 eff | Tháng 9 eff |
+|---|---|---|---|---|
+| không đội tàu (HEAD 3f86eab) | 0,621 | 0,743 | 0,616 | 0,622 |
+| scale 0,3 · 60 giờ | 0,663 | 0,824 | 0,659 | 0,663 |
+| **scale 0,5 · 60 giờ (CHỐT)** | **0,672** | **0,842** | **0,669** | **0,671** |
+| scale 0,7 · 60 giờ | 0,678 | 0,849 | 0,676 | 0,677 |
+| scale 0,5 · lưới RÒ (có tháng kiểm) | 0,673 | 0,842 | 0,670 | 0,672 |
+
+Mức bão hoà 30/60/120 giờ gần như không đổi kết quả (±0,001). Bản rò ≈ bản giữ-ra ⇒ kênh không thắng nhờ học thuộc tháng đang kiểm. AUCeff (chuẩn hoá theo giờ đánh) TĂNG — tức chỗ đội tàu làm dai dẳng cho **sản lượng mỗi giờ** cao hơn, không chỉ là "chỗ tàu hay đi". Từng loài (gốc → 0,5): cá nục 0,549 → 0,656 · ngừ vằn 0,734 → 0,800 · cá tráo 0,529 → 0,739 · ngừ chấm +0,07 · cá cơm +0,06 · ngừ chù/vây vàng +0,05 · nục heo +0,04. Tụt: cá chim, cá sòng (đã <0,5 trước đó), cá hố −0,006, cá hồng −0,02. Kết quả đầy đủ: `~/sdfish-data/fleet/fleet-eval.json`.
+
+Giới hạn: lưới tĩnh theo tháng-trong-năm (không phải "hôm nay"); một mùa nhãn (8–9); nhãn và lưới đội tàu cùng nguồn VMS nên kênh này đo được trên tàu có VMS, chưa nói gì về đội tàu nhỏ không VMS.
+
+## 11. Kênh sản lượng TỪNG LOÀI (2026-10-14) — 155 nghìn chuyến 01–10/2026
+
+**Vì sao thêm kênh nữa:** kênh đội tàu (§10) biết NGHỀ làm ở đâu, không biết loài — ô tàu vây làm dày vì cá nục vẫn đẩy điểm ngừ vằn. Nhật ký eCDT có kg từng loài, VMS có chỗ tàu đánh ⇒ biết loài nào ra ở ô nào, tháng nào.
+
+**Chuỗi dựng** (dữ liệu ngoài repo, `~/sdfish-data/dl-all`, không PII):
+```bash
+node C:/Users/admin/sdfish-data/tools/dl-adapt-local.mjs --out C:/Users/admin/sdfish-data/dl-all --from 2026-01-01 --to 2026-10-11 \
+  --track-months 2025-12,2026-01,2026-02,2026-03,2026-04,2026-05,2026-06,2026-07,2026-08,2026-09,2026-10        # ~7 phút
+for w in 2026-01-01,2026-02-28 2026-03-01,2026-04-30 2026-05-01,2026-06-30 2026-07-01,2026-08-31 2026-09-01,2026-10-11; do
+  node --max-old-space-size=9000 scripts/dl-build-labels.mjs --dir C:/Users/admin/sdfish-data/dl-all --from 2026-01-01 --to 2026-10-11 --window $w
+done                                                                                                           # ~4 phút
+node scripts/build-species-catch-grid.mjs --labels <5 thư mục labels-*, phẩy>                                   # lưới production
+node scripts/build-species-catch-grid.mjs --labels … --exclude-month 2026-08 --out ~/sdfish-data/catch/catch-ex-2026-08.json   # (và 2026-09)
+npx tsx scripts/dl-eval-fleet.mjs --grids ~/sdfish-data/fc-full/grids --labels ~/sdfish-data/dl-trk0809/labels \
+  --fleet-dir ~/sdfish-data/fleet --catch-dir ~/sdfish-data/catch [--catch-scales 0.7 --catch-kg 8000] [--month 2026-08]
+```
+- `dl-build-labels --window a,b`: chỉ chuyến có ngày rời trong khoảng ⇒ `labels-<a>/` (cả năm một lần không vừa bộ nhớ); nhật ký xếp theo tàu (sort ổn định) để bộ đệm track chỉ giữ một tàu. Ra thêm `catch-vessels-025.csv` = số TÀU theo tháng × ô 0,25° × loài — cổng riêng tư.
+- Lưới: kg theo tháng × loài × ô 0,25°, chỉ ô ≥ 3 tàu bắt loài đó trong tháng (bỏ 66,6 nghìn ô = 20 nghìn t, 7 %), loài ≥ 20 t cả kỳ ⇒ 34 loài, 80,4 nghìn ô, 274 nghìn t, 986 KB. CÙNG shape lưới đội tàu (khoá = loài) ⇒ dùng lại `fleetPresenceLookup`.
+- Gộp: `fit' = 1 − (1 − fit)(1 − CATCH_SCALE·x)` vào ĐIỂM CUỐI, sau cổng nhiệt.
+
+**Kiểm định** — cùng nhãn `dl-trk0809`, cùng 61 ngày lưới vệ tinh như §10; ngày tháng M chấm bằng lưới sản lượng dựng KHÔNG CÓ tháng M (đội tàu cũng giữ-tháng-ra). AUCeff / AUCarea TB theo kg:
+
+| Cấu hình | AUCeff | AUCarea |
+|---|---|---|
+| không kênh nào (HEAD 3f86eab) | 0,621 | 0,743 |
+| đội tàu (§10, chốt) | 0,672 | 0,842 |
+| + sản lượng, gộp TRONG tổ hợp cơ chế (qua cổng mồi/độ sâu/mùa), 0,7 · 8000 kg | 0,717 | 0,862 |
+| **+ sản lượng, gộp ĐIỂM CUỐI, 0,7 · 8000 kg (CHỐT)** | **0,736** | **0,878** |
+| như trên, tháng 8 / tháng 9 riêng | 0,743 / 0,732 (đội tàu: 0,671 / 0,669) | |
+| như trên nhưng BỎ cổng nhiệt | 0,736 (y hệt — giữ cổng không mất gì) | |
+| điểm cuối 0,85 / 1,0 · 8000 kg | 0,745 / 0,754 | |
+| điểm cuối 0,7 · 500 / 2000 / 20000 / 50000 kg | 0,710 / 0,724 / 0,729 / 0,716 | |
+| sản lượng, không đội tàu | 0,736 | 0,866 |
+| lưới RÒ (có tháng kiểm) — chỉ để biết trần | 0,747 | 0,887 |
+
+Bản rò hơn bản giữ-ra chỉ +0,011 ⇒ kênh không thắng nhờ học thuộc tháng đang kiểm. Từng loài (đội tàu → + sản lượng): cá nục 0,644 → 0,758 · ngừ chấm 0,640 → 0,757 · cá mối 0,599 → 0,724 · cá đổng 0,630 → 0,726 · chỉ vàng 0,811 → 0,887 · ngừ ồ 0,664 → 0,728 · ngừ chù 0,654 → 0,716 · mực nang +0,055 · bạch tuộc +0,048 · ngân +0,043 · bạc má +0,041 · cá tráo +0,038 · mực ống +0,036 · ngừ vằn 0,786 → 0,806 · cá cơm +0,018; không loài nào tụt quá 0,002 (cá phèn). Không cứu được: cá chim 0,350, cá sòng 0,373 (hồ sơ chỉ ngược — việc mở §9). Kết quả: `~/sdfish-data/catch/catch-eval.json` (dò), `catch/s2/` (dò ngoài mép), `catch/final/` (code chốt).
+
+**Vì sao chốt 0,7 mà không 1,0:** AUCeff còn tăng tới 1,0, nhưng lúc đó điểm = "chỗ năm trước bắt được", ảnh vệ tinh hôm nay không còn đổi được gì. 0,7 < ngưỡng Cao 75 (`FISH_LEVEL_BANDS`) ⇒ sản lượng MỘT MÌNH chỉ đưa tới Trung bình; lên đỏ phải có cơ chế gom cá hôm nay. Test `species-catch.test.ts` khoá luật này.
+
+Giới hạn: một năm dữ liệu (tháng 11–12 chưa có sản lượng loài ⇒ chỉ kênh đội tàu); tàu có VMS + khai eCDT (chủ yếu ≥15 m); nhãn kiểm định chỉ 8–9 (gió Tây Nam); kg là lời khai đã nhân tin cậy, vị trí chia theo giờ đánh (nhật ký chưa có toạ độ mẻ); Δdyn (tín hiệu "hôm nay") chưa đo lại sau hai kênh tĩnh. Sinh lại lưới khi có thêm tháng nhật ký/VMS (`refresh.mjs` hằng ngày đã kéo) — mỗi lần sinh lại là ~1 MB vào lịch sử git, làm theo tháng, không theo ngày.

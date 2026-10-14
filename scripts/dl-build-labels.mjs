@@ -18,6 +18,9 @@
 //   labels/effort.csv   date,lat,lon,hours,geartype   ← đọc thẳng bằng fish-validate-positions.mjs
 //   labels/catch.csv    date,lat,lon,species,gear,kg  (species = MÃ ASFIS 3 chữ — tên API không thống nhất)
 //   labels/report.json  ngưỡng đã chọn theo nghề + độ phủ + bảng loài
+//   labels/catch-vessels-025.csv  month,lat,lon,species,vessels — số tàu theo ô 0,25° (cổng riêng tư
+//                       của build-species-catch-grid.mjs)
+//   --window a,b ⇒ labels-<a>/ chỉ chuyến rời bến trong [a,b] (dựng cả năm theo khúc)
 //
 //   node scripts/dl-build-labels.mjs [--dir ~/sdfish-data/dl] [--from 2026-08-01 --to 2026-09-30]
 //   node scripts/dl-build-labels.mjs --selftest
@@ -164,15 +167,28 @@ const TO = arg("to", "2026-09-30");
 // --trust weighted (mặc định): mọi chuyến, nhân trọng số tin cậy · monitored: CHỈ chuyến có giám sát
 // bốc dỡ, không chép, không lệch (kiểm độ nhạy: kết luận đổi theo chế độ = đừng tin kết luận).
 const TRUST = arg("trust", "weighted");
-const OUT = join(DIR, TRUST === "weighted" ? "labels" : `labels-${TRUST}`);
+// --window 2026-01-01,2026-02-28: chỉ nhật ký có NGÀY RỜI (giờ VN) trong khoảng ⇒ labels-<từ>/.
+// Dựng nhãn cả năm theo từng khúc cho vừa bộ nhớ (track 11 tháng × 14 nghìn tàu không nạp một lần được).
+const WINDOW = arg("window", "").split(",").filter(Boolean);
+const OUT = join(DIR, (TRUST === "weighted" ? "labels" : `labels-${TRUST}`) + (WINDOW.length ? `-${WINDOW[0]}` : ""));
 mkdirSync(OUT, { recursive: true });
 
-const logbooks = JSON.parse(readFileSync(join(DIR, `logbooks_${FROM}_${TO}.json`), "utf8"));
 const trips = new Map(JSON.parse(readFileSync(join(DIR, `trips_${FROM}_${TO}.json`), "utf8")).map((t) => [t.code, t]));
+const depDay = (lb) => {
+  const t = trips.get(lb.trip?.code);
+  const d = Date.parse(t?.vms?.dep ?? t?.dep ?? "");
+  return Number.isFinite(d) ? vnDate(d / 1000) : null;
+};
+// Xếp theo tàu — sort ỔN ĐỊNH nên thứ tự nhật ký trong MỘT tàu giữ nguyên (luật "lặp y hệt chuyến
+// khác" không đổi) — để bộ đệm track chỉ cần giữ một tàu.
+const logbooks = JSON.parse(readFileSync(join(DIR, `logbooks_${FROM}_${TO}.json`), "utf8"))
+  .filter((lb) => !WINDOW.length || ((d) => d && d >= WINDOW[0] && d <= WINDOW[1])(depDay(lb)))
+  .sort((a, b) => String(a.vessel?.id ?? "").localeCompare(String(b.vessel?.id ?? "")));
 const vessels = new Map(JSON.parse(readFileSync(join(DIR, "vessels.json"), "utf8")).map((v) => [v.id, v]));
 const trackCache = new Map();
 const track = (id) => {
   if (!trackCache.has(id)) {
+    trackCache.clear();
     const f = join(DIR, "track", `${id}.json`);
     trackCache.set(id, existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : null);
   }
@@ -228,6 +244,9 @@ for (const [g, rs] of byGear) {
 const eff = new Map(); // date|lat|lon|gear → hours
 const cat = new Map(); // date|lat|lon|species|gear → kg (đã nhân trọng số tin cậy)
 const spTot = new Map();
+const catVessels = new Map(); // tháng|ô 0,25°|loài → Set(tàu)
+// tâm ô 0,25° của lưới cá (x,025 / x,275 / x,525 / x,775 — fish-forecast SST stride 5)
+const axis025 = (v) => (Math.round((v - 0.025) / 0.25) * 0.25 + 0.025).toFixed(3);
 // Trần năng suất: kg/giờ đánh của chuyến vượt p99 của nghề ⇒ kéo về p99 (khai phồng hoặc VMS
 // thấy quá ít giờ đánh — đằng nào cũng không đáng dồn cả khối kg vào vài ô).
 const fishingOf = (r) => r.segs.filter((s) => isFishing(s, bands[r.gear].band));
@@ -256,12 +275,17 @@ for (const r of rows) {
       const kg = (x.kg * scale * r.w * s.dtH) / H;
       const kk = `${k},${csv(x.code || "?")},${r.gear}`;
       cat.set(kk, (cat.get(kk) ?? 0) + kg);
+      // số TÀU khác nhau theo tháng × ô 0,25° (trục lưới cá) × loài — cổng riêng tư của lưới
+      // sản lượng loài (build-species-catch-grid.mjs chỉ giữ ô ≥ 3 tàu)
+      const vk = `${vnDate(s.t).slice(0, 7)},${axis025(s.lat)},${axis025(s.lon)},${csv(x.code || "?")}`;
+      (catVessels.get(vk) ?? catVessels.set(vk, new Set()).get(vk)).add(r.lb.vessel?.id);
     }
   }
   for (const x of sp) if (x.kg > 0) spTot.set(`${x.code}|${x.name}`, (spTot.get(`${x.code}|${x.name}`) ?? 0) + x.kg);
 }
 writeFileSync(join(OUT, "effort.csv"), "date,lat,lon,geartype,hours\n" + [...eff].map(([k, h]) => `${k},${h.toFixed(2)}`).join("\n"));
 writeFileSync(join(OUT, "catch.csv"), "date,lat,lon,species,gear,kg\n" + [...cat].map(([k, v]) => `${k},${v.toFixed(1)}`).join("\n"));
+writeFileSync(join(OUT, "catch-vessels-025.csv"), "month,lat,lon,species,vessels\n" + [...catVessels].map(([k, v]) => `${k},${v.size}`).join("\n"));
 const report = {
   builtAt: new Date().toISOString(),
   trust: TRUST,

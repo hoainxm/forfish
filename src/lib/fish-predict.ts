@@ -28,6 +28,7 @@ import type { FieldProvenance } from "@/lib/source-registry";
 import { timeoutSignal } from "@/lib/abort";
 import { noteResponse, tokenHeader } from "@/lib/device-token-store";
 import { seasonalThermalBand, type SstClimatology } from "@/lib/thermal-band";
+import { fleetPresenceLookup, FLEET_FULL_HOURS, type FleetEffortGrid } from "@/lib/fleet-effort";
 
 // Bán kính (độ) gán ô biển về vùng gần nhất — đủ phủ kín toàn EEZ + Hoàng Sa/
 // Trường Sa, vẫn loại nước ngoài xa hẳn (Hải Nam, Philippines). PFZ tính cho
@@ -93,6 +94,26 @@ export const SOFTOR_SCALE = 0.4;
  *  là đã tụ ⇒ một cơ chế đầy = 0,6 (đủ mức Trung bình). Ô KHÔNG có cơ chế nào vẫn
  *  0 điểm (AGG_FLOOR giữ 0) — nới là nới theo tín hiệu vệ tinh, không phủ nền. */
 export const PELAGIC_LARGE_SOFTOR_SCALE = 0.6;
+/** KÊNH ĐỘI TÀU (2026-10-11, lib/fleet-effort.ts): đội tàu làm đều ở ô (x=1) gộp soft-OR
+ *  với tổ hợp vệ tinh ĐÃ qua hệ số tin cậy: aggEff' = 1 − (1−aggEff)(1 − FLEET_SCALE·x).
+ *  Đặt SAU `SURFACE_CONF` vì bằng chứng này KHÔNG phải ảnh mặt biển — cá đáy/rạn vệ tinh
+ *  mù nhưng tàu kéo biết chỗ. Vì sao có kênh này: phản hồi thực địa 11/10 tàu BĐ-95532-TS
+ *  giữ >20 tấn ở ô nước đều (không front/xoáy) mà mô hình chấm 26–32. Chốt bằng kiểm định
+ *  DataLake giữ-tháng-ra (ops/fish-validate-positions §10). */
+export const FLEET_SCALE = 0.5;
+/** KÊNH SẢN LƯỢNG LOÀI (2026-10-14, `src/data/species-catch-025.v1.json`): kg TỪNG LOÀI theo
+ *  ô × tháng từ nhật ký eCDT × giờ đánh VMS. Khác kênh đội tàu (biết NGHỀ làm ở đâu), kênh này
+ *  biết LOÀI ra ở đâu. Gộp soft-OR vào ĐIỂM CUỐI (sau mùa vụ/mồi/độ sâu — bằng chứng sản
+ *  lượng thật thắng hồ sơ suy diễn), NHƯNG vẫn sau cổng nhiệt: nước hôm nay ngoài dải chịu
+ *  đựng thì không vẽ (đo: giữ cổng nhiệt không mất gì). fit' = 1 − (1−fit)(1 − CATCH_SCALE·x).
+ *  0,7 < ngưỡng Cao 75: sản lượng tháng trước MỘT MÌNH chỉ đưa tới Trung bình, lên Cao phải có
+ *  ảnh vệ tinh hôm nay đồng ý. Dò tới 1,0 thì AUCeff còn tăng (0,736 → 0,754) — tức là bản đồ
+ *  "chỗ năm trước bắt được" — cố ý KHÔNG lấy để bản đồ còn là dự báo. Chốt bằng kiểm định
+ *  DataLake giữ-tháng-ra (ops/fish-validate-positions §11): AUCeff 0,672 → 0,736. */
+export const CATCH_SCALE = 0.7;
+/** kg-30-ngày (đã làm mượt 3×3) để x = 1 − 1/e. Dò 500/2000/8000/20000/50000: 8000 tốt nhất —
+ *  bão hoà sớm (500) thì ô bắt vừa ngang ô bắt nhiều, mất thứ hạng. */
+export const CATCH_FULL_KG = 8000;
 /** Nền sàn tổ hợp cơ chế: 0 = điểm nóng CHỈ do cơ chế gom cá thật (front/xoáy/
  *  nước trồi) quyết → co vùng nóng về ~18% (trước ~50%), trung thực hơn. Đã đo:
  *  nền >0 (thử 0.12) nâng điểm MỌI ô → vùng đỏ phình to hơn cả bản cũ (t7 30%,
@@ -1290,6 +1311,22 @@ export function buildFishForecast(
     climo?: SstClimatology | null;
     /** CHỈ để hiệu chỉnh C2: thay `FRONT_FINE_FULL_SCALE`. Runtime KHÔNG truyền. */
     frontFineFullScale?: number;
+    /**
+     * Lưới giờ đánh bắt của đội tàu (`src/data/fleet-effort-025.v1.json`, VMS) — kênh bằng
+     * chứng thứ hai ngoài ảnh vệ tinh. Thiếu ⇒ x=0 ⇒ điểm như cũ (chỉ cộng, không bao giờ trừ).
+     */
+    fleet?: FleetEffortGrid | null;
+    /** CHỈ để hiệu chỉnh: thay `FLEET_SCALE` / `FLEET_FULL_HOURS`. Runtime KHÔNG truyền. */
+    fleetScale?: number;
+    fleetFullHours?: number;
+    /**
+     * Lưới sản lượng loài (`src/data/species-catch-025.v1.json`, eCDT × VMS) — CÙNG shape lưới
+     * đội tàu, "nghề" = chính loài. Thiếu ⇒ x=0 ⇒ điểm như cũ.
+     */
+    catchGrid?: FleetEffortGrid | null;
+    /** CHỈ để hiệu chỉnh: thay `CATCH_SCALE` / `CATCH_FULL_KG`. Runtime KHÔNG truyền. */
+    catchScale?: number;
+    catchFullKg?: number;
   },
 ): FishForecast {
   const climo = extra?.climo ?? null;
@@ -1307,6 +1344,10 @@ export function buildFishForecast(
   const deepTemp = extra?.deepTemp ?? null;
   const reef = extra?.reef ?? null;
   const reefAbsentFit = extra?.reefAbsentFit ?? REEF_ABSENT_FIT;
+  const fleetScale = extra?.fleetScale ?? FLEET_SCALE;
+  const fleetX = fleetPresenceLookup(extra?.fleet, month, extra?.fleetFullHours ?? FLEET_FULL_HOURS);
+  const catchScale = extra?.catchScale ?? CATCH_SCALE;
+  const catchX = fleetPresenceLookup(extra?.catchGrid, month, extra?.catchFullKg ?? CATCH_FULL_KG);
 
   // GUARD ĐƠN VỊ tại chỗ dùng — lưới chưa khai thì bỏ qua, khai SAI thì ném.
   // Bẫy thật: nguồn SST chính trả Kelvin, nguồn dự phòng CoralTemp trả °C sẵn;
@@ -1604,7 +1645,10 @@ export function buildFishForecast(
         // TRUNG THỰC: loài đáy/rạn ảnh vệ tinh ít nói được → kéo tổ hợp về trung
         // tính, không vẽ điểm nóng giả. Loài nổi (high) giữ nguyên.
         const conf = SURFACE_CONF[p.surfaceSignal];
-        const aggEff = conf * agg + (1 - conf) * NEUTRAL_AGG;
+        const aggSat = conf * agg + (1 - conf) * NEUTRAL_AGG;
+        // KÊNH ĐỘI TÀU: tàu làm đều ở đây ⇒ gộp soft-OR (x=0 ⇒ y nguyên aggSat)
+        const fx = fleetX(p.short, lat, lon);
+        const aggEff = fx > 0 ? 1 - (1 - aggSat) * (1 - fleetScale * fx) : aggSat;
         // nền sàn: mùa+nhiệt+mồi vẫn quyết điểm ngay cả khi cơ chế trơ.
         // Cá rạn đứng trên rạn: sinh cảnh bắt buộc có thật ⇒ sàn REEF_HABITAT_FLOOR.
         const habitatRaw = AGG_FLOOR + (1 - AGG_FLOOR) * aggEff;
@@ -1639,7 +1683,11 @@ export function buildFishForecast(
         // `sW` = prior mùa vụ mềm (≤1): chính vụ ×1 (không đổi), tháng đệm hạ
         // điểm đầu/cuối vụ, trái vụ ×0,6. Là thừa số ≤1 nên bất biến "mất tín hiệu = điểm
         // GIẢM" vẫn giữ.
-        const fit = tFit * foodLimiter * habitat * depthFit * sW;
+        const fitSat = tFit * foodLimiter * habitat * depthFit * sW;
+        // KÊNH SẢN LƯỢNG LOÀI: loài này ra đều ở ô này mùa này (nhật ký × VMS) ⇒ gộp soft-OR
+        // vào điểm cuối; x=0 ⇒ y nguyên (chỉ cộng, không trừ)
+        const cx = catchX(p.short, lat, lon);
+        const fit = cx > 0 ? 1 - (1 - fitSat) * (1 - catchScale * cx) : fitSat;
         if (fit > 0)
           scored.push({ short: p.short, fit, low: p.surfaceSignal === "low" });
       }
@@ -1743,6 +1791,10 @@ export function fishModelSignature(): string {
       SURFACE_CONF,
       SOFTOR_SCALE,
       PELAGIC_LARGE_SOFTOR_SCALE,
+      FLEET_SCALE,
+      FLEET_FULL_HOURS,
+      CATCH_SCALE,
+      CATCH_FULL_KG,
       AGG_FLOOR,
       NEUTRAL_AGG,
       FOOD_FLOOR,

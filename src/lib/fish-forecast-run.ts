@@ -40,6 +40,9 @@ import type { SstClimatology } from "@/lib/thermal-band";
 // build-reef-grid.mjs) — đi theo bundle server, không fetch, không giải mã;
 // cổng nền rạn cho cá hồng/mú/kẽm (`SpeciesProfile.requiresReef`).
 import reefGridJson from "@/data/reef-grid-025.v1.json";
+import fleetEffortJson from "@/data/fleet-effort-025.v1.json";
+import speciesCatchJson from "@/data/species-catch-025.v1.json";
+import type { FleetEffortGrid } from "@/lib/fleet-effort";
 
 /**
  * TÍNH bản đồ dự báo cá (PFZ) — kéo lưới SST + phù du mới nhất từ nguồn công
@@ -398,6 +401,12 @@ export async function computeFishForecast(opts?: {
         // front trên lưới gốc mịn (C2) — thiếu thì front tính trên lưới 0,25°
         frontSstFine: sstFineR?.grid ?? null,
         frontChlFine: chlFineR?.grid ?? null,
+        // giờ đánh bắt của đội tàu (VMS, bundle server, không request mạng —
+        // scripts/build-fleet-effort-grid.mjs sinh lại khi có thêm tháng VMS)
+        fleet: fleetEffortJson as unknown as FleetEffortGrid,
+        // sản lượng TỪNG LOÀI theo ô × tháng (nhật ký eCDT × VMS, bundle server, không request
+        // mạng — scripts/build-species-catch-grid.mjs sinh lại khi có thêm tháng nhật ký)
+        catchGrid: speciesCatchJson as unknown as FleetEffortGrid,
       }),
       // `generatedAt` = LÚC TÍNH bản đồ này (khác `date` = ngày ẢNH vệ tinh).
       generatedAt: new Date().toISOString(),
