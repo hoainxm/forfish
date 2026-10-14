@@ -416,6 +416,29 @@ Test 601 pass; 7 test tổng hợp phải cấp lưới mồi ĐỦ GIÀU để 
    vẫn dưới sàn hiển thị. ## Assumptions: sàn 0,7 chọn theo tỉ lệ sản lượng chuyến dài, CHƯA kiểm AUCeff
    DataLake (thiếu vết VMS 8–9 trên máy) — chạy `dl-eval` lại khi có; eCDT chỉ phủ tàu ≥15 m nên tỉ lệ
    khơi bị thổi phồng so với cả đội tàu, vì vậy giữ ưu tiên ven bờ thay vì bỏ cổng.
+   → ĐÃ KIỂM (cùng ngày, bộ đo DataLake dựng lại — ops/fish-validate-positions §10): AUCeff ngừ ồ 0,573 → 0,626.
+ ✅ 2026-10-11 — KÊNH BẰNG CHỨNG "ĐỘI TÀU" (chủ dự án chọn "lớp đội tàu tĩnh"). Ca thực địa: tàu BĐ-95532-TS
+   12°52'N 115°38'E "giữ hơn 20 tấn chờ tàu vây" (cá tụ dưới đèn) — mổ xẻ ô đó trên lưới đầu vào production
+   10/10: nước ĐỀU (front 0,24 · xoáy 0,28 · không nước trồi/hội tụ), 30,9 °C trừ thêm nhiệt ⇒ ngừ vằn/nục
+   heo 21–32, dưới cả mức Thấp; nới trần nhiệt cũng chỉ ~29. Không tham số nào sai — vệ tinh KHÔNG THẤY loại
+   cá tụ này. Trong khi VMS 1–6/10 có 29 tàu trong ~20 hải lý quanh đó. NGUỒN: VMS DataLake 12/2025–06/10/2026
+   (`scripts/build-fleet-effort-grid.mjs`, dữ liệu `AI Assistant/sdvico-data/data-local/` ngoài repo — dời 14/10/2026) → `src/data/fleet-effort-025.v1.json`
+   (691 KB, bundle server, KHÔNG request mạng): giờ tàu có mặt 0–4,5 hải lý/giờ cách cảng ≥10 km, ô 0,25° cùng
+   trục lưới cá × tháng × 6 nhóm nghề; CHỈ ô ≥3 tàu (số tổng, không định danh tàu); loài → nghề theo nhật ký
+   eCDT (nghề ≥10 % sản lượng loài). CÔNG THỨC (`lib/fleet-effort.ts`): giờ/ngày của nghề bắt loài, cửa sổ
+   tháng (mình ×1, kề ×0,5), mượt 3×3, x = 1 − e^(−giờ-30-ngày/60); gộp soft-OR SAU hệ số tin cậy vệ tinh:
+   aggEff' = 1 − (1−aggEff)(1 − 0,5·x). Thiếu lưới ⇒ x=0 ⇒ điểm như cũ (chỉ cộng). ĐO (61 ngày 8–9/2026,
+   GIỮ THÁNG KIỂM RA khỏi lưới đội tàu): AUCeff TB theo kg 0,621 → 0,672 (tháng 8 0,616 → 0,669 · tháng 9
+   0,622 → 0,671; bản rò 0,673 ≈ bản giữ-ra ⇒ không học thuộc); AUCarea 0,743 → 0,842. Theo loài: cá nục
+   0,549 → 0,656 · ngừ vằn 0,734 → 0,800 · cá cơm +0,06 · ngừ chù +0,05 · ngừ vây vàng +0,05 · nục heo +0,04 ·
+   cá tráo 0,529 → 0,739. Tụt: cá chim 0,398 → 0,342, cá sòng 0,438 → 0,366 (hai loài vốn đã <0,5 — hồ sơ
+   sai chiều sẵn), cá hố −0,006. Hệ số: 0,3 → 0,663 / 0,5 → 0,672 / 0,7 → 0,679 — chọn 0,5 vì 0,3 để ca
+   BĐ-95532 còn 32 (dưới Thấp), 0,7 chỉ thêm +0,006 mà phình thêm. CÁI GIÁ: ô "Mọi loài" ≥60 trên ảnh 08/10
+   524 → 1.386 / 2.386 (phình đúng chỗ đội tàu làm — AUCeff tăng nên là phình có căn cứ, không phải tô
+   lan). Hai ca thực địa 11/10: ô BĐ-95532 28 → ~40 (Thấp); ô BĐ-95290 (13,78N 114,28E) ngừ vằn 37 → 61.
+   GIỚI HẠN: lưới TĨNH theo tháng-trong-năm (chưa có tháng 10–11 năm trước; tháng 10 = 6 ngày đầu + tháng 9),
+   không phải "tàu đang đánh hôm nay"; chỉ tàu có VMS (chủ yếu ≥15 m). Sinh lại khi kéo thêm tháng VMS
+   (vân tay mô hình băm `builtFrom`+tháng ⇒ snapshot tự sang hàng mới).
 
 🟡 CỔNG NHIỆT LỆCH ẤM (đo độc lập trên SST thật xác nhận): tháng 7 biển VN chỉ trải 28,7–30,0 °C mà
  plateau vây vàng là 26–30 ⇒ 90,4 % ô đạt điểm tối đa, độ lệch chuẩn 0,081 ⇒ TERM NHIỆT KHÔNG PHÂN BIỆT

@@ -9,6 +9,7 @@ import {
 } from "@/lib/fish-snapshot-policy";
 import sstClimo from "@/data/sst-climatology.v1.json";
 import reefGridJson from "@/data/reef-grid-025.v1.json";
+import fleetEffortJson from "@/data/fleet-effort-025.v1.json";
 
 /*
   SNAPSHOT DỰ BÁO CÁ — precompute lưu trên Supabase (2026-07-26).
@@ -44,6 +45,8 @@ export function fishSnapshotRowId(): string {
   h.update(fishModelSignature());
   h.update(JSON.stringify(sstClimo.regions)); // dải nhiệt lai theo vùng–tháng
   h.update(String((reefGridJson as { sourceHash?: string }).sourceHash ?? "")); // lưới rạn
+  // lưới đội tàu: đổi bản chụp DataLake / thêm tháng VMS ⇒ mô hình khác ⇒ hàng khác
+  h.update(JSON.stringify([fleetEffortJson.builtFrom, fleetEffortJson.months, fleetEffortJson.days]));
   rowIdMemo = snapshotRowId(h.digest("hex").slice(0, 12));
   return rowIdMemo;
 }

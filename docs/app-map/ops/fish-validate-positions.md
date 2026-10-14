@@ -5,6 +5,7 @@
 covers: scripts/fish-validate-positions.mjs, scripts/gfw-fetch-day.mjs, scripts/dl-collect.mjs, scripts/dl-build-labels.mjs, scripts/dl-eval.mjs, scripts/dl-fit-profiles.mjs
 last_verified: 2026-10-10
 ttl_days: 180
+<!-- DOC-STATUS: SUSPECT (2026-10-11) — code 'scripts/dl-fit-profiles.mjs' doi sau last_verified. DOI CHIEU VOI CODE truoc khi tin. May quan ly dong nay, dung sua tay. -->
 gate: warn
 
 Hồ sơ gốc: [fish-review-2026-10-03/report-algorithm.md](fish-review-2026-10-03/report-algorithm.md) mục **B8** (lỗ hổng: SDFish chỉ tự kiểm nội bộ) và **C1** (việc này). Chuẩn đo: Hsu et al. 2021 — % vị trí tàu nằm trong 5/50 km của ô HSI cao; không cần CPUE.
@@ -149,3 +150,27 @@ Test đổi kèm: `fish-predict.test.ts` "VIỆC 4" đổi chl mẫu 4,0 → 1,0
 
 **Kiểm chứng bản chốt 2026-10-10 (soft-OR cá nổi lớn 0,6 · sàn trái vụ ×0,6 · mùa vụ ngày xa 25 %) trên nền hồ sơ đã hiệu chỉnh** — cùng 31 ngày, cùng nhãn: AUCeff TB theo sản lượng **+0,017**; ngừ vằn 0,668 → **0,734** (loài phản hồi thực địa Bình Định), mực nang +0,079, ngừ vây vàng +0,059, mực ống +0,056, cá thu / cá trích / nục heo ≈ +0,06, cá mối +0,030, cá đổng +0,023; giảm nhẹ ngừ ồ −0,015, cá sòng −0,020, cá cờ −0,010; "mọi loài" −0,002. Nhãn chỉ chuyến có giám sát cho cùng chiều. Cái giá: Δdyn ngừ vằn 0,012 → 0,001 (bản đồ tĩnh hơn). Phần mùa vụ ngày xa (fish-blend) không đo được bằng bộ này (chỉ chấm ngày ảnh).
 
+
+## 10. Kênh đội tàu + dựng lại bộ đo DataLake (2026-10-11)
+
+**Dựng lại bộ đo** (bản `~/sdfish-data` của 10/10 không còn trên máy): bộ chuyển `C:\Users\admin\sdfish-data\tools\dl-adapt-local.mjs` (NGOÀI repo) đổi bản kéo local `AI Assistant/sdvico-data/data-local/datalake-iuu` (dời khỏi ForFish 14/10/2026) (snapshot 2026-10-11 + `tracks/<tháng>.ndjson.gz`) thành đúng tệp vào của `dl-build-labels.mjs`, bỏ chủ tàu/số đăng ký. Hai biến thể nhãn: `dl-trk0809` (track CHỈ 8–9 — **khớp §9**: ngừ vằn 0,734 · cá nục 0,552 · bạc má 0,770 · cá chim 0,395) và `dl` (track 7–10, thêm 3,7 nghìn chuyến rời bến tháng 7, dải tốc độ lưới rê đổi 0–1 → 0,3–1 kn ⇒ AUCeff lệch tới ±0,07 vài loài). **Dùng `dl-trk0809` làm nền so sánh.** Lưới vệ tinh 61 ngày 8–9/2026 ở `fc-full/grids` (tải ~3,5 phút). Ngừ ồ nay 0,626 (§9: 0,573) — phần tăng đến từ 3f86eab (sàn cổng ven bờ 0,7 + vùng HS/TS), đóng `## Assumptions` của sửa đó trong 01-product.
+
+```bash
+node --max-old-space-size=8192 scripts/build-fleet-effort-grid.mjs                       # lưới production (~4 phút)
+for m in 2026-08 2026-09; do node --max-old-space-size=8192 scripts/build-fleet-effort-grid.mjs --exclude-month $m --out ~/sdfish-data/fleet/fleet-ex-$m.json; done
+npx tsx scripts/dl-eval-fleet.mjs --grids ~/sdfish-data/fc-full/grids --labels ~/sdfish-data/dl-trk0809/labels --fleet-dir ~/sdfish-data/fleet [--month 2026-08]
+```
+
+**Kiểm định kênh đội tàu** — ngày tháng M chấm bằng lưới đội tàu dựng KHÔNG CÓ tháng M (tháng kề vẫn có = đúng tình huống production). AUCeff / AUCarea trung bình theo kg, 61 ngày:
+
+| Cấu hình | AUCeff | AUCarea | Tháng 8 eff | Tháng 9 eff |
+|---|---|---|---|---|
+| không đội tàu (HEAD 3f86eab) | 0,621 | 0,743 | 0,616 | 0,622 |
+| scale 0,3 · 60 giờ | 0,663 | 0,824 | 0,659 | 0,663 |
+| **scale 0,5 · 60 giờ (CHỐT)** | **0,672** | **0,842** | **0,669** | **0,671** |
+| scale 0,7 · 60 giờ | 0,678 | 0,849 | 0,676 | 0,677 |
+| scale 0,5 · lưới RÒ (có tháng kiểm) | 0,673 | 0,842 | 0,670 | 0,672 |
+
+Mức bão hoà 30/60/120 giờ gần như không đổi kết quả (±0,001). Bản rò ≈ bản giữ-ra ⇒ kênh không thắng nhờ học thuộc tháng đang kiểm. AUCeff (chuẩn hoá theo giờ đánh) TĂNG — tức chỗ đội tàu làm dai dẳng cho **sản lượng mỗi giờ** cao hơn, không chỉ là "chỗ tàu hay đi". Từng loài (gốc → 0,5): cá nục 0,549 → 0,656 · ngừ vằn 0,734 → 0,800 · cá tráo 0,529 → 0,739 · ngừ chấm +0,07 · cá cơm +0,06 · ngừ chù/vây vàng +0,05 · nục heo +0,04. Tụt: cá chim, cá sòng (đã <0,5 trước đó), cá hố −0,006, cá hồng −0,02. Kết quả đầy đủ: `~/sdfish-data/fleet/fleet-eval.json`.
+
+Giới hạn: lưới tĩnh theo tháng-trong-năm (không phải "hôm nay"); một mùa nhãn (8–9); nhãn và lưới đội tàu cùng nguồn VMS nên kênh này đo được trên tàu có VMS, chưa nói gì về đội tàu nhỏ không VMS.

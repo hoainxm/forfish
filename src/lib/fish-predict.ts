@@ -28,6 +28,7 @@ import type { FieldProvenance } from "@/lib/source-registry";
 import { timeoutSignal } from "@/lib/abort";
 import { noteResponse, tokenHeader } from "@/lib/device-token-store";
 import { seasonalThermalBand, type SstClimatology } from "@/lib/thermal-band";
+import { fleetPresenceLookup, FLEET_FULL_HOURS, type FleetEffortGrid } from "@/lib/fleet-effort";
 
 // Bán kính (độ) gán ô biển về vùng gần nhất — đủ phủ kín toàn EEZ + Hoàng Sa/
 // Trường Sa, vẫn loại nước ngoài xa hẳn (Hải Nam, Philippines). PFZ tính cho
@@ -93,6 +94,13 @@ export const SOFTOR_SCALE = 0.4;
  *  là đã tụ ⇒ một cơ chế đầy = 0,6 (đủ mức Trung bình). Ô KHÔNG có cơ chế nào vẫn
  *  0 điểm (AGG_FLOOR giữ 0) — nới là nới theo tín hiệu vệ tinh, không phủ nền. */
 export const PELAGIC_LARGE_SOFTOR_SCALE = 0.6;
+/** KÊNH ĐỘI TÀU (2026-10-11, lib/fleet-effort.ts): đội tàu làm đều ở ô (x=1) gộp soft-OR
+ *  với tổ hợp vệ tinh ĐÃ qua hệ số tin cậy: aggEff' = 1 − (1−aggEff)(1 − FLEET_SCALE·x).
+ *  Đặt SAU `SURFACE_CONF` vì bằng chứng này KHÔNG phải ảnh mặt biển — cá đáy/rạn vệ tinh
+ *  mù nhưng tàu kéo biết chỗ. Vì sao có kênh này: phản hồi thực địa 11/10 tàu BĐ-95532-TS
+ *  giữ >20 tấn ở ô nước đều (không front/xoáy) mà mô hình chấm 26–32. Chốt bằng kiểm định
+ *  DataLake giữ-tháng-ra (ops/fish-validate-positions §10). */
+export const FLEET_SCALE = 0.5;
 /** Nền sàn tổ hợp cơ chế: 0 = điểm nóng CHỈ do cơ chế gom cá thật (front/xoáy/
  *  nước trồi) quyết → co vùng nóng về ~18% (trước ~50%), trung thực hơn. Đã đo:
  *  nền >0 (thử 0.12) nâng điểm MỌI ô → vùng đỏ phình to hơn cả bản cũ (t7 30%,
@@ -1290,6 +1298,14 @@ export function buildFishForecast(
     climo?: SstClimatology | null;
     /** CHỈ để hiệu chỉnh C2: thay `FRONT_FINE_FULL_SCALE`. Runtime KHÔNG truyền. */
     frontFineFullScale?: number;
+    /**
+     * Lưới giờ đánh bắt của đội tàu (`src/data/fleet-effort-025.v1.json`, VMS) — kênh bằng
+     * chứng thứ hai ngoài ảnh vệ tinh. Thiếu ⇒ x=0 ⇒ điểm như cũ (chỉ cộng, không bao giờ trừ).
+     */
+    fleet?: FleetEffortGrid | null;
+    /** CHỈ để hiệu chỉnh: thay `FLEET_SCALE` / `FLEET_FULL_HOURS`. Runtime KHÔNG truyền. */
+    fleetScale?: number;
+    fleetFullHours?: number;
   },
 ): FishForecast {
   const climo = extra?.climo ?? null;
@@ -1307,6 +1323,8 @@ export function buildFishForecast(
   const deepTemp = extra?.deepTemp ?? null;
   const reef = extra?.reef ?? null;
   const reefAbsentFit = extra?.reefAbsentFit ?? REEF_ABSENT_FIT;
+  const fleetScale = extra?.fleetScale ?? FLEET_SCALE;
+  const fleetX = fleetPresenceLookup(extra?.fleet, month, extra?.fleetFullHours ?? FLEET_FULL_HOURS);
 
   // GUARD ĐƠN VỊ tại chỗ dùng — lưới chưa khai thì bỏ qua, khai SAI thì ném.
   // Bẫy thật: nguồn SST chính trả Kelvin, nguồn dự phòng CoralTemp trả °C sẵn;
@@ -1604,7 +1622,10 @@ export function buildFishForecast(
         // TRUNG THỰC: loài đáy/rạn ảnh vệ tinh ít nói được → kéo tổ hợp về trung
         // tính, không vẽ điểm nóng giả. Loài nổi (high) giữ nguyên.
         const conf = SURFACE_CONF[p.surfaceSignal];
-        const aggEff = conf * agg + (1 - conf) * NEUTRAL_AGG;
+        const aggSat = conf * agg + (1 - conf) * NEUTRAL_AGG;
+        // KÊNH ĐỘI TÀU: tàu làm đều ở đây ⇒ gộp soft-OR (x=0 ⇒ y nguyên aggSat)
+        const fx = fleetX(p.short, lat, lon);
+        const aggEff = fx > 0 ? 1 - (1 - aggSat) * (1 - fleetScale * fx) : aggSat;
         // nền sàn: mùa+nhiệt+mồi vẫn quyết điểm ngay cả khi cơ chế trơ.
         // Cá rạn đứng trên rạn: sinh cảnh bắt buộc có thật ⇒ sàn REEF_HABITAT_FLOOR.
         const habitatRaw = AGG_FLOOR + (1 - AGG_FLOOR) * aggEff;
@@ -1743,6 +1764,8 @@ export function fishModelSignature(): string {
       SURFACE_CONF,
       SOFTOR_SCALE,
       PELAGIC_LARGE_SOFTOR_SCALE,
+      FLEET_SCALE,
+      FLEET_FULL_HOURS,
       AGG_FLOOR,
       NEUTRAL_AGG,
       FOOD_FLOOR,
